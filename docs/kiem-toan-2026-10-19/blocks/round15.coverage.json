@@ -1,0 +1,110 @@
+[
+  {
+    "path": "Dockerfile.api",
+    "status": "traced",
+    "method": "targeted semantic trace",
+    "note": "Targeted trace line 41: one uvicorn invocation without an explicit worker count.",
+    "sha256": "a7de0b27dea0e0a7ad6125a31ba926f7b4fb265bd590d347b7a386858f057950",
+    "git_blob_sha1": "e8327f7504d1e0b7ceae0ed73b05d7f07f53738c",
+    "full_file_read": false
+  },
+  {
+    "path": "docker-compose.staging.yml",
+    "status": "traced",
+    "method": "targeted semantic trace",
+    "note": "Targeted trace lines 48–52: API pool default 10 and supported override 20; staging disables day-tep and Realtime profiles elsewhere.",
+    "sha256": "eed570ab0b3cc2b900127e94df103ab0700e94371ddf6b1faf9d31bb23002e7f",
+    "git_blob_sha1": "14432cba14f9f6429dc2ec4576a00ab9be76ab0c",
+    "full_file_read": false
+  },
+  {
+    "path": "docker-compose.supabase.staging.yml",
+    "status": "traced",
+    "method": "targeted semantic trace",
+    "note": "Targeted trace lines 21–39: staging DB max_connections=60. Not full compose review.",
+    "sha256": "a23e17eb15f13c70eaf690ec193072011de9ed293ca10bbf074856afc42c250d",
+    "git_blob_sha1": "5d2dd8bbc42371b81a99be1a7a24ac6324558552",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/change_broker.py",
+    "status": "read",
+    "method": "full semantic read",
+    "note": "Full source read; one LISTEN connection per API process and reconnect lifecycle. Round 15 connection-budget slice.",
+    "sha256": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+    "git_blob_sha1": "15a369a4923ca29e12576e09bf48692a2f7e737c",
+    "full_file_read": true
+  },
+  {
+    "path": "src/clinicai/core/database.py",
+    "status": "read",
+    "method": "full semantic read",
+    "note": "Full source read; API/worker pool bounds and DSN setup. Round 15 connection-budget slice.",
+    "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+    "git_blob_sha1": "e1f16f6f49e03a999610e3a30efd9363cbb8b3b8",
+    "full_file_read": true
+  },
+  {
+    "path": "src/clinicai/events/phat_lai.py",
+    "status": "read",
+    "method": "full semantic read",
+    "note": "Targeted callsite discovery: direct async pool is in CLI replay utility, not steady-state compose service.",
+    "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+    "git_blob_sha1": "d65c30f467953727cef1d1601d22bfda072516fb",
+    "full_file_read": true
+  },
+  {
+    "path": "src/clinicai/services/canh_gac_pool.py",
+    "status": "read",
+    "method": "full semantic read",
+    "note": "Full source read; API pool monitor and separate optional alert pool. Round 15 connection-budget slice.",
+    "sha256": "023efae881e4591663ecab0b580e15bc4f221288f3f56983b0c5c33cfa613693",
+    "git_blob_sha1": "9f6f798ce086f3d2b69cdbacee84e2344cd4d00e",
+    "full_file_read": true
+  },
+  {
+    "path": "src/clinicai/services/chuyen_luot_that.py",
+    "status": "traced",
+    "method": "targeted semantic trace",
+    "note": "Targeted callsite discovery: direct async pool is in CLI conversion utility, not steady-state compose service.",
+    "sha256": "63029f2d0577548e4d107ae60725152464cfc4fc0c0b2388bbe6316075b0c42e",
+    "git_blob_sha1": "6b7e0027d4b2ce9ddf23e3aa8e6b6db8c7a6e4a5",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/nhap_lich_su_notion.py",
+    "status": "traced",
+    "method": "targeted semantic trace",
+    "note": "Targeted callsite discovery: direct async pool is in CLI import utility, not steady-state compose service.",
+    "sha256": "df8bb5edc59c525613877c8a8a26a05bfe3c5e7bfb5f9e1bfcf6e3a83062234a",
+    "git_blob_sha1": "dfd9c9f95889de98a5cc50c90e2a9273f17daf61",
+    "full_file_read": false
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+    "status": "traced",
+    "method": "targeted semantic trace",
+    "note": "Targeted trace lines 97–130: password update, ignored signOut error result, unconditional success copy, and catch boundary. Not full component review.",
+    "sha256": "627d76d7ecb3973e13eb403c73300923b042e10ee44bb782d738082e0b6e84bd",
+    "git_blob_sha1": "529fe0d446305f59782548c0ae71010eb393dba1",
+    "full_file_read": false
+  },
+  {
+    "path": "src/dashboard/tests/doi-mat-khau-modal-cuon-boundary.test.mts",
+    "status": "traced",
+    "method": "targeted semantic trace",
+    "note": "Targeted full 44-line related test review; layout/field assertions only, no signOut error handling coverage.",
+    "sha256": "bd745c3bd8938f139836051028217d40ed5a2d59ac092c64928df0ff5051a7e5",
+    "git_blob_sha1": "791b7de9b7a0eddb670c5c798b45731e43c78315",
+    "full_file_read": false
+  },
+  {
+    "path": "src/tests/unit/test_database_pool.py",
+    "status": "read",
+    "method": "full semantic read",
+    "note": "Full source read; existing tests cover DSN/JIT only, not aggregate topology budget. Round 15 connection-budget slice.",
+    "sha256": "b80c04d7e22f8e57d51586b0ebb0085501545ecd6c4c0cd6024d4178d127a85e",
+    "git_blob_sha1": "dd1973e9c90b8162645a93f786d800318d446722",
+    "full_file_read": true
+  }
+]

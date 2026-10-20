@@ -1,0 +1,110 @@
+[
+  {
+    "id": "CAND-R11-DASH-FORM-01",
+    "canonical_id": null,
+    "title": "Chọn hai mẫu phiếu liên tiếp có thể khiến phản hồi cũ thay thế mẫu người dùng vừa chọn",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_record_navigation_integrity",
+    "status": "candidate_for_triage",
+    "summary": "Trong trạng thái lượt chưa có phiếu, các nút mẫu vẫn dùng được trong lúc tải. Mỗi lần bấm gọi napPhieu(formId), nhưng callback không gắn kết quả với lựa chọn mới nhất hoặc hủy request trước. Nếu phản hồi mẫu A đến sau mẫu B, nó cập nhật phieu/revision/baseline sau cùng; mẫu A được mở dù lượt bấm cuối là B.",
+    "trigger": "Ở lượt cho chọn phiếu khám đầy đủ, bấm mẫu A rồi bấm mẫu B trước khi request đầu tiên hoàn tất; cho GET A phản hồi sau GET B.",
+    "impact": "Bác sĩ có thể bắt đầu ghi vào mẫu khác với lựa chọn cuối cùng (cùng lượt khám nhưng khác định nghĩa/nhóm câu hỏi). Khi nhận ra, phải điều hướng lại; nội dung có nguy cơ bị ghi dưới mẫu không định ghi nếu người dùng tiếp tục mà không để ý tên phiếu.",
+    "recommendation": "Gắn mỗi lần chọn với request token/formId và chỉ áp dụng phản hồi nếu còn khớp lựa chọn cuối; vô hiệu hóa lựa chọn trong lúc tải hoặc giữ danh sách để người dùng xác nhận mẫu đang mở. Khi đổi mẫu, reset lỗi/trạng thái tải một cách tường minh.",
+    "acceptance": "Kiểm tra hai GET cho A/B hoàn tất đảo thứ tự: mẫu B (lựa chọn cuối) vẫn là mẫu được mở, revision/dữ liệu khởi tạo thuộc B và không có save nào gửi form_id A do phản hồi cũ. Trạng thái tải/lỗi phải vẫn cho người dùng biết lựa chọn hiện hành.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+        "line": 188,
+        "end_line": 208,
+        "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+        "detail": "napPhieu(formId) đọc GET riêng theo visitId/formId rồi cập nhật revision, baseline, chonDuoc và phieu; không có request token hoặc so sánh formId hiện được chọn trước khi áp dụng response."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+        "line": 605,
+        "end_line": 624,
+        "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+        "detail": "Trong khi chonDuoc còn hiện, mọi nút mẫu đều không bị khóa theo trạng thái request; mỗi nút cập nhật chonPhieu rồi gọi napPhieu độc lập."
+      },
+      {
+        "path": "src/dashboard/app/api/phieu-kham/route.ts",
+        "line": 56,
+        "end_line": 63,
+        "sha256": "2ff0486e686ef5e93635d63d83b313df6dd7723eb3449b31e9b6dcfe88fbf3a5",
+        "detail": "BFF giữ nguyên chon thành form_id của API lấy phiếu; hai lần chọn mẫu tạo hai request đọc theo hai định nghĩa khác nhau."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+        "line": 652,
+        "end_line": 660,
+        "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+        "detail": "Phiếu trả về được render và truyền vào PhieuKham theo phieu.form_id; key đổi theo form_id/version, do đó response cũ đến cuối có thể thay form đang được hiển thị."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đã lần theo nút chọn, hàm GET theo mã phiếu, nơi cập nhật state/revision và nơi render phiếu. Race suy ra từ hai request độc lập và thứ tự hoàn tất; không chạy thử nghiệm thời gian phản hồi.",
+      "limitations": "Không chạy browser/component test hoặc API; tác động là khả năng mở sai mẫu theo thứ tự response, chưa có bằng chứng thao tác thật hoặc dữ liệu bị ghi vào sai mẫu."
+    },
+    "related_existing_findings": [
+      "FE-007"
+    ],
+    "dedup_note": "FE-007 nói về đổi bệnh nhân giữ lịch sử/thuốc của bệnh nhân trước; candidate này là race chọn định nghĩa phiếu trong cùng một lượt, không lặp trigger đó."
+  },
+  {
+    "id": "CAND-R11-DASH-FORM-02",
+    "canonical_id": null,
+    "title": "In từ lượt cũ có thể mở bản in của lượt gốc đang xem",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_record_navigation_integrity",
+    "status": "candidate_for_triage",
+    "summary": "XemLuot hiển thị dữ liệu lượt theo dangXem. Khi người dùng bấm một lượt trước, dangXem đổi nhưng prop visitId giữ lượt đã mở ban đầu. Nút In phiếu vẫn tạo href từ visitId, vì vậy liên kết bản in trỏ về lượt gốc chứ không phải lượt đang được hiển thị.",
+    "trigger": "Mở Xem lượt cho một lượt khám, xuống phần Các lượt trước và bấm một lượt khác; sau đó bấm In phiếu ở đầu cửa sổ.",
+    "impact": "Người dùng có thể in/đối chiếu phiếu của lượt gốc trong khi màn hình đang hiển thị lượt trước. Nếu dùng bản in để rà soát hoặc chuyển tiếp, ngữ cảnh thời gian và nội dung khám không khớp với lượt đã chọn.",
+    "recommendation": "Dựng href theo dangXem, là khóa của dữ liệu đang render; nếu cần xác nhận đang tải, chỉ hiện nút in khi dl?.visit_id khớp dangXem và lấy ID từ chính dl.",
+    "acceptance": "Sau khi chọn lượt trước, link In phải chứa visit ID của lượt đó; quay về lượt gốc thì link quay về ID gốc. Kiểm tra cùng cả lượt có/không có phiếu và khi lần tải dữ liệu đang chờ.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+        "line": 208,
+        "end_line": 224,
+        "sha256": "c73708f7b06976c4accacfe3e637b61c84fb7b8076b038ca0e5280adeae345f8",
+        "detail": "dangXem khởi tạo bằng visitId và là dependency của request; khi chọn lượt khác, state này được dùng làm ID truy vấn và khóa kết quả."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+        "line": 263,
+        "end_line": 270,
+        "sha256": "c73708f7b06976c4accacfe3e637b61c84fb7b8076b038ca0e5280adeae345f8",
+        "detail": "Nút in hiện khi dữ liệu dl của lượt đang hiển thị có in_phieu, nhưng href lại ghép prop visitId thay vì dangXem/dl.visit_id."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+        "line": 561,
+        "end_line": 572,
+        "sha256": "c73708f7b06976c4accacfe3e637b61c84fb7b8076b038ca0e5280adeae345f8",
+        "detail": "Danh sách các lượt trước gọi setDangXem(l.visit_id), tạo trạng thái hiển thị lượt khác trong cùng modal."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/LichSuKham.tsx",
+        "line": 209,
+        "end_line": 221,
+        "sha256": "725cd522431506044cf6d595b12b3b75bb584017719679723262013f3641b3e3",
+        "detail": "Lịch sử mở XemLuot với visitId của mục được chọn; điều hướng các lượt trước xảy ra bên trong cùng component/modal nên prop visitId ban đầu không đổi."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đối chiếu nguồn ID đang fetch, hành động đổi lượt lịch sử và href nút in trên cùng component; xác định mismatch tĩnh giữa dangXem và visitId.",
+      "limitations": "Không mở trình duyệt hoặc kiểm tra trang in/API; finding chỉ xác nhận URL được dựng từ ID khác với ID state đang xem, không xác nhận người dùng đã in nhầm."
+    },
+    "related_existing_findings": [
+      "CLIN-021"
+    ],
+    "dedup_note": "CLIN-021 là bản in chọn revision chưa release của cùng lượt; candidate này là sai visit ID khi đổi mục lịch sử trong modal."
+  }
+]

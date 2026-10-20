@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_rls_grants_slice",
+  "findings": [],
+  "deduplicated_existing_findings": [
+    {
+      "title": "Hai view quyền cấp authenticated có nguy cơ bỏ qua RLS và lộ metadata liên clinic",
+      "duplicate_of": "SEC-017",
+      "reason": "Static review confirms the same two authenticated-granted views, absent security_invoker/tenant predicate in their definitions, and the final helper EXECUTE whitelist gap for v_quyen_thuc_te. SEC-017 already records the issue and its separate read-only CI EXPLAIN evidence; no second candidate was created."
+    },
+    {
+      "title": "Direct PostgREST access to stock ledger tables",
+      "duplicate_of": "CAND-R9-MIG-202609-ACL-STOCK",
+      "disposition": "not_present_on_exact_main",
+      "reason": "20261019120000_restrict_stock_postgrest_reads.sql drops SELECT policies and revokes anon/authenticated privileges on the 11 listed stock ledger tables, including phieu_kho."
+    },
+    {
+      "title": "Function ACL concerns already tracked",
+      "duplicate_of": [
+        "SEC-007",
+        "SEC-011",
+        "DB-001"
+      ],
+      "reason": "The final function ACL hardening explicitly grants the previously identified capacity helpers and read_prescription_draft to authenticated, while lifecycle RPCs are service_role-only. These remain their existing findings, not new round-14 findings."
+    }
+  ],
+  "static_observations": [
+    {
+      "category": "tenant_rls",
+      "result": "capability_grant has authenticated SELECT RLS scoped by current_clinic_ids(); the base table policy is not inherited by v_quyen_hieu_luc under a normal owner-rights view definition."
+    },
+    {
+      "category": "view_acl",
+      "result": "v_quyen_hieu_luc and v_quyen_thuc_te are granted to authenticated without security_invoker or explicit tenant filtering. v_quyen_thuc_te reads schedule/room data; its schedule helper EXECUTE grants are absent from the final authenticated whitelist."
+    },
+    {
+      "category": "definer_functions",
+      "result": "Targeted identity, clinical-role and staff-assignment SECURITY DEFINER helper definitions use an explicit public, pg_temp search_path, caller identity/active membership, and role or assignment predicates; no distinct candidate identified in this slice."
+    },
+    {
+      "category": "stock_postgrest_acl",
+      "result": "The final migration removes anon/authenticated read privileges and SELECT policies from 11 stock/inventory ledger tables and grants service_role SELECT."
+    },
+    {
+      "category": "rls_bypass",
+      "result": "The init SQL declares service_role BYPASSRLS and source comments state FastAPI connects as database owner. RLS is therefore not a backend tenant boundary; backend query predicates and authorization remain required."
+    }
+  ],
+  "related_existing_findings_reviewed": [
+    "SEC-007",
+    "SEC-011",
+    "SEC-017",
+    "SEC-019",
+    "SEC-020",
+    "DB-001",
+    "DB-002",
+    "DB-007"
+  ],
+  "validation": {
+    "method": "static_source_review_on_pinned_snapshot",
+    "tests_run": false,
+    "database_queries": false,
+    "production_checked": false,
+    "result": "Reviewed migration definitions, RLS policies, function ACL changes and relevant SQL tests by source inspection. No database/runtime behavior was exercised."
+  },
+  "limitations": [
+    "The supplied snapshot export has no .git directory; exact SHA is pinned by the task and independently confirmed by the orchestrator against its repository.",
+    "No production migration ledger, actual view owner, role attributes, grants catalog or data rows were inspected.",
+    "SEC-017's earlier read-only CI EXPLAIN evidence is referenced only for deduplication; this round did not rerun it."
+  ]
+}

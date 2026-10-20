@@ -1,0 +1,2739 @@
+[
+  {
+    "path": "docker/supabase/Caddyfile",
+    "status": "inventoried",
+    "method": "manifest",
+    "note": "Chưa đọc nội dung; inventory metadata.",
+    "sha256": "4e8d168aae1f1dd37a2bc2ff0158580157204d4e0b354f405a7158d255ed9484"
+  },
+  {
+    "path": "docker/supabase/init/01-vai-va-extension.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ab1e6a8bf51ffed47b54569d4786143ef898b539d9d0cdbdc803fb41689132e8"
+  },
+  {
+    "path": "docker/supabase/init/02-mat-khau-vai-dang-nhap.sh",
+    "status": "inventoried",
+    "method": "manifest",
+    "note": "Chưa đọc nội dung; inventory metadata.",
+    "sha256": "6b5b90100fc4cb4fca10a112a470652b55062260623e55e4a5a36103de10fc3c"
+  },
+  {
+    "path": "supabase/README.md",
+    "status": "inventoried",
+    "method": "manifest",
+    "note": "Chưa đọc nội dung; inventory metadata.",
+    "sha256": "12fdd181b25448c42a342f5228d7c158c27df6088c4bb4d14435cd0a011cd770"
+  },
+  {
+    "path": "supabase/config.toml",
+    "status": "inventoried",
+    "method": "manifest",
+    "note": "Chưa đọc nội dung; inventory metadata.",
+    "sha256": "47043b61141204c2be71c9a81005ed204ae09eb3ad78a9502bcc337d9ecedc07"
+  },
+  {
+    "path": "supabase/fixtures/README.md",
+    "status": "inventoried",
+    "method": "manifest",
+    "note": "Chưa đọc nội dung; inventory metadata.",
+    "sha256": "e4ddb1eb5ae2f4e9d3fc08bf0030b8aa35586f003a23780702244a274d62fbd2"
+  },
+  {
+    "path": "supabase/fixtures/clinic_roster.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f1655afe0f0e72c86dcb7a9fdb4249e76b25157eb93c3416c5ff6375df4ce571"
+  },
+  {
+    "path": "supabase/fixtures/cskh_ba_nguoi_that.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "074d22ad4c28d7c8fd4df5cd2f769faaba153e0e6752572840d27292f1aa9420"
+  },
+  {
+    "path": "supabase/fixtures/demo_clinic_day.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "349fa29898472fb2e40c85759162ad45b53b552aee4565217c997ffc973e2591"
+  },
+  {
+    "path": "supabase/fixtures/gan_phong_dich_vu_thieu_local.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f6beb56587af110a6c30434e1729e875eff5866ada3df95a8710457837d423d1"
+  },
+  {
+    "path": "supabase/fixtures/gia_thu_local.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5990f30768d11185ff3a99e9525fd75d495c83f844ec30338d3464c7bc433b21"
+  },
+  {
+    "path": "supabase/fixtures/lich_lam_viec_tuan_mau.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "879e021e50141ef754b2d82da39e07b66938f1b8973abfda5ea7005edcdc99a4"
+  },
+  {
+    "path": "supabase/fixtures/local_data.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "50737c42a8fa98b7fb946260c756550ce85117227c351f103b43b1d7c2cc63d0"
+  },
+  {
+    "path": "supabase/fixtures/luot_kham_demo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b280a317710f870bd65aa0705fe2a38f9039e10f32d27298890cdd5292b8d5f5"
+  },
+  {
+    "path": "supabase/fixtures/ngay_dieu_phoi_demo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e86e79eac39e01bc8152819c4fb22e92ebf2dc298a4ee8834deb0577bc797cf9"
+  },
+  {
+    "path": "supabase/fixtures/so_do_tang_demo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6394208798da8adba84045cef3dcc8430c78deea56110c18ae25670f954878b1"
+  },
+  {
+    "path": "supabase/fixtures/staff_logins.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "78e286083b1a433d236e5c0bcad75c99ae38c81286779b44c5f657e3a495bb7e"
+  },
+  {
+    "path": "supabase/fixtures/tai_khoan_da_vai_hom_nay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2cce5ca70e083ed2b8eaaaade190180776499d25de7a137831f88bf2f28bef66"
+  },
+  {
+    "path": "supabase/fixtures/tai_khoan_theo_nguoi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6cf3e5f1c2e94b42884ddfff97a66313d6b5266c8425dc22997c3cd7eb24bf9c"
+  },
+  {
+    "path": "supabase/fixtures/ten_day_du_bac_si.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d9543c228897b8ab6399379d87884be57eb1866e14d3f80f1fd76fc091dd72fe"
+  },
+  {
+    "path": "supabase/fixtures/ten_tai_khoan_thu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0f5eb6f3751887551a7f862a1a673990b2ff1cc63daef40e43f549bfa7160b96"
+  },
+  {
+    "path": "supabase/fixtures/xoa_tai_khoan_dung_chung.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d69ad7e3a78c9d9dcbe557f217db2a57e5ce54a7558d9b7f5e0b8e9830eb9598"
+  },
+  {
+    "path": "supabase/hotfix/20260801_prod_f_unaccent_qualify.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6a5e12617fca9b276adefc1ae33664ebaf13d0999074f62338648cb9eda4612c"
+  },
+  {
+    "path": "supabase/hotfix/optional_allow_zero_payment.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9dfc14ca8c423fc411b9a915ad999d051ec9a2dbc20dbecae9864f07bc8a8ba6"
+  },
+  {
+    "path": "supabase/migrations/20260714000000_extensions.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d94ac7ceb52fcf7d936dd9388fec4f6bd2af2c387462d4b322c03fed6e055ec1"
+  },
+  {
+    "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186"
+  },
+  {
+    "path": "supabase/migrations/20260714000002_slot_capacity_guard.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c728da4cfc7b7cb48a5f4a70e15cc4a224f68b7e2b516a126dc25f80a6a49094"
+  },
+  {
+    "path": "supabase/migrations/20260714000003_idempotency_key.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6b5893a5de1eae8dbbb6c98dc4b2e706f57a2d55a95565c87221e1099e3687cd"
+  },
+  {
+    "path": "supabase/migrations/20260714000004_hot_query_indexes.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9a7a73b16c0afadfeb8ef231cd79b1c932726f7c23d89dfc6681fae41d47ae79"
+  },
+  {
+    "path": "supabase/migrations/20260714000005_idempotency_scope_and_reservation.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "801a5accb3f0d29845a001cb90af5adf34d65cfef7a45bcd6543e022c644c111"
+  },
+  {
+    "path": "supabase/migrations/20260717000001_event_log_least_privilege.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "594feefc178afb4b7a324a293b5c88480719dcba7d321097f189fbfb5e655eff"
+  },
+  {
+    "path": "supabase/migrations/20260717000002_atomic_queue_checkin.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f298246ee03eabf660fd1c7ee8ad837c7d60c5a2244e58c07d3f25a40efd9156"
+  },
+  {
+    "path": "supabase/migrations/20260730000001_care_episode_select_policy.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e9c33519843970ff32f6de19eb5b7c6c46cc4679b958bef146ebd9351a4c14db"
+  },
+  {
+    "path": "supabase/migrations/20260730000002_reference_lookup_select_policies.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d95f8af5403709e4cd029dd3accaebdb174db1971514b0081301076a95cc1e48"
+  },
+  {
+    "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23"
+  },
+  {
+    "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a"
+  },
+  {
+    "path": "supabase/migrations/20260730000005_workflow_kernel.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3c8491a0c1624addddc7d0c13e6470305653089ba4f57cdea93066baa7278b7e"
+  },
+  {
+    "path": "supabase/migrations/20260730000006_seed_node_catalogue.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ba820b2b1e55bc490ff87f6cf3b4fdaa752fa870aae22fbcabfcf51698e3a880"
+  },
+  {
+    "path": "supabase/migrations/20260730000007_pos_outbox.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "28fa706b9c58a3a411232943b98b6fe61520179be54fd8511dc41c992c3ab22b"
+  },
+  {
+    "path": "supabase/migrations/20260730000008_table_grants.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37"
+  },
+  {
+    "path": "supabase/migrations/20260730000009_block_budget_read.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e828b7d3cda6ecf8df806b65ff4caebe8cfe99c94bfd55039316abd09a3b7159"
+  },
+  {
+    "path": "supabase/migrations/20260730000010_patient_summary_tenant.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9b8572746d1d8432d928bb8537b8fe83b4ac4633071c9315ee018b8316813e9f"
+  },
+  {
+    "path": "supabase/migrations/20260730000011_clinical_form_catalogue.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "50127bbc2f24607997669f699ebea119c74eb5ed06127169dae7e113918f27fb"
+  },
+  {
+    "path": "supabase/migrations/20260730000012_ultrasound_record_select.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8af3a71cc1a9dac6db86e7f00c92a4d88959cc63aa0b288d159b67a11fede2e0"
+  },
+  {
+    "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464"
+  },
+  {
+    "path": "supabase/migrations/20260730000014_drop_clinic_id_default.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f52cc36208f60fe988001d9305f90eef18d18ba81bd4f95ffdb68ed1807b8da0"
+  },
+  {
+    "path": "supabase/migrations/20260730000015_patient_summary_security_invoker.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c70dd06f5c27f8dd3bfd4bbed0d3119895e11fdfe12a5e6af00eeb027ef69ce1"
+  },
+  {
+    "path": "supabase/migrations/20260730000016_payment_audit.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9fb523f39b3318b6b064321eae1749381ef3a2d7fefd56b638ecd9ac68784ca8"
+  },
+  {
+    "path": "supabase/migrations/20260730000017_quarantine_unapproved_clinical_forms.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ec2098b8bd9aa863dce36cba0ca7fdb29eca0c42e0e859e898662a8aec8a6571"
+  },
+  {
+    "path": "supabase/migrations/20260730000018_lab_review_idempotency.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f3dc10456fee3484a76193a0dfff4e57a3584c12237c428be7748b3c99f7f33d"
+  },
+  {
+    "path": "supabase/migrations/20260731000001_queue_number_per_clinic.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f8464ab84359b4356cb61f8a363b35e5a1feaf777bf5885502d517d561fa9622"
+  },
+  {
+    "path": "supabase/migrations/20260731000002_appointment_triggers_per_clinic.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "585737e66dba0270dfc96f2fd7bdf7dcdd69411b9e79c18d7f6fad6977a67842"
+  },
+  {
+    "path": "supabase/migrations/20260731000003_visit_workflow_instantiation.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "33ada2d3f1af671e14b4f35f161a277e9d6872b564dace1d463b4a7a7a2e4535"
+  },
+  {
+    "path": "supabase/migrations/20260801000001_service_to_node_map.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0dab15c40324cb1d41cc482cba08fcfb4f72c7d071bef7ed52ffa99972e3fa61"
+  },
+  {
+    "path": "supabase/migrations/20260801000002_order_services.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5b95455c2949e2607c09d32e27fc2629e8ed30959fb5a9c42393b13471d33a87"
+  },
+  {
+    "path": "supabase/migrations/20260801000003_adopt_prod_only_tables.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "07b5ecaa90ae9b493def14757f17c696d2c90dd6b9762a817595b4943fd1549b"
+  },
+  {
+    "path": "supabase/migrations/20260801000004_owner_feedback.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "37303e0fd3315a3f52286262ab38716f6f6e7c1fca9ff4ff7bc2fb7e8508e043"
+  },
+  {
+    "path": "supabase/migrations/20260802000001_pharmacy_inventory.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7831bde3f4eac8ca06cc58ef1077156e6d70386998f43a7f29591d2ee10d62b8"
+  },
+  {
+    "path": "supabase/migrations/20260802000002_service_role_grants_late_tables.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c10f6e1ae3c1a6304040c091731145823d141fdaa70ae804074d7757c13bcb4e"
+  },
+  {
+    "path": "supabase/migrations/20260803000001_clinic_booking_policy.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4989e65fe774550c89fb1ef7a7f82b66f05beaa3bf1632cac76dc9a15a634eef"
+  },
+  {
+    "path": "supabase/migrations/20260803000002_booking_override.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "328de8733181c4e1237deccc106fa88cab33084743e4fdf3fddf7604c6bb67fb"
+  },
+  {
+    "path": "supabase/migrations/20260803000003_visit_current_node.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "767ac9f7991207219d6f239c3eeecf2c7a8bda6bc0b6ce3ba819556264e56ed4"
+  },
+  {
+    "path": "supabase/migrations/20260803000004_realtime_and_audit_scope.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8b7d5adcff866983e9458a76fb0c799efe52dafbdd6fd0dac5cdb30b3ca0c543"
+  },
+  {
+    "path": "supabase/migrations/20260803000005_measured_consultation_duration.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "bb9e1d3ea1effc01a9cfab673155e99b16b1cf5ef73df34ed11efdb6c599fa12"
+  },
+  {
+    "path": "supabase/migrations/20260803000006_clinical_write_races.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e0b864b499a3092b7c6a0701198f6fdc71fb0525a2586467070e5fd6f322b0d6"
+  },
+  {
+    "path": "supabase/migrations/20260803000007_staff_identity_completeness.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d32cdcc6ac192ea45773a6b16a3f7d009980fe54e4390ad1d0ac087a22cab971"
+  },
+  {
+    "path": "supabase/migrations/20260803000008_unpublish_unwatched_realtime.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7067027bb03db5af5a92702d557fbafddc5babbd29cd17f96abc8651b0b04aca"
+  },
+  {
+    "path": "supabase/migrations/20260803000009_slot_override_minute_granularity.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c438cf214eb8185022f26a063afc7c8069d1a33ad4b970fc61e6d77b6d355a57"
+  },
+  {
+    "path": "supabase/migrations/20260803000010_attach_capacity_trigger.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "addb3fb516a3bb4b2bfa219d955e29d765070b8ec186a01bd9ffb938904e2896"
+  },
+  {
+    "path": "supabase/migrations/20260803000011_standing_rules_and_clinic_hours.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ef177178b6c901ea97f794d49edc926823beb4d7c87ee40ab3a91b5eadf0f412"
+  },
+  {
+    "path": "supabase/migrations/20260803000012_pin_clinic_timezone.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9a6ec9e164d77ac8ab32139798d2f2642321ad7a6909b8b8e469d9144fc3cf20"
+  },
+  {
+    "path": "supabase/migrations/20260804000001_dispatch_rooms.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e2274fe83deb99896afd63348874569037ec6592c6dde8e093c1a31f023294d0"
+  },
+  {
+    "path": "supabase/migrations/20260804000002_dispatch_routes.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3ee5bca6befaf4812a21e952bd3968b230635b1cddd3d273c1500173a158c5bb"
+  },
+  {
+    "path": "supabase/migrations/20260804000003_dispatch_move.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "203b4b70aaf28111f619c8b6c13d0709650f20556fe9e0ebbf4e5789b00a2544"
+  },
+  {
+    "path": "supabase/migrations/20260804000004_dispatch_move_fix.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b4f892543c587ab548662949ff0d35f78d2b0106c218129414b672746848f0ab"
+  },
+  {
+    "path": "supabase/migrations/20260804000005_dispatch_move_conflict.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1e26830237bfe5593b870b3dbf6d403c1104649c5fddaa6f3c47bebae9354f61"
+  },
+  {
+    "path": "supabase/migrations/20260804000006_move_closes_only_current.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "091ac24e413c691ee153357d98d2e3ac85fa59db1032d894672a29f075ea2339"
+  },
+  {
+    "path": "supabase/migrations/20260804000007_clinical_sign_release.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1716b9f9e57d4d68b2116409b5437025bec7dbab4b0ddcee4ee0c80488fad796"
+  },
+  {
+    "path": "supabase/migrations/20260804000008_slot_hold.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "85fd27d3d2306b3d72eeeab77537e281b28e9f7e9f76b56f4ee06319f2c71351"
+  },
+  {
+    "path": "supabase/migrations/20260804000009_f_unaccent_restorable.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4294cec88762a4c5c2484e0850f2ac9830cbc5a9e171623074585481724dbfed"
+  },
+  {
+    "path": "supabase/migrations/20260804000010_payment_replica_full.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "72e6f5435d5937f9117ba4664674dc17d720d9e5c006299219f02835cf4ec1cf"
+  },
+  {
+    "path": "supabase/migrations/20260804000011_clinic_room_floor.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9b459db4719ffcad724b136caad987db8732d52dd727f3374b82627883f69422"
+  },
+  {
+    "path": "supabase/migrations/20260804000012_rooms_belong_to_a_location.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9f2f0431836fbd508e915b96ab47571e783f72330b47c525eeb9fc4527c64485"
+  },
+  {
+    "path": "supabase/migrations/20260804000013_room_serves_many_nodes.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "683da0f4a4820187c859b9fffd91e5ce9a1f78a77bad732acf6d571b274c4f04"
+  },
+  {
+    "path": "supabase/migrations/20260804000014_gate_rule.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a03f3653763b371e7c4512e12eb65c97e63b3f5cbd724508a1b73c3da7c304ec"
+  },
+  {
+    "path": "supabase/migrations/20260804000015_staff_default_location.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "81cbf6966fa5a509efd439063361e507a9b690a444aea29e6adf67707dfd15ed"
+  },
+  {
+    "path": "supabase/migrations/20260804000016_no_client_write_policies.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e4429b1492027236fb0f511333aaa66112a40c4a6cb25fa1d497d000dfd3bb3e"
+  },
+  {
+    "path": "supabase/migrations/20260804000017_biofeedback_services.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7f8c1a1cce7fac5d7999ed7c4d14b6810dd267f908cce6fa5e9d8c343bb25fde"
+  },
+  {
+    "path": "supabase/migrations/20260804000018_staff_node.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ba12704c5c3399d9dac186e1db9f4bdd5ffb76d5115725e4d2d3ae00cc29560d"
+  },
+  {
+    "path": "supabase/migrations/20260804000019_andrology_catalogue.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0b7d75178b26c1c27f44b72e43b45c80dc20bb37a9549b2e32566748c4553337"
+  },
+  {
+    "path": "supabase/migrations/20260804000020_patient_link_consent.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7edb67e21e913b14d4fa02bc7f1aa5b26f6d8feb589b7e990b929a6686b7feb2"
+  },
+  {
+    "path": "supabase/migrations/20260804000021_array_length_null_hole.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ecb211c89c57417912f60293dec39a7df8c6487c14c34b7e1e9bf6003aa62f4c"
+  },
+  {
+    "path": "supabase/migrations/20260805000001_v_audit_log.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "824f40d3a3552386775b6d48ff90488ca28fa0a5d93192b203f39d9d6024dc64"
+  },
+  {
+    "path": "supabase/migrations/20260805000003_inventory_write_guards.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "66e84ac35cbd87d444c236ccaeba3b8623f305dfa32fb43df86ad68c7f74de90"
+  },
+  {
+    "path": "supabase/migrations/20260805000004_service_type_form_code.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "75802c0ec71a353e12f6d835821f6acf2719388c704609d4a5ea194c3e347b4d"
+  },
+  {
+    "path": "supabase/migrations/20260805000005_clinic_secret.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f9f2bcad54e2ab91a20bcf1b718aebc13246bf5d836d0eab2136177f34557e5c"
+  },
+  {
+    "path": "supabase/migrations/20260805000006_gate_rule_any_node.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "90be6535b7021bd67ea28bd99ede40c306b30c9a90fe5d6ef7d6436697b966d7"
+  },
+  {
+    "path": "supabase/migrations/20260805000007_appointment_patient_slot_unique.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e31e76d68b3dc64464f88795a18267a1d0c2c0e674aad6f5c45c750d71ffa159"
+  },
+  {
+    "path": "supabase/migrations/20260806000001_notify_change_for_live_screens.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "466957ebfacb21286723ae6498263c166d61d0d022f04787d408880a257863cb"
+  },
+  {
+    "path": "supabase/migrations/20260806000002_app_credential.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8e68fd2af33dda7f6fd16426f34692280b96191507e017a46272ee6ae8191423"
+  },
+  {
+    "path": "supabase/migrations/20260806000003_vai_man_hinh_phong_cho.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f6f2091dc98f7d2966b8ddb3c4122631a848ad1e991958853adf25a48d02679b"
+  },
+  {
+    "path": "supabase/migrations/20260806000004_luot_kham_do.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "52fbe9b209253dad04e5bdf773b4c8c14f9a725758d5a5182a06b9af7801d674"
+  },
+  {
+    "path": "supabase/migrations/20260806000005_ho_so_nhan_su_day_du.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "12971181178578ab0d9c160c677d5199469582bd68d4e71c9e5d63b7b5d50093"
+  },
+  {
+    "path": "supabase/migrations/20260807000001_ghe_vang_lai_tinh_ca_khach_den_muon.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7a5a4e75295a128dcab749ff7cb8f1f1a0b825b8c789de010bdc8a129188f998"
+  },
+  {
+    "path": "supabase/migrations/20260807000002_ket_qua_cuoc_goi_cskh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "07cd08db08514ffdd56a71c7e5fa2613e467d4bb2242ce58ef624a20625a5bfa"
+  },
+  {
+    "path": "supabase/migrations/20260807000003_luot_da_dong_thi_dung_yen.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "12237dcf379e6c0dab8c16009e7967ea9f44ed881559253bd045157c8199c18a"
+  },
+  {
+    "path": "supabase/migrations/20260807000004_cap_phat_thuoc_mot_phan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4e2c389674b3d2f304d53c628b1a7de61033a444e9dafe8bbe5b9afbc37ed41a"
+  },
+  {
+    "path": "supabase/migrations/20260807000005_nhac_tai_kham_hai_luot_goi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "43d6df5e4227bb4aecdbd4031206cac4941e2dbf816e7f7e09321cf9e9fafc9e"
+  },
+  {
+    "path": "supabase/migrations/20260807000006_thong_bao_goi_bo_phan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "779ceddd6164aa048844b6567f762fe19755d73024886412061fe52fa61794ae"
+  },
+  {
+    "path": "supabase/migrations/20260807000007_nam_dich_vu_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "be128c83897995aa8becde1cdac1f613701b4f6aa2a853966986c4ef9ce6c707"
+  },
+  {
+    "path": "supabase/migrations/20260807000008_go_co_so_trung_ten_phong_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1db070548a9af8aa485176a0f7a32d57a67709de2a90362f042e95030797706f"
+  },
+  {
+    "path": "supabase/migrations/20260808000001_tuan_lich_truc_da_ap_dung.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "11ea1e00a595dff99d6dc34f1d36212806603a018b05f1628c7bd6c1770fd36c"
+  },
+  {
+    "path": "supabase/migrations/20260808000002_hang_cho_xep_bac_si.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f19ef2ead836e2edd0929a793dbc007d353bf4fa1e01137440ead2e851e788c2"
+  },
+  {
+    "path": "supabase/migrations/20260808000003_luat_bac_si_bat_buoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "743cad87edbfc809e413eecc6c54cd947f0e34aa1040edfbf333bbc634518645"
+  },
+  {
+    "path": "supabase/migrations/20260809000001_lich_truc_ai_lam_ai_phuc_vu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2643398c7f681567494c6c1014fa04d39723075bf15ddd564e3b93573403f2a3"
+  },
+  {
+    "path": "supabase/migrations/20260809000002_vai_duoc_vao_tram.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5c1a87ab07ef5fb46ac77dababb6728f1bc2d90e27ff439a3c3a026017c07af5"
+  },
+  {
+    "path": "supabase/migrations/20260809000003_so_tuong_tac_cskh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a1edacbfc2d72e43934bd9855cd3be25413485d8a1f57a1de88bf509b103d980"
+  },
+  {
+    "path": "supabase/migrations/20260809000004_ket_qua_goi_day_du.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a10694522dce9ede7677766671dc8bfefd50a56e8fe5fb2604262fe693132a82"
+  },
+  {
+    "path": "supabase/migrations/20260809000005_trang_thai_cskh_suy_ra.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2a8058676cf9d96f5880f06fb2559a9c6627b0c675ee778c2e009ef890b6dda6"
+  },
+  {
+    "path": "supabase/migrations/20260809000006_ly_do_huy_co_danh_muc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0e8bf79785a5900253bb068f2060f05acdda2e9b2b4d8ba2979e6039051ab465"
+  },
+  {
+    "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "106a69f83750c17cb1bbf391ccbce9fe982a2155a976c6df927eb84a7bcfe517"
+  },
+  {
+    "path": "supabase/migrations/20260809000008_tep_ket_qua.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "29be580cc5d1422e3ce2d5b71aaf5b328418f734fba2d76867be2da1b92ba903"
+  },
+  {
+    "path": "supabase/migrations/20260809000009_realtime_cho_man_cskh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4b2542ffc068b235564b0f4c8e2e049e337ab97a057517ff211d72fe04c4221c"
+  },
+  {
+    "path": "supabase/migrations/20260809000010_viec_qua_han_khong_bi_che.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ebfd530da863e74ad8cd42a46fd5d7e9eba7163460b863f2d44a6fbbf901623a"
+  },
+  {
+    "path": "supabase/migrations/20260810000001_cskh_tu_dien_ngay_tai_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "30824564f37a7f76a911ae5b0769110205a50fec5a9b26023b8445f9887202f9"
+  },
+  {
+    "path": "supabase/migrations/20260810000002_tuong_tac_gan_trang_thai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9ce5d15d50eb0e5193359fb95b754b7ed48a99d7bcb2f2bcf3bada1eb1a39ae6"
+  },
+  {
+    "path": "supabase/migrations/20260810000003_khach_den_roi_thi_thoi_giuc_goi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "fb0dad3b90e2502cc8ad4f12902a51f78b8b479ed8169a9b4eeeb048148f43bb"
+  },
+  {
+    "path": "supabase/migrations/20260810000004_da_checkin_la_mot_trang_thai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a079ab52f3330f9a8572251dacd933f983d2729aa167b96d343a83384e140ffa"
+  },
+  {
+    "path": "supabase/migrations/20260810000005_ly_do_huy_them_dat_trung.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "29e111a15f07e9d56b3954f082ebc092601d75515e22f88b8950e607f0a370ed"
+  },
+  {
+    "path": "supabase/migrations/20260810000006_hen_goi_lai_co_gio.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9a9246b1ebf26aad0d75eb16534d962f27df09ecd2056dccde2e82a2e599eea6"
+  },
+  {
+    "path": "supabase/migrations/20260810000007_lich_hen_biet_lich_truoc_cua_no.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a937e057327be493bd21ff00f647d6a55cd6c9e35e7ae0953965518c0340b1e3"
+  },
+  {
+    "path": "supabase/migrations/20260810000008_viec_cskh_theo_tung_luot.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a31e0e34e49d30db92bcbaaa5a72954602674f2bec9097f7731d7ef28c0a2c76"
+  },
+  {
+    "path": "supabase/migrations/20260810000009_hoan_tac_mot_lan_cham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8c08b99634a194a6b14c9cf9fe3e46eed2a08bea437e5d1c307dfce52bccbfde"
+  },
+  {
+    "path": "supabase/migrations/20260811000001_align_kq_chua_gui_timestamp.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "017ec3cf434462f78669b5861a634a0c0c059e850d68ed155a69e22f0b1c8a22"
+  },
+  {
+    "path": "supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ce8920c006906dec461ae322336f6bc79ed7723b14f1e0a58c7e15163a6212c4"
+  },
+  {
+    "path": "supabase/migrations/20260814000001_notify_cho_man_cskh_va_giu_cho.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6c25582acdca50c4b52fca2d50b350c0de5271b2812bbef02661e2682477c3f8"
+  },
+  {
+    "path": "supabase/migrations/20260814000002_lich_hen_nho_bac_si_da_go.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e297c2e478fd6c59beb36fe247a978b7e6f74a971a647b28823fa19d625549f7"
+  },
+  {
+    "path": "supabase/migrations/20260815000001_xoa_ca_thi_huy_han_lich.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5492d4be5c51c3fc279b84e33f3329bc065ad7604a0002b9289069c432113033"
+  },
+  {
+    "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b"
+  },
+  {
+    "path": "supabase/migrations/20260815000003_notify_event_log_cho_relay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9b12e22c6b04b14012059e8093de870a73e528949c04a8d6270f4f64e17dd137"
+  },
+  {
+    "path": "supabase/migrations/20260817000001_ly_do_lam_lai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "63a13376c34dec9df92db9c7de1d2c7a0fc752e26fe4b2b9af20da8052d74dc6"
+  },
+  {
+    "path": "supabase/migrations/20260821000001_ba_ca_lam_viec.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ffe46d86310693e69f80d0ee3c80f8236bdd0ddbf0913e829d3214605ded62fa"
+  },
+  {
+    "path": "supabase/migrations/20260821000002_dem_ghe_ca_ngay_mot_lan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0a6ed1acad661475c5cef008eeaa9a5a6d7a212c4fc67fe99398a62ae070a80d"
+  },
+  {
+    "path": "supabase/migrations/20260911000001_luot_kham_lat_1.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7bd3e70f895505e3d6ef4e2a3ebdbaafa6fe6f070a21eba82c07e9f52d5a6609"
+  },
+  {
+    "path": "supabase/migrations/20260915000001_suc_chua_chi_chan_khi_da_cong_bo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1f5c2b8a3282e00e574d827b3f8cc124725a9595966559894195aaeeea459a50"
+  },
+  {
+    "path": "supabase/migrations/20260915000004_service_order_draft_visibility.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "43502a9c753928d4d134371cec74f5bcd79ed6419826ef4b03f4a7d406f4b1a7"
+  },
+  {
+    "path": "supabase/migrations/20260915000005_clinical_collaboration.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "aa175ecebf7d5dad495d94ecffad4611528550b7d2f7330070644a7f56dc003d"
+  },
+  {
+    "path": "supabase/migrations/20260915000006_luot_kham_notifications.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "524b3877972c52b6c3b8a2d63676d1d2ee1ecd85159048c0e49427ad20e109eb"
+  },
+  {
+    "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "30994ce4506659821eb0c97e765f20250f7dd7ebabfc0f596dd9fe2103c0a93f"
+  },
+  {
+    "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d044070664a338a927d6390d03ae2627a60ee888cad4c46e083208b82c65ae29"
+  },
+  {
+    "path": "supabase/migrations/20260915000009_checkin_xac_minh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d729776410ac75bfde04013e2f2def9d5b04082f28f6dd1440ead41f4c95f1d3"
+  },
+  {
+    "path": "supabase/migrations/20260915000010_nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d91d233d3fbd6090bdadb2704e5c14768fcb42c634f9176fafafd170eb8ab2c8"
+  },
+  {
+    "path": "supabase/migrations/20260915000011_tep_ket_qua_bac_si_cho_phep_gui.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2927cdf2e3c5baa222f28f9b625baae13b5277b8691a30618bc5d0af56d5713b"
+  },
+  {
+    "path": "supabase/migrations/20260915000012_sinh_hieu_chi_them.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "55e9573d919f48cfe1932fde898240aafe8e2707c9ccccbbe5bff492c6b1b6d7"
+  },
+  {
+    "path": "supabase/migrations/20260915000013_dieu_phoi_chi_chi_dinh_da_duyet.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "cc1029508d443c58d969286cccae0f03d7c3cb35287910a5c353ef06ebecc6b7"
+  },
+  {
+    "path": "supabase/migrations/20260915000014_suc_chua_online_truc_tiep.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7a69ee4bc6d6d99c58cb79ab41eec48640bc0cf66eba0baf220eee02a6a47be7"
+  },
+  {
+    "path": "supabase/migrations/20260915000015_cccd_trung_canh_bao.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "15d8c773d326f9c0d1f06dfaba4c67d277e1673b94f5efa9309d20fd8aa9260d"
+  },
+  {
+    "path": "supabase/migrations/20260915000016_khach_uu_tien_va_thu_tu_kham_tay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5aaf1d313347aaa4a31fd9b6f7a648877f106eb4a2f8a04e36fa01fe4878b3ff"
+  },
+  {
+    "path": "supabase/migrations/20260915000017_doi_bac_si_khach_da_co_mat.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "bfc207b2fbc0b4978e23f5765e050ded298893d6c2f1472c371ae09a3bc869e4"
+  },
+  {
+    "path": "supabase/migrations/20260915000018_ket_qua_muon_han_3_ngay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "25281a4f6a1e8bd25c174a6bca759c59176dd212634f01a1013ff058ad7d2835"
+  },
+  {
+    "path": "supabase/migrations/20260915000019_thong_bao_dich_danh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "353b5b9b98a445470424bbfcf0eab218a2a725c5803a078eefc2af2896ab8ebc"
+  },
+  {
+    "path": "supabase/migrations/20260915000020_thu_ky_bac_si.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "edc68108f814e33c953679e6831ea399a7c107a1fd7cd6334dd474166a1e9e76"
+  },
+  {
+    "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674"
+  },
+  {
+    "path": "supabase/migrations/20260915000022_dich_vu_lam_lai_la_lan_moi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "96fe53563e2fee6b8c487dca51f03b68bc51e68ae864d5217b2cb355e11b6492"
+  },
+  {
+    "path": "supabase/migrations/20260916000001_theo_doi_sau_thu_thuat.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "842304ed1ff03e0192bb6b32eb97e6825a83258d88fe61141bce08d7b50bcfce"
+  },
+  {
+    "path": "supabase/migrations/20260916000002_bat_phieu_nam_khoa.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "28368ffbdeb6effab0cc8fa41fb05bcb67618e0e373426ee89064171f66a5746"
+  },
+  {
+    "path": "supabase/migrations/20260916000003_sinh_hieu_bon_chi_so.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3e0bce7b1b3b9502de2b61f608ac1516081ed67e017c5d595e678cc2800ff164"
+  },
+  {
+    "path": "supabase/migrations/20260916000004_bon_xet_nghiem_khong_chi_dinh_duoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1dec2156e6725781179d142b90f3109e78bfcaf805a72073fdd24881d65c8e26"
+  },
+  {
+    "path": "supabase/migrations/20260916000005_suc_chua_mot_lan_cho_ca_ngay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "82c16f51bc010e431f776fca45b155ebd82f8b94444695edf0e81a0e5b63c803"
+  },
+  {
+    "path": "supabase/migrations/20260916000006_bo_sung_danh_muc_thuoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f1f04d9f9491684ebc3e959f44b1ebfe6382d17b1bdaa9347297924615903b98"
+  },
+  {
+    "path": "supabase/migrations/20260916000007_vai_doi_tac.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "eca05ac55a86c774c3a4cc94c83862c53abbcdc252f100427a74f0f10b527287"
+  },
+  {
+    "path": "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5dcb200a1e9b7c031f6a265f50ee11a1ee50150e84774adbf066e2aa898b0a52"
+  },
+  {
+    "path": "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "fade43b870bc9ff3fd3dd5f593af6aaf01da58437901ead5356f8759127d5501"
+  },
+  {
+    "path": "supabase/migrations/20260916000010_gan_lai_ma_phieu_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4b9a82c146bc5c3cdf2b503ec54f79fbaf5a4777fdd878d56815a6964b00f288"
+  },
+  {
+    "path": "supabase/migrations/20260916000011_vi_tri_dong_ca.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9413ce90e34643142de1aebf1d9da9400d58951407c3e78defee1db6a387c209"
+  },
+  {
+    "path": "supabase/migrations/20260916000012_hoi_benh_ai_cung_dung_duoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0636d595cf422f1dafee74a99091f0b04f0a491629b0a03622018d40edb8f94f"
+  },
+  {
+    "path": "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b4efa18d6995b6e034e636fcda826dcb8c12d41fcd80df990adae673645c8f9b"
+  },
+  {
+    "path": "supabase/migrations/20260917000002_tep_ket_qua_tai_lieu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "02464ebfd9d527df6f89605cd0c4fafacb906933afd71bc79fde4aea71cc28ba"
+  },
+  {
+    "path": "supabase/migrations/20260917000003_bo_tang_ten_phong_sieu_am.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d8cd85d52a30a1bbfcbb074339678d044196ea45328d012f176379bd46afca33"
+  },
+  {
+    "path": "supabase/migrations/20260917000004_ca_kham_bac_si_theo_vi_tri.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "daf1b6b418bfa1023ea371cc9cc464daf44216baca7d5b23b00df60e82d21388"
+  },
+  {
+    "path": "supabase/migrations/20260917000005_vi_tri_thu_ky_moi_phong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e1630c7823c4436d3938fcd33fbfd51fd4a60ae0bc0498748d26d94f67092265"
+  },
+  {
+    "path": "supabase/migrations/20260917000006_nam_dich_vu_kham_ap_lai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a3e1897cb7c7ea3a743d0987cc3a12f351509552287dfee51547e8e4e609b7cd"
+  },
+  {
+    "path": "supabase/migrations/20260917000007_goi_do_sinh_hieu_va_doi_tac_cho_tai_lieu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "415d9cee66b344ebadaad715bba11a9436867d471817d09355b4859a370d5633"
+  },
+  {
+    "path": "supabase/migrations/20260917000008_chup_chieu_ngoai_doi_tac_tu_lam.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a596f9fa5dbd76a34d995cecd75d6ab7192570b9a6546f0b1f46ddf61b93265a"
+  },
+  {
+    "path": "supabase/migrations/20260917000009_so_tiep_don_chung.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b21be4c49360361d0eb4dd14fbc4f1c55882ba755e7ae5a74851bf41ae139620"
+  },
+  {
+    "path": "supabase/migrations/20260917000010_luot_kham_mang_loai_kham_cua_lich.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4da3618881bfb209b77de345e86d2ad7f3fd54c411489bde36656959dc2aae26"
+  },
+  {
+    "path": "supabase/migrations/20260918000001_slice1_ket_qua_va_theo_doi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c6e0a4debeabc1b98fc6a8629a70d82f4aa82d214bbbae13fe80a6af3bb74682"
+  },
+  {
+    "path": "supabase/migrations/20260918000002_viec_cskh_ket_qua_doc_rail_moi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "bd6b1afecb648c74683acc7afc372f38c13b16b2e53d9c50e5447f72e4dcb828"
+  },
+  {
+    "path": "supabase/migrations/20260918000003_thai_ky_bac_si_xac_nhan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8558278cf254ba7a934111668635574eecc523a16d5b786e9c605fd25e7d666f"
+  },
+  {
+    "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f0b22f84593b5e5b80dd950e1eace3ce19cb7bde594411eaf644eebf7a893a2b"
+  },
+  {
+    "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d031bb0a0e30ff99c0867921b6e1692c3114bed711ed95602770bcbc2480a994"
+  },
+  {
+    "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9335dd055dc9056a45973fb864d0cf9c0e6312a51a0fd95efc38ee5ee9f6bc56"
+  },
+  {
+    "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0e330c5459303095cbb1b571de3509c4e5e95a1724cc4073b1851f379310bc2a"
+  },
+  {
+    "path": "supabase/migrations/20260920000001_tien_thuoc_cp6_nen.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "402b4309c2430d2e5711cd6212f7ac6e2ba5ccc3db718837421e4702da54ef89"
+  },
+  {
+    "path": "supabase/migrations/20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6ffa69f2e13280184b7a721191cdc8c199211b2d77b01815b39801502b42e28a"
+  },
+  {
+    "path": "supabase/migrations/20260920000003_tien_thuoc_cp6_doc_don_hien_hanh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a88d2b6da1443fab961aec900efff253e7251ad91d40ef219f43b84758165a25"
+  },
+  {
+    "path": "supabase/migrations/20260920000004_cho_phep_ghi_exam_completed_at_khi_da_ky.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "040602cb6c74c84e510a0d0ae2dd6cfa7f353d18d32ecc23c042616a12154cff"
+  },
+  {
+    "path": "supabase/migrations/20260920000005_xac_nhan_tep_ket_qua.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "86b4467de6be9674f22b911e6631b18f2fe10d577d9ae106518999ef474a8ca7"
+  },
+  {
+    "path": "supabase/migrations/20260922000001_service_lifecycle_v1_schema.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "65411ee74f36915c9a6ef587063bae58d118ea09965df98dfcf8f8cd941223b5"
+  },
+  {
+    "path": "supabase/migrations/20260922000002_service_order_draft_khong_co_selection.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "22173bcc0a5fa5f2ab55d1f810b560d818153049054f2069aa2de812ffa7bbb7"
+  },
+  {
+    "path": "supabase/migrations/20260922000003_thu_dich_vu_nhieu_lan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a9c0c606a495f0c8fece795e149046ded71eed13f5c6ccab76fcb35bc8b8bc29"
+  },
+  {
+    "path": "supabase/migrations/20260922000004_phu_trung_ca_trong_mot_lan_thu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0853425d41c48f206726d98379f2dba697b071f79bdc4ccb748613c7c646dd98"
+  },
+  {
+    "path": "supabase/migrations/20260922000005_routing_status_khop_phong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3f221cac0add6ae289c74cff028dc4fada4e352613326127a2ea4eb2963fe422"
+  },
+  {
+    "path": "supabase/migrations/20260923000001_domain_event.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156"
+  },
+  {
+    "path": "supabase/migrations/20260923000002_projection_dong_thoi_gian.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0c3f340f7cdf88350f79f943f9cfdd4ca9e2b898111f98e7717a0a78bf1b363b"
+  },
+  {
+    "path": "supabase/migrations/20260923000003_capability.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677"
+  },
+  {
+    "path": "supabase/migrations/20260923000004_mau_ket_qua.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "560c248e0c6c05d9ef27b3f16e0193f4c6842eb68b053720948147747736b3e8"
+  },
+  {
+    "path": "supabase/migrations/20260923000005_form_engine.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b1093a908d8a7e0848f7da4359a3349bb1e3e9634fb63d2bf4851181e3abaef6"
+  },
+  {
+    "path": "supabase/migrations/20260923000006_quyen_thuc_hien.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f9fbba6f6810b9c94cadf605d50cb60c6952147a5a309b5b27c74fc4e07ca4ca"
+  },
+  {
+    "path": "supabase/migrations/20260923000007_trach_nhiem_khong_roi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4457c65f36cb3d0030e54dd0036a1e65e0a058998099f62a5c86c288ea788d38"
+  },
+  {
+    "path": "supabase/migrations/20260923000008_hen_gio.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e3915c3c0b8f81bf40508820628113bd657b437112a36524e25174ebcba34dc3"
+  },
+  {
+    "path": "supabase/migrations/20260923000009_dong_thoi_gian_thu_tu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7d6af77e92da984c65aa55198f68ea4c3382386dbcd9b4c81088c7a618438544"
+  },
+  {
+    "path": "supabase/migrations/20260923000010_ket_qua_san_sang.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a19ab38954575dab03a20b68d9ef2f0bf4df5e2b1734e65b4e9c31a5fc0e1eec"
+  },
+  {
+    "path": "supabase/migrations/20260923000011_nhom_quyen_mau.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "14180c8070a80d67c112b9fde01ec94989368abec11c896633e42d2e70b1e517"
+  },
+  {
+    "path": "supabase/migrations/20260923000012_fk_clinic_bay_bang.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9b0678bce3adf34d99e141d84181fb5c2289155684d2df52af5c9544c247c546"
+  },
+  {
+    "path": "supabase/migrations/20260923000013_dieu_duong_duoc_chi_dinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "cb6e7c721bf5c1e5fb03cbf7560870a9906d8751d47ca3e9cff740da8bd6e75a"
+  },
+  {
+    "path": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5b5d34f758e49286e1ed41bf909f6fa29013d116fc947bf85382bffa594cb2e9"
+  },
+  {
+    "path": "supabase/migrations/20260923000015_bat_dau_do_sinh_hieu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3588022d42e9d67d0381d7ac13746a4a52987c2ba490bc3540040aabeb0aa8d4"
+  },
+  {
+    "path": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9457e2c7704c45399a607f744f3a4d906ec7b9873fe67149ccb534e6b786e88c"
+  },
+  {
+    "path": "supabase/migrations/20260923000017_xac_nhan_ket_qua_vao_quyen_moi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3864d2605672995c7a55f0255560d5715c4b54e372d20528c72065fab53457f1"
+  },
+  {
+    "path": "supabase/migrations/20260923000018_quyen_duong_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0d214fe8f1a47a8669d34da9488c7cf3684236e63609249e8906e8ae061fda84"
+  },
+  {
+    "path": "supabase/migrations/20260923000019_vi_tri_ten_ngan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "57891b5aa5fb2f651e88513cea9540e80c04290185c2886eb9669612f7830b15"
+  },
+  {
+    "path": "supabase/migrations/20260923000020_so_booking.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "114efa2e5a19a1c9f2c02848ea73acb4281bafe51d059c769583adefe1dfaf2a"
+  },
+  {
+    "path": "supabase/migrations/20260923000021_cskh_gui_ket_qua_khong_can_cho_phep.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "36e229f7d6ce3824fc61ac427410206f03068e527b085cf521b7afdd40c5650e"
+  },
+  {
+    "path": "supabase/migrations/20260924000001_kham_tu_van.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e08e135b1fd0b00802ba8b78f266c911315674fd6a3098b93a31d711f2be686a"
+  },
+  {
+    "path": "supabase/migrations/20260924000002_di_thang_phong_mang_sang.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f6f33ba25505eb0755f438f75bf4f0b46d6d772e015e7a6ecdc2fcf0813e2232"
+  },
+  {
+    "path": "supabase/migrations/20260924000003_don_thuoc_bac_si_chinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b1bb275debcad1aaa497e6e3e586c54db9f6d0c13a0a3c00c94e56a02d9ef0e9"
+  },
+  {
+    "path": "supabase/migrations/20260924000004_ket_qua_chuong_doi_lich.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3e2399fef20665c3559b3db0247ae141abb4a69d11e53bad2607dd7c43a12919"
+  },
+  {
+    "path": "supabase/migrations/20260924000005_day_nghiep_vu_nhac_viec.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "38190d811959758735d4224a28bb56d1fc4639443f48a99acd92902a527a78f5"
+  },
+  {
+    "path": "supabase/migrations/20260924000006_da_xem_phieu_ket_qua.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7bc079dd556d80b1ebfc1f0f28de0010091bcc577f34101ed68ec595d455e992"
+  },
+  {
+    "path": "supabase/migrations/20260924000007_keo_exec_status_theo_duong_lam_moi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a8ed9ba8c2fbd59af52fc4567ddc7d6579ca787876cbccc7a13fbee1bc4cc19e"
+  },
+  {
+    "path": "supabase/migrations/20260924000008_phieu_kham_luot.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9da2248d12a64fbfef3641aab6b71dd12ab952b29f2286742e9602e84d0773f3"
+  },
+  {
+    "path": "supabase/migrations/20260924000009_danh_muc_phieu_v5.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8661f22567a570ab098fdb6669585c2fcca3c4cf6581617fa85f0b3ab08c5c21"
+  },
+  {
+    "path": "supabase/migrations/20260924000010_ruot_mau_ket_qua.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2d4ea998459715e389e7f327f6dfd49898e49e593d00346a8c84cfdf97b1150a"
+  },
+  {
+    "path": "supabase/migrations/20260924000011_dong_bo_hai_cot_trang_thai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "65b774f8e572dfcf8f08f80bbbc0bff8d3fc2f87cc7310f4cf790ca128f4db49"
+  },
+  {
+    "path": "supabase/migrations/20260924000012_dien_gia_trong_dich_vu_va_thuoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c02e271d32894eed88f606140f58d7d639e5671d7f8a7ea524ad26d2dc3987ec"
+  },
+  {
+    "path": "supabase/migrations/20260924000013_quyen_thuoc_lich_hen.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0f6017696a75a6a024e7cd057a58ddb1f1b25a80812a0cf406f7c7ba312616e6"
+  },
+  {
+    "path": "supabase/migrations/20260924000014_quan_ly_du_khoi_y_khoa.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "64967a112f85979b9ddd75dde476956223e1be86aaee91e48e4a284f79232915"
+  },
+  {
+    "path": "supabase/migrations/20260924000015_bo_chung_chi_quan_ly_moi_khoi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0273fc1d0095a33384c00e8557d165eb01c420a82ff5ccccc568b5f0b5fba51f"
+  },
+  {
+    "path": "supabase/migrations/20260925000001_thu_lai_sau_huy_phieu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8e7be92f4603d1169d5a3b62e35e314e2fd01d0ef271c68eb767177456d7a291"
+  },
+  {
+    "path": "supabase/migrations/20260925000002_thu_ngan_co_dieu_phoi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6ac58691e7b282b475643e97076c3659b9ea50414da5cf1f73c20cf879c468e4"
+  },
+  {
+    "path": "supabase/migrations/20260925000003_phong_du_kien_chi_dinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1a8dcb4e513b8fc6eaf925947578663687b3d833dc4d19027ea91140c942ec89"
+  },
+  {
+    "path": "supabase/migrations/20260925000004_nguoi_gioi_thieu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "21ea29bf667aadecd29d3ef94dadbd4ba69cf1c512d53f5b254a622a3afc7fc2"
+  },
+  {
+    "path": "supabase/migrations/20260925000005_quay_thuoc_nguon_dong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f300dc428111f9c4f856df0f86c9de884aa03a13b3f239c8dff61e740493bd52"
+  },
+  {
+    "path": "supabase/migrations/20260925000006_dat_lich_thu_thuat_san_chau.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "48288a9767601cbae3023ebce39dbcaef2ad2a55bca7c0adb921d43e423068da"
+  },
+  {
+    "path": "supabase/migrations/20260925000007_qr_khong_bat_ma.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "8a67b1301dd808fa836acc635b6f2087cb202e038f23e0b5bd96667060cf2fd6"
+  },
+  {
+    "path": "supabase/migrations/20260925000008_mau_ket_qua_chung.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "597e37e721c6559962f5dae860668065ea47e509d5edf74f319f672bb6f8bfb5"
+  },
+  {
+    "path": "supabase/migrations/20260925000009_doi_tac_nhan_viec.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6cfb988dde07eea21e158dfffae179d35d517165eebf8e5ba4bca1c9c87d1af9"
+  },
+  {
+    "path": "supabase/migrations/20260925000010_le_tan_quan_ly_khach.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f49789925fbe478bedd8a4409b8ffdb8cd4e80efbed84f3e0bc0ea001b26776d"
+  },
+  {
+    "path": "supabase/migrations/20260925000011_ghi_chu_lam_va_doi_tac.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f602fa7138293afcd7d0f1dacd0455d97182d3ee2e6b95bbfc9eafad9732b319"
+  },
+  {
+    "path": "supabase/migrations/20260925000012_thuoc_quy_chuan_mot_kho.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "fb9b964f338fe6738af7a82be0797ddd45dbf72f5c283e6b8fb4257b9ef205a8"
+  },
+  {
+    "path": "supabase/migrations/20260925000013_tat_khach_quen_vao_thang.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d6e1b642429a938e5138b7e3548216dad4ca4847cad61b0d01faa290d78b1395"
+  },
+  {
+    "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "fe146f3e313edc58592832cd7ded4536a8ae0142e9367309b07d1b2629cbb2f5"
+  },
+  {
+    "path": "supabase/migrations/20260925000015_lego_21.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4add5ba36487c6beea1a2d5ef7bf15dd4ceb29792fc6732be950b5dd45f8dc36"
+  },
+  {
+    "path": "supabase/migrations/20260925000016_nguon_xep_phong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6d1851cacbd6b1644571d34ca9f5d9d741c5a3fe9ddac0b199cca306c119de95"
+  },
+  {
+    "path": "supabase/migrations/20260925000017_chi_dinh_bat_buoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "33111a2a8db36d8c157b0c458c675cb7f03d7cb7e9fe862446d5c7affbc1dbb9"
+  },
+  {
+    "path": "supabase/migrations/20260925000018_phieu_kham_lich_su.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "098ea0ef4fa40d402b9ee97b5a03eaf15177b6cf8145b650e6b949b0b4527f01"
+  },
+  {
+    "path": "supabase/migrations/20260926000001_danh_muc_dich_vu_kiotviet.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a2048ec046a49019a973f78779933af2ac44f1cb8e61654ff752df129319ff96"
+  },
+  {
+    "path": "supabase/migrations/20260926000002_nhac_tai_kham_tu_phieu_v5.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2ff55d92f78697029ad3ff2935a1dab7dfd09e52549e4639e9b5d9e2d729ebde"
+  },
+  {
+    "path": "supabase/migrations/20260926000003_phi_kham_kiotviet.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6a4f0b220c60cd3553f75212f13c56579a0ed933d950202d681b3fa5083c2f39"
+  },
+  {
+    "path": "supabase/migrations/20260926000004_mau_ket_qua_v3.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e595fb81a53a638f605fd754294a1b660bd780a892bccf57b680a4bf6e00b8b0"
+  },
+  {
+    "path": "supabase/migrations/20260926000005_tep_ket_qua_ben.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "baa573c6f42dc426bf5bd87bde9aea8b08ca8d6be871ced09d1a5e898dde37d5"
+  },
+  {
+    "path": "supabase/migrations/20260926000006_lan_chi_dinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "51b4e36c344284d168933e313977b1de55c1dad2fac4413b9ce4dc96634ce151"
+  },
+  {
+    "path": "supabase/migrations/20260926000007_notify_ket_qua_hanh_trinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ef1f28866f9408630d89b088cf4adc4c4af843b83188664a2c16c59cadf037fa"
+  },
+  {
+    "path": "supabase/migrations/20260927000001_hang_cho_luot_da_ve.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "af0f33d859ca28c105f9bf4cc4c47d59daa7b19a60620ac50e2def570a59c052"
+  },
+  {
+    "path": "supabase/migrations/20260927000002_notify_realtime_con_lai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "441e32f75650146115597fa930fbeadec04cd23ba1f01fc1c422757c6b759392"
+  },
+  {
+    "path": "supabase/migrations/20260927000003_ghi_chu_khach.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "26f402c798c9dfabf2527d1e253515d1e64172955fa2bf914177f19ae4c5a8d2"
+  },
+  {
+    "path": "supabase/migrations/20260927000004_loi_va_canh_bao.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2cbf4485e3259cb19144468ee54506b8bf2f35f86aae81e92d5f95053d25f3ee"
+  },
+  {
+    "path": "supabase/migrations/20260928000001_ghi_chu_tu_van_cho_xoa_trang.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6ac3f6a2499f143e6d43ae697943405091f44e435e1890df27758c2fb4b00233"
+  },
+  {
+    "path": "supabase/migrations/20260928000002_ten_muc_mau_soi_am_ho.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3ebee79adb9ecb3a659d5a260abb93bc32f4dfda21f5aa0bb37cdbe0f846e854"
+  },
+  {
+    "path": "supabase/migrations/20260928000020_phieu_kham_v2_gon.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4b9cfbed46674ac0ccde36f03dbbafab0945bccabb3204871f9476c559d7370d"
+  },
+  {
+    "path": "supabase/migrations/20260928000031_sinh_hieu_theo_buoi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ff2a13c2f9f64fce2c62be46ed7e5b8f62f9a0068d9689e994720dbe2f11e06d"
+  },
+  {
+    "path": "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6d472dc809ef8da10ac32827099117e463f992e17b46480759a869068e9d9c5d"
+  },
+  {
+    "path": "supabase/migrations/20260928000092_gia_tam_phi_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6dae2c4c819488ca9d453b31dcc490b6581e942763ea7eebeb1942a9927e43dc"
+  },
+  {
+    "path": "supabase/migrations/20260928000093_ky_nang.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5541ff8e1ea6a113e7d52254a2b91f382eff7369d00a5f859caddb4ea2966a78"
+  },
+  {
+    "path": "supabase/migrations/20260928000094_phi_tai_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0ddefb9cdaa65bae77ac802a0307b4791faac999b6e604b7b6b2ee388ffea690"
+  },
+  {
+    "path": "supabase/migrations/20260928000095_dau_do_bio_vat_tu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "35df01e6ae05236ac4e95c454dd724708412191836d69733419ac8b86ffe2bc1"
+  },
+  {
+    "path": "supabase/migrations/20260928000096_thuoc_giao_chua_gan_lo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "823048ee09773ba1d5214e2c9cb0ab3ed578c705a7edfafcbc9d474243633ba8"
+  },
+  {
+    "path": "supabase/migrations/20260928000097_quyen_theo_lich_phong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "188b989362058a80147eeae8c927a8fcfdd2f4e8e56be6b0b03975cce7029d93"
+  },
+  {
+    "path": "supabase/migrations/20260928000099_phu_thu_kem_dich_vu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "02bad4e8ca0a7fa7080c261fe05b514e283d2b3fcce8bdadd0e66adbadc2e65d"
+  },
+  {
+    "path": "supabase/migrations/20260928000100_phi_kham_theo_kiotviet.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "972be6d4aaae8551ef498e55956bdf310d7265bc802fb608f50acffb070fc7cf"
+  },
+  {
+    "path": "supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f2c29e4dcc397c6cf9a349917c2cd51f69b9cbfbba4ffb764477d6126e842426"
+  },
+  {
+    "path": "supabase/migrations/20260929000010_dxa_ket_luan_nhanh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ae217764d4b784af1cc7b725861216689e604e8c17d0fc5cad9415c41c9c32ac"
+  },
+  {
+    "path": "supabase/migrations/20260929000020_ben_thu_theo_dich_vu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "cacf703ca1c3265313458f4fec6d4cb9e3085715e5fe2939d5cbee738a4084e8"
+  },
+  {
+    "path": "supabase/migrations/20260929800000_mau_gui_doi_tac.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ce564564049be5d880bbdff36fd5430ef88e7ab8ffc6a5207f808dc417db688d"
+  },
+  {
+    "path": "supabase/migrations/20260929900000_dd_tkyk_tron_quyen.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ba6ad86d5ebcf909ac07cc793bf92c15350e077a46a96d2489f94d9d17d05ac9"
+  },
+  {
+    "path": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "95297610d660c3e5fbc954871c96924116a12e2b68cf2939af0ea25a196872c8"
+  },
+  {
+    "path": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa"
+  },
+  {
+    "path": "supabase/migrations/20260929970000_go_dxa_khoi_phong_do_sinh_hieu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "00298c146cc15f926ebdc35f5253b96a2421b2745fd8355c1aec83968d14e0db"
+  },
+  {
+    "path": "supabase/migrations/20260929980000_tra_dxa_ve_phong_do_sinh_hieu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e57c12a3b87f5d96519e9d1fad2a2c4dccf3a8c6be1b9e9236eb2aa3f38df00a"
+  },
+  {
+    "path": "supabase/migrations/20260930000001_phi_kham_tuy_chon.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "95e685a052e331bcbff29a5f834018958592717256aeea0c3f2edee406606907"
+  },
+  {
+    "path": "supabase/migrations/20260930200000_ly_do_chuyen_khach.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2b99ea31441420cfe4826845cfaed6d9626a4f46b4305b9d9c98aab764fd6c06"
+  },
+  {
+    "path": "supabase/migrations/20260930500000_doi_hinh_thuc_thu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a2ed9dfd31315f0b07f4d305bff384343db6e18b76e6861be50dc2aa09208bb5"
+  },
+  {
+    "path": "supabase/migrations/20260930600000_ban_le_thuoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "fb51a25579978bc84704905d736c33e3cae153f79671c6ab9662aa724eb76e5a"
+  },
+  {
+    "path": "supabase/migrations/20260930700000_xoa_mem_tep.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "15bb9553b633f31203d28d273d37d2c345d7f4177d327f4e86076fbdb5780b3b"
+  },
+  {
+    "path": "supabase/migrations/20260930900000_mo_full_lego.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3054730f4e6c92e117def78d6c763ebf623b63c56346744e8180b51ed8eca0c9"
+  },
+  {
+    "path": "supabase/migrations/20261001000000_tep_luu_vps_truoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b3df7cd81fbd202cbe25595e371fc086a3faf278fe1712186a1abbe7f1d29c72"
+  },
+  {
+    "path": "supabase/migrations/20261001100000_lam_truoc_thu_sau_tick.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "eb0317a119eed4298a92239e9fe8ded896af71e71afc750fddd07430dc843adb"
+  },
+  {
+    "path": "supabase/migrations/20261001200000_phong_theo_bang_lich.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4290efc27d56683e67a56e5a5f78edf92c12840636795799daa00d8c9e0e4de4"
+  },
+  {
+    "path": "supabase/migrations/20261001210000_phong_lam_theo_dich_vu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4b1381694f7b3a9d6f1dc7d3dae1a1a6f390d960e1d9ae250b9acd522d3b9c56"
+  },
+  {
+    "path": "supabase/migrations/20261001230000_thu_thuat_san_chau_nhu_kham_thuong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b9f40ad97a9595f396abb129d273e523bf4422e33dd9adfe1059319b521d505a"
+  },
+  {
+    "path": "supabase/migrations/20261001230100_lich_cua_luot_da_ve_dong_bo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "be9601f65e307f08756587dae46ae8401bfdd378a1001f061db0eb225beb6eb5"
+  },
+  {
+    "path": "supabase/migrations/20261001240000_don_du_lieu_thu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "242641c99af092ada7af4afbd57bb159a42cd0aa36d35419fe7091a0ab47c4aa"
+  },
+  {
+    "path": "supabase/migrations/20261001250000_chon_bac_si_trong_phong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f3c00728c4ec9dd40b00e28d550d50466d650b098439d7b83173c3bcc79602d1"
+  },
+  {
+    "path": "supabase/migrations/20261001260000_truong_ca_xep_lich.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ef806093331f001523c27658dffac5241d4d3126db0e914b10fbe5c45d121c89"
+  },
+  {
+    "path": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "33d9256bf2f0750d7655ed77e296d61ea73f32be89fabe966c926e5d595a405d"
+  },
+  {
+    "path": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "931dd87e32107b5a569ae85c6d9cc4e6597c2bb3ba035bc7c776a36a062af5aa"
+  },
+  {
+    "path": "supabase/migrations/20261002210000_lam_them_tai_quay_xor.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4d433046919beff484569d573539b06b610d153e4a6197fe1682ccfa40a5541f"
+  },
+  {
+    "path": "supabase/migrations/20261002220000_lam_them_tai_quay_revision.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "99a0f6824152c2fad9ff8c196663fc388108f7c4d3f22fc389a94bfa870b4228"
+  },
+  {
+    "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f"
+  },
+  {
+    "path": "supabase/migrations/20261002500000_cong_no.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "bd05d4a10a1b2146e2475b9604249ebdfb02ad28cedfcb157f91fc3edfa15070"
+  },
+  {
+    "path": "supabase/migrations/20261002600000_ca_truc_lam_sang.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0be922abb916c4c57480646270179aedccffbbec1b1725769f978ad038623633"
+  },
+  {
+    "path": "supabase/migrations/20261002700000_hoan_tac_xong_tai_quay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c79c65ccc223a8a4d85e3143947fb88ba7201e9465c9f8ffe7b48388e3c9cd34"
+  },
+  {
+    "path": "supabase/migrations/20261002800000_tach_thu_thuoc_dich_vu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e8a9d8e03ef9e180f63e5ae92ac19ff71fab13ec7ac576338bc83a7fd1e3c7e2"
+  },
+  {
+    "path": "supabase/migrations/20261003000000_vat_tu_ban_them.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "0e1089abad826a85fdd48511e2bc67a5d74dbd29490b7e18e3eecb9bb1125759"
+  },
+  {
+    "path": "supabase/migrations/20261003100000_quay_thuoc_dien_so_luong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "32087779a469099c4fb4c4e7ec1129837b8a33ec30b4b7ba7eafb86dd7d8bafd"
+  },
+  {
+    "path": "supabase/migrations/20261003300000_tat_mon_kem_cu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "62c5b78a961563c95db55c0a6903b9b18c86f5b06536c5d9643b74413a3806f7"
+  },
+  {
+    "path": "supabase/migrations/20261003500000_quay_thuoc_so_luong_tuy_y.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9a38565ea0eb773f293288c9622e231a78ea36637018689261e10c6fc64ecb54"
+  },
+  {
+    "path": "supabase/migrations/20261003700000_phi_kham_chi_dinh_duoc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a38cf2572a52e5628d816fa1bacd80f82bbd8acef27e25d2deae66ab7f4f9922"
+  },
+  {
+    "path": "supabase/migrations/20261003720000_lich_hen_tu_phieu_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a9e10089317ce1f9286262c69ee9924200ffaec0c7609fea0d4118fe3cc15e58"
+  },
+  {
+    "path": "supabase/migrations/20261005100000_lich_su_notion.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3bd50a6520c7dbfad2c572b33a9026ee6fcc2a0566595eefea512f8d766524fa"
+  },
+  {
+    "path": "supabase/migrations/20261006100000_luot_that_ho_so_cu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f55ef43a68ccb91e509229d4b1cc894d9fb16e4f58621f32d2a4bc24f088b198"
+  },
+  {
+    "path": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3bc22710b520176bb19b3839304ba8e4f70a228603c6f7fd6cba71f1674ceec5"
+  },
+  {
+    "path": "supabase/migrations/20261006200001_lan_chi_dinh_on_dinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "39943a6e48484ef60122cf48b3481a69fc870ff2016d03d9c41e70a7cefbd677"
+  },
+  {
+    "path": "supabase/migrations/20261006200002_bo_chi_dinh_thong_bao_dong_khi_chi_dinh_lai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1456d5f6bb221e3d9681f12974b23f469cf61acd2f3ac599859739cd8a603a54"
+  },
+  {
+    "path": "supabase/migrations/20261006200003_tien_thua_xu_ly_va_chan_thu_dong_huy.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ea99c464b6a7fdc1a785f09e379df8f28fdbf29b0e7d46770e61c06b42589069"
+  },
+  {
+    "path": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "80a38c4f99f206cc2572b96e275a09972efc140c235d0712d68def287c42585b"
+  },
+  {
+    "path": "supabase/migrations/20261006410000_app_credential_thu_hoi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "37017f2a9f2a8922a15e5dcd2d4c95a8e0781a40b5172be752c7c34b64a50eee"
+  },
+  {
+    "path": "supabase/migrations/20261007500000_moc_hanh_trinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c874da94025667ff1f30debf4b19c1ea4c0ffa7b169fc2c3b53192105dba7505"
+  },
+  {
+    "path": "supabase/migrations/20261007510000_phong_chuyen.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6f9f8f5e00a7e2362e53c50ca532017495a99ceae7f9b8249994c15d8f3ae419"
+  },
+  {
+    "path": "supabase/migrations/20261007600000_nhom_dich_vu_dat_lich.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "79d939c7e868432994827c657f5b30668723d538da3e8bde6b7bd394519dfcc3"
+  },
+  {
+    "path": "supabase/migrations/20261007620000_phieu_dieu_tri_ban_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ce2290bb83e30de91ca9556aa2cf691bc2ef7519fb4caa595cbe95a7c231b884"
+  },
+  {
+    "path": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2576c1d3bd29175ce74a99e257693a60d2ddf00fe031aeeb7ae554ef0a19e483"
+  },
+  {
+    "path": "supabase/migrations/20261007640000_luot_ghi_chu.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "73e4ff019676b1d50a1e64a191ff11182e977594d4a62c6cb38c9fb3ed99d9ca"
+  },
+  {
+    "path": "supabase/migrations/20261007650000_chot_ho_lua_chon_ban_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "03da9b5e17ca42e7dd129bad19fc162aa13ad62fbf25a56772ac1fca754e5671"
+  },
+  {
+    "path": "supabase/migrations/20261007650001_moc_hanh_trinh_hoan_tac_nhan_cheo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "edb9199036fb0d317a6bb07eb4f7962705537ec318c5162ff58d29b06f9f3d2d"
+  },
+  {
+    "path": "supabase/migrations/20261008100000_lieu_trinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9b7961ce813c6177f89e6177b2c73a9b4325a2076d812aed14fdf91f88fec736"
+  },
+  {
+    "path": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "71da05c9f0c2878120a1ace06ae996198eed0fcf2eb1d676e3239bf70177759c"
+  },
+  {
+    "path": "supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1f8263f33ce159d6c5360f1e811cc0ebbf43b39b59621bf2864896f6d4daa0e5"
+  },
+  {
+    "path": "supabase/migrations/20261008700000_co_so_hien_hanh.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7eb19339c095e0a5b93f4e60c65369f5ad185538d8491f561583ce5531b86d39"
+  },
+  {
+    "path": "supabase/migrations/20261008710000_kho_theo_co_so.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "42b8f75a3a74c1074dad3b9f9e33cd55021aa42a1c5581584824eedfecec2a4d"
+  },
+  {
+    "path": "supabase/migrations/20261008900000_lieu_trinh_gan_de_xuat.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9cf003ccfb7aacf47ba1a7812f9d183a964507c13a836cc758f2b648951161fe"
+  },
+  {
+    "path": "supabase/migrations/20261009145151_lieu_trinh_minh_bach.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4741aaa794583698454706479ad4e9160d5eed36dd4b87812145478607d35922"
+  },
+  {
+    "path": "supabase/migrations/20261009300000_o_tuy_chon_don_vi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c866054d11a74091cf082adeac52472177050f7ec234c83487846bd057120828"
+  },
+  {
+    "path": "supabase/migrations/20261009310000_mau_sa_thai_quy_3.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "62fbd61f1776534834ed0efeb1c380aba58953f2b51940db5be616c20a8f9dc0"
+  },
+  {
+    "path": "supabase/migrations/20261009400000_queue_entry_vao_hang_luc.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "441b53b956737e7b9f02cd9ec02775a45e6f3571848ac2980241e06e7de7ac66"
+  },
+  {
+    "path": "supabase/migrations/20261009500000_thu_thuat_di_thang_phong.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "44b7c0128098e6cf77680c6d786135621443aded349e2283fed5e3fad5bebb85"
+  },
+  {
+    "path": "supabase/migrations/20261009500100_phong_truoc_ban_kham.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "9b947d84e296c16366e3c2483efc687de6e6669f611590a87e6accde4dea7a0e"
+  },
+  {
+    "path": "supabase/migrations/20261009600000_ho_so_dieu_tri.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "39d3ddb8b707cf4e1b6db454aed551c7103feed7e0c1d4907b6aad30ed625529"
+  },
+  {
+    "path": "supabase/migrations/20261009700000_mau_mo_ta_nuoc_tieu_monitor.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d82b1fff23f1b49b06f15c88b3ee287e86d9adc0bdde77b3a5b5c4a53f5cd9c1"
+  },
+  {
+    "path": "supabase/migrations/20261009860000_agent_giam_sat.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7d9e96f98f0e9558b9e103bae57ca7697e29615fbd28bc184fa5bcfc9a0d06a3"
+  },
+  {
+    "path": "supabase/migrations/20261009870000_llm_chi_phi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "95762aaf6643f61004f0edc94a1af600e790bbd747745d19f856f1e4438293bf"
+  },
+  {
+    "path": "supabase/migrations/20261009880000_quyen_noi_bo_giam_sat.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6db4ac27203ea97b7115464f8f87e78db41f54f93e018ee3724a28a9828ac3a5"
+  },
+  {
+    "path": "supabase/migrations/20261009900000_lieu_trinh_tinh_lai_bao_tin.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2a26c6f586f1a9e9cf7660ce6711ddd40a75f186f15c0bdf2933b8a0c05a8279"
+  },
+  {
+    "path": "supabase/migrations/20261013100000_giam_gia.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7f1c21accc59e4b05b403bc654b8053b279002923f2e279d568762e1ccf54ff1"
+  },
+  {
+    "path": "supabase/seed.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "2d4e0671f918dd3d16ea3e6514174f551b73f9e976973a75cf337f4e4d00a433"
+  },
+  {
+    "path": "supabase/tests/appointment_counters_per_clinic.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a6129252be370ee5a779d6f0c19c7f82c95e5d0028ca0a9409c9fbf9c89c0f31"
+  },
+  {
+    "path": "supabase/tests/bootstrap_plain_postgres.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f59b52966f37584e6cf08e2ef382c7c639b42385c0759376fca4d72a7fd2fa96"
+  },
+  {
+    "path": "supabase/tests/cap_phat_thuoc_mot_phan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "f0f40150f7c3d791cc289a0d0cffeb14b41e604f212335ac0bfc97a0010eccc9"
+  },
+  {
+    "path": "supabase/tests/clinic_booking_policy.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "73b2b1237ef8e2cc137689e90df72053c9d5752d29e8810f7b61e694a7f31166"
+  },
+  {
+    "path": "supabase/tests/clinical_form_quarantine.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "635e5f573521936f121ca9adeab9341e4588a909b0ba6fc9c241da2afacbbecc"
+  },
+  {
+    "path": "supabase/tests/dem_ghe_ca_ngay_mot_lan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "53755b86cd6dff8e2755e210ac90611ad585b20b87cfb8066eef0c342197312b"
+  },
+  {
+    "path": "supabase/tests/dieu_phoi_chi_chi_dinh_da_duyet.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ba4a4de34390cb76ba7751fbb1aab5ea683cbf3c75288202dd05cca7fc24fd14"
+  },
+  {
+    "path": "supabase/tests/event_log_rls.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "5db39080f6c00208bb4ad1d9c608a38b071ba30b6f962610d41077aa45b4a7aa"
+  },
+  {
+    "path": "supabase/tests/ghe_vang_lai_khach_den_muon.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "7f8d7c1d77effca8c5b12d88465dc7d9f86039973c08ba654e220e09c260639b"
+  },
+  {
+    "path": "supabase/tests/hang_cho_xep_bac_si.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "e2f16b3cf96ba7c10c11186d28665b30b4a9e16804c8b9a90d420b4a710e0b9c"
+  },
+  {
+    "path": "supabase/tests/inventory_write_guards.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "26fa95443f12b19ef2fc996bfadffe79c03e42525c0ed66691b0d7a6b75e0d38"
+  },
+  {
+    "path": "supabase/tests/lab_review_idempotency.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6c574f7d074151fc2dbed1bfe7e01f5aba3e87444dbb47ef2a159f0b59814cfe"
+  },
+  {
+    "path": "supabase/tests/lich_vuot_suc_chua.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "385562db64535aa4ef428ea0c8e8b331be6734aaf684c25db3ae53bbaa3fafbd"
+  },
+  {
+    "path": "supabase/tests/luot_da_dong_thi_dung_yen.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "69c362791cb143f0c8730a134adfb172d5fff76c3bfae912d5211b76e12ceb8a"
+  },
+  {
+    "path": "supabase/tests/luot_kham_do.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a2c9a2022ec6602eac5e5ca788fc5436cc1612a84be063deb187fa035d36f53a"
+  },
+  {
+    "path": "supabase/tests/luot_kham_lat_1.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3a85b5e63ee8801b738a677cc3719d9a383b04dbe4779f109d873574e157ea2a"
+  },
+  {
+    "path": "supabase/tests/multi_tenant_foundation.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c4d559d49f698d4f8e352f90534b0b0811e35fcd67587de1c1a446141a18ffae"
+  },
+  {
+    "path": "supabase/tests/nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "128b2078c96f5f32b208bf2499e5a61c0f9c952f1112cc744a783ec289eace04"
+  },
+  {
+    "path": "supabase/tests/nhac_tai_kham_hai_luot_goi.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "c63454690c336e7b2feba7b933ef4f50fdb843a77eb98987ea1a6b84bb989b1d"
+  },
+  {
+    "path": "supabase/tests/nhieu_so_dien_thoai.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "b080dd0c819f37dff5c585effcbd2dca1df49524f026fb78c4f9300fefdc6c53"
+  },
+  {
+    "path": "supabase/tests/order_services.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "454661270e7e27e28915712f24f7fdd1c059b53a6bde4b0dbc7509d37d97665c"
+  },
+  {
+    "path": "supabase/tests/payment_audit.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "89b92edbaccc261880593afa034cdb21f6500fd4b66a837450ac012b8023475c"
+  },
+  {
+    "path": "supabase/tests/role_scoped_clinical_read.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87"
+  },
+  {
+    "path": "supabase/tests/run-local.sh",
+    "status": "inventoried",
+    "method": "manifest",
+    "note": "Chưa đọc nội dung; inventory metadata.",
+    "sha256": "2a4ea7bde55b3250a4735e97f53fa00d200fce07290a4b3eeb054b8be7a93a9c"
+  },
+  {
+    "path": "supabase/tests/service_lifecycle_v1_schema.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "172b06fc319fe8a506310b95c1032d8cf8eaf7cadf146622b9fccb6d503c60c4"
+  },
+  {
+    "path": "supabase/tests/service_order_draft_khong_co_selection.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "ec8878c6452bfd31fa76b23931c52491406b99bcbfece6fe6754147378d15684"
+  },
+  {
+    "path": "supabase/tests/sinh_hieu_chi_them.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "43419b9800f247358ef19facd1a3cd23370aab5d7f489a38ffb83eefd4aeb74e"
+  },
+  {
+    "path": "supabase/tests/suc_chua_chi_chan_khi_da_cong_bo.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "28eb38212bfc09ad6edccb54ec01ac73cb242fb9df204df40991c93a1744d12c"
+  },
+  {
+    "path": "supabase/tests/tenant_scoped_rls.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "6398a94b5cc7d4caef981cab6f1d62b0259f2045eb6ce8b4be066732cfddab37"
+  },
+  {
+    "path": "supabase/tests/thong_bao_goi_bo_phan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "1880d6c9179814afb810a900303c22d6c2eb1c24ddddf86196a1d7cfac43e96c"
+  },
+  {
+    "path": "supabase/tests/thu_dich_vu_nhieu_lan.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "a4eb6950dd75190c1cfc1dfed1c8386ce949bb03cfad8b4d5137e12c3bd039b7"
+  },
+  {
+    "path": "supabase/tests/thu_ky_rls_theo_bac_si.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "3979131d469cda4e493b6f78e2eacfbd4a8cd46972a2b007bc752486ae6a13bb"
+  },
+  {
+    "path": "supabase/tests/tuan_lich_truc_da_ap_dung.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "d626540f529f6da52db6e7a2f919dee891682a0fa0e000845c741eba56fcac75"
+  },
+  {
+    "path": "supabase/tests/visit_workflow_instantiation.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "4870f07dd22a773b78c85134b9074274c1043cf63fafdfad5c32051b9e79217d"
+  },
+  {
+    "path": "supabase/tests/workflow_kernel.sql",
+    "status": "scanned",
+    "method": "SQL structural scan",
+    "note": "Scanned DDL/function/policy definitions and sequence metadata; not full semantic review.",
+    "sha256": "753e05833f91011ef0dcd9340f080c3766959a6cfd1f052b35b85bd15e3ef599"
+  }
+]

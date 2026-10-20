@@ -1,0 +1,101 @@
+
+##### LOI THEO TEN SU KIEN (24 gio gan nhat, top 12; chi lay truong event/msg)
+--- clinicai_prod-api-1
+    434 "message": "clinicai_exception"
+      1 "message": "Waiting for application startup."
+      1 "message": "Application startup complete."
+--- clinicai_prod-dashboard-1
+--- caddy (level error, theo msg)
+     40 "msg":"handled request"
+      8 "msg":"dial tcp: lookup dashboard on 127.0.0.11:53: server misbehaving"
+      1 "msg":"dial tcp 172.18.0.9:3000: connect: connection refused"
+
+##### DATABASE (chi doc, chi dem/ten, ep read-only)
+container db: clinicai_db
+--- phien ban / kich thuoc:
+PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+469 MB
+--- so migration da ap (so cai) / moi nhat:
+373 | 20261019150000
+--- 5 migration ap gan nhat:
+20261019150000 clinic_floor
+20261019140000 idempotency_payload_hash
+20261019130000 vat_tu_don_vi_bat_bien
+20261019120000 restrict_stock_postgrest_reads
+20261019110000 pharmacy_inventory_p1_guards
+--- migration trong repo (so tep / moi nhat):
+373
+20261019140000_idempotency_payload_hash.sql
+20261019150000_clinic_floor.sql
+--- migration co trong repo ma CHUA ap vao DB:
+(het danh sach)
+--- bang trong public KHONG bat RLS (ten):
+doctor_booking_override
+slot_booking_override
+staff_vi_tri
+vi_tri_lam_viec
+--- so bang public / so policy:
+183 | 159
+--- so bang ma vai 'authenticated' co quyen ghi truc tiep:
+0
+--- so bang ma vai 'anon' co bat ky quyen nao:
+0
+--- vai (role) trong database:
+anon | superuser=false | login=false | bypassrls=false
+authenticated | superuser=false | login=false | bypassrls=false
+authenticator | superuser=false | login=true | bypassrls=false
+postgres | superuser=true | login=true | bypassrls=true
+service_role | superuser=false | login=false | bypassrls=true
+supabase_admin | superuser=false | login=true | bypassrls=true
+supabase_auth_admin | superuser=false | login=true | bypassrls=false
+--- ham SECURITY DEFINER trong public (so luong):
+48
+--- bang lon nhat (ten, so dong uoc tinh):
+event_delivery | 51199
+prescription | 36576
+service_order | 35779
+domain_event | 29132
+form_instance | 27807
+luot_dong_thoi_gian | 27011
+event_log | 21140
+consultation | 15199
+appointment | 14888
+visit | 14597
+phieu_kham_luot | 14507
+clinical_release | 14132
+thong_bao | 10717
+du_lieu_da_xoa | 9602
+form_instance_lich_su | 9393
+patient | 8866
+tep_ket_qua | 8386
+command_receipt | 6276
+capability_grant | 5601
+clinic_room_service | 3920
+ward | 3321
+work_item_event | 3268
+work_item | 3232
+so_sua_chi_dinh | 3223
+thong_bao_an_cua_toi | 3036
+--- bang lien quan su kien/canh bao/loi (ten, so dong uoc tinh):
+canh_bao | 52
+command_receipt | 6276
+day_nhan_thong_bao | 4
+domain_event | 29132
+event_delivery | 51199
+event_log | 21140
+idempotency_key | 655
+loi_nhom | 11
+pos_outbox | 819
+thong_bao | 10717
+thong_bao_an_cua_toi | 3036
+work_item_event | 3268
+--- so luat thu tu bat buoc cu (visit_gate_rule) dang bat:
+0 dang bat / 0 tong
+--- so luat bac si bat buoc dang bat:
+0 dang bat / 0 tong
+--- so phong kham (clinic) / co so / nhan vien dang hoat dong:
+ERROR:  relation "public.location" does not exist
+--- tuoi du lieu moi nhat (lan kham, thanh toan gan nhat):
+2026-10-19 21:04:21.582977+07 | 2026-10-19 22:36:54.40307+07
+
+##### HET

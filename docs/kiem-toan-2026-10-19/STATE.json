@@ -1,0 +1,2109 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-20",
+  "status": "in_progress",
+  "phase": "round53_v076_gate_rule_lead_closed_audit_open",
+  "next_action": "Continue exact-main review of unread/structurally scanned code, prioritizing authorization by object/tenant/location, money/refund/reconciliation, state transition/concurrency/idempotency, outbox/worker recovery, backup/restore and patient-critical paths. Keep full_source_audit_complete=false until scope and validation gaps are actually closed.",
+  "final_report": "BAO-CAO.html",
+  "report_status": "Round 53 integrated; v0.76 report-only QA passed; audit-only package refreshed; full source audit remains incomplete.",
+  "blocks": {
+    "security": {
+      "status": "round46_SEC027_extended_security_review_open",
+      "notes": "blocks/security.md",
+      "findings": "PHAT-HIEN.json (SEC-001..SEC-037; IDs non-contiguous)",
+      "coverage": "blocks/round45.coverage.json plus prior security coverage",
+      "next": "Continue object authorization/RLS; role matrix only on synthetic disposable fixtures after static review.",
+      "round8_notes": "blocks/round8_tenant.md; blocks/round8_api.md",
+      "round8_next": "SEC-018 is a static intra-clinic patient-contact role-scope candidate; verify role boundary on a disposable DB and retain invoice projection. SEC-012 is corroborated; persisted skill-toggle retry/fault test remains missing."
+    },
+    "clinical": {
+      "status": "round46_CLIN057_added_booking_replay_review_open",
+      "notes": "blocks/clinical.md",
+      "findings": "PHAT-HIEN.json (CLIN-001..CLIN-056 plus SEC-037)",
+      "coverage": "blocks/round45.coverage.json plus prior clinical coverage",
+      "next": "Continue service-order, visit, result and booking transitions; test idempotency/replay and assignment boundaries only in a disposable synthetic environment after static scope review."
+    },
+    "finance": {
+      "status": "round46_payment_dedupe_cashier_backlog_policy_held",
+      "notes": "blocks/finance.md",
+      "findings": "PHAT-HIEN.json (FIN-001..FIN-019; PHAR-001)",
+      "coverage": "blocks/round45.coverage.json plus prior finance coverage",
+      "next": "Continue settlement/refund/reconciliation review. FIN-019 cashier backlog scope remains a product-policy hold; do not hide intentional cross-day work without owner decision."
+    },
+    "database": {
+      "status": "round40_INF008_regular_runner_transaction_control_extended_static_open",
+      "notes": "blocks/database.md",
+      "findings": "blocks/database.findings.json",
+      "coverage": "blocks/round40.coverage.json plus blocks/database.coverage.json",
+      "next": "Continue restore/tenant lifecycle and test runner atomicity only on a disposable DB after static review; full audit open."
+    },
+    "frontend": {
+      "status": "round46_FE027_added_FE023_extended_review_open",
+      "notes": "blocks/frontend.md",
+      "findings": "PHAT-HIEN.json includes FE-011; blocks/frontend.findings.json remains prior-slice evidence",
+      "coverage": "blocks/round39.coverage.json plus prior frontend coverage blocks",
+      "next": "Continue dashboard auth/location recovery, stale async state, and route-vs-page authorization; source-only until runtime scope is explicitly approved."
+    },
+    "infra_events": {
+      "status": "round45_INF027_INF028_added_static_open",
+      "notes": "blocks/infra_events.md",
+      "findings": "PHAT-HIEN.json (INF-001..INF-028)",
+      "coverage": "blocks/round45.coverage.json plus prior infra/event coverage",
+      "next": "Continue worker liveness and file purge reconciliation; trace event producers."
+    },
+    "integration": {
+      "status": "round40_v063_report_qa_bundle_pass_audit_incomplete",
+      "notes": "blocks/integration.md",
+      "findings": "PHAT-HIEN.json (AI-001..AI-004)",
+      "coverage": "blocks/round9_ai_runtime.coverage.json",
+      "next": "Continue receipt/outbox recovery across remaining domains; separate code evidence from unresolved business policy."
+    },
+    "pharmacy": {
+      "status": "round38_sale_inventory_contract_held_no_new_finding",
+      "notes": "blocks/pharmacy.md",
+      "findings": "PHAT-HIEN.json (canonical; PHAR-001)",
+      "coverage": "blocks/round38.coverage.json plus blocks/pharmacy.coverage.json",
+      "next": "Continue return/void/reconciliation. Hold sale-vs-stock conclusion until the owner specifies whether, where and when counter sales decrement stock; no production discrepancy demonstrated."
+    },
+    "patient_identity": {
+      "status": "mpi_static_trace_not_complete",
+      "findings": "PHAT-HIEN.json (PAT-001..PAT-002)",
+      "next": "MPI autoqueue has no visible review workflow; masked CCCD feeds scoring. Confirm product policy and add synthetic tests without using PHI."
+    },
+    "operations": {
+      "status": "round45_OPS012_metric_integrity_added_open",
+      "findings": "PHAT-HIEN.json (OPS-001..OPS-012; IDs non-contiguous; INF-027 health rollup)",
+      "next": "Confirm median semantics and monitor self-health contract; continue recovery, alert ownership and cleanup.",
+      "notes": "blocks/round43.md",
+      "coverage": "blocks/round45.coverage.json plus prior operations coverage"
+    },
+    "results_upload": {
+      "status": "round8_static_trace_not_complete",
+      "notes": "blocks/round8_lab.md",
+      "findings": "PHAT-HIEN.json (LAB-001)",
+      "coverage": "blocks/round8_lab.coverage.json",
+      "next": "LAB-001: upload response loss after commit can be reported as not saved and a retry can create another file row/event. No runtime fault injection; add stable upload intent and reconciliation after policy review."
+    },
+    "ai_runtime": {
+      "status": "round9_assigned_slice_complete_repository_audit_incomplete",
+      "notes": "blocks/round9_ai_runtime.md",
+      "findings": "PHAT-HIEN.json (AI-004; AI-001..003 remain prior integration findings)",
+      "coverage": "blocks/round9_ai_runtime.coverage.json",
+      "next": "Add startup wiring, concurrent reservation and meter-failure tests; review unexamined API/UI callers before claiming complete AI behavior coverage."
+    },
+    "api_round9": {
+      "status": "round9_clinical_api_slice_complete; broader API audit open",
+      "findings": "API-001..API-003",
+      "coverage": "blocks/round9_api_clinical.coverage.json",
+      "next": "Expand permission/location matrices and test identified route boundaries on disposable data; continue unreviewed API modules."
+    },
+    "dashboard_round9": {
+      "status": "round9_schedule_patient_slice_complete; broader dashboard audit open",
+      "findings": "FE-012..FE-015",
+      "coverage": "blocks/round9_dashboard_schedule_patient.coverage.json",
+      "next": "Add focused component/route tests for stale async state and destructive roster preview; continue other dashboard flows."
+    },
+    "migrations_round9": {
+      "status": "round9_migrations_july_october_triaged; remaining migration/source audit open",
+      "findings": "DB-006..DB-007, FIN-010, SEC-019; resolved and held candidates are in blocks/round9-triage.md",
+      "coverage": "blocks/round9_migrations_20260708.coverage.json; blocks/round9_migrations_202609.coverage.json; blocks/round9_migrations_202610.coverage.json",
+      "next": "Test SECURITY DEFINER ACL and note/history role policies on a fresh exact-main DB; inspect remaining migration dates and data invariants."
+    },
+    "worker_round9": {
+      "status": "round9_worker_event_static_slice_complete; runtime crash-loop verification open",
+      "findings": "INF-018",
+      "coverage": "blocks/round9_worker_event.coverage.json",
+      "next": "Add disposable DB tests for repeated crash/lease reclaim beyond the retry cap; continue the wider source audit."
+    },
+    "round10_api_identity": {
+      "status": "round10 static slice complete; no new candidate; broader API audit open",
+      "scope": "FastAPI identity, clinic membership selection, shared permission/capability/location guards",
+      "artifacts": "blocks/round10_api_identity.md; blocks/round10_api_identity.findings.json; blocks/round10_api_identity.coverage.json",
+      "next": "Coverage and 619 route-handler inventory were hash-checked on the pinned snapshot. Continue unreviewed API/service callers and test clinic/location/capability boundaries with synthetic fixtures."
+    },
+    "round10_dashboard_context": {
+      "status": "round10 static slice complete; no new candidate; broader dashboard audit open",
+      "scope": "Next.js auth/session/clinic context, route guards, BFF proxy, browser-side sensitive data",
+      "artifacts": "blocks/round10_dashboard_context.md; blocks/round10_dashboard_context.findings.json; blocks/round10_dashboard_context.coverage.json",
+      "next": "Hash-checked session, BFF, clinic-context and browser-storage review. Continue remaining dashboard data flows and add focused logout/context tests."
+    },
+    "round10_ops_recovery": {
+      "status": "round10 static slice triaged; INF-019 added; runtime recovery proof open",
+      "scope": "Deploy, migration runner, backup/restore, systemd, Docker/Caddy, monitoring and VPS scripts (static source only)",
+      "artifacts": "blocks/round10_ops_recovery.md; blocks/round10_ops_recovery.findings.json; blocks/round10_ops_recovery.coverage.json",
+      "next": "Test local-success/CFS-failure and recovery on a disposable environment; do not infer current CFS or production state from this static finding.",
+      "findings": "INF-019; CAND-OPS-001 promoted as confirmed_static"
+    },
+    "round10_ci_quality": {
+      "status": "round10 static slice triaged; CI-001 added; CAND-CI-002 held",
+      "scope": "Dev-machine CI/test/release gate, scripts/ci-may.sh, config, hooks and commit/untracked file boundaries",
+      "artifacts": "blocks/round10_ci_quality.md; blocks/round10_ci_quality.findings.json; blocks/round10_ci_quality.coverage.json",
+      "next": "Add a deterministic concurrency test for stale lock reclamation and decide whether the Excel helper test belongs in the CI contract.",
+      "findings": "CI-001; CAND-CI-002 held as a low-confidence test-selection observation; INF-014 duplicate explicitly excluded"
+    },
+    "round11_clinical_records": {
+      "status": "round11 clinical-record slice triaged; SEC-020 added; API authorization proof open",
+      "scope": "Clinical record lifecycle and CSKH chart authorization",
+      "artifacts": "blocks/round11_clinical_records.md; blocks/round11_clinical_records.findings.json; blocks/round11_clinical_records.coverage.json",
+      "findings": "SEC-020; one overbroad chart-read authorization candidate promoted as confirmed_static",
+      "next": "Confirm field-level CSKH policy with product owner; add FastAPI route tests for reception/CRM, clinic/location and patient assignment. No runtime authorization test was run."
+    },
+    "round11_dashboard_forms": {
+      "status": "round11 dashboard-form slice triaged; FE-016..FE-017 added; browser/runtime proof open",
+      "scope": "Optional clinical-form selection and historical-visit print context",
+      "artifacts": "blocks/round11_dashboard_forms.md; blocks/round11_dashboard_forms.findings.json; blocks/round11_dashboard_forms.coverage.json",
+      "findings": "FE-016..FE-017; both are static UI state/context traces",
+      "next": "Add a delayed-response component test for two form choices and a print-link test after selecting a previous visit."
+    },
+    "round11_finance_close": {
+      "status": "round11 finance-close slice triaged; FIN-011..FIN-012 added; concurrency proof open",
+      "scope": "Shift-close snapshot, cash reconciliation guard and invoice projections",
+      "artifacts": "blocks/round11_finance_close.md; blocks/round11_finance_close.findings.json; blocks/round11_finance_close.coverage.json",
+      "findings": "FIN-011..FIN-012; static snapshot boundary and algebraic identity observations",
+      "next": "Add deterministic synthetic concurrency coverage for a write between report reads and a negative unit case for independent aggregate/breakdown mismatch."
+    },
+    "round12_pharmacy_controls": {
+      "status": "round12 pharmacy slice triaged; PHAR-002 added; runtime validation open",
+      "scope": "Manual inventory adjustment input validation and neighboring pharmacy controls",
+      "artifacts": "blocks/round12_pharmacy_controls.md; blocks/round12_pharmacy_controls.findings.json; blocks/round12_pharmacy_controls.coverage.json",
+      "findings": "PHAR-002 LOW; confirmed static validation gap, database effects not reproduced",
+      "next": "Add unit and ASGI coverage for range and scale; use Decimal validation before transaction and verify rejected inputs do not change ledger or stock."
+    },
+    "round12_booking_slots": {
+      "status": "round12 booking-slot slice triaged; candidate held as low-impact UI observation",
+      "scope": "Booking overrides, slot capacity readers, hold lifecycle and selected callers",
+      "artifacts": "blocks/round12_booking_slots.md; blocks/round12_booking_slots.findings.json; blocks/round12_booking_slots.coverage.json",
+      "findings": "No canonical finding; CAND-BOOK-SLOT-001 held in STATE.json",
+      "next": "Confirm intended meaning of the shadowed badge with product/clinic users; test future date boundaries if the badge means effective today."
+    },
+    "round12_pos_outbox": {
+      "status": "round12 POS outbox slice complete; no distinct candidate promoted",
+      "scope": "Payment/void outbox, relay, adapter contract, worker caller and direct tests",
+      "artifacts": "blocks/round12_pos_outbox.md; blocks/round12_pos_outbox.findings.json; blocks/round12_pos_outbox.coverage.json",
+      "findings": "No new finding after deduplication against INF-005/011/017/018",
+      "next": "Revisit vendor idempotency and void-versus-delivery only when an operational adapter exists; continue broader source audit."
+    },
+    "round13_api_logging": {
+      "status": "round13 API/logging slice triaged; SEC-021 added",
+      "scope": "Exception-to-structured-log path, sanitizer and direct tests",
+      "artifacts": "blocks/round13_api_logging.md; blocks/round13_api_logging.findings.json; blocks/round13_api_logging.coverage.json",
+      "findings": "SEC-021 LOW confirmed static; production sink and retention not checked",
+      "next": "Add tests that UUIDs in exception text/reason are removed from captured logs."
+    },
+    "round13_booking_lifecycle": {
+      "status": "round13 booking lifecycle slice triaged; CLIN-035 added",
+      "scope": "Cancel/reschedule/no-show/undo selected service, UI, API and direct tests",
+      "artifacts": "blocks/round13_booking_lifecycle.md; blocks/round13_booking_lifecycle.findings.json; blocks/round13_booking_lifecycle.coverage.json",
+      "findings": "CLIN-035 MEDIUM confirmed static; no-show time policy needs product threshold",
+      "next": "Define a clinic grace period and enforce it in backend and UI with boundary tests."
+    },
+    "round13_patient_lookup": {
+      "status": "round13 patient lookup/CSKH slice triaged; SEC-022..SEC-023 added",
+      "scope": "Patient and CSKH list projections, route guards, preset permissions and callers",
+      "artifacts": "blocks/round13_patient_lookup.md; blocks/round13_patient_lookup.findings.json; blocks/round13_patient_lookup.coverage.json",
+      "findings": "SEC-022 MEDIUM PII over-fetch; SEC-023 MEDIUM CASHIER* CRM write capability. Branch isolation policy remains open.",
+      "next": "Use list-specific response allowlists; split CRM read/write permissions and test CASHIER* capability matrices."
+    },
+    "round13_receivables": {
+      "status": "round13 receivable slice triaged; FIN-013..FIN-014 added",
+      "scope": "Unpriced debt projection, debt snapshot coverage, cashier navigation/readiness",
+      "artifacts": "blocks/round13_receivables.md; blocks/round13_receivables.findings.json; blocks/round13_receivables.coverage.json",
+      "findings": "FIN-013 MEDIUM unresolved-price balance visibility; FIN-014 MEDIUM design gap for same-source amount changes.",
+      "next": "Keep unresolved-price work visible; define whether changed prices require re-confirmation before check-out and test the selected policy."
+    },
+    "round14_work_items": {
+      "status": "round14 work-item location authorization slice triaged; API-004 added",
+      "scope": "Command, worklist, blocker/read endpoints, BFF and direct tests",
+      "artifacts": "blocks/round14_work_items.md; blocks/round14_work_items.findings.json; blocks/round14_work_items.coverage.json",
+      "findings": "API-004 MEDIUM confirmed static; same-clinic cross-location command scope not runtime-tested",
+      "next": "Add synthetic same-clinic/two-location command tests; preserve explicit policy for locationless OPS work."
+    },
+    "round14_payment_settlement": {
+      "status": "round14 payment/idempotency slice triaged; FIN-015 added",
+      "scope": "Service/medicine collection, receipt hash, company snapshot, refund and export callers",
+      "artifacts": "blocks/round14_payment_settlement.md; blocks/round14_payment_settlement.findings.json; blocks/round14_payment_settlement.coverage.json",
+      "findings": "FIN-015 LOW confirmed static boundary mismatch; effect inferred, no duplicate collection shown",
+      "next": "Test same-key company mismatch before any snapshot side effect; include company choice in fingerprint or split command."
+    },
+    "round14_rls_grants": {
+      "status": "round14 tenant/RLS/ACL slice complete; no distinct candidate",
+      "scope": "Selected tenant policies, function ACLs, permission views and final stock grants",
+      "artifacts": "blocks/round14_rls_grants.md; blocks/round14_rls_grants.findings.json; blocks/round14_rls_grants.coverage.json",
+      "findings": "No new finding; duplicate view issue maps to SEC-017; stock grant issue absent after final migration in pinned source.",
+      "next": "Verify actual grants/owners and two-clinic behavior on disposable exact-main DB; do not infer production ACL from source."
+    },
+    "round14_observability": {
+      "status": "round14 in-process telemetry error-detail slice triaged; SEC-024 added",
+      "scope": "Telemetry buffer, exception capture, ops endpoint, scrubber contrast and direct tests",
+      "artifacts": "blocks/round14_observability.md; blocks/round14_observability.findings.json; blocks/round14_observability.coverage.json",
+      "findings": "SEC-024 LOW confirmed static data-flow; no exception containing PII/PHI or production occurrence demonstrated.",
+      "next": "Add synthetic sentinel tests for telemetry detail storage and /ops/telemetry response; keep raw exception text out of feed."
+    },
+    "round14_core_primitives": {
+      "status": "round14 selected core-primitive slice complete; no new candidate",
+      "scope": "Clock/date, clinic context, phone, location code, GS1, observability helpers and Sentry privacy bootstrap",
+      "artifacts": "blocks/round14_core_primitives.md; blocks/round14_core_primitives.findings.json; blocks/round14_core_primitives.coverage.json",
+      "findings": "No distinct issue observed in the selected pure helpers; Sentry remains wired behind SENTRY_DSN despite dead-service policy, classified as policy drift only",
+      "next": "Read remaining core modules and phone/date callers; tests were inspected but not run. Verify Sentry is disabled or remove dead integration in a separate product change."
+    },
+    "connection_budget": {
+      "status": "round15_static_capacity_review_complete_runtime_open",
+      "notes": "blocks/round15_connection_budget.md",
+      "findings": "PHAT-HIEN.json (INF-020)",
+      "coverage": "blocks/round15.coverage.json",
+      "next": "No aggregate pool budget/preflight; validate compose topology and runtime monitoring on disposable environment, then continue remaining source paths."
+    },
+    "session_revocation": {
+      "status": "round15_static_ui_result_review_complete_runtime_open",
+      "notes": "blocks/round15_session_revocation.md",
+      "findings": "PHAT-HIEN.json (SEC-025)",
+      "coverage": "blocks/round15.coverage.json",
+      "next": "Add a mocked resolved-error test for signOut({scope:\"others\"}); confirm actual Auth session policy/config without production data."
+    },
+    "round17_audit_visibility_commit_boundary": {
+      "status": "round17 static slice triaged; SEC-026, INF-021 and FE-018 added",
+      "scope": "Permission-event visibility, post-commit floor audit writes, and clinical status BFF/render failure path",
+      "artifacts": "blocks/round17_audit_visibility_commit_boundary.md; blocks/round17_audit_visibility_commit_boundary.findings.json; blocks/round17_audit_visibility_commit_boundary.coverage.json",
+      "findings": "SEC-026 and INF-021 MEDIUM; FE-018 LOW; all confirmed_static and still_present_on_main.",
+      "next": "Fault-inject audit insert for all floor mutations and add typed permission-event projection tests; continue unread clinical result, worker recovery and finance reconciliation paths."
+    },
+    "round18_lifecycle_worker_finance": {
+      "status": "round18 static slices triaged; CLIN-036, INF-022 and FIN-016 added",
+      "scope": "Clinical file revoke after staff-recorded send; event/timer dead-letter recovery; mixed-tender excess refund attribution",
+      "artifacts": "blocks/round18_lifecycle_worker_finance.md; blocks/round18_lifecycle_worker_finance.findings.json; blocks/round18_lifecycle_worker_finance.coverage.json",
+      "findings": "CLIN-036 MEDIUM design_gap; INF-022 MEDIUM and FIN-016 LOW confirmed_static; all still_present_on_main.",
+      "next": "Verify the three triggers with isolated DB/API/UI tests and confirm policy for post-send result correction; continue unread modules after the targeted probes."
+    },
+    "round19_notifications_clinical_privacy_roster": {
+      "status": "round19 static slices integrated; 14 new findings and 2 existing security findings extended",
+      "scope": "Notification read/delivery, clinical form print/binding/concurrency, patient API privacy, roster status/coverage/authorization/pool, voice boundary read",
+      "artifacts": "blocks/round19-summary.md; blocks/round19_findings.json; blocks/round19_coverage.json; integrate_round19.py",
+      "findings": "12 MEDIUM and 2 LOW; all still_present_on_main. SEC-016 and SEC-018 retain existing IDs with additional evidence.",
+      "next": "Run bounded synthetic permission, concurrency, notification retry and roster interleaving tests; continue semantic source reads. Full source audit incomplete."
+    },
+    "round20_queue_recall_reminders_clinical_results_cleanup": {
+      "status": "round20 static slices integrated; 3 new findings, SEC-028 extended, 2 held observations",
+      "scope": "Queue/intake, recall and self-reminder, clinical result files/Andrology/ultrasound, cleanup scripts and related migrations",
+      "artifacts": "blocks/round20-summary.md; blocks/round20_findings.json; blocks/round20_coverage.json; integrate_round20.py",
+      "findings": "1 MEDIUM and 2 LOW, still present on pinned main; SEC-028 extended with conditional room/node projection evidence.",
+      "next": "Continue source reads and run targeted synthetic concurrency/state tests only after source audit reveals sufficient exact-main fixtures; full audit incomplete."
+    },
+    "round21_patient_postgrest_dashboard_finance_and_prescription": {
+      "status": "round21 static review integrated; 1 MEDIUM finding, FE-002 evidence expanded, 2 candidates held; v0.42 HTML/ZIP artifact QA passed",
+      "scope": "Patient table PostgREST/RLS, dashboard medicine-feedback UI contracts, refund accounting-date semantics, clinic policy fallback, prescription amendment service",
+      "artifacts": "blocks/round21-summary.md; blocks/round21_findings.json; blocks/round21_coverage.json; integrate_round21.py",
+      "findings": "SEC-029 MEDIUM still present on exact-main; FE-002 expanded with a second stale refresh screen.",
+      "next": "Test direct PostgREST permissions using disposable Supabase auth and decide accounting-date policy before promoting the refund report observation."
+    },
+    "round22_postgrest_finance_tkyk_assignment_events_and_service_order": {
+      "status": "round22 static review integrated; 1 MEDIUM added, SEC-011 extended, 1 legacy API contract observation held",
+      "scope": "PostgREST payments and TKYK assignment; service-order read/write contracts; event/provider/worker recovery paths",
+      "artifacts": "blocks/round22-summary.md; blocks/round22_findings.json; blocks/round22_finding_extensions.json; blocks/round22_coverage.json; integrate_round22.py",
+      "findings": "SEC-030 MEDIUM still present on pinned main; SEC-011 extended with appointment, draft and allocation PostgREST paths.",
+      "next": "Continue clinical forms and pharmacy lifecycle; test direct PostgREST boundaries on a disposable stack and settle clinic-wide payment read policy."
+    },
+    "round23_pharmacy_lifecycle": {
+      "status": "static review complete; 3 services fully read; no new finding; 2 policy/threshold observations held",
+      "scope": "prescription sales, Bio service selection, billing and inventory reporting",
+      "artifacts": "blocks/round23_pharmacy_coverage.json; integrate_round23_pharmacy.py",
+      "findings": "No new canonical finding; service-map semantics and 200-row history cap remain held.",
+      "next": "Continue clinical-form pipeline and test conditional cases only on synthetic disposable fixtures."
+    },
+    "round23_clinical_forms": {
+      "status": "static form-engine review integrated; 1 MEDIUM finding, required-field policy held",
+      "scope": "form request/schema validation, exact form version, JSON persistence, read/render, completion semantics and tests",
+      "artifacts": "blocks/round23_clinical_findings.json; blocks/round23_clinical_coverage.json; integrate_round23_clinical.py",
+      "findings": "CLIN-041 confirmed_static on pinned main; no malformed request or database test was run.",
+      "next": "Validate keys/types against the pinned form version and add no-write rejection tests; clinical owner defines required fields."
+    },
+    "round23_clinical_v5_boundary": {
+      "status": "separate v5 validation path traced; existing unknown-key test found; no new v5 finding",
+      "scope": "Phiếu khám v5 typed frame, save API, BFF/UI writer, schema validator and related tests",
+      "artifacts": "blocks/round23_clinical_v5_boundary.json; ranges merged into blocks/round23_clinical_coverage.json",
+      "findings": "No new finding in v5. CLIN-041 is limited to generic FormEngineService.",
+      "next": "Keep generic and v5 form contracts separate; run the existing negative-key test and add generic-engine tests only on isolated fixtures."
+    },
+    "round24": {
+      "status": "static exact-main slice integrated; five findings added and FE-002 expanded; full source audit open",
+      "scope": "operations scripts; home reality board; reports/access; clinical workspace/history; clinical helpers; cashier contract",
+      "artifacts": "blocks/round24.md; blocks/round24_findings.json; blocks/round24.coverage.json",
+      "findings": "SEC-031, SEC-032, FE-023, FE-024, API-005; FE-002 expanded. Policy/timing candidates held.",
+      "next": "Continue unread exact-main paths; then plan synthetic tests in disposable environment."
+    },
+    "round25": {
+      "status": "round25_six_findings_fe023_expansion; final_report_rebuild_pending; full_audit_open",
+      "notes": "blocks/round25.md",
+      "findings": "PHAT-HIEN.json: FE-025, API-006, OPS-006, OPS-007, CLIN-043, LAB-002; FE-023 expanded",
+      "coverage": "blocks/round25.coverage.json",
+      "next": "Continue remaining result/print, event recovery, tenant/account and migration/RLS source. Add barrier-driven lab triage/finalize and other synthetic checks in disposable environments."
+    },
+    "round26": {
+      "status": "round26_static_review_integrated; report_qa_pending; full_audit_open",
+      "notes": "blocks/round26.md",
+      "findings": "PHAT-HIEN.json: FE-026, OPS-008; FE-004 and FE-023 expanded",
+      "coverage": "blocks/round26.coverage.json",
+      "next": "Continue unread patient assignment/tenant onboarding, migration/RLS and API/service paths; audit remains incomplete."
+    },
+    "round27": {
+      "status": "round27_static_review_integrated; report_qa_pending; full_audit_open",
+      "notes": "blocks/round27.md",
+      "findings": "PHAT-HIEN.json: INF-021 expanded; no new finding",
+      "coverage": "blocks/round27.coverage.json",
+      "next": "Continue unreviewed runtime API/service writes and dashboard refresh/error paths; static audit incomplete."
+    },
+    "round28": {
+      "status": "round28_static_review_integrated; report_qa_pending; full_audit_open",
+      "notes": "blocks/round28.md",
+      "findings": "PHAT-HIEN.json: CLIN-044, PHAR-003, PHAR-004; FE-002 expanded",
+      "coverage": "blocks/round28.coverage.json",
+      "next": "Continue unread exact-main API/service and dashboard paths; then plan only synthetic disposable validation for highest-risk static findings."
+    },
+    "round36": {
+      "status": "integrated_static_checkpoint_report_qa_pending",
+      "notes": "blocks/round36.md",
+      "coverage": "blocks/round36.coverage.json",
+      "result": "No new ID; four existing findings extended; one preset-fallback contract held; full source audit incomplete."
+    },
+    "round41": {
+      "status": "round41_integrated_report_qa_pending_audit_open",
+      "notes": "blocks/round41.md",
+      "findings": "INF-008 and INF-011 extended; CLIN-020 conditional release-scope note; no new ID",
+      "coverage": "blocks/round41.coverage.json",
+      "next": "Continue unread source audit; resolve V5 release scope with clinical owner; only validate migration failure windows on a disposable DB within explicit read-only scope change."
+    },
+    "round42": {
+      "status": "round42_integrated_report_qa_pending_audit_open",
+      "notes": "blocks/round42.md",
+      "findings": "SEC-010 extended; no new ID; DB-007 dedupe and timeline/ThaiKy no-finding checks recorded",
+      "coverage": "blocks/round42.coverage.json",
+      "next": "Continue unread dashboard/service source audit and exact-main API/object authorization. Validate the consent role matrix only on a disposable fixture after scope is explicitly expanded; do not inspect production credentials or PHI."
+    },
+    "booking_round46": {
+      "status": "round46_static_slice_complete_repository_audit_open",
+      "findings": "CLIN-057; SEC-027/FE-023/CLIN-024 extended or cross-referenced",
+      "coverage": "blocks/round46.coverage.json",
+      "next": "Review remaining API/service transition paths and idempotency receipts; no retry runtime test was run."
+    },
+    "auth_location_round46": {
+      "status": "round46_static_slice_complete_repository_audit_open",
+      "findings": "FE-027; FE-023 extended",
+      "coverage": "blocks/round46.coverage.json",
+      "next": "Test inactive-location recovery and auth form network failures only in a controlled local fixture."
+    },
+    "payment_round46": {
+      "status": "round46_static_slice_complete_no_new_payment_finding",
+      "findings": "Dedupe with INF-007, FIN-001/004/015/016, FIN-019 hold, DB-007",
+      "coverage": "blocks/round46.coverage.json",
+      "next": "Continue finance reconciliation and resolve shift/backlog policy with owner before changing access scope."
+    }
+  },
+  "limits": [
+    "Full source audit incomplete: 499 inventoried, 493 partially traced, 950 scanned and 8 excluded paths out of 2890. Path state is not behavioral coverage.",
+    "Code-like suffix group includes runtime, tests, tooling and styles; path ledger: 900 read, 463 partially traced, 950 scanned, 21 inventoried and 0 excluded out of 2334. This is not a percent-complete or correctness score.",
+    "Read-only production metadata was compared earlier; secrets, PHI and runtime patient data remain unread. No full app E2E, load test or complete recovery-set restore.",
+    "FE-007/008, SEC-011, CLIN-010/011 and INF-009 are static findings; no HTTP/browser/DB reproduction or production behavior test was run for this batch.",
+    "No full CI, full application E2E, accessibility certification or complete restore/replay. Existing localized test runs do not establish whole-product coverage.",
+    "Original working-tree WIP was not altered; audit evidence uses pinned main 956ba4f2, not the dirty current checkout.",
+    "RUN-036 uses synthetic ephemeral DB and fault injection; the refund endpoint was invoked directly rather than ASGI, no external payment provider/browser/production behavior was checked. PHAR-001 DOI branch is static-only; CLIN-012 depends on clinic SLA policy.",
+    "RUN-038 reproduced a configuration-versus-routing race on a disposable DB using the production assign service and a synthetic mapping writer; HTTP/full ClinicConfigService/production behavior were not tested.",
+    "Round 4 customer identity/configuration/undo findings are static traces unless individually stated; no PHI or production behavior was accessed.",
+    "RUN-039 synthetic DB probe: H7 suppresses reminder after sole partner result file is revoked while ket_qua_luc remains non-null; probe source/raw stdout not retained, no external delivery/prod.",
+    "RUN-040 pharmacy return ASGI probe uses a reusable DB template with stale seed plus 42 pinned migrations; not a fresh bootstrap, and VOIDED receivable/payable semantics need owner decision.",
+    "RUN-041 v5 FINALIZED save and unreleased result print probes were service-level; policy for phiếu v5 and structured release gate remains to be decided.",
+    "Round 5 identity/worker findings are selected static traces; multi-clinic dashboard is a product-capability gap, POS DLQ is opt-in and not yet recovery-tested.",
+    "RUN-043 reproduces a generic stale worker callback committing after lease reclaim on synthetic DB; no named business consumer/provider effect or production duplicate was demonstrated. DB template seed differed and 42 migrations were applied.",
+    "CLIN-023..027 and INF-012 remain static; FE-010 has a pure-helper reproduction only. Caps/retention policy were not validated against production volumes or owners.",
+    "v0.23 candidates are exact-main static traces across CI/deploy, tenant views, TKYK pregnancy writes, checkout hold, appointment edit, file observability and opt-in AI; no runtime/prod configuration was established.",
+    "v0.24 adds exact-main partial traces for patient identity/MPI, recall workflow, retry semantics, upload limits, plus read-only CI-DB EXPLAIN for permission views; no application-wide E2E, production exploit, row-level cross-clinic SELECT, or giant upload test.",
+    "v0.24 design gaps around recall scheduling/assignment and MPI review queue require clinic operating-policy confirmation; they are not proof of a production incident.",
+    "v0.25 INF-017 is a static trace of the 24-hour DEAD counter and shared alert evaluator; no aging-row DB test, alert integration test, or production monitor was run.",
+    "Round 8 adds exact-main static traces for result-file upload retry and two Andrology UI/access contracts; permission-admin slice corroborates SEC-012 without a new finding. No DB/runtime/production test was run.",
+    "Round 8 file-level coverage is merged into the path ledger; counts describe read/trace/scanned status, not percentage of behavior reviewed.",
+    "Round 8 adds exact-main static traces for result-file upload retry and two Andrology UI/access contracts; SEC-018 adds an intra-clinic patient-contact least-privilege candidate. The permission-admin slice corroborates SEC-012 without a new finding. No DB/runtime/production test was run.",
+    "Round 9 AI-004 is a confirmed static trace of the FastAPI shared LLM client wiring and meter guard; no app/provider/DB/production call was made. Concurrency overrun is inferred from separate check-before-call and write-after-call operations, not dynamically reproduced. The 61 full-file reads cover AI tools/graphs/orchestration/LLM/event_bus only.",
+    "Round 34 additions are static exact-main traces; tests were read but not run. No app/API/DB/provider/production/secret/PHI access.",
+    "CLIN-050/OPS-010 require a list cap to be reached; production volume is unknown. API-007 is same-clinic cross-location and requires known UUID plus partner.work.",
+    "CLIN-053 requires the reminder POST to fail after schedule PATCH commits; no fault injection or incident evidence. Doctor-board has no active dashboard caller found and requires backend service key.",
+    "Round 38 CLIN-055 and SEC-027 extension are static exact-main traces; stale state is conditional and service-history read scope was not tested with JWT/runtime. Pharmacy sale-to-stock linkage remains an unresolved product contract, not an established production discrepancy.",
+    "Round 45 additions/extensions are exact-main static traces. Production occurrence, finance policy, storage timeout race, worker outage and metric-induced decision were not observed; tests read-not-run.",
+    "Round 47 is static exact-main only; complaint/fast-reschedule retry, settings preview, UI network failures, role matrix and Supabase health were not reproduced at runtime or observed in production."
+  ],
+  "interruption": {
+    "reason": "Specialist usage limits caused earlier interruption; root continues on pinned main with durable checkpoint. This state is designed to resume from another account.",
+    "blocks_to_recover": [
+      "clinical",
+      "security",
+      "finance",
+      "database",
+      "integration"
+    ]
+  },
+  "primary_reference": {
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "ref": "Immutable Git object pinned by full SHA; do not rely on mutable origin/main for continuation."
+  },
+  "handoff": {
+    "primary_file": "CLAUDE-HANDOFF.md",
+    "checkpoint": "v0.75, round 52",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "unintegrated_review_lead": "visit_gate_rule only_when_other_staff behavior across legacy and new dispatch flows; validate before adding a finding."
+  },
+  "summary": {
+    "findings": 212,
+    "severity": {
+      "HIGH": 27,
+      "MEDIUM": 150,
+      "LOW": 35
+    },
+    "evidence_levels": {
+      "reproduced_local": 24,
+      "design_gap": 19,
+      "confirmed_static": 169
+    },
+    "main_status": {
+      "still_present_on_main": 208,
+      "partially_addressed_on_main": 2,
+      "addressed_on_main": 2
+    },
+    "main_files": 2890,
+    "main_partial_traces": 493,
+    "main_coverage": {
+      "inventoried": 499,
+      "traced": 493,
+      "read": 940,
+      "scanned": 950,
+      "excluded": 8
+    },
+    "code_like_source_files": {
+      "definition": "Pinned-tree code/web/sql/shell suffixes; includes app, tests, tooling and styles.",
+      "total": 2334,
+      "coverage": {
+        "inventoried": 21,
+        "traced": 463,
+        "scanned": 950,
+        "read": 900
+      }
+    },
+    "new_static_findings_v018": [
+      "FE-007",
+      "FE-008",
+      "INF-009",
+      "SEC-011",
+      "CLIN-010",
+      "CLIN-011"
+    ],
+    "new_findings_v019": [
+      "PHAR-001",
+      "SEC-012",
+      "CLIN-012"
+    ],
+    "new_findings_v020": [
+      "SEC-013",
+      "CLIN-013",
+      "CLIN-014",
+      "SEC-014",
+      "INF-010",
+      "SEC-015",
+      "CLIN-016",
+      "CLIN-017",
+      "CLIN-018"
+    ],
+    "new_findings_v021": [
+      "CLIN-019",
+      "CLIN-020",
+      "CLIN-021",
+      "CLIN-022",
+      "FE-009",
+      "INF-011"
+    ],
+    "new_findings_v022": [
+      "CLIN-023",
+      "FE-010",
+      "CLIN-024",
+      "CLIN-025",
+      "CLIN-026",
+      "CLIN-027",
+      "INF-012"
+    ],
+    "new_findings_v023": [
+      "INF-013",
+      "INF-014",
+      "INF-015",
+      "SEC-016",
+      "SEC-017",
+      "FIN-009",
+      "CLIN-028",
+      "CLIN-029",
+      "AI-002",
+      "AI-003"
+    ],
+    "new_findings_v024": [
+      "CLIN-030",
+      "CLIN-031",
+      "CLIN-032",
+      "CLIN-033",
+      "OPS-001",
+      "OPS-002",
+      "PAT-001",
+      "PAT-002",
+      "INF-016"
+    ],
+    "new_findings_v025": [
+      "INF-017"
+    ],
+    "main_read_files": 904,
+    "new_findings_v026": [
+      "LAB-001",
+      "CLIN-034",
+      "FE-011",
+      "SEC-018"
+    ],
+    "new_findings_v027": [
+      "AI-004"
+    ],
+    "new_findings_v028": [
+      "API-001",
+      "API-002",
+      "API-003",
+      "FE-012",
+      "FE-013",
+      "FE-014",
+      "FE-015",
+      "DB-006",
+      "DB-007",
+      "FIN-010",
+      "SEC-019"
+    ],
+    "new_findings_v029": [
+      "API-001",
+      "API-002",
+      "API-003",
+      "FE-012",
+      "FE-013",
+      "FE-014",
+      "FE-015",
+      "DB-006",
+      "DB-007",
+      "FIN-010",
+      "SEC-019",
+      "INF-018",
+      "INF-019",
+      "CI-001",
+      "FE-016",
+      "FE-017",
+      "FIN-011",
+      "FIN-012",
+      "SEC-020",
+      "PHAR-002"
+    ],
+    "new_findings_v030": [
+      "INF-019",
+      "CI-001"
+    ],
+    "new_findings_v031": [
+      "FE-016",
+      "FE-017",
+      "FIN-011",
+      "FIN-012",
+      "SEC-020"
+    ],
+    "new_findings_v032": [
+      "PHAR-002"
+    ],
+    "new_findings_v033": [
+      "CLIN-035",
+      "SEC-021",
+      "SEC-022",
+      "SEC-023",
+      "FIN-013",
+      "FIN-014"
+    ],
+    "new_findings_v034": [
+      "API-004",
+      "FIN-015",
+      "SEC-024"
+    ],
+    "reviewed_slice_v035": "round14_core_primitives; 13 files read/targeted, no new finding",
+    "reviewed_slice_v036": "round15: 4 new full source/test reads; targeted traces across pool topology and password-session caller; INF-020 corrected to 112/62 theoretical totals; SEC-025 added LOW; no runtime/prod validation.",
+    "new_findings_v036": [
+      "INF-020",
+      "SEC-025"
+    ],
+    "reviewed_slice_v037": "round16_dashboard_auth_boundary; full reads across dashboard auth/session/validation/service-role and 3 boundary suites; patient BFF targeted trace; 22/22 selected tests pass; SEC-006 corroborated, no new finding.",
+    "reviewed_slice_v038": "round17_audit_visibility_commit_boundary; 8 full reads plus 2 targeted test traces; SEC-026, INF-021, FE-018 added; static only, no application tests run.",
+    "new_findings_v038": [
+      "SEC-026",
+      "INF-021",
+      "FE-018"
+    ],
+    "reviewed_slice_v039": "round18_lifecycle_worker_finance; 3 domain slices with targeted traces across 25 files; CLIN-036 design_gap, INF-022 and FIN-016 confirmed_static; no app/DB tests run. Three scanned paths upgraded to traced; no full-file reads claimed.",
+    "new_findings_v039": [
+      "INF-022",
+      "FIN-016",
+      "CLIN-036"
+    ],
+    "reviewed_slice_v040": "round19: 14 new findings (12 MEDIUM, 2 LOW) across clinical forms/print/concurrency, notification UI/providers, patient API privacy and roster state/pool. SEC-016 expanded to assignment-guarded notes; SEC-018 extended to patient_sdt_them. Static exact-main traces; 5 full-file reads, no application tests.",
+    "new_findings_v040": [
+      "FE-019",
+      "FE-020",
+      "CLIN-037",
+      "CLIN-038",
+      "CLIN-039",
+      "SEC-027",
+      "INF-023",
+      "INF-024",
+      "INF-025",
+      "FE-021",
+      "OPS-003",
+      "SEC-028",
+      "INF-026",
+      "OPS-004"
+    ],
+    "reviewed_slice_v041": "round20: 3 additions (1 MEDIUM, 2 LOW) across ultrasound concurrent writes, recall outcome stale-state response, and personal reminder list cap; SEC-028 extended with queue room/node use of PENDING roster. 16 full-file reads plus targeted traces; no application tests. SonoBiometry contract and old full-wipe script retained as held observations.",
+    "new_findings_v041": [
+      "OPS-005",
+      "FE-022",
+      "CLIN-040"
+    ],
+    "reviewed_slice_v042": "Round 21 adds SEC-029 (patient direct PostgREST row/column boundary, MEDIUM) and consolidates the patient-feedback stale-refresh case into FE-002. A 20-visit medicine-feedback picker cap and refund accounting-date semantics remain held. Root fully read clinic_policy.py and dinh_chinh_don.py; three specialist slices reviewed dashboard contracts, patient/RLS and finance. No ClinicAI test or runtime request ran.",
+    "new_findings_v042": [
+      "SEC-029"
+    ],
+    "reviewed_slice_v043": "Round 22 adds SEC-030 and extends SEC-011 with direct PostgREST assignment evidence. The event/provider slice reproduced no new finding beyond existing INF records. Legacy service-order read APIs remain a held contract observation because active dashboard use was not found.",
+    "new_findings_v043": [
+      "SEC-030"
+    ],
+    "reviewed_slice_v044": "Round 23 pharmacy/billing lifecycle static review: no new finding; two policy/threshold observations held.",
+    "reviewed_slice_v045": "Round 23 clinical form validation adds CLIN-041; form requiredness remains a policy/design observation. Pharmacy lifecycle adds two held observations and no finding.",
+    "new_findings_v045": [
+      "CLIN-041"
+    ],
+    "reviewed_slice_v046": "Round 23 boundary refinement: generic FormEngine candidate CLIN-041 retained; versioned phiếu-khám v5 path separately traced and no finding promoted.",
+    "reviewed_slice_v047": "Round 24 multi-slice static review; five additions; FE-002 expanded; policy/timing candidates held.",
+    "new_findings_v047": [
+      "SEC-031",
+      "SEC-032",
+      "FE-023",
+      "FE-024",
+      "API-005"
+    ],
+    "new_findings_v048": [
+      "FE-025",
+      "API-006",
+      "OPS-006",
+      "OPS-007",
+      "CLIN-043",
+      "LAB-002"
+    ],
+    "reviewed_slice_v048": "Round 25: 63 path records; six findings; FE-023 expanded; tenant full-read, event no new finding, lab added static inference; exact-main only.",
+    "new_findings_v049": [
+      "FE-026",
+      "OPS-008"
+    ],
+    "reviewed_slice_v049": "Round 26: 22 path records; two findings, FE-004/FE-023 expanded; exact-main static only.",
+    "reviewed_slice_v050": "Round 27: 32 path records across config, assignment, auth and migration tooling; INF-021 expanded; exact-main static only.",
+    "new_findings_v050": [],
+    "new_findings_v051": [
+      "CLIN-044",
+      "PHAR-003",
+      "PHAR-004"
+    ],
+    "expanded_findings_v051": [
+      "FE-002"
+    ],
+    "reviewed_slice_v053": "round30 invoice/tax export, medicine alias identity and visit completion/pay-later handoff; 0 new canonical findings; four held observations; static only.",
+    "new_findings_v053": [],
+    "held_observations_v053": [
+      "OBS-TAX-EXPORT-MULTIRATE-001",
+      "OBS-TAX-REFUND-EXCEPTION-002",
+      "OBS-PHARM-CATALOG-ALIAS-003",
+      "OBS-AUDIT-ZERO-VND-REPEAT-004"
+    ],
+    "reviewed_slice_v054": "Round 31: CLIN-045 feedback-history cap and CLIN-046 queue restored into inactive room; exact-main static cross-layer traces. Ops cap/freshness deduped. Tests read, not run; no app/runtime/DB/production validation.",
+    "new_findings_v054": [
+      "CLIN-045",
+      "CLIN-046"
+    ],
+    "held_observations_v054": [
+      "CLIN-FEEDBACK-OWNER-SLA-001"
+    ],
+    "reviewed_slice_v055": "round32_patient_identity_authz_timer_timeline_clinical_form_and_fee_static_exact_main; targeted ranges, tests read-not-run",
+    "new_findings_v055": [
+      "CLIN-047",
+      "SEC-033",
+      "CLIN-048"
+    ],
+    "new_findings_v056": [
+      "SEC-034",
+      "SEC-035",
+      "CLIN-049"
+    ],
+    "round33_extended_findings": [
+      "SEC-027"
+    ],
+    "new_findings_v057": [
+      "CLIN-050",
+      "CLIN-051",
+      "CLIN-052",
+      "CLIN-053",
+      "OPS-010",
+      "API-007"
+    ],
+    "round34_extended_findings": [
+      "SEC-027"
+    ],
+    "reviewed_slice_v058": "Round 35 pharmacy inventory/dispense/return; event worker/lease/POS retry; clinical status cross-location API. Tests read-not-run; two existing findings expanded; no new ID.",
+    "new_findings_v058": [],
+    "expanded_findings_v058": [
+      "FIN-002",
+      "API-002"
+    ],
+    "new_findings_v061": [
+      "CLIN-055"
+    ],
+    "reviewed_slice_v061": "Round 38 exact-main targeted trace: booking service-history state/episode semantics, SEC-027 metadata capability extension; pharmacy inventory-sale policy remains held.",
+    "reviewed_slice_v062": "round39_company_invoice_history_profile_concurrency_roster_policy_service_orders_auth_audit; 1 new finding, 3 finding extensions, held policy questions; static exact-main only.",
+    "new_findings_v062": [
+      "FIN-018"
+    ],
+    "reviewed_slice_v063": "round40_migration_runner_transaction_controls; INF-008 extended, no new finding ID; 20 standalone BEGIN/COMMIT migration files found by pinned structural scan; static-only.",
+    "extended_findings_v063": [
+      "INF-008"
+    ],
+    "reviewed_slice_v064": "Round 41: INF-008 extended with conditional replay overwrite evidence across 8 migration config slices; INF-011 extended with provider-accepted-before-SENT retry risk; V5 release boundary held for clinical policy. No new ID, no ClinicAI tests/runtime/DB/provider/production access.",
+    "new_findings_v064": [],
+    "reviewed_slice_v065": "Round 42: SEC-010 extended to consent /links metadata; independent security reviewer advised dedup rather than SEC-036. Company-invoice FK remains under DB-007; timeline projection no distinct scope over internal journey API; ThaiKy and clinical-form route controls checked. No app/DB/API/runtime/provider/production access.",
+    "new_findings_v065": [],
+    "extended_findings_v065": [
+      "SEC-010"
+    ],
+    "reviewed_slice_v066": "Round 43 exact-main static review; new OPS-011 conditional MEDIUM and CLIN-053 extension. See blocks/round43.md and coverage.",
+    "new_findings_v066": [
+      "OPS-011"
+    ],
+    "extended_findings_v066": [
+      "CLIN-053"
+    ],
+    "reviewed_slice_v067": "Round44: two new findings (CLIN-056, SEC-036), INF-006/INF-021 extensions, full reads across auth/staff, refunds, lab, clinic config and backup/restore. Static only; full source audit open.",
+    "new_findings_v067": [
+      "CLIN-056",
+      "SEC-036"
+    ]
+  },
+  "artifacts": {
+    "html": "BAO-CAO.html",
+    "bundle": "tiep-quan-clinicai-2026-10-19.zip; MANIFEST-GOI.json and verify_bundle.py are canonical.",
+    "resume": "BAT-DAU-TU-DAY.md",
+    "next": "TIEP-TUC.md",
+    "qa": "v0.76 report-only validator 6/6 and desktop/mobile browser check passed; application behavior not validated.",
+    "integration_script": "Round53 integrated; v0.76 report-only QA and package refresh pending.",
+    "bundle_verification_command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "bundle_integrity": "Verified 360 files; CRC, member sizes and SHA-256, and outer ZIP SHA-256 pass.",
+    "html_sha256": "5e627f0deaca341ea34da20dbe5e5faa32d810b0778f199b9ed766d76ff0032e",
+    "html_checked_at": "2026-10-20T03:56:08.054Z",
+    "bundle_entries": "360 entries; all entries match MANIFEST-GOI.json.",
+    "qa_html_version": "v0.75 PASS; report-only.",
+    "claude_handoff": "CLAUDE-HANDOFF.md; included in portable audit-only ZIP.",
+    "full_report": "BAO-CAO-DAY-DU.html — báo cáo đầy đủ 545 mục (212 cũ + 333 mới đợt 2), tiếng đời thường + đề xuất bám alignment; dữ liệu gốc ở dot-2-doc-toan-bo/. Mục mới chưa nhập vào PHAT-HIEN.json."
+  },
+  "managed_main_worktree": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "status": "active detached pinned-main audit checkout; application source is Git-exact; audit-only untracked artifacts/probes may be present",
+    "keep_for": "exact-main runtime verification and continuation"
+  },
+  "runtime_summary": {
+    "baseline_selected_tests": "27 passed",
+    "baseline_mismatched_schema": "30 passed /1 failed; isolated case repeats, not main regression",
+    "broad_main_pytest": "RUN-024: 6967 existing passed +2 xfailed; 1 ACL observation passed; 9 intentional audit REDs; no unexpected existing failure",
+    "new_after_broad_run": "RUN-026 catalog: 1 RED; RUN-027 wrong-drug: 2 RED; RUN-028 existing related pharmacy controls: 62 passed",
+    "dependency": "RUN-025 npm audit reported 31 packages with advisories; runtime Next/sharp versions observed; exploit not tested and Alpine/glibc condition qualification recorded",
+    "full_application_CI": "not run; full source audit incomplete",
+    "full_restore_load_accessibility": "not run / not certified",
+    "frontend_round3": "FE-006 static trace integrated; no runtime/browser test for this candidate",
+    "invoice_export_range": "RUN-029: exact-main date helper AST execution reproduced >92-day silent truncation; no ASGI/DB/browser/XLSX/production validation",
+    "postgrest_rpc": "SEC-007 static trace: authenticated grants on SECURITY DEFINER capacity helpers accept caller clinic UUID; public Caddy gateway routes /rest/v1 to PostgREST. No JWT/DB or production test yet.",
+    "round3_selected_probes": "RUN-036: 3 passed on ephemeral exact-main DB; return-after-void rollback, skill-revoke retry stale grant, refund receipt crash/replay. Direct service/route calls; no ASGI/browser/payment provider/prod.",
+    "audit_report_qc": "RUN-074: v0.40 report passed 6/6 structural/evidence checks, including exact source hashes/excerpts and 154 findings exactly once. Report-only; no ClinicAI application test.",
+    "routing_config_race": "RUN-038: 1 passed on disposable exact-source test DB; route assignment committed to a room after service mapping was narrowed away concurrently. HTTP and production not tested.",
+    "audit_scope_v020": "Coverage is a path ledger and selected partial traces only; no full-file or full-source semantic completion. More independent slices are currently in progress.",
+    "result_revoke_h7": "RUN-039: 1 synthetic DB pass; revoking sole active partner result leaves completion marker, H7 timer is BO_QUA, no overdue notice. Conditional, no prod/external delivery; raw test source removed.",
+    "pharmacy_return_after_void_http": "RUN-040: ASGI+disposable DB 1 pass, 1 warning; HOAN 409 and GIU_LAI 200; no ledger row for medicine.returned. Stale template/42 migration caveat in retained note.",
+    "clinical_form_lifecycle": "RUN-041: 2 synthetic DB passes; finalized v5 writes without amendment and print returns un-released v2; service-level only and product policy remains open.",
+    "multi_clinic_dashboard": "Exact-main static trace: schema/backend support explicit clinic membership selection; dashboard rejects more than one active clinic; product capability gap, no tenant bypass found in this slice.",
+    "pos_dead_letter": "Exact-main static slice: DEAD rows have no API/dashboard operator recovery path; POS relay is opt-in and adapter incomplete; gate before enabling/selling POS integration.",
+    "audit_bundle_qc": "v0.40 audit-only ZIP generated and verified: 255 members, CRC, byte count and per-file SHA-256 passed. Outer SHA-256 is recorded in MANIFEST-GOI.json. Contains audit artifacts only, not repo/Git history.",
+    "worker_lease_race": "RUN-043: generic callback overlap reproduced, 1 passed in 0.20s on synthetic disposable DB; business consumer/provider side effect not tested; template seed caveat applies.",
+    "round6_worklists_booking_relay": "CLIN-023..027 and INF-012 are exact-main static traces; FE-010 pure-helper probe RUN-045 passed, no HTTP/browser/DB. No cap-volume/concurrent-booking/relay-batch runtime probe. FIN-002 and SEC-011 extended with selected static paths.",
+    "booking_naive_datetime": "RUN-048: exact-main BookingRequest accepts naive ISO datetime and _chan_dat_vao_qua_khu raises TypeError; pure helper only, no HTTP 500 observed.",
+    "round19": "Static exact-main traces only; no ClinicAI app/DB/API tests, provider calls, production checks, secrets or PHI. Report v0.40 passed structural/evidence and desktop/mobile UI QA; 255-file audit-only ZIP passed integrity verification.",
+    "round20": "Static exact-main traces; no application/DB/API/provider/production test, secret or PHI access. Report QA pending.",
+    "audit_report_qc_v041": "RUN-076: 6/6 structural/evidence checks, 157 findings exactly once, exact-main hashes/excerpts; RUN-077: desktop/mobile report UI passed. Report artifact only.",
+    "audit_bundle_qc_v041": "RUN-078 package integrity passed after 259 audit-only files; final bundle regenerated after the run record and reverified. Outer SHA-256 in MANIFEST-GOI.json.",
+    "round21": "Static exact-main review only; no ClinicAI application/DB/PostgREST/provider/production test, secrets or patient records.",
+    "round22": "Static exact-main review only; no ClinicAI application/DB/PostgREST/provider/production test, secrets or patient records.",
+    "round23_pharmacy": "Static exact-main review only; related tests were read, not run; no DB/runtime/production/PHI/secrets accessed.",
+    "round23_clinical": "Static exact-main review only; no ClinicAI runtime/test/DB/provider/production access, secrets or patient records.",
+    "round24": "Static exact-main only; no app/tests/API/DB/provider/production, no secrets/PHI; tests read, not run."
+  },
+  "production_metadata": "PROD-CHECK.json",
+  "held_observations": [
+    {
+      "id": "WORKITEM-API-001",
+      "classification": "held_low_priority_not_in_canonical_findings",
+      "severity_assessment": "P3 / low; high certainty about contract mismatch, no active dashboard caller found",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "POST to the generic BFF command with command=reassign for a valid work-item id.",
+      "impact": "BFF allowlist forwards reassign but FastAPI exposes only start/complete/skip/cancel; backend returns 404. No current dashboard caller was found, so current user impact is unproven.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/api/work-items/[id]/commands/[command]/route.ts",
+          "lines": "3-17",
+          "sha256": "d4cf3a38737fd4c756f166bd951cba663d08f2b9aa7e1b1989a23b94915a9170"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/work_items.py",
+          "lines": "212-263",
+          "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376"
+        },
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "lines": "38-56",
+          "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396"
+        }
+      ],
+      "not_promoted_reason": "Low-impact dead API affordance with no active UI caller; not included in 98-finding risk count.",
+      "next": "Decide whether reassign is supported. If not, remove it from the BFF allowlist/comment. If yes, add route/service validation and tests for capability, active same-clinic recipient, version conflict and audit event."
+    },
+    {
+      "id": "WORKITEM-POLICY-001",
+      "classification": "policy_question_not_a_finding",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Does mine_only mean work assigned to the individual, or work available to the user’s role queue? Current predicate includes assigned_to=actor OR matching actor_roles; current UI does not send mine_only. No cross-clinic/location bypass found in this slice.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "lines": "589-603",
+          "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/viec-can-xu-ly/BangViecCanXuLy.tsx",
+          "lines": "53-60",
+          "sha256": "fca456c9973a0776a4f12de54ae7461ac605e53d36be8a96b7dfafd8dc893a20"
+        },
+        {
+          "path": "supabase/migrations/20260923000007_trach_nhiem_khong_roi.sql",
+          "lines": "35-37",
+          "sha256": "4457c65f36cb3d0030e54dd0036a1e65e0a058998099f62a5c86c288ea788d38"
+        }
+      ],
+      "next": "Resolve queue-vs-person ownership policy, then align parameter/UI label and tests; do not describe this as an authorization flaw without new evidence."
+    },
+    {
+      "id": "CAND-CI-002",
+      "classification": "held_low_priority_test_selection_gap",
+      "severity_assessment": "LOW; the test is outside the explicit CI test list, but its expected inclusion and independent coverage are not established",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "evidence": [
+        {
+          "path": "scripts/ci-may.sh",
+          "lines": "129-130",
+          "sha256": "ce48320f6bddf8db24af50f9c70e1f9d1ae01ef59c05778a15ce716d499e82d6"
+        },
+        {
+          "path": "src/dashboard/package.json",
+          "lines": "9-29",
+          "sha256": "4d441eebfa932d1d28f7f0573566003c1b67abbac950131a84d3e105bd9d6cbc"
+        },
+        {
+          "path": "src/dashboard/lib/xuat-bang-excel.test.mts",
+          "lines": "1-18",
+          "sha256": "bfa8250100dbb3a45d3faae9038c9254f271058ebe89bd4344204cc135e67607"
+        }
+      ],
+      "not_promoted_reason": "Static evidence confirms the test is not in the named CI loop, but does not show this test is required by release policy or that the code path has no other coverage. No false-green behavior was reproduced.",
+      "next": "Confirm CI contract and test ownership; promote only if the omission leaves a release-critical path uncovered."
+    },
+    {
+      "id": "CAND-BOOK-SLOT-001",
+      "classification": "held_low_priority_operator_ui_semantics",
+      "severity_assessment": "LOW; static evidence shows the badge can say an override is currently active before its future start date, while the resolver still filters by date.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/booking_override_service.py",
+          "lines": "287,303-309",
+          "sha256": "81077ad2213351226519726b4d02d85a9ee7c6ab9f2c59ad1c1c7bc7bc77717a"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/OverridePolicyCard.tsx",
+          "lines": "442-445",
+          "sha256": "169037149d02af750d1d14c095a691fdfc6814fe548f5329af3ca931c0a17e3c"
+        }
+      ],
+      "not_promoted_reason": "No evidence that a booking decision is wrong or that operators rely on this badge; the resolver applies the date range. Keep as an observation until product semantics and user impact are confirmed.",
+      "next": "Confirm whether the label describes today's effective state or any future overlap, then align the query/copy and add date-boundary tests."
+    },
+    {
+      "id": "CLINIC-POLICY-001",
+      "classification": "held_reliability_question_not_a_finding",
+      "severity_assessment": "Chưa xếp mức; fallback có DB guard nhưng chưa có policy/fault test.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Khi đọc/parsing clinic policy hoặc resolver gặp exception, nhánh load_effective_policy có thể fallback về DEFAULT_POLICY/clinic policy. Cần owner nghiệp vụ xác nhận default có an toàn khi nguồn policy không đọc được; hiện chưa có bằng chứng overbooking vì DB CHECK/trigger vẫn chặn capacity.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/clinic_policy.py",
+          "lines": "158-164,183-199"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/booking.py",
+          "lines": "660-668"
+        }
+      ],
+      "not_promoted_reason": "Static candidate from a separate service-scope review; exact hashes/trigger and business impact were not fully validated in this round.",
+      "next": "Read the exact-main policy and booking route, identify which defaults affect patient-facing availability, and add a resolver failure test before promotion."
+    },
+    {
+      "id": "SONO-UI-CONTRACT-001",
+      "classification": "held_dormant_ui_contract_not_promoted",
+      "severity_assessment": "Chưa xếp mức: không tìm thấy dashboard caller truyền showSono=true; API backend vẫn tồn tại.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Nếu khối SonoBiometry được bật lại qua ClinicalRecordForm.",
+      "impact": "Component đọc/ghi /api/ultrasound nhưng BFF hiện mặc định GET về queue và POST tới /api/v1/ultrasound/draft; backend measurements tương thích nằm ở route khác. Chưa có bằng chứng người dùng hiện vào được component này.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/ultrasound.py",
+          "lines": "69-84",
+          "sha256": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx",
+          "lines": "298-324,1407-1415",
+          "sha256": "16aab719c694ab504ccc385243f92e5723b8a597e0085b85473f7f2bf9683da3"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/SonoBiometry.tsx",
+          "lines": "37-76",
+          "sha256": "f15d6407146c779d561ba5cf4bfc36e7665b0ca81b3a617eb953eca040feb087"
+        },
+        {
+          "path": "src/dashboard/app/api/ultrasound/route.ts",
+          "lines": "19-60",
+          "sha256": "79da8760384e212d4237fbe7066939cd5733e7d2bf6f74fc412279545d87a134"
+        }
+      ],
+      "not_promoted_reason": "Component mặc định ẩn và không có callsite bật showSono; chưa có bằng chứng user-facing. Giữ thành contract question để tránh coi code dormant là lỗi đang xảy ra.",
+      "next": "Trước khi mở UI, nối GET theo appointment/visit tới record projection và POST tới /api/v1/ultrasound/measurements; thêm contract + concurrent-save test cho cả BFF/backend."
+    },
+    {
+      "id": "CLEANUP-SCHEMA-001",
+      "classification": "held_fail_closed_operational_observation",
+      "severity_assessment": "Chưa xếp finding; script có guard/transaction và dự kiến rollback an toàn, nhưng dừng writer trước SQL có thể tạo gián đoạn ngắn.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Chạy script full-wipe cũ trên database đã áp dụng migration thêm payment_cycle_phan và anh_chuyen_khoan.",
+      "impact": "SQL FK graph guard có thể từ chối xóa do bảng mới còn tham chiếu payment_cycle; script shell đã dừng writer trước khi chạy SQL, sau đó khôi phục service khi thất bại. Không xóa một phần nếu transaction rollback như thiết kế; chưa chạy trên schema/prod.",
+      "evidence": [
+        {
+          "path": "scripts/don-prod-truoc-ban-giao.sh",
+          "lines": "57-80",
+          "sha256": "d88f8851b33b796d4ece305aa6062c96636623428a4d73d45c80c2f0e87bc482"
+        },
+        {
+          "path": "scripts/don-prod-truoc-ban-giao.sql",
+          "lines": "73-125",
+          "sha256": "4ce937aa6ecaa6c081774fdc0534e11a2168053de5f3845741e60e4869892139"
+        },
+        {
+          "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+          "lines": "43-54,224-250",
+          "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f"
+        },
+        {
+          "path": "supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql",
+          "lines": "88-115",
+          "sha256": "1f8263f33ce159d6c5360f1e811cc0ebbf43b39b59621bf2864896f6d4daa0e5"
+        }
+      ],
+      "not_promoted_reason": "Đây là script one-off cũ, DANG-LAM vẫn ghi trạng thái cũ; SQL có preflight và rollback nên chưa ghi nhận data-loss defect. Cần xác nhận script còn được giữ trong vận hành hay đã retired.",
+      "next": "Đánh dấu script one-off retired hoặc cập nhật FK deletion order/stop-before-run behavior; đối chiếu runbook trước khi chuyển thành finding."
+    },
+    {
+      "id": "PHARMACY-RESPONSE-VISIT-CAP-001",
+      "classification": "held_low_priority_unpaged_picker_limit",
+      "severity_assessment": "LOW; verified API/UI contract, threshold impact depends on a patient having over 20 eligible visits.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "A patient has more than 20 visits containing prescriptions and staff needs to attach feedback to a visit outside the returned page.",
+      "impact": "The picker returns at most 20 visits and the UI renders them as complete; an older eligible visit cannot be selected from that component. No evidence that a real patient exceeded the threshold.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/phan_hoi_thuoc_service.py",
+          "lines": "34-38,103-146",
+          "sha256": "23b553a09eaf575028ca901505a45ebceaef0ce175502251a4e655a138c58366"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cskh.py",
+          "lines": "161-170",
+          "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+          "lines": "167-185",
+          "sha256": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130"
+        }
+      ],
+      "not_promoted_reason": "LOW, volume-dependent missing page indicator; list-cap failures already recur across FE-003, FE-020, FE-022 and FIN-002. Retain for product triage and avoid a duplicate cross-cutting count until caps are consolidated.",
+      "next": "Either add cursor/has_more and a visible older-visit search, or state the 20-visit window; add a fixture with 21+ eligible visits and test selecting the oldest."
+    },
+    {
+      "id": "FIN-REFUND-ACCOUNTING-DATE-001",
+      "classification": "held_accounting_policy_question",
+      "severity_assessment": "Unclassified pending clinic/accounting policy; code semantics are statically clear but correct business date is not.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "A bank refund is requested on day/shift N, remains pending through close, then is confirmed paid on day/shift N+1.",
+      "impact": "Current report groups the completed refund by created_at while the debt ledger records occurred_at at confirmation; depending on accounting basis, daily report and ledger can assign the cash event to different periods. No runtime reproduction or approved accounting rule was available.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hoan_tien_service.py",
+          "lines": "218-238",
+          "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8"
+        },
+        {
+          "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+          "lines": "236-256,989-1009",
+          "sha256": "79326e846d211a73807712d7c06e298c705d20f2ccf726a24f1f2a039017629e"
+        },
+        {
+          "path": "src/clinicai/events/consumers/so_no.py",
+          "lines": "93-110",
+          "sha256": "c9d05af3fffcfbfa92d6184e63984ce396012d7b16ee98deed4d666fed8f112b"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/reports.py",
+          "lines": "150-229",
+          "sha256": "576280ef751ace798713de4fccf75b83984502cd3b36722b6d306466572611d8"
+        },
+        {
+          "path": "src/clinicai/services/chot_so_ca_service.py",
+          "lines": "7-13",
+          "sha256": "ce4ad47b0e78e5deaf88e0ca2e43ec602cbb6bfd409c33a6f1f19a284022dc35"
+        },
+        {
+          "path": "src/clinicai/services/quay_thu_service.py",
+          "lines": "1207-1250,628-650",
+          "sha256": "4b9e52c3c8acb212fa35347e6c0f25a738348aeb119a7f6a86c06d10e7c2fd52"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/LichSuThu.tsx",
+          "lines": "241-244",
+          "sha256": "cb5e73c5d6862c7fd09a71f174dd85679a9b33e88ce45d1eaddacfe4abb1c947"
+        }
+      ],
+      "not_promoted_reason": "A completed cash refund could be reported by either request date or payment-confirmation date depending on the approved accounting policy; do not label either choice incorrect before that policy is specified.",
+      "next": "Owner decides whether daily reports use request date, completion date, or separate pending/completed columns. Then align report, refund history, debt ledger, close-shift totals and two-day boundary tests."
+    },
+    {
+      "id": "SERVICE-ORDER-LEGACY-READ-API-001",
+      "classification": "held_legacy_api_contract_mismatch_no_current_dashboard_caller",
+      "severity_assessment": "LOW/P3; the old FastAPI read contracts are statically inconsistent with current canonical writes, but no current TSX caller was found and the dashboard BFF route is disabled.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "An internal client calls a legacy service-order GET endpoint for an order/draft written through the canonical service_order lifecycle.",
+      "impact": "The legacy read path may return missing/stale rows because it queries work_item.payload or service_order_draft. Current dashboard BFF paths are marked disabled/410, Caddy does not expose the API publicly, and no direct TSX caller was found; present customer impact is therefore unproven.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/service_order_service.py",
+          "lines": "85-120,263-321,553-574",
+          "sha256": "7769a29159ba4b807da90fea28694d1868458a5056ea1513b68dda7a9bfcf732"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/work_items.py",
+          "lines": "482-493,553-566,642-660",
+          "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376"
+        },
+        {
+          "path": "src/clinicai/services/chi_dinh_service.py",
+          "lines": "135-301",
+          "sha256": "58bf83daa0d2aeee93a24011cc47ab7a95314cc31a7e58991b709b1d3ab1071e"
+        },
+        {
+          "path": "src/clinicai/services/luot_kham_service.py",
+          "lines": "2178-2244",
+          "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103"
+        },
+        {
+          "path": "src/dashboard/lib/route-da-tat.ts",
+          "lines": "1-24",
+          "sha256": "820b1abf94ab2ebb771112ff43c52afde68c6fc29dd4ac887991415fff1b4040"
+        },
+        {
+          "path": "caddy/Caddyfile",
+          "lines": "198-201",
+          "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739"
+        }
+      ],
+      "not_promoted_reason": "No current dashboard caller found; BFF routes are intentionally disabled and no public Caddy API route exists. The code contract mismatch alone does not prove active user impact.",
+      "next": "Either retire these internal legacy GET endpoints with an explicit 410/deprecation contract, or read from canonical service_order and add an API contract test covering orders created by both current writers."
+    },
+    {
+      "id": "PHARMACY-BIO-SERVICE-MAP-001",
+      "classification": "held_business_contract_question_suggestion_vs_allowlist",
+      "severity_assessment": "Unclassified; schema/comment calls the mapping a suggestion, so rejecting unmapped service_price_id is not yet a proven contract.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "A caller submits a service_price_id belonging to a same-clinic sellable VATU_GOI_Y group but not listed under the selected service_code mapping.",
+      "impact": "The write path checks clinic, group, sellable and approval state, but does not enforce the UI suggestion mapping. If the mapping is an allowlist, the service can accept an item the UI would not present; if it is guidance only, current behavior may be intended. No invalid production row was inspected.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/bio_chi_dinh_service.py",
+          "lines": "67-78,270-290",
+          "sha256": "0e4ace302441fee102f99cb56fb51ee62e6415a17f1d803f823f245f958f4ad3"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/DauDoChiDinh.tsx",
+          "lines": "6-13,106-122",
+          "sha256": "16e8ff197619b24bd0570e3c938c2f50dfa8b5891b1b2804b2edc31ddf1bc9f6"
+        }
+      ],
+      "not_promoted_reason": "Migration/comment names the map as a suggestion and product contract is not confirmed; no demonstrated financial or operational harm.",
+      "next": "Owner decides suggestion versus hard allowlist. If hard, validate the service_code/service_price_id pair server-side and add a same-clinic unmapped-ID denial test; otherwise label the UI mapping as guidance."
+    },
+    {
+      "id": "PHARMACY-ORDER-HISTORY-CAP-001",
+      "classification": "held_low_priority_unpaged_history_cap",
+      "severity_assessment": "LOW; behavior is static and only affects records beyond 200; no threshold occurrence is known.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "A patient has more than 200 eligible order-history rows and staff needs a row older than the service limit.",
+      "impact": "Service returns at most 200 rows and logs a warning; the UI only signals more when co_them is true, so reaching the cap may look like the full history. No real patient count or lost action was checked.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ban_theo_don_service.py",
+          "lines": "258-279,314-369",
+          "sha256": "6cc0c6e8f6b70eca3d6ac02933d8381cf1e632a81fee423eaff6330f4771dec4"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/pharmacy/LichSuDonThuoc.tsx",
+          "lines": "1-260",
+          "sha256": "76385db3aa59823eba052ea170052dee25cc02ac6016a6fd123dcf6a6de7f6f9"
+        }
+      ],
+      "not_promoted_reason": "Threshold-dependent UI completeness issue; recurring page-cap patterns are already captured elsewhere and no >200-row case is evidenced.",
+      "next": "Either add cursor/has_more with a visible older-history control or document the 200-row window; add a synthetic 201-row fixture and select the oldest record."
+    },
+    {
+      "id": "CLINICAL-FORM-REQUIREDNESS-001",
+      "classification": "held_clinical_policy_design_gap",
+      "severity_assessment": "Not classified until a clinician/product owner defines required and conditional fields by form/version.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Dynamic forms have no requiredness metadata. Empty fields are surfaced as reminders, while completion can still reach READY and emit the result event. Which fields must block completion for each clinical form and scenario?",
+      "impact": "Without an approved required-field policy, the audit cannot distinguish an intentional warning from an incomplete clinical record. No field was labelled clinically mandatory in the inspected contract; no patient record or production workflow was examined.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "lines": "768,868-899,1552-1570",
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0"
+        },
+        {
+          "path": "src/dashboard/lib/phieu-ket-qua.ts",
+          "lines": "137-149",
+          "sha256": "2d9e6ba7135f82cbf3eb5585a322b15bba48f661501a55554fe3b4c23ad7316a"
+        }
+      ],
+      "not_promoted_reason": "No clinically approved requiredness/conditionality contract was found; labeling current warning behavior a defect would assume medical policy.",
+      "next": "Clinical owner defines required/conditional fields by form and version. Then validate server-side and test warning-only versus blocked completion, including conditional branches and revision/event behavior."
+    },
+    {
+      "id": "REPORT-OPS-SCOPE-001",
+      "classification": "held_scope_policy_question",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "report.view có được gọi /reports/toan-canh theo comment API, hay phải giống UI ops.view?",
+      "impact": "API chấp nhận report.view/ops.view trong khi UI chỉ ops.view; payload có staff/auth UUID và event summary.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/reports.py",
+          "lines": "81-86",
+          "sha256": "576280ef751ace798713de4fccf75b83984502cd3b36722b6d306466572611d8"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ops/ToanCanh.tsx",
+          "lines": "44-54",
+          "sha256": "15eaa6b4d727984750cd2e434c5d41903a72c34ffa87fa8a71e46dfbe6caaaa8"
+        },
+        {
+          "path": "src/clinicai/permissions/catalogue.py",
+          "lines": "635-641",
+          "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158"
+        },
+        {
+          "path": "src/clinicai/permissions/catalogue.py",
+          "lines": "677-683",
+          "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158"
+        },
+        {
+          "path": "supabase/migrations/20260925000015_lego_21.sql",
+          "lines": "88-92",
+          "sha256": "4add5ba36487c6beea1a2d5ef7bf15dd4ceb29792fc6732be950b5dd45f8dc36"
+        },
+        {
+          "path": "src/tests/services/test_lego_21_db.py",
+          "lines": "145-156",
+          "sha256": "b85182ed994fdafd7dc2a284cae8be2440fb99695f4a1971805c7b935162decf"
+        }
+      ],
+      "next": "Owner chốt capability/projection; đồng bộ UI/API.",
+      "not_promoted_reason": "Comment API nêu cả báo cáo; policy chưa xác nhận report.view bị cấm."
+    },
+    {
+      "id": "ROSTER-DISPLAY-NAME-DEDUP-001",
+      "classification": "held_conditional_ui_observation",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Roster có thể có nhân viên cùng tên trong cùng vị trí/ca không?",
+      "impact": "UI dedupe theo tên dù có staff_id; chưa có dữ liệu duplicate.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/home/WorkRosterTable.tsx",
+          "lines": "21-35",
+          "sha256": "e1c741fff9726fca89d0e604da0b1ce77addfa5fb4f4556db34ab7abf0c8b262"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/home/WorkRosterTable.tsx",
+          "lines": "60-80",
+          "sha256": "e1c741fff9726fca89d0e604da0b1ce77addfa5fb4f4556db34ab7abf0c8b262"
+        },
+        {
+          "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+          "lines": "885-899",
+          "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186"
+        },
+        {
+          "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+          "lines": "975-990",
+          "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186"
+        }
+      ],
+      "next": "Dùng staff_id/disambiguation; test fixture trùng tên.",
+      "not_promoted_reason": "Phụ thuộc dữ liệu, chưa thấy occurrence."
+    },
+    {
+      "id": "OPS-OPENING-DATA-WIPE-001",
+      "classification": "held_one_off_destructive_script_scope",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Script xóa trước khai trương được retire sau khi mở cửa chưa?",
+      "impact": "Guard chỉ dừng khi có FINALIZED/AMENDED; sau đó xóa patients/appointments/visits. Chưa có bằng chứng chạy sai.",
+      "evidence": [
+        {
+          "path": "scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql",
+          "lines": "33-39",
+          "sha256": "c6dfa44a6e24a19da1c682dc9052675c058fef24faeb6718d05c9dd5070392d4"
+        },
+        {
+          "path": "scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql",
+          "lines": "75-101",
+          "sha256": "c6dfa44a6e24a19da1c682dc9052675c058fef24faeb6718d05c9dd5070392d4"
+        }
+      ],
+      "next": "Retire sau khai trương hoặc thêm marker, dry-run và xác nhận dữ liệu synthetic.",
+      "not_promoted_reason": "One-off pre-opening; caller/incident chưa xác minh."
+    },
+    {
+      "id": "CLINICAL-RX-PRINT-PENDING-SAVE-001",
+      "classification": "held_timing_window_no_runtime_ordering",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Print có phải đợi autosave durable trước khi GET không?",
+      "impact": "Link print mở ngay trong debounce 1.5s, loader đọc persisted state; flush/keepalive tồn tại nên thứ tự chưa rõ.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/KhoiDonThuocBanTuVan.tsx",
+          "lines": "39-60",
+          "sha256": "7e2b66aa413b90e9b6c05c3849e2c24634b74c371b461c5edb4b19ef81ee8707"
+        },
+        {
+          "path": "src/dashboard/lib/tu-luu.ts",
+          "lines": "161-169",
+          "sha256": "65cb3236b80eb5f10f6725aa48fe0b2e4b2bba1ec81c807b18a6194bd362ace0"
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+          "lines": "373-415",
+          "sha256": "aa5cec6028ecc98222a0da5577f198a055ed6e41be5dfb2bc8dc352ab1946708"
+        }
+      ],
+      "next": "Synthetic browser request-order test; chờ flush/revision trước khi in.",
+      "not_promoted_reason": "Không chứng minh GET trước PUT/commit."
+    },
+    {
+      "id": "CLINICAL-CONSULT-NOTE-CONCURRENCY-001",
+      "classification": "held_append_only_history_preserves_prior_note",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Cần conflict UX cho whole-note last-writer-wins dù history giữ bản trước?",
+      "impact": "Stale save có thể thành latest nhưng history append-only giữ prior note; chưa có concurrent test.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/OTuVanTuLuu.tsx",
+          "lines": "52-89",
+          "sha256": "c384038c425f863cdf6df19ec45ba4d4476d41380272ecaedc3238468404f645"
+        },
+        {
+          "path": "src/clinicai/services/luot_kham_service.py",
+          "lines": "1975-2010",
+          "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103"
+        }
+      ],
+      "next": "Nếu policy cần, dùng CAS/conflict UX và xác minh khôi phục history.",
+      "not_promoted_reason": "Đường riêng CLIN-039; chưa chứng minh mất dữ liệu."
+    },
+    {
+      "id": "LAB-RELEASE-HELPER-POLICY-DRIFT-001",
+      "classification": "held_orphan_helper_test_policy_mismatch",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "GROUP_A có bắt buộc trước khi báo kết quả?",
+      "impact": "Orphan helper/test/spec yêu cầu GROUP_A; backend cho phép notify kết quả đã chốt bất kể group.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/lab-release.ts",
+          "lines": "1-54",
+          "sha256": "098eaf75ae19f408894dec98510984852e7c94db4290b667c57c47ac1506c7dc"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/lab.py",
+          "lines": "288-314",
+          "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494"
+        },
+        {
+          "path": "docs/lab_triage_spec_v1.md",
+          "lines": "9-11",
+          "sha256": "efe595e4ee412bcf0b100197eb233877fa1ecb36682d2cdf1731a85216fd03d8"
+        }
+      ],
+      "next": "Owner chốt policy rồi cập nhật/bỏ helper-test-spec.",
+      "not_promoted_reason": "Không có app caller cho helper; chưa phải runtime behavior."
+    },
+    {
+      "id": "OPS-TEST-CLEANUP-PROD-ENV-001",
+      "classification": "held_operational_safety_observation",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Cleanup test có được bảo đảm không chạm data thật dù dùng .env.prod?",
+      "impact": "Có backup/preview/confirm/transaction nhưng không kiểm mọi patient là synthetic.",
+      "evidence": [
+        {
+          "path": "scripts/xoa-du-lieu-test.sh",
+          "lines": "19-29",
+          "sha256": "95a63dd949e4df4af7e4e9dc31458c5c62ea8fb0fbd1c97d48c8314b6a259cd8"
+        },
+        {
+          "path": "scripts/xoa-du-lieu-test.sh",
+          "lines": "31-87",
+          "sha256": "95a63dd949e4df4af7e4e9dc31458c5c62ea8fb0fbd1c97d48c8314b6a259cd8"
+        }
+      ],
+      "next": "Tách target test khỏi prod env; yêu cầu marker và test negative.",
+      "not_promoted_reason": "Guard hiện có; chưa có lần chạy sai."
+    },
+    {
+      "id": "OPS-STAFF-CSV-SQL-INPUT-001",
+      "classification": "held_trusted_admin_input_boundary",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "CSV cấp staff luôn do admin tin cậy?",
+      "impact": "staff_id nội suy SQL không validate UUID; risk phụ thuộc provenance CSV.",
+      "evidence": [
+        {
+          "path": "scripts/provision-staff-logins.sh",
+          "lines": "87-94",
+          "sha256": "a31cad6998237f71546203e58711775e3909842ea82f078cc72797a476143489"
+        },
+        {
+          "path": "scripts/provision-staff-logins.sh",
+          "lines": "121-122",
+          "sha256": "a31cad6998237f71546203e58711775e3909842ea82f078cc72797a476143489"
+        }
+      ],
+      "next": "Validate UUID/parameterize và chốt nguồn CSV.",
+      "not_promoted_reason": "Chưa có bằng chứng input không tin cậy."
+    },
+    {
+      "id": "OPS-DISPLAY-ACCOUNT-SCOPE-001",
+      "classification": "held_provisioning_scope_policy",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Tạo display account có cần clinic/location explicit?",
+      "impact": "Script lấy phần tử đầu và đổi membership của email; có thể sai ở DB nhiều clinic/tái dùng email.",
+      "evidence": [
+        {
+          "path": "scripts/tao-tai-khoan-man-hinh.sh",
+          "lines": "59-62",
+          "sha256": "f6d5fa80dfbf5b013d114c8a68f77a7e264df4ff68124c287249b83a2173509a"
+        },
+        {
+          "path": "scripts/tao-tai-khoan-man-hinh.sh",
+          "lines": "122-136",
+          "sha256": "f6d5fa80dfbf5b013d114c8a68f77a7e264df4ff68124c287249b83a2173509a"
+        }
+      ],
+      "next": "Bắt truyền clinic/location, cập nhật đúng membership; test multi-clinic.",
+      "not_promoted_reason": "Caller/data context chưa xác minh."
+    },
+    {
+      "id": "GOLDEN-RECORD-SCAFFOLD-001",
+      "classification": "held_dormant_architecture_scaffold",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "GoldenRecordEngine có caller sản phẩm không?",
+      "impact": "Resolver scaffold trả None; chưa thấy durable queue hoặc app caller.",
+      "evidence": [
+        {
+          "path": "src/clinicai/golden_record/engine.py",
+          "lines": "1-94",
+          "sha256": "d745ce1f7a3fb67afbabd0df9ef2165a7eb458cadbf46403f2a2805ff5a644e0"
+        }
+      ],
+      "next": "Nối resolver/queue/review hoặc trả unsupported rõ.",
+      "not_promoted_reason": "Chưa có product caller."
+    },
+    {
+      "id": "CASHIER-UNDO-AMOUNT-DISPLAY-001",
+      "classification": "held_low_priority_ux_observation",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Dialog undo nên ghi gross hay net amount?",
+      "impact": "Dialog có thể hiện gross sau discount; backend vẫn nhắm đúng payment cycle, chưa có bằng chứng sai sổ.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+          "lines": "377-378",
+          "sha256": "733c8dffc1cc0da8387c65919f57919f14297b17256ecab3e41d43a00853a199"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+          "lines": "431-435",
+          "sha256": "733c8dffc1cc0da8387c65919f57919f14297b17256ecab3e41d43a00853a199"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/NutHoanTac.tsx",
+          "lines": "77-95",
+          "sha256": "de61812f788a0d39a49db02932eca5b7f4916199fb69b4feacb2a485e6c0a340"
+        }
+      ],
+      "next": "Chốt label gross/net và thêm UI test.",
+      "not_promoted_reason": "Chỉ UX note, backend contract phù hợp."
+    },
+    "CLIN-ROLE-CAPABILITY-001: permission-capable MANAGEMENT can be assigned as attending doctor, while doctor-name/signature resolver filters doctor roles; domain semantics unclear.",
+    "TENANT-RLS-TEST-SCOPE-001: tenant test does not assert that every relevant table has RLS enabled; no live table leak established.",
+    "TEST-CONTAINER-CLEANUP-001: local SQL test runner removes a fixed container name; no production impact established.",
+    "OPS-UFW-BOOTSTRAP-001: bootstrap warning requires caller/runtime context before promotion.",
+    {
+      "id": "CAND-EVENT-OPS-TENANT-METRICS-001",
+      "classification": "held_tenant_scope_policy_question_not_a_finding",
+      "severity_assessment": "Chưa xếp mức; route metrics, caller và multi-clinic policy chưa xác minh.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Nếu route ops.view được dùng bởi staff ở clinic khác trong môi trường multi-clinic, và số liệu cần clinic scope.",
+      "impact": "/ops/su-kien trả count domain_event và view sức khỏe delivery không lọc clinic_id theo static trace. Có thể lộ metrics vận hành giữa clinic; không phải bằng chứng lộ dữ liệu bệnh nhân hay production exposure.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/ops.py",
+          "lines": "92-124",
+          "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63"
+        },
+        {
+          "path": "supabase/migrations/20260923000001_domain_event.sql",
+          "lines": "214-223",
+          "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156"
+        },
+        {
+          "path": "src/clinicai/permissions/catalogue.py",
+          "lines": "678-683",
+          "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158"
+        }
+      ],
+      "not_promoted_reason": "No active dashboard caller found in this slice; current production is described as one clinic; system-wide versus clinic-local metrics policy is unresolved. No DB/user-scope test ran.",
+      "next": "Confirm active caller, clinic count and metrics policy. If metrics are clinic-local, apply clinic predicate and test with two synthetic clinics."
+    },
+    {
+      "id": "LAB-RELEASE-CAPABILITY-001",
+      "classification": "held_dormant_ui_backend_contract_not_promoted",
+      "severity_assessment": "Chưa xếp mức; không thấy production caller của UI helper trong pinned source.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Khi nào quyết định release UI cho LAB GROUP_C đã finalized cần cho phép? UI helper từ chối GROUP_C sau finalize trong khi backend route có thể chấp nhận; chưa thấy production caller nên chưa biết hợp đồng đang tác động.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/lab-release.ts",
+          "lines": "15-54",
+          "sha256": "098eaf75ae19f408894dec98510984852e7c94db4290b667c57c47ac1506c7dc"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/lab.py",
+          "lines": "303-341",
+          "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494"
+        }
+      ],
+      "not_promoted_reason": "Reference search found boundary test but no production UI caller; active use and policy are unconfirmed.",
+      "next": "Resolve owner semantics and caller status; then align UI helper/backend contract and add behavior tests."
+    },
+    "OPS-REFRESH-SCOPE-001: PortalBoard ‘Làm mới’ refreshes /api/ops/summary only, while Toàn cảnh metrics arrive as server-rendered props. Whether users expect it to refresh metrics is an unresolved UI contract; no stale production observation, so no finding.",
+    "OPS-ERROR-VOLUME-001: More than 100 visible unresolved grouped errors is the condition for OPS-008 impact; production group count has not been measured.",
+    {
+      "id": "AUTH-RECOVERY-USERNAME-001",
+      "classification": "held_low_priority_account_recovery_policy",
+      "severity_assessment": "LOW candidate; clinic account/recovery policy is not established.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Login/account setup normalize a bare username, while password recovery requires a full email and does not apply the same normalization. Should staff who use a bare username have a self-service recovery path?",
+      "impact": "A staff member who knows only the username may need an administrator to reset access; no incident was verified.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "lines": "24-31",
+          "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040"
+        },
+        {
+          "path": "src/dashboard/lib/ten-dang-nhap.ts",
+          "lines": "16-30",
+          "sha256": "d33ac9ebcb9c0f4ae98bfb19219fa35348e4e04191178959fd0287a58b41abfc"
+        },
+        {
+          "path": "src/dashboard/app/(auth)/forgot-password/ForgotPasswordForm.tsx",
+          "lines": "20-31,73-90",
+          "sha256": "a8f656432cf6a53906665d6aa229179cba3cc0c827f57919f5a3f47901c05f3b"
+        }
+      ],
+      "not_promoted_reason": "Some clinic usernames use non-routable .local identities; account policy and reachable recovery channel are unknown. Do not assume every login identifier is an email address.",
+      "next": "Confirm identity/recovery policy and account types; test supported path using synthetic accounts."
+    },
+    {
+      "id": "MIGRATION-DRYRUN-001",
+      "classification": "held_low_priority_dry_run_contract_question",
+      "severity_assessment": "LOW; only catalog objects may be created when the migration ledger is absent.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "On a database without the migration ledger, the dry-run script creates the migration schema/table before entering the list-only branch. Should dry-run be strictly read-only?",
+      "impact": "A dry run can leave empty bookkeeping objects, which is surprising but does not apply a migration or alter business rows.",
+      "evidence": [
+        {
+          "path": "scripts/apply-pending-migrations.sh",
+          "lines": "81-88,118-120",
+          "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721"
+        }
+      ],
+      "not_promoted_reason": "No migration/business data is applied; contract is low impact and no disposable DB catalog test was run.",
+      "next": "Define catalog-immutable dry-run policy; if required, move ledger setup behind apply mode and test an empty catalog."
+    },
+    {
+      "id": "CLINIC-CONFIG-PARTIAL-SAVE-001",
+      "classification": "held_product_contract_question",
+      "severity_assessment": "Chưa xếp mức; depends on whether one Save action promises atomicity across room name and floor.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "CoSoPhong saves room name and floor with two sequential PUTs. If the first succeeds and the second fails, should the product preserve the partial update or roll back both fields?",
+      "impact": "The database may contain the new name with the old floor while the UI reports a generic save error and does not reload. No user incident or policy expectation was verified.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/clinic-config/CoSoPhong.tsx",
+          "lines": "140-155,449-471",
+          "sha256": "42676851987ec0d80966a4c92e3a86dd3f83808e8d54e191b8a499ffffa1da96"
+        }
+      ],
+      "not_promoted_reason": "The UI combines two changes, but product semantics do not establish whether partial save is intended. It is separate from INF-021 audit atomicity.",
+      "next": "Settle the Save contract; if atomic, expose one backend command/transaction and test second-request failure."
+    },
+    {
+      "id": "CSKH-ROSTER-CAP-001",
+      "classification": "held_volume_and_ordering_candidate",
+      "severity_assessment": "Chưa xếp mức; chưa biết quy mô roster theo clinic và chưa xác nhận hợp đồng có chủ đích về giới hạn 5.000 dòng.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Một clinic có thể có trên 5.000 ca trực tương lai và tuần roster đã công bố trong cửa sổ query không? Có cần trả toàn bộ cho phép suy trạng thái khách?",
+      "impact": "ManKhachHangService UNION ALL work_roster + roster_week rồi LIMIT 5000 không ORDER BY. Nếu tổng hàng vượt trần, phần bị bỏ là không xác định; các tập ca trực/tuần dùng để suy trạng thái CSKH có thể thiếu dữ liệu và làm nhãn “mất bác sĩ/đã công bố tuần” sai.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/man_khach_hang_service.py",
+          "lines": "102-137",
+          "sha256": "f42edad47d7c011d06fad69b3f45b58d865c0d1f6a9d85124b127251c9ed4331"
+        }
+      ],
+      "not_promoted_reason": "Không đọc dữ liệu production hoặc đo volume; chưa thấy bằng chứng clinic hiện tại chạm cap. Cần policy/volume trước khi kết luận tác động.",
+      "next": "Xác nhận access pattern và ngưỡng clinic thực tế bằng metric tổng hợp không chứa PHI. Nếu có thể vượt cap, chuyển sang truy vấn phân trang/exists phù hợp hoặc bỏ giới hạn với kế hoạch kiểm soát chi phí; thêm synthetic boundary test."
+    },
+    {
+      "id": "OBS-TAX-EXPORT-MULTIRATE-001",
+      "classification": "held_business_contract_question",
+      "severity_assessment": "Chưa xếp mức; đường xuất XLSX khác biệt đã xác nhận tĩnh nhưng hợp đồng nhập MISA/kế toán chưa biết.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Chọn chế độ giữ một hóa đơn khi các dòng có nhiều thuế suất rồi tải XLSX MISA.",
+      "impact": "Luồng thuế nhiều suất có thể ra mẫu một thuế suất với ô thuế suất trống và VAT tổng; người nhận file có thể không nhập/đối soát đúng. Chưa có bằng chứng MISA từ chối hoặc dữ liệu kế toán sai.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx",
+          "lines": "157-170",
+          "sha256": "298ebc61c41afc4608f7ed6cf0a72496127932ef30a8c39f7b6aa888d5a41a31"
+        },
+        {
+          "path": "src/clinicai/services/thue_gtgt.py",
+          "lines": "140-147, 234-275",
+          "sha256": "a9a9dcaee43e850916ecdc0635527b95b014a7184243ca4bfdbbc43c8e78f824"
+        },
+        {
+          "path": "src/clinicai/services/xuat_hoa_don_service.py",
+          "lines": "39-41, 294-354",
+          "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145"
+        }
+      ],
+      "not_promoted_reason": "Chưa xác nhận hợp đồng MISA hoặc cách kế toán muốn hạch toán nhiều thuế suất trong một hóa đơn; source comment cũng ghi template multi-rate chờ kế toán xác nhận.",
+      "next": "Kế toán xác nhận mẫu nhập và tổng thuế được chấp nhận; nếu chưa, chặn tải ở chế độ này hoặc chỉ cho tách hóa đơn. Thêm test workbook đọc lại chính các cột thuế và import contract."
+    },
+    {
+      "id": "OBS-TAX-REFUND-EXCEPTION-002",
+      "classification": "held_accounting_policy_question",
+      "severity_assessment": "Chưa xếp mức; cảnh báo mất khỏi artifact tải được là xác nhận tĩnh, tác động kế toán phụ thuộc chính sách.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Có khoản refund COMPLETED không gắn dòng hóa đơn, sau đó người dùng tải file xuất hóa đơn.",
+      "impact": "Preview báo số hoàn cần kiểm lại nhưng XLSX không mang cảnh báo/exception; người nhận XLSX tách khỏi UI không thấy điều kiện cần đối soát. Chưa biết cách hạch toán đúng cho refund này.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/xuat_hoa_don_service.py",
+          "lines": "179-197, 237-245, 280-282, 316-354",
+          "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx",
+          "lines": "79-84, 218-220, 236",
+          "sha256": "298ebc61c41afc4608f7ed6cf0a72496127932ef30a8c39f7b6aa888d5a41a31"
+        }
+      ],
+      "not_promoted_reason": "Chưa xác nhận nghiệp vụ kế toán đối với hoàn tiền không gắn dòng; đây là khoảng trống truyền cảnh báo từ preview sang workbook, chưa chứng minh tổng thuế/đầu vào sai.",
+      "next": "Chốt chính sách với kế toán: chặn xuất khi có ngoại lệ hoặc thêm sheet/dòng ngoại lệ có định danh, số tiền và trạng thái đối chiếu; acceptance test phải mở file độc lập với UI."
+    },
+    {
+      "id": "OBS-PHARM-CATALOG-ALIAS-003",
+      "classification": "held_catalog_identity_question",
+      "severity_assessment": "Chưa xếp mức; mapping alias tĩnh đã xác nhận nhưng dữ liệu catalog phòng khám và tính thay thế lâm sàng chưa kiểm.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Mẫu kê đơn dùng rx_030 hoặc rx_031 và resolver tìm một mục catalog theo tên ánh xạ.",
+      "impact": "Hai thương hiệu nguồn khác nhau cùng quy về một nhãn catalog “Dunium (clomiphen citrat)”; nếu clinic cần giữ thương hiệu/nhà sản xuất, danh tính hiển thị có thể không đủ phân biệt. Không kết luận thuốc sai hoặc bệnh nhân bị ảnh hưởng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/phieu_kham/anh_xa_danh_muc.py",
+          "lines": "258-259",
+          "sha256": "5a5e5ef6f1bdcd7f5aa1c8f355203db8ac919d3f4c9a2c3b6b7f1e59f0a43c64"
+        },
+        {
+          "path": "src/clinicai/phieu_kham/dinh_nghia/tham_chieu_nguon.json",
+          "lines": "618, 628",
+          "sha256": "26a839858be9703adde8d705815ec93273d66a7bb67282140e19ba90027045ce"
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "lines": "733-770",
+          "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af"
+        }
+      ],
+      "not_promoted_reason": "Không xem catalog thực, UI lựa chọn/đơn kê tại phòng khám, nhà sản xuất hoặc policy cho phép thay thế tương đương. Cùng hoạt chất/nồng độ có thể là mapping có chủ đích.",
+      "next": "Dược sĩ/chủ catalog xác nhận equivalence policy. Nếu phân biệt thương hiệu, mapping phải giữ canonical drug ID, hoạt chất, hàm lượng, dạng dùng và brand/manufacturer; test hai source ID không nhập nhằng."
+    },
+    {
+      "id": "OBS-AUDIT-ZERO-VND-REPEAT-004",
+      "classification": "held_event-semantics_question",
+      "severity_assessment": "Chưa xếp mức; mỗi lần gọi thành công ghi event là tĩnh, nhưng việc lặp có thể là một actor action hợp lệ.",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Nhân viên xác nhận lại một hóa đơn 0đ cùng revision bằng một Idempotency-Key mới.",
+      "impact": "Timeline có thể chứa nhiều sự kiện cùng kết quả; có thể gây nhiễu khi đọc lịch sử, hoặc đúng nếu audit trail cần ghi từng lần xác nhận. Bảng thu ngân đang gom theo revision nên chưa thấy ảnh hưởng đến trạng thái vận hành.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/chot_0d.py",
+          "lines": "29-54",
+          "sha256": "72f392a55f3390430e5ab67a806cca34579cce52741f8e658b3d60a10e128409"
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "lines": "729-739, 875-895",
+          "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1"
+        },
+        {
+          "path": "src/tests/services/test_quay_thu_mot_hoa_don_db.py",
+          "lines": "425-445",
+          "sha256": "3faa766c2f9d88d309f63956b5fd917793d54bbea99129269b91c429adc730b0"
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "lines": "100-125",
+          "sha256": "5170b060aa02d09572916a8b1d4da1f3ea42c10bd5ca2cfa67d9cceaa3828ca2"
+        },
+        {
+          "path": "src/clinicai/services/cashier_board_service.py",
+          "lines": "698-770",
+          "sha256": "469db7b83c873eef9f0065cb93de53d67f0ff061995190841225405594097f6e"
+        }
+      ],
+      "not_promoted_reason": "Semantics của event có thể là audit “mỗi lần người dùng xác nhận”, không phải chỉ chuyển trạng thái lần đầu; chưa có test đếm event hoặc quy ước chống lặp.",
+      "next": "Chốt event là transition hay command/actor action. Thêm test phân biệt cùng idempotency key (replay) và key mới (hành động mới), đồng thời kiểm tra timeline và KPI không biến audit noise thành trạng thái mới."
+    },
+    {
+      "id": "CLIN-FEEDBACK-OWNER-SLA-001",
+      "classification": "held_product_contract_question",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "trigger": "Một khiếu nại MOI/DANG_XU_LY khi đổi ca hoặc người tiếp nhận nghỉ; phản hồi cần nhắc lại/mở lại.",
+      "observation": "Schema có người tiếp nhận và lưu người xử lý khi đóng; UI cho xem người tiếp nhận. Trong phạm vi đã trace chưa thấy SLA, xác nhận bàn giao, escalation hay quy tắc reopen. Không kết luận thiếu owner tuyệt đối vì có nguoi_tiep_nhan_staff_id và CLIN-004 đã bàn ownership chung.",
+      "impact": "Nếu intake actor được hiểu là current owner vô thời hạn, trách nhiệm lúc đổi ca có thể mơ hồ; nếu người tiếp nhận là owner theo chủ đích thì cần định nghĩa handoff và hạn phản hồi. Chưa có incident/policy đủ rõ để kết luận finding.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+          "lines": "88–104",
+          "sha256": "106a69f83750c17cb1bbf391ccbce9fe982a2155a976c6df927eb84a7bcfe517"
+        },
+        {
+          "path": "src/clinicai/services/phan_hoi_khach_service.py",
+          "lines": "88–143",
+          "sha256": "81c71c844eb0da4db0af8d19e82dbb8672ff4f07c928b7ebd87837e9b8783cc1"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/customers/PhanHoiKhach.tsx",
+          "lines": "18–31,175–205",
+          "sha256": "cbe05c2df2b1b6ce13fa974c4eb9801cddd84e7b537def486fd7a7ae2a0144bb"
+        }
+      ],
+      "not_promoted_reason": "Product/ops cần chốt ai giữ ownership sau intake, SLA và reopen; chưa có contract để đánh giá code tuân thủ hay không. Liên quan nhưng không đồng nhất với CLIN-004.",
+      "next": "Chốt policy owner/acknowledgement, thời gian phản hồi, handoff ca, escalation và reopen; rồi trace implementation và tests."
+    },
+    {
+      "id": "FIN-PRICE-QUOTE-CONTRACT-001",
+      "classification": "held_product_contract_question",
+      "path": "blocks/round32_observations.json",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+    },
+    {
+      "id": "ROUND37-REFUND-BUSINESS-DATE-001",
+      "status": "held_accounting_contract_question",
+      "source": "blocks/round37.coverage.json"
+    },
+    {
+      "id": "ROUND37-VOID-THEN-REFUND-001",
+      "status": "held_metric_semantics_question",
+      "source": "blocks/round37.coverage.json"
+    },
+    {
+      "id": "ROUND37-SAAS-TENANT-PROVISIONING-001",
+      "status": "held_product_architecture_question",
+      "source": "blocks/round37.coverage.json"
+    },
+    {
+      "id": "CLIN-V5-RELEASE-001",
+      "classification": "held_product_policy_condition_not_a_new_finding",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "question": "Nếu phiếu khám V5 thuộc phạm vi clinical_release, sửa phiếu sau RELEASED có phải tạo amendment, thu hồi release và mở việc CSKH báo lại không?",
+      "observation": "Route PUT gọi luu_luot; service dùng CHE_DO_MO và cập nhật nội dung/revision. Luồng amendment của clinical_sign_service mới thu hồi clinical_release và tạo việc CSKH; v_clinical_status tổng hợp visit/release/amendment, không tham chiếu phiếu V5.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/phieu_kham.py",
+          "lines": "177-193",
+          "sha256": "fdf85d2b08cf8c7fbdc617d7e9ecc9930ad0e8a5f9d9c9be1b614b02c85b2aee"
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "lines": "413-427",
+          "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af"
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "lines": "435-492",
+          "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af"
+        },
+        {
+          "path": "src/clinicai/services/clinical_sign_service.py",
+          "lines": "581-604",
+          "sha256": "bcb3fe6970b994aa15a67d7d1dd0efde6f0ef5f9e8b2da32fa27705b76949e2e"
+        },
+        {
+          "path": "supabase/migrations/20260804000007_clinical_sign_release.sql",
+          "lines": "108-153",
+          "sha256": "1716b9f9e57d4d68b2116409b5437025bec7dbab4b0ddcee4ee0c80488fad796"
+        }
+      ],
+      "not_promoted_reason": "QUYET-DINH.md chưa chốt FINALIZED/release có áp dụng cho phiếu V5 hay không; chưa đủ cơ sở để gọi đây là vi phạm policy lâm sàng.",
+      "next": "Chủ sản phẩm/lâm sàng xác định release scope cho V5. Nếu có, đưa V5 vào cùng trạng thái/revision/amendment/revoke/renotify contract và kiểm thử; nếu không, ghi rõ phiếu V5 nằm ngoài release boundary."
+    },
+    {
+      "id": "OPS-WATCHDOG-SELF-HEALTH-001",
+      "classification": "held_policy_design_question_not_finding",
+      "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/canh_gac.py",
+          "lines": "317-329",
+          "sha256": "5376f1ab3a237dc1123490cf6548dd3f69b4d7fcb9d23ad961024457e5750d5e"
+        },
+        {
+          "path": "src/clinicai/worker.py",
+          "lines": "326-330",
+          "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx",
+          "lines": "161-165",
+          "sha256": "52432044de01fd956ce0f6b9d1167325a55b1473f7ff2ebaf5a8fe0bd51a72d4"
+        }
+      ],
+      "reason": "No explicit last-success/monitor health contract or owner; do not promote before policy clarification."
+    }
+  ],
+  "report_version": "v0.76",
+  "report_round_summary": "Round 53 adds OPS-014: the legacy visit_gate_rule with only_when_other_staff=TRUE cannot block through the dispatch API because no caller supplies the target staff; new-flow visits use a booking-time rule instead. Static inference only; tests read-not-run.",
+  "report_html_sha256": "8b307076fb08d21123e5bad7ea20fc05b5329a9a8c0bf4a716f718b1f662a94a",
+  "portable_bundle_expected_files": 360,
+  "portable_bundle_scope": "Audit artifacts only; source repository and Git history are intentionally not inside the ZIP. Resume code review against pinned snapshot SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7 at /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini.",
+  "portable_bundle_status": "Verified v0.76 audit-only package.",
+  "portable_bundle_sha256_location": "Adjacent MANIFEST-GOI.json; digest is not embedded in ZIP.",
+  "full_source_audit_complete": false,
+  "round43": {
+    "status": "integrated_static_review_and_v066_qa_pass_audit_open",
+    "notes": "blocks/round43.md",
+    "coverage": "blocks/round43.coverage.json",
+    "new_findings": [
+      "OPS-011"
+    ],
+    "extended_findings": [
+      "CLIN-053"
+    ],
+    "independent_security_review": "MEDIUM conditional on real-clinic data use; no auth bypass, deployment or incident verified.",
+    "tests": "Read-not-run.",
+    "runtime": "No app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false
+  },
+  "round44": {
+    "status": "integrated_static_review_v067_report_and_bundle_QA_pass_audit_open",
+    "notes": "blocks/round44.md",
+    "coverage": "blocks/round44.coverage.json",
+    "new_findings": [
+      "CLIN-056",
+      "SEC-036"
+    ],
+    "extended_findings": [
+      "INF-006",
+      "INF-021"
+    ],
+    "held_candidates": [
+      "active room below inactive location",
+      "room uses admin/inactive node",
+      "config permission revocation race",
+      "automatic bank proof verification policy"
+    ],
+    "tests": "Read-not-run; no ClinicAI tests executed.",
+    "runtime": "No app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "full_file_reads": 20
+  },
+  "qa": {
+    "scope": "Offline audit HTML only; does not validate ClinicAI application behavior.",
+    "validator": "PASS 6/6 structural/evidence checks.",
+    "browser": {
+      "checkedAt": "2026-10-20T03:56:08.054Z",
+      "reportSha256": "5e627f0deaca341ea34da20dbe5e5faa32d810b0778f199b9ed766d76ff0032e",
+      "desktop": {
+        "width": 1280,
+        "scroll": 1280,
+        "cards": 211,
+        "ledgerRows": 2890
+      },
+      "mobile": {
+        "width": 375,
+        "scroll": 375
+      },
+      "search": 1,
+      "patched": 2,
+      "printOpen": 211,
+      "printVisible": 211,
+      "pageErrors": [],
+      "externalRequests": [],
+      "limitations": [
+        "Validates report UI only, not the ClinicAI application",
+        "No accessibility certification"
+      ]
+    },
+    "limitations": [
+      "No ClinicAI application/API/DB/runtime tests",
+      "No accessibility certification"
+    ]
+  },
+  "html_qa": {
+    "scope": "Offline audit HTML only; does not validate ClinicAI application behavior.",
+    "validator": "PASS 6/6 structural/evidence checks (v0.76).",
+    "browser": {
+      "checkedAt": "2026-10-20T04:09:46.356Z",
+      "reportSha256": "8b307076fb08d21123e5bad7ea20fc05b5329a9a8c0bf4a716f718b1f662a94a",
+      "desktop": {
+        "width": 1280,
+        "scroll": 1280,
+        "cards": 212,
+        "ledgerRows": 2890
+      },
+      "mobile": {
+        "width": 375,
+        "scroll": 375
+      },
+      "search": 1,
+      "patched": 2,
+      "printOpen": 212,
+      "printVisible": 212,
+      "pageErrors": [],
+      "externalRequests": [],
+      "limitations": [
+        "Validates report UI only, not the ClinicAI application",
+        "No accessibility certification"
+      ]
+    },
+    "limitations": [
+      "No ClinicAI application/API/DB/runtime tests",
+      "No accessibility certification"
+    ]
+  },
+  "package": {
+    "status": "verified",
+    "file_count": 364,
+    "outer_sha256": "Stored only in adjacent MANIFEST-GOI.json because ZIP/manifest exclude themselves.",
+    "manifest": "MANIFEST-GOI.json",
+    "scope": "Audit artifacts only; source repository/Git history, secrets and patient data are excluded.",
+    "integrity": "Verified 364 files; CRC, member sizes and SHA-256, and outer ZIP SHA-256 pass. Audit-only bundle includes CLAUDE-HANDOFF.md and BAO-CAO-DE-HIEU.html."
+  },
+  "new_findings_v068": [
+    "FIN-019",
+    "INF-027",
+    "INF-028",
+    "OPS-012",
+    "SEC-037"
+  ],
+  "reviewed_slice_v045": "Round 45 static review across patient/consent, service-order assignment, invoice outstanding scope, file timeout/purge, event worker and Ops measurement; five findings added and five records extended; tests read-not-run.",
+  "round45": {
+    "status": "integrated_static_review_v068_report_pending_audit_open",
+    "notes": "blocks/round45.md",
+    "coverage": "blocks/round45.coverage.json",
+    "new_findings": [
+      "FIN-019",
+      "INF-027",
+      "INF-028",
+      "OPS-012",
+      "SEC-037"
+    ],
+    "extended_findings": [
+      "INF-006",
+      "SEC-011",
+      "SEC-016",
+      "SEC-018",
+      "SEC-027"
+    ],
+    "held_candidates": [
+      "canh_gac silent failure without last-success contract",
+      "TKYK upload outside assignment pending policy"
+    ],
+    "tests": "Read-not-run; no ClinicAI tests executed.",
+    "runtime": "No app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "full_file_reads": 38
+  },
+  "new_findings_v070": [
+    "CLIN-058",
+    "FE-028"
+  ],
+  "round47": {
+    "status": "report_qa_and_package_verified_audit_open",
+    "notes": "blocks/round47.md",
+    "coverage": "blocks/round47.coverage.json",
+    "new_findings": [
+      "CLIN-058",
+      "FE-028"
+    ],
+    "extended_findings": [
+      "FE-002",
+      "FE-023",
+      "FE-026",
+      "CLIN-057",
+      "FIN-003",
+      "SEC-011",
+      "INF-027"
+    ],
+    "held_candidates": [
+      "Impossible ISO week-start inputs normalize to another displayed week; only a low display candidate.",
+      "Old external-DB helper contains DROP SCHEMA CASCADE under a fixed temporary name; no active caller/current self-hosted applicability established.",
+      "GoTrue URI allowlist wildcard needs a recovery redirect acceptance review; exact behavior was not established, so no exploit finding.",
+      "Sequential room-config saves could partially persist; owner policy/atomicity contract is unclear.",
+      "Procedure selection response-loss text can say not-started even if a request committed; no duplicate order shown because backend guard exists.",
+      "Appointment follow-up GET failure can look like no appointment, but service prevents an existing live appointment from being duplicated; held as a UI candidate."
+    ],
+    "tests": "Related tests read-not-run; no ClinicAI tests executed in Round 47.",
+    "runtime": "No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "targeted_paths": 41,
+    "full_file_reads": 0
+  },
+  "round48": {
+    "status": "report_qa_and_package_verified_audit_open",
+    "notes": "blocks/round48.md",
+    "coverage": "blocks/round48.coverage.json",
+    "new_findings": [],
+    "extended_findings": [
+      "FE-002",
+      "SEC-011"
+    ],
+    "tests": "Treatment-plan DB and frontend boundary tests read-not-run; no ClinicAI tests executed in Round 48.",
+    "runtime": "No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "targeted_paths": 11,
+    "full_file_reads": 4
+  },
+  "round49": {
+    "status": "report_qa_and_package_verified_audit_open",
+    "notes": "blocks/round49.md",
+    "coverage": "blocks/round49.coverage.json",
+    "new_findings": [
+      "FIN-020"
+    ],
+    "extended_findings": [],
+    "tests": "Payment method-change unit/DB tests read-not-run; no ClinicAI tests executed in Round 49.",
+    "runtime": "No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "targeted_paths": 11,
+    "full_file_reads": 6
+  },
+  "round50": {
+    "status": "integrated_static_review_report_qa_pending_audit_open",
+    "notes": "blocks/round50.md",
+    "coverage": "blocks/round50.coverage.json",
+    "new_findings": [
+      "OPS-013"
+    ],
+    "extended_findings": [],
+    "tests": "Roster-history unit and DB tests read-not-run; no concurrency test executed.",
+    "runtime": "No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "targeted_paths": 7,
+    "full_file_reads": 3
+  },
+  "round51": {
+    "status": "integrated_static_review_report_qa_pending_audit_open",
+    "notes": "blocks/round51.md",
+    "coverage": "blocks/round51.coverage.json",
+    "new_findings": [
+      "CLIN-059"
+    ],
+    "extended_findings": [],
+    "tests": "Quick-reschedule unit and DB tests read-not-run; no concurrent different-target test executed.",
+    "runtime": "No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "targeted_paths": 10,
+    "full_file_reads": 4
+  },
+  "round52": {
+    "status": "integrated_static_review_report_qa_pending_audit_open",
+    "notes": "blocks/round52.md",
+    "coverage": "blocks/round52.coverage.json",
+    "new_findings": [
+      "CLIN-060"
+    ],
+    "extended_findings": [],
+    "tests": "Chart-switch tests read-not-run; no payment/default-fee delta scenario executed.",
+    "runtime": "No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "targeted_paths": 7,
+    "full_file_reads": 4
+  },
+  "round53": {
+    "status": "integrated_static_review_report_qa_pending_audit_open",
+    "notes": "blocks/round53.md",
+    "coverage": "blocks/round53.coverage.json",
+    "new_findings": [
+      "OPS-014"
+    ],
+    "extended_findings": [],
+    "tests": "test_gate_rule.py read-not-run.",
+    "runtime": "No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+    "full_source_audit_complete": false,
+    "targeted_paths": 9,
+    "full_file_reads": 2
+  }
+}

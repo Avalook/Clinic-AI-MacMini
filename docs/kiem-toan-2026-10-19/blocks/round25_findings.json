@@ -1,0 +1,750 @@
+[
+  {
+    "id": "FE-025",
+    "title": "Lỗi kiểm tra trùng bệnh nhân có thể bị hiểu là không trùng",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "patient-identity/unknown-check-state",
+    "summary": "BFF đổi lỗi backend, thiếu phiên hoặc lỗi mạng thành null; route kiểm tra trùng vẫn trả HTTP 200 với danh sách rỗng. Form chỉ hiển thị ứng viên khi có kết quả, nên trạng thái chưa kiểm được trông giống không có trùng.",
+    "trigger": "Backend trả non-2xx, chưa cấu hình API, mất session hoặc fetch/parse lỗi đúng lúc tạo hồ sơ bệnh nhân.",
+    "impact": "Nhân viên có thể tiếp tục tạo hồ sơ khi hệ thống chưa kiểm tra được. Không có bằng chứng hồ sơ trùng thực tế đã được tạo; MPI hiện có gap review riêng trong PAT-001.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/api/patients/check-duplicate/route.ts",
+        "line": 25,
+        "end_line": 42,
+        "detail": "Lỗi backend được map thành response rỗng với HTTP 200."
+      },
+      {
+        "path": "src/dashboard/lib/backend-proxy.ts",
+        "line": 244,
+        "end_line": 267,
+        "detail": "fetchFromBackend trả null cho thiếu API/session, non-2xx và network/JSON exception."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+        "line": 727,
+        "end_line": 740,
+        "detail": "Form chỉ dùng danh sách trả về; exists=false làm candidate list rỗng, catch im lặng."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Static cross-layer trace cho thấy lỗi kiểm tra có thể bị trình bày như danh sách không có ứng viên; chưa xác nhận hành vi người dùng hay hồ sơ trùng.",
+      "limitations": "Chưa chạy browser/API hoặc fault injection; hai boundary test hiện có không kiểm tra trạng thái lỗi của route đang dùng."
+    },
+    "recommendation": "Trả trạng thái ba giá trị: có kết quả trùng, đã kiểm và không thấy trùng, chưa kiểm được. Khi chưa kiểm, hiển thị rõ và áp dụng policy tạo hồ sơ có kiểm soát; không đổi lỗi thành danh sách sạch.",
+    "acceptance": "Test backend 4xx/5xx, thiếu API, session lỗi và network reject: UI phân biệt unknown với no-match; chỉ no-match đã kiểm mới hiện trạng thái sạch.",
+    "alignment": [
+      "Reality dễ nhìn thấy",
+      "Khoảng Unknown ngắn hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/dashboard/tests/route-da-tat-boundary.test.mts — đọc, không chạy; chỉ kiểm tra boundary route.",
+      "src/dashboard/tests/nhieu-so-dien-thoai-boundary.test.mts — đọc, không chạy; không bao phủ lỗi duplicate check hiện tại."
+    ],
+    "source_hashes": {
+      "src/dashboard/app/api/patients/check-duplicate/route.ts": "7ce3d6500467b94b0ff8c26c554438889ee22f67ae32f60ff5a87ea7bf5ac3d2",
+      "src/dashboard/lib/backend-proxy.ts": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx": "fc5be0e240e3067eac8f38367eee4e96776fca5cf9e7a4ee7b706fa15a1e6adf"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Còn trên snapshot main ghim; rủi ro là trạng thái unknown bị trình bày như không có kết quả. Chưa có bằng chứng tạo trùng thực tế.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/api/patients/check-duplicate/route.ts",
+          "line": 25,
+          "end_line": 42,
+          "sha256": "7ce3d6500467b94b0ff8c26c554438889ee22f67ae32f60ff5a87ea7bf5ac3d2",
+          "excerpt": "25:   // Danh sách này là dữ liệu bệnh nhân: backend gác bằng CÙNG quyền với tạo hồ\n26:   // sơ (patient.create / booking.create / crm.manage — kiểm toán 27/09/2026).\n27:   // Proxy chỉ kiểm đăng nhập; backend từ chối thì trả rỗng như backend im.\n28: \n29:   const sp = new URL(request.url).searchParams;\n30:   const qs = new URLSearchParams();\n31:   for (const k of [\"phone\", \"full_name\", \"birth_year\"]) {\n32:     const v = sp.get(k)?.trim();\n33:     if (v) qs.set(k, v);\n34:   }\n35:   if ([...qs.keys()].length === 0) return NextResponse.json(EMPTY);\n36: \n37:   // Backend im lặng thì KHÔNG nói \"không trùng\" — trả rỗng nhưng đó là \"chưa\n38:   // kiểm được\", và guard lúc LƯU vẫn chạy độc lập nên không ai lọt.\n39:   const data = await fetchFromBackend<typeof EMPTY>(\n40:     `/api/v1/patients/check-duplicate?${qs}`,\n41:   );\n42:   return NextResponse.json(data ?? EMPTY);"
+        },
+        {
+          "path": "src/dashboard/lib/backend-proxy.ts",
+          "line": 244,
+          "end_line": 267,
+          "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+          "excerpt": "244: export async function fetchFromBackend<T>(path: string): Promise<T | null> {\n245:   if (!API_BASE) return null;\n246: \n247:   const supabase = await getSupabaseServer();\n248:   // Cùng lý do — xem proxyJsonToBackend. getSession() không refresh; getUser() thì có.\n249:   await refreshQuietly(supabase);\n250:   const {\n251:     data: { session },\n252:   } = await supabase.auth.getSession();\n253:   const token = session?.access_token;\n254:   if (!token) return null;\n255: \n256:   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };\n257:   const apiKey = process.env.BACKEND_API_KEY;\n258:   if (apiKey) headers[\"X-API-Key\"] = apiKey;\n259:   await ganCoSo(headers);\n260: \n261:   try {\n262:     const res = await fetch(`${API_BASE}${path}`, { headers, cache: \"no-store\" });\n263:     if (!res.ok) return null;\n264:     return (await res.json()) as T;\n265:   } catch {\n266:     return null;\n267:   }"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+          "line": 727,
+          "end_line": 740,
+          "sha256": "fc5be0e240e3067eac8f38367eee4e96776fca5cf9e7a4ee7b706fa15a1e6adf",
+          "excerpt": "727:           const res = await fetch(`/api/patients/check-duplicate?${qs}`);\n728:           if (!res.ok) return;\n729:           const json = (await res.json()) as {\n730:             exists?: boolean;\n731:             matches?: PhoneMatch[];\n732:             trung_ten?: PhoneMatch[];\n733:           };\n734:           if (alive) {\n735:             setPhoneDupes(json.exists ? (json.matches ?? []) : []);\n736:             setTrungTen(json.trung_ten ?? []);\n737:           }\n738:         } catch {\n739:           /* cảnh báo là phụ: lỗi mạng thì im lặng, submit vẫn có guard riêng */\n740:         }"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "API-006",
+    "title": "Loại số điện thoại sai bị âm thầm đổi thành số chính",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "patient-contact/input-normalization",
+    "summary": "BFF patient phone route chỉ kiểm tra trường loai có tồn tại; mọi giá trị ngoài NGUOI_NHA bị chuẩn hóa thành CHINH trước khi gọi FastAPI. DTO backend có Literal enum nhưng không còn nhận được giá trị sai ban đầu.",
+    "trigger": "Một client trực tiếp hoặc request lỗi gửi loai khác CHINH/NGUOI_NHA.",
+    "impact": "Số liên hệ vẫn được lưu nhưng có thể mang nhãn CHINH sai, làm staff đọc nhầm vai trò liên hệ. Luồng UI hiện tại gửi enum hợp lệ; chưa có bằng chứng lỗi này xảy ra trong vận hành.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/api/patients/sdt-them/route.ts",
+        "line": 27,
+        "end_line": 43,
+        "detail": "BFF kiểm tra sự hiện diện rồi ép mọi giá trị khác NGUOI_NHA thành CHINH."
+      },
+      {
+        "path": "src/clinicai/api/v1/patients.py",
+        "line": 209,
+        "end_line": 235,
+        "detail": "DTO backend giới hạn enum và route truyền loại đã parse vào service."
+      },
+      {
+        "path": "src/clinicai/services/patient_service.py",
+        "line": 581,
+        "end_line": 652,
+        "detail": "Service kiểm tra và lưu loại số liên hệ cùng event; không sửa phone_primary."
+      },
+      {
+        "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+        "line": 29,
+        "end_line": 31,
+        "detail": "Schema chấp nhận hai nhãn CHINH và NGUOI_NHA."
+      },
+      {
+        "path": "src/tests/test_nhieu_so_dien_thoai.py",
+        "line": 106,
+        "end_line": 138,
+        "detail": "Các test hiện có không kiểm tra kind sai bị BFF đổi nhãn."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Tính chất coercion được xác nhận qua code BFF→DTO→service; phạm vi bắt đầu từ request có enum sai.",
+      "limitations": "Không chạy request/API/DB; UI chuẩn không gửi enum ngoài tập hợp. Không ghi nhận ghi đè phone_primary."
+    },
+    "recommendation": "Validate giá trị enum ở BFF; chỉ gán CHINH nếu trường thực sự vắng mặt theo contract, còn giá trị được gửi nhưng sai phải trả 4xx.",
+    "acceptance": "Test CHINH, NGUOI_NHA, thiếu loai và loai không hợp lệ ở BFF/backend; trường hợp sai bị từ chối và không ghi event hoặc row.",
+    "alignment": [
+      "Reality đáng tin",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/test_nhieu_so_dien_thoai.py — đọc đoạn liên quan, không chạy; chưa kiểm tra loại enum không hợp lệ."
+    ],
+    "source_hashes": {
+      "src/dashboard/app/api/patients/sdt-them/route.ts": "8749092e64806a79e9d76b438cd489d5b62b6c9621c46b885998da578c0201e8",
+      "src/clinicai/api/v1/patients.py": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "src/clinicai/services/patient_service.py": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b",
+      "src/tests/test_nhieu_so_dien_thoai.py": "0a24bd35f417027b66c9d43b20fbd139146049b7a9be6643ddc6b061121a87a1"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Còn trên snapshot main ghim; chỉ ảnh hưởng request gửi loại liên hệ không hợp lệ, không phải đường UI chuẩn đã được chứng minh.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/api/patients/sdt-them/route.ts",
+          "line": 27,
+          "end_line": 43,
+          "sha256": "8749092e64806a79e9d76b438cd489d5b62b6c9621c46b885998da578c0201e8",
+          "excerpt": "27:   const body = (await request.json().catch(() => null)) as {\n28:     clinic_patient_id?: string;\n29:     so_dien_thoai?: string;\n30:     loai?: string;\n31:   } | null;\n32:   if (!body?.clinic_patient_id || !body.so_dien_thoai?.trim()) {\n33:     return NextResponse.json(\n34:       { error: \"Thiếu khách hoặc thiếu số điện thoại.\" },\n35:       { status: 422 },\n36:     );\n37:   }\n38: \n39:   return proxyJsonToBackend(\"POST\", \"/api/v1/patients/sdt-them\", {\n40:     clinic_patient_id: body.clinic_patient_id,\n41:     so_dien_thoai: body.so_dien_thoai.trim(),\n42:     loai: body.loai === \"NGUOI_NHA\" ? \"NGUOI_NHA\" : \"CHINH\",\n43:   });"
+        },
+        {
+          "path": "src/clinicai/api/v1/patients.py",
+          "line": 209,
+          "end_line": 235,
+          "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+          "excerpt": "209: class SdtThemDTO(BaseModel):\n210:     \"\"\"Một số điện thoại gắn thêm vào hồ sơ có sẵn.\"\"\"\n211: \n212:     clinic_patient_id: UUID\n213:     so_dien_thoai: str\n214:     loai: Literal[\"CHINH\", \"NGUOI_NHA\"] = \"CHINH\"\n215: \n216: \n217: @router.post(\"/patients/sdt-them\", status_code=status.HTTP_201_CREATED)\n218: async def them_so_dien_thoai(\n219:     data: SdtThemDTO,\n220:     identity: StaffIdentity = Depends(_INTAKE_GUARD),\n221:     pool: asyncpg.Pool = Depends(get_db_pool),\n222: ) -> dict[str, Any]:\n223:     \"\"\"Thêm số cho khách CÓ SẴN — lối thứ ba của ô cảnh báo trùng.\n224: \n225:     Khách dùng 2–3 số là bình thường; trước đây ô cảnh báo \"số/tên này đã có\n226:     trong hệ thống\" chỉ có hai lối ra: vẫn tạo hồ sơ mới (tách đôi bệnh án)\n227:     hoặc bỏ dở. Nay người trực xác nhận \"đúng là khách cũ\" và gắn số mới vào\n228:     hồ sơ cũ; từ đó tra số nào cũng ra đúng một người.\n229:     \"\"\"\n230:     return await PatientService(pool).them_so_dien_thoai(\n231:         clinic_patient_id=str(data.clinic_patient_id),\n232:         so_dien_thoai=data.so_dien_thoai,\n233:         loai=data.loai,\n234:         identity=identity,\n235:     )"
+        },
+        {
+          "path": "src/clinicai/services/patient_service.py",
+          "line": 581,
+          "end_line": 652,
+          "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+          "excerpt": "581:         if loai not in (\"CHINH\", \"NGUOI_NHA\"):\n582:             raise ValidationError(\"Loại số phải là CHINH hoặc NGUOI_NHA.\")\n583:         chuan = normalize_vn_phone(so_dien_thoai)\n584:         if chuan is None:\n585:             raise ValidationError(\n586:                 \"Số điện thoại không hợp lệ — cần 10 chữ số bắt đầu bằng 0.\"\n587:             )\n588:         async with self._pool.acquire() as conn:\n589:             async with conn.transaction():\n590:                 ho_so = await conn.fetchrow(\n591:                     \"\"\"\n592:                     SELECT phone_primary, phone_secondary\n593:                       FROM patient\n594:                      WHERE clinic_patient_id = $1::uuid\n595:                        AND clinic_id = $2::uuid\n596:                     \"\"\",\n597:                     clinic_patient_id,\n598:                     identity.clinic_id,\n599:                 )\n600:                 if ho_so is None:\n601:                     raise ResourceNotFoundError(\n602:                         \"Không tìm thấy hồ sơ khách ở phòng khám này.\"\n603:                     )\n604:                 if chuan in (ho_so[\"phone_primary\"], ho_so[\"phone_secondary\"]):\n605:                     raise ConflictError(\"Số này đã nằm trên hồ sơ của chính khách rồi.\")\n606:                 da_ghi = await conn.fetchval(\n607:                     \"\"\"\n608:                     INSERT INTO public.patient_sdt_them\n609:                         (clinic_id, clinic_patient_id, so_dien_thoai, loai,\n610:                          created_by_staff_id)\n611:                     VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid)\n612:                     ON CONFLICT (clinic_patient_id, so_dien_thoai) DO NOTHING\n613:                     RETURNING id\n614:                     \"\"\",\n615:                     identity.clinic_id,\n616:                     clinic_patient_id,\n617:                     chuan,\n618:                     loai,\n619:                     identity.staff_id,\n620:                 )\n621:                 if da_ghi is None:\n622:                     raise ConflictError(\"Số này đã được thêm cho khách từ trước.\")\n623:                 # Ghi sổ thao tác — nhưng KHÔNG ghi số đầy đủ vào payload:\n624:                 # event_log sống lâu hơn mọi màn hình, 4 số cuối đủ để đối\n625:                 # chiếu khi cần mà không thành một bản sao danh bạ.\n626:                 await conn.execute(\n627:                     \"\"\"\n628:                     INSERT INTO public.event_log\n629:                         (clinic_id, event_type, aggregate_type, aggregate_id,\n630:                          payload, metadata, source, event_published)\n631:                     VALUES ($1::uuid, 'patient.phone_added', 'patient',\n632:                             $2::uuid, $3::jsonb, $4::jsonb, 'api', FALSE)\n633:                     \"\"\",\n634:                     identity.clinic_id,\n635:                     clinic_patient_id,\n636:                     json.dumps({\"loai\": loai, \"duoi\": chuan[-4:]}),\n637:                     json.dumps(\n638:                         {\n639:                             \"clinic_role\": identity.role.value,\n640:                             # Vai tài khoản gốc (vai dùng có thể khác).\n641:                             \"vai_tai_khoan\": identity.vai_goc.value,\n642:                             \"clinic_staff_id\": identity.staff_id,\n643:                             \"origin\": \"api\",\n644:                         }\n645:                     ),\n646:                 )\n647:         logger.info(\n648:             \"patient_phone_added\",\n649:             clinic_patient_id=clinic_patient_id,\n650:             loai=loai,\n651:         )\n652:         return {\"so_dien_thoai\": chuan, \"loai\": loai}"
+        },
+        {
+          "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+          "line": 29,
+          "end_line": 31,
+          "sha256": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b",
+          "excerpt": "29:     -- CHINH = số của chính khách · NGUOI_NHA = số người nhà (chồng/mẹ…).\n30:     -- Hai loại vẽ ở hai chỗ khác nhau trên hồ sơ, dưới đúng dòng số cùng loại.\n31:     loai text NOT NULL DEFAULT 'CHINH' CHECK (loai IN ('CHINH', 'NGUOI_NHA')),"
+        },
+        {
+          "path": "src/tests/test_nhieu_so_dien_thoai.py",
+          "line": 106,
+          "end_line": 138,
+          "sha256": "0a24bd35f417027b66c9d43b20fbd139146049b7a9be6643ddc6b061121a87a1",
+          "excerpt": "106: class TestThemSoDienThoai:\n107:     def test_chuan_hoa_84_ve_dang_0(self) -> None:\n108:         conn = _Conn(ho_so=_HO_SO, chen_duoc=True)\n109:         ket = _goi(conn, \"+84 903 333 333\")\n110:         assert ket[\"so_dien_thoai\"] == \"0903333333\"\n111:         assert conn.chen_args is not None and \"0903333333\" in conn.chen_args\n112: \n113:     def test_so_rac_bi_chan_tu_cua(self) -> None:\n114:         conn = _Conn(ho_so=_HO_SO, chen_duoc=True)\n115:         with pytest.raises(ValidationError):\n116:             _goi(conn, \"12ab\")\n117:         assert conn.chen_args is None, \"số rác mà vẫn chạm tới INSERT\"\n118: \n119:     def test_trung_so_tren_chinh_ho_so_thi_noi_ro(self) -> None:\n120:         conn = _Conn(ho_so=_HO_SO, chen_duoc=True)\n121:         with pytest.raises(ConflictError):\n122:             _goi(conn, \"0901111111\")\n123: \n124:     def test_bam_trung_hai_lan_khong_thanh_hai_dong(self) -> None:\n125:         \"\"\"ON CONFLICT trả None → báo trùng, KHÔNG ghi event cho một lần\n126:         chèn không xảy ra.\"\"\"\n127:         conn = _Conn(ho_so=_HO_SO, chen_duoc=False)\n128:         with pytest.raises(ConflictError):\n129:             _goi(conn, \"0903333333\")\n130:         assert conn.event_sql == []\n131: \n132:     def test_event_log_khong_chua_so_day_du(self) -> None:\n133:         conn = _Conn(ho_so=_HO_SO, chen_duoc=True)\n134:         _goi(conn, \"0903333333\", loai=\"NGUOI_NHA\")\n135:         assert len(conn.event_sql) == 1\n136:         payload = json.loads(str(conn.event_sql[0][1][2]))\n137:         assert payload == {\"loai\": \"NGUOI_NHA\", \"duoi\": \"3333\"}\n138:         assert \"0903333333\" not in str(conn.event_sql[0][1])"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "OPS-006",
+    "title": "Giá trị giữ backup bằng 0 có thể xóa toàn bộ ngày backup trên CFS",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "operations/backup-retention",
+    "summary": "Uploader nhận VIETTEL_CFS_GIU_LAI mà không kiểm tra số nguyên dương. Với giá trị 0, GNU head -n -0 chọn mọi ngày; bước xóa sau đó xóa mọi file regular trong từng ngày được chọn, gồm cả bản vừa upload.",
+    "trigger": "Operator hoặc môi trường đặt VIETTEL_CFS_GIU_LAI=0 khi chạy uploader.",
+    "impact": "Các artifact backup trên CFS có thể bị xóa sau lần upload đó, làm giảm khả năng khôi phục. Service units đang đọc không đặt biến này; chưa xác minh override runtime và không kết luận production hiện gặp giá trị 0.",
+    "evidence": [
+      {
+        "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+        "line": 25,
+        "end_line": 27,
+        "detail": "Giá trị retention có default nhưng chưa validate dương."
+      },
+      {
+        "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+        "line": 87,
+        "end_line": 115,
+        "detail": "Upload trước rồi lựa chọn ngày bằng head và xóa các file trong ngày."
+      },
+      {
+        "path": "scripts/systemd/clinicai-backup.service",
+        "line": 45,
+        "end_line": 45,
+        "detail": "Service gọi uploader, không đặt VIETTEL_CFS_GIU_LAI."
+      },
+      {
+        "path": "scripts/systemd/clinicai-backup-15p.service",
+        "line": 45,
+        "end_line": 45,
+        "detail": "Service thứ hai gọi uploader, không đặt VIETTEL_CFS_GIU_LAI."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Nhánh retention=0 có thể được suy ra từ lệnh GNU head và vòng xóa; chưa chạy trên CFS hoặc filesystem thật.",
+      "limitations": "Không kiểm tra environment runtime/VPS/CFS; service unit chỉ cho thấy không khai báo biến trong hai caller đã đọc."
+    },
+    "recommendation": "Validate retention là số nguyên >=1 trước khi upload/prune; dừng an toàn nếu sai. Chỉ prune đúng artifact backup trong phạm vi thư mục/ngày dự kiến.",
+    "acceptance": "Synthetic CFS directory với retention 0, chuỗi sai, 1 và 30: 0/invalid bị từ chối trước xóa; giá trị hợp lệ giữ đúng số ngày và artifact mới nhất.",
+    "alignment": [
+      "Lỗi được phát hiện sớm",
+      "Nhân viên ít chữa cháy hơn",
+      "Lỗi lặp thành cải tiến hệ thống"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "scripts/day-sao-luu-len-viettel-storage.sh": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+      "scripts/systemd/clinicai-backup.service": "042298b6c2ed9598b1008a2638bb6ef28821755d4ea3b2647faa02446d2ad31f",
+      "scripts/systemd/clinicai-backup-15p.service": "d7427c5e7b5caf73a62c8d5192d5c1663b7bd05643f724292b91d48ce21833eb"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Logic nguy hiểm chỉ được kích hoạt nếu biến được đặt bằng 0; không có bằng chứng production đang đặt như vậy.",
+      "evidence": [
+        {
+          "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+          "line": 25,
+          "end_line": 27,
+          "sha256": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+          "excerpt": "25: GIU_LAI=\"${VIETTEL_CFS_GIU_LAI:-30}\"          # số ĐÊM giữ lại\n26: \n27: ts() { date \"+%Y-%m-%d %H:%M:%S\"; }"
+        },
+        {
+          "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+          "line": 87,
+          "end_line": 115,
+          "sha256": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+          "excerpt": "87: noi \"Đẩy lên $DICH\"\n88: day_len \"$MOI_NHAT\"\n89: day_len \"$AUTH\"\n90: \n91: MANIFEST=\"${MOI_NHAT}.manifest\"\n92: [ -f \"$MANIFEST\" ] && day_len \"$MANIFEST\"\n93: \n94: # Ảnh/video siêu âm nếu có. Ổ này 1 TB nên không cần trần 512MB như đường DBaaS.\n95: MEDIA=\"${MOI_NHAT%.sql.gz}_media.tar.gz\"\n96: [ -f \"$MEDIA\" ] && day_len \"$MEDIA\" || noi \"  (không có tệp media đi kèm)\"\n97: \n98: # Tệp kết quả CHƯA ĐẨY sang CFS (bản duy nhất đang nằm trên ổ VPS, 01/10/2026).\n99: TEP_CHUA_DAY=\"${MOI_NHAT%.sql.gz}_tep-chua-day.tar\"\n100: [ -f \"$TEP_CHUA_DAY\" ] && day_len \"$TEP_CHUA_DAY\" || noi \"  (không có tệp chờ đẩy CFS)\"\n101: \n102: # ── 4 · Dọn bản cũ, đếm theo NGÀY ──────────────────────────────────────────\n103: # Đếm theo ngày chứ không nhân một hằng số: mỗi đêm sinh 2, 3 hay 4 tệp tuỳ có\n104: # media và manifest hay không, nên nhân lên là xoá nhầm bản của đêm trước.\n105: mapfile -t NGAY_CU < <(\n106:     find \"$DICH\" -maxdepth 1 -name '*.gz' -printf '%TY-%Tm-%Td\\n' 2>/dev/null \\\n107:         | sort -u | head -n -\"$GIU_LAI\"\n108: )\n109: SO_XOA=0\n110: for ngay in \"${NGAY_CU[@]:-}\"; do\n111:     [ -n \"$ngay\" ] || continue\n112:     while IFS= read -r f; do\n113:         rm -f \"$f\"; SO_XOA=$((SO_XOA + 1))\n114:     done < <(find \"$DICH\" -maxdepth 1 -newermt \"$ngay 00:00\" ! -newermt \"$ngay 23:59:59\" -type f)\n115: done"
+        },
+        {
+          "path": "scripts/systemd/clinicai-backup.service",
+          "line": 45,
+          "end_line": 45,
+          "sha256": "042298b6c2ed9598b1008a2638bb6ef28821755d4ea3b2647faa02446d2ad31f",
+          "excerpt": "45: ExecStart=-/home/clinicai/clinicai/scripts/day-sao-luu-len-viettel-storage.sh"
+        },
+        {
+          "path": "scripts/systemd/clinicai-backup-15p.service",
+          "line": 45,
+          "end_line": 45,
+          "sha256": "d7427c5e7b5caf73a62c8d5192d5c1663b7bd05643f724292b91d48ce21833eb",
+          "excerpt": "45: ExecStart=-/home/clinicai/clinicai/scripts/day-sao-luu-len-viettel-storage.sh"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "OPS-007",
+    "title": "Chú thích Supabase cũ có thể dẫn operator vượt qua migration gate hiện hành",
+    "severity": "LOW",
+    "evidence_level": "design_gap",
+    "category": "operations/migration-runbook-drift",
+    "summary": "supabase/config.toml còn hướng dẫn link project ref và chạy supabase db push. README, AGENTS và runbook hiện tại nói self-hosted trên VPS, cấm db push, yêu cầu backup, rehearsal và scripts/apply-pending-migrations.sh.",
+    "trigger": "Một operator mới làm theo chú thích ngay trong config thay vì đọc runbook hiện hành.",
+    "impact": "Có thể áp migration sai môi trường hoặc bỏ qua cổng backup/rehearsal. Chưa có bằng chứng ai đã làm theo hướng dẫn cũ hoặc có thay đổi production.",
+    "evidence": [
+      {
+        "path": "supabase/config.toml",
+        "line": 1,
+        "end_line": 5,
+        "detail": "Chú thích config hướng dẫn link refs và db push."
+      },
+      {
+        "path": "supabase/README.md",
+        "line": 62,
+        "end_line": 71,
+        "detail": "README mô tả self-hosted và migration apply script, không dùng db push."
+      },
+      {
+        "path": "AGENTS.md",
+        "line": 13,
+        "end_line": 39,
+        "detail": "Quy tắc triển khai đánh dấu db push dead và yêu cầu backup/rehearsal/apply."
+      },
+      {
+        "path": "CLAUDE.md",
+        "line": 124,
+        "end_line": 126,
+        "detail": "Runbook hiện hành nhắc migration gate."
+      },
+      {
+        "path": ".claude/rules/migration.md",
+        "line": 10,
+        "end_line": 17,
+        "detail": "Rule migration hiện hành cấm đường push và nêu apply script."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Hai chỉ dẫn văn bản cùng tồn tại và mâu thuẫn; đây là risk về vận hành/tài liệu, không phải bằng chứng hành động sai đã xảy ra.",
+      "limitations": "Không kiểm tra shell history, VPS hay deployment runtime; chỉ đối chiếu nguồn đã ghim."
+    },
+    "recommendation": "Sửa chú thích config để nói rõ lệnh chỉ phục vụ local reset và không chạy db push; trỏ operator đến runbook/migration script hiện hành.",
+    "acceptance": "Tìm toàn bộ tài liệu vận hành active: không còn chỉ dẫn db push cho VPS; quy trình hiện hành thống nhất backup → rehearsal → apply-pending-migrations.sh.",
+    "alignment": [
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn",
+      "Nhân viên làm việc bền vững hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "supabase/config.toml": "47043b61141204c2be71c9a81005ed204ae09eb3ad78a9502bcc337d9ecedc07",
+      "supabase/README.md": "12fdd181b25448c42a342f5228d7c158c27df6088c4bb4d14435cd0a011cd770",
+      "AGENTS.md": "0fc9aa3560f097e9680ad481ddf6112f839b49c4f9fd8be308c2b6941371697a",
+      "CLAUDE.md": "a032c40c1cffd3a41a1bc96bf8f895d629b2367c824fdd5327fb8d709147a70b",
+      ".claude/rules/migration.md": "4070ee53f39be9828adf59720dfe926d950ca54d499bdbe6012691fd4c4eb190"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Khoảng trống tài liệu còn trên snapshot main; chưa có bằng chứng operator đã dùng chỉ dẫn cũ.",
+      "evidence": [
+        {
+          "path": "supabase/config.toml",
+          "line": 1,
+          "end_line": 5,
+          "sha256": "47043b61141204c2be71c9a81005ed204ae09eb3ad78a9502bcc337d9ecedc07",
+          "excerpt": "1: # Supabase CLI config for ClinicAI / Dr4Women (self-host, Mac mini).\n2: # `project_id` is the LOCAL project name; link a real remote with:\n3: #   supabase link --project-ref <prod-or-staging-ref>\n4: #   supabase db push          # apply migrations/ to the linked project\n5: #   supabase db reset         # (local) recreate DB from migrations/ + seed.sql"
+        },
+        {
+          "path": "supabase/README.md",
+          "line": 62,
+          "end_line": 71,
+          "sha256": "12fdd181b25448c42a342f5228d7c158c27df6088c4bb4d14435cd0a011cd770",
+          "excerpt": "62: ## Apply to a project\n63: Prod is the self-hosted stack on the VPS (container `clinicai_db`). There is no\n64: Supabase cloud project and `supabase db push` is **not** used (27/09/2026).\n65: \n66: ```bash\n67: # prod / any existing database — computes pending migrations from the ledger,\n68: # applies each one together with its ledger row in one transaction\n69: CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh          # dry run\n70: CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh --apply\n71: docker exec clinicai_db psql -U postgres -c \"NOTIFY pgrst, 'reload schema'\""
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 13,
+          "end_line": 39,
+          "sha256": "0fc9aa3560f097e9680ad481ddf6112f839b49c4f9fd8be308c2b6941371697a",
+          "excerpt": "13: - **Dead — do not use or reintroduce:** old VPS `clinic-vps` (222.255.215.219),\n14:   staging (:8080, `/home/clinicai/staging`), Mac mini hosting, Vercel, Supabase\n15:   cloud, Cloudflare Tunnel, Tailscale, Sentry, GitHub Actions CD, `supabase db push`.\n16:   Docs from that era live in `docs/legacy/`.\n17: \n18: ## Architecture\n19: ```\n20: client → Caddy (TLS) → dashboard (Next.js, UI only) → api (FastAPI, all logic) → Postgres\n21:                        su-kien (event worker)         self-hosted Supabase (auth + realtime)\n22: ```\n23: - **Frontend = UI only.** Business rules belong in FastAPI services or SQL. The\n24:   frontend talks to Supabase directly ONLY for auth + realtime.\n25: - Everything is containerised + env-driven (no hardcoded URLs/keys).\n26: \n27: ## CI / deploy\n28: - CI runs **on the dev machine**: `./scripts/ci-may.sh --bao-github` (GitHub\n29:   Actions is down — billing). Green before merge, green before deploy.\n30: - No automatic CD. Deploy by hand on the VPS: backup → (migrations: rehearse on a\n31:   copy, then `scripts/apply-pending-migrations.sh --apply`) →\n32:   `git checkout -B main origin/main` → `./scripts/deploy-backend.sh prod`.\n33: - Only `main` is long-lived; work branches live ≤ 2 days.\n34: \n35: ## Rules\n36: - Secrets only in `.env.prod` on the VPS (gitignored). Never in code or chat.\n37: - Router thin; logic in service functions (pure Python, testable). No business rules in TSX.\n38: - Schema only via `supabase/migrations/*.sql`; migrations are a separate, watched\n39:   step — never inside the deploy."
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 124,
+          "end_line": 126,
+          "sha256": "a032c40c1cffd3a41a1bc96bf8f895d629b2367c824fdd5327fb8d709147a70b",
+          "excerpt": "124: - **Database chỉ qua migration** (`supabase/migrations/`, áp bằng\n125:   `scripts/apply-pending-migrations.sh`, không `supabase db push`, không sửa tay,\n126:   không áp trong lúc deploy). Chi tiết: `.claude/rules/migration.md`."
+        },
+        {
+          "path": ".claude/rules/migration.md",
+          "line": 10,
+          "end_line": 17,
+          "sha256": "4070ee53f39be9828adf59720dfe926d950ca54d499bdbe6012691fd4c4eb190",
+          "excerpt": "10:   MỚI**; không sửa migration cũ, **không bao giờ** sửa lược đồ bằng tay.\n11: - Mỗi việc chạy song song dùng **một dải giờ migration riêng** để tên tệp không đè nhau.\n12: - Áp bằng **`scripts/apply-pending-migrations.sh`** — nó so thư mục với sổ ghi và\n13:   áp mỗi migration cùng dòng ghi sổ trong một giao dịch. **Không dùng `supabase db push`.**\n14:   Test: `scripts/test-nhanh.sh` tự áp migration của nhánh vào DB tạm mỗi lượt (bản\n15:   trên đĩa — sửa là thấy ngay); không áp migration nhánh vào DB chung.\n16: - Áp xong: `NOTIFY pgrst, 'reload schema'` để PostgREST thấy cột/bảng mới.\n17: - **Không chạy migration trong lúc deploy** — đó là một bước riêng, có người xem"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CLIN-043",
+    "title": "Đổi bác sĩ và hoàn tác check-in có thứ tự khóa ngược nhau",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical/concurrent-lock-order",
+    "summary": "Luồng đổi bác sĩ khóa visit trước rồi cập nhật appointment. Luồng undo check-in khóa appointment trước, sau đó visit rồi encounter_flow. Nếu cùng lúc xử lý cùng cặp appointment/visit, hai transaction có thể giữ khóa chéo và PostgreSQL hủy một giao dịch do deadlock.",
+    "trigger": "Đổi bác sĩ và hoàn tác check-in chạy đồng thời trên cùng appointment/visit.",
+    "impact": "Một thao tác bị rollback và người dùng phải thử lại; đây là lỗi availability/concurrency, không phải bằng chứng dữ liệu bị hỏng. Chưa có concurrent test hoặc incident được xác nhận.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/doi_bac_si_service.py",
+        "line": 114,
+        "end_line": 125,
+        "detail": "Luồng đổi bác sĩ bắt đầu transaction và khóa visit."
+      },
+      {
+        "path": "src/clinicai/services/doi_bac_si_service.py",
+        "line": 169,
+        "end_line": 178,
+        "detail": "Sau đó cập nhật appointment trong transaction."
+      },
+      {
+        "path": "src/clinicai/services/hoan_tac_check_in.py",
+        "line": 139,
+        "end_line": 158,
+        "detail": "Undo khóa appointment rồi visit rồi encounter_flow."
+      },
+      {
+        "path": "src/clinicai/services/booking_service.py",
+        "line": 875,
+        "end_line": 897,
+        "detail": "Command chạy trong transaction; đường undo được gọi ở action handler."
+      },
+      {
+        "path": "src/clinicai/services/booking_service.py",
+        "line": 1040,
+        "end_line": 1046,
+        "detail": "Action handler gọi undo check-in."
+      },
+      {
+        "path": "src/tests/services/test_doi_bac_si_theo_quyen_db.py",
+        "line": 30,
+        "end_line": 58,
+        "detail": "Test đổi bác sĩ hiện chạy tuần tự."
+      },
+      {
+        "path": "src/tests/services/test_hoan_tac_check_in_db.py",
+        "line": 44,
+        "end_line": 98,
+        "detail": "Helper/test undo dùng cùng visit nhưng chỉ kiểm tra tuần tự."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Hai lock order ngược nhau được xác nhận trên exact-main; interleaving deadlock là suy luận concurrency cần xác nhận bằng DB test.",
+      "limitations": "Không dựng DB, không chạy test song song và không kiểm log production. PostgreSQL sẽ rollback một bên khi deadlock được phát hiện."
+    },
+    "recommendation": "Chuẩn hóa lock order xuyên suốt các flow liên quan (appointment → visit → encounter_flow), sau đó revalidate điều kiện nghiệp vụ trong transaction. Thêm retry bounded chỉ khi retry semantics đã idempotent.",
+    "acceptance": "DB test tổng hợp chạy hai transaction cùng appointment qua barrier: không deadlock; một thứ tự hoàn tất an toàn hoặc lỗi domain 409 có thể giải thích, state và audit không bị lệch.",
+    "alignment": [
+      "Khoảng Unknown ngắn hơn",
+      "Con người bị gián đoạn ít hơn",
+      "Lỗi lặp thành cải tiến hệ thống"
+    ],
+    "related_tests": [
+      "src/tests/services/test_doi_bac_si_theo_quyen_db.py — đọc, không chạy; test tuần tự.",
+      "src/tests/services/test_hoan_tac_check_in_db.py — đọc, không chạy; test tuần tự."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/doi_bac_si_service.py": "f8e561009c06b4a3093e36a8ee431528a352ad391677e5d93c9da8bb7ffd9c3d",
+      "src/clinicai/services/hoan_tac_check_in.py": "490ffd4e249afcd543f54daef2964f9eb26127829c8b663424e042fb855609f2",
+      "src/clinicai/services/booking_service.py": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "src/tests/services/test_doi_bac_si_theo_quyen_db.py": "1b1b3ff517afaa173d6ef06c9f0468bba88ddbae92686ded91729609dc7378d7",
+      "src/tests/services/test_hoan_tac_check_in_db.py": "4243a4a32583d75e391edb5a3be403a8713dae1a988320056199230bcd4003f4"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Lock-order inversion còn trên snapshot; deadlock là khả năng trong interleaving đồng thời, chưa được tái hiện.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/doi_bac_si_service.py",
+          "line": 114,
+          "end_line": 125,
+          "sha256": "f8e561009c06b4a3093e36a8ee431528a352ad391677e5d93c9da8bb7ffd9c3d",
+          "excerpt": "114:         async with self._pool.acquire() as conn, conn.transaction():\n115:             visit = await conn.fetchrow(\n116:                 \"\"\"\n117:                 SELECT visit_id::text AS visit_id, status, appointment_id,\n118:                        attending_doctor_id::text AS bac_si_cu\n119:                   FROM visit\n120:                  WHERE clinic_id = $1::uuid AND visit_id = $2::uuid\n121:                    FOR UPDATE\n122:                 \"\"\",\n123:                 identity.clinic_id,\n124:                 visit_id,\n125:             )"
+        },
+        {
+          "path": "src/clinicai/services/doi_bac_si_service.py",
+          "line": 169,
+          "end_line": 178,
+          "sha256": "f8e561009c06b4a3093e36a8ee431528a352ad391677e5d93c9da8bb7ffd9c3d",
+          "excerpt": "169:             if visit[\"appointment_id\"] is not None:\n170:                 await conn.execute(\n171:                     \"\"\"\n172:                     UPDATE appointment SET doctor_id = $3::uuid, updated_at = now()\n173:                      WHERE clinic_id = $1::uuid AND id = $2::uuid\n174:                     \"\"\",\n175:                     identity.clinic_id,\n176:                     visit[\"appointment_id\"],\n177:                     bac_si_moi_id,\n178:                 )"
+        },
+        {
+          "path": "src/clinicai/services/hoan_tac_check_in.py",
+          "line": 139,
+          "end_line": 158,
+          "sha256": "490ffd4e249afcd543f54daef2964f9eb26127829c8b663424e042fb855609f2",
+          "excerpt": "139:     await conn.execute(\n140:         \"SELECT 1 FROM public.appointment\"\n141:         \" WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE\",\n142:         clinic_id,\n143:         appointment_id,\n144:     )\n145:     visit_id = await conn.fetchval(\n146:         \"SELECT visit_id::text FROM public.visit\"\n147:         \" WHERE clinic_id = $1::uuid AND appointment_id = $2::uuid FOR UPDATE\",\n148:         clinic_id,\n149:         appointment_id,\n150:     )\n151:     if visit_id is None:\n152:         return None\n153:     await conn.execute(\n154:         \"SELECT 1 FROM public.encounter_flow\"\n155:         \" WHERE clinic_id = $1::uuid AND visit_id = $2::uuid FOR UPDATE\",\n156:         clinic_id,\n157:         visit_id,\n158:     )"
+        },
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "line": 875,
+          "end_line": 897,
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "excerpt": "875:         async with self._pool.acquire() as conn:\n876:             async with conn.transaction():\n877:                 kq = await self._hanh_dong_trong_gd(\n878:                     conn,\n879:                     appointment_id=appointment_id,\n880:                     action=action,\n881:                     transition=transition,\n882:                     identity=identity,\n883:                     cach_xac_minh=cach_xac_minh,\n884:                     cancellation_reason=cancellation_reason,\n885:                     ly_do_huy_ma=ly_do_huy_ma,\n886:                     doctor_id=doctor_id,\n887:                     doctor_id_provided=doctor_id_provided,\n888:                     slot_start=slot_start,\n889:                     slot_end=slot_end,\n890:                     service_type_id=service_type_id,\n891:                     booking_channel=booking_channel,\n892:                     booking_channel_provided=booking_channel_provided,\n893:                     nguoi_gioi_thieu=nguoi_gioi_thieu,\n894:                     ghi_chu=ghi_chu,\n895:                     ghi_chu_provided=ghi_chu_provided,\n896:                 )\n897:         new_status = kq.new_status"
+        },
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "line": 1040,
+          "end_line": 1046,
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "excerpt": "1040:         if action == \"undo_checkin\":\n1041:             # Đã làm rồi thì không hoàn tác (Tuyền 09/10/2026) — khoá rồi mới hỏi.\n1042:             ly_do = await chan_hoan_tac_neu_da_lam(\n1043:                 conn, clinic_id=identity.clinic_id, appointment_id=appointment_id\n1044:             )\n1045:             if ly_do:\n1046:                 raise ConflictError(ly_do)"
+        },
+        {
+          "path": "src/tests/services/test_doi_bac_si_theo_quyen_db.py",
+          "line": 30,
+          "end_line": 58,
+          "sha256": "1b1b3ff517afaa173d6ef06c9f0468bba88ddbae92686ded91729609dc7378d7",
+          "excerpt": "30: async def test_chi_nguoi_kham_va_hoan_tat_duoc_moi_nhan_khach(\n31:     pool: asyncpg.Pool,  # noqa: F811\n32: ) -> None:\n33:     ca = await _dung(pool)\n34:     async with pool.acquire() as conn:\n35:         sa = await _nguoi(conn, ca.loc, \"ULTRASOUND_DOCTOR\")\n36:         await ve_goi_mau_cu(conn, sa)  # gói lego cũ (mở full lego 30/09)\n37:         ql = await _nguoi(conn, ca.loc, \"MANAGEMENT\")\n38:         tc = await _nguoi(conn, ca.loc, \"TRUONG_CA\")\n39:     svc = DoiBacSiService(pool)\n40:     ds = {r[\"id\"] for r in await svc.bac_si_trong_phong_kham(identity=tc)}\n41:     assert ca.bac_si.staff_id in ds\n42:     assert sa.staff_id not in ds, (\n43:         \"BS siêu âm chưa có khối Khám không được vào danh sách\"\n44:     )\n45: \n46:     pid = await _benh_nhan(pool, ca)\n47:     vid = await _check_in(pool, ca, pid, ca.loai_kham)\n48:     with pytest.raises(ValidationError):\n49:         await svc.doi(\n50:             identity=tc, visit_id=vid, bac_si_moi_id=sa.staff_id, ly_do=\"quá tải\"\n51:         )\n52: \n53:     pq = PermissionService(pool)\n54:     for khoi in (\"kham\", \"hoan_tat_kham\"):\n55:         await pq.cap_khoi(identity=ql, staff_id=sa.staff_id, khoi=khoi)\n56:     ds = {r[\"id\"] for r in await svc.bac_si_trong_phong_kham(identity=tc)}\n57:     assert sa.staff_id in ds\n58:     await svc.doi(identity=tc, visit_id=vid, bac_si_moi_id=sa.staff_id, ly_do=\"quá tải\")"
+        },
+        {
+          "path": "src/tests/services/test_hoan_tac_check_in_db.py",
+          "line": 44,
+          "end_line": 98,
+          "sha256": "4243a4a32583d75e391edb5a3be403a8713dae1a988320056199230bcd4003f4",
+          "excerpt": "44: async def _vao(pool: asyncpg.Pool) -> tuple[Ca, str, str]:  # noqa: F811\n45:     ca = await _dung(pool)\n46:     pid = await _benh_nhan(pool, ca)\n47:     visit = await _check_in(pool, ca, pid, ca.loai_kham)  # đã chạy Hành trình\n48:     return ca, visit, await _lich(pool, visit)\n49: \n50: \n51: async def _hoan_tac(pool: asyncpg.Pool, ca: Ca, appt: str) -> None:  # noqa: F811\n52:     await BookingService(pool).apply_action(\n53:         appointment_id=appt, action=\"undo_checkin\", identity=ca.le_tan\n54:     )\n55: \n56: \n57: async def _bi_tu_choi(\n58:     pool: asyncpg.Pool,  # noqa: F811\n59:     ca: Ca,\n60:     appt: str,\n61:     visit: str,\n62:     chu: str,\n63: ) -> None:\n64:     with pytest.raises(ConflictError) as loi:\n65:         await _hoan_tac(pool, ca, appt)\n66:     cau = str(loi.value.detail if hasattr(loi.value, \"detail\") else loi.value)\n67:     assert \"Khách đã\" in cau and chu in cau, cau\n68:     assert \"không hoàn tác check-in được\" in cau\n69:     assert (\n70:         await pool.fetchval(\"SELECT status FROM appointment WHERE id = $1::uuid\", appt)\n71:         == \"CHECKED_IN\"\n72:     )\n73:     assert await pool.fetchval(\n74:         \"SELECT status FROM visit WHERE visit_id = $1::uuid\", visit\n75:     ) in (\"OPEN\", \"IN_PROGRESS\")\n76: \n77: \n78: async def test_chua_lam_gi_thi_hoan_tac_duoc(pool: asyncpg.Pool) -> None:  # noqa: F811\n79:     ca, visit, appt = await _vao(pool)\n80:     # Hệ thống đã tự làm: mở lượt, trạm đầu, hàng chờ, quyết đường đi.\n81:     assert await pool.fetchval(\n82:         \"SELECT route_decision FROM encounter_flow WHERE visit_id = $1::uuid\", visit\n83:     )\n84:     async with pool.acquire() as conn:\n85:         viec = (await doc_viec_da_lam(conn, CLINIC, [visit]))[visit]\n86:     assert not any(v for k, v in viec.items() if k != \"visit_id\"), viec\n87: \n88:     await _hoan_tac(pool, ca, appt)\n89: \n90:     assert (\n91:         await pool.fetchval(\"SELECT status FROM appointment WHERE id = $1::uuid\", appt)\n92:         == \"CONFIRMED\"\n93:     )\n94:     assert (\n95:         await pool.fetchval(\"SELECT status FROM visit WHERE visit_id = $1::uuid\", visit)\n96:         == \"INCOMPLETE\"\n97:     )\n98: "
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "LAB-002",
+    "title": "Kết quả đã chốt vẫn có thể sinh lại task LAB_REVIEW khẩn",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "clinical/result-review-task-race",
+    "summary": "Graph triage nạp lab_result một lần rồi giữ row trong state. Nếu bác sĩ finalize trong lúc phân loại, service persist trả trạng thái đã chốt nhưng graph không cập nhật cờ is_finalized trong row cache. Nhánh GROUP_C vẫn có thể tới create_review_tasks, nơi đọc cờ cũ=false. Finalize chỉ đóng task đang mở; partial unique index chỉ chặn task active nên cho phép tạo task mới sau đó.",
+    "trigger": "Worker đang triage kết quả GROUP_C chưa chốt; bác sĩ finalize và đóng task hiện có trước khi graph gọi create_review_tasks.",
+    "impact": "Có thể tạo task URGENT giả cho kết quả đã chốt, gây gián đoạn và làm ownership trong worklist lệch. Không có bằng chứng kết quả lâm sàng bị sửa sai hoặc race đã xảy ra.",
+    "evidence": [
+      {
+        "path": "src/clinicai/graphs/lab_triage/nodes.py",
+        "line": 125,
+        "end_line": 132,
+        "detail": "FETCH caches the lab row."
+      },
+      {
+        "path": "src/clinicai/graphs/lab_triage/nodes.py",
+        "line": 211,
+        "end_line": 221,
+        "detail": "CLASSIFY copies triage fields without refreshing the cached row."
+      },
+      {
+        "path": "src/clinicai/graphs/lab_triage/nodes.py",
+        "line": 249,
+        "end_line": 285,
+        "detail": "PERSIST updates triage fields but not lab_result_row."
+      },
+      {
+        "path": "src/clinicai/graphs/lab_triage/nodes.py",
+        "line": 383,
+        "end_line": 413,
+        "detail": "Task node checks the cached finalization flag and creates an urgent task."
+      },
+      {
+        "path": "src/clinicai/graphs/lab_triage/graph.py",
+        "line": 113,
+        "end_line": 120,
+        "detail": "hard_block routes directly to task creation."
+      },
+      {
+        "path": "src/clinicai/services/lab_safety_service.py",
+        "line": 84,
+        "end_line": 106,
+        "detail": "Persistence returns current outcome when the locked row is already finalized."
+      },
+      {
+        "path": "src/clinicai/services/lab_safety_service.py",
+        "line": 261,
+        "end_line": 275,
+        "detail": "Finalization closes tasks that are open at that point."
+      },
+      {
+        "path": "src/clinicai/tools/task/create_task.py",
+        "line": 31,
+        "end_line": 45,
+        "detail": "Conflict predicate only covers active lab-review tasks."
+      },
+      {
+        "path": "supabase/migrations/20260730000018_lab_review_idempotency.sql",
+        "line": 34,
+        "end_line": 39,
+        "detail": "Unique index uses the active-only predicate."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/lab.py",
+        "line": 135,
+        "end_line": 165,
+        "detail": "Queue exposes unfinalized results independently of task state."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/lab.py",
+        "line": 187,
+        "end_line": 211,
+        "detail": "Doctor endpoint calls finalize_review."
+      },
+      {
+        "path": "src/tests/unit/test_lab_safety_service.py",
+        "line": 284,
+        "end_line": 326,
+        "detail": "Finalize test is sequential/mocked."
+      },
+      {
+        "path": "src/tests/graphs/lab_triage/test_lab_triage_skeleton.py",
+        "line": 252,
+        "end_line": 288,
+        "detail": "GROUP_C test covers path, not concurrency."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Code flow và active-only dedupe predicate xác nhận interleaving có thể sinh lại task; chưa tái hiện bằng concurrent test.",
+      "limitations": "Static concurrency inference; tests đã đọc là tuần tự/mocked. Không chạy graph, DB, API, provider hoặc production."
+    },
+    "recommendation": "Trước khi tạo task, đọc lại is_finalized và quyết định trong cùng transaction/lock với task insert; chỉ tạo khi row vẫn chưa chốt. Giữ idempotency theo lifecycle task đã định nghĩa.",
+    "acceptance": "Barrier-driven DB test tạm dừng triage sau fetch, finalize ở transaction khác rồi tiếp tục graph: không có LAB_REVIEW active cho result đã chốt; chạy thứ tự ngược lại vẫn tạo tối đa một task hợp lệ.",
+    "alignment": [
+      "Con người bị gián đoạn ít hơn nhưng đúng lúc hơn",
+      "Reality và ownership rõ hơn",
+      "Lỗi lặp lại biến thành cải tiến hệ thống"
+    ],
+    "related_tests": [
+      "src/tests/unit/test_lab_safety_service.py — đọc đoạn 284–326, không chạy; finalize và đóng task tuần tự.",
+      "src/tests/graphs/lab_triage/test_lab_triage_skeleton.py — đọc đoạn 252–288, không chạy; GROUP_C path, không kiểm race."
+    ],
+    "source_hashes": {
+      "src/clinicai/graphs/lab_triage/nodes.py": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23",
+      "src/clinicai/graphs/lab_triage/graph.py": "27cb880489073cda3bd92727825658f9245f53c86126ee423099f62597510c17",
+      "src/clinicai/services/lab_safety_service.py": "afb270acda297eb0147f3b921caeaa90a46263cb2793c9883ce207e3db3d60de",
+      "src/clinicai/tools/task/create_task.py": "648b61219de4b039ced6b10f07ca70da9c1f962759cc42d414b90fa585f92c30",
+      "supabase/migrations/20260730000018_lab_review_idempotency.sql": "f3dc10456fee3484a76193a0dfff4e57a3584c12237c428be7748b3c99f7f33d",
+      "src/clinicai/api/v1/routers/lab.py": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+      "src/tests/unit/test_lab_safety_service.py": "161ee3c72dbd43250c846784405cc64966d519bff6d7c58913c7b63c03dbeda5",
+      "src/tests/graphs/lab_triage/test_lab_triage_skeleton.py": "8fbb94440211900d66f0c734316770a4138a2dbede32efd15b9f236de07f54a1"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Race suy ra từ stale row cache và active-only task dedupe; chưa tái hiện, không có xác nhận production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/graphs/lab_triage/nodes.py",
+          "line": 125,
+          "end_line": 132,
+          "sha256": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23",
+          "excerpt": "125:         row = LabResultRow.model_validate(dict(record))\n126:         return state.model_copy(\n127:             update={\n128:                 \"lab_result_row\": row,\n129:                 \"step\": LabTriageStep.CLASSIFY,\n130:                 \"turn_count\": state.turn_count + 1,\n131:             }\n132:         )"
+        },
+        {
+          "path": "src/clinicai/graphs/lab_triage/nodes.py",
+          "line": 211,
+          "end_line": 221,
+          "sha256": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23",
+          "excerpt": "211:         return state.model_copy(\n212:             update={\n213:                 \"triage_group\": result.triage_group,\n214:                 \"triage_reason\": result.reason,\n215:                 \"requires_doctor_review\": result.requires_doctor_review,\n216:                 \"classify_source\": result.source,\n217:                 \"matched_rule_key\": result.matched_rule_key,\n218:                 \"step\": LabTriageStep.PERSIST,\n219:                 \"turn_count\": state.turn_count + 1,\n220:             }\n221:         )"
+        },
+        {
+          "path": "src/clinicai/graphs/lab_triage/nodes.py",
+          "line": 249,
+          "end_line": 285,
+          "sha256": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23",
+          "excerpt": "249:         try:\n250:             persisted = await LabSafetyService(pool).persist_classification(\n251:                 lab_result_id=state.lab_result_id,\n252:                 clinic_id=state.clinic_id,\n253:                 triage_group=state.triage_group,\n254:                 triage_reason=state.triage_reason,\n255:                 requires_doctor_review=state.requires_doctor_review,\n256:                 triage_model=state.classify_source,\n257:             )\n258:         except Exception as exc:\n259:             logger.error(\n260:                 \"lab_triage.persist_failed\",\n261:                 lab_result_id=str(state.lab_result_id),\n262:                 error_type=type(exc).__name__,\n263:             )\n264:             persisted = None\n265: \n266:         return state.model_copy(\n267:             update={\n268:                 \"triage_group\": (\n269:                     persisted.triage_group if persisted else state.triage_group\n270:                 ),\n271:                 \"triage_reason\": (\n272:                     persisted.triage_reason if persisted else state.triage_reason\n273:                 ),\n274:                 \"requires_doctor_review\": (\n275:                     persisted.requires_doctor_review if persisted else True\n276:                 ),\n277:                 \"classify_source\": (\n278:                     persisted.triage_model if persisted else state.classify_source\n279:                 ),\n280:                 \"error\": (\n281:                     state.error if persisted is not None else \"triage_persist_failed\"\n282:                 ),\n283:                 \"step\": LabTriageStep.PERSIST,\n284:                 \"turn_count\": state.turn_count + 1,\n285:             }"
+        },
+        {
+          "path": "src/clinicai/graphs/lab_triage/nodes.py",
+          "line": 383,
+          "end_line": 413,
+          "sha256": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23",
+          "excerpt": "383:         row = state.lab_result_row\n384:         if row is not None and bool(getattr(row, \"is_finalized\", False)):\n385:             logger.info(\n386:                 \"lab_triage.create_review_tasks.skip_finalized\",\n387:                 lab_result_id=str(state.lab_result_id),\n388:             )\n389:             return state.model_copy(\n390:                 update={\n391:                     \"step\": LabTriageStep.DONE,\n392:                     \"turn_count\": state.turn_count + 1,\n393:                 }\n394:             )\n395: \n396:         test_name = getattr(row, \"test_name\", None) or \"lab result\"\n397:         due_at = datetime.now(tz=timezone.utc) + timedelta(hours=_LAB_REVIEW_SLA_HOURS)\n398: \n399:         task_input = CreateTaskInput(\n400:             clinic_id=state.clinic_id,\n401:             task_type=\"LAB_REVIEW\",\n402:             priority=\"URGENT\",\n403:             source_type=\"LAB_RESULT\",\n404:             source_id=state.lab_result_id,\n405:             title=f\"Review {test_name} — {state.triage_group or 'PENDING'}\",\n406:             description=state.triage_reason,\n407:             due_at=due_at,\n408:             sla_hours=_LAB_REVIEW_SLA_HOURS,\n409:         )\n410: \n411:         trace = new_trace()\n412:         try:\n413:             created = await create_task(pool, task_input, trace)"
+        },
+        {
+          "path": "src/clinicai/graphs/lab_triage/graph.py",
+          "line": 113,
+          "end_line": 120,
+          "sha256": "27cb880489073cda3bd92727825658f9245f53c86126ee423099f62597510c17",
+          "excerpt": "113:     sg.add_conditional_edges(\n114:         \"persist\",\n115:         _route_after_persist,\n116:         {\"advise\": \"advise\", \"hard_block\": \"hard_block\"},\n117:     )\n118:     sg.add_edge(\"advise\", END)\n119:     sg.add_edge(\"hard_block\", \"create_review_tasks\")\n120:     sg.add_edge(\"create_review_tasks\", END)"
+        },
+        {
+          "path": "src/clinicai/services/lab_safety_service.py",
+          "line": 84,
+          "end_line": 106,
+          "sha256": "afb270acda297eb0147f3b921caeaa90a46263cb2793c9883ce207e3db3d60de",
+          "excerpt": "84:         async with self._pool.acquire() as conn:\n85:             async with conn.transaction():\n86:                 current = await conn.fetchrow(\n87:                     \"\"\"\n88:                     SELECT lab_result_id, triage_group, triage_reason,\n89:                            triage_model, triage_classified_at,\n90:                            requires_doctor_review, is_finalized\n91:                       FROM lab_result\n92:                      WHERE lab_result_id = $1\n93:                        AND clinic_id = $2::uuid\n94:                      FOR UPDATE\n95:                     \"\"\",\n96:                     lab_result_id,\n97:                     clinic_id,\n98:                 )\n99:                 if current is None:\n100:                     return None\n101: \n102:                 current_group = str(current[\"triage_group\"])\n103:                 if current_group not in _TRIAGE_SEVERITY:\n104:                     raise ConflictError(\"Nhóm phân loại đã lưu không hợp lệ\")\n105:                 if bool(current[\"is_finalized\"]):\n106:                     return _classification_outcome(current, changed=False)"
+        },
+        {
+          "path": "src/clinicai/services/lab_safety_service.py",
+          "line": 261,
+          "end_line": 275,
+          "sha256": "afb270acda297eb0147f3b921caeaa90a46263cb2793c9883ce207e3db3d60de",
+          "excerpt": "261:                 await conn.execute(\n262:                     \"\"\"\n263:                     UPDATE staff_task\n264:                        SET status = 'DONE',\n265:                            completed_at = COALESCE(completed_at, now()),\n266:                            updated_at = now()\n267:                      WHERE clinic_id = $1::uuid\n268:                        AND task_type = 'LAB_REVIEW'\n269:                        AND source_type = 'LAB_RESULT'\n270:                        AND source_id = $2::uuid\n271:                        AND status IN ('PENDING', 'IN_PROGRESS')\n272:                     \"\"\",\n273:                     clinic_id,\n274:                     lab_result_id,\n275:                 )"
+        },
+        {
+          "path": "src/clinicai/tools/task/create_task.py",
+          "line": 31,
+          "end_line": 45,
+          "sha256": "648b61219de4b039ced6b10f07ca70da9c1f962759cc42d414b90fa585f92c30",
+          "excerpt": "31: _INSERT_SQL = \"\"\"\n32:     INSERT INTO staff_task (\n33:         location_id, task_type, priority, assigned_to,\n34:         source_type, source_id, title, description,\n35:         due_at, sla_hours, clinic_id\n36:     )\n37:     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,\n38:             $11::uuid)\n39:     ON CONFLICT (clinic_id, source_id)\n40:         WHERE task_type = 'LAB_REVIEW'\n41:           AND source_type = 'LAB_RESULT'\n42:           AND source_id IS NOT NULL\n43:           AND status IN ('PENDING', 'IN_PROGRESS')\n44:     DO UPDATE SET updated_at = staff_task.updated_at\n45:     RETURNING task_id, location_id, task_type, priority, status,"
+        },
+        {
+          "path": "supabase/migrations/20260730000018_lab_review_idempotency.sql",
+          "line": 34,
+          "end_line": 39,
+          "sha256": "f3dc10456fee3484a76193a0dfff4e57a3584c12237c428be7748b3c99f7f33d",
+          "excerpt": "34: CREATE UNIQUE INDEX IF NOT EXISTS uq_staff_task_open_lab_review\n35:     ON public.staff_task (clinic_id, source_id)\n36:     WHERE task_type = 'LAB_REVIEW'\n37:       AND source_type = 'LAB_RESULT'\n38:       AND source_id IS NOT NULL\n39:       AND status IN ('PENDING', 'IN_PROGRESS');"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/lab.py",
+          "line": 135,
+          "end_line": 165,
+          "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+          "excerpt": "135: @router.get(\"/results/cho-duyet\")\n136: async def ket_qua_cho_duyet(\n137:     identity: StaffIdentity = Depends(_REVIEW_READ_GUARD),\n138:     pool: asyncpg.Pool = Depends(get_db_pool),\n139: ) -> dict[str, Any]:\n140:     \"\"\"Kết quả đã về, chưa chốt — hàng chờ màn Duyệt kết quả.\n141: \n142:     Chuyển từ đọc thẳng Supabase ở trang (15/09/2026) để lọc được theo thư ký:\n143:     thư ký chỉ thấy kết quả khách của bác sĩ mình được phân.\n144:     \"\"\"\n145:     duoc = await khach_duoc_xem(pool, identity)\n146:     rows = await pool.fetch(\n147:         \"\"\"\n148:         SELECT r.lab_result_id::text, r.clinic_patient_id::text, r.test_code,\n149:                r.test_name, r.result_value, r.result_numeric, r.result_unit,\n150:                r.reference_range_low, r.reference_range_high, r.flag,\n151:                r.triage_group, r.requires_doctor_review, r.is_finalized,\n152:                r.result_received_at, r.external_ref,\n153:                p.full_name, p.phone_primary\n154:           FROM lab_result r\n155:           LEFT JOIN patient p\n156:             ON p.clinic_patient_id = r.clinic_patient_id\n157:            AND p.clinic_id = r.clinic_id\n158:          WHERE r.clinic_id = $1::uuid\n159:            AND NOT r.is_finalized\n160:            AND coalesce(nullif(btrim(coalesce(r.result_value, '')), ''),\n161:                         nullif(btrim(coalesce(r.external_ref, '')), '')) IS NOT NULL\n162:            AND r.clinic_patient_id::text\n163:                = ANY(coalesce($2::text[], ARRAY[r.clinic_patient_id::text]))\n164:          ORDER BY r.result_received_at DESC\n165:          LIMIT 100"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/lab.py",
+          "line": 187,
+          "end_line": 211,
+          "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+          "excerpt": "187: @router.post(\n188:     \"/results/{lab_result_id}/review\",\n189:     response_model=LabReviewResponse,\n190: )\n191: async def review_and_finalize_lab_result(\n192:     lab_result_id: UUID,\n193:     body: LabReviewRequest,\n194:     identity: StaffIdentity = Depends(_REVIEW_GUARD),\n195:     pool: asyncpg.Pool = Depends(get_db_pool),\n196: ) -> LabReviewResponse:\n197:     \"\"\"Doctor-only review/finalise gate, scoped to clinic and patient.\"\"\"\n198:     outcome: LabReviewOutcome = await LabSafetyService(pool).finalize_review(\n199:         lab_result_id=lab_result_id,\n200:         clinic_patient_id=body.clinic_patient_id,\n201:         identity=identity,\n202:     )\n203:     return LabReviewResponse(\n204:         lab_result_id=outcome.lab_result_id,\n205:         clinic_patient_id=outcome.clinic_patient_id,\n206:         triage_group=outcome.triage_group,\n207:         is_finalized=outcome.is_finalized,\n208:         reviewed_by_staff_id=outcome.reviewed_by_staff_id,\n209:         reviewed_at=outcome.reviewed_at,\n210:         already_finalized=outcome.already_finalized,\n211:     )"
+        },
+        {
+          "path": "src/tests/unit/test_lab_safety_service.py",
+          "line": 284,
+          "end_line": 326,
+          "sha256": "161ee3c72dbd43250c846784405cc64966d519bff6d7c58913c7b63c03dbeda5",
+          "excerpt": "284: async def test_finalize_updates_result_closes_review_task_and_writes_audit_event() -> (\n285:     None\n286: ):\n287:     pool, conn = _pool()\n288:     pending = {\n289:         \"lab_result_id\": LAB_RESULT_ID,\n290:         \"clinic_patient_id\": PATIENT_ID,\n291:         \"triage_group\": \"GROUP_C\",\n292:         \"requires_doctor_review\": True,\n293:         \"is_finalized\": False,\n294:         \"reviewed_by_staff_id\": None,\n295:         \"reviewed_at\": None,\n296:         \"has_result\": True,\n297:     }\n298:     finalized = {\n299:         **pending,\n300:         \"is_finalized\": True,\n301:         \"reviewed_by_staff_id\": STAFF_ID,\n302:         \"reviewed_at\": NOW,\n303:     }\n304:     conn.fetchrow.side_effect = [pending, finalized]\n305: \n306:     outcome = await LabSafetyService(pool).finalize_review(\n307:         lab_result_id=LAB_RESULT_ID,\n308:         clinic_patient_id=PATIENT_ID,\n309:         identity=_doctor(),\n310:     )\n311: \n312:     assert outcome.already_finalized is False\n313:     assert outcome.triage_group == \"GROUP_C\"\n314:     update_sql, *update_args = conn.fetchrow.await_args_list[1].args\n315:     assert \"is_finalized = TRUE\" in update_sql\n316:     assert \"clinic_id = $2::uuid\" in update_sql\n317:     assert \"clinic_patient_id = $3::uuid\" in update_sql\n318:     assert update_args[:4] == [LAB_RESULT_ID, CLINIC_ID, PATIENT_ID, STAFF_ID]\n319: \n320:     assert conn.execute.await_count == 2\n321:     close_task_sql = conn.execute.await_args_list[0].args[0]\n322:     assert \"UPDATE staff_task\" in close_task_sql\n323:     assert \"task_type = 'LAB_REVIEW'\" in close_task_sql\n324:     assert \"clinic_id = $1::uuid\" in close_task_sql\n325:     audit_sql = conn.execute.await_args_list[1].args[0]\n326:     assert \"INSERT INTO event_log\" in audit_sql"
+        },
+        {
+          "path": "src/tests/graphs/lab_triage/test_lab_triage_skeleton.py",
+          "line": 252,
+          "end_line": 288,
+          "sha256": "8fbb94440211900d66f0c734316770a4138a2dbede32efd15b9f236de07f54a1",
+          "excerpt": "252: async def test_lab_triage__group_c_unreviewed__safety_gate_populated(\n253:     monkeypatch: pytest.MonkeyPatch, mock_llm: MagicMock\n254: ) -> None:\n255:     \"\"\"GROUP_C → hard_block: no patient response, escalation_note set,\n256:     requires_doctor_review=True. This is the medical safety gate path.\n257:     \"\"\"\n258:     row = _lab_row(test_name=\"HIV antibody\", panel_code=\"HIV\", flag=\"POSITIVE\")\n259:     pool = _mock_pool_returning_row(row)\n260: \n261:     monkeypatch.setattr(\n262:         _lt_nodes,\n263:         \"classify_lab_result\",\n264:         AsyncMock(\n265:             return_value=ClassifyResult(\n266:                 triage_group=\"GROUP_C\",\n267:                 requires_doctor_review=True,\n268:                 reason=\"HIV reactive\",\n269:                 matched_rule_key=\"HIV_REACTIVE\",\n270:                 source=\"RULE\",\n271:                 confidence=1.0,\n272:             )\n273:         ),\n274:     )\n275: \n276:     g = build_lab_triage_subgraph(pool=pool, llm_client=mock_llm)\n277:     state = LabTriageState(\n278:         lab_result_id=row.lab_result_id,\n279:         clinic_patient_id=row.clinic_patient_id,\n280:         clinic_id=UUID(\"a0000000-0000-4000-8000-000000000001\"),\n281:     )\n282:     result = await g.ainvoke(state)\n283: \n284:     assert result[\"step\"] == LabTriageStep.DONE\n285:     assert result[\"triage_group\"] == \"GROUP_C\"\n286:     assert result.get(\"response_to_patient\") is None  # HARD BLOCK\n287:     assert result.get(\"escalation_note\") is not None\n288:     assert result[\"requires_doctor_review\"] is True"
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

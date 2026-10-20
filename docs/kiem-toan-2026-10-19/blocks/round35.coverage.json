@@ -1,0 +1,723 @@
+{
+  "round": 35,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_static_semantic_review",
+  "scope": [
+    "pharmacy inventory/dispense/returns and completeness",
+    "worker/event retry/lease/recovery",
+    "clinical status and location-scoped API reads",
+    "adjacent legacy routes reviewed for dedupe"
+  ],
+  "method": "Read-only exact-main trace; full SHA-256 and line ranges recorded. Tests read-not-run; no ClinicAI runtime/API/DB/provider or production access.",
+  "result": "No new finding IDs. Expanded FIN-002 with pharmacy receipt-history cap; expanded API-002 with clinical-status route evidence. Worker findings deduped; two held observations retained.",
+  "files": [
+    {
+      "path": "src/clinicai/services/kho_thuoc_service.py",
+      "read_ranges": [
+        {
+          "start": 106,
+          "end": 233
+        },
+        {
+          "start": 236,
+          "end": 308
+        },
+        {
+          "start": 348,
+          "end": 388
+        },
+        {
+          "start": 394,
+          "end": 630
+        },
+        {
+          "start": 658,
+          "end": 786
+        },
+        {
+          "start": 798,
+          "end": 1009
+        },
+        {
+          "start": 1016,
+          "end": 1194
+        }
+      ],
+      "notes": "Round 35 pharmacy: semantic review of stock ledger, movement, receipt, adjustment, reversal, transfer and history. Added FIN-002 evidence for location/type receipt list LIMIT 100; tests read-not-run.",
+      "sha256": "1c7f744372fbef2edcdb29cc572a72892a347ef3aac13b01a11b75e42295a5ee",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "read_ranges": [
+        {
+          "start": 270,
+          "end": 360
+        },
+        {
+          "start": 362,
+          "end": 440
+        },
+        {
+          "start": 381,
+          "end": 395
+        },
+        {
+          "start": 845,
+          "end": 864
+        },
+        {
+          "start": 1050,
+          "end": 1065
+        },
+        {
+          "start": 1252,
+          "end": 1296
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted sell/dispense, low-stock threshold and expiry guards. Low-stock threshold remains held pending product contract (physical vs available-to-promise, unit semantics).",
+      "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/kiem_ke_ca_service.py",
+      "read_ranges": [
+        {
+          "start": 884,
+          "end": 1006
+        },
+        {
+          "start": 1009,
+          "end": 1161
+        },
+        {
+          "start": 1194,
+          "end": 1336
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted inventory count, commit and undo lifecycle; no new independent finding.",
+      "sha256": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/lo_thuoc_service.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 239
+        }
+      ],
+      "notes": "Round 35 pharmacy: full-file semantic read of lot management/expiry lifecycle.",
+      "sha256": "cc412d27908140eb7c4a4bec068e95a8e30b6c3882b8f0b40ae60186938476db",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "read_ranges": [
+        {
+          "start": 35,
+          "end": 53
+        },
+        {
+          "start": 521,
+          "end": 559
+        },
+        {
+          "start": 562,
+          "end": 573
+        },
+        {
+          "start": 650,
+          "end": 730
+        },
+        {
+          "start": 764,
+          "end": 929
+        },
+        {
+          "start": 941,
+          "end": 1046
+        },
+        {
+          "start": 1129,
+          "end": 1322
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted route contracts for inventory/receipt, transfer and return flows; GET phieu-kho exposes only items.",
+      "sha256": "f5d2086e4c71db714773f4d5bd62bd4fce3d7d474eea407c834b8c039a2b4ff8",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/core/tran.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 23
+        },
+        {
+          "start": 35,
+          "end": 51
+        }
+      ],
+      "notes": "Round 35 pharmacy: helper logs truncation but does not return completeness to API/UI.",
+      "sha256": "91bded2bf0285884923b036fd42692c7cbdea00a8cd66bdfb127eff0c68e3256",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/pharmacy/[action]/route.ts",
+      "read_ranges": [
+        {
+          "start": 65,
+          "end": 81
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted BFF route forwards only loai; no completeness metadata.",
+      "sha256": "7f4e33f5e1f4f3fb75fa0828f418819b21d9186dfe2343c70ceb5e5483f713fd",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/DanhSachPhieu.tsx",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 194
+        }
+      ],
+      "notes": "Round 35 pharmacy: full-file read; active UI renders returned items without truncation/has_more notice.",
+      "sha256": "02a20c9fa65538a0c5fa0083e7660f9b198be491ceac3766a9e71de0b5abfb82",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/PhieuNhap.tsx",
+      "read_ranges": [
+        {
+          "start": 414,
+          "end": 415
+        }
+      ],
+      "notes": "Round 35 pharmacy: mount trace for NHAP receipt history.",
+      "sha256": "449ac020adc3549bb98fc392ac81ad299c1cc658036e87c9f5b77fe0d54bd58b",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKho.tsx",
+      "read_ranges": [
+        {
+          "start": 262,
+          "end": 263
+        }
+      ],
+      "notes": "Round 35 pharmacy: mount trace for KIEM inventory-check history.",
+      "sha256": "15e6019b0357ae25729557b49994e153fa72fdf8a43e371f981bccafd55dd668",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/TheKho.tsx",
+      "read_ranges": [
+        {
+          "start": 69,
+          "end": 85
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted ledger UI trace; existing FIN-002 surface.",
+      "sha256": "b3d19e90950e85db0db793d03ec12ddeeb8be343e0652cda3be73205c1da7ca8",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/ChuyenKho.tsx",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 246
+        }
+      ],
+      "notes": "Round 35 pharmacy: full-file read of transfer/undo UI; no independent finding.",
+      "sha256": "553ceb9903b20f315af49d92e9730b5b57ae7d830ca3e31566febadda3e8bbb0",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+      "read_ranges": [
+        {
+          "start": 309,
+          "end": 341
+        },
+        {
+          "start": 353,
+          "end": 366
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted inventory count UI save/commit behavior; existing PHAR-003/004 only.",
+      "sha256": "231e74f17853c4effe5b5159e8298140ded567d5892fefa2b04cc1a2c45c253c",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+      "read_ranges": [
+        {
+          "start": 398,
+          "end": 434
+        }
+      ],
+      "notes": "Round 35 pharmacy: reservation/sellable guard; technical oversell predicate, not a defined user-facing low-stock threshold.",
+      "sha256": "9335dd055dc9056a45973fb864d0cf9c0e6312a51a0fd95efc38ee5ee9f6bc56",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+      "read_ranges": [
+        {
+          "start": 506,
+          "end": 539
+        }
+      ],
+      "notes": "Round 35 pharmacy: unprocessed returns affect sellable availability; kept as held context only.",
+      "sha256": "0e330c5459303095cbb1b571de3509c4e5e95a1724cc4073b1851f379310bc2a",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 198
+        }
+      ],
+      "notes": "Round 35 pharmacy: full-file read of pharmacy-counter stock split/expiry guard migration.",
+      "sha256": "305032b86a255370cca6e43d3b40616226b43b035d05244d00c95cd7aaf5acc5",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/tests/services/test_kho_kiotviet_db.py",
+      "read_ranges": [
+        {
+          "start": 79,
+          "end": 92
+        },
+        {
+          "start": 142,
+          "end": 160
+        },
+        {
+          "start": 181,
+          "end": 340
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted tests for receipt, stock check and low-stock unit behavior; read only, not run.",
+      "sha256": "7549343ee976b7fd8742fec82d64ccdd2f0e9d94846d697e294245457666ac84",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_kho_quay_db.py",
+      "read_ranges": [
+        {
+          "start": 193,
+          "end": 330
+        },
+        {
+          "start": 540,
+          "end": 691
+        }
+      ],
+      "notes": "Round 35 pharmacy: targeted transfer, return/void and stock window tests; read only, not run.",
+      "sha256": "2d145daf7cbf31d49217c1d9f681a98a57e5e39c9e49b32fd1886244a920f18b",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_kho_khoang_ngay.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 31
+        }
+      ],
+      "notes": "Round 35 pharmacy: test source for stock date-window policy; read only, not run.",
+      "sha256": "438c4e7df89fc74cd0424e581c360ecccad7b0222fc57cbf4a67d6d5416b40d1",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx",
+      "read_ranges": [
+        {
+          "start": 1815,
+          "end": 1825
+        }
+      ],
+      "notes": "Round 35 API scope: selected active panel mount; targeted trace only.",
+      "sha256": "16aab719c694ab504ccc385243f92e5723b8a597e0085b85473f7f2bf9683da3",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
+      "read_ranges": [
+        {
+          "start": 91,
+          "end": 101
+        }
+      ],
+      "notes": "Round 35 API scope: active GET clinical status caller.",
+      "sha256": "e516cdc82d2285ee3cdb6d94b9c6173a453ebc1f2989454abbbfc85b126fe437",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/clinical/[visit_id]/[action]/route.ts",
+      "read_ranges": [
+        {
+          "start": 14,
+          "end": 39
+        }
+      ],
+      "notes": "Round 35 API scope: BFF GET status path requires login, allowlists status, forwards without object location check.",
+      "sha256": "9607035ad3e0790b853593a03e65502046baf53d8bb9613741e1cd0e2064d09d",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_sign.py",
+      "read_ranges": [
+        {
+          "start": 33,
+          "end": 59
+        }
+      ],
+      "notes": "Round 35 API scope: GET status uses generic current identity; targeted route trace.",
+      "sha256": "802d1d360af31840746fe6f65f276f09b42beb68470c5c2e57bba2ce3aeec344",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/clinical_sign_service.py",
+      "read_ranges": [
+        {
+          "start": 103,
+          "end": 153
+        },
+        {
+          "start": 180,
+          "end": 222
+        }
+      ],
+      "notes": "Round 35 API scope: status query scopes clinic and UUID, not location/assignment; payload returns patient identity/status metadata, not SOAP body.",
+      "sha256": "bcb3fe6970b994aa15a67d7d1dd0efde6f0ef5f9e8b2da32fa27705b76949e2e",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "read_ranges": [
+        {
+          "start": 638,
+          "end": 659
+        }
+      ],
+      "notes": "Round 35 API scope: identity helper excludes only DISPLAY/PARTNER; no location/read-capability guard.",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_hoan_tat_khong_khoa_db.py",
+      "read_ranges": [
+        {
+          "start": 82,
+          "end": 93
+        },
+        {
+          "start": 128,
+          "end": 147
+        }
+      ],
+      "notes": "Round 35 API scope: test service state with one identity; no location/role matrix. Read only, not run.",
+      "sha256": "bfab6bc8ea211ffd649db8a191592f1fb6609e49cb0c36ba63a7991876e18c7e",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/api/test_clinical_sign_authority_smoke.py",
+      "read_ranges": [
+        {
+          "start": 112,
+          "end": 149
+        }
+      ],
+      "notes": "Round 35 API scope: tests retired sign and own-ultrasound authority, not status read scope. Read only, not run.",
+      "sha256": "021e9cbf13ac3c708cb5b4c292617ea6d7df274b18f5bcb4b21c80b417e34c94",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts",
+      "read_ranges": [
+        {
+          "start": 12,
+          "end": 51
+        }
+      ],
+      "notes": "Round 35 API scope: UI flow boundary only; no BFF status role/location test. Read only, not run.",
+      "sha256": "f26ae14d5707ceb9c7dab2a7c831a117c4c02c7a8d3526652822c899e70f59f7",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/service_log.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 136
+        }
+      ],
+      "notes": "Round 35 API scope: full-file read; legacy write routes call retired-route guard; no new finding in this route slice.",
+      "sha256": "77d21d531e6dc73377a83bf41d4d4998c880eb2a8d4645f660918ae2d7f9f8f5",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/clinicai/services/service_log_service.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 130
+        }
+      ],
+      "notes": "Round 35 API scope: partial service read only; remaining callers/lines not semantically verified.",
+      "sha256": "f055722497e9045cd90f384d704421c476a78950684fe8d024a66752689cb743",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/hoa_don_misa.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 87
+        }
+      ],
+      "notes": "Round 35 API scope: full-file read; routes use accounting.finance.full; no independent location finding in reviewed contract.",
+      "sha256": "b486042b498eafed2df51710cdc87d3374319c11859d27ac74ef7768ac331b41",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_misa_service.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 256
+        }
+      ],
+      "notes": "Round 35 API scope: targeted service read to line 256; query paths observed clinic-scoped; lines 257-322 remain unreviewed.",
+      "sha256": "c5c906af0645c0a05c202767e50ee42208cb9a8a88eabed6f5523715352ecee1",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/events/worker.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 328
+        }
+      ],
+      "notes": "Round 35 worker: full-file read of event dispatch/consumer lifecycle; no new finding beyond existing INF items.",
+      "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/clinicai/services/pos_relay.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 262
+        }
+      ],
+      "notes": "Round 35 worker: full-file read; adapter call precedes SENT update, but active KiotViet adapter is not implemented; held for future idempotency proof.",
+      "sha256": "d9f07f1ad4e00410f260f3997c63c284d575adfe279682e839686e56e14d7344",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/clinicai/services/pos_outbox.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 87
+        }
+      ],
+      "notes": "Round 35 worker: full-file read of POS outbox claim/write contract.",
+      "sha256": "4b63946e8011ac0e338dcd25a96f67243ad488fb844f1660db4638ab437b78a9",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/clinicai/adapters/pos/kiotviet.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 83
+        }
+      ],
+      "notes": "Round 35 worker: full-file read; adapter explicitly refuses unfinished integration.",
+      "sha256": "0ca83b9eed320b29e639603741f00fa3c696d384b53fdfb07b57a05cbbc5c318",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "supabase/migrations/20260730000007_pos_outbox.sql",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 64
+        }
+      ],
+      "notes": "Round 35 worker: full-file read of POS outbox schema and constraints.",
+      "sha256": "28fa706b9c58a3a411232943b98b6fe61520179be54fd8511dc41c992c3ab22b",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/tests/test_pos_relay.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 215
+        }
+      ],
+      "notes": "Round 35 worker: full-file test read; does not simulate partner accepted then SENT DB write failure. Not run.",
+      "sha256": "746358e28ba6a2c8e3fbe2b8516d00735f6c247ac472664723ea710ad2d693bf",
+      "depth": "full_file_read"
+    },
+    {
+      "path": "src/clinicai/events/hen_gio.py",
+      "read_ranges": [
+        {
+          "start": 111,
+          "end": 190
+        },
+        {
+          "start": 193,
+          "end": 238
+        }
+      ],
+      "notes": "Round 35 worker: targeted lease claim, retry, alert and reclaim review; overlaps existing INF findings.",
+      "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/events/phat_lai.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 124
+        }
+      ],
+      "notes": "Round 35 worker: targeted replay limit and rebuild transaction review.",
+      "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/events/emit.py",
+      "read_ranges": [
+        {
+          "start": 175,
+          "end": 221
+        }
+      ],
+      "notes": "Round 35 worker: targeted domain-event/delivery transaction review.",
+      "sha256": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/worker.py",
+      "read_ranges": [
+        {
+          "start": 250,
+          "end": 337
+        },
+        {
+          "start": 341,
+          "end": 404
+        }
+      ],
+      "notes": "Round 35 worker: targeted lifecycle and day-tep advisory lock; lock-loss after held session remains a held observation.",
+      "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/day_tep.py",
+      "read_ranges": [
+        {
+          "start": 249,
+          "end": 321
+        },
+        {
+          "start": 366,
+          "end": 394
+        },
+        {
+          "start": 487,
+          "end": 548
+        },
+        {
+          "start": 551,
+          "end": 607
+        }
+      ],
+      "notes": "Round 35 worker: targeted file copy/hash/cleanup/health trace; possible stale lock flag after DB disconnect held, impact currently duplicate work/IO only.",
+      "sha256": "72f5e480d6ed9b97ffd0ec9a89a88b87d9f61e6633806639a62d47048821b453",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/don_tep_ket_qua.py",
+      "read_ranges": [
+        {
+          "start": 59,
+          "end": 108
+        },
+        {
+          "start": 111,
+          "end": 179
+        },
+        {
+          "start": 182,
+          "end": 222
+        }
+      ],
+      "notes": "Round 35 worker: targeted file retention/cleanup checks; no new finding.",
+      "sha256": "59b6dfe89204656c6e74f8bd55efe7686da982bf9a3e8595cb513553e084472c",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/ports/pos.py",
+      "read_ranges": [
+        {
+          "start": 43,
+          "end": 111
+        }
+      ],
+      "notes": "Round 35 worker: targeted POS idempotency contract keyed by clinic_reference.",
+      "sha256": "54492e205b0fa945d6e63a9e3fea64b9120fa2383b0ab4ae202cb054092dd458",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_event_worker_db.py",
+      "read_ranges": [
+        {
+          "start": 164,
+          "end": 245
+        }
+      ],
+      "notes": "Round 35 worker: test read on callback failure/lease reclaim/order; read only, not run.",
+      "sha256": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_hen_gio_db.py",
+      "read_ranges": [
+        {
+          "start": 187,
+          "end": 220
+        }
+      ],
+      "notes": "Round 35 worker: test read of one expired timer lease reclaim; read only, not run.",
+      "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_day_tep_db.py",
+      "read_ranges": [
+        {
+          "start": 155,
+          "end": 240
+        }
+      ],
+      "notes": "Round 35 worker: test read on copy/hash/backoff; no multi-worker or held-session loss case. Read only, not run.",
+      "sha256": "64ae6a0f5b6e6288d496b597e6e8283cad44ff6006f7797a122f7088cb902091",
+      "depth": "targeted_trace"
+    }
+  ]
+}

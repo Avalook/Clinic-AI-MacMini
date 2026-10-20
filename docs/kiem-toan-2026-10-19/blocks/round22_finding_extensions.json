@@ -1,0 +1,532 @@
+[
+  {
+    "id": "SEC-011",
+    "title": "Đọc bệnh án của TKYK thiếu kiểm tra phạm vi bệnh nhân được phân công",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "privacy_authorization",
+    "summary": "Preset TKYK có capability y khoa nên qua cua_y_khoa, nhưng một số API đọc chỉ scope theo clinic hoặc tin patient_id/visit_id/appointment_id do caller cung cấp. GET clinical-forms, clinical-forms/history và clinical-records/in-theo-lich không kiểm bệnh nhân thuộc bác sĩ được phân. clinical-records/doc có kiểm patient_id nhưng nhánh appointment_id tìm visit chỉ theo clinic+appointment rồi ghép SOAP/sinh hiệu/đơn theo visit đó, không xác nhận cùng bệnh nhân. Bổ sung các mặt cùng root cause: RPC PostgREST `read_prescription_draft(uuid)` là SECURITY DEFINER, role+clinic gate nhưng không gọi patient assignment guard; và API đọc liệu trình theo patient/visit cũng chỉ kiểm capability QUYEN_DOC. Bổ sung tệp kết quả và ảnh siêu âm: đường list/read dùng clinic + capability, image reader xác nhận key thuộc một record cùng clinic nhưng không kiểm bệnh nhân có thuộc assignment của người xem. Không kết luận cross-clinic; với ảnh cần caller đã biết key hợp lệ. Round 22 bổ sung đường PostgREST: restrictive TKYK assignment policy hiện áp trên 11 bảng lâm sàng nhưng không áp lên appointment, service_order_draft và prescription_allocation. Trong khi API get_draft kiểm bác sĩ được phân, raw SELECT của draft chỉ kiểm role clinical + clinic.",
+    "trigger": "Nhân viên TKYK có capability y khoa gọi API bằng mã bệnh nhân, lượt khám hoặc lịch hẹn cùng clinic ngoài danh sách bác sĩ mình được phân; hoặc ghép patient_id được phép với appointment_id của người khác. Thêm trường hợp TKYK đã gắn bác sĩ gọi trực tiếp PostgREST trên appointment/nháp/dữ liệu phân lô cùng clinic của bác sĩ khác; các bảng này không có restrictive assignment predicate tương ứng.",
+    "impact": "Có thể đọc nội dung phiếu, SOAP, sinh hiệu, đơn thuốc, hồ sơ nền và/hoặc thông tin liên hệ của bệnh nhân cùng clinic ngoài phạm vi được phân. Yêu cầu cần biết UUID nội bộ; chưa thấy truy cập chéo clinic. Đây là thiếu object-level authorization khác với SEC-010 (shared-form không có capability y khoa). Raw table path có thể để lộ lịch hẹn hoặc nháp chỉ định/dữ liệu phân lô ngoài bác sĩ được phân; đây là cùng invariant thiếu assignment đã được ghi ở SEC-011, không tạo finding riêng. Chưa kiểm JWT/runtime.",
+    "evidence": [
+      {
+        "path": "src/clinicai/permissions/catalogue.py",
+        "line": 723,
+        "end_line": 735,
+        "detail": "Preset TKYK có các khối khám/ghi bệnh án/kết quả."
+      },
+      {
+        "path": "src/clinicai/permissions/y_khoa.py",
+        "line": 27,
+        "end_line": 56,
+        "detail": "cua_y_khoa chỉ kiểm capability lâm sàng; đây không phải kiểm phân công từng bệnh nhân."
+      },
+      {
+        "path": "src/clinicai/services/thu_ky_bac_si.py",
+        "line": 120,
+        "end_line": 131,
+        "detail": "Hàm chính sách mô tả TKYK chỉ xem khách thuộc các bác sĩ được phân."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+        "line": 39,
+        "end_line": 75,
+        "detail": "Hai API read đặt cua_y_khoa nhưng không gọi patient-assignment guard."
+      },
+      {
+        "path": "src/clinicai/services/clinical_form_service.py",
+        "line": 83,
+        "end_line": 109,
+        "detail": "get_form lấy form/sinh hiệu theo visit_id+clinic; không kiểm quan hệ visit.patient với người được phân."
+      },
+      {
+        "path": "src/clinicai/services/clinical_form_service.py",
+        "line": 142,
+        "end_line": 160,
+        "detail": "History trả form_data theo clinic và clinic_patient_id caller truyền."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/clinical_records.py",
+        "line": 69,
+        "end_line": 109,
+        "detail": "doc và print dùng chung capability guard; print route không kiểm phân công."
+      },
+      {
+        "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+        "line": 80,
+        "end_line": 125,
+        "detail": "doc kiểm phân công theo pid; nhánh appointment truy visit chỉ bằng appointment_id+clinic."
+      },
+      {
+        "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+        "line": 139,
+        "end_line": 200,
+        "detail": "Print query scope theo clinic+appointment và trả demographics, SOAP, profile, labs; không kiểm patient assignment."
+      },
+      {
+        "path": "src/clinicai/modules.py",
+        "line": 563,
+        "end_line": 585,
+        "detail": "Cổng đọc SOAP lấy nội dung theo visit_id; nếu ngữ cảnh bị ghép, dữ liệu lượt kia được ráp vào hồ sơ."
+      },
+      {
+        "path": "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+        "line": 84,
+        "end_line": 108,
+        "detail": "Test xác nhận capability guard và preset, không kiểm patient assignment."
+      },
+      {
+        "path": "src/tests/services/test_ho_so_lam_sang_doc_db.py",
+        "line": 22,
+        "end_line": 44,
+        "detail": "Test service đọc đúng lượt và UUID sai định dạng; chưa có cặp appointment/patient khác nhau."
+      },
+      {
+        "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+        "line": 22,
+        "end_line": 44,
+        "detail": "Authenticated SECURITY DEFINER RPC checks clinic and role but not TKYK patient assignment; final ACL grants EXECUTE."
+      },
+      {
+        "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+        "line": 16,
+        "end_line": 69,
+        "detail": "Assignment helper defines which patient TKYK may see."
+      },
+      {
+        "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+        "line": 98,
+        "end_line": 115,
+        "detail": "Restrictive table policies apply the assignment helper to visit-scoped clinical records."
+      },
+      {
+        "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+        "line": 37,
+        "end_line": 39,
+        "detail": "Final migration retains authenticated EXECUTE on read_prescription_draft."
+      },
+      {
+        "path": "src/clinicai/services/lieu_trinh_service.py",
+        "line": 453,
+        "end_line": 456,
+        "detail": "Treatment-plan read guard checks QUYEN_DOC capability only."
+      },
+      {
+        "path": "src/clinicai/services/lieu_trinh_service.py",
+        "line": 500,
+        "end_line": 522,
+        "detail": "Read by caller-supplied clinic_patient_id performs no assignment check."
+      },
+      {
+        "path": "src/clinicai/services/lieu_trinh_service.py",
+        "line": 541,
+        "end_line": 563,
+        "detail": "Read by caller-supplied visit_id performs no assignment check."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 1258,
+        "end_line": 1308,
+        "detail": "Liệt kê kết quả lọc clinic+patient caller gửi và capability chung; không kiểm assignment patient-level."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 1544,
+        "end_line": 1600,
+        "detail": "Resolve nội dung bằng tep_id+clinic rồi gate capability; chưa gắn patient-assignment guard."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/ultrasound.py",
+        "line": 230,
+        "end_line": 249,
+        "detail": "Ảnh siêu âm chỉ yêu cầu _SONO_GUARD trước khi gọi reader."
+      },
+      {
+        "path": "src/clinicai/services/media_service.py",
+        "line": 414,
+        "end_line": 450,
+        "detail": "Reader xác thực clinic prefix và key có trong image_refs một record cùng clinic, không kiểm assignment của caller."
+      },
+      {
+        "path": "src/clinicai/services/ultrasound_board_service.py",
+        "line": 32,
+        "end_line": 37,
+        "detail": "Board service có các helper patient-assignment riêng, khác guard của đường image trực tiếp."
+      },
+      {
+        "path": "src/clinicai/services/clinical_record_service.py",
+        "line": 884,
+        "end_line": 908,
+        "detail": "Nhánh lấy visit theo appointment_id và clinic không đối chiếu visit.clinic_patient_id với patient_id đã gate assignment."
+      },
+      {
+        "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+        "line": 84,
+        "end_line": 115,
+        "detail": "Restrictive assignment policy covers 11 clinical tables but omits appointment, service_order_draft and prescription_allocation."
+      },
+      {
+        "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+        "line": 152,
+        "end_line": 168,
+        "detail": "appointment remains in the generic tenant-only read policy set."
+      },
+      {
+        "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+        "line": 16,
+        "end_line": 43,
+        "detail": "Draft rows expose visit, selected service codes, recorder/approver/version/state."
+      },
+      {
+        "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+        "line": 84,
+        "end_line": 102,
+        "detail": "Draft SELECT is restricted to clinical roles and same clinic, not assigned doctor."
+      },
+      {
+        "path": "src/clinicai/services/service_order_service.py",
+        "line": 263,
+        "end_line": 290,
+        "detail": "Backend get_draft adds a TKYK doctor-assignment check that the raw table policy does not express."
+      },
+      {
+        "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+        "line": 47,
+        "end_line": 83,
+        "detail": "Prescription allocation contains prescription/visit/drug/batch and dispensed quantities."
+      },
+      {
+        "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+        "line": 437,
+        "end_line": 445,
+        "detail": "Prescription allocation receives authenticated same-clinic SELECT but no TKYK assignment predicate."
+      },
+      {
+        "path": "src/clinicai/services/thu_ky_bac_si.py",
+        "line": 31,
+        "end_line": 61,
+        "detail": "Unassigned TKYK semantics deliberately yield no doctor filter; assigned secretary maps to a doctor."
+      },
+      {
+        "path": "src/clinicai/services/thu_ky_bac_si.py",
+        "line": 76,
+        "end_line": 100,
+        "detail": "Assignment helper derives customer/doctor association from appointments, visits and ultrasound records."
+      },
+      {
+        "path": "supabase/tests/thu_ky_rls_theo_bac_si.sql",
+        "line": 59,
+        "end_line": 104,
+        "detail": "Existing SQL test covers visit/clinical_record assignment but omits appointment, draft and allocation."
+      }
+    ],
+    "validation": {
+      "method": "static authorization and object-scope dataflow trace",
+      "command": null,
+      "result": "Đã xác minh preset TKYK qua capability guard, đối chiếu hàm scope riêng, lần theo các query trả form_data/SOAP/profile/lab và kiểm phạm vi test hiện có. Round 22 đối chiếu restrictive policy 11 bảng với grant/policy appointment, draft, allocation và API draft; test RLS hiện có chỉ exercise visit/clinical_record, chưa chạy test mới.",
+      "limitations": "Chưa chạy HTTP/DB với synthetic identities; cần biết UUID cùng clinic; không kết luận truy cập production hoặc chéo clinic. Phạm vi kết luận nhắm TKYK và assignment của họ, không áp đặt cùng hạn chế cho mọi role lâm sàng. RPC read_prescription_draft chưa được kiểm qua JWT/PostgREST DB runtime; các đường liệu trình cũng mới static trace. Các đường tệp kết quả/ảnh siêu âm và assignment mới static; ảnh yêu cầu key đã biết hoặc được lộ trước đó, chưa chứng minh đoán khóa, HTTP exploit hay truy cập cross-clinic. Mismatch case: assigned patient B paired with appointment A remains untested at HTTP/DB; exact-main static trace confirms the IDs are not cross-checked in this branch. Round 22 chưa chạy PostgREST/JWT hoặc fixture hai bác sĩ; kết luận tĩnh trong cùng clinic."
+    },
+    "recommendation": "Gọi kiem_khach/khach_duoc_xem cho từng đối tượng đọc ở server; ràng buộc visit, appointment và patient trong cùng query hoặc từ chối mismatch. Không coi UUID hay patient_id do client gửi là bằng chứng phạm vi. Giữ audit actor/patient/visit và không ghi nội dung bệnh án. Áp cùng invariant doctor-assignment vào mọi đường PostgREST có clinical/appointment data; hoặc bỏ raw SELECT và buộc đọc qua API có guard. Bổ sung test cho appointment, service_order_draft và prescription_allocation.",
+    "acceptance": "Negative DB+HTTP matrix cho TKYK: đọc patient/visit/appointment được phân thì thành công; ID cùng clinic nhưng không được phân và cặp patient A + appointment/visit B đều bị từ chối trước khi trả bất kỳ form_data/SOAP/profile/lab nào. Doctor/role có scope toàn clinic theo chính sách vẫn làm việc bình thường. Với JWT TKYK được phân cho bác sĩ A, PostgREST không trả appointment, draft hoặc allocation của bác sĩ B trong cùng clinic; A đọc được hàng thuộc scope đã phân; role chưa gán giữ đúng no-filter/product policy đã duyệt.",
+    "alignment": [
+      "Quyền gắn với đối tượng",
+      "Dữ liệu bệnh nhân không lộ chéo",
+      "Bằng chứng truy cập rõ"
+    ],
+    "related_tests": [
+      "supabase/tests/thu_ky_rls_theo_bac_si.sql:59-104 — đã đọc, không chạy; chỉ kiểm visit và clinical_record, chưa bao phủ appointment/draft/allocation."
+    ],
+    "source_hashes": {
+      "src/clinicai/permissions/catalogue.py": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "src/clinicai/permissions/y_khoa.py": "a235a6077ebfc66ffd0e446214edcf6c43de1793bc6c0656ca57a845692bc4c3",
+      "src/clinicai/services/thu_ky_bac_si.py": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+      "src/clinicai/api/v1/routers/clinical_forms.py": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+      "src/clinicai/services/clinical_form_service.py": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5",
+      "src/clinicai/api/v1/routers/clinical_records.py": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd",
+      "src/clinicai/services/ho_so_lam_sang_doc.py": "e9fa1ee836ff23985108928b8829bee08ae7deb756cb1b35098b1f16e4db36d1",
+      "src/clinicai/modules.py": "1411931db34a81de67652a8f778d74e184bcb4f52e521e8c3f8b7bf262464b80",
+      "src/tests/api/test_clinical_read_and_legacy_boundaries.py": "de235f9428fb6b97d89c318716dc5f398a088a924a0a899bddf8f88c2a91d69f",
+      "src/tests/services/test_ho_so_lam_sang_doc_db.py": "c60d779724722539e0be9289752914ea52c253cd89d5a5cd20f5ee289602b1b4",
+      "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql": "30994ce4506659821eb0c97e765f20250f7dd7ebabfc0f596dd9fe2103c0a93f",
+      "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+      "supabase/migrations/20261019100000_harden_public_function_acl.sql": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+      "src/clinicai/services/lieu_trinh_service.py": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452",
+      "src/clinicai/services/tep_ket_qua_service.py": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "src/clinicai/api/v1/routers/ultrasound.py": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb",
+      "src/clinicai/services/media_service.py": "54bb599468bf44ec2df3676e1252b736667ddc8baddd2aef324059349069c5a5",
+      "src/clinicai/services/ultrasound_board_service.py": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e",
+      "src/clinicai/services/clinical_record_service.py": "8598b59bbb579902e6d3460a5d0613ec40df66ba7810307e0d86b892d5db402e",
+      "supabase/migrations/20260730000004_tenant_scoped_rls.sql": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+      "supabase/migrations/20260915000008_service_order_draft.sql": "d044070664a338a927d6390d03ae2627a60ee888cad4c46e083208b82c65ae29",
+      "src/clinicai/services/service_order_service.py": "7769a29159ba4b807da90fea28694d1868458a5056ea1513b68dda7a9bfcf732",
+      "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql": "9335dd055dc9056a45973fb864d0cf9c0e6312a51a0fd95efc38ee5ee9f6bc56",
+      "supabase/tests/thu_ky_rls_theo_bac_si.sql": "3979131d469cda4e493b6f78e2eacfbd4a8cd46972a2b007bc752486ae6a13bb"
+    },
+    "reference_version": "pinned_main",
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Các đường đọc giữ quyền capability nhưng không ràng patient assignment tại server; exact-main static trace xác nhận phạm vi cùng clinic. Round 22 mở rộng cùng lỗ hổng assignment sang direct PostgREST appointment/draft/allocation; đây là extension SEC-011.",
+      "evidence": [
+        {
+          "path": "src/clinicai/permissions/catalogue.py",
+          "line": 723,
+          "end_line": 735,
+          "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+          "excerpt": "723:     \"TKYK\": [\n724:         # 29/09/2026: ĐD/TKYK trọn quyền ở mọi phòng (Tuyền) — migration\n725:         # 20260929900000 cấp bù cho tài khoản hiện có.\n726:         \"sinh_hieu\",\n727:         \"chi_dinh\",\n728:         \"dieu_phoi\",\n729:         \"kham\",\n730:         \"ghi_benh_an\",\n731:         \"hoan_tat_kham\",\n732:         \"thuc_hien\",\n733:         \"ket_qua\",\n734:         \"duyet_ket_qua\",\n735:         \"doi_tac\","
+        },
+        {
+          "path": "src/clinicai/permissions/y_khoa.py",
+          "line": 27,
+          "end_line": 56,
+          "sha256": "a235a6077ebfc66ffd0e446214edcf6c43de1793bc6c0656ca57a845692bc4c3",
+          "excerpt": "27: QUYEN_Y_KHOA: tuple[str, ...] = (\n28:     \"clinical.intake.perform\",\n29:     \"clinical.consult.perform\",\n30:     \"clinical.record.write\",\n31:     \"clinical.consult.finalize\",\n32:     \"result.form.fill\",\n33:     \"result.review.approve\",\n34: )\n35: \n36: #: Quyền GHI nội dung y khoa (bệnh án, phiếu cũ, đọc giọng nói, kết quả).\n37: QUYEN_GHI_Y_KHOA: tuple[str, ...] = (\"clinical.record.write\", \"result.form.fill\")\n38: \n39: #: IN PHIẾU KHÁM CHO KHÁCH ở quầy (Tuyền 27/09/2026: \"in ở mọi khâu — mở đi\"):\n40: #: tiếp đón, thu tiền dịch vụ, thu tiền thuốc, giao thuốc được ĐỌC phiếu khám +\n41: #: kết quả + ảnh của lượt để IN (không ghi). Là quyền của lego đang có, không\n42: #: phải khối mới — thêm khối vào lego sẽ làm lego của mọi tài khoản đang bật\n43: #: thành \"bật một phần\".\n44: QUYEN_IN_PHIEU: tuple[str, ...] = (\n45:     \"reception.checkin.perform\",\n46:     \"payment.service.collect\",\n47:     \"payment.medicine.collect\",\n48:     \"pharmacy.dispense\",\n49:     # CSKH in hồ sơ khám / kết quả / đơn thuốc trả khách theo từng ngày khám\n50:     # (Tuyền 28/09/2026). Chỉ ĐỌC để in, như các khâu quầy.\n51:     \"crm.manage\",\n52: )\n53: \n54: _CAU = \"Bạn không có quyền xem nội dung y khoa (khám / kết quả).\"\n55: \n56: cua_y_khoa = cua_quyen(*QUYEN_Y_KHOA, cau=_CAU)"
+        },
+        {
+          "path": "src/clinicai/services/thu_ky_bac_si.py",
+          "line": 120,
+          "end_line": 131,
+          "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+          "excerpt": "120: async def khach_duoc_xem(\n121:     pool: asyncpg.Pool | asyncpg.Connection, identity: StaffIdentity\n122: ) -> list[str] | None:\n123:     \"\"\"Mã khách thư ký được xem; None = người gọi không phải TKYK.\"\"\"\n124:     bac_si = await bac_si_cua_thu_ky(pool, identity)\n125:     if bac_si is None:\n126:         return None\n127:     if not bac_si:\n128:         return []\n129:     co_sa = await bac_si_sieu_am_trong(pool, identity.clinic_id, bac_si)\n130:     rows = await pool.fetch(_KHACH_CUA_BAC_SI_SQL, identity.clinic_id, bac_si, co_sa)\n131:     return [r[\"id\"] for r in rows if r[\"id\"]]"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+          "line": 39,
+          "end_line": 75,
+          "sha256": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+          "excerpt": "39: @router.get(\"/clinical-forms\")\n40: async def read_clinical_form(\n41:     visit_id: UUID,\n42:     service_code: str,\n43:     # Ai có khối khám / kết quả (permissions/y_khoa.py) — gồm quản lý từ\n44:     # 24/09/2026 (Tuyền: \"có module đó thì mọi quyền của nó có cả\").\n45:     identity: StaffIdentity = Depends(_FORM_GUARD),\n46:     pool: asyncpg.Pool = Depends(get_db_pool),\n47: ) -> dict[str, Any]:\n48:     \"\"\"Read one form. Medical content needs a consultation / result pack.\"\"\"\n49:     data = await ClinicalFormService(pool).get_form(\n50:         visit_id=str(visit_id), service_code=service_code, identity=identity\n51:     )\n52:     await ghi_mo_ho_so(pool, identity, noi=\"phieu-kham-cu\", visit_id=str(visit_id))\n53:     return data\n54: \n55: \n56: @router.get(\"/clinical-forms/history\")\n57: async def read_exam_history(\n58:     clinic_patient_id: UUID = Query(..., description=\"Bệnh nhân\"),\n59:     identity: StaffIdentity = Depends(_FORM_GUARD),\n60:     pool: asyncpg.Pool = Depends(get_db_pool),\n61: ) -> dict[str, Any]:\n62:     \"\"\"Các lượt khám trước của một bệnh nhân — đủ nội dung phiếu, mới nhất trước.\n63: \n64:     `phan_hoi_thuoc`: phản hồi sau dùng thuốc CSKH ghi, đọc theo KHÁCH (không\n65:     theo `items` — lượt có đơn mà chưa có phiếu vẫn phải hiện ở Bàn khám).\"\"\"\n66:     async with pool.acquire() as conn:\n67:         phan_hoi = await doc_theo_khach(\n68:             conn, identity.clinic_id, str(clinic_patient_id)\n69:         )\n70:     return {\n71:         \"items\": await ClinicalFormService(pool).lich_su_kham(\n72:             clinic_patient_id=str(clinic_patient_id), identity=identity\n73:         ),\n74:         \"phan_hoi_thuoc\": phan_hoi,\n75:     }"
+        },
+        {
+          "path": "src/clinicai/services/clinical_form_service.py",
+          "line": 83,
+          "end_line": 109,
+          "sha256": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5",
+          "excerpt": "83:     async def get_form(\n84:         self, *, visit_id: str, service_code: str, identity: StaffIdentity\n85:     ) -> dict[str, Any]:\n86:         row = await self._pool.fetchrow(\n87:             \"\"\"\n88:             SELECT form_data, updated_at\n89:               FROM clinical_form_response\n90:              WHERE visit_id = $1::uuid AND service_code = $2\n91:                AND clinic_id = $3::uuid\n92:             \"\"\",\n93:             visit_id,\n94:             service_code.upper(),\n95:             identity.clinic_id,\n96:         )\n97:         # Số đo sinh hiệu MỚI NHẤT của BUỔI — màn phiếu hiện kèm (24/09/2026:\n98:         # route giao diện thôi tự đọc `vital_measurement` bằng Supabase; 29/09:\n99:         # lượt check-in thêm cùng ngày không đo lại vẫn có số của buổi).\n100:         async with self._pool.acquire() as conn:\n101:             sinh_hieu_moi = chi_so_do(\n102:                 await sinh_hieu_cua_buoi(conn, identity.clinic_id, visit_id)\n103:             )\n104:         if row is None:\n105:             return {\"form_data\": {}, \"updated_at\": None, \"sinh_hieu_moi\": sinh_hieu_moi}\n106:         return {\n107:             \"form_data\": _as_dict(row[\"form_data\"]),\n108:             \"updated_at\": row[\"updated_at\"],\n109:             \"sinh_hieu_moi\": sinh_hieu_moi,"
+        },
+        {
+          "path": "src/clinicai/services/clinical_form_service.py",
+          "line": 142,
+          "end_line": 160,
+          "sha256": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5",
+          "excerpt": "142:                   FROM clinical_form_response r\n143:                   JOIN visit v\n144:                     ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id\n145:                   LEFT JOIN staff s ON s.id = v.attending_doctor_id\n146:                   LEFT JOIN appointment a ON a.id = v.appointment_id\n147:                   LEFT JOIN service_type st\n148:                     ON st.id = a.service_type_id AND st.clinic_id = r.clinic_id\n149:                  WHERE r.clinic_id = $1::uuid\n150:                    AND v.clinic_patient_id = $2::uuid\n151:                    AND NOT EXISTS (\n152:                        SELECT 1 FROM phieu_kham_luot p\n153:                         WHERE p.clinic_id = r.clinic_id\n154:                           AND p.visit_id = r.visit_id)\n155:                  ORDER BY coalesce(v.checked_in_at, r.updated_at) DESC\n156:                  LIMIT 20\n157:                 \"\"\",\n158:                 identity.clinic_id,\n159:                 clinic_patient_id,\n160:             )"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/clinical_records.py",
+          "line": 69,
+          "end_line": 109,
+          "sha256": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd",
+          "excerpt": "69: @router.get(\"/clinical-records/doc\")\n70: async def doc_ho_so_lam_sang(\n71:     patient_id: str,\n72:     appointment_id: str | None = None,\n73:     visit_id: str | None = None,\n74:     identity: StaffIdentity = Depends(_DOC_HO_SO_GUARD),\n75:     pool: asyncpg.Pool = Depends(get_db_pool),\n76: ) -> dict[str, Any]:\n77:     \"\"\"Hồ sơ lâm sàng của một khách cho màn bệnh án (route giao diện từng tự đọc\n78:     bảy bảng bằng Supabase — nay ở `services/ho_so_lam_sang_doc.py`).\"\"\"\n79:     data = await doc_ho_so(\n80:         pool,\n81:         identity=identity,\n82:         patient_id=patient_id,\n83:         appointment_id=appointment_id,\n84:         visit_id=visit_id,\n85:     )\n86:     await ghi_mo_ho_so(pool, identity, noi=\"benh-an\", khach=patient_id)\n87:     return data\n88: \n89: \n90: @router.get(\"/clinical-records/in-theo-lich/{appointment_id}\")\n91: async def in_phieu_theo_lich(\n92:     appointment_id: str,\n93:     identity: StaffIdentity = Depends(_DOC_HO_SO_GUARD),\n94:     pool: asyncpg.Pool = Depends(get_db_pool),\n95: ) -> dict[str, Any]:\n96:     \"\"\"Dữ liệu phiếu tóm tắt khám để in theo lịch hẹn (ai có khối khám / kết\n97:     quả — `permissions/y_khoa.py`).\"\"\"\n98:     data = await phieu_in_theo_lich(\n99:         pool, identity=identity, appointment_id=appointment_id\n100:     )\n101:     if data is None:\n102:         raise NotFoundError(\"Không tìm thấy lịch hẹn này.\")\n103:     await ghi_mo_ho_so(\n104:         pool,\n105:         identity,\n106:         noi=\"in-phieu-kham\",\n107:         khach=data[\"appointment\"][\"clinic_patient_id\"],\n108:     )\n109:     return data"
+        },
+        {
+          "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+          "line": 80,
+          "end_line": 125,
+          "sha256": "e9fa1ee836ff23985108928b8829bee08ae7deb756cb1b35098b1f16e4db36d1",
+          "excerpt": "80:     if identity.co_vai({ClinicRole.TKYK}):\n81:         # Thư ký chỉ xem khách của bác sĩ mình được phân (20260915000020).\n82:         from clinicai.services.thu_ky_bac_si import khach_duoc_xem\n83: \n84:         duoc = await khach_duoc_xem(pool, identity)\n85:         if duoc is not None and pid not in duoc:\n86:             raise SafetyGateError(\n87:                 \"Khách này của bác sĩ khác — thư ký chỉ xem khách của bác sĩ\"\n88:                 \" mình được phân.\"\n89:             )\n90: \n91:     async with pool.acquire() as conn:\n92:         co_khach = await conn.fetchval(\n93:             \"SELECT EXISTS (SELECT 1 FROM patient WHERE clinic_patient_id = $1::uuid\"\n94:             \" AND clinic_id = $2::uuid)\",\n95:             pid,\n96:             cid,\n97:         )\n98:         if not co_khach:\n99:             raise ValidationError(\"Không tìm thấy bệnh nhân này.\")\n100: \n101:         # Bối cảnh: LƯỢT nào đang xem — theo mã lượt, hoặc lượt mới nhất của lịch.\n102:         luot: str | None = None\n103:         if vid:\n104:             luot = await conn.fetchval(\n105:                 \"SELECT visit_id::text FROM visit WHERE visit_id = $1::uuid\"\n106:                 \" AND clinic_patient_id = $2::uuid AND clinic_id = $3::uuid\",\n107:                 vid,\n108:                 pid,\n109:                 cid,\n110:             )\n111:         elif appt:\n112:             luot = await conn.fetchval(\n113:                 \"SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid\"\n114:                 \" AND clinic_id = $2::uuid ORDER BY created_at DESC LIMIT 1\",\n115:                 appt,\n116:                 cid,\n117:             )\n118:         return await ghep_ho_so(\n119:             conn,\n120:             NguCanhHoSo(\n121:                 identity=identity,\n122:                 clinic_id=cid,\n123:                 khach=pid,\n124:                 visit_id=luot,\n125:                 appointment_id=appt,"
+        },
+        {
+          "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+          "line": 139,
+          "end_line": 200,
+          "sha256": "e9fa1ee836ff23985108928b8829bee08ae7deb756cb1b35098b1f16e4db36d1",
+          "excerpt": "139:     appt = ma_uuid(appointment_id, \"Mã lịch hẹn không hợp lệ.\")\n140:     async with pool.acquire() as conn:\n141:         lich = await conn.fetchrow(\n142:             \"\"\"\n143:             SELECT a.id::text, a.slot_start, a.status,\n144:                    p.clinic_patient_id::text, p.patient_code, p.full_name,\n145:                    p.date_of_birth, p.gender, p.ethnicity, p.nationality,\n146:                    p.occupation, p.patient_objection, p.address, p.guardian_name,\n147:                    p.phone_primary,\n148:                    s.full_name AS doctor_name, st.name AS service_name,\n149:                    l.name AS location_name\n150:               FROM appointment a\n151:               JOIN patient p\n152:                 ON p.clinic_patient_id = a.clinic_patient_id\n153:                AND p.clinic_id = a.clinic_id\n154:               LEFT JOIN staff s ON s.id = a.doctor_id\n155:               LEFT JOIN service_type st ON st.id = a.service_type_id\n156:               LEFT JOIN clinic_location l ON l.id = a.location_id\n157:              WHERE a.clinic_id = $1::uuid AND a.id = $2::uuid\n158:             \"\"\",\n159:             cid,\n160:             appt,\n161:         )\n162:         if lich is None:\n163:             return None\n164:         pid = lich[\"clinic_patient_id\"]\n165:         luot = await conn.fetchrow(\n166:             \"\"\"\n167:             SELECT v.visit_id::text, v.status, v.created_at,\n168:                    r.chief_complaint_at_visit, r.soap_subjective, r.soap_objective,\n169:                    r.soap_assessment, r.soap_plan\n170:               FROM visit v\n171:               LEFT JOIN clinical_record r\n172:                 ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id\n173:              WHERE v.clinic_id = $1::uuid AND v.appointment_id = $2::uuid\n174:              ORDER BY v.created_at DESC LIMIT 1\n175:             \"\"\",\n176:             cid,\n177:             appt,\n178:         )\n179:         ho_so = await conn.fetchrow(\n180:             \"\"\"\n181:             SELECT allergies, chronic_diseases, current_medications,\n182:                    surgical_history, family_history, notes\n183:               FROM patient_medical_profile\n184:              WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid\n185:             \"\"\",\n186:             cid,\n187:             pid,\n188:         )\n189:         xn = await conn.fetch(\n190:             \"\"\"\n191:             SELECT test_name, result_value, result_numeric, result_unit, flag\n192:               FROM lab_result\n193:              WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid\n194:                AND appointment_id = $3::uuid\n195:              ORDER BY result_received_at DESC NULLS LAST LIMIT 20\n196:             \"\"\",\n197:             cid,\n198:             pid,\n199:             appt,\n200:         )"
+        },
+        {
+          "path": "src/clinicai/modules.py",
+          "line": 563,
+          "end_line": 585,
+          "sha256": "1411931db34a81de67652a8f778d74e184bcb4f52e521e8c3f8b7bf262464b80",
+          "excerpt": "563:             cong_doc=[\n564:                 CongDoc(\n565:                     \"Tiền sử & hồ sơ y tế\",\n566:                     \"clinicai.services.clinical_record_service:ho_so_y_te_cho_ho_so\",\n567:                     [\"profile\"],\n568:                 ),\n569:                 CongDoc(\n570:                     \"Bệnh án của lượt\",\n571:                     \"clinicai.services.clinical_record_service:benh_an_cho_ho_so\",\n572:                     [\"visit\", \"draft\", \"revision\", \"prescription_draft\"],\n573:                 ),\n574:                 CongDoc(\n575:                     \"Các lượt khám trước\",\n576:                     \"clinicai.services.clinical_record_service:lich_su_cho_ho_so\",\n577:                     [\"history_raw\"],\n578:                 ),\n579:                 CongDoc(\n580:                     \"Đơn thuốc của lượt\",\n581:                     \"clinicai.services.clinical_prescription_service:don_thuoc_cho_ho_so\",\n582:                     [\"prescriptions\"],\n583:                 ),\n584:             ],\n585:         ),"
+        },
+        {
+          "path": "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+          "line": 84,
+          "end_line": 108,
+          "sha256": "de235f9428fb6b97d89c318716dc5f398a088a924a0a899bddf8f88c2a91d69f",
+          "excerpt": "84:         _route(record_router, \"/clinical-records/doc\", \"GET\"),\n85:         _route(record_router, \"/clinical-records/in-theo-lich/{appointment_id}\", \"GET\"),\n86:     ):\n87:         assert cua_y_khoa in _calls(route), route.path\n88:         assert not _role_guards(route), f\"{route.path} vẫn gác theo vai\"\n89: \n90:     khoi_y_khoa = {QUYEN[q].khoi for q in QUYEN_Y_KHOA}\n91:     # Mở full lego (Tuyền 30/09/2026): mọi vai nội bộ có khối y khoa trong nhóm\n92:     # mẫu; đối tác (người ngoài) thì không. Cửa vẫn hỏi QUYỀN (ở trên).\n93:     assert not khoi_y_khoa & set(PRESET[\"PARTNER\"])\n94:     for vai in (\n95:         \"RECEPTION\",\n96:         \"CASHIER\",\n97:         \"CASHIER_DV\",\n98:         \"CASHIER_THUOC\",\n99:         \"CSKH\",\n100:         \"PHARMACIST\",\n101:         \"TRUONG_CA\",\n102:         \"DOCTOR\",\n103:         \"ULTRASOUND_DOCTOR\",\n104:         \"TKYK\",\n105:         \"NURSE_ULTRASOUND\",\n106:         \"MANAGEMENT\",\n107:     ):\n108:         assert khoi_y_khoa & set(PRESET[vai]), vai"
+        },
+        {
+          "path": "src/tests/services/test_ho_so_lam_sang_doc_db.py",
+          "line": 22,
+          "end_line": 44,
+          "sha256": "c60d779724722539e0be9289752914ea52c253cd89d5a5cd20f5ee289602b1b4",
+          "excerpt": "22: async def test_doc_ho_so_theo_luot_va_so_do_moi_nhat(pool: asyncpg.Pool) -> None:  # noqa: F811\n23:     ca = await _dung(pool)\n24:     pid = await _benh_nhan(pool, ca)\n25:     visit = await _check_in(pool, ca, pid, ca.loai_kham)\n26:     await pool.execute(\n27:         \"INSERT INTO vital_measurement (clinic_id, visit_id, systolic, diastolic,\"\n28:         \" recorded_by)\"\n29:         \" SELECT clinic_id, visit_id, 118, 76, $2::uuid\"\n30:         \" FROM visit WHERE visit_id = $1::uuid\",\n31:         visit,\n32:         ca.dd.staff_id,\n33:     )\n34:     hs = await doc_ho_so(pool, identity=ca.bac_si, patient_id=pid, visit_id=visit)\n35:     assert hs[\"visit\"][\"visit_id\"] == visit\n36:     assert hs[\"vital_latest\"][\"systolic\"] == 118\n37:     assert [h[\"visit_id\"] for h in hs[\"history_raw\"]] == [visit]\n38:     assert hs[\"prescriptions\"] == []\n39: \n40: \n41: async def test_ma_rac_bao_loi_ro_rang(pool: asyncpg.Pool) -> None:  # noqa: F811\n42:     ca = await _dung(pool)\n43:     with pytest.raises(ValidationError):\n44:         await doc_ho_so(pool, identity=ca.bac_si, patient_id=\"không-phải-mã\")"
+        },
+        {
+          "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+          "line": 22,
+          "end_line": 44,
+          "sha256": "30994ce4506659821eb0c97e765f20250f7dd7ebabfc0f596dd9fe2103c0a93f",
+          "excerpt": "22: -- The app calls this via the user's authenticated PostgREST client. A\n23: -- SECURITY DEFINER function gives draft content only after role/clinic check;\n24: -- it never broadens the regular chart row policy.\n25: CREATE OR REPLACE FUNCTION public.read_prescription_draft(p_visit_id uuid)\n26: RETURNS jsonb\n27: LANGUAGE sql\n28: STABLE\n29: SECURITY DEFINER\n30: SET search_path TO 'pg_catalog', 'public'\n31: AS $$\n32:     SELECT r.prescription_draft\n33:       FROM public.clinical_record r\n34:       JOIN public.visit v ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id\n35:      WHERE r.visit_id = p_visit_id\n36:        AND r.clinic_id IN (\n37:            SELECT public.current_clinic_ids_for_roles(\n38:                ARRAY['DOCTOR', 'ULTRASOUND_DOCTOR', 'TKYK']\n39:            )\n40:        )\n41:      LIMIT 1\n42: $$;\n43: REVOKE ALL ON FUNCTION public.read_prescription_draft(uuid) FROM PUBLIC, anon;\n44: GRANT EXECUTE ON FUNCTION public.read_prescription_draft(uuid) TO authenticated;"
+        },
+        {
+          "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+          "line": 16,
+          "end_line": 69,
+          "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+          "excerpt": "16: CREATE OR REPLACE FUNCTION public.thu_ky_duoc_xem_khach(\n17:     p_clinic_id uuid,\n18:     p_clinic_patient_id uuid\n19: ) RETURNS boolean\n20: LANGUAGE sql\n21: STABLE\n22: SECURITY DEFINER\n23: SET search_path TO 'public', 'pg_temp'\n24: AS $$\n25:     WITH toi AS (\n26:         SELECT public.current_staff_id() AS staff_id\n27:     ),\n28:     la_thu_ky AS (\n29:         SELECT EXISTS (\n30:             SELECT 1 FROM public.clinic_membership m, toi\n31:              WHERE m.clinic_id = p_clinic_id AND m.staff_id = toi.staff_id\n32:                AND m.is_active AND m.role = 'TKYK'\n33:         ) AS v\n34:     ),\n35:     bac_si AS (\n36:         SELECT tb.bac_si_staff_id AS id\n37:           FROM public.thu_ky_bac_si tb, toi\n38:          WHERE tb.clinic_id = p_clinic_id AND tb.thu_ky_staff_id = toi.staff_id\n39:     ),\n40:     co_sa AS (\n41:         SELECT EXISTS (\n42:             SELECT 1 FROM public.clinic_membership m\n43:              WHERE m.clinic_id = p_clinic_id AND m.is_active\n44:                AND m.role = 'ULTRASOUND_DOCTOR'\n45:                AND m.staff_id IN (SELECT id FROM bac_si)\n46:         ) AS v\n47:     )\n48:     SELECT NOT (SELECT v FROM la_thu_ky)\n49:         OR EXISTS (\n50:             SELECT 1 FROM public.appointment a\n51:              WHERE a.clinic_id = p_clinic_id\n52:                AND a.clinic_patient_id = p_clinic_patient_id\n53:                AND a.doctor_id IN (SELECT id FROM bac_si))\n54:         OR EXISTS (\n55:             SELECT 1 FROM public.visit v\n56:              WHERE v.clinic_id = p_clinic_id\n57:                AND v.clinic_patient_id = p_clinic_patient_id\n58:                AND v.attending_doctor_id IN (SELECT id FROM bac_si))\n59:         OR EXISTS (\n60:             SELECT 1 FROM public.work_item w\n61:              WHERE w.clinic_id = p_clinic_id\n62:                AND w.clinic_patient_id = p_clinic_patient_id\n63:                AND w.node_code = 'DICHVU-SIEUAM'\n64:                AND w.status <> 'CANCELLED'\n65:                AND (w.assigned_to IN (SELECT id FROM bac_si)\n66:                     OR (w.assigned_to IS NULL\n67:                         AND w.status IN ('PENDING', 'IN_PROGRESS')\n68:                         AND (SELECT v FROM co_sa))))\n69: $$;"
+        },
+        {
+          "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+          "line": 98,
+          "end_line": 115,
+          "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+          "excerpt": "98: -- Bảng chỉ có visit_id: tra khách qua lượt khám.\n99: DO $bang_theo_luot$\n100: DECLARE\n101:     t text;\n102: BEGIN\n103:     FOREACH t IN ARRAY ARRAY[\n104:         'clinical_record', 'clinical_form_response', 'visit_amendment',\n105:         'vital_measurement'\n106:     ] LOOP\n107:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I',\n108:                        t || '_thu_ky_theo_bac_si', t);\n109:         EXECUTE format(\n110:             'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR SELECT TO authenticated '\n111:             'USING (public.thu_ky_duoc_xem_khach(clinic_id, '\n112:             '(SELECT v.clinic_patient_id FROM public.visit v '\n113:             '  WHERE v.visit_id = %I.visit_id)))',\n114:             t || '_thu_ky_theo_bac_si', t, t);\n115:     END LOOP;"
+        },
+        {
+          "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+          "line": 37,
+          "end_line": 39,
+          "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+          "excerpt": "37: -- Prescription draft reads are intentionally authenticated-only.\n38: GRANT EXECUTE ON FUNCTION public.read_prescription_draft(uuid)\n39: TO authenticated;"
+        },
+        {
+          "path": "src/clinicai/services/lieu_trinh_service.py",
+          "line": 453,
+          "end_line": 456,
+          "sha256": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452",
+          "excerpt": "453:     async def _doi_doc(self, conn: asyncpg.Connection, identity: StaffIdentity) -> None:\n454:         await self._doi(\n455:             conn, identity, QUYEN_DOC, \"Bạn không có quyền xem liệu trình điều trị.\"\n456:         )"
+        },
+        {
+          "path": "src/clinicai/services/lieu_trinh_service.py",
+          "line": 500,
+          "end_line": 522,
+          "sha256": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452",
+          "excerpt": "500:     async def theo_khach(\n501:         self, *, identity: StaffIdentity, clinic_patient_id: Any\n502:     ) -> dict[str, Any]:\n503:         \"\"\"Khung khách / quầy: MỌI liệu trình của khách, mới nhất trước.\"\"\"\n504:         pid = _uuid(clinic_patient_id, \"Mã khách không hợp lệ.\")\n505:         async with self._pool.acquire() as conn:\n506:             await self._doi_doc(conn, identity)\n507:             ds = await self.doc_nhieu(\n508:                 conn, identity.clinic_id, \"lt.clinic_patient_id = $2::uuid\", pid\n509:             )\n510:             # Màn (khung khách) hiện nút Đăng ký / Dừng / Mở lại / Hoàn tác theo\n511:             # cờ này — chính lệnh vẫn tự gác quyền.\n512:             quyen_cskh = await self._co_mot(conn, identity, QUYEN_DANG_KY)\n513:             # Chip \"Sắp hết lộ trình\" hiện cả khi CSKH đã xử lý (khung khách là\n514:             # hồ sơ), kèm cờ đã xử lý mốc này chưa.\n515:             da = await self.da_xu_ly_sap_het_cac_moc(\n516:                 conn,\n517:                 identity.clinic_id,\n518:                 [moc_sap_het(d) for d in ds if d[\"sap_het_ly_do\"]],\n519:             )\n520:         for d in ds:\n521:             d[\"sap_het_da_xu_ly\"] = bool(d[\"sap_het_ly_do\"]) and moc_sap_het(d) in da\n522:         return {\"clinic_patient_id\": pid, \"lieu_trinh\": ds, \"quyen_cskh\": quyen_cskh}"
+        },
+        {
+          "path": "src/clinicai/services/lieu_trinh_service.py",
+          "line": 541,
+          "end_line": 563,
+          "sha256": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452",
+          "excerpt": "541:     async def theo_luot(\n542:         self, *, identity: StaffIdentity, visit_id: Any\n543:     ) -> dict[str, Any]:\n544:         \"\"\"Thẻ liệu trình ở hồ sơ khám của MỘT lượt.\n545: \n546:         ``lieu_trinh``: liệu trình có buổi (còn sống hoặc đã gỡ) trên chỉ định\n547:         của lượt, hoặc đề xuất từ lượt này. ``chi_dinh``: mỗi chỉ định ĐIỀU TRỊ\n548:         của lượt + buổi đang gắn + ``ung_vien`` (liệu trình cùng dịch vụ của\n549:         khách chọn được) + ``can_chon`` (≥ 2 liệu trình đang làm → thẻ bắt chọn).\n550:         Lượt không liên quan → hai danh sách rỗng (màn không hiện thẻ).\n551:         \"\"\"\n552:         vid = _uuid(visit_id, \"Mã lượt khám không hợp lệ.\")\n553:         cid = identity.clinic_id\n554:         async with self._pool.acquire() as conn:\n555:             await self._doi_doc(conn, identity)\n556:             pid = await conn.fetchval(\n557:                 \"SELECT clinic_patient_id::text FROM visit\"\n558:                 \" WHERE clinic_id = $1::uuid AND visit_id = $2::uuid\",\n559:                 cid,\n560:                 vid,\n561:             )\n562:             if pid is None:\n563:                 raise NotFoundError(\"Không tìm thấy lượt khám này.\")"
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 1258,
+          "end_line": 1308,
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "1258:     async def danh_sach(\n1259:         self, *, identity: StaffIdentity, clinic_patient_id: str\n1260:     ) -> list[dict[str, Any]]:\n1261:         \"\"\"Tệp kết quả của một khách, mới nhất trước.\n1262: \n1263:         Cùng luật đọc với nội dung tệp (`doc_duoc_tep_ket_qua`) — trước 27/09\n1264:         (đợt 3) cửa này chỉ xét vai nên người có lego mở được ảnh mà không\n1265:         liệt kê được ảnh.\n1266: \n1267:         Chỉ tệp CÒN HIỆU LỰC (view `v_tep_ket_qua_hieu_luc`, V9 30/09): tệp đã\n1268:         xoá mềm hay đã thu hồi không hiện — trước đây tệp thu hồi vẫn lọt vào\n1269:         danh sách như thể còn là kết quả. Mỗi tệp kèm cờ máy chủ `xoa_duoc /\n1270:         xoa_loai / xoa_ly_do` (`xoa_duoc`) — giao diện chỉ hiện nút theo cờ.\n1271:         \"\"\"\n1272:         async with self._pool.acquire() as conn:\n1273:             if not await doc_duoc_tep_ket_qua(conn, identity):\n1274:                 raise SafetyGateError(\"Không có quyền xem tệp kết quả.\")\n1275:             quyen = await quyen_xoa_tep(conn, identity)\n1276:             rows = await conn.fetch(\n1277:                 f\"\"\"\n1278:                 SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,\n1279:                        t.ben, t.tai_len_luc, t.gui_luc, t.gui_kenh,\n1280:                        t.cho_phep_gui_luc, t.appointment_id::text,\n1281:                        t.service_order_id::text,\n1282:                        t.xac_nhan_trang_thai, t.xac_nhan_luc, t.xac_nhan_ly_do,\n1283:                        t.thu_hoi_luc, t.thu_hoi_ly_do,\n1284:                        s.full_name AS tai_len_boi,\n1285:                        g.full_name AS gui_boi,\n1286:                        b.full_name AS cho_phep_gui_boi,\n1287:                        xn.full_name AS xac_nhan_boi,\n1288:                        th.full_name AS thu_hoi_boi,\n1289:                        {COT_XOA_SQL}\n1290:                   FROM public.v_tep_ket_qua_hieu_luc t\n1291:                   LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id\n1292:                   LEFT JOIN public.staff g ON g.id = t.gui_boi_staff_id\n1293:                   LEFT JOIN public.staff b ON b.id = t.cho_phep_gui_boi_staff_id\n1294:                   LEFT JOIN public.staff xn ON xn.id = t.xac_nhan_boi_staff_id\n1295:                   LEFT JOIN public.staff th ON th.id = t.thu_hoi_boi_staff_id\n1296:                  WHERE t.clinic_id = $1::uuid AND t.clinic_patient_id = $2::uuid\n1297:                  ORDER BY t.tai_len_luc DESC\n1298:                  LIMIT 200\n1299:                 \"\"\",\n1300:                 identity.clinic_id,\n1301:                 clinic_patient_id,\n1302:             )\n1303:         # 200 tệp của MỘT khách: trần này gần như không bao giờ chạm, nhưng\n1304:         # chạm thì phải kêu — hàm trả về list nên không gắn `bi_cat` vào được.\n1305:         canh_bao_neu_day(\n1306:             \"tep_ket_qua.cua_mot_khach\", len(rows), 200, khach=clinic_patient_id\n1307:         )\n1308:         return [gan_co_xoa(r, quyen) for r in rows]"
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 1544,
+          "end_line": 1600,
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "1544:     async def _hang_de_doc(\n1545:         self, identity: StaffIdentity, tep_id: str\n1546:     ) -> asyncpg.Record:\n1547:         \"\"\"Dòng tệp (khoa, mime, số byte, tên, vi_tri…) — sau khi chứng minh quyền.\n1548: \n1549:         Quyền đọc:\n1550:         A. `doc_duoc_tep_ket_qua`: vai NORMAL_READ_ROLES, hoặc đọc được kết quả\n1551:            CLS theo lego (đợt 3, 27/09), hoặc khâu quầy in phiếu\n1552:         OR\n1553:         B. caller có capability 'ket_qua.xac_nhan'\n1554:            AND file cùng clinic\n1555:            AND xac_nhan_trang_thai = 'CHO_XAC_NHAN'\n1556:            AND service_order_id IS NOT NULL\n1557:            AND order join node_definition.lam_ben_ngoai = true.\n1558:         \"\"\"\n1559:         row = await self._pool.fetchrow(\n1560:             \"\"\"\n1561:             SELECT t.khoa, t.mime, t.so_byte, t.ten_hien_thi, t.vi_tri,\n1562:                    t.clinic_id::text, t.xac_nhan_trang_thai,\n1563:                    t.service_order_id::text,\n1564:                    n.lam_ben_ngoai\n1565:               FROM public.v_tep_ket_qua_hieu_luc t\n1566:               LEFT JOIN public.service_order o\n1567:                 ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id\n1568:               LEFT JOIN public.node_definition n\n1569:                 ON n.code = o.node_code AND n.clinic_id = t.clinic_id\n1570:              WHERE t.id = $1::uuid AND t.clinic_id = $2::uuid\n1571:             \"\"\",\n1572:             tep_id,\n1573:             identity.clinic_id,\n1574:         )\n1575:         # Tệp đã xoá mềm / đã thu hồi (V9): không mở được nữa — như không có.\n1576:         if row is None:\n1577:             raise NotFoundError(\"Không tìm thấy tệp này (có thể đã bị xoá).\")\n1578: \n1579:         # Vai cũ, lego đọc phiếu khám / kết quả (đợt 3), quầy in phiếu.\n1580:         async with self._pool.acquire() as conn:\n1581:             duoc_doc = await doc_duoc_tep_ket_qua(conn, identity)\n1582:         if not duoc_doc and await co_quyen_xac_nhan(self._pool, identity):\n1583:             if (\n1584:                 row[\"xac_nhan_trang_thai\"] == \"CHO_XAC_NHAN\"\n1585:                 and row[\"service_order_id\"] is not None\n1586:                 and row[\"lam_ben_ngoai\"] is True\n1587:             ):\n1588:                 duoc_doc = True\n1589: \n1590:         if not duoc_doc:\n1591:             raise SafetyGateError(\"Không có quyền xem tệp này.\")\n1592: \n1593:         khoa = row[\"khoa\"]\n1594:         # Hai chốt, giữ cả hai. Câu truy vấn trên đã lọc theo clinic_id, nhưng\n1595:         # backend chạy bằng service role và BỎ QUA RLS — nên một lần sửa sau\n1596:         # này làm hỏng bộ lọc sẽ biến đây thành lỗ thật.\n1597:         if not khoa.startswith(f\"{identity.clinic_id}/\"):\n1598:             raise ValidationError(\"Tệp không thuộc phòng khám này.\")\n1599: \n1600:         return row"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ultrasound.py",
+          "line": 230,
+          "end_line": 249,
+          "sha256": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb",
+          "excerpt": "230: @router.get(\"/ultrasound/image\")\n231: async def get_image(\n232:     key: str,\n233:     identity: StaffIdentity = Depends(_SONO_GUARD),\n234:     pool: asyncpg.Pool = Depends(get_db_pool),\n235: ) -> Response:\n236:     \"\"\"Đọc một ảnh. Khoá phải thuộc phòng khám của người hỏi — kiểm ở service.\"\"\"\n237:     data, mime = await MediaService(pool).read_ultrasound_image(\n238:         identity=identity, key=key\n239:     )\n240:     return Response(\n241:         content=data,\n242:         media_type=mime,\n243:         headers={\n244:             # Ảnh bệnh nhân KHÔNG được nằm lại trong bộ đệm dùng chung. `private`\n245:             # cho phép trình duyệt của chính người xem giữ, không cho proxy giữ.\n246:             \"Cache-Control\": \"private, max-age=300\",\n247:             # Trình duyệt không được tự đoán kiểu và chạy nội dung như HTML.\n248:             \"X-Content-Type-Options\": \"nosniff\",\n249:         },"
+        },
+        {
+          "path": "src/clinicai/services/media_service.py",
+          "line": 414,
+          "end_line": 450,
+          "sha256": "54bb599468bf44ec2df3676e1252b736667ddc8baddd2aef324059349069c5a5",
+          "excerpt": "414:     async def read_ultrasound_image(\n415:         self, *, identity: StaffIdentity, key: str\n416:     ) -> tuple[bytes, str]:\n417:         \"\"\"Đọc một ảnh, sau khi xác nhận nó thuộc phòng khám của người hỏi.\n418: \n419:         KHÔNG tin `key` từ trình duyệt. Nó phải (a) bắt đầu bằng đúng clinic_id\n420:         của người đang đăng nhập, và (b) thật sự nằm trong `image_refs` của một\n421:         bản ghi thuộc phòng khám đó. Thiếu phép kiểm thứ hai thì đoán được một\n422:         UUID là đọc được ảnh của bệnh nhân bất kỳ.\n423:         \"\"\"\n424:         if not key.startswith(f\"{identity.clinic_id}/\"):\n425:             raise ValidationError(\"Ảnh không thuộc phòng khám này.\")\n426: \n427:         owned = await self._pool.fetchval(\n428:             \"SELECT 1 FROM public.ultrasound_record\"\n429:             \" WHERE clinic_id = $1::uuid AND $2 = ANY(image_refs) LIMIT 1\",\n430:             identity.clinic_id,\n431:             key,\n432:         )\n433:         if not owned:\n434:             raise ValidationError(\"Không tìm thấy ảnh.\")\n435: \n436:         # Chốt cuối: dù hai phép kiểm trên có sai, đường dẫn giải ra vẫn phải\n437:         # nằm trong thư mục media. Chạm ổ mạng ở luồng phụ, có hạn giờ (sự\n438:         # cố treo API 29/09 20:00).\n439:         def _doc() -> bytes | None:\n440:             p = (MEDIA_ROOT / key).resolve()\n441:             if not p.is_relative_to(MEDIA_ROOT.resolve()):\n442:                 raise ValidationError(\"Đường dẫn ảnh không hợp lệ.\")\n443:             return p.read_bytes() if p.exists() else None\n444: \n445:         doc = await chay_tren_kho(_doc)\n446:         if doc is None:\n447:             raise ValidationError(\"Tệp ảnh không còn trên máy chủ — báo kỹ thuật.\")\n448:         data = doc\n449:         mime, _ = sniff(data)\n450:         return data, mime"
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 32,
+          "end_line": 37,
+          "sha256": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e",
+          "excerpt": "32: from clinicai.services.thu_ky_bac_si import (\n33:     bac_si_cua_thu_ky,\n34:     bac_si_sieu_am_trong,\n35:     khach_duoc_xem,\n36:     kiem_khach,\n37: )"
+        },
+        {
+          "path": "src/clinicai/services/clinical_record_service.py",
+          "line": 884,
+          "end_line": 908,
+          "sha256": "8598b59bbb579902e6d3460a5d0613ec40df66ba7810307e0d86b892d5db402e",
+          "excerpt": "884: async def benh_an_cho_ho_so(\n885:     conn: asyncpg.Connection, ngu_canh: NguCanhHoSo\n886: ) -> dict[str, Any]:\n887:     \"\"\"Bệnh án (SOAP) của lượt đang xem + revision để lưu không đè nhau.\"\"\"\n888:     lt = None\n889:     if ngu_canh.visit_id:\n890:         lt = dong(\n891:             await conn.fetchrow(\n892:                 \"\"\"\n893:                 SELECT v.visit_id::text, v.status, v.created_at,\n894:                        EXISTS (SELECT 1 FROM phieu_kham_luot p\n895:                                 WHERE p.clinic_id = v.clinic_id\n896:                                   AND p.visit_id = v.visit_id) AS phieu_v5,\n897:                        r.revision, r.chief_complaint_at_visit, r.soap_subjective,\n898:                        r.soap_objective, r.soap_assessment, r.soap_plan,\n899:                        r.prescription_draft\n900:                   FROM visit v\n901:                   LEFT JOIN clinical_record r\n902:                     ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id\n903:                  WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid\n904:                 \"\"\",\n905:                 ngu_canh.visit_id,\n906:                 ngu_canh.clinic_id,\n907:             ),\n908:             _COT_BENH_AN_JSON,"
+        },
+        {
+          "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+          "line": 84,
+          "end_line": 115,
+          "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+          "excerpt": "84:     FOREACH t IN ARRAY ARRAY[\n85:         'ultrasound_record', 'lab_result', 'prescription',\n86:         'patient_medical_profile', 'pregnancy', 'visit', 'tep_ket_qua'\n87:     ] LOOP\n88:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I',\n89:                        t || '_thu_ky_theo_bac_si', t);\n90:         EXECUTE format(\n91:             'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR SELECT TO authenticated '\n92:             'USING (public.thu_ky_duoc_xem_khach(clinic_id, clinic_patient_id))',\n93:             t || '_thu_ky_theo_bac_si', t);\n94:     END LOOP;\n95: END\n96: $bang_co_khach$;\n97: \n98: -- Bảng chỉ có visit_id: tra khách qua lượt khám.\n99: DO $bang_theo_luot$\n100: DECLARE\n101:     t text;\n102: BEGIN\n103:     FOREACH t IN ARRAY ARRAY[\n104:         'clinical_record', 'clinical_form_response', 'visit_amendment',\n105:         'vital_measurement'\n106:     ] LOOP\n107:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I',\n108:                        t || '_thu_ky_theo_bac_si', t);\n109:         EXECUTE format(\n110:             'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR SELECT TO authenticated '\n111:             'USING (public.thu_ky_duoc_xem_khach(clinic_id, '\n112:             '(SELECT v.clinic_patient_id FROM public.visit v '\n113:             '  WHERE v.visit_id = %I.visit_id)))',\n114:             t || '_thu_ky_theo_bac_si', t, t);\n115:     END LOOP;",
+          "detail": "Restrictive assignment policy covers 11 clinical tables but omits appointment, service_order_draft and prescription_allocation."
+        },
+        {
+          "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+          "line": 152,
+          "end_line": 168,
+          "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+          "excerpt": "152:     tables text[] := ARRAY[\n153:         'appointment', 'booking_channel', 'care_episode', 'clinic_location',\n154:         'clinical_form_response', 'clinical_record', 'cskh_action', 'cskh_log',\n155:         'drug_catalog', 'lab_result', 'patient', 'patient_medical_profile',\n156:         'payment', 'pregnancy', 'prescription', 'service_log', 'service_price',\n157:         'service_type', 'staff_task', 'visit', 'work_roster', 'work_session',\n158:         'work_session_staff'\n159:     ];\n160: BEGIN\n161:     FOREACH t IN ARRAY tables LOOP\n162:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_authenticated', t);\n163:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_own_clinic', t);\n164:         EXECUTE format(\n165:             'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated '\n166:             'USING (clinic_id IN (SELECT public.current_clinic_ids()))',\n167:             t || '_select_own_clinic', t\n168:         );",
+          "detail": "appointment remains in the generic tenant-only read policy set."
+        },
+        {
+          "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+          "line": 16,
+          "end_line": 43,
+          "sha256": "d044070664a338a927d6390d03ae2627a60ee888cad4c46e083208b82c65ae29",
+          "excerpt": "16: CREATE TABLE IF NOT EXISTS public.service_order_draft (\n17:     id                 uuid        PRIMARY KEY DEFAULT gen_random_uuid(),\n18:     clinic_id          uuid        NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,\n19:     visit_id           uuid        NOT NULL REFERENCES public.visit(visit_id) ON DELETE RESTRICT,\n20:     service_codes      text[]      NOT NULL DEFAULT '{}'::text[],\n21:     recorded_by        uuid        NOT NULL REFERENCES public.staff(id),\n22:     version            integer     NOT NULL DEFAULT 1 CHECK (version > 0),\n23:     created_at         timestamptz NOT NULL DEFAULT now(),\n24:     updated_at         timestamptz NOT NULL DEFAULT now(),\n25:     approved_at        timestamptz,\n26:     approved_by        uuid        REFERENCES public.staff(id),\n27:     discarded_at       timestamptz,\n28:     discarded_by       uuid        REFERENCES public.staff(id),\n29:     discard_reason     text,\n30:     CONSTRAINT service_order_draft_ket_thuc_mot_kieu\n31:         CHECK (approved_at IS NULL OR discarded_at IS NULL),\n32:     CONSTRAINT service_order_draft_duyet_co_nguoi\n33:         CHECK ((approved_at IS NULL) = (approved_by IS NULL)),\n34:     CONSTRAINT service_order_draft_bo_co_nguoi\n35:         CHECK ((discarded_at IS NULL) = (discarded_by IS NULL)),\n36:     CONSTRAINT service_order_draft_duyet_phai_co_dich_vu\n37:         CHECK (approved_at IS NULL OR cardinality(service_codes) > 0)\n38: );\n39: \n40: COMMENT ON TABLE public.service_order_draft IS\n41:     'Chỉ định dịch vụ thư ký nhập, chờ bác sĩ duyệt. Duyệt → order_services tạo '\n42:     'việc ở phòng thực hiện. Chưa duyệt chỉ DOCTOR/ULTRASOUND_DOCTOR/TKYK đọc '\n43:     '(20260915000008).';",
+          "detail": "Draft rows expose visit, selected service codes, recorder/approver/version/state."
+        },
+        {
+          "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+          "line": 84,
+          "end_line": 102,
+          "sha256": "d044070664a338a927d6390d03ae2627a60ee888cad4c46e083208b82c65ae29",
+          "excerpt": "84: ALTER TABLE public.service_order_draft ENABLE ROW LEVEL SECURITY;\n85: \n86: DROP POLICY IF EXISTS service_order_draft_select_bac_si_thu_ky\n87:     ON public.service_order_draft;\n88: CREATE POLICY service_order_draft_select_bac_si_thu_ky\n89:     ON public.service_order_draft\n90:     FOR SELECT TO authenticated\n91:     USING (\n92:         clinic_id IN (\n93:             SELECT public.current_clinic_ids_for_roles(\n94:                 ARRAY['DOCTOR', 'ULTRASOUND_DOCTOR', 'TKYK']\n95:             )\n96:         )\n97:     );\n98: \n99: -- Quyền bảng như mọi bảng dữ liệu phòng khám: client CHỈ ĐỌC (và RLS ở trên\n100: -- còn thu hẹp về bác sĩ/thư ký); ghi đi qua FastAPI.\n101: GRANT SELECT ON public.service_order_draft TO authenticated;\n102: GRANT ALL ON public.service_order_draft TO service_role;",
+          "detail": "Draft SELECT is restricted to clinical roles and same clinic, not assigned doctor."
+        },
+        {
+          "path": "src/clinicai/services/service_order_service.py",
+          "line": 263,
+          "end_line": 290,
+          "sha256": "7769a29159ba4b807da90fea28694d1868458a5056ea1513b68dda7a9bfcf732",
+          "excerpt": "263:     async def get_draft(\n264:         self, *, visit_id: str, identity: StaffIdentity\n265:     ) -> dict[str, object] | None:\n266:         \"\"\"Bản nháp đang chờ duyệt, kèm tên dịch vụ và người nhập.\"\"\"\n267:         if not identity.co_vai({*PHYSICIAN_ROLES, ClinicRole.TKYK}):\n268:             raise SafetyGateError(\"Chỉ bác sĩ và thư ký y khoa xem chỉ định chờ duyệt\")\n269:         if identity.co_vai({ClinicRole.TKYK}):\n270:             bac_si_luot = await self._pool.fetchval(\n271:                 \"SELECT attending_doctor_id::text FROM visit\"\n272:                 \" WHERE visit_id = $1::uuid AND clinic_id = $2::uuid\",\n273:                 visit_id,\n274:                 identity.clinic_id,\n275:             )\n276:             kiem_thu_ky_duoc_lam(\n277:                 await bac_si_cua_thu_ky(self._pool, identity), bac_si_luot\n278:             )\n279:         row = await self._pool.fetchrow(\n280:             \"\"\"\n281:             SELECT d.id, d.version, d.service_codes, d.updated_at,\n282:                    d.recorded_by, st.full_name AS recorded_by_name\n283:               FROM service_order_draft d\n284:               LEFT JOIN staff st ON st.id = d.recorded_by\n285:              WHERE d.clinic_id = $1::uuid AND d.visit_id = $2::uuid\n286:                AND d.approved_at IS NULL AND d.discarded_at IS NULL\n287:             \"\"\",\n288:             identity.clinic_id,\n289:             visit_id,\n290:         )",
+          "detail": "Backend get_draft adds a TKYK doctor-assignment check that the raw table policy does not express."
+        },
+        {
+          "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+          "line": 47,
+          "end_line": 83,
+          "sha256": "9335dd055dc9056a45973fb864d0cf9c0e6312a51a0fd95efc38ee5ee9f6bc56",
+          "excerpt": "47: CREATE TABLE IF NOT EXISTS public.prescription_allocation (\n48:     id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n49:     clinic_id        uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,\n50:     visit_id         uuid NOT NULL,\n51:     prescription_id  uuid NOT NULL,\n52:     drug_catalog_id  uuid NOT NULL,\n53:     drug_batch_id    uuid NOT NULL,\n54:     quantity         numeric(12, 3) NOT NULL CHECK (quantity > 0),\n55:     handed_over_qty  numeric(12, 3) NOT NULL DEFAULT 0,\n56:     payment_cycle_id uuid,\n57:     created_by       uuid NOT NULL REFERENCES public.staff(id) ON DELETE RESTRICT,\n58:     created_at       timestamptz NOT NULL DEFAULT now(),\n59:     released_at      timestamptz,\n60:     released_by      uuid REFERENCES public.staff(id) ON DELETE RESTRICT,\n61:     release_reason   text,\n62:     CONSTRAINT prescription_allocation_giao_trong_so_phan CHECK (\n63:         handed_over_qty >= 0 AND handed_over_qty <= quantity),\n64:     CONSTRAINT prescription_allocation_go_co_dau_vet CHECK (\n65:         (released_at IS NULL) = (released_by IS NULL)\n66:         AND (released_at IS NULL) = (release_reason IS NULL)),\n67:     CONSTRAINT prescription_allocation_visit_fkey FOREIGN KEY (clinic_id, visit_id)\n68:         REFERENCES public.visit (clinic_id, visit_id) ON DELETE RESTRICT,\n69:     CONSTRAINT prescription_allocation_rx_fkey FOREIGN KEY (prescription_id, clinic_id)\n70:         REFERENCES public.prescription (id, clinic_id) ON DELETE RESTRICT,\n71:     CONSTRAINT prescription_allocation_drug_fkey FOREIGN KEY (drug_catalog_id, clinic_id)\n72:         REFERENCES public.drug_catalog (id, clinic_id) ON DELETE RESTRICT,\n73:     CONSTRAINT prescription_allocation_batch_fkey FOREIGN KEY (drug_batch_id, clinic_id)\n74:         REFERENCES public.drug_batch (id, clinic_id) ON DELETE RESTRICT,\n75:     CONSTRAINT prescription_allocation_cycle_fkey\n76:         FOREIGN KEY (payment_cycle_id, clinic_id, visit_id)\n77:         REFERENCES public.payment_cycle (payment_cycle_id, clinic_id, visit_id)\n78:         ON DELETE RESTRICT,\n79:     -- Neo cho sổ kho: dòng SALE/DISPENSE mới phải trỏ đúng phân lô, đúng lô,\n80:     -- đúng lần thu, đúng phòng khám — ép bằng MỘT khoá ngoại ghép.\n81:     CONSTRAINT uq_prescription_allocation_neo_so\n82:         UNIQUE (id, clinic_id, drug_batch_id, payment_cycle_id)\n83: );",
+          "detail": "Prescription allocation contains prescription/visit/drug/batch and dispensed quantities."
+        },
+        {
+          "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+          "line": 437,
+          "end_line": 445,
+          "sha256": "9335dd055dc9056a45973fb864d0cf9c0e6312a51a0fd95efc38ee5ee9f6bc56",
+          "excerpt": "437: ALTER TABLE public.prescription_allocation ENABLE ROW LEVEL SECURITY;\n438: DROP POLICY IF EXISTS prescription_allocation_select_own_clinic\n439:     ON public.prescription_allocation;\n440: CREATE POLICY prescription_allocation_select_own_clinic\n441:     ON public.prescription_allocation\n442:     FOR SELECT TO authenticated\n443:     USING (clinic_id IN (SELECT current_clinic_ids()));\n444: GRANT SELECT ON public.prescription_allocation TO authenticated;\n445: GRANT SELECT, INSERT, UPDATE ON public.prescription_allocation TO service_role;",
+          "detail": "Prescription allocation receives authenticated same-clinic SELECT but no TKYK assignment predicate."
+        },
+        {
+          "path": "src/clinicai/services/thu_ky_bac_si.py",
+          "line": 31,
+          "end_line": 61,
+          "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+          "excerpt": "31: async def bac_si_cua_thu_ky(\n32:     conn: asyncpg.Connection | asyncpg.Pool, identity: StaffIdentity\n33: ) -> list[str] | None:\n34:     \"\"\"Bác sĩ mà thư ký được phân; None = KHÔNG lọc theo luật này.\n35: \n36:     Tuyền chốt 26/09/2026: thư ký thấy CẢ phòng khám; ĐÃ được xếp theo bác sĩ\n37:     nào thì chỉ thấy khách của bác sĩ ấy. Luật 15/09 cũ (\"chưa phân = thấy 0\n38:     lượt\") OFF: đo trên bản chạy thật 16/09, thư ký thấy ĐÚNG 0 lượt trong khi\n39:     điều dưỡng và lễ tân thấy 19 — vì chưa ai phân bác sĩ cho họ. Luật mới không\n40:     phụ thuộc công tắc mở quyền tạm thời.\n41:     \"\"\"\n42:     # THEO DỮ LIỆU PHÂN CÔNG, không theo vai (27/09 đợt 3 — \"chỉ dùng lego\"):\n43:     # chỉ tài khoản thư ký mới được phân (`dat_bac_si_cho_thu_ky` kiểm), nên có\n44:     # dòng phân = đang đi cùng bác sĩ ấy; không có dòng = không lọc.\n45:     ids = await conn.fetchval(\n46:         \"SELECT array_agg(bac_si_staff_id::text) FROM public.thu_ky_bac_si\"\n47:         \" WHERE clinic_id = $1::uuid AND thu_ky_staff_id = $2::uuid\",\n48:         identity.clinic_id,\n49:         identity.staff_id,\n50:     )\n51:     if not ids:\n52:         return None\n53:     # LỊCH PHÒNG HÔM NAY LÀ HỢP VỚI PHÂN CÔNG (Tuyền 29/09/2026: \"được xếp lịch\n54:     # cùng phòng với bác sĩ thì mọi thứ liên thông song song\"). Thư ký phân theo\n55:     # BS Y mà hôm nay được xếp vào phòng BS X thì thấy + làm được khách của X.\n56:     # Mọi chặn thư ký (bàn khám, chỉ định, bệnh án, phiếu, đính chính, hồ sơ)\n57:     # đều qua đây — một luật, một chỗ.\n58:     cung_phong = await bac_si_cung_phong_hom_nay(\n59:         conn, identity.clinic_id, identity.staff_id\n60:     )\n61:     return sorted({*ids, *cung_phong})",
+          "detail": "Unassigned TKYK semantics deliberately yield no doctor filter; assigned secretary maps to a doctor."
+        },
+        {
+          "path": "src/clinicai/services/thu_ky_bac_si.py",
+          "line": 76,
+          "end_line": 100,
+          "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+          "excerpt": "76: #: Khách \"của\" các bác sĩ: có lịch hẹn với họ, lượt khám họ phụ trách, hoặc việc\n77: #: siêu âm họ THỰC HIỆN (work_item.assigned_to). Việc siêu âm CHƯA có bác sĩ nhận\n78: #: là hàng chung của khoa siêu âm: thư ký đi cùng một bác sĩ siêu âm thấy được\n79: #: ($3 = thư ký này có theo bác sĩ siêu âm nào không).\n80: _KHACH_CUA_BAC_SI_SQL = \"\"\"\n81: SELECT a.clinic_patient_id::text AS id\n82:   FROM public.appointment a\n83:  WHERE a.clinic_id = $1::uuid AND a.doctor_id::text = ANY($2::text[])\n84: UNION\n85: SELECT v.clinic_patient_id::text\n86:   FROM public.visit v\n87:  WHERE v.clinic_id = $1::uuid AND v.attending_doctor_id::text = ANY($2::text[])\n88: UNION\n89: SELECT w.clinic_patient_id::text\n90:   FROM public.work_item w\n91:  WHERE w.clinic_id = $1::uuid\n92:    AND w.node_code = 'DICHVU-SIEUAM'\n93:    AND w.status <> 'CANCELLED'\n94:    -- Chưa ai nhận + thư ký theo bác sĩ siêu âm → coi như của mình (lấy tạm\n95:    -- một phần tử của danh sách để phép so khớp); đã nhận → so đúng người nhận.\n96:    AND coalesce(w.assigned_to::text,\n97:                 CASE WHEN $3::boolean AND w.status IN ('PENDING', 'IN_PROGRESS')\n98:                      THEN ($2::text[])[1] END)\n99:        = ANY($2::text[])\n100: \"\"\"",
+          "detail": "Assignment helper derives customer/doctor association from appointments, visits and ultrasound records."
+        },
+        {
+          "path": "supabase/tests/thu_ky_rls_theo_bac_si.sql",
+          "line": 59,
+          "end_line": 104,
+          "sha256": "3979131d469cda4e493b6f78e2eacfbd4a8cd46972a2b007bc752486ae6a13bb",
+          "excerpt": "59: SET LOCAL ROLE authenticated;\n60: \n61: -- Thư ký chưa được phân → 0 dòng.\n62: SELECT set_config('request.jwt.claim.sub', 'a2100000-0000-4000-8000-000000000003', true);\n63: DO $chua_phan$\n64: BEGIN\n65:     IF (SELECT count(*) FROM public.clinical_record\n66:          WHERE clinic_id = 'c2100000-0000-4000-8000-000000000001') <> 0 THEN\n67:         RAISE EXCEPTION 'thư ký chưa được phân bác sĩ phải đọc 0 bệnh án';\n68:     END IF;\n69:     IF (SELECT count(*) FROM public.visit\n70:          WHERE clinic_id = 'c2100000-0000-4000-8000-000000000001') <> 0 THEN\n71:         RAISE EXCEPTION 'thư ký chưa được phân bác sĩ phải đọc 0 lượt khám';\n72:     END IF;\n73: END\n74: $chua_phan$;\n75: \n76: -- Phân theo BS Một (ghi bằng quyền chủ, như backend).\n77: RESET ROLE;\n78: INSERT INTO public.thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)\n79: VALUES ('c2100000-0000-4000-8000-000000000001',\n80:         'b2100000-0000-4000-8000-000000000003', 'b2100000-0000-4000-8000-000000000001');\n81: SET LOCAL ROLE authenticated;\n82: SELECT set_config('request.jwt.claim.sub', 'a2100000-0000-4000-8000-000000000003', true);\n83: \n84: DO $theo_bs_mot$\n85: BEGIN\n86:     IF (SELECT count(*) FROM public.clinical_record\n87:          WHERE clinic_id = 'c2100000-0000-4000-8000-000000000001') <> 1\n88:        OR NOT EXISTS (SELECT 1 FROM public.clinical_record\n89:                        WHERE visit_id = 'e2100000-0000-4000-8000-000000000001') THEN\n90:         RAISE EXCEPTION 'thư ký theo BS Một chỉ được đọc đúng bệnh án khách BS Một';\n91:     END IF;\n92: END\n93: $theo_bs_mot$;\n94: \n95: -- Bác sĩ Hai vẫn đọc cả hai (không phải thư ký → restrictive không lọc).\n96: SELECT set_config('request.jwt.claim.sub', 'a2100000-0000-4000-8000-000000000002', true);\n97: DO $bac_si_khong_doi$\n98: BEGIN\n99:     IF (SELECT count(*) FROM public.clinical_record\n100:          WHERE clinic_id = 'c2100000-0000-4000-8000-000000000001') <> 2 THEN\n101:         RAISE EXCEPTION 'bác sĩ phải đọc bệnh án như trước';\n102:     END IF;\n103: END\n104: $bac_si_khong_doi$;",
+          "detail": "Existing SQL test covers visit/clinical_record assignment but omits appointment, draft and allocation."
+        }
+      ],
+      "production_verified": false,
+      "evidence_level": "confirmed_static"
+    }
+  }
+]

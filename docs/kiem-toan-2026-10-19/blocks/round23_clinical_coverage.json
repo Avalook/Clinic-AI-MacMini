@@ -1,0 +1,445 @@
+{
+  "schema_version": 1,
+  "audit": "round23_clinical_forms_form_engine_validation",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "static_read_only_exact_main_cross_layer_trace",
+  "scope": [
+    "dynamic form request validation, form-version persistence/read, React rendering, completion reminders and nearby tests",
+    "separate versioned phiếu-khám v5 validator and its API/UI/test path; no new finding"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "One MEDIUM static finding added for unknown fields/schema-incompatible values being persisted but omitted by schema-driven rendering. Requiredness policy remains held. Form khung.py was fully read; other modules in this slice were targeted, not full-file reads. No test or runtime request ran. Independent v5 trace found schema-key validation and a test that rejects unknown keys; CLIN-041 is scoped to the generic Form Engine, not v5. These tests were inspected but not run.",
+  "held_observations": [
+    "CLINICAL-FORM-REQUIREDNESS-001"
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/phieu.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 31,
+          "end": 36,
+          "purpose": "LuuBody khai du_lieu dạng dict[str, Any], không có schema theo form."
+        },
+        {
+          "start": 83,
+          "end": 97,
+          "purpose": "Route chuyển nguyên payload du_lieu vào service lưu nháp."
+        },
+        {
+          "start": 31,
+          "end": 36,
+          "purpose": "Request body accepts a generic dictionary."
+        },
+        {
+          "start": 83,
+          "end": 97,
+          "purpose": "Route passes raw form data to the service."
+        }
+      ],
+      "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+      "line_count": 208
+    },
+    {
+      "path": "src/clinicai/phieu_kham/khung.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 391,
+          "purpose": "Full 391-line read; dynamic form frame/model behavior reviewed in round 23."
+        }
+      ],
+      "sha256": "131b67230462c41521b5e3fd0bfa1a6b809033b9f318a0708fb5b1b8511efa6a",
+      "line_count": 391
+    },
+    {
+      "path": "src/clinicai/services/form_engine_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 556,
+          "end": 576,
+          "purpose": "luu_nhap gọi validator trước khi resolve form/version cụ thể."
+        },
+        {
+          "start": 1469,
+          "end": 1479,
+          "purpose": "_kiem_du_lieu chỉ yêu cầu gia_tri và nguon nằm trong allowlist; không nhận khung để kiểm field/value schema."
+        },
+        {
+          "start": 628,
+          "end": 656,
+          "purpose": "Service ghi du_lieu/du_lieu_dang_sua vào form_instance sau validation nông."
+        },
+        {
+          "start": 1417,
+          "end": 1437,
+          "purpose": "Read response giữ và trả dữ liệu JSON đã lưu."
+        },
+        {
+          "start": 768,
+          "end": 768,
+          "purpose": "Held CLINICAL-FORM-REQUIREDNESS-001; see STATE.json for full limits."
+        },
+        {
+          "start": 868,
+          "end": 899,
+          "purpose": "Held CLINICAL-FORM-REQUIREDNESS-001; see STATE.json for full limits."
+        },
+        {
+          "start": 1552,
+          "end": 1570,
+          "purpose": "Held CLINICAL-FORM-REQUIREDNESS-001; see STATE.json for full limits."
+        },
+        {
+          "start": 556,
+          "end": 576,
+          "purpose": "Save path validation order before loading exact form version."
+        },
+        {
+          "start": 628,
+          "end": 656,
+          "purpose": "Persisted JSON fields after shallow validation."
+        },
+        {
+          "start": 768,
+          "end": 768,
+          "purpose": "Completion path checks remaining values."
+        },
+        {
+          "start": 868,
+          "end": 899,
+          "purpose": "Completion behavior and READY/result event path."
+        },
+        {
+          "start": 1417,
+          "end": 1437,
+          "purpose": "Read response returns stored form data."
+        },
+        {
+          "start": 1469,
+          "end": 1479,
+          "purpose": "Shallow field/value validator."
+        },
+        {
+          "start": 1552,
+          "end": 1570,
+          "purpose": "Empty fields are enumerated as reminders."
+        }
+      ],
+      "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+      "line_count": 1580
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 544,
+          "end": 565,
+          "purpose": "React render lặp các ô đã khai trong khung, bỏ qua key ngoài schema."
+        },
+        {
+          "start": 544,
+          "end": 565,
+          "purpose": "Rendering iterates the declared frame fields."
+        }
+      ],
+      "sha256": "ff3acc2fdd9eb3347b1069d1d47493a4b7a1465d30c1145af44756811e3394fe",
+      "line_count": 885
+    },
+    {
+      "path": "src/dashboard/lib/phieu-ket-qua.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 137,
+          "end": 149,
+          "purpose": "Held CLINICAL-FORM-REQUIREDNESS-001; see STATE.json for full limits."
+        },
+        {
+          "start": 137,
+          "end": 149,
+          "purpose": "Client labels missing values as reminders only."
+        }
+      ],
+      "sha256": "2d9e6ba7135f82cbf3eb5585a322b15bba48f661501a55554fe3b4c23ad7316a",
+      "line_count": 151
+    },
+    {
+      "path": "src/tests/services/test_form_engine_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 310,
+          "end": 324,
+          "purpose": "Test từ chối nguon lạ; không kiểm unknown field hoặc sai kiểu/enum."
+        },
+        {
+          "start": 310,
+          "end": 324,
+          "purpose": "Existing negative test covers unknown source, not unknown field/value schema."
+        }
+      ],
+      "sha256": "0906f72032ef9994dc0ef659a42f7672312518cb439473f5a922e8cf9bc8b13b",
+      "line_count": 578
+    },
+    {
+      "path": "src/clinicai/phieu_kham/doc_chu.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 34,
+          "end": 55,
+          "purpose": "Text field reader for pinned phiếu-khám v5."
+        },
+        {
+          "start": 58,
+          "end": 77,
+          "purpose": "Structured form content reader."
+        },
+        {
+          "start": 80,
+          "end": 109,
+          "purpose": "Version-5 typed form reader."
+        }
+      ],
+      "sha256": "32729abc73b06666dfa70df523f32a7306faaeaa6624e3e35d224010c0564da6",
+      "line_count": 112
+    },
+    {
+      "path": "src/clinicai/phieu_kham/hanh_trinh.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 623,
+          "end": 678,
+          "purpose": "Read lifecycle/visit history behavior."
+        }
+      ],
+      "sha256": "3554f05f7fe163aaecac9a3892edf9e5da534be53276d65f4670b9e4fc584a6e",
+      "line_count": 681
+    },
+    {
+      "path": "src/clinicai/phieu_kham/ket_qua_chi_dinh.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 79,
+          "end": 281,
+          "purpose": "Read result-by-order projection."
+        }
+      ],
+      "sha256": "894c321b4498b6eceed0f10d7561e8fec3e1f7aeeff479de7035e3196146d28d",
+      "line_count": 325
+    },
+    {
+      "path": "src/clinicai/phieu_kham/kiem_khung_mau.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 69,
+          "end": 218,
+          "purpose": "Validate configured frame/model."
+        }
+      ],
+      "sha256": "8a64ac51661b3be195ab2483d908b033bcdb5e3a9a0c7f5f07585bcbe0af59d2",
+      "line_count": 221
+    },
+    {
+      "path": "src/clinicai/phieu_kham/mang_sang.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 81,
+          "end": 99,
+          "purpose": "Build clinical record projection."
+        },
+        {
+          "start": 150,
+          "end": 167,
+          "purpose": "Build vital measurement projection."
+        }
+      ],
+      "sha256": "1553f6dd1bb372fc29fdb12f6272dbf7e1a5166a2d943499887eeb90cd036120",
+      "line_count": 446
+    },
+    {
+      "path": "src/clinicai/phieu_kham/nap.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 25,
+          "end": 50,
+          "purpose": "Load initial pinned frame."
+        }
+      ],
+      "sha256": "077f18c3a259727ddb3f742954b7702634ae1b39502e844fc618c66e55159d50",
+      "line_count": 52
+    },
+    {
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 244,
+          "end": 264,
+          "purpose": "Versioned v5 schema-validation entry point."
+        },
+        {
+          "start": 374,
+          "end": 419,
+          "purpose": "Save path calls schema validation before write."
+        }
+      ],
+      "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+      "line_count": 1013
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phieu_kham.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 161,
+          "end": 193,
+          "purpose": "Versioned phiếu-khám API contract."
+        }
+      ],
+      "sha256": "fdf85d2b08cf8c7fbdc617d7e9ecc9930ad0e8a5f9d9c9be1b614b02c85b2aee",
+      "line_count": 303
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 92,
+          "end": 109,
+          "purpose": "Versioned v5 form writer."
+        },
+        {
+          "start": 188,
+          "end": 220,
+          "purpose": "Versioned v5 form reader/caller."
+        }
+      ],
+      "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+      "line_count": 757
+    },
+    {
+      "path": "src/dashboard/app/api/phieu-kham/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 125,
+          "purpose": "BFF path for versioned phiếu-khám API."
+        }
+      ],
+      "sha256": "2ff0486e686ef5e93635d63d83b313df6dd7723eb3449b31e9b6dcfe88fbf3a5",
+      "line_count": 125
+    },
+    {
+      "path": "src/tests/services/test_phieu_kham_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 245,
+          "end": 275,
+          "purpose": "Test rejects keys outside the pinned v5 schema; inspected, not run."
+        }
+      ],
+      "sha256": "61a2e4ae318710ade7b67c6b778b80b7a61070f3f0b2d64cccc68f449921edc6",
+      "line_count": 369
+    },
+    {
+      "path": "src/tests/services/test_phieu_kham_v2_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 66,
+          "end": 90,
+          "purpose": "Tests version pinning; inspected, not run."
+        }
+      ],
+      "sha256": "29d1fd2843c6ae33d51392f160ad527d784a8782ec45af6c4fb040cf29899e89",
+      "line_count": 126
+    },
+    {
+      "path": "src/tests/unit/test_phieu_kham_khung.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 281,
+          "end": 356,
+          "purpose": "Unit test for frame/schema validation; inspected, not run."
+        }
+      ],
+      "sha256": "150e5bcb8260a5c3ef355c1959bee735b209f22a6ec3987103ce1426f0bfb681",
+      "line_count": 600
+    }
+  ]
+}

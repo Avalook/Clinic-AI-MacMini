@@ -1,0 +1,180 @@
+[
+  {
+    "id": "CLIN-034",
+    "title": "Bảng đối chiếu Nam khoa vẫn hiển thị gợi ý của bộ dữ liệu cũ trong lúc bác sĩ sửa phiếu",
+    "severity": "MEDIUM",
+    "evidence_level": "static_trace",
+    "category": "reality_integrity",
+    "summary": "AndrologyReview giữ Review thành công gần nhất khi values đổi; debounce và request mới chạy nhưng không xóa/đánh dấu kết quả cũ. Vì vậy thẻ cạnh phiếu có thể tiếp tục hiển thị giá trị/cờ của bản trước như thể đang đối chiếu bản hiện tại.",
+    "trigger": "Mở phiếu NK đã có kết quả đối chiếu, rồi sửa một ô tinh dịch đồ hoặc khám. Trong ít nhất 600 ms debounce và toàn bộ thời gian chờ API, review cũ vẫn được render; ví dụ đổi nồng độ từ 12 lên 20 nhưng thẻ vẫn ghi 12 dưới ngưỡng.",
+    "impact": "Bác sĩ nhìn cùng lúc dữ liệu mới ở ô nhập và gợi ý cũ trong panel mà không có nhãn đang cập nhật; có thể trì hoãn hoặc làm sai lệch quyết định cho tới khi response mới đến. Đây là lỗi trạng thái giao diện; không thấy response cũ ghi đè response mới vì cleanup đã chặn completion cũ.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+        "line": 55,
+        "end_line": 82,
+        "sha256": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+        "detail": "Khi values/visitId đổi, effect chỉ đặt timer và gọi POST; không reset review hoặc chuyển sang trạng thái pending. Cleanup `con_song` chỉ ngăn response cũ cập nhật state."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+        "line": 84,
+        "end_line": 99,
+        "sha256": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+        "detail": "Chỉ lỗi mới ẩn review; nếu request đang chờ sau lần thành công thì review cũ vẫn đi tới nhánh render."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+        "line": 127,
+        "end_line": 137,
+        "sha256": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+        "detail": "Thẻ hiển thị giá trị đã được trả từ response cũ, nhưng không có timestamp, nhãn stale hay trạng thái đang tính."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+        "line": 335,
+        "end_line": 339,
+        "sha256": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+        "detail": "Panel được nối trực tiếp với state form hiện tại, nên mỗi lần sửa values tạo request đối chiếu mới."
+      },
+      {
+        "path": "src/dashboard/app/api/clinical-form/andrology-review/route.ts",
+        "line": 22,
+        "end_line": 27,
+        "sha256": "90a2a45f34d83c83fbabf1f3d2a66172b85fdb8b333a7a179b817ed59e4cfa5c",
+        "detail": "BFF chuyển tiếp nguyên body form_data và visit_id tới endpoint FastAPI."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+        "line": 96,
+        "end_line": 122,
+        "sha256": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+        "detail": "API nhận đúng form_data/visit_id và trả kết quả review tương ứng với body của request."
+      }
+    ],
+    "validation": {
+      "method": "static_path_trace",
+      "result": "Đã đối chiếu effect/debounce, nhánh render, nơi mount trong ServiceFormEngine và hợp đồng BFF/API trên snapshot main ghim.",
+      "limitations": "Không chạy browser/component test hoặc fault injection với response chậm. Không truy cập production, dữ liệu thật, DB hay PHI. Thời gian chờ phụ thuộc latency mạng; debounce 600 ms là xác định từ code."
+    },
+    "recommendation": "Khi payload hiện tại thay đổi, vô hiệu hóa review đang hiển thị ngay và thể hiện trạng thái đang đối chiếu; chỉ render kết quả khi khóa request (visit_id + snapshot/hash form_data) khớp state hiện tại. Nếu giữ kết quả cũ để tránh nhấp nháy, phải đánh dấu rõ dữ liệu cũ và không trình bày như kết quả hiện hành.",
+    "acceptance": "Component test: sau khi có review cho snapshot A, đổi form sang B thì A không còn được trình bày như hiện hành trong thời gian debounce/loading; response A đến muộn không hiển thị; response B mới được gắn với B. Lỗi request hiện thông báo riêng và không hồi sinh review sai snapshot.",
+    "alignment": [
+      "Reality rõ",
+      "Quyết định dựa trên bằng chứng tốt hơn",
+      "Con người bị gián đoạn đúng lúc"
+    ],
+    "related_tests": [
+      "src/tests/services/test_andrology_review.py: service-level tests; không kiểm tra trạng thái React khi request pending"
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+      "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+      "src/dashboard/app/api/clinical-form/andrology-review/route.ts": "90a2a45f34d83c83fbabf1f3d2a66172b85fdb8b333a7a179b817ed59e4cfa5c",
+      "src/clinicai/api/v1/routers/clinical_forms.py": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "static_trace_on_pinned_main",
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-011",
+    "title": "Phiếu Nam khoa cho người có quyền đọc vẫn gọi endpoint bị khóa theo quyền ghi",
+    "severity": "MEDIUM",
+    "evidence_level": "static_trace",
+    "category": "access_contract",
+    "summary": "UI luôn mount AndrologyReview kể cả ServiceFormEngine readOnly. GET phiếu cho phép mọi quyền thuộc QUYEN_Y_KHOA, nhưng POST review dùng cua_ghi_y_khoa (chỉ clinical.record.write/result.form.fill). Người được phép đọc clinical form nhưng không có quyền ghi nhận 403, UI lại diễn giải thành không đọc được ngưỡng tham chiếu.",
+    "trigger": "Tài khoản được cấp khối đọc như clinical.consult.perform hoặc result.review.approve nhưng không có clinical.record.write/result.form.fill mở phiếu NK, kể cả phiếu chỉ đọc. GET phiếu được phép; sau debounce, POST /andrology-review bị 403.",
+    "impact": "Người dùng được phép xem hồ sơ không nhận được phần đối chiếu/gợi ý; giao diện báo nhầm lỗi đọc ngưỡng thay vì quyền, không có cách thử lại ngoài việc sửa dữ liệu. Điều này làm quyền module và nội dung mà UI hứa hiển thị không nhất quán.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+        "line": 69,
+        "end_line": 82,
+        "sha256": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+        "detail": "Engine nhận readOnly như prop riêng."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+        "line": 335,
+        "end_line": 339,
+        "sha256": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+        "detail": "AndrologyReview vẫn được mount không xét readOnly."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+        "line": 58,
+        "end_line": 90,
+        "sha256": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+        "detail": "Component POST tự động; mọi non-2xx chuyển thành một câu 'Chưa đọc được ngưỡng tham chiếu', không phân biệt 403 quyền với lỗi nguồn dữ liệu."
+      },
+      {
+        "path": "src/dashboard/app/api/clinical-form/andrology-review/route.ts",
+        "line": 14,
+        "end_line": 27,
+        "sha256": "90a2a45f34d83c83fbabf1f3d2a66172b85fdb8b333a7a179b817ed59e4cfa5c",
+        "detail": "BFF chỉ xác thực Supabase user rồi proxy POST; kiểm quyền nghiệp vụ ở FastAPI."
+      },
+      {
+        "path": "src/dashboard/lib/backend-proxy.ts",
+        "line": 61,
+        "end_line": 66,
+        "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+        "detail": "Proxy chuyển identity của caller và phản chiếu status backend về UI."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+        "line": 23,
+        "end_line": 26,
+        "sha256": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+        "detail": "GET form dùng _FORM_GUARD (cua_y_khoa), còn endpoint review tại dòng 103–107 dùng _FORM_GHI_GUARD (cua_ghi_y_khoa)."
+      },
+      {
+        "path": "src/clinicai/permissions/y_khoa.py",
+        "line": 27,
+        "end_line": 60,
+        "sha256": "a235a6077ebfc66ffd0e446214edcf6c43de1793bc6c0656ca57a845692bc4c3",
+        "detail": "QUYEN_Y_KHOA gồm consult/intake/finalize/review; QUYEN_GHI_Y_KHOA chỉ gồm clinical.record.write và result.form.fill."
+      },
+      {
+        "path": "src/clinicai/services/andrology_review_service.py",
+        "line": 147,
+        "end_line": 234,
+        "sha256": "d1b17d21e3dcc985e9d298b97bf64d5a4e40941db64ae7526c2dd29238e77458",
+        "detail": "Review chỉ đọc reference ranges và số đo sinh hiệu; không ghi form, không tạo chỉ định hoặc thay đổi dữ liệu."
+      }
+    ],
+    "validation": {
+      "method": "static_contract_trace",
+      "result": "So sánh quyền GET form với guard POST review, vai trò readOnly ở UI và hành vi lỗi của component; kiểm service review chỉ thực hiện truy vấn đọc.",
+      "limitations": "Không dựng tài khoản với ma trận quyền để chạy HTTP/browser test. Tác động chỉ phát sinh với người có quyền đọc y khoa nhưng thiếu hai quyền ghi; không khẳng định cấu hình quyền nào đang được dùng tại production."
+    },
+    "recommendation": "Chốt một hợp đồng rõ: nếu người có quyền đọc y khoa được xem gợi ý, đổi review sang read guard; nếu chỉ người ghi được dùng tính năng, đừng gọi endpoint khi readOnly/không có quyền và hiển thị trạng thái quyền cụ thể thay cho lỗi ngưỡng. Không cấp thêm quyền ghi chỉ để đọc kết quả tính toán.",
+    "acceptance": "Test ma trận quyền: tài khoản chỉ có clinical.consult.perform (hoặc result.review.approve) đọc được phiếu và nhận review read-only nếu đó là chính sách; tài khoản không có quyền y khoa vẫn bị từ chối. Nếu tính năng cố ý yêu cầu quyền ghi, UI không gửi POST ở chế độ chỉ đọc và nêu rõ giới hạn quyền.",
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngày càng ngắn",
+      "Ownership rõ"
+    ],
+    "related_tests": [
+      "src/tests/services/test_andrology_review.py: kiểm logic service bằng FakePool; chưa kiểm guard API hoặc read-only UI"
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+      "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+      "src/dashboard/app/api/clinical-form/andrology-review/route.ts": "90a2a45f34d83c83fbabf1f3d2a66172b85fdb8b333a7a179b817ed59e4cfa5c",
+      "src/clinicai/api/v1/routers/clinical_forms.py": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+      "src/clinicai/permissions/y_khoa.py": "a235a6077ebfc66ffd0e446214edcf6c43de1793bc6c0656ca57a845692bc4c3",
+      "src/clinicai/services/andrology_review_service.py": "d1b17d21e3dcc985e9d298b97bf64d5a4e40941db64ae7526c2dd29238e77458"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "static_trace_on_pinned_main",
+      "production_verified": false
+    }
+  }
+]

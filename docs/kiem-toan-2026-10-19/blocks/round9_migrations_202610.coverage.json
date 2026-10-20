@@ -1,0 +1,1140 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_october_migration_tranche",
+  "scope": [
+    "Static audit of every supabase/migrations/*.sql dated 202610 in exact pinned source; no claim about other months.",
+    "Covered schema, RLS/grants, triggers, transaction boundaries, tenant/role invariants, idempotency, data correctness, migration ordering/rollback and cross-module lifecycle.",
+    "Related SQL tests were inspected only for coverage; no DB, HTTP, production, secret, PHI, or harness access; no source, migration or test changes."
+  ],
+  "finding_ids": [
+    "DB-006",
+    "DB-007",
+    "SEC-019"
+  ],
+  "finding_count": 3,
+  "source_verification": {
+    "assigned_migration_count": 101,
+    "total_lines": 12835,
+    "october_files_byte_verified_against_clean_git_worktree": true,
+    "worktree_head": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "mismatches": 0
+  },
+  "files": [
+    {
+      "path": "supabase/migrations/20261001000000_tep_luu_vps_truoc.sql",
+      "sha256": "b3df7cd81fbd202cbe25595e371fc086a3faf278fe1712186a1abbe7f1d29c72",
+      "lines": 114,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-114"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001100000_lam_truoc_thu_sau_tick.sql",
+      "sha256": "eb0317a119eed4298a92239e9fe8ded896af71e71afc750fddd07430dc843adb",
+      "lines": 25,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-25"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001200000_phong_theo_bang_lich.sql",
+      "sha256": "4290efc27d56683e67a56e5a5f78edf92c12840636795799daa00d8c9e0e4de4",
+      "lines": 221,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-221"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001210000_phong_lam_theo_dich_vu.sql",
+      "sha256": "4b1381694f7b3a9d6f1dc7d3dae1a1a6f390d960e1d9ae250b9acd522d3b9c56",
+      "lines": 190,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-190"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001230000_thu_thuat_san_chau_nhu_kham_thuong.sql",
+      "sha256": "b9f40ad97a9595f396abb129d273e523bf4422e33dd9adfe1059319b521d505a",
+      "lines": 44,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-44"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001230100_lich_cua_luot_da_ve_dong_bo.sql",
+      "sha256": "be9601f65e307f08756587dae46ae8401bfdd378a1001f061db0eb225beb6eb5",
+      "lines": 46,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-46"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001240000_don_du_lieu_thu.sql",
+      "sha256": "242641c99af092ada7af4afbd57bb159a42cd0aa36d35419fe7091a0ab47c4aa",
+      "lines": 604,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-604"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001250000_chon_bac_si_trong_phong.sql",
+      "sha256": "f3c00728c4ec9dd40b00e28d550d50466d650b098439d7b83173c3bcc79602d1",
+      "lines": 112,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-112"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261001260000_truong_ca_xep_lich.sql",
+      "sha256": "ef806093331f001523c27658dffac5241d4d3126db0e914b10fbe5c45d121c89",
+      "lines": 55,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-55"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+      "sha256": "33d9256bf2f0750d7655ed77e296d61ea73f32be89fabe966c926e5d595a405d",
+      "lines": 435,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-435"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+      "sha256": "931dd87e32107b5a569ae85c6d9cc4e6597c2bb3ba035bc7c776a36a062af5aa",
+      "lines": 170,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-170"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002210000_lam_them_tai_quay_xor.sql",
+      "sha256": "4d433046919beff484569d573539b06b610d153e4a6197fe1682ccfa40a5541f",
+      "lines": 15,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-15"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002220000_lam_them_tai_quay_revision.sql",
+      "sha256": "99a0f6824152c2fad9ff8c196663fc388108f7c4d3f22fc389a94bfa870b4228",
+      "lines": 17,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-17"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+      "lines": 619,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-619"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002500000_cong_no.sql",
+      "sha256": "bd05d4a10a1b2146e2475b9604249ebdfb02ad28cedfcb157f91fc3edfa15070",
+      "lines": 96,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-96"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002600000_ca_truc_lam_sang.sql",
+      "sha256": "0be922abb916c4c57480646270179aedccffbbec1b1725769f978ad038623633",
+      "lines": 41,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-41"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002700000_hoan_tac_xong_tai_quay.sql",
+      "sha256": "c79c65ccc223a8a4d85e3143947fb88ba7201e9465c9f8ffe7b48388e3c9cd34",
+      "lines": 17,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-17"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261002800000_tach_thu_thuoc_dich_vu.sql",
+      "sha256": "e8a9d8e03ef9e180f63e5ae92ac19ff71fab13ec7ac576338bc83a7fd1e3c7e2",
+      "lines": 61,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-61"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261003000000_vat_tu_ban_them.sql",
+      "sha256": "0e1089abad826a85fdd48511e2bc67a5d74dbd29490b7e18e3eecb9bb1125759",
+      "lines": 731,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-731"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261003100000_quay_thuoc_dien_so_luong.sql",
+      "sha256": "32087779a469099c4fb4c4e7ec1129837b8a33ec30b4b7ba7eafb86dd7d8bafd",
+      "lines": 207,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-207"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261003300000_tat_mon_kem_cu.sql",
+      "sha256": "62c5b78a961563c95db55c0a6903b9b18c86f5b06536c5d9643b74413a3806f7",
+      "lines": 16,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-16"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261003500000_quay_thuoc_so_luong_tuy_y.sql",
+      "sha256": "9a38565ea0eb773f293288c9622e231a78ea36637018689261e10c6fc64ecb54",
+      "lines": 206,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-206"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261003700000_phi_kham_chi_dinh_duoc.sql",
+      "sha256": "a38cf2572a52e5628d816fa1bacd80f82bbd8acef27e25d2deae66ab7f4f9922",
+      "lines": 134,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-134"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261003720000_lich_hen_tu_phieu_kham.sql",
+      "sha256": "a9e10089317ce1f9286262c69ee9924200ffaec0c7609fea0d4118fe3cc15e58",
+      "lines": 76,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-76"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261005100000_lich_su_notion.sql",
+      "sha256": "3bd50a6520c7dbfad2c572b33a9026ee6fcc2a0566595eefea512f8d766524fa",
+      "lines": 253,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-253"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261006100000_luot_that_ho_so_cu.sql",
+      "sha256": "f55ef43a68ccb91e509229d4b1cc894d9fb16e4f58621f32d2a4bc24f088b198",
+      "lines": 147,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-147"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+      "sha256": "3bc22710b520176bb19b3839304ba8e4f70a228603c6f7fd6cba71f1674ceec5",
+      "lines": 565,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-565"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261006200001_lan_chi_dinh_on_dinh.sql",
+      "sha256": "39943a6e48484ef60122cf48b3481a69fc870ff2016d03d9c41e70a7cefbd677",
+      "lines": 108,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-108"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261006200002_bo_chi_dinh_thong_bao_dong_khi_chi_dinh_lai.sql",
+      "sha256": "1456d5f6bb221e3d9681f12974b23f469cf61acd2f3ac599859739cd8a603a54",
+      "lines": 46,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-46"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261006200003_tien_thua_xu_ly_va_chan_thu_dong_huy.sql",
+      "sha256": "ea99c464b6a7fdc1a785f09e379df8f28fdbf29b0e7d46770e61c06b42589069",
+      "lines": 219,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-219"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+      "sha256": "80a38c4f99f206cc2572b96e275a09972efc140c235d0712d68def287c42585b",
+      "lines": 201,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-201"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261006410000_app_credential_thu_hoi.sql",
+      "sha256": "37017f2a9f2a8922a15e5dcd2d4c95a8e0781a40b5172be752c7c34b64a50eee",
+      "lines": 39,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-39"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007500000_moc_hanh_trinh.sql",
+      "sha256": "c874da94025667ff1f30debf4b19c1ea4c0ffa7b169fc2c3b53192105dba7505",
+      "lines": 153,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-153"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007510000_phong_chuyen.sql",
+      "sha256": "6f9f8f5e00a7e2362e53c50ca532017495a99ceae7f9b8249994c15d8f3ae419",
+      "lines": 148,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-148"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007600000_nhom_dich_vu_dat_lich.sql",
+      "sha256": "79d939c7e868432994827c657f5b30668723d538da3e8bde6b7bd394519dfcc3",
+      "lines": 134,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-134"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007620000_phieu_dieu_tri_ban_kham.sql",
+      "sha256": "ce2290bb83e30de91ca9556aa2cf691bc2ef7519fb4caa595cbe95a7c231b884",
+      "lines": 69,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-69"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+      "sha256": "2576c1d3bd29175ce74a99e257693a60d2ddf00fe031aeeb7ae554ef0a19e483",
+      "lines": 81,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-81"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007640000_luot_ghi_chu.sql",
+      "sha256": "73e4ff019676b1d50a1e64a191ff11182e977594d4a62c6cb38c9fb3ed99d9ca",
+      "lines": 47,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-47"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007650000_chot_ho_lua_chon_ban_kham.sql",
+      "sha256": "03da9b5e17ca42e7dd129bad19fc162aa13ad62fbf25a56772ac1fca754e5671",
+      "lines": 24,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-24"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261007650001_moc_hanh_trinh_hoan_tac_nhan_cheo.sql",
+      "sha256": "edb9199036fb0d317a6bb07eb4f7962705537ec318c5162ff58d29b06f9f3d2d",
+      "lines": 120,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-120"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261008100000_lieu_trinh.sql",
+      "sha256": "9b7961ce813c6177f89e6177b2c73a9b4325a2076d812aed14fdf91f88fec736",
+      "lines": 639,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-639"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+      "sha256": "71da05c9f0c2878120a1ace06ae996198eed0fcf2eb1d676e3239bf70177759c",
+      "lines": 426,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-426"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql",
+      "sha256": "1f8263f33ce159d6c5360f1e811cc0ebbf43b39b59621bf2864896f6d4daa0e5",
+      "lines": 388,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-388"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261008700000_co_so_hien_hanh.sql",
+      "sha256": "7eb19339c095e0a5b93f4e60c65369f5ad185538d8491f561583ce5531b86d39",
+      "lines": 143,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-143"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261008710000_kho_theo_co_so.sql",
+      "sha256": "42b8f75a3a74c1074dad3b9f9e33cd55021aa42a1c5581584824eedfecec2a4d",
+      "lines": 272,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-272"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261008900000_lieu_trinh_gan_de_xuat.sql",
+      "sha256": "9cf003ccfb7aacf47ba1a7812f9d183a964507c13a836cc758f2b648951161fe",
+      "lines": 64,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-64"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009145151_lieu_trinh_minh_bach.sql",
+      "sha256": "4741aaa794583698454706479ad4e9160d5eed36dd4b87812145478607d35922",
+      "lines": 91,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-91"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009300000_o_tuy_chon_don_vi.sql",
+      "sha256": "c866054d11a74091cf082adeac52472177050f7ec234c83487846bd057120828",
+      "lines": 131,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-131"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009310000_mau_sa_thai_quy_3.sql",
+      "sha256": "62fbd61f1776534834ed0efeb1c380aba58953f2b51940db5be616c20a8f9dc0",
+      "lines": 80,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-80"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009400000_queue_entry_vao_hang_luc.sql",
+      "sha256": "441b53b956737e7b9f02cd9ec02775a45e6f3571848ac2980241e06e7de7ac66",
+      "lines": 81,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-81"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009500000_thu_thuat_di_thang_phong.sql",
+      "sha256": "44b7c0128098e6cf77680c6d786135621443aded349e2283fed5e3fad5bebb85",
+      "lines": 32,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-32"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009500100_phong_truoc_ban_kham.sql",
+      "sha256": "9b947d84e296c16366e3c2483efc687de6e6669f611590a87e6accde4dea7a0e",
+      "lines": 12,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-12"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009600000_ho_so_dieu_tri.sql",
+      "sha256": "39d3ddb8b707cf4e1b6db454aed551c7103feed7e0c1d4907b6aad30ed625529",
+      "lines": 18,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-18"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009700000_mau_mo_ta_nuoc_tieu_monitor.sql",
+      "sha256": "d82b1fff23f1b49b06f15c88b3ee287e86d9adc0bdde77b3a5b5c4a53f5cd9c1",
+      "lines": 230,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-230"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009860000_agent_giam_sat.sql",
+      "sha256": "7d9e96f98f0e9558b9e103bae57ca7697e29615fbd28bc184fa5bcfc9a0d06a3",
+      "lines": 76,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-76"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009870000_llm_chi_phi.sql",
+      "sha256": "95762aaf6643f61004f0edc94a1af600e790bbd747745d19f856f1e4438293bf",
+      "lines": 56,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-56"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009880000_quyen_noi_bo_giam_sat.sql",
+      "sha256": "6db4ac27203ea97b7115464f8f87e78db41f54f93e018ee3724a28a9828ac3a5",
+      "lines": 64,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-64"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261009900000_lieu_trinh_tinh_lai_bao_tin.sql",
+      "sha256": "2a26c6f586f1a9e9cf7660ce6711ddd40a75f186f15c0bdf2933b8a0c05a8279",
+      "lines": 28,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-28"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261010100000_ban_le_theo_don_goc.sql",
+      "sha256": "ea039804217b880d847839150a7f11f61bb29c6af6115a2eb8696e2c45345676",
+      "lines": 68,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-68"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261010100001_lich_su_don_thuoc_notify.sql",
+      "sha256": "8c64e0b1afb0712b68b2be32e5681c27daea4fa4f20ab84934862b48f1e00f2b",
+      "lines": 21,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-21"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261010200000_phan_hoi_sau_dung_thuoc.sql",
+      "sha256": "49866cfb2c723fa1dcd95a89fb938c0b8fdb7f05765f33aa3a03ca7fc0c487da",
+      "lines": 41,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-41"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261013100000_giam_gia.sql",
+      "sha256": "8e0845d9ea433d7ffa8675586414cabcbdec793524da22fb085535908cf9eb52",
+      "lines": 228,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-228"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014110000_them_email_benh_nhan.sql",
+      "sha256": "995bede6b64a0e89ef775898496ed6486474287d9a5d4113720119aedaeb8d4f",
+      "lines": 18,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-18"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014130000_lo_thuoc_han_tuy_chon.sql",
+      "sha256": "1123ffdad075eeda08c310082340ad458301104bd412218b5ce28f54595b23de",
+      "lines": 25,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-25"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014130002_chuong_han_lo.sql",
+      "sha256": "db6269a633b0f2f0339688d513338f3826c8c4c67eb70f9f123275a0aabc4781",
+      "lines": 13,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-13"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014135000_ma_vach.sql",
+      "sha256": "877ba3de28290f62e08d289a01c95ca774b253c2bd5a0f2990b0ad3b26080d2a",
+      "lines": 92,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-92"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+      "sha256": "cdbe044f308e372250fe7392c12d688af80dc302803b7c49a2e1712e0570dee3",
+      "lines": 138,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-138"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014147000_ck_so_tien_thuc_nhan.sql",
+      "sha256": "feecc89906ddb0f5d70aa8741426047b8a787b95cbb69f39f8cec17327bbd9f4",
+      "lines": 70,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-70"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014148000_tra_thuoc_ket_cuc_tien.sql",
+      "sha256": "41192c63d18b572f35ae030e6c72b892e7bf637bf5f93b4981059282a16650cb",
+      "lines": 39,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-39"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014149000_chot_so_ca.sql",
+      "sha256": "e160eaaeb39270177a6254afdcb72f1f8be18dd02716fde40c8f94d0e040568d",
+      "lines": 83,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-83"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014150000_lego_ke_toan.sql",
+      "sha256": "f205a008eb95ab44af3d569895b18986f092d6454336502dd5bbad780b7449bb",
+      "lines": 43,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-43"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014155000_thue_gtgt.sql",
+      "sha256": "04e0bee8a00adbb858cf98b2e54004bc6bd2ea110a48a69b1b4d62e1735454b1",
+      "lines": 71,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-71"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+      "sha256": "3d0c14703267d659bdfb1d6c93583dfd7299fd25f820cf4b2216b6c4850d9585",
+      "lines": 110,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-110"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014157000_hoa_don_misa_xuat.sql",
+      "sha256": "cebb19852e67498b4218a1ea6a191298bf70d9515b5ed343f4a645cd2fa4ea38",
+      "lines": 59,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-59"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+      "sha256": "305032b86a255370cca6e43d3b40616226b43b035d05244d00c95cd7aaf5acc5",
+      "lines": 198,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-198"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+      "sha256": "c23f1bc1f8cba9e679efa389f403c3480e083fd02a14c359f85c7319decd285d",
+      "lines": 182,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-182"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+      "sha256": "5b6ee4becebfd6bb035e43756d01d565511daaaac7e1bdf4ef6585795bbf538e",
+      "lines": 192,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-192"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014180100_vat_tu_danh_muc.sql",
+      "sha256": "f8983d975e34e673cdb49fc19d19c557701ee3f7e62002cf8b7270d426e4befb",
+      "lines": 14,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-14"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014180101_vat_tu_phan_loai_ban_dau.sql",
+      "sha256": "bb0eff7c8e759e681ca4d64ce920b5727285ea8be705c54fd06f957aeed351d1",
+      "lines": 4,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-4"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014181000_vat_tu_muc_toi_thieu_nguoi_sua.sql",
+      "sha256": "f98e120f6c68f3a0c6c6224c4bc2c8eabb8f6ab1251544a5384337486e932d0c",
+      "lines": 4,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-4"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014181100_lego_kho_vat_tu.sql",
+      "sha256": "690bc9e7e0aa0c9f7b14f9aed1070a1c04bdcf56097eb9401b6af1b730b40c34",
+      "lines": 30,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-30"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014190000_bio_theo_chi_dinh.sql",
+      "sha256": "252d90fa1d10ff9d393406d60e9ad8f5671d59d7a88f86c047bad2aa0441cc1d",
+      "lines": 68,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-68"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014200000_duyet_vat_tu_lego.sql",
+      "sha256": "8749df9eb9deb9704d00724991f4c7f5368cb4cb5b78f19c6f42804050778529",
+      "lines": 108,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-108"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql",
+      "sha256": "9733f233d7f8c68b0836bad65430968ff21024995861d63523382169d584672c",
+      "lines": 127,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-127"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261014220000_chi_muc_visit_ngay_check_in.sql",
+      "sha256": "f16b3481867c04b73d3004b805292346f2733db1639150ce23f3d57eda2654b2",
+      "lines": 18,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-18"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261015110000_goi_xac_nhan_moi_lich_dat_ho.sql",
+      "sha256": "4c4b49a14d6cf25ccdb2436673ff4e1469d0c9cd94153966a9017069eb99bb96",
+      "lines": 254,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-254"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261016300000_chi_muc_phan_hoi_thuoc_theo_khach.sql",
+      "sha256": "d454b95ace5c442ec065c6aaa344d27fd6402799dec18eff10ee6e1e22eacf7e",
+      "lines": 13,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-13"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261016400000_vai_ke_toan.sql",
+      "sha256": "517363a6f53b25162cf705a7aac22b4bb945d60f142b47611e17824f877d4feb",
+      "lines": 59,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-59"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261017100000_thuoc_quy_doi.sql",
+      "sha256": "ff49a86d46fcc89c913dd809173dc0177b62d0f92968d98cce1c431e3c32b35b",
+      "lines": 49,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-49"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261017200000_thuoc_tra_quyet_dinh_xu_ly.sql",
+      "sha256": "dfb60e757ea39be80179fb15e885343353b2d91457fde24f1fee1b65e5f64522",
+      "lines": 125,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-125"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261018120000_kiem_ke_ca_dinh_chinh.sql",
+      "sha256": "1bcf7b0dcba9929fb2a5eb99c79123e79e1934bfd799bcc457380b1a815d9701",
+      "lines": 60,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-60"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261018130000_doi_chieu_giao_tu_kho.sql",
+      "sha256": "3f0be1593bb9a1ff22eee6b4addb78f00c61b3b883d38aa01f33b0e890e91412",
+      "lines": 66,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-66"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261018140000_vat_tu_tra_nha_san_xuat.sql",
+      "sha256": "a1a9411ba1af327eb9210ee1f6d03952355777ebbc2c162c2c83b858fbd5aec7",
+      "lines": 68,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-68"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261018180000_an_thong_bao_rieng_theo_nhan_vien.sql",
+      "sha256": "e2bb02289b761389699f6c5595df949ea289ec2277ffaea1978fe80f32338c30",
+      "lines": 23,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-23"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+      "sha256": "528aefe4ce9b0a6bd5e3bbe809725edee351efa73272b067395ca901535a7935",
+      "lines": 23,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-23"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+      "lines": 75,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-75"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261019110000_pharmacy_inventory_p1_guards.sql",
+      "sha256": "6923d23215b09a4da4dc84f2970bd1cc2687ea003d2d7c19b5fc466c69128257",
+      "lines": 85,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-85"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+      "sha256": "5e48f72dc31286d05934cbc48d4fbfec43214d7f5e45889b43338ec8ee96fc8e",
+      "lines": 50,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-50"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+      "sha256": "37c8a1b7aea72a3dc67f4c6111fa1c9679e28d4b76ff1e665751cb48b03c4f11",
+      "lines": 116,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-116"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261019140000_idempotency_payload_hash.sql",
+      "sha256": "14ed47b90efe243ed1494d062e706661938a0cc215cfc298c24959b8b80f7af2",
+      "lines": 24,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-24"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    },
+    {
+      "path": "supabase/migrations/20261019150000_clinic_floor.sql",
+      "sha256": "a38d457e1c84d5b9a90343bb2fa95b6addc333f62c18a8a87c00572364944650",
+      "lines": 244,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-244"
+      ],
+      "notes": "Đọc toàn văn, gồm định nghĩa schema, FK/CHECK/INDEX, trigger, RLS/grant/revoke, transaction markers, data migration, comments và khối verify."
+    }
+  ],
+  "context_files": [
+    {
+      "path": "scripts/apply-pending-migrations.sh",
+      "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721",
+      "lines": 158,
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "45-110",
+        "124-154"
+      ],
+      "notes": "Tĩnh: psql invocation, transaction wrapper, ledger insert và nhánh lỗi."
+    },
+    {
+      "path": "supabase/tests/inventory_write_guards.sql",
+      "sha256": "26fa95443f12b19ef2fc996bfadffe79c03e42525c0ed66691b0d7a6b75e0d38",
+      "lines": 185,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-185"
+      ],
+      "notes": "Đọc toàn bài kiểm guard kho hiện có; kiểm hành vi kho cũ, không áp vào DB."
+    },
+    {
+      "path": "supabase/tests/multi_tenant_foundation.sql",
+      "sha256": "c4d559d49f698d4f8e352f90534b0b0811e35fcd67587de1c1a446141a18ffae",
+      "lines": 436,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-436"
+      ],
+      "notes": "Đọc toàn bài kiểm cấu trúc/tenant; không chạy."
+    },
+    {
+      "path": "supabase/tests/stock_postgrest_read_acl.sql",
+      "sha256": "b9cf961702a946883213eba7d54ff73702ea2fc24137bdcb4d2c1f944d951128",
+      "lines": 54,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-54"
+      ],
+      "notes": "Đọc toàn bài kiểm quyền PostgREST kho; không chạy."
+    },
+    {
+      "path": "supabase/tests/tenant_scoped_rls.sql",
+      "sha256": "d9e56b39281ce8364c94602c2466ddc814027f72bdc01b5bfecd4fccf2076383",
+      "lines": 509,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-509"
+      ],
+      "notes": "Đọc toàn bài kiểm tenant RLS; không chạy."
+    },
+    {
+      "path": "supabase/tests/public_function_acl.sql",
+      "sha256": "5af1a2d87eda9b037971aba86740b3bf13f8a10b1fd597bcc08da02df5b397c1",
+      "lines": 142,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-142"
+      ],
+      "notes": "Đọc toàn bài kiểm function ACL; không chạy."
+    },
+    {
+      "path": "supabase/tests/payment_audit.sql",
+      "sha256": "89b92edbaccc261880593afa034cdb21f6500fd4b66a837450ac012b8023475c",
+      "lines": 299,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-299"
+      ],
+      "notes": "Đọc toàn bài kiểm audit payment cũ; không chạy."
+    },
+    {
+      "path": "supabase/tests/role_scoped_clinical_read.sql",
+      "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+      "lines": 205,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-205"
+      ],
+      "notes": "Đọc toàn bài kiểm role clinical; không chạy."
+    }
+  ],
+  "commands": [
+    "Verified clean Git worktree HEAD equals snapshot SHA; compared every October migration byte-for-byte against /tmp/clinicai-audit-main-956ba4f2.",
+    "nl -ba per migration; large files read in bounded consecutive ranges.",
+    "python3 hashlib/line-count inventory for all 101 October migrations and inspected test/runner files.",
+    "rg -n '^(BEGIN|COMMIT);' supabase/migrations/202610*.sql to enumerate explicit transaction markers."
+  ],
+  "controls_and_negative_evidence": [
+    "The July 30 tenant SQL test checks clinic_id NOT NULL, FK to clinic, leading index and tenant role behavior; it does not assert that cong_no/so_no patient IDs match the referenced visit.",
+    "The role-scoped clinical SQL test checks clinical_record and clinical_form_response for doctor/reception/cashier/management; it has no assertion for form_instance_lich_su or luot_ghi_chu.",
+    "The stock PostgREST ACL test covers the 11 inventory tables targeted by the October 19 revoke; it does not cover the two clinical history/note tables.",
+    "DB-003 in PHAT-HIEN.json is a distinct WIP idempotency issue marked addressed on this exact pinned main; not duplicated.",
+    "SEC-011 and SEC-018 are related access-control classes but have different routes/tables/data than SEC-019; DB-005 is tenant provisioning, not patient-visit relation integrity."
+  ],
+  "unreviewed_or_limits": [
+    "No migration was applied, replayed, or rolled back in a database; no catalog ACL/RLS state or PostgREST request was inspected.",
+    "No production/staging state or customer data was accessed.",
+    "Backend behavior may validate patient/visit consistency before INSERT; this audit only establishes that the October DB objects do not enforce it.",
+    "SEC-019 role intent needs product-owner confirmation; policy text alone does not establish which screens require access.",
+    "DB-006 describes a static transaction boundary/failure window and does not prove it has occurred.",
+    "No claim is made about migrations from months outside the assigned October tranche."
+  ]
+}

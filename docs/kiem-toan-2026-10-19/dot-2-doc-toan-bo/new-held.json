@@ -1,0 +1,1057 @@
+[
+ {
+  "title": "Dozzle gắn /var/run/docker.sock với DOZZLE_AUTH_PROVIDER=none",
+  "reason": "Cổng chỉ bind 127.0.0.1 và truy cập qua ssh -L nên người có SSH vốn đã có docker; chưa rõ prod bật auth; ghi nhận làm bề mặt đọc toàn bộ log container (có thể chứa PII).",
+  "chunk": "S01"
+ },
+ {
+  "title": "bat-theo-doi-may-chu.sh / cung-co-may-chu.sh chạy bằng root từ cây git chưa ghim",
+  "reason": "Chạy tay bởi người tin cậy; không có bằng chứng bị khai thác; nếu cây git có thể bị sửa thì mã chạy root.",
+  "chunk": "S01"
+ },
+ {
+  "title": "psql \"$URL\" đưa mật khẩu kết nối vào dòng lệnh (ps) trong day-sao-luu-len-viettel.sh",
+  "reason": "Chỉ lộ cho người dùng cùng host; VPS một người vận hành.",
+  "chunk": "S01"
+ },
+ {
+  "title": "hoan-tac-lich-su-notion.sql TRUNCATE bảng nguồn sau khi chuyen_luot_that đã tạo lượt thật",
+  "reason": "Chưa biết FK từ lich_su_notion.luot_that/ban_ghi_that tới các bảng bị TRUNCATE; nếu không có FK thì dữ liệu nguồn của 'Hồ sơ khám trước 10/2026' mất khi chạy nhầm.",
+  "chunk": "S01"
+ },
+ {
+  "title": "ci.yml pin action theo tag (@v4) không theo SHA",
+  "reason": "Rủi ro chuỗi cung ứng thấp trong repo private và GitHub Actions không còn là CI thật.",
+  "chunk": "S01"
+ },
+ {
+  "title": "Realtime dùng SECRET_KEY_BASE bằng JWT secret và DB_ENC_KEY mặc định công khai `supabaserealtime`",
+  "reason": "Chú thích trong compose đã nêu có chủ ý; chỉ đáng đổi khi giữ Realtime (xem S01-6).",
+  "chunk": "S01"
+ },
+ {
+  "title": "kiem-database-ngoai.sh tạo/xoá đối tượng thử trên DB ngoài và có thể để sót nếu bị ngắt",
+  "reason": "Công cụ tiền kiểm một lần, không phải đường vận hành.",
+  "chunk": "S01"
+ },
+ {
+  "title": "read-feedback.sh đưa văn bản tự do của người dùng (comment, page_url, role_at_time, staff_name) thẳng vào ngữ cảnh agent đọc đầu phiên",
+  "reason": "Các trường role_at_time/staff_name do client gửi có thể ghi đè (console.py:77-78) và comment không được làm sạch; chỉ khai thác được nếu người có quyền ops.view gửi nội dung độc hại ở môi trường không phải production (console bị chặn ở production, console.py:30-38). Rủi ro thấp, giữ lại để nhóm AI/ vận hành cân nhắc.",
+  "chunk": "S02"
+ },
+ {
+  "title": "Chú thích trong nhan-ban-co-so.py:633-638 nói bảng gọi số lọc theo phòng khám chứ chưa theo cơ sở",
+  "reason": "Mã hiện tại có lọc location_id (display_board_service.py:128, display.py:95), nên chú thích có vẻ lỗi thời; chưa kiểm tài khoản màn hình có location_id đúng hay không. Không đủ để ghi thành phát hiện.",
+  "chunk": "S02"
+ },
+ {
+  "title": "staging-dung-lan-dau.sh chạy bản script mồi lấy từ origin/main không kiểm chữ ký rồi khởi động lại Caddy prod",
+  "reason": "Chuỗi cung ứng nội bộ và gián đoạn ~1-2 giây của prod khi thêm site staging đã được ghi nhận có chủ ý (dòng 24-26, 229-230); chưa có bằng chứng sự cố.",
+  "chunk": "S02"
+ },
+ {
+  "title": "nhan-ban-co-so.py: _co_so_hn ghi đè tên, địa chỉ, SĐT, tên in của Hào Nam mỗi lần chạy lại 'dung'",
+  "reason": "Có thể xoá chỉnh sửa tay trên màn cấu hình (tên in trên phiếu); nhưng chỉ khi chạy lại lệnh dựng, đã được ghi trong tài liệu ('chạy lại thì đưa về đúng giá trị'). Mức ảnh hưởng thấp.",
+  "chunk": "S02"
+ },
+ {
+  "title": "Bộ mô phỏng không kiểm tra container clinicai_thu_db chỉ chứa dữ liệu DEMO trước khi tạo/tắt phòng và tài khoản",
+  "reason": "Được gộp vào S02-13; rủi ro thực tế thấp vì tài khoản @dr4women.local không có trong bản sao prod nên đăng nhập sẽ thất bại trước khi ghi.",
+  "chunk": "S02"
+ },
+ {
+  "title": "Trần 400 yêu cầu/phút theo tài khoản có thể chạm với tài khoản vị trí dùng chung",
+  "reason": "runaway_guard.py:130 khoá theo clinic:staff_id; tao-tai-khoan-nhan-su.py:83 cấp một tài khoản 'thu-ngan' cho cả hai quầy và 'truong-ca' dùng chung. Mỗi cú bấm có thể sinh 6-7 lời gọi (runaway_guard.py:72-77). Chưa có số đo cho trường hợp nhiều người cùng tài khoản nên chưa đưa vào phát hiện.",
+  "chunk": "S03"
+ },
+ {
+  "title": "orchestrator.chat nhận patient_id từ client",
+  "reason": "orchestrator.py:44-80 chuyển patient_id nguyên văn cho OrchestratorService; route bị tắt mặc định (ENABLE_AI_ORCHESTRATOR) và chỉ cho ops.view. Chưa đọc service để biết patient_id có được đối chiếu với clinic_id.",
+  "chunk": "S03"
+ },
+ {
+  "title": "Bộ nhớ đệm danh tính 30 giây nằm trong tiến trình",
+  "reason": "identity.py:386-425 và invalidate_identity_cache chỉ gọi ở permissions/cache.py, staff_service, clinic_config_service; duyệt/từ chối ca trực (config.py:294-308) không xoá cache nên vai theo lịch lệch tối đa 30 giây; nhiều bản sao API sẽ lệch lâu hơn (đã ghi trong runaway_guard.py:35-38 và SO-LUAT Phần 7).",
+  "chunk": "S03"
+ },
+ {
+  "title": "Chế độ MO_QUYEN_TAM_THOI",
+  "reason": "identity.py:1054-1120 cho phép mọi vai làm việc (trừ bác sĩ) qua các cửa RoleGuardCoTheMo bằng một biến môi trường; mặc định tắt và chỉ cảnh báo lúc khởi động (main.py:~125-131). Chưa thấy chỉ báo trên /ops hay health khi đang bật.",
+  "chunk": "S03"
+ },
+ {
+  "title": "Checkout tự điền lý do 'Lễ tân cho khách về.'",
+  "reason": "dispatch.py:429-438 và checkout_service.py:776-783 ghi lý do ngoại lệ do máy tự sinh kèm danh sách vướng mắc. Bằng chứng vướng mắc vẫn được giữ nên chưa coi là lỗi, nhưng làm yếu ý nghĩa 'người đã chịu trách nhiệm'.",
+  "chunk": "S03"
+ },
+ {
+  "title": "Gửi Zalo ZNS không có Idempotency-Key",
+  "reason": "cskh.py:1080-1092 gui_zalo không dùng guard; GuiZaloService chưa đọc nên chưa biết có chống gửi trùng trong dịch vụ.",
+  "chunk": "S03"
+ },
+ {
+  "title": "xem-kho-thuoc.sql dùng current_date",
+  "reason": "xem-kho-thuoc.sql:24-25 tính hết hạn theo current_date của Postgres (múi giờ máy chủ), có thể lệch một ngày so với giờ Việt Nam ở khung 00:00-07:00; chỉ ảnh hưởng báo cáo thủ công.",
+  "chunk": "S03"
+ },
+ {
+  "title": "Quy ước lệnh {lenh} của bàn khám là chuỗi tự do ở router",
+  "reason": "ho_so_kham.py:137-158 nhận lenh: str không ràng buộc, phụ thuộc dieu_tri_ban_kham.thao_tac để từ chối giá trị lạ; chưa đọc service.",
+  "chunk": "S03"
+ },
+ {
+  "title": "display_router và catalog_router được mount không có runaway_guard",
+  "reason": "main.py:374 và 441 mount hai router không `_GUARDED`; chú thích nói đó là danh sách tỉnh/phường quốc gia và cấu hình TV phòng chờ. Cần chunk phụ trách routers đầu kiểm xem display có trả tên bệnh nhân/số thứ tự và có tự xác thực không.",
+  "chunk": "S04"
+ },
+ {
+  "title": "kiem_dung_ca trả None (bỏ qua cổng) khi chưa xác định bác sĩ phụ trách",
+  "reason": "ca_truc.py:158-159 `if not bac_si_id: return None`; chưa đọc `bac_si_thuc_hien_mac_dinh` (bac_si_phu_trach.py:247+) để biết lượt mới check-in chưa có bác sĩ có rơi vào đây không. Không đủ bằng chứng nên chưa lên finding.",
+  "chunk": "S04"
+ },
+ {
+  "title": "`KHOI_AN` (khối ẩn trên màn Phân quyền) có thể vẫn được cấp qua preset/mở full",
+  "reason": "catalogue.py:1168 khai KHOI_AN gồm duyet_ket_qua, xac_nhan_ket_qua nhưng grep chỉ thấy export và test; có thể dashboard TS đọc từ nơi khác. duyet_ket_qua nằm trong KHOI_MO_FULL (không thuộc CHI_QUAN_LY) nên mọi vai có quyền mà quản lý không thấy công tắc nếu UI ẩn thật.",
+  "chunk": "S04"
+ },
+ {
+  "title": "tools_router kb.read_policy đọc bảng `kb_policy_rule` không có clinic_id",
+  "reason": "tools/kb/read_policy.py chỉ lọc theo policy_key, không theo tenant; bề mặt /tools bị 404 ngoài môi trường dev (tools.py:140-150) và bảng 'đến ở Phase 10' có thể chưa tồn tại — nếu sau này bật, cần thêm clinic_id.",
+  "chunk": "S04"
+ },
+ {
+  "title": "Phiếu HMVS liệt kê phương pháp cần quy trình pháp lý/đồng ý (mang thai hộ, xin noãn/tinh trùng/phôi, PGT) như ô tick đơn thuần",
+  "reason": "HMVS.json 1593-1640. Chưa đọc consent_service để biết có bắt đồng ý riêng khi tick; cần chuyên gia nghiệp vụ pháp lý.",
+  "chunk": "S04"
+ },
+ {
+  "title": "Ngôn ngữ đặt tên sự kiện: DONG_TU_CAM cấm 'changed/updated/required' nhưng nhiều sự kiện vẫn mang hậu tố đó",
+  "reason": "catalogue.py:2294-2296 so với `service_order.required_changed`, `visit.supply_changed`, `payment.method_changed`; chưa đọc bài kiểm để biết luật chỉ áp cho token cuối hay cả chuỗi — chỉ là kỷ luật đặt tên.",
+  "chunk": "S04"
+ },
+ {
+  "title": "`emit_event` với `so_ke_tiep` tính MAX+1 không khoá",
+  "reason": "events/emit.py:155-165 dựa vào việc người gọi đã khoá đối tượng; chỉ mục duy nhất là lưới cuối. Không tìm thấy lệnh quên khoá trong phạm vi tôi đọc.",
+  "chunk": "S04"
+ },
+ {
+  "title": "GET /bieu-mau cho mọi danh tính liệt kê toàn bộ biểu mẫu đang dùng",
+  "reason": "phieu.py:54-67 chỉ cần get_current_identity; dữ liệu là cấu hình biểu mẫu không phải PII, mức rủi ro thấp; nếu mỗi tenant khác nhau thì cần kiểm không lộ tên mẫu riêng.",
+  "chunk": "S04"
+ },
+ {
+  "title": "da_tra / da_thu bỏ qua khoản hoàn tiền dịch vụ (payment_refund_line)",
+  "reason": "hanh_trinh.py:483-499 và ket_qua_chi_dinh.py:108-114 chỉ xét payment_cycle.status = 'PAID'; hoàn tiền (payment_refund, COMPLETED) không đổi trạng thái lần thu. Chưa xác minh đường hoàn tiền dịch vụ có đồng thời hủy/bỏ chọn chỉ định hay không; nếu không, mốc ‘Thu tiền xong’ sẽ còn nguyên sau hoàn.",
+  "chunk": "S05"
+ },
+ {
+  "title": "Chỉ định nháp (exec_status = 'draft') xuất hiện trong khối kết quả chỉ định với chip ‘Chờ thu tiền’",
+  "reason": "ket_qua_chi_dinh.py:143 chỉ loại 'cancelled' trong khi hanh_trinh.py:517 loại cả 'draft'; giao diện không xử lý draft. Chưa xác nhận nháp tồn tại ở service_order ở bước này (có thể nằm bảng khác).",
+  "chunk": "S05"
+ },
+ {
+  "title": "Nhận định của agent giám sát không có người nhận, hạn xử lý hay kênh báo",
+  "reason": "Thiết kế giai đoạn shadow có chủ ý (chỉ hiện ở /ops cho quản lý chấm đúng/sai). Khi chuyển sang giai đoạn đề xuất cần bổ sung owner và thời hạn; hiện chưa phải lỗi.",
+  "chunk": "S05"
+ },
+ {
+  "title": "mot_vong của agent giám sát duyệt tuần tự mọi phòng khám mỗi phút",
+  "reason": "agent_giam_sat.py:501-514 lặp SELECT id FROM clinic không phân mảnh hay ngân sách thời gian, chạy trong vòng worker chung; với một tenant không thấy vấn đề, cần đo khi nhiều tenant.",
+  "chunk": "S05"
+ },
+ {
+  "title": "PatientUpdateDTO.sua_luc (khoá lạc quan) là tùy chọn",
+  "reason": "schemas/patient.py:191-204 ghi ‘Bỏ trống = không khoá’; chỉ PatientAdminEditor.tsx gửi sua_luc. Cần kiểm các client khác (script, tích hợp, trang khác) có gửi hay không trước khi coi là lỗi.",
+  "chunk": "S05"
+ },
+ {
+  "title": "Mẫu thuốc gốc ghi hai hoạt chất khác nhau trong một nhãn",
+  "reason": "tham_chieu_nguon.json:868 rx_055 ‘Levina 5mg (Levocetirizine / Vardenafil)’, rx_050 ‘Indurat 5mg / Tadalafil’, rx_002 Androgel vừa liều nữ vừa liều nam; tuy nhiên phieu_kham_service.py:737-749 để dữ liệu kho (drug_catalog) ghi đè khi khớp. Cần kiểm các mẫu chưa khớp kho còn dùng nguyên văn.",
+  "chunk": "S05"
+ },
+ {
+  "title": "Ghép mẫu thuốc với kho theo tên chuẩn hóa khi bảng ax.THUOC không có mục",
+  "reason": "phieu_kham_service.py:753-757 dùng theo_ten.get(_khoa_ten(nhan_nguon)); anh_xa_danh_muc.py:12-14 tự nói ‘KHÔNG so tên tự động’. Hai ‘Dunium/ Fetogard’ (rx_030, rx_031) chỉ khác dấu cách. Ngoài phạm vi chunk, cần xem tệp dịch vụ.",
+  "chunk": "S05"
+ },
+ {
+  "title": "schemas/events.py (InteractionEvent) không được mã nào dùng",
+  "reason": "Chỉ tài liệu docs/ai/reference/clinicai-architecture-audit-01.md nhắc; còn là mô hình sự kiện thứ hai song song với domain_event. Mã chết, ít rủi ro; nên gỡ để tránh hiểu lầm.",
+  "chunk": "S05"
+ },
+ {
+  "title": "collect_ops_status.py đặt environment = staging khi APP_ENV thiếu hoặc lạ",
+  "reason": "scripts/collect_ops_status.py:226-228; máy prod thiếu APP_ENV sẽ tự nhận staging trên /ops. Chưa kiểm cách .env.prod đặt biến này.",
+  "chunk": "S05"
+ },
+ {
+  "title": "anh_chuyen_khoan_service.tai_len không idempotent",
+  "reason": "Mỗi lần gọi tạo khoá uuid mới nên gửi lại sau mất phản hồi sinh ảnh thứ hai cho cùng lần thu (sha256 có lưu nhưng không ràng buộc); cũng có thể để lại tệp mồ côi nếu tiến trình chết giữa os.replace và INSERT (dòng 146-171). Tác động nhỏ (chứng từ phụ).",
+  "chunk": "S05"
+ },
+ {
+  "title": "Lượt FINALIZED bị loại khỏi pending_list và không được đặt closed_at khi check-out",
+  "reason": "checkout_service.py:413 loại v.status='FINALIZED' khỏi danh sách chờ; dòng 831 bỏ qua UPDATE closed_at khi status='FINALIZED'. Nếu còn đường nào ký hồ sơ trước khi thu tiền (luồng ký cũ clinical.signed) thì lượt chưa thu có thể không hiện ở danh sách check-out và bảng hành trình không bao giờ thấy 'Đã về'. Chưa xác định còn đường nào đặt FINALIZED trên luồng hiện hành (git grep chỉ thấy chuyen_luot_that và hàm ký trong migration 20260804000007).",
+  "chunk": "S06"
+ },
+ {
+  "title": "Bảng hành trình chỉ lấy lượt tạo trong ngày xem",
+  "reason": "bang_hanh_trinh_service.py:166-167 lọc v.created_at trong [ngày, ngày+1): lượt mở từ hôm trước còn trong phòng khám không hiện ở bảng hôm nay (checkout.stale_list và canh gác LUOT_TREO là đường khác). Chưa rõ UI có điều hướng khác cho lượt qua đêm.",
+  "chunk": "S06"
+ },
+ {
+  "title": "bac_si_ky_in lùi về bác sĩ chính/lịch hẹn/người chỉ định khi phòng có 0 hoặc >=2 bác sĩ trong ca",
+  "reason": "bac_si_ky.py:194-197 chọn bác sĩ gần nhất làm “người thực hiện” khi không xác định được ai làm; hợp luật Tuyền 29/09 (không in người không phải bác sĩ) nhưng có thể in một bác sĩ không trực tiếp thực hiện. Đây là quyết định nghiệp vụ nên chưa nâng thành phát hiện.",
+  "chunk": "S06"
+ },
+ {
+  "title": "ban_le_service.doc trả anh_ck rỗng cố định cho lần chờ xác minh",
+  "reason": "ban_le_service.py:259 'anh_ck': [] cứng; người xác minh CK ở màn bán lẻ có thể không thấy ảnh chuyển khoản từ lời gọi này. Chưa xác định màn có lấy ảnh qua endpoint khác.",
+  "chunk": "S06"
+ },
+ {
+  "title": "BanLeService._tao_khach gom mọi lỗi Pydantic thành thông báo “Số điện thoại không đúng”",
+  "reason": "ban_le_service.py:188-192: lỗi ở full_name/gender cũng hiện như lỗi SĐT; chỉ làm khó người dùng, không ảnh hưởng dữ liệu.",
+  "chunk": "S06"
+ },
+ {
+  "title": "Lượt bán lẻ đã đóng nhưng chưa có dòng đơn có thể hiện giai đoạn SAN_SANG",
+  "reason": "ban_thuoc_service.py:579-595 gắn giai_doan=SAN_SANG cố định cho ban_le_trong, không xét closed_at/trạng thái thu; chỉ xảy ra với lượt bán lẻ trong ngày không có dòng đơn nào, hiếm.",
+  "chunk": "S06"
+ },
+ {
+  "title": "Hằng FULL_RECORD_ROLES và VITALS_ONLY_EXTRA_ROLES không còn dùng",
+  "reason": "clinical_record_service.py:108-124 định nghĩa vai nhưng quyền thực tế đã chuyển sang capability clinical.record.write; mã chết dễ gây hiểu nhầm về ai được ghi.",
+  "chunk": "S06"
+ },
+ {
+  "title": "FIN-010 có thể không khớp với tệp này",
+  "reason": "Trong doi_tac_service.huy_da_thu lý do huỷ bắt buộc 3–2000 ký tự và lưu cột ly_do_huy; migration 20260928000091 có CHECK buộc huy_boi và lý do khi huy_luc có giá trị (doi_tac_thanh_toan_huy_co_dau_vet) và trigger cấm xoá/sửa nội dung. Có thể FIN-010 nói về sự kiện partner.payment_voided không mang lý do (payload chỉ so_tien, dòng 1228-1232) hoặc một đường khác. Đề nghị người rà soát FIN-010 đối chiếu lại.",
+  "chunk": "S07"
+ },
+ {
+  "title": "phan_loai Tái khám/Khám lần đầu tính trên mọi lịch kể cả đã huỷ",
+  "reason": "doctor_board_service.py:26-28 và 78-83 giữ cố ý hành vi cũ; khách có lịch huỷ trước đó sẽ bị ghi ‘Tái khám’ ở lần khám thật đầu tiên. Cần chủ sản phẩm xác nhận có ảnh hưởng đến thứ tự gọi/cách bác sĩ đọc hay không.",
+  "chunk": "S07"
+ },
+ {
+  "title": "apply_week đếm cả ca REJECTED/PENDING khi kiểm ‘tuần đã xếp’",
+  "reason": "count(*) FROM work_roster WHERE week_start (config_service.py:1042-1055) không lọc status nên tuần chỉ còn ca bị từ chối vẫn áp dụng được; cần xác nhận luồng tự đăng ký PENDING đang đóng (ROSTER_ROLES chỉ quản lý) nên hiếm xảy ra.",
+  "chunk": "S07"
+ },
+ {
+  "title": "DispatchService.history quét toàn bộ event_log trước LIMIT",
+  "reason": "Truy vấn UNION của v_dispatch_history và event_log kèm CROSS JOIN LATERAL co_so_cua_luot cho mọi dòng rồi mới ORDER BY ... LIMIT (dispatch_service.py:684-757); chi phí tăng theo quy mô nhật ký. Chưa đo, cần EXPLAIN.",
+  "chunk": "S07"
+ },
+ {
+  "title": "Thu hộ đối tác chưa được đối soát với giá tham khảo hay với phía phòng khám",
+  "reason": "ghi_nhan_da_thu nhận 0..100.000.000 đồng, không so với service_price.unit_price (gia_tham_khao), không có bước phòng khám xác nhận; đây là ‘sổ của đối tác, không phải tiền phòng khám’ theo thiết kế (doi_tac_service.py:1078-1085). Cần chủ sản phẩm quyết định mức đối soát mong muốn.",
+  "chunk": "S07"
+ },
+ {
+  "title": "DoiBacSiService.doi không kiểm bác sĩ nhận có ca/cùng cơ sở và không chuyển các việc đang gán cho bác sĩ cũ",
+  "reason": "Chỉ kiểm đủ hai quyền (doi_bac_si_service.py:137-158) và cập nhật visit/appointment/consultation/queue_entry; chưa đọc work_item.assigned_to, hàng duyệt kết quả hay nhắc tái khám gắn bác sĩ phụ trách nên chưa kết luận có việc rơi.",
+  "chunk": "S07"
+ },
+ {
+  "title": "excel_export không giới hạn số dòng và dùng múi giờ cố định",
+  "reason": "excel_table dựng cả workbook trong BytesIO, tên sheet/tiêu đề lặp không được kiểm (openpyxl có thể ném), _TZ cố định Asia/Ho_Chi_Minh (excel_export.py:17, 20-54). Rủi ro bộ nhớ khi xuất dữ liệu lớn; chưa thấy nơi gọi.",
+  "chunk": "S07"
+ },
+ {
+  "title": "Đồng bộ giá thuốc sang drug_catalog theo tên chuẩn có thể chạm nhiều dòng danh mục",
+  "reason": "_dong_bo_gia_danh_muc_thuoc đặt cùng unit_price cho mọi dòng drug_catalog có name_base hoặc name_raw trùng tên (config_service.py:1641-1674); nếu name_base không phân biệt hàm lượng/quy cách thì nhiều thuốc cùng giá. Cần xem dữ liệu catalog thật.",
+  "chunk": "S07"
+ },
+ {
+  "title": "release() không kiểm lại missing_fields và không buộc phiên bản",
+  "reason": "Gộp trong S07-2; tách riêng nếu chủ sản phẩm muốn ràng buộc ‘không cho phép gửi khi hồ sơ trống’ độc lập với chuyện khoá hồ sơ.",
+  "chunk": "S07"
+ },
+ {
+  "title": "o_doi_dich_vu gọi luật bác sĩ bắt buộc cho từng loại khám (N+1)",
+  "reason": "Vòng lặp await luat._luat_bac_si_bat_buoc cho mọi service_type active (doi_dich_vu_kham.py:239-252); chỉ ảnh hưởng độ trễ popover khi danh mục lớn, chưa đo.",
+  "chunk": "S07"
+ },
+ {
+  "title": "Dữ liệu khách đã dọn vẫn được giữ nguyên văn trong du_lieu_da_xoa",
+  "reason": "don_du_lieu_thu_service.py:12-17 mô tả lưu nguyên văn mọi dòng đã xoá; chưa thấy chính sách thời hạn lưu hay quy trình xoá vĩnh viễn theo yêu cầu bệnh nhân. Cần quyết định tuân thủ.",
+  "chunk": "S07"
+ },
+ {
+  "title": "mo_lai_kham xoá cứng review_round và hủy follow_up_case theo so sánh thời gian",
+  "reason": "hoan_tac_service.py:556-576 DELETE review_round (round_no > hiện tại) và UPDATE follow_up_case CANCELLED theo created_at >= completed_at; trái với phát biểu 'không xoá lịch sử' ở đầu tệp và có thể huỷ nhầm việc theo dõi do đường khác mở. Chưa xác minh có đường tạo follow_up_case khác ngoài luot_kham_service.py:1263.",
+  "chunk": "S08"
+ },
+ {
+  "title": "Khoá chống gửi trùng của phiếu kho không gắn nội dung",
+  "reason": "_phieu_da_co trả phiếu cũ theo khoa_gui bất kể nội dung/loại/cơ sở (kho_thuoc_service.py:394-413); có thể đã được IdempotencyGuard ở router xử lý fingerprint (chưa đọc idempotency_guard).",
+  "chunk": "S08"
+ },
+ {
+  "title": "Ngày chứng từ rác của phiếu nhập bị bỏ trống im lặng",
+  "reason": "kho_thuoc_service.py:505-506 dùng doc_ngay_xem -> None, trong khi hạn dùng được kiểm nghiêm; phiếu nhập vào sổ không có ngày chứng từ mà không báo.",
+  "chunk": "S08"
+ },
+ {
+  "title": "chi_tiet lỗi nội bộ trả về client",
+  "reason": "form_engine_service.py:1250-1251 trả str(loi)[:200] của mọi Exception trong dich_vu.chi_tiet (có thể lộ chi tiết DB); cùng loại với SEC-024 nhưng ở đường phản hồi nghiệp vụ.",
+  "chunk": "S08"
+ },
+ {
+  "title": "xuat_ban chỉ kiểm khung cho KQ_* và 7 phiếu khám",
+  "reason": "form_engine_service.py:1326-1333; mẫu khác (ví dụ phiếu điều trị) có thể xuất bản khung sai cấu trúc làm _con_trong/_mac_dinh_tu_khung gây KeyError khi mở phiếu. Chưa biết có mẫu nào ngoài hai nhóm này.",
+  "chunk": "S08"
+ },
+ {
+  "title": "TKYK chưa được phân bác sĩ thấy toàn bộ khách",
+  "reason": "duoc_mo/khach_duoc_xem trả None = không giới hạn (ho_so_khach_doc.py:56-62); chủ ý của Tuyền 26/09 nhưng là mặc định mở, nên cân nhắc cảnh báo khi cấp TKYK mới.",
+  "chunk": "S08"
+ },
+ {
+  "title": "Thời gian chờ tính bằng đồng hồ trình duyệt",
+  "reason": "hanh_trinh_khach_service.py đầu tệp: máy chủ chỉ trả thời điểm, số phút do trình duyệt tính; lệch đồng hồ máy trạm làm sai số chờ/làm nhưng chưa có bằng chứng sự cố.",
+  "chunk": "S08"
+ },
+ {
+  "title": "Múi giờ Asia/Ho_Chi_Minh viết cứng trong SQL",
+  "reason": "hen_tai_kham_service.py:206-207, 466; hanh_trinh_khach_service.py:1051-1052; luot_kham_service.py:1270-1276 viết cứng thay vì clinic.timezone; phù hợp quyết định 'chỉ bán trong VN' nhưng cần cấu hình nếu mở rộng.",
+  "chunk": "S08"
+ },
+ {
+  "title": "xlsx_hang_hoa im lặng chuyển loại không hợp lệ về 'thuoc'",
+  "reason": "excel_report_export.py:19 – loai rác xuất báo cáo thuốc dù người dùng yêu cầu loại khác; xlsx_tom_tat dùng next(..., 0) nên danh mục thiếu thành 0 (L82-90). Mức thấp.",
+  "chunk": "S08"
+ },
+ {
+  "title": "Chia tỷ lệ nợ theo loại dùng phép chia nguyên",
+  "reason": "danh_sach_hoa_don_service.py:410 `con * hop // tong` có thể làm tổng hai bộ lọc thuốc/dịch vụ lệch vài đồng so với tổng; ngoài danh sách đã đọc.",
+  "chunk": "S08"
+ },
+ {
+  "title": "BO_DICH_VU trong dòng thời gian hoá đơn không có người/lý do",
+  "reason": "hoa_don_projection.py:55-66 gán nguoi=None, ly_do=None cho dòng bỏ dịch vụ sau thu; có thể do nguồn dữ liệu không cung cấp.",
+  "chunk": "S08"
+ },
+ {
+  "title": "Bỏ tick làm thêm khi chỉ định đã nằm trong chu kỳ thanh toán chưa PAID/PENDING_VERIFICATION",
+  "reason": "_bo chỉ chặn khi da_thu (chu kỳ PENDING_VERIFICATION/PAID, lam_them_tai_quay_service.py:130-139,867); chưa đọc payment để biết dòng bill của chu kỳ mở có bị dọn khi đơn bị huỷ.",
+  "chunk": "S09"
+ },
+ {
+  "title": "Dịch vụ làm thêm tại quầy bị loại khỏi vòng đọc kết quả của bác sĩ",
+  "reason": "luot_kham_service.py:1629,2547 loại nguon_lam_them khỏi con_lai/ORDERS_PENDING; chưa xác nhận kết quả quầy có vào ket_qua_cho_duyet (cần ket_qua_luc/duyệt) và ai chịu trách nhiệm đọc.",
+  "chunk": "S09"
+ },
+ {
+  "title": "Ô 'Vấn đề sau điều trị' của phiếu điều trị không sinh việc hay cảnh báo cho bác sĩ",
+  "reason": "Chỉ thấy chữ hiển thị trong thẻ liệu trình (lieu_trinh_service.py:376-387); chưa đọc consumer/chuông để biết có tín hiệu nào.",
+  "chunk": "S09"
+ },
+ {
+  "title": "ghi_chu_lan_dau và notion_url trả không qua cổng co_quyen_noi_dung",
+  "reason": "lich_su_notion_service.py:123-130 chỉ che link_drive; chưa biết ghi_chu_lan_dau chứa gì.",
+  "chunk": "S09"
+ },
+ {
+  "title": "command_receipt không thấy chính sách dọn/giữ",
+  "reason": "bien_nhan_ghi (lenh_kham_core.py:204-229) chỉ INSERT; chưa tìm job dọn.",
+  "chunk": "S09"
+ },
+ {
+  "title": "Đề xuất liệu trình trùng khi bấm bằng hai idempotency key khác nhau",
+  "reason": "tao() không kiểm liệu trình DE_XUAT/DANG_LAM cùng khách+dịch vụ (lieu_trinh_service.py:1110-1198); có thể DB có ràng buộc, chưa kiểm migration.",
+  "chunk": "S09"
+ },
+ {
+  "title": "JOIN patient ở _LT_SQL thiếu clinic_id",
+  "reason": "lieu_trinh_service.py:270 join chỉ theo clinic_patient_id; an toàn nếu khoá này toàn cục duy nhất, chưa xác nhận.",
+  "chunk": "S09"
+ },
+ {
+  "title": "Hai cửa vào FOLLOW_UP không cùng điều kiện",
+  "reason": "complete_consultation (luot_kham_service.py:2636-2644) mở follow_up_case cho chỉ định bất kỳ chưa huỷ, còn quyet_yeu_cau (2972-2980) bắt buộc exec_status = performed (FOLLOW_UP_NEEDS_RESULT) để tránh việc mồ côi. Có thể chủ ý cho khách về trước khi làm dịch vụ, và việc quá hạn vẫn nổi lên qua v_viec_cskh; cần xác nhận với chủ sản phẩm trước khi coi là lỗi.",
+  "chunk": "S10"
+ },
+ {
+  "title": "Phê duyệt kết quả bởi người không phải bác sĩ lưu ở trường bac_si_danh_gia",
+  "reason": "duyet_ket_qua cho người có result.review.approve (kể cả thư ký/điều dưỡng ‘trọn quyền’) ghi bac_si_danh_gia; duyet_boi giữ người thật và sự kiện dùng nguoi_lam_thay. Chưa xác minh bản in/gửi bệnh nhân hiển thị ‘bác sĩ đánh giá’ có kèm người duyệt thật hay không.",
+  "chunk": "S10"
+ },
+ {
+  "title": "Mã còn lại của lối cũ đã tắt (410) vẫn nằm trong service với cổng yếu hơn",
+  "reason": "save_note, propose_orders, start_service, complete_service, goi_khach bị _tat_loi_cu chặn (LOI_CU_MO=False hằng số trong router) nên không có đường vào thực tế; nhưng service vẫn gọi được từ nơi khác và propose_orders/save_note thiếu _thu_ky_cua_bac_si. Rủi ro chỉ khi bật lại cờ hoặc gọi nội bộ.",
+  "chunk": "S10"
+ },
+ {
+  "title": "Gói Trang chủ đọc nhiều truy vấn tuần tự không cùng snapshot",
+  "reason": "man_trang_chu_service.goi_du_lieu chạy ~12 truy vấn trên một kết nối không REPEATABLE READ nên các ô số có thể lệch nhau một nhịp (ghi chú nói điểm cuối xu hướng ‘trùng đúng’ so_viec). Xu hướng việc đang chờ dùng coalesce(finished_at, updated_at) làm mốc đóng nên một việc đóng rồi bị sửa sẽ dịch ngày. Cần đo thực tế mới biết có đáng sửa.",
+  "chunk": "S10"
+ },
+ {
+  "title": "Khớp hồ sơ Notion tự động theo SĐT + tên",
+  "reason": "nhap_lich_su_notion.py:116-137 gắn toàn bộ lịch sử (chẩn đoán, thuốc) vào hồ sơ có cùng 9 số cuối SĐT và cùng tên; hai người trùng cả hai (hiếm) bị gộp. Công cụ có sổ bất thường nhưng không dừng chờ người xác nhận; đã chạy một lần theo memory nên chưa xếp vào findings.",
+  "chunk": "S10"
+ },
+ {
+  "title": "tao_mau có thể 500 khi hai người tạo mẫu cùng tên",
+  "reason": "mau_ket_qua_service.py:182-191 tự tăng hậu tố bằng vòng EXISTS trong transaction không khoá; hai request đồng thời cùng qua vòng kiểm rồi cùng INSERT sẽ làm một cái vi phạm khoá chính (500 thay vì 409). Tác động nhỏ (thao tác quản trị hiếm).",
+  "chunk": "S10"
+ },
+ {
+  "title": "Hoàn tác nhận tại phòng dựng lại từ domain_event",
+  "reason": "nhan_tai_phong.py:1251-1437 phụ thuộc đọc lại payload service.routed/service.room_released để phục hồi đúng hàng cũ. Không thấy chính sách xoá/lưu trữ domain_event nên hiện ổn, nhưng nếu sau này có dọn sự kiện thì hoàn tác sẽ bó tay; đưa vào bất biến thiết kế.",
+  "chunk": "S10"
+ },
+ {
+  "title": "Ảnh siêu âm: đua giữa kiểm signed_at và ghi image_refs",
+  "reason": "media_service.attach_ultrasound_image SELECT signed_at không khoá hàng rồi ghi tệp (chậm trên CFS) rồi UPDATE; nếu bác sĩ ký xen vào, trigger trg_ultrasound_signed_lock (migration 20260804000007) chặn nên không hỏng chữ ký, chỉ để lại tệp mồ côi + lỗi 500/409. Hậu quả thấp.",
+  "chunk": "S10"
+ },
+ {
+  "title": "Idempotency-Key là tuỳ chọn ở máy chủ cho các lệnh cấp/trả thuốc, huỷ phần chưa giao",
+  "reason": "idempotency.py:23 ghi header OPTIONAL; dashboard hiện gửi khoá ở DongThuoc.tsx:101 và PhanHoiThuocKhach.tsx:142 (có nơi `khoa ?`). Rủi ro chỉ khi client khác hoặc nhánh không gửi; chưa chứng minh có đường như vậy.",
+  "chunk": "S11"
+ },
+ {
+  "title": "Lô không có hạn dùng vẫn được chọn lô và giao",
+  "reason": "kiem_dong_nhap cho expiry_date None (pharmacy_service.py:2925) và các kiểm hạn chỉ chạy khi có hạn; memory ghi quyết định tạm hoãn 08/10. Có thể là chủ ý; cần số liệu lô không hạn còn tồn.",
+  "chunk": "S11"
+ },
+ {
+  "title": "route_derivation.derive_route trả cả đuôi chung khi ordered_nodes chỉ gồm bước thuộc đuôi",
+  "reason": "route_derivation.py:66-85: nếu ordered_nodes khác rỗng nhưng toàn bước trong tail thì head rỗng và hàm trả tail (duyệt kết quả, thuốc...), có thể gợi ý bước chưa được chỉ định; chưa biết bảng Trưởng ca có lọc lại.",
+  "chunk": "S11"
+ },
+ {
+  "title": "ton_kho/danh_muc dùng truy vấn con tương quan tính drug_batch_kha_dung trên từng dòng lô",
+  "reason": "pharmacy_service.py:291-314: chi phí ~O(lô x lô cùng thuốc); chưa đo ở quy mô nhiều cơ sở. Cân nhắc khi bán nhiều phòng khám.",
+  "chunk": "S11"
+ },
+ {
+  "title": "cap_phat/_chot_duoc_khong dùng fetchrow trên payment_cycle kind='thuoc' có thể trả nhiều dòng",
+  "reason": "pharmacy_service.py:710-718 và 1524-1532 không ORDER/LIMIT; chưa biết unique index partial có đảm bảo tối đa một lần thu PAID/PENDING cho mỗi lượt.",
+  "chunk": "S11"
+ },
+ {
+  "title": "phi_kham_service.chon chế độ `ids` (cũ) ghi đè tập tick bằng tập client",
+  "reason": "phi_kham_service.py:343-357: chế độ ids đặt tập = ids; đã có chế độ them_vao/bo_di thay thế. Chỉ rủi ro nếu client cũ còn dùng.",
+  "chunk": "S11"
+ },
+ {
+  "title": "Tên lỗi CheckViolation được nhận diện bằng chuỗi 'căn cứ'",
+  "reason": "pharmacy_service.py:1854-1860: đổi câu thông báo trigger sẽ làm huy_phan_chua_giao trả lỗi thô thay vì câu nghiệp vụ; mức thấp.",
+  "chunk": "S11"
+ },
+ {
+  "title": "duong_dan trong thông báo là chuỗi tự do (≤300 ký tự) do trưởng ca gửi",
+  "reason": "dispatch.py:224-254 nhận duong_dan không kiểm tra, ghi vào thong_bao và hiển thị ở GlobalHeader.tsx:497-530 cho người nhận khác vai. Chưa đọc hết nơi điều hướng (router.push hay thẻ a) nên chưa kết luận có thể trỏ tới đường dẫn ngoài/giả danh.",
+  "chunk": "S12"
+ },
+ {
+  "title": "ServiceLogService là mã chết giữ đường ghi cũ (DELETE cứng, apply_patch không kiểm chuyển trạng thái)",
+  "reason": "Mọi route service-log/sono đã trả 410 (routers/service_log.py:64-136) và chỉ import các kiểu Literal; không còn nơi gọi class. Nếu bị gọi lại: finish lặp ghi đè finished_at/result_text, start sau DONE, remove() chỉ ghi payload {'id'} không có nội dung đã xoá. Nên xoá hoặc khoá lại.",
+  "chunk": "S12"
+ },
+ {
+  "title": "invalidate() huỷ chỗ chờ đã 'called' trong khi assign/_xep_hang từ chối với ROOM_ALREADY_CALLED",
+  "reason": "service_routing_service.py:2273-2287 chỉ chặn 'serving'; khách vừa được gọi có thể bị huỷ chỗ. Có thể chủ ý (phòng hỏng) nhưng chưa thấy cảnh báo cho khách đang đi vào phòng.",
+  "chunk": "S12"
+ },
+ {
+  "title": "_giai_phong_khach: kiểm phieu_da_dien rồi dừng lần làm phòng kia không khoá form_instance",
+  "reason": "service_execution_service.py:2172-2248 — tự lưu của phòng kia có thể commit revision>0 ngay sau lần kiểm; khi đó lần làm bị INTERRUPTED(PATIENT_MOVED) dù phiếu mới có dữ liệu. Phiếu không mất (còn gắn chỉ định) nên mức thấp; cần test đồng thời.",
+  "chunk": "S12"
+ },
+ {
+  "title": "hoan_tac() của sổ sửa chỉ định: lần bấm thứ hai trả 'already' ở nhánh dịch vụ nhưng lỗi DA_CO_CHI_DINH_MOI ở nhánh chỉ định mới",
+  "reason": "so_sua_chi_dinh_service.py:685-717 đọc hoan_tac_luc TRƯỚC khi khoá lượt (dòng 705) nên bản sao 'so' cũ; kết cục an toàn (trigger/unique) nhưng thông điệp không nhất quán. Không phải lỗi an toàn.",
+  "chunk": "S12"
+ },
+ {
+  "title": "thu_ky_bac_si.khach_duoc_xem tải toàn bộ id khách của các bác sĩ rồi kiểm 'in' bằng danh sách",
+  "reason": "thu_ky_bac_si.py:80-100,134-147 — mỗi lần kiem_khach chạy UNION trên appointment+visit+work_item không giới hạn thời gian; với phòng khám lớn tốn kém và phạm vi gồm cả khách cũ nhiều năm. Chưa đo, chỉ là rủi ro hiệu năng/phạm vi.",
+  "chunk": "S12"
+ },
+ {
+  "title": "Hàng chờ siêu âm đọc work_item DICHVU-SIEUAM trong khi chỉ định mới đi qua service_order/queue_entry",
+  "reason": "booking_service.py:2698-2735 ghi chú rằng chỉ lịch hẹn thẳng với bác sĩ siêu âm mới sinh work_item DICHVU-SIEUAM, và đường order_services đã đóng ở 20260915000013; luot_kham_service.start_service/complete_service (3762-3929) chỉ cập nhật service_order/queue_entry. Nếu không có đồng bộ, màn Siêu âm cũ chỉ thấy một phần ca. Cần xác minh các trigger/đồng bộ ngoài danh sách.",
+  "chunk": "S13"
+ },
+ {
+  "title": "Hai máy trạng thái song song: work_item_service.issue (start/complete) và service_order.exec_status",
+  "reason": "work_items.py:212-263 vẫn cho hoàn tất work_item thuộc flow_group dich_vu/ket_qua bằng lệnh chung, không thấy cập nhật service_order/queue_entry trong cùng giao dịch; cần đọc thêm để biết có chặn hay đồng bộ.",
+  "chunk": "S13"
+ },
+ {
+  "title": "Nút 'Xong' trên chuông đóng thông báo cho cả vai mà không đối chiếu điều kiện gốc",
+  "reason": "NotificationContext.danhDauDaXuLy (402-428) và ThongBaoService.da_xu_ly (thong_bao_service.py:441-488) đóng cả nhóm theo vai khi một người bấm; việc thật (vd xếp bác sĩ) có thể chưa làm. Chưa đọc đủ thong_bao_service để biết có tự đóng khi điều kiện hết.",
+  "chunk": "S13"
+ },
+ {
+  "title": "UltrasoundBoardService.nhan_ca còn trong service dù endpoint đã trả 410",
+  "reason": "ultrasound_board_service.py:263-320 UPDATE assigned_to không có điều kiện assigned_to IS NULL và không lọc location; router 113-142 đã chặn nên chỉ là mã chết nguy hiểm nếu có nơi gọi lại. Cần grep gọi trực tiếp ngoài router.",
+  "chunk": "S13"
+ },
+ {
+  "title": "'Xoá tất cả' trên chuông ẩn cả thông báo KHẨN của Trưởng ca và người gọi không biết đã ai đọc",
+  "reason": "GlobalHeader.tsx:467-481 + NotificationContext.anTatCaThongBao (430-443) ẩn riêng cho người bấm; chưa rõ trưởng ca có xem được 'đã đọc' theo người hay không (da_doc_luc có ở thong_bao).",
+  "chunk": "S13"
+ },
+ {
+  "title": "Lịch nhỏ ở thanh trên chỉ đổi nhãn ngày, không điều hướng",
+  "reason": "GlobalHeader.tsx:174-185,417-420: selectedDate chỉ dùng để in nhãn; người dùng có thể tưởng chọn ngày lọc dữ liệu. Tác động thấp; cần hỏi chủ về chủ ý.",
+  "chunk": "S13"
+ },
+ {
+  "title": "Bố cục lịch trực và màu phòng bám file Excel Kim Ngưu",
+  "reason": "RosterGrid.tsx:1-23 ghi 'Y HỆT FILE EXCEL xếp lịch của PK Kim Ngưu', T2-T6 một ca Tối, mauPhong(maPhong) theo mã màu Excel (lib/roster chưa đọc): nếu cứng theo tên phòng/mã Dr4Women thì cản đóng gói. Cần đọc lib/roster.ts.",
+  "chunk": "S13"
+ },
+ {
+  "title": "Mô-đun giọng nói chỉ có PhoWhisper tiếng Việt",
+  "reason": "voice/__init__.py chỉ re-export; ngôn ngữ/mô hình có thể cứng trong transcribe.py (chưa đọc) — liên quan đa ngôn ngữ khi bán cho phòng khám khác.",
+  "chunk": "S13"
+ },
+ {
+  "title": "Cookie clinic_role / clinic_staff_id được ghi nhưng không thấy nơi đọc",
+  "reason": "login/actions.ts:81-82 và chon-co-so/actions.ts (chú thích 'cùng tuổi với cookie vai/nhân viên'); grep chỉ thấy ghi/xoá. Nếu route nào đó tin cookie này để phân quyền thì rất nguy hiểm; hiện chưa thấy bằng chứng, chỉ là trạng thái chết.",
+  "chunk": "S13"
+ },
+ {
+  "title": "Người lập phiếu nhập vật tư có quyền duyệt tự duyệt phiếu của chính mình",
+  "reason": "vat_tu_nhap_duyet_service.py:200-203 là chủ ý (Q11) nhưng không có tách biệt nhiệm vụ cho giá trị nhập lớn; cần chủ quyết định ngưỡng.",
+  "chunk": "S13"
+ },
+ {
+  "title": "Cache danh mục dịch vụ đặt lịch ở biến module, không TTL",
+  "reason": "ChonDichVuDatLich.tsx:37-52 giữ promise cho đến khi tải lại trang; tab dài có thể thấy danh mục cũ sau khi quản lý đổi. Tác động thấp, chưa kiểm endpoint có phụ thuộc cơ sở hay không (catalog.py:140 chỉ theo clinic).",
+  "chunk": "S13"
+ },
+ {
+  "title": "Check-out khi còn việc dở chỉ cần xác nhận, lý do tuỳ chọn; việc dở chỉ được ghi vào chuỗi lý do",
+  "reason": "NutCheckOut.tsx:107-108,199-221 cho khách về khi blockers không cứng, lý do để trống thì máy chủ 'tự ghi kèm việc còn dở'. Chưa đọc checkout_service.close nên chưa biết có sinh việc theo dõi có owner/hạn hay không; nếu chỉ là văn bản thì việc dở rơi (mục tiêu Ownership).",
+  "chunk": "S14"
+ },
+ {
+  "title": "Ô 'Số tiền đã thu hộ' đối tác điền sẵn giá tham khảo, một cú bấm ghi thu hộ",
+  "reason": "KhoiDoiTac.tsx:262-264,360-366: nếu gia_tham_khao>0 thì ô điền sẵn, nút chỉ cần soTien khác rỗng. Có thể ghi nhận tiền đối tác chưa thực thu; cần xem DoiTacService.ghi_nhan_da_thu có kiểm nguồn/duyệt và việc cho phép nhân viên (không phải đối tác) ghi hộ.",
+  "chunk": "S14"
+ },
+ {
+  "title": "Hoàn tất kết quả không chặn/nhắc ô trống; không thấy cơ chế cấu hình 'bắt buộc chuyên môn' theo phòng khám",
+  "reason": "PhieuKetQua.tsx:39-43 ghi 06/10 bỏ dải nhắc; chú thích dòng 16-19 nói bắt buộc 'chỉ bật khi phòng khám chốt' nhưng tôi không thấy nơi cấu hình trong tệp được giao (cờ tuy_chon có ở dòng 82). Cần đọc form_engine_service để xác nhận.",
+  "chunk": "S14"
+ },
+ {
+  "title": "Giá trị ô 'so' của phiếu kết quả lưu chữ nguyên văn, không có cờ bất thường hay ngưỡng tới hạn",
+  "reason": "PhieuKetQua.tsx:747-750 nêu rõ lưu chữ nguyên văn cho phép '12 x 8'. Với xét nghiệm có thể cần cảnh báo giá trị tới hạn, nhưng HoSoKham có đường xét nghiệm khác (lab_result có flag); chưa xác định kết quả xét nghiệm đi bằng phiếu hay lab_result.",
+  "chunk": "S14"
+ },
+ {
+  "title": "useNgayXem giữ 'hôm nay' cố định từ lúc mở trang",
+  "reason": "dung-ngay-xem.ts:27 useState(homNayVn) không cập nhật qua nửa đêm; màn mở xuyên đêm coi hôm qua là hôm nay và xoá tham số ngày khi chọn 'hôm nay' (dòng 35). Máy chủ vẫn tự đọc lại và trả hom_nay nên tác động phụ thuộc cách các màn dùng; chưa kiểm các màn gọi.",
+  "chunk": "S14"
+ },
+ {
+  "title": "Khoá idempotency của PhanHoiThuocKhach giữ qua nhiều lần sửa nội dung",
+  "reason": "PhanHoiThuocKhach.tsx:97,220-233: khoaGhi giữ đến khi lưu thành công kể cả khi nhân viên sửa chữ giữa hai lần thử; nếu backend băm payload thì lần thử sau có thể bị từ chối hoặc trả kết quả cũ. Chưa đọc xử lý khoá phía cskh.py.",
+  "chunk": "S14"
+ },
+ {
+  "title": "'Đã xem kết quả' chỉ ghi khi mở phiếu, không ghi khi bác sĩ xem tệp ảnh/PDF",
+  "reason": "BanKham.tsx:1686-1722 hai đường tách nhau (Xem tệp kết quả qua KhungTep không gọi /phieu/xem); form_engine_service.py:298-321 là nơi duy nhất ghi da_xem_ket_qua_*. Kết quả chỉ có tệp (siêu âm ảnh) có thể không bao giờ có dấu 'đã xem'; cần xác nhận có đường ghi khác.",
+  "chunk": "S14"
+ },
+ {
+  "title": "HangChoCot bỏ qua trang_thai ngoài năm nhóm khai báo",
+  "reason": "HangChoCot.tsx:12-25,47-50 chỉ vẽ dòng khớp một trong năm nhóm; trạng thái mới từ máy chủ sẽ vô hình mà không báo. Hiện kiểu TrangThaiHang là union đóng nên rủi ro chỉ khi backend mở rộng.",
+  "chunk": "S14"
+ },
+ {
+  "title": "Tuổi trên thẻ khách tính bằng hiệu số năm",
+  "reason": "TheKhach.tsx:98-101 lấy năm khám trừ năm sinh (kể cả dùng new Date().getFullYear() của máy khi thiếu ngày khám) nên sai tới 1 tuổi và theo múi giờ máy. Chưa biết dữ liệu có ngày sinh đầy đủ để tính chính xác không và phòng khám chủ yếu người lớn nên chưa xếp thành phát hiện.",
+  "chunk": "S15"
+ },
+ {
+  "title": "Trạng thái chỉ định không nhận diện được rơi về 'Chờ thu tiền'",
+  "reason": "KetQuaChiDinh.tsx:79-99 trả 'Chờ thu tiền' cho mọi tổ hợp không khớp (ví dụ chỉ định huỷ/không làm được nếu thuc_hien có giá trị khác). Cần xem tập giá trị thuc_hien/ket_qua_trang_thai do máy chủ trả mới kết luận.",
+  "chunk": "S15"
+ },
+ {
+  "title": "Tháo PhieuKham khi đổi dịch vụ có thể lưu nốt bằng đường cơ sở đã bị thay",
+  "reason": "PhieuKhamLuot.tsx:202-205 gán daLuu.current bằng dữ liệu phiếu mới trước khi setPhieu; hook tự lưu của phiếu cũ (key đổi) lưu nốt lúc tháo gắn dùng closure form_id cũ nhưng so với baseline mới nên có thể gửi lại toàn bộ ô. Có vẻ vô hại (giá trị trùng), cần đọc use-tu-luu và máy chủ để xác nhận.",
+  "chunk": "S15"
+ },
+ {
+  "title": "Hàng 'Chờ bác sĩ quyết' không hiện tuổi việc và người nhận trên màn",
+  "reason": "ChoBacSiQuyet.tsx không hiển thị thời gian chờ; máy chủ (luot_kham_service.py:2944-2949, 3062-3139) đã giao việc theo dõi cho bác sĩ và có hạn, nên có thể chỉ là thiếu hiển thị. Cần xem _mo_theo_doi để xác định hạn mặc định.",
+  "chunk": "S15"
+ },
+ {
+  "title": "khung-bao.ts: 'Còn N ngày' và 'Ngày mai (dd/mm)' lấy slot_start.slice(0,10) từ chuỗi ISO",
+  "reason": "Nếu slot_start là chuỗi UTC thì lịch trước 07:00 giờ VN rơi sang ngày trước và đếm lệch một ngày (khung-bao.ts:61-63, 117-129). Chưa xác định định dạng thực tế (có offset +07 hay UTC) và phòng khám có khung giờ trước 07:00 hay không.",
+  "chunk": "S16"
+ },
+ {
+  "title": "Tích xanh 'Có kết quả xét nghiệm' có thể đến từ việc cấp khách (lab_result, appointment_id NULL) hiện trên mọi lượt",
+  "reason": "VungLamViecKhach.tsx:876-891 dùng coViec('KQ_CHUA_GUI') làm dự phòng khi lượt không có tệp, mà nhánh lab_result của v_viec_cskh có appointment_id NULL nên áp cho mọi lượt (CustomersView.tsx:1003-1011). Cần kiểm dữ liệu còn nhánh lab_result thật hay đã chuyển hết sang tep_ket_qua.",
+  "chunk": "S16"
+ },
+ {
+  "title": "customerStatus ghép năm nguồn thời gian ở trình duyệt để chọn chip trạng thái",
+  "reason": "CustomersView.tsx:1115-1312: nhánh 'đặt lịch mới' trả tông ready/overdue theo quaGio mà bỏ tt.qua_han; cột Hạn xử lý vẫn đỏ nên chưa chứng minh mất tín hiệu quá hạn. Đây là nguy cơ lệch giữa chip và view v_viec_cskh (hai nguồn sự thật).",
+  "chunk": "S16"
+ },
+ {
+  "title": "hoan_tac CHECK_IN gọi undo_checkin trước rồi mới đánh dấu huy_luc ở transaction khác",
+  "reason": "tuong_tac_cskh_service.py:389-403: nếu bước thứ hai lỗi, lịch đã về CONFIRMED nhưng dòng sổ vẫn được tính. CHECK_IN từ CSKH hiện chỉ còn dòng cũ nên khó xảy ra; chưa chứng minh đường tạo CHECK_IN mới.",
+  "chunk": "S16"
+ },
+ {
+  "title": "VungLamViecKhach.tsx:1100-1110 gọi onLamViec('HEN_GOI_LAI') sau await ghiMotCham dù ghi thất bại",
+  "reason": "ghiMotCham trả void và tự đặt lỗi vào state nên cột phải chuyển sang form hẹn gọi lại trong khi vòng tròn chưa tích; chỉ là sai lệch trải nghiệm, chưa thấy hậu quả dữ liệu.",
+  "chunk": "S16"
+ },
+ {
+  "title": "NhacTaiKham.tsx không được mount ở màn nào (chỉ export kiểu MocTaiKham)",
+  "reason": "CustomersView.tsx:61-65 ghi rõ không dựng; component còn logic ghi kết quả riêng (NhacTaiKham.tsx:132-156) trùng với VungLamViecKhach. Rủi ro lệch hành vi nếu ai gắn lại; không phải lỗi hiện tại.",
+  "chunk": "S16"
+ },
+ {
+  "title": "TepKetQua nhận .docx/.xlsx nhưng chữ hướng dẫn chỉ nói ảnh, DICOM, video, PDF",
+  "reason": "TepKetQua.tsx:277 và 316; backend (tep_ket_qua_service.py:845-853) có kiểm tệp nén là Word/Excel nên chỉ lệch nhãn, chưa thấy lỗ hổng.",
+  "chunk": "S16"
+ },
+ {
+  "title": "Khoá chống gửi trùng của phiếu vật tư lưu 24 giờ theo nội dung JSON",
+  "reason": "gui-vat-tu.ts:89-125 dùng lại cùng Idempotency-Key cho cùng body trong sessionStorage 24 giờ. Nếu lần gửi đầu thành công nhưng mất phản hồi rồi người dùng cố ý lập phiếu giống hệt vào hôm sau trên cùng tab, máy chủ có thể trả bản cũ và UI vẫn báo “Đã ghi nhận … Tồn đã cập nhật”. Chưa xác minh cách service xử lý replay và thông báo gui_lai chỉ thấy ở nhánh duyệt nhập.",
+  "chunk": "S17"
+ },
+ {
+  "title": "Thêm vật tư mới qua POST /api/service-price không có Idempotency-Key",
+  "reason": "DanhMucVatTu.themVatTu (dòng 61-100) báo “vật tư chưa được thêm” khi mất kết nối; thử lại có thể tạo mặt hàng trùng tên. Chưa đọc service-price xem có chống trùng theo tên/mã (chỉ thấy chỉ mục unique theo clinic+code+group).",
+  "chunk": "S17"
+ },
+ {
+  "title": "Gỡ cờ duyệt/kinh doanh hàng loạt cho cả loại vật tư",
+  "reason": "DatCoTheoLoai có xem trước và hoàn tác trong bộ nhớ trang, nhưng chưa xác nhận dat_co_hang_loat ghi audit từng mặt hàng; nếu không, việc gỡ can_duyet_nhap cho mọi VTYT không để lại vết bền.",
+  "chunk": "S17"
+ },
+ {
+  "title": "Kiểm kê (DIEU_CHINH) hiển thị chênh lệch theo tồn lúc tải trang",
+  "reason": "LapPhieuVatTu.tsx:348-363 tính “Tồn sổ” và chênh lệch từ prop ton tải sẵn; nếu có phiếu khác xen vào, số hiển thị lệch. Phụ thuộc cách service áp số đếm (PHAR-003 đã nêu phần ghi đè đồng thời).",
+  "chunk": "S17"
+ },
+ {
+  "title": "CotTongQuan bỏ im mã “cần xử lý” lạ và hiện “Không có việc tồn” với dấu tích xanh",
+  "reason": "CotTongQuan.tsx:61,95-99 lọc bỏ mã không có trong NHAN_CAN_XU_LY. Hiện cả năm mã đều có nhãn nên chưa có lệch thực tế; rủi ro khi backend thêm mã mới hoặc vai bị lọc bớt dòng (home/page.tsx:598-600).",
+  "chunk": "S17"
+ },
+ {
+  "title": "Danh mục kênh đặt lịch viết cứng trong mã, có mã mang tên thương hiệu",
+  "reason": "form-ui.ts:70-84 liệt kê kênh (FB_DR4WOMEN, ZALO_PK…) và danh sách kênh chọn được; tìm thấy FB_DR4WOMEN chỉ ở file này nên có thể không bị ràng buộc ở backend. Chưa xác minh cách backend kiểm booking_channel; ảnh hưởng chủ yếu tới tính đóng gói.",
+  "chunk": "S17"
+ },
+ {
+  "title": "Thẻ trang chủ dùng vai đầu tiên (role === \"RECEPTION\") để quyết định hiện bảng Lễ tân",
+  "reason": "home/page.tsx:192 chỉ xét getVaiChinh() (phần tử đầu), trong khi backend (man_trang_chu_service.py:350 identity.co_vai) trả bảng cho bất kỳ vai hôm nay nào. Người có nhiều vai có thể không thấy bảng dù dữ liệu đã được trả; chưa xác minh thứ tự vai thực tế.",
+  "chunk": "S17"
+ },
+ {
+  "title": "Kho vật tư làm mới cả trang cho mọi người xem mỗi khi bảng vat_tu_txn đổi",
+  "reason": "KhoVatTu.tsx:65-72 mỗi tin SSE gọi router.refresh() và nạp lại báo cáo; với nhiều người mở tab kho cùng lúc có thể gây tải nhưng chưa có số đo.",
+  "chunk": "S17"
+ },
+ {
+  "title": "ChuyenKho/InventoryBoard dùng crypto.randomUUID() không kiểm tồn tại",
+  "reason": "ChuyenKho.tsx:80,131,141 và InventoryBoard.tsx:337 gọi crypto.randomUUID() trực tiếp, trong khi gui-kho.ts có idNgauNhien() dự phòng cho ngữ cảnh không an toàn (http). Prod chạy HTTPS nên chưa chắc xảy ra; chỉ đúng khi dev qua http LAN. Chưa đủ để ghi.",
+  "chunk": "S18"
+ },
+ {
+  "title": "normalizeOpsPayload bỏ im lặng dịch vụ/trạng thái lạ",
+  "reason": "ops-summary.ts:64-75,191-209 loại các service id hoặc state không có trong danh sách (ví dụ trạng thái degraded/restarting) nên thẻ biến mất; overall vẫn do backend trả nên chưa chứng minh health giả xanh. Cần đọc exporter ops/status.",
+  "chunk": "S18"
+ },
+ {
+  "title": "DongThuoc remount làm mất ô đang gõ khi dữ liệu lượt đổi",
+  "reason": "PharmacyBoard.tsx:278-293 dùng key gồm dispensed_qty/da_chon…; một sự kiện realtime từ người khác làm router.refresh đổi key và xoá lyDo/số giao đang gõ. Chưa chạy thật để xác nhận tần suất.",
+  "chunk": "S18"
+ },
+ {
+  "title": "BanLeThu gửi xác minh chuyển khoản không có Idempotency-Key",
+  "reason": "BanLeThu.tsx:283-296 action xac-minh không dùng khoaThaoTac; trạng thái PENDING_VERIFICATION → PAID có thể tự chống lặp ở máy chủ nhưng chưa đọc payment_service xac-minh để kết luận.",
+  "chunk": "S18"
+ },
+ {
+  "title": "Trạng thái CAN_DOI_SOAT chỉ dặn 'báo quản lý'",
+  "reason": "ban-thuoc.ts:173-178 ghi 'Không giao — báo quản lý đối soát' nhưng chưa thấy work item/người nhận; chưa đọc hết nơi can_doi_soat được liệt kê (danh sách hoá đơn, cashier board) để biết đã có hàng đợi riêng.",
+  "chunk": "S18"
+ },
+ {
+  "title": "SucKhoeApi hiển thị 0 lỗi 5xx màu xanh sau khi API khởi động lại",
+  "reason": "Dữ liệu là bộ đệm trong tiến trình (SucKhoeApi.tsx:164-169 đã ghi giới hạn trên màn). Không có mốc 'kể từ' nên khởi động lại xoá lỗi; chỉ ghi nhận giảm nhẹ, chưa đủ là phát hiện.",
+  "chunk": "S18"
+ },
+ {
+  "title": "XuatNhapTon hiển thị bảng của khoảng ngày cũ trong lúc tải khoảng mới",
+  "reason": "XuatNhapTon.tsx:60-65, 98 giữ kq của khoảng trước khi khoảng mới đang tải hoặc lỗi; tiêu đề lấy kq.tu/kq.den của khoảng cũ nên người đọc có dấu nhận biết, và nút Excel bị khoá khi loi. Mức độ thấp, chưa tách thành phát hiện riêng (đã ghi vào extension FE-002).",
+  "chunk": "S19"
+ },
+ {
+  "title": "Bảng 'Đặt lịch theo nhân viên' đo hiệu suất từng người theo số lịch đặt",
+  "reason": "reports/page.tsx:307-383 xếp hạng nhân viên theo số lịch hôm nay/tuần/tháng; không phải lỗi nhưng cần cân nhắc với mục tiêu nhân viên làm việc bền vững (tránh biến chỉ số thành áp lực). Cần ý kiến chủ sản phẩm.",
+  "chunk": "S19"
+ },
+ {
+  "title": "Hủy bắt đầu nhầm xoá nội dung phiếu nháp",
+  "reason": "PhongDichVu.tsx:809-822 cảnh báo 'toàn bộ nội dung phiếu nháp sẽ được xoá về mặc định'. Có xác nhận tại chỗ; chưa đọc service huy-bat-dau-v1 để biết nháp có được lưu bản sao hay không.",
+  "chunk": "S19"
+ },
+ {
+  "title": "NhanChiDinh dùng ids làm giá trị mặc định cho da_nhan khi máy chủ không trả da_nhan",
+  "reason": "NhanChiDinh.tsx:70-76: nếu kq.data.da_nhan không phải mảng thì Hoàn tác sẽ nhắm cả ids dù một phần bị bo_qua; cần xác nhận hợp đồng API luôn trả da_nhan trước khi coi là lỗi.",
+  "chunk": "S19"
+ },
+ {
+  "title": "Lệnh xu-ly-thuoc-tra, chuyển kho, tách kho không có khoá chống gửi lại phía client",
+  "reason": "Server nói 'gửi lần hai → đã xử lý rồi' nên an toàn; chỉ thông báo lỗi mạng 'CHƯA lưu' có thể sai (đã ghi trong PHAR-004). Chưa tạo phát hiện mới.",
+  "chunk": "S19"
+ },
+ {
+  "title": "Đặt lại mật khẩu cho người khác bằng mật khẩu do quản lý gõ, không bắt đổi lần đầu",
+  "reason": "AccountActions.tsx:120-133 nhận mật khẩu ≥8 ký tự; không thấy cờ buộc đổi khi đăng nhập lần đầu. Chủ sản phẩm có quyết định riêng về mật khẩu chung (memory 15/10); cần đọc API PATCH admin/users và GoTrue để kết luận.",
+  "chunk": "S19"
+ },
+ {
+  "title": "ChonDichVu lưu ba bước tuần tự (chốt lựa chọn rồi từng lệnh phong-du-kien không có khoá)",
+  "reason": "Nếu lệnh phòng thất bại sau khi chốt, màn báo 'đã chốt nhưng CHƯA ghi được phòng' (đúng sự thật), nhưng lệnh phong-du-kien không có Idempotency-Key; chưa kiểm tính idempotent theo trạng thái ở server.",
+  "chunk": "S20"
+ },
+ {
+  "title": "Chuỗi số lượng thuốc ở quầy dùng Number(v.replace(',', '.'))",
+  "reason": "'1.000' bị đọc thành 1 (dấu chấm nghìn kiểu Việt). Chưa kiểm server có kiểm lại định dạng hoặc giới hạn trần; số lượng thuốc thường nhỏ nên rủi ro thấp.",
+  "chunk": "S20"
+ },
+ {
+  "title": "CongTyKhiThu chuyển lặng lẽ sang công ty đầu danh sách khi công ty đã chọn biến mất khỏi hồ sơ",
+  "reason": "Panel hiển thị chi tiết công ty được chọn nên người thu có thể thấy; chưa rõ máy chủ có kiểm cong_ty_id thuộc khách (đã ghi FIN-015 ở mức replay).",
+  "chunk": "S20"
+ },
+ {
+  "title": "TabThuNgan dùng ngay={homNay} cho quầy 'Chờ thanh toán' khi để màn qua nửa đêm",
+  "reason": "Chưa đọc useNgayXem/useDoiCa nên không biết homNay có tự cập nhật khi qua ngày.",
+  "chunk": "S20"
+ },
+ {
+  "title": "Cron/hạn nhắc cho cờ 'Tiền thừa' ở quầy",
+  "reason": "TienThuaKhoi chỉ hiển thị cần hoàn; chưa kiểm xem có hàng việc có chủ/hạn hay chỉ chờ người mở quầy (liên quan Ownership).",
+  "chunk": "S20"
+ },
+ {
+  "title": "Tài khoản mật khẩu chung hiển thị trên trang console",
+  "reason": "Trang console bị notFound ở production; mật khẩu thử có thể chỉ cho staging, chưa đủ bằng chứng.",
+  "chunk": "S21"
+ },
+ {
+  "title": "Proxy slot-hold bỏ qua lỗi JSON thân POST",
+  "reason": "Gửi {} khi thân hỏng, backend có thể từ chối; chưa rõ tác động.",
+  "chunk": "S21"
+ },
+ {
+  "title": "NutCheckIn không khoá bấm trùng ở mức component",
+  "reason": "components/ui/NutCheckIn.tsx:29-38 gọi `void onChon()` và chỉ phụ thuộc prop `disabled` do màn truyền; chưa đọc các màn gọi và chưa kiểm endpoint check-in có idempotent hay không, nên chưa kết luận lỗi bấm đôi (xem CLIN-043/CLIN-057).",
+  "chunk": "S22"
+ },
+ {
+  "title": "BangDoiTac: phản hồi đọc danh sách cũ có thể ghi đè sau khi đổi ngày",
+  "reason": "doi-tac/BangDoiTac.tsx:193-195 `tai()` dùng `ngay` của lần render tạo callback và không huỷ khi đổi ngày; một lần tải do thao tác ngay trước khi đổi ngày có thể về sau và đặt `ds` của ngày cũ. Xác suất thấp, chưa mô phỏng.",
+  "chunk": "S22"
+ },
+ {
+  "title": "ThongBaoHoanTac tự tắt sau 10 giây kể cả khi lệnh hoàn tác đang bay",
+  "reason": "ThongBaoHoanTac.tsx:40-44 hẹn onDong 10s; NutHoanTac chỉ báo 'đang hỏi' khi mở hộp xác nhận, không báo 'đang gửi', nên nếu lệnh chậm hơn 10s thì thông báo bị gỡ trước khi onXong chạy và màn không được làm mới (SSE có thể bù). Chưa đo.",
+  "chunk": "S22"
+ },
+ {
+  "title": "Lightbox hiển thị 'i/n' sai khi danh sách tệp thu nhỏ",
+  "reason": "Lightbox.tsx:119 và 207 dùng i chưa kẹp theo n khi tep thay đổi (ví dụ '4/2'); hậu quả thẩm mỹ, bỏ qua.",
+  "chunk": "S22"
+ },
+ {
+  "title": "Tivi nhận phiên đăng nhập của tài khoản nhân viên thông thường",
+  "reason": "display/page.tsx:19-23 nêu rõ trang vẫn cần đăng nhập bằng tài khoản nhân viên; vai DISPLAY có tồn tại ở backend nhưng chưa kiểm cấp phát tài khoản/ cookie tivi thực tế nên chỉ ghi nhận, đã gom vào S22-1 phần khuyến nghị token riêng.",
+  "chunk": "S22"
+ },
+ {
+  "title": "Đăng xuất không thu hồi access token cho đến khi hết hạn (kiểm JWT cục bộ ở Next)",
+  "reason": "lib/kiem-phien-tai-cho.ts:16-20 tự ghi nhận đánh đổi; identity.py:386-425 vẫn tra membership/is_active với TTL 30s và invalidate khi sửa nhân sự nên tắt tài khoản có hiệu lực nhanh. Rủi ro còn lại là token bị lấy cắp dùng được tối đa GOTRUE_JWT_EXP=3600s. Chưa chắc là lỗ hổng cần ghi.",
+  "chunk": "S23"
+ },
+ {
+  "title": "Giao thuốc khi đơn vị lô khác đơn vị kê vẫn 'giao được nhưng kho KHÔNG tự trừ'",
+  "reason": "lib/lo-bi-loai.ts:20-44 nói thẳng hệ quả; backend có đường 'giao không lô' và kiem_ke_ca_service.py:402 nêu thuốc đã giao chưa gắn lô khi kết ca. Cần đối chiếu với đợt quy đổi hộp-gói 17/10 (không có trong SHA này) trước khi coi là lỗ hổng chưa xử lý.",
+  "chunk": "S23"
+ },
+ {
+  "title": "Công tắc MO_QUYEN_TAM_THOI (mở quyền cho mọi vai ngoài bác sĩ) vẫn nằm trong lõi",
+  "reason": "Mặc định ĐÓNG ở cả hai tầng (roles.ts:586-588, identity.py:1054-1076, docker-compose.yml:106-109), có log khi bật (main.py:124-130). Chỉ là gánh nặng cấu hình cho sản phẩm bán nhiều nơi; chưa là lỗi.",
+  "chunk": "S23"
+ },
+ {
+  "title": "feature-mode.ts rơi về FULL_CLINIC khi không đọc được cấu hình",
+  "reason": "lib/feature-mode.ts:18-27 fail-open cho phòng khám CSKH_ONLY nhưng chỉ ảnh hưởng thanh bên (CLINICAL_HREFS); backend vẫn gác quyền. Rất thấp.",
+  "chunk": "S23"
+ },
+ {
+  "title": "Modul chết còn giữ: event-log.ts, event-log-redaction.ts, roster-names.ts, cashier-total.ts",
+  "reason": "Không còn nơi nào import (grep) nhưng còn test; event-log-redaction dùng danh sách khoá cấm (denylist) nên trường mới dễ lọt nếu bị bật lại. Rủi ro chỉ khi ai đó dùng lại.",
+  "chunk": "S23"
+ },
+ {
+  "title": "XuatBangTrongVung xuất đúng phần DOM đang hiển thị, tên .csv, không ghi giờ xuất/bộ lọc/tổng",
+  "reason": "components/ui/XuatBangTrongVung.tsx + lib/xuat-bang-excel.ts:28-47: có chủ ý 'Xuất bảng đang xem'. Có thể bị hiểu là báo cáo đầy đủ nếu bảng bị cắt (FE-022/FIN-005) nhưng cần xác nhận cách nhân viên dùng file.",
+  "chunk": "S23"
+ },
+ {
+  "title": "baoLoiTrinhDuyet gửi thong_diep nguyên văn (tối đa 1000 ký tự) tới /api/loi",
+  "reason": "lib/bao-loi-trinh-duyet.ts:66-76; chỉ khoá gộp lỗi bỏ số/uuid, nội dung gửi không bị làm sạch. Chưa kiểm nơi sinh thông điệp có chứa PII hay không (liên quan SEC-024).",
+  "chunk": "S23"
+ },
+ {
+  "title": "Sinh hiệu hiển thị cho bác sĩ không kèm giờ đo và cờ bất thường",
+  "reason": "lib/sinh-hieu-dong-bo.ts:42-66 chỉ định dạng giá trị; sinh_hieu_service.py:404-405 có nhắc chỉ số bất thường lúc nhập (ngưỡng ở luot_kham_rules, chưa đọc). Chưa đủ để kết luận thiếu cảnh báo phía bác sĩ.",
+  "chunk": "S23"
+ },
+ {
+  "title": "Thống kê khung giờ tính cả lịch đã huỷ nếu máy chủ không gửi giu_cho",
+  "reason": "thong-ke-khung-gio.ts:61 chỉ loại khi giu_cho === false; trường là tuỳ chọn. Cần xem API /appointments/week luôn trả giu_cho hay không (ngoài danh sách).",
+  "chunk": "S24"
+ },
+ {
+  "title": "Trạng thái work_item lạ rơi về 'Sẵn sàng'",
+  "reason": "work-item-status.ts:122-139: nếu kernel thêm trạng thái mới, resolveStatus trả 'ready' (mở cổng) thay vì cờ 'không rõ'; due_at hỏng thì isOverdue=false (NaN so sánh false). Chưa có bằng chứng kernel đã thêm trạng thái.",
+  "chunk": "S24"
+ },
+ {
+  "title": "Bộ nhớ đệm phía client 10 giây trên mọi trang lâm sàng",
+  "reason": "next.config.ts:28-30 staleTimes.dynamic=10: quay lại trang trong 10 giây thấy dữ liệu cũ không dán nhãn. Là lựa chọn có chủ ý được ghi lý do; cần đo trên bảng điều phối/hàng chờ mới kết luận.",
+  "chunk": "S24"
+ },
+ {
+  "title": "Hàm giờ chấp nhận '24:xx'",
+  "reason": "soat-gio-ca.ts:42 và suc-chua-luoi.ts:126-130 (phutCua) không chặn giờ 24 với phút khác 0; máy chủ vẫn chốt, tác động nhỏ.",
+  "chunk": "S24"
+ },
+ {
+  "title": "mint-session-cookie.mjs nhận email/mật khẩu qua argv",
+  "reason": "Script e2e chỉ dùng local/staging (mint-session-cookie.mjs:7); mật khẩu lộ trong danh sách tiến trình/lịch sử shell. Mặc định host.docker.internal; không phải đường chạy sản phẩm.",
+  "chunk": "S24"
+ },
+ {
+  "title": "Bản sao luật nhóm trạng thái lịch hẹn ở trình duyệt",
+  "reason": "tiep-don.ts:147-153 nhomLichHen dịch status sang tab trong khi trang-thai-lich.ts:1-9 tuyên bố máy chủ quyết nhãn. Hiện trạng thái ngoài danh sách chỉ vào 'Tất cả' nên chưa mất khách; cần so với CHECK appointment_status_check nếu thêm trạng thái.",
+  "chunk": "S24"
+ },
+ {
+  "title": "Mã KiotViet trùng giữa danh mục thuốc và danh mục dịch vụ",
+  "reason": "38 trong 80 mã drug_catalog.ma_hang (ví dụ SP000025 = Glucophage XR; SP000005 = DHEA Avemos; SP000007 = Femoston 1/10) cũng xuất hiện làm service_price.ma_kiotviet cho dịch vụ khác (SP000025 = Tổng phân tích nước tiểu; SP000005 = Khám tư vấn viêm nhiễm PK; SP000007 = Khám nam khoa) ở migration 20260926000001/20260926000003/20260928000100. Trong một cửa hàng KiotViet mã hàng là duy nhất, nên có thể hai file xuất thuộc hai danh mục khác nhau hoặc một bên gán nhầm mã. Chưa chứng minh tác hại: xuat_hoa_don_service.py:86 dùng ma_hang cho thuốc và service_code cho dịch vụ nên không đụng nhau. Cần chủ sản phẩm xác nhận nguồn trước khi coi là lỗi.",
+  "chunk": "S25"
+ },
+ {
+  "title": "Cơ sở nào đang hoạt động trong seed",
+  "reason": "Seed cho Kim Ngưu active, Hào Nam inactive (dòng 35-36). Bộ nhớ làm việc ghi từ 14/10 chỉ Hào Nam hoạt động; trạng thái prod là dữ liệu chỉnh trên màn, không kiểm chứng được từ blob. Nếu seed được dùng dựng staging/DB mới, cơ sở đang hoạt động sẽ ngược prod. Chưa đủ bằng chứng trong mã để thành phát hiện.",
+  "chunk": "S25"
+ },
+ {
+  "title": "service_type của seed thiếu cột form_code/di_thang_phong",
+  "reason": "INSERT dòng 65 chỉ có id, code, name, default_duration_minutes, is_active, created_at, clinic_id. Giá trị mặc định của form_code và di_thang_phong trên DB mới chưa kiểm (cần đọc schema), nên chưa khẳng định bàn khám thiếu biểu mẫu.",
+  "chunk": "S25"
+ },
+ {
+  "title": "Tài liệu lệch với seed",
+  "reason": "supabase/README.md:88-89 và docs/GIAI-THICH-CODE.md:5062 ghi service_price (29), seed thực có 31 dòng (2 dòng Biofeedback chèn tay, ghi ở seed.sql:130-132); tiêu đề seed.sql:2 nhắc 'supabase db push' đã bỏ. Mức thấp, chỉ gây hiểu sai khi vận hành.",
+  "chunk": "S25"
+ },
+ {
+  "title": "khach-gia-luong-chuan.py tự dựng dữ liệu giá và gieo thẳng lịch hẹn khi ngoài giờ ca",
+  "reason": "Chạy local theo allowlist host; chỉ nên ghi nhận là phép thử không kiểm luật giờ ca, chưa đủ chứng cứ để coi là lỗi.",
+  "chunk": "T01"
+ },
+ {
+  "title": "tenant-scope-runtime-check.py hard-code DSN local 54322 và DELETE staff_task theo task_type",
+  "reason": "Chỉ chạy local; nguy cơ thấp, cần xem thêm bối cảnh CI.",
+  "chunk": "T01"
+ },
+ {
+  "title": "Hồ sơ khách chỉ bắt buộc Họ tên được test ghim, làm hồ sơ không SĐT/ngày sinh khó chống trùng",
+  "reason": "Quyết định sản phẩm đã chốt (Tuyền 30/09, tests/chi-bat-buoc-ten-boundary.test.mts:20-34). Dedupe cần SĐT/CCCD (xem CLIN-013, CLIN-047, PAT-002); chưa đo tỉ lệ hồ sơ thiếu SĐT trong thực tế nên chưa nâng thành phát hiện.",
+  "chunk": "T02"
+ },
+ {
+  "title": "Chip 'Vượt số kê' chỉ nhắc, test cấm khoá nút bán",
+  "reason": "tests/ban-theo-don-de-thay-boundary.test.mts:82-95 cấm disabled theo cờ vuot. Là chủ ý nghiệp vụ; cần ý kiến dược về thuốc kiểm soát/kê đơn đặc biệt và xem backend có chặn ở nơi khác không.",
+  "chunk": "T02"
+ },
+ {
+  "title": "Giao thuốc khi lô lệch đơn vị: 'KHÔNG tự trừ' và 'giao trước đối chiếu sau' chưa thấy người nhận việc đối chiếu",
+  "reason": "tests/kho-don-vi-dan-duong-boundary.test.mts:41-48 và kho-quay-giao-dien-boundary.test.mts:115-129 chỉ ghim câu cảnh báo. Chưa đọc service backend để biết có sinh việc đối chiếu có người phụ trách hay không.",
+  "chunk": "T02"
+ },
+ {
+  "title": "ghepSoLuongDonVi('2 hộp','gói') = '2 hộp gói' và ('gói','gói') = 'gói gói' được test khẳng định",
+  "reason": "lib/phieu-kham.test.mts:620-622. Chuỗi số lượng đơn thuốc mơ hồ giữa hộp và gói có thể được lưu; chưa xác minh backend soLuongTuChu/validate có từ chối hay không.",
+  "chunk": "T02"
+ },
+ {
+  "title": "Tổng 'Chỉ định N mục · tổng' bỏ mục chưa có giá và hiển thị tổng thấp hơn thực tế",
+  "reason": "lib/phieu-kham.test.mts:486-504 (tongPhongKham bỏ mục gia=null). Chưa xem UI có nhãn 'chưa đủ giá' kèm tổng hay không.",
+  "chunk": "T02"
+ },
+ {
+  "title": "fetch keepalive khi rời trang có thể vượt giới hạn 64 KiB của trình duyệt với phiếu khám lớn",
+  "reason": "lib/tu-luu.test.mts:261-288 kiểm gửi keepalive nhưng bằng máy chủ giả; chưa đo kích thước payload thật của PhieuKham/đơn thuốc.",
+  "chunk": "T02"
+ },
+ {
+  "title": "vaoDuocMan(href, vai, null) mở cửa theo vai khi máy chủ chưa trả lời quyền (fail-open giao diện)",
+  "reason": "tests/cua-quyen-lego-boundary.test.mts:207-213. Chỉ là cửa UI, backend vẫn gác; nhưng khi lấy quyền thất bại mà một bác sĩ đã bị thu lego vẫn thấy màn.",
+  "chunk": "T02"
+ },
+ {
+  "title": "Không thấy test tranh chấp cho check_in_appointment (hai lễ tân check-in cùng giây)",
+  "reason": "tests/appointment-queue-boundary.test.mts chỉ khớp chuỗi check_in_appointment($1::uuid, $2::text[]) trong booking_service.py; supabase/tests/appointment_counters_per_clinic.sql là giao dịch đơn. grep asyncio.gather/advisory trong src/tests chưa tìm test đúng tên; có thể có test ở tệp khác.",
+  "chunk": "T02"
+ },
+ {
+  "title": "Test 'chống hồi quy' tồn tại cho khóa phiên tại chỗ nhưng chỉ dùng HS256 cố định",
+  "reason": "Không đủ bằng chứng về rotation khóa trong chunk.",
+  "chunk": "T03"
+ },
+ {
+  "title": "test_lab_endpoint kiểm GROUP_C bằng classify bị mock",
+  "reason": "Chỉ xác nhận gate API, không rõ classifier thật; cần mã nguồn.",
+  "chunk": "T04"
+ },
+ {
+  "title": "test_clinical_record_revision/_prescription_draft mock conn đếm thứ tự fetchval",
+  "reason": "Phụ thuộc thứ tự câu SQL, nhưng chưa chắc gây sai lệch; cần xem mã sản xuất.",
+  "chunk": "T05"
+ },
+ {
+  "title": "Hai bài DB sửa schema thật (ALTER TABLE appointment DROP NOT NULL)",
+  "reason": "test_cashier_board_exam_service_db đổi ràng buộc trên DB dùng chung; nguy cơ khi bài chết giữa chừng, chưa rõ DB thử có cô lập.",
+  "chunk": "T05"
+ },
+ {
+  "title": "Test cổng ca trực bật tắt cấu hình dùng chung day_nghiep_vu",
+  "reason": "Test sửa cấu hình rồi khôi phục trong finally; nếu chạy song song có thể ảnh hưởng bài khác, nhưng chưa rõ CI có song song.",
+  "chunk": "T06"
+ },
+ {
+  "title": "test_hoa_don_misa_db: mô hình ngẫu nhiên dùng seed cố định nhưng khai báo cập nhật trạng thái theo mô hình cục bộ",
+  "reason": "Chưa chắc mô hình có tái hiện đúng quy tắc nghiệp vụ hay chỉ tự khớp với cài đặt.",
+  "chunk": "T07"
+ },
+ {
+  "title": "test_hanh_trinh_khach_db khẳng định nhãn gọn 'KQ đối tác' không có khi đối tác chưa nhận mẫu",
+  "reason": "Có thể liên quan CLIN-012 nhưng chưa rõ hành vi mong muốn.",
+  "chunk": "T07"
+ },
+ {
+  "title": "Chuyển khách sang phòng khác khi phòng cũ có phiếu revision=1 có chữ",
+  "reason": "test_lam_khong_theo_thu_tu phủ revision 0 (chuyển được) và 2 (không chuyển được) nhưng không phủ revision 1 có nội dung gõ; trong khi huỷ-bắt-đầu coi revision 1 có chữ là 'dọn nháp'. Chưa đọc service_execution để biết ngưỡng; có thể mất dữ liệu nhập tay nếu ngưỡng là >=2.",
+  "chunk": "T08"
+ },
+ {
+  "title": "Lịch sử khám (router lich_su) chỉ có test dương",
+  "reason": "test_lich_su_luot_db gọi hàm router trực tiếp với danh tính bác sĩ; không có test từ chối cho nhân viên thiếu quyền hoặc khác cơ sở/phòng khám. Guard nằm trong thân hàm (ho_so_kham.py:45-51) nên không bị bỏ qua, nhưng thiếu test âm.",
+  "chunk": "T08"
+ },
+ {
+  "title": "Thay đổi ghi chú lấy mẫu khi bấm lần hai",
+  "reason": "test_da_lay_mau_idempotent khẳng định ghi_chu_lay_mau của lần hai ('bổ sung') ghi đè lần một ('2 ống'); chưa kiểm chứng event_log partner.sample_noted_again có giữ nội dung ghi chú cũ.",
+  "chunk": "T08"
+ },
+ {
+  "title": "Bỏ tick làm thêm đã thu khi dây thu trước TẮT",
+  "reason": "test_lam_them_tai_quay chỉ phủ SERVICE_ALREADY_PAID khi dây BẬT; service có kiểm da_thu ở lam_them_tai_quay_service.py:223,867-869 nên có thể ổn, nhưng thiếu test với dây TẮT.",
+  "chunk": "T08"
+ },
+ {
+  "title": "Dữ liệu doanh thu trả trước liệu trình tính theo ngày thu",
+  "reason": "test_21 khẳng định tiền trả trước vào doanh thu NGÀY THU (cơ sở tiền mặt). Không có sổ doanh thu hoãn ghi nhận; nếu kế toán cần theo buổi đã dùng thì lệch. Chưa rõ yêu cầu kế toán.",
+  "chunk": "T08"
+ },
+ {
+  "title": "Lịch sử điều phối kiểm bằng sự kiện giả",
+  "reason": "test_lich_su_dieu_phoi_bam_tay_db chèn event_log tay với payload nguon/bam_tay; nếu đường phát thật đổi tên khoá, thao tác bấm tay có thể biến mất khỏi màn mà test vẫn xanh. Cần test hợp đồng gắn người phát và bộ lọc.",
+  "chunk": "T08"
+ },
+ {
+  "title": "Kiểm tra cô lập clinic cho kho thuốc",
+  "reason": "Các test kho dùng một CLINIC cố định; pharmacy_service.py:1256 có lọc clinic_id nhưng không thấy test hai clinic trong T08 (có tệp khác trong repo nhắc clinic khác).",
+  "chunk": "T08"
+ },
+ {
+  "title": "test_luot_kham_notifications_db chạy lại toàn bộ file migration trên DB dùng chung",
+  "reason": "Không chắc migration idempotent; cần xem nội dung migration.",
+  "chunk": "T09"
+ },
+ {
+  "title": "Test phụ thuộc ngày cố định 2026-10-12/13 và đồng hồ giả",
+  "reason": "test_payment_head_scope_db đặt now_vn cố định, có thể ổn nhưng chưa rõ ca trực/roster có đụng dữ liệu chung; chưa đủ bằng chứng flaky.",
+  "chunk": "T10"
+ },
+ {
+  "title": "Dữ liệu Dr4Women ghi cứng trong test nhân bản cơ sở",
+  "reason": "Địa chỉ, SĐT, tên in Hào Nam là kỳ vọng của script riêng cho Dr4Women, nằm ở test riêng chứ không phải fixture dùng chung; chỉ là rủi ro nếu tái dùng cho phòng khám khác.",
+  "chunk": "T10"
+ },
+ {
+  "title": "Test chấp nhận cả hai thứ tự cho mốc HUY_XEP_PHONG và HUY_BAT_DAU",
+  "reason": "Có thể cố ý vì thứ tự không xác định, nhưng cũng có thể che lỗi thứ tự ghi sổ; chưa đủ bằng chứng.",
+  "chunk": "T11"
+ },
+ {
+  "title": "Smoke 3 kiểm thuốc free-text bị chặn thu nhưng assert chỉ cần chuỗi 'chưa có giá'",
+  "reason": "Có thể là thông điệp ổn định; chưa chắc đã là kiểm sai thứ.",
+  "chunk": "T12"
+ },
+ {
+  "title": "test_tien_thuoc_cp4_db.py thiếu pytestmark nên test thuần và test DB trộn marker",
+  "reason": "Chỉ thấy marker ở từng test DB; không rõ cấu hình toàn cục.",
+  "chunk": "T13"
+ },
+ {
+  "title": "Khôi phục kho sau đổi đơn vị đồng thời chỉ kiểm bằng timeout 0.05s",
+  "reason": "test_doi_don_vi_dong_thoi dựa asyncio.wait_for 0.05s để giả định lệnh bị khóa; có thể flaky nhưng chưa chắc.",
+  "chunk": "T14"
+ },
+ {
+  "title": "test_vai_theo_vi_tri.test_nghiep_vu_khong_so_vai_tai_khoan_truc_tiep chỉ quét dòng đơn",
+  "reason": "Regex chạy theo từng dòng; biểu thức nhiều dòng hoặc alias bỏ lọt, nhưng chưa thấy mã vi phạm cụ thể.",
+  "chunk": "T15"
+ },
+ {
+  "title": "test_idempotency quét router bằng read_text trần",
+  "reason": "Có thể bỏ sót endpoint dùng guard qua tên khác; cần mã router để xác nhận.",
+  "chunk": "T16"
+ },
+ {
+  "title": "test_tran_khong_cat_im_lang chấp nhận file có bi_cat ở bất kỳ đâu",
+  "reason": "Điều kiện 'bi_cat' trong file là bằng chứng yếu cho từng câu LIMIT; chưa thấy mã để khẳng định bỏ sót.",
+  "chunk": "T17"
+ },
+ {
+  "title": "Test stock_postgrest_read_acl hạn chế kiểm tra ở vai authenticated/anon",
+  "reason": "Không có bằng chứng thiếu bảng kho khác nằm ngoài danh sách 11 bảng, nên chưa đủ chắc để nêu.",
+  "chunk": "T18"
+ },
+ {
+  "title": "luot_kham_do bắt mọi exception (WHEN others) ở khối ④ và ⑤",
+  "reason": "Chỉ re-raise khi thông điệp chứa chuỗi tự đặt. Một lỗi khác vẫn được coi là 'đúng' nên có thể hiểu sai, nhưng chưa có bằng chứng lỗi thật.",
+  "chunk": "T18"
+ }
+]

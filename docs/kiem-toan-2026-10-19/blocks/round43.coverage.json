@@ -1,0 +1,407 @@
+{
+  "round": 43,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_targeted_semantic_review_with_independent_security_review",
+  "scope": [
+    "Telegram bot/notification rendering and recovery",
+    "appointment quote BFF parameters",
+    "patient test-data deletion scope",
+    "schedule-change follow-up marker idempotency",
+    "selected operations/finance BFF dedup"
+  ],
+  "method": "All source evidence read from immutable Git blobs via git show. Exact-main source hashes and ranges recorded below. Tests read but not run. No ClinicAI app/API/database/provider/VPS/production/secrets/PHI access. One independent security reviewer assessed the destructive-scope candidate.",
+  "result": "Added conditional MEDIUM OPS-011: admin-only test-customer cleanup lacks server-side test-record/test-clinic predicate despite confirmation/preview and archive. Extended CLIN-053 for possible duplicate reminder marker if POST is retried after uncertain outcome; no new CLIN ID. No new finding in Telegram/notification, quote BFF, ThaiKy/clinical BFF, historical Notion or assigned operations/finance BFF paths; deduplicated with INF-012/023/025, LAB-001/SEC-003, FIN-003 and other existing access findings.",
+  "files": [
+    {
+      "path": "src/clinicai/services/telegram_bot.py",
+      "sha256": "73097ceabde22a286af74a19df539d8b96dc14df44ee3e895a12a23b1edf563a",
+      "lines": 235,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 235
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Read full file; no new finding. Command output is clinic-scoped and allow-listed; Telegram/template risks deduplicate with INF-012, INF-023 and INF-025."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/notification_templates.py",
+      "sha256": "b4a6eecdec0e01cf7f820ccc575a48b70c8e9870e7fbada17fa1a39f28698f6d",
+      "lines": 124,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 124
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Read full file; dynamic Telegram HTML escaping risk is already covered by INF-025."
+      ]
+    },
+    {
+      "path": "src/tests/unit/test_notification_templates.py",
+      "sha256": "28eb64ddb9379c1558721eccbd7b29d81b44427bfbdb7800819d6b5ad451dd2f",
+      "lines": 104,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 104
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Read full test file; tests do not establish dynamic HTML escaping across all data-bearing templates. Read only, not run."
+      ]
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/quote/route.ts",
+      "sha256": "d64af548b285d3bbb71c66e2f981edcac899a1293defcd3fffd437f433060bda",
+      "lines": 76,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 75
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Read full quote BFF route; delegates to the backend and yielded no independent finding."
+      ]
+    },
+    {
+      "path": "src/tests/services/test_capacity_quote_params.py",
+      "sha256": "5b9e21f91f58b2fee1e51f6ef1b7b0bb5a1533ad52a0b602f54f17deb58b5e29",
+      "lines": 116,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 116
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Read full relevant test file; tests were read, not run."
+      ]
+    },
+    {
+      "path": "src/tests/unit/test_telegram_bot.py",
+      "sha256": "f52d533e00c7ab41ee561e0ce4b39d50d93b2918a1f1523df2c5b2b14e9ffbf0",
+      "lines": 69,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 69
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Re-read full file; tests were read, not run."
+      ]
+    },
+    {
+      "path": "src/tests/unit/test_notification_relay.py",
+      "sha256": "461d218c5be5ef0d67a6cbf0ec7b930dc435a533b91a74e70b5d55f88a309f23",
+      "lines": 274,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 274
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Relevant relay tests reviewed; tests were read, not run. Existing partial-delivery issue remains INF-023."
+      ]
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/HangChoView.tsx",
+      "sha256": "78d9020685734c510265c0f21acfe8a784791787d667df7eed91eea685935aa2",
+      "lines": 295,
+      "read_ranges": [
+        {
+          "start": 90,
+          "end": 135
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Schedule PATCH commits before best-effort CSKH POST; POST has no Idempotency-Key, does not inspect response, and catches failure without surfacing recovery. Retry after an ambiguous response can duplicate the marker."
+      ]
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/tuong-tac/route.ts",
+      "sha256": "ce640a3cd4b837332bee5a2e3299ae22e01d762ab3e5d79972c8a060343931cb",
+      "lines": 55,
+      "read_ranges": [
+        {
+          "start": 37,
+          "end": 55
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "BFF forwards Idempotency-Key only when supplied; callers without it retain the legacy non-idempotent path."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "lines": 1092,
+      "read_ranges": [
+        {
+          "start": 516,
+          "end": 522
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Backend idempotency guard is optional when the caller omits the key."
+      ]
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/DonDuLieuThu.tsx",
+      "sha256": "a46a3b3eefefeb196ccf0560518ea5d25ca5e02df23878189b5d24ff4d826150",
+      "lines": 385,
+      "read_ranges": [
+        {
+          "start": 104,
+          "end": 114
+        },
+        {
+          "start": 193,
+          "end": 211
+        },
+        {
+          "start": 256,
+          "end": 299
+        },
+        {
+          "start": 327,
+          "end": 379
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Selector includes every listed patient except those with an open visit today; there is no test-record predicate in this selection.",
+        "Screen says test customers and supports selecting a date up to 20 days back; deletion applies to all data on all dates.",
+        "Rows display ordinary patient identity, visit status, payments and file counts, without a visible test marker.",
+        "Preview shows patient identifiers, dates and row counts, but no test/live classification."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/don_du_lieu_thu_service.py",
+      "sha256": "e588bb3063bfca8cace95bbefe0f95ef7dabed4943d50d577c79d3366aca9dfe",
+      "lines": 520,
+      "read_ranges": [
+        {
+          "start": 176,
+          "end": 183
+        },
+        {
+          "start": 277,
+          "end": 322
+        },
+        {
+          "start": 418,
+          "end": 460
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Capability gate requires permission.manage; this is a privileged authorized workflow, not an authorization bypass.",
+        "Delete validates confirmation, locks clinic-scoped patients and blocks open visits today, but does not validate a test-record or test-clinic marker before calling the destructive SQL function.",
+        "List SQL selects every clinic appointment and walk-in visit for a requested day, then joins ordinary patient identities and payment/file counts; no test-only predicate."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/don_du_lieu_thu.py",
+      "sha256": "af60a0f07c207600948a0b5ac42fdc3b1c3888a2efbb6ba64313025e3797519a",
+      "lines": 62,
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 62
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "List, preview and delete endpoints are mounted under internal identity; deletion delegates to the service capability check."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql",
+      "sha256": "1f8263f33ce159d6c5360f1e811cc0ebbf43b39b59621bf2864896f6d4daa0e5",
+      "lines": 388,
+      "read_ranges": [
+        {
+          "start": 129,
+          "end": 139
+        },
+        {
+          "start": 259,
+          "end": 273
+        },
+        {
+          "start": 315,
+          "end": 342
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "SQL function verifies the selected patient belongs to the supplied clinic; it does not enforce test-only patient/clinic status.",
+        "Before deletion, affected rows are archived as JSON.",
+        "Function deletes rows from operational tables in a loop, then restores triggers; archival supports manual recovery rather than a guarded live-record boundary."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20261001240000_don_du_lieu_thu.sql",
+      "sha256": "242641c99af092ada7af4afbd57bb159a42cd0aa36d35419fe7091a0ab47c4aa",
+      "lines": 604,
+      "read_ranges": [
+        {
+          "start": 81,
+          "end": 92
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Archive table stores original deleted rows; schema comment states restoration is manual."
+      ]
+    },
+    {
+      "path": "src/tests/services/test_don_du_lieu_thu_db.py",
+      "sha256": "16b2209b281cb1f2a7958e1450e1294d2a9dcccf32fcf128a7254da006827c5b",
+      "lines": 387,
+      "read_ranges": [
+        {
+          "start": 238,
+          "end": 258
+        },
+        {
+          "start": 262,
+          "end": 337
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Read permission-denial test; tests read only, not run.",
+        "Read admin delete/retention test; test distinguishes fixture names but does not assert a server-side test-record invariant. Read only, not run."
+      ]
+    },
+    {
+      "path": "src/dashboard/lib/route-da-tat.ts",
+      "sha256": "820b1abf94ab2ebb771112ff43c52afde68c6fc29dd4ac887991415fff1b4040",
+      "lines": 24,
+      "read_ranges": [
+        {
+          "start": 8,
+          "end": 18
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Disabled routes return 410 before handler; no separate finding."
+      ]
+    },
+    {
+      "path": "src/dashboard/proxy.ts",
+      "sha256": "02dd6df0002d6704afbac15c41793be59be374ad17d7c6ebc561cb4906bc01bc",
+      "lines": 168,
+      "read_ranges": [
+        {
+          "start": 25,
+          "end": 32
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Proxy boundary blocks retired API paths; no separate finding in assigned slice."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/lich_su_notion_service.py",
+      "sha256": "63ab95d5deca1cb8f6dc7a00846c02490e50f2cd668a395f2f63990428200ceb",
+      "lines": 287,
+      "read_ranges": [
+        {
+          "start": 34,
+          "end": 42
+        },
+        {
+          "start": 49,
+          "end": 96
+        },
+        {
+          "start": 149,
+          "end": 174
+        },
+        {
+          "start": 267,
+          "end": 287
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Historical Notion checks content-view permission and clinic scope.",
+        "Historical note read path applies actor and patient boundaries.",
+        "Attachment metadata is checked through the service.",
+        "Attachment access is separately scoped; no BFF bypass found."
+      ]
+    },
+    {
+      "path": "src/dashboard/tests/route-da-tat-boundary.test.mts",
+      "sha256": "123da742988f7dc89ee78de42390841e470a08f255810079d857c7b4f8486c6a",
+      "lines": 43,
+      "read_ranges": [
+        {
+          "start": 7,
+          "end": 24
+        }
+      ],
+      "status_disposition": "read",
+      "notes": [
+        "Boundary test covers retired route responses; read only, not run."
+      ]
+    }
+  ],
+  "reviewer": {
+    "scope": "Independent security severity and duplicate assessment for OPS-011.",
+    "result": "Recommend MEDIUM, conditional on endpoint being used with real clinic data. This is missing destructive data-type boundary, not authorization bypass. permission.manage, preview, XOA, open-visit block and manual JSON archive reduce occurrence/irreversibility; deployment and external test-clinic policy were not verified.",
+    "reviewed_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "dispositions": [
+    {
+      "candidate": "OPS-011 destructive cleanup scope",
+      "decision": "Promoted as conditional MEDIUM finding; exact static UI/service/router/SQL/test evidence recorded. No claim of production incident."
+    },
+    {
+      "candidate": "CLIN-053 retry duplicate",
+      "decision": "Extend existing finding only. Missing key means a retry after an ambiguous POST response can duplicate marker; no automatic retry or incident proven."
+    },
+    {
+      "candidate": "Telegram/rendering/recovery",
+      "decision": "No new finding. Deduplicate dynamic HTML with INF-025, poison backlog with INF-012, multi-recipient at-least-once delivery with INF-023."
+    },
+    {
+      "candidate": "appointment quote BFF",
+      "decision": "No distinct authorization finding in reviewed quote route and capacity parameter test."
+    },
+    {
+      "candidate": "clinical/BFF routes and historical Notion",
+      "decision": "No new bypass; disabled legacy routes return 410; upload concerns deduplicate LAB-001/SEC-003; ThaiKy and history services apply relevant clinic/clinical-content checks."
+    },
+    {
+      "candidate": "operations/finance BFF",
+      "decision": "Reviewed slices deduplicate with FIN-003 and existing report/shift/access findings; no separate evidence-backed candidate."
+    }
+  ],
+  "limitations": [
+    "Full source audit remains incomplete; status counts are path inspection stages, not semantic or behavioral coverage.",
+    "No production deployment, live database credential, patient record, UUID discovery path or observed incident was checked.",
+    "No product owner confirmation was available on whether the cleanup endpoint is externally guaranteed test-only."
+  ]
+}

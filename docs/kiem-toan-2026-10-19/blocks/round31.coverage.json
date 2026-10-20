@@ -1,0 +1,701 @@
+{
+  "round": 31,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "static_exact_main_only",
+  "scope": [
+    "CSKH feedback history completeness (page-wide 300 row cap)",
+    "Room/queue lifecycle across checkout, room deactivation, undo and room-board visibility",
+    "Deduplication against existing stale-data, queue, room acceptance and list-cap findings"
+  ],
+  "method": "Read-only review using Git objects at pinned HEAD; tracked path SHA-256 checked. Selected tests read, not executed. No ClinicAI runtime/API/DB/provider/VPS/production access; no secrets/PHI.",
+  "result": "Added CLIN-045 and CLIN-046 as conditional confirmed-static findings. OPS-009, FE-002 and FE-004 deduplicated. Open feedback ownership/SLA handoff semantics remain held. File-level read/traced status is not behavior completeness.",
+  "files": [
+    {
+      "path": "src/clinicai/services/man_khach_hang_service.py",
+      "status": "traced",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 38,
+          "end": 43,
+          "purpose": "Hằng cap feedback dùng chung."
+        },
+        {
+          "start": 249,
+          "end": 264,
+          "purpose": "Query mọi phản hồi thuộc IDs trên trang, mới nhất trước, LIMIT 300."
+        },
+        {
+          "start": 443,
+          "end": 466,
+          "purpose": "Response nguyên mảng phan_hoi, không total/has_more/truncated."
+        }
+      ],
+      "sha256": "f42edad47d7c011d06fad69b3f45b58d865c0d1f6a9d85124b127251c9ed4331",
+      "line_count": 654,
+      "purpose": "Service feedback."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 235,
+          "end": 258,
+          "purpose": "IDs khách hiện trên trang, tối đa 60, rồi gọi service."
+        },
+        {
+          "start": 611,
+          "end": 657,
+          "purpose": "Route ghi/cập nhật feedback và actor boundary."
+        }
+      ],
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "line_count": 1092,
+      "purpose": "API bundle/write feedback."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 210,
+          "end": 235,
+          "purpose": "Bundle type và request cho khách hiện trên trang."
+        },
+        {
+          "start": 308,
+          "end": 310,
+          "purpose": "Chọn khối phản hồi."
+        },
+        {
+          "start": 827,
+          "end": 839,
+          "purpose": "Nhóm các rows đã nhận theo patient ID."
+        }
+      ],
+      "sha256": "9449faacef9c91fc05dddd447d584b5a2dbdb0b06883842d602aff223b46e28c",
+      "line_count": 1194,
+      "purpose": "Server dataflow CSKH."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/CustomersView.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 647,
+          "end": 653,
+          "purpose": "Props feedback đã nhóm theo khách."
+        }
+      ],
+      "sha256": "957afb9b35cd0bb8a44f4b5c7f66c02c3593a1d950f7304b8fa2991975658c08",
+      "line_count": 2363,
+      "purpose": "Props/render dataflow."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/PhanHoiKhach.tsx",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 268,
+          "purpose": "Đọc toàn component: intake, update status, receiver label, empty state."
+        }
+      ],
+      "sha256": "cbe05c2df2b1b6ce13fa974c4eb9801cddd84e7b537def486fd7a7ae2a0144bb",
+      "line_count": 268,
+      "purpose": "UI feedback component."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/phan-hoi/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 38,
+          "purpose": "Đọc toàn BFF."
+        }
+      ],
+      "sha256": "b81946a8527869098e96983c2d28af15504d8bd5a2f3c1597e257898786c79a9",
+      "line_count": 38,
+      "purpose": "BFF feedback."
+    },
+    {
+      "path": "src/clinicai/services/phan_hoi_khach_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 143,
+          "purpose": "Đọc toàn service intake/update, clinic scope, actor."
+        }
+      ],
+      "sha256": "81c71c844eb0da4db0af8d19e82dbb8672ff4f07c928b7ebd87837e9b8783cc1",
+      "line_count": 143,
+      "purpose": "Feedback service."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 122,
+          "end": 129,
+          "purpose": "Subscription có phan_hoi_khach."
+        }
+      ],
+      "sha256": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+      "line_count": 350,
+      "purpose": "Realtime refresh."
+    },
+    {
+      "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+      "status": "traced",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 67,
+          "end": 132,
+          "purpose": "Schema/status/receiver/processor/index/RLS."
+        }
+      ],
+      "sha256": "106a69f83750c17cb1bbf391ccbce9fe982a2155a976c6df927eb84a7bcfe517",
+      "line_count": 132,
+      "purpose": "Feedback schema."
+    },
+    {
+      "path": "supabase/migrations/20260814000001_notify_cho_man_cskh_va_giu_cho.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 79,
+          "purpose": "Đọc toàn migration notify."
+        }
+      ],
+      "sha256": "6c25582acdca50c4b52fca2d50b350c0de5271b2812bbef02661e2682477c3f8",
+      "line_count": 79,
+      "purpose": "Notify migration."
+    },
+    {
+      "path": "supabase/migrations/20260809000009_realtime_cho_man_cskh.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 39,
+          "purpose": "Đọc toàn migration realtime."
+        }
+      ],
+      "sha256": "4b2542ffc068b235564b0f4c8e2e049e337ab97a057517ff211d72fe04c4221c",
+      "line_count": 39,
+      "purpose": "Realtime migration."
+    },
+    {
+      "path": "src/tests/unit/test_phan_hoi_khach.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 130,
+          "purpose": "Đọc toàn test; validate, actor, clinic isolation, close; không assert cap."
+        }
+      ],
+      "sha256": "ca062bbcecf55da488bba9a7f66e11cedc97157a1f053c0accd7d461ff66240d",
+      "line_count": 130,
+      "purpose": "Unit test feedback, không chạy."
+    },
+    {
+      "path": "src/tests/unit/test_man_khach_hang.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 120,
+          "purpose": "Guard, clinic scope và SQL mock."
+        },
+        {
+          "start": 220,
+          "end": 271,
+          "purpose": "Summary phản hồi thuốc; không assert truncate history."
+        }
+      ],
+      "sha256": "aa3f531ddaedb71cf933a20407922f9ec1a099e6a2880a8adf52e01b62400008",
+      "line_count": 271,
+      "purpose": "Unit test bundle, đọc đoạn, không chạy."
+    },
+    {
+      "path": "src/tests/test_man_khach_hang_kieu_tra_ve.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 62,
+          "purpose": "Đọc toàn response type test; không kiểm has_more."
+        }
+      ],
+      "sha256": "d356ec28509c211eb83ccb79dbb7de3233b0eb645e96a494900197c774256133",
+      "line_count": 62,
+      "purpose": "Response test, không chạy."
+    },
+    {
+      "path": "src/dashboard/tests/cskh-readonly-access-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 138,
+          "purpose": "Đọc toàn quyền đọc/ghi; không kiểm cap."
+        }
+      ],
+      "sha256": "de27daecc0d8100a81abc53523ec82f868fea8f725ac605df2645c58b91d57f7",
+      "line_count": 138,
+      "purpose": "UI boundary test, không chạy."
+    },
+    {
+      "path": "src/dashboard/tests/goi-man-khach-boundary.test.mts",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 83,
+          "purpose": "Đọc toàn bundle loading/error; không kiểm truncation."
+        }
+      ],
+      "sha256": "6d39f373afc080701d9fbc1be32fa77184520b90cd20a610938a623e98904b7a",
+      "line_count": 83,
+      "purpose": "UI bundle test, không chạy."
+    },
+    {
+      "path": "src/dashboard/tests/cskh-confirmation-semantics-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 55,
+          "purpose": "Đọc toàn test kề bên, không bao phủ feedback cap."
+        }
+      ],
+      "sha256": "020626026f73ecc5366e28b6803f7c4aec47ebcb3490b1a3a2897132cbc2efb0",
+      "line_count": 55,
+      "purpose": "Adjacent test, không chạy."
+    },
+    {
+      "path": "src/clinicai/services/checkout_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 922,
+          "end": 935,
+          "purpose": "Checkout queue đang sống sang left."
+        }
+      ],
+      "sha256": "538aff29032bb6ba1ad548bdcbce5a98c1c3ad005d2c51ef15040858e861f029",
+      "line_count": 1196,
+      "purpose": "Checkout queue."
+    },
+    {
+      "path": "src/clinicai/services/clinic_config_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 659,
+          "end": 685,
+          "purpose": "Tắt phòng chỉ kiểm waiting/called/serving; left không chặn."
+        }
+      ],
+      "sha256": "890bb55bf85f7a86fe15617b4468319142ac0759b6a2dfb12cbfd0738befa332",
+      "line_count": 1396,
+      "purpose": "Deactivate room gate."
+    },
+    {
+      "path": "src/clinicai/services/hoan_tac_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 244,
+          "end": 253,
+          "purpose": "Undo left→waiting giữ room_id."
+        },
+        {
+          "start": 1204,
+          "end": 1209,
+          "purpose": "Reopen gọi helper restore queue rồi cập nhật vị trí."
+        }
+      ],
+      "sha256": "1862331194da8a219dd6b18ef045350c47e1f20598901a26e691fd44d69e55d9",
+      "line_count": 1241,
+      "purpose": "Undo checkout."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_doc.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 641,
+          "end": 654,
+          "purpose": "Danh sách phòng lọc is_active."
+        }
+      ],
+      "sha256": "a7f6f62cb2cca3a8b9788f76c3a4e8bd11b6889570da3a5c8d6d7adcafe0bf8e",
+      "line_count": 1511,
+      "purpose": "Room projection."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 302,
+          "end": 328,
+          "purpose": "Trace route phòng/hàng chờ."
+        }
+      ],
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "line_count": 1221,
+      "purpose": "API queue/room."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinic_config.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 500,
+          "end": 511,
+          "purpose": "Trace route lịch phòng."
+        }
+      ],
+      "sha256": "84c27645632e9877351a197c9ffd757e19e56cd93850e3543e27b8c1d41012d0",
+      "line_count": 511,
+      "purpose": "API room config."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "status": "scanned",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "scanned",
+      "ranges": [
+        {
+          "start": 593,
+          "end": 631,
+          "purpose": "Scan doctor-board endpoint; UI page redirect, no active caller found in slice."
+        }
+      ],
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "line_count": 904,
+      "purpose": "Legacy route observation."
+    },
+    {
+      "path": "src/dashboard/app/api/luot-kham/route.ts",
+      "status": "traced",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 118,
+          "end": 205,
+          "purpose": "BFF room/queue mapping, parameters, UUID validation."
+        }
+      ],
+      "sha256": "912e9ddf0887162cd7c21fca5e9bb54b66efa622bfe882ce0c14b890b1ba1a69",
+      "line_count": 266,
+      "purpose": "BFF queue/room."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 189,
+          "end": 210,
+          "purpose": "docBang request/response handling."
+        }
+      ],
+      "sha256": "ae815d5fa84b582396b10a3508193f764203a7dab930f9dfd23684c3ff90e216",
+      "line_count": 344,
+      "purpose": "Shared API helper."
+    },
+    {
+      "path": "src/dashboard/app/api/clinic-config/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 18,
+          "end": 43,
+          "purpose": "BFF GET room schedule."
+        }
+      ],
+      "sha256": "9f6936eca57ca7995bf7d209b414680edd64e2b3dbcdc48f9674a8ea8eceb16b",
+      "line_count": 112,
+      "purpose": "BFF clinic config."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 265,
+          "end": 333,
+          "purpose": "Trace board loads, errors, refresh."
+        }
+      ],
+      "sha256": "ccd860a32d945adcf57c08cf0c409a4860a618819b223a02a34fd9e491670c24",
+      "line_count": 1804,
+      "purpose": "Doctor board."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ban-kham/ChoBacSiQuyet.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 41,
+          "end": 70,
+          "purpose": "Scan isolated panel; dedupe FE-008."
+        }
+      ],
+      "sha256": "acda7c51ad242f985cf890b6355b1673ad0ba394330f3dead4b5c167356602c9",
+      "line_count": 185,
+      "purpose": "Existing doctor panel."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phong/page.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 36,
+          "end": 56,
+          "purpose": "Room index renders active rooms from backend."
+        }
+      ],
+      "sha256": "de0d0612b7eec5726d0400ce26bf550d4938591b275e3eeab584c23516278b13",
+      "line_count": 84,
+      "purpose": "Room index UI."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phong/[ma]/PhongDichVu.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 181,
+          "end": 245,
+          "purpose": "Resolve room via active-room payload, then query queue for that room."
+        }
+      ],
+      "sha256": "c1757977d8fb3a63c58fba11a5fcdccb03ab3e113d5a8019d008664e336dcdc0",
+      "line_count": 1230,
+      "purpose": "Room detail UI."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/doctor/board/page.tsx",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 9,
+          "purpose": "Đọc toàn file; legacy route redirect."
+        }
+      ],
+      "sha256": "fda3be022588161fed28e3179bdcc0217c4cecc3584f766e6bd4b0b65925ba2f",
+      "line_count": 9,
+      "purpose": "Legacy page."
+    },
+    {
+      "path": "src/clinicai/services/lich_phong_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 87,
+          "purpose": "Đọc toàn roster/room service."
+        }
+      ],
+      "sha256": "dc38b49f97eaa7e6eede84587e354fae18196f5b6f3944c12a8e0e3b9904d980",
+      "line_count": 87,
+      "purpose": "Room roster service."
+    },
+    {
+      "path": "supabase/migrations/20260911000001_luot_kham_lat_1.sql",
+      "status": "traced",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 260,
+          "end": 304,
+          "purpose": "Queue schema, room_id/status and live indexes."
+        }
+      ],
+      "sha256": "7bd3e70f895505e3d6ef4e2a3ebdbaafa6fe6f070a21eba82c07e9f52d5a6609",
+      "line_count": 398,
+      "purpose": "Queue schema."
+    },
+    {
+      "path": "src/tests/services/test_phong_la_tai_nguyen_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 151,
+          "end": 195,
+          "purpose": "Tắt phòng bị chặn khi waiting, được tắt sau done; không left/undo."
+        }
+      ],
+      "sha256": "20465268cbc64ff4f75ea148d4d1f4d4c435769caa86deb0604b1295ce78f460",
+      "line_count": 312,
+      "purpose": "Room deactivation test, đọc không chạy."
+    },
+    {
+      "path": "src/tests/services/test_tang_va_vi_tri_moi_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 320,
+          "end": 365,
+          "purpose": "Room/floor activation lifecycle, không compose checkout undo."
+        }
+      ],
+      "sha256": "16e31f6e7a7cc099f5457b444c45fae749ee061b5bfaea468a1339a28da4aaad",
+      "line_count": 447,
+      "purpose": "Room lifecycle test, đọc không chạy."
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_moi_thao_tac_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 487,
+          "end": 550,
+          "purpose": "Checkout→undo restores waiting; no room deactivation interleaving."
+        }
+      ],
+      "sha256": "1599fb995b99d283899636c3860c66cdbff782d627321775613ed7105d4ec32d",
+      "line_count": 702,
+      "purpose": "Undo checkout test, đọc không chạy."
+    }
+  ],
+  "tests_run": [],
+  "tests_read_not_run": [
+    "src/tests/unit/test_phan_hoi_khach.py:1–130",
+    "src/tests/unit/test_man_khach_hang.py:1–120,220–271",
+    "src/tests/test_man_khach_hang_kieu_tra_ve.py:1–62",
+    "src/dashboard/tests/cskh-readonly-access-boundary.test.mts:1–138",
+    "src/dashboard/tests/goi-man-khach-boundary.test.mts:1–83",
+    "src/dashboard/tests/cskh-confirmation-semantics-boundary.test.mts:1–55",
+    "src/tests/services/test_phong_la_tai_nguyen_db.py:151–195",
+    "src/tests/services/test_tang_va_vi_tri_moi_db.py:320–365",
+    "src/tests/services/test_hoan_tac_moi_thao_tac_db.py:487–550"
+  ],
+  "deduplication": [
+    "OPS-009 already covers dispatch overview cap 400.",
+    "FE-002/FE-004 already cover monitor freshness and unknown-vs-zero.",
+    "CLIN-022 covers course patient list, not an individual feedback-history cap.",
+    "FE-010 covers accepting=false in active room; this concerns undo restoring a queue into inactive room."
+  ],
+  "limitations": [
+    "No tests were run; gaps are based on read-only inspection.",
+    "Neither threshold/sequence has production frequency or impact data.",
+    "Static checkpoint only; full semantic audit and readiness-to-sell are not complete."
+  ]
+}

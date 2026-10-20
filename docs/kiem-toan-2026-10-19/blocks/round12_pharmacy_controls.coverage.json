@@ -1,0 +1,49 @@
+{
+  "audit": "round12_pharmacy_controls",
+  "snapshot": {
+    "path": "/tmp/clinicai-audit-main-956ba4f2",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "git_metadata_present": false,
+    "sha_source": "task-provided exact-main pin"
+  },
+  "review_policy": "Read-only static review. No tests, runtime, DB, CI, VPS, secrets or PHI. No source/migration/ledger/state/report edits.",
+  "selection": {
+    "basis": "Selected inventory/stocktake files marked scanned or inventoried in MAIN-PHAM-VI.json, plus adjacent callers/tests needed to trace the manual-adjust path.",
+    "deduplication": "Compared the candidate topic with PHAR-001, FIN-002/008, FIN-003, CLIN-007/030 and pharmacy/round3 blocks.",
+    "trace_scope": "Selective trace, not full-code audit. Full reads only where the entry says read; all other entries are explicit slices."
+  },
+  "files": [
+    {"path":"src/clinicai/services/kiem_ke_ca_service.py","line_count":1336,"sha256":"4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca","ranges_read":["1-1336"],"status":"read"},
+    {"path":"src/clinicai/services/vat_tu_kho_man_service.py","line_count":141,"sha256":"0f7cce76131a78603f7bf84b9a56504d7548af7777a5033eae36d9283c917687","ranges_read":["1-141"],"status":"read"},
+    {"path":"src/clinicai/services/vat_tu_service.py","line_count":642,"sha256":"9b04c282868865dab92790c54623b8fdf4eda5b854deee34da10ce45eafc06b8","ranges_read":["1-642"],"status":"read"},
+    {"path":"src/clinicai/services/vat_tu_danh_muc_service.py","line_count":192,"sha256":"7cd0d5af6b1dac0d32a44a6462483fb47dc7485eaed91844a0722d1900ddcfb2","ranges_read":["1-192"],"status":"read"},
+    {"path":"src/clinicai/services/vat_tu_tieu_hao_service.py","line_count":260,"sha256":"18bb8bcbdef3c6c607049e4b85fd6dc3db20ddc00069c8e51c70af9db4c22780","ranges_read":["1-260"],"status":"read"},
+    {"path":"src/clinicai/services/vat_tu_kho_service.py","line_count":447,"sha256":"008b508eeaba625615464a1dfec57337041911cd16572ef71a2f193ddd49fefa","ranges_read":["1-447"],"status":"read"},
+    {"path":"src/clinicai/services/pharmacy_service.py","line_count":3335,"sha256":"4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a","ranges_read":["530-820","1721-1750","2714-2790","2805-2892"],"status":"targeted"},
+    {"path":"src/clinicai/api/v1/routers/pharmacy.py","line_count":1372,"sha256":"f5d2086e4c71db714773f4d5bd62bd4fce3d7d474eea407c834b8c039a2b4ff8","ranges_read":["1098-1118"],"status":"targeted"},
+    {"path":"src/tests/services/test_kiem_ke_ca_db.py","line_count":946,"sha256":"f836844d0a9f652ca961acd95727dc7e2305800efab0ca3bf9850b94d53e686f","ranges_read":["170-470"],"status":"targeted"},
+    {"path":"src/tests/services/test_vat_tu_kho_man_db.py","line_count":227,"sha256":"62291d34234a61010ac1c0d6f54ff136e1410ad8b7be92d35c16c9ed6c499607","ranges_read":["1-227"],"status":"read"},
+    {"path":"src/tests/services/test_pharmacy_inventory_p1_db.py","line_count":398,"sha256":"9d58e645226b7b397fd04b6ca527cf0b54f7f3668339991de86f9cdea69ee8c1","ranges_read":["1-260","345-390"],"status":"targeted"},
+    {"path":"src/tests/unit/test_pharmacy_inventory_p1.py","line_count":144,"sha256":"d87456b04ece473ec2374780c833c992a0f4e56b4a8d8ab387537007c3914fa0","ranges_read":["70-120"],"status":"targeted"},
+    {"path":"supabase/migrations/20260802000001_pharmacy_inventory.sql","line_count":206,"sha256":"7831bde3f4eac8ca06cc58ef1077156e6d70386998f43a7f29591d2ee10d62b8","ranges_read":["86-115"],"status":"targeted"},
+    {"path":"supabase/migrations/20261019110000_pharmacy_inventory_p1_guards.sql","line_count":85,"sha256":"6923d23215b09a4da4dc84f2970bd1cc2687ea003d2d7c19b5fc466c69128257","ranges_read":["1-85"],"status":"read"}
+  ],
+  "searched_for": [
+    "stocktake transition, revision, snapshot, adjustment and undo branches",
+    "manual receive/adjust/discard validation and quantity precision checks",
+    "material-stock issue/return/transfer/reversal paths and locking",
+    "direct tests for stocktake, idempotency, batch unit/tenant constraints, numeric edge inputs",
+    "existing findings/topics to prevent overlap"
+  ],
+  "not_done": [
+    "Full semantic read of pharmacy_service.py, pharmacy router, related API callers/UI and all pharmacy/material tests",
+    "Runtime, ASGI, DB or concurrency reproduction",
+    "Review of the whole migrations history or production state"
+  ],
+  "result": {
+    "new_static_candidates": ["CAND-PHAR-STOCK-001"],
+    "existing_duplicates_excluded": ["PHAR-001", "FIN-002", "FIN-008", "FIN-003", "CLIN-007", "CLIN-030"],
+    "other_candidate_findings": 0,
+    "tests_run": false
+  }
+}

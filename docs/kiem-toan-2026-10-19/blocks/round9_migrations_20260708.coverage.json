@@ -1,0 +1,1434 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_202607_202608_migration_slice",
+  "scope": [
+    "Đọc toàn bộ 119 migration supabase/migrations/*.sql có tiền tố ngày 202607 hoặc 202608; không mở rộng kết luận sang tháng khác.",
+    "Rà constraints, trigger, grants/RLS, idempotency, temporal invariants, thứ tự thay thế hàm và các nguy cơ rollback/replay; đối chiếu các SQL test liên quan ở mức nội dung.",
+    "Static-only: không kết nối DB/HTTP/production; không đọc secrets/PHI; không chạy migration hoặc test harness; không sửa source, migration hoặc test."
+  ],
+  "finding_ids": [
+    "CAND-R9-MIG-01",
+    "CAND-R9-MIG-02",
+    "CAND-R9-MIG-03",
+    "CAND-R9-MIG-04",
+    "CAND-R9-MIG-05"
+  ],
+  "finding_count": 5,
+  "repo_inventory_context": {
+    "source": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "warning": "Inventory là metadata cả pinned Git tree; trạng thái scanned/traced không đồng nghĩa đã đọc ngữ nghĩa.",
+    "entries": 2890,
+    "status_counts": {
+      "inventoried": 548,
+      "traced": 333,
+      "scanned": 1899,
+      "read": 102,
+      "excluded": 8
+    },
+    "meaning": "Block này hoàn tất phần migrations tháng 07-08/2026 được giao; không có nghĩa toàn repo hay tháng khác đã được semantic review."
+  },
+  "files": [
+    {
+      "path": "supabase/migrations/20260714000000_extensions.sql",
+      "sha256": "d94ac7ceb52fcf7d936dd9388fec4f6bd2af2c387462d4b322c03fed6e055ec1",
+      "lines": 11,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-11"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+      "lines": 2597,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-900",
+        "901-1800",
+        "1801-2597"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260714000002_slot_capacity_guard.sql",
+      "sha256": "c728da4cfc7b7cb48a5f4a70e15cc4a224f68b7e2b516a126dc25f80a6a49094",
+      "lines": 73,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-73"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260714000003_idempotency_key.sql",
+      "sha256": "6b5893a5de1eae8dbbb6c98dc4b2e706f57a2d55a95565c87221e1099e3687cd",
+      "lines": 20,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-20"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260714000004_hot_query_indexes.sql",
+      "sha256": "9a7a73b16c0afadfeb8ef231cd79b1c932726f7c23d89dfc6681fae41d47ae79",
+      "lines": 26,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-26"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260714000005_idempotency_scope_and_reservation.sql",
+      "sha256": "801a5accb3f0d29845a001cb90af5adf34d65cfef7a45bcd6543e022c644c111",
+      "lines": 32,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-32"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260717000001_event_log_least_privilege.sql",
+      "sha256": "594feefc178afb4b7a324a293b5c88480719dcba7d321097f189fbfb5e655eff",
+      "lines": 40,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-40"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260717000002_atomic_queue_checkin.sql",
+      "sha256": "f298246ee03eabf660fd1c7ee8ad837c7d60c5a2244e58c07d3f25a40efd9156",
+      "lines": 105,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-105"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000001_care_episode_select_policy.sql",
+      "sha256": "e9c33519843970ff32f6de19eb5b7c6c46cc4679b958bef146ebd9351a4c14db",
+      "lines": 26,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-26"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000002_reference_lookup_select_policies.sql",
+      "sha256": "d95f8af5403709e4cd029dd3accaebdb174db1971514b0081301076a95cc1e48",
+      "lines": 47,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-47"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "lines": 309,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-309"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+      "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+      "lines": 263,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-263"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000005_workflow_kernel.sql",
+      "sha256": "3c8491a0c1624addddc7d0c13e6470305653089ba4f57cdea93066baa7278b7e",
+      "lines": 392,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-392"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000006_seed_node_catalogue.sql",
+      "sha256": "ba820b2b1e55bc490ff87f6cf3b4fdaa752fa870aae22fbcabfcf51698e3a880",
+      "lines": 147,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-147"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000007_pos_outbox.sql",
+      "sha256": "28fa706b9c58a3a411232943b98b6fe61520179be54fd8511dc41c992c3ab22b",
+      "lines": 64,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-64"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "sha256": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+      "lines": 73,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-73"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000009_block_budget_read.sql",
+      "sha256": "e828b7d3cda6ecf8df806b65ff4caebe8cfe99c94bfd55039316abd09a3b7159",
+      "lines": 28,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-28"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000010_patient_summary_tenant.sql",
+      "sha256": "9b8572746d1d8432d928bb8537b8fe83b4ac4633071c9315ee018b8316813e9f",
+      "lines": 58,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-58"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000011_clinical_form_catalogue.sql",
+      "sha256": "50127bbc2f24607997669f699ebea119c74eb5ed06127169dae7e113918f27fb",
+      "lines": 75,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-75"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000012_ultrasound_record_select.sql",
+      "sha256": "8af3a71cc1a9dac6db86e7f00c92a4d88959cc63aa0b288d159b67a11fede2e0",
+      "lines": 23,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-23"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "lines": 139,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-139"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000014_drop_clinic_id_default.sql",
+      "sha256": "f52cc36208f60fe988001d9305f90eef18d18ba81bd4f95ffdb68ed1807b8da0",
+      "lines": 177,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-177"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000015_patient_summary_security_invoker.sql",
+      "sha256": "c70dd06f5c27f8dd3bfd4bbed0d3119895e11fdfe12a5e6af00eeb027ef69ce1",
+      "lines": 20,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-20"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000016_payment_audit.sql",
+      "sha256": "9fb523f39b3318b6b064321eae1749381ef3a2d7fefd56b638ecd9ac68784ca8",
+      "lines": 102,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-102"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000017_quarantine_unapproved_clinical_forms.sql",
+      "sha256": "ec2098b8bd9aa863dce36cba0ca7fdb29eca0c42e0e859e898662a8aec8a6571",
+      "lines": 16,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-16"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260730000018_lab_review_idempotency.sql",
+      "sha256": "f3dc10456fee3484a76193a0dfff4e57a3584c12237c428be7748b3c99f7f33d",
+      "lines": 43,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-43"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260731000001_queue_number_per_clinic.sql",
+      "sha256": "f8464ab84359b4356cb61f8a363b35e5a1feaf777bf5885502d517d561fa9622",
+      "lines": 87,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-87"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260731000002_appointment_triggers_per_clinic.sql",
+      "sha256": "585737e66dba0270dfc96f2fd7bdf7dcdd69411b9e79c18d7f6fad6977a67842",
+      "lines": 122,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-122"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260731000003_visit_workflow_instantiation.sql",
+      "sha256": "33ada2d3f1af671e14b4f35f161a277e9d6872b564dace1d463b4a7a7a2e4535",
+      "lines": 247,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-247"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260801000001_service_to_node_map.sql",
+      "sha256": "0dab15c40324cb1d41cc482cba08fcfb4f72c7d071bef7ed52ffa99972e3fa61",
+      "lines": 112,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-112"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260801000002_order_services.sql",
+      "sha256": "5b95455c2949e2607c09d32e27fc2629e8ed30959fb5a9c42393b13471d33a87",
+      "lines": 215,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-215"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260801000003_adopt_prod_only_tables.sql",
+      "sha256": "07b5ecaa90ae9b493def14757f17c696d2c90dd6b9762a817595b4943fd1549b",
+      "lines": 154,
+      "ledger_status_at_start": "read",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-154"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260801000004_owner_feedback.sql",
+      "sha256": "37303e0fd3315a3f52286262ab38716f6f6e7c1fca9ff4ff7bc2fb7e8508e043",
+      "lines": 51,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-51"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260802000001_pharmacy_inventory.sql",
+      "sha256": "7831bde3f4eac8ca06cc58ef1077156e6d70386998f43a7f29591d2ee10d62b8",
+      "lines": 207,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-207"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260802000002_service_role_grants_late_tables.sql",
+      "sha256": "c10f6e1ae3c1a6304040c091731145823d141fdaa70ae804074d7757c13bcb4e",
+      "lines": 47,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-47"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000001_clinic_booking_policy.sql",
+      "sha256": "4989e65fe774550c89fb1ef7a7f82b66f05beaa3bf1632cac76dc9a15a634eef",
+      "lines": 238,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-238"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000002_booking_override.sql",
+      "sha256": "328de8733181c4e1237deccc106fa88cab33084743e4fdf3fddf7604c6bb67fb",
+      "lines": 271,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-271"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000003_visit_current_node.sql",
+      "sha256": "767ac9f7991207219d6f239c3eeecf2c7a8bda6bc0b6ce3ba819556264e56ed4",
+      "lines": 144,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-144"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000004_realtime_and_audit_scope.sql",
+      "sha256": "8b7d5adcff866983e9458a76fb0c799efe52dafbdd6fd0dac5cdb30b3ca0c543",
+      "lines": 206,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-206"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000005_measured_consultation_duration.sql",
+      "sha256": "bb9e1d3ea1effc01a9cfab673155e99b16b1cf5ef73df34ed11efdb6c599fa12",
+      "lines": 157,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-157"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000006_clinical_write_races.sql",
+      "sha256": "e0b864b499a3092b7c6a0701198f6fdc71fb0525a2586467070e5fd6f322b0d6",
+      "lines": 156,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-156"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000007_staff_identity_completeness.sql",
+      "sha256": "d32cdcc6ac192ea45773a6b16a3f7d009980fe54e4390ad1d0ac087a22cab971",
+      "lines": 187,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-187"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000008_unpublish_unwatched_realtime.sql",
+      "sha256": "7067027bb03db5af5a92702d557fbafddc5babbd29cd17f96abc8651b0b04aca",
+      "lines": 96,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-96"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000009_slot_override_minute_granularity.sql",
+      "sha256": "c438cf214eb8185022f26a063afc7c8069d1a33ad4b970fc61e6d77b6d355a57",
+      "lines": 269,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-269"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000010_attach_capacity_trigger.sql",
+      "sha256": "addb3fb516a3bb4b2bfa219d955e29d765070b8ec186a01bd9ffb938904e2896",
+      "lines": 168,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-168"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000011_standing_rules_and_clinic_hours.sql",
+      "sha256": "ef177178b6c901ea97f794d49edc926823beb4d7c87ee40ab3a91b5eadf0f412",
+      "lines": 251,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-251"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260803000012_pin_clinic_timezone.sql",
+      "sha256": "9a6ec9e164d77ac8ab32139798d2f2642321ad7a6909b8b8e469d9144fc3cf20",
+      "lines": 61,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-61"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000001_dispatch_rooms.sql",
+      "sha256": "e2274fe83deb99896afd63348874569037ec6592c6dde8e093c1a31f023294d0",
+      "lines": 171,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-171"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000002_dispatch_routes.sql",
+      "sha256": "3ee5bca6befaf4812a21e952bd3968b230635b1cddd3d273c1500173a158c5bb",
+      "lines": 206,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-206"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000003_dispatch_move.sql",
+      "sha256": "203b4b70aaf28111f619c8b6c13d0709650f20556fe9e0ebbf4e5789b00a2544",
+      "lines": 192,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-192"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000004_dispatch_move_fix.sql",
+      "sha256": "b4f892543c587ab548662949ff0d35f78d2b0106c218129414b672746848f0ab",
+      "lines": 149,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-149"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000005_dispatch_move_conflict.sql",
+      "sha256": "1e26830237bfe5593b870b3dbf6d403c1104649c5fddaa6f3c47bebae9354f61",
+      "lines": 143,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-143"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000006_move_closes_only_current.sql",
+      "sha256": "091ac24e413c691ee153357d98d2e3ac85fa59db1032d894672a29f075ea2339",
+      "lines": 211,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-211"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000007_clinical_sign_release.sql",
+      "sha256": "1716b9f9e57d4d68b2116409b5437025bec7dbab4b0ddcee4ee0c80488fad796",
+      "lines": 192,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-192"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000008_slot_hold.sql",
+      "sha256": "85fd27d3d2306b3d72eeeab77537e281b28e9f7e9f76b56f4ee06319f2c71351",
+      "lines": 116,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-116"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000009_f_unaccent_restorable.sql",
+      "sha256": "4294cec88762a4c5c2484e0850f2ac9830cbc5a9e171623074585481724dbfed",
+      "lines": 62,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-62"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000010_payment_replica_full.sql",
+      "sha256": "72e6f5435d5937f9117ba4664674dc17d720d9e5c006299219f02835cf4ec1cf",
+      "lines": 33,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-33"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000011_clinic_room_floor.sql",
+      "sha256": "9b459db4719ffcad724b136caad987db8732d52dd727f3374b82627883f69422",
+      "lines": 81,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-81"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000012_rooms_belong_to_a_location.sql",
+      "sha256": "9f2f0431836fbd508e915b96ab47571e783f72330b47c525eeb9fc4527c64485",
+      "lines": 84,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-84"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000013_room_serves_many_nodes.sql",
+      "sha256": "683da0f4a4820187c859b9fffd91e5ce9a1f78a77bad732acf6d571b274c4f04",
+      "lines": 290,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-290"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000014_gate_rule.sql",
+      "sha256": "a03f3653763b371e7c4512e12eb65c97e63b3f5cbd724508a1b73c3da7c304ec",
+      "lines": 185,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-185"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000015_staff_default_location.sql",
+      "sha256": "81cbf6966fa5a509efd439063361e507a9b690a444aea29e6adf67707dfd15ed",
+      "lines": 78,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-78"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000016_no_client_write_policies.sql",
+      "sha256": "e4429b1492027236fb0f511333aaa66112a40c4a6cb25fa1d497d000dfd3bb3e",
+      "lines": 58,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-58"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000017_biofeedback_services.sql",
+      "sha256": "7f8c1a1cce7fac5d7999ed7c4d14b6810dd267f908cce6fa5e9d8c343bb25fde",
+      "lines": 100,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-100"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000018_staff_node.sql",
+      "sha256": "ba12704c5c3399d9dac186e1db9f4bdd5ffb76d5115725e4d2d3ae00cc29560d",
+      "lines": 141,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-141"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000019_andrology_catalogue.sql",
+      "sha256": "0b7d75178b26c1c27f44b72e43b45c80dc20bb37a9549b2e32566748c4553337",
+      "lines": 198,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-198"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000020_patient_link_consent.sql",
+      "sha256": "7edb67e21e913b14d4fa02bc7f1aa5b26f6d8feb589b7e990b929a6686b7feb2",
+      "lines": 171,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-171"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260804000021_array_length_null_hole.sql",
+      "sha256": "ecb211c89c57417912f60293dec39a7df8c6487c14c34b7e1e9bf6003aa62f4c",
+      "lines": 103,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-103"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260805000001_v_audit_log.sql",
+      "sha256": "824f40d3a3552386775b6d48ff90488ca28fa0a5d93192b203f39d9d6024dc64",
+      "lines": 161,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-161"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260805000003_inventory_write_guards.sql",
+      "sha256": "66e84ac35cbd87d444c236ccaeba3b8623f305dfa32fb43df86ad68c7f74de90",
+      "lines": 276,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-276"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260805000004_service_type_form_code.sql",
+      "sha256": "75802c0ec71a353e12f6d835821f6acf2719388c704609d4a5ea194c3e347b4d",
+      "lines": 139,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-139"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260805000005_clinic_secret.sql",
+      "sha256": "f9f2bcad54e2ab91a20bcf1b718aebc13246bf5d836d0eab2136177f34557e5c",
+      "lines": 264,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-264"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260805000006_gate_rule_any_node.sql",
+      "sha256": "90be6535b7021bd67ea28bd99ede40c306b30c9a90fe5d6ef7d6436697b966d7",
+      "lines": 145,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-145"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260805000007_appointment_patient_slot_unique.sql",
+      "sha256": "e31e76d68b3dc64464f88795a18267a1d0c2c0e674aad6f5c45c750d71ffa159",
+      "lines": 74,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-74"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260806000001_notify_change_for_live_screens.sql",
+      "sha256": "466957ebfacb21286723ae6498263c166d61d0d022f04787d408880a257863cb",
+      "lines": 94,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-94"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260806000002_app_credential.sql",
+      "sha256": "8e68fd2af33dda7f6fd16426f34692280b96191507e017a46272ee6ae8191423",
+      "lines": 94,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-94"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260806000003_vai_man_hinh_phong_cho.sql",
+      "sha256": "f6f2091dc98f7d2966b8ddb3c4122631a848ad1e991958853adf25a48d02679b",
+      "lines": 73,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-73"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260806000004_luot_kham_do.sql",
+      "sha256": "52fbe9b209253dad04e5bdf773b4c8c14f9a725758d5a5182a06b9af7801d674",
+      "lines": 98,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-98"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260806000005_ho_so_nhan_su_day_du.sql",
+      "sha256": "12971181178578ab0d9c160c677d5199469582bd68d4e71c9e5d63b7b5d50093",
+      "lines": 87,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-87"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000001_ghe_vang_lai_tinh_ca_khach_den_muon.sql",
+      "sha256": "7a5a4e75295a128dcab749ff7cb8f1f1a0b825b8c789de010bdc8a129188f998",
+      "lines": 202,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-202"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000002_ket_qua_cuoc_goi_cskh.sql",
+      "sha256": "07cd08db08514ffdd56a71c7e5fa2613e467d4bb2242ce58ef624a20625a5bfa",
+      "lines": 67,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-67"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000003_luot_da_dong_thi_dung_yen.sql",
+      "sha256": "12237dcf379e6c0dab8c16009e7967ea9f44ed881559253bd045157c8199c18a",
+      "lines": 162,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-162"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000004_cap_phat_thuoc_mot_phan.sql",
+      "sha256": "4e2c389674b3d2f304d53c628b1a7de61033a444e9dafe8bbe5b9afbc37ed41a",
+      "lines": 198,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-198"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000005_nhac_tai_kham_hai_luot_goi.sql",
+      "sha256": "43d6df5e4227bb4aecdbd4031206cac4941e2dbf816e7f7e09321cf9e9fafc9e",
+      "lines": 227,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-227"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000006_thong_bao_goi_bo_phan.sql",
+      "sha256": "779ceddd6164aa048844b6567f762fe19755d73024886412061fe52fa61794ae",
+      "lines": 99,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-99"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000007_nam_dich_vu_kham.sql",
+      "sha256": "be128c83897995aa8becde1cdac1f613701b4f6aa2a853966986c4ef9ce6c707",
+      "lines": 62,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-62"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260807000008_go_co_so_trung_ten_phong_kham.sql",
+      "sha256": "1db070548a9af8aa485176a0f7a32d57a67709de2a90362f042e95030797706f",
+      "lines": 81,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-81"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260808000001_tuan_lich_truc_da_ap_dung.sql",
+      "sha256": "11ea1e00a595dff99d6dc34f1d36212806603a018b05f1628c7bd6c1770fd36c",
+      "lines": 89,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-89"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260808000002_hang_cho_xep_bac_si.sql",
+      "sha256": "f19ef2ead836e2edd0929a793dbc007d353bf4fa1e01137440ead2e851e788c2",
+      "lines": 131,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-131"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260808000003_luat_bac_si_bat_buoc.sql",
+      "sha256": "743cad87edbfc809e413eecc6c54cd947f0e34aa1040edfbf333bbc634518645",
+      "lines": 142,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-142"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000001_lich_truc_ai_lam_ai_phuc_vu.sql",
+      "sha256": "2643398c7f681567494c6c1014fa04d39723075bf15ddd564e3b93573403f2a3",
+      "lines": 110,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-110"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000002_vai_duoc_vao_tram.sql",
+      "sha256": "5c1a87ab07ef5fb46ac77dababb6728f1bc2d90e27ff439a3c3a026017c07af5",
+      "lines": 129,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-129"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000003_so_tuong_tac_cskh.sql",
+      "sha256": "a1edacbfc2d72e43934bd9855cd3be25413485d8a1f57a1de88bf509b103d980",
+      "lines": 116,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-116"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000004_ket_qua_goi_day_du.sql",
+      "sha256": "a10694522dce9ede7677766671dc8bfefd50a56e8fe5fb2604262fe693132a82",
+      "lines": 38,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-38"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000005_trang_thai_cskh_suy_ra.sql",
+      "sha256": "2a8058676cf9d96f5880f06fb2559a9c6627b0c675ee778c2e009ef890b6dda6",
+      "lines": 332,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-332"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000006_ly_do_huy_co_danh_muc.sql",
+      "sha256": "0e8bf79785a5900253bb068f2060f05acdda2e9b2b4d8ba2979e6039051ab465",
+      "lines": 77,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-77"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+      "sha256": "106a69f83750c17cb1bbf391ccbce9fe982a2155a976c6df927eb84a7bcfe517",
+      "lines": 132,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-132"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000008_tep_ket_qua.sql",
+      "sha256": "29be580cc5d1422e3ce2d5b71aaf5b328418f734fba2d76867be2da1b92ba903",
+      "lines": 94,
+      "ledger_status_at_start": "traced",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-94"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000009_realtime_cho_man_cskh.sql",
+      "sha256": "4b2542ffc068b235564b0f4c8e2e049e337ab97a057517ff211d72fe04c4221c",
+      "lines": 39,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-39"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260809000010_viec_qua_han_khong_bi_che.sql",
+      "sha256": "ebfd530da863e74ad8cd42a46fd5d7e9eba7163460b863f2d44a6fbbf901623a",
+      "lines": 194,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-194"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000001_cskh_tu_dien_ngay_tai_kham.sql",
+      "sha256": "30824564f37a7f76a911ae5b0769110205a50fec5a9b26023b8445f9887202f9",
+      "lines": 102,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-102"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000002_tuong_tac_gan_trang_thai.sql",
+      "sha256": "9ce5d15d50eb0e5193359fb95b754b7ed48a99d7bcb2f2bcf3bada1eb1a39ae6",
+      "lines": 34,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-34"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000003_khach_den_roi_thi_thoi_giuc_goi.sql",
+      "sha256": "fb0dad3b90e2502cc8ad4f12902a51f78b8b479ed8169a9b4eeeb048148f43bb",
+      "lines": 209,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-209"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000004_da_checkin_la_mot_trang_thai.sql",
+      "sha256": "a079ab52f3330f9a8572251dacd933f983d2729aa167b96d343a83384e140ffa",
+      "lines": 239,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-239"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000005_ly_do_huy_them_dat_trung.sql",
+      "sha256": "29e111a15f07e9d56b3954f082ebc092601d75515e22f88b8950e607f0a370ed",
+      "lines": 38,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-38"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000006_hen_goi_lai_co_gio.sql",
+      "sha256": "9a9246b1ebf26aad0d75eb16534d962f27df09ecd2056dccde2e82a2e599eea6",
+      "lines": 21,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-21"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000007_lich_hen_biet_lich_truoc_cua_no.sql",
+      "sha256": "a937e057327be493bd21ff00f647d6a55cd6c9e35e7ae0953965518c0340b1e3",
+      "lines": 73,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-73"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000008_viec_cskh_theo_tung_luot.sql",
+      "sha256": "a31e0e34e49d30db92bcbaaa5a72954602674f2bec9097f7731d7ef28c0a2c76",
+      "lines": 250,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-250"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260810000009_hoan_tac_mot_lan_cham.sql",
+      "sha256": "8c08b99634a194a6b14c9cf9fe3e46eed2a08bea437e5d1c307dfce52bccbfde",
+      "lines": 257,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-257"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260811000001_align_kq_chua_gui_timestamp.sql",
+      "sha256": "017ec3cf434462f78669b5861a634a0c0c059e850d68ed155a69e22f0b1c8a22",
+      "lines": 42,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-42"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql",
+      "sha256": "ce8920c006906dec461ae322336f6bc79ed7723b14f1e0a58c7e15163a6212c4",
+      "lines": 354,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-354"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260814000001_notify_cho_man_cskh_va_giu_cho.sql",
+      "sha256": "6c25582acdca50c4b52fca2d50b350c0de5271b2812bbef02661e2682477c3f8",
+      "lines": 79,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-79"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260814000002_lich_hen_nho_bac_si_da_go.sql",
+      "sha256": "e297c2e478fd6c59beb36fe247a978b7e6f74a971a647b28823fa19d625549f7",
+      "lines": 41,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-41"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260815000001_xoa_ca_thi_huy_han_lich.sql",
+      "sha256": "5492d4be5c51c3fc279b84e33f3329bc065ad7604a0002b9289069c432113033",
+      "lines": 47,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-47"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+      "sha256": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b",
+      "lines": 124,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-124"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260815000003_notify_event_log_cho_relay.sql",
+      "sha256": "9b12e22c6b04b14012059e8093de870a73e528949c04a8d6270f4f64e17dd137",
+      "lines": 18,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-18"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260817000001_ly_do_lam_lai.sql",
+      "sha256": "63a13376c34dec9df92db9c7de1d2c7a0fc752e26fe4b2b9af20da8052d74dc6",
+      "lines": 17,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-17"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260821000001_ba_ca_lam_viec.sql",
+      "sha256": "ffe46d86310693e69f80d0ee3c80f8236bdd0ddbf0913e829d3214605ded62fa",
+      "lines": 78,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-78"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    },
+    {
+      "path": "supabase/migrations/20260821000002_dem_ghe_ca_ngay_mot_lan.sql",
+      "sha256": "0a6ed1acad661475c5cef008eeaa9a5a6d7a212c4fc67fe99398a62ae070a80d",
+      "lines": 149,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-149"
+      ],
+      "notes": "Đọc hết file theo yêu cầu; chỉ phân tích tĩnh, không chạy migration/test."
+    }
+  ],
+  "reviewed_sql_tests": [
+    {
+      "path": "supabase/tests/nhieu_so_dien_thoai.sql",
+      "sha256": "b080dd0c819f37dff5c585effcbd2dca1df49524f026fb78c4f9300fefdc6c53",
+      "lines": 135,
+      "ranges": [
+        "1-135"
+      ],
+      "notes": "Đọc toàn file; test add/change-primary/delete/duplicate/format nhưng không UPDATE clinic_patient_id của số thêm."
+    },
+    {
+      "path": "supabase/tests/inventory_write_guards.sql",
+      "sha256": "26fa95443f12b19ef2fc996bfadffe79c03e42525c0ed66691b0d7a6b75e0d38",
+      "lines": 185,
+      "ranges": [
+        "1-185"
+      ],
+      "notes": "Đọc toàn file; test tồn, append-only, actor, clinic boundary; không có ca ADJUST bắt reason."
+    },
+    {
+      "path": "supabase/tests/cap_phat_thuoc_mot_phan.sql",
+      "sha256": "f0f40150f7c3d791cc289a0d0cffeb14b41e604f212335ac0bfc97a0010eccc9",
+      "lines": 179,
+      "ranges": [
+        "1-179"
+      ],
+      "notes": "Đọc toàn file; test cấp hợp lệ, vượt kê, thiếu actor sau khi đã cấp; không thử metadata đơn lẻ khi dispensed_qty=0."
+    },
+    {
+      "path": "supabase/tests/nhac_tai_kham_hai_luot_goi.sql",
+      "sha256": "c63454690c336e7b2feba7b933ef4f50fdb843a77eb98987ea1a6b84bb989b1d",
+      "lines": 171,
+      "ranges": [
+        "1-171"
+      ],
+      "notes": "Đọc toàn file; test DA_GOI thiếu kết quả và luồng hoàn chỉnh; không thử dấu vết một phần khi còn CHO_GOI."
+    },
+    {
+      "path": "supabase/tests/public_function_acl.sql",
+      "sha256": "5af1a2d87eda9b037971aba86740b3bf13f8a10b1fd597bcc08da02df5b397c1",
+      "lines": 142,
+      "ranges": [
+        "1-142"
+      ],
+      "notes": "Đọc toàn file; assertion ghi rõ authenticated không được EXECUTE hai hàm dispatch và service_role phải được EXECUTE; không chạy test."
+    },
+    {
+      "path": "supabase/tests/tenant_scoped_rls.sql",
+      "sha256": "d9e56b39281ce8364c94602c2466ddc814027f72bdc01b5bfecd4fccf2076383",
+      "lines": 509,
+      "ranges": [
+        "128-134"
+      ],
+      "notes": "Chỉ đọc đoạn inventory liệt kê các bảng tenant mới; không coi comment này là assertion về FK clinic của hàng con."
+    },
+    {
+      "path": "supabase/tests/nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+      "sha256": "ad71f6d7de6f00f6209485ffbdb85f607400096c48e26b5e6bc7b18327dd0c5d",
+      "lines": 143,
+      "ranges": [
+        "97-129"
+      ],
+      "notes": "Chỉ đọc các đoạn tạo và dùng tệp CSKH; không thử các tổ hợp một phần của bằng chứng đã gửi."
+    }
+  ],
+  "commands": [
+    "Python đọc text từ /tmp/clinicai-audit-main-956ba4f2 để lấy SHA-256, line count và đoạn có số dòng; không thực thi SQL.",
+    "rg -n trên migrations July/August để tìm GRANT/REVOKE và các tham chiếu hai helper dispatch; không thấy REVOKE hai helper trong tranche.",
+    "rg -n trên supabase/tests cho tên bảng/trường bằng chứng để đối chiếu test coverage; tìm kiếm tĩnh, không chạy test.",
+    "Đọc docs/kiem-toan-2026-10-19/PHAT-HIEN.json chỉ để xác nhận ID hiện có và quan hệ tránh trùng; không sửa canonical findings."
+  ],
+  "controls_and_negative_evidence": [
+    "Mỗi migration trong danh sách files có sha256/line count tính từ bytes của snapshot pinned; mọi migration được đọc hết. Baseline 20260714000001 được đọc qua ba đoạn liên tục 1-900, 901-1800, 1801-end.",
+    "Các migration dispatch 20260804000004/05 lần lượt thay predicate ON CONFLICT rồi sửa để khớp predicate unique index; đây là correction nằm trong tranche theo thứ tự timestamp, không báo như lỗi còn mở. Không chạy migration để xác nhận.",
+    "20260804000016 thu hồi quyền DML bảng authenticated và bỏ write policies được liệt kê; riêng cleanup này không thu hồi EXECUTE của hai helper dispatch, nên candidate ACL chỉ mô tả tranche và cần đối chiếu phần sau.",
+    "20260815000002 mở SELECT authenticated theo current_clinic_ids() cho patient_sdt_them. Đây là bổ sung vào phạm vi contact patient của canonical SEC-018, không tạo finding duplicate SEC-018; candidate CAND-R9-MIG-04 nói riêng về tenant-key giữa hàng con và bệnh nhân cha.",
+    "Test nhiều số không thử chuyển clinic_patient_id; test kho không thử ADJUST không reason; test cấp thuốc/tái khám không thử marker một phần trong trạng thái chưa xong. Test public_function_acl.sql ghi rõ contract authenticated bị từ chối nhưng không được chạy.",
+    "20260821000001 cập nhật mọi key hiện có trong settings.hours thành 07:00-22:00. Comment nói muốn bao trọn ba ca; chưa có kiểm thử SQL hoặc xác nhận owner về ngày đóng cửa/giờ riêng từng ngày, nên giữ thành câu hỏi policy, không nâng thành finding chắc chắn.",
+    "20260806000004 chỉ buộc reason khác rỗng khi visit.status=INCOMPLETE; migration thêm incomplete_at và incomplete_by nhưng không ghép hai trường này vào CHECK. Chưa rõ timestamp/actor có phải bắt buộc theo policy, nên không báo là lỗi."
+  ],
+  "unreviewed_or_limits": [
+    "Không đọc source implementation/API để xác nhận mọi caller/service write path; không đọc migrations ngoài 202607/202608 theo phạm vi được giao.",
+    "Không chạy SQL tests, migration replay, PostgreSQL truth table, ACL query, RLS SET ROLE hay PostgREST request.",
+    "Không kiểm tra DB, staging, production, secrets, PHI, sự tồn tại của hàng sai hoặc sự cố thực tế.",
+    "Candidate dispatch chỉ xác nhận GRANT trong source slice; test SQL là contract tĩnh, không chứng minh effective ACL cuối hoặc runtime.",
+    "Các câu hỏi về bản nháp metadata, giờ đóng/mở từng ngày, và yêu cầu actor/timestamp cho lượt INCOMPLETE cần owner/product xác nhận.",
+    "Canonical IDs đã đối chiếu; SEC-018 được nêu như scope extension, không bị nhân đôi. Các candidate IDs mới đều bắt đầu CAND-R9-MIG và không trùng PHAT-HIEN.json."
+  ]
+}

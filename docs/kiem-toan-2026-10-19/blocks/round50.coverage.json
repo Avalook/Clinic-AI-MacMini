@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "round": 50,
+  "report_version": "v0.73",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_scoped_semantic_review",
+  "scope": [
+    "roster version audit tables and trigger ordering",
+    "all identified roster-row writers compared with apply/reapply snapshot path",
+    "history reconstruction and sequential tests"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Recorded source ranges are line-checked and file SHA-256 checked. Tests were read-not-run. No ClinicAI application/runtime/API/DB/provider/VPS/production/secrets/PHI was accessed.",
+  "result": {
+    "new_findings": [
+      "OPS-013"
+    ],
+    "extended_findings": [],
+    "deduplicated": [
+      "The concern is specifically ordering between an uncommitted row delta and a concurrent whole-week snapshot; it is distinct from actor attribution, RLS and normal sequential replay coverage.",
+      "The application may still display the current roster correctly from work_roster; OPS-013 is about the reconstructed history/latest-history view, and no current production mismatch is claimed."
+    ],
+    "held_candidates": [],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/clinicai/services/lich_truc_phien_ban_service.py",
+      "sha256": "7ebe67de67031da181020a045dfa92306dbbb3bc0eb19924e40d23e65e3d34ca",
+      "lines": 487,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 487
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: version reconstruction and response projection; tests not run."
+    },
+    {
+      "path": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+      "sha256": "80a38c4f99f206cc2572b96e275a09972efc140c235d0712d68def287c42585b",
+      "lines": 201,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 201
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: audit tables, txid fields, row triggers and whole-week snapshot trigger."
+    },
+    {
+      "path": "src/tests/unit/test_lich_truc_phien_ban.py",
+      "sha256": "19fd2221f48b1b3feaf740f58c22d5cd860f098458d8858c583924601113a15c",
+      "lines": 324,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 324
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: pure sequential reconstruction and diff tests; not run."
+    }
+  ],
+  "targeted_traces": [
+    {
+      "path": "src/clinicai/services/config_service.py",
+      "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+      "lines": 1954,
+      "read_ranges": [
+        {
+          "start": 187,
+          "end": 245
+        },
+        {
+          "start": 1027,
+          "end": 1088
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: roster row writer transaction and station lock. Targeted read: apply/reapply transaction and roster_week snapshot trigger."
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "read_ranges": [
+        {
+          "start": 1625,
+          "end": 1645
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: appointment auto-assignment roster writer uses transaction helper."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "lines": 1132,
+      "read_ranges": [
+        {
+          "start": 372,
+          "end": 395
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: roster-history endpoint and authorization guard."
+    },
+    {
+      "path": "src/tests/services/test_lich_truc_phien_ban_db.py",
+      "sha256": "5c244b78292edaec3860f0eb5dbaae9e06539da09f25c55b12fd83019a311123",
+      "lines": 388,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 130
+        },
+        {
+          "start": 225,
+          "end": 388
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: fixtures and sequential apply/add/change/remove/reapply history test; not run. Targeted read: remaining actor, move-week, auto-assignment, invalid-input and route tests; not run."
+    }
+  ],
+  "reviewer_note": "Round 50 is a scoped static concurrency review of roster history, not runtime proof or a full roster audit. The possible order inversion is based on PostgreSQL xid semantics and the absence of a shared clinic/week lock in the reviewed writer paths.",
+  "supporting_references": [
+    {
+      "title": "PostgreSQL 17 — Transactions and Identifiers",
+      "url": "https://www.postgresql.org/docs/17/transaction-id.html",
+      "supports": "Non-virtual xids are assigned sequentially when a transaction first writes; lower xids mean an earlier first write, not an earlier commit."
+    }
+  ]
+}

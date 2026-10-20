@@ -1,0 +1,19 @@
+{
+  "path": "/Users/quangdang/Projects/ClinicAI-Backups/TRANG-THAI.txt",
+  "exists": true,
+  "content_not_exported": true,
+  "mtime": "2026-10-19T18:30:05.923253+07:00",
+  "contains_normal_status": true,
+  "contains_error_indicator": false,
+  "vps_timer_metadata": {
+    "observed_at": "2026-10-19T18:30:00+07:00",
+    "night_timer_active": true,
+    "night_last_trigger": "2026-10-19T02:15:23+07:00",
+    "night_service_result": "success",
+    "night_service_exit": 0,
+    "quarter_hour_timer_active": true,
+    "quarter_hour_last_trigger": "2026-10-19T18:30:03+07:00",
+    "quarter_hour_service_state": "activating",
+    "limitation": "15-minute backup was in progress; success/exit0 fields do not prove that active run completed. No backup payload or manifest opened; no restore tested."
+  }
+}

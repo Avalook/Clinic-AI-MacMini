@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_tenant_contact_slice",
+  "scope": [
+    "Focused static audit of tenant/RLS and PostgREST access for patient_contact_channel and patient_next_of_kin.",
+    "Compared the explicit administrative-role intent to current_clinic_ids(), authenticated table grant, public PostgREST schema exposure, gateway route, role enum, and existing tenant/role test coverage.",
+    "Selected nearby RLS/grant/RPC migrations and SQL tests to identify controls and avoid duplicating SEC-001..017.",
+    "No database, HTTP, production, secret or PHI access; no source/migration/test changes."
+  ],
+  "finding_ids": [
+    "SEC-018"
+  ],
+  "finding_count": 1,
+  "repo_inventory_context": {
+    "source": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "warning": "Inventory is whole pinned Git tree; scanned is structural, not manual reading.",
+    "entries": 2890,
+    "status_counts": {
+      "read": 22,
+      "traced": 319,
+      "scanned": 1993,
+      "inventoried": 548,
+      "excluded": 8
+    },
+    "meaning": "This block is one focused slice. It does not mean all repository code or all migrations have been read."
+  },
+  "files": [
+    {
+      "path": "supabase/migrations/20260801000003_adopt_prod_only_tables.sql",
+      "sha256": "07b5ecaa90ae9b493def14757f17c696d2c90dd6b9762a817595b4943fd1549b",
+      "lines": 154,
+      "ledger_status_at_start": "scanned",
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-154"
+      ],
+      "notes": "Target migration read end-to-end. Inspected definitions, RLS, policy, comment and explicit SELECT grants for contact/kin and adjacent visit_amendment."
+    },
+    {
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "lines": 309,
+      "ledger_status_at_start": "traced",
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "235-267"
+      ],
+      "notes": "Read current_clinic_ids/current_clinic_roles plus EXECUTE ACLs. Did not read full migration here; no assumption about whole migration effective state."
+    },
+    {
+      "path": "docker-compose.supabase.yml",
+      "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+      "lines": 253,
+      "ledger_status_at_start": "not_ledgered_in_selected_set",
+      "status": "targeted_read",
+      "ranges": [
+        "152-171"
+      ],
+      "notes": "PostgREST image, schema and JWT configuration only."
+    },
+    {
+      "path": "caddy/Caddyfile",
+      "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "lines": 256,
+      "ledger_status_at_start": "not_ledgered_in_selected_set",
+      "status": "targeted_read",
+      "ranges": [
+        "191-194"
+      ],
+      "notes": "Direct /rest/v1/* proxy path only."
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "lines": 1120,
+      "ledger_status_at_start": "not_ledgered_in_selected_set",
+      "status": "targeted_read",
+      "ranges": [
+        "56-78"
+      ],
+      "notes": "Role enum presence only; does not prove every role currently has active membership in production."
+    },
+    {
+      "path": "src/clinicai/services/xuat_hoa_don_service.py",
+      "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145",
+      "lines": 459,
+      "ledger_status_at_start": "not_ledgered_in_selected_set",
+      "status": "targeted_read",
+      "ranges": [
+        "103-120"
+      ],
+      "notes": "Invoice projection reads contact email in clinic/payment-cycle scope; used as a migration-preservation control."
+    },
+    {
+      "path": "supabase/tests/tenant_scoped_rls.sql",
+      "sha256": "d9e56b39281ce8364c94602c2466ddc814027f72bdc01b5bfecd4fccf2076383",
+      "lines": 509,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read",
+      "ranges": [
+        "388-429"
+      ],
+      "notes": "Authenticated synthetic tenant checks on patient, patient_summary and clinic_location; no contact/kin assertion."
+    },
+    {
+      "path": "supabase/tests/role_scoped_clinical_read.sql",
+      "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+      "lines": 205,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read",
+      "ranges": [
+        "98-150"
+      ],
+      "notes": "Doctor/reception clinical read tests; no contact/kin role test."
+    },
+    {
+      "path": "supabase/tests/multi_tenant_foundation.sql",
+      "sha256": "c4d559d49f698d4f8e352f90534b0b0811e35fcd67587de1c1a446141a18ffae",
+      "lines": 436,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read",
+      "ranges": [
+        "251-255"
+      ],
+      "notes": "Read adoption note stating the three tables were added to tenant coverage; this is not an assertion over row access or role isolation."
+    },
+    {
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "sha256": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+      "lines": 73,
+      "ledger_status_at_start": "traced",
+      "status": "targeted_read",
+      "ranges": [
+        "30-63"
+      ],
+      "notes": "Schema USAGE and policy-driven SELECT grant convention. Target tables are created later and have explicit grants in target migration."
+    },
+    {
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "lines": 139,
+      "ledger_status_at_start": "traced",
+      "status": "targeted_read",
+      "ranges": [
+        "1-26"
+      ],
+      "notes": "Read migration scope/explicit role-related decisions; not a claim that contact/kin are included."
+    },
+    {
+      "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+      "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+      "lines": 117,
+      "ledger_status_at_start": "traced",
+      "status": "targeted_read",
+      "ranges": [
+        "76-115"
+      ],
+      "notes": "Inspected restrictive policies list; contact/kin are not named. This is contextual and not a new finding."
+    },
+    {
+      "path": "supabase/migrations/20260804000007_clinical_sign_release.sql",
+      "sha256": "1716b9f9e57d4d68b2116409b5437025bec7dbab4b0ddcee4ee0c80488fad796",
+      "lines": 192,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read_prior_context",
+      "ranges": [
+        "114-180"
+      ],
+      "notes": "Previously inspected adjacent release/status view and clinical_release RLS; not part of the new finding."
+    },
+    {
+      "path": "supabase/migrations/20260804000020_patient_link_consent.sql",
+      "sha256": "7edb67e21e913b14d4fa02bc7f1aa5b26f6d8feb589b7e990b929a6686b7feb2",
+      "lines": 171,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read_prior_context",
+      "ranges": [
+        "1-171"
+      ],
+      "notes": "Previously reviewed patient-link/consent policies and grants for this context; no new cross-tenant finding added."
+    },
+    {
+      "path": "supabase/migrations/20260730000011_clinical_form_catalogue.sql",
+      "sha256": "50127bbc2f24607997669f699ebea119c74eb5ed06127169dae7e113918f27fb",
+      "lines": 75,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read_prior_context",
+      "ranges": [
+        "1-75"
+      ],
+      "notes": "Catalogue metadata and clinic RLS/grant context; no new finding."
+    },
+    {
+      "path": "supabase/migrations/20260730000012_ultrasound_record_select.sql",
+      "sha256": "8af3a71cc1a9dac6db86e7f00c92a4d88959cc63aa0b288d159b67a11fede2e0",
+      "lines": 23,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read_prior_context",
+      "ranges": [
+        "1-23"
+      ],
+      "notes": "Base ultrasound select policy; later role/assignment tightening was traced to SEC-011 and is not duplicated."
+    },
+    {
+      "path": "supabase/migrations/20260730000017_quarantine_unapproved_clinical_forms.sql",
+      "sha256": "ec2098b8bd9aa863dce36cba0ca7fdb29eca0c42e0e859e898662a8aec8a6571",
+      "lines": 16,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read_prior_context",
+      "ranges": [
+        "1-16"
+      ],
+      "notes": "Form quarantine only; no new grant/RLS finding."
+    },
+    {
+      "path": "supabase/migrations/20260802000002_service_role_grants_late_tables.sql",
+      "sha256": "c10f6e1ae3c1a6304040c091731145823d141fdaa70ae804074d7757c13bcb4e",
+      "lines": 47,
+      "ledger_status_at_start": "scanned",
+      "status": "targeted_read",
+      "ranges": [
+        "1-47"
+      ],
+      "notes": "Reconciles late-table service_role ALL grants; does not revoke the authenticated SELECT grants under review."
+    },
+    {
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+      "lines": 75,
+      "ledger_status_at_start": "traced",
+      "status": "targeted_read",
+      "ranges": [
+        "1-24"
+      ],
+      "notes": "Hardened ACL migration revokes/defaults EXECUTE on functions only and explicitly regrants RLS helper functions; no table revoke appears in this range."
+    }
+  ],
+  "commands": [
+    "python3: read docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json to confirm initial ledger status for selected files.",
+    "sha256sum and Python hashlib on source snapshot files to confirm content hashes.",
+    "nl -ba ... | sed -n ... for line-numbered source excerpts listed in SEC-018.",
+    "rg -n \"patient_contact_channel|patient_next_of_kin\" docs/kiem-toan-2026-10-19; search found no prior SEC-018 and confirmed SEC-005 is a different staff-data finding.",
+    "rg -n -i \"patient_contact_channel|patient_next_of_kin\" /tmp/clinicai-audit-main-956ba4f2/supabase/migrations /tmp/clinicai-audit-main-956ba4f2/supabase/tests /tmp/clinicai-audit-main-956ba4f2/src/clinicai; result: explicit target-table RLS/GRANT definitions in 20260801000003, service_role repair comment in 20260802000002, test adoption comments, generic cleanup-table lists, and invoice email query; no later explicit target-table policy/GRANT/REVOKE statement found.",
+    "rg -n -i \"ALTER DEFAULT PRIVILEGES|GRANT .*ON ALL TABLES|REVOKE .*ON ALL TABLES\" /tmp/clinicai-audit-main-956ba4f2/supabase/migrations; result: no grant/revoke ON ALL TABLES statement; the default-privilege match is in 20261019100000_harden_public_function_acl.sql and applies to FUNCTIONS only."
+  ],
+  "controls_and_negative_evidence": [
+    "Both target tables have ENABLE ROW LEVEL SECURITY and SELECT-only explicit grants in target migration.",
+    "Both policies include clinic_id IN current_clinic_ids(); helper is membership/clinic-scoped, so this finding does not establish cross-tenant read.",
+    "Two-clinic test currently covers patient, patient_summary and clinic_location but not target tables.",
+    "Role test covers clinical_record and clinical_form_response (plus patient for reception) but not target tables.",
+    "Migration role-boundary description scopes its allow/deny rule to clinical_record and clinical_form_response; it is not evidence of role approval for all operational PII.",
+    "Invoice projection has a separate clinic-scoped use of patient email/contact data and must be regression-tested if access is narrowed.",
+    "Target-name search across all supabase/migrations found no later explicit GRANT/REVOKE/policy change for either table; 20260802000002 repairs service_role privileges only. This static search does not establish the final effective ACL in a running database.",
+    "Repository migrations search found no GRANT/REVOKE ON ALL TABLES; the later ALTER DEFAULT PRIVILEGES statement changes function EXECUTE defaults, not table SELECT privileges."
+  ],
+  "unreviewed_or_limits": [
+    "No full-repository semantic read; ledger's scanned/inventoried states are not manual review.",
+    "No database migration replay, effective pg_class/pg_policy/ACL inspection, SET ROLE probe, or PostgREST request.",
+    "No staging or production access, no secrets/PHI.",
+    "Business-owner intent for exact roles permitted to see contact/kin is not independently confirmed.",
+    "No claim of cross-tenant access, exploitation, or an actual privacy incident.",
+    "Related identifiers DB-001..017 (including SEC-005 and SEC-017) were checked to avoid duplication; SEC-018 remains a candidate for root aggregation and severity calibration.",
+    "Static text search for later ACL updates is not a catalog query and cannot rule out owner/BYPASSRLS behavior, grants applied outside the checked migration tree, restore/deploy drift, or runtime PostgREST differences."
+  ]
+}

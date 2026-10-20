@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_booking_lifecycle_slice",
+  "scope": [
+    "Đọc phần vòng đời chưa được đọc ở booking_service.py và caller/test trực tiếp cho cancel, reschedule, no-show, undo check-in và decline/reassign.",
+    "Tập trung state transition, transaction read/update, validation/cancel workflow, UI affordance và status seat semantics; loại trừ đường create/capacity/slot hold đã có coverage round12.",
+    "Đối chiếu PHAT-HIEN.json và findings/block liên quan để không lặp CLIN-005/010/011/024/026/028/029, FE-012/015, API-001, SEC-007.",
+    "Chỉ snapshot pinned exact-main; không chạy test/runtime/DB/VPS, không PHI/secrets, không sửa source/migration/ledger/STATE/HTML/handoff."
+  ],
+  "identity_check": {
+    "manifest": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "snapshot_has_git_metadata": false,
+    "note": "Các SHA-256 dưới đây tính trực tiếp từ snapshot. Lát này không khẳng định đã đọc toàn bộ BookingService hoặc toàn bộ caller/test tree."
+  },
+  "finding_ids": ["CAND-BOOK-LIFE-001"],
+  "finding_count": 1,
+  "cross_check": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json (read-only)",
+    "nearby_existing_ids": ["CLIN-005", "CLIN-010", "CLIN-011", "CLIN-024", "CLIN-026", "CLIN-028", "CLIN-029", "FE-012", "FE-015", "API-001", "SEC-007"],
+    "result": "Không tìm thấy entry hiện hành trùng trigger no_show trước giờ lịch. CLIN-005 là race check-in/reschedule; CLIN-010/011 là reschedule state/service/audit; CLIN-024 là race unique; CLIN-026 là timezone input. Không tách queue_number cũ khi reschedule CHECKED_IN thành candidate riêng vì cùng bề mặt/trigger đã thuộc CLIN-010."
+  },
+  "files": [
+    {"path":"src/clinicai/services/booking_service.py","sha256":"583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1","lines":2998,"ledger_status_at_start":"scanned; round12 targeted create-only","read_level":"targeted_semantic_read","ranges":["140-440","838-1208","1209-1324","1746-1910","2102-2146","2765-2867","2870-2952"],"notes":"Lifecycle state table, apply_action transaction, quick reschedule/check-in, patch builder, CAS update/check-in helper, cancel/undo visit workflow and emitted events. Not a full-file read; create/capacity span 474-834 was excluded per task."},
+    {"path":"src/clinicai/api/v1/routers/booking.py","sha256":"776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e","lines":904,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["63-125","718-744","747-827"],"notes":"ActionRequest, standard action route and dedicated quick-reschedule/service routes; other routes excluded."},
+    {"path":"src/dashboard/app/api/appointments/route.ts","sha256":"46f7dedccaf35018a23ac27a76de0731f4e8a730d55eff3873afa382e42e81bc","lines":310,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["212-309"],"notes":"PATCH action allowlist, authorization handoff and serialized request body. No full-file claim."},
+    {"path":"src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx","sha256":"b164e6621ad09d07269bd325f676a12bce4a6412fd7ae38f2eb979500d58bb0a","lines":1157,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["253-365","615-660","961-1052"],"notes":"Day/status gate, API call helper, and check-in/no-show controls only."},
+    {"path":"src/clinicai/core/trang_thai_lich.py","sha256":"9afaa4050f0e936fe819da4e8ff89ae298c1c36b4daafc48da405375da9df88b","lines":140,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["23-29"],"notes":"Read dead status and seat effect."},
+    {"path":"src/clinicai/services/week_appointments_service.py","sha256":"f1ef9400d2de467c032a5b7a0a6b450a4f710184749d0d112ddfb8ed2b1d0e96","lines":446,"ledger_status_at_start":"scanned; read full in round12","read_level":"reference_read","ranges":["55-68"],"notes":"Reused prior full semantic read; confirms dead statuses hidden in weekly grid."},
+    {"path":"src/tests/test_booking_service.py","sha256":"79cfb11305c82bbb1386c1ee3e3e8f9050ffb392a41a23dc845249120eeafbd0","lines":1095,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["42-120","580-710","1040-1095"],"notes":"Transitions/no-show state test, cancel and reschedule patch tests, cancel/undo workflow unit tests. No future-time no-show test. Not full-file read."},
+    {"path":"src/tests/services/test_check_in_lai_sau_hoan_tac_db.py","sha256":"22510b9e43cc30131ea107fe10d99a66bf3dd618de8342076241e11e7762b671","lines":141,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["1-141"],"notes":"Reviewed undo then re-check-in lifecycle test; no no-show time behavior. Not executed."},
+    {"path":"src/tests/services/test_hoan_tac_check_in_db.py","sha256":"4243a4a32583d75e391edb5a3be403a8713dae1a988320056199230bcd4003f4","lines":146,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["1-130"],"notes":"Reviewed undo/check-in side-effect guards; remainder not read in this slice. Not executed."},
+    {"path":"src/tests/services/test_goi_xac_nhan_lich_dat_ho_db.py","sha256":"7b33d60af9960973ebcd8f1f762a24325b05bca0ab256517d3510f3c2b46796a","lines":287,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["220-260"],"notes":"Checked dead appointment workflow effects for NO_SHOW; not a time eligibility test. Not executed."}
+  ],
+  "non_findings_and_controls": [
+    "Cancellation requires an approved reason code, uses an atomic status-conditional update, logs the actor, and closes any still-open visit/workflow in the same transaction. No separate cancel candidate confirmed in the inspected path.",
+    "undo_checkin is role/capability gated, refuses after downstream clinical work, returns appointment to CONFIRMED, marks only open visit incomplete, and cancels waiting/called queue entries. Existing tests cover undo and re-check-in; no new issue confirmed.",
+    "Declined appointment recovery uses the reassign transition from DOCTOR_DECLINED to CONFIRMED. Legacy decline is not an active transition in the state table; no new candidate confirmed in inspected callers.",
+    "Concurrent status actions are compare-and-set by status in _update / check_in_appointment; existing race finding CLIN-005 was not restated.",
+    "Reschedule of CHECKED_IN retaining a stale queue/service relationship is already on the CLIN-010 surface; no separate finding created from that overlapping trigger."
+  ],
+  "explicit_limitations": [
+    "BookingService and all route/UI/test files were read selectively; there is no full-module or repository-wide coverage claim.",
+    "Database migrations and runtime behavior were not executed or inspected as part of this lifecycle slice.",
+    "The product's no-show grace period is not specified in the inspected boundary, so the finding does not invent a duration."
+  ]
+}

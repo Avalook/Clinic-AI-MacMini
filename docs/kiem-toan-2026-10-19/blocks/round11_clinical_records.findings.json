@@ -1,0 +1,141 @@
+[
+  {
+    "id": "CAND-CLIN-REC-001",
+    "title": "Quyền tải tệp kết quả mở được toàn bộ hồ sơ khám",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_record_overbroad_authorization",
+    "summary": "GET /cskh/ho-so-kham/{appointment_id} dùng alias _KET_QUA_DOC_GUARD của _TEP_TAI_LEN_GUARD. cua_quyen cho qua nếu có bất kỳ một quyền nào; danh sách này gồm reception.checkin.perform và crm.manage, đồng thời moi_phong=True chấp nhận quyền cấp ở một phòng bất kỳ. HoSoKhamService.doc chỉ giới hạn dữ liệu theo clinic_id, rồi trả một bản tổng hợp có thông tin nhận diện/liên hệ, form_data lâm sàng, kết quả chỉ định, đơn thuốc và giá trị xét nghiệm. Route không có cửa đọc bệnh án riêng, bộ lọc cơ sở hoặc kiểm tra bệnh nhân được phân công.",
+    "trigger": "Nhân viên đã xác thực có một trong các capability của _TEP_TAI_LEN_GUARD (ví dụ reception.checkin.perform được cấp theo phòng, hoặc crm.manage) gọi endpoint với appointment_id hợp lệ trong cùng clinic. Giao diện CSKH hiện cũng gọi endpoint này từ lịch sử khám để mở hồ sơ và lấy visit_id cho luồng in.",
+    "impact": "Nhân viên quầy/CRM có thể xem nội dung khám nhạy cảm của lượt cùng clinic: phiếu có form_data, kết luận/ghi chú kết quả dịch vụ, đơn thuốc, giá trị xét nghiệm và một phần thông tin cá nhân như ngày sinh, điện thoại, địa chỉ. Vì các truy vấn chi tiết chỉ lọc clinic_id, khả năng đọc có thể vượt cơ sở nếu appointment_id thuộc cơ sở khác cùng clinic. Static trace không chứng minh truy cập chéo clinic, đọc byte của tệp đính kèm, capability đang được cấp cho tài khoản production, hoặc hành vi đã xảy ra.",
+    "recommendation": "Tách quyền đọc hồ sơ lâm sàng khỏi quyền tải/đọc tệp và quyền tiếp đón/CRM. Áp dụng kiểm tra đối tượng ở server theo clinic, cơ sở và assignment/quan hệ điều trị đúng chính sách. Nếu CSKH cần xem hoặc in thông tin đưa cho bệnh nhân, cung cấp projection riêng với danh sách trường được duyệt; không đưa form_data, nội dung nội bộ hoặc toàn bộ kết quả/đơn thuốc qua cùng quyền xem tệp.",
+    "acceptance": "Có test API trực tiếp cho GET /cskh/ho-so-kham/{appointment_id}: actor chỉ có reception.checkin.perform (kể cả quyền theo phòng) hoặc crm.manage không nhận nội dung lâm sàng; người có quyền đọc hồ sơ hợp lệ và assignment phù hợp đọc được trong đúng scope. Có test appointment khác cơ sở/cùng clinic và khác clinic theo chính sách. Nếu CSKH còn được in, test DTO CSKH chỉ chứa các trường đã duyệt và không rò nội dung nội bộ. Test phải đi qua FastAPI dependency/route, không chỉ gọi HoSoKhamService.doc trực tiếp.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 673,
+        "end_line": 679,
+        "detail": "_TEP_TAI_LEN_GUARD gồm crm.manage, clinical.record.write, result.form.fill, reception.checkin.perform và bật moi_phong=True."
+      },
+      {
+        "path": "src/clinicai/permissions/cua_quyen.py",
+        "line": 27,
+        "end_line": 49,
+        "detail": "Dependency cho qua nếu bất kỳ capability nào trong danh sách hợp lệ; moi_phong=True còn kiểm quyền theo phòng."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 774,
+        "end_line": 798,
+        "detail": "_KET_QUA_DOC_GUARD là alias của guard tải tệp; route hồ sơ dùng dependency này và gọi HoSoKhamService.doc, không có guard đọc bệnh án riêng."
+      },
+      {
+        "path": "src/clinicai/services/ho_so_kham_service.py",
+        "line": 40,
+        "end_line": 72,
+        "detail": "Service lấy clinic_id từ identity và truy vấn appointment theo appointment_id + clinic_id; không kiểm location hoặc assignment."
+      },
+      {
+        "path": "src/clinicai/services/ho_so_kham_service.py",
+        "line": 105,
+        "end_line": 171,
+        "detail": "Bản tổng hợp đọc consultation outcomes, clinical_form_response.form_data, phiếu v5, kết quả chỉ định và prescriptions theo visit/clinic."
+      },
+      {
+        "path": "src/clinicai/services/ho_so_kham_service.py",
+        "line": 193,
+        "end_line": 223,
+        "detail": "Đọc giá trị/range/cờ xét nghiệm và trả toàn bộ các nhóm dữ liệu tổng hợp."
+      },
+      {
+        "path": "src/clinicai/services/luot_kham_chung.py",
+        "line": 145,
+        "end_line": 153,
+        "detail": "Chính sách nội bộ mô tả lễ tân/trưởng ca làm với trạng thái; CLINICAL_READ_ROLES chỉ gồm bác sĩ, TKYK, bác sĩ siêu âm và điều dưỡng siêu âm. Đây là đối chiếu chính sách, không phải guard của route đang xét."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 159,
+        "end_line": 169,
+        "detail": "Đường đọc tệp có tập vai riêng (có CSKH/lễ tân/quản lý) và không đồng nhất với quyền đọc toàn bộ chart; nội dung tệp được service kiểm tra riêng."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/customers/ThanhLuotKham.tsx",
+        "line": 68,
+        "end_line": 92,
+        "detail": "Màn lịch sử CSKH gọi route hồ sơ cho lượt đã check-in/hoàn tất và dùng visit_id để mở các luồng in."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+        "line": 547,
+        "end_line": 573,
+        "detail": "Modal hồ sơ tải route trên để hiển thị hồ sơ khám."
+      },
+      {
+        "path": "src/dashboard/app/api/cskh/ho-so-kham/[appointmentId]/route.ts",
+        "line": 1,
+        "end_line": 16,
+        "detail": "BFF chỉ proxy request; quyền và dữ liệu do FastAPI quyết định."
+      },
+      {
+        "path": "src/tests/unit/test_ho_so_kham.py",
+        "line": 62,
+        "end_line": 85,
+        "detail": "Unit test kiểm clinic_id cho từng câu query và shape dữ liệu, nhưng gọi service trực tiếp nên không kiểm authorization của HTTP route."
+      },
+      {
+        "path": "src/tests/services/test_doc_luot_v5_sinh_hieu_buoi_db.py",
+        "line": 76,
+        "end_line": 87,
+        "detail": "Test gọi service trực tiếp với ca.le_tan để kiểm dữ liệu sinh hiệu trong hồ sơ CSKH; không đi qua route guard."
+      },
+      {
+        "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+        "line": 1174,
+        "end_line": 1181,
+        "detail": "Test guard chung từ chối PARTNER cho endpoint nội dung tệp; không kiểm guard chart với reception/CRM và role lâm sàng."
+      }
+    ],
+    "related_tests": [
+      "src/tests/unit/test_ho_so_kham.py:62-85 (clinic scoping/shape, không kiểm route authorization)",
+      "src/tests/services/test_doc_luot_v5_sinh_hieu_buoi_db.py:76-87 (service trực tiếp với danh tính lễ tân)",
+      "src/tests/services/test_full_chi_dinh_slice_ab_db.py:1174-1181 (từ chối PARTNER trên đường tệp, không phải chart route)"
+    ],
+    "related_findings": [
+      {
+        "id": "SEC-011",
+        "relationship": "SEC-011 tập trung vào thiếu patient-assignment cho các đường đọc bằng capability lâm sàng và một số đường tệp; candidate này là việc chart endpoint nhận cả capability tiếp đón/CRM và trả dữ liệu tổng hợp."
+      },
+      {
+        "id": "SEC-019",
+        "relationship": "SEC-019 là quyền đọc trực tiếp PostgREST trên hai bảng lịch sử/ghi chú; candidate này độc lập ở endpoint FastAPI tổng hợp chart."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_exact_main_snapshot",
+      "result": "Call chain route → dependency → service xác nhận guard dạng OR có quyền tiếp đón/CRM, còn service trả nhiều trường lâm sàng và chỉ lọc theo clinic_id. Caller UI CSKH tồn tại.",
+      "limitations": "Không chạy HTTP, test hoặc DB; không kiểm grants thực tế, danh tính production, policy nghiệp vụ mới nhất, hay dữ liệu thật. Cần xác nhận ma trận trường CSKH được phép xem với chủ nghiệp vụ. Không kết luận cross-clinic hoặc việc đã có người khai thác."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Đối chiếu snapshot exact-main và SHA-256 nội dung file với MAIN-PHAM-VI.json; không chạy runtime.",
+      "production_verified": false
+    },
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/cskh.py": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "src/clinicai/permissions/cua_quyen.py": "2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9",
+      "src/clinicai/services/ho_so_kham_service.py": "523487883d6338dcba63b2b3b3a5e04cc166d1eb3620fb3510413d9e51a0fc5c",
+      "src/clinicai/services/luot_kham_chung.py": "c4910e4fabb1c7870286e19aec6c282341c019f12de13e03a4a39702bb9d6eb3",
+      "src/clinicai/services/tep_ket_qua_service.py": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "src/dashboard/app/(dashboard)/customers/ThanhLuotKham.tsx": "34a399ac862a9056dbcb7f8147d9bce562c3338905bfbb6fbfef7cf8095a96f7",
+      "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx": "3ae2ce525a1d9e75ad9b49f4dd10020a568088f6cb278ecd0911e7d3f178b5b8",
+      "src/dashboard/app/api/cskh/ho-so-kham/[appointmentId]/route.ts": "9f99d890b4e663006eab0ed3c74f1bae9fa99b5f1045052117c20ab6fc0f295c",
+      "src/tests/unit/test_ho_so_kham.py": "bba7d8d83c2a924b8da4466c85afdb9e2c9a79ca8e90cea903c06f7d862887e1",
+      "src/tests/services/test_doc_luot_v5_sinh_hieu_buoi_db.py": "3c456cb6a73228cb7e085a1bd843fc1122674ed33abafacd40d4dcc4100ebb15",
+      "src/tests/services/test_full_chi_dinh_slice_ab_db.py": "e331aec7a70d56a43901cfa2e7ae2c3639091c5c2db7b968ab36aa8555b5c064"
+    }
+  }
+]

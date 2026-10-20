@@ -1,0 +1,30 @@
+{
+  "id": "SEC-001",
+  "title": "",
+  "severity": "HIGH",
+  "evidence_level": "confirmed_static",
+  "category": "",
+  "summary": "",
+  "trigger": "",
+  "impact": "",
+  "evidence": [
+    {
+      "path": "",
+      "line": 1,
+      "end_line": 1,
+      "detail": ""
+    }
+  ],
+  "validation": {
+    "method": "static_trace",
+    "command": null,
+    "result": "",
+    "limitations": ""
+  },
+  "recommendation": "",
+  "acceptance": "",
+  "alignment": [],
+  "related_tests": [],
+  "source_hashes": {},
+  "status": "open"
+}

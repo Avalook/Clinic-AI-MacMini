@@ -1,0 +1,721 @@
+{
+  "schema_version": 1,
+  "audit": "round20_queue_recall_reminders_clinical_results_cleanup",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "static_read_only_cross_layer_trace",
+  "scope": [
+    "appointment intake and queue service ownership/state",
+    "recall call outcomes and self-reminder list contract",
+    "result-file watch/return, Andrology and ultrasound service writes",
+    "old destructive cleanup versus current selective cleanup and migration graph",
+    "ultrasound UI mount and BFF/backend route contract; held because no caller enables showSono"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "16 files were read in full. Other files have exact targeted ranges and SHA excerpts. Agent-suggested adjacent tests were inspected but not run. No ClinicAI application, DB, API, provider, production, secret or patient-data validation occurred in this round.",
+  "held_observations": [
+    "SONO-UI-CONTRACT-001",
+    "CLEANUP-SCHEMA-001"
+  ],
+  "files": [
+    {
+      "path": "scripts/don-prod-truoc-ban-giao.sh",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 57,
+          "end": 80,
+          "purpose": "Old full-wipe wrapper stops writers before SQL and restores services on failure."
+        },
+        {
+          "start": 1,
+          "end": 104,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "d88f8851b33b796d4ece305aa6062c96636623428a4d73d45c80c2f0e87bc482",
+      "line_count": 104
+    },
+    {
+      "path": "scripts/don-prod-truoc-ban-giao.sql",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 73,
+          "end": 125,
+          "purpose": "Delete list and fail-closed FK graph preflight."
+        },
+        {
+          "start": 1,
+          "end": 262,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "4ce937aa6ecaa6c081774fdc0534e11a2168053de5f3845741e60e4869892139",
+      "line_count": 262
+    },
+    {
+      "path": "scripts/don-truoc-moc.sh",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 171,
+          "purpose": "Full-file read of current selective cleanup helper; shared routine differs from old wipe."
+        }
+      ],
+      "sha256": "00f23736d36ebb3e037d9c887fee875e7ce1e0ce0bdc739eea4c7e2ad5898367",
+      "line_count": 171
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/day_noi.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 147,
+          "end": 158,
+          "purpose": "Endpoint chỉ bọc danh sách service trong trường items, không có total/has_more/cursor."
+        },
+        {
+          "start": 147,
+          "end": 158,
+          "purpose": "Endpoint returns items only."
+        }
+      ],
+      "sha256": "abc9bfe70c55cce7b78fc2c7d80cccc6ceedb2fec79f1492b54ec25cdeb16917",
+      "line_count": 191
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ultrasound.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 69,
+          "end": 84,
+          "purpose": "API measurements hiện gọi service save_measurements trực tiếp."
+        }
+      ],
+      "sha256": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb",
+      "line_count": 250
+    },
+    {
+      "path": "src/clinicai/services/andrology_service.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 196,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "8c1e236b29dbf67c7237fada8c18e5e80be37c47ddd90f48a23ec0d48c8ee37e",
+      "line_count": 196,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/bao_ket_qua_ve.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 95,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "ffc07d074d6f49a35bd7cea3a395470fcf3921cb144c062c7003021dd8681bcf",
+      "line_count": 95,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/canh_gac_kho_tep.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 259,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "76c4e28566643889af2e99f5781778b3022258a7d23d7d4ca5835c4776a936ad",
+      "line_count": 259,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/cskh_service.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 276,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "cd448e67acbd7aa0764b7e37bbf5e73d4521f0e832fbe0f7328237c609f0ec58",
+      "line_count": 276,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/hang_cho.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 214,
+          "end": 235,
+          "purpose": "Pending roster can provide room/node fallback."
+        },
+        {
+          "start": 1,
+          "end": 338,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "104600e5b4e50e56a3b0d5f77a4d603ac5683d0073072063cf29aad15ac992b0",
+      "line_count": 338
+    },
+    {
+      "path": "src/clinicai/services/lich_tai_kham_service.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 163,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "4fccdbe21cdb711494387cdfeb30a247f6b563a4e21a743016530d1507194884",
+      "line_count": 163,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/nhac_viec_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 88,
+          "end": 106,
+          "purpose": "Truy vấn cá nhân LIMIT 100; cảnh báo được gọi nhưng response vẫn là list."
+        },
+        {
+          "start": 88,
+          "end": 106,
+          "purpose": "Reminder LIMIT and logging."
+        },
+        {
+          "start": 1,
+          "end": 136,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "3e97e8815fdbd139a6e2eb3c6d3c3d9a92c8b49cbcf1a83e2d74cc7db59a2304",
+      "line_count": 136
+    },
+    {
+      "path": "src/clinicai/services/nhan_luot.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 227,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "2a1a91a07fea231ed980dc3d20701b56cb3188a136552b261f330a2510dc8b9b",
+      "line_count": 227,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/nhan_trang_thai_dieu_phoi.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 150,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "8f68fdcb84d4f0bc23d8db6241c85f889599d2ce02ec5f3fd2aeaa86fe64f30c",
+      "line_count": 150,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/queue_rows.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 75,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "8aa210072d52b8a47c46a4f3ca2744ba4fee18c86794534f234a43668aa11177",
+      "line_count": 75,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/recall_job_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 282,
+          "end": 300,
+          "purpose": "Nhánh UPDATE không khớp trả thành công cho mọi trạng thái đã đóng, không ghi CSKH log."
+        },
+        {
+          "start": 282,
+          "end": 300,
+          "purpose": "Closed-state response before CSKH insert branch."
+        }
+      ],
+      "sha256": "03d5a04f6bc9d60601381c1ae1441b635fef10ab2cc1a4abe51dde9c39ad3f7b",
+      "line_count": 358
+    },
+    {
+      "path": "src/clinicai/services/recall_service.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 173,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "7b39372bc193fd8b4d35c34a1343479e814631cad3b7e9c93f5ee3ad00de043f",
+      "line_count": 173,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/tiep_don_service.py",
+      "prior_status": "scanned",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 484,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "d3fc5e1b9f93a08cad0c490ab9ae595c126a8d97cc74469fd9b704e41741894c",
+      "line_count": 484,
+      "status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true
+    },
+    {
+      "path": "src/clinicai/services/ultrasound_board_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 217,
+          "end": 238,
+          "purpose": "Khóa tình cờ chỉ phát sinh khi work_item active còn assigned_to IS NULL."
+        },
+        {
+          "start": 217,
+          "end": 238,
+          "purpose": "Conditional work item assignment lock."
+        }
+      ],
+      "sha256": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e",
+      "line_count": 601
+    },
+    {
+      "path": "src/clinicai/services/ultrasound_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 151,
+          "end": 172,
+          "purpose": "Đọc trạng thái visit để kiểm sửa được nhưng không khóa visit bằng FOR UPDATE."
+        },
+        {
+          "start": 199,
+          "end": 209,
+          "purpose": "Đọc findings snapshot từ ultrasound_record mà không row lock hoặc revision."
+        },
+        {
+          "start": 236,
+          "end": 255,
+          "purpose": "Merge snapshot trong Python rồi UPDATE toàn bộ cột JSON findings."
+        },
+        {
+          "start": 269,
+          "end": 288,
+          "purpose": "ON CONFLICT cũng overwrite findings bằng EXCLUDED snapshot."
+        },
+        {
+          "start": 151,
+          "end": 172,
+          "purpose": "No row lock on visit; writable-state check only."
+        },
+        {
+          "start": 199,
+          "end": 209,
+          "purpose": "Unprotected ultrasound row read."
+        },
+        {
+          "start": 236,
+          "end": 255,
+          "purpose": "Merge stale JSON then overwrite entire column."
+        },
+        {
+          "start": 269,
+          "end": 288,
+          "purpose": "Conflict branch overwrites with EXCLUDED snapshot."
+        },
+        {
+          "start": 1,
+          "end": 340,
+          "purpose": "Full-file read in round 20; outcome summarized in round20-summary.md."
+        }
+      ],
+      "sha256": "c4befc1184bb96f169eda38963513c89e053f9226fd67eb9cce1c546545caf6a",
+      "line_count": 340
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 44,
+          "end": 58,
+          "purpose": "Client nạp items một lần và lưu nguyên mảng; không đọc metadata trang."
+        },
+        {
+          "start": 129,
+          "end": 144,
+          "purpose": "UI chỉ map mảng hiện có; không báo cắt hoặc có trang tiếp."
+        },
+        {
+          "start": 44,
+          "end": 58,
+          "purpose": "Single page client load."
+        },
+        {
+          "start": 129,
+          "end": 144,
+          "purpose": "No UI overflow state."
+        }
+      ],
+      "sha256": "5b22bc871cfe0929a963f5d6cfa90aa0c73fc8a17618f58d63b35f476bf36b82",
+      "line_count": 147
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 65,
+          "end": 83,
+          "purpose": "Client chỉ kiểm res.ok; mọi 2xx đều làm router.refresh mà không đọc outcome payload."
+        },
+        {
+          "start": 65,
+          "end": 83,
+          "purpose": "Client ignores successful stale-state payload."
+        }
+      ],
+      "sha256": "71298887d8069be66af7e6fcccb48cf083a1754838ca1938be67ab19347cf4e8",
+      "line_count": 215
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 298,
+          "end": 324,
+          "purpose": "showSono mặc định false; prop contract và role intent."
+        },
+        {
+          "start": 1407,
+          "end": 1415,
+          "purpose": "Component chỉ render khi showSono truthy."
+        }
+      ],
+      "sha256": "16aab719c694ab504ccc385243f92e5723b8a597e0085b85473f7f2bf9683da3",
+      "line_count": 1832
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/SonoBiometry.tsx",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 37,
+          "end": 76,
+          "purpose": "Component đọc và ghi generic /api/ultrasound."
+        }
+      ],
+      "sha256": "f15d6407146c779d561ba5cf4bfc36e7665b0ca81b3a617eb953eca040feb087",
+      "line_count": 182
+    },
+    {
+      "path": "src/dashboard/app/api/nhac-viec/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 19,
+          "end": 26,
+          "purpose": "BFF chuyển tiếp đúng danh sách theo khách hoặc cá nhân, không có phân trang."
+        },
+        {
+          "start": 19,
+          "end": 26,
+          "purpose": "BFF forwards list without page metadata."
+        }
+      ],
+      "sha256": "2439cca36340be3a9374b85b33ab63ba650873a0586f44310d7fc610dcbd85be",
+      "line_count": 44
+    },
+    {
+      "path": "src/dashboard/app/api/sono/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 80,
+          "purpose": "Đối chiếu BFF sono riêng; targeted route trace."
+        }
+      ],
+      "sha256": "c8de3847b7c35ad50cbd281fabaef66c329d649b0cc8813564052eb117009adb",
+      "line_count": 113
+    },
+    {
+      "path": "src/dashboard/app/api/ultrasound/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 19,
+          "end": 60,
+          "purpose": "BFF GET mặc định queue, POST vào ultrasound/draft."
+        }
+      ],
+      "sha256": "79da8760384e212d4237fbe7066939cd5733e7d2bf6f74fc412279545d87a134",
+      "line_count": 60
+    },
+    {
+      "path": "src/dashboard/tests/clinical-ultrasound-ui-boundary.test.mts",
+      "status": "traced",
+      "prior_status": "inventoried",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 120,
+          "purpose": "UI boundary tests; không chứng minh component được mount ở màn live."
+        }
+      ],
+      "sha256": "ba39a02da7cf60e01d54a037d3da34bd823ef2e7532b89c63398862c007def2c",
+      "line_count": 128
+    },
+    {
+      "path": "src/tests/services/test_day_noi_nhac_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 260,
+          "purpose": "Reminder service DB tests; no volume fixture beyond the cap."
+        }
+      ],
+      "sha256": "0b7caff0f8aab7797b7067418e763c54df722ded9bc8a822196ba92824b78c3b",
+      "line_count": 285
+    },
+    {
+      "path": "src/tests/services/test_hanh_trinh_trang_thai_hien_tai_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 400,
+          "end": 424,
+          "purpose": "One ultrasound write in workflow test; no concurrent writer."
+        }
+      ],
+      "sha256": "99bfcbf4f9a22b921e6317daf5120a40519bc8d2416cff20edf97a5e70b9decc",
+      "line_count": 424
+    },
+    {
+      "path": "src/tests/test_clinical_data_integrity.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 225,
+          "end": 315,
+          "purpose": "Ownership guards; không có two-writer lost-update test."
+        }
+      ],
+      "sha256": "ec21cb3355595d59e8a764d66563e57c9e78ce0dc7241c542d75942ba0673f81",
+      "line_count": 829
+    },
+    {
+      "path": "src/tests/unit/test_cua_ngo_ghi_moi.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 769,
+          "end": 797,
+          "purpose": "CSKH log happy path và replay; không kiểm trigger race."
+        }
+      ],
+      "sha256": "c13f0d30251c09a4553c3ed5e2ec524ad9064fc637a27c529cab2050e7a80243",
+      "line_count": 1059
+    },
+    {
+      "path": "src/tests/unit/test_recall_callback_consistency.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 126,
+          "end": 175,
+          "purpose": "Recall callback/unit behavior; không interleave appointment trigger."
+        }
+      ],
+      "sha256": "addd33884cad34997e78e262a3bea452e3c074115ca701723d4095cccb961857",
+      "line_count": 321
+    },
+    {
+      "path": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 81,
+          "end": 104,
+          "purpose": "Lịch hẹn phù hợp đóng recall CHO_GOI thành KHONG_CAN và đóng chuông liên quan."
+        },
+        {
+          "start": 81,
+          "end": 104,
+          "purpose": "Appointment trigger auto-closes pending recall."
+        }
+      ],
+      "sha256": "95297610d660c3e5fbc954871c96924116a12e2b68cf2939af0ea25a196872c8",
+      "line_count": 332
+    },
+    {
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 43,
+          "end": 54,
+          "purpose": "Payment child table FK to payment_cycle."
+        },
+        {
+          "start": 224,
+          "end": 250,
+          "purpose": "Receipt image child table FK to payment_cycle."
+        }
+      ],
+      "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+      "line_count": 619
+    },
+    {
+      "path": "supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 88,
+          "end": 115,
+          "purpose": "Current selective cleanup includes the new payment child tables."
+        }
+      ],
+      "sha256": "1f8263f33ce159d6c5360f1e811cc0ebbf43b39b59621bf2864896f6d4daa0e5",
+      "line_count": 388
+    }
+  ]
+}

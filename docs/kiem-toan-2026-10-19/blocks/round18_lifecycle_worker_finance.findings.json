@@ -1,0 +1,740 @@
+[
+  {
+    "id": "INF-022",
+    "title": "Dead-letter event và timer chưa có khôi phục theo từng bản ghi trong ứng dụng",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "worker_dead_letter_recovery",
+    "summary": "Khi callback event hết lượt, event_delivery chuyển DEAD và có thể chặn version mới hơn của cùng aggregate; timer có thể chuyển CHET. Ops hiện trả số lượng theo consumer và health tổng hợp. Event có actor được gửi thông báo theo vai, còn timer chỉ báo khi chi_tiet.nguoi_goi có giá trị; các tín hiệu này không cung cấp màn xem lỗi của từng delivery, giao người phụ trách, hay thao tác retry/reconcile an toàn. Lệnh replay chỉ dựng projection và không thay đổi event_delivery.",
+    "trigger": "Một callback event hết retry hoặc một timer hết retry/không có handler; nhân viên nhận được thông báo nếu điều kiện actor/nguoi_goi được đáp ứng, rồi cần xác định và khôi phục đúng hàng đợi.",
+    "impact": "Event DEAD cũ có thể chặn các sự kiện sau của cùng đối tượng; timer CHET có thể làm lời nhắc không chạy. Trong các route vận hành và replay đã rà không có hành động phục hồi theo bản ghi, nên việc khôi phục phải đi qua kỹ thuật hoặc quy trình ngoài ứng dụng. Đây là thiếu sót về khả năng xử lý, không phải thiếu mọi cảnh báo hay bằng chứng đang có sự cố production.",
+    "recommendation": "Tạo hàng đợi xử lý theo clinic với event/timer đã làm sạch thông tin, consumer/loại việc, số lần thử, lỗi gần nhất, tuổi, đối tượng bị chặn, owner và trạng thái acknowledged. Chỉ cho retry/replay sau khi có guard idempotency, fencing và audit thao tác; tách projection rebuild khỏi giao lại tác vụ.",
+    "acceptance": "Tạo event DEAD và timer CHET trong DB dùng một lần; người có quyền xem đúng bản ghi và nguyên nhân, giao owner, sửa điều kiện, retry an toàn; xác nhận event kế tiếp chỉ chạy sau khi event cũ hoàn tất; tenant khác không đọc/điều khiển được; mọi thao tác có audit.",
+    "validation": {
+      "method": "static_worker_timer_dead_letter_to_ops_and_replay_trace_on_pinned_main",
+      "command": null,
+      "result": "Exact-main trace confirms event/timer terminal state and aggregate Ops/health views. Existing event DEAD notifications are role-level and conditional; timer alerting requires nguoi_goi. Projection replay deliberately does not touch event_delivery. The reviewed Ops and timer paths expose no per-record retry or assignment action.",
+      "limitations": "No DB, API, UI, retry, fault-injection or production test was run. The repository may be complemented by external runbooks or direct operator procedures. Event notification exists when actor_staff_id is present; timer notification exists when chi_tiet.nguoi_goi is present. Finding concerns in-product row-level ownership and safe recovery."
+    },
+    "related_tests": [
+      {
+        "path": "src/tests/services/test_event_worker_db.py",
+        "scope": "Confirms callback failure reaches DEAD and increments an aggregate consumer count; does not test row-level recovery."
+      },
+      {
+        "path": "src/tests/services/test_hen_gio_db.py",
+        "scope": "Confirms stale lease returns to CHO; does not test CHET operator management."
+      },
+      {
+        "path": "src/tests/test_health_su_kien.py",
+        "scope": "Asserts aggregate health counters produce reasons; does not test recovery actions."
+      }
+    ],
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 18 exact-main review. Existing alerts and aggregate counters are acknowledged; the finding is the missing per-record in-product recovery path.",
+      "production_verified": false,
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/health.py",
+          "line": 68,
+          "end_line": 101,
+          "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+          "excerpt": "68: async def do_su_kien(conn: asyncpg.Connection) -> dict[str, Any]:\n69:     \"\"\"Số đếm sức khoẻ người đưa tin — dùng CHUNG cho điểm đo và bộ canh gác\n70:     (`services/canh_gac.py`): hai nơi đo một cách.\"\"\"\n71:     r = await conn.fetchrow(\n72:         \"\"\"\n73:         SELECT\n74:           count(*) FILTER (WHERE status IN ('PENDING', 'RETRY')) AS dang_cho,\n75:           count(*) FILTER (WHERE\n76:             (status IN ('PENDING', 'RETRY')\n77:               AND coalesce(next_attempt_at, created_at)\n78:                   < now() - make_interval(mins => $1))\n79:             OR (status = 'IN_PROGRESS'\n80:               AND lease_expires_at < now() - make_interval(mins => $1)))\n81:             AS tre_giao,\n82:           count(*) FILTER (WHERE status IN ('PENDING', 'RETRY', 'IN_PROGRESS')\n83:             AND created_at < now() - make_interval(mins => $2)) AS ton_lau,\n84:           count(*) FILTER (WHERE status = 'DEAD'\n85:             AND created_at > now() - interval '24 hours') AS chet_24h\n86:           FROM event_delivery\n87:         \"\"\",\n88:         TRE_GIAO_PHUT,\n89:         TON_LAU_PHUT,\n90:     )\n91:     h = await conn.fetchrow(\n92:         \"\"\"\n93:         SELECT\n94:           count(*) FILTER (WHERE\n95:             (trang_thai = 'CHO' AND den_gio < now() - make_interval(mins => $1))\n96:             OR (trang_thai = 'DANG_LAM'\n97:               AND thue_den < now() - make_interval(mins => $1)))\n98:             AS hen_gio_tre,\n99:           count(*) FILTER (WHERE trang_thai = 'CHET'\n100:             AND den_gio > now() - interval '24 hours') AS hen_gio_chet_24h\n101:           FROM hen_gio",
+          "detail": "Health counts aged DEAD/CHET and overdue work in aggregate; it does not expose individual records."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ops.py",
+          "line": 112,
+          "end_line": 126,
+          "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+          "excerpt": "112:         rows = await conn.fetch(\n113:             \"SELECT consumer, cho_lam, chet, dang_lam,\"\n114:             \" EXTRACT(EPOCH FROM tuoi_dong_cu_nhat)::int AS cho_lau_giay\"\n115:             \"  FROM v_event_delivery_suc_khoe ORDER BY consumer\"\n116:         )\n117:         tong_su_kien = await conn.fetchval(\"SELECT count(*) FROM domain_event\")\n118:     ben_nhan = [dict(r) for r in rows]\n119:     return {\n120:         \"ben_nhan\": ben_nhan,\n121:         \"tong_su_kien\": tong_su_kien,\n122:         # Một cờ để Uptime Kuma hỏi mà không phải hiểu từng con số.\n123:         \"on\": all(\n124:             (b[\"chet\"] or 0) == 0 and (b[\"cho_lau_giay\"] or 0) < 300 for b in ben_nhan\n125:         ),\n126:     }",
+          "detail": "The event operations endpoint returns counts grouped by consumer, not delivery rows or retry actions."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ops.py",
+          "line": 132,
+          "end_line": 165,
+          "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+          "excerpt": "132: @router.get(\"/ops/loi\")\n133: async def ds_loi(\n134:     response: Response,\n135:     chi_mo: bool = Query(default=False),\n136:     _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),\n137:     pool: asyncpg.Pool = Depends(get_db_pool),\n138: ) -> dict[str, object]:\n139:     \"\"\"Các KIỂU lỗi đã gom (api / worker / web), mới nhất trước. Không dữ liệu\n140:     khách — thông điệp đã qua bộ che (services/kho_loi.py).\"\"\"\n141:     response.headers[\"Cache-Control\"] = \"no-store\"\n142:     return {\"loi\": await kho_loi.danh_sach(pool, chi_mo=chi_mo)}\n143: \n144: \n145: class DoiTrangThaiLoi(BaseModel):\n146:     trang_thai: str\n147: \n148: \n149: @router.post(\"/ops/loi/{loi_id}/trang-thai\")\n150: async def doi_trang_thai_loi(\n151:     loi_id: UUID,\n152:     body: DoiTrangThaiLoi,\n153:     identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),\n154:     pool: asyncpg.Pool = Depends(get_db_pool),\n155: ) -> dict[str, object]:\n156:     \"\"\"Đánh dấu MOI → DA_BIET / DA_SUA / BO_QUA (đã sửa mà tái diễn thì tự mở lại).\"\"\"\n157:     if body.trang_thai not in kho_loi.TRANG_THAI:\n158:         raise ValidationError(\"Trạng thái lỗi không hợp lệ.\")\n159:     ok = await kho_loi.doi_trang_thai(\n160:         pool,\n161:         loi_id=str(loi_id),\n162:         trang_thai=body.trang_thai,\n163:         staff_id=identity.staff_id,\n164:     )\n165:     if not ok:",
+          "detail": "The separate error endpoint groups scrubbed error types and changes acknowledgement state; it does not reset an event delivery."
+        },
+        {
+          "path": "src/clinicai/events/hen_gio.py",
+          "line": 145,
+          "end_line": 190,
+          "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+          "excerpt": "145:     xu_ly = _BO_XU_LY.get(cai_hen.loai)\n146:     if xu_ly is None:\n147:         # Loại hẹn không ai nhận: dừng có tiếng, đừng nuốt.\n148:         await pool.execute(\n149:             \"UPDATE hen_gio SET trang_thai = 'CHET',\"\n150:             \"       loi_gan_nhat = 'khong co ai xu ly loai hen nay'\"\n151:             \" WHERE id = $1::uuid\",\n152:             cai_hen.id,\n153:         )\n154:         logger.error(\"hen_gio_khong_co_nguoi_xu_ly\", loai=cai_hen.loai)\n155:         return True\n156: \n157:     try:\n158:         async with pool.acquire() as conn, conn.transaction():\n159:             da_lam = await xu_ly(conn, cai_hen)\n160:             await conn.execute(\n161:                 \"UPDATE hen_gio SET trang_thai = $2, lam_luc = now(),\"\n162:                 \"       thue_den = NULL, ket_qua = $3\"\n163:                 \" WHERE id = $1::uuid\",\n164:                 cai_hen.id,\n165:                 \"XONG\" if da_lam else \"BO_QUA\",\n166:                 \"da_lam\" if da_lam else \"het_can\",\n167:             )\n168:     except Exception as loi:  # noqa: BLE001 — mọi lỗi thành thử lại hoặc chết\n169:         het_luot = cai_hen.so_lan_thu >= SO_LAN_THU_TOI_DA\n170:         await pool.execute(\n171:             \"UPDATE hen_gio\"\n172:             \"   SET trang_thai = $2,\"\n173:             \"       den_gio = CASE WHEN $2 = 'CHO'\"\n174:             \"                      THEN now() + make_interval(secs => $3)\"\n175:             \"                      ELSE den_gio END,\"\n176:             # CHET không mang lam_luc — ràng buộc hen_gio_xong_co_gio chỉ\n177:             # cho XONG/BO_QUA có giờ làm.\n178:             \"       thue_den = NULL, loi_gan_nhat = $4\"\n179:             \" WHERE id = $1::uuid\",\n180:             cai_hen.id,\n181:             \"CHET\" if het_luot else \"CHO\",\n182:             60.0 * cai_hen.so_lan_thu,\n183:             str(loi)[:2000],\n184:         )\n185:         logger.warning(\n186:             \"hen_gio_hong\", loai=cai_hen.loai, chet=het_luot, loi=str(loi)[:200]\n187:         )\n188:         if het_luot:\n189:             await _bao_nguoi_truc_khi_chet(pool, cai_hen)\n190:     return True",
+          "detail": "Missing handler or exhausted callback attempts can leave a timer CHET; alerting is attempted only on the exhausted-error branch."
+        },
+        {
+          "path": "src/clinicai/events/hen_gio.py",
+          "line": 193,
+          "end_line": 224,
+          "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+          "excerpt": "193: async def _bao_nguoi_truc_khi_chet(pool: asyncpg.Pool, cai_hen: HenDenHan) -> None:\n194:     \"\"\"Một lời nhắc đã hẹn KHÔNG BAO GIỜ tới được (nhóm 6 — trách nhiệm không\n195:     rơi): réo trưởng ca + quản lý. Cần người gọi (`chi_tiet.nguoi_goi`) vì\n196:     `thong_bao` bắt buộc; không có thì chỉ còn log. Nuốt lỗi.\"\"\"\n197:     nguoi_goi = cai_hen.chi_tiet.get(\"nguoi_goi\")\n198:     if not nguoi_goi:\n199:         return\n200:     try:\n201:         for vai in (\"TRUONG_CA\", \"MANAGEMENT\"):\n202:             await pool.execute(\n203:                 \"\"\"\n204:                 INSERT INTO thong_bao\n205:                     (clinic_id, vai_nhan, muc_do, tieu_de, noi_dung, nguon,\n206:                      nguon_id, duong_dan, nguoi_goi_staff_id)\n207:                 VALUES ($1::uuid, $2, 'KHAN', $3, $4, 'hen_gio_hong', $5, $6,\n208:                         $7::uuid)\n209:                 ON CONFLICT (clinic_id, nguon, nguon_id, vai_nhan)\n210:                     WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL\n211:                       AND vai_nhan IS NOT NULL\n212:                 DO NOTHING\n213:                 \"\"\",\n214:                 cai_hen.clinic_id,\n215:                 vai,\n216:                 f\"Lời nhắc tự động hỏng: {cai_hen.loai}\",\n217:                 f\"Đã thử {cai_hen.so_lan_thu} lần không được — việc cần nhắc có\"\n218:                 \" thể đang bị bỏ quên. Kiểm tra bảng hành trình; báo kỹ thuật.\",\n219:                 cai_hen.id,\n220:                 \"/hanh-trinh\",\n221:                 str(nguoi_goi),\n222:             )\n223:     except Exception:  # noqa: BLE001 — xem docstring\n224:         logger.exception(\"bao_hen_gio_chet_hong\", hen_id=cai_hen.id)",
+          "detail": "Timer alerting returns without a notification when chi_tiet.nguoi_goi is absent."
+        },
+        {
+          "path": "src/clinicai/events/phat_lai.py",
+          "line": 7,
+          "end_line": 14,
+          "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+          "excerpt": "7: LUẬT:\n8:   * Chỉ bên nhận đã khai là PROJECTION (`dang_ky_projection`) mới được phát lại.\n9:     Bên nhận TÁC VỤ (mở việc, gửi tin) thì không — phát lại chúng là làm lại việc.\n10:   * Phát lại KHÔNG sinh sự kiện mới, KHÔNG sinh dòng giao mới, KHÔNG đụng\n11:     `event_delivery`: nó đọc sổ và gọi thẳng hàm của bên nhận.\n12:   * Mỗi sự kiện được nâng lên version hiện hành trước (`events/nang_cap.py`), và\n13:     mang `replay_id` của lần chạy → `la_phat_lai = True`.\n14:   * Xoá + dựng lại trong MỘT giao dịch: hỏng giữa chừng thì màn cũ còn nguyên.",
+          "detail": "Projection replay explicitly leaves event_delivery unchanged and is not a delivery retry path."
+        },
+        {
+          "path": "src/clinicai/events/worker.py",
+          "line": 96,
+          "end_line": 115,
+          "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+          "excerpt": "96: _NHAN_MOT_DONG = \"\"\"\n97: WITH ung_vien AS (\n98:     SELECT d.event_id\n99:     FROM event_delivery d\n100:     WHERE d.consumer = $1\n101:       AND d.status IN ('PENDING', 'RETRY')\n102:       AND d.next_attempt_at <= now()\n103:       -- Luật 2: còn sự kiện cũ hơn của cùng đối tượng chưa xong thì chờ.\n104:       AND NOT EXISTS (\n105:           SELECT 1 FROM event_delivery truoc\n106:           WHERE truoc.consumer = d.consumer\n107:             AND truoc.aggregate_id = d.aggregate_id\n108:             AND truoc.status <> 'DONE'\n109:             AND truoc.aggregate_version IS NOT NULL\n110:             AND d.aggregate_version IS NOT NULL\n111:             AND truoc.aggregate_version < d.aggregate_version\n112:       )\n113:     ORDER BY d.next_attempt_at, d.aggregate_version NULLS FIRST\n114:     FOR UPDATE SKIP LOCKED\n115:     LIMIT 1",
+          "detail": "Claim rule blocks a newer aggregate version while any older delivery is unfinished."
+        },
+        {
+          "path": "src/clinicai/events/worker.py",
+          "line": 182,
+          "end_line": 217,
+          "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+          "excerpt": "182:     except Exception as loi:  # noqa: BLE001 — mọi lỗi đều phải thành RETRY/DEAD\n183:         het_luot = su_kien.attempts >= SO_LAN_THU_TOI_DA\n184:         await pool.execute(\n185:             \"UPDATE event_delivery\"\n186:             \" SET status = $3, next_attempt_at = now() + make_interval(secs => $4),\"\n187:             \"     lease_expires_at = NULL, locked_by = NULL, last_error = $5\"\n188:             \" WHERE event_id = $1::uuid AND consumer = $2\",\n189:             su_kien.event_id,\n190:             consumer,\n191:             \"DEAD\" if het_luot else \"RETRY\",\n192:             0.0 if het_luot else _gian_cach(su_kien.attempts),\n193:             str(loi)[:2000],\n194:         )\n195:         logger.warning(\n196:             \"event_delivery_hong\",\n197:             consumer=consumer,\n198:             event_id=su_kien.event_id,\n199:             event_type=su_kien.event_type,\n200:             lan_thu=su_kien.attempts,\n201:             chet=het_luot,\n202:             loi=str(loi)[:200],\n203:         )\n204:         # Kho lỗi (27/09/2026): mỗi KIỂU hỏng của bên nhận thành một dòng\n205:         # `loi_nhom` (cộng dồn) — /ops thấy \"bên nhận X hỏng Y lần\" mà không cần\n206:         # mở log. Không bao giờ ném.\n207:         from clinicai.services.kho_loi import ghi_loi\n208: \n209:         await ghi_loi(\n210:             pool,\n211:             nguon=\"worker\",\n212:             vi_tri=f\"{consumer} ← {su_kien.event_type}\",\n213:             exc=loi,\n214:         )\n215:         if het_luot:\n216:             await _bao_nguoi_truc_khi_chet(pool, su_kien, consumer)\n217:         return True",
+          "detail": "Callback failure can set DEAD, aggregates the error and notifies staff only when the event has an actor."
+        },
+        {
+          "path": "src/clinicai/events/worker.py",
+          "line": 226,
+          "end_line": 270,
+          "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+          "excerpt": "226: async def _bao_nguoi_truc_khi_chet(\n227:     pool: asyncpg.Pool, su_kien: SuKienDaNhan, consumer: str\n228: ) -> None:\n229:     \"\"\"Một dòng DEAD CHẶN các sự kiện sau của cùng đối tượng (luật 2) — với khối\n230:     Hành trình nghĩa là một KHÁCH đứng kẹt. Số đo ở `/ops` cho kỹ thuật; ở đây\n231:     réo chuông NGƯỜI TRỰC (trưởng ca, quản lý) để có người xử lý tay ngay.\n232: \n233:     Nuốt lỗi: báo hỏng mà hỏng thì không được làm chết vòng đưa tin. Sự kiện\n234:     không có người gây ra (hệ thống) thì không có `nguoi_goi` — chỉ còn log +\n235:     `/ops` (bảng `thong_bao` bắt buộc người gọi).\n236:     \"\"\"\n237:     if not su_kien.actor_staff_id:\n238:         return\n239:     try:\n240:         from clinicai.events.catalogue import DANH_MUC\n241: \n242:         nhan = (\n243:             DANH_MUC[su_kien.event_type].nhan\n244:             if su_kien.event_type in DANH_MUC\n245:             else su_kien.event_type\n246:         )\n247:         visit_id = su_kien.payload.get(\"visit_id\")\n248:         for vai in VAI_BIET_KHI_CHET:\n249:             await pool.execute(\n250:                 \"\"\"\n251:                 INSERT INTO thong_bao\n252:                     (clinic_id, vai_nhan, muc_do, tieu_de, noi_dung, nguon,\n253:                      nguon_id, duong_dan, nguoi_goi_staff_id)\n254:                 VALUES ($1::uuid, $2, 'KHAN', $3, $4, 'su_kien_hong', $5, $6,\n255:                         $7::uuid)\n256:                 ON CONFLICT (clinic_id, nguon, nguon_id, vai_nhan)\n257:                     WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL\n258:                       AND vai_nhan IS NOT NULL\n259:                 DO NOTHING\n260:                 \"\"\",\n261:                 su_kien.clinic_id,\n262:                 vai,\n263:                 f\"Bước tự động hỏng: {nhan}\",\n264:                 f\"Bên nhận '{consumer}' đã thử {su_kien.attempts} lần không được.\"\n265:                 \" Khách của lượt này có thể đang kẹt — kiểm tra bảng hành trình\"\n266:                 \" và xử lý tay; báo kỹ thuật xem /ops.\",\n267:                 f\"{consumer}:{su_kien.event_id}\",\n268:                 f\"/hanh-trinh?luot={visit_id}\" if visit_id else \"/hanh-trinh\",\n269:                 su_kien.actor_staff_id,\n270:             )",
+          "detail": "Dead-event notification is role-based; the helper requires actor_staff_id and creates no per-delivery retry action."
+        },
+        {
+          "path": "src/tests/services/test_event_worker_db.py",
+          "line": 164,
+          "end_line": 201,
+          "sha256": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+          "excerpt": "164: async def test_hong_qua_so_lan_thi_vao_hop_chet_va_van_con_do(\n165:     pool: asyncpg.Pool,\n166: ) -> None:\n167:     ten_gia = f\"ben_nhan_chet_{uuid.uuid4().hex[:6]}\"\n168: \n169:     async def luon_hong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:\n170:         raise RuntimeError(\"hỏng mãi\")\n171: \n172:     dang_ky(ten_gia, luon_hong)\n173: \n174:     visit_id, order_id = str(uuid.uuid4()), str(uuid.uuid4())\n175:     event_id = await _chi_dinh(pool, visit_id=visit_id, order_id=order_id)\n176:     await pool.execute(\n177:         \"INSERT INTO event_delivery (event_id, consumer, clinic_id, aggregate_id,\"\n178:         \" aggregate_version, attempts)\"\n179:         \" VALUES ($1::uuid, $2, $3::uuid, $4::uuid, 1, $5)\",\n180:         event_id,\n181:         ten_gia,\n182:         CLINIC,\n183:         order_id,\n184:         SO_LAN_THU_TOI_DA - 1,\n185:     )\n186: \n187:     await lam_mot_dong(pool, ten_gia)\n188: \n189:     dong = await pool.fetchrow(\n190:         \"SELECT status FROM event_delivery WHERE event_id = $1::uuid AND consumer = $2\",\n191:         event_id,\n192:         ten_gia,\n193:     )\n194:     assert dong is not None\n195:     assert dong[\"status\"] == \"DEAD\"\n196: \n197:     suc_khoe = await pool.fetchrow(\n198:         \"SELECT chet FROM v_event_delivery_suc_khoe WHERE consumer = $1\", ten_gia\n199:     )\n200:     assert suc_khoe is not None\n201:     assert suc_khoe[\"chet\"] == 1",
+          "detail": "The related test checks transition to DEAD and aggregate count, not row-level ownership or retry/recovery."
+        },
+        {
+          "path": "src/tests/services/test_hen_gio_db.py",
+          "line": 187,
+          "end_line": 205,
+          "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+          "excerpt": "187: async def test_worker_chet_giua_chung_thi_thu_hoi_duoc(pool: asyncpg.Pool) -> None:\n188:     loai = f\"test.treo.{uuid.uuid4().hex[:6]}\"\n189:     async with pool.acquire() as conn, conn.transaction():\n190:         ma = await hen(\n191:             conn,\n192:             clinic_id=CLINIC,\n193:             loai=loai,\n194:             sau=timedelta(hours=1),\n195:             ve_cai_gi=str(uuid.uuid4()),\n196:         )\n197:     await pool.execute(\n198:         \"UPDATE hen_gio SET trang_thai = 'DANG_LAM',\"\n199:         \" thue_den = now() - interval '1 minute' WHERE id = $1::uuid\",\n200:         ma,\n201:     )\n202:     assert await thu_hoi_hen_treo(pool) >= 1\n203:     assert (\n204:         await pool.fetchval(\"SELECT trang_thai FROM hen_gio WHERE id = $1::uuid\", ma)\n205:         == \"CHO\"",
+          "detail": "The related timer test checks stale-lease reclaim to CHO, not CHET management or operator recovery."
+        },
+        {
+          "path": "src/tests/test_health_su_kien.py",
+          "line": 38,
+          "end_line": 51,
+          "sha256": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+          "excerpt": "38: @pytest.mark.parametrize(\n39:     (\"khoa\", \"chu\"),\n40:     [\n41:         (\"tre_giao\", \"worker chết\"),\n42:         (\"ton_lau\", \"tồn quá\"),\n43:         (\"chet_24h\", \"DEAD\"),\n44:         (\"hen_gio_tre\", \"hẹn giờ trễ\"),\n45:         (\"hen_gio_chet_24h\", \"hẹn giờ chết\"),\n46:     ],\n47: )\n48: def test_moi_so_khac_khong_deu_thanh_mot_ly_do(khoa: str, chu: str) -> None:\n49:     ly_do = danh_gia_su_kien({**KHOE, khoa: 2})\n50:     assert len(ly_do) == 1\n51:     assert chu in ly_do[0] and \"2\" in ly_do[0]",
+          "detail": "Health tests assert that aggregate counters create alert reasons; they do not exercise a per-record recovery flow."
+        },
+        {
+          "path": "supabase/migrations/20260923000001_domain_event.sql",
+          "line": 151,
+          "end_line": 225,
+          "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+          "excerpt": "151: CREATE TABLE IF NOT EXISTS public.event_delivery (\n152:     event_id         uuid NOT NULL\n153:         REFERENCES public.domain_event(event_id) ON DELETE CASCADE,\n154:     consumer         text NOT NULL,\n155: \n156:     clinic_id        uuid NOT NULL,\n157:     -- Chép sang để bên nhận cần đúng thứ tự tìm được \"dòng cũ nhất của aggregate\n158:     -- này\" mà không phải join.\n159:     aggregate_id     uuid NOT NULL,\n160:     aggregate_version integer,\n161: \n162:     status           text NOT NULL DEFAULT 'PENDING',\n163:     attempts         integer NOT NULL DEFAULT 0,\n164:     next_attempt_at  timestamptz NOT NULL DEFAULT now(),\n165:     -- Nhận việc có hạn: worker chết giữa chừng thì hết hạn, người khác nhận lại.\n166:     lease_expires_at timestamptz,\n167:     locked_by        text,\n168:     last_error       text,\n169:     processed_at     timestamptz,\n170:     created_at       timestamptz NOT NULL DEFAULT now(),\n171: \n172:     PRIMARY KEY (event_id, consumer),\n173:     CONSTRAINT event_delivery_status\n174:         CHECK (status IN ('PENDING', 'IN_PROGRESS', 'DONE', 'RETRY', 'DEAD')),\n175:     CONSTRAINT event_delivery_attempts_not_negative\n176:         CHECK (attempts >= 0),\n177:     CONSTRAINT event_delivery_done_has_time\n178:         CHECK ((status = 'DONE') = (processed_at IS NOT NULL)),\n179:     CONSTRAINT event_delivery_consumer_not_empty\n180:         CHECK (length(consumer) > 0)\n181: );\n182: \n183: -- Hàng đợi: chỉ quét dòng còn phải làm.\n184: CREATE INDEX IF NOT EXISTS ix_event_delivery_cho_lam\n185:     ON public.event_delivery (consumer, next_attempt_at)\n186:     WHERE status IN ('PENDING', 'RETRY');\n187: -- Dòng đang làm dở, để thu hồi khi hết hạn thuê.\n188: CREATE INDEX IF NOT EXISTS ix_event_delivery_dang_lam\n189:     ON public.event_delivery (lease_expires_at)\n190:     WHERE status = 'IN_PROGRESS';\n191: -- Hộp chết: phải có người nhìn, không được im lặng.\n192: CREATE INDEX IF NOT EXISTS ix_event_delivery_chet\n193:     ON public.event_delivery (clinic_id, created_at DESC)\n194:     WHERE status = 'DEAD';\n195: -- Thứ tự trong cùng aggregate.\n196: CREATE INDEX IF NOT EXISTS ix_event_delivery_theo_aggregate\n197:     ON public.event_delivery (consumer, aggregate_id, aggregate_version)\n198:     WHERE status IN ('PENDING', 'RETRY');\n199: \n200: ALTER TABLE public.event_delivery ENABLE ROW LEVEL SECURITY;\n201: DROP POLICY IF EXISTS event_delivery_select_own_clinic ON public.event_delivery;\n202: CREATE POLICY event_delivery_select_own_clinic\n203:     ON public.event_delivery\n204:     FOR SELECT TO authenticated\n205:     USING (clinic_id IN (SELECT current_clinic_ids()));\n206: GRANT SELECT ON public.event_delivery TO authenticated;\n207: GRANT SELECT, INSERT, UPDATE ON public.event_delivery TO service_role;\n208: \n209: COMMENT ON TABLE public.event_delivery IS\n210:     'Mỗi (sự kiện × bên nhận) một dòng, tạo cùng giao dịch với sự kiện. Không dùng con trỏ theo số thứ tự: bigserial commit lệch thứ tự làm bên nhận bỏ sót im lặng.';\n211: \n212: -- ── Số đo cho người trực ────────────────────────────────────────────────────\n213: -- Bốn tín hiệu (theo Google SRE: chỉ giữ số đo có người nhìn).\n214: CREATE OR REPLACE VIEW public.v_event_delivery_suc_khoe AS\n215: SELECT\n216:     consumer,\n217:     count(*) FILTER (WHERE status IN ('PENDING', 'RETRY'))            AS cho_lam,\n218:     count(*) FILTER (WHERE status = 'DEAD')                            AS chet,\n219:     count(*) FILTER (WHERE status = 'IN_PROGRESS')                     AS dang_lam,\n220:     max(now() - created_at) FILTER (WHERE status IN ('PENDING', 'RETRY'))\n221:                                                                        AS tuoi_dong_cu_nhat\n222: FROM public.event_delivery\n223: GROUP BY consumer;\n224: \n225: GRANT SELECT ON public.v_event_delivery_suc_khoe TO service_role;",
+          "detail": "Delivery rows retain status/error fields while the health view exposes grouped counts."
+        }
+      ]
+    },
+    "dedup_note": "Khác INF-017 (DEAD alert tự hết sau 24 giờ) và INF-018 (lease reclaim vượt retry cap): finding này nói về owner và thao tác xử lý theo bản ghi sau khi đã vào DEAD/CHET. Khác INF-011 vì queue POS, đối tượng nghiệp vụ và đường retry là khác; không khẳng định mọi alert đều thiếu.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/health.py",
+        "line": 68,
+        "end_line": 101,
+        "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+        "detail": "Health counts aged DEAD/CHET and overdue work in aggregate; it does not expose individual records."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/ops.py",
+        "line": 112,
+        "end_line": 126,
+        "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+        "detail": "The event operations endpoint returns counts grouped by consumer, not delivery rows or retry actions."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/ops.py",
+        "line": 132,
+        "end_line": 165,
+        "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+        "detail": "The separate error endpoint groups scrubbed error types and changes acknowledgement state; it does not reset an event delivery."
+      },
+      {
+        "path": "src/clinicai/events/hen_gio.py",
+        "line": 145,
+        "end_line": 190,
+        "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+        "detail": "Missing handler or exhausted callback attempts can leave a timer CHET; alerting is attempted only on the exhausted-error branch."
+      },
+      {
+        "path": "src/clinicai/events/hen_gio.py",
+        "line": 193,
+        "end_line": 224,
+        "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+        "detail": "Timer alerting returns without a notification when chi_tiet.nguoi_goi is absent."
+      },
+      {
+        "path": "src/clinicai/events/phat_lai.py",
+        "line": 7,
+        "end_line": 14,
+        "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+        "detail": "Projection replay explicitly leaves event_delivery unchanged and is not a delivery retry path."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 96,
+        "end_line": 115,
+        "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+        "detail": "Claim rule blocks a newer aggregate version while any older delivery is unfinished."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 182,
+        "end_line": 217,
+        "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+        "detail": "Callback failure can set DEAD, aggregates the error and notifies staff only when the event has an actor."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 226,
+        "end_line": 270,
+        "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+        "detail": "Dead-event notification is role-based; the helper requires actor_staff_id and creates no per-delivery retry action."
+      },
+      {
+        "path": "src/tests/services/test_event_worker_db.py",
+        "line": 164,
+        "end_line": 201,
+        "sha256": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+        "detail": "The related test checks transition to DEAD and aggregate count, not row-level ownership or retry/recovery."
+      },
+      {
+        "path": "src/tests/services/test_hen_gio_db.py",
+        "line": 187,
+        "end_line": 205,
+        "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+        "detail": "The related timer test checks stale-lease reclaim to CHO, not CHET management or operator recovery."
+      },
+      {
+        "path": "src/tests/test_health_su_kien.py",
+        "line": 38,
+        "end_line": 51,
+        "sha256": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+        "detail": "Health tests assert that aggregate counters create alert reasons; they do not exercise a per-record recovery flow."
+      },
+      {
+        "path": "supabase/migrations/20260923000001_domain_event.sql",
+        "line": 151,
+        "end_line": 225,
+        "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+        "detail": "Delivery rows retain status/error fields while the health view exposes grouped counts."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/health.py": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+      "src/clinicai/api/v1/routers/ops.py": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "src/clinicai/events/hen_gio.py": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "src/clinicai/events/phat_lai.py": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+      "src/clinicai/events/worker.py": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "src/tests/services/test_event_worker_db.py": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+      "src/tests/services/test_hen_gio_db.py": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+      "src/tests/test_health_su_kien.py": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+      "supabase/migrations/20260923000001_domain_event.sql": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156"
+    }
+  },
+  {
+    "id": "FIN-016",
+    "title": "Hoàn tiền mặc định gộp hình thức của giao dịch thu hỗn hợp",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "refund_tender_attribution",
+    "summary": "Payment cycle có thể lưu breakdown nhiều tender, nhưng hinh_thuc_chinh chọn TRANSFER nếu bất kỳ phần thu nào là chuyển khoản. Query tiền thừa lấy hinh_thuc_hieu_luc dạng scalar thay vì phan_thu_hieu_luc. Khi request hoàn tiền để trống hình thức, HoanTienService gắn toàn bộ số thừa của dòng/cycle vào scalar đó. Ví dụ 100.000 tiền mặt + 50.000 chuyển khoản có thể được hiển thị/ghi mặc định thành 150.000 chuyển khoản. Tổng amount không bị chứng minh sai; sai lệch là ở breakdown đối soát tender gốc.",
+    "trigger": "Một payment cycle thu bằng nhiều hình thức, sau đó dòng dịch vụ bị hủy/không làm hoặc dịch vụ khám bị bỏ; người dùng bấm hoàn tiền thừa với lựa chọn mặc định ‘Như khách đã trả’.",
+    "impact": "Báo cáo và thao tác hoàn có thể gán toàn bộ tiền thừa vào một phương thức, khiến nhân viên không đối chiếu được số tiền hoàn với từng tender gốc. Chưa chứng minh mất tiền, sai tổng tiền hoặc giao dịch thực tế bị ghi sai; override một hình thức vẫn có thể được chọn thủ công.",
+    "recommendation": "Khi để mặc định, lấy breakdown hiệu lực từ phan_thu_hieu_luc và phân bổ khoản hoàn theo từng tender gốc trong cùng payment cycle; nếu nghiệp vụ cho phép hoàn khác tender, yêu cầu chọn rõ và ghi lý do. UI phải hiển thị breakdown thực sự được gửi và tổng các phần phải bằng số hoàn.",
+    "acceptance": "Với payment cycle 100.000 CASH + 50.000 TRANSFER và toàn bộ 150.000 tiền thừa, mặc định tạo đúng 100.000 CASH + 50.000 TRANSFER; override ghi riêng lựa chọn và không làm đổi tổng; test cả checkout và quầy, đồng thời đối chiếu báo cáo tiền mặt/chuyển khoản.",
+    "validation": {
+      "method": "static_mixed_tender_to_excess_refund_trace_on_pinned_main",
+      "command": null,
+      "result": "Exact-main source trace connects mixed-tender storage, scalar effective-method lookup, default refund grouping, optional API override and the UI default. The DB test creates and verifies a 100k/50k mixed cycle; nearest refund tests cover single-tender defaults only.",
+      "limitations": "No DB refund reproduction or production accounting data was checked. The inferred discrepancy concerns method attribution; no amount loss, duplicate refund or cash-balance mismatch is established."
+    },
+    "related_tests": [
+      {
+        "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+        "scope": "Persists and displays a 100k CASH + 50k TRANSFER cycle but does not refund its excess."
+      },
+      {
+        "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+        "scope": "Default excess refund is covered for a single TRANSFER method; no mixed-tender refund case."
+      }
+    ],
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 18 exact-main static trace; contract and accounting effect are limited to tender-method attribution, not total refund amount.",
+      "production_verified": false,
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/dispatch.py",
+          "line": 475,
+          "end_line": 510,
+          "sha256": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+          "excerpt": "475: class TienThuaRequest(BaseModel):\n476:     visit_id: UUID\n477:     ly_do: str | None = Field(default=None, max_length=500)\n478: \n479: \n480: class HoanTienThuaRequest(TienThuaRequest):\n481:     #: Bỏ trống = theo hình thức khách đã trả của từng lần thu gốc (G4d, R6).\n482:     hinh_thuc: Literal[\"CASH\", \"TRANSFER\", \"QR\"] | None = None\n483: \n484: \n485: #: Hoàn tiền thừa = lego Thu tiền dịch vụ (Tuyền 06/10/2026, \"ai có node cũng\n486: #: được\"); lệnh tự kiểm lại trong giao dịch.\n487: _HOAN_TIEN_THUA_GUARD = get_current_identity\n488: \n489: \n490: @router.post(\"/reception/checkout/hoan-tien-thua\")\n491: async def checkout_hoan_tien_thua(\n492:     body: HoanTienThuaRequest,\n493:     identity: StaffIdentity = Depends(_HOAN_TIEN_THUA_GUARD),\n494:     pool: asyncpg.Pool = Depends(get_db_pool),\n495: ) -> dict[str, Any]:\n496:     \"\"\" \"Đã hoàn cho khách\": máy hoàn ĐÚNG phần tiền thừa còn lại của lượt —\n497:     chỉ định đã bỏ / không làm, dịch vụ khám đã bỏ (06/10/2026, E2) — theo\n498:     hình thức khách đã trả, hoặc ``hinh_thuc`` người bấm chọn.\"\"\"\n499:     from clinicai.services.hoan_tien_service import HoanTienService\n500:     from clinicai.services.payment_access_service import authorize_payment\n501: \n502:     identity = await authorize_payment(\n503:         pool, identity, visit_id=str(body.visit_id), kind=\"dich_vu\"\n504:     )\n505:     return await HoanTienService(pool).hoan_tien_thua(\n506:         identity=identity,\n507:         visit_id=str(body.visit_id),\n508:         reason=body.ly_do,\n509:         method=body.hinh_thuc,\n510:     )",
+          "detail": "The refund method is optional; omitted input is passed as None to the service's default behavior."
+        },
+        {
+          "path": "src/clinicai/services/hoan_tien_service.py",
+          "line": 133,
+          "end_line": 150,
+          "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+          "excerpt": "133:     async def hoan_tien_thua(\n134:         self,\n135:         *,\n136:         identity: StaffIdentity,\n137:         visit_id: str,\n138:         reason: object = None,\n139:         method: object = None,\n140:     ) -> dict[str, Any]:\n141:         \"\"\"HOÀN TIỀN THỪA của lượt (Tuyền 06/10/2026, E2): máy hoàn ĐÚNG phần\n142:         còn thừa của từng dòng hoá đơn (chỉ định đã bỏ / không làm, dịch vụ khám\n143:         đã bỏ tick). Không gõ số. Ai có lego Thu tiền dịch vụ.\n144:         Không còn gì để hoàn → trả `already`.\n145: \n146:         HÌNH THỨC (G4d, R6 — Tuyền chốt B 14/10): mặc định theo hình thức khách\n147:         đã trả của TỪNG lần thu gốc; ``method`` gửi lên thì dùng cho mọi khoản.\n148:         Trước đây luôn ghi tiền mặt → khách CK 500k, hệ ghi trả TM 500k, két lệch.\n149:         Hoàn chuyển khoản / QR là khoản CHỜ, xác nhận kèm mã sau (``xac_nhan``).\"\"\"\n150:         from clinicai.services.tien_thua_service import dong_tien_thua",
+          "detail": "The refund contract says default to the original method for each collection cycle."
+        },
+        {
+          "path": "src/clinicai/services/hoan_tien_service.py",
+          "line": 159,
+          "end_line": 197,
+          "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+          "excerpt": "159:         async with self._pool.acquire() as conn:\n160:             async with conn.transaction():\n161:                 await _doi_quyen_hoan(conn, identity, \"dich_vu\", visit_id)\n162:                 await _khoa_luot(conn, identity, visit_id)\n163:                 dong = (await dong_tien_thua(conn, identity.clinic_id, [visit_id])).get(\n164:                     visit_id, []\n165:                 )\n166:                 nhom: dict[tuple[str, str, str], dict[str, Decimal]] = {}\n167:                 for d in dong:\n168:                     if d[\"con_sl\"] <= 0 or d[\"so_tien\"] <= 0:\n169:                         continue\n170:                     ht = str(method or d.get(\"hinh_thuc\") or \"CASH\")\n171:                     k = (d[\"line_visit_id\"], d[\"payment_cycle_id\"], ht)\n172:                     nhom.setdefault(k, {})[d[\"line_id\"]] = d[\"con_sl\"]\n173:                 if not nhom:\n174:                     return {\"ok\": True, \"already\": True, \"amount\": 0, \"refund_ids\": []}\n175:                 tong = 0\n176:                 ids: list[str] = []\n177:                 theo_hinh_thuc: dict[str, int] = {}\n178:                 for (vid, cycle, ht), yeu_cau in sorted(nhom.items()):\n179:                     kq = await _tao_trong(\n180:                         conn,\n181:                         identity=identity,\n182:                         payment_cycle_id=cycle,\n183:                         visit_id=vid,\n184:                         kind=\"dich_vu\",\n185:                         yeu_cau=yeu_cau,\n186:                         method=ht,\n187:                         ly_do=ly_do,\n188:                     )\n189:                     tong += int(kq[\"amount\"])\n190:                     theo_hinh_thuc[ht] = theo_hinh_thuc.get(ht, 0) + int(kq[\"amount\"])\n191:                     ids.append(str(kq[\"refund_id\"]))\n192:         return {\n193:             \"ok\": True,\n194:             \"amount\": tong,\n195:             \"refund_ids\": ids,\n196:             \"theo_hinh_thuc\": theo_hinh_thuc,\n197:         }",
+          "detail": "With method omitted, the service groups every excess line using d.hinh_thuc and creates one refund method per group."
+        },
+        {
+          "path": "src/clinicai/services/phan_thu.py",
+          "line": 144,
+          "end_line": 146,
+          "sha256": "2d165eeb7c0cdb8d681f1e30720f6588b1d2bdac76e49c2495d93d44f0fdce30",
+          "excerpt": "144: def hinh_thuc_chinh(phan: Iterable[PhanThu]) -> str:\n145:     \"\"\"Có phần chuyển khoản → lần thu là chuyển khoản (chờ xác minh).\"\"\"\n146:     return CHUYEN_KHOAN if any(p.hinh_thuc == CHUYEN_KHOAN for p in phan) else TIEN_MAT",
+          "detail": "A mixed payment cycle's scalar primary method becomes TRANSFER whenever any part is transfer."
+        },
+        {
+          "path": "src/clinicai/services/tien_thua_service.py",
+          "line": 84,
+          "end_line": 100,
+          "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+          "excerpt": "84: ), dong AS (\n85:     SELECT bl.id::text AS line_id, bl.visit_id::text AS line_visit_id,\n86:            bl.payment_cycle_id::text AS payment_cycle_id,\n87:            -- Hình thức HIỆU LỰC (sau \"Đổi hình thức\"), không phải lúc bấm thu:\n88:            -- thu nhầm TM rồi đổi sang CK thì hoàn mặc định phải là CK.\n89:            hinh_thuc_hieu_luc(c.clinic_id, c.payment_cycle_id, c.method)\n90:                AS hinh_thuc,\n91:            bl.source_type,\n92:            bl.source_id, bl.name_snapshot, bl.quantity, bl.line_total,\n93:            n.order_id,\n94:            coalesce(h.sl, 0) AS da_hoan_sl, coalesce(h.tien, 0) AS da_hoan,\n95:            coalesce(n.visit_id, bl.visit_id::text) AS visit_id,\n96:            n.exec_status, n.cancel_reason, n.not_performed_reason\n97:       FROM nguon n\n98:       JOIN public.payment_bill_line bl ON bl.id = n.line_pk\n99:       JOIN public.payment_cycle c\n100:         ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id",
+          "detail": "Excess-refund query obtains one effective scalar method for the payment cycle, not its tender breakdown."
+        },
+        {
+          "path": "src/clinicai/services/tien_thua_service.py",
+          "line": 133,
+          "end_line": 160,
+          "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+          "excerpt": "133: async def dong_tien_thua(\n134:     conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]\n135: ) -> dict[str, list[dict[str, Any]]]:\n136:     \"\"\"Lượt → các DÒNG HOÁ ĐƠN còn tiền thừa (đủ để hoàn đúng từng dòng).\"\"\"\n137:     ids = _uuid_chuan(visit_ids)\n138:     if not ids:\n139:         return {}\n140:     out: dict[str, list[dict[str, Any]]] = defaultdict(list)\n141:     for r in await conn.fetch(_DONG_THUA_SQL, clinic_id, ids):\n142:         d = dict(r)\n143:         out[d[\"visit_id\"]].append(\n144:             {\n145:                 \"line_id\": d[\"line_id\"],\n146:                 \"line_visit_id\": d[\"line_visit_id\"],\n147:                 \"payment_cycle_id\": d[\"payment_cycle_id\"],\n148:                 \"hinh_thuc\": d[\"hinh_thuc\"],\n149:                 \"source_type\": d[\"source_type\"],\n150:                 \"order_id\": d[\"order_id\"],\n151:                 \"ten\": d[\"name_snapshot\"],\n152:                 \"con_sl\": Decimal(str(d[\"quantity\"])) - Decimal(str(d[\"da_hoan_sl\"])),\n153:                 \"so_tien\": int(d[\"line_total\"]) - int(d[\"da_hoan\"]),\n154:                 \"loai\": (\n155:                     \"BO_DICH_VU_KHAM\"\n156:                     if d[\"source_type\"] == \"exam\"\n157:                     else \"BO_CHI_DINH\"\n158:                     if d[\"exec_status\"] == \"cancelled\"\n159:                     else \"KHONG_LAM\"\n160:                 ),",
+          "detail": "The service returns that scalar method on each invoice line and aggregates the displayed method summary from it."
+        },
+        {
+          "path": "src/clinicai/services/tien_thua_service.py",
+          "line": 201,
+          "end_line": 230,
+          "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+          "excerpt": "201: def tom_tat_khi_ve(\n202:     dong: list[dict[str, Any]], giu: dict[str, Any] | None\n203: ) -> dict[str, Any]:\n204:     \"\"\"Hộp tiền thừa lúc check-out. Hàm thuần.\n205: \n206:     `chan` = còn tiền thừa mà chưa giữ lại phủ đủ (giữ lại rồi mà tiền thừa\n207:     tăng thêm — bỏ thêm chỉ định — thì hỏi lại).\"\"\"\n208:     tong = sum(int(d[\"so_tien\"]) for d in dong)\n209:     phu = giu is not None and int(giu[\"so_tien\"]) >= tong\n210:     # Hoàn mặc định theo hình thức khách đã trả (G4d, R6): hộp check-out ghi\n211:     # rõ \"hoàn X tiền mặt · Y chuyển khoản\" trước khi bấm.\n212:     theo_hinh_thuc: dict[str, int] = {}\n213:     for d in dong:\n214:         ht = str(d.get(\"hinh_thuc\") or \"CASH\")\n215:         theo_hinh_thuc[ht] = theo_hinh_thuc.get(ht, 0) + int(d[\"so_tien\"])\n216:     return {\n217:         \"tong\": tong,\n218:         \"theo_hinh_thuc\": theo_hinh_thuc,\n219:         \"dong\": [\n220:             {\n221:                 \"ten\": d[\"ten\"],\n222:                 \"so_tien\": int(d[\"so_tien\"]),\n223:                 \"loai\": d[\"loai\"],\n224:                 \"ly_do\": d.get(\"ly_do\"),\n225:             }\n226:             for d in dong\n227:         ],\n228:         \"giu_lai\": giu,\n229:         \"chan\": tong > 0 and not phu,\n230:     }",
+          "detail": "Checkout summary groups excess amounts by each line's scalar hinh_thuc."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+          "line": 46,
+          "end_line": 54,
+          "sha256": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+          "excerpt": "46:   const theoGoc = Object.entries(theoHinhThuc ?? {}).filter(([, v]) => v > 0);\n47:   const moTa = hinhThuc\n48:     ? `${tien(tong)} ${NHAN[hinhThuc]}`\n49:     : theoGoc.length > 0\n50:       ? theoGoc.map(([k, v]) => `${tien(v)} ${NHAN[k] ?? k}`).join(\" · \")\n51:       : `${tien(tong)} theo hình thức khách đã trả`;\n52:   const coChuyenKhoan = hinhThuc\n53:     ? hinhThuc !== \"CASH\"\n54:     : theoGoc.length === 0 || theoGoc.some(([k]) => k !== \"CASH\");",
+          "detail": "The button labels the default action from the supplied method breakdown, but falls back to a generic original-method label."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+          "line": 60,
+          "end_line": 70,
+          "sha256": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+          "excerpt": "60:       const r = await fetch(\"/api/reception/checkout\", {\n61:         method: \"POST\",\n62:         headers: { \"Content-Type\": \"application/json\" },\n63:         body: JSON.stringify({\n64:           hanh_dong: \"hoan_tien_thua\",\n65:           visit_id: visitId,\n66:           hinh_thuc: hinhThuc || null,\n67:         }),\n68:       });\n69:       const d = (await r.json().catch(() => null)) as { ok?: boolean } | null;\n70:       if (!r.ok || !d?.ok) setLoi(loiDocDuoc(d, `Chưa hoàn được (HTTP ${r.status}).`));",
+          "detail": "The default request sends hinh_thuc as null."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+          "line": 82,
+          "end_line": 96,
+          "sha256": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+          "excerpt": "82:         <Button type=\"button\" size=\"sm\" variant=\"primary\" disabled={dang} onClick={() => void hoan()}>\n83:           {dang ? \"Đang hoàn…\" : `${nhan} ${moTa}`}\n84:         </Button>\n85:         <label className=\"flex items-center gap-1 text-meta text-ink-muted\">\n86:           Hình thức\n87:           <OChon\n88:             value={hinhThuc}\n89:             disabled={dang}\n90:             onChange={(e) => setHinhThuc(e.target.value as HinhThuc | \"\")}\n91:             aria-label=\"Hình thức hoàn tiền thừa\"\n92:           >\n93:             <option value=\"\">Như khách đã trả</option>\n94:             <option value=\"CASH\">Tiền mặt</option>\n95:             <option value=\"TRANSFER\">Chuyển khoản</option>\n96:           </OChon>",
+          "detail": "The selector has a single-method override and a default option, but no split-method allocation control."
+        },
+        {
+          "path": "src/dashboard/app/api/reception/checkout/route.ts",
+          "line": 59,
+          "end_line": 75,
+          "sha256": "cf7510b3ea8bae858cb80f03859404c20406ca4579b4a869042fab9031856381",
+          "excerpt": "59:   // TIỀN THỪA (06/10/2026): hoàn đúng số / giữ lại (lý do) / huỷ giữ lại.\n60:   const DUONG_TIEN_THUA: Record<string, string> = {\n61:     hoan_tien_thua: \"/api/v1/reception/checkout/hoan-tien-thua\",\n62:     giu_lai_tien_thua: \"/api/v1/reception/checkout/giu-lai-tien-thua\",\n63:     huy_giu_lai_tien_thua: \"/api/v1/reception/checkout/huy-giu-lai-tien-thua\",\n64:   };\n65:   if (typeof hanhDong === \"string\" && hanhDong in DUONG_TIEN_THUA) {\n66:     const { visit_id, ly_do, hinh_thuc } = body as {\n67:       visit_id?: unknown;\n68:       ly_do?: unknown;\n69:       hinh_thuc?: unknown;\n70:     };\n71:     return proxyJsonToBackend(\n72:       \"POST\",\n73:       DUONG_TIEN_THUA[hanhDong],\n74:       hanhDong === \"hoan_tien_thua\" ? { visit_id, ly_do, hinh_thuc } : { visit_id, ly_do },\n75:     );",
+          "detail": "The BFF forwards hinh_thuc only when supplied; the default action sends null/omitted method."
+        },
+        {
+          "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+          "line": 363,
+          "end_line": 403,
+          "sha256": "80b0d45bc22f7a7ce8f3c71818083efde0f57c3853619634efcec06c97ffc8cf",
+          "excerpt": "363: async def _ck_da_ve_roi_bo(pool: asyncpg.Pool, ca: Ca) -> str:  # noqa: F811\n364:     \"\"\"Khách trả CK 300k (đã xác minh) rồi bỏ chỉ định → thừa 300k.\"\"\"\n365:     v, o = await _luot(pool, ca)\n366:     cid = await _thu(pool, ca, v, method=\"TRANSFER\")\n367:     await PaymentService(pool).xac_minh_dien_tu(\n368:         payment_cycle_id=cid,\n369:         visit_id=v,\n370:         kind=\"dich_vu\",\n371:         reference=\"FT123\",\n372:         identity=ca.thu_ngan,\n373:         so_tien_thuc_nhan=await so_ck(pool, cid),\n374:     )\n375:     await HoanTacService(pool).huy_chi_dinh(\n376:         order_id=o, identity=ca.bac_si, xac_nhan=True, ly_do=\"Khách đổi ý\"\n377:     )\n378:     return v\n379: \n380: \n381: async def _hoan_cua(pool: asyncpg.Pool, visit: str) -> str:  # noqa: F811\n382:     \"\"\" \"HÌNH THỨC:TRẠNG THÁI\" của khoản hoàn (duy nhất) của lượt.\"\"\"\n383:     return str(\n384:         await pool.fetchval(\n385:             \"SELECT method || ':' || status FROM payment_refund\"\n386:             \" WHERE visit_id = $1::uuid\",\n387:             visit,\n388:         )\n389:     )\n390: \n391: \n392: async def test_r6_hoan_tien_thua_theo_hinh_thuc_goc(pool: asyncpg.Pool) -> None:  # noqa: F811\n393:     \"\"\"R6 (G4d): khách trả CK → hoàn thừa mặc định CK (khoản chờ), két không lệch.\"\"\"\n394:     ca = await _dung(pool)\n395:     v = await _ck_da_ve_roi_bo(pool, ca)\n396:     async with pool.acquire() as conn:\n397:         tt = await tien_thua_khi_ve(conn, CLINIC, v)\n398:     assert tt[\"theo_hinh_thuc\"] == {\"TRANSFER\": 300_000}\n399:     kq = await HoanTienService(pool).hoan_tien_thua(identity=ca.thu_ngan, visit_id=v)\n400:     assert kq[\"theo_hinh_thuc\"] == {\"TRANSFER\": 300_000}\n401:     assert await _hoan_cua(pool, v) == \"TRANSFER:PENDING\"\n402:     await _ve(pool, ca, v)\n403:     assert await _lech(pool, v) == []",
+          "detail": "Default excess refund is tested for a single TRANSFER method, not a mixed-tender cycle."
+        },
+        {
+          "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+          "line": 45,
+          "end_line": 101,
+          "sha256": "5ab8b1b25c0cc807008ca93fb15942df7c4408fadc8618c29fb567d78c3355d2",
+          "excerpt": "45: async def _thu_chia(q: Quay) -> dict[str, object]:\n46:     return await PaymentService(q.pool).record_payment(\n47:         visit_id=q.visit_id,\n48:         kind=\"dich_vu\",\n49:         idempotency_key=f\"test-{uuid.uuid4().hex}\",\n50:         amount=None,\n51:         clinic_patient_id=None,\n52:         identity=q.thu_ngan,\n53:         bill_revision=await _rev(q),\n54:         method=\"CASH\",\n55:         phan=[\n56:             {\"hinh_thuc\": \"CASH\", \"so_tien\": 100_000, \"khach_dua\": 200_000},\n57:             {\"hinh_thuc\": \"TRANSFER\", \"so_tien\": 50_000},\n58:         ],\n59:     )\n60: \n61: \n62: async def _phan_db(q: Quay, cid: str) -> list[dict[str, object]]:\n63:     raw = await q.pool.fetchval(\n64:         \"SELECT phan_thu_hieu_luc(clinic_id, payment_cycle_id, method, amount)\"\n65:         \" FROM payment_cycle WHERE payment_cycle_id = $1::uuid\",\n66:         cid,\n67:     )\n68:     ds: list[dict[str, object]] = json.loads(raw)\n69:     return ds\n70: \n71: \n72: async def test_thu_chia_tong_dung_va_phieu_in_hai_dong(pool: asyncpg.Pool) -> None:\n73:     q = await tao_quay(pool)\n74:     kq = await _thu_chia(q)\n75:     cid = str(kq[\"payment_cycle_id\"])\n76:     lan = await pool.fetchrow(\n77:         \"SELECT status, method, amount FROM payment_cycle\"\n78:         \" WHERE payment_cycle_id = $1::uuid\",\n79:         cid,\n80:     )\n81:     assert lan is not None\n82:     # Có phần chuyển khoản → chờ xác minh như contract A2.\n83:     assert (lan[\"status\"], lan[\"method\"], lan[\"amount\"]) == (\n84:         CHO_XAC_MINH,\n85:         \"TRANSFER\",\n86:         150_000,\n87:     )\n88:     await _xm(q, cid, \"\")\n89:     phan = await _phan_db(q, cid)\n90:     assert [(p[\"hinh_thuc\"], p[\"so_tien\"]) for p in phan] == [\n91:         (\"CASH\", 100_000),\n92:         (\"TRANSFER\", 50_000),\n93:     ]\n94:     assert sum(int(str(p[\"so_tien\"])) for p in phan) == 150_000\n95: \n96:     phieu = await QuayThuService(pool).phieu(identity=q.thu_ngan, id_=cid)\n97:     assert [(p[\"hinh_thuc\"], p[\"so_tien\"]) for p in phieu[\"phan\"]] == [\n98:         (\"CASH\", 100_000),\n99:         (\"TRANSFER\", 50_000),\n100:     ]\n101:     assert phieu[\"tra_lai\"] == 100_000",
+          "detail": "A real 100k CASH + 50k TRANSFER cycle stores and displays both tender parts; this test does not refund its excess."
+        },
+        {
+          "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+          "line": 186,
+          "end_line": 220,
+          "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+          "excerpt": "186: CREATE OR REPLACE FUNCTION public.phan_thu_hieu_luc(\n187:     p_clinic uuid, p_cycle uuid, p_goc text, p_amount bigint)\n188: RETURNS jsonb\n189: LANGUAGE sql\n190: STABLE\n191: AS $fn$\n192:     SELECT CASE\n193:         WHEN d.id IS NOT NULL AND d.tien_mat IS NOT NULL THEN jsonb_build_array(\n194:             jsonb_build_object('hinh_thuc', 'CASH', 'so_tien', d.tien_mat),\n195:             jsonb_build_object('hinh_thuc', 'TRANSFER', 'so_tien', d.chuyen_khoan))\n196:         WHEN d.id IS NOT NULL THEN jsonb_build_array(jsonb_build_object(\n197:             'hinh_thuc', CASE WHEN d.method_moi = 'QR' THEN 'TRANSFER'\n198:                               ELSE d.method_moi END,\n199:             'so_tien', p_amount))\n200:         WHEN ph.ds IS NOT NULL THEN ph.ds\n201:         ELSE jsonb_build_array(jsonb_build_object(\n202:             'hinh_thuc', CASE WHEN p_goc = 'QR' THEN 'TRANSFER' ELSE p_goc END,\n203:             'so_tien', p_amount))\n204:     END\n205:       FROM (SELECT 1) z\n206:       LEFT JOIN LATERAL (\n207:            SELECT x.id, x.method_moi, x.tien_mat, x.chuyen_khoan\n208:              FROM public.payment_cycle_doi_hinh_thuc x\n209:             WHERE x.clinic_id = p_clinic AND x.cycle_id = p_cycle\n210:             ORDER BY x.id DESC LIMIT 1) d ON true\n211:       LEFT JOIN LATERAL (\n212:            SELECT jsonb_agg(jsonb_build_object(\n213:                       'hinh_thuc', p.hinh_thuc, 'so_tien', p.so_tien,\n214:                       'khach_dua', p.khach_dua)\n215:                   ORDER BY CASE p.hinh_thuc WHEN 'CASH' THEN 0 ELSE 1 END) AS ds\n216:              FROM public.payment_cycle_phan p\n217:             WHERE p.clinic_id = p_clinic AND p.cycle_id = p_cycle) ph ON true\n218: $fn$;\n219: \n220: COMMENT ON FUNCTION public.phan_thu_hieu_luc(uuid, uuid, text, bigint) IS",
+          "detail": "The database already provides phan_thu_hieu_luc as an exact per-tender breakdown."
+        }
+      ]
+    },
+    "dedup_note": "Khác FIN-004 (làm tròn số tiền hoàn) và FIN-012 (cờ khớp là phép đồng nhất): đây là breakdown CASH/TRANSFER của một khoản hoàn mặc định, không phải sai tổng hoặc phép kiểm tra tautology.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/dispatch.py",
+        "line": 475,
+        "end_line": 510,
+        "sha256": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+        "detail": "The refund method is optional; omitted input is passed as None to the service's default behavior."
+      },
+      {
+        "path": "src/clinicai/services/hoan_tien_service.py",
+        "line": 133,
+        "end_line": 150,
+        "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+        "detail": "The refund contract says default to the original method for each collection cycle."
+      },
+      {
+        "path": "src/clinicai/services/hoan_tien_service.py",
+        "line": 159,
+        "end_line": 197,
+        "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+        "detail": "With method omitted, the service groups every excess line using d.hinh_thuc and creates one refund method per group."
+      },
+      {
+        "path": "src/clinicai/services/phan_thu.py",
+        "line": 144,
+        "end_line": 146,
+        "sha256": "2d165eeb7c0cdb8d681f1e30720f6588b1d2bdac76e49c2495d93d44f0fdce30",
+        "detail": "A mixed payment cycle's scalar primary method becomes TRANSFER whenever any part is transfer."
+      },
+      {
+        "path": "src/clinicai/services/tien_thua_service.py",
+        "line": 84,
+        "end_line": 100,
+        "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+        "detail": "Excess-refund query obtains one effective scalar method for the payment cycle, not its tender breakdown."
+      },
+      {
+        "path": "src/clinicai/services/tien_thua_service.py",
+        "line": 133,
+        "end_line": 160,
+        "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+        "detail": "The service returns that scalar method on each invoice line and aggregates the displayed method summary from it."
+      },
+      {
+        "path": "src/clinicai/services/tien_thua_service.py",
+        "line": 201,
+        "end_line": 230,
+        "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+        "detail": "Checkout summary groups excess amounts by each line's scalar hinh_thuc."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+        "line": 46,
+        "end_line": 54,
+        "sha256": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+        "detail": "The button labels the default action from the supplied method breakdown, but falls back to a generic original-method label."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+        "line": 60,
+        "end_line": 70,
+        "sha256": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+        "detail": "The default request sends hinh_thuc as null."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+        "line": 82,
+        "end_line": 96,
+        "sha256": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+        "detail": "The selector has a single-method override and a default option, but no split-method allocation control."
+      },
+      {
+        "path": "src/dashboard/app/api/reception/checkout/route.ts",
+        "line": 59,
+        "end_line": 75,
+        "sha256": "cf7510b3ea8bae858cb80f03859404c20406ca4579b4a869042fab9031856381",
+        "detail": "The BFF forwards hinh_thuc only when supplied; the default action sends null/omitted method."
+      },
+      {
+        "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+        "line": 363,
+        "end_line": 403,
+        "sha256": "80b0d45bc22f7a7ce8f3c71818083efde0f57c3853619634efcec06c97ffc8cf",
+        "detail": "Default excess refund is tested for a single TRANSFER method, not a mixed-tender cycle."
+      },
+      {
+        "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+        "line": 45,
+        "end_line": 101,
+        "sha256": "5ab8b1b25c0cc807008ca93fb15942df7c4408fadc8618c29fb567d78c3355d2",
+        "detail": "A real 100k CASH + 50k TRANSFER cycle stores and displays both tender parts; this test does not refund its excess."
+      },
+      {
+        "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+        "line": 186,
+        "end_line": 220,
+        "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+        "detail": "The database already provides phan_thu_hieu_luc as an exact per-tender breakdown."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/dispatch.py": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+      "src/clinicai/services/hoan_tien_service.py": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "src/clinicai/services/phan_thu.py": "2d165eeb7c0cdb8d681f1e30720f6588b1d2bdac76e49c2495d93d44f0fdce30",
+      "src/clinicai/services/tien_thua_service.py": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+      "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+      "src/dashboard/app/api/reception/checkout/route.ts": "cf7510b3ea8bae858cb80f03859404c20406ca4579b4a869042fab9031856381",
+      "src/tests/services/test_mo_phong_dong_tien_db.py": "80b0d45bc22f7a7ce8f3c71818083efde0f57c3853619634efcec06c97ffc8cf",
+      "src/tests/services/test_thu_nhieu_hinh_thuc_db.py": "5ab8b1b25c0cc807008ca93fb15942df7c4408fadc8618c29fb567d78c3355d2",
+      "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f"
+    }
+  },
+  {
+    "id": "CLIN-036",
+    "title": "Thu hồi tệp đã đánh dấu gửi chưa tạo luồng đính chính có người phụ trách",
+    "severity": "MEDIUM",
+    "evidence_level": "design_gap",
+    "category": "clinical_result_correction_handoff",
+    "summary": "Tệp external ở HOP_LE có thể được thu hồi trước khi vòng đọc bắt đầu; thao tác này không kiểm tra gui_luc, chuyển trạng thái sang THU_HOI và phát result_file.revoked. Event được gửi tới timeline và VONG_DOC, không tới CHUONG; tệp bị thu hồi biến khỏi danh sách kết quả còn hiệu lực. Nếu CSKH đã đánh dấu gửi thủ công trước đó, code slice không tạo thông báo đính chính, yêu cầu liên hệ lại hay owner cho người nhận. gui_luc chỉ là staff confirmation, không chứng minh khách đã nhận tệp.",
+    "trigger": "CSKH đã ghi nhận gui_luc cho tệp kết quả external, sau đó người có quyền thu hồi tệp trong lúc phiên đọc kết quả chưa bắt đầu/đóng.",
+    "impact": "Nếu khách thực sự đã nhận bản cũ, họ có thể tiếp tục dựa vào bản đó trong khi ClinicAI chỉ bỏ file khỏi danh sách hiện hành. Dòng timeline vẫn ghi nhận sự kiện thu hồi, nên đây là khoảng hở corrective handoff/owner chứ không phải mất audit event. Chính sách nghiệp vụ về thu hồi sau gửi cần được xác định.",
+    "recommendation": "Định nghĩa rõ state machine sau khi đã gửi: hoặc chặn thu hồi trực tiếp và chuyển sang quy trình đính chính, hoặc tạo ngay task ưu tiên cao cho CSKH với owner/đích hạn, trạng thái liên hệ bệnh nhân, lý do thu hồi và liên kết bản thay thế. Giữ bản cũ ở lịch sử với cảnh báo đã thu hồi và audit đầy đủ.",
+    "acceptance": "Test HOP_LE → xác nhận đã gửi → thu hồi: hệ thống không được kết thúc ở trạng thái chỉ ẩn file. Phải tạo corrective work item có clinic, owner/role, deadline, trạng thái xác nhận liên hệ và liên kết bản thay thế; hoặc từ chối chuyển trạng thái và yêu cầu quy trình đính chính. Kiểm tra cùng clinic, quyền và timeline.",
+    "validation": {
+      "method": "static_result_file_revoke_after_manual_send_to_notification_and_timeline_trace_on_pinned_main",
+      "command": null,
+      "result": "Exact-main trace confirms revoke is allowed before review begins without reading gui_luc, while the current-file list excludes revoked files. The event keeps a timeline label but has no CHUONG consumer. Existing DB tests cover revoke before send and block send after revoke, not send-then-revoke.",
+      "limitations": "gui_luc records a staff confirmation of a manual send; it does not prove delivery to the patient. No DB repro, patient workflow test or production behavior was checked. Whether revocation after send must create a correction task is a policy/design decision; impact is conditional on the patient having received the earlier file."
+    },
+    "related_tests": [
+      {
+        "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+        "scope": "Tests revoke before review and the review-state guard; another case blocks sending after revoke, but no test marks gui_luc before revoke."
+      }
+    ],
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 18 static/design-gap review. The code records a revoke event; patient receipt and the intended correction policy are not proven.",
+      "production_verified": false,
+      "evidence": [
+        {
+          "path": "src/clinicai/events/catalogue.py",
+          "line": 1852,
+          "end_line": 1860,
+          "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+          "excerpt": "1852:             ten=\"result_file.revoked\",\n1853:             version=1,\n1854:             aggregate_type=\"tep_ket_qua\",\n1855:             source_module=\"result_file\",\n1856:             payload=TepKetQuaDaThuHoi,\n1857:             nhan=\"Đã thu hồi tệp kết quả\",\n1858:             # Vòng đọc nghe để rút chỗ chờ \"có kết quả\" khi tệp duy nhất bị gỡ.\n1859:             consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],\n1860:         ),",
+          "detail": "result_file.revoked is subscribed to by the timeline and review-round consumer, not CHUONG."
+        },
+        {
+          "path": "src/clinicai/events/consumers/chuong.py",
+          "line": 34,
+          "end_line": 52,
+          "sha256": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+          "excerpt": "34: #: Mặc định khi phòng khám chưa chỉnh (cùng giá trị migration đã gieo).\n35: MAC_DINH: dict[str, DayNhan] = {\n36:     \"pharmacy.expiry_checked\": DayNhan([\"PHARMACIST\", \"MANAGEMENT\"], False),\n37:     \"pharmacy.stocktake_mismatch\": DayNhan(\n38:         [\"PHARMACIST\", \"MANAGEMENT\", \"TRUONG_CA\"], False\n39:     ),\n40:     \"result_file.uploaded\": DayNhan([\"CSKH\", \"TKYK\", \"NURSE_ULTRASOUND\"], True),\n41:     # Tệp đối tác được xác nhận HỢP LỆ (23/09 khuya): bác sĩ chính đọc, CSKH gửi.\n42:     \"result_file.confirmed\": DayNhan([\"CSKH\"], True),\n43:     \"result.ready\": DayNhan([\"TKYK\"], True),\n44:     # Kết quả đã công bố được SỬA LẠI (28/09/2026): cùng người nhận như kết quả mới.\n45:     \"result.corrected\": DayNhan([\"TKYK\"], True),\n46:     # Kết quả xét nghiệm nhập tay (trước 24/09 gọi thẳng: CSKH + bác sĩ).\n47:     \"lab_result.arrived\": DayNhan([\"CSKH\"], True),\n48:     # Việc mới sang bàn đối tác (24/09/2026).\n49:     \"partner.order_received\": DayNhan([\"PARTNER\"], False),\n50:     # Đối tác bấm \"Trả kết quả\" (16/10/2026): bác sĩ chính + CSKH.\n51:     \"partner.result_returned\": DayNhan([\"CSKH\"], True),\n52: }",
+          "detail": "The default notification map includes uploaded and confirmed result files, not revoked files."
+        },
+        {
+          "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+          "line": 90,
+          "end_line": 103,
+          "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+          "excerpt": "90:     # Nhóm 3 (24/09/2026).\n91:     \"result_file.uploaded\": [\"cho_xac_nhan\"],\n92:     \"partner.order_received\": [\"service_name\", \"ly_do\"],\n93:     # Đối tác tự thu (27/09/2026) — số tiền là thông tin vận hành.\n94:     \"partner.payment_recorded\": [\"so_tien\", \"hinh_thuc\"],\n95:     \"partner.payment_voided\": [\"so_tien\"],\n96:     \"result_file.confirmed\": [\"trang_thai\"],\n97:     # V9 (30/09/2026): lý do xoá là chữ vận hành người xoá gõ — hiện ở lịch sử.\n98:     \"result_file.deleted\": [\"loai\", \"ly_do\"],\n99:     \"result_file.restored\": [],\n100:     \"result_file.viewed\": [],\n101:     \"result_file.sent_to_patient\": [\"kenh\"],\n102:     \"result.reviewed\": [],\n103:     \"result.viewed\": [],",
+          "detail": "Timeline detail allowlist includes confirmation and send events but not revoke reason/detail."
+        },
+        {
+          "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+          "line": 215,
+          "end_line": 239,
+          "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+          "excerpt": "215:     truong = CHI_TIET_HIEN.get(su_kien.event_type, ())\n216:     chi_tiet = {k: su_kien.payload[k] for k in truong if k in su_kien.payload}\n217:     nhan = _nhan_rieng(su_kien.event_type, su_kien.payload) or (\n218:         DANH_MUC[su_kien.event_type].nhan if su_kien.event_type in DANH_MUC else \"\"\n219:     )\n220: \n221:     await conn.execute(\n222:         \"\"\"\n223:         INSERT INTO luot_dong_thoi_gian\n224:             (event_id, clinic_id, visit_id, occurred_at, event_type, nhan,\n225:              chi_tiet, actor_type, actor_staff_id, thu_tu)\n226:         VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::jsonb, $8, $9::uuid,\n227:                 $10)\n228:         ON CONFLICT (event_id) DO NOTHING\n229:         \"\"\",\n230:         su_kien.event_id,\n231:         su_kien.clinic_id,\n232:         visit_id,\n233:         su_kien.occurred_at,\n234:         su_kien.event_type,\n235:         nhan,\n236:         json.dumps(chi_tiet, ensure_ascii=False),\n237:         su_kien.actor_type,\n238:         su_kien.actor_staff_id,\n239:         su_kien.seq,",
+          "detail": "The timeline consumer still writes an event label for revoke, so audit trace is not absent."
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 1131,
+          "end_line": 1160,
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "1131:     async def thu_hoi_tep(\n1132:         self,\n1133:         *,\n1134:         identity: StaffIdentity,\n1135:         tep_id: str,\n1136:         ly_do: str,\n1137:     ) -> dict[str, Any]:\n1138:         \"\"\"Thu hồi tệp đã từng HOP_LE (chuyển sang THU_HOI).\n1139: \n1140:         Chỉ cho phép chuyển từ HOP_LE -> THU_HOI.\n1141:         Bắt buộc có lý do thu hồi và quyền 'ket_qua.xac_nhan'.\n1142:         Nếu REVIEW đã bắt đầu hoặc đã đóng -> dừng và báo design case (không hồi tố).\n1143:         \"\"\"\n1144:         if not (ly_do and ly_do.strip()):\n1145:             raise ValidationError(\"Thu hồi tệp kết quả bắt buộc phải có lý do.\")\n1146: \n1147:         cid = identity.clinic_id\n1148:         async with self._pool.acquire() as conn, conn.transaction():\n1149:             await kiem_tra_quyen_xac_nhan(conn, identity=identity)\n1150: \n1151:             tep = await conn.fetchrow(\n1152:                 \"\"\"\n1153:                 SELECT id, clinic_id, service_order_id, xac_nhan_trang_thai,\n1154:                        xac_nhan_luc, xac_nhan_boi_staff_id\n1155:                   FROM public.tep_ket_qua\n1156:                  WHERE id = $1::uuid AND clinic_id = $2::uuid\n1157:                    AND da_xoa_luc IS NULL\n1158:                    FOR UPDATE\n1159:                 \"\"\",\n1160:                 tep_id,",
+          "detail": "The revoke query does not select gui_luc, so the service cannot branch on whether staff marked the file sent."
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 1199,
+          "end_line": 1256,
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "1199:                 if review_state:\n1200:                     if review_state[\"round_status\"] in (\n1201:                         \"in_review\",\n1202:                         \"closed\",\n1203:                     ) or review_state[\"cons_status\"] in (\"in_progress\", \"done\"):\n1204:                         raise ConflictError(\n1205:                             \"Phiên đọc kết quả đã bắt đầu hoặc đã kết thúc — \"\n1206:                             \"không thể tự động thu hồi tệp. Vui lòng báo case \"\n1207:                             \"hội chẩn/chuyên môn để xử lý theo quy trình hồi tố.\"\n1208:                         )\n1209: \n1210:             await conn.execute(\n1211:                 \"\"\"\n1212:                 UPDATE public.tep_ket_qua\n1213:                    SET xac_nhan_trang_thai = 'THU_HOI',\n1214:                        thu_hoi_luc = now(),\n1215:                        thu_hoi_boi_staff_id = $1::uuid,\n1216:                        thu_hoi_ly_do = $2\n1217:                  WHERE id = $3::uuid AND clinic_id = $4::uuid\n1218:                 \"\"\",\n1219:                 identity.staff_id,\n1220:                 ly_do.strip(),\n1221:                 tep_id,\n1222:                 cid,\n1223:             )\n1224: \n1225:             await record_event(\n1226:                 conn,\n1227:                 event_type=\"tep_ket_qua.thu_hoi\",\n1228:                 aggregate_type=\"tep_ket_qua\",\n1229:                 aggregate_id=str(tep[\"id\"]),\n1230:                 identity=identity,\n1231:                 origin=\"api:tep-ket-qua:thu-hoi\",\n1232:                 payload={\n1233:                     \"ly_do\": ly_do,\n1234:                     \"service_order_id\": str(tep[\"service_order_id\"])\n1235:                     if tep[\"service_order_id\"]\n1236:                     else None,\n1237:                 },\n1238:             )\n1239:             if tep[\"service_order_id\"]:\n1240:                 so_id = str(tep[\"service_order_id\"])\n1241:                 luot_tep = await _luot_cua_tep(conn, cid, so_id, None)\n1242:                 await emit_event(\n1243:                     conn,\n1244:                     ten=\"result_file.revoked\",\n1245:                     clinic_id=cid,\n1246:                     aggregate_id=str(tep[\"id\"]),\n1247:                     payload=TepKetQuaDaThuHoi(\n1248:                         tep_id=str(tep[\"id\"]),\n1249:                         visit_id=luot_tep,\n1250:                         service_order_id=so_id,\n1251:                     ),\n1252:                     boi=nguoi(identity),\n1253:                     correlation_id=luot_tep,\n1254:                 )\n1255: \n1256:         return {\"ok\": True, \"id\": str(tep[\"id\"]), \"trang_thai\": \"THU_HOI\"}",
+          "detail": "Before review starts, a valid file can be revoked and emits result_file.revoked without creating a corrective follow-up task."
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 1267,
+          "end_line": 1298,
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "1267:         Chỉ tệp CÒN HIỆU LỰC (view `v_tep_ket_qua_hieu_luc`, V9 30/09): tệp đã\n1268:         xoá mềm hay đã thu hồi không hiện — trước đây tệp thu hồi vẫn lọt vào\n1269:         danh sách như thể còn là kết quả. Mỗi tệp kèm cờ máy chủ `xoa_duoc /\n1270:         xoa_loai / xoa_ly_do` (`xoa_duoc`) — giao diện chỉ hiện nút theo cờ.\n1271:         \"\"\"\n1272:         async with self._pool.acquire() as conn:\n1273:             if not await doc_duoc_tep_ket_qua(conn, identity):\n1274:                 raise SafetyGateError(\"Không có quyền xem tệp kết quả.\")\n1275:             quyen = await quyen_xoa_tep(conn, identity)\n1276:             rows = await conn.fetch(\n1277:                 f\"\"\"\n1278:                 SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,\n1279:                        t.ben, t.tai_len_luc, t.gui_luc, t.gui_kenh,\n1280:                        t.cho_phep_gui_luc, t.appointment_id::text,\n1281:                        t.service_order_id::text,\n1282:                        t.xac_nhan_trang_thai, t.xac_nhan_luc, t.xac_nhan_ly_do,\n1283:                        t.thu_hoi_luc, t.thu_hoi_ly_do,\n1284:                        s.full_name AS tai_len_boi,\n1285:                        g.full_name AS gui_boi,\n1286:                        b.full_name AS cho_phep_gui_boi,\n1287:                        xn.full_name AS xac_nhan_boi,\n1288:                        th.full_name AS thu_hoi_boi,\n1289:                        {COT_XOA_SQL}\n1290:                   FROM public.v_tep_ket_qua_hieu_luc t\n1291:                   LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id\n1292:                   LEFT JOIN public.staff g ON g.id = t.gui_boi_staff_id\n1293:                   LEFT JOIN public.staff b ON b.id = t.cho_phep_gui_boi_staff_id\n1294:                   LEFT JOIN public.staff xn ON xn.id = t.xac_nhan_boi_staff_id\n1295:                   LEFT JOIN public.staff th ON th.id = t.thu_hoi_boi_staff_id\n1296:                  WHERE t.clinic_id = $1::uuid AND t.clinic_patient_id = $2::uuid\n1297:                  ORDER BY t.tai_len_luc DESC\n1298:                  LIMIT 200",
+          "detail": "The current-file list reads the effective view, from which revoked files are excluded."
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 1673,
+          "end_line": 1682,
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "1673:     async def danh_dau_da_gui(\n1674:         self, *, identity: StaffIdentity, tep_id: str, kenh: str\n1675:     ) -> dict[str, Any]:\n1676:         \"\"\"CSKH xác nhận ĐÃ GỬI tệp này cho khách.\n1677: \n1678:         Tên hàm và nhãn nút đều nói \"xác nhận đã gửi\", không phải \"gửi\":\n1679:         send_zalo.py luôn trả delivered=False — chưa có kênh nào được nối. Gọi\n1680:         nó là \"gửi\" thì sáu tháng sau sẽ có người tin rằng hệ thống tự gửi và\n1681:         không ai gọi cho khách nữa.\n1682:         \"\"\"",
+          "detail": "gui_luc is a staff confirmation of a manual send, not proof of automated delivery."
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 1709,
+          "end_line": 1750,
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "1709:         async with self._pool.acquire() as conn, conn.transaction():\n1710:             row = await conn.fetchrow(\n1711:                 f\"\"\"\n1712:                 UPDATE public.tep_ket_qua\n1713:                    SET gui_luc = now(), gui_boi_staff_id = $1::uuid, gui_kenh = $2\n1714:                  WHERE id = $3::uuid AND clinic_id = $4::uuid AND gui_luc IS NULL\n1715:                    AND da_xoa_luc IS NULL\n1716:                    {where_extra}\n1717:                 RETURNING id::text, service_order_id::text, appointment_id::text\n1718:                 \"\"\",\n1719:                 identity.staff_id,\n1720:                 kenh,\n1721:                 tep_id,\n1722:                 identity.clinic_id,\n1723:             )\n1724:             if row is None:\n1725:                 raise NotFoundError(\"Tệp này đã được gửi rồi.\")\n1726:             luot_tep = await _luot_cua_tep(\n1727:                 conn,\n1728:                 identity.clinic_id,\n1729:                 row[\"service_order_id\"],\n1730:                 row[\"appointment_id\"],\n1731:             )\n1732:             await emit_event(\n1733:                 conn,\n1734:                 ten=\"result_file.sent_to_patient\",\n1735:                 clinic_id=identity.clinic_id,\n1736:                 aggregate_id=tep_id,\n1737:                 payload=KetQuaDaGuiKhach(tep_id=tep_id, visit_id=luot_tep, kenh=kenh),\n1738:                 boi=nguoi(identity),\n1739:                 correlation_id=luot_tep,\n1740:             )\n1741:         return {\"ok\": True}\n1742: \n1743:     async def cho_phep_gui(\n1744:         self, *, identity: StaffIdentity, tep_id: str\n1745:     ) -> dict[str, Any]:\n1746:         \"\"\"Bác sĩ đã xem tệp và cho phép CSKH gửi cho khách.\"\"\"\n1747:         async with self._pool.acquire() as conn:\n1748:             # QUYỀN duyệt kết quả, không vai (28/09/2026).\n1749:             if not await can(conn, identity, \"result.review.approve\"):\n1750:                 raise SafetyGateError(\"Bạn không có quyền cho phép gửi kết quả.\")",
+          "detail": "The send flow records gui_luc and emits sent_to_patient after staff confirmation."
+        },
+        {
+          "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+          "line": 945,
+          "end_line": 1007,
+          "sha256": "0623256720cb6d4e3a323a9dbba33c79d2768dba1acd6688cef7c960e5baaa99",
+          "excerpt": "945:     # 1. Xác nhận HOP_LE -> round ready\n946:     await svc_tep.xac_nhan_tep(\n947:         identity=staff_xac_nhan, tep_id=tep_id, trang_thai=\"HOP_LE\"\n948:     )\n949:     async with pool.acquire() as conn:\n950:         r_status = await conn.fetchval(\n951:             \"SELECT status FROM review_round WHERE id = $1::uuid\", rid\n952:         )\n953:         assert r_status == \"ready\"\n954:         original_xac_nhan_luc = await conn.fetchval(\n955:             \"SELECT xac_nhan_luc FROM tep_ket_qua WHERE id = $1::uuid\", tep_id\n956:         )\n957: \n958:     # 2. THU_HOI khi REVIEW chưa bắt đầu:\n959:     # - Bắt buộc có lý do\n960:     with pytest.raises(ValidationError, match=\"bắt buộc phải có lý do\"):\n961:         await svc_tep.thu_hoi_tep(identity=staff_xac_nhan, tep_id=tep_id, ly_do=\"\")\n962: \n963:     # - Thu hồi thành công:\n964:     res_th = await svc_tep.thu_hoi_tep(\n965:         identity=staff_xac_nhan,\n966:         tep_id=tep_id,\n967:         ly_do=\"Phát hiện đối tác gửi nhầm mẫu của bệnh nhân khác\",\n968:     )\n969:     assert res_th[\"ok\"] is True\n970:     assert res_th[\"trang_thai\"] == \"THU_HOI\"\n971: \n972:     async with pool.acquire() as conn:\n973:         tep_row = await conn.fetchrow(\n974:             \"SELECT * FROM tep_ket_qua WHERE id = $1::uuid\", tep_id\n975:         )\n976:         assert tep_row[\"xac_nhan_trang_thai\"] == \"THU_HOI\"\n977:         # Giữ nguyên actor/thời gian xác nhận ban đầu\n978:         assert tep_row[\"xac_nhan_luc\"] == original_xac_nhan_luc\n979:         assert str(tep_row[\"xac_nhan_boi_staff_id\"]) == staff_xac_nhan.staff_id\n980:         # Ghi riêng thông tin thu hồi\n981:         assert tep_row[\"thu_hoi_luc\"] is not None\n982:         assert str(tep_row[\"thu_hoi_boi_staff_id\"]) == staff_xac_nhan.staff_id\n983:         assert (\n984:             tep_row[\"thu_hoi_ly_do\"]\n985:             == \"Phát hiện đối tác gửi nhầm mẫu của bệnh nhân khác\"\n986:         )\n987:         # Giữ approval history khi thu hồi\n988:         # (test này chưa approve nên vẫn NULL)\n989:         assert tep_row[\"cho_phep_gui_luc\"] is None\n990: \n991:         # REVIEW round bị rút lại về 'collecting'\n992:         r_status = await conn.fetchval(\n993:             \"SELECT status FROM review_round WHERE id = $1::uuid\", rid\n994:         )\n995:         assert r_status == \"collecting\"\n996: \n997:         # queue_entry bị huỷ (cancelled)\n998:         q_cancelled = await conn.fetchval(\n999:             \"SELECT status FROM queue_entry \"\n1000:             \"WHERE visit_id = $1::uuid AND reason = 'REVIEW'\",\n1001:             vid,\n1002:         )\n1003:         assert q_cancelled == \"cancelled\"\n1004: \n1005:         # Q: TU_CHOI/THU_HOI không tính VALID_RESULT\n1006:         reqs = await svc_lk._yeu_cau_cua_vong(conn, CLINIC_A, rid)\n1007:         assert reqs[0][\"co_ket_qua\"] is False",
+          "detail": "The test covers revoke before sending and the review boundary."
+        },
+        {
+          "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+          "line": 1589,
+          "end_line": 1679,
+          "sha256": "0623256720cb6d4e3a323a9dbba33c79d2768dba1acd6688cef7c960e5baaa99",
+          "excerpt": "1589: # T9: DB MUST BLOCK SEND AFTER THU_HOI — direct SQL set gui_luc bị chặn\n1590: # ==============================================================================\n1591: async def test_t9_db_blocks_send_after_thu_hoi(\n1592:     pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path\n1593: ) -> None:\n1594:     \"\"\"External HOP_LE -> doctor approve -> THU_HOI -> direct SQL set gui_luc.\n1595: \n1596:     Database trigger must reject the send attempt.\n1597:     Also verifies that service danh_dau_da_gui rejects.\n1598:     Approval history (cho_phep_gui_luc) is preserved, but send is blocked.\n1599:     \"\"\"\n1600:     import clinicai.services.media_service as media\n1601:     import clinicai.services.tep_ket_qua_service as tep_mod\n1602: \n1603:     monkeypatch.setattr(media, \"MEDIA_ROOT\", tmp_path)\n1604:     monkeypatch.setattr(tep_mod, \"MEDIA_ROOT\", tmp_path)\n1605: \n1606:     async with pool.acquire() as conn:\n1607:         doc = await _tao_staff(conn, CLINIC_A, \"DOCTOR\")\n1608:         partner = await _tao_staff(conn, CLINIC_A, \"PARTNER\")\n1609:         staff_xac_nhan = await _tao_staff(\n1610:             conn, CLINIC_A, \"NURSE\", caps=[Capability.KET_QUA_XAC_NHAN.value]\n1611:         )\n1612:         cskh = await _tao_staff(conn, CLINIC_A, \"CSKH\")\n1613:         pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)\n1614:         oid = await _tao_external_order(conn, CLINIC_A, vid)\n1615: \n1616:     svc_tep = TepKetQuaService(pool)\n1617: \n1618:     # 1. Partner uploads external file -> CHO_XAC_NHAN\n1619:     t = await svc_tep.tai_len(\n1620:         identity=partner,\n1621:         clinic_patient_id=pid,\n1622:         data=PDF_DUMMY,\n1623:         ten_hien_thi=\"thu-hoi-send.pdf\",\n1624:         service_order_id=oid,\n1625:     )\n1626:     tep_id = t[\"id\"]\n1627: \n1628:     # 2. Nurse confirms HOP_LE\n1629:     await svc_tep.xac_nhan_tep(\n1630:         identity=staff_xac_nhan,\n1631:         tep_id=tep_id,\n1632:         trang_thai=\"HOP_LE\",\n1633:     )\n1634: \n1635:     # 3. Doctor approves -> cho_phep_gui_luc set\n1636:     res_bs = await svc_tep.cho_phep_gui(identity=doc, tep_id=tep_id)\n1637:     assert res_bs[\"ok\"] is True\n1638: \n1639:     # 4. Nurse revokes -> THU_HOI\n1640:     await svc_tep.thu_hoi_tep(\n1641:         identity=staff_xac_nhan,\n1642:         tep_id=tep_id,\n1643:         ly_do=\"Phát hiện sai sót nghiêm trọng\",\n1644:     )\n1645: \n1646:     # Verify state in DB: xac_nhan_trang_thai = THU_HOI, cho_phep_gui_luc preserved\n1647:     async with pool.acquire() as conn:\n1648:         row = await conn.fetchrow(\n1649:             \"SELECT xac_nhan_trang_thai, cho_phep_gui_luc \"\n1650:             \"FROM tep_ket_qua WHERE id = $1::uuid\",\n1651:             tep_id,\n1652:         )\n1653:         assert row[\"xac_nhan_trang_thai\"] == \"THU_HOI\"\n1654:         assert row[\"cho_phep_gui_luc\"] is not None  # Approval history preserved!\n1655: \n1656:         # 5. Direct SQL attempt to set gui_luc -> DB trigger must REJECT!\n1657:         with pytest.raises(\n1658:             (asyncpg.RaiseError, asyncpg.CheckViolationError),\n1659:             match=\"THU_HOI.*không được phép gửi\",\n1660:         ):\n1661:             await conn.execute(\n1662:                 \"\"\"\n1663:                 UPDATE tep_ket_qua\n1664:                    SET gui_luc = now(),\n1665:                        gui_boi_staff_id = $1::uuid,\n1666:                        gui_kenh = 'ZALO'\n1667:                  WHERE id = $2::uuid\n1668:                 \"\"\",\n1669:                 cskh.staff_id,\n1670:                 tep_id,\n1671:             )\n1672: \n1673:     # 6. Service danh_dau_da_gui also rejects\n1674:     with pytest.raises(ConflictError, match=\"chưa ở trạng thái hợp lệ để gửi\"):\n1675:         await svc_tep.danh_dau_da_gui(\n1676:             identity=cskh,\n1677:             tep_id=tep_id,\n1678:             kenh=\"ZALO\",\n1679:         )",
+          "detail": "The test covers that a revoked file cannot be sent later; it never marks gui_luc before revoking."
+        },
+        {
+          "path": "supabase/migrations/20260920000005_xac_nhan_tep_ket_qua.sql",
+          "line": 124,
+          "end_line": 140,
+          "sha256": "86b4467de6be9674f22b911e6631b18f2fe10d577d9ae106518999ef474a8ca7",
+          "excerpt": "124:   -- State machine:\n125:   -- CHO_XAC_NHAN -> HOP_LE\n126:   -- CHO_XAC_NHAN -> TU_CHOI\n127:   -- HOP_LE       -> THU_HOI\n128:   IF OLD.xac_nhan_trang_thai = 'CHO_XAC_NHAN' AND NEW.xac_nhan_trang_thai IN ('HOP_LE', 'TU_CHOI') THEN\n129:     RETURN NEW;\n130:   ELSIF OLD.xac_nhan_trang_thai = 'HOP_LE' AND NEW.xac_nhan_trang_thai = 'THU_HOI' THEN\n131:     -- Giữ nguyên actor và thời gian xác nhận ban đầu\n132:     IF NEW.xac_nhan_luc IS DISTINCT FROM OLD.xac_nhan_luc\n133:        OR NEW.xac_nhan_boi_staff_id IS DISTINCT FROM OLD.xac_nhan_boi_staff_id\n134:     THEN\n135:       RAISE EXCEPTION 'Không được ghi đè thông tin xác nhận ban đầu khi thu hồi tệp kết quả';\n136:     END IF;\n137:     -- GIỮ NGUYÊN cho_phep_gui_luc / cho_phep_gui_boi_staff_id\n138:     -- để audit vẫn biết bác sĩ từng duyệt.\n139:     -- Tệp THU_HOI không gửi được vì current state, không phải vì xóa lịch sử approval.\n140:     RETURN NEW;",
+          "detail": "The database permits HOP_LE to THU_HOI and preserves approval history; it does not gate on gui_luc."
+        }
+      ]
+    },
+    "dedup_note": "Khác CLIN-019: CLIN-019 là marker/H7 của kết quả đối tác bị thu hồi trước khi bác sĩ đọc; CLIN-036 là luồng đính chính sau khi nhân viên đã ghi nhận gửi tệp cho khách. Cùng chủ đề thu hồi nhưng khác trigger, consumer và người cần handoff.",
+    "evidence": [
+      {
+        "path": "src/clinicai/events/catalogue.py",
+        "line": 1852,
+        "end_line": 1860,
+        "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+        "detail": "result_file.revoked is subscribed to by the timeline and review-round consumer, not CHUONG."
+      },
+      {
+        "path": "src/clinicai/events/consumers/chuong.py",
+        "line": 34,
+        "end_line": 52,
+        "sha256": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+        "detail": "The default notification map includes uploaded and confirmed result files, not revoked files."
+      },
+      {
+        "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+        "line": 90,
+        "end_line": 103,
+        "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+        "detail": "Timeline detail allowlist includes confirmation and send events but not revoke reason/detail."
+      },
+      {
+        "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+        "line": 215,
+        "end_line": 239,
+        "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+        "detail": "The timeline consumer still writes an event label for revoke, so audit trace is not absent."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 1131,
+        "end_line": 1160,
+        "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+        "detail": "The revoke query does not select gui_luc, so the service cannot branch on whether staff marked the file sent."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 1199,
+        "end_line": 1256,
+        "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+        "detail": "Before review starts, a valid file can be revoked and emits result_file.revoked without creating a corrective follow-up task."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 1267,
+        "end_line": 1298,
+        "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+        "detail": "The current-file list reads the effective view, from which revoked files are excluded."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 1673,
+        "end_line": 1682,
+        "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+        "detail": "gui_luc is a staff confirmation of a manual send, not proof of automated delivery."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 1709,
+        "end_line": 1750,
+        "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+        "detail": "The send flow records gui_luc and emits sent_to_patient after staff confirmation."
+      },
+      {
+        "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+        "line": 945,
+        "end_line": 1007,
+        "sha256": "0623256720cb6d4e3a323a9dbba33c79d2768dba1acd6688cef7c960e5baaa99",
+        "detail": "The test covers revoke before sending and the review boundary."
+      },
+      {
+        "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+        "line": 1589,
+        "end_line": 1679,
+        "sha256": "0623256720cb6d4e3a323a9dbba33c79d2768dba1acd6688cef7c960e5baaa99",
+        "detail": "The test covers that a revoked file cannot be sent later; it never marks gui_luc before revoking."
+      },
+      {
+        "path": "supabase/migrations/20260920000005_xac_nhan_tep_ket_qua.sql",
+        "line": 124,
+        "end_line": 140,
+        "sha256": "86b4467de6be9674f22b911e6631b18f2fe10d577d9ae106518999ef474a8ca7",
+        "detail": "The database permits HOP_LE to THU_HOI and preserves approval history; it does not gate on gui_luc."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/events/catalogue.py": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+      "src/clinicai/events/consumers/chuong.py": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+      "src/clinicai/events/consumers/dong_thoi_gian.py": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "src/clinicai/services/tep_ket_qua_service.py": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "src/tests/services/test_xac_nhan_tep_ket_qua_db.py": "0623256720cb6d4e3a323a9dbba33c79d2768dba1acd6688cef7c960e5baaa99",
+      "supabase/migrations/20260920000005_xac_nhan_tep_ket_qua.sql": "86b4467de6be9674f22b911e6631b18f2fe10d577d9ae106518999ef474a8ca7"
+    }
+  }
+]

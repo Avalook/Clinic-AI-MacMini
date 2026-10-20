@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_patient_lookup_slice",
+  "findings": [
+    {
+      "id": "CAND-PAT-LOOKUP-001",
+      "title": "Danh sách nhân viên gửi CCCD/email nguyên văn trong payload từng bệnh nhân",
+      "severity": "MEDIUM",
+      "confidence": "confirmed_static",
+      "trigger": "Nhân viên có patient.list.view tải GET /patients/danh-sach, hoặc nhân viên có crm.manage tải danh sách khách CSKH; mỗi lần trả về trang hiện tại và patient-list có thể kèm một hồ sơ được chọn ngoài trang.",
+      "impact": "CCCD/email nguyên văn đi qua API và payload client cho mọi tài khoản mang quyền liệt kê. Các field này không được dùng ở dòng UI patient-list đã rà; điều này mở rộng phạm vi lộ PII khi payload bị xem/lưu/chụp. Không chứng minh một request trả toàn bộ clinic.",
+      "recommendation": "Tạo response model/allowlist tối thiểu riêng theo từng danh sách; loại CCCD/email nếu không cần. Nhu cầu xác minh định danh dùng mask mặc định hoặc endpoint/quyền riêng có audit.",
+      "acceptance": "Test API với patient.list.view và crm.manage kiểm tra cả rows và selected/out-of-page row không chứa CCCD/email nguyên văn; xác nhận UI client payload chỉ có trường được phép.",
+      "limitations": "Static-only; không chạy test/API. Query được rà có clinic_id filter. Scope location chưa đủ product contract để gọi là vi phạm; không khẳng định endpoint trả toàn bộ clinic trong một request.",
+      "evidence": [
+        {"path":"src/clinicai/services/danh_sach_benh_nhan_service.py","sha256":"6d440aac59d3f084c969910e37da0bc5627b5a458be03d0e8ed43a404449d125","line":136,"end_line":149,"detail":"Projection patient row đưa national_id_number và email nguyên văn vào record."},
+        {"path":"src/clinicai/services/danh_sach_benh_nhan_service.py","sha256":"6d440aac59d3f084c969910e37da0bc5627b5a458be03d0e8ed43a404449d125","line":320,"end_line":380,"detail":"Service dựng mọi dòng trang và dòng selected qua _ho_so, không tách allowlist theo caller."},
+        {"path":"src/clinicai/services/danh_sach_benh_nhan_service.py","sha256":"6d440aac59d3f084c969910e37da0bc5627b5a458be03d0e8ed43a404449d125","line":384,"end_line":393,"detail":"_ho_so chuyển nguyên Record thành dict, chỉ chuyển đổi ngày/JSON; không mask national_id_number/email."},
+        {"path":"src/clinicai/api/v1/patients.py","sha256":"a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a","line":278,"end_line":303,"detail":"Route danh sách phụ thuộc patient.list.view và trả trực tiếp dict từ service."},
+        {"path":"src/dashboard/app/(dashboard)/patient-list/page.tsx","sha256":"7c0743b7b997ac27bf8008bd40eafbb1577d540b30355536ff2d7c28503f7aff","line":81,"end_line":115,"detail":"thanhDong giữ toàn bộ d.ho_so ở hoso và appt.patient."},
+        {"path":"src/dashboard/app/(dashboard)/patient-list/page.tsx","sha256":"7c0743b7b997ac27bf8008bd40eafbb1577d540b30355536ff2d7c28503f7aff","line":167,"end_line":172,"detail":"API response rows/chon được đưa vào các client-row objects."},
+        {"path":"src/dashboard/app/(dashboard)/patient-list/PatientListView.tsx","sha256":"228a978ef94e8d8f7bd9b8df5c7c1851c74f5dda1cba4e971af0ddbd7f010d76","line":1,"end_line":1,"detail":"PatientListView là client component; các row props được chuyển tới browser."},
+        {"path":"src/dashboard/app/(dashboard)/patient-list/PatientListView.tsx","sha256":"228a978ef94e8d8f7bd9b8df5c7c1851c74f5dda1cba4e971af0ddbd7f010d76","line":587,"end_line":627,"detail":"Targeted UI block hiển thị thông tin hành chính; không dùng CCCD hoặc email. Full-file text search cũng không tìm reference tới hai field này."},
+        {"path":"src/clinicai/services/danh_sach_khach_cskh.py","sha256":"87049a9af28683bd123c1e36286ade640aee4be0d4bd781f03182e1f0589db39","line":63,"end_line":79,"detail":"CSKH list projection cũng chọn CCCD/email nguyên văn."},
+        {"path":"src/clinicai/services/danh_sach_khach_cskh.py","sha256":"87049a9af28683bd123c1e36286ade640aee4be0d4bd781f03182e1f0589db39","line":188,"end_line":201,"detail":"Serializer CSKH list giữ nguyên giá trị của các field không đổi định dạng."},
+        {"path":"src/clinicai/services/danh_sach_khach_cskh.py","sha256":"87049a9af28683bd123c1e36286ade640aee4be0d4bd781f03182e1f0589db39","line":224,"end_line":280,"detail":"CSKH list và selected row đều query theo clinic_id rồi dùng projection trên."},
+        {"path":"src/clinicai/api/v1/routers/cskh.py","sha256":"cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58","line":65,"end_line":86,"detail":"GET /cskh/danh-sach-khach nối service list với crm.manage guard."},
+        {"path":"src/dashboard/app/(dashboard)/customers/page.tsx","sha256":"9449faacef9c91fc05dddd447d584b5a2dbdb0b06883842d602aff223b46e28c","line":1111,"end_line":1138,"detail":"Page chuyển rows và các bundle dữ liệu sang CustomersView."},
+        {"path":"src/dashboard/app/(dashboard)/customers/CustomersView.tsx","sha256":"957afb9b35cd0bb8a44f4b5c7f66c02c3593a1d950f7304b8fa2991975658c08","line":1,"end_line":1,"detail":"CustomersView là client component; customer list props được chuyển tới browser."},
+        {"path":"src/clinicai/schemas/patient.py","sha256":"0f306e8715b53ad6946b2b09324c827b6819b05b6e354ac13775caef614f5ba4","line":328,"end_line":356,"detail":"PatientDTO được mô tả mask CCCD và field validator gọi _mask_national_id; list routes không dùng schema này."}
+      ],
+      "reference_version": "pinned_main",
+      "status": "candidate"
+    },
+    {
+      "id": "CAND-PAT-LOOKUP-002",
+      "title": "Preset thu ngân cấp crm.manage nên có thể ghi tương tác CSKH",
+      "severity": "MEDIUM",
+      "confidence": "confirmed_static",
+      "trigger": "Thành viên CASHIER, CASHIER_DV hoặc CASHIER_THUOC giữ capability crm.manage theo preset hệ thống rồi mở /customers hoặc gọi API được gác bằng _INTAKE_GUARD.",
+      "impact": "Thu ngân có thể ghi tương tác CSKH, tạo/đóng hẹn gọi lại và cập nhật phản hồi khách. Điều này trái mô tả trong code rằng thu ngân chỉ xem thông tin khách để đối chiếu và không thực hiện chăm sóc; frontend cũng mount vùng ghi khi crm.manage hiện diện.",
+      "recommendation": "Tách capability đọc danh sách/ghi chú CSKH khỏi quyền ghi tương tác, follow-up và xử lý phản hồi. Nếu thu ngân cần ghi một phần, cấp quyền hẹp theo tác vụ; bổ sung role-capability matrix cả frontend/backend.",
+      "acceptance": "Test ma trận cho ba preset CASHIER*: GET chỉ trả phần dữ liệu được phép; POST interaction và follow-up, PATCH follow-up/feedback trả 403; frontend không mount write controls. Xác nhận vai CSKH/Quản lý/Lễ tân cần thiết vẫn thao tác được.",
+      "limitations": "Static-only; không xác minh preset/grant của tài khoản production hiện tại. Quản lý có thể thay quyền theo tài khoản sau khi áp preset.",
+      "evidence": [
+        {"path":"supabase/migrations/20260925000015_lego_21.sql","sha256":"4add5ba36487c6beea1a2d5ef7bf15dd4ceb29792fc6732be950b5dd45f8dc36","line":52,"end_line":55,"detail":"Capability crm.manage được ánh xạ vào khối cham_soc_khach."},
+        {"path":"supabase/migrations/20260925000015_lego_21.sql","sha256":"4add5ba36487c6beea1a2d5ef7bf15dd4ceb29792fc6732be950b5dd45f8dc36","line":80,"end_line":95,"detail":"Cả CASHIER, CASHIER_DV, CASHIER_THUOC đều nhận cham_soc_khach trong preset hệ thống."},
+        {"path":"supabase/migrations/20260925000015_lego_21.sql","sha256":"4add5ba36487c6beea1a2d5ef7bf15dd4ceb29792fc6732be950b5dd45f8dc36","line":103,"end_line":104,"detail":"Migration áp các khối preset mới cho thành viên hiện có."},
+        {"path":"src/clinicai/permissions/catalogue.py","sha256":"b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158","line":593,"end_line":605,"detail":"crm.manage được khai báo trong khối cham_soc_khach."},
+        {"path":"src/clinicai/permissions/cua_quyen.py","sha256":"2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9","line":27,"end_line":49,"detail":"Guard qua khi actor có ít nhất một capability truyền vào; helper không gate theo role."},
+        {"path":"src/clinicai/api/v1/routers/cskh.py","sha256":"cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58","line":47,"end_line":50,"detail":"_INTAKE_GUARD chấp nhận crm.manage; _RECALL_GUARD cũng dùng crm.manage."},
+        {"path":"src/clinicai/api/v1/routers/cskh.py","sha256":"cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58","line":491,"end_line":540,"detail":"POST /cskh/tuong-tac gác bằng _INTAKE_GUARD và gọi TuongTacCskhService.ghi."},
+        {"path":"src/clinicai/api/v1/routers/cskh.py","sha256":"cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58","line":585,"end_line":608,"detail":"Tạo và đóng follow-up đều gác bằng _INTAKE_GUARD."},
+        {"path":"src/clinicai/api/v1/routers/cskh.py","sha256":"cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58","line":642,"end_line":657,"detail":"Cập nhật phản hồi khách dùng cùng _INTAKE_GUARD."},
+        {"path":"src/dashboard/lib/roles.ts","sha256":"3650af19bac02f1c3d3a2aff480456278f7cc2141800ed0ee8d4c3bb376255b9","line":354,"end_line":371,"detail":"Comment nói thu ngân chỉ xem/không gọi chăm sóc nhưng cả ba vai vẫn có navigation /customers."},
+        {"path":"src/dashboard/lib/quyen-cua-toi.ts","sha256":"e055f4b9caba4ffd2ca0cd172b85b8206e801831fca7937df00bcea3df9b25aa","line":56,"end_line":63,"detail":"crm.manage nằm trong danh sách QUYEN_GHI_CHAM_SOC."},
+        {"path":"src/dashboard/app/(dashboard)/customers/page.tsx","sha256":"9449faacef9c91fc05dddd447d584b5a2dbdb0b06883842d602aff223b46e28c","line":111,"end_line":115,"detail":"Khi quyền được tải, canOperateCskh được tính theo QUYEN_GHI_CHAM_SOC, không theo loại vai cashier."},
+        {"path":"src/dashboard/app/(dashboard)/customers/CustomersView.tsx","sha256":"957afb9b35cd0bb8a44f4b5c7f66c02c3593a1d950f7304b8fa2991975658c08","line":1754,"end_line":1822,"detail":"canOperateCskh mount VungLamViecKhach có tương tác và phản hồi; nhánh false chỉ hiện khối đọc."},
+        {"path":"src/tests/unit/test_man_khach_hang.py","sha256":"aa3f531ddaedb71cf933a20407922f9ec1a099e6a2880a8adf52e01b62400008","line":35,"end_line":56,"detail":"Test chỉ xác nhận UI/API cùng crm.manage, không kiểm ma trận CASHIER* read/write."}
+      ],
+      "reference_version": "pinned_main",
+      "status": "candidate"
+    }
+  ]
+}

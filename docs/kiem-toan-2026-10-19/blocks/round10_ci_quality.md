@@ -1,0 +1,18 @@
+# Round 10 — CI, test reliability, and release gate
+
+Snapshot pinned by task: `956ba4f236b1c92f1280d2097018c199e90ce8c7`. Static read-only review; no tests, CI jobs, hooks, builds, database, production, secrets, or PHI were accessed. The snapshot is a content export without `.git`, so the pinned commit SHA is supplied metadata rather than independently verified with `git rev-parse`.
+
+## Kết quả
+
+The host-side gate is `scripts/ci-may.sh`, not GitHub Actions. It runs five parallel jobs (backend, frontend, infra, portability, database) and exits nonzero if any job result file is not `0` (`scripts/ci-may.sh:204–254`). Backend runs Ruff check/format, mypy, tenant-scope and route-map checks, PostgreSQL migration setup, pytest excluding integration, and an 80% `clinicai` coverage floor (`:84–117`). Frontend runs TypeScript, ESLint, a fixed set of named Node test groups, and Next build (`:120–135`). Database job reapplies migrations and SQL tests to a disposable PostgreSQL container (`:171–202`). There is no GitHub Actions workflow or separate pre-commit configuration in this snapshot; repo instructions identify the local CI command as the release gate and say GitHub Actions is down (`CLAUDE.md:77–82, 119–126`; `AGENTS.md:10–18`).
+
+Two new static candidates are recorded in the findings JSON:
+
+1. **Stale CI lock recovery is not exclusive.** When `mkdir` sees an existing lock whose PID is dead, the script says it will reclaim the lock, but it does not remove/recreate the directory or otherwise claim ownership before proceeding (`scripts/ci-may.sh:56–67`). Concurrent invocations can both pass this stale-lock branch and run jobs that share the same `.ci-may` log paths and disposable DB/container names. This is a statically inferred race; it was not reproduced.
+2. **One frontend test file is outside the gate.** `src/dashboard/lib/xuat-bang-excel.test.mts` exists and tests `xuat-bang-excel.ts`, but neither the CI loop nor any `package.json` script references it. The CI loop enumerates only named groups (`scripts/ci-may.sh:129–130`); package scripts enumerate a fixed subset (`src/dashboard/package.json:9–29`). This establishes an omitted test file, not a claim that a current product defect has escaped or that any check has falsely passed.
+
+**Deduplication:** existing `INF-014` is the same untracked-file/dirty-tree status-publication issue: `git status --porcelain --untracked-files=no` omits untracked files, while `--bao-github` publishes a status to `HEAD` (`scripts/ci-may.sh:74–80, 241–250`). It is not restated as a new finding. The canonical ledger copy was consulted read-only at `/Users/quangdang/Projects/Dr4Women-MacMini/docs/kiem-toan-2026-10-19/PHAT-HIEN.json:8771–8858`; it contains `INF-014` with that exact trigger. Its current SHA-256 is `f4c89cd370978fdb57b4e8e30945a56c8639f90b9ac018f2213a29cb0a66c426`, different from the prior round-9 recorded ledger SHA, so this comparison is only for ID/topic deduplication, not evidence about the pinned source snapshot.
+
+## Phạm vi và giới hạn
+
+Read the project contract in `AGENTS.md`, `CLAUDE.md`, and `docs/DANG-LAM.md`; inspected the CI and fast-test scripts, pytest/Poetry settings, dashboard package scripts, pre-commit hook, infra-safety hook tests, and deploy dirty-worktree check. `docs/SO-LUAT.md`, `PHAT-HIEN.json`, and Git metadata are absent from the exact snapshot; the ledger was separately consulted only to compare `INF-014`. No runtime checks were performed, therefore there is no reproduced false-green result. Per-file byte hashes and reviewed line ranges are in `round10_ci_quality.coverage.json`.

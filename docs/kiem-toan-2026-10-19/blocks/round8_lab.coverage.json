@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_result_file_slice",
+  "scope": [
+    "Clinical order result-file lifecycle: upload, confirm/reject, revoke, soft delete/restore, release/send marking, read/view, event and DB persistence.",
+    "CSKH upload path UI/BFF/helper/FastAPI/service/DB/test.",
+    "No changes; static source only."
+  ],
+  "findings_count": 1,
+  "files": [
+    {
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "lines": 1900,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-1900"
+      ],
+      "notes": "Toàn bộ file đã được đọc qua các lượt/đoạn liên tục; gồm upload, status transitions, read/send, deletion/recovery and queue. Prior H7 revoke finding referenced separately and not duplicated here."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "lines": 1092,
+      "status": "partial_semantic_read",
+      "ranges": [
+        "729-772",
+        "801-926",
+        "928-1050"
+      ],
+      "notes": "Upload, approve/review/revoke, deletion/recovery, result file read and send marker routes; not a whole-router review."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/ket-qua/route.ts",
+      "sha256": "ce817fa5229502e4e6835bc8b059917d911b529a174071434461662bd183400a",
+      "lines": 114,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-114"
+      ],
+      "notes": "GET/POST/PATCH BFF behavior."
+    },
+    {
+      "path": "src/dashboard/lib/chuyen-tiep-tai-len.ts",
+      "sha256": "228d4a5d8923abce44026b1e0354b09b39f282bade533100aa355bee9eeb4733",
+      "lines": 55,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-55"
+      ],
+      "notes": "Node HTTP streaming and request/response errors."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/TepKetQua.tsx",
+      "sha256": "72e62eb680512393697579a3d72654d389c6d4d1dc9cc5e874698eabc59ba89f",
+      "lines": 536,
+      "status": "partial_semantic_read",
+      "ranges": [
+        "156-215",
+        "217-235"
+      ],
+      "notes": "Result list refresh and sequential upload/send UI. Not a full component review."
+    },
+    {
+      "path": "src/clinicai/services/media_service.py",
+      "sha256": "54bb599468bf44ec2df3676e1252b736667ddc8baddd2aef324059349069c5a5",
+      "lines": 450,
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "282-292"
+      ],
+      "notes": "UUID-generated file key helper only."
+    },
+    {
+      "path": "supabase/migrations/20260809000008_tep_ket_qua.sql",
+      "sha256": "29be580cc5d1422e3ce2d5b71aaf5b328418f734fba2d76867be2da1b92ba903",
+      "lines": 94,
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "21-94"
+      ],
+      "notes": "File table, constraints, index, RLS/read-only grants. This is the base migration; state-transition triggers and current active-result view were checked in relevant later migrations during prior result-slice work, but are not restated as a new finding."
+    },
+    {
+      "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+      "sha256": "e331aec7a70d56a43901cfa2e7ae2c3639091c5c2db7b968ab36aa8555b5c064",
+      "lines": 1572,
+      "status": "partial_semantic_read",
+      "ranges": [
+        "563-658",
+        "1498-1572"
+      ],
+      "notes": "Partner upload and repeated upload scenario; repeated-upload assertions count review consultation/queue, not result-file rows."
+    },
+    {
+      "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+      "sha256": "0623256720cb6d4e3a323a9dbba33c79d2768dba1acd6688cef7c960e5baaa99",
+      "lines": 1762,
+      "status": "targeted_test_review",
+      "ranges": [
+        "913-1042"
+      ],
+      "notes": "Đọc kịch bản revoke P/Q và trạng thái review sau revoke; không phải full behavioral review của file tests."
+    }
+  ],
+  "excluded_or_limits": [
+    "No production or database access; no secrets or PHI.",
+    "No runtime fault injection of a response lost after successful DB commit.",
+    "No whole-repository semantic review; other audit blocks remain authoritative for their own areas.",
+    "Legacy lab_order_service/router paths previously inspected are retired/410; this round's finding applies to the current CSKH result-file upload route.",
+    "Partner flow's previously recorded conditional H7/revoke observation is in scheduling-result-revoke-h7-followup.md and is intentionally not duplicated."
+  ]
+}

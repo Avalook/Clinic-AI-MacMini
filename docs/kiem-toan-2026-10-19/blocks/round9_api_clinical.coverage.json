@@ -1,0 +1,436 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_router_surfaces",
+  "scope": [
+    "Đọc trọn tám router được giao, sau đó truy dấu guards, identity/capability, service và schema/migration trực tiếp liên quan đến ba candidate.",
+    "Đối chiếu các BFF/dashboard entrypoint và test nguồn chỉ để xác nhận route còn được gọi ở UI, contract/error mapping và test coverage; không chạy test.",
+    "Không dùng dirty checkout làm bằng chứng code. Snapshot export /tmp không có .git metadata; xác nhận exact-main bằng STATE.primary_reference.sha và SHA-256 từng router trong MAIN-PHAM-VI.json.",
+    "Không truy cập DB, production, secrets hay PHI; không sửa ứng dụng/migration/test. Chỉ tạo ba file artifact round9 được giao."
+  ],
+  "identity_check": {
+    "state_file": "docs/kiem-toan-2026-10-19/STATE.json",
+    "primary_reference_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "main_manifest": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "manifest_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "all_eight_router_sha256_match_manifest": true,
+    "snapshot_has_git_metadata": false,
+    "note": "No .git directory/file exists in the snapshot export. No git rev-parse was used; manifest Git blob ids and SHA-256 values are the content identity evidence."
+  },
+  "finding_ids": [
+    "API-001",
+    "API-002",
+    "API-003"
+  ],
+  "finding_count": 3,
+  "cross_check": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json (read-only cross-check)",
+    "result": "Không có candidate nào trùng path/trigger với findings hiện hành. FE-003 nói về giới hạn tìm kiếm Hành trình; SEC-015 nói về default khi PATCH display settings; CLIN-005 nói race reschedule/check-in trong booking_service. Chúng không phải ba call chain mới ở đây.",
+    "nearby_existing_ids": [
+      "FE-003",
+      "SEC-015",
+      "CLIN-005"
+    ]
+  },
+  "non_findings_and_controls": [
+    "EpisodeService dùng UPDATE status=PENDING_CLOSE + clinic_id làm CAS và ghi event cùng transaction.",
+    "ClinicalSignService giữ tenant check, capability gate, lock/revision/amendment guard và viết event/renotify trong transaction ở các đường được đọc.",
+    "TheoDoiThuThuatService khóa visit, kiểm vai/người phụ trách hoặc người làm, rồi ghi update+event cùng transaction.",
+    "ThuTuKhamService ghi reorder+event cùng transaction và từ chối anchor không còn trong tập đang chờ; location predicate vẫn thiếu như API-001. Static trace không chứng minh race được tái hiện.",
+    "Display queue service intentionally có thể gửi tên khi cấu hình bật (mặc định hiện tên), với mask optional; dashboard render patient_name. Một số comment router/identity lại nói endpoint không trả danh tính. Vì hành vi được cấu hình rõ và là chủ đích vận hành trong service, ghi nhận là bất nhất tài liệu/guard comment, không nâng thành finding quyền riêng tư ở lát cắt này.",
+    "Không tìm thấy UI callsite hiện hành cho queue reorder, workflow-detail hoặc work-session APIs; các endpoint/backend BFF vẫn hiện diện. Do đó findings mô tả khả năng gọi API trực tiếp, không khẳng định giao diện hiện cho người dùng bấm các thao tác đó."
+  ],
+  "repo_inventory_context": {
+    "source": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "entries": 2890,
+    "status_counts": {
+      "read": 102,
+      "traced": 333,
+      "scanned": 1899,
+      "inventoried": 548,
+      "excluded": 8
+    },
+    "warning": "Đây là inventory metadata của whole pinned tree, không chứng minh đã đọc tay toàn bộ repo/migration."
+  },
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_sign.py",
+      "sha256": "802d1d360af31840746fe6f65f276f09b42beb68470c5c2e57bba2ce3aeec344",
+      "lines": 189,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-189"
+      ],
+      "notes": "Router end-to-end."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/episodes.py",
+      "sha256": "5942a4f19067908218a4699414da4624a17fe04507a85ba4f5af53286e367ac3",
+      "lines": 49,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-49"
+      ],
+      "notes": "Router end-to-end."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/queue.py",
+      "sha256": "0ef07879529f0d0ca394e1bb7157a6f1a65afa04f801a481363d53e86ef806ca",
+      "lines": 197,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-197"
+      ],
+      "notes": "Router end-to-end; compared GET and reorder POST."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/scheduling.py",
+      "sha256": "ba06405025a81bd2ad69bc03d40ab2619fd9d28fe97fbf97864258f4b37897c3",
+      "lines": 235,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-235"
+      ],
+      "notes": "Router end-to-end; route guards, body and error mapping."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/theo_doi_thu_thuat.py",
+      "sha256": "18c2f6be69a3318043c424fdbf65ae358370531b7e162b175c64e18ca22f7c9b",
+      "lines": 49,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-49"
+      ],
+      "notes": "Router end-to-end."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/visit_progress.py",
+      "sha256": "695a18ba50f507d08a6048e1f132b9875553667f262430d54c1dea9dbec2df41",
+      "lines": 304,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-304"
+      ],
+      "notes": "Router end-to-end; compared three progress scopes."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/xem_luot.py",
+      "sha256": "4e5eba248e887f14f25a7344949f61d3c6b2f2db50e7053f0533fbf8bc73c0d1",
+      "lines": 67,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-67"
+      ],
+      "notes": "Router end-to-end; correlated with FE-003."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/display.py",
+      "sha256": "878f16b775e8e092078d6b96e86eae2fd3af79bb9e09f2e97085df84947ec2c6",
+      "lines": 96,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-96"
+      ],
+      "notes": "Router end-to-end; public config vs authenticated queue."
+    },
+    {
+      "path": "src/clinicai/services/clinical_sign_service.py",
+      "sha256": "bcb3fe6970b994aa15a67d7d1dd0efde6f0ef5f9e8b2da32fa27705b76949e2e",
+      "lines": 936,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "103-180",
+        "230-370",
+        "372-697",
+        "800-935"
+      ],
+      "notes": "Status/release/amend/ultrasound signing and authority/event helpers."
+    },
+    {
+      "path": "src/clinicai/services/episode_service.py",
+      "sha256": "a355767dabb64e458810ff028785c32886ef6fdd745763d2f2bc6b5cadd4f4b5",
+      "lines": 133,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-133"
+      ],
+      "notes": "Tenant CAS transition and event transaction."
+    },
+    {
+      "path": "src/clinicai/services/thu_tu_kham_service.py",
+      "sha256": "140d07bfd5e125d3d0f138ad3d8fef26a3f9df2ad8c00218d704578dd534eebb",
+      "lines": 197,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-197"
+      ],
+      "notes": "Reorder and priority operations."
+    },
+    {
+      "path": "src/clinicai/services/scheduling_service.py",
+      "sha256": "98b41841108fe945a5c661689b12b18685a373707f538142f5c794d6b5844917",
+      "lines": 426,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "39-238",
+        "244-426"
+      ],
+      "notes": "Work-session creation/assignment/list/read and appointment operations."
+    },
+    {
+      "path": "src/clinicai/services/visit_progress_service.py",
+      "sha256": "292953fc6202293940d523fc7cae9a4214cc2c7e21db46e31f747b0e8ce484e0",
+      "lines": 235,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-235"
+      ],
+      "notes": "Range query tenant/location predicates and projection."
+    },
+    {
+      "path": "src/clinicai/services/theo_doi_thu_thuat_service.py",
+      "sha256": "9fc6b7688d07435171779dd1974982d9641d70d86a709be51a7a6161d48ac494",
+      "lines": 167,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-167"
+      ],
+      "notes": "Read, owner check, lock, update and event."
+    },
+    {
+      "path": "src/clinicai/services/xem_luot_service.py",
+      "sha256": "5170b060aa02d09572916a8b1d4da1f3ea42c10bd5ca2cfa67d9cceaa3828ca2",
+      "lines": 814,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "49-77",
+        "100-135",
+        "157-220",
+        "223-270"
+      ],
+      "notes": "Internal roles, permission-based projections, event and visit lookup."
+    },
+    {
+      "path": "src/clinicai/services/display_board_service.py",
+      "sha256": "0f7715534fe7694eb58501e6933220a940ddf7e10807a6bc80e96536e1a5cc69",
+      "lines": 363,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-363"
+      ],
+      "notes": "TV projection, location filter, names/masking and output whitelist."
+    },
+    {
+      "path": "src/clinicai/services/queue_order.py",
+      "sha256": "7d0447e3591556c05a9ed9c9af41c17b1b5cece65f1c299a534fe76be45aaee4",
+      "lines": 364,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-364"
+      ],
+      "notes": "Queue ordering semantics and manual marker handling."
+    },
+    {
+      "path": "src/clinicai/schemas/scheduling.py",
+      "sha256": "612ba9b92a233cda3a5d86784064cb246b520505bc0e630769cbf06ff868d967",
+      "lines": 167,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-167"
+      ],
+      "notes": "Input/output contracts for work-session and appointment operations."
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "lines": 654,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "234-441",
+        "444-630"
+      ],
+      "notes": "Router registration and global 404/409/422/500 mappings."
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "lines": 1120,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "56-104",
+        "160-223",
+        "500-590",
+        "638-691",
+        "772-816",
+        "1100-1120"
+      ],
+      "notes": "Role set, clinic/location identity, authenticated/display/partner/internal guards."
+    },
+    {
+      "path": "src/clinicai/permissions/cua_quyen.py",
+      "sha256": "2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9",
+      "lines": 56,
+      "ledger_status_at_start": "traced",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-56"
+      ],
+      "notes": "Capability router guard."
+    },
+    {
+      "path": "src/clinicai/permissions/can.py",
+      "sha256": "fc0e2ba27b8db2a2e7a129104b56da1a154cb03452b42b28e405724aab0c7c37",
+      "lines": 145,
+      "ledger_status_at_start": "traced",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-145"
+      ],
+      "notes": "Clinic/room capability scope semantics."
+    },
+    {
+      "path": "src/clinicai/permissions/catalogue.py",
+      "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "lines": 1271,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_read",
+      "ranges": [
+        "314-324",
+        "547-565",
+        "657-661"
+      ],
+      "notes": "Names and business scope labels for check-in, booking and clinic-config capabilities."
+    },
+    {
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+      "lines": 2597,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "400-413",
+        "875-899",
+        "993-1022",
+        "1326-1351",
+        "2240-2262"
+      ],
+      "notes": "Global IDs, work-session tables, unique keys and single-column foreign keys."
+    },
+    {
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "lines": 309,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "44-70",
+        "105-146",
+        "151-162",
+        "204-211"
+      ],
+      "notes": "Staff membership model and clinic_id migration; no composite work-session relationship in this migration."
+    },
+    {
+      "path": "src/dashboard/app/api/queue/keo/route.ts",
+      "sha256": "caad5baeb4f53bf7772dd8beffaa0194feb67cf4fe0373fbe09b90cf1aa12228",
+      "lines": 9,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_read",
+      "ranges": [
+        "1-9"
+      ],
+      "notes": "Thin POST proxy; searched dashboard for callers, none found."
+    },
+    {
+      "path": "src/dashboard/app/api/queue/route.ts",
+      "sha256": "a5957fbda3d7f167da3a5403296a4b1293299b338feb08e375d7aa63fcc4a720",
+      "lines": 11,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_read",
+      "ranges": [
+        "1-11"
+      ],
+      "notes": "Thin GET proxy."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/truong-ca/QueuesClient.tsx",
+      "sha256": "522b70e5ad0bf07a08cc96e19e456185bac1b2afa6b1245e082a3932975c420b",
+      "lines": 449,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_read",
+      "ranges": [
+        "1-90",
+        "211-335"
+      ],
+      "notes": "Room drag/drop client is unrelated to /api/queue/keo; no caller found."
+    },
+    {
+      "path": "src/dashboard/app/display/page.tsx",
+      "sha256": "2700081ca22d21d37368fce1c0806d39866858fe6dc1963de443dffbae5b84a9",
+      "lines": 67,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_read",
+      "ranges": [
+        "1-67"
+      ],
+      "notes": "TV page calls display queue and passes returned items to board."
+    },
+    {
+      "path": "src/dashboard/app/display/DisplayBoard.tsx",
+      "sha256": "a5306aa1f6c6a9babb405b09f54309137dc12110c11d6fd54b035ea74d9b567b",
+      "lines": 326,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_read",
+      "ranges": [
+        "1-37",
+        "188-245"
+      ],
+      "notes": "Visible fields and patient-name rendering."
+    },
+    {
+      "path": "src/tests/integration/test_scheduling_endpoints.py",
+      "sha256": "9c78213dc365b734e4c59a2c60faa385c2b7f3200bd13295c35a67b23fb067b9",
+      "lines": 697,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_read_not_run",
+      "ranges": [
+        "63-111",
+        "114-157",
+        "285-369"
+      ],
+      "notes": "Read happy path and sequential duplicate/confirm/cancel contract only; no cross-clinic fixture."
+    },
+    {
+      "path": "src/tests/services/test_luat_1509_sieu_am_va_hang_cho.py",
+      "sha256": "80a566229d2706209ba3995ef0301d73835a945cc77bf66558451e9e8abba076",
+      "lines": 324,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_read_not_run",
+      "ranges": [
+        "180-220"
+      ],
+      "notes": "Read synthetic queue GET/reorder coverage; no location boundary case."
+    }
+  ]
+}

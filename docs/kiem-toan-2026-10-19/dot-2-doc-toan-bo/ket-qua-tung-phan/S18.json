@@ -1,0 +1,1142 @@
+{
+ "chunk": "S18",
+ "findings": [
+  {
+   "tmp_id": "S18-1",
+   "title": "Mở toàn bộ capability cho mọi tài khoản nội bộ và bỏ rào chứng chỉ: ký/hoàn tất khám, hoàn tiền, huỷ lô không còn gắn với hành nghề hay phân quyền tối thiểu",
+   "severity": "HIGH",
+   "category": "authorization_model",
+   "evidence_level": "design_gap",
+   "summary": "Migration 20260930900000 cấp mọi capability của mọi khối (trừ 4 khối quản trị) cho mọi tài khoản nội bộ đang hoạt động trong MỌI phòng khám, thêm các khối ấy vào gói mẫu của mọi vai (tài khoản tạo sau cũng có) và tắt cờ quyen_theo_lich cho mọi phòng khám. Cột chung_chi_lam_sang còn nhưng 'không lệnh nào đọc nó để chặn' và có test khẳng định không quyền nào đòi chứng chỉ. Hồ sơ nhân sự có số CCHN và phạm vi hành nghề nhưng chỉ được lưu, không dùng để cho phép hay chặn thao tác nào. Màn Phân quyền nói thẳng 'Đang mở toàn bộ cho mọi nhân sự'.",
+   "trigger": "Một thu ngân/lễ tân/thư ký bấm hoàn tất khám, ký kết quả, kê hay giao thuốc, huỷ lô, sửa giá thuốc, hoàn tiền (các capability này nằm trong khối được cấp mở), hoặc một phòng khám mới được tạo từ cùng mã nguồn và gói mẫu.",
+   "impact": "Không còn phân tách nhiệm vụ: người thu tiền có thể chốt hồ sơ khám, sửa giá, huỷ tồn, hoàn tiền; việc ký/kê đơn không bị ràng buộc với người có CCHN. Tên ký vẫn lấy bác sĩ thật của lượt khám (test ghi chú) nên bản ghi có thể hiện người chịu trách nhiệm không phải người đã bấm. Với mục tiêu bán cho nhiều phòng khám, mặc định này mang trách nhiệm pháp lý sang khách hàng; không có chế độ chặt để phòng khám khác bật. Truy vết chỉ còn nhật ký sau sự việc.",
+   "evidence": [
+    {
+     "path": "supabase/migrations/20260930900000_mo_full_lego.sql",
+     "line": 8,
+     "end_line": 36,
+     "detail": "INSERT capability_grant cho mọi (clinic_membership active, vai khác PARTNER/DISPLAY) × mọi capability thuộc khối ngoài 4 khối quản trị, phạm vi CLINIC; không lọc theo clinic cụ thể"
+    },
+    {
+     "path": "supabase/migrations/20260930900000_mo_full_lego.sql",
+     "line": 38,
+     "end_line": 52,
+     "detail": "Thêm các khối vào quyen_preset hệ thống của mọi vai (người tạo sau cũng có) và UPDATE day_nghiep_vu quyen_theo_lich=false không có điều kiện clinic"
+    },
+    {
+     "path": "src/clinicai/permissions/catalogue.py",
+     "line": 24,
+     "end_line": 30,
+     "detail": "Docstring: preset 'không phải hàng rào an ninh'; 'KHÔNG CÒN HÀNG RÀO CHỨNG CHỈ … hiện không lệnh nào đọc nó để chặn'"
+    },
+    {
+     "path": "src/tests/test_clinical_cluster.py",
+     "line": 215,
+     "end_line": 229,
+     "detail": "Test khẳng định mọi vai nội bộ có khối ghi_benh_an và không quyền nào có chung_chi_lam_sang — test khoá hành vi mở"
+    },
+    {
+     "path": "src/tests/services/test_clinical_sign.py",
+     "line": 49,
+     "end_line": 67,
+     "detail": "Test cho phép TKYK và bác sĩ siêu âm có hoan_tat_kham; chú thích 'người khoá hồ sơ là người chịu trách nhiệm chuyên môn' nhưng rào đã bỏ"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/phan-quyen/page.tsx",
+     "line": 36,
+     "end_line": 46,
+     "detail": "Banner: ai cũng có đủ các lego thao tác và không cần có lịch; muốn siết phải tắt lego từng người"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nhan-su/NhanSuBoard.tsx",
+     "line": 492,
+     "end_line": 523,
+     "detail": "Số CCHN, ngày cấp, phạm vi hoạt động chuyên môn chỉ là ô nhập, không nối với quyền nào"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/phan-quyen/BangPhanQuyen.tsx",
+     "line": 23,
+     "end_line": 28,
+     "detail": "Trường chung_chi_lam_sang vẫn có trong giao diện nhưng luôn false"
+    }
+   ],
+   "limitations": "Đây là quyết định chủ động của chủ sản phẩm (30/09/2026, 'open hết ra') nhằm giảm chờ đợi ở quầy; không chứng minh đã có thao tác sai ở production. Chưa đọc từng lệnh để liệt kê chính xác những capability nào thuộc các khối được mở. Có thể một số lệnh còn kiểm vai riêng ngoài capability.",
+   "recommendation": "Giữ chế độ 'open' như một cấu hình theo phòng khám, không phải mặc định của mã nguồn: (1) thêm chế độ phân quyền chặt (strict) làm mặc định cho tenant mới; (2) tách nhóm capability nhạy cảm (hoàn tất khám/ký kết quả, kê và giao thuốc, sửa giá, huỷ/điều chỉnh kho, hoàn tiền) và cho phép bật cổng điều kiện: staff có license_number còn hiệu lực + practice_scope phù hợp; (3) ghi rõ người bấm và người chịu trách nhiệm trên bản ghi; (4) migration mở lệnh phải chỉ áp cho đúng clinic_id của Dr4Women, không phải mọi clinic.",
+   "acceptance": "Tạo clinic thử mới với gói mẫu strict: tài khoản vai thu ngân gọi hoan_tat_kham/ký kết quả/huỷ lô trả 403; tài khoản bác sĩ thiếu license_number gọi lệnh ký trả 403 khi bật cổng; clinic Dr4Women (open) giữ hành vi cũ. Test CI kiểm hai chế độ.",
+   "alignment": [
+    "Ownership rõ",
+    "Quyết định dựa bằng chứng",
+    "Con người bị gián đoạn ít hơn nhưng đúng lúc"
+   ],
+   "related_ids": [
+    "SEC-011",
+    "SEC-016",
+    "SEC-023",
+    "SEC-036",
+    "SEC-037",
+    "DB-004",
+    "DB-005"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-2",
+   "title": "Quầy thuốc: vượt số kê, đơn cũ quá 2 tháng, bán lẻ không đơn và đổi thuốc kho tuỳ ý chỉ là lời nhắc; danh mục không có cờ thuốc kê đơn",
+   "severity": "MEDIUM",
+   "category": "clinical_pharmacy_safety",
+   "evidence_level": "confirmed_static",
+   "summary": "Luồng 'Bán theo đơn này' chỉ nhắc khi tổng mua vượt số bác sĩ kê hoặc lần khám gần nhất quá 2 tháng ('CHỈ NHẮC, KHÔNG CHẶN'); 'Bán lẻ — không theo đơn' mở lượt không cần đơn cho bất kỳ thuốc nào; dược sĩ gắn dòng bác sĩ kê tay với một thuốc kho bất kỳ đang bật mà không có đối chiếu hoạt chất/hàm lượng hay xác nhận của bác sĩ; số 'đã mua' chỉ cộng lượt bán lẻ đã được nối với đơn gốc nên bán lẻ không nối làm số còn lại không phản ánh. Bảng drug_catalog không có cờ thuốc cần đơn/thuốc kiểm soát.",
+   "trigger": "Khách hỏi mua lại thuốc nội tiết/kháng sinh sau khi đơn đã quá 2 tháng, hoặc mua nhiều hơn số kê; hoặc dược sĩ chọn nhầm thuốc kho khác hàm lượng cho dòng bác sĩ gõ tay.",
+   "impact": "Thuốc có thể được bán ngoài phạm vi đơn (số lượng, thời hạn, không đơn) mà hệ thống không dừng ai; sai thuốc/hàm lượng chỉ thấy qua chú thích 'Bác sĩ ghi'. Với phòng khám khác có quy định chặt hơn, không có cấu hình để chặn.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/ban_theo_don_service.py",
+     "line": 17,
+     "end_line": 17,
+     "detail": "Docstring: 'CHỈ NHẮC, KHÔNG CHẶN: quá 2 tháng lịch từ lần khám gần nhất; tổng mua vượt số kê'"
+    },
+    {
+     "path": "src/clinicai/services/ban_theo_don_service.py",
+     "line": 122,
+     "end_line": 140,
+     "detail": "loi_nhac chỉ sinh câu nhắc; 'Vẫn bán được nếu khách cần'"
+    },
+    {
+     "path": "src/clinicai/services/ban_theo_don_service.py",
+     "line": 223,
+     "end_line": 241,
+     "detail": "_DA_MUA chỉ cộng lần thu PAID ở lượt gốc và lượt bán lẻ có don_goc_visit_id = đơn đó"
+    },
+    {
+     "path": "src/clinicai/services/pharmacy_service.py",
+     "line": 1412,
+     "end_line": 1418,
+     "detail": "khai_so_luong_mua: 'Vượt số kê chỉ nhắc để nhân viên quyết định'"
+    },
+    {
+     "path": "src/clinicai/services/pharmacy_service.py",
+     "line": 1342,
+     "end_line": 1410,
+     "detail": "xac_dinh_thuoc: chỉ kiểm thuốc thuộc clinic và đang bật, ghi nhật ký drug_mapped_by, không đối chiếu với tên bác sĩ gõ"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/LichSuDonThuoc.tsx",
+     "line": 9,
+     "end_line": 13,
+     "detail": "Giao diện nói lời nhắc 'chỉ để đọc — không nút nào bị khoá vì nó'"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/KhachMuaThuoc.tsx",
+     "line": 242,
+     "end_line": 255,
+     "detail": "Nút 'Bán lẻ — không theo đơn' mở lượt bán lẻ trơn"
+    },
+    {
+     "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+     "line": 512,
+     "end_line": 522,
+     "detail": "drug_catalog không có cột thuốc kê đơn; tìm trong supabase/migrations và src/clinicai không thấy cờ tương đương"
+    }
+   ],
+   "limitations": "Chưa đọc hết các migration thêm cột cho drug_catalog (tìm theo từ khoá không thấy cờ kê đơn). Đây là chính sách chủ động ('vẫn bán được nếu khách cần'), chưa chứng minh bán sai thực tế. Quy định pháp lý về thuốc kê đơn cần chuyên gia xác nhận.",
+   "recommendation": "Thêm thuộc tính theo thuốc (cần đơn / kiểm soát / OTC) và cấu hình theo phòng khám: chặn cứng, chặn có duyệt của dược sĩ trưởng/bác sĩ kèm lý do bắt buộc, hoặc chỉ nhắc. Khi gắn thuốc kho cho dòng gõ tay, hiển thị đối chiếu hoạt chất/hàm lượng và đánh dấu 'cần bác sĩ xác nhận' nếu khác. Tính 'đã mua' theo bệnh nhân + thuốc trên mọi lượt bán, không chỉ lượt đã nối đơn.",
+   "acceptance": "Thuốc đánh dấu 'cần đơn' không thể thêm vào lượt bán lẻ không đơn nếu cấu hình chặn; mua vượt số kê tổng hợp qua hai lượt bán lẻ (một nối, một không nối) vẫn bị nhận ra; test đơn quá hạn theo cấu hình.",
+   "alignment": [
+    "Quyết định dựa bằng chứng",
+    "Bệnh nhân ít chờ trong bất định",
+    "Reality rõ"
+   ],
+   "related_ids": [
+    "CLIN-007",
+    "FIN-002"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-3",
+   "title": "Màn 'Tư vấn dùng thuốc' chỉ là danh sách đọc: không ghi việc đã tư vấn, không hiện dị ứng/thuốc đang dùng dù yêu cầu dược sĩ kiểm",
+   "severity": "MEDIUM",
+   "category": "clinical_pharmacy_safety",
+   "evidence_level": "design_gap",
+   "summary": "ConsultBoard liệt kê các dòng đơn chưa chốt kèm 4 gạch đầu dòng hướng dẫn (giải thích cách dùng, nhắc tác dụng phụ, 'kiểm tra dị ứng/thuốc đang dùng trùng tương tác', xác nhận người bệnh đã hiểu) nhưng không có nút hay trường nào ghi ai đã tư vấn, lúc nào, khách có hiểu không; dữ liệu trả về không chứa dị ứng hay thuốc đang dùng. Dị ứng được khai trong các phiếu khám nhưng không đi vào quầy thuốc. Dòng chỉ rời danh sách khi dòng đơn được chốt/giao.",
+   "trigger": "Dược sĩ giao thuốc cho khách có tiền sử dị ứng đã ghi ở phiếu khám; hoặc chủ phòng khám hỏi 'khách này đã được tư vấn thuốc chưa'.",
+   "impact": "Việc tư vấn dùng thuốc (một lớp an toàn người bệnh) không có bằng chứng, không có chủ và không đo được; kiểm tra dị ứng phụ thuộc trí nhớ dược sĩ. Khó chứng minh khi có khiếu nại.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/consult/ConsultBoard.tsx",
+     "line": 144,
+     "end_line": 154,
+     "detail": "Khung 'Hướng dẫn tư vấn' là bốn dòng chữ tĩnh, không có điều khiển ghi nhận"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/consult/ConsultBoard.tsx",
+     "line": 14,
+     "end_line": 24,
+     "detail": "ConsultRow không có trường dị ứng, thuốc đang dùng, người tư vấn, thời điểm tư vấn"
+    },
+    {
+     "path": "src/clinicai/services/pharmacy_service.py",
+     "line": 238,
+     "end_line": 267,
+     "detail": "cho_tu_van: lấy mọi dòng chưa closed_at/removed_at, LIMIT 100; không có cột đã-tư-vấn"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/consult/page.tsx",
+     "line": 11,
+     "end_line": 22,
+     "detail": "Hình dữ liệu chỉ gồm tên thuốc, liều, lưu ý, tên khách, SĐT"
+    }
+   ],
+   "limitations": "Không tìm thấy trường dị ứng trong dịch vụ nhà thuốc bằng tìm kiếm từ khoá; có thể dị ứng nằm ở màn khác (Bàn khám, bản in) mà dược sĩ mở riêng. Chưa kiểm bảng ghi nhận tư vấn ở nơi khác.",
+   "recommendation": "Thêm bản ghi 'đã tư vấn' (người, giờ, ghi chú, khách xác nhận) gắn dòng đơn; hiển thị dị ứng/thuốc đang dùng từ hồ sơ trong khung giao thuốc và yêu cầu xác nhận khi có cảnh báo; tạo mốc 'chưa tư vấn' có người nhận khi giao thuốc.",
+   "acceptance": "Giao thuốc cho dòng có cảnh báo dị ứng yêu cầu xác nhận; báo cáo hiển thị số dòng đã giao chưa có bản ghi tư vấn trong ngày; test API ghi/đọc bản ghi tư vấn.",
+   "alignment": [
+    "Ownership rõ",
+    "Reality rõ",
+    "Bệnh nhân ít chờ trong bất định"
+   ],
+   "related_ids": [
+    "FIN-002",
+    "CLIN-007"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-4",
+   "title": "Phiếu kiểm kho tự điều chỉnh sổ theo tồn sổ lô, không trừ thuốc đã giao chưa gán lô; kiểm cuối ca thì chặn vì sợ trừ hai lần",
+   "severity": "MEDIUM",
+   "category": "inventory_integrity",
+   "evidence_level": "confirmed_static",
+   "summary": "Thuốc giao không lô (thuoc_giao_chua_gan_lo) chưa trừ tồn sổ cho tới khi gán lô. kiem_kho đọc quantity_on_hand, tính lệch = đếm thực tế − tồn sổ và ghi ADJUST ngay; không xét phần giao chưa gán. Khi sau đó gán lô, DISPENSE trừ tiếp đúng phần ấy. Kiểm kê cuối ca đã nhận ra rủi ro này và từ chối điều chỉnh khi còn giao chưa gán ('để tránh trừ kho hai lần'), nên hai quy trình đếm kho xử lý khác nhau.",
+   "trigger": "Có dòng thuốc giao không lô chưa gán; nhân viên đếm kệ thực tế rồi lưu phiếu kiểm kho; sau đó có người gán lô cho dòng giao.",
+   "impact": "Sổ kho bị trừ hai lần cùng một lượng (một lần như 'thất thoát/lệch kiểm', một lần như xuất bán), tồn sổ thấp hơn thực tế; có thể chặn bán hoặc gán lô vì thiếu tồn; báo cáo thất thoát sai; lần kiểm sau lại điều chỉnh bù ngược.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/kho_thuoc_service.py",
+     "line": 698,
+     "end_line": 732,
+     "detail": "kiem_kho khoá lô, ton_may = quantity_on_hand, lech = thuc_te − ton_may, ghi DIEU_CHINH; không đọc thuoc_giao_chua_gan_lo"
+    },
+    {
+     "path": "src/clinicai/services/pharmacy_service.py",
+     "line": 1182,
+     "end_line": 1198,
+     "detail": "gan_lo_da_giao ghi DISPENSE −luong tại thời điểm gán"
+    },
+    {
+     "path": "src/clinicai/services/kiem_ke_ca_service.py",
+     "line": 399,
+     "end_line": 403,
+     "detail": "Docstring: giao chưa gắn lô — sổ kho chưa trừ nên tồn máy cao hơn kệ thật"
+    },
+    {
+     "path": "src/clinicai/services/kiem_ke_ca_service.py",
+     "line": 1065,
+     "end_line": 1075,
+     "detail": "Chặn điều chỉnh khi còn giao chưa gắn lô 'để tránh trừ kho hai lần'"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKho.tsx",
+     "line": 200,
+     "end_line": 206,
+     "detail": "Cột 'Tồn trên hệ thống' là quantity_on_hand, không trừ phần chờ"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx",
+     "line": 267,
+     "end_line": 272,
+     "detail": "Bảng lô cảnh báo 'tồn sổ của lô, chưa trừ phần chờ' nhưng KiemKho không có cảnh báo tương đương"
+    }
+   ],
+   "limitations": "Cần có dòng giao chưa gán lô đúng thuốc/lô đang đếm; chưa chạy thật để xem trigger tồn có chặn gán lô sau điều chỉnh hay không. Có thể quy trình vận hành ngăn đếm khi còn dòng chờ.",
+   "recommendation": "Cho kiem_kho cùng cách xử lý với kiểm cuối ca: hiển thị phần 'đã giao chưa gán lô' của từng thuốc, tính lệch trên (tồn sổ − phần chờ) hoặc chặn điều chỉnh tới khi gán xong; thống nhất một thư viện tính lệch cho cả hai luồng.",
+   "acceptance": "Test DB: lô tồn sổ 10, có giao chưa gán 3, đếm thực tế 7 → phiếu kiểm không tạo ADJUST −3 (hoặc bị chặn với câu rõ); sau gán lô tồn sổ = 7.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "related_ids": [
+    "PHAR-003",
+    "PHAR-002"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-5",
+   "title": "Thuốc đã giao nhưng chưa gán lô: không hạn, không người nhận, không cảnh báo quá hạn; lô được gán sau là lời khai, lúc trừ kho tính theo giờ gán",
+   "severity": "MEDIUM",
+   "category": "traceability_ownership",
+   "evidence_level": "design_gap",
+   "summary": "Giao không lô cho phép thu tiền và giao thuốc mà không ghi lô (28/09). Việc gán lô nằm ở tab 'Đã giao, chưa trừ kho' chỉ có chấm nhắc trên tab; không có hạn xử lý, người phụ trách, nhắc, hay cảnh báo theo tuổi. Khi gán, hệ thống chỉ kiểm cùng thuốc/đơn vị/cơ sở, còn hạn và đủ tồn — không có bằng chứng lô thật khách nhận (quét, ảnh); dòng DISPENSE mang performed_at = lúc gán chứ không phải lúc giao.",
+   "trigger": "Dược sĩ giao thuốc không lô, rồi không ai mở tab chờ gán lô trong nhiều ngày, hoặc gán đại một lô còn hạn; sau đó cần truy vết một lô bị thu hồi.",
+   "impact": "Truy vết lô theo bệnh nhân (thu hồi thuốc) không đáng tin; báo cáo xuất-nhập-tồn và đối chiếu cuối ca lệch theo thời gian; tồn sổ cao hơn thực tế kéo dài; thuốc hết hạn vẫn nằm trên sổ. Không ai chịu trách nhiệm dọn.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/ChoGanLo.tsx",
+     "line": 125,
+     "end_line": 131,
+     "detail": "Tab chỉ là bảng + câu giải thích, không cột tuổi/hạn/người phụ trách"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KhoThuoc.tsx",
+     "line": 99,
+     "end_line": 112,
+     "detail": "Nhắc duy nhất là chấm 'nhac: choGanLo.length > 0' trên tab"
+    },
+    {
+     "path": "src/clinicai/services/pharmacy_service.py",
+     "line": 1008,
+     "end_line": 1113,
+     "detail": "cho_gan_lo: ORDER BY giao_luc, không lọc/đánh dấu quá hạn; lô gán được chỉ theo thuốc/đơn vị/cơ sở/đủ tồn"
+    },
+    {
+     "path": "src/clinicai/services/pharmacy_service.py",
+     "line": 1143,
+     "end_line": 1198,
+     "detail": "gan_lo_da_giao chỉ kiểm hợp lệ về hàng hoá; INSERT inventory_txn performed_at = now()"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/DongThuoc.tsx",
+     "line": 418,
+     "end_line": 450,
+     "detail": "Giao không lô là thao tác bình thường do máy chủ cho phép"
+    }
+   ],
+   "limitations": "Chưa tìm thấy cảnh báo hay canh_gac cho bảng thuoc_giao_chua_gan_lo trong src/clinicai (tìm từ khoá), nhưng chưa đọc các view/RPC ngoài tìm kiếm. Việc cho giao không lô là quyết định nghiệp vụ có chủ ý.",
+   "recommendation": "Gắn hạn xử lý (ví dụ cuối ca/24 giờ) và người phụ trách ca; canh_gac báo khi còn dòng quá hạn; ghi thời điểm giao thật vào sổ khi gán (event_time tách khỏi performed_at); cho phép quét/ảnh lô làm bằng chứng; thêm báo cáo 'giao chưa gán lô theo tuổi' cho quản lý.",
+   "acceptance": "Dòng giao chưa gán >24 giờ sinh cảnh báo có người nhận; sổ có cột thời điểm giao thật; test gán lô giữ giao_luc.",
+   "alignment": [
+    "Ownership rõ",
+    "Thời gian 'chưa biết' ngắn",
+    "Reality rõ"
+   ],
+   "related_ids": [
+    "PHAR-003",
+    "INF-012"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-6",
+   "title": "Số lô là duy nhất theo (cơ sở, nơi chứa) trên mọi thuốc: hai hãng cùng số lô không nhập được, nhân viên có thể đặt số lô giả",
+   "severity": "MEDIUM",
+   "category": "inventory_traceability",
+   "evidence_level": "confirmed_static",
+   "summary": "Ràng buộc uq_drug_batch_clinic_location_code UNIQUE (clinic_id, location_id, noi_chua, batch_code) không có drug_catalog_id. nhap_vao_lo từ chối khi số lô đã dùng cho thuốc khác ('Kiểm tra lại số lô trên vỏ hộp') hoặc khác hạn. Số lô do nhà sản xuất cấp chỉ duy nhất trong sản phẩm, nên hai thuốc khác nhau trùng chuỗi số lô là bình thường.",
+   "trigger": "Nhập hai thuốc của hai nhà sản xuất cùng ngày, số lô in trên hộp giống nhau (ví dụ chuỗi ngắn hoặc số theo tháng).",
+   "impact": "Nhân viên không nhập được hàng hợp lệ; cách xoay xở thường là sửa số lô (thêm hậu tố) — làm mất khả năng khớp lô trên hộp với sổ khi thu hồi; hoặc nhập dưới số lô khác của lô đã hết. Với nhiều phòng khám, độ phủ nhà cung cấp càng lớn thì va chạm càng nhiều.",
+   "evidence": [
+    {
+     "path": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "line": 32,
+     "end_line": 34,
+     "detail": "UNIQUE (clinic_id, location_id, noi_chua, batch_code) không gồm thuốc"
+    },
+    {
+     "path": "src/clinicai/services/pharmacy_service.py",
+     "line": 3129,
+     "end_line": 3157,
+     "detail": "Chú thích 'SỐ LÔ LÀ DUY NHẤT THEO (KHO CƠ SỞ, NƠI CHỨA), không theo từng thuốc' và ConflictError 'đã dùng cho một thuốc khác'"
+    },
+    {
+     "path": "src/clinicai/services/lo_thuoc_service.py",
+     "line": 99,
+     "end_line": 115,
+     "detail": "sua_lo cũng cập nhật theo (clinic, location, batch_code) và báo trùng 'Số lô này đã có trong kho cơ sở'"
+    }
+   ],
+   "limitations": "Tần suất trùng số lô giữa hãng khác nhau ở Dr4Women chưa được đo. Có thể ma_tem (mã tem nội bộ) là định danh thực dụng; số lô in trên hộp chỉ là thuộc tính hiển thị.",
+   "recommendation": "Đổi khoá duy nhất sang (clinic, location, noi_chua, drug_catalog_id, batch_code[, expiry]) và dùng ma_tem nội bộ làm khoá định danh; cập nhật các câu lệnh tìm lô theo (thuốc, số lô); di chuyển dữ liệu bằng migration có kiểm tra.",
+   "acceptance": "Test DB: nhập thuốc A lô '001' và thuốc B lô '001' cùng cơ sở thành hai lô riêng; sửa số lô A không động B; tem in ra phân biệt được.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "related_ids": [
+    "PHAR-004"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-7",
+   "title": "Sửa số lô/hạn dùng không bắt lý do và cho kéo dài hạn một lô đã hết hạn chỉ bằng nhập ngày mới",
+   "severity": "MEDIUM",
+   "category": "inventory_integrity",
+   "evidence_level": "confirmed_static",
+   "summary": "'Sửa số lô / hạn dùng' hiện cho mọi người có quyền ghi kho. Dịch vụ sua_lo chỉ chặn xoá hạn khi lô đã hết hạn; nhập một ngày tương lai cho lô quá hạn được chấp nhận. Không có trường lý do, không cần người thứ hai; chỉ có nhật ký before/after. Khác huỷ lô hết hạn (bắt lý do + sổ).",
+   "trigger": "Lô đã hết hạn còn tồn; nhân viên bấm 'Sửa số lô / hạn dùng' và nhập hạn mới, hoặc gõ nhầm năm.",
+   "impact": "Thuốc hết hạn có thể trở lại trạng thái 'còn hạn' và được chọn/giao cho bệnh nhân; cảnh báo hạn và FEFO dùng ngày đã sửa. Sửa số lô sau khi đã giao khiến hồ sơ cũ tham chiếu số lô khác với tem vật lý.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/lo_thuoc_service.py",
+     "line": 72,
+     "end_line": 131,
+     "detail": "sua_lo: kiểm số lô khác rỗng, chỉ chặn han is None khi lô hết hạn; UPDATE batch_code/expiry_date; ghi nhật ký before/after; không nhận lý do"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx",
+     "line": 308,
+     "end_line": 311,
+     "detail": "Nút 'Sửa số lô / hạn dùng' hiện cho ghiDuoc"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx",
+     "line": 389,
+     "end_line": 389,
+     "detail": "Điều kiện bật nút lưu của sua-lo chỉ cần số lô, không cần lý do"
+    }
+   ],
+   "limitations": "Chưa đọc chính sách vai trong _GHI của router (ai gọi được sua-lo) ngoài việc 'ghiDuoc' hiển thị nút; chưa kiểm nhật ký có hiển thị ở màn Lịch sử thao tác. Đây có thể là mong muốn 'open' của chủ.",
+   "recommendation": "Bắt lý do cho sửa số lô/hạn; với lô hết hạn hoặc đã có xuất, yêu cầu duyệt thứ hai hoặc chỉ cho sửa theo phiếu điều chỉnh có chứng từ; hiện cảnh báo trên lô vừa sửa hạn; chặn kéo dài hạn của lô đã hết hạn.",
+   "acceptance": "API từ chối sua-lo thiếu lý do; lô hết hạn đổi sang hạn tương lai cần quyền/lý do và tạo sự kiện cảnh báo quản lý; test hồi quy.",
+   "alignment": [
+    "Quyết định dựa bằng chứng",
+    "Reality rõ"
+   ],
+   "related_ids": [
+    "PHAR-002",
+    "SEC-026"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-8",
+   "title": "Việc gọi nhắc tái khám đóng ngay với mọi kết quả — kể cả 'chưa nghe máy' và 'cần bác sĩ' — không hẹn gọi lại, không giao ai",
+   "severity": "MEDIUM",
+   "category": "ownership_followup",
+   "evidence_level": "confirmed_static",
+   "summary": "ghi_ket_qua chuyển trang_thai CHO_GOI → DA_GOI với bất kỳ trong 4 kết quả, còn hàng đợi chỉ liệt kê CHO_GOI. Bộ sinh việc có UNIQUE (khách, ngày hẹn, lượt) nên không sinh lại. Với sổ tương tác CSKH mới, CHUA_NGHE_MAY/HEN_GOI_LAI được định nghĩa là sinh việc 'cần gọi lại', nhưng đường nhắc tái khám chỉ ghi cskh_log, không tạo hen_goi_lai. CAN_BAC_SI cũng không tạo việc cho bác sĩ.",
+   "trigger": "Lượt 1 gọi mời đặt lịch, khách không bắt máy: nhân viên bấm 'Chưa nghe máy' đúng quy trình.",
+   "impact": "Khách chưa từng được nói chuyện biến mất khỏi hàng đợi; người sau thấy việc đã 'xong'. Khách cần bác sĩ trả lời không có chủ. Tái khám — thời điểm bệnh nhân dễ rơi — phụ thuộc người nhớ gọi lại bằng tay.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/recall_job_service.py",
+     "line": 238,
+     "end_line": 281,
+     "detail": "UPDATE nhac_tai_kham SET trang_thai='DA_GOI', ket_qua=$3 cho mọi giá trị hợp lệ"
+    },
+    {
+     "path": "src/clinicai/services/recall_job_service.py",
+     "line": 123,
+     "end_line": 127,
+     "detail": "Hàng đợi chỉ lấy trang_thai = 'CHO_GOI'"
+    },
+    {
+     "path": "supabase/migrations/20260807000005_nhac_tai_kham_hai_luot_goi.sql",
+     "line": 86,
+     "end_line": 87,
+     "detail": "UNIQUE INDEX (clinic_id, clinic_patient_id, ngay_hen, luot_goi): mỗi lượt đúng một việc"
+    },
+    {
+     "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+     "line": 87,
+     "end_line": 88,
+     "detail": "Quy ước: KNM, KLLD, Hẹn GLS 'sinh ra việc cần gọi lại' (đường tương tác CSKH)"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+     "line": 40,
+     "end_line": 45,
+     "detail": "Bốn nút kết quả; chú thích 189-193 nhấn mạnh 'chuông đổ không ai bắt' phải khác 'đã nói chuyện'"
+    }
+   ],
+   "limitations": "Nhân viên có thể tạo hẹn gọi lại thủ công ở màn khách hàng (hen_goi_lai); chưa kiểm xem màn đó có tự gợi ý. Chưa đọc sinh_viec_nhac_tai_kham trong SQL để biết có sinh lượt thay thế khi ngày hẹn đổi.",
+   "recommendation": "Với CHUA_NGHE_MAY: giữ việc ở CHO_GOI với han_goi mới (ví dụ +1 ngày) và số lần thử tối đa rồi mới chuyển sang bước leo thang; với CAN_BAC_SI: tạo việc cho bác sĩ/trưởng ca có hạn; thống nhất một nơi sinh 'cần gọi lại'.",
+   "acceptance": "Test: ghi CHUA_NGHE_MAY → việc vẫn xuất hiện ở hàng đợi hôm sau, đếm số lần thử; ghi CAN_BAC_SI → có work item cho bác sĩ có hạn; báo cáo 'khách chưa liên lạc được' theo ngày.",
+   "alignment": [
+    "Ownership rõ",
+    "Thời gian 'chưa biết' ngắn",
+    "Bệnh nhân ít chờ trong bất định"
+   ],
+   "related_ids": [
+    "OPS-001",
+    "OPS-002",
+    "CLIN-033",
+    "CLIN-044",
+    "OPS-005"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-9",
+   "title": "Tắt 'Đang làm việc' ở màn Quản lý nhân sự bỏ qua quy trình nghỉ việc: không gỡ ca trực/lịch, không chặn tự khoá mình",
+   "severity": "MEDIUM",
+   "category": "ownership_offboarding",
+   "evidence_level": "confirmed_static",
+   "summary": "Checkbox 'Đang làm việc' gửi PATCH /api/staff với is_active=false. update_staff chỉ cập nhật clinic_membership.is_active và kiểm 'còn người cấp quyền'. Quy trình đầy đủ khoa-nghi-viec/deactivate (dùng từ màn tài khoản) có chặn tự khoá mình, tuỳ chọn gỡ ca trực tương lai kèm gỡ lịch bác sĩ ngoài ca và nhật ký. Hai đường cùng đóng một nhân viên nhưng hậu quả khác nhau.",
+   "trigger": "Quản lý bỏ tick 'Đang làm việc' cho bác sĩ đã nghỉ, thay vì dùng 'khoá & nghỉ việc'.",
+   "impact": "Ca trực tương lai và lịch hẹn của người đã nghỉ vẫn tồn tại; khách đến đặt với bác sĩ không còn; không có ai nhận việc; roster/lịch hiển thị người nghỉ. Người quản lý tự bỏ tick cho chính mình có thể làm mất quyền vào hệ thống (trừ khi còn người khác giữ quyền).",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/nhan-su/NhanSuBoard.tsx",
+     "line": 526,
+     "end_line": 533,
+     "detail": "Checkbox 'Đang làm việc' sửa trực tiếp is_active trong draft"
+    },
+    {
+     "path": "src/dashboard/app/api/staff/route.ts",
+     "line": 79,
+     "end_line": 106,
+     "detail": "Danh sách trường cho PATCH gồm is_active; không có bước hỏi hay chuyển sang khoa-nghi-viec"
+    },
+    {
+     "path": "src/clinicai/services/staff_service.py",
+     "line": 322,
+     "end_line": 349,
+     "detail": "Nhánh effective_is_active=False chỉ UPDATE membership + _deactivate_global_if_orphaned + giu_nguoi_cap_quyen"
+    },
+    {
+     "path": "src/clinicai/services/staff_service.py",
+     "line": 409,
+     "end_line": 506,
+     "detail": "deactivate() có chặn tự khoá (413-414) và gỡ ca trực + lịch ngoài ca (434-506)"
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/staff.py",
+     "line": 298,
+     "end_line": 312,
+     "detail": "Route khoa-nghi-viec riêng, tham số go_ca_truc"
+    }
+   ],
+   "limitations": "Chưa kiểm xem trigger/kiểm tra ở nơi khác xử lý ca trực của nhân viên inactive; chưa xác nhận người nghỉ còn đăng nhập được hay không qua phiên đang mở (cache identity bị xoá).",
+   "recommendation": "Một đường duy nhất cho nghỉ việc: PATCH is_active=false phải gọi cùng service deactivate (mặc định hiển thị ca trực/lịch còn lại và yêu cầu chọn gỡ hoặc chuyển người), có chặn tự khoá, và tạo việc cho trưởng ca xử lý lịch hẹn mồ côi.",
+   "acceptance": "Test: PATCH is_active=false cho bác sĩ còn ca tương lai → trả cảnh báo hoặc gỡ ca theo tuỳ chọn; tự khoá mình bị từ chối; không còn lịch hẹn mở trỏ tới bác sĩ inactive mà không có việc xử lý.",
+   "alignment": [
+    "Ownership rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "related_ids": [
+    "SEC-006",
+    "CLIN-049",
+    "OPS-004"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-10",
+   "title": "Không xoá được các trường hồ sơ nhân sự cho phép rỗng; màn vẫn báo 'Đã lưu'",
+   "severity": "LOW",
+   "category": "data_correctness",
+   "evidence_level": "confirmed_static",
+   "summary": "field() lấy draft[key] ?? selected[key]: xoá hết chữ ở ô SĐT/email/CCCD/CCHN/ngày sinh/giới tính tạo draft=null nhưng ô hiện lại giá trị cũ. API PATCH dùng model_dump(exclude_none=True) nên null bị bỏ; kết quả trả về giá trị cũ và giao diện hiện 'Đã lưu.'.",
+   "trigger": "Nhập sai CCCD/số CCHN/SĐT của nhân sự rồi muốn xoá trắng.",
+   "impact": "Dữ liệu pháp lý và liên hệ sai không xoá được qua giao diện; người dùng tin đã xoá. Không thể ghi 'chưa có' để sửa sai.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/nhan-su/NhanSuBoard.tsx",
+     "line": 112,
+     "end_line": 113,
+     "detail": "field(): (draft[key]) ?? selected?.[key]"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nhan-su/NhanSuBoard.tsx",
+     "line": 440,
+     "end_line": 476,
+     "detail": "onChange dùng e.target.value || null cho DOB/gender/phone/email"
+    },
+    {
+     "path": "src/clinicai/services/staff_service.py",
+     "line": 244,
+     "end_line": 247,
+     "detail": "raw_updates = data.model_dump(exclude_none=True)"
+    }
+   ],
+   "limitations": "Chưa đọc StaffUpdateDTO để xem có sentinel cho 'xoá'. Tác động nhỏ.",
+   "recommendation": "Phân biệt 'không gửi' và 'gửi null' (model_fields_set) cho các trường cho phép rỗng; sửa field() dùng key in draft.",
+   "acceptance": "Xoá trắng SĐT rồi Lưu → sau tải lại SĐT rỗng; test API PATCH {phone:null}.",
+   "alignment": [
+    "Reality rõ"
+   ],
+   "related_ids": [
+    "SEC-005",
+    "SEC-022"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-11",
+   "title": "Lỗi tìm khách ở quầy thuốc hiển thị như 'Không thấy khách — nhập khách mới', dễ sinh hồ sơ trùng",
+   "severity": "MEDIUM",
+   "category": "truth_in_ui",
+   "evidence_level": "confirmed_static",
+   "summary": "Trong KhachMuaThuoc, response không ok → null → items rỗng; lỗi mạng → ketQua=[] và daTim=q. Giao diện đều in 'Không thấy khách — nhập khách mới bên dưới.' Không có trạng thái lỗi riêng.",
+   "trigger": "Máy chủ/mạng lỗi lúc tìm; nhân viên tin kết quả và tạo khách mới (nút 'Tạo khách & mở lượt mua thuốc').",
+   "impact": "Tạo hồ sơ bệnh nhân trùng (mất lịch sử đơn/mua trước, cảnh báo vượt số kê sai) trong đúng lúc hệ thống đang lỗi. Kiểm trùng theo SĐT của máy chủ giảm nhưng không loại hết (không có SĐT, khác số).",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/KhachMuaThuoc.tsx",
+     "line": 90,
+     "end_line": 115,
+     "detail": "fetch tim-khach: !ok → d=null → ds=[]; catch → setKetQua([])"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/KhachMuaThuoc.tsx",
+     "line": 196,
+     "end_line": 203,
+     "detail": "Hiển thị 'Không thấy khách — nhập khách mới bên dưới.' cho cả không có kết quả lẫn lỗi"
+    }
+   ],
+   "limitations": "Máy chủ vẫn kiểm trùng SĐT khi tạo (trung/matches) nên thiệt hại giới hạn khi khách có SĐT. Không ảnh hưởng dữ liệu cũ.",
+   "recommendation": "Trả trạng thái 'lỗi tìm' riêng với nút thử lại và khoá nút tạo khách mới cho tới khi tìm thành công hoặc người dùng xác nhận.",
+   "acceptance": "Mô phỏng 500 từ tim-khach: UI hiện lỗi đỏ, không hiện 'Không thấy khách'; nút tạo bị khoá hoặc cần xác nhận.",
+   "alignment": [
+    "Reality rõ",
+    "Thời gian 'chưa biết' ngắn"
+   ],
+   "related_ids": [
+    "FE-025",
+    "CLIN-030",
+    "CLIN-047"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-12",
+   "title": "Thanh điều hướng, vị trí trực và vai nhân sự ghi cứng theo cấu trúc Kim Ngưu/Dr4Women trong mã giao diện",
+   "severity": "MEDIUM",
+   "category": "packaging_hardcode",
+   "evidence_level": "design_gap",
+   "summary": "nav-items.ts chứa bảng MAN_THEO_VI_TRI/NHOM_THEO_VI_TRI theo mã vị trí vật lý của Dr4Women (T1_LETAN, T4_SA_BS1, T1_TTNG_DD2…), bảng đổi mã cũ, nhóm menu NHOM_CONG_VIEC và thanh dưới THANH_DUOI theo 14 vai. ma-vi-tri.ts nói 'Mọi bảng tra viết cứng theo mã Kim Ngưu' và cơ sở thứ hai phải chép mã mẫu. NhanSuBoard sao chép danh sách 14 vai từ backend, PortalBoard ghi cứng nhãn dịch vụ hạ tầng (rabbitmq…) và mô tả vai.",
+   "trigger": "Cấu hình một phòng khám mới có cấu trúc tầng/phòng/vị trí khác (hoặc đổi tên vị trí).",
+   "impact": "Thanh bên theo ca của phòng khám khác không hiện đúng màn nếu mã vị trí không trùng bảng; thêm vị trí cần sửa TSX và deploy; thêm vai phải sửa 3+ nơi (backend, NhanSuBoard, PortalBoard). Làm sản phẩm khó 'đóng gọn' cho nhiều phòng khám.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/nav-items.ts",
+     "line": 323,
+     "end_line": 334,
+     "detail": "MA_VI_TRI_CU: mã đời cũ của Dr4Women"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nav-items.ts",
+     "line": 368,
+     "end_line": 435,
+     "detail": "MAN_THEO_VI_TRI keyed theo mã vị trí Dr4Women"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nav-items.ts",
+     "line": 460,
+     "end_line": 497,
+     "detail": "NHOM_THEO_VI_TRI"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nav-items.ts",
+     "line": 701,
+     "end_line": 731,
+     "detail": "THANH_DUOI theo vai"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nav-items.ts",
+     "line": 789,
+     "end_line": 828,
+     "detail": "NHOM_CONG_VIEC ghi cứng href theo nhóm"
+    },
+    {
+     "path": "src/dashboard/lib/ma-vi-tri.ts",
+     "line": 1,
+     "end_line": 7,
+     "detail": "Bản TS của hàm đổi mã sang 'mã mẫu Kim Ngưu'; cơ sở khác phải theo mã mẫu"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/nhan-su/NhanSuBoard.tsx",
+     "line": 18,
+     "end_line": 35,
+     "detail": "DEPARTMENTS sao chép PrimaryDepartment của backend"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/ops/PortalBoard.tsx",
+     "line": 94,
+     "end_line": 142,
+     "detail": "SERVICE_LABELS và ROLE_DESC ghi cứng, gồm rabbitmq/worker"
+    }
+   ],
+   "limitations": "Dữ liệu vị trí thật nằm trong DB (vi_tri_lam_viec) nên có thể seed theo mã mẫu cho tenant mới; chưa kiểm xem có công cụ sinh. Chưa đo việc thêm vị trí mới cần sửa những file nào.",
+   "recommendation": "Đưa bản đồ vị trí→màn, nhóm menu và thanh dưới sang cấu hình theo tenant (bảng DB hoặc JSON seed) với mẫu mặc định; sinh danh sách vai từ API; có kiểm tra CI cho 'mọi vị trí trong DB có ánh xạ'.",
+   "acceptance": "Tạo tenant thử với vị trí không thuộc Dr4Women: thanh bên theo ca hiện đúng màn không cần sửa mã; thêm vai mới chỉ qua cấu hình.",
+   "alignment": [
+    "Ownership rõ",
+    "Reality rõ"
+   ],
+   "related_ids": [
+    "DB-004",
+    "DB-005"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-13",
+   "title": "Tab 'Lưu lượng & Thiết bị': mật khẩu/PIN dùng chung lưu trong sessionStorage, không dấu vết người xem, dữ liệu cũ vẫn hiện 100% tin cậy",
+   "severity": "LOW",
+   "category": "ops_visibility",
+   "evidence_level": "confirmed_static",
+   "summary": "Sau lớp quyền ops.view, tab đòi một PIN chung (OPS_TRAFFIC_PIN, cũng là mật khẩu admin dự phòng); PIN được lưu sessionStorage dạng rõ và gửi lại mỗi lần làm mới. Backend không ghi nhật ký ai xem. Dữ liệu đọc từ tệp tổng hợp ngoài git; giao diện chỉ in updated_at và nếu thiếu statuses.ok thì tính tin cậy 100%; không cảnh báo tệp cũ. Server_err không hiển thị.",
+   "trigger": "Công cụ tạo traffic-summary.json ngừng chạy hoặc đổi định dạng; hoặc nhiều quản lý dùng chung PIN.",
+   "impact": "Màn hiển thị số liệu cũ như hiện tại với nhãn '24 giờ qua'; không truy vết ai xem địa chỉ IP/đường dẫn (dữ liệu cá nhân). PIN lộ qua XSS/thiết bị chung.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/ops/LuuLuongOps.tsx",
+     "line": 58,
+     "end_line": 64,
+     "detail": "Lưu pin vào sessionStorage khi mở khoá thành công"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/ops/LuuLuongOps.tsx",
+     "line": 178,
+     "end_line": 181,
+     "detail": "okRate mặc định tính theo statuses.ok ?? total → 100%"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/ops/LuuLuongOps.tsx",
+     "line": 194,
+     "end_line": 196,
+     "detail": "Chỉ hiện updated_at, không so với giờ hiện tại"
+    },
+    {
+     "path": "src/clinicai/services/traffic_service.py",
+     "line": 11,
+     "end_line": 47,
+     "detail": "PIN/mật khẩu qua biến môi trường; doc_du_lieu_traffic đọc tệp không kiểm tuổi"
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/ops.py",
+     "line": 382,
+     "end_line": 404,
+     "detail": "Endpoint chỉ kiểm PIN, không ghi nhật ký người xem; sai PIN trả ValidationError"
+    }
+   ],
+   "limitations": "Chưa kiểm rate limit toàn cục có áp cho đường này không; công cụ sinh tệp nằm ngoài git (CLAUDE.md) nên chưa xác nhận định dạng. Rủi ro thấp vì đã cần quyền ops.view.",
+   "recommendation": "Bỏ PIN dùng chung, dùng quyền + nhật ký xem; kiểm mtime/updated_at và hiện cảnh báo khi cũ >N phút; không mặc định 100% khi thiếu số liệu; cho công cụ tạo tệp vào repo hoặc có health riêng.",
+   "acceptance": "Tệp cũ 2 giờ → cảnh báo vàng; thiếu statuses → '—' thay vì 100%; mỗi lần xem có sự kiện audit.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "related_ids": [
+    "INF-013",
+    "SEC-021",
+    "SEC-024"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-14",
+   "title": "Lỗi tải danh mục kỹ năng ở màn Phân quyền hiện thành 'Phòng khám chưa khai kỹ năng nào'",
+   "severity": "LOW",
+   "category": "truth_in_ui",
+   "evidence_level": "confirmed_static",
+   "summary": "BangPhanQuyen nạp /api/phan-quyen?ky-nang=1 không có catch và không đặt lỗi khi !ok; kyNang giữ null và truyền danhMuc=[] cho KyNangCuaNguoi, nơi [] hiện cảnh báo 'Phòng khám chưa khai kỹ năng nào — dùng mục Quyền theo màn'. Cùng chỗ, danh mục khối lỗi làm tab nhóm mẫu không có khối để chọn.",
+   "trigger": "API phân quyền lỗi tạm thời khi quản lý đang cấp quyền.",
+   "impact": "Quản lý hiểu sai trạng thái và chuyển sang cấp từng màn (quyền rộng hơn cần thiết); lỗi không hiển thị.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/phan-quyen/BangPhanQuyen.tsx",
+     "line": 80,
+     "end_line": 91,
+     "detail": "fetch ky-nang không có nhánh lỗi; setKyNang chỉ khi d?.ky_nang"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/phan-quyen/BangPhanQuyen.tsx",
+     "line": 198,
+     "end_line": 205,
+     "detail": "danhMuc={kyNang?.ds ?? []}"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/phan-quyen/KyNangCuaNguoi.tsx",
+     "line": 80,
+     "end_line": 86,
+     "detail": "Danh mục rỗng → thông báo chưa khai kỹ năng"
+    }
+   ],
+   "limitations": "Tác động hạn chế vì chỉ sai thông báo; việc cấp quyền vẫn do máy chủ kiểm.",
+   "recommendation": "Tách trạng thái 'đang tải/lỗi/rỗng'; hiện lỗi đỏ và nút thử lại.",
+   "acceptance": "Giả lập 500: thấy thông báo lỗi và nút thử lại, không thấy câu 'chưa khai kỹ năng'.",
+   "alignment": [
+    "Reality rõ"
+   ],
+   "related_ids": [
+    "FE-004",
+    "FE-023"
+   ],
+   "extends": []
+  },
+  {
+   "tmp_id": "S18-15",
+   "title": "Khoá chống ghi hai lần của nút CSKH/nhà thuốc chỉ nằm trong bộ nhớ trang; tải lại sau khi mất phản hồi làm mất khoá",
+   "severity": "LOW",
+   "category": "idempotency_client",
+   "evidence_level": "design_gap",
+   "summary": "khoa-mot-lan.ts giữ khoá trong Map ở mức module; DongThuoc, BanLeThu và các nút CSKH dùng nó. Tải lại trang hoặc mở tab khác sau lỗi mạng sinh khoá mới nên máy chủ coi là thao tác mới. gui-kho.ts (kho) đã lưu khoá trong sessionStorage theo hash nội dung — hai cách làm khác nhau trong cùng ứng dụng.",
+   "trigger": "Giao thuốc/thu tiền bị lỗi mạng sau khi máy chủ đã commit; nhân viên F5 rồi bấm lại.",
+   "impact": "Có thể giao hoặc thu hai lần cùng một lượng nếu máy chủ không có chốt nghiệp vụ (nhiều chốt thật sự có: dòng đã giao, phiếu đã thu).",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/customers/khoa-mot-lan.ts",
+     "line": 22,
+     "end_line": 48,
+     "detail": "const dangMo = new Map<string,string>(); khoaThaoTac/xongThaoTac"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/DongThuoc.tsx",
+     "line": 90,
+     "end_line": 123,
+     "detail": "goi(): khoá theo action+body, xoá khi r.ok"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/BanLeThu.tsx",
+     "line": 107,
+     "end_line": 125,
+     "detail": "Khoá thu tiền dùng cùng cơ chế"
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/gui-kho.ts",
+     "line": 60,
+     "end_line": 97,
+     "detail": "Khoá kho lưu sessionStorage theo hash payload"
+    }
+   ],
+   "limitations": "Máy chủ có thêm chốt nghiệp vụ (ví dụ giao quá số bán, phiếu đã thu), nên tác động thực tế thấp; chưa thử mô phỏng.",
+   "recommendation": "Dùng chung một thư viện khoá thao tác lưu sessionStorage (theo danh tính thao tác + hash) cho mọi nút ghi.",
+   "acceptance": "Test E2E: mất phản hồi, F5, bấm lại → máy chủ trả bản ghi cũ, không ghi thêm.",
+   "alignment": [
+    "Reality rõ"
+   ],
+   "related_ids": [
+    "CLIN-030",
+    "CLIN-031",
+    "LAB-001"
+   ],
+   "extends": []
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FE-023",
+   "detail": "Cùng mẫu 'request lỗi mạng làm kẹt/lặng' ở màn quản trị và nhà thuốc: LegoCuaNguoi.tsx:71-89 (setDangLam(null) sau await, fetch ném thì mọi công tắc bị disabled), KyNangCuaNguoi.tsx:62-77 (setDang(null) không nằm trong finally), BangPhanQuyen.tsx:98-116 (themPreset), NhomQuyenMau.tsx:72-91 (guiLenh khoá dangLuu), DongThuoc.tsx:90-123 (try/finally không catch: lỗi mạng không hiện thông báo nào và có unhandled rejection)."
+  },
+  {
+   "id": "SEC-034",
+   "detail": "Giao diện cố ý chuyển 'bỏ hết phòng' thành 'tất cả phòng': LegoCuaNguoi.tsx:168-175 gọi doi(l.ma,true,[...moi]) với tập rỗng và chú thích dòng 172; phòng_ids rỗng → null (dòng 79) tức toàn phòng khám."
+  },
+  {
+   "id": "FIN-002",
+   "detail": "Màn nhà thuốc hiển thị tổng trên danh sách bị cắt: ConsultBoard.tsx:59-61 ('N đơn') + pharmacy_service.py:259 LIMIT 100; HistoryBoard.tsx:64-66 ('N bản ghi') + tìm kiếm chỉ lọc trong 200 dòng (HistoryBoard.tsx:47-57, pharmacy_service.py:228) nên tìm khách cũ có thể trả 'Không có bản ghi nào'; PharmacyBoard.tsx:58-64 đếm tab 'Đang xử lý/Xong hôm nay' trên danh sách đã giới hạn 300 (pharmacy_service.py:191)."
+  },
+  {
+   "id": "INF-019",
+   "detail": "Giao diện không hiển thị cờ offsite/verified: ops-summary.ts:19-37,213-225 chuẩn hoá offsiteUploaded/verified nhưng PortalBoard.tsx:576-599 (thẻ Backup) chỉ hiện tuổi + trạng thái fresh/stale/critical; tìm trong src/dashboard chỉ thấy offsiteUploaded ở ops-summary.ts. Màu xanh 'Còn mới' không nói bản sao ngoài VPS đã tới nơi."
+  },
+  {
+   "id": "FE-004",
+   "detail": "ToanCanh.tsx:79-89 đổi lỗi đọc /reports/toan-canh thành counts=0, staff=[], recentEvents=[] (PortalBoard hiện 'Chưa có nhân viên', 'Chưa có sự kiện nào', 'Lịch hẹn hôm nay 0'); nhan-su/page.tsx:32-46 và phan-quyen/page.tsx:27 đổi lỗi đọc danh sách nhân sự thành rỗng ('Chưa có nhân sự nào để hiện', 'Chọn một người…') và locations=[] làm ô cơ sở trống."
+  },
+  {
+   "id": "CLIN-030",
+   "detail": "KhachMuaThuoc.tsx:46-61,150-153: tạo khách mới và mở lượt bán lẻ gửi POST /api/pharmacy/ban-le không có Idempotency-Key; mất phản hồi có thể tạo trùng nếu khách không có SĐT (kiểm trùng của máy chủ dựa SĐT, thông điệp ở dòng 289-293)."
+  },
+  {
+   "id": "OPS-001",
+   "detail": "Màn nhắc tái khám sinh việc khi mở trang: nhac-tai-kham/page.tsx:35-38 ('mở màn hình là đường chắc chắn nhất') và recall_job_service.py:84-94 (danh_sach gọi sinh trước khi đọc)."
+  },
+  {
+   "id": "CLIN-032",
+   "detail": "UI không có cờ cắt: ViecGoiNhac.tsx:33-38 (DuLieu không có trường bi_cat), 127-131 hiển thị '{n.viec.length} việc' và 'Không còn ai phải gọi ở lượt này.'; backend tính bi_cat (recall_job_service.py:134) nhưng giao diện không nhận."
+  },
+  {
+   "id": "CLIN-022",
+   "detail": "LieuTrinhCskh.tsx:67-71 hiển thị '{ds.length} khách' và 82-86 'Không có liệu trình nào…' không có dấu hiệu 'còn nữa' khi danh sách do máy chủ cắt."
+  },
+  {
+   "id": "SEC-005",
+   "detail": "Nhãn ở NhanSuBoard.tsx:476-481 ghi 'Số CCCD (chỉ Quản lý & Trưởng ca xem được)', trong khi GET /staff dùng get_current_identity (staff.py:149-164) và StaffRow (api/staff/route.ts:9-29) chứa national_id_number: giao diện nói hạn chế nhưng API trả cho mọi nhân viên cùng clinic."
+  },
+  {
+   "id": "SEC-024",
+   "detail": "SucKhoeApi.tsx:148-151 in e.detail của lỗi 5xx và request_id ra màn Quản lý; nội dung do telemetry-server cung cấp, chưa thấy bước scrub ở màn."
+  }
+ ],
+ "held": [
+  {
+   "title": "ChuyenKho/InventoryBoard dùng crypto.randomUUID() không kiểm tồn tại",
+   "reason": "ChuyenKho.tsx:80,131,141 và InventoryBoard.tsx:337 gọi crypto.randomUUID() trực tiếp, trong khi gui-kho.ts có idNgauNhien() dự phòng cho ngữ cảnh không an toàn (http). Prod chạy HTTPS nên chưa chắc xảy ra; chỉ đúng khi dev qua http LAN. Chưa đủ để ghi."
+  },
+  {
+   "title": "normalizeOpsPayload bỏ im lặng dịch vụ/trạng thái lạ",
+   "reason": "ops-summary.ts:64-75,191-209 loại các service id hoặc state không có trong danh sách (ví dụ trạng thái degraded/restarting) nên thẻ biến mất; overall vẫn do backend trả nên chưa chứng minh health giả xanh. Cần đọc exporter ops/status."
+  },
+  {
+   "title": "DongThuoc remount làm mất ô đang gõ khi dữ liệu lượt đổi",
+   "reason": "PharmacyBoard.tsx:278-293 dùng key gồm dispensed_qty/da_chon…; một sự kiện realtime từ người khác làm router.refresh đổi key và xoá lyDo/số giao đang gõ. Chưa chạy thật để xác nhận tần suất."
+  },
+  {
+   "title": "BanLeThu gửi xác minh chuyển khoản không có Idempotency-Key",
+   "reason": "BanLeThu.tsx:283-296 action xac-minh không dùng khoaThaoTac; trạng thái PENDING_VERIFICATION → PAID có thể tự chống lặp ở máy chủ nhưng chưa đọc payment_service xac-minh để kết luận."
+  },
+  {
+   "title": "Trạng thái CAN_DOI_SOAT chỉ dặn 'báo quản lý'",
+   "reason": "ban-thuoc.ts:173-178 ghi 'Không giao — báo quản lý đối soát' nhưng chưa thấy work item/người nhận; chưa đọc hết nơi can_doi_soat được liệt kê (danh sách hoá đơn, cashier board) để biết đã có hàng đợi riêng."
+  },
+  {
+   "title": "SucKhoeApi hiển thị 0 lỗi 5xx màu xanh sau khi API khởi động lại",
+   "reason": "Dữ liệu là bộ đệm trong tiến trình (SucKhoeApi.tsx:164-169 đã ghi giới hạn trên màn). Không có mốc 'kể từ' nên khởi động lại xoá lỗi; chỉ ghi nhận giảm nhẹ, chưa đủ là phát hiện."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Khoá thao tác theo danh tính thao tác (không theo lần bấm) + máy chủ trả khoá khi bị từ chối 4xx",
+   "detail": "Client giữ cùng khoá cho tới khi thành công; máy chủ chiếm khoá nguyên tử, so băm nội dung, trả lại khoá khi lỗi 4xx để người dùng thấy đúng câu lỗi nghiệp vụ và chỉ giữ khi 5xx.",
+   "evidence": "src/dashboard/app/(dashboard)/customers/khoa-mot-lan.ts:14-48; src/clinicai/api/idempotency.py:72-253"
+  },
+  {
+   "title": "Khoá gửi lại lưu sessionStorage theo hash nội dung, fail-closed khi không lưu được",
+   "detail": "gui-kho.ts chỉ gửi khi đã lưu được khoá, dùng SHA-256 của payload chuẩn hoá và xoá khoá khi thành công — mẫu nên nhân rộng cho mọi nút ghi.",
+   "evidence": "src/dashboard/app/(dashboard)/pharmacy/inventory/gui-kho.ts:60-127"
+  },
+  {
+   "title": "'Bán theo đơn này' idempotent nhờ khoá hàng lượt và kiểm dòng sẵn có",
+   "detail": "noi_don_conn khoá visit FOR UPDATE, bỏ qua thuốc đã có trong lượt và chỉ thêm phần còn lại, cho phép bấm hai lần/hai người mà không nhân đôi dòng; có hoàn tác khi chưa thu.",
+   "evidence": "src/clinicai/services/ban_theo_don_service.py:426-485"
+  },
+  {
+   "title": "Lỗi tải khác 'không có việc' được nói thẳng ở màn gọi khách",
+   "detail": "ViecGoiNhac, LieuTrinhCskh, page nhắc tái khám phân biệt null/lỗi với danh sách rỗng và in 'Danh sách trống ở đây KHÔNG có nghĩa là không ai cần gọi'.",
+   "evidence": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx:88-97; LieuTrinhCskh.tsx:77-81; page.tsx:31-34"
+  },
+  {
+   "title": "Màn vận hành chuẩn hoá chặt và rơi về trạng thái 'chưa rõ' thay vì xanh",
+   "detail": "normalizeOpsPayload từ chối payload thiếu trường và trả emptyOpsSummary(overall=degraded, database=down); PortalBoard viết 'không tự giả định trạng thái an toàn' khi thiếu snapshot host; safeHttpUrl chặn đường dẫn nguy hiểm.",
+   "evidence": "src/dashboard/lib/ops-summary.ts:107-183; src/dashboard/app/(dashboard)/ops/PortalBoard.tsx:669-686"
+  },
+  {
+   "title": "Nút do máy chủ quyết định (thao_tac) và hai thanh điều hướng dùng chung một bộ lọc",
+   "detail": "Quầy thuốc chỉ vẽ nút máy chủ cho phép; nav-items dùng mucHienRa cho cả thanh bên và thanh dưới nên không lệch quyền giữa hai nơi.",
+   "evidence": "src/dashboard/app/(dashboard)/pharmacy/ban-thuoc.ts:1-6,95-105; src/dashboard/app/(dashboard)/nav-items.ts:588-625"
+  },
+  {
+   "title": "Hàng rào giữ ít nhất một người cấp quyền và câu nói rõ 'sửa nhóm không đổi quyền người đã cấp'",
+   "detail": "giu_nguoi_cap_quyen chặn thu quyền người cuối cùng trong giao dịch; NhomQuyenMau/QuyenTheoMan nhắc rõ ngữ nghĩa nhóm mẫu để tránh hiểu nhầm.",
+   "evidence": "src/clinicai/services/permission_service.py:92-107; src/dashboard/app/(dashboard)/phan-quyen/NhomQuyenMau.tsx:11-14"
+  },
+  {
+   "title": "Huỷ lô hết hạn: lý do bắt buộc, khoá lô, sổ append-only và hoàn bằng dòng sổ mới",
+   "detail": "huy_lo kiểm khoá gửi, ghi DISCARD với ref_id là khoá; hoan_huy_lo tạo dòng ngược thay vì xoá.",
+   "evidence": "src/clinicai/services/lo_thuoc_service.py:135-220"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/dashboard/app/(dashboard)/nav-items.ts",
+   "lines": 850,
+   "full_read": true,
+   "note": "Đọc hết; mô hình nav/vị trí/nhóm ghi cứng theo Dr4Women (S18-12); bộ lọc dùng chung hai thanh là mẫu tốt."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/LieuTrinhCskh.tsx",
+   "lines": 191,
+   "full_read": true,
+   "note": "Đọc hết; phân biệt lỗi/rỗng tốt; không có dấu hiệu danh sách bị cắt (ext CLIN-022)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/TabNhacTaiKham.tsx",
+   "lines": 39,
+   "full_read": true,
+   "note": "Đọc hết; tab ẩn bằng class để giữ ghi chú đang gõ."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+   "lines": 215,
+   "full_read": true,
+   "note": "Đọc hết; bốn kết quả đều đóng việc (S18-8); ext CLIN-032."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/page.tsx",
+   "lines": 65,
+   "full_read": true,
+   "note": "Đọc hết; sinh việc khi mở trang (ext OPS-001)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/nhan-su/NhanSuBoard.tsx",
+   "lines": 630,
+   "full_read": true,
+   "note": "Đọc hết; S18-9, S18-10, ext SEC-005/FE-004."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/nhan-su/page.tsx",
+   "lines": 49,
+   "full_read": true,
+   "note": "Đọc hết; lỗi đọc thành danh sách rỗng (ext FE-004)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ops/LuuLuongOps.tsx",
+   "lines": 427,
+   "full_read": true,
+   "note": "Đọc hết; S18-13."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ops/PortalBoard.tsx",
+   "lines": 972,
+   "full_read": true,
+   "note": "Đọc hết; ext INF-019, S18-12 (nhãn ghi cứng)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ops/SucKhoeApi.tsx",
+   "lines": 174,
+   "full_read": true,
+   "note": "Đọc hết; giới hạn bộ đệm được in ra màn (held); ext SEC-024."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ops/page.tsx",
+   "lines": 67,
+   "full_read": true,
+   "note": "Đọc hết; tab lạ rơi về tab đầu."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ops/telemetry/page.tsx",
+   "lines": 8,
+   "full_read": true,
+   "note": "Đọc hết; chỉ redirect."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/phan-quyen/BangPhanQuyen.tsx",
+   "lines": 258,
+   "full_read": true,
+   "note": "Đọc hết; S18-14, ext FE-023."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/phan-quyen/KyNangCuaNguoi.tsx",
+   "lines": 184,
+   "full_read": true,
+   "note": "Đọc hết; ext FE-023."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/phan-quyen/LegoCuaNguoi.tsx",
+   "lines": 188,
+   "full_read": true,
+   "note": "Đọc hết; ext SEC-034 và FE-023."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/phan-quyen/NhomQuyenMau.tsx",
+   "lines": 270,
+   "full_read": true,
+   "note": "Đọc hết; nút Xoá không xác nhận, ext FE-023."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/phan-quyen/QuyenTheoMan.tsx",
+   "lines": 162,
+   "full_read": true,
+   "note": "Đọc hết; có catch lỗi mạng đúng."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/phan-quyen/page.tsx",
+   "lines": 59,
+   "full_read": true,
+   "note": "Đọc hết; banner mở toàn bộ quyền (S18-1); lỗi đọc → danh sách rỗng (ext FE-004)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/BanLeThu.tsx",
+   "lines": 321,
+   "full_read": true,
+   "note": "Đọc hết; khoá thu tiền tốt; xác minh không khoá (held)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/DongThuoc.tsx",
+   "lines": 674,
+   "full_read": true,
+   "note": "Đọc hết; khoá thao tác tốt; thiếu catch (ext FE-023); S18-2/S18-5 liên quan."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/KhachMuaThuoc.tsx",
+   "lines": 334,
+   "full_read": true,
+   "note": "Đọc hết; S18-11, ext CLIN-030."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/KhoConChuyenQuay.tsx",
+   "lines": 21,
+   "full_read": true,
+   "note": "Đọc hết; thành phần thông tin, tham số bỏ trống."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/LichSuDonThuoc.tsx",
+   "lines": 419,
+   "full_read": true,
+   "note": "Đọc hết; nhắc không chặn (S18-2); 'Xem đơn cũ hơn' lỗi thì im lặng."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/PharmacyBoard.tsx",
+   "lines": 305,
+   "full_read": true,
+   "note": "Đọc hết; đếm tab trên danh sách bị cắt (ext FIN-002); remount mất ô nhập (held)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/ban-thuoc.ts",
+   "lines": 202,
+   "full_read": true,
+   "note": "Đọc hết; kiểu dữ liệu và nhãn giai đoạn do máy chủ quyết."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/consult/ConsultBoard.tsx",
+   "lines": 164,
+   "full_read": true,
+   "note": "Đọc hết; S18-3, ext FIN-002."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/consult/page.tsx",
+   "lines": 42,
+   "full_read": true,
+   "note": "Đọc hết; lỗi đọc hiển thị lỗi rõ."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/history/HistoryBoard.tsx",
+   "lines": 150,
+   "full_read": true,
+   "note": "Đọc hết; ext FIN-002 (tìm trong 200 dòng)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/history/page.tsx",
+   "lines": 46,
+   "full_read": true,
+   "note": "Đọc hết; lỗi đọc hiển thị lỗi rõ."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/CameraQuet.tsx",
+   "lines": 95,
+   "full_read": true,
+   "note": "Đọc hết; camera chạy trong trình duyệt, chỉ gửi chuỗi mã; không phát hiện vấn đề."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/ChoGanLo.tsx",
+   "lines": 158,
+   "full_read": true,
+   "note": "Đọc hết; S18-5."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/ChuyenKho.tsx",
+   "lines": 355,
+   "full_read": true,
+   "note": "Đọc hết; khoá lập phiếu tốt; randomUUID không bảo vệ (held)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/DanhMucKho.tsx",
+   "lines": 335,
+   "full_read": true,
+   "note": "Đọc hết; sửa giá/cách dùng không có phiên bản (đã có nhật ký phía máy chủ chưa kiểm)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx",
+   "lines": 408,
+   "full_read": true,
+   "note": "Đọc hết; S18-7."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KhoThuoc.tsx",
+   "lines": 178,
+   "full_read": true,
+   "note": "Đọc hết; S18-5 (chấm nhắc duy nhất)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKho.tsx",
+   "lines": 265,
+   "full_read": true,
+   "note": "Đọc hết; S18-4."
+  }
+ ]
+}

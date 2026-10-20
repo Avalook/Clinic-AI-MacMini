@@ -1,0 +1,915 @@
+{
+  "chunk": "S11",
+  "findings": [
+    {
+      "tmp_id": "S11-1",
+      "title": "Cấp thuốc chỉ kiểm lượt đã có lần thu thuốc PAID, không kiểm dòng đơn có nằm trong hoá đơn đã thu",
+      "severity": "HIGH",
+      "category": "dispense_payment_gate",
+      "evidence_level": "confirmed_static",
+      "summary": "`PharmacyService.cap_phat` tra lần thu `kind='thuoc' AND status='PAID'` theo CẢ LƯỢT rồi coi mọi dòng đơn của lượt là đã thu. Nhánh giao không lô (`drug_batch_id` rỗng) và nhánh giao thẳng từ lô (`_cap_phat_cu`) chỉ chặn bằng `purchased_qty` hoặc `quantity_num` của dòng, không đối chiếu `payment_bill_line`. Khi bác sĩ đính chính đơn SAU lúc thu tiền (dòng thay thế/dòng thêm có id mới, không kế thừa số mua, phân lô, tiền), dòng mới chưa nằm trong hoá đơn nào nhưng vẫn qua được cổng này.",
+      "trigger": "Có thể xảy ra nếu: lượt đã thu tiền thuốc (PAID); bác sĩ lưu lại đơn và đi đường ĐÍNH CHÍNH (thêm hoặc thay dòng); lần thu hiện có không gắn lô (luồng thu không chờ kho / legacy) hoặc dòng mới chưa có phân lô; dược sĩ bấm giao dòng mới (UI cũng dùng cờ cấp lượt `gd == DA_THU` để hiện nút `giao_khong_lo`). Nếu cả `purchased_qty` và `quantity_num` đều trống (dòng bác sĩ để trống số lượng) thì không có trần số lượng nào.",
+      "impact": "Thuốc rời quầy mà chưa có khoản thu tương ứng (hụt doanh thu), kho vật lý bị trừ hoặc ghi sổ chờ gán lô cho hàng chưa bán; hai sổ tiền và thuốc lệch nhau và việc đối soát chỉ xảy ra sau khi thuốc đã giao.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 710,
+          "end_line": 723,
+          "detail": "Cổng tiền: lấy lần thu `kind='thuoc' AND status='PAID'` theo visit_id; không tham chiếu dòng đơn đang giao."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 731,
+          "end_line": 758,
+          "detail": "`giao_thang` = legacy hoặc lần thu không có phân lô nào; `drug_batch_id is None` chỉ bị chặn khi CHÍNH dòng này đã có phân lô trong lần thu, còn không thì đi `_giao_khong_lo`."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 958,
+          "end_line": 966,
+          "detail": "`_giao_khong_lo`: trần = purchased_qty, không có thì quantity_num; `if mua is not None and ...` nên không có trần khi cả hai trống."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 1240,
+          "end_line": 1248,
+          "detail": "`_cap_phat_cu` dùng đúng cùng trần, không đối chiếu hoá đơn."
+        },
+        {
+          "path": "src/clinicai/services/dinh_chinh_don.py",
+          "line": 12,
+          "end_line": 20,
+          "detail": "Dòng đính chính là id mới, không kế thừa thuốc kho/số mua/phân lô; tiền cũ đối soát riêng (đọc ngoài danh sách để chứng minh)."
+        },
+        {
+          "path": "src/clinicai/services/ban_thuoc_service.py",
+          "line": 145,
+          "end_line": 149,
+          "detail": "Nút `giao_khong_lo` quyết theo giai đoạn cấp lượt (`gd == DA_THU`) và `so_ban`, không theo việc dòng có trong lần thu."
+        }
+      ],
+      "limitations": "Chưa xác nhận trigger/ràng buộc DB nào khác chặn DISPENSE cho dòng không có bill line (nhánh giao không lô còn không ghi inventory_txn). Chưa đọc đường thu tiền sinh khoản phát sinh cho dòng đính chính; nếu thu ngân luôn lập khoản mới trước khi dược sĩ giao thì rủi ro giảm nhưng cổng giao vẫn không tự bảo đảm điều đó.",
+      "recommendation": "Ở `cap_phat`, bắt buộc dòng đơn được giao phải khớp một `payment_bill_line` (source_type='prescription', source_id=dòng) thuộc lần thu PAID, và trần giao = số lượng đã thu của dòng đó (không dùng quantity_num làm dự phòng khi dòng đã đính chính sau lần thu). Dòng chưa nằm trong hoá đơn phải trả câu 'cần thu khoản phát sinh trước'. Phản chiếu cùng luật vào `thao_tac_dong` để UI không hiện nút.",
+      "acceptance": "Test DB: thu tiền cho dòng A (không phân lô) -> lưu đơn đính chính thêm dòng B -> POST /pharmacy/dispense cho B không có lô -> phải 409 và không có dòng thuoc_giao_chua_gan_lo / DISPENSE nào; sau khi thu khoản phát sinh cho B thì giao được, và không giao quá số đã thu ngay cả khi quantity_num trống.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-014",
+        "CLIN-007",
+        "CLIN-002"
+      ]
+    },
+    {
+      "tmp_id": "S11-2",
+      "title": "Điều chỉnh/huỷ tay chỉ so với tồn vật lý, có thể kéo lô xuống dưới phần đã bán chưa giao hoặc đang giữ",
+      "severity": "MEDIUM",
+      "category": "inventory_commitment_guard",
+      "evidence_level": "confirmed_static",
+      "summary": "`_ghi_kho_don_gian` (dùng cho ADJUST và DISCARD tay) chỉ kiểm `ton < -quantity` với `quantity_on_hand`. Thiết kế kho của chính phan_lo_service tách 'vật lý' khỏi 'khả dụng = vật lý - giữ chờ xác minh - đã bán chưa giao - thuốc trả chờ kiểm'. Lệnh tay không tham chiếu khả dụng nên có thể huỷ/bớt phần đã bán cho khách.",
+      "trigger": "Có thể xảy ra nếu lô còn 10, đã bán (SALE) 8 chưa giao cho một lần thu PAID, rồi dược sĩ huỷ hoặc điều chỉnh -5 (vẫn <= 10). Lúc giao, `_giao_theo_phan_lo` chặn bằng 'Trên kệ lô này chỉ còn ... cần kiểm kê trước khi giao'.",
+      "impact": "Khách đã trả tiền nhưng không giao được; phải xử lý tay (kiểm kê, hoàn tiền, huỷ phần chưa giao); số liệu khả dụng âm khiến màn chọn lô và báo cáo tồn lệch; không có cảnh báo nào ở thời điểm huỷ.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 2746,
+          "end_line": 2767,
+          "detail": "Khoá lô rồi chỉ so `ton < -quantity`; không gọi drug_batch_kha_dung."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 1721,
+          "end_line": 1773,
+          "detail": "dieu_chinh/huy chỉ kiểm lý do và số hữu hạn."
+        },
+        {
+          "path": "src/clinicai/services/phan_lo_service.py",
+          "line": 6,
+          "end_line": 12,
+          "detail": "Định nghĩa ba con số tồn và nói khả dụng chỉ để chặn bán quá."
+        },
+        {
+          "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+          "line": 507,
+          "end_line": 539,
+          "detail": "Định nghĩa drug_batch_kha_dung (trừ giữ, đã bán chưa giao, trả chờ kiểm)."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 857,
+          "end_line": 861,
+          "detail": "Hệ quả: chỉ khi giao mới phát hiện lô không đủ."
+        }
+      ],
+      "limitations": "Chưa đọc đủ mọi trigger của inventory_txn; chỉ thấy CHECK tồn không âm trong phạm vi tệp này. Cần xác nhận không có chốt DB riêng cho ADJUST/DISCARD.",
+      "recommendation": "Khi quantity < 0 (ADJUST/DISCARD), cảnh báo hoặc chặn nếu tồn sau thao tác < phần cam kết (đã bán chưa giao + giữ + trả chờ kiểm), kèm lệnh liệt kê khách bị ảnh hưởng; cho phép vượt chỉ khi có lý do loại 'mất/hỏng' và tạo việc cho quản lý.",
+      "acceptance": "Test: tạo SALE 8 trên lô tồn 10 rồi POST /pharmacy/discard 5 -> 409 nêu 8 đang cam kết; discard 2 vẫn được; discard 5 kèm xác nhận mất hàng tạo việc đối soát.",
+      "alignment": [
+        "Reality rõ",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": [
+        "PHAR-002",
+        "FIN-003"
+      ]
+    },
+    {
+      "tmp_id": "S11-3",
+      "title": "Sửa giá bán, bật/tắt thuốc trong danh mục kho không để nhật ký và cho phép giá 0",
+      "severity": "MEDIUM",
+      "category": "catalog_change_audit",
+      "evidence_level": "confirmed_static",
+      "summary": "`luu_thuoc` ghi thẳng `unit_price`, `is_active`, `don_vi_ban` vào `drug_catalog` mà không `_log`/record_event; trong cùng tệp mọi thao tác kho khác đều ghi event_log. Docstring nói giá này là 'giá bán duy nhất, quầy thu đọc thẳng'. Kiểm trùng tên làm bằng SELECT rồi INSERT/UPDATE, không nguyên tử.",
+      "trigger": "Có thể xảy ra nếu một người có quyền ghi kho đặt giá về 0 hoặc đổi giá/đơn vị bán/tắt thuốc rồi sửa lại; hoặc hai yêu cầu cùng tên thuốc chạy đồng thời mà DB không có unique index theo tên.",
+      "impact": "Không truy được ai đổi giá lúc nào (doanh thu, gian lận, tranh chấp với khách); đổi đơn vị bán làm hệ số quy đổi đã nhớ không còn khớp; hai dòng thuốc trùng tên có thể làm lệch tra cứu theo tên.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 442,
+          "end_line": 538,
+          "detail": "luu_thuoc: UPDATE unit_price/don_vi_ban/is_active, không có `_log`/emit_event."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 469,
+          "end_line": 469,
+          "detail": "Giá 0 được chấp nhận (`cho_0=True`)."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 482,
+          "end_line": 491,
+          "detail": "Kiểm trùng tên bằng SELECT trước, không khoá."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 2188,
+          "end_line": 2201,
+          "detail": "Đối chiếu: xu_ly_thuoc_tra có ghi `_log`, cho thấy thiếu ở luu_thuoc là điểm lệch."
+        }
+      ],
+      "limitations": "Có thể đã có trigger audit hoặc unique index trên drug_catalog ở migration chưa đọc; chưa kiểm.",
+      "recommendation": "Ghi event (giá cũ -> mới, trạng thái, đơn vị, người) trong cùng giao dịch; yêu cầu lý do khi giá giảm quá ngưỡng hoặc về 0; thêm unique index (clinic_id, lower(name_raw)) và bắt UniqueViolation thành câu nghiệp vụ.",
+      "acceptance": "Test: đổi giá một thuốc -> có đúng một event có giá cũ/mới và staff_id; đặt giá 0 không lý do bị từ chối; hai lệnh tạo trùng tên đồng thời chỉ một thành công và cái kia nhận 409 tiếng Việt.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Lỗi lặp lại thành cải tiến hệ thống"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-021",
+        "SEC-026"
+      ]
+    },
+    {
+      "tmp_id": "S11-4",
+      "title": "Quầy thu thuốc đặt số lượng tuỳ ý cho dòng bác sĩ kê và thêm thuốc từ danh mục không có người kê xác nhận",
+      "severity": "MEDIUM",
+      "category": "pharmacy_counter_override",
+      "evidence_level": "design_gap",
+      "summary": "Theo quyết định C19, quầy được đặt BẤT KỲ số dương nào (tối đa 100.000) cho dòng bác sĩ kê, tăng hay giảm, và `luu_dong_them` cho thêm tới 50 dòng thuốc bất kỳ trong danh mục vào đơn của lượt. Cách dùng/liều không đổi theo số lượng mới; hệ thống chỉ ghi sự kiện và hiện nhãn 'SL do thu ngân sửa'. Không có ngưỡng, không có yêu cầu bác sĩ xác nhận, không báo bác sĩ.",
+      "trigger": "Có thể xảy ra nếu thu ngân/dược sĩ có quyền payment.medicine.collect tăng số lượng thuốc kê (ví dụ 10 lên 100) hoặc thêm thuốc cần kê đơn mà không có bác sĩ biết; hoặc gõ thừa số 0 trong giới hạn 100.000.",
+      "impact": "Rủi ro lâm sàng (thuốc cần kê đơn/liều cao giao không qua người kê), rủi ro gian lận hoặc nhầm lẫn; bác sĩ chỉ biết khi mở lại đơn. Mục tiêu 'AI/hệ thống hỗ trợ người, quyết định có bằng chứng' bị thiếu một điểm kiểm.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 265,
+          "end_line": 307,
+          "detail": "doi_so_luong: nhánh BAC_SI ghi thẳng số mới, chỉ chặn nhỏ hơn số đã giao/đã phân lô."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 61,
+          "end_line": 70,
+          "detail": "Trần duy nhất 100.000."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 398,
+          "end_line": 465,
+          "detail": "luu_dong_them: thêm thuốc theo drug_catalog_id, chỉ cần có giá và số lượng đọc được."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 19,
+          "end_line": 22,
+          "detail": "Docstring ghi quyết định 'không còn trần số kê' (C19)."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 146,
+          "end_line": 192,
+          "detail": "Chỉ phát event/pharmacy.counter_changed, không tạo việc cho bác sĩ."
+        }
+      ],
+      "limitations": "Là quyết định có chủ ý của chủ sản phẩm (C19, C14); chưa biết có nhóm thuốc nào bị khoá ở nơi khác. Đề xuất nhằm thêm kiểm soát theo rủi ro, không đảo quyết định.",
+      "recommendation": "Giữ quyền linh hoạt nhưng thêm: ngưỡng tỉ lệ so số kê (ví dụ >2 lần) và nhóm thuốc 'cần kê đơn' phải có bác sĩ/trưởng ca xác nhận (việc có người nhận, có hạn); báo bác sĩ kê khi quầy sửa; báo cáo ca liệt kê các lần sửa lớn.",
+      "acceptance": "Test: tăng số kê 10 lên 30 -> trả trạng thái 'chờ xác nhận' hoặc sinh việc cho bác sĩ phụ trách; thuốc đánh dấu cần kê đơn thêm ở quầy bị từ chối nếu thiếu bác sĩ xác nhận; sự kiện hiển thị trên dòng thời gian lượt.",
+      "alignment": [
+        "Ownership rõ",
+        "Phát hiện vấn đề sớm",
+        "Bệnh nhân an toàn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-003",
+        "CLIN-056"
+      ]
+    },
+    {
+      "tmp_id": "S11-5",
+      "title": "Cổng ca trực lâm sàng mở khi không xác định được bác sĩ phụ trách, khi lượt ngày cũ hoặc nhân sự chưa nối tài khoản",
+      "severity": "MEDIUM",
+      "category": "clinical_gate_fail_open",
+      "evidence_level": "confirmed_static",
+      "summary": "`luu_luot` và `luu_don_thuoc` gọi `kiem_dung_ca(bac_si_id)`; hàm này `return None` ngay khi `bac_si_id` rỗng. `bac_si_cua_phien` trả None khi lượt không có bác sĩ trong phiên/hàng chờ/lượt/lịch hẹn và phòng của người bấm không có đúng một bác sĩ. Ngoài ra cổng mở khi công tắc `ca_truc_lam_sang` tắt, khi staff chưa nối auth, và 'lượt ngày cũ luôn mở'.",
+      "trigger": "Có thể xảy ra nếu khách đi vào không hẹn hoặc phòng có nhiều bác sĩ, chưa gán bác sĩ chính; người có quyền clinical.record.write (kể cả ngoài ca/phòng) ghi phiếu hoặc đơn của lượt đó; hoặc sửa lượt của ngày trước.",
+      "impact": "Người không được phân công vẫn ghi bệnh án/đơn thuốc cho lượt chưa có bác sĩ; mất cơ chế chặn mà các phát hiện về phạm vi phân công (SEC-016/036/037) giả định có; lượt cũ sửa được vô thời hạn.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 420,
+          "end_line": 434,
+          "detail": "luu_luot: bac_si_cua_phien -> kiem_dung_ca; kiểm lượt chỉ theo clinic."
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 833,
+          "end_line": 859,
+          "detail": "luu_don_thuoc: cùng cổng."
+        },
+        {
+          "path": "src/clinicai/permissions/ca_truc.py",
+          "line": 150,
+          "end_line": 175,
+          "detail": "kiem_dung_ca return None khi bac_si_id rỗng; return sớm khi công tắc tắt/chưa nối auth/`_duoc_noi_tiep_luot_cu`."
+        },
+        {
+          "path": "src/clinicai/permissions/ca_truc.py",
+          "line": 139,
+          "end_line": 147,
+          "detail": "Lượt ngày cũ luôn mở."
+        },
+        {
+          "path": "src/clinicai/services/bac_si_phu_trach.py",
+          "line": 361,
+          "end_line": 395,
+          "detail": "bac_si_cua_phien trả None khi không có ứng viên bác sĩ thật."
+        }
+      ],
+      "limitations": "Một phần là chủ ý (công tắc, nối tiếp lượt cũ). Chưa kiểm tra phía router có kiểm cơ sở/phân công thêm; ghi nhận ở đây là cổng trong service.",
+      "recommendation": "Fail-closed theo mức: khi không xác định bác sĩ thì cho phép chỉ người có lego bàn khám trong phòng/ca hôm nay hoặc bác sĩ, và ghi 'không rõ bác sĩ' thành việc cho trưởng ca; đặt hạn cho 'lượt ngày cũ' (ví dụ 48 giờ) rồi chuyển sang đường đính chính; nhật ký riêng cho mọi lần cổng bị bỏ qua.",
+      "acceptance": "Test: lượt không bác sĩ, người ngoài ca có clinical.record.write -> bị từ chối hoặc cần trưởng ca; lượt cũ quá hạn -> phải đi đường đính chính; mỗi lần cổng 'mở vì thiếu dữ liệu' có một dòng nhật ký.",
+      "alignment": [
+        "Ownership rõ",
+        "Bệnh nhân an toàn"
+      ],
+      "extends": [
+        "SEC-016",
+        "SEC-036",
+        "SEC-037",
+        "CLIN-020"
+      ],
+      "related_ids": [
+        "SEC-016",
+        "SEC-036",
+        "SEC-037"
+      ]
+    },
+    {
+      "tmp_id": "S11-6",
+      "title": "Lưu đơn thuốc cho phép người có lego Tư vấn kê/sửa đơn của bất kỳ lượt nào khi cổng ca trực từ chối",
+      "severity": "MEDIUM",
+      "category": "prescription_scope",
+      "evidence_level": "confirmed_static",
+      "summary": "Trong `luu_don_thuoc`, nếu `kiem_dung_ca` ném SafetyGateError mà người gọi có `clinical.intake.perform` thì đặt `ke_tai_tu_van=True` và vẫn gọi `luu_don_chua_ky` với toàn bộ danh sách dòng, không kiểm lượt có thuộc bàn tư vấn của người đó, không kiểm cơ sở của lượt.",
+      "trigger": "Có thể xảy ra nếu một người có lego Tư vấn gọi lưu đơn cho visit_id của bác sĩ/phòng khác trong cùng clinic (biết hoặc đoán được visit_id).",
+      "impact": "Đơn thuốc (đường lâm sàng nguy hiểm) bị sửa/thay bởi người không phụ trách lượt đó; đối tượng bị ảnh hưởng không bị giới hạn theo cơ sở hay phân công; vết chỉ nằm ở cờ `ke_tai_tu_van` trong event.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 850,
+          "end_line": 859,
+          "detail": "except SafetyGateError: nếu có clinical.intake.perform thì bỏ qua cổng."
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 861,
+          "end_line": 870,
+          "detail": "Gọi luu_don_chua_ky không giới hạn theo lượt của bàn tư vấn."
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 878,
+          "end_line": 905,
+          "detail": "Chỉ ghi `ke_tai_tu_van` và nguoi_lam_thay(None) vào sự kiện."
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 833,
+          "end_line": 849,
+          "detail": "Kiểm lượt chỉ theo clinic_id, không có location."
+        }
+      ],
+      "limitations": "Quyết định 13/10 'đơn của lượt, không của bác sĩ' là chủ ý; chưa thấy phía router giới hạn thêm visit theo hàng chờ tư vấn.",
+      "recommendation": "Chỉ cho đường tư vấn khi lượt đang trong hàng chờ/phiên tư vấn do chính người đó (hoặc phòng tư vấn của họ) nhận; đúng cơ sở; ghi lý do và thông báo bác sĩ chính khi đơn đổi.",
+      "acceptance": "Test: người có intake, không được nhận lượt X -> lưu đơn lượt X bị từ chối; được nhận -> lưu được và bác sĩ chính nhận thông báo; lượt khác cơ sở bị từ chối.",
+      "alignment": [
+        "Ownership rõ",
+        "Bệnh nhân an toàn"
+      ],
+      "extends": [
+        "SEC-037"
+      ],
+      "related_ids": [
+        "SEC-016",
+        "SEC-037",
+        "SEC-033"
+      ]
+    },
+    {
+      "tmp_id": "S11-7",
+      "title": "Ghi kết quả gọi tái khám đóng việc ngay dù khách không nghe máy hoặc cần bác sĩ, không hẹn gọi lại hay chuyển việc",
+      "severity": "MEDIUM",
+      "category": "recall_followup_closure",
+      "evidence_level": "confirmed_static",
+      "summary": "`ghi_ket_qua` chấp nhận CHUA_NGHE_MAY, CAN_BAC_SI, TU_CHOI và đều đặt `trang_thai='DA_GOI'` rồi chỉ thêm một dòng `cskh_log`. Không có bước gọi lại, không có hạn mới, không sinh việc cho bác sĩ khi CAN_BAC_SI.",
+      "trigger": "Có thể xảy ra nếu CSKH gọi lượt 1 (mời đặt lịch) mà khách không nghe máy, bấm CHUA_NGHE_MAY: việc biến khỏi hàng đợi; hoặc chọn CAN_BAC_SI.",
+      "impact": "Khách cần được nhắc không còn việc nào nhắc lại; câu hỏi của khách cho bác sĩ không có người nhận; hồ sơ báo 'đã gọi'. Thời gian 'chưa biết' tăng và khách có thể bỏ tái khám.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/recall_job_service.py",
+          "line": 51,
+          "end_line": 52,
+          "detail": "Bốn kết quả hợp lệ."
+        },
+        {
+          "path": "src/clinicai/services/recall_job_service.py",
+          "line": 238,
+          "end_line": 281,
+          "detail": "UPDATE đặt DA_GOI cho mọi kết quả."
+        },
+        {
+          "path": "src/clinicai/services/recall_job_service.py",
+          "line": 302,
+          "end_line": 322,
+          "detail": "Chỉ ghi cskh_log; không tạo việc mới/hẹn lại/thông báo bác sĩ."
+        },
+        {
+          "path": "src/clinicai/services/recall_job_service.py",
+          "line": 246,
+          "end_line": 251,
+          "detail": "Docstring coi 'chuông đổ không ai bắt' là việc đã làm."
+        }
+      ],
+      "limitations": "Lượt 2 (T-1) vẫn sinh độc lập nên có phần giảm nhẹ cho lượt 1; chưa đọc màn CSKH khác có thể tự xếp lại.",
+      "recommendation": "Với CHUA_NGHE_MAY: giữ việc ở trạng thái 'thử lại' với số lần/hạn mới và người nhận; với CAN_BAC_SI: sinh việc cho bác sĩ phụ trách có hạn; chỉ đóng khi ĐA_LIEN_HE hoặc TU_CHOI có lý do.",
+      "acceptance": "Test: ghi CHUA_NGHE_MAY -> việc vẫn hiện với lần thử 2 trong 24 giờ; sau số lần tối đa mới đóng kèm lý do; CAN_BAC_SI -> có work item cho bác sĩ.",
+      "alignment": [
+        "Ownership rõ",
+        "Con người bị gián đoạn đúng lúc",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-033",
+        "OPS-002",
+        "OPS-005",
+        "CLIN-044"
+      ]
+    },
+    {
+      "tmp_id": "S11-8",
+      "title": "Bỏ qua việc gọi tái khám không ghi người bỏ qua, không vào nhật ký CSKH và ghi đè ghi chú cũ",
+      "severity": "MEDIUM",
+      "category": "recall_dismiss_attribution",
+      "evidence_level": "confirmed_static",
+      "summary": "`bo_qua` chỉ UPDATE `trang_thai='KHONG_CAN'`, `ghi_chu=$3` (ghi đè), `dong_luc`; không đặt `nguoi_goi_staff_id` hay cột người đóng, không insert `cskh_log`, không emit event.",
+      "trigger": "Có thể xảy ra nếu một nhân viên có quyền CRM bỏ qua hàng loạt việc nhắc tái khám với lý do chung chung.",
+      "impact": "Không truy được ai đã gỡ việc theo dõi bệnh nhân; hồ sơ khách không thấy lịch sử; trưởng ca không đối soát; ghi chú trước đó bị mất.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/recall_job_service.py",
+          "line": 333,
+          "end_line": 358,
+          "detail": "bo_qua: không ghi người thực hiện, không cskh_log/event, ghi đè ghi_chu."
+        },
+        {
+          "path": "src/clinicai/services/recall_job_service.py",
+          "line": 302,
+          "end_line": 322,
+          "detail": "Đối chiếu: ghi_ket_qua ghi cskh_log trong cùng giao dịch."
+        }
+      ],
+      "limitations": "Có thể có trigger audit trên bảng nhac_tai_kham ở migration chưa đọc.",
+      "recommendation": "Thêm cột dong_boi_staff_id, nối ghi_chu thay vì đè, ghi cskh_log/event 'bỏ qua việc gọi' trong cùng giao dịch và đưa vào đối soát cuối ngày.",
+      "acceptance": "Test: bo_qua -> hàng có dong_boi, event và cskh_log; ghi_chu cũ còn trong lịch sử; báo cáo cuối ngày đếm số việc bị bỏ qua theo người.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "OPS-002",
+        "CLIN-033"
+      ]
+    },
+    {
+      "tmp_id": "S11-9",
+      "title": "SchedulingService ghi lịch hẹn/ca trực với mã bệnh nhân, bác sĩ, dịch vụ, cơ sở không kiểm cùng clinic; công cụ agent nhận clinic_id từ đầu vào",
+      "severity": "MEDIUM",
+      "category": "tenant_reference_validation",
+      "evidence_level": "confirmed_static",
+      "summary": "Chỉ cột `clinic_id` của bản ghi mới lấy từ `self._clinic_id`; `clinic_patient_id`, `doctor_id`, `location_id`, `service_type_id`, `work_session_id`, `staff_id` đi thẳng vào INSERT. `assign_staff_to_session` đọc `staff` không lọc clinic. Baseline schema chỉ có FK đơn cột. Công cụ `find_oncall` tạo `SchedulingService(pool, str(input.clinic_id))` với clinic_id nằm trong input của tool.",
+      "trigger": "Có thể xảy ra nếu tool/endpoint nhận UUID của clinic khác (do lỗi agent, prompt injection hay client sai) hoặc input tool mang clinic_id khác phiên.",
+      "impact": "Tạo lịch/phân ca nối hồ sơ hoặc nhân sự của phòng khám khác, hoặc đọc ca trực của clinic khác; nặng hơn khi bán cho nhiều phòng khám.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/scheduling_service.py",
+          "line": 109,
+          "end_line": 138,
+          "detail": "assign_staff_to_session: SELECT staff theo id không clinic; INSERT với work_session_id/staff_id do người gọi truyền."
+        },
+        {
+          "path": "src/clinicai/services/scheduling_service.py",
+          "line": 244,
+          "end_line": 322,
+          "detail": "create_appointment: chỉ on-duty check khi có work_session; không kiểm patient/doctor/service/location cùng clinic, không kiểm giờ nằm trong ca."
+        },
+        {
+          "path": "src/clinicai/tools/scheduling/find_oncall.py",
+          "line": 21,
+          "end_line": 52,
+          "detail": "Tool lấy clinic_id từ input và dựng service theo đó."
+        },
+        {
+          "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+          "line": 1856,
+          "end_line": 1891,
+          "detail": "FK appointment -> patient/staff/location/service_type/work_session là đơn cột, không ép cùng clinic."
+        }
+      ],
+      "limitations": "Chưa tìm thấy trigger tenant-consistency nhưng chưa quét hết migration; chưa xác nhận nơi dựng ToolContext có ghi đè clinic_id.",
+      "recommendation": "Kiểm mọi UUID tham chiếu thuộc `self._clinic_id` (và cơ sở của người gọi) trong cùng giao dịch hoặc dùng FK/trigger ép cùng clinic; tool phải lấy clinic_id từ ngữ cảnh đã xác thực, bỏ khỏi input.",
+      "acceptance": "Test: tạo lịch với clinic_patient_id/doctor_id/service_type_id của clinic B từ phiên clinic A -> bị từ chối; find_oncall với clinic_id khác phiên -> bị từ chối hoặc bị bỏ qua.",
+      "alignment": [
+        "Reality rõ",
+        "Ownership rõ"
+      ],
+      "extends": [
+        "API-003"
+      ],
+      "related_ids": [
+        "API-003",
+        "DB-001",
+        "AI-003"
+      ]
+    },
+    {
+      "tmp_id": "S11-10",
+      "title": "cancel_appointment cho huỷ lịch đã check-in/vắng/bác sĩ từ chối, không khoá lượt và luôn ghi mã lý do KHAC",
+      "severity": "MEDIUM",
+      "category": "appointment_cancel_state",
+      "evidence_level": "confirmed_static",
+      "summary": "Chỉ COMPLETED và CANCELLED bị chặn. CHECKED_IN, NO_SHOW, DOCTOR_DECLINED vẫn đổi thành CANCELLED; kiểm trạng thái là SELECT riêng, UPDATE không có điều kiện trạng thái hay khoá hàng. Mọi lần huỷ ghi `ly_do_huy_ma='KHAC'`.",
+      "trigger": "Có thể xảy ra nếu agent/nhân viên huỷ lịch của khách đã đến phòng khám, hoặc huỷ đồng thời với check-in.",
+      "impact": "Lịch báo huỷ trong khi khách đang ở quầy hoặc đã có lượt: báo cáo no-show/huỷ sai, hàng chờ/lượt không đồng bộ, và không thể phân tích nguyên nhân huỷ (toàn KHAC).",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/scheduling_service.py",
+          "line": 383,
+          "end_line": 395,
+          "detail": "Chỉ chặn COMPLETED/CANCELLED; kiểm bằng SELECT riêng."
+        },
+        {
+          "path": "src/clinicai/services/scheduling_service.py",
+          "line": 397,
+          "end_line": 419,
+          "detail": "UPDATE không có `AND status = ...`; ly_do_huy_ma luôn 'KHAC'."
+        },
+        {
+          "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+          "line": 341,
+          "end_line": 341,
+          "detail": "Danh sách trạng thái hợp lệ gồm CHECKED_IN, NO_SHOW, DOCTOR_DECLINED."
+        }
+      ],
+      "limitations": "Chưa xác minh có trigger chặn huỷ lịch đã có visit; đường dùng chính là công cụ agent và kiểm tra từ router/UI khác không thuộc tệp này.",
+      "recommendation": "Dùng UPDATE có điều kiện (status IN SCHEDULED/CSKH_CONFIRMED/CONFIRMED) và khoá hàng; lịch đã check-in phải đi đường huỷ lượt; bắt buộc mã lý do chuẩn.",
+      "acceptance": "Test: huỷ lịch CHECKED_IN qua service -> 409; huỷ đồng thời với check-in chỉ một thắng; mã lý do lưu theo enum.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [
+        "CLIN-005"
+      ],
+      "related_ids": [
+        "CLIN-005",
+        "CLIN-059",
+        "CLIN-035"
+      ]
+    },
+    {
+      "tmp_id": "S11-11",
+      "title": "Thuốc khách trả chuyển BAN_LAI chỉ một thao tác, không kiểm tình trạng, hạn, điều kiện bảo quản hay người thứ hai",
+      "severity": "MEDIUM",
+      "category": "returned_drug_resale",
+      "evidence_level": "design_gap",
+      "summary": "`xu_ly_thuoc_tra` với quyết định BAN_LAI chỉ đặt `disposition`; lý do tuỳ chọn; sau đó `drug_batch_kha_dung` thôi trừ phần trả nên thuốc khách đã mang đi (không rõ bảo quản) quay lại lô gốc với hạn gốc và bán được ngay.",
+      "trigger": "Có thể xảy ra nếu dược sĩ chọn BAN_LAI cho thuốc đã mở, cần bảo quản lạnh, hoặc khách mang về nhiều ngày.",
+      "impact": "Rủi ro an toàn người bệnh và pháp lý (thuốc không đảm bảo chất lượng quay lại bán), không truy được vì sao quyết định, không thể thu hồi theo lô vì đã trộn với tồn.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 2098,
+          "end_line": 2123,
+          "detail": "Docstring và kiểm đầu vào: BAN_LAI không cần lý do."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 2144,
+          "end_line": 2187,
+          "detail": "Chỉ UPDATE disposition, không có kiểm tra hạn/nhóm thuốc/người duyệt."
+        },
+        {
+          "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+          "line": 533,
+          "end_line": 536,
+          "detail": "kha_dung chỉ trừ trả chưa quyết (disposition IS NULL)."
+        }
+      ],
+      "limitations": "Chính sách nhận trả thuốc là quyết định kinh doanh/pháp lý của chủ; chưa biết có danh mục thuốc cấm nhận trả. Đề xuất giảm rủi ro khi vận hành.",
+      "recommendation": "Bắt buộc lý do và xác nhận tình trạng (nguyên vẹn, chưa mở) khi BAN_LAI; nhóm thuốc bảo quản lạnh/kiểm soát đặc biệt chỉ được HUỶ; cần người thứ hai hoặc quản lý duyệt vượt ngưỡng giá trị; gắn nhãn lô 'hàng trả' tách khỏi lô gốc để thu hồi được.",
+      "acceptance": "Test: BAN_LAI không có xác nhận tình trạng bị từ chối; thuốc nhóm lạnh chỉ nhận HUY; quyết định BAN_LAI hiển thị người duyệt và lý do trên thẻ kho.",
+      "alignment": [
+        "Bệnh nhân an toàn",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "PHAR-001",
+        "CLIN-007"
+      ]
+    },
+    {
+      "tmp_id": "S11-12",
+      "title": "Giao không lô làm mất truy vết lô khi thu hồi thuốc; việc gán lô là danh sách bị động, không hạn, không người nhận",
+      "severity": "MEDIUM",
+      "category": "lot_traceability",
+      "evidence_level": "design_gap",
+      "summary": "Giao không lô chỉ ghi `thuoc_giao_chua_gan_lo` và tăng `dispensed_qty`; kho chỉ trừ khi ai đó gán lô sau. `cho_gan_lo` chỉ liệt kê, không có hạn hay người nhận, và `gan_lo_da_giao` cho chọn bất kỳ lô cùng thuốc/đơn vị đủ khả dụng chứ không đối chiếu lô thật khách đã nhận.",
+      "trigger": "Có thể xảy ra nếu quầy giao không lô vào buổi cao điểm rồi không ai gán lô, hoặc người gán chọn lô gần hạn nhất thay vì lô thật.",
+      "impact": "Khi có thông báo thu hồi lô, hệ thống không biết ai đã nhận thuốc của lô đó hoặc biết sai; tồn vật lý cao hơn thực tế tới khi gán; không ai chịu trách nhiệm đóng tồn đọng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 682,
+          "end_line": 684,
+          "detail": "Docstring: giao không cần lô, kho trừ khi gán sau."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 943,
+          "end_line": 1006,
+          "detail": "_giao_khong_lo: chỉ INSERT sổ chờ và tăng dispensed_qty."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 1008,
+          "end_line": 1113,
+          "detail": "cho_gan_lo: danh sách bị động, gợi ý lô nhưng không buộc."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 1115,
+          "end_line": 1220,
+          "detail": "gan_lo_da_giao: không kiểm lô thật khách nhận; không giới hạn thời gian."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 2921,
+          "end_line": 2922,
+          "detail": "Chính hệ thống nói 'không có số lô thì không thu hồi được' khi nhập kho."
+        }
+      ],
+      "limitations": "Là quyết định của chủ (28/09) để thông suốt quầy; cần đo thực tế số dòng chờ gán và tuổi lớn nhất.",
+      "recommendation": "Đặt hạn gán lô (ví dụ cuối ca/ngày), phân công người gán, cảnh báo khi quá hạn; cho phép quét tem lô lúc giao thay vì gán sau; hiển thị trên báo cáo ca số lần giao không lô.",
+      "acceptance": "Test: dòng giao không lô quá 24 giờ sinh việc cho trưởng kho; báo cáo thu hồi theo lô liệt kê cả lần giao chưa gán lô như 'không rõ lô'.",
+      "alignment": [
+        "Ownership rõ",
+        "Reality rõ",
+        "Bệnh nhân an toàn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-007",
+        "CLIN-002"
+      ]
+    },
+    {
+      "tmp_id": "S11-13",
+      "title": "Phiếu khám và danh mục chỉ định dùng bảng ghép viết tay mã dịch vụ/giá/phòng của Dr4Women trong lõi Python",
+      "severity": "MEDIUM",
+      "category": "packaging_hardcoded_catalog",
+      "evidence_level": "design_gap",
+      "summary": "Bảy mã phiếu (`FORM_IDS`), bảng ghép nhãn phiếu sang `service_code`, `node_code`, giá VND, tên thuốc kho (`anh_xa_danh_muc`), nhóm hiển thị theo node cố định, tên 'KiotViet' và bộ chuẩn giờ Asia/Ho_Chi_Minh nằm trong mã. `tham_chieu_that` gắn các mã này với danh mục của từng clinic.",
+      "trigger": "Cần khi tạo phòng khám thứ hai có phiếu, mã dịch vụ, tên phòng hoặc múi giờ khác Dr4Women.",
+      "impact": "Phòng khám mới không dùng được phiếu/danh mục chỉ định nếu không sửa mã; giá mặc định và mã node của Dr4Women lọt vào lõi; không bán được 'đóng gọn nhiều phòng khám'.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 130,
+          "end_line": 133,
+          "detail": "Ô thai kỳ sk_lmp/sk_edd viết cứng theo phiếu Sản khoa v5."
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 197,
+          "end_line": 204,
+          "detail": "_NHOM_THEO_NODE: mã node DICHVU-* của Dr4Women."
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 602,
+          "end_line": 771,
+          "detail": "tham_chieu_that ghép ax.CLS/ax.THU_THUAT/ax.THUOC viết tay với danh mục clinic."
+        },
+        {
+          "path": "src/clinicai/phieu_kham/anh_xa_danh_muc.py",
+          "line": 1,
+          "end_line": 60,
+          "detail": "Bảng ghép viết tay kèm giá VND và node code."
+        },
+        {
+          "path": "src/clinicai/phieu_kham/khung.py",
+          "line": 51,
+          "end_line": 58,
+          "detail": "FORM_IDS cố định bảy phiếu và HO_SO_DIEU_TRI."
+        },
+        {
+          "path": "src/clinicai/services/phi_kham_service.py",
+          "line": 50,
+          "end_line": 72,
+          "detail": "Danh sách khám theo loai_kham_phi/ma_kiotviet."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 1059,
+          "end_line": 1060,
+          "detail": "Múi giờ 'Asia/Ho_Chi_Minh' viết cứng trong SQL."
+        }
+      ],
+      "limitations": "Một phần dữ liệu có thể nạp qua migration theo clinic (DB-004/DB-005 đã nêu); phát hiện này là phần nằm trong mã dịch vụ. Chưa đánh giá chi phí chuyển sang cấu hình.",
+      "recommendation": "Đưa ánh xạ nhãn->dịch vụ, nhóm hiển thị, tập mã phiếu và múi giờ thành cấu hình theo clinic (form_definition + bảng ánh xạ có phiên bản), chỉ giữ mã nghiệp vụ chung trong lõi; thêm quy trình tạo phòng khám mới nạp mẫu.",
+      "acceptance": "Khởi tạo clinic thứ hai với phiếu/mã dịch vụ khác từ cấu hình (không sửa Python) và chạy đủ test phiếu khám; grep không còn mã node/giá Dr4Women trong thư mục lõi.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [
+        "DB-004",
+        "DB-005"
+      ],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S11-14",
+      "title": "Sửa số lượng hoặc nội dung dòng thuốc do quầy thêm đặt lại số mua về NULL, làm dòng khách đã bỏ tick tự được mua lại",
+      "severity": "LOW",
+      "category": "counter_state_consistency",
+      "evidence_level": "confirmed_static",
+      "summary": "Nhánh BAC_SI giữ `purchased_qty = 0` khi đã bỏ tick (`CASE WHEN purchased_qty = 0 THEN 0`), còn nhánh QUAY của `doi_so_luong` và nhánh sửa của `luu_dong_them` đặt `purchased_qty = NULL` (= mua đủ).",
+      "trigger": "Có thể xảy ra nếu thu ngân bỏ tick dòng thuốc quầy thêm vì khách không lấy, sau đó chỉnh số lượng/cách dùng của chính dòng ấy.",
+      "impact": "Dòng khách đã từ chối quay lại hoá đơn mà không có sự kiện bỏ tick/chọn lại; khoản thu sai nếu thu ngân không soát.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 308,
+          "end_line": 322,
+          "detail": "Nhánh QUAY: purchased_qty = NULL."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 367,
+          "end_line": 377,
+          "detail": "Nhánh BAC_SI: giữ 0 nếu đã bỏ tick."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 496,
+          "end_line": 506,
+          "detail": "luu_dong_them sửa dòng: purchased_qty = NULL."
+        }
+      ],
+      "limitations": "Tác động nhỏ, trước khi thu tiền; thu ngân vẫn thấy dòng được tích lại trong màn.",
+      "recommendation": "Dùng cùng quy tắc giữ số mua 0 ở mọi nhánh và ghi sự kiện CHON_LAI nếu trạng thái đổi.",
+      "acceptance": "Test: bỏ tick dòng QUAY rồi đổi số lượng -> vẫn bỏ tick, và có đúng một event đổi số lượng.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-003"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "FIN-002",
+      "detail": "src/clinicai/services/pharmacy_service.py:184-191, 228-235, 259-266: hang_doi (LIMIT 300), lich_su_giao (200), cho_tu_van (100) chỉ gọi canh_bao_neu_day rồi trả list thuần, không kèm cờ bị cắt cho người dùng."
+    },
+    {
+      "id": "CLIN-003",
+      "detail": "src/clinicai/services/phieu_kham_service.py:508-533: lỗi đồng bộ hẹn tái khám bị nuốt trong savepoint, chỉ trả hen={'trang_thai':'LOI'} cho lần phản hồi đó; không có bản ghi bền hay tự thử lại."
+    },
+    {
+      "id": "CLIN-039",
+      "detail": "src/clinicai/services/phieu_kham_service.py:465-479: chế độ thay_doi gộp du_lieu || $2 mà không so expected_revision; chỉ chế độ du_lieu (480-492) có kiểm revision."
+    },
+    {
+      "id": "SEC-011",
+      "detail": "src/clinicai/services/phieu_kham_service.py:112-127 và 213-224, 269-286, 775-800, 949-1004: các hàm đọc phiếu/đơn/kết quả/hành trình chỉ hỏi capability (QUYEN_DOC_DE_IN gồm tiếp đón, thu tiền, dược, CSKH) và lọc theo clinic, không theo phân công hay cơ sở của lượt."
+    },
+    {
+      "id": "FIN-003",
+      "detail": "src/clinicai/services/quay_thuoc_service.py:529-555: dòng THEM tạo id uuid4 và source_ref `quay-rx-{visit}-{uuid4}` mới ở mỗi lần gọi nên retry luôn thêm dòng; luu_dong_them không nhận khoá idempotency."
+    },
+    {
+      "id": "CLIN-007",
+      "detail": "src/clinicai/services/pharmacy_service.py:1250-1298: _cap_phat_cu kiểm lô tồn tại, cơ sở, nơi chứa, đơn vị, tồn, hạn nhưng KHÔNG so drug_catalog_id của lô với drug_catalog_id của dòng đơn."
+    },
+    {
+      "id": "API-003",
+      "detail": "src/clinicai/services/scheduling_service.py:109-138 và 59-95: assign_staff_to_session đọc staff không lọc clinic và nhận work_session_id/staff_id từ người gọi; create_work_session nhận location_id không kiểm clinic."
+    },
+    {
+      "id": "CLIN-005",
+      "detail": "src/clinicai/services/scheduling_service.py:343-364: confirm_appointment kiểm SCHEDULED bằng SELECT rồi UPDATE không có điều kiện trạng thái, có thể kéo lịch vừa check-in về CONFIRMED."
+    },
+    {
+      "id": "CLIN-032",
+      "detail": "src/clinicai/services/recall_job_service.py:133-153: dịch vụ đã trả `bi_cat` và `tran` cùng canh_bao_neu_day; khoảng hở nằm ở lớp hiển thị nếu UI không dùng cờ này."
+    },
+    {
+      "id": "OPS-001",
+      "detail": "src/clinicai/services/recall_job_service.py:84-95 và 20-29: danh_sach() gọi sinh() trước khi đọc; docstring xác nhận chưa có bộ hẹn giờ riêng cho đường này."
+    },
+    {
+      "id": "OPS-002",
+      "detail": "src/clinicai/services/recall_job_service.py:84-131: truy vấn danh sách không có cột người nhận/claim; chỉ nguoi_goi_staff_id được đặt sau khi gọi xong (ghi_ket_qua 262-281)."
+    },
+    {
+      "id": "CLIN-033",
+      "detail": "src/clinicai/services/recall_job_service.py:333-358: bo_qua đóng việc không cần kết quả cuộc gọi chuẩn."
+    },
+    {
+      "id": "SEC-016",
+      "detail": "src/clinicai/services/phieu_kham_service.py:420-434, 833-859: cổng kiem_dung_ca được dùng ở luu_luot/luu_don_thuoc; xem S11-5 về các điều kiện mở cổng."
+    }
+  ],
+  "held": [
+    {
+      "title": "Idempotency-Key là tuỳ chọn ở máy chủ cho các lệnh cấp/trả thuốc, huỷ phần chưa giao",
+      "reason": "idempotency.py:23 ghi header OPTIONAL; dashboard hiện gửi khoá ở DongThuoc.tsx:101 và PhanHoiThuocKhach.tsx:142 (có nơi `khoa ?`). Rủi ro chỉ khi client khác hoặc nhánh không gửi; chưa chứng minh có đường như vậy."
+    },
+    {
+      "title": "Lô không có hạn dùng vẫn được chọn lô và giao",
+      "reason": "kiem_dong_nhap cho expiry_date None (pharmacy_service.py:2925) và các kiểm hạn chỉ chạy khi có hạn; memory ghi quyết định tạm hoãn 08/10. Có thể là chủ ý; cần số liệu lô không hạn còn tồn."
+    },
+    {
+      "title": "route_derivation.derive_route trả cả đuôi chung khi ordered_nodes chỉ gồm bước thuộc đuôi",
+      "reason": "route_derivation.py:66-85: nếu ordered_nodes khác rỗng nhưng toàn bước trong tail thì head rỗng và hàm trả tail (duyệt kết quả, thuốc...), có thể gợi ý bước chưa được chỉ định; chưa biết bảng Trưởng ca có lọc lại."
+    },
+    {
+      "title": "ton_kho/danh_muc dùng truy vấn con tương quan tính drug_batch_kha_dung trên từng dòng lô",
+      "reason": "pharmacy_service.py:291-314: chi phí ~O(lô x lô cùng thuốc); chưa đo ở quy mô nhiều cơ sở. Cân nhắc khi bán nhiều phòng khám."
+    },
+    {
+      "title": "cap_phat/_chot_duoc_khong dùng fetchrow trên payment_cycle kind='thuoc' có thể trả nhiều dòng",
+      "reason": "pharmacy_service.py:710-718 và 1524-1532 không ORDER/LIMIT; chưa biết unique index partial có đảm bảo tối đa một lần thu PAID/PENDING cho mỗi lượt."
+    },
+    {
+      "title": "phi_kham_service.chon chế độ `ids` (cũ) ghi đè tập tick bằng tập client",
+      "reason": "phi_kham_service.py:343-357: chế độ ids đặt tập = ids; đã có chế độ them_vao/bo_di thay thế. Chỉ rủi ro nếu client cũ còn dùng."
+    },
+    {
+      "title": "Tên lỗi CheckViolation được nhận diện bằng chuỗi 'căn cứ'",
+      "reason": "pharmacy_service.py:1854-1860: đổi câu thông báo trigger sẽ làm huy_phan_chua_giao trả lỗi thô thay vì câu nghiệp vụ; mức thấp."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Thứ tự khoá thống nhất và khoá lô theo id tăng dần trong một câu lệnh",
+      "detail": "visit -> prescription -> allocation -> drug_batch được ghi trong docstring và áp thật (khoa_lo, _khoa_theo_luot, _khoa_phan_lo); giảm deadlock giữa thu tiền, giao, hoàn.",
+      "evidence": "src/clinicai/services/phan_lo_service.py:13-17, 60-70; src/clinicai/services/pharmacy_service.py:1591-1647"
+    },
+    {
+      "title": "Mỗi phân lô chỉ bán một lần nhờ unique index + ON CONFLICT DO NOTHING và đảo bán theo bản ghi gốc",
+      "detail": "ghi_ban và dao_ban idempotent, SALE_REVERSAL gắn reverses_txn_id; làm mẫu cho sổ hai pha cam kết/giao.",
+      "evidence": "src/clinicai/services/phan_lo_service.py:215-240, 290-333"
+    },
+    {
+      "title": "Khoá idempotency lưu cùng giao dịch với dòng sổ kho và dấu vân tay payload",
+      "detail": "nhap_lo/dieu_chinh/huy: advisory lock, so khớp payload_sha256, lưu response trong cùng transaction; cùng khoá khác nội dung trả 409.",
+      "evidence": "src/clinicai/services/pharmacy_service.py:588-662, 2640-2712"
+    },
+    {
+      "title": "Kiểm đầu vào số có trần, nói rõ ô nào sai bằng tiếng Việt",
+      "detail": "_so chặn NaN/Infinity/âm/quá lớn; quy đổi đơn vị kho có ngưỡng hệ số lạ phải xác nhận.",
+      "evidence": "src/clinicai/services/pharmacy_service.py:68-90, 2931-2933, 3027-3097"
+    },
+    {
+      "title": "Savepoint để tác dụng phụ hỏng không làm mất chữ bác sĩ vừa gõ",
+      "detail": "luu_luot lưu phiếu rồi đồng bộ hẹn tái khám trong transaction lồng; lỗi trả cờ LOI thay vì rollback phiếu.",
+      "evidence": "src/clinicai/services/phieu_kham_service.py:508-533"
+    },
+    {
+      "title": "Đổi theo từng dịch vụ (them_vao/bo_di) tính trên tập hiện có trong giao dịch đã khoá lượt",
+      "detail": "Hai người cùng mở một lượt không ghi đè tick của nhau; bỏ tick đã thu sinh tiền thừa thay vì chặn.",
+      "evidence": "src/clinicai/services/phi_kham_service.py:314-357, 162-229"
+    },
+    {
+      "title": "Kiểm tra quyền mặc định từ chối khi chưa nối hệ phân quyền",
+      "detail": "chua_noi_quyen ném SafetyGateError; kiem_quyen được tiêm vào service nên test và cắm quyền rõ ràng.",
+      "evidence": "src/clinicai/services/phieu_kham_service.py:83-87, 208-210"
+    },
+    {
+      "title": "Hàng chờ gọi tái khám trả cờ bị cắt cùng trần và ghi nhật ký CSKH trong cùng giao dịch với đóng việc",
+      "detail": "danh_sach trả bi_cat/tran; ghi_ket_qua insert cskh_log cùng transaction để hồ sơ không nói chưa ai gọi.",
+      "evidence": "src/clinicai/services/recall_job_service.py:133-153, 302-322"
+    },
+    {
+      "title": "Nhập lô chặn trộn thuốc, hạn, đơn vị, giá vốn khác nhau trong một số lô",
+      "detail": "nhap_vao_lo từ chối cùng số lô khác thuốc/hạn/đơn vị/giá nhập, nói bằng tiếng Việt thay vì lỗi ràng buộc.",
+      "evidence": "src/clinicai/services/pharmacy_service.py:3129-3187"
+    },
+    {
+      "title": "Hàm suy tuyến thuần, đuôi chung đọc từ tuyến mẫu thay vì viết cứng",
+      "detail": "route_derivation.common_suffix/canonical_order không phụ thuộc DB, dễ test; thứ tự lấy từ tuyến mẫu của clinic.",
+      "evidence": "src/clinicai/services/route_derivation.py:29-85"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/clinicai/services/phan_lo_service.py",
+      "lines": 432,
+      "full_read": true,
+      "note": "Đọc hết; thứ tự khoá, ghi/đảo bán, ban_chua_giao."
+    },
+    {
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "lines": 3335,
+      "full_read": true,
+      "note": "Đọc hết 1-3335 theo 10 đoạn; cấp phát, trả thuốc, kiểm kho, quy đổi, nhập lô."
+    },
+    {
+      "path": "src/clinicai/services/phi_kham_service.py",
+      "lines": 441,
+      "full_read": true,
+      "note": "Đọc hết; tick dịch vụ khám, bỏ dịch vụ đã thu."
+    },
+    {
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "lines": 1013,
+      "full_read": true,
+      "note": "Đọc hết; lưu phiếu/đơn, cổng ca trực, đọc phiếu."
+    },
+    {
+      "path": "src/clinicai/services/providers/__init__.py",
+      "lines": 1,
+      "full_read": true,
+      "note": "Một dòng docstring, không logic."
+    },
+    {
+      "path": "src/clinicai/services/quay_thuoc_service.py",
+      "lines": 568,
+      "full_read": true,
+      "note": "Đọc hết; chỉnh đơn bán ở quầy."
+    },
+    {
+      "path": "src/clinicai/services/recall_job_service.py",
+      "lines": 358,
+      "full_read": true,
+      "note": "Đọc hết; sinh/ghi/bỏ qua việc gọi tái khám."
+    },
+    {
+      "path": "src/clinicai/services/route_derivation.py",
+      "lines": 85,
+      "full_read": true,
+      "note": "Đọc hết; hàm thuần suy tuyến."
+    },
+    {
+      "path": "src/clinicai/services/scheduling_service.py",
+      "lines": 426,
+      "full_read": true,
+      "note": "Đọc hết; ca trực, lịch hẹn, tool agent."
+    }
+  ]
+}

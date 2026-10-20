@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_booking_lifecycle_slice",
+  "findings": [
+    {
+      "id": "CAND-BOOK-LIFE-001",
+      "title": "Lịch tương lai có thể bị đánh dấu NO_SHOW trước giờ hẹn",
+      "severity": "MEDIUM",
+      "confidence": "confirmed_static",
+      "trigger": "Nhân viên có reception.checkin.perform đánh action no_show cho lịch ở trạng thái SCHEDULED/CSKH_CONFIRMED/CONFIRMED khi slot_start còn trong tương lai. UI hiện nút này cho mọi lịch trước khi đến trong ngày hôm nay; API còn nhận lịch ngày tương lai.",
+      "impact": "Appointment bị chuyển sang NO_SHOW, thuộc DEAD_STATUSES, không còn giữ ghế và bị ẩn khỏi lưới tuần. Bệnh nhân có thể vẫn đến theo lịch đã thống nhất nhưng đội vận hành không còn nhìn thấy lịch; slot được coi là trống cho booking khác.",
+      "recommendation": "Xác định ngưỡng no-show/grace period theo chính sách phòng khám và enforce ở backend/service. Đồng bộ UI với điều kiện server trả về hoặc cùng quy tắc đã được xác định.",
+      "acceptance": "Test service/route: lịch tương lai, gồm lịch muộn hơn trong cùng ngày, bị từ chối; lịch đạt ngưỡng no-show được phép; request bị từ chối không đổi trạng thái. UI không cho thao tác trước ngưỡng.",
+      "limitations": "Static-only; chưa gọi API, DB hoặc UI runtime. Ngưỡng grace period là quyết định sản phẩm chưa thấy trong code, nên chưa giả định con số cụ thể.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "line": 383,
+          "end_line": 389,
+          "detail": "no_show chỉ chuyển sang NO_SHOW từ _PRE_ARRIVAL; không mang predicate theo thời gian."
+        },
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "line": 1036,
+          "end_line": 1039,
+          "detail": "Gate tại service chỉ so trạng thái hiện tại với allowed from_statuses trước khi xây patch."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+          "sha256": "b164e6621ad09d07269bd325f676a12bce4a6412fd7ae38f2eb979500d58bb0a",
+          "line": 1023,
+          "end_line": 1045,
+          "detail": "UI phân biệt ngày hôm nay/ngày khác, nhưng với lịch hôm nay luôn hiện nút Không đến cho trạng thái trước khi đến; không kiểm giờ slot_start."
+        },
+        {
+          "path": "src/dashboard/app/api/appointments/route.ts",
+          "sha256": "46f7dedccaf35018a23ac27a76de0731f4e8a730d55eff3873afa382e42e81bc",
+          "line": 259,
+          "end_line": 309,
+          "detail": "no_show là action được chấp nhận ở PATCH proxy và được chuyển nguyên vẹn xuống backend."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/booking.py",
+          "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+          "line": 718,
+          "end_line": 744,
+          "detail": "FastAPI action route gọi BookingService.apply_action; không thêm giới hạn thời gian riêng cho no_show."
+        },
+        {
+          "path": "src/clinicai/core/trang_thai_lich.py",
+          "sha256": "9afaa4050f0e936fe819da4e8ff89ae298c1c36b4daafc48da405375da9df88b",
+          "line": 23,
+          "end_line": 29,
+          "detail": "NO_SHOW là trạng thái chết và không giữ chỗ."
+        },
+        {
+          "path": "src/tests/test_booking_service.py",
+          "sha256": "79cfb11305c82bbb1386c1ee3e3e8f9050ffb392a41a23dc845249120eeafbd0",
+          "line": 107,
+          "end_line": 108,
+          "detail": "Test hiện có chỉ khóa việc không cho no-show sau CHECKED_IN; không khóa lịch tương lai theo slot_start."
+        }
+      ],
+      "reference_version": "pinned_main",
+      "status": "candidate",
+      "summary": "Transition no_show chỉ kiểm trạng thái trước khi đến, không kiểm thời điểm slot; UI hiện nút cho mọi lịch chưa tới trong ngày hôm nay. Lịch tương lai vì vậy có thể bị chuyển sang trạng thái không giữ chỗ và bị ẩn khỏi lưới tuần. Chưa chạy runtime hoặc xác định grace period theo chính sách phòng khám.",
+      "category": "booking_no_show_time_gate"
+    }
+  ]
+}

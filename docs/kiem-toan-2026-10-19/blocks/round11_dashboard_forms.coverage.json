@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "audit_id": "round11_dashboard_forms",
+  "source": {
+    "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+    "repository_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "basis": "Snapshot exact-main được ghim; export không có .git; SHA-256 từng file nguồn tính trực tiếp trên snapshot."
+  },
+  "status": "complete_for_selected_unreviewed_dashboard_forms_flows",
+  "scope": [
+    "UI/Next.js của chọn phiếu khám tuỳ chọn theo visit",
+    "hiển thị và điều hướng lượt cũ trong XemLuot, bao gồm link in",
+    "đối chiếu auto-save/revision/read-only đủ để loại trừ một số hướng trùng; chỉ lần tới API/BFF contract, không audit backend business internals"
+  ],
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+      "sha256": "c73708f7b06976c4accacfe3e637b61c84fb7b8076b038ca0e5280adeae345f8",
+      "line_count": 592,
+      "reviewed_ranges": [
+        "201-285",
+        "560-574"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/LichSuKham.tsx",
+      "sha256": "725cd522431506044cf6d595b12b3b75bb584017719679723262013f3641b3e3",
+      "line_count": 227,
+      "reviewed_ranges": [
+        "209-221"
+      ],
+      "review_status": "targeted",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+      "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+      "line_count": 757,
+      "reviewed_ranges": [
+        "188-208",
+        "210-250",
+        "275-305",
+        "605-639",
+        "652-660"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/api/phieu-kham/route.ts",
+      "sha256": "2ff0486e686ef5e93635d63d83b313df6dd7723eb3449b31e9b6dcfe88fbf3a5",
+      "line_count": 125,
+      "reviewed_ranges": [
+        "34-63",
+        "90-104"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx",
+      "sha256": "46818071ec44ffc90ba32ab8c4befd81b18861a803aef9361e64e27c9630896a",
+      "line_count": 634,
+      "reviewed_ranges": [
+        "205-277"
+      ],
+      "review_status": "targeted",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+      "sha256": "3ae2ce525a1d9e75ad9b49f4dd10020a568088f6cb278ecd0911e7d3f178b5b8",
+      "line_count": 649,
+      "reviewed_ranges": [
+        "22-105",
+        "547-580",
+        "590-645"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuDieuTri.tsx",
+      "sha256": "e029f24462bd3c51a76a1265d7db6a6464369d9e7b98ed86eeb752f1e38ed32c",
+      "line_count": 300,
+      "reviewed_ranges": [
+        "153-249"
+      ],
+      "review_status": "targeted",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/lib/use-tu-luu.ts",
+      "sha256": "011e4cb37bf239eb13642054a90ddcd1c4de63309fb0ed876bf3a5c3e2b2ae7d",
+      "line_count": 101,
+      "reviewed_ranges": [
+        "36-100"
+      ],
+      "review_status": "targeted",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/lib/tu-luu.ts",
+      "sha256": "65cb3236b80eb5f10f6725aa48fe0b2e4b2bba1ec81c807b18a6194bd362ace0",
+      "line_count": 273,
+      "reviewed_ranges": [
+        "112-228"
+      ],
+      "review_status": "targeted",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KhoiDieuTri.tsx",
+      "sha256": "6621070651a27cd828cd8334be73583f30c99af913d206909156cc35ea20818f",
+      "line_count": 306,
+      "reviewed_ranges": [
+        "124-157",
+        "287-293"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+      "sha256": "77076bf818e5c983d1ed8fe5f6839e976358d095c282570a6ac0416222d2da1d",
+      "line_count": 528,
+      "reviewed_ranges": [
+        "243-283",
+        "445-458"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc các nhánh/đoạn được ghi; không coi là full-file review."
+    }
+  ],
+  "prior_coverage_context": {
+    "manifest": "docs/kiem-toan-2026-10-19/blocks/frontend.coverage.json",
+    "note": "Các component trong thư mục phieu-kham/** đã từng được automated pattern-scan (không manual read); lượt này chọn vùng chưa đọc trọn, các ranges trên phản ánh đúng phần thủ công của round11."
+  },
+  "canonical_dedup": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "sha256_at_review": "9d13a96c2f079b855d4cd7b9a98bd7b77b18ac3e29d127dde3cab487cc174601",
+    "ids_checked": [
+      "FE-001",
+      "FE-005",
+      "FE-006",
+      "FE-007",
+      "FE-011",
+      "CLIN-020",
+      "CLIN-021",
+      "CLIN-034",
+      "SEC-019"
+    ],
+    "duplicates_or_related": [
+      {
+        "id": "FE-007",
+        "relation": "related by stale UI context, but existing finding concerns retaining prior patient history/drug response after patient change; different component and trigger."
+      },
+      {
+        "id": "CLIN-021",
+        "relation": "same broad print area, but existing issue selects unreleased revision within a visit; this candidate uses a different visit ID than the visit currently displayed."
+      },
+      {
+        "id": "CLIN-020",
+        "relation": "finalized write protection is outside these candidate triggers and remains deduplicated."
+      }
+    ]
+  },
+  "result": {
+    "candidate_finding_count": 2,
+    "candidate_ids": [
+      "CAND-R11-DASH-FORM-01",
+      "CAND-R11-DASH-FORM-02"
+    ],
+    "tests_run": false,
+    "browser_or_runtime_used": false,
+    "database_or_production_access": false,
+    "secrets_or_phi_access": false,
+    "app_or_migration_changes": false
+  },
+  "limitations": [
+    "Static review only; no response-order test or browser interaction was run.",
+    "Only listed line ranges were manually traced; other source remains prior scan/inventory, not full read.",
+    "BFF/API contract was read where it establishes request key behavior; backend authorization, validation, persistence and print semantics were not audited.",
+    "Snapshot is an export without .git; repository identity comes from the pinned audit record."
+  ]
+}

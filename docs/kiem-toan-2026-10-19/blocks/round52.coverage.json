@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "round": 52,
+  "report_version": "v0.75",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_scoped_semantic_review",
+  "scope": [
+    "in-chart service switch permission and transactional write",
+    "default exam-fee projection, payment source identity and outstanding-bill coverage",
+    "current chart-switch unit and database tests"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Ranges line-checked and file SHA-256 checked. Tests read-not-run. No ClinicAI application/runtime/API/DB/provider/VPS/production/secrets/PHI accessed.",
+  "result": {
+    "new_findings": [
+      "CLIN-060"
+    ],
+    "extended_findings": [],
+    "deduplicated": [
+      "CLIN-010 is appointment/visit service-type divergence via reschedule after check-in; CLIN-060 is billing identity after the dedicated chart switch updates both rows.",
+      "Applies to default exam-fee fallback without active child exam selection; explicit child-service sources have their own service_price IDs."
+    ],
+    "held_candidates": [
+      "Product policy must decide whether post-payment change retains original fee snapshot or records a debit/credit delta. Existing comments say differences follow surplus/debt rules; synthetic payment-level test needed."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/clinicai/services/ho_so_dich_vu.py",
+      "sha256": "66509d7fd4ae1ff8a98a5b1665d7b8999bc1f5728e03aa14be3c6e9fbbe114bb",
+      "lines": 299,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 299
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: chart service projection/history/switch wrapper and treatment-order creation."
+    },
+    {
+      "path": "src/tests/services/test_ho_so_kham_db.py",
+      "sha256": "38f2f0c55411d71c35311fcb1b44cfe5d580c4b4a0825bb8427ccb7820647876",
+      "lines": 225,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 225
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: chart switch and treatment-order DB cases; no paid default-fee delta case; tests read-not-run."
+    },
+    {
+      "path": "src/tests/services/test_doi_dich_vu_kham_db.py",
+      "sha256": "7678eaea7c1e83671b9bf83888b47bf565641e399635823edc9793f7d94d73f4",
+      "lines": 331,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 331
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: menu switch, queue and blocked-state DB cases; tests read-not-run."
+    },
+    {
+      "path": "src/tests/unit/test_doi_dich_vu_kham.py",
+      "sha256": "f55651b535db2e8f55392225439874613291a4bce60e3cb198f8dad8a766257a",
+      "lines": 77,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 77
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: state cases including paid-in-chart exception; tests read-not-run."
+    }
+  ],
+  "targeted_traces": [
+    {
+      "path": "src/clinicai/services/doi_dich_vu_kham.py",
+      "sha256": "63911dde43849f0bb804334596a376545bf1259ebb5b104ff726be0e1260e917",
+      "lines": 296,
+      "read_ranges": [
+        {
+          "start": 58,
+          "end": 116
+        },
+        {
+          "start": 155,
+          "end": 188
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: chart-mode exception permits previously paid visits. Targeted read: paid-source state lookup used by non-chart flow."
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "read_ranges": [
+        {
+          "start": 1325,
+          "end": 1461
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: chart-switch transaction, row updates and events."
+    },
+    {
+      "path": "src/clinicai/services/bill_service.py",
+      "sha256": "345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "lines": 1276,
+      "read_ranges": [
+        {
+          "start": 292,
+          "end": 337
+        },
+        {
+          "start": 387,
+          "end": 430
+        },
+        {
+          "start": 769,
+          "end": 833
+        },
+        {
+          "start": 853,
+          "end": 907
+        },
+        {
+          "start": 925,
+          "end": 981
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: fallback exam fee and default source identity. Targeted read: bill-line source ID derivation. Targeted read: current service-type fee projection. Targeted read: covered-source identification. Targeted read: covered-source removal from invoice."
+    }
+  ],
+  "reviewer_note": "Scoped static trace of one financial edge case. No payment DB state created and no financial outcome reproduced."
+}

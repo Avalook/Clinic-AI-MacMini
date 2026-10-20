@@ -1,0 +1,249 @@
+{
+  "audit_id": "round10_ops_recovery",
+  "source": {
+    "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+    "repository_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "basis": "exact-main content snapshot supplied for static audit; source files read without edits"
+  },
+  "scope": [
+    "deployment source pin/health/rollback control flow",
+    "migration runner and apply/dry-run transaction handling",
+    "DB/auth/media backup, verification, restore and restore-drill scripts",
+    "systemd backup timers/services and CFS offsite upload caller chain",
+    "Ops status collector/backend/dashboard and monitoring monitor declarations",
+    "Docker Compose healthchecks, self-hosted Supabase network, Caddy health and routing slices",
+    "one-VPS/self-hosted-Supabase operational constraints and dedup against existing findings"
+  ],
+  "files": [
+    {
+      "path": "scripts/deploy-backend.sh",
+      "sha256": "b2e1d1cb9445d31bcf82168e5207bc3442d7c47d8926339c79e305a6b321e74a",
+      "line_count": 511,
+      "reviewed_ranges": [
+        "1-170",
+        "180-267",
+        "269-511"
+      ],
+      "review_status": "partial",
+      "notes": "Trace pinned/unpinned source checks, migration warning, Compose up, Caddy branch, health/rollback and deploy status; gaps 171-179 and 268 only."
+    },
+    {
+      "path": "scripts/apply-pending-migrations.sh",
+      "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721",
+      "line_count": 158,
+      "reviewed_ranges": [
+        "40-158"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed destination selection, ledger scan, dry-run and per-migration transaction path; lines 1-39 not reviewed in detail."
+    },
+    {
+      "path": "scripts/backup-db.sh",
+      "sha256": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d",
+      "line_count": 653,
+      "reviewed_ranges": [
+        "1-170",
+        "180-230",
+        "270-360",
+        "400-535",
+        "540-653"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed env/lock and backup preflight, artifact construction/manifest, local success status, R2 status, monitor push; not every SQL/string construction line."
+    },
+    {
+      "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+      "sha256": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+      "line_count": 129,
+      "reviewed_ranges": [
+        "1-129"
+      ],
+      "review_status": "full",
+      "notes": "CFS mount/seal check, paired artifacts, upload/checksum, retention and reporting."
+    },
+    {
+      "path": "scripts/systemd/clinicai-backup.service",
+      "sha256": "042298b6c2ed9598b1008a2638bb6ef28821755d4ea3b2647faa02446d2ad31f",
+      "line_count": 53,
+      "reviewed_ranges": [
+        "1-53"
+      ],
+      "review_status": "full",
+      "notes": "Nightly caller order and ignored uploader error."
+    },
+    {
+      "path": "scripts/systemd/clinicai-backup-15p.service",
+      "sha256": "d7427c5e7b5caf73a62c8d5192d5c1663b7bd05643f724292b91d48ce21833eb",
+      "line_count": 53,
+      "reviewed_ranges": [
+        "1-53"
+      ],
+      "review_status": "full",
+      "notes": "15-minute caller order and ignored uploader error."
+    },
+    {
+      "path": "scripts/systemd/clinicai-backup.timer",
+      "sha256": "55455098217fdbedf7c416f274641007e80b1eabda45dfd65f9b68a71a677ec4",
+      "line_count": 15,
+      "reviewed_ranges": [
+        "1-15"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "scripts/systemd/clinicai-backup-15p.timer",
+      "sha256": "5b08df80cacee5731260e82b18b50c867d1d91da8a18fe055d6c48d1e3ee201e",
+      "line_count": 14,
+      "reviewed_ranges": [
+        "1-14"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "scripts/verify-backup.sh",
+      "sha256": "eb6a82161b9d5d60f277fd6ebfb6f305db4c41081d6eb0ac19c5db0c15ca3b00",
+      "line_count": 136,
+      "reviewed_ranges": [
+        "1-135"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed local artifact discovery, gzip/manifest/checksum and media validation; line 136 not reviewed."
+    },
+    {
+      "path": "scripts/restore-db.sh",
+      "sha256": "1fb1a84bad3980d0756f8294acc73580a03d265438bdf2a29bef783364f8fd9d",
+      "line_count": 267,
+      "reviewed_ranges": [
+        "1-250"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed target guard, manifest, source/target/cross-env gates, fresh DB requirement, transaction and media instructions; lines 251-267 not reviewed."
+    },
+    {
+      "path": "scripts/restore-drill.sh",
+      "sha256": "0851c74d42ddb7a16720e2333e6dffa0678812faff60050f5753a13d03dc7f38",
+      "line_count": 323,
+      "reviewed_ranges": [
+        "40-80",
+        "280-323"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed backup selection and final status behavior; detailed restore body not re-read because prior ledger INF-006 covers full recovery gap and this pass focused operational signal path."
+    },
+    {
+      "path": "scripts/collect_ops_status.py",
+      "sha256": "0faca8e7c1a07e230aca97dc6b85633692602f478828a66ad86e82627b3c11a0",
+      "line_count": 298,
+      "reviewed_ranges": [
+        "1-29",
+        "195-250"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed service IDs, core service classification, backup snapshot projection and collector output."
+    },
+    {
+      "path": "src/clinicai/services/ops_status.py",
+      "sha256": "850c3087d18eb1b8be057fd6e59265b7f233babb074dee1fc6746a623cfc5fb2",
+      "line_count": 340,
+      "reviewed_ranges": [
+        "150-203",
+        "320-340"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed backup severity and overall health state; no other Ops logic claimed reviewed."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ops/OpsCenter.tsx",
+      "sha256": "a88f6bf733320f66cda4de29ac76090bfeccafb824d9876a3cb965571a8f442c",
+      "line_count": 265,
+      "reviewed_ranges": [
+        "195-216"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed Ops card rendering to verify offsite flag visibility."
+    },
+    {
+      "path": "src/dashboard/lib/ops-summary.ts",
+      "sha256": "111f1a559ce99ec8e15c65c26bad200c800028c4b11afa683f92a4f96beb2145",
+      "line_count": 311,
+      "reviewed_ranges": [
+        "211-247"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed typed parsing of offsiteUploaded; downstream render is covered in OpsCenter range."
+    },
+    {
+      "path": "monitoring/monitors.json",
+      "sha256": "14b2d6361b7dea973dd5ce7a9901240463ddcd53ca6d01e39cfd58871eca2cfb",
+      "line_count": 124,
+      "reviewed_ranges": [
+        "1-124"
+      ],
+      "review_status": "full",
+      "notes": "All declared monitor definitions, especially push heartbeat semantics."
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839",
+      "line_count": 536,
+      "reviewed_ranges": [
+        "215-265",
+        "435-520"
+      ],
+      "review_status": "partial",
+      "notes": "API readiness and monitoring container/network slices only."
+    },
+    {
+      "path": "docker-compose.supabase.yml",
+      "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+      "line_count": 253,
+      "reviewed_ranges": [
+        "1-90",
+        "130-255"
+      ],
+      "review_status": "partial",
+      "notes": "Self-hosted DB/auth/rest/realtime/gateway service/health/network definitions; not every line."
+    },
+    {
+      "path": "caddy/Caddyfile",
+      "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "line_count": 256,
+      "reviewed_ranges": [
+        "1-80",
+        "130-205",
+        "230-250"
+      ],
+      "review_status": "partial",
+      "notes": "Health response and self-hosted Supabase/public route slices only."
+    }
+  ],
+  "canonical_dedup": {
+    "source": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json in the caller workspace (dedup reference only; not edited)",
+    "considered_ids": [
+      "INF-001",
+      "INF-006",
+      "INF-015",
+      "DB-006",
+      "DB-005"
+    ],
+    "result": "CAND-OPS-001 is kept as a separate candidate: INF-001/INF-006 concern artifact completeness/full restore proof; INF-015 concerns Caddy bind-mount reload; DB-006 concerns migration transaction boundaries. They do not state that local backup heartbeat can stay green while the ordered CFS upload fails. DB-005 concerns tenant provisioning, not operational backup signaling. No canonical ledger entry was changed."
+  },
+  "result": {
+    "new_candidates": 1,
+    "candidate_ids": [
+      "CAND-OPS-001"
+    ],
+    "no_new_issue_observed": [
+      "Pinned manual deployment path has explicit SHA comparison; default prod path checks main and rejects dirty tree. Migration remains outside deploy and supports dry-run vs --apply.",
+      "No additional new migration-runner finding promoted; DB-006 already records transaction-boundary mismatch.",
+      "No additional new restore-completeness candidate promoted; INF-001/INF-006 already cover artifact and full-restore proof gaps.",
+      "No production CFS outage, missing backup, broken TLS, failed container, or Kuma runtime configuration was inferred from static source.",
+      "Staging/cloud/tunnel references in optional legacy code/config were not treated as active prod failure paths under current one-VPS/self-hosted-Supabase policy."
+    ]
+  },
+  "limitations": [
+    "Static source audit only: no tests, CI, docker compose execution, DB/VPS/production connection, systemd state, cloud/vendor configuration, backup payload, secrets or PHI access.",
+    "The supplied exact-main snapshot does not contain docs/SO-LUAT.md, docs/VAN-HANH-MAY-CHU.md or RUNBOOK-LEN-PROD-DOT-1610.md; the caller workspace ledger and current runbook were consulted only for duplicate filtering, not as evidence for snapshot behavior.",
+    "No runtime claims about actual CFS mount status, Kuma monitors/channels, Telegram delivery, backup freshness or restore success."
+  ]
+}

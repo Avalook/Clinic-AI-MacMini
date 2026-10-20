@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "round": 49,
+  "report_version": "v0.72",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_scoped_semantic_review",
+  "scope": [
+    "payment method change transaction and authorization",
+    "split tender DB constraints, trigger and effective-payment projection",
+    "current API writer and existing tests for valid/invalid operations"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Recorded source ranges are line-checked and file SHA-256 checked. Tests were read-not-run. No application code, ClinicAI tests/runtime/API/DB/provider/VPS/production/secrets/PHI was touched.",
+  "result": {
+    "new_findings": [
+      "FIN-020"
+    ],
+    "extended_findings": [],
+    "deduplicated": [
+      "Fractional VND values are rounded by the service and the UI parser; absent a policy showing that this changes a valid whole-VND operation, it remains a held input-contract observation rather than a second finding.",
+      "The current service validates both split legs before INSERT; the FIN-020 impact is limited to the DB guard's privileged-writer boundary and is not described as a current API exploit.",
+      "Method-change locking, stale-method conflict handling, refund/void restrictions and same-command replay were present in the reviewed path; no separate race/replay finding was added from this slice."
+    ],
+    "held_candidates": [
+      "doc_chia accepts floats and rounds them although its docstring says integer amounts; current UI also rounds VND input. No material whole-VND loss or owner policy was established, so no finding was added."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/clinicai/services/doi_hinh_thuc_service.py",
+      "sha256": "0a1fbdd35ee3ae7e313503ebc6ae83f2d90b40d4dd87f6e47c57ea6cbe70bd68",
+      "lines": 396,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 396
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: current payment-method-change service."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/DoiHinhThuc.tsx",
+      "sha256": "20dd98d2d1af79cd854c195b7999a15efb6466dbaa5060a00271eb99c48b6325",
+      "lines": 225,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 225
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: cashier UI and request lifecycle."
+    },
+    {
+      "path": "src/dashboard/lib/hinh-thuc-thu.ts",
+      "sha256": "e82d8aa8740923abd44a9601cb452f8eed2ef4ad087392797b9a27fed9ed54d5",
+      "lines": 73,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 73
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: VND input parser and tender helpers."
+    },
+    {
+      "path": "src/tests/unit/test_doi_hinh_thuc.py",
+      "sha256": "d11b2e96d38905208ea5f72451e88f7391e685fb26052cc31591411ee4980691",
+      "lines": 180,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 180
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: pure helper tests; not run."
+    },
+    {
+      "path": "src/tests/services/test_doi_hinh_thuc_db.py",
+      "sha256": "7cfb7106371e000c7014d9914dbaff1bb18ddd5eed88385c7bf6131b040c7fc7",
+      "lines": 329,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 329
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: DB integration cases for payment-method changes; not run."
+    },
+    {
+      "path": "supabase/migrations/20260930500000_doi_hinh_thuc_thu.sql",
+      "sha256": "a2ed9dfd31315f0b07f4d305bff384343db6e18b76e6861be50dc2aa09208bb5",
+      "lines": 138,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 138
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: ledger schema, base guard and grants."
+    }
+  ],
+  "targeted_traces": [
+    {
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+      "lines": 570,
+      "read_ranges": [
+        {
+          "start": 322,
+          "end": 355
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: split-payment request schema and route."
+    },
+    {
+      "path": "src/dashboard/app/api/payment/route.ts",
+      "sha256": "a83e494f7b4513bf032c7d29239d0e5becddb13ed3f9a26002497cbd85311487",
+      "lines": 191,
+      "read_ranges": [
+        {
+          "start": 113,
+          "end": 122
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: Next proxy mapping."
+    },
+    {
+      "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+      "sha256": "5ab8b1b25c0cc807008ca93fb15942df7c4408fadc8618c29fb567d78c3355d2",
+      "lines": 261,
+      "read_ranges": [
+        {
+          "start": 204,
+          "end": 218
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: valid two-part method-change case; not run."
+    },
+    {
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+      "lines": 619,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 40
+        },
+        {
+          "start": 123,
+          "end": 208
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: migration intent and invariant design. Targeted read: nullable split columns, CHECK, trigger and effective tender projection."
+    },
+    {
+      "path": "src/clinicai/services/phan_thu.py",
+      "sha256": "2d165eeb7c0cdb8d681f1e30720f6588b1d2bdac76e49c2495d93d44f0fdce30",
+      "lines": 231,
+      "read_ranges": [
+        {
+          "start": 149,
+          "end": 178
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: NULL amount normalization in tender parser."
+    }
+  ],
+  "reviewer_note": "Round 49 is a scoped static payment-integrity review, not a full finance audit or runtime validation. FIN-020 identifies an incomplete database invariant; the current FastAPI path validates the omitted case."
+}

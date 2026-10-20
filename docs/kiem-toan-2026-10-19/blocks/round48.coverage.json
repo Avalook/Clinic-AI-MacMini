@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "round": 48,
+  "report_version": "v0.71",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_scoped_semantic_review",
+  "scope": [
+    "treatment-plan chip authorization from BFF through service and DB test",
+    "stale batch-key behavior in shared treatment-plan chip hook and active callers"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Every recorded range is line-checked and source SHA-256 checked. Tests were read-not-run. No application code, ClinicAI tests/runtime/API/DB/provider/VPS/production/secrets/PHI was touched.",
+  "result": {
+    "new_findings": [],
+    "extended_findings": [
+      "FE-002",
+      "SEC-011"
+    ],
+    "deduplicated": [
+      "The chip assignment gap is part of existing SEC-011's patient/visit object-level authorization invariant; no duplicate finding was added.",
+      "Stale chip data is folded into FE-002's existing stale-state/freshness finding; no duplicate finding was added.",
+      "The 300-visit cap, UUID parsing and clinic_id filter are real controls but do not establish per-patient assignment; no resource-abuse or cross-clinic finding was added."
+    ],
+    "held_candidates": [
+      "No cross-clinic access or production exposure was established.",
+      "No runtime stale interval was measured; stale UI conclusion is based on exact-main state transitions only."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/dung-chip-lieu-trinh.ts",
+      "sha256": "c27947bd87d2803bd63dfd498fa61624c5350adc22e860c82b27baee14543895",
+      "lines": 41,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 41
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: shared chip hook."
+    },
+    {
+      "path": "src/dashboard/tests/lieu-trinh-c2-boundary.test.mts",
+      "sha256": "0d8781fab24f81f57f618c588ee882ebbc34382955d999d364217ffbe1c13823",
+      "lines": 192,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 192
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: boundary coverage for the hook and its three callers; not run."
+    },
+    {
+      "path": "src/dashboard/app/api/lieu-trinh/chip/route.ts",
+      "sha256": "c7629dad1bf65b94bd7f1031f9fb7e25d47f288d6226c1dbbddea71e09e20600",
+      "lines": 19,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 19
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: Next BFF route."
+    },
+    {
+      "path": "src/tests/services/test_lieu_trinh_c2_db.py",
+      "sha256": "82cf79ea8417f6d0ecc7d0a24cbe3c9bb6659d2adefc7868c753d7c3c3dbc758",
+      "lines": 172,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 172
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: DB test setup and assertions; not run."
+    }
+  ],
+  "targeted_traces": [
+    {
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "sha256": "ccd860a32d945adcf57c08cf0c409a4860a618819b223a02a34fd9e491670c24",
+      "lines": 1804,
+      "read_ranges": [
+        {
+          "start": 354,
+          "end": 356
+        }
+      ],
+      "full_read": false,
+      "outcome": "Active caller range: doctor examination queue."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phong/[ma]/PhongDichVu.tsx",
+      "sha256": "c1757977d8fb3a63c58fba11a5fcdccb03ab3e113d5a8019d008664e336dcdc0",
+      "lines": 1230,
+      "read_ranges": [
+        {
+          "start": 245,
+          "end": 247
+        }
+      ],
+      "full_read": false,
+      "outcome": "Active caller range: service-room queue."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/queue/QueueBoard.tsx",
+      "sha256": "f2103d488601469e0e4d689368723035978ba892adb56f9840d3174675dcfdc3",
+      "lines": 334,
+      "read_ranges": [
+        {
+          "start": 261,
+          "end": 268
+        }
+      ],
+      "full_read": false,
+      "outcome": "Active caller range: reception queue and hook invocation."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/lieu_trinh.py",
+      "sha256": "37dc5b3c5b4bdfba52cd488889ec833fa654e7454d750efcb74a546a7bea67ff",
+      "lines": 370,
+      "read_ranges": [
+        {
+          "start": 53,
+          "end": 61
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted route trace: FastAPI identity and forwarding."
+    },
+    {
+      "path": "src/clinicai/services/lieu_trinh_service.py",
+      "sha256": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452",
+      "lines": 1763,
+      "read_ranges": [
+        {
+          "start": 54,
+          "end": 59
+        },
+        {
+          "start": 152,
+          "end": 166
+        },
+        {
+          "start": 453,
+          "end": 456
+        },
+        {
+          "start": 672,
+          "end": 746
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted trace: treatment-plan read capability set. Targeted trace: visit UUID-list parsing and cap. Targeted trace: shared read guard. Targeted trace: chip query, clinic/visit scoping, and returned data."
+    },
+    {
+      "path": "src/dashboard/lib/lieu-trinh-cskh.ts",
+      "sha256": "757668d328b8590be0c14e6530d02ca3294209c120586e2d12dc349c6b5fc2ab",
+      "lines": 208,
+      "read_ranges": [
+        {
+          "start": 65,
+          "end": 85
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: frontend chip response contract."
+    },
+    {
+      "path": "src/tests/services/test_lieu_trinh_db.py",
+      "sha256": "6a3423479262661ad3602694dfdc3ce2273c35454d9943cd54b425b9824eaa93",
+      "lines": 1100,
+      "read_ranges": [
+        {
+          "start": 294,
+          "end": 298
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: UUID-list parser tests; not run."
+    }
+  ],
+  "reviewer_note": "Round 48 is a narrow static review of one shared UI hook and one authorization dataflow, not a full repository read or runtime validation. Path states are inventory only."
+}

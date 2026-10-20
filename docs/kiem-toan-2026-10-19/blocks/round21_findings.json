@@ -1,0 +1,174 @@
+[
+  {
+    "id": "SEC-029",
+    "title": "PostgREST cho tài khoản cùng clinic đọc trực tiếp toàn bộ hồ sơ bệnh nhân",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "patient_data_postgrest_role_scope",
+    "summary": "Migration cấp SELECT trên bảng patient cho role authenticated và policy chỉ lọc clinic_id qua current_clinic_ids(); helper kiểm membership active nhưng không kiểm capability/role. Bảng có CCCD, điện thoại, ngày sinh và địa chỉ. Caddy công khai /rest/v1/* tới gateway Supabase, còn đăng nhập dashboard tạo phiên Supabase gắn với nhân viên. Đây là đường đọc trực tiếp, không đi qua patient.list.view hoặc DTO/projection của FastAPI.",
+    "trigger": "Một nhân viên có JWT Supabase role authenticated của clinic gọi trực tiếp PostgREST GET /rest/v1/patient?select=*; có ý nghĩa nhất khi role đó không được cấp patient.list.view.",
+    "impact": "Nhân viên trong cùng clinic có thể đọc hàng loạt các trường định danh trên toàn bộ bệnh nhân mà RLS cho phép theo tenant, vượt ranh capability và projection của API. Code tĩnh chưa xác nhận request qua gateway/JWT thực tế, không cho thấy đọc chéo clinic, dữ liệu đã bị lấy hay có sự cố production.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+        "line": 149,
+        "end_line": 168,
+        "detail": "patient được tạo policy SELECT authenticated chỉ theo current_clinic_ids."
+      },
+      {
+        "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+        "line": 235,
+        "end_line": 246,
+        "detail": "current_clinic_ids kiểm membership active; không áp role/capability."
+      },
+      {
+        "path": "supabase/migrations/20260730000008_table_grants.sql",
+        "line": 47,
+        "end_line": 58,
+        "detail": "Cấp SELECT cho authenticated trên mọi bảng có SELECT policy."
+      },
+      {
+        "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+        "line": 617,
+        "end_line": 640,
+        "detail": "Bảng patient chứa national_id_number, điện thoại, ngày sinh và địa chỉ."
+      },
+      {
+        "path": "caddy/Caddyfile",
+        "line": 191,
+        "end_line": 194,
+        "detail": "Đường công khai /rest/v1/* được reverse proxy tới Supabase gateway."
+      },
+      {
+        "path": "src/dashboard/app/(auth)/login/actions.ts",
+        "line": 33,
+        "end_line": 48,
+        "detail": "Đăng nhập Supabase và liên kết user với staff."
+      },
+      {
+        "path": "src/dashboard/lib/supabase-browser.ts",
+        "line": 7,
+        "end_line": 12,
+        "detail": "Browser client dùng phiên Supabase authenticated và anon key."
+      },
+      {
+        "path": "supabase/tests/role_scoped_clinical_read.sql",
+        "line": 121,
+        "end_line": 143,
+        "detail": "Test hiện tại chủ ý cho Reception đọc patient, nhưng không kiểm role thiếu capability hoặc cột PII."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Đã xác minh migration policy/grant, helper tenant, cột patient, đăng nhập Supabase và public gateway route trên exact-main. Chưa gửi HTTP request hoặc xác nhận khả năng khai thác trong môi trường chạy.",
+      "limitations": "Round 21 is static exact-main review. No PostgREST HTTP/JWT request, ClinicAI application test, DB runtime, production, secret or patient data was used. A valid Supabase authenticated session and gateway behavior still need a synthetic integration check."
+    },
+    "recommendation": "Đưa patient reads qua API có guard capability, object/location scope và DTO tối thiểu; hoặc thiết kế projection/RPC trực tiếp với RLS theo capability và cột được phép. Không tự cấp SELECT bảng gốc cho mọi authenticated chỉ vì bảng có một read policy tenant. Nếu Realtime cần tín hiệu bệnh nhân, phát projection tối thiểu riêng và giữ dữ liệu định danh ngoài kênh đó.",
+    "acceptance": "Trong stack Supabase disposable từ migrations ghim, lấy JWT cho các vai RECEPTION, CASHIER, PHARMACIST và DOCTOR. Gọi trực tiếp PostgREST patient với select=* và các cột national_id_number/phone/address; chỉ vai/đường có quyền rõ ràng mới đọc được, cross-clinic luôn bị chặn. Kiểm đồng thời API FastAPI, Realtime subscription và quyền cột để bảo đảm quy trình quầy còn đủ dữ liệu mà không mở bảng gốc.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "supabase/tests/tenant_scoped_rls.sql — kiểm ranh tenant; đã đọc, không chạy round 21.",
+      "supabase/tests/role_scoped_clinical_read.sql — kiểm Reception đọc clinical_record = 0 và patient = 1; không kiểm vai thiếu patient.list.view hoặc quyền cột; đã đọc, không chạy."
+    ],
+    "source_hashes": {
+      "caddy/Caddyfile": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "src/dashboard/app/(auth)/login/actions.ts": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+      "src/dashboard/lib/supabase-browser.ts": "8e1138ba2b9bd5178d21f0d2cd4fe3619149143978a014d96de63e8a40e9db6f",
+      "supabase/migrations/20260714000001_baseline_schema.sql": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+      "supabase/migrations/20260730000003_multi_tenant_foundation.sql": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "supabase/migrations/20260730000004_tenant_scoped_rls.sql": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+      "supabase/migrations/20260730000008_table_grants.sql": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+      "supabase/tests/role_scoped_clinical_read.sql": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Static chain: patient nằm trong danh sách tenant_read; policy chỉ so clinic_id/current_clinic_ids; current_clinic_ids không lọc capability; migration grants SELECT authenticated trên mọi bảng có SELECT policy; Caddy chuyển /rest/v1/* tới Supabase. Test role-scoped hiện chủ ý cho RECEPTION đọc row patient nhưng không kiểm vai thiếu patient.list.view hoặc cột PII. Chưa thực hiện request PostgREST.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+          "line": 149,
+          "end_line": 168,
+          "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+          "excerpt": "149: DO $tenant_read$\n150: DECLARE\n151:     t text;\n152:     tables text[] := ARRAY[\n153:         'appointment', 'booking_channel', 'care_episode', 'clinic_location',\n154:         'clinical_form_response', 'clinical_record', 'cskh_action', 'cskh_log',\n155:         'drug_catalog', 'lab_result', 'patient', 'patient_medical_profile',\n156:         'payment', 'pregnancy', 'prescription', 'service_log', 'service_price',\n157:         'service_type', 'staff_task', 'visit', 'work_roster', 'work_session',\n158:         'work_session_staff'\n159:     ];\n160: BEGIN\n161:     FOREACH t IN ARRAY tables LOOP\n162:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_authenticated', t);\n163:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_own_clinic', t);\n164:         EXECUTE format(\n165:             'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated '\n166:             'USING (clinic_id IN (SELECT public.current_clinic_ids()))',\n167:             t || '_select_own_clinic', t\n168:         );",
+          "detail": "patient được tạo policy SELECT authenticated chỉ theo current_clinic_ids."
+        },
+        {
+          "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+          "line": 235,
+          "end_line": 246,
+          "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+          "excerpt": "235: CREATE OR REPLACE FUNCTION public.current_clinic_ids()\n236: RETURNS SETOF uuid\n237: LANGUAGE sql\n238: STABLE\n239: SECURITY DEFINER\n240: SET search_path = public, pg_temp\n241: AS $$\n242:     SELECT m.clinic_id\n243:     FROM public.clinic_membership m\n244:     WHERE m.staff_id = public.current_staff_id()\n245:       AND m.is_active\n246: $$;",
+          "detail": "current_clinic_ids kiểm membership active; không áp role/capability."
+        },
+        {
+          "path": "supabase/migrations/20260730000008_table_grants.sql",
+          "line": 47,
+          "end_line": 58,
+          "sha256": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+          "excerpt": "47:     -- Read access for end users, exactly where a policy grants it.\n48:     FOR t IN\n49:         SELECT DISTINCT c.relname\n50:           FROM pg_class c\n51:           JOIN pg_namespace n ON n.oid = c.relnamespace\n52:           JOIN pg_policy p ON p.polrelid = c.oid\n53:          WHERE n.nspname = 'public'\n54:            AND c.relkind = 'r'\n55:            AND p.polcmd IN ('r', '*')\n56:     LOOP\n57:         EXECUTE format('GRANT SELECT ON public.%I TO authenticated', t.relname);\n58:         granted := granted + 1;",
+          "detail": "Cấp SELECT cho authenticated trên mọi bảng có SELECT policy."
+        },
+        {
+          "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+          "line": 617,
+          "end_line": 640,
+          "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+          "excerpt": "617: CREATE TABLE public.patient (\n618:     clinic_patient_id uuid DEFAULT gen_random_uuid() NOT NULL,\n619:     patient_code text NOT NULL,\n620:     national_id_number text,\n621:     full_name text NOT NULL,\n622:     date_of_birth date,\n623:     phone_primary text,\n624:     phone_secondary text,\n625:     location_id uuid NOT NULL,\n626:     is_active boolean DEFAULT true,\n627:     created_at timestamp with time zone DEFAULT now(),\n628:     updated_at timestamp with time zone DEFAULT now(),\n629:     gender text,\n630:     ethnicity text,\n631:     nationality text,\n632:     occupation text,\n633:     patient_objection text,\n634:     address text,\n635:     guardian_name text,\n636:     full_name_unaccent text GENERATED ALWAYS AS (lower(replace(replace(public.f_unaccent(full_name), 'đ'::text, 'd'::text), 'Đ'::text, 'D'::text))) STORED,\n637:     birth_year smallint,\n638:     province_code text,\n639:     province_name text,\n640:     ward_code text,",
+          "detail": "Bảng patient chứa national_id_number, điện thoại, ngày sinh và địa chỉ."
+        },
+        {
+          "path": "caddy/Caddyfile",
+          "line": 191,
+          "end_line": 194,
+          "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+          "excerpt": "191: \t@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*\n192: \thandle @supabase {\n193: \t\treverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000\n194: \t}",
+          "detail": "Đường công khai /rest/v1/* được reverse proxy tới Supabase gateway."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "line": 33,
+          "end_line": 48,
+          "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+          "excerpt": "33:   const supabase = await getSupabaseServer();\n34:   const { data, error } = await supabase.auth.signInWithPassword({\n35:     email,\n36:     password,\n37:   });\n38:   if (error || !data.user)\n39:     return { error: \"Tên đăng nhập hoặc mật khẩu không đúng.\" };\n40: \n41:   // Tài khoản phải gắn với 1 nhân viên (staff.auth_user_id).\n42:   const { data: staff } = await supabase\n43:     .from(\"staff\")\n44:     .select(\"id, primary_department, is_active, auth_user_id\")\n45:     .eq(\"auth_user_id\", data.user.id)\n46:     .maybeSingle();\n47: \n48:   const identity = resolveLinkedStaffAuthority(data.user.id, staff);",
+          "detail": "Đăng nhập Supabase và liên kết user với staff."
+        },
+        {
+          "path": "src/dashboard/lib/supabase-browser.ts",
+          "line": 7,
+          "end_line": 12,
+          "sha256": "8e1138ba2b9bd5178d21f0d2cd4fe3619149143978a014d96de63e8a40e9db6f",
+          "excerpt": "7: export function getSupabaseBrowser() {\n8:   return createBrowserClient(\n9:     process.env.NEXT_PUBLIC_SUPABASE_URL!,\n10:     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,\n11:     { cookieOptions: { name: SUPABASE_COOKIE_NAME } },\n12:   );",
+          "detail": "Browser client dùng phiên Supabase authenticated và anon key."
+        },
+        {
+          "path": "supabase/tests/role_scoped_clinical_read.sql",
+          "line": 121,
+          "end_line": 143,
+          "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+          "excerpt": "121: -- Reception and the cashier read nothing — the DOD\n122: -- ---------------------------------------------------------------------------\n123: SELECT set_config('request.jwt.claim.sub',\n124:                   'a1000000-0000-4000-8000-000000000002', true);\n125: \n126: DO $reception_blind$\n127: BEGIN\n128:     IF (SELECT count(*) FROM public.clinical_record) <> 0 THEN\n129:         RAISE EXCEPTION 'RECEPTION must read 0 rows from clinical_record (ROLE-02)';\n130:     END IF;\n131:     IF (SELECT count(*) FROM public.clinical_form_response) <> 0 THEN\n132:         RAISE EXCEPTION 'RECEPTION must read 0 rows from clinical_form_response';\n133:     END IF;\n134: \n135:     -- …but still does its job: the patient and the appointment are not clinical\n136:     -- data, and hiding those would just break the front desk.\n137:     IF NOT EXISTS (\n138:         SELECT 1 FROM public.patient\n139:          WHERE clinic_patient_id = 'd1000000-0000-4000-8000-000000000001'\n140:     ) THEN\n141:         RAISE EXCEPTION 'RECEPTION must still read the patient record';\n142:     END IF;\n143: END",
+          "detail": "Test hiện tại chủ ý cho Reception đọc patient, nhưng không kiểm role thiếu capability hoặc cột PII."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "SEC-027",
+        "relationship": "SEC-027 là API FastAPI tra bệnh nhân thiếu patient.list.view; SEC-029 là đường PostgREST trực tiếp vượt các guard/projection đó."
+      },
+      {
+        "id": "SEC-022",
+        "relationship": "SEC-022 ghi nhận PII trong API payload; SEC-029 là SELECT trực tiếp bảng nguồn qua gateway."
+      }
+    ]
+  }
+]

@@ -1,0 +1,167 @@
+[
+  {
+    "id": "CAND-WRK-001",
+    "title": "Thu hồi lease không áp giới hạn retry khi worker chết liên tiếp sau khi nhận việc",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "worker_retry_ceiling",
+    "summary": "Cả event delivery và hen_gio đều tăng attempts/so_lan_thu khi claim, nhưng chỉ kiểm tra mức tối đa trong nhánh bắt exception của callback. Khi tiến trình chết sau khi transaction claim đã commit, reclaimer chỉ trả việc về RETRY/CHO; không chuyển việc đã chạm ngưỡng sang DEAD/CHET. Nếu worker tiếp tục chết ở các lượt nhận, số lần thử vượt ngưỡng mà không đi qua dead-letter/alert. Với event delivery, sự kiện cũ còn chặn version sau của cùng aggregate.",
+    "trigger": "Tiến trình/container dừng đột ngột sau khi claim transaction commit nhưng trước khi callback hoàn tất hoặc phát sinh exception được xử lý; lease hết hạn, reclaimer trả việc về hàng và tình trạng này lặp qua ngưỡng 5 lần.",
+    "impact": "Retry cap không giới hạn được số lần giao trong crash-loop. Event có thể ở RETRY và chặn event mới hơn cùng aggregate; hen_gio có thể tiếp tục ở CHO thay vì CHET. Không có dead-letter/alert riêng theo đối tượng từ nhánh terminal. Health/canh_gac vẫn đếm việc trễ hoặc tồn lâu nói chung, nên không kết luận toàn bộ tình trạng hoàn toàn vô hình; số đo tổng hợp không chứng minh retry cap đã bị vượt và không tạo terminal state.",
+    "evidence": [
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 43,
+        "end_line": 46,
+        "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+        "detail": "Mức tối đa SO_LAN_THU_TOI_DA=5 và lease 120 giây."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 117,
+        "end_line": 129,
+        "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+        "detail": "Claim chuyển sang IN_PROGRESS và tăng attempts trong transaction nhận việc."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 182,
+        "end_line": 194,
+        "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+        "detail": "Ngưỡng attempts chỉ được xét trong exception handler; callback phải ném exception thì delivery quá ngưỡng mới sang DEAD."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 283,
+        "end_line": 293,
+        "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+        "detail": "Thu hồi lease hết hạn luôn đặt status=RETRY và next_attempt_at=now(), không xét attempts hoặc đặt DEAD."
+      },
+      {
+        "path": "src/clinicai/events/hen_gio.py",
+        "line": 38,
+        "end_line": 39,
+        "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+        "detail": "Timer đặt ngưỡng thử tối đa là 5."
+      },
+      {
+        "path": "src/clinicai/events/hen_gio.py",
+        "line": 111,
+        "end_line": 125,
+        "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+        "detail": "Claim hẹn giờ tăng so_lan_thu khi chuyển DANG_LAM."
+      },
+      {
+        "path": "src/clinicai/events/hen_gio.py",
+        "line": 168,
+        "end_line": 190,
+        "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+        "detail": "Chỉ nhánh callback exception mới xét ngưỡng, chuyển sang CHET và gọi alert."
+      },
+      {
+        "path": "src/clinicai/events/hen_gio.py",
+        "line": 227,
+        "end_line": 238,
+        "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+        "detail": "Thu hồi hẹn treo luôn đặt CHO và xoá lease, không xét so_lan_thu hoặc đặt CHET."
+      },
+      {
+        "path": "src/clinicai/api/v1/health.py",
+        "line": 72,
+        "end_line": 103,
+        "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+        "detail": "Health đếm RETRY/PENDING trễ và tuổi tồn; DEAD/CHET là bộ đếm terminal riêng, nên crash-loop không được nhận diện như việc đã vượt retry cap."
+      },
+      {
+        "path": "src/tests/services/test_event_worker_db.py",
+        "line": 204,
+        "end_line": 235,
+        "sha256": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+        "detail": "Test mô phỏng một lease hết hạn, thu hồi về RETRY rồi xử lý thành công; không lặp crash qua ngưỡng."
+      },
+      {
+        "path": "src/tests/services/test_hen_gio_db.py",
+        "line": 187,
+        "end_line": 207,
+        "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+        "detail": "Test mô phỏng một hẹn bị treo rồi thu hồi về CHO; không kiểm tra chuỗi crash vượt ngưỡng."
+      },
+      {
+        "path": "supabase/migrations/20260923000001_domain_event.sql",
+        "line": 151,
+        "end_line": 198,
+        "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+        "detail": "Schema có lease/status và CHECK attempts không âm, không có mức tối đa; dead-letter là trạng thái DEAD."
+      },
+      {
+        "path": "supabase/migrations/20260923000008_hen_gio.sql",
+        "line": 22,
+        "end_line": 58,
+        "sha256": "e3915c3c0b8f81bf40508820628113bd657b437112a36524e25174ebcba34dc3",
+        "detail": "Schema có so_lan_thu không âm, trạng thái CHO/DANG_LAM/CHET và lease nhưng không có mức tối đa."
+      }
+    ],
+    "validation": {
+      "method": "static_control_flow_review",
+      "command": null,
+      "result": "Đối chiếu claim, nhánh bắt exception, lease reclaimer, trạng thái schema, health metric và bài test lease recovery cho event delivery lẫn timer. Đường crash bỏ qua nhánh max-attempt.",
+      "limitations": "Không chạy test, không mô phỏng crash và không kết nối DB/production. Tác động phụ thuộc việc process chết lặp lại sau claim; không đo tần suất. Health/canh_gac có thể báo tổng số việc trễ/tồn lâu nhưng không cung cấp terminal state cho chuỗi crash."
+    },
+    "recommendation": "Áp dụng cùng quy tắc retry cap cho callback exception và lease reclaim: khi reclaim việc đã chạm ngưỡng, đưa sang DEAD/CHET, lưu nguyên nhân dead-letter và kích hoạt đường báo người trực; hoặc định nghĩa attempt semantics khác nhưng bảo đảm crash cũng bị chặn hữu hạn. Giữ retry/backoff cho callback lỗi chưa chạm ngưỡng và giữ đường vận hành cho event aggregate bị chặn.",
+    "acceptance": "Regression test cho event delivery và hen_gio mô phỏng claim, crash trước callback, lease hết hạn và reclaim lặp qua ngưỡng. Tại ngưỡng, event sang DEAD và hẹn sang CHET, tạo audit/alert terminal, không được claim lại. Callback exception vẫn backoff trước ngưỡng và terminal hóa theo chính sách; aggregate successor chỉ mở theo chính sách sau khi predecessor được xử lý.",
+    "confidence": "Cao về khác biệt control-flow tĩnh trong cả hai bộ xử lý; trung bình về tần suất và tác động vận hành vì chưa mô phỏng crash hoặc đọc runtime.",
+    "related_tests": [
+      "src/tests/services/test_event_worker_db.py",
+      "src/tests/services/test_hen_gio_db.py",
+      "src/tests/test_health_su_kien.py"
+    ],
+    "source_hashes": {
+      "src/clinicai/events/worker.py": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "src/clinicai/events/hen_gio.py": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "src/clinicai/api/v1/health.py": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+      "src/tests/services/test_event_worker_db.py": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+      "src/tests/services/test_hen_gio_db.py": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+      "supabase/migrations/20260923000001_domain_event.sql": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+      "supabase/migrations/20260923000008_hen_gio.sql": "e3915c3c0b8f81bf40508820628113bd657b437112a36524e25174ebcba34dc3"
+    },
+    "status": "candidate_new",
+    "canonical_cross_check": {
+      "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+      "ledger_sha256_at_review": "1a62440db6221a30dd88f8f9a28be2882b324c075b4c742bbd42b059705104a6",
+      "reviewed_ids": [
+        "INF-001",
+        "INF-002",
+        "INF-003",
+        "INF-004",
+        "INF-005",
+        "INF-006",
+        "INF-007",
+        "INF-008",
+        "INF-009",
+        "INF-010",
+        "INF-011",
+        "INF-012",
+        "INF-013",
+        "INF-014",
+        "INF-015",
+        "INF-016",
+        "INF-017",
+        "AI-004"
+      ],
+      "nearest_existing": {
+        "INF-004": "Drain không giới hạn làm đói timer/canh_gac; candidate này là retry-cap bypass sau lease reclaim.",
+        "INF-005": "Thiếu fencing cho phép callback stale ghi sau lease expiry; candidate này là đường crash không chạy nhánh max-attempt.",
+        "INF-017": "Metric DEAD giới hạn 24 giờ; candidate này có thể không vào DEAD/CHET sau crash lặp.",
+        "INF-002": "Retry gửi Telegram là vấn đề kênh báo; candidate này không terminalize item để kích hoạt đường báo đó."
+      },
+      "duplicate_of": null,
+      "note": "Canonical ledger chỉ dùng để khử trùng, không phải bằng chứng cho candidate này. CAND-WRK-001 là ID tạm, không phải chỉnh sửa canonical ledger."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "source_present_static_only",
+      "note": "Reviewed exact-main snapshot; không chạy test hoặc runtime checks.",
+      "production_verified": false
+    }
+  }
+]

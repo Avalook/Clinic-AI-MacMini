@@ -1,0 +1,784 @@
+{
+  "schema_version": 1,
+  "audit": "round19_notifications_clinical_privacy_roster",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "static_read_only_cross_layer_trace",
+  "scope": [
+    "notification bell failure state, visible list cap, Telegram fanout/markup, Zalo timeout record",
+    "clinical print release state, form/service binding, concurrent form autosave",
+    "patient API least privilege and PostgREST secondary phone access",
+    "roster approval, appointment coverage, substitute authorization, pool usage and UI/API contract",
+    "voice transcription boundary and retired endpoint source reads"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "Candidate paths have targeted source ranges and exact SHA excerpts. Five explicitly read files are marked full-file; all other round-19 paths are partial traces. No app/DB/API/production tests were run in this round. Existing tests named in findings were not executed.",
+  "files": [
+    {
+      "path": "src/clinicai/api/identity.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 638,
+          "end": 659,
+          "purpose": "get_current_identity chặn DISPLAY/PARTNER nhưng không áp patient.list.view."
+        }
+      ],
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "line_count": 1120
+    },
+    {
+      "path": "src/clinicai/api/nghi_huu.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 44,
+          "purpose": "Full-file read; no distinct new finding in this slice."
+        }
+      ],
+      "sha256": "cdf9df4200eed79f14da788ae49ecd26b379db249cf3a5a59fe455afc23d7c1f",
+      "line_count": 44
+    },
+    {
+      "path": "src/clinicai/api/v1/patients.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 253,
+          "end": 264,
+          "purpose": "GET by ID chỉ phụ thuộc get_current_identity."
+        },
+        {
+          "start": 273,
+          "end": 316,
+          "purpose": "Route danh sách dùng patient.list.view; route phone chỉ dùng get_current_identity."
+        }
+      ],
+      "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "line_count": 435
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 48,
+          "end": 60,
+          "purpose": "POST roster dùng guard yêu cầu quyền xếp lịch; GET có guard riêng roster.view."
+        },
+        {
+          "start": 294,
+          "end": 308,
+          "purpose": "PATCH decision nhận approve/reject và chuyển trực tiếp tới service."
+        }
+      ],
+      "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "line_count": 1132
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1074,
+          "end": 1092,
+          "purpose": "POST Zalo nhận body không có idempotency key và gọi service."
+        }
+      ],
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "line_count": 1092
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ho_so_kham.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 171,
+          "end": 185,
+          "purpose": "Router gọi ghi_chu_luot.luu bằng identity hiện tại."
+        }
+      ],
+      "sha256": "c17ca292c4e378059dbec4dee5c2102e0c812ce638172720ebb805ef3ec3a4fd",
+      "line_count": 185
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phieu.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 65,
+          "end": 78,
+          "purpose": "Route nhận service_order_id và form_id rồi gọi service."
+        }
+      ],
+      "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+      "line_count": 208
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/voice.py",
+      "status": "read",
+      "prior_status": "traced",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 178,
+          "purpose": "Full-file read; no distinct new finding in this slice."
+        }
+      ],
+      "sha256": "962db9ec23a51ace8706bb482c2ef7e0dc8356a771342ba80dd17ec606244e8e",
+      "line_count": 178
+    },
+    {
+      "path": "src/clinicai/core/database.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 14,
+          "end": 27,
+          "purpose": "Pool API mặc định max 20 và comment nêu ngân sách kết nối."
+        },
+        {
+          "start": 43,
+          "end": 61,
+          "purpose": "Cấu hình POOL_MAX_SIZE cho phép giá trị thấp nhất 2."
+        }
+      ],
+      "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+      "line_count": 140
+    },
+    {
+      "path": "src/clinicai/permissions/ca_truc.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 73,
+          "end": 99,
+          "purpose": "Query đưa status khác REJECTED vào danh sách ca để xác định substitute."
+        },
+        {
+          "start": 150,
+          "end": 194,
+          "purpose": "kiem_dung_ca gọi duoc_lam_thay từ danh sách lấy ở trên."
+        }
+      ],
+      "sha256": "deb482a8ecb5215169e43f177079b9d55525ff15832f3e89551da65f1872e17d",
+      "line_count": 215
+    },
+    {
+      "path": "src/clinicai/permissions/catalogue.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 791,
+          "end": 792,
+          "purpose": "PHARMACIST preset có quyền quầy thuốc, không có patient.list.view."
+        }
+      ],
+      "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "line_count": 1271
+    },
+    {
+      "path": "src/clinicai/phieu_kham/mau_goi_y.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 64,
+          "end": 89,
+          "purpose": "Không có gợi ý thì mọi form được trả cua_dich_vu=True."
+        }
+      ],
+      "sha256": "4d377ad3550d5fd22644df4c403f6bb0cf24a923b05e4c395b65a4ecaae861fa",
+      "line_count": 151
+    },
+    {
+      "path": "src/clinicai/schemas/patient.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 328,
+          "end": 356,
+          "purpose": "PatientDTO có phone/email/address/DOB/guardian; national ID chỉ được mask."
+        }
+      ],
+      "sha256": "0f306e8715b53ad6946b2b09324c827b6819b05b6e354ac13775caef614f5ba4",
+      "line_count": 384
+    },
+    {
+      "path": "src/clinicai/services/capacity_service.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 145,
+          "end": 181,
+          "purpose": "Capacity chỉ lấy ca APPROVED và giữ shift theo bác sĩ để xác định khung."
+        },
+        {
+          "start": 145,
+          "end": 165,
+          "purpose": "Đối chiếu: capacity lấy duy nhất ca APPROVED."
+        }
+      ],
+      "sha256": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a",
+      "line_count": 744
+    },
+    {
+      "path": "src/clinicai/services/clinical_form_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 254,
+          "end": 322,
+          "purpose": "Transaction khóa visit và upsert JSONB merge theo key; không có điều kiện revision."
+        }
+      ],
+      "sha256": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5",
+      "line_count": 355
+    },
+    {
+      "path": "src/clinicai/services/config_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 87,
+          "end": 97,
+          "purpose": "Backend ghi rõ luồng tự đăng ký ca đã đóng và ROSTER_ROLES chỉ còn roster admin."
+        },
+        {
+          "start": 1125,
+          "end": 1158,
+          "purpose": "Apply-week query dùng NOT EXISTS theo ngày/cơ sở, không lọc status hoặc phủ giờ."
+        },
+        {
+          "start": 143,
+          "end": 151,
+          "purpose": "_xep_lich tự acquire connection từ pool để kiểm capability."
+        },
+        {
+          "start": 598,
+          "end": 612,
+          "purpose": "remove đang giữ conn/transaction rồi gọi _xep_lich."
+        },
+        {
+          "start": 524,
+          "end": 558,
+          "purpose": "UPDATE chỉ lọc id+clinic, không lọc trạng thái hiện tại."
+        },
+        {
+          "start": 614,
+          "end": 626,
+          "purpose": "Luồng remove ghi audit và sau đó có bước xử lý lịch bác sĩ bị gỡ."
+        }
+      ],
+      "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+      "line_count": 1954
+    },
+    {
+      "path": "src/clinicai/services/form_engine_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 176,
+          "end": 207,
+          "purpose": "Service kiểm quyền, form_definition published và tạo form_instance; không đối chiếu form với service của chỉ định."
+        }
+      ],
+      "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+      "line_count": 1580
+    },
+    {
+      "path": "src/clinicai/services/ghi_chu_luot.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 122,
+          "end": 159,
+          "purpose": "Lưu ghi chú kiểm capability, clinic và status nhưng không kiểm phân công bác sĩ."
+        }
+      ],
+      "sha256": "0e42bf44e11a3ccdf8d20d7c3d60b14a0c5c185a906877320dd27ff83c374374",
+      "line_count": 162
+    },
+    {
+      "path": "src/clinicai/services/notification_relay.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 216,
+          "end": 245,
+          "purpose": "Relay retry toàn event và chỉ publish khi toàn lần gửi trả success."
+        }
+      ],
+      "sha256": "3ede1c519c646d43ffa83daaa9d6a6bcdea08887f6822a79301e684524cd409f",
+      "line_count": 269
+    },
+    {
+      "path": "src/clinicai/services/notification_templates.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 37,
+          "end": 57,
+          "purpose": "Giá trị tên, mã khách, dịch vụ và bác sĩ được nội suy trực tiếp."
+        }
+      ],
+      "sha256": "b4a6eecdec0e01cf7f820ccc575a48b70c8e9870e7fbada17fa1a39f28698f6d",
+      "line_count": 124
+    },
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 333,
+          "end": 345,
+          "purpose": "GET by ID SELECT * và chuyển toàn dòng thành PatientDTO."
+        },
+        {
+          "start": 384,
+          "end": 402,
+          "purpose": "Phone lookup SELECT * và giới hạn clinic_id."
+        }
+      ],
+      "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "line_count": 712
+    },
+    {
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 269,
+          "end": 302,
+          "purpose": "Đọc form row theo visit; query không chọn visit.status."
+        },
+        {
+          "start": 319,
+          "end": 339,
+          "purpose": "Payload trả dữ liệu phiếu và che_do=editable, không kèm trạng thái release của lượt."
+        }
+      ],
+      "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+      "line_count": 1013
+    },
+    {
+      "path": "src/clinicai/services/providers/telegram.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 33,
+          "end": 79,
+          "purpose": "Fanout tới mọi channel; return cuối phản ánh lỗi, không có trạng thái per-chat."
+        },
+        {
+          "start": 52,
+          "end": 62,
+          "purpose": "Provider gửi text với parse_mode=HTML."
+        }
+      ],
+      "sha256": "6516fd4dfc75f10183d7c04659d6226b3db2298da2c592873e644c4873a98e74",
+      "line_count": 82
+    },
+    {
+      "path": "src/clinicai/services/providers/zalo.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 129,
+          "end": 154,
+          "purpose": "Gửi request tới Zalo; timeout trả HET_GIO với trạng thái chưa rõ."
+        }
+      ],
+      "sha256": "c75db233171290e9ce104c94ff120e5bb0f6428070d213e462b74beca28708be",
+      "line_count": 222
+    },
+    {
+      "path": "src/clinicai/services/thong_bao_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 346,
+          "end": 365,
+          "purpose": "Query loại việc đã xử lý/đã ẩn, ưu tiên KHẨN rồi mới nhất và giới hạn 50."
+        }
+      ],
+      "sha256": "f57bbe008efc406c9298c284285de8aeff418fa014cd58006bb0787ff8d1aedf",
+      "line_count": 520
+    },
+    {
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 53,
+          "end": 74,
+          "purpose": "Helper nêu mọi chặn TKYK phải kiểm assignment qua một luật chung."
+        }
+      ],
+      "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+      "line_count": 239
+    },
+    {
+      "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 891,
+          "end": 919,
+          "purpose": "Thất bại/timeout return trước khi ghi sổ CSKH; tracking dùng clinic_patient_id."
+        }
+      ],
+      "sha256": "5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118",
+      "line_count": 919
+    },
+    {
+      "path": "src/clinicai/voice/transcribe.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 141,
+          "purpose": "Full-file read; no distinct new finding in this slice."
+        }
+      ],
+      "sha256": "65b551f7dc01a465cb301ff3bb7ffe7183353067a044e94933938870cff633a5",
+      "line_count": 141
+    },
+    {
+      "path": "src/clinicai/worker.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 94,
+          "end": 108,
+          "purpose": "Notification relay yêu cầu NOTIFICATION_RELAY_ENABLED=true; hiện tắt mặc định."
+        }
+      ],
+      "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "line_count": 483
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 488,
+          "end": 494,
+          "purpose": "Danh sách rỗng luôn render thông báo ‘Chưa có thông báo nào’."
+        },
+        {
+          "start": 488,
+          "end": 505,
+          "purpose": "UI chỉ duyệt danh sách đã nhận; không có pagination/overflow indicator ở chuông."
+        }
+      ],
+      "sha256": "844319faf83e103dc4d86f401b06047ef48ebfcdc140a11eb44f89efb4d568a2",
+      "line_count": 685
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 140,
+          "end": 179,
+          "purpose": "Client bỏ qua non-2xx và lỗi mạng; lỗi không được lưu thành trạng thái render."
+        }
+      ],
+      "sha256": "c8c7ca4414e60276bcc91ec92bde569ba397be19d5a0650c4b37673c81eafd2f",
+      "line_count": 465
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 420,
+          "end": 447,
+          "purpose": "Việc chặn form khác dịch vụ chỉ nằm trong UI."
+        }
+      ],
+      "sha256": "ff3acc2fdd9eb3347b1069d1d47493a4b7a1465d30c1145af44756811e3394fe",
+      "line_count": 885
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 489,
+          "end": 535,
+          "purpose": "Handler non-approver tự gửi POST và chỉ hiện lỗi chung khi server từ chối."
+        },
+        {
+          "start": 1171,
+          "end": 1198,
+          "purpose": "Non-approver vẫn thấy nội dung và controls ‘tự đăng ký ca’."
+        }
+      ],
+      "sha256": "8cf05701f56f20f886f5befa0da56bc2d5f91e7a98ccbf9a389cd106ee21ad9f",
+      "line_count": 1239
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 160,
+          "end": 208,
+          "purpose": "Client diff theo baseline và đánh dấu chuỗi cục bộ đã lưu sau response 2xx."
+        }
+      ],
+      "sha256": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+      "line_count": 548
+    },
+    {
+      "path": "src/dashboard/app/api/clinical-form/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 73,
+          "end": 119,
+          "purpose": "BFF gửi form_data/ghep/bo_truong, không gửi revision/base version."
+        }
+      ],
+      "sha256": "de514e4d994dc2ba03d3208c1033d919fa8b98c2c07ec1dd6bdd481dfd2464df",
+      "line_count": 123
+    },
+    {
+      "path": "src/dashboard/app/api/ho-so-kham/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 49,
+          "end": 62,
+          "purpose": "BFF xác thực người gọi rồi chuyển visit UUID và nội dung ghi chú tới API backend."
+        }
+      ],
+      "sha256": "dbaa3ee454bf3b39762958dfb016b0ce4ea5d9c5130f72aa982f5825997ce933",
+      "line_count": 108
+    },
+    {
+      "path": "src/dashboard/app/api/thong-bao/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 21,
+          "end": 30,
+          "purpose": "BFF trả 502 khi backend không đọc được, không trả danh sách rỗng."
+        }
+      ],
+      "sha256": "0983fab354dc61493ebf26845e646f433908c89379b6565187d80d78b2e75ea0",
+      "line_count": 57
+    },
+    {
+      "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 373,
+          "end": 410,
+          "purpose": "Component lấy phiếu và đưa dữ liệu hiện tại vào bản in mà không nhãn nháp."
+        }
+      ],
+      "sha256": "aa5cec6028ecc98222a0da5577f198a055ed6e41be5dfb2bc8dc352ab1946708",
+      "line_count": 619
+    },
+    {
+      "path": "src/dashboard/app/print/phieu-kham/[visitId]/page.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 15,
+          "purpose": "Trang in được mở cho nhóm quầy/tiếp đón để in cho khách."
+        }
+      ],
+      "sha256": "9c4017c59b4060230bc027fdd6d7ba3d1ce217d78f131ac1268fefbbcc65e8cd",
+      "line_count": 29
+    },
+    {
+      "path": "src/tests/voice/test_transcribe.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 54,
+          "purpose": "Full-file read; no distinct new finding in this slice."
+        }
+      ],
+      "sha256": "7015ab426bcd7ecf88d09e2134877cbdd1f7431c097631c819fb7a75c35474a5",
+      "line_count": 54
+    },
+    {
+      "path": "src/tests/voice/test_voice_router.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 180,
+          "purpose": "Full-file read; no distinct new finding in this slice."
+        }
+      ],
+      "sha256": "8da3d7cd79f542fc5f69ea5e7f5a3e5f90c0c7c6a44a3f20f0dbd478a939296c",
+      "line_count": 180
+    },
+    {
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 235,
+          "end": 246,
+          "purpose": "current_clinic_ids trả mọi clinic có membership active, không lọc role."
+        }
+      ],
+      "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "line_count": 309
+    },
+    {
+      "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 47,
+          "end": 64,
+          "purpose": "patient_sdt_them cấp SELECT authenticated với RLS theo clinic_ids, không lọc role."
+        }
+      ],
+      "sha256": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b",
+      "line_count": 124
+    }
+  ]
+}

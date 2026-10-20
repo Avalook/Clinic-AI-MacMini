@@ -1,0 +1,45 @@
+[
+  {
+    "id": "AI-004",
+    "title": "Client LLM dùng trong app bỏ qua trần chi phí và ledger; guard còn race khi chạy đồng thời",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "ai_cost_control",
+    "summary": "FastAPI lifespan tạo AnthropicClient() không có DB pool. Client chỉ kiểm tra trần và ghi usage khi pool có mặt, nên các lần gọi qua singleton của ứng dụng vắng khỏi llm_lan_goi và không bị áp LLM_TRAN_NGAY_USD. Client có pool vẫn check tổng trước call và ghi sau call, không reservation nguyên tử cho request đồng thời.",
+    "trigger": "ANTHROPIC_API_KEY được cấu hình và một luồng gọi LLM qua client singleton của app; nếu nhiều request cùng chạy qua client có meter thì chúng có thể cùng đọc một mức chi phí trước khi bất kỳ request nào ghi usage.",
+    "impact": "Chi phí LLM qua singleton không bị dừng theo trần cấu hình và có thể thiếu trên màn giám sát chi phí. Với client khác có pool, trần vẫn có thể bị vượt do check-then-call đồng thời. Chưa có bằng chứng chi phí thực tế đã vượt hoặc hóa đơn production sai.",
+    "evidence": [
+      {"path": "src/clinicai/main.py", "line": 154, "end_line": 163, "detail": "Lifespan khởi tạo shared AnthropicClient() không truyền pool."},
+      {"path": "src/clinicai/main.py", "line": 174, "end_line": 181, "detail": "Cùng singleton được inject vào OrchestratorService."},
+      {"path": "src/clinicai/llm/anthropic_client.py", "line": 73, "end_line": 75, "detail": "pool mặc định là None; ghi chú nói metering/cap phụ thuộc pool."},
+      {"path": "src/clinicai/llm/anthropic_client.py", "line": 117, "end_line": 155, "detail": "Cả check trần trước provider call lẫn ghi usage sau call đều chỉ chạy khi self._pool khác None."},
+      {"path": "src/clinicai/llm/chi_phi.py", "line": 114, "end_line": 127, "detail": "Trần tính bằng đọc SUM hiện tại rồi so sánh; không reserve trong cùng thao tác nguyên tử."},
+      {"path": "src/clinicai/llm/chi_phi.py", "line": 144, "end_line": 174, "detail": "Usage được INSERT sau provider call; lỗi ghi ledger được log rồi trả None."},
+      {"path": "src/clinicai/api/v1/routers/lab.py", "line": 214, "end_line": 219, "detail": "Dependency trả singleton trên app.state."},
+      {"path": "src/clinicai/api/v1/routers/lab.py", "line": 240, "end_line": 258, "detail": "Endpoint triage inject client singleton vào graph chạy cho kết quả lab."},
+      {"path": "src/clinicai/api/v1/routers/ops.py", "line": 341, "end_line": 351, "detail": "Màn ops đọc số liệu từ ledger llm_lan_goi."},
+      {"path": "src/tests/services/test_llm_chi_phi_db.py", "line": 45, "end_line": 53, "detail": "Test DB tự tạo client với pool, khác wiring ở app lifespan."},
+      {"path": "src/tests/services/test_llm_chi_phi_db.py", "line": 91, "end_line": 111, "detail": "Test ngưỡng gọi API theo chuỗi tuần tự; không kiểm tra reservation/concurrency."}
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đã theo dõi wiring từ FastAPI lifespan đến orchestrator, dependency và graph lab; đối chiếu điều kiện metering, truy vấn chi phí, endpoint ops, migration ledger và test DB. Không chạy app, provider hay DB.",
+      "limitations": "Kết luận áp dụng cho các lần gọi qua shared AnthropicClient được tạo ở main.py; các caller khác có thể truyền pool riêng. Chưa xác minh cấu hình key/trần trên production, volume request, hóa đơn, hành vi provider hoặc lỗi vận hành thực tế. Race được suy ra từ thứ tự SELECT-before-call và INSERT-after-call, chưa chạy phép thử đồng thời."
+    },
+    "recommendation": "Wiring một meter dùng chung được khởi tạo cùng app pool cho mọi client; thay check-then-call bằng reservation ngân sách nguyên tử có trạng thái held/finalized/released, idempotency theo provider request, và cảnh báo bền khi finalize thất bại. Màn ops phải cho thấy as-of và trạng thái chưa đối soát; meter unavailable thì fail-closed với LLM hoặc dùng fallback đã công bố.",
+    "acceptance": "Test app startup chứng minh singleton có meter; hai hoặc nhiều request chạy đồng thời không thể reserve quá ngân sách; timeout, provider error và lỗi ghi usage đều để lại receipt/trạng thái chưa đối soát có owner; dashboard khớp receipt và hiển thị thời điểm cập nhật; meter outage chặn LLM hoặc chuyển fallback rõ ràng.",
+    "alignment": ["Reality ngày càng dễ nhìn thấy hơn", "Khoảng Unknown ngắn hơn", "Quyết định dựa trên bằng chứng tốt hơn", "Lỗi lặp lại thành cải tiến hệ thống"],
+    "related_tests": ["src/tests/services/test_llm_chi_phi_db.py", "src/tests/unit/test_llm_chi_phi.py", "src/tests/llm/test_anthropic_client_unit.py"],
+    "source_hashes": {
+      "src/clinicai/main.py": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "src/clinicai/llm/anthropic_client.py": "78b44a6e72b3f2483930698e68b242dbe456feb21466f92e5e5c32bea0a1652c",
+      "src/clinicai/llm/chi_phi.py": "db37ce0b0c6e328dd0d5de7182ddcd1ecc0d082480a2146b81791ceae2ecf29b",
+      "src/clinicai/api/v1/routers/lab.py": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+      "src/clinicai/api/v1/routers/ops.py": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "src/tests/services/test_llm_chi_phi_db.py": "7330a081f594101f7237e0d6b80e299009093e8bbfb29cd10d583f4161abfadd",
+      "supabase/migrations/20261009870000_llm_chi_phi.sql": "95762aaf6643f61004f0edc94a1af600e790bbd747745d19f856f1e4438293bf"
+    },
+    "status": "open"
+  }
+]

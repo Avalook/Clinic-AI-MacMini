@@ -1,0 +1,284 @@
+[
+  {
+    "id": "FE-002",
+    "title": "Dashboard giữ dữ liệu cũ nhưng không báo lần làm mới thất bại",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "reality/staleness",
+    "summary": "BangHanhTrinh lưu lỗi refresh vào state nhưng chỉ render lỗi khi chưa có bang. Sau lần tải thành công, các lần tải lỗi giữ bảng cũ mà không có cảnh báo lỗi tại bảng. Round 21 trace thêm PhanHoiThuocKhach: sau khi tải thành công, event tuong_tac_cskh kích hoạt tải lại; nếu request lỗi, component giữ data và loiDoc nhưng chỉ hiển thị lỗi khi chưa có data. Dòng tóm tắt đầu khung cũng không được cập nhật. Đây là cùng lỗi stale-state/thiếu dấu hiệu freshness, không tạo finding mới. Round 24 thêm ThaiKy giữ data cũ khi refresh lỗi và trang chính: SSE open/heartbeat không chứng minh DB LISTEN đang chuyển event; fallback poll 60 giây. Chưa fault-injection. Round 28 thêm bảng đo sinh hiệu: khi lần đọc lại lỗi, component giữ danh sách cũ; lỗi chỉ hiện trong panel gắn với bệnh nhân đang chọn. Khi chưa chọn bệnh nhân, hàng chờ cũ vẫn trông như dữ liệu hiện tại. Không tách finding vì cùng gốc stale-data/thiếu dấu hiệu freshness.",
+    "trigger": "Đã mở bảng hành trình thành công, sau đó endpoint bảng trả lỗi/mất kết nối ở một lần SSE hoặc poll refresh. Với phản hồi thuốc: người khác thêm/gỡ tương tác CSKH rồi lần tải do event lỗi. ThaiKy initial/refresh fetch reject; hoặc SSE còn mở trong lúc ChangeBroker reconnect. Với bảng đo sinh hiệu: SSE/poll/visibility refresh lỗi sau khi đã tải được danh sách; trạng thái stale được giữ, và banner lỗi không hiện nếu chưa chọn bệnh nhân.",
+    "impact": "Trưởng ca có thể tiếp tục nhìn vị trí/chờ cũ như thông tin hiện tại. Chỉ báo kết nối SSE toàn cục không chứng minh truy vấn bảng thành công. Ở khung khách, CSKH có thể đọc phản hồi thuốc cũ như hiện trạng mà không thấy lỗi tải lại; chưa chứng minh quyết định lâm sàng bị ảnh hưởng. ThaiKy có thể kẹt loading/hiện data cũ; badge realtime có thể xanh khi broker chưa chuyển event. Poll 60 giây vẫn chạy; không có bằng chứng production stale window. Ở bảng đo sinh hiệu, nhân viên có thể tiếp tục chọn từ hàng chờ cũ mà không thấy refresh vừa lỗi; chưa có browser fault injection hay bằng chứng production.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 63,
+        "end_line": 73,
+        "detail": "tai() chỉ setLoi khi lỗi, giữ nguyên bang cũ."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 94,
+        "end_line": 104,
+        "detail": "Lỗi chỉ hiển thị ở nhánh loi && !bang; JSX bảng không có cảnh báo loi."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+        "line": 183,
+        "end_line": 200,
+        "detail": "docBang phân biệt lỗi mạng/API và trả ok:false, lỗi không bị mất ở tầng API."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+        "line": 103,
+        "end_line": 132,
+        "detail": "Refresh lỗi giữ data cũ; lỗi chỉ render khi chưa có data."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+        "line": 158,
+        "end_line": 165,
+        "detail": "Summary callback chỉ chạy khi data đổi, nên lỗi refresh không làm mới tóm tắt."
+      },
+      {
+        "path": "src/dashboard/app/api/cskh/khach/[id]/route.ts",
+        "line": 38,
+        "end_line": 40,
+        "detail": "BFF chuyển request đọc phản hồi thuốc tới backend."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 161,
+        "end_line": 170,
+        "detail": "FastAPI trả danh sách phản hồi thuốc cho patient id."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+        "line": 343,
+        "end_line": 350,
+        "detail": "Component phản hồi thuốc được mount trong khung khách."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 68,
+        "end_line": 75,
+        "detail": "Refresh không catch fetch reject."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 86,
+        "end_line": 98,
+        "detail": "Initial read không xử lý promise reject."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 142,
+        "end_line": 179,
+        "detail": "Có data thì render cũ che lỗi refresh."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+        "line": 248,
+        "end_line": 265,
+        "detail": "EventSource open báo SSE sống, không chứng minh query mới."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/events.py",
+        "line": 54,
+        "end_line": 62,
+        "detail": "Heartbeat SSE độc lập."
+      },
+      {
+        "path": "src/clinicai/core/change_broker.py",
+        "line": 84,
+        "end_line": 115,
+        "detail": "LISTEN reconnect tách khỏi SSE client."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+        "line": 319,
+        "end_line": 325,
+        "detail": "Fallback poll 60s."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx",
+        "line": 198,
+        "end_line": 206,
+        "detail": "Lỗi đọc chỉ cập nhật `loiBang`; danh sách `luot` đã tải vẫn được giữ."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx",
+        "line": 749,
+        "end_line": 756,
+        "detail": "Thông báo lỗi đọc nằm trong sticky form phụ thuộc bệnh nhân được chọn; hàng chờ không có cảnh báo riêng khi chưa chọn."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đã truy vết code hiện hành; chưa chạy tái hiện browser/runtime. Round 21 bổ sung static trace PhanHoiThuocKhach → BFF → FastAPI → caller; chưa chạy browser test. Round 24 đối chiếu ThaiKy và SSE/ChangeBroker; static only. Round 28 đối chiếu BangDoSinhHieu: nhánh lỗi giữ `luot` hiện tại và render `loiBang` chỉ trong panel đang chọn; lỗi SSE/poll sau dữ liệu thành công chưa được tái hiện.",
+      "limitations": "Không kết luận đã xảy ra trên prod; không đo tần suất. Working tree có thay đổi từ trước. Round 21 không tái hiện lỗi refresh trên dashboard. Không chạy React/SSE/ChangeBroker fault test hoặc browser app. Round 28 không chạy component/browser test hoặc fault injection; phạm vi là static trace trên exact-main."
+    },
+    "recommendation": "Giữ dữ liệu cũ nhưng gắn nhãn stale, lần tải thành công cuối, lý do và nút thử lại ở cả bảng hành trình và phản hồi thuốc. Phân biệt trạng thái kết nối SSE với độ mới của từng dữ liệu; chỉ bỏ nhãn stale sau response thành công.",
+    "acceptance": "Browser tests cho hai màn: sau lần tải thành công, tạo SSE/poll/event refresh rồi trả lỗi; nội dung cũ vẫn đọc được nhưng có cảnh báo stale, thời điểm tải cuối và nút thử lại. 200 với data mới gỡ cảnh báo; 200 empty phải được phân biệt với lỗi.",
+    "alignment": [
+      "Reality dễ nhìn",
+      "Unknown ngắn hơn",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [
+      "src/dashboard/tests/phan-hoi-thuoc-cot-boundary.test.mts:81-92 — kiểm callback/tóm tắt, không kiểm lỗi tải lại sau khi đã có data.",
+      "src/tests/services/test_phan_hoi_thuoc_db.py:75-139 — kiểm đường đọc/ghi thành công; không kiểm stale-state của UI.",
+      "src/tests/services/test_thai_ky_db.py — đọc, không chạy; không kiểm network state UI.",
+      "src/dashboard/tests/bat-dau-do-sinh-hieu-boundary.test.mts:1-69 — kiểm tra luồng và proxy boundary, không kiểm refresh lỗi sau khi đã có dữ liệu."
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx": "bbf96da6cd3982dd554497a962290eaf847016176c7a0aa2c1a09100c6d8e34d",
+      "src/dashboard/app/(dashboard)/_lam-viec/api.ts": "7475187587ce7bf82a05a56f64b26bf8ddc24dd59f553dd8a8eb93c25ea5c711",
+      "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130",
+      "src/dashboard/app/api/cskh/khach/[id]/route.ts": "14749069fa842b2568ad376291c00d148468a3a176567cd84ab2466f9b6deea7",
+      "src/clinicai/api/v1/routers/cskh.py": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+      "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+      "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+      "src/clinicai/api/v1/routers/events.py": "cec344cbaafb4bfe6cf8ddd803bee3de16a23d5d5bf87464d5643cc0e6d11e6b",
+      "src/clinicai/core/change_broker.py": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+      "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx": "859d2e45bed49936888546a60db874ada5edc30cc835aa5d260062e0e28f0dd4"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production. Round 21 xác nhận cùng stale/error-hidden pattern ở khung phản hồi thuốc của hồ sơ khách; hợp nhất làm bằng chứng cho FE-002, không tăng số finding. Round 24: ThaiKy thiếu catch khi đọc; heartbeat không chứng minh LISTEN delivery; fallback 60s. Cùng freshness family, chưa tái hiện. Round 28: `/do-sinh-hieu` có cùng freshness gap; không tạo finding riêng.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 63,
+          "end_line": 72,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "63:   const tai = useCallback(async () => {\n64:     const kq = await docBang<Bang>(\"hanh-trinh\", { ngay });\n65:     if (kq.ok) {\n66:       setBang(kq.data);\n67:       setBayGio(Date.now());\n68:       setLoi(null);\n69:     } else {\n70:       setLoi(kq.loi);\n71:     }\n72:   }, [ngay]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 92,
+          "end_line": 101,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "92:   useNgheBang([\"luot_dong_thoi_gian\", \"visit\", \"queue_entry\"], () => void tai());\n93: \n94:   if (loi && !bang) {\n95:     return (\n96:       <p role=\"alert\" className=\"text-body text-danger\">\n97:         {loi}\n98:       </p>\n99:     );\n100:   }\n101:   if (!bang) return <p className=\"text-body text-ink-muted\">Đang tải…</p>;"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+          "line": 103,
+          "end_line": 132,
+          "sha256": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130",
+          "excerpt": "103:   // Người khác ghi / gỡ ở màn khác → khối này tự cập nhật (NOTIFY sẵn có).\n104:   useNgheBang([\"tuong_tac_cskh\"], napLai);\n105: \n106:   useEffect(() => {\n107:     let huy = false;\n108:     void (async () => {\n109:       try {\n110:         const r = await fetch(`${duong}?xem=phan-hoi-thuoc`, { cache: \"no-store\" });\n111:         const d = (await r.json().catch(() => null)) as\n112:           | { luot_co_don?: LuotCoDon[]; items?: PhanHoiThuoc[]; message?: string }\n113:           | null;\n114:         if (huy) return;\n115:         if (!r.ok) {\n116:           setLoiDoc(d?.message ?? \"Không đọc được phản hồi thuốc.\");\n117:           return;\n118:         }\n119:         setLoiDoc(null);\n120:         setData({ luot_co_don: d?.luot_co_don ?? [], items: d?.items ?? [] });\n121:       } catch {\n122:         if (!huy) setLoiDoc(\"Mất kết nối — không đọc được phản hồi thuốc.\");\n123:       }\n124:     })();\n125:     return () => {\n126:       huy = true;\n127:     };\n128:   }, [duong, lan]);\n129: \n130:   useEffect(() => {\n131:     if (data) onDoc?.(data.items);\n132:   }, [data, onDoc]);",
+          "detail": "Refresh lỗi giữ data cũ; lỗi chỉ render khi chưa có data."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+          "line": 158,
+          "end_line": 165,
+          "sha256": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130",
+          "excerpt": "158:   if (loiDoc && !data) {\n159:     return (\n160:       <p role=\"alert\" className=\"text-meta text-danger\">\n161:         {loiDoc}\n162:       </p>\n163:     );\n164:   }\n165:   if (!data) return <p className=\"text-meta text-ink-faint\">Đang tải…</p>;",
+          "detail": "Summary callback chỉ chạy khi data đổi, nên lỗi refresh không làm mới tóm tắt."
+        },
+        {
+          "path": "src/dashboard/app/api/cskh/khach/[id]/route.ts",
+          "line": 38,
+          "end_line": 40,
+          "sha256": "14749069fa842b2568ad376291c00d148468a3a176567cd84ab2466f9b6deea7",
+          "excerpt": "38:   if (xem === \"phan-hoi-thuoc\") {\n39:     return proxyJsonToBackend(\"GET\", `/api/v1/cskh/khach/${id}/phan-hoi-thuoc`, undefined);\n40:   }",
+          "detail": "BFF chuyển request đọc phản hồi thuốc tới backend."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cskh.py",
+          "line": 161,
+          "end_line": 170,
+          "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+          "excerpt": "161: @router.get(\"/cskh/khach/{clinic_patient_id}/phan-hoi-thuoc\")\n162: async def phan_hoi_thuoc_cua_khach(\n163:     clinic_patient_id: UUID,\n164:     identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),\n165:     pool: asyncpg.Pool = Depends(get_db_pool),\n166: ) -> dict[str, Any]:\n167:     \"\"\"Lượt có đơn thuốc (để chọn) + phản hồi sau dùng thuốc còn hiệu lực.\"\"\"\n168:     return await PhanHoiThuocService(pool).doc(\n169:         identity=identity, clinic_patient_id=str(clinic_patient_id)\n170:     )",
+          "detail": "FastAPI trả danh sách phản hồi thuốc cho patient id."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+          "line": 343,
+          "end_line": 350,
+          "sha256": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+          "excerpt": "343:       {/* PHẢN HỒI SAU DÙNG THUỐC (10/10/2026): gắn lượt có đơn; bác sĩ thấy ở\n344:           Bàn khám; cần tư vấn thêm → [Đặt lịch khám] (bộ đặt lịch sẵn có). */}\n345:       <Khoi tieuDe=\"Phản hồi sau dùng thuốc\">\n346:         <PhanHoiThuocKhach\n347:           clinicPatientId={clinicPatientId}\n348:           onDatLichKham={onDatLichKham}\n349:           onDoc={setPhanHoiThuoc}\n350:         />",
+          "detail": "Component phản hồi thuốc được mount trong khung khách."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 68,
+          "end_line": 75,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "68:   const nap = useCallback(async () => {\n69:     const r = await fetch(`/api/thai-ky?clinic_patient_id=${clinicPatientId}`, {\n70:       cache: \"no-store\",\n71:     });\n72:     const d = await r.json().catch(() => null);\n73:     if (r.ok) setDl(d as DuLieu);\n74:     else setLoi((d as { message?: string; error?: string } | null)?.message ?? \"Không đọc được thai kỳ.\");\n75:   }, [clinicPatientId]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 86,
+          "end_line": 98,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "86:   useEffect(() => {\n87:     let huy = false;\n88:     void fetch(`/api/thai-ky?clinic_patient_id=${clinicPatientId}`, { cache: \"no-store\" })\n89:       .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))\n90:       .then(({ ok, d }) => {\n91:         if (huy) return;\n92:         if (ok) setDl(d as DuLieu);\n93:         else setLoi((d as { message?: string } | null)?.message ?? \"Không đọc được thai kỳ.\");\n94:       });\n95:     return () => {\n96:       huy = true;\n97:     };\n98:   }, [clinicPatientId]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 142,
+          "end_line": 179,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "142:   const ht = dl?.hien_tai ?? null;\n143: \n144:   return (\n145:     <section aria-label=\"Thai kỳ\" className=\"mt-3 rounded-card border border-line p-3\">\n146:       <h3 className=\"text-sm font-semibold text-ink\">Thai kỳ</h3>\n147:       {dl === null ? (\n148:         <p className=\"mt-1 text-xs text-ink-muted\">{loi ?? \"Đang tải…\"}</p>\n149:       ) : ht ? (\n150:         <dl className=\"mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4\">\n151:           <div>\n152:             <dt className=\"text-ink-faint\">Dự kiến sinh</dt>\n153:             <dd className=\"font-medium text-ink\">{ht.du_kien_sinh ?? \"—\"}</dd>\n154:           </div>\n155:           <div>\n156:             <dt className=\"text-ink-faint\">Nguồn</dt>\n157:             <dd className=\"font-medium text-ink\">\n158:               {ht.nguon_du_kien_sinh_nhan ?? \"chưa ghi\"}\n159:               {ht.bac_si_xac_nhan ? ` · xác nhận: ${ht.bac_si_xac_nhan}` : \"\"}\n160:             </dd>\n161:           </div>\n162:           <div>\n163:             <dt className=\"text-ink-faint\">Tuổi thai (tính từ dự kiến sinh)</dt>\n164:             <dd className=\"font-medium text-ink\">\n165:               {ht.tuoi_thai ? `${ht.tuoi_thai.tuan} tuần ${ht.tuoi_thai.ngay} ngày` : \"—\"}\n166:             </dd>\n167:           </div>\n168:           <div>\n169:             <dt className=\"text-ink-faint\">Nguy cơ cao</dt>\n170:             <dd className=\"font-medium text-ink\">\n171:               {ht.nguy_co_cao ? `Có — ${ht.ly_do_nguy_co ?? \"\"}` : \"Không\"}\n172:             </dd>\n173:           </div>\n174:         </dl>\n175:       ) : (\n176:         <p className=\"mt-1 text-xs text-ink-muted\">\n177:           Chưa có thai kỳ đang theo dõi.\n178:           {dl.duoc_ghi ? \"\" : \" Bác sĩ tạo thai kỳ khi xác nhận có thai.\"}\n179:         </p>"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+          "line": 248,
+          "end_line": 265,
+          "sha256": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+          "excerpt": "248:         function mo(laNoiLai: boolean) {\n249:           es?.close();\n250:           const e = new EventSource(\"/api/events/stream\");\n251:           es = e;\n252:           trangThaiDong.dat(\"dang-noi\");\n253:           e.addEventListener(\"open\", () => {\n254:             clearTimeout(henRot);\n255:             henRot = undefined;\n256:             noiLai.thanhCong();\n257:             trangThaiDong.dat(\"song\");\n258:             // Quãng dòng hỏng là quãng mù: bắt kịp một lượt.\n259:             if (laNoiLai) nhanTin(null);\n260:           });\n261:           e.addEventListener(\"error\", () => {\n262:             if (henRot === undefined) {\n263:               henRot = setTimeout(() => trangThaiDong.dat(\"rot\"), AN_HAN_ROT_MS);\n264:             }\n265:             if (e.readyState === EventSource.CLOSED) noiLai.loi();"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/events.py",
+          "line": 54,
+          "end_line": 62,
+          "sha256": "cec344cbaafb4bfe6cf8ddd803bee3de16a23d5d5bf87464d5643cc0e6d11e6b",
+          "excerpt": "54:             while True:\n55:                 if await request.is_disconnected():\n56:                     return\n57:                 try:\n58:                     payload = await asyncio.wait_for(q.get(), timeout=HEARTBEAT_S)\n59:                 except TimeoutError:\n60:                     yield b\": nhip\\n\\n\"\n61:                     continue\n62:                 yield b\"event: change\\ndata: \" + payload.encode() + b\"\\n\\n\""
+        },
+        {
+          "path": "src/clinicai/core/change_broker.py",
+          "line": 84,
+          "end_line": 115,
+          "sha256": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+          "excerpt": "84:     async def _run(self) -> None:\n85:         \"\"\"Giữ một kết nối LISTEN, tự nối lại khi rớt.\n86: \n87:         KẾT NỐI RIÊNG, KHÔNG LẤY TỪ BỂ CHUNG. Một kết nối đang LISTEN bị giữ\n88:         suốt đời tiến trình; mượn nó từ bể là vĩnh viễn bớt một chỗ của những\n89:         truy vấn thật, và asyncpg cũng không hứa trả lại đúng kết nối ấy.\n90:         \"\"\"\n91:         while not self._stopping:\n92:             try:\n93:                 # Biến cục bộ để kiểu là Connection, không phải `| None` của\n94:                 # self._conn: chỉ stop() gán None, và nó huỷ task này rồi await\n95:                 # xong mới gán, nên trong vòng này kết nối không thể thành None.\n96:                 conn: asyncpg.Connection = await asyncpg.connect(self._dsn)\n97:                 self._conn = conn\n98:                 await conn.add_listener(CHANNEL, self._on_notify)\n99:                 logger.info(\"change_broker_listening\", channel=CHANNEL)\n100:                 # Ngồi im cho tới khi bị huỷ hoặc kết nối chết.\n101:                 while not self._stopping and not conn.is_closed():\n102:                     await asyncio.sleep(1.0)\n103:             except asyncio.CancelledError:\n104:                 raise\n105:             except Exception as exc:  # noqa: BLE001\n106:                 # Database khởi động lại, mạng chớp — không được làm chết API.\n107:                 # Màn hình vẫn có nhịp làm mới dự phòng của riêng nó.\n108:                 logger.warning(\"change_broker_lost\", error=str(exc))\n109:             finally:\n110:                 if self._conn is not None and not self._conn.is_closed():\n111:                     await self._conn.close()\n112:                 self._conn = None\n113:             if not self._stopping:\n114:                 await asyncio.sleep(RECONNECT_DELAY_S)\n115: "
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+          "line": 319,
+          "end_line": 325,
+          "sha256": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+          "excerpt": "319:     const goPoll = nhipKhiHien(\n320:       () => {\n321:         if (!dangOManTuTai()) nhip.nhan();\n322:       },\n323:       POLL_MS,\n324:       { hoiKhiHien: false },\n325:     );"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx",
+          "line": 198,
+          "end_line": 206,
+          "sha256": "859d2e45bed49936888546a60db874ada5edc30cc835aa5d260062e0e28f0dd4",
+          "excerpt": "198:   const [loiBang, setLoiBang] = useState<string | null>(null);\n199:   const nhan = useCallback((kq: { luot: Luot[] } | { loi: string }) => {\n200:     if (\"loi\" in kq) {\n201:       setLoiBang(kq.loi);\n202:       return;\n203:     }\n204:     setLoiBang(null);\n205:     setLuot(kq.luot);\n206:   }, []);",
+          "detail": "Khi refresh lỗi, giữ danh sách đã tải trước."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx",
+          "line": 749,
+          "end_line": 756,
+          "sha256": "859d2e45bed49936888546a60db874ada5edc30cc835aa5d260062e0e28f0dd4",
+          "excerpt": "749:               {loi || loiBang ? (\n750:                 <p role=\"alert\" className=\"w-full rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger sm:mr-auto sm:w-auto\">\n751:                   {loi ?? loiBang}\n752:                 </p>\n753:               ) : xong ? (\n754:                 <p role=\"status\" className=\"w-full rounded-control border border-success bg-success-bg px-3 py-2 text-meta text-success sm:mr-auto sm:w-auto\">\n755:                   {xong}\n756:                 </p>",
+          "detail": "Lỗi chỉ được render trong panel bệnh nhân đang chọn."
+        }
+      ],
+      "production_verified": false
+    },
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": null,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  }
+]

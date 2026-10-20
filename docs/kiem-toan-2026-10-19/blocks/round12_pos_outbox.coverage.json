@@ -1,0 +1,50 @@
+{
+  "audit_id": "round12_pos_outbox",
+  "source": {
+    "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+    "repository_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "basis": "exact-main snapshot; source files read without edits"
+  },
+  "scope": [
+    "POS outbox enqueue/cancel transaction path from payment record and void",
+    "relay polling, locking, delivery, retry and dead-letter behavior",
+    "POS adapter/configuration/port and worker caller",
+    "POS outbox schema and directly relevant tests",
+    "deduplication against INF-005/011/017/018 and INF-001/002/004/012"
+  ],
+  "files": [
+    {"path":"src/clinicai/services/pos_outbox.py","sha256":"4b63946e8011ac0e338dcd25a96f67243ad488fb844f1660db4638ab437b78a9","line_count":87,"reviewed_ranges":["1-87"],"review_status":"full","notes":"Enqueue idempotency key, payload serialization, causal lock and cancel pending invoice."},
+    {"path":"src/clinicai/services/pos_relay.py","sha256":"d9f07f1ad4e00410f260f3997c63c284d575adfe279682e839686e56e14d7344","line_count":262,"reviewed_ranges":["1-262"],"review_status":"full","notes":"Polling, advisory lock order, status recheck, adapter dispatch, success/retry/dead paths."},
+    {"path":"src/clinicai/services/pos_config.py","sha256":"6cc4f96c34fb98fb73fcbb7fe6f5079984a988c54aa0e3e8e0884d4c8a9ece12","line_count":98,"reviewed_ranges":["1-98"],"review_status":"full","notes":"Per-clinic adapter and secret selection, null adapter fallback."},
+    {"path":"src/clinicai/ports/pos.py","sha256":"54492e205b0fa945d6e63a9e3fea64b9120fa2383b0ab4ae202cb054092dd458","line_count":111,"reviewed_ranges":["1-111"],"review_status":"full","notes":"POS data contracts and idempotency expectations per clinic reference."},
+    {"path":"src/clinicai/adapters/pos/kiotviet.py","sha256":"0ca83b9eed320b29e639603741f00fa3c696d384b53fdfb07b57a05cbbc5c318","line_count":83,"reviewed_ranges":["1-83"],"review_status":"full","notes":"Adapter currently refuses operations; no vendor API side effect to assess."},
+    {"path":"src/clinicai/adapters/pos/null.py","sha256":"758074dda78898afdda875dc2cb5bb62c4df525fe4ce648419889d58f7ec5dc0","line_count":44,"reviewed_ranges":["1-44"],"review_status":"full","notes":"Null adapter refusal and logging behavior."},
+    {"path":"src/clinicai/services/payment_service.py","sha256":"4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1","line_count":2400,"reviewed_ranges":["1480-1590","2090-2165"],"review_status":"partial","notes":"Targeted trace of payment void and new-cycle invoice enqueue only; remaining payment service not claimed read."},
+    {"path":"src/clinicai/worker.py","sha256":"bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019","line_count":483,"reviewed_ranges":["195-231"],"review_status":"partial","notes":"Targeted trace of POS relay worker caller only."},
+    {"path":"src/tests/test_pos_relay.py","sha256":"746358e28ba6a2c8e3fbe2b8516d00735f6c247ac472664723ea710ad2d693bf","line_count":215,"reviewed_ranges":["1-215"],"review_status":"full","notes":"Mock relay success, retry, failure, exhaustion, locking and adapter error cases; not executed."},
+    {"path":"src/tests/test_pos_port.py","sha256":"4f94d51bea38017cec913d4d35538c6f9cf8021ab78967ab53d19ea1cfdfd426","line_count":128,"reviewed_ranges":["1-128"],"review_status":"full","notes":"Port and currently refusing adapter contract tests; not executed."},
+    {"path":"src/tests/test_clinical_data_integrity.py","sha256":"ec21cb3355595d59e8a764d66563e57c9e78ce0dc7241c542d75942ba0673f81","line_count":829,"reviewed_ranges":["450-490","720-760"],"review_status":"partial","notes":"Targeted caller assertions around POS enqueue in payment integrity tests only."},
+    {"path":"supabase/migrations/20260730000007_pos_outbox.sql","sha256":"28fa706b9c58a3a411232943b98b6fe61520179be54fd8511dc41c992c3ab22b","line_count":64,"reviewed_ranges":["1-64"],"review_status":"full","notes":"POS outbox schema, unique key, state checks, grants and indexes."}
+  ],
+  "canonical_dedup": {
+    "considered_ids": ["INF-005","INF-011","INF-017","INF-018","INF-001","INF-002","INF-004","INF-012"],
+    "result": "No distinct source-proven POS outbox failure path identified. Existing findings cover generic worker fencing/retry and operational DLQ/alert visibility; adapter inability is already in INF-011. No severity/status changed and canonical ledger was not edited."
+  },
+  "result": {
+    "new_candidates": 0,
+    "candidate_ids": [],
+    "no_new_issue_observed": [
+      "Payment recording queues a non-zero payment's invoice within its transaction; cycle IDs isolate re-collection after void.",
+      "Void and relay coordinate on the same causal lock; cancel only suppresses an invoice still PENDING and a later void event is queued in the same transaction.",
+      "Relay rechecks status after lock acquisition and records success or retry/dead state; existing mock tests cover the visible branches.",
+      "No real POS API adapter currently performs a vendor-side effect, so duplicate-on-lost-response behavior cannot be claimed from this snapshot. The port explicitly requires repeated references to be idempotent.",
+      "No DB/concurrency integration test was run; recommend vendor sandbox idempotency and PostgreSQL void-vs-relay acceptance when implementing an operational adapter."
+    ]
+  },
+  "limitations": [
+    "Static source audit only; no tests, application runtime, database, VPS, provider, secrets or PHI access.",
+    "The snapshot export does not include the POS design document cited by repository inventory; conclusions use only files listed in this coverage record.",
+    "Mock tests do not prove PostgreSQL lock behavior or vendor idempotency; no actual delivery adapter exists to verify those contracts.",
+    "Coverage distinguishes full-file reads from targeted call-chain traces; the rest of payment_service.py and worker.py was not audited in this block."
+  ]
+}

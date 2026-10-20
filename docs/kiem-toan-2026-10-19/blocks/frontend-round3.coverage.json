@@ -1,0 +1,342 @@
+[
+  {
+    "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "77076bf818e5c983d1ed8fe5f6839e976358d095c282570a6ac0416222d2da1d",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–330;420–528",
+    "note": "Truy vết ghiDaXem/useEffect, Set lifetime và live summary props; chưa đọc toàn bộ phần actions giữa."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "55–95;180–375;645–735;730–775",
+    "note": "Truy vết GET kết quả, SSE refresh, caller và stable phiếu key; còn phần UI chưa đọc."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "46818071ec44ffc90ba32ab8c4befd81b18861a803aef9361e64e27c9630896a",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "425–480;570–634",
+    "note": "Truy vết hai KetQuaChiDinh render theo khối; chưa đọc full."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "ccd860a32d945adcf57c08cf0c409a4860a618819b223a02a34fd9e491670c24",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1250–1400;1400–1580;1660–1730",
+    "note": "PHIEU_V5 true; path XemPhieuKetQua ở ChiDinhPanel bị OFF; live caller PhieuKhamLuot keyed visit_id."
+  },
+  {
+    "path": "src/dashboard/app/api/phieu/route.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/api/phieu/route.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "a54fcb14115e7dcc965b33e55b73e95332dee0441f681cacce8f17de565c0f00",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–55",
+    "note": "Proxy xem/in sang backend, UUID validated; không đọc POST đầy đủ ở round3."
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/phieu.py",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/clinicai/api/v1/routers/phieu.py",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "185–210",
+    "note": "Auth dependency và xem/in router contracts."
+  },
+  {
+    "path": "src/clinicai/services/form_engine_service.py",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/clinicai/services/form_engine_service.py",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "25–85;255–330;800–940",
+    "note": "Vai đọc/vai được tính đã xem, write null-only transaction và emit result.viewed; correction flow đọc chọn đoạn."
+  },
+  {
+    "path": "src/clinicai/events/consumers/vong_doc.py",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/clinicai/events/consumers/vong_doc.py",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "d534970753f1816a95036349f350b99e44e40f6130dc2c7aabafc3e827951b3b",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–101",
+    "note": "Đọc đủ module để kiểm giới hạn hậu quả; không giả định auto-close do FE006."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "6975a2c57ba643541a1277b2cfc7fbc382b064fb1cdcb22dbc35c693e1e5acd5",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–117",
+    "note": "Đọc đủ; candidate stale XemPhieu không tính active defect vì only caller ChiDinhPanel OFF PHIEU_V5 true."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/_lam-viec/AnhKetQua.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/_lam-viec/AnhKetQua.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "65aeee37ef37bb7209b7a7ccdb15245026f8be91907faf29ffed45dae7f43d9b",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–180",
+    "note": "URI xác thực file, loại tệp và thumbnails; chưa đọc phần cuối."
+  },
+  {
+    "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/noi-dung/route.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/api/cskh/ket-qua/[tepId]/noi-dung/route.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "6082e1ff1cc7ec06e422b6adcc9c91a03f60b82d493fd053ad6bc7d6cf90e317",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–73",
+    "note": "Đọc đủ proxy file live: private no-store + auth + streaming + Range."
+  },
+  {
+    "path": "src/dashboard/app/api/ultrasound/image/route.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/api/ultrasound/image/route.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "4422f6cb0645475c17ece8c235b59e02dd44cc9eff854438866c7a698945bf93",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "90–139",
+    "note": "Candidate cached PHI route bị retired; không ghi thành FE bug."
+  },
+  {
+    "path": "src/dashboard/lib/route-da-tat.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/lib/route-da-tat.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "820b1abf94ab2ebb771112ff43c52afde68c6fc29dd4ac887991415fff1b4040",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–24",
+    "note": "Đọc đủ; /api/ultrasound/image trả410 ở proxy."
+  },
+  {
+    "path": "src/dashboard/proxy.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/proxy.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "02dd6df0002d6704afbac15c41793be59be374ad17d7c6ebc561cb4906bc01bc",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "20–42",
+    "note": "Exact-main retired route guard trước session đã đọc và xác nhận; không chỉ dựa baseline."
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/ultrasound.py",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/clinicai/api/v1/routers/ultrasound.py",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–250",
+    "note": "Đọc đủ đến image endpoint; backend endpoint sống nhưng UI path retired, không khẳng định FE exposure."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/sieu-am/page.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/sieu-am/page.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "2fd44d49c9f64b4a393f83e5f666b7af219ba82cd97cd0e008942e28277d77fa",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–9",
+    "note": "Đọc đủ redirect cũ sang /phong."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/sono/page.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/sono/page.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "5b5983c559fe849fd43b13d3626b48897f2e3c4387d109c4b1af21404d68ed20",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–9",
+    "note": "Đọc đủ redirect cũ sang /phong."
+  },
+  {
+    "path": "src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "950208bd5507dd068732f4ff6edf56222b19818da5fec2564b08387531a8cd0c",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–260;300–514",
+    "note": "Official vs draft label, print snapshot và no version/asof; parent đã ghi design-gap, không duplicate bug."
+  },
+  {
+    "path": "src/dashboard/app/print/ket-qua/[orderId]/page.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/print/ket-qua/[orderId]/page.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "665f89422483c4b1b2fb7f3a6e0a5853aefe4786c3aac17f0d0dfc4e7e15c72a",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–18",
+    "note": "Đọc đủ requireClinicRole; quyền nội dung ở API."
+  },
+  {
+    "path": "src/dashboard/app/print/ket-qua-luot/[visitId]/page.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/print/ket-qua-luot/[visitId]/page.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "07aa5b851f02a402a02741a8e95fcb7589a82c7709f047e8e622ecac3dcae5df",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–20",
+    "note": "Đọc đủ requireInPhieu."
+  },
+  {
+    "path": "src/dashboard/app/print/ket-qua-luot/[visitId]/InKetQuaLuot.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/print/ket-qua-luot/[visitId]/InKetQuaLuot.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "76f59a97dd9ce5de94cd82247dea76b65e9e3413dcaa09bf0b58e8ff8362605a",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–85",
+    "note": "Đọc đủ danh sách print; không runtime xác minh network error UI."
+  },
+  {
+    "path": "src/dashboard/lib/doc-gop.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/lib/doc-gop.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "05d32557625b2d3800258d297cc66ede6e101fb0ca44bc873eac12328325ea45",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–69",
+    "note": "Đọc đủ; in-flight map tựxoá khi settle, không cache PHI bền vững; key URL chưa identity là hypothesis nếu đổi phiên khi request chạy."
+  },
+  {
+    "path": "src/dashboard/lib/bo-nho-tam.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/lib/bo-nho-tam.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "8e4b45369650e45274e2cf21c02a6570ba1bbf0dbfce9987f9f6b4fe29b4a51f",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–94",
+    "note": "Đọc đủ; server reference cache bắt buộc clinicId, TTL60s, empty không cache."
+  },
+  {
+    "path": "src/dashboard/lib/supabase-browser.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/lib/supabase-browser.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "8e1138ba2b9bd5178d21f0d2cd4fe3619149143978a014d96de63e8a40e9db6f",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–13",
+    "note": "Đọc đủ; không app auth-state listener ở helper; chưa chứng minh toàn bộ lib runtime."
+  },
+  {
+    "path": "src/dashboard/lib/kiem-phien-tai-cho.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/lib/kiem-phien-tai-cho.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "f5684ce3ec712061c3b3c160e62117c9891da8bc7bbededfab24384fd28e2cc7",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–146",
+    "note": "Đọc đủ; signed JWT checked, revocation semantics tài liệu hiện hành; không phát hiện auth bypass mới."
+  },
+  {
+    "path": "src/dashboard/app/(auth)/chon-co-so/actions.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(auth)/chon-co-so/actions.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "17038ce92c49dd1a1422186b8e518c9a44d19343c7dfbfb6a2206d527ed36e5e",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–25",
+    "note": "Đọc đủ httpOnly/sameSite/UUID cookie và redirect; auth backend kiểm scope."
+  },
+  {
+    "path": "src/dashboard/app/(auth)/chon-co-so/page.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(auth)/chon-co-so/page.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "e0ccd31718c4d2e35ed2f5209e4023b04b83081a09e981cadd9b9e138a0b0219",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–86",
+    "note": "Đọc đủ; null fallback redirect, không chứng minh sai scope."
+  },
+  {
+    "path": "src/dashboard/app/(auth)/login/actions.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(auth)/login/actions.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–105",
+    "note": "Đọc đủ; membership exactly-one fail closed, login/logout xoá location; FE001 đã có."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/NotificationContext.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "c8c7ca4414e60276bcc91ec92bde569ba397be19d5a0650c4b37673c81eafd2f",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "208–275;315–391",
+    "note": "Role/staff namespace storage và effect staffId; chưa chứng minh cross-tab/session bug."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/layout.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/layout.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "7fac1d42bbff23ef6e8f89c9e11276a16be2adb79a92241098d883153ccf545a",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "135–175",
+    "note": "Provider không key staff; lifecycle hypothesis chỉ, chưa browser prove."
+  },
+  {
+    "path": "src/dashboard/lib/xuat-bang-excel.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/lib/xuat-bang-excel.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "f4e6e47b15bbc8c7eb4a7d89058eca3d914ed77c9dc953412ad2521f27889fc1",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "1–67",
+    "note": "Đọc đủ: CSV neutralizes formula prefix và quote escapes, revoke blob URL."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "ff3acc2fdd9eb3347b1069d1d47493a4b7a1465d30c1145af44756811e3394fe",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "95–185;200–500",
+    "note": "Autosave expected_revision; flush before complete/template switch; canonical reload khi moSua; không full UI."
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/kho-vat-tu/gui-vat-tu.ts",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/app/(dashboard)/kho-vat-tu/gui-vat-tu.ts",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "37823f1e169f1734bdba1cd07756eb910527c441edf79ce48df5cf138d000027",
+    "status": "traced",
+    "method": "exact-main local line read + caller/callee tracing; no runtime in this block",
+    "ranges": "50–142",
+    "note": "Idempotency body/session TTL; chưa trace backend toàn luồng."
+  },
+  {
+    "path": "src/dashboard/components/ui/NganGap.tsx",
+    "absolute_path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/dashboard/components/ui/NganGap.tsx",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha256": "08bff6a8f2e91a280f880419b454ba0ce1ddd1da965db59b59963e15447d14d0",
+    "status": "traced",
+    "method": "exact-main full module read to validate Set lifetime",
+    "ranges": "1–97",
+    "note": "Gập/mở chỉ hidden child, không unmount; không thể dùng collapse để recover FE006. Không kết luận false-seen mới."
+  }
+]

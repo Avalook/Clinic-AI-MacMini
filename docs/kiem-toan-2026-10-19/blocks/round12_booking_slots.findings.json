@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_booking_slots_slice",
+  "findings": [
+    {
+      "id": "CAND-BOOK-SLOT-001",
+      "title": "Badge booking policy đánh dấu luật thường trực bị đè trước ngày bắt đầu của luật tạm",
+      "severity": "LOW",
+      "confidence": "confirmed_static",
+      "trigger": "Tạo slot override có date_start trong tương lai, date_end >= current_date và cùng bác sĩ (hoặc bác sĩ toàn clinic) + khoảng phút với standing override; xem bảng luật trước date_start.",
+      "impact": "list_rules trả shadowed=true và UI hiện 'đang bị luật có ngày đè' dù luật tạm chưa hiệu lực. Resolver/trigger vẫn áp dụng theo ngày, nên evidence chỉ xác nhận thông tin vận hành gây hiểu nhầm, không xác nhận booking sai.",
+      "recommendation": "Nếu cờ chỉ nói hiệu lực hôm nay, thêm điều kiện ngày hiện tại nằm trong date_start..date_end (và standing rule còn hiệu lực hôm nay) khi tính shadowed. Nếu mục đích là báo xung đột tương lai, đổi contract/copy sang dự kiến bị đè và kiểm thử rõ nghĩa.",
+      "acceptance": "Kiểm thử list_rules với ngoại lệ bắt đầu ngày mai/tuần tới: shadowed false trước ngày bắt đầu, true trong ngày hiệu lực, false sau ngày kết thúc; kiểm thử thêm giới hạn effective_from/effective_to của standing override.",
+      "limitations": "Chỉ audit tĩnh; chưa chạy test/DB và chưa đánh giá mức độ người dùng dựa vào badge. Không kết luận lỗi quyết định sức chứa hay xảy ra production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/booking_override_service.py",
+          "sha256": "81077ad2213351226519726b4d02d85a9ee7c6ab9f2c59ad1c1c7bc7bc77717a",
+          "line": 287,
+          "end_line": 287,
+          "detail": "Temp CTE chỉ lọc date_end >= current_date; không yêu cầu date_start <= current_date."
+        },
+        {
+          "path": "src/clinicai/services/booking_override_service.py",
+          "sha256": "81077ad2213351226519726b4d02d85a9ee7c6ab9f2c59ad1c1c7bc7bc77717a",
+          "line": 303,
+          "end_line": 309,
+          "detail": "EXISTS tính shadowed chỉ theo doctor scope và overlap phút, không giao ngày với ngày hiện tại/hiệu lực standing."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/OverridePolicyCard.tsx",
+          "sha256": "169037149d02af750d1d14c095a691fdfc6814fe548f5329af3ca931c0a17e3c",
+          "line": 439,
+          "end_line": 445,
+          "detail": "Cờ shadowed được hiển thị với copy 'đang bị luật có ngày đè'."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/config.py",
+          "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+          "line": 650,
+          "end_line": 697,
+          "detail": "BookingRuleRequest nhận date_start/date_end và route chuyển chúng xuống save_rule; ngày tương lai không bị loại tại boundary này."
+        },
+        {
+          "path": "supabase/migrations/20260803000009_slot_override_minute_granularity.sql",
+          "sha256": "c438cf214eb8185022f26a063afc7c8069d1a33ad4b970fc61e6d77b6d355a57",
+          "line": 228,
+          "end_line": 242,
+          "detail": "Resolver giới hạn slot override theo ngày lịch BETWEEN date_start AND date_end. Đọc đoạn snapshot để đối chiếu semantics; migration không sửa."
+        }
+      ],
+      "reference_version": "pinned_main",
+      "status": "candidate"
+    }
+  ]
+}

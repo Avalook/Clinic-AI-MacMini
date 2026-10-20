@@ -1,0 +1,1362 @@
+{
+ "chunk": "S02",
+ "findings": [
+  {
+   "tmp_id": "S02-1",
+   "title": "Hoàn tất phiếu kết quả siêu âm nhận nguyên câu mẫu 'bình thường' (kể cả tim thai dương tính, hình thái thai nhi) thành lời của bác sĩ và xoá dấu vết câu mẫu",
+   "severity": "HIGH",
+   "category": "clinical_template_default",
+   "evidence_level": "confirmed_static",
+   "summary": "Mẫu kết quả được dựng sẵn với câu mô tả 'bình thường' điền sẵn cho nhiều ô lâm sàng (tim thai dương tính, số thai 01, não thất/tiểu não/hố sau, tim 4 buồng, dạ dày, thận, nhau thai, dây rốn, nước ối, kết luận 'không thấy bất thường'). Lúc bấm Hoàn tất, máy chủ tự đổi mọi ô còn nguồn TEMPLATE_DEFAULT sang USER, tức là coi như bác sĩ đã xác nhận cả khối. Từ đó hồ sơ không còn phân biệt được ô nào là bác sĩ gõ/xem, ô nào là câu mẫu. Có cả câu mẫu chứa chỗ trống '?? tuần ?? ngày' có thể bị chốt nguyên văn.",
+   "trigger": "Bác sĩ/điều dưỡng mở phiếu siêu âm thai (SA_THAI_SOM, SA_THAI_QUY_1, SA_THAI_QUY_23…) hoặc siêu âm vú/giáp/tử cung, chỉ nhập vài số đo hoặc chỉ sửa một ô rồi bấm Hoàn tất mà không đọc lại từng ô; hoặc thực hiện khi bận/đông khách. Bộ mô phỏng của chính repo làm đúng như vậy: sửa MỘT ô rồi Hoàn tất và coi là thành công.",
+   "impact": "Phiếu có chữ ký bác sĩ khẳng định các cấu trúc 'bình thường' hoặc 'tim thai dương tính' mà thực tế có thể chưa được khảo sát (đặc biệt khảo sát hình thái thai quý II-III, số lượng thai, tim thai sớm). Có thể tạo kết quả âm tính giả/sai tim thai cho thai phụ, in và gửi cho bệnh nhân, và về sau không chứng minh được ô nào do người ký thực sự xác nhận. Ảnh hưởng pháp lý và an toàn bệnh nhân.",
+   "evidence": [
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua.py",
+     "line": 18,
+     "end_line": 24,
+     "detail": "Luật 'CÂU BÌNH THƯỜNG điền sẵn... Hoàn tất = người ký nhận CẢ câu mẫu — engine đổi nguồn sang USER lúc bấm'; chỉ xét nghiệm và số đo được loại khỏi điền sẵn."
+    },
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua.py",
+     "line": 483,
+     "end_line": 487,
+     "detail": "SA thai sớm: số lượng thai điền sẵn '01 thai' và Tim thai (FHR) điền sẵn 'Dương tính'."
+    },
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua.py",
+     "line": 536,
+     "end_line": 575,
+     "detail": "SA thai quý II-III: số thai '01 thai', não thất/tiểu não/hố sau/BOD/NBL/HL 'Bình thường', đầu mặt cổ, tim và lồng ngực (đủ 4 buồng), ổ bụng, tứ chi, nhau thai/dây rốn/nước ối đều điền sẵn bình thường; kết luận 'Tim thai dương tính, cử động thai tốt'."
+    },
+    {
+     "path": "src/clinicai/phieu_kham/mau_ket_qua_v3.json",
+     "line": 44,
+     "end_line": 44,
+     "detail": "Bản v3 đang dùng: SA_THAI_SOM.tim_thai mac_dinh = 'dương tính'."
+    },
+    {
+     "path": "src/clinicai/phieu_kham/mau_ket_qua_v3.json",
+     "line": 68,
+     "end_line": 68,
+     "detail": "Kết luận điền sẵn 'tương đương ?? tuần ?? ngày. Tim thai dương tính.' (còn chỗ trống ??). Tương tự dòng 219 và 426 cho quý I và quý II-III."
+    },
+    {
+     "path": "src/clinicai/phieu_kham/mau_ket_qua_v3.json",
+     "line": 321,
+     "end_line": 393,
+     "detail": "SA_THAI_QUY_23: các ô hình thái thai nhi (kích thước não thất bên, tiểu não, hố sau; tim và lồng ngực, ổ bụng, tứ chi) và phần phụ (nhau thai...) có mac_dinh bình thường."
+    },
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua-v3.py",
+     "line": 130,
+     "end_line": 136,
+     "detail": "Bộ sinh v3: mọi ô không có đơn vị và không phải âm/dương đều được gán mac_dinh = câu mẫu (cả ô dạng bảng, mỗi cột)."
+    },
+    {
+     "path": "src/clinicai/services/form_engine_service.py",
+     "line": 793,
+     "end_line": 796,
+     "detail": "Lúc Hoàn tất: 'Xác nhận toàn bộ: ô nào còn là câu mẫu cũng thành đã xác nhận' — đổi TEMPLATE_DEFAULT thành USER cho tất cả ô, không đòi xác nhận từng ô."
+    },
+    {
+     "path": "src/clinicai/services/form_engine_service.py",
+     "line": 1526,
+     "end_line": 1536,
+     "detail": "_o_da_doi chỉ so giá trị; ô đổi nguồn mà chữ y nguyên 'không phải một sửa chữa chuyên môn' nên không để lại dấu vết trong lịch sử."
+    },
+    {
+     "path": "src/clinicai/services/form_engine_service.py",
+     "line": 1552,
+     "end_line": 1556,
+     "detail": "_con_trong chỉ đếm ô TRỐNG để nhắc, không chặn; câu mẫu chưa sửa không bị coi là chưa xác nhận."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+     "line": 682,
+     "end_line": 684,
+     "detail": "Chỉ có nhãn '(câu điền sẵn)' trong lúc đang sửa; sau khi chốt nguồn đã là USER nên không còn nhãn."
+    },
+    {
+     "path": "scripts/mo-phong/buoc.py",
+     "line": 346,
+     "end_line": 353,
+     "detail": "Mô phỏng 'Sửa đúng MỘT ô' rồi hoan-tat: đường đi này luôn được chấp nhận."
+    }
+   ],
+   "limitations": "Việc điền sẵn là quyết định có chủ ý của chủ sản phẩm ('họ muốn mặc định là điền sẵn') và đã loại xét nghiệm và số đo khỏi điền sẵn. Chưa kiểm bản in để biết có đánh dấu câu mẫu hay không, và chưa kiểm có test nào chặn Hoàn tất khi còn câu mẫu chưa mở. Không khẳng định đã xảy ra phiếu sai ở production.",
+   "recommendation": "(1) Với nhóm ô an toàn cao (tim thai, số thai, hình thái thai nhi, BI-RADS/TI-RADS, kết luận) bỏ điền sẵn hoặc bắt bác sĩ bấm xác nhận từng ô/từng mục. (2) Giữ nguồn riêng cho ô đã được xác nhận mà không sửa (ví dụ TEMPLATE_CONFIRMED) thay vì gộp vào USER, và ghi vào lịch sử ai xác nhận lúc nào. (3) Chặn Hoàn tất khi kết luận/ô còn ký tự giữ chỗ như '??' hoặc '…'. (4) Bản in/PDF đánh dấu ô còn là câu mẫu chưa chỉnh nếu chủ sản phẩm vẫn muốn cho phép.",
+   "acceptance": "Test dịch vụ: mở SA_THAI_QUY_23 mới, chỉ điền GA/EFW rồi gọi hoan-tat → bị từ chối kèm danh sách mục lâm sàng chưa xác nhận; sau khi xác nhận từng mục thì hoàn tất được và du_lieu lưu nguồn 'đã xác nhận' phân biệt với 'bác sĩ gõ'. Kết luận chứa '??' bị chặn. Lịch sử phiếu có bản ghi xác nhận cho từng ô.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng",
+    "Bệnh nhân ít chờ bất định"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-037",
+    "CLIN-020",
+    "CLIN-054"
+   ]
+  },
+  {
+   "tmp_id": "S02-2",
+   "title": "Staging công khai trên Internet dùng chung mật khẩu/hash với prod, giữ nguyên PII thật của nhân sự và chạy mã nhánh chưa duyệt",
+   "severity": "HIGH",
+   "category": "environment_isolation",
+   "evidence_level": "confirmed_static",
+   "summary": "Staging được nạp lại mỗi đêm từ bản sao prod, bao gồm toàn bộ auth.users/identities của prod (hash mật khẩu giữ nguyên, 'tài khoản/mật khẩu y hệt prod'). Không có lớp chặn truy cập ở rìa (không basic auth, không allowlist IP): ai có tài khoản prod là vào được, và tên miền staging được Caddy prod phát công khai. Bộ che dữ liệu chỉ che khách; nhân sự (họ tên, SĐT, email, ngày sinh, số CCCD) được ghi là 'giu' (giữ nguyên). Staging lại chạy mã của nhánh đang thử (STAGING_REF) và dùng chung VPS, Caddy, ổ đĩa với prod.",
+   "trigger": "Một lỗ hổng trong mã nhánh đang thử (SSRF, SQL injection, lộ endpoint ops), hoặc kẻ tấn công thử mật khẩu yếu trên cổng đăng nhập staging công khai, hoặc ai đó đọc được DB/backup của staging.",
+   "impact": "Lộ hash mật khẩu của toàn bộ nhân viên prod và PII pháp lý (CCCD, ngày sinh) của nhân sự; vì mật khẩu trùng prod nên thành công ở staging có thể chuyển thành đăng nhập prod. Mặt tấn công của prod tăng thêm cả bề mặt của mã chưa soát.",
+   "evidence": [
+    {
+     "path": "caddy/Caddyfile.staging",
+     "line": 14,
+     "end_line": 15,
+     "detail": "'Không ổ khoá HTTP (basic auth): ai có tài khoản prod là vào thử được... tài khoản/mật khẩu y hệt prod (Tuyền chốt 01/10)'."
+    },
+    {
+     "path": "caddy/staging-tren-prod.caddy.mau",
+     "line": 10,
+     "end_line": 23,
+     "detail": "Site staging trên Caddy prod chỉ reverse_proxy, không có xác thực hay giới hạn nguồn."
+    },
+    {
+     "path": "scripts/staging-nap-ban-sao.sh",
+     "line": 189,
+     "end_line": 194,
+     "detail": "TRUNCATE auth.users CASCADE rồi nạp lại tệp _auth từ bản sao lưu prod (hash mật khẩu prod)."
+    },
+    {
+     "path": "scripts/staging-che-du-lieu.sql",
+     "line": 7,
+     "end_line": 8,
+     "detail": "'GIỮ NGUYÊN: nhân sự, tài khoản đăng nhập (auth.*)...'."
+    },
+    {
+     "path": "scripts/staging-che-du-lieu.sql",
+     "line": 215,
+     "end_line": 220,
+     "detail": "staff.full_name, phone, email, date_of_birth, national_id_number và app_credential.email xếp loại 'giu' — không che."
+    },
+    {
+     "path": "scripts/staging-dung-lan-dau.sh",
+     "line": 24,
+     "end_line": 26,
+     "detail": "Kiểu chung: ghi caddy/them/staging.caddy và khởi động lại Caddy prod; staging chung VPS với prod."
+    },
+    {
+     "path": "scripts/staging-dung-lan-dau.sh",
+     "line": 76,
+     "end_line": 83,
+     "detail": "Staging checkout theo STAGING_REF (nhánh/tag bất kỳ), tức chạy mã chưa merge."
+    }
+   ],
+   "limitations": "Không xác nhận được có lớp chặn ở tầng mạng ngoài repo (firewall, Cloudflare Access...) hay giới hạn tốc độ đăng nhập GoTrue. Việc dùng chung mật khẩu là quyết định có chủ ý của chủ sản phẩm. Chưa đánh giá thuật toán hash của GoTrue (bcrypt) nên mức dễ bẻ phụ thuộc độ mạnh mật khẩu.",
+   "recommendation": "(1) Đặt cổng chặn trước staging (VPN/allowlist IP/Cloudflare Access/forward_auth). (2) Khi nạp: thay hash mật khẩu bằng bộ tài khoản staging riêng hoặc đặt lại mật khẩu ngẫu nhiên phát qua kênh khác, không mang hash prod sang. (3) Che hoặc thay national_id_number, date_of_birth, phone, email của nhân sự (đổi email giả nếu không cần đăng nhập). (4) Tách staging khỏi VPS prod khi bán nhiều phòng khám.",
+   "acceptance": "Từ IP ngoài allowlist, GET trang đăng nhập staging trả 401/403. Sau mỗi lần nạp, truy vấn staging: auth.users.encrypted_password không trùng bất kỳ hash prod nào; staff.national_id_number rỗng hoặc giả; đăng nhập staging bằng mật khẩu prod thật của một nhân viên thất bại.",
+   "alignment": [
+    "Reality rõ",
+    "Nhân viên làm việc bền vững",
+    "Phát hiện vấn đề sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-031",
+    "SEC-032",
+    "SEC-005",
+    "DB-002"
+   ]
+  },
+  {
+   "tmp_id": "S02-3",
+   "title": "Staging: kiểm 'che sạch' chạy sau khi đã commit và sau khi bật lại dịch vụ, chỉ soi hai cột của bảng khách; che theo danh sách tường minh",
+   "severity": "MEDIUM",
+   "category": "data_masking_assurance",
+   "evidence_level": "confirmed_static",
+   "summary": "Đầu script khẳng định 'dữ liệu khách chưa che không bao giờ được commit', nhưng kiểm tra cuối cùng (patient.full_name khác 'Khách NNNN' và phone_primary khác 09xxxxxxxx) chạy sau khi giao dịch nạp+che đã COMMIT và sau khi api/su-kien/dashboard đã được start lại. Nếu kiểm thất bại, script chỉ gọi dung (thoát lỗi) và để staging đang chạy kèm dữ liệu vừa commit. Bản thân cơ chế che dựa trên danh sách cột khai tay (_che_cot): cột/bảng mới chứa thông tin khách mà chưa được thêm vào danh sách sẽ không được che, chỉ có test CI bắt tên cột 'trông giống' định danh.",
+   "trigger": "Một migration thêm cột/bảng chứa họ tên, SĐT, địa chỉ hoặc ghi chú về khách (hoặc đổi tên cột) mà chưa cập nhật staging-che-du-lieu.sql, hoặc tên cột không thuộc mẫu test; timer đêm 03:30 chạy không người trông.",
+   "impact": "Dữ liệu khách thật có thể nằm trong DB staging đang phục vụ công khai (xem S02-2) cho tới khi có người đọc log; kiểm cuối không phát hiện được vì chỉ nhìn hai cột.",
+   "evidence": [
+    {
+     "path": "scripts/staging-nap-ban-sao.sh",
+     "line": 17,
+     "end_line": 18,
+     "detail": "Khẳng định dữ liệu khách chưa che không bao giờ được commit vào DB staging."
+    },
+    {
+     "path": "scripts/staging-nap-ban-sao.sh",
+     "line": 240,
+     "end_line": 246,
+     "detail": "psql --single-transaction kết thúc (COMMIT) trước khi bất kỳ kiểm tra che nào chạy."
+    },
+    {
+     "path": "scripts/staging-nap-ban-sao.sh",
+     "line": 259,
+     "end_line": 275,
+     "detail": "Start lại api/su-kien/dashboard rồi mới kiểm; kiểm chỉ đếm patient.full_name và phone_primary; thất bại chỉ in 'Tắt staging: docs/STAGING.md'."
+    },
+    {
+     "path": "scripts/staging-che-du-lieu.sql",
+     "line": 30,
+     "end_line": 32,
+     "detail": "Thêm cột chứa thông tin khách thì phải thêm tay vào bảng _che_cot; chỉ test CI nhắc."
+    },
+    {
+     "path": "scripts/staging-che-du-lieu.sql",
+     "line": 239,
+     "end_line": 249,
+     "detail": "Bảng chưa có trong lược đồ bị loại khỏi danh sách che (chỉ NOTICE); cột không khai báo không được che."
+    }
+   ],
+   "limitations": "Đã có test CI (src/tests/test_staging_che_du_lieu.py) bắt cột định danh chưa xếp loại — chưa đọc test này nên không biết độ phủ. Không có bằng chứng rò rỉ thực tế.",
+   "recommendation": "Chuyển bước kiểm vào CÙNG giao dịch (RAISE EXCEPTION nếu còn giá trị thật; kiểm mọi bảng bằng một tập 'mẫu thật' lấy từ patient trước khi che: tên, SĐT, CCCD không được xuất hiện ở bất kỳ cột text nào), và chỉ start dịch vụ sau khi kiểm qua. Mặc định fail-closed: kiểm hỏng thì DROP SCHEMA public rồi dừng staging. Dùng quét theo catalog (information_schema) để cột mới tự bị chặn nếu chưa phân loại.",
+   "acceptance": "Test: chèn vào bản sao một cột text mới chứa SĐT thật → lần nạp ROLLBACK/xoá, dịch vụ staging không được start, log nêu tên cột. Không tồn tại đường nào mà dữ liệu chưa che đã commit và ứng dụng đã chạy.",
+   "alignment": [
+    "Reality rõ",
+    "Phát hiện vấn đề sớm"
+   ],
+   "extends": [
+    "SEC-031"
+   ],
+   "related_ids": [
+    "SEC-031"
+   ]
+  },
+  {
+   "tmp_id": "S02-4",
+   "title": "Nạp staging hằng đêm thất bại hoặc dùng bản sao cũ mà không có tín hiệu; timer chạy bù giờ làm việc; Nice/IOSchedulingClass không áp cho Postgres trong container",
+   "severity": "MEDIUM",
+   "category": "scheduler_signal",
+   "evidence_level": "design_gap",
+   "summary": "Script nạp chỉ ghi nhật ký khi thành công và không kiểm tuổi bản sao lưu; unit không có OnFailure hay cảnh báo. Staging là cổng chấp nhận trước khi lên prod nên staging 'đứng im' ở dữ liệu cũ sẽ không bị ai thấy. Timer dùng Persistent=true nên khi VPS tắt/khởi động lại qua 03:30 (như sự cố Docker restart 14/10) bản nạp sẽ chạy bù ngay lúc khởi động hoặc sáng, trùng giờ đón khách; trong khi đó Nice=19, IOSchedulingClass=idle, OOMScoreAdjust=900 chỉ áp cho tiến trình thuộc unit (docker CLI, gzip, sed), không áp cho tiến trình Postgres chạy trong container staging, nơi tốn tài nguyên thật.",
+   "trigger": "Bản sao lưu đêm hỏng/trễ (đã xảy ra nhiều đêm), hoặc nạp lỗi như đêm 08/10 (03:31 ngừng nạp), hoặc VPS khởi động lại ban ngày.",
+   "impact": "Người duyệt staging tin là đang thử trên dữ liệu 'giống prod hôm qua' trong khi thực tế là dữ liệu nhiều ngày; migration/diễn tập kiểm trên dữ liệu cũ; tranh chấp CPU/IO với prod giờ làm việc.",
+   "evidence": [
+    {
+     "path": "scripts/systemd/clinicai-staging-nap.timer",
+     "line": 4,
+     "end_line": 8,
+     "detail": "OnCalendar 03:30 và Persistent=true: chạy bù khi bỏ lỡ."
+    },
+    {
+     "path": "scripts/systemd/clinicai-staging-nap.service",
+     "line": 15,
+     "end_line": 19,
+     "detail": "Nice/IOSchedulingClass/OOMScoreAdjust nhưng không có OnFailure, TimeoutStartSec hay giới hạn tài nguyên container."
+    },
+    {
+     "path": "scripts/staging-nap-ban-sao.sh",
+     "line": 93,
+     "end_line": 104,
+     "detail": "Chọn bản mới nhất theo tên và chỉ kiểm sha256; không kiểm tuổi bản sao."
+    },
+    {
+     "path": "scripts/staging-nap-ban-sao.sh",
+     "line": 277,
+     "end_line": 281,
+     "detail": "Nhật ký chỉ được ghi ở cuối khi thành công; lỗi giữa chừng không để lại dòng nào."
+    },
+    {
+     "path": "scripts/staging-che-du-lieu.sql",
+     "line": 234,
+     "end_line": 238,
+     "detail": "Chú thích ghi nhận đêm 08/10 staging ngừng nạp vì thêm bảng chưa được xếp loại."
+    }
+   ],
+   "limitations": "Chưa đọc docs/STAGING.md hay lib/staging-chung.sh nên không biết có kiểm tuổi nạp ở nơi khác; hành vi Persistent và phạm vi cgroup là kiến thức systemd, chưa chạy thử.",
+   "recommendation": "Thêm OnFailure= gửi cảnh báo (cùng kênh canh_bao), ghi nhật ký cả khi lỗi; hiển thị 'staging = prod lúc <thời điểm bản sao>' ngay trên giao diện staging và cảnh báo khi quá 36 giờ; bỏ Persistent=true hoặc chặn chạy bù trong giờ làm việc; đặt giới hạn CPU/RAM/IO cho container staging db thay vì chỉ cho unit.",
+   "acceptance": "Giả lập nạp lỗi → có cảnh báo trong vòng 5 phút; bản sao cũ hơn ngưỡng → banner staging cảnh báo; khởi động lại máy ban ngày không kích hoạt nạp chồng giờ làm việc.",
+   "alignment": [
+    "Unknown ngắn",
+    "Phát hiện vấn đề sớm",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-001",
+    "INF-019"
+   ]
+  },
+  {
+   "tmp_id": "S02-5",
+   "title": "Hai bất biến mà bộ mô phỏng canh (đã thu tiền nhưng chưa có phòng; giao thuốc vượt số khách mua) chưa là cảnh báo sản xuất",
+   "severity": "MEDIUM",
+   "category": "missing_runtime_invariant",
+   "evidence_level": "design_gap",
+   "summary": "mo_phong.py kiểm cuối buổi bốn bất biến; hai trong đó đã được đưa vào canh_gac.py (hàng chờ của lượt đã đóng, tiền chỉ định). Hai bất biến còn lại chỉ tồn tại trong script chạy tay: 'da_tra_tien_chua_phong' (chỉ định đã chọn và đã thu tiền dịch vụ nhưng routing_status vẫn UNASSIGNED) và 'giao_thuoc_vuot_mua' (tổng phân lô lớn hơn purchased_qty). Chúng đúng là những tình huống làm khách chờ trong bất định hoặc lệch kho nhưng ở production chỉ lộ ra khi có người mở màn trưởng ca/kho.",
+   "trigger": "Bug hoặc luồng ngoại lệ làm hệ thống không tự xếp phòng sau thu tiền, hoặc đường giao thuốc ghi nhiều hơn số mua.",
+   "impact": "Khách đã trả tiền đứng chờ không ai biết; thuốc xuất vượt số bán gây lệch kho. Phát hiện muộn, thường sau khi khách phàn nàn.",
+   "evidence": [
+    {
+     "path": "scripts/mo-phong/mo_phong.py",
+     "line": 497,
+     "end_line": 518,
+     "detail": "Bốn bất biến của kiểm cuối, gồm da_tra_tien_chua_phong và giao_thuoc_vuot_mua."
+    },
+    {
+     "path": "src/clinicai/services/canh_gac.py",
+     "line": 60,
+     "end_line": 143,
+     "detail": "Danh sách cảnh báo sản xuất có HANG_CHO_MA và TIEN_CHI_DINH nhưng không có kiểm tra chỉ định đã thu chưa xếp phòng hay giao vượt mua."
+    },
+    {
+     "path": "src/clinicai/services/canh_gac.py",
+     "line": 161,
+     "end_line": 179,
+     "detail": "Truy vấn đếm trong do_so: không có hai điều kiện trên."
+    }
+   ],
+   "limitations": "Chỉ đọc canh_gac.py; có thể có tín hiệu tương tự ở màn trưởng ca (khong_co_phong) hoặc nơi khác chưa đọc. Điều kiện loại trừ trong script (đối tác lấy mẫu, làm bên ngoài, lượt INCOMPLETE) cần được giữ khi chuyển thành truy vấn sản xuất.",
+   "recommendation": "Đưa hai truy vấn thành KetQuaKiem trong canh_gac (có ngưỡng thời gian, ví dụ đã thu quá 10 phút mà chưa có phòng), gán chủ xử lý (trưởng ca/dược sĩ) và nhắc lại đến khi đóng. Dùng chung câu SQL với bộ mô phỏng để hai nơi không lệch.",
+   "acceptance": "Test DB: tạo chỉ định đã thu tiền, tắt toàn bộ phòng phù hợp → sau ngưỡng có cảnh báo mở với số lượng và tên phòng khám; tạo dispense vượt purchased_qty → có cảnh báo. Cảnh báo tự đóng khi dữ liệu trở lại hợp lệ.",
+   "alignment": [
+    "Bệnh nhân ít chờ bất định",
+    "Phát hiện vấn đề sớm",
+    "Unknown ngắn"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-027",
+    "OPS-009"
+   ]
+  },
+  {
+   "tmp_id": "S02-6",
+   "title": "Uptime Kuma do script dựng chỉ có 4 monitor, không có kênh báo, không canh worker sự kiện; script dừng Kuma mà không có cơ chế bật lại khi lỗi",
+   "severity": "MEDIUM",
+   "category": "monitoring_gap",
+   "evidence_level": "design_gap",
+   "summary": "setup-uptime-kuma.sh tạo ba monitor HTTP (API /health/db, dashboard /health, Caddy) và một monitor push cho sao lưu đêm, rồi tự nhận 'CHƯA CÓ KÊNH BÁO ĐỘNG'. Không có monitor cho /health/su-kien (worker sự kiện), timer, hay tín hiệu từ canh_bao; suc-khoe.sh ghi rõ /health/su-kien chỉ gọi được từ trong máy. Việc thêm kênh báo là bước tay không có kiểm chứng. Ngoài ra script docker stop container Kuma, đọc/sửa SQLite rồi mới start; nếu bước python hoặc docker cp lỗi (set -e) thì container Kuma ở trạng thái dừng và không có trap để bật lại — chính công cụ giám sát bị tắt mà không ai thấy.",
+   "trigger": "Chạy script khi một bước giữa chừng lỗi (schema Kuma đổi, đĩa đầy, hash rỗng); hoặc worker su-kien chết trong khi API vẫn trả 200; hoặc không ai thêm kênh Telegram/SMTP sau khi dựng.",
+   "impact": "Sự cố im lặng kéo dài (đã từng xảy ra: Kuma 10 ngày 0 monitor). Giám sát chỉ có tác dụng màn hình, không có người nhận.",
+   "evidence": [
+    {
+     "path": "scripts/setup-uptime-kuma.sh",
+     "line": 69,
+     "end_line": 72,
+     "detail": "docker stop container rồi chép DB và chạy python sửa; không có trap khởi động lại."
+    },
+    {
+     "path": "scripts/setup-uptime-kuma.sh",
+     "line": 94,
+     "end_line": 101,
+     "detail": "Danh sách monitor: chỉ ba URL HTTP."
+    },
+    {
+     "path": "scripts/setup-uptime-kuma.sh",
+     "line": 145,
+     "end_line": 163,
+     "detail": "Một monitor push duy nhất cho sao lưu đêm; token tạo lúc dựng."
+    },
+    {
+     "path": "scripts/setup-uptime-kuma.sh",
+     "line": 199,
+     "end_line": 206,
+     "detail": "Output ghi nhận CHƯA CÓ KÊNH BÁO ĐỘNG và hướng dẫn thêm tay."
+    },
+    {
+     "path": "scripts/suc-khoe.sh",
+     "line": 41,
+     "end_line": 43,
+     "detail": "'Người đưa tin sự kiện: chỉ gọi được từ trong máy' — Kuma không với tới /health/su-kien."
+    }
+   ],
+   "limitations": "Có thể kênh báo đã được thêm tay sau khi dựng và monitor khác được thêm qua monitoring/monitors.json (script check-monitoring.sh không được đọc). Không biết trạng thái Kuma production hiện tại.",
+   "recommendation": "Thêm trap bật lại container; thêm monitor cho worker sự kiện (endpoint nội bộ hoặc push từ canh_bao), cho backup off-box và cho tuổi nạp staging; bắt buộc ít nhất một kênh báo (script fail nếu notification=0 ở prod) và gửi thử một cảnh báo; cân nhắc dead-man's switch từ canh_bao sang Kuma push.",
+   "acceptance": "Chạy script với lỗi giả lập ở bước python → container Kuma vẫn chạy sau khi script thoát. Dừng worker su-kien, API còn sống → Kuma chuyển đỏ và có tin nhắn đến kênh báo trong chu kỳ kế tiếp. Prod không thể kết thúc dựng với 0 notification.",
+   "alignment": [
+    "Phát hiện vấn đề sớm",
+    "Ownership rõ",
+    "Unknown ngắn"
+   ],
+   "extends": [
+    "INF-027"
+   ],
+   "related_ids": [
+    "INF-002",
+    "INF-019",
+    "INF-027"
+   ]
+  },
+  {
+   "tmp_id": "S02-7",
+   "title": "Script chuyển lịch hẹn Kim Ngưu sang Hào Nam sửa thẳng appointment.location_id: không báo khách, không kiểm bác sĩ có ca ở cơ sở đích, không để lại lịch sử/sự kiện",
+   "severity": "MEDIUM",
+   "category": "bulk_data_change",
+   "evidence_level": "design_gap",
+   "summary": "Chế độ --chuyen-tu-hom-nay chạy một câu UPDATE appointment SET location_id trên mọi lịch từ hôm nay chưa có visit. Lịch làm việc (ca trực) cố ý không chuyển nên bác sĩ có thể không có ca nào ở Hào Nam; script không kiểm tra điều đó, không phát domain_event/nhắc gọi, không ghi bản ghi đổi lịch (người, lý do, giá trị cũ-mới) và không báo cho khách địa điểm khám đã đổi thành cơ sở khác địa chỉ. --tra-lai-chuyen đoán lịch 'vốn của Kim Ngưu' bằng created_at nhỏ hơn thời điểm tạo cơ sở Hào Nam.",
+   "trigger": "Vận hành chạy --chuyen-tu-hom-nay --that khi đã có lịch hẹn cho nhiều ngày tới; khách đã nhận tin nhắn/SMS địa chỉ Kim Ngưu.",
+   "impact": "Khách đến sai địa điểm hoặc đến nơi không có bác sĩ; CSKH và lễ tân phát hiện khi khách phàn nàn; không truy vết được vì sao lịch đổi cơ sở. Lịch bị trả ngược nhầm nếu khách đổi lịch sau mốc.",
+   "evidence": [
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 946,
+     "end_line": 975,
+     "detail": "_chuyen: UPDATE appointment trực tiếp, trừ lịch đã check-in; ghi chú 'Lịch làm việc không chuyển — nhập tay ở Hào Nam'."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 978,
+     "end_line": 999,
+     "detail": "_tra_lai: chọn lịch theo created_at < thời điểm tạo clinic_location Hào Nam."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 1057,
+     "end_line": 1065,
+     "detail": "Hai cờ CLI chạy trực tiếp trên DB production trong một giao dịch, không có bước thông báo."
+    }
+   ],
+   "limitations": "Việc chuyển theo quyết định của chủ sản phẩm (08/10). Chưa kiểm có trigger nào trên appointment ghi lịch sử hay phát sự kiện khi location_id đổi; nếu có thì phần 'không để lại lịch sử' giảm, nhưng khách vẫn không được báo.",
+   "recommendation": "Đi qua dịch vụ đổi lịch (có audit, domain_event, nhắc CSKH gọi khách); xuất danh sách lịch bị chuyển kèm số điện thoại cho CSKH; chặn hoặc cảnh báo khi bác sĩ của lịch không có ca ở cơ sở đích; trả lại theo bảng ghi các lịch đã chuyển thay vì suy luận bằng created_at.",
+   "acceptance": "Chạy thử (ROLLBACK) in ra số lịch có bác sĩ không có ca ở cơ sở đích và số khách cần gọi; sau --that mỗi lịch đổi có một bản ghi lịch sử và một việc nhắc gọi khách; --tra-lai-chuyen khôi phục đúng tập đã chuyển.",
+   "alignment": [
+    "Bệnh nhân ít chờ bất định",
+    "Ownership rõ",
+    "Reality rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-011",
+    "CLIN-053",
+    "OPS-003"
+   ]
+  },
+  {
+   "tmp_id": "S02-8",
+   "title": "Chép kho sang Hào Nam nhân đôi tồn kho (giữ nguyên tồn Kim Ngưu); dấu vân tay 'KN không đổi' đọc trong READ COMMITTED có thể báo lệch giả khi kho đang chạy",
+   "severity": "MEDIUM",
+   "category": "inventory_provisioning",
+   "evidence_level": "design_gap",
+   "summary": "--chep-kho tạo lô Hào Nam cùng số lô với tồn 0 rồi ghi một dòng RECEIVE bằng quantity_on_hand của lô Kim Ngưu, trong khi lô Kim Ngưu giữ nguyên. Tổng tồn của phòng khám tăng gấp đôi (và giá trị tồn, số lô sắp hết hạn), dù thuốc vật lý chỉ có một bản. Ngoài ra bước kiểm 'Kim Ngưu trước = sau' tính md5 trên drug_batch/inventory_txn của KN ở đầu và cuối giao dịch mặc định READ COMMITTED; khi nhà thuốc đang giao thuốc, tồn KN đổi giữa hai lần đọc nên script ROLLBACK với lý do sai.",
+   "trigger": "Chạy --chep-kho --that khi KN vẫn còn bán/giao thuốc hoặc sau khi KN đã ngừng nhưng không trừ tồn.",
+   "impact": "Báo cáo tồn/giá trị kho, cảnh báo hết hạn và đặt hàng lệch; người bán ở Hào Nam thấy hàng không có thật. Hoặc vận hành tắt kiểm dấu vân tay để chạy được và mất lưới an toàn.",
+   "evidence": [
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 642,
+     "end_line": 702,
+     "detail": "_chep_kho: INSERT drug_batch tồn 0 rồi inventory_txn RECEIVE theo quantity_on_hand của lô KN; không trừ lô KN, không có giao dịch chuyển kho hai chiều."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 252,
+     "end_line": 291,
+     "detail": "dau_van_kn: md5 trên drug_batch và inventory_txn của KN."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 1017,
+     "end_line": 1037,
+     "detail": "Giao dịch mặc định, so truoc/sau và RuntimeError khi lệch."
+    }
+   ],
+   "limitations": "Có thể chủ ý: Hào Nam là cơ sở mới nhập kho bằng cách sao chép danh mục và số lô, sau đó nhân viên kiểm kê chỉnh lại. Chưa đọc kế hoạch vận hành thực tế. Điều kiện 'khi KN đang chạy' phụ thuộc thời điểm chạy.",
+   "recommendation": "Mô hình hoá là phiếu chuyển kho (trừ KN, cộng HN, cùng một giao dịch, có người chịu trách nhiệm), hoặc chép lô với tồn 0 để kiểm kê nhập số thật; chạy dấu vân tay bằng REPEATABLE READ hoặc loại tồn khỏi md5 (chỉ so các cột cấu hình); thêm cảnh báo trong báo cáo khi tổng tồn tăng đột ngột sau chép.",
+   "acceptance": "Sau --chep-kho, tổng quantity_on_hand toàn phòng khám không đổi (hoặc phiếu chuyển kho được tạo); chạy script khi có giao dịch giao thuốc đồng thời không còn báo lệch giả.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "PHAR-002",
+    "CLIN-007"
+   ]
+  },
+  {
+   "tmp_id": "S02-9",
+   "title": "Script vận hành một lần ghi quyền/nhân sự dưới danh nghĩa một tài khoản Quản lý hoặc đi vòng sổ kiểm toán",
+   "severity": "MEDIUM",
+   "category": "audit_attribution",
+   "evidence_level": "confirmed_static",
+   "summary": "Ba script lấy một nhân viên MANAGEMENT bất kỳ (ưu tiên tên 'Quản lý hệ thống') làm 'người thực hiện' cho những thay đổi quyền mà họ không quyết định: nhan-ban-co-so.py chèn capability_grant với granted_by/revoked_by = người đó, sua-ky-nang-lay-mau.py dựng đối tượng StaffIdentity giả với vai MANAGEMENT để gọi KyNangService, nhan-su-kim-nguu.py đăng nhập bằng tài khoản quản lý hệ thống với mật khẩu mặc định. Nhiều ghi chép khác (staff_vi_tri, vi_tri_dong_ca, UPDATE staff, tạo staff/clinic_membership) đi thẳng bằng SQL, không qua dịch vụ có nhật ký thao tác.",
+   "trigger": "Một nhà phát triển/vận hành chạy script trên production; sau này cần truy vết ai cấp quyền ROOM nào cho ai.",
+   "impact": "Sổ kiểm toán ghi một người thật (hoặc tài khoản hệ thống) đã cấp/thu quyền, không có người chịu trách nhiệm thực; thay đổi quyền theo phòng được nhân bản từ KN sang HN mà không có yêu cầu duyệt. Khó điều tra sự cố quyền.",
+   "evidence": [
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 226,
+     "end_line": 235,
+     "detail": "thao_tac = một staff MANAGEMENT bất kỳ, ưu tiên 'Quản lý hệ thống'."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 838,
+     "end_line": 862,
+     "detail": "INSERT capability_grant (granted_by = thao_tac) sao chép quyền ROOM của KN sang phòng HN, không ghi nhật ký quyền."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 734,
+     "end_line": 743,
+     "detail": "UPDATE capability_grant SET revoked_by = thao_tac."
+    },
+    {
+     "path": "scripts/sua-ky-nang-lay-mau.py",
+     "line": 52,
+     "end_line": 72,
+     "detail": "Dựng StaffIdentity giả vai MANAGEMENT lấy từ DB."
+    },
+    {
+     "path": "scripts/sua-ky-nang-lay-mau.py",
+     "line": 95,
+     "end_line": 106,
+     "detail": "Thu hồi kỹ năng của cả nhóm, đổi định nghĩa bằng UPDATE trực tiếp, rồi cấp lại; không nguyên tử."
+    },
+    {
+     "path": "scripts/nhan-su-kim-nguu.py",
+     "line": 498,
+     "end_line": 508,
+     "detail": "Đăng nhập tài khoản quản lý với mật khẩu mặc định MAT_KHAU."
+    },
+    {
+     "path": "scripts/nhan-su-kim-nguu.py",
+     "line": 775,
+     "end_line": 799,
+     "detail": "UPDATE staff (họ tên, SĐT, email, cơ sở) bằng SQL trực tiếp."
+    }
+   ],
+   "limitations": "Mỗi script là công cụ chạy một lần, có chế độ chạy thử và đã được dùng trong tháng 9-10; mức rủi ro hiện tại phụ thuộc việc còn chạy lại hay không. Chưa đọc KyNangService để biết ghi nhật ký thế nào khi nhận identity giả.",
+   "recommendation": "Có một 'hành động hệ thống' có tên (ví dụ actor SCRIPT:<tên>, ghi người phát lệnh thật, ticket, lý do) thay vì mượn tài khoản quản lý; mọi thay đổi quyền/nhân sự của script phải đi qua dịch vụ có nhật ký hoặc tự ghi vào event_log với hành động và người phát lệnh; thu hồi-rồi-cấp-lại phải nằm trong một giao dịch.",
+   "acceptance": "Sau khi chạy script, truy vấn nhật ký thao tác cho thấy actor = tên script + người phát lệnh, không phải tài khoản quản lý bất kỳ; sự kiện cấp/thu quyền xuất hiện đủ; thu hồi và cấp lại kỹ năng hoặc cùng thành công hoặc cùng hoàn tác.",
+   "alignment": [
+    "Ownership rõ",
+    "Reality rõ",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [
+    "SEC-026",
+    "SEC-012"
+   ],
+   "related_ids": [
+    "SEC-026",
+    "SEC-012",
+    "INF-021"
+   ]
+  },
+  {
+   "tmp_id": "S02-10",
+   "title": "Nạp nhân sự từ Excel ghép tên theo tập chữ, ghi đè hồ sơ thật, không chạy trong giao dịch và giả định chỉ có một phòng khám (SELECT id FROM clinic LIMIT 1)",
+   "severity": "MEDIUM",
+   "category": "identity_matching",
+   "evidence_level": "design_gap",
+   "summary": "Script suy đoán nhân viên từ tên viết trong lịch bằng quy tắc tập chữ ('ít nhất hai chữ', hợp nhóm nghề). Tác giả đã ghi nhận các lần ghép nhầm trước đó (Thanh Huyền thành BS Thành; CSKH thành điều dưỡng). Kết quả khớp được dùng ngay để UPDATE staff.full_name/phone/email/primary_location_id và ghi staff_vi_tri của người đã có hồ sơ, từng bước ở chế độ autocommit; không có bước người xác nhận từng cặp giữa chạy thử và --that (danh sách khớp được tính lại lúc chạy thật). Phòng khám đích lấy bằng SELECT id FROM clinic LIMIT 1 và tên cơ sở mặc định 'Kim Ngưu'. Tài khoản mới mặc định có mật khẩu '12345678' và email dr4women.vn.",
+   "trigger": "Chạy lại với Excel khác, thêm nhân viên trùng chữ, hoặc DB có hơn một phòng khám.",
+   "impact": "Ca trực/KPI gán nhầm người, ghi đè số điện thoại/email của nhân viên thật; ở môi trường nhiều phòng khám có thể ghi vào phòng khám đầu tiên; lỗi giữa chừng để lại trạng thái nửa vời.",
+   "evidence": [
+    {
+     "path": "scripts/nhan-su-kim-nguu.py",
+     "line": 54,
+     "end_line": 56,
+     "detail": "Mặc định DUOI_TEN_DANG_NHAP=dr4women.vn, MAT_KHAU_MOI=12345678, CO_SO='Kim Ngưu'."
+    },
+    {
+     "path": "scripts/nhan-su-kim-nguu.py",
+     "line": 570,
+     "end_line": 579,
+     "detail": "clinic_id = SELECT id FROM clinic LIMIT 1; cơ sở tìm theo tên."
+    },
+    {
+     "path": "scripts/nhan-su-kim-nguu.py",
+     "line": 591,
+     "end_line": 657,
+     "detail": "Quy tắc ghép tập chữ và lời chú về hai ca ghép nhầm trước đó."
+    },
+    {
+     "path": "scripts/nhan-su-kim-nguu.py",
+     "line": 744,
+     "end_line": 799,
+     "detail": "Vòng lặp --that UPDATE staff và INSERT staff_vi_tri không bọc giao dịch."
+    },
+    {
+     "path": "scripts/nhan-su-kim-nguu.py",
+     "line": 825,
+     "end_line": 829,
+     "detail": "Tạo user GoTrue bằng service role key với mật khẩu mặc định và email_confirm true."
+    }
+   ],
+   "limitations": "Công cụ một lần cho dữ liệu Kim Ngưu; có DE_TRONG và dừng khi tên mơ hồ (điểm tốt). Mật khẩu chung được chủ sản phẩm chọn có chủ ý. Chưa biết script còn được chạy lại hay không.",
+   "recommendation": "Chuyển thành màn nhập nhân sự có xem trước từng cặp và người duyệt; yêu cầu truyền --clinic; bọc cập nhật trong giao dịch; không ghi đè trường đã có nếu không có xác nhận; sinh mật khẩu ngẫu nhiên một lần và buộc đổi khi đăng nhập đầu.",
+   "acceptance": "Chạy trên DB có hai phòng khám mà không truyền --clinic → từ chối; hai tên mơ hồ → không ghi gì và xuất báo cáo; lỗi ở dòng thứ k → không dòng nào được ghi; tài khoản tạo mới yêu cầu đổi mật khẩu lần đầu.",
+   "alignment": [
+    "Ownership rõ",
+    "Reality rõ"
+   ],
+   "extends": [
+    "SEC-032"
+   ],
+   "related_ids": [
+    "SEC-032",
+    "DB-005"
+   ]
+  },
+  {
+   "tmp_id": "S02-11",
+   "title": "supabase-local-nap.sh (đường dựng database mới) có thể chạy lại trên bản migration nửa chừng và dùng thư mục migration cũ trong container",
+   "severity": "MEDIUM",
+   "category": "db_provisioning",
+   "evidence_level": "design_gap",
+   "summary": "Script chỉ coi database là 'trống' khi sổ supabase_migrations.schema_migrations rỗng, nhưng sổ này chỉ được ghi SAU khi toàn bộ migration chạy xong. Nếu migration thứ k lỗi, schema đã có k-1 migration mà sổ vẫn rỗng, nên chạy lại vượt qua cổng chặn và áp lại từ đầu lên schema nửa chừng. Ngoài ra docker cp thư mục migrations vào /migrations: khi /migrations đã tồn tại (lần chạy trước), docker cp thư mục sẽ chép thành /migrations/migrations, trong khi vòng lặp đọc /migrations/*.sql, tức bản cũ của lần chạy đầu; sửa migration rồi chạy lại vẫn dùng bản cũ.",
+   "trigger": "Dựng DB cho phòng khám mới hoặc môi trường mới, một migration lỗi giữa chừng, người vận hành sửa và chạy lại script.",
+   "impact": "Schema kết hợp không xác định (một phần migration cũ + áp lại), ledger không phản ánh thực trạng, hoặc không phát hiện migration mới sửa. Đây là đường duy nhất thấy trong repo để dựng DB mới nên ảnh hưởng thẳng đến khả năng nhân rộng phòng khám.",
+   "evidence": [
+    {
+     "path": "scripts/supabase-local-nap.sh",
+     "line": 34,
+     "end_line": 41,
+     "detail": "Cổng chặn chỉ kiểm sổ migration có dòng hay không; chú thích thừa nhận mỗi file chạy không bọc giao dịch."
+    },
+    {
+     "path": "scripts/supabase-local-nap.sh",
+     "line": 90,
+     "end_line": 98,
+     "detail": "docker cp thư mục vào /migrations rồi vòng lặp for m in /migrations/*.sql."
+    },
+    {
+     "path": "scripts/supabase-local-nap.sh",
+     "line": 100,
+     "end_line": 108,
+     "detail": "Sổ migration chỉ được điền ở bước cuối, sau toàn bộ migration."
+    }
+   ],
+   "limitations": "Hành vi docker cp thư mục vào thư mục đã tồn tại là kiến thức Docker chưa chạy thử trong phiên này. Phần ledger-sau-cùng là suy ra từ mã tĩnh.",
+   "recommendation": "Dùng apply-pending-migrations.sh (ghi sổ từng migration trong cùng giao dịch) làm đường duy nhất; xoá /migrations trước khi chép hoặc dùng docker cp src/. ; kiểm 'database trống' bằng số bảng public thay vì chỉ sổ; ghi sổ ngay sau mỗi migration.",
+   "acceptance": "Giả lập migration thứ 5 lỗi rồi chạy lại: script từ chối vì schema không trống (hoặc tiếp tục đúng từ migration 5); sửa file migration rồi chạy lại dùng nội dung mới nhất; sổ migration luôn khớp với schema.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [
+    "DB-005"
+   ],
+   "related_ids": [
+    "DB-005",
+    "INF-008",
+    "DB-006"
+   ]
+  },
+  {
+   "tmp_id": "S02-12",
+   "title": "Xử lý bí mật trong script hạ tầng: tệp tạm tên đoán được, chmod sau khi ghi, khoá JWT hạn 20 năm, kết nối mặc định và SQL nối chuỗi",
+   "severity": "LOW",
+   "category": "secret_handling",
+   "evidence_level": "confirmed_static",
+   "summary": "setup-uptime-kuma.sh ghi token push của monitor sao lưu vào /tmp/kuma-push-token bằng open() với quyền mặc định, chỉ sau đó mới install -m 600 sang chỗ cuối; token này cho phép gửi nhịp tim giả làm monitor sao lưu xanh. sinh-khoa-supabase.py ký ANON_KEY và SERVICE_ROLE_KEY với exp = iat + 20 năm (iat cố định) và --ghi dùng write_text rồi chmod 0600 sau (có khoảng quyền mặc định), chế độ không --ghi in thẳng khoá ra màn hình. read-feedback.sh có chuỗi kết nối mặc định postgres:postgres@127.0.0.1 và nối thẳng tham số $2 vào câu UPDATE.",
+   "trigger": "Máy chủ có người dùng cục bộ khác hoặc log terminal được lưu; script chạy với tham số lạ.",
+   "impact": "Hạ thấp độ tin cậy của tín hiệu sao lưu; khoá service_role không có đường xoay vòng ngoài thay toàn bộ JWT_SECRET; rủi ro nhỏ nhưng nằm ở lớp bí mật cốt lõi.",
+   "evidence": [
+    {
+     "path": "scripts/setup-uptime-kuma.sh",
+     "line": 164,
+     "end_line": 165,
+     "detail": "open('/tmp/kuma-push-token','w') ghi token."
+    },
+    {
+     "path": "scripts/setup-uptime-kuma.sh",
+     "line": 187,
+     "end_line": 191,
+     "detail": "Chỉ sau đó mới cài vào ~/.config với quyền 600 và xoá bản /tmp."
+    },
+    {
+     "path": "scripts/sinh-khoa-supabase.py",
+     "line": 36,
+     "end_line": 39,
+     "detail": "IAT cố định 01/01/2026, EXP = IAT + 20 năm cho cả anon và service_role."
+    },
+    {
+     "path": "scripts/sinh-khoa-supabase.py",
+     "line": 89,
+     "end_line": 93,
+     "detail": "write_text rồi chmod; không --ghi thì print nội dung có khoá."
+    },
+    {
+     "path": "scripts/read-feedback.sh",
+     "line": 14,
+     "end_line": 18,
+     "detail": "Kết nối mặc định có mật khẩu mẫu; UPDATE ... WHERE id='$2' nối chuỗi."
+    }
+   ],
+   "limitations": "Máy chủ chủ yếu một người vận hành (xem CLAUDE.md), nên khả năng khai thác thấp; read-feedback.sh là công cụ dev cục bộ.",
+   "recommendation": "Dùng umask 077 hoặc mktemp + os.open(..., 0o600); thêm quy trình xoay khoá và exp ngắn hơn (có kế hoạch gia hạn); tham số hoá câu SQL (psql -v) hoặc kiểm UUID; bắt buộc đặt FEEDBACK_DB_URL thay vì mặc định.",
+   "acceptance": "Tệp token và .env được tạo ngay với quyền 600 (kiểm stat); khoá phát hành có hạn có chủ đích kèm tài liệu xoay; read-feedback.sh --done với tham số có dấu nháy không đổi được dòng khác.",
+   "alignment": [
+    "Nhân viên làm việc bền vững",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-019"
+   ]
+  },
+  {
+   "tmp_id": "S02-13",
+   "title": "Bộ mô phỏng chưa nằm trong cổng nào, mã thoát bỏ qua bất biến, không phục hồi cấu hình khi lỗi và dùng chung container với bản sao prod",
+   "severity": "LOW",
+   "category": "test_harness_gate",
+   "evidence_level": "design_gap",
+   "summary": "mo_phong.py trả mã thoát 1 chỉ khi một kịch bản hỏng, bỏ qua sự kiện chưa giao xong và các bất biến dữ liệu; ngay_kham.py luôn return 0 kể cả khi có thao tác hỏng. Không có script CI nào gọi bộ mô phỏng (grep chỉ thấy tài liệu). ngay_kham.py đổi cấu hình dùng chung (mở cửa 04:00, nhắc check-out 1 phút, tắt toàn bộ phòng Kim Ngưu) và chỉ khôi phục ở cuối chạy thành công, không có try/finally. Mọi thứ nhắm vào container clinicai_thu_db — cũng là container mà staging-tu-ban-sao.sh xoá sạch và nạp bản sao prod chưa che; cổng kiem_chi_local chỉ kiểm container tồn tại.",
+   "trigger": "Chạy mô phỏng thủ công sau khi đổi mã; hoặc ngắt giữa chừng; hoặc chạy sau khi nạp bản sao prod vào cùng container.",
+   "impact": "Lớp kiểm thứ tư dựa vào người nhớ chạy và đọc báo cáo; regress có thể lọt; cấu hình dev bị trôi sau lần chạy hỏng. Rủi ro dữ liệu thật thấp vì tài khoản @dr4women.local thường không tồn tại trong bản sao prod, nhưng không có chốt chặn rõ ràng.",
+   "evidence": [
+    {
+     "path": "scripts/mo-phong/mo_phong.py",
+     "line": 566,
+     "end_line": 572,
+     "detail": "Mã thoát = 1 nếu có kịch bản hỏng; bất biến chỉ in số."
+    },
+    {
+     "path": "scripts/mo-phong/ngay_kham.py",
+     "line": 229,
+     "end_line": 242,
+     "detail": "Khôi phục cấu hình và return 0 vô điều kiện."
+    },
+    {
+     "path": "scripts/mo-phong/ngay_kham.py",
+     "line": 111,
+     "end_line": 119,
+     "detail": "Đổi giờ mở cửa/ca và dây H8 trước khi chạy, không có finally."
+    },
+    {
+     "path": "scripts/mo-phong/dung_phong_kham.py",
+     "line": 101,
+     "end_line": 106,
+     "detail": "Tắt mọi phòng đang bật của Kim Ngưu."
+    },
+    {
+     "path": "scripts/mo-phong/ket_noi.py",
+     "line": 42,
+     "end_line": 50,
+     "detail": "kiem_chi_local chỉ kiểm API 127.0.0.1 và container tồn tại."
+    },
+    {
+     "path": "scripts/staging-tu-ban-sao.sh",
+     "line": 15,
+     "end_line": 30,
+     "detail": "Cùng container clinicai_thu_db được xoá sạch và nạp bản sao prod (dẫn từ grep, tệp ngoài danh sách)."
+    }
+   ],
+   "limitations": "Docs coi đây là công cụ khám phá, không phải cổng. Chưa đọc staging-tu-ban-sao.sh đầy đủ. Đã có bất biến tiền chạy trong canh_gac và các test DB tương ứng.",
+   "recommendation": "Trả mã thoát khác 0 khi có bất biến vi phạm hoặc sự kiện chưa xong; bọc cấu hình trong try/finally; thêm chốt chặn dữ liệu (đếm số bệnh nhân không phải DEMO-*, từ chối nếu >0); chạy một tập con kịch bản ổn định như bước CI đêm.",
+   "acceptance": "Cố ý phá một bất biến → mo_phong.py thoát khác 0; kill giữa ngay_kham → cấu hình ca/H8 được khôi phục; chạy trên container có dữ liệu không phải DEMO → từ chối.",
+   "alignment": [
+    "Phát hiện vấn đề sớm",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-014"
+   ]
+  },
+  {
+   "tmp_id": "S02-14",
+   "title": "Bộ mô phỏng không có kịch bản cách ly giữa hai phòng khám hoặc cơ sở ngoài việc lọc phòng theo cơ sở",
+   "severity": "MEDIUM",
+   "category": "test_gap_tenant_isolation",
+   "evidence_level": "design_gap",
+   "summary": "Toàn bộ kịch bản chạy trên một phòng khám duy nhất và hai cơ sở; phép thử duy nhất liên quan là tạo một phòng siêu âm ở Hào Nam và canh xem bệnh nhân Kim Ngưu có bị xếp sang đó không. Các phép thử vượt quyền (P5, K14) kiểm theo VAI, không kiểm theo phòng khám/cơ sở/bệnh nhân được phân: không có thử đọc hay ghi một lượt/bệnh nhân/lịch/tệp của cơ sở khác hoặc phòng khám khác bằng id, và không có tài khoản phòng khám thứ hai. Đây đúng là nhóm lỗi đã được ghi nhận (API-001..007, SEC-011, SEC-029, DB-001).",
+   "trigger": "Thêm phòng khám hay cơ sở mới; thay đổi lọc cơ sở trong service.",
+   "impact": "Hồi quy cách ly dữ liệu không được bắt bởi lớp kiểm hiện có; chủ yếu rủi ro khi bán đa phòng khám.",
+   "evidence": [
+    {
+     "path": "scripts/mo-phong/dung_phong_kham.py",
+     "line": 8,
+     "end_line": 8,
+     "detail": "'Thêm để BẮT LỖI: 1 phòng siêu âm ở cơ sở Hào Nam (tự xếp phòng có lọc cơ sở?)'."
+    },
+    {
+     "path": "scripts/mo-phong/dung_phong_kham.py",
+     "line": 125,
+     "end_line": 131,
+     "detail": "Phép thử đa cơ sở duy nhất: tạo phòng ở Hào Nam."
+    },
+    {
+     "path": "scripts/mo-phong/pha_pha.py",
+     "line": 146,
+     "end_line": 167,
+     "detail": "P5 vượt quyền chỉ kiểm theo vai (CSKH, dược sĩ, lễ tân, đối tác)."
+    },
+    {
+     "path": "scripts/mo-phong/mo_phong.py",
+     "line": 297,
+     "end_line": 307,
+     "detail": "K14 chỉ kiểm vai quản lý/lễ tân mở hồ sơ y khoa."
+    },
+    {
+     "path": "scripts/mo-phong/buoc.py",
+     "line": 20,
+     "end_line": 20,
+     "detail": "UUID cơ sở Kim Ngưu ghi cứng."
+    }
+   ],
+   "limitations": "Không phủ nhận có test DB/pytest riêng cho cách ly (chưa thuộc danh sách này).",
+   "recommendation": "Dựng phòng khám thứ hai và tài khoản của nó trong mô phỏng; thêm pha PHÁ-TENANT: dùng token phòng khám B gọi id của phòng khám A cho mọi nhóm endpoint đọc/ghi chính (lượt khám, lịch, hồ sơ, thanh toán, tệp, đối tác) và kỳ vọng 403/404; thêm tài khoản cơ sở Hào Nam gọi id lượt của Kim Ngưu.",
+   "acceptance": "Mô phỏng có ≥ 20 phép thử xuyên phòng khám/cơ sở, tất cả bị chặn; cố ý gỡ một bộ lọc cơ sở trong service thì pha PHÁ-TENANT báo đỏ.",
+   "alignment": [
+    "Quyết định dựa bằng chứng",
+    "Phát hiện vấn đề sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "API-001",
+    "API-002",
+    "API-003",
+    "SEC-011",
+    "SEC-029",
+    "DB-001"
+   ]
+  },
+  {
+   "tmp_id": "S02-15",
+   "title": "Nạp lịch sử Notion: ghi DB trước, chép tệp kết quả sau, không kiểm dung lượng, số tệp hay quyền sở hữu",
+   "severity": "LOW",
+   "category": "migration_completeness",
+   "evidence_level": "design_gap",
+   "summary": "Script chạy bộ nạp trong container để COMMIT dữ liệu, rồi chép vài GB PDF bằng cp -an trên máy chủ. Thử khô dùng --khong-chep-tep nên không kiểm tệp tồn tại. Sau khi chép chỉ in số tệp, không so với manifest, không kiểm khoảng trống đĩa, quyền sở hữu hay quyền đọc của container API. Nếu cp lỗi giữa chừng (đĩa đầy; đã có ghi nhận đĩa VPS đầy 80%) thì set -e dừng, nhưng DB đã chứa hồ sơ trỏ đến tệp chưa có; chạy lại chỉ chép bù theo cp -an.",
+   "trigger": "Nạp thật khi ổ gần đầy, hoặc tệp chép bằng user SSH khác với user trong container API.",
+   "impact": "Lịch sử khám hiển thị nhưng mở kết quả bị 404/503; bác sĩ xem hồ sơ cũ thiếu bằng chứng.",
+   "evidence": [
+    {
+     "path": "scripts/nhap-lich-su-notion.sh",
+     "line": 39,
+     "end_line": 41,
+     "detail": "Bộ nạp chạy với --khong-chep-tep (cả khi --that, tệp chép sau)."
+    },
+    {
+     "path": "scripts/nhap-lich-su-notion.sh",
+     "line": 43,
+     "end_line": 52,
+     "detail": "mkdir + cp -an rồi chỉ in số tệp (find | wc -l); không kiểm df, manifest hay chown."
+    }
+   ],
+   "limitations": "Chưa đọc clinicai.services.nhap_lich_su_notion nên chưa biết nó có tự xác minh tên tệp. Công cụ chạy một lần (05/10).",
+   "recommendation": "Kiểm trước khoảng trống đĩa và so danh sách tệp với manifest ở bước thử khô; chép tệp trước hoặc kiểm tệp tồn tại trước khi COMMIT; so số lượng/băm sau khi chép và in lỗi nếu lệch; đặt chủ sở hữu đúng user của container.",
+   "acceptance": "Thử khô báo số tệp thiếu/dung lượng cần; sau --that có báo cáo khớp 100% manifest; tệp mở được từ API ngay.",
+   "alignment": [
+    "Reality rõ",
+    "Unknown ngắn"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-028"
+   ]
+  },
+  {
+   "tmp_id": "S02-16",
+   "title": "Bộ sinh khung phiếu: dung-phieu-v2.py ghi đè migration đã áp, nguồn nằm ngoài repo (~/Downloads) và nội suy SQL từ tệp ngoài",
+   "severity": "LOW",
+   "category": "content_pipeline",
+   "evidence_level": "confirmed_static",
+   "summary": "dung-phieu-v2.py luôn write_text vào supabase/migrations/20260928000020_phieu_kham_v2_gon.sql, không có guard 'đã tồn tại thì giữ nguyên' như dung-mau-ket-qua-v3.py; chạy lại sau khi nguồn v1/khung đổi sẽ sửa nội dung một migration đã áp. Các bộ sinh khác đọc đầu vào từ đường dẫn mặc định ~/Downloads/... trên máy cá nhân (data.js, nguon-su-that.html, phiếu v5 final review) nên không tái lập được ở máy khác. dung-mau-ket-qua-v3.py nội suy f-string các mã kiotviet từ tệp HTML đó vào SQL mà không thoát nháy. Việc sinh JSON (mau_ket_qua_v3.json) vẫn ghi mới trong khi migration đã áp được giữ nguyên, nên JSON dùng cho server/test và form_definition trong DB có thể lệch nhau.",
+   "trigger": "Chạy lại bộ sinh sau khi đổi nguồn; người khác (hoặc phòng khám mới) cần dựng lại mẫu.",
+   "impact": "Migration thay đổi sau khi đã áp (checksum/ledger không phản ánh), mẫu phiếu trên prod khác bản trong repo; nội dung lâm sàng phụ thuộc tệp trên máy một người.",
+   "evidence": [
+    {
+     "path": "scripts/phieu-kham/dung-phieu-v2.py",
+     "line": 209,
+     "end_line": 211,
+     "detail": "write_text migration vô điều kiện."
+    },
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua-v3.py",
+     "line": 29,
+     "end_line": 37,
+     "detail": "NGUON và NGUON_SU_THAT mặc định ~/Downloads/..."
+    },
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua-v3.py",
+     "line": 223,
+     "end_line": 223,
+     "detail": "vals nối f-string '{ma}', '{kv}' vào SQL."
+    },
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua-v3.py",
+     "line": 251,
+     "end_line": 257,
+     "detail": "Migration đã tồn tại thì giữ nguyên nhưng JSON vẫn được ghi."
+    },
+    {
+     "path": "scripts/phieu-kham/trich-tu-html.py",
+     "line": 12,
+     "end_line": 14,
+     "detail": "Nguồn là ClinicAI-7-phieu-v5-final-review.html trong ~/Downloads."
+    }
+   ],
+   "limitations": "Có thể có test hoặc hook CI cấm sửa migration đã áp; chưa kiểm. Ảnh hưởng thực tế phụ thuộc người chạy.",
+   "recommendation": "Thêm guard 'không ghi đè migration đã tồn tại' cho mọi bộ sinh; đưa nguồn chuẩn (data.js/HTML) vào repo hoặc kho tài liệu có băm; kiểm hash nguồn khi sinh; thoát giá trị SQL (dùng tham số hoá hoặc quote_literal); thêm test so JSON với form_definition mới nhất đã áp.",
+   "acceptance": "Chạy lại dung-phieu-v2.py khi migration đã tồn tại → không đổi file (hoặc từ chối); CI so sánh khung trong JSON với form_definition của DB test sau mọi migration.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004",
+    "DB-003",
+    "INF-008"
+   ]
+  },
+  {
+   "tmp_id": "S02-17",
+   "title": "suc-khoe.sh hiển thị nhịp tim Kuma cũ là xanh và chỉ liệt kê tệp sao lưu, không đánh giá tuổi bản sao",
+   "severity": "LOW",
+   "category": "false_green_dashboard",
+   "evidence_level": "confirmed_static",
+   "summary": "Phần 'kênh' lấy bản ghi nhịp tim cuối của từng monitor và in dấu tích khi status = 1, kèm thời gian nhưng không so với hiện tại; nếu Kuma (hoặc monitor) ngừng ghi, trạng thái cũ vẫn xanh. Phần sao lưu chỉ chạy ls -lht | head -4, không cảnh báo khi bản mới nhất quá 26 giờ, kích thước bất thường hay bản chưa đẩy ra ngoài VPS. Phần /health ở Caddy là kiểm nông.",
+   "trigger": "Kuma bị dừng (xem S02-6), container Kuma kẹt, hoặc backup dừng nhiều đêm.",
+   "impact": "Người vận hành nhìn bảng 'một lệnh xem hết' và kết luận đã ổn trong khi hệ thống không được giám sát hoặc không có bản sao lưu mới.",
+   "evidence": [
+    {
+     "path": "scripts/suc-khoe.sh",
+     "line": 68,
+     "end_line": 74,
+     "detail": "Chỉ dựa vào status của heartbeat cuối, in h.time nhưng không đánh giá độ cũ."
+    },
+    {
+     "path": "scripts/suc-khoe.sh",
+     "line": 83,
+     "end_line": 87,
+     "detail": "Sao lưu = ls -lht | head -4; nhắc 'chưa phục hồi thử = chưa phải sao lưu' nhưng không kiểm."
+    },
+    {
+     "path": "scripts/suc-khoe.sh",
+     "line": 35,
+     "end_line": 37,
+     "detail": "prod /health ở tầng Caddy."
+    }
+   ],
+   "limitations": "Công cụ đọc nhanh cho người, không phải cảnh báo tự động; có check-monitoring.sh và Ops Center bổ sung (chưa đọc).",
+   "recommendation": "Tính tuổi heartbeat (cảnh báo > 3 chu kỳ), tuổi bản sao lưu (> 26 giờ), có bản off-box và kích thước so với bản trước; thoát mã khác 0 khi có mục đỏ để dùng được trong cron.",
+   "acceptance": "Dừng Kuma 10 phút → suc-khoe.sh in 'nhịp tim quá cũ'; bản sao lưu cũ hơn 26 giờ → in mục đỏ và thoát mã 1.",
+   "alignment": [
+    "Reality rõ",
+    "Phát hiện vấn đề sớm"
+   ],
+   "extends": [
+    "INF-019"
+   ],
+   "related_ids": [
+    "INF-019",
+    "INF-001",
+    "INF-027"
+   ]
+  },
+  {
+   "tmp_id": "S02-18",
+   "title": "Công cụ vận hành và mô phỏng ghi cứng tên riêng Dr4Women (host, miền, mã cơ sở, UUID, container, địa chỉ, SĐT) nên chưa thể dùng cho phòng khám thứ hai",
+   "severity": "MEDIUM",
+   "category": "packaging_hardcode",
+   "evidence_level": "design_gap",
+   "summary": "Tập script vận hành chỉ hiểu một khách hàng: host SSH và IP VPS, tên miền dr4women.io.vn, tên container clinicai_prod-*, mã cơ sở KN/HN, UUID cơ sở, địa chỉ/SĐT/tên in của Hào Nam, miền email dr4women.vn/.local, danh sách phòng KN-* và 11 phòng 'bộ B', chuỗi mã vị trí T1_/T4_. Không có công cụ 'thêm phòng khám/cơ sở' tham số hoá; việc nhân bản cơ sở là script riêng cho một cặp KN→HN. Các bộ sinh mẫu phiếu áp cho mọi phòng khám có bản do hệ thống xuất bản, tức mang nội dung riêng Dr4Women vào chuỗi nâng cấp chung. Bộ mô phỏng cũng ghi cứng UUID cơ sở và danh mục dịch vụ.",
+   "trigger": "Muốn đưa phòng khám/cơ sở mới vào cùng hệ thống hoặc cho khách hàng khác.",
+   "impact": "Mỗi phòng khám mới cần viết lại script, dễ sai; kiến thức triển khai nằm ở trí nhớ và chat; cản trở mục tiêu bán nhiều phòng khám.",
+   "evidence": [
+    {
+     "path": "scripts/suc-khoe.sh",
+     "line": 21,
+     "end_line": 29,
+     "detail": "HOST=clinic-vps-moi, IP 222.255.214.133, URL https://dr4women.io.vn."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 61,
+     "end_line": 73,
+     "detail": "KN, HN, tên, địa chỉ, SĐT, tên in ghi cứng."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 86,
+     "end_line": 107,
+     "detail": "11 phòng bộ B và vị trí T1_THUNGAN__n ghi cứng theo mã KN-*."
+    },
+    {
+     "path": "scripts/setup-uptime-kuma.sh",
+     "line": 24,
+     "end_line": 24,
+     "detail": "Tên container clinicai_${ENV}-uptime-kuma-1; URL caddy prod ghi cứng ở dòng 95."
+    },
+    {
+     "path": "scripts/staging-dung-lan-dau.sh",
+     "line": 33,
+     "end_line": 33,
+     "detail": "STAGING_TEN_MIEN mặc định staging.dr4women.io.vn."
+    },
+    {
+     "path": "scripts/sua-ky-nang-lay-mau.py",
+     "line": 25,
+     "end_line": 26,
+     "detail": "MA='lay_mau', PHONG='KN-LAYMAU' và clinic_id suy từ phòng đầu tiên mã đó."
+    },
+    {
+     "path": "scripts/systemd/clinicai-ops-status.service",
+     "line": 11,
+     "end_line": 13,
+     "detail": "User=clinicai và /home/clinicai/clinicai ghi cứng."
+    },
+    {
+     "path": "scripts/mo-phong/buoc.py",
+     "line": 20,
+     "end_line": 20,
+     "detail": "UUID cơ sở Kim Ngưu ghi cứng; dung_phong_kham.py:24 ghi cứng UUID Hào Nam."
+    },
+    {
+     "path": "scripts/phieu-kham/dung-mau-ket-qua-v3.py",
+     "line": 201,
+     "end_line": 222,
+     "detail": "Migration sinh ra thay phiếu cho mọi clinic có bản hệ thống xuất bản."
+    }
+   ],
+   "limitations": "Nhiều script là công cụ một lần có ghi chú lịch sử; việc ghi cứng ở đó không nhất thiết là lỗi. Vấn đề là chưa có phiên bản tham số hoá sẵn dùng.",
+   "recommendation": "Có một lệnh/màn 'tạo phòng khám' và 'tạo cơ sở' tham số hoá (mã, tên, địa chỉ, múi giờ, mẫu phòng, vị trí, bộ danh mục) kèm chế độ chạy thử và kiểm bất biến như nhan-ban-co-so.py; tách cấu hình vận hành (host, miền, container) ra tệp môi trường; tách nội dung lâm sàng riêng Dr4Women khỏi lõi dưới dạng gói danh mục (catalog pack).",
+   "acceptance": "Từ DB trống, một lệnh với tệp cấu hình dựng được phòng khám thứ hai với cơ sở, phòng, vị trí, danh mục tối thiểu; suc-khoe.sh và setup-uptime-kuma.sh chạy được với host/miền khác chỉ bằng biến môi trường; mô phỏng chạy được trên cơ sở có UUID bất kỳ.",
+   "alignment": [
+    "Bền vững khi nhân rộng",
+    "Ownership rõ",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [
+    "DB-005",
+    "DB-004"
+   ],
+   "related_ids": [
+    "DB-005",
+    "DB-004"
+   ]
+  },
+  {
+   "tmp_id": "S02-19",
+   "title": "Đổi bộ phòng và gỡ Hào Nam tắt phòng/vị trí mà không kiểm khách đang xếp, đang chờ hoặc đang làm trong các phòng bị tắt",
+   "severity": "MEDIUM",
+   "category": "room_deactivation_inflight",
+   "evidence_level": "design_gap",
+   "summary": "ap_bo và _go đặt is_active=false cho toàn bộ phòng của bộ kia (hoặc của Hào Nam) bằng một câu UPDATE, đồng thời cập nhật vị trí. Script không đếm queue_entry, service_order đã xếp (room_id), lượt đang làm hoặc lịch trực trong các phòng sắp tắt, và không chuyển hay cảnh báo chúng. Phiên chạy có thể vào giờ làm việc vì không có kiểm giờ.",
+   "trigger": "--doi-bo B/A hoặc --go --that khi Hào Nam đang đón khách.",
+   "impact": "Khách đã xếp vào phòng bị tắt rơi khỏi danh sách phòng nhưng vẫn nằm trong hàng chờ cũ; phòng 'không nhận khách' nhưng vẫn có thể bấm Nhận (đã ghi nhận ở hệ thống): khách chờ trong bất định, nhân viên phải phát hiện thủ công.",
+   "evidence": [
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 885,
+     "end_line": 894,
+     "detail": "UPDATE clinic_room SET is_active theo tập bật/tắt, không kiểm việc đang mở."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 916,
+     "end_line": 924,
+     "detail": "_go tắt toàn bộ phòng Hào Nam."
+    },
+    {
+     "path": "scripts/nhan-ban-co-so.py",
+     "line": 773,
+     "end_line": 798,
+     "detail": "Vị trí làm việc bị tắt/đổi phòng theo bộ đích."
+    }
+   ],
+   "limitations": "Hiện chủ sản phẩm báo chỉ Hào Nam hoạt động và đổi bộ do Tuyền tự chạy ngoài giờ; chưa có bằng chứng đã đổi bộ khi đang đón khách.",
+   "recommendation": "Trước khi tắt, truy vấn việc đang mở (queue_entry, service_order chưa xong, lịch trực hôm nay) trong các phòng bị tắt; từ chối --that nếu có, hoặc đòi cờ --chuyen-viec và tự xếp lại bằng dịch vụ điều phối; in danh sách việc bị ảnh hưởng cho trưởng ca.",
+   "acceptance": "Có chỉ định đang chờ ở phòng bộ A → --doi-bo B --that bị từ chối và liệt kê khách; với --chuyen-viec các chỉ định được xếp lại sang phòng bộ B tương ứng và không còn queue_entry ở phòng tắt.",
+   "alignment": [
+    "Bệnh nhân ít chờ bất định",
+    "Ownership rõ"
+   ],
+   "extends": [
+    "CLIN-046",
+    "FE-010"
+   ],
+   "related_ids": [
+    "CLIN-046",
+    "FE-010",
+    "SEC-034"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "SEC-032",
+   "detail": "scripts/nhan-su-kim-nguu.py:55 mặc định MAT_KHAU_MOI=12345678; :503 đăng nhập quản lý bằng MK_QUAN_LY mặc định cũng là MAT_KHAU; :828 tạo user GoTrue với password=MAT_KHAU và email_confirm=true, không buộc đổi mật khẩu lần đầu. Staging lại nhận hash mật khẩu prod (scripts/staging-nap-ban-sao.sh:189-194, caddy/Caddyfile.staging:14-15) nên mật khẩu yếu có hiệu lực trên cổng staging công khai."
+  },
+  {
+   "id": "DB-002",
+   "detail": "scripts/staging-nap-ban-sao.sh:229-231 sau khi nạp bản sao chạy GRANT ALL ON ALL TABLES/SEQUENCES IN SCHEMA public TO authenticated, service_role (cấp rộng cho authenticated), rồi dòng 243-244 áp lại hai migration hardening có tên cố định (20261019100000, 20261019120000); đường khôi phục không tái lập đúng ACL thiết kế mà dựa vào hai tệp ghi cứng, và hỏng nếu STAGING_REF không chứa chúng."
+  },
+  {
+   "id": "DB-005",
+   "detail": "Không có công cụ dựng phòng khám/cơ sở mới tham số hoá: scripts/nhan-ban-co-so.py:61-107 ghi cứng KN→HN; scripts/supabase-local-nap.sh:90-108 là đường dựng DB duy nhất và có lỗi chạy lại (S02-11); scripts/nhan-su-kim-nguu.py:571 dùng SELECT id FROM clinic LIMIT 1."
+  },
+  {
+   "id": "DB-004",
+   "detail": "scripts/phieu-kham/dung-mau-ket-qua-v3.py:201-222 sinh migration thay bản phiếu do hệ thống xuất bản cho mọi clinic (WITH cu AS ... xuat_ban_boi IS NULL), nên nội dung phiếu/gắn mẫu riêng Dr4Women đi vào chuỗi nâng cấp chung; nguồn nằm ở ~/Downloads (dòng 29-37)."
+  },
+  {
+   "id": "INF-019",
+   "detail": "scripts/suc-khoe.sh:83-87 'sao lưu gần nhất' chỉ là ls -lht | head -4, không kiểm tuổi/bản off-box; scripts/setup-uptime-kuma.sh:140-163 monitor push 26 giờ chỉ tín hiệu khi script sao lưu gọi; việc script có gọi chỉ sau khi đẩy ra ngoài VPS không được kiểm ở các tệp này."
+  },
+  {
+   "id": "INF-027",
+   "detail": "scripts/setup-uptime-kuma.sh:94-101 chỉ tạo monitor HTTP cho API /health/db, dashboard và Caddy; scripts/suc-khoe.sh:41-43 xác nhận /health/su-kien chỉ gọi được từ trong máy nên Kuma không canh worker sự kiện."
+  },
+  {
+   "id": "SEC-012",
+   "detail": "scripts/sua-ky-nang-lay-mau.py:95-106 thu hồi kỹ năng của cả nhóm (bat=False), UPDATE ky_nang rồi mới cấp lại từng người; không giao dịch bao quanh nên lỗi giữa chừng để cả nhóm mất kỹ năng (chính tệp ghi nhận đã xảy ra trên máy thử 28/09, dòng 46-47)."
+  },
+  {
+   "id": "SEC-026",
+   "detail": "scripts/nhan-ban-co-so.py:838-862 chèn hàng loạt capability_grant (granted_by = một staff MANAGEMENT bất kỳ) và :734-743 thu hồi bằng UPDATE trực tiếp; không có sự kiện/nhật ký thao tác cấp-thu quyền nào được ghi từ script."
+  },
+  {
+   "id": "SEC-031",
+   "detail": "scripts/staging-che-du-lieu.sql:7-8 và :214-220 chủ ý không che nhân sự (họ tên, SĐT, email, ngày sinh, CCCD) và auth.*; chỉ che theo danh sách cột khai tay (:30-32); kiểm sau cùng ở scripts/staging-nap-ban-sao.sh:266-275 chỉ soi patient.full_name và phone_primary."
+  },
+  {
+   "id": "CLIN-046",
+   "detail": "scripts/nhan-ban-co-so.py:885-894 và :916-924 bật/tắt phòng bằng UPDATE is_active không xử lý hàng chờ/chỉ định đang ở phòng bị tắt — một nguồn trực tiếp tạo trạng thái 'phòng đã ngừng nhưng còn khách chờ'."
+  }
+ ],
+ "held": [
+  {
+   "title": "read-feedback.sh đưa văn bản tự do của người dùng (comment, page_url, role_at_time, staff_name) thẳng vào ngữ cảnh agent đọc đầu phiên",
+   "reason": "Các trường role_at_time/staff_name do client gửi có thể ghi đè (console.py:77-78) và comment không được làm sạch; chỉ khai thác được nếu người có quyền ops.view gửi nội dung độc hại ở môi trường không phải production (console bị chặn ở production, console.py:30-38). Rủi ro thấp, giữ lại để nhóm AI/ vận hành cân nhắc."
+  },
+  {
+   "title": "Chú thích trong nhan-ban-co-so.py:633-638 nói bảng gọi số lọc theo phòng khám chứ chưa theo cơ sở",
+   "reason": "Mã hiện tại có lọc location_id (display_board_service.py:128, display.py:95), nên chú thích có vẻ lỗi thời; chưa kiểm tài khoản màn hình có location_id đúng hay không. Không đủ để ghi thành phát hiện."
+  },
+  {
+   "title": "staging-dung-lan-dau.sh chạy bản script mồi lấy từ origin/main không kiểm chữ ký rồi khởi động lại Caddy prod",
+   "reason": "Chuỗi cung ứng nội bộ và gián đoạn ~1-2 giây của prod khi thêm site staging đã được ghi nhận có chủ ý (dòng 24-26, 229-230); chưa có bằng chứng sự cố."
+  },
+  {
+   "title": "nhan-ban-co-so.py: _co_so_hn ghi đè tên, địa chỉ, SĐT, tên in của Hào Nam mỗi lần chạy lại 'dung'",
+   "reason": "Có thể xoá chỉnh sửa tay trên màn cấu hình (tên in trên phiếu); nhưng chỉ khi chạy lại lệnh dựng, đã được ghi trong tài liệu ('chạy lại thì đưa về đúng giá trị'). Mức ảnh hưởng thấp."
+  },
+  {
+   "title": "Bộ mô phỏng không kiểm tra container clinicai_thu_db chỉ chứa dữ liệu DEMO trước khi tạo/tắt phòng và tài khoản",
+   "reason": "Được gộp vào S02-13; rủi ro thực tế thấp vì tài khoản @dr4women.local không có trong bản sao prod nên đăng nhập sẽ thất bại trước khi ghi."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Chạy thử mặc định + một giao dịch + dấu vân tay md5 trước/sau để chứng minh không đụng cơ sở nguồn",
+   "detail": "Mẫu thiết kế đáng nhân rộng cho mọi thao tác hàng loạt trên dữ liệu thật: mặc định ROLLBACK, --that mới COMMIT, đo bất biến trước/sau và tự huỷ khi lệch.",
+   "evidence": "scripts/nhan-ban-co-so.py:12-13,252-290,1017-1046"
+  },
+  {
+   "title": "Nạp bản sao staging trong một giao dịch, khoá chống chạy chồng, kiểm sha256 theo manifest, trap bật lại dịch vụ",
+   "detail": "Lỗi giữa chừng thì staging giữ dữ liệu hôm qua; dịch vụ được start lại; dữ liệu và phiên đăng nhập được giữ qua đêm.",
+   "evidence": "scripts/staging-nap-ban-sao.sh:62-75,96-104,166-246"
+  },
+  {
+   "title": "Chốt an toàn tránh chạy nhầm môi trường: staging-che-du-lieu.sql đòi cờ che_cho_phep; supabase-local-nap.sh không có đích mặc định; pg-dump-qua-container.sh từ chối khi PGHOST khác container",
+   "detail": "Cùng nguyên tắc 'nhãn sai còn tệ hơn không có bản sao': script dừng thay vì đoán.",
+   "evidence": "scripts/staging-che-du-lieu.sql:34-40; scripts/supabase-local-nap.sh:21-29; scripts/pg-dump-qua-container.sh:16-40"
+  },
+  {
+   "title": "Monitor kiểu push (dead-man's switch) cho sao lưu đêm",
+   "detail": "Im lặng trở thành tín hiệu đỏ; chọn 26 giờ để tránh báo giả; giải thích rõ lỗi sao lưu im lặng đã xảy ra.",
+   "evidence": "scripts/setup-uptime-kuma.sh:123-163"
+  },
+  {
+   "title": "Phân biệt ô câu mẫu và ô người gõ bằng trường nguon (TEMPLATE_DEFAULT/USER) cùng nhãn '(câu điền sẵn)'; xét nghiệm và số đo không bao giờ điền sẵn",
+   "detail": "Nền tảng tốt để siết thêm (xem S02-1): chỉ thiếu bước xác nhận và giữ dấu vết sau khi chốt.",
+   "evidence": "scripts/phieu-kham/dung-mau-ket-qua.py:18-24; src/clinicai/services/form_engine_service.py:1459-1466"
+  },
+  {
+   "title": "Nhận diện danh tính: tên mơ hồ thì dừng và để trống thay vì đoán, kèm danh sách DE_TRONG tường minh",
+   "detail": "Đặt 'lời hứa để trống' thành danh sách chứ không phải hệ quả của thuật toán; vẫn cần người xác nhận (xem S02-10).",
+   "evidence": "scripts/nhan-su-kim-nguu.py:31-36,62-85,605-621"
+  },
+  {
+   "title": "Bộ mô phỏng đo thực tế: sổ thao tác CHẶN ĐÚNG/LẼ RA PHẢI CHẶN, đo độ trễ thao tác → màn hình, bản đồ thao tác → sự kiện, pha phá có rào chắn đồng thời",
+   "detail": "Là một dạng 'Reality' thực nghiệm rất hiếm: thấy khách xuất hiện ở màn nào sau bao lâu và những thao tác không phát sự kiện.",
+   "evidence": "scripts/mo-phong/do_luong.py:131-161; scripts/mo-phong/theo_doi.py:50-105; scripts/mo-phong/pha_pha.py:20-37"
+  },
+  {
+   "title": "sinh-khoa-supabase.py không bao giờ ghi đè bộ khoá đang chạy và giải thích rõ khác biệt anon/service_role/JWT secret",
+   "detail": "Giảm rủi ro đá văng toàn bộ phiên bằng một lệnh nhầm.",
+   "evidence": "scripts/sinh-khoa-supabase.py:84-91"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "scripts/mo-phong/buoc.py",
+   "lines": 514,
+   "full_read": true,
+   "note": "Các bước nghiệp vụ mô phỏng; SQL nối chuỗi chỉ cho dev, UUID Kim Ngưu ghi cứng."
+  },
+  {
+   "path": "scripts/mo-phong/do_luong.py",
+   "lines": 161,
+   "full_read": true,
+   "note": "Sổ thao tác + đo sự kiện; thiết kế tốt."
+  },
+  {
+   "path": "scripts/mo-phong/dung_phong_kham.py",
+   "lines": 196,
+   "full_read": true,
+   "note": "Dựng phòng 3 tầng qua API; tắt phòng cũ, ghi cứng UUID."
+  },
+  {
+   "path": "scripts/mo-phong/ket_noi.py",
+   "lines": 172,
+   "full_read": true,
+   "note": "Đăng nhập tài khoản thử, sql() qua docker exec; cổng local yếu."
+  },
+  {
+   "path": "scripts/mo-phong/mo_phong.py",
+   "lines": 576,
+   "full_read": true,
+   "note": "23 kịch bản + kiểm cuối; mã thoát bỏ qua bất biến."
+  },
+  {
+   "path": "scripts/mo-phong/ngay_kham.py",
+   "lines": 355,
+   "full_read": true,
+   "note": "Buổi khám giả lập; return 0 vô điều kiện, không finally."
+  },
+  {
+   "path": "scripts/mo-phong/pha_dat_lich.py",
+   "lines": 254,
+   "full_read": true,
+   "note": "Pha CSKH đặt lịch song song; thử A1-A6."
+  },
+  {
+   "path": "scripts/mo-phong/pha_kham.py",
+   "lines": 355,
+   "full_read": true,
+   "note": "Câu chuyện từng loại khách."
+  },
+  {
+   "path": "scripts/mo-phong/pha_pha.py",
+   "lines": 309,
+   "full_read": true,
+   "note": "Pha phá đồng thời/vượt quyền theo vai, không có xuyên phòng khám."
+  },
+  {
+   "path": "scripts/mo-phong/theo_doi.py",
+   "lines": 132,
+   "full_read": true,
+   "note": "Luồng nền đọc 16 màn."
+  },
+  {
+   "path": "scripts/nhan-ban-co-so.py",
+   "lines": 1102,
+   "full_read": true,
+   "note": "Nhân bản KN→HN; chạy thử mặc định; xem S02-7/8/9/18/19."
+  },
+  {
+   "path": "scripts/nhan-su-kim-nguu.py",
+   "lines": 913,
+   "full_read": true,
+   "note": "Nạp nhân sự từ Excel; xem S02-9/10."
+  },
+  {
+   "path": "scripts/nhap-lich-su-notion.sh",
+   "lines": 53,
+   "full_read": true,
+   "note": "Nạp lịch sử Notion; DB trước tệp sau; S02-15."
+  },
+  {
+   "path": "scripts/pg-dump-qua-container.sh",
+   "lines": 54,
+   "full_read": true,
+   "note": "Cầu nối pg_dump có chốt PGHOST; điểm tốt."
+  },
+  {
+   "path": "scripts/phieu-kham/dung-mau-ket-qua-v3.py",
+   "lines": 264,
+   "full_read": true,
+   "note": "Bộ sinh v3; xem S02-1/16/18."
+  },
+  {
+   "path": "scripts/phieu-kham/dung-mau-ket-qua.py",
+   "lines": 778,
+   "full_read": true,
+   "note": "Bộ sinh ruột 18 mẫu v2 với mac_dinh; S02-1."
+  },
+  {
+   "path": "scripts/phieu-kham/dung-phieu-v2.py",
+   "lines": 216,
+   "full_read": true,
+   "note": "Sinh phiếu khám v2; ghi đè migration; S02-16."
+  },
+  {
+   "path": "scripts/phieu-kham/trich-tu-html.py",
+   "lines": 438,
+   "full_read": true,
+   "note": "Trích khung từ HTML nguồn; nguồn ngoài repo."
+  },
+  {
+   "path": "scripts/read-feedback.sh",
+   "lines": 44,
+   "full_read": true,
+   "note": "Đọc phản hồi; SQL nối chuỗi, mặc định yếu; S02-12."
+  },
+  {
+   "path": "scripts/setup-uptime-kuma.sh",
+   "lines": 223,
+   "full_read": true,
+   "note": "Dựng Kuma; S02-6/12."
+  },
+  {
+   "path": "scripts/sinh-khoa-supabase.py",
+   "lines": 98,
+   "full_read": true,
+   "note": "Sinh khoá; JWT 20 năm; S02-12."
+  },
+  {
+   "path": "scripts/staging-dung-lan-dau.sh",
+   "lines": 270,
+   "full_read": true,
+   "note": "Dựng staging chung VPS; S02-2/18."
+  },
+  {
+   "path": "scripts/staging-nap-ban-sao.sh",
+   "lines": 281,
+   "full_read": true,
+   "note": "Nạp bản sao + che; S02-2/3/4."
+  },
+  {
+   "path": "scripts/sua-ky-nang-lay-mau.py",
+   "lines": 114,
+   "full_read": true,
+   "note": "Sửa kỹ năng lấy mẫu; mạo danh quản lý; S02-9."
+  },
+  {
+   "path": "scripts/suc-khoe.sh",
+   "lines": 117,
+   "full_read": true,
+   "note": "Bảng sức khoẻ; S02-17."
+  },
+  {
+   "path": "scripts/supabase-local-nap.sh",
+   "lines": 141,
+   "full_read": true,
+   "note": "Nạp lược đồ DB mới; S02-11."
+  },
+  {
+   "path": "scripts/systemd/clinicai-ops-status.service",
+   "lines": 15,
+   "full_read": true,
+   "note": "Unit oneshot chụp ops-status; User/đường dẫn ghi cứng."
+  },
+  {
+   "path": "scripts/systemd/clinicai-ops-status.timer",
+   "lines": 10,
+   "full_read": true,
+   "note": "Mỗi phút (oneshot không timeout); đã có kiểm tuổi snapshot ở ops_status.py nên chỉ ghi nhận."
+  },
+  {
+   "path": "scripts/systemd/clinicai-staging-nap.service",
+   "lines": 24,
+   "full_read": true,
+   "note": "Nice/IO không áp cho container; không OnFailure; S02-4."
+  },
+  {
+   "path": "scripts/systemd/clinicai-staging-nap.timer",
+   "lines": 11,
+   "full_read": true,
+   "note": "Persistent=true; S02-4."
+  }
+ ]
+}

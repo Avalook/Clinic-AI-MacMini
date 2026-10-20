@@ -1,0 +1,1265 @@
+[
+  {
+    "id": "RUN-001",
+    "at": "2026-10-19T17:21:44.506342+07:00",
+    "environment": "local ephemeral test DB via repository wrapper; 4 workers",
+    "command": "scripts/test-nhanh.sh src/tests/api/test_backend_surface_security.py src/tests/test_tenant_scope_audit.py src/tests/unit/test_idempotency.py -q",
+    "exit_code": 0,
+    "result": "27 passed in 0.97s",
+    "limitations": [
+      "Selected tests only; not full CI, E2E, load test or runtime coverage measurement",
+      "Wrapper warned working-tree seed differs from template; no template reset was performed",
+      "Pass does not prove all authorization or cross-clinic isolation is correct"
+    ]
+  },
+  {
+    "id": "RUN-002",
+    "at": "2026-10-19T17:27:40.291300+07:00",
+    "environment": "local offline; synthetic data; no DB or network",
+    "command": "PYTHONPATH=src .venv/bin/python docs/kiem-toan-2026-10-19/probes/reproduce_local.py",
+    "exit_code": 0,
+    "result": "5 observations reproduced: CLIN-001, CLIN-002, FIN-001, INF-001, INF-002; unittest OK (0.452s)",
+    "limitations": [
+      "These probes assert defective/current behavior; passing confirms observation, not application correctness",
+      "INF-002 uses fake pool and sender; no real message sent",
+      "INF-001 public-schema verifier declares incomplete Supabase DR; observation concerns ignored companion artifacts, not a promise of full DR"
+    ]
+  },
+  {
+    "id": "RUN-003",
+    "at": "2026-10-19T17:35:02.852213+07:00",
+    "environment": "working tree tests against shared main-based ephemeral template",
+    "command": "scripts/test-nhanh.sh src/tests/unit/test_hanh_trinh_khach.py src/tests/services/test_hen_tai_kham_db.py src/tests/services/test_quay_thuoc_db.py -q",
+    "exit_code": 1,
+    "result": "30 passed, 1 failed: payment_cycle_giam_gia_khop check violation",
+    "limitations": [
+      "Schema/code version mismatch: constraint is absent from current WIP migration but present in pinned main and template",
+      "Do not classify as demonstrated production regression",
+      "No template reset or schema workaround was applied"
+    ]
+  },
+  {
+    "id": "RUN-004",
+    "at": "2026-10-19T17:35:02.852213+07:00",
+    "environment": "same main-template/working-tree mismatch, isolated test",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_quay_thuoc_db.py -k test_thu_xong_phat_thuoc_bi_bo_o_ban_cuoi_va_khoa_quay -q",
+    "exit_code": 1,
+    "result": "1 failed, 3 deselected; same constraint violation",
+    "limitations": [
+      "Isolation rules out a simple test-order cause, not schema mismatch; exact branch bootstrap test still pending"
+    ]
+  },
+  {
+    "id": "RUN-005",
+    "at": "2026-10-19T17:35:02.852213+07:00",
+    "environment": "pinned main snapshot 956ba4f2; offline pure functions",
+    "command": ".venv/bin/python docs/kiem-toan-2026-10-19/probes/check_pinned_main.py /tmp/clinicai-audit-main-956ba4f2",
+    "exit_code": 0,
+    "result": "FIN-001 corrected on main: [100,99,1] total200. CLIN-001 and CLIN-002 reproduced on main as well.",
+    "limitations": [
+      "No DB/network; 3 selected observations only"
+    ]
+  },
+  {
+    "id": "RUN-006",
+    "at": "2026-10-19T17:43:03.775861+07:00",
+    "environment": "ephemeral DB from test-nhanh --giu, main ACL applied inside transaction then ROLLBACK; temporary DB dropped",
+    "command": ".venv/bin/python docs/kiem-toan-2026-10-19/probes/check_acl_upgrade.py",
+    "exit_code": 0,
+    "result": "Historical authenticated EXECUTE simulated; after pinned-main ACL: anon=false, authenticated=true for lieu_trinh_go_buoi; wrapper selected tests exit0",
+    "limitations": [
+      "Only historical-ACL upgrade condition; no endpoint mutation or production inspection",
+      "Template is main-based; privilege semantics probe does not claim full schema consistency"
+    ]
+  },
+  {
+    "id": "RUN-007",
+    "at": "2026-10-19T17:50:21.118831+07:00",
+    "environment": "extended ACL probe against shared older template; disposable DB removed in finally",
+    "command": ".venv/bin/python docs/kiem-toan-2026-10-19/probes/check_acl_upgrade.py (first extended attempt)",
+    "exit_code": 1,
+    "result": "Stock ACL migration could not run: template lacked public.kiem_ke_ca and other newer stock tables",
+    "limitations": [
+      "No application regression inferred",
+      "Shows the shared template is not a full exact-main schema; subsequent ACL-only probe explicitly uses empty placeholders for unrelated missing stock tables"
+    ],
+    "timestamp_kind": "summary_recorded_at; command time not independently retained"
+  },
+  {
+    "id": "RUN-008",
+    "at": "2026-10-19T17:50:21.118831+07:00",
+    "environment": "disposable DB; ACL-only simulation; missing stock tables are explicit empty placeholders; all changes rolled back",
+    "command": ".venv/bin/python docs/kiem-toan-2026-10-19/probes/check_acl_upgrade.py",
+    "exit_code": 0,
+    "result": "After blanket table grants plus both main ACL scripts: authenticated SELECT privilege remained true for clinical_record.prescription_draft and clinic.settings. Historical helper EXECUTE still true for authenticated, false for anon.",
+    "limitations": [
+      "Tests privilege semantics, not a full real-data restore or RLS access under a nurse JWT",
+      "No data rows read, no HTTP mutation, no production connection; DB temporary dropped"
+    ],
+    "timestamp_kind": "summary_recorded_at; command time not independently retained"
+  },
+  {
+    "id": "RUN-009",
+    "at": "2026-10-19T17:53:53.645933+07:00",
+    "environment": "managed detached worktree at pinned main956ba4f2; wrapper applied42 missing main migrations to ephemeral DB; synthetic fixtures only",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_rx_retry_db.py src/tests/services/test_audit_1910_recall_failure_db.py -q",
+    "exit_code": 1,
+    "result": "2 invariant tests RED (1.24s): retry produced2 QUAY rows instead of1; saved follow date remained without CSKH task after transient sync error and healthy retry",
+    "limitations": [
+      "Intentional failing invariant probes; this confirms current defects at service+Postgres level, not a fix",
+      "No browser or production execution; test template seed warning retained",
+      "Probe sources saved in audit/probes and managed main worktree; application code unchanged"
+    ]
+  },
+  {
+    "id": "RUN-010",
+    "at": "2026-10-19T17:54:45.143346+07:00",
+    "environment": "managed pinned-main worktree;42 missing migrations applied to disposable DB; shared template left unchanged",
+    "command": "scripts/test-nhanh.sh src/tests/unit/test_hanh_trinh_khach.py src/tests/services/test_hen_tai_kham_db.py src/tests/services/test_quay_thuoc_db.py -q",
+    "exit_code": 0,
+    "result": "31 passed in1.30s; positive controls on exact-main code+schema",
+    "limitations": [
+      "Selected existing tests only; does not negate the2 new RED invariant probes",
+      "Template seed warning retained; no full CI or application browser validation"
+    ]
+  },
+  {
+    "id": "RUN-011",
+    "at": "2026-10-19T18:12:42.055859+07:00",
+    "environment": "isolated pinned-main local verification, synthetic data",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_agent_limit_db.py -q",
+    "exit_code": 1,
+    "result": "RED: 201 overdue tasks, 1 falsely closed incident",
+    "limitations": [
+      "DB temporary; real detector+reconciler; scoped synthetic input"
+    ]
+  },
+  {
+    "id": "RUN-012",
+    "at": "2026-10-19T18:12:42.055859+07:00",
+    "environment": "isolated pinned-main local verification, synthetic data",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_refund_rounding_db.py -q",
+    "exit_code": 1,
+    "result": "RED: refunded100002 > collected100001",
+    "limitations": [
+      "Main service+DB; synthetic payments; no UI"
+    ]
+  },
+  {
+    "id": "RUN-013",
+    "at": "2026-10-19T18:12:42.055859+07:00",
+    "environment": "isolated pinned-main local verification, synthetic data",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_revoked_roles_db.py -q",
+    "exit_code": 1,
+    "result": "RED: zero effective grants but legacy file authorization=True",
+    "limitations": [
+      "Final test uses soft revoke, not delete; prior probe typo clinical.read rejected and corrected"
+    ]
+  },
+  {
+    "id": "RUN-014",
+    "at": "2026-10-19T18:12:42.055859+07:00",
+    "environment": "isolated pinned-main local verification, synthetic data",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_acl_restore_db.py -q -s",
+    "exit_code": 0,
+    "result": "1 passed observation: authenticated nurse reads two sensitive columns after restore ACL steps",
+    "limitations": [
+      "Full main schema, no stubs; synthetic JWT/rows, transaction rollback; not full recovery set. Initial auth fixture FK failure corrected with synthetic auth.users insert"
+    ]
+  },
+  {
+    "id": "RUN-015",
+    "at": "2026-10-19T18:12:42.055859+07:00",
+    "environment": "isolated pinned-main local verification, synthetic data",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_booking_race_db.py -q",
+    "exit_code": 1,
+    "result": "RED: checkin committed then reschedule reverted status to CONFIRMED while visit open",
+    "limitations": [
+      "Barrier changes ordering; isolated opening-hours guard bypass for clock independence; real read/update/DB/event"
+    ]
+  },
+  {
+    "id": "RUN-016",
+    "at": "2026-10-19T18:12:42.055859+07:00",
+    "environment": "isolated pinned-main local verification, synthetic data",
+    "command": "node docs/kiem-toan-2026-10-19/probes/note-conflict-browser.cjs",
+    "exit_code": 0,
+    "result": "Observed local draft lost after 409; browser errors0",
+    "limitations": [
+      "Actual component+hook; HTTP synthetic, not full application"
+    ]
+  },
+  {
+    "id": "RUN-017",
+    "at": "2026-10-19T18:12:42.055859+07:00",
+    "environment": "isolated pinned-main local verification, synthetic data",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_agent_giam_sat_db.py src/tests/services/test_tien_thuoc_cp5_db.py src/tests/services/test_prescription_draft_privacy_db.py src/tests/services/test_check_in_lai_sau_hoan_tac_db.py -q",
+    "exit_code": 0,
+    "result": "32 passed in3.75s",
+    "limitations": [
+      "Selected main positive controls, not full CI"
+    ]
+  },
+  {
+    "id": "RUN-018",
+    "at": "2026-10-19T18:28:07.143308+07:00",
+    "environment": "pinned-main local disposable verification",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_receipt_crash_db.py -q",
+    "exit_code": 1,
+    "result": "RED: same CSKH command made2 rows after lost receipt and lease expiry",
+    "limitations": [
+      "Actual route function + service + DB, not ASGI/auth; same key/hash, timestamp advanced6min. Initial invalid hash fixture corrected before reproduction."
+    ]
+  },
+  {
+    "id": "RUN-019",
+    "at": "2026-10-19T18:28:07.143308+07:00",
+    "environment": "pinned-main local disposable verification",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_result_revision_notice_db.py -q",
+    "exit_code": 1,
+    "result": "RED: correction v3 produces no visible notification after hiding v2",
+    "limitations": [
+      "Synthetic envelopes, actual consumer/hide/list+DB. Initial probe treated list as object; corrected before behavioral conclusion."
+    ]
+  },
+  {
+    "id": "RUN-020",
+    "at": "2026-10-19T18:28:07.143308+07:00",
+    "environment": "pinned-main local disposable verification",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_ket_qua_chuong_hanh_trinh_db.py src/tests/services/test_chuong_mot_thong_bao_moi_nguoi_db.py -q",
+    "exit_code": 0,
+    "result": "14 passed,2 existing asyncio-mark warnings in1.77s",
+    "limitations": [
+      "Positive controls; existing correction test checks routing/wiring, not hidden-notice revision lifecycle"
+    ]
+  },
+  {
+    "id": "RUN-021",
+    "at": "2026-10-19T18:28:07.143308+07:00",
+    "environment": "pinned-main local disposable verification",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_upload_space.py -q",
+    "exit_code": 1,
+    "result": "RED modeled capacity: actual receiver wrote2057 bytes against budget768, free-space checked1 time",
+    "limitations": [
+      "Free-space modeled; only2KB temp file, cleaned; no actual disk exhaustion, no external or prod upload"
+    ]
+  },
+  {
+    "id": "RUN-022",
+    "at": "2026-10-19T18:28:07.143308+07:00",
+    "environment": "pinned-main local disposable verification",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_vat_tu_kho_db.py src/tests/services/test_vat_tu_nhap_duyet_db.py src/tests/services/test_vat_tu_nhap_duyet_http_db.py src/tests/services/test_vat_tu_kho_man_db.py -q",
+    "exit_code": 0,
+    "result": "47 passed,4 library deprecation warnings in7.87s",
+    "limitations": [
+      "Main material ledger/approval/HTTP controls only; not all pharmacy/material/finance logic"
+    ]
+  },
+  {
+    "id": "RUN-023",
+    "at": "2026-10-19T18:28:07.143308+07:00",
+    "environment": "production read-only metadata",
+    "command": "read-only SSH: git HEAD/status; container status/image ID; runtime .py SHA256; SQL BEGIN READ ONLY ACL+version metadata",
+    "exit_code": 0,
+    "result": "Prod checkout956ba4f2 clean; API+worker424 Python files each match main;373 migration IDs match;4 ACL checks deny",
+    "limitations": [
+      "Point-in-time metadata; no PHI/env/logs/mutations, no live behavior/load/restore or frontend bundle Git provenance"
+    ]
+  },
+  {
+    "id": "RUN-024",
+    "at": "2026-10-19T18:36:20.067430+07:00",
+    "environment": "pinned-main worktree; wrapper-created4 disposable databases; includes10 untracked audit probes",
+    "command": "scripts/test-nhanh.sh",
+    "exit_code": 1,
+    "result": "9 failed,6968 passed,2 xfailed,27 warnings in153.91s. All9 failures are the intentionally RED audit invariants. Existing tests:6967 passed +2xfailed; additional ACL observation probe:1 passed.",
+    "limitations": [
+      "Default wrapper excludes integration-marked tests/src/tests/integration; not full CI, frontend test/build, browser E2E, coverage80% or load testing",
+      "All9 failure IDs checked against audit probes; no unexpected existing-test failure in this run",
+      "42 missing main migrations applied per temporary DB; shared template unchanged; seed mismatch warning retained",
+      "Do not interpret green existing tests as negating the9 newly demonstrated failure cases"
+    ]
+  },
+  {
+    "id": "RUN-025",
+    "at": "2026-10-19T18:42:29.202723+07:00",
+    "environment": "pinned-main lockfile + read-only prod dependency metadata",
+    "command": "npm audit --package-lock-only --ignore-scripts --json; SSH readonly dependency versions",
+    "exit_code": 1,
+    "result": "31package advisories; runtime Next16.2.12/sharp0.35.3/libheif1.23.1 match affected component versions; no exploit tested",
+    "limitations": [
+      "Counts include dev/transitive; condition-specific triage in DEPENDENCIES.json",
+      "No install/fix/lockfile update; no Python/OS scan",
+      "Windows/remotePatterns SSRF conditions do not match current inspected deployment/config"
+    ]
+  },
+  {
+    "id": "RUN-026",
+    "at": "2026-10-19T18:47:20.016014+07:00",
+    "environment": "exact-main temporary DB, full schema,2 synthetic clinics, outer rollback",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_catalog_tenants_db.py -q -s",
+    "exit_code": 1,
+    "result": "1RED: both originals deactivated; each1row→92rows after historical bootstrap function",
+    "limitations": [
+      "Not normal migration replay; no clean install or real customers",
+      "Function is callable from current seed; all effects rolled back"
+    ]
+  },
+  {
+    "id": "RUN-027",
+    "at": "2026-10-19T18:47:20.016014+07:00",
+    "environment": "exact-main temporary DB and actual ASGI router; synthetic identities",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_wrong_drug_db.py -q -s",
+    "exit_code": 1,
+    "result": "2RED: service accepts other-drug batch; stockB10→9 and RxA dispensed1; ASGI201 with actual capability guard/idempotency",
+    "limitations": [
+      "Login identity/pool dependencies overridden, capability guard not bypassed",
+      "No production configuration/behavior, physical drug delivery or full browser flow",
+      "Source default stock-reservation flag0; branch follows payment allocation data"
+    ]
+  },
+  {
+    "id": "RUN-028",
+    "at": "2026-10-19T19:43:18.211782+07:00",
+    "environment": "exact-main disposable databases; existing pharmacy controls",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_tien_thuoc_cp3_db.py src/tests/services/test_pharmacy_dispense_units.py src/tests/services/test_pharmacy_dispense_units_db.py src/tests/services/test_kho_theo_co_so_db.py src/tests/services/test_kho_thuoc_danh_muc_db.py -q",
+    "exit_code": 0,
+    "result": "62 existing tests passed in4.35s",
+    "limitations": [
+      "Positive controls for known scenarios, not evidence against new wrong-drug or bootstrap-tenant probes",
+      "Some unit-focused tests construct temporary tables; new wrong-drug probes use full main schema"
+    ]
+  },
+  {
+    "id": "RUN-029",
+    "at": "2026-10-19T20:26:47+07:00",
+    "environment": "Exact pinned-main source file; Python stdlib; isolated AST extraction, no app import or database",
+    "command": "Inline Python: ast.parse exact cashier_board_service.py; extract and execute FunctionDef doc_khoang_ngay; call three date-span inputs.",
+    "exit_code": 0,
+    "result": "3 cases returned only 2026-07-19..2026-10-19; the 1-year and 292-day requested spans dropped 273 and 199 days; helper returns 93 inclusive calendar days.",
+    "limitations": [
+      "Executed exact helper only; did not call FastAPI route, database, browser or create XLSX.",
+      "Static trace links the helper to invoice preview/export; no real clinic data or production behavior checked."
+    ]
+  },
+  {
+    "id": "RUN-030",
+    "at": "2026-10-19T20:36:43+07:00",
+    "environment": "Exact pinned-main source snapshot; read-only static ACL/function trace; no database, PostgREST, production, PHI or secret access.",
+    "command": "Read final authenticated/service-role EXECUTE allowlist; trace selected SECURITY DEFINER bodies, caller-scoped identity helpers, restrictive secretary RLS, prescription-draft privilege test, and invoice/clinic-role helpers.",
+    "exit_code": 0,
+    "result": "SEC-007 remains confirmed_static for cross-clinic opening-hours/capacity metadata. Selected other allowlisted helpers bind clinic access to active identity/role or compose with RLS; no additional confirmed finding from this slice. Existing draft test asserts column/function grants and direct-column denial only.",
+    "limitations": [
+      "No authenticated JWT request through PostgREST against two synthetic clinics; no execution of RLS under real caller claims.",
+      "No verification of these specific ACLs or function results in production.",
+      "Only selected helper bodies and migration ranges were read; this is not a complete audit of every SECURITY DEFINER function, migration, caller, or API path."
+    ]
+  },
+  {
+    "id": "RUN-031",
+    "at": "2026-10-19T20:39:37+07:00",
+    "environment": "Exact pinned-main source and tests; read-only static trace; no application/production request sent.",
+    "command": "Trace ultrasound image upload: Next route -> FastAPI UploadFile -> MediaService; compare with CskhUploadSizeLimitMiddleware and its tests.",
+    "exit_code": 0,
+    "result": "Found SEC-008: 12 MiB check occurs after Next formData() and backend UploadFile.read(); pre-parser body middleware is path-limited to CSKH. Existing service test covers only a pre-materialized bytes argument; existing middleware multipart tests cover only CSKH.",
+    "limitations": [
+      "No runtime oversized/chunked upload probe, RAM/spool measurement or host-capacity test.",
+      "No production config or incident verification.",
+      "Valid staff identity with upload capability is required; impact severity is potential resource degradation."
+    ]
+  },
+  {
+    "id": "RUN-032",
+    "at": "2026-10-19T20:42:12+07:00",
+    "environment": "Pinned-main source plus official Next.js configuration documentation; read-only; no application request sent.",
+    "command": "Re-check SEC-008 against proxy.ts matcher, next.config.ts, exact Next package version and proxyClientMaxBodySize docs.",
+    "exit_code": 0,
+    "result": "Corrected SEC-008: this is not an unbounded-body claim. Next proxy applies a default 10 MiB per-request body buffer to ultrasound/image and passes only a prefix after overflow; the service cap is 12 MiB. The issue is a size-contract mismatch and potential partial multipart handling near the advertised limit. No dashboard caller was found in source search.",
+    "limitations": [
+      "No local Next runtime test around the 10 MiB boundary.",
+      "No proof of a user-visible error/status or production incident.",
+      "Official docs describe the framework contract; project production build/config was not verified."
+    ]
+  },
+  {
+    "id": "RUN-033",
+    "at": "2026-10-19T20:45:29+07:00",
+    "environment": "Pinned-main source, read-only static trace; Node path resolution; no HTTP/app/container/production request.",
+    "command": "Read exact-main feedback route, Next proxy auth bypass, backend proxy session check, dashboard Dockerfile/compose, read-feedback.sh and .env.prod.example; resolve path with Node path.resolve; search feedback cleanup references.",
+    "exit_code": 0,
+    "result": "Added SEC-009 as MEDIUM/design_gap: feedback image write precedes helper session check and no cleanup exists; if FEEDBACK_DIR is writable an anonymous image POST leaves a file before 401. Default container path resolves to /.feedback while runner is USER node, so default path is not expected to be writable; .env.prod.example omits FEEDBACK_DIR. Production override is unknown, so exploitability is explicitly conditional.",
+    "limitations": [
+      "No runtime request or container permission test.",
+      "Did not inspect .env.prod or VPS configuration.",
+      "No production disk usage, existing feedback files or patient content read."
+    ]
+  },
+  {
+    "id": "RUN-034",
+    "at": "2026-10-19T20:48:50+07:00",
+    "environment": "Pinned-main read-only static trace; no HTTP, database, worker or production request.",
+    "command": "Trace dashboard SSE route → FastAPI identity → clinic-scoped ChangeBroker queues → PostgreSQL LISTEN/NOTIFY; inspect UI reconnect/hidden-tab/fallback behavior, generic EventService/publisher/adapter callers and current event-worker lease tests.",
+    "exit_code": 0,
+    "result": "No additional confirmed issue in the SSE path: route requires session, propagates disconnect, FastAPI scopes queues by clinic, broker sends only table+clinic and bounds each queue at 8, while UI reconnects/catches up and polls every 60s when visible. Read generic EventService and upcaster: get_unpublished has no relay caller; record_and_publish has references from adapter/tool wrapper, while RabbitMQPublisher is a stub and GoldenRecordEngine returns queued because identity resolution is a stub. INF-005 lease/fencing remains a hypothesis: 120-second reclaim and DONE/RETRY lack locked_by fencing, but the current test simulates a dead worker, not a live stale handler competing with a second worker.",
+    "limitations": [
+      "No live PostgreSQL LISTEN/SSE browser test in this run.",
+      "No two-worker stale-lease fault injection; INF-005 remains hypothesis.",
+      "Source references do not establish production wiring/configuration; no production behavior checked."
+    ]
+  },
+  {
+    "id": "RUN-035",
+    "at": "2026-10-19T21:03:30+07:00",
+    "environment": "Local self-contained audit HTML opened from file:// in Chromium; source snapshot evidence remains exact pinned main. No ClinicAI application, API, database, VPS or production request.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "Rebuilt v0.17 HTML with 47 finding cards and 2,890 scope rows. Structural validator 5/5 passed (record uniqueness, IDs/anchors, main evidence hashes/line ranges, no external resources/script hash, explicit incomplete status). Browser QA at desktop 1280px and mobile 375px: no horizontal overflow, 47 cards open for print, search returns one, patched filter returns two, no page errors or external requests. HTML SHA-256 b331cee4ddf195f16f00946df8bca14c3deab5bfbb6323e94dc2c6888b3fa86d. Audit ZIP: 111 manifest entries map to 111 zip entries, every SHA-256/byte count and CRC verified; archive SHA-256 e416596d745868b162b553ec76a1162b3d5ae95aa695d822649ced2620c1f005.",
+    "limitations": [
+      "Validates the audit report UI only, not ClinicAI application behavior.",
+      "No accessibility certification.",
+      "Does not prove full source audit complete; code coverage ledger remains partial."
+    ]
+  },
+  {
+    "id": "RUN-036",
+    "at": "2026-10-19T21:24:07+07:00",
+    "environment": "Exact pinned-main source in detached audit checkout; ephemeral disposable Postgres test DB, synthetic clinic/staff/payment data; wrapper auto-dropped DB. No production access.",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_return_after_void_db.py src/tests/services/test_audit_1910_skill_revoke_retry_db.py src/tests/services/test_audit_1910_refund_receipt_crash_db.py -q -s",
+    "exit_code": 0,
+    "result": "3 passed: HOAN after paid→dispense→VOIDED raises and rolls back physical return while GIU_LAI records it; injected mid-revoke failure leaves a capability after retry says already; injected refund receipt-save failure plus 6-minute lease expiry repeats the same partial refund into two completed refund rows.",
+    "limitations": [
+      "Synthetic DB/service and direct refund route function; not ASGI, browser, external payment provider, or production behavior.",
+      "Injected failures prove the state transition under the specified fault boundary, not the frequency of such failures in production.",
+      "Return probe exercised HOAN and GIU_LAI; DOI shares the helper but was only traced statically.",
+      "Disposable DB was migrated from an older test template by the repo test wrapper; no production or shared business database was used."
+    ]
+  },
+  {
+    "id": "RUN-037",
+    "at": "2026-10-19T21:25:21+07:00",
+    "environment": "Self-contained audit report opened from file:// in local Chromium automation; no ClinicAI app/API/database/VPS/production request.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "v0.19 HTML structural 5/5; desktop 1280px and mobile 375px no horizontal overflow; 56 finding cards and 2,890 ledger rows; search/filter and print checks passed; no page errors or external requests. Final verification is rerun after embedding this run record.",
+    "limitations": [
+      "Checks audit report rendering only, not ClinicAI application behavior.",
+      "No accessibility certification.",
+      "HTML snapshot is static and does not update when source changes."
+    ]
+  },
+  {
+    "id": "RUN-038",
+    "at": "2026-10-19T21:35:32+07:00",
+    "environment": "DB test tạm được scripts/test-nhanh.sh clone từ khuôn cũ rồi áp các migration exact-main; không gọi production/API bên ngoài.",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_routing_config_race_db.py -x -q",
+    "exit_code": 0,
+    "result": "1 passed: sau eligibility check, service mapping đổi sang phòng khác; phòng vừa bị loại vẫn được assign commit ASSIGNED.",
+    "limitations": [
+      "Probe gọi ServiceRoutingService.assign thật; writer dùng cùng service_price lock và clinic_room_service update pattern, không gọi HTTP hoặc ClinicConfigService đầy đủ.",
+      "Chạy trên DB disposable và dữ liệu clinic/visit synthetic; không chứng minh đã xảy ra ở production.",
+      "Khuôn DB test ghi main@27e010d6 từ 14/10; script áp 42 migration hiện có trong snapshot 956ba4f2 vào DB tạm trước khi chạy. Khuôn dùng chung không bị thay đổi."
+    ]
+  },
+  {
+    "id": "RUN-039",
+    "at": "2026-10-19T21:50:35+07:00",
+    "environment": "DB disposable `chung_test_db`, local; synthetic visit/order/result/file/timer data; pinned source 956ba4f2.",
+    "command": "DATABASE_URL= PYTHONPATH=src scripts/test-nhanh.sh /tmp/probe_revoked_result_h7.py -q -s",
+    "exit_code": 0,
+    "result": "1 passed (~0,27s): revoke-only-result leaves ket_qua_luc set; active result view empty; H7 ends BO_QUA and creates no overdue notification.",
+    "limitations": [
+      "Probe source and raw stdout were removed/not retained; detailed secondhand run note is blocks/scheduling-result-revoke-h7-followup.md.",
+      "Runner applied 42 migrations to a disposable DB; no production data or external delivery was used.",
+      "Conditional on absence of another effective file/form/note; clinic policy may require explicit undo rather than automatic marker reset."
+    ]
+  },
+  {
+    "id": "RUN-040",
+    "at": "2026-10-19T21:50:35+07:00",
+    "environment": "FastAPI ASGI + disposable DB `tam_92618_dr4women_macmini`; synthetic medicine payment/dispense/return; pinned application/migrations, stale reusable seed template.",
+    "command": "PATH=/tmp/clinicai-audit-no-fetch-bin:$PATH TEST_NHANH_PYTHON=.venv/bin/python scripts/test-nhanh.sh src/tests/services/test_audit_1910_voided_return_http_probe.py -q",
+    "exit_code": 0,
+    "result": "1 passed, 1 warning (1.53s): API HOAN returns 409; GIU_LAI returns 200; no medicine.returned ledger row; PHAI_THU=50,000 and PHAI_TRA=0 before/after GIU_LAI.",
+    "limitations": [
+      "Transient probe source removed; combined output is retained at probes/HTTP-VOIDED-RETURN-PROBE.txt.",
+      "DB template main@27e010d6 differed from pinned seed and runner applied 42 missing migrations; not a fresh bootstrap validation.",
+      "No production, provider, real patient data or external payment call."
+    ]
+  },
+  {
+    "id": "RUN-041",
+    "at": "2026-10-19T21:50:35+07:00",
+    "environment": "Disposable synthetic DB under exact source 956ba4f2; no production/PHI.",
+    "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_lifecycle_probe_db.py -q",
+    "exit_code": 0,
+    "result": "2 passed: FINALIZED v5 save increments revision without amendment/reason; un-released v2 is returned by in_ket_qua as not-draft.",
+    "limitations": [
+      "Probe source was removed after run; agent reported 2 passed in 0.36s. Service-level only, not HTTP/browser/external delivery.",
+      "The result-revision release gate is conditional on intended product policy; source migration describes the release table as not yet wired to print/send."
+    ]
+  },
+  {
+    "id": "RUN-042",
+    "at": "2026-10-19T21:52:57+07:00",
+    "environment": "Local offline audit artifact; exact report built from canonical JSON/Markdown records.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural tests passed; browser report showed 71 cards/2,890 ledger rows, desktop 1280px and mobile 375px without horizontal overflow; search/filters/print passed; no page errors or external requests.",
+    "limitations": [
+      "Validates the HTML audit artifact only; does not validate ClinicAI application behavior.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-043",
+    "at": "2026-10-19T22:07:25+07:00",
+    "environment": "Synthetic disposable Postgres; exact-main source 956ba4f2; test creates audit_worker_lease_probe scratch table and synthetic event; no production/PHI.",
+    "command": "PATH=/tmp/clinicai-audit-git-wrapper:$PATH scripts/test-nhanh.sh /Users/quangdang/Projects/Dr4Women-MacMini/docs/kiem-toan-2026-10-19/probes/test_worker_lease_race_db.py -q -s",
+    "exit_code": 0,
+    "result": "1 passed in 0.20s: old handler blocked after lease claim; lease expired/reclaimed; new handler committed event DONE; old handler resumed and also committed. Callback count=2 and both scratch rows persisted.",
+    "limitations": [
+      "Demonstrates generic worker callback overlap, not a side effect in a named business consumer or an external duplicate.",
+      "Disposable DB template main@27e010d6 had stale seed and runner applied 42 pinned migrations; not fresh bootstrap. No production, provider, or patient data.",
+      "Probe source is retained at probes/test_worker_lease_race_db.py; scratch table is confined to disposable DB."
+    ]
+  },
+  {
+    "id": "RUN-044",
+    "at": "2026-10-19T22:08:22+07:00",
+    "environment": "Offline audit HTML artifact; local Chromium through project Playwright; no app API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py && python3 docs/kiem-toan-2026-10-19/validate_report.py -v && node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural tests passed; 78 finding cards and 2,890 ledger rows; desktop 1280px/mobile 375px without horizontal overflow; search/filter/print passed; no page errors or external requests.",
+    "limitations": [
+      "Validates the audit HTML artifact only, not ClinicAI behavior or completeness of source review.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-045",
+    "at": "2026-10-19T22:09:48+07:00",
+    "environment": "Pure Python helper test imported from exact-main snapshot 956ba4f2; synthetic dict only; no DB/network/PHI.",
+    "command": "PYTHONPATH=/tmp/clinicai-audit-main-956ba4f2/src .venv/bin/pytest -q docs/kiem-toan-2026-10-19/probes/test_room_accepting_pure.py -s",
+    "exit_code": 0,
+    "result": "1 passed in 0.13s: accepting=false still yields nhan_duoc=true for pending order; dem_sap_den is 0.",
+    "limitations": [
+      "Pure helper only; no DB, API or browser.",
+      "Service write gate still rejects ROOM_NOT_ACCEPTING; no successful action in stopped room was reproduced.",
+      "An initial run failed only because the synthetic fixture omitted service_name; the retained fixture was corrected, then this recorded run passed."
+    ]
+  },
+  {
+    "id": "RUN-046",
+    "at": "2026-10-19T22:10:02+07:00",
+    "environment": "Offline audit HTML artifact after RUN-045 evidence update; local Chromium; no application API/network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py && python3 docs/kiem-toan-2026-10-19/validate_report.py -v && node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural tests passed; 78 finding cards and 2,890 ledger rows; desktop 1280px/mobile 375px no overflow; search/filter/print passed; no page errors or external requests.",
+    "limitations": [
+      "Validates the report artifact only; it is not an app test or full-code audit.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-047",
+    "at": "2026-10-19T22:10:27+07:00",
+    "environment": "Offline audit HTML after documenting RUN-045 pure-helper result; Chromium; no ClinicAI API/network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py && python3 docs/kiem-toan-2026-10-19/validate_report.py -v && node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural tests passed; 78 finding cards and 2,890 ledger rows; desktop/mobile no overflow; search/filter/print passed; no page errors or external requests.",
+    "limitations": [
+      "Report artifact only; no ClinicAI behavior test or proof that source review is complete.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-048",
+    "at": "2026-10-19T22:12:53+07:00",
+    "environment": "Pure request-model/service-helper probe imported from exact-main snapshot 956ba4f2; synthetic UUIDs and timestamps; no DB/network/PHI.",
+    "command": "PYTHONPATH=/tmp/clinicai-audit-main-956ba4f2/src .venv/bin/pytest -q docs/kiem-toan-2026-10-19/probes/test_booking_naive_datetime_boundary.py -s",
+    "exit_code": 0,
+    "result": "1 passed in 0.17s: request model accepts naive datetime; service helper raises TypeError on aware/naive comparison.",
+    "limitations": [
+      "No HTTP exception mapping, database, browser or production was tested.",
+      "Probe source retained at probes/test_booking_naive_datetime_boundary.py; only synthetic IDs/timestamps."
+    ]
+  },
+  {
+    "id": "RUN-049",
+    "at": "2026-10-19T22:21:25+07:00",
+    "environment": "Offline audit HTML v0.23; local Chromium; no ClinicAI API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py && python3 docs/kiem-toan-2026-10-19/validate_report.py -v && node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural/evidence tests passed; 88 finding cards and 2,890 ledger rows; desktop 1280px/mobile 375px no page overflow; search 1 result, patched filter 2, print expands all 88; no page errors or external requests.",
+    "limitations": [
+      "Validates only the report artifact, not ClinicAI runtime or full source review.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-050",
+    "at": "2026-10-19T22:31:47+07:00",
+    "environment": "Offline audit HTML v0.24; local Chromium; no ClinicAI API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural/evidence tests passed; 97 finding cards and 2,890 ledger rows; desktop 1280px/mobile 375px no page overflow; search 1 result, patched filter 2, print expands all 97; no page errors or external requests. HTML SHA-256 170a68759588d665090be86103e4546a7c8edf1da84dba4866011cc6214fdc1c.",
+    "limitations": [
+      "Validates only the report artifact, not ClinicAI runtime or full source review.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-051",
+    "at": "2026-10-19T22:32:42+07:00",
+    "environment": "Audit-only ZIP package; no ClinicAI runtime, source writes, database, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Created a 133-file bundle; CRC, member byte counts and SHA-256 verified. Outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Package contains audit artifacts only, not repository or Git history. Continuing on another machine requires the repository at exact main SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7.",
+      "The run verifies package integrity only; not application behavior or completeness of source review."
+    ]
+  },
+  {
+    "id": "RUN-052",
+    "at": "2026-10-19T22:47:24+07:00",
+    "environment": "Offline audit HTML v0.25 after work-item coverage update; local Chromium; no ClinicAI API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural/evidence tests passed; 98 finding cards and 2,890 ledger rows; coverage distinguishes 22 full reads, 319 partial traces, 1,993 scanned and 548 inventoried; desktop 1280px/mobile 375px no page overflow; search 1 result, patched filter 2, print expands all 98; no page errors or external requests.",
+    "limitations": [
+      "Validates only the report artifact, not ClinicAI runtime or full source review.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-053",
+    "at": "2026-10-19T22:58:33+07:00",
+    "environment": "Offline audit HTML v0.26; local Chromium; no ClinicAI API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural/evidence checks passed; 102 finding cards and 2,890 ledger rows; coverage: 36 read, 336 traced, 1,962 scanned, 548 inventoried and 8 excluded. Desktop 1280px and mobile 375px had no horizontal overflow; search returned 1 result; patched filter returned 2; print exposed all 102 cards; no page errors or external requests. Exact final HTML SHA is recorded in HTML-QA.json.",
+    "limitations": [
+      "Validates only the audit report UI and evidence pointers, not ClinicAI runtime or full source review.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-054",
+    "at": "2026-10-19T23:10:19+07:00",
+    "environment": "Offline audit HTML v0.27; local Chromium; no ClinicAI API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/integrate_v027.py; python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "5/5 structural/evidence checks passed; 103 finding cards, 2,890 ledger rows; coverage: 102 read, 333 traced, 1,899 scanned, 548 inventoried, 8 excluded. Desktop 1280px/mobile 375px no overflow; search returned 1 result; patched filter returned 2; print exposed all 103 cards; no page errors or external requests. HTML SHA-256 4beab6743a5b337f2a2b86b378289678734699017da881e20a0442f1c0e00a8a.",
+    "limitations": [
+      "Validates only the audit report UI and evidence pointers, not ClinicAI runtime or full source review.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-055",
+    "at": "2026-10-19T23:23:57+07:00",
+    "environment": "Offline audit HTML v0.29; local Chromium; no ClinicAI API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/integrate_round9_reviewed.py; python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "6/6 structural/evidence checks passed; 115 finding cards and 2,890 ledger rows. Desktop 1280px and mobile 375px had no horizontal overflow; search returned 1 result; patched filter returned 2; print exposed all 115 cards; no page errors or external requests. HTML SHA-256 2e7c91d4868e66a5a4e35efdaf6c0bafd8a0c0caa1e0fea2c4f12ecc3031f77b.",
+    "limitations": [
+      "Validates only the audit report UI and evidence pointers, not ClinicAI runtime or full source review.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-056",
+    "at": "2026-10-19T23:26:15+07:00",
+    "environment": "Audit-only ZIP checkpoint v0.29; no repository source, runtime, database, production, secrets or patient data included.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Current v0.29 checkpoint bundle contains 173 audit files; ZIP CRC, member set, byte counts and per-file SHA-256 passed. Outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Bundle contains audit artifacts only, not repository source or Git history. Continuing elsewhere requires the repository at exact main SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7.",
+      "This verifies package integrity, not application behavior or completion of source review.",
+      "Regenerate the bundle after any round-10 artifact or handoff update."
+    ]
+  },
+  {
+    "id": "RUN-057",
+    "at": "2026-10-19T23:34:30+07:00",
+    "environment": "Offline audit HTML v0.30; local Chromium; no ClinicAI API or network.",
+    "command": "python3 docs/kiem-toan-2026-10-19/integrate_round9_reviewed.py; python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "6/6 structural/evidence checks passed; 117 finding cards and 2,890 ledger rows. Coverage: 602 read, 282 traced (partial), 1,457 scanned, 541 inventoried, 8 excluded. Desktop 1280px and mobile 375px had no horizontal overflow; search returned 1 result, patched filter 2, print exposed all 117 cards; no page errors or external requests. The final report SHA-256 is recorded in HTML-QA.json and STATE.json.",
+    "limitations": [
+      "Validates only the audit report and evidence pointers, not ClinicAI runtime or full source review.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-058",
+    "at": "2026-10-19T23:34:43+07:00",
+    "environment": "Audit-only ZIP checkpoint v0.30; no ClinicAI runtime, source writes, database, production, secrets or patient data included.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Package member set, ZIP CRC, member byte counts and per-file SHA-256 are checked by verify_bundle.py; outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Package contains audit artifacts only, not repository source or Git history. Continuing elsewhere requires this repository and Git history at exact main SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7.",
+      "Bundle verification checks package integrity, not ClinicAI behavior or completion of source review.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-059",
+    "at": "2026-10-19T23:46:32+07:00",
+    "environment": "Offline audit report v0.31; local Chromium; no ClinicAI API, DB, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/integrate_round9_reviewed.py; python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "6/6 structural/evidence checks passed; 122 finding cards and 2,890 ledger rows. Coverage: 621 read, 297 traced (partial), 1,423 scanned, 541 inventoried, 8 excluded. Desktop 1280px and mobile 375px had no horizontal overflow; search returned 1 result, patched filter 2, print exposed all 122 cards; no page errors or external requests. HTML SHA-256: 3e9abe62cd3d511e1303e65fcb3cfa210ae862455a5f2ca880ddc0bb29ce4c1a.",
+    "limitations": [
+      "Validates only the audit report and its evidence pointers, not ClinicAI runtime or completion of source review.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-060",
+    "at": "2026-10-19T23:47:22+07:00",
+    "environment": "Audit-only ZIP v0.31; no ClinicAI runtime, database, production, secrets, patient data or application source included.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Package contains 196 audit artifacts; ZIP CRC, expected member set, byte counts and per-file SHA-256 passed. The outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Bundle contains audit artifacts only, not repository source or Git history. Continuing elsewhere requires this repository and Git history at exact main SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7.",
+      "Package integrity does not verify ClinicAI behavior or completion of source review.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-061",
+    "at": "2026-10-19T23:53:01+07:00",
+    "environment": "Offline audit report v0.32; local Chromium; no ClinicAI API, DB, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/integrate_round9_reviewed.py; python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "6/6 structural/evidence checks passed; 123 finding cards and 2,890 ledger rows. Desktop 1280px and mobile 375px had no horizontal overflow; search returned 1, patched filter 2, print exposed all 123; no page errors or external requests. HTML SHA-256: 916c1660cc7a518c98fa4f4edfe24c5cc9bcbef16cb8c66a85e3f4f20fb9dcf1.",
+    "limitations": [
+      "Validates the report UI and evidence pointers, not ClinicAI runtime or completion of source review.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-062",
+    "at": "2026-10-19T23:53:03+07:00",
+    "environment": "Audit-only ZIP checkpoint v0.32 before final handoff-log update; no ClinicAI runtime, database, production, secrets, patient data or application source included.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Package contained 206 audit files; ZIP CRC, expected member set, byte counts and per-file SHA-256 passed. Outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "This checkpoint package is regenerated after the final handoff and test-log updates.",
+      "Bundle contains audit artifacts only, not repository source or Git history.",
+      "Bundle verification checks package integrity, not ClinicAI behavior or completion of source review."
+    ]
+  },
+  {
+    "id": "RUN-063",
+    "at": "2026-10-19T23:53:56+07:00",
+    "environment": "Final audit-only ZIP v0.32 after HTML QA and handoff updates; excludes repository source, Git history, secrets, patient data and production payloads.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Rebuilt the current bundle and verified member set, ZIP CRC, byte counts and member SHA-256. The final outer SHA-256 is stored in MANIFEST-GOI.json.",
+    "limitations": [
+      "Verifies audit package integrity only, not ClinicAI application behavior or completion of source review.",
+      "Bundle contains audit artifacts only; continuing the code audit requires the repository and Git history at exact main SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-064",
+    "at": "2026-10-20T00:17:09+07:00",
+    "environment": "Offline audit HTML v0.35; local Chromium; no ClinicAI API, DB, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/integrate_round9_reviewed.py; python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "Integrated the selected core-primitive coverage slice; 6/6 structural/evidence checks passed. Browser QA: 132 cards, 2,890 ledger rows, desktop 1280px and mobile 375px without horizontal overflow; search/filter/print passed, no page errors or external requests. Final report SHA is recorded in HTML-QA.json and STATE.json.",
+    "limitations": [
+      "Checks the standalone audit report and source evidence pointers, not ClinicAI runtime or completion of source review.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete; tests in the new core slice were read but not run."
+    ]
+  },
+  {
+    "id": "RUN-065",
+    "at": "2026-10-20T00:18:20+07:00",
+    "environment": "Audit-only v0.35 package; excludes repository source, Git history, secrets, patient data and production payloads.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "The package verifier passed member-set, ZIP CRC, byte-count and per-file SHA-256 checks; the outer SHA-256 is recorded in MANIFEST-GOI.json. The final archive is rebuilt and re-verified after this test-log and HTML QA update.",
+    "limitations": [
+      "Verifies packaging integrity only, not ClinicAI behavior or source-audit completeness.",
+      "The bundle contains audit artifacts, not repository source or Git history; continuation requires the exact-main repository SHA recorded in STATE.json.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-066",
+    "at": "2026-10-20T00:34:38+07:00",
+    "environment": "Offline audit HTML v0.36; local Chromium; no ClinicAI API, DB, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py && python3 docs/kiem-toan-2026-10-19/validate_report.py -v && node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "Rebuilt the v0.36 standalone report with 134 finding cards and 2,890 ledger rows. Structural/evidence checks: 6/6. Browser QA: desktop 1280px and mobile 375px without horizontal overflow; search/filter/print passed; no page errors or external requests. The final HTML hash is recorded in HTML-QA.json and STATE.json.",
+    "limitations": [
+      "Validates the standalone audit report and exact-main evidence pointers, not ClinicAI runtime or audit completeness.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete; no app, Auth, DB, production, secret or patient-data testing was performed."
+    ]
+  },
+  {
+    "id": "RUN-067",
+    "at": "2026-10-20T00:34:59+07:00",
+    "environment": "Audit-only v0.36 package; excludes repository source, Git history, environment files, secrets, patient data and production payloads.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py && python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Rebuilt and verified the final v0.36 audit-only ZIP: member set, ZIP CRC, byte counts and per-file SHA-256 passed. Outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Verifies package integrity only, not ClinicAI behavior or source-audit completeness.",
+      "The bundle contains audit artifacts, not repository source or Git history; continuation requires the exact-main repository SHA recorded in STATE.json.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-068",
+    "at": "2026-10-20T00:39:03+07:00",
+    "environment": "Pinned exact-main dashboard source checkout; Node boundary tests only; no ClinicAI server, Auth provider, database, production, secrets or patient data.",
+    "command": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test tests/het-phien-boundary.test.mts tests/nhap-lieu-benh-nhan-boundary.test.mts tests/service-role-boundary.test.mts (cwd: src/dashboard)",
+    "exit_code": 0,
+    "result": "22/22 selected tests passed across session-expiry routing, patient input validation/wiring and service-role confinement. Node emitted MODULE_TYPELESS_PACKAGE_JSON reparsing warnings for TypeScript modules; no test failures.",
+    "limitations": [
+      "Selected boundary suites only; not the full dashboard or application CI.",
+      "No browser/HTTP/Auth-provider/database/RLS/production validation.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-069",
+    "at": "2026-10-20T00:39:26+07:00",
+    "environment": "Offline audit HTML v0.37; local Chromium; no ClinicAI API, DB, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "Rebuilt report with 134 finding cards and 2,890 ledger rows. Structural/evidence checks passed 6/6. Browser QA: desktop 1280px and mobile 375px without horizontal overflow; search/filter/print passed; no page errors or external requests. Hash recorded in HTML-QA.json; final report will be rebuilt and checked again after this run is logged.",
+    "limitations": [
+      "Validates the standalone audit report and exact-main evidence pointers, not ClinicAI runtime or audit completeness.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete; no app, Auth, DB, production, secret or patient-data testing was performed."
+    ]
+  },
+  {
+    "id": "RUN-070",
+    "at": "2026-10-20T00:51:15+07:00",
+    "environment": "Offline audit HTML v0.38; local Chromium; no ClinicAI API, DB, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py; python3 docs/kiem-toan-2026-10-19/validate_report.py -v; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "Rebuilt report with 137 finding cards and 2,890 ledger rows. Structural/evidence checks passed 6/6. Browser QA: desktop 1280px and mobile 375px without horizontal overflow; search/filter/print passed; no page errors or external requests. Report SHA-256 is recorded in HTML-QA.json.",
+    "limitations": [
+      "Validates standalone report structure and exact-main evidence references, not ClinicAI runtime or audit completeness.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete; no app, Auth, DB, production, secrets or patient-data testing was performed."
+    ]
+  },
+  {
+    "id": "RUN-071",
+    "at": "2026-10-20T00:51:39+07:00",
+    "environment": "Audit-only v0.38 package; excludes repository source, Git history, environment files, secrets, patient data and production payloads.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py && python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "The final audit-only ZIP passes member-set, ZIP CRC, byte-count and per-file SHA-256 verification. It contains 247 audit artifact files; the outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Verifies package integrity only, not ClinicAI behavior or source-audit completeness.",
+      "The bundle contains audit artifacts, not repository source or Git history; continuation requires the exact-main repository SHA recorded in STATE.json.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-072",
+    "at": "2026-10-20T00:59:38+07:00",
+    "environment": "Offline audit HTML v0.39; local Chromium; no ClinicAI API, DB, production, secrets or patient data.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py && python3 docs/kiem-toan-2026-10-19/validate_report.py -v && node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "Rebuilt report with 140 finding cards and 2,890 ledger rows. Structural/evidence checks passed 6/6. Browser QA at 1280px desktop and 375px mobile had no horizontal overflow; search/filter/print passed; no page errors or external requests. Final report SHA-256 is recorded in HTML-QA.json.",
+    "limitations": [
+      "Validates standalone report structure, exact-main evidence references and report UI, not ClinicAI runtime or audit completeness.",
+      "No accessibility certification.",
+      "Full source audit remains incomplete; no ClinicAI app, Auth, DB, production, secret or patient-data testing was performed."
+    ]
+  },
+  {
+    "id": "RUN-073",
+    "at": "2026-10-20T00:59:38+07:00",
+    "environment": "Audit-only v0.39 package; excludes repository source/history, environment files, secrets, patient data and production payloads.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py && python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "The final audit-only ZIP passes expected member-set, ZIP CRC, byte-count and per-file SHA-256 verification. It contains 251 audit artifact files; the outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Verifies package integrity only, not ClinicAI behavior or source-audit completeness.",
+      "The bundle contains audit artifacts, not repository source or Git history; continuation requires the exact-main repository SHA recorded in STATE.json.",
+      "Full source audit remains incomplete."
+    ]
+  },
+  {
+    "id": "RUN-074",
+    "at": "2026-10-20T01:13:03+07:00",
+    "environment": "Local report-only QA; v0.40 generated from pinned-main audit artifacts.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py -v",
+    "exit_code": 0,
+    "result": "6/6 structural and evidence tests passed, including all 154 findings exactly once and exact pinned-source hashes, line ranges, and excerpts.",
+    "limitations": [
+      "Validates the standalone audit document and its citations, not ClinicAI application behavior.",
+      "No application, API, database, provider, or production test was run."
+    ]
+  },
+  {
+    "id": "RUN-075",
+    "at": "2026-10-20T01:12:53+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "154 finding cards and 2,890 ledger rows rendered; search, patched filter, print preparation and restoration passed; desktop 1280px and mobile 375px had no horizontal overflow, page errors, or external requests.",
+    "limitations": [
+      "Validates report UI only, not the ClinicAI application.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-076",
+    "at": "2026-10-20T01:24:20+07:00",
+    "environment": "Local report-only QA; v0.41 generated from pinned-main audit artifacts.",
+    "command": "python3 docs/kiem-toan-2026-10-19/build_report.py && python3 docs/kiem-toan-2026-10-19/validate_report.py -v",
+    "exit_code": 0,
+    "result": "Rebuilt v0.41 report with 157 findings and 2,890 ledger paths. Structural/evidence checks passed 6/6, including exact source hashes, line ranges, excerpts and every finding exactly once.",
+    "limitations": [
+      "Validates the standalone audit artifact, not ClinicAI behavior or audit completeness.",
+      "No application, API, database, provider or production test was run."
+    ]
+  },
+  {
+    "id": "RUN-077",
+    "at": "2026-10-20T01:24:20+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "157 finding cards and 2,890 ledger rows rendered; search, patched filter and print preparation/restoration passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI application behavior.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-078",
+    "at": "2026-10-20T01:24:48+07:00",
+    "environment": "Audit-only v0.41 package; no repository source, Git history, environment files, secrets, patient data or production payloads.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py && python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Audit-only ZIP contains 259 files and passes expected member-set, ZIP CRC, byte-count and per-file SHA-256 checks. Outer SHA-256 is recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Validates package integrity only, not ClinicAI behavior or audit completeness.",
+      "Repository and Git history are excluded; continuation requires the pinned source commit recorded in STATE.json.",
+      "This package run preceded adding its own log row; final package is regenerated and verified after the row is included."
+    ]
+  },
+  {
+    "id": "RUN-079",
+    "at": "2026-10-20T01:33:56+07:00",
+    "environment": "Local report-only structural/evidence validation for v0.42.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py -v",
+    "exit_code": 0,
+    "result": "6/6 checks passed with 158 findings exactly once, unique internal anchors, no external resources, pinned-main source hashes/ranges/excerpts matching, and explicit incomplete-audit status.",
+    "limitations": [
+      "Validates the portable HTML and evidence bundle only; not ClinicAI runtime behavior.",
+      "This run preceded embedding its own log row; final HTML is rebuilt and rechecked afterward."
+    ]
+  },
+  {
+    "id": "RUN-080",
+    "at": "2026-10-20T01:33:56+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "158 finding cards and 2,890 ledger rows rendered; search, patched filter and print preparation/restoration passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI application behavior.",
+      "No accessibility certification.",
+      "This run preceded embedding its own log row; final HTML is rebuilt and rechecked afterward."
+    ]
+  },
+  {
+    "id": "RUN-081",
+    "at": "2026-10-20T01:34:20+07:00",
+    "environment": "Audit-only v0.42 package; source repository, Git history, environment files, secrets, patient data and production payloads excluded.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py && python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Final archive contains 263 audit-only files and passes expected member-set, ZIP CRC, byte-count and per-file SHA-256 checks. Outer checksum is recorded in MANIFEST-GOI.json; package will be regenerated and reverified after this log row is embedded.",
+    "limitations": [
+      "Validates package integrity only, not ClinicAI behavior or audit completeness.",
+      "Repository/Git history are excluded; continuation requires the pinned source commit."
+    ]
+  },
+  {
+    "id": "RUN-082",
+    "at": "2026-10-20T01:50:45+07:00",
+    "environment": "Local report-only structural/evidence validation; standalone v0.46 HTML generated from pinned-main audit artifacts.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py -v",
+    "exit_code": 0,
+    "result": "6/6 structural/evidence checks passed: all 160 findings exactly once, unique internal anchors, no external resources, exact pinned-main SHA/range/excerpt verification, explicit incomplete-audit status.",
+    "limitations": [
+      "Validates the standalone audit artifact, not ClinicAI behavior or audit completeness.",
+      "No ClinicAI app, API, database, PostgREST/JWT, provider or production test was run.",
+      "Final report is rebuilt after embedding this run; final browser and structural verification are rerun."
+    ]
+  },
+  {
+    "id": "RUN-083",
+    "at": "2026-10-20T01:50:42+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML at v0.46.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "160 finding cards and 2,890 ledger rows rendered; search, patched filter and print preparation/restoration passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI application behavior or audit completeness.",
+      "No accessibility certification.",
+      "Final report is rebuilt after embedding this run; final browser and structural verification are rerun."
+    ]
+  },
+  {
+    "id": "RUN-084",
+    "at": "2026-10-20T01:51:12+07:00",
+    "environment": "Audit-only v0.46 package; source repository, Git history, environment files, secrets, patient data and production payloads excluded.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py && python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Audit-only ZIP with 276 files passes expected member-set, ZIP CRC, byte-count and per-file SHA-256 checks. Outer SHA-256 recorded in MANIFEST-GOI.json.",
+    "limitations": [
+      "Verifies package integrity only, not ClinicAI behavior or source-audit completeness.",
+      "Repository/Git history are excluded; continuation requires exact-main source SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7.",
+      "After embedding this log row and updating final HTML/QA metadata, the package is regenerated and verified again."
+    ]
+  },
+  {
+    "id": "RUN-085",
+    "at": "2026-10-20T02:08:43+07:00",
+    "environment": "Local report-only structural/evidence validation; standalone HTML v0.47 generated from pinned-main audit artifacts.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py -v",
+    "exit_code": 0,
+    "result": "6/6 checks passed: all 165 findings exactly once; unique anchors; no external resources; exact pinned-main SHA/range/excerpt verification; report explicitly says audit incomplete.",
+    "limitations": [
+      "Validates the report artifact, not ClinicAI behavior or audit completeness.",
+      "No ClinicAI app/API/DB/PostgREST/provider/production test ran.",
+      "Report is rebuilt after the QA log is embedded; final build is validated again."
+    ]
+  },
+  {
+    "id": "RUN-086",
+    "at": "2026-10-20T02:08:43+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML v0.47.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "165 finding cards and 2,890 ledger rows rendered; search, patched filter and print passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI behavior or audit completeness.",
+      "No accessibility certification.",
+      "Report is rebuilt after the QA log is embedded; final build is validated again."
+    ]
+  },
+  {
+    "id": "RUN-087",
+    "at": "2026-10-20T02:09:40+07:00",
+    "environment": "Audit-only v0.47 ZIP; repository/Git history, environment files, secrets, patient data and production payloads excluded.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py && python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Audit-only archive with 279 files passes expected member set, ZIP CRC, bytes and per-file SHA-256; initial outer SHA-256 be98f356a72a29d84aea1b8efc85e14bc28e0858c8f6df03194c615eec0f2102. The final archive is regenerated and verified after embedding this run and the final report metadata.",
+    "limitations": [
+      "Package integrity does not validate ClinicAI behavior or source audit completeness.",
+      "Continuation requires exact-main SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7 and repository/Git history."
+    ]
+  },
+  {
+    "id": "RUN-088",
+    "at": "2026-10-20T02:26:53+07:00",
+    "environment": "Local report-only structural/evidence validation; standalone HTML v0.48 generated from exact-main audit records.",
+    "command": "/tmp/clinicai-audit-report-venv/bin/python docs/kiem-toan-2026-10-19/validate_report.py",
+    "exit_code": 0,
+    "result": "6/6 structural/evidence checks passed: all 170 findings exactly once; unique internal anchors; no external resources; pinned-main SHA/range/excerpt checks; explicit incomplete-audit status.",
+    "limitations": [
+      "Validates audit artifact consistency, not ClinicAI behavior or audit completeness.",
+      "No ClinicAI app/API/DB/provider/production test ran.",
+      "Final HTML is rebuilt and rechecked after adding this run record."
+    ]
+  },
+  {
+    "id": "RUN-089",
+    "at": "2026-10-20T02:26:53+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML v0.48.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "170 finding cards and 2,890 ledger rows rendered; search, patched filter and print passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI behavior or audit completeness.",
+      "No accessibility certification.",
+      "Final HTML is rebuilt and rechecked after adding this run record."
+    ]
+  },
+  {
+    "id": "RUN-090",
+    "at": "2026-10-20T02:27:48+07:00",
+    "environment": "Audit-only v0.48 ZIP; repository/Git history, environment files, secrets, patient data and production payloads excluded.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Candidate archive with 283 audit-only files passed expected member set, ZIP CRC, byte-count and per-file SHA-256 checks. Outer SHA-256 is recorded in MANIFEST-GOI.json; final archive is regenerated and reverified after this run and final metadata are embedded.",
+    "limitations": [
+      "Package integrity does not validate ClinicAI behavior or source-audit completeness.",
+      "Repository/Git history are excluded; continuation requires exact-main SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7."
+    ]
+  },
+  {
+    "id": "RUN-091",
+    "at": "2026-10-20T03:13:12+07:00",
+    "environment": "Local report-only structural/evidence validation for HTML audit v0.52.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py",
+    "exit_code": 0,
+    "result": "6/6 checks passed: 178 finding records rendered once, internal IDs and links valid, pinned-main evidence hashes/line ranges/excerpts exact, no external resources, embedded script CSP hash matches, incomplete-audit status explicit.",
+    "limitations": [
+      "Validates report artifact consistency, not ClinicAI behavior or source-audit completeness.",
+      "No ClinicAI app/API/DB/provider/production test ran. The final report is rebuilt and revalidated after recording this run."
+    ]
+  },
+  {
+    "id": "RUN-092",
+    "at": "2026-10-20T03:13:13+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone offline HTML v0.52.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "178 finding cards and 2,890 ledger rows rendered; search, patched filter and print passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI behavior or source-audit completeness.",
+      "No accessibility certification.",
+      "The final report is rebuilt and browser-checked after recording this run."
+    ]
+  },
+  {
+    "id": "RUN-093",
+    "at": "2026-10-20T03:22:08+07:00",
+    "environment": "Local report-only structural/evidence validation for offline audit HTML v0.53.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py",
+    "exit_code": 0,
+    "result": "6/6 checks pass: all canonical findings rendered once, internal IDs/links valid, pinned-main evidence paths/hashes/line ranges valid, no external resources, embedded script CSP hash matches, incomplete-audit status explicit.",
+    "limitations": [
+      "Validates the report artifact, not ClinicAI behavior or source-audit completeness.",
+      "No ClinicAI app/API/DB/provider/production test ran. Final HTML is rebuilt and checked after recording this run."
+    ]
+  },
+  {
+    "id": "RUN-094",
+    "at": "2026-10-20T03:22:08+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone offline HTML v0.53.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "178 finding cards and 2,890 ledger rows rendered; search, patched filter and print passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI application behavior or audit completeness.",
+      "No accessibility certification.",
+      "Final HTML is rebuilt and browser-checked after recording this run."
+    ]
+  },
+  {
+    "id": "RUN-095",
+    "at": "2026-10-20T03:22:08+07:00",
+    "environment": "Audit-only v0.53 ZIP; source repository/Git history, environment files, secrets, PHI and production payloads excluded.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Final v0.53 package is regenerated after the report and handoff state are frozen; the verifier confirms expected member set, ZIP CRC, byte counts and per-file SHA-256. Outer digest is recorded in MANIFEST-GOI.json next to the ZIP.",
+    "limitations": [
+      "Package integrity does not validate ClinicAI behavior or audit completeness.",
+      "The pinned Git tree remains a separate prerequisite for source continuation."
+    ]
+  },
+  {
+    "id": "RUN-096",
+    "at": "2026-10-20T08:29:52+07:00",
+    "environment": "Local report-only structural/evidence validation for offline audit HTML v0.59 draft.",
+    "command": "python3 docs/kiem-toan-2026-10-19/validate_report.py",
+    "exit_code": 0,
+    "result": "6/6 checks passed: all 192 finding records rendered once, internal IDs/links valid, exact pinned-main evidence hashes/ranges/excerpts valid, no external resources, embedded script CSP hash matches, incomplete-audit status explicit. This run is recorded before embedding the run row; final validation is rerun after the final build.",
+    "limitations": [
+      "Validates audit artifact consistency, not ClinicAI behavior or audit completeness.",
+      "No ClinicAI app/API/DB/provider/production test ran."
+    ]
+  },
+  {
+    "id": "RUN-097",
+    "at": "2026-10-20T08:29:52+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML v0.59 draft.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "192 finding cards and 2,890 ledger rows rendered; search, patched filter and print passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests. Final browser check is rerun after the final report build.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI application behavior or audit completeness.",
+      "No accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-098",
+    "at": "2026-10-20T08:30:56+07:00",
+    "environment": "Audit-only v0.59 ZIP candidate; source repository/Git history, environment files, secrets, PHI and production payloads excluded.",
+    "command": "python3 docs/kiem-toan-2026-10-19/package_audit.py; python3 docs/kiem-toan-2026-10-19/verify_bundle.py",
+    "exit_code": 0,
+    "result": "Candidate archive with 318 audit-only files passed expected member set, ZIP CRC, byte-count and per-file SHA-256; candidate outer SHA-256 2da91c04c5ffe9e4def59f668acd199ddbf24a516380c696b190a914b8f3c343. The final archive is rebuilt and verified again after this run and final handoff metadata are embedded.",
+    "limitations": [
+      "Package integrity does not validate ClinicAI behavior or source-audit completeness.",
+      "The exact pinned Git tree and repository/history remain separate prerequisites for source continuation."
+    ]
+  },
+  {
+    "id": "RUN-099",
+    "at": "2026-10-20T08:34:59+07:00",
+    "environment": "Local report-only verification; exact pinned source snapshot 956ba4f236b1c92f1280d2097018c199e90ce8c7; no ClinicAI runtime.",
+    "command": "/Users/quangdang/.pyenv/versions/3.12.9/bin/python3 validate_report.py; node verify_browser.cjs",
+    "exit_code": 0,
+    "result": "After clarifying INF-021 room-create retry evidence, report validator passed 6/6 and browser QA passed with SHA-256 f1e43f6847123102ee32bbd3971e401bd2aaa89e9fe8749b2cae36654a26b0e9; 192 cards, 2,890 ledger rows, desktop/mobile no horizontal overflow, search/print passed, no page errors or external requests.",
+    "limitations": [
+      "Validates report artifact only, not ClinicAI runtime or source-audit completeness.",
+      "ClinicAI tests were read but not run; no accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-100",
+    "at": "2026-10-20T08:46:55+07:00",
+    "environment": "Local report-only checks on HTML v0.60 draft after Round37; pinned source SHA 956ba4f236b1c92f1280d2097018c199e90ce8c7, no ClinicAI runtime.",
+    "command": "/Users/quangdang/.pyenv/versions/3.12.9/bin/python3 docs/kiem-toan-2026-10-19/validate_report.py; node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "Report validator passed 6/6 and browser QA passed on 193 finding cards and 2,890 ledger rows; desktop 1280px and mobile 375px no horizontal overflow; search/print pass; no page errors or external requests. Draft SHA-256 2c2e40872dbb54afb110d5addc321958d0cc11305c9951cd86a48dfd3695ac85. Final checks rerun after embedding this record.",
+    "limitations": [
+      "Validates report artifact only, not ClinicAI behavior or source-audit completeness.",
+      "Tests for ClinicAI were read, not run; no accessibility certification."
+    ]
+  },
+  {
+    "id": "RUN-101",
+    "at": "2026-10-20T08:54:52+07:00",
+    "environment": "Local report-only structural/evidence validation for offline audit HTML v0.61 draft.",
+    "command": "/Users/quangdang/.pyenv/versions/3.12.9/bin/python3 docs/kiem-toan-2026-10-19/validate_report.py",
+    "exit_code": 0,
+    "result": "6/6 checks passed: all 194 finding records rendered once, internal IDs/links valid, exact pinned-main evidence hashes/ranges/excerpts valid, no external resources, embedded script CSP hash matches, incomplete-audit status explicit. Final validation is rerun after embedding this run row.",
+    "limitations": [
+      "Validates report artifact consistency, not ClinicAI behavior or source-audit completeness.",
+      "No ClinicAI application tests/runtime/API/DB/provider/production test ran."
+    ]
+  },
+  {
+    "id": "RUN-102",
+    "at": "2026-10-20T08:54:52+07:00",
+    "environment": "Local headless Chromium report-only QA; standalone file:// HTML v0.61 draft.",
+    "command": "node docs/kiem-toan-2026-10-19/verify_browser.cjs",
+    "exit_code": 0,
+    "result": "194 finding cards and 2,890 ledger rows rendered; search, patched filter and print passed. Desktop 1280px and mobile 375px had no horizontal overflow, page errors or external requests. Final browser check is rerun after the final report build.",
+    "limitations": [
+      "Validates report UI only, not ClinicAI application behavior or audit completeness.",
+      "No accessibility certification."
+    ]
+  }
+]

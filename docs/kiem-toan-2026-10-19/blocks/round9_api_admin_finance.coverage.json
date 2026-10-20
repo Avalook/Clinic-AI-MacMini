@@ -1,0 +1,313 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_admin_finance_material_router_slice",
+  "scope": [
+    "Static audit of the 13 assigned FastAPI routers for auth/tenant scope, finance and tax truth, material ownership, lifecycle and error behavior.",
+    "Read each assigned router in full; traced the service guards and data operations called by these routes, with deeper review of the identity location fallback candidate.",
+    "No tests run, no database/production/secrets/PHI access, and no application or migration changes."
+  ],
+  "finding_ids": [
+    "CAND-R9-API-ADMIN-01"
+  ],
+  "canonical_finding_count": 0,
+  "candidate_finding_count": 1,
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/console.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-81",
+      "note": "Full line-numbered read; route guard, environment gate, feedback schema and service calls.",
+      "sha256": "c3be74c02acaad08c40d00dfdcf05aa0c4c85da34e9121faf733b38a50747462",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/day_noi.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-191",
+      "note": "Full line-numbered read; route dependencies and all day-noi operations.",
+      "sha256": "abc9bfe70c55cce7b78fc2c7d80cccc6ceedb2fec79f1492b54ec25cdeb16917",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/don_du_lieu_thu.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-62",
+      "note": "Full line-numbered read; preview/delete handlers and identity dependency.",
+      "sha256": "af60a0f07c207600948a0b5ac42fdc3b1c3888a2efbb6ba64313025e3797519a",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/hoa_don_cong_ty.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-147",
+      "note": "Full line-numbered read; company, invoice snapshot and cashier call routes.",
+      "sha256": "6cace4124b7e883edfa5224d4dae9399245f02eebe6ed468b42cbe66f98418c7",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/hoa_don_misa.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-87",
+      "note": "Full line-numbered read; MISA export, status and reversal routes.",
+      "sha256": "b486042b498eafed2df51710cdc87d3374319c11859d27ac74ef7768ac331b41",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/home.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-68",
+      "note": "Full line-numbered read; internal identity dependency and home-data handler.",
+      "sha256": "1975933c8d36305685ee4e0521be73be5761278c0cfc52651cbb0941dd8c0997",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/identity.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-262",
+      "note": "Full line-numbered read; /me, location chooser, positions and personal account handlers.",
+      "sha256": "ed4087251f20a0abdbfa384c0951aaa8938c856bede12fee5681514f7cfb28ab",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ke_toan.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-56",
+      "note": "Full line-numbered read; tax read and mutations.",
+      "sha256": "802d74385e288c07bbfa91157f64f8e6050c764d0e77fe071f6982261055dcbb",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/lam_them_tai_quay.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-153",
+      "note": "Full line-numbered read; request models, route dependencies and service calls.",
+      "sha256": "08cf5cfd9fc386f836647fb4048c48cf460ced43dcf01b0a65faea704dc66073",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/mau_ket_qua.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-103",
+      "note": "Full line-numbered read; template catalog, bind/unbind and publish routes.",
+      "sha256": "57a126079cb98b96471bbc97a27541c7ee7888626038011d3275e50299c916a4",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/service_log.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-136",
+      "note": "Full line-numbered read; all route bodies terminate through the retired-service 410 response.",
+      "sha256": "77d21d531e6dc73377a83bf41d4d4998c880eb2a8d4645f660918ae2d7f9f8f5",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/thu_ky.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-106",
+      "note": "Full line-numbered read; clerk clinical scope and assignments.",
+      "sha256": "42ce0064f2e197839191778df434bf10317931ebe51827136b8fd13963f0c654",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/vat_tu_nhap_duyet.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-100",
+      "note": "Full line-numbered read; approval, rejection, withdrawal and request-list routes.",
+      "sha256": "3a3efb535cdc641748a89283ad0d122ff47a8d5ada17ad5c7f7074145b95b8e4",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "160-205, 324-341, 428-589, 638-659",
+      "note": "Identity fields, clinic/location selectors, membership/location resolution and human/display identity dependencies.",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/console_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "1-140",
+      "note": "Full service read; global account query and clinic-scoped workload/totals checked against route production gate.",
+      "sha256": "f369d1b7d04b1ad36d4c42b83d36a4113b8fa962a9388dbce4398d4c99d7de5d",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/day_noi_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "66-452",
+      "note": "Service methods read; capability recheck, clinic predicates, room validation, transactions and audit events.",
+      "sha256": "ed4e3bc72c3e054d7917cc5b16ae73d6864dce17a69859a5c293c249020db9d4",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/don_du_lieu_thu_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "172-365, 385-520",
+      "note": "Service operations and SQL projections; permission.manage gate, preview rollback, patient lock/open-visit guard, clinic filters.",
+      "sha256": "e588bb3063bfca8cace95bbefe0f95ef7dabed4943d50d577c79d3366aca9dfe",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "145-280, 303-445, 460-577",
+      "note": "Authorization, patient/company ownership, payment-cycle scope, snapshot/history writes and cashier assignment.",
+      "sha256": "5a531711543f93e9d8c5a008e55d25d8f7fd484e3b0da3c5ca770e0877dfa194",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_misa_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "53-138, 139-268, 270-322",
+      "note": "MISA authorization, server-derived export rows, clinic-scoped snapshot, status reversal/list/detail.",
+      "sha256": "c5c906af0645c0a05c202767e50ee42208cb9a8a88eabed6f5523715352ecee1",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/thue_suat_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "42-173",
+      "note": "Service methods read; capability guards, clinic-scoped reads/writes and update row-count checks.",
+      "sha256": "b2241ce4b705ec251e12fa4e634b2420cd36c2d131b24f522189096c884f960f",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/man_trang_chu_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "58-350",
+      "note": "Home queries use identity clinic/location and retain clinic predicates; targeted service read.",
+      "sha256": "7b1f69e1a0f51038d14fb6f30ea1121195d5370858e86ea333b49a337307d98b",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/lam_them_tai_quay_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "279-349, 352-516, 527-691, 693-955",
+      "note": "Targeted service excerpts; clinic-scoped reads, capability guards, revisions/idempotency, visit locks and reversal logic.",
+      "sha256": "82ba9c6a701e81cbf8972a7b5c06a47df9df064bfbc1ad809663b91219bbe83e",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/mau_ket_qua_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "43-330",
+      "note": "Catalog and mutation paths; capability checks and clinic-scoped forms/services.",
+      "sha256": "b4591ad572e0bab3b80f178efee58c74683bc7d55eb6413e886d76c64d0af975",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "31-239",
+      "note": "Targeted clerk-to-doctor scope and assignment guards; compared with existing SEC-011.",
+      "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "74-220, 206-373, 376-440",
+      "note": "Request lookup/submission, approval/rejection/withdrawal, and list; clinic+location pair, capability, state transitions and snapshots.",
+      "sha256": "b31a499786e4321d1c19dfb448a541c2682d74688f6877080e27a2bdb14608d4",
+      "full_file_read": false
+    },
+    {
+      "path": "src/clinicai/services/vat_tu_kho_service.py",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "112-360, 357-447",
+      "note": "Stock unit/room validation, clinic+location locking and ledger writes/reversals.",
+      "sha256": "008b508eeaba625615464a1dfec57337041911cd16572ef71a2f193ddd49fefa",
+      "full_file_read": false
+    },
+    {
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "44-70",
+      "note": "Membership tenant model and per-clinic role contract.",
+      "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "full_file_read": false
+    },
+    {
+      "path": "supabase/migrations/20260803000007_staff_identity_completeness.sql",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "145-187",
+      "note": "Primary location trigger and its membership-level constraint.",
+      "sha256": "d32cdcc6ac192ea45773a6b16a3f7d009980fe54e4390ad1d0ac087a22cab971",
+      "full_file_read": false
+    },
+    {
+      "path": "supabase/migrations/20260804000015_staff_default_location.sql",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "21-67",
+      "note": "Database default for primary location only when exactly one active location exists.",
+      "sha256": "81cbf6966fa5a509efd439063361e507a9b690a444aea29e6adf67707dfd15ed",
+      "full_file_read": false
+    },
+    {
+      "path": "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "13-100",
+      "note": "Request table ownership and trigger's matching clinic/location and membership checks.",
+      "sha256": "9733f233d7f8c68b0836bad65430968ff21024995861d63523382169d584672c",
+      "full_file_read": false
+    },
+    {
+      "path": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+      "status": "traced",
+      "method": "Targeted line-numbered source trace",
+      "lines_read": "60-100, 120-154",
+      "note": "Targeted DB guard excerpts for location/clinic pairing, ledger ownership and reversal checks.",
+      "sha256": "5b6ee4becebfd6bb035e43756d01d565511daaaac7e1bdf4ef6585795bbf538e",
+      "full_file_read": false
+    }
+  ],
+  "context": [
+    {
+      "path": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+      "read_level": "partial_dedup_only",
+      "sha256": "1a62440db6221a30dd88f8f9a28be2882b324c075b4c742bbd42b059705104a6",
+      "note": "Shared checkout only; searched/re-read canonical entries FE-009, SEC-011, SEC-018 and FIN-006 for dedup. Not source evidence."
+    }
+  ],
+  "existing_finding_corroborated": [],
+  "cross_checked_canonical_ids": [
+    "FE-009",
+    "SEC-011",
+    "SEC-018",
+    "FIN-006"
+  ],
+  "notes": "All 13 owned router files have SHA-256 and complete line coverage. The candidate is static and conditional; FE-009 currently blocks the dashboard path to a multi-clinic selector, and no current production behavior is asserted."
+}

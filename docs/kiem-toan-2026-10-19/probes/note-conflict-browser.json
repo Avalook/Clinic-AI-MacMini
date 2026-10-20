@@ -1,0 +1,16 @@
+{
+  "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "method": "actual React component + real autosave hook + synthetic 409 HTTP contract in headless Chrome",
+  "reads": 2,
+  "writes": [
+    {
+      "visit_id": "00000000-0000-4000-8000-000000000001",
+      "noi_dung": "Synthetic local observation that has never been saved",
+      "phien_ban": 1
+    }
+  ],
+  "localDraftRetained": false,
+  "textareaAfterConflict": "Synthetic concurrent server note",
+  "pageErrors": [],
+  "limitation": "Component-level browser reproduction; not a full application/backend concurrency test"
+}

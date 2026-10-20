@@ -1,0 +1,191 @@
+[
+  {
+    "path": "src/clinicai/services/agent_giam_sat.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "e8017e1f8ea8174acb790e4ada8afa6a196918fecdfec3d03c0c587e83e6da48"
+  },
+  {
+    "path": "src/clinicai/services/anh_chuyen_khoan_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "bfd1b3eca5aceec428a835df3fb7f0098b744e67b24d1b505a84e423cc3179c4"
+  },
+  {
+    "path": "src/clinicai/services/ban_thuoc_service.py",
+    "status": "traced",
+    "method": "Serena symbols + cross-layer static trace",
+    "note": "Selected critical paths read; not entire file",
+    "sha256": "c19a3becfbe331d89effd50bc28c12090fac4cf480de95f1d412c9423a4bb809"
+  },
+  {
+    "path": "src/clinicai/services/bao_cao_thuoc_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "2233f2e976d41c6669b2d55705d32e2637cb2b1cd4334219d82f19ab5478ce79"
+  },
+  {
+    "path": "src/clinicai/services/bao_cao_viec_tien_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "e88e980f78ae097a0d6acaacc389b9ad388cd0558399530b91a57ef4e371b270"
+  },
+  {
+    "path": "src/clinicai/services/bill_service.py",
+    "status": "traced",
+    "method": "Serena symbols + cross-layer static trace",
+    "note": "Selected critical paths read; not entire file",
+    "sha256": "2d48ac835f39ea8a0fbcebdcddcfed013479187fe43f9ad645bb5f5dbb411713"
+  },
+  {
+    "path": "src/clinicai/services/canh_gac_kho_tep.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "76c4e28566643889af2e99f5781778b3022258a7d23d7d4ca5835c4776a936ad"
+  },
+  {
+    "path": "src/clinicai/services/don_du_lieu_thu_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "e588bb3063bfca8cace95bbefe0f95ef7dabed4943d50d577c79d3366aca9dfe"
+  },
+  {
+    "path": "src/clinicai/services/hoan_tac_check_in.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "490ffd4e249afcd543f54daef2964f9eb26127829c8b663424e042fb855609f2"
+  },
+  {
+    "path": "src/clinicai/services/hoan_tac_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "b7c92dc5025f0faa7fc65cab18af19f956d80ec1196ea1f7151b15c6b7d20880"
+  },
+  {
+    "path": "src/clinicai/services/hoan_tien_service.py",
+    "status": "traced",
+    "method": "Serena symbols + cross-layer static trace",
+    "note": "Selected critical paths read; not entire file",
+    "sha256": "82cb37c216a11483cb80b681d6287311c041da45ea8b57ea1deadc38d1c305b1"
+  },
+  {
+    "path": "src/clinicai/services/kho_loi.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da"
+  },
+  {
+    "path": "src/clinicai/services/kho_thuoc_service.py",
+    "status": "scanned",
+    "method": "Serena symbol overview",
+    "note": "Inventory of functions only; full body pending",
+    "sha256": "68eb720b62c2ece1c76c297d5b26315c1620d9c3fe566e3ed84aad2e461f4cbd"
+  },
+  {
+    "path": "src/clinicai/services/lam_truoc_thu_sau.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "3415e01c6aa11c93b11f963940fbb98bd44a2fae264f5857035a22079daea41d"
+  },
+  {
+    "path": "src/clinicai/services/lieu_trinh_tien.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "fcc40bc644d3ba539a2bd3c688eccf4db37a9941dfe247dad37f986f7370c98b"
+  },
+  {
+    "path": "src/clinicai/services/patient_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "57267eefe5924835b754908721a86967d1a84895c3ac9e634133c3f147d518a4"
+  },
+  {
+    "path": "src/clinicai/services/payment_access_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "c207d46396949125270fc000034dd0682ee99bc47faf3e62db7b41700a46f291"
+  },
+  {
+    "path": "src/clinicai/services/payment_service.py",
+    "status": "traced",
+    "method": "Serena symbols + cross-layer static trace",
+    "note": "Selected critical paths read; not entire file",
+    "sha256": "bc1c700b3b7cfd8e3a1637ead1318d5c55d419c33e86aef06a70229b787eb875"
+  },
+  {
+    "path": "src/clinicai/services/pharmacy_service.py",
+    "status": "scanned",
+    "method": "Serena symbol overview",
+    "note": "Inventory of functions only; full body pending",
+    "sha256": "27d5f65eefcdb40705635454612ebfd47b0a75719f57c2857eba0b73a5eff550"
+  },
+  {
+    "path": "src/clinicai/services/quay_thu_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "79b1464f01e912bb2831b68c33375d7a649ca64851dde4a81c96e164e6c54e85"
+  },
+  {
+    "path": "src/clinicai/services/quay_thuoc_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "a531f4d62ae1a258611486994ca318679d50c6c0e884656dfca0966ae880aaa9"
+  },
+  {
+    "path": "src/clinicai/services/tai_khoan_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "2fdf127981f1a1555c8a35c39483b57abf324f778182aa27b7932a372d6c2530"
+  },
+  {
+    "path": "src/clinicai/services/theo_doi_thu_thuat_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "9fc6b7688d07435171779dd1974982d9641d70d86a709be51a7a6161d48ac494"
+  },
+  {
+    "path": "src/clinicai/services/thu_ky_bac_si.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6"
+  },
+  {
+    "path": "src/clinicai/services/thu_tu_kham_service.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "140d07bfd5e125d3d0f138ad3d8fef26a3f9df2ad8c00218d704578dd534eebb"
+  },
+  {
+    "path": "src/clinicai/services/tien_thua_service.py",
+    "status": "scanned",
+    "method": "Serena symbol overview",
+    "note": "Inventory of functions only; full body pending",
+    "sha256": "27b2138df8cd08acbde2090c5d91c5ea8a00a7b433be28cedf7bfebba9f7f483"
+  },
+  {
+    "path": "src/clinicai/services/tong_quan_giam_sat.py",
+    "status": "scanned",
+    "method": "AST structural inventory",
+    "note": "Only symbols and file structure scanned; bodies not all read",
+    "sha256": "529ef8e0385a748410c61a07644745436165cd557c530a049888db0ba708268c"
+  }
+]

@@ -1,0 +1,2535 @@
+[
+ {
+  "keep": "S02-2",
+  "dups": [
+   "S01-7"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S05-1",
+  "dups": [
+   "S02-1",
+   "S04-12",
+   "S14-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S15-4",
+  "dups": [
+   "S14-1",
+   "S20-1",
+   "S23-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S16-6",
+  "dups": [
+   "S18-15"
+  ],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S03-7",
+  "dups": [
+   "S04-10"
+  ],
+  "dup_of_known": null,
+  "prefix": "API",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-6",
+  "dups": [
+   "S07-3",
+   "S15-5"
+  ],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S04-4",
+  "dups": [
+   "S11-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-18",
+  "dups": [
+   "S03-9",
+   "S01-9"
+  ],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S09-6",
+  "dups": [
+   "S05-8",
+   "S06-12",
+   "S07-14",
+   "S08-13",
+   "S09-7",
+   "S10-12",
+   "S10-13",
+   "S11-13",
+   "S12-16"
+  ],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S13-14",
+  "dups": [
+   "S14-10",
+   "S15-9",
+   "S18-12",
+   "S19-9",
+   "S20-20",
+   "S22-11",
+   "S23-1"
+  ],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-14",
+  "dups": [
+   "S12-20"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S08-2",
+  "dups": [
+   "S03-12",
+   "S04-2"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-1",
+  "dups": [
+   "S03-5"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S08-3",
+  "dups": [
+   "S04-5"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S10-3",
+  "dups": [
+   "S11-5"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-1",
+  "dups": [
+   "S20-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S11-7",
+  "dups": [
+   "S16-3",
+   "S18-8"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-4",
+  "dups": [
+   "S20-5"
+  ],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-7",
+  "dups": [
+   "S03-4"
+  ],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-12",
+  "dups": [
+   "S18-5"
+  ],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-11",
+  "dups": [
+   "S18-6"
+  ],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-12",
+  "dups": [
+   "S18-4"
+  ],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S24-3",
+  "dups": [
+   "S20-15"
+  ],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-22",
+  "dups": [
+   "S13-7"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-4",
+  "dups": [
+   "S23-2"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-5",
+  "dups": [
+   "S09-4"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S17-2",
+  "dups": [
+   "S10-9"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-4",
+  "dups": [
+   "S03-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S05-3",
+  "dups": [],
+  "dup_of_known": "AI-001",
+  "prefix": "AI",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S04-7",
+  "dups": [],
+  "dup_of_known": "CLIN-040",
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S18-1",
+  "dups": [
+   "S04-3",
+   "T08-11"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S12-19",
+  "dups": [
+   "S18-13",
+   "S22-13"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S23-4",
+  "dups": [
+   "S19-1",
+   "S20-18",
+   "S21-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S24-1",
+  "dups": [
+   "S20-12"
+  ],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S04-11",
+  "dups": [
+   "S23-8"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-9",
+  "dups": [
+   "S01-17"
+  ],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S05-5",
+  "dups": [
+   "S15-8"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-8",
+  "dups": [
+   "S13-9"
+  ],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S14-4",
+  "dups": [
+   "S23-7"
+  ],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-17",
+  "dups": [
+   "S19-5"
+  ],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T01-3",
+  "dups": [],
+  "dup_of_known": "INF-003",
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T02-6",
+  "dups": [
+   "T01-4",
+   "T04-4",
+   "T05-4",
+   "T06-4",
+   "T07-3",
+   "T08-10",
+   "T09-5",
+   "T13-3",
+   "T15-5",
+   "T16-4"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T05-6",
+  "dups": [
+   "T04-3",
+   "T07-5",
+   "T12-3",
+   "T13-6",
+   "T16-7",
+   "T15-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T05-7",
+  "dups": [
+   "T04-2",
+   "T07-6",
+   "T15-4",
+   "T17-3",
+   "T03-4",
+   "T09-6",
+   "T18-4",
+   "T16-6"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T05-5",
+  "dups": [
+   "T03-3",
+   "T04-1",
+   "T06-7",
+   "T07-7",
+   "T11-2",
+   "T13-4",
+   "T14-4",
+   "T17-4",
+   "T16-2",
+   "T09-3"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T08-4",
+  "dups": [
+   "T09-2"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T18-3",
+  "dups": [
+   "T03-2",
+   "T11-4"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T02-5",
+  "dups": [
+   "T05-2",
+   "T07-4",
+   "T15-2",
+   "T16-3",
+   "T17-2",
+   "T03-1"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T07-2",
+  "dups": [
+   "T05-1",
+   "T09-1",
+   "T11-3",
+   "T12-2",
+   "T14-2",
+   "T15-6",
+   "T13-5",
+   "T18-2",
+   "T08-9"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T05-3",
+  "dups": [
+   "T08-8",
+   "T09-4",
+   "T12-1",
+   "T13-2"
+  ],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S01-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S01-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "AI",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S01-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-18",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-19",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-20",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-21",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-23",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-24",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-25",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S01-26",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S02-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S02-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S02-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S02-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S02-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S02-17",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S02-19",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S03-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S03-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "API",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S03-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S03-17",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S04-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S04-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S04-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S04-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S04-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "API",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S04-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "API",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S04-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S04-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "AI",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S04-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S05-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S05-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "AI",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S05-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S05-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S05-8x",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S05-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PAT",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S05-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "API",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S05-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S05-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "LAB",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S06-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S06-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S06-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S06-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S07-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S07-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S07-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S07-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S07-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S07-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S07-17",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S07-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S08-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S08-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S08-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S08-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S08-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S08-6x",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S09-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S09-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S09-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S09-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S09-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S09-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S10-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S10-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S10-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S10-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S10-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S10-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PAT",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S10-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S10-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S10-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S11-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S11-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S11-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S12-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S12-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S12-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S12-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S12-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S12-17",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S12-18",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S13-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S13-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S13-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S13-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S13-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S13-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "API",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S13-17",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PAT",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S14-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S14-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S14-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S14-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S14-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S14-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S14-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S15-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S15-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S15-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S15-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S15-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S15-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S16-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S16-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S16-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S16-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S16-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S16-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S16-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S16-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S17-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S17-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S17-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S17-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S17-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S17-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S17-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S17-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S18-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S18-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S18-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S18-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S18-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S18-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S18-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S19-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S19-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S19-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S19-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S19-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S19-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S19-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S19-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S19-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S19-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S19-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S20-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S20-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S20-19",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S20-21",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S21-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S21-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S22-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S22-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S22-14",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S22-15",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S22-16",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S22-17",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S23-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S23-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S23-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S24-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S24-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S24-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S24-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S24-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S24-8",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S24-9",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "INF",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S24-10",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S24-11",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "FE",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S24-12",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S24-13",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "SEC",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S25-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "HIGH"
+ },
+ {
+  "keep": "S25-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S25-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S25-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "ARCH",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "S25-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T01-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T01-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T01-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T02-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T02-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T02-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T02-4",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T02-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T03-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T06-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T06-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T06-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T06-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T06-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T07-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T08-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T08-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PAT",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T08-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "DB",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T08-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "PHAR",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T08-6",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T08-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T10-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "OPS",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T10-2",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T10-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T11-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T13-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T14-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T14-3",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T14-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T15-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T15-7",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T16-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "MEDIUM"
+ },
+ {
+  "keep": "T16-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T17-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T17-5",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "T18-1",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "TEST",
+  "severity": "LOW"
+ },
+ {
+  "keep": "S10-5x",
+  "dups": [],
+  "dup_of_known": null,
+  "prefix": "CLIN",
+  "severity": "LOW"
+ }
+]

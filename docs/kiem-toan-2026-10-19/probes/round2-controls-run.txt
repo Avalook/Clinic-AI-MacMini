@@ -1,0 +1,53 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_92040_dr4women_macmini (4 worker) sẵn sàng sau 5s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+bringing up nodes...
+bringing up nodes...
+
+................................                                         [100%]
+32 passed in 3.75s

@@ -1,0 +1,58 @@
+[
+ {
+  "title": "Cài sẵn lớp bảo vệ chung cho mọi dịch vụ",
+  "detail": "Mọi dịch vụ đều dùng chung một bộ mặc định: nhật ký có giới hạn dung lượng, không tự nâng quyền, giới hạn bộ nhớ và số tiến trình. Một bài kiểm tra tự động bắt buộc dịch vụ mới phải tuân theo."
+ },
+ {
+  "title": "Hệ thống tự dựng sơ đồ nơi lưu trữ và kiểm tra chống lệch",
+  "detail": "Bộ công cụ tự phân tích mã nguồn để vẽ ra từng màn hình nối với phần xử lý nào, chỗ chưa chắc thì đánh dấu '?' chứ không đoán. Bước kiểm tra tự động báo ngay khi sơ đồ lệch với thực tế."
+ },
+ {
+  "title": "Mọi lệnh ghi đều có khoá chống gửi trùng",
+  "detail": "Bấm hai lần hoặc mạng chập chờn thì chỉ ghi một lần; nếu nội dung khác mà dùng lại cùng khoá, hệ thống báo xung đột. Khoá gắn với thao tác chứ không gắn với lần bấm, và được giữ lại khi lỗi hệ thống."
+ },
+ {
+  "title": "Kiểm tra phiên bản để hai người sửa cùng lúc không đè nhau",
+  "detail": "Mỗi lần sửa hồ sơ, bệnh án hay kết quả đều phải kèm số phiên bản đang xem; nếu đã có người sửa trước thì hệ thống từ chối và báo lại. Nhờ vậy không ai âm thầm ghi đè công sức của người khác."
+ },
+ {
+  "title": "Sổ chỉ thêm, sai thì ghi dòng đảo chứ không xoá",
+  "detail": "Kho thuốc, tiền nợ, chăm sóc khách hàng, liệu trình đều ghi theo kiểu chỉ thêm dòng mới; sửa sai bằng một dòng đảo ngược và dòng cũ vẫn còn. Cơ sở dữ liệu cũng chặn việc sửa hoặc xoá lịch sử."
+ },
+ {
+  "title": "Thử khô trước, chỉ ghi thật khi có lệnh rõ ràng",
+  "detail": "Các công cụ thao tác hàng loạt mặc định chạy thử rồi quay lui, phải thêm cờ xác nhận mới ghi thật. Có bước đếm trước số bản ghi bị ảnh hưởng và tự dừng nếu số liệu lệch."
+ },
+ {
+  "title": "Chặn nhầm giữa môi trường thử và môi trường thật",
+  "detail": "Các công cụ thử tự từ chối chạy khi tên, cổng, khoá hay bí mật trùng với hệ thống thật, và không có đích mặc định để đoán. Nhãn sai còn tệ hơn không có nhãn nên công cụ dừng lại thay vì tự đoán."
+ },
+ {
+  "title": "Triển khai có khoá, đóng băng phiên bản và quay lui được",
+  "detail": "Mỗi lần cập nhật đều giữ bản cũ để quay lại, ghi mốc thời gian để khi sự cố biết ngay vừa đổi gì. Cơ chế khoá ngăn hai người triển khai chồng lên nhau."
+ },
+ {
+  "title": "Cảnh báo khi sao lưu im lặng",
+  "detail": "Hệ thống chờ tín hiệu 'đã sao lưu' mỗi đêm; nếu quá 26 giờ không thấy thì báo đỏ. Sự im lặng tự nó là dấu hiệu cảnh báo, và tệp sao lưu còn nguyên được phân biệt với việc đã diễn tập phục hồi thành công."
+ },
+ {
+  "title": "Danh tính và phòng khám do máy chủ xác định, không tin dữ liệu gửi lên",
+  "detail": "Phòng khám, vai trò và cơ sở của người dùng đều lấy từ tài khoản đã xác thực, không lấy từ nội dung gửi lên. Thông tin mơ hồ thì từ chối, và tài khoản tivi hay đối tác mặc định bị chặn."
+ },
+ {
+  "title": "Luật cuối cùng được ép ngay trong cơ sở dữ liệu",
+  "detail": "Những quy tắc quan trọng như lô thuốc, số chỗ, phiếu đã chốt đều có chốt chặn ở cơ sở dữ liệu, và được kiểm thử bằng cách ghi thẳng bỏ qua lớp xử lý. Dù phần mềm có sót, dữ liệu vẫn không bị sai."
+ },
+ {
+  "title": "Danh sách bị cắt thì nói rõ, không im lặng",
+  "detail": "Khi danh sách chạm giới hạn hiển thị, hệ thống ghi nhận và hiện thông báo cho người dùng biết còn thiếu. Màn hình không để người ta tưởng 'đã hết' trong khi thực ra bị cắt."
+ },
+ {
+  "title": "Lỗi kết nối không bị nhầm thành 'không có dữ liệu'",
+  "detail": "Khi không đọc được dữ liệu, màn hình báo lỗi rõ ràng thay vì hiện bảng trống hay số 0. Nhân viên không bị hiểu nhầm là 'hôm nay không có ai cần gọi'."
+ },
+ {
+  "title": "Ghi vết ai xem hồ sơ, nhưng không ghi nội dung",
+  "detail": "Nhật ký chỉ lưu mã khách, tên màn hình và người thực hiện, tuyệt đối không lưu nội dung y khoa hay số điện thoại. Vừa truy vết được người mở hồ sơ, vừa không làm lộ thêm dữ liệu."
+ }
+]

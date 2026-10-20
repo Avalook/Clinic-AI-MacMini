@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_api_logging_slice",
+  "scope": [
+    "Rate limiter implementation and direct unit tests",
+    "Pydantic input-error mapping, custom exception envelope and direct tests",
+    "Structured log redaction pipeline, Uvicorn access-query filter and direct tests",
+    "Targeted missing-patient exception to global logging trace; no runtime"
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/api/rate_limit.py",
+      "sha256": "b29e4ca0316842f01e2a388dc5f860203f606be97ca900b988c7bdc0ad931cb2",
+      "line_count": 141,
+      "ranges_read": [
+        "1-141"
+      ],
+      "status": "full",
+      "notes": "Full semantic read; per-process boundary and capacity behavior reviewed."
+    },
+    {
+      "path": "src/tests/unit/test_rate_limit.py",
+      "sha256": "7c512584ea4fdfdffa2679113d3f41136458c6d5ff964798d6fb2f1218de4929",
+      "line_count": 107,
+      "ranges_read": [
+        "1-107"
+      ],
+      "status": "full",
+      "notes": "Full read of direct unit coverage; not executed."
+    },
+    {
+      "path": "src/clinicai/api/loi_dau_vao.py",
+      "sha256": "ab234a1d26869446a9f37d6337b46b9183be95dcefc1f5f56ad891b9b8228091",
+      "line_count": 96,
+      "ranges_read": [
+        "1-96"
+      ],
+      "status": "full",
+      "notes": "Full semantic read of error translation."
+    },
+    {
+      "path": "src/tests/unit/test_loi_dau_vao.py",
+      "sha256": "a2d1d963c46d22b52480fbab9168ea822fc92e398d01c8266623bb643215d59d",
+      "line_count": 99,
+      "ranges_read": [
+        "1-99"
+      ],
+      "status": "full",
+      "notes": "Full read of direct model/handler tests; not executed."
+    },
+    {
+      "path": "src/clinicai/api/exceptions.py",
+      "sha256": "33d675efc0704e0408310b9aecf0944d5542d6e12a52993d478e842e3728ab79",
+      "line_count": 57,
+      "ranges_read": [
+        "1-57"
+      ],
+      "status": "full",
+      "notes": "Full read of API domain exception subclasses."
+    },
+    {
+      "path": "src/clinicai/core/exceptions.py",
+      "sha256": "8a5274eb8d4f5b4304fc67ca728d6a8a6d4a8ae338435f185fc7522b027ff42a",
+      "line_count": 40,
+      "ranges_read": [
+        "1-40"
+      ],
+      "status": "full",
+      "notes": "Full read of base exception contract."
+    },
+    {
+      "path": "src/tests/test_exceptions.py",
+      "sha256": "1fc3bf2630b604f519a0db358c600880e2f7de334141b6139c386d98b7a5ad60",
+      "line_count": 150,
+      "ranges_read": [
+        "1-150"
+      ],
+      "status": "full",
+      "notes": "Full read; response envelope and unhandled error secrecy assertions; not executed."
+    },
+    {
+      "path": "src/clinicai/core/logging.py",
+      "sha256": "23a8b7ff32e594634faa12c90a8da4adf0225e0b2818682e75310791dfbb03b6",
+      "line_count": 217,
+      "ranges_read": [
+        "1-217"
+      ],
+      "status": "full",
+      "notes": "Full read of recursive field/text sanitizer, processor registration, and access filter."
+    },
+    {
+      "path": "src/tests/core/test_logging.py",
+      "sha256": "129fe4a08ce80b499e1d9e3a1bdeae54010f88864af4098f84457d0711741fe7",
+      "line_count": 116,
+      "ranges_read": [
+        "1-116"
+      ],
+      "status": "full",
+      "notes": "Full read of direct log scrubber tests; not executed."
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "line_count": 654,
+      "ranges_read": [
+        "99-112",
+        "571-635"
+      ],
+      "status": "targeted",
+      "notes": "Logging setup and global exception handlers only."
+    },
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "line_count": 712,
+      "ranges_read": [
+        "546-559"
+      ],
+      "status": "targeted",
+      "notes": "Missing patient lookup/update exception path only."
+    }
+  ],
+  "cross_check": {
+    "ledger": "PHAT-HIEN.json read-only",
+    "related_existing_ids": [
+      "SEC-013"
+    ],
+    "result": "Không tìm thấy finding hiện hành về raw exception message trong application logs; SEC-013 khác sink/trigger (event log khi tạo bệnh nhân)."
+  },
+  "result": {
+    "new_candidates": [
+      "CAND-LOG-PII-001"
+    ],
+    "no_new_issue_observed": [
+      "No new rate-limiter finding for documented single-process snapshot; shared limiter is an explicit future requirement.",
+      "422 and custom exception client envelopes are consistent in the read slice; tests exist but were not run.",
+      "Uvicorn access-query filter drops search query strings."
+    ]
+  },
+  "not_done": [
+    "Full API/middleware/authentication audit",
+    "Production logging sink, access permissions and retention",
+    "Runtime capture of missing-patient exception logs",
+    "No tests or DB used"
+  ]
+}

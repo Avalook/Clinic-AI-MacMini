@@ -1,0 +1,394 @@
+[
+  {
+    "path": "scripts/apply-pending-migrations.sh",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "77–158: ledger/version skip; từng migration cùng ledger trong transaction",
+    "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "scripts/dev-up.sh",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "250–276: seed chỉ nhánh DB mới, existing DB apply pending",
+    "sha256": "72b9334b959aa19ee5e8958ea9a153f1bcd84d8c5b881c35bc711274165d9b3b",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "scripts/test-nhanh.sh",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "260–314: template clone + apply missing; KHÔNG replay lịch sử mỗi lần",
+    "sha256": "f28797bfe7c96bbb33cdfba6e316733823995924726bc526c94b94506d621d88",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–44: grant cột, draft RPC definer role/clinic scope",
+    "sha256": "30994ce4506659821eb0c97e765f20250f7dd7ebabfc0f596dd9fe2103c0a93f",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "16–117: restrictive assignment policy và helper",
+    "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–57,560–657: nguồn, loop clinic, ghi/tắt, invocation gate; đối chiếu seed và runner",
+    "sha256": "fe146f3e313edc58592832cd7ded4536a8ae0142e9367309b07d1b2629cbb2f5",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20260926000001_danh_muc_dich_vu_kiotviet.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–65,80–96,100–170: UPDATE mã CLS mọi clinic; insert theo clinic đủ điều kiện",
+    "sha256": "a2048ec046a49019a973f78779933af2ac44f1cb8e61654ff752df129319ff96",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20260930900000_mo_full_lego.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "20–52: existing business decision mở full; không báo lại như lỗi mới",
+    "sha256": "3054730f4e6c92e117def78d6c763ebf623b63c56346744e8180b51ed8eca0c9",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "189–210,220–360,426–435: matching không clinic parameter, mọi clinic đã có catalog",
+    "sha256": "33d9256bf2f0750d7655ed77e296d61ea73f32be89fabe966c926e5d595a405d",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014110000_them_email_benh_nhan.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "995bede6b64a0e89ef775898496ed6486474287d9a5d4113720119aedaeb8d4f",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014130000_lo_thuoc_han_tuy_chon.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "1123ffdad075eeda08c310082340ad458301104bd412218b5ce28f54595b23de",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014130002_chuong_han_lo.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "db6269a633b0f2f0339688d513338f3826c8c4c67eb70f9f123275a0aabc4781",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014135000_ma_vach.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "80–90: direct authenticated catalog read tenant-scoped; no stock balance",
+    "sha256": "877ba3de28290f62e08d289a01c95ca774b253c2bd5a0f2990b0ad3b26080d2a",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–138: scoped visit FK; serialized sum; append-only; service role reads",
+    "sha256": "cdbe044f308e372250fe7392c12d688af80dc302803b7c49a2e1712e0570dee3",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014147000_ck_so_tien_thuc_nhan.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "feecc89906ddb0f5d70aa8741426047b8a787b95cbb69f39f8cec17327bbd9f4",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014148000_tra_thuoc_ket_cuc_tien.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "41192c63d18b572f35ae030e6c72b892e7bf637bf5f93b4981059282a16650cb",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014149000_chot_so_ca.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "e160eaaeb39270177a6254afdcb72f1f8be18dd02716fde40c8f94d0e040568d",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014150000_lego_ke_toan.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "f205a008eb95ab44af3d569895b18986f092d6454336502dd5bbad780b7449bb",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014155000_thue_gtgt.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "04e0bee8a00adbb858cf98b2e54004bc6bd2ea110a48a69b1b4d62e1735454b1",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "40–112: company invoice scope FK/policies/grants",
+    "sha256": "3d0c14703267d659bdfb1d6c93583dfd7299fd25f820cf4b2216b6c4850d9585",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014157000_hoa_don_misa_xuat.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–59: service role read boundary, export snapshot",
+    "sha256": "cebb19852e67498b4218a1ea6a191298bf70d9515b5ed343f4a645cd2fa4ea38",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "305032b86a255370cca6e43d3b40616226b43b035d05244d00c95cd7aaf5acc5",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "c23f1bc1f8cba9e679efa389f403c3480e083fd02a14c359f85c7319decd285d",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "5b6ee4becebfd6bb035e43756d01d565511daaaac7e1bdf4ef6585795bbf538e",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014180100_vat_tu_danh_muc.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "f8983d975e34e673cdb49fc19d19c557701ee3f7e62002cf8b7270d426e4befb",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014180101_vat_tu_phan_loai_ban_dau.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "bb0eff7c8e759e681ca4d64ce920b5727285ea8be705c54fd06f957aeed351d1",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014181000_vat_tu_muc_toi_thieu_nguoi_sua.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "f98e120f6c68f3a0c6c6224c4bc2c8eabb8f6ab1251544a5384337486e932d0c",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014181100_lego_kho_vat_tu.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "690bc9e7e0aa0c9f7b14f9aed1070a1c04bdcf56097eb9401b6af1b730b40c34",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014190000_bio_theo_chi_dinh.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "252d90fa1d10ff9d393406d60e9ad8f5671d59d7a88f86c047bad2aa0441cc1d",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014200000_duyet_vat_tu_lego.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "8749df9eb9deb9704d00724991f4c7f5368cb4cb5b78f19c6f42804050778529",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "9733f233d7f8c68b0836bad65430968ff21024995861d63523382169d584672c",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261014220000_chi_muc_visit_ngay_check_in.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "f16b3481867c04b73d3004b805292346f2733db1639150ce23f3d57eda2654b2",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261015110000_goi_xac_nhan_moi_lich_dat_ho.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "4c4b49a14d6cf25ccdb2436673ff4e1469d0c9cd94153966a9017069eb99bb96",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261016300000_chi_muc_phan_hoi_thuoc_theo_khach.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "d454b95ace5c442ec065c6aaa344d27fd6402799dec18eff10ee6e1e22eacf7e",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261016400000_vai_ke_toan.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "517363a6f53b25162cf705a7aac22b4bb945d60f142b47611e17824f877d4feb",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261017100000_thuoc_quy_doi.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–36: direct tenant-scoped unit factor reference, not mutation RPC",
+    "sha256": "ff49a86d46fcc89c913dd809173dc0177b62d0f92968d98cce1c431e3c32b35b",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261017200000_thuoc_tra_quyet_dinh_xu_ly.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "dfb60e757ea39be80179fb15e885343353b2d91457fde24f1fee1b65e5f64522",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261018120000_kiem_ke_ca_dinh_chinh.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "1bcf7b0dcba9929fb2a5eb99c79123e79e1934bfd799bcc457380b1a815d9701",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261018130000_doi_chieu_giao_tu_kho.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "3f0be1593bb9a1ff22eee6b4addb78f00c61b3b883d38aa01f33b0e890e91412",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261018140000_vat_tu_tra_nha_san_xuat.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "a1a9411ba1af327eb9210ee1f6d03952355777ebbc2c162c2c83b858fbd5aec7",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261018180000_an_thong_bao_rieng_theo_nhan_vien.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–23: service-role-only policy/grants",
+    "sha256": "e2bb02289b761389699f6c5595df949ea289ec2277ffaea1978fe80f32338c30",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "528aefe4ce9b0a6bd5e3bbe809725edee351efa73272b067395ca901535a7935",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–80: final function ACL; read_prescription_draft vẫn authenticated",
+    "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261019110000_pharmacy_inventory_p1_guards.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "6923d23215b09a4da4dc84f2970bd1cc2687ea003d2d7c19b5fc466c69128257",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–56: final stock read revocation",
+    "sha256": "5e48f72dc31286d05934cbc48d4fbfec43214d7f5e45889b43338ec8ee96fc8e",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "37c8a1b7aea72a3dc67f4c6111fa1c9679e28d4b76ff1e665751cb48b03c4f11",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261019140000_idempotency_payload_hash.sql",
+    "status": "scanned",
+    "method": "DDL/RLS/GRANT/REVOKE/SECURITY DEFINER structural pattern scan",
+    "note": "Không coi là semantic review đầy đủ; chưa theo mọi caller/invariant.",
+    "sha256": "14ed47b90efe243ed1494d062e706661938a0cc215cfc298c24959b8b80f7af2",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/migrations/20261019150000_clinic_floor.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "1–235: scoped composite floor FKs, per-clinic backfill, invoker trigger and explicit execute deny",
+    "sha256": "a38d457e1c84d5b9a90343bb2fa95b6addc333f62c18a8a87c00572364944650",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  {
+    "path": "supabase/seed.sql",
+    "status": "traced",
+    "method": "selected SQL/control-flow segments + final grants/policies cross-check",
+    "note": "3717–3758: explicit catalog calls; không đọc lại toàn bộ national reference seed",
+    "sha256": "2d4e0671f918dd3d16ea3e6514174f551b73f9e976973a75cf337f4e4d00a433",
+    "source_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  }
+]

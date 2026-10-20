@@ -1,0 +1,1153 @@
+{
+  "schema_version": 1,
+  "audit": "round25_static_exact_main_multi_slice",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "read_only_static_exact_main",
+  "scope": [
+    "patient duplicate-check unknown state",
+    "patient contact kind validation",
+    "CFS backup retention",
+    "migration operator instructions",
+    "clinical lock-order concurrency",
+    "network pending-state UI pattern"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "Six findings added; FE-023 expanded to four screens. Tenant full-read and event/recovery coverage added; lab/result lifecycle added LAB-002 as an unreproduced static concurrency inference. Held observations remain separate. No ClinicAI tests/runtime were run.",
+  "held_observations": [
+    "CLIN-ROLE-CAPABILITY-001: permission-capable MANAGEMENT can be assigned as attending doctor, while doctor-name/signature resolver filters doctor roles; domain semantics unclear.",
+    "TENANT-RLS-TEST-SCOPE-001: tenant test does not assert that every relevant table has RLS enabled; no live table leak established.",
+    "TEST-CONTAINER-CLEANUP-001: local SQL test runner removes a fixed container name; no production impact established.",
+    "OPS-UFW-BOOTSTRAP-001: bootstrap warning requires caller/runtime context before promotion.",
+    "CAND-EVENT-OPS-TENANT-METRICS-001",
+    "LAB-RELEASE-CAPABILITY-001"
+  ],
+  "files": [
+    {
+      "path": "src/dashboard/app/api/patients/check-duplicate/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 25,
+          "end": 42,
+          "purpose": "FE-025"
+        }
+      ],
+      "sha256": "7ce3d6500467b94b0ff8c26c554438889ee22f67ae32f60ff5a87ea7bf5ac3d2",
+      "line_count": 43
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 244,
+          "end": 267,
+          "purpose": "FE-025"
+        }
+      ],
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "line_count": 323
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 727,
+          "end": 740,
+          "purpose": "FE-025"
+        }
+      ],
+      "sha256": "fc5be0e240e3067eac8f38367eee4e96776fca5cf9e7a4ee7b706fa15a1e6adf",
+      "line_count": 1866
+    },
+    {
+      "path": "src/dashboard/tests/route-da-tat-boundary.test.mts",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 43,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "123da742988f7dc89ee78de42390841e470a08f255810079d857c7b4f8486c6a",
+      "line_count": 43
+    },
+    {
+      "path": "src/dashboard/tests/nhieu-so-dien-thoai-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 132,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "f63308f5a6fda69a847631b466abbae6a06884e960b3d1c7e3eb27911cb17076",
+      "line_count": 132
+    },
+    {
+      "path": "src/dashboard/tests/cua-quyen-lego-boundary.test.mts",
+      "status": "traced",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 243,
+          "end": 267,
+          "purpose": "FE-025 boundary context"
+        }
+      ],
+      "sha256": "65440e628a4a161d822e65ad5412b85968b3a98d679db27e50a7c84017789958",
+      "line_count": 276
+    },
+    {
+      "path": "src/dashboard/app/api/patients/sdt-them/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 27,
+          "end": 43,
+          "purpose": "API-006"
+        }
+      ],
+      "sha256": "8749092e64806a79e9d76b438cd489d5b62b6c9621c46b885998da578c0201e8",
+      "line_count": 69
+    },
+    {
+      "path": "src/clinicai/api/v1/patients.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 209,
+          "end": 235,
+          "purpose": "API-006"
+        }
+      ],
+      "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "line_count": 435
+    },
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 581,
+          "end": 652,
+          "purpose": "API-006"
+        }
+      ],
+      "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "line_count": 712
+    },
+    {
+      "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 29,
+          "end": 31,
+          "purpose": "API-006"
+        }
+      ],
+      "sha256": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b",
+      "line_count": 124
+    },
+    {
+      "path": "src/tests/test_nhieu_so_dien_thoai.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 106,
+          "end": 138,
+          "purpose": "API-006"
+        }
+      ],
+      "sha256": "0a24bd35f417027b66c9d43b20fbd139146049b7a9be6643ddc6b061121a87a1",
+      "line_count": 229
+    },
+    {
+      "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 129,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+      "line_count": 129
+    },
+    {
+      "path": "scripts/systemd/clinicai-backup.service",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 53,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "042298b6c2ed9598b1008a2638bb6ef28821755d4ea3b2647faa02446d2ad31f",
+      "line_count": 53
+    },
+    {
+      "path": "scripts/systemd/clinicai-backup-15p.service",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 53,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "d7427c5e7b5caf73a62c8d5192d5c1663b7bd05643f724292b91d48ce21833eb",
+      "line_count": 53
+    },
+    {
+      "path": "supabase/config.toml",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 20,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "47043b61141204c2be71c9a81005ed204ae09eb3ad78a9502bcc337d9ecedc07",
+      "line_count": 20
+    },
+    {
+      "path": "supabase/README.md",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 104,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "12fdd181b25448c42a342f5228d7c158c27df6088c4bb4d14435cd0a011cd770",
+      "line_count": 104
+    },
+    {
+      "path": "AGENTS.md",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 13,
+          "end": 39,
+          "purpose": "OPS-007 current operational rule"
+        }
+      ],
+      "sha256": "0fc9aa3560f097e9680ad481ddf6112f839b49c4f9fd8be308c2b6941371697a",
+      "line_count": 40
+    },
+    {
+      "path": "CLAUDE.md",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 124,
+          "end": 126,
+          "purpose": "OPS-007 migration runbook"
+        }
+      ],
+      "sha256": "a032c40c1cffd3a41a1bc96bf8f895d629b2367c824fdd5327fb8d709147a70b",
+      "line_count": 167
+    },
+    {
+      "path": ".claude/rules/migration.md",
+      "status": "traced",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 10,
+          "end": 17,
+          "purpose": "OPS-007 migration rule"
+        }
+      ],
+      "sha256": "4070ee53f39be9828adf59720dfe926d950ca54d499bdbe6012691fd4c4eb190",
+      "line_count": 24
+    },
+    {
+      "path": "src/clinicai/services/doi_bac_si_service.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 114,
+          "end": 125,
+          "purpose": "CLIN-043"
+        },
+        {
+          "start": 169,
+          "end": 178,
+          "purpose": "CLIN-043"
+        }
+      ],
+      "sha256": "f8e561009c06b4a3093e36a8ee431528a352ad391677e5d93c9da8bb7ffd9c3d",
+      "line_count": 221
+    },
+    {
+      "path": "src/clinicai/services/hoan_tac_check_in.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 170,
+          "purpose": "full-file read"
+        },
+        {
+          "start": 139,
+          "end": 158,
+          "purpose": "CLIN-043 lock order"
+        }
+      ],
+      "sha256": "490ffd4e249afcd543f54daef2964f9eb26127829c8b663424e042fb855609f2",
+      "line_count": 170
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 875,
+          "end": 897,
+          "purpose": "CLIN-043 transaction"
+        },
+        {
+          "start": 1040,
+          "end": 1046,
+          "purpose": "CLIN-043 caller"
+        }
+      ],
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "line_count": 2998
+    },
+    {
+      "path": "src/tests/services/test_doi_bac_si_theo_quyen_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 30,
+          "end": 58,
+          "purpose": "CLIN-043 sequential test"
+        }
+      ],
+      "sha256": "1b1b3ff517afaa173d6ef06c9f0468bba88ddbae92686ded91729609dc7378d7",
+      "line_count": 76
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_check_in_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 44,
+          "end": 48,
+          "purpose": "CLIN-043 shared appointment/visit"
+        },
+        {
+          "start": 78,
+          "end": 98,
+          "purpose": "CLIN-043 sequential test"
+        }
+      ],
+      "sha256": "4243a4a32583d75e391edb5a3be403a8713dae1a988320056199230bcd4003f4",
+      "line_count": 146
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/BaoXepBacSi.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 13,
+          "end": 65,
+          "purpose": "FE-023"
+        }
+      ],
+      "sha256": "99a169854d0783c44971b4dae052459147745ff0f4d1921ca7ab2aa515369237",
+      "line_count": 66
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/DauUuTien.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 9,
+          "end": 91,
+          "purpose": "FE-023"
+        }
+      ],
+      "sha256": "4381d48b6377b6a65e2b27af1e1c8a31019ce9754783cf46dc0094ade57e0fde",
+      "line_count": 92
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/LichTrungCuaKhach.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 33,
+          "end": 168,
+          "purpose": "FE-023"
+        }
+      ],
+      "sha256": "97ccecfb420559906fb0c946fa95f2398354d20d943f4091cc72a32477829737",
+      "line_count": 169
+    },
+    {
+      "path": "src/tests/test_tenant_scope_audit.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 111,
+          "purpose": "full-file read; tenant scope test coverage"
+        }
+      ],
+      "sha256": "31e64df1adf64a9f1b889639730f422376cbf391e45d7868c551123c8a8512a0",
+      "line_count": 111
+    },
+    {
+      "path": "src/tests/services/test_phat_lai_projection_db.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 83,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "540fd2c5e19b00a094ed7158f7de70bf1df3580b26edc513229ab4bfb9cfc532",
+      "line_count": 83
+    },
+    {
+      "path": "supabase/migrations/20260923000002_projection_dong_thoi_gian.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 44,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "0c3f340f7cdf88350f79f943f9cfdd4ca9e2b898111f98e7717a0a78bf1b363b",
+      "line_count": 44
+    },
+    {
+      "path": "src/tests/unit/test_notification_relay.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 274,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "461d218c5be5ef0d67a6cbf0ec7b930dc435a533b91a74e70b5d55f88a309f23",
+      "line_count": 274
+    },
+    {
+      "path": "src/clinicai/permissions/cua_quyen.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 56,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9",
+      "line_count": 56
+    },
+    {
+      "path": "src/clinicai/events/worker.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 35,
+          "purpose": "event recovery"
+        },
+        {
+          "start": 82,
+          "end": 132,
+          "purpose": "event recovery"
+        },
+        {
+          "start": 139,
+          "end": 211,
+          "purpose": "event recovery"
+        },
+        {
+          "start": 223,
+          "end": 328,
+          "purpose": "event recovery"
+        }
+      ],
+      "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "line_count": 328
+    },
+    {
+      "path": "src/clinicai/events/hen_gio.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 60,
+          "purpose": "scheduled event"
+        },
+        {
+          "start": 67,
+          "end": 266,
+          "purpose": "scheduled event"
+        }
+      ],
+      "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "line_count": 266
+    },
+    {
+      "path": "src/clinicai/services/notification_relay.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 128,
+          "end": 260,
+          "purpose": "notification relay"
+        }
+      ],
+      "sha256": "3ede1c519c646d43ffa83daaa9d6a6bcdea08887f6822a79301e684524cd409f",
+      "line_count": 269
+    },
+    {
+      "path": "src/clinicai/worker.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 89,
+          "end": 200,
+          "purpose": "worker lifecycle"
+        },
+        {
+          "start": 239,
+          "end": 340,
+          "purpose": "worker lifecycle"
+        }
+      ],
+      "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "line_count": 483
+    },
+    {
+      "path": "src/clinicai/api/v1/health.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 49,
+          "end": 123,
+          "purpose": "event health/alert"
+        }
+      ],
+      "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+      "line_count": 137
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 60,
+          "purpose": "operator route"
+        },
+        {
+          "start": 90,
+          "end": 170,
+          "purpose": "event ops and held scope"
+        }
+      ],
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "line_count": 404
+    },
+    {
+      "path": "src/clinicai/events/phat_lai.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 120,
+          "purpose": "replay and recovery"
+        }
+      ],
+      "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+      "line_count": 141
+    },
+    {
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 209,
+          "end": 246,
+          "purpose": "event projection idempotency"
+        }
+      ],
+      "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "line_count": 247
+    },
+    {
+      "path": "src/tests/services/test_event_worker_db.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 130,
+          "end": 237,
+          "purpose": "event worker recovery tests"
+        }
+      ],
+      "sha256": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+      "line_count": 273
+    },
+    {
+      "path": "src/tests/services/test_hen_gio_db.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 187,
+          "end": 230,
+          "purpose": "scheduled-event tests"
+        }
+      ],
+      "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+      "line_count": 259
+    },
+    {
+      "path": "src/tests/test_health_su_kien.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 117,
+          "purpose": "event health tests"
+        }
+      ],
+      "sha256": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+      "line_count": 130
+    },
+    {
+      "path": "supabase/migrations/20260923000001_domain_event.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 214,
+          "end": 223,
+          "purpose": "held metrics tenant-scope"
+        }
+      ],
+      "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+      "line_count": 228
+    },
+    {
+      "path": "src/clinicai/permissions/catalogue.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 678,
+          "end": 683,
+          "purpose": "held ops.view capability"
+        }
+      ],
+      "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "line_count": 1271
+    },
+    {
+      "path": "src/clinicai/graphs/lab_triage/nodes.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 80,
+          "end": 133,
+          "purpose": "fetch"
+        },
+        {
+          "start": 137,
+          "end": 222,
+          "purpose": "classify"
+        },
+        {
+          "start": 226,
+          "end": 287,
+          "purpose": "persist"
+        },
+        {
+          "start": 346,
+          "end": 443,
+          "purpose": "task creation"
+        }
+      ],
+      "sha256": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23",
+      "line_count": 443
+    },
+    {
+      "path": "src/clinicai/graphs/lab_triage/graph.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 65,
+          "end": 75,
+          "purpose": "post-persist route"
+        },
+        {
+          "start": 78,
+          "end": 122,
+          "purpose": "graph edges"
+        }
+      ],
+      "sha256": "27cb880489073cda3bd92727825658f9245f53c86126ee423099f62597510c17",
+      "line_count": 122
+    },
+    {
+      "path": "src/clinicai/services/lab_safety_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 64,
+          "end": 176,
+          "purpose": "persist classification"
+        },
+        {
+          "start": 178,
+          "end": 289,
+          "purpose": "review finalization"
+        }
+      ],
+      "sha256": "afb270acda297eb0147f3b921caeaa90a46263cb2793c9883ce207e3db3d60de",
+      "line_count": 356
+    },
+    {
+      "path": "src/clinicai/services/lab_order_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 65,
+          "end": 144,
+          "purpose": "order flow"
+        },
+        {
+          "start": 146,
+          "end": 243,
+          "purpose": "result entry"
+        }
+      ],
+      "sha256": "9da6879b4249fcc65bdd8945a19d808c9d6663ee6fc0a69cd2bb2aab84a1ad01",
+      "line_count": 304
+    },
+    {
+      "path": "src/clinicai/tools/task/create_task.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 31,
+          "end": 45,
+          "purpose": "active-only dedupe"
+        },
+        {
+          "start": 93,
+          "end": 138,
+          "purpose": "task creation"
+        }
+      ],
+      "sha256": "648b61219de4b039ced6b10f07ca70da9c1f962759cc42d414b90fa585f92c30",
+      "line_count": 138
+    },
+    {
+      "path": "supabase/migrations/20260730000018_lab_review_idempotency.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 34,
+          "end": 42,
+          "purpose": "active task index"
+        }
+      ],
+      "sha256": "f3dc10456fee3484a76193a0dfff4e57a3584c12237c428be7748b3c99f7f33d",
+      "line_count": 43
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/lab.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 119,
+          "end": 132,
+          "purpose": "result entry"
+        },
+        {
+          "start": 135,
+          "end": 183,
+          "purpose": "review queue"
+        },
+        {
+          "start": 187,
+          "end": 211,
+          "purpose": "finalize endpoint"
+        },
+        {
+          "start": 240,
+          "end": 282,
+          "purpose": "triage endpoint"
+        },
+        {
+          "start": 303,
+          "end": 341,
+          "purpose": "held release decision"
+        }
+      ],
+      "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+      "line_count": 341
+    },
+    {
+      "path": "src/dashboard/app/api/lab-result/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 28,
+          "end": 109,
+          "purpose": "BFF POST/PATCH"
+        }
+      ],
+      "sha256": "d701075fcb97c3c0f593a4bf9699f7164fbdb782bba61111e14373b049bdfd9e",
+      "line_count": 109
+    },
+    {
+      "path": "src/dashboard/app/api/lab-result/[id]/review/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 12,
+          "end": 48,
+          "purpose": "review BFF"
+        }
+      ],
+      "sha256": "ec47101d9d06ef55844b7fd285980d61e593adf548a81ea1df677dd4e2050e31",
+      "line_count": 49
+    },
+    {
+      "path": "src/dashboard/app/api/lab-result/[id]/triage/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 8,
+          "end": 32,
+          "purpose": "triage BFF"
+        }
+      ],
+      "sha256": "878e30d7fad318a8743329290859730e57908aa2ae81ab1bd4f61c832b6b59a9",
+      "line_count": 33
+    },
+    {
+      "path": "src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 306,
+          "end": 514,
+          "purpose": "print component"
+        }
+      ],
+      "sha256": "950208bd5507dd068732f4ff6edf56222b19818da5fec2564b08387531a8cd0c",
+      "line_count": 514
+    },
+    {
+      "path": "src/dashboard/app/print/ket-qua/[orderId]/page.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 10,
+          "end": 18,
+          "purpose": "print page"
+        }
+      ],
+      "sha256": "665f89422483c4b1b2fb7f3a6e0a5853aefe4786c3aac17f0d0dfc4e7e15c72a",
+      "line_count": 18
+    },
+    {
+      "path": "src/dashboard/app/api/phieu/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 29,
+          "end": 49,
+          "purpose": "form result BFF"
+        }
+      ],
+      "sha256": "a54fcb14115e7dcc965b33e55b73e95332dee0441f681cacce8f17de565c0f00",
+      "line_count": 76
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phieu.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 187,
+          "end": 196,
+          "purpose": "view result"
+        },
+        {
+          "start": 199,
+          "end": 208,
+          "purpose": "print result"
+        }
+      ],
+      "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+      "line_count": 208
+    },
+    {
+      "path": "src/clinicai/services/form_engine_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 259,
+          "end": 322,
+          "purpose": "view service"
+        },
+        {
+          "start": 327,
+          "end": 545,
+          "purpose": "print service"
+        }
+      ],
+      "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+      "line_count": 1580
+    },
+    {
+      "path": "src/dashboard/lib/lab-release.ts",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 15,
+          "end": 54,
+          "purpose": "held release helper"
+        }
+      ],
+      "sha256": "098eaf75ae19f408894dec98510984852e7c94db4290b667c57c47ac1506c7dc",
+      "line_count": 54
+    },
+    {
+      "path": "src/tests/unit/test_lab_safety_service.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 284,
+          "end": 326,
+          "purpose": "sequential finalize test"
+        }
+      ],
+      "sha256": "161ee3c72dbd43250c846784405cc64966d519bff6d7c58913c7b63c03dbeda5",
+      "line_count": 327
+    },
+    {
+      "path": "src/tests/graphs/lab_triage/test_lab_triage_skeleton.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 252,
+          "end": 288,
+          "purpose": "GROUP_C safety test"
+        }
+      ],
+      "sha256": "8fbb94440211900d66f0c734316770a4138a2dbede32efd15b9f236de07f54a1",
+      "line_count": 356
+    }
+  ]
+}

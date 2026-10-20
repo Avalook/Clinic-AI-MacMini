@@ -1,0 +1,110 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_4202_dr4women_macmini (1 worker) sẵn sàng sau 4s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_committed_interaction_retries_once_after_receipt_write_failure ______
+
+pool = <asyncpg.pool.Pool object at 0x10b943580>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b984ef0>
+
+    async def test_committed_interaction_retries_once_after_receipt_write_failure(
+        pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async with pool.acquire() as conn:
+            person = await _nguoi(conn, "CSKH")
+            visit = await _luot(conn, person)
+        key = "audit-crash-" + uuid.uuid4().hex
+        endpoint = "POST /api/v1/cskh/tuong-tac"
+        body = TuongTacRequest(
+            clinic_patient_id=uuid.UUID(visit["patient"]),
+            loai="KHAC",
+            kenh="GOI",
+            ket_qua="DA_LIEN_HE",
+            noi_dung="Synthetic audit contact, once only",
+        )
+        guard = IdempotencyGuard(key=key, endpoint=endpoint, request_hash="a" * 64)
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                IdempotencyGuard,
+                "save",
+                AsyncMock(
+                    side_effect=RuntimeError("Synthetic receipt persistence failure")
+                ),
+            )
+            with pytest.raises(RuntimeError, match="receipt persistence"):
+                await ghi_tuong_tac(body=body, identity=person, pool=pool, idem=guard)
+        first = await pool.fetchval(
+            "SELECT count(*) FROM tuong_tac_cskh WHERE clinic_patient_id=$1::uuid",
+            visit["patient"],
+        )
+        assert first == 1, "The domain operation committed before receipt failure"
+        # Advance just the reservation's timestamp; no sleep or system clock changes.
+        await pool.execute(
+            "UPDATE idempotency_key SET updated_at=now()-interval '6 minutes'"
+            " WHERE key=$1 AND endpoint=$2 AND actor_id=$3",
+            key,
+            endpoint,
+            person.auth_user_id,
+        )
+        await ghi_tuong_tac(body=body, identity=person, pool=pool, idem=guard)
+        count = await pool.fetchval(
+            "SELECT count(*) FROM tuong_tac_cskh WHERE clinic_patient_id=$1::uuid",
+            visit["patient"],
+        )
+>       assert count == 1, "Same command was executed twice after its receipt was lost"
+E       AssertionError: Same command was executed twice after its receipt was lost
+E       assert 2 == 1
+
+src/tests/services/test_audit_1910_receipt_crash_db.py:64: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-10-19 18:16:51 [info     ] cskh_tuong_tac_ghi             by_staff_id=bb646f4b-f4b7-414c-85ec-eb0c07b3985e kenh=GOI ket_qua=DA_LIEN_HE loai=KHAC
+2026-10-19 18:16:51 [info     ] cskh_tuong_tac_ghi             by_staff_id=bb646f4b-f4b7-414c-85ec-eb0c07b3985e kenh=GOI ket_qua=DA_LIEN_HE loai=KHAC
+=========================== short test summary info ============================
+FAILED src/tests/services/test_audit_1910_receipt_crash_db.py::test_committed_interaction_retries_once_after_receipt_write_failure
+1 failed in 0.34s

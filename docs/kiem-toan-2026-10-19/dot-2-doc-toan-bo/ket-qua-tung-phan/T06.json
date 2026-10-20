@@ -1,0 +1,493 @@
+{
+ "chunk": "T06",
+ "findings": [
+  {
+   "tmp_id": "T06-1",
+   "title": "Test đối chiếu chủ thu đối tác khóa hành vi sai bằng xfail strict, chưa có guard thật chặn một chỉ định nằm ở hai sổ thu",
+   "severity": "MEDIUM",
+   "category": "test_gap_partner_double_ledger",
+   "evidence_level": "design_gap",
+   "summary": "Test K4 mô tả đúng bất biến (một chỉ định không được ở hai sổ thu) nhưng đang xfail strict vì chưa quyết. Sau khi phòng khám đã thu, đổi billing_owner sang đối tác vẫn cho đối tác ghi 'đã thu'. Trong lúc chờ quyết, không có test nào chặn hồi quy hay cảnh báo vận hành.",
+   "trigger": "Quản lý đổi billing_owner của dịch vụ sau khi phiếu thu phòng khám đã tạo, rồi đối tác ghi nhận đã thu cho cùng chỉ định.",
+   "impact": "Cùng một dịch vụ có thể xuất hiện ở sổ phòng khám và sổ đối tác, làm báo cáo cuối ngày và đối soát có thể tính trùng.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_doi_chieu_doi_tac_db.py",
+     "line": 270,
+     "end_line": 297,
+     "detail": "K4 xfail strict ghi rõ ghi_nhan_da_thu chỉ xét chủ thu hiện tại, chưa chặn chỉ định đã nằm trong phiếu thu."
+    },
+    {
+     "path": "src/tests/services/test_doi_chieu_doi_tac_db.py",
+     "line": 248,
+     "end_line": 267,
+     "detail": "K3 chỉ khẳng định lịch sử phiếu không đổi, không chặn nửa còn lại."
+    }
+   ],
+   "limitations": "Chỉ thấy test, không thấy mã service; xfail strict sẽ đỏ khi sửa nên có người nhận ra.",
+   "recommendation": "Chốt quyết định (chặn đổi chủ thu khi đã có phiếu, hoặc chặn ghi nhận) và chuyển test thành bắt buộc; thêm cảnh báo cho quản lý khi đổi billing_owner.",
+   "acceptance": "K4 pass không còn xfail; đổi billing_owner khi đã có phiếu bị chặn hoặc báo rõ.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-014"
+   ]
+  },
+  {
+   "tmp_id": "T06-2",
+   "title": "Hoàn tiền không theo dòng chỉ được ghi nhận bằng xfail: hóa đơn xuất có thể cao hơn tiền thực giữ",
+   "severity": "MEDIUM",
+   "category": "test_gap_refund_export",
+   "evidence_level": "design_gap",
+   "summary": "Test G4 khẳng định hóa đơn xuất = tiền phiếu − hoàn xong nhưng đang xfail strict. Dữ liệu hoàn cũ không gắn dòng chỉ được ghi chú, không bị trừ. Test T2/T3 ngẫu nhiên chỉ đo mức lệch, không buộc về 0.",
+   "trigger": "Xuất hóa đơn cho phiếu có khoản hoàn cũ (trước 19/09) đã hoàn xong nhưng không gắn dòng.",
+   "impact": "File hóa đơn có thể cao hơn số tiền khách thực trả, kế toán có thể đọc sai nếu bỏ qua ghi chú.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_doi_chieu_hoa_don_db.py",
+     "line": 459,
+     "end_line": 479,
+     "detail": "G4 xfail strict: tổng xuất 300.000 dù đã hoàn 100.000."
+    },
+    {
+     "path": "src/tests/services/test_doi_chieu_hoa_don_db.py",
+     "line": 252,
+     "end_line": 266,
+     "detail": "T3 chỉ kiểm có ghi chú, không buộc tổng đúng."
+    }
+   ],
+   "limitations": "Giới hạn ở dữ liệu cũ vì DB nay cấm tạo mới khoản hoàn không dòng.",
+   "recommendation": "Quyết định trừ tỉ lệ hoặc backfill gắn dòng; sau đó bỏ xfail.",
+   "acceptance": "G4 pass; mọi phiếu có hoàn xong cho tổng xuất bằng tiền phiếu trừ hoàn.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Thực tế dễ thấy"
+   ],
+   "extends": [
+    "FIN-005"
+   ],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T06-3",
+   "title": "Bài đối chiếu tiền/kho tự skip hoặc bỏ qua khi DB dùng chung không ổn định, có thể xanh mà không so gì",
+   "severity": "LOW",
+   "category": "flaky_test_skip_masks_coverage",
+   "evidence_level": "design_gap",
+   "summary": "T1, T2/T3 và K2 thử tối đa 6 lần đọc ổn định rồi pytest.skip. Trên CI có test song song ghi tiền liên tục thì bất biến đối soát không được kiểm mà không có tín hiệu đỏ. Bài kho dùng asyncio.sleep để ép thứ tự thời gian.",
+   "trigger": "CI chạy song song nhiều bài ghi payment trên cùng DB.",
+   "impact": "Lỗi lệch tổng thu/hoàn có thể lọt vì bài đối chiếu chỉ bị skip.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_doi_chieu_hoa_don_db.py",
+     "line": 166,
+     "end_line": 175,
+     "detail": "doc_on_dinh trả None sau 6 lần."
+    },
+    {
+     "path": "src/tests/services/test_doi_chieu_hoa_don_db.py",
+     "line": 194,
+     "end_line": 196,
+     "detail": "skip khi không ổn định."
+    },
+    {
+     "path": "src/tests/services/test_doi_chieu_doi_tac_db.py",
+     "line": 204,
+     "end_line": 210,
+     "detail": "K2 cũng skip."
+    },
+    {
+     "path": "src/tests/services/test_doi_chieu_kho_thuoc_db.py",
+     "line": 232,
+     "end_line": 233,
+     "detail": "sleep 0.05 để performed_at sau mốc."
+    }
+   ],
+   "limitations": "Có thể CI đã chạy tuần tự; không thấy cấu hình.",
+   "recommendation": "Dùng clinic/DB riêng cho bài đối chiếu tổng, hoặc đếm số skip và báo cảnh báo; thay sleep bằng mốc từ DB.",
+   "acceptance": "Bài đối chiếu chạy cô lập và không skip trong CI; số skip được theo dõi.",
+   "alignment": [
+    "Phát hiện sớm",
+    "Quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T06-4",
+   "title": "Dữ liệu và mã riêng của Dr4Women ghi cứng trong test dùng chung",
+   "severity": "LOW",
+   "category": "fixture_hardcoded_tenant_data",
+   "evidence_level": "confirmed_static",
+   "summary": "Nhiều test đòi migration/seed riêng của Dr4Women (loại khám DT_LASER_TIEN_DINH, mã KiotViet SP000134, 'Kim Ngưu', UUID clinic và bác sĩ cố định). Tenant mới hoặc DB sạch sẽ fail hoặc skip.",
+   "trigger": "Chạy bộ test trên DB của phòng khám khác hoặc DB sạch.",
+   "impact": "Khó tái sử dụng sản phẩm cho tenant mới; test đỏ vì thiếu seed chứ không vì lỗi logic.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_dieu_tri_ban_kham_db.py",
+     "line": 71,
+     "end_line": 74,
+     "detail": "Đòi loại DT_LASER_TIEN_DINH từ migration 20261007600000."
+    },
+    {
+     "path": "src/tests/services/test_dxa_ket_luan_nhanh_db.py",
+     "line": 73,
+     "end_line": 78,
+     "detail": "Gắn ma_kiotviet SP000134 và mã CLS_DO_MAT_DO_XUONG."
+    },
+    {
+     "path": "src/tests/services/test_doctor_board.py",
+     "line": 28,
+     "end_line": 28,
+     "detail": "UUID bác sĩ cố định."
+    },
+    {
+     "path": "src/tests/services/test_dispatch_rules.py",
+     "line": 154,
+     "end_line": 161,
+     "detail": "Docstring và quy tắc gắn cơ sở Kim Ngưu."
+    }
+   ],
+   "limitations": "Có thể chủ ý vì sản phẩm chỉ phục vụ Dr4Women.",
+   "recommendation": "Tách fixture catalog riêng thành lớp tenant-specific và dựng dữ liệu tối thiểu trong test chung.",
+   "acceptance": "Bộ test lõi chạy trên tenant seed tối thiểu.",
+   "alignment": [
+    "Lỗi lặp thành cải tiến"
+   ],
+   "extends": [
+    "DB-004",
+    "DB-005"
+   ],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T06-5",
+   "title": "Dọn dữ liệu thử: không có test cho cổng chống xoá khách thật, và test dọn gọi trực tiếp xóa",
+   "severity": "MEDIUM",
+   "category": "test_gap_destructive_scope",
+   "evidence_level": "design_gap",
+   "summary": "Test dọn dữ liệu chỉ kiểm chặn quyền, chặn lượt đang mở hôm nay và xoá đúng khách chọn. Không có test buộc khách phải là dữ liệu thử, không test lọc theo ngày/cơ sở, không test khách có thanh toán hoặc hồ sơ ký.",
+   "trigger": "Quản trị chọn nhầm khách thật có lượt đã đóng cũ.",
+   "impact": "Khách thật có lượt đã đóng có thể bị xoá; chỉ khôi phục tay từ bản lưu.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_don_du_lieu_thu_db.py",
+     "line": 361,
+     "end_line": 387,
+     "detail": "Chỉ chặn khi có lượt mở hôm nay; đóng lượt là xoá được."
+    },
+    {
+     "path": "src/tests/services/test_don_du_lieu_thu_db.py",
+     "line": 260,
+     "end_line": 358,
+     "detail": "Khách 'giữ' không có phiếu thu, bệnh án hay tệp nào."
+    }
+   ],
+   "limitations": "Chưa thấy mã service; có thể cổng đã có nhưng chưa được test.",
+   "recommendation": "Thêm test: khách có payment/clinical_record/tệp kết quả bị chặn hoặc cần xác nhận mạnh; khách ngoài cờ thử bị chặn.",
+   "acceptance": "Có test fail khi xoá khách có tiền hoặc hồ sơ đã ký.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [
+    "OPS-011"
+   ],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T06-6",
+   "title": "Test bảo mật đối tác có ca giả/chú thích thay cho kiểm tra (case 8, 10) và nhánh clinic khác dễ bỏ qua",
+   "severity": "MEDIUM",
+   "category": "test_asserts_nothing",
+   "evidence_level": "confirmed_static",
+   "summary": "Trong suite bảo mật PARTNER, mục 8 và 10 chỉ là comment, không có assert. Hàm _fake_upload_partner không được gọi. Mục 7 bọc toàn bộ trong if loc2, nên nếu không có clinic 2 thì bỏ qua âm thầm.",
+   "trigger": "Chạy suite trên DB không có clinic thứ hai.",
+   "impact": "Ranh giới tenant của upload đối tác có thể không được kiểm mà test vẫn xanh.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+     "line": 1287,
+     "end_line": 1295,
+     "detail": "Mục 8 và 10 chỉ là comment."
+    },
+    {
+     "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+     "line": 1234,
+     "end_line": 1236,
+     "detail": "Mục 7 chỉ chạy khi loc2 tồn tại."
+    },
+    {
+     "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+     "line": 1298,
+     "end_line": 1323,
+     "detail": "Hàm giả lập không được dùng."
+    }
+   ],
+   "limitations": "Mục 10 được kiểm ở test khác.",
+   "recommendation": "Dựng clinic 2 trong fixture, thêm assert cho mục 8 (gửi clinic_patient_id lạ), xoá hàm chết.",
+   "acceptance": "Mỗi mục trong 10 có assert thật; không nhánh nào bị bỏ qua âm thầm.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [
+    "API-007"
+   ],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T06-7",
+   "title": "Test hồ sơ sinh hiệu/phiếu v5 chỉ phủ đường vai đủ quyền, thiếu test quyền theo bệnh nhân/cơ sở",
+   "severity": "MEDIUM",
+   "category": "test_gap_patient_scope",
+   "evidence_level": "design_gap",
+   "summary": "Các đọc hồ sơ (XemLuot, HoSoKham, lich_su_kham, benh_an_cho_ho_so) chỉ được thử bằng bác sĩ/lễ tân của cùng ca. Không có test nhân viên ngoài phân công hoặc khác cơ sở đọc phiếu v5, sinh hiệu, lịch sử.",
+   "trigger": "Nhân viên cùng clinic nhưng không được phân công gọi các đường đọc này.",
+   "impact": "Hồi quy ở phạm vi đọc có thể lọt, trùng các phát hiện quyền đã biết.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_doc_luot_v5_sinh_hieu_buoi_db.py",
+     "line": 190,
+     "end_line": 260,
+     "detail": "Chỉ dùng ca.bac_si/ca.le_tan hợp lệ."
+    },
+    {
+     "path": "src/tests/services/test_duong_kham_hoi_quyen_db.py",
+     "line": 104,
+     "end_line": 171,
+     "detail": "Bảng lệnh ghi không có đường đọc lâm sàng."
+    }
+   ],
+   "limitations": "Có thể test khác phủ; chỉ xét tệp được đưa.",
+   "recommendation": "Thêm test tham số hoá: người không được phân công/khác cơ sở bị từ chối ở mọi đường đọc lâm sàng.",
+   "acceptance": "Có test đỏ khi bỏ kiểm phạm vi ở từng đường đọc.",
+   "alignment": [
+    "Quyết định có bằng chứng"
+   ],
+   "extends": [
+    "SEC-011",
+    "SEC-019"
+   ],
+   "related_ids": []
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FIN-005",
+   "detail": "test_doi_chieu_hoa_don_db tính tổng bằng sổ gốc không giới hạn; so với báo cáo bị cắt sẽ lệch, nhưng bài tự skip khi DB không ổn định nên cần cô lập để bắt lỗi này."
+  },
+  {
+   "id": "INF-007",
+   "detail": "test_domain_event_db chỉ kiểm atomic emit và chỉ-thêm, không kiểm retry sau mất receipt."
+  }
+ ],
+ "held": [
+  {
+   "title": "Test cổng ca trực bật tắt cấu hình dùng chung day_nghiep_vu",
+   "reason": "Test sửa cấu hình rồi khôi phục trong finally; nếu chạy song song có thể ảnh hưởng bài khác, nhưng chưa rõ CI có song song."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Đối chiếu độc lập từ sổ gốc với mô hình tay và seed cố định",
+   "detail": "Tính lại đáp án từ bảng gốc rồi so báo cáo; random có seed và trace lỗi.",
+   "evidence": "src/tests/services/test_doi_chieu_kho_thuoc_db.py:84"
+  },
+  {
+   "title": "Test xfail strict ghi rõ lý do chờ quyết",
+   "detail": "Khoảng trống đã biết được khoá bằng test bất biến, sẽ báo khi được sửa.",
+   "evidence": "src/tests/services/test_doi_chieu_hoa_don_db.py:459"
+  },
+  {
+   "title": "Kiểm payload TV không lộ danh tính theo giá trị",
+   "detail": "Kiểm trên giá trị chuỗi chứ không chỉ tên khoá.",
+   "evidence": "src/tests/services/test_display_board.py:93"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/tests/services/test_dieu_tri_ban_kham_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_dinh_chinh_don_ke_hoach.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_dispatch_rules.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_display_board.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doc_luot_v5_sinh_hieu_buoi_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doctor_board.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_bac_si_theo_quyen_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_chieu_doi_tac_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_chieu_hoa_don_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_chieu_kho_thuoc_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_chieu_vat_tu_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_nguoi_trong_ca_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_tac_khong_vao_tien_phong_kham_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_tac_nhan_mau_la_xong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_tac_nhan_viec_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_tac_tai_tep_sau_tra_kq_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_tac_tu_thu_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_tac_vao_thang_phieu_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_doi_tac_xac_nhan_chuong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_domain_event_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_don_du_lieu_thu_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_don_thuoc_ban_tu_van_1310_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_dong_bo_hai_cot_trang_thai_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_dong_luot_roi_hang_cho_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_duong_kham_hoi_quyen_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_dxa_ket_luan_nhanh_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_excel_export.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_form_engine_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_form_instance_lich_su_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

@@ -1,0 +1,429 @@
+{
+  "schema_version": 1,
+  "round": 45,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_parallel_semantic_review",
+  "scope": [
+    "patient/consent assignment",
+    "service-order write authorization",
+    "financial outstanding scope",
+    "storage timeout/purge",
+    "event worker/Ops health",
+    "operational median integrity"
+  ],
+  "method": "Immutable pinned Git blobs via git show; full reads and selected traces hash-checked. Tests read-not-run; no ClinicAI runtime/API/DB/provider/VPS/production/secrets/PHI.",
+  "result": {
+    "new_findings": [
+      "FIN-019",
+      "INF-027",
+      "INF-028",
+      "OPS-012",
+      "SEC-037"
+    ],
+    "extended_findings": [
+      "INF-006",
+      "SEC-011",
+      "SEC-016",
+      "SEC-018",
+      "SEC-027"
+    ],
+    "deduplicated": [
+      "Worker retry/fairness/POS dedupe with INF-004/005/011/018/022.",
+      "Patient history/profile/RLS/metadata extend SEC-011/016/018/027."
+    ],
+    "held_candidates": [
+      "Canh-gac silent failure without explicit last-success contract.",
+      "TKYK file upload outside assignment pending write-scope policy."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/clinicai/worker.py",
+      "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "lines": 483
+    },
+    {
+      "path": "src/clinicai/events/worker.py",
+      "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "lines": 328
+    },
+    {
+      "path": "src/clinicai/events/phat_lai.py",
+      "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+      "lines": 141
+    },
+    {
+      "path": "src/clinicai/event_bus/publisher.py",
+      "sha256": "e81872fd6c19251c8aadf77594e416f2f24e69fb08eb1513ee5bd7b952edcef0",
+      "lines": 58
+    },
+    {
+      "path": "src/clinicai/event_bus/consumer.py",
+      "sha256": "a3ff7098f1ce903f101431450c4cc26999b1cf616f07b37ecd58afbd80e94a21",
+      "lines": 113
+    },
+    {
+      "path": "src/clinicai/services/event_service.py",
+      "sha256": "8c28b2661f421ceb82ee38c11d588c300a96a7fa1b9621c6769c42bdd0f890bf",
+      "lines": 146
+    },
+    {
+      "path": "src/clinicai/services/pos_outbox.py",
+      "sha256": "4b63946e8011ac0e338dcd25a96f67243ad488fb844f1660db4638ab437b78a9",
+      "lines": 87
+    },
+    {
+      "path": "src/clinicai/core/kho_tep.py",
+      "sha256": "2830529b08b64517617614cff6f215bfc6c24f980235d0eac9578ec89a9a3790",
+      "lines": 110
+    },
+    {
+      "path": "src/clinicai/services/day_tep.py",
+      "sha256": "72f5e480d6ed9b97ffd0ec9a89a88b87d9f61e6633806639a62d47048821b453",
+      "lines": 625
+    },
+    {
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "lines": 1900
+    },
+    {
+      "path": "src/clinicai/services/nhan_tep_luong.py",
+      "sha256": "ff109dc0966606d841d696c83ec29e79c948f28d229872731b620d163c713181",
+      "lines": 298
+    },
+    {
+      "path": "src/clinicai/services/canh_gac_kho_tep.py",
+      "sha256": "76c4e28566643889af2e99f5781778b3022258a7d23d7d4ca5835c4776a936ad",
+      "lines": 259
+    },
+    {
+      "path": "src/clinicai/services/canh_gac.py",
+      "sha256": "5376f1ab3a237dc1123490cf6548dd3f69b4d7fcb9d23ad961024457e5750d5e",
+      "lines": 348
+    },
+    {
+      "path": "src/clinicai/services/nhat_ky_van_hanh.py",
+      "sha256": "37fc8c000449b89e8d9a5b010fd8e826b9a694b3b05911cdd8cf07adbd7cb590",
+      "lines": 162
+    },
+    {
+      "path": "src/clinicai/services/ops_status.py",
+      "sha256": "850c3087d18eb1b8be057fd6e59265b7f233babb074dee1fc6746a623cfc5fb2",
+      "lines": 340
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "lines": 404
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx",
+      "sha256": "52432044de01fd956ce0f6b9d1167325a55b1473f7ff2ebaf5a8fe0bd51a72d4",
+      "lines": 261
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ops/NhatKyVanHanh.tsx",
+      "sha256": "7d1540110d2689defb4ad0a687a70814dc799aa80205eaa96aa81ad342a90cb6",
+      "lines": 249
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ops/OpsCenter.tsx",
+      "sha256": "a88f6bf733320f66cda4de29ac76090bfeccafb824d9876a3cb965571a8f442c",
+      "lines": 265
+    },
+    {
+      "path": "src/clinicai/api/v1/health.py",
+      "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+      "lines": 137
+    },
+    {
+      "path": "src/clinicai/services/kho_loi.py",
+      "sha256": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+      "lines": 198
+    },
+    {
+      "path": "src/dashboard/lib/ops-summary.ts",
+      "sha256": "111f1a559ce99ec8e15c65c26bad200c800028c4b11afa683f92a4f96beb2145",
+      "lines": 311
+    },
+    {
+      "path": "src/clinicai/api/v1/patients.py",
+      "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "lines": 435
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/consent.py",
+      "sha256": "6e68c4c00e96afc9c029b49a358f3e6c9faef2501ec2d1812961754326f5bb29",
+      "lines": 138
+    },
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "lines": 712
+    },
+    {
+      "path": "src/clinicai/services/consent_service.py",
+      "sha256": "b2f1f305282eace46a6fc38d0dab4ad7a4acdf65afeea84037b16abb2eb9d2d2",
+      "lines": 454
+    },
+    {
+      "path": "src/clinicai/services/chi_dinh_service.py",
+      "sha256": "58bf83daa0d2aeee93a24011cc47ab7a95314cc31a7e58991b709b1d3ab1071e",
+      "lines": 506
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/reports.py",
+      "sha256": "576280ef751ace798713de4fccf75b83984502cd3b36722b6d306466572611d8",
+      "lines": 364
+    },
+    {
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "sha256": "79326e846d211a73807712d7c06e298c705d20f2ccf726a24f1f2a039017629e",
+      "lines": 1416
+    },
+    {
+      "path": "src/clinicai/services/bao_cao_thuoc_service.py",
+      "sha256": "2233f2e976d41c6669b2d55705d32e2637cb2b1cd4334219d82f19ab5478ce79",
+      "lines": 342
+    },
+    {
+      "path": "src/clinicai/services/danh_sach_hoa_don_service.py",
+      "sha256": "f7b1ce08c6cc6fb8244e2a3e3373961ac84843a0a1078802c8ae766a45eded2a",
+      "lines": 437
+    },
+    {
+      "path": "src/clinicai/services/report_access_service.py",
+      "sha256": "70dcbb0283470fdf836b8ead6c64b6fb482604a33355432c0416534e672289ef",
+      "lines": 244
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/hoa_don.py",
+      "sha256": "beb678ee2e8e4e56d81a1da33838011bf7997130c02e8f310282068732f11814",
+      "lines": 158
+    },
+    {
+      "path": "supabase/migrations/20260804000020_patient_link_consent.sql",
+      "sha256": "7edb67e21e913b14d4fa02bc7f1aa5b26f6d8feb589b7e990b929a6686b7feb2",
+      "lines": 171
+    },
+    {
+      "path": "src/tests/services/test_consent_service_io.py",
+      "sha256": "e4aca6dca628705806edc9a86102f6634f2a157ffda053fb0321722c0f366c76",
+      "lines": 323
+    },
+    {
+      "path": "src/tests/services/test_consent.py",
+      "sha256": "5e92e133e3a88b7e3ab35f2162eab629b54379cddb4c373260d9a6ba91f7de15",
+      "lines": 181
+    },
+    {
+      "path": "src/tests/unit/test_ops_status.py",
+      "sha256": "62de13bc9f7b874e5b29ccd97b2af4deb7137a004fc8b251cc2c4e967d8f9e8a",
+      "lines": 124
+    },
+    {
+      "path": "src/tests/test_health_su_kien.py",
+      "sha256": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+      "lines": 130
+    }
+  ],
+  "partial_files": [
+    {
+      "path": "src/clinicai/services/lich_su_notion_service.py",
+      "sha256": "63ab95d5deca1cb8f6dc7a00846c02490e50f2cd668a395f2f63990428200ceb",
+      "lines": 287,
+      "read_ranges": [
+        {
+          "start": 34,
+          "end": 42
+        },
+        {
+          "start": 149,
+          "end": 171
+        },
+        {
+          "start": 175,
+          "end": 264
+        },
+        {
+          "start": 267,
+          "end": 285
+        }
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "lines": 139,
+      "read_ranges": [
+        {
+          "start": 69,
+          "end": 85
+        }
+      ]
+    },
+    {
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+      "lines": 239,
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 61
+        },
+        {
+          "start": 120,
+          "end": 147
+        }
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "lines": 1221,
+      "read_ranges": [
+        {
+          "start": 676,
+          "end": 693
+        },
+        {
+          "start": 696,
+          "end": 712
+        }
+      ]
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103",
+      "lines": 3929,
+      "read_ranges": [
+        {
+          "start": 2292,
+          "end": 2318
+        }
+      ]
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "lines": 654,
+      "read_ranges": [
+        {
+          "start": 339,
+          "end": 343
+        }
+      ]
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "read_ranges": [
+        {
+          "start": 636,
+          "end": 650
+        }
+      ]
+    },
+    {
+      "path": "src/clinicai/services/don_tep_ket_qua.py",
+      "sha256": "59b6dfe89204656c6e74f8bd55efe7686da982bf9a3e8595cb513553e084472c",
+      "lines": 232,
+      "read_ranges": [
+        {
+          "start": 111,
+          "end": 179
+        }
+      ]
+    },
+    {
+      "path": "scripts/collect_ops_status.py",
+      "sha256": "0faca8e7c1a07e230aca97dc6b85633692602f478828a66ad86e82627b3c11a0",
+      "lines": 298,
+      "read_ranges": [
+        {
+          "start": 16,
+          "end": 28
+        },
+        {
+          "start": 85,
+          "end": 100
+        },
+        {
+          "start": 176,
+          "end": 193
+        }
+      ]
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_projection.py",
+      "sha256": "46be326ffeef3c40b5c661b29e243564abab14cc0770db31aeb8f3eabf37004b",
+      "lines": 693,
+      "read_ranges": [
+        {
+          "start": 220,
+          "end": 315
+        },
+        {
+          "start": 389,
+          "end": 465
+        }
+      ]
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/hoa-don/DanhSachHoaDon.tsx",
+      "sha256": "d2833d94b8de2339af857e4e8a7cf3a3a302663bb3a1803c6fd0bac9a44cf05d",
+      "lines": 411,
+      "read_ranges": [
+        {
+          "start": 125,
+          "end": 345
+        },
+        {
+          "start": 347,
+          "end": 411
+        }
+      ]
+    },
+    {
+      "path": "src/tests/unit/test_report_access.py",
+      "sha256": "a748260509072390c5c29b2eee7fc69f7dab6732789b8f7a685c4f727812c4c0",
+      "lines": 150,
+      "read_ranges": [
+        {
+          "start": 55,
+          "end": 65
+        },
+        {
+          "start": 68,
+          "end": 103
+        },
+        {
+          "start": 107,
+          "end": 150
+        }
+      ]
+    },
+    {
+      "path": "src/tests/services/test_danh_sach_hoa_don_db.py",
+      "sha256": "be01a2d582b6753a6c3a09788314ae88dbd825da94bb4a5b68da233d11844545",
+      "lines": 160,
+      "read_ranges": [
+        {
+          "start": 115,
+          "end": 160
+        }
+      ]
+    }
+  ],
+  "tests_read_not_run": [
+    "ops_status unit test:63-75",
+    "theo_doi_pha_1 unit test:87-99",
+    "theo_doi_pha_1_db.py:141-149",
+    "report access and invoice DB test slices",
+    "consent tests and Notion-history test slice"
+  ],
+  "runtime": "No app/API/DB/provider/VPS/production/secrets/PHI access."
+}

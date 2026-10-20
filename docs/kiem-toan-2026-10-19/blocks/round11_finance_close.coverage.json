@@ -1,0 +1,161 @@
+{
+  "block": "round11_finance_close",
+  "snapshot": "/tmp/clinicai-audit-main-956ba4f2",
+  "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "review_mode": "static_read_only",
+  "status": "targeted_review_complete",
+  "scope": "Chốt ca, đối soát tiền, projection hóa đơn và test counterpart trong các file liệt kê. Đây không phải xác nhận đã đọc hết repository.",
+  "findings": ["CAND-R11-FIN-01", "CAND-R11-FIN-02"],
+  "files": [
+    {
+      "path": "src/clinicai/services/chot_so_ca_service.py",
+      "sha256": "ce4ad47b0e78e5deaf88e0ca2e43ec602cbb6bfd409c33a6f1f19a284022dc35",
+      "lines_total": 284,
+      "reviewed": "1-284",
+      "depth": "full_file_static_read",
+      "focus": "authorize/report/serialize/INSERT/open-shift audit path; snapshot boundary"
+    },
+    {
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "sha256": "79326e846d211a73807712d7c06e298c705d20f2ccf726a24f1f2a039017629e",
+      "lines_total": 1416,
+      "reviewed": "1-180, 197-310, 908-1010, 1190-1303, 1304-1416",
+      "depth": "targeted_static_trace",
+      "focus": "report query sequence, transaction boundaries, close classification, aggregation, snapshot return, warning consumer; FIN-007 LIMIT behavior recognized as existing/deduplicated"
+    },
+    {
+      "path": "supabase/migrations/20261014149000_chot_so_ca.sql",
+      "sha256": "e160eaaeb39270177a6254afdcb72f1f8be18dd02716fde40c8f94d0e040568d",
+      "lines_total": 83,
+      "reviewed": "1-83",
+      "depth": "full_file_static_read",
+      "focus": "close snapshot columns, chot_luc default, active-close uniqueness and immutability guard"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/reports.py",
+      "sha256": "576280ef751ace798713de4fccf75b83984502cd3b36722b6d306466572611d8",
+      "lines_total": 364,
+      "reviewed": "195-280",
+      "depth": "targeted_static_trace",
+      "focus": "HTTP close/reopen endpoints and end-of-day report callers"
+    },
+    {
+      "path": "src/clinicai/services/tom_tat_tai_chinh_service.py",
+      "sha256": "1ee000be88ffb65bd408b5037442a165be8027854c279157f2b37e07faaec8df",
+      "lines_total": 120,
+      "reviewed": "1-120",
+      "depth": "full_file_static_read",
+      "focus": "derived cash summary and khop predicate"
+    },
+    {
+      "path": "src/tests/unit/test_tom_tat_tai_chinh.py",
+      "sha256": "f61651adc5e3401a29f6b2e60e42ced4b2fa4ddad9c1c4710a721d439f8581f9",
+      "lines_total": 135,
+      "reviewed": "1-135",
+      "depth": "full_file_static_read",
+      "focus": "golden cash/debt cases and absence of an inconsistent-input guard case"
+    },
+    {
+      "path": "src/tests/services/test_tom_tat_tai_chinh_db.py",
+      "sha256": "c865ae0d4c80e783eea9409a6566aae302f1d5077d5182cd296194f5c0813a14",
+      "lines_total": 37,
+      "reviewed": "1-37",
+      "depth": "full_file_static_read",
+      "focus": "service summary test and khop assertion"
+    },
+    {
+      "path": "src/tests/services/test_chot_so_ca_db.py",
+      "sha256": "963c4e4587eae7c66489d33ff74fc4e44fb6e0b58db9b155d9b5e2158be54509",
+      "lines_total": 318,
+      "reviewed": "1-318",
+      "depth": "full_file_static_read",
+      "focus": "sequential close/void/reopen cases and competing close calls; no ledger mutation coordinated with snapshot construction"
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_projection.py",
+      "sha256": "46be326ffeef3c40b5c661b29e243564abab14cc0770db31aeb8f3eabf37004b",
+      "lines_total": 693,
+      "reviewed": "1-228, 231-482, 490-693",
+      "depth": "targeted_static_read",
+      "focus": "bill/refund/customer projections, period-vs-lifetime totals, filtering and pending-work projection"
+    },
+    {
+      "path": "src/clinicai/services/danh_sach_hoa_don_service.py",
+      "sha256": "f7b1ce08c6cc6fb8244e2a3e3373961ac84843a0a1078802c8ae766a45eded2a",
+      "lines_total": 437,
+      "reviewed": "1-390",
+      "depth": "targeted_static_read",
+      "focus": "invoice query date/status scope, refund/line joins, connection boundary, projection invocation"
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_misa_doc.py",
+      "sha256": "2cbaab841ca0736a05ce9700a1717ed529f80c9889c933ffb20282c8dd33b25d",
+      "lines_total": 90,
+      "reviewed": "1-90",
+      "depth": "full_file_static_read",
+      "focus": "invoice export fingerprint projection; no separate issue raised"
+    },
+    {
+      "path": "src/clinicai/services/bao_cao_viec_tien_service.py",
+      "sha256": "434edbaf0b9fe301b0313d1c598f29c579e6cfea41226c7d5dceaeb9f7253ee3",
+      "lines_total": 153,
+      "reviewed": "1-153",
+      "depth": "full_file_static_read",
+      "focus": "pending cash work projection, total-before-detail-cap behavior; no separate issue raised"
+    },
+    {
+      "path": "src/clinicai/services/phan_thu.py",
+      "sha256": "2d165eeb7c0cdb8d681f1e30720f6588b1d2bdac76e49c2495d93d44f0fdce30",
+      "lines_total": 231,
+      "reviewed": "1-231",
+      "depth": "full_file_static_read",
+      "focus": "cash/bank splitting and DB projection normalization"
+    },
+    {
+      "path": "src/tests/services/test_doi_chieu_hoa_don_db.py",
+      "sha256": "f692df6677365b361abbe43117f7ff7c9f8141f625c6a0f6f3c673207c23900c",
+      "lines_total": 479,
+      "reviewed": "1-267, 391-479",
+      "depth": "targeted_static_read",
+      "focus": "report-vs-invoice reconciliation, stable-read harness, line refunds and known strict xfail for old refund without lines"
+    },
+    {
+      "path": "src/tests/services/test_danh_sach_hoa_don_db.py",
+      "sha256": "be01a2d582b6753a6c3a09788314ae88dbd825da94bb4a5b68da233d11844545",
+      "lines_total": 160,
+      "reviewed": "1-160",
+      "depth": "full_file_static_read",
+      "focus": "invoice list scope, historical refund dates and router guard"
+    },
+    {
+      "path": "src/tests/unit/test_hoa_don_dung_sai.py",
+      "sha256": "2496207f00008a83c30123ffb9a9704c6a0c97a462199a6933328ef0ea8bebfc",
+      "lines_total": 63,
+      "reviewed": "1-63",
+      "depth": "full_file_static_read",
+      "focus": "invoice correctness reason projections and filters"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reports/TomTatCuoiNgay.tsx",
+      "sha256": "685040f27619c5dbfe1aa9ef1c068017bc2fabf47b96b5f6e166e5ba5a3c25c0",
+      "lines_total": 168,
+      "reviewed": "1-168",
+      "depth": "full_file_static_read",
+      "focus": "confirm current rendering does not use khop field"
+    }
+  ],
+  "dedup": [
+    {
+      "ids_checked": ["FIN-001", "FIN-002", "FIN-003", "FIN-004", "FIN-005", "FIN-006", "FIN-007", "FIN-008", "FIN-009", "FIN-010", "DB-006", "DB-007", "INF-007"],
+      "source": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json plus finance.md, finance-main-round2.md, round9_api_admin_finance.md",
+      "result": "Không sao chép ID canonical. FIN-007 là cap 5.000 dòng trong report, khác race của snapshot và phép kiểm khop; các candidate mới không dùng lại trigger của nó."
+    }
+  ],
+  "limits": [
+    "Không đọc hết codebase; chỉ các file/đoạn nêu ở trên.",
+    "Không chạy unit/integration/E2E tests, app runtime, DB, VPS hoặc thao tác secrets/PHI.",
+    "Không xác minh sự cố hay số liệu production; hai finding là static candidate trên snapshot SHA đã ghim.",
+    "Không đọc toàn bộ danh sách nhà hóa đơn service từ dòng 391 trở đi; phần ngoài phạm vi không được bao phủ.",
+    "Không sửa STATE, ledger, HTML, ZIP, migration hoặc app source."
+  ]
+}

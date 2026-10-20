@@ -1,0 +1,334 @@
+[
+  {
+    "id": "INF-020",
+    "title": "Ngân sách các pool có thể vượt trần kết nối của PostgreSQL",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "database_connection_budget",
+    "summary": "API chấp nhận POOL_MAX_SIZE từ 2 đến 60; mỗi tiến trình API còn có checkpointer, ChangeBroker và pool cảnh báo riêng. Nếu dùng ngân sách production 100 kết nối mà source comment giả định, trần đã biết ở API=60 là 112 (60+10+1+1+10+10+10+10); API mặc định 20 là 72. Staging ghim DB ở 60 nhưng cho API=20; trần đã biết là 62, còn mặc định API=10 là 52. Compose production không ghim max_connections=100; đây là ngưỡng được comment giả định, chưa xác minh runtime. Chưa tính Realtime, admin/migration reserve, profile worker tùy chọn hay replica bổ sung. Đây là tổng trần lý thuyết, không phải kết nối quan sát được.",
+    "trigger": "Đặt POOL_MAX_SIZE cao trong cấu hình được chấp nhận hoặc bật thêm replica/profile, rồi tải đồng thời làm các pool tiến gần trần. Compose staging cho phép API=20 dù DB ghim 60; production comment dùng ngân sách 100 nhưng không có preflight cộng pool theo topology.",
+    "impact": "Nếu tổng nhu cầu đồng thời vượt max_connections thực tế, pool hoặc PostgREST/GoTrue có thể không lấy được kết nối; đăng nhập, thao tác nghiệp vụ và worker cùng suy giảm. Không có bằng chứng cấu hình production hiện tại vượt trần hoặc đã có outage do nguyên nhân này.",
+    "evidence": [
+      {
+        "path": "src/clinicai/core/database.py",
+        "line": 17,
+        "end_line": 30,
+        "detail": "API default/range, worker max and documented shared-connection budget."
+      },
+      {
+        "path": "src/clinicai/main.py",
+        "line": 133,
+        "end_line": 152,
+        "detail": "Each API process creates its pool, starts ChangeBroker, and enters the configured checkpointer; the pool alert monitor starts by default."
+      },
+      {
+        "path": "src/clinicai/orchestrator/checkpointer.py",
+        "line": 56,
+        "end_line": 63,
+        "detail": "Postgres checkpointer owns a separate pool capped at 10."
+      },
+      {
+        "path": "src/clinicai/core/change_broker.py",
+        "line": 51,
+        "end_line": 97,
+        "detail": "ChangeBroker holds a dedicated LISTEN connection per API process."
+      },
+      {
+        "path": "src/clinicai/services/canh_gac_pool.py",
+        "line": 154,
+        "end_line": 173,
+        "detail": "API pool monitor is enabled by default and opens a separate alert pool capped at 1."
+      },
+      {
+        "path": "docker-compose.yml",
+        "line": 292,
+        "end_line": 310,
+        "detail": "The required su-kien worker is part of the default compose topology."
+      },
+      {
+        "path": "docker-compose.yml",
+        "line": 323,
+        "end_line": 337,
+        "detail": "The required day-tep worker is also part of the default compose topology."
+      },
+      {
+        "path": "docker-compose.supabase.yml",
+        "line": 101,
+        "end_line": 108,
+        "detail": "GoTrue is capped at 10; comment documents the assumed PostgreSQL connection budget of 100."
+      },
+      {
+        "path": "docker-compose.supabase.yml",
+        "line": 160,
+        "end_line": 164,
+        "detail": "PostgREST DB pool is capped at 10."
+      },
+      {
+        "path": "docker-compose.supabase.yml",
+        "line": 173,
+        "end_line": 205,
+        "detail": "Production DB uses postgres:17; this compose does not explicitly pin max_connections. Realtime has no explicit pool cap here."
+      },
+      {
+        "path": "docker-compose.supabase.staging.yml",
+        "line": 21,
+        "end_line": 39,
+        "detail": "Staging DB explicitly sets max_connections=60."
+      },
+      {
+        "path": "docker-compose.staging.yml",
+        "line": 48,
+        "end_line": 52,
+        "detail": "Staging API defaults to pool 10 and allows override 20."
+      },
+      {
+        "path": "src/tests/unit/test_database_pool.py",
+        "line": 12,
+        "end_line": 25,
+        "detail": "Tests exercise DSN normalization and JIT settings, not an aggregate pool budget."
+      },
+      {
+        "path": "src/tests/core/test_quan_sat.py",
+        "line": 382,
+        "end_line": 394,
+        "detail": "Pool configuration test checks default/range only; it does not calculate service topology totals."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_service_pool_budget_arithmetic_on_pinned_main",
+      "command": null,
+      "result": "Đối chiếu pool API, checkpointer, ChangeBroker, pool cảnh báo, GoTrue, PostgREST và worker trên exact-main. Tổng lý thuyết production ở API=60 là 112; mặc định API=20 là 72. Staging API=20 là 62 trên DB cap 60; staging mặc định API=10 là 52. Không chạy container, DB hay tải.",
+      "limitations": "Các pool mở kết nối theo nhu cầu nên tổng trần không chứng minh chúng cùng đạt cực đại. Production Compose dùng postgres:17 nhưng không pin max_connections; 100 chỉ là ngân sách trong comment, chưa đọc env hay runtime. Không đọc pg_stat_activity; chưa định lượng Realtime, admin/migration reserve, optional profiles, external replicas hoặc cấu hình thật."
+    },
+    "recommendation": "Tạo ngân sách kết nối theo topology: số replica/process × pool max của từng service/profile, tính cả pool cảnh báo, và dành reserve cho quản trị/migration cùng dịch vụ Supabase. Sinh preflight từ cấu hình triển khai, từ chối topology vượt budget; pin rõ max_connections theo môi trường và theo dõi tổng connection server thay vì chỉ pool API.",
+    "acceptance": "Test ma trận compose production/staging và profile tùy chọn: tổng max của từng topology phải thấp hơn max_connections sau reserve đã chốt; thay replica count hoặc pool limit làm preflight fail nếu vượt; monitoring cảnh báo cả pool API lẫn mức cạn connection toàn server.",
+    "alignment": [
+      "Unknown ngắn hơn",
+      "Vấn đề được phát hiện sớm hơn",
+      "Nhân viên làm việc bền vững hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/core/database.py": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+      "src/clinicai/main.py": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "src/clinicai/orchestrator/checkpointer.py": "96db03ab11efa083fca2af1c9227c729b9eac6ef143247c85f1f195fdfd0a16f",
+      "src/clinicai/core/change_broker.py": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+      "src/clinicai/services/canh_gac_pool.py": "023efae881e4591663ecab0b580e15bc4f221288f3f56983b0c5c33cfa613693",
+      "docker-compose.yml": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839",
+      "docker-compose.supabase.yml": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+      "docker-compose.supabase.staging.yml": "a23e17eb15f13c70eaf690ec193072011de9ed293ca10bbf074856afc42c250d",
+      "docker-compose.staging.yml": "eed570ab0b3cc2b900127e94df103ab0700e94371ddf6b1faf9d31bb23002e7f",
+      "src/tests/unit/test_database_pool.py": "b80c04d7e22f8e57d51586b0ebb0085501545ecd6c4c0cd6024d4178d127a85e",
+      "src/tests/core/test_quan_sat.py": "7b83aac6aea776f4948043bc0464745fdf4d0f16e73794cd316615171086d54f"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 15: exact-main static arithmetic confirms permitted pool limits can exceed documented/default-assumed DB budget in supported production/staging configurations; actual production setting and active connections are unknown.",
+      "evidence": [
+        {
+          "path": "src/clinicai/core/database.py",
+          "line": 17,
+          "end_line": 30,
+          "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+          "excerpt": "17: # API: mặc định 20, đặt lại bằng biến môi trường `POOL_MAX_SIZE` (14/10/2026,\n18: # nâng từ 10 sau sự cố tối 12/10 nghi cạn bể — một tiến trình uvicorn, 14 req/s,\n19: # nhiều request giữ kết nối hàng trăm ms). Bể chỉ mở thêm kết nối khi có người\n20: # chờ nên trần cao không tốn gì lúc rảnh. NGÂN SÁCH KẾT NỐI Postgres\n21: # (max_connections=100; staging 60) — API này + checkpointer 10 + broker 1 +\n22: # GoTrue 10 + PostgREST 10 + Realtime ~10 + su-kien/day-tep + quản trị — tính\n23: # trong thân PR; đổi số này phải tính lại. Staging ghim 10 ở docker-compose.staging.yml.\n24: POOL_MAX_SIZE = 20\n25: # Các worker (su-kien, day-tep, relay…) làm việc tuần tự, dùng 1–3 kết nối:\n26: # giữ trần cũ 10, không theo biến của API (cùng env_file nên biến ấy cũng hiện\n27: # trong container của chúng).\n28: WORKER_POOL_MAX_SIZE = 10\n29: #: Giá trị `POOL_MAX_SIZE` ngoài khoảng này bị coi là gõ nhầm → dùng mặc định.\n30: POOL_MAX_SIZE_KHOANG = (2, 60)",
+          "detail": "API default/range, worker max and documented shared-connection budget."
+        },
+        {
+          "path": "src/clinicai/main.py",
+          "line": 133,
+          "end_line": 152,
+          "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+          "excerpt": "133:     app.state.db_pool = await create_pool(max_size=doc_pool_max_size_api())\n134:     # ĐO BỂ KẾT NỐI (14/10/2026): thời gian chờ mượn + số người chờ (vòng nền ở\n135:     # dưới ghi mỗi phút một dòng `api_nhip_phut` + cảnh báo `POOL_API_DAY`).\n136:     gan_do_pool(app.state.db_pool)\n137:     # Bộ nhận thay đổi cho màn hình (thay Supabase Realtime). Nó tự nối lại khi\n138:     # rớt và KHÔNG được phép làm chết app khi database chưa sẵn sàng — mất nó\n139:     # thì màn hình rơi về nhịp làm mới dự phòng, chứ không ai đăng nhập hỏng.\n140:     app.state.change_broker = ChangeBroker(os.environ[\"DATABASE_URL\"])\n141:     await app.state.change_broker.start()\n142:     # CANH GÁC KHO TỆP (29/09/2026): đo ổ Viettel CFS mỗi phút — chạy ở đây vì\n143:     # chỉ container api gắn thư mục media. Xem services/canh_gac_kho_tep.py.\n144:     do_kho: asyncio.Task[None] | None = None\n145:     if canh_gac_kho_tep.bat():\n146:         do_kho = asyncio.create_task(canh_gac_kho_tep.chay_nen(app.state.db_pool))\n147:     do_pool: asyncio.Task[None] | None = None\n148:     if canh_gac_pool.bat():\n149:         do_pool = asyncio.create_task(canh_gac_pool.chay_nen(app.state.db_pool))\n150:     try:\n151:         async with AsyncExitStack() as stack:\n152:             checkpointer = await stack.enter_async_context(make_checkpointer())",
+          "detail": "Each API process creates its pool, starts ChangeBroker, and enters the configured checkpointer; the pool alert monitor starts by default."
+        },
+        {
+          "path": "src/clinicai/orchestrator/checkpointer.py",
+          "line": 56,
+          "end_line": 63,
+          "sha256": "96db03ab11efa083fca2af1c9227c729b9eac6ef143247c85f1f195fdfd0a16f",
+          "excerpt": "56:         async with AsyncConnectionPool(\n57:             conninfo=dsn,\n58:             max_size=10,\n59:             min_size=2,\n60:             kwargs={\n61:                 \"autocommit\": True,\n62:                 \"prepare_threshold\": 0,\n63:                 \"options\": f\"-c search_path={CHECKPOINTER_SCHEMA},public\",",
+          "detail": "Postgres checkpointer owns a separate pool capped at 10."
+        },
+        {
+          "path": "src/clinicai/core/change_broker.py",
+          "line": 51,
+          "end_line": 97,
+          "sha256": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+          "excerpt": "51: class ChangeBroker:\n52:     \"\"\"Một kết nối LISTEN, phát lại cho nhiều màn hình.\"\"\"\n53: \n54:     def __init__(self, dsn: str) -> None:\n55:         # CHUẨN HOÁ, đừng dùng thẳng biến môi trường. `.env` của phòng khám ghi\n56:         # `postgresql+asyncpg://` (dạng của SQLAlchemy); asyncpg.connect() từ\n57:         # chối scheme ấy. Bể kết nối vẫn chạy vì nó có gọi normalize_dsn — chỗ\n58:         # này lúc đầu thì không, nên bộ nghe chết ngay khi khởi động và màn hình\n59:         # lặng lẽ rơi về nhịp làm mới dự phòng. Bắt được lúc chạy thử trên VPS.\n60:         self._dsn = normalize_dsn(dsn)\n61:         self._conn: asyncpg.Connection | None = None\n62:         self._task: asyncio.Task[None] | None = None\n63:         # clinic_id → các hàng đợi đang mở của phòng khám đó.\n64:         self._subs: dict[str, set[asyncio.Queue[str]]] = {}\n65:         self._stopping = False\n66: \n67:     # -- vòng đời ----------------------------------------------------------\n68:     async def start(self) -> None:\n69:         self._stopping = False\n70:         self._task = asyncio.create_task(self._run(), name=\"change-broker\")\n71: \n72:     async def stop(self) -> None:\n73:         self._stopping = True\n74:         if self._task:\n75:             self._task.cancel()\n76:             try:\n77:                 await self._task\n78:             except (asyncio.CancelledError, Exception):  # noqa: BLE001\n79:                 pass\n80:         if self._conn is not None and not self._conn.is_closed():\n81:             await self._conn.close()\n82:         self._conn = None\n83: \n84:     async def _run(self) -> None:\n85:         \"\"\"Giữ một kết nối LISTEN, tự nối lại khi rớt.\n86: \n87:         KẾT NỐI RIÊNG, KHÔNG LẤY TỪ BỂ CHUNG. Một kết nối đang LISTEN bị giữ\n88:         suốt đời tiến trình; mượn nó từ bể là vĩnh viễn bớt một chỗ của những\n89:         truy vấn thật, và asyncpg cũng không hứa trả lại đúng kết nối ấy.\n90:         \"\"\"\n91:         while not self._stopping:\n92:             try:\n93:                 # Biến cục bộ để kiểu là Connection, không phải `| None` của\n94:                 # self._conn: chỉ stop() gán None, và nó huỷ task này rồi await\n95:                 # xong mới gán, nên trong vòng này kết nối không thể thành None.\n96:                 conn: asyncpg.Connection = await asyncpg.connect(self._dsn)\n97:                 self._conn = conn",
+          "detail": "ChangeBroker holds a dedicated LISTEN connection per API process."
+        },
+        {
+          "path": "src/clinicai/services/canh_gac_pool.py",
+          "line": 154,
+          "end_line": 173,
+          "sha256": "023efae881e4591663ecab0b580e15bc4f221288f3f56983b0c5c33cfa613693",
+          "excerpt": "154: def bat() -> bool:\n155:     return os.environ.get(\"CANH_GAC_POOL\", \"1\").strip().lower() not in (\n156:         \"0\",\n157:         \"false\",\n158:         \"\",\n159:     )\n160: \n161: \n162: async def chay_nen(pool: asyncpg.Pool) -> None:\n163:     \"\"\"Vòng nền trong API: mẫu mỗi giây, chốt mỗi phút. Huỷ khi tắt app.\"\"\"\n164:     pool_canh_bao: asyncpg.Pool | None = None\n165:     try:\n166:         try:\n167:             pool_canh_bao = await asyncpg.create_pool(\n168:                 dsn=normalize_dsn(os.environ[\"DATABASE_URL\"]),\n169:                 min_size=0,\n170:                 max_size=1,\n171:                 command_timeout=COMMAND_TIMEOUT,\n172:                 server_settings=SERVER_SETTINGS,\n173:             )",
+          "detail": "API pool monitor is enabled by default and opens a separate alert pool capped at 1."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 292,
+          "end_line": 310,
+          "sha256": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839",
+          "excerpt": "292:   su-kien:\n293:     <<: *clinic-service-defaults\n294:     build:\n295:       context: .\n296:       dockerfile: Dockerfile.api\n297:     image: clinicai-api:${IMAGE_TAG:-latest}\n298:     restart: unless-stopped\n299:     mem_limit: ${SU_KIEN_MEMORY_LIMIT:-256m}\n300:     pids_limit: 128\n301:     env_file: [\"${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}\"]\n302:     command: [\"python\", \"-m\", \"clinicai.worker\", \"--su-kien\"]\n303:     secrets: [agent_llm_api_key]\n304:     depends_on:\n305:       api:\n306:         condition: service_healthy\n307:     healthcheck:\n308:       # Vòng lặp CÓ QUAY (file nhịp tim), không chỉ tiến trình còn sống.\n309:       test: [\"CMD-SHELL\", \"test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 120\"]\n310:       interval: 30s",
+          "detail": "The required su-kien worker is part of the default compose topology."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 323,
+          "end_line": 337,
+          "sha256": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839",
+          "excerpt": "323:   day-tep:\n324:     <<: *clinic-service-defaults\n325:     build:\n326:       context: .\n327:       dockerfile: Dockerfile.api\n328:     image: clinicai-api:${IMAGE_TAG:-latest}\n329:     restart: unless-stopped\n330:     mem_limit: ${DAY_TEP_MEMORY_LIMIT:-192m}\n331:     pids_limit: 64\n332:     env_file: [\"${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}\"]\n333:     environment:\n334:       MEDIA_ROOT: /var/lib/clinicai/media\n335:       MEDIA_LOCAL_ROOT: /var/lib/clinicai/media-vps\n336:       TMPDIR: /var/lib/clinicai/media-vps/.tam\n337:     command: [\"python\", \"-m\", \"clinicai.worker\", \"--day-tep\"]",
+          "detail": "The required day-tep worker is also part of the default compose topology."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 101,
+          "end_line": 108,
+          "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+          "excerpt": "101:       # TRẦN POOL BẮT BUỘC. Không đặt thì gotrue mở kết nối KHÔNG GIỚI HẠN —\n102:       # đo tải 100 người đăng nhập cùng lúc (22/08/2026): 13–19% lượt trả 500,\n103:       # log gotrue ghi \"FATAL: remaining connection slots are reserved for\n104:       # roles with the SUPERUSER attribute\" — tức nó nuốt sạch 100 slot của\n105:       # Postgres rồi tự chết đói. Trần 10 khớp ngân sách kết nối: FastAPI 10\n106:       # + PostgREST 10 + gotrue 10 + realtime/worker/psql ~20 — dư già nửa\n107:       # max_connections=100 cho đột biến.\n108:       GOTRUE_DB_MAX_POOL_SIZE: \"10\"",
+          "detail": "GoTrue is capped at 10; comment documents the assumed PostgreSQL connection budget of 100."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 160,
+          "end_line": 164,
+          "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+          "excerpt": "160:     environment:\n161:       PGRST_DB_URI: postgres://authenticator:${SUPABASE_DB_PASSWORD}@db:5432/postgres\n162:       # Trùng mặc định, khai tường minh: ngân sách kết nối của cả stack phải\n163:       # đọc được từ file này, không phải đi tra tài liệu từng bản.\n164:       PGRST_DB_POOL: \"10\"",
+          "detail": "PostgREST DB pool is capped at 10."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 173,
+          "end_line": 205,
+          "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+          "excerpt": "173:   # ---- Realtime (8 file: lễ tân, điều phối, siêu âm) -----------------------\n174:   realtime:\n175:     <<: *supabase-defaults\n176:     image: supabase/realtime:v2.34.47\n177:     container_name: ${SUPABASE_PREFIX:-clinicai}_realtime\n178:     depends_on:\n179:       db:\n180:         condition: service_healthy\n181:     environment:\n182:       PORT: \"4000\"\n183:       DB_HOST: db\n184:       DB_PORT: \"5432\"\n185:       DB_USER: supabase_admin\n186:       DB_PASSWORD: ${SUPABASE_DB_PASSWORD}\n187:       DB_NAME: postgres\n188:       DB_AFTER_CONNECT_QUERY: \"SET search_path TO realtime\"\n189:       # KHÔNG GHI CỨNG. `supabaserealtime` là giá trị MẶC ĐỊNH CÔNG KHAI trong\n190:       # tài liệu tự dựng Supabase — ai đọc tài liệu ấy cũng biết. Realtime dùng\n191:       # nó để mã hoá thông tin tenant trong bảng của chính nó.\n192:       #\n193:       # Giữ nguyên làm mặc định để không đổi hành vi (đổi khoá này khi đã có dữ\n194:       # liệu mã hoá là tự làm hỏng Realtime). Muốn thay bằng khoá riêng thì đặt\n195:       # REALTIME_DB_ENC_KEY trong .env.* — nhưng phải làm lúc dựng mới, không\n196:       # phải giữa chừng.\n197:       DB_ENC_KEY: ${REALTIME_DB_ENC_KEY:-supabaserealtime}\n198:       API_JWT_SECRET: ${SUPABASE_JWT_SECRET}\n199:       SECRET_KEY_BASE: ${SUPABASE_JWT_SECRET}\n200:       ERL_AFLAGS: -proto_dist inet_tcp\n201:       DNS_NODES: \"''\"\n202:       RLIMIT_NOFILE: \"10000\"\n203:       APP_NAME: realtime\n204:       SEED_SELF_HOST: \"true\"\n205:       RUN_JANITOR: \"true\"",
+          "detail": "Production DB uses postgres:17; this compose does not explicitly pin max_connections. Realtime has no explicit pool cap here."
+        },
+        {
+          "path": "docker-compose.supabase.staging.yml",
+          "line": 21,
+          "end_line": 39,
+          "sha256": "a23e17eb15f13c70eaf690ec193072011de9ed293ca10bbf074856afc42c250d",
+          "excerpt": "21: services:\n22:   db:\n23:     <<: *staging-bao-ve\n24:     mem_limit: ${STG_DB_MEMORY_LIMIT:-384m}\n25:     # Bỏ wal_level=logical (chỉ Realtime cần). shared_buffers nhỏ cho vừa trần.\n26:     command:\n27:       - postgres\n28:       - -c\n29:       - shared_preload_libraries=pg_stat_statements\n30:       - -c\n31:       - shared_buffers=64MB\n32:       - -c\n33:       - max_connections=60\n34:       # Nạp lại đêm (staging-nap-ban-sao.sh) DROP + tạo lại ~300 bảng kèm chỉ\n35:       # mục trong MỘT giao dịch — giữ khoá trên từng đối tượng tới COMMIT. Mặc\n36:       # định 64 × 60 kết nối = 3.840 khoá → 08/10/2026 hỏng \"out of shared\n37:       # memory\". 256 tốn thêm vài MB bộ nhớ chung, vẫn dư trong mem_limit.\n38:       - -c\n39:       - max_locks_per_transaction=256",
+          "detail": "Staging DB explicitly sets max_connections=60."
+        },
+        {
+          "path": "docker-compose.staging.yml",
+          "line": 48,
+          "end_line": 52,
+          "sha256": "eed570ab0b3cc2b900127e94df103ab0700e94371ddf6b1faf9d31bb23002e7f",
+          "excerpt": "48:     environment:\n49:       # Bể kết nối API: prod mặc định 20 (core/database.py), staging ghim 10 vì\n50:       # Postgres staging chỉ có max_connections=60 + RAM 384m. Muốn thử 20 trên\n51:       # staging thì đặt POOL_MAX_SIZE=20 trong .env.staging (kiểm số kết nối trước).\n52:       POOL_MAX_SIZE: ${POOL_MAX_SIZE:-10}",
+          "detail": "Staging API defaults to pool 10 and allows override 20."
+        },
+        {
+          "path": "src/tests/unit/test_database_pool.py",
+          "line": 12,
+          "end_line": 25,
+          "sha256": "b80c04d7e22f8e57d51586b0ebb0085501545ecd6c4c0cd6024d4178d127a85e",
+          "excerpt": "12: async def test_be_ket_noi_tat_jit(monkeypatch: pytest.MonkeyPatch) -> None:\n13:     nhan: dict[str, Any] = {}\n14: \n15:     async def gia_create_pool(**kw: Any) -> object:\n16:         nhan.update(kw)\n17:         return object()\n18: \n19:     monkeypatch.setenv(\"DATABASE_URL\", \"postgresql+asyncpg://u:p@h:5432/d\")\n20:     monkeypatch.setattr(asyncpg, \"create_pool\", gia_create_pool)\n21: \n22:     await database.create_pool()\n23: \n24:     assert nhan[\"server_settings\"][\"jit\"] == \"off\"\n25:     assert nhan[\"dsn\"].startswith(\"postgresql://\")",
+          "detail": "Tests exercise DSN normalization and JIT settings, not an aggregate pool budget."
+        },
+        {
+          "path": "src/tests/core/test_quan_sat.py",
+          "line": 382,
+          "end_line": 394,
+          "sha256": "7b83aac6aea776f4948043bc0464745fdf4d0f16e73794cd316615171086d54f",
+          "excerpt": "382: # -------------------------------------------------------------- trần kết nối\n383: \n384: \n385: def test_pool_max_size_mac_dinh_api_20_worker_10() -> None:\n386:     assert POOL_MAX_SIZE == 20 and WORKER_POOL_MAX_SIZE == 10\n387:     assert doc_pool_max_size_api(\"\") == 20\n388: \n389: \n390: def test_pool_max_size_doc_tu_moi_truong_va_gat_gia_tri_sai() -> None:\n391:     assert doc_pool_max_size_api(\"12\") == 12\n392:     assert doc_pool_max_size_api(\" 30 \") == 30\n393:     for xau in (\"0\", \"1\", \"-5\", \"abc\", \"1000\", \"20.5\"):\n394:         assert doc_pool_max_size_api(xau) == 20, xau",
+          "detail": "Pool configuration test checks default/range only; it does not calculate service topology totals."
+        }
+      ]
+    }
+  },
+  {
+    "id": "SEC-025",
+    "title": "Đổi mật khẩu vẫn báo đã đăng xuất thiết bị khác khi Auth trả lỗi",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "session_revocation_feedback",
+    "summary": "Sau khi đổi mật khẩu thành công, giao diện gọi signOut({ scope: \"others\" }) nhưng bỏ qua trường error được trả về. Sau đó giao diện luôn xác nhận các phiên trên thiết bị khác đã đăng xuất. Nếu Auth trả error object nhưng không throw, người dùng nhận xác nhận sai; việc đổi mật khẩu có thể tự kết thúc phiên tùy cấu hình Auth, nên chưa kết luận phiên khác chắc chắn còn hoạt động.",
+    "trigger": "updateUser đổi mật khẩu thành công; signOut({ scope: \"others\" }) resolve với error; code tiếp tục tới thông báo thành công.",
+    "impact": "Nhân viên có thể tin rằng mọi thiết bị khác đã bị thu hồi trong khi thao tác signOut không thành công. Đây là rủi ro về xác nhận và khả năng thu hồi phiên, phụ thuộc phản hồi Auth và chính sách/config đang chạy; chưa chứng minh phiên còn sống hay sự cố production.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+        "line": 107,
+        "end_line": 108,
+        "detail": "Đoạn gọi signOut scope others không đọc kết quả trả về."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+        "line": 117,
+        "end_line": 120,
+        "detail": "Thông báo khẳng định phiên trên thiết bị khác đã đăng xuất bất kể kết quả signOut."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+        "line": 126,
+        "end_line": 130,
+        "detail": "Catch chỉ xử lý exception bị throw; error object resolve không đi vào nhánh này."
+      }
+    ],
+    "recommendation": "Đọc và xử lý { error } từ signOut. Phân biệt rõ “đổi mật khẩu đã thành công” với “chưa xác nhận thu hồi phiên khác”; cho phép thử lại và chỉ thông báo đã thu hồi khi Auth trả thành công. Không ghi nội dung nhạy cảm của lỗi vào log.",
+    "acceptance": "Mock signOut trả { error } phải hiển thị trạng thái thu hồi chưa xác nhận, không thông báo tất cả thiết bị đã thoát; nhánh trả thành công mới hiển thị xác nhận. Giữ nguyên test cho đường lỗi bị throw.",
+    "limitations": "Static source review trên exact-main. Chưa chạy UI/Auth provider hoặc production config. Supabase session behavior khi đổi mật khẩu tùy cấu hình; không khẳng định các phiên chắc chắn còn sống. Test hiện tại của modal kiểm layout/field, không kiểm lỗi signOut.",
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx": "627d76d7ecb3973e13eb403c73300923b042e10ee44bb782d738082e0b6e84bd"
+    },
+    "reference_version": "pinned_main",
+    "validation": {
+      "method": "static_auth_result_handling_review_on_pinned_main",
+      "command": null,
+      "result": "Exact-main review confirms the resolved signOut result is ignored and the success copy is unconditional; related modal test does not cover session revocation errors.",
+      "limitations": "No mocked Auth failure test or runtime/production validation; password-change session behavior depends on Auth configuration."
+    },
+    "status": "open",
+    "related_findings": [
+      "SEC-001"
+    ],
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 15: exact-main UI flow ignores the resolved signOut error object, then unconditionally reports other-device logout; impact remains conditional on Auth behavior/configuration.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+          "line": 107,
+          "end_line": 108,
+          "sha256": "627d76d7ecb3973e13eb403c73300923b042e10ee44bb782d738082e0b6e84bd",
+          "excerpt": "107:       // Đăng xuất mọi phiên trên máy khác, giữ máy hiện tại\n108:       await supabase.auth.signOut({ scope: \"others\" });",
+          "detail": "Call to signOut({ scope: \"others\" }) ignores the returned {error}."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+          "line": 117,
+          "end_line": 120,
+          "sha256": "627d76d7ecb3973e13eb403c73300923b042e10ee44bb782d738082e0b6e84bd",
+          "excerpt": "117:       setMsg({\n118:         kind: \"ok\",\n119:         text: \"Đổi mật khẩu thành công! Các phiên đăng nhập trên thiết bị khác đã được đăng xuất.\",\n120:       });",
+          "detail": "Unconditional message claims other-device sessions were logged out."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+          "line": 126,
+          "end_line": 130,
+          "sha256": "627d76d7ecb3973e13eb403c73300923b042e10ee44bb782d738082e0b6e84bd",
+          "excerpt": "126:     } catch {\n127:       setMsg({\n128:         kind: \"err\",\n129:         text: \"Có lỗi xảy ra khi đổi mật khẩu. Vui lòng thử lại.\",\n130:       });",
+          "detail": "Exception catch does not handle a resolved error object."
+        }
+      ]
+    },
+    "related_tests": [
+      {
+        "path": "src/dashboard/tests/doi-mat-khau-modal-cuon-boundary.test.mts",
+        "scope": "Layout/field test only; no signOut error handling assertion."
+      }
+    ],
+    "alignment": [
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ]
+  }
+]

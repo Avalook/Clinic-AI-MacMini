@@ -1,0 +1,719 @@
+{
+  "round": 38,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_semantic_review",
+  "scope": [
+    "booking service-history default and episode lifecycle",
+    "service-history route capability and existing SEC-027",
+    "cashier sale of extra supplies versus inventory ledger contract"
+  ],
+  "method": "Read immutable Git content at pinned SHA using git show; all file hashes and available exact ranges recorded. Tests/docs read only. Pharmacy agent did not retain exact ranges for two module-registration files; they are explicitly not credited as line-level coverage. No ClinicAI runtime/API/DB/provider, production, secrets or PHI access.",
+  "result": "Added CLIN-055 (conditional stale NEW/RETURN state can close the wrong active episode); extended SEC-027 to service-history metadata route. No new pharmacy finding: sale-versus-stock relationship remains a held product-policy question, not a demonstrated inventory defect. Coverage expanded with the quick-reschedule/service-change, slot hold/capacity, customer-modal and read-only test paths; hashes and ranges are from pinned Git content.",
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "read_ranges": [
+        {
+          "start": 141,
+          "end": 149
+        },
+        {
+          "start": 197,
+          "end": 217
+        },
+        {
+          "start": 242,
+          "end": 250
+        },
+        {
+          "start": 322,
+          "end": 343
+        },
+        {
+          "start": 360,
+          "end": 379
+        },
+        {
+          "start": 608,
+          "end": 622
+        }
+      ],
+      "sha256": "98a82533a1a34882aa35b37128360602f8d1913f947ad446998ed45298faacc1",
+      "lines": 627,
+      "depth": "targeted_trace",
+      "notes": "NEW/RETURN async state, submit guard/payload and absence of an editable patientKind control in the component"
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/service-history/route.ts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 35
+        }
+      ],
+      "sha256": "93f2eb46cfba9a6dd0475398cd26ce4b4f70f55d4e5e5f14f1290ee4f72927d4",
+      "lines": 35,
+      "depth": "targeted_trace",
+      "notes": "Dashboard BFF auth and service-history forwarding"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "read_ranges": [
+        {
+          "start": 128,
+          "end": 135
+        },
+        {
+          "start": 210,
+          "end": 223
+        }
+      ],
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "lines": 904,
+      "depth": "targeted_trace",
+      "notes": "Declared appointment guard versus route dependency"
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "read_ranges": [
+        {
+          "start": 638,
+          "end": 659
+        }
+      ],
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "lines": 1120,
+      "depth": "targeted_trace",
+      "notes": "Identity dependency blocks DISPLAY/PARTNER but does not apply read capability"
+    },
+    {
+      "path": "src/clinicai/services/lich_hen_doc.py",
+      "read_ranges": [
+        {
+          "start": 100,
+          "end": 132
+        }
+      ],
+      "sha256": "3669a4b4effc30cbdfbdecd2a3baf641f7c1afac50396b31c937ceae9980c64f",
+      "lines": 175,
+      "depth": "targeted_trace",
+      "notes": "Clinic-scoped count and live-episode metadata"
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "read_ranges": [
+        {
+          "start": 543,
+          "end": 565
+        },
+        {
+          "start": 700,
+          "end": 750
+        },
+        {
+          "start": 2512,
+          "end": 2585
+        }
+      ],
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "depth": "targeted_trace",
+      "notes": "Request normalization, creation transaction calling _attach_episode, NEW closure semantics"
+    },
+    {
+      "path": "src/tests/services/test_lich_hen_doc_db.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 47
+        }
+      ],
+      "sha256": "45278c22715e8dcbc9c7a63ab31b1e9f90de9ed2cad9d1c8721d1eac9e21cd48",
+      "lines": 47,
+      "depth": "test_read_only",
+      "notes": "Success-path service test read only; no test execution"
+    },
+    {
+      "path": "src/clinicai/services/vat_tu_service.py",
+      "read_ranges": [
+        {
+          "start": 360,
+          "end": 465
+        },
+        {
+          "start": 488,
+          "end": 576
+        },
+        {
+          "start": 579,
+          "end": 633
+        }
+      ],
+      "sha256": "9b04c282868865dab92790c54623b8fdf4eda5b854deee34da10ce45eafc06b8",
+      "lines": 642,
+      "depth": "targeted_trace",
+      "notes": "Sale of extra supplies and visit event"
+    },
+    {
+      "path": "src/clinicai/services/bill_service.py",
+      "read_ranges": [
+        {
+          "start": 387,
+          "end": 479
+        },
+        {
+          "start": 705,
+          "end": 731
+        },
+        {
+          "start": 953,
+          "end": 964
+        },
+        {
+          "start": 1045,
+          "end": 1115
+        }
+      ],
+      "sha256": "345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "lines": 1276,
+      "depth": "targeted_trace",
+      "notes": "Bill projection of supply sale"
+    },
+    {
+      "path": "src/clinicai/services/payment_service.py",
+      "read_ranges": [
+        {
+          "start": 2252,
+          "end": 2295
+        }
+      ],
+      "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+      "lines": 2400,
+      "depth": "targeted_trace",
+      "notes": "Payment bill-line snapshot"
+    },
+    {
+      "path": "supabase/migrations/20261003000000_vat_tu_ban_them.sql",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 29
+        },
+        {
+          "start": 64,
+          "end": 110
+        }
+      ],
+      "sha256": "0e1089abad826a85fdd48511e2bc67a5d74dbd29490b7e18e3eecb9bb1125759",
+      "lines": 731,
+      "depth": "targeted_trace",
+      "notes": "Sale schema and contract comments"
+    },
+    {
+      "path": "src/clinicai/services/vat_tu_kho_service.py",
+      "read_ranges": [
+        {
+          "start": 200,
+          "end": 263
+        },
+        {
+          "start": 266,
+          "end": 305
+        },
+        {
+          "start": 308,
+          "end": 355
+        },
+        {
+          "start": 357,
+          "end": 410
+        },
+        {
+          "start": 413,
+          "end": 447
+        }
+      ],
+      "sha256": "008b508eeaba625615464a1dfec57337041911cd16572ef71a2f193ddd49fefa",
+      "lines": 447,
+      "depth": "targeted_trace",
+      "notes": "Warehouse issue/receipt and stock ledger writes"
+    },
+    {
+      "path": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 46
+        },
+        {
+          "start": 94,
+          "end": 176
+        }
+      ],
+      "sha256": "5b6ee4becebfd6bb035e43756d01d565511daaaac7e1bdf4ef6585795bbf538e",
+      "lines": 192,
+      "depth": "targeted_trace",
+      "notes": "Warehouse transaction/balance schema and triggers"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 16
+        },
+        {
+          "start": 53,
+          "end": 80
+        },
+        {
+          "start": 104,
+          "end": 156
+        },
+        {
+          "start": 308,
+          "end": 388
+        }
+      ],
+      "sha256": "6f4307eded8d113c7fe670c372b480c312650d13aa10d9622e77f0979705759f",
+      "lines": 435,
+      "depth": "targeted_trace",
+      "notes": "Cashier supply-sales UI"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "read_ranges": [
+        {
+          "start": 460,
+          "end": 538
+        }
+      ],
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "lines": 1221,
+      "depth": "targeted_trace",
+      "notes": "Clinical visit supplies endpoints"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/vat_tu_kho.py",
+      "read_ranges": [],
+      "sha256": "74e4d9c1bc496e6be8fb9cf48fa9a186dad92a1b70c41252a42c7cc8fcfaf0e7",
+      "lines": 191,
+      "depth": "partial_range_unrecorded",
+      "notes": "Reviewer reported reading warehouse router; exact ranges were not retained, so no line-level coverage credited"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/kho-vat-tu/page.tsx",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 62
+        }
+      ],
+      "sha256": "fd95525c6c0bae7174d563ef9da969923ba7b596064e8d4d8b4564d893d422f5",
+      "lines": 62,
+      "depth": "targeted_trace",
+      "notes": "Warehouse page entry point"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/kho-vat-tu/gui-vat-tu.ts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 50
+        }
+      ],
+      "sha256": "37823f1e169f1734bdba1cd07756eb910527c441edf79ce48df5cf138d000027",
+      "lines": 142,
+      "depth": "targeted_trace",
+      "notes": "Warehouse dispatch client"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/kho-vat-tu/LapPhieuVatTu.tsx",
+      "read_ranges": [
+        {
+          "start": 220,
+          "end": 250
+        }
+      ],
+      "sha256": "212b4d5fc9622467fd0abfa6b931a4463b63a4a7fdfffdbf5c694a60546a1db7",
+      "lines": 444,
+      "depth": "targeted_trace",
+      "notes": "Warehouse voucher entry"
+    },
+    {
+      "path": "src/clinicai/modules.py",
+      "read_ranges": [],
+      "sha256": "1411931db34a81de67652a8f778d74e184bcb4f52e521e8c3f8b7bf262464b80",
+      "lines": 941,
+      "depth": "partial_range_unrecorded",
+      "notes": "Reviewer reported targeted module registration reads; exact line ranges were not retained"
+    },
+    {
+      "path": "src/clinicai/events/catalogue.py",
+      "read_ranges": [
+        {
+          "start": 155,
+          "end": 174
+        }
+      ],
+      "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+      "lines": 2401,
+      "depth": "targeted_trace",
+      "notes": "Supply-changed event definition"
+    },
+    {
+      "path": "src/clinicai/services/so_no_service.py",
+      "read_ranges": [
+        {
+          "start": 52,
+          "end": 76
+        }
+      ],
+      "sha256": "977d4862794b48aa3d860842b223b6dcd9e563a569222db47f0f9a3a8c8790d9",
+      "lines": 677,
+      "depth": "targeted_trace",
+      "notes": "Receivables consumer registration/behavior"
+    },
+    {
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "read_ranges": [
+        {
+          "start": 129,
+          "end": 131
+        }
+      ],
+      "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "lines": 247,
+      "depth": "targeted_trace",
+      "notes": "Timeline event consumer"
+    },
+    {
+      "path": "src/tests/services/test_vat_tu_ban_them_db.py",
+      "read_ranges": [
+        {
+          "start": 122,
+          "end": 165
+        },
+        {
+          "start": 172,
+          "end": 215
+        },
+        {
+          "start": 408,
+          "end": 483
+        }
+      ],
+      "sha256": "473d09c0840c2dd61d8120961ff30cd22a0aed60957a7ff3efca75917a2493df",
+      "lines": 592,
+      "depth": "test_read_only",
+      "notes": "Sale/bill/payment/void tests read only; no stock reconciliation assertion seen"
+    },
+    {
+      "path": "src/tests/services/test_vat_tu_kho_db.py",
+      "read_ranges": [
+        {
+          "start": 80,
+          "end": 230
+        }
+      ],
+      "sha256": "c6f6728eef503b3f66bd65ed8ed2622f8b833b9dfd7e01b27f8d10d3927c7b9d",
+      "lines": 445,
+      "depth": "test_read_only",
+      "notes": "Warehouse ledger tests read only"
+    },
+    {
+      "path": "src/tests/services/test_doi_chieu_vat_tu_db.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 206
+        }
+      ],
+      "sha256": "b99a1de00f931f734e26919cd008f2a6742987251f4b91b29c09c2184fac5531",
+      "lines": 405,
+      "depth": "test_read_only",
+      "notes": "Stock reconciliation tests read only; no link to payment_bill_line asserted"
+    },
+    {
+      "path": "src/tests/services/test_vat_tu_tieu_hao_db.py",
+      "read_ranges": [
+        {
+          "start": 67,
+          "end": 100
+        }
+      ],
+      "sha256": "21bc8febfaa217452edf3a4d8dc4e2b9d48e7224fb404704d843e8635cfa9975",
+      "lines": 411,
+      "depth": "test_read_only",
+      "notes": "Consumption calculation test read only"
+    },
+    {
+      "path": "docs/KE-HOACH-KHO-QUAY-THEO-THUC-TE-1810.md",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 24
+        },
+        {
+          "start": 41,
+          "end": 58
+        }
+      ],
+      "sha256": "82b600e9eeba52ac90be80b9928e296aa454cc37855b985a67b5e587bff7a33d",
+      "lines": 137,
+      "depth": "policy_document_trace",
+      "notes": "Plan describes linked transaction and no double-decrement, while status remains planned"
+    },
+    {
+      "path": "docs/KIEM-TOAN-HE-THONG-2709.md",
+      "read_ranges": [
+        {
+          "start": 292,
+          "end": 292
+        }
+      ],
+      "sha256": "9c585baed26fc9eec9210a01600f84ce1f278b903dbc36e73f667bad0ce5559c",
+      "lines": 433,
+      "depth": "prior_held_observation",
+      "notes": "Prior audit already records unresolved intent for extra-sale inventory deduction"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiLichTaiCho.tsx",
+      "read_ranges": [
+        {
+          "start": 135,
+          "end": 206
+        },
+        {
+          "start": 262,
+          "end": 365
+        }
+      ],
+      "sha256": "24adedf1f18e1cd9a1680d3e9083c160b3ff84dc45ca13692ba4fecac69733d4",
+      "lines": 464,
+      "depth": "targeted_trace",
+      "notes": "Immediate reschedule UI trigger, payload, and response behavior."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/ThaoTacLichTaiCho.tsx",
+      "read_ranges": [
+        {
+          "start": 290,
+          "end": 390
+        }
+      ],
+      "sha256": "087fd10dd7968612c643de1699c8424397dd2289da3340bec60016c5bb83366b",
+      "lines": 424,
+      "depth": "targeted_trace",
+      "notes": "In-place booking/service-change orchestration."
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/doi-lich-nhanh/route.ts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 61
+        }
+      ],
+      "sha256": "07800d95714018e222bdd1261503ceb8f8807bd8b050177ec0b7ac6d3b6cc9e6",
+      "lines": 61,
+      "depth": "targeted_trace",
+      "notes": "Quick reschedule BFF request forwarding."
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/doi-dich-vu-kham/route.ts",
+      "read_ranges": [
+        {
+          "start": 13,
+          "end": 46
+        }
+      ],
+      "sha256": "39b097f9ce5f2203af5aedfa5d3f02e74fd715392f829d87d8ffb431d5f0dfae",
+      "lines": 46,
+      "depth": "targeted_trace",
+      "notes": "Service change BFF request forwarding."
+    },
+    {
+      "path": "src/clinicai/services/doi_lich_nhanh.py",
+      "read_ranges": [
+        {
+          "start": 139,
+          "end": 292
+        }
+      ],
+      "sha256": "4c9eba0021005adc7c9d443ab0918e523dd95cf258797b6637a285cc46ee36ef",
+      "lines": 292,
+      "depth": "targeted_trace",
+      "notes": "Quick reschedule service lifecycle/state checks."
+    },
+    {
+      "path": "src/clinicai/services/doi_dich_vu_kham.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 296
+        }
+      ],
+      "sha256": "63911dde43849f0bb804334596a376545bf1259ebb5b104ff726be0e1260e917",
+      "lines": 296,
+      "depth": "targeted_trace",
+      "notes": "Service replacement transaction and visit/appointment updates."
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/quote/route.ts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 76
+        }
+      ],
+      "sha256": "d64af548b285d3bbb71c66e2f981edcac899a1293defcd3fffd437f433060bda",
+      "lines": 76,
+      "depth": "targeted_trace",
+      "notes": "Capacity quote route and query forwarding."
+    },
+    {
+      "path": "src/clinicai/services/capacity_service.py",
+      "read_ranges": [
+        {
+          "start": 183,
+          "end": 513
+        }
+      ],
+      "sha256": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a",
+      "lines": 744,
+      "depth": "targeted_trace",
+      "notes": "Capacity quote scope and slot result generation."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/cho-trong.ts",
+      "read_ranges": [
+        {
+          "start": 152,
+          "end": 169
+        }
+      ],
+      "sha256": "aa3b869b3674ea27c9bbac47caa592273fda00da12a7093ef3dc18ee21ad70c7",
+      "lines": 169,
+      "depth": "targeted_trace",
+      "notes": "Available-slot client query shape."
+    },
+    {
+      "path": "src/clinicai/services/slot_hold_service.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 307
+        }
+      ],
+      "sha256": "874334281fafdb0f9e8de024b5e94367d8f05bcdafd71a40739397f05e96cc6a",
+      "lines": 307,
+      "depth": "targeted_trace",
+      "notes": "Slot hold ownership/expiry/use lifecycle."
+    },
+    {
+      "path": "src/tests/services/test_doi_lich_nhanh_db.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 351
+        }
+      ],
+      "sha256": "237d79bd8bb1aff716b1cdf9a24bc909c6085d24a8f0262856a19577e51f6dfe",
+      "lines": 351,
+      "depth": "test_read",
+      "notes": "Reschedule DB tests read only; no application test run."
+    },
+    {
+      "path": "src/tests/services/test_doi_dich_vu_kham_db.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 240
+        }
+      ],
+      "sha256": "7678eaea7c1e83671b9bf83888b47bf565641e399635823edc9793f7d94d73f4",
+      "lines": 331,
+      "depth": "test_read",
+      "notes": "Service-change DB tests read only; no application test run."
+    },
+    {
+      "path": "src/tests/services/test_slot_hold.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 103
+        }
+      ],
+      "sha256": "ab96dff7760f108c02998f2446a91be21aa4c3876ac64caeb7b1ee54d34b6d47",
+      "lines": 103,
+      "depth": "test_read",
+      "notes": "Slot hold tests read only; no application test run."
+    },
+    {
+      "path": "src/tests/api/test_route_shadowing.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 105
+        }
+      ],
+      "sha256": "4a789ce44bd0c4f69238ee8d01bd95faa39c539b50b619dc85b5b70d4a016243",
+      "lines": 105,
+      "depth": "test_read",
+      "notes": "Route precedence test read only."
+    },
+    {
+      "path": "src/tests/services/test_capacity_quote_params.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 116
+        }
+      ],
+      "sha256": "5b9e21f91f58b2fee1e51f6ef1b7b0bb5a1533ad52a0b602f54f17deb58b5e29",
+      "lines": 116,
+      "depth": "test_read",
+      "notes": "Capacity quote query parameter tests read only."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/DatLichModal.tsx",
+      "read_ranges": [
+        {
+          "start": 29,
+          "end": 127
+        }
+      ],
+      "sha256": "1beb7f491432f19308e4e97d9f61420bcc70b8117aaabb6c2c52af3029f11a8b",
+      "lines": 130,
+      "depth": "targeted_trace",
+      "notes": "Customer scheduling modal service/history state and booking parameters."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/AppointmentEditModal.tsx",
+      "read_ranges": [
+        {
+          "start": 170,
+          "end": 207
+        }
+      ],
+      "sha256": "935c732f5c8f2403b281f4e4dd83ddaeaead3ff7bedb3b070a71a240266d0d5f",
+      "lines": 268,
+      "depth": "targeted_trace",
+      "notes": "Appointment edit service/status transition context."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/CustomersView.tsx",
+      "read_ranges": [
+        {
+          "start": 2250,
+          "end": 2295
+        }
+      ],
+      "sha256": "957afb9b35cd0bb8a44f4b5c7f66c02c3593a1d950f7304b8fa2991975658c08",
+      "lines": 2363,
+      "depth": "targeted_trace",
+      "notes": "Customer scheduling modal caller and selected service context."
+    }
+  ]
+}

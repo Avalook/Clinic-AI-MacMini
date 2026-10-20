@@ -1,0 +1,682 @@
+[
+  {
+    "id": "SEC-031",
+    "title": "Bộ che dữ liệu staging có thể bỏ sót tên và số trong văn bản tự do",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "privacy/staging-data-masking",
+    "summary": "Scrubber SQL tạo tập biến thể tên hạn chế, thay chuỗi phân biệt hoa/thường, và regex điện thoại không nhận một số dạng có gạch/+84. Giá trị trong note/JSON có thể còn nguyên. Runbook cũ nói staging dùng bản sao đã che; đường nạp gọi scrubber. AGENTS.md hiện đánh dấu staging là dead, vì vậy rủi ro chỉ áp nếu đường cũ còn chạy hoặc được dựng lại.",
+    "trigger": "Nạp backup khi note/JSON có tên viết thường có dấu hoặc số dạng 0912-345-678 / +84 912 345 678.",
+    "impact": "Nếu đường staging cũ được dùng, dữ liệu bệnh nhân có thể lọt vào bản sao. Không có bằng chứng staging hiện chạy, backup thật được nạp hay dữ liệu bị lộ.",
+    "evidence": [
+      {
+        "path": "scripts/staging-che-du-lieu.sql",
+        "line": 313,
+        "end_line": 323,
+        "detail": "Tên biến thể không bao phủ lowercase accented."
+      },
+      {
+        "path": "scripts/staging-che-du-lieu.sql",
+        "line": 344,
+        "end_line": 369,
+        "detail": "Thay chuỗi phân biệt case; regex phone hẹp."
+      },
+      {
+        "path": "docs/STAGING.md",
+        "line": 8,
+        "end_line": 10,
+        "detail": "Runbook cũ đòi bản sao đã che."
+      },
+      {
+        "path": "docs/STAGING.md",
+        "line": 16,
+        "end_line": 26,
+        "detail": "Cách dùng/truy cập staging cũ."
+      },
+      {
+        "path": "scripts/staging-nap-ban-sao.sh",
+        "line": 238,
+        "end_line": 240,
+        "detail": "Đường nạp gọi scrubber."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Tool-level masking gap có điều kiện; không phải sự cố production.",
+      "limitations": "Static only; không chạy scrubber, nạp backup, staging/prod hoặc đọc dữ liệu bệnh nhân. Repo hiện đánh dấu staging dead."
+    },
+    "recommendation": "Chuẩn hóa Unicode/case và phone trước khi scrub, test hậu điều kiện bằng dữ liệu synthetic; nếu staging retired, disable/xóa đường nạp.",
+    "acceptance": "Fixture synthetic gồm biến thể tên và phone trong text/JSON: không còn token gốc sau scrub; lỗi kiểm tra rollback.",
+    "alignment": [
+      "Dữ liệu bệnh nhân được bảo vệ",
+      "Reality đáng tin"
+    ],
+    "related_tests": [
+      "src/tests/test_staging_che_du_lieu.py — đọc, không chạy; chưa bao phủ đủ biến thể nêu trên."
+    ],
+    "source_hashes": {
+      "scripts/staging-che-du-lieu.sql": "83e4e17523391d59718b0a8a181434d89627e356a68e977df706ad2cef46e4e4",
+      "docs/STAGING.md": "c629b77c65ede7ff9ef18d5ae8ab4ead993bb759f91d4e4a1bfed13613e18f2f",
+      "scripts/staging-nap-ban-sao.sh": "169a8024cce0314ce71df8f19f7807afe535d3491ab9d99f07f8c03c0dc0ee90"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Tool-level masking gap có điều kiện; không phải sự cố production.",
+      "evidence": [
+        {
+          "path": "scripts/staging-che-du-lieu.sql",
+          "line": 313,
+          "end_line": 323,
+          "sha256": "83e4e17523391d59718b0a8a181434d89627e356a68e977df706ad2cef46e4e4",
+          "excerpt": "313: -- Biến thể của mọi tên ở trên: không dấu, CHỮ HOA, chữ thường không dấu (văn bản\n314: -- gõ tay và cột tìm kiếm hay gặp).\n315: INSERT INTO _che_ten\n316: SELECT v, t.gia\n317: FROM _che_ten t,\n318:      LATERAL (VALUES (replace(replace(public.f_unaccent(t.that), 'đ', 'd'), 'Đ', 'D')),\n319:                      (upper(t.that)),\n320:                      (upper(replace(replace(public.f_unaccent(t.that), 'đ', 'd'), 'Đ', 'D'))),\n321:                      (lower(replace(replace(public.f_unaccent(t.that), 'đ', 'd'), 'Đ', 'D')))) x(v)\n322: WHERE v IS NOT NULL AND v <> t.that\n323: ON CONFLICT DO NOTHING;"
+        },
+        {
+          "path": "scripts/staging-che-du-lieu.sql",
+          "line": 344,
+          "end_line": 369,
+          "sha256": "83e4e17523391d59718b0a8a181434d89627e356a68e977df706ad2cef46e4e4",
+          "excerpt": "344: CREATE FUNCTION pg_temp.che_chu(s text) RETURNS text LANGUAGE plpgsql AS $f$\n345: DECLARE\n346:     r record;\n347:     w text[];\n348:     caps text[];\n349: BEGIN\n350:     IF s IS NULL OR s = '' THEN\n351:         RETURN s;\n352:     END IF;\n353:     w := array_remove(regexp_split_to_array(s, '[[:space:][:punct:]]+'), '');\n354:     IF coalesce(array_length(w, 1), 0) >= 2 THEN\n355:         caps := ARRAY(SELECT DISTINCT w[i] || ' ' || w[i + 1]\n356:                         FROM generate_series(1, array_length(w, 1) - 1) i);\n357:         FOR r IN SELECT that, gia FROM _che_ten WHERE cap = ANY (caps)\n358:                   ORDER BY length(that) DESC LOOP\n359:             IF position(r.that IN s) > 0 THEN\n360:                 s := replace(s, r.that, r.gia);\n361:             END IF;\n362:         END LOOP;\n363:     END IF;\n364:     s := regexp_replace(s, '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}', 'an@vi-du.invalid', 'g');\n365:     s := regexp_replace(s, '\\+84[0-9]{9}\\M', '+84900000000', 'g');\n366:     s := regexp_replace(s, '\\m0[0-9]{9}\\M', '0900000000', 'g');\n367:     s := regexp_replace(s, '\\m0[0-9]{2,3}[ .][0-9]{3}[ .][0-9]{3,4}\\M', '0900 000 000', 'g');\n368:     RETURN s;\n369: END $f$;"
+        },
+        {
+          "path": "docs/STAGING.md",
+          "line": 8,
+          "end_line": 10,
+          "sha256": "c629b77c65ede7ff9ef18d5ae8ab4ead993bb759f91d4e4a1bfed13613e18f2f",
+          "excerpt": "8: - Ai có **tài khoản prod** là vào được, bằng **đúng email + mật khẩu prod**\n9:   (tài khoản nạp nguyên từ bản sao lưu, không đổi mật khẩu). Không có đăng ký mới.\n10: - Đầu mọi trang có dải vàng **\"STAGING — bản thử, dữ liệu khách đã che\"**."
+        },
+        {
+          "path": "docs/STAGING.md",
+          "line": 16,
+          "end_line": 26,
+          "sha256": "c629b77c65ede7ff9ef18d5ae8ab4ead993bb759f91d4e4a1bfed13613e18f2f",
+          "excerpt": "16: - Mỗi đêm **03:30** nạp lại từ bản sao lưu prod 02:15 (`staging-nap-ban-sao.sh`,\n17:   hẹn giờ `clinicai-staging-nap.timer`). Mọi thứ bấm trên staging **mất** sau đêm đó.\n18: - **Giữ nguyên:** nhân sự, tài khoản, phòng, lịch trực, dịch vụ, giá, kho, mã khách\n19:   (BN-…), giới tính, tỉnh/phường, nội dung khám.\n20: - **Đã che (dữ liệu khách):** tên → \"Khách 0001\" (số ổn định qua các đêm), SĐT →\n21:   09/08/07…xxxxxxxx giả, CCCD giả, ngày sinh lệch ±14 ngày, địa chỉ → \"Số n đường\n22:   Thử\", người thân, kênh liên lạc, người giới thiệu, ghi chú tự do về khách, nội\n23:   dung CSKH, phản hồi, tin nhắn → \"(đã che)\". Tên khách nằm trong thông báo / văn\n24:   bản khám / JSON sự kiện được thay bằng tên giả; mọi SĐT, email trong văn bản →\n25:   giả. Danh sách cột đầy đủ: bảng `_che_cot` trong `scripts/staging-che-du-lieu.sql`.\n26:   Nạp + che là **một giao dịch** — dữ liệu chưa che không bao giờ nằm lại staging."
+        },
+        {
+          "path": "scripts/staging-nap-ban-sao.sh",
+          "line": 238,
+          "end_line": 240,
+          "sha256": "169a8024cce0314ce71df8f19f7807afe535d3491ab9d99f07f8c03c0dc0ee90",
+          "excerpt": "238:     echo \"SET LOCAL clinicai.che_cho_phep = 'staging';\"\n239:     cat \"$CHE_SQL\"\n240: } | psql_stg --single-transaction >/dev/null"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "SEC-032",
+    "title": "Script cấp tài khoản dùng mật khẩu dễ đoán nếu không override",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "credential/operational-provisioning",
+    "summary": "Script đặt MAT_KHAU_MOI mặc định 12345678 rồi dùng cho cả tạo mới và cập nhật account. --that xác nhận chạy thật nhưng không buộc mật khẩu riêng hoặc đổi lần đầu.",
+    "trigger": "Chạy scripts/tai-khoan-theo-danh-sach.py --that mà không đặt MAT_KHAU_MOI riêng.",
+    "impact": "Nhiều nhân viên có thể nhận mật khẩu dễ đoán giống nhau, làm yếu kiểm soát truy cập/quy trách nhiệm. Chưa có bằng chứng script từng chạy production với mặc định.",
+    "evidence": [
+      {
+        "path": "scripts/tai-khoan-theo-danh-sach.py",
+        "line": 34,
+        "end_line": 36,
+        "detail": "Mật khẩu mặc định."
+      },
+      {
+        "path": "scripts/tai-khoan-theo-danh-sach.py",
+        "line": 158,
+        "end_line": 199,
+        "detail": "Cùng biến mật khẩu dùng khi update/create."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Rủi ro cấp phát xác định nếu chạy thật bỏ qua override.",
+      "limitations": "Static only; không chạy script/Auth/DB/prod, không đọc .env/credential. Không có bằng chứng account nào dùng mặc định."
+    },
+    "recommendation": "Bỏ mật khẩu mặc định dùng được; dùng link kích hoạt/secret riêng một lần; từ chối chạy thật nếu thiếu credential an toàn và bắt đổi trước khi dùng nghiệp vụ.",
+    "acceptance": "Synthetic CLI test: thiếu credential riêng thì fail trước DB; mỗi tài khoản có flow riêng; không in secret; đăng nhập đầu bắt đổi.",
+    "alignment": [
+      "Ownership rõ hơn",
+      "Dữ liệu bệnh nhân được bảo vệ"
+    ],
+    "related_tests": [
+      "Chưa chạy script/test; chưa xác nhận operator luôn override môi trường."
+    ],
+    "source_hashes": {
+      "scripts/tai-khoan-theo-danh-sach.py": "92e85c22f1a208d349f9a629a2bb9525046d2e0cb915ac054b50b9b5bbc6d6ee"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Rủi ro cấp phát xác định nếu chạy thật bỏ qua override.",
+      "evidence": [
+        {
+          "path": "scripts/tai-khoan-theo-danh-sach.py",
+          "line": 34,
+          "end_line": 36,
+          "sha256": "92e85c22f1a208d349f9a629a2bb9525046d2e0cb915ac054b50b9b5bbc6d6ee",
+          "excerpt": "34: TEN_MIEN = os.environ.get(\"DUOI_TEN_DANG_NHAP\", \"dr4women.vn\")\n35: MAT_KHAU = os.environ.get(\"MAT_KHAU_MOI\", \"12345678\")\n36: KHOA_LAU = \"876000h\"  # ~100 năm — GoTrue \"ban\", đảo lại được bằng ban_duration \"none\""
+        },
+        {
+          "path": "scripts/tai-khoan-theo-danh-sach.py",
+          "line": 158,
+          "end_line": 199,
+          "sha256": "92e85c22f1a208d349f9a629a2bb9525046d2e0cb915ac054b50b9b5bbc6d6ee",
+          "excerpt": "158:             for d in doi:\n159:                 uid = d[\"uid\"]\n160:                 if uid is None:\n161:                     r = await http.post(\n162:                         f\"{base}/auth/v1/admin/users\",\n163:                         headers=hdr,\n164:                         json={\n165:                             \"email\": d[\"email\"],\n166:                             \"password\": MAT_KHAU,\n167:                             \"email_confirm\": True,\n168:                         },\n169:                     )\n170:                     r.raise_for_status()\n171:                     await conn.execute(\n172:                         \"UPDATE staff SET auth_user_id = $1::uuid WHERE id = $2::uuid\",\n173:                         r.json()[\"id\"],\n174:                         d[\"staff_id\"],\n175:                     )\n176:                 else:\n177:                     r = await http.put(\n178:                         f\"{base}/auth/v1/admin/users/{uid}\",\n179:                         headers=hdr,\n180:                         json={\n181:                             \"email\": d[\"email\"],\n182:                             \"password\": MAT_KHAU,\n183:                             \"email_confirm\": True,\n184:                             \"ban_duration\": \"none\",\n185:                         },\n186:                     )\n187:                     if r.status_code >= 300:\n188:                         print(f\"  ✗ {d['email']}: {r.status_code} {r.text[:120]}\")\n189:                         continue\n190:                 print(f\"  ✓ đổi  {d['email']}\")\n191:             for m in moi:\n192:                 r = await http.post(\n193:                     f\"{base}/auth/v1/admin/users\",\n194:                     headers=hdr,\n195:                     json={\n196:                         \"email\": m[\"email\"],\n197:                         \"password\": MAT_KHAU,\n198:                         \"email_confirm\": True,\n199:                     },"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-023",
+    "title": "Màn ThaiKy có thể kẹt trạng thái gửi khi request lỗi mạng",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "ui/network-unknown-write-state",
+    "summary": "Hàm gửi đặt dangGui=true rồi await fetch. Reset cờ chỉ chạy khi fetch trả response; promise reject làm nút disabled tới khi component remount.",
+    "trigger": "Fetch reject do mất mạng/timeout khi gửi cập nhật thai kỳ.",
+    "impact": "Người dùng không biết thao tác lưu chưa, không gửi lại được; response-loss sau commit càng không rõ. Chưa tái hiện.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 113,
+        "end_line": 140,
+        "detail": "Set dangGui trước fetch, thiếu finally khi reject."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 262,
+        "end_line": 275,
+        "detail": "Nút disabled khi dangGui."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Promise rejection có thể bỏ qua nhánh dọn state; chưa đo tác động.",
+      "limitations": "Static UI inference; không inject lỗi mạng hoặc kiểm commit/response loss."
+    },
+    "recommendation": "try/catch/finally; hiển thị unknown state và đọc lại server trước retry.",
+    "acceptance": "Component test lỗi trước commit/response loss sau commit: spinner gỡ, trạng thái unknown hiện, refresh đối soát và retry không nhân đôi.",
+    "alignment": [
+      "Unknown ngắn hơn",
+      "Giảm gián đoạn",
+      "Bệnh nhân ít chờ bất định"
+    ],
+    "related_tests": [
+      "src/tests/services/test_thai_ky_db.py — đọc, không chạy; không bao phủ React network state."
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Promise rejection có thể bỏ qua nhánh dọn state; chưa đo tác động.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 113,
+          "end_line": 140,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "113:   const gui = async () => {\n114:     const ht = dl?.hien_tai;\n115:     const duLieu =\n116:       mo === \"ket_cuc\"\n117:         ? { ket_cuc: ketCuc, ngay_ket_cuc: ngayKc }\n118:         : {\n119:             ...(mo === \"tao\" ? { clinic_patient_id: clinicPatientId, visit_id: visitId } : {}),\n120:             du_kien_sinh: dks,\n121:             nguon_du_kien_sinh: nguon,\n122:             kinh_cuoi: kinhCuoi || null,\n123:             nguy_co_cao: nguyCo,\n124:             ly_do_nguy_co: lyDo || null,\n125:           };\n126:     setDangGui(true);\n127:     const r = await fetch(\"/api/thai-ky\", {\n128:       method: \"POST\",\n129:       headers: { \"Content-Type\": \"application/json\" },\n130:       body: JSON.stringify(mo === \"tao\" ? { du_lieu: duLieu } : { id: ht?.id, du_lieu: duLieu }),\n131:     });\n132:     const d = await r.json().catch(() => null);\n133:     setDangGui(false);\n134:     if (!r.ok) {\n135:       setLoi((d as { message?: string; error?: string } | null)?.message ?? (d as { error?: string } | null)?.error ?? \"Không lưu được.\");\n136:       return;\n137:     }\n138:     setMo(null);\n139:     await nap();\n140:   };"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 262,
+          "end_line": 275,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "262:           <div className=\"flex flex-wrap gap-2 sm:col-span-2\">\n263:             <Button size=\"sm\" variant=\"primary\" disabled={dangGui} onClick={() => void gui()}>\n264:               {dangGui ? \"Đang lưu…\" : \"Lưu\"}\n265:             </Button>\n266:             <Button size=\"sm\" variant=\"ghost\" onClick={() => setMo(null)}>\n267:               Thôi\n268:             </Button>\n269:           </div>\n270:           {loi ? (\n271:             <p role=\"alert\" className=\"text-xs text-danger sm:col-span-2\">\n272:               {loi}\n273:             </p>\n274:           ) : null}\n275:         </div>"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-024",
+    "title": "Bảng trang chính có thể ẩn lượt mới sau cap 300 mà không báo cắt",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "reality/board-truncation",
+    "summary": "Service giới hạn 300 lượt và lấy cũ trước; board render kết quả như danh sách đầy đủ, không metadata phân trang. Trên 300 lượt, lượt mới có thể vắng khỏi bảng. Khác màn hành trình FE-003.",
+    "trigger": "Có hơn 300 lượt đủ điều kiện cùng ngày/cơ sở.",
+    "impact": "Nhân viên có thể phối hợp trên bảng thiếu lượt mới. Volume chưa xác minh, không khẳng định production đã bỏ lượt.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/man_trang_chu_service.py",
+        "line": 48,
+        "end_line": 50,
+        "detail": "Cap 300."
+      },
+      {
+        "path": "src/clinicai/services/man_trang_chu_service.py",
+        "line": 354,
+        "end_line": 382,
+        "detail": "Query lấy lượt cũ trước rồi giới hạn."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/home/VisitStatusBoard.tsx",
+        "line": 89,
+        "end_line": 115,
+        "detail": "UI render mảng không dùng pagination metadata."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/home/VisitStatusBoard.tsx",
+        "line": 193,
+        "end_line": 200,
+        "detail": "Không báo đã cắt."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Hành vi khi vượt ngưỡng suy ra trực tiếp từ cap + thứ tự query; volume thật chưa biết.",
+      "limitations": "Static only; không seed 301+, không đo volume hay chạy app/API/prod."
+    },
+    "recommendation": "Pagination/cursor theo thứ tự phù hợp; trả total/has_more và hiển thị cảnh báo/lối xem tiếp; giữ clinic/location scope.",
+    "acceptance": "Fixture 301+ synthetic: lấy được lượt mới qua trang tiếp, UI báo cắt, metadata/scope đúng.",
+    "alignment": [
+      "Reality dễ nhìn",
+      "Unknown ngắn",
+      "Bệnh nhân ít chờ bất định"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/man_trang_chu_service.py": "7b1f69e1a0f51038d14fb6f30ea1121195d5370858e86ea333b49a337307d98b",
+      "src/dashboard/app/(dashboard)/home/VisitStatusBoard.tsx": "41d1f553a2fb83c0668af23c5b655526a710af2d9f3d65ffe25d409c03f05c81"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Hành vi khi vượt ngưỡng suy ra trực tiếp từ cap + thứ tự query; volume thật chưa biết.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/man_trang_chu_service.py",
+          "line": 48,
+          "end_line": 50,
+          "sha256": "7b1f69e1a0f51038d14fb6f30ea1121195d5370858e86ea333b49a337307d98b",
+          "excerpt": "48: # Trần giữ nguyên từ bản PostgREST của trang (limit 300 ở bảng trạng thái).\n49: _TRAN_TRANG_THAI = 300\n50: "
+        },
+        {
+          "path": "src/clinicai/services/man_trang_chu_service.py",
+          "line": 354,
+          "end_line": 382,
+          "sha256": "7b1f69e1a0f51038d14fb6f30ea1121195d5370858e86ea333b49a337307d98b",
+          "excerpt": "354:                 rows = await conn.fetch(\n355:                     \"\"\"\n356:                     SELECT v.visit_id, v.status, v.checked_in_at, v.created_at,\n357:                            v.finalized_at, v.closed_at AS ve_luc,\n358:                            (v.exam_completed_at IS NOT NULL) AS kham_xong,\n359:                            p.full_name AS ten_khach, p.patient_code,\n360:                            bs.full_name AS ten_bac_si,\n361:                            st.name AS ten_dich_vu,\n362:                            a.status AS trang_thai_lich\n363:                       FROM visit v\n364:                       LEFT JOIN patient p\n365:                              ON p.clinic_patient_id = v.clinic_patient_id\n366:                       LEFT JOIN staff bs ON bs.id = v.attending_doctor_id\n367:                       LEFT JOIN service_type st ON st.id = v.service_type_id\n368:                       LEFT JOIN appointment a ON a.id = v.appointment_id\n369:                      WHERE v.clinic_id = $1::uuid\n370:                        AND v.created_at >= $2 AND v.created_at < $3\n371:                        AND NOT v.ban_le  -- V8: bán lẻ không phải lượt khám\n372:                        AND coalesce(v.location_id, a.location_id, $5::uuid)\n373:                            IS NOT DISTINCT FROM\n374:                            coalesce($5::uuid, v.location_id, a.location_id)\n375:                      ORDER BY v.created_at\n376:                      LIMIT $4\n377:                     \"\"\",\n378:                     clinic_id,\n379:                     dau_ngay,\n380:                     cuoi_ngay,\n381:                     _TRAN_TRANG_THAI,\n382:                     co_so,"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/home/VisitStatusBoard.tsx",
+          "line": 89,
+          "end_line": 115,
+          "sha256": "41d1f553a2fb83c0668af23c5b655526a710af2d9f3d65ffe25d409c03f05c81",
+          "excerpt": "89: export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {\n90:   const bayGio = useBayGio();\n91:   const [mo, setMo] = useState<{ id: string; ten: string | null } | null>(null);\n92:   return (\n93:     <>\n94:     <div className=\"overflow-auto rounded-card border border-line bg-surface shadow-card\">\n95:       <table className=\"w-full border-collapse text-sm sm:min-w-max\">\n96:         <thead>\n97:           <tr>\n98:             {/* Ô đầu: thông tin BN gộp. Còn lại: hành trình khách dạng gọn. */}\n99:             <th className={`${TH} min-w-60`}>Bệnh nhân</th>\n100:             <th className={`${TH} hidden min-w-85 sm:table-cell`}>Hành trình khách</th>\n101:             <th className={`${TH} hidden sm:table-cell`}>\n102:               <span className=\"sr-only\">Xem hành trình</span>\n103:             </th>\n104:           </tr>\n105:         </thead>\n106:         <tbody>\n107:           {rows.length === 0 ? (\n108:             <tr>\n109:               <td className=\"px-4 py-6 text-center text-ink-muted\" colSpan={3}>\n110:                 Chưa có buổi khám nào hôm nay.\n111:               </td>\n112:             </tr>\n113:           ) : (\n114:             rows.map((r) => {\n115:               const examMin = examMinutes(r.checked_in_at, r.finalized_at);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/home/VisitStatusBoard.tsx",
+          "line": 193,
+          "end_line": 200,
+          "sha256": "41d1f553a2fb83c0668af23c5b655526a710af2d9f3d65ffe25d409c03f05c81",
+          "excerpt": "193:           )}\n194:         </tbody>\n195:       </table>\n196:     </div>\n197:     {mo ? <PopupHanhTrinhKhach visitId={mo.id} ten={mo.ten} onDong={() => setMo(null)} /> : null}\n198:     </>\n199:   );\n200: }"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "API-005",
+    "title": "Nạp lịch sử bệnh án có thể chạy tới 200 truy vấn tuần tự",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "api/chart-history-query-fanout",
+    "summary": "History gate lấy tối đa 200 lượt rồi await doc_chan_doan riêng từng visit; hàm con phát SELECT. Gate đăng ký trong pipeline và chart API đang dùng. Query fan-out rõ từ code, độ trễ chưa đo.",
+    "trigger": "Mở chart có nhiều lượt lịch sử, tối đa 200 lượt mỗi request.",
+    "impact": "DB reads tăng tuyến tính và chạy tuần tự; chart có thể chậm khi lịch sử dài/DB bận. Chưa benchmark hay xác nhận latency người dùng.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/clinical_record_service.py",
+        "line": 952,
+        "end_line": 987,
+        "detail": "Loop await query riêng cho từng visit."
+      },
+      {
+        "path": "src/clinicai/phieu_kham/mang_sang.py",
+        "line": 229,
+        "end_line": 244,
+        "detail": "Một hàm gọi query cho một visit."
+      },
+      {
+        "path": "src/clinicai/modules.py",
+        "line": 574,
+        "end_line": 577,
+        "detail": "History gate đăng ký."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/clinical_records.py",
+        "line": 69,
+        "end_line": 88,
+        "detail": "Chart API gọi đường đọc."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Query nối tiếp mỗi visit; cap 200; performance impact chưa đo.",
+      "limitations": "Static query-shape review; không benchmark, DB/prod hoặc dữ liệu bệnh nhân."
+    },
+    "recommendation": "Gom đọc diagnosis theo lô bằng query/join có tenant scope; đặt query budget và pagination.",
+    "acceptance": "Query-count test 1/20/200 không tăng theo từng visit; dữ liệu/order/scope đúng; benchmark p95 trên DB disposable.",
+    "alignment": [
+      "Giảm gián đoạn",
+      "Reality dễ nhìn",
+      "Mở rộng và bán được"
+    ],
+    "related_tests": [
+      "src/tests/services/test_ho_so_lam_sang_doc_db.py — đọc, không chạy; fixture một visit, không query-count lớn."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/clinical_record_service.py": "8598b59bbb579902e6d3460a5d0613ec40df66ba7810307e0d86b892d5db402e",
+      "src/clinicai/phieu_kham/mang_sang.py": "1553f6dd1bb372fc29fdb12f6272dbf7e1a5166a2d943499887eeb90cd036120",
+      "src/clinicai/modules.py": "1411931db34a81de67652a8f778d74e184bcb4f52e521e8c3f8b7bf262464b80",
+      "src/clinicai/api/v1/routers/clinical_records.py": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Query nối tiếp mỗi visit; cap 200; performance impact chưa đo.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/clinical_record_service.py",
+          "line": 952,
+          "end_line": 987,
+          "sha256": "8598b59bbb579902e6d3460a5d0613ec40df66ba7810307e0d86b892d5db402e",
+          "excerpt": "952:     rows = await conn.fetch(\n953:         \"\"\"\n954:         SELECT v.visit_id::text, v.status, v.created_at,\n955:                v.appointment_id::text, st.name AS service, s.full_name AS doctor,\n956:                r.chief_complaint_at_visit, r.soap_assessment\n957:           FROM visit v\n958:           LEFT JOIN service_type st ON st.id = v.service_type_id\n959:           LEFT JOIN staff s ON s.id = v.attending_doctor_id\n960:           LEFT JOIN clinical_record r\n961:             ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id\n962:          WHERE v.clinic_patient_id = $1::uuid AND v.clinic_id = $2::uuid\n963:          ORDER BY v.created_at DESC LIMIT 200\n964:         \"\"\",\n965:         ngu_canh.khach,\n966:         ngu_canh.clinic_id,\n967:     )\n968:     canh_bao_neu_day(\"ho_so.lich_su_luot\", len(rows), 200)\n969:     appt = ngu_canh.appointment_id\n970:     nhan = await doc_nhan_luot(conn, ngu_canh.clinic_id, [ngu_canh.khach])\n971:     ra: list[dict[str, Any]] = []\n972:     for r in rows:\n973:         if appt is not None and r[\"appointment_id\"] == appt:\n974:             continue\n975:         d = dong(r, [\"soap_assessment\"]) or {}\n976:         # Lượt ghi phiếu v5: chẩn đoán nằm ở mục D của phiếu (29/09/2026) —\n977:         # phiếu v5 trước, bệnh án đời cũ sau.\n978:         cd = await doc_chan_doan(\n979:             conn, clinic_id=ngu_canh.clinic_id, visit_id=r[\"visit_id\"]\n980:         )\n981:         if cd:\n982:             d[\"soap_assessment\"] = cd\n983:         d[\"nhan_luot\"] = tra_nhan(\n984:             nhan, visit_id=r[\"visit_id\"], appointment_id=r[\"appointment_id\"]\n985:         )\n986:         ra.append(d)\n987:     return {\"history_raw\": ra}"
+        },
+        {
+          "path": "src/clinicai/phieu_kham/mang_sang.py",
+          "line": 229,
+          "end_line": 244,
+          "sha256": "1553f6dd1bb372fc29fdb12f6272dbf7e1a5166a2d943499887eeb90cd036120",
+          "excerpt": "229: async def doc_chan_doan(\n230:     conn: asyncpg.Connection, *, clinic_id: str, visit_id: str\n231: ) -> str | None:\n232:     \"\"\"Chẩn đoán bác sĩ chính đã ghi trên phiếu khám của lượt — chỉ đọc.\"\"\"\n233:     rows = await conn.fetch(\n234:         \"SELECT du_lieu FROM phieu_kham_luot\"\n235:         \" WHERE clinic_id = $1::uuid AND visit_id = $2::uuid ORDER BY tao_luc\",\n236:         clinic_id,\n237:         visit_id,\n238:     )\n239:     for r in rows:\n240:         dl = r[\"du_lieu\"]\n241:         cd = chan_doan_tu_phieu(json.loads(dl) if isinstance(dl, str) else dl)\n242:         if cd:\n243:             return cd\n244:     return None"
+        },
+        {
+          "path": "src/clinicai/modules.py",
+          "line": 574,
+          "end_line": 577,
+          "sha256": "1411931db34a81de67652a8f778d74e184bcb4f52e521e8c3f8b7bf262464b80",
+          "excerpt": "574:                 CongDoc(\n575:                     \"Các lượt khám trước\",\n576:                     \"clinicai.services.clinical_record_service:lich_su_cho_ho_so\",\n577:                     [\"history_raw\"],"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/clinical_records.py",
+          "line": 69,
+          "end_line": 88,
+          "sha256": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd",
+          "excerpt": "69: @router.get(\"/clinical-records/doc\")\n70: async def doc_ho_so_lam_sang(\n71:     patient_id: str,\n72:     appointment_id: str | None = None,\n73:     visit_id: str | None = None,\n74:     identity: StaffIdentity = Depends(_DOC_HO_SO_GUARD),\n75:     pool: asyncpg.Pool = Depends(get_db_pool),\n76: ) -> dict[str, Any]:\n77:     \"\"\"Hồ sơ lâm sàng của một khách cho màn bệnh án (route giao diện từng tự đọc\n78:     bảy bảng bằng Supabase — nay ở `services/ho_so_lam_sang_doc.py`).\"\"\"\n79:     data = await doc_ho_so(\n80:         pool,\n81:         identity=identity,\n82:         patient_id=patient_id,\n83:         appointment_id=appointment_id,\n84:         visit_id=visit_id,\n85:     )\n86:     await ghi_mo_ho_so(pool, identity, noi=\"benh-an\", khach=patient_id)\n87:     return data\n88: "
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-002",
+    "title": "Dashboard giữ dữ liệu cũ nhưng không báo lần làm mới thất bại",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "reality/staleness",
+    "summary": "BangHanhTrinh lưu lỗi refresh vào state nhưng chỉ render lỗi khi chưa có bang. Sau lần tải thành công, các lần tải lỗi giữ bảng cũ mà không có cảnh báo lỗi tại bảng. Round 21 trace thêm PhanHoiThuocKhach: sau khi tải thành công, event tuong_tac_cskh kích hoạt tải lại; nếu request lỗi, component giữ data và loiDoc nhưng chỉ hiển thị lỗi khi chưa có data. Dòng tóm tắt đầu khung cũng không được cập nhật. Đây là cùng lỗi stale-state/thiếu dấu hiệu freshness, không tạo finding mới. Round 24 thêm ThaiKy giữ data cũ khi refresh lỗi và trang chính: SSE open/heartbeat không chứng minh DB LISTEN đang chuyển event; fallback poll 60 giây. Chưa fault-injection.",
+    "trigger": "Đã mở bảng hành trình thành công, sau đó endpoint bảng trả lỗi/mất kết nối ở một lần SSE hoặc poll refresh. Với phản hồi thuốc: người khác thêm/gỡ tương tác CSKH rồi lần tải do event lỗi. ThaiKy initial/refresh fetch reject; hoặc SSE còn mở trong lúc ChangeBroker reconnect.",
+    "impact": "Trưởng ca có thể tiếp tục nhìn vị trí/chờ cũ như thông tin hiện tại. Chỉ báo kết nối SSE toàn cục không chứng minh truy vấn bảng thành công. Ở khung khách, CSKH có thể đọc phản hồi thuốc cũ như hiện trạng mà không thấy lỗi tải lại; chưa chứng minh quyết định lâm sàng bị ảnh hưởng. ThaiKy có thể kẹt loading/hiện data cũ; badge realtime có thể xanh khi broker chưa chuyển event. Poll 60 giây vẫn chạy; không có bằng chứng production stale window.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 63,
+        "end_line": 73,
+        "detail": "tai() chỉ setLoi khi lỗi, giữ nguyên bang cũ."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 94,
+        "end_line": 104,
+        "detail": "Lỗi chỉ hiển thị ở nhánh loi && !bang; JSX bảng không có cảnh báo loi."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+        "line": 183,
+        "end_line": 200,
+        "detail": "docBang phân biệt lỗi mạng/API và trả ok:false, lỗi không bị mất ở tầng API."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+        "line": 103,
+        "end_line": 132,
+        "detail": "Refresh lỗi giữ data cũ; lỗi chỉ render khi chưa có data."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+        "line": 158,
+        "end_line": 165,
+        "detail": "Summary callback chỉ chạy khi data đổi, nên lỗi refresh không làm mới tóm tắt."
+      },
+      {
+        "path": "src/dashboard/app/api/cskh/khach/[id]/route.ts",
+        "line": 38,
+        "end_line": 40,
+        "detail": "BFF chuyển request đọc phản hồi thuốc tới backend."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 161,
+        "end_line": 170,
+        "detail": "FastAPI trả danh sách phản hồi thuốc cho patient id."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+        "line": 343,
+        "end_line": 350,
+        "detail": "Component phản hồi thuốc được mount trong khung khách."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 68,
+        "end_line": 75,
+        "detail": "Refresh không catch fetch reject."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 86,
+        "end_line": 98,
+        "detail": "Initial read không xử lý promise reject."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+        "line": 142,
+        "end_line": 179,
+        "detail": "Có data thì render cũ che lỗi refresh."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+        "line": 248,
+        "end_line": 265,
+        "detail": "EventSource open báo SSE sống, không chứng minh query mới."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/events.py",
+        "line": 54,
+        "end_line": 62,
+        "detail": "Heartbeat SSE độc lập."
+      },
+      {
+        "path": "src/clinicai/core/change_broker.py",
+        "line": 84,
+        "end_line": 115,
+        "detail": "LISTEN reconnect tách khỏi SSE client."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+        "line": 319,
+        "end_line": 325,
+        "detail": "Fallback poll 60s."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đã truy vết code hiện hành; chưa chạy tái hiện browser/runtime. Round 21 bổ sung static trace PhanHoiThuocKhach → BFF → FastAPI → caller; chưa chạy browser test. Round 24 đối chiếu ThaiKy và SSE/ChangeBroker; static only.",
+      "limitations": "Không kết luận đã xảy ra trên prod; không đo tần suất. Working tree có thay đổi từ trước. Round 21 không tái hiện lỗi refresh trên dashboard. Không chạy React/SSE/ChangeBroker fault test hoặc browser app."
+    },
+    "recommendation": "Giữ dữ liệu cũ nhưng gắn nhãn stale, lần tải thành công cuối, lý do và nút thử lại ở cả bảng hành trình và phản hồi thuốc. Phân biệt trạng thái kết nối SSE với độ mới của từng dữ liệu; chỉ bỏ nhãn stale sau response thành công.",
+    "acceptance": "Browser tests cho hai màn: sau lần tải thành công, tạo SSE/poll/event refresh rồi trả lỗi; nội dung cũ vẫn đọc được nhưng có cảnh báo stale, thời điểm tải cuối và nút thử lại. 200 với data mới gỡ cảnh báo; 200 empty phải được phân biệt với lỗi.",
+    "alignment": [
+      "Reality dễ nhìn",
+      "Unknown ngắn hơn",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [
+      "src/dashboard/tests/phan-hoi-thuoc-cot-boundary.test.mts:81-92 — kiểm callback/tóm tắt, không kiểm lỗi tải lại sau khi đã có data.",
+      "src/tests/services/test_phan_hoi_thuoc_db.py:75-139 — kiểm đường đọc/ghi thành công; không kiểm stale-state của UI.",
+      "src/tests/services/test_thai_ky_db.py — đọc, không chạy; không kiểm network state UI."
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx": "bbf96da6cd3982dd554497a962290eaf847016176c7a0aa2c1a09100c6d8e34d",
+      "src/dashboard/app/(dashboard)/_lam-viec/api.ts": "7475187587ce7bf82a05a56f64b26bf8ddc24dd59f553dd8a8eb93c25ea5c711",
+      "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130",
+      "src/dashboard/app/api/cskh/khach/[id]/route.ts": "14749069fa842b2568ad376291c00d148468a3a176567cd84ab2466f9b6deea7",
+      "src/clinicai/api/v1/routers/cskh.py": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+      "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+      "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+      "src/clinicai/api/v1/routers/events.py": "cec344cbaafb4bfe6cf8ddd803bee3de16a23d5d5bf87464d5643cc0e6d11e6b",
+      "src/clinicai/core/change_broker.py": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production. Round 21 xác nhận cùng stale/error-hidden pattern ở khung phản hồi thuốc của hồ sơ khách; hợp nhất làm bằng chứng cho FE-002, không tăng số finding. Round 24: ThaiKy thiếu catch khi đọc; heartbeat không chứng minh LISTEN delivery; fallback 60s. Cùng freshness family, chưa tái hiện.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 63,
+          "end_line": 72,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "63:   const tai = useCallback(async () => {\n64:     const kq = await docBang<Bang>(\"hanh-trinh\", { ngay });\n65:     if (kq.ok) {\n66:       setBang(kq.data);\n67:       setBayGio(Date.now());\n68:       setLoi(null);\n69:     } else {\n70:       setLoi(kq.loi);\n71:     }\n72:   }, [ngay]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 92,
+          "end_line": 101,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "92:   useNgheBang([\"luot_dong_thoi_gian\", \"visit\", \"queue_entry\"], () => void tai());\n93: \n94:   if (loi && !bang) {\n95:     return (\n96:       <p role=\"alert\" className=\"text-body text-danger\">\n97:         {loi}\n98:       </p>\n99:     );\n100:   }\n101:   if (!bang) return <p className=\"text-body text-ink-muted\">Đang tải…</p>;"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+          "line": 103,
+          "end_line": 132,
+          "sha256": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130",
+          "excerpt": "103:   // Người khác ghi / gỡ ở màn khác → khối này tự cập nhật (NOTIFY sẵn có).\n104:   useNgheBang([\"tuong_tac_cskh\"], napLai);\n105: \n106:   useEffect(() => {\n107:     let huy = false;\n108:     void (async () => {\n109:       try {\n110:         const r = await fetch(`${duong}?xem=phan-hoi-thuoc`, { cache: \"no-store\" });\n111:         const d = (await r.json().catch(() => null)) as\n112:           | { luot_co_don?: LuotCoDon[]; items?: PhanHoiThuoc[]; message?: string }\n113:           | null;\n114:         if (huy) return;\n115:         if (!r.ok) {\n116:           setLoiDoc(d?.message ?? \"Không đọc được phản hồi thuốc.\");\n117:           return;\n118:         }\n119:         setLoiDoc(null);\n120:         setData({ luot_co_don: d?.luot_co_don ?? [], items: d?.items ?? [] });\n121:       } catch {\n122:         if (!huy) setLoiDoc(\"Mất kết nối — không đọc được phản hồi thuốc.\");\n123:       }\n124:     })();\n125:     return () => {\n126:       huy = true;\n127:     };\n128:   }, [duong, lan]);\n129: \n130:   useEffect(() => {\n131:     if (data) onDoc?.(data.items);\n132:   }, [data, onDoc]);",
+          "detail": "Refresh lỗi giữ data cũ; lỗi chỉ render khi chưa có data."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+          "line": 158,
+          "end_line": 165,
+          "sha256": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130",
+          "excerpt": "158:   if (loiDoc && !data) {\n159:     return (\n160:       <p role=\"alert\" className=\"text-meta text-danger\">\n161:         {loiDoc}\n162:       </p>\n163:     );\n164:   }\n165:   if (!data) return <p className=\"text-meta text-ink-faint\">Đang tải…</p>;",
+          "detail": "Summary callback chỉ chạy khi data đổi, nên lỗi refresh không làm mới tóm tắt."
+        },
+        {
+          "path": "src/dashboard/app/api/cskh/khach/[id]/route.ts",
+          "line": 38,
+          "end_line": 40,
+          "sha256": "14749069fa842b2568ad376291c00d148468a3a176567cd84ab2466f9b6deea7",
+          "excerpt": "38:   if (xem === \"phan-hoi-thuoc\") {\n39:     return proxyJsonToBackend(\"GET\", `/api/v1/cskh/khach/${id}/phan-hoi-thuoc`, undefined);\n40:   }",
+          "detail": "BFF chuyển request đọc phản hồi thuốc tới backend."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cskh.py",
+          "line": 161,
+          "end_line": 170,
+          "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+          "excerpt": "161: @router.get(\"/cskh/khach/{clinic_patient_id}/phan-hoi-thuoc\")\n162: async def phan_hoi_thuoc_cua_khach(\n163:     clinic_patient_id: UUID,\n164:     identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),\n165:     pool: asyncpg.Pool = Depends(get_db_pool),\n166: ) -> dict[str, Any]:\n167:     \"\"\"Lượt có đơn thuốc (để chọn) + phản hồi sau dùng thuốc còn hiệu lực.\"\"\"\n168:     return await PhanHoiThuocService(pool).doc(\n169:         identity=identity, clinic_patient_id=str(clinic_patient_id)\n170:     )",
+          "detail": "FastAPI trả danh sách phản hồi thuốc cho patient id."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+          "line": 343,
+          "end_line": 350,
+          "sha256": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+          "excerpt": "343:       {/* PHẢN HỒI SAU DÙNG THUỐC (10/10/2026): gắn lượt có đơn; bác sĩ thấy ở\n344:           Bàn khám; cần tư vấn thêm → [Đặt lịch khám] (bộ đặt lịch sẵn có). */}\n345:       <Khoi tieuDe=\"Phản hồi sau dùng thuốc\">\n346:         <PhanHoiThuocKhach\n347:           clinicPatientId={clinicPatientId}\n348:           onDatLichKham={onDatLichKham}\n349:           onDoc={setPhanHoiThuoc}\n350:         />",
+          "detail": "Component phản hồi thuốc được mount trong khung khách."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 68,
+          "end_line": 75,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "68:   const nap = useCallback(async () => {\n69:     const r = await fetch(`/api/thai-ky?clinic_patient_id=${clinicPatientId}`, {\n70:       cache: \"no-store\",\n71:     });\n72:     const d = await r.json().catch(() => null);\n73:     if (r.ok) setDl(d as DuLieu);\n74:     else setLoi((d as { message?: string; error?: string } | null)?.message ?? \"Không đọc được thai kỳ.\");\n75:   }, [clinicPatientId]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 86,
+          "end_line": 98,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "86:   useEffect(() => {\n87:     let huy = false;\n88:     void fetch(`/api/thai-ky?clinic_patient_id=${clinicPatientId}`, { cache: \"no-store\" })\n89:       .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))\n90:       .then(({ ok, d }) => {\n91:         if (huy) return;\n92:         if (ok) setDl(d as DuLieu);\n93:         else setLoi((d as { message?: string } | null)?.message ?? \"Không đọc được thai kỳ.\");\n94:       });\n95:     return () => {\n96:       huy = true;\n97:     };\n98:   }, [clinicPatientId]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+          "line": 142,
+          "end_line": 179,
+          "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+          "excerpt": "142:   const ht = dl?.hien_tai ?? null;\n143: \n144:   return (\n145:     <section aria-label=\"Thai kỳ\" className=\"mt-3 rounded-card border border-line p-3\">\n146:       <h3 className=\"text-sm font-semibold text-ink\">Thai kỳ</h3>\n147:       {dl === null ? (\n148:         <p className=\"mt-1 text-xs text-ink-muted\">{loi ?? \"Đang tải…\"}</p>\n149:       ) : ht ? (\n150:         <dl className=\"mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4\">\n151:           <div>\n152:             <dt className=\"text-ink-faint\">Dự kiến sinh</dt>\n153:             <dd className=\"font-medium text-ink\">{ht.du_kien_sinh ?? \"—\"}</dd>\n154:           </div>\n155:           <div>\n156:             <dt className=\"text-ink-faint\">Nguồn</dt>\n157:             <dd className=\"font-medium text-ink\">\n158:               {ht.nguon_du_kien_sinh_nhan ?? \"chưa ghi\"}\n159:               {ht.bac_si_xac_nhan ? ` · xác nhận: ${ht.bac_si_xac_nhan}` : \"\"}\n160:             </dd>\n161:           </div>\n162:           <div>\n163:             <dt className=\"text-ink-faint\">Tuổi thai (tính từ dự kiến sinh)</dt>\n164:             <dd className=\"font-medium text-ink\">\n165:               {ht.tuoi_thai ? `${ht.tuoi_thai.tuan} tuần ${ht.tuoi_thai.ngay} ngày` : \"—\"}\n166:             </dd>\n167:           </div>\n168:           <div>\n169:             <dt className=\"text-ink-faint\">Nguy cơ cao</dt>\n170:             <dd className=\"font-medium text-ink\">\n171:               {ht.nguy_co_cao ? `Có — ${ht.ly_do_nguy_co ?? \"\"}` : \"Không\"}\n172:             </dd>\n173:           </div>\n174:         </dl>\n175:       ) : (\n176:         <p className=\"mt-1 text-xs text-ink-muted\">\n177:           Chưa có thai kỳ đang theo dõi.\n178:           {dl.duoc_ghi ? \"\" : \" Bác sĩ tạo thai kỳ khi xác nhận có thai.\"}\n179:         </p>"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+          "line": 248,
+          "end_line": 265,
+          "sha256": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+          "excerpt": "248:         function mo(laNoiLai: boolean) {\n249:           es?.close();\n250:           const e = new EventSource(\"/api/events/stream\");\n251:           es = e;\n252:           trangThaiDong.dat(\"dang-noi\");\n253:           e.addEventListener(\"open\", () => {\n254:             clearTimeout(henRot);\n255:             henRot = undefined;\n256:             noiLai.thanhCong();\n257:             trangThaiDong.dat(\"song\");\n258:             // Quãng dòng hỏng là quãng mù: bắt kịp một lượt.\n259:             if (laNoiLai) nhanTin(null);\n260:           });\n261:           e.addEventListener(\"error\", () => {\n262:             if (henRot === undefined) {\n263:               henRot = setTimeout(() => trangThaiDong.dat(\"rot\"), AN_HAN_ROT_MS);\n264:             }\n265:             if (e.readyState === EventSource.CLOSED) noiLai.loi();"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/events.py",
+          "line": 54,
+          "end_line": 62,
+          "sha256": "cec344cbaafb4bfe6cf8ddd803bee3de16a23d5d5bf87464d5643cc0e6d11e6b",
+          "excerpt": "54:             while True:\n55:                 if await request.is_disconnected():\n56:                     return\n57:                 try:\n58:                     payload = await asyncio.wait_for(q.get(), timeout=HEARTBEAT_S)\n59:                 except TimeoutError:\n60:                     yield b\": nhip\\n\\n\"\n61:                     continue\n62:                 yield b\"event: change\\ndata: \" + payload.encode() + b\"\\n\\n\""
+        },
+        {
+          "path": "src/clinicai/core/change_broker.py",
+          "line": 84,
+          "end_line": 115,
+          "sha256": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+          "excerpt": "84:     async def _run(self) -> None:\n85:         \"\"\"Giữ một kết nối LISTEN, tự nối lại khi rớt.\n86: \n87:         KẾT NỐI RIÊNG, KHÔNG LẤY TỪ BỂ CHUNG. Một kết nối đang LISTEN bị giữ\n88:         suốt đời tiến trình; mượn nó từ bể là vĩnh viễn bớt một chỗ của những\n89:         truy vấn thật, và asyncpg cũng không hứa trả lại đúng kết nối ấy.\n90:         \"\"\"\n91:         while not self._stopping:\n92:             try:\n93:                 # Biến cục bộ để kiểu là Connection, không phải `| None` của\n94:                 # self._conn: chỉ stop() gán None, và nó huỷ task này rồi await\n95:                 # xong mới gán, nên trong vòng này kết nối không thể thành None.\n96:                 conn: asyncpg.Connection = await asyncpg.connect(self._dsn)\n97:                 self._conn = conn\n98:                 await conn.add_listener(CHANNEL, self._on_notify)\n99:                 logger.info(\"change_broker_listening\", channel=CHANNEL)\n100:                 # Ngồi im cho tới khi bị huỷ hoặc kết nối chết.\n101:                 while not self._stopping and not conn.is_closed():\n102:                     await asyncio.sleep(1.0)\n103:             except asyncio.CancelledError:\n104:                 raise\n105:             except Exception as exc:  # noqa: BLE001\n106:                 # Database khởi động lại, mạng chớp — không được làm chết API.\n107:                 # Màn hình vẫn có nhịp làm mới dự phòng của riêng nó.\n108:                 logger.warning(\"change_broker_lost\", error=str(exc))\n109:             finally:\n110:                 if self._conn is not None and not self._conn.is_closed():\n111:                     await self._conn.close()\n112:                 self._conn = None\n113:             if not self._stopping:\n114:                 await asyncio.sleep(RECONNECT_DELAY_S)\n115: "
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+          "line": 319,
+          "end_line": 325,
+          "sha256": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+          "excerpt": "319:     const goPoll = nhipKhiHien(\n320:       () => {\n321:         if (!dangOManTuTai()) nhip.nhan();\n322:       },\n323:       POLL_MS,\n324:       { hoiKhiHien: false },\n325:     );"
+        }
+      ],
+      "production_verified": false
+    },
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": null,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  }
+]

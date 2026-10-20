@@ -1,0 +1,788 @@
+{
+  "round": 30,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "static_exact_main_only",
+  "scope": [
+    "MISA invoice export and VAT mode contract",
+    "prescription catalog alias and product identity",
+    "visit completion and pay-later handoff/event semantics"
+  ],
+  "method": "Read-only, exact-main cross-layer source review; source SHA checked against the pinned tree. Selected tests were read but not executed. No ClinicAI runtime/API/DB/provider/VPS/production access; no secrets or PHI.",
+  "result": "No new canonical finding in this slice. Four business/product observations remain held because accounting export contract, medication catalog equivalence and repeated 0-VND event semantics are not established. Read and trace status is file-level, not behavior completeness.",
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/hoa_don.py",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 158,
+          "purpose": "Route FastAPI hóa đơn; toàn file."
+        }
+      ],
+      "sha256": "beb678ee2e8e4e56d81a1da33838011bf7997130c02e8f310282068732f11814",
+      "line_count": 158,
+      "purpose": "Route FastAPI hóa đơn; toàn file."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ke_toan.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 56,
+          "purpose": "Router thuế suất; toàn file."
+        }
+      ],
+      "sha256": "802d74385e288c07bbfa91157f64f8e6050c764d0e77fe071f6982261055dcbb",
+      "line_count": 56,
+      "purpose": "Router thuế suất; toàn file."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 232,
+          "end": 269,
+          "purpose": "Route mốc khám xong."
+        },
+        {
+          "start": 360,
+          "end": 420,
+          "purpose": "Route thao tác làm trước thu sau."
+        }
+      ],
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "line_count": 1221,
+      "purpose": "Route mốc khám xong.; Route thao tác làm trước thu sau."
+    },
+    {
+      "path": "src/clinicai/phieu_kham/anh_xa_danh_muc.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 320,
+          "purpose": "Bảng mapping danh mục thuốc/dịch vụ; toàn file."
+        }
+      ],
+      "sha256": "5a5e5ef6f1bdcd7f5aa1c8f355203db8ac919d3f4c9a2c3b6b7f1e59f0a43c64",
+      "line_count": 320,
+      "purpose": "Bảng mapping danh mục thuốc/dịch vụ; toàn file."
+    },
+    {
+      "path": "src/clinicai/phieu_kham/dinh_nghia/tham_chieu_nguon.json",
+      "status": "traced",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 618,
+          "end": 628,
+          "purpose": "Hai mục rx_030/rx_031 cùng hoạt chất/nồng độ nhưng khác thương hiệu nguồn."
+        }
+      ],
+      "sha256": "26a839858be9703adde8d705815ec93273d66a7bb67282140e19ba90027045ce",
+      "line_count": 1058,
+      "purpose": "Hai mục rx_030/rx_031 cùng hoạt chất/nồng độ nhưng khác thương hiệu nguồn."
+    },
+    {
+      "path": "src/clinicai/phieu_kham/mau_dieu_tri.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 15,
+          "purpose": "Mẫu phiếu điều trị và import mapping; toàn file."
+        }
+      ],
+      "sha256": "de4cab79b35cf3ed0e2a467aba21917e8a1fd3c3d9863117137290564e90345e",
+      "line_count": 15,
+      "purpose": "Mẫu phiếu điều trị và import mapping; toàn file."
+    },
+    {
+      "path": "src/clinicai/services/cashier_board_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 270,
+          "end": 320,
+          "purpose": "Đọc trạng thái bảng thu."
+        },
+        {
+          "start": 670,
+          "end": 770,
+          "purpose": "Tổng hợp/collapse revision trên bảng thu ngân."
+        },
+        {
+          "start": 850,
+          "end": 955,
+          "purpose": "Các đường điều phối bảng thu."
+        }
+      ],
+      "sha256": "469db7b83c873eef9f0065cb93de53d67f0ff061995190841225405594097f6e",
+      "line_count": 1173,
+      "purpose": "Đọc trạng thái bảng thu.; Tổng hợp/collapse revision trên bảng thu ngân.; Các đường điều phối bảng thu."
+    },
+    {
+      "path": "src/clinicai/services/chot_0d.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 80,
+          "purpose": "Ghi nhận chốt hóa đơn 0đ; toàn file."
+        }
+      ],
+      "sha256": "72f392a55f3390430e5ab67a806cca34579cce52741f8e658b3d60a10e128409",
+      "line_count": 80,
+      "purpose": "Ghi nhận chốt hóa đơn 0đ; toàn file."
+    },
+    {
+      "path": "src/clinicai/services/danh_sach_hoa_don_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 52,
+          "end": 104,
+          "purpose": "Lọc/truy vấn danh sách hóa đơn."
+        },
+        {
+          "start": 231,
+          "end": 367,
+          "purpose": "Phép đối chiếu và dòng hoàn tiền."
+        }
+      ],
+      "sha256": "f7b1ce08c6cc6fb8244e2a3e3373961ac84843a0a1078802c8ae766a45eded2a",
+      "line_count": 437,
+      "purpose": "Lọc/truy vấn danh sách hóa đơn.; Phép đối chiếu và dòng hoàn tiền."
+    },
+    {
+      "path": "src/clinicai/services/excel_export.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 20,
+          "end": 54,
+          "purpose": "Escape dữ liệu dạng công thức trước khi ghi Excel."
+        }
+      ],
+      "sha256": "6e81a8603b7a259235f9cab71f41c22c8edcf70aece4af8d7f1ae32ef9a181e7",
+      "line_count": 115,
+      "purpose": "Escape dữ liệu dạng công thức trước khi ghi Excel."
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_excel.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 345,
+          "purpose": "Workbook MISA writer; toàn file."
+        }
+      ],
+      "sha256": "fe00ab1e76ca69cfd82763cef56b516c49769aecccf89ef93b66e5b6b5468e5e",
+      "line_count": 345,
+      "purpose": "Workbook MISA writer; toàn file."
+    },
+    {
+      "path": "src/clinicai/services/hoan_tac_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 155,
+          "end": 203,
+          "purpose": "Mốc và điều kiện hoàn tác."
+        },
+        {
+          "start": 390,
+          "end": 690,
+          "purpose": "Các bước điều phối hoàn tác."
+        },
+        {
+          "start": 1000,
+          "end": 1045,
+          "purpose": "Cập nhật trạng thái lịch/visit."
+        }
+      ],
+      "sha256": "1862331194da8a219dd6b18ef045350c47e1f20598901a26e691fd44d69e55d9",
+      "line_count": 1241,
+      "purpose": "Mốc và điều kiện hoàn tác.; Các bước điều phối hoàn tác.; Cập nhật trạng thái lịch/visit."
+    },
+    {
+      "path": "src/clinicai/services/lam_truoc_thu_sau.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 632,
+          "purpose": "Đọc toàn bộ luồng bật/tắt “làm trước, thu sau”."
+        }
+      ],
+      "sha256": "3415e01c6aa11c93b11f963940fbb98bd44a2fae264f5857035a22079daea41d",
+      "line_count": 632,
+      "purpose": "Đọc toàn bộ luồng bật/tắt “làm trước, thu sau”."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1113,
+          "end": 1205,
+          "purpose": "Hoàn tất lượt khi phiên, vòng đọc và chỉ định đã đóng."
+        },
+        {
+          "start": 2510,
+          "end": 2760,
+          "purpose": "Ghi/hoàn tác thao tác lượt; các consumer liên quan."
+        }
+      ],
+      "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103",
+      "line_count": 3929,
+      "purpose": "Hoàn tất lượt khi phiên, vòng đọc và chỉ định đã đóng.; Ghi/hoàn tác thao tác lượt; các consumer liên quan."
+    },
+    {
+      "path": "src/clinicai/services/moc_kham_xong.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 27,
+          "purpose": "Helper chuẩn hóa mốc khám xong; toàn file."
+        }
+      ],
+      "sha256": "1bdf3df239c9db7834e6e7b818677f9f7234bdc7f20f53992ad260dd98b5a6a4",
+      "line_count": 27,
+      "purpose": "Helper chuẩn hóa mốc khám xong; toàn file."
+    },
+    {
+      "path": "src/clinicai/services/payment_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 729,
+          "end": 750,
+          "purpose": "Hợp đồng receipt/idempotency cho lần thu."
+        },
+        {
+          "start": 875,
+          "end": 895,
+          "purpose": "Đường chốt hóa đơn 0đ."
+        },
+        {
+          "start": 1780,
+          "end": 1895,
+          "purpose": "Khóa lượt, đọc mốc, quyền cùng phòng khám và điều kiện thu."
+        }
+      ],
+      "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+      "line_count": 2400,
+      "purpose": "Hợp đồng receipt/idempotency cho lần thu.; Đường chốt hóa đơn 0đ.; Khóa lượt, đọc mốc, quyền cùng phòng khám và điều kiện thu."
+    },
+    {
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 733,
+          "end": 770,
+          "purpose": "Giải mapping thuốc với catalog kho và thêm mục chưa map."
+        }
+      ],
+      "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+      "line_count": 1013,
+      "purpose": "Giải mapping thuốc với catalog kho và thêm mục chưa map."
+    },
+    {
+      "path": "src/clinicai/services/thue_gtgt.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 304,
+          "purpose": "Chuẩn hóa thuế suất và tính thuế; toàn file."
+        }
+      ],
+      "sha256": "a9a9dcaee43e850916ecdc0635527b95b014a7184243ca4bfdbbc43c8e78f824",
+      "line_count": 304,
+      "purpose": "Chuẩn hóa thuế suất và tính thuế; toàn file."
+    },
+    {
+      "path": "src/clinicai/services/thue_suat_service.py",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 173,
+          "purpose": "Service đọc/ghi thuế suất; toàn file."
+        }
+      ],
+      "sha256": "b2241ce4b705ec251e12fa4e634b2420cd36c2d131b24f522189096c884f960f",
+      "line_count": 173,
+      "purpose": "Service đọc/ghi thuế suất; toàn file."
+    },
+    {
+      "path": "src/clinicai/services/xem_luot_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 90,
+          "end": 125,
+          "purpose": "Dựng timeline event theo dòng lượt."
+        }
+      ],
+      "sha256": "5170b060aa02d09572916a8b1d4da1f3ea42c10bd5ca2cfa67d9cceaa3828ca2",
+      "line_count": 814,
+      "purpose": "Dựng timeline event theo dòng lượt."
+    },
+    {
+      "path": "src/clinicai/services/xuat_hoa_don_service.py",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 459,
+          "purpose": "Dựng dữ liệu preview và XLSX; toàn file."
+        }
+      ],
+      "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145",
+      "line_count": 459,
+      "purpose": "Dựng dữ liệu preview và XLSX; toàn file."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/OLamTruocThuSau.tsx",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 199,
+          "purpose": "UI toggle làm trước thu sau; toàn file."
+        }
+      ],
+      "sha256": "5d39184565c87d2414b798a7b4cc94af955730ddfec70429d7aecebdaaa8799d",
+      "line_count": 199,
+      "purpose": "UI toggle làm trước thu sau; toàn file."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 930,
+          "end": 1190,
+          "purpose": "Caller mốc hoàn tất và thao tác bàn khám."
+        }
+      ],
+      "sha256": "ccd860a32d945adcf57c08cf0c409a4860a618819b223a02a34fd9e491670c24",
+      "line_count": 1804,
+      "purpose": "Caller mốc hoàn tất và thao tác bàn khám."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ke-toan/ThueSuat.tsx",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 139,
+          "purpose": "UI cấu hình thuế suất; toàn file được đọc trong bước tiếp theo."
+        }
+      ],
+      "sha256": "b7985a6406b2a2634a93b063de4612bd45b76207a8f96612d751b171ead191ab",
+      "line_count": 139,
+      "purpose": "UI cấu hình thuế suất; toàn file được đọc trong bước tiếp theo."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 330,
+          "end": 440,
+          "purpose": "UI hóa đơn 0đ và xác nhận thu."
+        }
+      ],
+      "sha256": "6a9c99462aea06b3580f7cda71307322e48efa61334a0e62eafc2a3a5dc2f55b",
+      "line_count": 560,
+      "purpose": "UI hóa đơn 0đ và xác nhận thu."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 330,
+          "end": 530,
+          "purpose": "UI thu ngân/hiển thị kết quả thu và receipt."
+        }
+      ],
+      "sha256": "733c8dffc1cc0da8387c65919f57919f14297b17256ecab3e41d43a00853a199",
+      "line_count": 1358,
+      "purpose": "UI thu ngân/hiển thị kết quả thu và receipt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 244,
+          "purpose": "UI xuất hóa đơn: lựa chọn chế độ gộp/tách, preview và tải XLSX."
+        }
+      ],
+      "sha256": "298ebc61c41afc4608f7ed6cf0a72496127932ef30a8c39f7b6aa888d5a41a31",
+      "line_count": 244,
+      "purpose": "UI xuất hóa đơn: lựa chọn chế độ gộp/tách, preview và tải XLSX."
+    },
+    {
+      "path": "src/dashboard/app/api/luot-kham/route.ts",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 266,
+          "purpose": "BFF lượt khám; toàn file được đọc trong lát này."
+        }
+      ],
+      "sha256": "912e9ddf0887162cd7c21fca5e9bb54b66efa622bfe882ce0c14b890b1ba1a69",
+      "line_count": 266,
+      "purpose": "BFF lượt khám; toàn file được đọc trong lát này."
+    },
+    {
+      "path": "src/dashboard/app/api/payment/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 110,
+          "purpose": "BFF thanh toán và chuyển receipt headers."
+        }
+      ],
+      "sha256": "a83e494f7b4513bf032c7d29239d0e5becddb13ed3f9a26002497cbd85311487",
+      "line_count": 191,
+      "purpose": "BFF thanh toán và chuyển receipt headers."
+    },
+    {
+      "path": "src/dashboard/app/api/xuat-hoa-don/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 24,
+          "purpose": "BFF xuất hóa đơn; toàn file."
+        }
+      ],
+      "sha256": "09c880d38ae0f42571ad70151d884b42abf6c495fc97b245e7116e6b7e531972",
+      "line_count": 24,
+      "purpose": "BFF xuất hóa đơn; toàn file."
+    },
+    {
+      "path": "src/dashboard/tests/xuat-hoa-don-thue-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 41,
+          "purpose": "Boundary test liên quan UI/BFF; toàn file được đọc trong bước tiếp theo."
+        }
+      ],
+      "sha256": "f6778245cb279654b5a815c3025a1e5fa0ea65cf0afdd9283c3d91dcb463c94e",
+      "line_count": 41,
+      "purpose": "Boundary test liên quan UI/BFF; toàn file được đọc trong bước tiếp theo."
+    },
+    {
+      "path": "src/tests/services/test_danh_muc_dich_vu_chuan_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 132,
+          "end": 180,
+          "purpose": "Coverage mapping dịch vụ."
+        },
+        {
+          "start": 250,
+          "end": 310,
+          "purpose": "Không có khoảng trống/duplicate chung."
+        },
+        {
+          "start": 380,
+          "end": 402,
+          "purpose": "Assertion kết thúc; không kiểm brand identity hai mục thuốc."
+        }
+      ],
+      "sha256": "88e5e84f7624a631f845ec598dc1d954ef656e620d2aee9f67b6f08241cb8f98",
+      "line_count": 402,
+      "purpose": "Coverage mapping dịch vụ.; Không có khoảng trống/duplicate chung.; Assertion kết thúc; không kiểm brand identity hai mục thuốc."
+    },
+    {
+      "path": "src/tests/services/test_doi_chieu_hoa_don_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 246,
+          "end": 267,
+          "purpose": "Đối chiếu hoàn tiền không gắn dòng và cảnh báo preview."
+        }
+      ],
+      "sha256": "f692df6677365b361abbe43117f7ff7c9f8141f625c6a0f6f3c673207c23900c",
+      "line_count": 479,
+      "purpose": "Đối chiếu hoàn tiền không gắn dòng và cảnh báo preview."
+    },
+    {
+      "path": "src/tests/services/test_hanh_trinh_trang_thai_hien_tai_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 80,
+          "end": 155,
+          "purpose": "Cases trạng thái hiện tại/consumer; chỉ đọc."
+        }
+      ],
+      "sha256": "99bfcbf4f9a22b921e6317daf5120a40519bc8d2416cff20edf97a5e70b9decc",
+      "line_count": 424,
+      "purpose": "Cases trạng thái hiện tại/consumer; chỉ đọc."
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_moi_thao_tac_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 100,
+          "end": 350,
+          "purpose": "Cases thao tác và rollback; chỉ đọc."
+        }
+      ],
+      "sha256": "1599fb995b99d283899636c3860c66cdbff782d627321775613ed7105d4ec32d",
+      "line_count": 702,
+      "purpose": "Cases thao tác và rollback; chỉ đọc."
+    },
+    {
+      "path": "src/tests/services/test_kho_thuoc_danh_muc_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 94,
+          "end": 123,
+          "purpose": "Test mapping thuốc/catalog; không khẳng định rx_030/rx_031 giữ riêng thương hiệu."
+        }
+      ],
+      "sha256": "502c1e2e78be7b379bf10c514e4160f4921d755ad6139dfcb068d4df47b29984",
+      "line_count": 123,
+      "purpose": "Test mapping thuốc/catalog; không khẳng định rx_030/rx_031 giữ riêng thương hiệu."
+    },
+    {
+      "path": "src/tests/services/test_quay_thu_mot_hoa_don_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 80,
+          "purpose": "Fixture/helpers."
+        },
+        {
+          "start": 250,
+          "end": 270,
+          "purpose": "Assertions liên quan checkout."
+        },
+        {
+          "start": 382,
+          "end": 445,
+          "purpose": "Gọi lại hóa đơn 0đ bằng key mới; chưa đếm event."
+        }
+      ],
+      "sha256": "3faa766c2f9d88d309f63956b5fd917793d54bbea99129269b91c429adc730b0",
+      "line_count": 441,
+      "purpose": "Fixture/helpers.; Assertions liên quan checkout.; Gọi lại hóa đơn 0đ bằng key mới; chưa đếm event."
+    },
+    {
+      "path": "src/tests/services/test_thue_gtgt_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 148,
+          "end": 153,
+          "purpose": "Test DB kiểm tra kết quả/tổng; không khẳng định hợp đồng import nhiều thuế suất."
+        }
+      ],
+      "sha256": "8846eb4d10e120fe1dfced2c0d145730bfb6acce292ea5aec69f949052d81af3",
+      "line_count": 270,
+      "purpose": "Test DB kiểm tra kết quả/tổng; không khẳng định hợp đồng import nhiều thuế suất."
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp4_moc_kham_xong_db.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 163,
+          "purpose": "Toàn bộ test mốc khám xong liên quan thu tiền; chỉ đọc."
+        }
+      ],
+      "sha256": "53d90ae81d1f074e3510f574b47b227bd39e76f9e30d20bcdcc58c3fa90464cf",
+      "line_count": 163,
+      "purpose": "Toàn bộ test mốc khám xong liên quan thu tiền; chỉ đọc."
+    },
+    {
+      "path": "src/tests/unit/test_thue_gtgt.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 184,
+          "end": 192,
+          "purpose": "Test xác nhận kết quả/tổng; không khẳng định hợp đồng import nhiều thuế suất."
+        }
+      ],
+      "sha256": "5b4ef4eb8b37c4ee056effec35a748d97566b34c8510bc9c9203df20b238e0a6",
+      "line_count": 229,
+      "purpose": "Test xác nhận kết quả/tổng; không khẳng định hợp đồng import nhiều thuế suất."
+    },
+    {
+      "path": "src/tests/unit/test_xuat_hoa_don.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 288,
+          "end": 289,
+          "purpose": "Đối chiếu test chống công thức Excel."
+        },
+        {
+          "start": 134,
+          "end": 172,
+          "purpose": "Đối chiếu hoàn tiền gắn dòng và trạng thái pending."
+        }
+      ],
+      "sha256": "b3bd5fc6ab1bb268e259d31a84d4abbd10a7f06cc6e1e874f63a548fdd409b41",
+      "line_count": 302,
+      "purpose": "Đối chiếu test chống công thức Excel.; Đối chiếu hoàn tiền gắn dòng và trạng thái pending."
+    }
+  ],
+  "limitations": [
+    "No ClinicAI tests, runtime, API, database, providers, VPS or production behavior were run.",
+    "No MISA import contract/accountant sign-off; workbook acceptance is not inferred from source.",
+    "No live clinic catalog or prescribing behavior was inspected; rx_030/rx_031 alias is not evidence of a wrong prescription.",
+    "Repeated 0-VND event may correctly represent each human confirmation; no production event count was observed.",
+    "Full repository/source audit remains incomplete."
+  ]
+}

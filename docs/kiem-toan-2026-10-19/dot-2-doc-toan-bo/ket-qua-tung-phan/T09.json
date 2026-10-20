@@ -1,0 +1,432 @@
+{
+ "chunk": "T09",
+ "findings": [
+  {
+   "tmp_id": "T09-1",
+   "title": "Test tồn kho/mô phỏng dùng chung DB và hạt ngẫu nhiên không cố định, dễ flaky khi chạy song song",
+   "severity": "LOW",
+   "category": "test_flaky",
+   "evidence_level": "design_gap",
+   "summary": "Nhiều bài DB dùng chung một CLINIC và dữ liệu seed, mã vạch/ngày ngẫu nhiên, và tự thừa nhận ảnh hưởng chéo giữa các bài chạy song song. Kết quả có thể phụ thuộc bài khác chạy cùng lúc.",
+   "trigger": "CI chạy song song nhiều bài trên cùng DB dùng chung, hoặc seed đổi số mẫu/mã.",
+   "impact": "Bài có thể đỏ/xanh không do lỗi thật, làm đội mất tin vào CI và phải chạy lại thủ công.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_loc_co_so_nhom_c_db.py",
+     "line": 170,
+     "end_line": 171,
+     "detail": "Chú thích nói không so bằng 1 vì CI chạy song song và lượt 'chưa rõ cơ sở' của bài khác hiện ở mọi cơ sở."
+    },
+    {
+     "path": "src/tests/services/test_mau_ket_qua_db.py",
+     "line": 72,
+     "end_line": 81,
+     "detail": "Khẳng định đúng 18 mẫu đang bật với danh sách loại trừ cứng; thêm mẫu mới ở migration khác sẽ làm đỏ."
+    },
+    {
+     "path": "src/tests/services/test_mau_ket_qua_v2_db.py",
+     "line": 126,
+     "end_line": 129,
+     "detail": "Khẳng định len(ds) == 23, con số cộng dồn từ nhiều migration."
+    },
+    {
+     "path": "src/tests/services/test_mau_ket_qua_v3_db.py",
+     "line": 64,
+     "end_line": 68,
+     "detail": "Gọi hàm gán mẫu toàn DB, phụ thuộc trạng thái chung."
+    }
+   ],
+   "limitations": "Không thấy cấu hình CI thực tế; chưa chứng minh có xung đột thật.",
+   "recommendation": "Dùng clinic/tenant riêng cho mỗi bài hoặc rollback giao dịch; thay số đếm cứng bằng so sánh với tập mong đợi lấy từ nguồn duy nhất.",
+   "acceptance": "Chạy song song 4 worker nhiều lần liên tiếp không có bài đỏ do dữ liệu bài khác.",
+   "alignment": [
+    "quyết định có bằng chứng",
+    "phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T09-2",
+   "title": "Test bộ lọc cơ sở không kiểm danh tính thiếu location (rỗng) bị xem là 'không lọc' như hành vi mong muốn",
+   "severity": "MEDIUM",
+   "category": "test_asserts_wrong_behavior",
+   "evidence_level": "confirmed_static",
+   "summary": "Test khẳng định danh tính có location_id rỗng thấy lượt của cả hai cơ sở. Hành vi fail-open này được khoá thành 'đúng' nên nếu location bị mất trên header, bộ lọc cơ sở vô hiệu mà test vẫn xanh.",
+   "trigger": "Danh tính không mang cơ sở (header thiếu/lỗi).",
+   "impact": "Nhân viên có thể thấy bệnh nhân cơ sở khác; test hợp thức hoá lỗ hổng.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_loc_co_so_nhom_c_db.py",
+     "line": 149,
+     "end_line": 152,
+     "detail": "Khẳng định danh tính rỗng thấy cả luot_a và luot_b cùng lịch của cả hai cơ sở."
+    }
+   ],
+   "limitations": "Có thể là chủ ý cho vai quản trị; không rõ ở lớp API có chặn trước.",
+   "recommendation": "Quyết định rõ hành vi: từ chối hoặc chỉ cho vai quản trị; thêm test cho từng vai và test API khi thiếu header.",
+   "acceptance": "Danh tính không có cơ sở bị từ chối hoặc chỉ thấy theo quy tắc ghi rõ, có test cho cả hai.",
+   "alignment": [
+    "ownership rõ",
+    "phát hiện sớm"
+   ],
+   "extends": [
+    "API-001",
+    "API-002"
+   ],
+   "related_ids": [
+    "API-001"
+   ]
+  },
+  {
+   "tmp_id": "T09-3",
+   "title": "Test đồng thời gom nhiều nhánh nhưng worklist theo cơ sở bỏ qua bản ghi trạng thái ngoài cơ sở",
+   "severity": "LOW",
+   "category": "test_gap",
+   "evidence_level": "design_gap",
+   "summary": "Test cơ sở kiểm danh sách và các màn đọc nhưng không có test cho lệnh GHI (đổi trạng thái work item, kéo hàng chờ) từ cơ sở khác, trong khi các phát hiện đã biết nêu đúng lỗ hổng này.",
+   "trigger": "Danh tính cơ sở B gọi lệnh đổi trạng thái/kéo thứ tự lên đối tượng cơ sở A.",
+   "impact": "Lỗi phạm vi cơ sở ở đường ghi không có lưới an toàn hồi quy.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_loc_co_so_nhom_c_db.py",
+     "line": 296,
+     "end_line": 327,
+     "detail": "Chỉ gọi list_worklist; không có bài gọi lệnh ghi chéo cơ sở."
+    },
+    {
+     "path": "src/tests/services/test_luat_1509_sieu_am_va_hang_cho.py",
+     "line": 121,
+     "end_line": 131,
+     "detail": "Test kéo thứ tự chỉ dùng danh tính cơ sở giả (location_id=CLINIC) và fake SQL, không thử cơ sở khác."
+    }
+   ],
+   "limitations": "Có thể test khác ngoài chunk đã phủ.",
+   "recommendation": "Thêm test DB: danh tính cơ sở B gọi keo/đổi trạng thái/nhận ca lên đối tượng cơ sở A phải bị từ chối.",
+   "acceptance": "Các lệnh ghi chéo cơ sở trả lỗi và không đổi dữ liệu.",
+   "alignment": [
+    "ownership rõ",
+    "phát hiện sớm"
+   ],
+   "extends": [
+    "API-001",
+    "API-004"
+   ],
+   "related_ids": [
+    "API-001",
+    "API-004"
+   ]
+  },
+  {
+   "tmp_id": "T09-4",
+   "title": "Mô phỏng dòng tiền hoàn trả qua print và nuốt lỗi bị chặn, không fail khi bước bị chặn nhiều bất thường",
+   "severity": "LOW",
+   "category": "test_weak_assertion",
+   "evidence_level": "design_gap",
+   "summary": "Bài bấm lộn xộn bắt mọi ClinicAIBaseException/AssertionError là 'bị chặn' và chỉ in thống kê; nếu một thay đổi làm hầu hết thao tác bị chặn, bài vẫn xanh mà không kiểm được gì. Nuốt luôn AssertionError có thể che lỗi của chính bài.",
+   "trigger": "Thay đổi làm phần lớn bước bị từ chối hoặc assert nội bộ sai.",
+   "impact": "Bất biến kế toán (nợ khách/nợ phòng khám) có thể không còn được thử mà CI vẫn xanh.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+     "line": 507,
+     "end_line": 511,
+     "detail": "except (ClinicAIBaseException, AssertionError) → đếm bi_chan rồi continue."
+    },
+    {
+     "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+     "line": 522,
+     "end_line": 536,
+     "detail": "Chỉ in thống kê; assert cuối chỉ lech == [] và db_chan == [], không có ngưỡng số bước chạy được."
+    }
+   ],
+   "limitations": "Các bài xác định phía trên vẫn phủ đường chính.",
+   "recommendation": "Thêm khẳng định tối thiểu số bước chạy được theo từng loại và không bắt AssertionError.",
+   "acceptance": "Bài đỏ nếu tỷ lệ bước chạy được thấp hơn ngưỡng đặt trước.",
+   "alignment": [
+    "quyết định có bằng chứng",
+    "phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T09-5",
+   "title": "Test fixture dùng chung ghi cứng dữ liệu riêng Dr4Women (mã dịch vụ, mã KiotViet, tên cơ sở)",
+   "severity": "LOW",
+   "category": "test_fixture_tenant_specific",
+   "evidence_level": "confirmed_static",
+   "summary": "Nhiều test dựa vào mã dịch vụ CLS_*, SP000134, KV_SP000081, loại 'DICHVU-*', cơ sở 'Kim Ngưu' và dữ liệu seed riêng, nên bộ test không dùng được cho phòng khám khác.",
+   "trigger": "Dựng tenant khác hoặc đổi danh mục seed.",
+   "impact": "Khó nhân bản sản phẩm cho phòng khám khác; test đỏ vì danh mục chứ không vì lỗi logic.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_mau_gui_doi_tac_db.py",
+     "line": 67,
+     "end_line": 78,
+     "detail": "Danh sách 10 mã CLS_* ghi cứng."
+    },
+    {
+     "path": "src/tests/services/test_mau_ket_qua_db.py",
+     "line": 118,
+     "end_line": 118,
+     "detail": "Ghép cứng DO_MAT_DO_XUONG với SP000134."
+    },
+    {
+     "path": "src/tests/services/test_media.py",
+     "line": 46,
+     "end_line": 47,
+     "detail": "Tên cơ sở 'Kim Ngưu' trong fixture."
+    },
+    {
+     "path": "src/tests/services/test_mau_mo_ta_db.py",
+     "line": 34,
+     "end_line": 39,
+     "detail": "Mã dịch vụ nước tiểu/monitor ghi cứng."
+    }
+   ],
+   "limitations": "Một số test migration cố ý kiểm dữ liệu thật của phòng khám.",
+   "recommendation": "Tách bài kiểm migration/seed riêng Dr4Women khỏi fixture chung; dựng danh mục tổng quát trong bài.",
+   "acceptance": "Bộ test lõi chạy được trên tenant mẫu không chứa mã Dr4Women.",
+   "alignment": [
+    "quyết định có bằng chứng"
+   ],
+   "extends": [
+    "DB-004"
+   ],
+   "related_ids": [
+    "DB-004"
+   ]
+  },
+  {
+   "tmp_id": "T09-6",
+   "title": "Test thử lại thao tác (idempotency) chưa phủ mất phản hồi/commit rồi thử lại ở đa số lệnh ghi",
+   "severity": "LOW",
+   "category": "test_gap",
+   "evidence_level": "design_gap",
+   "summary": "Idempotency chỉ được thử ở duyệt chỉ định và xong dịch vụ; các lệnh như check-in, tạo chỉ định, tạo bệnh nhân qua retry mạng không có bài, trong khi các phát hiện đã biết cần.",
+   "trigger": "Mạng chập, client gửi lại cùng lệnh.",
+   "impact": "Lỗi nhân đôi bản ghi không bị bắt sớm.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_luot_kham_service_db.py",
+     "line": 793,
+     "end_line": 843,
+     "detail": "Chỉ authorize_orders có test gửi lại cùng khoá."
+    },
+    {
+     "path": "src/tests/services/test_ngay_kham_lo_hong_db.py",
+     "line": 100,
+     "end_line": 121,
+     "detail": "Chỉ phủ tạo bệnh nhân đồng thời cùng SĐT, không phủ CCCD hoặc retry sau mất phản hồi."
+    }
+   ],
+   "limitations": "Test ở chunk khác có thể phủ.",
+   "recommendation": "Thêm test gửi lại cùng khoá/lệnh cho chỉ định, tạo hồ sơ, hẹn gọi lại.",
+   "acceptance": "Gửi lại không tạo thêm bản ghi hoặc sự kiện.",
+   "alignment": [
+    "quyết định có bằng chứng",
+    "phát hiện sớm"
+   ],
+   "extends": [
+    "CLIN-031",
+    "CLIN-047"
+   ],
+   "related_ids": [
+    "CLIN-031",
+    "CLIN-047"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FIN-005",
+   "detail": "test_mo_phong_dong_tien_db và các bài mô phỏng chỉ kiểm bất biến trên vài lượt, không có test danh sách bị cắt (3.000 dòng) nên lỗ hổng cắt cụt chưa có hồi quy."
+  },
+  {
+   "id": "INF-017",
+   "detail": "test_luot_kham_notifications_db chỉ kiểm thông báo thay đổi sau commit; không có test cho worker/timer lỗi hoặc DEAD."
+  }
+ ],
+ "held": [
+  {
+   "title": "test_luot_kham_notifications_db chạy lại toàn bộ file migration trên DB dùng chung",
+   "reason": "Không chắc migration idempotent; cần xem nội dung migration."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Ép tranh chấp thật bằng chốt chờ thay vì asyncio.gather trần",
+   "detail": "Bài hai người cùng bắt đầu chỉ định giải thích gather trần gần như tuần tự, dùng Event để buộc cả hai cùng đọc trước khi ghi.",
+   "evidence": "src/tests/services/test_luot_kham_service_db.py:1181"
+  },
+  {
+   "title": "Mô phỏng ngẫu nhiên với đáp án tính độc lập từ sổ gốc và in chuỗi gây lỗi",
+   "detail": "Kiểm tồn/báo cáo so với đáp án tính lại từ inventory_txn sau mỗi bước, kèm trace tái hiện.",
+   "evidence": "src/tests/services/test_mo_phong_kho_day_du_db.py:127"
+  },
+  {
+   "title": "Diễn tập migration trong giao dịch rồi rollback",
+   "detail": "Chạy migration trên dữ liệu cũ rồi huỷ để không đổi DB dùng chung.",
+   "evidence": "src/tests/services/test_mo_full_lego_db.py:131"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/tests/services/test_loc_co_so_nhom_c_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_luat_1509_nhap_chi_dinh_va_ky.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_luat_1509_sieu_am_va_hang_cho.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_luat_1509_thu_ky_va_dieu_phoi.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_luoi_ngay_khop_trigger_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_luot_kham_notifications_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_luot_kham_service_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_ma_vach_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_man_khach_hang_callback_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_man_mau_ket_qua_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mau_gui_doi_tac_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mau_ket_qua_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mau_ket_qua_v2_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mau_ket_qua_v3_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mau_mo_ta_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_media.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mo_full_lego_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mo_phong_kho_day_du_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mo_phong_kho_thuoc_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mo_phong_quy_doi_tra_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mo_phong_vat_tu_day_du_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_mpi_name_birthyear.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_ngay_kham_lo_hong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_nguon_xep_phong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_nhac_tick_phong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

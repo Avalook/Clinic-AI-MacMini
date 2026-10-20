@@ -1,0 +1,1843 @@
+{
+  "chunk": "S01",
+  "findings": [
+    {
+      "tmp_id": "S01-1",
+      "title": "Không có thành phần nào tự dựng lại stack sau khi Docker daemon hoặc máy chủ khởi động lại; cụm 'self-heal' trong mẫu env không tồn tại trong repo",
+      "severity": "HIGH",
+      "category": "khong_tu_phuc_hoi",
+      "evidence_level": "design_gap",
+      "summary": "Việc đưa dịch vụ trở lại chỉ dựa vào `restart: unless-stopped` của Docker và vào lần chạy tay của deploy-backend.sh. Các healthcheck 'nhịp tim' của su-kien/day-tep/relay chỉ đánh dấu unhealthy, mà Docker Engine không khởi động lại container unhealthy. Mẫu env prod nhắc 'deploy + self-heal' nhưng repo (đến SHA kiểm toán) chỉ có 4 unit systemd (backup, backup-15p, ops-status, staging-nap), không có unit/hook/autoheal nào đưa compose project lên lại hay restart container unhealthy. Database nằm ở compose project khác (clinicai_db) nên khoá `depends_on` của ứng dụng không buộc thứ tự khi khởi động lại máy.",
+      "trigger": "Docker daemon khởi động lại, máy chủ reboot, hoặc một worker (su-kien, day-tep, relay) treo vòng lặp mà tiến trình không thoát: container chuyển unhealthy nhưng không được restart.",
+      "impact": "Có thể xảy ra: phòng khám mất dịch vụ (hoặc luồng hành trình/gửi tin/đẩy tệp ngừng mà màn vẫn mở) cho tới khi có người vào VPS. Thời gian 'chưa biết' dài đúng lúc nhân viên không có ai để hỏi.",
+      "evidence": [
+        {
+          "path": ".env.prod.example",
+          "line": 19,
+          "end_line": 20,
+          "detail": "Chú thích nói các dịch vụ tuỳ chọn 'kept current by deploy + self-heal' nhưng không tìm thấy thành phần self-heal nào trong repo; self-heal cũ là LaunchDaemon của Mac mini (docs/legacy)."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 307,
+          "end_line": 313,
+          "detail": "Healthcheck su-kien dựa trên tuổi file nhịp tim; kết quả chỉ làm container 'unhealthy'. Không có autoheal/watchdog nào đọc trạng thái này (git grep autoheal|self-heal trong scripts, docker-compose.yml, monitoring: 0 kết quả hữu ích)."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 376,
+          "end_line": 390,
+          "detail": "Chính chú thích của notification-relay thừa nhận 'restart: unless-stopped chỉ bắt được tiến trình chết, không thấy vòng lặp treo' — nhưng phản ứng với 'unhealthy' chỉ là một monitor Kuma gửi tin."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 24,
+          "end_line": 25,
+          "detail": "Stack database là compose project riêng, chỉ có restart: unless-stopped; docker-compose.yml không thể depends_on nó (khác project)."
+        },
+        {
+          "path": "scripts/deploy-backend.sh",
+          "line": 371,
+          "end_line": 412,
+          "detail": "Kiểm sức khoẻ và rollback chỉ chạy trong lúc deploy tay, không chạy lúc reboot."
+        },
+        {
+          "path": "scripts/may-chu/bat-theo-doi-may-chu.sh",
+          "line": 32,
+          "end_line": 38,
+          "detail": "Cài đặt máy chủ chỉ cài timer ops-status, không cài unit bật lại stack."
+        }
+      ],
+      "limitations": "Không thấy được cấu hình ngoài repo trên VPS (có thể có unit/cron cài tay). `restart: unless-stopped` thường tự bật lại container sau reboot; sự cố đã ghi trong bộ nhớ vận hành (Docker daemon restart không bật lại) cho thấy điều đó không đảm bảo, nhưng bằng chứng ấy không nằm trong code.",
+      "recommendation": "Thêm unit systemd (hoặc compose watchdog) có trong git: (1) sau docker.service chạy `docker compose up -d` cho cả hai project theo thứ tự db -> app, (2) một vòng canh gác restart container unhealthy quá N phút và ghi nhật ký vận hành + cảnh báo, (3) một bài diễn tập reboot định kỳ có đo thời gian lên lại. Sửa chú thích 'self-heal' trong .env.prod.example cho đúng thực tế.",
+      "acceptance": "Diễn tập: `sudo systemctl restart docker` rồi (không can thiệp tay) toàn bộ container của clinicai_db và clinicai_prod về healthy trong ngưỡng đã định; giết vòng lặp của su-kien (treo, không thoát) và container được restart tự động, có dòng nhật ký + cảnh báo.",
+      "alignment": [
+        "Unknown ngắn",
+        "Phát hiện sớm",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-027",
+        "INF-004",
+        "INF-012"
+      ]
+    },
+    {
+      "tmp_id": "S01-2",
+      "title": "Toàn bộ giám sát và cảnh báo nằm trên chính VPS được giám sát, không có điểm kiểm từ bên ngoài; monitor 'cổng vào công khai' chỉ gọi route /health tĩnh bên trong mạng docker",
+      "severity": "HIGH",
+      "category": "giam_sat_cung_may",
+      "evidence_level": "design_gap",
+      "summary": "Uptime Kuma, Dozzle, bộ canh gác `canh_bao` (trong su-kien), relay Telegram và ops-status đều chạy trên cùng VPS và cùng Docker daemon. Monitor 'Caddy — cổng vào công khai' gọi `http://caddy:80/health` từ trong mạng nội bộ; Caddy trả chuỗi 'ok' cố định cho đường này nên nó không chứng minh DNS, TLS, tường lửa hay đường vào từ ngoài. Danh sách monitor của Kuma 1.x được bấm tay trong volume; `check-monitoring.sh` tự thừa nhận không chứng minh Kuma đang theo dõi. Nếu VPS, Docker hay Kuma ngừng, cảnh báo cũng ngừng và sự im lặng trông như 'khoẻ'.",
+      "trigger": "Host/Docker ngừng, mất volume Kuma, mất đường mạng ra Telegram, hoặc cổng 443 công khai hỏng trong khi nội bộ vẫn trả 200.",
+      "impact": "Có thể xảy ra: phòng khám không vào được hệ thống mà không có kênh nào báo trước; người phát hiện là nhân viên gọi điện hỏi nhau — đúng kiểu phụ thuộc cần giảm.",
+      "evidence": [
+        {
+          "path": "monitoring/monitors.json",
+          "line": 36,
+          "end_line": 48,
+          "detail": "Monitor 'Caddy — cổng vào công khai' dùng http://caddy:80/health (đường nội bộ, nội dung tĩnh)."
+        },
+        {
+          "path": "caddy/Caddyfile",
+          "line": 147,
+          "end_line": 150,
+          "detail": "`handle /health { respond \"ok\" 200 }` — luôn xanh, không hỏi dashboard/api."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 429,
+          "end_line": 460,
+          "detail": "Kuma bind 127.0.0.1 trên cùng host; volume kuma_data duy nhất giữ danh sách monitor."
+        },
+        {
+          "path": "scripts/check-monitoring.sh",
+          "line": 50,
+          "end_line": 71,
+          "detail": "Kuma 1.x không có API đọc monitor; script chỉ kiểm endpoint khai báo còn sống, phần đối chiếu Kuma 'vẫn phải làm bằng mắt'."
+        },
+        {
+          "path": "monitoring/README.md",
+          "line": 3,
+          "end_line": 16,
+          "detail": "Thừa nhận danh sách monitor từng 'rỗng hoàn toàn' và monitors.json không tự nạp."
+        }
+      ],
+      "limitations": "Chưa kiểm chứng trạng thái Kuma thật trên VPS; có thể đã có dịch vụ ngoài mà repo không ghi. Telegram relay là điểm ra duy nhất trong repo.",
+      "recommendation": "Thêm một điểm kiểm độc lập (dịch vụ ngoài hoặc máy thứ hai) gọi https://dr4women.io.vn qua DNS công khai và một đường /health có kiểm dashboard+api; thêm 'dead-man switch' (push định kỳ ra ngoài, mất push thì ngoài báo). Nạp monitor Kuma bằng script từ monitors.json (Socket.IO/uptime-kuma-api) và kiểm trong CI/ops.",
+      "acceptance": "Tắt Docker trên VPS thử nghiệm: trong <= 3 phút người trực nhận cảnh báo từ hệ ngoài; xoá volume Kuma, monitor được tạo lại tự động từ file và có cảnh báo 'giám sát mới dựng lại'.",
+      "alignment": [
+        "Unknown ngắn",
+        "Phát hiện sớm",
+        "Ownership rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-002",
+        "INF-019",
+        "INF-027"
+      ]
+    },
+    {
+      "tmp_id": "S01-3",
+      "title": "Script đẩy bản sao lưu lên DBaaS Viettel vẫn dùng được nhưng không ép TLS, không mã hoá, không kiểm tính toàn vẹn gzip và xoá bản cũ ngay sau lần đẩy",
+      "severity": "MEDIUM",
+      "category": "sao_luu_ngoai_may",
+      "evidence_level": "design_gap",
+      "summary": "scripts/day-sao-luu-len-viettel.sh chép nguyên tệp dump `public` + `auth` (hồ sơ bệnh nhân, bảng người dùng/hash) và gói media vào một cột bytea qua base64 trên DBaaS bên thứ ba. Mẫu URL trong đầu file dùng sslmode=require, nhưng unit systemd ghi rõ máy chủ DBaaS TỪ CHỐI SSL và vì vậy đã chuyển sang đường storage. Script không từ chối sslmode=disable/prefer, không mã hoá phía client, không chạy `gzip -t`/kiểm có khôi phục được, và sau mỗi lần đẩy xoá mọi ngày cũ ngoài 30 ngày gần nhất. Chọn 'bản mới nhất' bằng `ls -t` theo thời gian sửa.",
+      "trigger": "Người vận hành dùng script này như hướng dẫn ở đầu file (đổi sslmode để nối được), hoặc một đợt dump hỏng/cắt dở (đĩa đầy) trở thành 'bản mới nhất'.",
+      "impact": "Có thể xảy ra: dữ liệu y tế đi trần qua Internet và nằm không mã hoá ở nhà cung cấp; hoặc 30 đêm bản hỏng thay hết bản tốt vì chỉ so mã băm của chính tệp hỏng.",
+      "evidence": [
+        {
+          "path": "scripts/day-sao-luu-len-viettel.sh",
+          "line": 26,
+          "end_line": 27,
+          "detail": "Mẫu kết nối ghi sslmode=require; không có kiểm tra bắt buộc TLS."
+        },
+        {
+          "path": "scripts/day-sao-luu-len-viettel.sh",
+          "line": 46,
+          "end_line": 59,
+          "detail": "Chốt duy nhất là không trỏ về database cục bộ; đích khác (kể cả IP công cộng của chính VPS) lọt qua."
+        },
+        {
+          "path": "scripts/day-sao-luu-len-viettel.sh",
+          "line": 72,
+          "end_line": 82,
+          "detail": "noi_dung bytea chứa nguyên .gz; không mã hoá."
+        },
+        {
+          "path": "scripts/day-sao-luu-len-viettel.sh",
+          "line": 154,
+          "end_line": 164,
+          "detail": "Chọn tệp mới nhất theo mtime; chỉ cần tồn tại tệp _auth đi kèm."
+        },
+        {
+          "path": "scripts/day-sao-luu-len-viettel.sh",
+          "line": 198,
+          "end_line": 210,
+          "detail": "Xoá mọi ngày ngoài GIU_LAI ngay trong cùng lần chạy, không kiểm bản vừa đẩy có giải nén/nạp thử được."
+        },
+        {
+          "path": "scripts/systemd/clinicai-backup.service",
+          "line": 32,
+          "end_line": 45,
+          "detail": "Unit giải thích DBaaS từ chối SSL nên script này 'KHÔNG chạy ở đây' và chỉ dùng được nếu có lớp mã hoá tệp."
+        }
+      ],
+      "limitations": "Script không được lên lịch trong unit systemd hiện hành (đã thay bằng day-sao-luu-len-viettel-storage.sh, ngoài danh sách tôi đọc). Tác động chỉ thật nếu ai đó chạy nó. Đường storage mới có thể đã kiểm toàn vẹn (chưa đọc).",
+      "recommendation": "Xoá hoặc đánh dấu 'KHÔNG DÙNG' script; nếu giữ thì bắt buộc sslmode=verify-full, mã hoá tệp bằng age/gpg trước khi đẩy, `gzip -t` + liệt kê TOC bằng pg_restore/psql trước khi coi là bản sao, và chỉ xoá bản cũ sau khi bản mới đã qua một bài khôi phục thử gần đây.",
+      "acceptance": "Chạy với sslmode=disable bị script từ chối; đưa một .gz cắt cụt vào BACKUP_DIR thì script dừng trước khi xoá bản cũ; nội dung cột noi_dung trên đích không giải nén được nếu không có khoá.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-006",
+        "INF-019",
+        "SEC-020"
+      ]
+    },
+    {
+      "tmp_id": "S01-4",
+      "title": "Mọi container nhận nguyên .env.prod, kể cả dashboard phục vụ công khai (mật khẩu superuser Postgres, service-role key, Telegram, Anthropic)",
+      "severity": "MEDIUM",
+      "category": "pham_vi_bi_mat",
+      "evidence_level": "design_gap",
+      "summary": "Dashboard, api, su-kien, day-tep, relay, worker, pos-relay đều dùng cùng `env_file: ${CLINIC_ENV_FILE}`. Dashboard (Next.js, đối diện Internet) vì vậy có DATABASE_URL với vai postgres, SUPABASE_SERVICE_ROLE_KEY, BACKEND_API_KEY, ANTHROPIC_API_KEY, TELEGRAM_BOT_TOKEN. Cùng file compose đã áp dụng đúng mẫu 'docker secret' cho khoá LLM của agent giám sát nhưng chưa áp cho các bí mật còn lại. Kết hợp với phát hiện SEC-004 (Next/sharp có advisory), một lỗ hổng thực thi trong dashboard có thể chuyển thành đọc toàn bộ database.",
+      "trigger": "Một lỗ hổng thực thi mã hoặc đọc biến môi trường trong tiến trình Next.js; hoặc ai đó chạy `docker inspect` / xem trang cấu hình lộ env.",
+      "impact": "Có thể xảy ra: một sự cố ở lớp giao diện leo thang thành toàn quyền database và gửi tin Telegram/Zalo giả.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "line": 118,
+          "end_line": 118,
+          "detail": "dashboard: env_file cả .env.prod."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 183,
+          "end_line": 183,
+          "detail": "api: cùng env_file; tương tự su-kien (301), day-tep (332), notification-relay (371), worker (245), pos-relay (274)."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 38,
+          "end_line": 41,
+          "detail": "SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET và DATABASE_URL (postgres:<mật khẩu>@clinicai_db) cùng nằm trong tệp env được nạp cho dashboard."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 521,
+          "end_line": 529,
+          "detail": "Mẫu docker secret (agent_llm_api_key) đã có, chứng minh cách làm đúng nhưng mới dùng một khoá."
+        }
+      ],
+      "limitations": "Một vài biến dashboard thật sự cần (anon key, BACKEND_API_KEY, service-role cho route tạo user admin theo .env.example); chưa kiểm route Next nào đọc DB thẳng (CLAUDE.md nói còn 1, đã tắt).",
+      "recommendation": "Tách env theo dịch vụ (env_file riêng hoặc docker secret): dashboard chỉ nhận NEXT_PUBLIC_*, BACKEND_API_KEY và đúng khoá nó dùng; DATABASE_URL, JWT secret, Telegram, Anthropic chỉ cho api/worker cần. Bỏ service-role khỏi dashboard nếu route admin chuyển sang FastAPI.",
+      "acceptance": "`docker inspect` container dashboard không còn DATABASE_URL, SUPABASE_JWT_SECRET, TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY; một test CI so danh sách biến theo dịch vụ với whitelist.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-004",
+        "SEC-009"
+      ]
+    },
+    {
+      "tmp_id": "S01-5",
+      "title": "Ứng dụng nối database bằng vai postgres (superuser) trong khi tài liệu thiết kế nói backend chạy bằng vai service_role BYPASSRLS; bốn vai đăng nhập dùng chung mật khẩu superuser",
+      "severity": "MEDIUM",
+      "category": "mo_hinh_vai_database",
+      "evidence_level": "design_gap",
+      "summary": "Script khởi tạo mô tả backend chạy bằng vai service_role (BYPASSRLS, không phải superuser) và 'tenant-scope-audit' dựa trên giả định đó. Nhưng mẫu env prod/staging và dev-up đều dùng `postgres:<mật khẩu>` làm DATABASE_URL. Ngoài ra 02-mat-khau-vai-dang-nhap.sh đặt cùng POSTGRES_PASSWORD cho authenticator, supabase_auth_admin và supabase_admin (CREATEROLE, CREATEDB, REPLICATION, BYPASSRLS). Lộ cấu hình PostgREST/GoTrue/Realtime (đều chạy trong container có env) tương đương lộ mật khẩu superuser.",
+      "trigger": "Lộ một biến môi trường của PostgREST/GoTrue/Realtime/api, hoặc lỗi SQL injection/SSRF trong api.",
+      "impact": "Có thể xảy ra: một thành phần nhỏ bị xâm phạm cho toàn quyền database (đọc/xoá mọi bệnh nhân, COPY PROGRAM, tắt trigger), không có lớp giới hạn theo vai.",
+      "evidence": [
+        {
+          "path": "docker/supabase/init/01-vai-va-extension.sql",
+          "line": 30,
+          "end_line": 35,
+          "detail": "Chú thích: backend chạy bằng vai service_role BYPASSRLS và giao kèo tenant-scope-audit."
+        },
+        {
+          "path": "docker/supabase/init/01-vai-va-extension.sql",
+          "line": 51,
+          "end_line": 54,
+          "detail": "supabase_admin: LOGIN CREATEROLE CREATEDB REPLICATION BYPASSRLS."
+        },
+        {
+          "path": "docker/supabase/init/02-mat-khau-vai-dang-nhap.sh",
+          "line": 11,
+          "end_line": 15,
+          "detail": "Ba vai đăng nhập được đặt cùng ${POSTGRES_PASSWORD} (mật khẩu superuser postgres)."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 41,
+          "end_line": 41,
+          "detail": "DATABASE_URL=postgresql+asyncpg://postgres:<db-password>@clinicai_db:5432/postgres."
+        },
+        {
+          "path": "scripts/dev-up.sh",
+          "line": 363,
+          "end_line": 363,
+          "detail": "Môi trường thử cũng dùng postgres làm DSN của API; dev-nap-lai.sh:37 tương tự."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 161,
+          "end_line": 161,
+          "detail": "PostgREST kết nối bằng authenticator với cùng mật khẩu."
+        }
+      ],
+      "limitations": "Tôi chưa đọc src/clinicai/core/database.py nên không biết ứng dụng có `SET ROLE` sau khi nối không.",
+      "recommendation": "Tạo vai ứng dụng riêng (NOSUPERUSER, NOCREATEROLE, BYPASSRLS nếu cần) với mật khẩu riêng cho api/worker; mật khẩu riêng cho authenticator/supabase_auth_admin/supabase_admin; quyền DDL chỉ cho vai migration; cập nhật tài liệu cho khớp.",
+      "acceptance": "`SELECT rolsuper FROM pg_roles WHERE rolname = current_user` trả false trong api; ba vai Supabase có mật khẩu khác nhau và khác postgres; migration vẫn chạy bằng vai riêng.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-001",
+        "DB-002",
+        "SEC-029"
+      ]
+    },
+    {
+      "tmp_id": "S01-6",
+      "title": "Bề mặt Realtime/WAL logical vẫn bật ở prod dù frontend không còn dùng: đường /realtime/v1 công khai, publication chứa bảng PII với REPLICA IDENTITY FULL, không có trần giữ WAL của replication slot",
+      "severity": "MEDIUM",
+      "category": "be_mat_realtime_thua",
+      "evidence_level": "design_gap",
+      "summary": "docker-compose.supabase.staging.yml xác nhận từ 27/09 tin thời gian thực đi kênh LISTEN/NOTIFY + SSE và frontend 'không mở supabase.channel nào'. Nhưng stack prod vẫn chạy dịch vụ realtime, Postgres vẫn wal_level=logical với 8 replication slot, Caddy ngoài vẫn định tuyến /realtime/v1 ra Internet, và script cũ đã thêm patient, payment, prescription, lab_result... vào publication supabase_realtime với REPLICA IDENTITY FULL. Không có `max_slot_wal_keep_size`; nếu một slot logical tồn tại mà Realtime ngừng, WAL tích tụ trên ổ VPS vốn đã từng đầy (backup hỏng 11-12/10 theo bộ nhớ vận hành). Đường này cũng cho tài khoản đã đăng nhập mở luồng thay đổi dữ liệu bệnh nhân theo RLS rộng (xem SEC-029).",
+      "trigger": "Một tài khoản nhân viên (hoặc token bị lộ) kết nối websocket /realtime/v1 và đăng ký postgres_changes; hoặc Realtime dừng khi một slot đã được tạo.",
+      "impact": "Có thể xảy ra: kênh đọc dữ liệu bệnh nhân không đi qua API/log nghiệp vụ; hoặc đĩa đầy do WAL giữ lại. Thêm một dịch vụ cần vá lỗi bảo mật mà không mang lại giá trị.",
+      "evidence": [
+        {
+          "path": "docker-compose.supabase.staging.yml",
+          "line": 13,
+          "end_line": 15,
+          "detail": "Chú thích: tin thời gian thực đã chuyển sang LISTEN/NOTIFY, frontend không còn supabase.channel (grep 01/10/2026: 0 chỗ)."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 63,
+          "end_line": 72,
+          "detail": "Postgres prod chạy wal_level=logical, max_replication_slots=8, max_wal_senders=8; không có max_slot_wal_keep_size."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 174,
+          "end_line": 205,
+          "detail": "Dịch vụ realtime vẫn dựng (SEED_SELF_HOST, tenant realtime-dev)."
+        },
+        {
+          "path": "caddy/Caddyfile",
+          "line": 191,
+          "end_line": 194,
+          "detail": "@supabase gồm /realtime/v1/* chuyển tiếp ra Internet."
+        },
+        {
+          "path": "scripts/maintenance/enable_realtime_dynamic_tables.sql",
+          "line": 13,
+          "end_line": 46,
+          "detail": "Thêm patient, payment, prescription, lab_result, clinical_record... vào publication và REPLICA IDENTITY FULL."
+        },
+        {
+          "path": "docker/supabase/init/01-vai-va-extension.sql",
+          "line": 146,
+          "end_line": 153,
+          "detail": "Tạo publication supabase_realtime sẵn trong khởi tạo."
+        }
+      ],
+      "limitations": "Chưa biết trạng thái thật của publication/slot trên prod (migration có thể đã gỡ bảng); Realtime v2 chỉ tạo slot khi có người đăng ký postgres_changes.",
+      "recommendation": "Gỡ dịch vụ realtime và route /realtime/v1 khỏi prod, DROP bảng khỏi publication, đặt wal_level=replica (hoặc nếu giữ: max_slot_wal_keep_size và cảnh báo độ trễ slot); xoá script enable_realtime_dynamic_tables.sql.",
+      "acceptance": "`SELECT * FROM pg_replication_slots` rỗng và `pg_publication_tables` rỗng; truy cập wss://.../realtime/v1 trả 404 từ Caddy.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-029",
+        "SEC-030",
+        "INF-006"
+      ]
+    },
+    {
+      "tmp_id": "S01-7",
+      "title": "Staging mở trên Internet, dùng chung tài khoản/mật khẩu với prod, nạp hash đăng nhập thật và dựng mã từ bất kỳ PR/nhánh nào trên cùng VPS với prod",
+      "severity": "MEDIUM",
+      "category": "staging_dung_chung_prod",
+      "evidence_level": "design_gap",
+      "summary": "Caddyfile.staging ghi cố ý 'không ổ khoá HTTP; tài khoản/mật khẩu y hệt prod'. Dữ liệu staging là bản sao prod mỗi đêm (khách đã che, nhưng bảng người dùng đăng nhập thì phải còn nguyên để đăng nhập prod hoạt động), chạy trên cùng 4 vCPU/7,8GB với prod. deploy-staging.sh dựng ảnh từ `pull/N/head` hoặc nhánh tuỳ ý (mã chưa duyệt) bằng quyền docker của người chạy. kiem_env_staging chặn trùng khoá JWT/DB/API nhưng không thể chặn trùng mật khẩu người dùng vì chúng đến từ chính dữ liệu.",
+      "trigger": "Một nhân viên bị lộ mật khẩu hoặc dùng thử staging bằng mật khẩu thật; một PR chứa mã độc/thử nghiệm được dựng lên staging; staging bị tấn công để tấn công lateral sang prod (cùng host, cùng Caddy prod nối qua mạng cầu).",
+      "impact": "Có thể xảy ra: mật khẩu nhân viên bị thử từ một địa chỉ ít được canh hơn prod; mã chưa duyệt chạy cạnh database prod, chia chung CPU/đĩa.",
+      "evidence": [
+        {
+          "path": "caddy/Caddyfile.staging",
+          "line": 12,
+          "end_line": 15,
+          "detail": "Không ổ khoá HTTP: ai có tài khoản prod là vào thử được; tài khoản/mật khẩu y hệt prod."
+        },
+        {
+          "path": "scripts/deploy-staging.sh",
+          "line": 78,
+          "end_line": 85,
+          "detail": "git fetch origin pull/N/head hoặc nhánh tuỳ ý rồi checkout --detach -f để dựng."
+        },
+        {
+          "path": "scripts/lib/staging-chung.sh",
+          "line": 87,
+          "end_line": 93,
+          "detail": "Chỉ so khoá JWT/DB/BACKEND/ANON/SERVICE giữa staging và prod; không đụng bảng người dùng."
+        },
+        {
+          "path": "docker-compose.staging.yml",
+          "line": 8,
+          "end_line": 12,
+          "detail": "Staging chạy chung máy với prod, chỉ bảo vệ bằng oom_score_adj và cpu_shares."
+        }
+      ],
+      "limitations": "Chưa đọc staging-nap-ban-sao.sh để biết phần che có thay hash/đặt lại mật khẩu auth.users hay không; câu 'đăng nhập tài khoản prod' trong CLAUDE.md và Caddyfile.staging cho thấy không.",
+      "recommendation": "Thêm lớp truy cập ngoài (VPN/allowlist IP hoặc SSO của Caddy) cho staging; hoặc sau khi nạp, đặt mật khẩu staging riêng/ngẫu nhiên và vô hiệu refresh tokens; chỉ dựng nhánh đã qua duyệt (SHA ghim) và tách staging sang VPS/ cgroup riêng nếu bán cho nhiều phòng khám.",
+      "acceptance": "Từ IP lạ truy cập staging.dr4women.io.vn bị chặn trước trang đăng nhập; đăng nhập staging bằng mật khẩu prod thất bại; deploy-staging từ chối SHA không nằm trong danh sách đã duyệt.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-031",
+        "SEC-032"
+      ]
+    },
+    {
+      "tmp_id": "S01-8",
+      "title": "Cổng deploy prod không ép các điều kiện an toàn: SHA ghim là tuỳ chọn, lệch migration chỉ cảnh báo (và bỏ qua im lặng khi thiếu biến), sức khoẻ chỉ là health của container",
+      "severity": "MEDIUM",
+      "category": "cong_deploy",
+      "evidence_level": "design_gap",
+      "summary": "Khi không đặt DEPLOY_EXPECTED_SHA, deploy-backend.sh prod chạy `git pull --ff-only` trên main và triển khai bất cứ thứ gì đang ở đó, trái quy trình 'ghim SHA đã soát'. Kiểm lệch migration chỉ chạy nếu CLINIC_DB_CONTAINER được đặt, và nếu sổ rỗng hoặc docker exec lỗi (`|| true`) thì bỏ qua; kể cả khi phát hiện thiếu cũng chỉ in cảnh báo. Điều kiện 'khoẻ' để chốt và ghi `.active-state` là healthcheck docker (/health/db = SELECT 1, /health, heartbeat); chính chú thích trong script nhắc sự cố 06/08 vì /health không chạm bảng nghiệp vụ. Không có smoke test chức năng (đăng nhập thật, một API đọc bảng mới).",
+      "trigger": "Có PR merge vào main giữa lúc soát và lúc deploy; deploy trước khi áp migration; hoặc biến CLINIC_DB_CONTAINER không được đặt trên VPS.",
+      "impact": "Có thể xảy ra: mã chưa soát lên prod; endpoint trả 500 vì thiếu cột trong khi deploy báo 'all healthy' và ghi mốc deploy 'thành công'.",
+      "evidence": [
+        {
+          "path": "scripts/deploy-backend.sh",
+          "line": 58,
+          "end_line": 87,
+          "detail": "DEPLOY_EXPECTED_SHA tuỳ chọn; nhánh else chỉ đòi đang ở main rồi `git pull --ff-only`."
+        },
+        {
+          "path": "scripts/deploy-backend.sh",
+          "line": 244,
+          "end_line": 267,
+          "detail": "Kiểm lệch lược đồ chỉ khi CLINIC_DB_CONTAINER có giá trị; thiếu thì bỏ qua; có lệch chỉ `echo` cảnh báo."
+        },
+        {
+          "path": "scripts/deploy-backend.sh",
+          "line": 371,
+          "end_line": 412,
+          "detail": "Điều kiện thành công = health_ok trên api, dashboard, caddy, su-kien, day-tep."
+        },
+        {
+          "path": "scripts/deploy-backend.sh",
+          "line": 449,
+          "end_line": 451,
+          "detail": "Ghi `.active-state` (điểm rollback) ngay khi health_ok, không có bước smoke chức năng."
+        }
+      ],
+      "limitations": "Quy trình thật có thể gọi script với DEPLOY_EXPECTED_SHA qua skill len-prod (ngoài danh sách); đây là khoảng trống của công cụ chứ không chứng minh đã xảy ra.",
+      "recommendation": "Bắt buộc DEPLOY_EXPECTED_SHA cho prod (từ chối nếu thiếu); biến lệch migration thành lỗi chặn trừ khi có cờ cố ý; thêm bước smoke tự động (đăng nhập tài khoản thử, 3-5 API đọc bảng chính, kiểm phiên bản schema do app báo) trước khi ghi `.active-state`.",
+      "acceptance": "Chạy deploy không có SHA bị từ chối; deploy khi còn migration chưa áp dừng với mã lỗi; một endpoint cố tình hỏng làm bước smoke đỏ và kích hoạt rollback.",
+      "alignment": [
+        "Reality rõ",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-008",
+        "INF-015",
+        "DB-006"
+      ]
+    },
+    {
+      "tmp_id": "S01-9",
+      "title": "Hạ tầng gắn cứng tên Dr4Women/VPS: tên container toàn cục, đường dẫn, tên miền, mã phòng; chưa có quy trình dựng stack cho phòng khám mới",
+      "severity": "MEDIUM",
+      "category": "dong_goi_ha_tang",
+      "evidence_level": "design_gap",
+      "summary": "Compose Supabase dùng container_name toàn cục (`clinicai_db`, `clinicai_auth`...) và tự nhận 'hai stack không thể cùng đặt clinicai_db' — nên mỗi host chỉ có một stack prod. Caddy mặc định `giamsat.dr4women.io.vn`; staging-chung.sh mặc định `staging.dr4women.io.vn`, `$HOME/clinicai`; các script vận hành gõ cứng `clinicai_prod-api-1`, `clinicai_db`, `/home/clinicai/clinicai`, `KN-TIEPDON`. Không có script/tài liệu tạo phòng khám mới (tạo tên miền, bộ khoá, env, tenant, danh mục khởi đầu); dev-up.sh mới là đường duy nhất dựng DB mới và nó phải chạy lại thủ công 5 migration cụ thể sau seed.",
+      "trigger": "Bán cho phòng khám thứ hai (cùng VPS hoặc VPS riêng) hoặc dựng lại nhanh sau thảm hoạ.",
+      "impact": "Có thể xảy ra: dựng phòng khám mới mất nhiều ngày, phụ thuộc người nhớ chuỗi bước và sửa tay tên/giá trị; dễ nhân bản cấu hình sai (nhầm container, nhầm env, nhầm domain).",
+      "evidence": [
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 36,
+          "end_line": 47,
+          "detail": "container_name là tên toàn cục; mặc định tiền tố `clinicai` là tên prod."
+        },
+        {
+          "path": "caddy/Caddyfile",
+          "line": 213,
+          "end_line": 215,
+          "detail": "Tên miền giám sát mặc định giamsat.dr4women.io.vn."
+        },
+        {
+          "path": "scripts/lib/staging-chung.sh",
+          "line": 20,
+          "end_line": 28,
+          "detail": "Mặc định staging.dr4women.io.vn, clinicai_db, clinicai_prod, $HOME/clinicai."
+        },
+        {
+          "path": "scripts/chuyen-luot-that.sh",
+          "line": 17,
+          "end_line": 21,
+          "detail": "Tên container prod/staging gõ cứng."
+        },
+        {
+          "path": "scripts/dev-up.sh",
+          "line": 287,
+          "end_line": 303,
+          "detail": "Sau seed phải chạy lại thủ công 5 migration cụ thể (nam_dich_vu_kham, thủ thuật sàn chậu, nhóm dịch vụ, bên thu, mẫu gửi đối tác) — cho thấy chuỗi dựng mới chưa tự đủ."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 5,
+          "end_line": 9,
+          "detail": "Mô tả một VPS, một tên miền, một stack."
+        }
+      ],
+      "limitations": "Thiết kế có thể chọn 'một stack cho một phòng khám' (bán theo VPS) thay vì đa tenant dùng chung; kiểm toán này chỉ ra thiếu công cụ cho cả hai hướng. Dùng chung host nhiều stack cần thay container_name.",
+      "recommendation": "Viết `scripts/tao-phong-kham.sh` (hoặc CLI) nhận tên, domain, múi giờ, danh mục khởi đầu, sinh env+khoá, dựng stack với tiền tố tham số hoá, áp migration, tạo tenant và tài khoản chủ, chạy bộ kiểm; bỏ container_name hoặc tham số hoá toàn bộ; kiểm trong CI bằng cách dựng hai stack giả lập trên cùng host.",
+      "acceptance": "Chạy script với tên mới trên máy trống: trong <= 30 phút có tenant mới đăng nhập được, không còn chuỗi 'dr4women' hoặc 'clinicai_db' gõ cứng trong luồng chạy; hai stack cùng host không đè nhau.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định dựa bằng chứng",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S01-10",
+      "title": "Cấu hình tích hợp theo từng phòng khám (Zalo OA, Telegram, POS, mã phòng khám Telegram) đặt trong biến môi trường cả tiến trình",
+      "severity": "MEDIUM",
+      "category": "cau_hinh_tenant_o_env",
+      "evidence_level": "design_gap",
+      "summary": "Mẫu env nói rõ 'mã template do Zalo cấp cho TỪNG Official Account, nên là cấu hình của từng phòng khám, không phải hằng số của phần mềm' nhưng đặt ZALO_ZNS_ACCESS_TOKEN và hai mã template ở env toàn cục. TELEGRAM_BOT_TOKEN/CHAT_ID/CLINIC_ID cũng là env, kèm UUID phòng khám Dr4Women gõ trong mẫu. POS thì chú thích nói cấu hình nằm trong clinic.settings->'pos' nhưng cổng bật là POS_ADAPTER env. Một tiến trình phục vụ nhiều phòng khám sẽ dùng chung kênh và chung token; đổi token phải sửa env và deploy.",
+      "trigger": "Thêm phòng khám thứ hai, hoặc đổi token OA/Telegram.",
+      "impact": "Có thể xảy ra: tin nhắn/cảnh báo của phòng khám này đi nhầm kênh của phòng khám khác; xoay token cần deploy; không có chỗ nào để mỗi chủ phòng khám tự cấu hình.",
+      "evidence": [
+        {
+          "path": ".env.prod.example",
+          "line": 79,
+          "end_line": 82,
+          "detail": "TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_CLINIC_ID=a0000000-0000-4000-8000-000000000001 (UUID cố định)."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 138,
+          "end_line": 142,
+          "detail": "Chú thích: mã template là cấu hình từng phòng khám; nhưng khai báo là biến môi trường."
+        },
+        {
+          "path": ".env.example",
+          "line": 68,
+          "end_line": 72,
+          "detail": "Chú thích POS: credentials theo phòng khám nằm trong clinic.settings; adapter vẫn là env."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 275,
+          "end_line": 277,
+          "detail": "pos-relay nhận POS_ADAPTER từ env toàn cục."
+        }
+      ],
+      "limitations": "Mã gửi tin có thể đã đọc override từ DB (chưa kiểm services/ngoài danh sách); kết luận dựa vào hợp đồng cấu hình trong env mẫu.",
+      "recommendation": "Đưa kênh/credentials vào bảng cấu hình theo clinic (mã hoá bằng khoá ứng dụng hoặc secret store), giữ env chỉ cho mặc định của hạ tầng; màn Cấu hình cho quản lý phòng khám tự nhập và kiểm tra gửi thử; ghi nhật ký thay đổi.",
+      "acceptance": "Hai tenant giả lập với token Zalo/Telegram khác nhau: tin của tenant A không bao giờ qua kênh B; đổi token không cần restart.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-005",
+        "INF-023",
+        "INF-024"
+      ]
+    },
+    {
+      "tmp_id": "S01-11",
+      "title": "Nhiều script phá huỷ/ngược dòng thời gian vẫn nằm trong repo, chạy lại được trên prod mà không có chốt môi trường, ngày hay số lượng",
+      "severity": "MEDIUM",
+      "category": "script_pha_huy_con_lai",
+      "evidence_level": "design_gap",
+      "summary": "scripts/maintenance/don_data_khach.sql tắt các trigger append-only rồi DELETE toàn bộ patient và mọi dữ liệu treo dưới nó (bệnh án, thanh toán, đơn thuốc...) — chỉ có chú thích 'sau ngày khách nhập thật thì KHÔNG được chạy file này nữa'. kim-nguu-3-tang-2709.py (ghi 'ĐÃ CŨ') chứa XOA = (Phòng khám Dr4Women, Hào Nam): chạy lại với --that sẽ chuyển mọi lịch/lượt/khách/nhân viên của cơ sở Hào Nam (đang hoạt động từ 08/10) sang Kim Ngưu rồi xoá cơ sở và đưa tên phòng về bản 27/09. hoan-tac-lich-su-notion.sql TRUNCATE các bảng lịch sử đã nhập. danh-dau-event-cu-truoc-khi-bat-telegram.sql đánh dấu MỌI event_log chưa đưa tin là đã đưa, không có cận trên thời gian.",
+      "trigger": "Người vận hành (hoặc agent) tìm trong scripts/ một lệnh 'dọn dữ liệu', 'dựng cấu trúc', 'đánh dấu event' và chạy lại theo hướng dẫn cũ.",
+      "impact": "Có thể xảy ra: mất toàn bộ bệnh án (don_data_khach.sql), mất cơ sở đang chạy (kim-nguu), hoặc nuốt im lặng cảnh báo thật chưa gửi (danh-dau-event).",
+      "evidence": [
+        {
+          "path": "scripts/maintenance/don_data_khach.sql",
+          "line": 40,
+          "end_line": 71,
+          "detail": "Mở chốt append-only bằng DISABLE TRIGGER cho 5 bảng bệnh án; chỉ có lời dặn trong chú thích."
+        },
+        {
+          "path": "scripts/maintenance/don_data_khach.sql",
+          "line": 111,
+          "end_line": 137,
+          "detail": "DELETE FROM lần lượt clinical_record, prescription, payment, visit, appointment, patient... không điều kiện, không đếm trước/sau để chặn."
+        },
+        {
+          "path": "scripts/kim-nguu-3-tang-2709.py",
+          "line": 41,
+          "end_line": 42,
+          "detail": "XOA = (\"Phòng khám Dr4Women\", \"Hào Nam\")."
+        },
+        {
+          "path": "scripts/kim-nguu-3-tang-2709.py",
+          "line": 192,
+          "end_line": 241,
+          "detail": "Chuyển dữ liệu của cơ sở bị 'xoá' rồi DELETE clinic_room và clinic_location."
+        },
+        {
+          "path": "scripts/hoan-tac-lich-su-notion.sql",
+          "line": 23,
+          "end_line": 26,
+          "detail": "TRUNCATE tám bảng lich_su_notion và đánh dấu đã hoàn tác."
+        },
+        {
+          "path": "scripts/danh-dau-event-cu-truoc-khi-bat-telegram.sql",
+          "line": 16,
+          "end_line": 18,
+          "detail": "UPDATE event_log SET event_published = TRUE WHERE event_published = FALSE — không có mốc thời gian."
+        }
+      ],
+      "limitations": "Các script có chế độ thử khô/giao dịch hoặc lời cảnh báo trong chú thích; không có bằng chứng đã bị chạy nhầm. don-truoc-moc dùng hàm don_khach_thu có chốt riêng (tốt), nhưng không phải script nào cũng vậy.",
+      "recommendation": "Chuyển các script một lần đã xong vào docs/legacy hoặc xoá khỏi scripts/; script còn giữ phải tự từ chối khi APP_ENV=production/khi bảng patient có > N dòng thật/khi thiếu cờ --toi-hieu-ro với mã xác nhận ngẫu nhiên; thêm kiểm trong CI cấm file có `DISABLE TRIGGER`/`TRUNCATE`/`DELETE FROM patient` ngoài danh sách cho phép.",
+      "acceptance": "Chạy don_data_khach.sql trên DB có > 50 bệnh nhân hoặc APP_ENV=production thì dừng ở lệnh đầu; kim-nguu-3-tang-2709.py bị loại khỏi scripts/ hoặc từ chối khi cơ sở Hào Nam có lịch hẹn.",
+      "alignment": [
+        "Ownership rõ",
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "OPS-011",
+        "INF-003"
+      ]
+    },
+    {
+      "tmp_id": "S01-12",
+      "title": "Script dữ liệu một lần không theo tenant: lọc theo mã/tên của Dr4Women hoặc bỏ clinic_id, hoặc áp một mốc cho mọi phòng khám",
+      "severity": "MEDIUM",
+      "category": "script_khong_theo_tenant",
+      "evidence_level": "design_gap",
+      "summary": "bat-lai-doi-tac-1610.sql đổi `node_definition.lam_ben_ngoai` và `service_price.billing_owner / doi_tac_lay_mau` bằng WHERE chỉ theo mã (code, service_code), không có clinic_id. don-truoc-moc.sql chọn khách của MỌI phòng khám bằng cùng một mốc rồi gọi hàm xoá cho từng clinic. cap-duyet-ket-qua.py, ky-nang-tu-file.py, ap-lich-tuan-2809.py chọn phòng khám bằng `clinic_room WHERE code = 'KN-TIEPDON'/'KN-SANCHAU' LIMIT 1`; kim-nguu chọn clinic theo tên cơ sở 'Kim Ngưu'. billing_owner quyết định tiền thuộc phòng khám hay đối tác nên sai phạm vi là sai doanh thu.",
+      "trigger": "Khi có từ hai phòng khám trong cùng database (đa tenant) hoặc hai cơ sở có cùng mã dịch vụ.",
+      "impact": "Có thể xảy ra: tiền của phòng khám B bị coi là thu hộ đối tác, hoặc khách thật của phòng khám B bị xoá vì mốc dành cho Dr4Women; scripts chọn nhầm clinic im lặng (LIMIT 1).",
+      "evidence": [
+        {
+          "path": "scripts/bat-lai-doi-tac-1610.sql",
+          "line": 12,
+          "end_line": 24,
+          "detail": "UPDATE ... WHERE code = ANY(...) / service_code = ANY(...) không có clinic_id; đổi billing_owner."
+        },
+        {
+          "path": "scripts/don-truoc-moc.sql",
+          "line": 68,
+          "end_line": 85,
+          "detail": "Bảng khach lấy toàn bộ public.patient của mọi clinic, cùng một mốc."
+        },
+        {
+          "path": "scripts/don-truoc-moc.sql",
+          "line": 153,
+          "end_line": 160,
+          "detail": "Gọi don_khach_thu cho từng clinic với danh sách khách của clinic đó nhưng cùng mốc (chú thích 'hiện chỉ có một')."
+        },
+        {
+          "path": "scripts/cap-duyet-ket-qua.py",
+          "line": 38,
+          "end_line": 40,
+          "detail": "cid lấy từ phòng KN-TIEPDON ... LIMIT 1."
+        },
+        {
+          "path": "scripts/ap-lich-tuan-2809.py",
+          "line": 242,
+          "end_line": 249,
+          "detail": "Phòng khám xác định từ KN-SANCHAU đang bật."
+        },
+        {
+          "path": "scripts/ky-nang-tu-file.py",
+          "line": 150,
+          "end_line": 154,
+          "detail": "Phòng khám xác định từ KN-TIEPDON, 'chưa có cơ sở Kim Ngưu'."
+        }
+      ],
+      "limitations": "Hiện chỉ có một clinic nên chưa thấy sai; đây là rủi ro khi đóng gói. Một số script đã xong việc và chỉ còn giá trị lịch sử.",
+      "recommendation": "Mọi script vận hành nhận --clinic <uuid> bắt buộc, kiểm phòng khám tồn tại và in tên để xác nhận; điều kiện SQL luôn kèm clinic_id; lưu mẫu script vào thư mục có test; di chuyển phần lặp lại được thành lệnh quản trị có kiểm quyền trong ứng dụng.",
+      "acceptance": "Trên DB có hai clinic giả lập cùng mã dịch vụ, chạy script với --clinic A không làm thay đổi bất kỳ dòng nào của B (test so checksum trước/sau).",
+      "alignment": [
+        "Ownership rõ",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004",
+        "DB-005",
+        "OPS-011"
+      ]
+    },
+    {
+      "tmp_id": "S01-13",
+      "title": "Cấu hình ảnh hưởng tiền, phòng và quyền được đổi bằng SQL/script dưới vai superuser, ngoài sổ migration và không ghi nhật ký thao tác",
+      "severity": "MEDIUM",
+      "category": "doi_cau_hinh_ngoai_vet",
+      "evidence_level": "design_gap",
+      "summary": "Các thao tác 'bật lại đối tác làm', 'gỡ dịch vụ thừa khỏi phòng đối tác' và pha 1 của kim-nguu (sửa tên/tầng/việc phòng, chuyển lịch sử, xoá cơ sở) là SQL chạy qua `docker exec ... psql -U postgres`, không đi qua service có audit. Chúng đổi billing_owner (tiền thu hộ đối tác), clinic_room_service, clinic_room_node. Không có bản ghi 'ai đổi, lúc nào, giá trị cũ-mới'; kiem-doi-tac-1610.sql thừa nhận dòng hoá đơn đã chụp billing_owner lúc thu nên đổi sau sẽ lệch sổ cũ. Một số script khác (cap-duyet, ky-nang) có đi qua PermissionService nhưng gán hành động cho tài khoản quản lý đầu tiên tìm thấy.",
+      "trigger": "Chạy các script cấu hình trực tiếp trên prod.",
+      "impact": "Có thể xảy ra: không trả lời được 'vì sao doanh thu tháng này khác', 'ai bật thu hộ đối tác'; không hoàn tác được từng thay đổi.",
+      "evidence": [
+        {
+          "path": "scripts/bat-lai-doi-tac-1610.sql",
+          "line": 1,
+          "end_line": 29,
+          "detail": "Chạy bằng psql -U postgres, đổi cờ đối tác và billing_owner_chon_tay."
+        },
+        {
+          "path": "scripts/go-dich-vu-thua-phong-doi-tac-1610.sql",
+          "line": 22,
+          "end_line": 25,
+          "detail": "DELETE FROM clinic_room_service theo danh sách tạm, không ghi nhật ký."
+        },
+        {
+          "path": "scripts/kim-nguu-3-tang-2709.py",
+          "line": 161,
+          "end_line": 308,
+          "detail": "Pha 1: UPDATE/DELETE trực tiếp trên clinic_room, clinic_room_node, service_order, visit..."
+        },
+        {
+          "path": "scripts/kiem-doi-tac-1610.sql",
+          "line": 15,
+          "end_line": 16,
+          "detail": "Chú thích: dòng hoá đơn chụp billing_owner lúc thu; dịch vụ đổi bên thu sau đó thì lệch."
+        }
+      ],
+      "limitations": "Có thể đã có trigger ghi event_log/config_audit cho các bảng này (chưa kiểm); khi đó script vẫn thiếu thông tin người/lý do.",
+      "recommendation": "Mọi thay đổi cấu hình tiền/phòng/quyền đi qua dịch vụ có sổ audit bất biến (actor thật, lý do, trước/sau); script chỉ được gọi dịch vụ đó; migration dữ liệu có sổ riêng ghi lại câu lệnh và kết quả.",
+      "acceptance": "Sau khi chạy một script cấu hình trên DB thử, có đúng một dòng audit cho mỗi bản ghi đổi, hiển thị ở màn nhật ký với tên người phụ trách.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Ownership rõ",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-010",
+        "INF-021",
+        "SEC-026"
+      ]
+    },
+    {
+      "tmp_id": "S01-14",
+      "title": "Gửi nội dung kết quả xét nghiệm ra LLM bên ngoài được bật ngầm chỉ bằng sự hiện diện của ANTHROPIC_API_KEY, không có cờ rõ ràng theo phòng khám",
+      "severity": "MEDIUM",
+      "category": "du_lieu_y_te_ra_ngoai",
+      "evidence_level": "design_gap",
+      "summary": "main.py tạo llm_client nếu biến môi trường ANTHROPIC_API_KEY khác rỗng; endpoint lab triage và classify_lab_result dùng client này. Mẫu env prod ghi: 'CÓ biến này là main.py bật AI phân loại xét nghiệm (gửi NỘI DUNG kết quả đi)'. Cờ ENABLE_AI_ORCHESTRATOR chỉ chặn router orchestrator. Cùng tài liệu đó giải thích vì sao khoá LLM của agent giám sát được tách thành docker secret, và từ chối Sentry vì 'dữ liệu y tế không gửi ra SaaS nước ngoài' — nhưng đường lab triage vẫn đi chỉ bằng một biến.",
+      "trigger": "Ai đó đặt ANTHROPIC_API_KEY (ví dụ để dùng chung cho agent hoặc bản thử) trong .env.prod rồi nhân viên gọi /lab/triage.",
+      "impact": "Có thể xảy ra: nội dung kết quả khám của bệnh nhân gửi tới nhà cung cấp LLM nước ngoài mà phòng khám/bệnh nhân không đồng ý rõ ràng, trái chính sách đã tự đặt.",
+      "evidence": [
+        {
+          "path": "src/clinicai/main.py",
+          "line": 154,
+          "end_line": 163,
+          "detail": "Chỉ cần os.environ.get('ANTHROPIC_API_KEY') là dựng AnthropicClient."
+        },
+        {
+          "path": "src/clinicai/main.py",
+          "line": 174,
+          "end_line": 181,
+          "detail": "Truyền llm_client và lab_triage_pool vào OrchestratorService."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/lab.py",
+          "line": 214,
+          "end_line": 253,
+          "detail": "Endpoint lab triage lấy client từ app.state và chạy graph có LLM."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 44,
+          "end_line": 47,
+          "detail": "Ghi chú: có biến này là bật AI phân loại xét nghiệm, gửi nội dung kết quả đi."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 74,
+          "end_line": 76,
+          "detail": "Quyết định không dùng Sentry vì dữ liệu y tế không gửi ra SaaS nước ngoài."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 521,
+          "end_line": 526,
+          "detail": "Khoá LLM của agent giám sát tách riêng khỏi ANTHROPIC_API_KEY để không kéo theo đường này."
+        }
+      ],
+      "limitations": "Chưa đọc đầy đủ lab.py/nodes.py: không biết có kiểm quyền, mức PII hay ẩn danh trước khi gửi hay không; endpoint còn giới hạn bởi quyền người gọi.",
+      "recommendation": "Thêm cờ tường minh theo clinic (`ai.lab_triage.enabled`, lưu bằng chứng đồng ý và nhà cung cấp) mặc định tắt; client LLM chỉ dựng khi cờ bật; ẩn danh/loại trường định danh trước khi gửi; ghi nhật ký mỗi lần dữ liệu rời hệ thống.",
+      "acceptance": "Đặt ANTHROPIC_API_KEY nhưng không bật cờ clinic: /lab/triage trả AI_DISABLED và không có request ra ngoài (test có chặn socket); bật cờ thì có dòng nhật ký 'đã gửi'.",
+      "alignment": [
+        "AI hỗ trợ người",
+        "Quyết định dựa bằng chứng",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "AI-004",
+        "SEC-020"
+      ]
+    },
+    {
+      "tmp_id": "S01-15",
+      "title": "Script gỡ lượt chuyển từ hồ sơ cũ tắt toàn bộ ràng buộc khoá ngoại nhưng chỉ kiểm bốn loại dữ liệu nhân viên có thể đã thêm",
+      "severity": "LOW",
+      "category": "script_go_luot_that",
+      "evidence_level": "design_gap",
+      "summary": "hoan-tac-luot-that.sql dùng `SET LOCAL session_replication_role = replica` (tắt trigger, kể cả kiểm tra khoá ngoại) rồi DELETE visit/appointment. Bộ chốt chỉ đếm service_order, prescription, tep_ket_qua và trạng thái visit. Nhiều bảng khác tham chiếu visit (payment, payment_cycle, cong_no, work_item...) với ON DELETE RESTRICT; với FK bị tắt, dòng của chúng trở thành mồ côi mà không báo lỗi nếu nhân viên đã thu tiền hoặc ghi công nợ trên lượt chuyển.",
+      "trigger": "Chạy gỡ lượt sau khi lễ tân/thu ngân đã thao tác trên lượt cũ.",
+      "impact": "Có thể xảy ra: bản ghi thanh toán/công nợ trỏ tới lượt không còn; báo cáo tài chính lệch hoặc lỗi 500 khi dựng hoá đơn.",
+      "evidence": [
+        {
+          "path": "scripts/hoan-tac-luot-that.sql",
+          "line": 18,
+          "end_line": 32,
+          "detail": "Chốt chỉ kiểm 4 loại dữ liệu nhân viên thêm."
+        },
+        {
+          "path": "scripts/hoan-tac-luot-that.sql",
+          "line": 34,
+          "end_line": 53,
+          "detail": "session_replication_role = replica rồi DELETE hàng loạt."
+        },
+        {
+          "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+          "line": 45,
+          "end_line": 46,
+          "detail": "payment_cycle tham chiếu visit ON DELETE RESTRICT (ví dụ ngoài danh sách)."
+        },
+        {
+          "path": "supabase/migrations/20261002500000_cong_no.sql",
+          "line": 39,
+          "end_line": 40,
+          "detail": "Sổ công nợ tham chiếu visit ON DELETE RESTRICT."
+        }
+      ],
+      "limitations": "Script thủ công, ít chạy; chưa xác minh bảng payment có dòng cho các lượt chuyển trong thực tế.",
+      "recommendation": "Thay `replica` bằng xoá theo thứ tự lá lên gốc với FK bật; mở rộng chốt để kiểm mọi bảng tham chiếu visit/appointment (sinh từ pg_constraint); in số dòng trước khi xoá và buộc xác nhận.",
+      "acceptance": "Tạo thử một payment cho lượt đã chuyển: script dừng với thông báo; DB sau khi chạy không có dòng vi phạm `SELECT` kiểm FK thủ công.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "OPS-011"
+      ]
+    },
+    {
+      "tmp_id": "S01-16",
+      "title": "ky-nang-tu-file.py --cap-quyen cấp quyền bằng kết nối khác trong lúc giao dịch ghi định nghĩa kỹ năng chưa commit, trái chú thích 'sau giao dịch'",
+      "severity": "LOW",
+      "category": "script_thu_tu_giao_dich",
+      "evidence_level": "confirmed_static",
+      "summary": "Khối `async with conn.transaction()` upsert bảng ky_nang rồi, nếu có --cap-quyen, gọi `return await _cap_quyen(cid, gan)` ngay bên trong khối. `_cap_quyen` mở pool riêng (kết nối khác) và gọi KyNangService.doi. Vì giao dịch chưa commit, kỹ năng mới/đổi chưa nhìn thấy được từ kết nối kia; nếu `_cap_quyen` lỗi, cả định nghĩa kỹ năng bị rollback.",
+      "trigger": "Chạy --that --cap-quyen khi định nghĩa kỹ năng chưa tồn tại hoặc đổi lego/phòng.",
+      "impact": "Có thể xảy ra: lần chạy đầu cấp quyền theo định nghĩa cũ hoặc báo lỗi kỹ năng không có; script in 'sau giao dịch' gây hiểu sai trạng thái.",
+      "evidence": [
+        {
+          "path": "scripts/ky-nang-tu-file.py",
+          "line": 198,
+          "end_line": 208,
+          "detail": "Upsert ky_nang trong transaction của conn."
+        },
+        {
+          "path": "scripts/ky-nang-tu-file.py",
+          "line": 219,
+          "end_line": 223,
+          "detail": "In '(cấp quyền ... sau giao dịch)' nhưng `return await _cap_quyen(...)` nằm trong khối async with."
+        },
+        {
+          "path": "scripts/ky-nang-tu-file.py",
+          "line": 81,
+          "end_line": 85,
+          "detail": "_cap_quyen tạo pool mới."
+        }
+      ],
+      "limitations": "Chưa đọc KyNangService.doi để xác nhận nó đọc bảng ky_nang; script là công cụ một lần đã dùng 28/09.",
+      "recommendation": "Đặt lệnh gọi _cap_quyen sau khi thoát khỏi `async with conn.transaction()`; thêm test chạy script với DB thử.",
+      "acceptance": "Chạy script trên DB trống có --cap-quyen: định nghĩa kỹ năng được commit trước, rồi quyền được cấp đúng.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S01-17",
+      "title": "Script cấp quyền/xếp lịch ghi nhật ký dưới tên một quản lý có thật ('Quản lý hệ thống' hoặc quản lý đầu tiên tìm thấy)",
+      "severity": "LOW",
+      "category": "audit_gan_sai_nguoi",
+      "evidence_level": "design_gap",
+      "summary": "cap-duyet-ket-qua.py, kim-nguu-3-tang-2709.py, ky-nang-tu-file.py, ap-lich-tuan-2809.py dựng StaffIdentity của quản lý ('ORDER BY full_name='Quản lý hệ thống' DESC LIMIT 1') và gọi PermissionService/KyNangService/RosterService. Sổ kiểm toán sẽ ghi 'quản lý X cấp quyền', không phải 'kỹ sư vận hành Y chạy script'.",
+      "trigger": "Chạy một trong các script trên prod.",
+      "impact": "Có thể xảy ra: quản lý thật bị gán trách nhiệm cho thay đổi quyền không do họ làm; điều tra sự cố khó.",
+      "evidence": [
+        {
+          "path": "scripts/cap-duyet-ket-qua.py",
+          "line": 41,
+          "end_line": 61,
+          "detail": "Chọn MANAGEMENT đầu tiên rồi dựng StaffIdentity."
+        },
+        {
+          "path": "scripts/ap-lich-tuan-2809.py",
+          "line": 250,
+          "end_line": 270,
+          "detail": "Cùng kiểu chọn quản lý."
+        },
+        {
+          "path": "scripts/kim-nguu-3-tang-2709.py",
+          "line": 341,
+          "end_line": 362,
+          "detail": "Cùng kiểu; in 'thao tác dưới tên'."
+        },
+        {
+          "path": "scripts/ky-nang-tu-file.py",
+          "line": 87,
+          "end_line": 107,
+          "detail": "Cùng kiểu."
+        }
+      ],
+      "limitations": "Script in tên người đại diện ra màn hình; không có bằng chứng bị dùng sai.",
+      "recommendation": "Tạo tài khoản dịch vụ (service actor) 'Vận hành hệ thống' có cờ nhận diện và bắt mọi script dùng nó, kèm tham số --nguoi-chay ghi vào lý do; hiển thị rõ trong nhật ký.",
+      "acceptance": "Dòng audit của script hiển thị actor 'Vận hành hệ thống' cùng người chạy thật.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-026",
+        "INF-010"
+      ]
+    },
+    {
+      "tmp_id": "S01-18",
+      "title": "Script dev dùng pkill theo tên cho toàn máy, phá việc chạy song song nhiều worktree mà quy trình khuyến khích",
+      "severity": "LOW",
+      "category": "cong_cu_dev_song_song",
+      "evidence_level": "confirmed_static",
+      "summary": "dev-nap-lai.sh api chạy `pkill -f \"uvicorn clinicai.main\"` và web chạy `pkill -f \"next-server\"` không lọc theo cổng/thư mục; dev-up.sh chạy `pkill -f \"clinicai.worker --su-kien\"` (cũng ở bước 3). dev-giao-dien.sh thì cố ý chỉ tắt theo cổng. Quy trình chuẩn (CLAUDE.md) cho mỗi việc một cổng riêng chạy song song cùng stack local chung.",
+      "trigger": "Hai agent/worktree cùng chạy dev-nap-lai.sh hoặc dev-up.sh.",
+      "impact": "Có thể xảy ra: server của việc kia bị giết giữa chừng; lượt bấm thử/đo thất bại giả; event worker bị tắt nên khách check-in 'không vào hàng'.",
+      "evidence": [
+        {
+          "path": "scripts/dev-nap-lai.sh",
+          "line": 69,
+          "end_line": 69,
+          "detail": "pkill -f \"uvicorn clinicai.main\" toàn máy."
+        },
+        {
+          "path": "scripts/dev-nap-lai.sh",
+          "line": 98,
+          "end_line": 99,
+          "detail": "pkill -f \"next-server\" toàn máy."
+        },
+        {
+          "path": "scripts/dev-up.sh",
+          "line": 88,
+          "end_line": 91,
+          "detail": "stop_services: pkill API theo cổng nhưng su-kien theo tên chung (89, 380)."
+        },
+        {
+          "path": "scripts/dev-giao-dien.sh",
+          "line": 60,
+          "end_line": 62,
+          "detail": "Bản mới ghi rõ 'CHỈ theo cổng, không pkill next-server toàn máy'."
+        }
+      ],
+      "limitations": "Chỉ ảnh hưởng máy dev.",
+      "recommendation": "Lọc theo cổng hoặc theo đường dẫn venv/worktree (như dev-giao-dien.sh), ghi pid file theo cổng; thêm một worker su-kien theo worktree hoặc dùng khoá để tránh nhiều worker khác mã cùng đọc một DB.",
+      "acceptance": "Chạy hai dev-up.sh ở hai worktree/cổng khác nhau: chạy nap-lai ở một bên không làm bên kia mất tiến trình.",
+      "alignment": [
+        "Con người bị gián đoạn ít hơn",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-014"
+      ]
+    },
+    {
+      "tmp_id": "S01-19",
+      "title": "check_rabbitmq.py in URL kèm mật khẩu và tiêu thụ + xác nhận (ack) các sự kiện thật trong events.audit khi tìm tin thử",
+      "severity": "LOW",
+      "category": "cong_cu_rabbit_cu",
+      "evidence_level": "confirmed_static",
+      "summary": "Script in `Connecting to {url}` với RABBITMQ_URL đầy đủ. Sau khi publish tin 'healthcheck_ping' lên events.topic, nó lặp qua hàng events.audit (bind '#') và `message.process()` ack MỌI tin đọc được cho tới khi gặp tin thử; các tin audit cũ nằm trước tin thử bị xoá khỏi hàng.",
+      "trigger": "Chạy script trên môi trường dùng profile workers.",
+      "impact": "Có thể xảy ra: mật khẩu RabbitMQ lọt vào nhật ký/terminal; mất sự kiện audit còn trong hàng.",
+      "evidence": [
+        {
+          "path": "scripts/check_rabbitmq.py",
+          "line": 22,
+          "end_line": 22,
+          "detail": "print(f\"Connecting to {url}...\")."
+        },
+        {
+          "path": "scripts/check_rabbitmq.py",
+          "line": 50,
+          "end_line": 68,
+          "detail": "Publish routing key test.healthcheck rồi iterate events.audit với message.process() (ack)."
+        },
+        {
+          "path": "docker/rabbitmq/definitions.json",
+          "line": 47,
+          "end_line": 55,
+          "detail": "Binding '#' đưa mọi tin vào events.audit."
+        }
+      ],
+      "limitations": "Profile workers/RabbitMQ không bật ở prod; ảnh hưởng thấp.",
+      "recommendation": "Che mật khẩu khi in; dùng queue tạm riêng (exclusive, auto-delete) bind routing key test thay vì đọc events.audit.",
+      "acceptance": "Chạy script không in mật khẩu và không giảm message_count của events.audit.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S01-20",
+      "title": "CI GitHub chỉ lint/kiểm kiểu thư mục src/, trong khi hook sau-sửa và pyright còn áp cho scripts/; các script Python thay đổi prod không được kiểm trong CI",
+      "severity": "LOW",
+      "category": "pham_vi_kiem_ci",
+      "evidence_level": "design_gap",
+      "summary": "ci.yml chạy `ruff check src/`, `ruff format --check src/`, `mypy src/`; Makefile tương tự. Hook kiem-sau-sua.sh lại kiểm cả `scripts/*.py`, pyrightconfig có `scripts`. Các script như ky-nang-tu-file.py, kim-nguu, cap-duyet đổi dữ liệu prod nhưng không có kiểm tĩnh hay test trong CI. Ngoài ra ci.yml của GitHub không còn là CI thật (CLAUDE.md: CI chạy ở ci-may.sh), nên có hai định nghĩa 'CI' có thể lệch nhau.",
+      "trigger": "Sửa một script vận hành mà không qua hook (hoặc bởi người dùng công cụ khác).",
+      "impact": "Có thể xảy ra: lỗi cú pháp/kiểu trong script chạy trên prod chỉ lộ lúc chạy (xem S01-16).",
+      "evidence": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "line": 58,
+          "end_line": 65,
+          "detail": "Ruff và mypy chỉ trên src/."
+        },
+        {
+          "path": ".claude/hooks/kiem-sau-sua.sh",
+          "line": 25,
+          "end_line": 29,
+          "detail": "Hook áp dụng cho file trong src/ và scripts/."
+        },
+        {
+          "path": "pyrightconfig.json",
+          "line": 2,
+          "end_line": 6,
+          "detail": "pyright include scripts."
+        },
+        {
+          "path": "Makefile",
+          "line": 9,
+          "end_line": 13,
+          "detail": "lint/format chỉ src/."
+        }
+      ],
+      "limitations": "Chưa đọc scripts/ci-may.sh nên không biết nó có lint scripts/ không.",
+      "recommendation": "Mở rộng ruff/mypy sang scripts/*.py (hoặc tách ops scripts thành gói có test); đồng bộ danh mục kiểm giữa ci.yml, ci-may.sh và hook trong một tệp cấu hình.",
+      "acceptance": "CI đỏ khi scripts/ky-nang-tu-file.py có lỗi kiểu hoặc lỗi lint.",
+      "alignment": [
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-014",
+        "CI-001"
+      ]
+    },
+    {
+      "tmp_id": "S01-21",
+      "title": "Ảnh nền và công cụ không ghim phiên bản (caddy:2-alpine, louislam/uptime-kuma:1, cloudflared:latest, python:3.12-slim, postgres:17); bản ghi phiên bản chỉ có cho stack dev",
+      "severity": "LOW",
+      "category": "anh_khong_ghim",
+      "evidence_level": "design_gap",
+      "summary": "Compose dùng tag trôi cho Caddy ingress, Kuma, cloudflared (profile), gateway Caddy, nginx, postgres:17 và Dockerfile.api dùng python:3.12-slim. dev-up.sh có bước ghi digest thật của từng container vì 'tag trôi, cùng một dòng compose cho ra ảnh khác nhau ở hai máy' — nhưng chỉ cho stack thử. Prod không lưu digest của ảnh đang chạy ngoài ID ảnh dùng cho rollback ứng dụng.",
+      "trigger": "Dựng lại/di chuyển stack sau vài tháng; `docker compose pull` hoặc dựng mới trên VPS khác.",
+      "impact": "Có thể xảy ra: khôi phục hoặc nhân bản stack cho phòng khám mới cho ra phiên bản khác bản đã kiểm; thay đổi hành vi Caddy/Kuma/Postgres minor bất ngờ.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "line": 41,
+          "end_line": 41,
+          "detail": "image: caddy:2-alpine."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 431,
+          "end_line": 431,
+          "detail": "image: louislam/uptime-kuma:1."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 490,
+          "end_line": 490,
+          "detail": "image: cloudflare/cloudflared:latest (profile)."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 53,
+          "end_line": 53,
+          "detail": "image: postgres:17 (minor trôi); 221 nginx:1.27-alpine, 235 caddy:2-alpine."
+        },
+        {
+          "path": "Dockerfile.api",
+          "line": 5,
+          "end_line": 22,
+          "detail": "FROM python:3.12-slim (builder và runtime) không ghim digest."
+        },
+        {
+          "path": "scripts/dev-up.sh",
+          "line": 238,
+          "end_line": 249,
+          "detail": "Ghi digest thật chỉ cho stack thử."
+        }
+      ],
+      "limitations": "Tag chính (postgres major, gotrue, postgrest, realtime) đã ghim; rủi ro chủ yếu ở lớp ingress/giám sát.",
+      "recommendation": "Ghim digest (hoặc minor) cho mọi ảnh, ghi digest đang chạy vào ops-status/nhật ký deploy, cập nhật bằng PR có kiểm.",
+      "acceptance": "`docker compose config --images` toàn là tag đầy đủ hoặc digest; màn Ops hiển thị digest của mỗi dịch vụ.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S01-22",
+      "title": "Cấu hình GoTrue prod cho phép mọi redirect (URI_ALLOW_LIST '*'), SITE_URL/API_EXTERNAL_URL mặc định localhost và chưa có SMTP, nên luồng email chưa dùng được và sẽ mở redirect khi bật",
+      "severity": "LOW",
+      "category": "cau_hinh_gotrue",
+      "evidence_level": "design_gap",
+      "summary": "GOTRUE_URI_ALLOW_LIST là '*', GOTRUE_SITE_URL mặc định http://localhost, API_EXTERNAL_URL http://localhost:54321, MAILER_AUTOCONFIRM true và chưa có biến SMTP; .env.prod.example không đặt SITE_URL. Đặt lại mật khẩu bằng email vì vậy không hoạt động (nhân viên phải nhờ quản lý, liên quan SEC-001/SEC-006). Khi sau này bật SMTP mà quên đổi, mọi redirect_to đều được chấp nhận và liên kết trỏ về localhost.",
+      "trigger": "Bật gửi email của GoTrue hoặc dùng liên kết khôi phục.",
+      "impact": "Có thể xảy ra: token khôi phục có thể bị chuyển tới địa chỉ kẻ tấn công qua redirect_to; hoặc người dùng nhận liên kết hỏng.",
+      "evidence": [
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 99,
+          "end_line": 99,
+          "detail": "API_EXTERNAL_URL: http://localhost:${SUPABASE_API_PORT:-54321}."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 113,
+          "end_line": 114,
+          "detail": "GOTRUE_SITE_URL mặc định localhost; GOTRUE_URI_ALLOW_LIST: \"*\"."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 139,
+          "end_line": 143,
+          "detail": "DISABLE_SIGNUP true; MAILER_AUTOCONFIRM true; chưa nối máy chủ mail."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 31,
+          "end_line": 41,
+          "detail": "Khối Supabase prod không khai SITE_URL/SMTP."
+        }
+      ],
+      "limitations": "Hiện không có SMTP nên rủi ro là tiềm năng; staging overlay đặt API_EXTERNAL_URL theo SITE_URL.",
+      "recommendation": "Đặt URI_ALLOW_LIST là danh sách tên miền thật, SITE_URL/API_EXTERNAL_URL theo domain; viết quy trình cấp lại mật khẩu (quản lý tạo mã một lần + hết hạn) hoặc nối SMTP và kiểm.",
+      "acceptance": "Gọi /auth/v1/recover với redirect_to ngoài danh sách bị từ chối; liên kết trong email dùng domain thật.",
+      "alignment": [
+        "Con người bị gián đoạn ít hơn",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-001",
+        "SEC-006",
+        "SEC-025"
+      ]
+    },
+    {
+      "tmp_id": "S01-23",
+      "title": ".dockerignore không loại thư mục .media (ảnh siêu âm thật trong cây repo trên VPS) khỏi build context của Dockerfile.api",
+      "severity": "LOW",
+      "category": "build_context_du_lieu_benh_nhan",
+      "evidence_level": "design_gap",
+      "summary": "Mặc định MEDIA_DIR là ./.media nên trên VPS thư mục repo chứa .media/production với ảnh bệnh nhân. Dockerfile.api dùng context là gốc repo; .dockerignore loại .media-vps (ghi 'không bao giờ vào ảnh') nhưng không loại .media, .ops-status, .release-env-*, .release-source-*. Hiện Dockerfile chỉ COPY pyproject/poetry.lock/README/src nên ảnh không chứa, nhưng thêm một `COPY . .` sau này sẽ mang dữ liệu bệnh nhân và bí mật vào ảnh.",
+      "trigger": "Ai đó đổi Dockerfile sang COPY rộng hơn, hoặc đẩy build context sang builder từ xa.",
+      "impact": "Có thể xảy ra: ảnh container chứa ảnh siêu âm/bí mật; gửi build context lớn làm chậm deploy.",
+      "evidence": [
+        {
+          "path": ".dockerignore",
+          "line": 14,
+          "end_line": 33,
+          "detail": "Loại .env*, .git, node_modules, .media-vps; không có .media."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 217,
+          "end_line": 219,
+          "detail": "Bind ${MEDIA_DIR:-./.media}/production — mặc định nằm trong repo."
+        },
+        {
+          "path": ".media/.gitignore",
+          "line": 1,
+          "end_line": 3,
+          "detail": "Ghi chú 'ẢNH SIÊU ÂM CỦA BỆNH NHÂN THẬT' trong thư mục .media."
+        },
+        {
+          "path": "Dockerfile.api",
+          "line": 17,
+          "end_line": 19,
+          "detail": "Chỉ COPY pyproject.toml, poetry.lock, README.md và src."
+        }
+      ],
+      "limitations": "BuildKit chỉ gửi các tệp được COPY nhắc tới nên rủi ro hiện thấp.",
+      "recommendation": "Thêm .media, .ops-status, .release-env-*, .release-source-*, .active-state-* vào .dockerignore và thêm test CI kiểm các mẫu này.",
+      "acceptance": "Test đọc .dockerignore và đòi các mẫu bắt buộc; `docker build` với context chứa .media không gửi tệp đó.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S01-24",
+      "title": "Mẫu .env.prod đặt DASHBOARD_MEMORY_LIMIT=512m và không đặt NEXT_WORKERS, trái cảnh báo OOM ngay trong compose về 4 tiến trình",
+      "severity": "LOW",
+      "category": "mau_env_gioi_han_bo_nho",
+      "evidence_level": "design_gap",
+      "summary": "docker-compose.yml nói 4 tiến trình Next.js cần ~85MiB mỗi cái cộng phần dựng trang, '512m cũ vừa đủ cho MỘT tiến trình; giữ nguyên mà tăng số tiến trình là mời OOM'. NEXT_WORKERS để trống nghĩa là dùng hết số nhân (trần 4). Mẫu env prod (file mà CI dùng để kiểm compose, và người dựng prod mới sẽ copy) đặt 512m và không đặt NEXT_WORKERS.",
+      "trigger": "Dựng stack mới (phòng khám mới/VPS mới) từ mẫu mà không biết giá trị thật trên prod.",
+      "impact": "Có thể xảy ra: dashboard bị OOM khi tải cao và container restart, gây gián đoạn.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "line": 114,
+          "end_line": 124,
+          "detail": "Chú thích OOM và NEXT_WORKERS mặc định rỗng."
+        },
+        {
+          "path": ".env.prod.example",
+          "line": 51,
+          "end_line": 52,
+          "detail": "API_MEMORY_LIMIT=1g, DASHBOARD_MEMORY_LIMIT=512m; không có NEXT_WORKERS."
+        },
+        {
+          "path": ".env.example",
+          "line": 95,
+          "end_line": 102,
+          "detail": "Chú thích 'prod: bỏ trống = dùng hết nhân, trần 4' và DASHBOARD_MEMORY_LIMIT=1g."
+        }
+      ],
+      "limitations": "Giá trị thật trên VPS có thể khác; chỉ nói về mẫu.",
+      "recommendation": "Cập nhật mẫu theo giá trị đo thực (NEXT_WORKERS và trần RAM khớp); thêm test CI so mẫu với bất biến 'workers × 220MiB <= limit'.",
+      "acceptance": "Test CI đỏ khi mẫu có NEXT_WORKERS * 220 > DASHBOARD_MEMORY_LIMIT.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S01-25",
+      "title": "Caddy prod nạp mọi *.caddy trong thư mục do script staging sinh ra, nên một tệp lỗi có thể làm Caddy prod không khởi động lại",
+      "severity": "LOW",
+      "category": "caddy_prod_phu_thuoc_staging",
+      "evidence_level": "design_gap",
+      "summary": "Caddyfile prod kết thúc bằng `import /etc/caddy/them/*.caddy`; thư mục này được mount cả thư mục vào container và được scripts/staging-dung-lan-dau.sh ghi từ mẫu staging-tren-prod.caddy.mau (thay __STAGING_TEN_MIEN__). Admin API tắt nên cấu hình chỉ nạp lúc Caddy khởi động. deploy-backend.sh chỉ `caddy validate` khi tệp Caddyfile chính đổi; việc sinh tệp staging không có bước kiểm. Prod Caddy cũng được nối vào mạng cầu của staging bằng `docker network connect`.",
+      "trigger": "Script staging ghi tệp hỏng/chưa thay chỗ trống rồi Caddy prod khởi động lại (reboot, restart).",
+      "impact": "Có thể xảy ra: ingress prod không lên sau reboot vì lỗi cấu hình của môi trường thử.",
+      "evidence": [
+        {
+          "path": "caddy/Caddyfile",
+          "line": 252,
+          "end_line": 256,
+          "detail": "import /etc/caddy/them/*.caddy."
+        },
+        {
+          "path": "caddy/staging-tren-prod.caddy.mau",
+          "line": 10,
+          "end_line": 22,
+          "detail": "Mẫu có chỗ trống __STAGING_TEN_MIEN__ được script thay."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 66,
+          "end_line": 70,
+          "detail": "Mount thư mục caddy/them vào Caddy prod."
+        },
+        {
+          "path": "scripts/deploy-backend.sh",
+          "line": 344,
+          "end_line": 357,
+          "detail": "Nối Caddy prod vào mạng cầu staging sau mỗi deploy."
+        }
+      ],
+      "limitations": "Chưa đọc staging-dung-lan-dau.sh; có thể script đã validate.",
+      "recommendation": "Validate tệp sinh ra bằng `caddy validate` trước khi ghi vào thư mục import; hoặc chạy ingress staging hoàn toàn riêng (tên miền, Caddy) không nhập vào prod; test CI cho mẫu.",
+      "acceptance": "Ghi một tệp *.caddy sai cú pháp: script từ chối và Caddy prod vẫn khởi động lại bình thường.",
+      "alignment": [
+        "Reality rõ",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-015"
+      ]
+    },
+    {
+      "tmp_id": "S01-26",
+      "title": "Báo cáo 'khách còn nợ' là bản viết lại luật hoá đơn bằng SQL riêng, mốc ngày cứng và dùng giá hiện hành, dễ lệch với sổ công nợ và hoá đơn chính thức",
+      "severity": "LOW",
+      "category": "bao_cao_no_logic_trung_lap",
+      "evidence_level": "design_gap",
+      "summary": "scripts/bao-cao/khach-con-no.sql ghi là 'cùng luật hoá đơn máy chủ nhưng viết thuần SQL'. Mốc `tu_ngay` cố định 2026-09-29; giá dịch vụ lấy max(unit_price) hiện hành theo ưu tiên nhóm, không phải giá lúc chỉ định; thuốc dùng đơn giá hiện tại của danh mục. Sau đó migration cong_no (02/10) và sổ nợ hai chiều (14/10) đã tạo nguồn sự thật khác. Hai định nghĩa 'nợ' có thể cho hai con số.",
+      "trigger": "Dùng script để truy thu hoặc đối chiếu sau khi cơ chế công nợ đổi.",
+      "impact": "Có thể xảy ra: số 'còn nợ' khác số trên màn thu ngân/hoá đơn; nhân viên không giải thích được con số cho khách.",
+      "evidence": [
+        {
+          "path": "scripts/bao-cao/khach-con-no.sql",
+          "line": 11,
+          "end_line": 11,
+          "detail": "Chú thích 'Cùng luật hoá đơn máy chủ ... viết thuần SQL'."
+        },
+        {
+          "path": "scripts/bao-cao/khach-con-no.sql",
+          "line": 27,
+          "end_line": 29,
+          "detail": "tu_ngay cố định 2026-09-29."
+        },
+        {
+          "path": "scripts/bao-cao/khach-con-no.sql",
+          "line": 73,
+          "end_line": 85,
+          "detail": "Giá dịch vụ lấy max(unit_price) hiện hành."
+        },
+        {
+          "path": "scripts/bao-cao/khach-con-no.sql",
+          "line": 110,
+          "end_line": 131,
+          "detail": "Đơn giá thuốc từ drug_catalog hiện hành; dispensed_qty=0 coi là chưa cấp."
+        }
+      ],
+      "limitations": "Báo cáo là công cụ một lần sau sự cố 30/09; không biết còn dùng không.",
+      "recommendation": "Thay bằng một view/hàm chung dùng chính module hoá đơn (một nguồn); nếu giữ SQL tay thì tham số hoá mốc và kèm test đối chiếu với hoá đơn máy chủ.",
+      "acceptance": "Test so kết quả script với bill_service.hoa_don_con_no cho cùng bộ dữ liệu cho ra cùng tổng.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-017",
+        "FIN-013",
+        "DB-007"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "INF-019",
+      "detail": "scripts/systemd/clinicai-backup.service:45 chạy đẩy ngoài máy bằng `ExecStart=-...` nên lỗi đẩy không làm unit thất bại; scripts/day-sao-luu-len-viettel.sh:181-190 bỏ qua gói media vượt 512MB nhưng vẫn kết thúc mã 0 (chỉ ghi `noi`)."
+    },
+    {
+      "id": "INF-015",
+      "detail": "scripts/deploy-backend.sh:328-342: nhánh [4a] đối chiếu nội dung Caddyfile qua `docker exec cat | cmp` rồi `restart caddy` nhưng không kiểm sau đó Caddy thực sự chạy cấu hình mới (không gọi lại cmp/xác nhận)."
+    },
+    {
+      "id": "INF-006",
+      "detail": "docker-compose.supabase.yml:61-72: Postgres chỉ có dump logic (không archive_mode/WAL archive), nên thiếu PITR; bản 15 phút (scripts/systemd/clinicai-backup-15p.timer) nằm cùng ổ nên RPO khi mất host vẫn là bản đêm đã đẩy ngoài."
+    },
+    {
+      "id": "DB-005",
+      "detail": "scripts/dev-up.sh:287-303: dựng DB mới phải chạy lại thủ công 5 migration cụ thể sau seed (nam_dich_vu_kham, dat_lich_thu_thuat_san_chau, nhom_dich_vu_dat_lich, ben_thu_theo_dich_vu, mau_gui_doi_tac) — chuỗi provisioning phụ thuộc thứ tự không được mã hoá ở nơi nào khác."
+    },
+    {
+      "id": "DB-004",
+      "detail": "scripts/dev-up.sh:282-304 và scripts/bat-lai-doi-tac-1610.sql:12-24 nạp mã dịch vụ/node của Dr4Women (CLS_HPV, KV_SP000169, DICHVU-HINHANH-NGOAI...) bằng seed+migration+SQL tay cho mọi cài đặt."
+    },
+    {
+      "id": "SEC-029",
+      "detail": "docker-compose.supabase.yml:161-171: PostgREST phơi toàn schema public (PGRST_DB_SCHEMAS=public) và không đặt PGRST_DB_MAX_ROWS; caddy/Caddyfile:191-194 định tuyến /rest/v1 ra Internet, chỉ /auth/v1/token có giới hạn tốc độ."
+    },
+    {
+      "id": "OPS-011",
+      "detail": "scripts/don-truoc-moc.sql:87-98: lựa chọn khách xoá chỉ dựa vào thời điểm (xoa = tao <= moc AND lich_cuoi <= moc AND luot_cuoi <= moc); cờ nghi_thu theo regex tên chỉ để gợi ý, không chặn khách có tên như thật."
+    },
+    {
+      "id": "INF-027",
+      "detail": "caddy/Caddyfile:147-150 và docker-compose.yml:76-82: healthcheck của container Caddy luôn xanh vì /health là `respond ok`, không phản ánh dashboard/api; monitors.json:36-48 gọi cùng đường này."
+    },
+    {
+      "id": "OPS-007",
+      "detail": "Chú thích cũ còn trong docker-compose.supabase.yml:1-7 ('Giai đoạn 1 ... Mac ... prod vẫn trỏ Supabase cloud'), Dockerfile.api:2 ('DB is Supabase Cloud'), .env.example:4-11,34-43 (Supabase cloud, Vercel, Mac mini) — dễ dẫn operator làm theo quy trình đã chết."
+    },
+    {
+      "id": "SEC-032",
+      "detail": "scripts/dev-up.sh:59 mật khẩu mặc định `clinic-test-pw-123` cho 11 tài khoản @dr4women.local và scripts/lib/moi-truong-web.sh:22 khoá BACKEND_API_KEY mặc định `staging-local-api-key`; an toàn nếu chỉ bind 127.0.0.1 như dev-up.sh yêu cầu."
+    },
+    {
+      "id": "INF-021",
+      "detail": "scripts/bat-lai-doi-tac-1610.sql, scripts/go-dich-vu-thua-phong-doi-tac-1610.sql thay đổi cấu hình tiền/phòng bằng SQL tay không có bản ghi audit đi kèm (xem S01-13)."
+    }
+  ],
+  "held": [
+    {
+      "title": "Dozzle gắn /var/run/docker.sock với DOZZLE_AUTH_PROVIDER=none",
+      "reason": "Cổng chỉ bind 127.0.0.1 và truy cập qua ssh -L nên người có SSH vốn đã có docker; chưa rõ prod bật auth; ghi nhận làm bề mặt đọc toàn bộ log container (có thể chứa PII)."
+    },
+    {
+      "title": "bat-theo-doi-may-chu.sh / cung-co-may-chu.sh chạy bằng root từ cây git chưa ghim",
+      "reason": "Chạy tay bởi người tin cậy; không có bằng chứng bị khai thác; nếu cây git có thể bị sửa thì mã chạy root."
+    },
+    {
+      "title": "psql \"$URL\" đưa mật khẩu kết nối vào dòng lệnh (ps) trong day-sao-luu-len-viettel.sh",
+      "reason": "Chỉ lộ cho người dùng cùng host; VPS một người vận hành."
+    },
+    {
+      "title": "hoan-tac-lich-su-notion.sql TRUNCATE bảng nguồn sau khi chuyen_luot_that đã tạo lượt thật",
+      "reason": "Chưa biết FK từ lich_su_notion.luot_that/ban_ghi_that tới các bảng bị TRUNCATE; nếu không có FK thì dữ liệu nguồn của 'Hồ sơ khám trước 10/2026' mất khi chạy nhầm."
+    },
+    {
+      "title": "ci.yml pin action theo tag (@v4) không theo SHA",
+      "reason": "Rủi ro chuỗi cung ứng thấp trong repo private và GitHub Actions không còn là CI thật."
+    },
+    {
+      "title": "Realtime dùng SECRET_KEY_BASE bằng JWT secret và DB_ENC_KEY mặc định công khai `supabaserealtime`",
+      "reason": "Chú thích trong compose đã nêu có chủ ý; chỉ đáng đổi khi giữ Realtime (xem S01-6)."
+    },
+    {
+      "title": "kiem-database-ngoai.sh tạo/xoá đối tượng thử trên DB ngoài và có thể để sót nếu bị ngắt",
+      "reason": "Công cụ tiền kiểm một lần, không phải đường vận hành."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Mặc định bảo vệ cho mọi service: log có trần, no-new-privileges, init, mem/pids limit",
+      "detail": "Khối x-clinic-service-defaults áp dụng cho từng service, kèm test infra-safety trong CI; nên nhân rộng cho mọi stack phòng khám mới.",
+      "evidence": "docker-compose.yml:24-35"
+    },
+    {
+      "title": "Bí mật dạng docker secret và tách khoá LLM khỏi đường dữ liệu xét nghiệm",
+      "detail": "Khoá agent giám sát đọc từ /run/secrets, không hiện ở docker inspect; mẫu đúng cho các bí mật khác.",
+      "evidence": "docker-compose.yml:521-529"
+    },
+    {
+      "title": "Deploy có khoá, đóng băng env/nguồn theo SHA, rollback ảnh + env cũ, mốc deploy ghi vào ops-status",
+      "detail": "Hạ rủi ro ghi đè nhầm và cho Ops trả lời 'vừa đổi gì' trong lúc sự cố.",
+      "evidence": "scripts/deploy-backend.sh:45-50,89-116,414-447,477-509"
+    },
+    {
+      "title": "Script staging tự từ chối khi tên/khoá/cổng/bí mật trùng prod; nhường tài nguyên cho prod",
+      "detail": "Các hàm kiem_* và oom_score_adj/cpu_shares/giờ khám cho thấy cách chặn nhầm môi trường kiểu 'không thể chạy sai'.",
+      "evidence": "scripts/lib/staging-chung.sh:58-138,160-178; docker-compose.staging.yml:8-24"
+    },
+    {
+      "title": "dev-up.sh chỉ in Ready sau khi đăng nhập thật từng tài khoản và gọi API thật; kiểm đích trước khi xoá volume",
+      "detail": "Chống 'xanh giả' trên stack thử; có chốt đích tên/nhãn/volume.",
+      "evidence": "scripts/dev-up.sh:170-236,328-350,420-440"
+    },
+    {
+      "title": "Bản đồ code sinh từ code, CI kiểm lệch",
+      "detail": "ban-do-code.py phân tích tĩnh màn -> route Next -> router FastAPI -> service -> test, đánh dấu '?' thay vì đoán, và cờ 'đọc DB thẳng'. Nên mở rộng thành ma trận quyền theo endpoint để phát hiện route thiếu capability/scope.",
+      "evidence": "scripts/ban-do-code.py:2-24,203-240,974-1001"
+    },
+    {
+      "title": "Healthcheck vòng lặp thật (nhịp tim) thay vì 'tiến trình còn sống', và monitor 'push' cho sự vắng mặt của backup",
+      "detail": "Phân biệt treo với sống; cần bổ sung hành động tự động khi unhealthy (S01-1).",
+      "evidence": "docker-compose.yml:307-313,376-390; monitoring/monitors.json:97-108"
+    },
+    {
+      "title": "Access log của Caddy cắt toàn bộ chuỗi truy vấn thay vì liệt kê tham số",
+      "detail": "Tránh để SĐT/tên tìm kiếm lọt vào log; quyết định 'cắt cả chuỗi' chống quên khi thêm ô tìm.",
+      "evidence": "caddy/Caddyfile:110-124"
+    },
+    {
+      "title": "Đường sống-chết nội bộ cho healthcheck, bài học đèn đỏ giả 377 lần",
+      "detail": "Khối http://localhost tách khỏi HTTPS tự động giúp healthcheck đúng.",
+      "evidence": "caddy/Caddyfile:25-48"
+    },
+    {
+      "title": "Đọc chuỗi kết nối từ stdin để mật khẩu không vào argv",
+      "detail": "Mẫu nhỏ nên giữ khi viết thêm công cụ.",
+      "evidence": "scripts/lib/parse-postgres-url.py:1-4,14-42"
+    },
+    {
+      "title": "Nhiều script vận hành mặc định chạy thử khô/ROLLBACK và có chốt đếm trước khi xoá",
+      "detail": "don-truoc-moc.sql (that=1 mới COMMIT), ap-lich-tuan-2809.py (--that), go-dich-vu-thua-phong-doi-tac-1610.sql (RAISE nếu mồ côi), cap-duyet-ket-qua.py.",
+      "evidence": "scripts/don-truoc-moc.sql:21-22,192-198; scripts/go-dich-vu-thua-phong-doi-tac-1610.sql:27-40"
+    },
+    {
+      "title": "Chốt hoàn tác khi siết SSH (hẹn giờ tự gỡ nếu chưa xác nhận phiên mới)",
+      "detail": "Giảm rủi ro tự khoá cửa khi cứng hoá máy chủ.",
+      "evidence": "scripts/may-chu/cung-co-may-chu.sh:54-61"
+    }
+  ],
+  "coverage": [
+    {
+      "path": ".claude/hooks/kiem-sau-sua.sh",
+      "lines": 52,
+      "full_read": true,
+      "note": "Hook ruff sau sửa; chạy trên src/ và scripts/; thiếu công cụ thì im lặng thoát 0."
+    },
+    {
+      "path": ".claude/settings.json",
+      "lines": 16,
+      "full_read": true,
+      "note": "Gắn hook PostToolUse; ngắn."
+    },
+    {
+      "path": ".dockerignore",
+      "lines": 33,
+      "full_read": true,
+      "note": "Thiếu .media; xem S01-23."
+    },
+    {
+      "path": ".env.example",
+      "lines": 102,
+      "full_read": true,
+      "note": "Mẫu cũ (Supabase cloud/Vercel/Mac mini); xem OPS-007, S01-24."
+    },
+    {
+      "path": ".env.prod.example",
+      "lines": 166,
+      "full_read": true,
+      "note": "Mẫu prod; S01-1,4,5,10,14,22,24."
+    },
+    {
+      "path": ".env.staging.example",
+      "lines": 85,
+      "full_read": true,
+      "note": "Mẫu staging có chốt khoá giả."
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "lines": 331,
+      "full_read": true,
+      "note": "CI GitHub; xem S01-20."
+    },
+    {
+      "path": ".gitignore",
+      "lines": 169,
+      "full_read": true,
+      "note": "Ghi chú lịch sử bí mật/ repo từng public; ổn."
+    },
+    {
+      "path": ".media/.gitignore",
+      "lines": 3,
+      "full_read": true,
+      "note": "Chặn ảnh bệnh nhân; ổn."
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "lines": 21,
+      "full_read": true,
+      "note": "Ruff pre-commit v0.11.10 có thể lệch phiên bản ruff ghim ở pyproject (hook dùng bản pyproject)."
+    },
+    {
+      "path": ".ruff.toml",
+      "lines": 5,
+      "full_read": true,
+      "note": "Cấu hình tối thiểu."
+    },
+    {
+      "path": "Dockerfile.api",
+      "lines": 41,
+      "full_read": true,
+      "note": "Không ghim digest, chạy uid 1000; S01-21,23."
+    },
+    {
+      "path": "Makefile",
+      "lines": 26,
+      "full_read": true,
+      "note": "Lệnh dev cũ, chỉ src/."
+    },
+    {
+      "path": "caddy/Caddyfile",
+      "lines": 256,
+      "full_read": true,
+      "note": "S01-2,6,9,25; log lọc chuỗi truy vấn tốt."
+    },
+    {
+      "path": "caddy/Caddyfile.staging",
+      "lines": 105,
+      "full_read": true,
+      "note": "S01-7."
+    },
+    {
+      "path": "caddy/staging-tren-prod.caddy.mau",
+      "lines": 23,
+      "full_read": true,
+      "note": "S01-25."
+    },
+    {
+      "path": "docker-compose.journald.yml",
+      "lines": 53,
+      "full_read": true,
+      "note": "Đủ mọi service trong compose; có test canh."
+    },
+    {
+      "path": "docker-compose.staging.yml",
+      "lines": 76,
+      "full_read": true,
+      "note": "Chặn tài nguyên staging; S01-7."
+    },
+    {
+      "path": "docker-compose.supabase.staging.yml",
+      "lines": 65,
+      "full_read": true,
+      "note": "Staging tắt realtime; S01-6."
+    },
+    {
+      "path": "docker-compose.supabase.yml",
+      "lines": 253,
+      "full_read": true,
+      "note": "S01-1,5,6,21,22."
+    },
+    {
+      "path": "docker-compose.yml",
+      "lines": 536,
+      "full_read": true,
+      "note": "S01-1,2,4,21,24."
+    },
+    {
+      "path": "docker/khong-co-khoa-llm",
+      "lines": 0,
+      "full_read": true,
+      "note": "Tệp rỗng 0 byte dùng làm secret mặc định tắt LLM."
+    },
+    {
+      "path": "docker/rabbitmq/.gitignore",
+      "lines": 2,
+      "full_read": true,
+      "note": "2 dòng."
+    },
+    {
+      "path": "docker/rabbitmq/definitions.json",
+      "lines": 64,
+      "full_read": true,
+      "note": "Chỉ dùng profile workers."
+    },
+    {
+      "path": "docker/rabbitmq/rabbitmq.conf",
+      "lines": 13,
+      "full_read": true,
+      "note": "Cấu hình dev, disk_free_limit."
+    },
+    {
+      "path": "docker/supabase/Caddyfile",
+      "lines": 66,
+      "full_read": true,
+      "note": "Gateway nội bộ; /health chỉ nói gateway sống."
+    },
+    {
+      "path": "docker/supabase/init/01-vai-va-extension.sql",
+      "lines": 172,
+      "full_read": true,
+      "note": "S01-5,6."
+    },
+    {
+      "path": "docker/supabase/init/02-mat-khau-vai-dang-nhap.sh",
+      "lines": 16,
+      "full_read": true,
+      "note": "S01-5; mật khẩu chèn vào SQL không escape (chuỗi sinh tự động)."
+    },
+    {
+      "path": "pyrightconfig.json",
+      "lines": 23,
+      "full_read": true,
+      "note": "Cấu hình pyright basic."
+    },
+    {
+      "path": "scripts/ap-lich-tuan-2809.py",
+      "lines": 416,
+      "full_read": true,
+      "note": "Script một lần với tên nhân viên thật; S01-12,17."
+    },
+    {
+      "path": "scripts/ban-do-code.py",
+      "lines": 1008,
+      "full_read": true,
+      "note": "Mẫu tốt; doc() nuốt lỗi đọc file thành chuỗi rỗng."
+    },
+    {
+      "path": "scripts/bao-cao/khach-con-no.sql",
+      "lines": 244,
+      "full_read": true,
+      "note": "S01-26."
+    },
+    {
+      "path": "scripts/bat-lai-doi-tac-1610.sql",
+      "lines": 29,
+      "full_read": true,
+      "note": "S01-12,13."
+    },
+    {
+      "path": "scripts/cap-duyet-ket-qua.py",
+      "lines": 122,
+      "full_read": true,
+      "note": "S01-12,17."
+    },
+    {
+      "path": "scripts/check-monitoring.sh",
+      "lines": 77,
+      "full_read": true,
+      "note": "S01-2."
+    },
+    {
+      "path": "scripts/check_rabbitmq.py",
+      "lines": 75,
+      "full_read": true,
+      "note": "S01-19."
+    },
+    {
+      "path": "scripts/chuyen-luot-that.sh",
+      "lines": 29,
+      "full_read": true,
+      "note": "Tên container cứng; S01-9."
+    },
+    {
+      "path": "scripts/danh-dau-event-cu-truoc-khi-bat-telegram.sql",
+      "lines": 18,
+      "full_read": true,
+      "note": "S01-11."
+    },
+    {
+      "path": "scripts/day-sao-luu-len-viettel.sh",
+      "lines": 224,
+      "full_read": true,
+      "note": "S01-3."
+    },
+    {
+      "path": "scripts/deploy-backend.sh",
+      "lines": 511,
+      "full_read": true,
+      "note": "S01-8; mẫu tốt về rollback."
+    },
+    {
+      "path": "scripts/deploy-staging.sh",
+      "lines": 186,
+      "full_read": true,
+      "note": "S01-7."
+    },
+    {
+      "path": "scripts/dev-giao-dien.sh",
+      "lines": 97,
+      "full_read": true,
+      "note": "Dev; tắt Next theo cổng."
+    },
+    {
+      "path": "scripts/dev-nap-lai.sh",
+      "lines": 111,
+      "full_read": true,
+      "note": "S01-18."
+    },
+    {
+      "path": "scripts/dev-up.sh",
+      "lines": 474,
+      "full_read": true,
+      "note": "S01-9,18; mẫu tốt."
+    },
+    {
+      "path": "scripts/don-truoc-moc.sql",
+      "lines": 198,
+      "full_read": true,
+      "note": "S01-12; dùng hàm don_khach_thu."
+    },
+    {
+      "path": "scripts/go-dich-vu-thua-phong-doi-tac-1610.sql",
+      "lines": 48,
+      "full_read": true,
+      "note": "S01-13; có RAISE chốt."
+    },
+    {
+      "path": "scripts/hoan-tac-lich-su-notion.sql",
+      "lines": 28,
+      "full_read": true,
+      "note": "S01-11, held."
+    },
+    {
+      "path": "scripts/hoan-tac-luot-that.sql",
+      "lines": 60,
+      "full_read": true,
+      "note": "S01-15."
+    },
+    {
+      "path": "scripts/kiem-database-ngoai.sh",
+      "lines": 284,
+      "full_read": true,
+      "note": "Công cụ tiền kiểm, held."
+    },
+    {
+      "path": "scripts/kiem-doi-tac-1610.sql",
+      "lines": 37,
+      "full_read": true,
+      "note": "Chỉ đọc (default_transaction_read_only on)."
+    },
+    {
+      "path": "scripts/kim-nguu-3-tang-2709.py",
+      "lines": 459,
+      "full_read": true,
+      "note": "S01-11,12,13,17."
+    },
+    {
+      "path": "scripts/ky-nang-tu-file.py",
+      "lines": 240,
+      "full_read": true,
+      "note": "S01-12,16,17."
+    },
+    {
+      "path": "scripts/lib/moi-truong-web.sh",
+      "lines": 23,
+      "full_read": true,
+      "note": "Dev; khoá mặc định cục bộ."
+    },
+    {
+      "path": "scripts/lib/parse-postgres-url.py",
+      "lines": 51,
+      "full_read": true,
+      "note": "Mẫu tốt."
+    },
+    {
+      "path": "scripts/lib/staging-chung.sh",
+      "lines": 208,
+      "full_read": true,
+      "note": "Mẫu tốt; S01-7."
+    },
+    {
+      "path": "scripts/maintenance/don_data_khach.sql",
+      "lines": 173,
+      "full_read": true,
+      "note": "S01-11."
+    },
+    {
+      "path": "scripts/maintenance/enable_realtime_dynamic_tables.sql",
+      "lines": 49,
+      "full_read": true,
+      "note": "Cũ; S01-6."
+    },
+    {
+      "path": "scripts/may-chu/bat-theo-doi-may-chu.sh",
+      "lines": 44,
+      "full_read": true,
+      "note": "S01-1; held."
+    },
+    {
+      "path": "scripts/may-chu/cung-co-may-chu.sh",
+      "lines": 87,
+      "full_read": true,
+      "note": "Mẫu tốt hoàn tác; held."
+    },
+    {
+      "path": "scripts/may-chu/journald-clinicai.conf",
+      "lines": 13,
+      "full_read": true,
+      "note": "Trần 2G, RateLimitBurst 50000; log có thể xoay hết sau vài tuần."
+    }
+  ]
+}

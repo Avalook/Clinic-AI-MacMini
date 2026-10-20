@@ -1,0 +1,352 @@
+{
+ "chunk": "T14",
+ "findings": [
+  {
+   "tmp_id": "T14-1",
+   "title": "Bài kiểm đếm dòng Excel vật tư phụ thuộc DB chung, số cứng 84 và danh sách tên nghiệp vụ Dr4Women",
+   "severity": "LOW",
+   "category": "test_flaky_fixture",
+   "evidence_level": "confirmed_static",
+   "summary": "test_du_lieu_nap_tu_excel_va_bang_gia khẳng định đúng 84 dòng vật tư, tên mặt hàng cụ thể, giá 300.000/900.000/4.000.000 và mã VT_DAU_DO_BIO_1_LAN trên DB dùng chung. Mặt hàng của clinic khác hay bài khác tạo ra (không theo tiền tố VT_TEST_ hoặc VT_HL_) sẽ làm bài đỏ oan. Bài còn sửa giá thật rồi khôi phục bằng giá cứng 300000, không phải giá gốc đã đọc.",
+   "trigger": "Một bài khác chèn vật tư không theo tiền tố đã loại trừ, hoặc test bị ngắt giữa chừng, hoặc quản lý đã đổi giá thật trước khi chạy.",
+   "impact": "Test đỏ/xanh theo trạng thái DB; nếu chạy trên DB có dữ liệu thật thì có thể ghi đè giá bán thật bằng 300000.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_vat_tu_ban_them_db.py",
+     "line": 523,
+     "end_line": 545,
+     "detail": "Lọc loại trừ theo tiền tố, assert len(rows)==84 và tên/giá Dr4Women ghi cứng."
+    },
+    {
+     "path": "src/tests/services/test_vat_tu_ban_them_db.py",
+     "line": 562,
+     "end_line": 566,
+     "detail": "finally đặt cứng 300000 thay vì giá cũ."
+    }
+   ],
+   "limitations": "Chỉ thấy test; dữ liệu nạp nằm ở migration không được đưa.",
+   "recommendation": "Lưu giá cũ để khôi phục, chạy trong transaction rollback hoặc clinic riêng; tách kiểm dữ liệu nạp Dr4Women khỏi bộ test dùng chung.",
+   "acceptance": "Test chạy lặp và song song không đổi kết quả, không để lại thay đổi giá.",
+   "alignment": [
+    "quyết định có bằng chứng",
+    "lỗi lặp thành cải tiến"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T14-2",
+   "title": "Test bấm lộn xộn dùng quản lý toàn cục và đặt/xóa dây cấu hình chung của clinic",
+   "severity": "LOW",
+   "category": "test_flaky_fixture",
+   "evidence_level": "confirmed_static",
+   "summary": "test_vat_tu_duyet_db thay đổi day_nghiep_vu và cấp/thu khối quyền theo clinic dùng chung (CLINIC cứng). Chạy song song với test khác cùng đọc dây vat_tu_bat_ly_do_ban sẽ cho kết quả phụ thuộc thứ tự. Test hạt giống ngẫu nhiên in kết quả bằng print thay vì thất bại có chẩn đoán.",
+   "trigger": "pytest-xdist hoặc hai phiên chạy cùng DB.",
+   "impact": "Test flaky, khó tin kết quả về quyền duyệt vật tư.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_vat_tu_duyet_db.py",
+     "line": 81,
+     "end_line": 113,
+     "detail": "_day ghi và khôi phục dây dùng chung."
+    },
+    {
+     "path": "src/tests/services/test_vat_tu_duyet_db.py",
+     "line": 436,
+     "end_line": 450,
+     "detail": "Vòng 40 hạt đổi dây liên tục trên clinic chung."
+    }
+   ],
+   "limitations": "Chưa rõ runner có chạy song song không.",
+   "recommendation": "Dùng clinic riêng theo test hoặc khóa advisory; đánh dấu serial.",
+   "acceptance": "Chạy song song 2 worker vẫn xanh ổn định.",
+   "alignment": [
+    "quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T14-3",
+   "title": "Bài kiểm trần 500 chỉ số trên bảng chỉ định tự sửa hằng toàn cục không an toàn khi lỗi",
+   "severity": "LOW",
+   "category": "test_flaky_fixture",
+   "evidence_level": "confirmed_static",
+   "summary": "test_bang_truong_ca_noi_that_khi_bi_cat gán trực tiếp lks._TRAN_CHI_DINH_HOM_NAY và khôi phục bằng max(goc,1_000_000) trong finally lần một, nên sau bài hằng đã đổi vĩnh viễn thành tối thiểu 1.000.000, ảnh hưởng bài khác; không dùng monkeypatch. Ngoài ra bài khẳng định bi_cat True/False chỉ ở trần giả, không có test trần thật 500 cho các danh sách bị cắt khác.",
+   "trigger": "Test chạy sau bài này trong cùng tiến trình mong trần mặc định.",
+   "impact": "Rò trạng thái giữa các test; trần thật không được kiểm.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_xem_luot_db.py",
+     "line": 240,
+     "end_line": 257,
+     "detail": "Gán thủ công hằng module và khôi phục không đối xứng."
+    }
+   ],
+   "limitations": "Sau bài có khôi phục goc ở finally thứ hai, nên rò chỉ trong khoảng giữa; vẫn dễ vỡ nếu bài lỗi sớm.",
+   "recommendation": "Dùng monkeypatch.setattr cho cả hai đoạn.",
+   "acceptance": "Hằng trở về giá trị gốc sau bài bất kể kết quả.",
+   "alignment": [
+    "quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T14-4",
+   "title": "Test thuốc trả/vật tư không có kiểm quyền theo cơ sở cho thao tác sửa/bỏ dòng vật tư",
+   "severity": "LOW",
+   "category": "test_gap_authz",
+   "evidence_level": "design_gap",
+   "summary": "VatTuService được kiểm quyền theo khối (thuốc không thêm được) nhưng không có test nào dùng danh tính của cơ sở khác hay visit của clinic khác cho them/dat_so_luong/bo; chỉ test_lo_cua_co_so_khac cho thuốc trả. Thao tác theo dong_id không thấy ràng buộc cơ sở trong test.",
+   "trigger": "Thu ngân cơ sở A gọi bo/dat_so_luong với dong_id của lượt cơ sở B.",
+   "impact": "Nếu service thiếu kiểm cơ sở, sửa hóa đơn cơ sở khác không bị test bắt.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_vat_tu_ban_them_db.py",
+     "line": 378,
+     "end_line": 401,
+     "detail": "Chỉ kiểm quyền theo khối, không kiểm cơ sở."
+    }
+   ],
+   "limitations": "Không thấy mã service nên chưa biết có lỗ hổng thật.",
+   "recommendation": "Thêm test danh tính cơ sở khác cho them/sửa/bỏ/doc vật tư.",
+   "acceptance": "Thao tác chéo cơ sở trả NotFound/Forbidden và không đổi dữ liệu.",
+   "alignment": [
+    "ownership rõ",
+    "quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "API-002"
+   ]
+  },
+  {
+   "tmp_id": "T14-5",
+   "title": "Test kiểm tra cache Caddy bằng regex trên văn bản, không chạy cấu hình thật",
+   "severity": "LOW",
+   "category": "test_weak_assertion",
+   "evidence_level": "design_gap",
+   "summary": "test_caddy_cache_tinh chỉ so sánh chuỗi/regex trong Caddyfile. Không validate cú pháp (caddy validate) nên sai cấu hình vẫn qua test, trong khi INF-015 đã chỉ ra lệch giữa file kiểm và file chạy.",
+   "trigger": "Sửa Caddyfile theo cách vẫn khớp regex nhưng sai cú pháp.",
+   "impact": "Triển khai Caddy lỗi được phát hiện muộn.",
+   "evidence": [
+    {
+     "path": "src/tests/test_caddy_cache_tinh.py",
+     "line": 43,
+     "end_line": 57,
+     "detail": "Chỉ so khớp văn bản snippet."
+    }
+   ],
+   "limitations": "Docstring nói cú pháp đã thử tay bằng curl.",
+   "recommendation": "Thêm bước caddy validate trong CI cho cả hai Caddyfile.",
+   "acceptance": "CI đỏ khi Caddyfile không hợp lệ.",
+   "alignment": [
+    "phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-015"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FIN-005",
+   "detail": "test_xem_luot_db chỉ kiểm cờ bi_cat cho trần 500 chỉ định; các danh sách sổ thu/giao dịch khác không có test báo cắt."
+  }
+ ],
+ "held": [
+  {
+   "title": "Khôi phục kho sau đổi đơn vị đồng thời chỉ kiểm bằng timeout 0.05s",
+   "reason": "test_doi_don_vi_dong_thoi dựa asyncio.wait_for 0.05s để giả định lệnh bị khóa; có thể flaky nhưng chưa chắc."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Bất biến sổ vật tư kiểm cả tầng Python và Postgres (CHECK/trigger chặn ghi thẳng)",
+   "detail": "Nhiều bài thử ghi SQL trực tiếp để chứng minh lưới cuối ở DB, kèm test đồng thời và idempotency khóa gửi.",
+   "evidence": "src/tests/services/test_vat_tu_kho_db.py:316"
+  },
+  {
+   "title": "Bài kiểm chống lệch nhãn quét mã nguồn có bài tự kiểm không rỗng",
+   "detail": "test_bai_kiem_that_su_tim_thay_ma chống trường hợp biểu thức hỏng làm test luôn xanh.",
+   "evidence": "src/tests/test_audit_labels_drift.py:200"
+  },
+  {
+   "title": "Zalo provider test: không nói dối đã gửi, nhật ký không chứa SĐT",
+   "detail": "Phân biệt HTTP 200 kèm lỗi nghiệp vụ và hết giờ chưa chắc đã gửi.",
+   "evidence": "src/tests/services/test_zalo_provider.py:140"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/tests/services/test_vat_tu_ban_them_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_chinh_sach_ban.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_chinh_sach_ban_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_danh_muc_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_duyet_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_hang_loat_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_kho_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_nhap_duyet_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_nhap_duyet_http_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vat_tu_tieu_hao_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vi_tri_chu_phong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_vi_tri_tu_database_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_viec_ton_noi_man_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_visit_progress_service_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_week_appointments.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_window_trim.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_xem_luot_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_xoa_mem_tep_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_xu_ly_thuoc_tra_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_xuat_hoa_don_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_zalo_provider.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/so_ck.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_ai_sau_co_va_bac_si_quyet_bao_ket_qua.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_api_auth.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_audit_labels_drift.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_booking_service.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_caddy_cache_tinh.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

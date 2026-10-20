@@ -1,0 +1,135 @@
+[
+  {
+    "id": "CAND-R11-FIN-01",
+    "canonical_id": null,
+    "title": "Snapshot chốt ca không có điểm cắt đọc nhất quán",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "financial_close_consistency",
+    "status": "candidate_for_triage",
+    "summary": "ChotSoCaService dựng báo cáo qua BaoCaoCuoiNgayService trước, rồi mới mở transaction INSERT snapshot. Báo cáo chạy nhiều SELECT không nằm trong một transaction đọc chung và còn ghép tồn kho qua kết nối khác. chot_luc mặc định được đặt lúc INSERT sau các lượt đọc. Concurrent write có thể khiến bản chốt không đại diện một cutoff nhất quán; giao dịch có timestamp trước chot_luc có thể vắng khỏi snapshot và được tính vào sau_chot nếu nó còn thuộc truy vấn sống của lần xem sau.",
+    "trigger": "Trong lúc POST /reports/chot-ca đang dựng báo cáo, một lần thu/hoàn hoặc thay đổi tiền được commit giữa các SELECT, hoặc sau query liên quan nhưng trước INSERT. Trường hợp cụ thể: paid_at trước chot_luc nhưng giao dịch commit sau khi query thu đã chạy.",
+    "impact": "Snapshot bất biến có thể ghép dữ liệu ở các thời điểm khác nhau. Với giao dịch nằm trong các truy vấn sống, lần xem sau thường làm khoản lệch hiện ra trong sau_chot; lỗi được xác nhận ở đây là khoản có timestamp trước chot_luc có thể bị phân loại thành phát sinh sau chốt. Không đủ bằng chứng để khẳng định tiền bị mất khỏi cả snapshot lẫn delta; không có bằng chứng production bị ảnh hưởng.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/chot_so_ca_service.py",
+        "line": 103,
+        "end_line": 111,
+        "detail": "chenh_sau_chot tính sống trừ snapshot cho thu/huy/hoan/thuc_thu; giao dịch trước chot_luc nhưng vắng khỏi snapshot sẽ xuất hiện như delta nếu còn trong truy vấn sống."
+      },
+      {
+        "path": "src/clinicai/services/chot_so_ca_service.py",
+        "line": 182,
+        "end_line": 229,
+        "detail": "Lấy báo cáo, serialize số liệu, rồi mới mở transaction riêng để INSERT bản chốt; unique conflict chỉ xử lý hai lần chốt cùng khóa, không đồng bộ với các đường ghi tiền."
+      },
+      {
+        "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+        "line": 1194,
+        "end_line": 1207,
+        "detail": "Mở kết nối pool rồi chạy tuần tự các SELECT thu, hủy sau chốt và hoàn; không mở transaction đọc chung tại đoạn dựng báo cáo."
+      },
+      {
+        "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+        "line": 1222,
+        "end_line": 1303,
+        "detail": "Tiếp tục nhiều SELECT và gọi các projection phụ trên cùng kết nối; câu lệnh không được bọc trong transaction của service."
+      },
+      {
+        "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+        "line": 1358,
+        "end_line": 1369,
+        "detail": "Ghép phần tồn kho bằng một kết nối pool khác sau khi dựng các phần tài chính."
+      },
+      {
+        "path": "supabase/migrations/20261014149000_chot_so_ca.sql",
+        "line": 13,
+        "end_line": 23,
+        "detail": "chot_luc NOT NULL DEFAULT now(); timestamp được gán khi INSERT snapshot, không phải watermark của lượt đọc báo cáo."
+      },
+      {
+        "path": "src/tests/services/test_chot_so_ca_db.py",
+        "line": 95,
+        "end_line": 163,
+        "detail": "Kiểm tra tuần tự chốt rồi hủy, hủy rồi chốt và nhiều lệnh chốt cạnh tranh; không điều phối một ghi tiền xen giữa các bước đọc và INSERT."
+      }
+    ],
+    "recommendation": "Định nghĩa cutoff chốt có thể kiểm toán; dựng các phần báo cáo từ cùng một snapshot DB/cùng watermark rồi ghi bản chốt theo quy tắc tuần tự hóa phù hợp với các đường ghi tiền. Nếu mutation không bị khóa, phân loại trước/sau chốt phải dùng cùng watermark sự kiện.",
+    "acceptance": "Có kiểm thử concurrency cố định thứ tự để commit thu/hoàn giữa các bước đọc và trước INSERT; snapshot phản ánh một cutoff duy nhất, giao dịch trước cutoff nằm trong số đã chốt, giao dịch sau cutoff chỉ nằm trong delta, tổng ca/ngày không bỏ hoặc đếm đôi. Giữ các kiểm thử mở khóa/chốt lại hiện hành.",
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đọc exact-main service chốt, đường report dùng khi chốt, migration chot_so_ca và test đối ứng; xác nhận các bước dựng report và INSERT không ở cùng transaction trong service.",
+      "limitations": "Không chạy test, DB, runtime hoặc concurrency probe; kết quả là candidate static, không chứng minh incident/tần suất production. Query cap của FIN-007 là trigger riêng và không được tính lại."
+    },
+    "source_hashes": {
+      "src/clinicai/services/chot_so_ca_service.py": "ce4ad47b0e78e5deaf88e0ca2e43ec602cbb6bfd409c33a6f1f19a284022dc35",
+      "src/clinicai/services/bao_cao_cuoi_ngay_service.py": "79326e846d211a73807712d7c06e298c705d20f2ccf726a24f1f2a039017629e",
+      "supabase/migrations/20261014149000_chot_so_ca.sql": "e160eaaeb39270177a6254afdcb72f1f8be18dd02716fde40c8f94d0e040568d",
+      "src/tests/services/test_chot_so_ca_db.py": "963c4e4587eae7c66489d33ff74fc4e44fb6e0b58db9b155d9b5e2158be54509"
+    },
+    "related_tests": [
+      "src/tests/services/test_chot_so_ca_db.py"
+    ],
+    "version_scope": "exact_main_snapshot_956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "production_verified": false
+  },
+  {
+    "id": "CAND-R11-FIN-02",
+    "canonical_id": null,
+    "title": "Cờ dong_tien.khop là phép đồng nhất chứ không đối soát độc lập",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "financial_reconciliation_observability",
+    "status": "candidate_for_triage",
+    "summary": "dong_tien_vao được định nghĩa bằng tien_thu + no + giam_gia - no_thu_duoc; thuc_thu.tong bằng tien_thu - tra_lai. Cờ khop so dong_tien_vao - tra_lai - no - giam_gia + no_thu_duoc với chính thuc_thu.tong, nên hai vế đồng nhất với mọi đầu vào số nguyên. Nó không kiểm tra tổng với breakdown TM/CK hay tổng độc lập khác.",
+    "trigger": "Có lệch giữa tong.thu và tổng các mục theo_hinh_thuc, hoặc giữa tổng thực thu với tổng breakdown TM/CK; predicate hiện tại vẫn sử dụng cùng các biến đã dùng để dựng hai vế.",
+    "impact": "Cờ khop và nhánh logger warning không phát hiện được mismatch giữa aggregate và breakdown, khiến một guard kiểm tra dữ liệu trở thành bất lực. Unit tests chỉ assert khop=True cho ca dữ liệu hợp lệ. Component báo cáo hiện không render trường này; chưa chứng minh người dùng nhận dấu xác nhận sai hoặc có dữ liệu lệch thực tế.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/tom_tat_tai_chinh_service.py",
+        "line": 35,
+        "end_line": 85,
+        "detail": "Định nghĩa hai tổng rồi thay lại đúng biểu thức vừa dựng để tính khop; biến theo_hinh_thuc chỉ dùng cho breakdown TM/CK, không tham gia predicate."
+      },
+      {
+        "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+        "line": 1373,
+        "end_line": 1382,
+        "detail": "Warning cho dong_tien_khong_khop chỉ được ghi nếu khop false; phép đồng nhất trên khiến mismatch aggregate/breakdown không kích hoạt nhánh này."
+      },
+      {
+        "path": "src/tests/unit/test_tom_tat_tai_chinh.py",
+        "line": 59,
+        "end_line": 108,
+        "detail": "Các ca bảng vàng, nợ thanh toán và giảm nợ đều chỉ assert khop true; không có ca đầu vào bất nhất dùng để chứng minh guard phát hiện lệch."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/reports/TomTatCuoiNgay.tsx",
+        "line": 11,
+        "end_line": 25,
+        "detail": "Kiểu dữ liệu khai báo khop; phần render được đọc không dùng trường này. Tác động trực tiếp hiện được giới hạn ở guard/log phía backend."
+      }
+    ],
+    "recommendation": "Tách công thức số học khỏi đối soát dữ liệu. So các tổng độc lập đã có như tổng từng hình thức với tổng thu/hoàn và tổng thực thu với cộng các thành phần; trả false hoặc unknown khi mismatch/thiếu nguồn, rồi log cảnh báo theo phạm vi không nhạy cảm.",
+    "acceptance": "Unit test cố ý làm lệch tong.thu với tổng theo_hinh_thuc, và làm lệch tổng TM/CK với thực thu; guard phải trả false hoặc unknown. Các tình huống thu chia TM+CK, hoàn, nợ thu được và giảm giá vẫn khớp.",
+    "validation": {
+      "method": "static_algebra_and_test_review_pinned_main",
+      "command": null,
+      "result": "Thế các định nghĩa tại dòng 46, 52, 65–70 vào predicate dòng 84 cho hai vế cùng bằng tien_thu.tong - tra_lai.tong; đọc test unit và consumer logger.",
+      "limitations": "Không chạy hàm/test; chưa có bằng chứng dữ liệu thực tế lệch. `khop` hiện không được component báo cáo render, nên không kết luận người dùng đang nhìn thấy checkmark sai."
+    },
+    "source_hashes": {
+      "src/clinicai/services/tom_tat_tai_chinh_service.py": "1ee000be88ffb65bd408b5037442a165be8027854c279157f2b37e07faaec8df",
+      "src/clinicai/services/bao_cao_cuoi_ngay_service.py": "79326e846d211a73807712d7c06e298c705d20f2ccf726a24f1f2a039017629e",
+      "src/tests/unit/test_tom_tat_tai_chinh.py": "f61651adc5e3401a29f6b2e60e42ced4b2fa4ddad9c1c4710a721d439f8581f9",
+      "src/dashboard/app/(dashboard)/reports/TomTatCuoiNgay.tsx": "685040f27619c5dbfe1aa9ef1c068017bc2fabf47b96b5f6e166e5ba5a3c25c0"
+    },
+    "related_tests": [
+      "src/tests/unit/test_tom_tat_tai_chinh.py",
+      "src/tests/services/test_tom_tat_tai_chinh_db.py"
+    ],
+    "version_scope": "exact_main_snapshot_956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "production_verified": false
+  }
+]

@@ -1,0 +1,975 @@
+{
+  "chunk": "S08",
+  "findings": [
+    {
+      "tmp_id": "S08-1",
+      "title": "Hồ sơ lâm sàng: kiểm phạm vi thư ký theo patient_id nhưng ghép lượt theo appointment_id không ràng buộc cùng bệnh nhân, và nhật ký mở hồ sơ ghi sai khách",
+      "severity": "HIGH",
+      "category": "object_level_access",
+      "evidence_level": "confirmed_static",
+      "summary": "`doc_ho_so` chỉ kiểm thư ký được phân (TKYK) với `patient_id` do người gọi gửi. Khi có `appointment_id` (không có `visit_id`), lượt được lấy bằng `appointment_id` + `clinic_id`, KHÔNG kèm `clinic_patient_id = patient_id`. Các cổng đọc (bệnh án, đơn thuốc, sinh hiệu) sau đó chỉ lọc theo `visit_id` + `clinic_id`, nên SOAP, đơn thuốc nháp, đơn thuốc và sinh hiệu của lượt thuộc bệnh nhân khác được ghép vào phản hồi của `patient_id` mà thư ký được phép xem. Router lại ghi nhật ký mở hồ sơ theo `patient_id` người gọi gửi, không theo bệnh nhân thực sự bị đọc.",
+      "trigger": "Một tài khoản có vai TKYK đã được phân theo bác sĩ (khach_duoc_xem trả danh sách) gọi GET /clinical-records/doc?patient_id=<khách được phân>&appointment_id=<lịch của khách ngoài phạm vi>. Cần biết UUID một lịch hẹn (UUID này xuất hiện ở nhiều API danh sách lịch).",
+      "impact": "Vượt rào phân công thư ký theo bác sĩ (SOAP, đơn thuốc, sinh hiệu của khách ngoài phạm vi) mà không cần quyền gì thêm; nhật ký `clinical_record.opened` (chỉ ghi cho người ngoài đội chuyên môn) ghi sai khách nên truy vết sau này không thấy ai đã xem hồ sơ khách bị đọc.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+          "line": 80,
+          "end_line": 89,
+          "detail": "Chỉ kiểm TKYK với pid (patient_id người gọi gửi)."
+        },
+        {
+          "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+          "line": 101,
+          "end_line": 117,
+          "detail": "Nhánh vid có ràng buộc pid; nhánh appt chỉ lọc appointment_id + clinic_id, không lọc clinic_patient_id."
+        },
+        {
+          "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+          "line": 118,
+          "end_line": 127,
+          "detail": "ghep_ho_so nhận visit_id=luot nhưng khach=pid -> hai bệnh nhân khác nhau trong cùng bối cảnh."
+        },
+        {
+          "path": "src/clinicai/services/clinical_record_service.py",
+          "line": 884,
+          "end_line": 909,
+          "detail": "benh_an_cho_ho_so (qua git show, ngoài danh sách): SELECT theo visit_id + clinic_id, trả SOAP/prescription_draft."
+        },
+        {
+          "path": "src/clinicai/services/clinical_prescription_service.py",
+          "line": 191,
+          "end_line": 208,
+          "detail": "don_thuoc_cho_ho_so (ngoài danh sách): lọc visit_id + clinic_id."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/clinical_records.py",
+          "line": 79,
+          "end_line": 86,
+          "detail": "Router ghi ghi_mo_ho_so(khach=patient_id) theo tham số người gọi."
+        }
+      ],
+      "limitations": "Chưa chạy; dựa trên đọc tĩnh. Chỉ khai thác được bởi người đã có cửa cua_y_khoa; với tài khoản không bị giới hạn phân công thì không thêm quyền (họ vốn đọc được mọi khách). Trên DB có thể có ràng buộc khác ngoài code đã đọc.",
+      "recommendation": "Khi có appointment_id, lấy lượt bằng appointment_id AND clinic_patient_id = pid (và lượt phải cùng pid); nếu lệch trả 404/422. Thêm bất biến ở tầng cổng: NguCanhHoSo xác thực visit thuộc khach trước khi gọi các cổng. Nhật ký mở hồ sơ ghi theo khách thực của lượt.",
+      "acceptance": "Test: TKYK được phân khách A gọi doc với patient_id=A, appointment_id của khách B -> 4xx và không có SOAP/đơn của B; test nhật ký: patient_id lệch lượt thì không có bản ghi sai khách.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-010",
+        "SEC-011",
+        "SEC-016"
+      ]
+    },
+    {
+      "tmp_id": "S08-2",
+      "title": "Nhật ký 'ai đã mở nội dung y khoa' chỉ áp ở vài cửa, ghi sau khi đã đọc và nuốt lỗi; kết quả/in phiếu/ghi chú lượt/hồ sơ hành chính không được ghi",
+      "severity": "MEDIUM",
+      "category": "audit_read_trail",
+      "evidence_level": "confirmed_static",
+      "summary": "`ghi_mo_ho_so` là cam kết kiểm soát khi mở quyền đọc y khoa cho quản lý/vai ngoài đội chuyên môn. Nó chỉ được gọi ở /clinical-records/doc, /clinical-records/in-theo-lich và /ho-so-khach/{id}/lich-su-lam-sang. Các đường trả nội dung y khoa hoặc PII tương đương không gọi: `FormEngineService.xem_ket_qua` và `in_ket_qua` (DOC_KET_QUA gồm MANAGEMENT, TRUONG_CA; in gồm CSKH và vai quầy), `ghi_chu_luot.doc`, `ho_so_khach_doc.hanh_chinh` và `nhat_ky_cskh`. Hàm còn (a) bỏ qua mọi tài khoản có vai gốc lâm sàng, (b) ghi sau khi dữ liệu đã trả về logic, (c) lỗi ghi chỉ logger.warning.",
+      "trigger": "Quản lý, trưởng ca, CSKH hoặc lễ tân mở phiếu kết quả (GET /phieu/xem, /phieu/in), ghi chú lượt khám hoặc hồ sơ hành chính; hoặc insert event_log lỗi lúc mở hồ sơ.",
+      "impact": "Câu hỏi 'ai ngoài đội chuyên môn đã xem kết quả của khách này' không trả lời được cho một phần lớn đường đọc; bác sĩ đọc hồ sơ khách không phụ trách (do 'mở full lego') cũng không để lại dấu. Khi sự cố lộ thông tin xảy ra, bằng chứng thiếu hoặc rỗng mà không cảnh báo vận hành.",
+      "evidence": [
+        {
+          "path": "src/clinicai/permissions/y_khoa.py",
+          "line": 80,
+          "end_line": 127,
+          "detail": "ghi_mo_ho_so: bỏ qua CLINICAL_WRITE_ROLES (L102-103), gọi sau khi đọc, except Exception chỉ logger.warning (L126-127)."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/phieu.py",
+          "line": 187,
+          "end_line": 208,
+          "detail": "xem_ket_qua và in_ket_qua không gọi ghi_mo_ho_so."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 259,
+          "end_line": 322,
+          "detail": "xem_ket_qua: co_vai(DOC_KET_QUA) rồi trả du_lieu phiếu; chỉ ghi 'đã xem' cho DOCTOR/TKYK, không ghi ai khác mở."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 327,
+          "end_line": 346,
+          "detail": "in_ket_qua: thông tin bệnh nhân + kết quả, không có nhật ký truy cập."
+        },
+        {
+          "path": "src/clinicai/services/ghi_chu_luot.py",
+          "line": 79,
+          "end_line": 101,
+          "detail": "doc(): đọc ghi chú lượt, không nhật ký."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/thu_ky.py",
+          "line": 68,
+          "end_line": 106,
+          "detail": "hanh_chinh và nhat_ky_cskh không gọi ghi_mo_ho_so (chỉ lich-su-lam-sang có, L91)."
+        }
+      ],
+      "limitations": "Chưa đọc các chỗ khác có thể tự ghi audit (record_event ở tầng middleware). Chính sách 'không ghi bác sĩ vì nhiễu' là quyết định có chủ ý, nhưng không giải quyết nhu cầu truy vết đọc ngoài phạm vi phân công.",
+      "recommendation": "Gom nhật ký đọc vào một dependency chung cho mọi API trả nội dung y khoa/PII; ghi TRƯỚC khi trả (hoặc fail-closed với dữ liệu nhạy cảm); lỗi ghi phải sinh cảnh báo vận hành; với đường đọc ngoài phạm vi phân công của bác sĩ vẫn ghi dạng gọn (mẫu 'đọc ngoài ca').",
+      "acceptance": "Test hợp đồng: mọi route trả form_instance/SOAP/ghi chú lượt/PII hành chính của bệnh nhân đều tạo clinical_record.opened cho vai không thuộc đội chuyên môn; mô phỏng record_event lỗi -> có dòng cảnh báo vận hành, không im lặng.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-013",
+        "SEC-019",
+        "SEC-026",
+        "SEC-027"
+      ]
+    },
+    {
+      "tmp_id": "S08-3",
+      "title": "Phiếu kết quả nhận `thuc_hien_boi` tuỳ ý từ người gọi, không kiểm là bác sĩ cùng phòng khám hay đang trong ca; cửa ca kiểm bác sĩ mặc định chứ không kiểm người được chọn",
+      "severity": "MEDIUM",
+      "category": "clinical_authorship",
+      "evidence_level": "confirmed_static",
+      "summary": "`luu_nhap` và `hoan_tat` ghi `thuc_hien_boi` (người thực hiện – dữ liệu nghiệp vụ, in ở chỗ ký 'Bác sĩ thực hiện') từ tham số request vào form_instance bằng COALESCE, không kiểm người đó thuộc phòng khám, là bác sĩ, đang hoạt động hay có mặt trong ca. Cột chỉ có khoá ngoại tới staff(id) (không ràng buộc clinic). `kiem_dung_ca` được gọi với `bac_si_thuc_hien_mac_dinh` (bác sĩ đứng phòng suy ra), không phải người được chọn. Lọc 'là bác sĩ của phòng khám' chỉ nằm ở lúc in (bac_si_ky_in), nên bản ghi và sự kiện `result_form.completed` mang người không được xác thực.",
+      "trigger": "Điều dưỡng/người có quyền result.form.fill gửi thuc_hien_boi = UUID của một bác sĩ khác (hoặc staff của phòng khám khác, hoặc nhân viên không phải bác sĩ) khi lưu/hoàn tất.",
+      "impact": "Kết quả đã in cho bệnh nhân có thể mang tên một bác sĩ chưa từng xác nhận (trách nhiệm pháp lý/chuyên môn); với UUID ngoài tenant có thể ghi tham chiếu chéo phòng khám. Lịch sử sửa (`_da_doi_gi`) coi thay thuc_hien_boi là sửa chuyên môn nhưng không kiểm người mới.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 555,
+          "end_line": 585,
+          "detail": "luu_nhap nhận thuc_hien_boi; kiem_dung_ca chỉ nhận bac_si_id mặc định (L579-585)."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 742,
+          "end_line": 748,
+          "detail": "hoan_tat: cùng cách kiểm ca theo bác sĩ mặc định."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 818,
+          "end_line": 839,
+          "detail": "UPDATE ghi thuc_hien_boi = COALESCE($5, thuc_hien_boi_dang_sua, thuc_hien_boi, $6) không xác thực."
+        },
+        {
+          "path": "supabase/migrations/20260923000005_form_engine.sql",
+          "line": 80,
+          "end_line": 80,
+          "detail": "thuc_hien_boi uuid REFERENCES staff(id) – không ràng buộc clinic/vai."
+        },
+        {
+          "path": "src/clinicai/services/bac_si_ky.py",
+          "line": 36,
+          "end_line": 60,
+          "detail": "Chỉ lúc in mới lọc 'là bác sĩ còn hoạt động của phòng khám' (ngoài danh sách)."
+        }
+      ],
+      "limitations": "Giao diện có thể chỉ cho chọn từ danh sách bác sĩ hợp lệ; lỗ hổng là ở server tin dữ liệu do client gửi. Trigger DB chưa kiểm hết toàn bộ migration.",
+      "recommendation": "Xác thực thuc_hien_boi tại server: cùng clinic_id, membership đang hoạt động với vai bác sĩ, và đang trong ca/đã được người đó 'nhận' (hoặc yêu cầu xác nhận của bác sĩ); kiem_dung_ca chạy với chính người được chọn.",
+      "acceptance": "Test: thuc_hien_boi là staff phòng khám khác / không phải bác sĩ / nghỉ việc -> 422; thuc_hien_boi = bác sĩ không có ca hôm nay -> 403 trừ khi có 'đổi người trong ca'.",
+      "alignment": [
+        "Reality rõ",
+        "Ownership rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-028",
+        "SEC-036",
+        "CLIN-017"
+      ]
+    },
+    {
+      "tmp_id": "S08-4",
+      "title": "[Sửa lại] phiếu kết quả bỏ dở không có chủ/hạn: mở chế độ sửa đã mở lại dịch vụ quầy và đưa khách trở lại hàng chờ ngay cả khi chưa đổi gì",
+      "severity": "MEDIUM",
+      "category": "orphaned_work",
+      "evidence_level": "design_gap",
+      "summary": "`mo_sua` đặt dang_sua=true và, nếu dịch vụ làm thêm do quầy đóng, gọi `mo_lai_neu_quay_da_dong` -> `hoan_tac_xong_tai_quay` ngay trong lúc mở: lần làm thành INTERRUPTED, chỉ định về PENDING, hàng chờ phòng được dựng lại. Việc đóng lại chỉ xảy ra khi bấm [Xác nhận sửa] hoặc [Huỷ sửa]. Không có người chịu trách nhiệm, hạn hay nhắc nào cho trạng thái dang_sua; nếu người mở đóng tab/bận việc khác, khách hiện như đang chờ làm và phiếu hiện 'đang được sửa' cho mọi người vô thời hạn.",
+      "trigger": "Nhân viên bấm [Sửa lại] trên kết quả của dịch vụ làm thêm tại quầy rồi không bấm xác nhận/huỷ (hết ca, mất mạng, đổi ý).",
+      "impact": "Khách bị tính là 'chờ làm' trong hàng chờ phòng quầy, lượt không khép được đúng; cả nhóm phải hỏi nhau ai đang sửa; kết quả chính thức vẫn giữ nên an toàn dữ liệu, nhưng thực tế vận hành bị lệch (Reality, Ownership).",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 952,
+          "end_line": 1018,
+          "detail": "mo_sua: đặt dang_sua, rồi mở lại dịch vụ quầy; không ghi người mở/hạn."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 1097,
+          "end_line": 1149,
+          "detail": "huy_sua là đường duy nhất đóng lại dịch vụ khi bỏ sửa."
+        },
+        {
+          "path": "src/clinicai/services/lam_them_dong_dich_vu.py",
+          "line": 168,
+          "end_line": 199,
+          "detail": "mo_lai_neu_quay_da_dong gọi hoan_tac_tai_quay(nguon='sua_lai')."
+        },
+        {
+          "path": "src/clinicai/services/service_execution_service.py",
+          "line": 1105,
+          "end_line": 1210,
+          "detail": "hoan_tac_xong_tai_quay: attempt -> INTERRUPTED, order -> PENDING, ve_lai_hang_phong (ngoài danh sách)."
+        }
+      ],
+      "limitations": "Chưa xác nhận có job dọn phiếu dang_sua quá hạn ở nơi khác (grep nhanh không thấy trong các tệp đã đọc).",
+      "recommendation": "Ghi người mở + hạn cho dang_sua (ví dụ cuối ca); worker nhắc/đưa lên trưởng ca; hoãn mở lại dịch vụ quầy tới lúc có thay đổi thật hoặc lúc lưu nháp đầu tiên.",
+      "acceptance": "Test: mo_sua không để dịch vụ về PENDING cho tới khi có thay đổi; dang_sua quá N giờ sinh việc nhắc có người nhận.",
+      "alignment": [
+        "Ownership rõ",
+        "Reality rõ",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-017",
+        "CLIN-039"
+      ]
+    },
+    {
+      "tmp_id": "S08-5",
+      "title": "Đóng dịch vụ làm thêm tại quầy gồm hai giao dịch (bắt đầu rồi xong): lỗi ở bước hai để lại lần làm IN_PROGRESS không đường tự khôi phục; lỗi không lường trước làm Hoàn tất phiếu trả 500 sau khi đã commit",
+      "severity": "MEDIUM",
+      "category": "partial_failure",
+      "evidence_level": "confirmed_static",
+      "summary": "`dong_tai_quay` kiểm điều kiện chung rồi gọi `svc.bat_dau` (commit) và `svc.xong` (giao dịch khác). `_chan_dong` chỉ hỏi quyền 'ở một phòng nào đó' (can_o_phong_nao_do) còn hai lệnh kiểm quyền theo phòng của chỉ định và lịch phòng. Nếu `xong` ném SafetyGateError/ConflictError sau khi `bat_dau` đã thành công, hàm trả 'khong_du_quyen/xung_dot' trong khi chỉ định đã IN_PROGRESS với lần làm mở; các lần gọi sau đi vào `_chan_dong` và nhận 'khong_cho_lam'. Ngoài ra nhánh đóng dịch vụ đang làm trong form_engine bắt `Exception` còn nhánh quầy thì không: lỗi hạ tầng giữa chừng làm `hoan_tat` ném 500 dù phiếu và sự kiện result.ready đã commit.",
+      "trigger": "Người Hoàn tất phiếu làm thêm có quyền bắt đầu nhưng không đủ quyền/ca để hoàn tất ở phòng quầy, hoặc revision đổi giữa hai lệnh, hoặc lỗi DB/timeout giữa hai lệnh.",
+      "impact": "Dịch vụ ở trạng thái 'đang làm' không ai biết, khách nằm trong phòng quầy; màn nói 'bấm Đóng dịch vụ' nhưng nút bị chặn. Thử lại Hoàn tất ('Bấm hai lần') trả OK mà không đóng dịch vụ (xem S08-6).",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/lam_them_dong_dich_vu.py",
+          "line": 84,
+          "end_line": 88,
+          "detail": "Quyền kiểm theo 'phòng nào đó', không theo phòng của chỉ định."
+        },
+        {
+          "path": "src/clinicai/services/lam_them_dong_dich_vu.py",
+          "line": 102,
+          "end_line": 141,
+          "detail": "bat_dau và xong là hai lệnh riêng; SafetyGate/Conflict ở bước hai trả 'chưa đóng' dù bat_dau đã commit."
+        },
+        {
+          "path": "src/clinicai/services/lam_them_dong_dich_vu.py",
+          "line": 66,
+          "end_line": 76,
+          "detail": "execution_status != PENDING -> 'khong_cho_lam', không phân biệt trạng thái dở do chính luồng này."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 1227,
+          "end_line": 1234,
+          "detail": "Nhánh quầy: không try/except."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 1238,
+          "end_line": 1251,
+          "detail": "Nhánh dịch vụ đang làm: except Exception trả vi_sao='loi'."
+        },
+        {
+          "path": "src/clinicai/services/service_execution_service.py",
+          "line": 372,
+          "end_line": 470,
+          "detail": "bat_dau/xong tự mở giao dịch và kiểm quyền theo phòng (ngoài danh sách)."
+        }
+      ],
+      "limitations": "Mức khai thác phụ thuộc cấu hình quyền theo phòng; có thể hiếm trên môi trường quyền 'mở full'.",
+      "recommendation": "Gộp bắt đầu+xong vào một lệnh nguyên tử của module Thực hiện (một giao dịch, một khoá đơn), hoặc bù trừ (huỷ lần vừa mở) khi bước hai lỗi; _chan_dong kiểm quyền theo phòng của chỉ định; bọc nhánh quầy bằng except như nhánh còn lại.",
+      "acceptance": "Test chèn lỗi ở xong(): sau đó order không ở IN_PROGRESS với attempt mở; hoan_tat trả OK kèm dich_vu.da_dong=false với lý do, không 500.",
+      "alignment": [
+        "Reality rõ",
+        "Unknown ngắn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-017",
+        "INF-007"
+      ]
+    },
+    {
+      "tmp_id": "S08-6",
+      "title": "Hoàn tất lại phiếu đã READY (retry sau mất phản hồi) trả thành công mà không thử đóng dịch vụ còn dở",
+      "severity": "LOW",
+      "category": "retry_semantics",
+      "evidence_level": "confirmed_static",
+      "summary": "Với phiếu thường (không thuộc MAU_KHONG_HOAN_TAT), nhánh 'Bấm hai lần' ở hoan_tat trả {ok, da_hoan_tat, con_trong=[]} bên trong giao dịch và thoát trước dòng gọi `_dong_dich_vu_neu_dang_lam`. Nếu lần đầu phiếu đã commit nhưng việc đóng dịch vụ thất bại (hoặc phản hồi bị mất), lần thử lại báo hoàn tất mà không có khối 'dich_vu', dịch vụ vẫn IN_PROGRESS.",
+      "trigger": "Mất phản hồi hoặc lỗi đóng dịch vụ sau commit phiếu, người dùng bấm Hoàn tất lại.",
+      "impact": "Màn tin là xong, khách còn tên trong hàng chờ phòng (đúng tình huống mà chú thích mã nói phải tránh).",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 749,
+          "end_line": 757,
+          "detail": "Trả sớm cho READY không sửa lại, bỏ qua bước đóng dịch vụ."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 932,
+          "end_line": 937,
+          "detail": "Chỉ đường đi đầy đủ mới gọi _dong_dich_vu_neu_dang_lam."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 697,
+          "end_line": 724,
+          "detail": "Riêng mẫu MAU_KHONG_HOAN_TAT có xử lý đóng dịch vụ khi gọi lại."
+        }
+      ],
+      "limitations": "Đường phục hồi vẫn có: bấm Xong ở phòng. Mức ảnh hưởng nhỏ.",
+      "recommendation": "Nhánh READY nên gọi _dong_dich_vu_neu_dang_lam (idempotent) trước khi trả và trả khối dich_vu.",
+      "acceptance": "Test: gây lỗi đóng dịch vụ lần 1; lần 2 hoan_tat đóng được hoặc trả vi_sao rõ.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-007"
+      ]
+    },
+    {
+      "tmp_id": "S08-7",
+      "title": "Việc gọi nhắc tái khám tự đóng theo suy diễn: 'có lịch hẹn nào đó từ hạn gọi trở đi' hoặc 'ngày hẹn đã qua', không cần người xác nhận",
+      "severity": "MEDIUM",
+      "category": "silent_task_closure",
+      "evidence_level": "confirmed_static",
+      "summary": "`dong_bo` (chạy mỗi lần lưu phiếu) đóng việc gọi là DA_CO_LICH nếu khách có BẤT KỲ lịch còn sống nào có ngày >= han_goi (không giới hạn trên theo ngày hẹn, không so loại khám/bác sĩ/mục đích; chỉ loại lịch do chính lượt này đặt). Ngoài ra bất kỳ lần lưu phiếu nào sau ngày hẹn (kể cả sửa/bổ sung sau Hoàn tất) đóng việc đang CHO_GOI với lý do NGAY_DA_QUA. Cả hai kết thúc ở trạng thái KHONG_CAN, ra khỏi hàng gọi.",
+      "trigger": "(a) Khách có lịch khám khác (khác mục đích) vào tháng sau trong khi bác sĩ hẹn tái khám tuần sau; (b) việc gọi chưa ai làm, ngày hẹn trôi qua, ai đó sửa phiếu.",
+      "impact": "Bệnh nhân cần tái khám theo chỉ định có thể không bao giờ được gọi mà không có cảnh báo; việc 'quá hạn' biến mất thay vì leo thang.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hen_tai_kham_service.py",
+          "line": 462,
+          "end_line": 476,
+          "detail": "Truy vấn lịch khác: status sống, slot_start >= han, bỏ qua hen_tu_visit_id của lượt này; không giới hạn trên/loại khám."
+        },
+        {
+          "path": "src/clinicai/services/hen_tai_kham_service.py",
+          "line": 389,
+          "end_line": 403,
+          "detail": "ngay < hom_nay -> đóng việc đang chờ với NGAY_DA_QUA."
+        },
+        {
+          "path": "src/clinicai/services/hen_tai_kham_service.py",
+          "line": 58,
+          "end_line": 64,
+          "detail": "Các lý do đóng; KHONG_CAN trong tinh_trang (L143-155) hiển thị như không cần."
+        },
+        {
+          "path": "src/clinicai/services/hen_tai_kham_service.py",
+          "line": 17,
+          "end_line": 19,
+          "detail": "Quy tắc nêu trong docstring: 'đã có lịch hẹn từ hạn gọi trở đi'."
+        }
+      ],
+      "limitations": "Quy tắc là lựa chọn nghiệp vụ được ghi (docstring); trigger DB nhac_tai_kham_dong_khi_co_lich dùng cùng luật. Chưa thấy cơ chế tách riêng cho việc quá hạn.",
+      "recommendation": "Giới hạn 'đã có lịch' trong cửa sổ quanh ngày hẹn (ví dụ [han_goi, ngày hẹn + dung sai]) và cùng chuyên khoa/dịch vụ; việc quá hạn chưa gọi chuyển sang QUÁ HẠN có người nhận thay vì đóng im lặng; ghi lý do đóng vào nhật ký cho người phụ trách.",
+      "acceptance": "Test: lịch khám khác sau ngày hẹn 30 ngày không đóng việc; lưu phiếu sau ngày hẹn khi việc chưa gọi sinh trạng thái QUÁ HẠN, không KHONG_CAN.",
+      "alignment": [
+        "Phát hiện sớm",
+        "Ownership rõ",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-003",
+        "OPS-001",
+        "OPS-002",
+        "CLIN-033"
+      ]
+    },
+    {
+      "tmp_id": "S08-8",
+      "title": "Đổi ngày hẹn mở lại việc đã gọi và xoá kết quả/giờ/người gọi ngay trên chính việc",
+      "severity": "LOW",
+      "category": "evidence_loss",
+      "evidence_level": "confirmed_static",
+      "summary": "Khi `dong_bo` dùng lại một dòng nhac_tai_kham ở trạng thái đã gọi (DA_GOI), câu UPDATE đặt ket_qua, goi_luc, nguoi_goi_staff_id về NULL. Chú thích nói cuộc gọi cũ nằm ở cskh_log, nhưng việc đóng không bắt buộc ghi cskh_log (đã có CLIN-033), nên dấu vết cuộc gọi có thể không còn ở đâu cả.",
+      "trigger": "CSKH đã đánh dấu đã gọi; sau đó bác sĩ sửa ngày tái khám (kể cả sửa lỗi gõ).",
+      "impact": "Mất bằng chứng ai đã gọi, lúc nào, kết quả gì; số liệu hiệu quả CSKH sai.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hen_tai_kham_service.py",
+          "line": 503,
+          "end_line": 519,
+          "detail": "UPDATE ... ket_qua = NULL, goi_luc = NULL, nguoi_goi_staff_id = NULL."
+        },
+        {
+          "path": "src/clinicai/services/hen_tai_kham_service.py",
+          "line": 414,
+          "end_line": 418,
+          "detail": "Chọn dòng cũ 'kể cả đã đóng' để dùng lại thay vì tạo dòng mới."
+        }
+      ],
+      "limitations": "event_log (nhac_tai_kham.hen_doi) giữ ngày từ->tới nhưng không giữ kết quả cuộc gọi.",
+      "recommendation": "Tạo dòng lượt gọi mới (hoặc chép kết quả cũ vào bảng lịch sử) trước khi mở lại.",
+      "acceptance": "Test: đổi ngày sau DA_GOI vẫn truy được ket_qua/goi_luc/nguoi_goi của lần cũ.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Lỗi lặp thành cải tiến hệ thống"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-033",
+        "OPS-005"
+      ]
+    },
+    {
+      "tmp_id": "S08-9",
+      "title": "Đánh dấu 'đã xuất MISA' dựng lại danh sách lúc bấm, không gắn với tệp Excel đã tải; khoảng ngày lưu là khoảng người gọi nhập chứ không phải khoảng thực sự đã đánh dấu",
+      "severity": "MEDIUM",
+      "category": "export_reconciliation",
+      "evidence_level": "confirmed_static",
+      "summary": "Kế toán tải tệp rồi bấm đánh dấu; `danh_dau` dựng lại danh sách và dấu vân tay tại THỜI ĐIỂM BẤM, không mang theo mã/băm của tệp đã tải. Hoá đơn tạo mới hoặc đổi giữa lúc tải và lúc bấm vẫn được đánh dấu 'đã xuất' với dấu vân tay mới, nên không bao giờ hiện 'có thay đổi sau khi xuất' dù tệp MISA không có hoặc có bản cũ. Thêm nữa `hoa_don_misa_xuat.tu_ngay/den_ngay` lưu khoảng người dùng nhập, trong khi danh sách có thể bị co lại bởi doc_khoang_ngay (đã biết ở FIN-006): bản ghi tuyên bố khoảng rộng hơn số hoá đơn thực sự được đánh dấu.",
+      "trigger": "Thu ngân ghi nhận/hoàn tiền hoặc kế toán đổi công ty trong vài phút giữa lúc tải tệp và lúc bấm đánh dấu; hoặc khoảng ngày chọn vượt giới hạn của danh sách.",
+      "impact": "Hoá đơn thiếu hoặc lệch số liệu so với tệp đã nhập MISA mà hệ thống tự coi là khớp; cơ chế phát hiện thay đổi sau xuất (điểm tốt) bị vô hiệu đúng cho các hoá đơn rủi ro nhất.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hoa_don_misa_service.py",
+          "line": 57,
+          "end_line": 87,
+          "detail": "danh_dau lấy data, goc từ doc_goc tại lúc bấm; không có mã tệp/thời điểm tải."
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_misa_service.py",
+          "line": 89,
+          "end_line": 117,
+          "detail": "INSERT hoa_don_misa_xuat với d_tu/d_den của người gọi (L94-95) và dấu vân tay tại lúc bấm."
+        },
+        {
+          "path": "src/clinicai/services/danh_sach_hoa_don_service.py",
+          "line": 262,
+          "end_line": 262,
+          "detail": "xem() dùng doc_khoang_ngay(tu, den) -> data['tu'/'den'] là khoảng hiệu lực, danh_dau bỏ qua (ngoài danh sách)."
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_misa_doc.py",
+          "line": 25,
+          "end_line": 28,
+          "detail": "so_sanh coi hien_tai=None là 'không còn trong kỳ' (ngoài danh sách)."
+        }
+      ],
+      "limitations": "Chưa xác nhận tệp Excel nhúng mã xác định (xuat_hoa_don_service chỉ đọc một phần).",
+      "recommendation": "Khi tải tệp, ghi một bản chụp (mã lần xuất + tập payment_cycle_id + dấu vân tay) và chỉ cho 'đánh dấu' bằng mã đó; lưu khoảng hiệu lực data['tu'/'den']; không cho đánh dấu khi khoảng bị cắt.",
+      "acceptance": "Test: đổi hoá đơn sau lúc tải rồi đánh dấu theo mã tải -> hoá đơn hiện 'có thay đổi sau khi xuất'; khoảng >93 ngày bị từ chối hoặc lưu đúng khoảng hiệu lực.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-005",
+        "FIN-006"
+      ]
+    },
+    {
+      "tmp_id": "S08-10",
+      "title": "Việc tồn về tiền hai chiều (khách nợ, phòng khám nợ khách, hoàn thất bại, CK chưa về) chỉ là dòng tính ra khi mở màn Hoá đơn, không người nhận/hạn/nhắc",
+      "severity": "MEDIUM",
+      "category": "ownerless_work",
+      "evidence_level": "design_gap",
+      "summary": "`gom_viec_ton` ghép các nguồn (hoàn đang chờ, CK chưa về, sổ nợ, tiền thừa) thành danh sách thuần, 'chỉ để xem'. Không có bản ghi việc bền vững với người phụ trách, hạn, nhắc hay leo thang; phần 'chưa làm, khách đã về' chỉ trả huong_dan bằng chữ. Hệ thống biết mà không ai chịu trách nhiệm: tiền phòng khám nợ khách (CHUA_TRA_LAI, HOAN_THAT_BAI) và nợ khách phụ thuộc người nhớ mở màn đúng lúc.",
+      "trigger": "Hoàn tiền thất bại, bỏ dịch vụ sau khi thu, hoặc khách ghi nợ rồi về; không ai mở màn danh sách hoá đơn hoặc quầy thu đúng ngày.",
+      "impact": "Khách chờ hoàn/được trả tiền thừa trong bất định, nợ không được đòi đúng hạn, lỗi tiền chỉ lộ khi khách phàn nàn.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hoa_don_projection.py",
+          "line": 20,
+          "end_line": 29,
+          "detail": "TEN_VIEC_TON và nhận xét 'màn danh sách hoá đơn chỉ để xem'."
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_projection.py",
+          "line": 588,
+          "end_line": 693,
+          "detail": "gom_viec_ton: thuần, không ghi owner/due."
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_projection.py",
+          "line": 503,
+          "end_line": 574,
+          "detail": "duong_xu_ly chỉ trả link hoặc huong_dan chữ."
+        },
+        {
+          "path": "src/clinicai/services/danh_sach_hoa_don_service.py",
+          "line": 370,
+          "end_line": 437,
+          "detail": "_viec_ton đọc sổ nợ/CK/hoàn tại lúc truy vấn (ngoài danh sách)."
+        }
+      ],
+      "limitations": "Chưa đọc cashier_board_service (có huy hiệu CK chưa về) và các consumer cảnh báo; có thể có nhắc ở nơi khác.",
+      "recommendation": "Sinh việc bền vững (có owner theo vai quầy thu/quản lý, due, nhắc, leo thang) từ các sự kiện hoàn thất bại/ghi nợ/bỏ dịch vụ đã thu; màn Hoá đơn chỉ là một góc nhìn của việc đó.",
+      "acceptance": "Test: refund FAILED tạo task có owner và due trong cùng giao dịch; task quá hạn sinh nhắc cho người phụ trách.",
+      "alignment": [
+        "Ownership rõ",
+        "Phát hiện sớm",
+        "Ít gián đoạn đúng lúc"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-013",
+        "FIN-019",
+        "INF-011"
+      ]
+    },
+    {
+      "tmp_id": "S08-11",
+      "title": "Số lô duy nhất theo (cơ sở, nơi chứa) chứ không theo thuốc: hai thuốc cùng số lô nhà cung cấp không nhập được, buộc đổi số lô và làm mất truy vết thu hồi",
+      "severity": "MEDIUM",
+      "category": "inventory_traceability",
+      "evidence_level": "design_gap",
+      "summary": "UNIQUE(clinic_id, location_id, noi_chua, batch_code) không có drug_catalog_id. `nhap_vao_lo` từ chối khi cùng số lô đã dùng cho thuốc khác ('gõ nhầm số lô'). Số lô thật in trên vỏ hộp do nhà sản xuất/nhà cung cấp đặt và không đảm bảo duy nhất giữa các thuốc; người nhập buộc phải sửa số lô hoặc không nhập được. Phiếu nhập cũng chặn trùng số lô giữa các dòng khác thuốc.",
+      "trigger": "Hai thuốc của hai nhà sản xuất cùng có số lô 'A01' hoặc '001'.",
+      "impact": "Số lô trong hệ thống có thể khác số lô trên hộp -> khó truy vết thu hồi thuốc (recall), kiểm kê đối chiếu; gây gián đoạn khi nhập hàng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 3129,
+          "end_line": 3157,
+          "detail": "nhap_vao_lo: chú thích 'duy nhất theo (kho cơ sở, nơi chứa), không theo từng thuốc'; ConflictError khi khác thuốc (ngoài danh sách)."
+        },
+        {
+          "path": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+          "line": 32,
+          "end_line": 34,
+          "detail": "UNIQUE (clinic_id, location_id, noi_chua, batch_code)."
+        },
+        {
+          "path": "src/clinicai/services/kho_thuoc_service.py",
+          "line": 548,
+          "end_line": 554,
+          "detail": "tao_phieu_nhap: trùng số lô trong một phiếu bị chặn bất kể thuốc."
+        }
+      ],
+      "limitations": "Có thể là lựa chọn đơn giản hoá chấp nhận được ở quy mô hiện tại; vấn đề nổi lên khi bán cho nhiều phòng khám/nhiều nhà cung cấp.",
+      "recommendation": "Khoá danh tính lô là (thuốc, số lô nhà sản xuất, hạn) kèm mã nội bộ riêng cho tem/kệ; giữ số lô gốc để tra cứu.",
+      "acceptance": "Test: hai thuốc nhập cùng số lô gốc được hai bản ghi riêng, thẻ kho và recall truy theo số lô gốc đúng thuốc.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-007",
+        "PHAR-002"
+      ]
+    },
+    {
+      "tmp_id": "S08-12",
+      "title": "Phiếu kiểm kho ghi ADJUST theo tồn vật lý mà không đối chiếu phần đã bán chưa giao (kha_dung); đếm thấp hơn cam kết bán làm các lần giao đã thu tiền thất bại muộn",
+      "severity": "MEDIUM",
+      "category": "inventory_commitment",
+      "evidence_level": "design_gap",
+      "summary": "`kiem_kho` tính lệch = thuc_te - quantity_on_hand rồi ghi ADJUST. Chuyển kho (`_chuyen_cac_dong`) dùng drug_batch_kha_dung (vật lý trừ giữ chờ xác minh trừ đã bán chưa giao) để không rút phần đã cam kết, nhưng kiểm kho không so thuc_te với kha_dung và không cảnh báo khi số đếm dưới phần đã cam kết. Không có ngưỡng lệch cần người thứ hai duyệt.",
+      "trigger": "Nhân viên đếm thiếu/nhập nhầm số đếm cho lô QUẦY đang có đơn đã thu tiền chờ giao.",
+      "impact": "Tồn vật lý trong sổ thấp hơn phần đã bán, lệnh DISPENSE sau đó bị CHECK tồn>=0 chặn: khách đã trả tiền nhưng không giao được, phát hiện muộn ở quầy; điều chỉnh lớn không có kiểm soát chéo (đã nêu một phần ở PHAR-002).",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/kho_thuoc_service.py",
+          "line": 698,
+          "end_line": 732,
+          "detail": "kiem_kho: lấy quantity_on_hand, lech = thuc_te - ton_may, ghi ADJUST; không dùng kha_dung."
+        },
+        {
+          "path": "src/clinicai/services/kho_thuoc_service.py",
+          "line": 883,
+          "end_line": 928,
+          "detail": "_chuyen_cac_dong dùng drug_batch_kha_dung và chặn rút quá phần khả dụng."
+        },
+        {
+          "path": "src/clinicai/services/phan_lo_service.py",
+          "line": 10,
+          "end_line": 12,
+          "detail": "Định nghĩa kha_dung (ngoài danh sách)."
+        }
+      ],
+      "limitations": "Số đếm vật lý trên kệ vốn gồm cả hàng đã bán chưa giao nên trường hợp thật phụ thuộc cách nhân viên đếm; cần xem thêm kiem_ke_ca_service.",
+      "recommendation": "Hiển thị và cảnh báo khi thuc_te < cam kết chưa giao; yêu cầu lý do + người thứ hai duyệt khi lệch vượt ngưỡng; tạo việc xử lý các đơn đã thu bị thiếu hàng.",
+      "acceptance": "Test: kiểm kho đếm dưới phần đã bán chưa giao -> trả cảnh báo/409 hoặc sinh việc cho đơn bị ảnh hưởng.",
+      "alignment": [
+        "Phát hiện sớm",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": [
+        "PHAR-002",
+        "PHAR-003",
+        "CLIN-007"
+      ]
+    },
+    {
+      "tmp_id": "S08-13",
+      "title": "Lõi đọc hành trình và hồ sơ khách nối cứng vào schema nhập Notion của Dr4Women (lich_su_notion, cskh_log kiểu Notion)",
+      "severity": "MEDIUM",
+      "category": "tenant_specific_coupling",
+      "evidence_level": "design_gap",
+      "summary": "Truy vấn lõi `_SQL_LUOT` của hành trình (dùng cho bảng trang chủ, popup, nhãn trạng thái mọi màn) có EXISTS vào `lich_su_notion.luot_that`, và nhánh `_bo_gio_ho_so_cu` xử lý riêng 'hồ sơ cũ từ Notion'. `ho_so_khach_doc.nhat_ky_cskh` đọc cskh_log được mô tả là 'bảng nhập từ Notion'. Schema lich_su_notion được tạo trong chuỗi migration chung và được ít nhất chín tệp dịch vụ tham chiếu. Phòng khám mới không có lịch sử Notion vẫn mang schema, bảng và nhánh logic này trong đường nóng.",
+      "trigger": "Tạo phòng khám mới / tách sản phẩm cho nhiều khách hàng.",
+      "impact": "Khó đóng gói bán: phụ thuộc dữ liệu và ngữ nghĩa của riêng Dr4Women trong lõi; mọi truy vấn hành trình trả thêm chi phí và rủi ro vỡ nếu schema bị gỡ.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+          "line": 1053,
+          "end_line": 1054,
+          "detail": "EXISTS (SELECT 1 FROM lich_su_notion.luot_that ...) AS ho_so_cu."
+        },
+        {
+          "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+          "line": 962,
+          "end_line": 993,
+          "detail": "_bo_gio_ho_so_cu: xử lý riêng lượt từ Notion trong lõi."
+        },
+        {
+          "path": "src/clinicai/services/ho_so_khach_doc.py",
+          "line": 200,
+          "end_line": 218,
+          "detail": "nhat_ky_cskh đọc cskh_log 'bảng nhập từ Notion'."
+        },
+        {
+          "path": "supabase/migrations/20261005100000_lich_su_notion.sql",
+          "line": 23,
+          "end_line": 23,
+          "detail": "CREATE SCHEMA lich_su_notion trong chuỗi migration chung."
+        }
+      ],
+      "limitations": "Chỉ là phụ thuộc cấu trúc; chưa chứng minh lỗi chức năng.",
+      "recommendation": "Đưa dữ liệu nhập lịch sử vào module 'hồ sơ cũ' tuỳ chọn có cờ tenant; lõi chỉ biết một giao diện 'nguồn lượt' trừu tượng; migration nhập Notion nằm ngoài chuỗi lõi.",
+      "acceptance": "Phòng khám mới có thể chạy toàn bộ đường hành trình/hồ sơ khách mà không có schema lich_su_notion.",
+      "alignment": [
+        "Lỗi lặp thành cải tiến hệ thống",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S08-14",
+      "title": "Sửa bản chụp hoá đơn công ty ghi đè hồ sơ công ty của khách (mặc định) và hồ sơ khách không có lịch sử trước–sau",
+      "severity": "LOW",
+      "category": "tax_data_integrity",
+      "evidence_level": "confirmed_static",
+      "summary": "`ghi_hoa_don` với luu_vao_ho_so=True (mặc định) cập nhật dòng khach_cong_ty tìm được bằng MST hoặc tên (hoặc dòng được chọn) bằng nội dung bản chụp, kể cả đổi tên/MST/địa chỉ. Hoá đơn có bảng lịch sử cũ→mới (hoa_don_cong_ty_lich_su) nhưng khach_cong_ty chỉ có event 'khach_luu' với payload không chứa giá trị cũ/mới. Chỉnh sai ở một hoá đơn làm đổi giá trị điền sẵn cho các lần sau; MST sai dạng vẫn được lưu.",
+      "trigger": "Kế toán sửa lỗi gõ hoặc nhập công ty khác vào bản chụp khi đã chọn một công ty trong hồ sơ.",
+      "impact": "Dữ liệu thuế tái sử dụng bị thay mà không truy được giá trị cũ, có thể xuất hoá đơn điện tử sai thông tin người mua.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+          "line": 460,
+          "end_line": 535,
+          "detail": "_khach_cong_ty_id: UPDATE khach_cong_ty khi luu=True (L521-534)."
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+          "line": 259,
+          "end_line": 267,
+          "detail": "record_event của lưu hồ sơ công ty không chứa cũ/mới."
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+          "line": 670,
+          "end_line": 703,
+          "detail": "Lịch sử cũ→mới chỉ có cho bản chụp hoá đơn."
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+          "line": 14,
+          "end_line": 15,
+          "detail": "MST sai dạng vẫn lưu (chủ ý)."
+        }
+      ],
+      "limitations": "Chủ ý nghiệp vụ 'hồ sơ giữ thông tin của lần ghi gần nhất'; rủi ro chủ yếu là thiếu truy vết.",
+      "recommendation": "Mặc định không ghi đè hồ sơ khi thay đổi định danh pháp lý (MST/tên) mà hỏi xác nhận; thêm bảng lịch sử khach_cong_ty; kiểm lại MST trước khi xuất file.",
+      "acceptance": "Test: sửa bản chụp đổi MST không đổi hồ sơ nếu không xác nhận; mọi sửa hồ sơ công ty có dòng lịch sử cũ→mới.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Lỗi lặp thành cải tiến hệ thống"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-018"
+      ]
+    },
+    {
+      "tmp_id": "S08-15",
+      "title": "Truy vấn hành trình 'dung thứ thiếu cột' bằng to_jsonb(...) ->> 'cột' che sai lệch lược đồ thay vì báo",
+      "severity": "LOW",
+      "category": "schema_drift_masking",
+      "evidence_level": "confirmed_static",
+      "summary": "`_SQL_LUOT` đọc nhóm loại khám bằng `to_jsonb(st) ->> 'nhom'` và `_SQL_HANG` đọc vao_hang_luc bằng `(to_jsonb(q) ->> 'vao_hang_luc')`, kèm chú thích 'DB chưa có cột thì ra NULL = luật cũ, không vỡ câu'. Nếu migration chưa áp hoặc áp lệch, hành trình chạy bằng luật cũ mà không có lỗi/cảnh báo; chi phí tuần tự hoá cả dòng mỗi lần.",
+      "trigger": "DB chưa áp migration 20261007600000 / 20261009400000 hoặc cột bị đổi tên.",
+      "impact": "Hiển thị thời gian chờ/bước khám sai âm thầm trên mọi màn dùng hành trình; chẩn đoán tốn thời gian (Unknown kéo dài).",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+          "line": 1055,
+          "end_line": 1057,
+          "detail": "to_jsonb(st) ->> 'nhom'."
+        },
+        {
+          "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+          "line": 1072,
+          "end_line": 1074,
+          "detail": "(to_jsonb(q) ->> 'vao_hang_luc')::timestamptz."
+        }
+      ],
+      "limitations": "Có cổng migration ngoài tệp này; vấn đề chỉ khi lệch môi trường.",
+      "recommendation": "Dùng cột trực tiếp và để sổ migration/health bắt lệch lược đồ; hoặc kiểm tra cột một lần khi khởi động và báo lỗi/cảnh báo.",
+      "acceptance": "Test khởi động: thiếu cột -> health đỏ hoặc cảnh báo; không còn to_jsonb(...) ->> trong truy vấn lõi.",
+      "alignment": [
+        "Unknown ngắn",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-008",
+        "DB-006"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "SEC-011",
+      "detail": "phieu_in_theo_lich không áp phạm vi TKYK dù doc_ho_so cùng tệp có (ho_so_lam_sang_doc.py:130-207 so với 80-89); xem_ket_qua/in_ket_qua/ghi_chu_luot.doc đọc theo clinic + vai/capability chung, không theo bác sĩ được phân hay cơ sở (form_engine_service.py:259-346, ghi_chu_luot.py:79-101)."
+    },
+    {
+      "id": "SEC-016",
+      "detail": "ghi_chu_luot.luu chỉ cần QUYEN_DOI_TRONG_HO_SO, ghi vào bất kỳ lượt OPEN/IN_PROGRESS của clinic không kiểm bác sĩ được phân (ghi_chu_luot.py:104-157)."
+    },
+    {
+      "id": "SEC-027",
+      "detail": "GET /ho-so-khach/{id}/hanh-chinh và /cskh chỉ có get_current_identity: trả SĐT chính/phụ, địa chỉ, ngày sinh, van_de_di_kham, linh_vuc và nhật ký CSKH (tests, result_group, note) cho mọi nhân viên nội bộ (routers/thu_ky.py:68-106; ho_so_khach_doc.py:72-118, 200-218)."
+    },
+    {
+      "id": "SEC-018",
+      "detail": "ho_so_khach_doc.hanh_chinh trả phone_secondary, guardian_name, patient_objection cho mọi vai nội bộ không qua capability đọc (ho_so_khach_doc.py:78-89)."
+    },
+    {
+      "id": "API-002",
+      "detail": "FormEngineService mở/lưu/hoàn tất/sửa phiếu bằng result.form.fill toàn phòng khám, không giới hạn theo phòng/cơ sở trong khi lệnh Thực hiện kiểm doi_quyen(phong_id=) và doi_lich_phong (form_engine_service.py:128-166, 555-590 so với service_execution_service.py:404-420)."
+    },
+    {
+      "id": "CLIN-002",
+      "detail": "Hành trình đánh dấu bước Thuốc là XONG với mốc xong = giờ check-out khi lượt đã đóng, dù không có sự kiện giao thuốc (hanh_trinh_khach_service.py:778-791, đặc biệt L784-788)."
+    },
+    {
+      "id": "FE-024",
+      "detail": "doc_ma_luot cắt âm thầm danh sách mã lượt ở TRAN_LUOT=300 và bỏ mã rác; gon_nhieu_luot chỉ trả các lượt tìm thấy, không có cờ cắt (hanh_trinh_khach_service.py:70, 98-113, 1325-1338)."
+    },
+    {
+      "id": "FE-022",
+      "detail": "ho_so_khach_doc giới hạn 20 lịch hẹn, 50 lượt, 50 xét nghiệm, 30 dòng CSKH; canh_bao_neu_day chỉ log, không đưa cờ 'còn nữa' vào phản hồi (ho_so_khach_doc.py:99, 141, 155, 191-192, 217)."
+    },
+    {
+      "id": "FIN-002",
+      "detail": "kho_thuoc_service.the_kho cắt 1000 dòng và danh_sach_phieu cắt 100 phiếu, chỉ canh_bao_neu_day, phản hồi không có cờ cắt (kho_thuoc_service.py:109, 219, 226, 351, 381, 387)."
+    },
+    {
+      "id": "PHAR-002",
+      "detail": "kiem_kho ghi ADJUST cho mọi lệch (kể cả về 0) không ngưỡng, không lý do bắt buộc, không duyệt chéo (kho_thuoc_service.py:719-732)."
+    },
+    {
+      "id": "CLIN-017",
+      "detail": "hoan_tac_tai_quay đọc execution_revision hiện tại lúc gọi rồi dùng làm expected (lam_them_dong_dich_vu.py:144-165) nên khoá lạc quan vô hiệu; hoan_tac_xong_dich_vu chọn lần COMPLETED mới nhất không nhận attempt_id (hoan_tac_service.py:941-948)."
+    },
+    {
+      "id": "CLIN-046",
+      "detail": "mo_lai_luot không yêu cầu lý do, xác nhận hay giới hạn tuổi lượt; mọi queue_entry 'left' của lượt chuyển waiting với eligible_at=now (hoan_tac_service.py:244-253, 1181-1230)."
+    },
+    {
+      "id": "CLIN-036",
+      "detail": "thu_hoi_duyet_ket_qua khi đã có tệp gửi khách chỉ đòi xác nhận + lý do, không sinh việc đính chính/liên hệ khách có người phụ trách (hoan_tac_service.py:1111-1126, 1157-1177)."
+    },
+    {
+      "id": "FIN-006",
+      "detail": "HoaDonMisaService.danh_dau lưu tu_ngay/den_ngay là khoảng người gọi nhập thay vì data['tu'/'den'] hiệu lực của danh sách (hoa_don_misa_service.py:72-117)."
+    },
+    {
+      "id": "OPS-002",
+      "detail": "Việc nhac_tai_kham do phiếu sinh ra phát chuông cho cả vai CSKH (hen_tai_kham_service.py:5-9, 486-496), không có người nhận/claim; chỉ nguoi_goi_staff_id được điền sau khi gọi."
+    }
+  ],
+  "held": [
+    {
+      "title": "mo_lai_kham xoá cứng review_round và hủy follow_up_case theo so sánh thời gian",
+      "reason": "hoan_tac_service.py:556-576 DELETE review_round (round_no > hiện tại) và UPDATE follow_up_case CANCELLED theo created_at >= completed_at; trái với phát biểu 'không xoá lịch sử' ở đầu tệp và có thể huỷ nhầm việc theo dõi do đường khác mở. Chưa xác minh có đường tạo follow_up_case khác ngoài luot_kham_service.py:1263."
+    },
+    {
+      "title": "Khoá chống gửi trùng của phiếu kho không gắn nội dung",
+      "reason": "_phieu_da_co trả phiếu cũ theo khoa_gui bất kể nội dung/loại/cơ sở (kho_thuoc_service.py:394-413); có thể đã được IdempotencyGuard ở router xử lý fingerprint (chưa đọc idempotency_guard)."
+    },
+    {
+      "title": "Ngày chứng từ rác của phiếu nhập bị bỏ trống im lặng",
+      "reason": "kho_thuoc_service.py:505-506 dùng doc_ngay_xem -> None, trong khi hạn dùng được kiểm nghiêm; phiếu nhập vào sổ không có ngày chứng từ mà không báo."
+    },
+    {
+      "title": "chi_tiet lỗi nội bộ trả về client",
+      "reason": "form_engine_service.py:1250-1251 trả str(loi)[:200] của mọi Exception trong dich_vu.chi_tiet (có thể lộ chi tiết DB); cùng loại với SEC-024 nhưng ở đường phản hồi nghiệp vụ."
+    },
+    {
+      "title": "xuat_ban chỉ kiểm khung cho KQ_* và 7 phiếu khám",
+      "reason": "form_engine_service.py:1326-1333; mẫu khác (ví dụ phiếu điều trị) có thể xuất bản khung sai cấu trúc làm _con_trong/_mac_dinh_tu_khung gây KeyError khi mở phiếu. Chưa biết có mẫu nào ngoài hai nhóm này."
+    },
+    {
+      "title": "TKYK chưa được phân bác sĩ thấy toàn bộ khách",
+      "reason": "duoc_mo/khach_duoc_xem trả None = không giới hạn (ho_so_khach_doc.py:56-62); chủ ý của Tuyền 26/09 nhưng là mặc định mở, nên cân nhắc cảnh báo khi cấp TKYK mới."
+    },
+    {
+      "title": "Thời gian chờ tính bằng đồng hồ trình duyệt",
+      "reason": "hanh_trinh_khach_service.py đầu tệp: máy chủ chỉ trả thời điểm, số phút do trình duyệt tính; lệch đồng hồ máy trạm làm sai số chờ/làm nhưng chưa có bằng chứng sự cố."
+    },
+    {
+      "title": "Múi giờ Asia/Ho_Chi_Minh viết cứng trong SQL",
+      "reason": "hen_tai_kham_service.py:206-207, 466; hanh_trinh_khach_service.py:1051-1052; luot_kham_service.py:1270-1276 viết cứng thay vì clinic.timezone; phù hợp quyết định 'chỉ bán trong VN' nhưng cần cấu hình nếu mở rộng."
+    },
+    {
+      "title": "xlsx_hang_hoa im lặng chuyển loại không hợp lệ về 'thuoc'",
+      "reason": "excel_report_export.py:19 – loai rác xuất báo cáo thuốc dù người dùng yêu cầu loại khác; xlsx_tom_tat dùng next(..., 0) nên danh mục thiếu thành 0 (L82-90). Mức thấp."
+    },
+    {
+      "title": "Chia tỷ lệ nợ theo loại dùng phép chia nguyên",
+      "reason": "danh_sach_hoa_don_service.py:410 `con * hop // tong` có thể làm tổng hai bộ lọc thuốc/dịch vụ lệch vài đồng so với tổng; ngoài danh sách đã đọc."
+    },
+    {
+      "title": "BO_DICH_VU trong dòng thời gian hoá đơn không có người/lý do",
+      "reason": "hoa_don_projection.py:55-66 gán nguoi=None, ly_do=None cho dòng bỏ dịch vụ sau thu; có thể do nguồn dữ liệu không cung cấp."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Tách bạch người gõ / người thực hiện / người bấm Hoàn tất, ghim phiên bản mẫu, sửa kết quả có lý do + ảnh chụp cũ/mới",
+      "detail": "Form engine giữ nhap_boi, thuc_hien_boi, hoan_tat_boi riêng, bản đã hoàn tất không bị tự lưu chạm vào (dang_sua + du_lieu_dang_sua), mỗi lần sửa ghi visit_amendment + result_correction với revision lạc quan.",
+      "evidence": "src/clinicai/services/form_engine_service.py:1-30, 606-660, 1020-1095"
+    },
+    {
+      "title": "Biểu mẫu là dữ liệu theo từng phòng khám, xuất bản có khoá cố vấn và expected_version",
+      "detail": "form_definition theo clinic_id, xuất bản bản mới giữ phiếu cũ ghim version, pg_advisory_xact_lock theo mẫu; nền tảng tốt để tuỳ biến theo khách hàng.",
+      "evidence": "src/clinicai/services/form_engine_service.py:1300-1393"
+    },
+    {
+      "title": "Hàm thuần dựng hành trình + cờ 'bấm dồn?' làm lộ dữ liệu bấm bù",
+      "detail": "Mọi mốc là thời điểm thật từ sự kiện, bước chưa xảy ra không bao giờ gắn giờ, thanh gọn đọc thẳng các bước đầy đủ nên hai dạng luôn nhất quán; ly_do_bam_don phơi bày bấm sau/bấm dồn để đo thực tế.",
+      "evidence": "src/clinicai/services/hanh_trinh_khach_service.py:173-192, 433-560, 1006-1033"
+    },
+    {
+      "title": "Hoàn tác là lệnh nghịch đảo có xác nhận + lý do, cùng quyền với lệnh gốc, không xoá hoá đơn",
+      "detail": "doi_xac_nhan trả CAN_XAC_NHAN nói rõ hệ quả (tiền thừa, đã duyệt…), idempotent 'already', khoá lượt cùng thứ tự, ghi domain_event + event_log.",
+      "evidence": "src/clinicai/services/hoan_tac_service.py:1-32, 90-109, 693-892"
+    },
+    {
+      "title": "Bản chụp hoá đơn công ty + lịch sử cũ→mới + dấu vân tay phát hiện thay đổi sau khi xuất MISA",
+      "detail": "Bản chụp không tự đổi theo hồ sơ, bỏ chọn là soft-delete có lịch sử, dấu vân tay tách 'người mua' và 'nội dung' để nói được lý do thay đổi.",
+      "evidence": "src/clinicai/services/hoa_don_cong_ty_service.py:1-17, 340-458; src/clinicai/services/hoa_don_misa_doc.py:1-90"
+    },
+    {
+      "title": "Kho thuốc dựng trên sổ chỉ-thêm với khoá lô theo id, mã phiếu theo cơ sở, phiếu hoàn tác một lần ép ở Postgres",
+      "detail": "Mọi đổi tồn qua inventory_txn, tồn trước/sau tính ngược từ tồn hiện tại theo từng đơn vị lô, khoá advisory theo (clinic, cơ sở, loại) sinh mã PN-HN-0001, UNIQUE khoa_gui và hoan_tac_cua chặn trùng.",
+      "evidence": "src/clinicai/services/kho_thuoc_service.py:1-22, 416-478, 1102-1194"
+    },
+    {
+      "title": "Ghi chú lượt khám append-only có kiểm phiên bản và idempotent khi nội dung không đổi",
+      "detail": "Mỗi lần lưu thêm một phiên bản, khoá lượt FOR UPDATE, ConflictError khi phiên bản cũ, gửi lại y hệt không đẻ phiên bản.",
+      "evidence": "src/clinicai/services/ghi_chu_luot.py:104-159"
+    },
+    {
+      "title": "Xuất Excel ép kiểu chuỗi chống công thức và tách bảng theo mục",
+      "detail": "excel_table đặt data_type='s' cho ô chữ; xlsx_bao_cao giữ kiểu thô, mỗi mục một sheet.",
+      "evidence": "src/clinicai/services/excel_export.py:20-41 (qua git show); src/clinicai/services/excel_report_export.py:99-365"
+    },
+    {
+      "title": "Việc theo dõi chờ kết quả có owner + due ngay lúc tạo",
+      "detail": "follow_up_case ghi owner_staff_id/owner_role/due_at theo luật CSKH – mẫu nên nhân rộng cho các việc tồn khác (xem S08-10).",
+      "evidence": "src/clinicai/services/luot_kham_service.py:1229-1300 (qua git show)"
+    },
+    {
+      "title": "Ranh giới danh tính mặc định từ chối vai DISPLAY và PARTNER ở get_current_identity",
+      "detail": "Mọi route dùng dependency chung nên tài khoản tivi/đối tác bị chặn kể cả route quên gắn guard.",
+      "evidence": "src/clinicai/api/identity.py:640-659 (qua git show)"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/clinicai/services/excel_report_export.py",
+      "lines": 365,
+      "full_read": true,
+      "note": "Xuất xlsx báo cáo cuối ngày; sạch về logic, ghi chú nhỏ ở held."
+    },
+    {
+      "path": "src/clinicai/services/form_engine_service.py",
+      "lines": 1580,
+      "full_read": true,
+      "note": "Form engine: mở/lưu/hoàn tất/sửa/xuất bản; sinh S08-3,4,5,6 và mục audit S08-2."
+    },
+    {
+      "path": "src/clinicai/services/ghi_chu_luot.py",
+      "lines": 162,
+      "full_read": true,
+      "note": "Ghi chú lượt append-only; điểm tốt, phạm vi theo SEC-011/016."
+    },
+    {
+      "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+      "lines": 1350,
+      "full_read": true,
+      "note": "Hành trình khách; điểm tốt; S08-13, S08-15; mở rộng CLIN-002, FE-024."
+    },
+    {
+      "path": "src/clinicai/services/hen_tai_kham_service.py",
+      "lines": 570,
+      "full_read": true,
+      "note": "Việc nhắc tái khám; S08-7, S08-8; mở rộng OPS-002."
+    },
+    {
+      "path": "src/clinicai/services/ho_so_khach_doc.py",
+      "lines": 221,
+      "full_read": true,
+      "note": "Đọc hồ sơ khách; cap 20/50/30 (FE-022), PII (SEC-027)."
+    },
+    {
+      "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+      "lines": 210,
+      "full_read": true,
+      "note": "Hồ sơ lâm sàng; S08-1; phieu_in_theo_lich thiếu phạm vi TKYK (SEC-011)."
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+      "lines": 772,
+      "full_read": true,
+      "note": "Hoá đơn công ty; S08-14; điểm tốt snapshot/lịch sử."
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_misa_service.py",
+      "lines": 322,
+      "full_read": true,
+      "note": "Đánh dấu đã xuất MISA; S08-9; mở rộng FIN-006."
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_projection.py",
+      "lines": 693,
+      "full_read": true,
+      "note": "Hàm thuần trình bày hoá đơn; S08-10; công thức kỳ khớp báo cáo (void sau hoàn bị chặn ở finance_gate)."
+    },
+    {
+      "path": "src/clinicai/services/hoan_tac_service.py",
+      "lines": 1241,
+      "full_read": true,
+      "note": "Bốn lệnh hoàn tác; mở rộng CLIN-017, CLIN-036, CLIN-046; held về xoá cứng review_round."
+    },
+    {
+      "path": "src/clinicai/services/kho_thuoc_service.py",
+      "lines": 1194,
+      "full_read": true,
+      "note": "Kho thuốc: thẻ kho, XNT, phiếu nhập/kiểm/chuyển; S08-11, S08-12; mở rộng FIN-002, PHAR-002."
+    },
+    {
+      "path": "src/clinicai/services/lam_them_dong_dich_vu.py",
+      "lines": 235,
+      "full_read": true,
+      "note": "Đóng dịch vụ làm thêm tại quầy; S08-5; mở rộng CLIN-017."
+    }
+  ]
+}

@@ -1,0 +1,406 @@
+{
+  "schema_version": 1,
+  "audit": "round26_static_exact_main_dashboard_ops_visibility",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "read_only_static_exact_main",
+  "scope": [
+    "unknown-versus-zero KPI presentation",
+    "booking request pending/idempotency receipt",
+    "dispatch history read state",
+    "operations grouped-error cap"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "Two findings added (FE-026, OPS-008); FE-004 broadened across reports/ops/home and FE-023 across AppointmentBooking. Exact-main static only; no ClinicAI tests/runtime was run.",
+  "held_observations": [
+    "OPS-REFRESH-SCOPE-001: PortalBoard ‘Làm mới’ refreshes /api/ops/summary only, while Toàn cảnh metrics arrive as server-rendered props. Whether users expect it to refresh metrics is an unresolved UI contract; no stale production observation, so no finding.",
+    "OPS-ERROR-VOLUME-001: More than 100 visible unresolved grouped errors is the condition for OPS-008 impact; production group count has not been measured."
+  ],
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 287,
+          "end": 355,
+          "purpose": "FE-023 pending lifecycle"
+        }
+      ],
+      "sha256": "98a82533a1a34882aa35b37128360602f8d1913f947ad446998ed45298faacc1",
+      "line_count": 627
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 176,
+          "end": 209,
+          "purpose": "FE-023 optional idempotency forwarding"
+        }
+      ],
+      "sha256": "46f7dedccaf35018a23ac27a76de0731f4e8a730d55eff3873afa382e42e81bc",
+      "line_count": 310
+    },
+    {
+      "path": "src/clinicai/api/idempotency.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 23,
+          "end": 24,
+          "purpose": "FE-023 optional key contract"
+        },
+        {
+          "start": 276,
+          "end": 305,
+          "purpose": "FE-023 no-key behavior"
+        }
+      ],
+      "sha256": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+      "line_count": 305
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 601,
+          "end": 619,
+          "purpose": "FE-023 duplicate guard; no duplicate claim"
+        }
+      ],
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "line_count": 2998
+    },
+    {
+      "path": "supabase/migrations/20260805000007_appointment_patient_slot_unique.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 67,
+          "end": 69,
+          "purpose": "FE-023 concurrent duplicate guard; deployment unverified"
+        }
+      ],
+      "sha256": "e31e76d68b3dc64464f88795a18267a1d0c2c0e674aad6f5c45c750d71ffa159",
+      "line_count": 74
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/truong-ca/QueuesClient.tsx",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 449,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "522b70e5ad0bf07a08cc96e19e456185bac1b2afa6b1245e082a3932975c420b",
+      "line_count": 449
+    },
+    {
+      "path": "src/dashboard/app/api/dispatch-read/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 52,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "430f7b2fa88083aba4d64f2d0d565b77ebddf5f0eabea90f24eb3ce6364ce9f5",
+      "line_count": 52
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/dispatch.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 86,
+          "end": 98,
+          "purpose": "FE-026 history response contract"
+        }
+      ],
+      "sha256": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+      "line_count": 625
+    },
+    {
+      "path": "src/dashboard/tests/truong-ca-phong-ui-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 52,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "fd01500e51fcc2fb10808f2f40fb380aa1b09e35d0ce106526caa85e3ddc93a7",
+      "line_count": 52
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ops/ToanCanh.tsx",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 92,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "15eaa6b4d727984750cd2e434c5d41903a72c34ffa87fa8a71e46dfbe6caaaa8",
+      "line_count": 92
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ops/PortalBoard.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 355,
+          "end": 422,
+          "purpose": "ops infrastructure refresh flow"
+        },
+        {
+          "start": 513,
+          "end": 541,
+          "purpose": "OPS dashboard metric rendering"
+        }
+      ],
+      "sha256": "3024abb954a68213b27b312186360b86129cc1009fadd7a6821ad129e238b4d7",
+      "line_count": 972
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 377,
+          "end": 407,
+          "purpose": "FE-004 KPI fallback"
+        },
+        {
+          "start": 456,
+          "end": 459,
+          "purpose": "FE-004 source error detection"
+        },
+        {
+          "start": 518,
+          "end": 525,
+          "purpose": "FE-004 visible error banner"
+        }
+      ],
+      "sha256": "6c29db4ac8350b29d2cbf59650744ea5bfdfbe9940308c94cc29db62b9ae9b27",
+      "line_count": 647
+    },
+    {
+      "path": "src/dashboard/components/ui/OSoXuHuong.tsx",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 65,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "99e3c2067685a902759d791ee56a7f879e823800790687732a8f95fa7182377f",
+      "line_count": 65
+    },
+    {
+      "path": "src/dashboard/tests/goi-trang-chu-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 83,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "98874c6b1ceeddc3fc8718c1730c348593fb61d209b5e530a02561921fdb4be7",
+      "line_count": 83
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 132,
+          "end": 143,
+          "purpose": "OPS-008 response shape"
+        }
+      ],
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "line_count": 404
+    },
+    {
+      "path": "src/clinicai/services/kho_loi.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 155,
+          "end": 171,
+          "purpose": "OPS-008 filtering, order and cap"
+        }
+      ],
+      "sha256": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+      "line_count": 198
+    },
+    {
+      "path": "src/dashboard/app/api/ops/theo-doi/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 42,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "b5a69c8c80ae08f12751295600e5b0d99ca9537bf423edc92eb37f7d16b5b4f1",
+      "line_count": 42
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 48,
+          "end": 60,
+          "purpose": "OPS-008 client type"
+        },
+        {
+          "start": 80,
+          "end": 103,
+          "purpose": "OPS-008 load/error contract"
+        },
+        {
+          "start": 201,
+          "end": 220,
+          "purpose": "OPS-008 list/empty rendering"
+        }
+      ],
+      "sha256": "52432044de01fd956ce0f6b9d1167325a55b1473f7ff2ebaf5a8fe0bd51a72d4",
+      "line_count": 261
+    },
+    {
+      "path": "src/tests/services/test_theo_doi_pha_1_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 35,
+          "end": 90,
+          "purpose": "OPS-008 related tests lack cap coverage"
+        }
+      ],
+      "sha256": "4d4079338d913094b6e2d2b6b7212b32777cf458e141d73774297abb9d6f462c",
+      "line_count": 150
+    },
+    {
+      "path": "src/tests/unit/test_theo_doi_pha_1.py",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 104,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "d059cb6c2ce1138edaeaa3e1024faf8c3f6e5e6bab230ae3ec3953e42dff4bc6",
+      "line_count": 104
+    },
+    {
+      "path": "src/tests/api/test_ops_api.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 92,
+          "purpose": "full-file read"
+        }
+      ],
+      "sha256": "0dc3b862208724cb0b76d42a7d32df9dcc3306b69319ff908182200ae0c8d8f1",
+      "line_count": 92
+    },
+    {
+      "path": "src/dashboard/tests/menu-lich-tai-cho-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 141,
+          "purpose": "full-file read; unrelated path uses an idempotency key"
+        }
+      ],
+      "sha256": "c1c87019ee94b43a2f3a2f2d4ba6681b86b136b893aadf556b597eda5ca98960",
+      "line_count": 141
+    }
+  ]
+}

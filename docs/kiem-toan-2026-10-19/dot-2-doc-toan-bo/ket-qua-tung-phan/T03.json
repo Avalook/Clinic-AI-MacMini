@@ -1,0 +1,757 @@
+{
+ "chunk": "T03",
+ "findings": [
+  {
+   "tmp_id": "T03-1",
+   "title": "Test cho hàng chờ, phân trang và cắt danh sách chủ yếu soi chuỗi mã nguồn bằng regex, không chạy hành vi thật",
+   "severity": "MEDIUM",
+   "category": "test_gap_source_grep",
+   "evidence_level": "design_gap",
+   "summary": "Phần lớn bộ test dashboard đọc tệp .tsx rồi so khớp regex (ví dụ test hàng chờ tiếp đón, thanh toán, kho vật tư). Chúng chỉ chứng minh một chuỗi còn nằm trong mã, không chứng minh màn hình hiển thị đúng khi dữ liệu bị cắt, lỗi tải hay rỗng. Không có test render nào kiểm tra bất biến 'danh sách bị cắt thì phải báo' hay 'lỗi tải không hiện thành trống'.",
+   "trigger": "Một dev đổi cách vẽ (đổi tên biến, tách component) mà vẫn giữ chuỗi regex, hoặc giữ logic cắt ở 50/300/500 dòng mà không còn báo thiếu.",
+   "impact": "Các phát hiện về cắt danh sách và lỗi hiển thị thành trống (FIN-005, CLIN-032, FE-004, FE-019, FE-022) có thể tái phát mà bộ test vẫn xanh; nhân viên có thể tin màn hình đã đủ dữ liệu.",
+   "evidence": [
+    {
+     "path": "src/dashboard/tests/kho-vat-tu-boundary.test.mts",
+     "line": 393,
+     "end_line": 399,
+     "detail": "Test 'công khai giới hạn tải' chỉ khớp chuỗi 'Bộ lọc áp dụng trong danh sách đã tải' và URL gioi_han=50, không chạy thật việc tải trang kế/báo thiếu."
+    },
+    {
+     "path": "src/dashboard/tests/tai-lai-dong-loat-boundary.test.mts",
+     "line": 87,
+     "end_line": 103,
+     "detail": "Bất biến tải lại được kiểm bằng regex trên mã, không có test hành vi."
+    },
+    {
+     "path": "src/dashboard/tests/viec-ton-noi-man-boundary.test.mts",
+     "line": 19,
+     "end_line": 29,
+     "detail": "Việc tồn lọc theo nhóm chỉ kiểm bằng regex mã, không kiểm khi danh sách đầy bị cắt."
+    }
+   ],
+   "limitations": "Chunk không chứa các test render khác nếu có ở nơi khác; một số test (nha-thuoc-phan-lo, pharmacy-inventory-idempotency) có chạy hành vi thật nên ngoại lệ.",
+   "recommendation": "Thêm vài test render/hành vi cho các màn danh sách có trần: nạp dữ liệu giả vượt trần và khẳng định có chỉ báo 'còn dữ liệu'; nạp lỗi và khẳng định có thông báo lỗi chứ không phải trạng thái rỗng.",
+   "acceptance": "Có test chạy được chứng minh: (1) danh sách vượt trần hiển thị cảnh báo cắt; (2) lỗi tải hiển thị lỗi, không hiển thị 'không có gì'.",
+   "alignment": [
+    "Reality",
+    "Decisions with evidence",
+    "Early detection"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-005",
+    "CLIN-032",
+    "FE-004",
+    "FE-022"
+   ]
+  },
+  {
+   "tmp_id": "T03-2",
+   "title": "Test hoàn tiền/thu tiền không kiểm các bất biến số tiền, chỉ kiểm cổng UI",
+   "severity": "MEDIUM",
+   "category": "test_gap_money",
+   "evidence_level": "design_gap",
+   "summary": "Test CP5 hoàn tiền chỉ khẳng định màn không tự nhân tiền và có nút khi có quyền; không có test nào cho tổng hoàn không vượt số đã thu, làm tròn, hoàn chia nhỏ, hay thu đồng thời. Test phụ thu chỉ kiểm hàm chọn dòng.",
+   "trigger": "Hoàn chia nhỏ nhiều lần hoặc hai thu ngân thao tác cùng phiếu.",
+   "impact": "Các rủi ro FIN-004, FIN-009, FIN-014 không có lưới an toàn ở tầng test giao diện/ranh giới.",
+   "evidence": [
+    {
+     "path": "src/dashboard/tests/nha-thuoc-phan-lo-boundary.test.mts",
+     "line": 135,
+     "end_line": 146,
+     "detail": "Test hoàn tiền chỉ regex trên mã (không don_gia, có coQuyenHoan), không kiểm số tiền."
+    },
+    {
+     "path": "src/dashboard/tests/quay-thu-phu-thu-boundary.test.mts",
+     "line": 11,
+     "end_line": 44,
+     "detail": "Chỉ kiểm hàm chọn dòng và tổng theo lựa chọn, không có kịch bản hoàn/đồng thời."
+    }
+   ],
+   "limitations": "Test backend về tiền có thể nằm ở tệp ngoài chunk.",
+   "recommendation": "Bổ sung test backend/ranh giới cho: tổng hoàn ≤ đã thu qua nhiều lần chia nhỏ, hoàn sau check-out, thu đồng thời cùng phiếu.",
+   "acceptance": "Có test fail khi tổng hoàn vượt số thu hoặc khi hai request thu cùng phiếu đều thành công.",
+   "alignment": [
+    "Decisions with evidence",
+    "Early detection"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-004",
+    "FIN-009",
+    "FIN-014"
+   ]
+  },
+  {
+   "tmp_id": "T03-3",
+   "title": "Test an ninh route backend chỉ khẳng định có dependency, không kiểm quyền theo bệnh nhân/cơ sở",
+   "severity": "MEDIUM",
+   "category": "test_gap_authz",
+   "evidence_level": "design_gap",
+   "summary": "Các test API kiểm cấu trúc dependency (có cua_quyen, không RoleGuard) và đặt tenant từ identity. Không có test nào cho truy cập chéo bệnh nhân/cơ sở hay phạm vi phân công (TKYK, bác sĩ được phân).",
+   "trigger": "Người dùng cùng clinic nhưng khác cơ sở/ngoài phân công gọi endpoint lâm sàng.",
+   "impact": "Các phát hiện SEC-011, SEC-016, SEC-036, API-001..002 không có test chặn hồi quy.",
+   "evidence": [
+    {
+     "path": "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+     "line": 74,
+     "end_line": 108,
+     "detail": "Chỉ kiểm cửa hỏi quyền và preset có khối y khoa, không kiểm phạm vi bệnh nhân/cơ sở."
+    },
+    {
+     "path": "src/tests/api/test_backend_surface_security.py",
+     "line": 94,
+     "end_line": 106,
+     "detail": "Chỉ kiểm tồn tại dependency, không có ca truy cập chéo."
+    }
+   ],
+   "limitations": "Test db có thể nằm ngoài chunk.",
+   "recommendation": "Thêm test chạy thật: người dùng cơ sở A đọc/ghi lượt cơ sở B, và nhân viên ngoài phân công, phải bị 403/404.",
+   "acceptance": "Test chéo cơ sở và chéo phân công đều trả từ chối.",
+   "alignment": [
+    "Ownership clarity",
+    "Early detection"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-011",
+    "SEC-016",
+    "SEC-036",
+    "API-002"
+   ]
+  },
+  {
+   "tmp_id": "T03-4",
+   "title": "Test idempotency khoá chống gửi trùng tồn tại ở kho nhưng không có cho quầy thu/thêm vật tư",
+   "severity": "LOW",
+   "category": "test_gap_idempotency",
+   "evidence_level": "design_gap",
+   "summary": "Kho thuốc có test đồng thời cùng payload dùng chung khoá (mẫu tốt), nhưng test quầy thu vật tư chỉ kiểm chuỗi (ly_do_ban, thieuLyDo) và không kiểm retry thêm vật tư không tạo dòng mới.",
+   "trigger": "Thử lại thêm vật tư/thuốc sau mất phản hồi.",
+   "impact": "FIN-003 không có test hồi quy.",
+   "evidence": [
+    {
+     "path": "src/dashboard/tests/quay-thu-ly-do-ban-them-boundary.test.mts",
+     "line": 23,
+     "end_line": 31,
+     "detail": "Chỉ kiểm xoá ô lý do trong nhánh ok bằng regex."
+    },
+    {
+     "path": "src/dashboard/tests/pharmacy-inventory-idempotency-boundary.test.mts",
+     "line": 28,
+     "end_line": 63,
+     "detail": "Mẫu test idempotency chạy hành vi thật cho kho — nên nhân rộng cho quầy."
+    }
+   ],
+   "limitations": "Không thấy mã backend vat-tu-them.",
+   "recommendation": "Thêm test hai lần gửi cùng thao tác thêm vật tư dùng cùng Idempotency-Key và chỉ tạo một dòng.",
+   "acceptance": "Retry cùng khoá không tạo dòng thứ hai.",
+   "alignment": [
+    "Early detection",
+    "Sustainable staff"
+   ],
+   "extends": [
+    "FIN-003"
+   ],
+   "related_ids": [
+    "FIN-003"
+   ]
+  },
+  {
+   "tmp_id": "T03-5",
+   "title": "Test đọc tệp bằng new URL tương đối và ghi dữ liệu thật của Dr4Women ở nhiều nơi gây giòn",
+   "severity": "LOW",
+   "category": "test_fragility",
+   "evidence_level": "confirmed_static",
+   "summary": "Một số test phụ thuộc cấu trúc thư mục (../../../../clinicai/...) và thứ tự chuỗi trong tệp; test đọc dải ngày cố định (2026-09-16, thời gian thực Date.now) và vài chuỗi thực tế như tên bác sĩ. Test kiem-phien dùng Date.now nên dễ flaky sát mốc hết hạn.",
+   "trigger": "Di chuyển thư mục hoặc chạy sát ranh giới giờ.",
+   "impact": "Test đỏ giả hoặc xanh giả; tốn công sửa theo mỗi lần tái cấu trúc.",
+   "evidence": [
+    {
+     "path": "src/dashboard/tests/kho-vat-tu-boundary.test.mts",
+     "line": 171,
+     "end_line": 171,
+     "detail": "Đường dẫn ../../../../clinicai/services/... phụ thuộc cấu trúc thư mục."
+    },
+    {
+     "path": "src/dashboard/tests/kiem-phien-tai-cho-boundary.test.mts",
+     "line": 16,
+     "end_line": 16,
+     "detail": "bayGio dùng Date.now; ca 'sắp hết hạn' dựa vào chênh lệch giây."
+    },
+    {
+     "path": "src/dashboard/tests/khung-bao-cskh-boundary.test.mts",
+     "line": 25,
+     "end_line": 25,
+     "detail": "Tên bác sĩ thật 'BS Thành' ghi cứng trong fixture."
+    }
+   ],
+   "limitations": "Mức độ ảnh hưởng thấp; ví dụ tên bác sĩ chỉ trong một tệp.",
+   "recommendation": "Dùng mốc thời gian cố định (inject clock) và tên giả; đặt đường dẫn tệp nguồn qua một hằng chung.",
+   "acceptance": "Test không đổi kết quả khi chạy lúc khác nhau và không chứa tên riêng thật.",
+   "alignment": [
+    "Sustainable staff",
+    "Evidence-based decisions"
+   ],
+   "extends": [],
+   "related_ids": []
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FE-004",
+   "detail": "Bộ test boundary không có kiểm tra lỗi đọc hiển thị thành trống/0; ví dụ test tồn kho và hoá đơn chỉ kiểm chuỗi nguồn (kho-vat-tu-boundary.test.mts:393-399)."
+  },
+  {
+   "id": "FIN-003",
+   "detail": "Test idempotency hiện chỉ có cho kho thuốc (pharmacy-inventory-idempotency-boundary.test.mts:28-63); quầy thu thêm vật tư chưa có test retry."
+  }
+ ],
+ "held": [
+  {
+   "title": "Test 'chống hồi quy' tồn tại cho khóa phiên tại chỗ nhưng chỉ dùng HS256 cố định",
+   "reason": "Không đủ bằng chứng về rotation khóa trong chunk."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Test đồng thời chia sẻ Idempotency-Key và giữ khoá khi lỗi",
+   "detail": "Chạy hành vi thật, gồm mất response và nạp lại module — nên nhân rộng cho quầy thu.",
+   "evidence": "src/dashboard/tests/pharmacy-inventory-idempotency-boundary.test.mts:28"
+  },
+  {
+   "title": "Test ngưỡng 'không biết ca thì không chặn' và bảo vệ dữ liệu rỗng không bị đọc thành mọi bác sĩ nghỉ",
+   "detail": "Nêu rõ fail-safe, giảm báo động giả.",
+   "evidence": "src/dashboard/tests/mat-bac-si-boundary.test.mts:53"
+  },
+  {
+   "title": "Ratchet đếm giá trị px tự chế chỉ được giảm",
+   "detail": "Máy kiểm giữ nợ kỹ thuật không tăng.",
+   "evidence": "src/dashboard/tests/px-tu-che-ratchet-boundary.test.mts:58"
+  },
+  {
+   "title": "nhanLoi không bao giờ ném với mọi hình dạng lỗi",
+   "detail": "Fuzz các hình dạng lạ để lỗi luôn hiện ra thay vì màn im lặng.",
+   "evidence": "src/dashboard/tests/loi-api-hinh-dang-boundary.test.mts:73"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/dashboard/tests/kho-vat-tu-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/khoi-dieu-tri-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/khong-dau-sao-nhan-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/khong-hua-tu-xep-phong-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/khung-bao-cskh-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/kiem-phien-tai-cho-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/lab-review-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/lich-su-kham-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/lieu-trinh-chu-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/lieu-trinh-sap-het-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/loi-api-hinh-dang-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/loi-dung-buoc-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/loi-hien-cau-khong-hien-ma-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/luoi-ngoai-ca-truc-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/luoi-tu-tuoi-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/luu-ho-so-sang-quan-ly-khach-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/ma-tab-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/ma-vach-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/man-da-gop-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/man-kham-rieng-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/mat-bac-si-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/mht-ngu-nghia-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/mo-quyen-tam-thoi-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/nam-dich-vu-kham-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/nguyen-tu-giao-dien-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/nha-thuoc-phan-lo-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/nhan-luot-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/nhan-tai-phong-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/nhip-hoi-giu-cho-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/ops-admin-v2-ui-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/ops-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/patient-admin-screens-layout-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/patient-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/phan-hoi-thuoc-cot-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/pharmacy-inventory-idempotency-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/phieu-kham-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/phieu-kham-ngoai-trong-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/phong-khach-o-buoc-khac-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/phong-theo-room-id-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/postgrest-select-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/px-tu-che-ratchet-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/quay-thu-ly-do-ban-them-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/quay-thu-phu-thu-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/quay-thu-tach-thuoc-dich-vu-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/quay-thu-thanh-ngay-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/quay-thu-vat-tu-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/quet-tem-ly-do-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/reception-queue-ui-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/schedule-audit-display-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/screen-copy-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/shared-chrome-ui-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/sidebar-theo-quyen-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/sinh-hieu-chi-o-man-do-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/sinh-hieu-mot-cho-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/so-luong-quay-dien-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/suc-chua-may-chu-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/tai-lai-dong-loat-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thanh-ben-theo-vi-tri-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thanh-duoi-dong-bo-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thoat-ngay-checkout-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thong-bao-xoa-tat-ca-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thong-ke-khung-gio-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thuc-hien-phieu-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thue-suat-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/thuoc-tra-cho-kiem-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/tiep-don-goi-gon-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/tim-danh-muc-chi-dinh-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/tim-khach-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/trang-in-du-kho-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/vai-hom-nay-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/vai-ke-toan-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/vat-tu-hang-loat-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/viec-ton-noi-man-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/visit-progress-reception-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/xac-minh-phien-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/xac-nhan-ket-qua-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/xong-van-o-lai-khach-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/xuat-hoa-don-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/tests/xuat-hoa-don-khong-con-misa-boundary.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/__init__.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/api/__init__.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/api/test_backend_surface_security.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/api/test_catalog_endpoints.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/api/test_clinical_sign_authority_smoke.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/api/test_cp6_4c_http_smoke.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

@@ -1,0 +1,196 @@
+[
+  {
+    "id": "CAND-R9-MIG-202609-ACL-STOCK",
+    "title": "Phiếu kho cấp quyền đọc trực tiếp cho JWT trái hợp đồng đọc qua FastAPI",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "database_acl_contract",
+    "summary": "Migration cấp GRANT SELECT và policy SELECT cho authenticated trên phieu_kho, phieu_kho_dong. Bài kiểm stock_postgrest_read_acl.sql quy định ngược lại: JWT authenticated không có SELECT và không có policy đọc; kho phải đọc qua FastAPI. Policy clinic_id vẫn giới hạn theo tenant, nhưng đường đọc trực tiếp bỏ qua các capability/kiểm tra nghiệp vụ ở FastAPI.",
+    "trigger": "Một JWT authenticated gọi trực tiếp PostgREST trên public.phieu_kho hoặc public.phieu_kho_dong khi quyền này còn hiệu lực.",
+    "impact": "Nhân viên có thể đọc phiếu kho trong clinic mà không qua kiểm tra nghiệp vụ tại FastAPI. Điều này làm ranh giới sở hữu quyền không nhất quán và khiến staff khó hiểu vì sao màn/API từ chối nhưng đường PostgREST vẫn trả dữ liệu. Không phải bằng chứng đọc chéo clinic: các policy trong migration vẫn lọc current_clinic_ids().",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+        "line": 129,
+        "end_line": 144,
+        "sha256": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa",
+        "detail": "Migration bật RLS, tạo SELECT policy cho authenticated trên cả hai bảng, rồi GRANT SELECT trực tiếp cho authenticated."
+      },
+      {
+        "path": "supabase/tests/stock_postgrest_read_acl.sql",
+        "line": 8,
+        "end_line": 29,
+        "sha256": "b9cf961702a946883213eba7d54ff73702ea2fc24137bdcb4d2c1f944d951128",
+        "detail": "Test liệt kê phieu_kho và phieu_kho_dong, đồng thời yêu cầu authenticated không có SELECT/INSERT/UPDATE/DELETE."
+      }
+    ],
+    "validation": {
+      "method": "static_migration_test_contract_comparison",
+      "command": null,
+      "result": "So sánh GRANT/policy trong migration với ACL assertions trong test SQL; không chạy PostgREST hay test harness.",
+      "limitations": "Không xác nhận quyền hiệu lực sau toàn bộ migration chain, không truy cập DB/runtime. Phát hiện chỉ khẳng định nội dung tháng 09 mâu thuẫn với hợp đồng test đã có; ảnh hưởng cuối cùng phụ thuộc chuỗi ACL được áp dụng."
+    },
+    "recommendation": "Giữ SELECT của phiếu kho qua FastAPI như hợp đồng test mô tả: bỏ GRANT/policy SELECT cho authenticated trên hai bảng; giữ quyền service_role và tenant scoping cần thiết cho backend. Nếu chủ sở hữu muốn client đọc trực tiếp, cần đổi hợp đồng kiến trúc/test và khai báo capability tương ứng trước khi cấp.",
+    "acceptance": "Từ DB sạch sau khi áp dụng đúng migration chain mà dự án định phát hành, test ACL xác nhận authenticated không có SELECT và không có policy SELECT trên hai bảng; service_role vẫn đọc được và truy vấn FastAPI theo clinic tiếp tục hoạt động.",
+    "confidence": "Cao về mâu thuẫn grant–test trong mã nguồn; trung bình về tác động cuối vì không chạy cả migration chain/DB.",
+    "alignment": [
+      "ownership",
+      "reality",
+      "catches issues early"
+    ],
+    "related_tests": [
+      "supabase/tests/stock_postgrest_read_acl.sql"
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa",
+      "supabase/tests/stock_postgrest_read_acl.sql": "b9cf961702a946883213eba7d54ff73702ea2fc24137bdcb4d2c1f944d951128"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "source_present_static_only",
+      "note": "Nguồn migration và test có trong snapshot; chưa kiểm tra trạng thái ACL trong DB hay PostgREST.",
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CAND-R9-MIG-202609-STOCK-LINK",
+    "title": "Dòng phiếu kho không ràng buộc lô thuốc và dòng sổ kho phải khớp",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "inventory_audit_integrity",
+    "summary": "phieu_kho_dong kiểm tra clinic của phiếu và lô, nhưng drug_catalog_id chỉ có FK riêng tới danh mục; inventory_txn_id chỉ FK riêng tới inventory_txn. CHECK của dòng nhập/kiểm chỉ yêu cầu có transaction khi cần, không chứng minh transaction cùng clinic, cùng lô, cùng thuốc, cùng loại/số lượng hay trỏ lại đúng phiếu. Vì vậy schema cho phép một dòng phiếu kiểm/nhập trình bày một sự kiện kho khác làm chứng cứ.",
+    "trigger": "Một lệnh ghi qua service_role tạo dòng phieu_kho_dong với drug_catalog_id khác thuốc của drug_batch_id, hoặc gắn inventory_txn_id tới transaction không tương ứng phiếu/lô/clinic/quantity.",
+    "impact": "Thẻ kho/phiếu kiểm có thể không phản ánh giao dịch thực mà dòng sổ được dùng làm bằng chứng; người chịu trách nhiệm khó đối soát lệch và phát hiện sai nhập kho. Đây là lỗ hổng ràng buộc dữ liệu; chưa khẳng định backend hiện có đường ghi tạo được trạng thái sai.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+        "line": 59,
+        "end_line": 96,
+        "sha256": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa",
+        "detail": "drug_catalog_id và inventory_txn_id dùng FK đơn; FK ghép chỉ bảo đảm phieu_kho_dong gắn phiếu cùng clinic, và drug_batch thuộc cùng clinic. CHECK phân biệt nhập/kiểm nhưng không so khớp thuốc/lô/clinic/nội dung transaction."
+      },
+      {
+        "path": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+        "line": 106,
+        "end_line": 115,
+        "sha256": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa",
+        "detail": "Trigger chỉ chặn UPDATE/DELETE sau khi tạo dòng; không có trigger BEFORE INSERT xác minh transaction khớp phiếu/lô."
+      },
+      {
+        "path": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+        "line": 129,
+        "end_line": 144,
+        "sha256": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa",
+        "detail": "Ghi dòng qua service_role được cấp INSERT; đây là nơi schema cần chốt liên kết cross-table vì RLS không kiểm tra nội dung liên kết."
+      },
+      {
+        "path": "supabase/tests/inventory_write_guards.sql",
+        "line": 8,
+        "end_line": 11,
+        "sha256": "26fa95443f12b19ef2fc996bfadffe79c03e42525c0ed66691b0d7a6b75e0d38",
+        "detail": "Test nhấn mạnh service_role bỏ qua RLS và kiểm tra tenant guard trên inventory_txn gốc."
+      },
+      {
+        "path": "supabase/tests/inventory_write_guards.sql",
+        "line": 134,
+        "end_line": 160,
+        "sha256": "26fa95443f12b19ef2fc996bfadffe79c03e42525c0ed66691b0d7a6b75e0d38",
+        "detail": "Test kiểm transaction không thể dùng clinic B để trừ lô clinic A; không kiểm relation ngược từ phieu_kho_dong tới transaction hoặc thuốc của lô."
+      }
+    ],
+    "validation": {
+      "method": "static_constraint_and_trigger_review",
+      "command": null,
+      "result": "Đọc đầy đủ migration tạo phiếu kho và bài test ghi sổ kho; đối chiếu FK, CHECK, trigger và quyền INSERT.",
+      "limitations": "Không thử insert fixture, không chạy DB/test harness, không rà service/API ghi phiếu. Tác động thực tế phụ thuộc validation ở đường ghi ngoài migration."
+    },
+    "recommendation": "Đặt bất biến ngay trong DB: liên kết drug_catalog_id với đúng drug_batch_id cùng clinic; ràng buộc hoặc trigger kiểm tra inventory_txn_id cùng clinic/lô và đúng loại, số lượng, ref_type/ref_id của phiếu trước khi nhận dòng. Giữ dòng bất biến sau insert.",
+    "acceptance": "SQL regression test cho phép dòng đúng; từ chối thuốc khác với lô, transaction của clinic/lô khác, transaction sai loại/số lượng hoặc không trỏ về đúng phiếu; test độc lập với RLS và thực thi dưới service_role.",
+    "confidence": "Cao về thiếu ràng buộc/trigger trong migration; trung bình về khả năng lỗi xảy ra qua API vì không rà/không kiểm thử đường ghi.",
+    "alignment": [
+      "reality",
+      "ownership",
+      "catches issues early",
+      "improves from evidence"
+    ],
+    "related_tests": [
+      "supabase/tests/inventory_write_guards.sql",
+      "supabase/tests/multi_tenant_foundation.sql",
+      "supabase/tests/stock_postgrest_read_acl.sql"
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa",
+      "supabase/tests/inventory_write_guards.sql": "26fa95443f12b19ef2fc996bfadffe79c03e42525c0ed66691b0d7a6b75e0d38"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "source_present_static_only",
+      "note": "Ràng buộc thiếu có thể đọc trực tiếp từ migration; chưa dựng dữ liệu phản ví dụ hay xác nhận đường ghi.",
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FIN-010",
+    "title": "Đối tác có thể huỷ ghi nhận thu mà không lưu lý do",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "payment_audit_integrity",
+    "summary": "CHECK doi_tac_thanh_toan_huy_co_dau_vet yêu cầu người và thời điểm huỷ nhưng không chặn ly_do_huy NULL. Khi huy_luc/huy_boi có giá trị, length(btrim(NULL)) BETWEEN 3 AND 2000 trả NULL; biểu thức CHECK tổng thể cũng thành UNKNOWN, được PostgreSQL chấp nhận. Trigger chỉ chặn sửa nội dung gốc và huỷ lần hai, không kiểm tra lý do.",
+    "trigger": "Lệnh UPDATE đánh dấu huy_luc và huy_boi nhưng để ly_do_huy NULL.",
+    "impact": "Sổ thanh toán đối tác giữ được ai/lúc huỷ nhưng mất nguyên nhân; nhân viên không thể biết giao dịch bị huỷ do nhập nhầm, hoàn/đổi hay lý do vận hành khác, làm yếu đối soát và cải tiến quy trình.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql",
+        "line": 39,
+        "end_line": 57,
+        "sha256": "6d472dc809ef8da10ac32827099117e463f992e17b46480759a869068e9d9c5d",
+        "detail": "Bảng yêu cầu trường audit; CHECK dùng length(btrim(ly_do_huy)) mà không buộc ly_do_huy IS NOT NULL."
+      },
+      {
+        "path": "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql",
+        "line": 70,
+        "end_line": 99,
+        "sha256": "6d472dc809ef8da10ac32827099117e463f992e17b46480759a869068e9d9c5d",
+        "detail": "Trigger khoá dữ liệu gốc và chỉ cho huỷ một lần nhưng không kiểm tra/chuẩn hoá lý do; service_role được INSERT/UPDATE."
+      },
+      {
+        "path": "supabase/tests/payment_audit.sql",
+        "line": 274,
+        "end_line": 285,
+        "sha256": "89b92edbaccc261880593afa034cdb21f6500fd4b66a837450ac012b8023475c",
+        "detail": "Bài test hiện có kiểm tra lý do bắt buộc trên bảng payment khác; tìm trong SQL tests không thấy assertion riêng cho doi_tac_thanh_toan."
+      }
+    ],
+    "validation": {
+      "method": "static_sql_three_valued_check_analysis",
+      "command": null,
+      "result": "Đọc biểu thức CHECK và trigger; đối chiếu bài test payment_audit là bảng payment, không phải doi_tac_thanh_toan.",
+      "limitations": "Không thử UPDATE trên PostgreSQL và không xác minh request/actor ở service đối tác."
+    },
+    "recommendation": "Sửa CHECK theo dạng ly_do_huy IS NOT NULL AND char_length(btrim(ly_do_huy)) BETWEEN 3 AND 2000 khi huy_luc/huy_boi có dữ liệu; giữ nhánh còn hiệu lực yêu cầu cả ba trường audit đều NULL.",
+    "acceptance": "SQL test cho doi_tac_thanh_toan khẳng định NULL, chuỗi trắng và dưới 3 ký tự bị từ chối; lý do hợp lệ được lưu cùng người/thời điểm; ghi nhận đang hiệu lực và chặn huỷ lần hai vẫn hoạt động.",
+    "confidence": "Cao; kết luận bắt nguồn trực tiếp từ semantics của CHECK và NULL trong PostgreSQL. Runtime chưa được chạy.",
+    "alignment": [
+      "reality",
+      "ownership",
+      "catches issues early",
+      "improves from evidence"
+    ],
+    "related_tests": [
+      "supabase/tests/payment_audit.sql"
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql": "6d472dc809ef8da10ac32827099117e463f992e17b46480759a869068e9d9c5d",
+      "supabase/tests/payment_audit.sql": "89b92edbaccc261880593afa034cdb21f6500fd4b66a837450ac012b8023475c"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "source_present_static_only",
+      "note": "CHECK và trigger có trong snapshot; không chạy DB hoặc xác nhận dữ liệu vận hành.",
+      "production_verified": false
+    }
+  }
+]

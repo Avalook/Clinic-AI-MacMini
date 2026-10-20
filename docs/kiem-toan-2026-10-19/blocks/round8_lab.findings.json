@@ -1,0 +1,97 @@
+[
+  {
+    "id": "LAB-001",
+    "title": "Kết quả có thể đã commit nhưng BFF báo chưa lưu; retry tạo record file thứ hai",
+    "severity": "MEDIUM",
+    "evidence_level": "static_analysis",
+    "category": "result_upload_retry",
+    "summary": "Luồng multipart không mang upload-intent/idempotency key. BFF gộp lỗi request/response thành 502 'tệp CHƯA được lưu'; nếu server đã commit nhưng response bị mất, retry cùng file tạo khóa và row mới.",
+    "trigger": "FastAPI nhận đủ multipart, chuyển file cuối và commit row + event; sau commit response mất/reset giữa FastAPI và Next; nhân viên tin 502 và tải lại cùng file.",
+    "impact": "Hai result-file record/event cùng nội dung có thể cùng xuất hiện cho cùng chỉ định/khách, làm người duyệt/CSKH khó nhận ra bản chính xác và có thể đánh dấu gửi trùng. Đây là tác động có điều kiện, chưa xác nhận xảy ra production.",
+    "evidence": [
+      {
+        "path": "src/dashboard/lib/chuyen-tiep-tai-len.ts",
+        "line": 27,
+        "end_line": 43,
+        "detail": "Lỗi request hoặc response reject; helper không có receipt/reconciliation."
+      },
+      {
+        "path": "src/dashboard/app/api/cskh/ket-qua/route.ts",
+        "line": 75,
+        "end_line": 82,
+        "detail": "Mọi reject thành 502 với thông điệp chắc chắn 'CHƯA được lưu, hãy tải lại'."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/customers/TepKetQua.tsx",
+        "line": 186,
+        "end_line": 214,
+        "detail": "POST upload không gửi operation/idempotency key; non-2xx dừng vòng và hiện lỗi tên file."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 729,
+        "end_line": 771,
+        "detail": "Endpoint upload không nhận IdempotencyGuard/key; gọi multipart parser rồi tai_len."
+      },
+      {
+        "path": "src/clinicai/services/media_service.py",
+        "line": 282,
+        "end_line": 292,
+        "detail": "Mỗi lần gọi tạo đường khóa tệp UUID mới."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 908,
+        "end_line": 1000,
+        "detail": "Insert row, emit event trong transaction; trả ID sau transaction, không tra receipt theo intent/hash."
+      },
+      {
+        "path": "supabase/migrations/20260809000008_tep_ket_qua.sql",
+        "line": 21,
+        "end_line": 63,
+        "detail": "Bảng sinh UUID và sha256 nhưng unique duy nhất liên quan file là (clinic_id,khoa), không unique theo intent/hash."
+      },
+      {
+        "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+        "line": 636,
+        "end_line": 658,
+        "detail": "Gọi upload lần hai cùng bytes được chấp nhận; test chỉ assert review consultation/queue không nhân đôi, không assert cardinality tep_ket_qua."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đã lần theo UI → Next BFF → FastAPI multipart → TepKetQuaService → transaction/file table/outbox. Không chạy DB/runtime theo chỉ thị read-only.",
+      "limitations": "Không tái hiện mất kết nối sau commit; điều kiện phụ thuộc thời điểm response bị mất. Không có production/DB/PHI. Tác động là duplicate record và khả năng nhầm lẫn, không kết luận nội dung bị ghi sai hoặc bệnh nhân đã nhận sai kết quả. Test upload retry hiện có không kiểm file-row count."
+    },
+    "recommendation": "Dùng upload-intent ID bền do client sinh và lưu receipt idempotent theo clinic + actor + intent trong cùng transaction với row/domain result; cùng intent trả cùng file ID, payload hash khác thì conflict. Khi response mơ hồ, UI cần tra intent/reconcile trước khi retry và không khẳng định chưa lưu.",
+    "acceptance": "Mô phỏng commit thành công rồi làm rớt response; retry cùng intent chỉ có một file row, một upload event và trả cùng file ID. Intent khác vẫn cho phép upload bytes giống nhau. UI hiển thị trạng thái chưa xác định và cho tra cứu trước retry.",
+    "alignment": [
+      "Reality dễ nhìn thấy",
+      "Unknown ngắn hơn",
+      "Ownership rõ",
+      "Bệnh nhân ít chờ trong bất định",
+      "Lỗi lặp lại thành cải tiến hệ thống"
+    ],
+    "related_tests": [
+      "src/tests/services/test_full_chi_dinh_slice_ab_db.py:636-658"
+    ],
+    "source_hashes": {
+      "src/dashboard/lib/chuyen-tiep-tai-len.ts": "228d4a5d8923abce44026b1e0354b09b39f282bade533100aa355bee9eeb4733",
+      "src/dashboard/app/api/cskh/ket-qua/route.ts": "ce817fa5229502e4e6835bc8b059917d911b529a174071434461662bd183400a",
+      "src/dashboard/app/(dashboard)/customers/TepKetQua.tsx": "72e62eb680512393697579a3d72654d389c6d4d1dc9cc5e874698eabc59ba89f",
+      "src/clinicai/api/v1/routers/cskh.py": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "src/clinicai/services/media_service.py": "54bb599468bf44ec2df3676e1252b736667ddc8baddd2aef324059349069c5a5",
+      "src/clinicai/services/tep_ket_qua_service.py": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "supabase/migrations/20260809000008_tep_ket_qua.sql": "29be580cc5d1422e3ce2d5b71aaf5b328418f734fba2d76867be2da1b92ba903",
+      "src/tests/services/test_full_chi_dinh_slice_ab_db.py": "e331aec7a70d56a43901cfa2e7ae2c3639091c5c2db7b968ab36aa8555b5c064"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Các bằng chứng code ở snapshot main cố định cho thấy endpoint không dùng idempotency key và BFF khẳng định chưa lưu trên lỗi transport; không runtime/prod validation.",
+      "production_verified": false
+    }
+  }
+]

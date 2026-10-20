@@ -1,0 +1,261 @@
+[
+  {
+    "id": "CLIN-001",
+    "title": "Hành trình suy rằng đã đọc kết quả khi dịch vụ ngoài vẫn chờ kết quả",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "reality_integrity",
+    "summary": "Điều kiện doc_trong_phien chỉ kiểm dịch vụ đã bắt đầu trước lúc khám chính hoàn tất, không kiểm đã có kết quả hoặc bằng chứng bác sĩ đọc.",
+    "trigger": "Lấy mẫu gửi đối tác xong, chưa có kết quả; phiên PRIMARY hoàn tất sau lúc lấy mẫu.",
+    "impact": "Bảng có thể đồng thời ghi chờ KQ đối tác và đọc kết quả xong; người phối hợp hiểu sai phần chăm sóc còn thiếu.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+        "line": 736,
+        "end_line": 764,
+        "detail": "Suy DOC_KQ xong từ bat_dv < xong_kham, không yêu cầu result-ready/review acknowledgement."
+      }
+    ],
+    "validation": {
+      "method": "actual_pure_function_synthetic",
+      "command": "PYTHONPATH=src .venv/bin/python docs/kiem-toan-2026-10-19/probes/reproduce_local.py",
+      "result": "Probe CLIN-001: LAM_DV=doi_tac nhưng DOC_KQ=xong, ghi chú đọc ngay trong phiên chính. Không DB/network.",
+      "limitations": "Không kiểm production hoặc chứng minh sự cố đã xảy ra."
+    },
+    "recommendation": "Chỉ ghi đã đọc khi có xác nhận kết quả nào và ai đã đọc; nếu chỉ suy từ phiên khám, biểu diễn chưa xác minh và giữ việc chờ kết quả.",
+    "acceptance": "Ca synthetic external pending không hiện đã đọc; khi kết quả mới/thay đổi, review acknowledgement gắn đúng phiên bản và có owner.",
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Ownership rõ",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/hanh_trinh_khach_service.py": "fcd3556b61d403de0ad211cba876b13bd3fcd27e76cfcc7053c29b67ff7ed6f7"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+          "line": 741,
+          "end_line": 772,
+          "sha256": "e85946ddcf6df2048c151f2ed291f197dd8e8d407ffd6b3e5fdeaa3977389cc4",
+          "excerpt": "741:         bs_doc = (p_doc or {}).get(\"bac_si\") or (q_doc or {}).get(\"bac_si\") or bs_chinh\n742:         # Không có phiên đọc riêng mà bác sĩ bấm Khám xong SAU khi khách làm\n743:         # dịch vụ (Tuyền 29/09): đã đọc kết quả ngay trong phiên khám chính.\n744:         bat_dv = _dau(*(t[\"bat_dau\"] for t in the)) if the else None\n745:         doc_trong_phien = (\n746:             not p_doc\n747:             and not q_doc\n748:             and not dk\n749:             and xong_kham is not None\n750:             and bat_dv is not None\n751:             and bat_dv < xong_kham\n752:         )\n753:         if doc_trong_phien:\n754:             bat = quay_lai_luc or bat\n755:             ket = xong_kham\n756:         vao_doc, quay_doc = vao_hang_that(q_doc, bat)\n757:         them(\n758:             \"DOC_KQ\",\n759:             \"Quay lại bác sĩ chính\",\n760:             XONG\n761:             if ket\n762:             else DANG\n763:             if bat\n764:             else CHO\n765:             if q_doc and q_doc.get(\"status\") in (\"waiting\", \"called\")\n766:             else CHUA,\n767:             noi=noi_q(q_doc) if q_doc else _ban_kham_bs(bs_doc),\n768:             ai_lam=bs_doc,\n769:             vao=vao_doc,\n770:             quay_lai=quay_doc,\n771:             bat_dau=bat,\n772:             xong=ket,"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CLIN-002",
+    "title": "Check-out được dùng làm mốc xong thuốc dù chưa ghi nhận giao thuốc",
+    "severity": "MEDIUM",
+    "evidence_level": "reproduced_local",
+    "category": "reality_semantics",
+    "summary": "Bước thuốc được khép xong và gắn giờ check-out dù chỉ có prescription.saved, chưa có medicine.dispensed. Đây là lựa chọn ngữ nghĩa hiện hành cần tách khỏi thực tế giao thuốc.",
+    "trigger": "Có đơn thuốc, khách check-out nhưng không có sự kiện giao thuốc.",
+    "impact": "Trạng thái xong dễ bị dùng nhầm để suy khách đã nhận thuốc; không khẳng định rule hiện tại bắt buộc khách phải mua tại phòng khám.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+        "line": 23,
+        "end_line": 26,
+        "detail": "Contract hiện hành coi check-out=xong buổi."
+      },
+      {
+        "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+        "line": 768,
+        "end_line": 781,
+        "detail": "XONG nếu xong_buoi và bổ sung giờ ve_luc khi th.ket thiếu."
+      }
+    ],
+    "validation": {
+      "method": "actual_pure_function_synthetic",
+      "command": "PYTHONPATH=src .venv/bin/python docs/kiem-toan-2026-10-19/probes/reproduce_local.py",
+      "result": "Probe CLIN-002: chỉ prescription.saved + closed_at => THUOC=xong, xong=closed_at.",
+      "limitations": "Không kiểm production hoặc chứng minh sự cố đã xảy ra."
+    },
+    "recommendation": "Tách kết thúc buổi với kết quả thuốc: đã giao/mua ngoài/từ chối/chưa xác minh. Không gán thời điểm giao từ check-out.",
+    "acceptance": "Check-out thiếu medicine.dispensed không tạo mốc giao thuốc; lựa chọn mua ngoài có lý do rõ và vẫn kết thúc buổi hợp lệ.",
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Ownership rõ",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/hanh_trinh_khach_service.py": "fcd3556b61d403de0ad211cba876b13bd3fcd27e76cfcc7053c29b67ff7ed6f7"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+          "line": 778,
+          "end_line": 789,
+          "sha256": "e85946ddcf6df2048c151f2ed291f197dd8e8d407ffd6b3e5fdeaa3977389cc4",
+          "excerpt": "778:     # 7. Thuốc — chỉ khi có đơn; chưa về thì để một dòng \"nếu có đơn\".\n779:     th = moc.get(\"THUOC\")\n780:     if th:\n781:         them(\n782:             \"THUOC\",\n783:             \"Thuốc\",\n784:             # Khách đã check-out thì bước thuốc KHÉP (không còn \"đang làm\").\n785:             XONG if xong_buoi else (tt_moc(th) if th[\"trang_thai\"] != \"chua\" else CHO),\n786:             noi=\"Quầy thuốc\",\n787:             bat_dau=th[\"bat\"],\n788:             xong=th[\"ket\"] or (ve_luc if xong_buoi else None),\n789:         )"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CLIN-003",
+    "title": "Lưu ngày tái khám có thể mất việc gọi mà màn vẫn báo lưu thành công",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "workflow_handoff",
+    "summary": "Đồng bộ nhắc tái khám rollback riêng khi lỗi, phiếu vẫn commit; frontend không dùng hen_tai_kham.LOİ. Cùng ngày lưu lại không đủ điều kiện thử đồng bộ vì chỉ chạy khi ngày đổi.",
+    "trigger": "htk.dong_bo lỗi đúng lúc bác sĩ thay ngày hẹn; lần lưu khác giữ nguyên ngày.",
+    "impact": "Ngày hẹn trong phiếu có nhưng việc CSKH có thể không cập nhật; nhân viên không thấy yêu cầu khôi phục, phải nhớ và kiểm ngoài hệ thống.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/phieu_kham_service.py",
+        "line": 510,
+        "end_line": 541,
+        "detail": "SAVEPOINT catch trả LOI nhưng phiếu vẫn ok; chỉ sync khi giá trị ngày đổi."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+        "line": 284,
+        "end_line": 316,
+        "detail": "onLuu lấy revision/thai_ky/canh_bao, bỏ qua hen_tai_kham."
+      }
+    ],
+    "validation": {
+      "method": "pinned_main_service_and_postgres_invariant_test",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_rx_retry_db.py src/tests/services/test_audit_1910_recall_failure_db.py -q",
+      "result": "Fault-inject htk.dong_bo on first save, then restore healthy function and save unchanged follow date plus a note: both saves ok but no CSKH task. Service+Postgres invariant test failed0!=1 on exact pinned main.",
+      "limitations": "Synthetic data on ephemeral DB, no browser fault injection or production inspection. Tests assert desired invariant and intentionally fail before a fix."
+    },
+    "recommendation": "Ghi yêu cầu đồng bộ bền trong cùng transaction phiếu; retry idempotent; hiển thị pending/failed và owner xử lý. Nếu giữ sync hiện tại phải có nút thử lại không yêu cầu sửa ngày.",
+    "acceptance": "Fault injection đồng bộ lỗi: phiếu không mất, có pending durable, lỗi hiện rõ và worker retry đúng một việc; không tự báo đã bàn giao CSKH.",
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Ownership rõ",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [
+      "probes/test_audit_1910_recall_failure_db.py"
+    ],
+    "source_hashes": {
+      "src/clinicai/services/phieu_kham_service.py": "89beeeb28d94e3c73e81c44c86d3060d30bb3264e2ec811f75acc9c2f7684960",
+      "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx": "eed96ed2caf688c45a6a2db737f5446ded1d6267507f7b3a21377c59fbec3dde"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Đã tái hiện trên checkout main ghim và DB tạm được áp đủ42 migration còn thiếu: gây lỗi đồng bộ lần đầu rồi lưu lại ngày hẹn không đổi khi hàm đã hoạt động bình thường; phiếu vẫn ok nhưng việc CSKH bằng0. Test bất biến mong có1 việc thất bại đúng lỗi cần sửa. Chưa bấm browser hay kiểm prod.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 514,
+          "end_line": 541,
+          "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+          "excerpt": "514:                 _gia(cu_dl.get(k)) != _gia(sau_dl.get(k))\n515:                 for k in {*cu_dl, *sau_dl}\n516:                 if htk.la_o_ngay_hen(k)\n517:             ):\n518:                 try:\n519:                     async with conn.transaction():\n520:                         hen = await htk.dong_bo(\n521:                             conn,\n522:                             identity,\n523:                             visit_id=visit_id,\n524:                             hom_nay=date.fromisoformat(clinic_today()),\n525:                             bay_gio=datetime.now(timezone.utc),\n526:                         )\n527:                 except Exception:  # noqa: BLE001 — xem trên\n528:                     logger.exception(\"hen_tai_kham_dong_bo_hong\", visit_id=visit_id)\n529:                     hen = {\n530:                         \"trang_thai\": \"LOI\",\n531:                         \"loi\": \"Phiếu đã lưu nhưng CHƯA cập nhật được việc gọi\"\n532:                         \" tái khám — sửa lại ngày hẹn để thử lại.\",\n533:                     }\n534:         return {\n535:             \"ok\": True,\n536:             \"revision\": int(moi),\n537:             \"canh_bao\": canh_bao,\n538:             # \"tao\" / \"cap_nhat\" — màn nạp lại khối Thai kỳ bên dưới phiếu.\n539:             \"thai_ky\": thai_ky,\n540:             # Việc gọi tái khám của lượt sau lần lưu này (None = ngày không đổi).\n541:             \"hen_tai_kham\": hen,"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+          "line": 295,
+          "end_line": 303,
+          "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+          "excerpt": "295:       revision.current = Number(kq.d?.revision ?? revision.current + 1);\n296:       daLuu.current = { ...daLuu.current, ...thayDoi };\n297:       // Hai ô kinh cuối / dự kiến sinh vừa ghi sang thai kỳ (máy chủ quyết) →\n298:       // khối Thai kỳ bên dưới nạp lại (29/09/2026).\n299:       if (kq.d?.thai_ky) {\n300:         window.dispatchEvent(new CustomEvent(SU_KIEN_THAI_KY, { detail: clinicPatientId }));\n301:       }\n302:       return { ok: true, canh_bao: kq.d?.canh_bao, da_gui: daGui };\n303:     },"
+        }
+      ],
+      "production_verified": false,
+      "evidence_level": "reproduced_local"
+    },
+    "version_scope": "working_tree static; pinned main956ba4f2 service+DB reproduction"
+  },
+  {
+    "id": "CLIN-004",
+    "title": "Worklist chung chưa tách nhận và bàn giao trách nhiệm khỏi thao tác trạng thái",
+    "severity": "MEDIUM",
+    "evidence_level": "design_gap",
+    "category": "ownership_contract",
+    "summary": "Lệnh work item chung có kiểm quyền, gate, version và actor event tốt; start/complete không gắn người chịu trách nhiệm hoặc xác nhận nhận bàn giao. assigned_to được đọc, còn một số module như siêu âm có đường giao riêng. Đây là khoảng trống hợp đồng thống nhất, không phải khẳng định mọi luồng đều thiếu ownership.",
+    "trigger": "Việc được giao theo vai hoặc còn assigned_to của người cũ, nhân viên khác bắt đầu/hoàn tất hoặc ca trực thay đổi.",
+    "impact": "Có thể biết ai đã bấm sau sự việc nhưng khó xác định ai đang cam kết xử lý và ai nhận trách nhiệm khi chờ/vắng mặt. Chưa mô phỏng một ca đổi người thực tế.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/work_item_service.py",
+        "line": 242,
+        "end_line": 299,
+        "detail": "Start/complete đổi trạng thái và lưu actor event, không cập nhật người nhận trách nhiệm."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/work_items.py",
+        "line": 165,
+        "end_line": 171,
+        "detail": "Request chung có version/reason, không có nhận/bàn giao."
+      },
+      {
+        "path": "src/clinicai/services/ultrasound_board_service.py",
+        "line": 263,
+        "end_line": 320,
+        "detail": "Siêu âm đã có đường giao/nhận assigned_to riêng, không nên kết luận toàn hệ thống không có ownership."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_module_trace",
+      "command": null,
+      "result": "Đã đọc WorkItemService.issue/list_worklist, request API và UltrasoundBoardService.nhan_ca; vùng này byte-identical giữa baseline và main.",
+      "limitations": "Đây là design gap ở API/worklist chung; không loại trừ các phân công riêng trong queue/consultation và không đề xuất khóa cứng người khác làm thay."
+    },
+    "recommendation": "Chuẩn hóa nhận/giao lại/bàn giao có người hoặc nhóm chịu trách nhiệm và xác nhận nhận; tái sử dụng assigned_to/work_item_event, giữ khả năng làm thay có dấu vết. Phân biệt owner với người thao tác và nhóm được phép làm.",
+    "acceptance": "Kịch bản đổi ca/vắng mặt có một owner rõ hoặc trạng thái chưa có người nhận, hạn phản hồi và escalation; người hỗ trợ vẫn làm được trong quyền, không khóa cứng vận hành.",
+    "alignment": [
+      "Ownership rõ",
+      "Giảm gọi hỏi/chat đuổi việc",
+      "Nhân viên làm việc bền vững"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/work_item_service.py": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396",
+      "src/clinicai/api/v1/routers/work_items.py": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+      "src/clinicai/services/ultrasound_board_service.py": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Main có assignment riêng cho siêu âm và state/history tốt; API worklist chung vẫn chưa có bước nhận/bàn giao trách nhiệm có xác nhận. Cần chuẩn hóa theo alignment, không gọi đây là lỗi quyền hay lý do khóa việc vào một người.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "line": 242,
+          "end_line": 299,
+          "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396",
+          "excerpt": "242: \n243:                 updated = await conn.fetchrow(\n244:                     \"\"\"\n245:                     UPDATE work_item\n246:                        SET status      = $2,\n247:                            started_at  = CASE\n248:                                              WHEN $2 = 'IN_PROGRESS' THEN now()\n249:                                              ELSE started_at\n250:                                          END,\n251:                            finished_at = CASE\n252:                                              WHEN $2 IN\n253:                                                   ('COMPLETED', 'SKIPPED', 'CANCELLED')\n254:                                              THEN now()\n255:                                              ELSE finished_at\n256:                                          END,\n257:                            version     = version + 1,\n258:                            updated_at  = now()\n259:                      WHERE id = $1::uuid\n260:                        AND status = $3\n261:                        AND ($4::integer IS NULL OR version = $4::integer)\n262:                        AND clinic_id = $5::uuid\n263:                     RETURNING version\n264:                     \"\"\",\n265:                     work_item_id,\n266:                     next_status,\n267:                     current,\n268:                     expected_version,\n269:                     identity.clinic_id,\n270:                 )\n271:                 if updated is None:\n272:                     raise ConflictError(\n273:                         \"Đầu việc vừa được người khác cập nhật — hãy tải lại\"\n274:                     )\n275: \n276:                 await conn.execute(\n277:                     \"\"\"\n278:                     INSERT INTO work_item_event\n279:                         (clinic_id, work_item_id, command, from_status, to_status,\n280:                          actor_staff_id, actor_role, reason, metadata)\n281:                     VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid, $7, $8, $9)\n282:                     \"\"\",\n283:                     identity.clinic_id,\n284:                     work_item_id,\n285:                     command,\n286:                     current,\n287:                     next_status,\n288:                     identity.staff_id,\n289:                     vai_da_dung(identity, vai_mo_cua),\n290:                     reason,\n291:                     json.dumps(\n292:                         {\n293:                             \"node_code\": item[\"node_code\"],\n294:                             \"vai_tai_khoan\": membership_role,\n295:                         }\n296:                     ),\n297:                 )\n298: \n299:         logger.info("
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/work_items.py",
+          "line": 165,
+          "end_line": 171,
+          "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+          "excerpt": "165: class CommandRequest(BaseModel):\n166:     \"\"\"Optional body for a work-item command.\"\"\"\n167: \n168:     # The version the caller last read. Sending it turns a concurrent edit into\n169:     # a 409 instead of a silent overwrite; omitting it accepts last-write-wins.\n170:     expected_version: int | None = Field(default=None, ge=1)\n171:     reason: str | None = Field(default=None, max_length=500)"
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 263,
+          "end_line": 320,
+          "sha256": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e",
+          "excerpt": "263:     async def nhan_ca(\n264:         self,\n265:         *,\n266:         identity: StaffIdentity,\n267:         work_item_id: str,\n268:         bac_si_id: str | None,\n269:     ) -> dict[str, Any]:\n270:         \"\"\"Ghi BÁC SĨ THỰC HIỆN siêu âm (15/09/2026).\n271: \n272:         Bác sĩ siêu âm bấm nhận ca → chính mình. Trưởng ca / quản lý chỉ định\n273:         một bác sĩ siêu âm. Nhờ vậy thư ký đi cùng bác sĩ siêu âm thấy đúng khách\n274:         mình phải nhập hộ, kể cả khách do bác sĩ chính chỉ định siêu âm.\n275:         \"\"\"\n276:         if identity.co_vai({ClinicRole.ULTRASOUND_DOCTOR}):\n277:             nguoi = identity.staff_id\n278:         elif identity.co_vai((ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)):\n279:             if not bac_si_id:\n280:                 raise ValidationError(\"Chọn bác sĩ siêu âm thực hiện.\")\n281:             nguoi = bac_si_id\n282:         else:\n283:             raise SafetyGateError(\n284:                 \"Chỉ bác sĩ siêu âm, trưởng ca hoặc quản lý giao ca siêu âm.\"\n285:             )\n286:         async with self._pool.acquire() as conn, conn.transaction():\n287:             la_sa = await conn.fetchval(\n288:                 \"SELECT EXISTS (SELECT 1 FROM public.clinic_membership\"\n289:                 \" WHERE clinic_id = $1::uuid AND staff_id = $2::uuid AND is_active\"\n290:                 \" AND role = 'ULTRASOUND_DOCTOR')\",\n291:                 identity.clinic_id,\n292:                 nguoi,\n293:             )\n294:             if not la_sa:\n295:                 raise ValidationError(\"Người nhận ca không phải bác sĩ siêu âm.\")\n296:             doi = await conn.fetchval(\n297:                 \"\"\"\n298:                 UPDATE public.work_item\n299:                    SET assigned_to = $3::uuid, updated_at = now()\n300:                  WHERE clinic_id = $1::uuid AND id = $2::uuid\n301:                    AND node_code = 'DICHVU-SIEUAM'\n302:                    AND status IN ('PENDING', 'IN_PROGRESS')\n303:                 RETURNING visit_id::text\n304:                 \"\"\",\n305:                 identity.clinic_id,\n306:                 work_item_id,\n307:                 nguoi,\n308:             )\n309:             if doi is None:\n310:                 raise ValidationError(\"Ca siêu âm không còn chờ hoặc không tồn tại.\")\n311:             await record_event(\n312:                 conn,\n313:                 event_type=\"ultrasound.assigned\",\n314:                 aggregate_type=\"visit\",\n315:                 aggregate_id=doi,\n316:                 identity=identity,\n317:                 origin=\"api:ultrasound\",\n318:                 payload={\"work_item_id\": work_item_id, \"bac_si_id\": nguoi},\n319:             )\n320:         return {\"ok\": True, \"bac_si_id\": nguoi}"
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

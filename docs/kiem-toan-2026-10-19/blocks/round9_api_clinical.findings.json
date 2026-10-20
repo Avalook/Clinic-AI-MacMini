@@ -1,0 +1,284 @@
+[
+  {
+    "id": "API-001",
+    "title": "Lệnh kéo hàng chờ bỏ qua cơ sở của danh tính",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "location_scope_mutation",
+    "summary": "GET /queue chỉ trả lịch của cơ sở hiện hành, nhưng POST /queue/keo và ThuTuKhamService.keo chỉ giới hạn theo clinic_id. Người có quyền reception.checkin.perform cấp ở phạm vi clinic, nếu biết UUID lịch hẹn ở cơ sở khác cùng clinic, có thể đổi mốc xếp hàng của lượt đó qua API.",
+    "trigger": "Một nhân viên đã xác thực trong clinic, có capability reception.checkin.perform ở scope clinic, gửi appointment_id ở cơ sở B (và optional anchor IDs cũng ở B) tới POST /api/v1/queue/keo khi danh tính đang đứng ở cơ sở A. Các UUID phải là lịch cùng clinic, CHECKED_IN và có visit đang chờ. Scope theo phòng nếu có sẽ không tự cho qua vì lệnh gọi can không truyền phong_id.",
+    "impact": "Thứ tự gọi của cơ sở B có thể đổi từ một lệnh của nhân viên A dù GET /queue của A không hiển thị các lịch B. Event queue.reordered được ghi đúng cùng transaction, nhưng không có chứng cứ trong sự kiện về việc lệnh vượt qua ranh giới cơ sở. Đây là ghi chéo cơ sở trong cùng clinic; static trace không cho thấy vượt clinic.",
+    "recommendation": "Truyền identity.location_id vào lệnh và bắt buộc lịch đích cùng mọi anchor thuộc đúng cơ sở; nếu chính sách cho phép điều phối liên cơ sở, mô hình hóa capability/scope đích rõ ràng và ghi location nguồn/đích vào audit. Giữ event trong transaction và trả 404/409 trước mọi ghi khi scope sai hoặc snapshot hàng đã đổi.",
+    "acceptance": "Với hai cơ sở synthetic trong cùng clinic, danh tính A có quyền clinic-scope nhưng không có quyền cross-location bị từ chối khi kéo lịch/anchor B; visit B và event không đổi. Lệnh trên lịch A thành công và có đúng một event. Nếu có quyền cross-location được thiết kế, phải kiểm tra quyền ấy tường minh và audit đầy đủ.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/queue.py",
+        "line": 92,
+        "end_line": 111,
+        "detail": "GET /queue truyền clinic_id và location_id của danh tính vào câu truy vấn."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/queue.py",
+        "line": 181,
+        "end_line": 197,
+        "detail": "POST nhận các UUID lịch hẹn; không nhận location_id từ body."
+      },
+      {
+        "path": "src/clinicai/services/thu_tu_kham_service.py",
+        "line": 63,
+        "end_line": 79,
+        "detail": "_MOC_SQL giới hạn clinic_id, appointment IDs và trạng thái check-in; không giới hạn location_id."
+      },
+      {
+        "path": "src/clinicai/services/thu_tu_kham_service.py",
+        "line": 100,
+        "end_line": 147,
+        "detail": "Gác reception.checkin.perform không truyền scope phòng/cơ sở; UPDATE chỉ theo clinic+visit, event cùng transaction."
+      },
+      {
+        "path": "src/clinicai/permissions/can.py",
+        "line": 32,
+        "end_line": 40,
+        "detail": "Capability query nhận CLINIC hoặc scope_id theo phòng; location không phải một scope ở đây."
+      },
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 180,
+        "end_line": 194,
+        "detail": "Danh tính có location_id riêng, được dùng để xác định cơ sở đang đứng."
+      },
+      {
+        "path": "src/clinicai/main.py",
+        "line": 278,
+        "end_line": 280,
+        "detail": "Router queue được include với runaway guard; guard này không thay thế location predicate của lệnh."
+      },
+      {
+        "path": "src/dashboard/app/api/queue/keo/route.ts",
+        "line": 1,
+        "end_line": 9,
+        "detail": "BFF còn proxy POST sang FastAPI; không tìm thấy caller dashboard hiện hành."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": "nl -ba src/clinicai/api/v1/routers/queue.py | sed -n '92,111p;181,197p'; nl -ba src/clinicai/services/thu_tu_kham_service.py | sed -n '63,79p;100,147p'; nl -ba src/clinicai/permissions/can.py | sed -n '32,40p'",
+      "result": "Call chain xác nhận GET mang location_id, POST không nhận location, service chỉ truy vấn và ghi theo clinic_id; capability gate là reception.checkin.perform.",
+      "limitations": "Không chạy HTTP/DB. Trigger cần UUID lịch hợp lệ cùng clinic ở cơ sở khác và actor có clinic-scope capability. Dashboard còn BFF mỏng nhưng tìm kiếm toàn dashboard không thấy màn hiện hành gọi POST này; không khẳng định thao tác đang được dùng trên UI."
+    },
+    "related_tests": [
+      "src/tests/services/test_luat_1509_sieu_am_va_hang_cho.py:180-220 (đọc, không chạy; test cùng clinic, không kiểm location boundary)"
+    ],
+    "related_findings": [],
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Xác nhận qua hash snapshot và MAIN-PHAM-VI.json; không chạy runtime.",
+      "production_verified": false
+    },
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/queue.py": "0ef07879529f0d0ca394e1bb7157a6f1a65afa04f801a481363d53e86ef806ca",
+      "src/clinicai/services/thu_tu_kham_service.py": "140d07bfd5e125d3d0f138ad3d8fef26a3f9df2ad8c00218d704578dd534eebb",
+      "src/clinicai/permissions/can.py": "fc0e2ba27b8db2a2e7a129104b56da1a154cb03452b42b28e405724aab0c7c37",
+      "src/clinicai/api/identity.py": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "src/clinicai/main.py": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "src/dashboard/app/api/queue/keo/route.ts": "caad5baeb4f53bf7772dd8beffaa0194feb67cf4fe0373fbe09b90cf1aa12228"
+    }
+  },
+  {
+    "id": "API-002",
+    "title": "Chi tiết workflow của lượt không áp giới hạn cơ sở",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "location_scope_patient_data_read",
+    "summary": "GET /visits/{visit_id}/workflow kiểm tra visit_id và clinic_id nhưng bỏ location_id, trong khi /visits/active và /visits/progress trong cùng router lọc cơ sở hiện hành. Endpoint trả tên/mã bệnh nhân cùng tiến độ và nhân viên được giao.",
+    "trigger": "Một nhân viên đã xác thực trong clinic A, đang ở location A, biết visit_id của lượt cùng clinic tại location B và gọi trực tiếp GET /api/v1/visits/{visit_id}/workflow. GET này chỉ yêu cầu get_current_identity; router-level runaway guard không thêm quyền hay location scope.",
+    "impact": "API trả patient_name, patient_code, visit status/current node/timestamps, tên bác sĩ, work-item status, blockers và tên người được giao của lượt thuộc cơ sở khác. Không trả bệnh án SOAP, và không có bằng chứng đọc chéo clinic; rủi ro là tiết lộ dữ liệu nhận diện và tiến độ điều trị giữa các cơ sở.",
+    "recommendation": "Áp dụng cùng clinic+location predicate như /visits/active và /visits/progress, với fallback locationless được định nghĩa rõ; hoặc ghi nhận quyết định nghiệp vụ cho phép đọc clinic-wide rồi yêu cầu quyền phù hợp và kiểm thử hợp đồng đó. Cần bảo đảm child work_item/dependency queries theo cùng scope.",
+    "acceptance": "Tạo visit synthetic ở location B và token staff cùng clinic ở A; direct GET với visit_id B trả 404 hoặc 403 và không trả patient/workflow fields. Cùng location trả đúng response. Thêm test locationless fallback theo chính sách đã chốt và test các role nội bộ.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/visit_progress.py",
+        "line": 63,
+        "end_line": 101,
+        "detail": "GET /visits/{visit_id}/workflow chỉ nhận current identity và clinic_id."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/visit_progress.py",
+        "line": 78,
+        "end_line": 97,
+        "detail": "Header truy vấn scope clinic+visit_id, không location_id."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/visit_progress.py",
+        "line": 103,
+        "end_line": 171,
+        "detail": "Work items/blockers cũng chỉ giới hạn clinic_id+visit_id."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/visit_progress.py",
+        "line": 173,
+        "end_line": 209,
+        "detail": "Phản hồi gồm patient_name, patient_code, trạng thái bước, người nhận và mốc thời gian."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/visit_progress.py",
+        "line": 214,
+        "end_line": 277,
+        "detail": "Endpoint /visits/active cùng router lọc theo identity.location_id."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/visit_progress.py",
+        "line": 35,
+        "end_line": 57,
+        "detail": "Danh sách /visits/progress cũng truyền identity.location_id vào service."
+      },
+      {
+        "path": "src/clinicai/services/visit_progress_service.py",
+        "line": 151,
+        "end_line": 162,
+        "detail": "SQL tiến trình áp dụng predicate clinic+location (có fallback locationless được comment)."
+      },
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 638,
+        "end_line": 659,
+        "detail": "get_current_identity xác thực người làm việc và loại DISPLAY/PARTNER; không thêm RBAC cho route này."
+      },
+      {
+        "path": "src/clinicai/main.py",
+        "line": 434,
+        "end_line": 439,
+        "detail": "visit_progress_router được đăng ký dưới runaway guard."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": "nl -ba src/clinicai/api/v1/routers/visit_progress.py | sed -n '35,57p;63,101p;103,171p;173,209p;214,277p'; nl -ba src/clinicai/services/visit_progress_service.py | sed -n '151,162p'",
+      "result": "Route workflow truy vấn/serialize thông tin nhận diện và trạng thái; route list sibling có predicate location; identity là nhân viên đã xác thực.",
+      "limitations": "Không chạy HTTP/DB. Cần UUID cùng clinic của cơ sở khác; không kiểm khả năng lộ UUID trong hệ thống. Không tìm thấy BFF/callsite dashboard cho workflow endpoint. Có thể chủ sản phẩm định nghĩa endpoint này clinic-wide; đó chưa được xác nhận bằng artifact trong lát cắt."
+    },
+    "related_tests": [],
+    "related_findings": [],
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Xác nhận qua hash snapshot và MAIN-PHAM-VI.json; không chạy runtime.",
+      "production_verified": false
+    },
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/visit_progress.py": "695a18ba50f507d08a6048e1f132b9875553667f262430d54c1dea9dbec2df41",
+      "src/clinicai/services/visit_progress_service.py": "292953fc6202293940d523fc7cae9a4214cc2c7e21db46e31f747b0e8ce484e0",
+      "src/clinicai/api/identity.py": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "src/clinicai/main.py": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30"
+    }
+  },
+  {
+    "id": "API-003",
+    "title": "Ca trực chấp nhận location, session và staff UUID ngoài tenant",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "tenant_reference_integrity",
+    "summary": "SchedulingService gắn clinic_id từ danh tính vào work_session/work_session_staff nhưng không xác nhận location thuộc clinic, staff có membership trong clinic, hoặc work_session_id thuộc clinic trước khi insert. Các FK trong migration chỉ kiểm từng UUID toàn cục. Gán vào session tenant khác có thể commit assignment rồi GET scoped tiếp theo trả 404.",
+    "trigger": "Người có config.clinic.manage hoặc dispatch.manage trong clinic A gọi POST /work-sessions với location_id thuộc clinic B; hoặc POST /work-sessions/{id}/staff với staff_id không có active clinic_membership A; hoặc dùng path id của session thuộc B. Khi foreign key target tồn tại, các FK đơn cột hiện có vẫn thỏa. Với session B, request chèn row clinic A rồi lần đọc tiếp theo trong router lọc clinic A và ném 404; gửi lại cùng staff/station có thể thành 409 do unique key toàn cục.",
+    "impact": "Có thể tạo work_session ở tenant A nhưng trỏ location B, assignment clinic A trỏ staff/session B, làm sai quan hệ tenant và có thể trả tên/department của staff không là thành viên clinic A trong response nếu gán vào session local. Ca foreign-session tạo phản hồi 404 sau khi đã có side effect; retry biến lỗi nhìn thấy thành 409 và dữ liệu lệch vẫn còn. Mức ảnh hưởng còn giới hạn ở API ca trực, không có bằng chứng truy cập dữ liệu bệnh nhân hoặc runtime exploit.",
+    "recommendation": "Trước ghi, xác minh location có clinic_id đúng; staff có active clinic_membership cùng clinic; session có clinic_id cùng identity. Thực hiện insert và projection trả về trong một transaction để lỗi không để lại side effect. Bổ sung composite unique/FK hoặc trigger/constraint tương đương cho (location_id,clinic_id), (work_session_id,clinic_id) và membership; giữ lỗi không tiết lộ đối tượng tenant khác.",
+    "acceptance": "Hai clinic synthetic: foreign location bị từ chối và không tạo ca; foreign staff bị từ chối và không tạo assignment; foreign session id bị 404/403 trước insert; local valid path trả 201. Lặp cùng request sau lỗi không gặp unique 409 do side effect; DB không có hàng chứa cặp clinic/object lệch tenant.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/scheduling.py",
+        "line": 35,
+        "end_line": 39,
+        "detail": "Work-session admin guard yêu cầu config.clinic.manage hoặc dispatch.manage."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/scheduling.py",
+        "line": 121,
+        "end_line": 136,
+        "detail": "POST tạo work session với location_id từ DTO và clinic_id từ danh tính."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/scheduling.py",
+        "line": 157,
+        "end_line": 188,
+        "detail": "POST assign ghi assignment trước, rồi mới đọc session theo clinic; lỗi resource sau đó map thành 404."
+      },
+      {
+        "path": "src/clinicai/services/scheduling_service.py",
+        "line": 59,
+        "end_line": 95,
+        "detail": "create_work_session ghi location_id do request gửi nhưng chỉ chèn clinic_id của caller."
+      },
+      {
+        "path": "src/clinicai/services/scheduling_service.py",
+        "line": 101,
+        "end_line": 146,
+        "detail": "assign đọc staff chỉ bằng ID rồi chèn work_session_id/staff_id cùng clinic_id của caller; không kiểm membership hoặc session clinic."
+      },
+      {
+        "path": "src/clinicai/services/scheduling_service.py",
+        "line": 194,
+        "end_line": 209,
+        "detail": "Danh sách scope ws.clinic_id nhưng join location chỉ theo l.id, có thể gắn nhãn cơ sở ngoài tenant vào hàng."
+      },
+      {
+        "path": "src/clinicai/services/scheduling_service.py",
+        "line": 211,
+        "end_line": 238,
+        "detail": "Đọc assignment theo clinic_id của session rồi join staff theo ID, trả tên và department."
+      },
+      {
+        "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+        "line": 44,
+        "end_line": 70,
+        "detail": "staff là bảng toàn cục có chủ ý; quan hệ nhân viên-phòng khám nằm ở clinic_membership."
+      },
+      {
+        "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+        "line": 993,
+        "end_line": 1022,
+        "detail": "work_session/work_session_staff có clinic_id được bổ sung sau; các khóa tham chiếu là UUID riêng."
+      },
+      {
+        "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+        "line": 1326,
+        "end_line": 1351,
+        "detail": "Unique keys work_session/location và assignment không kèm clinic_id."
+      },
+      {
+        "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+        "line": 2244,
+        "end_line": 2262,
+        "detail": "FK chỉ kiểm location_id, staff_id, work_session_id đơn cột; không buộc cùng clinic."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": "nl -ba src/clinicai/api/v1/routers/scheduling.py | sed -n '35,39p;121,188p'; nl -ba src/clinicai/services/scheduling_service.py | sed -n '59,146p;194,238p'; nl -ba supabase/migrations/20260714000001_baseline_schema.sql | sed -n '993,1022p;1326,1351p;2244,2262p'",
+      "result": "Service call path and tenant schema permit cross-object references when target UUID exists; post-insert session lookup is separately tenant-scoped and maps missing row to 404. No explicit transaction spans insert and router follow-up read.",
+      "limitations": "Không chạy DB/API; đây là suy luận tĩnh từ SQL, FK và call chain. Trigger cần quyền quản trị ca và UUID target tồn tại. Không tìm thấy dashboard caller hiện hành cho work-session endpoints; test source chỉ đọc happy path/duplicate trong fixture thường, không chạy."
+    },
+    "related_tests": [
+      "src/tests/integration/test_scheduling_endpoints.py:63-157 (đọc, không chạy; normal success/duplicate only)"
+    ],
+    "related_findings": [],
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Xác nhận qua hash snapshot, manifest và migration source exact-main; chưa probe DB/runtime.",
+      "production_verified": false
+    },
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/scheduling.py": "ba06405025a81bd2ad69bc03d40ab2619fd9d28fe97fbf97864258f4b37897c3",
+      "src/clinicai/services/scheduling_service.py": "98b41841108fe945a5c661689b12b18685a373707f538142f5c794d6b5844917",
+      "supabase/migrations/20260730000003_multi_tenant_foundation.sql": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "supabase/migrations/20260714000001_baseline_schema.sql": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186"
+    }
+  }
+]

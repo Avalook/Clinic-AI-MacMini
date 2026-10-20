@@ -1,0 +1,170 @@
+[
+  {
+    "id": "CLIN-041",
+    "title": "Form Engine generic lưu field ngoài schema nhưng giao diện không hiển thị",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_form_payload_validation",
+    "summary": "Đường generic FormEngineService nhận du_lieu dạng dict[str, Any] và gọi _kiem_du_lieu trước khi nạp form/version. Validator chỉ kiểm mỗi mục có gia_tri và nguon thuộc allowlist; không xác minh mã field thuộc khung hay giá trị đúng kiểu/lựa chọn của form đã chọn. Service lưu JSON; UI generic render theo các field trong khung, nên field lạ có thể được lưu nhưng không xuất hiện. Đây không phải đường phiếu khám v5: v5 dùng PhieuKhamService.kiem_luu và kiểm key theo khung đã ghim.",
+    "trigger": "Client có quyền sửa một generic Form Engine form gửi key ngoài khung hoặc giá trị sai kiểu nhưng vẫn có gia_tri và nguon hợp lệ.",
+    "impact": "Nếu client có quyền sửa generic form gửi payload ngoài schema, dữ liệu không hợp lệ có thể được lưu mà không hiện trong màn đọc/in generic. Không có bằng chứng UI hiện tại gửi key sai, người dùng gặp trường hợp này, hay hồ sơ v5 bị ảnh hưởng.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/phieu.py",
+        "line": 31,
+        "end_line": 36,
+        "detail": "LuuBody khai du_lieu dạng dict[str, Any], không có schema theo form."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/phieu.py",
+        "line": 83,
+        "end_line": 97,
+        "detail": "Route chuyển nguyên payload du_lieu vào service lưu nháp."
+      },
+      {
+        "path": "src/clinicai/services/form_engine_service.py",
+        "line": 556,
+        "end_line": 576,
+        "detail": "luu_nhap gọi validator trước khi resolve form/version cụ thể."
+      },
+      {
+        "path": "src/clinicai/services/form_engine_service.py",
+        "line": 1469,
+        "end_line": 1479,
+        "detail": "_kiem_du_lieu chỉ yêu cầu gia_tri và nguon nằm trong allowlist; không nhận khung để kiểm field/value schema."
+      },
+      {
+        "path": "src/clinicai/services/form_engine_service.py",
+        "line": 628,
+        "end_line": 656,
+        "detail": "Service ghi du_lieu/du_lieu_dang_sua vào form_instance sau validation nông."
+      },
+      {
+        "path": "src/clinicai/services/form_engine_service.py",
+        "line": 1417,
+        "end_line": 1437,
+        "detail": "Read response giữ và trả dữ liệu JSON đã lưu."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+        "line": 544,
+        "end_line": 565,
+        "detail": "React render lặp các ô đã khai trong khung, bỏ qua key ngoài schema."
+      },
+      {
+        "path": "src/tests/services/test_form_engine_db.py",
+        "line": 310,
+        "end_line": 324,
+        "detail": "Test từ chối nguon lạ; không kiểm unknown field hoặc sai kiểu/enum."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static trace nối request model, route, validation order, persistence, read response và UI rendering. Test lân cận không cover key lạ/kiểu sai; chưa chạy malformed request hoặc DB assertion. Scope boundary checked against the separate v5 PhieuKhamService path: v5 validates against the pinned khung and its test rejects unknown keys.",
+      "limitations": "Static exact-main trace only. The route requires normal authenticated clinical permission, but no malformed request was sent. No ClinicAI test, DB runtime, production, secret or patient record was used. No evidence shows the current UI emits an unknown key; the finding concerns server-side validation and persistence behavior if a client submits such a payload. The generic Form Engine finding does not establish a defect in the distinct versioned phiếu-khám v5 path."
+    },
+    "recommendation": "Validate payload generic against the exact form definition and pinned version before any write or revision change. Reject unknown keys and invalid value types/enums/ranges. Keep the separate phiếu-khám v5 validator and contract tests intact.",
+    "acceptance": "Trên DB disposable, payload có key lạ, kiểu sai, enum ngoài danh sách hoặc value sai form-version trả 422 và không thay du_lieu/du_lieu_dang_sua, revision, lịch sử hay event. Payload hợp lệ theo form version được chấp nhận; GET/in chỉ trả các giá trị đã validate và render theo cùng schema.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_form_engine_db.py:310-324 — đã đọc, không chạy; chỉ kiểm nguồn dữ liệu lạ.",
+      "src/dashboard/lib/phieu-ket-qua.test.mts — đã đọc, không chạy; không bao phủ server-side field schema validation."
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/phieu.py": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+      "src/clinicai/services/form_engine_service.py": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+      "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx": "ff3acc2fdd9eb3347b1069d1d47493a4b7a1465d30c1145af44756811e3394fe",
+      "src/tests/services/test_form_engine_db.py": "0906f72032ef9994dc0ef659a42f7672312518cb439473f5a922e8cf9bc8b13b"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Static cross-layer trace: API model dùng dict[str, Any]; _kiem_du_lieu kiểm cấu trúc tối thiểu trước khi service nạp khung/version; JSON được lưu nguyên trạng; UI chỉ render các field trong khung. Test hiện có kiểm source allowlist nhưng không kiểm key lạ/giá trị sai schema. Không gửi request runtime. Boundary clarification from round 23: CLIN-041 applies to generic FormEngineService only. The separately reviewed v5 path uses PhieuKhamService.kiem_luu with the pinned form frame and an existing test for unknown keys; no v5 finding was added.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/phieu.py",
+          "line": 31,
+          "end_line": 36,
+          "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+          "excerpt": "31: class LuuBody(BaseModel):\n32:     #: {ma_o: {gia_tri, nguon}} — nguồn lạ bị chặn ngay lúc lưu.\n33:     du_lieu: dict[str, Any] = Field(default_factory=dict)\n34:     expected_revision: int = Field(ge=0)\n35:     #: Người THỰC HIỆN dịch vụ, khác người đang gõ.\n36:     thuc_hien_boi: UUID | None = None",
+          "detail": "LuuBody khai du_lieu dạng dict[str, Any], không có schema theo form."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/phieu.py",
+          "line": 83,
+          "end_line": 97,
+          "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+          "excerpt": "83: @router.post(\"/phieu/{phieu_id}/luu\")\n84: async def luu_nhap(\n85:     phieu_id: UUID,\n86:     body: LuuBody,\n87:     identity: StaffIdentity = Depends(get_current_identity),\n88:     pool: asyncpg.Pool = Depends(get_db_pool),\n89: ) -> dict[str, Any]:\n90:     \"\"\"Tự lưu. Không phát sự kiện — nháp chưa phải sự thật nghiệp vụ.\"\"\"\n91:     return await FormEngineService(pool).luu_nhap(\n92:         phieu_id=str(phieu_id),\n93:         du_lieu=body.du_lieu,\n94:         expected_revision=body.expected_revision,\n95:         identity=identity,\n96:         thuc_hien_boi=str(body.thuc_hien_boi) if body.thuc_hien_boi else None,\n97:     )",
+          "detail": "Route chuyển nguyên payload du_lieu vào service lưu nháp."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 556,
+          "end_line": 576,
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "556:         self,\n557:         *,\n558:         phieu_id: str,\n559:         du_lieu: dict[str, Any],\n560:         expected_revision: int,\n561:         identity: StaffIdentity,\n562:         thuc_hien_boi: str | None = None,\n563:     ) -> dict[str, Any]:\n564:         \"\"\"Tự lưu. KHÔNG phát sự kiện — nháp không phải sự thật nghiệp vụ.\"\"\"\n565:         sach = _kiem_du_lieu(du_lieu)\n566:         async with self._pool.acquire() as conn, conn.transaction():\n567:             await doi_quyen_dien(conn, identity, phieu_id=phieu_id)\n568:             dong = await conn.fetchrow(\n569:                 \"SELECT i.trang_thai, i.dang_sua, i.revision, i.form_id,\"\n570:                 \" i.service_order_id::text, o.visit_id::text AS visit_id\"\n571:                 \" FROM form_instance i JOIN service_order o\"\n572:                 \" ON o.clinic_id=i.clinic_id AND o.id=i.service_order_id\"\n573:                 \" WHERE i.clinic_id = $1::uuid AND i.id = $2::uuid FOR UPDATE OF i\",\n574:                 identity.clinic_id,\n575:                 phieu_id,\n576:             )",
+          "detail": "luu_nhap gọi validator trước khi resolve form/version cụ thể."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 1469,
+          "end_line": 1479,
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "1469: def _kiem_du_lieu(du_lieu: dict[str, Any]) -> dict[str, Any]:\n1470:     \"\"\"Mỗi ô phải nói rõ giá trị và nguồn — nguồn lạ thì chặn ngay lúc lưu.\"\"\"\n1471:     sach: dict[str, Any] = {}\n1472:     for ma, o in du_lieu.items():\n1473:         if not isinstance(o, dict) or \"gia_tri\" not in o:\n1474:             raise ValidationError(f\"Ô “{ma}” phải có dạng {{gia_tri, nguon}}.\")\n1475:         ngu = o.get(\"nguon\", \"USER\")\n1476:         if ngu not in NGUON:\n1477:             raise ValidationError(f\"Ô “{ma}” có nguồn lạ: {ngu}.\")\n1478:         sach[ma] = {\"gia_tri\": o[\"gia_tri\"], \"nguon\": ngu}\n1479:     return sach",
+          "detail": "_kiem_du_lieu chỉ yêu cầu gia_tri và nguon nằm trong allowlist; không nhận khung để kiểm field/value schema."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 628,
+          "end_line": 656,
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "628:                 moi = await conn.fetchrow(\n629:                     \"UPDATE form_instance\"\n630:                     \"   SET du_lieu_dang_sua = $3::jsonb,\"\n631:                     \"       nhap_boi_dang_sua = $4::uuid,\"\n632:                     \"       thuc_hien_boi_dang_sua =\"\n633:                     \"           COALESCE($5::uuid, thuc_hien_boi_dang_sua),\"\n634:                     \"       revision = revision + 1, sua_luc = now()\"\n635:                     \" WHERE clinic_id = $1::uuid AND id = $2::uuid\"\n636:                     \" RETURNING id::text, revision, sua_luc\",\n637:                     identity.clinic_id,\n638:                     phieu_id,\n639:                     json.dumps(sach, ensure_ascii=False),\n640:                     identity.staff_id,\n641:                     thuc_hien_boi,\n642:                 )\n643:             else:\n644:                 moi = await conn.fetchrow(\n645:                     \"UPDATE form_instance\"\n646:                     \"   SET du_lieu = $3::jsonb, revision = revision + 1,\"\n647:                     \"       nhap_boi = $4::uuid, sua_luc = now(),\"\n648:                     \"       thuc_hien_boi = COALESCE($5::uuid, thuc_hien_boi)\"\n649:                     \" WHERE clinic_id = $1::uuid AND id = $2::uuid\"\n650:                     \" RETURNING id::text, revision, sua_luc\",\n651:                     identity.clinic_id,\n652:                     phieu_id,\n653:                     json.dumps(sach, ensure_ascii=False),\n654:                     identity.staff_id,\n655:                     thuc_hien_boi,\n656:                 )",
+          "detail": "Service ghi du_lieu/du_lieu_dang_sua vào form_instance sau validation nông."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 1417,
+          "end_line": 1437,
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "1417:         du_lieu = json.loads(\n1418:             dong[\"du_lieu_dang_sua\"]\n1419:             if dong[\"dang_sua\"] and dong[\"du_lieu_dang_sua\"]\n1420:             else dong[\"du_lieu\"]\n1421:         )\n1422:         return {\n1423:             \"id\": str(dong[\"id\"]),\n1424:             \"form_id\": dong[\"form_id\"],\n1425:             \"version\": dong[\"version\"],\n1426:             \"trang_thai\": dong[\"trang_thai\"],\n1427:             # Đã hoàn tất nhưng đang được sửa lại — màn phải nói ra, không để\n1428:             # người khác tưởng đây là bản cuối.\n1429:             \"dang_sua\": bool(dong[\"dang_sua\"]),\n1430:             \"revision\": dong[\"revision\"],\n1431:             # Lần lưu gần nhất — chân \"Bản n · người sửa · giờ\" (phiếu điều trị).\n1432:             \"sua_luc\": _gio_iso(dong[\"sua_luc\"]),\n1433:             # Mẫu không có bước Hoàn tất (lưu là ghi nhận) — màn không vẽ nút.\n1434:             \"khong_hoan_tat\": dong[\"form_id\"] in MAU_KHONG_HOAN_TAT,\n1435:             \"khung\": khung,\n1436:             \"du_lieu\": du_lieu,\n1437:             \"con_trong\": _con_trong(khung, du_lieu),",
+          "detail": "Read response giữ và trả dữ liệu JSON đã lưu."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+          "line": 544,
+          "end_line": 565,
+          "sha256": "ff3acc2fdd9eb3347b1069d1d47493a4b7a1465d30c1145af44756811e3394fe",
+          "excerpt": "544:           {phieu.khung.map((muc) => (\n545:             <fieldset key={muc.ma} className=\"min-w-0\">\n546:               {/* Tên mục giữ chỗ / rỗng (mẫu cũ) thì không vẽ tiêu đề — 27/09. */}\n547:               {tenMucHien(muc.ten) ? (\n548:                 <legend className=\"text-body font-semibold text-ink\">\n549:                   {tenMucHien(muc.ten)}\n550:                 </legend>\n551:               ) : null}\n552:               {muc.cot ? (\n553:                 <BangMuc muc={muc} cot={muc.cot} gia={gia} onDoi={doi} />\n554:               ) : (\n555:                 // HAI CỘT ở màn rộng, MỘT cột ở 375 (27/09/2026 — bản mẫu\n556:                 // `luoi hai`); đoạn văn chiếm trọn hàng.\n557:                 <div className=\"mt-1 grid gap-3 md:grid-cols-2\">\n558:                   {(muc.block ?? []).map((o) => (\n559:                     <OPhieu\n560:                       key={o.ma}\n561:                       id={idO(phieu.id, o.ma)}\n562:                       o={o}\n563:                       giaTri={gia[o.ma] ?? \"\"}\n564:                       nguon={phieu.du_lieu[o.ma]?.nguon ?? null}\n565:                       onDoi={(v) => doi(o.ma, v)}",
+          "detail": "React render lặp các ô đã khai trong khung, bỏ qua key ngoài schema."
+        },
+        {
+          "path": "src/tests/services/test_form_engine_db.py",
+          "line": 310,
+          "end_line": 324,
+          "sha256": "0906f72032ef9994dc0ef659a42f7672312518cb439473f5a922e8cf9bc8b13b",
+          "excerpt": "310: async def test_nguon_la_bi_chan_ngay_luc_luu(pool: asyncpg.Pool) -> None:\n311:     async with pool.acquire() as conn:\n312:         bs = await _nguoi(conn, \"DOCTOR\")\n313:         order_id = await _don_tron(conn, bs)\n314:     svc = FormEngineService(pool)\n315:     phieu = await svc.mo_phieu(\n316:         service_order_id=order_id, form_id=\"KQ_SA_VU\", identity=bs\n317:     )\n318:     with pytest.raises(ValidationError, match=\"nguồn lạ\"):\n319:         await svc.luu_nhap(\n320:             phieu_id=phieu[\"id\"],\n321:             du_lieu={\"ket_luan\": {\"gia_tri\": \"x\", \"nguon\": \"TU_DAU_RA\"}},\n322:             expected_revision=phieu[\"revision\"],\n323:             identity=bs,\n324:         )",
+          "detail": "Test từ chối nguon lạ; không kiểm unknown field hoặc sai kiểu/enum."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "CLIN-038",
+        "relationship": "CLIN-038 kiểm form_id gắn sai service; CLIN-041 kiểm từng field/value trong payload theo schema của form đã chọn."
+      },
+      {
+        "id": "CLIN-039",
+        "relationship": "CLIN-039 là lost update giữa tab; CLIN-041 là payload schema acceptance và dữ liệu bị ẩn khỏi render."
+      }
+    ]
+  }
+]

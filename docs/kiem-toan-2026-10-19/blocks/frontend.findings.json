@@ -1,0 +1,441 @@
+[
+  {
+    "id": "FE-001",
+    "title": "Bản nháp thông tin bệnh nhân còn trong localStorage sau đăng xuất",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "privacy/browser-persistence",
+    "summary": "Form khách mới lưu thông tin định danh và vấn đề khám dạng JSON trong localStorage. Đăng xuất xoá cookie phiên nhưng không xoá các bản nháp trên máy. TTL 24 giờ được dọn khi đọc/mở form, không tự hết hạn trên ổ.",
+    "trigger": "Nhân viên gõ thông tin khách rồi rời form/đăng xuất trước khi hoàn tất; máy quầy tiếp tục dùng chung.",
+    "impact": "Thông tin bệnh nhân còn lưu tại trình duyệt sau phiên được xác thực. Người có quyền truy cập storage của máy có thể đọc dữ liệu. Prefix staffId ngăn khôi phục nhầm qua UI, không là ranh giới bảo mật; đây không phải bằng chứng truy cập từ xa.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+        "line": 805,
+        "end_line": 825,
+        "detail": "Effect lưu fullName, ngày sinh, phone, cccd, địa chỉ, vanDe vào window.localStorage."
+      },
+      {
+        "path": "src/dashboard/lib/luu-nhap.ts",
+        "line": 35,
+        "end_line": 35,
+        "detail": "HAN_MS 24 giờ; không có storage expiry chủ động."
+      },
+      {
+        "path": "src/dashboard/lib/luu-nhap.ts",
+        "line": 53,
+        "end_line": 77,
+        "detail": "Dọn theo lúc gọi; ghi JSON trực tiếp."
+      },
+      {
+        "path": "src/dashboard/app/(auth)/login/actions.ts",
+        "line": 95,
+        "end_line": 105,
+        "detail": "Logout chỉ signOut và xoá cookie role/staff/location."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đã truy vết code hiện hành; chưa chạy tái hiện browser/runtime.",
+      "limitations": "Không kết luận đã xảy ra trên prod; không đo tần suất. Working tree có thay đổi từ trước."
+    },
+    "recommendation": "Chốt chính sách bản nháp trên máy dùng chung. Ưu tiên bản nháp server có quyền/retention; nếu phải lưu local, giảm tối đa nội dung và có vòng đời xoá khi logout, chuyển tài khoản, hết hạn; không xem namespace như mã hoá.",
+    "acceptance": "Tạo draft giả có thông tin định danh; logout/đổi người; kiểm storage không còn PHI theo chính sách, form mới không khôi phục dữ liệu người cũ; thử cả phiên hết hạn và đóng/mở trình duyệt.",
+    "alignment": [
+      "Reality đáng tin",
+      "Nhân viên làm việc bền vững",
+      "Dữ liệu bệnh nhân được bảo vệ"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx": "06868948a4ed62c31347c9e2cadf2cf56970d5e07b27168de4e8a0ed85b7725e",
+      "src/dashboard/lib/luu-nhap.ts": "8b5ac93d98fe1fbf389c2333f72d851e8f50a543e864e779977c917585fb7e64",
+      "src/dashboard/app/(auth)/login/actions.ts": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+          "line": 809,
+          "end_line": 834,
+          "sha256": "fc5be0e240e3067eac8f38367eee4e96776fca5cf9e7a4ee7b706fa15a1e6adf",
+          "excerpt": "809:     }\n810:     return true;\n811:   }\n812: \n813:   // Land on the patient profile (the \"nice profile\" the user sees right after).\n814:   // Kèm mã BN để banner hiện \"Mã BN: …\" ngay sau khi tạo (feedback B5#2).\n815:   // Ghi nháp sau mỗi nhịp gõ ngừng 1 giây — chỉ khi đã có gì đáng cứu.\n816:   useEffect(() => {\n817:     if (!khoaNhapKhach || typeof window === \"undefined\") return;\n818:     const giaTri: Record<string, string | boolean> = {\n819:       fullName, dobIso, dobYearOnly, birthYear, phone, phone2, cccd, email,\n820:       gender, ethnicity, nationality, occupation, objection,\n821:       provinceCode, wardCode, addressDetail, vanDe, linhVuc,\n822:     };\n823:     const hienTai = JSON.stringify(giaTri);\n824:     if (mocNhapRef.current === \"\") {\n825:       mocNhapRef.current = hienTai; // lần đầu: form trống/prefill — chưa ai gõ\n826:       return;\n827:     }\n828:     if (hienTai === mocNhapRef.current) return;\n829:     const coGiCuu = fullName.trim() || phone || cccd || vanDe;\n830:     if (!coGiCuu) return;\n831:     const t = setTimeout(() => {\n832:       ghiNhap(window.localStorage, khoaNhapKhach, giaTri, Date.now());\n833:       mocNhapRef.current = hienTai;\n834:     }, 1000);"
+        },
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "line": 95,
+          "end_line": 105,
+          "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+          "excerpt": "95: export async function logout(): Promise<void> {\n96:   const supabase = await getSupabaseServer();\n97:   await supabase.auth.signOut();\n98:   // Xoá cả hai cookie: người sau ngồi vào máy phải đăng nhập lại từ đầu, chứ\n99:   // không thừa hưởng vai của người trước.\n100:   const c = await cookies();\n101:   c.delete(ROLE_COOKIE);\n102:   c.delete(STAFF_COOKIE);\n103:   c.delete(LOCATION_COOKIE);\n104:   redirect(\"/login\");\n105: }"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-002",
+    "title": "Bảng hành trình giấu lỗi làm mới khi đã có dữ liệu cũ",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "reality/staleness",
+    "summary": "BangHanhTrinh lưu lỗi refresh vào state nhưng chỉ render lỗi khi chưa có bang. Sau lần tải thành công, các lần tải lỗi giữ bảng cũ mà không có cảnh báo lỗi tại bảng.",
+    "trigger": "Đã mở bảng hành trình thành công, sau đó endpoint bảng trả lỗi/mất kết nối ở một lần SSE hoặc poll refresh.",
+    "impact": "Trưởng ca có thể tiếp tục nhìn vị trí/chờ cũ như thông tin hiện tại. Chỉ báo kết nối SSE toàn cục không chứng minh truy vấn bảng thành công.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 63,
+        "end_line": 73,
+        "detail": "tai() chỉ setLoi khi lỗi, giữ nguyên bang cũ."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 94,
+        "end_line": 104,
+        "detail": "Lỗi chỉ hiển thị ở nhánh loi && !bang; JSX bảng không có cảnh báo loi."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+        "line": 183,
+        "end_line": 200,
+        "detail": "docBang phân biệt lỗi mạng/API và trả ok:false, lỗi không bị mất ở tầng API."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đã truy vết code hiện hành; chưa chạy tái hiện browser/runtime.",
+      "limitations": "Không kết luận đã xảy ra trên prod; không đo tần suất. Working tree có thay đổi từ trước."
+    },
+    "recommendation": "Giữ dữ liệu cũ để có ích nhưng gắn nhãn dữ liệu cũ, thời điểm tải thành công cuối, lý do và nút thử lại. Tách trạng thái kết nối dòng sự kiện khỏi độ mới của mỗi bảng.",
+    "acceptance": "Browser test: tải bảng thành công rồi chặn endpoint; bảng vẫn xem được nhưng có cảnh báo cũ rõ ràng và mốc tải cuối; khôi phục endpoint thì cảnh báo biến mất chỉ sau refresh thành công.",
+    "alignment": [
+      "Reality dễ nhìn",
+      "Unknown ngắn hơn",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx": "bbf96da6cd3982dd554497a962290eaf847016176c7a0aa2c1a09100c6d8e34d",
+      "src/dashboard/app/(dashboard)/_lam-viec/api.ts": "7475187587ce7bf82a05a56f64b26bf8ddc24dd59f553dd8a8eb93c25ea5c711"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 63,
+          "end_line": 72,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "63:   const tai = useCallback(async () => {\n64:     const kq = await docBang<Bang>(\"hanh-trinh\", { ngay });\n65:     if (kq.ok) {\n66:       setBang(kq.data);\n67:       setBayGio(Date.now());\n68:       setLoi(null);\n69:     } else {\n70:       setLoi(kq.loi);\n71:     }\n72:   }, [ngay]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 92,
+          "end_line": 101,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "92:   useNgheBang([\"luot_dong_thoi_gian\", \"visit\", \"queue_entry\"], () => void tai());\n93: \n94:   if (loi && !bang) {\n95:     return (\n96:       <p role=\"alert\" className=\"text-body text-danger\">\n97:         {loi}\n98:       </p>\n99:     );\n100:   }\n101:   if (!bang) return <p className=\"text-body text-ink-muted\">Đang tải…</p>;"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-003",
+    "title": "Tìm kiếm hành trình chỉ tìm trong 300 lượt đã tải nhưng nhãn hứa thấy khách khác",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "scale/search-completeness",
+    "summary": "Khi bi_cat, UI nói tìm theo tên để thấy khách khác, nhưng ô tìm chỉ filter bang.luot ở client. API chỉ nhận ngày và service LIMIT trần; không có truy vấn tên hoặc phân trang để tìm ngoài tập đó.",
+    "trigger": "Một ngày có nhiều hơn trần lượt của bảng, tìm khách nằm ngoài kết quả đã tải.",
+    "impact": "Khách hợp lệ có thể không xuất hiện dù làm theo hướng dẫn. Đây là lỗ hổng khi mở rộng quy mô, không khẳng định trần đã bị chạm ở phòng khám hiện tại.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 108,
+        "end_line": 114,
+        "detail": "Bộ lọc tìm kiếm chạy trên bang.luot trong bộ nhớ."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+        "line": 146,
+        "end_line": 150,
+        "detail": "Thông báo bảo tìm tên để thấy khách khác khi bị cắt."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/xem_luot.py",
+        "line": 32,
+        "end_line": 41,
+        "detail": "Endpoint nhận ngay, không nhận query tìm kiếm/cursor."
+      },
+      {
+        "path": "src/clinicai/services/bang_hanh_trinh_service.py",
+        "line": 137,
+        "end_line": 194,
+        "detail": "Query lấy tập hữu hạn qua LIMIT _TRAN_LUOT; bộ lọc trước LIMIT không có tên khách."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đã truy vết code hiện hành; chưa chạy tái hiện browser/runtime.",
+      "limitations": "Không kết luận đã xảy ra trên prod; không đo tần suất. Working tree có thay đổi từ trước."
+    },
+    "recommendation": "Bổ sung tìm kiếm server và cursor/total có tenant+location scope; hoặc sửa nhãn nói rõ chỉ tìm trong kết quả đang tải và cung cấp lối tìm toàn bộ.",
+    "acceptance": "Seed hơn 300 lượt giả cùng ngày, khách thứ 301 tìm được bằng tên/mã; total/truncation chính xác; vẫn giữ scope phòng khám/cơ sở.",
+    "alignment": [
+      "Reality dễ nhìn",
+      "Bệnh nhân ít chờ trong bất định",
+      "Khả năng bán/mở rộng"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx": "bbf96da6cd3982dd554497a962290eaf847016176c7a0aa2c1a09100c6d8e34d",
+      "src/clinicai/api/v1/routers/xem_luot.py": "4e5eba248e887f14f25a7344949f61d3c6b2f2db50e7053f0533fbf8bc73c0d1",
+      "src/clinicai/services/bang_hanh_trinh_service.py": "a818eb7282eb2ee7f01e4f1e83019cd6b483e5710ed907c4ca9cbb56dabc0f32"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 103,
+          "end_line": 110,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "103:   const q = tim.trim().toLowerCase();\n104:   // Ngày cũ: ai cũng đã về — hiện hết, không ẩn.\n105:   const anThat = laHomNay && anDaVe;\n106:   const ds = bang.luot.filter(\n107:     (l) =>\n108:       (!anThat || !l.da_ve) &&\n109:       (!q || l.ten.toLowerCase().includes(q) || (l.ma ?? \"\").toLowerCase().includes(q)),\n110:   );"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+          "line": 140,
+          "end_line": 145,
+          "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+          "excerpt": "140:       </div>\n141:       {bang.bi_cat ? (\n142:         <p className=\"text-meta text-warning\">\n143:           Bảng chỉ hiện 300 lượt đầu trong ngày — tìm theo tên để thấy khách khác.\n144:         </p>\n145:       ) : null}"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-004",
+    "title": "KPI nhân viên đọc lỗi bị trình bày thành không ai đặt lịch",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "evidence/unknown-vs-zero",
+    "summary": "fetchFromBackend trả null cho non-2xx hoặc lỗi mạng. ReportsPage biến kpi?.items thành [], trong khi queryError chỉ kiểm tq và chan. Vì vậy riêng endpoint KPI hỏng vẫn hiện câu khẳng định tháng này chưa ai đặt lịch.",
+    "trigger": "Endpoint reports/kpi-dat-lich lỗi hoặc bị từ chối, các endpoint tổng quan và kênh còn thành công.",
+    "impact": "Quản lý có thể hiểu sai hoạt động của nhân viên; không phân biệt không có dữ liệu với chưa đọc được dữ liệu.",
+    "evidence": [
+      {
+        "path": "src/dashboard/lib/backend-proxy.ts",
+        "line": 239,
+        "end_line": 263,
+        "detail": "Helper xoá mã lỗi và trả null khi fetch/non-2xx thất bại."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+        "line": 168,
+        "end_line": 177,
+        "detail": "KPI read trả null bị biến thành danh sách rỗng."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+        "line": 197,
+        "end_line": 201,
+        "detail": "queryError không kiểm kpi."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+        "line": 342,
+        "end_line": 347,
+        "detail": "Danh sách rỗng hiện câu Tháng này chưa ai đặt lịch."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đã truy vết code hiện hành; chưa chạy tái hiện browser/runtime.",
+      "limitations": "Không kết luận đã xảy ra trên prod; không đo tần suất. Working tree có thay đổi từ trước."
+    },
+    "recommendation": "Dùng Result có ok/error/fetched_at cho từng nguồn. Chỉ hiện trạng thái rỗng sau response thành công; lỗi riêng KPI phải có thông báo và không render lời khẳng định không có hoạt động.",
+    "acceptance": "Mock riêng endpoint KPI 503 và 403; bảng hiện chưa đọc được/thiếu quyền, không có câu chưa ai đặt lịch; 200 items=[] mới được hiện trạng thái rỗng.",
+    "alignment": [
+      "Reality dễ nhìn",
+      "Quyết định có bằng chứng",
+      "Unknown ngắn hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/dashboard/lib/backend-proxy.ts": "ef6a87693212c7b2f7c0ab8b2882476143bf0dce3025eb85be91f065f9889b09",
+      "src/dashboard/app/(dashboard)/reports/page.tsx": "33cb5f97b31fb91a31176995621368c3a91e988e41ba4df9e0a8c9a9be91d32e"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+          "line": 168,
+          "end_line": 178,
+          "sha256": "50f38cad3139bf4b17c53f6b9cd1e3db6216e4e4e61e7683b2f62206b2e22c37",
+          "excerpt": "168:       bo_phan: string | null;\n169:       ngay: { tong: number; tai_kham: number; kham_moi: number };\n170:       tuan: { tong: number; tai_kham: number; kham_moi: number };\n171:       thang: { tong: number; tai_kham: number; kham_moi: number };\n172:     }[];\n173:   }>(`/api/v1/reports/kpi-dat-lich${locCoSo ? `?${locCoSo}` : \"\"}`);\n174:   const kpiRows = kpi?.items ?? [];\n175: \n176:   const channelStats = (chan?.items ?? [])\n177:     .filter((c) => c.count > 0)\n178:     .map((c) => ({ name: c.name, count: c.count }));"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+          "line": 188,
+          "end_line": 195,
+          "sha256": "50f38cad3139bf4b17c53f6b9cd1e3db6216e4e4e61e7683b2f62206b2e22c37",
+          "excerpt": "188:   // Số đếm nguồn đặt lịch nay do FastAPI trả; `chan === null` nghĩa là backend\n189:   // không trả lời — cũng là một lỗi đọc, phải hiện ra như các lỗi kia.\n190:   const queryError =\n191:     (tq ? null : { message: \"Không đọc được số liệu báo cáo từ máy chủ.\" }) ??\n192:     (chan ? null : { message: \"Không đọc được nguồn đặt lịch từ máy chủ.\" });\n193: \n194:   return (\n195:     <main className=\"page-in min-w-0 space-y-6 p-4 lg:p-5\">"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+          "line": 337,
+          "end_line": 343,
+          "sha256": "50f38cad3139bf4b17c53f6b9cd1e3db6216e4e4e61e7683b2f62206b2e22c37",
+          "excerpt": "337:             <tbody>\n338:               {kpiRows.length === 0 ? (\n339:                 <tr>\n340:                   <td colSpan={10} className=\"px-4 py-6 text-center text-ink-muted\">\n341:                     Tháng này chưa ai đặt lịch.\n342:                   </td>\n343:                 </tr>"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-006",
+    "title": "Lỗi ghi nhận đã xem kết quả không được thử lại khi phiếu vẫn đang mở",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "result_view_ack_retry",
+    "summary": "KetQuaChiDinh thêm service_order_id vào Set trước khi gửi request ghi da_xem_luc. Hàm fetch không quan sát response.ok và nuốt lỗi mạng; khi SSE nạp lại danh sách mà backend vẫn trả da_xem_luc=null, effect bỏ qua ID đã nằm trong Set và không thử lại cho tới khi component remount.",
+    "trigger": "Một người có vai gốc DOCTOR, TKYK hoặc ULTRASOUND_DOCTOR mở khối kết quả đang hiện, có phiếu READY nhưng da_xem_luc=null; request ghi mốc xem thất bại trước commit hoặc trả lỗi HTTP. Danh sách kết quả được SSE/catch-up cập nhật trong khi component cùng visit còn mounted.",
+    "impact": "Backend tiếp tục lưu trạng thái chưa có bằng chứng đã xem dù nội dung tóm tắt đã hiển thị; request không có cảnh báo và không được thử lại trong vòng đời component. Có thể làm trạng thái chưa xác nhận kéo dài tới khi reload/đổi visit. Không chứng minh false-seen, tự đóng việc, mất kết quả hay tổn hại bệnh nhân.",
+    "recommendation": "Chỉ đánh dấu ID đã ghi sau response thành công; tách pending khỏi confirmed và xử lý lỗi có cảnh báo/retry hữu hạn với backoff. Không retry vô hạn lỗi quyền. Nếu cần xác nhận theo phiên bản kết quả, lưu revision trong contract thay vì chỉ dùng service_order_id.",
+    "acceptance": "Với kết quả READY chưa ghi nhận, mô phỏng request đầu lỗi mạng/5xx; SSE trả lại da_xem_luc=null khi component vẫn mounted phải cho phép retry hữu hạn và ghi đúng một event sau success. Actor không thuộc vai tính là đã xem không được ghi. Không hiển thị thành công trước khi server xác nhận.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+        "line": 73,
+        "end_line": 76,
+        "detail": "Fetch fire-and-forget, không kiểm status; nuốt lỗi mạng."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+        "line": 275,
+        "end_line": 283,
+        "detail": "Set được cập nhật trước request; lần render sau cùng ID tiếp tục bị bỏ qua."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+        "line": 264,
+        "end_line": 268,
+        "detail": "SSE nạp lại danh sách; không tự tạo component/ref mới."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+        "line": 1438,
+        "end_line": 1444,
+        "detail": "Caller đang bật dùng key visit_id ổn định."
+      },
+      {
+        "path": "src/clinicai/services/form_engine_service.py",
+        "line": 295,
+        "end_line": 322,
+        "detail": "Backend ghi mốc null-only và phát event trong transaction, sau READY/role guard."
+      }
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx": "77076bf818e5c983d1ed8fe5f6839e976358d095c282570a6ac0416222d2da1d",
+      "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+      "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx": "ccd860a32d945adcf57c08cf0c409a4860a618819b223a02a34fd9e491670c24",
+      "src/clinicai/services/form_engine_service.py": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0"
+    },
+    "validation": {
+      "method": "exact_main_static_trace_frontend_to_api_to_service",
+      "command": "",
+      "result": "Code path confirms one failed/non-success request is suppressed for the remaining mounted component lifetime despite refreshed da_xem_luc=null.",
+      "limitations": "Static trace only; no FE-006 browser fault injection. No false-seen or automatic closure established. Requires reload/remount to clear the Set; UI visibility is not proof the clinician read or understood the result."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Main source confirms Set-before-request and no response/error handling; SSE refresh retains component state. Candidate confirmed static, not runtime reproduced.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+          "line": 73,
+          "end_line": 76,
+          "detail": "Hàm ghi đã xem không đọc response.ok; rejection bị nuốt.",
+          "sha256": "77076bf818e5c983d1ed8fe5f6839e976358d095c282570a6ac0416222d2da1d",
+          "excerpt": "73: function ghiDaXem(orderId: string) {\n74:   // Chỉ để máy chủ ghi \"đã xem\"; nội dung đã có sẵn ở đây. Hỏng thì thôi.\n75:   void fetch(`/api/phieu?xem=${orderId}`, { cache: \"no-store\" }).catch(() => undefined);\n76: }"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+          "line": 275,
+          "end_line": 283,
+          "detail": "Effect xét CO_KET_QUA/chưa ghi, thêm ID vào Set trước khi gọi ghiDaXem; không xoá khi request lỗi.",
+          "sha256": "77076bf818e5c983d1ed8fe5f6839e976358d095c282570a6ac0416222d2da1d",
+          "excerpt": "275:   useEffect(() => {\n276:     for (const d of ds) {\n277:       if (nhieuLan && (d.lam_them ? lanHienTai : (d.lan ?? 0)) !== lanXem) continue;\n278:       if (d.ket_qua_trang_thai !== \"CO_KET_QUA\" || d.da_xem_luc) continue;\n279:       if (daGhi.current.has(d.service_order_id)) continue;\n280:       daGhi.current.add(d.service_order_id);\n281:       ghiDaXem(d.service_order_id);\n282:     }\n283:   }, [ds, nhieuLan, lanXem, lanHienTai]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+          "line": 264,
+          "end_line": 268,
+          "detail": "SSE cập nhật danh sách kết quả qua callback trong component đang mở.",
+          "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62",
+          "excerpt": "264:   // KẾT QUẢ TỰ HIỆN (lát 4, 26/09/2026). Màn này tự fetch nên `router.refresh`\n265:   // không với tới — nghe chung dòng tin của RealtimeRefresher (không mở kết nối\n266:   // riêng). CHỈ nạp lại danh sách chỉ định + kết quả (chỉ đọc); phiếu đang gõ\n267:   // KHÔNG nạp lại để không đè chữ người đang nhập.\n268:   useNgheBang(BANG_KET_QUA, napKetQua);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+          "line": 1434,
+          "end_line": 1444,
+          "detail": "Live path bật PHIEU_V5 và giữ key theo visit_id; cập nhật props cùng visit không remount component.",
+          "sha256": "ccd860a32d945adcf57c08cf0c409a4860a618819b223a02a34fd9e491670c24",
+          "excerpt": "1434:         ) : PHIEU_V5 && (dong.loai === \"KHAM\" || dong.loai === \"TU_VAN\") ? (\n1435:           // Bàn khám tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt\n1436:           // 24/09) — bác sĩ chính mở ra thấy ngay phần tư vấn đã điền.\n1437:           <>\n1438:             <PhieuKhamLuot\n1439:               key={dong.visit_id}\n1440:               visitId={dong.visit_id}\n1441:               clinicPatientId={dong.clinic_patient_id}\n1442:               choGhi={choBam}\n1443:               datChiDinh={datChiDinh}\n1444:               onDaDat={onDaBam}"
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 295,
+          "end_line": 308,
+          "detail": "Backend chỉ UPDATE mốc xem khi có READY và vai gốc thuộc nhóm được tính là đã xem.",
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "295:             # \"Đã xem\" là DỮ KIỆN y khoa (bác sĩ / thư ký đã đọc kết quả), không\n296:             # phải quyền: hỏi VAI TÀI KHOẢN, không hỏi vai suy từ lego — mở full\n297:             # lego (30/09/2026) thì lễ tân mở phiếu để in cũng mang vai DOCTOR.\n298:             if phieu and identity.vai_goc in XEM_LA_DA_XEM:\n299:                 vid = await conn.fetchval(\n300:                     \"UPDATE service_order SET da_xem_ket_qua_luc = now(),\"\n301:                     \"       da_xem_ket_qua_boi = $3::uuid\"\n302:                     \" WHERE clinic_id = $1::uuid AND id = $2::uuid\"\n303:                     \"   AND da_xem_ket_qua_luc IS NULL\"\n304:                     \" RETURNING visit_id::text\",\n305:                     cid,\n306:                     service_order_id,\n307:                     identity.staff_id,\n308:                 )"
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 309,
+          "end_line": 322,
+          "detail": "Event result.viewed chỉ phát sau khi UPDATE null-only trả visit_id; failed write không có event.",
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "309:                 if vid is not None:\n310:                     await emit_event(\n311:                         conn,\n312:                         ten=\"result.viewed\",\n313:                         clinic_id=cid,\n314:                         aggregate_id=service_order_id,\n315:                         so_ke_tiep=True,\n316:                         payload=PhieuKetQuaDaXem(\n317:                             service_order_id=service_order_id, visit_id=vid\n318:                         ),\n319:                         boi=nguoi(identity),\n320:                         correlation_id=vid,\n321:                     )\n322:         return {\"phieu\": phieu}"
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [],
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Quyết định có bằng chứng"
+    ],
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Production metadata does not prove this browser flow or dashboard bundle provenance.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  }
+]

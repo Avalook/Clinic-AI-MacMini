@@ -1,0 +1,301 @@
+{
+  "audit_id": "round10_api_identity",
+  "source": {
+    "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+    "repository_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "basis": "exact-main snapshot theo task; hashes tính trực tiếp trên source files"
+  },
+  "scope": [
+    "FastAPI JWT and identity dependency",
+    "active clinic membership and clinic/location selection",
+    "permission/capability checks, cache and location/shift scope",
+    "identity, auth, display and partner callers",
+    "static route/dependency inventory for callers"
+  ],
+  "inventory": {
+    "route_decorators_scanned": 619,
+    "direct_get_current_identity": 213,
+    "direct_get_display_identity": 2,
+    "direct_get_partner_identity": 15,
+    "custom_guard_dependency": 387,
+    "no_direct_handler_dependency": 2,
+    "no_direct_dependency_routes": [
+      "GET /display/config (public display configuration)",
+      "GET /phan-quyen/danh-muc (static permission catalogue)"
+    ],
+    "method": "AST scan of decorators and handler arguments across src/clinicai/api/v1/**/*.py"
+  },
+  "files": [
+    {
+      "path": "src/clinicai/api/identity.py",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "line_count": 1120,
+      "reviewed_ranges": [
+        "141-157",
+        "160-276",
+        "286-361",
+        "364-589",
+        "592-700",
+        "703-810",
+        "816-929",
+        "957-1039",
+        "1054-1120"
+      ],
+      "review_status": "partial_deep_review",
+      "notes": "JWT, membership/location selection, cache and special identity dependencies reviewed by section."
+    },
+    {
+      "path": "src/clinicai/api/auth.py",
+      "sha256": "a651e46ac5e5082835dac8e3e0b54b3f92c3ada3009515537f5b789c54ab06cd",
+      "line_count": 130,
+      "reviewed_ranges": [
+        "1-130"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/permissions/can.py",
+      "sha256": "fc0e2ba27b8db2a2e7a129104b56da1a154cb03452b42b28e405724aab0c7c37",
+      "line_count": 145,
+      "reviewed_ranges": [
+        "1-145"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/permissions/cua_quyen.py",
+      "sha256": "2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9",
+      "line_count": 56,
+      "reviewed_ranges": [
+        "1-56"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/permissions/cache.py",
+      "sha256": "ae82f456de13a1ec64243b4ff8e43518a6639596e8feb8167a80afcecdf41337",
+      "line_count": 84,
+      "reviewed_ranges": [
+        "1-84"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/permissions/lich.py",
+      "sha256": "2b4438961131dd23cae2ce24bd9e13ad84b225effd6aa45ce5344b71db1743e8",
+      "line_count": 144,
+      "reviewed_ranges": [
+        "1-144"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/permissions/doc_bang.py",
+      "sha256": "5b3a85b29594403aca8cfa6ae25f63d9c2a0ff800e15c1ff29a554a2f65dbc81",
+      "line_count": 104,
+      "reviewed_ranges": [
+        "1-104"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/identity.py",
+      "sha256": "ed4087251f20a0abdbfa384c0951aaa8938c856bede12fee5681514f7cfb28ab",
+      "line_count": 262,
+      "reviewed_ranges": [
+        "39-71",
+        "74-130",
+        "133-240",
+        "243-262"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/auth.py",
+      "sha256": "fe6f909881db1beb301cf67db19abf745985efbbfeb6ba0400c3938a1a8af9c2",
+      "line_count": 46,
+      "reviewed_ranges": [
+        "1-46"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/display.py",
+      "sha256": "878f16b775e8e092078d6b96e86eae2fd3af79bb9e09f2e97085df84947ec2c6",
+      "line_count": 96,
+      "reviewed_ranges": [
+        "1-96"
+      ],
+      "review_status": "full",
+      "notes": ""
+    },
+    {
+      "path": "src/clinicai/services/display_board_service.py",
+      "sha256": "0f7715534fe7694eb58501e6933220a940ddf7e10807a6bc80e96536e1a5cc69",
+      "line_count": 363,
+      "reviewed_ranges": [
+        "1-27",
+        "69-145",
+        "148-202",
+        "323-363"
+      ],
+      "review_status": "partial",
+      "notes": "Reviewed SQL tenant/location scope, output fields and patient data minimization."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/doi_tac.py",
+      "sha256": "180703e1fde229df2725d57ebe5e517311ff342e976ec140c662cfbf5605c10e",
+      "line_count": 392,
+      "reviewed_ranges": [
+        "1-392"
+      ],
+      "review_status": "caller_inventory",
+      "notes": "Endpoint inventory and special dependency call sites; not every service SQL body."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phan_quyen.py",
+      "sha256": "bce5882167696d75a7b414217570382e07a2e24a694c235bdf061512c2b748ab",
+      "line_count": 331,
+      "reviewed_ranges": [
+        "1-331"
+      ],
+      "review_status": "caller_inventory",
+      "notes": "Route-to-service calls; service-side can checks located by scan."
+    },
+    {
+      "path": "src/clinicai/services/permission_service.py",
+      "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+      "line_count": 620,
+      "reviewed_ranges": [
+        "50-102",
+        "111-289",
+        "292-432",
+        "433-620"
+      ],
+      "review_status": "guard_and_scope_scan",
+      "notes": "Guard calls and clinic predicates inventoried, not full line-by-line review."
+    },
+    {
+      "path": "src/clinicai/services/ky_nang_service.py",
+      "sha256": "2c8fe8d9e7e4414522304318fb731f737d678bb023a3df54c871f18a0a0dbd7d",
+      "line_count": 307,
+      "reviewed_ranges": [
+        "126-167",
+        "167-307"
+      ],
+      "review_status": "guard_and_scope_scan",
+      "notes": "Cross-checked permission.manage enforcement."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/queue.py",
+      "sha256": "0ef07879529f0d0ca394e1bb7157a6f1a65afa04f801a481363d53e86ef806ca",
+      "line_count": 197,
+      "reviewed_ranges": [
+        "30-197"
+      ],
+      "review_status": "full",
+      "notes": "Verified existing API-001 call path and location scope."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/visit_progress.py",
+      "sha256": "695a18ba50f507d08a6048e1f132b9875553667f262430d54c1dea9dbec2df41",
+      "line_count": 304,
+      "reviewed_ranges": [
+        "36-304"
+      ],
+      "review_status": "caller_inventory",
+      "notes": "Cross-check for existing API-002; no new finding claimed."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_records.py",
+      "sha256": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd",
+      "line_count": 142,
+      "reviewed_ranges": [
+        "1-142"
+      ],
+      "review_status": "caller_inventory",
+      "notes": "Cross-check for SEC-011."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+      "sha256": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+      "line_count": 122,
+      "reviewed_ranges": [
+        "1-122"
+      ],
+      "review_status": "caller_inventory",
+      "notes": "Cross-check for SEC-010/SEC-011."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/staff.py",
+      "sha256": "44d97c9b399b47e1117c83fb6bd00f3e1f39d858898870e537e4d599cc27c41c",
+      "line_count": 397,
+      "reviewed_ranges": [
+        "72-397"
+      ],
+      "review_status": "caller_inventory",
+      "notes": "Cross-check for SEC-005."
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "line_count": 654,
+      "reviewed_ranges": [
+        "441"
+      ],
+      "review_status": "targeted",
+      "notes": "Confirmed display router mount."
+    }
+  ],
+  "canonical_dedup": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "sha256_at_review": "f4c89cd370978fdb57b4e8e30945a56c8639f90b9ac018f2213a29cb0a66c426",
+    "ids_checked": [
+      "SEC-001",
+      "SEC-002",
+      "SEC-005",
+      "SEC-006",
+      "SEC-007",
+      "SEC-010",
+      "SEC-011",
+      "SEC-012",
+      "SEC-014",
+      "SEC-016",
+      "SEC-017",
+      "SEC-018",
+      "SEC-019",
+      "FE-009",
+      "CLIN-014",
+      "API-001",
+      "API-002",
+      "API-003",
+      "DB-001",
+      "DB-005"
+    ],
+    "note": "Ledger chỉ dùng để loại trùng trigger/call chain; không sửa canonical ledger."
+  },
+  "result": {
+    "new_candidate_count": 0,
+    "candidate_ids": [],
+    "tests_run": false,
+    "database_or_production_access": false,
+    "secrets_or_phi_access": false,
+    "app_or_migration_changes": false,
+    "additional_candidate": "Không thấy candidate mới đủ bằng chứng trong review tĩnh ranh giới chung và caller đã rà."
+  },
+  "limitations": [
+    "Không chạy test hoặc runtime verification.",
+    "Không truy cập DB/production/secrets/PHI.",
+    "Không xác minh hành vi sau deploy.",
+    "AST/dependency inventory không thay thế review đầy đủ từng query/service của 619 endpoint.",
+    "Canonical ledger chỉ dùng khử trùng, không phải bằng chứng cho tính đúng của source snapshot."
+  ]
+}

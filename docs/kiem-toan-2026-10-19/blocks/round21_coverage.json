@@ -1,0 +1,638 @@
+{
+  "schema_version": 1,
+  "audit": "round21_patient_postgrest_dashboard_contracts_finance_policy_and_clinical_read",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "static_read_only_exact_main_cross_layer_trace",
+  "scope": [
+    "patient-table grants, tenant RLS, Supabase login and public PostgREST gateway",
+    "patient feedback refresh error state and eligible-visit picker contract",
+    "refund request/completion date semantics across daily report, debt ledger and UI",
+    "clinic booking-policy exception fallback",
+    "full prescription-amendment service semantics"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "Two root full-file reads and exact targeted traces by three read-only specialist slices. Related tests were inspected, not run. No PostgREST request, disposable DB, production, secret or patient record was accessed. The refund date basis and list-cap candidates remain policy/threshold-dependent observations.",
+  "held_observations": [
+    "PHARMACY-RESPONSE-VISIT-CAP-001",
+    "FIN-REFUND-ACCOUNTING-DATE-001",
+    "CLINIC-POLICY-001"
+  ],
+  "files": [
+    {
+      "path": "caddy/Caddyfile",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 191,
+          "end": 194,
+          "purpose": "Đường công khai /rest/v1/* được reverse proxy tới Supabase gateway."
+        },
+        {
+          "start": 191,
+          "end": 194,
+          "purpose": "Đường công khai /rest/v1/* được reverse proxy tới Supabase gateway."
+        }
+      ],
+      "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "line_count": 256
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 634,
+          "end": 720,
+          "purpose": "Policy endpoint can resolve doctor/date; targeted trace."
+        }
+      ],
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "line_count": 904
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 161,
+          "end": 170,
+          "purpose": "FastAPI trả danh sách phản hồi thuốc cho patient id."
+        },
+        {
+          "start": 161,
+          "end": 170,
+          "purpose": "FastAPI trả danh sách phản hồi thuốc cho patient id."
+        },
+        {
+          "start": 161,
+          "end": 170,
+          "purpose": "Held observation PHARMACY-RESPONSE-VISIT-CAP-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "line_count": 1092
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/reports.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 150,
+          "end": 229,
+          "purpose": "Held observation FIN-REFUND-ACCOUNTING-DATE-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "576280ef751ace798713de4fccf75b83984502cd3b36722b6d306466572611d8",
+      "line_count": 364
+    },
+    {
+      "path": "src/clinicai/events/consumers/so_no.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 93,
+          "end": 110,
+          "purpose": "Held observation FIN-REFUND-ACCOUNTING-DATE-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "c9d05af3fffcfbfa92d6184e63984ce396012d7b16ee98deed4d666fed8f112b",
+      "line_count": 128
+    },
+    {
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 236,
+          "end": 256,
+          "purpose": "Held observation FIN-REFUND-ACCOUNTING-DATE-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "79326e846d211a73807712d7c06e298c705d20f2ccf726a24f1f2a039017629e",
+      "line_count": 1416
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 576,
+          "end": 676,
+          "purpose": "Booking transaction and effective policy use; targeted trace."
+        }
+      ],
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "line_count": 2998
+    },
+    {
+      "path": "src/clinicai/services/chot_so_ca_service.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 7,
+          "end": 13,
+          "purpose": "Held observation FIN-REFUND-ACCOUNTING-DATE-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "ce4ad47b0e78e5deaf88e0ca2e43ec602cbb6bfd409c33a6f1f19a284022dc35",
+      "line_count": 284
+    },
+    {
+      "path": "src/clinicai/services/clinic_policy.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 199,
+          "purpose": "Full-file read; inspect validation and broad exception fallbacks."
+        }
+      ],
+      "sha256": "4a8700ca6304f93c9d876205cdb58d513381ef769cc812c4f59f8a7fd21254d5",
+      "line_count": 199
+    },
+    {
+      "path": "src/clinicai/services/dinh_chinh_don.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 1005,
+          "purpose": "Full-file read; prescription correction, snapshots, locking, provenance, catalog and permission gates."
+        }
+      ],
+      "sha256": "1cf96800b290dfba9b8580a007d47f47bd892e331a051cd70903399d5183b317",
+      "line_count": 1005
+    },
+    {
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 218,
+          "end": 238,
+          "purpose": "Held observation FIN-REFUND-ACCOUNTING-DATE-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "line_count": 628
+    },
+    {
+      "path": "src/clinicai/services/phan_hoi_thuoc_service.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 34,
+          "end": 38,
+          "purpose": "Picker cap constant."
+        },
+        {
+          "start": 103,
+          "end": 146,
+          "purpose": "Eligible visit query has LIMIT 20 and response lacks pagination."
+        },
+        {
+          "start": 34,
+          "end": 38,
+          "purpose": "Held observation PHARMACY-RESPONSE-VISIT-CAP-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "23b553a09eaf575028ca901505a45ebceaef0ce175502251a4e655a138c58366",
+      "line_count": 256
+    },
+    {
+      "path": "src/clinicai/services/quay_thu_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1207,
+          "end": 1250,
+          "purpose": "Held observation FIN-REFUND-ACCOUNTING-DATE-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "4b9e52c3c8acb212fa35347e6c0f25a738348aeb119a7f6a86c06d10e7c2fd52",
+      "line_count": 1646
+    },
+    {
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 33,
+          "end": 48,
+          "purpose": "Đăng nhập Supabase và liên kết user với staff."
+        },
+        {
+          "start": 33,
+          "end": 48,
+          "purpose": "Đăng nhập Supabase và liên kết user với staff."
+        }
+      ],
+      "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+      "line_count": 105
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 343,
+          "end": 350,
+          "purpose": "Component phản hồi thuốc được mount trong khung khách."
+        },
+        {
+          "start": 343,
+          "end": 350,
+          "purpose": "Component phản hồi thuốc được mount trong khung khách."
+        }
+      ],
+      "sha256": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+      "line_count": 499
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 103,
+          "end": 132,
+          "purpose": "Refresh lỗi giữ data cũ; lỗi chỉ render khi chưa có data."
+        },
+        {
+          "start": 158,
+          "end": 165,
+          "purpose": "Summary callback chỉ chạy khi data đổi, nên lỗi refresh không làm mới tóm tắt."
+        },
+        {
+          "start": 167,
+          "end": 185,
+          "purpose": "Picker renders received visits without an overflow marker."
+        },
+        {
+          "start": 103,
+          "end": 132,
+          "purpose": "Refresh lỗi giữ data cũ; lỗi chỉ render khi chưa có data."
+        },
+        {
+          "start": 158,
+          "end": 165,
+          "purpose": "Summary callback chỉ chạy khi data đổi, nên lỗi refresh không làm mới tóm tắt."
+        },
+        {
+          "start": 167,
+          "end": 185,
+          "purpose": "Held observation PHARMACY-RESPONSE-VISIT-CAP-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "300d685cbb8f134b03ec5517bc4d3c68876981342fb6e38b0e10762cd95b6130",
+      "line_count": 282
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 63,
+          "end": 72,
+          "purpose": "Previously recorded pinned-main evidence."
+        },
+        {
+          "start": 92,
+          "end": 101,
+          "purpose": "Previously recorded pinned-main evidence."
+        }
+      ],
+      "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+      "line_count": 237
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/LichSuThu.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 241,
+          "end": 244,
+          "purpose": "Held observation FIN-REFUND-ACCOUNTING-DATE-001; see STATE.json for all ranges and limits."
+        }
+      ],
+      "sha256": "cb5e73c5d6862c7fd09a71f174dd85679a9b33e88ce45d1eaddacfe4abb1c947",
+      "line_count": 323
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/khach/[id]/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 38,
+          "end": 40,
+          "purpose": "BFF chuyển request đọc phản hồi thuốc tới backend."
+        },
+        {
+          "start": 38,
+          "end": 40,
+          "purpose": "BFF chuyển request đọc phản hồi thuốc tới backend."
+        }
+      ],
+      "sha256": "14749069fa842b2568ad376291c00d148468a3a176567cd84ab2466f9b6deea7",
+      "line_count": 89
+    },
+    {
+      "path": "src/dashboard/lib/booking-policy.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 85,
+          "end": 130,
+          "purpose": "Client policy loader and no-local-default contract; targeted trace."
+        }
+      ],
+      "sha256": "5ad78cd2533966b15384f2c5358db9a98409a30979eaef75bfbdf45e825665d8",
+      "line_count": 170
+    },
+    {
+      "path": "src/dashboard/lib/supabase-browser.ts",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 7,
+          "end": 12,
+          "purpose": "Browser client dùng phiên Supabase authenticated và anon key."
+        },
+        {
+          "start": 7,
+          "end": 12,
+          "purpose": "Browser client dùng phiên Supabase authenticated và anon key."
+        }
+      ],
+      "sha256": "8e1138ba2b9bd5178d21f0d2cd4fe3619149143978a014d96de63e8a40e9db6f",
+      "line_count": 13
+    },
+    {
+      "path": "src/dashboard/tests/phan-hoi-thuoc-cot-boundary.test.mts",
+      "status": "traced",
+      "prior_status": "inventoried",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 81,
+          "end": 92,
+          "purpose": "UI boundary test inspected, no refresh-failure assertion."
+        }
+      ],
+      "sha256": "6dbec37dc505760e0196fce13ae072922904743517d5b3694e6c6ff63b477661",
+      "line_count": 92
+    },
+    {
+      "path": "src/tests/services/test_bao_cao_cuoi_ngay_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 220,
+          "purpose": "Refund-by-date tests inspected; did not cover request/completion on separate days."
+        }
+      ],
+      "sha256": "8949464836d1189e762084b9f923d5e32ace9d1117ce1fee37bb57863b415082",
+      "line_count": 218
+    },
+    {
+      "path": "src/tests/services/test_phan_hoi_thuoc_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 75,
+          "end": 139,
+          "purpose": "DB service test inspected; successful read/write paths only."
+        }
+      ],
+      "sha256": "952ec1a15ff0def74643232966ba38f3d2d5bedfc471d388a87a5d2b1cc085b1",
+      "line_count": 236
+    },
+    {
+      "path": "src/tests/unit/test_bao_cao_cuoi_ngay.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 200,
+          "purpose": "Unit report cases use timestamps but do not exercise a cross-day refund confirmation."
+        }
+      ],
+      "sha256": "b9c333419b34c5b7475de196ebfa923b83de16031169f99a17d1e2014532d6e4",
+      "line_count": 287
+    },
+    {
+      "path": "src/tests/unit/test_clinic_policy.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 70,
+          "end": 143,
+          "purpose": "Policy validation tests inspected; resolver/query-exception path absent in this range."
+        }
+      ],
+      "sha256": "25b7511906f9e887132992ee569f24f45ab1f67073e98c00b8def2e306deafb2",
+      "line_count": 186
+    },
+    {
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 617,
+          "end": 640,
+          "purpose": "Bảng patient chứa national_id_number, điện thoại, ngày sinh và địa chỉ."
+        },
+        {
+          "start": 617,
+          "end": 640,
+          "purpose": "Bảng patient chứa national_id_number, điện thoại, ngày sinh và địa chỉ."
+        }
+      ],
+      "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+      "line_count": 2597
+    },
+    {
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 235,
+          "end": 246,
+          "purpose": "current_clinic_ids kiểm membership active; không áp role/capability."
+        },
+        {
+          "start": 235,
+          "end": 246,
+          "purpose": "current_clinic_ids kiểm membership active; không áp role/capability."
+        }
+      ],
+      "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "line_count": 309
+    },
+    {
+      "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 149,
+          "end": 168,
+          "purpose": "patient được tạo policy SELECT authenticated chỉ theo current_clinic_ids."
+        },
+        {
+          "start": 149,
+          "end": 168,
+          "purpose": "patient được tạo policy SELECT authenticated chỉ theo current_clinic_ids."
+        }
+      ],
+      "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+      "line_count": 263
+    },
+    {
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 47,
+          "end": 58,
+          "purpose": "Cấp SELECT cho authenticated trên mọi bảng có SELECT policy."
+        },
+        {
+          "start": 47,
+          "end": 58,
+          "purpose": "Cấp SELECT cho authenticated trên mọi bảng có SELECT policy."
+        }
+      ],
+      "sha256": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+      "line_count": 73
+    },
+    {
+      "path": "supabase/tests/role_scoped_clinical_read.sql",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 121,
+          "end": 143,
+          "purpose": "Test hiện tại chủ ý cho Reception đọc patient, nhưng không kiểm role thiếu capability hoặc cột PII."
+        },
+        {
+          "start": 121,
+          "end": 143,
+          "purpose": "Test hiện tại chủ ý cho Reception đọc patient, nhưng không kiểm role thiếu capability hoặc cột PII."
+        }
+      ],
+      "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+      "line_count": 205
+    },
+    {
+      "path": "supabase/tests/tenant_scoped_rls.sql",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 220,
+          "purpose": "Tenant test suite was inspected by agent; no role/capability assertion on patient was found in referenced test."
+        }
+      ],
+      "sha256": "d9e56b39281ce8364c94602c2466ddc814027f72bdc01b5bfecd4fccf2076383",
+      "line_count": 509
+    }
+  ]
+}

@@ -1,0 +1,461 @@
+{
+  "round": 40,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_semantic_and_structural_review",
+  "scope": [
+    "normal migration runner transaction/ledger atomicity",
+    "local bootstrap retry interaction",
+    "standalone transaction-control statements in pinned migrations"
+  ],
+  "method": "Read immutable Git source via git show and ran read-only git grep on pinned migration paths. The structural scan found 23 files with exact standalone BEGIN; and COMMIT; lines; it is not a semantic review of every statement. No tests or DB/runtime/app/provider/production/secrets/PHI access.",
+  "result": "Extended INF-008 to cover the normal migration runner transaction-control mismatch. A migration COMMIT can close the runner wrapper before the ledger INSERT, leaving a conditional interruption window. No current replay data-loss behavior or production event was demonstrated.",
+  "explicit_transaction_migrations": [
+    "supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql",
+    "supabase/migrations/20260821000001_ba_ca_lam_viec.sql",
+    "supabase/migrations/20260821000002_dem_ghe_ca_ngay_mot_lan.sql",
+    "supabase/migrations/20260915000010_nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+    "supabase/migrations/20260915000011_tep_ket_qua_bac_si_cho_phep_gui.sql",
+    "supabase/migrations/20260916000004_bon_xet_nghiem_khong_chi_dinh_duoc.sql",
+    "supabase/migrations/20260916000005_suc_chua_mot_lan_cho_ca_ngay.sql",
+    "supabase/migrations/20260916000006_bo_sung_danh_muc_thuoc.sql",
+    "supabase/migrations/20260916000007_vai_doi_tac.sql",
+    "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+    "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+    "supabase/migrations/20260916000010_gan_lai_ma_phieu_kham.sql",
+    "supabase/migrations/20260916000011_vi_tri_dong_ca.sql",
+    "supabase/migrations/20260916000012_hoi_benh_ai_cung_dung_duoc.sql",
+    "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql",
+    "supabase/migrations/20260917000002_tep_ket_qua_tai_lieu.sql",
+    "supabase/migrations/20261010100001_lich_su_don_thuoc_notify.sql",
+    "supabase/migrations/20261016400000_vai_ke_toan.sql",
+    "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+    "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+    "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+    "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+    "supabase/migrations/20261019140000_idempotency_payload_hash.sql"
+  ],
+  "files": [
+    {
+      "path": "scripts/apply-pending-migrations.sh",
+      "read_ranges": [
+        {
+          "start": 48,
+          "end": 60
+        },
+        {
+          "start": 123,
+          "end": 153
+        }
+      ],
+      "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721",
+      "lines": 158,
+      "depth": "targeted_trace",
+      "notes": "Connection runner, ON_ERROR_STOP, and per-migration transaction/ledger write."
+    },
+    {
+      "path": "scripts/supabase-local-nap.sh",
+      "read_ranges": [
+        {
+          "start": 36,
+          "end": 40
+        },
+        {
+          "start": 92,
+          "end": 108
+        }
+      ],
+      "sha256": "d363e3bd3a22d55cf27265258d410b8075a8e7f572cada91eb63009af59bb648",
+      "lines": 141,
+      "depth": "targeted_trace",
+      "notes": "Existing local-bootstrap side of INF-008; ledger is written after the migration loop."
+    },
+    {
+      "path": "supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql",
+      "read_ranges": [
+        {
+          "start": 53,
+          "end": 53
+        },
+        {
+          "start": 354,
+          "end": 354
+        }
+      ],
+      "sha256": "ce8920c006906dec461ae322336f6bc79ed7723b14f1e0a58c7e15163a6212c4",
+      "lines": 354,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260821000001_ba_ca_lam_viec.sql",
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 31
+        },
+        {
+          "start": 78,
+          "end": 78
+        }
+      ],
+      "sha256": "ffe46d86310693e69f80d0ee3c80f8236bdd0ddbf0913e829d3214605ded62fa",
+      "lines": 78,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260821000002_dem_ghe_ca_ngay_mot_lan.sql",
+      "read_ranges": [
+        {
+          "start": 25,
+          "end": 25
+        },
+        {
+          "start": 149,
+          "end": 149
+        }
+      ],
+      "sha256": "0a6ed1acad661475c5cef008eeaa9a5a6d7a212c4fc67fe99398a62ae070a80d",
+      "lines": 149,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260915000010_nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+      "read_ranges": [
+        {
+          "start": 35,
+          "end": 35
+        },
+        {
+          "start": 218,
+          "end": 218
+        }
+      ],
+      "sha256": "d91d233d3fbd6090bdadb2704e5c14768fcb42c634f9176fafafd170eb8ab2c8",
+      "lines": 218,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260915000011_tep_ket_qua_bac_si_cho_phep_gui.sql",
+      "read_ranges": [
+        {
+          "start": 15,
+          "end": 15
+        },
+        {
+          "start": 251,
+          "end": 251
+        }
+      ],
+      "sha256": "2927cdf2e3c5baa222f28f9b625baae13b5277b8691a30618bc5d0af56d5713b",
+      "lines": 251,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000004_bon_xet_nghiem_khong_chi_dinh_duoc.sql",
+      "read_ranges": [
+        {
+          "start": 22,
+          "end": 22
+        },
+        {
+          "start": 53,
+          "end": 53
+        }
+      ],
+      "sha256": "1dec2156e6725781179d142b90f3109e78bfcaf805a72073fdd24881d65c8e26",
+      "lines": 53,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000005_suc_chua_mot_lan_cho_ca_ngay.sql",
+      "read_ranges": [
+        {
+          "start": 33,
+          "end": 33
+        },
+        {
+          "start": 126,
+          "end": 126
+        }
+      ],
+      "sha256": "82c16f51bc010e431f776fca45b155ebd82f8b94444695edf0e81a0e5b63c803",
+      "lines": 126,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000006_bo_sung_danh_muc_thuoc.sql",
+      "read_ranges": [
+        {
+          "start": 29,
+          "end": 29
+        },
+        {
+          "start": 76,
+          "end": 76
+        }
+      ],
+      "sha256": "f1f04d9f9491684ebc3e959f44b1ebfe6382d17b1bdaa9347297924615903b98",
+      "lines": 76,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000007_vai_doi_tac.sql",
+      "read_ranges": [
+        {
+          "start": 25,
+          "end": 25
+        },
+        {
+          "start": 88,
+          "end": 88
+        }
+      ],
+      "sha256": "eca05ac55a86c774c3a4cc94c83862c53abbcdc252f100427a74f0f10b527287",
+      "lines": 88,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 31
+        },
+        {
+          "start": 152,
+          "end": 152
+        }
+      ],
+      "sha256": "5dcb200a1e9b7c031f6a265f50ee11a1ee50150e84774adbf066e2aa898b0a52",
+      "lines": 152,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+      "read_ranges": [
+        {
+          "start": 29,
+          "end": 29
+        },
+        {
+          "start": 90,
+          "end": 90
+        }
+      ],
+      "sha256": "fade43b870bc9ff3fd3dd5f593af6aaf01da58437901ead5356f8759127d5501",
+      "lines": 90,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000010_gan_lai_ma_phieu_kham.sql",
+      "read_ranges": [
+        {
+          "start": 20,
+          "end": 20
+        },
+        {
+          "start": 58,
+          "end": 58
+        }
+      ],
+      "sha256": "4b9a82c146bc5c3cdf2b503ec54f79fbaf5a4777fdd878d56815a6964b00f288",
+      "lines": 58,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000011_vi_tri_dong_ca.sql",
+      "read_ranges": [
+        {
+          "start": 18,
+          "end": 18
+        },
+        {
+          "start": 59,
+          "end": 59
+        }
+      ],
+      "sha256": "9413ce90e34643142de1aebf1d9da9400d58951407c3e78defee1db6a387c209",
+      "lines": 59,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260916000012_hoi_benh_ai_cung_dung_duoc.sql",
+      "read_ranges": [
+        {
+          "start": 14,
+          "end": 14
+        },
+        {
+          "start": 38,
+          "end": 38
+        }
+      ],
+      "sha256": "0636d595cf422f1dafee74a99091f0b04f0a491629b0a03622018d40edb8f94f",
+      "lines": 38,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql",
+      "read_ranges": [
+        {
+          "start": 18,
+          "end": 18
+        },
+        {
+          "start": 201,
+          "end": 201
+        }
+      ],
+      "sha256": "b4efa18d6995b6e034e636fcda826dcb8c12d41fcd80df990adae673645c8f9b",
+      "lines": 201,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20260917000002_tep_ket_qua_tai_lieu.sql",
+      "read_ranges": [
+        {
+          "start": 10,
+          "end": 10
+        },
+        {
+          "start": 29,
+          "end": 29
+        }
+      ],
+      "sha256": "02464ebfd9d527df6f89605cd0c4fafacb906933afd71bc79fde4aea71cc28ba",
+      "lines": 29,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20261010100001_lich_su_don_thuoc_notify.sql",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 21
+        }
+      ],
+      "sha256": "8c64e0b1afb0712b68b2be32e5681c27daea4fa4f20ab84934862b48f1e00f2b",
+      "lines": 21,
+      "depth": "targeted_trace",
+      "notes": "Full file read: explicit transaction brackets idempotent trigger drops/recreates; does not prove replay damage."
+    },
+    {
+      "path": "supabase/migrations/20261016400000_vai_ke_toan.sql",
+      "read_ranges": [
+        {
+          "start": 27,
+          "end": 27
+        },
+        {
+          "start": 49,
+          "end": 57
+        },
+        {
+          "start": 59,
+          "end": 59
+        }
+      ],
+      "sha256": "517363a6f53b25162cf705a7aac22b4bb945d60f142b47611e17824f877d4feb",
+      "lines": 59,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review. Also inspected INSERT ON CONFLICT path; no runtime replay test."
+    },
+    {
+      "path": "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 23
+        }
+      ],
+      "sha256": "528aefe4ce9b0a6bd5e3bbe809725edee351efa73272b067395ca901535a7935",
+      "lines": 23,
+      "depth": "targeted_trace",
+      "notes": "Full file read: explicit transaction and replace constraints/column; does not prove replay damage."
+    },
+    {
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "read_ranges": [
+        {
+          "start": 7,
+          "end": 7
+        },
+        {
+          "start": 75,
+          "end": 75
+        }
+      ],
+      "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+      "lines": 75,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+      "read_ranges": [
+        {
+          "start": 6,
+          "end": 6
+        },
+        {
+          "start": 50,
+          "end": 50
+        }
+      ],
+      "sha256": "5e48f72dc31286d05934cbc48d4fbfec43214d7f5e45889b43338ec8ee96fc8e",
+      "lines": 50,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+      "read_ranges": [
+        {
+          "start": 3,
+          "end": 3
+        },
+        {
+          "start": 116,
+          "end": 116
+        }
+      ],
+      "sha256": "37c8a1b7aea72a3dc67f4c6111fa1c9679e28d4b76ff1e665751cb48b03c4f11",
+      "lines": 116,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    },
+    {
+      "path": "supabase/migrations/20261019140000_idempotency_payload_hash.sql",
+      "read_ranges": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 24,
+          "end": 24
+        }
+      ],
+      "sha256": "14ed47b90efe243ed1494d062e706661938a0cc215cfc298c24959b8b80f7af2",
+      "lines": 24,
+      "depth": "targeted_trace",
+      "notes": "Exact standalone BEGIN/COMMIT pattern from structural git grep; this is not a full semantic review."
+    }
+  ],
+  "external_semantics_reference": "PostgreSQL transaction protocol: https://www.postgresql.org/docs/current/protocol-flow.html; COMMIT ends the current transaction: https://www.postgresql.org/docs/current/sql-commit.html. These document SQL semantics; application evidence remains the pinned Git source."
+}

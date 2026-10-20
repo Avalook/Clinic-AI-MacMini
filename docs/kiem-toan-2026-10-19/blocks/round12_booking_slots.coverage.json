@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_booking_slots_slice",
+  "scope": [
+    "Audit tĩnh các booking policy override, booking/slot hold services, readers lịch đặt và tuần, caller FastAPI/config liên quan và counterpart tests đang scanned/inventoried.",
+    "Đối chiếu finding hiện hành và các block frontend/API/security để không lặp CLIN-005/010/011/024/026/028/029, FE-012/015, API-001, SEC-007.",
+    "Dùng duy nhất snapshot pinned exact-main; không chạy test/runtime/DB, không truy cập VPS/PHI/secrets, không sửa source/migration/ledger/STATE/report."
+  ],
+  "identity_check": {
+    "manifest": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "manifest_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "snapshot_has_git_metadata": false,
+    "note": "Source SHA-256 được tính trên file trong snapshot. Hash manifest đã dùng để xác nhận các file backend được khai báo scanned; UI/test hashes được tính trực tiếp trên snapshot."
+  },
+  "finding_ids": ["CAND-BOOK-SLOT-001"],
+  "finding_count": 1,
+  "cross_check": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json (read-only)",
+    "blocks_checked": [
+      "docs/kiem-toan-2026-10-19/blocks/clinical.md",
+      "docs/kiem-toan-2026-10-19/blocks/round9_dashboard_schedule_patient.md",
+      "docs/kiem-toan-2026-10-19/blocks/round9_api_clinical.md",
+      "docs/kiem-toan-2026-10-19/blocks/security.md",
+      "docs/kiem-toan-2026-10-19/blocks/round10_api_identity.coverage.json"
+    ],
+    "nearby_existing_ids": ["CLIN-005", "CLIN-010", "CLIN-011", "CLIN-024", "CLIN-026", "CLIN-028", "CLIN-029", "FE-012", "FE-015", "API-001", "SEC-007"],
+    "result": "Candidate chỉ liên quan cách list_rules tính badge cho future-dated slot override; khác trigger/call path với các finding hiện hành được loại trừ."
+  },
+  "files": [
+    {"path":"src/clinicai/services/booking_override_service.py","sha256":"81077ad2213351226519726b4d02d85a9ee7c6ab9f2c59ad1c1c7bc7bc77717a","lines":854,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-854"],"notes":"Toàn bộ validate/save/list/trim/delete/shadow/overlap/event flow."},
+    {"path":"src/clinicai/services/dich_vu_dat_lich.py","sha256":"9dfeec7718060474098d9aa1ecf6e547822b86050d05c8934dd2b7295989e73f","lines":112,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-112"],"notes":"Dịch vụ đặt lịch, group/filter and projection."},
+    {"path":"src/clinicai/services/lich_hen_doc.py","sha256":"3669a4b4effc30cbdfbdecd2a3baf641f7c1afac50396b31c937ceae9980c64f","lines":175,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-175"],"notes":"Readers lịch ngày/sắp tới/lịch sử dịch vụ/bác sĩ từ chối; xem trạng thái, clinic scope, bounds."},
+    {"path":"src/clinicai/services/man_dat_lich_doc.py","sha256":"1f7b9b717b53e0a6a62ae22b41ea0efd062724e391efbac9fc5bb17d1cd523f2","lines":258,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-258"],"notes":"Hub đặt lịch, patient/service/location data, today appointments/history bounds and search."},
+    {"path":"src/clinicai/services/week_appointments_service.py","sha256":"f1ef9400d2de467c032a5b7a0a6b450a4f710184749d0d112ddfb8ed2b1d0e96","lines":446,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-446"],"notes":"Weekly SQL, scope/status/limit and derived row projection."},
+    {"path":"src/clinicai/services/slot_hold_service.py","sha256":"874334281fafdb0f9e8de024b5e94367d8f05bcdafd71a40739397f05e96cc6a","lines":307,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-307"],"notes":"Hold/release/list and release-on-booking/event flow."},
+    {"path":"src/clinicai/services/booking_service.py","sha256":"583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1","lines":2998,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["474-834","2220-2250"],"notes":"Create transaction, capacity/ref validation, event/release call path, duplicate check. Other actions not fully reviewed; no full-file claim."},
+    {"path":"src/clinicai/api/v1/routers/booking.py","sha256":"776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e","lines":904,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["138-240","439-634","718-904"],"notes":"Read route guards and relevant create/capacity/week/policy/action/hold routes; remaining router not fully reviewed."},
+    {"path":"src/clinicai/api/v1/routers/config.py","sha256":"2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f","lines":1132,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["611-726","1041-1124"],"notes":"Booking policy/rule/doctor-rule boundaries only; file not fully reviewed."},
+    {"path":"src/tests/unit/test_booking_override_minutes.py","sha256":"27b473265e699b963db8d409b88897d86826893ba5728aae0fe9f1fe06df78d5","lines":154,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-154"],"notes":"Validation/window tests; no test for list_rules future-date shadow flag."},
+    {"path":"src/tests/unit/test_dich_vu_dat_lich.py","sha256":"838cd97ab5f69b75957e9716b8b466810e14a7170f6bb6d7943c94cb812afa68","lines":62,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-62"],"notes":"Service grouping unit tests."},
+    {"path":"src/tests/services/test_slot_hold.py","sha256":"ab96dff7760f108c02998f2446a91be21aa4c3876ac64caeb7b1ee54d34b6d47","lines":103,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-103"],"notes":"Role/expiry tests; service DB behavior described in test docstring but not executed here."},
+    {"path":"src/tests/services/test_week_appointments.py","sha256":"718244efdc47d3258cf2576dc26570a7c9eff6edbc078923fb0fcf6a43d87382","lines":258,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["1-180"],"notes":"Reviewed bounds, row shape and status-related comments; remainder not read in this slice."},
+    {"path":"src/tests/services/test_lich_hen_doc_db.py","sha256":"45278c22715e8dcbc9c7a63ab31b1e9f90de9ed2cad9d1c8721d1eac9e21cd48","lines":47,"ledger_status_at_start":"scanned","read_level":"full_semantic_read","ranges":["1-47"],"notes":"DB integration test source read only; not executed."},
+    {"path":"src/dashboard/app/(dashboard)/settings/OverridePolicyCard.tsx","sha256":"169037149d02af750d1d14c095a691fdfc6814fe548f5329af3ca931c0a17e3c","lines":498,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["427-460"],"notes":"Only shadow badge contract/copy inspected."},
+    {"path":"supabase/migrations/20260803000009_slot_override_minute_granularity.sql","sha256":"c438cf214eb8185022f26a063afc7c8069d1a33ad4b970fc61e6d77b6d355a57","lines":null,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["228-242"],"notes":"Read resolver date filter to compare runtime semantics; not changed."}
+  ],
+  "non_findings_and_controls": [
+    "SlotHoldService checks booking.create permission and scopes active holds to identity.clinic_id; release-on-booking runs on the same DB connection/transaction path from BookingService.create. Static slice did not identify a new cross-clinic issue there.",
+    "BookingOverrideService validates day/minute/cap bounds and doctor membership; standing override edits lock overlapping rows and preserve split windows; temporary override overlap is handled by exclusion violation with a domain error.",
+    "Read services use clinic_id from StaffIdentity. WeekAppointmentsService enforces location semantics and filters DEAD_STATUSES; no new cross-tenant or booking-decision finding was confirmed in the read slice.",
+    "Existing tests cover validation and selected reader/service behavior, but there is no test in the read set for list_rules shadowed date semantics. Tests were not executed."
+  ],
+  "explicit_limitations": [
+    "This is a slice audit, not a claim that the whole repository or all booking-related call chains have been read.",
+    "BookingService, FastAPI routers, UI and test coverage are targeted reads; only the five named core reader/policy services and SlotHoldService were fully read.",
+    "No runtime, API, DB, browser, VPS or production-data verification was performed."
+  ]
+}

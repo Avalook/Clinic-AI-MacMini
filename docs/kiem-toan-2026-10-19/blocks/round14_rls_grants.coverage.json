@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_rls_grants_slice",
+  "coverage": {
+    "migration_sql_files_in_snapshot": 373,
+    "migration_files_matching_rls_grant_definer_search_path_markers": 189,
+    "coverage_status": "targeted_static_review",
+    "areas": [
+      "tenant identity helper functions and clinic membership predicates",
+      "general tenant RLS policies and role-scoped clinical read policies",
+      "authenticated-granted permission views and their base-table RLS",
+      "final public function ACL hardening and service-only lifecycle RPCs",
+      "final PostgREST stock/inventory read restriction",
+      "selected SQL policy and ACL regression-test sources, read only"
+    ],
+    "reviewed_migration_files": [
+      {
+        "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+        "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+        "lines": [
+          221,
+          292
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+        "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+        "lines": [
+          150,
+          210
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+        "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+        "lines": [
+          34,
+          86
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+        "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+        "lines": [
+          16,
+          117
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20260923000003_capability.sql",
+        "sha256": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677",
+        "lines": [
+          91,
+          112
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20260923000003_capability.sql",
+        "sha256": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677",
+        "lines": [
+          172,
+          193
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20260928000097_quyen_theo_lich_phong.sql",
+        "sha256": "188b989362058a80147eeae8c927a8fcfdd2f4e8e56be6b0b03975cce7029d93",
+        "lines": [
+          56,
+          104
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql",
+        "sha256": "f2c29e4dcc397c6cf9a349917c2cd51f69b9cbfbba4ffb764477d6126e842426",
+        "lines": [
+          168,
+          229
+        ],
+        "coverage_status": "targeted"
+      },
+      {
+        "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+        "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+        "lines": [
+          1,
+          75
+        ],
+        "coverage_status": "full"
+      },
+      {
+        "path": "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+        "sha256": "5e48f72dc31286d05934cbc48d4fbfec43214d7f5e45889b43338ec8ee96fc8e",
+        "lines": [
+          1,
+          50
+        ],
+        "coverage_status": "full"
+      },
+      {
+        "path": "docker/supabase/init/01-vai-va-extension.sql",
+        "sha256": "ab1e6a8bf51ffed47b54569d4786143ef898b539d9d0cdbdc803fb41689132e8",
+        "lines": [
+          28,
+          41
+        ],
+        "coverage_status": "targeted"
+      }
+    ],
+    "reviewed_sql_test_files": [
+      {
+        "path": "supabase/tests/tenant_scoped_rls.sql",
+        "sha256": "d9e56b39281ce8364c94602c2466ddc814027f72bdc01b5bfecd4fccf2076383",
+        "coverage_status": "read_only_source_review"
+      },
+      {
+        "path": "supabase/tests/role_scoped_clinical_read.sql",
+        "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+        "coverage_status": "read_only_source_review"
+      },
+      {
+        "path": "supabase/tests/public_function_acl.sql",
+        "sha256": "5af1a2d87eda9b037971aba86740b3bf13f8a10b1fd597bcc08da02df5b397c1",
+        "coverage_status": "read_only_source_review"
+      },
+      {
+        "path": "supabase/tests/stock_postgrest_read_acl.sql",
+        "sha256": "b9cf961702a946883213eba7d54ff73702ea2fc24137bdcb4d2c1f944d951128",
+        "coverage_status": "read_only_source_review"
+      }
+    ]
+  },
+  "summary": {
+    "new_findings": 0,
+    "duplicate_view_observation": "SEC-017",
+    "disposition": "No new distinct tenant-boundary candidate identified in the assigned slice."
+  },
+  "limitations": [
+    "Inventory counts are source-text searches over the snapshot, not parsed PostgreSQL catalogs.",
+    "SECURITY DEFINER behavior and owner RLS bypass are not verified against the deployed database.",
+    "No SQL tests, database queries, runtime, VPS, secrets or PHI were accessed."
+  ]
+}

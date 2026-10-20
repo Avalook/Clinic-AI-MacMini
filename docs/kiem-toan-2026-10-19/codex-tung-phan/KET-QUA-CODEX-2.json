@@ -1,0 +1,153 @@
+[
+  {
+    "id": "FE-029",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Backend phân trang 50 khách và các thẻ đếm/lọc đều tính trên `rows` của trang hiện tại; thứ tự ưu tiên hoạt động gần nhất khiến việc cũ có thể nằm trang sau. Thanh trang cho biết tổng khách nhưng không nói rõ số trên thẻ chỉ thuộc trang này; khách được chọn ngoài trang còn có thể được chèn thêm nên không phải lúc nào cũng đúng 50 dòng.",
+    "bang_chung": [
+      {"path": "src/dashboard/app/(dashboard)/customers/page.tsx", "line": 142, "end_line": 188, "y": "Trang hiện tại được gửi lên API; kích thước trang là 50 và `rows` lấy từ kết quả backend."},
+      {"path": "src/clinicai/services/danh_sach_khach_cskh.py", "line": 253, "end_line": 281, "y": "Truy vấn xếp theo hoạt động gần nhất, giới hạn và offset theo trang; khách `selected` ngoài trang được nạp bổ sung."},
+      {"path": "src/dashboard/app/(dashboard)/customers/CustomersView.tsx", "line": 903, "end_line": 909, "y": "Danh sách lọc từ `searchedRows` theo cùng vị từ."},
+      {"path": "src/dashboard/app/(dashboard)/customers/CustomersView.tsx", "line": 1348, "end_line": 1379, "y": "Bốn thẻ tính số trực tiếp bằng `rows.filter(...)`."},
+      {"path": "src/dashboard/app/(dashboard)/customers/page.tsx", "line": 1141, "end_line": 1162, "y": "Thanh trang hiển thị số trang và tổng khách, không gắn phạm vi trang vào nhãn thẻ."}
+    ],
+    "chot_chan_da_tim_thay": "Có thanh chuyển trang và tổng số khách, nên người dùng có thể nhận ra còn trang khác; chốt này không làm số thẻ thành tổng toàn bộ hàng đợi.",
+    "ghi_chu_sua": "Nhãn các thẻ nên ghi rõ số của trang hiện tại, hoặc chuyển sang số đếm tổng từ backend với cùng điều kiện lọc."
+  },
+  {
+    "id": "OPS-016",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Các fixture được rà soát chỉ ghi local/staging trong chú thích rồi kiểm tra clinic/cơ sở, không kiểm tra cơ sở dữ liệu có phải môi trường an toàn; `staff_logins.sql` có thể sửa thông tin xác thực và membership của các tài khoản cố định. `undo-roster-fixture.sh` ghi nhận sự cố nạp nhầm roster lên prod, nhưng đây là ghi nhận trong repo chứ không phải bằng chứng độc lập từ DB; cáo buộc về mọi fixture và mức ảnh hưởng cao đều rộng hơn phần đã xác minh.",
+    "bang_chung": [
+      {"path": "supabase/fixtures/staff_logins.sql", "line": 13, "end_line": 42, "y": "Chú thích cảnh báo local/staging; kiểm tra clinic và cơ sở hoạt động, không kiểm môi trường."},
+      {"path": "supabase/fixtures/staff_logins.sql", "line": 76, "end_line": 90, "y": "Upsert `auth.users` cập nhật lại trường mật khẩu và trạng thái xác nhận từ dữ liệu fixture."},
+      {"path": "supabase/fixtures/staff_logins.sql", "line": 99, "end_line": 143, "y": "Upsert identity/staff, xóa membership vai khác và xóa một email fixture cố định."},
+      {"path": "supabase/fixtures/clinic_roster.sql", "line": 20, "end_line": 40, "y": "Roster không tạo login; chỉ kiểm tra clinic tồn tại."},
+      {"path": "scripts/undo-roster-fixture.sh", "line": 1, "end_line": 22, "y": "Script ghi nhận 35 staff fixture mới và 18 tên trùng trong sự cố được mô tả là đã xảy ra trên prod."}
+    ],
+    "chot_chan_da_tim_thay": "`ON_ERROR_STOP` chỉ dừng khi câu SQL lỗi; kiểm tra clinic/cơ sở không phân biệt prod. Script undo có chốt tránh xóa nhân sự đã được tham chiếu, nhưng chốt đó không ngăn lần nạp fixture nhầm.",
+    "ghi_chu_sua": "Thêm kiểm tra môi trường/đích rõ ràng ngay trong fixture và tách fixture có tác động auth khỏi các script vận hành thông thường."
+  },
+  {
+    "id": "DB-008",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "`seed.sql` gọi trực tiếp các hàm đồng bộ mà không có kiểm tra môi trường; hàm chuẩn hóa thuốc duyệt mọi clinic có danh mục, ghi đè các trường chuẩn và tắt mặt hàng ngoài danh sách, còn hàm dịch vụ đồng bộ cũng sửa danh mục/giá đã ghép. Chốt kiểm tra nhân sự chỉ bọc lời gọi trong migration, không bọc lời gọi seed; tuy nhiên seed được mô tả là local/DB mới và không tự chạy khi `db push`, còn bằng chứng chi tiết chỉ xác nhận hai hàm chính chứ không chứng minh cả 13 lời gọi cùng ghi đè dữ liệu như cáo buộc.",
+    "bang_chung": [
+      {"path": "supabase/seed.sql", "line": 1, "end_line": 9, "y": "Seed được mô tả cho local hoặc project mới và không tự áp dụng bằng `db push`; không có kiểm tra môi trường ở phần đầu."},
+      {"path": "supabase/seed.sql", "line": 3717, "end_line": 3758, "y": "Sau khi nạp seed, file gọi trực tiếp các hàm đồng bộ, trong đó có chuẩn hóa thuốc và dịch vụ."},
+      {"path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql", "line": 54, "end_line": 54, "y": "Hàm lặp qua mọi clinic có `drug_catalog`."},
+      {"path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql", "line": 626, "end_line": 657, "y": "Hàm ghi lại thông tin thuốc, tắt thuốc ngoài danh sách; lời gọi trong migration có chốt `IF EXISTS(staff)`, seed thì không."},
+      {"path": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql", "line": 208, "end_line": 302, "y": "Hàm đồng bộ dịch vụ cập nhật mục đã ghép và thêm mục còn thiếu cho các clinic phù hợp."}
+    ],
+    "chot_chan_da_tim_thay": "Chú thích giới hạn seed vào local/DB mới và nêu rõ không chạy qua `db push`; runner migration cũng không áp lại migration đã ghi sổ. Không thấy guard môi trường trong chính seed trước các lời gọi cuối file.",
+    "ghi_chu_sua": "Đặt assertion từ chối DB không mới/không được cho phép trước phần seed và các lời gọi đồng bộ có tác động danh mục."
+  },
+  {
+    "id": "CLIN-001",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Nhánh `doc_trong_phien` chỉ đòi hỏi khám chính hoàn tất sau khi dịch vụ bắt đầu, rồi đặt bước đọc kết quả thành xong mà không kiểm tra đã có kết quả hay bác sĩ đã xem. Trạng thái dịch vụ còn có thể là chờ đối tác; H7/chuông nhắc kết quả là đường theo dõi riêng giúp giảm nguy cơ bỏ sót nhưng không chặn nhãn hành trình sai.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/hanh_trinh_khach_service.py", "line": 714, "end_line": 720, "y": "Dịch vụ `DV_DOI_TAC` có thể làm bước dịch vụ tổng hợp ở trạng thái chờ đối tác."},
+      {"path": "src/clinicai/services/hanh_trinh_khach_service.py", "line": 730, "end_line": 775, "y": "Điều kiện suy đoán chỉ kiểm tra không có phiên/queue/mốc REVIEW, có giờ khám xong và dịch vụ bắt đầu trước đó; sau đó gán `ket=xong_kham` và trạng thái xong."},
+      {"path": "src/clinicai/events/consumers/hanh_trinh.py", "line": 336, "end_line": 392, "y": "Có lịch nhắc H7 và chuông CSKH nếu kết quả đối tác vẫn chưa về."}
+    ],
+    "chot_chan_da_tim_thay": "Phiên hoặc queue REVIEW/mốc đọc riêng ngăn nhánh suy đoán; H7 tạo nhắc theo dõi kết quả đối tác. Các chốt này không yêu cầu kết quả có trước khi đánh dấu bước hành trình xong.",
+    "ghi_chu_sua": "Chỉ suy ra đã đọc trong phiên khi có kết quả hợp lệ và dấu vết đọc; nếu đối tác chưa trả kết quả thì giữ bước ở trạng thái chờ."
+  },
+  {
+    "id": "CLIN-003",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Khi ngày hẹn đổi, lỗi đồng bộ bị rollback trong savepoint và trả `hen_tai_kham: LOI`, nhưng frontend chỉ đọc lỗi HTTP nên vẫn coi phiếu lưu thành công; lưu lại cùng ngày không chạy lại nhánh đồng bộ. Dù vậy, bộ sinh recall có thể tạo lại việc cho lượt đã chốt/sửa khi ngày hẹn vào cửa sổ hôm nay đến 7 ngày tới và màn CSKH gọi endpoint này; đây là phục hồi có điều kiện, không phải retry ngay hay bảo đảm tuyệt đối.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/phieu_kham_service.py", "line": 508, "end_line": 541, "y": "Chỉ đồng bộ khi ngày thay đổi; lỗi bị bắt thành trạng thái LOI trong khi kết quả lưu phiếu vẫn `ok: true`."},
+      {"path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx", "line": 270, "end_line": 303, "y": "Frontend xử lý lỗi HTTP, cập nhật revision và trả `ok: true` mà không đọc `hen_tai_kham`."},
+      {"path": "src/clinicai/services/recall_job_service.py", "line": 84, "end_line": 95, "y": "Khi mở danh sách recall, mặc định gọi bộ sinh việc trước khi đọc."},
+      {"path": "supabase/migrations/20261006100000_luot_that_ho_so_cu.sql", "line": 79, "end_line": 104, "y": "Bộ sinh xét lượt FINALIZED/AMENDED và ngày hẹn trong khoảng hôm nay đến 7 ngày."},
+      {"path": "src/dashboard/app/(dashboard)/customers/page.tsx", "line": 296, "end_line": 299, "y": "Màn khách hàng gọi endpoint sinh/đọc recall jobs."}
+    ],
+    "chot_chan_da_tim_thay": "Mở màn CSKH có thể sinh lại việc trong phạm vi lượt/ngày nêu trên; nếu không mở màn, ngày ngoài cửa sổ, hoặc điều kiện lượt không khớp thì không có bằng chứng retry tương đương ngay lúc lưu.",
+    "ghi_chu_sua": "Frontend nên hiển thị cảnh báo `hen_tai_kham` và cho thử đồng bộ lại dù ngày hẹn không đổi."
+  },
+  {
+    "id": "DB-001",
+    "ket_luan": "KHONG_XAC_DINH",
+    "muc_do_dung": "KHONG_AP_DUNG",
+    "ly_do": "Commit có migration thu hồi EXECUTE khỏi PUBLIC/anon cho toàn bộ function public, không cấp hai RPC liệu trình này cho authenticated và chỉ cấp service_role; vì vậy khẳng định tĩnh rằng code không có REVOKE là sai. Nhưng migration được áp riêng và không thể đọc migration ledger/ACL DB theo phạm vi audit, nên chưa xác định được PostgREST production hiện đang bị chặn hay chưa.",
+    "bang_chung": [
+      {"path": "supabase/migrations/20261008100000_lieu_trinh.sql", "line": 283, "end_line": 340, "y": "Hai RPC là SECURITY DEFINER, nhận clinic/actor qua tham số và không tự đối chiếu danh tính trong thân hàm."},
+      {"path": "supabase/migrations/20261019100000_harden_public_function_acl.sql", "line": 7, "end_line": 12, "y": "Thu hồi EXECUTE trên mọi function schema public khỏi PUBLIC và anon, đồng thời sửa quyền mặc định."},
+      {"path": "supabase/migrations/20261019100000_harden_public_function_acl.sql", "line": 26, "end_line": 55, "y": "Mô tả các hàm tin tham số là backend-only; hai RPC liệu trình chỉ được cấp cho service_role."},
+      {"path": "scripts/apply-pending-migrations.sh", "line": 33, "end_line": 34, "y": "Mặc định chỉ thử khô; cần `--apply` để áp migration thật."}
+    ],
+    "chot_chan_da_tim_thay": "Có migration khắc phục trong commit; chốt cuối ở production là trạng thái migration/ACL đang áp dụng, không thể xác nhận chỉ bằng Git blob.",
+    "ghi_chu_sua": ""
+  },
+  {
+    "id": "DB-002",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Hai script staging cấp ALL trên bảng và sequence cho authenticated/service_role, không cấp blanket EXECUTE; quyền bảng rộng có thể làm mất giới hạn chỉ đọc cột của `clinical_record` ở những dòng RLS cho phép. Đường `restore-db.sh` nạp dump public-only không kèm ACL và không reconcile quyền trong script, nhưng chỉ khôi phục dữ liệu ứng dụng vào DB rỗng theo quy trình có xác nhận; chưa có bằng chứng việc này đã được coi là khôi phục hoàn chỉnh hoặc gây sự cố.",
+    "bang_chung": [
+      {"path": "scripts/staging-nap-ban-sao.sh", "line": 229, "end_line": 244, "y": "Cấp ALL trên bảng/sequence, sau đó chạy lại ACL function và stock-read; không có GRANT blanket EXECUTE."},
+      {"path": "scripts/staging-tu-ban-sao.sh", "line": 104, "end_line": 113, "y": "Cấp ALL trên bảng/sequence và chạy lại ACL function cùng stock-read."},
+      {"path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql", "line": 1, "end_line": 20, "y": "Migration thu hồi SELECT toàn bảng rồi chỉ cấp các cột an toàn vì RLS không che được cột; blanket table grant có thể mở lại cột đã loại trừ."},
+      {"path": "scripts/restore-db.sh", "line": 128, "end_line": 143, "y": "Script nêu rõ dump chỉ có public schema, không phải full Supabase DR."},
+      {"path": "scripts/restore-db.sh", "line": 173, "end_line": 235, "y": "Chỉ nhận target chưa có bảng public, yêu cầu xác nhận và nạp/kiểm tra dữ liệu; không thấy bước reconcile ACL trong luồng này."},
+      {"path": "supabase/migrations/20260805000005_clinic_secret.sql", "line": 181, "end_line": 229, "y": "Bảng clinic_secret có RLS và không có policy đọc, nên blanket grant đơn thuần không đủ chứng minh đọc được bảng này."}
+    ],
+    "chot_chan_da_tim_thay": "RLS vẫn là chốt theo hàng; quyền cột của `clinical_record` vẫn có thể bị mở rộng do GRANT mức bảng. Khẳng định blanket EXECUTE và suy luận đọc được clinic_secret không được mã nguồn hỗ trợ.",
+    "ghi_chu_sua": "Sau mỗi restore staging, tái áp các migration ACL cho cả quyền bảng/cột; bỏ blanket table grant hoặc cấp quyền theo allowlist."
+  },
+  {
+    "id": "DB-004",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Hàm chuẩn hóa thuốc lấy mọi clinic có drug_catalog, ghi đè tên/giá/đơn vị/hướng dẫn theo bộ dữ liệu KiotViet và tắt mặt hàng ngoài tập chuẩn; seed gọi lại hàm không kèm clinic filter. Migration thông thường chỉ chạy một lần vì runner bỏ qua version đã ghi sổ, nên rủi ro tập trung vào DB nhiều clinic hoặc thao tác chạy seed/hàm trên DB đang sống; chưa có bằng chứng clinic độc lập nào đang bị ảnh hưởng ở production.",
+    "bang_chung": [
+      {"path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql", "line": 1, "end_line": 28, "y": "Nguồn dữ liệu chuẩn được mô tả theo danh mục KiotViet của phòng khám."},
+      {"path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql", "line": 54, "end_line": 54, "y": "Hàm duyệt mọi clinic có drug_catalog."},
+      {"path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql", "line": 626, "end_line": 657, "y": "Cập nhật thông tin chuẩn, tắt mặt hàng ngoài tập và chỉ bọc lời gọi migration bằng kiểm tra staff."},
+      {"path": "supabase/seed.sql", "line": 3725, "end_line": 3729, "y": "Seed gọi trực tiếp hàm chuẩn hóa thuốc."},
+      {"path": "scripts/apply-pending-migrations.sh", "line": 92, "end_line": 100, "y": "Runner đưa vào danh sách chỉ các migration chưa có version trong ledger."}
+    ],
+    "chot_chan_da_tim_thay": "Runner bình thường không chạy lại migration đã ghi sổ; lời gọi seed vẫn là đường chạy lại không có cùng chốt staff.",
+    "ghi_chu_sua": "Giới hạn hàm bằng clinic được chỉ định hoặc chuyển danh mục riêng vào cấu hình từng phòng khám thay vì áp cho mọi clinic."
+  },
+  {
+    "id": "FIN-002",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Các truy vấn bán thuốc/lịch sử/tư vấn/thẻ kho/phiếu kho có giới hạn dòng và đa số API trả danh sách mà không có cursor/tổng số; helper cảnh báo chạm trần chỉ ghi log. Tuy nhiên API màn bán thuốc trả `bi_cat` và `tran` nên khẳng định API không báo bị cắt là sai ở đường đó, dù kiểu dữ liệu/UI không hiện cảnh báo; cũng chưa có bằng chứng dataset production đã vượt giới hạn.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/ban_thuoc_service.py", "line": 231, "end_line": 270, "y": "Bảng bán thuốc truy vấn tối đa 300 dòng trước khi gom nhóm."},
+      {"path": "src/clinicai/services/ban_thuoc_service.py", "line": 596, "end_line": 605, "y": "API trả cờ `bi_cat` và giới hạn `tran` cho màn bán thuốc."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 227, "end_line": 267, "y": "Lịch sử và danh sách tư vấn giới hạn lần lượt 200/100; helper chỉ cảnh báo log."},
+      {"path": "src/clinicai/services/kho_thuoc_service.py", "line": 218, "end_line": 233, "y": "Thẻ kho giới hạn 1.000 dòng và gọi helper cảnh báo."},
+      {"path": "src/clinicai/services/kho_thuoc_service.py", "line": 348, "end_line": 388, "y": "Danh sách phiếu kho giới hạn 100 phiếu theo clinic, loại và cơ sở."},
+      {"path": "src/clinicai/core/tran.py", "line": 35, "end_line": 51, "y": "Helper chạm ngưỡng chỉ log cảnh báo, không thay đổi payload."},
+      {"path": "src/clinicai/api/v1/routers/pharmacy.py", "line": 420, "end_line": 443, "y": "Endpoint lịch sử/tư vấn chỉ bọc kết quả trong `items`."}
+    ],
+    "chot_chan_da_tim_thay": "Một API có cờ cắt dữ liệu, nhưng UI không dùng; các API danh sách khác không trả phân trang/tổng số. Tất cả truy vấn được giới hạn theo clinic và thường theo cơ sở.",
+    "ghi_chu_sua": "Hiển thị `bi_cat` trên màn bán thuốc và bổ sung tổng số/cursor cho các danh sách còn lại; cần số liệu vận hành để xếp mức độ thực tế."
+  },
+  {
+    "id": "FIN-003",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "Luồng thêm thuốc gửi JSON không có idempotency key; BFF chuyển tiếp request mà không thêm khóa, endpoint gọi service trực tiếp, và mỗi dòng mới thiếu ID nhận UUID cùng source_ref ngẫu nhiên mới. Nếu DB đã commit nhưng phản hồi mất và người dùng gửi lại bản nháp còn giữ, khóa giao dịch theo lượt không nhận diện lần gửi trước nên có thể tạo dòng thuốc thứ hai.",
+    "bang_chung": [
+      {"path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx", "line": 70, "end_line": 82, "y": "Request thêm thuốc chỉ đặt Content-Type và body JSON; lỗi mạng giữ nguyên bản nháp."},
+      {"path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx", "line": 201, "end_line": 220, "y": "Sau thao tác thêm, chỉ xóa draft khi không có lỗi."},
+      {"path": "src/dashboard/app/api/quay-thuoc/route.ts", "line": 49, "end_line": 55, "y": "BFF chuyển tiếp thao tác `them` mà không truyền khóa chống lặp."},
+      {"path": "src/clinicai/api/v1/routers/quay_thuoc.py", "line": 90, "end_line": 116, "y": "Endpoint xác thực quyền rồi gọi service, không có dependency idempotency."},
+      {"path": "src/clinicai/services/quay_thuoc_service.py", "line": 418, "end_line": 435, "y": "Giao dịch khóa lượt và kiểm tra quyền/đã thu tiền, nhưng không tra bản request đã xử lý."},
+      {"path": "src/clinicai/services/quay_thuoc_service.py", "line": 529, "end_line": 555, "y": "Mỗi dòng mới tạo UUID và source_ref ngẫu nhiên khi insert."}
+    ],
+    "chot_chan_da_tim_thay": "Khóa hàng lượt và transaction bảo vệ thao tác đồng thời/ghi dở dang, nhưng không chống gửi lại cùng payload sau khi commit.",
+    "ghi_chu_sua": "Tạo và truyền idempotency key ổn định cho thao tác thêm thuốc, lưu kết quả request để retry trả lại cùng kết quả."
+  }
+]

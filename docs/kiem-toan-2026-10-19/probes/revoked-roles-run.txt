@@ -1,0 +1,88 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_86177_dr4women_macmini (1 worker) sẵn sàng sau 4s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_revoking_all_capabilities_does_not_restore_result_access _________
+
+pool = <asyncpg.pool.Pool object at 0x10da84100>
+
+    async def test_revoking_all_capabilities_does_not_restore_result_access(
+        pool: asyncpg.Pool,
+    ) -> None:
+        async with pool.acquire() as conn:
+            doctor = await _nguoi(conn, "DOCTOR")
+            await conn.execute(
+                "UPDATE capability_grant SET revoked_at=now(),revoked_by=$1::uuid,"
+                " ly_do='Synthetic audit: revoke all work packs'"
+                " WHERE staff_id=$1::uuid AND revoked_at IS NULL", doctor.staff_id
+            )
+        assert (
+            await pool.fetchval(
+                "SELECT count(*) FROM v_quyen_thuc_te WHERE clinic_id=$1::uuid"
+                " AND staff_id=$2::uuid",
+                doctor.clinic_id,
+                doctor.staff_id,
+            )
+            == 0
+        )
+        roles = await doc_vai_theo_lego(
+            pool, doctor.clinic_id, doctor.staff_id, doctor.role
+        )
+        identity = replace(doctor, vai_theo_lego=roles)
+        async with pool.acquire() as conn:
+            assert not await can(conn, identity, "clinical.consult.perform")
+            allowed = await doc_duoc_tep_ket_qua(conn, identity)
+>       assert allowed is False, "Legacy role restored result access after final revoke"
+E       AssertionError: Legacy role restored result access after final revoke
+E       assert True is False
+
+src/tests/services/test_audit_1910_revoked_roles_db.py:46: AssertionError
+=========================== short test summary info ============================
+FAILED src/tests/services/test_audit_1910_revoked_roles_db.py::test_revoking_all_capabilities_does_not_restore_result_access
+1 failed in 0.25s

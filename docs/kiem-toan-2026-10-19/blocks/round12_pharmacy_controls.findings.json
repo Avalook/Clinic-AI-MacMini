@@ -1,0 +1,67 @@
+{
+  "audit": "round12_pharmacy_controls",
+  "snapshot": {
+    "path": "/tmp/clinicai-audit-main-956ba4f2",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha_verification": "task-provided pin; exact-main export has no .git metadata"
+  },
+  "review_mode": "static_read_only_selective_trace",
+  "tests_run": false,
+  "runtime_db_vps_ci_run": false,
+  "findings": [
+    {
+      "id": "CAND-PHAR-STOCK-001",
+      "title": "Điều chỉnh tồn thủ công không kiểm giới hạn và độ chính xác của số lượng",
+      "severity": "LOW",
+      "evidence_level": "confirmed_static_validation_gap_effect_inferred_from_numeric_schema",
+      "category": "pharmacy_inventory_input_validation",
+      "summary": "Endpoint điều chỉnh nhận so_luong dạng float và chỉ chặn giá trị không hữu hạn/zero trong service; không áp giới hạn trị tuyệt đối hoặc kiểm tra tối đa ba chữ số thập phân trước khi ghi inventory_txn.numeric(12,3). Payload lớn có thể tràn numeric ở DB; payload nhiều chữ số thập phân có thể bị DB làm tròn, và giá trị nhỏ có thể thành zero rồi không qua check quantity <> 0. Chưa tái hiện HTTP response hoặc hành vi làm tròn thực tế.",
+      "trigger": "Staff có quyền kho gửi POST /api/v1/pharmacy/adjust với số lượng nằm ngoài miền numeric(12,3) hoặc có hơn ba chữ số thập phân, ví dụ 0.0004.",
+      "impact": "Lỗi nhập liệu có thể trở thành lỗi ghi DB không thân thiện thay vì 422; giá trị vượt scale có nguy cơ được làm tròn khi lưu. Static trace cho thấy transaction và constraint DB bảo vệ sổ/tồn khỏi ghi không hợp lệ; chưa có bằng chứng về sai lệch tồn đã xảy ra.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/pharmacy.py",
+          "lines": "1098-1118",
+          "sha256": "f5d2086e4c71db714773f4d5bd62bd4fce3d7d474eea407c834b8c039a2b4ff8",
+          "detail": "Request khai so_luong: float, allow_inf_nan=False; route gọi PharmacyService.dieu_chinh. Không có giới hạn max hoặc scale trong model."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "lines": "1721-1750",
+          "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+          "detail": "Service chuyển Decimal, kiểm finite và zero, rồi gửi thẳng tới _ghi_kho_don_gian; không gọi _so/kiểm scale/giới hạn."
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "lines": "2714-2778",
+          "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+          "detail": "Luồng khóa lô, kiểm không trừ vượt tồn rồi INSERT sổ với quantity chưa được validate theo precision/range ở service."
+        },
+        {
+          "path": "supabase/migrations/20260802000001_pharmacy_inventory.sql",
+          "lines": "86-112",
+          "sha256": "7831bde3f4eac8ca06cc58ef1077156e6d70386998f43a7f29591d2ee10d62b8",
+          "detail": "inventory_txn.quantity là numeric(12,3), ADJUST chỉ có constraint quantity <> 0; schema không nêu quy tắc nghiệp vụ max thấp hơn hoặc yêu cầu scale từ input."
+        },
+        {
+          "path": "src/tests/unit/test_pharmacy_inventory_p1.py",
+          "lines": "94-104",
+          "sha256": "d87456b04ece473ec2374780c833c992a0f4e56b4a8d8ab387537007c3914fa0",
+          "detail": "Unit test service kiểm NaN/Infinity/-Infinity; không có test bound/scale cho ADJUST."
+        }
+      ],
+      "validation": {
+        "method": "static_route_service_schema_and_direct_test_trace",
+        "result": "Thiếu validate bound/precision được xác nhận từ code; lỗi numeric overflow, làm tròn và HTTP status là suy luận chưa chạy.",
+        "limitations": "Không chạy test, ASGI, DB hay runtime; không xác nhận được exception mapping hoặc hành vi cast PostgreSQL trên đúng deployment."
+      },
+      "recommendation": "Nhận Decimal tại boundary; kiểm finite, max nghiệp vụ và scale 3 trước transaction; trả ValidationError/422 có nội dung cụ thể. Giữ check DB làm lớp phòng thủ cuối và dùng chung validator giữa nhập, huỷ, điều chỉnh.",
+      "acceptance": "Unit + ASGI tests xác nhận out-of-range, >3 decimal places, NaN/Infinity và zero đều trả 422 trước ghi; payload hợp lệ tối đa 3 decimals ghi đúng; sổ và quantity_on_hand không đổi với mọi payload bị từ chối.",
+      "deduplication": {
+        "reviewed": ["PHAR-001", "FIN-002", "FIN-008", "FIN-003", "CLIN-007", "CLIN-030", "pharmacy/round3 blocks"],
+        "duplicate": false,
+        "reason": "Chỉ về validation precision/range của thao tác điều chỉnh tồn thủ công, không trùng refund/return, list truncation, retry thêm dòng, wrong-drug allocation hoặc patient dedupe."
+      }
+    }
+  ]
+}

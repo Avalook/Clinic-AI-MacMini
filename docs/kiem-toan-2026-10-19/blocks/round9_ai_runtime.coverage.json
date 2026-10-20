@@ -1,0 +1,757 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_ai_runtime_slice",
+  "scope": [
+    "All Python files in tools, graphs, orchestrator, llm and event_bus were read in full.",
+    "Selected FastAPI, migration and test paths were read at the spans noted below.",
+    "Static source review only; no app, provider, DB, production or patient data access."
+  ],
+  "findings_count": 1,
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/lab.py",
+      "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+      "lines": 341,
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "214-219",
+        "240-258"
+      ],
+      "notes": "LLM singleton dependency and triage callsite; router not fully reviewed."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "lines": 404,
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "341-351"
+      ],
+      "notes": "LLM cost dashboard data source; router not fully reviewed."
+    },
+    {
+      "path": "src/clinicai/event_bus/__init__.py",
+      "sha256": "65f2a4246dd844d8b6d94730df13be23408fa576c2e08cc398376a688bb66671",
+      "lines": 1,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-1"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/event_bus/adapters/__init__.py",
+      "sha256": "eb4a22cf0647d5fd68caca34d1a32d7ecdfb5b92b4688a0ab154470b7a874f19",
+      "lines": 1,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-1"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/event_bus/adapters/base.py",
+      "sha256": "8250e7b8567e7180c296a2f4a19c5a6e1837e496f79f8e2de9cc1ab918950e0e",
+      "lines": 74,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-74"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/event_bus/consumer.py",
+      "sha256": "a3ff7098f1ce903f101431450c4cc26999b1cf616f07b37ecd58afbd80e94a21",
+      "lines": 113,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-113"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/event_bus/publisher.py",
+      "sha256": "e81872fd6c19251c8aadf77594e416f2f24e69fb08eb1513ee5bd7b952edcef0",
+      "lines": 58,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-58"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/event_bus/topics.py",
+      "sha256": "db8f99bb65ebb00fe9902424835fe1b3923f2fb597542192136e92e827964459",
+      "lines": 10,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-10"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-0"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/lab_triage/__init__.py",
+      "sha256": "4d1a0be78c831424ae5ef991db44ed5496b225281a646eedcd151298376f1652",
+      "lines": 5,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-5"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/lab_triage/graph.py",
+      "sha256": "27cb880489073cda3bd92727825658f9245f53c86126ee423099f62597510c17",
+      "lines": 122,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-122"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/lab_triage/nodes.py",
+      "sha256": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23",
+      "lines": 443,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-443"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/lab_triage/state.py",
+      "sha256": "a1cd2fd879293176bc9a7c7cde7f92a5149e95d34427fb96224424a1c7e65c0c",
+      "lines": 58,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-58"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/scheduling/__init__.py",
+      "sha256": "3dc68e3b5cc8d14e1000c218b6c0cdd1cb3d14da2878ae8501fcdc46b72fb46c",
+      "lines": 9,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-9"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/scheduling/graph.py",
+      "sha256": "d043fa4c1e6d833a9fc4363a86fa3e0bad8c3bc846c3a5112a75fddc30f90928",
+      "lines": 91,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-91"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/scheduling/nodes.py",
+      "sha256": "e1b071dfbde956325cff8ad44d3d0026ef34d8f2a6be1081c45c5955c90f2346",
+      "lines": 257,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-257"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/scheduling/parsers.py",
+      "sha256": "3d273a7dd8696bf0a6a542530da4788c530271933a91e85a91484f9cfc87ef17",
+      "lines": 111,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-111"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/scheduling/session_mapper.py",
+      "sha256": "44ca9067b5d92e46c6dee937b7a163132bc144115c958f3fd444cbd1b6814bfa",
+      "lines": 42,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-42"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/scheduling/state.py",
+      "sha256": "a3f9bd9a2ee8e7061d944aa7bde0de4101827c31d623bfc4b86241445e846dd5",
+      "lines": 25,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-25"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/task_manager/__init__.py",
+      "sha256": "6aaadd11ec13aedd74ffd5e0c9642e225ca594fad522329e48660afededb0f85",
+      "lines": 6,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-6"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/task_manager/graph.py",
+      "sha256": "1ee6872c40a68467e2e21c553ef63d7fff0c7ab0f325454c47cfab1bb78ebf82",
+      "lines": 54,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-54"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/task_manager/nodes.py",
+      "sha256": "463ef122f3ad79add68ca2b575acb72fdfc625ccbec9d9c0441f66ddcbd0e7c2",
+      "lines": 197,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-197"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/graphs/task_manager/state.py",
+      "sha256": "376eaa8ea2d5e7ea81898642c65268ce83c03b6e58a5637fd4bf59d17fe70c3e",
+      "lines": 50,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-50"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/llm/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-0"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/llm/anthropic_client.py",
+      "sha256": "78b44a6e72b3f2483930698e68b242dbe456feb21466f92e5e5c32bea0a1652c",
+      "lines": 224,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-224"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/llm/batch.py",
+      "sha256": "0d579b0470217f01f408a07b788b4db288184a6386e30047a5e7e16a402fc967",
+      "lines": 149,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-149"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/llm/chi_phi.py",
+      "sha256": "db37ce0b0c6e328dd0d5de7182ddcd1ecc0d082480a2146b81791ceae2ecf29b",
+      "lines": 282,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-282"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/llm/models.py",
+      "sha256": "a8fe3e175ec1466a90355505950a89933064ba45ccb0e7f8d7f6636ddcad7c15",
+      "lines": 13,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-13"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "lines": 654,
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "154-163",
+        "174-181"
+      ],
+      "notes": "Lifespan client wiring and singleton injection; not a full file read."
+    },
+    {
+      "path": "src/clinicai/orchestrator/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-0"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/orchestrator/checkpointer.py",
+      "sha256": "96db03ab11efa083fca2af1c9227c729b9eac6ef143247c85f1f195fdfd0a16f",
+      "lines": 85,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-85"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/orchestrator/graph.py",
+      "sha256": "bbeabbad8a4ae660eaeb0974ba98b940465f6c25ed5d7fa89bb2c0ae9a5e7524",
+      "lines": 274,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-274"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/orchestrator/llm_nodes.py",
+      "sha256": "dfa971c72bfac2e03fade52515d3df72726765b7d50fabe17a37a82db2f172d3",
+      "lines": 247,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-247"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/orchestrator/nodes.py",
+      "sha256": "647d14b84be20e3e8f642f775191ec2dd1e2c1735f057fa597c0eb6f75ba5997",
+      "lines": 86,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-86"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/orchestrator/service.py",
+      "sha256": "5e1051e77ae6077500cc44882b89e707d380cd7bbc336de019c99932487934ba",
+      "lines": 74,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-74"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/orchestrator/state.py",
+      "sha256": "7ee27425dd281287645d449e10092a4782bf5e0bc53f98dc27f63eacfe49655d",
+      "lines": 61,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-61"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/orchestrator/stubs.py",
+      "sha256": "e143291d3865b4f25352bc70d4378a56b535f7b70bc5dd7b74a9692f5b160f2d",
+      "lines": 58,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-58"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/__init__.py",
+      "sha256": "85a646f6c0cb78784e4c0ac13e58c637f258d878f949e85364dc04a578bda92d",
+      "lines": 35,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-35"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/_common/__init__.py",
+      "sha256": "a12c81638306c274a9cf25c5d271b2267d1016791ae6eed76be0e73a304335fb",
+      "lines": 1,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-1"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/_common/context.py",
+      "sha256": "13686dc39784929de4a2e3211e7fa7282d649de6e106c44a299b5689239039e4",
+      "lines": 44,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-44"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/communication/__init__.py",
+      "sha256": "733bddc27d32c41eedb240f53542404655ac4711ea175f6f654f503e88148b51",
+      "lines": 25,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-25"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/communication/send_zalo.py",
+      "sha256": "faffb14056db9bea061ef243af85e20ef0e4c30bb97e5fdb253b69c470f87f91",
+      "lines": 48,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-48"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/event_log/__init__.py",
+      "sha256": "01845d268eb76e7afa8035cdbea0020e1fa7fa031ded5ef15154acdae92e9ee0",
+      "lines": 25,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-25"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/event_log/append.py",
+      "sha256": "75d7aa149f6e1047108a4aec2b4f6c1f319cfb02c88c66a438cd44e45e10d2e4",
+      "lines": 72,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-72"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/kb/__init__.py",
+      "sha256": "ab76cdd93e8f9bf21a3d851597c23dfc302774bc2047500b9e0785aa4f752b93",
+      "lines": 25,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-25"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/kb/read_policy.py",
+      "sha256": "04770bf91c41c47819d62aa2f8be83522d07a04cdc6a7043958f61d13072737b",
+      "lines": 93,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-93"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/lab/__init__.py",
+      "sha256": "83a1b4ea3bc31fd074806a55fa0b1a1308f3339910970646f41c251ab00fd602",
+      "lines": 36,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-36"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/lab/_rules.py",
+      "sha256": "3eb02a19d5e2dd9f0cc80872f192f82128b181c57d703f6c550435b29d1cf80c",
+      "lines": 170,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-170"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/lab/classify.py",
+      "sha256": "7ff5144241e639bbe146e18756581e77696327f136056799736dd07445244765",
+      "lines": 305,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-305"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/lab/query_lab_result.py",
+      "sha256": "fade51fb33b99cd36499184889b210b788259959f8b114e33ecdc4dd104bc863",
+      "lines": 177,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-177"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/patient/__init__.py",
+      "sha256": "75a7e8d9717d90e6f719fb9ec683c5b13423906097a6a4bfad93cf7e8584ce51",
+      "lines": 25,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-25"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/patient/get_summary.py",
+      "sha256": "00b44d2c968f430967f86e8831f68a5e02c90a0659c1b1fd7014509e02e0f8e9",
+      "lines": 71,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-71"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/registry.py",
+      "sha256": "c2a4ade00cd93b2b019406c6cc299050f7ab2064d1845a1227372396e4ff51e5",
+      "lines": 122,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-122"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/scheduling/__init__.py",
+      "sha256": "a95f868a4ec801a2d8db75ad0ff62ddc6b248e2db98fbf8df6e6973b594d88ea",
+      "lines": 118,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-118"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/scheduling/cancel_appointment.py",
+      "sha256": "e47bbaed03a21c4a102af7ea505dce504e8ea631f156e8b6f7d296260bcc942e",
+      "lines": 47,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-47"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/scheduling/confirm_appointment.py",
+      "sha256": "83d3770c95f38cf37cb58924c02b521ec8b6d0213b6ff33a65157cdcb85926f5",
+      "lines": 45,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-45"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/scheduling/create_appointment.py",
+      "sha256": "d3b692b38315405bd7671d58bb2cad88050582def5159308d1674f21cf543229",
+      "lines": 97,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-97"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/scheduling/find_oncall.py",
+      "sha256": "5cbd193a83015041f8b918477c8891a48d89583851b5b426ffbbcfc2cc54d027",
+      "lines": 78,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-78"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/scheduling/find_work_sessions.py",
+      "sha256": "933aa3bd2a14aec590467f55ced356ca76993266edc8c58f4d553c58b7bd759b",
+      "lines": 123,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-123"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/task/__init__.py",
+      "sha256": "3ff3aaff00fe4a57c37f4dce279aa3f74d2b099b88b9948586ac8bc8504b92af",
+      "lines": 97,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-97"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/task/check_sla.py",
+      "sha256": "d9d58110e1f5799e8a243123a8ed15c56ad617f0b072fcef5fa426f5d27d1f62",
+      "lines": 127,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-127"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/task/create_task.py",
+      "sha256": "648b61219de4b039ced6b10f07ca70da9c1f962759cc42d414b90fa585f92c30",
+      "lines": 138,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-138"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/task/query_tasks.py",
+      "sha256": "8830110c450081d2a927d91dd785ca36960cb0f352dc439f1b148e0c202c5680",
+      "lines": 139,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-139"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/clinicai/tools/task/update_task_status.py",
+      "sha256": "66bc45a3045d49488e41113b922bdf0db8cbdc61ff32eb3718a1b2760256a24c",
+      "lines": 106,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-106"
+      ],
+      "notes": "Đọc trọn file trong lát AI runtime; không suy rộng sang caller ngoài danh sách."
+    },
+    {
+      "path": "src/tests/graphs/lab_triage/test_lab_triage_skeleton.py",
+      "sha256": "8fbb94440211900d66f0c734316770a4138a2dbede32efd15b9f236de07f54a1",
+      "lines": 356,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-end"
+      ],
+      "notes": "Full lab-triage skeleton test read; no production behavior implied."
+    },
+    {
+      "path": "src/tests/graphs/task_manager/test_task_manager_graph.py",
+      "sha256": "fe806ea23cebfb1d1cd9dd0e509a2eb54c92b8001f8d2ea117f4013d5fd64de5",
+      "lines": 272,
+      "status": "partial_semantic_read",
+      "ranges": [
+        "main flow and related assertions"
+      ],
+      "notes": "Selected test flow read; not full test-file review."
+    },
+    {
+      "path": "src/tests/llm/test_anthropic_client_unit.py",
+      "sha256": "4971babeb602fd7d181b1f6ae7a000fb519dcee5bba2dab8e321f0d0464e7b29",
+      "lines": 175,
+      "status": "targeted_test_review",
+      "ranges": [
+        "entire relevant LLM client suite scanned/read selectively"
+      ],
+      "notes": "Client behavior tests reviewed for pool/no-pool distinction; no live provider."
+    },
+    {
+      "path": "src/tests/services/orchestrator/test_e2e_lab_triage.py",
+      "sha256": "0173d529bd4c0654b38ea69f170b36b7dfa768fd9c127961637d2e78bb5a4695",
+      "lines": 219,
+      "status": "partial_semantic_read",
+      "ranges": [
+        "main flow and related assertions"
+      ],
+      "notes": "Selected test flow read; not full test-file review."
+    },
+    {
+      "path": "src/tests/services/orchestrator/test_e2e_scheduling.py",
+      "sha256": "67e6c84c8f23ca345f4d1636ccc403475ecbcf6d9ddcc6142ea6d434805aedf2",
+      "lines": 140,
+      "status": "partial_semantic_read",
+      "ranges": [
+        "main flow and related assertions"
+      ],
+      "notes": "Selected test flow read; not full test-file review."
+    },
+    {
+      "path": "src/tests/services/orchestrator/test_graph_routing.py",
+      "sha256": "8efe85d31243422b50e9f491b5953aaa120ab39cd80668ffe358a2537d67e25b",
+      "lines": 38,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-end"
+      ],
+      "notes": "Full graph-routing test read."
+    },
+    {
+      "path": "src/tests/services/orchestrator/test_orchestrator_endpoint.py",
+      "sha256": "dc7c0437f140b65c5c04d982821e37e10ad8c81d21c1fce8061947accf4c7055",
+      "lines": 49,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-end"
+      ],
+      "notes": "Full orchestrator API boundary test read."
+    },
+    {
+      "path": "src/tests/services/test_llm_chi_phi_db.py",
+      "sha256": "7330a081f594101f7237e0d6b80e299009093e8bbfb29cd10d583f4161abfadd",
+      "lines": 198,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-198"
+      ],
+      "notes": "Full test-file read; database tests not executed."
+    },
+    {
+      "path": "src/tests/unit/test_llm_chi_phi.py",
+      "sha256": "ee360a28d006231810c139dfb5ba62e560f38d105deb614052fa745819a65d39",
+      "lines": 63,
+      "status": "full_semantic_read",
+      "ranges": [
+        "1-end"
+      ],
+      "notes": "Full unit-test read; no app/DB integration implied."
+    },
+    {
+      "path": "supabase/migrations/20261009870000_llm_chi_phi.sql",
+      "sha256": "95762aaf6643f61004f0edc94a1af600e790bbd747745d19f856f1e4438293bf",
+      "lines": 56,
+      "status": "targeted_semantic_read",
+      "ranges": [
+        "1-35",
+        "49-56"
+      ],
+      "notes": "Cost ledger schema, comments, RLS and grants; migration not fully reviewed in this slice."
+    }
+  ]
+}

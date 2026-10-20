@@ -1,0 +1,843 @@
+{
+  "chunk": "S14",
+  "findings": [
+    {
+      "tmp_id": "S14-1",
+      "title": "Khoá Idempotency-Key của lớp gọi lệnh lâm sàng được sinh MỚI ở mỗi lần gọi nên không chống được gửi lại sau mất phản hồi",
+      "severity": "MEDIUM",
+      "category": "idempotency_client",
+      "evidence_level": "confirmed_static",
+      "summary": "Hàm guiThaoTac (đường chung cho check-in, chỉ định, bắt đầu/xong dịch vụ, xếp phòng, chọn dịch vụ, thêm vật tư, nhận vào phòng, tick phí khám… qua /api/luot-kham) tạo một Idempotency-Key ngẫu nhiên mới trong MỖI lần gọi. Proxy chuyển khoá này xuống FastAPI và nhiều lệnh backend ghi chú 'khoá gửi lại bắt buộc'. Vì khoá đổi theo từng lần bấm, khi phản hồi bị mất nhưng giao dịch đã commit, lần bấm lại của nhân viên là một thao tác 'mới' dưới mắt backend. Chính repo đã tự ghi nguyên tắc ngược lại ở customers/khoa-mot-lan.ts (khoá phải gắn với THAO TÁC, không sinh mới mỗi lần bấm) và đã áp dụng đúng ở LamThemTaiQuay, DoiLichTaiCho, LieuTrinhKhach, PhanHoiThuocKhach. Thông báo lỗi mạng của guiThaoTac còn khẳng định 'thao tác CHƯA được ghi' dù kết quả thực sự chưa biết.",
+      "trigger": "Nhân viên bấm một lệnh qua guiThaoTac (vd chỉ định dịch vụ, thêm vật tư, nhận vào phòng); máy chủ commit nhưng phản hồi bị rớt (wifi chập chờn, timeout proxy); màn hiện 'Mất kết nối — thao tác CHƯA được ghi' và nhân viên bấm lại.",
+      "impact": "Có thể sinh bản ghi lặp (chỉ định/vật tư/dòng sổ) hoặc kích hoạt hai lần side-effect nếu backend không có lớp chặn thứ hai ở từng lệnh (revision, attempt_id, unique). Nhân viên được báo 'chưa ghi' nên tin sai về trạng thái thật, trái mục tiêu Reality rõ.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+          "line": 212,
+          "end_line": 216,
+          "detail": "khoaGuiLai() trả chuỗi ngẫu nhiên theo Date.now()+Math.random(); không nhận định danh thao tác."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+          "line": 218,
+          "end_line": 251,
+          "detail": "guiThaoTac gọi khoaGuiLai() bên trong mỗi lần gọi và gắn vào header Idempotency-Key; nhánh catch trả 'Mất kết nối — thao tác CHƯA được ghi.' (status 0)."
+        },
+        {
+          "path": "src/dashboard/app/api/luot-kham/route.ts",
+          "line": 57,
+          "end_line": 66,
+          "detail": "Chú thích các lệnh chọn-dịch-vụ, bat-dau-v1/xong-v1… ghi 'Khoá gửi lại bắt buộc'."
+        },
+        {
+          "path": "src/dashboard/app/api/luot-kham/route.ts",
+          "line": 264,
+          "end_line": 265,
+          "detail": "Proxy chuyển nguyên Idempotency-Key của client xuống backend."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx",
+          "line": 20,
+          "end_line": 22,
+          "detail": "khoaGui() cũng sinh khoá mới mỗi lần chọn thủ thuật."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx",
+          "line": 51,
+          "end_line": 60,
+          "detail": "Mỗi cú bấm gọi fetch với khoá mới; lỗi mạng chỉ báo 'chưa ghi. Thử lại.'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/customers/khoa-mot-lan.ts",
+          "line": 14,
+          "end_line": 20,
+          "detail": "Bằng chứng nguyên tắc nội bộ: khoá KHÔNG sinh mới mỗi lần bấm, vì khi đó chốt chống trùng thành vô nghĩa; có ghi đo staging 11/08 về cửa sổ rớt mạng."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/LamThemTaiQuay.tsx",
+          "line": 125,
+          "end_line": 144,
+          "detail": "Đối chiếu: khoá giữ theo (lượt, dịch vụ, chọn) và chỉ xoá khi có phản hồi rõ (dòng 167, 172)."
+        }
+      ],
+      "limitations": "Chưa đọc từng lệnh backend để biết lệnh nào có chặn trùng thứ hai (revision, attempt_id, unique index); vì vậy mức tác động thực tế khác nhau theo lệnh. Chưa chứng minh xảy ra ở production.",
+      "recommendation": "Sinh khoá theo định danh thao tác (visit/order + tên lệnh + tham số chính) và giữ đến khi nhận phản hồi rõ ràng (2xx hoặc 4xx), đúng cách khoa-mot-lan.ts đã làm; hoặc cho guiThaoTac nhận khoá từ nơi gọi. Đổi thông báo status 0 thành 'chưa biết thao tác đã ghi hay chưa — kiểm tra lại trước khi bấm' và tự đọc lại trạng thái.",
+      "acceptance": "Test tích hợp: gọi cùng một lệnh chỉ định hai lần với lần đầu bị cắt phản hồi sau commit → chỉ có một service_order. Test đơn vị: hai lần gọi guiThaoTac cùng định danh dùng cùng khoá cho tới khi có phản hồi.",
+      "alignment": [
+        "Reality rõ",
+        "Lỗi lặp lại thành cải tiến hệ thống",
+        "Con người bị gián đoạn ít hơn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-031",
+        "CLIN-030",
+        "CLIN-058",
+        "LAB-001",
+        "FIN-003"
+      ]
+    },
+    {
+      "tmp_id": "S14-2",
+      "title": "Hoàn tác liệu trình từ thông báo không gắn vào đúng lần sửa vừa làm và không kiểm người sửa, nên có thể hoàn tác thay đổi của nhân viên khác",
+      "severity": "MEDIUM",
+      "category": "undo_binding",
+      "evidence_level": "confirmed_static",
+      "summary": "Sau mỗi lệnh liệu trình (đăng ký, dừng, mở lại, thêm buổi), màn gắn nút Hoàn tác vào hoanTacLieuTrinh(id) — hàm này KHÔNG giữ id dòng lịch sử của lần sửa vừa tạo mà đọc lại lịch sử rồi lấy dòng SUA đầu tiên có hoan_tac_duoc. Phía máy chủ, cờ hoan_tac_duoc chỉ là 'revision của dòng == revision hiện tại và hành động thuộc nhóm hoàn tác được', còn lệnh hoan_tac cũng chỉ kiểm điều kiện đó; docstring nói 'do người bấm' nhưng không có so sánh với người sửa.",
+      "trigger": "Nhân viên A đăng ký liệu trình và thấy thông báo kèm [Hoàn tác]; trước khi A bấm, nhân viên B sửa tiếp cùng liệu trình (vd dừng liệu trình). A bấm Hoàn tác trong thông báo cũ.",
+      "impact": "Hoàn tác thao tác của B (mở lại liệu trình đã dừng, huỷ đăng ký B vừa làm…) dưới tên A, trong khi thông báo của A nói về lần sửa khác; khách có thể bị gọi/tính buổi sai. Dấu vết có ghi HOAN_TAC nhưng người đọc thông báo không biết mình vừa hoàn tác việc của ai.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx",
+          "line": 100,
+          "end_line": 115,
+          "detail": "hoanTacLieuTrinh: docLichSu rồi dong.find(x => x.loai==='SUA' && x.hoan_tac_duoc); không tham chiếu id của lần sửa do thông báo mô tả."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx",
+          "line": 215,
+          "end_line": 228,
+          "detail": "lam(): onBao({cau, goi: hoanTacLieuTrinh(lt.id)}) — closure chỉ chứa id liệu trình."
+        },
+        {
+          "path": "src/clinicai/services/lieu_trinh_service.py",
+          "line": 870,
+          "end_line": 882,
+          "detail": "hoan_tac_duoc = int(revision)==int(hien) and hanh_dong in HANH_DONG_HOAN_TAC_DUOC; không có điều kiện người sửa."
+        },
+        {
+          "path": "src/clinicai/services/lieu_trinh_service.py",
+          "line": 1494,
+          "end_line": 1522,
+          "detail": "hoan_tac: docstring 'do người bấm' nhưng chỉ kiểm h.revision == row.revision và hành động hợp lệ; không so h.boi với identity.staff_id."
+        }
+      ],
+      "limitations": "Cần hai người cùng thao tác một liệu trình trong khoảng thời gian thông báo còn hiển thị; chưa kiểm HANH_DONG_HOAN_TAC_DUOC gồm những hành động nào. Chưa chứng minh xảy ra ở production.",
+      "recommendation": "Trả id dòng lịch sử (hoặc revision) trong phản hồi của lệnh và truyền vào lệnh hoàn tác; backend từ chối nếu dòng không phải của chính người bấm hoặc không còn là revision mới nhất, kèm câu nói rõ 'đã có người khác sửa sau bạn'.",
+      "acceptance": "Test API: A sửa, B sửa, A gọi hoan-tac với id dòng của A → bị từ chối, trạng thái của B không đổi. Test: B (khác người) gọi hoan-tac với dòng của A khi A là bản mới nhất → bị từ chối nếu chính sách là chỉ người sửa.",
+      "alignment": [
+        "Ownership rõ",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-017"
+      ]
+    },
+    {
+      "tmp_id": "S14-3",
+      "title": "Hoàn tất phiếu kết quả biến câu điền sẵn của mẫu thành nội dung 'đã xác nhận' (nguon: USER) và mặc định gán người thực hiện là bác sĩ của phòng, làm mất khả năng phân biệt phát hiện thật với câu mẫu",
+      "severity": "MEDIUM",
+      "category": "clinical_provenance",
+      "evidence_level": "design_gap",
+      "summary": "Phiếu kết quả khởi tạo ô từ mac_dinh của mẫu với nguon=TEMPLATE_DEFAULT. Màn chỉ ghi '(câu điền sẵn)' ở nhãn ô khi đang nhập; khi đã Hoàn tất, chế độ xem chốt (và XemPhieuKetQua của bác sĩ chính) không dùng trường nguon. Phía máy chủ, lệnh hoan-tat đổi mọi ô TEMPLATE_DEFAULT thành USER, nên về sau dữ liệu không còn dấu hiệu ô nào chưa ai chạm. Cùng lệnh, nếu không chọn người thực hiện thì người thực hiện mặc định là bác sĩ đứng phòng hôm đó chứ không phải người bấm Hoàn tất (người bấm chỉ nằm ở hoan_tat_boi).",
+      "trigger": "Mẫu kết quả có câu điền sẵn kiểu 'bình thường'; điều dưỡng/KTV hoặc lễ tân (tại quầy làm thêm) bấm 'Hoàn tất phiếu' mà không sửa các ô mẫu.",
+      "impact": "Một câu mẫu có thể đi vào hồ sơ, bản in và bản PDF như phát hiện đã được người có chuyên môn đánh giá, đứng tên bác sĩ thực hiện; bác sĩ đọc kết quả sau đó không biết ô nào chỉ là mặc định. Rủi ro lâm sàng và pháp lý khi kết quả sai/bỏ sót.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+          "line": 11,
+          "end_line": 17,
+          "detail": "Chú thích: Hoàn tất xác nhận TOÀN BỘ nội dung đang thấy, kể cả câu mẫu không ai sửa."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+          "line": 679,
+          "end_line": 686,
+          "detail": "Chỉ chế độ nhập mới hiện nhãn '(câu điền sẵn)' theo nguon."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+          "line": 499,
+          "end_line": 519,
+          "detail": "Chế độ đã chốt vẽ gia[o.ma] mà không dùng nguon."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx",
+          "line": 28,
+          "end_line": 33,
+          "detail": "Kiểu Phieu có du_lieu[].nguon nhưng màn đọc của bác sĩ chính (dòng 88-108) không hiển thị."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 793,
+          "end_line": 796,
+          "detail": "hoan-tat: mọi ô nguon==TEMPLATE_DEFAULT chuyển thành USER."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 798,
+          "end_line": 810,
+          "detail": "Người thực hiện mặc định là bac_si_thuc_hien_mac_dinh của phòng, không phải người bấm Hoàn tất."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 1459,
+          "end_line": 1466,
+          "detail": "_mac_dinh_tu_khung gắn nguon TEMPLATE_DEFAULT cho ô có mac_dinh."
+        }
+      ],
+      "limitations": "Chưa biết mẫu nào ở production thực sự có mac_dinh mang tính 'bình thường'; chưa đọc trang in /print/ket-qua (có thể đã gắn nhãn). Quy tắc 'hoàn tất = xác nhận toàn bộ' và người thực hiện mặc định là quyết định sản phẩm có chủ đích (Tuyền 23/09, 29/09); finding nêu mặt mất dấu vết, không phải sai chức năng.",
+      "recommendation": "Giữ nguon gốc song song với bản xác nhận (vd cờ 'chua_sua_tu_mau' không bị ghi đè khi hoàn tất), hiển thị nhãn 'câu mẫu, chưa chỉnh' trên bản đã chốt/in/PDF và màn bác sĩ đọc; cấu hình theo mẫu 'ô phải sửa trước khi hoàn tất'. Tách rõ 'người thực hiện' khỏi 'người bấm hoàn tất' trên bản in khi hai người khác nhau.",
+      "acceptance": "Test: tạo phiếu từ mẫu có mac_dinh, hoàn tất không sửa → dữ liệu và bản xem/in đánh dấu ô còn là câu mẫu. Test: sửa một ô → chỉ ô đó mất nhãn.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-021",
+        "CLIN-037"
+      ]
+    },
+    {
+      "tmp_id": "S14-4",
+      "title": "Thời gian chờ/đang làm trên hàng chờ và hành trình được tính bằng đồng hồ máy khách so với mốc máy chủ; sai lệch giờ máy hiện thành số phút sai hoặc bị ẩn",
+      "severity": "MEDIUM",
+      "category": "client_clock_display",
+      "evidence_level": "design_gap",
+      "summary": "soPhutTu, useBayGio và KhungHanhTrinh tính số phút bằng Date.now() của trình duyệt trừ đi mốc ISO máy chủ gửi (vao_hang_luc, bat_dau_luc, tu_luc, checkin_luc). Không có trường 'bây giờ' của máy chủ trong gói dữ liệu. Nếu đồng hồ máy lễ tân/bàn khám lệch, 'chờ N phút' sai tương ứng; nếu máy chậm hơn mốc máy chủ thì phút âm bị đổi thành chuỗi rỗng khiến khách trông như chưa chờ.",
+      "trigger": "Máy trạm/tablet có đồng hồ lệch vài phút đến vài chục phút (không đồng bộ NTP, đổi giờ thủ công), hoặc tab chạy nền bị throttle.",
+      "impact": "Con số chờ là thước đo chính để điều phối khách; hiển thị sai làm quyết định ưu tiên, trấn an khách và báo cáo thời gian chờ lệch mà không ai biết nguồn lỗi.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+          "line": 254,
+          "end_line": 262,
+          "detail": "soPhutTu: cuoi = den ? new Date(den) : Date.now(); phut<0 hoặc không hữu hạn trả ''."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HangChoCot.tsx",
+          "line": 58,
+          "end_line": 63,
+          "detail": "phút hiển thị = soPhutTu(bat_dau_luc) hoặc soPhutTu(vao_hang_luc)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx",
+          "line": 108,
+          "end_line": 115,
+          "detail": "useBayGio: Date.now() cập nhật mỗi 30 giây làm 'bây giờ'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx",
+          "line": 313,
+          "end_line": 326,
+          "detail": "KhungHanhTrinh tính p=phut(o.tu_luc, bayGio) rồi in 'chờ N' / khoảng."
+        }
+      ],
+      "limitations": "Chưa đọc lib/hanh-trinh-khach để biết hàm phut/thoiGian xử lý số âm thế nào; mức lệch giờ thực tế của máy trạm chưa đo. Chưa xác minh máy chủ có trả sẵn 'bây giờ' ở endpoint khác.",
+      "recommendation": "Máy chủ trả server_now trong các gói hàng chờ/hành trình và màn tính phút theo hiệu (server_now − mốc) cộng thời gian trôi cục bộ từ lúc nhận; hoặc để máy chủ gửi sẵn số phút. Hiện cảnh báo khi lệch quá ngưỡng.",
+      "acceptance": "Test: đặt đồng hồ trình duyệt lệch +15 phút / −15 phút so với server_now → số phút hiển thị không đổi. Số phút âm không bị ẩn mà được đưa về 0 kèm cảnh báo lệch giờ.",
+      "alignment": [
+        "Reality rõ",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S14-5",
+      "title": "Tick dịch vụ khám cập nhật lạc quan và không quay về trạng thái máy chủ nếu lần đọc lại cũng lỗi, nên ô vẫn hiện đã tick dù chưa lưu",
+      "severity": "LOW",
+      "category": "optimistic_ui_stale",
+      "evidence_level": "confirmed_static",
+      "summary": "ChonDichVuKham đổi da_chon ngay trước khi gọi máy chủ. Nếu guiThaoTac thất bại, code gọi nap() để 'trả ô về đúng trạng thái máy chủ'; nhưng nap() chỉ setPk khi đọc thành công, còn khi lỗi chỉ setLoi. Nếu mất mạng làm cả hai lệnh thất bại, giao diện giữ trạng thái tick lạc quan cùng một dòng lỗi chung; tiền khám tính theo tick, nhân viên nhìn thấy ô đã chọn.",
+      "trigger": "Mất kết nối kéo dài hơn thời điểm bấm tick: lệnh phi-kham lỗi và lần đọc lại ngay sau đó cũng lỗi.",
+      "impact": "Nhân viên có thể bỏ qua dòng lỗi và tin phí khám đã được chọn/bỏ, trong khi hoá đơn tự cộng giá mặc định hoặc không; lệch tiền khám sẽ lộ ở quầy thu.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/ChonDichVuKham.tsx",
+          "line": 52,
+          "end_line": 57,
+          "detail": "nap(): chỉ setPk khi kq.ok, ngược lại chỉ setLoi."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/ChonDichVuKham.tsx",
+          "line": 74,
+          "end_line": 99,
+          "detail": "doi(): setPk lạc quan (dòng 79-88); khi !kq.ok gọi setLoi rồi await nap() và return, không rollback cục bộ."
+        }
+      ],
+      "limitations": "Dòng lỗi vẫn hiển thị nên đây là rủi ro hiển thị thấp; chưa kiểm cờ khoá/hết hạn phiên của lệnh phi-kham.",
+      "recommendation": "Lưu bản pk gần nhất đã xác nhận bởi máy chủ và khôi phục nó khi lệnh lỗi mà nap() không thành; hoặc đánh dấu ô 'chưa lưu' cho tới khi có phản hồi.",
+      "acceptance": "Test component: mock guiThaoTac và docBang cùng trả lỗi → ô trở về trạng thái trước khi bấm và hiện thông báo.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-002"
+      ]
+    },
+    {
+      "tmp_id": "S14-6",
+      "title": "Khối đổi phòng rơi về nhãn 'Phòng' giống nhau cho mọi lựa chọn khi lần đọc tên phòng thất bại",
+      "severity": "LOW",
+      "category": "degraded_label",
+      "evidence_level": "confirmed_static",
+      "summary": "DoiPhong đọc gợi ý phòng (goi-y-phong) và danh sách phòng hôm nay (phong-hom-nay) bằng hai lệnh song song; tên phòng chỉ lấy từ lệnh thứ hai và lỗi của lệnh này bị bỏ qua im lặng. Khi chỉ phong-hom-nay lỗi, mọi tuỳ chọn hiển thị 'Phòng · N đang chờ' (nhãn mặc định) nên không phân biệt được phòng.",
+      "trigger": "Lệnh phong-hom-nay lỗi/timeout trong khi goi-y-phong thành công, rồi nhân viên chọn phòng từ danh sách.",
+      "impact": "Có thể xếp/chuyển khách vào sai phòng chỉ vì các lựa chọn trùng nhãn; điều phối sai làm khách chờ thêm.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiPhong.tsx",
+          "line": 101,
+          "end_line": 117,
+          "detail": "Promise.all hai lệnh; `if (p.ok) setTen(...)` không có nhánh lỗi."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiPhong.tsx",
+          "line": 136,
+          "end_line": 137,
+          "detail": "nhan(u) dùng ten[u.room_id] ?? 'Phòng'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiPhong.tsx",
+          "line": 444,
+          "end_line": 450,
+          "detail": "Danh sách <option> dùng nhan(u); không chặn khi thiếu tên."
+        }
+      ],
+      "limitations": "Hai lệnh thường cùng thành công; mức khả năng thấp. Máy chủ vẫn kiểm tra phòng làm được dịch vụ.",
+      "recommendation": "Mang tên phòng ngay trong gói goi-y-phong hoặc khoá nút xếp phòng và báo lỗi khi thiếu tên.",
+      "acceptance": "Test component: mock phong-hom-nay lỗi → hiện cảnh báo, không bày các lựa chọn trùng nhãn hoặc vô hiệu nút xếp phòng.",
+      "alignment": [
+        "Reality rõ",
+        "Con người bị gián đoạn ít hơn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-004"
+      ]
+    },
+    {
+      "tmp_id": "S14-7",
+      "title": "Hồ sơ khám dùng JSON.parse không bảo vệ trong lúc render nên một bản ghi form_data hỏng làm sập cả cửa sổ hồ sơ",
+      "severity": "LOW",
+      "category": "frontend_robustness",
+      "evidence_level": "confirmed_static",
+      "summary": "PhieuKham (phiếu đời cũ) gọi JSON.parse(p.form_data) trực tiếp trong thân component khi form_data là chuỗi. Dữ liệu cũ/nhập từ Notion hoặc chuỗi rỗng/hỏng sẽ ném lỗi khi render, không có try/catch hay error boundary tại đây.",
+      "trigger": "Một clinical_form_response có form_data kiểu text không phải JSON hợp lệ khi CSKH mở hồ sơ khám của lần khám đó.",
+      "impact": "CSKH/điều dưỡng không xem hay tải được toàn bộ hồ sơ lần khám chỉ vì một phiếu hỏng; lỗi không chỉ ra phiếu nào.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+          "line": 195,
+          "end_line": 201,
+          "detail": "typeof p.form_data === 'string' ? JSON.parse(p.form_data) as ... — không bọc lỗi."
+        },
+        {
+          "path": "src/clinicai/services/ho_so_kham_service.py",
+          "line": 119,
+          "end_line": 132,
+          "detail": "Nguồn form_data lấy trực tiếp từ clinical_form_response."
+        }
+      ],
+      "limitations": "Chưa biết có error boundary ở cấp trang hay không; chưa biết dữ liệu hỏng có tồn tại thực tế.",
+      "recommendation": "Bọc phân tích trong try/catch, hiển thị khối 'Phiếu không đọc được' kèm mã phiếu và vẫn render các mục còn lại; hoặc để backend luôn trả đối tượng.",
+      "acceptance": "Test component: truyền form_data='{' → hiện thông báo phiếu lỗi, các mục khác vẫn hiển thị.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S14-8",
+      "title": "PDF hồ sơ khám dựng bằng ảnh chụp DOM cắt theo pixel, có thể cắt ngang dòng đơn thuốc/kết quả và không phải văn bản tìm kiếm được",
+      "severity": "LOW",
+      "category": "clinical_document_fidelity",
+      "evidence_level": "design_gap",
+      "summary": "taiPdf chụp khung hồ sơ thành canvas rồi cắt từng lát cao đúng một trang A4 và nhét ảnh JPEG vào jsPDF. Lát cắt không biết ranh giới dòng/khối nên có thể chia đôi một dòng thuốc, giá trị xét nghiệm hoặc chữ ký; PDF toàn ảnh nên không tìm kiếm/sao chép được, nén JPEG 0.92 có thể làm mờ chữ nhỏ. Thời điểm 'In lúc' lấy từ đồng hồ trình duyệt.",
+      "trigger": "CSKH bấm 'Tải PDF' với hồ sơ dài (nhiều chỉ định, đơn thuốc, xét nghiệm).",
+      "impact": "Bản gửi cho khách/đối tác có thể khó đọc hoặc đọc nhầm khi một giá trị bị cắt giữa hai trang; khó kiểm tra bằng máy.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+          "line": 506,
+          "end_line": 533,
+          "detail": "taiPdf: toCanvas → vòng lặp cắt theo caoTrangPx → addImage JPEG; không tính ranh giới khối."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+          "line": 305,
+          "end_line": 307,
+          "detail": "'In lúc' dùng new Date() của trình duyệt."
+        }
+      ],
+      "limitations": "Quyết định thiết kế có chủ đích để tránh dịch vụ PDF phía máy chủ (chú thích đầu tệp); chưa thử với hồ sơ thật. Các phần tử có break-inside-avoid chỉ có tác dụng khi in CSS, không áp dụng cho cắt canvas.",
+      "recommendation": "Dựng PDF từ dữ liệu có cấu trúc (một trang in server-side hoặc @media print + window.print) để giữ ranh giới khối và văn bản; hoặc cắt canvas theo vị trí các phần tử break-inside-avoid.",
+      "acceptance": "Test trực quan với hồ sơ 3+ trang: không có dòng bị chia đôi; PDF chọn/sao chép được văn bản.",
+      "alignment": [
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-037"
+      ]
+    },
+    {
+      "tmp_id": "S14-9",
+      "title": "Màn Xem lượt làm phẳng chẩn đoán và kế hoạch xử trí thành một chuỗi giá trị, mất tên trường",
+      "severity": "LOW",
+      "category": "clinical_display_fidelity",
+      "evidence_level": "confirmed_static",
+      "summary": "Hàm chu() trong XemLuot đệ quy lấy Object.values rồi nối bằng ' · ' để hiển thị chan_doan và ke_hoach (kiểu Record<string, unknown>). Tên khoá (chẩn đoán chính/phụ, lời dặn, ngày tái khám, thuốc…) bị bỏ nên người đọc không biết giá trị nào là gì.",
+      "trigger": "Lượt có chan_doan/ke_hoach dạng đối tượng nhiều trường mở bằng màn Xem lượt (thu ngân, lễ tân, điều dưỡng, nhà thuốc…).",
+      "impact": "Dễ hiểu sai: vd ngày tái khám bị đọc như một lời dặn hoặc chẩn đoán phụ bị đọc như chẩn đoán chính trong màn tra cứu dùng chung cho nhiều vai.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+          "line": 168,
+          "end_line": 173,
+          "detail": "chu(): nếu là object → Object.values(...).map(chu).filter(Boolean).join(' · ')."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+          "line": 389,
+          "end_line": 393,
+          "detail": "Hiển thị 'Chẩn đoán' và 'Xử trí / lời dặn / tái khám' bằng chu(...)."
+        }
+      ],
+      "limitations": "Chưa đọc xem_luot_service để biết cấu trúc thực tế của chan_doan/ke_hoach (có thể backend đã trả sẵn chuỗi nhãn).",
+      "recommendation": "Để máy chủ trả danh sách {nhan, chu} đã dịch (như doc_phieu_v5_chu) và màn chỉ vẽ.",
+      "acceptance": "Test: chan_doan có hai trường → hiển thị kèm nhãn từng trường.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S14-10",
+      "title": "Giao diện lõi khoá cứng tên Dr4Women, múi giờ VN và khái niệm KiotViet/Notion, cản việc đóng gói cho phòng khám khác",
+      "severity": "MEDIUM",
+      "category": "packaging_hardcode_ui",
+      "evidence_level": "design_gap",
+      "summary": "Tiêu đề của hồ sơ khám in/PDF viết cứng 'Dr4Women' (chỉ phần cơ sở lấy theo dữ liệu); múi giờ 'Asia/Ho_Chi_Minh' và locale vi-VN viết cứng ở 10 tệp trong thư mục; kiểu dữ liệu của lớp lõi mang tên nhà cung cấp KiotViet (ma_kiotviet) và giá trị loai_du_lieu 'notion'. Một phòng khám khác sẽ thấy tên thương hiệu của Dr4Women trên bản PDF gửi khách và các nhãn gắn với hệ thống cũ.",
+      "trigger": "Triển khai ClinicAI cho phòng khám thứ hai (khác thương hiệu, khác múi giờ hoặc không dùng KiotViet).",
+      "impact": "Bản in/PDF sai thương hiệu, giờ hiển thị sai nếu khác múi giờ, mã sản phẩm KiotViet hiện ở khách không dùng KiotViet; chi phí sửa rải rác trên nhiều tệp khi bán.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+          "line": 296,
+          "end_line": 302,
+          "detail": "Header hồ sơ: 'Dr4Women{l.co_so ? ...}' — tên thương hiệu viết cứng trong TSX."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+          "line": 107,
+          "end_line": 107,
+          "detail": "const TZ = 'Asia/Ho_Chi_Minh'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+          "line": 264,
+          "end_line": 271,
+          "detail": "gioVn: timeZone 'Asia/Ho_Chi_Minh' viết cứng; cùng chuỗi ở DoiPhong.tsx:68, KhungTep.tsx:46, XemLuot.tsx:160, XoaTep.tsx:60, TuNhac.tsx:27, SoSuaChiDinh.tsx:38, PhieuDieuTri.tsx:57, NhapKetQuaLamThem.tsx:62."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+          "line": 302,
+          "end_line": 304,
+          "detail": "ThucHien.ma_kiotviet / DanhMucChiDinh.tsx:326,358 hiển thị ma_kiotviet cho mọi dịch vụ."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/LichSuKham.tsx",
+          "line": 36,
+          "end_line": 38,
+          "detail": "loai_du_lieu chứa 'notion' và nhãn 'Hồ sơ cũ (Notion)' do backend (lich_su_luot.py:29-34)."
+        }
+      ],
+      "limitations": "Bộ nhớ dự án ghi quyết định 'chỉ bán trong VN — múi giờ cố định' nên múi giờ là lựa chọn có chủ đích; mức nghiêm trọng đến chủ yếu từ tên thương hiệu và khái niệm nhà cung cấp trong lõi. Chưa kiểm các trang in /print/*.",
+      "recommendation": "Đưa tên thương hiệu, múi giờ, tên nguồn dữ liệu/nhãn mã sản phẩm vào cấu hình theo clinic (trả từ API, không từ hằng số TSX); gom định dạng giờ vào một hàm dùng múi giờ clinic.",
+      "acceptance": "Tạo clinic thứ hai với tên và múi giờ khác → PDF hồ sơ khám và mọi mốc giờ trong thư mục hiển thị đúng; grep 'Dr4Women' trong src/dashboard chỉ còn ở tài liệu/test.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S14-11",
+      "title": "Tổng tiền hiển thị trên nút chỉ định được cộng trong TSX và bỏ qua dịch vụ chưa có giá mà không cảnh báo tại nút",
+      "severity": "LOW",
+      "category": "money_in_tsx",
+      "evidence_level": "confirmed_static",
+      "summary": "DanhMucChiDinh in số tiền ở nút 'Chỉ định N mục · X đ' bằng tongPhongKham() tính trong trình duyệt: dịch vụ không có gia kiểu số hoặc có doi_tac_thu bị tính 0. Dịch vụ chưa có giá vẫn tick được (chỉ khoá khi thiếu mã/khoá máy chủ) và chỉ có chữ 'chưa có giá' ở dòng; tổng trên nút không nói là tạm tính hay thiếu. Trái luật 'không luật nghiệp vụ nào trong TSX'.",
+      "trigger": "Bác sĩ tick một dịch vụ có giá null cùng các dịch vụ có giá.",
+      "impact": "Số tiền trên nút thấp hơn số thu thực nếu sau đó phát sinh giá; bác sĩ tư vấn sai con số cho khách. Hoá đơn thật vẫn do máy chủ tính.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/DanhMucChiDinh.tsx",
+          "line": 128,
+          "end_line": 130,
+          "detail": "const tong = tongPhongKham(chon, moiMuc)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/DanhMucChiDinh.tsx",
+          "line": 192,
+          "end_line": 192,
+          "detail": "khoa = chiDoc || !ma || Boolean(m.khoa) — không khoá khi gia==null."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/DanhMucChiDinh.tsx",
+          "line": 374,
+          "end_line": 378,
+          "detail": "Nút hiển thị `${nhanNut} ${chon.length} mục ... · ${tienVn(tong)}`."
+        },
+        {
+          "path": "src/dashboard/lib/phieu-kham.ts",
+          "line": 1126,
+          "end_line": 1132,
+          "detail": "tongPhongKham chỉ cộng mục có gia là số và không doi_tac_thu; còn lại cộng 0."
+        }
+      ],
+      "limitations": "Chưa xác định có luật backend cấm tạo chỉ định cho dịch vụ chưa có giá (SERVICE_PRICE). Rủi ro là hiển thị, không phải ghi sai.",
+      "recommendation": "Máy chủ trả sẵn tổng tạm tính và danh sách mục thiếu giá; màn ghi 'chưa gồm N mục chưa có giá' hoặc khoá tick mục chưa có giá.",
+      "acceptance": "Test: tick 1 mục có giá + 1 mục giá null → nút hiện cảnh báo thiếu giá hoặc không cho tick.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-013"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "CLIN-031",
+      "detail": "Gốc phía client của chỉ định/lệnh lặp: guiThaoTac sinh Idempotency-Key mới mỗi lần gọi (api.ts:212-251) và ChonThuThuatBanKham.tsx:20-22,51-60 cũng vậy, nên retry sau mất phản hồi không được backend nhận ra. Xem finding S14-1."
+    },
+    {
+      "id": "CLIN-030",
+      "detail": "Cùng gốc với guiThaoTac/khoaGuiLai (api.ts:212-236): các lệnh lượt khám của lớp dùng chung không có khoá theo thao tác; ngược lại LamThemTaiQuay.tsx:125-144 cho thấy mẫu đúng."
+    },
+    {
+      "id": "CLIN-050",
+      "detail": "KhungTep.tsx:222-247 lấy toàn bộ tệp của bệnh nhân bằng /api/cskh/ket-qua?clinic_patient_id rồi lọc ở trình duyệt theo service_order_id. Nếu danh sách phía máy chủ bị cắt trần, tệp của chỉ định cũ biến mất khỏi KhungTep; XemLuot.tsx:453-461 vẫn hiển thị 'N tệp kết quả' từ so_tep của máy chủ nhưng KhungTep không đối chiếu số này với số tệp nhận được, và khi lọc ra rỗng chỉ hiện 'Chưa có tệp nào.' (KhungTep.tsx:394-396)."
+    },
+    {
+      "id": "LAB-001",
+      "detail": "KhungTep.tsx:278-293 tải từng tệp bằng guiTepCoTienDo không có khoá chống trùng; nhánh catch ghi 'mất kết nối — tệp này CHƯA được lưu' dù phản hồi mất sau khi commit, người dùng chọn lại tệp sẽ tạo bản ghi tệp thứ hai."
+    },
+    {
+      "id": "FE-002",
+      "detail": "LamThemTaiQuay.tsx:84-95 (useLamThem) khi một lô lỗi giữ bản cũ và chỉ chờ tin SSE kế tiếp, không báo gì (chú thích dòng 92-94); TuNhac.tsx:50-58,71-72 lần đọc lại sau ghi lỗi thì giữ danh sách cũ không thông báo."
+    },
+    {
+      "id": "FE-004",
+      "detail": "TuNhac.tsx:50-58: doc() trả null khi lỗi và effect bỏ qua, nên lỗi đọc hiện như 'không có lời nhắc nào' (danh sách rỗng không có thông báo); đây là hẹn cá nhân nên nhân viên có thể tin không còn việc."
+    },
+    {
+      "id": "FIN-013",
+      "detail": "KhoanNoKhiVe.tsx:151-168 hiện tiêu đề 'Khách còn nợ {tien(no.tong)}' và nút 'Ghi nợ {tien(no.tong)}' (dòng 257-261) trong khi từng dòng có so_tien null chỉ hiện 'chưa có giá' — số ghi nợ do khách bấm xác nhận có thể không gồm các dòng chưa có giá."
+    },
+    {
+      "id": "SEC-020",
+      "detail": "Hồ sơ khám CSKH dùng guard của nhóm đọc tệp kết quả (cskh.py:778,783-798) nhưng HoSoKhamService.doc trả cả phiếu khám, chẩn đoán, xét nghiệm và đơn thuốc (ho_so_kham_service.py:45-60,119-170,193-223); HoSoKham.tsx:278-504 vẽ toàn bộ và cho tải PDF, nên quyền xem tệp kéo theo quyền xem/tải toàn bộ hồ sơ lâm sàng."
+    },
+    {
+      "id": "SEC-011",
+      "detail": "GET /phieu/xem/{service_order_id} và /phieu/in/{service_order_id} chỉ dùng get_current_identity (phieu.py:187-208); service tự kiểm bằng vai (form_engine_service.py:272-273 DOC_KET_QUA; 341-346 vai/QUYEN_DIEN/doc_duoc_in_phieu), không ràng buộc phân công bác sĩ–bệnh nhân. Ngoài ra xem_ket_qua ghi 'đã xem' ngay trong GET (form_engine_service.py:298-321)."
+    },
+    {
+      "id": "CLIN-012",
+      "detail": "KhoiDoiTac.tsx:33-37,91-98 coi DA_NHAN_MAU là 'XONG' (dấu tick) và không có hạn hay nhắc trên màn trong lúc chờ kết quả; chữ trạng thái chỉ 'Đã nhận mẫu · chờ kết quả'."
+    }
+  ],
+  "held": [
+    {
+      "title": "Check-out khi còn việc dở chỉ cần xác nhận, lý do tuỳ chọn; việc dở chỉ được ghi vào chuỗi lý do",
+      "reason": "NutCheckOut.tsx:107-108,199-221 cho khách về khi blockers không cứng, lý do để trống thì máy chủ 'tự ghi kèm việc còn dở'. Chưa đọc checkout_service.close nên chưa biết có sinh việc theo dõi có owner/hạn hay không; nếu chỉ là văn bản thì việc dở rơi (mục tiêu Ownership)."
+    },
+    {
+      "title": "Ô 'Số tiền đã thu hộ' đối tác điền sẵn giá tham khảo, một cú bấm ghi thu hộ",
+      "reason": "KhoiDoiTac.tsx:262-264,360-366: nếu gia_tham_khao>0 thì ô điền sẵn, nút chỉ cần soTien khác rỗng. Có thể ghi nhận tiền đối tác chưa thực thu; cần xem DoiTacService.ghi_nhan_da_thu có kiểm nguồn/duyệt và việc cho phép nhân viên (không phải đối tác) ghi hộ."
+    },
+    {
+      "title": "Hoàn tất kết quả không chặn/nhắc ô trống; không thấy cơ chế cấu hình 'bắt buộc chuyên môn' theo phòng khám",
+      "reason": "PhieuKetQua.tsx:39-43 ghi 06/10 bỏ dải nhắc; chú thích dòng 16-19 nói bắt buộc 'chỉ bật khi phòng khám chốt' nhưng tôi không thấy nơi cấu hình trong tệp được giao (cờ tuy_chon có ở dòng 82). Cần đọc form_engine_service để xác nhận."
+    },
+    {
+      "title": "Giá trị ô 'so' của phiếu kết quả lưu chữ nguyên văn, không có cờ bất thường hay ngưỡng tới hạn",
+      "reason": "PhieuKetQua.tsx:747-750 nêu rõ lưu chữ nguyên văn cho phép '12 x 8'. Với xét nghiệm có thể cần cảnh báo giá trị tới hạn, nhưng HoSoKham có đường xét nghiệm khác (lab_result có flag); chưa xác định kết quả xét nghiệm đi bằng phiếu hay lab_result."
+    },
+    {
+      "title": "useNgayXem giữ 'hôm nay' cố định từ lúc mở trang",
+      "reason": "dung-ngay-xem.ts:27 useState(homNayVn) không cập nhật qua nửa đêm; màn mở xuyên đêm coi hôm qua là hôm nay và xoá tham số ngày khi chọn 'hôm nay' (dòng 35). Máy chủ vẫn tự đọc lại và trả hom_nay nên tác động phụ thuộc cách các màn dùng; chưa kiểm các màn gọi."
+    },
+    {
+      "title": "Khoá idempotency của PhanHoiThuocKhach giữ qua nhiều lần sửa nội dung",
+      "reason": "PhanHoiThuocKhach.tsx:97,220-233: khoaGhi giữ đến khi lưu thành công kể cả khi nhân viên sửa chữ giữa hai lần thử; nếu backend băm payload thì lần thử sau có thể bị từ chối hoặc trả kết quả cũ. Chưa đọc xử lý khoá phía cskh.py."
+    },
+    {
+      "title": "'Đã xem kết quả' chỉ ghi khi mở phiếu, không ghi khi bác sĩ xem tệp ảnh/PDF",
+      "reason": "BanKham.tsx:1686-1722 hai đường tách nhau (Xem tệp kết quả qua KhungTep không gọi /phieu/xem); form_engine_service.py:298-321 là nơi duy nhất ghi da_xem_ket_qua_*. Kết quả chỉ có tệp (siêu âm ảnh) có thể không bao giờ có dấu 'đã xem'; cần xác nhận có đường ghi khác."
+    },
+    {
+      "title": "HangChoCot bỏ qua trang_thai ngoài năm nhóm khai báo",
+      "reason": "HangChoCot.tsx:12-25,47-50 chỉ vẽ dòng khớp một trong năm nhóm; trạng thái mới từ máy chủ sẽ vô hình mà không báo. Hiện kiểu TrangThaiHang là union đóng nên rủi ro chỉ khi backend mở rộng."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Khoá idempotency gắn với thao tác, chỉ xoá khi có phản hồi rõ, kèm expected_version/revision",
+      "detail": "LamThemTaiQuay giữ khoá theo (lượt, dịch vụ, chọn) và gửi expected_order_id/version/state_revision; DoiLichTaiCho dùng khoá theo phiên popover; LieuTrinhKhach gắn khoá vào revision (lt-{id}-dang-ky-{n}-r{rev}); ThaoTacLichTaiCho giữ khoá khi 5xx và bỏ khi 4xx. Nên là chuẩn chung cho mọi nút ghi.",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/LamThemTaiQuay.tsx:125-172; src/dashboard/app/(dashboard)/_lam-viec/DoiLichTaiCho.tsx:133,186; src/dashboard/app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx:349,371,411; src/dashboard/app/(dashboard)/_lam-viec/ThaoTacLichTaiCho.tsx:203-229"
+    },
+    {
+      "title": "Gộp lượt đọc theo đường dẫn nhưng không trả dữ liệu cũ hơn lúc gọi",
+      "detail": "doc-gop.ts cho phép chia sẻ kết quả trong cửa sổ 50ms, còn lượt đang bay lâu hơn thì xếp đúng một lượt nối đuôi; giảm tải đo được ở prod (3.557 lần/30 phút) mà không đọc trước thay đổi vừa ghi.",
+      "evidence": "src/dashboard/lib/doc-gop.ts:1-66 (dùng ở src/dashboard/app/(dashboard)/_lam-viec/api.ts:197-209)"
+    },
+    {
+      "title": "Máy chủ quyết, nút hiện theo cờ và nói lý do khi không được thay vì ẩn",
+      "detail": "XoaTep hiển thị xoa_ly_do khi xoá_duoc=false, xoá mềm 30 ngày, lý do bắt buộc; ChiDinhThuThuat khoá mục thiếu service_code thay vì đoán mã; KhoanNoKhiVe chỉ bày lối Thu ngay khi máy chủ nói thu_ngay.",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/XoaTep.tsx:107-117; src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/ChiDinhThuThuat.tsx:28-40; src/dashboard/app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx:99-107"
+    },
+    {
+      "title": "Báo rõ khi danh sách bị cắt",
+      "detail": "SoSuaChiDinhTuTai hiện 'Chỉ hiện các lần sửa gần nhất.' khi máy chủ gắn bi_cat — mẫu cần nhân rộng cho các danh sách có trần khác.",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/SoSuaChiDinh.tsx:118-120"
+    },
+    {
+      "title": "Hoàn tất phiếu lưu nốt trước và không chốt nếu lưu lỗi; mở sửa nhận trọn bản từ máy chủ",
+      "detail": "PhieuKetQua.hoanTat gọi tuLuu.luuNgay() và dừng khi thất bại; moSua nạp lại toàn bộ phiếu để không ghi đè nội dung người khác; bản đang sửa tách khỏi bản chính thức.",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx:297-310,351-368; src/dashboard/app/(dashboard)/_lam-viec/PhieuDieuTri.tsx:219-228"
+    },
+    {
+      "title": "Hiển thị tài liệu Word người dùng tải lên trong iframe sandbox rỗng",
+      "detail": "XemTaiLieu đổi DOCX sang HTML bằng mammoth trong trình duyệt và chèn vào iframe sandbox='' để không chạy mã.",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/KhungTep.tsx:109-114"
+    },
+    {
+      "title": "Lệnh Hoàn tác thống nhất qua một ống dẫn mỏng",
+      "detail": "hoan-tac.ts chuyển mọi hoàn tác (mở lại khám, huỷ xếp phòng, check-out…) về lệnh máy chủ, không chứa luật; NutCheckOut/DoiPhong/SoSua dùng chung NutHoanTac.",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/hoan-tac.ts:1-41; src/dashboard/app/(dashboard)/_lam-viec/NutCheckOut.tsx:153-171"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/ChonDichVuKham.tsx",
+      "lines": 150,
+      "full_read": true,
+      "note": "Đọc hết; tick lạc quan (S14-5)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/DatLichBuoiKe.tsx",
+      "lines": 52,
+      "full_read": true,
+      "note": "Đọc hết; vỏ mỏng quanh DatLichModal."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiLichTaiCho.tsx",
+      "lines": 464,
+      "full_read": true,
+      "note": "Đọc hết; khoá theo phiên tốt, không phát hiện."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiPhong.tsx",
+      "lines": 487,
+      "full_read": true,
+      "note": "Đọc hết; S14-6."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/HangChoCot.tsx",
+      "lines": 139,
+      "full_read": true,
+      "note": "Đọc hết; held về trạng thái ngoài nhóm."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx",
+      "lines": 519,
+      "full_read": true,
+      "note": "Đọc hết; đồng hồ máy khách (S14-4)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+      "lines": 649,
+      "full_read": true,
+      "note": "Đọc hết; S14-7, S14-8, S14-10, extension SEC-020."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx",
+      "lines": 310,
+      "full_read": true,
+      "note": "Đọc hết; extension FIN-013."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhoiDoiTac.tsx",
+      "lines": 492,
+      "full_read": true,
+      "note": "Đọc hết; held thu hộ điền sẵn."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungTep.tsx",
+      "lines": 462,
+      "full_read": true,
+      "note": "Đọc hết (hai đoạn); extension CLIN-050, LAB-001."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/LamThemTaiQuay.tsx",
+      "lines": 238,
+      "full_read": true,
+      "note": "Đọc hết; mẫu tốt về khoá."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/LichSuKham.tsx",
+      "lines": 227,
+      "full_read": true,
+      "note": "Đọc hết; đối chiếu lich_su_luot.py trần 500."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx",
+      "lines": 582,
+      "full_read": true,
+      "note": "Đọc hết; S14-2."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/NhapKetQuaLamThem.tsx",
+      "lines": 186,
+      "full_read": true,
+      "note": "Đọc hết."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/NutCheckOut.tsx",
+      "lines": 243,
+      "full_read": true,
+      "note": "Đọc hết; held về việc dở."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+      "lines": 112,
+      "full_read": true,
+      "note": "Đọc hết; không khoá, lỗi mạng nói 'chưa hoàn'."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/NutXemLuot.tsx",
+      "lines": 37,
+      "full_read": true,
+      "note": "Đọc hết; hiển nhiên."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+      "lines": 282,
+      "full_read": true,
+      "note": "Đọc hết; held về khoá."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuDieuTri.tsx",
+      "lines": 300,
+      "full_read": true,
+      "note": "Đọc hết."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+      "lines": 885,
+      "full_read": true,
+      "note": "Đọc hết (ba đoạn); S14-3."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/SoSuaChiDinh.tsx",
+      "lines": 123,
+      "full_read": true,
+      "note": "Đọc hết; mẫu tốt bi_cat."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/ThaoTacLichTaiCho.tsx",
+      "lines": 424,
+      "full_read": true,
+      "note": "Đọc hết; mẫu khoá tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/TheDichVu.tsx",
+      "lines": 77,
+      "full_read": true,
+      "note": "Đọc hết; thuần trình bày."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/TheKhachHangCho.tsx",
+      "lines": 88,
+      "full_read": true,
+      "note": "Đọc hết; thuần trình bày."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx",
+      "lines": 147,
+      "full_read": true,
+      "note": "Đọc hết; extension FE-004/FE-002."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/ViecTaiKham.tsx",
+      "lines": 131,
+      "full_read": true,
+      "note": "Đọc hết; thuần trình bày."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+      "lines": 592,
+      "full_read": true,
+      "note": "Đọc hết (ba đoạn); S14-9."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx",
+      "lines": 117,
+      "full_read": true,
+      "note": "Đọc hết; đối chiếu server xem_ket_qua."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/XoaTep.tsx",
+      "lines": 302,
+      "full_read": true,
+      "note": "Đọc hết; mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+      "lines": 344,
+      "full_read": true,
+      "note": "Đọc hết; S14-1, S14-4."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/dung-ngay-xem.ts",
+      "lines": 43,
+      "full_read": true,
+      "note": "Đọc hết; held."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/hoan-tac.ts",
+      "lines": 41,
+      "full_read": true,
+      "note": "Đọc hết."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/ChiDinhThuThuat.tsx",
+      "lines": 59,
+      "full_read": true,
+      "note": "Đọc hết; mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx",
+      "lines": 132,
+      "full_read": true,
+      "note": "Đọc hết; khoá mới mỗi lần."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/CongTacThongTinCoBan.tsx",
+      "lines": 49,
+      "full_read": true,
+      "note": "Đọc hết; hiển nhiên."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/DanhMucChiDinh.tsx",
+      "lines": 397,
+      "full_read": true,
+      "note": "Đọc hết; S14-11."
+    }
+  ]
+}

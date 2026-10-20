@@ -1,0 +1,23 @@
+[
+  {
+    "path": "src/clinicai/services/pharmacy_service.py",
+    "status": "traced",
+    "method": "selected dispense/no-allocation branches672–1006,1222–1340 and lock1591–1647 read; actual full-schema service+HTTP wrong-drug probe, not3335line full review | FIN-002: thêm trace lịch sử giao 219–236 và danh sách tư vấn 238–267; file 3,335 dòng vẫn chỉ partial.",
+    "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/payment_service.py",
+    "status": "traced",
+    "method": "Root đọc các luồng ghi thu, thu dịch vụ, xác minh, huỷ/void, đảo và helper snapshot/event (xấp xỉ dòng 324–2400); chưa bao phủ mọi caller và toàn bộ module.",
+    "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+    "full_file_read": false
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/pharmacy/DongThuoc.tsx",
+    "status": "traced",
+    "method": "structural inventory / targeted pattern scan; no full semantic review; definition/error/auth token counts only | v0.19: Selected return-money choice and request payload (519–585); service probe tests HOAN/GIU_LAI, no browser test. File remains partially traced.",
+    "sha256": "76113eacbba7c4f344bce11c8ffd5b0bdb7deae1e4cf3692ef741dade6f4553d",
+    "full_file_read": false
+  }
+]

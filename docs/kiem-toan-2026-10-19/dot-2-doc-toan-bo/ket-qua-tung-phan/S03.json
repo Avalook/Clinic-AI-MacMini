@@ -1,0 +1,1224 @@
+{
+ "chunk": "S03",
+ "findings": [
+  {
+   "tmp_id": "S03-1",
+   "title": "Script xoá dữ liệu khách chỉ chặn bằng cụm gõ tay, không có chốt kỹ thuật 'chưa có dữ liệu thật', không giới hạn theo phòng khám và có bản xoá cả nhật ký",
+   "severity": "HIGH",
+   "category": "destructive_script_guard",
+   "evidence_level": "confirmed_static",
+   "summary": "scripts/xoa-du-lieu-test.sh đọc DATABASE_URL từ .env.prod mặc định, rồi xoá patient, visit, payment, lab_result, clinical_record… và cả event_log (sổ chỉ-thêm) sau khi người chạy gõ 'XOA HET'. Không có bước kiểm 'hệ thống đã đón bệnh nhân thật chưa' (khác với scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql vốn còn chặn khi có lượt FINALIZED/AMENDED). Cả hai script xoá toàn bảng, không lọc clinic_id. undo-roster-fixture.sh cũng xoá staff trên DB đọc từ .env.prod với chốt chặn chỉ đếm 12 nhóm tham chiếu.",
+   "trigger": "Người vận hành chạy script trên máy có .env.prod (hoặc ENV_FILE trỏ nhầm), hoặc ai đó chép script sang một bản triển khai nhiều phòng khám dùng chung DB; sau khi có dữ liệu thật nhưng chưa có lượt đã ký (ví dụ chỉ mới có lịch hẹn, phiếu thu, kết quả đang chờ duyệt).",
+   "impact": "Có thể xoá vĩnh viễn hồ sơ bệnh nhân, phiếu thu, kết quả, và nhật ký thao tác của mọi phòng khám trong cùng database. Phục hồi chỉ dựa vào một bản dump được chọn theo tên tệp. Với mục tiêu bán cho nhiều phòng khám, một thao tác 'dọn dữ liệu thử' của một khách có thể xoá dữ liệu của khách khác.",
+   "evidence": [
+    {
+     "path": "scripts/xoa-du-lieu-test.sh",
+     "line": 20,
+     "end_line": 29,
+     "detail": "ENV_FILE mặc định .env.prod; không kiểm APP_ENV hay tên host; chỉ kiểm scheme DSN."
+    },
+    {
+     "path": "scripts/xoa-du-lieu-test.sh",
+     "line": 80,
+     "end_line": 82,
+     "detail": "Cổng xác nhận duy nhất là gõ đúng chữ 'XOA HET'; không có kiểm kỹ thuật dữ liệu thử/thật."
+    },
+    {
+     "path": "scripts/xoa-du-lieu-test.sh",
+     "line": 116,
+     "end_line": 196,
+     "detail": "DELETE FROM patient/visit/payment/... không có WHERE clinic_id; dòng 118 và 196 tắt trigger rồi xoá toàn bộ event_log."
+    },
+    {
+     "path": "scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql",
+     "line": 33,
+     "end_line": 40,
+     "detail": "Chốt duy nhất: có lượt FINALIZED/AMENDED thì dừng; payment, lab_result, appointment chưa ký vẫn bị xoá."
+    },
+    {
+     "path": "scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql",
+     "line": 75,
+     "end_line": 101,
+     "detail": "DELETE toàn bảng (payment dòng 76, patient dòng 101), không lọc phòng khám."
+    },
+    {
+     "path": "scripts/undo-roster-fixture.sh",
+     "line": 40,
+     "end_line": 107,
+     "detail": "Đọc .env.prod rồi DELETE staff/staff_capability/clinic_membership theo tiền tố id; phần đầu file nói đã kiểm 18 bảng tham chiếu nhưng chốt chặn dòng 85-96 chỉ đếm 10 nhóm bảng."
+    }
+   ],
+   "limitations": "Chưa chạy script. CLAUDE.md nói Mac không còn chạy prod nên .env.prod trên Mac có thể không trỏ vào DB thật; rủi ro chính nằm ở việc script còn nằm trong repo như công cụ dùng được và sẽ bị sao chép sang môi trường mới.",
+   "recommendation": "Gom thành một công cụ dọn dữ liệu duy nhất chạy trong ứng dụng hoặc script có tham số --clinic-id bắt buộc; chốt kỹ thuật từ chối nếu còn bất kỳ lượt đã ký, phiếu thu đã xác nhận hoặc kết quả đã duyệt, hoặc nếu APP_ENV là production trừ khi có cờ riêng được ghi nhật ký; không bao giờ xoá event_log; ghi lại ai chạy, trên DB nào, bao nhiêu dòng. Chuyển các script lịch sử vào thư mục legacy hoặc gỡ.",
+   "acceptance": "Trên DB thử có 2 phòng khám và 1 phiếu thu đã xác nhận, chạy script với clinic A: script từ chối khi có phiếu thu/lượt đã ký, và khi được phép chỉ xoá dòng clinic A, event_log còn nguyên, có một dòng nhật ký 'dọn dữ liệu' ghi người chạy.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "OPS-011"
+   ]
+  },
+  {
+   "tmp_id": "S03-2",
+   "title": "xoa-du-lieu-test.sh đã lệch lược đồ: bản xem trước không liệt kê hết dòng sẽ mất, nhiều bảng tham chiếu bệnh nhân không được xoá, và kiểm 'bản sao lưu 30 phút' không gắn với DB đích",
+   "severity": "MEDIUM",
+   "category": "operational_script_drift",
+   "evidence_level": "confirmed_static",
+   "summary": "Bản xem trước (15 bảng) hứa 'CHÍNH XÁC số dòng sẽ xoá' nhưng nhiều bảng bị xoá âm thầm qua ON DELETE CASCADE (tep_ket_qua, phan_hoi_khach, tuong_tac_cskh, hen_goi_lai, patient_sdt_them, khach_cong_ty…) không có trong danh sách. Ngược lại cong_no, lieu_trinh, nhac_tai_kham, ghi_chu_khach tham chiếu patient bằng ON DELETE RESTRICT và không được script xoá, nên DELETE FROM patient sẽ thất bại sau khi người dùng đã gõ xác nhận (toàn bộ giao dịch quay lại). Lớp 'sao lưu trong 30 phút' chỉ tìm tệp theo tên và mmin, còn backup-db.sh đọc BACKUP_ENV_FILE chứ không đọc ENV_FILE của script này.",
+   "trigger": "Chạy script khi DB đã có sổ nợ, liệu trình, nhắc tái khám hoặc ghi chú khách; hoặc đặt ENV_FILE sang DB khác trong khi .env.prod vẫn trỏ DB còn lại.",
+   "impact": "Người vận hành tin mình xem đủ số liệu trước khi xoá nhưng bản xem trước thiếu bảng; script có thể hỏng giữa chừng sau xác nhận; bản 'sao lưu' có thể là của DB khác nên khôi phục không có tác dụng với DB vừa bị xoá. Tệp ảnh/phiếu kết quả trên đĩa/CFS không được dọn khi hàng tep_ket_qua bị cascade, tạo tệp mồ côi chứa dữ liệu bệnh nhân.",
+   "evidence": [
+    {
+     "path": "scripts/xoa-du-lieu-test.sh",
+     "line": 32,
+     "end_line": 40,
+     "detail": "Sao lưu hợp lệ nếu có tệp clinicai_production_*.sql.gz sửa trong 30 phút; không kiểm kích thước, nội dung, hay DB nguồn."
+    },
+    {
+     "path": "scripts/xoa-du-lieu-test.sh",
+     "line": 44,
+     "end_line": 63,
+     "detail": "Danh sách xem trước 15 bảng, không có tep_ket_qua, phan_hoi_khach, cong_no…"
+    },
+    {
+     "path": "scripts/backup-db.sh",
+     "line": 57,
+     "end_line": 58,
+     "detail": "backup-db.sh đọc BACKUP_ENV_FILE hoặc .env.prod, bỏ qua ENV_FILE của script xoá (đối chiếu dòng 20 của xoa-du-lieu-test.sh)."
+    },
+    {
+     "path": "supabase/migrations/20260809000008_tep_ket_qua.sql",
+     "line": 21,
+     "end_line": 25,
+     "detail": "tep_ket_qua.clinic_patient_id ON DELETE CASCADE: hàng bị xoá theo patient, tệp vật lý vẫn còn."
+    },
+    {
+     "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+     "line": 75,
+     "end_line": 79,
+     "detail": "phan_hoi_khach ON DELETE CASCADE."
+    },
+    {
+     "path": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+     "line": 29,
+     "end_line": 36,
+     "detail": "khach_cong_ty ON DELETE CASCADE (thông tin hoá đơn công ty bị xoá âm thầm)."
+    },
+    {
+     "path": "supabase/migrations/20261002500000_cong_no.sql",
+     "line": 22,
+     "end_line": 24,
+     "detail": "cong_no.clinic_patient_id ON DELETE RESTRICT, script không xoá cong_no."
+    },
+    {
+     "path": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "line": 42,
+     "end_line": 43,
+     "detail": "lieu_trinh ON DELETE RESTRICT, script không xoá."
+    },
+    {
+     "path": "supabase/migrations/20260807000005_nhac_tai_kham_hai_luot_goi.sql",
+     "line": 33,
+     "end_line": 34,
+     "detail": "nhac_tai_kham ON DELETE RESTRICT."
+    },
+    {
+     "path": "supabase/migrations/20260927000003_ghi_chu_khach.sql",
+     "line": 21,
+     "end_line": 22,
+     "detail": "ghi_chu_khach ON DELETE RESTRICT."
+    }
+   ],
+   "limitations": "Chỉ đối chiếu tĩnh script với migration; chưa chạy trên DB thử. Có thể một số bảng RESTRICT đang rỗng trên DB mục tiêu nên script chạy được.",
+   "recommendation": "Sinh danh sách bảng cần xoá và bản xem trước từ pg_constraint (đồ thị khoá ngoại) thay vì liệt kê tay; bắt buộc script truyền chính DSN đích vào bước sao lưu và xác minh bản sao lưu bằng pg_restore --list; dọn tệp vật lý theo cùng danh sách; thêm test CI so sánh danh sách bảng của script với đồ thị khoá ngoại.",
+   "acceptance": "Test CI thất bại khi có bảng mới tham chiếu patient mà script chưa biết; chạy script trên DB thử có cong_no và tep_ket_qua: bản xem trước liệt kê cả hai và việc xoá thành công không để lại tệp mồ côi.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "S03-1",
+    "INF-006"
+   ]
+  },
+  {
+   "tmp_id": "S03-3",
+   "title": "Việc của đối tác ngoài không được cô lập theo từng đối tác: mọi tài khoản đối tác cùng phòng khám thấy chung danh sách việc, tên và mã bệnh nhân",
+   "severity": "MEDIUM",
+   "category": "partner_isolation",
+   "evidence_level": "confirmed_static",
+   "summary": "Cửa đối tác chỉ hỏi quyền partner.work rồi lọc việc bằng cờ node_definition.lam_ben_ngoai hoặc bảng doi_tac_nhan_viec; không có khoá nhận biết đối tác nào (partner_id) trong truy vấn. Mọi tài khoản có quyền này thấy tên, mã bệnh nhân, tên dịch vụ của tất cả việc gửi ra ngoài trong 60 ngày, và gửi được tệp kết quả cho bất kỳ chỉ định gửi ngoài nào. Router tự ghi 'SINGLE-PARTNER PILOT ONLY'. Script cấp tài khoản chỉ tạo một tài khoản đối tác dùng chung.",
+   "trigger": "Phòng khám làm việc với từ hai đối tác trở lên (lab A, nơi chụp B), hoặc một đối tác chia cho nhiều người dùng chung mật khẩu.",
+   "impact": "Đối tác A có thể thấy khách của đối tác B và gửi tệp vào chỉ định của B; lộ dữ liệu cá nhân giữa các tổ chức ngoài; khó truy ngược ai là bên gửi. Không phù hợp để bán cho phòng khám có nhiều đối tác.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/v1/routers/doi_tac.py",
+     "line": 9,
+     "end_line": 14,
+     "detail": "Ràng buộc 1 'chỉ thấy việc của mình' thực chất là lọc theo cờ của node, không theo đối tác."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/doi_tac.py",
+     "line": 49,
+     "end_line": 65,
+     "detail": "viec_cua_doi_tac chỉ truyền identity và ngày, không có mã đối tác."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/doi_tac.py",
+     "line": 353,
+     "end_line": 392,
+     "detail": "_gui_ket_qua chấp nhận mọi chỉ định thoả LA_VIEC_DOI_TAC_SQL rồi gắn tệp vào bệnh nhân của chỉ định."
+    },
+    {
+     "path": "src/clinicai/services/doi_tac_service.py",
+     "line": 54,
+     "end_line": 59,
+     "detail": "LA_VIEC_DOI_TAC_SQL = lam_ben_ngoai OR có dòng doi_tac_nhan_viec; không chứa khoá đối tác."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/cskh.py",
+     "line": 828,
+     "end_line": 837,
+     "detail": "Ghi chú 'CURRENT LIMITATION: SINGLE-PARTNER PILOT ONLY' ở danh sách tệp chờ xác nhận."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-nhan-su.py",
+     "line": 85,
+     "end_line": 85,
+     "detail": "Chỉ một tài khoản vai PARTNER 'doi-tac-pk' dùng chung."
+    }
+   ],
+   "limitations": "Chưa đọc DoiTacService.viec_doi_tac và migration doi_tac_nhan_viec đầy đủ; có thể có lọc khác ở lớp dưới nhưng không thấy khoá đối tác trong LA_VIEC_DOI_TAC_SQL và các truy vấn cùng chỗ.",
+   "recommendation": "Thêm thực thể doi_tac (clinic_id, id, tên) và gán từng node/dịch vụ gửi ngoài + từng tài khoản đối tác vào đúng một đối tác; mọi truy vấn và lệnh ghi lọc theo doi_tac_id của người gọi; ghi doi_tac_id vào tep_ket_qua và nhật ký.",
+   "acceptance": "Test DB: hai đối tác với hai chỉ định; tài khoản đối tác A gọi GET /doi-tac/viec và GET /doi-tac/viec/{id của B} chỉ thấy việc của A (404 cho B), POST /doi-tac/ket-qua với chi_dinh_id của B bị từ chối.",
+   "alignment": [
+    "Ownership rõ",
+    "Bệnh nhân ít chờ trong bất định"
+   ],
+   "extends": [],
+   "related_ids": [
+    "API-007",
+    "CLIN-012",
+    "CLIN-019"
+   ]
+  },
+  {
+   "tmp_id": "S03-4",
+   "title": "Duyệt bán vật tư cần quản lý: người duyệt do thu ngân tự chọn từ danh sách, không có hành động xác nhận của chính người duyệt",
+   "severity": "MEDIUM",
+   "category": "approval_attribution",
+   "evidence_level": "confirmed_static",
+   "summary": "POST /luot-kham/visits/{visit_id}/vat-tu nhận duyet_boi (UUID) và ly_do_duyet từ thân yêu cầu. Với hàng can_ql_duyet, nếu người gọi không có quyền Duyệt vật tư thì chỉ cần chọn một nhân viên đang có quyền đó; dịch vụ kiểm 'người ấy đủ điều kiện' nhưng không kiểm họ đã đồng ý. Dòng vật tư lưu duyet_boi như thể người đó đã duyệt.",
+   "trigger": "Thu ngân hoặc lễ tân thêm vật tư cần duyệt (ví dụ vòng thứ hai) và điền tên một quản lý bất kỳ.",
+   "impact": "Nhật ký ghi quản lý X đã duyệt trong khi X chưa hề thấy yêu cầu; kiểm soát tiền/kho cho hàng giá trị cao dựa vào lời khai của người bán; khó đối chiếu khi có tranh chấp.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/v1/routers/luot_kham.py",
+     "line": 460,
+     "end_line": 469,
+     "detail": "VatTuThemBody có duyet_boi và ly_do_duyet do client gửi."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/luot_kham.py",
+     "line": 488,
+     "end_line": 507,
+     "detail": "them_vat_tu truyền duyet_boi thẳng xuống VatTuService.them."
+    },
+    {
+     "path": "src/clinicai/services/vat_tu_service.py",
+     "line": 318,
+     "end_line": 340,
+     "detail": "_nguoi_duyet: người không có quyền chỉ cần đưa mã người duyệt đủ điều kiện (đang làm việc, có vat_tu.approve); trả về qid làm người duyệt."
+    }
+   ],
+   "limitations": "Trigger luot_vat_tu_gac ở Postgres chỉ được mô tả trong docstring, chưa đọc; có thể ép thêm điều kiện nhưng cũng không thể chứng minh sự đồng ý của người duyệt.",
+   "recommendation": "Tách thành luồng hai bước: thu ngân tạo yêu cầu duyệt (thong_bao hoặc hàng chờ) và người có quyền duyệt bấm xác nhận bằng phiên của chính họ; hoặc yêu cầu người duyệt nhập lại mã/PIN tại quầy. Ghi cả người đề nghị lẫn người duyệt.",
+   "acceptance": "Gọi API bằng tài khoản thu ngân với duyet_boi của quản lý và không có xác nhận từ quản lý trả 403/409; dòng chỉ có duyet_boi sau khi quản lý xác nhận bằng phiên của họ.",
+   "alignment": [
+    "Ownership rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-003"
+   ]
+  },
+  {
+   "tmp_id": "S03-5",
+   "title": "Đọc hồ sơ lâm sàng: appointment_id không bị đối chiếu với patient_id nên thư ký chỉ được xem khách của bác sĩ mình có thể lấy bệnh án của khách khác",
+   "severity": "MEDIUM",
+   "category": "idor_scope_bypass",
+   "evidence_level": "confirmed_static",
+   "summary": "GET /clinical-records/doc?patient_id=A&appointment_id=B: kiểm phạm vi thư ký (khach_duoc_xem) chạy trên patient_id, còn lượt khám được chọn từ appointment_id bằng truy vấn không lọc clinic_patient_id (nhánh visit_id thì có lọc). Cổng đọc benh_an_cho_ho_so sau đó lấy SOAP và đơn nháp theo visit_id mà không kiểm visit thuộc khách đã kiểm.",
+   "trigger": "Tài khoản TKYK được phân bác sĩ nhưng biết (hoặc dò ra) UUID lịch hẹn của khách khác trong cùng phòng khám, gọi với patient_id là khách mình được xem.",
+   "impact": "Vượt giới hạn 'thư ký chỉ xem khách của bác sĩ mình được phân' (20260915000020): lộ SOAP và đơn nháp của khách khác; cổng ghi_mo_ho_so không ghi vết cho vai lâm sàng nên khó phát hiện.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+     "line": 80,
+     "end_line": 89,
+     "detail": "Chỉ kiểm khach_duoc_xem với pid."
+    },
+    {
+     "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+     "line": 101,
+     "end_line": 117,
+     "detail": "Nhánh vid có điều kiện clinic_patient_id; nhánh appt chỉ lọc appointment_id và clinic_id."
+    },
+    {
+     "path": "src/clinicai/services/clinical_record_service.py",
+     "line": 884,
+     "end_line": 937,
+     "detail": "benh_an_cho_ho_so lấy visit theo ngu_canh.visit_id + clinic_id, trả soap_* và prescription_draft."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/clinical_records.py",
+     "line": 69,
+     "end_line": 87,
+     "detail": "Endpoint nhận cả patient_id, appointment_id, visit_id làm query string độc lập."
+    }
+   ],
+   "limitations": "Chưa đọc đầy đủ mọi cổng đọc khác trong modules.py để biết còn cổng nào dùng visit_id không lọc khách. Chỉ vai bị giới hạn theo phân công (TKYK) bị ảnh hưởng thực tế; bác sĩ vốn đọc được cả phòng khám.",
+   "recommendation": "Khi có appointment_id, truy vấn visit phải kèm clinic_patient_id = pid (hoặc lấy pid từ lịch hẹn và bỏ patient_id); đưa phép kiểm 'lượt thuộc khách' vào NguCanhHoSo để mọi cổng dùng chung.",
+   "acceptance": "Test DB: TKYK được phân khách A, gọi /clinical-records/doc?patient_id=A&appointment_id=<lịch của B> nhận 404/403 và không có soap_* của B trong phản hồi.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-016",
+    "SEC-011",
+    "SEC-019"
+   ]
+  },
+  {
+   "tmp_id": "S03-6",
+   "title": "Bảng giá dịch vụ/thuốc/vật tư: thêm, sửa giá và xoá cứng không để lại nhật ký thao tác và không có kiểm phiên bản",
+   "severity": "MEDIUM",
+   "category": "price_change_no_audit",
+   "evidence_level": "confirmed_static",
+   "summary": "POST/PATCH/DELETE /service-prices chỉ kiểm quyền price.service.manage rồi UPDATE/DELETE service_price. PriceListService.add/update/remove không ghi event_log, và migration không có trigger kiểm toán trên service_price. PATCH không có expected_revision nên hai người sửa cùng dòng thì người sau ghi đè. DELETE là xoá cứng.",
+   "trigger": "Một người có quyền bảng giá sửa nhầm hoặc cố ý đổi đơn giá, bên thu (billing_owner) hoặc xoá dòng; tranh chấp phiếu thu hoặc báo cáo doanh thu sau đó.",
+   "impact": "Không truy ngược được ai đổi giá, từ bao nhiêu sang bao nhiêu và lúc nào; báo cáo doanh thu theo giá hiện tại có thể không khớp với phiếu cũ nếu chỉ định tham chiếu giá động; đổi billing_owner đổi luồng tiền (phòng khám hay đối tác) mà không để vết.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/v1/routers/config.py",
+     "line": 505,
+     "end_line": 608,
+     "detail": "add_price, update_price, remove_price chỉ gọi PriceListService, không có kiểm phiên bản."
+    },
+    {
+     "path": "src/clinicai/services/config_service.py",
+     "line": 1792,
+     "end_line": 1913,
+     "detail": "PriceListService.update: UPDATE service_price không ghi event_log; chỉ cập nhật gia_tam=false khi sửa giá."
+    },
+    {
+     "path": "src/clinicai/services/config_service.py",
+     "line": 1676,
+     "end_line": 1773,
+     "detail": "PriceListService.add: INSERT không ghi nhật ký."
+    },
+    {
+     "path": "src/clinicai/services/config_service.py",
+     "line": 1945,
+     "end_line": 1954,
+     "detail": "remove: DELETE FROM service_price ... RETURNING id, không ghi nhật ký."
+    }
+   ],
+   "limitations": "Đã tìm trong src/clinicai và supabase/migrations không thấy trigger hay ghi event_log cho service_price; có thể có cơ chế bên ngoài (nhật ký ở lớp khác) chưa tìm ra. Báo cáo đối chiếu chưa kiểm xem phiếu thu có chụp giá lúc bán không.",
+   "recommendation": "Ghi event_log (hoặc bảng service_price_history) cho mọi thêm/sửa/xoá kèm giá cũ-mới, billing_owner cũ-mới và người sửa; thay DELETE cứng bằng vô hiệu hoá; thêm expected_updated_at hoặc revision.",
+   "acceptance": "Sửa giá một dòng qua API tạo một dòng nhật ký có old/new và staff_id hiển thị trong màn Nhật ký thao tác; hai PATCH song song với cùng revision: một cái nhận 409.",
+   "alignment": [
+    "Quyết định dựa bằng chứng",
+    "Ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-021",
+    "SEC-026"
+   ]
+  },
+  {
+   "tmp_id": "S03-7",
+   "title": "Idempotency-Key ở máy chủ là tuỳ chọn và không cùng giao dịch với ghi nghiệp vụ nên retry không có khoá hoặc sau khi mất bản lưu vẫn tạo bản ghi trùng",
+   "severity": "MEDIUM",
+   "category": "idempotency_design",
+   "evidence_level": "design_gap",
+   "summary": "IdempotencyGuard bỏ qua hoàn toàn khi không có header; idem.acquire/save chạy bằng pool riêng, ngoài giao dịch của dịch vụ; nếu tiến trình dừng giữa lúc dịch vụ đã commit và idem.save thì khoá PROCESSING hết hạn sau 5 phút và cùng yêu cầu được thực hiện lại. Rất nhiều lệnh POST không dùng khoá (check-in, thêm vật tư, đổi dịch vụ, gửi Zalo, tạo hẹn gọi lại, ghi phản hồi), một số nhận header tuỳ chọn.",
+   "trigger": "Mạng chập chờn làm client gửi lại cùng thao tác mà không mang khoá (hoặc client cũ), hoặc API bị khởi động lại ngay sau commit.",
+   "impact": "Bản ghi trùng (lịch sử CSKH, dòng vật tư, tin Zalo, chỉ định) và số liệu KPI/tiền bị nhân đôi; các lỗi riêng lẻ CLIN-030/031/044/057/058, FIN-003 đều là biểu hiện của cùng một điểm yếu thiết kế.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/idempotency.py",
+     "line": 23,
+     "end_line": 24,
+     "detail": "Header Idempotency-Key là OPTIONAL, vắng thì xử lý như thường."
+    },
+    {
+     "path": "src/clinicai/api/idempotency.py",
+     "line": 72,
+     "end_line": 136,
+     "detail": "acquire/reclaim dùng pool riêng; PROCESSING hết hạn 5 phút rồi cho chạy lại."
+    },
+    {
+     "path": "src/clinicai/api/idempotency.py",
+     "line": 182,
+     "end_line": 210,
+     "detail": "save là bước riêng sau handler, không nằm trong giao dịch nghiệp vụ."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/cskh.py",
+     "line": 516,
+     "end_line": 547,
+     "detail": "Docstring nói rõ 'không có Idempotency-Key thì guard cho qua'; save sau service."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/ho_so_kham.py",
+     "line": 118,
+     "end_line": 158,
+     "detail": "Idempotency-Key là Header(default=None) cho chọn thủ thuật và thao tác bàn khám."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/luot_kham.py",
+     "line": 184,
+     "end_line": 194,
+     "detail": "check_in không có khoá; nhiều lệnh khác nhận khoá tuỳ chọn (dòng 203, 383, 682)."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/lieu_trinh.py",
+     "line": 25,
+     "end_line": 142,
+     "detail": "Mẫu tốt: idempotency_key bắt buộc (min_length=8) cùng expected_revision cho mọi lệnh ghi."
+    }
+   ],
+   "limitations": "Chưa kiểm từng dịch vụ xem có khoá tự nhiên (unique index) chặn trùng ở DB hay không; một số lệnh có thể an toàn nhờ ràng buộc khác.",
+   "recommendation": "Quy định: mọi POST/PATCH/DELETE có tác dụng phụ phải mang Idempotency-Key (trả 400 nếu thiếu, trừ danh sách miễn trừ có lý do); ghi khoá và kết quả trong CÙNG giao dịch với nghiệp vụ; client sinh khoá một lần cho mỗi lần bấm và tái dùng khi thử lại.",
+   "acceptance": "Test: gọi POST /cskh/tuong-tac hai lần không khoá nhận 400; gọi hai lần cùng khoá sau khi giả lập crash giữa commit và save vẫn chỉ tạo một dòng.",
+   "alignment": [
+    "Reality rõ",
+    "Nhân viên làm việc bền vững"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-030",
+    "CLIN-031",
+    "CLIN-044",
+    "CLIN-057",
+    "CLIN-058",
+    "FIN-003",
+    "INF-007"
+   ]
+  },
+  {
+   "tmp_id": "S03-8",
+   "title": "Vai vận hành cấp từ lịch trực dựa vào bảng mã vị trí Kim Ngưu viết cứng trong lõi nên phòng khám hoặc cơ sở mới phải bắt chước mã mẫu mới có quyền",
+   "severity": "MEDIUM",
+   "category": "tenant_coupling",
+   "evidence_level": "design_gap",
+   "summary": "VAI_THEO_VI_TRI ánh xạ mã vị trí (T1_LETAN, T4_SA_DD1, DIEU_PHOI…) sang vai RECEPTION/NURSE_ULTRASOUND/TRUONG_CA bằng hằng số trong identity.py. Cơ sở thứ hai phải dùng tiền tố 'HN__' để ma_mau() đưa về 'mã mẫu Kim Ngưu'. Vị trí do phòng khám tự tạo (bảng vi_tri_lam_viec) không có vai tương ứng, nên đứng ca không cấp được quyền vận hành. work_roster.station không có cột cơ sở.",
+   "trigger": "Onboard phòng khám mới có sơ đồ tầng và tên vị trí riêng, hoặc thêm cơ sở mới theo quy ước khác tiền tố.",
+   "impact": "Phải sửa mã nguồn lõi hoặc ép đặt tên theo Dr4Women; người đứng đúng vị trí nhưng không được cấp vai nên bị 403 giữa giờ làm việc, trong khi mã hợp quy ước (kể cả do nhập sai) lại cấp vai.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/identity.py",
+     "line": 816,
+     "end_line": 847,
+     "detail": "VAI_THEO_VI_TRI viết cứng mã vị trí Kim Ngưu và mã đời cũ."
+    },
+    {
+     "path": "src/clinicai/api/identity.py",
+     "line": 902,
+     "end_line": 915,
+     "detail": "vai_tu_vi_tri tra bằng ma_mau(v) trong bảng cứng."
+    },
+    {
+     "path": "src/clinicai/core/ma_vi_tri.py",
+     "line": 1,
+     "end_line": 24,
+     "detail": "Docstring: 'Mã vị trí của cơ sở thứ hai trở đi → mã mẫu Kim Ngưu'; regex tiền tố XX__ bất kỳ."
+    },
+    {
+     "path": "src/clinicai/api/identity.py",
+     "line": 1012,
+     "end_line": 1030,
+     "detail": "Truy vấn work_roster join vi_tri_lam_viec chỉ dùng để sắp xếp; vai không đọc từ bảng vi_tri_lam_viec."
+    }
+   ],
+   "limitations": "Chưa đọc màn quản lý vị trí mới (commit 'manage clinic floors and roster positions') nên chưa biết đã có cột vai theo vị trí chưa. Đã dựa trên mã ở SHA kiểm toán.",
+   "recommendation": "Đưa ánh xạ vị trí → vai vận hành vào dữ liệu theo phòng khám (cột vai_van_hanh trong vi_tri_lam_viec, chỉ cho phép tập vai không phải bác sĩ), bỏ cơ chế tiền tố mã; giữ bảng cứng chỉ như dữ liệu khởi tạo cho Dr4Women.",
+   "acceptance": "Tạo phòng khám thử với vị trí 'QUAY_1' gán vai Lễ tân bằng cấu hình; nhân viên vào ca nhận vai Lễ tân mà không sửa mã; test canh VAI_KHONG_CAP_QUA_LICH vẫn chặn gán vai bác sĩ.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004",
+    "DB-005",
+    "SEC-028"
+   ]
+  },
+  {
+   "tmp_id": "S03-9",
+   "title": "Script cấp tài khoản và cấu hình gắn cứng Dr4Women: lấy phòng khám đầu tiên, nhận diện bằng mã phòng KN-TIEPDON, tên miền email, danh sách nhân viên thật và cơ sở đầu tiên",
+   "severity": "MEDIUM",
+   "category": "tenant_coupling",
+   "evidence_level": "confirmed_static",
+   "summary": "tao-tai-khoan-cskh.py và tao-tai-khoan-nhan-su.py chọn phòng khám bằng SELECT id FROM clinic LIMIT 1 (không ORDER BY), gắn nhân sự mới vào cơ sở hoạt động đầu tiên, mặc định đuôi email dr4women.vn và chứa tên người thật cùng quy ước tên đăng nhập. them-lego-cho-ky-nang.py tìm phòng khám qua clinic_room.code='KN-TIEPDON' (mã phòng Kim Ngưu), sửa ky_nang.lego bằng UPDATE trực tiếp và đứng tên một tài khoản Quản lý chung để gọi PermissionService. Thay đổi cấu hình qua script chạy tay không nằm trong migration nên phòng khám mới không nhận được.",
+   "trigger": "Có từ hai phòng khám trong cùng database, hoặc dựng phòng khám mới theo quy trình hiện có.",
+   "impact": "Tài khoản và quyền có thể tạo nhầm phòng khám; KN-TIEPDON không tồn tại ở khách mới nên script từ chối hoặc nhầm; đăng nhập dựa trên email dr4women.vn; danh sách nhân viên thật nằm trong repo; không có quy trình tạo phòng khám lặp lại được.",
+   "evidence": [
+    {
+     "path": "scripts/tao-tai-khoan-cskh.py",
+     "line": 35,
+     "end_line": 50,
+     "detail": "MAT_KHAU và TEN_MIEN hằng, 11 tên thật."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-cskh.py",
+     "line": 74,
+     "end_line": 74,
+     "detail": "SELECT id FROM public.clinic LIMIT 1."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-nhan-su.py",
+     "line": 46,
+     "end_line": 89,
+     "detail": "Đuôi email mặc định dr4women.vn; THEM_MOI chứa tên thật và tài khoản theo vị trí."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-nhan-su.py",
+     "line": 115,
+     "end_line": 115,
+     "detail": "clinic_id = SELECT id FROM clinic LIMIT 1."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-nhan-su.py",
+     "line": 236,
+     "end_line": 242,
+     "detail": "primary_location_id = cơ sở hoạt động tạo sớm nhất của phòng khám."
+    },
+    {
+     "path": "scripts/them-lego-cho-ky-nang.py",
+     "line": 25,
+     "end_line": 30,
+     "detail": "THEM cứng theo mã kỹ năng cskh/le_tan/lay_mau."
+    },
+    {
+     "path": "scripts/them-lego-cho-ky-nang.py",
+     "line": 46,
+     "end_line": 48,
+     "detail": "Tìm clinic_id qua phòng KN-TIEPDON."
+    },
+    {
+     "path": "scripts/them-lego-cho-ky-nang.py",
+     "line": 94,
+     "end_line": 100,
+     "detail": "UPDATE ky_nang SET lego = lego || ... chạy tay thay vì migration."
+    }
+   ],
+   "limitations": "Các script này được viết cho một lần cấp tài khoản của Dr4Women; có thể đã không còn dùng. Chưa kiểm scripts/kim-nguu-3-tang-2709.py, cap-duyet-ket-qua.py, ky-nang-tu-file.py, tai-khoan-theo-danh-sach.py (cũng dùng KN-TIEPDON theo grep).",
+   "recommendation": "Một lệnh 'tạo phòng khám' nhận clinic_id/slug làm tham số bắt buộc, đọc danh sách người và vai từ tệp CSV nằm ngoài repo, tạo auth + staff + membership + preset trong một quy trình có thể chạy lại; mọi thay đổi catalog (kỹ năng-lego) đi qua migration có phiên bản; bỏ tên người thật khỏi repo.",
+   "acceptance": "CI chạy quy trình tạo phòng khám thứ hai trên DB thử có clinic Dr4Women: không động tới Dr4Women, không phụ thuộc mã phòng KN-*, và hai lần chạy liên tiếp cho kết quả như nhau.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004",
+    "DB-005",
+    "SEC-032"
+   ]
+  },
+  {
+   "tmp_id": "S03-10",
+   "title": "vps-chuan-bi.sh tắt đăng nhập mật khẩu SSH bằng tệp 99-clinicai.conf nhưng không kiểm hiệu lực nên có thể báo đã khoá cửa trong khi vẫn cho đăng nhập bằng mật khẩu",
+   "severity": "MEDIUM",
+   "category": "server_hardening",
+   "evidence_level": "design_gap",
+   "summary": "Script ghi /etc/ssh/sshd_config.d/99-clinicai.conf rồi in 'đã tắt đăng nhập bằng mật khẩu và cấm root'. sshd lấy giá trị gặp đầu tiên; trên ảnh Ubuntu cloud, 50-cloud-init.conf bật PasswordAuthentication và đứng trước 99-. Script mới hơn scripts/may-chu/cung-co-may-chu.sh giải thích đúng điều này, dùng tên 00- và kiểm bằng sshd -T. Bản vps-chuan-bi.sh không chạy sshd -T để xác minh. Ngoài ra ufw --force reset chạy lại sẽ xoá luật cũ; bảo vệ cổng Postgres thực tế dựa vào việc compose bind 127.0.0.1, ufw không chi phối cổng Docker đã publish.",
+   "trigger": "Dùng script để chuẩn bị VPS cho một phòng khám mới trên nhà cung cấp có drop-in 50-cloud-init.conf bật mật khẩu.",
+   "impact": "Máy chủ chạy dữ liệu bệnh nhân cho khách mới có thể vẫn nhận brute-force mật khẩu và root login (nếu file chính cho phép) dù người vận hành tin đã khoá; thông báo thành công sai làm mất cảnh giác.",
+   "evidence": [
+    {
+     "path": "scripts/vps-chuan-bi.sh",
+     "line": 123,
+     "end_line": 135,
+     "detail": "Ghi 99-clinicai.conf rồi báo đã tắt mật khẩu và cấm root; không chạy sshd -T."
+    },
+    {
+     "path": "scripts/may-chu/cung-co-may-chu.sh",
+     "line": 39,
+     "end_line": 40,
+     "detail": "Script khác dùng 00-clinicai.conf vì 'sshd lấy giá trị GẶP TRƯỚC, mà 50-cloud-init.conf đang bật mật khẩu'."
+    },
+    {
+     "path": "scripts/may-chu/cung-co-may-chu.sh",
+     "line": 59,
+     "end_line": 59,
+     "detail": "Kiểm sshd -T | grep passwordauthentication."
+    },
+    {
+     "path": "scripts/vps-chuan-bi.sh",
+     "line": 79,
+     "end_line": 94,
+     "detail": "ufw reset/allow; ghi chú cổng Postgres không mở dựa vào cấu hình ứng dụng."
+    },
+    {
+     "path": "docker-compose.yml",
+     "line": 45,
+     "end_line": 47,
+     "detail": "Caddy bind 0.0.0.0 (cần thiết); các cổng khác bind 127.0.0.1 (dòng 436, 469)."
+    }
+   ],
+   "limitations": "Chưa chạy trên VPS thật; hiệu lực phụ thuộc ảnh hệ điều hành. Script này nhắm một VPS Vietnix cũ đã chết nên có thể đã bị thay bằng cung-co-may-chu.sh cho máy hiện tại.",
+   "recommendation": "Gộp hai script, dùng tiền tố 00-, chạy sshd -T và thoát lỗi khi passwordauthentication hoặc permitrootlogin khác 'no'; thêm bước kiểm các cổng đang lắng nghe (ss -ltn) so với danh sách cho phép; ghi rõ ufw không thay thế cho binding loopback của Docker.",
+   "acceptance": "Chạy script trên ảnh có 50-cloud-init.conf bật mật khẩu: sau khi chạy, sshd -T báo passwordauthentication no, hoặc script dừng với lỗi.",
+   "alignment": [
+    "Reality rõ",
+    "Nhân viên làm việc bền vững"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-006"
+   ]
+  },
+  {
+   "tmp_id": "S03-11",
+   "title": "Thông báo 'Trưởng ca gọi bộ phận' cho phép người gọi tự đặt đường dẫn bấm được và nội dung hiển thị cho bất kỳ vai nào",
+   "severity": "MEDIUM",
+   "category": "internal_phishing_link",
+   "evidence_level": "design_gap",
+   "summary": "POST /dispatch/alerts/call nhận vai_nhan (mọi ClinicRole, kể cả MANAGEMENT), tieu_de, noi_dung và duong_dan (chuỗi tự do tối đa 300 ký tự) từ người có quyền dispatch.manage. ThongBaoService.goi không kiểm duong_dan; giao diện đưa duong_dan thẳng vào href của Link ở chuông thông báo kèm nhãn 'Bấm để xử lý'.",
+   "trigger": "Tài khoản Trưởng ca (hoặc tài khoản vị trí dùng chung 'truong-ca' cấp bằng mật khẩu mặc định) bị lạm dụng hoặc bị chiếm.",
+   "impact": "Gửi một thông báo khẩn giả sang chuông của quản lý/kế toán với liên kết ngoài hoặc đường dẫn trong ứng dụng không liên quan; lừa người dùng bấm vào trang đánh cắp thông tin hoặc thực hiện thao tác. Không có dấu vết trực quan phân biệt thông báo hệ thống với thông báo do người nhập.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/v1/routers/dispatch.py",
+     "line": 224,
+     "end_line": 254,
+     "detail": "GoiBoPhanRequest cho vai_nhan, tieu_de, noi_dung, duong_dan tự do; chỉ giới hạn độ dài."
+    },
+    {
+     "path": "src/clinicai/services/thong_bao_service.py",
+     "line": 156,
+     "end_line": 206,
+     "detail": "goi: kiểm vai hợp lệ, mức độ, nguồn; INSERT duong_dan nguyên văn."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+     "line": 575,
+     "end_line": 583,
+     "detail": "Link href={n.duongDan} cho thông báo lấy từ API."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-nhan-su.py",
+     "line": 76,
+     "end_line": 76,
+     "detail": "Tài khoản vị trí 'truong-ca' dùng chung, mật khẩu mặc định."
+    }
+   ],
+   "limitations": "Chưa chạy giao diện nên chưa biết Next/React phiên bản đang dùng có chặn javascript: hay không; chỉ nêu khả năng liên kết ngoài. Người tấn công phải có quyền dispatch.manage.",
+   "recommendation": "Chỉ chấp nhận duong_dan dạng đường dẫn nội bộ (bắt đầu bằng một dấu '/', không '//', thuộc danh sách route); đặt nhãn 'Từ <tên người gọi>' lên thông báo do người gửi; khoá nội dung khi nguồn là hệ thống.",
+   "acceptance": "POST duong_dan='https://evil.example' hoặc '//evil.example' hoặc 'javascript:alert(1)' trả 422; duong_dan='/dispatch' được nhận; giao diện không render href ngoài domain.",
+   "alignment": [
+    "Reality rõ",
+    "Con người bị gián đoạn đúng lúc"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-032"
+   ]
+  },
+  {
+   "tmp_id": "S03-12",
+   "title": "Nhật ký mở hồ sơ y khoa chỉ phủ vài đường đọc; các đường CSKH và quầy trả cùng nội dung lâm sàng không để vết và lỗi ghi vết bị nuốt",
+   "severity": "MEDIUM",
+   "category": "phi_access_audit_gap",
+   "evidence_level": "confirmed_static",
+   "summary": "ghi_mo_ho_so được thiết kế để trả lời 'ai ngoài đội chuyên môn đã xem hồ sơ' nhưng chỉ được gọi ở clinical_forms, clinical_records, phieu_kham, thu_ky. GET /cskh/ho-so-kham/{appointment_id} (phiếu khám, đơn thuốc, xét nghiệm, sinh hiệu), GET /ho-so-kham/lich-su, GET /cskh/ket-qua/tep/{id}/noi-dung đều dành cho CSKH/lễ tân/thu ngân và không ghi vết. Hàm còn nuốt mọi ngoại lệ (chỉ log cảnh báo).",
+   "trigger": "Nhân viên quầy hoặc CSKH mở hồ sơ khám của người quen/người nổi tiếng qua các đường này; sau đó cần truy vết.",
+   "impact": "Không thể trả lời 'ai đã xem hồ sơ của bệnh nhân X' cho phần lớn đường đọc dữ liệu lâm sàng; phát hiện sớm lạm dụng quyền xem bị mất; nhật ký hỏng cũng im lặng.",
+   "evidence": [
+    {
+     "path": "src/clinicai/permissions/y_khoa.py",
+     "line": 80,
+     "end_line": 127,
+     "detail": "Mục đích của ghi_mo_ho_so, bỏ qua vai lâm sàng, nuốt lỗi (dòng 126-127)."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/clinical_records.py",
+     "line": 86,
+     "end_line": 109,
+     "detail": "Chỉ hai điểm gọi trong router này."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/cskh.py",
+     "line": 783,
+     "end_line": 798,
+     "detail": "ho_so_kham trả bản đọc gộp mà không gọi ghi_mo_ho_so."
+    },
+    {
+     "path": "src/clinicai/services/ho_so_kham_service.py",
+     "line": 45,
+     "end_line": 170,
+     "detail": "Nội dung trả về: ghi chú lịch, sinh hiệu, phiếu khám form_data, chỉ định và kết quả, đơn thuốc."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/ho_so_kham.py",
+     "line": 31,
+     "end_line": 59,
+     "detail": "lich_su: mọi lượt của khách, không ghi vết mở."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/cskh.py",
+     "line": 971,
+     "end_line": 1028,
+     "detail": "Tải nội dung tệp kết quả không ghi vết."
+    }
+   ],
+   "limitations": "Có thể TepKetQuaService.mo_de_doc hoặc dịch vụ ghi vết ở lớp dưới (chưa đọc). Cũng chưa kiểm audit.record_event ở các đường khác.",
+   "recommendation": "Ghi vết mở hồ sơ ở lớp dịch vụ đọc dữ liệu lâm sàng (không ở router), thành lập danh sách 'đường đọc PHI' có test quét; nếu ghi vết hỏng với vai ngoài đội chuyên môn thì trả lỗi thay vì tiếp tục; làm báo cáo 'ai đã xem khách X' trong màn Ops.",
+   "acceptance": "Test: mỗi đường đọc trong danh sách PHI khi gọi bằng tài khoản CSKH tạo một dòng clinical_record.opened có man và mã khách; nếu giả lập record_event lỗi thì phản hồi 5xx với vai ngoài đội chuyên môn.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-019",
+    "SEC-020",
+    "SEC-011",
+    "SEC-027"
+   ]
+  },
+  {
+   "tmp_id": "S03-13",
+   "title": "Hầu hết route luồng khám chỉ đòi đăng nhập ở router và giao quyền cho từng service, nhưng bài kiểm cửa quyền chỉ quét vài router chọn trước",
+   "severity": "MEDIUM",
+   "category": "authorization_test_gap",
+   "evidence_level": "design_gap",
+   "summary": "luot_kham.py có 52 route, chỉ 5 route dùng cua_quyen ở router; 47 route còn lại dựa vào get_current_identity rồi tin service tự kiểm quyền. cskh.py: 39 route, phần lớn cũng vậy. Test cửa quyền (test_backend_surface_security.py, test_clinical_read_and_legacy_boundaries.py) duyệt dependant của một số router và route chọn tay. Không có bài kiểm quét mọi route để khẳng định: hoặc có cửa quyền ở router, hoặc nằm trong danh sách miễn trừ có lý do. Nhiều phát hiện đã có (SEC-011/016/027/037) đúng là do service quên kiểm.",
+   "trigger": "Thêm endpoint mới hoặc tách service mới mà quên gọi can()/doi_quyen().",
+   "impact": "Một route đọc/ghi dữ liệu bệnh nhân có thể đi vào production với chỉ cổng 'đã đăng nhập' mà không test nào thất bại.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/v1/routers/luot_kham.py",
+     "line": 58,
+     "end_line": 85,
+     "detail": "Chú thích: cửa router chỉ còn 'đã đăng nhập', hàm dịch vụ hỏi quyền."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/luot_kham.py",
+     "line": 659,
+     "end_line": 659,
+     "detail": "Một trong rất ít chỗ gác bằng cua_quyen ở router (_CHI_DINH_GUARD)."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/ho_so_kham.py",
+     "line": 76,
+     "end_line": 185,
+     "detail": "Sáu route chỉ dùng get_current_identity."
+    },
+    {
+     "path": "src/tests/api/test_backend_surface_security.py",
+     "line": 43,
+     "end_line": 126,
+     "detail": "Test quét dependant chỉ cho tools, staff, reports, clinic_config."
+    },
+    {
+     "path": "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+     "line": 74,
+     "end_line": 108,
+     "detail": "Danh sách route chọn tay cho đọc y khoa."
+    }
+   ],
+   "limitations": "Không chứng minh service nào hiện đang quên kiểm quyền; chỉ chỉ ra thiếu cơ chế ép buộc. Chưa đọc các service luot_kham/ho_so_kham_*.",
+   "recommendation": "Thêm test quét app.routes: mỗi route không thuộc danh sách miễn trừ phải có dependency cua_quyen/RoleGuard hoặc được gắn dấu @yeu_cau_quyen_trong_service('ma.quyen') và test gọi thử bằng tài khoản không quyền khẳng định 403; hoặc chuyển cửa quyền về router (khai báo một lần).",
+   "acceptance": "Thêm một route mới chỉ dùng get_current_identity: test quét thất bại; route cũ trong luot_kham/ho_so_kham/cskh có mã quyền khai báo và test 403 cho tài khoản không quyền.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-011",
+    "SEC-016",
+    "SEC-027",
+    "SEC-037"
+   ]
+  },
+  {
+   "tmp_id": "S03-14",
+   "title": "Gọi bộ phận: khoá chống trùng chỉ có tác dụng khi client gửi nguon_id, nếu bỏ trống mỗi lần bấm tạo một thông báo khẩn mới",
+   "severity": "LOW",
+   "category": "notification_dedupe",
+   "evidence_level": "confirmed_static",
+   "summary": "Docstring nói 'Bấm lại khi chưa ai xử lý: không nhân đôi', nhưng chỉ mục duy nhất (uq_thong_bao_dang_mo) có điều kiện nguon_id IS NOT NULL và INSERT dùng ON CONFLICT ... WHERE nguon_id IS NOT NULL. Trường nguon_id trong GoiBoPhanRequest là tuỳ chọn.",
+   "trigger": "Client cũ hoặc màn không gửi nguon_id; người dùng sốt ruột bấm nhiều lần khi hệ thống chậm.",
+   "impact": "Chuông của bộ phận nhận nhiều thông báo khẩn y hệt; người nhận học cách bỏ qua; nhiễu làm chậm phản ứng thật.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/v1/routers/dispatch.py",
+     "line": 230,
+     "end_line": 243,
+     "detail": "nguon_id tuỳ chọn; docstring hứa không nhân đôi."
+    },
+    {
+     "path": "src/clinicai/services/thong_bao_service.py",
+     "line": 187,
+     "end_line": 195,
+     "detail": "ON CONFLICT chỉ khi nguon_id IS NOT NULL."
+    }
+   ],
+   "limitations": "Không thấy màn nào của dashboard bỏ nguon_id; rủi ro thuộc API contract.",
+   "recommendation": "Bắt buộc nguon_id (hoặc sinh từ vai_nhan + tieu_de); nếu thiếu thì 422.",
+   "acceptance": "POST hai lần cùng nội dung không kèm nguon_id: lần hai nhận da_goi_tu_truoc=true hoặc 422.",
+   "alignment": [
+    "Con người bị gián đoạn đúng lúc"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "S03-15",
+   "title": "DbErrorMiddleware gói mọi OSError thành 503 'Database temporarily unavailable', che lỗi đĩa/quyền/tệp khi tải kết quả",
+   "severity": "LOW",
+   "category": "misleading_error_signal",
+   "evidence_level": "confirmed_static",
+   "summary": "Middleware bắt asyncpg.PostgresConnectionError, InterfaceError và OSError rồi trả 503 kèm Retry-After. OSError bao gồm PermissionError, FileNotFoundError, ENOSPC phát sinh khi ghi tệp tạm hoặc kho tệp, nên thông báo 'database' sai và client có thể tự thử lại.",
+   "trigger": "Thư mục media sai chủ sở hữu, ổ đầy hoặc CFS lỗi trong lúc tải tệp kết quả.",
+   "impact": "Nhân viên và người trực tưởng lỗi database; mất thời gian chẩn đoán; thử lại lặp không có tác dụng và có thể sinh tệp tạm.",
+   "evidence": [
+    {
+     "path": "src/clinicai/api/middleware.py",
+     "line": 202,
+     "end_line": 238,
+     "detail": "except (PostgresConnectionError, InterfaceError, OSError) → 503 'Database temporarily unavailable'."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/cskh.py",
+     "line": 729,
+     "end_line": 771,
+     "detail": "Đường tải lên tệp ghi vào đĩa/kho trong cùng request."
+    }
+   ],
+   "limitations": "Chưa chạy; phụ thuộc việc nhan_multipart ném OSError chưa được bắt ở lớp dưới.",
+   "recommendation": "Chỉ bắt ConnectionError liên quan DB (asyncpg) và OSError có errno thuộc mạng; lỗi tệp trả mã riêng (507/500) với thông điệp 'kho tệp'; ghi kind vào telemetry.",
+   "acceptance": "Giả lập PermissionError khi ghi tệp: phản hồi không còn chứa 'Database', telemetry ghi kind=PermissionError.",
+   "alignment": [
+    "Reality rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-013"
+   ]
+  },
+  {
+   "tmp_id": "S03-16",
+   "title": "scripts/test-nhanh.sh chỉ so khuôn với cây theo số phiên bản migration nên sửa nội dung migration đã nằm trong khuôn không được áp dụng mà test vẫn xanh",
+   "severity": "LOW",
+   "category": "test_environment_drift",
+   "evidence_level": "design_gap",
+   "summary": "Script áp lại chỉ những migration có version chưa có trong sổ của khuôn (comm giữa danh sách tệp và schema_migrations); không so checksum. Comment đầu script nói 'sửa migration là lượt sau thấy ngay', đúng với migration chưa vào khuôn nhưng sai với migration đã vào khuôn (có trên origin/main). apply-pending-migrations.sh cũng ghi sổ theo version, không lưu checksum.",
+   "trigger": "Nhánh sửa nội dung một migration đã ở main (ví dụ sửa lỗi), chạy test-nhanh.sh trước khi chạy ci-may.sh.",
+   "impact": "Test cục bộ chạy trên lược đồ cũ và có thể xanh giả hoặc đỏ giả; thời gian sửa lỗi dài; ở production cũng không phát hiện migration bị sửa sau khi áp.",
+   "evidence": [
+    {
+     "path": "scripts/test-nhanh.sh",
+     "line": 16,
+     "end_line": 18,
+     "detail": "Khẳng định mỗi lượt áp bản trên đĩa vào DB tạm."
+    },
+    {
+     "path": "scripts/test-nhanh.sh",
+     "line": 271,
+     "end_line": 292,
+     "detail": "THIEU/THUA chỉ so version."
+    },
+    {
+     "path": "scripts/apply-pending-migrations.sh",
+     "line": 90,
+     "end_line": 98,
+     "detail": "Chỉ so version với schema_migrations."
+    }
+   ],
+   "limitations": "Quy tắc repo là không sửa migration đã áp; rủi ro chủ yếu ở nhánh đang sửa. ci-may.sh dựng DB sạch nên CI cuối không bị.",
+   "recommendation": "Lưu sha256 của file trong sổ migration và để test-nhanh.sh cảnh báo (hoặc dừng) khi checksum của cây khác sổ khuôn; script áp từ chối chạy khi checksum đã áp khác.",
+   "acceptance": "Sửa nội dung một migration đã vào khuôn rồi chạy test-nhanh.sh: script cảnh báo rõ migration nào khác và cách dựng lại khuôn.",
+   "alignment": [
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-008",
+    "DB-003"
+   ]
+  },
+  {
+   "tmp_id": "S03-17",
+   "title": "Script tạo tài khoản cũ (tao-tai-khoan-cskh.py) tạo user GoTrue trước rồi mới ghi staff, nên lỗi giữa chừng để lại tài khoản đăng nhập mồ côi mang mật khẩu mặc định và lần chạy lại bỏ qua nó",
+   "severity": "LOW",
+   "category": "provisioning_not_atomic",
+   "evidence_level": "confirmed_static",
+   "summary": "Script gọi POST /auth/v1/admin/users trước (dòng 133-141) rồi mới mở giao dịch DB tạo staff, membership và cấp preset (146-178). Nếu giao dịch lỗi, user GoTrue vẫn tồn tại. Lần chạy sau thấy email đã có trong auth.users nên 'bỏ qua' (102-120) và không bao giờ nối nó vào hồ sơ nhân sự. Bản mới (tao-tai-khoan-nhan-su.py) có nhánh tra lại id và nối, nhưng không kiểm uid đó đã gắn người khác.",
+   "trigger": "Lỗi DB hoặc thiếu hàm cap_quyen_theo_preset giữa chừng khi chạy --that.",
+   "impact": "Tồn tại tài khoản đăng nhập được với mật khẩu 12345678 nhưng không có hồ sơ nhân sự (mọi thao tác ghi 403), không ai quản lý; script mới còn có thể gắn tài khoản mồ côi có mật khẩu chưa biết vào nhân sự thật.",
+   "evidence": [
+    {
+     "path": "scripts/tao-tai-khoan-cskh.py",
+     "line": 102,
+     "end_line": 120,
+     "detail": "Email đã có trong auth.users thì bỏ qua."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-cskh.py",
+     "line": 132,
+     "end_line": 178,
+     "detail": "Tạo user GoTrue rồi mới mở giao dịch DB."
+    },
+    {
+     "path": "scripts/tao-tai-khoan-nhan-su.py",
+     "line": 205,
+     "end_line": 223,
+     "detail": "Nhánh tra lại uid theo email rồi nối, không kiểm tài khoản đó do ai tạo."
+    }
+   ],
+   "limitations": "Script đời cũ đã được thay bằng bản mới theo docstring; chỉ rủi ro nếu còn chạy. Chỉ mục duy nhất idx_staff_auth_user_id_unique chặn gắn một uid cho hai nhân sự.",
+   "recommendation": "Dùng một quy trình có thể tiếp tục: tạo staff trước ở trạng thái chưa kích hoạt, tạo user GoTrue, nối trong giao dịch, và có lệnh quét tài khoản auth không có staff; đặt mật khẩu ngẫu nhiên và buộc đổi.",
+   "acceptance": "Giả lập lỗi sau khi tạo user GoTrue: lần chạy lại hoàn tất việc nối thay vì bỏ qua; lệnh quét liệt kê 0 tài khoản mồ côi.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-032"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "SEC-032",
+   "detail": "scripts/tao-tai-khoan-nhan-su.py:46-47 mặc định MAT_KHAU='12345678' và chỉ in lời nhắc 'BẮT đổi ngay' ở dòng 279; payload tạo user (199-203) không có cờ buộc đổi mật khẩu. Mật khẩu này cũng áp cho các tài khoản vị trí dùng chung (truong-ca, thu-ngan, doi-tac-pk, man-hinh-phong-cho: dòng 76-88). scripts/tao-tai-khoan-cskh.py:35 gắn cứng không có biến ghi đè."
+  },
+  {
+   "id": "SEC-028",
+   "detail": "src/clinicai/api/identity.py:957-975 và 1023: khi công tắc vai_lich_theo_ca tắt (mặc định, dòng 924-927), mọi dòng work_roster trừ REJECTED (kể cả PENDING chưa duyệt) cấp vai vận hành cả ngày; truy vấn ở 1012-1030 lọc status <> 'REJECTED'. Chỉ khi bật luật ca mới yêu cầu APPROVED (dòng 976-987)."
+  },
+  {
+   "id": "SEC-002",
+   "detail": "src/clinicai/api/identity.py:875-899: doc_vai_theo_lego trả None (quay về luật cũ theo vai tài khoản) khi người không còn dòng quyền nào trong v_quyen_thuc_te; docstring coi đây là 'lưới an toàn'. Cache danh tính 30 giây (dòng 386) nên thu quyền có độ trễ."
+  },
+  {
+   "id": "SEC-024",
+   "detail": "src/clinicai/api/middleware.py:264-282: TimingMiddleware ghi detail=str(exc) của mọi ngoại lệ chưa bắt vào telemetry.record; chưa qua bộ lọc che."
+  },
+  {
+   "id": "SEC-003",
+   "detail": "src/clinicai/services/media_service.py:106-123 và 138-142: MEDIA_MAX_BYTES_* mặc định '0' = không giới hạn, nên MAX_BYTES_KET_QUA_UPLOAD = 0 và CskhUploadSizeLimitMiddleware (src/clinicai/api/middleware.py:62-65, 94-96) tự tắt; chỉ còn chốt ổ đĩa sắp đầy. Middleware cũng chỉ áp cho đường chính xác POST /api/v1/cskh/ket-qua/tep (dòng 97)."
+  },
+  {
+   "id": "SEC-021",
+   "detail": "src/clinicai/api/middleware.py:183-189: RequestIdMiddleware bind path=request.url.path thật (có mã khách/lượt) vào mọi dòng structlog của request; chỉ riêng cảnh báo request_cham ghi đè bằng mẫu đường dẫn (dòng 286-287). Mọi log lỗi khác trong request mang đường dẫn thật."
+  },
+  {
+   "id": "CLIN-014",
+   "detail": "src/clinicai/api/v1/routers/catalog.py:101-113: /catalog/locations trả mọi clinic_location của phòng khám kể cả cơ sở đã ngừng (không lọc is_active) trong khi /catalog/service-types lọc is_active (dòng 128-135); form có thể mời chọn cơ sở đã ngừng hoạt động."
+  },
+  {
+   "id": "API-002",
+   "detail": "src/clinicai/api/v1/routers/dispatch.py:572-589: /dispatch/chi-dinh/{visit_id} chỉ truyền clinic_id và visit_id xuống DispatchService.chi_dinh, trong khi /dispatch/overview, alerts, history truyền location_id (dòng 53-97). identity.py:452-454 ghi rõ cơ sở chọn chỉ là bộ chọn, mọi nhân viên vào mọi cơ sở của phòng khám."
+  },
+  {
+   "id": "SEC-020",
+   "detail": "src/clinicai/api/v1/routers/cskh.py:673-679 và 778: _KET_QUA_DOC_GUARD = _TEP_TAI_LEN_GUARD (crm.manage, clinical.record.write, result.form.fill, reception.checkin.perform, moi_phong=True); dòng 783-798 dùng nó cho GET /cskh/ho-so-kham/{appointment_id}, trả cả form_data phiếu khám, chỉ định, kết quả, đơn thuốc (src/clinicai/services/ho_so_kham_service.py:45-170) mà không phân biệt vai/phân công, không ghi vết (xem S03-12)."
+  },
+  {
+   "id": "SEC-019",
+   "detail": "src/clinicai/api/v1/routers/ho_so_kham.py:31-59: /ho-so-kham/lich-su trả mọi lượt của khách cho ai đọc được y khoa HOẶC làm một khâu quầy (src/clinicai/permissions/y_khoa.py:44-77 QUYEN_IN_PHIEU gồm reception.checkin.perform, payment.*.collect, pharmacy.dispense, crm.manage); không lọc theo bác sĩ phụ trách."
+  },
+  {
+   "id": "CLIN-031",
+   "detail": "src/clinicai/api/v1/routers/ho_so_kham.py:118-134 và 137-158: chon_thu_thuat và thao tac nhận Idempotency-Key là Header tuỳ chọn; thiếu khoá thì retry tạo thêm chỉ định (xem S03-7)."
+  },
+  {
+   "id": "INF-021",
+   "detail": "src/clinicai/api/v1/routers/config.py:966-1023: PATCH /ca-lam-viec cập nhật clinic.settings (giờ ca, giờ mở cửa) không ghi event_log, trong khi giờ ca quyết định vai theo lịch (identity.py:976-987). PATCH /display-settings (dòng 784-836) cũng không có nhật ký và đọc-sửa-ghi settings.display không khoá."
+  },
+  {
+   "id": "SEC-015",
+   "detail": "src/clinicai/api/v1/routers/config.py:209-219: DisplaySettingsRequest.hien_ten mặc định True, che_ten False; endpoint PATCH /display-settings (784-836) ghi lại cả hai giá trị mỗi lần dù request chỉ đổi khu; /dispatch/tv (dispatch.py:101-137) trả danh sách tên theo số thứ tự."
+  },
+  {
+   "id": "INF-016",
+   "detail": "src/clinicai/api/middleware.py:63-65, 94-100: giới hạn thân request chỉ cho /api/v1/cskh/ket-qua/tep và tắt khi MAX_BYTES=0; các đường ảnh siêu âm và /doi-tac/ket-qua (src/clinicai/api/v1/routers/doi_tac.py:330-350) không có giới hạn tầng middleware."
+  },
+  {
+   "id": "DB-005",
+   "detail": "Quy trình tạo phòng khám mới chưa tồn tại ở tầng tài khoản/nhân sự: xem S03-9 (scripts/tao-tai-khoan-*.py, scripts/them-lego-cho-ky-nang.py dùng LIMIT 1 và mã KN-TIEPDON)."
+  }
+ ],
+ "held": [
+  {
+   "title": "Trần 400 yêu cầu/phút theo tài khoản có thể chạm với tài khoản vị trí dùng chung",
+   "reason": "runaway_guard.py:130 khoá theo clinic:staff_id; tao-tai-khoan-nhan-su.py:83 cấp một tài khoản 'thu-ngan' cho cả hai quầy và 'truong-ca' dùng chung. Mỗi cú bấm có thể sinh 6-7 lời gọi (runaway_guard.py:72-77). Chưa có số đo cho trường hợp nhiều người cùng tài khoản nên chưa đưa vào phát hiện."
+  },
+  {
+   "title": "orchestrator.chat nhận patient_id từ client",
+   "reason": "orchestrator.py:44-80 chuyển patient_id nguyên văn cho OrchestratorService; route bị tắt mặc định (ENABLE_AI_ORCHESTRATOR) và chỉ cho ops.view. Chưa đọc service để biết patient_id có được đối chiếu với clinic_id."
+  },
+  {
+   "title": "Bộ nhớ đệm danh tính 30 giây nằm trong tiến trình",
+   "reason": "identity.py:386-425 và invalidate_identity_cache chỉ gọi ở permissions/cache.py, staff_service, clinic_config_service; duyệt/từ chối ca trực (config.py:294-308) không xoá cache nên vai theo lịch lệch tối đa 30 giây; nhiều bản sao API sẽ lệch lâu hơn (đã ghi trong runaway_guard.py:35-38 và SO-LUAT Phần 7)."
+  },
+  {
+   "title": "Chế độ MO_QUYEN_TAM_THOI",
+   "reason": "identity.py:1054-1120 cho phép mọi vai làm việc (trừ bác sĩ) qua các cửa RoleGuardCoTheMo bằng một biến môi trường; mặc định tắt và chỉ cảnh báo lúc khởi động (main.py:~125-131). Chưa thấy chỉ báo trên /ops hay health khi đang bật."
+  },
+  {
+   "title": "Checkout tự điền lý do 'Lễ tân cho khách về.'",
+   "reason": "dispatch.py:429-438 và checkout_service.py:776-783 ghi lý do ngoại lệ do máy tự sinh kèm danh sách vướng mắc. Bằng chứng vướng mắc vẫn được giữ nên chưa coi là lỗi, nhưng làm yếu ý nghĩa 'người đã chịu trách nhiệm'."
+  },
+  {
+   "title": "Gửi Zalo ZNS không có Idempotency-Key",
+   "reason": "cskh.py:1080-1092 gui_zalo không dùng guard; GuiZaloService chưa đọc nên chưa biết có chống gửi trùng trong dịch vụ."
+  },
+  {
+   "title": "xem-kho-thuoc.sql dùng current_date",
+   "reason": "xem-kho-thuoc.sql:24-25 tính hết hạn theo current_date của Postgres (múi giờ máy chủ), có thể lệch một ngày so với giờ Việt Nam ở khung 00:00-07:00; chỉ ảnh hưởng báo cáo thủ công."
+  },
+  {
+   "title": "Quy ước lệnh {lenh} của bàn khám là chuỗi tự do ở router",
+   "reason": "ho_so_kham.py:137-158 nhận lenh: str không ràng buộc, phụ thuộc dieu_tri_ban_kham.thao_tac để từ chối giá trị lạ; chưa đọc service."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Danh tính do máy chủ suy từ JWT + membership, X-Clinic-ID/X-Location-ID chỉ là bộ chọn và đóng khi mơ hồ",
+   "detail": "Tenant, vai, cơ sở lấy từ clinic_membership; không tin clinic_id từ body; nhiều membership hoặc thiếu cơ sở → 403; vai DISPLAY/PARTNER bị từ chối mặc định ở get_current_identity nên endpoint mới tự đóng. Nên nhân rộng làm nền cho mọi tenant.",
+   "evidence": "src/clinicai/api/identity.py:324-361, 456-558, 638-659"
+  },
+  {
+   "title": "Mọi lệnh ghi liệu trình mang idempotency_key bắt buộc và expected_revision",
+   "detail": "Mẫu chống thử lại và ghi đè đồng thời cần áp cho các router khác (xem S03-7).",
+   "evidence": "src/clinicai/api/v1/routers/lieu_trinh.py:25-142, 168-266"
+  },
+  {
+   "title": "Kiểm quyền trước khi đọc byte nào của thân tải tệp và đọc tệp theo luồng có Range, từng mảnh có hạn giờ",
+   "detail": "_cua_tai_len_tep chạy trước nhan_multipart; doc_dan giới hạn thời gian mỗi mảnh nên kho CFS treo không làm cạn threadpool; Content-Disposition được làm sạch, Cache-Control private no-store, nosniff.",
+   "evidence": "src/clinicai/api/v1/routers/cskh.py:682-771, 971-1028"
+  },
+  {
+   "title": "Cửa đối tác nhận mã chỉ định thay vì mã bệnh nhân",
+   "detail": "Ngăn đối tác tự khai bệnh nhân để gửi tệp cho người bất kỳ; câu lỗi giống nhau cho 'không có' và 'không phải việc ngoài' để không dò mã.",
+   "evidence": "src/clinicai/api/v1/routers/doi_tac.py:336-392"
+  },
+  {
+   "title": "Xoá ca trực có dry_run đo số lịch hẹn sẽ bị huỷ trước khi xoá thật",
+   "detail": "Cho người dùng thấy hậu quả trước khi bấm; nên nhân rộng cho các thao tác hàng loạt.",
+   "evidence": "src/clinicai/api/v1/routers/config.py:431-446"
+  },
+  {
+   "title": "Cảnh báo khi truy vấn chạm trần (canh_bao_neu_day) và tự kiểm trigger đã bật lại trước COMMIT",
+   "detail": "canh_bao_neu_day ghi log khi kết quả chạm trần LIMIT; script xoá có khối DO kiểm trigger chống xoá còn bật dựa trên hành vi (tgtype) chứ không tên hàm.",
+   "evidence": "src/clinicai/api/v1/routers/config.py:364-366; scripts/xoa-du-lieu-test.sh:208-238"
+  },
+  {
+   "title": "Script cấp tài khoản mặc định chạy thử khô và dựng kế hoạch trước, dừng khi trùng tên đăng nhập",
+   "detail": "Lộ va chạm ở bước lập kế hoạch rồi mới làm; báo lệch vai thay vì đoán.",
+   "evidence": "scripts/tao-tai-khoan-nhan-su.py:129-191"
+  },
+  {
+   "title": "Thứ tự middleware được ghi rõ và có test; mã request id từ ngoài chỉ nhận khi đúng dạng",
+   "detail": "Giúp 401/403/503 vẫn mang X-Request-ID và log không bị tiêm giá trị tuỳ ý.",
+   "evidence": "src/clinicai/api/middleware.py:1-34, 175-199"
+  },
+  {
+   "title": "Khuôn DB test nhân bản có khoá chung và dọn DB mồ côi",
+   "detail": "test-nhanh.sh tráo khuôn bằng đổi tên, khoá ở thư mục git chung, xoá DB tạm của tiến trình đã chết; nhiều phiên song song không đè nhau.",
+   "evidence": "scripts/test-nhanh.sh:112-130, 146-156, 207-219"
+  },
+  {
+   "title": "Nhật ký mở hồ sơ y khoa cho người ngoài đội chuyên môn (ý tưởng đúng, cần phủ rộng)",
+   "detail": "ghi_mo_ho_so chỉ ghi mã khách và tên màn, không ghi nội dung; là mẫu cần mở rộng (S03-12).",
+   "evidence": "src/clinicai/permissions/y_khoa.py:80-127"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "scripts/tao-tai-khoan-cskh.py",
+   "lines": 196,
+   "full_read": true,
+   "note": "Script cấp 11 tài khoản CSKH cũ; đọc hết."
+  },
+  {
+   "path": "scripts/tao-tai-khoan-nhan-su.py",
+   "lines": 286,
+   "full_read": true,
+   "note": "Script cấp tài khoản mọi nhân sự và tài khoản vị trí; đọc hết."
+  },
+  {
+   "path": "scripts/test-nhanh.sh",
+   "lines": 314,
+   "full_read": true,
+   "note": "Chạy pytest trên DB tạm nhân bản từ khuôn; đọc hết."
+  },
+  {
+   "path": "scripts/them-lego-cho-ky-nang.py",
+   "lines": 118,
+   "full_read": true,
+   "note": "Thêm lego vào kỹ năng; đọc hết."
+  },
+  {
+   "path": "scripts/undo-roster-fixture.sh",
+   "lines": 117,
+   "full_read": true,
+   "note": "Gỡ fixture staff trên DB từ .env.prod; đọc hết."
+  },
+  {
+   "path": "scripts/vps-chuan-bi.sh",
+   "lines": 143,
+   "full_read": true,
+   "note": "Chuẩn bị VPS trống; đọc hết."
+  },
+  {
+   "path": "scripts/xem-kho-thuoc.sql",
+   "lines": 51,
+   "full_read": true,
+   "note": "Truy vấn chỉ đọc tình hình kho; đọc hết."
+  },
+  {
+   "path": "scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql",
+   "lines": 122,
+   "full_read": true,
+   "note": "Xoá dữ liệu khách có chốt FINALIZED/AMENDED; đọc hết."
+  },
+  {
+   "path": "scripts/xoa-du-lieu-test.sh",
+   "lines": 251,
+   "full_read": true,
+   "note": "Xoá dữ liệu bệnh nhân với xác nhận gõ tay; đọc hết."
+  },
+  {
+   "path": "src/.gitkeep",
+   "lines": 0,
+   "full_read": true,
+   "note": "Tệp rỗng."
+  },
+  {
+   "path": "src/clinicai/__init__.py",
+   "lines": 0,
+   "full_read": true,
+   "note": "Tệp rỗng."
+  },
+  {
+   "path": "src/clinicai/adapters/__init__.py",
+   "lines": 0,
+   "full_read": true,
+   "note": "Tệp rỗng."
+  },
+  {
+   "path": "src/clinicai/adapters/pos/__init__.py",
+   "lines": 0,
+   "full_read": true,
+   "note": "Tệp rỗng."
+  },
+  {
+   "path": "src/clinicai/api/__init__.py",
+   "lines": 0,
+   "full_read": true,
+   "note": "Tệp rỗng."
+  },
+  {
+   "path": "src/clinicai/api/identity.py",
+   "lines": 1120,
+   "full_read": true,
+   "note": "JWT, danh tính, vai theo lịch/lego, RoleGuard; đọc hết 1120 dòng."
+  },
+  {
+   "path": "src/clinicai/api/middleware.py",
+   "lines": 295,
+   "full_read": true,
+   "note": "RequestId, Timing, DbError, giới hạn upload; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/runaway_guard.py",
+   "lines": 271,
+   "full_read": true,
+   "note": "Trần yêu cầu theo nhân viên; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/v1/__init__.py",
+   "lines": 0,
+   "full_read": true,
+   "note": "Tệp rỗng."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/catalog.py",
+   "lines": 201,
+   "full_read": true,
+   "note": "Danh mục chỉ đọc; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/clinical_records.py",
+   "lines": 142,
+   "full_read": true,
+   "note": "Đọc/ghi bệnh án; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/config.py",
+   "lines": 1132,
+   "full_read": true,
+   "note": "Lịch trực, bảng giá, luật đặt lịch, ca làm việc; đọc hết 1132 dòng."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/cskh.py",
+   "lines": 1092,
+   "full_read": true,
+   "note": "CSKH, tệp kết quả, Zalo; đọc hết 1092 dòng."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/dispatch.py",
+   "lines": 625,
+   "full_read": true,
+   "note": "Điều phối, thông báo, check-out; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/doi_tac.py",
+   "lines": 392,
+   "full_read": true,
+   "note": "Đường đối tác; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/ho_so_kham.py",
+   "lines": 185,
+   "full_read": true,
+   "note": "Hồ sơ khám dịch vụ/điều trị/ghi chú; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/lieu_trinh.py",
+   "lines": 370,
+   "full_read": true,
+   "note": "Liệu trình; đọc hết."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/luot_kham.py",
+   "lines": 1221,
+   "full_read": true,
+   "note": "Luồng khám lát 1; đọc hết 1221 dòng."
+  },
+  {
+   "path": "src/clinicai/api/v1/routers/orchestrator.py",
+   "lines": 82,
+   "full_read": true,
+   "note": "Endpoint debug orchestrator; đọc hết."
+  }
+ ]
+}

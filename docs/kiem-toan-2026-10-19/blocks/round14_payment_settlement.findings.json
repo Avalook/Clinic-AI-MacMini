@@ -1,0 +1,132 @@
+[
+  {
+    "id": "CAND-R14-PAY-IDEM-001",
+    "canonical_id": null,
+    "title": "Receipt thu dịch vụ không fingerprint lựa chọn công ty nhưng replay vẫn áp lựa chọn mới",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static_boundary_mismatch_effect_inferred",
+    "category": "payment_idempotency_secondary_side_effect",
+    "status": "candidate_for_triage",
+    "summary": "Command receipt của thu dịch vụ fingerprint các trường tài chính và lựa chọn bill nhưng bỏ cong_ty_id. Sau khi receipt trả payment_cycle_id cũ, router vẫn gọi _gan_cong_ty bằng body hiện tại. Cùng key và cùng payload đã fingerprint nhưng đổi cong_ty_id có thể gắn company invoice snapshot nếu cycle chưa có snapshot. Không tạo thêm payment cycle nhưng có thể đổi đích xuất hoá đơn.",
+    "trigger": "POST /api/v1/payments kind=dich_vu với Idempotency-Key K, sau khi thu commit gửi lại K cùng mọi trường được fingerprint nhưng đổi cong_ty_id sang company hợp lệ của cùng khách. Chỉ tác động khi cycle chưa có dòng hoa_don_cong_ty.",
+    "impact": "Payload khác qua cùng key không bị từ chối bằng IDEMPOTENCY_KEY_REUSED; company snapshot của lần thu có thể theo request replay và được dùng làm đơn vị mua trong export. Đây là sai đích/metadata hoá đơn kế toán, không phải thu tiền hai lần.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/payment_service.py",
+        "lines": "740-757",
+        "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+        "detail": "Receipt payload gồm visit/kind/patient/revision/method/amount và trường split/discount/selection có điều kiện; không gồm cong_ty_id."
+      },
+      {
+        "path": "src/clinicai/services/payment_service.py",
+        "lines": "779-810",
+        "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+        "detail": "Receipt được đọc trước khi ghi lần thu; hash khớp thì trả kết quả cũ, receipt mới được ghi cùng transaction."
+      },
+      {
+        "path": "src/clinicai/services/lenh_kham_core.py",
+        "lines": "180-201",
+        "sha256": "034b8f33755bc55f4283d706e2b287bddca3a424f38fd1d516d325a2f8a7cb28",
+        "detail": "Helper so payload hash; hash khớp thì replay result, hash khác mới ném IDEMPOTENCY_KEY_REUSED."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/payment.py",
+        "lines": "130-156",
+        "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+        "detail": "Nhánh dịch vụ không truyền cong_ty_id vào PaymentService nhưng sau result/replay gọi _gan_cong_ty bằng body request hiện tại."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/payment.py",
+        "lines": "193-213",
+        "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+        "detail": "_gan_cong_ty chạy sau lần thu, gọi service snapshot với company ID từ request."
+      },
+      {
+        "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+        "lines": "581-630",
+        "sha256": "5a531711543f93e9d8c5a008e55d25d8f7fd484e3b0da3c5ca770e0877dfa194",
+        "detail": "Nếu chưa có snapshot, chép company hợp lệ theo khách vào payment cycle; nếu đã có bất kỳ snapshot nào thì không ghi đè."
+      },
+      {
+        "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+        "lines": "731-748",
+        "sha256": "5a531711543f93e9d8c5a008e55d25d8f7fd484e3b0da3c5ca770e0877dfa194",
+        "detail": "Export reader chỉ lấy snapshot đang hiệu lực (bo_luc IS NULL)."
+      },
+      {
+        "path": "src/dashboard/app/api/payment/route.ts",
+        "lines": "150-171",
+        "sha256": "a83e494f7b4513bf032c7d29239d0e5becddb13ed3f9a26002497cbd85311487",
+        "detail": "BFF chuyển cong_ty_id và Idempotency-Key tới FastAPI."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+        "lines": "446-455",
+        "sha256": "733c8dffc1cc0da8387c65919f57919f14297b17256ecab3e41d43a00853a199",
+        "detail": "UI quầy thường hiện đưa congTyId vào định danh thao tác."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx",
+        "lines": "261-275",
+        "sha256": "6a9c99462aea06b3580f7cda71307322e48efa61334a0e62eafc2a3a5dc2f55b",
+        "detail": "UI quầy một hoá đơn cũng đưa congTyId vào khoá thao tác và body."
+      },
+      {
+        "path": "src/clinicai/services/xuat_hoa_don_service.py",
+        "lines": "246-279",
+        "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145",
+        "detail": "Snapshot công ty hiệu lực đổi cờ company invoice và thông tin đơn vị mua trong export."
+      },
+      {
+        "path": "src/tests/services/test_thu_dich_vu_nhieu_lan_db.py",
+        "lines": "477-500",
+        "sha256": "4dbf5c5d7132740af95aebd3a24db407b8218a216abbacb25b60c04d14fad92c",
+        "detail": "Test cùng body replay và cùng key đổi method; không đổi cong_ty_id."
+      },
+      {
+        "path": "src/tests/services/test_tick_cong_ty_khi_thu_db.py",
+        "lines": "173-213",
+        "sha256": "3bdb6e524f1fabb74751299993111ea21004292a0445fd800f4ff2f9a4345b07",
+        "detail": "Test no-resurrection và helper route success/error cơ bản; không kiểm cùng key đổi company."
+      }
+    ],
+    "validation": {
+      "method": "static_route_to_receipt_to_company_snapshot_and_export_trace",
+      "result": "Source xác nhận company ID vắng khỏi receipt hash của nhánh thu dịch vụ nhưng được dùng sau khi receipt trả kết quả cũ. UI hiện tại đưa company ID vào key; direct tests bao phủ mismatch method và no-resurrection, không bao phủ mismatch company tại route.",
+      "limitations": "Không chạy test/ASGI/DB/runtime; không có chứng cứ production/incident. Cần caller tái dùng key với body cong_ty_id khác. Không tác động khi không có company hợp lệ hoặc cycle đã có snapshot; không tạo thêm tiền thu."
+    },
+    "recommendation": "Giữ cùng-key/different-payload rejection xuyên suốt lệnh thu: fingerprint cong_ty_id trong receipt hoặc tách gắn company snapshot thành command riêng có idempotency riêng.",
+    "acceptance": "Test route/service xác nhận cùng key + cùng cong_ty_id replay không thêm snapshot; cùng key nhưng thêm/bỏ/đổi cong_ty_id bị IDEMPOTENCY_KEY_REUSED trước side effect; key mới mới cho phép thao tác theo chính sách; snapshot đã bỏ chọn không bị hồi sinh.",
+    "related_existing_findings": [
+      "INF-007",
+      "FIN-004",
+      "FIN-001"
+    ],
+    "deduplication": {
+      "reviewed": [
+        "FIN-001..FIN-012",
+        "INF-007",
+        "DB-006",
+        "DB-007",
+        "PHAR-001",
+        "PHAR-002",
+        "INF-011",
+        "INF-017",
+        "INF-018"
+      ],
+      "duplicate": false,
+      "reason": "INF-007 là khoảng hở giữa commit nghiệp vụ và save receipt qua IdempotencyGuard có thể chạy lại side effect sau khi lease hết. Candidate này dùng command_receipt transactional để ngăn thu lại nhưng bỏ cong_ty_id khỏi hash và vẫn chạy side effect company theo body replay. FIN-004 là lỗi làm tròn hoàn tiền; FIN-001 là phân bổ discount. Các mục khác không cùng trigger/outcome.",
+      "reviewed_artifacts": [
+        "blocks/round12_pos_outbox.findings.json (empty)"
+      ]
+    },
+    "related_tests": [
+      "src/tests/services/test_thu_dich_vu_nhieu_lan_db.py",
+      "src/tests/services/test_tick_cong_ty_khi_thu_db.py",
+      "src/dashboard/tests/cong-ty-khi-thu-boundary.test.mts",
+      "src/dashboard/tests/hoa-don-cong-ty-boundary.test.mts"
+    ],
+    "version_scope": "exact_main_snapshot_956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "production_verified": false
+  }
+]

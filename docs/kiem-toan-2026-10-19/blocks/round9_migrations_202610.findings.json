@@ -1,0 +1,294 @@
+[
+  {
+    "id": "DB-006",
+    "title": "Một số migration tự COMMIT trước khi runner ghi sổ migration",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "migration_atomicity",
+    "summary": "scripts/apply-pending-migrations.sh mở giao dịch, chạy nội dung migration, ghi version vào supabase_migrations.schema_migrations rồi COMMIT. Bảy migration tháng 10 tự chạy COMMIT trước câu INSERT sổ của runner. Nếu kết nối hoặc ghi sổ lỗi sau COMMIT nội bộ, thay đổi schema đã được áp nhưng ledger chưa ghi; runner có thể báo rollback dù DDL đã commit.",
+    "trigger": "Một trong bảy migration có BEGIN/COMMIT được áp bằng scripts/apply-pending-migrations.sh, rồi psql mất kết nối hoặc câu ghi ledger thất bại sau COMMIT nằm trong migration.",
+    "impact": "Ledger có thể không phản ánh trạng thái schema cho đến lượt chạy sau; thao tác tiếp theo có thể áp lại DDL và thông báo lỗi của runner nói migration đã rollback dù phần DDL đã commit. Các migration được nêu có nhiều bước idempotent, nên chưa có bằng chứng dữ liệu bị hỏng; rủi ro chính là trạng thái triển khai không rõ và phục hồi/đối soát tốn công.",
+    "evidence": [
+      {
+        "path": "scripts/apply-pending-migrations.sh",
+        "line": 124,
+        "end_line": 154,
+        "detail": "Runner bọc migration trong BEGIN, chèn version vào ledger sau nội dung migration rồi COMMIT; nhánh lỗi nói migration đã rollback hoàn toàn."
+      },
+      {
+        "path": "scripts/apply-pending-migrations.sh",
+        "line": 53,
+        "end_line": 60,
+        "detail": "run_sql gọi psql với ON_ERROR_STOP, không bật chế độ single-transaction ngoài các câu BEGIN/COMMIT được ghép vào stdin."
+      },
+      {
+        "path": "supabase/migrations/20261010100001_lich_su_don_thuoc_notify.sql",
+        "line": 3,
+        "end_line": 21,
+        "detail": "Migration mở và kết thúc giao dịch riêng trước câu INSERT ledger của runner."
+      },
+      {
+        "path": "supabase/migrations/20261016400000_vai_ke_toan.sql",
+        "line": 27,
+        "end_line": 59,
+        "detail": "Migration tự BEGIN/COMMIT."
+      },
+      {
+        "path": "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+        "line": 3,
+        "end_line": 23,
+        "detail": "Migration tự BEGIN/COMMIT."
+      },
+      {
+        "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+        "line": 7,
+        "end_line": 75,
+        "detail": "Migration tự COMMIT sau thay đổi ACL, trước câu ghi ledger do runner nối thêm."
+      },
+      {
+        "path": "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+        "line": 6,
+        "end_line": 50,
+        "detail": "Migration tự BEGIN/COMMIT."
+      },
+      {
+        "path": "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+        "line": 3,
+        "end_line": 116,
+        "detail": "Migration tự BEGIN/COMMIT."
+      },
+      {
+        "path": "supabase/migrations/20261019140000_idempotency_payload_hash.sql",
+        "line": 2,
+        "end_line": 24,
+        "detail": "Migration tự BEGIN/COMMIT."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": "nl -ba scripts/apply-pending-migrations.sh | sed -n '45,110p;124,154p'; rg -n '^(BEGIN|COMMIT);' supabase/migrations/202610*.sql",
+      "result": "Đã đối chiếu câu lệnh psql, thứ tự BEGIN/nội dung/INSERT ledger/COMMIT và vị trí transaction markers trong cả 101 migration tháng 10. Không chạy DB hoặc mô phỏng mất kết nối.",
+      "limitations": "Không chứng minh tình huống đã xảy ra trên staging/prod, không đo xác suất cửa sổ lỗi, và không thử áp lại bảy migration. Nội dung migration thường có guard chạy lại, nên không suy ra schema bị hỏng."
+    },
+    "recommendation": "Chọn một nơi sở hữu transaction boundary: bỏ BEGIN/COMMIT nội bộ ở migration do runner quản, hoặc sửa runner để nhận diện migration tự quản và ghi ledger trong cùng transaction của nó. Giữ thông báo lỗi phản ánh chính xác liệu DDL đã commit hay chưa.",
+    "acceptance": "Với từng migration có transaction marker, test runner xác nhận thay đổi schema và dòng ledger cùng commit hoặc cùng rollback khi lỗi được chèn trước ledger. Khi lệnh thất bại, trạng thái đọc lại từ ledger và schema khớp; không có thông báo rollback sai sau khi DDL đã commit.",
+    "alignment": [
+      "Trạng thái thực tế dễ nhìn thấy",
+      "Rút ngắn thời gian chưa biết",
+      "Giảm gián đoạn khi phục hồi triển khai",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "scripts/apply-pending-migrations.sh:124-154 (cơ chế runner; chưa có test lỗi giữa migration và ledger)"
+    ],
+    "related_findings": [
+      {
+        "id": "DB-002",
+        "relationship": "Cùng nhóm độ tin cậy trạng thái triển khai/restore nhưng khác lỗi: DB-002 nói về restore ACL và ledger không được reconcile; DB-006 nói transaction do bảy migration tự COMMIT sớm trong runner migration."
+      },
+      {
+        "id": "DB-003",
+        "relationship": "DB-003 là lỗi idempotency của nội dung migration giảm giá ở WIP và đã addressed trên exact pinned main; DB-006 là transaction boundary của bảy migration khác với runner."
+      }
+    ],
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Transaction markers và wrapper runner cùng tồn tại trên snapshot ghim. Chỉ xác nhận tĩnh; chưa xác minh runtime."
+    },
+    "source_hashes": {
+      "scripts/apply-pending-migrations.sh": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721",
+      "supabase/migrations/20261010100001_lich_su_don_thuoc_notify.sql": "8c64e0b1afb0712b68b2be32e5681c27daea4fa4f20ab84934862b48f1e00f2b",
+      "supabase/migrations/20261016400000_vai_ke_toan.sql": "517363a6f53b25162cf705a7aac22b4bb945d60f142b47611e17824f877d4feb",
+      "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql": "528aefe4ce9b0a6bd5e3bbe809725edee351efa73272b067395ca901535a7935",
+      "supabase/migrations/20261019100000_harden_public_function_acl.sql": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+      "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql": "5e48f72dc31286d05934cbc48d4fbfec43214d7f5e45889b43338ec8ee96fc8e",
+      "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql": "37c8a1b7aea72a3dc67f4c6111fa1c9679e28d4b76ff1e665751cb48b03c4f11",
+      "supabase/migrations/20261019140000_idempotency_payload_hash.sql": "14ed47b90efe243ed1494d062e706661938a0cc215cfc298c24959b8b80f7af2"
+    }
+  },
+  {
+    "id": "DB-007",
+    "title": "Hai sổ công nợ không buộc bệnh nhân trùng với lượt được tham chiếu",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "financial_identity_integrity",
+    "summary": "cong_no và so_no có FK tenant-scoped tới visit nhưng clinic_patient_id lại FK riêng tới patient. Không có trigger/constraint khi INSERT kiểm clinic_patient_id của dòng nợ bằng clinic_patient_id của visit. Trigger cong_no chỉ đóng băng định danh khi UPDATE; trigger so_no chỉ khóa sổ và kiểm phép cộng số dư.",
+    "trigger": "Backend ghi một dòng cong_no hoặc so_no với clinic_id/visit_id hợp lệ nhưng clinic_patient_id là một hồ sơ bệnh nhân khác đang tồn tại. Các FK hiện có có thể đều thỏa, trong khi liên hệ bệnh nhân-lượt sai.",
+    "impact": "Khoản nợ có thể gắn nhầm người trong lịch sử hoặc phép chiếu tài chính theo bệnh nhân. Đây là rủi ro toàn vẹn dữ liệu/đối soát, không phải bằng chứng backend hiện tạo dòng sai hoặc người dùng đã nhìn thấy hồ sơ của clinic khác.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20261002500000_cong_no.sql",
+        "line": 18,
+        "end_line": 40,
+        "detail": "clinic_patient_id chỉ FK tới patient(clinic_patient_id); quan hệ clinic+visit được kiểm bằng FK khác."
+      },
+      {
+        "path": "supabase/migrations/20261002500000_cong_no.sql",
+        "line": 65,
+        "end_line": 83,
+        "detail": "Trigger được gắn BEFORE UPDATE OR DELETE; không kiểm liên kết patient/visit ở INSERT."
+      },
+      {
+        "path": "supabase/migrations/20261002500000_cong_no.sql",
+        "line": 91,
+        "end_line": 96,
+        "detail": "service_role được INSERT/UPDATE; kiểm RLS đọc clinic không ràng buộc patient_id với visit_id."
+      },
+      {
+        "path": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+        "line": 21,
+        "end_line": 56,
+        "detail": "clinic_patient_id và visit_id có các FK độc lập; chỉ FK (clinic_id, visit_id) ghim tenant của lượt."
+      },
+      {
+        "path": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+        "line": 74,
+        "end_line": 94,
+        "detail": "Trigger khóa cùng lượt và kiểm so_du = số dư trước + chênh lệch, không so patient_id với visit."
+      },
+      {
+        "path": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+        "line": 112,
+        "end_line": 117,
+        "detail": "RLS/grant cho service_role không bổ sung kiểm tra liên kết patient-lượt."
+      },
+      {
+        "path": "supabase/tests/multi_tenant_foundation.sql",
+        "line": 185,
+        "end_line": 237,
+        "detail": "Bài kiểm tenant xác nhận clinic_id NOT NULL, FK tới clinic và index; không kiểm quan hệ chéo patient_id/visit_id của sổ nợ."
+      }
+    ],
+    "validation": {
+      "method": "static_schema_and_trigger_trace",
+      "command": "nl -ba supabase/migrations/20261002500000_cong_no.sql | sed -n '18,96p'; nl -ba supabase/migrations/20261014140000_so_no_hai_chieu.sql | sed -n '21,117p'; nl -ba supabase/tests/multi_tenant_foundation.sql | sed -n '185,237p'",
+      "result": "Hai cặp FK và trigger được so sánh tĩnh; không tìm thấy đối chiếu patient_id của visit tại INSERT trong hai migration. Không chạy fixture DB.",
+      "limitations": "Không xác minh mọi query/backend consumer hoặc production data. Service có thể tự đối chiếu trước khi INSERT; finding chỉ nêu DB không cưỡng chế bất biến và không khẳng định lỗi dữ liệu đã xảy ra."
+    },
+    "recommendation": "Ép cùng một patient cho visit và ledger trong DB, bằng trigger kiểm clinic_id + visit_id + clinic_patient_id khi INSERT/UPDATE hoặc bằng khóa ghép phù hợp sau khi xác nhận các unique key cần thiết. Thêm test SQL synthetic cho patient đúng/sai, gồm case cùng clinic và khác clinic, trên cả cong_no và so_no.",
+    "acceptance": "INSERT sổ nợ chỉ thành công khi clinic_patient_id bằng patient của visit cùng clinic; đổi patient sau khi tạo bị chặn; phép đối chiếu số dư hiện có vẫn chạy đúng và test có ít nhất một fixture synthetic sai bị từ chối.",
+    "alignment": [
+      "Sự thật tài chính gắn đúng người",
+      "Ownership và lịch sử rõ",
+      "Phát hiện sai lệch sớm",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "supabase/tests/multi_tenant_foundation.sql:185-237 (kiểm tenant_id trực tiếp, không kiểm patient/visit)",
+      "Không có bài kiểm SQL chuyên biệt cho cong_no/so_no trong các test SQL liên quan đã đọc."
+    ],
+    "related_findings": [
+      {
+        "id": "DB-005",
+        "relationship": "DB-005 nói về provision tenant/catalog; DB-007 là bất biến ghép giữa bệnh nhân và lượt trong hai bảng sổ nợ."
+      }
+    ],
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Các FK/trigger nêu trên có mặt trong migrations của snapshot ghim. Không kiểm DB đang chạy."
+    },
+    "source_hashes": {
+      "supabase/migrations/20261002500000_cong_no.sql": "bd05d4a10a1b2146e2475b9604249ebdfb02ad28cedfcb157f91fc3edfa15070",
+      "supabase/migrations/20261014140000_so_no_hai_chieu.sql": "cdbe044f308e372250fe7392c12d688af80dc302803b7c49a2e1712e0570dee3",
+      "supabase/tests/multi_tenant_foundation.sql": "c4d559d49f698d4f8e352f90534b0b0811e35fcd67587de1c1a446141a18ffae"
+    }
+  },
+  {
+    "id": "SEC-019",
+    "title": "Lịch sử biểu mẫu lâm sàng và ghi chú lượt đọc được theo clinic, chưa theo vai",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_data_role_boundary",
+    "summary": "form_instance_lich_su lưu du_lieu cũ của mọi form_instance dưới dạng JSON; luot_ghi_chu lưu nội dung ghi chú tự do của visit. Cả hai bật RLS, nhưng policy cho authenticated chỉ dùng current_clinic_ids() và đều GRANT SELECT trực tiếp cho authenticated. Policy không lọc vai lâm sàng hoặc bệnh nhân được phân.",
+    "trigger": "Người dùng có JWT authenticated và membership active trong clinic truy vấn trực tiếp form_instance_lich_su hoặc luot_ghi_chu qua public REST/SQL. Policy hiện hành chỉ kiểm clinic_id nên cho phép đọc các dòng thuộc clinic đó, kể cả người ngoài nhóm lâm sàng.",
+    "impact": "Có khả năng đọc các bản chụp cũ của dữ liệu biểu mẫu lâm sàng và ghi chú tự do của các lượt khám trong cùng clinic, vượt ranh vai/assignment dự kiến cho nội dung bệnh án. Không có bằng chứng truy cập chéo clinic, request runtime thành công hay dữ liệu thật đã bị đọc.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+        "line": 18,
+        "end_line": 40,
+        "detail": "Bảng lịch sử lưu nguyên du_lieu jsonb của phiên bản biểu mẫu cũ và liên kết tới form_instance trong clinic."
+      },
+      {
+        "path": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+        "line": 42,
+        "end_line": 59,
+        "detail": "Trigger chụp OLD.du_lieu và trạng thái mỗi lần form data/trạng thái thay đổi."
+      },
+      {
+        "path": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+        "line": 74,
+        "end_line": 81,
+        "detail": "RLS SELECT chỉ lọc clinic_id qua current_clinic_ids(); authenticated có SELECT."
+      },
+      {
+        "path": "supabase/migrations/20261007640000_luot_ghi_chu.sql",
+        "line": 18,
+        "end_line": 33,
+        "detail": "Bảng giữ nội dung ghi chú tự do theo visit và lịch sử nhiều phiên bản."
+      },
+      {
+        "path": "supabase/migrations/20261007640000_luot_ghi_chu.sql",
+        "line": 41,
+        "end_line": 47,
+        "detail": "RLS SELECT chỉ lọc clinic_id qua current_clinic_ids(); authenticated có SELECT."
+      },
+      {
+        "path": "supabase/tests/role_scoped_clinical_read.sql",
+        "line": 1,
+        "end_line": 18,
+        "detail": "Phạm vi kiểm thử nói về clinical_record và clinical_form_response; không nêu hai bảng lịch sử/ghi chú mới."
+      },
+      {
+        "path": "supabase/tests/role_scoped_clinical_read.sql",
+        "line": 120,
+        "end_line": 170,
+        "detail": "Bài kiểm xác nhận Reception, cashier và management đọc 0 hàng từ clinical_record; không có assertion trên form_instance_lich_su hoặc luot_ghi_chu."
+      }
+    ],
+    "validation": {
+      "method": "static_policy_grant_test_coverage_trace",
+      "command": "nl -ba supabase/migrations/20261007630000_form_instance_lich_su.sql | sed -n '18,81p'; nl -ba supabase/migrations/20261007640000_luot_ghi_chu.sql | sed -n '18,47p'; nl -ba supabase/tests/role_scoped_clinical_read.sql | sed -n '1,18p;120,170p'",
+      "result": "Đã đọc đầy đủ hai migration và bài kiểm role-scoped. Câu lệnh SELECT grant và policy theo clinic hiện có; không chạy role/PostgREST probe.",
+      "limitations": "Chưa kiểm catalog ACL/policy hiệu lực, audience từng màn hoặc runtime PostgREST. Ý định cho từng vai đọc lịch sử/ghi chú cần chủ nghiệp vụ xác nhận; không khẳng định dữ liệu đã bị truy cập hay lộ."
+    },
+    "recommendation": "Xác nhận ma trận vai với chủ nghiệp vụ, rồi thu hồi SELECT trực tiếp authenticated hoặc thay policy bằng role lâm sàng và giới hạn patient assignment; cung cấp projection FastAPI có guard khi các màn cần đọc. Bổ sung test SQL cho doctor/nurse/TKYK, reception/cashier/management và nhiều patient/visit trong cùng clinic.",
+    "acceptance": "Với fixture synthetic trong một clinic, role được duyệt chỉ đọc lịch sử/ghi chú thuộc phạm vi bệnh nhân của mình; role không được duyệt đọc 0 hàng qua authenticated/PostgREST; identity clinic khác vẫn không đọc được; đường FastAPI cần thiết vẫn hoạt động.",
+    "alignment": [
+      "Bệnh án và lịch sử phản ánh đúng ai được xem",
+      "Giảm truy cập ngoài ownership lâm sàng",
+      "Phát hiện quyền rộng trước khi thành sự cố",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "supabase/tests/role_scoped_clinical_read.sql:1-18,120-170 (role guard cho clinical_record/form_response; thiếu hai bảng Oct)",
+      "supabase/tests/tenant_scoped_rls.sql (kiểm tenant scope tổng quát, không kiểm role mới cho hai bảng)"
+    ],
+    "related_findings": [
+      {
+        "id": "SEC-011",
+        "relationship": "SEC-011 là các API FastAPI đọc lâm sàng chưa kiểm patient assignment; SEC-019 là GRANT/policy direct read cho hai bảng khác qua PostgREST, độc lập với router."
+      },
+      {
+        "id": "SEC-018",
+        "relationship": "Cùng mẫu policy clinic-only nhưng SEC-018 là contact/kin PII; SEC-019 là nội dung phiếu lâm sàng và ghi chú lượt, mức nhạy cảm và bảng đích khác."
+      }
+    ],
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Policies/grants được xác nhận trong hai migration exact pinned. Không chạy kiểm thử runtime."
+    },
+    "source_hashes": {
+      "supabase/migrations/20261007630000_form_instance_lich_su.sql": "2576c1d3bd29175ce74a99e257693a60d2ddf00fe031aeeb7ae554ef0a19e483",
+      "supabase/migrations/20261007640000_luot_ghi_chu.sql": "73e4ff019676b1d50a1e64a191ff11182e977594d4a62c6cb38c9fb3ed99d9ca",
+      "supabase/tests/role_scoped_clinical_read.sql": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+      "supabase/tests/tenant_scoped_rls.sql": "d9e56b39281ce8364c94602c2466ddc814027f72bdc01b5bfecd4fccf2076383"
+    }
+  }
+]

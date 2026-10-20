@@ -1,0 +1,451 @@
+{
+ "chunk": "T01",
+ "findings": [
+  {
+   "tmp_id": "T01-1",
+   "title": "Guard chống ghi lên production của bot E2E intake không chạy được: dùng biến `url` chưa khai báo và không có bước đăng nhập",
+   "severity": "MEDIUM",
+   "category": "test_broken_guard",
+   "evidence_level": "confirmed_static",
+   "summary": "Hàm `login` goto /login rồi tham chiếu `url.includes(...)` nhưng `url` không được khai báo và không có bước điền email/mật khẩu hay submit. Lệnh sẽ ném ReferenceError, bị catch và trả `skip` 'Lỗi đăng nhập'. Vì vậy mọi phase đều SKIP mềm, báo cáo trông như 'thiếu credential' trong khi bot chưa bao giờ đăng nhập được.",
+   "trigger": "Chạy `npm run e2e:intake` với credential đầy đủ và E2E_BASE_URL hợp lệ.",
+   "impact": "Phép thử luồng đặt lịch và tiếp nhận không bao giờ chạy thật. Chủ phòng khám có thể tin luồng này đã được kiểm trong khi thực tế bot bỏ qua mọi bước. Khung ghi dữ liệu (CAN_WRITE) cũng chỉ ghi một dòng WARN và không tạo dữ liệu nào, nên bot chưa kiểm chứng được gì về cả hai chiều.",
+   "evidence": [
+    {
+     "path": "src/dashboard/e2e/intake-day-simulation.mjs",
+     "line": 99,
+     "end_line": 108,
+     "detail": "Sau goto /login không có fill/submit; dùng `url` chưa định nghĩa; lỗi bị nuốt thành skip."
+    },
+    {
+     "path": "src/dashboard/e2e/intake-day-simulation.mjs",
+     "line": 400,
+     "end_line": 407,
+     "detail": "Phase B/C/D/F ghi chỉ là WARN, không chạy bước ghi nào."
+    }
+   ],
+   "limitations": "Chỉ đọc tĩnh một tệp; có thể có bản khác đang dùng ở CI, nhưng tệp này đã có trong kho.",
+   "recommendation": "Hoàn thiện login (fill, submit, waitForURL, lấy url từ page.url()). Coi 'SKIP do lỗi mã' là FAIL, và phân biệt rõ với 'thiếu credential'.",
+   "acceptance": "Chạy với tài khoản local hợp lệ cho PASS ở Phase A. Xoá riêng biến `url` thì lần chạy phải FAIL chứ không SKIP.",
+   "alignment": [
+    "Reality",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T01-2",
+   "title": "Bộ test đua tranh kết luận 'đạt' từ số đếm dịch vụ mà không phân biệt luật bất biến vs. trạng thái dữ liệu",
+   "severity": "MEDIUM",
+   "category": "test_wrong_assertion",
+   "evidence_level": "confirmed_static",
+   "summary": "SC-31 và các SC khác chạy trên server thật dùng chung, nhưng khi tuần chưa công bố lịch trực thì phép thử chuyển sang nhánh 'không có trần': chỉ kiểm `nhan == thuc_te and nhan == len(khach)`. Nhánh này không kiểm được sức chứa nào. Ngoài ra SC-35 kiểm đúng một khoản thu bằng cách đếm payments cùng `kind`. SC-32 đếm lượt theo tên khách và dùng `startswith`.",
+   "trigger": "Chạy dua-tranh.py trên môi trường mà tuần mục tiêu chưa công bố lịch trực.",
+   "impact": "Bộ test báo ✓ trong khi bất biến sức chứa chưa được kiểm; một lỗi vượt sức chứa khi lịch đã công bố có thể không bị phát hiện cho tới khi chạy đúng điều kiện.",
+   "evidence": [
+    {
+     "path": "scripts/tests/dua-tranh.py",
+     "line": 373,
+     "end_line": 386,
+     "detail": "Nhánh `da_cong_bo` false chỉ so nhan với thuc_te, coi là đạt."
+    },
+    {
+     "path": "scripts/tests/dua-tranh.py",
+     "line": 593,
+     "end_line": 601,
+     "detail": "SC-35 chỉ đếm payments kind dich_vu; không kiểm tổng tiền/đối soát."
+    }
+   ],
+   "limitations": "Tác giả ghi rõ lý do nhánh này; vấn đề là kết quả xanh không nói rõ phạm vi đã kiểm.",
+   "recommendation": "Khi không có trần, in trạng thái SKIP/INCONCLUSIVE thay vì ✓. Hoặc seed lịch trực đã công bố trong môi trường test. SC-35 thêm kiểm tổng tiền đã thu đúng một lần.",
+   "acceptance": "Kết quả phân biệt 'đạt có trần' và 'không kiểm được trần'.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T01-3",
+   "title": "Script đo/dọn chạy bằng DELETE cứng và tài khoản thật trên staging, guard prod chỉ dựa vào APP_ENV",
+   "severity": "MEDIUM",
+   "category": "test_safety_gap",
+   "evidence_level": "design_gap",
+   "summary": "do-giu-cho.py và do-tam-cskh.py tạo staff/tài khoản thử rồi DELETE cứng staff, clinic_membership và slot_hold; lọc dọn bằng `full_name LIKE '[thử…]%'`. Guard chống prod chỉ là `APP_ENV == 'prod'` (khác tên 'production' dùng ở nơi khác, như test-infra-safety.sh). Chúng chọn `clinic LIMIT 1` và mượn bác sĩ/khách thật. do-tam-cskh.py còn `UPDATE slot_hold SET expires_at...` cho mọi chỗ giữ của cả clinic, không chỉ của các tài khoản thử.",
+   "trigger": "Chạy trên DB có APP_ENV=production hoặc không đặt APP_ENV, kết nối DATABASE_URL của máy thật.",
+   "impact": "Nếu guard bị lách, UPDATE trên toàn clinic có thể làm hết hạn chỗ giữ của CSKH thật, và DELETE theo tên có thể chạm dữ liệu không phải của bài đo.",
+   "evidence": [
+    {
+     "path": "scripts/tests/do-tam-cskh.py",
+     "line": 246,
+     "end_line": 250,
+     "detail": "UPDATE slot_hold hết hạn cho mọi dòng released_at IS NULL của clinic."
+    },
+    {
+     "path": "scripts/tests/do-giu-cho.py",
+     "line": 144,
+     "end_line": 146,
+     "detail": "Guard chỉ so APP_ENV với 'prod'."
+    },
+    {
+     "path": "scripts/tests/do-tam-cskh.py",
+     "line": 110,
+     "end_line": 112,
+     "detail": "Cùng kiểu guard."
+    }
+   ],
+   "limitations": "Tệp ghi 'chạy trên staging'; không có bằng chứng đã chạy trên prod. Liên quan INF-003 nhưng đây là các script khác nhau.",
+   "recommendation": "Dùng allowlist host (như khach-gia-luong-chuan.py) thay vì denylist APP_ENV; giới hạn UPDATE/DELETE theo held_by của tài khoản thử.",
+   "acceptance": "Script từ chối khi host DB không thuộc allowlist; UPDATE slot_hold chỉ chạm dòng của nhân sự thử.",
+   "alignment": [
+    "Phát hiện sớm",
+    "Nhân viên bền vững"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-003"
+   ]
+  },
+  {
+   "tmp_id": "T01-4",
+   "title": "Dữ liệu Dr4Women (email, mật khẩu mặc định, tên người thật, UUID cơ sở) ghi cứng trong script/e2e dùng chung",
+   "severity": "LOW",
+   "category": "fixture_hardcoded",
+   "evidence_level": "confirmed_static",
+   "summary": "Nhiều script và e2e ghi cứng tài khoản `@dr4women.local`, mật khẩu `clinic-test-pw-123`, `MAT_KHAU_NHAN_SU` mặc định '12345678', UUID clinic `a0000000-…` và cơ sở thật (Kim Ngưu/Hào Nam, b4607cb5-…), tên bác sĩ 'Phan Chí Thành', 'BS A local'. Ngoài ra tao-khach-de-thao-tac.py suy email bác sĩ thật từ họ tên `@dr4women.vn`.",
+   "trigger": "Dùng lại bộ test cho tenant thứ hai hoặc chạy gần môi trường thật.",
+   "impact": "Tenant mới không dùng lại được bộ test; mật khẩu mặc định yếu trong mã có thể bị dùng nhầm trên máy chủ thật.",
+   "evidence": [
+    {
+     "path": "scripts/tests/tao-khach-de-thao-tac.py",
+     "line": 51,
+     "end_line": 51,
+     "detail": "Mật khẩu nhân sự mặc định '12345678'."
+    },
+    {
+     "path": "src/dashboard/e2e/reports-duty-days.mjs",
+     "line": 17,
+     "end_line": 17,
+     "detail": "UUID cơ sở thật cố định."
+    },
+    {
+     "path": "scripts/tests/e2e-clinical-local.sh",
+     "line": 16,
+     "end_line": 16,
+     "detail": "Đường dẫn máy cá nhân /Users/quangdang/Projects/Dr4Women-MacMini."
+    }
+   ],
+   "limitations": "Phần lớn là môi trường local/staging; chủ yếu ảnh hưởng tái sử dụng và vệ sinh.",
+   "recommendation": "Đưa định danh, mật khẩu và UUID vào biến môi trường/fixture theo tenant; bỏ mật khẩu mặc định.",
+   "acceptance": "Không còn mật khẩu hay UUID Dr4Women trong script dùng chung; chạy được với tenant giả.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Lỗi lặp thành cải tiến"
+   ],
+   "extends": [
+    "DB-004"
+   ],
+   "related_ids": [
+    "DB-004",
+    "SEC-032"
+   ]
+  },
+  {
+   "tmp_id": "T01-5",
+   "title": "test-infra-safety.sh không kiểm đường khôi phục thật cho tệp kết quả/auth: restore chỉ chạy với psql giả",
+   "severity": "MEDIUM",
+   "category": "test_gap_restore",
+   "evidence_level": "design_gap",
+   "summary": "Test restore dùng psql giả, chỉ xác nhận dump được đưa vào stdin và bỏ preamble. Không có kiểm sau khôi phục (số dòng bảng, auth.users nạp trước, tệp media/tep-chua-day được trả về). Test media chỉ kiểm tar mở ra; phần verify-backup chỉ được thử với media hỏng.",
+   "trigger": "Backup thiếu auth hoặc thiếu tệp chờ đẩy nhưng các test hiện có vẫn xanh.",
+   "impact": "Bộ test an toàn hạ tầng cho cảm giác phục hồi đã được chứng minh, trong khi chỉ kiểm việc gọi script.",
+   "evidence": [
+    {
+     "path": "scripts/tests/test-infra-safety.sh",
+     "line": 430,
+     "end_line": 477,
+     "detail": "Restore test chỉ so stdin của psql giả; không kiểm dữ liệu sau nạp."
+    },
+    {
+     "path": "scripts/tests/test-infra-safety.sh",
+     "line": 247,
+     "end_line": 295,
+     "detail": "Chỉ kiểm tar media; không kiểm khôi phục chéo với DB."
+    }
+   ],
+   "limitations": "restore-drill.sh không được đưa trong chunk này nên không rõ nó có bù phần này không.",
+   "recommendation": "Thêm test tích hợp dựng DB tạm, backup rồi restore và kiểm hàng/tệp.",
+   "acceptance": "Một test chạy backup→restore trên DB tạm và khẳng định auth.users, public và tệp đều đủ.",
+   "alignment": [
+    "Phát hiện sớm",
+    "Reality"
+   ],
+   "extends": [
+    "INF-006"
+   ],
+   "related_ids": [
+    "INF-006",
+    "INF-001"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "INF-003",
+   "detail": "do-giu-cho.py:144 và do-tam-cskh.py:110 cùng dùng `APP_ENV == 'prod'` làm guard duy nhất, trong khi test-infra-safety.sh dùng 'production'; tên môi trường không thống nhất."
+  },
+  {
+   "id": "SEC-032",
+   "detail": "tao-khach-de-thao-tac.py:51 đặt MAT_KHAU_NHAN_SU mặc định '12345678' và token() thử cả hai mật khẩu."
+  },
+  {
+   "id": "FE-003",
+   "detail": "Không có test cho hành vi tìm chỉ trong tập đã tải; hanh-trinh-khach.test.mts chỉ kiểm định dạng chip, không kiểm giới hạn 300 lượt."
+  }
+ ],
+ "held": [
+  {
+   "title": "khach-gia-luong-chuan.py tự dựng dữ liệu giá và gieo thẳng lịch hẹn khi ngoài giờ ca",
+   "reason": "Chạy local theo allowlist host; chỉ nên ghi nhận là phép thử không kiểm luật giờ ca, chưa đủ chứng cứ để coi là lỗi."
+  },
+  {
+   "title": "tenant-scope-runtime-check.py hard-code DSN local 54322 và DELETE staff_task theo task_type",
+   "reason": "Chỉ chạy local; nguy cơ thấp, cần xem thêm bối cảnh CI."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Audit tenant tĩnh hai chiều có trần 0 và kiểm exemption cũ",
+   "detail": "tenant-scope-audit.py tách OR không có clinic_id, xử lý CTE, và báo exemption không còn cần thiết.",
+   "evidence": "scripts/tests/tenant-scope-audit.py:188"
+  },
+  {
+   "title": "Phép thử đua tranh dùng khoá idempotency riêng và đối chiếu đếm DB",
+   "detail": "dua-tranh.py giả lập hai người khác nhau bằng hai khoá, và kiểm SC-36 bằng một khoá gửi hai lần; kiểm bằng số đếm đọc lại.",
+   "evidence": "scripts/tests/dua-tranh.py:125"
+  },
+  {
+   "title": "Test pre-commit thử đúng lối lọt đã biết (stage bản bẩn rồi sửa sạch trên đĩa)",
+   "detail": "test_hook_chan_du_lieu_benh_nhan_va_bi_mat có cả ca chặn oan và ca đổi tên kèm dữ liệu.",
+   "evidence": "scripts/tests/test-infra-safety.sh:872"
+  },
+  {
+   "title": "Test lib kiểm cách ly tenant ở bộ nhớ tạm, không nhớ rỗng/lỗi",
+   "detail": "bo-nho-tam.test.mts kiểm hai phòng khám không dùng chung và không cache danh sách rỗng hay lỗi.",
+   "evidence": "src/dashboard/lib/bo-nho-tam.test.mts:35"
+  },
+  {
+   "title": "Dọn thử có kiểm lại sau khi dọn và ghi dấu vết ngay mỗi lần tạo",
+   "detail": "buoi-kham-that.py ghi vết ngay sau mỗi lần tạo và kiểm lại bảng sau rollback.",
+   "evidence": "scripts/tests/buoi-kham-that.py:192"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "scripts/tests/buoi-kham-that.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/do-giu-cho.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/do-nhip-hoi.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/do-tam-cskh.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/dua-tranh.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/dung-db-kiem.sh",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/e2e-booking-local.sh",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/e2e-clinical-local.sh",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/e2e-dashboard-staging.sh",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/khach-gia-luong-chuan.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/ngoai-le.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/tao-khach-de-thao-tac.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/tenant-scope-audit.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/tenant-scope-runtime-check.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "scripts/tests/test-infra-safety.sh",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/cashier-days.mjs",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/clinical-sync-smoke.mjs",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/danh-sach-hoa-don.mjs",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/env.example",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/intake-day-simulation.mjs",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/quick-intake-confirmation.mjs",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/reports-duty-days.mjs",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/e2e/reports-summary.mjs",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/bo-nho-tam.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/chon-nhan-vien.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/clinical-completion.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/clinical-sync.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/doc-gop.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/event-log-redaction.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/hanh-trinh-khach.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/hanh-trinh.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/khung-da-qua.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/khung-nhan-lich.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/lib/lam-them.test.mts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

@@ -1,0 +1,618 @@
+{
+  "schema_version": 1,
+  "round": 47,
+  "report_version": "v0.70",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_scoped_semantic_review",
+  "scope": [
+    "CSKH complaint replay and dashboard pending state",
+    "doctor-rule settings preview freshness",
+    "visit journey/history stale or pending UI state",
+    "fast reschedule idempotency lifecycle",
+    "pharmacy add-line BFF/service retry path",
+    "procedure follow-up object authorization",
+    "Ops/Supabase health visibility",
+    "held date/config/legacy-script candidates"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Every recorded range is line-checked and SHA-256 checked. Tests were read-not-run. No application code, ClinicAI tests/runtime/API/DB/provider/VPS/production/secrets/PHI was touched.",
+  "result": {
+    "new_findings": [
+      "CLIN-058",
+      "FE-028"
+    ],
+    "extended_findings": [
+      "FE-002",
+      "FE-023",
+      "FE-026",
+      "CLIN-057",
+      "FIN-003",
+      "SEC-011",
+      "INF-027"
+    ],
+    "deduplicated": [
+      "DayNoi/LamThem settings forms with catch/finally were excluded from FE-023.",
+      "Procedure-order UI catches network rejection and backend has a duplicate-order guard; ambiguous message remains held, not a duplicate-order finding.",
+      "Complaint replay is distinct from reschedule marker replay: it inserts a second complaint row/event, not a second appointment.",
+      "Fast-reschedule key remount was confirmed through two active UI callers; the backend receipt only deduplicates a repeated key.",
+      "Pharmacy add-line BFF evidence extends existing FIN-003; its earlier synthetic DB reproduction remains the only reproduced evidence for that finding."
+    ],
+    "held_candidates": [
+      "Impossible ISO week-start inputs normalize to another displayed week; only a low display candidate.",
+      "Old external-DB helper contains DROP SCHEMA CASCADE under a fixed temporary name; no active caller/current self-hosted applicability established.",
+      "GoTrue URI allowlist wildcard needs a recovery redirect acceptance review; exact behavior was not established, so no exploit finding.",
+      "Sequential room-config saves could partially persist; owner policy/atomicity contract is unclear.",
+      "Procedure selection response-loss text can say not-started even if a request committed; no duplicate order shown because backend guard exists.",
+      "Appointment follow-up GET failure can look like no appointment, but service prevents an existing live appointment from being duplicated; held as a UI candidate."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [],
+  "targeted_traces": [
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/PhanHoiKhach.tsx",
+      "sha256": "cbe05c2df2b1b6ce13fa974c4eb9801cddd84e7b537def486fd7a7ae2a0144bb",
+      "lines": 268,
+      "read_ranges": [
+        {
+          "start": 75,
+          "end": 98
+        }
+      ],
+      "full_read": false,
+      "outcome": "The client POST has no idempotency key; a rejected fetch skips the following loading reset, while a manual retry after reload can repeat the intent. Complaint submission resets its pending flag only after fetch resolves; a network rejection can leave the form pending."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/phan-hoi/route.ts",
+      "sha256": "b81946a8527869098e96983c2d28af15504d8bd5a2f3c1597e257898786c79a9",
+      "lines": 38,
+      "read_ranges": [
+        {
+          "start": 12,
+          "end": 20
+        }
+      ],
+      "full_read": false,
+      "outcome": "The BFF forwards the complaint POST body without forwarding an idempotency key."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "lines": 1092,
+      "read_ranges": [
+        {
+          "start": 625,
+          "end": 639
+        }
+      ],
+      "full_read": false,
+      "outcome": "The authenticated route calls the complaint service without an idempotency guard or command identity."
+    },
+    {
+      "path": "src/clinicai/services/phan_hoi_khach_service.py",
+      "sha256": "81c71c844eb0da4db0af8d19e82dbb8672ff4f07c928b7ebd87837e9b8783cc1",
+      "lines": 143,
+      "read_ranges": [
+        {
+          "start": 45,
+          "end": 75
+        }
+      ],
+      "full_read": false,
+      "outcome": "Each successful call inserts a fresh complaint row and a corresponding event_log row in its transaction."
+    },
+    {
+      "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+      "sha256": "106a69f83750c17cb1bbf391ccbce9fe982a2155a976c6df927eb84a7bcfe517",
+      "lines": 132,
+      "read_ranges": [
+        {
+          "start": 75,
+          "end": 113
+        }
+      ],
+      "full_read": false,
+      "outcome": "The complaint table schema has no unique client command/deduplication key."
+    },
+    {
+      "path": "src/tests/unit/test_phan_hoi_khach.py",
+      "sha256": "ca062bbcecf55da488bba9a7f66e11cedc97157a1f053c0accd7d461ff66240d",
+      "lines": 130,
+      "read_ranges": [
+        {
+          "start": 67,
+          "end": 100
+        }
+      ],
+      "full_read": false,
+      "outcome": "Existing unit tests cover validation, clinic membership and insertion but not replay after a committed write; read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/LuatBacSiCard.tsx",
+      "sha256": "3e5c23198f2f96f98a48e2aaa71eff6ed875a7e4f7b800fd9782758ffea7729a",
+      "lines": 321,
+      "read_ranges": [
+        {
+          "start": 81,
+          "end": 109
+        },
+        {
+          "start": 111,
+          "end": 156
+        },
+        {
+          "start": 293,
+          "end": 316
+        }
+      ],
+      "full_read": false,
+      "outcome": "Preview state is keyed only by service; changing the calculation method/month starts a request but leaves the prior same-service result in state, and a rejected fetch is swallowed. The preview is labelled as applying to the currently selected calculation method, and Save remains enabled while preview data is pending or failed. Doctor-rule create/delete requests do not handle rejected fetch promises; the create button can remain pending and delete has no request-error state."
+    },
+    {
+      "path": "src/dashboard/app/api/booking-rules/doctor/route.ts",
+      "sha256": "1e4625aea7e369c3a19924e032d7e049c10ceab3765f96725670699e3edc137b",
+      "lines": 72,
+      "read_ranges": [
+        {
+          "start": 20,
+          "end": 29
+        }
+      ],
+      "full_read": false,
+      "outcome": "The BFF proxies the doctor-rule preview query."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "lines": 1132,
+      "read_ranges": [
+        {
+          "start": 1104,
+          "end": 1120
+        }
+      ],
+      "full_read": false,
+      "outcome": "The backend endpoint accepts the preview method and month parameters."
+    },
+    {
+      "path": "src/clinicai/services/luat_bac_si_service.py",
+      "sha256": "24581b276826e01c0794ba56ca1bcf67ec4e0c505bfa19e8c8a2580ae424d81b",
+      "lines": 228,
+      "read_ranges": [
+        {
+          "start": 195,
+          "end": 225
+        }
+      ],
+      "full_read": false,
+      "outcome": "The backend computes the preview from the requested service/calculation parameters; the mismatch is in the client freshness/label state."
+    },
+    {
+      "path": "src/tests/unit/test_cua_ngo_ghi_moi.py",
+      "sha256": "c13f0d30251c09a4553c3ed5e2ec524ad9064fc637a27c529cab2050e7a80243",
+      "lines": 1059,
+      "read_ranges": [
+        {
+          "start": 935,
+          "end": 1059
+        }
+      ],
+      "full_read": false,
+      "outcome": "Existing tests cover service preview calculations, not a UI method-change/network-rejection freshness state; read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/new-user/NewUserForm.tsx",
+      "sha256": "9bae8a2e09a1dcccb8f6d9ee3d0a15d457256741a51f09fd5c4ec21139463502",
+      "lines": 175,
+      "read_ranges": [
+        {
+          "start": 36,
+          "end": 60
+        }
+      ],
+      "full_read": false,
+      "outcome": "New-user form sets loading before fetch and parses the response without catch/finally."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/PhamViViTriCard.tsx",
+      "sha256": "ca66be74701b13f746d8648c2b814764e29fdf9ad5854b2d4678338a8dafcc94",
+      "lines": 155,
+      "read_ranges": [
+        {
+          "start": 60,
+          "end": 79
+        }
+      ],
+      "full_read": false,
+      "outcome": "Role/location permission toggle sets pending before fetch and clears it only after fetch resolves."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/LichSuSuaPhieu.tsx",
+      "sha256": "ad21bd36ede475c7151edfbba6944b9c284f68f74f3784ad47313d7cdbcde976",
+      "lines": 140,
+      "read_ranges": [
+        {
+          "start": 55,
+          "end": 66
+        },
+        {
+          "start": 103,
+          "end": 105
+        }
+      ],
+      "full_read": false,
+      "outcome": "The read function clears the error and awaits fetch without catch; a rejected promise never sets a visible error. With null history and no error, the panel continues to render Đang đọc… indefinitely after a network rejection."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/HanhTrinhLuot.tsx",
+      "sha256": "352057c2da89a65788026780457b6d8a9eb7f5d9703cc26bf578b7249a6ac49c",
+      "lines": 195,
+      "read_ranges": [
+        {
+          "start": 47,
+          "end": 63
+        },
+        {
+          "start": 71,
+          "end": 71
+        }
+      ],
+      "full_read": false,
+      "outcome": "Refresh rejection is converted to null and leaves prior journey state untouched, without a freshness/error marker. The whole panel is hidden when no initial journey data exists, so an initial read failure has no visible error state."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiLichTaiCho.tsx",
+      "sha256": "24adedf1f18e1cd9a1680d3e9083c160b3ff84dc45ca13692ba4fecac69733d4",
+      "lines": 464,
+      "read_ranges": [
+        {
+          "start": 132,
+          "end": 134
+        },
+        {
+          "start": 176,
+          "end": 192
+        }
+      ],
+      "full_read": false,
+      "outcome": "The fast-reschedule command key is generated once per mounted popover component. The key combines the component session and target slot; closing the parent-controlled popover unmounts it, so reopening creates a new key for the same intent."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/LichSapToiCuaKhach.tsx",
+      "sha256": "cdb099021ac9c1d81c76ca884f5ac176b6bde6cecfc5201fce14bf391e19a075",
+      "lines": 158,
+      "read_ranges": [
+        {
+          "start": 143,
+          "end": 155
+        }
+      ],
+      "full_read": false,
+      "outcome": "The caller conditionally mounts DoiLichTaiCho and keys it by appointment; closing sets mo=null, confirming a fresh component instance on reopen."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+      "sha256": "b164e6621ad09d07269bd325f676a12bce4a6412fd7ae38f2eb979500d58bb0a",
+      "lines": 1157,
+      "read_ranges": [
+        {
+          "start": 1114,
+          "end": 1114
+        }
+      ],
+      "full_read": false,
+      "outcome": "The weekly appointment table also mounts the active fast-reschedule component; the route is not an unreferenced UI file."
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/doi-lich-nhanh/route.ts",
+      "sha256": "07800d95714018e222bdd1261503ceb8f8807bd8b050177ec0b7ac6d3b6cc9e6",
+      "lines": 61,
+      "read_ranges": [
+        {
+          "start": 48,
+          "end": 60
+        }
+      ],
+      "full_read": false,
+      "outcome": "BFF forwards the client key to the backend idempotency guard."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "lines": 904,
+      "read_ranges": [
+        {
+          "start": 781,
+          "end": 802
+        }
+      ],
+      "full_read": false,
+      "outcome": "Backend caches a response only under the supplied key; a new key starts a new command."
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "read_ranges": [
+        {
+          "start": 1278,
+          "end": 1309
+        }
+      ],
+      "full_read": false,
+      "outcome": "The service proceeds through the reschedule/check-in transaction for a new command key."
+    },
+    {
+      "path": "src/dashboard/app/api/quay-thuoc/route.ts",
+      "sha256": "36e25e93e5b84a06c7edaf2a4fbc970ad16aaf3f275d672d55482bb1aa255e32",
+      "lines": 57,
+      "read_ranges": [
+        {
+          "start": 34,
+          "end": 55
+        }
+      ],
+      "full_read": false,
+      "outcome": "The pharmacy add-lines BFF forwards the POST body to FastAPI without an Idempotency-Key."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/quay_thuoc.py",
+      "sha256": "6ac0cc74ceb4bd49d6e9f2c0ab68bc32b63e2e3bd3026bff8851f5e4a6c74c8f",
+      "lines": 116,
+      "read_ranges": [
+        {
+          "start": 90,
+          "end": 116
+        }
+      ],
+      "full_read": false,
+      "outcome": "The authenticated add-lines route sends line data to the service without a command/idempotency wrapper."
+    },
+    {
+      "path": "src/clinicai/services/quay_thuoc_service.py",
+      "sha256": "1e6c6651fd2350ac8f48849e6a181eba8ff43099e95d9686a4e24a193f7e8231",
+      "lines": 568,
+      "read_ranges": [
+        {
+          "start": 529,
+          "end": 555
+        }
+      ],
+      "full_read": false,
+      "outcome": "A line with no prescription id follows the fresh-row insert path and generates a new UUID on each call."
+    },
+    {
+      "path": "src/tests/services/test_quay_thuoc_db.py",
+      "sha256": "bccc85a54660349d10c6ed630e92c10088167f45624fdbb3406c9cf8fbfaffde",
+      "lines": 153,
+      "read_ranges": [
+        {
+          "start": 64,
+          "end": 105
+        }
+      ],
+      "full_read": false,
+      "outcome": "Existing DB test covers add/edit and source separation, not response-loss replay; read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/visits/[id]/theo-doi-thu-thuat/route.ts",
+      "sha256": "4f66cedad18c24e5aed179e628b07c19b8296399d45d072578b49bde5f455eac",
+      "lines": 32,
+      "read_ranges": [
+        {
+          "start": 15,
+          "end": 22
+        }
+      ],
+      "full_read": false,
+      "outcome": "The BFF GET proxies the visit follow-up read without adding an assignment/capability check."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/theo_doi_thu_thuat.py",
+      "sha256": "18c2f6be69a3318043c424fdbf65ae358370531b7e162b175c64e18ca22f7c9b",
+      "lines": 49,
+      "read_ranges": [
+        {
+          "start": 19,
+          "end": 28
+        }
+      ],
+      "full_read": false,
+      "outcome": "The FastAPI GET depends on get_current_identity and passes the caller and visit id to the service."
+    },
+    {
+      "path": "src/clinicai/services/theo_doi_thu_thuat_service.py",
+      "sha256": "9fc6b7688d07435171779dd1974982d9641d70d86a709be51a7a6161d48ac494",
+      "lines": 167,
+      "read_ranges": [
+        {
+          "start": 26,
+          "end": 59
+        },
+        {
+          "start": 71,
+          "end": 95
+        }
+      ],
+      "full_read": false,
+      "outcome": "The query scopes by clinic_id and supplied visit_id, but does not test physician assignment for this read. The response includes procedure completion, follow-up decision, due date, and staff identity metadata."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/TheoDoiThuThuat.tsx",
+      "sha256": "9b0cfd7fbdce54e1e420fef253099b368c1144869fc4dd77ee1de272bef734a7",
+      "lines": 146,
+      "read_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 45,
+          "end": 60
+        }
+      ],
+      "full_read": false,
+      "outcome": "The UI describes the view as procedure follow-up information consumed in the CSKH screen. The UI calls the GET route and renders returned metadata when a procedure exists."
+    },
+    {
+      "path": "src/tests/services/test_theo_doi_thu_thuat.py",
+      "sha256": "e9d15b03ce67d4adda7f26e4a02b9f6d98538ad48a5310ad2d1dea7060bc6de4",
+      "lines": 120,
+      "read_ranges": [
+        {
+          "start": 47,
+          "end": 90
+        }
+      ],
+      "full_read": false,
+      "outcome": "Existing service tests cover CSKH read and restrict non-physician writes, not read assignment; read only, not run."
+    },
+    {
+      "path": "scripts/collect_ops_status.py",
+      "sha256": "0faca8e7c1a07e230aca97dc6b85633692602f478828a66ad86e82627b3c11a0",
+      "lines": 298,
+      "read_ranges": [
+        {
+          "start": 16,
+          "end": 28
+        }
+      ],
+      "full_read": false,
+      "outcome": "The Ops service snapshot enumerates app/worker/support services but omits self-hosted Supabase db, auth, rest, realtime and gateway containers."
+    },
+    {
+      "path": "src/clinicai/services/ops_status.py",
+      "sha256": "850c3087d18eb1b8be057fd6e59265b7f233babb074dee1fc6746a623cfc5fb2",
+      "lines": 340,
+      "read_ranges": [
+        {
+          "start": 317,
+          "end": 340
+        }
+      ],
+      "full_read": false,
+      "outcome": "Overall status gates only api/dashboard/caddy service-down states; a missing Supabase dependency is not an overall critical gate."
+    },
+    {
+      "path": "caddy/Caddyfile",
+      "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "lines": 256,
+      "read_ranges": [
+        {
+          "start": 41,
+          "end": 48
+        },
+        {
+          "start": 191,
+          "end": 194
+        }
+      ],
+      "full_read": false,
+      "outcome": "The public Caddy health endpoint responds statically and does not probe upstream Supabase readiness. The public edge routes auth, REST and realtime traffic to the Supabase gateway."
+    },
+    {
+      "path": "docker/supabase/Caddyfile",
+      "sha256": "4e8d168aae1f1dd37a2bc2ff0158580157204d4e0b354f405a7158d255ed9484",
+      "lines": 66,
+      "read_ranges": [
+        {
+          "start": 58,
+          "end": 61
+        }
+      ],
+      "full_read": false,
+      "outcome": "The Supabase gateway health endpoint is also a static success response."
+    },
+    {
+      "path": "monitoring/monitors.json",
+      "sha256": "14b2d6361b7dea973dd5ce7a9901240463ddcd53ca6d01e39cfd58871eca2cfb",
+      "lines": 124,
+      "read_ranges": [
+        {
+          "start": 11,
+          "end": 64
+        }
+      ],
+      "full_read": false,
+      "outcome": "Configured external monitors do not list GoTrue, PostgREST, Realtime or the Supabase gateway as distinct endpoints."
+    },
+    {
+      "path": "src/dashboard/lib/roster.ts",
+      "sha256": "025e5749de0e347c9ace7b49a7c70cd72ec6f7fd7ef715f8c85d59988b097c4e",
+      "lines": 608,
+      "read_ranges": [
+        {
+          "start": 511,
+          "end": 514
+        }
+      ],
+      "full_read": false,
+      "outcome": "Malformed/impossible ISO dates can normalize to another week; display-only candidate, no write or auth effect established."
+    },
+    {
+      "path": "src/dashboard/lib/roster.test.mts",
+      "sha256": "595882594bc79da557c9865b335929bc78de05de8491110f86e751c6b0090658",
+      "lines": 306,
+      "read_ranges": [
+        {
+          "start": 56,
+          "end": 72
+        }
+      ],
+      "full_read": false,
+      "outcome": "Current date tests cover normal inputs, not impossible calendar dates; read only, not run."
+    },
+    {
+      "path": "scripts/kiem-database-ngoai.sh",
+      "sha256": "350c1961198ee7b0c4914f22466b0ea6d004894f80733dda6cb9fa07f45ef2cf",
+      "lines": 284,
+      "read_ranges": [
+        {
+          "start": 156,
+          "end": 190
+        }
+      ],
+      "full_read": false,
+      "outcome": "An old, apparently uncalled external-DB helper uses a fixed temporary schema name and DROP SCHEMA CASCADE; active applicability is unconfirmed."
+    },
+    {
+      "path": "docker-compose.supabase.yml",
+      "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+      "lines": 253,
+      "read_ranges": [
+        {
+          "start": 113,
+          "end": 115
+        }
+      ],
+      "full_read": false,
+      "outcome": "GoTrue redirect allowlist is wildcarded, but exact recovery-link behavior/active runtime acceptance was not traced; do not call this an exploit."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/CoSoPhong.tsx",
+      "sha256": "42676851987ec0d80966a4c92e3a86dd3f83808e8d54e191b8a499ffffa1da96",
+      "lines": 724,
+      "read_ranges": [
+        {
+          "start": 456,
+          "end": 467
+        }
+      ],
+      "full_read": false,
+      "outcome": "Room configuration has sequential save requests; whether partial persistence violates product policy is not established."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx",
+      "sha256": "ae705c3f813ca09d2e6f6872eaf8c6cb127359cc75a98eb8d9d381f17946c506",
+      "lines": 132,
+      "read_ranges": [
+        {
+          "start": 47,
+          "end": 72
+        }
+      ],
+      "full_read": false,
+      "outcome": "A response-loss retry can make the UI report a not-started state; backend guard prevents a duplicate order in the reviewed path, so keep as UX candidate."
+    }
+  ],
+  "reviewer_note": "Round 47 is a scoped static review, not a full-repository read or runtime validation. All findings are conditional unless explicitly labeled reproduced in an earlier record."
+}

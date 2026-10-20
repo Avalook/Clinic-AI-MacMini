@@ -1,0 +1,355 @@
+[
+  {
+    "id": "OPS-005",
+    "title": "Kết quả gọi tái khám có thể được nhận như đã ghi dù nhật ký CSKH chưa có",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "recall_outcome_idempotency",
+    "summary": "Khi UPDATE việc tái khám không còn ở CHO_GOI, service trả HTTP-success với da_ghi_tu_truoc=true cho mọi trạng thái đã đóng, kể cả KHONG_CAN do lịch hẹn mới kích hoạt trigger. Nhánh này không INSERT cskh_log; UI chỉ kiểm res.ok rồi refresh, không đọc payload. Nếu trigger lịch hẹn đóng hàng trước lúc nhân viên ghi kết quả cuộc gọi, kết quả có thể không vào nhật ký CSKH nhưng thao tác vẫn trông như đã hoàn tất.",
+    "trigger": "Một kết quả cuộc gọi đang được gửi đồng thời với việc lịch hẹn mới đóng cùng recall row, hoặc nhân viên gửi từ tab cũ sau khi row đã ở KHONG_CAN.",
+    "impact": "Cuộc gọi có thể thiếu trong lịch sử CSKH dù việc tái khám đã đóng; người dùng không được báo đây là trạng thái đã được lịch hẹn thay thế. Điều kiện đua hẹp và hàng chờ có thể đã không còn cần xử lý; chưa tái hiện và không có bằng chứng production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/recall_job_service.py",
+        "line": 282,
+        "end_line": 300,
+        "detail": "Nhánh UPDATE không khớp trả thành công cho mọi trạng thái đã đóng, không ghi CSKH log."
+      },
+      {
+        "path": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+        "line": 81,
+        "end_line": 104,
+        "detail": "Lịch hẹn phù hợp đóng recall CHO_GOI thành KHONG_CAN và đóng chuông liên quan."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+        "line": 65,
+        "end_line": 83,
+        "detail": "Client chỉ kiểm res.ok; mọi 2xx đều làm router.refresh mà không đọc outcome payload."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static trace nối recall UPDATE/log, trigger lịch hẹn và UI response handling; chưa fault-inject hoặc chạy interleaving test.",
+      "limitations": "Exact-main static source trace only. No ClinicAI application test, DB, HTTP, browser application, production runtime, secrets or patient data was used in round 20."
+    },
+    "recommendation": "Chỉ trả already_recorded khi có bằng chứng kết quả/nhật ký đã tồn tại. Trạng thái KHONG_CAN do DA_CO_LICH nên trả kết quả stale/superseded rõ ràng, để UI thông báo và làm mới; nếu cần giữ lịch sử cuộc gọi độc lập với hàng chờ thì ghi attempt/audit riêng có idempotency.",
+    "acceptance": "Synthetic test: ghi kết quả thắng trigger thì có đúng một recall row và CSKH log; trigger thắng thì API trả trạng thái superseded, không nói đã ghi từ trước, UI hiện thông báo và tải lại; gửi lặp sau khi đã ghi phải không tạo log trùng.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/unit/test_cua_ngo_ghi_moi.py — kiểm replay và cskh_log happy path; không kiểm race trigger KHONG_CAN.",
+      "src/tests/unit/test_recall_callback_consistency.py — kiểm callback/single update; không mô phỏng lịch hẹn đóng hàng đồng thời."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/recall_job_service.py": "03d5a04f6bc9d60601381c1ae1441b635fef10ab2cc1a4abe51dde9c39ad3f7b",
+      "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx": "71298887d8069be66af7e6fcccb48cf083a1754838ca1938be67ab19347cf4e8",
+      "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql": "95297610d660c3e5fbc954871c96924116a12e2b68cf2939af0ea25a196872c8"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Static exact-main trace: trigger có thể chuyển CHO_GOI → KHONG_CAN; nhánh không update trả da_ghi_tu_truoc cho trạng thái đã đóng, trước đoạn INSERT CSKH; UI chỉ kiểm HTTP status rồi refresh. Chỉ là race/stale-action candidate.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/recall_job_service.py",
+          "line": 282,
+          "end_line": 300,
+          "sha256": "03d5a04f6bc9d60601381c1ae1441b635fef10ab2cc1a4abe51dde9c39ad3f7b",
+          "excerpt": "282:                 if row is None:\n283:                     # Hai người cùng bấm, hoặc bấm lại sau khi mạng lag. Nói rõ\n284:                     # là KHÔNG có gì đổi, đừng trả \"ok\" trống khiến người dùng\n285:                     # tưởng vừa ghi được.\n286:                     con = await conn.fetchval(\n287:                         \"SELECT trang_thai FROM public.nhac_tai_kham \"\n288:                         \"WHERE id = $1::uuid AND clinic_id = $2::uuid\",\n289:                         viec_id,\n290:                         identity.clinic_id,\n291:                     )\n292:                     if con is None:\n293:                         raise NotFoundError(\"Không tìm thấy việc gọi này.\")\n294:                     if con == \"CHO_GOI\":\n295:                         raise ValidationError(\"Việc gọi này chưa tới hạn xử lý.\")\n296:                     return {\n297:                         \"ok\": True,\n298:                         \"da_ghi_tu_truoc\": True,\n299:                         \"trang_thai\": con,\n300:                     }",
+          "detail": "Nhánh UPDATE không khớp trả thành công cho mọi trạng thái đã đóng, không ghi CSKH log."
+        },
+        {
+          "path": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+          "line": 81,
+          "end_line": 104,
+          "sha256": "95297610d660c3e5fbc954871c96924116a12e2b68cf2939af0ea25a196872c8",
+          "excerpt": "81:     WITH dong AS (\n82:     UPDATE public.nhac_tai_kham n\n83:        SET trang_thai = 'KHONG_CAN',\n84:            dong_vi = 'DA_CO_LICH',\n85:            ghi_chu = 'Khách đã có lịch hẹn',\n86:            appointment_id = NEW.id,\n87:            dong_luc = now(),\n88:            updated_at = now()\n89:      WHERE n.clinic_id = NEW.clinic_id\n90:        AND n.clinic_patient_id = NEW.clinic_patient_id\n91:        AND n.nguon = 'PHIEU_KHAM'\n92:        AND n.luot_goi = 1\n93:        AND n.trang_thai = 'CHO_GOI'\n94:        AND (NEW.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= n.han_goi\n95:     RETURNING n.id\n96:     )\n97:     -- Gỡ luôn chuông hẹn của việc vừa đóng (tới giờ nó cũng tự kiểm lại và\n98:     -- thôi, nhưng để lại là một dòng \"đang chờ\" nói sai).\n99:     UPDATE public.hen_gio h\n100:        SET trang_thai = 'BO_QUA', lam_luc = now(), ket_qua = 'da_co_lich'\n101:       FROM dong\n102:      WHERE h.loai = 'nhac_tai_kham.den_han' AND h.ve_cai_gi = dong.id\n103:        AND h.trang_thai = 'CHO';\n104:     RETURN NEW;",
+          "detail": "Lịch hẹn phù hợp đóng recall CHO_GOI thành KHONG_CAN và đóng chuông liên quan."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+          "line": 65,
+          "end_line": 83,
+          "sha256": "71298887d8069be66af7e6fcccb48cf083a1754838ca1938be67ab19347cf4e8",
+          "excerpt": "65:   async function ghi(viecId: string, ketQua: string) {\n66:     setDangGui(viecId);\n67:     setLoi(null);\n68:     try {\n69:       const res = await fetch(`/api/recall-jobs/${viecId}/ket-qua`, {\n70:         method: \"POST\",\n71:         headers: { \"Content-Type\": \"application/json\" },\n72:         body: JSON.stringify({ ket_qua: ketQua, ghi_chu: ghiChu[viecId] ?? null }),\n73:       });\n74:       if (!res.ok) {\n75:         const d = (await res.json().catch(() => null)) as {\n76:           error?: string;\n77:           message?: string;\n78:         } | null;\n79:         setLoi(d?.message ?? d?.error ?? \"Không ghi được kết quả. Thử lại giúp em.\");\n80:         return;\n81:       }\n82:       router.refresh();\n83:     } finally {",
+          "detail": "Client chỉ kiểm res.ok; mọi 2xx đều làm router.refresh mà không đọc outcome payload."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "CLIN-012",
+        "relationship": "Cùng chuỗi nhắc tái khám nhưng CLIN-012 là việc không được sinh từ lịch hẹn; OPS-005 là phản hồi stale khi ghi outcome."
+      }
+    ]
+  },
+  {
+    "id": "FE-022",
+    "title": "Khối tự nhắc theo khách chỉ hiển thị tối đa 100 mục mà không báo còn trang",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "personal_reminder_list_truncation",
+    "summary": "NhacViecService.cua_toi lọc reminder cá nhân theo nhân viên/clinic và (tuỳ màn) khách hàng, rồi LIMIT 100. API chỉ trả items; BFF không bổ sung has_more/cursor; TuNhac render toàn bộ mảng nhận được mà không báo đã cắt.",
+    "trigger": "Một nhân viên có trên 100 nhắc việc cá nhân còn trong cửa sổ hiển thị bảy ngày, trong cùng phạm vi khách hàng/màn đang mở.",
+    "impact": "Những mục sau 100 không xuất hiện trong khối này và nhân viên không thấy còn trang. Các timer/nhắc giờ vẫn nằm trong hệ thống; chưa có bằng chứng mục bị mất hoặc ngưỡng này từng xảy ra. Mức LOW vì đây là danh sách tự nhắc cá nhân, không phải worklist CSKH chính thức.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/nhac_viec_service.py",
+        "line": 88,
+        "end_line": 106,
+        "detail": "Truy vấn cá nhân LIMIT 100; cảnh báo được gọi nhưng response vẫn là list."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/day_noi.py",
+        "line": 147,
+        "end_line": 158,
+        "detail": "Endpoint chỉ bọc danh sách service trong trường items, không có total/has_more/cursor."
+      },
+      {
+        "path": "src/dashboard/app/api/nhac-viec/route.ts",
+        "line": 19,
+        "end_line": 26,
+        "detail": "BFF chuyển tiếp đúng danh sách theo khách hoặc cá nhân, không có phân trang."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx",
+        "line": 44,
+        "end_line": 58,
+        "detail": "Client nạp items một lần và lưu nguyên mảng; không đọc metadata trang."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx",
+        "line": 129,
+        "end_line": 144,
+        "detail": "UI chỉ map mảng hiện có; không báo cắt hoặc có trang tiếp."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static exact-main service → router → BFF → component trace; không tạo dataset 101+ và không chạy reminder worker.",
+      "limitations": "Exact-main static source trace only. No ClinicAI application test, DB, HTTP, browser application, production runtime, secrets or patient data was used in round 20."
+    },
+    "recommendation": "Dùng cursor/has_more hoặc tăng tải theo nhu cầu; nếu giới hạn cố định thì hiển thị số mục đang thấy và lối mở danh sách đầy đủ. Không biến cảnh báo log khi chạm giới hạn thành hợp đồng duy nhất cho người dùng.",
+    "acceptance": "Fixture 101+ reminder tổng hợp: có thể xem đủ các mục qua phân trang hoặc UI nêu rõ còn dữ liệu; bộ lọc theo khách vẫn giới hạn đúng; reminder đã hẹn giờ tiếp tục được giữ nguyên.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_day_noi_nhac_db.py — kiểm service/DB reminder; chưa thấy fixture xác nhận hơn 100 items hay UI pagination."
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/day_noi.py": "abc9bfe70c55cce7b78fc2c7d80cccc6ceedb2fec79f1492b54ec25cdeb16917",
+      "src/clinicai/services/nhac_viec_service.py": "3e97e8815fdbd139a6e2eb3c6d3c3d9a92c8b49cbcf1a83e2d74cc7db59a2304",
+      "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx": "5b22bc871cfe0929a963f5d6cfa90aa0c73fc8a17618f58d63b35f476bf36b82",
+      "src/dashboard/app/api/nhac-viec/route.ts": "2439cca36340be3a9374b85b33ab63ba650873a0586f44310d7fc610dcbd85be"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main trace: service LIMIT 100 và log cảnh báo nhưng trả list thường; route/BFF chỉ chuyển tiếp items, còn TuNhac render mảng không có pagination. Không kết luận reminder/timer bị xoá hoặc mất.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/nhac_viec_service.py",
+          "line": 88,
+          "end_line": 106,
+          "sha256": "3e97e8815fdbd139a6e2eb3c6d3c3d9a92c8b49cbcf1a83e2d74cc7db59a2304",
+          "excerpt": "88:     async def cua_toi(\n89:         self, *, identity: StaffIdentity, clinic_patient_id: str | None = None\n90:     ) -> list[dict[str, Any]]:\n91:         rows = await self._pool.fetch(\n92:             \"\"\"\n93:             SELECT id::text, noi_dung, nhac_luc, xong_luc,\n94:                    clinic_patient_id::text AS clinic_patient_id\n95:               FROM nhac_viec_ca_nhan\n96:              WHERE clinic_id = $1::uuid AND staff_id = $2::uuid\n97:                AND ($3::uuid IS NULL OR clinic_patient_id = $3::uuid)\n98:                AND (xong_luc IS NULL OR xong_luc > now() - interval '7 days')\n99:              ORDER BY xong_luc NULLS FIRST, nhac_luc\n100:              LIMIT 100\n101:             \"\"\",\n102:             identity.clinic_id,\n103:             identity.staff_id,\n104:             clinic_patient_id,\n105:         )\n106:         canh_bao_neu_day(\"nhac_viec_ca_nhan.cua_toi\", len(rows), 100)",
+          "detail": "Truy vấn cá nhân LIMIT 100; cảnh báo được gọi nhưng response vẫn là list."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/day_noi.py",
+          "line": 147,
+          "end_line": 158,
+          "sha256": "abc9bfe70c55cce7b78fc2c7d80cccc6ceedb2fec79f1492b54ec25cdeb16917",
+          "excerpt": "147: @router.get(\"/nhac-viec\")\n148: async def nhac_viec_cua_toi(\n149:     clinic_patient_id: UUID | None = None,\n150:     identity: StaffIdentity = Depends(get_current_identity),\n151:     pool: asyncpg.Pool = Depends(get_db_pool),\n152: ) -> dict[str, Any]:\n153:     return {\n154:         \"items\": await NhacViecService(pool).cua_toi(\n155:             identity=identity,\n156:             clinic_patient_id=str(clinic_patient_id) if clinic_patient_id else None,\n157:         )\n158:     }",
+          "detail": "Endpoint chỉ bọc danh sách service trong trường items, không có total/has_more/cursor."
+        },
+        {
+          "path": "src/dashboard/app/api/nhac-viec/route.ts",
+          "line": 19,
+          "end_line": 26,
+          "sha256": "2439cca36340be3a9374b85b33ab63ba650873a0586f44310d7fc610dcbd85be",
+          "excerpt": "19: export async function GET(request: Request) {\n20:   if (!(await coPhien())) return NextResponse.json({ error: \"Unauthorised\" }, { status: 401 });\n21:   const khach = new URL(request.url).searchParams.get(\"khach\") ?? \"\";\n22:   return proxyJsonToBackend(\n23:     \"GET\",\n24:     UUID_RE.test(khach) ? `/api/v1/nhac-viec?clinic_patient_id=${khach}` : \"/api/v1/nhac-viec\",\n25:     undefined,\n26:   );",
+          "detail": "BFF chuyển tiếp đúng danh sách theo khách hoặc cá nhân, không có phân trang."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx",
+          "line": 44,
+          "end_line": 58,
+          "sha256": "5b22bc871cfe0929a963f5d6cfa90aa0c73fc8a17618f58d63b35f476bf36b82",
+          "excerpt": "44:   const doc = useCallback(async (): Promise<Nhac[] | null> => {\n45:     const r = await fetch(`/api/nhac-viec?khach=${clinicPatientId}`, { cache: \"no-store\" });\n46:     const d = (await r.json().catch(() => null)) as { items?: Nhac[] } | null;\n47:     return r.ok ? (d?.items ?? []) : null;\n48:   }, [clinicPatientId]);\n49: \n50:   useEffect(() => {\n51:     let huy = false;\n52:     void doc().then((x) => {\n53:       if (!huy && x) setDs(x);\n54:     });\n55:     return () => {\n56:       huy = true;\n57:     };\n58:   }, [doc]);",
+          "detail": "Client nạp items một lần và lưu nguyên mảng; không đọc metadata trang."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx",
+          "line": 129,
+          "end_line": 144,
+          "sha256": "5b22bc871cfe0929a963f5d6cfa90aa0c73fc8a17618f58d63b35f476bf36b82",
+          "excerpt": "129:       {ds.length > 0 ? (\n130:         <ul className=\"space-y-1 text-meta text-ink\">\n131:           {ds.map((n) => (\n132:             <li key={n.id} className=\"flex flex-wrap items-center gap-2\">\n133:               <span className={n.xong ? \"text-ink-faint line-through\" : \"\"}>\n134:                 {gio(n.nhac_luc)} · {n.noi_dung}\n135:               </span>\n136:               {!n.xong ? (\n137:                 <Button size=\"sm\" variant=\"ghost\" disabled={dang} onClick={() => void gui({ thao_tac: \"xong\", id: n.id })}>\n138:                   Xong\n139:                 </Button>\n140:               ) : null}\n141:             </li>\n142:           ))}\n143:         </ul>\n144:       ) : null}",
+          "detail": "UI chỉ map mảng hiện có; không báo cắt hoặc có trang tiếp."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "CLIN-022",
+        "relationship": "Cùng mẫu cắt worklist thiếu has_more; CLIN-022 là CSKH liệu trình, FE-022 là reminder cá nhân và có mức tác động thấp hơn."
+      },
+      {
+        "id": "FE-020",
+        "relationship": "Cùng vấn đề danh sách bị giới hạn; FE-020 là inbox thông báo đang mở, FE-022 là tự nhắc cá nhân."
+      }
+    ]
+  },
+  {
+    "id": "CLIN-040",
+    "title": "Hai lần lưu số đo siêu âm có thể ghi đè findings từ cùng một snapshot cũ",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_ultrasound_concurrent_edit",
+    "summary": "save_measurements đọc ultrasound_record.findings không FOR UPDATE/version, merge patch vào dict trong Python rồi UPDATE toàn JSON findings. Nếu hai request cùng đọc một snapshot, request ghi sau có thể xoá patch của request trước, kể cả hai request sửa các trường khác nhau. Nhánh ON CONFLICT cũng gán findings = EXCLUDED.findings. Request chạy trong transaction nhưng không khóa visit; helper gán work_item chỉ tạo khóa tình cờ khi còn việc DICHVU-SIEUAM chưa có người nhận.",
+    "trigger": "Hai request cùng lượt khám lưu số đo/trạng thái đồng thời, và không có work_item chưa nhận để tuần tự hoá; ví dụ task đã được gán hoặc không tồn tại.",
+    "impact": "Một phần dữ liệu đo đã lưu có thể biến mất âm thầm; response 2xx của cả hai request không báo xung đột. Đây là dữ liệu lâm sàng, nhưng hiện chưa tìm thấy dashboard caller đang bật cho đường này: ClinicalRecordForm mặc định showSono=false và không có callsite đặt true. API route vẫn tồn tại. Không có interleaving test hoặc occurrence production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/ultrasound_service.py",
+        "line": 151,
+        "end_line": 172,
+        "detail": "Đọc trạng thái visit để kiểm sửa được nhưng không khóa visit bằng FOR UPDATE."
+      },
+      {
+        "path": "src/clinicai/services/ultrasound_service.py",
+        "line": 199,
+        "end_line": 209,
+        "detail": "Đọc findings snapshot từ ultrasound_record mà không row lock hoặc revision."
+      },
+      {
+        "path": "src/clinicai/services/ultrasound_service.py",
+        "line": 236,
+        "end_line": 255,
+        "detail": "Merge snapshot trong Python rồi UPDATE toàn bộ cột JSON findings."
+      },
+      {
+        "path": "src/clinicai/services/ultrasound_service.py",
+        "line": 269,
+        "end_line": 288,
+        "detail": "ON CONFLICT cũng overwrite findings bằng EXCLUDED snapshot."
+      },
+      {
+        "path": "src/clinicai/services/ultrasound_board_service.py",
+        "line": 217,
+        "end_line": 238,
+        "detail": "Khóa tình cờ chỉ phát sinh khi work_item active còn assigned_to IS NULL."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/ultrasound.py",
+        "line": 69,
+        "end_line": 84,
+        "detail": "API measurements hiện gọi service save_measurements trực tiếp."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static SQL/control-flow trace xác nhận full-document overwrite và thiếu revision. Chưa chạy interleaving DB test; mức tác động thực tế còn phụ thuộc caller/feature usage.",
+      "limitations": "Exact-main static source trace only. No ClinicAI application test, DB, HTTP, browser application, production runtime, secrets or patient data was used in round 20. Dashboard search found no active caller enabling showSono; no external API consumer inventory was available."
+    },
+    "recommendation": "Thêm revision/compare-and-swap cho ultrasound_record hoặc khóa row trước khi đọc và merge. Tốt hơn, cập nhật từng JSON key theo patch nguyên tử có kiểm soát, không ghi snapshot cũ; trả 409 khi baseline stale để UI giữ số đo local và hiển thị bản mới nhất.",
+    "acceptance": "Hai transaction cùng base revision ghi hai measurement khác nhau: hệ thống phải giữ cả hai nếu patch policy cho phép hoặc trả conflict có local/remote; không có 2xx giả cho snapshot đã bị thay thế. Kiểm cả row đã assigned, chưa assigned và không có work_item.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/test_clinical_data_integrity.py — kiểm ownership, schema/merge và guards; không có hai transaction cùng sửa ultrasound_record.",
+      "src/tests/test_hanh_trinh_trang_thai_hien_tai_db.py — có một lần ghi siêu âm; không kiểm lost update."
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/ultrasound.py": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb",
+      "src/clinicai/services/ultrasound_board_service.py": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e",
+      "src/clinicai/services/ultrasound_service.py": "c4befc1184bb96f169eda38963513c89e053f9226fd67eb9cce1c546545caf6a"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main service đọc full findings snapshot không khóa, merge Python rồi overwrite; nhánh conflict upsert cũng dùng EXCLUDED.findings. Không có khóa visit. Khi task đã assigned hoặc không tồn tại, helper ghi assignment không tạo serialization guarantee. Dashboard component hiện không được bật qua caller tìm thấy.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ultrasound_service.py",
+          "line": 151,
+          "end_line": 172,
+          "sha256": "c4befc1184bb96f169eda38963513c89e053f9226fd67eb9cce1c546545caf6a",
+          "excerpt": "151:                 visit = await conn.fetchrow(\n152:                     \"\"\"\n153:                     SELECT visit_id, status, clinic_patient_id\n154:                       FROM visit\n155:                      WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid\n156:                      ORDER BY created_at DESC\n157:                      LIMIT 1\n158:                     \"\"\",\n159:                     appointment_id,\n160:                     identity.clinic_id,\n161:                 )\n162: \n163:                 if visit is not None:\n164:                     if str(visit[\"clinic_patient_id\"]) != clinic_patient_id:\n165:                         raise ValidationError(\n166:                             \"Lượt khám siêu âm không thuộc bệnh nhân này\"\n167:                         )\n168:                     if visit[\"status\"] not in WRITABLE_VISIT_STATUSES:\n169:                         raise ConflictError(\n170:                             f\"Hồ sơ đã chốt ({visit['status']}) — không sửa số đo.\"\n171:                         )\n172:                     visit_id = visit[\"visit_id\"]",
+          "detail": "Đọc trạng thái visit để kiểm sửa được nhưng không khóa visit bằng FOR UPDATE."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_service.py",
+          "line": 199,
+          "end_line": 209,
+          "sha256": "c4befc1184bb96f169eda38963513c89e053f9226fd67eb9cce1c546545caf6a",
+          "excerpt": "199:                 record = await conn.fetchrow(\n200:                     \"\"\"\n201:                     SELECT ultrasound_id, findings, clinic_patient_id, signed_at\n202:                       FROM ultrasound_record\n203:                      WHERE visit_id = $1::uuid AND clinic_id = $2::uuid\n204:                      ORDER BY created_at DESC\n205:                      LIMIT 1\n206:                     \"\"\",\n207:                     visit_id,\n208:                     identity.clinic_id,\n209:                 )",
+          "detail": "Đọc findings snapshot từ ultrasound_record mà không row lock hoặc revision."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_service.py",
+          "line": 236,
+          "end_line": 255,
+          "sha256": "c4befc1184bb96f169eda38963513c89e053f9226fd67eb9cce1c546545caf6a",
+          "excerpt": "236:                 findings = merge_findings(\n237:                     _as_dict(record[\"findings\"]) if record else None,\n238:                     measurements=measurements,\n239:                     is_abnormal=is_abnormal,\n240:                     status=status,\n241:                 )\n242: \n243:                 if record is not None:\n244:                     await conn.execute(\n245:                         \"\"\"\n246:                         UPDATE ultrasound_record\n247:                            SET findings = $2, performed_by = $3::uuid,\n248:                                performed_at = now()\n249:                          WHERE ultrasound_id = $1 AND clinic_id = $4::uuid\n250:                         \"\"\",\n251:                         record[\"ultrasound_id\"],\n252:                         _json(findings),\n253:                         identity.staff_id,\n254:                         identity.clinic_id,\n255:                     )",
+          "detail": "Merge snapshot trong Python rồi UPDATE toàn bộ cột JSON findings."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_service.py",
+          "line": 269,
+          "end_line": 288,
+          "sha256": "c4befc1184bb96f169eda38963513c89e053f9226fd67eb9cce1c546545caf6a",
+          "excerpt": "269:                     await conn.execute(\n270:                         \"\"\"\n271:                         INSERT INTO ultrasound_record (\n272:                             clinic_id, visit_id, clinic_patient_id, performed_by,\n273:                             ultrasound_type, findings, performed_at, lan\n274:                         )\n275:                         VALUES ($5::uuid, $1::uuid, $2::uuid, $3::uuid, 'Thai',\n276:                                 $4, now(),\n277:                                 (SELECT coalesce(max(x.lan), 0) + 1\n278:                                    FROM ultrasound_record x\n279:                                   WHERE x.clinic_id = $5::uuid\n280:                                     AND x.visit_id = $1::uuid\n281:                                     AND x.ultrasound_type = 'Thai'))\n282:                         ON CONFLICT (clinic_id, visit_id, ultrasound_type, lan)\n283:                             WHERE visit_id IS NOT NULL\n284:                         DO UPDATE SET\n285:                             findings     = EXCLUDED.findings,\n286:                             performed_by = EXCLUDED.performed_by,\n287:                             performed_at = now()\n288:                         \"\"\",",
+          "detail": "ON CONFLICT cũng overwrite findings bằng EXCLUDED snapshot."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 217,
+          "end_line": 238,
+          "sha256": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e",
+          "excerpt": "217: async def ghi_bac_si_thuc_hien(\n218:     conn: asyncpg.Connection,\n219:     *,\n220:     clinic_id: str,\n221:     visit_id: str,\n222:     bac_si_id: str,\n223: ) -> None:\n224:     \"\"\"Bác sĩ siêu âm chạm vào ca (nhập kết quả, đo) mà ca chưa ai nhận → là\n225:     người thực hiện. Không đè người đã nhận.\"\"\"\n226:     await conn.execute(\n227:         \"\"\"\n228:         UPDATE public.work_item\n229:            SET assigned_to = $3::uuid, updated_at = now()\n230:          WHERE clinic_id = $1::uuid AND visit_id = $2::uuid\n231:            AND node_code = 'DICHVU-SIEUAM'\n232:            AND status IN ('PENDING', 'IN_PROGRESS')\n233:            AND assigned_to IS NULL\n234:         \"\"\",\n235:         clinic_id,\n236:         visit_id,\n237:         bac_si_id,\n238:     )",
+          "detail": "Khóa tình cờ chỉ phát sinh khi work_item active còn assigned_to IS NULL."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ultrasound.py",
+          "line": 69,
+          "end_line": 84,
+          "sha256": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb",
+          "excerpt": "69: @router.post(\"/ultrasound/measurements\")\n70: async def save_ultrasound_measurements(\n71:     body: UltrasoundSaveRequest,\n72:     identity: StaffIdentity = Depends(_SONOGRAPHER_GUARD),\n73:     pool: asyncpg.Pool = Depends(get_db_pool),\n74: ) -> dict[str, Any]:\n75:     \"\"\"Attach measurements to the appointment's visit, creating it if needed.\"\"\"\n76:     findings = await UltrasoundService(pool).save_measurements(\n77:         appointment_id=str(body.appointment_id),\n78:         clinic_patient_id=str(body.clinic_patient_id),\n79:         measurements=(\n80:             body.measurements.model_dump(exclude_unset=True)\n81:             if body.measurements is not None\n82:             else None\n83:         ),\n84:         is_abnormal=body.is_abnormal,",
+          "detail": "API measurements hiện gọi service save_measurements trực tiếp."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "CLIN-039",
+        "relationship": "Cùng họ concurrent clinical write nhưng CLIN-039 là JSONB form tự lưu với hai tab; CLIN-040 là aggregate ultrasound_record và overwrite findings riêng."
+      }
+    ]
+  }
+]

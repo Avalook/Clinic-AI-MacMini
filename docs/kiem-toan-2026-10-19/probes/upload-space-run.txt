@@ -1,0 +1,113 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_27540_dr4women_macmini (1 worker) sẵn sàng sau 4s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_unknown_length_upload_respects_remaining_capacity ____________
+
+tmp_path = PosixPath('/private/var/folders/s0/xk2mg359457c1cl15pw58c680000gn/T/pytest-of-quangdang/pytest-1730/test_unknown_length_upload_res0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10f9860c0>
+
+    async def test_unknown_length_upload_respects_remaining_capacity(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        free_bytes, reserve = 1024, 256
+        pdf = b"%PDF-1.7\n" + b"x" * 2048
+        body = (
+            b'--audit\r\nContent-Disposition: form-data; name="file"; filename="audit.pdf"'
+            b"\r\nContent-Type: application/pdf\r\n\r\n" + pdf + b"\r\n--audit--\r\n"
+        )
+        checked = 0
+    
+        def free() -> int:
+            nonlocal checked
+            checked += 1
+            used = sum(p.stat().st_size for p in tmp_path.rglob("*.part"))
+            return max(0, free_bytes - used)
+    
+        monkeypatch.setattr(media_service, "MEDIA_LOCAL_ROOT", tmp_path)
+        monkeypatch.setattr(media_service, "MAX_BYTES_THEO_LOAI", {"PDF": 0})
+        monkeypatch.setattr(nhan_tep_luong, "cho_trong_o_vps", free)
+        monkeypatch.setattr(tep_ket_qua_service, "MEDIA_LOCAL_MIN_FREE_BYTES", reserve)
+        sent = False
+    
+        async def receive() -> dict:
+            nonlocal sent
+            if sent:
+                return {"type": "http.disconnect"}
+            sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+    
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/audit",
+                "headers": [(b"content-type", b"multipart/form-data; boundary=audit")],
+            },
+            receive,
+        )
+        received = None
+        try:
+            try:
+                _, received = await nhan_tep_luong.nhan_multipart(request)
+            except ValidationError:
+                return
+>           assert received.so_byte <= free_bytes - reserve, (
+                f"Stored {received.so_byte} bytes with budget {free_bytes - reserve};"
+                f" free-space checked only {checked} time(s)"
+            )
+E           AssertionError: Stored 2057 bytes with budget 768; free-space checked only 1 time(s)
+E           assert 2057 <= (1024 - 256)
+E            +  where 2057 = TepDaNhan(duong=PosixPath('/private/var/folders/s0/xk2mg359457c1cl15pw58c680000gn/T/pytest-of-quangdang/pytest-1730/te...xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', ten='audit.pdf').so_byte
+
+src/tests/services/test_audit_1910_upload_space.py:62: AssertionError
+=========================== short test summary info ============================
+FAILED src/tests/services/test_audit_1910_upload_space.py::test_unknown_length_upload_respects_remaining_capacity
+1 failed in 0.25s

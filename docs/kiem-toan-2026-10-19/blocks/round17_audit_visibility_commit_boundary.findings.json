@@ -1,0 +1,495 @@
+[
+  {
+    "id": "SEC-026",
+    "title": "Nhật ký thao tác không hiện sự kiện cấp và thu quyền nhân viên",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "security_audit_visibility",
+    "summary": "PermissionService ghi capability.granted/capability.revoked vào domain_event trong transaction; API và trang /audit-log chỉ đọc v_audit_log (event_log) cùng work_item_event. Dữ liệu cấp/thu quyền vẫn được lưu trong domain_event và capability_grant, nhưng không xuất hiện trong nhật ký thao tác hợp nhất.",
+    "trigger": "Quản lý cấp hoặc thu một khối quyền, sau đó người có audit.view mở /audit-log để xác định ai đổi quyền, cho ai và trong phạm vi nào.",
+    "impact": "Người vận hành không thể tìm thay đổi quyền từ màn nhật ký tập trung, làm chậm việc rà soát hoặc điều tra. Đây là khoảng trống khám phá/đối chiếu; không phải bằng chứng mất bản ghi, vượt quyền hay rò dữ liệu chéo clinic.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/permission_service.py",
+        "line": 218,
+        "end_line": 232,
+        "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+        "detail": "Cấp khối quyền được ghi thành capability.granted trong cùng transaction của capability_grant."
+      },
+      {
+        "path": "src/clinicai/services/permission_service.py",
+        "line": 258,
+        "end_line": 286,
+        "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+        "detail": "Thu hồi khối quyền cập nhật người thu hồi rồi phát capability.revoked."
+      },
+      {
+        "path": "src/clinicai/events/emit.py",
+        "line": 181,
+        "end_line": 213,
+        "sha256": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616",
+        "detail": "emit_event ghi typed event vào domain_event; đây là nguồn khác event_log."
+      },
+      {
+        "path": "src/clinicai/services/audit_log_service.py",
+        "line": 68,
+        "end_line": 129,
+        "sha256": "d9b87a0288aebe397706eeac5c5ae2a060fe5434b35bfee9c9412e2ec8a8b100",
+        "detail": "SQL nhật ký chỉ hợp nhất v_audit_log và work_item_event; không đọc domain_event."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/audit_log.py",
+        "line": 29,
+        "end_line": 38,
+        "sha256": "a051947281cea33f3bb4e70ea2bf40f3fcd58c6a6b8bf853990d821b64c57445",
+        "detail": "GET /audit/events là API đọc nhật ký, lấy clinic từ identity đã xác thực."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/audit-log/page.tsx",
+        "line": 42,
+        "end_line": 46,
+        "sha256": "8d8a03829b0f50f6029239094a1e7f3ce67f4b63b8273823d40c8bcb456d76d2",
+        "detail": "Trang /audit-log chỉ tải endpoint /api/v1/audit/events."
+      },
+      {
+        "path": "src/tests/services/test_permission_db.py",
+        "line": 276,
+        "end_line": 289,
+        "sha256": "174834e553a18cad726220f145b1b274313a66c0c754900fccc0ed2aee8998a7",
+        "detail": "Test xác nhận sự kiện cấp quyền tồn tại trong domain_event và giữ actor; không kiểm projection lên màn audit."
+      }
+    ],
+    "validation": {
+      "method": "static_permission_event_to_audit_api_and_dashboard_trace_on_pinned_main",
+      "command": null,
+      "result": "Exact-main trace confirms grant/revoke are durable domain events while the audit SQL and UI read only event_log projection plus work_item_event. Existing permission test asserts the domain_event row and actor.",
+      "limitations": "No database query, API/UI integration test, role matrix or production observation was performed. Finding is limited to visibility in the consolidated /audit-log surface; it does not claim the underlying permission history is absent."
+    },
+    "recommendation": "Đưa các security event đã chọn vào read model nhật ký với actor, người nhận, quyền, phạm vi và thời điểm; giữ bộ lọc clinic lấy từ identity và quyền audit.view. Chỉ chiếu payload tối thiểu, không mở toàn bộ domain_event lâm sàng cho vai vận hành.",
+    "acceptance": "Test cấp và thu quyền cho thấy đúng actor, nhân viên đích, capability, scope và thời gian trong audit API/UI của cùng clinic; clinic khác không nhìn thấy; payload lâm sàng không được đưa vào projection.",
+    "related_tests": [
+      {
+        "path": "src/tests/services/test_permission_db.py",
+        "scope": "Asserts capability.granted is persisted in domain_event with actor and is_public=false; does not assert audit API/UI projection."
+      },
+      {
+        "path": "src/tests/test_audit_log_day_window.py",
+        "scope": "Covers Vietnam day bounds and all rows for the selected day; does not exercise domain_event inclusion."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/audit_log.py": "a051947281cea33f3bb4e70ea2bf40f3fcd58c6a6b8bf853990d821b64c57445",
+      "src/clinicai/events/emit.py": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616",
+      "src/clinicai/services/audit_log_service.py": "d9b87a0288aebe397706eeac5c5ae2a060fe5434b35bfee9c9412e2ec8a8b100",
+      "src/clinicai/services/permission_service.py": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+      "src/dashboard/app/(dashboard)/audit-log/page.tsx": "8d8a03829b0f50f6029239094a1e7f3ce67f4b63b8273823d40c8bcb456d76d2",
+      "src/tests/services/test_permission_db.py": "174834e553a18cad726220f145b1b274313a66c0c754900fccc0ed2aee8998a7"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 17 static trace: permission history is stored in domain_event/capability_grant but is not projected by the consolidated audit endpoint or page. No production or patient data was accessed.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/permission_service.py",
+          "line": 218,
+          "end_line": 232,
+          "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+          "excerpt": "218:             if da_cap:\n219:                 await emit_event(\n220:                     conn,\n221:                     ten=\"capability.granted\",\n222:                     clinic_id=identity.clinic_id,\n223:                     aggregate_id=staff_id,\n224:                     payload=KhoiQuyenDaCap(\n225:                         staff_id=staff_id,\n226:                         work_pack=khoi,\n227:                         capabilities=sorted(da_cap),\n228:                         scope_type=scope_type,\n229:                         scope_id=scope_id,\n230:                     ),\n231:                     boi=nguoi(identity),\n232:                 )",
+          "detail": "Grant transaction emits the capability.granted domain event."
+        },
+        {
+          "path": "src/clinicai/services/permission_service.py",
+          "line": 258,
+          "end_line": 286,
+          "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+          "excerpt": "258:             da_thu = await conn.fetch(\n259:                 \"\"\"\n260:                 UPDATE capability_grant\n261:                    SET revoked_at = now(), revoked_by = $4::uuid,\n262:                        ly_do = COALESCE($5, ly_do)\n263:                  WHERE clinic_id = $1::uuid AND staff_id = $2::uuid\n264:                    AND tu_khoi = $3 AND revoked_at IS NULL\n265:                 RETURNING capability\n266:                 \"\"\",\n267:                 identity.clinic_id,\n268:                 staff_id,\n269:                 khoi,\n270:                 identity.staff_id,\n271:                 ly_do,\n272:             )\n273:             ds = sorted(r[\"capability\"] for r in da_thu)\n274:             if \"permission.manage\" in ds:\n275:                 await giu_nguoi_cap_quyen(conn, identity.clinic_id)\n276:             if ds:\n277:                 await emit_event(\n278:                     conn,\n279:                     ten=\"capability.revoked\",\n280:                     clinic_id=identity.clinic_id,\n281:                     aggregate_id=staff_id,\n282:                     payload=KhoiQuyenDaThu(\n283:                         staff_id=staff_id, work_pack=khoi, capabilities=ds\n284:                     ),\n285:                     boi=nguoi(identity),\n286:                 )",
+          "detail": "Revoke persists revoked_by and emits capability.revoked."
+        },
+        {
+          "path": "src/clinicai/events/emit.py",
+          "line": 181,
+          "end_line": 213,
+          "sha256": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616",
+          "excerpt": "181:     await conn.execute(\n182:         \"\"\"\n183:         INSERT INTO domain_event\n184:             (event_id, event_type, event_version, clinic_id,\n185:              aggregate_type, aggregate_id, aggregate_version,\n186:              correlation_id, causation_id,\n187:              actor_type, actor_staff_id, actor_role, on_behalf_of, agent_version,\n188:              source_module, is_public, payload, replay_id)\n189:         VALUES ($1::uuid, $2, $3, $4::uuid,\n190:                 $5, $6::uuid, $7,\n191:                 $8::uuid, $9::uuid,\n192:                 $10, $11::uuid, $12, $13::uuid, $14,\n193:                 $15, $16, $17::jsonb, $18::uuid)\n194:         \"\"\",\n195:         event_id,\n196:         su_kien.ten,\n197:         su_kien.version,\n198:         clinic_id,\n199:         su_kien.aggregate_type,\n200:         aggregate_id,\n201:         aggregate_version,\n202:         correlation_id,\n203:         causation_id,\n204:         boi.actor_type,\n205:         boi.staff_id,\n206:         boi.role,\n207:         boi.on_behalf_of,\n208:         boi.agent_version,\n209:         su_kien.source_module,\n210:         su_kien.is_public,\n211:         json.dumps(noi_dung, ensure_ascii=False),\n212:         replay_id,\n213:     )",
+          "detail": "The event writer inserts domain_event and returns without writing event_log."
+        },
+        {
+          "path": "src/clinicai/services/audit_log_service.py",
+          "line": 68,
+          "end_line": 129,
+          "sha256": "d9b87a0288aebe397706eeac5c5ae2a060fe5434b35bfee9c9412e2ec8a8b100",
+          "excerpt": "68: _SQL = \"\"\"\n69: WITH nhat_ky AS (\n70:     SELECT a.event_id::text          AS id,\n71:            a.occurred_at,\n72:            a.event_type,\n73:            a.aggregate_type,\n74:            a.aggregate_id::text      AS aggregate_id,\n75:            a.payload,\n76:            a.actor_name,\n77:            a.actor_role,\n78:            a.actor_staff_id::text    AS actor_staff_id,\n79:            a.nguon_thao_tac,\n80:            a.subject_name,\n81:            a.subject_code,\n82:            a.subject_kind,\n83:            a.subject_ref_name\n84:       FROM public.v_audit_log a\n85:      WHERE a.clinic_id = $1::uuid\n86:        AND a.occurred_at >= $2\n87:        AND a.occurred_at < $3\n88:      ORDER BY a.occurred_at DESC\n89: ),\n90: -- Workflow kernel ghi vào bảng riêng. Gộp TRƯỚC khi sắp xếp, không phải sau —\n91: -- xem ghi chú đầu file về chuyện trộn-rồi-cắt làm mất dòng.\n92: quy_trinh AS (\n93:     SELECT 'wie:' || w.id::text     AS id,\n94:            w.occurred_at,\n95:            'work_item.' || w.command AS event_type,\n96:            'work_item'              AS aggregate_type,\n97:            w.work_item_id::text     AS aggregate_id,\n98:            jsonb_build_object('command', w.command,\n99:                               'from_status', w.from_status,\n100:                               'to_status', w.to_status,\n101:                               'reason', w.reason) AS payload,\n102:            s.full_name              AS actor_name,\n103:            w.actor_role,\n104:            w.actor_staff_id::text   AS actor_staff_id,\n105:            'workflow-kernel'        AS nguon_thao_tac,\n106:            p.full_name              AS subject_name,\n107:            p.patient_code           AS subject_code,\n108:            NULL                     AS subject_kind,\n109:            NULL                     AS subject_ref_name\n110:       FROM public.work_item_event w\n111:       JOIN public.work_item wi\n112:         ON wi.id = w.work_item_id AND wi.clinic_id = $1::uuid\n113:       LEFT JOIN public.staff s\n114:              ON s.id = w.actor_staff_id\n115:       LEFT JOIN public.patient p\n116:              ON p.clinic_patient_id = wi.clinic_patient_id\n117:             AND p.clinic_id = $1::uuid\n118:      WHERE w.clinic_id = $1::uuid\n119:        AND w.occurred_at >= $2\n120:        AND w.occurred_at < $3\n121:      ORDER BY w.occurred_at DESC\n122: )\n123: SELECT * FROM (\n124:     SELECT * FROM nhat_ky\n125:     UNION ALL\n126:     SELECT * FROM quy_trinh\n127: ) gop\n128: ORDER BY occurred_at DESC\n129: \"\"\"",
+          "detail": "The complete audit query combines v_audit_log with work_item_event only."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/audit_log.py",
+          "line": 29,
+          "end_line": 38,
+          "sha256": "a051947281cea33f3bb4e70ea2bf40f3fcd58c6a6b8bf853990d821b64c57445",
+          "excerpt": "29: @router.get(\"/audit/events\")\n30: async def events(\n31:     identity: StaffIdentity = Depends(_GUARD),\n32:     pool: asyncpg.Pool = Depends(get_db_pool),\n33: ) -> dict[str, Any]:\n34:     \"\"\"Toàn bộ nhật ký trong ngày Việt Nam hiện tại, đã giải nghĩa.\n35: \n36:     KHÔNG nhận ``clinic_id`` từ người gọi — nó lấy từ danh tính đã xác thực.\n37:     \"\"\"\n38:     return await AuditLogService(pool).events(identity=identity)",
+          "detail": "The operator audit endpoint delegates to AuditLogService.events."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/audit-log/page.tsx",
+          "line": 42,
+          "end_line": 46,
+          "sha256": "8d8a03829b0f50f6029239094a1e7f3ce67f4b63b8273823d40c8bcb456d76d2",
+          "excerpt": "42:   // Lấy toàn bộ nhật ký từ đầu ngày hiện tại theo giờ Việt Nam.\n43:   const data = await fetchFromBackend<{\n44:     items: AuditEvent[]; // Danh sách các sự kiện audit\n45:     so_nguoi: number; // Số người thao tác\n46:   }>(\"/api/v1/audit/events\");",
+          "detail": "The dashboard audit page consumes only the consolidated endpoint."
+        },
+        {
+          "path": "src/tests/services/test_permission_db.py",
+          "line": 276,
+          "end_line": 289,
+          "sha256": "174834e553a18cad726220f145b1b274313a66c0c754900fccc0ed2aee8998a7",
+          "excerpt": "276:     await PermissionService(pool).cap_khoi(\n277:         staff_id=dd.staff_id, khoi=\"sinh_hieu\", identity=quan_ly\n278:     )\n279:     dong = await pool.fetchrow(\n280:         \"SELECT event_type, actor_staff_id::text AS ai, payload, is_public\"\n281:         \"  FROM domain_event WHERE aggregate_id = $1::uuid\"\n282:         \"   AND event_type = 'capability.granted'\",\n283:         dd.staff_id,\n284:     )\n285:     assert dong is not None\n286:     assert dong[\"ai\"] == quan_ly.staff_id\n287:     # Quyền là chuyện nội bộ: AI và đối tác không có việc gì phải nghe.\n288:     assert dong[\"is_public\"] is False\n289:     assert \"vitals.measure\" in dong[\"payload\"]",
+          "detail": "Existing test confirms durable domain_event and actor but not audit UI visibility."
+        }
+      ],
+      "production_verified": false
+    },
+    "dedup_note": "Khác SEC-013 (PII trong payload event_log) và INF-010 (thao tác không ghi audit bền vững): ở đây sự kiện cấp/thu quyền đã có trong domain_event nhưng bị bỏ khỏi read model /audit-log."
+  },
+  {
+    "id": "INF-021",
+    "title": "Thay đổi danh mục tầng commit trước khi ghi nhật ký thao tác",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "post_commit_audit_consistency",
+    "summary": "ClinicFloorService.create, rename, set_active và reorder thay đổi trạng thái rồi mới gọi _audit. _audit mở connection mới, trong khi record_event được thiết kế để ghi trên transaction của caller. Nếu lần ghi event lỗi sau mutation, trạng thái đã đổi nhưng API không trả thành công và event audit không có.",
+    "trigger": "Một thao tác tạo/đổi tên/tắt-bật/sắp thứ tự tầng cập nhật thành công nhưng event_log insert thất bại ở bước audit kế tiếp.",
+    "impact": "Người dùng có thể thấy lỗi dù cấu hình đã được áp dụng, phải tải lại để biết trạng thái thật; đồng thời nhật ký thiếu thay đổi đó. Tác động hiện được giới hạn ở cấu hình tầng; chưa có fault-injection hoặc bằng chứng production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/audit.py",
+        "line": 32,
+        "end_line": 35,
+        "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+        "detail": "Audit writer documents atomicity: record row must share the caller's transaction."
+      },
+      {
+        "path": "src/clinicai/services/audit.py",
+        "line": 51,
+        "end_line": 75,
+        "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+        "detail": "record_event inserts through the connection supplied by its caller."
+      },
+      {
+        "path": "src/clinicai/services/clinic_floor_service.py",
+        "line": 97,
+        "end_line": 114,
+        "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+        "detail": "_audit acquires a fresh connection from the pool before calling record_event."
+      },
+      {
+        "path": "src/clinicai/services/clinic_floor_service.py",
+        "line": 124,
+        "end_line": 156,
+        "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+        "detail": "create commits its mutation transaction before awaiting _audit."
+      },
+      {
+        "path": "src/clinicai/services/clinic_floor_service.py",
+        "line": 168,
+        "end_line": 185,
+        "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+        "detail": "rename performs the update before awaiting _audit on a separate connection."
+      },
+      {
+        "path": "src/clinicai/services/clinic_floor_service.py",
+        "line": 192,
+        "end_line": 203,
+        "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+        "detail": "set_active begins its state change in a transaction."
+      },
+      {
+        "path": "src/clinicai/services/clinic_floor_service.py",
+        "line": 253,
+        "end_line": 259,
+        "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+        "detail": "set_active exits its transaction and then awaits _audit."
+      },
+      {
+        "path": "src/clinicai/services/clinic_floor_service.py",
+        "line": 272,
+        "end_line": 300,
+        "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+        "detail": "reorder applies all order updates inside its transaction."
+      },
+      {
+        "path": "src/clinicai/services/clinic_floor_service.py",
+        "line": 301,
+        "end_line": 307,
+        "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+        "detail": "reorder exits its transaction and then awaits _audit."
+      },
+      {
+        "path": "src/tests/services/test_tang_va_vi_tri_moi_db.py",
+        "line": 52,
+        "end_line": 100,
+        "sha256": "16e31f6e7a7cc099f5457b444c45fae749ee061b5bfaea468a1339a28da4aaad",
+        "detail": "Related integration test exercises successful create/rename and room-label propagation; no audit-write failure is injected."
+      }
+    ],
+    "validation": {
+      "method": "static_transaction_boundary_trace_for_clinic_floor_mutations_on_pinned_main",
+      "command": null,
+      "result": "Exact-main read confirms four mutation paths call _audit only after their write transaction/statement completes; _audit obtains a different pooled connection and record_event relies on the caller transaction.",
+      "limitations": "No fault-injection test or runtime observation. Existing floor integration coverage checks successful operations and validation paths, not failure of event_log insertion after commit. No production behavior was checked."
+    },
+    "recommendation": "Ghi mutation và event_log row trên cùng connection/transaction cho cả bốn lệnh. Nếu atomicity không thể bảo đảm trực tiếp, dùng outbox bền có trạng thái chưa ghi nhật ký nhìn thấy được và quy trình retry; không trả lỗi mơ hồ sau một mutation đã commit.",
+    "acceptance": "Fault-injection tại event insert cho create/rename/set_active/reorder phải chứng minh mutation và audit cùng commit hoặc cùng rollback; kết quả API và UI phản ánh trạng thái thật; test thành công tiếp tục kiểm payload actor/object.",
+    "related_tests": [
+      {
+        "path": "src/tests/services/test_tang_va_vi_tri_moi_db.py",
+        "scope": "Happy-path DB tests cover create, rename, soft-delete/reactivation and reorder, but do not inject audit insert failure."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/services/audit.py": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+      "src/clinicai/services/clinic_floor_service.py": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+      "src/tests/services/test_tang_va_vi_tri_moi_db.py": "16e31f6e7a7cc099f5457b444c45fae749ee061b5bfaea468a1339a28da4aaad"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 17 full service read confirms the transaction ends before audit append on all four floor mutation paths; static only, not fault-injected.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/audit.py",
+          "line": 32,
+          "end_line": 35,
+          "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+          "excerpt": "32: TRANSACTIONAL, ALWAYS. ``conn`` is the caller's connection, so the audit row\n33: commits with the write it describes or not at all. A trail that can be missing\n34: exactly when a write half-failed is worse than no trail, because it reads as\n35: \"this did not happen\".",
+          "detail": "Audit writer documents atomicity: record row must share the caller's transaction."
+        },
+        {
+          "path": "src/clinicai/services/audit.py",
+          "line": 51,
+          "end_line": 75,
+          "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+          "excerpt": "51: async def record_event(\n52:     conn: asyncpg.Connection,\n53:     *,\n54:     event_type: str,\n55:     aggregate_type: str,\n56:     aggregate_id: str,\n57:     identity: StaffIdentity,\n58:     origin: str,\n59:     payload: dict[str, Any] | None = None,\n60:     correlation_id: str | None = None,\n61: ) -> None:\n62:     \"\"\"Append one row to ``event_log`` on the caller's transaction.\n63: \n64:     ``event_type``      dotted verb, e.g. ``clinical_record.saved``\n65:     ``aggregate_type``  the table/entity the event is about\n66:     ``aggregate_id``    its id\n67:     ``origin``          which code path wrote it, e.g. ``api:clinical-record``\n68:     ``payload``         identifiers and field names only — never clinical text\n69:     \"\"\"\n70:     await conn.execute(\n71:         \"\"\"\n72:         INSERT INTO event_log\n73:             (clinic_id, event_type, aggregate_type, aggregate_id, payload,\n74:              metadata, correlation_id, source, event_published)\n75:         VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::uuid, $8, FALSE)",
+          "detail": "record_event inserts through the connection supplied by its caller."
+        },
+        {
+          "path": "src/clinicai/services/clinic_floor_service.py",
+          "line": 97,
+          "end_line": 114,
+          "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+          "excerpt": "97:     async def _audit(\n98:         self,\n99:         identity: StaffIdentity,\n100:         *,\n101:         action: str,\n102:         object_id: str,\n103:         payload: dict[str, Any],\n104:     ) -> None:\n105:         async with self._pool.acquire() as conn:\n106:             await record_event(\n107:                 conn,\n108:                 event_type=f\"clinic_config.{action}\",\n109:                 aggregate_type=\"clinic\",\n110:                 aggregate_id=identity.clinic_id,\n111:                 identity=identity,\n112:                 origin=\"api:clinic-config\",\n113:                 payload={\"doi_tuong_id\": object_id, **payload},\n114:             )",
+          "detail": "_audit acquires a fresh connection from the pool before calling record_event."
+        },
+        {
+          "path": "src/clinicai/services/clinic_floor_service.py",
+          "line": 124,
+          "end_line": 156,
+          "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+          "excerpt": "124:         try:\n125:             async with self._pool.acquire() as conn, conn.transaction():\n126:                 location_exists = await conn.fetchval(\n127:                     \"SELECT id::text FROM public.clinic_location\"\n128:                     \" WHERE id = $1::uuid AND clinic_id = $2::uuid\"\n129:                     \"   AND is_active FOR UPDATE\",\n130:                     location_id,\n131:                     identity.clinic_id,\n132:                 )\n133:                 if not location_exists:\n134:                     raise ValidationError(\"Không tìm thấy cơ sở đang hoạt động.\")\n135:                 floor_id = await conn.fetchval(\n136:                     \"\"\"\n137:                 INSERT INTO public.clinic_floor\n138:                     (clinic_id, location_id, name, sort_order)\n139:                 VALUES ($1::uuid, $2::uuid, $3,\n140:                        coalesce((SELECT max(sort_order) + 10\n141:                                    FROM public.clinic_floor\n142:                                   WHERE location_id = $2::uuid AND is_active), 10))\n143:                 RETURNING id::text\n144:                 \"\"\",\n145:                     identity.clinic_id,\n146:                     location_id,\n147:                     clean,\n148:                 )\n149:         except asyncpg.UniqueViolationError as exc:\n150:             raise ValidationError(\"Cơ sở này đã có tầng cùng tên.\") from exc\n151:         await self._audit(\n152:             identity,\n153:             action=\"floor_created\",\n154:             object_id=floor_id,\n155:             payload={\"location_id\": location_id, \"name\": clean},\n156:         )",
+          "detail": "create commits its mutation transaction before awaiting _audit."
+        },
+        {
+          "path": "src/clinicai/services/clinic_floor_service.py",
+          "line": 168,
+          "end_line": 185,
+          "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+          "excerpt": "168:             updated = await self._pool.fetchval(\n169:                 \"UPDATE public.clinic_floor SET name = $3, updated_at = now()\"\n170:                 \" WHERE id = $1::uuid AND clinic_id = $2::uuid RETURNING id::text\",\n171:                 floor_id,\n172:                 identity.clinic_id,\n173:                 clean,\n174:             )\n175:         except asyncpg.UniqueViolationError as exc:\n176:             raise ValidationError(\"Cơ sở này đã có tầng cùng tên.\") from exc\n177:         if updated is None:\n178:             raise ValidationError(\"Không tìm thấy tầng này.\")\n179:         await self._audit(\n180:             identity,\n181:             action=\"floor_renamed\",\n182:             object_id=floor_id,\n183:             payload={\"name\": clean},\n184:         )\n185:         return {\"ok\": True, \"floor_id\": floor_id, \"name\": clean}",
+          "detail": "rename performs the update before awaiting _audit on a separate connection."
+        },
+        {
+          "path": "src/clinicai/services/clinic_floor_service.py",
+          "line": 192,
+          "end_line": 203,
+          "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+          "excerpt": "192:         async with self._pool.acquire() as conn, conn.transaction():\n193:             location_id = await conn.fetchval(\n194:                 \"SELECT location_id::text FROM public.clinic_floor\"\n195:                 \" WHERE id = $1::uuid AND clinic_id = $2::uuid\",\n196:                 floor_id,\n197:                 identity.clinic_id,\n198:             )\n199:             if location_id is None:\n200:                 raise ValidationError(\"Không tìm thấy tầng này.\")\n201:             await conn.fetchval(\n202:                 \"SELECT id::text FROM public.clinic_location\"\n203:                 \" WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE\",",
+          "detail": "set_active begins its state change in a transaction."
+        },
+        {
+          "path": "src/clinicai/services/clinic_floor_service.py",
+          "line": 253,
+          "end_line": 259,
+          "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+          "excerpt": "253:         await self._audit(\n254:             identity,\n255:             action=\"floor_active\",\n256:             object_id=floor_id,\n257:             payload={\"is_active\": is_active},\n258:         )\n259:         return {\"ok\": True, \"floor_id\": floor_id, \"is_active\": is_active}",
+          "detail": "set_active exits its transaction and then awaits _audit."
+        },
+        {
+          "path": "src/clinicai/services/clinic_floor_service.py",
+          "line": 272,
+          "end_line": 300,
+          "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+          "excerpt": "272:         async with self._pool.acquire() as conn, conn.transaction():\n273:             location_exists = await conn.fetchval(\n274:                 \"SELECT id::text FROM public.clinic_location\"\n275:                 \" WHERE id = $1::uuid AND clinic_id = $2::uuid\"\n276:                 \"   AND is_active FOR UPDATE\",\n277:                 location_id,\n278:                 identity.clinic_id,\n279:             )\n280:             if not location_exists:\n281:                 raise ValidationError(\"Không tìm thấy cơ sở đang hoạt động.\")\n282:             rows = await conn.fetch(\n283:                 \"SELECT id::text FROM public.clinic_floor\"\n284:                 \" WHERE clinic_id = $1::uuid AND location_id = $2::uuid\"\n285:                 \"   AND is_active FOR UPDATE\",\n286:                 identity.clinic_id,\n287:                 location_id,\n288:             )\n289:             if {row[\"id\"] for row in rows} != set(floor_ids):\n290:                 raise ValidationError(\n291:                     \"Danh sách phải gồm đủ mọi tầng đang sử dụng của cơ sở.\"\n292:                 )\n293:             await conn.executemany(\n294:                 \"UPDATE public.clinic_floor SET sort_order = $2, updated_at = now()\"\n295:                 \" WHERE id = $1::uuid\",\n296:                 [\n297:                     (floor_id, (index + 1) * 10)\n298:                     for index, floor_id in enumerate(floor_ids)\n299:                 ],\n300:             )",
+          "detail": "reorder applies all order updates inside its transaction."
+        },
+        {
+          "path": "src/clinicai/services/clinic_floor_service.py",
+          "line": 301,
+          "end_line": 307,
+          "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+          "excerpt": "301:         await self._audit(\n302:             identity,\n303:             action=\"floor_order\",\n304:             object_id=location_id,\n305:             payload={\"floor_ids\": floor_ids},\n306:         )\n307:         return {\"ok\": True, \"location_id\": location_id, \"floor_ids\": floor_ids}",
+          "detail": "reorder exits its transaction and then awaits _audit."
+        },
+        {
+          "path": "src/tests/services/test_tang_va_vi_tri_moi_db.py",
+          "line": 52,
+          "end_line": 100,
+          "sha256": "16e31f6e7a7cc099f5457b444c45fae749ee061b5bfaea468a1339a28da4aaad",
+          "excerpt": "52: async def test_tang_co_thu_tu_doi_ten_va_an_mem_an_toan(\n53:     pool: asyncpg.Pool,  # noqa: F811\n54: ) -> None:\n55:     identity, location_id = await _quan_ly_va_co_so(pool)\n56:     room_service = ClinicConfigService(pool)\n57:     floor_service = ClinicFloorService(pool)\n58:     suffix = uuid.uuid4().hex[:6]\n59: \n60:     floor_a = await floor_service.create(\n61:         identity=identity,\n62:         location_id=location_id,\n63:         name=f\"Tầng thử A {suffix}\",\n64:     )\n65:     floor_b = await floor_service.create(\n66:         identity=identity,\n67:         location_id=location_id,\n68:         name=f\"Tầng thử B {suffix}\",\n69:     )\n70:     node_code = await _node_code(pool)\n71:     room = await room_service.create_room(\n72:         identity=identity,\n73:         location_id=location_id,\n74:         name=f\"Phòng thử tầng {suffix}\",\n75:         node_code=node_code,\n76:         floor_id=floor_a[\"floor_id\"],\n77:     )\n78: \n79:     try:\n80:         assert (\n81:             await pool.fetchval(\n82:                 \"SELECT floor FROM clinic_room WHERE id = $1::uuid\", room[\"room_id\"]\n83:             )\n84:             == f\"Tầng thử A {suffix}\"\n85:         )\n86: \n87:         renamed = f\"Tầng đã đổi {suffix}\"\n88:         await floor_service.rename(\n89:             identity=identity,\n90:             floor_id=floor_a[\"floor_id\"],\n91:             name=renamed,\n92:         )\n93:         assert (\n94:             await pool.fetchval(\n95:                 \"SELECT floor FROM clinic_room WHERE id = $1::uuid\", room[\"room_id\"]\n96:             )\n97:             == renamed\n98:         )\n99: \n100:         with pytest.raises(ValidationError, match=\"còn 1 phòng đang hoạt động\"):",
+          "detail": "Related integration test exercises successful create/rename and room-label propagation; no audit-write failure is injected."
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FE-018",
+    "title": "Lỗi đọc trạng thái bệnh án có thể làm panel lỗi khi render",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_status_error_handling",
+    "summary": "Khi fetchFromBackend không lấy được trạng thái, BFF trả {error} với HTTP 200. HoSoHoanTatPanel chỉ kiểm tra response.ok, ép payload thành Status rồi truy cập LABEL[state].bg/text; state không hợp lệ làm tone undefined và render có thể throw.",
+    "trigger": "Backend status trả non-2xx, lỗi mạng/JSON, thiếu session token hoặc API_BASE không cấu hình trong khi dashboard session vẫn có user.",
+    "impact": "Panel có thể làm nội dung dashboard route hiện tại chuyển sang error boundary thay vì hiển thị lỗi tải trạng thái. Đây là đường đọc; không có bằng chứng thao tác hay dữ liệu bệnh án bị thay đổi. Chưa runtime-test.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/api/clinical/[visit_id]/[action]/route.ts",
+        "line": 23,
+        "end_line": 38,
+        "sha256": "9607035ad3e0790b853593a03e65502046baf53d8bb9613741e1cd0e2064d09d",
+        "detail": "The status GET converts a null backend result into a JSON error with the default HTTP 200."
+      },
+      {
+        "path": "src/dashboard/lib/backend-proxy.ts",
+        "line": 244,
+        "end_line": 267,
+        "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+        "detail": "fetchFromBackend returns null for missing API config/session, non-2xx responses and network/JSON failures."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
+        "line": 91,
+        "end_line": 100,
+        "sha256": "e516cdc82d2285ee3cdb6d94b9c6173a453ebc1f2989454abbbfc85b126fe437",
+        "detail": "load trusts response.ok and casts any JSON body to Status."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
+        "line": 158,
+        "end_line": 170,
+        "sha256": "e516cdc82d2285ee3cdb6d94b9c6173a453ebc1f2989454abbbfc85b126fe437",
+        "detail": "Render indexes LABEL by the unvalidated state and dereferences tone.bg/tone.fg/text."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/error.tsx",
+        "line": 26,
+        "end_line": 31,
+        "sha256": "06b155858451ae931ea7f5c940cc64953b54c8f19c1541d5335bb32d65910f95",
+        "detail": "The nearest dashboard segment error boundary is defined in the dashboard route group."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/error.tsx",
+        "line": 48,
+        "end_line": 63,
+        "sha256": "06b155858451ae931ea7f5c940cc64953b54c8f19c1541d5335bb32d65910f95",
+        "detail": "The boundary renders a dashboard error panel; this does not imply the whole app shell fails."
+      },
+      {
+        "path": "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts",
+        "line": 17,
+        "end_line": 30,
+        "sha256": "f26ae14d5707ceb9c7dab2a7c831a117c4c02c7a8d3526652822c899e70f59f7",
+        "detail": "Existing related boundary test checks removal of the signing flow, not status GET error payloads."
+      }
+    ],
+    "validation": {
+      "method": "static_bff_error_status_to_react_render_trace_on_pinned_main",
+      "command": null,
+      "result": "Exact-main trace confirms backend helper failure becomes HTTP 200 error JSON and the panel dereferences an absent LABEL entry. The nearest dashboard error boundary scopes the fallback to the route segment.",
+      "limitations": "No component render, BFF request or browser test was run for this trigger. The finding is LOW and limited to the nearest dashboard segment; it does not claim a whole-app crash or any write/data-loss effect."
+    },
+    "recommendation": "BFF phải giữ HTTP error status hoặc trả envelope có discriminant; component kiểm tra shape/state trước khi render và hiện trạng thái lỗi có nút thử lại.",
+    "acceptance": "Test backend 401/503/network/invalid JSON và payload sai shape: API không trả success-shaped HTTP 200, panel không throw và hiển thị lỗi tải; payload hợp lệ vẫn render đúng nhãn.",
+    "related_tests": [
+      {
+        "path": "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts",
+        "scope": "Covers no-signing flow; no error-status or response-shape assertion for the status BFF."
+      }
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/error.tsx": "06b155858451ae931ea7f5c940cc64953b54c8f19c1541d5335bb32d65910f95",
+      "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx": "e516cdc82d2285ee3cdb6d94b9c6173a453ebc1f2989454abbbfc85b126fe437",
+      "src/dashboard/app/api/clinical/[visit_id]/[action]/route.ts": "9607035ad3e0790b853593a03e65502046baf53d8bb9613741e1cd0e2064d09d",
+      "src/dashboard/lib/backend-proxy.ts": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts": "f26ae14d5707ceb9c7dab2a7c831a117c4c02c7a8d3526652822c899e70f59f7"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Round 17 static UI/API trace; the nearest dashboard error boundary limits the likely failure surface. No runtime reproduction.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/api/clinical/[visit_id]/[action]/route.ts",
+          "line": 23,
+          "end_line": 38,
+          "sha256": "9607035ad3e0790b853593a03e65502046baf53d8bb9613741e1cd0e2064d09d",
+          "excerpt": "23:   const supabase = await getSupabaseServer();\n24:   const {\n25:     data: { user },\n26:   } = await supabase.auth.getUser();\n27:   if (!user) return NextResponse.json({ error: \"Unauthorised\" }, { status: 401 });\n28: \n29:   const { visit_id, action } = await params;\n30:   if (action !== \"status\") {\n31:     return NextResponse.json({ error: \"Không hỗ trợ\" }, { status: 400 });\n32:   }\n33:   // ĐỌC mở cho mọi vai lâm sàng: CSKH cần biết đã được phép gửi chưa, Điều\n34:   // dưỡng cần biết hồ sơ đã khoá chưa.\n35:   const data = await fetchFromBackend<unknown>(\n36:     `/api/v1/clinical/${encodeURIComponent(visit_id)}/status`,\n37:   );\n38:   return NextResponse.json(data ?? { error: \"Không đọc được trạng thái\" });",
+          "detail": "The status GET converts a null backend result into a JSON error with the default HTTP 200."
+        },
+        {
+          "path": "src/dashboard/lib/backend-proxy.ts",
+          "line": 244,
+          "end_line": 267,
+          "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+          "excerpt": "244: export async function fetchFromBackend<T>(path: string): Promise<T | null> {\n245:   if (!API_BASE) return null;\n246: \n247:   const supabase = await getSupabaseServer();\n248:   // Cùng lý do — xem proxyJsonToBackend. getSession() không refresh; getUser() thì có.\n249:   await refreshQuietly(supabase);\n250:   const {\n251:     data: { session },\n252:   } = await supabase.auth.getSession();\n253:   const token = session?.access_token;\n254:   if (!token) return null;\n255: \n256:   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };\n257:   const apiKey = process.env.BACKEND_API_KEY;\n258:   if (apiKey) headers[\"X-API-Key\"] = apiKey;\n259:   await ganCoSo(headers);\n260: \n261:   try {\n262:     const res = await fetch(`${API_BASE}${path}`, { headers, cache: \"no-store\" });\n263:     if (!res.ok) return null;\n264:     return (await res.json()) as T;\n265:   } catch {\n266:     return null;\n267:   }",
+          "detail": "fetchFromBackend returns null for missing API config/session, non-2xx responses and network/JSON failures."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
+          "line": 91,
+          "end_line": 100,
+          "sha256": "e516cdc82d2285ee3cdb6d94b9c6173a453ebc1f2989454abbbfc85b126fe437",
+          "excerpt": "91:   const load = useCallback(async () => {\n92:     if (!visitId) return;\n93:     try {\n94:       const r = await fetch(`/api/clinical/${visitId}/status`);\n95:       if (!r.ok) return;\n96:       setSt((await r.json()) as Status);\n97:     } catch {\n98:       // Giữ trạng thái cũ. Panel này không được đoán — đoán sai một chiều là\n99:       // bày ra nút \"Cho phép gửi\" cho một hồ sơ chưa hoàn tất.\n100:     }",
+          "detail": "load trusts response.ok and casts any JSON body to Status."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
+          "line": 158,
+          "end_line": 170,
+          "sha256": "e516cdc82d2285ee3cdb6d94b9c6173a453ebc1f2989454abbbfc85b126fe437",
+          "excerpt": "158:   if (!visitId || !st) return null;\n159:   const tone = LABEL[st.state];\n160: \n161:   return (\n162:     <div className=\"mt-3 rounded-lg border border-line bg-surface-muted p-3\">\n163:       <div className=\"flex flex-wrap items-center gap-2\">\n164:         <CheckCircle2 size={15} className=\"text-ink-muted\" />\n165:         <span className=\"text-sm font-semibold text-ink\">Hồ sơ</span>\n166:         <span\n167:           className=\"rounded-full px-2 py-0.5 text-xs font-semibold\"\n168:           style={{ background: tone.bg, color: tone.fg }}\n169:         >\n170:           {tone.text}",
+          "detail": "Render indexes LABEL by the unvalidated state and dereferences tone.bg/tone.fg/text."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/error.tsx",
+          "line": 26,
+          "end_line": 31,
+          "sha256": "06b155858451ae931ea7f5c940cc64953b54c8f19c1541d5335bb32d65910f95",
+          "excerpt": "26: export default function DashboardError({\n27:   error,\n28:   unstable_retry,\n29: }: {\n30:   error: Error & { digest?: string };\n31:   unstable_retry: () => void;",
+          "detail": "The nearest dashboard segment error boundary is defined in the dashboard route group."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/error.tsx",
+          "line": 48,
+          "end_line": 63,
+          "sha256": "06b155858451ae931ea7f5c940cc64953b54c8f19c1541d5335bb32d65910f95",
+          "excerpt": "48:   return (\n49:     <div className=\"mx-auto max-w-lg py-10\">\n50:       <div className=\"space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-card\">\n51:         <div className=\"flex items-start gap-3.5\">\n52:           <div className=\"grid size-11 shrink-0 place-items-center rounded-2xl bg-danger-bg text-danger\">\n53:             <AlertTriangle className=\"size-5\" />\n54:           </div>\n55:           <div className=\"space-y-1\">\n56:             <h2 className=\"text-base font-bold text-ink\">\n57:               Màn hình gặp trục trặc\n58:             </h2>\n59:             <p className=\"text-sm text-ink-muted\">\n60:               Thao tác vừa rồi có thể <strong>đã được lưu</strong>. Bấm “Thử\n61:               lại” để tải lại màn hình và kiểm tra trước khi làm lần nữa.\n62:             </p>\n63:           </div>",
+          "detail": "The boundary renders a dashboard error panel; this does not imply the whole app shell fails."
+        },
+        {
+          "path": "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts",
+          "line": 17,
+          "end_line": 30,
+          "sha256": "f26ae14d5707ceb9c7dab2a7c831a117c4c02c7a8d3526652822c899e70f59f7",
+          "excerpt": "17: test(\"không còn khung / nút / chữ Ký bệnh án trên luồng chuẩn\", () => {\n18:   assert.equal(\n19:     existsSync(new URL(\"../app/(dashboard)/tasks/ClinicalSignPanel.tsx\", import.meta.url)),\n20:     false,\n21:   );\n22:   for (const [ten, ma] of [\n23:     [\"BanKham\", BAN_KHAM],\n24:     [\"ClinicalRecordForm\", BENH_AN],\n25:     [\"HoSoHoanTatPanel\", PANEL],\n26:   ] as const) {\n27:     assert.doesNotMatch(ma, /Ký bệnh án|ClinicalSignPanel/, `${ten} còn nhắc ký`);\n28:   }\n29:   assert.doesNotMatch(PANEL, /\"sign\"/, \"panel không được gọi thao tác sign\");\n30:   assert.doesNotMatch(PROXY, /\"sign\"/, \"proxy không còn cho thao tác sign\");",
+          "detail": "Existing related boundary test checks removal of the signing flow, not status GET error payloads."
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

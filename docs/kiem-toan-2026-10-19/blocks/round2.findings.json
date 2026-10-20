@@ -1,0 +1,998 @@
+[
+  {
+    "id": "INF-007",
+    "title": "Nghiệp vụ đã commit nhưng mất receipt có thể bị thực hiện lại sau lease",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "command_recovery",
+    "summary": "Guard giữ PROCESSING bằng pool riêng; router gọi service commit rồi mới save receipt. Lease hết cho phép chiếm lại mà không đối soát domain đã ghi.",
+    "trigger": "Ghi tương tác CSKH thành công, bước lưu receipt lỗi/process chết; retry cùng key/payload sau PROCESSING_TTL 5 phút.",
+    "impact": "Một cuộc liên hệ được ghi thành hai lần, làm sai lịch sử và bằng chứng chăm sóc. Đã chứng minh CSKH KHAC; không suy mọi endpoint đều trùng vì booking/payment có thêm safeguard riêng.",
+    "recommendation": "Persist kết quả command cùng giao dịch domain/outbox. Retry sau commit phải đọc receipt; stale lease cần reconciliation, không đồng nghĩa chưa ghi.",
+    "acceptance": "Inject lỗi sau domain commit/trước receipt, gửi cùng key sau lease chỉ có một tương tác và trả đúng object ID; kiểm từng route riêng.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/idempotency.py",
+        "line": 108,
+        "end_line": 136,
+        "detail": "Hết lease PROCESSING được thực thi lại."
+      },
+      {
+        "path": "src/clinicai/api/idempotency.py",
+        "line": 182,
+        "end_line": 210,
+        "detail": "save receipt dùng thao tác pool riêng."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 519,
+        "end_line": 547,
+        "detail": "Service ghi xong mới lưu receipt."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/api/idempotency.py": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+      "src/clinicai/api/v1/routers/cskh.py": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58"
+    },
+    "validation": {
+      "method": "actual_service_and_postgres_synthetic",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_receipt_crash_db.py -q",
+      "result": "RED actual route function+service+DB main: inject save failure sau commit, xác nhận một dòng; lùi timestamp reservation 6 phút, retry cùng key/hash tạo hai dòng.",
+      "limitations": "Gọi route function trực tiếp với identity fixture, không ASGI/auth middleware; mô phỏng crash boundary bằng lỗi save, không kill process. Không có tin nhắn ngoài được gửi."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "RED actual route function+service+DB main: inject save failure sau commit, xác nhận một dòng; lùi timestamp reservation 6 phút, retry cùng key/hash tạo hai dòng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/idempotency.py",
+          "line": 108,
+          "end_line": 136,
+          "detail": "Hết lease PROCESSING được thực thi lại.",
+          "sha256": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+          "excerpt": "108:         # Recover a crashed reservation after a short processing lease, or an\n109:         # expired completed cache after the normal 24-hour retention window.\n110:         reclaimed = await pool.fetchrow(\n111:             f\"\"\"\n112:             UPDATE idempotency_key\n113:             SET response = NULL,\n114:                 status_code = 200,\n115:                 state = 'PROCESSING',\n116:                 request_hash = $4,\n117:                 created_at = now(),\n118:                 updated_at = now()\n119:             WHERE key = $1 AND endpoint = $2 AND actor_id = $3\n120:               AND (\n121:                 (state = 'PROCESSING'\n122:                  AND updated_at < now() - interval '{PROCESSING_TTL_MINUTES} minutes'\n123:                  AND (request_hash IS NULL OR request_hash = $4))\n124:                 OR\n125:                 (state = 'COMPLETED'\n126:                  AND created_at < now() - interval '{KEY_TTL_HOURS} hours')\n127:               )\n128:             RETURNING key\n129:             \"\"\",\n130:             self.key,\n131:             self.endpoint,\n132:             actor_scope,\n133:             self.request_hash,\n134:         )\n135:         if reclaimed is not None:\n136:             return replace(self, actor_id=actor_scope, _acquired=True)"
+        },
+        {
+          "path": "src/clinicai/api/idempotency.py",
+          "line": 182,
+          "end_line": 210,
+          "detail": "save receipt dùng thao tác pool riêng.",
+          "sha256": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+          "excerpt": "182:     async def save(\n183:         self,\n184:         pool: asyncpg.Pool,\n185:         response_body: dict[str, Any],\n186:         status_code: int = 200,\n187:     ) -> None:\n188:         \"\"\"Persist the response for this key (call once, after successful handler).\"\"\"\n189:         if not self.key:\n190:             return\n191:         if not self._acquired:\n192:             raise RuntimeError(\"IdempotencyGuard.save() called before acquire()\")\n193:         result = await pool.execute(\n194:             \"\"\"\n195:             UPDATE idempotency_key\n196:             SET response = $1::jsonb,\n197:                 status_code = $2,\n198:                 state = 'COMPLETED',\n199:                 updated_at = now()\n200:             WHERE key = $3 AND endpoint = $4 AND actor_id = $5\n201:               AND state = 'PROCESSING'\n202:             \"\"\",\n203:             json.dumps(response_body),\n204:             status_code,\n205:             self.key,\n206:             self.endpoint,\n207:             self.actor_id,\n208:         )\n209:         if result != \"UPDATE 1\":\n210:             raise RuntimeError(\"Idempotency reservation was not completed\")"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cskh.py",
+          "line": 519,
+          "end_line": 547,
+          "detail": "Service ghi xong mới lưu receipt.",
+          "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+          "excerpt": "519:     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)\n520:     if idem.is_replay:\n521:         # Lần gửi lại của ĐÚNG một thao tác: trả lại kết quả cũ, không ghi thêm.\n522:         return idem.cached_response  # type: ignore[return-value]\n523: \n524:     # Tên `dong_moi` chứ không phải `ket_qua`: ngay dưới có tham số `ket_qua=`\n525:     # (kết quả cuộc gọi). Trùng tên thì chạy vẫn đúng nhưng người đọc sau phải\n526:     # dừng lại một nhịp để chắc mình không nhầm hai thứ.\n527:     #\n528:     # BỌC TRẢ KHOÁ. Service dưới đây từ chối bằng `ValidationError` cho những\n529:     # điều kiện nghiệp vụ có thật (\"chưa gửi tệp kết quả cho khách\", \"mốc tại\n530:     # quầy mới ghi kết quả này\"). Không trả khoá thì người trực sửa xong bấm lại\n531:     # vẫn nhận 409 suốt 5 phút, và câu giải thích thật biến mất — đo được trên\n532:     # staging 13/08, xem `IdempotencyGuard.release`.\n533:     async with tra_khoa_neu_bi_tu_choi(idem, pool):\n534:         dong_moi = await TuongTacCskhService(pool).ghi(\n535:             identity=identity,\n536:             clinic_patient_id=str(body.clinic_patient_id),\n537:             appointment_id=str(body.appointment_id) if body.appointment_id else None,\n538:             loai=body.loai,\n539:             kenh=body.kenh,\n540:             ket_qua=body.ket_qua,\n541:             khach_xac_nhan=body.khach_xac_nhan,\n542:             noi_dung=body.noi_dung,\n543:             trang_thai_ma=body.trang_thai_ma,\n544:             xac_minh_cach=body.xac_minh_cach,\n545:         )\n546:         await idem.save(pool, dong_moi, status_code=201)\n547:     return dong_moi"
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [],
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Quyết định có bằng chứng"
+    ],
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "AI-001",
+    "title": "Agent đóng nhận định còn đúng khi truy vấn bị giới hạn số dòng",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "false_resolution",
+    "summary": "SQL dùng LIMIT 200; đối soát coi tập trả về là đầy đủ và đóng HET mọi khóa vắng mặt. Có log bang_bi_cat nhưng cờ cắt không chặn đóng.",
+    "trigger": "Trên 200 việc quá hạn và đối tượng ngoài tập trả về đã có nhận định mở.",
+    "impact": "Vấn đề còn tồn tại có thể bị ghi là đã hết, làm sai vòng học và thống kê. Agent hiện ở shadow; chưa chứng minh mất cảnh báo chủ động.",
+    "recommendation": "Trả complete/cursor/as_of. Chỉ suy đã hết khi kiểm đúng đối tượng hoặc hoàn tất snapshot ổn định; không đóng vì vắng mặt trong trang bị cắt.",
+    "acceptance": "201 việc còn quá hạn đều giữ nhận định mở qua nhiều vòng; việc thật sự hoàn thành mới đóng. Kiểm cả lỗi scan và đổi thứ tự.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/agent_giam_sat.py",
+        "line": 262,
+        "end_line": 275,
+        "detail": "Truy vấn có LIMIT, không cursor."
+      },
+      {
+        "path": "src/clinicai/services/agent_giam_sat.py",
+        "line": 335,
+        "end_line": 360,
+        "detail": "Chỉ log cắt, vẫn coi loại đã xét."
+      },
+      {
+        "path": "src/clinicai/services/agent_giam_sat.py",
+        "line": 445,
+        "end_line": 454,
+        "detail": "Khóa ngoài tập quan sát bị đóng HET."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/services/agent_giam_sat.py": "e8017e1f8ea8174acb790e4ada8afa6a196918fecdfec3d03c0c587e83e6da48"
+    },
+    "validation": {
+      "method": "actual_service_and_postgres_synthetic",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_agent_limit_db.py -q",
+      "result": "RED main: 201 việc PENDING quá hạn, detector trả 200; 1 nhận định bị đóng HET dù việc vẫn quá hạn.",
+      "limitations": "DB tạm synthetic; scope SQL vào fixture nhưng giữ predicate và LIMIT thật; rollback. Không đo tần suất thực tế."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "RED main: 201 việc PENDING quá hạn, detector trả 200; 1 nhận định bị đóng HET dù việc vẫn quá hạn.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/agent_giam_sat.py",
+          "line": 262,
+          "end_line": 275,
+          "detail": "Truy vấn có LIMIT, không cursor.",
+          "sha256": "e8017e1f8ea8174acb790e4ada8afa6a196918fecdfec3d03c0c587e83e6da48",
+          "excerpt": "262: _QUA_HAN_SQL = f\"\"\"\n263: SELECT w.id::text AS id, w.node_code, w.due_at, w.visit_id::text AS visit_id,\n264:        coalesce(v.location_id, a.location_id)::text AS location_id,\n265:        n.name AS ten_viec\n266:   FROM public.work_item w\n267:   LEFT JOIN public.visit v ON v.visit_id = w.visit_id\n268:   LEFT JOIN public.appointment a ON a.id = v.appointment_id\n269:   LEFT JOIN public.node_definition n\n270:          ON n.clinic_id = w.clinic_id AND n.code = w.node_code\n271:  WHERE w.clinic_id = $1::uuid\n272:    AND w.status IN ('PENDING', 'IN_PROGRESS')\n273:    AND w.due_at IS NOT NULL\n274:    AND w.due_at < $2::timestamptz\n275:  LIMIT {TRAN}"
+        },
+        {
+          "path": "src/clinicai/services/agent_giam_sat.py",
+          "line": 335,
+          "end_line": 360,
+          "detail": "Chỉ log cắt, vẫn coi loại đã xét.",
+          "sha256": "e8017e1f8ea8174acb790e4ada8afa6a196918fecdfec3d03c0c587e83e6da48",
+          "excerpt": "335:     rows = await conn.fetch(_QUA_HAN_SQL, clinic_id, luc)\n336:     canh_bao_neu_day(\"agent.viec_qua_han\", len(rows), TRAN, clinic_id=clinic_id)\n337:     ra[\"viec_qua_han\"] = [\n338:         NhanDinh(\n339:             loai=\"viec_qua_han\",\n340:             khoa=r[\"id\"],\n341:             muc=(\n342:                 \"critical\"\n343:                 if r[\"due_at\"] < luc - timedelta(hours=QUA_HAN_NANG_GIO)\n344:                 else \"warning\"\n345:             ),\n346:             noi_dung=(\n347:                 f\"Việc '{r['ten_viec'] or r['node_code']}' quá hạn \"\n348:                 f\"{_phut(r['due_at'], luc)} phút, vẫn chưa xong.\"\n349:             ),\n350:             muc_bang_chung=\"quan_sat\",\n351:             bang_chung={\n352:                 \"work_item_id\": r[\"id\"],\n353:                 \"node_code\": r[\"node_code\"],\n354:                 \"visit_id\": r[\"visit_id\"],\n355:                 \"han\": r[\"due_at\"].isoformat(),\n356:             },\n357:             location_id=r[\"location_id\"],\n358:         )\n359:         for r in rows\n360:     ]"
+        },
+        {
+          "path": "src/clinicai/services/agent_giam_sat.py",
+          "line": 445,
+          "end_line": 454,
+          "detail": "Khóa ngoài tập quan sát bị đóng HET.",
+          "sha256": "e8017e1f8ea8174acb790e4ada8afa6a196918fecdfec3d03c0c587e83e6da48",
+          "excerpt": "445:             kq = await conn.execute(\n446:                 \"\"\"\n447:                 UPDATE agent_nhan_dinh SET dong_luc = now(), ly_do_dong = 'HET'\n448:                  WHERE clinic_id = $1::uuid AND loai = $2 AND dong_luc IS NULL\n449:                    AND NOT (khoa = ANY($3::text[]))\n450:                 \"\"\",\n451:                 clinic_id,\n452:                 loai,\n453:                 [n.khoa for n in ds],\n454:             )"
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [],
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Quyết định có bằng chứng"
+    ],
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "FIN-004",
+    "title": "Hoàn chia nhỏ có thể vượt số tiền đã thu do làm tròn từng lần",
+    "severity": "MEDIUM",
+    "evidence_level": "reproduced_local",
+    "category": "money_conservation",
+    "summary": "Nhánh không giảm giá ROUND_HALF_UP mỗi phần và chỉ cap số lượng; nhánh có giảm đã cap tiền còn lại.",
+    "trigger": "Một dòng số lượng 1, đơn giá 100001đ; hoàn hai lần 0.5 bằng CASH.",
+    "impact": "Hai khoản COMPLETED tổng 100002đ lớn hơn khoản thu 100001đ. Ví dụ chứng minh chênh 1đ; không suy thành thiệt hại lớn trên prod.",
+    "recommendation": "Mọi nhánh dùng tổng tiền ảnh chụp trừ tiền đã hoàn/đang giữ. Tính theo lũy kế và lần cuối lấy phần dư; DB cap cả quantity và amount dưới cùng khóa.",
+    "acceptance": "Mọi phân hoạch số lượng có tổng hoàn <= tiền đã thu; hoàn hết nhận đúng tổng, kể cả đơn giá lẻ và giảm giá.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/hoan_tien_service.py",
+        "line": 352,
+        "end_line": 381,
+        "detail": "Nhánh không giảm thiếu cap còn tiền."
+      },
+      {
+        "path": "supabase/migrations/20261013100000_giam_gia.sql",
+        "line": 191,
+        "end_line": 228,
+        "detail": "Nhánh không giảm kiểm round(quantity*price); nhánh có giảm mới cap tổng tiền."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/services/hoan_tien_service.py": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "supabase/migrations/20261013100000_giam_gia.sql": "8e0845d9ea433d7ffa8675586414cabcbdec793524da22fb085535908cf9eb52"
+    },
+    "validation": {
+      "method": "actual_service_and_postgres_synthetic",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_refund_rounding_db.py -q",
+      "result": "RED service+DB main: collected=100001, refunded=100002 sau hai khoản CASH COMPLETED.",
+      "limitations": "Service và trigger thật, synthetic fixture, inventory gate tắt theo test config; chưa bấm UI hoặc kiểm prod."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "RED service+DB main: collected=100001, refunded=100002 sau hai khoản CASH COMPLETED.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/hoan_tien_service.py",
+          "line": 352,
+          "end_line": 381,
+          "detail": "Nhánh không giảm thiếu cap còn tiền.",
+          "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+          "excerpt": "352:         so_luong_tong = Decimal(str(r[\"so_luong\"]))\n353:         da_hoan_sl = Decimal(str(r[\"da_hoan\"]))\n354:         con_hoan_sl = Decimal(str(r[\"con_hoan\"]))\n355:         if sl > con_hoan_sl:\n356:             raise ConflictError(\n357:                 f\"“{r['ten']}” đã thu {so(so_luong_tong)}, đã hoàn \"\n358:                 f\"{so(da_hoan_sl)} — chỉ còn hoàn được \"\n359:                 f\"{so(con_hoan_sl)}.\"\n360:             )\n361:         if int(r[\"discount_allocated\"] or 0) == 0:\n362:             tien = int((sl * r[\"don_gia\"]).quantize(Decimal(1), rounding=ROUND_HALF_UP))\n363:         else:\n364:             # Dòng có giảm giá: ``line_total`` đã là số SAU giảm = số thật đã\n365:             # thu. Hoàn theo tỉ lệ số lượng; hoàn nốt số lượng cuối thì lấy hết\n366:             # phần còn lại (không để dư vài đồng do làm tròn).\n367:             con_hoan_tien = max(0, int(r[\"line_total\"]) - int(r[\"da_hoan_tien\"] or 0))\n368:             if sl == con_hoan_sl:\n369:                 tien = con_hoan_tien\n370:             else:\n371:                 tien = min(\n372:                     con_hoan_tien,\n373:                     int(\n374:                         (sl * Decimal(int(r[\"line_total\"])) / so_luong_tong).quantize(\n375:                             Decimal(1), rounding=ROUND_HALF_UP\n376:                         )\n377:                     ),\n378:                 )\n379: \n380:         if tien <= 0:\n381:             raise ValidationError(f\"“{r['ten']}” thu 0đ — không có tiền để hoàn.\")"
+        },
+        {
+          "path": "supabase/migrations/20261013100000_giam_gia.sql",
+          "line": 191,
+          "end_line": 228,
+          "detail": "Nhánh không giảm kiểm round(quantity*price); nhánh có giảm mới cap tổng tiền.",
+          "sha256": "8e0845d9ea433d7ffa8675586414cabcbdec793524da22fb085535908cf9eb52",
+          "excerpt": "191:     SELECT quantity, unit_price, line_total, discount_allocated, billing_owner\n192:       INTO dong\n193:       FROM public.payment_bill_line\n194:      WHERE id = NEW.payment_bill_line_id AND clinic_id = NEW.clinic_id;\n195:     IF dong.billing_owner IS DISTINCT FROM 'CLINIC' OR dong.unit_price IS NULL THEN\n196:         RAISE EXCEPTION 'Chỉ hoàn dòng phòng khám đã thu có giá'\n197:             USING ERRCODE = 'check_violation';\n198:     END IF;\n199:     SELECT coalesce(sum(l.quantity), 0), coalesce(sum(l.amount), 0)\n200:       INTO da_hoan, da_hoan_tien\n201:       FROM public.payment_refund_line l\n202:       JOIN public.payment_refund r\n203:         ON r.refund_id = l.refund_id AND r.clinic_id = l.clinic_id\n204:      WHERE l.payment_bill_line_id = NEW.payment_bill_line_id\n205:        AND l.clinic_id = NEW.clinic_id\n206:        AND r.status IN ('PENDING', 'COMPLETED');\n207:     IF da_hoan + NEW.quantity > dong.quantity THEN\n208:         RAISE EXCEPTION 'Hoàn vượt số đã thu của dòng (% + % > %)',\n209:             da_hoan, NEW.quantity, dong.quantity\n210:             USING ERRCODE = 'check_violation';\n211:     END IF;\n212:     IF dong.discount_allocated = 0 THEN\n213:         IF NEW.amount <> round(NEW.quantity * dong.unit_price) THEN\n214:             RAISE EXCEPTION 'Số tiền hoàn phải = số lượng × đơn giá ảnh chụp'\n215:                 USING ERRCODE = 'check_violation';\n216:         END IF;\n217:     ELSIF da_hoan_tien + NEW.amount > dong.line_total THEN\n218:         RAISE EXCEPTION 'Hoàn vượt số đã thu của dòng sau giảm giá (% + % > %)',\n219:             da_hoan_tien, NEW.amount, dong.line_total\n220:             USING ERRCODE = 'check_violation';\n221:     END IF;\n222:     RETURN NEW;\n223: END $$;\n224: \n225: -- ── 6. Báo cáo giảm giá ────────────────────────────────────────────────────\n226: CREATE INDEX IF NOT EXISTS idx_payment_cycle_giam_gia\n227:     ON public.payment_cycle (clinic_id, created_at DESC)\n228:     WHERE discount_amount > 0;"
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [],
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Quyết định có bằng chứng"
+    ],
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "SEC-002",
+    "title": "Thu hồi hết capability làm đường đọc tệp quay về vai tài khoản cũ",
+    "severity": "MEDIUM",
+    "evidence_level": "reproduced_local",
+    "category": "authorization_fail_open",
+    "summary": "v_quyen_thuc_te rỗng trả None; cac_vai hiểu None là chưa cấu hình, cấp lại vai tài khoản. Đọc tệp tin vai này trước capability.",
+    "trigger": "DOCTOR còn active membership; soft-revoke mọi capability, không có quyền từ lịch.",
+    "impact": "can(clinical.consult.perform)=False nhưng doc_duoc_tep_ket_qua=True. Phạm vi cùng clinic và tài khoản active; không phải người ngoài vượt đăng nhập hoặc đọc chéo clinic.",
+    "recommendation": "Phân biệt chưa migrate quyền với đã cấu hình nhưng hết quyền bằng provisioning state. Empty grants phải deny các cửa capability; break-glass riêng có hạn và audit.",
+    "acceptance": "Thu hồi nốt khối cuối không phục hồi quyền cũ; kiểm read/list/download/export sau TTL cache và mọi nguồn quyền từ lịch.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 229,
+        "end_line": 246,
+        "detail": "None trả vai tài khoản."
+      },
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 870,
+        "end_line": 899,
+        "detail": "Không quyền thực tế trả None."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 198,
+        "end_line": 236,
+        "detail": "Đọc tệp chấp nhận NORMAL_READ_ROLES trước capability."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/api/identity.py": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "src/clinicai/services/tep_ket_qua_service.py": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226"
+    },
+    "validation": {
+      "method": "actual_service_and_postgres_synthetic",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_revoked_roles_db.py -q",
+      "result": "RED service+DB main: soft-revoke mọi grant, v_quyen_thuc_te=0; clinical.consult.perform=False nhưng read-file authorization=True.",
+      "limitations": "Kiểm authorization với principal synthetic và DB thật; chưa HTTP tải tệp, chưa kiểm hết các cửa legacy."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "RED service+DB main: soft-revoke mọi grant, v_quyen_thuc_te=0; clinical.consult.perform=False nhưng read-file authorization=True.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/identity.py",
+          "line": 229,
+          "end_line": 246,
+          "detail": "None trả vai tài khoản.",
+          "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+          "excerpt": "229:     def cac_vai(self) -> frozenset[ClinicRole]:\n230:         \"\"\"MỌI vai người này làm được HÔM NAY: vai vận hành vị trí trong lịch cấp,\n231:         vai lego đang bật mang lại, vai tài khoản gốc (trừ vai do lego quyết khi\n232:         đã tính lego), và vai cửa gác đã thay vào.\"\"\"\n233:         vai = set(self.vai_theo_vi_tri)\n234:         goc = self.vai_goc\n235:         if self.vai_theo_lego is None:\n236:             vai.update((self.role, goc))\n237:             return frozenset(vai)\n238:         from clinicai.permissions.catalogue import VAI_DO_LEGO\n239: \n240:         vai |= self.vai_theo_lego\n241:         if goc.value not in VAI_DO_LEGO:\n242:             vai.add(goc)\n243:         if self.role != goc:\n244:             # Cửa gác đã thay vai (theo vị trí hoặc theo lego) — vai hợp lệ.\n245:             vai.add(self.role)\n246:         return frozenset(vai)"
+        },
+        {
+          "path": "src/clinicai/api/identity.py",
+          "line": 870,
+          "end_line": 899,
+          "detail": "Không quyền thực tế trả None.",
+          "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+          "excerpt": "870: async def doc_vai_theo_lego(\n871:     pool: asyncpg.Pool, clinic_id: str, staff_id: str, vai_tai_khoan: ClinicRole\n872: ) -> frozenset[ClinicRole] | None:\n873:     \"\"\"Vai mà lego đang bật đủ mang lại (Tuyền chốt 26/09/2026).\n874: \n875:     None — giữ luật cũ theo vai tài khoản — khi: tài khoản ngoài phòng khám\n876:     (Đối tác, TV), hoặc người CHƯA CÓ dòng quyền nào. Vế sau là lưới an toàn: một\n877:     phòng khám chưa cấp quyền (hay một bản sao lỗi) không được làm mọi người mất\n878:     vai trong im lặng. Migration 15 đã cấp gói mẫu cho mọi thành viên.\n879:     \"\"\"\n880:     if vai_tai_khoan in (ClinicRole.PARTNER, ClinicRole.DISPLAY):\n881:         return None\n882:     from clinicai.permissions.catalogue import vai_tu_lego\n883: \n884:     khoi = [\n885:         r[\"work_pack\"]\n886:         for r in await pool.fetch(\n887:             # 28/09/2026 — CHỈ LEGO: vai suy từ QUYỀN THỰC TẾ (lego đã cấp ∪ lịch\n888:             # hôm nay, `v_quyen_thuc_te`), tính cả khối theo phòng. Trước đây\n889:             # đọc quyền ĐÃ CẤP phạm vi toàn phòng khám nên người được xếp vào\n890:             # phòng vẫn bị các cửa hỏi vai chặn (Tuyền: \"tôi muốn nó lego\").\n891:             \"SELECT DISTINCT work_pack FROM v_quyen_thuc_te\"\n892:             \" WHERE clinic_id = $1::uuid AND staff_id = $2::uuid\",\n893:             clinic_id,\n894:             staff_id,\n895:         )\n896:     ]\n897:     if not khoi:\n898:         return None\n899:     return frozenset(ClinicRole(v) for v in vai_tu_lego(khoi))"
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 198,
+          "end_line": 236,
+          "detail": "Đọc tệp chấp nhận NORMAL_READ_ROLES trước capability.",
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "198: async def doc_duoc_tep_ket_qua(\n199:     conn: asyncpg.Connection, identity: StaffIdentity\n200: ) -> bool:\n201:     \"\"\"Người này ĐỌC (xem, liệt kê) được tệp kết quả của phòng khám không?\n202: \n203:     Vai cũ (NORMAL_READ_ROLES) giữ nguyên. THÊM theo LEGO (Tuyền chốt 26/09:\n204:     \"khám CHỈ CẦN LEGO\"; đợt 3 27/09): ai đọc được phiếu khám / kết quả CLS —\n205:     đúng hàm quyền của phiếu khám (`kiem_quyen_core`, việc `doc_ket_qua_cls`)\n206:     — thì đọc được ảnh / tệp gắn chỉ định. Trước đây tài khoản có lego Bàn khám\n207:     / Phòng dịch vụ mà vai tài khoản không thuộc danh sách thì đọc được phiếu\n208:     nhưng khung ảnh báo \"không đọc được\". Giữ thêm cửa quầy in phiếu\n209:     (`doc_duoc_in_phieu`, 27/09) — trang ảnh của bản in.\n210: \n211:     THÊM 29/09/2026 (Tuyền: \"file kết quả mọi chỗ đều hiện được và tải/in\n212:     được\"): người có quyền của khối ĐỐI TÁC (`partner.work` — nhân sự phòng\n213:     khám làm việc đối tác, kể cả nhờ lịch) hoặc khối PHÒNG DỊCH VỤ (thực hiện\n214:     dịch vụ ở bất kỳ phòng nào) — họ tải tệp lên thì phải xem lại được.\n215: \n216:     Vai PARTNER (tài khoản người NGOÀI phòng khám) KHÔNG BAO GIỜ qua: kiểm vai ấy\n217:     TRƯỚC mọi nhánh quyền, kể cả lỡ được cấp `partner.work`.\n218:     Phạm vi phòng khám do câu truy vấn của nơi gọi giữ (`clinic_id`).\n219:     \"\"\"\n220:     if identity.co_vai(NORMAL_READ_ROLES):\n221:         return True\n222:     if identity.co_vai([ClinicRole.PARTNER]):\n223:         return False\n224:     from clinicai.permissions.y_khoa import doc_duoc_in_phieu\n225:     from clinicai.services.phieu_kham_service import kiem_quyen_core\n226: \n227:     for q in QUYEN_DOC_TEP_THEM:\n228:         if await can_o_phong_nao_do(conn, identity, q):\n229:             return True\n230: \n231:     try:\n232:         await kiem_quyen_core(conn, identity, \"doc_ket_qua_cls\")\n233:         return True\n234:     except SafetyGateError:\n235:         pass\n236:     return await doc_duoc_in_phieu(conn, identity)"
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [],
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Quyết định có bằng chứng"
+    ],
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "FE-005",
+    "title": "Ghi chú mất bản nháp cục bộ khi gặp xung đột phiên bản",
+    "severity": "MEDIUM",
+    "evidence_level": "reproduced_local",
+    "category": "concurrent_edit_loss",
+    "summary": "409 gọi nap(); apDung thay textarea, ref và baseline bằng bản server, không giữ bản người đang gõ.",
+    "trigger": "Hai người mở cùng phiên bản; đồng nghiệp lưu trước; autosave người kia nhận 409.",
+    "impact": "Server bảo vệ bản đã lưu nhưng phần chữ chưa từng lưu của người thứ hai biến mất. Thông báo lỗi vẫn hiện; không gọi đây là lỗi hoàn toàn im lặng.",
+    "recommendation": "Giữ local draft khi 409, tải remote vào vùng so sánh; cho hợp nhất hoặc bỏ local có chủ đích. Không coi phần chưa server xác nhận là saved.",
+    "acceptance": "Browser nhận 409 vẫn giữ được toàn bộ local và remote; hợp nhất rồi gửi theo revision mới không mất bên nào.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx",
+        "line": 50,
+        "end_line": 62,
+        "detail": "apDung thay textarea và ref."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx",
+        "line": 75,
+        "end_line": 99,
+        "detail": "409 tự nạp bản server."
+      },
+      {
+        "path": "src/clinicai/services/ghi_chu_luot.py",
+        "line": 137,
+        "end_line": 149,
+        "detail": "Backend reject stale revision."
+      }
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx": "90a9df420540fc4d4120563a0d50ed664bfda20da3b17c63be486242ba33779e",
+      "src/clinicai/services/ghi_chu_luot.py": "0e42bf44e11a3ccdf8d20d7c3d60b14a0c5c185a906877320dd27ff83c374374"
+    },
+    "validation": {
+      "method": "actual_react_component_headless_chrome_synthetic_http",
+      "command": "node docs/kiem-toan-2026-10-19/probes/note-conflict-browser.cjs",
+      "result": "Headless Chrome chạy component main + hook autosave thật: PUT local một lần, GET bản 2; localDraftRetained=false, chỉ còn concurrent server note; pageErrors=0.",
+      "limitations": "Component-level browser, HTTP synthetic; chưa chạy toàn Next/FastAPI hay phiên người thật."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Headless Chrome chạy component main + hook autosave thật: PUT local một lần, GET bản 2; localDraftRetained=false, chỉ còn concurrent server note; pageErrors=0.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx",
+          "line": 50,
+          "end_line": 62,
+          "detail": "apDung thay textarea và ref.",
+          "sha256": "90a9df420540fc4d4120563a0d50ed664bfda20da3b17c63be486242ba33779e",
+          "excerpt": "50:   const doc = useCallback(async (): Promise<GhiChu | null> => {\n51:     const r = await fetch(`/api/ho-so-kham?visit_id=${visitId}&xem=ghi-chu`, { cache: \"no-store\" }).catch(\n52:       () => null,\n53:     );\n54:     return r && r.ok ? ((await r.json().catch(() => null)) as GhiChu | null) : null;\n55:   }, [visitId]);\n56:   const apDung = useCallback((g: GhiChu | null) => {\n57:     setGc(g);\n58:     giaTri.current = g?.ban?.noi_dung ?? \"\";\n59:     daLuu.current = { chu: giaTri.current, ban: g?.ban?.phien_ban ?? 0 };\n60:     setChu(giaTri.current);\n61:   }, []);\n62:   const nap = useCallback(() => doc().then(apDung), [doc, apDung]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx",
+          "line": 75,
+          "end_line": 99,
+          "detail": "409 tự nạp bản server.",
+          "sha256": "90a9df420540fc4d4120563a0d50ed664bfda20da3b17c63be486242ba33779e",
+          "excerpt": "75:   const gui = useCallback(\n76:     async (keepalive: boolean): Promise<KetQuaGui> => {\n77:       const noiDung = giaTri.current;\n78:       if (noiDung === daLuu.current.chu) return { ok: true };\n79:       const r = await fetch(\"/api/ho-so-kham\", {\n80:         method: \"PUT\",\n81:         headers: { \"Content-Type\": \"application/json\" },\n82:         body: JSON.stringify({ visit_id: visitId, noi_dung: noiDung, phien_ban: daLuu.current.ban }),\n83:         keepalive,\n84:       }).catch(() => null);\n85:       if (!r) return { ok: false, loi: LOI_MAT_KET_NOI, thuLai: true };\n86:       const d = (await r.json().catch(() => null)) as (ThanLoi & { ban?: BanGhiChu }) | null;\n87:       if (!r.ok) {\n88:         if (r.status === 409) void nap();\n89:         return { ok: false, loi: nhanLoi(d, \"Không lưu được ghi chú.\"), thuLai: nenThuLai(r.status) };\n90:       }\n91:       if (d?.ban) {\n92:         daLuu.current = { chu: noiDung, ban: d.ban.phien_ban };\n93:         setGc((g) => (g ? { ...g, ban: d.ban ?? null } : g));\n94:       }\n95:       return { ok: true };\n96:     },\n97:     [visitId, nap],\n98:   );\n99:   const tuLuu = useTuLuu({ gui, choMs: CHO_LUU_MS, tat: !ghiDuoc });"
+        },
+        {
+          "path": "src/clinicai/services/ghi_chu_luot.py",
+          "line": 137,
+          "end_line": 149,
+          "detail": "Backend reject stale revision.",
+          "sha256": "0e42bf44e11a3ccdf8d20d7c3d60b14a0c5c185a906877320dd27ff83c374374",
+          "excerpt": "137:             raise NotFoundError(\"Không tìm thấy lượt khám.\")\n138:         if trang_thai not in (\"OPEN\", \"IN_PROGRESS\"):\n139:             raise ValidationError(\"Lượt khám đã khoá hồ sơ — không sửa được.\")\n140:         cu = await conn.fetchrow(_BAN_SQL, cid, vid)\n141:         hien_tai = int(cu[\"phien_ban\"]) if cu else 0\n142:         if hien_tai != dang_cam:\n143:             raise ConflictError(\n144:                 \"Ghi chú vừa được người khác lưu — đã nạp bản mới, gõ tiếp trên đó.\"\n145:             )\n146:         if cu is not None and cu[\"noi_dung\"] == chu:\n147:             return {\"ok\": True, \"doi\": False, \"ban\": _ban(cu)}\n148:         await conn.execute(\n149:             \"INSERT INTO public.luot_ghi_chu\""
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [],
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Quyết định có bằng chứng"
+    ],
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "CLIN-005",
+    "title": "Đổi lịch đồng thời check-in có thể kéo lịch đã đến về CONFIRMED",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "concurrent_state_regression",
+    "summary": "KEEP_STATUS lấy status từ SELECT không khóa; _update chấp nhận cả _ALIVE thay vì status/revision đã đọc. Patch luôn ghi status cũ.",
+    "trigger": "A đổi lịch đọc CONFIRMED; B check-in commit CHECKED_IN và mở visit; A tiếp tục UPDATE với status=CONFIRMED.",
+    "impact": "Lịch trở về chưa đến trong khi visit vẫn mở. Cả hai lệnh trả thành công, lịch và lượt khám mâu thuẫn.",
+    "recommendation": "Lệnh chỉ sửa trường không ghi status cũ. Dùng expected version/status hoặc khóa hàng trước quyết định; thống nhất lock order với check-in.",
+    "acceptance": "Interleave reschedule/check-in giữ CHECKED_IN hoặc trả 409; không có lịch chưa đến mà visit mở; kiểm cancel/undo/reassign tương tự.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/booking_service.py",
+        "line": 955,
+        "end_line": 1002,
+        "detail": "Đọc không FOR UPDATE."
+      },
+      {
+        "path": "src/clinicai/services/booking_service.py",
+        "line": 1048,
+        "end_line": 1052,
+        "detail": "KEEP_STATUS chụp trạng thái cũ."
+      },
+      {
+        "path": "src/clinicai/services/booking_service.py",
+        "line": 1764,
+        "end_line": 1765,
+        "detail": "Mọi patch chứa status."
+      },
+      {
+        "path": "src/clinicai/services/booking_service.py",
+        "line": 2113,
+        "end_line": 2124,
+        "detail": "Predicate chấp nhận tập from_statuses rộng."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/services/booking_service.py": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1"
+    },
+    "validation": {
+      "method": "actual_service_and_postgres_synthetic",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_booking_race_db.py -q",
+      "result": "RED main service+DB: check-in commit CHECKED_IN; reschedule sau đó thành công CONFIRMED; visit vẫn tồn tại và chưa đóng.",
+      "limitations": "Barrier sắp thứ tự request; thay riêng guard giờ mở cửa để độc lập giờ chạy. Giữ read/update/transaction/trigger/event thật; chưa HTTP/browser."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "RED main service+DB: check-in commit CHECKED_IN; reschedule sau đó thành công CONFIRMED; visit vẫn tồn tại và chưa đóng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "line": 955,
+          "end_line": 1002,
+          "detail": "Đọc không FOR UPDATE.",
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "excerpt": "955:         appt = await conn.fetchrow(\n956:             \"\"\"\n957:             SELECT\n958:                 a.id, a.doctor_id, a.status, a.clinic_patient_id,\n959:                 a.slot_start, a.slot_end, a.queue_number,\n960:                 a.booking_channel, a.notes,\n961:                 -- Cần cho luật bắt buộc bác sĩ lúc gán người.\n962:                 a.service_type_id,\n963:                 EXISTS (\n964:                     SELECT 1\n965:                       FROM patient p\n966:                      WHERE p.clinic_patient_id = a.clinic_patient_id\n967:                        AND p.clinic_id = a.clinic_id\n968:                 ) AS patient_in_clinic,\n969:                 EXISTS (\n970:                     SELECT 1\n971:                       FROM clinic_location l\n972:                      WHERE l.id = a.location_id\n973:                        AND l.clinic_id = a.clinic_id\n974:                 ) AS location_in_clinic,\n975:                 EXISTS (\n976:                     SELECT 1\n977:                       FROM service_type s\n978:                      WHERE s.id = a.service_type_id\n979:                        AND s.clinic_id = a.clinic_id\n980:                 ) AS service_in_clinic,\n981:                 (\n982:                     a.doctor_id IS NULL\n983:                     OR EXISTS (\n984:                         SELECT 1\n985:                           FROM staff st\n986:                           JOIN clinic_membership m\n987:                             ON m.staff_id = st.id\n988:                          WHERE st.id = a.doctor_id\n989:                            AND st.is_active\n990:                            AND m.clinic_id = a.clinic_id\n991:                            AND m.is_active\n992:                            AND m.role IN (\n993:                                'DOCTOR', 'ULTRASOUND_DOCTOR'\n994:                            )\n995:                     )\n996:                 ) AS doctor_in_clinic\n997:               FROM appointment a\n998:              WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid\n999:             \"\"\",\n1000:             appointment_id,\n1001:             identity.clinic_id,\n1002:         )"
+        },
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "line": 1048,
+          "end_line": 1052,
+          "detail": "KEEP_STATUS chụp trạng thái cũ.",
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "excerpt": "1048:         new_status = (\n1049:             appt[\"status\"]\n1050:             if transition.to_status == KEEP_STATUS\n1051:             else transition.to_status\n1052:         )"
+        },
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "line": 1764,
+          "end_line": 1765,
+          "detail": "Mọi patch chứa status.",
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "excerpt": "1764:     ) -> dict[str, Any]:\n1765:         patch: dict[str, Any] = {\"status\": new_status}"
+        },
+        {
+          "path": "src/clinicai/services/booking_service.py",
+          "line": 2113,
+          "end_line": 2124,
+          "detail": "Predicate chấp nhận tập from_statuses rộng.",
+          "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+          "excerpt": "2113:             updated = await conn.fetchval(\n2114:                 f\"\"\"\n2115:                 UPDATE appointment\n2116:                    SET {assignments}, updated_at = now()\n2117:                  WHERE id = $1::uuid AND status = ANY($2::text[])\n2118:                    AND clinic_id = ${len(columns) + 3}::uuid\n2119:                 RETURNING id\n2120:                 \"\"\",\n2121:                 appointment_id,\n2122:                 list(from_statuses),\n2123:                 *[patch[c] for c in columns],\n2124:                 clinic_id,"
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [],
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Quyết định có bằng chứng"
+    ],
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "CLIN-006",
+    "title": "Ẩn thông báo đính chính cũ có thể che cả lần đính chính mới",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "result_revision_delivery",
+    "summary": "Nguồn chuông result.corrected chỉ ghép event_type:aggregate_id, bỏ ban_thu; chuông cũ còn mở thì DO NOTHING. Ẩn cá nhân theo id chuông tiếp tục che lần sửa mới.",
+    "trigger": "Kết quả đã đính chính lần 2, bác sĩ dùng Ẩn tất cả; cùng phiếu được đính chính lần 3 trong khi chuông cũ chưa Đã xử lý.",
+    "impact": "Kết quả mới vẫn lưu, nhưng bác sĩ không thấy chuông đính chính mới ở danh sách của mình. Không khẳng định bản kết quả biến mất, không có mọi đường cảnh báo, hay đã xảy ra tổn hại trên prod.",
+    "recommendation": "Dedupe delivery theo result_id+revision+recipient; ẩn/ack bản cũ chỉ áp revision cũ. Có thể cập nhật một incident hiển thị nhưng phải reset unread/hidden cho revision mới, giữ lịch sử từng lần.",
+    "acceptance": "Ẩn correction v2 rồi phát v3 phải có thông báo nhìn thấy; giao lặp event v3 không nhân đôi. Kiểm cả role, đích danh, đọc, ẩn và xử lý xong.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/form_engine_service.py",
+        "line": 895,
+        "end_line": 929,
+        "detail": "Kết quả sửa cùng aggregate_id=phieu_id, tăng ban_thu."
+      },
+      {
+        "path": "src/clinicai/events/consumers/chuong.py",
+        "line": 189,
+        "end_line": 195,
+        "detail": "Khóa chuông chỉ gồm event_type và aggregate_id."
+      },
+      {
+        "path": "src/clinicai/events/consumers/chuong.py",
+        "line": 331,
+        "end_line": 354,
+        "detail": "DO NOTHING khi chuông cũ chưa xử lý, không reset hoặc phân version."
+      },
+      {
+        "path": "src/clinicai/services/thong_bao_service.py",
+        "line": 346,
+        "end_line": 355,
+        "detail": "Chuông đã ẩn theo id không còn hiện."
+      },
+      {
+        "path": "src/clinicai/services/thong_bao_service.py",
+        "line": 410,
+        "end_line": 428,
+        "detail": "Ẩn tất cả giữ việc mở và ghi hide per staff."
+      }
+    ],
+    "validation": {
+      "method": "actual_consumer_and_notification_service_postgres_synthetic_event",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_result_revision_notice_db.py -q",
+      "result": "RED consumer+DB main: correction ban_thu=2 hiện cho bác sĩ; ẩn bằng service thật; correction ban_thu=3 xử lý thành công nhưng cua_toi vẫn [].",
+      "limitations": "Consumer nhận hai envelope synthetic cùng result ID với revision2/3, notification+hide+list service và DB thật. Emitter đối chiếu static. Chưa chạy form correction qua HTTP/browser; chưa prod."
+    },
+    "recommendation_priority": "Chặn trước mở bán; ưu tiên correction và kết quả đến sau khi khách về.",
+    "alignment": [
+      "Reality rõ",
+      "Phát hiện sớm",
+      "Ít gián đoạn đúng lúc",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/form_engine_service.py": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+      "src/clinicai/events/consumers/chuong.py": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+      "src/clinicai/services/thong_bao_service.py": "f57bbe008efc406c9298c284285de8aeff418fa014cd58006bb0787ff8d1aedf"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "RED consumer+DB main: correction ban_thu=2 hiện cho bác sĩ; ẩn bằng service thật; correction ban_thu=3 xử lý thành công nhưng cua_toi vẫn [].",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 895,
+          "end_line": 929,
+          "detail": "Kết quả sửa cùng aggregate_id=phieu_id, tăng ban_thu.",
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "895:             if mode == \"INLINE\":\n896:                 await emit_event(\n897:                     conn,\n898:                     ten=\"result.corrected\" if sua_lai else \"result.ready\",\n899:                     clinic_id=identity.clinic_id,\n900:                     # Kết quả là một vòng đời RIÊNG của phiếu sinh ra nó —\n901:                     # cùng mã, khác loại đối tượng, nên hai chuỗi số không\n902:                     # giẫm chân nhau.\n903:                     aggregate_id=phieu_id,\n904:                     # Đối tượng `ket_qua` đánh số theo PHIÊN BẢN CHUYÊN MÔN, nên\n905:                     # chuỗi số của nó là 1, 2, 3… chứ không phải `revision` —\n906:                     # `revision` tăng cả khi tự lưu nháp.\n907:                     aggregate_version=ban_thu,\n908:                     payload=(\n909:                         KetQuaDaSua(\n910:                             service_order_id=str(dong[\"service_order_id\"]),\n911:                             visit_id=dong[\"visit_id\"],\n912:                             form_id=dong[\"form_id\"],\n913:                             form_version=int(dong[\"version\"]),\n914:                             ban_thu=ban_thu,\n915:                             sua_boi=identity.staff_id,\n916:                         )\n917:                         if sua_lai\n918:                         else KetQuaSanSang(\n919:                             service_order_id=str(dong[\"service_order_id\"]),\n920:                             visit_id=dong[\"visit_id\"],\n921:                             form_id=dong[\"form_id\"],\n922:                             form_version=int(dong[\"version\"]),\n923:                             result_mode=mode,\n924:                             ban_thu=ban_thu,\n925:                             thuc_hien_boi=moi[\"thuc_hien_boi\"],\n926:                         )\n927:                     ),\n928:                     boi=nguoi_lam_thay(identity, bac_si_id),\n929:                     correlation_id=dong[\"visit_id\"],"
+        },
+        {
+          "path": "src/clinicai/events/consumers/chuong.py",
+          "line": 189,
+          "end_line": 195,
+          "detail": "Khóa chuông chỉ gồm event_type và aggregate_id.",
+          "sha256": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+          "excerpt": "189:     k = await _khach_va_bac_si(conn, su_kien)\n190:     if k is None:\n191:         return\n192:     ten = f\"{k['full_name']} ({k['patient_code']})\"\n193:     vai_nhan = list(day.vai)\n194:     bac_si_chinh = day.bac_si_chinh\n195:     nguon_id = f\"{su_kien.event_type}:{su_kien.aggregate_id}\""
+        },
+        {
+          "path": "src/clinicai/events/consumers/chuong.py",
+          "line": 331,
+          "end_line": 354,
+          "detail": "DO NOTHING khi chuông cũ chưa xử lý, không reset hoặc phân version.",
+          "sha256": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+          "excerpt": "331: async def ghi_chuong_nguoi(\n332:     conn: asyncpg.Connection,\n333:     *,\n334:     clinic_id: str,\n335:     nguoi_nhan: str,\n336:     tieu_de: str,\n337:     noi_dung: str,\n338:     nguon: str,\n339:     nguon_id: str,\n340:     duong_dan: str | None,\n341:     nguoi_goi: str,\n342:     muc_do: str = \"THUONG\",\n343: ) -> None:\n344:     \"\"\"Một chuông ĐÍCH DANH một người.\"\"\"\n345:     await conn.execute(\n346:         \"\"\"\n347:         INSERT INTO thong_bao\n348:             (clinic_id, nguoi_nhan_staff_id, muc_do, tieu_de, noi_dung, nguon,\n349:              nguon_id, duong_dan, nguoi_goi_staff_id)\n350:         VALUES ($1::uuid, $2::uuid, $8, $3, $4, $9, $5, $6, $7::uuid)\n351:         ON CONFLICT (clinic_id, nguon, nguon_id, nguoi_nhan_staff_id)\n352:             WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL\n353:               AND vai_nhan IS NULL\n354:         DO NOTHING"
+        },
+        {
+          "path": "src/clinicai/services/thong_bao_service.py",
+          "line": 346,
+          "end_line": 355,
+          "detail": "Chuông đã ẩn theo id không còn hiện.",
+          "sha256": "f57bbe008efc406c9298c284285de8aeff418fa014cd58006bb0787ff8d1aedf",
+          "excerpt": "346:                  WHERE t.clinic_id = $1::uuid\n347:                    AND t.da_xu_ly_luc IS NULL\n348:                    AND (t.vai_nhan = ANY($2::text[])\n349:                         OR t.nguoi_nhan_staff_id = $3::uuid)\n350:                    AND NOT EXISTS (\n351:                        SELECT 1 FROM public.thong_bao_an_cua_toi a\n352:                         WHERE a.clinic_id = t.clinic_id\n353:                           AND a.staff_id = $3::uuid\n354:                           AND a.thong_bao_id = t.id\n355:                    )"
+        },
+        {
+          "path": "src/clinicai/services/thong_bao_service.py",
+          "line": 410,
+          "end_line": 428,
+          "detail": "Ẩn tất cả giữ việc mở và ghi hide per staff.",
+          "sha256": "f57bbe008efc406c9298c284285de8aeff418fa014cd58006bb0787ff8d1aedf",
+          "excerpt": "410:     async def an_tat_ca_cua_toi(self, *, identity: StaffIdentity) -> dict[str, Any]:\n411:         \"\"\"Ẩn khỏi chuông riêng của người gọi; không đóng việc chung của vai.\"\"\"\n412:         async with self._pool.acquire() as conn:\n413:             rows = await conn.fetch(\n414:                 \"\"\"\n415:                 INSERT INTO public.thong_bao_an_cua_toi\n416:                     (clinic_id, staff_id, thong_bao_id)\n417:                 SELECT t.clinic_id, $3::uuid, t.id\n418:                   FROM public.thong_bao t\n419:                  WHERE t.clinic_id = $1::uuid\n420:                    AND t.da_xu_ly_luc IS NULL\n421:                    AND (t.vai_nhan = ANY($2::text[])\n422:                         OR t.nguoi_nhan_staff_id = $3::uuid)\n423:                    AND NOT (t.nguon = 'bo_chi_dinh'\n424:                             AND t.tao_luc < (date_trunc(\n425:                                     'day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')\n426:                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'))\n427:                 ON CONFLICT (clinic_id, staff_id, thong_bao_id) DO NOTHING\n428:                 RETURNING thong_bao_id"
+        }
+      ],
+      "production_verified": false
+    },
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "SEC-003",
+    "title": "Luồng upload không khai dung lượng có thể vượt khoảng trống dự phòng",
+    "severity": "MEDIUM",
+    "evidence_level": "reproduced_local",
+    "category": "storage_reserve_enforcement",
+    "summary": "Receiver kiểm free-space một lần từ Content-Length (vắng=0), rồi ghi toàn bộ stream. Khi trần từng loại tắt theo mặc định, không có chốt dự phòng theo byte đã nhận trong vòng ghi.",
+    "trigger": "Người có quyền upload gửi multipart không Content-Length; tệp hợp lệ vượt phần trống cho phép. Guard kiểm ở service chỉ chạy sau khi receiver đã nhận xong.",
+    "impact": "Có thể ăn vào khoảng trống dự phòng hoặc gặp ENOSPC trước khi service từ chối. Chỉ chứng minh logic với dung lượng mô hình; chưa làm đầy đĩa thật hoặc xác minh tác động DB/host prod.",
+    "recommendation": "Giữ chính sách nhận tệp lớn nhưng kiểm/reserve dung lượng khả dụng theo byte thực và các upload đang bay; dừng/cleanup trước chạm dự phòng. Giới hạn metadata/parser riêng, không dựa header người gửi khai.",
+    "acceptance": "Unknown-length/chunked và nhiều upload cùng lúc không làm dung lượng thực vượt budget; lỗi rõ, tệp dở được dọn, thao tác khác tiếp tục.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/nhan_tep_luong.py",
+        "line": 106,
+        "end_line": 119,
+        "detail": "Chốt đầu luồng dùng free-space trừ Content-Length, thiếu header coi 0."
+      },
+      {
+        "path": "src/clinicai/services/nhan_tep_luong.py",
+        "line": 195,
+        "end_line": 230,
+        "detail": "Ghi từng khối có chốt loại/dung lượng cấu hình, không kiểm lại free-space."
+      },
+      {
+        "path": "src/clinicai/services/tep_ket_qua_service.py",
+        "line": 799,
+        "end_line": 815,
+        "detail": "Service kiểm sau khi receiver đã nhận trọn tệp; không ngăn phần receiver ghi trước."
+      }
+    ],
+    "validation": {
+      "method": "actual_multipart_receiver_real_small_tempfile_modeled_free_space",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_upload_space.py -q",
+      "result": "RED modeled capacity: receiver thật không Content-Length ghi 2057 byte khi free=1024/reserve=256, budget=768; hàm đo free-space chỉ được gọi 1 lần.",
+      "limitations": "Dung lượng 1024/256 được giả lập; chỉ ghi tệp PDF-magic synthetic 2KB vào tmp_path rồi dọn. Không làm đầy ổ, không claim khai thác Internet hay prod. Cần quyền upload; MIME/type và known-length guard vẫn có."
+    },
+    "alignment": [
+      "Nhân viên bền vững",
+      "Phát hiện sớm",
+      "Reality rõ"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/nhan_tep_luong.py": "ff109dc0966606d841d696c83ec29e79c948f28d229872731b620d163c713181",
+      "src/clinicai/services/tep_ket_qua_service.py": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "RED modeled capacity: receiver thật không Content-Length ghi 2057 byte khi free=1024/reserve=256, budget=768; hàm đo free-space chỉ được gọi 1 lần.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/nhan_tep_luong.py",
+          "line": 106,
+          "end_line": 119,
+          "detail": "Chốt đầu luồng dùng free-space trừ Content-Length, thiếu header coi 0.",
+          "sha256": "ff109dc0966606d841d696c83ec29e79c948f28d229872731b620d163c713181",
+          "excerpt": "106:     try:\n107:         khai = int(request.headers.get(\"content-length\") or 0)\n108:     except ValueError:\n109:         khai = 0\n110:     # Khoảng trống an toàn của Ổ VPS kiểm TRƯỚC khi nhận byte nào; service kiểm\n111:     # lại lần nữa. Ổ gần đầy thì TỪ CHỐI — không bao giờ ghi thẳng sang CFS.\n112:     from clinicai.services.tep_ket_qua_service import (\n113:         CAU_O_VPS_DAY,\n114:         MEDIA_LOCAL_MIN_FREE_BYTES,\n115:     )\n116: \n117:     trong = await chay_tren_kho(cho_trong_o_vps, kho=KHO_VPS)\n118:     if trong - khai < MEDIA_LOCAL_MIN_FREE_BYTES:\n119:         raise ValidationError(CAU_O_VPS_DAY)"
+        },
+        {
+          "path": "src/clinicai/services/nhan_tep_luong.py",
+          "line": 195,
+          "end_line": 230,
+          "detail": "Ghi từng khối có chốt loại/dung lượng cấu hình, không kiểm lại free-space.",
+          "sha256": "ff109dc0966606d841d696c83ec29e79c948f28d229872731b620d163c713181",
+          "excerpt": "195:     async def ghi_ra(het: bool) -> None:\n196:         nonlocal so_byte, da_nhan_kieu, loai, tep\n197:         if not cho_ghi:\n198:             return\n199:         if so_byte == 0:\n200:             # Chưa ghi byte nào → `cho_ghi` vẫn chứa tệp TỪ BYTE ĐẦU TIÊN.\n201:             dau[:] = cho_ghi[:SO_BYTE_DAU]\n202:         if not da_nhan_kieu and (len(dau) >= SO_BYTE_DAU or het):\n203:             # Nhận kiểu NGAY KHI có đủ byte đầu: tệp rác bị từ chối trước khi\n204:             # kịp chiếm vài GB trên kho.\n205:             _mime, _ext, loai = sniff_ket_qua(bytes(dau))\n206:             if loai == \"VIDEO\" and not KET_QUA_VIDEO_UPLOAD_ENABLED:\n207:                 raise ValidationError(\n208:                     \"Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF.\"\n209:                 )\n210:             da_nhan_kieu = True\n211:         if not het and not da_nhan_kieu:\n212:             return\n213:         if len(cho_ghi) < _GOM_GHI and not het:\n214:             return\n215:         khuc = bytes(cho_ghi)\n216:         cho_ghi.clear()\n217:         h.update(khuc)\n218:         so_byte += len(khuc)\n219:         if loai:\n220:             tran = vuot_tran(loai, so_byte)\n221:             if tran is not None:\n222:                 raise ValidationError(\n223:                     f\"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này.\"\n224:                 )\n225:         # Mọi lần chạm ổ đi qua luồng phụ CÓ HẠN (29/09): ổ Viettel treo thì lượt\n226:         # tải này báo \"kho chậm\", không treo cả API. Hạn tính TỪNG KHỐI ghi.\n227:         if tep is None:\n228:             tep = await chay_tren_kho(lambda: _mo_ghi(duong), kho=KHO_VPS)\n229:         f = tep\n230:         await chay_tren_kho(lambda: f.write(khuc), han=HAN_GHI_KHOI, kho=KHO_VPS)"
+        },
+        {
+          "path": "src/clinicai/services/tep_ket_qua_service.py",
+          "line": 799,
+          "end_line": 815,
+          "detail": "Service kiểm sau khi receiver đã nhận trọn tệp; không ngăn phần receiver ghi trước.",
+          "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+          "excerpt": "799:         def _chuan_bi() -> int:\n800:             path.parent.mkdir(parents=True, exist_ok=True)\n801:             return shutil.disk_usage(goc).free\n802: \n803:         # Mọi lần chạm ổ từ đây đi qua luồng phụ CÓ HẠN (sự cố 29/09 20:00).\n804:         # Ổ VPS gần đầy → TỪ CHỐI, không ghi thẳng sang CFS thay thế.\n805:         if (\n806:             await chay_tren_kho(_chuan_bi, kho=KHO_VPS) - so_byte_khai\n807:             < MEDIA_LOCAL_MIN_FREE_BYTES\n808:         ):\n809:             raise ValidationError(CAU_O_VPS_DAY)\n810:         tmp = path.with_suffix(path.suffix + \".tmp\")\n811:         try:\n812:             if tep_da_nhan is not None:\n813:                 nhan = tep_da_nhan\n814:                 await chay_tren_kho(lambda: os.replace(nhan.duong, tmp), kho=KHO_VPS)\n815:                 so_byte, sha = tep_da_nhan.so_byte, tep_da_nhan.sha256"
+        }
+      ],
+      "production_verified": false
+    },
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "note": "Runtime Python source hash checked; migration IDs checked, not migration contents. Does not prove feature configuration/trigger occurrence.",
+      "frontend_compiled_bundle_verified": false,
+      "migration_contents_verified": false
+    }
+  },
+  {
+    "id": "SEC-004",
+    "title": "Dashboard đang đóng gói Next/sharp thuộc phiên bản có advisory xử lý ảnh",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "dependency_lifecycle",
+    "summary": "Lockfile main ghim Next16.2.12/sharp0.35.3. npm audit báo31 package có advisory (1critical/24high/5moderate/1low); đây là số package, gồm transitive/dev, không phải31 đường khai thác độc lập. Đã xác nhận runtime VPS Linux dùng đúng Next16.2.12 và sharp0.35.3/libheif1.23.1 từ ngữ cảnh module Next.",
+    "trigger": "Đặc biệt cần xử lý trước khi đưa đầu vào AVIF không tin cậy qua image optimizer. Nguồn maintainer xác nhận nhóm phiên bản này có rủi ro libheif; chưa chứng minh attacker-controlled AVIF đi tới decoder trong cấu hình hiện tại.",
+    "impact": "Thành phần có advisory vẫn đi trong ảnh đang phát hành. Không khẳng định đã có RCE/SSRF hoặc bị tấn công: lỗi Windows không áp dụng Linux; không thấy next/og trong source; không remotePatterns nên advisory SSRF remote này không áp dụng theo maintainer. Các đường SSG/metadata/dev chưa kiểm hết. Dockerfile dùng node:22-alpine; metadata runtime Alpine3.24.2, glibcVersionRuntime=null. Điều kiện glibc của mô tả RCE upstream libheif không khớp môi trường quan sát; không coi finding này chứng minh RCE trên prod.",
+    "recommendation": "Lập bản nâng Next và các native image dependency được maintainer vá, rebuild/kiểm chính image sẽ phát hành; rà reachability và tạm chặn decoder/route rủi ro nếu chưa nâng. Chọn phiên bản tương thích có kiểm thử; không chạy npm audit fix --force vì gợi ý có cả downgrade/major ở dependency khác. Lưu SBOM, triage có thời hạn và phiên bản runtime. Cập nhật/rà override next.sharp=0.35.3 trong package.json; chỉ nâng next có thể vẫn bị pin sharp cũ.",
+    "acceptance": "Image mới có provenance/lockfile+SBOM; advisory ảnh được vá hoặc có mitigation kiểm chứng; test login/ảnh/in/file và regression xanh; scan phân biệt runtime/dev và chấp nhận có owner. Kiểm cả Python/OS image ở lượt riêng, chưa được coi đã scan.",
+    "evidence": [
+      {
+        "path": "src/dashboard/package-lock.json",
+        "line": 5722,
+        "end_line": 5727,
+        "detail": "Lockfile main ghim Next 16.2.12, thuộc khoảng phiên bản có advisory."
+      },
+      {
+        "path": "src/dashboard/package-lock.json",
+        "line": 6571,
+        "end_line": 6576,
+        "detail": "sharp 0.35.3 dưới Next; không suy package direct ở root là điều kiện cần."
+      },
+      {
+        "path": "src/dashboard/next.config.ts",
+        "line": 29,
+        "end_line": 39,
+        "detail": "Không tắt image optimization, không cấu hình remotePatterns."
+      },
+      {
+        "path": "src/dashboard/proxy.ts",
+        "line": 152,
+        "end_line": 167,
+        "detail": "Matcher bỏ qua endpoint _next/image; đây là cấu hình hiện hữu, không phải exploit PoC."
+      },
+      {
+        "path": "src/dashboard/package.json",
+        "line": 65,
+        "end_line": 69,
+        "detail": "Override ghim sharp0.35.3; nâng Next đơn lẻ chưa chắc đổi decoder."
+      },
+      {
+        "path": "src/dashboard/Dockerfile.dashboard",
+        "line": 65,
+        "end_line": 80,
+        "detail": "Runner dùng Alpine và copy standalone artifacts."
+      }
+    ],
+    "validation": {
+      "method": "npm_lockfile_audit_plus_primary_maintainer_advisories_and_readonly_runtime_versions",
+      "command": "npm audit --package-lock-only --ignore-scripts --json; readonly docker exec package/native version metadata",
+      "result": "npm audit exit1 với31package advisories; prod Next16.2.12/React19.2.4, sharp từ createRequire(next/package.json)=0.35.3, heif1.23.1, Linux. Không sửa lockfile/cài dependency/chạy exploit. Metadata OS readonly: Alpine3.24.2, glibcVersionRuntime=null.",
+      "limitations": "Xác nhận phiên bản thành phần, chưa kiểm toàn compiled bundle/source Git provenance hoặc khả năng exploit. Root require(sharp) ban đầu unavailable do standalone nesting; require từ Next tìm thấy, không dùng kết quả đầu để bỏ rủi ro. Python/OS image chưa scan. Alpine/musl khác điều kiện glibc trong advisory sharp; mức MEDIUM của hồ sơ là rủi ro quản lý phiên bản, không phải CVSS critical của deployment."
+    },
+    "alignment": [
+      "Phát hiện sớm",
+      "Nhân viên bền vững",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/dashboard/package-lock.json": "7fdf94660f18d6270574bc89c0fe1d8528ed7dd4811f1ce2ebecd76d9d4206b2",
+      "src/dashboard/next.config.ts": "37cc1a493b91ed020e1efff81d06fddf31dc98d727ad6968685b1a5155dce0cf",
+      "src/dashboard/proxy.ts": "02dd6df0002d6704afbac15c41793be59be374ad17d7c6ebc561cb4906bc01bc",
+      "src/dashboard/package.json": "4d441eebfa932d1d28f7f0573566003c1b67abbac950131a84d3e105bd9d6cbc",
+      "src/dashboard/Dockerfile.dashboard": "047fcda2ae9217b9623834f82b188a6f908150a89b07aff883a26439326cce1a"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Đã khớp lockfile và runtime dependency phiên bản có advisory; khả năng khai thác còn điều kiện, không chạy PoC production.",
+      "evidence": [
+        {
+          "path": "src/dashboard/package-lock.json",
+          "line": 5722,
+          "end_line": 5727,
+          "detail": "Lockfile main ghim Next 16.2.12, thuộc khoảng phiên bản có advisory.",
+          "sha256": "7fdf94660f18d6270574bc89c0fe1d8528ed7dd4811f1ce2ebecd76d9d4206b2",
+          "excerpt": "5722:     \"node_modules/next\": {\n5723:       \"version\": \"16.2.12\",\n5724:       \"resolved\": \"https://registry.npmjs.org/next/-/next-16.2.12.tgz\",\n5725:       \"integrity\": \"sha512-iD59eYQWmbFcEbX7v/acG5DRym9iw1DdaPoD0WTA920naWsE25wShzJW4+UvAs8MK9EC2kBfIH6vtto1H1PHGw==\",\n5726:       \"license\": \"MIT\",\n5727:       \"dependencies\": {"
+        },
+        {
+          "path": "src/dashboard/package-lock.json",
+          "line": 6571,
+          "end_line": 6576,
+          "detail": "sharp 0.35.3 dưới Next; không suy package direct ở root là điều kiện cần.",
+          "sha256": "7fdf94660f18d6270574bc89c0fe1d8528ed7dd4811f1ce2ebecd76d9d4206b2",
+          "excerpt": "6571:     \"node_modules/sharp\": {\n6572:       \"version\": \"0.35.3\",\n6573:       \"resolved\": \"https://registry.npmjs.org/sharp/-/sharp-0.35.3.tgz\",\n6574:       \"integrity\": \"sha512-ej0zVHuZGHCiABXcNxeYhpRnPNPAcvbG8RMdBAhDAxLKkCRVSpK3Iyu7qbqw3JMzoj0REeM6f3tJLtVwl0023Q==\",\n6575:       \"license\": \"Apache-2.0\",\n6576:       \"optional\": true,"
+        },
+        {
+          "path": "src/dashboard/next.config.ts",
+          "line": 29,
+          "end_line": 39,
+          "detail": "Không tắt image optimization, không cấu hình remotePatterns.",
+          "sha256": "37cc1a493b91ed020e1efff81d06fddf31dc98d727ad6968685b1a5155dce0cf",
+          "excerpt": "29:   staleTimes: { dynamic: 10, static: 180 },\n30: };\n31: \n32: // Local scripts open 127.0.0.1; allow that loopback origin for dev HMR.\n33: // Next defaults to localhost, so its WebSocket guard otherwise rejects it.\n34: const localDev = { allowedDevOrigins: [\"127.0.0.1\"] };\n35: const nextConfig: NextConfig = standalone\n36:   ? { ...localDev, output: \"standalone\", experimental: clientCache }\n37:   : { ...localDev, experimental: clientCache };\n38: \n39: export default nextConfig;"
+        },
+        {
+          "path": "src/dashboard/proxy.ts",
+          "line": 152,
+          "end_line": 167,
+          "detail": "Matcher bỏ qua endpoint _next/image; đây là cấu hình hiện hữu, không phải exploit PoC.",
+          "sha256": "02dd6df0002d6704afbac15c41793be59be374ad17d7c6ebc561cb4906bc01bc",
+          "excerpt": "152:   return response;\n153: }\n154: \n155: export const config = {\n156:   // Skip Next internals + static assets. Everything else passes through.\n157:   matcher: [\n158:     // HAI ĐƯỜNG TẢI TỆP ĐI THẲNG, KHÔNG QUA proxy (tự kiểm 16/09/2026).\n159:     // Proxy chép thân yêu cầu vào RAM và CẮT ở 10MB — mọi video siêu âm, phiếu\n160:     // PDF lớn tải lên đều hỏng với câu \"không kết nối được máy chủ\". Nâng trần\n161:     // `proxyClientMaxBodySize` thì vài video 80MB cùng lúc là tràn bộ nhớ\n162:     // dashboard. Hai route này tự xác thực người gọi (getCallerAuthHeaders);\n163:     // với /api proxy chỉ làm mới cookie, không gác cửa.\n164:     // `manifest.webmanifest` (PWA, 27/09/2026): điện thoại đọc nó TRƯỚC khi\n165:     // đăng nhập để cài app — qua proxy thì bị đẩy về /login, cài không được.\n166:     \"/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|api/cskh/ket-qua$|api/doi-tac$|.*\\\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)\",\n167:   ],"
+        },
+        {
+          "path": "src/dashboard/package.json",
+          "line": 65,
+          "end_line": 69,
+          "detail": "Override ghim sharp0.35.3; nâng Next đơn lẻ chưa chắc đổi decoder.",
+          "sha256": "4d441eebfa932d1d28f7f0573566003c1b67abbac950131a84d3e105bd9d6cbc",
+          "excerpt": "65:       \"postcss\": \"8.5.25\",\n66:       \"sharp\": \"0.35.3\"\n67:     }\n68:   }\n69: }"
+        },
+        {
+          "path": "src/dashboard/Dockerfile.dashboard",
+          "line": 65,
+          "end_line": 80,
+          "detail": "Runner dùng Alpine và copy standalone artifacts.",
+          "sha256": "047fcda2ae9217b9623834f82b188a6f908150a89b07aff883a26439326cce1a",
+          "excerpt": "65:     PORT=3000 \\\n66:     HOSTNAME=0.0.0.0\n67: \n68: RUN apk add --no-cache curl\n69: \n70: COPY --from=builder /app/public ./public\n71: COPY --from=builder /app/.next/standalone ./\n72: COPY --from=builder /app/.next/static ./.next/static\n73: \n74: # Bộ chia tiến trình. Bản standalone chạy `node server.js` = MỘT nhân; VPS có\n75: # bốn. Dựng một trang tốn ~163ms CPU và là việc TÍNH TOÁN nên async không cứu\n76: # được — các lượt dựng nối đuôi nhau. `NEXT_WORKERS=1` để về hành vi cũ.\n77: COPY cluster.cjs ./\n78: \n79: USER node\n80: EXPOSE 3000"
+        }
+      ],
+      "production_verified": false
+    },
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:42:29.202723+07:00",
+      "frontend_dependency_versions_verified": true,
+      "frontend_compiled_bundle_verified": false,
+      "behavior_tested_on_production": false,
+      "os_metadata_verified": true
+    },
+    "external_sources": [
+      "https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4",
+      "https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c",
+      "https://github.com/vercel/next.js/security/advisories/GHSA-cjq9-62q9-8jv4",
+      "https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j",
+      "https://github.com/vercel/next.js/security/advisories/GHSA-p293-qw3h-jr36"
+    ]
+  },
+  {
+    "id": "CLIN-007",
+    "title": "Giao thuốc không qua phân lô chấp nhận lô của thuốc khác dòng đơn",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "dispense_identity_integrity",
+    "summary": "Trong đường giao thẳng (lần thu legacy hoặc không có allocation), backend kiểm clinic/cơ sở/đơn vị/hạn/tồn nhưng thiếu đối chiếu thuốc của lô với drug_catalog_id đã xác định ở dòng đơn.",
+    "trigger": "Thuốc A đã xác định và đã thu tiền, không có allocation; người có quyền pharmacy.dispense gửi ID lô thuốc B cùng cơ sở và đơn vị. Công tắc yêu cầu kho/phân lô lúc thu được tắt trong probe; đây cũng là giá trị mặc định source, chưa đọc cấu hình prod.",
+    "impact": "Service tăng dispensed_qty của A, trừ tồn B và API trả thành công. Đây là dữ liệu giao nhận sai thuốc; không khẳng định đã giao vật lý nhầm cho bệnh nhân thật. UI hiện lọc danh sách lô theo thuốc nên ca kiểm dùng request synthetic đúng shape API.",
+    "recommendation": "Chốt cùng drug_catalog_id ở service và DB cho mọi đường giao/gán lô, không chỉ allocation; giữ khóa và đúng cơ sở/đơn vị/hạn. Nếu cần thay thuốc, dùng quy trình thay thế/đính chính có bằng chứng, không coi cùng đơn vị là đủ.",
+    "acceptance": "Request lô B cho đơn A bị từ chối trước mọi ghi; tồn B và dispensed_qty A không đổi. Lô A cùng đơn vị vẫn giao được; legacy/no-allocation/late-assign/stock-reservation modes và HTTP raw đều kiểm.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/pharmacy_service.py",
+        "line": 726,
+        "end_line": 770,
+        "detail": "Lần thu không có allocation đi nhánh giao thẳng từ lô cũ."
+      },
+      {
+        "path": "src/clinicai/services/pharmacy_service.py",
+        "line": 1248,
+        "end_line": 1294,
+        "detail": "Chốt clinic/cơ sở/QUAY/đơn vị nhưng không đối chiếu drug_catalog_id lô với dòng đơn."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/pharmacy.py",
+        "line": 1032,
+        "end_line": 1056,
+        "detail": "Router có quyền/idempotency nhưng gọi nguyên service; đã kiểm ASGI201."
+      },
+      {
+        "path": "supabase/migrations/20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql",
+        "line": 580,
+        "end_line": 590,
+        "detail": "Trigger DISPENSE không allocation kiểm removed_at rồi return; không đối chiếu đúng thuốc ở nhánh này."
+      }
+    ],
+    "validation": {
+      "method": "actual_main_service_DB_and_ASGI_router_with_real_capability_and_idempotency",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_wrong_drug_db.py -q -s",
+      "result": "2RED: A/B UUID khác, cùng đơn vị; service trả ok, dispensed_qty A=1 và tồn lô B10→9. ASGI POST /api/v1/pharmacy/dispense trả201; giữ dependency capability thật, validation/body hash/receipt thật.",
+      "limitations": "Synthetic pharmacist identity được dependency override sau bước login; không kiểm JWT/session middleware/Caddy/Next hoặc browser UI. Database tạm full schema/trigger main. Không bệnh nhân thật, không prod request. Nhánh có allocation đã có chốt đúng thuốc; không gọi mọi đường giao thuốc đều sai."
+    },
+    "alignment": [
+      "Reality rõ",
+      "Quyết định có bằng chứng",
+      "Phát hiện sớm"
+    ],
+    "related_tests": [
+      "src/tests/services/test_tien_thuoc_cp3_db.py",
+      "src/tests/services/test_pharmacy_dispense_units_db.py"
+    ],
+    "source_hashes": {
+      "src/clinicai/services/pharmacy_service.py": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+      "src/clinicai/api/v1/routers/pharmacy.py": "f5d2086e4c71db714773f4d5bd62bd4fce3d7d474eea407c834b8c039a2b4ff8",
+      "supabase/migrations/20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql": "6ffa69f2e13280184b7a721191cdc8c199211b2d77b01815b39801502b42e28a"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Tái hiện service+DB và HTTP ASGI201 trên đúng main; không kiểm hành vi trên prod.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 726,
+          "end_line": 770,
+          "detail": "Lần thu không có allocation đi nhánh giao thẳng từ lô cũ.",
+          "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+          "excerpt": "726:                 # 20/09/2026) đi đường giao thẳng từ lô như lần thu cũ. Trước\n727:                 # 24/09 nó rơi vào nhánh \"giao đúng lô đã bán\" và KHÔNG giao\n728:                 # được gì (bộ mô phỏng 20 khách bắt được). Quyết theo DỮ LIỆU,\n729:                 # không đọc công tắc: lần thu nào đã bán lô thì vẫn phải giao\n730:                 # đúng lô ấy, dù công tắc sau đó đổi.\n731:                 giao_thang = bool(lan[\"legacy\"]) or not await conn.fetchval(\n732:                     \"SELECT EXISTS (SELECT 1 FROM public.prescription_allocation\"\n733:                     \" WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid\"\n734:                     \" AND released_at IS NULL)\",\n735:                     identity.clinic_id,\n736:                     lan[\"payment_cycle_id\"],\n737:                 )\n738:                 # Giao không lô: xét THEO DÒNG — dòng này không có lô nào đã bán\n739:                 # trong lần thu (cùng luật nút `giao_khong_lo` ở ban_thuoc_service).\n740:                 if drug_batch_id is None and await conn.fetchval(\n741:                     \"SELECT EXISTS (SELECT 1 FROM public.prescription_allocation\"\n742:                     \" WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid\"\n743:                     \" AND prescription_id = $3::uuid AND released_at IS NULL)\",\n744:                     identity.clinic_id,\n745:                     lan[\"payment_cycle_id\"],\n746:                     prescription_id,\n747:                 ):\n748:                     raise ValidationError(\n749:                         \"Dòng này đã bán theo lô — giao từ đúng lô đã bán.\"\n750:                     )\n751:                 if drug_batch_id is None:\n752:                     moi = await self._giao_khong_lo(\n753:                         conn,\n754:                         identity=identity,\n755:                         don=don,\n756:                         prescription_id=prescription_id,\n757:                         luong=luong,\n758:                     )\n759:                 elif giao_thang:\n760:                     moi = await self._cap_phat_cu(\n761:                         conn,\n762:                         identity=identity,\n763:                         don=don,\n764:                         prescription_id=prescription_id,\n765:                         drug_batch_id=drug_batch_id,\n766:                         luong=luong,\n767:                     )\n768:                 else:\n769:                     moi = await self._giao_theo_phan_lo(\n770:                         conn,"
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 1248,
+          "end_line": 1294,
+          "detail": "Chốt clinic/cơ sở/QUAY/đơn vị nhưng không đối chiếu drug_catalog_id lô với dòng đơn.",
+          "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+          "excerpt": "1248:             )\n1249: \n1250:         lo = await conn.fetchrow(\n1251:             \"\"\"\n1252:             SELECT b.id, b.quantity_on_hand, b.unit, b.expiry_date,\n1253:                    c.name_base, b.noi_chua\n1254:               FROM public.drug_batch b\n1255:               LEFT JOIN public.drug_catalog c ON c.id = b.drug_catalog_id\n1256:              WHERE b.id = $1::uuid AND b.clinic_id = $2::uuid\n1257:              FOR UPDATE OF b\n1258:             \"\"\",\n1259:             drug_batch_id,\n1260:             identity.clinic_id,\n1261:         )\n1262:         if lo is None:\n1263:             raise NotFoundError(\"Không tìm thấy lô thuốc này trong kho.\")\n1264:         # Trigger `inventory_txn_dung_co_so` là chốt cuối; nói tiếng Việt trước.\n1265:         if not await conn.fetchval(\n1266:             \"SELECT public.lo_dung_co_so_luot($1::uuid, $2::uuid, $3::uuid)\",\n1267:             identity.clinic_id,\n1268:             don[\"visit_id\"],\n1269:             drug_batch_id,\n1270:         ):\n1271:             raise ValidationError(LO_KHAC_CO_SO)\n1272:         if lo[\"noi_chua\"] != \"QUAY\":\n1273:             raise ConflictError(NOI_KHO_DANG_O)\n1274: \n1275:         don_vi_ke = _don_vi(don.get(\"unit\"))\n1276:         don_vi_lo = _don_vi(lo.get(\"unit\"))\n1277:         if don_vi_ke and don_vi_ke != don_vi_lo:\n1278:             raise ValidationError(\n1279:                 f\"Đơn kê theo đơn vị {don['unit']}, nhưng lô thuốc theo \"\n1280:                 f\"đơn vị {lo.get('unit') or 'chưa xác định'}. \"\n1281:                 \"Chọn lô cùng đơn vị hoặc xác nhận lại đơn thuốc; \"\n1282:                 \"không tự quy đổi hộp, vỉ, viên.\"\n1283:             )\n1284: \n1285:         ton = Decimal(str(lo[\"quantity_on_hand\"] or 0))\n1286:         if ton < luong:\n1287:             # Nói TRƯỚC ràng buộc `drug_batch_qty_non_negative`. Để\n1288:             # Postgres từ chối thì dược sĩ đọc được một câu tiếng Anh\n1289:             # về CHECK constraint và không biết còn bao nhiêu.\n1290:             raise ValidationError(\n1291:                 f\"Lô này chỉ còn {ton} {lo['name_base'] or ''}\".rstrip()\n1292:                 + f\" — không đủ để cấp {luong}. Chọn lô khác hoặc nhập thêm.\"\n1293:             )\n1294:         if lo[\"expiry_date\"] is not None and lo[\"expiry_date\"] < now_vn().date():"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/pharmacy.py",
+          "line": 1032,
+          "end_line": 1056,
+          "detail": "Router có quyền/idempotency nhưng gọi nguyên service; đã kiểm ASGI201.",
+          "sha256": "f5d2086e4c71db714773f4d5bd62bd4fce3d7d474eea407c834b8c039a2b4ff8",
+          "excerpt": "1032:     \"\"\"\n1033:     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)\n1034:     if idem.is_replay:\n1035:         return idem.cached_response  # type: ignore[return-value]\n1036:     async with tra_khoa_neu_bi_tu_choi(idem, pool):\n1037:         # `jsonable_encoder` TRƯỚC KHI CẤT, không phải sau.\n1038:         #\n1039:         # Kết quả cấp thuốc mang số lượng tồn dưới dạng `Decimal` — đúng kiểu\n1040:         # cho tiền và cho thuốc, nhưng `json.dumps` của lớp chống-gửi-trùng\n1041:         # không nuốt được, và nó nổ thành 500 ĐÚNG Ở LẦN BẤM THỨ HAI. Người\n1042:         # dùng thấy \"lỗi máy chủ\" cho một thao tác thực ra đã thành công.\n1043:         # `/payments` không vấp vì nó cất `{\"ok\": true}`.\n1044:         ket_qua: dict[str, Any] = jsonable_encoder(\n1045:             await PharmacyService(pool).cap_phat(\n1046:                 identity=identity,\n1047:                 prescription_id=str(body.prescription_id),\n1048:                 drug_batch_id=(str(body.drug_batch_id) if body.drug_batch_id else None),\n1049:                 so_luong=body.so_luong,\n1050:             )\n1051:         )\n1052:         # Ghi TRONG khối trả-khoá, giống `/payments`: đặt ngoài thì một lỗi\n1053:         # nghiệp vụ ở giữa sẽ trả khoá về rồi mới ghi, và lần bấm lại nhận một\n1054:         # kết quả cũ của thao tác chưa từng xảy ra.\n1055:         await idem.save(pool, ket_qua, status_code=201)\n1056:     return ket_qua"
+        },
+        {
+          "path": "supabase/migrations/20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql",
+          "line": 580,
+          "end_line": 590,
+          "detail": "Trigger DISPENSE không allocation kiểm removed_at rồi return; không đối chiếu đúng thuốc ở nhánh này.",
+          "sha256": "6ffa69f2e13280184b7a721191cdc8c199211b2d77b01815b39801502b42e28a",
+          "excerpt": "580:     IF NEW.txn_type = 'DISPENSE' AND NEW.allocation_id IS NULL\n581:        AND NEW.ref_type = 'prescription' THEN\n582:         SELECT removed_at INTO da_go FROM public.prescription\n583:          WHERE id = NEW.ref_id AND clinic_id = NEW.clinic_id FOR SHARE;\n584:         IF da_go IS NOT NULL THEN\n585:             RAISE EXCEPTION 'Dòng đơn đã được bác sĩ đính chính (lịch sử) — không giao'\n586:                 USING ERRCODE = 'check_violation';\n587:         END IF;\n588:         RETURN NEW;\n589:     END IF;\n590:     IF NEW.txn_type NOT IN ('SALE', 'SALE_REVERSAL')"
+        }
+      ],
+      "production_verified": false
+    },
+    "production_metadata_validation": {
+      "at": "2026-10-19T18:27:02.897260+07:00",
+      "backend_source_matches_pinned_main": true,
+      "behavior_tested_on_production": false,
+      "feature_configuration_verified": false
+    }
+  }
+]

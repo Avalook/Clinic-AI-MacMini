@@ -1,0 +1,1111 @@
+[
+  {
+    "path": "src/clinicai/services/__init__.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "0 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "feb005d1bfc448e9ca3523514c3801b6fe43ea4f2559fc0a9ce7c7d3fdda388c"
+  },
+  {
+    "path": "src/clinicai/services/agent_tom_tat.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at [347, 358]; contents not fully reviewed",
+    "sha256": "f779883ce35aa2ac9ec01512b51346f9f5c39d7d2b60111375a7370346cea706"
+  },
+  {
+    "path": "src/clinicai/services/andrology_review_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d1b17d21e3dcc985e9d298b97bf64d5a4e40941db64ae7526c2dd29238e77458"
+  },
+  {
+    "path": "src/clinicai/services/andrology_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "8c1e236b29dbf67c7237fada8c18e5e80be37c47ddd90f48a23ec0d48c8ee37e"
+  },
+  {
+    "path": "src/clinicai/services/audit.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf"
+  },
+  {
+    "path": "src/clinicai/services/audit_labels.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "e02d70900f8eeff088aa8ea5a9fae6eaa7a2e247fe76356767b6abcb7a1bda80"
+  },
+  {
+    "path": "src/clinicai/services/audit_log_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3eef7d4bb6b751dbdc855c3eeb6d4111bcdeb1d1c01b422a8ae6215415adae27"
+  },
+  {
+    "path": "src/clinicai/services/auth_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "a7678c105726cd4f2865f55ff3304be727d7ff01cfb1aa8431148a078ea5e536"
+  },
+  {
+    "path": "src/clinicai/services/bac_si_ky.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "7 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "85a189341c997d270c8900958d7b7e578c27ec13f2e20ee87641bf4cd3652c78"
+  },
+  {
+    "path": "src/clinicai/services/bac_si_phu_trach.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "312fd1d1c2f7689a8a1f0f92a208d4ef2c6b56055db6194382f79afa254c8565"
+  },
+  {
+    "path": "src/clinicai/services/ban_le_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "fa89f19c2f14ca4ce61e8fdf322a358afad7c465f9aff0d51a3a893c7ae59670"
+  },
+  {
+    "path": "src/clinicai/services/bang_hanh_trinh_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "7 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "a818eb7282eb2ee7f01e4f1e83019cd6b483e5710ed907c4ca9cbb56dabc0f32"
+  },
+  {
+    "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "25 functions; broad exception handlers at [115, 365]; contents not fully reviewed",
+    "sha256": "843c6b32f9f7cf75e7c0fb63d38b2279298cab1d0092ee12b4e184f1ca11f6dc"
+  },
+  {
+    "path": "src/clinicai/services/bao_cao_pham_vi.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "07eb003bb7be7cc51a5eab79afd1b69a6860ca5259113487fc68cbe8c70149de"
+  },
+  {
+    "path": "src/clinicai/services/bao_ket_qua_ve.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "1 functions; broad exception handlers at [92]; contents not fully reviewed",
+    "sha256": "ffc07d074d6f49a35bd7cea3a395470fcf3921cb144c062c7003021dd8681bcf"
+  },
+  {
+    "path": "src/clinicai/services/booking_override_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "15 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "81077ad2213351226519726b4d02d85a9ee7c6ab9f2c59ad1c1c7bc7bc77717a"
+  },
+  {
+    "path": "src/clinicai/services/booking_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "38 functions; broad exception handlers at [1737]; contents not fully reviewed",
+    "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1"
+  },
+  {
+    "path": "src/clinicai/services/canh_gac.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at [258]; contents not fully reviewed",
+    "sha256": "ac25fd79942e713db38a80a1574e639cd518917f7aa6e27bb588351e5f8a9fb7"
+  },
+  {
+    "path": "src/clinicai/services/capacity_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "13 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a"
+  },
+  {
+    "path": "src/clinicai/services/cashier_board_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "18 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "5122ba68c98cbafa9a6dd3572df1e0dbdacf8d39481e20d8ea46ee3f67ddd5db"
+  },
+  {
+    "path": "src/clinicai/services/cashier_navigation_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "5c6f1ed5843d934196f228e8a2a6cfd419e182154a9880bcce09a390487f9ac8"
+  },
+  {
+    "path": "src/clinicai/services/cashier_scope_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "bb5f2de68306c6cb7e9f419aca71a7e4f3179eda2ce966ef7b09bd56ee628c1c"
+  },
+  {
+    "path": "src/clinicai/services/checkout_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "14 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "538aff29032bb6ba1ad548bdcbce5a98c1c3ad005d2c51ef15040858e861f029"
+  },
+  {
+    "path": "src/clinicai/services/chi_dinh_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "7 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "58bf83daa0d2aeee93a24011cc47ab7a95314cc31a7e58991b709b1d3ab1071e"
+  },
+  {
+    "path": "src/clinicai/services/chot_0d.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "72f392a55f3390430e5ab67a806cca34579cce52741f8e658b3d60a10e128409"
+  },
+  {
+    "path": "src/clinicai/services/chuyen_luot_that.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "63029f2d0577548e4d107ae60725152464cfc4fc0c0b2388bbe6316075b0c42e"
+  },
+  {
+    "path": "src/clinicai/services/clinic_config_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "28 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "7086e73f33becba1697929c5bfb064470b4c5d55801d869c799170f3ac2015ea"
+  },
+  {
+    "path": "src/clinicai/services/clinic_policy.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "10 functions; broad exception handlers at [163, 197]; contents not fully reviewed",
+    "sha256": "4a8700ca6304f93c9d876205cdb58d513381ef769cc812c4f59f8a7fd21254d5"
+  },
+  {
+    "path": "src/clinicai/services/clinic_settings_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "7402df3c12e0bcb0fff9a8c8605e4ffb9807c023d35de9d331b3f31890155366"
+  },
+  {
+    "path": "src/clinicai/services/clinical_form_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5"
+  },
+  {
+    "path": "src/clinicai/services/clinical_prescription_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "afca45bbc735070ba44e49704977c056df9d3f3e21305538e97222b07bb12cf9"
+  },
+  {
+    "path": "src/clinicai/services/clinical_record_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "18 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "8598b59bbb579902e6d3460a5d0613ec40df66ba7810307e0d86b892d5db402e"
+  },
+  {
+    "path": "src/clinicai/services/clinical_sign_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "14 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "bcb3fe6970b994aa15a67d7d1dd0efde6f0ef5f9e8b2da32fa27705b76949e2e"
+  },
+  {
+    "path": "src/clinicai/services/co_so_bao_cao.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "31c7583ee47747bce614c06dc6bedaed39348f608358274d4736ba2ee64acd71"
+  },
+  {
+    "path": "src/clinicai/services/config_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "40 functions; broad exception handlers at [374, 1350, 1241, 1296]; contents not fully reviewed",
+    "sha256": "c94529e951f3e8c5ba7c7c722c404c119f31522ce0d629d0e64e57413deb11dc"
+  },
+  {
+    "path": "src/clinicai/services/cong_no_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "17 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "c15a1002bb8df65649408ef13911a3b9c6db684523c0c3e6267aa53fac5e291c"
+  },
+  {
+    "path": "src/clinicai/services/consent_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "b2f1f305282eace46a6fc38d0dab4ad7a4acdf65afeea84037b16abb2eb9d2d2"
+  },
+  {
+    "path": "src/clinicai/services/console_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at [30]; contents not fully reviewed",
+    "sha256": "f369d1b7d04b1ad36d4c42b83d36a4113b8fa962a9388dbce4398d4c99d7de5d"
+  },
+  {
+    "path": "src/clinicai/services/cskh_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "cd448e67acbd7aa0764b7e37bbf5e73d4521f0e832fbe0f7328237c609f0ec58"
+  },
+  {
+    "path": "src/clinicai/services/danh_muc_dich_vu_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at [81]; contents not fully reviewed",
+    "sha256": "b9c0aae7ae6a63a8baf4c09f17535ebfd6a6b909fc16d3a40b96b9a10999a20c"
+  },
+  {
+    "path": "src/clinicai/services/danh_sach_benh_nhan_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "13 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d3731cafdbc25c2726051d45ab857f0b2dc37092c3619a90c0fa2f62234cccee"
+  },
+  {
+    "path": "src/clinicai/services/danh_sach_khach_cskh.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "7 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "e72b88afd241fecfe26664582b67db22013a2c8d53e7afc4c122eaf6838e5f11"
+  },
+  {
+    "path": "src/clinicai/services/day_noi.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f8a1c02220efd2f6c883a55f8627619d238a6c78af848a543034c5778720c9a5"
+  },
+  {
+    "path": "src/clinicai/services/day_noi_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "2d5b9b67a39d754e91d75d51704e05c6ec94fd0d3d71bdf65b99d7c4567d2103"
+  },
+  {
+    "path": "src/clinicai/services/day_tep.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "17 functions; broad exception handlers at [506, 530, 514, 521, 546]; contents not fully reviewed",
+    "sha256": "72f5e480d6ed9b97ffd0ec9a89a88b87d9f61e6633806639a62d47048821b453"
+  },
+  {
+    "path": "src/clinicai/services/dich_vu_dat_lich.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "9dfeec7718060474098d9aa1ecf6e547822b86050d05c8934dd2b7295989e73f"
+  },
+  {
+    "path": "src/clinicai/services/dieu_tri_ban_kham.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d7d27ab133a21c88b93ee405b2eaf46204de31cbef85454a0336553067c12d88"
+  },
+  {
+    "path": "src/clinicai/services/dinh_chinh_don.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "17 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "397fc8ab568ba374d19c843a80b0dc8012ba6060e8e775889fef729fb8eaf5ae"
+  },
+  {
+    "path": "src/clinicai/services/dispatch_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "19 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "93a5d693abbe72d5cd96f49c976ccee14af729dd9d717209e0ed5b171422ccb2"
+  },
+  {
+    "path": "src/clinicai/services/display_board_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "0f7715534fe7694eb58501e6933220a940ddf7e10807a6bc80e96536e1a5cc69"
+  },
+  {
+    "path": "src/clinicai/services/doctor_board_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "1be0c0e7eea9964e5e40b352e77cdf56afa320c3c65c6d8a73d0a72bf4756497"
+  },
+  {
+    "path": "src/clinicai/services/doi_bac_si_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f8e561009c06b4a3093e36a8ee431528a352ad391677e5d93c9da8bb7ffd9c3d"
+  },
+  {
+    "path": "src/clinicai/services/doi_dich_vu_kham.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "63911dde43849f0bb804334596a376545bf1259ebb5b104ff726be0e1260e917"
+  },
+  {
+    "path": "src/clinicai/services/doi_hinh_thuc_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "14 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "0a1fbdd35ee3ae7e313503ebc6ae83f2d90b40d4dd87f6e47c57ea6cbe70bd68"
+  },
+  {
+    "path": "src/clinicai/services/doi_lich_nhanh.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "4c9eba0021005adc7c9d443ab0918e523dd95cf258797b6637a285cc46ee36ef"
+  },
+  {
+    "path": "src/clinicai/services/doi_tac_service.py",
+    "status": "traced",
+    "method": "AST structural scan",
+    "note": "Selected internal sample-to-partner semantics and result lifecycle; static cross-read; not full file.",
+    "sha256": "269dd53eea7f4143c1fa07bf20df9776199c1bd6a4ba333fa6cefd5a6215a36d",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/don_tep_ket_qua.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at [218]; contents not fully reviewed",
+    "sha256": "59b6dfe89204656c6e74f8bd55efe7686da982bf9a3e8595cb513553e084472c"
+  },
+  {
+    "path": "src/clinicai/services/episode_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "a355767dabb64e458810ff028785c32886ef6fdd745763d2f2bc6b5cadd4f4b5"
+  },
+  {
+    "path": "src/clinicai/services/event_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at [90]; contents not fully reviewed",
+    "sha256": "8c28b2661f421ceb82ee38c11d588c300a96a7fa1b9621c6769c42bdd0f890bf"
+  },
+  {
+    "path": "src/clinicai/services/finance_gate.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "c569748a8e98fa3e48030890bf55ffcdf0be96c66f4397150238425fed3374d4"
+  },
+  {
+    "path": "src/clinicai/services/form_engine_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "25 functions; broad exception handlers at [1202]; contents not fully reviewed",
+    "sha256": "acf0fd44cd7c2389adab0e2c00c2d2b7c5781a55af641272f758002f52852140"
+  },
+  {
+    "path": "src/clinicai/services/gate_rule_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "35ec2f2c4640b995ca07c86f4f39db3eff60576b9a68cf1004450370a3ffbae2"
+  },
+  {
+    "path": "src/clinicai/services/ghi_chu_khach_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "00fa07a72201ab0a2593d7c56b785d6332fee55b4b839b723757f61cd163420f"
+  },
+  {
+    "path": "src/clinicai/services/ghi_chu_luot.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "0e42bf44e11a3ccdf8d20d7c3d60b14a0c5c185a906877320dd27ff83c374374"
+  },
+  {
+    "path": "src/clinicai/services/hang_cho.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "104600e5b4e50e56a3b0d5f77a4d603ac5683d0073072063cf29aad15ac992b0"
+  },
+  {
+    "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "32 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "fcd3556b61d403de0ad211cba876b13bd3fcd27e76cfcc7053c29b67ff7ed6f7"
+  },
+  {
+    "path": "src/clinicai/services/hen_tai_kham_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "18 functions; broad exception handlers at [120]; contents not fully reviewed",
+    "sha256": "d1c916397dffc76bbdc8690b35c056fa63c0941c77bc684d3b69a2700d2a1187"
+  },
+  {
+    "path": "src/clinicai/services/ho_so_dich_vu.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "66509d7fd4ae1ff8a98a5b1665d7b8999bc1f5728e03aa14be3c6e9fbbe114bb"
+  },
+  {
+    "path": "src/clinicai/services/ho_so_khach_doc.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f90eb5c9ed3723bc50f68cff3cf777bae742472964d1e79d97ce387935b784bf"
+  },
+  {
+    "path": "src/clinicai/services/ho_so_kham_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "523487883d6338dcba63b2b3b3a5e04cc166d1eb3620fb3510413d9e51a0fc5c"
+  },
+  {
+    "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "e9fa1ee836ff23985108928b8829bee08ae7deb756cb1b35098b1f16e4db36d1"
+  },
+  {
+    "path": "src/clinicai/services/ky_nang_service.py",
+    "status": "traced",
+    "method": "AST structural scan",
+    "note": "Selected skill toggle and retry short-circuit; partial-revoke synthetic DB fault injection; not full file.",
+    "sha256": "2c8fe8d9e7e4414522304318fb731f737d678bb023a3df54c871f18a0a0dbd7d",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/lab_order_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "9da6879b4249fcc65bdd8945a19d808c9d6663ee6fc0a69cd2bb2aab84a1ad01"
+  },
+  {
+    "path": "src/clinicai/services/lab_safety_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "afb270acda297eb0147f3b921caeaa90a46263cb2793c9883ce207e3db3d60de"
+  },
+  {
+    "path": "src/clinicai/services/lam_them_dong_dich_vu.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "27d4b4772af7b4d6e618c3e1a1f1827bca2071290f2874121d64115c4cf95b92"
+  },
+  {
+    "path": "src/clinicai/services/lam_them_tai_quay_config.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3fa55aedce2dc6b0d7637299a737c5b7cb78dbb4929b68b00a277215fca58949"
+  },
+  {
+    "path": "src/clinicai/services/lam_them_tai_quay_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "15 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "82ba9c6a701e81cbf8972a7b5c06a47df9df064bfbc1ad809663b91219bbe83e"
+  },
+  {
+    "path": "src/clinicai/services/lan_bac_si.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "13 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "07f088d9e050c87e895db6a1387a0ef9ec8897b6e8774a99bd47709ea38c5be3"
+  },
+  {
+    "path": "src/clinicai/services/lenh_kham_core.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "034b8f33755bc55f4283d706e2b287bddca3a424f38fd1d516d325a2f8a7cb28"
+  },
+  {
+    "path": "src/clinicai/services/lich_hen_doc.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3669a4b4effc30cbdfbdecd2a3baf641f7c1afac50396b31c937ceae9980c64f"
+  },
+  {
+    "path": "src/clinicai/services/lich_phong_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "dc38b49f97eaa7e6eede84587e354fae18196f5b6f3944c12a8e0e3b9904d980"
+  },
+  {
+    "path": "src/clinicai/services/lich_su_luot.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f32d2063430577fd815de5b951228f83b191b4881d540168f500e1d631185dcd"
+  },
+  {
+    "path": "src/clinicai/services/lich_su_notion_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "63ab95d5deca1cb8f6dc7a00846c02490e50f2cd668a395f2f63990428200ceb"
+  },
+  {
+    "path": "src/clinicai/services/lich_su_phong.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d01b3676f6ad74346a12008aeb0baf8043a59509aa3e23c6391c86f1db383148"
+  },
+  {
+    "path": "src/clinicai/services/lich_tai_kham_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "4fccdbe21cdb711494387cdfeb30a247f6b563a4e21a743016530d1507194884"
+  },
+  {
+    "path": "src/clinicai/services/lich_truc_co_so.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "1 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "bed1b8a18394dfd46232cbb0e439a93628df1fee5016030228f39dfb2b07759a"
+  },
+  {
+    "path": "src/clinicai/services/lich_truc_phien_ban_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "20 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "7ebe67de67031da181020a045dfa92306dbbb3bc0eb19924e40d23e65e3d34ca"
+  },
+  {
+    "path": "src/clinicai/services/lieu_trinh_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "54 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452"
+  },
+  {
+    "path": "src/clinicai/services/luat_bac_si_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "24581b276826e01c0794ba56ca1bcf67ec4e0c505bfa19e8c8a2580ae424d81b"
+  },
+  {
+    "path": "src/clinicai/services/luot_kham_chung.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "043be9968020b66983954034895884704d762d99483854778ccfd0ccbba02790"
+  },
+  {
+    "path": "src/clinicai/services/luot_kham_doc.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "7 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3c4b603678634caf798511e01be7b8e91e0405efcd103adc19081361d5552b67"
+  },
+  {
+    "path": "src/clinicai/services/luot_kham_rules.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "33 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "01e63fab701888ee1a2a0f75abd7e747e69cd4c879a781e0beb1b27fd6d34951"
+  },
+  {
+    "path": "src/clinicai/services/luot_kham_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "58 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "9ffdcd78bf1df371d56477d69ded92560e5ca9bcc7cac78b424eae6cf558e35a"
+  },
+  {
+    "path": "src/clinicai/services/luot_treo.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "1 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "b829178927d401757cc2fac0e53dfd68934a3649f582661ba8853dcb88bbdb21"
+  },
+  {
+    "path": "src/clinicai/services/man_dat_lich_doc.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "1f7b9b717b53e0a6a62ae22b41ea0efd062724e391efbac9fc5bb17d1cd523f2"
+  },
+  {
+    "path": "src/clinicai/services/man_khach_hang_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3b61ddd500c3e4b52de29450e2f706b53eb12f28df5c8e5e406d5eed67df44aa"
+  },
+  {
+    "path": "src/clinicai/services/man_trang_chu_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "b9f05c2cf5d22c20a5a6495a109bf0aacc25d7df0f9d4afe4e3ca8edfb2e20bc"
+  },
+  {
+    "path": "src/clinicai/services/mau_ket_qua_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "10 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "b4591ad572e0bab3b80f178efee58c74683bc7d55eb6413e886d76c64d0af975"
+  },
+  {
+    "path": "src/clinicai/services/media_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "17 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "54bb599468bf44ec2df3676e1252b736667ddc8baddd2aef324059349069c5a5"
+  },
+  {
+    "path": "src/clinicai/services/moc_kham_xong.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "1 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "1bdf3df239c9db7834e6e7b818677f9f7234bdc7f20f53992ad260dd98b5a6a4"
+  },
+  {
+    "path": "src/clinicai/services/mpi_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "8e762d566d3eda92c876878d4c1ad8f38f07c05aa4ac846a747f8f98105ad301"
+  },
+  {
+    "path": "src/clinicai/services/ngoai_le_ca_truc_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "a11e78bd23aeb7f3fae5622ea57c6d39a1b4ca01d246c384337ab52b20ee27c7"
+  },
+  {
+    "path": "src/clinicai/services/nhac_viec_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3e97e8815fdbd139a6e2eb3c6d3c3d9a92c8b49cbcf1a83e2d74cc7db59a2304"
+  },
+  {
+    "path": "src/clinicai/services/nhan_luot.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "2a1a91a07fea231ed980dc3d20701b56cb3188a136552b261f330a2510dc8b9b"
+  },
+  {
+    "path": "src/clinicai/services/nhan_tai_phong.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "33 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "06eb5f6063c7fe84266d7dca3a129928a0184e57f37d7f44688680efb7529813"
+  },
+  {
+    "path": "src/clinicai/services/nhan_tep_luong.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "16 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "ff109dc0966606d841d696c83ec29e79c948f28d229872731b620d163c713181"
+  },
+  {
+    "path": "src/clinicai/services/nhan_trang_thai_dieu_phoi.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "41c86aec593c5a9d8fb10b88775889177986b637d56664e71bd66154e7b072dd"
+  },
+  {
+    "path": "src/clinicai/services/nhan_vai.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "9388ba9ae22738718a81e5eca9c44acb6e69d291f1631a0305221529f027331e"
+  },
+  {
+    "path": "src/clinicai/services/nhap_lich_su_notion.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "df8bb5edc59c525613877c8a8a26a05bfe3c5e7bfb5f9e1bfcf6e3a83062234a"
+  },
+  {
+    "path": "src/clinicai/services/nhat_ky_van_hanh.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "37fc8c000449b89e8d9a5b010fd8e826b9a694b3b05911cdd8cf07adbd7cb590"
+  },
+  {
+    "path": "src/clinicai/services/notification_relay.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3ede1c519c646d43ffa83daaa9d6a6bcdea08887f6822a79301e684524cd409f"
+  },
+  {
+    "path": "src/clinicai/services/notification_templates.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "b4a6eecdec0e01cf7f820ccc575a48b70c8e9870e7fbada17fa1a39f28698f6d"
+  },
+  {
+    "path": "src/clinicai/services/ops_status.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "10 functions; broad exception handlers at [128]; contents not fully reviewed",
+    "sha256": "850c3087d18eb1b8be057fd6e59265b7f233babb074dee1fc6746a623cfc5fb2"
+  },
+  {
+    "path": "src/clinicai/services/permission_service.py",
+    "status": "traced",
+    "method": "AST structural scan",
+    "note": "Selected per-lego revoke/grant transaction calls; synthetic fault injected through KyNangService; not full file.",
+    "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/phan_hoi_khach_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "81c71c844eb0da4db0af8d19e82dbb8672ff4f07c928b7ebd87837e9b8783cc1"
+  },
+  {
+    "path": "src/clinicai/services/phan_lo_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "14 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f1b063d43398c00e313c7fdcb317559b0047e70dc2fef6f2544ba26df47980c3"
+  },
+  {
+    "path": "src/clinicai/services/phan_thu.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "29a72d5ae5d4303348593ceef4fda630ecc09c0f38bdd8296ace35415549234e"
+  },
+  {
+    "path": "src/clinicai/services/phi_kham_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "db9542c581ac1196c1ad5b526985923fa4bce08b93e8f7492eec11a86b042d8b"
+  },
+  {
+    "path": "src/clinicai/services/phieu_kham_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "27 functions; broad exception handlers at [527]; contents not fully reviewed",
+    "sha256": "89beeeb28d94e3c73e81c44c86d3060d30bb3264e2ec811f75acc9c2f7684960"
+  },
+  {
+    "path": "src/clinicai/services/pos_config.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "6cc4f96c34fb98fb73fcbb7fe6f5079984a988c54aa0e3e8e0884d4c8a9ece12"
+  },
+  {
+    "path": "src/clinicai/services/pos_outbox.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "4 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "4b63946e8011ac0e338dcd25a96f67243ad488fb844f1660db4638ab437b78a9"
+  },
+  {
+    "path": "src/clinicai/services/pos_relay.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at [136]; contents not fully reviewed",
+    "sha256": "d9f07f1ad4e00410f260f3997c63c284d575adfe279682e839686e56e14d7344"
+  },
+  {
+    "path": "src/clinicai/services/providers/__init__.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "0 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "3791baa585a863f2dc8c1b307cea5c2bc55deff512d4a482ca48b6746e5ae6c1"
+  },
+  {
+    "path": "src/clinicai/services/providers/telegram.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "1 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "6516fd4dfc75f10183d7c04659d6226b3db2298da2c592873e644c4873a98e74"
+  },
+  {
+    "path": "src/clinicai/services/providers/zalo.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "c75db233171290e9ce104c94ff120e5bb0f6428070d213e462b74beca28708be"
+  },
+  {
+    "path": "src/clinicai/services/queue_order.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "13 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "7d0447e3591556c05a9ed9c9af41c17b1b5cece65f1c299a534fe76be45aaee4"
+  },
+  {
+    "path": "src/clinicai/services/queue_rows.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "8aa210072d52b8a47c46a4f3ca2744ba4fee18c86794534f234a43668aa11177"
+  },
+  {
+    "path": "src/clinicai/services/recall_job_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "03d5a04f6bc9d60601381c1ae1441b635fef10ab2cc1a4abe51dde9c39ad3f7b"
+  },
+  {
+    "path": "src/clinicai/services/recall_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "7b39372bc193fd8b4d35c34a1343479e814631cad3b7e9c93f5ee3ad00de043f"
+  },
+  {
+    "path": "src/clinicai/services/report_access_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "ba45ac3f6e09dd6b552b6b1fc68bdf3949a9dcffdaf3f06d8a285fb6311c551c"
+  },
+  {
+    "path": "src/clinicai/services/reports_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "5 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d5ccefee345c1a4a3ec57555ed0afffd8ca30383ac3b71b67522fcefbf70e21e"
+  },
+  {
+    "path": "src/clinicai/services/route_derivation.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "47004236d25d609da754cf14de49193b61df6419fecca3f4cb3cb858325f4edf"
+  },
+  {
+    "path": "src/clinicai/services/scheduling_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "13 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "98b41841108fe945a5c661689b12b18685a373707f538142f5c794d6b5844917"
+  },
+  {
+    "path": "src/clinicai/services/service_execution_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "34 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "848012f115919e2aea62f73f90c42aca7c75951bab01df02e31c2adbe39dfee9"
+  },
+  {
+    "path": "src/clinicai/services/service_log_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f055722497e9045cd90f384d704421c476a78950684fe8d024a66752689cb743"
+  },
+  {
+    "path": "src/clinicai/services/service_order_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "15 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "7769a29159ba4b807da90fea28694d1868458a5056ea1513b68dda7a9bfcf732"
+  },
+  {
+    "path": "src/clinicai/services/service_routing_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "47 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "11c7ff3530a707df55e9968137c9c778c84d90c6a542316112408b567522eda0"
+  },
+  {
+    "path": "src/clinicai/services/service_selection_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "14 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "f53c03757793f3c0188f1e435b5988199a51f5336eae7a936cbecb8f4452b4c5"
+  },
+  {
+    "path": "src/clinicai/services/sinh_hieu_buoi.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d0748495b158f98f486e3bffcfafb9d1dd1239c99b85a4c706f92f12b5c4fd20"
+  },
+  {
+    "path": "src/clinicai/services/sinh_hieu_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d9d36c2b7d0ce7d5287cfbb829ff07b433ae72fc4f896cf4fe1d0cda615fe995"
+  },
+  {
+    "path": "src/clinicai/services/slot_hold_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "9 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "874334281fafdb0f9e8de024b5e94367d8f05bcdafd71a40739397f05e96cc6a"
+  },
+  {
+    "path": "src/clinicai/services/so_sua_chi_dinh_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "25 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "0108fd520285c4d37067524257597193da4f010ea378fce4bc5f44f626ad2c80"
+  },
+  {
+    "path": "src/clinicai/services/staff_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "12 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "befd5d96da4020cf7f8a79d6a6efac2d393ddb4ddf5483d3b1c8f52d2166de06"
+  },
+  {
+    "path": "src/clinicai/services/telegram_bot.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "11 functions; broad exception handlers at [104, 232]; contents not fully reviewed",
+    "sha256": "73097ceabde22a286af74a19df539d8b96dc14df44ee3e895a12a23b1edf563a"
+  },
+  {
+    "path": "src/clinicai/services/tep_ket_qua_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "40 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d091de4b047312ae269f2dcdef5567baea0992e63f3d0a2fedd614202dd415b0"
+  },
+  {
+    "path": "src/clinicai/services/thai_ky_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "16 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "6aedec9a9f1686f857e32e8c51117f533524ff9e4bb44cc418d0dc027d865d07"
+  },
+  {
+    "path": "src/clinicai/services/thong_bao_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "7 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d8c83def38778d3ad66c4bb9a260d2dee688bcbeffa3ba0fa7dddee75b5d1100"
+  },
+  {
+    "path": "src/clinicai/services/tiep_don_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "14 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d3fc5e1b9f93a08cad0c490ab9ae595c126a8d97cc74469fd9b704e41741894c"
+  },
+  {
+    "path": "src/clinicai/services/tom_tat_tai_chinh_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "2 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "d98d49e331d2e861f073233f175b28cd08b15330314dd356c10dd36f70a3da08"
+  },
+  {
+    "path": "src/clinicai/services/traffic_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at [45]; contents not fully reviewed",
+    "sha256": "abc14c892a3f64a6815f15ed5f056b16a02e259e6a9bca3d0747f6ceb1d54ade"
+  },
+  {
+    "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "19 functions; broad exception handlers at [786]; contents not fully reviewed",
+    "sha256": "4b59ddfd1ff02c8337be745d0b8d2cc2bb2744bc0971479ff460680f5dd13f87"
+  },
+  {
+    "path": "src/clinicai/services/ultrasound_board_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "12 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "b2cb6a1755e762aede5f4708e5e1b94a2029dec04151f68434e7c479c39bfa7e"
+  },
+  {
+    "path": "src/clinicai/services/ultrasound_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "6 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "c4befc1184bb96f169eda38963513c89e053f9226fd67eb9cce1c546545caf6a"
+  },
+  {
+    "path": "src/clinicai/services/vat_tu_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "15 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "dbeaa06828f4d0bad9b27d2d8f882ddfbfe809190b9195c1468e58d5f2ff2aa2"
+  },
+  {
+    "path": "src/clinicai/services/visit_progress_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "3 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "292953fc6202293940d523fc7cae9a4214cc2c7e21db46e31f747b0e8ce484e0"
+  },
+  {
+    "path": "src/clinicai/services/week_appointments_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "7 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "c9f2951efcd8e5e833499f1e94ed9101708feccd56a876f15001143b1dd5a536"
+  },
+  {
+    "path": "src/clinicai/services/work_item_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "8 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396"
+  },
+  {
+    "path": "src/clinicai/services/xem_luot_service.py",
+    "status": "scanned",
+    "method": "AST structural scan",
+    "note": "20 functions; broad exception handlers at []; contents not fully reviewed",
+    "sha256": "927340cde559c0ee4c5ce408a36f762aa3932e0a81e39ad28982df8bbe0fee3b"
+  }
+]

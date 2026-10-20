@@ -1,0 +1,982 @@
+{
+  "chunk": "S24",
+  "findings": [
+    {
+      "tmp_id": "S24-1",
+      "title": "Tự lưu: rời màn hoặc đổi khách rồi lưu thất bại thì chữ đang gõ mất mà không ai được báo, và không có bản nháp bền",
+      "severity": "MEDIUM",
+      "category": "autosave_silent_loss",
+      "evidence_level": "confirmed_static",
+      "summary": "Hàng đợi tự lưu (HangDoiLuu) chỉ giữ trạng thái trong bộ nhớ của component. Khi component bị gỡ (đổi khách, đóng khung), móc chỉ gọi `void hangDoi.luuNgay()` và bỏ kết quả; các listener beforeunload/pagehide/visibilitychange bị gỡ cùng lúc. Nếu lần lưu cuối bị máy chủ từ chối (4xx: xung đột phiên bản, thiếu lý do...) thì không còn UI nào để hiện lỗi; nếu là lỗi mạng thì hàng đợi vẫn tự thử lại trong nền nhưng đóng tab sau đó không còn hộp 'Rời trang?'. Các màn dùng móc này không ghi bản nháp ra localStorage/IndexedDB.",
+      "trigger": "Bác sĩ/điều dưỡng gõ vào phiếu khám, đơn thuốc, phiếu kết quả hoặc ghi chú, rồi chuyển sang khách khác (key đổi làm màn bị gỡ) đúng lúc mạng chập chờn, hoặc lúc bản ghi đã bị người khác sửa (4xx). Hoặc: gõ xong, chuyển màn khi mạng đang đứt, rồi đóng tab.",
+      "impact": "Nội dung lâm sàng đã gõ biến mất mà người dùng tin rằng 'hệ thống tự lưu'. Không có dấu vết nào cho thấy việc mất (không nhật ký, không toast), nên chỉ lộ ra khi bệnh nhân hoặc đồng nghiệp hỏi lại.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/use-tu-luu.ts",
+          "line": 54,
+          "end_line": 83,
+          "detail": "beforeunload/pagehide/online/visibilitychange chỉ đăng ký khi màn còn mount; cleanup gỡ hết. Sau khi màn bị gỡ, đóng tab không còn hộp xác nhận dù hàng đợi còn chữ chưa lưu hoặc đang chờ thử lại."
+        },
+        {
+          "path": "src/dashboard/lib/use-tu-luu.ts",
+          "line": 87,
+          "end_line": 92,
+          "detail": "Khi unmount chỉ `void hangDoi.luuNgay()`: kết quả true/false bị bỏ, không ai hiển thị lỗi."
+        },
+        {
+          "path": "src/dashboard/lib/tu-luu.ts",
+          "line": 201,
+          "end_line": 218,
+          "detail": "Lỗi nghiệp vụ (thuLai=false) chỉ đặt this.loi và dừng, không hẹn thử lại; trạng thái đi qua onDoi=setTrangThai của component đã gỡ."
+        },
+        {
+          "path": "src/dashboard/lib/tu-luu.ts",
+          "line": 260,
+          "end_line": 267,
+          "detail": "guiKhiRoiTrang gọi `this.gui(true).catch(() => undefined)`: kết quả `{ok:false}` của lần gửi keepalive cũng bị bỏ."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx",
+          "line": 257,
+          "detail": "Một trong 6 nơi gọi useTuLuu (PhieuDieuTri.tsx:191, PhieuKetQua.tsx:238, GhiChuLuot.tsx:99, OTuVanTuLuu.tsx:66, PhieuKham.tsx:257, PhieuKhamLuot.tsx:365). Tìm localStorage trong _lam-viec chỉ thấy PhieuKham.tsx:407 nhớ một tuỳ chọn hiển thị, không có bản nháp nội dung."
+        }
+      ],
+      "limitations": "Chưa chạy trình duyệt. Chưa đọc từng hàm `gui` của 6 màn để xem có nơi nào tự hiện lỗi trước khi gỡ màn. Test tu-luu.test.mts kiểm hành vi hàng đợi nhưng không có ca 'unmount rồi lưu lỗi'.",
+      "recommendation": "Khi lưu cuối thất bại lúc rời màn: (1) ghi bản nháp (visitId, nội dung, revision) vào IndexedDB/localStorage có khoá theo người dùng và lượt, (2) lần mở lại đúng lượt đó phải hiện 'có bản nháp chưa lưu — khôi phục/bỏ', (3) giữ listener beforeunload ở mức module/hàng đợi toàn cục khi còn hàng đợi chưa sạch, (4) đẩy một cảnh báo toàn cục (toast gắn ở layout, không ở component bị gỡ) khi luuNgay trả false.",
+      "acceptance": "Test node: tạo HangDoiLuu với gui trả {ok:false, thuLai:false}, gọi cleanup của móc, khẳng định có bản nháp được ghi và một sự kiện cảnh báo được phát. Test e2e: gõ vào phiếu, giả lập 409, đổi khách; quay lại lượt cũ thấy bản nháp khôi phục được.",
+      "alignment": [
+        "Reality rõ",
+        "Nhân viên bền vững",
+        "Lỗi lặp thành cải tiến"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-005",
+        "CLIN-039"
+      ]
+    },
+    {
+      "tmp_id": "S24-2",
+      "title": "Gửi keepalive khi đóng tab có thể chạy chồng lên lần lưu đang bay, phá luật 'không bao giờ hai lần bay' và có thể nhân đôi dòng chưa có mã",
+      "severity": "MEDIUM",
+      "category": "autosave_concurrent_send",
+      "evidence_level": "design_gap",
+      "summary": "Đầu tệp tu-luu.ts khẳng định hàng đợi TUẦN TỰ vì hai lần bay song song gây lỗi 'người khác vừa lưu' oan. Nhưng guiKhiRoiTrang, khi có lần đang bay mang phiên bản cũ hơn (banDangBay < phienBan), vẫn gọi `gui(true)` ngay, tức hai request cùng ghi một hồ sơ. Test còn khẳng định hành vi này (hai request, request thứ hai keepalive).",
+      "trigger": "Người dùng gõ thêm một ký tự trong lúc một lần lưu đang bay, rồi đóng tab/tải lại trong vài trăm mili giây (pagehide). Với đơn thuốc, dòng chưa có mã nằm trong cả hai payload.",
+      "impact": "Request thứ hai đọc ref nhưng revision/mã dòng của lần thứ nhất chưa về: hoặc bị 409 (mất đúng phần chữ mới nhất, không ai thấy vì kết quả bị bỏ), hoặc nếu máy chủ không idempotent theo dòng thì tạo thêm dòng thuốc trùng (chính comment ở tu-luu.ts:262-263 nêu nguy cơ này). Body keepalive của fetch bị trình duyệt giới hạn khoảng 64 KiB nên phiếu lớn có thể bị bỏ im lặng.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/tu-luu.ts",
+          "line": 260,
+          "end_line": 267,
+          "detail": "Chỉ bỏ qua gửi khi `dangBay && banDangBay >= phienBan`; trường hợp bản đang bay cũ hơn thì gửi chồng."
+        },
+        {
+          "path": "src/dashboard/lib/tu-luu.ts",
+          "line": 1,
+          "end_line": 10,
+          "detail": "Luật tự nêu: tuần tự, không bao giờ hai lần bay."
+        },
+        {
+          "path": "src/dashboard/lib/tu-luu.test.mts",
+          "line": 274,
+          "end_line": 287,
+          "detail": "Test 'có chữ mới hơn thì gửi' xác nhận lần gửi chồng thứ hai (cho[1].keepalive === true)."
+        }
+      ],
+      "limitations": "Cần xem idempotency theo dòng đơn thuốc và kiểm revision ở backend (không có trong danh sách của tôi). Giới hạn 64 KiB là đặc tính của trình duyệt, chưa đo kích thước payload thật.",
+      "recommendation": "Khi đang có lần bay cũ: đợi nó xong (không thể trong pagehide) hoặc gộp bằng cách để máy chủ nhận khoá idempotency theo (lượt, dòng client_id) và so sánh revision theo kiểu 'ghi nếu mới hơn'. Dòng thuốc mới nên mang client_line_id do trình duyệt sinh để retry không nhân đôi. Đo kích thước body trước khi dùng keepalive, vượt ngưỡng thì dùng sendBeacon với phần thay đổi nhỏ (delta).",
+      "acceptance": "Test tích hợp: mô phỏng lần bay 1 chưa xong, đổi dữ liệu, gọi guiKhiRoiTrang, rồi cho cả hai request tới backend; kết quả phải đúng một dòng thuốc cho mỗi client_line_id và không có 409 làm mất phần chữ mới.",
+      "alignment": [
+        "Reality rõ",
+        "Nhân viên bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-003",
+        "CLIN-031",
+        "CLIN-039"
+      ]
+    },
+    {
+      "tmp_id": "S24-3",
+      "title": "Tên đăng nhập = email trong MỘT không gian GoTrue, đuôi mặc định ghi cứng dr4women.vn lúc build: chưa có khái niệm tenant ở cửa vào",
+      "severity": "MEDIUM",
+      "category": "tenant_login_namespace",
+      "evidence_level": "design_gap",
+      "summary": "emailTuTenDangNhap biến 'letan' thành 'letan@' + DUOI_TEN_DANG_NHAP, với đuôi lấy từ biến NEXT_PUBLIC (được nhúng lúc build) hoặc 'dr4women.vn'. Người dùng gõ sẵn '@' thì giữ nguyên bất kỳ miền nào. Danh tính nằm trong một bảng auth.users toàn cục; tenant chỉ được xác định sau đó qua clinic_membership. Các fixture đặt tên tài khoản cũng ghi cứng đuôi @dr4women.vn / @dr4women.local.",
+      "trigger": "Bán/triển khai cho phòng khám thứ hai dùng chung một GoTrue: hai phòng khám cùng muốn nick 'letan', 'bacsithanh' sẽ đụng nhau; mỗi phòng khám cần một bản build riêng chỉ để đổi đuôi; tên hiển thị tenHienThi chỉ rút gọn đuôi mặc định của bản build.",
+      "impact": "Không thể onboarding lặp lại nhiều phòng khám trên cùng hạ tầng mà không đổi cách đặt tên đăng nhập; nguy cơ trùng danh tính hoặc nhầm người khi đặt lại mật khẩu giữa các tenant. Không có lỗi bảo mật trực tiếp trong tệp này.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/ten-dang-nhap.ts",
+          "line": 16,
+          "end_line": 30,
+          "detail": "Đuôi lấy từ NEXT_PUBLIC_DUOI_TEN_DANG_NHAP (nhúng lúc build) hoặc 'dr4women.vn'; chuỗi có '@' giữ nguyên."
+        },
+        {
+          "path": "src/dashboard/lib/ten-dang-nhap.ts",
+          "line": 57,
+          "end_line": 61,
+          "detail": "tenHienThi chỉ bỏ đuôi mặc định; đuôi khác hiện nguyên."
+        },
+        {
+          "path": "supabase/fixtures/tai_khoan_theo_nguoi.sql",
+          "line": 39,
+          "end_line": 76,
+          "detail": "36 địa chỉ <chức vụ><tên>@dr4women.vn ghi cứng (dòng 41-76)."
+        },
+        {
+          "path": "supabase/fixtures/cskh_ba_nguoi_that.sql",
+          "line": 63,
+          "end_line": 69,
+          "detail": "Cùng mẫu @dr4women.vn."
+        }
+      ],
+      "limitations": "Chưa đọc trang đăng nhập và API tạo tài khoản (ngoài danh sách). Có thể tenant được chọn bằng cách khác ở backend; kết luận chỉ về lớp tên đăng nhập.",
+      "recommendation": "Đưa 'không gian tên đăng nhập' vào cấu hình tenant: đuôi suy ra từ tenant (theo tên miền/subdomain) lúc chạy chứ không nhúng lúc build; ràng buộc tạo tài khoản chỉ cho đuôi thuộc tenant của người tạo; thêm cột/bảng ánh xạ tenant→đuôi. Lưu danh sách nhân sự mẫu ngoài repo sản phẩm.",
+      "acceptance": "Test: hai tenant với đuôi khác nhau cùng tạo nick 'letan' thành công, đăng nhập đúng tenant của từng nick; tạo tài khoản với đuôi của tenant khác bị từ chối.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định bằng chứng"
+      ],
+      "extends": [
+        "DB-005"
+      ],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S24-4",
+      "title": "Kịch bản SQL trong fixtures ghi thẳng auth.users, đặt lại mật khẩu và xoá dữ liệu mà không có chốt môi trường; một bản đã từng chạy nhầm lên prod",
+      "severity": "HIGH",
+      "category": "fixture_no_env_guard",
+      "evidence_level": "confirmed_static",
+      "summary": "Các tệp supabase/fixtures/*.sql (staff_logins, luot_kham_demo, tai_khoan_chi_xem_kho, cskh_ba_nguoi_that, clinic_roster...) chỉ ghi 'LOCAL/STAGING ONLY' trong comment. Không có câu lệnh nào tự kiểm môi trường (ví dụ từ chối khi có bệnh nhân không phải DEMO, hoặc yêu cầu cờ rõ ràng). Chúng upsert thẳng vào auth.users/auth.identities, ON CONFLICT DO UPDATE đặt lại encrypted_password về giá trị công khai trong repo và bật lại is_active, xoá cứng clinic_membership của vai khác, và DELETE auth.users 'clinic@dr4women.local'. scripts/undo-roster-fixture.sh ghi lại sự cố thật: clinic_roster.sql đã được nạp nhầm lên prod, tạo 35 dòng staff trùng người.",
+      "trigger": "Người vận hành chạy nhầm `psql $PROD -f supabase/fixtures/staff_logins.sql` (hoặc luot_kham_demo/tai_khoan_chi_xem_kho) vì chúng nằm cạnh các kịch bản vận hành thật như cskh_ba_nguoi_that.sql, tai_khoan_theo_nguoi.sql, lich_lam_viec_tuan_mau.sql.",
+      "impact": "Trên môi trường có tài khoản thật cùng email (ví dụ ql@dr4women.local nếu còn), mật khẩu bị đặt về chuỗi công khai và tài khoản quản lý bị bật lại; vai thành viên bị xoá cứng; tài khoản dùng chung bị xoá. Với clinic_roster.sql đã xảy ra thật: dữ liệu nhân sự trùng, làm hỏng chốt an toàn RLS đếm 'người chưa có login'.",
+      "evidence": [
+        {
+          "path": "supabase/fixtures/staff_logins.sql",
+          "line": 13,
+          "end_line": 14,
+          "detail": "Chỉ là comment 'LOCAL/STAGING ONLY ... Never run against a database holding real patient data'."
+        },
+        {
+          "path": "supabase/fixtures/staff_logins.sql",
+          "line": 83,
+          "end_line": 90,
+          "detail": "ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password: đặt lại mật khẩu về pw='clinic-test-pw-123' (dòng 21)."
+        },
+        {
+          "path": "supabase/fixtures/staff_logins.sql",
+          "line": 132,
+          "end_line": 142,
+          "detail": "DELETE FROM clinic_membership WHERE role <> ...; DELETE FROM auth.users WHERE email='clinic@dr4women.local'."
+        },
+        {
+          "path": "supabase/fixtures/clinic_roster.sql",
+          "line": 38,
+          "end_line": 40,
+          "detail": "Chốt duy nhất là clinic tồn tại; không kiểm dữ liệu thật; id cố định `ON CONFLICT (id)` không nhận ra người đã có."
+        },
+        {
+          "path": "scripts/undo-roster-fixture.sh",
+          "line": 1,
+          "end_line": 22,
+          "detail": "Kể sự cố: fixture nạp nhầm lên prod, 35 dòng staff mới, 18 trùng tên, 90 thay vì 55 người hoạt động."
+        },
+        {
+          "path": "supabase/fixtures/tai_khoan_chi_xem_kho.sql",
+          "line": 90,
+          "detail": "DELETE FROM capability_grant của đúng người đó rồi cấp lại: lại là ghi đè quyền không có chốt môi trường."
+        },
+        {
+          "path": "supabase/fixtures/cskh_ba_nguoi_that.sql",
+          "line": 150,
+          "end_line": 170,
+          "detail": "UPDATE auth.users SET email trực tiếp, không qua GoTrue (không thu hồi phiên cũ)."
+        }
+      ],
+      "limitations": "Chưa biết prod hiện còn tài khoản @dr4women.local nào. Việc chạy là thao tác tay của người có quyền DB nên cần lỗi người vận hành; sự cố undo-roster cho thấy khả năng này đã xảy ra. dev-up.sh có thể có chốt riêng (đã thấy chú thích ở dòng 277-278) nhưng bản thân tệp SQL không có.",
+      "recommendation": "(1) Tách thư mục: `supabase/fixtures/demo/` (chỉ dev) và `ops/provision/` (kịch bản có tham số tenant). (2) Mỗi tệp demo mở đầu bằng khối bắt buộc: `DO $$ BEGIN IF current_setting('app.cho_phep_fixture', true) IS DISTINCT FROM 'dev' OR EXISTS (SELECT 1 FROM patient WHERE patient_code NOT LIKE 'DEMO-%' AND patient_code NOT LIKE 'LK-DEMO-%' AND patient_code <> 'BN-LOCAL-1') THEN RAISE EXCEPTION ... END IF; END $$;`. (3) Không đặt lại mật khẩu khi tài khoản đã tồn tại. (4) Mật khẩu fixture sinh ngẫu nhiên và ghi ra tệp .local ngoài git.",
+      "acceptance": "Test CI: chạy từng fixture trên DB có một bệnh nhân mã BN-xxx thật phải thất bại ngay ở khối chốt, không thay đổi dòng nào (đếm checksum auth.users trước/sau); chạy trên DB sạch có cờ app.cho_phep_fixture thì thành công.",
+      "alignment": [
+        "Phát hiện sớm",
+        "Lỗi lặp thành cải tiến",
+        "Ownership rõ"
+      ],
+      "extends": [
+        "SEC-032"
+      ],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S24-5",
+      "title": "ngay_dieu_phoi_demo.sql đóng toàn bộ lượt mở của các ngày trước và xoá service_order theo mã trên cả phòng khám, không chỉ dữ liệu DEMO-*",
+      "severity": "MEDIUM",
+      "category": "fixture_blast_radius",
+      "evidence_level": "confirmed_static",
+      "summary": "Mục 1 của tệp (dòng 59-85) cập nhật mọi visit chưa đóng của clinic có check-in trước hôm nay thành INCOMPLETE, huỷ mọi work_item còn mở, và đánh COMPLETED mọi appointment CHECKED_IN của ngày cũ, không lọc theo mã bệnh nhân. Chỉ phần dưới (dòng 87-125) mới lọc patient_code LIKE 'DEMO-%' (comment dòng 90 'Lượt của bệnh nhân THẬT không bị đụng' không đúng cho phần trên). Dòng 260-262 DELETE FROM service_order cho mọi lượt với service_code SA-THAI/XN-MAU/TT-DOT.",
+      "trigger": "Chạy tệp trên staging chứa bản sao prod (CLAUDE.md mô tả staging là bản sao đã che, staging local là bản sao chưa che) hoặc trên DB đã nạp dữ liệu thật vì tệp được coi là 'local/staging'.",
+      "impact": "Dữ liệu staging bị đổi: lượt thật của các ngày trước bị đóng 'Dọn dữ liệu demo ngày trước', chỉ định thật bị xoá nên phép thử UAT trên staging không còn phản ánh prod. Nếu chạy nhầm trên prod thì mất chỉ định lâm sàng (DELETE cứng).",
+      "evidence": [
+        {
+          "path": "supabase/fixtures/ngay_dieu_phoi_demo.sql",
+          "line": 59,
+          "end_line": 85,
+          "detail": "UPDATE work_item/visit/appointment chỉ lọc clinic_id + closed_at IS NULL + ngày < hôm nay."
+        },
+        {
+          "path": "supabase/fixtures/ngay_dieu_phoi_demo.sql",
+          "line": 87,
+          "end_line": 90,
+          "detail": "Comment khẳng định lượt BN-* không bị đụng nhưng chỉ đúng cho khối thứ hai."
+        },
+        {
+          "path": "supabase/fixtures/ngay_dieu_phoi_demo.sql",
+          "line": 259,
+          "end_line": 262,
+          "detail": "DELETE FROM service_order WHERE clinic_id AND service_code IN (...), không lọc DEMO."
+        },
+        {
+          "path": "supabase/fixtures/demo_clinic_day.sql",
+          "line": 13,
+          "end_line": 14,
+          "detail": "Tuyên bố 'Chạy lại được' trong khi ngay_dieu_phoi_demo.sql:4-7 nói DELETE FROM visit làm nó dừng ở lần chạy thứ hai: tài liệu trong tệp lệch nhau."
+        }
+      ],
+      "limitations": "Chưa biết mã dịch vụ SA-THAI/XN-MAU/TT-DOT có tồn tại trên dữ liệu thật hay không (có thể mã chỉ có ở local). Với bảng chỉ-ghi-thêm có thể trigger chặn DELETE; chưa đọc trigger.",
+      "recommendation": "Lọc mọi câu UPDATE/DELETE bằng EXISTS patient DEMO-* (hoặc cột is_demo); đổi DELETE service_order thành huỷ có điều kiện visit thuộc DEMO-*; thêm chốt môi trường như S24-4; sửa header demo_clinic_day.sql cho đúng.",
+      "acceptance": "Test SQL: DB có một visit/service_order của BN-xxx cũ; chạy fixture; đếm lại phải giữ nguyên dòng của BN-xxx.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "S24-4"
+      ]
+    },
+    {
+      "tmp_id": "S24-6",
+      "title": "lich_lam_viec_tuan_mau.sql đoán phòng khám theo ngày tạo, ghép nhân sự theo tên ngắn toàn cục, ghi ca APPROVED trực tiếp và hết hạn phụ thuộc người nhớ chạy lại",
+      "severity": "MEDIUM",
+      "category": "roster_seed_tenant_ownership",
+      "evidence_level": "design_gap",
+      "summary": "Tệp là công cụ vận hành lịch trực thật (DANG-LAM.md:2590 nhắc 'chạy lại với tu_ngay mới' trước 31/01/2027). Nó lấy phòng khám bằng `ORDER BY created_at LIMIT 1` (dòng 129) dù comment tự nói 'có phòng khám thứ hai thì phải truyền vào, không đoán'; ghép staff bằng short_name toàn cục (dòng 143, 163-164) trong khi bảng staff không có clinic_id; chèn thẳng status='APPROVED' (dòng 158), bỏ qua luồng duyệt và nhật ký; tuần nào đã có dù một dòng thì bỏ qua cả tuần.",
+      "trigger": "(a) Có phòng khám thứ hai: ca của phòng khám cũ nhất được gán staff có cùng short_name của phòng khác. (b) Hai nhân sự trùng short_name đang hoạt động: CROSS JOIN nhân đôi dòng ca. (c) Hết tuần được nạp: không có việc hệ thống nào nhắc, lịch trực tuần sau trống lặng lẽ.",
+      "impact": "Ca trực 'đã duyệt' do SQL tạo ảnh hưởng quyền theo ca và hiển thị lịch; sai tenant/sai người ở đây khó thấy. Hết hạn thủ công làm ownership của việc dựng lịch nằm trong trí nhớ của một dev.",
+      "evidence": [
+        {
+          "path": "supabase/fixtures/lich_lam_viec_tuan_mau.sql",
+          "line": 127,
+          "end_line": 129,
+          "detail": "Comment 'không đoán' ngay trên câu `SELECT id FROM clinic ORDER BY created_at LIMIT 1`."
+        },
+        {
+          "path": "supabase/fixtures/lich_lam_viec_tuan_mau.sql",
+          "line": 141,
+          "end_line": 165,
+          "detail": "JOIN staff theo short_name và is_active, không lọc theo tenant; LEFT JOIN nhân đôi nếu trùng short_name."
+        },
+        {
+          "path": "supabase/fixtures/lich_lam_viec_tuan_mau.sql",
+          "line": 147,
+          "end_line": 159,
+          "detail": "INSERT work_roster với status 'APPROVED' cứng."
+        },
+        {
+          "path": "supabase/fixtures/lich_lam_viec_tuan_mau.sql",
+          "line": 167,
+          "end_line": 170,
+          "detail": "Bỏ qua cả tuần nếu đã có bất kỳ dòng nào của clinic."
+        },
+        {
+          "path": "supabase/fixtures/staff_logins.sql",
+          "line": 112,
+          "end_line": 114,
+          "detail": "Xác nhận staff không mang clinic_id (ADR-0009): ghép theo tên là ghép toàn cục."
+        },
+        {
+          "path": "docs/DANG-LAM.md",
+          "line": 2590,
+          "end_line": 2591,
+          "detail": "Việc 'Lịch làm việc hết hạn 31/01/2027 — chạy lại' là một mục ghi chú, không phải tác vụ có chủ/hạn."
+        }
+      ],
+      "limitations": "Không biết tuần công bố (roster_week) có được tạo bởi quy trình khác không; tệp không tạo roster_week nên lưới sức chứa chỉ coi tuần là công bố khi quản lý bấm Áp dụng. Chưa kiểm trigger trên work_roster có ghi audit hay không.",
+      "recommendation": "Biến thành tác vụ có tham số (clinic_id bắt buộc, danh sách staff_id thay vì tên), tạo qua cùng service duyệt/audit với màn Lịch làm việc, và thêm một việc 'lịch trực sắp hết' có chủ + hạn khi tuần cuối được nạp còn dưới N tuần.",
+      "acceptance": "Test: hai clinic cùng có staff short_name 'Thư'; chạy tệp cho clinic A chỉ tạo dòng gắn staff của A, không dòng nào cho clinic B; khi lịch còn < 4 tuần phải có đúng một task mở cho người phụ trách lịch.",
+      "alignment": [
+        "Ownership rõ",
+        "Unknown ngắn",
+        "Phát hiện sớm"
+      ],
+      "extends": [
+        "DB-005"
+      ],
+      "related_ids": [
+        "SEC-028"
+      ]
+    },
+    {
+      "tmp_id": "S24-7",
+      "title": "xoa_tai_khoan_dung_chung.sql coi 'còn người thật cùng bộ phận' là đủ để xoá tài khoản dùng chung, trong khi quyền thật nằm ở capability_grant",
+      "severity": "LOW",
+      "category": "account_cleanup_lockout",
+      "evidence_level": "design_gap",
+      "summary": "Kịch bản xoá cứng auth.users/auth.identities của mọi staff có full_name LIKE '%(tài khoản thử)' nếu có ít nhất một staff khác cùng primary_department, có auth_user_id, không mang hậu tố đó. Không kiểm người thay thế có capability tương đương (ví dụ quyền tạo/đặt lại tài khoản), không lọc theo clinic, và nhận diện bằng đuôi tên hiển thị có thể bị sửa tay.",
+      "trigger": "Chạy tệp khi bộ phận MANAGEMENT có một nhân sự thật nhưng nhân sự đó chưa được cấp capability quản trị tài khoản, hoặc khi đổi tên hiển thị tài khoản thử.",
+      "impact": "Khoá chính phòng khám ra khỏi chức năng quản trị tài khoản (DANG-LAM.md:2574-2575 nói đây là việc không ai sửa được nữa), hoặc xoá nhầm tài khoản có tên trùng mẫu. Một lần chạy, nhưng khó hoàn tác.",
+      "evidence": [
+        {
+          "path": "supabase/fixtures/xoa_tai_khoan_dung_chung.sql",
+          "line": 12,
+          "end_line": 29,
+          "detail": "Điều kiện an toàn chỉ đếm staff cùng primary_department có auth_user_id."
+        },
+        {
+          "path": "supabase/fixtures/xoa_tai_khoan_dung_chung.sql",
+          "line": 33,
+          "end_line": 39,
+          "detail": "UPDATE staff/membership rồi DELETE cứng auth.identities, auth.users."
+        },
+        {
+          "path": "supabase/fixtures/ten_tai_khoan_thu.sql",
+          "line": 5,
+          "end_line": 16,
+          "detail": "Dấu '(tài khoản thử)' do tệp này gán bằng so khớp full_name cũ: nhận diện chỉ dựa vào chuỗi."
+        }
+      ],
+      "limitations": "Chưa kiểm mô hình capability (21 lego) để xác nhận vai MANAGEMENT có tự động mang quyền tài khoản. Có thể đã chạy xong và không còn dùng.",
+      "recommendation": "Cột đánh dấu `is_shared_account` rõ ràng; điều kiện xoá = tồn tại người khác đang giữ đủ capability của tài khoản bị xoá (so capability_grant) và có phiên đăng nhập gần đây; thu hồi phiên qua GoTrue admin thay vì DELETE trực tiếp.",
+      "acceptance": "Test: bộ phận có người thật nhưng chưa có capability staff.manage thì kịch bản phải GIỮ tài khoản dùng chung và in lý do.",
+      "alignment": [
+        "Ownership rõ",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-006"
+      ]
+    },
+    {
+      "tmp_id": "S24-8",
+      "title": "Dữ liệu nhân sự thật của Dr4Women (tên, học hàm, địa chỉ đăng nhập, cách ghép Notion) nằm trong repo sản phẩm, trái với tuyên bố 'không chứa PII nhân sự'",
+      "severity": "LOW",
+      "category": "client_data_in_product_repo",
+      "evidence_level": "confirmed_static",
+      "summary": "clinic_roster.sql ghi 'KHÔNG chứa PII nhân sự' nhưng 35 người được liệt kê bằng tên gọi thật, cùng ten_day_du_bac_si.sql (họ tên đầy đủ + học hàm), tai_khoan_theo_nguoi.sql (địa chỉ đăng nhập từng người) và cskh_ba_nguoi_that.sql. Mô hình tên đăng nhập <chức vụ><tên>@dr4women.vn kèm mật khẩu chung công khai trong chính các tệp này (-v mat_khau=12345678) cho phép suy ra tài khoản thật.",
+      "trigger": "Đưa repo cho phòng khám khác/đối tác, hoặc repo bị lộ; hoặc bán sản phẩm với cùng cây mã.",
+      "impact": "Lộ danh tính nhân viên và mẫu tên đăng nhập; làm cây mã khó đóng gói cho phòng khám thứ hai (muốn xoá phải xoá lịch sử). Rủi ro thực tế phụ thuộc mật khẩu hiện hành.",
+      "evidence": [
+        {
+          "path": "supabase/fixtures/clinic_roster.sql",
+          "line": 16,
+          "end_line": 18,
+          "detail": "Tuyên bố không chứa PII nhân sự."
+        },
+        {
+          "path": "supabase/fixtures/clinic_roster.sql",
+          "line": 52,
+          "end_line": 106,
+          "detail": "35 nhân sự có tên thật, bộ phận và kiêm nhiệm."
+        },
+        {
+          "path": "supabase/fixtures/ten_day_du_bac_si.sql",
+          "line": 19,
+          "end_line": 32,
+          "detail": "Họ tên đầy đủ kèm học hàm của 14 bác sĩ."
+        },
+        {
+          "path": "supabase/fixtures/tai_khoan_theo_nguoi.sql",
+          "line": 15,
+          "end_line": 16,
+          "detail": "Ví dụ lệnh chạy `-v mat_khau=12345678`, danh sách địa chỉ đăng nhập từng người ở dòng 39-76."
+        }
+      ],
+      "limitations": "Có thể repo là riêng tư và chủ sản phẩm đã chấp nhận. Chưa kiểm mật khẩu hiện hành trên prod. rate-limit đăng nhập 20 lần/phút/IP (docker/auth-guard.conf:31) giảm nhưng không loại bỏ nguy cơ dò mật khẩu chung.",
+      "recommendation": "Chuyển dữ liệu khách ra kho riêng (repo cấu hình khách hoặc thư mục ngoài git), repo sản phẩm chỉ giữ mẫu ẩn danh; bắt buộc mật khẩu ngẫu nhiên hoặc liên kết đặt mật khẩu lần đầu khi cấp tài khoản.",
+      "acceptance": "Quét repo không còn tệp chứa họ tên nhân viên thật hoặc địa chỉ đăng nhập; script cấp tài khoản từ chối mật khẩu trong danh sách phổ biến.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định bằng chứng"
+      ],
+      "extends": [
+        "SEC-032"
+      ],
+      "related_ids": [
+        "DB-004"
+      ]
+    },
+    {
+      "tmp_id": "S24-9",
+      "title": "Caddy gửi Permissions-Policy camera=() trong khi màn kho quét mã dùng getUserMedia: tính năng quét có thể hỏng trên trình duyệt thi hành chính sách và thông báo lỗi đổ cho 'quyền camera'",
+      "severity": "MEDIUM",
+      "category": "header_blocks_feature",
+      "evidence_level": "design_gap",
+      "summary": "Cả hai khối site của caddy/Caddyfile và Caddyfile.staging đặt `Permissions-Policy: camera=(), microphone=(), geolocation=()` cho mọi phản hồi. CameraQuet.tsx (quét EAN/QR/DataMatrix lô thuốc) gọi decodeFromConstraints, tức getUserMedia, trên chính tài liệu đó. Trên Chromium, camera=() chặn getUserMedia (NotAllowedError); catch hiện 'Không mở được camera — kiểm tra quyền camera của trình duyệt', hướng người dùng sai nguyên nhân.",
+      "trigger": "Người dùng mở tab Kiểm kho/Nhập thuốc bằng Chrome/Edge (Android, máy tính bảng, PC) và bấm quét bằng camera.",
+      "impact": "Nhân viên quay lại gõ tay số lô/HSD (nguồn sai số), hoặc gọi người hỗ trợ; lỗi lặp lại mà không có dấu vết phía máy chủ. Không có test nào canh hai bên khớp nhau.",
+      "evidence": [
+        {
+          "path": "caddy/Caddyfile",
+          "line": 127,
+          "end_line": 139,
+          "detail": "Khối header có Permissions-Policy camera=() (lặp ở dòng 234)."
+        },
+        {
+          "path": "caddy/Caddyfile.staging",
+          "line": 75,
+          "detail": "Cùng chính sách."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/CameraQuet.tsx",
+          "line": 50,
+          "end_line": 70,
+          "detail": "decodeFromConstraints({video:{facingMode...}}); lỗi bị gom thành thông báo về quyền camera."
+        },
+        {
+          "path": "docs/GIAI-THICH-CODE.md",
+          "line": 7751,
+          "detail": "Tài liệu mô tả header 'khoá camera/mic/GPS' như chủ ý, không nhắc ngoại lệ cho màn quét."
+        }
+      ],
+      "limitations": "Chưa chạy trên trình duyệt. Safari/iOS thi hành Permissions-Policy khác Chromium (có thể quét vẫn chạy trên iPhone). Chưa kiểm xem Next có ghi đè header cho route kho (không thấy cấu hình headers trong next.config.ts).",
+      "recommendation": "Đổi thành `camera=(self)` (giữ microphone/geolocation tắt); thêm test Python kiểu test_caddy_cache_tinh.py đọc Caddyfile và khẳng định camera=(self) khi còn mã dùng getUserMedia; sửa thông báo lỗi để phân biệt NotAllowedError do policy với từ chối của người dùng.",
+      "acceptance": "Test CI: grep getUserMedia trong src/dashboard thì Caddyfile phải chứa camera=(self). Kiểm tay: Chrome Android mở camera quét lô thành công.",
+      "alignment": [
+        "Reality rõ",
+        "Ít gián đoạn",
+        "Lỗi lặp thành cải tiến"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S24-10",
+      "title": "database.generated.ts là ảnh chụp lược đồ prod cũ (35 bảng), không ai import, trái với migration hiện hành",
+      "severity": "LOW",
+      "category": "stale_generated_types",
+      "evidence_level": "confirmed_static",
+      "summary": "Tệp 2.600 dòng liệt kê 35 bảng, gồm schema_migrations kiểu prod cũ (cùng con số '35 tables' mà hotfix 20260801 nêu cho prod chưa theo dòng migration của repo). Insert của mọi bảng ghi clinic_id là tuỳ chọn trong khi migration 20260730000014 đã bỏ DEFAULT default_clinic_id(). payment không có cột giảm giá/hoàn, visit không có closed_at, view patient_summary còn national_id_number. Không có tệp nào import nó và không có lệnh gen types nào trong repo.",
+      "trigger": "Dev hoặc agent AI dựa vào tệp này để hiểu lược đồ hoặc sinh code gọi bảng.",
+      "impact": "Sai lệch tri thức (nghĩ clinic_id có mặc định, nghĩ ít bảng); gợi ý mô hình dữ liệu cũ cho người mới. Không ảnh hưởng chạy thật vì không được dùng.",
+      "evidence": [
+        {
+          "path": "src/dashboard/types/database.generated.ts",
+          "line": 9,
+          "end_line": 2476,
+          "detail": "Database.public.Tables có 35 bảng; Insert clinic_id?: string; schema_migrations xuất hiện ở khoảng dòng 1616."
+        },
+        {
+          "path": "supabase/migrations/20260730000014_drop_clinic_id_default.sql",
+          "line": 1,
+          "end_line": 14,
+          "detail": "Bỏ DEFAULT default_clinic_id() trên các bảng tenant."
+        },
+        {
+          "path": "supabase/hotfix/20260801_prod_f_unaccent_qualify.sql",
+          "line": 6,
+          "end_line": 9,
+          "detail": "Nhắc prod cũ 'already has 35 tables'."
+        }
+      ],
+      "limitations": "Chỉ đọc nhanh phần đầu, danh sách bảng, view/hàm và phần cuối; không đọc từng cột của mọi bảng. git grep không thấy import nhưng chưa kiểm cấu hình bundler ngoài src.",
+      "recommendation": "Xoá tệp, hoặc sinh lại từ DB hiện hành trong CI kèm kiểm khác biệt (giống cách docs/BAN-DO-CODE.md được canh).",
+      "acceptance": "CI thất bại nếu tệp types lệch DB đã áp hết migration, hoặc tệp không còn tồn tại.",
+      "alignment": [
+        "Quyết định bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004"
+      ]
+    },
+    {
+      "tmp_id": "S24-11",
+      "title": "Nút 'Xuất Excel' cạo bảng đang hiển thị thành CSV: không kèm phạm vi/ngày/người xuất, có thể làm sai số lô và mã có số 0 đầu khi mở bằng Excel",
+      "severity": "LOW",
+      "category": "export_dom_scrape",
+      "evidence_level": "design_gap",
+      "summary": "XuatBangTrongVung tự thêm nút cho mọi vùng có <table> hay ul.rounded-card/space-y-3; xuatBangDangXem đọc DOM (bỏ hàng ẩn display:none, thay input bằng giá trị đang gõ, bỏ nút) rồi tải CSV UTF-8 BOM, ô nào cũng bọc dấu nháy kép. Excel sẽ tự suy kiểu: '001234' thành 1234, '1-2' có thể thành ngày; tiền tố chống công thức khiến '+84...' hiện thêm dấu '. File không ghi bộ lọc, thời điểm, số dòng, hay cảnh báo danh sách có bị cắt.",
+      "trigger": "Dược sĩ xuất tab Tồn/Nhập/Kiểm kê của KhoThuoc/KhoVatTu để đối soát hoặc gửi kế toán; trang có phân trang/lọc hoặc ô kiểm kê chưa lưu.",
+      "impact": "Số lô và mã bị đổi dạng trong bảng tính (khó truy vết lô khi thu hồi); báo cáo đối soát mang số chưa lưu trong ô kiểm kê như thể là số chính thức; người nhận không biết file thiếu dòng.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/xuat-bang-excel.ts",
+          "line": 3,
+          "end_line": 8,
+          "detail": "oCsv bọc mọi giá trị trong dấu nháy kép (Excel vẫn suy kiểu số/ngày) và thêm ' trước +,=,@,-."
+        },
+        {
+          "path": "src/dashboard/lib/xuat-bang-excel.ts",
+          "line": 14,
+          "end_line": 26,
+          "detail": "noiDungO thay input/select/textarea bằng giá trị hiện tại, kể cả chưa lưu."
+        },
+        {
+          "path": "src/dashboard/lib/xuat-bang-excel.ts",
+          "line": 28,
+          "end_line": 47,
+          "detail": "Chỉ các hàng không ẩn trong DOM; không siêu dữ liệu."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KhoThuoc.tsx",
+          "line": 147,
+          "end_line": 175,
+          "detail": "Bọc cả tab kiểm kê (KiemKeCa, KiemKho) và XuatNhapTon trong cùng vùng xuất."
+        }
+      ],
+      "limitations": "Chưa kiểm các bảng đó có phân trang/cắt hay không; việc Excel đổi kiểu là hành vi chung của phần mềm đối tượng, chưa chạy thử.",
+      "recommendation": "Thêm dòng siêu dữ liệu đầu file (tên màn, bộ lọc, thời điểm, người xuất, số dòng/tổng) và ép cột mã/lô thành văn bản (định dạng `=\"001234\"` hoặc xuất .xlsx có kiểu ô); không xuất giá trị ô nhập chưa lưu hoặc ghi chú rõ 'chưa lưu'; ưu tiên xuất từ API có đếm tổng.",
+      "acceptance": "Test node: ô '001234' và '1-2' khi xuất giữ nguyên văn bản; file có dòng đầu ghi số dòng; ô input chưa lưu được đánh dấu.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-022"
+      ]
+    },
+    {
+      "tmp_id": "S24-12",
+      "title": "Thư mục supabase/hotfix còn kịch bản áp thẳng cho prod đời cũ; tệp 'optional' đặt tên ràng buộc lệch nên áp bây giờ sẽ không nới gì mà thêm ràng buộc thừa",
+      "severity": "LOW",
+      "category": "stale_hotfix_scripts",
+      "evidence_level": "confirmed_static",
+      "summary": "optional_allow_zero_payment.sql DROP/ADD constraint `payment_positive_amount_chk` để cho phép thanh toán 0 đồng, nhưng ràng buộc hiện hành tên `payment_positive_amount_check`, đã được viết lại bởi 20260730000016 và 20261013100000 (giảm giá). Áp tệp này nay chỉ thêm một CHECK (amount >= 0) song song. Hai tệp hotfix nằm ngoài ledger migration, mô tả hạ tầng đã chết (prod cũ, 'supabase db push').",
+      "trigger": "Operator thấy tệp 'optional' và áp theo ghi chú cutover, hoặc AI dùng nó như tiền lệ để nới ràng buộc tiền.",
+      "impact": "Gây cảm giác an toàn giả (tưởng đã nới/đã siết) và để lại ràng buộc thừa mà không qua migration; tiền lệ xấu cho 'hotfix' ngoài ledger. Hiện chưa gây hỏng.",
+      "evidence": [
+        {
+          "path": "supabase/hotfix/optional_allow_zero_payment.sql",
+          "line": 17,
+          "end_line": 23,
+          "detail": "Tên `_chk`; comment 'OPTIONAL, NOT APPLIED'."
+        },
+        {
+          "path": "supabase/migrations/20260730000016_payment_audit.sql",
+          "line": 36,
+          "end_line": 42,
+          "detail": "Ràng buộc hiện hành tên payment_positive_amount_check."
+        },
+        {
+          "path": "supabase/migrations/20261013100000_giam_gia.sql",
+          "line": 89,
+          "end_line": 91,
+          "detail": "Viết lại ràng buộc giảm giá."
+        },
+        {
+          "path": "supabase/hotfix/20260801_prod_f_unaccent_qualify.sql",
+          "line": 1,
+          "end_line": 24,
+          "detail": "Hotfix 'PRODUCTION ONLY' cho prod đã bỏ; nói 'Production has therefore never had a restorable backup'."
+        }
+      ],
+      "limitations": "Không rõ f_unaccent trên prod hiện tại đã được đính chính qua migration nào (đọc nhanh, không kiểm toàn bộ migration).",
+      "recommendation": "Chuyển hai tệp sang docs/legacy hoặc xoá; mọi thay đổi tiền phải đi qua migration có ledger.",
+      "acceptance": "Không còn tệp .sql nằm ngoài supabase/migrations mà có DDL; CI quét ALTER/CREATE ngoài migrations.",
+      "alignment": [
+        "Lỗi lặp thành cải tiến"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-006",
+        "OPS-007"
+      ]
+    },
+    {
+      "tmp_id": "S24-13",
+      "title": "Chưa có Content-Security-Policy ở cả Caddy lẫn Next; ứng dụng hiển thị HTML suy ra từ tệp Word người khác gửi",
+      "severity": "LOW",
+      "category": "missing_csp",
+      "evidence_level": "design_gap",
+      "summary": "caddy/Caddyfile đặt HSTS, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, nhưng không có Content-Security-Policy; next.config.ts không khai báo headers(). XemTaiLieu chuyển DOCX sang HTML bằng mammoth rồi nhét vào iframe sandbox='' (tốt: không chạy mã), nhưng phần còn lại của ứng dụng không có lớp phòng thủ thứ hai nếu có một chỗ render HTML thiếu thoát.",
+      "trigger": "Một chỗ nào đó của ứng dụng hiển thị chuỗi do người ngoài kiểm soát (tệp đối tác, ghi chú) mà thiếu thoát.",
+      "impact": "XSS nếu xảy ra có toàn quyền phiên bác sĩ/thu ngân; CSP sẽ giảm tác hại. Chưa thấy chỗ cụ thể bị lỗi.",
+      "evidence": [
+        {
+          "path": "caddy/Caddyfile",
+          "line": 126,
+          "end_line": 140,
+          "detail": "Danh sách header không có CSP."
+        },
+        {
+          "path": "src/dashboard/next.config.ts",
+          "line": 35,
+          "end_line": 39,
+          "detail": "Cấu hình chỉ có output standalone và staleTimes; không headers()."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungTep.tsx",
+          "line": 108,
+          "end_line": 115,
+          "detail": "iframe sandbox='' srcDoc từ mammoth: mẫu tốt cần giữ."
+        }
+      ],
+      "limitations": "Chưa quét toàn bộ nơi dùng dangerouslySetInnerHTML (ngoài danh sách). Chưa kiểm proxy/middleware Next có thêm header.",
+      "recommendation": "Bắt đầu bằng CSP report-only (default-src 'self'; frame-ancestors 'none'; object-src 'none') rồi siết dần; ghi báo cáo vào kho lỗi sẵn có.",
+      "acceptance": "Phản hồi trang chính có header CSP-Report-Only; không vi phạm CSP trong một tuần bấm thật thì chuyển sang chế độ chặn.",
+      "alignment": [
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-004"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "SEC-032",
+      "detail": "Mật khẩu yếu công khai còn nằm trong các fixture SQL: supabase/fixtures/staff_logins.sql:21 và luot_kham_demo.sql:16 và tai_khoan_chi_xem_kho.sql:22 ('clinic-test-pw-123'); cskh_ba_nguoi_that.sql:24 và tai_khoan_theo_nguoi.sql:15 dùng ví dụ `-v mat_khau=12345678`. Fixture staff_logins.sql:83-90 ON CONFLICT DO UPDATE đặt lại mật khẩu về giá trị đó ngay cả cho tài khoản đã tồn tại."
+    },
+    {
+      "id": "DB-005",
+      "detail": "Chưa có quy trình provision tenant: lich_lam_viec_tuan_mau.sql:129 chọn phòng khám bằng created_at, mọi fixture ghi cứng clinic id a0000000-0000-4000-8000-000000000001 (clinic_roster.sql:33, staff_logins.sql:20, demo_clinic_day.sql:20 ...), tên đăng nhập suy từ đuôi nhúng lúc build (src/dashboard/lib/ten-dang-nhap.ts:18-19)."
+    },
+    {
+      "id": "FIN-006",
+      "detail": "Cùng họ với việc co cửa sổ ngày: src/dashboard/lib/thanh-ngay.ts:97 cắt khoảng dài hơn 366 ngày về 366 ngày cuối (docKhoang) mà không trả cờ 'đã cắt' cho thanh ngày; máy chủ là chốt nhưng UI không thể báo người dùng khoảng đã bị rút."
+    }
+  ],
+  "held": [
+    {
+      "title": "Thống kê khung giờ tính cả lịch đã huỷ nếu máy chủ không gửi giu_cho",
+      "reason": "thong-ke-khung-gio.ts:61 chỉ loại khi giu_cho === false; trường là tuỳ chọn. Cần xem API /appointments/week luôn trả giu_cho hay không (ngoài danh sách)."
+    },
+    {
+      "title": "Trạng thái work_item lạ rơi về 'Sẵn sàng'",
+      "reason": "work-item-status.ts:122-139: nếu kernel thêm trạng thái mới, resolveStatus trả 'ready' (mở cổng) thay vì cờ 'không rõ'; due_at hỏng thì isOverdue=false (NaN so sánh false). Chưa có bằng chứng kernel đã thêm trạng thái."
+    },
+    {
+      "title": "Bộ nhớ đệm phía client 10 giây trên mọi trang lâm sàng",
+      "reason": "next.config.ts:28-30 staleTimes.dynamic=10: quay lại trang trong 10 giây thấy dữ liệu cũ không dán nhãn. Là lựa chọn có chủ ý được ghi lý do; cần đo trên bảng điều phối/hàng chờ mới kết luận."
+    },
+    {
+      "title": "Hàm giờ chấp nhận '24:xx'",
+      "reason": "soat-gio-ca.ts:42 và suc-chua-luoi.ts:126-130 (phutCua) không chặn giờ 24 với phút khác 0; máy chủ vẫn chốt, tác động nhỏ."
+    },
+    {
+      "title": "mint-session-cookie.mjs nhận email/mật khẩu qua argv",
+      "reason": "Script e2e chỉ dùng local/staging (mint-session-cookie.mjs:7); mật khẩu lộ trong danh sách tiến trình/lịch sử shell. Mặc định host.docker.internal; không phải đường chạy sản phẩm."
+    },
+    {
+      "title": "Bản sao luật nhóm trạng thái lịch hẹn ở trình duyệt",
+      "reason": "tiep-don.ts:147-153 nhomLichHen dịch status sang tab trong khi trang-thai-lich.ts:1-9 tuyên bố máy chủ quyết nhãn. Hiện trạng thái ngoài danh sách chỉ vào 'Tất cả' nên chưa mất khách; cần so với CHECK appointment_status_check nếu thêm trạng thái."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Hàng đợi tự lưu tuần tự, không giữ dữ liệu, đồng hồ tiêm được",
+      "detail": "HangDoiLuu chỉ đếm phiên bản và đọc bản mới nhất lúc gửi, phân loại lỗi 4xx/5xx để thử lại hay không, giãn cách 2-4-8-16-30s, có test đồng hồ giả. Mẫu đáng nhân rộng (sau khi vá S24-1/S24-2).",
+      "evidence": "src/dashboard/lib/tu-luu.ts:1-60,185-229"
+    },
+    {
+      "title": "Không điền sẵn cách xác minh danh tính",
+      "detail": "xac-minh.ts cấm giá trị mặc định để không tạo bằng chứng giả; danh mục là của backend và có test canh khớp.",
+      "evidence": "src/dashboard/lib/xac-minh.ts:1-16"
+    },
+    {
+      "title": "Giao diện chỉ đọc số ghế từ máy chủ, không giữ hằng số luật",
+      "detail": "suc-chua-luoi.ts tra regular_cap/used, cờ chặn do server trả; tránh lệch với trigger enforce_slot_capacity và có test khớp trigger.",
+      "evidence": "src/dashboard/lib/suc-chua-luoi.ts:1-13,87-123"
+    },
+    {
+      "title": "Kết quả đọc dạng union có lý do lỗi, không biến lỗi thành số 0",
+      "detail": "telemetry-server.ts trả {ok:false, reason: no-session|unreachable|refused|forbidden} và dùng chung getCallerAuthHeaders.",
+      "evidence": "src/dashboard/lib/telemetry-server.ts:46-77"
+    },
+    {
+      "title": "Nhân đôi luật có chủ ý và nêu rõ ai là chốt",
+      "detail": "soat-gio-ca.ts giải thích vì sao có bản trình duyệt, nói máy chủ là chốt cuối và sai theo hướng 'báo thiếu'; thanh-ngay.ts là gương của cua_so_khoang, xử lý đầu vào rác không ném.",
+      "evidence": "src/dashboard/lib/soat-gio-ca.ts:1-12; src/dashboard/lib/thanh-ngay.ts:1-14"
+    },
+    {
+      "title": "Xem tệp Word trong iframe sandbox rỗng",
+      "detail": "mammoth chuyển DOCX sang HTML ngay trên trình duyệt và hiển thị trong iframe sandbox='' (không chạy mã); không thêm dịch vụ chuyển đổi trên máy chủ.",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/KhungTep.tsx:55-58,108-115"
+    },
+    {
+      "title": "Công cụ vận hành tự báo cái không ghép được",
+      "detail": "lich_lam_viec_tuan_mau.sql giữ nguyên chữ tên trong bảng của phòng khám, để staff_id NULL thay vì đoán, và RAISE NOTICE số tên chưa ghép; tuần đã có dòng thì bỏ qua để không ghi đè công sức người ta.",
+      "evidence": "supabase/fixtures/lich_lam_viec_tuan_mau.sql:11-13,155-156,178-186"
+    },
+    {
+      "title": "Kịch bản gỡ tài khoản tự kiểm trước khi xoá",
+      "detail": "xoa_tai_khoan_dung_chung.sql GIỮ tài khoản nếu bộ phận chưa có người thật (cần bổ sung kiểm capability, xem S24-7).",
+      "evidence": "supabase/fixtures/xoa_tai_khoan_dung_chung.sql:18-29"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/dashboard/lib/so-trang.ts",
+      "lines": 51,
+      "full_read": true,
+      "note": "Hàm thuần dãy số trang; đầu vào rác an toàn."
+    },
+    {
+      "path": "src/dashboard/lib/soat-gio-ca.ts",
+      "lines": 136,
+      "full_read": true,
+      "note": "Bản trình duyệt của luật giờ ca; chủ ý, ghi rõ máy chủ là chốt. Held: nhận 24:xx."
+    },
+    {
+      "path": "src/dashboard/lib/su-kien-benh-an.ts",
+      "lines": 20,
+      "full_read": true,
+      "note": "CustomEvent báo bệnh án đã lưu; chỉ là chuông."
+    },
+    {
+      "path": "src/dashboard/lib/sua-mau.ts",
+      "lines": 177,
+      "full_read": true,
+      "note": "Sinh mã ô/mục mới, nhắc trước xuất bản; giữ mã cũ; ổn."
+    },
+    {
+      "path": "src/dashboard/lib/suc-chua-luoi.ts",
+      "lines": 130,
+      "full_read": true,
+      "note": "Đọc số ghế từ máy chủ; mẫu tốt. Held: giờ 24:xx."
+    },
+    {
+      "path": "src/dashboard/lib/telemetry-server.ts",
+      "lines": 78,
+      "full_read": true,
+      "note": "Union kết quả; mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/lib/ten-dang-nhap.ts",
+      "lines": 61,
+      "full_read": true,
+      "note": "Đuôi đăng nhập build-time; xem S24-3."
+    },
+    {
+      "path": "src/dashboard/lib/thanh-ngay.ts",
+      "lines": 194,
+      "full_read": true,
+      "note": "Hàm ngày thuần; cắt khoảng 366 ngày không có cờ (extension FIN-006)."
+    },
+    {
+      "path": "src/dashboard/lib/thong-ke-khung-gio.ts",
+      "lines": 109,
+      "full_read": true,
+      "note": "Phép đếm theo khung giờ; held về giu_cho tuỳ chọn."
+    },
+    {
+      "path": "src/dashboard/lib/tiep-don.ts",
+      "lines": 245,
+      "full_read": true,
+      "note": "Lọc/sắp xếp tại chỗ; held về bản sao nhóm trạng thái."
+    },
+    {
+      "path": "src/dashboard/lib/tim-khach-phong.ts",
+      "lines": 33,
+      "full_read": true,
+      "note": "Lọc ô tìm tại chỗ."
+    },
+    {
+      "path": "src/dashboard/lib/trang-thai-lich.ts",
+      "lines": 62,
+      "full_read": true,
+      "note": "Kiểu dữ liệu + ánh xạ tone."
+    },
+    {
+      "path": "src/dashboard/lib/tu-luu.ts",
+      "lines": 273,
+      "full_read": true,
+      "note": "Hàng đợi tự lưu; S24-1, S24-2, mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/lib/url.ts",
+      "lines": 13,
+      "full_read": true,
+      "note": "toHref an toàn (scheme lạ thành https://...); comment còn nhắc Vercel."
+    },
+    {
+      "path": "src/dashboard/lib/use-tu-luu.ts",
+      "lines": 101,
+      "full_read": true,
+      "note": "Móc React; S24-1."
+    },
+    {
+      "path": "src/dashboard/lib/vat-tu.ts",
+      "lines": 115,
+      "full_read": true,
+      "note": "Kiểu + lọc chữ ô tìm; không luật tiền."
+    },
+    {
+      "path": "src/dashboard/lib/work-item-status.ts",
+      "lines": 159,
+      "full_read": true,
+      "note": "Ánh xạ trạng thái; held về trạng thái lạ."
+    },
+    {
+      "path": "src/dashboard/lib/xac-minh.ts",
+      "lines": 16,
+      "full_read": true,
+      "note": "Mẫu tốt không mặc định."
+    },
+    {
+      "path": "src/dashboard/lib/xuat-bang-excel.ts",
+      "lines": 67,
+      "full_read": true,
+      "note": "Xuất CSV từ DOM; S24-11."
+    },
+    {
+      "path": "src/dashboard/next.config.ts",
+      "lines": 39,
+      "full_read": true,
+      "note": "staleTimes, standalone; comment cũ về Vercel/Seoul; S24-13, held về đệm 10s."
+    },
+    {
+      "path": "src/dashboard/postcss.config.mjs",
+      "lines": 7,
+      "full_read": true,
+      "note": "Cấu hình tailwind, không có gì."
+    },
+    {
+      "path": "src/dashboard/scripts/mint-session-cookie.mjs",
+      "lines": 32,
+      "full_read": true,
+      "note": "Script e2e dev; held về argv."
+    },
+    {
+      "path": "src/dashboard/tsconfig.json",
+      "lines": 35,
+      "full_read": true,
+      "note": "strict bật; không có gì đáng kể."
+    },
+    {
+      "path": "src/dashboard/types/database.generated.ts",
+      "lines": 2600,
+      "full_read": false,
+      "note": "Đọc đầu/cuối, danh sách bảng, view/hàm và các khối patient/payment/staff/visit/clinic; KHÔNG đọc từng cột của mọi bảng. Ảnh chụp lược đồ cũ, xem S24-10."
+    },
+    {
+      "path": "src/dashboard/types/mammoth-browser.d.ts",
+      "lines": 7,
+      "full_read": true,
+      "note": "Khai báo kiểu; iframe sandbox ở KhungTep là mẫu tốt."
+    },
+    {
+      "path": "supabase/fixtures/clinic_roster.sql",
+      "lines": 159,
+      "full_read": true,
+      "note": "Nhân sự thật, id cố định; đã nạp nhầm lên prod (S24-4, S24-8)."
+    },
+    {
+      "path": "supabase/fixtures/cskh_ba_nguoi_that.sql",
+      "lines": 278,
+      "full_read": true,
+      "note": "Tạo tài khoản thật + đổi email ql; S24-4, S24-8, extension SEC-032."
+    },
+    {
+      "path": "supabase/fixtures/demo_clinic_day.sql",
+      "lines": 172,
+      "full_read": true,
+      "note": "Demo; header nói chạy lại được nhưng không đúng (S24-5)."
+    },
+    {
+      "path": "supabase/fixtures/gan_phong_dich_vu_thieu_local.sql",
+      "lines": 20,
+      "full_read": true,
+      "note": "Cấu hình demo nhỏ, có lọc clinic."
+    },
+    {
+      "path": "supabase/fixtures/gia_thu_local.sql",
+      "lines": 26,
+      "full_read": true,
+      "note": "Giá thử 100.000đ; không có chốt môi trường (S24-4); UPDATE mọi dịch vụ giá NULL."
+    },
+    {
+      "path": "supabase/fixtures/lich_lam_viec_tuan_mau.sql",
+      "lines": 187,
+      "full_read": true,
+      "note": "S24-6."
+    },
+    {
+      "path": "supabase/fixtures/local_data.sql",
+      "lines": 73,
+      "full_read": true,
+      "note": "Seed local; ON CONFLICT DO NOTHING."
+    },
+    {
+      "path": "supabase/fixtures/luot_kham_demo.sql",
+      "lines": 164,
+      "full_read": true,
+      "note": "Tạo tài khoản với mật khẩu cố định; DELETE membership (S24-4)."
+    },
+    {
+      "path": "supabase/fixtures/ngay_dieu_phoi_demo.sql",
+      "lines": 305,
+      "full_read": true,
+      "note": "S24-5."
+    },
+    {
+      "path": "supabase/fixtures/so_do_tang_demo.sql",
+      "lines": 78,
+      "full_read": true,
+      "note": "UPDATE clinic_room theo code không lọc clinic; demo."
+    },
+    {
+      "path": "supabase/fixtures/staff_logins.sql",
+      "lines": 154,
+      "full_read": true,
+      "note": "S24-4, SEC-032."
+    },
+    {
+      "path": "supabase/fixtures/tai_khoan_chi_xem_kho.sql",
+      "lines": 95,
+      "full_read": true,
+      "note": "Tài khoản chỉ xem kho; mật khẩu cố định; xoá capability_grant (S24-4)."
+    },
+    {
+      "path": "supabase/fixtures/tai_khoan_da_vai_hom_nay.sql",
+      "lines": 38,
+      "full_read": true,
+      "note": "Ca APPROVED cho 1 tài khoản demo; DELETE roster hôm nay."
+    },
+    {
+      "path": "supabase/fixtures/tai_khoan_theo_nguoi.sql",
+      "lines": 147,
+      "full_read": true,
+      "note": "Đổi email trực tiếp auth.users; S24-3, S24-8."
+    },
+    {
+      "path": "supabase/fixtures/ten_day_du_bac_si.sql",
+      "lines": 52,
+      "full_read": true,
+      "note": "Họ tên đầy đủ bác sĩ (S24-8); khớp short_name toàn cục không lọc clinic."
+    },
+    {
+      "path": "supabase/fixtures/ten_tai_khoan_thu.sql",
+      "lines": 19,
+      "full_read": true,
+      "note": "UPDATE staff theo full_name cũ, không lọc clinic (S24-7)."
+    },
+    {
+      "path": "supabase/fixtures/xoa_tai_khoan_dung_chung.sql",
+      "lines": 49,
+      "full_read": true,
+      "note": "S24-7."
+    },
+    {
+      "path": "supabase/hotfix/20260801_prod_f_unaccent_qualify.sql",
+      "lines": 58,
+      "full_read": true,
+      "note": "Hotfix prod cũ; S24-12."
+    },
+    {
+      "path": "supabase/hotfix/optional_allow_zero_payment.sql",
+      "lines": 23,
+      "full_read": true,
+      "note": "S24-12."
+    }
+  ]
+}

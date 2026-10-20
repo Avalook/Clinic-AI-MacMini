@@ -1,0 +1,170 @@
+[
+  {
+    "id": "SEC-038",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Blob cấu hình ghi staging không có basic auth, cho người có tài khoản prod đăng nhập; script phục hồi auth và SQL che dữ liệu giữ thông tin nhân sự. Tuy nhiên Git không chứng minh staging đang chạy; STAGING_REF mặc định là main, và staging có DB/khóa riêng nên khai thác DB staging không tự mở DB prod.",
+    "bang_chung": [
+      {"path": "caddy/Caddyfile.staging", "line": 10, "end_line": 15, "y": "Ghi rõ không có basic auth và dùng tài khoản/mật khẩu prod."},
+      {"path": "caddy/Caddyfile.staging", "line": 90, "end_line": 103, "y": "Các đường đăng nhập, Supabase và dashboard được proxy; đây không phải lớp chặn ở rìa."},
+      {"path": "scripts/staging-dung-lan-dau.sh", "line": 13, "end_line": 22, "y": "Mô tả staging có bộ DB/khóa riêng, dùng chung VPS tùy cấu hình và proxy qua Caddy prod."},
+      {"path": "scripts/staging-dung-lan-dau.sh", "line": 41, "end_line": 43, "y": "STAGING_REF mặc định là main, không mặc định là nhánh thử."},
+      {"path": "scripts/staging-che-du-lieu.sql", "line": 7, "end_line": 8, "y": "SQL nói rõ giữ nhân sự và auth.*."},
+      {"path": "scripts/staging-che-du-lieu.sql", "line": 214, "end_line": 220, "y": "Giữ họ tên, điện thoại, email, ngày sinh, CCCD nhân sự và email đăng nhập."},
+      {"path": "scripts/staging-nap-ban-sao.sh", "line": 189, "end_line": 205, "y": "Lần nạp xóa schema public, phục hồi auth.users từ dump và trả lại các phiên đăng nhập."},
+      {"path": "caddy/staging-tren-prod.caddy.mau", "line": 4, "end_line": 22, "y": "Mẫu cấu hình Caddy prod cấp TLS cho tên miền staging rồi proxy vào staging."}
+    ],
+    "chot_chan_da_tim_thay": "Staging được cấu hình tách database và khóa khỏi prod; tài liệu/script không chứng minh cấu hình staging đã được cài và đang hoạt động trên prod.",
+    "ghi_chu_sua": "Nếu staging đang chạy theo cấu hình này, nên tách thông tin đăng nhập khỏi prod và hạn chế đường truy cập. Xác nhận trạng thái triển khai trước khi định lượng mức phơi nhiễm thực tế."
+  },
+  {
+    "id": "CLIN-061",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Mẫu có giá trị mặc định tim thai dương tính và chỗ giữ chỗ tuần/ngày; engine đổi TEMPLATE_DEFAULT thành USER khi hoàn tất, còn kiểm tra ô trống không nhận ra placeholder nên phiếu có thể chốt mà chưa sửa câu mẫu. Nhưng nhận định không còn dấu vết nào bị thổi phồng: trigger lưu ảnh dữ liệu cũ vào lịch sử khi bản ghi đổi, và quy tắc xác nhận toàn bộ nội dung hiện tại khi bấm Hoàn tất được ghi rõ là chủ ý.",
+    "bang_chung": [
+      {"path": "supabase/migrations/20260926000004_mau_ket_qua_v3.sql", "line": 26, "end_line": 32, "y": "Mẫu siêu âm thai sớm chứa giá trị mặc định tim thai dương tính."},
+      {"path": "supabase/migrations/20260926000004_mau_ket_qua_v3.sql", "line": 61, "end_line": 69, "y": "Kết luận mẫu có placeholder tuần/ngày và câu tim thai dương tính."},
+      {"path": "src/clinicai/services/form_engine_service.py", "line": 793, "end_line": 796, "y": "Hoàn tất chuyển mọi giá trị TEMPLATE_DEFAULT thành USER."},
+      {"path": "src/clinicai/services/form_engine_service.py", "line": 1552, "end_line": 1570, "y": "Hàm nhắc ô trống chỉ kiểm giá trị rỗng, không kiểm placeholder."},
+      {"path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx", "line": 679, "end_line": 684, "y": "UI gắn nhãn câu điền sẵn khi nguồn còn TEMPLATE_DEFAULT."},
+      {"path": "supabase/migrations/20261007630000_form_instance_lich_su.sql", "line": 42, "end_line": 66, "y": "Trigger ghi ảnh cũ vào bảng lịch sử khi dữ liệu/trạng thái đổi."},
+      {"path": "src/clinicai/api/v1/routers/phieu.py", "line": 100, "end_line": 111, "y": "Endpoint mô tả Hoàn tất xác nhận toàn bộ nội dung hiện tại, kể cả câu mẫu không sửa."}
+    ],
+    "chot_chan_da_tim_thay": "Nhãn TEMPLATE_DEFAULT bị đổi trên bản chính, nhưng trigger lịch sử giữ bản cũ; không thấy kiểm tra placeholder hoặc chặn hoàn tất vì còn câu mẫu.",
+    "ghi_chu_sua": "Nếu chính sách lâm sàng yêu cầu xác nhận từng câu, kiểm tra placeholder và nguồn ở bước hoàn tất; giữ nhãn nguồn trong dữ liệu chính thức thay vì chỉ lưu trong lịch sử."
+  },
+  {
+    "id": "SEC-039",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Nhánh appointment_id lấy visit theo appointment_id và clinic_id nhưng không so patient_id; các cổng sau đó đọc SOAP/đơn theo visit_id và clinic_id, nên dữ liệu lâm sàng của lượt khác có thể ghép vào hồ sơ bệnh nhân được phân. Tuy nhiên TKYK thuộc CLINICAL_WRITE_ROLES nên ghi_mo_ho_so bỏ qua vai này; cáo buộc nhật ký ghi sai bệnh nhân không đúng với điều kiện TKYK trong đề bài.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/ho_so_lam_sang_doc.py", "line": 80, "end_line": 99, "y": "TKYK được kiểm theo bệnh nhân được phân và bệnh nhân phải thuộc clinic hiện tại."},
+      {"path": "src/clinicai/services/ho_so_lam_sang_doc.py", "line": 101, "end_line": 127, "y": "Nhánh visit_id ràng buộc clinic_patient_id; nhánh appointment_id chỉ ràng buộc appointment_id và clinic_id rồi truyền patient_id riêng vào context."},
+      {"path": "src/clinicai/services/clinical_record_service.py", "line": 891, "end_line": 907, "y": "Cổng SOAP đọc clinical_record theo visit_id và clinic_id."},
+      {"path": "src/clinicai/services/clinical_prescription_service.py", "line": 197, "end_line": 208, "y": "Cổng đơn thuốc đọc theo visit_id và clinic_id."},
+      {"path": "src/clinicai/permissions/y_khoa.py", "line": 90, "end_line": 103, "y": "Nhật ký mở hồ sơ bỏ qua vai trong CLINICAL_WRITE_ROLES."},
+      {"path": "src/clinicai/api/identity.py", "line": 109, "end_line": 117, "y": "TKYK nằm trong CLINICAL_WRITE_ROLES."}
+    ],
+    "chot_chan_da_tim_thay": "Nhánh tra bằng visit_id có kiểm clinic_patient_id; mọi nhánh chỉ giới hạn trong clinic. Nhật ký không ghi cho TKYK, nên phần ghi sai bệnh nhân không áp dụng cho điều kiện đã nêu.",
+    "ghi_chu_sua": "Ràng buộc bệnh nhân của lịch hẹn/lượt với patient_id trước khi ghép hồ sơ; nếu ghi nhật ký, lấy bệnh nhân từ lượt thực tế đã đọc."
+  },
+  {
+    "id": "FIN-021",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Xác nhận chuyển khoản có thể gắn cờ và lý do đối soát; trigger giữ các trường này bất biến sau PAID, và không thấy luồng tạo work item/người nhận cho các event payment.*. Tuy vậy, màn hóa đơn có thể hiện cảnh báo/lý do, CAN_DOI_SOAT chỉ phát sinh ở nhánh phân lô chưa ghi bán, và thao tác VOIDED tồn tại; vì thế không đúng rằng mọi cờ đều làm nút nhà thuốc bị khóa hay không có bất kỳ đường xử lý nào.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/payment_service.py", "line": 1193, "end_line": 1234, "y": "Xác minh tiền cập nhật trạng thái PAID, cờ và lý do đối soát."},
+      {"path": "src/clinicai/services/payment_service.py", "line": 1266, "end_line": 1296, "y": "Ghi event payment.sale_not_applied/payment.reconciliation_needed vào event log."},
+      {"path": "supabase/migrations/20261014147000_ck_so_tien_thuc_nhan.sql", "line": 52, "end_line": 57, "y": "Trigger chặn sửa cờ/lý do sau PAID, ngoại trừ chuyển trạng thái được cho phép."},
+      {"path": "src/clinicai/services/ban_thuoc_service.py", "line": 95, "end_line": 108, "y": "CAN_DOI_SOAT được suy ra khi có phân lô chưa ghi bán; các lý do đối soát khác không tự chuyển sang giai đoạn này."},
+      {"path": "src/clinicai/services/ban_thuoc_service.py", "line": 153, "end_line": 170, "y": "Luật nút chặn giao trong CAN_DOI_SOAT nhưng vẫn có thao tác hủy phần chưa giao tùy điều kiện."},
+      {"path": "src/clinicai/services/danh_sach_hoa_don_service.py", "line": 52, "end_line": 87, "y": "Danh sách hóa đơn truy xuất cờ và lý do đối soát."},
+      {"path": "src/clinicai/services/payment_service.py", "line": 1425, "end_line": 1509, "y": "Có đường void phiếu PAID với lý do; đường này không xóa cờ lịch sử."}
+    ],
+    "chot_chan_da_tim_thay": "Cờ và lý do hiển thị trong hóa đơn; nhánh CAN_DOI_SOAT chặn giao thuốc khi chưa ghi bán. Void đổi trạng thái phiếu nhưng không đánh dấu đối soát hoàn tất; không thấy work item riêng cho payment.*.",
+    "ghi_chu_sua": "Thêm luồng đối soát có người nhận và trạng thái hoàn tất riêng, đồng thời xác định cách xử lý khoản đã thu nhưng chưa ghi bán."
+  },
+  {
+    "id": "SEC-040",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Migration cấp rộng capability nội bộ, cập nhật preset và tắt quyen_theo_lich; mã cũng không dùng chung_chi_lam_sang làm chốt quyền. Nhưng migration và màn Phân quyền ghi rõ đây là quyết định mở quyền có chủ ý; danh sách 'mọi capability trừ bốn khối' còn quá rộng vì giamsat.view có trigger chặn cấp đại trà và một số thao tác có kiểm tra người phụ trách.",
+    "bang_chung": [
+      {"path": "supabase/migrations/20260930900000_mo_full_lego.sql", "line": 1, "end_line": 52, "y": "Migration nêu chủ ý mở toàn bộ quyền nội bộ, cập nhật preset và tắt quyen_theo_lich."},
+      {"path": "src/clinicai/permissions/catalogue.py", "line": 24, "end_line": 30, "y": "Capability là quyền thao tác; chứng chỉ lâm sàng được giữ nhưng không tích hợp trong chốt quyền."},
+      {"path": "src/dashboard/app/(dashboard)/phan-quyen/page.tsx", "line": 36, "end_line": 45, "y": "UI thông báo hệ thống đang mở toàn bộ quyền cho nhân sự."},
+      {"path": "supabase/migrations/20261009880000_quyen_noi_bo_giam_sat.sql", "line": 34, "end_line": 64, "y": "Migration/trigger riêng giới hạn cấp quyền giám sát nội bộ."},
+      {"path": "src/clinicai/services/luot_kham_service.py", "line": 2668, "end_line": 2689, "y": "Hoàn tất khám có chốt capability và kiểm vai/người phụ trách riêng."}
+    ],
+    "chot_chan_da_tim_thay": "Quyền mở rộng là chủ ý sản phẩm; capability giám sát nội bộ có chốt riêng, và một số thao tác còn ràng buộc người phụ trách.",
+    "ghi_chu_sua": "Không nên sửa mã chỉ vì chính sách đã nêu; cần yêu cầu chủ sản phẩm xác nhận lại phạm vi vai trò nếu muốn thu hẹp quyền."
+  },
+  {
+    "id": "INF-029",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Các compose service khai báo restart: unless-stopped và máy được cấu hình bật Docker khi boot, nên nhận định không có gì tự trở lại sau daemon/máy reboot là sai. Phần worker bị treo vẫn đúng: healthcheck chỉ đánh dấu unhealthy, restart policy không tự xử lý trạng thái đó, và DB ở compose project khác không có thứ tự khởi động chéo được bảo đảm.",
+    "bang_chung": [
+      {"path": "docker-compose.yml", "line": 292, "end_line": 313, "y": "su-kien có restart: unless-stopped và healthcheck heartbeat."},
+      {"path": "docker-compose.yml", "line": 361, "end_line": 390, "y": "notification-relay có restart policy; phần chú thích xác nhận policy không nhận biết vòng lặp bị treo dù unhealthy được phát hiện."},
+      {"path": "docker-compose.supabase.yml", "line": 24, "end_line": 25, "y": "Các service Supabase dùng restart: unless-stopped."},
+      {"path": "scripts/vps-chuan-bi.sh", "line": 105, "end_line": 105, "y": "Bật Docker khởi động cùng máy."},
+      {"path": "scripts/deploy-backend.sh", "line": 371, "end_line": 412, "y": "Healthcheck được kiểm trong luồng deploy, không phải cơ chế tự phục hồi unhealthy liên tục."},
+      {"path": ".env.prod.example", "line": 19, "end_line": 21, "y": "Mẫu env nói self-heal nhưng để trống profile; không chỉ ra cơ chế autoheal trong compose này."}
+    ],
+    "chot_chan_da_tim_thay": "Restart policy khởi động lại container hiện hữu khi daemon/máy khởi động; không dựng lại container đã mất và không tự restart container chỉ bị unhealthy.",
+    "ghi_chu_sua": "Nếu cần phục hồi worker treo, nối healthcheck với bộ điều phối/autoheal hoặc cảnh báo có người xử lý; phân biệt rõ reboot với unhealthy."
+  },
+  {
+    "id": "INF-030",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Monitor Caddy chính gọi http://caddy:80/health từ mạng nội bộ, còn route trả 'ok' tĩnh; Kuma và các công cụ giám sát được khai báo trên cùng máy nên không có điểm đo độc lập ngoài VPS. Tuy nhiên file còn khai báo monitor HTTPS tới tên miền công khai, có thể phát hiện lỗi TLS từ góc nhìn của Kuma; file không tự nạp và script kiểm tra không xác nhận Kuma thực sự đang theo dõi monitor đó.",
+    "bang_chung": [
+      {"path": "monitoring/monitors.json", "line": 2, "end_line": 8, "y": "File monitor không tự nạp vào Kuma; URL mặc định dùng tên service nội bộ."},
+      {"path": "monitoring/monitors.json", "line": 37, "end_line": 47, "y": "Monitor Caddy gọi http://caddy:80/health từ nội bộ."},
+      {"path": "caddy/Caddyfile", "line": 142, "end_line": 150, "y": "Route /health trả 200 và 'ok' tĩnh."},
+      {"path": "monitoring/monitors.json", "line": 110, "end_line": 122, "y": "Có monitor HTTPS/TLS tới SITE_ADDRESS khi cấu hình bằng domain."},
+      {"path": "docker-compose.yml", "line": 429, "end_line": 460, "y": "Uptime Kuma chạy trong compose trên cùng host."},
+      {"path": "scripts/check-monitoring.sh", "line": 50, "end_line": 75, "y": "Script tự nói không chứng minh Kuma đang theo dõi các monitor."}
+    ],
+    "chot_chan_da_tim_thay": "Có khai báo HTTPS/TLS nhưng không phải điểm đo ngoài host; tình trạng monitor đang hoạt động không được chứng minh từ file khai báo.",
+    "ghi_chu_sua": "Thêm phép kiểm từ hạ tầng ngoài VPS để phát hiện mất host/đường vào công khai và đảm bảo monitor TLS đang hoạt động."
+  },
+  {
+    "id": "OPS-015",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Script mặc định đọc .env.prod, không kiểm dữ liệu thật đã tồn tại, không lọc clinic_id, tắt các trigger chặn xóa rồi xóa cả bệnh án, thanh toán và event_log. Nhưng nó có backup gần đây, hiển thị số liệu và yêu cầu xác nhận; script trước khi mở cửa có chốt FINALIZED/AMENDED, còn undo-roster-fixture chỉ xóa UUID fixture sau --apply và kiểm tra tham chiếu, nên cáo buộc 'chỉ chặn bằng cụm gõ tay' và xóa staff không giới hạn bị thổi phồng.",
+    "bang_chung": [
+      {"path": "scripts/xoa-du-lieu-test.sh", "line": 19, "end_line": 29, "y": "ENV_FILE mặc định là .env.prod và lấy DATABASE_URL từ tệp đó."},
+      {"path": "scripts/xoa-du-lieu-test.sh", "line": 31, "end_line": 40, "y": "Tìm hoặc tạo backup trước khi xóa."},
+      {"path": "scripts/xoa-du-lieu-test.sh", "line": 43, "end_line": 82, "y": "Hiển thị số liệu và yêu cầu gõ XOA HET."},
+      {"path": "scripts/xoa-du-lieu-test.sh", "line": 116, "end_line": 127, "y": "Tắt trigger bảo vệ các bảng trước khi xóa."},
+      {"path": "scripts/xoa-du-lieu-test.sh", "line": 145, "end_line": 196, "y": "Xóa dữ liệu nghiệp vụ trên toàn DB, gồm payment, clinical_record, patient và event_log."},
+      {"path": "scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql", "line": 26, "end_line": 40, "y": "Chốt dừng khi tồn tại lượt FINALIZED hoặc AMENDED."},
+      {"path": "scripts/undo-roster-fixture.sh", "line": 44, "end_line": 66, "y": "Script fixture giới hạn UUID theo tiền tố và đếm các nhóm tham chiếu."},
+      {"path": "scripts/undo-roster-fixture.sh", "line": 68, "end_line": 109, "y": "Yêu cầu --apply, kiểm lại tham chiếu trong transaction rồi mới xóa staff fixture."}
+    ],
+    "chot_chan_da_tim_thay": "Backup, preview và xác nhận giảm nguy cơ thao tác nhầm nhưng không phân biệt dữ liệu thật; script test không có guard trạng thái đã đón bệnh nhân. Script fixture là phạm vi riêng, có tiền tố và guard tham chiếu.",
+    "ghi_chu_sua": "Thêm guard kỹ thuật cho script xóa toàn dữ liệu, chẳng hạn chặn dữ liệu thật chưa ký và yêu cầu xác nhận DB/clinic đích rõ ràng."
+  },
+  {
+    "id": "PHAR-005",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "cap_phat tìm payment_cycle PAID theo visit_id; nhánh giao không lô và giao thẳng từ lô giới hạn bằng purchased_qty hoặc quantity_num của chính dòng, không kiểm payment_bill_line theo prescription_id. Đính chính có thể tạo dòng ID mới không kế thừa số mua; dòng mới chưa phân lô vẫn có thể hiện nút giao không lô theo trạng thái thu của cả lượt.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 710, "end_line": 723, "y": "Lấy payment_cycle PAID theo visit_id, không theo prescription_id."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 731, "end_line": 758, "y": "Lựa nhánh giao dựa trên allocation; không lô đi vào _giao_khong_lo."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 943, "end_line": 966, "y": "Nhánh giao không lô chỉ so số giao với purchased_qty hoặc quantity_num."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 1240, "end_line": 1248, "y": "Nhánh giao thẳng từ lô cũng chỉ dùng giới hạn số lượng dòng."},
+      {"path": "src/clinicai/services/dinh_chinh_don.py", "line": 15, "end_line": 20, "y": "Dòng thay thế có ID mới và không kế thừa số mua/phân lô/tiền của dòng cũ."},
+      {"path": "src/clinicai/services/ban_thuoc_service.py", "line": 141, "end_line": 149, "y": "Nút giao không lô được bật khi cả lượt đã thu, dòng không có lô bán và còn số lượng."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 856, "end_line": 889, "y": "Nhánh giao theo phân lô có kiểm allocation/bán riêng; vấn đề hẹp hơn ở đường không lô."}
+    ],
+    "chot_chan_da_tim_thay": "Giao theo allocation có ràng buộc phân lô và bán; nhánh giao không lô không kiểm tra khoản thu theo dòng đơn.",
+    "ghi_chu_sua": "Trong nhánh giao không lô, xác minh số lượng của prescription nằm trong hóa đơn/lần thu hiện hành trước khi tăng dispensed_qty."
+  },
+  {
+    "id": "CLIN-062",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "Tab gửi toàn bộ danh sách dòng đang giữ, không kèm revision; sự kiện prescription chỉ gộp số lượng vào dòng đã tồn tại trong tab. Máy chủ khóa visit để tuần tự hóa nhưng so payload với mọi dòng BAC_SI hiện hành, nên dòng mới của tab khác bị thiếu có thể bị xếp là bỏ và xóa cứng nếu chưa có dấu vết; khi có dấu vết UI tự gửi lý do đính chính mặc định.",
+    "bang_chung": [
+      {"path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx", "line": 225, "end_line": 250, "y": "napDon trả null khi GET lỗi và effect chỉ cập nhật state khi có danh sách hợp lệ."},
+      {"path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx", "line": 257, "end_line": 262, "y": "Realtime prescription chỉ gộp số lượng vào các dòng hiện có."},
+      {"path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx", "line": 307, "end_line": 329, "y": "Mỗi lần lưu gửi toàn bộ danh sách và tự gửi lý do khi máy chủ yêu cầu đính chính."},
+      {"path": "src/dashboard/app/api/phieu-kham/route.ts", "line": 90, "end_line": 105, "y": "Proxy chuyển lệnh luu-don tới API lưu đơn."},
+      {"path": "src/clinicai/services/phieu_kham_service.py", "line": 832, "end_line": 870, "y": "Service khóa visit rồi truyền toàn bộ payload vào luu_don_chua_ky; không có token revision của tab."},
+      {"path": "src/clinicai/services/dinh_chinh_don.py", "line": 604, "end_line": 652, "y": "So các dòng BAC_SI hiện hành với payload; chỉ nhận diện ID đã gỡ nếu client gửi lại ID cũ."},
+      {"path": "src/clinicai/services/dinh_chinh_don.py", "line": 241, "end_line": 260, "y": "Dòng hiện hành vắng khỏi payload bị xếp xóa nếu mức A, hoặc bỏ/đính chính nếu có dấu vết."},
+      {"path": "src/clinicai/services/dinh_chinh_don.py", "line": 619, "end_line": 624, "y": "Dòng nguồn QUAY được loại khỏi tập so sánh; vấn đề tập trung ở đơn BAC_SI."}
+    ],
+    "chot_chan_da_tim_thay": "Khóa visit tuần tự hóa các lần ghi và ID đã bị gỡ có thể làm client cũ tải lại; không có kiểm phiên bản để phát hiện client thiếu dòng hiện hành. Dòng QUAY được loại khỏi xử lý này.",
+    "ghi_chu_sua": "Gắn revision/hash đơn vào GET và PUT, từ chối payload cũ để người dùng tải lại và đối chiếu trước khi lưu."
+  }
+]

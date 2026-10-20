@@ -1,0 +1,356 @@
+[
+  {
+    "id": "CAND-R9-MIG-01",
+    "canonical_id": null,
+    "title": "Đổi chủ số điện thoại bổ sung chỉ làm tươi hồ sơ mới, để sót số trên hồ sơ cũ",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "derived_patient_phone_projection_staleness",
+    "status": "candidate_for_triage",
+    "confidence": "HIGH về hành vi trigger theo SQL; chưa xác minh dữ liệu/runtime.",
+    "summary": "Cột patient.sdt_tim_kiem được tính từ phone_primary, phone_secondary và các dòng patient_sdt_them. Trigger sau INSERT/UPDATE/DELETE chọn một hồ sơ bằng COALESCE(NEW.clinic_patient_id, OLD.clinic_patient_id), rồi chỉ UPDATE hồ sơ đó. Khi UPDATE chuyển một số từ bệnh nhân A sang B, NEW.clinic_patient_id luôn có giá trị nên B được tính lại, còn A vẫn giữ số đã gỡ trong cột tra cứu tổng hợp.",
+    "trigger": "Một đường ghi cập nhật clinic_patient_id của patient_sdt_them từ hồ sơ A sang hồ sơ B.",
+    "impact": "Số đã chuyển khỏi A vẫn còn trong sdt_tim_kiem của A; tra cứu theo số có thể tiếp tục trả hồ sơ cũ dù nguồn sự thật đã gắn số đó sang B. Không có bằng chứng về một lần chuyển số hay dữ liệu sai hiện hữu.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+        "line": 73,
+        "end_line": 84,
+        "detail": "Hàm tính cột tổng hợp chỉ gom các dòng con hiện đang gắn clinic_patient_id."
+      },
+      {
+        "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+        "line": 101,
+        "end_line": 117,
+        "detail": "Trigger chạy sau UPDATE nhưng chọn một ben bằng COALESCE(NEW, OLD), rồi chỉ chạm một hồ sơ mẹ."
+      },
+      {
+        "path": "supabase/tests/nhieu_so_dien_thoai.sql",
+        "line": 83,
+        "end_line": 96,
+        "detail": "Test xoá số con và kiểm cột tổng hợp, nhưng không kiểm UPDATE đổi clinic_patient_id."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đối chiếu công thức tính cột gộp, trigger sau UPDATE và toàn bộ test SQL cho nhiều số điện thoại. Không chạy DB hoặc test harness.",
+      "limitations": "Kết luận dựa trên hành vi PL/pgSQL có thể suy ra từ source; không kiểm tra trigger trong catalog, dữ liệu thật, đường UPDATE của service hay kết quả tra cứu runtime."
+    },
+    "recommendation": "Khi UPDATE thay clinic_patient_id, làm tươi cả OLD.clinic_patient_id lẫn NEW.clinic_patient_id (hoặc cấm đổi chủ và dùng DELETE+INSERT trong cùng giao dịch). Bổ sung ca kiểm hai hồ sơ: sau chuyển số, A không còn số và B có số.",
+    "acceptance": "Một test SQL tạo hai bệnh nhân, gắn số vào A, chuyển hàng con sang B trong một UPDATE rồi xác nhận sdt_tim_kiem của A không còn số và của B có số; cùng giao dịch, không cần gọi hàm thủ công.",
+    "related_findings": [
+      {
+        "id": "CLIN-013",
+        "relationship": "Cùng vùng dữ liệu patient_sdt_them nhưng khác lỗi: CLIN-013 là phát hiện trùng số trong luồng tạo hồ sơ; candidate này là cột tra cứu tổng hợp bị cũ khi đổi chủ hàng con."
+      }
+    ],
+    "related_tests": [
+      "supabase/tests/nhieu_so_dien_thoai.sql:83-96 (test DELETE con; chưa test UPDATE clinic_patient_id)."
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b",
+      "supabase/tests/nhieu_so_dien_thoai.sql": "b080dd0c819f37dff5c585effcbd2dca1df49524f026fb78c4f9300fefdc6c53"
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "candidate_present_in_static_source",
+      "note": "Candidate chỉ dựa trên snapshot pinned; không xác minh DB hoặc production.",
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CAND-R9-MIG-02",
+    "canonical_id": null,
+    "title": "Giao dịch ADJUST của sổ kho không bắt buộc có lý do",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "inventory_adjustment_audit_evidence",
+    "status": "candidate_for_triage",
+    "confidence": "HIGH về schema cho phép NULL/blank; không xác minh cách ghi runtime.",
+    "summary": "inventory_txn.reason là text nullable. txn_type cho phép ADJUST và qty-sign CHECK chỉ yêu cầu quantity khác 0 cho loại này. Guard migration nói sai số phải được sửa bằng ADJUST kèm lý do, nhưng các ràng buộc được thêm ở đó chỉ kiểm người thực hiện, tồn kho, tính append-only và clinic của lô; không buộc reason khác NULL/rỗng.",
+    "trigger": "Đường ghi tạo inventory_txn với txn_type=ADJUST, quantity khác 0 và reason NULL hoặc chuỗi trắng.",
+    "impact": "Sổ kho có thể lưu điều chỉnh không giải thích được, làm giảm khả năng đối soát vì sao số lượng được sửa. Không có bằng chứng đã có điều chỉnh thiếu lý do.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260802000001_pharmacy_inventory.sql",
+        "line": 86,
+        "end_line": 113,
+        "detail": "reason không khai NOT NULL/CHECK; ADJUST hợp lệ với quantity <> 0."
+      },
+      {
+        "path": "supabase/migrations/20260805000003_inventory_write_guards.sql",
+        "line": 20,
+        "end_line": 25,
+        "detail": "Migration mô tả ADJUST kèm lý do là cách sửa sổ kho."
+      },
+      {
+        "path": "supabase/migrations/20260805000003_inventory_write_guards.sql",
+        "line": 131,
+        "end_line": 145,
+        "detail": "Các CHECK được bổ sung tại vùng actor chỉ bắt người thực hiện cho manual; không kiểm reason."
+      },
+      {
+        "path": "supabase/tests/inventory_write_guards.sql",
+        "line": 121,
+        "end_line": 135,
+        "detail": "Test thủ công tập trung vào actor; toàn file không có ca ADJUST thiếu lý do."
+      }
+    ],
+    "validation": {
+      "method": "static_schema_and_sql_test_review",
+      "command": null,
+      "result": "Đọc định nghĩa inventory_txn, các guard trong tranche và toàn bộ inventory_write_guards.sql; không tìm thấy CHECK cho reason của ADJUST hoặc assertion test tương ứng.",
+      "limitations": "Không chèn thử dòng ADJUST, không xác minh migration đã áp dụng hay service có validation bổ sung. Kết luận chỉ nói DB source trong tranche không giữ bất biến này."
+    },
+    "recommendation": "Thêm CHECK có điều kiện cho txn_type=ADJUST yêu cầu nullif(btrim(reason), '') IS NOT NULL, sau khi quyết định rõ có loại giao dịch ADJUST nào được miễn; giữ kiểm tra thân thiện ở service nhưng để DB là chốt cuối.",
+    "acceptance": "SQL test xác nhận ADJUST với reason NULL và whitespace bị từ chối, reason có nội dung được chấp nhận; RECEIVE/DISPENSE/DISCARD vẫn chạy theo hợp đồng hiện tại.",
+    "related_findings": [
+      {
+        "id": "PHAR-001",
+        "relationship": "Cùng miền dược/kho nhưng khác vấn đề: PHAR-001 là hoàn thuốc sau phiếu thu VOIDED; candidate này là tính đầy đủ lý do cho điều chỉnh tồn."
+      }
+    ],
+    "related_tests": [
+      "supabase/tests/inventory_write_guards.sql (đọc toàn file; test các guard tồn/actor/append-only/tenant, không có ADJUST reason)."
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260802000001_pharmacy_inventory.sql": "7831bde3f4eac8ca06cc58ef1077156e6d70386998f43a7f29591d2ee10d62b8",
+      "supabase/migrations/20260805000003_inventory_write_guards.sql": "66e84ac35cbd87d444c236ccaeba3b8623f305dfa32fb43df86ad68c7f74de90",
+      "supabase/tests/inventory_write_guards.sql": "26fa95443f12b19ef2fc996bfadffe79c03e42525c0ed66691b0d7a6b75e0d38"
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "candidate_present_in_static_source",
+      "note": "Candidate chỉ dựa trên snapshot pinned; không xác minh DB hoặc production.",
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CAND-R9-MIG-03",
+    "canonical_id": null,
+    "title": "CHECK bằng phép tương đương với conjunction vẫn nhận metadata bằng chứng chỉ có một phần",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "workflow_evidence_completeness",
+    "status": "candidate_for_triage",
+    "confidence": "HIGH về tổ hợp giá trị được phép theo biểu thức CHECK; policy về bản nháp chưa được owner xác nhận.",
+    "summary": "Bốn CHECK diễn đạt trạng thái “đã xong” tương đương với conjunction của nhiều trường bắt buộc. Khi trạng thái còn chưa xong, một tập con không rỗng của các trường bằng chứng vẫn làm conjunction FALSE và CHECK qua được cùng với vế trạng thái FALSE. Ví dụ ghi gui_boi_staff_id nhưng để gui_luc và gui_kenh NULL; hoặc có goi_luc nhưng trạng thái vẫn CHO_GOI. Comment migration nói các trường phải đi cùng nhau, nhưng biểu thức hiện tại chỉ chặn một phía “đã xong mà thiếu ít nhất một trường”.",
+    "trigger": "Một UPDATE/INSERT ghi một hoặc vài trường bằng chứng nhưng chưa đổi status/trang_thai sang trạng thái hoàn tất.",
+    "impact": "Dữ liệu có thể chứa dấu vết người/lúc/kết quả một phần nhưng trạng thái còn chờ hoặc chưa xử lý. Màn hình, báo cáo và kiểm toán nếu chỉ dựa vào status có thể bỏ qua dấu vết đó; người vận hành không biết đây là bản nháp hay cập nhật lỗi.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260807000004_cap_phat_thuoc_mot_phan.sql",
+        "line": 146,
+        "end_line": 157,
+        "detail": "CHECK quy dispensed_qty>0 tương đương với cả timestamp và actor cùng có; không cấm riêng từng marker khi qty vẫn 0."
+      },
+      {
+        "path": "supabase/migrations/20260807000005_nhac_tai_kham_hai_luot_goi.sql",
+        "line": 68,
+        "end_line": 78,
+        "detail": "CHECK DA_GOI tương đương conjunction goi_luc, người gọi và kết quả; comment gọi đây là dấu vết hai chiều."
+      },
+      {
+        "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+        "line": 100,
+        "end_line": 104,
+        "detail": "CHECK DA_XU_LY tương đương conjunction thời điểm, người xử lý và hướng xử lý."
+      },
+      {
+        "path": "supabase/migrations/20260809000008_tep_ket_qua.sql",
+        "line": 55,
+        "end_line": 59,
+        "detail": "CHECK gui_luc tương đương actor AND channel; trạng thái gửi chưa được mô hình hóa riêng để cấm actor/channel đơn lẻ."
+      },
+      {
+        "path": "supabase/tests/cap_phat_thuoc_mot_phan.sql",
+        "line": 126,
+        "end_line": 133,
+        "detail": "Test xóa actor sau khi dispensed_qty đã dương; không thử marker lẻ khi quantity bằng 0."
+      },
+      {
+        "path": "supabase/tests/nhac_tai_kham_hai_luot_goi.sql",
+        "line": 132,
+        "end_line": 149,
+        "detail": "Test DA_GOI thiếu kết quả và luồng hoàn chỉnh; không thử goi_luc/actor rời rạc khi CHO_GOI."
+      }
+    ],
+    "validation": {
+      "method": "static_constraint_truth_table_and_sql_test_review",
+      "command": null,
+      "result": "Đối chiếu bốn CHECK với trạng thái nghiệp vụ và các test SQL hiện có. Từ truth table, vế FALSE = conjunction FALSE chấp nhận các tổ hợp một phần. Tìm kiếm trong supabase/tests cho phan_hoi_khach/gui_luc/gui_boi_staff_id không thấy assertion riêng về tổ hợp một phần.",
+      "limitations": "Không thực thi truth table trên PostgreSQL. Owner chưa xác nhận có chủ ý cho phép draft/partial metadata ở các bảng này hay không; migration comments hiện mô tả all-or-none."
+    },
+    "recommendation": "Nếu metadata chỉ hợp lệ toàn cục hoặc rỗng, enforce all-or-none trực tiếp: số trường non-NULL phải bằng 0 hoặc bằng tổng số trường bắt buộc, kết hợp điều kiện status tương ứng. Nếu có draft, biểu diễn draft bằng state riêng và quy định rõ trường nào được nhập từng bước.",
+    "acceptance": "Mỗi bảng có test cho trạng thái hoàn tất thiếu trường, trạng thái chưa hoàn tất có một trường, trạng thái chưa hoàn tất có mọi trường, và trạng thái hoàn chỉnh; kết quả khớp với policy draft đã chốt.",
+    "related_findings": [],
+    "related_tests": [
+      "supabase/tests/cap_phat_thuoc_mot_phan.sql:126-133 (chỉ thử xóa actor sau khi đã cấp).",
+      "supabase/tests/nhac_tai_kham_hai_luot_goi.sql:132-149 (thử DA_GOI thiếu kết quả và luồng đủ dấu vết).",
+      "rg trong supabase/tests cho phan_hoi_khach/gui_luc/gui_boi_staff_id: không thấy assertion test cho tổ hợp một phần; các tham chiếu khác là tenant/upload flow."
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260807000004_cap_phat_thuoc_mot_phan.sql": "4e2c389674b3d2f304d53c628b1a7de61033a444e9dafe8bbe5b9afbc37ed41a",
+      "supabase/migrations/20260807000005_nhac_tai_kham_hai_luot_goi.sql": "43d6df5e4227bb4aecdbd4031206cac4941e2dbf816e7f7e09321cf9e9fafc9e",
+      "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql": "106a69f83750c17cb1bbf391ccbce9fe982a2155a976c6df927eb84a7bcfe517",
+      "supabase/migrations/20260809000008_tep_ket_qua.sql": "29be580cc5d1422e3ce2d5b71aaf5b328418f734fba2d76867be2da1b92ba903",
+      "supabase/tests/cap_phat_thuoc_mot_phan.sql": "f0f40150f7c3d791cc289a0d0cffeb14b41e604f212335ac0bfc97a0010eccc9",
+      "supabase/tests/nhac_tai_kham_hai_luot_goi.sql": "c63454690c336e7b2feba7b933ef4f50fdb843a77eb98987ea1a6b84bb989b1d"
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "candidate_present_in_static_source",
+      "note": "Candidate chỉ dựa trên snapshot pinned; không xác minh DB hoặc production.",
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CAND-R9-MIG-04",
+    "canonical_id": null,
+    "title": "Bảng số điện thoại bổ sung không ràng clinic_id khớp clinic của bệnh nhân cha",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "tenant_relationship_integrity",
+    "status": "candidate_for_triage",
+    "confidence": "HIGH về thiếu ràng buộc trong định nghĩa mới; việc có hàng sai hiện tại chưa xác minh.",
+    "summary": "patient_sdt_them có FK riêng clinic_id→clinic và clinic_patient_id→patient, nhưng không có FK ghép/trigger đảm bảo clinic_id trùng clinic_id của hồ sơ patient. RLS SELECT lọc theo clinic_id của hàng con. Vì vậy DB source chấp nhận một hàng gắn clinic A nhưng tham chiếu bệnh nhân clinic B; nếu đường ghi backend/service_role tạo tổ hợp đó, người có membership ở A có thể đọc số qua policy của hàng con. Không có bằng chứng hàng sai đang tồn tại hay service thực sự tạo nó.",
+    "trigger": "Một lệnh ghi có quyền backend/service_role ghép clinic_id của tenant A với clinic_patient_id thuộc tenant B.",
+    "impact": "Mất nhất quán tenant ở quan hệ cha-con; trong trường hợp hàng lệch tồn tại, policy nhìn clinic_id của hàng con và có thể làm số điện thoại của bệnh nhân B hiện cho member A. Đây là rủi ro điều kiện, không phải xác nhận rò dữ liệu.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+        "line": 20,
+        "end_line": 38,
+        "detail": "Hai FK độc lập và UNIQUE theo patient+phone; không có ràng buộc cùng clinic giữa patient_sdt_them và patient."
+      },
+      {
+        "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+        "line": 47,
+        "end_line": 64,
+        "detail": "RLS SELECT cho authenticated lọc clinic_id của hàng con; ghi được nêu là qua backend, GRANT chỉ mở SELECT."
+      },
+      {
+        "path": "supabase/tests/nhieu_so_dien_thoai.sql",
+        "line": 20,
+        "end_line": 39,
+        "detail": "Fixture phone test tạo một clinic và hai patient cùng clinic; không thử clinic_id con khác clinic của patient."
+      }
+    ],
+    "validation": {
+      "method": "static_schema_rls_and_sql_test_review",
+      "command": null,
+      "result": "Đối chiếu FK/unique, policy SELECT và fixture/test nhiều số điện thoại. Không thấy khóa ghép hoặc trigger so clinic_id ở migration này.",
+      "limitations": "Không xem app/service write path, không truy vấn dữ liệu DB, không chạy test. Impact yêu cầu một đường ghi tạo tổ hợp sai; chưa chứng minh đường đó tồn tại hoặc dữ liệu đã sai."
+    },
+    "recommendation": "Thêm bất biến DB để hàng con thuộc đúng clinic của patient (FK ghép dựa trên unique key phù hợp hoặc trigger kiểm tra), và thêm test tạo patient ở clinic B nhưng child clinic A phải bị từ chối. Giữ RLS clinic-scoped và test đọc tenant riêng biệt.",
+    "acceptance": "SQL test chứng minh hàng child khớp clinic được chấp nhận, hàng không khớp bị từ chối, và member A không thể đọc phone của patient B qua fixture RLS hai clinic.",
+    "related_findings": [
+      {
+        "id": "SEC-018",
+        "relationship": "Cùng migration đã mở SELECT authenticated cho dữ liệu liên hệ bệnh nhân; đây là vấn đề quan hệ tenant của bảng mới, không lặp phát hiện role-boundary SEC-018."
+      },
+      {
+        "id": "DB-005",
+        "relationship": "Cùng nhóm bất biến tenant/provisioning; candidate này là FK cha-con cụ thể của patient_sdt_them."
+      }
+    ],
+    "related_tests": [
+      "supabase/tests/nhieu_so_dien_thoai.sql:20-39,53-56 (fixture chỉ dùng cùng clinic)."
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql": "31e6b8f83d9d3d6cc5c42b97238e5cfb3c8d8a4e3994666a3937fe323d9ae34b",
+      "supabase/tests/nhieu_so_dien_thoai.sql": "b080dd0c819f37dff5c585effcbd2dca1df49524f026fb78c4f9300fefdc6c53"
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "candidate_present_in_static_source",
+      "note": "Candidate chỉ dựa trên snapshot pinned; không xác minh dữ liệu DB hoặc production.",
+      "production_verified": false
+    }
+  },
+  {
+    "id": "CAND-R9-MIG-05",
+    "canonical_id": null,
+    "title": "Migration dispatch cấp EXECUTE cho authenticated trên hai hàm SECURITY DEFINER nội bộ",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "security_definer_rpc_access_contract",
+    "status": "candidate_for_triage",
+    "confidence": "HIGH rằng các GRANT xuất hiện trong tranche; LOW về quyền hiệu lực cuối cùng vì ngoài tranche có thể có REVOKE.",
+    "summary": "Migration định nghĩa move_visit_to_station là SECURITY DEFINER và cấp EXECUTE cho authenticated; migration sau cấp tương tự cho place_visit_at_first_station. Chuỗi CREATE OR REPLACE các phiên bản move không tự xóa ACL đã cấp. Migration 20260804000016 thu hồi table DML cho authenticated nhưng chỉ đụng quyền bảng, không thu hồi EXECUTE function. Test public_function_acl.sql mô tả hợp đồng đích là authenticated không được gọi hai helper và service_role được gọi. Do không đọc tháng ngoài phạm vi, không kết luận grant còn hiệu lực ở cuối toàn bộ chuỗi hay trong DB.",
+    "trigger": "Nếu deployment dừng ở trạng thái sau các migration 20260804000003/06 mà chưa có ACL cleanup sau tranche, một JWT authenticated có thể gọi trực tiếp hai helper qua PostgREST.",
+    "impact": "Nếu EXECUTE vẫn hiệu lực, người gọi có thể đi vòng FastAPI; move_visit_to_station nhận p_clinic_id và p_actor từ tham số, dùng p_actor làm actor_auth_user_id trong event metadata và không thấy kiểm tra auth.uid()/membership trong thân hàm được rà. Đây là khả năng có điều kiện theo ACL hiệu lực, chưa xác nhận được quyền gọi cuối cùng hoặc exploit/runtime.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260804000003_dispatch_move.sql",
+        "line": 36,
+        "end_line": 48,
+        "detail": "Hàm SECURITY DEFINER nhận p_clinic_id và p_actor từ caller."
+      },
+      {
+        "path": "supabase/migrations/20260804000003_dispatch_move.sql",
+        "line": 119,
+        "end_line": 141,
+        "detail": "Event metadata lấy actor từ tham số; PUBLIC bị revoke nhưng authenticated và service_role được grant EXECUTE."
+      },
+      {
+        "path": "supabase/migrations/20260804000006_move_closes_only_current.sql",
+        "line": 156,
+        "end_line": 164,
+        "detail": "place_visit_at_first_station được định nghĩa SECURITY DEFINER trước khi cấp EXECUTE."
+      },
+      {
+        "path": "supabase/migrations/20260804000006_move_closes_only_current.sql",
+        "line": 199,
+        "end_line": 205,
+        "detail": "place_visit_at_first_station cũng được grant EXECUTE cho authenticated và service_role."
+      },
+      {
+        "path": "supabase/migrations/20260804000016_no_client_write_policies.sql",
+        "line": 34,
+        "end_line": 44,
+        "detail": "Migration backend-only thu hồi INSERT/UPDATE/DELETE trên bảng cho authenticated; không có REVOKE function trong file."
+      },
+      {
+        "path": "supabase/tests/public_function_acl.sql",
+        "line": 73,
+        "end_line": 95,
+        "detail": "SQL test đặt hợp đồng sau migration: authenticated phải không execute và service_role phải execute hai helper."
+      }
+    ],
+    "validation": {
+      "method": "static_grant_order_and_acl_contract_review",
+      "command": null,
+      "result": "Rà grant/revoke trong toàn bộ migrations 202607/202608 cho hai signature, các CREATE OR REPLACE liên quan, cleanup migration trong tranche và assertion static trong public_function_acl.sql. Không thấy REVOKE authenticated trên hai hàm trong phạm vi tháng được giao.",
+      "limitations": "Không đọc migration ngoài 202607/202608 theo phạm vi; không chạy public_function_acl.sql, không kiểm effective ACL/catalog, PostgREST hay production. Vì vậy đây là khoảng trống cần đối chiếu với migration ACL cuối, không phải kết luận exposure hiện tại."
+    },
+    "recommendation": "Đối chiếu và làm cho state cuối rõ ràng bằng REVOKE EXECUTE FROM authenticated trên hai helper sau khi thay hàm, giữ service_role; nếu client access là chủ ý thì thay bằng wrapper kiểm membership và actor lấy từ auth.uid(). Thêm assertion ACL sau toàn bộ chuỗi migration và kiểm tra riêng ngay sau tranche dispatch.",
+    "acceptance": "Sau full migration replay, public_function_acl.sql thành công; authenticated không EXECUTE được hai hàm, service_role EXECUTE được; test ghi dispatch qua FastAPI/service_role vẫn giữ nghiệp vụ và actor đúng.",
+    "related_findings": [
+      {
+        "id": "DB-001",
+        "relationship": "Cùng lớp SECURITY DEFINER nhận clinic/actor từ caller, nhưng helper dispatch và grant cụ thể khác nhóm RPC liệu trình DB-001; không trùng finding."
+      },
+      {
+        "id": "SEC-007",
+        "relationship": "Cùng bề mặt PostgREST/RPC nhưng SEC-007 là RPC đọc booking policy; candidate này là helper ghi dispatch."
+      }
+    ],
+    "related_tests": [
+      "supabase/tests/public_function_acl.sql:73-95 (static expected ACL assertions; not executed in this audit)."
+    ],
+    "source_hashes": {
+      "supabase/migrations/20260804000003_dispatch_move.sql": "203b4b70aaf28111f619c8b6c13d0709650f20556fe9e0ebbf4e5789b00a2544",
+      "supabase/migrations/20260804000006_move_closes_only_current.sql": "091ac24e413c691ee153357d98d2e3ac85fa59db1032d894672a29f075ea2339",
+      "supabase/migrations/20260804000016_no_client_write_policies.sql": "e4429b1492027236fb0f511333aaa66112a40c4a6cb25fa1d497d000dfd3bb3e",
+      "supabase/tests/public_function_acl.sql": "5af1a2d87eda9b037971aba86740b3bf13f8a10b1fd597bcc08da02df5b397c1"
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "candidate_present_in_static_source",
+      "note": "Source-slice grant is present; final ACL/runtime/production state remains unresolved.",
+      "production_verified": false
+    }
+  }
+]

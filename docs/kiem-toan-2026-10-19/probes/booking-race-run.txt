@@ -1,0 +1,132 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_80535_dr4women_macmini (1 worker) sẵn sàng sau 5s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_reschedule_preserves_concurrently_committed_checkin ___________
+
+pool = <asyncpg.pool.Pool object at 0x10b343880>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b3ff8c0>
+
+    async def test_reschedule_preserves_concurrently_committed_checkin(
+        pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ca = await _dung(pool)
+        start = datetime.now(UTC) + timedelta(minutes=30)
+        appt = await pool.fetchval(
+            "INSERT INTO appointment (clinic_id,clinic_patient_id,location_id,"
+            "service_type_id,slot_start,slot_end,doctor_id,status)"
+            " VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7::uuid,'CONFIRMED')"
+            " RETURNING id::text",
+            CLINIC,
+            await _benh_nhan(pool, ca),
+            ca.loc,
+            ca.loai_kham,
+            start,
+            start + timedelta(minutes=15),
+            ca.bac_si.staff_id,
+        )
+        reader_ready, resume = asyncio.Event(), asyncio.Event()
+        changing = BookingService(pool)
+        original_update = changing._update
+    
+        async def pause_before_update(*args: Any, **kwargs: Any) -> bool:
+            reader_ready.set()
+            await asyncio.wait_for(resume.wait(), timeout=10)
+            return await original_update(*args, **kwargs)
+    
+        async def independent_hours_guard(*args: Any, **kwargs: Any) -> None:
+            # Fix the clock-dependent opening-hours precondition; preserve all writes,
+            # transactions, state reads, update predicates, triggers and event emission.
+            return None
+    
+        monkeypatch.setattr(changing, "_update", pause_before_update)
+        monkeypatch.setattr(changing, "_chan_dat_ngoai_khung_ca", independent_hours_guard)
+        task = asyncio.create_task(
+            changing.apply_action(
+                appointment_id=appt,
+                action="reschedule",
+                identity=ca.le_tan,
+                slot_start=start,
+                slot_end=start + timedelta(minutes=15),
+                ghi_chu="Synthetic reschedule note",
+                ghi_chu_provided=True,
+            )
+        )
+        try:
+            await asyncio.wait_for(reader_ready.wait(), timeout=10)
+            checked = await BookingService(pool).apply_action(
+                appointment_id=appt,
+                action="checkin",
+                identity=ca.le_tan,
+            )
+            assert checked["status"] == "CHECKED_IN"
+            resume.set()
+            await asyncio.wait_for(task, timeout=10)
+            state = await pool.fetchrow(
+                "SELECT a.status, v.visit_id IS NOT NULL AS has_visit,"
+                " v.closed_at IS NULL AS visit_open FROM appointment a"
+                " JOIN visit v ON v.appointment_id=a.id WHERE a.id=$1::uuid",
+                appt,
+            )
+            assert state["has_visit"] and state["visit_open"]
+>           assert state["status"] == "CHECKED_IN", "Stale reschedule reversed arrival"
+E           AssertionError: Stale reschedule reversed arrival
+E           assert 'CONFIRMED' == 'CHECKED_IN'
+E             
+E             - CHECKED_IN
+E             + CONFIRMED
+
+src/tests/services/test_audit_1910_booking_race_db.py:83: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-10-19 18:09:31 [info     ] visit_placed_at_first_station  clinic_id=a0000000-0000-4000-8000-000000000001 visit_id=a156077c-3cca-4358-bc0b-7b92ebbfd462
+2026-10-19 18:09:31 [info     ] appointment_action             action=checkin appointment_id=746da1b6-6fe7-4301-8ca9-477fc3e29128 by_staff_id=ac424556-8166-48f4-bca5-717f1d5d80cf status=CHECKED_IN
+2026-10-19 18:09:31 [info     ] appointment_action             action=reschedule appointment_id=746da1b6-6fe7-4301-8ca9-477fc3e29128 by_staff_id=ac424556-8166-48f4-bca5-717f1d5d80cf status=CONFIRMED
+=========================== short test summary info ============================
+FAILED src/tests/services/test_audit_1910_booking_race_db.py::test_reschedule_preserves_concurrently_committed_checkin
+1 failed in 0.42s

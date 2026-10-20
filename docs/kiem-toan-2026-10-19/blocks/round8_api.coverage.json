@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "status": "complete",
+  "scope": [
+    "FastAPI permission administration and skill-to-capability reconciliation"
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/phan_quyen.py",
+      "status": "read",
+      "method": "Full line-numbered source read; selected route-to-service trace",
+      "lines_read": "1-331 (full, 331 lines)",
+      "note": "Registration, auth dependencies, permission grant/revoke, group, LEGO and skill endpoints inspected.",
+      "sha256": "bce5882167696d75a7b414217570382e07a2e24a694c235bdf061512c2b748ab",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/services/permission_service.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-620 (full, 620 lines)",
+      "note": "Grant/revoke transaction, cache invalidation, same-clinic target checks, LEGO and group/preset methods inspected.",
+      "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/services/ky_nang_service.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-307 (full, 307 lines)",
+      "note": "Pure planner, skill reads, mutation, persisted assignment and capability reconciliation inspected.",
+      "sha256": "2c8fe8d9e7e4414522304318fb731f737d678bb023a3df54c871f18a0a0dbd7d",
+      "full_file_read": true
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "status": "traced",
+      "method": "Router registration grep plus line-numbered source excerpt",
+      "lines_read": "70, 361-364",
+      "note": "Only import and `include_router` registration for permission router were read; file not read fully.",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "full_file_read": false
+    },
+    {
+      "path": "src/dashboard/app/api/phan-quyen/route.ts",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-141 (full, 141 lines)",
+      "note": "BFF whitelist and POST proxy mapping to FastAPI skill endpoints inspected.",
+      "sha256": "405aa1b031bbdeaf4ab5485917da747acdd1d7608cb7120d2325fd26cd593f2a",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phan-quyen/KyNangCuaNguoi.tsx",
+      "status": "traced",
+      "method": "Line-numbered source excerpt",
+      "lines_read": "1-145 of 184",
+      "note": "Read/load, POST action, error display, refresh and checkbox callsite inspected; file tail not read.",
+      "sha256": "9f03512655902afbd4bd66b769fe04b612a53bd1b6e181f8f5d395c3f0924904",
+      "full_file_read": false
+    },
+    {
+      "path": "src/tests/unit/test_ky_nang_ke_hoach.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-95 (full, 95 lines)",
+      "note": "Planner behavior tests only; no persistence or retry/failure injection.",
+      "sha256": "29f7d58c987b9c75db8916391691efca5bd52ee16a7ed732ef582b90efe0cf65",
+      "full_file_read": true
+    },
+    {
+      "path": "src/tests/services/test_permission_db.py",
+      "status": "read",
+      "method": "Full line-numbered source read",
+      "lines_read": "1-428 (full, 428 lines)",
+      "note": "PermissionService grant/revoke/group DB tests read; no KyNangService mutation test present in this file.",
+      "sha256": "174834e553a18cad726220f145b1b274313a66c0c754900fccc0ed2aee8998a7",
+      "full_file_read": true
+    },
+    {
+      "path": "src/tests/services/test_phong_theo_bang_lich_db.py",
+      "status": "scanned",
+      "method": "Symbol search only (`rg -n` / `rg -l`)",
+      "lines_read": "No source ranges read; search hits at 119, 220 and 356",
+      "note": "Not a full read or semantic trace; found as a migration/skill-table related test only.",
+      "sha256": "8d63ada1f1f03023c89e63423cf3ae2455e695a4507107e7c5095590b29d2e28",
+      "full_file_read": false
+    },
+    {
+      "path": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+      "status": "traced",
+      "method": "Line-numbered source excerpt",
+      "lines_read": "1-190 of 197",
+      "note": "Preset function, last-permission-holder invariant, deferred trigger, clinic-row lock and scope/expiry constraint inspected; file tail not read.",
+      "sha256": "9457e2c7704c45399a607f744f3a4d906ec7b9873fe67149ccb534e6b786e88c",
+      "full_file_read": false
+    },
+    {
+      "path": "supabase/migrations/20260928000093_ky_nang.sql",
+      "status": "traced",
+      "method": "Line-numbered source excerpt",
+      "lines_read": "18-63 of 63",
+      "note": "Skill assignment table, key/FK, RLS and service-role grants inspected; file header/comment lines not read.",
+      "sha256": "5541ff8e1ea6a113e7d52254a2b91f382eff7369d00a5f859caddb4ea2966a78",
+      "full_file_read": false
+    }
+  ],
+  "context": [
+    {
+      "path": "docs/kiem-toan-2026-10-19/STATE.json",
+      "read_level": "full",
+      "note": "Read before choosing scope; source SHA and existing held observations checked.",
+      "sha256": "4d67b342db47361825d9e955ca8bd34afd5e8f84dc74b11ddf293fb933747c5b"
+    },
+    {
+      "path": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+      "read_level": "full",
+      "note": "Read before choosing scope; permission router inventory status checked.",
+      "sha256": "03c3402d175fe0959dc847876be070ddab3c8706129b1ae15f7fd362dc170dd2"
+    },
+    {
+      "path": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+      "read_level": "partial",
+      "note": "Existing SEC-012 entry and finding ID/severity inventory inspected to avoid duplication; not a full read.",
+      "sha256": "b2f2d0211bd6ff98c0db11f9f89f2c85a31440d7768f9d5a81b4aa02fdafd638"
+    },
+    {
+      "path": "CLAUDE.md",
+      "read_level": "full",
+      "note": "Project instruction source read.",
+      "sha256": "a032c40c1cffd3a41a1bc96bf8f895d629b2367c824fdd5327fb8d709147a70b"
+    },
+    {
+      "path": "docs/SO-LUAT.md",
+      "read_level": "full",
+      "note": "Project rules read from the shared workspace; not used as exact-main source evidence.",
+      "sha256": "4712b02b887333864203f1167130a2fbf8424f88d2a61ff97a24937422894510"
+    },
+    {
+      "path": "docs/DANG-LAM.md",
+      "read_level": "partial",
+      "note": "Shared-workspace lines 1-110 read and headings searched through the file; not a full read and not exact-main source evidence.",
+      "sha256": "f9cbc9005e4d4473d64cfeb9d4175185ca30d0ea013e93ec46eccff0fdcbaf62"
+    }
+  ],
+  "findings_count": 0,
+  "existing_finding_corroborated": [
+    "SEC-012"
+  ],
+  "notes": "No new finding added because the only concrete failure/retry behavior found is already registered as SEC-012. Static code was corroborated; this round did not rerun its DB fault-injection probe or any test. No app/migration/database/production/secrets/PHI access."
+}

@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Kiểm toán ClinicAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Bố cục: một cột đọc, kết luận và đề xuất trước, danh sách đầy đủ ở cuối có bộ lọc. */
+:root {
+  --bg: #f4f7f8; --surface: #ffffff; --ink: #12222b; --muted: #526771; --line: #d3dde2;
+  --accent: #0d6a6a; --accent-soft: #dff1f0;
+  --ok: #1d6b3b; --ok-soft: #e1f2e6; --warn: #8a5600; --warn-soft: #fbefd3;
+  --bad: #a5271f; --bad-soft: #f9e2df; --idle: #4b5b63; --idle-soft: #e6ecef;
+  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1a1f; --surface: #17262d; --ink: #e6eef1; --muted: #9db0b8; --line: #2b3f48;
+    --accent: #5cc4c0; --accent-soft: #14393a; --ok: #7fd49a; --ok-soft: #153324;
+    --warn: #f0c26a; --warn-soft: #3a2c0e; --bad: #ff9d94; --bad-soft: #3d1a17; --idle: #aebdc4; --idle-soft: #23343c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1a1f; --surface: #17262d; --ink: #e6eef1; --muted: #9db0b8; --line: #2b3f48;
+  --accent: #5cc4c0; --accent-soft: #14393a; --ok: #7fd49a; --ok-soft: #153324;
+  --warn: #f0c26a; --warn-soft: #3a2c0e; --bad: #ff9d94; --bad-soft: #3d1a17; --idle: #aebdc4; --idle-soft: #23343c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.65; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 72px; }
+.wrap { max-width: 50rem; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1, h2, h3, h4 { text-wrap: balance; line-height: 1.25; margin: 0; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+h4 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 6px; }
+p { margin: 0; } p + p { margin-top: 10px; }
+.eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.meta, .muted { color: var(--muted); } .meta { font-size: 0.9rem; }
+.sec { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.id, .path { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
+.verdict, .box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.verdict .big { font-size: 1.25rem; font-weight: 700; }
+.verdict ul, ul.l, ol.l { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 8px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--surface); }
+.stat b { display: block; font-size: 1.6rem; line-height: 1.2; font-variant-numeric: tabular-nums; } .stat span { font-size: 0.85rem; color: var(--muted); }
+.stat.hi b { color: var(--bad); }
+.pill { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; max-width: 100%; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.idle { background: var(--idle-soft); color: var(--idle); }
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; }
+.goal { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.goal header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.goal .lab { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.goal .prop { background: var(--ok-soft); border-radius: 8px; padding: 10px 14px; }
+.goal .prop .lab { color: var(--ok); }
+.goals { display: flex; flex-direction: column; gap: 12px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+th { background: var(--idle-soft); border-top: 0; font-weight: 600; } td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+ol.steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; counter-reset: s; }
+ol.steps li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px 14px 56px; position: relative; }
+ol.steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--bg); font-weight: 700; display: grid; place-items: center; font-size: 0.9rem; }
+ol.steps b { display: block; } ol.steps .why { color: var(--muted); font-size: 0.93rem; display: block; }
+.road { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.road > div { padding: 14px 16px; display: grid; grid-template-columns: 6rem 1fr; gap: 4px 16px; } .road > div + div { border-top: 1px solid var(--line); }
+.road .stage { font-weight: 600; color: var(--accent); } .road p { color: var(--muted); font-size: 0.93rem; } .road b { color: var(--ink); }
+dl.gloss { margin: 0; display: grid; grid-template-columns: minmax(8rem, 11rem) 1fr; gap: 10px 16px; font-size: 0.93rem; }
+dl.gloss dt { font-weight: 600; } dl.gloss dd { margin: 0; color: var(--muted); }
+.tools { display: flex; flex-wrap: wrap; gap: 10px; position: sticky; top: env(safe-area-inset-top, 0px); background: var(--bg); padding: 10px 0; z-index: 2; }
+.tools input, .tools select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); min-width: 0; flex: 1 1 11rem; }
+.finding { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.finding header { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.gtag { font-size: 0.78rem; color: var(--muted); }
+.finding .impact, .finding .fixline { font-size: 0.93rem; color: var(--muted); } .finding .impact b, .finding .fixline b { color: var(--ink); }
+.finding details { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }
+.finding summary { cursor: pointer; font-weight: 600; font-size: 0.93rem; color: var(--accent); }
+.small { font-size: 0.88rem; overflow-wrap: anywhere; }
+ul.ev { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; }
+pre { margin: 6px 0 0; background: var(--idle-soft); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font: 0.78rem/1.5 var(--font-mono); white-space: pre; max-width: 100%; }
+.list { display: flex; flex-direction: column; gap: 12px; }
+a { color: var(--accent); } :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 520px) { .road > div { grid-template-columns: 1fr; } dl.gloss { grid-template-columns: 1fr; gap: 2px; } dl.gloss dd { margin-bottom: 8px; } }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+h2[id] { scroll-margin-top: 16px; }
+.finding[id] { scroll-margin-top: 80px; }
+nav.toc { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+nav.toc h2 { font-size: 1rem; }
+nav.toc ol { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); gap: 4px 20px; counter-reset: t; }
+nav.toc li { counter-increment: t; display: flex; gap: 8px; align-items: baseline; }
+nav.toc li::before { content: counter(t); font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); min-width: 1.4rem; text-align: right; }
+nav.toc a { text-decoration: none; padding: 4px 0; display: inline-block; }
+nav.toc a:hover { text-decoration: underline; }
+a.totop { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); background: var(--accent); color: var(--bg); text-decoration: none; font-weight: 600; font-size: 0.85rem; padding: 8px 14px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 3; }
+</style>
+</head>
+<body>
+<main class="wrap" id="top">
+
+<header class="sec">
+  <div class="eyebrow">Báo cáo đầy đủ · đọc được không cần biết kỹ thuật</div>
+  <h1>Báo cáo kiểm toán ClinicAI</h1>
+  <p class="meta">20/10/2026 · mã nguồn ghim ở bản @@SHA8@@ · đọc tĩnh, chưa chạy hệ thống, chưa chạm dữ liệu bệnh nhân. Chi tiết kỹ thuật từng mục mở ngay trong thẻ ở cuối trang.</p>
+</header>
+
+<nav class="toc" aria-label="Mục lục">
+  <h2>Mục lục (bấm để nhảy tới)</h2>
+  <ol>
+    <li><a href="#kl">Kết luận</a></li>
+    <li><a href="#ban">Đã đo thực tế prod</a></li>
+    <li><a href="#git">Quản lý commit, nhánh</a></li>
+    <li><a href="#muctieu">Đối chiếu mục tiêu của anh</a></li>
+    <li><a href="#kieu">Các kiểu lỗi lặp lại</a></li>
+    <li><a href="#thietke">Thiết kế đề xuất, bán được</a></li>
+    <li><a href="#muoi">Các việc mức cao</a></li>
+    <li><a href="#lotrinh">Lộ trình</a></li>
+    <li><a href="#quyet">Điều cần chủ sản phẩm quyết</a></li>
+    <li><a href="#dang">Điều đáng giữ</a></li>
+    <li><a href="#gioihan">Đã đọc gì, chưa làm gì</a></li>
+    <li><a href="#tu">Từ khoá</a></li>
+    <li><a href="#ds">Toàn bộ vấn đề (@@TOTAL@@)</a></li>
+  </ol>
+</nav>
+
+<section class="sec" aria-labelledby="kl">
+  <h2 id="kl">Kết luận</h2>
+  <div class="verdict">
+    <p class="big">Nền tảng có ý tưởng tốt, nhưng chưa nên bán cho phòng khám thứ hai. Gốc vấn đề là hệ thống đôi khi nói không đúng sự thật.</p>
+    <ul>
+      <li><b>Đang chạy thật:</b> prod đang phục vụ phòng khám Dr4Women, nên mọi lỗi mức cao đều cần xử lý cẩn thận, theo từng đợt nhỏ.</li>
+      <li><b>Điểm mạnh:</b> luật nghiệp vụ nằm ở máy chủ; nhiều chốt kiểm đặt thẳng ở cơ sở dữ liệu; có nhật ký, mã chống lặp ở nhiều chỗ, bộ test dày; mã có nhiều ghi chú giải thích “vì sao”. Đây là nền để sửa, không phải để bỏ.</li>
+      <li><b>Điểm yếu:</b> màn hình báo “xong”, “hết việc”, “an toàn” khi thực tế chưa chắc. Nhiều việc không có người nhận. Quyền xem và sửa rộng hơn cần thiết. Phần riêng của Dr4Women nằm lẫn trong lõi dùng chung.</li>
+      <li><b>Chỉ khoảng 10 kiểu lỗi lặp lại.</b> Sửa theo kiểu (một lần cho cả nhóm) nhanh và bền hơn sửa từng mục.</li>
+      X
+    </ul>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>@@TOTAL@@</b><span>vấn đề đã ghi nhận</span></div>
+    <div class="stat hi"><b>@@HIGH@@</b><span>mức cao</span></div>
+    <div class="stat"><b>@@MED@@</b><span>mức vừa</span></div>
+    <div class="stat"><b>@@LOW@@</b><span>mức thấp</span></div>
+  </div>
+  <div class="note"><p><b>Đã xác minh độc lập:</b> Codex đọc lại 40 mục mức cao từ đầu. Kết quả: <b>@@CXD@@</b> đúng, <b>@@CXM@@</b> đúng một phần, <b>@@CXB@@</b> bị bác bỏ, <b>@@CXK@@</b> chưa xác định. <b>@@CXH@@</b> mục được hạ xuống mức vừa vì có chốt chặn hoặc điều kiện hẹp hơn báo cáo ban đầu. Bảng tóm tắt và lý do từng mục nằm trong thẻ của mục đó (nhãn “Codex xác minh”).</p></div>
+  <p class="muted">Gồm @@OLD@@ mục từ 53 vòng kiểm toán trước và @@NEW@@ mục mới từ đợt đọc toàn bộ mã nguồn lần này (đã loại trùng). Thêm @@EXT@@ bằng chứng bổ sung cho các mục cũ. Mức cao, vừa, thấp do người kiểm toán xếp theo tác động có thể xảy ra tới bệnh nhân, tiền và dữ liệu.</p>
+</section>
+
+<section class="sec" aria-labelledby="ban">
+  <h2 id="ban">Báo cáo này đọc đúng bản khách đang dùng, và đã đo thực tế prod</h2>
+  <div class="box">
+    <p><b>Hệ thống đang chạy thật.</b> Prod đang phục vụ phòng khám Dr4Women. Đo ngày 20/10: khoảng 8.900 hồ sơ bệnh nhân, 14.600 lượt khám, 14.900 lịch hẹn; lượt khám mới nhất ghi lúc 21:04 và lần thu tiền mới nhất lúc 22:36 ngày 19/10. “Chưa sẵn sàng” trong báo cáo này nghĩa là chưa sẵn sàng bán cho phòng khám thứ hai, không phải hệ thống chưa chạy.</p>
+    <p><b>Đối chiếu với VPS prod (20/10/2026, lệnh chỉ đọc, anh duyệt):</b> thư mục chạy thật đang ở commit <span class="id">956ba4f2</span>, không có thay đổi dở. Ba container <span class="id">api</span>, <span class="id">dashboard</span>, <span class="id">su-kien</span> được dựng lại ngay sau commit đó. Bản code đã đọc là đúng bản khách đang chạy. Staging và local không nằm trong phạm vi kết luận.</p>
+    <p><b>Đã đo thêm:</b> cấu trúc database (đủ 373/373 migration), quyền, sao lưu, container, hẹn giờ, cấu hình (chỉ so sánh bằng băm, không in giá trị), log (chỉ đếm và lấy tên sự kiện). Không đọc dữ liệu bệnh nhân.</p>
+    <p><b>Kết quả:</b> <b>@@XN@@</b> mục trong báo cáo có dấu hiệu thật trên prod, <b>@@PN@@</b> mục được giảm nhẹ hoặc chưa ảnh hưởng, và <b>@@MO@@</b> quan sát mới chỉ thấy khi đo prod. Các mục này có nhãn riêng ở danh sách cuối trang.</p>
+    <p class="muted"><b>Chưa đo:</b> dữ liệu và cấu hình đã nhập qua màn hình, nội dung log, tường lửa (cần quyền root), cấu hình Caddy chi tiết, hệ điều hành ngoài phiên bản. Nếu prod được deploy lại, cần đo lại.</p>
+  </div>
+  <h3>Điều đo được là tốt</h3>
+  <ul class="l">@@STRENGTHS@@</ul>
+  <h3>Hiện trạng từng mục tiêu theo dữ kiện đo trên prod</h3>
+  <div class="tablewrap"><table><thead><tr><th>Mục tiêu</th><th>Trạng thái</th><th>Dữ kiện prod</th></tr></thead><tbody>@@PRODROWS@@</tbody></table></div>
+</section>
+
+<section class="sec" aria-labelledby="git">
+  <h2 id="git">Quản lý commit, nhánh và phát hành</h2>
+  <p>Phần này đo từ lịch sử git, chưa phải kiểm toán sâu. Quy ước của dự án: <span class="id">main</span> là nhánh dài hạn duy nhất, nhánh việc sống tối đa 2 ngày, mọi thứ qua PR rồi xoá nhánh.</p>
+  <div class="tablewrap"><table><thead><tr><th>Số đo</th><th class="num">Giá trị</th><th>Nhận định</th></tr></thead><tbody>
+    <tr><td>Nhánh trên GitHub</td><td class="num">534</td><td>Quy ước là chỉ main dài hạn. 373 nhánh đã merge vẫn chưa xoá.</td></tr>
+    <tr><td>Nhánh chưa merge vào main</td><td class="num">158</td><td>113 nhánh trong số đó không có commit mới hơn 14 ngày. Khó biết cái nào còn giá trị, cái nào bỏ.</td></tr>
+    <tr><td>Nhánh local và worktree trên máy</td><td class="num">177 / 103</td><td>Nhiều bản làm việc song song, dễ dùng nhầm bản (đã xảy ra: hôm nay <span class="id">main</span> local cũ 57 commit).</td></tr>
+    <tr><td>Merge PR vào main trong 30 ngày</td><td class="num">166</td><td>Nhịp rất nhanh. Mỗi PR cần đủ kiểm tra tự động mới giữ được chất lượng.</td></tr>
+    <tr><td>Commit đi thẳng vào main không qua PR (30 ngày)</td><td class="num">9</td><td>Trái quy ước “không bao giờ đẩy thẳng main”. Cần xem từng commit.</td></tr>
+    <tr><td>Bản đang chạy khách so với main</td><td class="num">trùng</td><td>Đã kiểm ngày 20/10: prod đang ở <span class="id">956ba4f2</span>, bằng main trên GitHub. Nhưng phải hỏi VPS bằng tay mới biết; chưa có trang trạng thái tự ghi.</td></tr>
+  </tbody></table></div>
+  <div class="note"><p><b>Đề xuất:</b> dọn nhánh đã merge bằng một lệnh (xoá tự động sau merge); gắn nhãn hoặc xoá 113 nhánh bỏ; ghi SHA đang chạy vào một trang trạng thái và vào nhật ký mỗi lần deploy; chặn đẩy thẳng main bằng quy tắc của GitHub; chỉ giữ một bản làm việc chuẩn cho mỗi người.</p></div>
+  <p class="muted">Các lỗ hổng riêng của quy trình phát hành đã ghi ở phần vấn đề: CI trên máy có thể báo xanh cho commit dù đã kiểm mã chưa theo dõi (INF-014), khoá CI có thể cho hai lượt chạy cùng lúc (CI-001), deploy kiểm cấu hình Caddy ở tệp tạm nhưng khởi động lại với tệp cũ (INF-015).</p>
+</section>
+
+<section class="sec" aria-labelledby="muctieu">
+  <h2 id="muctieu">Đối chiếu với mục tiêu của anh: hệ thống đang ở đâu, cần thiết kế gì</h2>
+  <p>Mục tiêu thành công của anh là phòng khám ngày càng ít phụ thuộc vào trí nhớ cá nhân, gọi điện hỏi nhau, chat đuổi việc, vài người gánh team, chữa cháy, kiểm tra thủ công và phản ứng sau khi bệnh nhân phàn nàn. Mỗi mục dưới đây là một tiêu chí, kèm nhận định và đề xuất thiết kế. Trạng thái là nhận định của người kiểm toán, không phải điểm đo bằng công cụ.</p>
+  <div class="goals">
+    <article class="goal"><header><h3>1. Thực tế ngày càng dễ nhìn thấy</h3><span class="pill warn">Còn hở</span></header>
+      <p>Hàng chục màn hình cắt danh sách ở một giới hạn mà không nói, hoặc hiển thị lỗi tải thành “trống” hay “bằng 0”. Báo cáo tiền có thể thiếu dòng. Nhân viên phải tự nhớ rằng con số có thể chưa đủ.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Quy tắc chung: mọi nguồn dữ liệu trả về “đầy đủ / bị cắt / lỗi / chưa biết”. Giao diện chỉ được viết “không có” ở trạng thái “đầy đủ”. Thêm bài kiểm tự động chạy mỗi lần sửa code để bắt mọi truy vấn có giới hạn mà không báo cắt.</p></div></article>
+    <article class="goal"><header><h3>2. Khoảng “chưa biết” ngày càng ngắn</h3><span class="pill warn">Còn hở</span></header>
+      <p>Kết quả gửi đối tác có thể chờ mà không ai được nhắc. Lỗi mạng khi lưu bị báo “chưa lưu” dù đã lưu, hoặc ngược lại. “Xanh” sáng khi chưa được chứng minh.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>“Chưa biết” trở thành trạng thái chính thức, có đồng hồ và người theo dõi. Sau lỗi mất phản hồi, hệ thống tự hỏi lại kết quả lệnh bằng mã chống lặp thay vì bắt nhân viên đoán.</p></div></article>
+    <article class="goal"><header><h3>3. Mỗi việc có chủ rõ ràng</h3><span class="pill warn">Còn hở</span></header>
+      <p>Việc gọi tái khám, phản hồi sau dùng thuốc, tiền tồn, phiếu nhập chờ duyệt và kết quả nháp chưa ký đều có chỗ không có người nhận, không có hạn, không có nhắc. Một số việc chỉ được tạo khi có người mở đúng màn hình.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Một bảng “việc cần làm” thống nhất cho toàn hệ thống: mỗi việc có người nhận, hạn, lần nhắc kế tiếp và đường leo thang. Việc được sinh bởi sự kiện, không bởi việc có người mở màn.</p></div></article>
+    <article class="goal"><header><h3>4. Vấn đề được phát hiện sớm hơn</h3><span class="pill warn">Có nền, chưa tin được</span></header>
+      <p>Có kho lỗi và bộ canh gác chạy mỗi phút. Nhưng cảnh báo thất bại lần đầu không được gửi lại, giám sát nằm cùng máy chủ cần được giám sát, và không có gì tự dựng lại hệ thống sau khi Docker khởi động lại.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Một điểm giám sát từ bên ngoài máy chủ; cảnh báo có gửi lại và có người xác nhận đã nhận; diễn tập khôi phục thật mỗi quý; tự dựng lại dịch vụ sau khởi động.</p></div></article>
+    <article class="goal"><header><h3>5. Con người ít bị gián đoạn, nhưng đúng lúc</h3><span class="pill idle">Chưa đo được</span></header>
+      <p>Đọc code không cho biết nhân viên bị ngắt quãng bao nhiêu. Đã thấy các chỗ buộc người phải gọi hỏi nhau vì màn hình không đủ thông tin (ví dụ khách quá hạn nằm ở trang sau).</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Đặt số đo trước khi sửa: số cuộc gọi hỏi lại, số việc phải nhắc tay, thời gian tìm một khách. Đo lại sau mỗi đợt sửa trong lúc chạy thử.</p></div></article>
+    <article class="goal"><header><h3>6. Bệnh nhân ít phải chờ trong bất định</h3><span class="pill warn">Có nền, còn hở</span></header>
+      <p>Có hàng chờ, điều phối phòng và bảng gọi số. Nhưng bảng gọi số, hàng chờ và màn tivi có thể trông như đã hết khi còn người, hoặc trống vĩnh viễn sau một lỗi cho tới khi có người tải lại.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Màn tivi và hàng chờ tự phục hồi, luôn hiện giờ cập nhật cuối. Thời gian chờ tính ở máy chủ, không bằng đồng hồ máy khách.</p></div></article>
+    <article class="goal"><header><h3>7. Nhân viên làm việc trong điều kiện bền vững</h3><span class="pill idle">Chưa đo được</span></header>
+      <p>Phụ thuộc cách vận hành thật. Từ code thấy nhiều chỗ nhân viên phải nhớ thay máy: nhớ bấm lại, nhớ kiểm tra số, nhớ ai đang giữ việc.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Giảm việc “nhớ thay máy” bằng bản nháp bền (không mất chữ khi đóng tab), khoá “đang được người khác sửa”, và việc có chủ như mục 3.</p></div></article>
+    <article class="goal"><header><h3>8. Quyết định dựa trên bằng chứng tốt hơn</h3><span class="pill warn">Còn hở</span></header>
+      <p>Báo cáo tài chính có thể cắt ở vài nghìn dòng hoặc chỉ lấy 93 ngày cuối. Sửa giá, sửa cấu hình và nhiều thao tác khác không để lại giá trị cũ. Nhật ký mở hồ sơ y khoa chỉ phủ vài đường.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Mỗi con số có thể giải thích được: nguồn, phạm vi, thời điểm và đủ hay không. Mọi thay đổi giá và cấu hình lưu giá trị cũ, người đổi, lý do. Nhật ký truy cập hồ sơ phủ mọi đường đọc, in, xuất.</p></div></article>
+    <article class="goal"><header><h3>9. Lỗi lặp lại dần biến thành cải tiến hệ thống</h3><span class="pill ok">Có nền</span></header>
+      <p>Đội ngũ có ghi chú “bẫy đã cắn” trong code và nhiều test. Nhưng cùng một kiểu lỗi xuất hiện hàng chục lần cho thấy chưa có quy tắc chung chặn chúng từ đầu. Một bài kiểm chống “cắt im lặng” đã có nhưng chỉ quét một dạng viết và dễ qua mặt.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Biến mỗi kiểu lỗi trong bảng dưới thành một bài kiểm tự động chạy mỗi lần sửa code. Đây là chỗ hợp để con AI agent làm việc: đọc từng thay đổi và hỏi các câu hỏi cố định. Người vẫn là bên duyệt.</p></div></article>
+    <article class="goal"><header><h3>10. Đóng gọn để bán được</h3><span class="pill bad">Chưa sẵn sàng</span></header>
+      <p>Tên, mã phòng, ca, danh mục thuốc và giá của Dr4Women nằm cứng trong lõi, cả ở máy chủ lẫn giao diện. Seed dùng chung có thể ghi đè dữ liệu của phòng khám đang chạy. Chưa có quy trình tạo phòng khám mới lặp lại được. Một số hàm cơ sở dữ liệu chạy cho mọi phòng khám.</p>
+      <div class="prop"><span class="lab">Đề xuất thiết kế</span><p>Tách “lõi” và “gói cấu hình của từng phòng khám” (danh mục, giá, phòng, ca, luật). Có lệnh “tạo phòng khám mới” từ gói cấu hình trắng, và bài kiểm hai phòng khám chạy song song không lẫn dữ liệu. Chốt mô hình bán (cài riêng hay dùng chung) trước khi làm.</p></div></article>
+  </div>
+  <div class="tablewrap"><table><thead><tr><th>Mục tiêu</th><th class="num">Số mục liên quan</th></tr></thead><tbody>@@GOALROWS@@</tbody></table></div>
+  <p class="muted">Một vấn đề có thể gắn với nhiều mục tiêu nên các số không cộng lại thành tổng.</p>
+</section>
+
+<section class="sec" aria-labelledby="kieu">
+  <h2 id="kieu">Các kiểu lỗi lặp lại và cách sửa chung</h2>
+  <p>Mỗi vấn đề được xếp vào một nhóm chính. Sửa theo nhóm bằng một quy tắc chung hiệu quả hơn sửa từng mục.</p>
+  <div class="tablewrap"><table><thead><tr><th>Kiểu lỗi</th><th class="num">Số mục</th><th>Cách sửa chung</th></tr></thead><tbody>@@GROUPROWS@@</tbody></table></div>
+</section>
+
+<section class="sec" aria-labelledby="thietke">
+  <h2 id="thietke">Thiết kế đề xuất để đóng gọn, bán được</h2>
+  <p>Chín nền móng, rút ra từ các kiểu lỗi trên. Đây là đề xuất để thảo luận, chưa phải kiến trúc đã làm. Không cần hạ tầng mới (không Redis, không message broker): các vấn đề đều nằm ở quy tắc và dữ liệu, không ở sức tải.</p>
+  <ol class="steps">
+    <li><b>Một cổng quyền duy nhất theo bệnh nhân và cơ sở</b><span class="why">Mọi đường đọc, ghi, in, xuất, thông báo đi qua một hàm kiểm chung. Bỏ việc tin tên phòng khám hay người dùng do phía gọi tự khai.</span></li>
+    <li><b>Hợp đồng “đầy đủ hay không” cho mọi danh sách</b><span class="why">Truy vấn trả kèm “còn nữa”, giao diện hiện đúng trạng thái; bài kiểm tự động bắt mọi giới hạn không báo cắt.</span></li>
+    <li><b>Mã chống lặp ở mọi lệnh ghi, bền qua tải lại trang</b><span class="why">Gửi lại cùng mã thì trả kết quả cũ. Khoá nằm trong lưu trữ của trình duyệt chứ không chỉ trong bộ nhớ.</span></li>
+    <li><b>Số phiên bản và giá trị cũ–mới ở mọi bản ghi sửa được</b><span class="why">Hai người sửa cùng lúc thì người sau được báo; sửa giá, cấu hình, hồ sơ đều để lại vết.</span></li>
+    <li><b>“Chưa biết” là trạng thái chính thức</b><span class="why">Mọi tín hiệu có ba trạng thái: ổn, hỏng, chưa biết. “Ổn” cần bằng chứng (ví dụ lần khôi phục thật gần nhất).</span></li>
+    <li><b>Bảng “việc cần làm” có chủ, hạn, nhắc, leo thang</b><span class="why">Thay cho các danh sách rải rác tự sinh khi mở màn. Kết quả đối tác, tái khám, phản hồi thuốc, tiền tồn, phiếu nhập đều vào đây.</span></li>
+    <li><b>Tách lõi và gói cấu hình theo phòng khám</b><span class="why">Danh mục, giá, phòng, ca, luật của Dr4Women thành dữ liệu cấu hình. Seed không được ghi đè phòng khám đang chạy. Có lệnh tạo phòng khám mới.</span></li>
+    <li><b>Vận hành có thể chứng minh</b><span class="why">Diễn tập khôi phục thật gồm đăng nhập và tệp; giám sát từ ngoài máy chủ; tự dựng lại sau khởi động; gỡ script phá huỷ khỏi môi trường thật; staging tách khỏi mật khẩu thật.</span></li>
+    <li><b>AI hỗ trợ người, có bằng chứng, có người duyệt</b><span class="why">Agent giám sát đọc từ bảng việc và nhật ký, nêu việc sắp trễ kèm bằng chứng. Agent kiểm code chạy chín nền móng ở trên cho từng thay đổi. Không tự sửa dữ liệu, không tự đưa lên hệ thống thật.</span></li>
+  </ol>
+</section>
+
+<section class="sec" aria-labelledby="muoi">
+  <h2 id="muoi">Các việc mức cao nên xem trước</h2>
+  <p>Danh sách đầy đủ các mục mức cao, đã viết lại bằng lời thường. Thứ tự xử lý nên theo rủi ro cho bệnh nhân và tiền, rồi tới khả năng bán.</p>
+  <ul class="l">@@HIGHLIST@@</ul>
+</section>
+
+<section class="sec" aria-labelledby="lotrinh">
+  <h2 id="lotrinh">Lộ trình để bán được</h2>
+  <p>Mỗi đợt kết thúc khi đạt điều kiện, không theo ngày hứa trước. Chưa đủ dữ liệu để ước lượng tổng công sức.</p>
+  <div class="road">
+    <div><span class="stage">Đợt 0</span><div><b>Chốt sự thật</b><p>Mã nguồn, cấu hình và bản đang chạy khớp nhau. Xác nhận mức cao nào đã được xử lý ngoài repo.</p></div></div>
+    <div><span class="stage">Đợt 1</span><div><b>Giảm rủi ro lớn</b><p>Quyền theo bệnh nhân. Diễn tập khôi phục thật. Gỡ script phá huỷ và cô lập staging.</p></div></div>
+    <div><span class="stage">Đợt 2</span><div><b>Màn hình nói đúng</b><p>Hết danh sách bị cắt lặng lẽ, hết “xanh giả”; “chưa biết” hiện rõ.</p></div></div>
+    <div><span class="stage">Đợt 3</span><div><b>Ghi chép đáng tin</b><p>Mã chống lặp, số phiên bản, sổ tiền và kho một chiều; thử bằng kịch bản bấm lại và hai người cùng sửa.</p></div></div>
+    <div><span class="stage">Đợt 4</span><div><b>Đóng gói sản phẩm</b><p>Gói cấu hình theo phòng khám, lệnh tạo phòng khám mới, bài kiểm hai phòng khám không lẫn dữ liệu.</p></div></div>
+    <div><span class="stage">Đợt 5</span><div><b>Chạy thử có đo</b><p>Một phòng khám thật làm trọn ca; đo giảm gọi hỏi, giảm việc rơi, giảm thời gian chưa biết.</p></div></div>
+    <div><span class="stage">Đợt 6</span><div><b>Mở rộng có điều kiện</b><p>Bán thêm khi chạy thử đạt và không còn mức cao nào chưa xử lý hoặc chưa được chấp nhận rõ ràng.</p></div></div>
+  </div>
+</section>
+
+<section class="sec" aria-labelledby="quyet">
+  <h2 id="quyet">Những điều cần chủ sản phẩm quyết</h2>
+  <ol class="l">
+    <li>Bán theo kiểu nào: cài riêng cho từng phòng khám hay một hệ thống dùng chung nhiều phòng khám? Quyết định cách tách dữ liệu.</li>
+    <li>Luật “gặp BS Thành trước” còn phải canh sau khi khách đến không? Luật cũ không chặn được qua API điều phối (OPS-014); luật mới chỉ chạy lúc đặt lịch và có đường vòng khi đổi bác sĩ hoặc đổi lịch.</li>
+    <li>Kết quả gửi đối tác sau bao lâu chưa về thì phải nhắc, và nhắc ai?</li>
+    <li>Ai được xem CCCD, số điện thoại, hồ sơ y khoa; giữ lịch sử truy cập bao lâu?</li>
+    <li>Đã thu phí khám rồi mà đổi sang dịch vụ khác giá: giữ giá cũ hay tính phần chênh? (CLIN-060)</li>
+    <li>Máy POS có nằm trong gói bán đầu tiên không? Nếu có, ai xử lý giao dịch bị kẹt? (INF-011)</li>
+    <li>Một nhân viên có làm ở nhiều phòng khám không? Hiện hệ thống từ chối trường hợp này. (FE-009)</li>
+    <li>Quyết định “mở full quyền cho mọi tài khoản nội bộ” (08/10) có giữ khi bán cho chuỗi khác không?</li>
+  </ol>
+</section>
+
+<section class="sec" aria-labelledby="dang">
+  <h2 id="dang">Điều đáng giữ và nhân rộng</h2>
+  <p>Các mẫu thiết kế tốt người kiểm toán gặp trong code, nên làm chuẩn cho phần còn lại:</p>
+  <ul class="l">@@GOOD@@</ul>
+</section>
+
+<section class="sec" aria-labelledby="gioihan">
+  <h2 id="gioihan">Báo cáo này đã đọc gì và chưa làm gì</h2>
+  <ul class="l">
+    <li><b>Đã đọc:</b> khoảng 2.890 tệp trong danh sách. Đợt này đưa @@COVN@@ tệp vào đọc một lượt, @@COVFULL@@ tệp được ghi nhận đọc trọn. Một số tệp sinh tự động hoặc dữ liệu lớn (như danh mục địa danh trong <span class="id">seed.sql</span>, <span class="id">database.generated.ts</span>) chỉ đọc một phần hoặc kiểm bằng script, đã ghi trong từng báo cáo phần.</li>
+    <li><b>Cách đọc:</b> nhiều người đọc song song, mỗi người một khu vực, chỉ từ bản code bất biến @@SHA8@@; một phần test đọc bằng một lượt gọi mô hình không có công cụ. Dẫn chứng dòng của mục mới đã được máy kiểm khớp tệp và dòng. Điều đó chứng minh dòng có thật, chưa chứng minh kết luận đúng.</li>
+    <li><b>Bản prod:</b> đã đối chiếu với VPS, trùng bản đã đọc (xem phần trên). Chưa kiểm cấu trúc cơ sở dữ liệu thật và cấu hình môi trường.</li>
+    <li><b>Chưa làm:</b> không chạy bộ test hay ứng dụng; không đọc dữ liệu bệnh nhân hay giá trị bí mật; Codex đã xác minh độc lập 40 mục mức cao; các mục mới và mức vừa/thấp chưa được xác minh lần hai. Đo prod chỉ gồm dữ kiện hệ thống (đếm, tên, trạng thái), chưa gồm nội dung log hay dữ liệu nhập qua màn hình.</li>
+    <li><b>Chưa sửa code.</b> Mọi thứ ở đây là đề xuất. Không đánh giá pháp lý.</li>
+  </ul>
+  <details class="box"><summary><b>Các điểm các agent đọc ghi là chưa đủ bằng chứng (để theo dõi, chưa phải phát hiện)</b></summary><ul class="l">@@HELD@@</ul></details>
+</section>
+
+<section class="sec" aria-labelledby="tu">
+  <h2 id="tu">Từ khoá hay gặp</h2>
+  <dl class="gloss">
+    <dt>Mã chống lặp</dt><dd>Mã đi kèm thao tác để gửi lại thì hệ thống nhận ra và không làm lần hai.</dd>
+    <dt>Phòng khám thuê (tenant)</dt><dd>Mỗi phòng khám dùng chung hệ thống nhưng dữ liệu phải tách hẳn khỏi phòng khác.</dd>
+    <dt>Quyền theo bệnh nhân</dt><dd>Không chỉ hỏi “người này có chức năng này không” mà hỏi thêm “bệnh nhân này có thuộc người này không”.</dd>
+    <dt>Luồng cũ, luồng mới</dt><dd>Hai cách đi của một lượt khám. Lượt đã đo sinh hiệu hoặc có phiên khám đi luồng mới.</dd>
+    <dt>TKYK</dt><dd>Thư ký y khoa.</dd>
+    <dt>Khôi phục (restore)</dt><dd>Dựng lại hệ thống từ bản sao lưu. Chưa thử khôi phục thì sao lưu chỉ là giả định.</dd>
+    <dt>Seed, fixture</dt><dd>Tệp nạp dữ liệu mẫu hoặc dữ liệu ban đầu vào cơ sở dữ liệu.</dd>
+  </dl>
+</section>
+
+<section class="sec" aria-labelledby="ds">
+  <h2 id="ds">Toàn bộ vấn đề (@@TOTAL@@)</h2>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Tìm theo từ khoá hoặc mã (ví dụ SEC-020)" aria-label="Tìm">
+    <select id="fs" aria-label="Mức độ"><option value="">Mọi mức</option><option value="HIGH">Cao</option><option value="MEDIUM">Vừa</option><option value="LOW">Thấp</option></select>
+    <select id="fg" aria-label="Kiểu lỗi"><option value="">Mọi kiểu lỗi</option>@@GOPTS@@</select>
+    <select id="fo" aria-label="Mục tiêu trong alignment"><option value="">Mọi mục tiêu</option>@@GOALOPTS@@</select>
+    <select id="fn" aria-label="Nguồn"><option value="">Cũ và mới</option><option value="1">Chỉ mục mới đợt này</option><option value="0">Chỉ mục cũ</option></select>
+  </div>
+  <p class="muted small">Bộ lọc “mục tiêu” gắn mỗi mục theo ghi chú của người kiểm toán và theo kiểu lỗi chính. Một mục có thể thuộc nhiều mục tiêu; vài mục chưa gắn được.</p>
+  <p class="muted" id="cnt"></p>
+  <div class="list" id="list">
+@@CARDS@@
+  </div>
+</section>
+
+</main>
+<a class="totop" href="#top" id="totop" aria-label="Lên đầu trang">Lên đầu</a>
+<script>
+(function () {
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.finding'));
+  var q = document.getElementById('q'), fs = document.getElementById('fs'), fg = document.getElementById('fg'), fn = document.getElementById('fn'), fo = document.getElementById('fo'), cnt = document.getElementById('cnt');
+  var texts = cards.map(function (c) { return c.textContent.toLowerCase(); });
+  function run() {
+    var t = q.value.trim().toLowerCase(), n = 0;
+    cards.forEach(function (c, i) {
+      var ok = (!t || texts[i].indexOf(t) >= 0) && (!fs.value || c.dataset.sev === fs.value) && (!fg.value || c.dataset.g === fg.value) && (!fn.value || c.dataset.new === fn.value) && (!fo.value || (',' + c.dataset.goal + ',').indexOf(',' + fo.value + ',') >= 0);
+      c.hidden = !ok; if (ok) n++;
+    });
+    cnt.textContent = 'Đang hiện ' + n + ' / ' + cards.length + ' mục.';
+  }
+  [q, fs, fg, fn, fo].forEach(function (e) { e.addEventListener('input', run); });
+  run();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+{
+  "audit_id": "round10_dashboard_context",
+  "source": {
+    "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+    "repository_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "basis": "Exact-main content snapshot được ghim; snapshot export không có .git nên SHA repo lấy từ STATE.json/MAIN-PHAM-VI.json theo xác nhận của điều phối; SHA-256 từng file nguồn được tính trực tiếp trên snapshot."
+  },
+  "scope": [
+    "đăng nhập và liên kết identity staff",
+    "clinic membership và chọn/đổi cơ sở đang làm",
+    "Next proxy, BFF token/cookie forwarding và route authentication boundary",
+    "page-level permission gates và nguồn authority",
+    "dữ liệu nhạy cảm được lưu ở browser storage"
+  ],
+  "files": [
+    {
+      "path": "src/dashboard/proxy.ts",
+      "sha256": "02dd6df0002d6704afbac15c41793be59be374ad17d7c6ebc561cb4906bc01bc",
+      "line_count": 168,
+      "reviewed_ranges": [
+        "1-168"
+      ],
+      "review_status": "full",
+      "notes": "Proxy page guard, auth exception behavior, API self-authorization boundary, matcher."
+    },
+    {
+      "path": "src/dashboard/lib/supabase-server.ts",
+      "sha256": "a279a026bf386ec89c9af6362fcdcda7ce1824346d60b7f2674da6eaf1a4712f",
+      "line_count": 60,
+      "reviewed_ranges": [
+        "1-60"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/lib/supabase-cookie.ts",
+      "sha256": "cad4126beb8ed0e1f6bc005c682c62e4388350313199c47a66e4c5370f1cd48c",
+      "line_count": 68,
+      "reviewed_ranges": [
+        "1-68"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/lib/supabase-browser.ts",
+      "sha256": "8e1138ba2b9bd5178d21f0d2cd4fe3619149143978a014d96de63e8a40e9db6f",
+      "line_count": 13,
+      "reviewed_ranges": [
+        "1-13"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+      "line_count": 105,
+      "reviewed_ranges": [
+        "20-105"
+      ],
+      "review_status": "partial",
+      "notes": "Login identity/membership binding, cookie issue and logout."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/chon-co-so/actions.ts",
+      "sha256": "17038ce92c49dd1a1422186b8e518c9a44d19343c7dfbfb6a2206d527ed36e5e",
+      "line_count": 25,
+      "reviewed_ranges": [
+        "1-25"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/app/(auth)/chon-co-so/page.tsx",
+      "sha256": "e0ccd31718c4d2e35ed2f5209e4023b04b83081a09e981cadd9b9e138a0b0219",
+      "line_count": 86,
+      "reviewed_ranges": [
+        "1-86"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/lib/identity-authority.ts",
+      "sha256": "7f38006845548b37ad67f641a4bf1ce26f7c713e953c2897cfd8a09c7ce206b8",
+      "line_count": 57,
+      "reviewed_ranges": [
+        "1-57"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/lib/co-so.ts",
+      "sha256": "2f88d8e28b56264f2c2e5ecd0edef8af74629912ec92fe8b5a1d01f5b72314e6",
+      "line_count": 23,
+      "reviewed_ranges": [
+        "1-23"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "line_count": 323,
+      "reviewed_ranges": [
+        "1-323"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/layout.tsx",
+      "sha256": "7fac1d42bbff23ef6e8f89c9e11276a16be2adb79a92241098d883153ccf545a",
+      "line_count": 181,
+      "reviewed_ranges": [
+        "28-125",
+        "139-180"
+      ],
+      "review_status": "partial",
+      "notes": "Authenticated layout behavior, page shell and permission context assembly."
+    },
+    {
+      "path": "src/dashboard/lib/clinic-session.ts",
+      "sha256": "135e24055424f0bbe629cc39dee49ac13e6d1c03acbd7f305aa5fa01b501be94",
+      "line_count": 206,
+      "reviewed_ranges": [
+        "96-187"
+      ],
+      "review_status": "partial",
+      "notes": "Capability fetching, requireNavAccess, clinical and print guards, tenant ID role source."
+    },
+    {
+      "path": "src/dashboard/lib/luu-nhap.ts",
+      "sha256": "8b5ac93d98fe1fbf389c2333f72d851e8f50a543e864e779977c917585fb7e64",
+      "line_count": 110,
+      "reviewed_ranges": [
+        "1-100"
+      ],
+      "review_status": "partial",
+      "notes": "Browser persistence, expiry and cleanup lifecycle."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+      "sha256": "fc5be0e240e3067eac8f38367eee4e96776fca5cf9e7a4ee7b706fa15a1e6adf",
+      "line_count": 1866,
+      "reviewed_ranges": [
+        "456-480",
+        "815-880"
+      ],
+      "review_status": "partial",
+      "notes": "PHI form draft stored/restored/removed in localStorage."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx",
+      "sha256": "16aab719c694ab504ccc385243f92e5723b8a597e0085b85473f7f2bf9683da3",
+      "line_count": 1832,
+      "reviewed_ranges": [
+        "600-680",
+        "795-815"
+      ],
+      "review_status": "partial",
+      "notes": "Clinical draft persistence and successful-save cleanup."
+    }
+  ],
+  "static_scans": [
+    {
+      "path": "src/dashboard/app/api/**/route.ts",
+      "method": "rg scan for getUser/getSession/getCallerAuthHeaders/proxyJsonToBackend/fetchFromBackend and selected reads of session-auth callsites",
+      "result": "Only wards/route.ts lacked all scanned authentication/backend markers; it serves ward/province lookup data. API handlers are not gated by HTML redirect proxy, consistent with proxy comment; complete per-handler authorization audit was outside this block."
+    },
+    {
+      "path": "src/dashboard/**",
+      "method": "rg scan for localStorage/sessionStorage/indexedDB/CacheStorage/service worker and service_role references",
+      "result": "Found UI preferences, session-scoped operations credentials, and form drafts; form-draft PHI retention overlaps canonical FE-001."
+    }
+  ],
+  "canonical_dedup": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "sha256_at_review": "f4c89cd370978fdb57b4e8e30945a56c8639f90b9ac018f2213a29cb0a66c426",
+    "ids_checked": [
+      "FE-001",
+      "FE-009",
+      "SEC-001",
+      "SEC-004",
+      "SEC-005",
+      "SEC-006",
+      "SEC-008",
+      "SEC-009",
+      "FE-007",
+      "FE-011"
+    ],
+    "duplicates_or_related": [
+      {
+        "id": "FE-001",
+        "relation": "same persisted PHI draft in localStorage, logout cleanup, and 24-hour lazy expiry; no new candidate."
+      },
+      {
+        "id": "FE-009",
+        "relation": "same multiple active clinic membership rejection at login; no new candidate."
+      },
+      {
+        "id": "SEC-009",
+        "relation": "related route authentication and pre-auth body handling; existing issue, not re-filed."
+      }
+    ],
+    "note": "Canonical ledger chỉ để khử trùng; không dùng thay bằng chứng source."
+  },
+  "result": {
+    "new_candidate_count": 0,
+    "candidate_ids": [],
+    "tests_run": false,
+    "database_or_production_access": false,
+    "secrets_or_phi_access": false,
+    "app_or_migration_changes": false,
+    "additional_candidate": "Không thấy candidate mới đủ căn cứ sau khi đối chiếu route/login/context; các điểm nổi bật đã có trong ledger."
+  },
+  "limitations": [
+    "Static review only; không xác minh runtime, deploy, cookie flags trong response thực tế, CORS, trình duyệt hay quyền thực tế của backend.",
+    "Không chạy test, DB, production, không đọc secrets hoặc dữ liệu PHI.",
+    "Snapshot là export không có .git; repository SHA dựa trên identity được ghim trong STATE.json/MAIN-PHAM-VI.json theo xác nhận điều phối, không chạy được git rev-parse tại snapshot.",
+    "Không đọc toàn bộ dashboard pages, client components hoặc mọi API route handler; coverage liệt kê các file/dải thực đọc và các phép scan giới hạn."
+  ]
+}

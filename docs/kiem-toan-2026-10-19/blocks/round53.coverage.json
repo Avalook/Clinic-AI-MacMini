@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "round": 53,
+  "report_version": "v0.76",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_scoped_semantic_review",
+  "scope": [
+    "visit_gate_rule only_when_other_staff handling",
+    "dispatch move/transfer-room request contract",
+    "new-flow dispatch_order and booking-time doctor rule"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Ranges line-checked and file SHA-256 checked. Tests read-not-run. No ClinicAI application/runtime/API/DB/provider/VPS/production/secrets/PHI accessed.",
+  "result": {
+    "new_findings": [
+      "OPS-014"
+    ],
+    "extended_findings": [],
+    "deduplicated": [
+      "FE-028 là preview luật bác sĩ lúc đặt lịch; OPS-014 là luật cũ lúc điều phối. CLIN-010 là lệch loại khám sau đổi lịch, không liên quan."
+    ],
+    "held_candidates": [
+      "Luồng mới (dispatch_order) không có chốt thứ tự bắt buộc sau khi khách đến: có thể là chủ ý (luật chuyển sang lúc đặt lịch). Cần chủ sản phẩm xác nhận trước khi nâng thành lỗi."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/clinicai/services/gate_rule_service.py",
+      "sha256": "35ec2f2c4640b995ca07c86f4f39db3eff60576b9a68cf1004450370a3ffbae2",
+      "lines": 276,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 276
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: luật thuần, SQL tải luật/dữ kiện và enforce()."
+    },
+    {
+      "path": "src/dashboard/app/api/dispatch/[action]/route.ts",
+      "sha256": "0825f18a56a53d8a1392eb4375f44a96357bdfe04b1eb126a0a8e6af8edbf4c7",
+      "lines": 53,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 53
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: BFF chuyển nguyên body."
+    }
+  ],
+  "targeted_traces": [
+    {
+      "path": "src/clinicai/api/v1/routers/dispatch.py",
+      "sha256": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+      "lines": 625,
+      "read_ranges": [
+        {
+          "start": 118,
+          "end": 215
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: MoveRequest, TransferRoomRequest, ApplyRouteRequest và endpoint ghi."
+    },
+    {
+      "path": "src/clinicai/services/dispatch_service.py",
+      "sha256": "cb3b2dbe53a151c66754e4442b15a3cb7eb8bba01dc586254a37427a37e1f35f",
+      "lines": 1150,
+      "read_ranges": [
+        {
+          "start": 440,
+          "end": 520
+        },
+        {
+          "start": 930,
+          "end": 941
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: DispatchService.move và gate_enforce. Targeted read: la_luong_moi."
+    },
+    {
+      "path": "supabase/migrations/20260805000006_gate_rule_any_node.sql",
+      "sha256": "90be6535b7021bd67ea28bd99ede40c306b30c9a90fe5d6ef7d6436697b966d7",
+      "lines": 145,
+      "read_ranges": [
+        {
+          "start": 62,
+          "end": 145
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: seed và verify của luật Dr4Women."
+    },
+    {
+      "path": "supabase/migrations/20260808000003_luat_bac_si_bat_buoc.sql",
+      "sha256": "743cad87edbfc809e413eecc6c54cd947f0e34aa1040edfbf333bbc634518645",
+      "lines": 142,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 80
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: lý do không dùng lại visit_gate_rule."
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "read_ranges": [
+        {
+          "start": 620,
+          "end": 660
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: thi hành luật bác sĩ bắt buộc lúc đặt lịch."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103",
+      "lines": 3929,
+      "read_ranges": [
+        {
+          "start": 3197,
+          "end": 3290
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: dispatch_order luồng mới."
+    },
+    {
+      "path": "src/tests/services/test_gate_rule.py",
+      "sha256": "113c1771b86bc25581171825c19848025871128dafdf912c2cb55ef990d56e9a",
+      "lines": 263,
+      "read_ranges": [
+        {
+          "start": 28,
+          "end": 80
+        },
+        {
+          "start": 160,
+          "end": 263
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: dữ kiện test và luật mẫu; tests read-not-run. Targeted read: kịch bản first_block/override; luôn truyền target_staff_id; tests read-not-run."
+    }
+  ],
+  "reviewer_note": "Scoped static trace of one handoff lead. Không đọc dữ liệu thật, không chạy test."
+}

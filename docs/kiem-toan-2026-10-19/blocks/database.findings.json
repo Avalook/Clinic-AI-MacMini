@@ -1,0 +1,281 @@
+[
+  {
+    "id": "DB-001",
+    "title": "RPC SECURITY DEFINER cho phép gọi vượt FastAPI và tin tenant/actor do người gọi truyền",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "database_security",
+    "summary": "Các hàm gắn/gỡ buổi liệu trình chạy quyền owner, nhận clinic/actor làm tham số nhưng không đối chiếu danh tính. Không REVOKE EXECUTE FROM PUBLIC; đường /rest/v1 public chuyển thẳng PostgREST.",
+    "trigger": "Người gọi qua PostgREST biết UUID clinic/order/liệu trình và gọi RPC gắn/gỡ buổi trực tiếp.",
+    "impact": "Có thể sửa liên kết buổi, phân bổ trả trước và dấu người thao tác ngoài phân quyền/API; phải kiểm lại prod trước khi kết luận phơi nhiễm thực tế.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20261008100000_lieu_trinh.sql",
+        "line": 283,
+        "end_line": 340,
+        "detail": "gan_buoi/go_buoi SECURITY DEFINER; ghi theo p_clinic, p_boi không auth.uid/membership check; không có REVOKE cuối migration."
+      },
+      {
+        "path": "docker/supabase/init/01-vai-va-extension.sql",
+        "line": 161,
+        "end_line": 166,
+        "detail": "Default privileges chỉ cấp service_role, không thu mặc định PUBLIC EXECUTE."
+      },
+      {
+        "path": "caddy/Caddyfile",
+        "line": 151,
+        "end_line": 154,
+        "detail": "Public /rest/v1/* chuyển gateway."
+      },
+      {
+        "path": "docker/supabase/Caddyfile",
+        "line": 29,
+        "end_line": 31,
+        "detail": "Gateway chuyển /rest/v1 tới PostgREST."
+      }
+    ],
+    "validation": {
+      "method": "static_trace + local_read_only_metadata",
+      "command": "docker exec clinicai_thu_db psql -U postgres -d postgres -X -A -t -c \"BEGIN READ ONLY; SELECT p.proname,p.prosecdef,has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('lieu_trinh_gan_buoi','lieu_trinh_go_buoi','lieu_trinh_tinh_lai'); ROLLBACK;\"",
+      "result": "Local dev: cả 3 hàm có prosecdef=true và anon/authenticated EXECUTE=true. Security agent đã kiểm chéo static độc lập.",
+      "limitations": "Không gọi RPC mutation; chưa kiểm production, không chứng minh đã bị khai thác. Metadata local không chứng minh schema prod giống local."
+    },
+    "recommendation": "Thu EXECUTE PUBLIC/anon/authenticated ở helper nội bộ; cấp rõ role backend tối thiểu; nếu cần RPC cho người dùng thì xác minh tenant và actor từ danh tính tin cậy. Canh ACL theo danh sách allowlist trong kiểm thử schema.",
+    "acceptance": "Anon và JWT tenant khác không thể gọi helper mutation; caller không giả actor được; service hợp lệ vẫn chạy; khôi phục backup không làm rộng ACL.",
+    "alignment": [
+      "reality",
+      "ownership",
+      "evidence",
+      "sustainable_operations"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "supabase/migrations/20261008100000_lieu_trinh.sql": "9b7961ce813c6177f89e6177b2c73a9b4325a2076d812aed14fdf91f88fec736",
+      "docker/supabase/init/01-vai-va-extension.sql": "ab1e6a8bf51ffed47b54569d4786143ef898b539d9d0cdbdc803fb41689132e8",
+      "caddy/Caddyfile": "a32c996b0cd3c2412af2cd67e29b91280397269a3dc376c915202287c4f04f04",
+      "docker/supabase/Caddyfile": "4e8d168aae1f1dd37a2bc2ff0158580157204d4e0b354f405a7158d255ed9484"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "partially_addressed_on_main",
+      "note": "Đã tái hiện trên DB tạm: giả lập GRANT EXECUTE authenticated từ restore cũ, áp migration ACL main trong transaction rồi rollback; anon=false nhưng authenticated=true cho lieu_trinh_go_buoi. Bản vá thu quyền PUBLIC/anon nhưng không thu quyền authenticated đã cấp trực tiếp cho helper này. Không gọi RPC ghi hay kiểm prod.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+          "line": 7,
+          "end_line": 13,
+          "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+          "excerpt": "7: BEGIN;\n8: \n9: REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon;\n10: ALTER DEFAULT PRIVILEGES FOR ROLE postgres\n11:     REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;\n12: \n13: -- RLS and authenticated PostgREST helpers."
+        },
+        {
+          "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+          "line": 42,
+          "end_line": 56,
+          "sha256": "44d6517c4e6651d3f8a57da39d2d98260f58a5042b3339e334b1e7d5f8702752",
+          "excerpt": "42: GRANT EXECUTE ON FUNCTION\n43:     public.sinh_viec_nhac_tai_kham(uuid, date),\n44:     public.instantiate_visit_workflow(uuid, uuid, uuid, text, text),\n45:     public.cancel_visit_workflow(uuid, uuid, uuid, text, text),\n46:     public.order_services(uuid, uuid, text[], uuid, text),\n47:     public.recent_duplicate_services(uuid, uuid, text[], integer),\n48:     public.order_services_lock_visit(uuid),\n49:     public.check_in_appointment(uuid, text[]),\n50:     public.lieu_trinh_phu_lai(uuid, uuid),\n51:     public.lieu_trinh_tinh_lai(uuid, uuid),\n52:     public.lieu_trinh_gan_buoi(uuid, uuid, uuid, text, uuid),\n53:     public.lieu_trinh_go_buoi(uuid, uuid, text, uuid),\n54:     public.lieu_trinh_tinh_lai_theo_lan_thu(uuid, uuid)\n55: TO service_role;\n56: "
+        }
+      ],
+      "production_verified": false,
+      "evidence_level": "reproduced_local",
+      "probe": "probes/check_acl_upgrade.py"
+    }
+  },
+  {
+    "id": "DB-002",
+    "title": "Nạp bản sao lưu cấp lại toàn bộ ACL, làm mất giới hạn cột và RPC đã thiết kế",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "database_security",
+    "summary": "Hai script restore cấp ALL mọi bảng/sequences cho authenticated và EXECUTE mọi hàm cho anon/authenticated. Điều này ghi đè chủ ý REVOKE/column grants trong migration.",
+    "trigger": "Chạy quy trình nạp lại staging hoặc staging local; bản sao được áp blanket GRANT sau khi restore, migration cũ đã ghi sổ không tự áp lại để thu quyền.",
+    "impact": "Môi trường thử có quyền rộng hơn bản thiết kế, có thể lộ prescription_draft/settings cho người vốn không được đọc và mở helper RPC cũ. Kết quả thử quyền trên staging không đại diện production.",
+    "evidence": [
+      {
+        "path": "scripts/staging-nap-ban-sao.sh",
+        "line": 229,
+        "end_line": 232,
+        "detail": "GRANT ALL mọi bảng/sequences cho authenticated và EXECUTE mọi hàm cho anon/authenticated."
+      },
+      {
+        "path": "scripts/staging-tu-ban-sao.sh",
+        "line": 104,
+        "end_line": 109,
+        "detail": "Cùng mẫu blanket GRANT sau restore."
+      },
+      {
+        "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+        "line": 1,
+        "end_line": 18,
+        "detail": "Thiết kế REVOKE SELECT mức bảng clinical_record rồi chỉ GRANT cột ngoài prescription_draft."
+      },
+      {
+        "path": "supabase/migrations/20260805000005_clinic_secret.sql",
+        "line": 145,
+        "end_line": 158,
+        "detail": "clinic chỉ cho authenticated đọc 5 cột, không settings."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đối chiếu script restore với migration hạn chế cột và hàm; chưa chạy restore.",
+      "limitations": "Không khẳng định đã rò dữ liệu. RLS vẫn tồn tại và tiếp tục lọc hàng; vấn đề ở mở rộng ACL cột/hàm. Chưa xác minh script hiện đang chạy lịch trên VPS."
+    },
+    "recommendation": "Khôi phục ACL đúng từ dump hoặc một bước reconcile ACL khai báo dùng chung cho bootstrap/restore; bỏ blanket GRANT. Kiểm role/cột/hàm sau mỗi restore và sau nâng cấp.",
+    "acceptance": "ACL của cùng phiên bản trước và sau restore tương đương; nurse không đọc prescription_draft; anon không execute helper nội bộ; policy/RLS/column privilege tests chạy trên database sau restore.",
+    "alignment": [
+      "reality",
+      "ownership",
+      "evidence",
+      "sustainable_operations"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "scripts/staging-nap-ban-sao.sh": "0d93db9baca406d7a721bd621e3de9a2835d40fcfa7e9ca6ce489f5e091b4ea2",
+      "scripts/staging-tu-ban-sao.sh": "1fda280ecaa2198a49a030bf7e358d952f6d19f8191e0a9a81e303e4f7aa1f48",
+      "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql": "30994ce4506659821eb0c97e765f20250f7dd7ebabfc0f596dd9fe2103c0a93f",
+      "supabase/migrations/20260805000005_clinic_secret.sql": "f9f2bcad54e2ab91a20bcf1b718aebc13246bf5d836d0eab2136177f34557e5c"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "partially_addressed_on_main",
+      "note": "Main đã siết function/kho, nhưng ACL-only probe trên DB tạm cho thấy sau blanket table GRANT và cả hai script ACL mới, authenticated vẫn có SELECT privilege ở clinical_record.prescription_draft và clinic.settings. Các bảng kho thiếu trong khuôn được tạo placeholder rỗng chỉ để chạy kiểm ACL; chưa thử full restore hay truy cập RLS bằng JWT. Transaction rollback/DB tạm xóa.",
+      "evidence": [
+        {
+          "path": "scripts/staging-nap-ban-sao.sh",
+          "line": 229,
+          "end_line": 244,
+          "sha256": "169a8024cce0314ce71df8f19f7807afe535d3491ab9d99f07f8c03c0dc0ee90",
+          "excerpt": "229: GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;\n230: GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;\n231: GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;\n232: CREATE SCHEMA IF NOT EXISTS supabase_migrations;\n233: CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (version text PRIMARY KEY, name text, statements text[]);\n234: TRUNCATE supabase_migrations.schema_migrations;\n235: SQL\n236:     printf '%s\\n' \"$DS_MIGRATION\" | grep -E '^[0-9]+$' | \\\n237:         sed \"s/.*/INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('&', 'nap-tu-ban-sao-prod');/\"\n238:     echo \"SET LOCAL clinicai.che_cho_phep = 'staging';\"\n239:     cat \"$CHE_SQL\"\n240: } | psql_stg --single-transaction >/dev/null\n241: # The dump omits ACLs and the migration ledger may already contain prior\n242: # GRANTs, so restore the explicit function and stock-read ACLs on every restore.\n243: psql_stg -f \"$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql\"\n244: psql_stg -f \"$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql\""
+        },
+        {
+          "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+          "line": 1,
+          "end_line": 18,
+          "sha256": "30994ce4506659821eb0c97e765f20250f7dd7ebabfc0f596dd9fe2103c0a93f",
+          "excerpt": "1: -- Nurses may read the clinical chart, but only DOCTOR/TKYK can read an\n2: -- unapproved medication proposal. RLS is row-level and cannot hide one column.\n3: -- Replace table-wide read grants with column grants excluding that column.\n4: REVOKE SELECT ON public.clinical_record FROM PUBLIC, anon, authenticated;\n5: DO $$\n6: DECLARE\n7:     cols text;\n8: BEGIN\n9:     SELECT string_agg(format('%I', column_name), ', ' ORDER BY ordinal_position)\n10:       INTO cols\n11:       FROM information_schema.columns\n12:      WHERE table_schema = 'public'\n13:        AND table_name = 'clinical_record'\n14:        AND column_name <> 'prescription_draft';\n15:     IF cols IS NULL THEN\n16:         RAISE EXCEPTION 'clinical_record columns not found';\n17:     END IF;\n18:     EXECUTE format('GRANT SELECT (%s) ON public.clinical_record TO authenticated', cols);"
+        }
+      ],
+      "production_verified": false,
+      "evidence_level": "reproduced_local"
+    }
+  },
+  {
+    "id": "DB-003",
+    "title": "Migration giảm giá WIP không chạy lại được theo hợp đồng CI",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "migration_reliability",
+    "summary": "Migration 20261013100000 thêm constraint có tên cố định mà không DROP/IF NOT EXISTS; áp lần hai dừng ở payment_cycle_amount_gte0.",
+    "trigger": "Database job/restore drill chạy chuỗi migration lần hai.",
+    "impact": "Chặn kiểm chứng nâng cấp/CI của nhánh giảm giá; không phải lỗi đã chứng minh ở prod.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20261013100000_giam_gia.sql",
+        "line": 44,
+        "end_line": 45,
+        "detail": "ADD CONSTRAINT payment_cycle_amount_gte0 không guard; các constraint discount khác cũng tương tự."
+      },
+      {
+        "path": "supabase/tests/run-local.sh",
+        "line": 49,
+        "end_line": 60,
+        "detail": "Hợp đồng schema yêu cầu migration từ 20260730000000 áp lại lần hai."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Đã xác định câu ADD CONSTRAINT không idempotent; chưa thực thi lại trên DB tạm.",
+      "limitations": "File migration là untracked WIP khi baseline; không coi đã deploy. Không chạy run-local.sh vì luật repo yêu cầu dùng CI máy chung, không tự dựng container."
+    },
+    "recommendation": "Trong nhánh chưa phát hành, thêm kiểm tra tồn tại hoặc DROP/ADD an toàn cho constraint; giữ kết quả cuối tương đương và kiểm toàn chuỗi hai lượt bằng CI được phép.",
+    "acceptance": "Áp migration lần hai trên DB tạm không duplicate_object; các ràng buộc giảm giá và hoàn tiền vẫn còn hiệu lực.",
+    "alignment": [
+      "reality",
+      "ownership",
+      "evidence",
+      "sustainable_operations"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "supabase/migrations/20261013100000_giam_gia.sql": "7f1c21accc59e4b05b403bc654b8053b279002923f2e279d568762e1ccf54ff1",
+      "supabase/tests/run-local.sh": "2a4ea7bde55b3250a4735e97f53fa00d200fce07290a4b3eeb054b8be7a93a9c"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "addressed_on_main",
+      "note": "Main cùng tên migration đã dùng DROP CONSTRAINT IF EXISTS rồi ADD; đây là lỗi của WIP khác nội dung trên nhánh đang mở. Không yêu cầu sửa lại bản main từ finding này.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20261013100000_giam_gia.sql",
+          "line": 38,
+          "end_line": 60,
+          "sha256": "8e0845d9ea433d7ffa8675586414cabcbdec793524da22fb085535908cf9eb52",
+          "excerpt": "38: \n39: -- Một CHECK nói trọn luật: hoặc không giảm gì, hoặc giảm đủ bộ.\n40: ALTER TABLE public.payment_cycle\n41:     DROP CONSTRAINT IF EXISTS payment_cycle_giam_gia_khop;\n42: ALTER TABLE public.payment_cycle\n43:     ADD CONSTRAINT payment_cycle_giam_gia_khop CHECK (\n44:         (discount_amount = 0\n45:             AND discount_type IS NULL AND discount_value IS NULL\n46:             AND discount_reason IS NULL AND discount_by IS NULL\n47:             AND original_amount IS NULL)\n48:         OR\n49:         (discount_amount > 0\n50:             AND discount_type IN ('AMOUNT', 'PERCENT')\n51:             AND discount_value > 0\n52:             AND (discount_type <> 'PERCENT' OR discount_value <= 100)\n53:             AND btrim(coalesce(discount_reason, '')) <> ''\n54:             AND discount_by IS NOT NULL\n55:             AND original_amount IS NOT NULL\n56:             AND discount_amount <= original_amount\n57:             AND amount = original_amount - discount_amount));\n58: \n59: -- ── 2. Cho phép lần thu 0đ — chỉ khi có giảm giá ──────────────────────────\n60: -- CHECK `amount > 0` khai inline nên tên do Postgres đặt: tìm theo định nghĩa."
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "DB-004",
+    "title": "Danh mục riêng của Dr4Women bị trộn vào chuỗi nâng cấp dùng cho mọi phòng khám",
+    "severity": "HIGH",
+    "evidence_level": "design_gap",
+    "category": "commercial_packaging",
+    "summary": "Một migration duyệt mọi clinic đã có drug_catalog, chuẩn hóa về danh mục/giá cụ thể và tắt thuốc ngoài tập chọn. Điều này phù hợp một đợt dữ liệu riêng nhưng không phải cơ chế nâng cấp sản phẩm an toàn cho khách độc lập.",
+    "trigger": "Đưa chuỗi migration này vào bootstrap/upgrade cho database có danh mục riêng của phòng khám khác.",
+    "impact": "Có thể đổi giá, tên và tắt hàng danh mục khách; làm onboarding và nâng cấp thiếu tính độc lập. Chưa thử phòng khám thứ hai, không nói đã ảnh hưởng khách thật.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+        "line": 54,
+        "end_line": 57,
+        "detail": "Loop mọi clinic đang có drug_catalog."
+      },
+      {
+        "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+        "line": 617,
+        "end_line": 643,
+        "detail": "Insert/update danh mục theo bộ dữ liệu cố định, tắt thuốc không thuộc tập và service_price group thuốc."
+      }
+    ],
+    "validation": {
+      "method": "static_data_migration_trace",
+      "command": null,
+      "result": "Đã đọc loop và các nhánh ghi; chưa chạy migration trên tenant giả thứ hai.",
+      "limitations": "Migration lịch sử đang phục vụ Dr4Women; hiện không có bằng chứng sản phẩm đã bán cho clinic khác."
+    },
+    "recommendation": "Tách schema evolution, reference catalog có phiên bản và cấu hình/dữ liệu từng khách. Data migration riêng phải được scope clinic rõ, preview diff, backup và phê duyệt. Không sửa lịch sử migration đã phát hành; thiết kế đường bootstrap mới có kiểm tương đương.",
+    "acceptance": "Tạo hai clinic catalog khác nhau; nâng cùng phiên bản không đổi danh mục/giá của tenant ngoài scope. Cài mới không cần dữ liệu thật/ID Dr4Women.",
+    "alignment": [
+      "Đóng gói bán được",
+      "Reality rõ",
+      "Vận hành bền vững"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql": "fe146f3e313edc58592832cd7ded4536a8ae0142e9367309b07d1b2629cbb2f5"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+          "line": 617,
+          "end_line": 643,
+          "sha256": "fe146f3e313edc58592832cd7ded4536a8ae0142e9367309b07d1b2629cbb2f5",
+          "excerpt": "617:       IF id_co IS NULL THEN\n618:         INSERT INTO\n619:             public.drug_catalog\n620:             (clinic_id, name_raw, name_base, unit_price, needs_review, is_active,\n621:              ma_hang, don_vi_ban, duong_dung, cach_dung, luu_y, biet_duoc)\n622:         VALUES (c.id, r.ten, r.ten, r.gia, r.can_soat, true,\n623:                 r.ma_hang, r.don_vi, r.duong_dung, r.cach_dung, r.luu_y, r.biet_duoc)\n624:         RETURNING id INTO id_co;\n625:       ELSE\n626:         UPDATE public.drug_catalog\n627:            SET name_raw = r.ten, name_base = r.ten, unit_price = r.gia,\n628:                needs_review = r.can_soat, is_active = true,\n629:                ma_hang = r.ma_hang, don_vi_ban = r.don_vi,\n630:                duong_dung = r.duong_dung, cach_dung = r.cach_dung,\n631:                luu_y = r.luu_y, biet_duoc = r.biet_duoc\n632:          WHERE id = id_co;\n633:       END IF;\n634:       chon := chon || id_co;\n635:     END LOOP;\n636: \n637:     UPDATE public.drug_catalog\n638:        SET is_active = false\n639:      WHERE clinic_id = c.id AND is_active AND NOT (id = ANY (chon));\n640: \n641:     UPDATE public.service_price\n642:        SET active = false\n643:      WHERE clinic_id = c.id AND \"group\" = 'thuoc' AND active;"
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

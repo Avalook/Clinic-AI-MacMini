@@ -1,0 +1,974 @@
+{
+ "chunk": "S21",
+ "findings": [
+  {
+   "tmp_id": "S21-1",
+   "title": "Cửa ghi tiến trình siêu âm và dịch vụ vẫn gác theo vai ở BFF, trái hướng quyền lego",
+   "severity": "MEDIUM",
+   "category": "authorization_drift",
+   "evidence_level": "confirmed_static",
+   "summary": "Nhiều route khác đã bỏ cửa vai và để backend hỏi quyền. Ba route /api/sono, /api/service-log, /api/lab-result và /api/dispatch/alerts-call vẫn tự chặn theo vai (NURSE_ULTRASOUND/MANAGEMENT, canWriteClinical, isPhysicianRole, TRUONG_CA/MANAGEMENT). Hai hệ quyền cùng tồn tại cho cùng một thao tác.",
+   "trigger": "Một nhân viên được cấp quyền (lego) làm việc này nhưng không mang đúng vai cứng trong BFF.",
+   "impact": "Người được cấp quyền có thể bị 403 oan ở lớp ngoài. Ngược lại, khi backend đổi luật, BFF có thể vẫn cho qua hoặc chặn theo luật cũ, khiến ownership và quyền khó đoán.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/api/sono/route.ts",
+     "line": 23,
+     "end_line": 31,
+     "detail": "Chặn theo vai NURSE_ULTRASOUND/MANAGEMENT trước khi proxy."
+    },
+    {
+     "path": "src/dashboard/app/api/service-log/route.ts",
+     "line": 34,
+     "end_line": 44,
+     "detail": "Chặn theo canWriteClinical."
+    },
+    {
+     "path": "src/dashboard/app/api/lab-result/route.ts",
+     "line": 34,
+     "end_line": 42,
+     "detail": "POST chặn theo isPhysicianRole, PATCH chặn theo canWriteClinical."
+    },
+    {
+     "path": "src/dashboard/app/api/dispatch/alerts-call/route.ts",
+     "line": 20,
+     "end_line": 27,
+     "detail": "Chỉ TRUONG_CA/MANAGEMENT được gọi bộ phận."
+    }
+   ],
+   "limitations": "Không thấy backend của các route này trong chunk; có thể backend cũng giữ cùng luật vai có chủ đích.",
+   "recommendation": "Chuyển cửa quyền các route này về backend theo capability, BFF chỉ kiểm đăng nhập như các route đã sửa ngày 27/09.",
+   "acceptance": "Tài khoản có đủ capability nhưng khác vai gọi được các route này, và tài khoản thiếu capability bị backend từ chối với câu rõ ràng.",
+   "alignment": [
+    "ownership rõ",
+    "quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-023",
+    "SEC-011"
+   ]
+  },
+  {
+   "tmp_id": "S21-2",
+   "title": "Chặn thao tác khi đang chờ trả lời ở BFF không có trần thời gian và lỗi tạo hồ sơ bệnh nhân khó phân biệt thành công",
+   "severity": "LOW",
+   "category": "unsafe_retry",
+   "evidence_level": "design_gap",
+   "summary": "POST /api/patients đặt timeout 15 giây cho lời gọi tạo hồ sơ rồi trả 502 'Hồ sơ chưa được tạo'. Nếu backend đã commit nhưng phản hồi chậm hoặc mất, thông báo khẳng định hồ sơ chưa được tạo. Route này không chuyển Idempotency-Key.",
+   "trigger": "Backend commit chậm hơn 15 giây hoặc mất phản hồi, người dùng bấm tạo lại.",
+   "impact": "Có thể sinh hồ sơ trùng dù đã có cảnh báo trùng, và nhân viên tin nhầm rằng chưa tạo.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/api/patients/route.ts",
+     "line": 152,
+     "end_line": 173,
+     "detail": "AbortController 15s, lỗi trả 'Hồ sơ chưa được tạo' mà không có khoá chống gửi lại."
+    }
+   ],
+   "limitations": "Chống trùng SĐT/CCCD ở backend có thể giảm rủi ro nhưng không bao phủ người có số khác nhau; chưa xác nhận trong chunk.",
+   "recommendation": "Chuyển tiếp Idempotency-Key từ trình duyệt và đổi thông báo thành 'chưa rõ kết quả, kiểm tra danh sách trước khi tạo lại'.",
+   "acceptance": "Gửi lại cùng khoá sau timeout trả cùng hồ sơ, không tạo bản thứ hai.",
+   "alignment": [
+    "bệnh nhân ít chờ trong bất định",
+    "lỗi lặp thành cải tiến"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-030",
+    "CLIN-047"
+   ]
+  },
+  {
+   "tmp_id": "S21-3",
+   "title": "Màn Điều phối ca và TV không có test chống trường hợp đọc lỗi/ dữ liệu cũ; trong khi lỗi tải rớt về danh sách rỗng ở load.ts",
+   "severity": "MEDIUM",
+   "category": "load_error_as_empty",
+   "evidence_level": "confirmed_static",
+   "summary": "loadHistory, loadRoutes và alerts trong loadLive dùng `?? []` khi backend lỗi nên trang Lịch sử điều phối hiển thị 'Chưa có thao tác điều phối nào' khi thực chất không đọc được. Trang TV/hàng đợi chỉ có cờ ok cho overview chứ không cho lịch sử/cảnh báo.",
+   "trigger": "Backend /dispatch/history hoặc /dispatch/alerts lỗi hay hết thời gian.",
+   "impact": "Trưởng ca đọc lịch sử trống như chưa có ai chuyển phòng; cảnh báo biến mất trông như không có sự cố.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/truong-ca/load.ts",
+     "line": 47,
+     "end_line": 51,
+     "detail": "loadHistory trả [] khi null."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/truong-ca/HistoryClient.tsx",
+     "line": 47,
+     "end_line": 53,
+     "detail": "Rows rỗng hiện 'Chưa có thao tác điều phối nào'."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/truong-ca/load.ts",
+     "line": 31,
+     "end_line": 37,
+     "detail": "alerts rơi về [] độc lập với ok."
+    }
+   ],
+   "limitations": "Chưa thấy QueuesClient; có thể có xử lý ở đó cho alerts.",
+   "recommendation": "Trả cờ ok cho history/alerts và hiển thị dải lỗi đọc thay vì trạng thái trống.",
+   "acceptance": "Khi backend trả lỗi, trang lịch sử hiện thông báo không đọc được, không hiện 'Chưa có thao tác'.",
+   "alignment": [
+    "thực tế dễ thấy",
+    "phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FE-004",
+    "FE-026"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FE-026",
+   "detail": "HistoryClient/lich-su/page.tsx là server component dùng loadHistory trả [] khi lỗi (load.ts:47-51), nên màn hiện 'Chưa có thao tác điều phối nào' thay vì lỗi."
+  },
+  {
+   "id": "FIN-002",
+   "detail": "loadHistory cố định limit=200 (load.ts:48-49) mà màn không báo còn bản ghi cũ hơn."
+  }
+ ],
+ "held": [
+  {
+   "title": "Tài khoản mật khẩu chung hiển thị trên trang console",
+   "reason": "Trang console bị notFound ở production; mật khẩu thử có thể chỉ cho staging, chưa đủ bằng chứng."
+  },
+  {
+   "title": "Proxy slot-hold bỏ qua lỗi JSON thân POST",
+   "reason": "Gửi {} khi thân hỏng, backend có thể từ chối; chưa rõ tác động."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Phân biệt ok:false với danh sách chỉ định rỗng",
+   "detail": "ChiDinhCuaBacSi coi lỗi đọc/403 là trạng thái lỗi riêng, không nói 'chưa chỉ định'.",
+   "evidence": "src/dashboard/app/(dashboard)/truong-ca/ChiDinhCuaBacSi.tsx:135"
+  },
+  {
+   "title": "Trả 503/502 thay vì danh sách rỗng khi backend im",
+   "detail": "Nhiều route (cho-xep-bac-si, booking-rules, cashier, doi-tac) báo lỗi rõ thay vì rỗng.",
+   "evidence": "src/dashboard/app/api/appointments/cho-xep-bac-si/route.ts:22"
+  },
+  {
+   "title": "Chỉ báo dữ liệu cũ bám theo nhịp heartbeat",
+   "detail": "Ngưỡng stale = 1,5 nhịp, fetchedAt chỉ cập nhật khi đọc thành công.",
+   "evidence": "src/dashboard/app/(dashboard)/truong-ca/shared.tsx:180"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/ChiDinhCuaBacSi.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/HistoryClient.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/dispatch.css",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/hang-doi/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/keo-tha.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/lich-su/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/load.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/nhan-trang-thai.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/shared.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/ten-phong.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/tv/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/truong-ca/types.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/tu-van/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/viec-can-xu-ly/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/work-sessions/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/xac-nhan-ket-qua/HangChoXacNhanKetQua.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/xac-nhan-ket-qua/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/cho-trong-tuan/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/cho-xep-bac-si/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/doi-dich-vu-kham/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/luoi-ngay/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/service-history/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/slot-hold/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/appointments/tim-khach/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/auth/nhat-ky-doi-mat-khau/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/booking-overrides/doctor/[id]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/booking-overrides/slot/[id]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/booking-policy/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/booking-rules/doctor/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/booking-rules/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ca-lam-viec/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cashier/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/catalog/dich-vu-dat-lich/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/catalog/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/clinic-config/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/clinical-form/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/clinical-forms/history/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/clinical-record/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/config/feature-mode/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/console/feedback/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh-action/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/cho-phep-gui/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/khoi-phuc/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/noi-dung/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/xac-nhan/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/xoa/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/ket-qua/chi-dinh/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/ket-qua/cho-xac-nhan/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/lieu-trinh/[id]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/lieu-trinh/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/nhac-tai-kham/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/tuong-tac/[id]/hoan-tac/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/tuong-tac/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/cskh/zalo/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/day-noi/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/dispatch/alerts-call/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/cho-tai-lieu/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/da-lay-mau/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/da-thu-tien/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/huy-da-thu/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/lenh/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/phieu/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/doi-tac/viec/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/don-du-lieu-thu/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/events/stream/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ho-so-kham/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/hoa-don/cong-ty/an/[id]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/hoa-don/cong-ty/khach/[id]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/hoa-don/cong-ty/phieu/[id]/lich-su/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/hoa-don/cong-ty/phieu/[id]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/hoa-don/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ke-toan/thue-suat/mat-hang/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ke-toan/thue-suat/nhom/[nhom]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ke-toan/thue-suat/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/lab-result/[id]/review/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/lab-result/[id]/triage/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/lab-result/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/lam-them/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/lich-su-notion/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/lich-su-notion/tep/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/loi/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/mau-ket-qua/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/nhac-viec/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ops/summary/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ops/traffic/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/patients/check-duplicate/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/patients/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/patients/sdt-them/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/payment/anh-ck/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/payment/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/pharmacy/[action]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/phieu-kham/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/phieu/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/quay-thuoc/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/queue/keo/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/queue/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/recall-jobs/[id]/ket-qua/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/reception/checkout/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/reports/access/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/reports/chot-ca/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/reports/cuoi-ngay/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/reports/settings/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/roster/ngoai-le-ca-truc/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/roster/pham-vi/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/roster/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/roster/thay-nguoi/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/service-log/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/service-price/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/service-price/vat-tu-hang-loat/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/sono/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/staff/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/thai-ky/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/theo-hang-hoa/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/thong-bao/[id]/da-xu-ly/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/thong-bao/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ultrasound/image/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/ultrasound/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/vat-tu-kho/[action]/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/charges/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/service-orders/current/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/service-orders/draft/approve/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/service-orders/draft/discard/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/service-orders/draft/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/service-orders/duplicates/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/service-orders/remove/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/service-orders/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/visits/[id]/theo-doi-thu-thuat/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/api/wards/route.ts",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/console/FeedbackBox.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/console/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/dashboard/app/design-system/page.tsx",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

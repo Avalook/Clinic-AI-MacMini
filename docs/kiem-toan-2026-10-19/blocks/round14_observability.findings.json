@@ -1,0 +1,86 @@
+[
+  {
+    "id": "CAND-OBS-RAW-ERROR-001",
+    "title": "Telemetry vận hành có thể trả exception detail chưa được scrub",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "telemetry_error_detail_minimization",
+    "summary": "TimingMiddleware chép str(exception) chưa xử lý vào detail của ring buffer; Telemetry giữ tối đa 300 ký tự và /ops/telemetry trả trường này. Kho lỗi bền vững có scrubber riêng, nhưng không được gọi trên đường telemetry. Chưa chứng minh exception thực tế chứa PII/PHI hoặc đã xuất hiện trên production.",
+    "trigger": "Một lỗi 5xx không được xử lý phát sinh exception message chứa dữ liệu đầu vào hoặc giá trị nhạy cảm; middleware lưu detail trong buffer, sau đó tài khoản có ops.view đọc /ops/telemetry.",
+    "impact": "Thông điệp exception có thể lộ giá trị nhạy cảm cho nhóm người vận hành được cấp ops.view và giữ trong bộ nhớ tới khi bị đẩy khỏi ring buffer hoặc tiến trình restart. Chưa có mẫu exception/production response chứng minh PII/PHI thực sự đi qua đường này; đây là rủi ro data-minimization, không phải khẳng định đã có lộ dữ liệu.",
+    "recommendation": "Không lưu hoặc trả raw exception text trong telemetry. Chỉ giữ exception type/error code/request_id/route template; nếu cần chi tiết, dùng sink đã scrub và giới hạn quyền. Bổ sung test với UUID, email và giá trị synthetic trong exception detail để xác nhận response /ops/telemetry không trả raw value.",
+    "acceptance": "Unit test chứng minh telemetry không giữ detail nhạy cảm; ASGI test gây exception synthetic có sentinel UUID/email, gọi /ops/telemetry bằng quyền ops.view và xác nhận sentinel bị loại nhưng route, kind, status và request_id còn đủ để điều tra.",
+    "limitations": "Static-only. Không chạy tests/API, không truy cập runtime, production logs, quyền tài khoản cụ thể hay cấu hình sink/retention. Không có bằng chứng exception thực tế chứa bệnh án. SEC-021 là raw UUID trong structured application log khi lookup miss; finding này là buffer in-memory 5xx và ops API, khác sink/trigger nhưng cùng chủ đề data minimization.",
+    "related_existing_findings": [
+      {
+        "id": "SEC-021",
+        "relationship": "SEC-021 ghi UUID lookup vào structured application log qua custom exception. Finding này ghi exception text của lỗi 5xx chưa xử lý vào in-memory telemetry rồi trả qua /ops/telemetry; sink và trigger khác."
+      }
+    ],
+    "evidence": [
+      {
+        "path": "src/clinicai/core/telemetry.py",
+        "line": 50,
+        "end_line": 58,
+        "sha256": "24e231cc92dbd3301b91c800a225c6589f98945053ef5c8c36f68b47795423cf",
+        "detail": "ErrorEntry giữ trường detail trong bộ nhớ."
+      },
+      {
+        "path": "src/clinicai/core/telemetry.py",
+        "line": 95,
+        "end_line": 105,
+        "sha256": "24e231cc92dbd3301b91c800a225c6589f98945053ef5c8c36f68b47795423cf",
+        "detail": "Mọi 5xx được lưu detail nguyên văn, chỉ cắt độ dài 300 ký tự; không chạy scrubber."
+      },
+      {
+        "path": "src/clinicai/core/telemetry.py",
+        "line": 150,
+        "end_line": 159,
+        "sha256": "24e231cc92dbd3301b91c800a225c6589f98945053ef5c8c36f68b47795423cf",
+        "detail": "Snapshot trả nguyên detail của các lỗi lên consumer."
+      },
+      {
+        "path": "src/clinicai/api/middleware.py",
+        "line": 264,
+        "end_line": 281,
+        "sha256": "0d68531a1636fd1a4a69202ef9621d289296eab7d6e33179bedb66918880fd40",
+        "detail": "Middleware nhận exception không được xử lý, chép str(exc) vào detail rồi ghi vào telemetry."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/ops.py",
+        "line": 70,
+        "end_line": 89,
+        "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+        "detail": "Endpoint /ops/telemetry trả snapshot sau MANAGEMENT guard ops.view."
+      },
+      {
+        "path": "src/clinicai/services/kho_loi.py",
+        "line": 41,
+        "end_line": 47,
+        "sha256": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+        "detail": "Kho lỗi bền vững dùng sanitizer cho exception text; đây là đường khác với ring buffer."
+      },
+      {
+        "path": "src/tests/core/test_telemetry.py",
+        "line": 41,
+        "end_line": 44,
+        "sha256": "21e4513b5268b08957245f2d5eda17eea102d6670c1ab661089de1bf3fc14720",
+        "detail": "Test xác nhận 5xx vào feed và kind được giữ, không kiểm soát nội dung detail."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/core/telemetry.py": "24e231cc92dbd3301b91c800a225c6589f98945053ef5c8c36f68b47795423cf",
+      "src/clinicai/api/middleware.py": "0d68531a1636fd1a4a69202ef9621d289296eab7d6e33179bedb66918880fd40",
+      "src/clinicai/api/v1/routers/ops.py": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "src/clinicai/services/kho_loi.py": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+      "src/tests/core/test_telemetry.py": "21e4513b5268b08957245f2d5eda17eea102d6670c1ab661089de1bf3fc14720"
+    },
+    "reference_version": "pinned_main",
+    "status": "open",
+    "validation": {
+      "method": "static_middleware_buffer_endpoint_and_scrubber_comparison_pinned_main",
+      "result": "Source xác nhận detail=str(exc) → ErrorEntry.detail[:300] → snapshot errors[].detail → endpoint /ops/telemetry. Scrubber được áp dụng riêng trong kho lỗi bền vững, không thấy trên ring-buffer path.",
+      "limitations": "Không chạy test hay endpoint; chưa có mẫu lỗi 5xx chứa dữ liệu nhạy cảm và không xác minh production."
+    }
+  }
+]

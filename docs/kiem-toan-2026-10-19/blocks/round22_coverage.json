@@ -1,0 +1,805 @@
+{
+  "schema_version": 1,
+  "audit": "round22_payment_postgrest_tkyk_assignment_service_order_and_event_recovery",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "static_read_only_exact_main_cross_layer_trace",
+  "scope": [
+    "payment and refund PostgREST grants versus cashier API role/roster/shift scope",
+    "TKYK assigned-doctor RLS across appointment, service-order drafts and prescription allocations",
+    "service-order read/write source-of-truth and disabled dashboard BFF callers",
+    "selection revision/order-set concurrency and carry-over locks",
+    "event worker, notification providers, POS relay/outbox and replay/recovery paths"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "One MEDIUM finding was added for financial PostgREST scope; SEC-011 was extended with the same missing TKYK assignment invariant rather than duplicated. Legacy service-order API mismatch remains held because no current dashboard caller was found and BFF routes are disabled. Related tests were read but not run. No application/runtime/database/PostgREST/provider/production test or patient data was used.",
+  "held_observations": [
+    "SERVICE-ORDER-LEGACY-READ-API-001"
+  ],
+  "files": [
+    {
+      "path": "caddy/Caddyfile",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 191,
+          "end": 194,
+          "purpose": "Caddy route /rest/v1/* vào Supabase gateway."
+        },
+        {
+          "start": 191,
+          "end": 201,
+          "purpose": "PostgREST routes to gateway; remaining paths route to dashboard, not public API."
+        }
+      ],
+      "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "line_count": 256
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cashier.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 129,
+          "end": 159,
+          "purpose": "Route lịch sử thu gọi CashierScopeService và truyền giới hạn ngày/actor."
+        },
+        {
+          "start": 129,
+          "end": 159,
+          "purpose": "Cashier history route applies scope before fetching data."
+        }
+      ],
+      "sha256": "e37295d74204bd0cb310278436e9c07a16130d563bdd41921ebb11b0a078ae00",
+      "line_count": 295
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/events.py",
+      "status": "read",
+      "prior_status": "traced",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 76,
+          "purpose": "Full 76-line read in round 22; SSE/event API inspected; no additional finding."
+        }
+      ],
+      "sha256": "cec344cbaafb4bfe6cf8ddd803bee3de16a23d5d5bf87464d5643cc0e6d11e6b",
+      "line_count": 76
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/work_items.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 482,
+          "end": 493,
+          "purpose": "Legacy GET order endpoint reads the old service path."
+        },
+        {
+          "start": 553,
+          "end": 566,
+          "purpose": "Legacy GET draft endpoint remains in FastAPI."
+        },
+        {
+          "start": 642,
+          "end": 660,
+          "purpose": "Legacy GET order list remains in FastAPI."
+        }
+      ],
+      "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+      "line_count": 719
+    },
+    {
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 247,
+          "purpose": "Full 247-line read in round 22; event-id projection upsert/replay reviewed."
+        }
+      ],
+      "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "line_count": 247
+    },
+    {
+      "path": "src/clinicai/events/hen_gio.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 266,
+          "purpose": "Full 266-line read in round 22; lease/retry/alert paths compared with INF-005/018/022."
+        }
+      ],
+      "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "line_count": 266
+    },
+    {
+      "path": "src/clinicai/events/phat_lai.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 141,
+          "purpose": "Full 141-line read in round 22; replay/projection transaction checked; no new finding."
+        }
+      ],
+      "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+      "line_count": 141
+    },
+    {
+      "path": "src/clinicai/events/worker.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 328,
+          "purpose": "Full 328-line read in round 22; lease/retry/consumer dispatch, no new candidate beyond existing INF findings."
+        }
+      ],
+      "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "line_count": 328
+    },
+    {
+      "path": "src/clinicai/permissions/catalogue.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 373,
+          "end": 378,
+          "purpose": "Capability thu dịch vụ riêng biệt."
+        },
+        {
+          "start": 519,
+          "end": 524,
+          "purpose": "Capability thu thuốc riêng biệt."
+        }
+      ],
+      "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "line_count": 1271
+    },
+    {
+      "path": "src/clinicai/services/cashier_scope_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 349,
+          "end": 422,
+          "purpose": "Guard áp kind, ngày, approved roster, location/shift, active shift và actor."
+        },
+        {
+          "start": 349,
+          "end": 422,
+          "purpose": "Cashier history scope includes date/kind/roster/shift/actor."
+        }
+      ],
+      "sha256": "c48ff84bb659445c9bad1d1514b78d0dcd6010d2f02005d823628b3a045e5337",
+      "line_count": 483
+    },
+    {
+      "path": "src/clinicai/services/chi_dinh_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 135,
+          "end": 301,
+          "purpose": "Current order writer uses canonical service_order."
+        },
+        {
+          "start": 372,
+          "end": 503,
+          "purpose": "Carry-over locks visit and updates order lifecycle."
+        }
+      ],
+      "sha256": "58bf83daa0d2aeee93a24011cc47ab7a95314cc31a7e58991b709b1d3ab1071e",
+      "line_count": 506
+    },
+    {
+      "path": "src/clinicai/services/event_service.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 146,
+          "purpose": "Full 146-line read in round 22; generic publisher caller/wiring checked; no new finding."
+        }
+      ],
+      "sha256": "8c28b2661f421ceb82ee38c11d588c300a96a7fa1b9621c6769c42bdd0f890bf",
+      "line_count": 146
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 2178,
+          "end": 2244,
+          "purpose": "Visit workflow writes canonical service_order."
+        }
+      ],
+      "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103",
+      "line_count": 3929
+    },
+    {
+      "path": "src/clinicai/services/notification_relay.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 269,
+          "purpose": "Full 269-line read in round 22; retry/channel semantics checked against existing findings."
+        }
+      ],
+      "sha256": "3ede1c519c646d43ffa83daaa9d6a6bcdea08887f6822a79301e684524cd409f",
+      "line_count": 269
+    },
+    {
+      "path": "src/clinicai/services/pos_outbox.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 87,
+          "purpose": "Full 87-line read in round 22; dead-letter recovery remains INF-011."
+        }
+      ],
+      "sha256": "4b63946e8011ac0e338dcd25a96f67243ad488fb844f1660db4638ab437b78a9",
+      "line_count": 87
+    },
+    {
+      "path": "src/clinicai/services/pos_relay.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 262,
+          "purpose": "Full 262-line read in round 22; advisory locks, retry and null adapter checked; no new issue."
+        }
+      ],
+      "sha256": "d9f07f1ad4e00410f260f3997c63c284d575adfe279682e839686e56e14d7344",
+      "line_count": 262
+    },
+    {
+      "path": "src/clinicai/services/providers/telegram.py",
+      "status": "read",
+      "prior_status": "traced",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 82,
+          "purpose": "Full 82-line read in round 22; dynamic HTML issue already tracked in INF-025."
+        }
+      ],
+      "sha256": "6516fd4dfc75f10183d7c04659d6226b3db2298da2c592873e644c4873a98e74",
+      "line_count": 82
+    },
+    {
+      "path": "src/clinicai/services/providers/zalo.py",
+      "status": "read",
+      "prior_status": "traced",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 222,
+          "purpose": "Full 222-line read in round 22; timeout/unknown outcome checked against existing INF-024."
+        }
+      ],
+      "sha256": "c75db233171290e9ce104c94ff120e5bb0f6428070d213e462b74beca28708be",
+      "line_count": 222
+    },
+    {
+      "path": "src/clinicai/services/service_order_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 263,
+          "end": 290,
+          "purpose": "Backend get_draft adds a TKYK doctor-assignment check that the raw table policy does not express."
+        },
+        {
+          "start": 1,
+          "end": 868,
+          "purpose": "Full 868-line read by a read-only specialist in round 22; legacy read/source-of-truth mismatch held, not promoted."
+        }
+      ],
+      "sha256": "7769a29159ba4b807da90fea28694d1868458a5056ea1513b68dda7a9bfcf732",
+      "line_count": 868
+    },
+    {
+      "path": "src/clinicai/services/service_selection_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 659,
+          "purpose": "Full 659-line read in round 22; confirmation, revision, exact decision-set and financial locks traced; no stale write promoted."
+        }
+      ],
+      "sha256": "a56df40594820e9c82830b5bb78d058c30f7566cf16b0c3449d648183aefd3b9",
+      "line_count": 659
+    },
+    {
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 31,
+          "end": 61,
+          "purpose": "Unassigned TKYK semantics deliberately yield no doctor filter; assigned secretary maps to a doctor."
+        },
+        {
+          "start": 76,
+          "end": 100,
+          "purpose": "Assignment helper derives customer/doctor association from appointments, visits and ultrasound records."
+        }
+      ],
+      "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+      "line_count": 239
+    },
+    {
+      "path": "src/clinicai/worker.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 483,
+          "purpose": "Full 483-line read in round 22; queue and worker failure paths compared with INF-004/config observations."
+        }
+      ],
+      "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "line_count": 483
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/ChonDichVu.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 300,
+          "purpose": "Selection drawer sends order-id set and revision."
+        }
+      ],
+      "sha256": "4c0ef7cfc22536dcf2d97f4837ab93c17645c2e8b8fe54c44452e57130adaf70",
+      "line_count": 369
+    },
+    {
+      "path": "src/dashboard/lib/route-da-tat.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 24,
+          "purpose": "Service-order BFF routes are explicitly disabled."
+        }
+      ],
+      "sha256": "820b1abf94ab2ebb771112ff43c52afde68c6fc29dd4ac887991415fff1b4040",
+      "line_count": 24
+    },
+    {
+      "path": "src/tests/services/test_cashier_scope_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 18,
+          "end": 63,
+          "purpose": "Test được đọc, không chạy: cashier scope phụ thuộc ngày/ca/roster và bị thu hồi khi roster rejected."
+        },
+        {
+          "start": 18,
+          "end": 63,
+          "purpose": "Read-only inspection of existing cashier scope tests; not run."
+        }
+      ],
+      "sha256": "44189a0f05779c5dc36aa0a6597480b8e7c98b8a5cde5707c279a1c9f97d443a",
+      "line_count": 288
+    },
+    {
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 744,
+          "end": 758,
+          "purpose": "Payment lưu visit/patient/kind/status/amount/paid_by/paid_at."
+        },
+        {
+          "start": 313,
+          "end": 343,
+          "purpose": "Appointment rows contain patient/doctor/slot/status context."
+        }
+      ],
+      "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+      "line_count": 2597
+    },
+    {
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 235,
+          "end": 246,
+          "purpose": "current_clinic_ids lọc membership active, không lọc role/capability."
+        }
+      ],
+      "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "line_count": 309
+    },
+    {
+      "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 152,
+          "end": 168,
+          "purpose": "Bảng payment nhận policy authenticated chỉ lọc clinic_id qua current_clinic_ids."
+        },
+        {
+          "start": 152,
+          "end": 168,
+          "purpose": "appointment remains in the generic tenant-only read policy set."
+        },
+        {
+          "start": 149,
+          "end": 168,
+          "purpose": "Generic tenant-only policy for selected operational tables."
+        }
+      ],
+      "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+      "line_count": 263
+    },
+    {
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 47,
+          "end": 59,
+          "purpose": "Dynamic grant SELECT authenticated trên public tables có read policy."
+        },
+        {
+          "start": 47,
+          "end": 59,
+          "purpose": "Authenticated SELECT grant loop for tables with read policy."
+        }
+      ],
+      "sha256": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+      "line_count": 73
+    },
+    {
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 19,
+          "end": 26,
+          "purpose": "Comment migration nói front desk/cashier/đối soát cần đọc payment clinic-wide."
+        },
+        {
+          "start": 19,
+          "end": 26,
+          "purpose": "Historical comment records clinic-wide operational payment read intent."
+        }
+      ],
+      "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "line_count": 139
+    },
+    {
+      "path": "supabase/migrations/20260801000002_order_services.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 177,
+          "end": 205,
+          "purpose": "Historical duplicate query reads work_item payload."
+        }
+      ],
+      "sha256": "5b95455c2949e2607c09d32e27fc2629e8ed30959fb5a9c42393b13471d33a87",
+      "line_count": 215
+    },
+    {
+      "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 16,
+          "end": 43,
+          "purpose": "Draft rows expose visit, selected service codes, recorder/approver/version/state."
+        },
+        {
+          "start": 84,
+          "end": 102,
+          "purpose": "Draft SELECT is restricted to clinical roles and same clinic, not assigned doctor."
+        }
+      ],
+      "sha256": "d044070664a338a927d6390d03ae2627a60ee888cad4c46e083208b82c65ae29",
+      "line_count": 102
+    },
+    {
+      "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 84,
+          "end": 115,
+          "purpose": "Restrictive assignment policy covers 11 clinical tables but omits appointment, service_order_draft and prescription_allocation."
+        },
+        {
+          "start": 84,
+          "end": 115,
+          "purpose": "Restrictive TKYK doctor assignment policy covers a finite table list."
+        }
+      ],
+      "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+      "line_count": 117
+    },
+    {
+      "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 85,
+          "end": 110,
+          "purpose": "Bill-line snapshot lưu dịch vụ/thuốc, số lượng, đơn giá và tổng tiền."
+        },
+        {
+          "start": 127,
+          "end": 136,
+          "purpose": "Bill line bật RLS và grant SELECT authenticated theo clinic."
+        }
+      ],
+      "sha256": "f0b22f84593b5e5b80dd950e1eace3ce19cb7bde594411eaf644eebf7a893a2b",
+      "line_count": 136
+    },
+    {
+      "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 21,
+          "end": 46,
+          "purpose": "Payment cycle chứa số tiền, visit, kind, phương thức/trạng thái, creator/confirmer và thời điểm."
+        },
+        {
+          "start": 246,
+          "end": 252,
+          "purpose": "Payment cycle bật RLS và grant SELECT cho authenticated theo clinic."
+        }
+      ],
+      "sha256": "d031bb0a0e30ff99c0867921b6e1692c3114bed711ed95602770bcbc2480a994",
+      "line_count": 256
+    },
+    {
+      "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 47,
+          "end": 83,
+          "purpose": "Prescription allocation contains prescription/visit/drug/batch and dispensed quantities."
+        },
+        {
+          "start": 437,
+          "end": 445,
+          "purpose": "Prescription allocation receives authenticated same-clinic SELECT but no TKYK assignment predicate."
+        }
+      ],
+      "sha256": "9335dd055dc9056a45973fb864d0cf9c0e6312a51a0fd95efc38ee5ee9f6bc56",
+      "line_count": 445
+    },
+    {
+      "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 41,
+          "end": 69,
+          "purpose": "Refund/return lưu tiền, trạng thái, lý do, người tạo/xác nhận và thời điểm."
+        },
+        {
+          "start": 542,
+          "end": 557,
+          "purpose": "Các bảng refund/return có RLS và grant đọc cùng clinic."
+        }
+      ],
+      "sha256": "0e330c5459303095cbb1b571de3509c4e5e95a1724cc4073b1851f379310bc2a",
+      "line_count": 557
+    },
+    {
+      "path": "supabase/migrations/20260923000003_capability.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 151,
+          "end": 169,
+          "purpose": "Preset vai có capability thu khác nhau."
+        }
+      ],
+      "sha256": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677",
+      "line_count": 193
+    },
+    {
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 43,
+          "end": 50,
+          "purpose": "Phần thanh toán lưu số tiền và khách đưa theo hình thức."
+        },
+        {
+          "start": 224,
+          "end": 258,
+          "purpose": "Metadata ảnh chuyển khoản gồm key, MIME, hash/size, actor và lifecycle; không chứng minh tải được file."
+        },
+        {
+          "start": 267,
+          "end": 272,
+          "purpose": "Bảng metadata ảnh chuyển khoản grant SELECT authenticated theo clinic."
+        }
+      ],
+      "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+      "line_count": 619
+    },
+    {
+      "path": "supabase/tests/role_scoped_clinical_read.sql",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 174,
+          "end": 201,
+          "purpose": "Test được đọc, không chạy: operational payment rows được giữ clinic-wide; chưa assert boundary theo role/ca."
+        },
+        {
+          "start": 174,
+          "end": 201,
+          "purpose": "Read-only inspection of operational payment SELECT assertions; not run."
+        }
+      ],
+      "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+      "line_count": 205
+    },
+    {
+      "path": "supabase/tests/thu_ky_rls_theo_bac_si.sql",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 59,
+          "end": 104,
+          "purpose": "Existing SQL test covers visit/clinical_record assignment but omits appointment, draft and allocation."
+        },
+        {
+          "start": 59,
+          "end": 104,
+          "purpose": "Read-only inspection of assigned secretary RLS tests; not run."
+        }
+      ],
+      "sha256": "3979131d469cda4e493b6f78e2eacfbd4a8cd46972a2b007bc752486ae6a13bb",
+      "line_count": 106
+    }
+  ]
+}

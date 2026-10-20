@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="@@P00@@">
+<meta name="description" content="ClinicAI: kiểm toán có bằng chứng, thiết kế đích, lộ trình sản phẩm và hồ sơ tiếp quản. Bản @@P30@@; audit toàn code còn tiếp tục.">
+<title>ClinicAI — Kiểm toán & thiết kế sản phẩm · @@P30@@</title><style>@@P01@@</style></head>
+<body><a class="skip" href="#noi-dung">Tới nội dung</a><div class="layout">
+<aside class="rail"><div class="brand">ClinicAI / Audit</div><span class="version">@@P30@@</span>
+<p>Nhìn thấy · Phối hợp · Học từ chính mình</p><nav aria-label="Mục lục báo cáo">@@P02@@</nav>
+<p>Hồ sơ nội bộ. Không chứa dữ liệu bệnh nhân. Mở offline; không tải font, CDN hay tracker.</p></aside>
+<main id="noi-dung"><header id="nhan-dinh"><div class="eyebrow">Kiểm toán kỹ thuật × vận hành × khả năng bán</div>
+<h1>Để phòng khám nhìn thấy và phối hợp được chính mình.</h1>
+<p class="lead">Đánh giá ClinicAI bằng bằng chứng từ code và phép thử; thiết kế đường chuyển thành sản phẩm có thể triển khai, vận hành và bàn giao.</p>
+<p class="meta">Tạo @@P03@@ · Main ghim <code>956ba4f2</code> · Working tree ban đầu <code>543b9787 + WIP</code> · Prod: SHA/hash Python khớp; hành vi chưa thử</p>
+<button id="print" class="print-button" type="button">In báo cáo / lưu PDF từ trình duyệt</button></header>
+<div class="notice" role="note"><strong>BẢN @@P30@@ — CHƯA PHẢI AUDIT TOÀN CODE ĐÃ XONG.</strong>
+<p>@@P31@@</p></div>
+<section id="kien-truc" class="section"><p class="meta"><strong>Ngữ cảnh:</strong> Narrative nền bắt đầu từ checkpoint v0.23; risk ledger hiện được cập nhật đến @@P30@@ với @@P06@@ hồ sơ. Các lát và quyết định triage chi tiết nằm trong hồ sơ bàn giao. Hãy đọc phần này như đánh giá nền, không thay risk ledger hiện tại.</p>@@P08@@</section>
+<section id="phat-hien" class="section"><div class="eyebrow">Risk register có phiên bản</div><h2>Phát hiện và mức chắc chắn</h2>
+<p><strong>@@P09@@ hồ sơ còn dấu hiệu trên main; @@P10@@ đã xử lý một phần; @@P11@@ đã có bản sửa.</strong> Trong số còn lại có giả thuyết và khoảng trống kiểm chứng, không phải tất cả đều là lỗ hổng đã khai thác được. Mức HIGH biểu thị tác động/ưu tiên trong điều kiện nêu, không phải CVSS.</p>
+<div class="toolbar"><label for="query">Tìm ID, nghiệp vụ hoặc file<input id="query" type="search" placeholder="Ví dụ: CLIN-003, backup, quyền…"></label>
+<label for="scope">Trạng thái<select id="scope"><option value="all">Tất cả hồ sơ</option><option value="open">Còn cần xử lý / xác minh trên main</option><option value="patched">Đã có bản sửa trên main</option><option value="uncertain">Giả thuyết / gap thiết kế</option></select></label>
+<span id="visible-count" class="meta" aria-live="polite"></span></div><noscript><p>Bộ lọc cần JavaScript; toàn bộ nội dung vẫn đọc được ở phía dưới.</p></noscript>
+<div class="table-wrap"><table><thead><tr><th>ID</th><th>Quan sát</th><th>Mức</th><th>Main / bằng chứng</th></tr></thead><tbody>@@P12@@</tbody></table></div>
+<p id="empty" class="empty" hidden>Không có hồ sơ khớp bộ lọc.</p>@@P13@@</section>
+<section id="thiet-ke" class="section">@@P14@@</section>
+<section id="lo-trinh" class="section">@@P15@@</section>
+<section id="kiem-chung" class="section"><div class="eyebrow">Không giấu kết quả đỏ</div><h2>Lệnh kiểm và kết quả thực tế</h2>
+<p>Ca kiểm đúng phiên bản, ca probe quan sát và ca lỗi do schema lệch được ghi riêng. Không cộng số lần kiểm lặp thành số năng lực đã được xác nhận.</p>@@P16@@</section>
+<section id="pham-vi" class="section ledger-section"><div class="eyebrow">Phạm vi kiểm toán minh bạch</div><h2>Đã kiểm đến đâu?</h2>
+<p><code>inventoried</code>: mới có danh mục; <code>scanned</code>: quét cấu trúc/pattern bằng công cụ; <code>traced</code>: đã đọc và theo một đường code liên quan; <code>excluded</code>: nội dung không đọc, có lý do. Không mức nào tự chứng minh toàn bộ file đúng. Chưa có coverage thực thi của cả ứng dụng trong đợt này.</p>
+<div class="table-wrap"><table><thead><tr><th>Mức trên main ghim</th><th>Số file</th><th>Ý nghĩa</th></tr></thead><tbody>
+<tr><td>Inventoried</td><td>@@P17@@</td><td>Metadata từ Git; còn cần phân loại/đọc nếu liên quan.</td></tr>
+<tr><td>Scanned</td><td>@@P18@@</td><td>AST Python hoặc token/pattern; chưa phải đọc ngữ nghĩa thủ công toàn bộ.</td></tr>
+<tr><td>Đọc trọn</td><td>@@P28@@</td><td>Đọc toàn file trong các lát cắt đã chọn; không có nghĩa toàn repo đã được đọc.</td></tr>
+<tr><td>Traced một phần</td><td>@@P19@@</td><td>Vùng đã đọc được đối chiếu; gồm nguồn/config/tài liệu. Có tái dùng phần đọc ở baseline khi hash nội dung khớp; chưa mặc nhiên kiểm caller đã đổi.</td></tr>
+<tr><td>Excluded</td><td>@@P20@@</td><td>Binary trong snapshot; chỉ metadata, không suy chất lượng nội dung.</td></tr></tbody></table></div>
+<p>Ledger baseline nhánh mở và ledger main tách riêng. Các khối agent bị gián đoạn do giới hạn sử dụng đã có checkpoint; nguồn main mới còn nhiều vùng cần đọc sâu. Đã kiểm metadata prod ở thời điểm ghi trong báo cáo. Tải thật, full restore, accessibility và nghĩa vụ pháp lý vẫn chưa được chứng minh.</p><p><strong>Riêng file có phần mở rộng mã nguồn phổ biến:</strong> @@P24@@ tổng (gồm code ứng dụng, test, tooling và CSS/HTML); @@P29@@ đọc trọn, @@P25@@ traced một phần, @@P26@@ scanned, @@P27@@ inventoried. “Traced” chỉ một số đường/hàm, không phải đọc trọn file.</p>@@P21@@</section>
+<section id="tiep-quan" class="section resume"><h2>Đổi tài khoản vẫn tiếp tục được</h2><p>Giữ thư mục dự án cùng toàn bộ <code>docs/kiem-toan-2026-10-19/</code>. Nếu chuyển máy, cần cả Git history chứa hai SHA ghim và hồ sơ audit. Không phụ thuộc trí nhớ, subagent ID hay tài khoản cũ.</p>
+<p>Điểm vào: <code>BAT-DAU-TU-DAY.md</code>. Trạng thái: <code>STATE.json</code>. Nguồn phát hiện: <code>PHAT-HIEN.json</code>. Tiếp tục theo <code>LO-TRINH.md</code> và checkpoint từng khối.</p>
+<pre>@@P22@@</pre><p>HTML là bản trình bày tự chứa; repo và các file JSON/Markdown là nguồn để cập nhật. Khi còn phần chưa kiểm, tiếp tục giữ trạng thái đang làm.</p></section>
+<footer class="footer">ClinicAI · Hồ sơ kiểm toán · Bản @@P30@@; audit toàn code chưa hoàn tất. Không có secrets/PHI được chủ ý đưa vào. Các trích đoạn là code và dữ liệu synthetic. Nội dung không tự cập nhật khi repo/prod thay đổi.</footer>
+</main></div><script>@@P23@@</script></body></html>

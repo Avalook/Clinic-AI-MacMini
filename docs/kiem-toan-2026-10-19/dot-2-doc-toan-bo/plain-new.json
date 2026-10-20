@@ -1,0 +1,3000 @@
+{
+ "SEC-038": {
+  "id": "SEC-038",
+  "ten": "Bản thử nghiệm công khai dùng chung mật khẩu và thông tin nhân sự thật",
+  "chuyen_gi": "Bản thử nghiệm của phần mềm mở ra Internet, chứa bản sao tài khoản và mật khẩu của nhân viên y hệt bản thật, kèm họ tên, SĐT, ngày sinh, số CCCD. Nếu có người dò mật khẩu hoặc khai thác lỗi ở mã đang thử, họ có thể lấy được các thông tin này.",
+  "anh_huong": "Thông tin cá nhân của nhân viên có thể bị lộ, và mật khẩu lấy được ở bản thử nghiệm có thể dùng để vào hệ thống thật.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chặn truy cập bản thử nghiệm từ bên ngoài, dùng mật khẩu riêng và che thông tin nhân sự trong dữ liệu thử.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-061": {
+  "id": "CLIN-061",
+  "ten": "Bấm Hoàn tất biến câu mẫu chưa sửa thành kết quả đã xác nhận",
+  "chuyen_gi": "Điều dưỡng hoặc bác sĩ mở phiếu siêu âm có sẵn câu như \"tim thai dương tính\" hay \"?? tuần ?? ngày\", rồi bấm Hoàn tất mà quên sửa. Hệ thống coi các câu mẫu đó như người đã xác nhận.",
+  "anh_huong": "Phiếu in hoặc gửi cho khách có thể chứa khẳng định chưa ai khám, hoặc chữ \"??\", và về sau không phân biệt được câu nào là câu mẫu.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Khi bấm Hoàn tất, nhắc hoặc chặn nếu còn câu mẫu chưa chỉnh hay chữ giữ chỗ, và lưu dấu câu nào là câu mẫu.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-032": {
+  "id": "FE-032",
+  "ten": "Bấm lại sau khi mất mạng có thể tạo trùng, dù máy báo chưa ghi",
+  "chuyen_gi": "Nhân viên bấm tạo liệu trình hoặc đổi dịch vụ lúc Wi-Fi chập chờn, máy báo \"chưa ghi\" dù hệ thống có thể đã ghi. Nhân viên bấm lại và có thể sinh thêm một bản nữa.",
+  "anh_huong": "Lịch, liệu trình hoặc tiền của bệnh nhân có thể bị trùng hoặc không khớp, nhân viên phải dọn lại.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Giữ cùng một mã nhận diện cho một thao tác khi bấm lại, và tải lại trạng thái thật trước khi báo kết quả.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-059": {
+  "id": "FE-059",
+  "ten": "Nút ghi sổ chăm sóc khách có thể ghi trùng hoặc kẹt khi mất mạng",
+  "chuyen_gi": "Nhân viên CSKH bấm ghi một cuộc gọi lúc mạng chập chờn, không thấy báo lỗi hoặc nút bị kẹt. Họ tải lại trang rồi bấm lại.",
+  "anh_huong": "Một cuộc gọi có thể có hai dòng ghi chép, làm người sau đọc sai việc đã làm.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Bắt lỗi mất mạng để báo rõ và giữ cơ chế chống ghi trùng khi bấm lại.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "API-008": {
+  "id": "API-008",
+  "ten": "Nhiều thao tác không chống ghi trùng khi gửi lại",
+  "chuyen_gi": "Khi mạng chập chờn, máy gửi lại cùng thao tác như check-in, thêm vật tư, gửi Zalo hay ghi phản hồi, và hệ thống có thể không nhận ra là trùng. Việc hệ thống khởi động lại đúng lúc vừa ghi cũng có thể gây ra tương tự.",
+  "anh_huong": "Có thể có dòng vật tư, tin Zalo, lịch sử chăm sóc trùng, làm số liệu và tiền bị nhân đôi.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Bắt buộc mọi thao tác ghi quan trọng có mã chống trùng và lưu mã cùng lúc với việc ghi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-022": {
+  "id": "FIN-022",
+  "ten": "Sửa hoặc xóa bảng giá không để lại dấu vết",
+  "chuyen_gi": "Một người có quyền bảng giá sửa đơn giá, đổi bên thu tiền hoặc xóa hẳn một dòng giá. Hệ thống không ghi ai làm, lúc nào, từ giá nào sang giá nào. Hai người sửa cùng lúc thì người sau đè người trước.",
+  "anh_huong": "Khi có tranh chấp phiếu thu hoặc báo cáo doanh thu lệch, không truy ngược được giá đã đổi như thế nào.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Ghi nhật ký mọi lần thêm, sửa, xóa giá, không xóa cứng, và báo nếu hai người sửa cùng lúc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-007": {
+  "id": "PHAR-007",
+  "ten": "Sửa giá thuốc chỉ cần quyền giao thuốc và không lưu giá cũ",
+  "chuyen_gi": "Người có quyền giao thuốc đổi giá bán hoặc tắt một thuốc trong danh mục, kể cả gõ nhầm một chữ số. Hệ thống không lưu giá cũ hay người sửa.",
+  "anh_huong": "Khó giải thích vì sao hóa đơn thuốc một ngày có giá khác, đối soát doanh thu thiếu bằng chứng.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Đưa việc đổi giá thuốc về quyền quản lý giá và ghi lại giá cũ, giá mới, người sửa, thời điểm.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-002": {
+  "id": "ARCH-002",
+  "ten": "Công cụ vận hành gắn cứng với Dr4Women, khó thêm phòng khám mới",
+  "chuyen_gi": "Các script vận hành ghi sẵn tên miền, mã cơ sở, địa chỉ, SĐT và danh sách phòng của Dr4Women. Khi muốn thêm phòng khám hay cơ sở mới, phải viết lại script riêng.",
+  "anh_huong": "Mỗi phòng khám mới tốn công và dễ sai, cản trở việc bán cho nhiều khách.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Làm công cụ thêm phòng khám hoặc cơ sở có tham số, tách dữ liệu riêng Dr4Women khỏi phần dùng chung.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-004": {
+  "id": "ARCH-004",
+  "ten": "Luật nghiệp vụ cốt lõi dựa vào mã đặt tên riêng của Dr4Women",
+  "chuyen_gi": "Hàng chờ thủ thuật, nhận diện phòng dịch vụ, liệu trình và luật bác sĩ dựa vào những mã đặt tên cụ thể. Phòng khám mới đặt mã khác thì các chức năng này có thể im lặng không chạy.",
+  "anh_huong": "Phòng khám mới không dùng được trọn vẹn bằng cấu hình thông thường và không có báo lỗi rõ ràng.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cho khai báo rõ nhóm nào là thủ thuật, thuốc, điều trị thay vì dựa vào mã cố định.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-005": {
+  "id": "ARCH-005",
+  "ten": "Bản giao diện gắn cứng cấu hình và tên Dr4Women, khó dùng cho nhiều phòng khám",
+  "chuyen_gi": "Giao diện được đóng gói kèm sẵn cấu hình của một môi trường, muốn đổi phòng khám hay tên miền phải dựng lại. Nếu thiếu thông tin, tên hiển thị có thể thành \"Dr4Women\".",
+  "anh_huong": "Mỗi phòng khám cần một lần dựng riêng, dễ lệch phiên bản, và có thể hiện sai tên phòng khám.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Tách cấu hình khỏi gói giao diện và lấy tên phòng khám từ dữ liệu thay vì tự đoán.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-115": {
+  "id": "CLIN-115",
+  "ten": "Gọi bộ phận khẩn có thể tạo nhiều thông báo giống nhau",
+  "chuyen_gi": "Nhân viên thấy hệ thống chậm nên bấm gọi bộ phận nhiều lần. Nếu màn hình không gửi kèm mã nguồn việc, mỗi lần bấm tạo một thông báo khẩn mới.",
+  "anh_huong": "Bộ phận nhận nhiều thông báo y hệt, dần bỏ qua và có thể phản ứng chậm với ca thật.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Luôn chống trùng thông báo đang mở kể cả khi màn hình không gửi mã nguồn.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-051": {
+  "id": "SEC-051",
+  "ten": "Nhật ký ai đã xem kết quả y khoa còn thiếu nhiều đường mở",
+  "chuyen_gi": "Quản lý, trưởng ca, CSKH hay lễ tân mở phiếu kết quả, ghi chú lượt khám hoặc hồ sơ hành chính, nhưng nhiều đường mở không được ghi lại. Có nơi nếu ghi lỗi thì chỉ âm thầm bỏ qua.",
+  "anh_huong": "Khi có sự cố lộ thông tin, khó biết ai ngoài đội chuyên môn đã xem kết quả của khách.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Ghi nhật ký mọi đường xem nội dung y khoa và cảnh báo khi việc ghi bị lỗi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-039": {
+  "id": "SEC-039",
+  "ten": "Thư ký y khoa có thể xem hồ sơ khách ngoài phạm vi được phân",
+  "chuyen_gi": "Thư ký chỉ được xem khách của bác sĩ mình hỗ trợ, nhưng nếu gửi kèm mã lịch hẹn của khách khác thì có thể đọc bệnh án, đơn thuốc, sinh hiệu của khách đó. Nhật ký lại ghi nhầm là đã xem khách được phân.",
+  "anh_huong": "Lộ hồ sơ khách ngoài phạm vi phân công và về sau không truy ra ai đã xem.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Kiểm lượt khám hay lịch hẹn phải đúng bệnh nhân được phép xem, và ghi nhật ký theo bệnh nhân thật bị đọc.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-076": {
+  "id": "CLIN-076",
+  "ten": "Phiếu kết quả có thể ghi tên bác sĩ thực hiện chưa được kiểm",
+  "chuyen_gi": "Người nhập phiếu có thể chọn một người bất kỳ làm \"bác sĩ thực hiện\". Hệ thống không kiểm người đó có phải bác sĩ của phòng khám hay đang trong ca.",
+  "anh_huong": "Phiếu in cho bệnh nhân có thể mang tên bác sĩ chưa từng xác nhận, gây rủi ro trách nhiệm chuyên môn và pháp lý.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Kiểm người được chọn là bác sĩ đang hoạt động, cùng phòng khám và đúng ca trước khi lưu.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-054": {
+  "id": "SEC-054",
+  "ten": "Kiểm tra ca trực bị bỏ qua khi chưa rõ bác sĩ của lượt khám",
+  "chuyen_gi": "Ở phòng có nhiều bác sĩ, khách đến không hẹn hoặc chưa gán bác sĩ thì hệ thống không xác định được bác sĩ phụ trách. Khi đó nhân viên không đứng ca vẫn có thể làm thay bác sĩ.",
+  "anh_huong": "Luật chỉ người được phân công mới làm thay không có tác dụng đúng lúc thiếu dữ liệu.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Khi chưa xác định được bác sĩ thì chặn hoặc yêu cầu chọn bác sĩ, thay vì bỏ qua kiểm tra.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-021": {
+  "id": "FIN-021",
+  "ten": "Dấu \"cần đối soát\" của lần thu không có người nhận, hạn hay cách đóng",
+  "chuyen_gi": "Khách chuyển khoản mua thuốc nhưng hóa đơn đổi, thuốc chưa ghi bán được hoặc số tiền lệch, nên lần thu bị gắn \"cần đối soát\". Không ai được giao việc, không có hạn và quầy thuốc không có thao tác để xử lý tiếp.",
+  "anh_huong": "Khách đã trả tiền có thể chưa nhận được thuốc, và chênh lệch tiền chỉ bị phát hiện nếu có người tình cờ mở lên.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Tạo việc có người phụ trách và hạn cho mỗi ca cần đối soát, kèm cách đánh dấu đã xử lý xong.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-089": {
+  "id": "CLIN-089",
+  "ten": "Gọi tái khám không được hoặc cần bác sĩ vẫn bị đóng việc",
+  "chuyen_gi": "CSKH gọi nhắc tái khám nhưng khách không nghe máy, từ chối hoặc cần hỏi bác sĩ, rồi bấm ghi kết quả. Việc biến khỏi danh sách và hồ sơ ghi \"đã gọi\", không có hẹn gọi lại hay chuyển việc cho bác sĩ.",
+  "anh_huong": "Khách cần nhắc không còn ai nhắc lại, câu hỏi gửi bác sĩ không có người nhận, khách có thể bỏ tái khám.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Với kết quả không nghe máy hoặc cần bác sĩ, tự tạo hẹn gọi lại hoặc việc cho người phụ trách.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-013": {
+  "id": "PHAR-013",
+  "ten": "Quầy thuốc đổi số lượng hoặc thêm thuốc mà bác sĩ không biết",
+  "chuyen_gi": "Thu ngân hoặc dược sĩ có thể tăng số lượng thuốc bác sĩ kê, ví dụ từ 10 lên 100, hoặc thêm thuốc ngoài đơn mà không cần bác sĩ xác nhận. Gõ thừa số 0 cũng có thể lọt qua.",
+  "anh_huong": "Có rủi ro cho bệnh nhân khi thuốc được giao không qua người kê, và bác sĩ chỉ biết khi mở lại đơn.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Đặt ngưỡng thay đổi và yêu cầu bác sĩ xác nhận khi quầy sửa số lượng hoặc thêm thuốc.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FIN-034": {
+  "id": "FIN-034",
+  "ten": "Duyệt bán vật tư chỉ là chọn tên người duyệt, người đó không xác nhận",
+  "chuyen_gi": "Với hàng thường không bán như vòng Mirena, thu ngân chọn tên một quản lý trong danh sách và gõ lý do. Người được chọn không phải xác nhận gì, có thể không biết việc bán này.",
+  "anh_huong": "Dấu vết \"người duyệt\" có thể sai sự thật, làm kiểm soát vật tư mất giá trị.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Yêu cầu người duyệt tự xác nhận trên thiết bị hoặc tài khoản của họ, và không cho tự duyệt cho mình.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-011": {
+  "id": "PHAR-011",
+  "ten": "Giao thuốc không ghi lô làm khó thu hồi, việc gán lô không ai nhận",
+  "chuyen_gi": "Giờ cao điểm quầy giao thuốc mà chưa ghi lô, sau đó không ai gán lô hoặc gán đại lô gần hạn nhất. Danh sách chờ gán lô chỉ để xem, không có hạn hay người phụ trách.",
+  "anh_huong": "Khi thu hồi một lô thuốc, không biết hoặc biết sai ai đã nhận, và tồn kho trên máy lệch thực tế.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Bắt buộc ghi lô khi giao hoặc giao việc gán lô cho người cụ thể kèm hạn và nhắc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-008": {
+  "id": "PHAR-008",
+  "ten": "Hai thuốc trùng số lô nhà sản xuất thì không nhập được",
+  "chuyen_gi": "Nhân viên nhập kho hai thuốc khác nhau nhưng trên hộp đều in số lô 'A01'. Hệ thống từ chối số lô thứ hai, nhân viên phải gõ số khác đi.",
+  "anh_huong": "Số lô trong máy có thể khác số trên hộp, nên khó truy vết khi cần thu hồi thuốc hoặc kiểm kê, và việc nhập hàng bị gián đoạn.",
+  "nhom": "K_khac",
+  "cach_sua": "Cho phép trùng số lô giữa các thuốc khác nhau, chỉ chặn trùng khi cùng một loại thuốc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-009": {
+  "id": "PHAR-009",
+  "ten": "Kiểm kho đếm thiếu có thể làm khách đã trả tiền không nhận được thuốc",
+  "chuyen_gi": "Nhân viên đếm thiếu hoặc nhập nhầm số lượng một lô ở quầy đang có đơn đã thu tiền chờ giao. Hệ thống ghi điều chỉnh theo số đếm mà không cảnh báo phần đã bán.",
+  "anh_huong": "Khách đã trả tiền có thể không được giao thuốc, và chỉ phát hiện muộn ở quầy; điều chỉnh lớn cũng không có người thứ hai duyệt.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Khi kiểm kho, so số đếm với phần đã bán chưa giao, cảnh báo và yêu cầu người thứ hai duyệt khi lệch lớn.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-007": {
+  "id": "ARCH-007",
+  "ten": "Tên đăng nhập dùng chung một nơi, chưa tách theo từng phòng khám",
+  "chuyen_gi": "Hai phòng khám dùng chung hệ thống cùng muốn đặt tên đăng nhập 'letan' hay 'bacsithanh'. Tên bị đụng nhau vì đuôi email mặc định là của Dr4Women.",
+  "anh_huong": "Khó mở thêm phòng khám trên cùng hệ thống, có thể trùng hoặc nhầm người, kể cả khi đặt lại mật khẩu.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Gắn tên đăng nhập với từng phòng khám thay vì ghi cứng một đuôi email.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-068": {
+  "id": "SEC-068",
+  "ten": "Cài đặt gửi email đặt lại mật khẩu chưa đúng và quá lỏng",
+  "chuyen_gi": "Nhân viên quên mật khẩu bấm đặt lại bằng email nhưng chức năng chưa dùng được, phải nhờ quản lý. Nếu sau này bật email mà quên chỉnh, liên kết có thể trỏ về địa chỉ sai hoặc bị chuyển hướng đi nơi khác.",
+  "anh_huong": "Nhân viên nhận liên kết hỏng, hoặc trong trường hợp xấu mã khôi phục có thể bị chuyển tới người lạ.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Cài đúng địa chỉ trang web, cấu hình gửi email và chỉ cho phép các địa chỉ chuyển hướng đã biết trước khi bật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-041": {
+  "id": "SEC-041",
+  "ten": "Phần giao diện công khai giữ cả chìa khoá bí mật của hệ thống",
+  "chuyen_gi": "Phần trang web phòng khám hướng ra Internet được cấp chung toàn bộ mật khẩu và khoá bí mật, kể cả quyền vào cơ sở dữ liệu. Nếu kẻ xấu khai thác được lỗ hổng ở phần này, chúng có thể lấy được các khoá đó.",
+  "anh_huong": "Một sự cố ở giao diện có thể thành mất quyền kiểm soát toàn bộ dữ liệu và bị gửi tin Telegram/Zalo giả.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cấp cho mỗi phần của hệ thống đúng những khoá nó cần, và cất các khoá nhạy cảm ở nơi bảo mật riêng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-078": {
+  "id": "CLIN-078",
+  "ten": "Đóng dịch vụ làm thêm tại quầy có thể bị kẹt ở trạng thái đang làm",
+  "chuyen_gi": "Nhân viên bấm Hoàn tất phiếu làm thêm tại quầy; bước bắt đầu thành công nhưng bước kết thúc bị từ chối hoặc gặp lỗi. Dịch vụ vẫn ở trạng thái 'đang làm' còn màn hình báo lỗi hoặc không cho đóng.",
+  "anh_huong": "Dịch vụ có thể nằm 'đang làm' mà không ai biết, khách còn bị coi là ở phòng quầy, và bấm lại cũng không đóng được.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Gộp bắt đầu và kết thúc thành một bước liền, hoặc tự trả về trạng thái cũ khi bước sau lỗi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-061": {
+  "id": "SEC-061",
+  "ten": "Lịch hẹn tuần lộ đầy đủ thông tin cá nhân bệnh nhân cho mọi nhân viên",
+  "chuyen_gi": "Bất kỳ nhân viên nào đăng nhập, kể cả thu ngân hay thư ký chưa được phân công, mở trang chủ hoặc lịch tuần. Máy gửi về trình duyệt cả ngày sinh, địa chỉ, nghề nghiệp, người giám hộ của mọi bệnh nhân có hẹn dù bảng chỉ hiện vài thông tin.",
+  "anh_huong": "Thông tin cá nhân nhạy cảm của cả tuần khách bị lộ rộng hơn mức cần thiết, vượt các giới hạn phân công đã đặt ở hồ sơ.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ gửi những thông tin bảng lịch thực sự hiển thị và kiểm quyền theo vai.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-050": {
+  "id": "SEC-050",
+  "ten": "Tài khoản đối tác thấy việc và tên khách của mọi đối tác khác",
+  "chuyen_gi": "Phòng khám làm việc với hai đối tác, ví dụ hai nơi xét nghiệm. Nhân viên của đối tác A mở bàn đối tác và thấy cả việc, tên khách của đối tác B.",
+  "anh_huong": "Tên, mã khách, loại xét nghiệm và ghi chú của đối tác này có thể bị đối tác khác đọc.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Gắn mỗi tài khoản và mỗi việc với một đối tác cụ thể, mỗi bên chỉ thấy phần của mình.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-040": {
+  "id": "SEC-040",
+  "ten": "Mọi nhân viên đều được mở gần hết quyền, kể cả chốt khám và hoàn tiền",
+  "chuyen_gi": "Thu ngân, lễ tân hay thư ký đều có thể bấm hoàn tất khám, ký kết quả, kê hoặc giao thuốc, huỷ lô, sửa giá, hoàn tiền. Số chứng chỉ hành nghề chỉ được lưu chứ không dùng để cho phép hay chặn.",
+  "anh_huong": "Mất sự phân tách nhiệm vụ: người thu tiền có thể chốt hồ sơ, sửa giá, hoàn tiền; bản ghi có thể hiện người chịu trách nhiệm khác với người đã bấm.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Phân quyền lại theo vai và gắn việc ký, kê đơn với người có chứng chỉ hành nghề.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "SEC-081": {
+  "id": "SEC-081",
+  "ten": "Trang báo cáo lưu lượng cho đoán mã PIN và có thể hiện số liệu cũ",
+  "chuyen_gi": "Người có quyền xem có thể thử mật khẩu hoặc mã PIN nhiều lần không bị khoá. Nếu công cụ tạo số liệu ngừng chạy, trang vẫn hiện số cũ nhiều ngày như mới, còn lỗi đọc thì báo 'chưa sẵn sàng'.",
+  "anh_huong": "Lớp bảo vệ thứ hai yếu hơn mô tả, và người vận hành có thể đọc số cũ như số hiện tại hoặc nhầm 'hỏng' với 'chưa sẵn sàng'.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Giới hạn số lần thử, và hiển thị rõ thời điểm cập nhật cùng cảnh báo khi dữ liệu quá cũ hoặc lỗi.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-046": {
+  "id": "FE-046",
+  "ten": "Lỗi tải màn cấu hình hiện thành 'Chưa có luật nào'",
+  "chuyen_gi": "Quản lý mở màn Luật đặt lịch đúng lúc hệ thống chậm hoặc đang cập nhật. Màn hình hiện 'Chưa có luật nào, mọi dịch vụ đặt được với bất kỳ bác sĩ nào' dù luật vẫn còn.",
+  "anh_huong": "Quản lý có thể tin sai rằng không còn ràng buộc và tạo lại luật, còn các ô chọn trống làm tưởng chưa cấu hình.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Phân biệt rõ 'tải lỗi' với 'thật sự trống' và hiện thông báo lỗi kèm nút thử lại.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-049": {
+  "id": "FE-049",
+  "ten": "Chữ đang gõ có thể mất khi rời màn mà tự lưu thất bại",
+  "chuyen_gi": "Bác sĩ gõ vào phiếu khám hay đơn thuốc rồi chuyển sang khách khác đúng lúc mạng chập chờn, hoặc bản ghi vừa bị người khác sửa. Lần lưu cuối thất bại mà không có thông báo, và không có bản nháp lưu lại.",
+  "anh_huong": "Nội dung lâm sàng đã gõ có thể biến mất dù nhân viên tin hệ thống tự lưu, chỉ lộ ra khi có người hỏi lại.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Lưu bản nháp trên máy và báo rõ khi lưu thất bại hoặc khi rời màn còn nội dung chưa lưu.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-063": {
+  "id": "CLIN-063",
+  "ten": "Phiếu hiếm muộn ghi kết quả xét nghiệm nhạy cảm bằng ô chữ tự do",
+  "chuyen_gi": "Nhân viên chép tay khoảng 50 kết quả xét nghiệm từ giấy vào ô chữ của phiếu, gồm HIV, giang mai, viêm gan B và tinh dịch đồ của người chồng. Các ô này không nối với phần xét nghiệm chính thức.",
+  "anh_huong": "Kết quả có thể lệch giữa hai nơi, không có cảnh báo giá trị bất thường, và dữ liệu sức khoẻ của người chồng nằm trong hồ sơ người vợ nên đi theo khi in hoặc chia sẻ.",
+  "nhom": "K_khac",
+  "cach_sua": "Nối các ô này với phần xét nghiệm có đơn vị và khoảng tham chiếu, và tách dữ liệu người chồng thành hồ sơ riêng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-045": {
+  "id": "SEC-045",
+  "ten": "Script vận hành ghi thay đổi quyền dưới tên một quản lý",
+  "chuyen_gi": "Người vận hành chạy script trên hệ thống thật để đổi quyền nhân sự. Nhật ký ghi tên một tài khoản quản lý như người đã làm, nhiều thay đổi khác đi thẳng vào cơ sở dữ liệu mà không để lại nhật ký.",
+  "anh_huong": "Sau này khó biết ai thực sự đã cấp quyền cho ai, gây khó khăn khi điều tra sự cố.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Cho script chạy qua chức năng chuẩn có nhật ký và ghi rõ người thực hiện thật.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-065": {
+  "id": "CLIN-065",
+  "ten": "Thông tin dị ứng thuốc nằm rải rác và không được kiểm khi kê thuốc",
+  "chuyen_gi": "Bệnh nhân từng khai dị ứng ở phiếu khám trước hoặc hồ sơ, lần khám sau dùng phiếu khác không có ô dị ứng. Bác sĩ kê hoặc nhân viên giao thuốc mà hệ thống không đối chiếu.",
+  "anh_huong": "Có thể xảy ra việc kê hoặc giao thuốc cho người đã khai dị ứng mà không có cảnh báo, vì an toàn phụ thuộc trí nhớ từng người.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Lưu dị ứng một nơi trong hồ sơ bệnh nhân và cảnh báo khi kê hoặc giao thuốc liên quan.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-070": {
+  "id": "CLIN-070",
+  "ten": "Bấm 'Cho khách về' có thể bỏ sót chỉ định chưa làm mà không báo ai",
+  "chuyen_gi": "Khách ra về khi còn dịch vụ chưa làm hoặc kết quả bác sĩ chưa đọc, lễ tân bấm Check-out không nhập lý do. Hệ thống đóng lượt khám mà không tạo việc hay thông báo cho bác sĩ hay CSKH.",
+  "anh_huong": "Chỉ định khách đã chọn có thể bị bỏ rơi, không ai quyết định làm lại, huỷ hay hoàn tiền, và bác sĩ không biết lượt đã đóng.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Khi cho khách về mà còn việc dở, tự tạo việc nhắc và báo cho bác sĩ hoặc CSKH.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-030": {
+  "id": "FE-030",
+  "ten": "Số phút chờ của khách sai khi đồng hồ máy tính lệch",
+  "chuyen_gi": "Máy lễ tân hoặc bàn khám có đồng hồ lệch vài phút. Màn hàng chờ hiện 'chờ N phút' sai, hoặc để trống nếu máy chạy chậm hơn.",
+  "anh_huong": "Con số dùng để điều phối khách bị sai, ảnh hưởng đến thứ tự ưu tiên, việc trấn an khách và báo cáo thời gian chờ.",
+  "nhom": "K_khac",
+  "cach_sua": "Tính thời gian chờ theo giờ của máy chủ thay vì giờ của từng máy.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-042": {
+  "id": "FE-042",
+  "ten": "Hai quản lý cùng sửa cấu hình thì người sau âm thầm ghi đè người trước",
+  "chuyen_gi": "Hai người có quyền cấu hình mở cùng màn, hoặc một người mở lâu rồi mới bấm lưu. Phần lưu sau gửi lại dữ liệu cũ nên đè mất thay đổi của người kia.",
+  "anh_huong": "Cấu hình chuông, phòng làm việc gì hay nút tại quầy có thể bị sửa ngược hoặc mất mục, dẫn đến chuông im hoặc dịch vụ không còn phòng làm.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Kiểm tra phiên bản khi lưu và báo xung đột nếu cấu hình đã bị người khác đổi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-028": {
+  "id": "TEST-028",
+  "ten": "Tên phòng, ca, phiếu riêng của Dr4Women ghi cứng trong phần lõi",
+  "chuyen_gi": "Phòng khám mới có số ca, tên phòng hoặc loại phiếu khác. Phần lõi giao diện và các bài kiểm tra vẫn mặc định theo cấu trúc của Dr4Women.",
+  "anh_huong": "Phòng mới có thể thiếu màu phòng, ca lạ bị đổi sang ca cả ngày, và muốn đổi phải sửa mã nguồn cùng bài kiểm tra.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Chuyển danh mục phòng, ca, phiếu thành cấu hình theo từng phòng khám.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-013": {
+  "id": "TEST-013",
+  "ten": "Chưa có bài kiểm tra bắt danh sách bị cắt mà không báo",
+  "chuyen_gi": "Danh sách như hàng chờ, hoá đơn, báo cáo, sổ thu có thể bị cắt khi vượt giới hạn dòng mà không báo. Hiện hầu như không có bài kiểm tra nào phát hiện điều này.",
+  "anh_huong": "Người dùng có thể tin danh sách trống hoặc đã đủ trong khi thực ra còn dữ liệu bị cắt.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Thêm bài kiểm tra yêu cầu mọi danh sách vượt giới hạn phải hiện thông báo còn dữ liệu.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-014": {
+  "id": "TEST-014",
+  "ten": "Chưa kiểm tra trường hợp bấm đúp hoặc mất mạng khi thu và hoàn tiền",
+  "chuyen_gi": "Thu ngân bấm hai lần nút thu tiền, hoặc mạng chập chờn nên phải gửi lại lệnh hoàn tiền. Hệ thống có thể ghi hai lần mà bộ kiểm tra tự động hiện không phát hiện được.",
+  "anh_huong": "Có thể thu trùng hoặc hoàn vượt số đã thu mà không ai biết ngay, gây lệch tiền.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Bổ sung các bài kiểm tra bấm trùng và hoàn từng phần cho thu/hoàn tiền.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-012": {
+  "id": "TEST-012",
+  "ten": "Chưa kiểm tra việc nhân viên cơ sở khác có xem được dữ liệu không",
+  "chuyen_gi": "Một nhân viên ở phòng khám hoặc cơ sở khác biết mã của một bệnh nhân rồi thử mở bệnh án, hóa đơn hay danh sách. Phần lớn chức năng chưa có bài kiểm tra xem họ có bị chặn không.",
+  "anh_huong": "Nếu có lỗi lộ dữ liệu giữa các cơ sở thì có thể không ai phát hiện kịp.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Thêm bài kiểm tra người ở cơ sở khác phải bị từ chối ở các chức năng đọc dữ liệu chính.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-020": {
+  "id": "TEST-020",
+  "ten": "Khi thiếu thông tin cơ sở, hệ thống hiện khách của mọi cơ sở",
+  "chuyen_gi": "Nhân viên bị mất cơ sở đang chọn, hoặc có khách/lịch chưa gắn cơ sở, nên màn quầy thu, nhà thuốc, bác sĩ có thể hiện khách của cơ sở khác. Các bài kiểm tra hiện còn chấp nhận cách hoạt động này.",
+  "anh_huong": "Khách cơ sở này có thể bị cơ sở kia thao tác, số đếm bị cộng trùng, và dữ liệu có thể lộ giữa các chi nhánh.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Bắt buộc phải có cơ sở rõ ràng, nếu thiếu thì từ chối thay vì hiện tất cả.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-024": {
+  "id": "TEST-024",
+  "ten": "Thiếu kiểm tra tự động cho hoàn tiền, đối soát và trả thuốc",
+  "chuyen_gi": "Khi sửa cách hoàn tiền chia nhỏ hoặc làm tròn, không có bài kiểm tra nào xác nhận tổng hoàn không vượt số đã thu.",
+  "anh_huong": "Hoàn vượt số đã thu có thể lọt qua, chỉ lộ khi đối soát cuối ngày hoặc khi khách phàn nàn.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Viết bài kiểm tra cho hoàn tiền, trả thuốc và đảm bảo tổng hoàn không vượt số đã thu.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-011": {
+  "id": "TEST-011",
+  "ten": "Phần lớn bài kiểm tra giao diện chỉ dò chữ trong mã, không chạy thử thật",
+  "chuyen_gi": "Bài kiểm tra chỉ đọc mã và tìm dòng chữ, không chạy màn hình thật. Nên đổi cách viết mã thì báo lỗi giả, còn đổi hành vi mà chữ còn đó thì vẫn báo ổn.",
+  "anh_huong": "Các quy tắc quan trọng như hoàn tất lượt khám, chỉ định chưa gửi, hoàn tác thiếu lưới an toàn đáng tin.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chuyển các bài quan trọng sang chạy thử hành vi thật của màn hình thay vì dò chữ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-033": {
+  "id": "TEST-033",
+  "ten": "Bài kiểm tra dùng chung dữ liệu nên lúc đỏ lúc xanh ngẫu nhiên",
+  "chuyen_gi": "Nhiều bài kiểm tra dùng chung dữ liệu và phụ thuộc ngày giờ, nên kết quả đổi theo thứ tự chạy hoặc gần nửa đêm.",
+  "anh_huong": "Kết quả đỏ/xanh thất thường khiến người ta quen bỏ qua cảnh báo thật.",
+  "nhom": "K_khac",
+  "cach_sua": "Cho mỗi bài kiểm tra dữ liệu riêng và không phụ thuộc giờ chạy.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-031": {
+  "id": "TEST-031",
+  "ten": "Một số bài kiểm tra bỏ qua mọi lỗi nên có thể báo ổn khi nghiệp vụ sai",
+  "chuyen_gi": "Vài bài kiểm tra coi mọi loại lỗi là 'đã bị chặn đúng'. Nếu sau này một bước bị chặn sai lý do thì bài kiểm tra vẫn qua.",
+  "anh_huong": "Lỗi mới có thể lọt mà không bị phát hiện.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chỉ chấp nhận đúng loại lỗi nghiệp vụ mong đợi trong từng bài.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "INF-029": {
+  "id": "INF-029",
+  "ten": "Hệ thống không tự bật lại đầy đủ khi máy chủ khởi động lại hoặc dịch vụ treo",
+  "chuyen_gi": "Máy chủ khởi động lại, hoặc một dịch vụ nền bị treo mà không tắt, thì không có gì tự dựng lại. Màn hình có thể vẫn mở nhưng việc gửi tin hay đẩy tệp ngừng.",
+  "anh_huong": "Phòng khám có thể mất dịch vụ cho đến khi có người kỹ thuật vào xử lý bằng tay.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Thêm cơ chế tự bật lại hệ thống khi máy khởi động và tự khởi động lại dịch vụ bị treo.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "INF-030": {
+  "id": "INF-030",
+  "ten": "Cảnh báo nằm cùng máy chủ nên máy chủ sập là cảnh báo cũng tắt",
+  "chuyen_gi": "Toàn bộ công cụ giám sát chạy trên chính máy chủ cần theo dõi, và việc kiểm tra cổng vào chỉ thử từ bên trong. Nếu máy chủ hoặc đường truy cập từ ngoài hỏng thì không ai được báo.",
+  "anh_huong": "Phòng khám có thể không vào được hệ thống mà chỉ biết khi nhân viên gọi nhau.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Thêm một điểm kiểm tra độc lập từ bên ngoài, thử đúng đường vào mà nhân viên dùng.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "INF-031": {
+  "id": "INF-031",
+  "ten": "Bản sao lưu gửi đi chưa được bảo vệ và chưa kiểm tra dùng được",
+  "chuyen_gi": "Bản sao lưu chứa hồ sơ bệnh nhân được gửi lên nơi lưu của bên thứ ba mà không bắt buộc mã hóa kết nối, không kiểm tra tệp còn nguyên vẹn, và xóa bản cũ sau mỗi lần gửi.",
+  "anh_huong": "Dữ liệu y tế có thể bị lộ khi truyền đi, hoặc bản tốt bị thay hết bằng bản hỏng.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Bắt buộc kết nối mã hóa, mã hóa tệp, kiểm tra tệp mở được rồi mới xóa bản cũ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-042": {
+  "id": "SEC-042",
+  "ten": "Ứng dụng dùng tài khoản quyền cao nhất để vào cơ sở dữ liệu",
+  "chuyen_gi": "Ứng dụng và vài thành phần khác dùng chung mật khẩu của tài khoản quyền cao nhất. Nếu một thành phần nhỏ bị lộ cấu hình thì kẻ xấu có toàn quyền với dữ liệu.",
+  "anh_huong": "Có thể bị đọc hoặc xóa toàn bộ dữ liệu bệnh nhân, không có lớp giới hạn nào.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Dùng tài khoản riêng quyền vừa đủ cho từng thành phần, mỗi tài khoản một mật khẩu riêng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-043": {
+  "id": "SEC-043",
+  "ten": "Kênh dữ liệu thời gian thực không còn dùng nhưng vẫn mở ra ngoài",
+  "chuyen_gi": "Giao diện đã không dùng kênh này nhưng nó vẫn mở ra Internet và theo dõi cả các bảng chứa thông tin bệnh nhân. Nếu dịch vụ ngừng, nhật ký ghi tạm có thể phình lên làm đầy ổ đĩa.",
+  "anh_huong": "Có thể mở thêm một đường đọc dữ liệu bệnh nhân ngoài hệ thống ghi nhận, hoặc đầy đĩa làm hệ thống dừng.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Tắt kênh thời gian thực không dùng, gỡ đường vào công khai và đặt giới hạn dung lượng nhật ký.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "INF-032": {
+  "id": "INF-032",
+  "ten": "Cập nhật phần mềm lên máy thật không bị chặn khi thiếu điều kiện an toàn",
+  "chuyen_gi": "Khi cập nhật, nếu không ghim đúng phiên bản đã duyệt thì hệ thống lấy bất cứ bản mới nhất nào. Lệch cấu trúc dữ liệu chỉ cảnh báo, và việc 'khỏe' chỉ là kiểm tra sơ sài.",
+  "anh_huong": "Bản chưa duyệt có thể lên chạy thật, hoặc báo cập nhật thành công trong khi có chức năng đang lỗi.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Bắt buộc ghim phiên bản, chặn khi lệch cấu trúc dữ liệu và thêm kiểm tra chức năng thật sau cập nhật.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-001": {
+  "id": "ARCH-001",
+  "ten": "Cài đặt Zalo, Telegram của từng phòng khám đang dùng chung toàn hệ thống",
+  "chuyen_gi": "Mã Zalo, Telegram được đặt chung cho cả hệ thống và có cả mã riêng của Dr4Women. Khi thêm phòng khám thứ hai, hai nơi sẽ dùng chung kênh gửi tin.",
+  "anh_huong": "Tin nhắn hoặc cảnh báo có thể đi nhầm sang phòng khám khác, và đổi mã phải nhờ kỹ thuật cập nhật lại hệ thống.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cho mỗi phòng khám tự lưu cài đặt Zalo, Telegram riêng trong phần cấu hình.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-017": {
+  "id": "OPS-017",
+  "ten": "Các script xóa dữ liệu cũ vẫn có thể chạy lại nhầm trên hệ thống thật",
+  "chuyen_gi": "Trong kho vẫn còn các script xóa toàn bộ bệnh nhân, gộp hoặc xóa cơ sở, xóa lịch sử. Người vận hành tìm thấy rồi chạy lại theo hướng dẫn cũ thì không có chốt chặn nào.",
+  "anh_huong": "Có thể mất toàn bộ bệnh án, mất cơ sở đang hoạt động, hoặc bỏ sót cảnh báo thật chưa gửi.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Gỡ các script cũ khỏi nơi dễ chạy và thêm chốt kiểm tra môi trường, ngày và số lượng trước khi chạy.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-018": {
+  "id": "OPS-018",
+  "ten": "Script dữ liệu một lần chỉ phù hợp Dr4Women, nguy hiểm khi có phòng khám khác",
+  "chuyen_gi": "Nhiều script chọn theo mã hoặc tên của Dr4Women mà không xét phòng khám nào, hoặc áp một mốc cho mọi phòng khám. Khi có phòng khám thứ hai dùng chung, script có thể tác động nhầm sang họ.",
+  "anh_huong": "Tiền của phòng khám khác có thể bị tính là thu hộ đối tác, hoặc khách thật bị xóa nhầm.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Mọi script phải chỉ rõ phòng khám cần xử lý và bỏ cách chọn đại bằng 'lấy dòng đầu tiên'.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-019": {
+  "id": "OPS-019",
+  "ten": "Đổi cấu hình liên quan tiền và phòng bằng script, không ghi lại ai đổi",
+  "chuyen_gi": "Việc bật thu hộ đối tác, đổi dịch vụ ở phòng, đổi tên cơ sở được làm trực tiếp trong cơ sở dữ liệu bằng script. Không có ghi chép ai đổi, lúc nào, từ gì sang gì.",
+  "anh_huong": "Sau này khó trả lời vì sao doanh thu lệch hoặc ai bật thu hộ đối tác, và khó hoàn tác.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Cho các thay đổi này đi qua chức năng có ghi nhật ký người đổi, giá trị cũ và mới.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "AI-005": {
+  "id": "AI-005",
+  "ten": "Kết quả xét nghiệm có thể bị gửi ra AI bên ngoài chỉ vì có một khóa cài đặt",
+  "chuyen_gi": "Chỉ cần ai đó đặt khóa dịch vụ AI vào cấu hình, chức năng phân loại xét nghiệm sẽ gửi nội dung kết quả của bệnh nhân ra nhà cung cấp nước ngoài. Không có công tắc bật tắt riêng cho từng phòng khám.",
+  "anh_huong": "Kết quả khám có thể ra ngoài mà bệnh nhân hay phòng khám chưa đồng ý, trái chính sách tự đặt.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Thêm công tắc bật AI rõ ràng cho từng phòng khám, mặc định tắt.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-038": {
+  "id": "OPS-038",
+  "ten": "Script gỡ lượt khám nhầm có thể để lại thanh toán, công nợ mất gốc",
+  "chuyen_gi": "Script gỡ lượt chuyển từ hồ sơ cũ tắt các kiểm tra liên kết dữ liệu và chỉ kiểm bốn loại dữ liệu. Nếu nhân viên đã thu tiền hoặc ghi công nợ trên lượt đó thì vẫn bị xóa lượt.",
+  "anh_huong": "Có thể còn thanh toán hoặc công nợ không gắn với lượt khám nào, làm báo cáo tiền lệch hoặc lỗi khi dựng hóa đơn.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Kiểm tra đủ mọi loại dữ liệu liên quan và không tắt kiểm tra liên kết khi xóa.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-039": {
+  "id": "OPS-039",
+  "ten": "Script cấp quyền kỹ năng có thể cấp theo dữ liệu cũ hoặc báo lỗi sai",
+  "chuyen_gi": "Khi chạy script lưu kỹ năng kèm cấp quyền, bước cấp quyền chạy trước khi kỹ năng mới được lưu xong. Nên có thể cấp theo bản cũ hoặc báo kỹ năng không tồn tại.",
+  "anh_huong": "Quyền có thể cấp sai hoặc không cấp được, và thông báo của script dễ gây hiểu nhầm về kết quả.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Chỉ cấp quyền sau khi việc lưu kỹ năng đã hoàn tất.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-040": {
+  "id": "OPS-040",
+  "ten": "Lệnh khởi động lại khi lập trình có thể tắt nhầm việc của người khác",
+  "chuyen_gi": "Hai người cùng làm việc trên một máy chủ thử, một người chạy lệnh nạp lại thì các chương trình của người kia cũng bị tắt theo. Có thể kể cả phần xử lý sự kiện như check-in.",
+  "anh_huong": "Chỉ ảnh hưởng môi trường thử: kết quả thử sai, và có thể làm khách thử check-in không vào hàng chờ.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Chỉ tắt đúng chương trình theo cổng hoặc thư mục của mình, không tắt theo tên chung.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "INF-034": {
+  "id": "INF-034",
+  "ten": "Công cụ kiểm tra hàng đợi in mật khẩu và xoá nhầm tin audit",
+  "chuyen_gi": "Nhân viên kỹ thuật chạy công cụ kiểm tra hàng đợi tin nhắn thì mật khẩu hiện ra trên màn hình hoặc nhật ký. Công cụ cũng có thể đọc và xoá các tin ghi dấu vết cũ nằm trước tin thử.",
+  "anh_huong": "Mật khẩu có thể bị lộ và một số dấu vết hoạt động có thể mất.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Che mật khẩu khi in và chỉ đọc tin thử mà không lấy đi các tin thật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-025": {
+  "id": "TEST-025",
+  "ten": "Kiểm tra tự động bỏ sót các script chạy trên hệ thống thật",
+  "chuyen_gi": "Một script vận hành bị sửa mà không qua bước kiểm tra, vì kiểm tra tự động chỉ xem thư mục mã chính. Lỗi chỉ lộ ra khi script chạy trên dữ liệu thật.",
+  "anh_huong": "Công việc vận hành có thể hỏng giữa chừng trên hệ thống đang dùng.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Đưa các script vận hành vào kiểm tra tự động và thống nhất một định nghĩa kiểm tra duy nhất.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "INF-035": {
+  "id": "INF-035",
+  "ten": "Phiên bản phần mềm nền không cố định, dựng lại có thể ra bản khác",
+  "chuyen_gi": "Khi dựng lại hệ thống sau vài tháng hoặc trên máy mới, phần mềm nền có thể tự tải về bản mới hơn bản đã kiểm tra. Hệ thống đang chạy cũng không lưu lại chính xác đã dùng bản nào.",
+  "anh_huong": "Khôi phục hoặc nhân bản cho phòng khám mới có thể cho hành vi khác bất ngờ.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cố định phiên bản từng phần mềm nền và lưu lại bản đang chạy thật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-069": {
+  "id": "SEC-069",
+  "ten": "Ảnh siêu âm bệnh nhân có thể lọt vào bản đóng gói phần mềm",
+  "chuyen_gi": "Thư mục ảnh siêu âm thật nằm cùng nơi với mã nguồn trên máy chủ. Hiện chưa bị đóng gói, nhưng nếu sau này ai đó đổi cách đóng gói thì ảnh và các bí mật có thể bị kéo vào.",
+  "anh_huong": "Ảnh bệnh nhân và mật khẩu có thể bị lộ nếu bản đóng gói được chia sẻ.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Thêm các thư mục dữ liệu bệnh nhân và bí mật vào danh sách loại trừ khi đóng gói.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "INF-036": {
+  "id": "INF-036",
+  "ten": "Mẫu cấu hình cho phòng khám mới đặt bộ nhớ trang quản lý quá thấp",
+  "chuyen_gi": "Người dựng hệ thống cho phòng khám mới sao chép mẫu cấu hình có mức bộ nhớ thấp hơn mức chính cảnh báo cần có. Khi nhiều người dùng, trang quản lý có thể hết bộ nhớ và tự khởi động lại.",
+  "anh_huong": "Trang quản lý có thể bị gián đoạn khi tải cao.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Sửa mẫu cấu hình theo giá trị thật đang chạy tốt trên hệ thống chính.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "INF-037": {
+  "id": "INF-037",
+  "ten": "Một tệp cấu hình thử nghiệm hỏng có thể làm cổng vào hệ thống thật không lên",
+  "chuyen_gi": "Script dựng môi trường thử ghi ra một tệp cấu hình hỏng, sau đó máy chủ thật khởi động lại, ví dụ khi khởi động lại máy. Cổng vào hệ thống thật có thể không chạy được.",
+  "anh_huong": "Nhân viên có thể không vào được phần mềm sau khi máy khởi động lại vì lỗi của môi trường thử.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Kiểm tra tệp cấu hình do script thử sinh ra trước khi hệ thống thật dùng đến.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-037": {
+  "id": "FIN-037",
+  "ten": "Báo cáo khách còn nợ có thể ra số khác với màn thu ngân",
+  "chuyen_gi": "Thu ngân dùng báo cáo riêng để truy thu nợ, nhưng báo cáo tính theo giá hiện tại và mốc ngày cố định chứ không theo sổ công nợ chính thức. Con số có thể khác số trên màn thu ngân hoặc hoá đơn.",
+  "anh_huong": "Nhân viên có thể không giải thích được số nợ với khách, dẫn đến truy thu sai.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Cho báo cáo lấy số từ sổ công nợ chính thức thay vì tự tính riêng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-044": {
+  "id": "SEC-044",
+  "ten": "Môi trường thử có thể chứa dữ liệu khách thật chưa che",
+  "chuyen_gi": "Hệ thống nạp dữ liệu khách vào môi trường thử rồi che tên, số điện thoại, nhưng bước kiểm tra chạy sau khi đã lưu và bật lại dịch vụ, và chỉ soi hai cột. Nếu có cột mới chưa nằm trong danh sách che thì thông tin khách có thể vẫn lộ.",
+  "anh_huong": "Thông tin cá nhân của khách thật có thể nằm trong môi trường thử đang mở công khai mà không ai hay biết.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Kiểm tra việc che dữ liệu trước khi lưu và rà soát toàn bộ các cột có thông tin khách.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-022": {
+  "id": "OPS-022",
+  "ten": "Môi trường thử có thể đứng ở dữ liệu cũ mà không ai biết",
+  "chuyen_gi": "Việc nạp dữ liệu thử hằng đêm có thể thất bại hoặc dùng bản sao lưu cũ mà không có cảnh báo. Khi máy khởi động lại ban ngày, việc nạp bù còn có thể chạy đúng giờ đón khách.",
+  "anh_huong": "Người duyệt có thể thử trên dữ liệu đã cũ nhiều ngày, và việc nạp bù có thể làm hệ thống chậm giờ làm việc.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Thêm cảnh báo khi nạp lỗi hoặc dữ liệu quá cũ, và không chạy bù trong giờ làm việc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-023": {
+  "id": "OPS-023",
+  "ten": "Hai tình huống nguy hiểm chưa có cảnh báo trên hệ thống thật",
+  "chuyen_gi": "Khách đã đóng tiền dịch vụ nhưng chưa được xếp phòng, hoặc thuốc giao nhiều hơn số khách mua, mà hệ thống không tự báo. Chỉ khi ai đó mở màn trưởng ca hoặc kho thì mới thấy.",
+  "anh_huong": "Khách đã trả tiền có thể đứng chờ không ai biết, và kho thuốc có thể bị lệch.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Đưa hai tình huống này vào cảnh báo tự động trên hệ thống thật.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-024": {
+  "id": "OPS-024",
+  "ten": "Giám sát hệ thống thiếu kênh báo và có thể tự tắt khi lỗi",
+  "chuyen_gi": "Công cụ giám sát chỉ có vài mục theo dõi, chưa có kênh gửi tin báo, và không theo dõi phần xử lý sự kiện. Script cài đặt nếu lỗi giữa chừng còn có thể để công cụ giám sát bị tắt.",
+  "anh_huong": "Sự cố có thể kéo dài mà không ai nhận được báo động, như lần giám sát từng trống 10 ngày.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Thêm kênh báo tin cho người trực, theo dõi phần xử lý sự kiện, và tự bật lại giám sát khi script lỗi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-025": {
+  "id": "OPS-025",
+  "ten": "Chuyển lịch hẹn sang cơ sở mới mà không báo khách, không để lại dấu vết",
+  "chuyen_gi": "Vận hành chạy script chuyển hàng loạt lịch hẹn từ Kim Ngưu sang Hào Nam. Script không kiểm tra bác sĩ có ca ở cơ sở mới, không báo khách và không ghi ai đổi, đổi lúc nào.",
+  "anh_huong": "Khách có thể đến sai địa điểm hoặc đến nơi không có bác sĩ, và phòng khám không truy ra vì sao lịch đổi.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Kiểm tra ca bác sĩ trước khi chuyển, ghi lại lịch sử thay đổi và gửi thông báo cho khách.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-006": {
+  "id": "PHAR-006",
+  "ten": "Chép kho sang cơ sở mới làm tồn thuốc tăng gấp đôi",
+  "chuyen_gi": "Khi chép kho sang Hào Nam, số lượng thuốc ở Kim Ngưu vẫn giữ nguyên nên tổng tồn của phòng khám tăng gấp đôi dù thuốc thật chỉ có một bản. Bước tự kiểm tra cũng có thể báo lỗi giả nếu nhà thuốc đang giao thuốc.",
+  "anh_huong": "Báo cáo tồn kho, cảnh báo hết hạn và đặt hàng có thể lệch, và người bán có thể thấy hàng không có thật.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Chuyển tồn từ cơ sở cũ sang mới thay vì nhân đôi, và chạy kiểm tra khi kho không biến động.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-020": {
+  "id": "OPS-020",
+  "ten": "Nạp nhân sự từ Excel có thể ghép nhầm người và ghi đè hồ sơ thật",
+  "chuyen_gi": "Script đoán nhân viên từ tên trong bảng lịch, từng ghép nhầm trước đây, rồi sửa luôn họ tên, điện thoại, email của hồ sơ có sẵn. Nó cũng mặc định chỉ có một phòng khám và đặt mật khẩu ban đầu dễ đoán.",
+  "anh_huong": "Ca trực có thể gán nhầm người, thông tin liên hệ nhân viên thật có thể bị ghi đè, và lỗi giữa chừng để dữ liệu dở dang.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cho người xác nhận từng cặp ghép trước khi ghi, chạy trọn gói hoặc không, chọn đúng phòng khám và bắt đổi mật khẩu lần đầu.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "DB-009": {
+  "id": "DB-009",
+  "ten": "Dựng cơ sở dữ liệu mới có thể chạy lại trên bản dở dang",
+  "chuyen_gi": "Nếu một bước dựng dữ liệu lỗi giữa chừng rồi người vận hành sửa và chạy lại, script có thể áp lại từ đầu lên bản đã làm dở. Nó cũng có thể dùng nhầm bản cũ của các bước dựng.",
+  "anh_huong": "Cấu trúc dữ liệu có thể ra không đoán trước được, ảnh hưởng việc dựng hệ thống cho phòng khám mới.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Ghi nhận từng bước dựng khi hoàn tất và luôn dùng đúng bản mới nhất khi chạy lại.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-070": {
+  "id": "SEC-070",
+  "ten": "Cách xử lý mật khẩu và khoá trong script vận hành còn sơ hở",
+  "chuyen_gi": "Một số script ghi mật khẩu, khoá truy cập ra tệp tạm trước khi siết quyền, in thẳng khoá ra màn hình, hoặc tạo khoá có hạn tới 20 năm. Người khác trên máy có thể đọc được trong khoảng thời gian ngắn.",
+  "anh_huong": "Rủi ro nhỏ, nhưng có thể làm tín hiệu sao lưu mất tin cậy và khó đổi khoá khi cần.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Tạo tệp với quyền chặt ngay từ đầu, không in khoá ra màn hình và đặt hạn khoá ngắn hơn.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-026": {
+  "id": "TEST-026",
+  "ten": "Bộ chạy thử mô phỏng dễ bị bỏ quên và có thể để lại cấu hình sai",
+  "chuyen_gi": "Bộ mô phỏng ngày khám không nằm trong bước kiểm tra bắt buộc, có thể báo thành công dù có thao tác hỏng, và nếu bị ngắt giữa chừng thì cấu hình thử bị thay đổi không trả lại. Nó còn dùng chung nơi chứa với bản sao dữ liệu thật.",
+  "anh_huong": "Lỗi có thể lọt qua vì phụ thuộc người nhớ chạy, và cấu hình thử có thể bị lệch.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Đưa bộ mô phỏng vào kiểm tra bắt buộc, báo lỗi đúng khi có sự cố và luôn trả lại cấu hình, tách khỏi nơi chứa bản sao thật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-001": {
+  "id": "TEST-001",
+  "ten": "Chưa có phép thử việc tách dữ liệu giữa các phòng khám và cơ sở",
+  "chuyen_gi": "Bộ mô phỏng chỉ chạy trên một phòng khám và chỉ thử quyền theo vai trò. Chưa có phép thử nhân viên cơ sở này có đọc hay sửa được bệnh nhân, lịch hẹn của cơ sở hoặc phòng khám khác hay không.",
+  "anh_huong": "Nếu sau này lỗi tách dữ liệu quay lại thì có thể không ai phát hiện, đặc biệt khi bán cho nhiều phòng khám.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Thêm phép thử có tài khoản của phòng khám và cơ sở khác để kiểm tra không xem hay sửa được dữ liệu của nhau.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-041": {
+  "id": "OPS-041",
+  "ten": "Nạp lịch sử Notion có thể để hồ sơ trỏ tới tệp chưa có",
+  "chuyen_gi": "Script lưu hồ sơ vào hệ thống trước rồi mới chép các tệp PDF kết quả. Nếu ổ đĩa đầy hoặc chép lỗi giữa chừng, hồ sơ đã có nhưng tệp thì thiếu và script không kiểm lại số tệp.",
+  "anh_huong": "Bác sĩ xem lịch sử khám thấy hồ sơ nhưng không mở được kết quả cũ.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Kiểm tra chỗ trống đĩa trước, chép tệp xong và đối chiếu danh sách rồi mới xác nhận hoàn tất.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "DB-013": {
+  "id": "DB-013",
+  "ten": "Công cụ sinh mẫu phiếu có thể ghi đè bản đã áp dụng và phụ thuộc máy cá nhân",
+  "chuyen_gi": "Khi chạy lại công cụ sinh mẫu phiếu khám, nó có thể sửa lại một tệp cập nhật dữ liệu đã áp dụng rồi. Công cụ còn đọc dữ liệu đầu vào từ thư mục Downloads trên máy một người, nên máy khác khó làm lại đúng.",
+  "anh_huong": "Mẫu phiếu đang chạy thật có thể khác với bản lưu trong mã nguồn, và nội dung phiếu phụ thuộc tệp nằm trên máy của một người.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Không cho công cụ ghi đè tệp đã áp dụng, và đưa dữ liệu nguồn vào nơi lưu chung của dự án.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-042": {
+  "id": "OPS-042",
+  "ten": "Bảng kiểm tra sức khoẻ hệ thống có thể hiện xanh dù giám sát đã ngừng",
+  "chuyen_gi": "Người vận hành chạy lệnh xem nhanh tình trạng hệ thống và thấy dấu tích xanh. Nhưng dấu xanh đó có thể là kết quả cũ khi công cụ giám sát đã dừng, và phần sao lưu chỉ liệt kê tệp mà không báo bản mới nhất đã quá cũ.",
+  "anh_huong": "Có thể tưởng hệ thống ổn và có sao lưu mới, trong khi thật ra không được giám sát hoặc nhiều đêm không có bản sao lưu.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Cho bảng kiểm tra so với giờ hiện tại và cảnh báo khi tình trạng hoặc bản sao lưu quá cũ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-021": {
+  "id": "OPS-021",
+  "ten": "Đổi bộ phòng hoặc gỡ Hào Nam tắt phòng khi khách đang chờ",
+  "chuyen_gi": "Người vận hành đổi bộ phòng hoặc gỡ Hào Nam trong giờ làm việc, các phòng bị tắt hàng loạt. Khách đã xếp hoặc đang chờ ở các phòng đó không được chuyển đi hay báo cho ai.",
+  "anh_huong": "Khách có thể bị kẹt trong hàng chờ cũ, nhân viên phải tự phát hiện và xử lý tay.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Trước khi tắt phòng, kiểm tra khách đang xếp và chuyển hoặc cảnh báo họ, đồng thời chặn chạy trong giờ làm việc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-015": {
+  "id": "OPS-015",
+  "ten": "Công cụ xoá dữ liệu thử có thể xoá nhầm dữ liệu bệnh nhân thật",
+  "chuyen_gi": "Người vận hành chạy công cụ dọn dữ liệu thử và gõ cụm xác nhận. Công cụ không kiểm tra hệ thống đã có bệnh nhân thật chưa, xoá toàn bộ không phân biệt phòng khám, kể cả nhật ký thao tác.",
+  "anh_huong": "Có thể mất vĩnh viễn hồ sơ bệnh nhân, phiếu thu, kết quả và nhật ký, thậm chí của phòng khám khác dùng chung cơ sở dữ liệu.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm chốt kỹ thuật chặn khi đã có dữ liệu thật, giới hạn theo từng phòng khám và bỏ việc xoá nhật ký.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "OPS-026": {
+  "id": "OPS-026",
+  "ten": "Công cụ xoá dữ liệu thử xem trước thiếu bảng và có thể hỏng giữa chừng",
+  "chuyen_gi": "Bản xem trước không liệt kê hết những gì sẽ bị xoá, còn một số dữ liệu liên quan bệnh nhân lại làm việc xoá thất bại sau khi người dùng đã xác nhận. Kiểm tra sao lưu gần đây cũng có thể đang nhìn vào cơ sở dữ liệu khác.",
+  "anh_huong": "Người vận hành tin mình đã xem đủ và có bản sao lưu, nhưng có thể mất dữ liệu không ngờ tới và không khôi phục được; tệp kết quả bệnh nhân có thể còn sót lại trên đĩa.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Cập nhật công cụ để xem trước đủ mọi dữ liệu bị ảnh hưởng và kiểm tra bản sao lưu đúng cơ sở dữ liệu sắp xoá.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-003": {
+  "id": "ARCH-003",
+  "ten": "Quyền theo vị trí trực gắn cứng theo mã của Kim Ngưu",
+  "chuyen_gi": "Phòng khám mới tự đặt tên vị trí làm việc riêng thì nhân viên đứng đúng chỗ vẫn không được cấp quyền. Muốn có quyền phải đặt tên theo quy ước của Dr4Women.",
+  "anh_huong": "Nhân viên có thể bị báo không đủ quyền giữa giờ làm việc, và phòng khám mới phải sửa mã nguồn hoặc đặt tên theo khách cũ.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cho mỗi phòng khám tự cấu hình vị trí nào ứng với vai nào thay vì ghi cứng trong hệ thống.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-046": {
+  "id": "SEC-046",
+  "ten": "Script dựng máy chủ có thể báo đã khoá đăng nhập mật khẩu khi chưa khoá",
+  "chuyen_gi": "Người vận hành chạy script chuẩn bị máy chủ và thấy thông báo đã tắt đăng nhập bằng mật khẩu. Trên một số nhà cung cấp, cấu hình sẵn có vẫn cho phép đăng nhập bằng mật khẩu mà script không kiểm tra lại.",
+  "anh_huong": "Máy chủ chứa dữ liệu bệnh nhân có thể vẫn bị dò mật khẩu dù người vận hành tin đã an toàn.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Dùng script mới đã kiểm tra kết quả thực tế, hoặc thêm bước xác minh sau khi cấu hình.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-047": {
+  "id": "SEC-047",
+  "ten": "Thông báo 'Trưởng ca gọi bộ phận' cho tự đặt đường dẫn bấm được",
+  "chuyen_gi": "Người có quyền điều phối gửi thông báo gọi bộ phận kèm đường dẫn tự gõ, và đường dẫn này hiện thành nút 'Bấm để xử lý'. Nếu tài khoản trưởng ca bị lạm dụng hoặc bị chiếm, có thể gửi thông báo khẩn giả kèm liên kết lạ cho quản lý hoặc kế toán.",
+  "anh_huong": "Nhân viên có thể bị dẫn tới trang lừa đảo hoặc thao tác không đúng mà khó phân biệt với thông báo thật của hệ thống.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cho phép đường dẫn trong ứng dụng theo danh sách cho phép và đánh dấu rõ thông báo do người gửi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-002": {
+  "id": "TEST-002",
+  "ten": "Bài kiểm tra quyền chỉ quét một số chức năng được chọn trước",
+  "chuyen_gi": "Phần lớn chức năng khám bệnh chỉ đòi đăng nhập và để từng bộ phận tự kiểm quyền. Khi thêm chức năng mới mà quên kiểm quyền, không bài kiểm tra nào báo lỗi.",
+  "anh_huong": "Một chức năng đọc hoặc ghi dữ liệu bệnh nhân có thể lên hệ thống thật mà ai đăng nhập cũng dùng được.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm bài kiểm tra quét toàn bộ chức năng, bắt buộc có kiểm quyền hoặc nằm trong danh sách miễn có lý do.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "API-009": {
+  "id": "API-009",
+  "ten": "Lỗi đĩa hoặc tệp bị báo nhầm thành lỗi cơ sở dữ liệu",
+  "chuyen_gi": "Khi tải tệp kết quả mà ổ đĩa đầy hoặc thư mục sai quyền, hệ thống lại báo cơ sở dữ liệu tạm thời không dùng được. Giao diện có thể tự thử lại nhiều lần.",
+  "anh_huong": "Nhân viên mất thời gian tìm sai chỗ, thử lại không có tác dụng và có thể sinh thêm tệp tạm.",
+  "nhom": "K_khac",
+  "cach_sua": "Tách lỗi tệp và đĩa khỏi lỗi cơ sở dữ liệu để thông báo đúng nguyên nhân.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-027": {
+  "id": "TEST-027",
+  "ten": "Kiểm tra nhanh không phát hiện migration đã áp dụng bị sửa nội dung",
+  "chuyen_gi": "Lập trình viên sửa nội dung một bản cập nhật cơ sở dữ liệu đã áp dụng rồi chạy kiểm tra nhanh. Công cụ chỉ so số phiên bản nên không áp lại phần đã sửa.",
+  "anh_huong": "Kết quả kiểm tra có thể xanh giả hoặc đỏ giả, và hệ thống thật cũng không phát hiện bản cập nhật bị sửa sau khi áp.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Lưu và so mã kiểm tra nội dung của từng bản cập nhật để phát hiện thay đổi.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-071": {
+  "id": "SEC-071",
+  "ten": "Script tạo tài khoản cũ có thể để lại tài khoản mật khẩu mặc định không ai quản",
+  "chuyen_gi": "Script tạo tài khoản đăng nhập trước rồi mới ghi hồ sơ nhân sự. Nếu lỗi giữa chừng, tài khoản vẫn còn với mật khẩu mặc định, và lần chạy lại bỏ qua nó.",
+  "anh_huong": "Có thể tồn tại tài khoản đăng nhập được nhưng không có hồ sơ nhân sự, không ai quản lý, và script mới có thể gắn nhầm vào nhân sự thật.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Tạo hồ sơ và tài khoản trong một bước an toàn, tự dọn khi lỗi, và kiểm tra tài khoản chưa gắn người khác.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-003": {
+  "id": "TEST-003",
+  "ten": "Lưới chặn danh sách bị cắt im lặng còn nhiều kẽ hở",
+  "chuyen_gi": "Bài kiểm tra chỉ bắt vài kiểu giới hạn số dòng và coi cả tệp là đạt nếu có một chỗ nào đó đã có cảnh báo. Lập trình viên thêm truy vấn mới vẫn lọt, và cảnh báo hiện có chỉ ghi vào nhật ký kỹ thuật.",
+  "anh_huong": "Danh sách có thể bị cắt nhưng màn hình vẫn trông đầy đủ, nên người trực có thể bỏ sót khách hoặc việc khi phòng khám đông hơn.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Siết bài kiểm tra theo từng truy vấn và để danh sách bị cắt hiện cảnh báo rõ cho người dùng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-117": {
+  "id": "CLIN-117",
+  "ten": "Lưu lại công tắc ca trực làm hở cổng kiểm soát cả ngày",
+  "chuyen_gi": "Quản lý bấm lưu lại công tắc ca trực lúc nhiều lượt khám đang diễn ra, dù giá trị không đổi. Hệ thống coi các lượt đã check-in trước đó là lượt dở dang và cho người không được xếp ca làm thay bác sĩ.",
+  "anh_huong": "Trong phần còn lại của ngày, người không đúng ca vẫn có thể khám, kê đơn hoặc nhập kết quả thay bác sĩ mà không có cảnh báo, dù việc làm thay vẫn được ghi lại.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Chỉ đặt lại mốc khi giá trị công tắc thật sự đổi.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-027": {
+  "id": "OPS-027",
+  "ten": "Nhiều việc quan trọng chỉ báo qua chuông, không có người nhận và hạn",
+  "chuyen_gi": "Các việc như lệch thuốc khi kiểm kê, lô thuốc hết hạn, kết quả xét nghiệm về, khách không đến hay hẹn tái khám chỉ hiện ở chuông hoặc dòng thời gian. Nếu người trực không thấy lúc đó hoặc đã tắt chuông thì không còn gì nhắc.",
+  "anh_huong": "Việc có thể bị rơi và chỉ được phát hiện sau khi bệnh nhân phàn nàn.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Biến các sự kiện này thành việc có người nhận và có hạn xử lý.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-048": {
+  "id": "SEC-048",
+  "ten": "Sổ sự kiện không xoá được có thể chứa thông tin bệnh nhân do nhân viên gõ",
+  "chuyen_gi": "Tài liệu cam kết sổ sự kiện không chứa nội dung lâm sàng hay tên khách, nhưng nhiều ô lý do và ghi chú nhân viên gõ tự do vẫn được ghi nguyên văn. Nhân viên có thể gõ chẩn đoán, tên hoặc số điện thoại vào đó.",
+  "anh_huong": "Thông tin sức khoẻ có thể nằm vĩnh viễn trong sổ, khó xoá theo yêu cầu bệnh nhân và có thể đi theo khi chia sẻ cho bên ngoài.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Làm sạch hoặc bỏ nội dung tự do khỏi sổ sự kiện và thật sự dùng cờ công khai để lọc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "API-010": {
+  "id": "API-010",
+  "ten": "Giao thuốc và trả thuốc có thể bị ghi hai lần nếu thiếu mã chống trùng",
+  "chuyen_gi": "Khi mất phản hồi, một công cụ hoặc bản giao diện cũ gọi lại việc giao thuốc mà không gửi mã chống trùng. Hệ thống không phân biệt được với một lần giao mới.",
+  "anh_huong": "Tồn kho thuốc hoặc ghi nhận khách trả thêm có thể bị trừ hai lần, gây lệch kho và tiền.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Bắt buộc mã chống trùng cho các thao tác giao thuốc, trả thuốc và nhả phần chưa giao.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "API-011": {
+  "id": "API-011",
+  "ten": "Tài liệu ghi phiếu khám chỉ đọc trong khi thực tế đã ghi được",
+  "chuyen_gi": "Chú thích trong mã nói phần phiếu khám chưa dùng được và chỉ đọc, nhưng thực tế đã có chức năng lưu phiếu, đơn thuốc và lịch tái khám. Người rà soát đọc tài liệu có thể hiểu sai.",
+  "anh_huong": "Có thể đánh giá sai mức rủi ro của dữ liệu y khoa và bỏ sót khi rà soát bảo mật.",
+  "nhom": "K_khac",
+  "cach_sua": "Cập nhật chú thích và tài liệu cho đúng với mã hiện tại.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-072": {
+  "id": "SEC-072",
+  "ten": "Trang tài liệu API mở công khai cho ai tới được cổng API",
+  "chuyen_gi": "Các trang mô tả toàn bộ chức năng của hệ thống không cần khoá để xem. Nếu cổng API vô tình bị mở ra ngoài, người lạ đọc được danh sách chức năng và tên trường.",
+  "anh_huong": "Kẻ xấu dò tìm điểm yếu dễ hơn, nhất là khi triển khai cho khách khác cấu hình lỏng hơn.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Tắt các trang tài liệu này ở môi trường thật hoặc yêu cầu khoá để xem.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "AI-007": {
+  "id": "AI-007",
+  "ten": "Trợ lý AI chỉ phục vụ được một cơ sở cố định",
+  "chuyen_gi": "Trợ lý AI đặt lịch được dựng một lần với một cơ sở mặc định và dùng chung cho mọi yêu cầu. Nếu một hệ thống phục vụ nhiều phòng khám hay nhiều cơ sở, nó không biết yêu cầu đến từ đâu.",
+  "anh_huong": "Chức năng AI có thể làm việc nhầm cơ sở hoặc không chạy ở phòng khám khác, và khó nhân bản cho nhiều khách.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cho trợ lý AI nhận cơ sở và phòng khám theo từng yêu cầu thay vì một giá trị cố định.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-116": {
+  "id": "CLIN-116",
+  "ten": "Ngày tái khám có thể bị chọn sai khi gõ nhầm hoặc có nhiều phiếu",
+  "chuyen_gi": "Nhân viên gõ nhầm năm (2062 thay vì 2026) trên một phiếu, hoặc một lượt có hai phiếu với hai ngày tái khám khác nhau. Hệ thống tự chọn ngày muộn nhất mà không hỏi lại.",
+  "anh_huong": "Việc gọi nhắc tái khám có thể được đặt sai ngày hoặc không được tạo, trong khi màn hình vẫn báo đã lưu.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Thêm bước kiểm tra ngày tái khám có hợp lý không và hỏi lại nhân viên khi ngày nhảy quá xa.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-064": {
+  "id": "CLIN-064",
+  "ten": "Phiếu khám báo “Có kết quả” dù tệp đối tác chưa xác nhận hoặc bị từ chối",
+  "chuyen_gi": "Đối tác gửi tệp kết quả nhưng chưa được xác nhận, hoặc nhân viên đã từ chối tệp đó. Phiếu khám vẫn hiện “Có kết quả” màu xanh.",
+  "anh_huong": "Bác sĩ có thể tin là đã có kết quả hợp lệ, trong khi hàng chờ và bản in lại coi là chưa có.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chỉ hiện “Có kết quả” khi tệp đã được xác nhận hợp lệ, còn lại hiện đúng trạng thái chờ hoặc bị từ chối.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "AI-006": {
+  "id": "AI-006",
+  "ten": "Tóm tắt cuối ngày bằng AI có thể làm đứng các việc khác của hệ thống",
+  "chuyen_gi": "Sau 18:00, hệ thống chờ dịch vụ AI bên ngoài viết bản tóm tắt cuối ngày. Nếu dịch vụ đó chậm hoặc treo, các việc nền khác phải đứng chờ theo.",
+  "anh_huong": "Thông báo, hàng chờ, nhắc giờ và cảnh báo có thể bị trễ nhiều phút lúc phòng khám còn khách.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Tách việc tóm tắt ra chạy riêng và đặt giới hạn thời gian chờ để không chặn các việc khác.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-066": {
+  "id": "CLIN-066",
+  "ten": "Tên bác sĩ ở chân ký phiếu khám có thể không đúng quy định",
+  "chuyen_gi": "Khi lượt khám chưa gán bác sĩ, phần đầu phiếu tự đoán tên từ lịch hẹn hoặc lịch trực mà không kiểm tra người đó còn là bác sĩ, đúng ca hay không. Các phần khác của hệ thống lại áp dụng đúng quy định.",
+  "anh_huong": "Bản in có thể ghi tên người không phải bác sĩ hoặc bác sĩ ca khác ở chỗ ký, gây rủi ro về giấy tờ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Dùng chung một cách xác định bác sĩ ký, chỉ nhận bác sĩ đang hoạt động đúng ca, không có thì để trống.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-028": {
+  "id": "OPS-028",
+  "ten": "Đăng nhập hỏng nhưng bảng giám sát vẫn báo xanh",
+  "chuyen_gi": "Dịch vụ đăng nhập bị treo hoặc cấu hình sai trong khi hệ thống chính và trang quản lý vẫn chạy. Các màn theo dõi không kiểm tra phần đăng nhập.",
+  "anh_huong": "Nhân viên có thể không đăng nhập được mà không ai được báo, chỉ biết khi có người gọi.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Thêm kiểm tra chủ động cho dịch vụ đăng nhập vào bảng giám sát và cảnh báo.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PAT-006": {
+  "id": "PAT-006",
+  "ten": "Chỉ có năm sinh nhưng phiếu in ra “ngày sinh 01/01”",
+  "chuyen_gi": "Lễ tân chỉ nhập năm sinh, hệ thống tự điền ngày 01/01 và không đánh dấu là ngày ước chừng. Phiếu khám in ra như ngày sinh thật.",
+  "anh_huong": "Giấy tờ có thể ghi ngày sinh không có thật, lệch với CCCD hoặc bảo hiểm khi đối chiếu.",
+  "nhom": "K_khac",
+  "cach_sua": "Lưu riêng trường hợp chỉ biết năm sinh và in ra chỉ năm thay vì ngày 01/01.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "API-012": {
+  "id": "API-012",
+  "ten": "Mở nhầm đường dẫn lượt khám lại hiện phiếu trống như thật",
+  "chuyen_gi": "Nhân viên mở đường dẫn cũ hoặc lượt của phòng khám khác, hệ thống không báo không tìm thấy mà hiện phiếu trống với dấu “—” và “Chưa có chỉ định nào”.",
+  "anh_huong": "Nhân viên có thể tưởng lượt chưa có dữ liệu, và một bản in rỗng có thể đến tay bệnh nhân.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Báo rõ “không tìm thấy lượt khám” khi mã lượt sai hoặc thuộc nơi khác.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-038": {
+  "id": "FIN-038",
+  "ten": "Hai màn nói khác nhau về việc ai thu tiền dịch vụ của đối tác",
+  "chuyen_gi": "Dải hành trình và khối kết quả tra giá dịch vụ theo hai cách khác nhau. Một bên có thể ghi “phòng khám thu”, bên kia ghi “thu hộ đối tác”.",
+  "anh_huong": "Đơn giá hiển thị có thể khác số tiền thực tế trên hóa đơn, khó đối soát.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Dùng chung một cách xác định người thu và lấy giá đúng lúc chỉ định.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "LAB-003": {
+  "id": "LAB-003",
+  "ten": "Xét nghiệm ThinPrep được chọn sẵn mẫu kết quả của HPV",
+  "chuyen_gi": "Nếu chưa gắn mẫu riêng, ThinPrep tự dùng mẫu HPV. Nhân viên nhập kết quả tế bào học vào mẫu không có ô phù hợp.",
+  "anh_huong": "Thông tin có thể dồn hết vào ô kết luận hoặc bỏ trống, và báo cáo có thể gộp nhầm hai loại xét nghiệm.",
+  "nhom": "K_khac",
+  "cach_sua": "Gắn mẫu kết quả tế bào học riêng cho ThinPrep.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-067": {
+  "id": "CLIN-067",
+  "ten": "Dị ứng, tiền sử của bệnh nhân có thể bị ghi đè khi lưu bệnh án",
+  "chuyen_gi": "Bác sĩ mở bệnh án khi hồ sơ còn cũ, lúc đó người khác cập nhật dị ứng mới. Khi bác sĩ lưu, thông tin cũ có thể đè mất dị ứng mới.",
+  "anh_huong": "Bác sĩ có thể kê thuốc dựa trên hồ sơ thiếu dị ứng, và không truy được ai đổi gì lúc nào.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Kiểm tra phiên bản hồ sơ y tế khi lưu và ghi lại giá trị trước và sau mỗi lần sửa.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-068": {
+  "id": "CLIN-068",
+  "ten": "Lưu bệnh án thiếu mục có thể xóa mất nội dung đã nhập",
+  "chuyen_gi": "Một tab hoặc phiên bản giao diện cũ chỉ gửi một phần bệnh án. Các mục không gửi bị xóa trống nhưng hệ thống vẫn báo đã lưu.",
+  "anh_huong": "Chẩn đoán, kế hoạch hoặc phần khai thác bệnh có thể mất khỏi bản hiện hành, chỉ còn trong bản sao lưu.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Mục nào không gửi lên thì giữ nguyên, và lưu lịch sử các phiên bản bệnh án.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-069": {
+  "id": "CLIN-069",
+  "ten": "Ghi bệnh án có thể tạo lượt khám cho lịch chưa đến hoặc đã hủy",
+  "chuyen_gi": "Bác sĩ hoặc thư ký ghi bệnh án cho lịch hẹn chưa check-in, đã hủy hoặc khách không đến. Hệ thống vẫn tự tạo lượt khám đang tiến hành.",
+  "anh_huong": "Có thể xuất hiện lượt khám và đơn thuốc cho khách chưa đến, lễ tân phải đóng lượt thủ công và số liệu sai.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Kiểm tra khách đã đến trước khi cho ghi bệnh án đầy đủ cho lịch hẹn.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-023": {
+  "id": "FIN-023",
+  "ten": "Hóa đơn thuốc có thể tính sai khi đơn vị kê khác đơn vị bán",
+  "chuyen_gi": "Đơn kê theo viên nhưng giá trong danh mục tính theo hộp (hoặc ngược lại). Hóa đơn nhân thẳng số lượng với giá mà không đối chiếu đơn vị.",
+  "anh_huong": "Tiền thu có thể sai lệch nhiều lần và không hiện ra như một lỗi.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Đối chiếu đơn vị kê với đơn vị bán và báo nhân viên khi không khớp.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FIN-024": {
+  "id": "FIN-024",
+  "ten": "Giá tái khám dựa vào quy ước tên và không giới hạn thời gian",
+  "chuyen_gi": "Hệ thống coi khách là tái khám nếu từng khám xong cùng loại ở bất kỳ thời điểm nào, và tìm giá qua tên “(tái khám)”. Nếu đổi tên dịch vụ thì dòng giá này không còn khớp.",
+  "anh_huong": "Khách quay lại sau rất lâu có thể bị tính giá rẻ, hoặc khách tái khám bị tính giá lần đầu mà không cảnh báo.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Đưa quy tắc tái khám (như số ngày) thành cấu hình theo từng phòng khám, không dựa vào tên.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-025": {
+  "id": "FIN-025",
+  "ten": "Màn chờ thanh toán có thể rất chậm vào giờ đông",
+  "chuyen_gi": "Khi quầy mở danh sách chờ thanh toán, hệ thống tính tiền từng lượt một (tới khoảng 300 lượt) thay vì tính gộp.",
+  "anh_huong": "Màn có thể chậm hàng chục giây, làm nghẽn hệ thống, và nếu lỗi giữa chừng cả danh sách không tải được.",
+  "nhom": "K_khac",
+  "cach_sua": "Tính gộp cho cả danh sách thay vì từng lượt, hoặc chia nhỏ và lưu tạm kết quả.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-119": {
+  "id": "CLIN-119",
+  "ten": "Lưới lịch tuần có thể báo còn chỗ trong khi đặt thực tế bị từ chối",
+  "chuyen_gi": "Lễ tân xem lưới tuần thấy còn chỗ vì chỉ đếm lịch ở cơ sở đang xem. Khi đặt, hệ thống đếm cả lịch bác sĩ ở cơ sở khác nên từ chối.",
+  "anh_huong": "Lễ tân bị mời đặt rồi bị từ chối, gây mất thời gian và khó xử với khách.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Cho lưới tuần đếm chỗ giống cách hệ thống kiểm tra khi đặt lịch.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-118": {
+  "id": "CLIN-118",
+  "ten": "Chuyển hồ sơ cũ có thể gán nhầm bác sĩ ký khi trùng tên",
+  "chuyen_gi": "Khi chuyển lịch sử từ Notion, hệ thống tìm người thực hiện theo tên. Nếu hai nhân sự trùng tên thì chọn tùy ý, không khớp thì để trống.",
+  "anh_huong": "Kết quả hoặc chỉ định cũ có thể mang tên bác sĩ ký sai hoặc rỗng trên bản in, nhưng chỉ ảnh hưởng dữ liệu lịch sử.",
+  "nhom": "K_khac",
+  "cach_sua": "Kiểm tra các tên trùng trước khi chuyển và để người phụ trách xác nhận từng trường hợp.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-039": {
+  "id": "FIN-039",
+  "ten": "Hủy phiếu thu bán lẻ có thể không mở lại lượt nhưng vẫn báo đã hủy",
+  "chuyen_gi": "Nhân viên hủy phiếu thu thuốc bán lẻ của lượt cũ khi khách đã có lượt bán lẻ mới. Lượt cũ không mở lại được nhưng màn hình chỉ báo đã hủy.",
+  "anh_huong": "Nhân viên không biết phải thu ở đâu, có nguy cơ giao thuốc không thu tiền hoặc thu trùng.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Báo rõ khi không mở lại được lượt và hướng dẫn cách xử lý tiếp.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-071": {
+  "id": "CLIN-071",
+  "ten": "Ký kết quả siêu âm có thể bị ghi đè và không để lại dấu vết",
+  "chuyen_gi": "Hai bác sĩ bấm ký gần như cùng lúc, hoặc một bác sĩ khác ký phiếu do thư ký lưu nháp. Chữ ký sau có thể đè chữ ký trước.",
+  "anh_huong": "Người chịu trách nhiệm trên phiếu có thể sai, không truy được ai ký lúc nào, và bác sĩ có thể ký nội dung khác với bản đã đọc.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Chặn ký lại phiếu đã ký, gắn chữ ký với đúng phiên bản nội dung và ghi lại sự kiện ký.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-072": {
+  "id": "CLIN-072",
+  "ten": "Sửa hồ sơ sau khi đã cho phép gửi không thu hồi và không báo CSKH",
+  "chuyen_gi": "Bác sĩ cho phép gửi, CSKH gửi kết quả cho bệnh nhân, sau đó bác sĩ hoặc thư ký sửa tiếp bệnh án. Hệ thống không thu hồi quyền gửi cũng không báo CSKH.",
+  "anh_huong": "Bệnh nhân có thể giữ bản cũ khác hồ sơ gốc, và không truy được đã gửi bản nào.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Khi sửa hồ sơ đã cho phép gửi, tự thu hồi quyền gửi và tạo việc báo CSKH liên hệ lại bệnh nhân.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-073": {
+  "id": "CLIN-073",
+  "ten": "Màn việc đối tác chỉ hiện 300 việc, việc cũ nhất có thể bị che",
+  "chuyen_gi": "Khi đối tác đang có hơn 300 việc chờ, màn hình chỉ lấy 300 việc mới nhất. Các mẫu cũ, quá hạn lâu nhất có thể không hiện ra, và số việc còn dở cũng bị đếm thấp.",
+  "anh_huong": "Đối tác và CSKH có thể tưởng đã hết việc trong khi mẫu cũ vẫn chưa nhận hoặc chưa trả kết quả.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Hiện đủ danh sách (hoặc báo rõ trên màn hình khi có việc bị ẩn) và đếm số việc từ toàn bộ việc đang chờ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-122": {
+  "id": "CLIN-122",
+  "ten": "Ghi 'Có kết quả' khi tệp kết quả vừa bị thu hồi",
+  "chuyen_gi": "Đối tác bấm Trả kết quả đúng lúc tệp kết quả bị thu hồi hoặc phiếu quay về chưa sẵn sàng. Hệ thống có thể vẫn ghi mốc 'Có kết quả'.",
+  "anh_huong": "CSKH có thể báo khách là đã có kết quả trong khi không còn tệp hợp lệ.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Kiểm tra lại tệp kết quả ngay lúc ghi mốc 'Có kết quả'.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-074": {
+  "id": "CLIN-074",
+  "ten": "Bảng khám bác sĩ âm thầm cắt ở 400 lịch hẹn",
+  "chuyen_gi": "Khi xem nhiều bác sĩ hoặc nhiều ngày, bảng chỉ lấy 400 lịch đầu và không báo gì. Thứ tự gọi khách cũng chỉ tính trên phần đã lấy.",
+  "anh_huong": "Lịch cuối khoảng thời gian có thể biến mất khỏi bảng gọi, và thứ tự ưu tiên gọi có thể sai.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Báo rõ khi có lịch bị ẩn, giới hạn khoảng ngày được xem và tính thứ tự gọi trên đủ lịch.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-075": {
+  "id": "CLIN-075",
+  "ten": "Khách check-in chưa có trạm bị tính chờ 0 phút, cảnh báo không tăng",
+  "chuyen_gi": "Khách đã check-in nhưng chưa được xếp vào phòng nào sẽ có thời gian chờ hiện là 0. Dù họ ngồi đó nhiều giờ, cảnh báo vẫn chỉ ở mức nhẹ.",
+  "anh_huong": "Trưởng ca có thể không thấy ai đang bị bỏ quên lâu nhất.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Tính thời gian chờ từ lúc check-in khi chưa có mốc vào phòng, và tăng mức cảnh báo theo thời gian.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-120": {
+  "id": "CLIN-120",
+  "ten": "Danh sách khách CSKH báo 0 khách, tìm SĐT có dấu cách không ra",
+  "chuyen_gi": "Nhân viên CSKH để màn hình ở trang sau trong lúc dữ liệu đổi, thì danh sách trống và tổng báo 0. Gõ số điện thoại có dấu cách như '0912 345' cũng không tìm thấy khách.",
+  "anh_huong": "Màn hình báo 'không có khách' dù có, hai màn tìm cùng một khách cho kết quả khác nhau, và trang tải chậm dần khi hồ sơ nhiều lên.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Tự lùi về trang cuối khi trang yêu cầu vượt quá, bỏ dấu cách khi tìm SĐT và làm gọn cách sắp xếp để tải nhanh hơn.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-029": {
+  "id": "OPS-029",
+  "ten": "Thông báo khẩn sau khi áp lịch trực có thể mất mà không ai biết",
+  "chuyen_gi": "Quản lý áp lịch trực tuần, lịch lưu xong nhưng việc gửi thông báo khẩn (lịch mất bác sĩ, khung quá tải) bị lỗi thì lỗi chỉ ghi vào nhật ký. Màn hình vẫn báo thành công và không gửi lại.",
+  "anh_huong": "Lịch hẹn đã hứa với khách có thể mất bác sĩ mà CSKH hay Trưởng ca không nhận được chuông.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Báo cho quản lý khi gửi thông báo thất bại, kèm danh sách lịch mất bác sĩ, và có cơ chế gửi lại.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-073": {
+  "id": "SEC-073",
+  "ten": "Vị trí bác sĩ mới mở cho mọi vai, đổi người trong ca bỏ qua bảng vai",
+  "chuyen_gi": "Quản lý tạo vị trí bác sĩ mới và quên thu hẹp vai, nên lễ tân hay thu ngân có thể được xếp vào. Khi đổi người trong ca, hệ thống cũng không kiểm tra nhóm nghề.",
+  "anh_huong": "Người không phải bác sĩ có thể được xếp hoặc hiện như người phụ trách ở vị trí bác sĩ.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Mặc định vị trí mới chỉ mở cho đúng nhóm nghề, và kiểm tra bảng vai cả khi đổi người trong ca.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-049": {
+  "id": "SEC-049",
+  "ten": "Một công tắc tắt được rào ca trực, chuông có thể bật mà không có người nhận",
+  "chuyen_gi": "Người có quyền cấu hình có thể tắt rào chỉ cho bác sĩ có ca thao tác thay bác sĩ chỉ bằng một công tắc. Họ cũng có thể xoá hết người nhận của một chuông mà vẫn để chuông ở trạng thái bật.",
+  "anh_huong": "Thao tác lâm sàng thay bác sĩ mở lại cho nhiều người mà không cần ai duyệt, và chuông quan trọng có thể không đến tay ai.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Yêu cầu xác nhận thêm khi tắt rào hoặc xoá người nhận, và cảnh báo nếu chuông bật mà không có ai nhận.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-043": {
+  "id": "OPS-043",
+  "ten": "Thêm ca trực hai lần tạo ra hai dòng ca giống nhau",
+  "chuyen_gi": "Quản lý bấm đúp, thử lại sau khi mất phản hồi hoặc áp mẫu tuần hai lần thì cùng một nhân viên có hai dòng ca giống nhau.",
+  "anh_huong": "Số ca đếm sai, lịch hiển thị trùng, và gỡ một dòng thì dòng kia vẫn còn nên lịch hẹn không được gỡ bác sĩ như người dùng tưởng.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Kiểm tra trùng ngày, ca, vị trí và nhân viên trước khi thêm, và chặn trùng ngay ở cơ sở dữ liệu.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-121": {
+  "id": "CLIN-121",
+  "ten": "'Ai là bác sĩ' được hiểu theo bốn cách khác nhau",
+  "chuyen_gi": "Mỗi chức năng tự định nghĩa bác sĩ theo cách riêng. Ví dụ quản lý đứng khám được chọn làm bác sĩ phụ trách ở chỗ này nhưng bị coi là không còn khám ở chỗ kia.",
+  "anh_huong": "Việc đổi dịch vụ khám có thể bị chặn nhầm và danh sách người nhận lượt khác nhau giữa các màn.",
+  "nhom": "K_khac",
+  "cach_sua": "Thống nhất một cách xác định bác sĩ dùng chung cho mọi chức năng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-074": {
+  "id": "SEC-074",
+  "ten": "Màn điều khiển nội bộ liệt kê tài khoản mọi phòng khám",
+  "chuyen_gi": "Ở môi trường thử nghiệm, màn điều khiển liệt kê tất cả tài khoản của mọi phòng khám và nhận tên, vai, ảnh do máy gửi lên. Môi trường thật mặc định đã chặn màn này.",
+  "anh_huong": "Nếu môi trường thử dùng chung hoặc có tài khoản thật, người có quyền xem có thể thấy email của phòng khác và phản hồi có thể bị giả tên hay vai.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Lọc theo phòng khám, lấy tên và vai từ tài khoản đăng nhập, và chỉ cho phép ở những môi trường được liệt kê rõ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-040": {
+  "id": "FIN-040",
+  "ten": "Hoàn tác 'Nhận mẫu' hoặc 'Trả kết quả' không lưu lý do",
+  "chuyen_gi": "Đối tác gỡ mốc nhận mẫu hoặc mốc trả kết quả, lý do không bắt buộc. Nếu có nhập thì hệ thống chỉ ghi là có lý do chứ không lưu nội dung.",
+  "anh_huong": "Một kết quả đã hiện 'Có kết quả' có thể biến mất mà không ai biết vì sao, khó xử lý khi bệnh nhân khiếu nại.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Bắt buộc nhập lý do và lưu nội dung, như khi hủy một khoản đã thu.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-077": {
+  "id": "CLIN-077",
+  "ten": "Phiếu 'Sửa lại' bỏ dở làm khách quay lại hàng chờ, không ai phụ trách",
+  "chuyen_gi": "Nhân viên bấm Sửa lại kết quả của dịch vụ làm thêm tại quầy rồi không xác nhận hay hủy (hết ca, mất mạng). Khách đã quay lại hàng chờ phòng và phiếu hiện 'đang được sửa' mãi.",
+  "anh_huong": "Khách bị tính là đang chờ làm, cả nhóm phải hỏi nhau ai đang sửa; kết quả chính thức vẫn giữ nguyên nên dữ liệu vẫn an toàn.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Chỉ đưa khách về hàng chờ khi xác nhận sửa, và gắn người phụ trách, hạn, nhắc cho phiếu đang sửa.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-123": {
+  "id": "CLIN-123",
+  "ten": "Bấm Hoàn tất lại phiếu báo xong nhưng khách vẫn trong hàng chờ",
+  "chuyen_gi": "Lần Hoàn tất đầu đã lưu phiếu nhưng việc đóng dịch vụ lỗi hoặc phản hồi mất, nhân viên bấm lại. Hệ thống báo đã xong nhưng không thử đóng lại dịch vụ.",
+  "anh_huong": "Màn hình tin là xong trong khi khách vẫn còn tên trong hàng chờ phòng.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Khi bấm lại trên phiếu đã hoàn tất, vẫn kiểm tra và đóng dịch vụ còn dở.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-079": {
+  "id": "CLIN-079",
+  "ten": "Việc nhắc tái khám tự đóng dù khách chưa được gọi",
+  "chuyen_gi": "Hệ thống tự đóng việc gọi nhắc nếu khách có một lịch hẹn khác sau hạn gọi, dù khác mục đích. Nó cũng đóng việc khi ngày hẹn đã qua và ai đó sửa phiếu.",
+  "anh_huong": "Bệnh nhân cần tái khám theo chỉ định có thể không bao giờ được gọi và việc quá hạn biến mất thay vì được nhắc thêm.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Chỉ đóng khi đúng lịch tái khám được chỉ định hoặc có nhân viên xác nhận, và để việc quá hạn tiếp tục hiện để nhắc.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-124": {
+  "id": "CLIN-124",
+  "ten": "Đổi ngày tái khám xóa luôn dấu vết cuộc gọi đã làm",
+  "chuyen_gi": "CSKH đã gọi nhắc khách, sau đó bác sĩ sửa ngày tái khám (kể cả sửa lỗi gõ). Kết quả, giờ gọi và người gọi trên việc bị xóa trắng, mà nhật ký cuộc gọi cũ có thể cũng chưa được ghi.",
+  "anh_huong": "Không còn bằng chứng ai đã gọi, lúc nào, kết quả ra sao, và số liệu hiệu quả CSKH bị sai.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Giữ lại lịch sử cuộc gọi cũ và luôn ghi nhật ký khi đóng việc gọi.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-027": {
+  "id": "FIN-027",
+  "ten": "Đánh dấu 'đã xuất MISA' không gắn với tệp Excel đã tải",
+  "chuyen_gi": "Kế toán tải tệp rồi bấm đánh dấu, hệ thống lập lại danh sách ngay lúc bấm. Hóa đơn mới hoặc vừa đổi trong lúc đó vẫn bị đánh dấu là đã xuất dù không có trong tệp. Khoảng ngày lưu cũng có thể rộng hơn số hóa đơn thực sự được đánh dấu.",
+  "anh_huong": "Hóa đơn có thể thiếu hoặc lệch so với tệp đã nhập MISA mà hệ thống vẫn coi là khớp.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Gắn việc đánh dấu với đúng tệp đã tải và lưu khoảng ngày thực sự được đánh dấu.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FIN-026": {
+  "id": "FIN-026",
+  "ten": "Việc tồn về tiền chỉ hiện khi có người mở màn Hóa đơn",
+  "chuyen_gi": "Các khoản như khách còn nợ, phòng khám nợ khách, hoàn tiền thất bại hay chuyển khoản chưa về chỉ là danh sách tính ra khi có người mở màn. Không có người phụ trách, hạn hay nhắc.",
+  "anh_huong": "Khách có thể chờ hoàn tiền hay tiền thừa mà không ai biết, nợ không được đòi đúng hạn, và lỗi chỉ lộ khi khách phàn nàn.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Tạo việc cho mỗi khoản tồn với người phụ trách, hạn và nhắc.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FIN-041": {
+  "id": "FIN-041",
+  "ten": "Sửa hóa đơn công ty có thể ghi đè hồ sơ công ty của khách",
+  "chuyen_gi": "Kế toán sửa thông tin công ty trên một hóa đơn, mặc định hệ thống cập nhật luôn hồ sơ công ty của khách và không lưu giá trị cũ. Mã số thuế sai dạng vẫn được lưu.",
+  "anh_huong": "Thông tin điền sẵn cho các lần sau bị đổi mà không truy lại được, có thể xuất hóa đơn điện tử sai thông tin người mua.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Không tự ghi đè hồ sơ khách khi sửa hóa đơn, lưu lịch sử trước–sau và kiểm tra mã số thuế.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "DB-014": {
+  "id": "DB-014",
+  "ten": "Thiếu cột trong cơ sở dữ liệu bị che, hành trình chạy theo luật cũ",
+  "chuyen_gi": "Nếu bản cập nhật cơ sở dữ liệu chưa áp hoặc áp lệch, màn hành trình khách vẫn chạy theo luật cũ mà không báo lỗi hay cảnh báo.",
+  "anh_huong": "Thời gian chờ và bước khám có thể hiện sai âm thầm, và tìm nguyên nhân sẽ mất nhiều thời gian.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Báo lỗi hoặc cảnh báo rõ khi thiếu cột thay vì âm thầm chạy theo luật cũ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-080": {
+  "id": "CLIN-080",
+  "ten": "Luật bác sĩ bắt buộc cho khách mới bị né khi đổi bác sĩ hoặc dời lịch",
+  "chuyen_gi": "CSKH đặt lịch đúng bác sĩ theo luật, rồi dùng Đổi bác sĩ hoặc Đổi lịch để chuyển khách sang bác sĩ khác. Hệ thống không kiểm lại luật ở các bước này.",
+  "anh_huong": "Khách mới có thể được xếp sai bác sĩ và chỉ bị phát hiện khi đã đến phòng khám.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Áp cùng một kiểm tra luật bác sĩ cho cả thao tác đổi bác sĩ và dời lịch.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-082": {
+  "id": "CLIN-082",
+  "ten": "Liệu trình đã dừng còn buổi khách trả trước nhưng không ai được nhắc hoàn tiền",
+  "chuyen_gi": "Nhân viên bấm Dừng liệu trình khi khách đã trả trước nhiều buổi mà chưa dùng hết. Liệu trình này không xuất hiện trong danh sách việc nào của CSKH hay quầy.",
+  "anh_huong": "Khoản phòng khám còn nợ khách (hoàn tiền hoặc dịch vụ) có thể bị quên cho đến khi khách hỏi lại.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Khi dừng liệu trình còn buổi trả trước, tự tạo việc hoàn tiền có người nhận và hạn xử lý.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-052": {
+  "id": "SEC-052",
+  "ten": "Thu ngân, lễ tân xem được số điện thoại và ghi chú điều trị của mọi khách",
+  "chuyen_gi": "Một thu ngân hoặc lễ tân mở hồ sơ liệu trình của bất kỳ khách nào, kể cả khách ở cơ sở khác. Họ có thể thấy số điện thoại và phần bệnh nhân/bác sĩ ghi sau điều trị như cảm nhận, vấn đề sau điều trị.",
+  "anh_huong": "Thông tin sức khoẻ có thể lộ cho người không cần biết, vì không lọc theo cơ sở hay quyền y khoa.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cho xem nội dung điều trị với người có quyền y khoa và giới hạn theo cơ sở.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-075": {
+  "id": "SEC-075",
+  "ten": "Công tắc mở quyền tạm thời dễ bị quên bật và khó truy vết",
+  "chuyen_gi": "Ai đó bật chế độ mở quyền tạm thời trên máy chủ rồi quên tắt. Khi đó mọi nhân viên (trừ bác sĩ) làm được nhiều việc hơn mức cho phép.",
+  "anh_huong": "Khó biết ai đã làm gì trong lúc quyền đang mở, và màn vận hành không báo chế độ này đang bật.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Hiện cảnh báo trên màn vận hành khi chế độ đang bật và ghi dấu vào nhật ký mỗi thao tác làm trong lúc đó.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-083": {
+  "id": "CLIN-083",
+  "ten": "Hệ thống có thể tự gán khách cho bác sĩ chưa duyệt ca hoặc đã hết ca",
+  "chuyen_gi": "Phòng chỉ có một dòng lịch ca sáng chưa được duyệt, còn khách được xếp vào buổi chiều. Hệ thống vẫn tự gán khách cho bác sĩ đó.",
+  "anh_huong": "Khách mang tên một bác sĩ không có mặt và có thể bị ẩn khỏi bác sĩ khác, nên phải chờ không rõ lý do.",
+  "nhom": "K_khac",
+  "cach_sua": "Chỉ tự gán bác sĩ có ca đã duyệt và đang trong giờ làm.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-076": {
+  "id": "SEC-076",
+  "ten": "Lý do không làm và kết luận khám hiện cho mọi người xem bảng lượt khám",
+  "chuyen_gi": "Bác sĩ ghi lý do không làm dịch vụ có thông tin sức khoẻ như mang thai hoặc dị ứng. Lễ tân hay thu ngân mở bảng lượt khám hoặc hàng chờ vẫn đọc được.",
+  "anh_huong": "Thông tin y khoa viết tự do có thể lộ cho người chỉ được phép thấy trạng thái.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Che lý do không làm và kết luận khám với người không có quyền y khoa.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-081": {
+  "id": "CLIN-081",
+  "ten": "Xoá hoặc sửa luật bác sĩ bắt buộc không để lại dấu vết đầy đủ",
+  "chuyen_gi": "Quản lý xoá hoặc sửa một luật bác sĩ bắt buộc. Việc xoá không được ghi lại, còn việc sửa chỉ lưu giá trị mới, không lưu giá trị cũ.",
+  "anh_huong": "Khó biết ai gỡ luật khiến khách đến sai bác sĩ, và không khôi phục được cấu hình cũ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Ghi nhật ký cả khi xoá và lưu cả giá trị cũ lẫn mới khi sửa.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-125": {
+  "id": "CLIN-125",
+  "ten": "Luật chặn cứng vẫn trỏ vào bác sĩ đã nghỉ mà không ai được báo",
+  "chuyen_gi": "Luật bắt buộc bác sĩ X được lưu khi X còn làm việc, sau đó X nghỉ. CSKH đặt lịch cho khách mới thì bị chặn và báo phải khám bác sĩ X.",
+  "anh_huong": "Khách mới không đặt được lịch, quản lý không nhận cảnh báo, và trang xem thử có thể chậm ở phòng khám lớn.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Cảnh báo quản lý khi luật trỏ vào bác sĩ đã nghỉ và bỏ qua bác sĩ đó khi áp luật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-126": {
+  "id": "CLIN-126",
+  "ten": "Lịch sử khám của khách chỉ lấy 500 lượt gần nhất mà không báo",
+  "chuyen_gi": "Khách có hơn 500 lượt khám. Hệ thống cắt ở 500 lượt rồi mới lọc theo ngày hoặc dịch vụ, và màn hình không báo là đã cắt.",
+  "anh_huong": "Lọc ngày cũ có thể ra trống dù có lượt khám, và bác sĩ tưởng hồ sơ đã đầy đủ.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Lọc trước khi giới hạn số lượng và hiện thông báo khi danh sách bị cắt.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-042": {
+  "id": "FIN-042",
+  "ten": "Giá làm thêm ở quầy có thể khác số tiền thực thu khi bảng giá có nhiều dòng",
+  "chuyen_gi": "Bảng giá có hai dòng cùng mã dịch vụ nhưng khác giá hoặc đơn vị thu. Nút làm thêm ở quầy hiện giá thấp nhất và chọn dòng đầu tiên.",
+  "anh_huong": "Giá trên nút có thể khác số tiền thu, phòng làm có thể chọn sai và không ai được báo mâu thuẫn.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Dùng chung luật chọn giá như liệu trình và báo khi bảng giá có dòng mâu thuẫn.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-044": {
+  "id": "OPS-044",
+  "ten": "Cơ sở của ca trực suy từ cấu hình hiện tại nên đổi cấu hình làm lệch lịch cũ",
+  "chuyen_gi": "Quản lý chuyển một phòng sang cơ sở khác, hoặc có vị trí chưa gắn phòng. Ca trực cũ và mới tự nhảy sang cơ sở khác hoặc hiện ở cả hai cơ sở.",
+  "anh_huong": "Số bác sĩ trực có thể bị đếm đôi và báo cáo không phản ánh đúng quá khứ.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Lưu cơ sở ngay trên từng ca trực khi xếp lịch.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-043": {
+  "id": "FIN-043",
+  "ten": "Giá liệu trình chốt lúc bác sĩ đề xuất, không cập nhật khi khách đăng ký",
+  "chuyen_gi": "Bác sĩ đề xuất liệu trình, vài tuần sau CSKH đăng ký cho khách. Trong khoảng đó bảng giá đã đổi nhưng giá liệu trình vẫn giữ như cũ.",
+  "anh_huong": "Khách có thể nhận giá cũ hoặc phòng khám chịu chênh lệch, và muốn đổi phải tạo liệu trình mới mà không có cảnh báo.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Cảnh báo chênh giá khi đăng ký và cho phép chốt lại giá có kiểm soát.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-127": {
+  "id": "CLIN-127",
+  "ten": "Tick lại dịch vụ khách đã bỏ không kiểm dịch vụ còn bán hay không",
+  "chuyen_gi": "Khách bỏ một dịch vụ làm thêm ở quầy, sau đó dịch vụ bị ngừng bán. Nhân viên tick lại và dịch vụ vẫn được bật.",
+  "anh_huong": "Dịch vụ đã ngừng có thể không xếp được phòng hoặc bị thu theo giá cũ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Kiểm lại dịch vụ còn bán và còn gắn bước khi tick lại như lúc tạo mới.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-084": {
+  "id": "CLIN-084",
+  "ten": "Tick bỏ qua tư vấn có thể đưa khách đã về vào lại hàng chờ bác sĩ",
+  "chuyen_gi": "Điều dưỡng hoặc lễ tân bấm bỏ qua tư vấn trên màn cũ, với lượt đã check-out, đã ký hoặc khách đã về. Khách đó có thể xuất hiện lại trong hàng chờ bác sĩ chính.",
+  "anh_huong": "Bác sĩ có thể gọi người không còn ở phòng khám, lượt đã ký bị thêm phiên mới và quyết định hướng đi bị ghi đè.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Chặn thao tác này với lượt đã check-out, đã ký hoặc đã đánh dấu khách về.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "SEC-053": {
+  "id": "SEC-053",
+  "ten": "Hai thao tác tư vấn không kiểm phân công và ca trực của nhân viên",
+  "chuyen_gi": "Một nhân viên có quyền tiếp nhận nhưng không được phân đi kèm bác sĩ của phiên, hoặc không đứng ca hôm đó, đóng phiên tư vấn hoặc ghi nội dung tư vấn của khách khác.",
+  "anh_huong": "Khách có thể bị chuyển sang bác sĩ chính khi chưa tư vấn, hoặc ghi chú tư vấn bị ghi đè bởi người ngoài phạm vi.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Áp cùng kiểm tra phân công và ca trực như lúc bắt đầu tư vấn cho hai thao tác này.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-086": {
+  "id": "CLIN-086",
+  "ten": "Danh sách chờ bác sĩ quyết định cắt ở 200 dòng mà không báo",
+  "chuyen_gi": "Có từ 200 yêu cầu cũ chưa ai quyết, nên yêu cầu của khách hôm nay nằm ngoài 200 dòng đầu. Bác sĩ thấy danh sách như đã hết.",
+  "anh_huong": "Khách đang chờ quyết định (cho về, theo dõi, miễn phí) có thể không ai biết đến.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Hiện tổng số và cảnh báo khi bị cắt, và ưu tiên yêu cầu mới hoặc xử lý yêu cầu cũ tồn đọng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-128": {
+  "id": "CLIN-128",
+  "ten": "Gửi lại lúc khám xong có thể báo lỗi dù lần đầu đã thành công",
+  "chuyen_gi": "Bác sĩ bấm hoàn tất khám nhưng mất phản hồi nên bấm lại. Trong lúc đó các dịch vụ khác đã xong nên nội dung thay đổi, và hệ thống báo lỗi dù lần đầu đã ghi.",
+  "anh_huong": "Người dùng thấy lỗi dù khám đã xong, có thể bấm lại hoặc nhầm lẫn.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Tính kế hoạch kết quả sau khi khoá lượt, trong cùng một bước xử lý.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-129": {
+  "id": "CLIN-129",
+  "ten": "Duyệt kết quả cho gửi bệnh nhân không kiểm chỉ định đã huỷ",
+  "chuyen_gi": "Một chỉ định đã bị huỷ hoặc ghi không thực hiện nhưng vẫn còn kết quả hoặc tệp, ví dụ do nhập nhầm khách. Người có quyền duyệt bấm duyệt trên màn cũ.",
+  "anh_huong": "Kết quả không còn hiệu lực có thể được cho phép gửi, nên có nguy cơ nhầm kết quả hoặc nhầm bệnh nhân.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Chặn duyệt khi chỉ định đã huỷ hoặc không thực hiện.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PAT-003": {
+  "id": "PAT-003",
+  "ten": "Hồ sơ trùng gần như không vào hàng chờ duyệt vì chấm điểm quá khắt",
+  "chuyen_gi": "Lễ tân tạo hồ sơ mới cho khách đã có hồ sơ nhưng khai số điện thoại khác hoặc không có CCCD. Hệ thống không đưa hồ sơ vào hàng chờ duyệt trùng.",
+  "anh_huong": "Lịch sử khám bị tách đôi, bác sĩ không thấy tiền sử, nhắc tái khám và công nợ có thể rơi sang hồ sơ sai.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Chỉnh cách chấm điểm để các dấu hiệu trùng khác như số phụ, tên kèm năm sinh cũng đưa hồ sơ vào hàng chờ duyệt.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-087": {
+  "id": "CLIN-087",
+  "ten": "Phản hồi sau dùng thuốc của khách chỉ ghi vào sổ, không báo bác sĩ",
+  "chuyen_gi": "CSKH gọi hỏi sau dùng thuốc và khách báo có phản ứng bất lợi. Nhân viên chỉ ghi chữ vào sổ, không có người nhận hay hạn xử lý, bác sĩ kê đơn chỉ thấy nếu tình cờ mở hồ sơ.",
+  "anh_huong": "Phản ứng thuốc có thể nằm im trong sổ CSKH, gây rủi ro an toàn cho bệnh nhân.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Tạo việc báo bác sĩ kê đơn có hạn xử lý khi khách báo phản ứng, kèm phân loại mức độ.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "SEC-077": {
+  "id": "SEC-077",
+  "ten": "Ngoại lệ ca trực mở dễ, không cần ai duyệt và không báo ai",
+  "chuyen_gi": "Quản lý mở ngoại lệ cho tiện rồi quên tắt, hoặc tự mở cho chính mình. Cả ngày đó việc kiểm tra ca trực có thể không còn tác dụng.",
+  "anh_huong": "Trưởng ca có thể không biết ngoại lệ đang mở nên khó phát hiện việc dùng sai, dù rủi ro tăng thêm không lớn.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm bước duyệt hoặc báo cho trưởng ca khi mở ngoại lệ, và tự hết hạn cuối ca.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-078": {
+  "id": "SEC-078",
+  "ten": "Tệp bất kỳ có thể bị nhận nhầm là tài liệu Word hoặc Excel",
+  "chuyen_gi": "Nhân viên tải lên một tệp nén có chữ 'word/' bên trong, hệ thống có thể nhận đó là tài liệu Word. Tệp rất lớn cũng có thể làm máy chậm.",
+  "anh_huong": "Tệp không phải tài liệu thật có thể được lưu và gửi cho bệnh nhân hoặc đối tác dưới tên .docx.",
+  "nhom": "K_khac",
+  "cach_sua": "Mở và kiểm tra cấu trúc tệp thật, đồng thời đặt giới hạn dung lượng tải lên.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "PHAR-005": {
+  "id": "PHAR-005",
+  "ten": "Giao thuốc thêm sau khi đã thu tiền mà chưa thu phần thêm",
+  "chuyen_gi": "Bệnh nhân đã trả tiền thuốc, sau đó bác sĩ chỉnh đơn thêm hoặc đổi thuốc. Dược sĩ có thể giao dòng mới dù dòng đó chưa nằm trong hoá đơn nào.",
+  "anh_huong": "Thuốc ra khỏi quầy mà chưa thu tiền, gây hụt doanh thu và lệch giữa sổ tiền với sổ kho.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Trước khi giao, kiểm tra từng dòng thuốc có nằm trong hoá đơn đã thu hay chưa.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "PHAR-012": {
+  "id": "PHAR-012",
+  "ten": "Huỷ hoặc điều chỉnh kho tay có thể lấy mất thuốc đã bán",
+  "chuyen_gi": "Lô còn 10, đã bán 8 cho khách trả tiền nhưng chưa giao. Dược sĩ huỷ hoặc trừ 5, kho vẫn cho làm, đến lúc giao thì không đủ.",
+  "anh_huong": "Khách đã trả tiền mà không nhận được thuốc, nhân viên phải kiểm kê và hoàn tiền thủ công.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Khi huỷ hoặc điều chỉnh, so với số thuốc thực sự còn dùng được, không chỉ số trên kệ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-055": {
+  "id": "SEC-055",
+  "ten": "Người tư vấn có thể sửa đơn thuốc của lượt khám không thuộc mình",
+  "chuyen_gi": "Khi hệ thống chặn vì không đúng ca trực, người có quyền tư vấn vẫn có thể lưu đơn cho lượt khám của bác sĩ hoặc phòng khác. Hệ thống không kiểm lượt đó có thuộc bàn của họ không.",
+  "anh_huong": "Đơn thuốc có thể bị người không phụ trách sửa hoặc thay, và dấu vết để lại rất ít.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cho lưu đơn khi lượt khám thuộc đúng bàn tư vấn và đúng cơ sở của người đó.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-090": {
+  "id": "CLIN-090",
+  "ten": "Bỏ việc nhắc tái khám không ghi ai bỏ và xoá ghi chú cũ",
+  "chuyen_gi": "Nhân viên chăm sóc khách hàng bỏ hàng loạt việc nhắc tái khám với lý do chung chung. Hệ thống không ghi người bỏ và ghi đè ghi chú trước đó.",
+  "anh_huong": "Không biết ai đã gỡ việc theo dõi bệnh nhân, hồ sơ không còn lịch sử, ghi chú cũ bị mất.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Ghi rõ người bỏ, lý do và giờ vào nhật ký chăm sóc khách, đồng thời giữ lại ghi chú cũ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-056": {
+  "id": "SEC-056",
+  "ten": "Lịch hẹn có thể nối nhầm với bệnh nhân hoặc nhân sự phòng khám khác",
+  "chuyen_gi": "Khi công cụ tự động hoặc máy khách gửi mã của phòng khám khác, hệ thống có thể tạo lịch hoặc phân ca nối với hồ sơ, bác sĩ của phòng khám đó.",
+  "anh_huong": "Lịch và ca trực có thể lẫn giữa các phòng khám, rủi ro nặng hơn khi bán cho nhiều phòng khám.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Luôn kiểm bệnh nhân, bác sĩ, dịch vụ và cơ sở có cùng phòng khám, và lấy phòng khám từ phiên đăng nhập.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-088": {
+  "id": "CLIN-088",
+  "ten": "Huỷ lịch được cả khi khách đã đến khám và luôn ghi lý do 'khác'",
+  "chuyen_gi": "Nhân viên hoặc trợ lý tự động huỷ lịch của khách đã check-in, đã vắng hoặc bác sĩ từ chối. Mọi lần huỷ đều ghi lý do 'khác'.",
+  "anh_huong": "Lịch báo huỷ khi khách đang ở quầy, báo cáo huỷ và vắng sai, không phân tích được vì sao khách huỷ.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Chỉ cho huỷ ở trạng thái phù hợp và lưu đúng lý do huỷ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-010": {
+  "id": "PHAR-010",
+  "ten": "Thuốc khách trả có thể bán lại chỉ bằng một thao tác",
+  "chuyen_gi": "Dược sĩ chọn bán lại cho thuốc khách trả, kể cả thuốc đã mở hoặc cần bảo quản lạnh. Thuốc quay về lô cũ và bán được ngay.",
+  "anh_huong": "Thuốc không đảm bảo chất lượng có thể đến tay bệnh nhân khác, gây rủi ro an toàn và pháp lý, khó truy vết.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Bắt buộc kiểm tình trạng, hạn, bảo quản, ghi lý do và cần người thứ hai xác nhận trước khi bán lại.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "PHAR-021": {
+  "id": "PHAR-021",
+  "ten": "Sửa dòng thuốc quầy thêm làm dòng khách đã bỏ chọn tự quay lại",
+  "chuyen_gi": "Thu ngân bỏ chọn dòng thuốc vì khách không lấy, rồi sửa số lượng hoặc cách dùng của dòng đó. Dòng thuốc có thể tự được tính mua lại.",
+  "anh_huong": "Hoá đơn có thể thu thừa thuốc khách đã từ chối nếu thu ngân không soát lại.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Giữ nguyên trạng thái bỏ chọn khi sửa dòng thuốc.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-057": {
+  "id": "SEC-057",
+  "ten": "Nhiều người không phụ trách vẫn bấm được 'Làm tại bàn khám'",
+  "chuyen_gi": "Tài khoản chỉ có một quyền y khoa bất kỳ có thể bắt đầu, báo xong, huỷ hoặc hoàn tác dịch vụ của lượt khác, kể cả khi không có ca ở phòng đó.",
+  "anh_huong": "Dịch vụ có thể bị đánh dấu đã làm bởi người không đủ thẩm quyền, kéo theo sai ghi nhận người làm, đổi phòng, chốt thay khách và công nợ.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cho thao tác khi đúng phòng, đúng ca và đúng người phụ trách như đường phòng dịch vụ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-094": {
+  "id": "CLIN-094",
+  "ten": "'Huỷ bắt đầu nhầm' có thể xoá phiếu kết quả đang nhập dở",
+  "chuyen_gi": "Điều dưỡng đã nhập số đo siêu âm vào phiếu nháp, người khác trong phòng bấm 'Huỷ bắt đầu nhầm'. Nội dung bị xoá về mặc định và không lưu bản cũ.",
+  "anh_huong": "Mất dữ liệu khám chưa hoàn tất, người nhập không được báo và không khôi phục được.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Chặn huỷ khi phiếu đã có nội dung, hoặc lưu bản cũ và báo người đang nhập.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-095": {
+  "id": "CLIN-095",
+  "ten": "Dịch vụ đã xong mà phiếu kết quả còn nháp không ai nhắc",
+  "chuyen_gi": "Người làm bấm Xong rồi quên hoàn tất phiếu kết quả hoặc hết ca. Nếu không ai mở lại màn phòng, sẽ không có việc hay nhắc nào.",
+  "anh_huong": "Kết quả có thể không bao giờ tới bác sĩ hoặc khách, khách chờ mà không ai biết, bản in vẫn ghi 'bản nháp'.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Tự tạo việc có người nhận và hạn khi dịch vụ xong mà phiếu chưa hoàn tất.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-028": {
+  "id": "FIN-028",
+  "ten": "Đối chiếu sổ nợ chỉ xét 300 lượt mỗi vòng, có thể bỏ sót lượt khác",
+  "chuyen_gi": "Khi số lượt còn nợ vượt 300, máy đối chiếu có thể lặp lại cùng một nhóm lượt. Các lượt còn lại có thể không bao giờ được kiểm tra.",
+  "anh_huong": "Sổ nợ có thể lệch với thực tế mà không có cảnh báo, báo cáo nợ có thể sai.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Duyệt theo thứ tự cố định và nhớ vị trí đã xét để mọi lượt đều được kiểm tra.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-029": {
+  "id": "FIN-029",
+  "ten": "Một lượt dữ liệu lỗi làm dừng cả vòng đối chiếu sổ nợ",
+  "chuyen_gi": "Một lượt có dữ liệu bất thường làm báo lỗi, phần còn lại của phòng khám đó và các phòng khám sau có thể bị bỏ qua. Lỗi chỉ hiện trong nhật ký kỹ thuật.",
+  "anh_huong": "Sổ nợ có thể ngừng cập nhật mà không ai biết, lỗi của một phòng khám ảnh hưởng phòng khác.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Cô lập lượt lỗi để các lượt khác vẫn chạy, và báo người phụ trách xử lý.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-030": {
+  "id": "FIN-030",
+  "ten": "Phòng khám mới không được tạo mốc nên sổ nợ không đối chiếu",
+  "chuyen_gi": "Khi tạo phòng khám mới sau ngày cập nhật hệ thống, sổ nợ không có dòng mốc ban đầu. Số dư đầu kỳ và đối chiếu có thể không chạy mà không báo lỗi.",
+  "anh_huong": "Báo cáo nợ của phòng khám mới có thể lệch âm thầm, và phải nhớ thêm tay mỗi khi mở phòng khám mới.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Tự tạo dòng mốc khi lập phòng khám mới.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-044": {
+  "id": "FIN-044",
+  "ten": "Báo cáo sổ nợ có thể ghi nhầm khoản thiếu chứng từ là 'giảm giá'",
+  "chuyen_gi": "Nếu không nối được lần thu tiền với dòng sổ, phần giảm dư nợ có thể bị tính thành 'giảm giá' thay vì 'đã thu'.",
+  "anh_huong": "Báo cáo kế toán có thể thổi phồng giảm giá, thiếu tiền thu và khó giải thích con số.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Gắn mỗi khoản giảm với chứng từ riêng và báo riêng các khoản không có chứng từ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-045": {
+  "id": "FIN-045",
+  "ten": "Báo cáo tiền thừa lọc theo ngày khám và lẫn lượt chưa rõ cơ sở",
+  "chuyen_gi": "Báo cáo chọn lượt theo ngày khám rồi cộng mọi khoản hoàn, dù hoàn vào ngày khác. Lượt chưa gán cơ sở còn bị tính vào mọi cơ sở.",
+  "anh_huong": "Tổng các cơ sở lớn hơn tổng chung, số 'đã hoàn hôm nay' không khớp ngăn kéo và lệch báo cáo khác.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Lọc theo ngày phát sinh tiền hoàn và xử lý lượt chưa rõ cơ sở giống sổ nợ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-096": {
+  "id": "CLIN-096",
+  "ten": "'Gọi bộ phận' báo thành công dù không ai nhận, thông báo khẩn không ai theo",
+  "chuyen_gi": "Trưởng ca gọi một vai không có ai trực, hệ thống vẫn báo đã gọi. Thông báo không có hạn hay nhắc lại, thông báo bỏ chỉ định còn tự biến mất cuối ngày dù chưa ai xem.",
+  "anh_huong": "Người gọi tin bộ phận đã được báo trong khi không ai nhận, chỉ định bị bỏ có thể không có người xử lý.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chỉ báo thành công khi có người nhận được, và thêm hạn, nhắc lại, chuyển người khác nếu không ai xử lý.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-091": {
+  "id": "CLIN-091",
+  "ten": "'Đã đọc' và 'Ẩn tất cả' áp cả thông báo chưa hiển thị, dùng chung cả vai",
+  "chuyen_gi": "Chuông chỉ hiện 50 thông báo nhưng bấm 'đã đọc' hoặc 'ẩn tất cả' áp cho mọi thông báo đang mở. Một lễ tân bấm cũng tắt chấm đỏ của người cùng vai.",
+  "anh_huong": "Thông báo, kể cả khẩn, có thể bị coi là đã đọc dù chưa ai thấy, và không biết thực sự ai đã xem.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Chỉ áp cho thông báo đã hiển thị và lưu trạng thái đã đọc theo từng người.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-079": {
+  "id": "SEC-079",
+  "ten": "Nhân viên khác có thể đóng nhầm thông báo của người khác",
+  "chuyen_gi": "Một nhân viên trong phòng khám có được mã của một thông báo gửi cho người khác và bấm đóng nó, dù thông báo đó không phải của mình.",
+  "anh_huong": "Thông báo khẩn hoặc 'kết quả về' của bác sĩ có thể bị đóng bởi người không liên quan, làm ghi sai người xử lý và thời gian phản hồi.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cho đóng thông báo khi người bấm đúng là người nhận hoặc thuộc vai được nhận.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-092": {
+  "id": "CLIN-092",
+  "ten": "Đổi hoặc bỏ thuốc không báo bác sĩ chính, lịch sử sửa bị gộp",
+  "chuyen_gi": "Trợ lý đổi liều hoặc bỏ một thuốc trong đơn của bác sĩ chính, hoặc đổi liều nhiều lần trong 10 phút; hệ thống không báo cho bác sĩ và gộp các lần sửa thành một dòng.",
+  "anh_huong": "Bác sĩ chính có thể không biết đơn của mình đã bị đổi, và sổ lịch sử mất các bước trung gian của đơn thuốc.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Báo cho bác sĩ chính khi thuốc bị đổi hoặc bỏ, và giữ đủ từng lần sửa trong sổ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-093": {
+  "id": "CLIN-093",
+  "ten": "Ô thai kỳ trên phiếu bị bỏ qua im lặng dù báo đã lưu",
+  "chuyen_gi": "Bác sĩ gõ sai ngày dự sinh hoặc kinh cuối, hoặc lưu bằng tài khoản không đủ quyền; phiếu vẫn báo đã lưu nhưng hồ sơ thai kỳ không đổi.",
+  "anh_huong": "Thông tin thai kỳ trong hồ sơ có thể không khớp với phiếu bác sĩ viết mà không có cảnh báo nào.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Báo rõ khi ô thai kỳ không được lưu và dùng chung một cách kiểm tra cho cả hai lối nhập.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-058": {
+  "id": "SEC-058",
+  "ten": "Thư ký bị gỡ hết phân công lại thấy toàn bộ khách",
+  "chuyen_gi": "Quản lý gỡ hết bác sĩ được phân cho một thư ký, hoặc tài khoản mới chưa được phân; thư ký đó lại xem được hồ sơ mọi khách, trong khi màn hình nói chưa được phân bác sĩ.",
+  "anh_huong": "Quyền xem hồ sơ y khoa mở rộng bất ngờ, không có cảnh báo, và người quản lý tưởng thư ký đang bị giới hạn.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Khi chưa phân bác sĩ thì không cho xem khách nào, hoặc hiện rõ và ghi nhận là đang có quyền rộng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-130": {
+  "id": "CLIN-130",
+  "ten": "Tự xếp phòng im lặng bỏ qua, không ai biết khách cần xếp phòng",
+  "chuyen_gi": "Thu ngân hoặc lễ tân chưa có quyền điều phối chốt và thu tiền cho khách; hệ thống không tự xếp phòng và cũng không báo chờ xếp phòng.",
+  "anh_huong": "Khách đã thu tiền nhưng có thể không ai biết cần xếp phòng, chỉ thấy khi có phòng rảnh mở danh sách chờ.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Luôn báo 'chờ xếp phòng' khi không tự xếp được, kể cả khi người thu không có quyền điều phối.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-080": {
+  "id": "SEC-080",
+  "ten": "Khách có thể bị xếp sang phòng của cơ sở khác",
+  "chuyen_gi": "Với lượt khám cũ hoặc phòng mới chưa gán cơ sở, hệ thống không lọc theo cơ sở nên khách ở cơ sở A có thể được xếp vào phòng cơ sở B.",
+  "anh_huong": "Hàng chờ và báo cáo theo phòng có thể sai cơ sở khi phòng khám có nhiều cơ sở.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Bắt buộc gán cơ sở cho phòng và lượt khám, và không ghép khi chưa rõ cơ sở.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-131": {
+  "id": "CLIN-131",
+  "ten": "Lý do 'làm lại' không được lưu, dấu 'xong tại quầy' dựa vào câu chữ",
+  "chuyen_gi": "Bác sĩ đồng ý làm lại dịch vụ nhưng ghi chú không được lưu; hệ thống còn nhận biết lần làm tại quầy bằng việc so khớp câu ghi chú nên có thể nhầm nếu ai gõ giống hoặc đổi câu chữ.",
+  "anh_huong": "Mất bằng chứng vì sao làm lại, và lệnh hoàn tác 'Xong tại quầy' có thể áp nhầm hoặc bị từ chối.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Lưu ghi chú làm lại vào hồ sơ và dùng một dấu hiệu riêng thay vì so khớp câu chữ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-097": {
+  "id": "CLIN-097",
+  "ten": "Việc siêu âm dở của hôm qua biến mất khỏi màn hình hôm nay",
+  "chuyen_gi": "Bản nháp siêu âm chưa ký hoặc việc siêu âm còn mở từ hôm trước không còn hiện ở màn Siêu âm sang ngày hôm sau.",
+  "anh_huong": "Kết quả siêu âm đã soạn nhưng chưa ký có thể không ai nhắc, bệnh nhân có thể không nhận được kết quả cho đến khi tự gọi hỏi.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Luôn hiện các bản nháp và việc siêu âm chưa xong bất kể ngày, và không cho trả khách khi còn bản chưa ký.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-098": {
+  "id": "CLIN-098",
+  "ten": "Gửi Zalo cho khách có thể gửi trùng hoặc sai mà sổ không ghi",
+  "chuyen_gi": "Nhân viên bấm gửi tin Zalo nhắc hẹn hoặc báo kết quả; tin đã đi nhưng việc ghi sổ có thể lỗi hoặc bị từ chối, nên bấm lại sẽ gửi thêm.",
+  "anh_huong": "Khách có thể nhận tin trùng hoặc tin nhắc hẹn thiếu giờ, người trực sau không thấy dòng nào trong sổ nên có thể gọi lại, và tin 'đã có kết quả' có thể gửi khi chưa có kết quả.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Ghi sổ trước hoặc cùng lúc khi gửi, chặn gửi trùng, và kiểm tra có lịch hẹn và kết quả thật trước khi gửi.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "PHAR-014": {
+  "id": "PHAR-014",
+  "ten": "Phiếu nhập vật tư chờ duyệt không ai được báo",
+  "chuyen_gi": "Nhân viên kho lập phiếu nhập hàng cần duyệt rồi đi; người có quyền duyệt không được báo và chỉ thấy khi tình cờ mở màn kho.",
+  "anh_huong": "Hàng đã về nhưng chưa vào sổ nên tồn kho hiển thị thiếu, và người lập không biết phiếu được duyệt hay bị từ chối nên có thể lập lại.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Báo cho người có quyền duyệt khi có phiếu chờ, đặt hạn xử lý và báo kết quả lại cho người lập.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-099": {
+  "id": "CLIN-099",
+  "ten": "Mở lượt khám cũ có thể thiếu sinh hiệu và dòng thời gian thiếu phần mới nhất",
+  "chuyen_gi": "Nhân viên mở xem lượt khám cũ của bệnh nhân tái khám nhiều lần; hệ thống chỉ lấy 30 lần đo gần nhất của cả bệnh nhân nên lượt cũ có thể hiện như chưa đo, và lượt dài thì bị cắt các sự kiện cuối.",
+  "anh_huong": "Sinh hiệu lượt cũ có thể bị hiểu là chưa đo, và người xem có thể tưởng lượt chưa kết thúc.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Lấy sinh hiệu và sự kiện theo đúng lượt đang xem, và báo rõ khi danh sách bị cắt.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-059": {
+  "id": "SEC-059",
+  "ten": "Trang đặt lại mật khẩu cho đổi mật khẩu mà không cần mật khẩu cũ",
+  "chuyen_gi": "Người ngồi vào máy đang đăng nhập (ví dụ máy quầy bỏ trống) mở thẳng trang đặt lại mật khẩu và đổi mật khẩu mà không cần biết mật khẩu cũ.",
+  "anh_huong": "Tài khoản nhân viên có thể bị đổi mật khẩu, chủ tài khoản bị đăng xuất khỏi mọi thiết bị và phải nhờ quản lý đặt lại.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cho đổi mật khẩu ở trang này khi có link khôi phục hợp lệ, hoặc yêu cầu mật khẩu cũ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-060": {
+  "id": "SEC-060",
+  "ten": "Đăng xuất ở một máy làm văng phiên đang làm việc ở máy khác",
+  "chuyen_gi": "Nhân viên đăng nhập ở quầy và điện thoại; bấm Thoát ở một nơi thì nơi còn lại cũng bị đăng xuất giữa chừng.",
+  "anh_huong": "Có thể mất bản nháp chưa lưu, gián đoạn ca làm và tăng cuộc gọi 'bị đăng xuất' cho quản lý.",
+  "nhom": "K_khac",
+  "cach_sua": "Khi đăng xuất chỉ thoát thiết bị hiện tại, không thoát các thiết bị khác.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-083": {
+  "id": "SEC-083",
+  "ten": "Liên kết sau khi chọn cơ sở có thể bị lợi dụng để chuyển sang trang giả",
+  "chuyen_gi": "Kẻ xấu gửi cho nhân viên một liên kết có chèn ký tự đặc biệt; sau khi chọn cơ sở, nhân viên bị chuyển sang một trang bên ngoài.",
+  "anh_huong": "Nhân viên có thể bị dẫn tới trang giả mạo để lừa nhập mật khẩu; rủi ro thấp vì phải bấm liên kết.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chuẩn hóa và kiểm tra kỹ đường dẫn quay về, chỉ cho phép đường dẫn nội bộ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-132": {
+  "id": "CLIN-132",
+  "ten": "Lưu nháp siêu âm không kiểm có chỉ định siêu âm thật",
+  "chuyen_gi": "Có thể có người lưu nháp siêu âm cho một lượt khám hoặc bệnh nhân không có chỉ định siêu âm, hoặc nháp không ghi rõ người thực hiện.",
+  "anh_huong": "Có thể có bản ghi siêu âm nhầm bệnh nhân hoặc không rõ ai chịu trách nhiệm, dù bước ký của bác sĩ vẫn là một lớp chặn.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Kiểm lượt có chỉ định siêu âm đúng cơ sở trước khi lưu nháp, và bắt buộc ghi người thực hiện.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-133": {
+  "id": "CLIN-133",
+  "ten": "Miễn hoặc hủy một bước chỉ cần gõ lý do một ký tự",
+  "chuyen_gi": "Một nhân viên cùng vai bấm miễn hoặc hủy bước mà đồng nghiệp đang làm, ghi lý do chỉ là 'x'.",
+  "anh_huong": "Nhật ký có lý do vô nghĩa, và người được giao việc không được báo khi bước bị bỏ qua.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Yêu cầu lý do đủ rõ và báo cho người được giao khi bước bị miễn hoặc hủy.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "API-013": {
+  "id": "API-013",
+  "ten": "Hai người sửa cùng hồ sơ có thể ghi đè nhau mà không biết",
+  "chuyen_gi": "Khi phần mềm hoặc công cụ khác sửa hồ sơ bệnh nhân hay bước công việc mà không gửi thông tin phiên bản, người sửa sau đè lên người sửa trước.",
+  "anh_huong": "Thay đổi của người trước có thể mất mà không ai biết, giống lỗi từng gặp ngày 11/08.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Bắt buộc gửi thông tin phiên bản khi sửa, nếu thiếu thì từ chối.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-134": {
+  "id": "CLIN-134",
+  "ten": "Hoàn tác check-in có thể dở dang, sổ CSKH nói khách đã đến còn lịch thì chưa",
+  "chuyen_gi": "Khi hoàn tác check-in, nếu hệ thống lỗi giữa chừng thì lịch về trạng thái đã xác nhận nhưng dòng check-in trong sổ vẫn còn, và bấm thử lại bị từ chối.",
+  "anh_huong": "Sổ CSKH ghi khách đã đến trong khi lịch chưa, và phải sửa tay trong dữ liệu.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Làm hai bước hoàn tác thành một lần liền mạch, hoặc cho phép thử lại để tự hoàn tất.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-051": {
+  "id": "FE-051",
+  "ten": "Thông báo duyệt ca có thể không hiện trên máy mới",
+  "chuyen_gi": "Nhân viên đăng nhập ở máy hoặc trình duyệt mới sau khi quản lý đã duyệt hay từ chối ca; các quyết định cũ bị coi là đã xem và không báo.",
+  "anh_huong": "Nhân viên có thể không biết ca bị từ chối, phải hỏi qua điện thoại hoặc chat, và trạng thái đã đọc khác nhau giữa các thiết bị.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Lưu trạng thái đã đọc trên hệ thống theo từng nhân viên thay vì trên trình duyệt.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-082": {
+  "id": "SEC-082",
+  "ten": "Ghi chú lâm sàng gõ ở ô 'Xong' hiện cho cả nhân viên không có quyền y khoa",
+  "chuyen_gi": "Điều dưỡng gõ ghi chú như 'khách khó lấy ven' khi bấm Xong; nhân viên quầy thu tiền hoặc tiếp đón mở Xem lượt vẫn đọc được.",
+  "anh_huong": "Thông tin y khoa có thể lộ cho người không có quyền y khoa.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ hiện ghi chú này cho người có quyền xem thông tin y khoa.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "PAT-004": {
+  "id": "PAT-004",
+  "ten": "Gõ dở ô ngày sinh rồi Lưu có thể xoá mất ngày sinh",
+  "chuyen_gi": "Nhân viên sửa hồ sơ gõ lại ngày sinh nhưng dở dang hoặc gõ ngày không có thật (như 31/02), rồi bấm Lưu. Hệ thống có thể lưu ô ngày sinh thành trống mà không cảnh báo.",
+  "anh_huong": "Bệnh nhân có thể mất ngày sinh, gây khó đối chiếu hồ sơ, tính tuổi, thai kỳ, trong khi nhân viên vẫn thấy báo 'Đã lưu'.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Kiểm tra ngày sinh hợp lệ trước khi lưu và không cho xoá ngày sinh cũ khi người dùng chỉ gõ dở.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-100": {
+  "id": "CLIN-100",
+  "ten": "Nút Hoàn tác liệu trình có thể hoàn tác việc của nhân viên khác",
+  "chuyen_gi": "Nhân viên A đăng ký liệu trình và thấy nút Hoàn tác. Trước khi A bấm, nhân viên B sửa tiếp (ví dụ dừng liệu trình), rồi A bấm Hoàn tác ở thông báo cũ.",
+  "anh_huong": "Việc của B có thể bị hoàn tác dưới tên A, khách có thể bị gọi hoặc tính buổi sai.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Gắn nút Hoàn tác đúng với lần sửa vừa làm và chỉ cho đúng người sửa hoàn tác.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-053": {
+  "id": "FE-053",
+  "ten": "Ô tick dịch vụ khám vẫn hiện đã chọn dù chưa lưu khi mất mạng",
+  "chuyen_gi": "Đang mất mạng, nhân viên tick một dịch vụ khám nhưng lưu thất bại, và việc tải lại cũng thất bại. Ô vẫn hiện đã tick, chỉ có một dòng báo lỗi chung.",
+  "anh_huong": "Nhân viên có thể tin phí khám đã được chọn hoặc bỏ, và lệch tiền khám có thể lộ ra ở quầy thu.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Khi lưu và tải lại đều lỗi, hiện cảnh báo rõ và trả ô về trạng thái trước đó.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-054": {
+  "id": "FE-054",
+  "ten": "Đổi phòng có thể hiện toàn nhãn 'Phòng' giống nhau khi lỗi tải tên",
+  "chuyen_gi": "Khi danh sách tên phòng hôm nay tải lỗi, mọi lựa chọn đều hiện chung nhãn 'Phòng'. Nhân viên không phân biệt được phòng nào với phòng nào.",
+  "anh_huong": "Khách có thể bị xếp hoặc chuyển nhầm phòng, phải chờ thêm.",
+  "nhom": "K_khac",
+  "cach_sua": "Báo lỗi khi không tải được tên phòng và không cho chọn khi chưa phân biệt được.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-055": {
+  "id": "FE-055",
+  "ten": "Một phiếu khám cũ bị hỏng có thể làm sập cả cửa sổ hồ sơ",
+  "chuyen_gi": "Nhân viên CSKH mở hồ sơ khám của một lần khám có phiếu cũ dữ liệu hỏng. Cả cửa sổ hồ sơ có thể bị lỗi và không mở được.",
+  "anh_huong": "CSKH và điều dưỡng không xem hay tải được hồ sơ lần khám đó, và không biết phiếu nào bị hỏng.",
+  "nhom": "K_khac",
+  "cach_sua": "Chỉ báo lỗi riêng phiếu hỏng và vẫn hiển thị phần còn lại của hồ sơ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-056": {
+  "id": "FE-056",
+  "ten": "File PDF hồ sơ khám có thể bị cắt ngang dòng và là ảnh chụp",
+  "chuyen_gi": "CSKH tải PDF hồ sơ khám dài. File được cắt theo trang nên có thể chia đôi một dòng thuốc hoặc kết quả, và toàn bộ là ảnh.",
+  "anh_huong": "Bản gửi khách hoặc đối tác có thể khó đọc, đọc nhầm, không tìm kiếm hay sao chép chữ được.",
+  "nhom": "K_khac",
+  "cach_sua": "Dựng PDF dạng văn bản và ngắt trang theo từng khối nội dung.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-057": {
+  "id": "FE-057",
+  "ten": "Màn Xem lượt gộp chẩn đoán và kế hoạch thành một chuỗi, mất tên mục",
+  "chuyen_gi": "Khi mở xem một lượt khám, chẩn đoán và kế hoạch xử trí hiện thành một chuỗi giá trị nối nhau, không có tên từng mục.",
+  "anh_huong": "Dễ đọc nhầm, ví dụ ngày tái khám thành lời dặn hoặc chẩn đoán phụ thành chẩn đoán chính.",
+  "nhom": "K_khac",
+  "cach_sua": "Hiển thị kèm tên từng mục trước giá trị.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-052": {
+  "id": "FE-052",
+  "ten": "Tổng tiền trên nút chỉ định bỏ qua dịch vụ chưa có giá mà không báo",
+  "chuyen_gi": "Bác sĩ tick dịch vụ chưa có giá cùng các dịch vụ có giá. Số tiền trên nút chỉ tính phần có giá và không nói là tạm tính.",
+  "anh_huong": "Bác sĩ có thể tư vấn sai số tiền cho khách; hoá đơn thật vẫn do hệ thống tính.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Ghi rõ 'tạm tính, thiếu giá' trên nút và để hệ thống tính tổng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-062": {
+  "id": "CLIN-062",
+  "ten": "Lưu đơn thuốc có thể làm mất dòng thuốc người khác đã kê",
+  "chuyen_gi": "Bác sĩ mở đơn, trong lúc đó bàn tư vấn thêm thuốc vào cùng lượt. Bác sĩ sửa một ô rồi lưu, và bản đơn cũ trên màn hình có thể ghi đè, làm mất dòng thuốc kia. Nếu đơn tải lỗi lúc mở, màn còn hiện đơn trống.",
+  "anh_huong": "Bệnh nhân có thể nhận thiếu thuốc, quầy thuốc thấy đơn sai, và dấu vết sửa đơn có thể ghi lý do tự điền, mất giá trị đối soát.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Khi lưu, đối chiếu phiên bản đơn hiện tại; nếu đơn đã bị người khác đổi thì báo để bác sĩ xem lại.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-031": {
+  "id": "FE-031",
+  "ten": "Gõ ô 'Tìm khách' ở Bàn khám có thể tự đổi sang bệnh nhân khác",
+  "chuyen_gi": "Bác sĩ đang mở phiếu khách A, gõ vào ô tìm để xem khách B. Nếu A không khớp từ khoá, phiếu trên màn hình đổi sang khách khác và xoá ô tìm cũng không quay lại A.",
+  "anh_huong": "Có thể nhầm bệnh nhân khi tiếp tục gõ, mất tick chỉ định chưa gửi, và số đếm hàng chờ nhảy sai.",
+  "nhom": "K_khac",
+  "cach_sua": "Giữ nguyên khách đang mở khi gõ tìm, chỉ đổi khi nhân viên chủ động chọn khách khác.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-102": {
+  "id": "CLIN-102",
+  "ten": "Kết quả có thể bị tính là 'đã xem' chỉ vì màn hình được mở",
+  "chuyen_gi": "Thư ký hoặc bác sĩ mở phiếu có kết quả chưa xem nhưng chưa đọc. Hệ thống có thể ghi ngay là đã xem bởi người đang mở.",
+  "anh_huong": "Kết quả bất thường có thể biến mất khỏi nhắc 'mới', bác sĩ phụ trách không biết chưa ai đọc.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Chỉ ghi 'đã xem' khi nhân viên chủ động bấm mở đọc kết quả.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-030": {
+  "id": "OPS-030",
+  "ten": "Lịch sử thao tác chỉ xem được hôm nay và nút Xuất CSV không hoạt động",
+  "chuyen_gi": "Quản lý cần tra ai đã xem hoặc sửa hồ sơ của một bệnh nhân từ hôm qua trở về trước. Màn chỉ cho xem ngày hôm nay, không lọc theo bệnh nhân, và nút Xuất CSV bấm không có tác dụng.",
+  "anh_huong": "Điều tra khiếu nại hoặc sai lệch chậm, phải nhờ người có quyền vào dữ liệu; người dùng có thể tưởng đã xuất được.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Cho chọn ngày, bệnh nhân, nhân viên, chia trang và làm nút Xuất CSV chạy được hoặc gỡ đi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-033": {
+  "id": "FE-033",
+  "ten": "Lỗi tải danh sách chỉ định có thể hiện như 'chưa có chỉ định'",
+  "chuyen_gi": "Khi bác sĩ đang chỉ định mà việc tải danh sách chỉ định của lượt bị lỗi, màn hiện như chưa có chỉ định nào. Bác sĩ có thể kê lại dịch vụ đã kê.",
+  "anh_huong": "Có thể kê trùng, phát sinh chi phí hoặc phòng thừa, hoặc bỏ sót kết quả chưa xem.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Hiện báo 'chưa tải được dữ liệu' thay vì hiện trống, và cho thử tải lại.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-101": {
+  "id": "CLIN-101",
+  "ten": "Nút Hoàn tất khám không báo các việc còn dở",
+  "chuyen_gi": "Bác sĩ bấm Hoàn tất khi đơn còn thuốc chưa gắn kho, kết quả mới chưa đọc, hoặc có ngày tái khám chưa đặt lịch. Hệ thống không nhắc gộp các việc này.",
+  "anh_huong": "Khách ra quầy thuốc mới biết dòng thuốc không cấp được, kết quả bất thường chưa ai đọc, hẹn tái khám có thể bị rơi.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Khi bấm Hoàn tất, hiện tóm tắt các việc còn dở để bác sĩ xem trước khi xác nhận.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-029": {
+  "id": "FE-029",
+  "ten": "Các ô đếm 'Quá SLA', 'Cần xử lý' chỉ tính trên 50 khách của trang đang xem",
+  "chuyen_gi": "CSKH thấy ô 'Quá SLA = 0' ở trang 1 và tưởng không còn việc quá hạn. Thực ra số chỉ tính 50 khách của trang đó, khách quá hạn có thể nằm ở trang sau.",
+  "anh_huong": "Khách quá hạn ở trang sau có thể không ai thấy, việc gọi nhắc hoặc xác nhận lịch bị bỏ sót.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Tính số đếm trên toàn bộ danh sách, hoặc ghi rõ đó là số của trang đang xem.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-034": {
+  "id": "FE-034",
+  "ten": "Tìm khách bằng SĐT người nhà hoặc số thêm có thể báo 'Không tìm thấy'",
+  "chuyen_gi": "Lễ tân gõ số điện thoại của người nhà hoặc số thêm. Hệ thống tìm ra khách nhưng màn lại lọc bỏ kết quả và hiện 'Không tìm thấy'.",
+  "anh_huong": "Có thể tạo hồ sơ khách trùng dù khách đã có sẵn.",
+  "nhom": "K_khac",
+  "cach_sua": "Giữ nguyên kết quả tìm của hệ thống, không lọc lại theo ít trường hơn.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-103": {
+  "id": "CLIN-103",
+  "ten": "Bấm 'đã gửi kết quả' không hoàn tác được và làm mất việc nhắc gọi",
+  "chuyen_gi": "Nhân viên bấm nhầm kênh, bấm trước khi gửi thật, hoặc gửi lỗi sau khi bấm. Hệ thống ghi là đã gửi, không có cách đặt lại, và việc nhắc gọi trả kết quả biến mất.",
+  "anh_huong": "Khách có thể chưa nhận kết quả mà không còn việc nhắc nào, và chỉ sửa được bằng can thiệp vào dữ liệu.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Cho phép hoàn tác xác nhận đã gửi và giữ việc nhắc đến khi có bằng chứng khách đã nhận.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-104": {
+  "id": "CLIN-104",
+  "ten": "Có thể hủy nhầm lịch của khách đã đến check-in mà không cảnh báo",
+  "chuyen_gi": "Khách đến sớm và đã check-in lịch A, còn lịch trùng B. CSKH chọn nhầm hủy lịch A, hoặc hai CSKH mỗi người hủy một lịch cùng lúc.",
+  "anh_huong": "Lượt khám đang diễn ra có thể bị đóng dở, các bước chờ bị hủy khi khách đang ngồi chờ, hoặc khách không còn lịch nào.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Cảnh báo khi hủy lịch của khách đã check-in và để hệ thống kiểm tra lịch cuối còn lại.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-105": {
+  "id": "CLIN-105",
+  "ten": "Chọn 'Cần tái khám' chỉ ghi một dòng chữ, không tạo việc gọi",
+  "chuyen_gi": "CSKH bấm 'Cần tái khám' rồi bị gián đoạn, không làm tiếp bước 'Hẹn ngày tái khám'. Hệ thống chỉ có một dòng chữ, không có việc, người nhận hay hạn.",
+  "anh_huong": "Khách cần tái khám có thể bị rơi, ca sau không có tín hiệu quá hạn.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Khi chọn 'Cần tái khám', tự tạo việc gọi hẹn có người nhận và hạn.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-006": {
+  "id": "ARCH-006",
+  "ten": "Loại việc CSKH và mốc nhắc 7 ngày, 1 ngày bị ghi cứng ở nhiều nơi",
+  "chuyen_gi": "Khi một phòng khám khác muốn quy trình gọi khác (ví dụ nhắc 3 ngày hay thêm loại việc mới), phải sửa nhiều chỗ trong phần mềm.",
+  "anh_huong": "Mỗi phòng khám cần sửa và cập nhật riêng; quên một chỗ thì việc có trong danh sách nhưng không có nút xử lý. Quy trình của Dr4Women bị đóng cứng vào phần lõi.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Gom loại việc, nhãn và số ngày nhắc về một bảng cấu hình để mỗi phòng khám tự chỉnh.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-060": {
+  "id": "FE-060",
+  "ten": "Lỗi tải danh sách chỉ định khiến tệp kết quả không được gắn vào chỉ định",
+  "chuyen_gi": "CSKH tải kết quả lên đúng lúc hệ thống đọc danh sách chỉ định bị lỗi hoặc chậm. Ô chọn chỉ định không hiện, không có thông báo, nhưng tệp vẫn tải lên được mà không gắn vào chỉ định nào.",
+  "anh_huong": "Việc theo dõi 'chờ kết quả' có thể vẫn mở dù đã có tệp, và hồ sơ khám có thể không hiện ảnh ở dòng chỉ định.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Khi không đọc được danh sách chỉ định thì báo lỗi rõ và chặn tải lên cho đến khi đọc lại được.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-058": {
+  "id": "FE-058",
+  "ten": "Giờ Việt Nam bị tính cứng ở nhiều nơi thay vì dùng chung một chỗ",
+  "chuyen_gi": "Nhiều màn tự cộng 7 giờ hoặc ghi tên múi giờ riêng, dù hệ thống đã có sẵn công cụ dùng chung. Khi cần đổi cách tính ngày, nhân viên kỹ thuật phải sửa từng nơi và dễ sót.",
+  "anh_huong": "Có thể gây lệch ngày ở một số màn và khó mở rộng sang phòng khám ở múi giờ khác.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cho mọi màn dùng chung một công cụ tính giờ và ngày làm việc.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-106": {
+  "id": "CLIN-106",
+  "ten": "Lịch hẹn tuần bị cắt ở 500 dòng mà màn hình không báo",
+  "chuyen_gi": "Khi một tuần có hơn 500 lịch còn giữ chỗ, các lịch muộn nhất trong tuần biến mất khỏi Trang chủ, Tiếp đón và Lịch đổ về. Màn hình vẫn hiện số theo danh sách đã cắt hoặc ghi 'chưa có lịch hẹn nào'.",
+  "anh_huong": "Lễ tân có thể không thấy khách có hẹn khi check-in, các thẻ đếm thiếu và quản lý có thể tính nhân lực dựa trên số thấp hơn thực tế.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Bỏ giới hạn hoặc báo rõ khi danh sách bị cắt và hiện tổng số thật.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-035": {
+  "id": "FE-035",
+  "ten": "Số 'việc đang chờ' ở Trang chủ không khớp với màn mở ra khi bấm",
+  "chuyen_gi": "Trang chủ đếm mọi việc đang mở của cả phòng khám, nhưng bấm vào lại chỉ thấy một phần việc. Người trực thấy ví dụ '37 việc' mà không tìm ra đủ 37 ở màn đích.",
+  "anh_huong": "Con số không thuộc về ai, nên dễ thành số mọi người nhìn mà không ai xử lý, và việc quá hạn ở bộ phận khác có thể không có chỗ xử lý.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Đếm đúng phạm vi của màn đích hoặc chia theo người/vị trí phụ trách, và dẫn tới đúng nơi xử lý.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-036": {
+  "id": "FE-036",
+  "ten": "Danh sách hoá đơn giữ số của bộ lọc cũ khi đổi ngày hoặc gặp lỗi",
+  "chuyen_gi": "Người đối soát đổi khoảng ngày, ca hoặc cơ sở lúc mạng chậm hay lỗi. Màn vẫn hiện tổng tiền và bảng của bộ lọc trước, chỉ có một dải báo lỗi nhỏ phía trên.",
+  "anh_huong": "Số tiền của phạm vi này có thể bị đọc nhầm là của phạm vi kia, và file Excel xuất ra có thể không khớp với số đang nhìn.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Xoá số cũ hoặc hiện trạng thái đang tải/lỗi rõ ràng mỗi khi đổi bộ lọc.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-037": {
+  "id": "FE-037",
+  "ten": "Luật lịch hẹn bị viết lặp ở màn hình và có thể lệch với phần tính chính",
+  "chuyen_gi": "Cách xác định lịch còn hiệu lực, mất bác sĩ hay lịch trùng được viết riêng ở màn CSKH và ở Trang chủ. Hai nơi có thể kết luận khác nhau về cùng một khách.",
+  "anh_huong": "Trang chủ có thể cảnh báo bác sĩ đã đổi lịch còn màn CSKH thì im, nên có thể không ai gọi khách hoặc gọi sai; phòng khám mới có luật riêng cũng khó triển khai.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Gom luật về một nơi duy nhất để mọi màn dùng chung.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-061": {
+  "id": "FE-061",
+  "ten": "Thẻ 'hôm nay' của Lễ tân có thể bỏ sót lịch sáng sớm",
+  "chuyen_gi": "Trang chủ so ngày bằng giờ gốc (UTC) thay vì giờ Việt Nam. Lịch từ 00:00 đến 06:59 sáng có thể bị tính vào hôm trước.",
+  "anh_huong": "Hai thẻ 'Chờ check-in' và 'Đã check-in' hôm nay có thể đếm thiếu và không khớp với bảng bên dưới.",
+  "nhom": "K_khac",
+  "cach_sua": "Tính ngày theo giờ Việt Nam giống cách bảng bên dưới đang làm.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-062": {
+  "id": "FE-062",
+  "title_placeholder": "",
+  "ten": "Bảng Hành trình khách có thể hiện dữ liệu của ngày cũ dưới ngày mới",
+  "chuyen_gi": "Người trực chuyển sang xem ngày khác trong lúc một lần tải của ngày trước chưa xong. Kết quả của ngày cũ đến muộn có thể ghi đè lên màn đang xem.",
+  "anh_huong": "Danh sách khách và nút Check-out của ngày này có thể hiện dưới tiêu đề ngày khác, khiến người trực hiểu sai ngày.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Huỷ hoặc bỏ qua kết quả của lần tải ngày cũ khi đã chuyển ngày.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "PHAR-022": {
+  "id": "PHAR-022",
+  "ten": "Kho vật tư y tế không ghi lô và hạn dùng",
+  "chuyen_gi": "Nhân viên nhập, cấp, chuyển, huỷ vật tư nhưng phiếu không có chỗ ghi lô hay hạn dùng. Khi nhà sản xuất thu hồi một lô, phòng khám không biết lô đó ở phòng nào hay đã dùng cho khách nào.",
+  "anh_huong": "Có thể ảnh hưởng an toàn người bệnh và việc tuân thủ, vì không cảnh báo được vật tư cận hạn hay truy ngược lô.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Thêm số lô và hạn dùng cho vật tư, kèm cảnh báo cận hạn và truy vết theo lô.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "PHAR-023": {
+  "id": "PHAR-023",
+  "ten": "Người lập phiếu nhập vật tư có thể tự duyệt phiếu của mình",
+  "chuyen_gi": "Người có quyền duyệt khi lập phiếu nhập sẽ được duyệt luôn và ghi sổ ngay. Quản lý có thể tạo rồi tự duyệt, không cần người thứ hai.",
+  "anh_huong": "Việc kiểm soát hàng nhập giá trị cao có thể chỉ còn mang tính hình thức, và phòng khám cần tách người lập/người duyệt phải nhờ sửa phần mềm.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm tuỳ chọn bắt buộc hai người: một người lập, một người khác duyệt.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "PHAR-015": {
+  "id": "PHAR-015",
+  "ten": "Quầy thuốc chỉ nhắc, không chặn bán vượt đơn hoặc không đơn",
+  "chuyen_gi": "Khách mua vượt số bác sĩ kê, mua lại theo đơn quá 2 tháng hoặc mua lẻ không đơn, hệ thống chỉ nhắc rồi vẫn cho bán. Dược sĩ cũng có thể gắn dòng bác sĩ kê tay với một thuốc kho khác mà không ai đối chiếu.",
+  "anh_huong": "Thuốc có thể bị bán ngoài phạm vi đơn hoặc sai thuốc/hàm lượng mà hệ thống không dừng ai, và phòng khám cần quy định chặt hơn không có cách cấu hình.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm đánh dấu thuốc cần đơn và cho phép cấu hình chặn hoặc cần bác sĩ xác nhận ở các trường hợp này.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-016": {
+  "id": "PHAR-016",
+  "ten": "Màn Tư vấn dùng thuốc không ghi lại việc tư vấn và không hiện dị ứng",
+  "chuyen_gi": "Dược sĩ giao thuốc cho khách có tiền sử dị ứng đã ghi ở phiếu khám, nhưng màn tư vấn không hiện thông tin đó. Màn cũng không có chỗ ghi ai đã tư vấn, lúc nào, khách có hiểu không.",
+  "anh_huong": "Việc tư vấn thuốc không có bằng chứng, việc kiểm dị ứng phụ thuộc trí nhớ dược sĩ, và khó chứng minh khi có khiếu nại.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Hiện dị ứng và thuốc đang dùng trên màn, và thêm bước ghi người tư vấn, giờ tư vấn, khách đã hiểu.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "PHAR-017": {
+  "id": "PHAR-017",
+  "ten": "Sửa hạn dùng của lô thuốc không cần lý do, có thể kéo dài lô đã hết hạn",
+  "chuyen_gi": "Nhân viên có quyền kho nhập ngày hạn mới cho một lô đã hết hạn, hoặc gõ nhầm năm, và hệ thống chấp nhận mà không hỏi lý do hay cần người thứ hai.",
+  "anh_huong": "Thuốc hết hạn có thể trở lại thành còn hạn và được giao cho bệnh nhân, và số lô sửa sau khi giao có thể không khớp tem thực tế.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Bắt nhập lý do, cần người duyệt khi sửa lô đã hết hạn và chặn kéo dài hạn tuỳ ý.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "SEC-062": {
+  "id": "SEC-062",
+  "ten": "Bỏ tick 'Đang làm việc' không gỡ ca trực và lịch của người nghỉ",
+  "chuyen_gi": "Quản lý bỏ tick 'Đang làm việc' cho bác sĩ đã nghỉ thay vì dùng chức năng khoá và nghỉ việc đầy đủ. Ca trực và lịch hẹn tương lai của người đó vẫn còn, và hệ thống không chặn việc tự khoá chính mình.",
+  "anh_huong": "Khách có thể đặt hẹn với bác sĩ không còn làm, không ai nhận việc, và người quản lý tự bỏ tick cho mình có thể mất quyền vào hệ thống.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Cho đường bỏ tick đi qua cùng quy trình nghỉ việc, gồm gỡ ca, gỡ lịch và chặn tự khoá mình.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-063": {
+  "id": "FE-063",
+  "ten": "Xoá trắng thông tin nhân sự không được nhưng màn vẫn báo 'Đã lưu'",
+  "chuyen_gi": "Quản lý nhập sai CCCD, số chứng chỉ hành nghề hoặc SĐT của nhân sự rồi xoá trắng để sửa. Ô tự hiện lại giá trị cũ nhưng màn vẫn báo 'Đã lưu'.",
+  "anh_huong": "Thông tin pháp lý và liên hệ sai không xoá được, và người dùng tưởng đã xoá.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Cho phép lưu giá trị rỗng và chỉ báo 'Đã lưu' khi dữ liệu thật sự thay đổi.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-038": {
+  "id": "FE-038",
+  "ten": "Lỗi tìm khách ở quầy thuốc hiện thành 'Không thấy khách', dễ tạo hồ sơ trùng",
+  "chuyen_gi": "Khi mạng hoặc máy chủ lỗi lúc tìm khách, màn vẫn ghi 'Không thấy khách — nhập khách mới'. Nhân viên tin vậy và tạo khách mới.",
+  "anh_huong": "Có thể sinh hồ sơ bệnh nhân trùng, mất lịch sử đơn và mua trước đó, và cảnh báo vượt số kê bị sai.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Hiện thông báo lỗi riêng khi tìm bị lỗi, khác với trường hợp thật sự không có khách.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-064": {
+  "id": "FE-064",
+  "ten": "Lỗi tải danh mục kỹ năng hiện thành 'Phòng khám chưa khai kỹ năng nào'",
+  "chuyen_gi": "Quản lý đang cấp quyền thì hệ thống tải danh mục kỹ năng bị lỗi tạm thời. Màn báo phòng khám chưa khai kỹ năng nào, và quản lý chuyển sang cấp quyền từng màn.",
+  "anh_huong": "Quyền có thể bị cấp rộng hơn cần thiết và lỗi không được hiển thị.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Báo lỗi tải rõ ràng và cho thử tải lại thay vì hiện như danh mục trống.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-039": {
+  "id": "FE-039",
+  "ten": "Tải lại trang sau lỗi mạng có thể làm phiếu nhập kho bị nhập đôi",
+  "chuyen_gi": "Nhân viên bấm Lưu phiếu nhập, máy chủ đã ghi nhưng phản hồi bị mất, màn báo 'CHƯA lưu'. Họ tải lại trang và nhập lại phiếu nên hệ thống coi là phiếu mới.",
+  "anh_huong": "Tồn kho có thể bị cộng hai lần, giá vốn và hạn dùng lô lệch, và thuốc có thể được giao từ tồn ảo.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Lưu khoá chống gửi trùng qua việc tải lại trang và cho tạo yêu cầu mới khi sửa phiếu.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "PHAR-024": {
+  "id": "PHAR-024",
+  "ten": "Thẻ kho cắt ở 1000 dòng nhưng ghi như tổng số biến động",
+  "chuyen_gi": "Với thuốc có hơn 1000 lần xuất nhập, màn thẻ kho chỉ hiện 1000 dòng mới nhất nhưng ghi số đó như tổng số biến động. Người tra lịch sử tưởng đã thấy toàn bộ.",
+  "anh_huong": "Lô nhập đầu tiên và các lần điều chỉnh cũ có thể biến mất khỏi màn mà không báo, dù tồn trước/sau vẫn đúng.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Báo rõ khi còn bản ghi cũ hơn và cho xem tiếp hoặc lọc theo thời gian.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-040": {
+  "id": "FE-040",
+  "ten": "Khoá nhân viên nghỉ việc có thể để lại ca trực không người",
+  "chuyen_gi": "Quản lý khoá nhân viên nghỉ việc, nhưng nếu việc đọc ca trực tương lai bị lỗi thì hộp thoại coi như không có ca và không cảnh báo. Quản lý cũng có thể chọn 'Giữ ca & Khoá' để giữ lại các ca của người đã khoá.",
+  "anh_huong": "Phòng hoặc vị trí có thể vẫn đứng tên người đã khoá, lịch hẹn và hàng chờ dựa vào ca đó mà không ai làm và không có nhắc hay người nhận thay.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Khi không đọc được ca thì báo lỗi và chặn khoá, đồng thời bắt chọn người nhận thay khi giữ ca.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-031": {
+  "id": "OPS-031",
+  "ten": "Nhật ký chỉ ghi giá mới, không ghi giá cũ khi sửa cấu hình",
+  "chuyen_gi": "Quản lý gõ nhầm giá mặc định của một dịch vụ rồi bấm sang ô khác, giá được lưu ngay mà không hỏi lại. Sau này có người hỏi giá đổi từ bao nhiêu thì nhật ký chỉ cho thấy giá mới.",
+  "anh_huong": "Giá sai có thể bị tính cho khách và rất khó biết giá cũ để khôi phục hay giải thích cho kế toán.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Ghi cả giá cũ lẫn giá mới vào nhật ký và thêm bước xác nhận trước khi lưu giá.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-063": {
+  "id": "SEC-063",
+  "ten": "Nhân viên có thể tự chọn vào bất kỳ chi nhánh nào",
+  "chuyen_gi": "Một nhân viên chi nhánh A (hoặc người lấy được tài khoản của họ) có thể chuyển sang xem và sửa dữ liệu chi nhánh B vì hệ thống không có danh sách ai được vào chi nhánh nào.",
+  "anh_huong": "Khi phòng khám có nhiều chi nhánh, dữ liệu bệnh nhân và tiền của chi nhánh này có thể bị người chi nhánh khác xem hoặc sửa.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Phân quyền rõ từng nhân viên được làm ở chi nhánh nào và chỉ cho vào đúng chi nhánh đó.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-032": {
+  "id": "OPS-032",
+  "ten": "Tắt phòng mà không kiểm tra lịch trực, lịch hẹn, phòng thay thế",
+  "chuyen_gi": "Quản lý tắt phòng siêu âm duy nhất lúc hàng chờ đang trống. Hệ thống cho tắt dù phòng đã có lịch trực những ngày sau hoặc không còn phòng nào làm được bước đó.",
+  "anh_huong": "Bệnh nhân có thể đến và trả tiền rồi mới phát hiện không có phòng làm dịch vụ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Trước khi tắt phòng, hiện cảnh báo các lịch trực, lịch hẹn và bước công việc sẽ bị ảnh hưởng, và chặn nếu là phòng cuối.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-031": {
+  "id": "FIN-031",
+  "ten": "Chốt ca không ghi tiền mặt đếm thực tế và chênh lệch két",
+  "chuyen_gi": "Cuối ca, thu ngân chốt ca nhưng két thực tế lệch so với số trên máy. Chênh lệch chỉ được gõ tay vào ô ghi chú hoặc ghi ở giấy/bảng tính riêng.",
+  "anh_huong": "Khó đối soát tiền mặt và truy trách nhiệm theo ca vì không có số liệu rõ ràng trong hệ thống.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Thêm ô nhập tiền mặt đếm được, tự tính chênh lệch và có người thứ hai xác nhận khi chốt ca.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-046": {
+  "id": "FIN-046",
+  "ten": "Bản in báo cáo cuối ngày thiếu giờ lập và trạng thái đã chốt",
+  "chuyen_gi": "Nhân viên in báo cáo trước khi chốt ca; hôm sau có huỷ hoặc hoàn tiền làm số thay đổi, rồi in lại. Hai tờ cùng ngày, cùng ca nhưng khác số.",
+  "anh_huong": "Không phân biệt được tờ nháp với tờ đã chốt hay tờ mới hơn nên dễ tranh cãi khi đối chiếu.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "In kèm giờ lập và dòng ghi rõ ca đã chốt hay chưa chốt.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-135": {
+  "id": "CLIN-135",
+  "ten": "Luật bắt buộc bác sĩ mặc định chặn hẳn, gỡ luật không hỏi lại",
+  "chuyen_gi": "Trưởng ca thêm luật khách mới phải khám với một bác sĩ nhất định; luật mặc định là chặn hẳn dù phần xem thử bị lỗi và không hiện số hồ sơ bị tính là khách mới. Bấm nhầm thùng rác thì luật bị gỡ ngay.",
+  "anh_huong": "Lịch của khách thật có thể bị từ chối, hoặc luật bị gỡ nhầm mà không còn lịch sử trên màn hình.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Để mặc định chỉ cảnh báo, báo lỗi khi xem thử thất bại và hỏi xác nhận trước khi gỡ luật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-084": {
+  "id": "SEC-084",
+  "ten": "Chế độ chỉ chăm sóc khách hàng chỉ ẩn menu, không khoá thật",
+  "chuyen_gi": "Quản lý bật chế độ chỉ CSKH để tắt phần khám bệnh, nhưng nhân viên vẫn vào được các màn lâm sàng bằng đường dẫn trực tiếp. Nếu lưu chế độ bị lỗi, màn hình lặng lẽ quay về chế độ cũ mà không báo.",
+  "anh_huong": "Quản lý tưởng đã khoá tính năng lâm sàng nhưng thực tế chưa; bấm nhầm còn có thể ẩn menu của cả phòng khám giữa giờ làm.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Chặn thật các chức năng lâm sàng khi ở chế độ này, báo lỗi khi lưu thất bại và hỏi xác nhận khi đổi chế độ.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-136": {
+  "id": "CLIN-136",
+  "ten": "Không có cách ghi 'không làm được' cho dịch vụ đã thu tiền",
+  "chuyen_gi": "Máy siêu âm hỏng hoặc khách từ chối sau khi đã trả tiền, nhưng nút ghi 'Dừng giữa chừng/Không làm được' đã bị ẩn ở phòng dịch vụ. Nhân viên không có cách ghi đúng sự thật.",
+  "anh_huong": "Chỉ định cứ treo ở trạng thái chờ hoặc đang làm, thiếu căn cứ để hoàn tiền hay xếp lại; nhân viên có thể bấm 'Xong' sai hoặc xử lý qua điện thoại, chat.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Bật lại lối ghi 'Không làm được/Dừng giữa chừng' kèm lý do và gắn với việc hoàn tiền hoặc xếp lại.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FIN-032": {
+  "id": "FIN-032",
+  "ten": "Hoàn tác lần thu đi vòng quyền hoàn tiền của quản lý",
+  "chuyen_gi": "Nhân viên có quyền thu tiền hoàn tác phiếu đã thu của người khác hoặc của ngày trước mà không cần nhập lý do; hệ thống tự ghi 'thao tác nhầm'.",
+  "anh_huong": "Kiểm soát tiền yếu hơn đường hoàn tiền của quản lý, sổ chỉ biết ai làm chứ không biết vì sao.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Giới hạn hoàn tác theo ngày, ca và người thu, bắt buộc nhập lý do thật hoặc chuyển sang quyền quản lý.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FIN-033": {
+  "id": "FIN-033",
+  "ten": "Quầy thu luôn giải thích cờ 'cần đối soát' là hoá đơn đã đổi",
+  "chuyen_gi": "Một lần thu bị gắn cờ vì tiền ngân hàng lệch số hoặc thuốc chưa được ghi bán, nhưng quầy thu luôn hiện câu 'hoá đơn đã đổi trong lúc chờ xác minh'.",
+  "anh_huong": "Thu ngân có thể hiểu là giá đổi nên bỏ qua, trong khi thực tế tiền lệch hoặc thuốc chưa trừ kho.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Hiện đúng lý do thật của cờ đối soát như màn Hoá đơn đang làm.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-043": {
+  "id": "FE-043",
+  "ten": "Quầy thuốc tải đơn lỗi lại hiện thành đơn thuốc trống",
+  "chuyen_gi": "Khi tải đơn thuốc bị lỗi hoặc tải lại sau khi chỉnh thất bại, màn hình hiện danh sách thuốc trống mà không báo lỗi. Thu ngân tưởng bác sĩ chưa kê hoặc thuốc đã biến mất.",
+  "anh_huong": "Có thể thêm thuốc lấy thêm và thu tiền một phần đơn, hoặc chỉnh sai làm lệch đơn.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Khi tải lỗi thì hiện thông báo lỗi và nút tải lại, không hiện danh sách trống.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FIN-035": {
+  "id": "FIN-035",
+  "ten": "Thu ngân tự giảm giá hoặc miễn phí đến 100%, không ai duyệt",
+  "chuyen_gi": "Thu ngân có thể giảm giá lớn hoặc miễn phí hoàn toàn cho người quen, chỉ cần ghi lý do chung chung như 'khách quen'.",
+  "anh_huong": "Doanh thu có thể giảm mà không ai biết, trừ khi có người đọc kỹ báo cáo.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Đặt mức giảm tối đa theo vai trò và yêu cầu quản lý duyệt khi vượt mức.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-044": {
+  "id": "FE-044",
+  "ten": "Mạng chập chờn làm quầy thu mất dữ liệu đang nhập",
+  "chuyen_gi": "Thu ngân đang chọn giảm giá, gõ số chuyển khoản hay chọn ảnh thì một lần tải lại bị lỗi. Cả quầy thu biến mất và mọi thứ đang nhập mất theo.",
+  "anh_huong": "Phải nhập lại hoặc thu sai hình thức, gây gián đoạn khi đông khách.",
+  "nhom": "K_khac",
+  "cach_sua": "Khi tải lại lỗi thì giữ nguyên màn hình và dữ liệu đang nhập, chỉ hiện thông báo lỗi nhỏ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-107": {
+  "id": "CLIN-107",
+  "ten": "Nút 'Tất cả bình thường' ghi đè lựa chọn đã nhập và điền 'Không'",
+  "chuyen_gi": "Bác sĩ hoặc thư ký bấm 'Tất cả bình thường' khi mục đã điền một phần. Các câu chưa hỏi bị điền 'Không', còn các lựa chọn như 'Không rõ' hay 'Trái' có thể bị đổi và tự lưu.",
+  "anh_huong": "Hồ sơ có thể ghi phủ định cho điều chưa hỏi hoặc mất phát hiện bất thường, dễ gây đọc sai khi kê đơn hoặc tái khám.",
+  "nhom": "K_khac",
+  "cach_sua": "Chỉ điền các ô còn trống theo cờ 'bình thường' khai báo rõ, không đụng vào ô đã nhập và hỏi xác nhận trước khi lưu.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-041": {
+  "id": "FE-041",
+  "ten": "Phiếu chuyên khoa tải lỗi lại hiện thành phiếu trắng",
+  "chuyen_gi": "Khi mở phiếu mà máy chủ lỗi hoặc mất mạng, phiếu hiện trắng như chưa có dữ liệu và không báo gì. Bác sĩ có thể nhập lại vào chỗ thư ký đã nhập.",
+  "anh_huong": "Có thể ghi đè dữ liệu đã lưu hoặc kết luận sai vì không thấy tiền sử; khi mạng hồi phục nội dung có thể bất ngờ nháy thay đổi.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Báo lỗi rõ khi tải phiếu thất bại và hiện cảnh báo khi đang không đồng bộ.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-064": {
+  "id": "SEC-064",
+  "ten": "Tạo tài khoản bị mất phản hồi có thể xoá nhầm tài khoản đăng nhập",
+  "chuyen_gi": "Quản lý tạo tài khoản cho nhân viên, hệ thống đã nối xong nhưng kết nối đứt trước khi nhận phản hồi nên tự xoá tài khoản đăng nhập vừa tạo.",
+  "anh_huong": "Nhân viên hiện 'Đã link' nhưng không đăng nhập được, tạo lại thì bị chặn, khó tìm nguyên nhân.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Kiểm tra lại trạng thái thực tế trước khi xoá và làm cho thao tác tạo tài khoản bấm lại an toàn.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "SEC-065": {
+  "id": "SEC-065",
+  "ten": "Khoá nhân viên nghỉ việc báo thành công dù lệnh khoá đăng nhập lỗi",
+  "chuyen_gi": "Quản lý khoá tài khoản nhân viên đã nghỉ, nhưng bước khoá đăng nhập bị lỗi; hệ thống vẫn báo thành công và chỉ ghi lỗi âm thầm.",
+  "anh_huong": "Người đã nghỉ có thể vẫn đăng nhập hoặc dùng phiên còn hạn trong khi quản lý tin rằng đã khoá.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chỉ báo thành công khi khoá đăng nhập thật sự xong, nếu lỗi thì báo rõ và thu hồi các phiên đang mở.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "SEC-085": {
+  "id": "SEC-085",
+  "ten": "Mật khẩu tạm không bắt buộc đổi ở lần đăng nhập đầu",
+  "chuyen_gi": "Quản lý đặt mật khẩu dễ nhớ cho nhiều nhân viên, hệ thống không buộc đổi lúc đăng nhập lần đầu và chỉ đòi tối thiểu 8 ký tự.",
+  "anh_huong": "Người biết mật khẩu tạm có thể đăng nhập thay nhân viên, làm mờ trách nhiệm trong thao tác tiền và khám bệnh.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Bắt buộc đổi mật khẩu ở lần đăng nhập đầu và siết yêu cầu mật khẩu.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-065": {
+  "id": "FE-065",
+  "ten": "Mã nhập siêu âm phụ khoa không dùng, bỏ qua số gõ dấu phẩy",
+  "chuyen_gi": "Một phần mã nhập kết quả siêu âm phụ khoa hiện không còn màn nào dùng. Nếu nối lại, số gõ kiểu '8,5' sẽ bị bỏ qua mà không báo lỗi.",
+  "anh_huong": "Nếu dùng lại, kết quả đo có thể mất âm thầm, và mã thừa làm tốn công bảo trì.",
+  "nhom": "K_khac",
+  "cach_sua": "Xoá mã không dùng, hoặc nếu dùng lại thì chấp nhận dấu phẩy và báo lỗi khi số sai.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-066": {
+  "id": "FE-066",
+  "ten": "Tạo mẫu kết quả bị trùng khi mất phản hồi rồi bấm lại",
+  "chuyen_gi": "Nhân viên tạo mẫu kết quả mới, mạng rớt sau khi hệ thống đã lưu nên bấm lại, kết quả là hai mẫu cùng tên.",
+  "anh_huong": "Mẫu trùng tên có thể bị gắn nhầm vào dịch vụ và khó gỡ gọn.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Làm cho thao tác tạo mẫu nhận biết lần bấm lặp để không tạo bản trùng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-066": {
+  "id": "SEC-066",
+  "ten": "Hai lớp kiểm tra quyền chồng nhau, có thể chặn nhầm người được cấp quyền",
+  "chuyen_gi": "Một nhân viên được cấp quyền làm siêu âm hoặc ghi dịch vụ nhưng không đúng chức danh cũ mà lớp ngoài của hệ thống còn kiểm tra. Khi bấm lưu, hệ thống có thể từ chối dù phía trong cho phép.",
+  "anh_huong": "Nhân viên có thể bị chặn oan khi làm việc, và khi luật quyền đổi thì hai lớp có thể cho hoặc chặn khác nhau, khó biết ai thực sự được làm gì.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Bỏ kiểm tra chức danh cứng ở lớp ngoài, để một nơi duy nhất quyết định quyền.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-067": {
+  "id": "FE-067",
+  "ten": "Tạo hồ sơ bệnh nhân chậm có thể báo 'chưa tạo' dù đã tạo",
+  "chuyen_gi": "Lễ tân tạo hồ sơ mới, hệ thống chờ quá 15 giây rồi báo 'Hồ sơ chưa được tạo' dù hồ sơ có thể đã được lưu. Lễ tân bấm tạo lại.",
+  "anh_huong": "Có thể sinh hồ sơ trùng cho cùng một bệnh nhân và nhân viên hiểu sai tình trạng.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Chống tạo trùng khi bấm lại và đổi thông báo thành 'chưa rõ, hãy kiểm tra trước khi tạo lại'.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-067": {
+  "id": "SEC-067",
+  "ten": "Bảng gọi số cho cả tài khoản đối tác xem tên bệnh nhân đang chờ",
+  "chuyen_gi": "Một tài khoản đối tác bên ngoài, hoặc nhân viên không có quyền xem bệnh nhân, có thể tự gọi trang dữ liệu của bảng gọi số. Họ nhận được tên khách đang chờ và phòng họ đứng.",
+  "anh_huong": "Có thể lộ tên khách của phòng khám phụ khoa/hiếm muộn cho người không có quyền xem.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Chỉ cho đúng tài khoản tivi (và vai được phép) xem bảng gọi số.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-108": {
+  "id": "CLIN-108",
+  "ten": "Bảng gọi số có thể xếp người đang khám thành 'tiếp theo'",
+  "chuyen_gi": "Hai phòng bác sĩ khám cùng lúc trong một khu, bảng chỉ có một ô 'Đang gọi'. Người khám thứ hai bị đẩy xuống danh sách 'Tiếp theo/Đang chờ'.",
+  "anh_huong": "Người ngồi chờ có thể hiểu sai thứ tự, còn khách thực sự tiếp theo bị đẩy xuống thấp.",
+  "nhom": "K_khac",
+  "cach_sua": "Tách rõ người đang khám khỏi người đang chờ và hiện đủ từng phòng đang khám.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-109": {
+  "id": "CLIN-109",
+  "ten": "Bảng gọi số có thể mất khách đã check-in khi ngày quá đông",
+  "chuyen_gi": "Hệ thống chỉ lấy 200 lịch hẹn đầu trong ngày theo giờ hẹn rồi mới lọc người đang chờ. Ngày đông, khách hẹn giờ muộn đã check-in có thể không hiện trên tivi.",
+  "anh_huong": "Khách chờ mà không thấy tên, màn hình không báo gì, nhân viên phải giải thích bằng miệng.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Lọc người đang chờ trước, và báo rõ khi còn người chưa hiển thị.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-045": {
+  "id": "FE-045",
+  "ten": "Tivi phòng chờ đứng yên sau một lần lỗi kết nối",
+  "chuyen_gi": "Đúng lúc hệ thống khởi động lại hoặc bận, tivi nhận lỗi và hiện 'Chưa kết nối được máy chủ'. Sau đó tivi không tự thử lại nữa.",
+  "anh_huong": "Bảng gọi số có thể trống cho đến khi ai đó nhớ ra bấm F5 hoặc đăng nhập lại, không ai được báo.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Cho tivi tự thử tải lại định kỳ kể cả khi đang báo lỗi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-033": {
+  "id": "OPS-033",
+  "ten": "Màn giám sát có thể báo 'Ổn' khi thực ra không ai theo dõi",
+  "chuyen_gi": "Công cụ theo dõi tự động bị tắt hoặc một phần dữ liệu tải lỗi, nhưng màn hình vẫn hiện 'Ổn' và 'Trực tiếp' với giờ mới.",
+  "anh_huong": "Người trực có thể tin màn hình và bỏ kiểm tra tay, trong khi sự cố không được nhìn thấy.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chỉ báo 'Ổn' khi công cụ đang chạy và dữ liệu tải đủ; báo rõ phần nào lỗi hoặc bị cắt.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-034": {
+  "id": "OPS-034",
+  "ten": "Màn giám sát của một phòng khám lẫn lỗi của hệ thống chung",
+  "chuyen_gi": "Khi nhiều phòng khám dùng chung hệ thống, màn giám sát của một phòng khám hiện cả lỗi và cảnh báo chung của nền tảng, không lọc theo phòng khám.",
+  "anh_huong": "Nhân viên phòng khám này có thể thấy thông tin kỹ thuật phát sinh từ phòng khám khác hoặc từ nền tảng, gây khó khi bán cho nhiều khách.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Tách màn giám sát nền tảng khỏi màn của từng phòng khám và lọc cảnh báo theo phòng khám.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-110": {
+  "id": "CLIN-110",
+  "ten": "Bản in phiếu khám có thể thiếu đơn thuốc hay tên mà không báo",
+  "chuyen_gi": "Khi mở trang in lúc hệ thống bận, một phần dữ liệu tải lỗi. Bản in có thể thiếu đơn thuốc, tên bệnh nhân hoặc bác sĩ nhưng nút In vẫn bật.",
+  "anh_huong": "Khách có thể nhận tờ giấy thiếu đơn thuốc và tin đó là đủ, ảnh hưởng an toàn điều trị.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Báo lỗi rõ và khóa nút In khi bất kỳ phần nào của phiếu chưa tải được.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "CLIN-111": {
+  "id": "CLIN-111",
+  "ten": "Bản in tóm tắt khám cũ cho sửa tay và in tên bác sĩ ký duyệt",
+  "chuyen_gi": "Lễ tân mở bản in cũ, sửa các ô như chẩn đoán hay kết quả rồi in. Tờ giấy vẫn ghi tên bác sĩ và 'ngày ký duyệt' dù chưa ai ký thật.",
+  "anh_huong": "Nội dung có thể bị sửa hoặc chưa duyệt mà vẫn mang tên bác sĩ, không có dấu vết để đối chiếu khi khiếu nại.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Khóa ô sửa, chỉ in hồ sơ đã chốt và ghi lại mỗi lần in.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-112": {
+  "id": "CLIN-112",
+  "ten": "Bản in xét nghiệm cũ chỉ lấy 20 dòng mà không báo bị cắt",
+  "chuyen_gi": "Khi một lượt khám có hơn 20 dòng xét nghiệm, bản in chỉ lấy 20 dòng mới nhất và không ghi chú gì.",
+  "anh_huong": "Tờ in có thể thiếu một số chỉ số, kể cả chỉ số bất thường, mà bác sĩ hay khách không biết.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "In đủ mọi dòng hoặc ghi rõ trên bản in rằng còn dòng chưa hiện.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FIN-036": {
+  "id": "FIN-036",
+  "ten": "Phiếu thu in lại giống hệt bản gốc, không ghi lại lần in",
+  "chuyen_gi": "Nhân viên mở lại phiếu thu hoặc phiếu hoàn cũ và in nhiều lần. Mỗi bản giống hệt nhau, không có nhãn 'bản in lại' và không lưu ai đã in.",
+  "anh_huong": "Khó đối soát và khó phát hiện lạm dụng hay khiếu nại 'tôi đã đóng rồi'.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Ghi lại người in và số lần in, in nhãn 'bản in lại' từ lần thứ hai.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-137": {
+  "id": "CLIN-137",
+  "ten": "Bản in kết quả giấu ô trống, bản ảnh không có nhãn nháp",
+  "chuyen_gi": "Bản in chỉ hiện ô có giá trị, nên không phân biệt được 'bình thường' với 'quên nhập'. In riêng ảnh khi kết quả còn nháp cũng không có nhãn.",
+  "anh_huong": "Chỉ số bị quên có thể không ai nhận ra, và ảnh có thể ra ngoài trước khi kết quả được chốt.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Hiện rõ ô chưa nhập và gắn nhãn nháp trên cả bản in ảnh.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "INF-038": {
+  "id": "INF-038",
+  "ten": "Máy chủ web không giới hạn thời gian nhận yêu cầu",
+  "chuyen_gi": "Một kết nối chậm hoặc có ý xấu có thể gửi dữ liệu nhỏ giọt và giữ kết nối mở rất lâu.",
+  "anh_huong": "Nếu có nhiều kết nối như vậy, hệ thống có thể chậm đi; mức nguy cơ thấp nếu lớp chắn phía trước đã giới hạn.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Chỉ bỏ giới hạn thời gian cho đường tải tệp lớn, các đường còn lại đặt giới hạn hợp lý.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-086": {
+  "id": "SEC-086",
+  "ten": "Tivi từng phòng vẫn nhận tên khách của mọi phòng",
+  "chuyen_gi": "Tivi đặt ở cửa một phòng chỉ ẩn bớt khách phòng khác trên màn hình, nhưng dữ liệu tên của mọi phòng vẫn được gửi về máy.",
+  "anh_huong": "Người có link hoặc xem kỹ nguồn trang có thể thấy tên khách ở phòng khác; phòng khám mới nếu quên cài đặt sẽ hiện tên đầy đủ.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Lọc theo phòng ngay ở máy chủ và mặc định che bớt tên.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "PHAR-025": {
+  "id": "PHAR-025",
+  "ten": "Tem lô thuốc có thể in ra không có mã vạch mà không báo",
+  "chuyen_gi": "Với lô thiếu mã tem, mã có ký tự lạ hoặc nhãn quá hẹp, tem vẫn in tên thuốc, số lô, hạn dùng nhưng không có mã vạch.",
+  "anh_huong": "Tem không quét được, nhân viên phải nhập tay hoặc đoán lô, dễ nhầm lô thuốc.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Báo lỗi khi không tạo được mã vạch và kiểm tra khổ nhãn đủ rộng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-068": {
+  "id": "FE-068",
+  "ten": "Lăn chuột có thể vô tình đổi số đo như huyết áp, cân nặng",
+  "chuyen_gi": "Điều dưỡng bấm vào ô số đo rồi cuộn trang bằng chuột hay trackpad, giá trị trong ô thay đổi theo mà không nhận ra.",
+  "anh_huong": "Số đo lâm sàng có thể bị lệch và được tự lưu vào phiếu.",
+  "nhom": "K_khac",
+  "cach_sua": "Tắt đổi số bằng lăn chuột ở các ô số đo lâm sàng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-047": {
+  "id": "FE-047",
+  "ten": "Lỗi đọc quyền khiến người dùng bị đưa về Trang chủ không giải thích",
+  "chuyen_gi": "Khi hệ thống bận lúc đọc quyền, bác sĩ hoặc lễ tân đang mở trang in hay trang lâm sàng bị đưa về Trang chủ mà không có thông báo. Ở trường hợp khác, hệ thống lại dùng quyền theo chức danh cũ.",
+  "anh_huong": "Nhân viên tưởng mình bị mất quyền và gọi quản lý, còn màn đã bị thu quyền có thể vẫn mở phần vỏ trang.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Báo rõ 'không đọc được quyền, thử lại' và dùng một cách xử lý thống nhất khi lỗi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "FE-048": {
+  "id": "FE-048",
+  "ten": "Cảnh báo gấp không tới người đang làm ở tab khác",
+  "chuyen_gi": "Màn hình quầy bị che hoặc nhân viên đang dùng Zalo, Excel. Tab hệ thống ngừng nhận tin, cũng không có thông báo ngoài tab.",
+  "anh_huong": "Báo khách chờ lâu, kết quả cần duyệt hay ca bị từ chối có thể đến muộn, phải gọi điện nhắn hỏi nhau.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Thêm thông báo ngoài tab, như âm thanh hoặc số trên tiêu đề, và bắt kịp tin ngay khi quay lại.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-113": {
+  "id": "CLIN-113",
+  "ten": "Kê liệu pháp hormone không bị chặn dù có chống chỉ định trong phiếu",
+  "chuyen_gi": "Bác sĩ ghi 'tiền sử ung thư vú' ở ô chống chỉ định nhưng vẫn chọn dùng liệu pháp hormone và ký. Hệ thống không đối chiếu hai ô này.",
+  "anh_huong": "Bệnh nhân có thể được kê thuốc không phù hợp mà không có nhắc nhở, chỉ dựa vào trí nhớ bác sĩ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm cảnh báo hoặc chặn khi chống chỉ định đã ghi mà vẫn chọn dùng, theo quy định do bác sĩ phòng khám chốt.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "FE-050": {
+  "id": "FE-050",
+  "ten": "Đóng tab khi đang lưu có thể làm mất chữ mới hoặc nhân đôi dòng thuốc",
+  "chuyen_gi": "Bác sĩ gõ thêm một ký tự trong lúc hệ thống đang lưu đơn, rồi đóng tab hoặc tải lại ngay. Hệ thống gửi thêm một lần lưu nữa chồng lên lần đang chạy.",
+  "anh_huong": "Phần chữ mới nhất có thể bị mất mà không ai biết, hoặc dòng thuốc chưa có mã có thể bị tạo trùng trong đơn.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Khi đóng tab, chờ lần lưu đang chạy xong hoặc gộp thành một lần lưu duy nhất thay vì gửi chồng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-016": {
+  "id": "OPS-016",
+  "ten": "Kịch bản dữ liệu mẫu có thể đặt lại mật khẩu và xóa tài khoản thật",
+  "chuyen_gi": "Người vận hành chạy nhầm một tệp dữ liệu mẫu lên hệ thống thật vì nó nằm cạnh các tệp vận hành thật. Tệp này không tự kiểm tra đang chạy ở đâu, và đã có lần nạp nhầm khiến 35 dòng nhân sự bị trùng.",
+  "anh_huong": "Tài khoản thật có thể bị đặt lại về mật khẩu công khai, bị xóa quyền hoặc bị xóa hẳn; dữ liệu nhân sự có thể bị trùng.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm bước tự kiểm tra môi trường để tệp mẫu từ chối chạy trên hệ thống thật, và tách riêng khỏi các tệp vận hành thật.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "OPS-035": {
+  "id": "OPS-035",
+  "ten": "Tệp dữ liệu demo có thể đóng lượt khám và xóa chỉ định của bệnh nhân thật",
+  "chuyen_gi": "Người vận hành chạy tệp demo trên bản sao chứa dữ liệu thật. Tệp đóng mọi lượt khám cũ chưa xong và xóa chỉ định dịch vụ, không chỉ dữ liệu demo.",
+  "anh_huong": "Lượt khám và chỉ định thật có thể bị đóng hoặc xóa, làm bản thử nghiệm sai lệch; nếu chạy nhầm trên hệ thống thật thì mất chỉ định lâm sàng.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Giới hạn mọi thao tác của tệp chỉ trên dữ liệu có mã DEMO và thêm bước chặn khi gặp dữ liệu thật.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-036": {
+  "id": "OPS-036",
+  "ten": "Tệp tạo lịch trực có thể gán sai phòng khám, sai người và dễ quên chạy lại",
+  "chuyen_gi": "Tệp tự đoán phòng khám đầu tiên và ghép nhân viên theo tên gọi ngắn, rồi ghi ca trực thành đã duyệt mà không qua bước duyệt. Hết tuần đã nạp, không ai được nhắc chạy lại.",
+  "anh_huong": "Ca trực có thể gán sai người hoặc sai phòng khám khó phát hiện, và lịch tuần sau có thể trống lặng lẽ.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Bắt buộc chọn rõ phòng khám, đi qua luồng duyệt có nhật ký, và có nhắc việc trước khi lịch hết hạn.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "OPS-045": {
+  "id": "OPS-045",
+  "ten": "Xóa tài khoản dùng chung có thể làm phòng khám mất người quản lý tài khoản",
+  "chuyen_gi": "Tệp xóa tài khoản thử nếu còn người thật cùng bộ phận, nhưng không kiểm người đó có quyền quản lý tài khoản hay không.",
+  "anh_huong": "Phòng khám có thể mất người quản lý tài khoản mà không ai sửa lại được, hoặc xóa nhầm tài khoản có tên giống mẫu.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Kiểm tra người còn lại có đúng quyền quản trị tài khoản trước khi xóa, và không nhận diện bằng đuôi tên hiển thị.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-088": {
+  "id": "SEC-088",
+  "ten": "Thông tin nhân sự thật của Dr4Women nằm trong mã nguồn sản phẩm",
+  "chuyen_gi": "Các tệp trong mã nguồn ghi tên thật, học hàm, địa chỉ đăng nhập của nhân viên và cả mật khẩu chung công khai, dù ghi chú nói là không chứa thông tin nhân sự.",
+  "anh_huong": "Nếu mã nguồn bị lộ hoặc đưa cho phòng khám khác, danh tính nhân viên và cách đoán tên đăng nhập bị lộ theo.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Đưa dữ liệu nhân sự ra khỏi mã nguồn chung và đổi mật khẩu đang dùng nếu trùng với mật khẩu công khai.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "INF-033": {
+  "id": "INF-033",
+  "ten": "Máy chủ chặn camera nên chức năng quét mã thuốc có thể không dùng được",
+  "chuyen_gi": "Nhân viên kho bấm quét mã lô thuốc bằng camera trên Chrome hoặc Edge. Máy chủ lại cấu hình cấm camera nên quét có thể hỏng, và thông báo lỗi bảo họ kiểm tra quyền camera.",
+  "anh_huong": "Nhân viên phải gõ tay số lô và hạn dùng, dễ nhập sai, và bị chỉ sai hướng khi tìm nguyên nhân.",
+  "nhom": "K_khac",
+  "cach_sua": "Cho phép camera trong cấu hình máy chủ cho trang quét và sửa thông báo lỗi cho đúng nguyên nhân.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "DB-015": {
+  "id": "DB-015",
+  "ten": "Tệp mô tả cấu trúc dữ liệu cũ không còn dùng nhưng dễ gây hiểu nhầm",
+  "chuyen_gi": "Một tệp mô tả cấu trúc dữ liệu cũ vẫn nằm trong mã nguồn. Người mới hoặc công cụ AI đọc vào có thể tưởng đó là cấu trúc hiện hành.",
+  "anh_huong": "Gây hiểu sai về hệ thống, nhưng không ảnh hưởng vận hành thật vì không được dùng.",
+  "nhom": "K_khac",
+  "cach_sua": "Xóa tệp hoặc tạo lại từ cấu trúc hiện hành.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "FE-069": {
+  "id": "FE-069",
+  "ten": "Nút Xuất Excel có thể làm sai số lô, mã và thiếu thông tin phạm vi",
+  "chuyen_gi": "Dược sĩ xuất bảng tồn hoặc kiểm kê ra tệp để gửi kế toán. Khi mở bằng Excel, số lô hoặc mã có số 0 đầu có thể bị đổi dạng, và tệp không ghi bộ lọc, ngày hay việc danh sách có bị thiếu.",
+  "anh_huong": "Khó truy vết lô thuốc khi cần thu hồi, và báo cáo có thể mang số chưa lưu như số chính thức.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Xuất mã dưới dạng chữ, ghi kèm bộ lọc, thời điểm, số dòng và cảnh báo nếu danh sách bị cắt.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "DB-016": {
+  "id": "DB-016",
+  "ten": "Tệp hotfix cũ về thanh toán 0 đồng có thể gây cảm giác an toàn giả",
+  "chuyen_gi": "Người vận hành thấy tệp hotfix tùy chọn và chạy theo ghi chú cũ, tưởng đã nới luật thanh toán 0 đồng. Tên ràng buộc trong tệp đã lệch nên thực tế chỉ thêm một ràng buộc thừa.",
+  "anh_huong": "Có thể tưởng luật tiền đã đổi trong khi chưa, và để lại thay đổi ngoài quy trình; hiện chưa gây hỏng.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Xóa hoặc cập nhật các tệp hotfix cũ và chỉ thay đổi luật tiền qua quy trình chuẩn.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "SEC-087": {
+  "id": "SEC-087",
+  "ten": "Chưa có lớp bảo vệ thứ hai chống mã độc chèn vào trang web",
+  "chuyen_gi": "Ứng dụng hiển thị nội dung từ tệp Word người khác gửi. Phần Word đã được cách ly tốt, nhưng nếu nơi khác hiển thị nội dung ngoài mà thiếu xử lý thì không còn lớp chặn dự phòng.",
+  "anh_huong": "Nếu có lỗi như vậy, kẻ xấu có thể thao tác với quyền của bác sĩ hoặc thu ngân; hiện chưa thấy chỗ cụ thể bị lỗi.",
+  "nhom": "K_khac",
+  "cach_sua": "Bổ sung chính sách bảo vệ nội dung trang ở cấu hình máy chủ như lớp phòng thủ dự phòng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "DB-008": {
+  "id": "DB-008",
+  "ten": "Chạy lại dữ liệu khởi tạo trên hệ thống đang dùng có thể ghi đè giá và hướng dẫn thuốc",
+  "chuyen_gi": "Người vận hành chạy lại tệp dữ liệu khởi tạo trên hệ thống đã có khách. Phần cuối tệp vẫn chạy và đặt lại giá, danh mục thuốc, cách dùng về bản chuẩn ban đầu.",
+  "anh_huong": "Giá do quản lý đã chỉnh có thể bị đặt về giá cũ, thuốc dược sĩ thêm có thể bị tắt, hướng dẫn dùng thuốc đã sửa có thể bị thay hoặc để trống, và không có nhật ký ai đã đổi.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm bước kiểm tra để tệp khởi tạo từ chối chạy trên hệ thống đã có dữ liệu, và ghi cảnh báo trong hướng dẫn.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "DB-010": {
+  "id": "DB-010",
+  "ten": "Hệ thống dựng mới có loại khám cũ, khác với hệ thống thật và các bài kiểm thử",
+  "chuyen_gi": "Khi dựng phòng khám hoặc môi trường kiểm thử mới, dữ liệu khởi tạo đưa về 14 loại khám cũ, gồm cả loại không dùng như FREE. Các chỉnh sửa sau đó chạy trước nên không áp được.",
+  "anh_huong": "Phòng khám mới có thể thấy loại khám sai ở màn đặt lịch, và bài kiểm thử có thể báo đạt hoặc lỗi sai so với hệ thống thật.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cập nhật dữ liệu khởi tạo theo danh mục hiện hành và cho mọi môi trường dựng giống nhau.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "DB-011": {
+  "id": "DB-011",
+  "ten": "Phòng khám mới không có sẵn bảng giá tiền khám",
+  "chuyen_gi": "Phòng khám mới dựng theo quy trình chuẩn không có các dòng giá tiền khám, vì hệ thống thật được nạp giá bằng tay. Khi thu tiền, quầy báo chưa có giá cho dịch vụ khám.",
+  "anh_huong": "Quầy thu không thu được tiền khám cho tới khi quản lý tự tạo đúng các dòng giá bằng tay, và tạo sai tên sẽ khóa nút thu tiền.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Tạo quy trình chuẩn kèm danh sách kiểm để dựng bảng giá khám cho phòng khám mới.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "ARCH-008": {
+  "id": "ARCH-008",
+  "ten": "Dữ liệu khởi tạo gắn cứng vào Dr4Women, khó dùng cho phòng khám khác",
+  "chuyen_gi": "Dữ liệu khởi tạo ghi cứng mã phòng khám, cơ sở, kênh đặt lịch, tên thuốc và giá riêng của Dr4Women. Muốn dùng cho phòng khám thứ hai phải sửa tay hoặc sao chép lại.",
+  "anh_huong": "Mỗi khách mới tốn công sửa và dễ lẫn tên bác sĩ, giá, thuốc của Dr4Women sang phòng khám khác.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Tách dữ liệu riêng Dr4Women khỏi lõi và cho phép chọn phòng khám khi nạp dữ liệu.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-018": {
+  "id": "PHAR-018",
+  "ten": "Hướng dẫn thuốc điền sẵn có thể gộp nhiều hàm lượng và câu khẳng định an toàn tuyệt đối",
+  "chuyen_gi": "Bác sĩ kê một số thuốc và để nguyên đoạn hướng dẫn điền sẵn. Đoạn này có thể chứa liều của hàm lượng khác, hoặc câu như thai kỳ an toàn tuyệt đối, và không ghi ai đã duyệt chuyên môn.",
+  "anh_huong": "Bệnh nhân có thể đọc liều của hàm lượng không đúng với thuốc được kê, hoặc hiểu câu an toàn như lời bảo đảm của phòng khám.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Tách hướng dẫn theo từng hàm lượng, bỏ câu khẳng định tuyệt đối và để bác sĩ hoặc dược sĩ duyệt nội dung.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "TEST-004": {
+  "id": "TEST-004",
+  "ten": "Bài kiểm thử tự động luồng đặt lịch không bao giờ đăng nhập được",
+  "chuyen_gi": "Bài kiểm thử tự động có lỗi nên không đăng nhập được, nhưng báo cáo chỉ ghi bỏ qua và trông như thiếu thông tin đăng nhập.",
+  "anh_huong": "Chủ phòng khám có thể tin luồng đặt lịch và tiếp nhận đã được kiểm, trong khi thực tế chưa bước nào được chạy.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Sửa bước đăng nhập và báo lỗi rõ ràng thay vì bỏ qua êm.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-005": {
+  "id": "TEST-005",
+  "ten": "Bài kiểm thử tranh chấp báo đạt dù chưa kiểm được sức chứa",
+  "chuyen_gi": "Khi tuần chưa công bố lịch trực, bài kiểm thử chuyển sang cách kiểm không có giới hạn sức chứa nhưng vẫn báo đạt.",
+  "anh_huong": "Lỗi vượt sức chứa khi lịch đã công bố có thể không bị phát hiện.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chuẩn bị sẵn lịch đã công bố cho bài kiểm thử, hoặc báo rõ là chưa kiểm sức chứa thay vì báo đạt.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-006": {
+  "id": "TEST-006",
+  "ten": "Kiểm thử sao lưu chưa chứng minh được việc khôi phục dữ liệu thật",
+  "chuyen_gi": "Bài kiểm thử khôi phục chỉ dùng công cụ giả, chỉ xác nhận lệnh được gọi, không kiểm dữ liệu, tài khoản hay tệp có trở lại đầy đủ không.",
+  "anh_huong": "Có cảm giác khôi phục đã được chứng minh, trong khi bản sao lưu thiếu tài khoản hoặc tệp vẫn có thể qua bài kiểm.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Thêm bài kiểm khôi phục thật vào môi trường thử, rồi đối chiếu số dòng, tài khoản và tệp.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-007": {
+  "id": "TEST-007",
+  "ten": "Có bài kiểm thử xanh canh phần mã không còn dùng, gồm luật báo kết quả xét nghiệm cũ",
+  "chuyen_gi": "Một số bài kiểm thử vẫn báo đạt cho mã không còn được dùng. Bài về báo kết quả xét nghiệm còn nêu luật cũ, khác với luật hiện hành là bác sĩ đã chốt thì được báo.",
+  "anh_huong": "Dễ tin nhầm quy tắc an toàn và tiền đang được canh; nếu gắn lại mã cũ, kết quả bác sĩ đã duyệt có thể bị báo là không được thông báo cho bệnh nhân.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Xóa mã và bài kiểm thử không còn dùng, và chuyển các bài kiểm cần thiết sang nơi luật đang thực sự chạy.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-008": {
+  "id": "TEST-008",
+  "ten": "Vị trí bác sĩ mới tạo bị hiểu khác nhau giữa các màn hình",
+  "chuyen_gi": "Quản lý tạo một vị trí làm việc mới cho bác sĩ rồi xếp hoặc gỡ bác sĩ ở đó. Một số màn hình coi đó là ca khám, một số khác thì không.",
+  "anh_huong": "Lịch hẹn của bác sĩ vừa bị gỡ ca có thể không được đẩy vào hàng chờ xếp lại, nên bệnh nhân có thể bị sót lịch.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Dùng một cách xác định duy nhất cho 'ca khám bác sĩ' ở mọi nơi và bổ sung kiểm thử cho vị trí mới hoặc đã ngừng.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-009": {
+  "id": "TEST-009",
+  "ten": "Phiếu Nam khoa được bật khi chưa có bác sĩ thật duyệt",
+  "chuyen_gi": "Hệ thống tự ghi người quản lý đầu tiên là người duyệt phiếu Nam khoa, dù một số câu hỏi lâm sàng vẫn còn treo. Bác sĩ vẫn điền phiếu này cho bệnh nhân.",
+  "anh_huong": "Hồ sơ 'ai duyệt' có thể không phải bác sĩ, và dữ liệu lâm sàng có thể bị thiếu nếu thực tế cần chọn nhiều phác đồ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Để bác sĩ phụ trách rà và duyệt thật trước khi bật phiếu, đồng thời kiểm tra việc này bằng bài test thật.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-010": {
+  "id": "TEST-010",
+  "ten": "Bài test chống công thức độc trong file Excel không được chạy",
+  "chuyen_gi": "Lập trình viên sửa phần xuất file Excel/CSV nhưng bài test bảo vệ không nằm trong danh sách chạy tự động. Hệ thống vẫn báo xanh.",
+  "anh_huong": "Lớp bảo vệ khi xuất file có thể hỏng mà không ai biết, khiến ô dữ liệu độc hại có thể lọt vào file mở bằng Excel.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Đưa bài test này vào danh sách chạy tự động và gom cách đăng ký test về một nơi.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-029": {
+  "id": "TEST-029",
+  "ten": "Ca trực viết sai bị lặng lẽ đổi thành cả ngày",
+  "chuyen_gi": "Một phiên bản ứng dụng cũ gửi tên ca không có trong danh sách. Hệ thống không báo lỗi mà tự ghi thành cả ngày.",
+  "anh_huong": "Lịch trực có thể được ghi rộng hơn ý định, ảnh hưởng quyền theo ca và việc xếp bác sĩ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Từ chối ca không hợp lệ và báo lỗi rõ, đồng thời kiểm thử trực tiếp đường nhận dữ liệu thật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-030": {
+  "id": "TEST-030",
+  "ten": "Một số bài test giòn, dễ đỏ giả hoặc xanh giả",
+  "chuyen_gi": "Test phụ thuộc vào vị trí thư mục, ngày cố định, tên bác sĩ thật và giờ hệ thống. Khi đổi thư mục hoặc chạy sát mốc giờ, kết quả có thể sai.",
+  "anh_huong": "Nhóm kỹ thuật tốn công sửa test, và kết quả test có thể không phản ánh đúng tình trạng thật.",
+  "nhom": "K_khac",
+  "cach_sua": "Dùng dữ liệu mẫu trung tính, ngày giờ giả lập và cách tìm tệp không phụ thuộc cấu trúc thư mục.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-015": {
+  "id": "TEST-015",
+  "ten": "Một chỉ định có thể nằm ở cả sổ thu phòng khám và sổ đối tác",
+  "chuyen_gi": "Sau khi phòng khám đã thu tiền, quản lý đổi bên thu của dịch vụ sang đối tác. Đối tác rồi vẫn ghi 'đã thu' cho cùng chỉ định.",
+  "anh_huong": "Cùng một dịch vụ có thể bị tính hai lần trong báo cáo cuối ngày và đối soát.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Chốt quy tắc và chặn không cho một chỉ định thuộc hai sổ thu cùng lúc.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "TEST-016": {
+  "id": "TEST-016",
+  "ten": "Hóa đơn xuất có thể cao hơn số tiền khách thực giữ",
+  "chuyen_gi": "Kế toán xuất hóa đơn cho phiếu có khoản hoàn cũ không gắn với dòng dịch vụ nào. Khoản hoàn này không bị trừ khỏi hóa đơn.",
+  "anh_huong": "File hóa đơn có thể cao hơn số khách thực trả, và kế toán có thể đọc sai nếu bỏ qua ghi chú.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Trừ cả các khoản hoàn cũ không gắn dòng khi tính hóa đơn, hoặc gắn lại chúng vào đúng dòng.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "TEST-032": {
+  "id": "TEST-032",
+  "ten": "Bài đối chiếu tiền và kho có thể bị bỏ qua mà vẫn xanh",
+  "chuyen_gi": "Khi nhiều bài test cùng ghi tiền, bài đối chiếu không đọc được số liệu ổn định nên tự bỏ qua. Kết quả không đỏ.",
+  "anh_huong": "Lỗi lệch tổng thu hoặc hoàn có thể lọt qua mà không ai nhận ra.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Chạy bài đối chiếu trên dữ liệu riêng và báo đỏ khi không kiểm được, thay vì bỏ qua.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-017": {
+  "id": "TEST-017",
+  "ten": "Chức năng dọn dữ liệu thử có thể xóa nhầm khách thật",
+  "chuyen_gi": "Quản trị chọn nhầm một khách thật có lượt khám đã đóng từ trước để dọn. Hệ thống không kiểm tra đây có phải dữ liệu thử không.",
+  "anh_huong": "Khách thật có thể bị xóa, và chỉ khôi phục thủ công từ bản lưu.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Chỉ cho xóa dữ liệu được đánh dấu là thử, và chặn khách có thanh toán hoặc hồ sơ đã ký.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "TEST-018": {
+  "id": "TEST-018",
+  "ten": "Test bảo mật đối tác có phần chỉ là ghi chú, không kiểm thật",
+  "chuyen_gi": "Trong bộ kiểm tra bảo mật đối tác, hai mục chỉ có chú thích mà không kiểm gì. Một mục khác tự bỏ qua nếu không có phòng khám thứ hai.",
+  "anh_huong": "Việc tách dữ liệu giữa các phòng khám khi đối tác tải tệp có thể chưa được kiểm mà test vẫn xanh.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Viết kiểm tra thật cho các mục này và tạo sẵn phòng khám thứ hai trong dữ liệu thử.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-019": {
+  "id": "TEST-019",
+  "ten": "Luật 'gặp bác sĩ trước' chưa được kiểm trên luồng thật",
+  "chuyen_gi": "Phòng chưa xếp người gác thì không bị chặn. Test chỉ kiểm hàm riêng lẻ, không kiểm các thao tác đổi phòng hay chuyển bước thật.",
+  "anh_huong": "Một đường thao tác có thể bỏ qua luật 'gặp BS Thành trước' mà không test nào báo đỏ.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Thêm test chạy qua luồng điều phối thật để chứng minh luật chặn được đúng lúc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "PHAR-019": {
+  "id": "PHAR-019",
+  "ten": "Kiểm kê thuốc có thể tạo lệch giả khi có bán xen giữa",
+  "chuyen_gi": "Dược sĩ đếm thuốc, trong lúc chưa chốt quầy vẫn giao thêm thuốc. Khi chốt, hệ thống lấy độ lệch theo tồn lúc chốt rồi cộng vào tồn hiện tại.",
+  "anh_huong": "Tồn kho có thể bị nâng hoặc hạ sai đúng bằng lượng xuất nhập xen giữa, khiến thuốc báo còn dù đã hết và gây báo động lệch giả.",
+  "nhom": "F_tien_kho",
+  "cach_sua": "Chốt tồn theo số đếm thật tại thời điểm đếm, hoặc khóa xuất nhập trong lúc kiểm kê.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "PAT-005": {
+  "id": "PAT-005",
+  "ten": "Ghép lịch sử Notion có thể gắn nhầm vào hồ sơ người khác",
+  "chuyen_gi": "Hệ thống ghép hồ sơ cũ chỉ bằng 9 số cuối điện thoại và tên bỏ dấu. Hai người nhà dùng chung số, tên chỉ khác dấu, có thể bị ghép nhầm, và khi nhiều hồ sơ khớp nó chọn hồ sơ cũ nhất.",
+  "anh_huong": "Lượt khám, đơn thuốc, chẩn đoán cũ của người này có thể gắn vào hồ sơ người khác, bác sĩ có thể đọc nhầm tiền sử như dị ứng hay thai kỳ.",
+  "nhom": "E_quyen_rong",
+  "cach_sua": "Khi có nhiều hồ sơ khớp hoặc tên chỉ khác dấu thì dừng lại và để nhân viên xác nhận bằng tay.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "DB-012": {
+  "id": "DB-012",
+  "ten": "Hàm chuẩn hóa thuốc và bên thu tiền có thể đụng phòng khám khác",
+  "chuyen_gi": "Khi có phòng khám thứ hai và các hàm cập nhật được chạy lại, danh mục thuốc của Dr4Women bị áp lên mọi phòng khám. Một số dịch vụ trùng mã KiotViet cũng bị đổi bên thu.",
+  "anh_huong": "Thuốc của phòng khám khác có thể bị tắt, giá bị ghi đè, tiền thu hộ đối tác có thể đi sai bên và báo cáo doanh thu có thể lệch.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Giới hạn các hàm này chỉ chạy cho đúng phòng khám cần áp dụng.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "PHAR-020": {
+  "id": "PHAR-020",
+  "ten": "Thuốc giao chưa gắn lô có thể kẹt mãi và chặn kiểm kê",
+  "chuyen_gi": "Quầy giao thuốc kê theo viên nhưng kho chỉ có lô nhập theo hộp, nên không gắn lô được. Dòng chờ này tồn tại mãi và chặn điều chỉnh kiểm kê của thuốc đó.",
+  "anh_huong": "Tồn máy có thể cao hơn thực tế kéo dài, ảnh hưởng quyết định nhập thuốc và cảnh báo hết hàng.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Cho phép quy đổi đơn vị khi gắn lô và giao dòng chờ cho một người có hạn xử lý.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "CLIN-114": {
+  "id": "CLIN-114",
+  "ten": "Cảnh báo sắp hết liệu trình không có người nhận rõ ràng",
+  "chuyen_gi": "Chuông báo gửi chung cho cả nhóm CSKH, ai cũng tưởng người khác sẽ gọi. Có người chỉ bấm [Đã xử lý] để dọn danh sách mà không gọi khách.",
+  "anh_huong": "Khách sắp hết liệu trình có thể không được gọi, mất tái khám hoặc bỏ dở điều trị, trong khi hệ thống vẫn ghi 'đã xử lý'.",
+  "nhom": "G_viec_roi",
+  "cach_sua": "Giao cho một người cụ thể, đặt hạn nhắc, và bắt ghi kết quả liên hệ trước khi đóng.",
+  "muc_do_de_hieu": "Nên xử lý sớm"
+ },
+ "OPS-046": {
+  "id": "OPS-046",
+  "ten": "Nhật ký đổi lịch trực có thể thiếu tên người thay đổi",
+  "chuyen_gi": "Khi một đường ghi lịch trực mới quên báo người thao tác, hệ thống vẫn ghi lại thay đổi nhưng để trống người bấm.",
+  "anh_huong": "Khó truy ra ai đã đổi ca trực khi sai ca ảnh hưởng đặt lịch và phân quyền.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Bắt buộc có người thao tác khi ghi lịch trực, nếu thiếu thì từ chối.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "OPS-037": {
+  "id": "OPS-037",
+  "ten": "Script nhân bản cơ sở có thể chạy nhầm trên dữ liệu thật",
+  "chuyen_gi": "Bài test nhân bản tắt các chốt bảo vệ rồi xóa dữ liệu theo mã cơ sở. Nếu kết nối trỏ nhầm vào dữ liệu thật, nó vẫn có thể chạy.",
+  "anh_huong": "Về lý thuyết có thể mất bằng chứng sổ kho hoặc lịch hẹn, nhưng rủi ro bị giới hạn do lọc theo mã cơ sở ngẫu nhiên.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Thêm rào kiểm tra chỉ cho chạy trên cơ sở dữ liệu thử dùng một lần.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-034": {
+  "id": "TEST-034",
+  "ten": "Test thao tác kho thiếu ca bấm cùng lúc và kiểm quyền",
+  "chuyen_gi": "Chỉ có một thao tác kho được thử khi hai yêu cầu đến đồng thời. Các thao tác khác và việc người không có quyền gọi vào kho chưa được kiểm.",
+  "anh_huong": "Lỗi bấm trùng hoặc sai quyền ở kho có thể khó phát hiện sớm.",
+  "nhom": "C_bam_lai_trung",
+  "cach_sua": "Thêm test cho yêu cầu đồng thời và test từ chối khi sai vai hoặc sai cơ sở.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-035": {
+  "id": "TEST-035",
+  "ten": "Test cấp phát thuốc dùng bản giả nên có thể lệch thực tế",
+  "chuyen_gi": "Test dùng kết nối giả và bảng tạm tự dựng, nên không giống hệt cơ sở dữ liệu thật.",
+  "anh_huong": "Test có thể gãy khi đổi cách cài đặt dù hành vi đúng, hoặc vẫn xanh khi dữ liệu thật khác, chưa chứng minh lô sai cơ sở bị chặn.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Bổ sung test chạy trên cơ sở dữ liệu thử có cấu trúc giống thật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-021": {
+  "id": "TEST-021",
+  "ten": "Bài kiểm tra có thể chạy nhầm vào dữ liệu thật hoặc bị bỏ qua lặng lẽ",
+  "chuyen_gi": "Một kỹ thuật viên có sẵn địa chỉ dữ liệu thật hoặc dữ liệu thử nghiệm trên máy rồi chạy bộ kiểm tra. Bốn bài đọc một biến cấu hình, trong khi hướng dẫn lại dặn đặt biến khác. Vì vậy bài có thể ghi dữ liệu giả vào nơi không nên, hoặc bị bỏ qua mà người chạy tưởng đã kiểm xong.",
+  "anh_huong": "Dữ liệu giả như nhân viên, quyền, phòng khám có thể lẫn vào hệ thống không dành để thử, và người chạy có thể tin nhầm rằng phần quyền đã được kiểm.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Thống nhất tất cả bài kiểm tra dùng chung một biến cấu hình dành riêng cho dữ liệu thử, và từ chối chạy nếu không đặt biến đó.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-036": {
+  "id": "TEST-036",
+  "ten": "Bài kiểm tra hai người cùng lấy lô thuốc có thể lúc đỏ lúc xanh",
+  "chuyen_gi": "Bài kiểm tra chờ một khoảng thời gian cố định để coi như lệnh kia đang đợi. Khi máy chạy chậm hoặc nhanh bất thường, kết quả có thể thay đổi dù phần mềm không đổi.",
+  "anh_huong": "Nhân viên kỹ thuật có thể mất lòng tin vào kết quả kiểm tra và phải kiểm lại thủ công, còn việc khóa lô thuốc khi nhiều người thao tác có thể chưa được chứng minh ổn định.",
+  "nhom": "K_khac",
+  "cach_sua": "Đổi bài kiểm tra sang chờ đúng tín hiệu trạng thái đang đợi thay vì chờ một khoảng thời gian cố định.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-037": {
+  "id": "TEST-037",
+  "ten": "Bài kiểm tra bảng giá vật tư dễ đỏ oan và có thể ghi đè giá thật",
+  "chuyen_gi": "Bài kiểm tra đòi đúng 84 dòng vật tư với tên và giá cố định trên dữ liệu dùng chung. Nếu quản lý đã đổi giá thật hoặc bài khác thêm vật tư, bài có thể báo lỗi oan, và sau khi sửa giá để thử nó đặt lại cứng 300.000.",
+  "anh_huong": "Nếu chạy trên dữ liệu có thật, giá bán thật có thể bị ghi đè thành 300.000, và kết quả đỏ/xanh phụ thuộc dữ liệu đang có.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Cho bài tự tạo dữ liệu riêng để thử, và nếu phải sửa giá thì trả về đúng giá ban đầu đã đọc.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-038": {
+  "id": "TEST-038",
+  "ten": "Bài kiểm tra giới hạn danh sách chỉ định làm đổi cài đặt chung",
+  "chuyen_gi": "Bài kiểm tra tự đổi giới hạn số dòng của danh sách chỉ định trong ngày để thử, nhưng khi xong không trả về đúng như cũ. Các bài chạy sau có thể gặp giới hạn đã bị đổi.",
+  "anh_huong": "Các bài kiểm tra có thể ảnh hưởng lẫn nhau, và giới hạn 500 dòng thật của các danh sách khác chưa được kiểm.",
+  "nhom": "A_danh_sach_cat",
+  "cach_sua": "Dùng cách đổi tạm thời tự khôi phục sau bài và thêm bài thử giới hạn thật.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-039": {
+  "id": "TEST-039",
+  "ten": "Bài kiểm tra cấu hình bộ nhớ đệm Caddy chỉ đọc chữ, không chạy thử",
+  "chuyen_gi": "Bài kiểm tra chỉ so khớp chữ trong tệp cấu hình Caddy. Nếu ai đó sửa tệp sao cho vẫn khớp chữ nhưng sai cú pháp, bài vẫn báo đạt.",
+  "anh_huong": "Lỗi cấu hình có thể chỉ được phát hiện muộn, khi đưa lên chạy thật.",
+  "nhom": "B_bao_xanh_gia",
+  "cach_sua": "Thêm bước kiểm tra cú pháp bằng chính công cụ của Caddy trên đúng tệp đang chạy.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-040": {
+  "id": "TEST-040",
+  "ten": "Bài kiểm tra dọn dữ liệu thử chưa chứng minh chống xóa nhầm",
+  "chuyen_gi": "Bài kiểm tra chỉ đếm xem lệnh dọn dẹp được gọi 4 lần. Nó không kiểm xem các lệnh đó có chỉ động vào dữ liệu thử hay không.",
+  "anh_huong": "Nếu phạm vi dọn dẹp bị sửa sai, danh mục thật trên dữ liệu dùng chung có thể bị xóa hoặc vô hiệu hóa mà bài kiểm tra vẫn báo đạt.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Kiểm tra trên dữ liệu thật rằng chỉ dòng thử bị xóa còn dòng thật còn nguyên.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-022": {
+  "id": "TEST-022",
+  "ten": "Chưa có bài kiểm tra cho tiến trình nền và sao lưu/khôi phục",
+  "chuyen_gi": "Các bài hiện có chỉ kiểm việc gọi xử lý sự kiện. Chưa có bài nào thử khi tiến trình nền dừng giữa chừng, nhận cùng sự kiện hai lần, hay khôi phục từ bản sao lưu.",
+  "anh_huong": "Các lỗi liên quan đến tiến trình nền và khôi phục đã phát hiện có thể quay lại mà không ai biết.",
+  "nhom": "H_sao_luu_van_hanh",
+  "cach_sua": "Bổ sung bài kiểm tra cho các tình huống tiến trình nền dừng giữa chừng, nhận trùng sự kiện và khôi phục dữ liệu.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-023": {
+  "id": "TEST-023",
+  "ten": "Chưa kiểm được trường hợp hai dược sĩ cùng cấp phát một lô thuốc",
+  "chuyen_gi": "Các bài kiểm tra kho thuốc dùng dữ liệu giả trả lời theo thứ tự, nên chưa thử cảnh hai dược sĩ cùng cấp một lô hoặc một người bấm hai lần. Do đó chưa rõ tồn kho có bị âm hay cấp vượt số kê không.",
+  "anh_huong": "Nếu quy tắc bảo vệ ở cơ sở dữ liệu bị đổi hoặc mất, các bài vẫn xanh trong khi tồn kho thuốc có thể sai.",
+  "nhom": "D_ghi_de",
+  "cach_sua": "Thêm bài kiểm tra chạy trên dữ liệu thật với nhiều thao tác cấp phát và bấm lặp cùng lúc.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ },
+ "TEST-041": {
+  "id": "TEST-041",
+  "ten": "Một số bài kiểm tra phụ thuộc ngày hiện tại và số ngẫu nhiên",
+  "chuyen_gi": "Vài bài dùng ngày hôm nay hoặc số ngẫu nhiên không cố định để tạo dữ liệu thử. Nếu chạy qua nửa đêm hoặc số ngẫu nhiên trùng, kết quả có thể khác đi.",
+  "anh_huong": "Hiếm khi bài báo lỗi thất thường và khó chạy lại để tìm nguyên nhân.",
+  "nhom": "K_khac",
+  "cach_sua": "Dùng ngày cố định và số ngẫu nhiên có hạt giống cố định trong bài kiểm tra.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-042": {
+  "id": "TEST-042",
+  "ten": "Bài kiểm tra báo cơ sở ngừng hoạt động không kiểm được việc nêu tên cơ sở",
+  "chuyen_gi": "Bài chấp nhận câu có tên \"Hào Nam\" hoặc câu \"đã ngừng hoạt động\", nhưng dữ liệu thử luôn trả tên \"Kim Ngưu\". Nên bài thực chất chỉ kiểm cụm \"đã ngừng hoạt động\". Nếu thông báo bỏ mất tên cơ sở, bài vẫn đạt.",
+  "anh_huong": "Việc nêu rõ tên cơ sở cho người dùng có thể bị mất mà không có bài nào báo, và tên riêng của Dr4Women còn nằm lẫn trong bài kiểm tra.",
+  "nhom": "I_dong_goi_ban",
+  "cach_sua": "Kiểm đúng tên cơ sở lấy từ dữ liệu thử và bỏ tên riêng ghi cứng.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-043": {
+  "id": "TEST-043",
+  "ten": "Bài kiểm tra phân quyền dữ liệu phụ thuộc dữ liệu có sẵn và ngày chạy",
+  "chuyen_gi": "Một số bài lấy phòng khám, cơ sở và nhân viên đầu tiên đang có trong dữ liệu thay vì tạo riêng, và dùng ngày tính theo hôm nay. Chạy trên dữ liệu khác hoặc vào ngày khác có thể cho kết quả khác.",
+  "anh_huong": "Kiểm thử không lặp lại được, có thể báo đạt giả hoặc lỗi giả.",
+  "nhom": "K_khac",
+  "cach_sua": "Cho mỗi bài tự tạo dữ liệu riêng và dùng ngày cố định.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "TEST-044": {
+  "id": "TEST-044",
+  "ten": "Bài kiểm tra đếm cứng số quy tắc tách dữ liệu phòng khám dễ bị sửa số cho qua",
+  "chuyen_gi": "Bài kiểm tra ghim cứng số quy tắc bảo vệ dữ liệu (116) và số bảng (132). Mỗi lần thêm hay bớt bảng, người ta phải sửa số cho khớp và dễ làm máy móc.",
+  "anh_huong": "Bài có thể đỏ vì lý do vô hại, hoặc thêm một bảng và bỏ một bảng khác triệt tiêu nhau nên bảng thiếu bảo vệ thật không bị phát hiện.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Đổi sang kiểm từng bảng cần có quy tắc bảo vệ thay vì đếm tổng số.",
+  "muc_do_de_hieu": "Có thể để sau"
+ },
+ "CLIN-085": {
+  "id": "CLIN-085",
+  "ten": "Gắn, gỡ mẫu kết quả cho dịch vụ không để lại nhật ký",
+  "chuyen_gi": "Quản lý đổi mẫu kết quả của một dịch vụ bằng cách gắn mẫu mới và gỡ mẫu cũ, hoặc tạo mẫu mới có hiệu lực ngay. Tài liệu nói mọi lần đều ghi ai làm lúc nào, nhưng thực tế khi gỡ thì dòng ghi chú đó mất theo và không có nhật ký nào khác.",
+  "anh_huong": "Sau này không thể biết ai đã gỡ mẫu nào khỏi dịch vụ nào, lúc nào, nên khó tìm nguyên nhân khi bác sĩ điền nhầm mẫu cho bệnh nhân.",
+  "nhom": "J_luat_khong_canh",
+  "cach_sua": "Ghi nhật ký mỗi lần gắn, gỡ và tạo mẫu, gồm người làm, thời điểm và lý do.",
+  "muc_do_de_hieu": "Nên xử lý trong đợt tới"
+ }
+}

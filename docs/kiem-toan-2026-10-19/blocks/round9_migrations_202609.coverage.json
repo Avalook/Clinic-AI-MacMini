@@ -1,0 +1,2006 @@
+{
+  "round": "round9_migrations_202609",
+  "language": "vi",
+  "pinned_reference_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot": "/tmp/clinicai-audit-main-956ba4f2",
+  "source_limitation": "Snapshot là content export không có .git/docs; SHA-256 và line_count của 153 migration được tính từ byte trong snapshot và khớp từng entry trong MAIN-PHAM-VI.json. Không thể tự đối chiếu git object SHA tại checkout; pinned SHA lấy từ manifest. Không đọc/đánh giá migration ngoài 202609.",
+  "manifest_validation": {
+    "assigned_files": 153,
+    "matched": 153,
+    "missing": 0,
+    "mismatched": 0,
+    "status": "all_content_hashes_and_line_counts_match_manifest"
+  },
+  "review_policy": "Chỉ rà soát tĩnh: không DB, HTTP, production, secrets, PHI hay test harness. Mỗi migration được đọc toàn bộ dòng; payload JSON lớn được parse nhưng không biến thành đánh giá lâm sàng.",
+  "files": [
+    {
+      "path": "supabase/migrations/20260911000001_luot_kham_lat_1.sql",
+      "sha256": "7bd3e70f895505e3d6ef4e2a3ebdbaafa6fe6f070a21eba82c07e9f52d5a6609",
+      "line_count": 398,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 398
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000001_suc_chua_chi_chan_khi_da_cong_bo.sql",
+      "sha256": "1f5c2b8a3282e00e574d827b3f8cc124725a9595966559894195aaeeea459a50",
+      "line_count": 188,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 188
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000004_service_order_draft_visibility.sql",
+      "sha256": "43502a9c753928d4d134371cec74f5bcd79ed6419826ef4b03f4a7d406f4b1a7",
+      "line_count": 16,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 16
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000005_clinical_collaboration.sql",
+      "sha256": "aa175ecebf7d5dad495d94ecffad4611528550b7d2f7330070644a7f56dc003d",
+      "line_count": 38,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 38
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000006_luot_kham_notifications.sql",
+      "sha256": "524b3877972c52b6c3b8a2d63676d1d2ee1ecd85159048c0e49427ad20e109eb",
+      "line_count": 25,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 25
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+      "sha256": "30994ce4506659821eb0c97e765f20250f7dd7ebabfc0f596dd9fe2103c0a93f",
+      "line_count": 44,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 44
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+      "sha256": "d044070664a338a927d6390d03ae2627a60ee888cad4c46e083208b82c65ae29",
+      "line_count": 102,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 102
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000009_checkin_xac_minh.sql",
+      "sha256": "d729776410ac75bfde04013e2f2def9d5b04082f28f6dd1440ead41f4c95f1d3",
+      "line_count": 49,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 49
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000010_nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+      "sha256": "d91d233d3fbd6090bdadb2704e5c14768fcb42c634f9176fafafd170eb8ab2c8",
+      "line_count": 218,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 218
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000011_tep_ket_qua_bac_si_cho_phep_gui.sql",
+      "sha256": "2927cdf2e3c5baa222f28f9b625baae13b5277b8691a30618bc5d0af56d5713b",
+      "line_count": 251,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 251
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000012_sinh_hieu_chi_them.sql",
+      "sha256": "55e9573d919f48cfe1932fde898240aafe8e2707c9ccccbbe5bff492c6b1b6d7",
+      "line_count": 30,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 30
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000013_dieu_phoi_chi_chi_dinh_da_duyet.sql",
+      "sha256": "cc1029508d443c58d969286cccae0f03d7c3cb35287910a5c353ef06ebecc6b7",
+      "line_count": 182,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 182
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000014_suc_chua_online_truc_tiep.sql",
+      "sha256": "7a69ee4bc6d6d99c58cb79ab41eec48640bc0cf66eba0baf220eee02a6a47be7",
+      "line_count": 334,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 334
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000015_cccd_trung_canh_bao.sql",
+      "sha256": "15d8c773d326f9c0d1f06dfaba4c67d277e1673b94f5efa9309d20fd8aa9260d",
+      "line_count": 16,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 16
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000016_khach_uu_tien_va_thu_tu_kham_tay.sql",
+      "sha256": "5aaf1d313347aaa4a31fd9b6f7a648877f106eb4a2f8a04e36fa01fe4878b3ff",
+      "line_count": 40,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 40
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000017_doi_bac_si_khach_da_co_mat.sql",
+      "sha256": "bfc207b2fbc0b4978e23f5765e050ded298893d6c2f1472c371ae09a3bc869e4",
+      "line_count": 100,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 100
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000018_ket_qua_muon_han_3_ngay.sql",
+      "sha256": "25281a4f6a1e8bd25c174a6bca759c59176dd212634f01a1013ff058ad7d2835",
+      "line_count": 12,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 12
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000019_thong_bao_dich_danh.sql",
+      "sha256": "353b5b9b98a445470424bbfcf0eab218a2a725c5803a078eefc2af2896ab8ebc",
+      "line_count": 10,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 10
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000020_thu_ky_bac_si.sql",
+      "sha256": "edc68108f814e33c953679e6831ea399a7c107a1fd7cd6334dd474166a1e9e76",
+      "line_count": 37,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 37
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+      "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+      "line_count": 117,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 117
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260915000022_dich_vu_lam_lai_la_lan_moi.sql",
+      "sha256": "96fe53563e2fee6b8c487dca51f03b68bc51e68ae864d5217b2cb355e11b6492",
+      "line_count": 468,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 468
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000001_theo_doi_sau_thu_thuat.sql",
+      "sha256": "842304ed1ff03e0192bb6b32eb97e6825a83258d88fe61141bce08d7b50bcfce",
+      "line_count": 33,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 33
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000002_bat_phieu_nam_khoa.sql",
+      "sha256": "28368ffbdeb6effab0cc8fa41fb05bcb67618e0e373426ee89064171f66a5746",
+      "line_count": 68,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 68
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000003_sinh_hieu_bon_chi_so.sql",
+      "sha256": "3e0bce7b1b3b9502de2b61f608ac1516081ed67e017c5d595e678cc2800ff164",
+      "line_count": 52,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 52
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000004_bon_xet_nghiem_khong_chi_dinh_duoc.sql",
+      "sha256": "1dec2156e6725781179d142b90f3109e78bfcaf805a72073fdd24881d65c8e26",
+      "line_count": 53,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 53
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000005_suc_chua_mot_lan_cho_ca_ngay.sql",
+      "sha256": "82c16f51bc010e431f776fca45b155ebd82f8b94444695edf0e81a0e5b63c803",
+      "line_count": 126,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 126
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000006_bo_sung_danh_muc_thuoc.sql",
+      "sha256": "f1f04d9f9491684ebc3e959f44b1ebfe6382d17b1bdaa9347297924615903b98",
+      "line_count": 76,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 76
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000007_vai_doi_tac.sql",
+      "sha256": "eca05ac55a86c774c3a4cc94c83862c53abbcdc252f100427a74f0f10b527287",
+      "line_count": 88,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 88
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+      "sha256": "5dcb200a1e9b7c031f6a265f50ee11a1ee50150e84774adbf066e2aa898b0a52",
+      "line_count": 152,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 152
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+      "sha256": "fade43b870bc9ff3fd3dd5f593af6aaf01da58437901ead5356f8759127d5501",
+      "line_count": 90,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 90
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000010_gan_lai_ma_phieu_kham.sql",
+      "sha256": "4b9a82c146bc5c3cdf2b503ec54f79fbaf5a4777fdd878d56815a6964b00f288",
+      "line_count": 58,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 58
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000011_vi_tri_dong_ca.sql",
+      "sha256": "9413ce90e34643142de1aebf1d9da9400d58951407c3e78defee1db6a387c209",
+      "line_count": 59,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 59
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260916000012_hoi_benh_ai_cung_dung_duoc.sql",
+      "sha256": "0636d595cf422f1dafee74a99091f0b04f0a491629b0a03622018d40edb8f94f",
+      "line_count": 38,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 38
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql",
+      "sha256": "b4efa18d6995b6e034e636fcda826dcb8c12d41fcd80df990adae673645c8f9b",
+      "line_count": 201,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 201
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000002_tep_ket_qua_tai_lieu.sql",
+      "sha256": "02464ebfd9d527df6f89605cd0c4fafacb906933afd71bc79fde4aea71cc28ba",
+      "line_count": 29,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 29
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000003_bo_tang_ten_phong_sieu_am.sql",
+      "sha256": "d8cd85d52a30a1bbfcbb074339678d044196ea45328d012f176379bd46afca33",
+      "line_count": 14,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 14
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000004_ca_kham_bac_si_theo_vi_tri.sql",
+      "sha256": "daf1b6b418bfa1023ea371cc9cc464daf44216baca7d5b23b00df60e82d21388",
+      "line_count": 25,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 25
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000005_vi_tri_thu_ky_moi_phong.sql",
+      "sha256": "e1630c7823c4436d3938fcd33fbfd51fd4a60ae0bc0498748d26d94f67092265",
+      "line_count": 35,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 35
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000006_nam_dich_vu_kham_ap_lai.sql",
+      "sha256": "a3e1897cb7c7ea3a743d0987cc3a12f351509552287dfee51547e8e4e609b7cd",
+      "line_count": 41,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 41
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000007_goi_do_sinh_hieu_va_doi_tac_cho_tai_lieu.sql",
+      "sha256": "415d9cee66b344ebadaad715bba11a9436867d471817d09355b4859a370d5633",
+      "line_count": 23,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 23
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000008_chup_chieu_ngoai_doi_tac_tu_lam.sql",
+      "sha256": "a596f9fa5dbd76a34d995cecd75d6ab7192570b9a6546f0b1f46ddf61b93265a",
+      "line_count": 12,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 12
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000009_so_tiep_don_chung.sql",
+      "sha256": "b21be4c49360361d0eb4dd14fbc4f1c55882ba755e7ae5a74851bf41ae139620",
+      "line_count": 83,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 83
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260917000010_luot_kham_mang_loai_kham_cua_lich.sql",
+      "sha256": "4da3618881bfb209b77de345e86d2ad7f3fd54c411489bde36656959dc2aae26",
+      "line_count": 12,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 12
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260918000001_slice1_ket_qua_va_theo_doi.sql",
+      "sha256": "c6e0a4debeabc1b98fc6a8629a70d82f4aa82d214bbbae13fe80a6af3bb74682",
+      "line_count": 76,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 76
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260918000002_viec_cskh_ket_qua_doc_rail_moi.sql",
+      "sha256": "bd6b1afecb648c74683acc7afc372f38c13b16b2e53d9c50e5447f72e4dcb828",
+      "line_count": 273,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 273
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260918000003_thai_ky_bac_si_xac_nhan.sql",
+      "sha256": "8558278cf254ba7a934111668635574eecc523a16d5b786e9c605fd25e7d666f",
+      "line_count": 48,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 48
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+      "sha256": "f0b22f84593b5e5b80dd950e1eace3ce19cb7bde594411eaf644eebf7a893a2b",
+      "line_count": 136,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 136
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+      "sha256": "d031bb0a0e30ff99c0867921b6e1692c3114bed711ed95602770bcbc2480a994",
+      "line_count": 256,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 256
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+      "sha256": "9335dd055dc9056a45973fb864d0cf9c0e6312a51a0fd95efc38ee5ee9f6bc56",
+      "line_count": 445,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 445
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+      "sha256": "0e330c5459303095cbb1b571de3509c4e5e95a1724cc4073b1851f379310bc2a",
+      "line_count": 557,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 557
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260920000001_tien_thuoc_cp6_nen.sql",
+      "sha256": "402b4309c2430d2e5711cd6212f7ac6e2ba5ccc3db718837421e4702da54ef89",
+      "line_count": 160,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 160
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql",
+      "sha256": "6ffa69f2e13280184b7a721191cdc8c199211b2d77b01815b39801502b42e28a",
+      "line_count": 699,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 699
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260920000003_tien_thuoc_cp6_doc_don_hien_hanh.sql",
+      "sha256": "a88d2b6da1443fab961aec900efff253e7251ad91d40ef219f43b84758165a25",
+      "line_count": 162,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 162
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260920000004_cho_phep_ghi_exam_completed_at_khi_da_ky.sql",
+      "sha256": "040602cb6c74c84e510a0d0ae2dd6cfa7f353d18d32ecc23c042616a12154cff",
+      "line_count": 56,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 56
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260920000005_xac_nhan_tep_ket_qua.sql",
+      "sha256": "86b4467de6be9674f22b911e6631b18f2fe10d577d9ae106518999ef474a8ca7",
+      "line_count": 476,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 476
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260922000001_service_lifecycle_v1_schema.sql",
+      "sha256": "65411ee74f36915c9a6ef587063bae58d118ea09965df98dfcf8f8cd941223b5",
+      "line_count": 180,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 180
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260922000002_service_order_draft_khong_co_selection.sql",
+      "sha256": "22173bcc0a5fa5f2ab55d1f810b560d818153049054f2069aa2de812ffa7bbb7",
+      "line_count": 18,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 18
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260922000003_thu_dich_vu_nhieu_lan.sql",
+      "sha256": "a9c0c606a495f0c8fece795e149046ded71eed13f5c6ccab76fcb35bc8b8bc29",
+      "line_count": 195,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 195
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260922000004_phu_trung_ca_trong_mot_lan_thu.sql",
+      "sha256": "0853425d41c48f206726d98379f2dba697b071f79bdc4ccb748613c7c646dd98",
+      "line_count": 46,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 46
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260922000005_routing_status_khop_phong.sql",
+      "sha256": "3f221cac0add6ae289c74cff028dc4fada4e352613326127a2ea4eb2963fe422",
+      "line_count": 26,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 26
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000001_domain_event.sql",
+      "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+      "line_count": 228,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 228
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000002_projection_dong_thoi_gian.sql",
+      "sha256": "0c3f340f7cdf88350f79f943f9cfdd4ca9e2b898111f98e7717a0a78bf1b363b",
+      "line_count": 44,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 44
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000003_capability.sql",
+      "sha256": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677",
+      "line_count": 193,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 193
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000004_mau_ket_qua.sql",
+      "sha256": "560c248e0c6c05d9ef27b3f16e0193f4c6842eb68b053720948147747736b3e8",
+      "line_count": 126,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 126
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000005_form_engine.sql",
+      "sha256": "b1093a908d8a7e0848f7da4359a3349bb1e3e9634fb63d2bf4851181e3abaef6",
+      "line_count": 205,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 205
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000006_quyen_thuc_hien.sql",
+      "sha256": "f9fbba6f6810b9c94cadf605d50cb60c6952147a5a309b5b27c74fc4e07ca4ca",
+      "line_count": 46,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 46
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000007_trach_nhiem_khong_roi.sql",
+      "sha256": "4457c65f36cb3d0030e54dd0036a1e65e0a058998099f62a5c86c288ea788d38",
+      "line_count": 83,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 83
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000008_hen_gio.sql",
+      "sha256": "e3915c3c0b8f81bf40508820628113bd657b437112a36524e25174ebcba34dc3",
+      "line_count": 74,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 74
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000009_dong_thoi_gian_thu_tu.sql",
+      "sha256": "7d6af77e92da984c65aa55198f68ea4c3382386dbcd9b4c81088c7a618438544",
+      "line_count": 31,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 31
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000010_ket_qua_san_sang.sql",
+      "sha256": "a19ab38954575dab03a20b68d9ef2f0bf4df5e2b1734e65b4e9c31a5fc0e1eec",
+      "line_count": 47,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 47
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000011_nhom_quyen_mau.sql",
+      "sha256": "14180c8070a80d67c112b9fde01ec94989368abec11c896633e42d2e70b1e517",
+      "line_count": 87,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 87
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000012_fk_clinic_bay_bang.sql",
+      "sha256": "9b0678bce3adf34d99e141d84181fb5c2289155684d2df52af5c9544c247c546",
+      "line_count": 58,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 58
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000013_dieu_duong_duoc_chi_dinh.sql",
+      "sha256": "cb6e7c721bf5c1e5fb03cbf7560870a9906d8751d47ca3e9cff740da8bd6e75a",
+      "line_count": 47,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 47
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+      "sha256": "5b5d34f758e49286e1ed41bf909f6fa29013d116fc947bf85382bffa594cb2e9",
+      "line_count": 289,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 289
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000015_bat_dau_do_sinh_hieu.sql",
+      "sha256": "3588022d42e9d67d0381d7ac13746a4a52987c2ba490bc3540040aabeb0aa8d4",
+      "line_count": 88,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 88
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+      "sha256": "9457e2c7704c45399a607f744f3a4d906ec7b9873fe67149ccb534e6b786e88c",
+      "line_count": 197,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 197
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000017_xac_nhan_ket_qua_vao_quyen_moi.sql",
+      "sha256": "3864d2605672995c7a55f0255560d5715c4b54e372d20528c72065fab53457f1",
+      "line_count": 41,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 41
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000018_quyen_duong_kham.sql",
+      "sha256": "0d214fe8f1a47a8669d34da9488c7cf3684236e63609249e8906e8ae061fda84",
+      "line_count": 63,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 63
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000019_vi_tri_ten_ngan.sql",
+      "sha256": "57891b5aa5fb2f651e88513cea9540e80c04290185c2886eb9669612f7830b15",
+      "line_count": 46,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 46
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000020_so_booking.sql",
+      "sha256": "114efa2e5a19a1c9f2c02848ea73acb4281bafe51d059c769583adefe1dfaf2a",
+      "line_count": 91,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 91
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260923000021_cskh_gui_ket_qua_khong_can_cho_phep.sql",
+      "sha256": "36e229f7d6ce3824fc61ac427410206f03068e527b085cf521b7afdd40c5650e",
+      "line_count": 253,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 253
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000001_kham_tu_van.sql",
+      "sha256": "e08e135b1fd0b00802ba8b78f266c911315674fd6a3098b93a31d711f2be686a",
+      "line_count": 81,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 81
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000002_di_thang_phong_mang_sang.sql",
+      "sha256": "f6f33ba25505eb0755f438f75bf4f0b46d6d772e015e7a6ecdc2fcf0813e2232",
+      "line_count": 34,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 34
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000003_don_thuoc_bac_si_chinh.sql",
+      "sha256": "b1bb275debcad1aaa497e6e3e586c54db9f6d0c13a0a3c00c94e56a02d9ef0e9",
+      "line_count": 43,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 43
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000004_ket_qua_chuong_doi_lich.sql",
+      "sha256": "3e2399fef20665c3559b3db0247ae141abb4a69d11e53bad2607dd7c43a12919",
+      "line_count": 84,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 84
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000005_day_nghiep_vu_nhac_viec.sql",
+      "sha256": "38190d811959758735d4224a28bb56d1fc4639443f48a99acd92902a527a78f5",
+      "line_count": 65,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 65
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000006_da_xem_phieu_ket_qua.sql",
+      "sha256": "7bc079dd556d80b1ebfc1f0f28de0010091bcc577f34101ed68ec595d455e992",
+      "line_count": 11,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 11
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000007_keo_exec_status_theo_duong_lam_moi.sql",
+      "sha256": "a8ed9ba8c2fbd59af52fc4567ddc7d6579ca787876cbccc7a13fbee1bc4cc19e",
+      "line_count": 23,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 23
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000008_phieu_kham_luot.sql",
+      "sha256": "9da2248d12a64fbfef3641aab6b71dd12ab952b29f2286742e9602e84d0773f3",
+      "line_count": 101,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 101
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ SQL và kiểm tra cấu trúc payload JSON nhúng."
+    },
+    {
+      "path": "supabase/migrations/20260924000009_danh_muc_phieu_v5.sql",
+      "sha256": "8661f22567a570ab098fdb6669585c2fcca3c4cf6581617fa85f0b3ab08c5c21",
+      "line_count": 101,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 101
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000010_ruot_mau_ket_qua.sql",
+      "sha256": "2d4ea998459715e389e7f327f6dfd49898e49e593d00346a8c84cfdf97b1150a",
+      "line_count": 304,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 304
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ SQL; các payload JSON nhúng đã được phân tích cú pháp trong lượt đọc trước."
+    },
+    {
+      "path": "supabase/migrations/20260924000011_dong_bo_hai_cot_trang_thai.sql",
+      "sha256": "65b774f8e572dfcf8f08f80bbbc0bff8d3fc2f87cc7310f4cf790ca128f4db49",
+      "line_count": 120,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 120
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000012_dien_gia_trong_dich_vu_va_thuoc.sql",
+      "sha256": "c02e271d32894eed88f606140f58d7d639e5671d7f8a7ea524ad26d2dc3987ec",
+      "line_count": 148,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 148
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000013_quyen_thuoc_lich_hen.sql",
+      "sha256": "0f6017696a75a6a024e7cd057a58ddb1f1b25a80812a0cf406f7c7ba312616e6",
+      "line_count": 71,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 71
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000014_quan_ly_du_khoi_y_khoa.sql",
+      "sha256": "64967a112f85979b9ddd75dde476956223e1be86aaee91e48e4a284f79232915",
+      "line_count": 27,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 27
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260924000015_bo_chung_chi_quan_ly_moi_khoi.sql",
+      "sha256": "0273fc1d0095a33384c00e8557d165eb01c420a82ff5ccccc568b5f0b5fba51f",
+      "line_count": 16,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 16
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000001_thu_lai_sau_huy_phieu.sql",
+      "sha256": "8e7be92f4603d1169d5a3b62e35e314e2fd01d0ef271c68eb767177456d7a291",
+      "line_count": 46,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 46
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000002_thu_ngan_co_dieu_phoi.sql",
+      "sha256": "6ac58691e7b282b475643e97076c3659b9ea50414da5cf1f73c20cf879c468e4",
+      "line_count": 19,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 19
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000003_phong_du_kien_chi_dinh.sql",
+      "sha256": "1a8dcb4e513b8fc6eaf925947578663687b3d833dc4d19027ea91140c942ec89",
+      "line_count": 15,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 15
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000004_nguoi_gioi_thieu.sql",
+      "sha256": "21ea29bf667aadecd29d3ef94dadbd4ba69cf1c512d53f5b254a622a3afc7fc2",
+      "line_count": 21,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 21
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000005_quay_thuoc_nguon_dong.sql",
+      "sha256": "f300dc428111f9c4f856df0f86c9de884aa03a13b3f239c8dff61e740493bd52",
+      "line_count": 27,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 27
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000006_dat_lich_thu_thuat_san_chau.sql",
+      "sha256": "48288a9767601cbae3023ebce39dbcaef2ad2a55bca7c0adb921d43e423068da",
+      "line_count": 70,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 70
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000007_qr_khong_bat_ma.sql",
+      "sha256": "8a67b1301dd808fa836acc635b6f2087cb202e038f23e0b5bd96667060cf2fd6",
+      "line_count": 13,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 13
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000008_mau_ket_qua_chung.sql",
+      "sha256": "597e37e721c6559962f5dae860668065ea47e509d5edf74f319f672bb6f8bfb5",
+      "line_count": 30,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 30
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000009_doi_tac_nhan_viec.sql",
+      "sha256": "6cfb988dde07eea21e158dfffae179d35d517165eebf8e5ba4bca1c9c87d1af9",
+      "line_count": 50,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 50
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000010_le_tan_quan_ly_khach.sql",
+      "sha256": "f49789925fbe478bedd8a4409b8ffdb8cd4e80efbed84f3e0bc0ea001b26776d",
+      "line_count": 15,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 15
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000011_ghi_chu_lam_va_doi_tac.sql",
+      "sha256": "f602fa7138293afcd7d0f1dacd0455d97182d3ee2e6b95bbfc9eafad9732b319",
+      "line_count": 17,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 17
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000012_thuoc_quy_chuan_mot_kho.sql",
+      "sha256": "fb9b964f338fe6738af7a82be0797ddd45dbf72f5c283e6b8fb4257b9ef205a8",
+      "line_count": 52,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 52
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000013_tat_khach_quen_vao_thang.sql",
+      "sha256": "d6e1b642429a938e5138b7e3548216dad4ca4847cad61b0d01faa290d78b1395",
+      "line_count": 14,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 14
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+      "sha256": "fe146f3e313edc58592832cd7ded4536a8ae0142e9367309b07d1b2629cbb2f5",
+      "line_count": 657,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 657
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000015_lego_21.sql",
+      "sha256": "4add5ba36487c6beea1a2d5ef7bf15dd4ceb29792fc6732be950b5dd45f8dc36",
+      "line_count": 104,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 104
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000016_nguon_xep_phong.sql",
+      "sha256": "6d1851cacbd6b1644571d34ca9f5d9d741c5a3fe9ddac0b199cca306c119de95",
+      "line_count": 34,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 34
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000017_chi_dinh_bat_buoc.sql",
+      "sha256": "33111a2a8db36d8c157b0c458c675cb7f03d7cb7e9fe862446d5c7affbc1dbb9",
+      "line_count": 14,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 14
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260925000018_phieu_kham_lich_su.sql",
+      "sha256": "098ea0ef4fa40d402b9ee97b5a03eaf15177b6cf8145b650e6b949b0b4527f01",
+      "line_count": 129,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 129
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260926000001_danh_muc_dich_vu_kiotviet.sql",
+      "sha256": "a2048ec046a49019a973f78779933af2ac44f1cb8e61654ff752df129319ff96",
+      "line_count": 170,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 170
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260926000002_nhac_tai_kham_tu_phieu_v5.sql",
+      "sha256": "2ff55d92f78697029ad3ff2935a1dab7dfd09e52549e4639e9b5d9e2d729ebde",
+      "line_count": 119,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 119
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260926000003_phi_kham_kiotviet.sql",
+      "sha256": "6a4f0b220c60cd3553f75212f13c56579a0ed933d950202d681b3fa5083c2f39",
+      "line_count": 27,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 27
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260926000004_mau_ket_qua_v3.sql",
+      "sha256": "e595fb81a53a638f605fd754294a1b660bd780a892bccf57b680a4bf6e00b8b0",
+      "line_count": 378,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 378
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ SQL; phân tích cú pháp đủ 34 JSON khung mẫu."
+    },
+    {
+      "path": "supabase/migrations/20260926000005_tep_ket_qua_ben.sql",
+      "sha256": "baa573c6f42dc426bf5bd87bde9aea8b08ca8d6be871ced09d1a5e898dde37d5",
+      "line_count": 18,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 18
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260926000006_lan_chi_dinh.sql",
+      "sha256": "51b4e36c344284d168933e313977b1de55c1dad2fac4413b9ce4dc96634ce151",
+      "line_count": 75,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 75
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260926000007_notify_ket_qua_hanh_trinh.sql",
+      "sha256": "ef1f28866f9408630d89b088cf4adc4c4af843b83188664a2c16c59cadf037fa",
+      "line_count": 20,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 20
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260927000001_hang_cho_luot_da_ve.sql",
+      "sha256": "af0f33d859ca28c105f9bf4cc4c47d59daa7b19a60620ac50e2def570a59c052",
+      "line_count": 13,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 13
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260927000002_notify_realtime_con_lai.sql",
+      "sha256": "441e32f75650146115597fa930fbeadec04cd23ba1f01fc1c422757c6b759392",
+      "line_count": 59,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 59
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260927000003_ghi_chu_khach.sql",
+      "sha256": "26f402c798c9dfabf2527d1e253515d1e64172955fa2bf914177f19ae4c5a8d2",
+      "line_count": 45,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 45
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260927000004_loi_va_canh_bao.sql",
+      "sha256": "2cbf4485e3259cb19144468ee54506b8bf2f35f86aae81e92d5f95053d25f3ee",
+      "line_count": 60,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 60
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000001_ghi_chu_tu_van_cho_xoa_trang.sql",
+      "sha256": "6ac3f6a2499f143e6d43ae697943405091f44e435e1890df27758c2fb4b00233",
+      "line_count": 16,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 16
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000002_ten_muc_mau_soi_am_ho.sql",
+      "sha256": "3ebee79adb9ecb3a659d5a260abb93bc32f4dfda21f5aa0bb37cdbe0f846e854",
+      "line_count": 30,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 30
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000020_phieu_kham_v2_gon.sql",
+      "sha256": "4b9cfbed46674ac0ccde36f03dbbafab0945bccabb3204871f9476c559d7370d",
+      "line_count": 114,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 114
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ SQL; phân tích cú pháp đủ 10 JSON khung phiếu."
+    },
+    {
+      "path": "supabase/migrations/20260928000031_sinh_hieu_theo_buoi.sql",
+      "sha256": "ff2a13c2f9f64fce2c62be46ed7e5b8f62f9a0068d9689e994720dbe2f11e06d",
+      "line_count": 49,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 49
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql",
+      "sha256": "6d472dc809ef8da10ac32827099117e463f992e17b46480759a869068e9d9c5d",
+      "line_count": 99,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 99
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000092_gia_tam_phi_kham.sql",
+      "sha256": "6dae2c4c819488ca9d453b31dcc490b6581e942763ea7eebeb1942a9927e43dc",
+      "line_count": 23,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 23
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000093_ky_nang.sql",
+      "sha256": "5541ff8e1ea6a113e7d52254a2b91f382eff7369d00a5f859caddb4ea2966a78",
+      "line_count": 63,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 63
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000094_phi_tai_kham.sql",
+      "sha256": "0ddefb9cdaa65bae77ac802a0307b4791faac999b6e604b7b6b2ee388ffea690",
+      "line_count": 26,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 26
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000095_dau_do_bio_vat_tu.sql",
+      "sha256": "35df01e6ae05236ac4e95c454dd724708412191836d69733419ac8b86ffe2bc1",
+      "line_count": 72,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 72
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000096_thuoc_giao_chua_gan_lo.sql",
+      "sha256": "823048ee09773ba1d5214e2c9cb0ab3ed578c705a7edfafcbc9d474243633ba8",
+      "line_count": 55,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 55
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000097_quyen_theo_lich_phong.sql",
+      "sha256": "188b989362058a80147eeae8c927a8fcfdd2f4e8e56be6b0b03975cce7029d93",
+      "line_count": 102,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 102
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000099_phu_thu_kem_dich_vu.sql",
+      "sha256": "02bad4e8ca0a7fa7080c261fe05b514e283d2b3fcce8bdadd0e66adbadc2e65d",
+      "line_count": 123,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 123
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260928000100_phi_kham_theo_kiotviet.sql",
+      "sha256": "972be6d4aaae8551ef498e55956bdf310d7265bc802fb608f50acffb070fc7cf",
+      "line_count": 131,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 131
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql",
+      "sha256": "f2c29e4dcc397c6cf9a349917c2cd51f69b9cbfbba4ffb764477d6126e842426",
+      "line_count": 229,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 229
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929000010_dxa_ket_luan_nhanh.sql",
+      "sha256": "ae217764d4b784af1cc7b725861216689e604e8c17d0fc5cad9415c41c9c32ac",
+      "line_count": 158,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 158
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929000020_ben_thu_theo_dich_vu.sql",
+      "sha256": "cacf703ca1c3265313458f4fec6d4cb9e3085715e5fe2939d5cbee738a4084e8",
+      "line_count": 81,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 81
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929800000_mau_gui_doi_tac.sql",
+      "sha256": "ce564564049be5d880bbdff36fd5430ef88e7ab8ffc6a5207f808dc417db688d",
+      "line_count": 101,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 101
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929900000_dd_tkyk_tron_quyen.sql",
+      "sha256": "ba6ad86d5ebcf909ac07cc793bf92c15350e077a46a96d2489f94d9d17d05ac9",
+      "line_count": 38,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 38
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+      "sha256": "95297610d660c3e5fbc954871c96924116a12e2b68cf2939af0ea25a196872c8",
+      "line_count": 332,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 332
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+      "sha256": "a1c990ea2293db73fe5d9bdc6452fb82d76efd64573f4934d34488d6ad7301fa",
+      "line_count": 144,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 144
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929970000_go_dxa_khoi_phong_do_sinh_hieu.sql",
+      "sha256": "00298c146cc15f926ebdc35f5253b96a2421b2745fd8355c1aec83968d14e0db",
+      "line_count": 50,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 50
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260929980000_tra_dxa_ve_phong_do_sinh_hieu.sql",
+      "sha256": "e57c12a3b87f5d96519e9d1fad2a2c4dccf3a8c6be1b9e9236eb2aa3f38df00a",
+      "line_count": 13,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 13
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260930000001_phi_kham_tuy_chon.sql",
+      "sha256": "95e685a052e331bcbff29a5f834018958592717256aeea0c3f2edee406606907",
+      "line_count": 22,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 22
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260930200000_ly_do_chuyen_khach.sql",
+      "sha256": "2b99ea31441420cfe4826845cfaed6d9626a4f46b4305b9d9c98aab764fd6c06",
+      "line_count": 19,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 19
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260930500000_doi_hinh_thuc_thu.sql",
+      "sha256": "a2ed9dfd31315f0b07f4d305bff384343db6e18b76e6861be50dc2aa09208bb5",
+      "line_count": 138,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 138
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260930600000_ban_le_thuoc.sql",
+      "sha256": "fb51a25579978bc84704905d736c33e3cae153f79671c6ab9662aa724eb76e5a",
+      "line_count": 31,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 31
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260930700000_xoa_mem_tep.sql",
+      "sha256": "15bb9553b633f31203d28d273d37d2c345d7f4177d327f4e86076fbdb5780b3b",
+      "line_count": 392,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 392
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    },
+    {
+      "path": "supabase/migrations/20260930900000_mo_full_lego.sql",
+      "sha256": "3054730f4e6c92e117def78d6c763ebf623b63c56346744e8180b51ed8eca0c9",
+      "line_count": 52,
+      "reviewed_ranges": [
+        {
+          "start_line": 1,
+          "end_line": 52
+        }
+      ],
+      "status": "full",
+      "review_note": "Đọc toàn bộ nội dung theo dải dòng ghi nhận."
+    }
+  ]
+}

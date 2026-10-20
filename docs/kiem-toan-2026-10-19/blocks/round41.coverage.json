@@ -1,0 +1,325 @@
+{
+  "round": 41,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_targeted_semantic_trace",
+  "scope": [
+    "migration runner replay effects",
+    "POS delivery ambiguity and recovery readiness",
+    "V5 clinical release boundary policy"
+  ],
+  "method": "Read only immutable Git blobs via git show and exact-main git grep. Structural scan finds exact standalone BEGIN;/COMMIT; pair in 23 migration files. Semantic review targets 8 migrations with config DML; static relay/port/adapter/test traces; V5 route/service/release traces. No application test, DB, API, runtime, provider, production, secret or PHI access.",
+  "result": "Extended INF-008 and INF-011; added no finding ID. CLIN-020 receives a conditional release-scope note; kept as a product/clinical policy hold until V5 is explicitly included/excluded from clinical_release.",
+  "explicit_transaction_migrations": [
+    "supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql",
+    "supabase/migrations/20260821000001_ba_ca_lam_viec.sql",
+    "supabase/migrations/20260821000002_dem_ghe_ca_ngay_mot_lan.sql",
+    "supabase/migrations/20260915000010_nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+    "supabase/migrations/20260915000011_tep_ket_qua_bac_si_cho_phep_gui.sql",
+    "supabase/migrations/20260916000004_bon_xet_nghiem_khong_chi_dinh_duoc.sql",
+    "supabase/migrations/20260916000005_suc_chua_mot_lan_cho_ca_ngay.sql",
+    "supabase/migrations/20260916000006_bo_sung_danh_muc_thuoc.sql",
+    "supabase/migrations/20260916000007_vai_doi_tac.sql",
+    "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+    "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+    "supabase/migrations/20260916000010_gan_lai_ma_phieu_kham.sql",
+    "supabase/migrations/20260916000011_vi_tri_dong_ca.sql",
+    "supabase/migrations/20260916000012_hoi_benh_ai_cung_dung_duoc.sql",
+    "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql",
+    "supabase/migrations/20260917000002_tep_ket_qua_tai_lieu.sql",
+    "supabase/migrations/20261010100001_lich_su_don_thuoc_notify.sql",
+    "supabase/migrations/20261016400000_vai_ke_toan.sql",
+    "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+    "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+    "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+    "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+    "supabase/migrations/20261019140000_idempotency_payload_hash.sql"
+  ],
+  "migration_config_examples": [
+    "supabase/migrations/20260821000001_ba_ca_lam_viec.sql",
+    "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+    "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+    "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+    "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+    "supabase/migrations/20260916000010_gan_lai_ma_phieu_kham.sql",
+    "supabase/migrations/20260916000011_vi_tri_dong_ca.sql",
+    "supabase/migrations/20260916000012_hoi_benh_ai_cung_dung_duoc.sql",
+    "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql",
+    "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql"
+  ],
+  "files": [
+    {
+      "path": "scripts/apply-pending-migrations.sh",
+      "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721",
+      "lines": 158,
+      "read_ranges": [
+        {
+          "start": 53,
+          "end": 61
+        },
+        {
+          "start": 137,
+          "end": 153
+        }
+      ],
+      "notes": [
+        "psql bật ON_ERROR_STOP; runner không bật --single-transaction.",
+        "Runner nối BEGIN, nội dung migration, INSERT ledger, COMMIT; internal COMMIT có thể để INSERT chạy riêng."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260821000001_ba_ca_lam_viec.sql",
+      "sha256": "ffe46d86310693e69f80d0ee3c80f8236bdd0ddbf0913e829d3214605ded62fa",
+      "lines": 78,
+      "read_ranges": [
+        {
+          "start": 68,
+          "end": 78
+        }
+      ],
+      "notes": [
+        "Replay ghi open/close 07:00–22:00 cho mọi clinic có settings.hours rồi COMMIT."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260916000008_vi_tri_lam_viec_kim_nguu.sql",
+      "sha256": "5dcb200a1e9b7c031f6a265f50ee11a1ee50150e84774adbf066e2aa898b0a52",
+      "lines": 152,
+      "read_ranges": [
+        {
+          "start": 91,
+          "end": 95
+        },
+        {
+          "start": 136,
+          "end": 142
+        }
+      ],
+      "notes": [
+        "Danh mục vị trí được cross join qua mọi clinic.",
+        "ON CONFLICT replay cập nhật lại tên, phòng, nhóm nghề, thứ tự và trạng thái vị trí."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260916000009_ma_tran_vai_theo_vi_tri_kim_nguu.sql",
+      "sha256": "fade43b870bc9ff3fd3dd5f593af6aaf01da58437901ead5356f8759127d5501",
+      "lines": 90,
+      "read_ranges": [
+        {
+          "start": 35,
+          "end": 42
+        },
+        {
+          "start": 63,
+          "end": 65
+        }
+      ],
+      "notes": [
+        "Replay tắt lại các mã vị trí ngoài ma trận khai báo.",
+        "Replay bật lại vai trò theo ma trận chuẩn."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260916000010_gan_lai_ma_phieu_kham.sql",
+      "sha256": "4b9a82c146bc5c3cdf2b503ec54f79fbaf5a4777fdd878d56815a6964b00f288",
+      "lines": 58,
+      "read_ranges": [
+        {
+          "start": 22,
+          "end": 45
+        }
+      ],
+      "notes": [
+        "Replay gán lại form_code mặc định cho các service_type khớp mã."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260916000011_vi_tri_dong_ca.sql",
+      "sha256": "9413ce90e34643142de1aebf1d9da9400d58951407c3e78defee1db6a387c209",
+      "lines": 59,
+      "read_ranges": [
+        {
+          "start": 54,
+          "end": 57
+        }
+      ],
+      "notes": [
+        "Replay xóa giá trị phòng trên hai vị trí được nêu."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260916000012_hoi_benh_ai_cung_dung_duoc.sql",
+      "sha256": "0636d595cf422f1dafee74a99091f0b04f0a491629b0a03622018d40edb8f94f",
+      "lines": 38,
+      "read_ranges": [
+        {
+          "start": 22,
+          "end": 36
+        }
+      ],
+      "notes": [
+        "Replay đặt nhóm nghề CHUNG và bật ma trận vai trò tương ứng."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260917000001_phong_kim_nguu_va_duong_chi_dinh.sql",
+      "sha256": "b4efa18d6995b6e034e636fcda826dcb8c12d41fcd80df990adae673645c8f9b",
+      "lines": 201,
+      "read_ranges": [
+        {
+          "start": 64,
+          "end": 78
+        },
+        {
+          "start": 130,
+          "end": 158
+        }
+      ],
+      "notes": [
+        "Replay cập nhật phòng Kim Ngưu và nạp liên kết phòng–nút.",
+        "Replay gán lại phòng cho vị trí và actor_roles cho các mã thủ thuật."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/pos_relay.py",
+      "sha256": "d9f07f1ad4e00410f260f3997c63c284d575adfe279682e839686e56e14d7344",
+      "lines": 262,
+      "read_ranges": [
+        {
+          "start": 42,
+          "end": 101
+        },
+        {
+          "start": 118,
+          "end": 158
+        }
+      ],
+      "notes": [
+        "Poll lấy PENDING; advisory lock chỉ sống cùng session và không ghi trạng thái gửi trước lệnh gọi provider.",
+        "Adapter được gọi trước; row chỉ chuyển SENT sau khi adapter trả về và UPDATE DB hoàn tất."
+      ]
+    },
+    {
+      "path": "src/clinicai/ports/pos.py",
+      "sha256": "54492e205b0fa945d6e63a9e3fea64b9120fa2383b0ab4ae202cb054092dd458",
+      "lines": 111,
+      "read_ranges": [
+        {
+          "start": 43,
+          "end": 50
+        },
+        {
+          "start": 83,
+          "end": 103
+        }
+      ],
+      "notes": [
+        "Invoice có clinic_reference và contract yêu cầu adapter coi gọi lặp cùng reference là một invoice.",
+        "Port yêu cầu mọi phương thức an toàn khi được gọi hai lần cùng clinic_reference."
+      ]
+    },
+    {
+      "path": "src/clinicai/adapters/pos/kiotviet.py",
+      "sha256": "0ca83b9eed320b29e639603741f00fa3c696d384b53fdfb07b57a05cbbc5c318",
+      "lines": 83,
+      "read_ranges": [
+        {
+          "start": 37,
+          "end": 80
+        }
+      ],
+      "notes": [
+        "KiotViet hiện từ chối thao tác; chưa có adapter vendor thật được xác minh."
+      ]
+    },
+    {
+      "path": "src/tests/test_pos_relay.py",
+      "sha256": "746358e28ba6a2c8e3fbe2b8516d00735f6c247ac472664723ea710ad2d693bf",
+      "lines": 215,
+      "read_ranges": [
+        {
+          "start": 127,
+          "end": 205
+        }
+      ],
+      "notes": [
+        "Test đọc bao phủ lỗi/retry/DEAD/SENT; không có failpoint provider-accepted rồi worker chết trước UPDATE SENT."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phieu_kham.py",
+      "sha256": "fdf85d2b08cf8c7fbdc617d7e9ecc9930ad0e8a5f9d9c9be1b614b02c85b2aee",
+      "lines": 303,
+      "read_ranges": [
+        {
+          "start": 177,
+          "end": 193
+        }
+      ],
+      "notes": [
+        "PUT route gọi trực tiếp luu_luot; không truyền release state hay amendment reason."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+      "lines": 1013,
+      "read_ranges": [
+        {
+          "start": 413,
+          "end": 427
+        },
+        {
+          "start": 435,
+          "end": 492
+        }
+      ],
+      "notes": [
+        "Service lưu phiếu ở CHE_DO_MO và chỉ kiểm tra visit tồn tại trong clinic.",
+        "Service khóa revision và ghi dữ liệu/revision; đường này không gọi ClinicalSignService.amend."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/clinical_sign_service.py",
+      "sha256": "bcb3fe6970b994aa15a67d7d1dd0efde6f0ef5f9e8b2da32fa27705b76949e2e",
+      "lines": 936,
+      "read_ranges": [
+        {
+          "start": 581,
+          "end": 604
+        }
+      ],
+      "notes": [
+        "Luồng amendment mới thu hồi clinical_release và tạo việc CSKH báo lại."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260804000007_clinical_sign_release.sql",
+      "sha256": "1716b9f9e57d4d68b2116409b5437025bec7dbab4b0ddcee4ee0c80488fad796",
+      "lines": 192,
+      "read_ranges": [
+        {
+          "start": 108,
+          "end": 153
+        }
+      ],
+      "notes": [
+        "Clinical status view tổng hợp visit, clinical_release và visit_amendment; không tham chiếu phiếu V5."
+      ]
+    }
+  ],
+  "validation": {
+    "application_tests": "not run; source tests read only",
+    "database_or_fault_injection": "not run",
+    "pos_provider": "not called; KiotViet adapter is an unfinished fail-closed stub",
+    "production": "not accessed",
+    "report_qa": "pending",
+    "bundle_qa": "pending"
+  },
+  "limitations": [
+    "The migration pattern scan is structural, not semantic review of every statement in all 23 files.",
+    "Replay-triggered config overwrite is a conditional code-path effect, not evidence it happened in an actual clinic.",
+    "POS duplicate side effect depends on a future real adapter and its idempotency; no external delivery was attempted.",
+    "V5 clinical_release scope remains a product/clinical policy question.",
+    "Full source audit remains incomplete; path counts do not imply behavioral coverage."
+  ]
+}

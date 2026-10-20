@@ -1,0 +1,212 @@
+CLIN-001	HIGH	Hành trình suy rằng đã đọc kết quả khi dịch vụ ngoài vẫn chờ kết quả
+CLIN-002	MEDIUM	Check-out được dùng làm mốc xong thuốc dù chưa ghi nhận giao thuốc
+CLIN-003	HIGH	Lưu ngày tái khám có thể mất việc gọi mà màn vẫn báo lưu thành công
+CLIN-004	MEDIUM	Worklist chung chưa tách nhận và bàn giao trách nhiệm khỏi thao tác trạng thái
+CLIN-008	MEDIUM	Đường sửa hồ sơ bỏ qua kiểm tra CCCD trùng và lý do bắt buộc
+DB-001	HIGH	RPC SECURITY DEFINER cho phép gọi vượt FastAPI và tin tenant/actor do người gọi truyền
+DB-002	HIGH	Các đường phục hồi không tái lập ACL thiết kế: nhánh cấp quá rộng, nhánh khác bỏ quyền
+DB-003	MEDIUM	Migration giảm giá WIP không chạy lại được theo hợp đồng CI
+DB-004	HIGH	Danh mục riêng của Dr4Women bị trộn vào chuỗi nâng cấp dùng cho mọi phòng khám
+FIN-001	MEDIUM	WIP giảm giá: phân bổ xuống dòng có thể hụt tổng giảm, làm lệch số có thể hoàn
+FIN-002	HIGH	Nhà thuốc cắt nhiều danh sách mà không báo dữ liệu chưa đầy đủ
+FIN-003	HIGH	Thử lại thao tác thêm thuốc ở quầy có thể tạo thêm dòng mới
+FE-001	MEDIUM	Bản nháp thông tin bệnh nhân còn trong localStorage sau đăng xuất
+FE-002	MEDIUM	Dashboard giữ dữ liệu cũ nhưng không báo lần làm mới thất bại
+FE-003	MEDIUM	Tìm kiếm hành trình chỉ tìm trong 300 lượt đã tải nhưng nhãn hứa thấy khách khác
+FE-004	MEDIUM	Một số màn báo cáo/điều hành và lịch sử hóa đơn có thể trình bày lỗi đọc thành số 0, rỗng hoặc không có hoạt động
+INF-001	HIGH	Kiểm tra backup báo đạt dù thiếu auth và tệp kết quả chờ đẩy
+INF-002	HIGH	Cảnh báo Telegram thất bại lần đầu không được gửi lại khi sự cố còn mở
+INF-003	HIGH	Guard chống chạy phép thử trên production dùng sai tên môi trường
+INF-004	MEDIUM	Một consumer liên tục có việc có thể chặn hẹn giờ, cảnh báo và nhịp tim
+INF-005	MEDIUM	Claim worker hết lease không có fencing ở bước thực thi và hoàn tất
+INF-006	HIGH	Khôi phục đầy đủ DB + đăng nhập + file chưa được chứng minh bởi các script hiện hành
+SEC-001	MEDIUM	Đặt lại mật khẩu GoTrue không thu hồi thông tin đăng nhập ở cửa auth nội bộ
+INF-007	HIGH	Nghiệp vụ đã commit nhưng mất receipt có thể bị thực hiện lại sau lease
+AI-001	HIGH	Agent đóng nhận định còn đúng khi truy vấn bị giới hạn số dòng
+FIN-004	MEDIUM	Hoàn chia nhỏ có thể vượt số tiền đã thu do làm tròn từng lần
+SEC-002	MEDIUM	Thu hồi hết capability làm đường đọc tệp và phiếu kết quả quay về vai tài khoản cũ
+FE-005	MEDIUM	Ghi chú mất bản nháp cục bộ khi gặp xung đột phiên bản
+CLIN-005	HIGH	Đổi lịch đồng thời check-in có thể kéo lịch đã đến về CONFIRMED
+CLIN-006	HIGH	Ẩn thông báo đính chính cũ có thể che cả lần đính chính mới
+SEC-003	MEDIUM	Luồng upload không khai dung lượng có thể vượt khoảng trống dự phòng
+SEC-004	MEDIUM	Dashboard đang đóng gói Next/sharp thuộc phiên bản có advisory xử lý ảnh
+CLIN-007	HIGH	Giao thuốc không qua phân lô chấp nhận lô của thuốc khác dòng đơn
+FE-006	MEDIUM	Lỗi ghi nhận đã xem kết quả không được thử lại khi phiếu vẫn đang mở
+FIN-005	MEDIUM	Sổ thu và file đối soát có thể bị cắt ở 3.000 dòng mà người dùng không biết
+FIN-006	MEDIUM	Báo cáo tài chính và xuất hoá đơn nhiều ngày bị co về 93 ngày cuối
+SEC-005	MEDIUM	Danh sách nhân sự trả CCCD và hồ sơ pháp lý cho mọi nhân viên cùng clinic
+SEC-006	MEDIUM	Mở lại nhân sự vẫn báo thành công khi GoTrue không bỏ khóa tài khoản
+SEC-007	MEDIUM	RPC sức chứa SECURITY DEFINER có thể đọc quy tắc đặt lịch của clinic khác
+SEC-008	MEDIUM	Proxy Next giới hạn body ảnh ở 10 MiB, thấp hơn trần 12 MiB của service
+SEC-009	MEDIUM	Ảnh phản hồi console được ghi xuống đĩa trước khi xác thực phiên
+FIN-007	MEDIUM	Báo cáo cuối ngày có thể tính thiếu thu/hoàn khi truy vấn chạm trần 5.000 dòng
+FIN-008	MEDIUM	Báo cáo thuốc theo khách bỏ các lượt sau giới hạn 1.000 mà không báo thiếu
+INF-008	MEDIUM	Migration đã commit nhưng ledger chưa ghi có thể bị chạy lại sau gián đoạn
+DB-005	MEDIUM	Tenant mới chưa có quy trình provision workflow/catalog rõ ràng để onboarding lặp lại
+SEC-010	HIGH	API hồ sơ chia sẻ cho phép nhân viên thiếu quyền y khoa đọc form bằng cách tự đặt cùng mã bệnh nhân
+CLIN-009	MEDIUM	MPI xếp cặp hồ sơ nghi trùng vào hàng chờ nhưng chưa có đường duyệt/gộp trong ứng dụng
+FE-007	MEDIUM	Đổi bệnh nhân vẫn giữ lịch sử và phản hồi thuốc của người trước
+FE-008	MEDIUM	Hàng chờ bác sĩ quyết biến mất khi lần đọc riêng thất bại
+INF-009	MEDIUM	Đổi ngày đúng lúc timer được nhận có thể làm rơi nhắc tái khám mới
+SEC-011	HIGH	API đọc lâm sàng chưa áp dụng đầy đủ capability và phạm vi phân công
+CLIN-010	HIGH	Dời lịch đã check-in và đổi dịch vụ có thể làm lịch lệch loại khám của lượt
+CLIN-011	MEDIUM	Đổi dịch vụ, kênh hoặc người giới thiệu không lưu đủ giá trị cũ–mới
+PHAR-001	MEDIUM	Khách trả thuốc sau khi phiếu thu bị hủy không thể chọn hoàn/đổi trong cùng giao dịch
+SEC-012	HIGH	Thu hồi kỹ năng có thể để sót capability sau lỗi giữa chuỗi; bấm lại không tự đồng bộ
+CLIN-012	MEDIUM	Mẫu đã gửi đối tác có thể chờ kết quả mà không có timer nhắc CSKH
+SEC-013	HIGH	Nhật ký tạo bệnh nhân giữ nguyên CCCD và thông tin liên hệ
+CLIN-013	MEDIUM	Cảnh báo trùng số bỏ sót số điện thoại phụ đã khai
+CLIN-014	MEDIUM	PATCH hồ sơ cho phép gán bệnh nhân vào cơ sở đã ngừng hoạt động
+SEC-014	MEDIUM	Tắt hết phạm vi vị trí của một vai khiến guard lịch trực mở lại toàn quyền
+INF-010	MEDIUM	Thay đổi phạm vi xếp lịch không có audit trail bền vững trong ứng dụng
+SEC-015	MEDIUM	PATCH bảng gọi số có thể bật lại tên đầy đủ dù request chỉ đổi khu vực
+CLIN-016	MEDIUM	Cấu hình phòng có thể đổi sau kiểm tra nhưng trước khi xếp dịch vụ commit
+CLIN-017	MEDIUM	Lệnh hoàn tác Xong không khóa vào đúng lần làm đã hoàn tất
+CLIN-018	MEDIUM	Lần làm tại bàn khám lưu routing revision cũ hơn sự kiện xếp phòng
+CLIN-019	MEDIUM	Thu hồi tệp kết quả duy nhất không mở lại hạn theo dõi của đối tác
+CLIN-020	MEDIUM	Phiếu khám v5 ghi được sau FINALIZED mà không qua luồng đính chính
+CLIN-021	MEDIUM	API in kết quả chọn bản sửa mới nhất dù phiên bản đó chưa được release
+CLIN-022	MEDIUM	Danh sách CSKH liệu trình cắt ở 200 khách mà không báo còn dữ liệu
+FE-009	MEDIUM	Dashboard từ chối tài khoản nhân viên có nhiều clinic membership đang hoạt động
+INF-011	MEDIUM	POS dead-letter chưa có màn owner và quy trình khôi phục
+CLIN-023	MEDIUM	Hàng duyệt kết quả có thể che việc chờ ngoài 200 bản ghi hoặc 60 ngày
+FE-010	MEDIUM	Phòng tạm ngừng nhận vẫn đưa lượt vào danh sách có thể bấm Nhận
+CLIN-024	MEDIUM	Race đặt lịch trùng bị unique index chặn nhưng không được đổi thành lỗi nghiệp vụ
+CLIN-025	MEDIUM	patient_kind sai bị âm thầm coi như không khai báo
+CLIN-026	MEDIUM	Datetime đặt lịch không có timezone có thể gây lỗi 500 khi so sánh
+CLIN-027	MEDIUM	Danh sách checkout lượt treo cắt ở 300 mà không báo còn dữ liệu
+INF-012	MEDIUM	50 event thông báo lỗi lâu ngày có thể giữ chỗ đầu hàng đợi và health vẫn xanh
+INF-013	MEDIUM	Health và Ops không nhìn thấy ảnh chuyển khoản đang kẹt trên VPS
+INF-014	MEDIUM	CI trên máy có thể đăng trạng thái xanh cho commit dù đã kiểm mã untracked
+INF-015	HIGH	Deploy kiểm Caddyfile mới trong file tạm nhưng restart với bind-mount cũ
+SEC-016	HIGH	TKYK có thể ghi ghi chú khám hoặc thai kỳ ngoài phạm vi bệnh nhân được phân
+SEC-017	MEDIUM	Hai view quyền cấp authenticated có nguy cơ bỏ qua RLS và lộ metadata liên clinic
+FIN-009	MEDIUM	API giữ lại tiền thừa vẫn có thể ghi lại quyết định sau check-out
+CLIN-028	MEDIUM	Sửa lịch riêng bác sĩ không bật nút lưu
+CLIN-029	MEDIUM	Dropdown cơ sở trong form sửa lịch trông như lưu được nhưng PATCH bỏ qua
+AI-002	MEDIUM	Agent trả lời đã ghi nhận công việc dù không tạo hay truy vấn công việc
+AI-003	MEDIUM	Agent xác nhận đã đặt lịch nhưng graph chỉ tìm bác sĩ, không ghi lịch
+CLIN-030	MEDIUM	Mất phản hồi khi mở lượt mua thuốc có thể tạo hồ sơ khách trùng
+CLIN-031	MEDIUM	Retry chỉ định sau lỗi mạng có thể tạo thêm service_order
+CLIN-032	MEDIUM	Hàng gọi tái khám chạm trần 500 nhưng màn hình vẫn nói không còn việc
+CLIN-033	MEDIUM	Đóng lời hẹn gọi lại không bắt buộc lưu kết quả cuộc gọi
+OPS-001	MEDIUM	Tác vụ gọi tái khám chỉ được sinh khi có người mở màn CSKH
+OPS-002	MEDIUM	Việc gọi tái khám chưa có người nhận hoặc claim trước khi xử lý
+PAT-001	MEDIUM	Hàng chờ MPI PENDING không có màn/API để nhân viên xem xét
+PAT-002	MEDIUM	MPI dùng CCCD đã che để tính điểm nên có thể chấm nhầm hồ sơ trùng
+INF-016	MEDIUM	Tải ảnh siêu âm không chặn kích thước thân request trước khi đọc toàn bộ
+INF-017	MEDIUM	Cảnh báo việc bất đồng bộ DEAD/CHẾT có thể tự hết sau 24 giờ
+LAB-001	MEDIUM	Kết quả có thể đã commit nhưng BFF báo chưa lưu; retry tạo record file thứ hai
+CLIN-034	MEDIUM	Bảng đối chiếu Nam khoa vẫn hiển thị gợi ý của bộ dữ liệu cũ trong lúc bác sĩ sửa phiếu
+FE-011	MEDIUM	Phiếu Nam khoa cho người có quyền đọc vẫn gọi endpoint bị khóa theo quyền ghi
+SEC-018	MEDIUM	Kênh liên hệ và thân nhân bệnh nhân đọc được bởi mọi vai trong cùng clinic
+AI-004	MEDIUM	Client LLM dùng trong app bỏ qua trần chi phí và ledger; guard còn race khi chạy đồng thời
+API-001	MEDIUM	Lệnh kéo hàng chờ bỏ qua cơ sở của danh tính
+API-002	MEDIUM	API workflow và trạng thái lâm sàng của lượt không áp giới hạn cơ sở
+API-003	MEDIUM	Ca trực chấp nhận location, session và staff UUID ngoài tenant
+FE-012	MEDIUM	Cảnh báo trùng bệnh nhân có thể giữ liên kết của lần tra trước
+FE-013	LOW	Đổi tỉnh liên tiếp có thể lưu phường của tỉnh trước
+FE-014	MEDIUM	Danh sách ngoại lệ ca trực có thể hiển thị ngày cũ và huỷ theo ID không ràng buộc ngày
+FE-015	MEDIUM	Gỡ lịch bác sĩ có thể fail-open khi xem trước lỗi và kết quả xem trước không khoá lệnh xoá
+DB-006	MEDIUM	Một số migration tự COMMIT trước khi runner ghi sổ migration
+DB-007	LOW	Hai sổ công nợ không buộc bệnh nhân trùng với lượt được tham chiếu
+FIN-010	MEDIUM	Đối tác có thể huỷ ghi nhận thu mà không lưu lý do
+SEC-019	HIGH	Lịch sử biểu mẫu lâm sàng và ghi chú lượt đọc được theo clinic, chưa theo vai
+INF-018	MEDIUM	Thu hồi lease không áp giới hạn retry khi worker chết liên tiếp sau khi nhận việc
+INF-019	HIGH	Tín hiệu backup có thể xanh dù bản sao ngoài VPS chưa được xác nhận
+CI-001	MEDIUM	Thu hồi khóa CI cũ không nguyên tử, có thể cho phép hai lượt CI chạy đồng thời
+FE-016	MEDIUM	Chọn hai mẫu phiếu liên tiếp có thể khiến phản hồi cũ thay thế mẫu người dùng vừa chọn
+FE-017	MEDIUM	In từ lượt cũ có thể mở bản in của lượt gốc đang xem
+FIN-011	MEDIUM	Snapshot chốt ca không có điểm cắt đọc nhất quán
+FIN-012	LOW	Cờ dong_tien.khop là phép đồng nhất chứ không đối soát độc lập
+SEC-020	HIGH	Quyền tải tệp kết quả mở được toàn bộ hồ sơ khám
+PHAR-002	LOW	Điều chỉnh tồn thủ công không kiểm giới hạn và độ chính xác của số lượng
+CLIN-035	MEDIUM	Lịch tương lai có thể bị đánh dấu NO_SHOW trước giờ hẹn
+SEC-021	LOW	Exception lookup hồ sơ có thể ghi mã bệnh nhân vào log ứng dụng
+SEC-022	MEDIUM	Danh sách nhân viên gửi CCCD/email nguyên văn trong payload từng bệnh nhân
+SEC-023	MEDIUM	Preset thu ngân cấp crm.manage nên có thể ghi tương tác CSKH
+FIN-013	MEDIUM	Khoản nợ chưa có giá bị quy thành 0 trong số dư phải thu
+FIN-014	MEDIUM	Ghi nợ chỉ khớp source_id nên có thể cho check-out với số tiền snapshot đã cũ
+FIN-015	LOW	Receipt thu dịch vụ không fingerprint lựa chọn công ty nhưng replay vẫn áp lựa chọn mới
+SEC-024	LOW	Telemetry vận hành có thể trả exception detail chưa được scrub
+API-004	MEDIUM	Lệnh đổi trạng thái work item không kiểm tra cơ sở của lượt gắn kèm
+INF-020	MEDIUM	Ngân sách các pool có thể vượt trần kết nối của PostgreSQL
+SEC-025	LOW	Đổi mật khẩu không xác nhận được thu hồi phiên khác và không kiểm tra kết quả ghi nhật ký
+SEC-026	MEDIUM	Nhật ký thao tác không hiện sự kiện cấp và thu quyền nhân viên
+INF-021	MEDIUM	Nhiều thay đổi cấu hình có thể commit trước khi ghi nhật ký thao tác
+FE-018	LOW	Lỗi đọc trạng thái bệnh án có thể làm panel lỗi khi render
+INF-022	MEDIUM	Dead-letter event và timer chưa có khôi phục theo từng bản ghi trong ứng dụng
+FIN-016	LOW	Hoàn tiền mặc định gộp hình thức của giao dịch thu hỗn hợp
+CLIN-036	MEDIUM	Thu hồi tệp đã đánh dấu gửi chưa tạo luồng đính chính có người phụ trách
+FE-019	MEDIUM	Lỗi tải chuông được trình bày như không có thông báo
+FE-020	MEDIUM	Chuông chỉ trả 50 việc đang mở và không cho xem phần còn lại
+CLIN-037	MEDIUM	Bản in phiếu khám không phân biệt dữ liệu đang nhập với bản đã chốt
+CLIN-038	MEDIUM	Backend cho phép gắn mẫu kết quả sai dịch vụ vào chỉ định
+CLIN-039	MEDIUM	Hai người sửa cùng ô phiếu khám có thể ghi đè nhau mà cả hai tab báo đã lưu
+SEC-027	MEDIUM	Một số API hồ sơ bệnh nhân trả PII mà thiếu capability đọc nhất quán
+INF-023	MEDIUM	Một kênh Telegram lỗi làm các kênh đã nhận tin bị gửi lặp khi relay thử lại
+INF-024	MEDIUM	Timeout Zalo không lưu trạng thái gửi chưa rõ để nhân viên đối soát
+INF-025	LOW	Dữ liệu bệnh nhân được ghép vào HTML Telegram mà không escape
+FE-021	LOW	Bảng lịch vẫn mời nhân viên tự đăng ký dù backend đã đóng luồng
+OPS-003	MEDIUM	Áp dụng tuần coi mọi ca cùng ngày là ca phủ lịch hẹn
+SEC-028	MEDIUM	Ca PENDING có thể cấp quyền thay bác sĩ và định vị luồng khám trước khi duyệt
+INF-026	MEDIUM	Gỡ ca giữ một kết nối rồi mượn kết nối thứ hai từ cùng pool
+OPS-004	MEDIUM	API có thể từ chối ca đã duyệt mà không chạy luồng gỡ lịch an toàn
+OPS-005	LOW	Kết quả gọi tái khám có thể được nhận như đã ghi dù nhật ký CSKH chưa có
+FE-022	LOW	Một số danh sách và lịch sử chỉ hiển thị tối đa N mục mà không báo còn trang
+CLIN-040	MEDIUM	Hai lần lưu số đo siêu âm có thể ghi đè findings từ cùng một snapshot cũ
+SEC-029	MEDIUM	PostgREST cho tài khoản cùng clinic đọc trực tiếp toàn bộ hồ sơ bệnh nhân
+SEC-030	MEDIUM	PostgREST đọc dữ liệu thu tiền vượt phạm vi ca trực của API
+CLIN-041	MEDIUM	Form Engine generic lưu field ngoài schema nhưng giao diện không hiển thị
+SEC-031	MEDIUM	Bộ che dữ liệu staging có thể bỏ sót tên và số trong văn bản tự do
+SEC-032	MEDIUM	Script cấp tài khoản dùng mật khẩu dễ đoán nếu không override
+FE-023	LOW	Một số thao tác và form xác thực có thể kẹt khi request lỗi mạng
+FE-024	MEDIUM	Bảng trang chính có thể ẩn lượt mới sau cap 300 mà không báo cắt
+API-005	LOW	Nạp lịch sử bệnh án có thể chạy tới 200 truy vấn tuần tự
+FE-025	MEDIUM	Lỗi kiểm tra trùng bệnh nhân có thể bị hiểu là không trùng
+API-006	LOW	Loại số điện thoại sai bị âm thầm đổi thành số chính
+OPS-006	LOW	Giá trị giữ backup bằng 0 có thể xóa toàn bộ ngày backup trên CFS
+OPS-007	LOW	Chú thích Supabase cũ có thể dẫn operator vượt qua migration gate hiện hành
+CLIN-043	MEDIUM	Đổi bác sĩ và hoàn tác check-in có thứ tự khóa ngược nhau
+LAB-002	LOW	Kết quả đã chốt vẫn có thể sinh lại task LAB_REVIEW khẩn
+FE-026	LOW	Lịch sử điều phối có thể kẹt ở trạng thái đang tải
+OPS-008	MEDIUM	Danh sách kiểu lỗi chỉ lấy 100 dòng mà không báo còn dữ liệu
+CLIN-044	MEDIUM	Retry hẹn gọi lại có thể tạo nhiều việc và thông báo cho cùng một lần hẹn
+PHAR-003	MEDIUM	Hai người sửa phiếu kiểm kê cùng lúc có thể âm thầm ghi đè số đếm
+PHAR-004	LOW	Mất phản hồi khi chốt kiểm kê bị báo là chưa lưu dù phiếu đã chốt
+FIN-017	MEDIUM	Hồ sơ khách có thể bỏ sót công nợ ở các lượt khám cũ
+FIN-018	LOW	Hai hóa đơn đồng thời có thể tạo hai hồ sơ công ty giống nhau cho cùng khách
+OPS-009	MEDIUM	Tổng lượt trên màn giám sát có thể thấp hơn thực tế sau giới hạn 400
+CLIN-045	MEDIUM	Lịch sử phản hồi CSKH có thể bị cắt ở 300 dòng và trông như chưa từng có phản hồi
+CLIN-046	MEDIUM	Mở lại lượt có thể hồi sinh hàng chờ trong phòng đã ngừng hoạt động
+CLIN-047	MEDIUM	Tạo đồng thời hai hồ sơ cùng CCCD có thể vượt cảnh báo trùng
+SEC-033	MEDIUM	Duyệt nháp chỉ định không kiểm capability trong transaction ghi
+CLIN-048	LOW	Duyệt nháp chỉ định cũ không phát sự kiện vào timeline lượt khám
+SEC-034	MEDIUM	Bỏ phòng cuối trong quyền đang bật có thể cấp quyền toàn phòng khám
+SEC-035	LOW	Ảnh chuyển khoản đã gỡ khỏi danh sách vẫn đọc được qua URL cũ
+CLIN-049	LOW	Đổi bác sĩ nhưng giữ khung giờ có thể để sót nhãn giữ chỗ cũ
+CLIN-050	MEDIUM	Tệp kết quả cũ có thể biến mất khỏi ngữ cảnh lượt khám khi danh sách chạm trần
+CLIN-051	LOW	Bấm đồng thời “Đã xử lý sắp hết liệu trình” có thể ghi trùng tương tác CSKH
+CLIN-052	LOW	Availability khi đặt lịch không đổi theo cơ sở được chọn trong form
+CLIN-053	MEDIUM	Đổi giờ thành công nhưng lỗi ghi nhắc gọi báo khách bị bỏ qua
+OPS-010	MEDIUM	Hàng chờ xếp bác sĩ có thể trông hết dù còn lịch sau giới hạn 500
+API-007	MEDIUM	Detail và thao tác việc đối tác không kiểm cơ sở của đối tượng đích
+CLIN-054	MEDIUM	Lỗi dò phiếu V5 có thể khiến trang in rơi về bản tóm tắt cũ
+CLIN-055	MEDIUM	Tra lịch sử dịch vụ lỗi hoặc chưa xong vẫn có thể gửi patient_kind NEW cũ
+OPS-011	MEDIUM	Màn dọn khách thử không bắt buộc hồ sơ phải là dữ liệu thử
+CLIN-056	MEDIUM	Lưu bệnh án có thể bỏ qua thay đổi riêng mã thuốc trong đơn còn nháp
+SEC-036	HIGH	TKYK có thể chốt kết quả xét nghiệm ngoài phạm vi bác sĩ được phân
+FIN-019	MEDIUM	Tab việc còn tồn trả khoản ngoài ngày/ca được phân công
+INF-027	MEDIUM	Trạng thái Ops tổng thể có thể xanh khi worker cốt lõi đang dừng
+INF-028	LOW	Tệp đã đánh dấu dọn vẫn có thể xuất hiện muộn trên CFS sau timeout
+OPS-012	MEDIUM	Trung vị vận hành đổi theo filter khách và có thể chỉ tính 2.000 sự kiện đầu
+SEC-037	MEDIUM	API chỉ định dịch vụ không kiểm tra phạm vi bác sĩ được phân
+FE-027	LOW	Cookie cơ sở đã bị tắt có thể làm người dùng mắc kẹt ngoài màn chọn cơ sở
+CLIN-057	LOW	Gửi lại lệnh đổi lịch có thể nhân đôi lịch sử và sự kiện đổi lịch
+CLIN-058	LOW	Gửi lại phản hồi CSKH sau khi mất phản hồi có thể tạo bản ghi trùng
+FE-028	LOW	Preview luật bác sĩ có thể cũ nhưng vẫn được lưu theo cách tính mới
+FIN-020	LOW	Ràng buộc DB có thể nhận sổ đổi hình thức chỉ có một phần tiền
+OPS-013	LOW	Lịch sử lịch trực có thể sắp phiên bản sai thứ tự khi giao dịch chồng lấn
+CLIN-059	MEDIUM	Hai lệnh đổi lịch đồng thời có thể ghi đè nhau và làm sai lịch sử chuyển tiếp
+CLIN-060	MEDIUM	Đổi dịch vụ trong hồ sơ có thể làm phí mặc định mới bị coi là đã thu đủ
+OPS-014	MEDIUM	Luật 'phải gặp người gác cổng trước' (only_when_other_staff) không thể chặn qua API điều phối

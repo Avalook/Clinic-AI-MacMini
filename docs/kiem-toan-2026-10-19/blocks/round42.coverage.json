@@ -1,0 +1,518 @@
+{
+  "round": 42,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_targeted_semantic_trace_with_independent_security_review",
+  "scope": [
+    "consent API authorization",
+    "PostgREST/timeline access dedupe",
+    "tenant foreign-key lifecycle",
+    "pregnancy and clinical-form route guard controls"
+  ],
+  "method": "Read source only from immutable Git blobs using git show; exact-main git grep for dashboard callers; read-only independent security review; tests read but not run. No ClinicAI API/database/runtime/provider/VPS/production/secret/PHI access.",
+  "result": "Extended SEC-010 with sibling /links metadata exposure under the same consent-router identity-only boundary; no new finding ID. Tenant invoice FK candidate deduplicates with DB-007; timeline direct-select candidate did not add a distinct permission scope versus the normal internal journey API; pregnancy and normal clinical form route checks did not yield a new candidate.",
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/consent.py",
+      "sha256": "6e68c4c00e96afc9c029b49a358f3e6c9faef2501ec2d1812961754326f5bb29",
+      "lines": 138,
+      "read_ranges": [
+        {
+          "start": 36,
+          "end": 47
+        }
+      ],
+      "notes": [
+        "Sibling links endpoint uses get_current_identity and returns linked-partner metadata."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/consent_service.py",
+      "sha256": "b2f1f305282eace46a6fc38d0dab4ad7a4acdf65afeea84037b16abb2eb9d2d2",
+      "lines": 454,
+      "read_ranges": [
+        {
+          "start": 100,
+          "end": 121
+        },
+        {
+          "start": 140,
+          "end": 185
+        }
+      ],
+      "notes": [
+        "Consent lookup and linked-partner lookup are scoped to identity.clinic_id plus supplied patient UUID.",
+        "Response contains relationship, other patient ID/name/code and allowed form-code metadata in both directions."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260804000020_patient_link_consent.sql",
+      "sha256": "7edb67e21e913b14d4fa02bc7f1aa5b26f6d8feb589b7e990b929a6686b7feb2",
+      "lines": 171,
+      "read_ranges": [
+        {
+          "start": 149,
+          "end": 162
+        }
+      ],
+      "notes": [
+        "RLS distinguishes clinic-wide patient_link reads from clinical-role-only consent reads."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "lines": 139,
+      "read_ranges": [
+        {
+          "start": 59,
+          "end": 85
+        }
+      ],
+      "notes": [
+        "The clinical read set is DOCTOR, ULTRASOUND_DOCTOR, TKYK and NURSE_ULTRASOUND; management is explicitly excluded by default."
+      ]
+    },
+    {
+      "path": "src/clinicai/core/database.py",
+      "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+      "lines": 140,
+      "read_ranges": [
+        {
+          "start": 85,
+          "end": 106
+        }
+      ],
+      "notes": [
+        "The backend creates its asyncpg pool from DATABASE_URL; runtime credentials were not inspected."
+      ]
+    },
+    {
+      "path": ".env.prod.example",
+      "sha256": "046ee04614dbb49c941f676b5d15b01bfb10cccfbb1a4626ed5c9442913eb89a",
+      "lines": 166,
+      "read_ranges": [
+        {
+          "start": 41,
+          "end": 41
+        }
+      ],
+      "notes": [
+        "The checked-in production example uses a postgres database user; this is a template, not proof of the active secret value."
+      ]
+    },
+    {
+      "path": "src/tests/services/test_consent_service_io.py",
+      "sha256": "e4aca6dca628705806edc9a86102f6634f2a157ffda053fb0321722c0f366c76",
+      "lines": 323,
+      "read_ranges": [
+        {
+          "start": 294,
+          "end": 323
+        }
+      ],
+      "notes": [
+        "Service IO test returns relationship and form-code metadata; it does not exercise route role authorization and was not run."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/xem_luot.py",
+      "sha256": "4e5eba248e887f14f25a7344949f61d3c6b2f2db50e7053f0533fbf8bc73c0d1",
+      "lines": 67,
+      "read_ranges": [
+        {
+          "start": 17,
+          "end": 20
+        },
+        {
+          "start": 44,
+          "end": 54
+        }
+      ],
+      "notes": [
+        "Normal visit journey endpoints are available to internal staff; the table does not add a capability boundary absent from this API.",
+        "Per-visit journey endpoint delegates to HanhTrinhKhachService under cua_noi_bo."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/xem_luot_service.py",
+      "sha256": "5170b060aa02d09572916a8b1d4da1f3ea42c10bd5ca2cfa67d9cceaa3828ca2",
+      "lines": 814,
+      "read_ranges": [
+        {
+          "start": 176,
+          "end": 194
+        }
+      ],
+      "notes": [
+        "Timeline reads the projection and returns its whitelisted chi_tiet fields for the selected clinic/visit."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "lines": 404,
+      "read_ranges": [
+        {
+          "start": 189,
+          "end": 202
+        }
+      ],
+      "notes": [
+        "Operations diary is a separate ops.view route, scoped to identity.clinic_id."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/nhat_ky_van_hanh.py",
+      "sha256": "37fc8c000449b89e8d9a5b010fd8e826b9a694b3b05911cdd8cf07adbd7cb590",
+      "lines": 162,
+      "read_ranges": [
+        {
+          "start": 89,
+          "end": 114
+        }
+      ],
+      "notes": [
+        "Operations diary reads selected label/actor fields, not chi_tiet; do not conflate it with the general visit journey."
+      ]
+    },
+    {
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "lines": 247,
+      "read_ranges": [
+        {
+          "start": 30,
+          "end": 53
+        },
+        {
+          "start": 80,
+          "end": 149
+        },
+        {
+          "start": 209,
+          "end": 246
+        }
+      ],
+      "notes": [
+        "Projection uses an event-specific field whitelist.",
+        "Whitelist includes operational reasons, amounts and consultation result labels; contents are not arbitrary event payloads.",
+        "Consumer persists only the whitelist projection and deduplicates by event_id."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260923000002_projection_dong_thoi_gian.sql",
+      "sha256": "0c3f340f7cdf88350f79f943f9cfdd4ca9e2b898111f98e7717a0a78bf1b363b",
+      "lines": 44,
+      "read_ranges": [
+        {
+          "start": 14,
+          "end": 44
+        }
+      ],
+      "notes": [
+        "Projection has clinic-only SELECT RLS/grant. No new finding because the normal visit journey API already exposes the same projection to internal staff; runtime PostgREST was not tested."
+      ]
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+      "sha256": "e2428a42876ffede1d0cd751a7e61e7e68c06d482f72a685bb875571d9c4307e",
+      "lines": 237,
+      "read_ranges": [
+        {
+          "start": 63,
+          "end": 92
+        }
+      ],
+      "notes": [
+        "Dashboard loads the normal API and uses table subscriptions to refresh; no direct PostgREST row-read was found in this component."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+      "sha256": "3d0c14703267d659bdfb1d6c93583dfd7299fd25f820cf4b2216b6c4850d9585",
+      "lines": 110,
+      "read_ranges": [
+        {
+          "start": 14,
+          "end": 35
+        },
+        {
+          "start": 60,
+          "end": 68
+        }
+      ],
+      "notes": [
+        "Company invoice references are separate FKs without a composite patient/company-clinic constraint.",
+        "Migration leaves same-company/patient validation to the service."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+      "sha256": "5a531711543f93e9d8c5a008e55d25d8f7fd484e3b0da3c5ca770e0877dfa194",
+      "lines": 772,
+      "read_ranges": [
+        {
+          "start": 214,
+          "end": 239
+        },
+        {
+          "start": 374,
+          "end": 393
+        },
+        {
+          "start": 478,
+          "end": 488
+        },
+        {
+          "start": 558,
+          "end": 579
+        }
+      ],
+      "notes": [
+        "Service validates the clinic-scoped patient before creating the company invoice.",
+        "Company selection is scoped to clinic and patient context.",
+        "Invoice update path retains the clinic/patient scope.",
+        "Finalization path checks the same clinic-scoped identities."
+      ]
+    },
+    {
+      "path": "src/tests/services/test_hoa_don_cong_ty_db.py",
+      "sha256": "84b9d531f7720be5e331c00e30bebfee7ff9bb5a9965a1046fd8f4a2bc3f8a9c",
+      "lines": 463,
+      "read_ranges": [
+        {
+          "start": 317,
+          "end": 330
+        }
+      ],
+      "notes": [
+        "Test rejects a company belonging to a different patient; read only, not run. Similar to DB-007, so no new finding."
+      ]
+    },
+    {
+      "path": "supabase/migrations/20261019110000_pharmacy_inventory_p1_guards.sql",
+      "sha256": "6923d23215b09a4da4dc84f2970bd1cc2687ea003d2d7c19b5fc466c69128257",
+      "lines": 85,
+      "read_ranges": [
+        {
+          "start": 42,
+          "end": 64
+        }
+      ],
+      "notes": [
+        "Composite request-to-inventory transaction FK retains clinic and batch scope; staff FK is global."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+      "lines": 3335,
+      "read_ranges": [
+        {
+          "start": 2640,
+          "end": 2712
+        }
+      ],
+      "notes": [
+        "Inventory request writer derives staff and clinic from identity; multi-clinic staff use is not shown to be a violation."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/thai_ky.py",
+      "sha256": "426d59638872d6490bbc0760bfaad19c6a6a1123adb5de714cec0cd32751f9c3",
+      "lines": 85,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 85
+        }
+      ],
+      "notes": [
+        "Full router read: medical read guard and service-owned write permission; no new issue in this slice."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/thai_ky_service.py",
+      "sha256": "6aedec9a9f1686f857e32e8c51117f533524ff9e4bb44cc418d0dc027d865d07",
+      "lines": 568,
+      "read_ranges": [
+        {
+          "start": 310,
+          "end": 318
+        },
+        {
+          "start": 370,
+          "end": 390
+        },
+        {
+          "start": 392,
+          "end": 467
+        },
+        {
+          "start": 469,
+          "end": 545
+        }
+      ],
+      "notes": [
+        "Service checks pregnancy write capability rather than trusting the broad identity dependency.",
+        "Pregnancy reads require medical access and the patient is checked within identity clinic.",
+        "Create path checks writer permission, clinic-scoped patient and matching clinic-scoped visit.",
+        "Update path checks writer permission and scopes the pregnancy row by clinic."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+      "sha256": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+      "lines": 122,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 122
+        }
+      ],
+      "notes": [
+        "Full router read: normal form read/write routes declare clinical capability guards; service-level coverage remains partial."
+      ]
+    }
+  ],
+  "additional_security_evidence": [
+    {
+      "path": "src/clinicai/api/v1/routers/consent.py",
+      "line": 36,
+      "end_line": 47,
+      "sha256": "6e68c4c00e96afc9c029b49a358f3e6c9faef2501ec2d1812961754326f5bb29",
+      "excerpt": "36: @router.get(\"/patients/{patient_id}/links\")\n37: async def links(\n38:     patient_id: UUID,\n39:     identity: StaffIdentity = Depends(get_current_identity),\n40:     pool: asyncpg.Pool = Depends(get_db_pool),\n41: ) -> dict[str, Any]:\n42:     \"\"\"Ai liên kết với bệnh nhân này, và mỗi chiều chia sẻ được form nào.\"\"\"\n43:     return {\n44:         \"partners\": await ConsentService(pool).linked_partners(\n45:             identity=identity, patient_id=str(patient_id)\n46:         )\n47:     }",
+      "detail": "Links endpoint depends on get_current_identity and has no clinical capability dependency.",
+      "lines": 138
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "line": 638,
+      "end_line": 659,
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "excerpt": "638: async def get_current_identity(\n639:     identity: StaffIdentity = Depends(_resolve_identity),\n640: ) -> StaffIdentity:\n641:     \"\"\"Danh tính của một NGƯỜI đang làm việc.\n642: \n643:     Từ chối vai DISPLAY. Đây là chốt quan trọng nhất của vai đó: mọi endpoint\n644:     trong hệ đều đi qua dependency này (có RoleGuard hay không), nên chặn ở đây\n645:     nghĩa là cái tivi bị chặn ở khắp nơi MÀ KHÔNG PHẢI liệt kê chỗ nào. Bản\n646:     kiểm kê 06/08 đếm được 26/119 endpoint chưa có RoleGuard — một danh sách\n647:     cho phép sẽ bỏ sót đúng những chỗ ấy.\n648:     \"\"\"\n649:     if identity.role is ClinicRole.DISPLAY:\n650:         raise HTTPException(\n651:             status_code=status.HTTP_403_FORBIDDEN,\n652:             detail=\"Tài khoản màn hình chỉ được xem bảng gọi số\",\n653:         )\n654:     if identity.role is ClinicRole.PARTNER:\n655:         raise HTTPException(\n656:             status_code=status.HTTP_403_FORBIDDEN,\n657:             detail=\"Tài khoản đối tác chỉ được gửi kết quả\",\n658:         )\n659:     return identity",
+      "detail": "Identity guard rejects DISPLAY/PARTNER only; other resolved internal roles pass.",
+      "lines": 1120
+    },
+    {
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "line": 59,
+      "end_line": 85,
+      "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "excerpt": "59: -- The same four roles the backend already calls CLINICAL_WRITE_ROLES\n60: -- (clinicai.api.identity): whoever may write the note may read it. Keeping the\n61: -- two lists identical means there is one answer to \"who does clinical work\",\n62: -- not a database answer and an application answer that drift apart.\n63: --\n64: -- MANAGEMENT is deliberately NOT here. Per the role map (§7.8), running the\n65: -- clinic does not come with reading medical records; if a manager needs a\n66: -- record they are granted the clinical role explicitly. Reports read aggregates\n67: -- through the backend, not rows through PostgREST.\n68: \n69: CREATE OR REPLACE FUNCTION public.current_clinical_clinic_ids()\n70: RETURNS SETOF uuid\n71: LANGUAGE sql\n72: STABLE\n73: SET search_path TO 'public', 'pg_temp'\n74: AS $$\n75:     SELECT public.current_clinic_ids_for_roles(\n76:         ARRAY['DOCTOR', 'ULTRASOUND_DOCTOR', 'TKYK', 'NURSE_ULTRASOUND']\n77:     )\n78: $$;\n79: \n80: COMMENT ON FUNCTION public.current_clinical_clinic_ids() IS\n81:   'Clinics where the caller does clinical work. Mirrors CLINICAL_WRITE_ROLES '\n82:   'in clinicai.api.identity — change both together.';\n83: \n84: GRANT EXECUTE ON FUNCTION public.current_clinical_clinic_ids()\n85:     TO authenticated, service_role;",
+      "detail": "Clinical RLS allow-set is limited to four medical roles; MANAGEMENT is explicitly excluded by default.",
+      "lines": 139
+    }
+  ],
+  "dashboard_string_search": {
+    "ConsentService": {
+      "exit_code": 1,
+      "matches": [],
+      "interpretation": "No string match is not proof of no dynamically constructed caller."
+    },
+    "/links": {
+      "exit_code": 1,
+      "matches": [],
+      "interpretation": "No string match is not proof of no dynamically constructed caller."
+    },
+    "linked_partners": {
+      "exit_code": 1,
+      "matches": [],
+      "interpretation": "No string match is not proof of no dynamically constructed caller."
+    },
+    "luot_dong_thoi_gian": {
+      "exit_code": 0,
+      "matches": [
+        "956ba4f236b1c92f1280d2097018c199e90ce8c7:src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:134:  \"luot_dong_thoi_gian\",",
+        "956ba4f236b1c92f1280d2097018c199e90ce8c7:src/dashboard/app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx:57:  \"luot_dong_thoi_gian\",",
+        "956ba4f236b1c92f1280d2097018c199e90ce8c7:src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/HanhTrinhLuot.tsx:33:  \"luot_dong_thoi_gian\",",
+        "956ba4f236b1c92f1280d2097018c199e90ce8c7:src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx:92:  useNgheBang([\"luot_dong_thoi_gian\", \"visit\", \"queue_entry\"], () => void tai());"
+      ],
+      "interpretation": "Exact-main string matches recorded."
+    }
+  },
+  "reviewer": {
+    "agent": "round42_sec_review",
+    "conclusion": "Merge /links metadata into SEC-010 rather than create SEC-036; same router guard boundary. Candidate remains static and conditional on actual DB credentials/UUID knowledge.",
+    "runtime_role_verified": false
+  },
+  "reviewed_candidates": [
+    {
+      "id": "ROUND42-TIMELINE-ACCESS-001",
+      "disposition": "reviewed_no_distinct_finding_after_api_scope_dedupe",
+      "rationale": "The direct table grant is clinic-only, but the normal visit-journey API uses cua_noi_bo and returns the same event-specific whitelist to internal staff. Dashboard usage here is API fetch plus refresh subscription. No PostgREST request was run; ops.view diary is a separate route and not conflated with visit history.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20260923000002_projection_dong_thoi_gian.sql",
+          "lines": "14-44",
+          "sha256": "0c3f340f7cdf88350f79f943f9cfdd4ca9e2b898111f98e7717a0a78bf1b363b"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/xem_luot.py",
+          "lines": "17-20",
+          "sha256": "4e5eba248e887f14f25a7344949f61d3c6b2f2db50e7053f0533fbf8bc73c0d1"
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "lines": "176-194",
+          "sha256": "5170b060aa02d09572916a8b1d4da1f3ea42c10bd5ca2cfa67d9cceaa3828ca2"
+        },
+        {
+          "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+          "lines": "30-53",
+          "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2"
+        }
+      ]
+    },
+    {
+      "id": "ROUND42-COMPANY-INVOICE-FK-001",
+      "disposition": "no_new_finding_duplicate_of_DB-007",
+      "rationale": "Schema FKs are not composite-scoped to clinic/patient, but the service validates clinic and patient before write and the existing test rejects a different patient's company. This is a defense-in-depth gap, not a demonstrated current service path failure; retain under DB-007's broader relationship invariant.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+          "sha256": "3d0c14703267d659bdfb1d6c93583dfd7299fd25f820cf4b2216b6c4850d9585"
+        },
+        {
+          "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+          "sha256": "5a531711543f93e9d8c5a008e55d25d8f7fd484e3b0da3c5ca770e0877dfa194"
+        },
+        {
+          "path": "src/tests/services/test_hoa_don_cong_ty_db.py",
+          "sha256": "84b9d531f7720be5e331c00e30bebfee7ff9bb5a9965a1046fd8f4a2bc3f8a9c"
+        }
+      ]
+    },
+    {
+      "id": "ROUND42-PHARMACY-STAFF-FK-001",
+      "disposition": "held_not_a_finding_without_tenant_violation_evidence",
+      "rationale": "The migration has a global staff FK, but the reviewed writer takes actor identity from the current staff and that staff may be active in multiple clinics. No cross-clinic write or identity mismatch was shown.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20261019110000_pharmacy_inventory_p1_guards.sql",
+          "sha256": "6923d23215b09a4da4dc84f2970bd1cc2687ea003d2d7c19b5fc466c69128257"
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a"
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "application_tests": "not run; relevant source tests read only",
+    "API_or_HTTP": "not run",
+    "database_or_PostgREST": "not accessed",
+    "production_or_secrets_or_PHI": "not accessed",
+    "report_qa": "pending",
+    "bundle_qa": "pending"
+  },
+  "limitations": [
+    "The /links exposure assumes the backend database role can read the rows under the application's DATABASE_URL; the checked-in production example uses postgres, but the active secret/runtime role was not inspected.",
+    "No dashboard string match was found for /links/ConsentService; dynamically constructed callers and API UUID discovery were not verified.",
+    "The timeline projection stores only event-specific whitelisted fields; the normal internal visit-journey route already returns that projection. No direct PostgREST request was run.",
+    "Company invoice schema lacks a composite patient/clinic FK, but reviewed service/test evidence does not show a current cross-tenant write; retained as a DB-007 defense-in-depth relationship pattern.",
+    "Test results were not executed. All conclusions are static and exact-main; no incident or real patient exposure is claimed.",
+    "Full source audit remains incomplete; path counts are not semantic/behavioral coverage."
+  ]
+}

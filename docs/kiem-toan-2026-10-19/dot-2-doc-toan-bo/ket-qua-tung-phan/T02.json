@@ -1,0 +1,940 @@
+{
+ "chunk": "T02",
+ "findings": [
+  {
+   "tmp_id": "T02-1",
+   "title": "Có test xanh canh mã không còn được dùng, trong đó có test khẳng định luật báo kết quả xét nghiệm đã lỗi thời",
+   "severity": "MEDIUM",
+   "category": "test_false_assurance",
+   "evidence_level": "confirmed_static",
+   "summary": "Một số bài kiểm trong src/dashboard/tests/ import hàm từ lib/ mà không tệp nguồn nào khác import lại (git grep toàn src, ngoài tests/, không có kết quả): lib/lab-release.ts, lib/cashier-total.ts, lib/clinical-workspace-policy.ts, lib/ca-kham-bac-si.ts và cặp sieu-am/KetQuaPhuKhoa.tsx + ket-qua-phu-khoa-du-lieu.ts. Test vẫn xanh nên đọc như 'bất biến này đang được canh', trong khi nơi thực sự thi hành là chỗ khác. Nặng nhất là labReleaseDecision: bài test khẳng định chỉ GROUP_A đã chốt mới được báo bệnh nhân, còn B/C luôn bị chặn, trong khi luật hiện hành ở backend (đổi 15/09/2026) là: bác sĩ đã chốt thì được báo, nhóm AI chỉ là nhãn gợi ý.",
+   "trigger": "Một dev (hoặc AI) đọc tên test 'only finalized GROUP_A laboratory results may be reported to a patient' hay 'a missing price or ambiguous medicine quantity blocks collection' để tin rằng quy tắc ấy đang được thi hành/canh; hoặc nối lại hàm cũ vào UI vì nó có sẵn test.",
+   "impact": "Xanh giả cho quy tắc an toàn lâm sàng và quy tắc tiền. Nếu hàm lab-release được gắn lại vào giao diện, màn sẽ báo 'KHÔNG báo BN' cho kết quả B/C đã được bác sĩ duyệt (mâu thuẫn backend). Nếu KetQuaPhuKhoa được dùng lại, ô số dùng Number() nên '8,5' (dấu phẩy Việt) thành undefined và bị bỏ im lặng khỏi findings. Test ca-kham-bac-si chỉ giữ bản TS khớp bản Python trong khi không mã nào dùng bản TS.",
+   "evidence": [
+    {
+     "path": "src/dashboard/tests/clinical-access-boundary.test.mts",
+     "line": 20,
+     "end_line": 31,
+     "detail": "Test 'only finalized GROUP_A ... may be reported': GROUP_B/GROUP_C/PENDING phải allowed=false."
+    },
+    {
+     "path": "src/dashboard/lib/lab-release.ts",
+     "line": 15,
+     "end_line": 54,
+     "detail": "labReleaseDecision; git grep 'lab-release' trong src ngoài tests/ không có importer."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/lab.py",
+     "line": 285,
+     "end_line": 330,
+     "detail": "Luật thật: 'BÁC SĨ QUYẾT, KHÔNG PHẢI NHÓM AI' (đổi 15/09/2026); đã chốt mới là được báo, nhóm AI chỉ là nhãn; endpoint /results/{id}/release."
+    },
+    {
+     "path": "src/dashboard/tests/cashier-total-boundary.test.mts",
+     "line": 14,
+     "end_line": 37,
+     "detail": "Test 'a missing price or ambiguous medicine quantity blocks collection' trên calculateCashierTotal."
+    },
+    {
+     "path": "src/dashboard/lib/cashier-total.ts",
+     "line": 24,
+     "end_line": 52,
+     "detail": "calculateCashierTotal chỉ có test import; không đường UI nào gọi (git grep cashier-total ngoài tests/ rỗng)."
+    },
+    {
+     "path": "src/dashboard/tests/clinical-ultrasound-ui-boundary.test.mts",
+     "line": 88,
+     "end_line": 108,
+     "detail": "Test 'status fallbacks remain fail-safe' trên paidCashierPaymentSeeds, cashierAmountState, canFinishService..."
+    },
+    {
+     "path": "src/dashboard/lib/clinical-workspace-policy.ts",
+     "line": 1,
+     "end_line": 60,
+     "detail": "Cả tệp không có importer ngoài tests/."
+    },
+    {
+     "path": "src/dashboard/tests/ket-qua-sieu-am-co-cau-truc-boundary.test.mts",
+     "line": 16,
+     "end_line": 75,
+     "detail": "Test dungFindings/doVaoO; ghim 'số gõ sai bị bỏ im lặng'."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/sieu-am/ket-qua-phu-khoa-du-lieu.ts",
+     "line": 22,
+     "end_line": 27,
+     "detail": "so() dùng Number(t): '8,5' -> NaN -> undefined, ô bị bỏ không báo; KetQuaPhuKhoa.tsx:91 chỉ có định nghĩa, không nơi nào import."
+    },
+    {
+     "path": "src/dashboard/tests/ca-kham-bac-si-boundary.test.mts",
+     "line": 7,
+     "end_line": 15,
+     "detail": "So MA_CA_KHAM_BAC_SI TS với Python; lib/ca-kham-bac-si.ts không có importer."
+    }
+   ],
+   "limitations": "Kết luận 'không importer' dựa trên git grep chuỗi tên module/hàm trong toàn src tại SHA; import động bằng chuỗi ghép hoặc tham chiếu từ cấu hình ngoài src sẽ không thấy. Backend lab.py có test riêng (src/tests/api/test_lab_endpoint.py) nên chưa thấy lỗ hổng thật ở luật báo kết quả, chỉ là xanh giả và rủi ro tái sử dụng.",
+   "recommendation": "Xoá mã chết cùng test của nó, hoặc nếu muốn giữ thì nối vào UI và cập nhật theo luật hiện hành. Thêm một bài kiểm chung dò: mọi lib/*.ts có test phải có ít nhất một importer ngoài tests/ (hoặc nằm trong allowlist có lý do). Với luật báo kết quả, giữ đúng MỘT nơi thi hành (backend) và test hành vi endpoint.",
+   "acceptance": "Chạy test:boundary: không còn bài import module không có importer; test lab-release/cashier-total/clinical-workspace-policy/ca-kham-bac-si/ket-qua-phu-khoa bị xoá hoặc thay bằng test của hàm đang dùng; có test guard fail khi thêm lib mồ côi.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng",
+    "Lỗi lặp thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-020",
+    "SEC-011"
+   ]
+  },
+  {
+   "tmp_id": "T02-2",
+   "title": "Định nghĩa 'vị trí là ca khám của bác sĩ' có hai nguồn khác nhau: SQL đọc danh mục vị trí, Python và TS dùng danh sách mã Kim Ngưu ghi cứng",
+   "severity": "MEDIUM",
+   "category": "roster_logic_drift",
+   "evidence_level": "confirmed_static",
+   "summary": "Hàm DB public.la_ca_kham_bac_si(clinic, station) trả true nếu station='LICH_KHAM' hoặc có dòng vi_tri_lam_viec active với nhom_nghe='BAC_SI'. Bản Python config_service.la_ca_kham_bac_si và hằng TS MA_CA_KHAM_BAC_SI lại chỉ nhận đúng 10 mã cố định (T1_BS_NOITIET, T1_TT_BS, T4_SA_BS1...), sau khi bỏ tiền tố cơ sở. Test ca-kham-bac-si-boundary chỉ khoá Python == TS, không so với SQL và không có case 'vị trí bác sĩ mới tạo' hay 'vị trí đã ngừng'.",
+   "trigger": "Có thể xảy ra nếu quản lý tạo hoặc đổi vị trí (mã VT-... hoặc mã khác danh sách) với nhóm nghề BAC_SI, hoặc tắt (is_active=false) một vị trí trong danh sách, rồi xếp/gỡ/đổi bác sĩ ở vị trí đó.",
+   "impact": "Các truy vấn dùng SQL (trang chủ, lịch hẹn tuần, màn khách hàng, tìm lịch mồ côi) coi vị trí mới là ca khám, còn các đường Python bỏ qua: gỡ ca (config_service.py:656) trả so_lich_cho_xep=0 mà không gọi _go_lich_ngoai_ca nên lịch hẹn của bác sĩ vừa mất ca không được gỡ/đẩy vào hàng chờ; đổi người trong ca (993) không gỡ lịch cũ; tin 'ca bác sĩ mới có → lịch chờ xếp' không gửi (260, 1006). Hệ quả có thể là khách vẫn giữ lịch với bác sĩ không còn trực, đúng kiểu lỗi mà bài hang-cho-bac-si-boundary muốn chặn.",
+   "evidence": [
+    {
+     "path": "supabase/migrations/20260917000004_ca_kham_bac_si_theo_vi_tri.sql",
+     "line": 8,
+     "end_line": 23,
+     "detail": "Hàm SQL data-driven: LICH_KHAM hoặc vi_tri_lam_viec.nhom_nghe='BAC_SI' AND is_active."
+    },
+    {
+     "path": "src/clinicai/services/config_service.py",
+     "line": 64,
+     "end_line": 84,
+     "detail": "Bản Python tự nhận là 'bản Python của hàm DB' nhưng là frozenset 10 mã; so theo ma_mau (bỏ tiền tố cơ sở)."
+    },
+    {
+     "path": "src/clinicai/services/config_service.py",
+     "line": 653,
+     "end_line": 667,
+     "detail": "Gỡ ca: nếu không la_ca_kham_bac_si(station) thì return 0 lịch, không chạy _go_lich_ngoai_ca."
+    },
+    {
+     "path": "src/clinicai/services/config_service.py",
+     "line": 993,
+     "end_line": 1012,
+     "detail": "Đổi người trong ca và báo CSKH cũng gác bằng bản Python."
+    },
+    {
+     "path": "src/dashboard/lib/ca-kham-bac-si.ts",
+     "line": 6,
+     "end_line": 17,
+     "detail": "Bản TS thứ ba của cùng danh sách."
+    },
+    {
+     "path": "src/dashboard/tests/ca-kham-bac-si-boundary.test.mts",
+     "line": 7,
+     "end_line": 30,
+     "detail": "Test chỉ so TS với Python và regex ANY(sorted(MA_CA_KHAM_BAC_SI)); không so SQL, không case vị trí mới."
+    }
+   ],
+   "limitations": "Chưa xác nhận màn Dây nối/Cấu hình cho phép tạo vị trí nhom_nghe=BAC_SI với mã ngoài danh sách; chưa đọc hàm ma_mau. Nếu mọi vị trí bác sĩ chỉ được tạo bằng migration có mã trong danh sách thì tác động chỉ xuất hiện khi đổi danh mục.",
+   "recommendation": "Một nguồn sự thật: Python gọi chính hàm SQL (hoặc cache kết quả của nó theo clinic), bỏ bản TS/Python cứng. Thêm test DB: tạo vị trí BAC_SI mới rồi gỡ ca, kỳ vọng lịch hẹn của bác sĩ đó được đưa vào hàng chờ.",
+   "acceptance": "Test DB: với vị trí BAC_SI active mã tuỳ ý, gỡ ca trả so_lich_cho_xep > 0 khi có lịch; vị trí is_active=false không được tính; test không còn hằng danh sách mã trong Python/TS.",
+   "alignment": [
+    "Reality rõ",
+    "Phát hiện sớm",
+    "Bệnh nhân ít chờ trong bất định"
+   ],
+   "extends": [],
+   "related_ids": [
+    "OPS-004",
+    "OPS-003",
+    "DB-004"
+   ]
+  },
+  {
+   "tmp_id": "T02-3",
+   "title": "Phiếu Nam khoa được bật bằng bản duyệt do migration tự ghi theo quản lý đầu tiên, và test 'form chờ duyệt' chỉ soi chữ TODO trong chuỗi hiển thị",
+   "severity": "MEDIUM",
+   "category": "clinical_governance",
+   "evidence_level": "confirmed_static",
+   "summary": "Migration bật phiếu NK chọn 'quản lý (MANAGEMENT) tạo sớm nhất' làm approved_by_staff_id rồi gọi activate_clinical_form; ghi chú trong chính migration thừa nhận các mục TODO-BS-REVIEW vẫn phải đưa bác sĩ rà trước khi dùng trên bệnh nhân thật. Bài form-approval-boundary mô tả mình là canh luật 'form còn dấu chờ duyệt thì không được bày ra', nhưng chỉ kiểm TODO/FIXME không nằm trong literal chuỗi và cho phép TODO-BS-REVIEW còn trong chú thích; không có test nào nối registry với bảng clinical_form_approval hay với bác sĩ duyệt thật.",
+   "trigger": "Phiếu đang bật ở các phòng khám có quản lý; bác sĩ điền phiếu HMVS/NT/SK/NK khi các câu hỏi lâm sàng còn treo (vd chọn 1 hay nhiều phác đồ, đang dùng radio).",
+   "impact": "Bản ghi 'ai duyệt' có thể là người không phải bác sĩ lâm sàng, làm yếu giá trị audit của cổng an toàn lâm sàng; câu hỏi lâm sàng chưa trả lời (hmvs.ts:331, nt.ts:171: để radio vì 'phác đồ thường chọn 1') có thể làm mất dữ liệu nếu thực tế chọn nhiều. Khi bán cho phòng khám khác, cơ chế 'duyệt' không thể hiện trách nhiệm thật.",
+   "evidence": [
+    {
+     "path": "supabase/migrations/20260916000002_bat_phieu_nam_khoa.sql",
+     "line": 24,
+     "end_line": 48,
+     "detail": "Người duyệt = MANAGEMENT sớm nhất của clinic; note ghi 'các mục còn TODO-BS-REVIEW ... vẫn phải đưa bác sĩ rà trước khi dùng trên bệnh nhân thật'; sau đó activate_clinical_form."
+    },
+    {
+     "path": "src/dashboard/tests/form-approval-boundary.test.mts",
+     "line": 44,
+     "end_line": 91,
+     "detail": "Test chỉ khoá danh sách 5 mã form và regex /TODO|FIXME|XXX|\\?\\?\\?/ trên literal; test 2 cho phép TODO-BS-REVIEW ở chú thích."
+    },
+    {
+     "path": "src/dashboard/lib/form-schemas/hmvs.ts",
+     "line": 331,
+     "detail": "Chú thích TODO-BS-REVIEW: 'phác đồ chọn 1 hay nhiều — tạm radio'."
+    },
+    {
+     "path": "src/dashboard/lib/form-schemas/nt.ts",
+     "line": 171,
+     "detail": "Cùng câu hỏi chọn 1 hay nhiều, tạm radio."
+    }
+   ],
+   "limitations": "Chưa xác minh activate_clinical_form có kiểm vai người duyệt hay không (migration 20260804000019 ngoài danh sách). Số TODO còn lại có thể đã được bác sĩ trả lời ngoài mã.",
+   "recommendation": "Bản duyệt phải do người có vai lâm sàng chỉ định rõ (tham số hoá, không tự chọn quản lý đầu tiên) và ghi lý do; đưa TODO-BS-REVIEW thành mục trong bảng clinical_form_approval có trạng thái; test: phiếu có mục chờ duyệt mở thì không bật được.",
+   "acceptance": "Test DB: activate_clinical_form từ chối khi người duyệt không có vai bác sĩ hoặc còn mục review mở; test boundary đọc danh sách mục review từ nguồn dữ liệu chứ không từ regex literal.",
+   "alignment": [
+    "Ownership rõ",
+    "Quyết định dựa bằng chứng",
+    "AI hỗ trợ người"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-041",
+    "CLIN-020"
+   ]
+  },
+  {
+   "tmp_id": "T02-4",
+   "title": "Một bài test bảo vệ khỏi công thức độc hại trong file CSV/Excel xuất ra không thuộc script nào nên không chạy trong CI; danh sách test của hai CI lệch nhau",
+   "severity": "MEDIUM",
+   "category": "test_infra_drift",
+   "evidence_level": "confirmed_static",
+   "summary": "lib/xuat-bang-excel.test.mts (ngăn công thức chạy khi mở trong Excel, giữ số âm, quote dấu phẩy) không xuất hiện trong bất kỳ script nào của package.json nên cả scripts/ci-may.sh lẫn .github/workflows/ci.yml đều không chạy nó. Ngoài ra danh sách test:* ở ci.yml thiếu phieu-kham, thanh-ngay, o-so, clinical-sync, tu-luu so với ci-may.sh. Không có script 'test' tổng hợp nên test thêm mới phải đăng ký tay ở ba nơi.",
+   "trigger": "Dev sửa taoCsvExcel/xuatBangDangXem hoặc thêm test lib mới nhưng quên đăng ký script; CI xanh vì không chạy.",
+   "impact": "Hồi quy làm mất lớp chống CSV/formula injection (ô bắt đầu bằng =, -, +, @ trong dữ liệu khách/vật tư) có thể lọt mà không có cảnh báo. Với ci.yml, 5 nhóm test không được GitHub kiểm; nay CI chính là ci-may.sh nên rủi ro thật nằm ở test mồ côi.",
+   "evidence": [
+    {
+     "path": "src/dashboard/lib/xuat-bang-excel.test.mts",
+     "line": 1,
+     "end_line": 18,
+     "detail": "Hai test chống công thức Excel và quote CSV."
+    },
+    {
+     "path": "src/dashboard/package.json",
+     "line": 10,
+     "end_line": 29,
+     "detail": "Danh sách script test:*; không script nào liệt kê lib/xuat-bang-excel.test.mts; không có 'test' tổng."
+    },
+    {
+     "path": "scripts/ci-may.sh",
+     "line": 129,
+     "end_line": 131,
+     "detail": "Vòng for t in ... chỉ gọi các script đã liệt kê."
+    },
+    {
+     "path": ".github/workflows/ci.yml",
+     "line": 131,
+     "end_line": 132,
+     "detail": "Danh sách rút gọn, thiếu phieu-kham, thanh-ngay, o-so, clinical-sync, tu-luu."
+    }
+   ],
+   "limitations": "Có thể có lệnh node --test khác chạy ngoài hai tệp đã xem; git grep 'xuat-bang-excel' trong scripts/.github/docs không thấy nơi gọi.",
+   "recommendation": "Thay các script riêng lẻ bằng một lệnh node --test với glob lib/**/*.test.mts tests/*.test.mts, hoặc thêm kiểm tra tự động: mọi *.test.mts phải nằm trong ít nhất một script. Một nguồn danh sách duy nhất cho ci-may.sh và ci.yml.",
+   "acceptance": "Có bước CI dò: số tệp *.test.mts bằng số tệp được script gọi; xuat-bang-excel.test.mts chạy trong ci-may.sh.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp thành cải tiến hệ thống",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-014",
+    "CI-001"
+   ]
+  },
+  {
+   "tmp_id": "T02-5",
+   "title": "Gần như toàn bộ 'boundary test' giao diện khẳng định bằng regex trên mã nguồn, không chạy hành vi; chính các tệp test đã ghi nhiều lần bị xanh giả",
+   "severity": "MEDIUM",
+   "category": "test_design",
+   "evidence_level": "design_gap",
+   "summary": "Trong 52 tệp thuộc src/dashboard/tests/ của chunk này, 49 tệp dùng readFileSync đọc TSX/Python/SQL rồi assert.match/doesNotMatch hoặc indexOf trên chuỗi; chỉ 2 tệp (kho-quay-giao-dien, intake) render hoặc chạy hàm trích từ mã. Nhiều test cắt cửa sổ cố định (slice(i, i+2800), slice(denLuc, denLuc+500)) hoặc khớp chữ tiếng Việt hiển thị. Chú thích trong chính các test kể ít nhất bốn lần test xanh trong khi hành vi hỏng hoặc test đỏ vì đổi cách viết (appointments-route-date-boundary.test.mts:110-131, cskh-trang-thai-drift..., cskh-workspaces-ui..., chi-dinh-chua-gui...).",
+   "trigger": "Refactor giữ hành vi nhưng đổi cách viết làm test đỏ giả (và dev sửa test cho qua); hoặc đổi hành vi mà vẫn khớp regex (ví dụ vẫn còn chuỗi 'Chờ bác sĩ hoàn tất lượt khám' nhưng điều kiện đã sai).",
+   "impact": "Lưới an toàn UI cho các bất biến nghiệp vụ (cổng Hoàn tất, chỉ định chưa gửi, hoàn tác, quyền cửa) thiếu độ tin cậy, tốn công bảo trì, và không chuyển được cho đội khác khi đóng gói bán. Bù lại phần cross-language (so hằng số TS/Python/SQL) là hữu ích và nên giữ.",
+   "evidence": [
+    {
+     "path": "src/dashboard/tests/ban-kham-kham-xong-gate-boundary.test.mts",
+     "line": 67,
+     "end_line": 97,
+     "detail": "Kiểm thứ tự gate -> confirm -> gui bằng indexOf trong bamBody = slice(bamFnIdx, +2800)."
+    },
+    {
+     "path": "src/dashboard/tests/chip-dong-bo-boundary.test.mts",
+     "line": 103,
+     "end_line": 121,
+     "detail": "slice(denLuc, denLuc+500) và regex trên CustomersView.tsx."
+    },
+    {
+     "path": "src/dashboard/tests/appointments-route-date-boundary.test.mts",
+     "line": 102,
+     "end_line": 131,
+     "detail": "Chú thích kể bản cũ đo mã nguồn xanh trong khi /home?weekAppt=abc vẫn sập."
+    },
+    {
+     "path": "src/dashboard/tests/kho-quay-giao-dien-boundary.test.mts",
+     "line": 21,
+     "end_line": 35,
+     "detail": "Đối chiếu: cách nap() transpile + renderToStaticMarkup là mẫu hành vi nên nhân rộng."
+    },
+    {
+     "path": "src/dashboard/tests/intake-patient-ui-boundary.test.mts",
+     "line": 113,
+     "end_line": 163,
+     "detail": "Mẫu khác: trích thân hàm bằng regex rồi chạy bằng new Function với kịch bản."
+    }
+   ],
+   "limitations": "Đếm dựa trên tệp thuộc chunk T02 (52/156 tệp tests/ của repo). Tỉ lệ toàn repo có thể khác.",
+   "recommendation": "Với mỗi bất biến quan trọng (cổng hoàn tất, chưa gửi chỉ định, hoàn tác, đổi khách xoá draft), đưa logic ra hàm thuần có test hành vi hoặc render bằng renderToStaticMarkup/Playwright smoke; giữ regex chỉ cho hợp đồng chéo ngôn ngữ và cấm hồi quy dạng 'không được có chuỗi X'.",
+   "acceptance": "Danh sách bất biến chính có ít nhất một test chạy hành vi; số test readFileSync giảm; refactor đổi tên biến không làm test đỏ.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp thành cải tiến hệ thống",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T02-6",
+   "title": "Danh mục riêng của Dr4Women (mã phòng KN-/HN-, 4 ca, 5 phiếu, 23 lego, giờ ca) nằm trong lõi dashboard và được test ghim làm 'đúng'",
+   "severity": "MEDIUM",
+   "category": "packaging_hardcoded_catalog",
+   "evidence_level": "design_gap",
+   "summary": "Lõi giao diện và các test của nó giả định danh mục của một phòng khám: bảng màu phòng khoá theo mã 'KN-TIEPDON, KN-SA1...' và suy mã cơ sở khác bằng cách ghép 'KN-' (roster.ts:164-185); SHIFTS cố định 4 ca và nhãn Việt; soat-gio-ca khoá 3 ca SANG/CHIEU/TOI; registry phiếu khám cố định 5 mã PK,SK,NT,NK,HMVS; số lego cố định 23 trong test; fixture dùng tên người và mã vị trí thật (T1_LETAN, T4_SA_BS1, 'Phan Chí Thành').",
+   "trigger": "Cấp tenant mới có cấu trúc phòng, ca, phiếu khác (vd hai ca, ca đêm, không có siêu âm).",
+   "impact": "Không thể cấu hình theo tenant: màu phòng mới không có (rơi nền thẻ), ca ngoài 4 loại bị đổi thành FULL, danh sách phiếu/lego đổi phải sửa mã và test. Test ghim hiện trạng khiến đổi để đóng gói bị đỏ.",
+   "evidence": [
+    {
+     "path": "src/dashboard/lib/roster.ts",
+     "line": 164,
+     "end_line": 186,
+     "detail": "MAU_PHONG ghi cứng mã KN-*; mauPhong ghép KN- cho cơ sở khác."
+    },
+    {
+     "path": "src/dashboard/lib/roster.test.mts",
+     "line": 121,
+     "end_line": 131,
+     "detail": "SHIFTS đúng 4 ca, SHIFT_LABEL; test ghim."
+    },
+    {
+     "path": "src/dashboard/lib/roster.test.mts",
+     "line": 147,
+     "end_line": 155,
+     "detail": "Fixture mã vị trí Kim Ngưu; 198-208 thêm HN__ và BS_NOITRU; 295 tên bác sĩ thật."
+    },
+    {
+     "path": "src/dashboard/lib/soat-gio-ca.test.mts",
+     "line": 13,
+     "end_line": 21,
+     "detail": "Khung ca SANG/CHIEU/TOI cố định."
+    },
+    {
+     "path": "src/dashboard/tests/form-approval-boundary.test.mts",
+     "line": 44,
+     "end_line": 50,
+     "detail": "Registry cố định ['HMVS','NK','NT','PK','SK']."
+    },
+    {
+     "path": "src/dashboard/tests/cua-quyen-lego-boundary.test.mts",
+     "line": 64,
+     "end_line": 68,
+     "detail": "Ép đúng 23 lego."
+    },
+    {
+     "path": "src/dashboard/tests/cookie-phien-boundary.test.mts",
+     "line": 17,
+     "end_line": 25,
+     "detail": "Fixture IP VPS cũ đã chết; ổn nhưng cho thấy giả định hạ tầng."
+    }
+   ],
+   "limitations": "Phần lớn là hạ tầng test; chưa đọc cách backend cấp danh mục theo tenant. Ghim hiện trạng có thể là chủ đích cho giai đoạn một phòng khám.",
+   "recommendation": "Đưa danh mục ca, màu phòng, registry phiếu, lego vào cấu hình theo tenant do backend trả; test dùng fixture trung tính (tenant giả) để chứng minh một cấu hình khác chạy được.",
+   "acceptance": "Có test chạy với tenant fixture không có mã KN-/HN-, ca khác 4 loại, danh mục phiếu khác; không còn hằng mã phòng trong lib/roster.ts.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004",
+    "DB-005"
+   ]
+  },
+  {
+   "tmp_id": "T02-7",
+   "title": "Test ghim việc ca lạ bị lặng lẽ đổi thành cả ngày, và nó kiểm bản sao biểu thức chứ không kiểm route",
+   "severity": "LOW",
+   "category": "silent_coercion",
+   "evidence_level": "confirmed_static",
+   "summary": "Test 'luật ép ca của /api/roster' tự định nghĩa lại hàm epCa trong tệp test (cùng biểu thức với route) rồi khẳng định ca không thuộc SHIFTS bị đổi thành 'FULL'. Route Next và backend (config_service.py:265 'shift if shift in CAC_CA else FULL') đều lùi về cả ngày thay vì từ chối. Chính chú thích của route kể lỗi cùng họ: ca TỐI từng bị đổi lặng lẽ thành cả ngày.",
+   "trigger": "Client cũ/mới lệch phiên bản gửi mã ca chưa có trong SHIFTS, hoặc gọi API trực tiếp với ca viết sai.",
+   "impact": "Lịch trực (nguồn cấp quyền theo ca và gác bác sĩ) được ghi rộng hơn ý định mà không báo lỗi; test vẫn xanh nếu route bị sửa vì nó không đụng route.",
+   "evidence": [
+    {
+     "path": "src/dashboard/lib/roster.test.mts",
+     "line": 133,
+     "end_line": 143,
+     "detail": "epCa viết lại trong test; ghim NUA_DEM/undefined/'' -> FULL."
+    },
+    {
+     "path": "src/dashboard/app/api/roster/route.ts",
+     "line": 182,
+     "end_line": 188,
+     "detail": "Ca lạ thì lùi về FULL."
+    },
+    {
+     "path": "src/clinicai/services/config_service.py",
+     "line": 265,
+     "detail": "Backend cũng dùng FULL làm mặc định cho ca ngoài CAC_CA trong nhánh báo CSKH."
+    }
+   ],
+   "limitations": "Chưa đọc đường validate shift của /api/v1/roster/shifts ở router; có thể backend đã từ chối trước. Mức tác động thấp vì UI chỉ phát 4 mã hợp lệ.",
+   "recommendation": "Trả 400 cho ca không hợp lệ; test gọi trực tiếp handler/route thay vì sao chép biểu thức.",
+   "acceptance": "POST /api/roster với shift='NUA_DEM' trả 400; test import hàm chuẩn hoá thật từ lib.",
+   "alignment": [
+    "Reality rõ",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-025",
+    "API-006"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FE-001",
+   "detail": "lib/luu-nhap.test.mts:88-100 chỉ kiểm dọn nháp quá 24 giờ (donNhapCu) và khoá theo staff-id (41-53); không có test dọn nháp khi đăng xuất hay khi người khác đăng nhập cùng máy, nên nháp thông tin bệnh nhân còn trong localStorage tối đa 24 giờ."
+  },
+  {
+   "id": "CLIN-039",
+   "detail": "lib/tu-luu.test.mts:72-86 và 190-209: nenThuLai(409)=false và sau lỗi 4xx 'gõ tiếp hoặc luuNgay mới gửi lại' toàn bộ snapshot cục bộ; không có test xung đột phiên bản, nên hành vi ghi đè bản của người kia là mặc định chưa được kiểm."
+  },
+  {
+   "id": "FE-005",
+   "detail": "lib/tu-luu.test.mts:190-209 cũng cho thấy sau lỗi nghiệp vụ không có lưu bản nháp cục bộ riêng; chỉ hàng đợi trong bộ nhớ (HangDoiLuu) giữ bản mới nhất."
+  },
+  {
+   "id": "CLIN-020",
+   "detail": "tests/hoan-tat-khong-ky-boundary.test.mts:17-51 ghim việc bỏ 'Ký bệnh án' (không thao tác sign trong proxy) và cấm khoá hồ sơ khi done ('Hoàn tất không khoá'), nên không có bản chốt bất biến; sửa sau hoàn tất chỉ dựa vào LichSuSuaPhieu."
+  },
+  {
+   "id": "SEC-011",
+   "detail": "tests/clinical-access-boundary.test.mts:33-51 khẳng định canReadClinical chỉ theo vai (DOCTOR, ULTRASOUND_DOCTOR, NURSE_ULTRASOUND, TKYK) và tests/cua-quyen-lego-boundary.test.mts:244-270 khẳng định các proxy chỉ kiểm đăng nhập 'backend quyết'; không có test nào về phạm vi bệnh nhân/phân công ở tầng này."
+  },
+  {
+   "id": "INF-019",
+   "detail": "lib/ops-summary.test.mts:33-66: fixture có backup.state='fresh', offsite_uploaded=false, scope='public-schema-only' vẫn được chấp nhận với overall='healthy' (normalizeOpsPayload tại ops-summary.ts:169-176 lấy nguyên overall của server); không có test khẳng định offsite=false làm giảm trạng thái."
+  },
+  {
+   "id": "INF-027",
+   "detail": "lib/ops-summary.test.mts:45-62 cùng fixture: services chỉ có 'api' healthy mà overall healthy; không có test overall bị hạ khi thiếu worker cốt lõi."
+  }
+ ],
+ "held": [
+  {
+   "title": "Hồ sơ khách chỉ bắt buộc Họ tên được test ghim, làm hồ sơ không SĐT/ngày sinh khó chống trùng",
+   "reason": "Quyết định sản phẩm đã chốt (Tuyền 30/09, tests/chi-bat-buoc-ten-boundary.test.mts:20-34). Dedupe cần SĐT/CCCD (xem CLIN-013, CLIN-047, PAT-002); chưa đo tỉ lệ hồ sơ thiếu SĐT trong thực tế nên chưa nâng thành phát hiện."
+  },
+  {
+   "title": "Chip 'Vượt số kê' chỉ nhắc, test cấm khoá nút bán",
+   "reason": "tests/ban-theo-don-de-thay-boundary.test.mts:82-95 cấm disabled theo cờ vuot. Là chủ ý nghiệp vụ; cần ý kiến dược về thuốc kiểm soát/kê đơn đặc biệt và xem backend có chặn ở nơi khác không."
+  },
+  {
+   "title": "Giao thuốc khi lô lệch đơn vị: 'KHÔNG tự trừ' và 'giao trước đối chiếu sau' chưa thấy người nhận việc đối chiếu",
+   "reason": "tests/kho-don-vi-dan-duong-boundary.test.mts:41-48 và kho-quay-giao-dien-boundary.test.mts:115-129 chỉ ghim câu cảnh báo. Chưa đọc service backend để biết có sinh việc đối chiếu có người phụ trách hay không."
+  },
+  {
+   "title": "ghepSoLuongDonVi('2 hộp','gói') = '2 hộp gói' và ('gói','gói') = 'gói gói' được test khẳng định",
+   "reason": "lib/phieu-kham.test.mts:620-622. Chuỗi số lượng đơn thuốc mơ hồ giữa hộp và gói có thể được lưu; chưa xác minh backend soLuongTuChu/validate có từ chối hay không."
+  },
+  {
+   "title": "Tổng 'Chỉ định N mục · tổng' bỏ mục chưa có giá và hiển thị tổng thấp hơn thực tế",
+   "reason": "lib/phieu-kham.test.mts:486-504 (tongPhongKham bỏ mục gia=null). Chưa xem UI có nhãn 'chưa đủ giá' kèm tổng hay không."
+  },
+  {
+   "title": "fetch keepalive khi rời trang có thể vượt giới hạn 64 KiB của trình duyệt với phiếu khám lớn",
+   "reason": "lib/tu-luu.test.mts:261-288 kiểm gửi keepalive nhưng bằng máy chủ giả; chưa đo kích thước payload thật của PhieuKham/đơn thuốc."
+  },
+  {
+   "title": "vaoDuocMan(href, vai, null) mở cửa theo vai khi máy chủ chưa trả lời quyền (fail-open giao diện)",
+   "reason": "tests/cua-quyen-lego-boundary.test.mts:207-213. Chỉ là cửa UI, backend vẫn gác; nhưng khi lấy quyền thất bại mà một bác sĩ đã bị thu lego vẫn thấy màn."
+  },
+  {
+   "title": "Không thấy test tranh chấp cho check_in_appointment (hai lễ tân check-in cùng giây)",
+   "reason": "tests/appointment-queue-boundary.test.mts chỉ khớp chuỗi check_in_appointment($1::uuid, $2::text[]) trong booking_service.py; supabase/tests/appointment_counters_per_clinic.sql là giao dịch đơn. grep asyncio.gather/advisory trong src/tests chưa tìm test đúng tên; có thể có test ở tệp khác."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Test hợp đồng chéo ngôn ngữ TS-Python-SQL",
+   "detail": "booking-policy-boundary so khoảng slot_minutes, regular_cap, walkin_cap của TS với CHECK trong migration; cua-quyen-lego-boundary đọc catalogue.py, roles.ts, page.tsx để so ba nơi; ca-kham-bac-si-boundary so hằng TS với Python.",
+   "evidence": "src/dashboard/tests/booking-policy-boundary.test.mts:123-161; src/dashboard/tests/cua-quyen-lego-boundary.test.mts:64-122"
+  },
+  {
+   "title": "Test 'bộ đọc còn sống' chống xanh giả",
+   "detail": "Các test quét nguồn tự kiểm số mục đọc được (LEGO.size===23, node.length>=3, 'bài kiểm này đã lạc hậu') để regex hỏng thì đỏ thay vì pass rỗng.",
+   "evidence": "src/dashboard/tests/cua-quyen-lego-boundary.test.mts:64-68; src/dashboard/tests/cskh-trang-thai-drift-boundary.test.mts:72-85"
+  },
+  {
+   "title": "Đồng hồ giả và hàm thuần cho nhịp/tự lưu/SSE",
+   "detail": "nhip-lam-moi, nhip-khi-hien, nhip-tai-lai, tu-luu dùng đồng hồ và máy chủ giả, kiểm tab ẩn không giữ kết nối, gộp làm mới, backoff, hàng đợi tuần tự không bay hai lần.",
+   "evidence": "src/dashboard/lib/nhip-lam-moi.test.mts:181-243; src/dashboard/lib/tu-luu.test.mts:118-139"
+  },
+  {
+   "title": "Một dòng SSE cho cả trình duyệt được canh bằng test quét toàn mã",
+   "detail": "Chỉ RealtimeRefresher được new EventSource; không còn kênh Supabase Realtime; router.refresh chỉ một chỗ qua nhịp gộp.",
+   "evidence": "src/dashboard/tests/dong-su-kien-boundary.test.mts:46-122"
+  },
+  {
+   "title": "Gom báo lỗi trình duyệt có trần, đếm và không nuốt",
+   "detail": "Lỗi lặp 500 lần gửi một lần, 499 được đếm và tóm tắt cuối cửa sổ; trần mỗi phút; đường gửi hỏng không ném.",
+   "evidence": "src/dashboard/tests/bao-loi-trinh-duyet-boundary.test.mts:45-130"
+  },
+  {
+   "title": "Kết quả tìm khách bị cắt có báo 'Hiện 20 khách khớp nhất'",
+   "detail": "Màn đặt lịch tìm trên toàn hồ sơ phía máy chủ, hiển thị trần và nói rõ khi chạm trần; lỗi tìm báo riêng, không im như không có khách.",
+   "evidence": "src/dashboard/app/(dashboard)/appointments/BookingHub.tsx:682-696; src/dashboard/tests/dat-lich-tim-khach-boundary.test.mts:17-33"
+  },
+  {
+   "title": "Đầu vào rác trả rỗng/null, không ném, được test có hệ thống",
+   "detail": "weekStartOf, chuẩn hoá số, thanh ngày, ngayXemTuUrl, ghepConTrong đều có test đầu vào rác theo luật repo.",
+   "evidence": "src/dashboard/lib/roster.test.mts:56-73; src/dashboard/lib/thanh-ngay.test.mts:19-29; src/dashboard/lib/o-so.test.mts:6-18"
+  },
+  {
+   "title": "Test hành vi bằng transpile + renderToStaticMarkup",
+   "detail": "nap() transpile TSX rồi render với mock để kiểm hiển thị tách kho/quầy theo cờ và quyền; đáng nhân rộng thay cho regex nguồn.",
+   "evidence": "src/dashboard/tests/kho-quay-giao-dien-boundary.test.mts:21-113"
+  },
+  {
+   "title": "Chỉ định tick chưa gửi được chặn trước Hoàn tất và đổi khách",
+   "detail": "gopChiDinhChuaGui/guiRoiTiep: gửi hỏng thì không chạy bước kế, dừng giữa chừng không gửi nửa chừng.",
+   "evidence": "src/dashboard/tests/chi-dinh-chua-gui-boundary.test.mts:47-75"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/dashboard/lib/luu-nhap.test.mts",
+   "lines": 115,
+   "full_read": true,
+   "note": "Nháp localStorage theo staff+hồ sơ, hạn 24h; không test dọn khi đăng xuất (xem extends FE-001)"
+  },
+  {
+   "path": "src/dashboard/lib/man-tu-tai.test.mts",
+   "lines": 64,
+   "full_read": true,
+   "note": "Nhận diện màn tự tải; thuần hàm, ổn"
+  },
+  {
+   "path": "src/dashboard/lib/mot-luot.test.mts",
+   "lines": 81,
+   "full_read": true,
+   "note": "Gộp lượt tải; test tốt cho chen ngang/lỗi"
+  },
+  {
+   "path": "src/dashboard/lib/nhip-khi-hien.test.mts",
+   "lines": 272,
+   "full_read": true,
+   "note": "Nhịp tab ẩn/hiện, đồng hồ giả, xác định; mẫu tốt"
+  },
+  {
+   "path": "src/dashboard/lib/nhip-lam-moi.test.mts",
+   "lines": 361,
+   "full_read": true,
+   "note": "Gộp nhịp làm mới + giới hạn kết nối SSE; đồng hồ giả; mẫu tốt"
+  },
+  {
+   "path": "src/dashboard/lib/nhip-tai-lai.test.mts",
+   "lines": 281,
+   "full_read": true,
+   "note": "Jitter/trần chờ/backoff; xác định; mẫu tốt"
+  },
+  {
+   "path": "src/dashboard/lib/o-so.test.mts",
+   "lines": 80,
+   "full_read": true,
+   "note": "Chuẩn hoá số dấu phẩy Việt; test đầu vào rác tốt"
+  },
+  {
+   "path": "src/dashboard/lib/ops-summary.test.mts",
+   "lines": 73,
+   "full_read": true,
+   "note": "Fixture backup fresh+offsite false vẫn overall healthy (extends INF-019)"
+  },
+  {
+   "path": "src/dashboard/lib/phieu-ket-qua.test.mts",
+   "lines": 110,
+   "full_read": true,
+   "note": "Phiếu kết quả: gộp/tách giá trị; câu báo Xong; ổn"
+  },
+  {
+   "path": "src/dashboard/lib/phieu-kham.test.mts",
+   "lines": 623,
+   "full_read": true,
+   "note": "Hàm phiếu khám/đơn/hẹn tái khám; có test khẳng định ghép số lượng 'gói gói' (xem held)"
+  },
+  {
+   "path": "src/dashboard/lib/roster.test.mts",
+   "lines": 306,
+   "full_read": true,
+   "note": "Lịch trực: test sao chép biểu thức ép ca của route; fixture mã KN-/HN-/T1_ (T02-6, T02-7)"
+  },
+  {
+   "path": "src/dashboard/lib/so-trang.test.mts",
+   "lines": 42,
+   "full_read": true,
+   "note": "Phân trang thuần; ổn"
+  },
+  {
+   "path": "src/dashboard/lib/soat-gio-ca.test.mts",
+   "lines": 125,
+   "full_read": true,
+   "note": "Soát giờ ca: ca SANG/CHIEU/TOI ghi cứng; ổn về logic"
+  },
+  {
+   "path": "src/dashboard/lib/sua-mau.test.mts",
+   "lines": 128,
+   "full_read": true,
+   "note": "Sửa mẫu phiếu: mã ô, đơn vị; ổn"
+  },
+  {
+   "path": "src/dashboard/lib/thanh-ngay.test.mts",
+   "lines": 97,
+   "full_read": true,
+   "note": "Thanh ngày; hôm nay truyền vào nên không flaky; ổn"
+  },
+  {
+   "path": "src/dashboard/lib/tiep-don.test.mts",
+   "lines": 177,
+   "full_read": true,
+   "note": "Lọc tiếp đón/lịch hẹn; ổn"
+  },
+  {
+   "path": "src/dashboard/lib/tim-khach-phong.test.mts",
+   "lines": 44,
+   "full_read": true,
+   "note": "Tìm khách theo phòng; ổn"
+  },
+  {
+   "path": "src/dashboard/lib/tu-luu.test.mts",
+   "lines": 357,
+   "full_read": true,
+   "note": "Hàng đợi tự lưu: đồng hồ giả, backoff, tuần tự; không có case 409 xung đột (extends CLIN-039)"
+  },
+  {
+   "path": "src/dashboard/tests/appointment-queue-boundary.test.mts",
+   "lines": 51,
+   "full_read": true,
+   "note": "Regex nguồn: check_in_appointment có mặt; không test tranh chấp (held)"
+  },
+  {
+   "path": "src/dashboard/tests/appointments-route-date-boundary.test.mts",
+   "lines": 169,
+   "full_read": true,
+   "note": "Regex nguồn + hành vi weekStartOf; có chú thích về lần test đo sai"
+  },
+  {
+   "path": "src/dashboard/tests/ban-kham-kham-xong-gate-boundary.test.mts",
+   "lines": 108,
+   "full_read": true,
+   "note": "Regex nguồn trên BanKham.tsx với cửa sổ slice cố định 2800 ký tự"
+  },
+  {
+   "path": "src/dashboard/tests/ban-theo-don-de-thay-boundary.test.mts",
+   "lines": 104,
+   "full_read": true,
+   "note": "Regex nguồn; ghim 'Vượt số kê chỉ nhắc, không khoá' (held)"
+  },
+  {
+   "path": "src/dashboard/tests/bang-khong-ke-doc-boundary.test.mts",
+   "lines": 72,
+   "full_read": true,
+   "note": "Regex nguồn thiết kế bảng; không liên quan nghiệp vụ"
+  },
+  {
+   "path": "src/dashboard/tests/bao-cao-hang-hoa-link-kiem-ke-boundary.test.mts",
+   "lines": 58,
+   "full_read": true,
+   "note": "Regex nguồn link kiểm kê; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/bao-loi-trinh-duyet-boundary.test.mts",
+   "lines": 149,
+   "full_read": true,
+   "note": "Hành vi gộp/chặn báo lỗi trình duyệt; test thật tốt"
+  },
+  {
+   "path": "src/dashboard/tests/booking-double-check-boundary.test.mts",
+   "lines": 89,
+   "full_read": true,
+   "note": "Regex nguồn; trạng thái hong/xong; kiểm VN_OFFSET một chỗ"
+  },
+  {
+   "path": "src/dashboard/tests/booking-policy-boundary.test.mts",
+   "lines": 161,
+   "full_read": true,
+   "note": "Quét nguồn cấm hằng số policy + so TS với CHECK SQL; mẫu tốt"
+  },
+  {
+   "path": "src/dashboard/tests/ca-kham-bac-si-boundary.test.mts",
+   "lines": 30,
+   "full_read": true,
+   "note": "Chỉ so TS với Python; bản TS không có importer; không so bản SQL (T02-2)"
+  },
+  {
+   "path": "src/dashboard/tests/cashier-catalog-ui-boundary.test.mts",
+   "lines": 69,
+   "full_read": true,
+   "note": "Regex nguồn bảng giá thu ngân"
+  },
+  {
+   "path": "src/dashboard/tests/cashier-roster-access-boundary.test.mts",
+   "lines": 39,
+   "full_read": true,
+   "note": "Hành vi vaoDuocMan; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/cashier-total-boundary.test.mts",
+   "lines": 59,
+   "full_read": true,
+   "note": "Test hàm không importer (cashier-total) — T02-1"
+  },
+  {
+   "path": "src/dashboard/tests/chi-bat-buoc-ten-boundary.test.mts",
+   "lines": 53,
+   "full_read": true,
+   "note": "Regex nguồn save(); ghim chỉ bắt buộc Họ tên (held)"
+  },
+  {
+   "path": "src/dashboard/tests/chi-dinh-chua-gui-boundary.test.mts",
+   "lines": 127,
+   "full_read": true,
+   "note": "Hành vi chi-dinh-chua-gui + regex BanKham; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/chi-xem-va-tieu-de-boundary.test.mts",
+   "lines": 33,
+   "full_read": true,
+   "note": "Regex nguồn UI; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/chip-dong-bo-boundary.test.mts",
+   "lines": 263,
+   "full_read": true,
+   "note": "Regex nguồn CustomersView, slice theo offset; nhiều lần vá lỗi ghi trong chú thích"
+  },
+  {
+   "path": "src/dashboard/tests/chuong-han-lo-boundary.test.mts",
+   "lines": 22,
+   "full_read": true,
+   "note": "Regex nguồn; chuyển thành chi-tiet-thong-bao qua transpile; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/clinic-config-floor-ui-boundary.test.mts",
+   "lines": 65,
+   "full_read": true,
+   "note": "Regex nguồn cấu hình tầng; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/clinical-access-boundary.test.mts",
+   "lines": 108,
+   "full_read": true,
+   "note": "Test role-only và hàm labReleaseDecision không importer (T02-1; extends SEC-011)"
+  },
+  {
+   "path": "src/dashboard/tests/clinical-record-boundary.test.mts",
+   "lines": 95,
+   "full_read": true,
+   "note": "Regex nguồn xuyên Python; so danh sách quyền FE/BE; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/clinical-ultrasound-ui-boundary.test.mts",
+   "lines": 128,
+   "full_read": true,
+   "note": "Regex nguồn + test hàm KetQuaPhuKhoa là mã chết (T02-1)"
+  },
+  {
+   "path": "src/dashboard/tests/cong-ty-khach-boundary.test.mts",
+   "lines": 39,
+   "full_read": true,
+   "note": "Regex nguồn; route công ty"
+  },
+  {
+   "path": "src/dashboard/tests/cookie-phien-boundary.test.mts",
+   "lines": 57,
+   "full_read": true,
+   "note": "Hành vi hauToTheoCong; fixture IP VPS cũ; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/cskh-trang-thai-drift-boundary.test.mts",
+   "lines": 288,
+   "full_read": true,
+   "note": "Regex nguồn drift trạng thái CSKH; slice theo offset"
+  },
+  {
+   "path": "src/dashboard/tests/cskh-workspaces-ui-boundary.test.mts",
+   "lines": 208,
+   "full_read": true,
+   "note": "Regex nguồn màn CSKH; đã đọc hết dù lớn"
+  },
+  {
+   "path": "src/dashboard/tests/cua-quyen-lego-boundary.test.mts",
+   "lines": 276,
+   "full_read": true,
+   "note": "So 3 nơi lego (catalogue.py, roles.ts, page.tsx); mẫu tốt; fallback null vai (held)"
+  },
+  {
+   "path": "src/dashboard/tests/danh-sach-hoa-don-boundary.test.mts",
+   "lines": 47,
+   "full_read": true,
+   "note": "Regex nguồn danh sách hoá đơn"
+  },
+  {
+   "path": "src/dashboard/tests/dat-lich-tim-khach-boundary.test.mts",
+   "lines": 52,
+   "full_read": true,
+   "note": "Regex nguồn ô tìm khách; mẫu tốt về chống bị cắt TRAN_TIM"
+  },
+  {
+   "path": "src/dashboard/tests/dat-lich-tu-do-boundary.test.mts",
+   "lines": 117,
+   "full_read": true,
+   "note": "Hành vi chuKhung/chuONgay + regex"
+  },
+  {
+   "path": "src/dashboard/tests/dau-do-chi-dinh-boundary.test.mts",
+   "lines": 56,
+   "full_read": true,
+   "note": "Regex nguồn đầu dò chỉ định"
+  },
+  {
+   "path": "src/dashboard/tests/doi-mat-khau-modal-cuon-boundary.test.mts",
+   "lines": 44,
+   "full_read": true,
+   "note": "Regex nguồn modal; không liên quan nghiệp vụ"
+  },
+  {
+   "path": "src/dashboard/tests/doi-tac-luong-chung-boundary.test.mts",
+   "lines": 101,
+   "full_read": true,
+   "note": "Regex nguồn luồng đối tác; PARTNER caps null"
+  },
+  {
+   "path": "src/dashboard/tests/dong-su-kien-boundary.test.mts",
+   "lines": 122,
+   "full_read": true,
+   "note": "Quét mọi nguồn: duy nhất một EventSource; mẫu tốt"
+  },
+  {
+   "path": "src/dashboard/tests/dong-tien-bao-cao-boundary.test.mts",
+   "lines": 32,
+   "full_read": true,
+   "note": "Regex nguồn báo cáo dòng tiền"
+  },
+  {
+   "path": "src/dashboard/tests/duyet-vat-tu-boundary.test.mts",
+   "lines": 28,
+   "full_read": true,
+   "note": "Regex nguồn duyệt vật tư"
+  },
+  {
+   "path": "src/dashboard/tests/form-approval-boundary.test.mts",
+   "lines": 92,
+   "full_read": true,
+   "note": "Kiểm TODO trong literal, không kiểm bản duyệt lâm sàng (T02-3)"
+  },
+  {
+   "path": "src/dashboard/tests/form-tao-khach-them-email-boundary.test.mts",
+   "lines": 68,
+   "full_read": true,
+   "note": "Regex nguồn form email; emailError hành vi"
+  },
+  {
+   "path": "src/dashboard/tests/ghi-nhan-khach-quan-tam-boundary.test.mts",
+   "lines": 96,
+   "full_read": true,
+   "note": "Regex nguồn lối vào ghi khách quan tâm"
+  },
+  {
+   "path": "src/dashboard/tests/go-ca-truc-boundary.test.mts",
+   "lines": 110,
+   "full_read": true,
+   "note": "Regex + chặn id tạm temp-; loiDocDuoc hành vi"
+  },
+  {
+   "path": "src/dashboard/tests/hang-cho-bac-si-boundary.test.mts",
+   "lines": 99,
+   "full_read": true,
+   "note": "Regex SQL của router hàng chờ; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/ho-so-dich-vu-boundary.test.mts",
+   "lines": 47,
+   "full_read": true,
+   "note": "Regex nguồn hồ sơ dịch vụ"
+  },
+  {
+   "path": "src/dashboard/tests/hoa-don-giam-gia-boundary.test.mts",
+   "lines": 17,
+   "full_read": true,
+   "note": "Regex nguồn giảm giá"
+  },
+  {
+   "path": "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts",
+   "lines": 51,
+   "full_read": true,
+   "note": "Ghim bỏ Ký bệnh án / không khoá sau Hoàn tất (extends CLIN-020)"
+  },
+  {
+   "path": "src/dashboard/tests/intake-patient-ui-boundary.test.mts",
+   "lines": 192,
+   "full_read": true,
+   "note": "Hành vi routing qua new Function trích thân hàm; ổn"
+  },
+  {
+   "path": "src/dashboard/tests/ke-toan-boundary.test.mts",
+   "lines": 26,
+   "full_read": true,
+   "note": "Regex nguồn kế toán"
+  },
+  {
+   "path": "src/dashboard/tests/ket-qua-sieu-am-co-cau-truc-boundary.test.mts",
+   "lines": 75,
+   "full_read": true,
+   "note": "Test hàm dữ liệu siêu âm phụ khoa thuộc mã chết (T02-1)"
+  },
+  {
+   "path": "src/dashboard/tests/khach-moi-cu-boundary.test.mts",
+   "lines": 111,
+   "full_read": true,
+   "note": "Regex nguồn cột mới/cũ; lưới cột bằng nhau"
+  },
+  {
+   "path": "src/dashboard/tests/kho-don-vi-dan-duong-boundary.test.mts",
+   "lines": 97,
+   "full_read": true,
+   "note": "Hành vi qua transpile+vm; mẫu tốt"
+  },
+  {
+   "path": "src/dashboard/tests/kho-quay-giao-dien-boundary.test.mts",
+   "lines": 144,
+   "full_read": true,
+   "note": "Render qua renderToStaticMarkup với mock; mẫu tốt về test hành vi"
+  },
+  {
+   "path": "src/dashboard/tests/kho-quy-doi-nhap-boundary.test.mts",
+   "lines": 53,
+   "full_read": true,
+   "note": "Regex nguồn quy đổi nhập"
+  },
+  {
+   "path": "src/dashboard/tests/kho-sua-muc-1-boundary.test.mts",
+   "lines": 84,
+   "full_read": true,
+   "note": "Test hành vi tongTonTheoDonVi; ổn"
+  }
+ ]
+}

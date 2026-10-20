@@ -1,0 +1,6 @@
+{
+  "baseline_files": 2515,
+  "changed_baseline_files": [],
+  "application_source_modified_by_audit": false,
+  "notes": "Only audit artifacts and untracked tests in the separate main worktree were created; existing primary WIP left intact."
+}

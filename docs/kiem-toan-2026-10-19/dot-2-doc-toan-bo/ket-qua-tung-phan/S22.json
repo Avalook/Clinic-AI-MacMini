@@ -1,0 +1,1351 @@
+{
+  "chunk": "S22",
+  "findings": [
+    {
+      "tmp_id": "S22-1",
+      "title": "Endpoint bảng gọi số /display/queue nhận mọi danh tính, kể cả tài khoản đối tác bên ngoài, và trả tên bệnh nhân đang chờ",
+      "severity": "MEDIUM",
+      "category": "display_board_authz",
+      "evidence_level": "confirmed_static",
+      "summary": "Bảng gọi số được thiết kế để cái tivi (vai DISPLAY) đọc, nhưng dependency `get_display_identity` chỉ trả lại danh tính đã giải mã mà không giới hạn vai. Mọi vai hợp lệ, gồm PARTNER (người ngoài phòng khám, vốn bị `get_current_identity` từ chối ở mọi nơi khác) và các vai không có quyền đọc lâm sàng, đều gọi được `GET /api/v1/display/queue` và nhận tên bệnh nhân (mặc định `hien_ten=true`, không che), số thứ tự, tên và mã phòng của cơ sở.",
+      "trigger": "Một tài khoản đối tác (hoặc nhân viên không có quyền xem bệnh nhân) lấy Bearer token của chính mình rồi gọi trực tiếp /api/v1/display/queue (hoặc /display trên giao diện).",
+      "impact": "Có thể xảy ra nếu có tài khoản PARTNER/vai hẹp: đọc được danh sách tên khách đang ở phòng khám phụ khoa/hiếm muộn trong ngày, kèm phòng họ đang đứng, trong khi chính thiết kế nói đối tác 'chỉ được gửi kết quả'. Đây là rò PII theo vai chứ không theo cơ sở.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/identity.py",
+          "line": 662,
+          "end_line": 671,
+          "detail": "get_display_identity chỉ `return identity` (kết quả _resolve_identity), không kiểm vai; docstring nói 'nhận cả vai DISPLAY' nhưng không loại ai."
+        },
+        {
+          "path": "src/clinicai/api/identity.py",
+          "line": 638,
+          "end_line": 659,
+          "detail": "get_current_identity từ chối DISPLAY và PARTNER ở mọi endpoint khác; riêng dependency display thì bỏ chốt này."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/display.py",
+          "line": 67,
+          "end_line": 96,
+          "detail": "display_queue dùng get_display_identity, lọc theo clinic_id/location_id của chính danh tính, không kiểm capability."
+        },
+        {
+          "path": "src/clinicai/services/display_board_service.py",
+          "line": 182,
+          "end_line": 189,
+          "detail": "hien_ten mặc định True, che_ten mặc định False => tên đầy đủ được gửi cho mọi người gọi hợp lệ."
+        },
+        {
+          "path": "src/dashboard/app/doi-tac/page.tsx",
+          "line": 1,
+          "end_line": 16,
+          "detail": "Thiết kế khẳng định tài khoản đối tác 'ngoài phòng khám' chỉ có một đường đọc hẹp và không được đọc bảng khác."
+        }
+      ],
+      "limitations": "Chưa mở các test của display_board (tests/services/test_display_board.py) để xem có test nào khẳng định PARTNER bị từ chối hay không. Chưa xác nhận trên dữ liệu thật có tài khoản PARTNER nào tồn tại. Mức MEDIUM vì chỉ lộ tên + phòng, không lộ mã bệnh nhân/điện thoại.",
+      "recommendation": "Tách dependency riêng: chỉ chấp nhận ClinicRole.DISPLAY, hoặc vai nội bộ có capability rõ ràng (vd `display.view`); từ chối PARTNER. Cân nhắc token riêng cho tivi (không phải tài khoản nhân viên) với phạm vi chỉ /display/queue và gắn cứng một cơ sở.",
+      "acceptance": "Test API: gọi /api/v1/display/queue bằng token PARTNER -> 403; bằng vai không có `display.view` -> 403; bằng DISPLAY và vai được phép -> 200 và chỉ có dữ liệu cơ sở của tài khoản.",
+      "alignment": [
+        "Reality rõ",
+        "Ownership rõ",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-027",
+        "SEC-018"
+      ]
+    },
+    {
+      "tmp_id": "S22-2",
+      "title": "Bảng gọi số có thể hiển thị người đang trong phòng khám là 'TIẾP THEO' hoặc 'ĐANG CHỜ' khi một khu có nhiều lượt đang khám cùng lúc",
+      "severity": "MEDIUM",
+      "category": "display_board_reality",
+      "evidence_level": "confirmed_static",
+      "summary": "Mỗi khu chỉ có một ô 'ĐANG GỌI' (lượt `is_current` đầu tiên, hoặc phần tử đầu hàng). Mọi lượt IN_PROGRESS khác trong cùng khu vẫn có `waiting=true`, nên bị đẩy xuống 'TIẾP THEO' / 'ĐANG CHỜ'. Backend gom các phòng khám bác sĩ về cùng khu 'kham' (cấu hình mặc định chỉ có key/label/prefix, không có từ khoá khớp), nên nhiều bác sĩ khám song song là tình huống thường.",
+      "trigger": "Hai hoặc nhiều lượt cùng ở khu 'Khám bác sĩ' có visit.status = IN_PROGRESS (hai phòng khám chạy cùng lúc).",
+      "impact": "Có thể xảy ra: khách đang trong phòng khám hiện là người 'TIẾP THEO', và khách thật sự tiếp theo bị đẩy xuống sâu trong danh sách chờ; phòng chờ đọc bảng và hiểu sai thứ tự. Người ngồi chờ không có cách phân biệt 'đang khám' với 'đang chờ' ngoài ô đầu.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/display/DisplayBoard.tsx",
+          "line": 163,
+          "end_line": 169,
+          "detail": "dangGoi = rows.find(is_current) ?? rows[0]; conLai = rows.filter(m !== dangGoi); tiepTheo = conLai[0]. Chỉ MỘT lượt đang khám được loại khỏi hàng chờ."
+        },
+        {
+          "path": "src/dashboard/app/display/DisplayBoard.tsx",
+          "line": 281,
+          "end_line": 286,
+          "detail": "TV một phòng dùng cùng logic."
+        },
+        {
+          "path": "src/clinicai/services/display_board_service.py",
+          "line": 349,
+          "end_line": 360,
+          "detail": "is_current = visit_status == IN_PROGRESS; waiting vẫn True cho lượt đang khám (chỉ loại COMPLETED/VISIT_DA_RA_VE)."
+        },
+        {
+          "path": "src/clinicai/services/display_board_service.py",
+          "line": 251,
+          "end_line": 296,
+          "detail": "_khu_vuc: nếu mã phòng không trùng khoá khu và cấu hình không khai `match`, mọi dịch vụ không phải siêu âm/xét nghiệm rơi vào 'kham'."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/display.py",
+          "line": 23,
+          "end_line": 35,
+          "detail": "Cấu hình mặc định chỉ có một khu 'kham' cho khám bác sĩ."
+        }
+      ],
+      "limitations": "Cấu hình thật trên prod (settings->display->zones) có thể đã tách khu theo phòng; chưa đọc dữ liệu. Với khu có đúng một phòng (siêu âm SA1/SA2/SA3) lỗi không xảy ra.",
+      "recommendation": "Hiển thị mọi lượt IN_PROGRESS của khu như một nhóm 'ĐANG KHÁM' (kèm tên phòng), tách khỏi 'TIẾP THEO'/'ĐANG CHỜ'; hoặc để backend trả `trang_thai_hien` (dang_kham|cho) thay vì để TSX suy ra.",
+      "acceptance": "Test giao diện/hàm thuần: khu có 2 lượt IN_PROGRESS + 3 lượt chờ -> cả 2 lượt đang khám hiện trong nhóm đang khám, 'TIẾP THEO' là lượt chờ đầu tiên, 'ĐANG CHỜ (3)'.",
+      "alignment": [
+        "Reality rõ",
+        "Bệnh nhân ít chờ trong bất định"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S22-3",
+      "title": "Bảng gọi số lấy tối đa 200 lịch hẹn theo giờ hẹn trước khi lọc người đang chờ, nhưng giao diện coi đó 'không phải cổ chai'",
+      "severity": "MEDIUM",
+      "category": "display_board_truncation",
+      "evidence_level": "design_gap",
+      "summary": "Truy vấn bảng gọi số lấy các lịch hẹn của ngày theo `ORDER BY slot_start, id LIMIT 200`, gồm cả lịch chưa đến và lịch đã khám xong; bộ lọc `waiting` chỉ áp sau đó ở dịch vụ/TSX. Nếu trong ngày có hơn 200 lịch không bị huỷ, các lịch có giờ hẹn muộn bị cắt, kể cả khi khách đã check-in. 'conNua' (+N người nữa) chỉ đếm trong số dòng đã tải, nên không báo phần bị cắt. Bình luận trong TSX viết 'Máy chủ trả tới 200 dòng — không phải cổ chai'.",
+      "trigger": "Một cơ sở có trên 200 lịch hẹn (trừ CANCELLED/NO_SHOW/DOCTOR_DECLINED) trong ngày, hoặc khách vãng lai/lịch giờ muộn check-in khi các lịch sớm đã chiếm hết 200 chỗ.",
+      "impact": "Có thể xảy ra ở phòng khám lớn hơn mô hình hiện tại (nên quan trọng với mục tiêu bán nhiều phòng khám): khách đã check-in biến mất khỏi tivi mà màn không cho dấu hiệu nào; nhân viên phải trả lời 'sao chưa gọi tôi' bằng miệng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/display_board_service.py",
+          "line": 45,
+          "end_line": 45,
+          "detail": "MAX_ROWS = 200."
+        },
+        {
+          "path": "src/clinicai/services/display_board_service.py",
+          "line": 123,
+          "end_line": 131,
+          "detail": "WHERE theo ngày/cơ sở/trạng thái lịch, ORDER BY a.slot_start, a.id LIMIT 200; không lọc theo đã check-in."
+        },
+        {
+          "path": "src/clinicai/services/display_board_service.py",
+          "line": 185,
+          "end_line": 201,
+          "detail": "Không trả cờ bi_cat hay tổng số dòng thật; chỉ trả items."
+        },
+        {
+          "path": "src/dashboard/app/display/DisplayBoard.tsx",
+          "line": 64,
+          "end_line": 79,
+          "detail": "Bình luận 'không phải cổ chai'; conNua tính từ độ dài mảng đã tải."
+        }
+      ],
+      "limitations": "Chưa biết số lịch/ngày thật; ở quy mô hiện tại có thể không chạm. Khách vãng lai có thể có slot_start gần giờ check-in (không xác nhận).",
+      "recommendation": "Lọc tại SQL theo lượt đã check-in và chưa ra về (hoặc chia hai truy vấn), không cắt theo giờ hẹn; nếu vẫn cần trần thì trả `bi_cat` + tổng và hiện 'còn N khách chưa hiển thị' trên tivi, đồng thời bắn cảnh báo vận hành.",
+      "acceptance": "Test dịch vụ: tạo 250 lịch trong ngày, trong đó lịch thứ 240 đã check-in -> xuất hiện trong items; nếu có cắt thì response có `bi_cat=true` và màn hiện dòng cảnh báo.",
+      "alignment": [
+        "Reality rõ",
+        "Bệnh nhân ít chờ trong bất định",
+        "Thời gian chưa biết ngắn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-022",
+        "FE-024",
+        "OPS-009"
+      ]
+    },
+    {
+      "tmp_id": "S22-4",
+      "title": "Tivi phòng chờ ngừng tự làm mới vĩnh viễn sau một lần backend lỗi: trang rơi sang khối lỗi và bộ đếm làm mới (nằm trong DisplayBoard) biến mất",
+      "severity": "MEDIUM",
+      "category": "display_board_self_recovery",
+      "evidence_level": "confirmed_static",
+      "summary": "Bộ hẹn giờ 30 giây gọi `router.refresh()` nằm trong component client DisplayBoard. Khi lần render phía máy chủ nhận `data = null` (backend 5xx/429, đang deploy, phiên hết hạn, mạng nội bộ), `page.tsx` trả một thẻ div 'Chưa kết nối được máy chủ — bảng số tạm dừng.' và KHÔNG render DisplayBoard, nên bộ đếm bị gỡ cùng component. Trang gốc không có refresher nào khác (RealtimeRefresher chỉ ở nhóm (dashboard)), không có meta refresh. `fetchFromBackend` còn trả null cho mọi mã lỗi nên không phân biệt hết phiên với server bận.",
+      "trigger": "Bất kỳ lần router.refresh() nào rơi vào lúc API restart (mỗi lần deploy), trả 429/5xx, hoặc cookie phiên của tài khoản tivi hết hiệu lực.",
+      "impact": "Có thể xảy ra: bảng gọi số trống ở phòng chờ cho tới khi một người nhớ ra và bấm F5/đăng nhập lại trên tivi; không ai được báo. Trái mục tiêu giảm phụ thuộc trí nhớ cá nhân và 'đi kiểm tra tay'.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/display/page.tsx",
+          "line": 45,
+          "end_line": 54,
+          "detail": "if (!data) return <div>Chưa kết nối ... tạm dừng</div> — không mount DisplayBoard."
+        },
+        {
+          "path": "src/dashboard/app/display/DisplayBoard.tsx",
+          "line": 101,
+          "end_line": 109,
+          "detail": "Duy nhất nơi có nhịp 30s + router.refresh()."
+        },
+        {
+          "path": "src/dashboard/app/layout.tsx",
+          "line": 49,
+          "end_line": 54,
+          "detail": "Layout gốc chỉ có DaiStaging và GacHetPhien (bọc fetch /api), không có refresher cho RSC."
+        },
+        {
+          "path": "src/dashboard/lib/backend-proxy.ts",
+          "line": 244,
+          "end_line": 268,
+          "detail": "fetchFromBackend trả null cho cả không phiên, !res.ok và lỗi mạng."
+        }
+      ],
+      "limitations": "Chưa đọc nhóm layout khác có thể bọc /display (không thấy app/display/layout.tsx trong cây). Có thể vận hành đang dùng giám sát ngoài kéo tivi tải lại; không có bằng chứng trong mã.",
+      "recommendation": "Luôn mount một client refresher (hoặc DisplayBoard với prop `loi`) kể cả khi data null: thử lại theo backoff, hiện 'đang thử lại lần N' + thời điểm cập nhật cuối; phân biệt hết phiên (hướng dẫn đăng nhập) với server bận; gửi tín hiệu 'tivi mất kết nối' vào Ops.",
+      "acceptance": "Test/diễn tập: dừng API 60s rồi bật lại -> trang /display tự trở lại bảng số trong vòng một chu kỳ mà không thao tác tay; khi mất kết nối >2 phút có cảnh báo vận hành.",
+      "alignment": [
+        "Reality rõ",
+        "Phát hiện vấn đề sớm",
+        "Ít phụ thuộc trí nhớ cá nhân"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-002",
+        "INF-027"
+      ]
+    },
+    {
+      "tmp_id": "S22-5",
+      "title": "Trung tâm giám sát hiển thị trạng thái xanh 'Ổn / không thấy chuyện gì' khi agent tắt, chưa chạy hoặc danh sách nhận định bị cắt, và đèn 'Trực tiếp' không phản ánh việc từng nguồn tải thất bại",
+      "severity": "MEDIUM",
+      "category": "monitor_false_green",
+      "evidence_level": "confirmed_static",
+      "summary": "(1) Ô 'Vận hành phòng khám' và trạng thái rỗng 'Agent chưa thấy chuyện gì cần xem' chỉ dựa vào số nhận định mở (critical/warning = 0); không dựa vào `tat_het`, thời điểm quét gần nhất hay `bi_cat`. API trả `bi_cat`/`tran` (cắt ở 200) nhưng giao diện chỉ khai báo kiểu và không dùng; `agent.vong_cuoi` thực chất là max(lan_cuoi) của nhận định chứ không phải nhịp quét, và cũng không được hiển thị. (2) `nap()` chỉ coi mất kết nối khi nguồn tổng quan lỗi; nếu chi phí, tóm tắt hoặc nhận định lỗi thì state cũ được giữ và nhãn vẫn đổi thành 'Trực tiếp · <giờ mới>'.",
+      "trigger": "Agent bị tắt/không chạy (mất worker), hoặc /api/ops/agent (không tham số) hay ?xem=chi-phi trả lỗi/timeout trong khi ?xem=tong-quan vẫn ổn, hoặc có hơn 200 nhận định.",
+      "impact": "Có thể xảy ra: người trực nhìn thấy 'Ổn' và 'Trực tiếp' trong khi phần agent không còn quan sát, nên chuyển sang tin vào màn thay vì kiểm tay. Dựng cảm giác an toàn giả cho đúng màn được làm để giảm kiểm tra thủ công.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+          "line": 496,
+          "end_line": 515,
+          "detail": "Promise.all 4 nguồn; chỉ `a` (tong-quan) hỏng mới setMatKetNoi; b/c/d hỏng thì bỏ qua nhưng vẫn setLuc(new Date())."
+        },
+        {
+          "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+          "line": 621,
+          "end_line": 627,
+          "detail": "Nhãn 'Trực tiếp · giờ' dùng chung cho mọi nguồn."
+        },
+        {
+          "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+          "line": 784,
+          "end_line": 792,
+          "detail": "Mức 'Vận hành phòng khám' = ok nếu sa.critical=0 và warning=0, phu: 'Agent không thấy chuyện gì bất thường'."
+        },
+        {
+          "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+          "line": 925,
+          "end_line": 931,
+          "detail": "Trạng thái rỗng xanh 'Agent chưa thấy chuyện gì cần xem'; khi ag.tat_het vẫn rơi vào đây."
+        },
+        {
+          "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+          "line": 128,
+          "end_line": 135,
+          "detail": "Kiểu Agent có bi_cat/tran nhưng không có chỗ nào dùng (grep chỉ thấy dòng 131 và 86)."
+        },
+        {
+          "path": "src/clinicai/services/agent_giam_sat.py",
+          "line": 561,
+          "end_line": 607,
+          "detail": "Backend trả bi_cat/tran với chú thích 'màn phải nói đang hiện N cái mới nhất, không im'."
+        },
+        {
+          "path": "src/clinicai/services/tong_quan_giam_sat.py",
+          "line": 127,
+          "end_line": 140,
+          "detail": "vong_cuoi = max(lan_cuoi) của agent_nhan_dinh, không phải heartbeat quét."
+        }
+      ],
+      "limitations": "Có banner 'Agent đang tắt' (dòng 649-654) giảm nhẹ trường hợp tắt chủ động; không giảm trường hợp agent chết hoặc truy vấn bị cắt. Chưa kiểm xem bộ canh_gac có cảnh báo riêng khi vòng quét ngừng.",
+      "recommendation": "Thêm heartbeat vòng quét (thời điểm quét thành công cuối) vào API và hiển thị 'quét lần cuối X phút trước' + chuyển vàng khi quá hạn; dùng bi_cat để hiện 'đang hiện N/200 nhận định mới nhất'; theo dõi trạng thái tải từng nguồn và gắn nhãn 'dữ liệu chi phí/nhận định cũ' tại ô tương ứng.",
+      "acceptance": "Test giao diện: (a) tat_het=true -> ô vận hành không xanh; (b) bi_cat=true -> có dòng cảnh báo cắt; (c) nguồn chi-phi trả 500 -> ô chi phí có nhãn 'cũ' và đèn không báo 'Trực tiếp'.",
+      "alignment": [
+        "Reality rõ",
+        "Thời gian chưa biết ngắn",
+        "Phát hiện vấn đề sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "AI-001",
+        "FE-002",
+        "FE-022",
+        "OPS-009",
+        "INF-027"
+      ]
+    },
+    {
+      "tmp_id": "S22-6",
+      "title": "Trung tâm giám sát đọc cảnh báo và kho lỗi toàn cục (không có cột clinic) nhưng gắn trong màn của một phòng khám, chưa tách tầng nền tảng và tầng phòng khám",
+      "severity": "MEDIUM",
+      "category": "tenancy_ops_scope",
+      "evidence_level": "design_gap",
+      "summary": "Dịch vụ tổng quan lấy số vận hành theo clinic/location của danh tính, nhưng `loi_nhom` và `canh_bao` là bảng không có clinic_id và được đọc không lọc. Thông điệp lỗi/cảnh báo toàn hệ thống (kể cả tên route, mô tả hạ tầng) hiện trên cùng màn với số liệu của phòng khám đó. Màn được mô tả là 'trang riêng của đội vận hành ClinicAI' nhưng cổng quyền là `giamsat.view` trong phạm vi một clinic, và tên miền giám sát cố định `giamsat.dr4women.io.vn`.",
+      "trigger": "Triển khai nhiều phòng khám trên cùng một cụm (hoặc cấp `giamsat.view` cho nhân sự phòng khám khách).",
+      "impact": "Khi bán cho nhiều phòng khám: nhân sự phòng khám A có thể thấy tín hiệu lỗi/cảnh báo phát sinh từ phòng khám B hoặc từ nền tảng; ngược lại đội vận hành không có màn tổng hợp qua các tenant. Chặn mục tiêu 'đóng gọn, bán được'.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/tong_quan_giam_sat.py",
+          "line": 115,
+          "end_line": 126,
+          "detail": "SELECT từ loi_nhom và canh_bao không có điều kiện clinic."
+        },
+        {
+          "path": "supabase/migrations/20260927000004_loi_va_canh_bao.sql",
+          "line": 16,
+          "end_line": 51,
+          "detail": "Hai bảng không có cột clinic_id; unique canh_bao theo `ma` toàn cục."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ops.py",
+          "line": 287,
+          "end_line": 298,
+          "detail": "tong-quan truyền identity.clinic_id/location_id nhưng phần nền tảng vẫn toàn cục."
+        },
+        {
+          "path": "src/dashboard/app/giam-sat/page.tsx",
+          "line": 1,
+          "end_line": 5,
+          "detail": "Mô tả: trang riêng của đội vận hành, tên miền giamsat.dr4women.io.vn."
+        }
+      ],
+      "limitations": "Hiện chỉ một phòng khám nên chưa gây hại; kết luận về nội dung thông điệp phụ thuộc bộ che lỗi (không đọc ở đây).",
+      "recommendation": "Tách hai tầng: (1) màn nền tảng cross-tenant cho đội vận hành (nguồn: loi_nhom, canh_bao, hàng đợi) với quyền riêng; (2) màn phòng khám chỉ tín hiệu có clinic_id. Thêm clinic_id (nullable = nền tảng) vào hai bảng và lọc; tên miền giám sát lấy từ cấu hình.",
+      "acceptance": "Với hai clinic trong DB thử: cảnh báo gắn clinic A không xuất hiện trong /ops/agent/tong-quan của clinic B; cảnh báo nền tảng chỉ hiện ở màn nền tảng.",
+      "alignment": [
+        "Ownership rõ",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-005",
+        "INF-027"
+      ]
+    },
+    {
+      "tmp_id": "S22-7",
+      "title": "In phiếu khám v5 chấp nhận mọi lần tải con thất bại như 'không có dữ liệu': bản in có thể thiếu đơn thuốc, kết quả hoặc cả danh tính bệnh nhân/bác sĩ mà không báo",
+      "severity": "MEDIUM",
+      "category": "print_silent_partial",
+      "evidence_level": "confirmed_static",
+      "summary": "Trang in tải sáu nguồn song song bằng `doc()` biến mọi lỗi (mạng, 401/403, 5xx, JSON hỏng) thành `null`. Chỉ khi cả `phieu` lẫn `kq` đều null mới báo lỗi. Với `don-thuoc` lỗi, mục 'Đơn thuốc' biến mất và nút 'Đơn thuốc' bị khoá như thể lượt không có đơn; `dau-phieu` lỗi làm khối bệnh nhân (họ tên, SĐT, địa chỉ), mã khách, tên phòng khám và chân ký 'Bác sĩ khám' trống; `phieu` lỗi nhưng `kq` ổn thì in không có phần khám. Màn in vẫn bật nút 'In / tải PDF'.",
+      "trigger": "Một trong sáu lời gọi /api/phieu-kham... hoặc /api/ho-so-kham trả 429/5xx/timeout (máy chủ bận lúc deploy, thiếu quyền một phần) đúng lúc mở trang in.",
+      "impact": "Có thể xảy ra: tờ giấy đưa cho khách thiếu đơn thuốc hoặc không ghi tên khách/bác sĩ, trong khi người in nhìn màn thấy 'có vẻ đầy đủ'. Đường lâm sàng nguy hiểm vì khách có thể tin đó là toàn bộ đơn.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+          "line": 89,
+          "end_line": 93,
+          "detail": "doc<T>() trả null cho cả `!r.ok` và JSON lỗi."
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+          "line": 373,
+          "end_line": 415,
+          "detail": "Promise.all 6 nguồn; điều kiện lỗi duy nhất: !phieu && !kq; dsDon = don?.dong ?? []; dau có thể null."
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+          "line": 479,
+          "end_line": 486,
+          "detail": "Nút 'Đơn thuốc' bị tắt khi dl.don.length === 0, không phân biệt rỗng thật và tải lỗi."
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+          "line": 539,
+          "end_line": 561,
+          "detail": "Đầu trang và khối bệnh nhân dựa vào dau?.the_khach / hanh_chinh; null thì ô trống."
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+          "line": 606,
+          "end_line": 616,
+          "detail": "Chân ký 'Bác sĩ khám' lấy tk?.bac_si ?? nbsp."
+        }
+      ],
+      "limitations": "Chưa kiểm các route /api/phieu-kham có tự retry không. Mức độ phụ thuộc tần suất lỗi tạm thời. Phân biệt với CLIN-037 (nháp/chốt) và CLIN-054 (rơi về bản tóm tắt cũ): đây là mất từng phần do lỗi tải.",
+      "recommendation": "Phân biệt 'rỗng' và 'tải lỗi' cho từng nguồn; nguồn nào lỗi thì hiện banner đỏ 'Không tải được đơn thuốc/dữ liệu bệnh nhân' và khoá nút In cho tới khi tải lại thành công; ghi chú trên bản in nếu buộc in thiếu.",
+      "acceptance": "Test component (mock fetch): `don-thuoc` trả 500 -> trang có cảnh báo và nút In bị khoá; `dau-phieu` trả 500 -> không cho in; cả sáu 200 -> in như cũ.",
+      "alignment": [
+        "Reality rõ",
+        "Bệnh nhân ít chờ trong bất định",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-037",
+        "CLIN-054",
+        "FE-004"
+      ]
+    },
+    {
+      "tmp_id": "S22-8",
+      "title": "Bản in 'Tóm tắt khám bệnh' (đường cũ) cho sửa tay mọi ô trước khi in và in tên 'Người ký duyệt' cùng 'Ngày ký duyệt' không lấy từ một lần ký thật",
+      "severity": "MEDIUM",
+      "category": "print_integrity",
+      "evidence_level": "confirmed_static",
+      "summary": "MedicalSummaryPrint dựng toàn bộ phiếu bằng các ô input/textarea sửa được (họ tên, chẩn đoán, sinh hiệu, kết quả cận lâm sàng...) và cho in đúng nội dung đã sửa; không có nhật ký lần in, không đánh dấu 'đã chỉnh tay'. Chân ký 'Người ký duyệt' là tên bác sĩ của lịch hẹn và 'Ngày ký duyệt' là thời điểm tạo lượt (visit.created_at), được in ngay cả khi hồ sơ chưa được bác sĩ chốt. Mã vạch trên phiếu là hình sinh từ mã ký tự, không phải mã quét được.",
+      "trigger": "Lễ tân mở /print/[appointmentId] cho lượt chưa có phiếu khám v5 (nhánh cũ), sửa ô rồi In; hoặc in khi hồ sơ còn nháp.",
+      "impact": "Có thể xảy ra: tờ giấy mang tên bác sĩ và 'ngày ký duyệt' nhưng nội dung bị người in sửa hoặc chưa được duyệt; không có dấu vết nào để đối chiếu sau khi bệnh nhân khiếu nại. Mâu thuẫn với nguyên tắc 'mọi phiếu in ký tên bác sĩ' đã chốt cho các phiếu mới.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/print/[appointmentId]/MedicalSummaryPrint.tsx",
+          "line": 85,
+          "end_line": 87,
+          "detail": "State d khởi tạo từ initial và cho sửa bất kỳ trường."
+        },
+        {
+          "path": "src/dashboard/app/print/[appointmentId]/MedicalSummaryPrint.tsx",
+          "line": 383,
+          "end_line": 399,
+          "detail": "Hiển thị 'Người ký duyệt: {nguoiKy}' và 'Ngày ký duyệt' (ô sửa được)."
+        },
+        {
+          "path": "src/dashboard/app/print/[appointmentId]/MedicalSummaryPrint.tsx",
+          "line": 478,
+          "end_line": 498,
+          "detail": "Barcode giả lập từ charCode, không phải Code128/QR."
+        },
+        {
+          "path": "src/dashboard/app/print/[appointmentId]/page.tsx",
+          "line": 246,
+          "end_line": 252,
+          "detail": "nguoiKy = doctorName của lịch hẹn; ngayKyDuyet = fmtVnDateTime(cr?.created_at ?? slot_start)."
+        },
+        {
+          "path": "src/dashboard/app/print/[appointmentId]/page.tsx",
+          "line": 133,
+          "end_line": 138,
+          "detail": "Chỉ lượt đã có phiếu v5 mới chuyển sang bản in mới; còn lại ở lại đường cũ."
+        }
+      ],
+      "limitations": "Đường này chỉ áp cho lượt chưa dùng phiếu v5; lượng thực tế chưa biết. Backend có ghi nhận 'ai mở' (ghi_mo_ho_so) nhưng không ghi nội dung đã sửa.",
+      "recommendation": "Bỏ chế độ sửa trước khi in (hoặc khoá thành chỉ đọc), lấy người/giờ ký từ sự kiện chốt thật và để trống/ghi 'chưa ký' nếu chưa có; nếu giữ sửa tay thì in nhãn 'BẢN ĐÃ CHỈNH TAY' + ghi nhật ký. Nên khoá hẳn đường cũ sau khi chuyển dữ liệu cũ.",
+      "acceptance": "Test: lượt chưa chốt -> bản in có nhãn 'CHƯA KÝ' và không có tên bác sĩ ở 'Người ký duyệt'; ô chỉ đọc không thể sửa; mỗi lần in tạo một dòng nhật ký.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng",
+        "Ownership rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-037",
+        "CLIN-020"
+      ]
+    },
+    {
+      "tmp_id": "S22-9",
+      "title": "Dữ liệu in tóm tắt khám cũ chỉ lấy 20 dòng xét nghiệm, sắp theo thời gian nhận kết quả, không có dấu hiệu bị cắt trên bản in",
+      "severity": "MEDIUM",
+      "category": "print_truncation",
+      "evidence_level": "confirmed_static",
+      "summary": "`phieu_in_theo_lich` truy vấn lab_result của lịch hẹn với `ORDER BY result_received_at DESC NULLS LAST LIMIT 20`, chỉ ghi log khi chạm trần (`canh_bao_neu_day`) và không trả cờ bị cắt. Trang in nối các dòng thành văn bản 'Công thức máu', không có chú thích. Truy vấn cũng không lọc theo trạng thái duyệt/công bố kết quả.",
+      "trigger": "Lượt có hơn 20 dòng lab_result (một bảng công thức máu hoặc sinh hoá đầy đủ có thể vượt).",
+      "impact": "Có thể xảy ra: bản in đưa cho khách/bác sĩ thiếu các chỉ số cũ hơn mà không báo; chỉ số bất thường có thể là cái bị rơi vì thứ tự theo thời gian chứ không theo mức bất thường. Dòng kết quả chưa có giá trị in '—'.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+          "line": 189,
+          "end_line": 201,
+          "detail": "SELECT ... ORDER BY result_received_at DESC NULLS LAST LIMIT 20; chỉ canh_bao_neu_day, không đưa cờ vào kết quả."
+        },
+        {
+          "path": "src/dashboard/app/print/[appointmentId]/page.tsx",
+          "line": 172,
+          "end_line": 181,
+          "detail": "labsText nối mọi dòng, không có thông tin cắt hay trạng thái duyệt."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/clinical_records.py",
+          "line": 90,
+          "end_line": 109,
+          "detail": "Router trả nguyên dict của dịch vụ."
+        }
+      ],
+      "limitations": "Chưa xác nhận lab_result có cột trạng thái công bố nào để lọc; mức thật phụ thuộc số dòng/chỉ định ở prod.",
+      "recommendation": "Bỏ LIMIT cứng hoặc đặt trần lớn kèm `bi_cat` hiện lên bản in ('còn N dòng chưa in'); sắp theo nhóm xét nghiệm; chỉ in kết quả đã công bố và gắn nhãn dòng chờ kết quả.",
+      "acceptance": "Test dịch vụ: lượt có 35 dòng -> trả đủ 35 hoặc trả `bi_cat=true` và bản in hiện cảnh báo cắt; dòng chưa công bố không in như kết quả.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-021",
+        "CLIN-050"
+      ]
+    },
+    {
+      "tmp_id": "S22-10",
+      "title": "Phiếu thu/phiếu hoàn khổ hoá đơn in lại y hệt bản gốc, không có nhãn 'bản in lại' và không có nhật ký lần in",
+      "severity": "MEDIUM",
+      "category": "receipt_reprint_control",
+      "evidence_level": "design_gap",
+      "summary": "Trang in phiếu thu, phiếu hoàn và hoá đơn thuốc của lượt đều chỉ đọc dữ liệu (`GET /cashier/phieu/{id}`, `/cashier/phieu-luot/{visit}`) rồi cho in; bản in lần thứ N giống hệt lần đầu, không có số lần in, người in hay nhãn 'bản sao'. Router không ghi sự kiện in (khác phiếu bệnh án có `ghi_mo_ho_so`). Phiếu cũng hiển thị `Math.abs(tong)` và 'Cảm ơn quý khách', không có dấu hiệu chống sao chép.",
+      "trigger": "Nhân viên mở lại phiếu thu cũ (từ tab Lịch sử hay CSKH) và in nhiều lần, hoặc in phiếu của lượt khác trong quyền xem.",
+      "impact": "Có thể xảy ra: nhiều tờ phiếu thu tiền mặt giống hệt nhau lưu hành, không đối chiếu được ai in, bao nhiêu lần; khó phát hiện lạm dụng hay khiếu nại 'tôi đã đóng rồi'. Liên quan kiểm soát tiền dù không sai số tiền.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/print/phieu-thu/[id]/InPhieuThu.tsx",
+          "line": 106,
+          "end_line": 156,
+          "detail": "Chỉ tải và window.print(); không ghi sự kiện in."
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-thu/[id]/InPhieuThu.tsx",
+          "line": 195,
+          "end_line": 334,
+          "detail": "PhieuThuGiay không có nhãn bản sao/lần in."
+        },
+        {
+          "path": "src/dashboard/app/print/hoa-don-thuoc/[visitId]/InHoaDonThuoc.tsx",
+          "line": 36,
+          "end_line": 72,
+          "detail": "Cùng mẫu PhieuThuGiay."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cashier.py",
+          "line": 244,
+          "end_line": 290,
+          "detail": "Hai endpoint phiếu chỉ đọc, không audit."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/clinical_records.py",
+          "line": 103,
+          "end_line": 108,
+          "detail": "Đối chiếu: phiếu bệnh án có ghi_mo_ho_so khi in."
+        }
+      ],
+      "limitations": "Chưa kiểm audit_log middleware có ghi mọi GET hay không; chưa biết quy định chứng từ thuế của phòng khám (phiếu thu nội bộ vs hoá đơn).",
+      "recommendation": "Ghi sự kiện `in_phieu` (người, giờ, lần thứ N) khi mở bản in; từ lần thứ hai in 'BẢN IN LẠI lần N'; thêm tuỳ chọn mã phiếu quét được để đối chiếu.",
+      "acceptance": "Mở in phiếu thu lần 2 -> tờ có nhãn 'BẢN IN LẠI (2)', và audit có hai dòng in; báo cáo Ops liệt kê phiếu in lại nhiều lần.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Ownership rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-026",
+        "INF-021"
+      ]
+    },
+    {
+      "tmp_id": "S22-11",
+      "title": "Tên, màu, chân trang in, PWA và mặc định riêng của Dr4Women/Kim Ngưu được ghi cứng trong lõi giao diện và in ấn",
+      "severity": "MEDIUM",
+      "category": "packaging_branding",
+      "evidence_level": "design_gap",
+      "summary": "Chân trang mọi phiếu A4 là chuỗi 'DR4WOMEN CLINIC' trong stylesheet in; logo + tiêu đề 'PHÒNG KHÁM 4WOMEN CLINIC / Obstetrics & Gynecology Clinic' ghi cứng ở bản tóm tắt cũ; metadata, applicationName và manifest PWA là 'Dr4Women ClinicAI'; trang /traffic và phiếu siêu âm cũ ghi 'Dr4Women'; token màu lịch làm việc lấy từ bảng Excel Kim Ngưu; cấu hình bảng gọi số mặc định chứa SA1/SA2/SA3 của Dr4Women (và router ghi chú 'falls back to Dr4Women defaults'); mặc định hiển thị tên đầy đủ trên tivi là quyết định của một phòng khám. Màu thương hiệu là token biên dịch tĩnh (`@theme static`), không đổi theo tenant lúc chạy.",
+      "trigger": "Cấp tài khoản/triển khai cho phòng khám thứ hai dùng cùng bản dựng.",
+      "impact": "Phiếu in, màn hình cài lên điện thoại, tab trình duyệt và bảng gọi số của phòng khám khác mang tên và mặc định của Dr4Women; cần dựng/đổi mã cho mỗi tenant. Cản trở mục tiêu bán nhiều phòng khám.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/print/KieuInA4.tsx",
+          "line": 16,
+          "end_line": 31,
+          "detail": "@bottom-left content: \"DR4WOMEN CLINIC\" trong stylesheet dùng chung mọi phiếu in."
+        },
+        {
+          "path": "src/dashboard/app/print/[appointmentId]/MedicalSummaryPrint.tsx",
+          "line": 158,
+          "end_line": 183,
+          "detail": "Logo /logo.png, 'PHÒNG KHÁM 4WOMEN CLINIC', 'Obstetrics & Gynecology Clinic' ghi cứng."
+        },
+        {
+          "path": "src/dashboard/app/layout.tsx",
+          "line": 20,
+          "end_line": 28,
+          "detail": "title 'Dr4Women — Dashboard', applicationName, appleWebApp.title."
+        },
+        {
+          "path": "src/dashboard/app/manifest.ts",
+          "line": 18,
+          "end_line": 35,
+          "detail": "PWA name/short_name/description theo Dr4Women, start_url '/home'."
+        },
+        {
+          "path": "src/dashboard/app/globals.css",
+          "line": 136,
+          "end_line": 150,
+          "detail": "Token --color-lich-* lấy theo Excel PK Kim Ngưu; brand 50-900 cố định."
+        },
+        {
+          "path": "src/dashboard/app/print/sono/[id]/SonoResultPrint.tsx",
+          "line": 75,
+          "end_line": 77,
+          "detail": "'Phòng khám Dr4women' (mã chết nhưng còn trong cây)."
+        },
+        {
+          "path": "src/dashboard/app/traffic/page.tsx",
+          "line": 121,
+          "end_line": 122,
+          "detail": "'Khu vực giám sát máy chủ Dr4Women', nhãn 'Dr4Women Live'."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/display.py",
+          "line": 1,
+          "end_line": 35,
+          "detail": "_DEFAULT_DISPLAY với SA1/SA2/SA3 và chú thích 'falls back to Dr4Women defaults'."
+        }
+      ],
+      "limitations": "Nội dung `tk?.phong_kham` trên các bản in mới được lấy từ máy chủ nên một phần tên đã theo cấu hình; phát hiện này tập trung vào các chuỗi còn ghi cứng. Đây là quyết định đúng ở giai đoạn một phòng khám.",
+      "recommendation": "Đưa thương hiệu (tên, logo, màu chính, chân trang in, tên PWA) vào cấu hình theo tenant được tải lúc chạy; manifest và metadata sinh động theo host; token màu lịch và khu bảng gọi số là dữ liệu cấu hình, không phải mặc định trong mã; xoá mã chết SonoResultPrint.",
+      "acceptance": "Dựng hai tenant thử với tên/logo/màu khác nhau: chân trang in, tiêu đề tab, manifest và tivi đều mang đúng tenant; grep chuỗi 'Dr4' trong src/dashboard (trừ test/legacy) trả rỗng.",
+      "alignment": [
+        "Reality rõ",
+        "Ít phụ thuộc vài người gánh team"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S22-12",
+      "title": "Bản in kết quả ẩn ô và mục trống, và bản chỉ-ảnh không mang nhãn nháp/chưa chốt",
+      "severity": "LOW",
+      "category": "print_result_clarity",
+      "evidence_level": "design_gap",
+      "summary": "InKetQua chỉ in ô có giá trị và bỏ cả mục không còn ô nào (theo bản mẫu 'chỉ in ô đã điền'); người đọc tờ giấy không phân biệt được 'không có gì bất thường/không áp dụng' với 'chưa nhập'. Nhãn 'BẢN NHÁP' chỉ gắn ở phần phiếu (`p.ban_nhap`); khi in riêng bên 'Ảnh' (nút In bên trái) tờ giấy chỉ có dòng nhận diện khách + ảnh, không có nhãn trạng thái của kết quả.",
+      "trigger": "In phiếu khi bác sĩ bỏ trống một chỉ số quan trọng, hoặc in riêng ảnh khi phiếu kết quả còn nháp.",
+      "impact": "Có thể xảy ra: tờ kết quả ngầm bỏ chỉ số bị quên; bản ảnh đi ra ngoài trước khi kết quả chốt mà không có dấu hiệu.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx",
+          "line": 228,
+          "end_line": 243,
+          "detail": "coO lọc ô có giá trị; mục rỗng bị bỏ."
+        },
+        {
+          "path": "src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx",
+          "line": 153,
+          "end_line": 157,
+          "detail": "Nhãn BẢN NHÁP chỉ khi p?.ban_nhap."
+        },
+        {
+          "path": "src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx",
+          "line": 447,
+          "end_line": 491,
+          "detail": "Bên ảnh in không có thông tin trạng thái/nháp."
+        }
+      ],
+      "limitations": "Backend có thể chỉ trả ảnh đã xác nhận cho `anh` (không đọc FormEngineService.in_ket_qua); khi đó phần nhãn nháp cho ảnh có thể không cần. Phiếu bắt buộc điền ô khi hoàn tất có thể giảm rủi ro.",
+      "recommendation": "Với ô bắt buộc/quan trọng chưa nhập in 'chưa ghi'; thêm nhãn trạng thái (nháp/đã chốt + giờ) vào bản chỉ-ảnh.",
+      "acceptance": "Test giao diện: phiếu nháp in riêng ảnh -> có nhãn 'CHƯA CHỐT'; ô bắt buộc trống -> in 'chưa ghi'.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-021",
+        "CLIN-037"
+      ]
+    },
+    {
+      "tmp_id": "S22-13",
+      "title": "Trang /traffic lưu tên đăng nhập và mật khẩu dùng chung ở sessionStorage dạng chữ thường, KPI 'Độ tin cậy' mặc định 100% khi thiếu dữ liệu và không báo dữ liệu cũ",
+      "severity": "LOW",
+      "category": "ops_report_hygiene",
+      "evidence_level": "confirmed_static",
+      "summary": "Sau đăng nhập, trang ghi `dr4women_traffic_u/p` (tên + mật khẩu quản trị dùng chung) vào sessionStorage và tự gửi lại mỗi lần tải/làm mới. Backend đòi thêm quyền Vận hành nhưng chấp nhận một bí mật dùng chung (hoặc PIN) không giới hạn số lần thử. KPI 'Độ tin cậy máy chủ' = (statuses.ok ?? total)/total, nên thiếu trường ok hoặc total=0 cho '100%'; ok chỉ tính HTTP 200 nên 3xx/304 bị coi là không tin cậy; thẻ 'Mạng phòng khám chính' khẳng định các IP là 'thiết bị bác sĩ & quầy lễ tân'. `updated_at` được in nhưng không so với giờ hiện tại, và nguồn tổng hợp là tệp ngoài git.",
+      "trigger": "XSS hoặc máy dùng chung với tab đang mở; tệp tổng hợp ngừng cập nhật; dữ liệu thiếu `statuses`.",
+      "impact": "Có thể xảy ra: lộ bí mật dùng chung trong phiên trình duyệt; màn 'xanh 100%' khi nguồn dữ liệu hỏng. Mức thấp vì chỉ cho vai quản lý.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/traffic/page.tsx",
+          "line": 61,
+          "end_line": 66,
+          "detail": "sessionStorage.setItem của username/password."
+        },
+        {
+          "path": "src/dashboard/app/traffic/page.tsx",
+          "line": 80,
+          "end_line": 90,
+          "detail": "Tự đăng nhập lại bằng thông tin lưu."
+        },
+        {
+          "path": "src/dashboard/app/traffic/page.tsx",
+          "line": 194,
+          "end_line": 197,
+          "detail": "okRate dùng ok ?? total; 'ok' là HTTP 200."
+        },
+        {
+          "path": "src/dashboard/app/traffic/page.tsx",
+          "line": 210,
+          "end_line": 211,
+          "detail": "updated_at hiển thị thô, không kiểm độ cũ."
+        },
+        {
+          "path": "src/clinicai/services/traffic_service.py",
+          "line": 19,
+          "end_line": 47,
+          "detail": "xac_thuc_admin/xac_thuc_ma_pin bằng biến môi trường dùng chung; đọc tệp JSON không kiểm mtime."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ops.py",
+          "line": 382,
+          "end_line": 404,
+          "detail": "Endpoint chỉ kiểm _MANAGEMENT_GUARD + bí mật dùng chung, không rate limit."
+        }
+      ],
+      "limitations": "Không biết reverse proxy có giới hạn tốc độ. CLAUDE.md nêu producer của tệp này nằm ngoài git (chưa kiểm).",
+      "recommendation": "Bỏ lưu mật khẩu ở trình duyệt (dùng quyền `ops.view` thôi hoặc cookie ngắn hạn), thêm giới hạn thử, tính độ tin cậy trên 2xx/3xx và hiện 'dữ liệu cũ N phút', đưa producer vào repo.",
+      "acceptance": "sessionStorage không còn chứa mật khẩu; summary cũ >15 phút hiển thị cảnh báo; thiếu `statuses` -> '—' thay vì 100%.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S22-14",
+      "title": "Cluster của Next đặt requestTimeout=0 cho mọi request, không chỉ route tải tệp lớn",
+      "severity": "LOW",
+      "category": "runtime_timeout",
+      "evidence_level": "design_gap",
+      "summary": "`cluster.cjs` vá `http.createServer` để mọi máy chủ HTTP của Next có `requestTimeout = 0`, nhằm cho phép tải video nhiều GB. Điều này áp cho mọi route (kể cả route JSON) và mọi tiến trình con. Chỉ `headersTimeout` còn bảo vệ; thân request có thể được giữ mở vô hạn.",
+      "trigger": "Client chậm hoặc độc hại gửi header hợp lệ rồi nhỏ giọt thân request vào bất kỳ route nào.",
+      "impact": "Có thể xảy ra: kết nối/socket và bộ nhớ của tiến trình Next bị giữ; với 4 tiến trình, một số ít kết nối chậm tích luỹ có thể làm giảm khả năng phục vụ. Mức thấp nếu reverse proxy (Caddy) có timeout đọc thân.",
+      "evidence": [
+        {
+          "path": "src/dashboard/cluster.cjs",
+          "line": 31,
+          "end_line": 44,
+          "detail": "Vá http.createServer đặt mayChu.requestTimeout = 0 cho mọi server."
+        }
+      ],
+      "limitations": "Không đọc Caddyfile/cấu hình proxy trong phạm vi chunk; có thể đã có read_timeout phía trước. Liên quan quyết định 'không giới hạn dung lượng tệp' của chủ.",
+      "recommendation": "Giữ timeout bình thường cho mọi route trừ đường tải tệp (xử lý tải lớn bằng proxy trực tiếp tới FastAPI/upload có chữ ký, hoặc timeout theo route); xác nhận timeout đọc thân ở Caddy.",
+      "acceptance": "Thử nhỏ giọt thân vào /api/... không phải upload bị cắt sau ngưỡng; upload lớn qua đường riêng vẫn chạy.",
+      "alignment": [
+        "Phát hiện vấn đề sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-003",
+        "INF-016",
+        "SEC-008"
+      ]
+    },
+    {
+      "tmp_id": "S22-15",
+      "title": "Tivi từng phòng (?phong=) lọc ở trình duyệt: mọi tên bệnh nhân của mọi phòng vẫn được gửi về máy tivi của từng phòng",
+      "severity": "LOW",
+      "category": "display_data_minimization",
+      "evidence_level": "confirmed_static",
+      "summary": "Phần đầu file khẳng định mọi lọc danh tính 'ở máy chủ, không ẩn bằng CSS'. Nhưng chế độ `?phong=<mã>` chỉ truyền `phong` xuống DisplayBoard để lọc `items` bằng `m.room_code === phong` trong client; payload RSC vẫn chứa toàn bộ `items` (tên + phòng) của cơ sở. `?ten=` cũng là văn bản tuỳ ý (80 ký tự) được vẽ làm tiêu đề phòng.",
+      "trigger": "Mở tivi từng phòng bằng /display?phong=SA1; xem nguồn trang/payload RSC.",
+      "impact": "Có thể xảy ra: máy tivi đặt ở cửa một phòng (hoặc người có link) nhận tên của khách ở mọi phòng khác ngoài phần hiển thị. Mức thấp vì bảng tổng cũng hiển thị công khai cùng dữ liệu, nhưng thiết kế nói khác. Mặc định `hien_ten=true` và `che_ten=false` cũng là lựa chọn của một phòng khám, nên tenant mới sẽ công khai tên đầy đủ nếu quên cấu hình.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/display/page.tsx",
+          "line": 35,
+          "end_line": 65,
+          "detail": "Gọi /display/queue không tham số phòng; chuyển `phong` và `ten` xuống client."
+        },
+        {
+          "path": "src/dashboard/app/display/DisplayBoard.tsx",
+          "line": 14,
+          "end_line": 20,
+          "detail": "Cam kết lọc ở máy chủ."
+        },
+        {
+          "path": "src/dashboard/app/display/DisplayBoard.tsx",
+          "line": 111,
+          "end_line": 112,
+          "detail": "Lọc theo room_code ở client."
+        },
+        {
+          "path": "src/clinicai/services/display_board_service.py",
+          "line": 180,
+          "end_line": 183,
+          "detail": "Mặc định hien_ten True, che_ten False."
+        }
+      ],
+      "limitations": "Cùng một cơ sở thì các tivi vốn có thể thấy nhau; mức tác động phụ thuộc vị trí đặt tivi.",
+      "recommendation": "Truyền `phong` xuống `/display/queue?phong=` để backend lọc; đặt mặc định tenant mới là che tên hoặc hiện số; kiểm `ten` theo danh sách phòng thay vì tin tham số URL.",
+      "acceptance": "Response của /display/queue?phong=SA1 chỉ có lượt có room_code=SA1; RSC payload của trang tivi phòng không chứa tên ở phòng khác.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "S22-1"
+      ]
+    },
+    {
+      "tmp_id": "S22-16",
+      "title": "Tem lô in ra không có mã vạch quét được mà không báo khi mã tem rỗng/không hợp lệ hoặc nhãn quá hẹp",
+      "severity": "LOW",
+      "category": "label_scannability",
+      "evidence_level": "confirmed_static",
+      "summary": "Component `Vach` trả null nếu `thanhVachCode128B` từ chối mã (rỗng, ký tự ngoài ASCII 32-126, dài >80), nên tem vẫn in tên thuốc/số lô/HSD nhưng không có mã vạch và không có thông báo. Mã vạch được co giãn bằng `preserveAspectRatio=\"none\"` theo chiều rộng nhãn; cho phép nhập rộng tới mức tối thiểu 20 mm mà không kiểm độ rộng module (khoảng 150 module cho mã 10 ký tự cho ~0,13 mm/module).",
+      "trigger": "Lô chưa có ma_tem (dữ liệu cũ), mã chứa ký tự lạ, hoặc người dùng chọn khổ decal 20-30 mm.",
+      "impact": "Có thể xảy ra: tem dán lên hộp không quét được ở bước nhận/xuất, nhân viên quay về nhập tay hoặc đoán lô, tăng rủi ro nhầm lô.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/print/tem-lo/InTemLo.tsx",
+          "line": 18,
+          "end_line": 34,
+          "detail": "Vach trả null khi mã không mã hoá được; SVG preserveAspectRatio none."
+        },
+        {
+          "path": "src/dashboard/app/print/tem-lo/InTemLo.tsx",
+          "line": 57,
+          "end_line": 59,
+          "detail": "gioiHan rộng 20-200mm, cao 15-200mm, không kiểm độ rộng module."
+        },
+        {
+          "path": "src/dashboard/app/print/tem-lo/InTemLo.tsx",
+          "line": 126,
+          "end_line": 140,
+          "detail": "Tem vẫn in khi không có mã vạch."
+        },
+        {
+          "path": "src/dashboard/lib/ma-vach.ts",
+          "line": 27,
+          "end_line": 58,
+          "detail": "Từ chối chuỗi rỗng, >80 ký tự hoặc ký tự ngoài 32-126; quiet zone 10 module."
+        }
+      ],
+      "limitations": "Ngưỡng 0,19 mm là quy ước phổ biến cho máy quét 2D/1D thông dụng, chưa kiểm thiết bị thực tế của phòng khám.",
+      "recommendation": "Khi không có mã vạch thì chặn in tem đó và hiện danh sách lô thiếu mã; cảnh báo nếu độ rộng module <0,19 mm; thử quét lại sau khi in (đã có thư viện decode trong test).",
+      "acceptance": "Lô không có ma_tem -> nút In bị chặn kèm lý do; khổ 20mm -> cảnh báo nhãn quá hẹp.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S22-17",
+      "title": "Ô số dùng chung đổi giá trị bằng lăn chuột khi đang focus, kể cả ô sinh hiệu/số đo lâm sàng",
+      "severity": "LOW",
+      "category": "clinical_input_safety",
+      "evidence_level": "design_gap",
+      "summary": "OSo gắn trình nghe wheel không thụ động và `preventDefault()` khi ô đang focus; mỗi nấc lăn tăng/giảm một bước theo hàng thập phân rồi gọi onChange. Trang không cuộn trong lúc đó. Đây là lựa chọn có chủ ý ('an toàn dữ liệu' vì chỉ khi đang chọn), nhưng với trackpad hay chuột cuộn nhanh trên màn khám người dùng có thể thay đổi một số đo (huyết áp, cân nặng, kích thước) mà không nhận ra, và không có nhắc 'giá trị vừa đổi'.",
+      "trigger": "Bác sĩ/điều dưỡng bấm vào ô số rồi cuộn trang bằng trackpad/chuột.",
+      "impact": "Có thể xảy ra: số đo lâm sàng lệch một vài bước và được lưu theo luồng tự lưu của phiếu. Hệ quả phụ thuộc cơ chế lưu và cảnh báo ngưỡng ở máy chủ (không thuộc chunk này).",
+      "evidence": [
+        {
+          "path": "src/dashboard/components/ui/OSo.tsx",
+          "line": 80,
+          "end_line": 94,
+          "detail": "addEventListener wheel passive:false; onChange(moi) khi activeElement là ô."
+        },
+        {
+          "path": "src/dashboard/components/ui/OSo.tsx",
+          "line": 108,
+          "end_line": 108,
+          "detail": "title nhắc 'Bấm vào ô rồi lăn chuột để tăng / giảm'."
+        }
+      ],
+      "limitations": "Chưa kiểm các màn gọi OSo có tự lưu hay có bảng 'đã sửa' không; có thể bác sĩ đã quen.",
+      "recommendation": "Mặc định tắt lăn trên màn lâm sàng (bật có chủ đích bằng phím mũi tên), hoặc chỉ cho lăn khi giữ phím Alt/Ctrl; hiện đánh dấu 'đã đổi' tới khi lưu.",
+      "acceptance": "Test: ô số có focus + wheel không đổi giá trị trừ khi giữ phím điều khiển; mũi tên lên/xuống vẫn tăng giảm.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    }
+  ],
+  "extensions": [
+    {
+      "id": "FE-023",
+      "detail": "Thêm các điểm 'kẹt Đang tải' khi mạng lỗi: print/phieu-thu/[id]/InPhieuThu.tsx:112-136 và print/hoa-don-thuoc/[visitId]/InHoaDonThuoc.tsx:13-32 và print/ket-qua-luot/[visitId]/InKetQuaLuot.tsx:18-36 gọi `await fetch(...)` trong async IIFE không try/catch (khác InKetQua.tsx:327-340 có .catch); khi mạng lỗi, trang đứng ở 'Đang tải…' vĩnh viễn và phát sinh unhandled rejection. components/ui/NutHoanTac.tsx:71-90 `await goi(duLieu)` không try/finally nên nếu `goi` ném thì setDangGui(false) không chạy, nút kẹt 'Đang hoàn tác…'."
+    },
+    {
+      "id": "CLIN-037",
+      "detail": "Bản in phiếu khám v5 (print/phieu-kham/[visitId]/InPhieuKham.tsx, 1-619) không đọc hay hiển thị trạng thái nháp/chốt của phiếu khám; chỉ phần kết quả cận lâm sàng có nhãn trạng thái (dòng 162, 182). Chân ký 'Bác sĩ khám' (606-616) lấy bác sĩ của lượt bất kể phiếu chưa chốt."
+    },
+    {
+      "id": "AI-001",
+      "detail": "Giao diện Trung tâm giám sát nhận `bi_cat` (agent_giam_sat.py:561-607, TrungTamGiamSat.tsx:131) nhưng không hiển thị, nên khi danh sách nhận định cắt ở 200 người dùng vẫn thấy 'Agent chưa thấy chuyện gì cần xem' (TrungTamGiamSat.tsx:925-931)."
+    },
+    {
+      "id": "FE-022",
+      "detail": "Thêm danh sách có trần không báo: danh sách nhận định agent (bi_cat bị bỏ qua, TrungTamGiamSat.tsx:128-135), phiếu in xét nghiệm LIMIT 20 (ho_so_lam_sang_doc.py:189-201), bảng gọi số LIMIT 200 trước khi lọc người đang chờ (display_board_service.py:123-131)."
+    },
+    {
+      "id": "FE-002",
+      "detail": "TrungTamGiamSat.tsx:496-515: các nguồn chi-phi/tom-tat/nhận định lỗi thì giữ state cũ nhưng vẫn cập nhật nhãn 'Trực tiếp · <giờ>'; DisplayBoard (display/DisplayBoard.tsx:101-109) chỉ gọi router.refresh() và không có dấu 'cập nhật lần cuối' nếu refresh phía client thất bại, đồng hồ vẫn chạy."
+    }
+  ],
+  "held": [
+    {
+      "title": "NutCheckIn không khoá bấm trùng ở mức component",
+      "reason": "components/ui/NutCheckIn.tsx:29-38 gọi `void onChon()` và chỉ phụ thuộc prop `disabled` do màn truyền; chưa đọc các màn gọi và chưa kiểm endpoint check-in có idempotent hay không, nên chưa kết luận lỗi bấm đôi (xem CLIN-043/CLIN-057)."
+    },
+    {
+      "title": "BangDoiTac: phản hồi đọc danh sách cũ có thể ghi đè sau khi đổi ngày",
+      "reason": "doi-tac/BangDoiTac.tsx:193-195 `tai()` dùng `ngay` của lần render tạo callback và không huỷ khi đổi ngày; một lần tải do thao tác ngay trước khi đổi ngày có thể về sau và đặt `ds` của ngày cũ. Xác suất thấp, chưa mô phỏng."
+    },
+    {
+      "title": "ThongBaoHoanTac tự tắt sau 10 giây kể cả khi lệnh hoàn tác đang bay",
+      "reason": "ThongBaoHoanTac.tsx:40-44 hẹn onDong 10s; NutHoanTac chỉ báo 'đang hỏi' khi mở hộp xác nhận, không báo 'đang gửi', nên nếu lệnh chậm hơn 10s thì thông báo bị gỡ trước khi onXong chạy và màn không được làm mới (SSE có thể bù). Chưa đo."
+    },
+    {
+      "title": "Lightbox hiển thị 'i/n' sai khi danh sách tệp thu nhỏ",
+      "reason": "Lightbox.tsx:119 và 207 dùng i chưa kẹp theo n khi tep thay đổi (ví dụ '4/2'); hậu quả thẩm mỹ, bỏ qua."
+    },
+    {
+      "title": "Tivi nhận phiên đăng nhập của tài khoản nhân viên thông thường",
+      "reason": "display/page.tsx:19-23 nêu rõ trang vẫn cần đăng nhập bằng tài khoản nhân viên; vai DISPLAY có tồn tại ở backend nhưng chưa kiểm cấp phát tài khoản/ cookie tivi thực tế nên chỉ ghi nhận, đã gom vào S22-1 phần khuyến nghị token riêng."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Phân biệt 'không hỏi được backend' với 'chưa có ai' trên tivi",
+      "detail": "page.tsx phân biệt data=null với items rỗng và ghi lý do trong chú thích; cần nhân rộng và bổ sung khả năng tự phục hồi (xem S22-4).",
+      "evidence": "src/dashboard/app/display/page.tsx:45-54"
+    },
+    {
+      "title": "Che tên và tắt khu ở máy chủ, không bằng CSS",
+      "detail": "display_board_service lọc tên theo hien_ten/che_ten và bỏ khu `an` ở backend; có bài kiểm canh trường định danh.",
+      "evidence": "src/clinicai/services/display_board_service.py:56-66, 217-233, 333-337"
+    },
+    {
+      "title": "Trang lỗi gốc nói thật về trạng thái thao tác",
+      "detail": "error.tsx giữ phiên, nói 'thao tác vừa rồi có thể đã được lưu, kiểm tra trước khi làm lại', có mã lỗi ngắn và gửi vào kho lỗi có chặn trùng.",
+      "evidence": "src/dashboard/app/error.tsx:24-47"
+    },
+    {
+      "title": "Cluster Next có chốt chết sớm",
+      "detail": "Đếm số lần tiến trình con chết trong 10 giây đầu và thoát để Docker dựng lại thay vì quay vòng đốt CPU.",
+      "evidence": "src/dashboard/cluster.cjs:70-113"
+    },
+    {
+      "title": "Bản in 'thấy gì in nấy' và có nhãn BẢN NHÁP",
+      "detail": "InPhieuKham/InKetQua dùng cùng mảng dữ liệu cho xem trước và in, ẩn phần không thuộc lựa chọn, phiếu chưa hoàn tất in kèm 'BẢN NHÁP'.",
+      "evidence": "src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx:153-157; src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx:487-506"
+    },
+    {
+      "title": "Ghi nhận ai mở/in hồ sơ lâm sàng",
+      "detail": "Các endpoint đọc bệnh án và in phiếu theo lịch gọi ghi_mo_ho_so; mẫu nên áp cho in phiếu thu (xem S22-10).",
+      "evidence": "src/clinicai/api/v1/routers/clinical_records.py:86, 103-108"
+    },
+    {
+      "title": "Hộp xác nhận phá huỷ gõ chữ và hoàn tác do máy chủ quyết",
+      "detail": "HopXacNhan cho gõ chữ xác nhận; NutHoanTac chỉ gửi lệnh và mở hộp xác nhận khi backend trả can_xac_nhan, không tự suy luật.",
+      "evidence": "src/dashboard/components/ui/HopXacNhan.tsx:47-62; src/dashboard/components/ui/NutHoanTac.tsx:30-33, 83-87"
+    },
+    {
+      "title": "Nhịp hỏi chỉ chạy khi tab hiện và gộp bắt kịp",
+      "detail": "nhipKhiHien huỷ hẳn nhịp khi tab ẩn, chạy một lần khi hiện lại, taoGopBatKip hoãn thay vì vứt.",
+      "evidence": "src/dashboard/lib/nhip-khi-hien.ts:68-110, 146-177"
+    },
+    {
+      "title": "Dải DaiStaging và Button type mặc định",
+      "detail": "Dải 'STAGING — bản thử' không bấm trúng, không in; Button mặc định type=button tránh submit nhầm.",
+      "evidence": "src/dashboard/components/ui/DaiStaging.tsx:14-27; src/dashboard/components/ui/Button.tsx:78-91"
+    },
+    {
+      "title": "Mã vạch Code128 tự vẽ có kiểm chứng giải mã",
+      "detail": "ma-vach.ts từ chối ký tự ngoài vùng hỗ trợ thay vì ném, có quiet zone và test giải mã bằng zxing.",
+      "evidence": "src/dashboard/lib/ma-vach.ts:1-58"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/dashboard/app/display/DisplayBoard.tsx",
+      "lines": 326,
+      "full_read": true,
+      "note": "Đã đọc; phát sinh S22-2, S22-4, S22-15."
+    },
+    {
+      "path": "src/dashboard/app/display/page.tsx",
+      "lines": 67,
+      "full_read": true,
+      "note": "Đã đọc; đối chiếu backend display router/service/identity (S22-1, S22-4)."
+    },
+    {
+      "path": "src/dashboard/app/doi-tac/BangDoiTac.tsx",
+      "lines": 406,
+      "full_read": true,
+      "note": "Đã đọc; chỉ có phát hiện ở held (đọc lại danh sách cũ)."
+    },
+    {
+      "path": "src/dashboard/app/doi-tac/page.tsx",
+      "lines": 61,
+      "full_read": true,
+      "note": "Đã đọc; dùng làm bằng chứng thiết kế vai đối tác."
+    },
+    {
+      "path": "src/dashboard/app/error.tsx",
+      "lines": 60,
+      "full_read": true,
+      "note": "Đã đọc; mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+      "lines": 1155,
+      "full_read": true,
+      "note": "Đã đọc toàn bộ; phát sinh S22-5, S22-6."
+    },
+    {
+      "path": "src/dashboard/app/giam-sat/agent-demo.ts",
+      "lines": 150,
+      "full_read": true,
+      "note": "Đã đọc; dữ liệu giả lập, dòng 142-148 chỉ xem tới cột ~220."
+    },
+    {
+      "path": "src/dashboard/app/globals.css",
+      "lines": 293,
+      "full_read": true,
+      "note": "Đã đọc; token Kim Ngưu/brand (S22-11)."
+    },
+    {
+      "path": "src/dashboard/app/health/route.ts",
+      "lines": 9,
+      "full_read": true,
+      "note": "Đã đọc; liveness trần không kiểm DB/backend (đã có hạng mục INF khác)."
+    },
+    {
+      "path": "src/dashboard/app/layout.tsx",
+      "lines": 56,
+      "full_read": true,
+      "note": "Đã đọc; thương hiệu cứng, không refresher cho tivi (S22-4, S22-11)."
+    },
+    {
+      "path": "src/dashboard/app/manifest.ts",
+      "lines": 37,
+      "full_read": true,
+      "note": "Đã đọc; thương hiệu PWA cứng (S22-11)."
+    },
+    {
+      "path": "src/dashboard/app/page.tsx",
+      "lines": 16,
+      "full_read": true,
+      "note": "Đã đọc; redirect theo vai, không vấn đề."
+    },
+    {
+      "path": "src/dashboard/app/print/KhoiIn.tsx",
+      "lines": 118,
+      "full_read": true,
+      "note": "Đã đọc; không vấn đề đáng kể."
+    },
+    {
+      "path": "src/dashboard/app/print/KieuInA4.tsx",
+      "lines": 53,
+      "full_read": true,
+      "note": "Đã đọc; chân trang DR4WOMEN CLINIC cứng (S22-11)."
+    },
+    {
+      "path": "src/dashboard/app/print/[appointmentId]/MedicalSummaryPrint.tsx",
+      "lines": 610,
+      "full_read": true,
+      "note": "Đã đọc; S22-8, S22-11."
+    },
+    {
+      "path": "src/dashboard/app/print/[appointmentId]/page.tsx",
+      "lines": 256,
+      "full_read": true,
+      "note": "Đã đọc; S22-8, S22-9."
+    },
+    {
+      "path": "src/dashboard/app/print/hoa-don-thuoc/[visitId]/InHoaDonThuoc.tsx",
+      "lines": 74,
+      "full_read": true,
+      "note": "Đã đọc; S22-10, extension FE-023."
+    },
+    {
+      "path": "src/dashboard/app/print/hoa-don-thuoc/[visitId]/page.tsx",
+      "lines": 17,
+      "full_read": true,
+      "note": "Đã đọc; không guard phía trang, dựa vào backend (không phải lỗi)."
+    },
+    {
+      "path": "src/dashboard/app/print/ket-qua-luot/[visitId]/InKetQuaLuot.tsx",
+      "lines": 85,
+      "full_read": true,
+      "note": "Đã đọc; extension FE-023."
+    },
+    {
+      "path": "src/dashboard/app/print/ket-qua-luot/[visitId]/page.tsx",
+      "lines": 20,
+      "full_read": true,
+      "note": "Đã đọc."
+    },
+    {
+      "path": "src/dashboard/app/print/ket-qua/[orderId]/InKetQua.tsx",
+      "lines": 514,
+      "full_read": true,
+      "note": "Đã đọc; S22-12."
+    },
+    {
+      "path": "src/dashboard/app/print/ket-qua/[orderId]/page.tsx",
+      "lines": 18,
+      "full_read": true,
+      "note": "Đã đọc."
+    },
+    {
+      "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+      "lines": 619,
+      "full_read": true,
+      "note": "Đã đọc; S22-7, extension CLIN-037."
+    },
+    {
+      "path": "src/dashboard/app/print/phieu-kham/[visitId]/page.tsx",
+      "lines": 29,
+      "full_read": true,
+      "note": "Đã đọc."
+    },
+    {
+      "path": "src/dashboard/app/print/phieu-thu/[id]/InPhieuThu.tsx",
+      "lines": 401,
+      "full_read": true,
+      "note": "Đã đọc; S22-10, extension FE-023."
+    },
+    {
+      "path": "src/dashboard/app/print/phieu-thu/[id]/page.tsx",
+      "lines": 22,
+      "full_read": true,
+      "note": "Đã đọc."
+    },
+    {
+      "path": "src/dashboard/app/print/sono/[id]/SonoResultPrint.tsx",
+      "lines": 176,
+      "full_read": true,
+      "note": "Đã đọc; mã chết còn tên Dr4women (S22-11)."
+    },
+    {
+      "path": "src/dashboard/app/print/sono/[id]/page.tsx",
+      "lines": 20,
+      "full_read": true,
+      "note": "Đã đọc; route đã tắt."
+    },
+    {
+      "path": "src/dashboard/app/print/tem-lo/InTemLo.tsx",
+      "lines": 145,
+      "full_read": true,
+      "note": "Đã đọc; S22-16."
+    },
+    {
+      "path": "src/dashboard/app/print/tem-lo/page.tsx",
+      "lines": 17,
+      "full_read": true,
+      "note": "Đã đọc."
+    },
+    {
+      "path": "src/dashboard/app/traffic/page.tsx",
+      "lines": 419,
+      "full_read": true,
+      "note": "Đã đọc; S22-13."
+    },
+    {
+      "path": "src/dashboard/cluster.cjs",
+      "lines": 125,
+      "full_read": true,
+      "note": "Đã đọc; S22-14 và mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/components/GacHetPhien.tsx",
+      "lines": 45,
+      "full_read": true,
+      "note": "Đã đọc; chỉ bọc fetch tới /api, không phủ RSC refresh của tivi."
+    },
+    {
+      "path": "src/dashboard/components/ui/BaoLoiCanhNut.tsx",
+      "lines": 40,
+      "full_read": true,
+      "note": "Đã đọc."
+    },
+    {
+      "path": "src/dashboard/components/ui/Button.tsx",
+      "lines": 94,
+      "full_read": true,
+      "note": "Đã đọc; mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/components/ui/Chip.tsx",
+      "lines": 77,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ChipChon.tsx",
+      "lines": 54,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ChipLoc.tsx",
+      "lines": 64,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ChonCoSo.tsx",
+      "lines": 75,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/CongTac.tsx",
+      "lines": 47,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/DaiStaging.tsx",
+      "lines": 28,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/Dropzone.tsx",
+      "lines": 84,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/DuongXuHuong.tsx",
+      "lines": 46,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/HopChiTiet.tsx",
+      "lines": 30,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/HopXacNhan.tsx",
+      "lines": 120,
+      "full_read": true,
+      "note": "Đã đọc; dòng 94 (className) chỉ xem tới cột ~200."
+    },
+    {
+      "path": "src/dashboard/components/ui/LichKhoangNgay.tsx",
+      "lines": 213,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/Lightbox.tsx",
+      "lines": 303,
+      "full_read": true,
+      "note": "Đã đọc; held (thẩm mỹ)."
+    },
+    {
+      "path": "src/dashboard/components/ui/NganGap.tsx",
+      "lines": 97,
+      "full_read": true,
+      "note": "Đã đọc; dòng 78 (className) chỉ xem tới cột ~200."
+    },
+    {
+      "path": "src/dashboard/components/ui/NutCheckIn.tsx",
+      "lines": 40,
+      "full_read": true,
+      "note": "Đã đọc; held (khoá bấm trùng)."
+    },
+    {
+      "path": "src/dashboard/components/ui/NutHoanTac.tsx",
+      "lines": 142,
+      "full_read": true,
+      "note": "Đã đọc; extension FE-023, held ThongBaoHoanTac."
+    },
+    {
+      "path": "src/dashboard/components/ui/NutInPhieu.tsx",
+      "lines": 56,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/OChon.tsx",
+      "lines": 16,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ONhap.tsx",
+      "lines": 16,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/OSo.tsx",
+      "lines": 126,
+      "full_read": true,
+      "note": "Đã đọc; S22-17."
+    },
+    {
+      "path": "src/dashboard/components/ui/OTimKhach.tsx",
+      "lines": 32,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/PopoverNeo.tsx",
+      "lines": 157,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/PriorityChip.tsx",
+      "lines": 46,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/SoLuot.tsx",
+      "lines": 107,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/StatCard.tsx",
+      "lines": 120,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/StatusChip.tsx",
+      "lines": 82,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/Stepper.tsx",
+      "lines": 118,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ThanhNgay.tsx",
+      "lines": 196,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ThanhSoTrang.tsx",
+      "lines": 90,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ThanhTab.tsx",
+      "lines": 73,
+      "full_read": true,
+      "note": "Đã đọc, không phát hiện vấn đề đáng ghi."
+    },
+    {
+      "path": "src/dashboard/components/ui/ThongBaoHoanTac.tsx",
+      "lines": 73,
+      "full_read": true,
+      "note": "Đã đọc; dòng 51 (className) chỉ xem tới cột ~200; held."
+    },
+    {
+      "path": "src/dashboard/components/ui/Timeline.tsx",
+      "lines": 197,
+      "full_read": true,
+      "note": "Đã đọc; dòng 158 (className) chỉ xem tới cột ~200."
+    }
+  ]
+}

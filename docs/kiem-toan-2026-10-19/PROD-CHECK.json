@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-19T18:27:02.897260+07:00",
+  "read_only": true,
+  "checkout_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "checkout_dirty_paths": [],
+  "runtime_source": {
+    "api_python_files": 424,
+    "worker_python_files": 424,
+    "mismatches": 0,
+    "detail": "PROD-SOURCE-HASHES.json",
+    "frontend_bundle_revision_verified": false
+  },
+  "acl": {
+    "authenticated_select_prescription_draft": false,
+    "authenticated_select_clinic_settings": false,
+    "anon_execute_lieu_trinh_go_buoi": false,
+    "authenticated_execute_lieu_trinh_go_buoi": false
+  },
+  "migration_ledger": {
+    "versions_count": 373,
+    "source_count": 373,
+    "missing_source_versions": [],
+    "extra_recorded_versions": [],
+    "content_checksums_verified": false
+  },
+  "limitations": [
+    "Point-in-time read-only metadata and source hashes only",
+    "No PHI, environment secrets, logs, user sessions or production mutation",
+    "No application behavior/load/failure/restore test on production",
+    "Frontend container healthy but compiled bundle not mapped cryptographically to Git SHA",
+    "Live ACL safe in these four checks; upgrade/restore scenarios can still regress"
+  ]
+}

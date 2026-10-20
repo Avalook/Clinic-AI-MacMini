@@ -1,0 +1,405 @@
+[
+  {
+    "id": "INF-001",
+    "title": "Kiểm tra backup báo đạt dù thiếu auth và tệp kết quả chờ đẩy",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "infra_events",
+    "summary": "verify-backup.sh kiểm checksum public và media.tar.gz nhưng không kiểm auth_artifact/auth_sha256 hoặc tep_chua_day_artifact/checksum/skipped dù backup-db.sh ghi các trường này.",
+    "trigger": "Bản sao public còn nguyên, companion auth hoặc tệp kết quả chưa đẩy bị mất/hỏng; hoặc backup đã bỏ sót tệp vì trần dung lượng.",
+    "impact": "Người vận hành nhận tín hiệu Backup verified sai về mức đầy đủ; có thể chỉ phát hiện thiếu tài khoản/tệp khi cần phục hồi.",
+    "evidence": [
+      {
+        "path": "scripts/verify-backup.sh",
+        "line": 83,
+        "end_line": 136,
+        "detail": "Không có nhánh kiểm companion auth hoặc tep_chua_day."
+      },
+      {
+        "path": "scripts/backup-db.sh",
+        "line": 493,
+        "end_line": 516,
+        "detail": "Manifest có auth checksum, pending-media checksum/count/skipped và restore_order."
+      }
+    ],
+    "validation": {
+      "method": "synthetic_local_fixture",
+      "command": "python3 synthetic temp fixture + bash scripts/verify-backup.sh <temp>.sql.gz; BACKUP_MIN_ARCHIVE_BYTES=1",
+      "result": "exit 0; Backup verified (... no media) khi auth_artifact và tep_chua_day_artifact không tồn tại, auth checksum giả, skipped=7",
+      "limitations": "Không kiểm backup thật, không SQL/network, fixture marker SQL không phải bản DB có thể restore."
+    },
+    "recommendation": "Kiểm manifest như một tập artifact nguyên khối; bắt buộc auth, kiểm mọi checksum/kích thước/count; skipped>0 phải trả trạng thái degraded, không xanh. Công khai scope và RPO theo loại dữ liệu.",
+    "acceptance": "Xoá/hỏng từng companion bằng fixture phải bị từ chối; skipped>0 hiện degraded; fixture đủ tập mới được green.",
+    "alignment": [
+      "Reality dễ nhìn",
+      "Unknown ngắn",
+      "Phát hiện sớm"
+    ],
+    "related_tests": [
+      "scripts/tests/test-infra-safety.sh"
+    ],
+    "source_hashes": {
+      "scripts/verify-backup.sh": "eb6a82161b9d5d60f277fd6ebfb6f305db4c41081d6eb0ac19c5db0c15ca3b00",
+      "scripts/backup-db.sh": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "scripts/verify-backup.sh",
+          "line": 92,
+          "end_line": 105,
+          "sha256": "eb6a82161b9d5d60f277fd6ebfb6f305db4c41081d6eb0ac19c5db0c15ca3b00",
+          "excerpt": "92: grep -qx 'format_version=1' \"$MANIFEST_FILE\" &&\n93: grep -qx 'scope=public-schema-only' \"$MANIFEST_FILE\" &&\n94: grep -qx 'complete_supabase_dr=false' \"$MANIFEST_FILE\" &&\n95: grep -qx 'requires=supabase-cloud-pitr-and-auth-backup' \"$MANIFEST_FILE\" || \\\n96:     fail \"backup manifest is unsupported or incomplete\"\n97: \n98: EXPECTED_SHA=$(grep -E '^archive_sha256=' \"$MANIFEST_FILE\" | head -n 1 | cut -d= -f2- || true)\n99: if [ \"$SHA_COMMAND\" = \"shasum\" ]; then\n100:     ACTUAL_SHA=$(shasum -a 256 \"$BACKUP_FILE\" | awk '{print $1}')\n101: else\n102:     ACTUAL_SHA=$(sha256sum \"$BACKUP_FILE\" | awk '{print $1}')\n103: fi\n104: [ -n \"$EXPECTED_SHA\" ] && [ \"$EXPECTED_SHA\" = \"$ACTUAL_SHA\" ] || \\\n105:     fail \"backup checksum does not match its manifest\""
+        },
+        {
+          "path": "scripts/verify-backup.sh",
+          "line": 112,
+          "end_line": 136,
+          "sha256": "eb6a82161b9d5d60f277fd6ebfb6f305db4c41081d6eb0ac19c5db0c15ca3b00",
+          "excerpt": "112: MEDIA_NAME=$(grep -E '^media_artifact=' \"$MANIFEST_FILE\" | head -n 1 | cut -d= -f2- || true)\n113: [ -n \"$MEDIA_NAME\" ] || fail \"backup manifest does not mention media at all (stale format?)\"\n114: MEDIA_VERIFIED=\"no media\"\n115: if [ \"$MEDIA_NAME\" != \"none\" ]; then\n116:     MEDIA_PATH=\"$(dirname \"$BACKUP_FILE\")/${MEDIA_NAME}\"\n117:     [ -f \"$MEDIA_PATH\" ] || fail \"manifest names a media artifact that is not there: $MEDIA_NAME\"\n118:     gzip -t \"$MEDIA_PATH\" 2>/dev/null || fail \"media artifact failed gzip validation\"\n119:     MEDIA_EXPECTED=$(grep -E '^media_sha256=' \"$MANIFEST_FILE\" | head -n 1 | cut -d= -f2- || true)\n120:     if [ \"$SHA_COMMAND\" = \"shasum\" ]; then\n121:         MEDIA_ACTUAL=$(shasum -a 256 \"$MEDIA_PATH\" | awk '{print $1}')\n122:     else\n123:         MEDIA_ACTUAL=$(sha256sum \"$MEDIA_PATH\" | awk '{print $1}')\n124:     fi\n125:     [ -n \"$MEDIA_EXPECTED\" ] && [ \"$MEDIA_EXPECTED\" = \"$MEDIA_ACTUAL\" ] || \\\n126:         fail \"media checksum does not match its manifest\"\n127:     # Đếm lại BÊN TRONG tar. Một tar rỗng vẫn qua được gzip -t và vẫn khớp mã\n128:     # băm của chính nó — hai phép kiểm trên không nói gì về việc có ảnh hay không.\n129:     MEDIA_EXPECT_N=$(grep -E '^media_file_count=' \"$MANIFEST_FILE\" | head -n 1 | cut -d= -f2- || echo 0)\n130:     MEDIA_IN_TAR=$(tar -tzf \"$MEDIA_PATH\" 2>/dev/null | grep -cv '/$' || true)\n131:     [ \"${MEDIA_IN_TAR:-0}\" -ge \"${MEDIA_EXPECT_N:-0}\" ] || \\\n132:         fail \"media archive holds ${MEDIA_IN_TAR} file(s) but the manifest claims ${MEDIA_EXPECT_N}\"\n133:     MEDIA_VERIFIED=\"${MEDIA_IN_TAR} media file(s)\"\n134: fi\n135: \n136: echo \"Backup verified: $(basename \"$BACKUP_FILE\") (${ARCHIVE_BYTES} bytes, ${AGE_SECONDS}s old, ${MEDIA_VERIFIED})\""
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "INF-002",
+    "title": "Cảnh báo Telegram thất bại lần đầu không được gửi lại khi sự cố còn mở",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "infra_events",
+    "summary": "_mo chỉ trả True lúc cảnh báo mới; ap_dung chỉ gửi cho thay đổi trạng thái. gui_telegram_ops=False không tạo pending delivery/retry.",
+    "trigger": "Mất mạng, timeout/429 hoặc Telegram tạm lỗi đúng lúc phát hiện sự cố.",
+    "impact": "Cảnh báo vẫn có trên /ops nhưng kênh chủ động không thử lại cho tới khi sự cố đóng/mở lại; người vận hành phải tự kiểm tra màn hình.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/canh_gac.py",
+        "line": 183,
+        "end_line": 197,
+        "detail": "ON CONFLICT cập nhật đếm nhưng trả xmax=0 chỉ khi insert mới."
+      },
+      {
+        "path": "src/clinicai/services/canh_gac.py",
+        "line": 207,
+        "end_line": 248,
+        "detail": "HTTP lỗi trả False; chỉ thay đổi trạng thái được gửi; không lưu retry."
+      }
+    ],
+    "validation": {
+      "method": "actual_function_with_fake_pool_and_sender",
+      "command": "PYTHONPATH=src .venv/bin/python: gọi canh_gac.ap_dung hai lần; fake _mo insert lần đầu, update lần hai; fake sender thất bại lần đầu",
+      "result": "cycles=2, telegram_attempts=1, delivery_mark_updates=0",
+      "limitations": "Tái hiện control flow thật bằng fake pool, không DB và không gửi Telegram thật."
+    },
+    "recommendation": "Tạo hàng giao cảnh báo bền trong cùng DB transaction, retry có hạn/backoff; phân biệt incident open, delivery pending/sent/failed và acknowledgement. Dedupe theo incident; có escalation khi chưa có người nhận.",
+    "acceptance": "Hai chu kỳ liên tiếp: lần 1 gửi hỏng, lần 2 phải retry; timeout/429/5xx không mất cảnh báo; không gửi trùng khi đã nhận.",
+    "alignment": [
+      "Ít gián đoạn nhưng đúng lúc",
+      "Ownership rõ",
+      "Phát hiện sớm"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/canh_gac.py": "ac25fd79942e713db38a80a1574e639cd518917f7aa6e27bb588351e5f8a9fb7"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/canh_gac.py",
+          "line": 249,
+          "end_line": 263,
+          "sha256": "5376f1ab3a237dc1123490cf6548dd3f69b4d7fcb9d23ad961024457e5750d5e",
+          "excerpt": "249: async def _mo(conn: asyncpg.Connection, k: KetQuaKiem) -> bool:\n250:     \"\"\"Mở / cộng dồn. Trả True nếu cảnh báo MỚI mở (để báo một lần).\"\"\"\n251:     moi = await conn.fetchval(\n252:         \"\"\"\n253:         INSERT INTO canh_bao (ma, muc, noi_dung) VALUES ($1, $2, $3)\n254:         ON CONFLICT (ma) WHERE dong_luc IS NULL DO UPDATE\n255:            SET so_lan = canh_bao.so_lan + 1, lan_cuoi = now(),\n256:                noi_dung = EXCLUDED.noi_dung\n257:         RETURNING (xmax = 0)\n258:         \"\"\",\n259:         k.ma,\n260:         k.muc,\n261:         k.noi_dung,\n262:     )\n263:     return bool(moi)"
+        },
+        {
+          "path": "src/clinicai/services/canh_gac.py",
+          "line": 291,
+          "end_line": 314,
+          "sha256": "5376f1ab3a237dc1123490cf6548dd3f69b4d7fcb9d23ad961024457e5750d5e",
+          "excerpt": "291: async def ap_dung(pool: asyncpg.Pool, ket_qua: list[KetQuaKiem]) -> None:\n292:     \"\"\"Mở / đóng cảnh báo theo kết quả kiểm + báo Telegram ops lúc đổi trạng\n293:     thái. Dùng chung cho vòng su-kien và phép đo kho tệp trong API. CÓ THỂ ném\n294:     (lỗi DB) — người gọi bọc.\"\"\"\n295:     async with pool.acquire() as conn:\n296:         thay_doi: list[tuple[KetQuaKiem, bool]] = []\n297:         for k in ket_qua:\n298:             if k.co_chuyen is None:\n299:                 continue\n300:             if k.co_chuyen:\n301:                 if await _mo(conn, k):\n302:                     thay_doi.append((k, True))\n303:             elif await _dong(conn, k.ma):\n304:                 thay_doi.append((k, False))\n305:     for k, mo in thay_doi:\n306:         dau = (\"🔴\" if k.muc == \"critical\" else \"🟠\") if mo else \"✅ Đã hết:\"\n307:         chu = f\"{dau} ClinicAI · {k.noi_dung}\"\n308:         logger.warning(\"canh_gac_mo\" if mo else \"canh_gac_dong\", ma=k.ma, muc=k.muc)\n309:         if await gui_telegram_ops(chu) and mo:\n310:             await pool.execute(\n311:                 \"UPDATE canh_bao SET bao_luc = now()\"\n312:                 \" WHERE ma = $1 AND dong_luc IS NULL\",\n313:                 k.ma,\n314:             )"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "INF-003",
+    "title": "Guard chống chạy phép thử trên production dùng sai tên môi trường",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "infra_events",
+    "summary": "Hai script tạo tài khoản/đo giữ chỗ chỉ chặn APP_ENV=prod; template prod hiện hành dùng APP_ENV=production.",
+    "trigger": "Người vận hành nạp cấu hình prod rồi chạy scripts/tests/do-giu-cho.py hoặc do-tam-cskh.py.",
+    "impact": "Có thể tạo tài khoản, đặt lịch trên dữ liệu thật; do-tam-cskh còn hết hạn mọi slot_hold đang mở trong clinic, bao gồm chỗ nhân viên thật đang giữ.",
+    "evidence": [
+      {
+        "path": "scripts/tests/do-giu-cho.py",
+        "line": 143,
+        "end_line": 153,
+        "detail": "Chỉ return khi APP_ENV == prod, sau đó kết nối DATABASE_URL."
+      },
+      {
+        "path": "scripts/tests/do-tam-cskh.py",
+        "line": 109,
+        "end_line": 117,
+        "detail": "Cùng guard sai tên môi trường."
+      },
+      {
+        "path": "scripts/tests/do-tam-cskh.py",
+        "line": 242,
+        "end_line": 249,
+        "detail": "UPDATE tất cả slot_hold chưa released trong clinic, không giới hạn fixture."
+      },
+      {
+        "path": ".env.prod.example",
+        "line": 13,
+        "end_line": 16,
+        "detail": "APP_ENV=production là tên môi trường đúng trong template."
+      }
+    ],
+    "validation": {
+      "method": "static_control_flow_trace",
+      "command": null,
+      "result": "Guard condition đối chiếu template và nhánh UPDATE; chưa chạy script nguy hiểm.",
+      "limitations": "Không khẳng định script đã từng bị chạy trên prod."
+    },
+    "recommendation": "Dùng guard fail-closed chung: chỉ cho env test/development và host DB/API local được phép; xác minh cả DB, auth và API cùng môi trường; mọi cleanup phải scoped fixture IDs. Không chỉ blacklist domain/env.",
+    "acceptance": "Chạy với production/prod/thiếu APP_ENV hoặc DB/API ngoài allowlist phải dừng trước I/O; test bằng fake connector; slot_hold fixture cleanup không chạm người thật.",
+    "alignment": [
+      "Vận hành bền vững",
+      "Lỗi lặp thành cải tiến",
+      "Reality dễ nhìn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "scripts/tests/do-tam-cskh.py": "6ec08a10de5c3dfe354f84ab4ea3692fcb543438f85efa991cde27633ab38a20",
+      "scripts/tests/do-giu-cho.py": "79c098f3b495c72629cf16b7e3fbd14f635d8fad9af0bb333e1d68581959988e",
+      ".env.prod.example": "3d3cf6bc461373286c346df4f9b46f3317b014fb0cf517ee0532499a17339939"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "scripts/tests/do-giu-cho.py",
+          "line": 143,
+          "end_line": 153,
+          "sha256": "79c098f3b495c72629cf16b7e3fbd14f635d8fad9af0bb333e1d68581959988e",
+          "excerpt": "143: async def main() -> int:\n144:     if os.environ.get(\"APP_ENV\") == \"prod\":\n145:         print(\"TỪ CHỐI: bài đo này tạo dữ liệu thử, không chạy trên prod.\")\n146:         return 2\n147: \n148:     # `DATABASE_URL` mang tiền tố của SQLAlchemy (`postgresql+asyncpg://`);\n149:     # asyncpg nói chuyện trực tiếp thì không hiểu cái đuôi ấy.\n150:     conn = await asyncpg.connect(\n151:         os.environ[\"DATABASE_URL\"].replace(\"postgresql+asyncpg://\", \"postgresql://\")\n152:     )\n153:     clinic_id = str(await conn.fetchval(\"SELECT id FROM public.clinic LIMIT 1\"))"
+        },
+        {
+          "path": "scripts/tests/do-tam-cskh.py",
+          "line": 109,
+          "end_line": 117,
+          "sha256": "6ec08a10de5c3dfe354f84ab4ea3692fcb543438f85efa991cde27633ab38a20",
+          "excerpt": "109: async def main() -> int:\n110:     if os.environ.get(\"APP_ENV\") == \"prod\":\n111:         print(\"TỪ CHỐI: bài đo tạo tài khoản thử, không chạy trên prod.\")\n112:         return 2\n113: \n114:     conn = await asyncpg.connect(\n115:         os.environ[\"DATABASE_URL\"].replace(\"postgresql+asyncpg://\", \"postgresql://\")\n116:     )\n117:     clinic_id = str(await conn.fetchval(\"SELECT id FROM public.clinic LIMIT 1\"))"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "INF-004",
+    "title": "Một consumer liên tục có việc có thể chặn hẹn giờ, cảnh báo và nhịp tim",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "infra_events",
+    "summary": "_run_su_kien drain từng consumer tới rỗng bằng vòng while không quota. Hẹn giờ, canh gác, agent và _beat chỉ chạy sau mọi consumer.",
+    "trigger": "Backlog lớn hoặc tốc độ sự kiện mới >= tốc độ xử lý của consumer đứng trước; hoặc handler/LLM lâu.",
+    "impact": "Các consumer sau, nhắc tái khám và cảnh báo bị đói; heartbeat có thể stale dù worker vẫn làm việc. Không có giới hạn độ trễ xuyên các loại việc.",
+    "evidence": [
+      {
+        "path": "src/clinicai/worker.py",
+        "line": 285,
+        "end_line": 307,
+        "detail": "Vòng drain không giới hạn trước timer/canh gác."
+      },
+      {
+        "path": "docker-compose.yml",
+        "line": 307,
+        "end_line": 313,
+        "detail": "Health worker dựa heartbeat <120 giây."
+      }
+    ],
+    "validation": {
+      "method": "static_loop_trace",
+      "command": null,
+      "result": "Control flow drain-first được xác nhận; chưa benchmark tải hoặc tái hiện starvation runtime.",
+      "limitations": "Quy mô hiện tại có thể chưa chạm điều kiện này; đây là lỗi giới hạn fairness trước khi tăng khách."
+    },
+    "recommendation": "Chạy round-robin với batch/time budget; timer/canh gác có lịch độc lập trong cùng process hoặc task được giám sát; heartbeat thể hiện liveness riêng và tiến độ từng consumer. Đặt deadline handler.",
+    "acceptance": "Với một consumer không bao giờ rỗng, hẹn giờ và canh gác vẫn chạy trong budget định trước; kiểm tra fairness bằng fake endless queue và đồng hồ giả.",
+    "alignment": [
+      "Phát hiện sớm",
+      "Unknown ngắn",
+      "Bệnh nhân ít chờ bất định"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/worker.py": "27ad98f6028aa0544e2c6027f8d4c16aa4f06663e978b6ca14fa17832c50c388",
+      "docker-compose.yml": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/worker.py",
+          "line": 290,
+          "end_line": 312,
+          "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+          "excerpt": "290:     try:\n291:         while not stop.is_set():\n292:             try:\n293:                 # Thu hồi trước: worker chết ở lần chạy trước để lại dòng treo.\n294:                 await thu_hoi_thue(pool)\n295:                 for consumer in consumers:\n296:                     while await lam_mot_dong(pool, consumer, ten_worker=ten_worker):\n297:                         if stop.is_set():\n298:                             break\n299:                 # Cùng tiến trình, cùng nhịp: những cái HẸN đã tới giờ. Tách\n300:                 # thành một tiến trình nữa chỉ để chạy một vòng lặp là thêm một\n301:                 # thứ phải trông mà không được gì.\n302:                 await thu_hoi_hen_treo(pool)\n303:                 while await lam_mot_hen(pool):\n304:                     if stop.is_set():\n305:                         break\n306:                 if canh and time.monotonic() - lan_canh >= canh_gac.NHIP_GIAY:\n307:                     lan_canh = time.monotonic()\n308:                     await canh_gac.mot_vong(pool)\n309:                 if (\n310:                     canh\n311:                     and dau_ky_con\n312:                     and time.monotonic() - lan_dau_ky >= so_no_service.NHIP_DAU_KY_GIAY"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "INF-005",
+    "title": "Claim worker hết lease không có fencing ở bước thực thi và hoàn tất",
+    "severity": "MEDIUM",
+    "evidence_level": "hypothesis",
+    "category": "infra_events",
+    "summary": "Claim commit trước khi handler chạy; reclaim chỉ theo lease 120 giây. UPDATE DONE/RETRY không kiểm locked_by/attempt token hiện hành.",
+    "trigger": "Chạy hai worker và handler A còn sống nhưng xử lý >120 giây; worker B reclaim rồi nhận cùng delivery.",
+    "impact": "Có khả năng hai handler cùng xử lý hoặc worker cũ ghi đè trạng thái lần nhận mới. Các projection có idempotency riêng giảm rủi ro nhưng chưa có bảo đảm tổng thể cho mọi consumer.",
+    "evidence": [
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 96,
+        "end_line": 129,
+        "detail": "Claim có locked_by và lease, không trả ownership token riêng."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 139,
+        "end_line": 198,
+        "detail": "Handler và đánh dấu DONE/RETRY ở transaction sau; WHERE chỉ event_id/consumer."
+      },
+      {
+        "path": "src/clinicai/events/worker.py",
+        "line": 283,
+        "end_line": 293,
+        "detail": "Reclaim IN_PROGRESS quá lease không phân biệt worker còn sống."
+      }
+    ],
+    "validation": {
+      "method": "static_concurrency_hypothesis",
+      "command": null,
+      "result": "Thiếu ownership condition xác nhận trong code; chưa dựng interleaving/DB proof.",
+      "limitations": "Chưa chứng minh consumer cụ thể tạo tác động trùng; một worker hiện hành làm xác suất thấp hơn."
+    },
+    "recommendation": "Trước mở nhiều worker, thêm ownership fencing bằng token/attempt và conditional update, hoặc giữ delivery row lock trong transaction xử lý với giới hạn thời gian; mọi side effect cần idempotency. Áp tương tự hen_gio.",
+    "acceptance": "Test hai worker, rút lease bằng fake clock; worker cũ không được commit effect hay cập nhật trạng thái sau khi mất quyền.",
+    "alignment": [
+      "Reality đáng tin",
+      "Lỗi lặp thành cải tiến"
+    ],
+    "related_tests": [
+      "src/tests/services/test_event_worker_db.py",
+      "src/tests/services/test_hen_gio_db.py"
+    ],
+    "source_hashes": {
+      "src/clinicai/events/worker.py": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Đường claim/finish trên main vẫn như baseline; đây vẫn là giả thuyết concurrency, chưa chứng minh consumer cụ thể tạo tác động trùng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/events/worker.py",
+          "line": 139,
+          "end_line": 163,
+          "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+          "excerpt": "139: async def lam_mot_dong(\n140:     pool: asyncpg.Pool, consumer: str, *, ten_worker: str = \"worker\"\n141: ) -> bool:\n142:     \"\"\"Lấy và xử lý đúng một dòng. Trả về False khi hàng đợi rỗng.\"\"\"\n143:     xu_ly = bo_xu_ly(consumer)\n144: \n145:     async with pool.acquire() as conn, conn.transaction():\n146:         dong = await conn.fetchrow(\n147:             _NHAN_MOT_DONG, consumer, ten_worker, float(HAN_THUE_GIAY)\n148:         )\n149:         if dong is None:\n150:             return False\n151: \n152:         su_kien = SuKienDaNhan(\n153:             event_id=dong[\"event_id\"],\n154:             event_type=dong[\"event_type\"],\n155:             clinic_id=dong[\"clinic_id\"],\n156:             aggregate_id=dong[\"aggregate_id\"],\n157:             aggregate_version=dong[\"aggregate_version\"],\n158:             occurred_at=dong[\"occurred_at\"],\n159:             seq=int(dong[\"seq\"]),\n160:             actor_type=dong[\"actor_type\"],\n161:             actor_staff_id=dong[\"actor_staff_id\"],\n162:             payload=json.loads(dong[\"payload\"]),\n163:             replay_id=dong[\"replay_id\"],"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "INF-006",
+    "title": "Khôi phục đầy đủ DB + đăng nhập + file chưa được chứng minh bởi các script hiện hành",
+    "severity": "HIGH",
+    "evidence_level": "design_gap",
+    "category": "infra_events",
+    "summary": "restore-db.sh khôi phục public nhưng không tự kiểm/khôi phục companion auth và pending-media. restore-drill chỉ seed UUID auth, không thử login. Backup bỏ CFS tar khi marker có mặt và ghi media_artifact=none; repo chưa chứng minh snapshot độc lập của kho gốc.",
+    "trigger": "Mất VPS hoặc mất/sai dữ liệu CFS; cần dựng phòng khám mới từ backup và chứng minh tài khoản vào được, tệp bệnh án mở được.",
+    "impact": "Không thể coi restore public thành công hoặc checksum backup là bằng chứng hệ thống phục hồi được trọn vẹn; RTO/RPO cho file, auth và cấu hình chưa có phép diễn tập xuyên suốt.",
+    "evidence": [
+      {
+        "path": "scripts/restore-db.sh",
+        "line": 207,
+        "end_line": 267,
+        "detail": "Nạp public và media cũ; không xử lý auth/pending-media companion."
+      },
+      {
+        "path": "scripts/restore-drill.sh",
+        "line": 121,
+        "end_line": 168,
+        "detail": "Chỉ dùng UUID auth.users; nói rõ không revalidate password hash/identity."
+      },
+      {
+        "path": "scripts/backup-db.sh",
+        "line": 352,
+        "end_line": 390,
+        "detail": "Có marker kho ngoài máy thì bỏ tar, MEDIA_COUNT=0."
+      },
+      {
+        "path": "scripts/backup-db.sh",
+        "line": 503,
+        "end_line": 516,
+        "detail": "Không phân biệt media none vì kho ngoài máy và none vì không có tệp trong manifest."
+      }
+    ],
+    "validation": {
+      "method": "static_recovery_chain_review",
+      "command": null,
+      "result": "Giới hạn các script đã xác nhận; chưa diễn tập stack thật hay kiểm cấu hình snapshot nhà cung cấp.",
+      "limitations": "Không kết luận CFS không có snapshot ngoài repo hoặc không có runbook thao tác tay."
+    },
+    "recommendation": "Thiết kế recovery set versioned: public + auth + pending files + tham chiếu/snapshot CFS + config/keys theo quy trình bảo mật riêng. Diễn tập trên stack self-host đầy đủ, login, mở tệp mẫu và chạy một vòng khám. Xác minh chính sách snapshot/versioning CFS hiện có trước khi mua thêm hạ tầng.",
+    "acceptance": "Dựng mới từ artifact độc lập; đăng nhập được, RLS/tenant đúng, tệp mở được; ghi RTO/RPO đo được và số tệp thiếu. Sự cố mất CFS phải có đường phục hồi đã kiểm.",
+    "alignment": [
+      "Vận hành bền vững",
+      "Quyết định có bằng chứng",
+      "Reality dễ nhìn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "scripts/backup-db.sh": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d",
+      "scripts/restore-db.sh": "1fb1a84bad3980d0756f8294acc73580a03d265438bdf2a29bef783364f8fd9d",
+      "scripts/restore-drill.sh": "0851c74d42ddb7a16720e2333e6dffa0678812faff60050f5753a13d03dc7f38"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Khoảng trống kiểm chứng DR vẫn còn; không suy rằng backup thật đang mất hoặc không phục hồi được.",
+      "evidence": [
+        {
+          "path": "scripts/verify-backup.sh",
+          "line": 92,
+          "end_line": 96,
+          "sha256": "eb6a82161b9d5d60f277fd6ebfb6f305db4c41081d6eb0ac19c5db0c15ca3b00",
+          "excerpt": "92: grep -qx 'format_version=1' \"$MANIFEST_FILE\" &&\n93: grep -qx 'scope=public-schema-only' \"$MANIFEST_FILE\" &&\n94: grep -qx 'complete_supabase_dr=false' \"$MANIFEST_FILE\" &&\n95: grep -qx 'requires=supabase-cloud-pitr-and-auth-backup' \"$MANIFEST_FILE\" || \\\n96:     fail \"backup manifest is unsupported or incomplete\""
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

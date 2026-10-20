@@ -1,0 +1,1310 @@
+[
+  {
+    "id": "FE-019",
+    "title": "Lỗi tải chuông được trình bày như không có thông báo",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "notification_read_state",
+    "summary": "Khi GET /api/thong-bao trả non-2xx hoặc fetch ném lỗi, docThongBao chỉ return/catch và không cập nhật trạng thái lỗi. Danh sách khởi tạo rỗng được giữ nguyên, trong khi GlobalHeader hiển thị ‘Chưa có thông báo nào’. BFF đã trả 502 đúng khi backend không tới được, nhưng client không đưa lỗi đó lên chuông.",
+    "trigger": "Mở trang hoặc tải lại khi API thông báo chưa phản hồi, trả 502 hay mất mạng trước lần đọc thành công.",
+    "impact": "Nhân viên có thể hiểu nhầm là không có việc, trong đó có thông báo KHẨN điều phối. Poll sau có thể phục hồi; chưa có bằng chứng thông báo bị mất vĩnh viễn hoặc sự cố production.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+        "line": 140,
+        "end_line": 179,
+        "detail": "Client bỏ qua non-2xx và lỗi mạng; lỗi không được lưu thành trạng thái render."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+        "line": 488,
+        "end_line": 494,
+        "detail": "Danh sách rỗng luôn render thông báo ‘Chưa có thông báo nào’."
+      },
+      {
+        "path": "src/dashboard/app/api/thong-bao/route.ts",
+        "line": 21,
+        "end_line": 30,
+        "detail": "BFF trả 502 khi backend không đọc được, không trả danh sách rỗng."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static trace nối response 502 của BFF với client catch/return và empty state; không có client-side error branch trong đoạn render đã theo.",
+      "limitations": "Static review only. No ClinicAI application test, DB, HTTP request, production runtime, secrets or patient data was used in round 19."
+    },
+    "recommendation": "Phân biệt loading, empty, stale và error; khi lỗi hiển thị lần cập nhật thành công gần nhất cùng nút thử lại. Chỉ dùng câu ‘không có thông báo’ sau response thành công.",
+    "acceptance": "Synthetic cold-load 502 phải hiện lỗi/retry, không hiện empty state; response 200 với items=[] vẫn hiện empty state; lỗi sau dữ liệu cũ phải giữ dữ liệu và đánh dấu stale.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/unit/test_cua_ngo_ghi_moi.py — kiểm filter/merge/close, không kiểm client network error.",
+      "src/tests/services/test_chuong_mot_thong_bao_moi_nguoi_db.py — kiểm phạm vi thông báo server-side."
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/GlobalHeader.tsx": "844319faf83e103dc4d86f401b06047ef48ebfcdc140a11eb44f89efb4d568a2",
+      "src/dashboard/app/(dashboard)/NotificationContext.tsx": "c8c7ca4414e60276bcc91ec92bde569ba397be19d5a0650c4b37673c81eafd2f",
+      "src/dashboard/app/api/thong-bao/route.ts": "0983fab354dc61493ebf26845e646f433908c89379b6565187d80d78b2e75ea0"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main trace: BFF phát 502 khi backend không tới được, còn client bỏ qua non-2xx và lỗi mạng; empty state dựa trên mảng đang rỗng. Lần poll sau có thể tự phục hồi.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+          "line": 140,
+          "end_line": 179,
+          "sha256": "c8c7ca4414e60276bcc91ec92bde569ba397be19d5a0650c4b37673c81eafd2f",
+          "excerpt": "140:   const docThongBao = useCallback(() => motLuotTB(async () => {\n141:       lanTBCuoi.current = Date.now();\n142:       try {\n143:         const res = await fetch(\"/api/thong-bao\", { cache: \"no-store\" });\n144:         if (!res.ok) return;\n145:         const d = (await res.json()) as {\n146:           items?: {\n147:             id: string;\n148:             muc_do: string;\n149:             tieu_de: string;\n150:             noi_dung: string;\n151:             tao_luc: string;\n152:             duong_dan: string | null;\n153:             nguoi_goi: string | null;\n154:             nhan_nguon?: string | null;\n155:             da_doc_luc: string | null;\n156:             chi_hoan_tac?: boolean;\n157:             hoan_tac_so_id?: string | null;\n158:           }[];\n159:         };\n160:         setThongBao(\n161:           (d.items ?? []).map((t) => ({\n162:             key: `tb:${t.id}`,\n163:             thongBaoId: t.id,\n164:             chiHoanTac: Boolean(t.chi_hoan_tac),\n165:             hoanTacSoId: t.hoan_tac_so_id ?? null,\n166:             approved: false,\n167:             khan: t.muc_do === \"KHAN\",\n168:             daDoc: Boolean(t.da_doc_luc),\n169:             title: t.tieu_de,\n170:             duongDan: t.duong_dan,\n171:             detail: chiTietThongBao(t),\n172:             at: new Date(t.tao_luc).toLocaleTimeString(\"vi-VN\", {\n173:               hour: \"2-digit\",\n174:               minute: \"2-digit\",\n175:             }),\n176:           })),\n177:         );\n178:       } catch {\n179:         /* mạng chập — lần poll sau thử lại */",
+          "detail": "Client bỏ qua non-2xx và lỗi mạng; lỗi không được lưu thành trạng thái render."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+          "line": 488,
+          "end_line": 494,
+          "sha256": "844319faf83e103dc4d86f401b06047ef48ebfcdc140a11eb44f89efb4d568a2",
+          "excerpt": "488:               <div className=\"space-y-2 max-h-64 overflow-y-auto\">\n489:                 {notifs.length === 0 ? (\n490:                   <p className=\"px-1 py-3 text-center text-xs text-ink-muted\">\n491:                     Chưa có thông báo nào.\n492:                   </p>\n493:                 ) : (\n494:                   notifs.map((n) => {",
+          "detail": "Danh sách rỗng luôn render thông báo ‘Chưa có thông báo nào’."
+        },
+        {
+          "path": "src/dashboard/app/api/thong-bao/route.ts",
+          "line": 21,
+          "end_line": 30,
+          "sha256": "0983fab354dc61493ebf26845e646f433908c89379b6565187d80d78b2e75ea0",
+          "excerpt": "21:   // null = backend không với tới. Trả danh sách rỗng thì chuông im lặng nói\n22:   // dối \"không có gì\" — nên nói ra bằng mã trạng thái.\n23:   const d = await fetchFromBackend<{ items: unknown[] }>(\"/api/v1/thong-bao\");\n24:   if (d === null) {\n25:     return NextResponse.json(\n26:       { error: \"Không đọc được thông báo\" },\n27:       { status: 502 },\n28:     );\n29:   }\n30:   return NextResponse.json(d);",
+          "detail": "BFF trả 502 khi backend không đọc được, không trả danh sách rỗng."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "FE-004",
+        "relationship": "Cùng kiểu empty state có thể tạo số 0 sai, nhưng FE-004 là lỗi nguồn KPI; FE-019 là lỗi tải chuông và có thể che thông báo điều phối."
+      }
+    ]
+  },
+  {
+    "id": "FE-020",
+    "title": "Chuông chỉ trả 50 việc đang mở và không cho xem phần còn lại",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "notification_inbox_truncation",
+    "summary": "ThongBaoService.cua_toi lọc việc chưa xử lý rồi sắp KHẨN trước, mới nhất sau và LIMIT 50. API trả danh sách này; GlobalHeader chỉ render items nhận được, không có has_more, cursor hay phân trang.",
+    "trigger": "Người nhận có hơn 50 thông báo chưa xử lý cùng lúc.",
+    "impact": "Các việc ngoài 50 dòng đầu không xem được từ chuông, dù vẫn đang mở; việc ít khẩn hoặc cũ hơn có thể bị bỏ sót. Đây là điều kiện theo số lượng, chưa kiểm tra dữ liệu production hoặc tần suất chạm ngưỡng.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/thong_bao_service.py",
+        "line": 346,
+        "end_line": 365,
+        "detail": "Query loại việc đã xử lý/đã ẩn, ưu tiên KHẨN rồi mới nhất và giới hạn 50."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+        "line": 488,
+        "end_line": 505,
+        "detail": "UI chỉ duyệt danh sách đã nhận; không có pagination/overflow indicator ở chuông."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static trace xác nhận server cắt danh sách và client không có hợp đồng tiếp trang; chưa đo số dòng thật.",
+      "limitations": "Static review only. No ClinicAI application test, DB, HTTP request, production runtime, secrets or patient data was used in round 19."
+    },
+    "recommendation": "Tạo inbox có cursor pagination/has_more và bộ lọc đã xử lý/chưa xử lý; nếu popover chỉ giữ 50 mục gần nhất thì hiển thị rõ rằng còn việc phía sau và liên kết tới inbox đầy đủ.",
+    "acceptance": "Fixture 51+ thông báo đang mở phải cho tải đủ trang tiếp theo, không lặp hoặc bỏ ID; số còn lại và trạng thái hoàn tất phải khớp API.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_chuong_mot_thong_bao_moi_nguoi_db.py — chưa thấy case vượt 50 items."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/thong_bao_service.py": "f57bbe008efc406c9298c284285de8aeff418fa014cd58006bb0787ff8d1aedf",
+      "src/dashboard/app/(dashboard)/GlobalHeader.tsx": "844319faf83e103dc4d86f401b06047ef48ebfcdc140a11eb44f89efb4d568a2"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main query có LIMIT 50 và API/UI không truyền trạng thái cắt hay phân trang; tác động chỉ phát sinh khi người nhận vượt ngưỡng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/thong_bao_service.py",
+          "line": 346,
+          "end_line": 365,
+          "sha256": "f57bbe008efc406c9298c284285de8aeff418fa014cd58006bb0787ff8d1aedf",
+          "excerpt": "346:                  WHERE t.clinic_id = $1::uuid\n347:                    AND t.da_xu_ly_luc IS NULL\n348:                    AND (t.vai_nhan = ANY($2::text[])\n349:                         OR t.nguoi_nhan_staff_id = $3::uuid)\n350:                    AND NOT EXISTS (\n351:                        SELECT 1 FROM public.thong_bao_an_cua_toi a\n352:                         WHERE a.clinic_id = t.clinic_id\n353:                           AND a.staff_id = $3::uuid\n354:                           AND a.thong_bao_id = t.id\n355:                    )\n356:                    -- \"Chỉ định bị bỏ\" không có nút Xong: hết ngày thì thôi hiện\n357:                    -- (việc của buổi khám ấy) — sổ vẫn giữ ở Lịch sử sửa.\n358:                    AND NOT (t.nguon = 'bo_chi_dinh'\n359:                             AND t.tao_luc < (date_trunc(\n360:                                     'day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')\n361:                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'))\n362:                 ) goc\n363:                  WHERE goc.rn = 1\n364:                  ORDER BY (goc.muc_do = 'KHAN') DESC, goc.tao_luc DESC\n365:                  LIMIT 50",
+          "detail": "Query loại việc đã xử lý/đã ẩn, ưu tiên KHẨN rồi mới nhất và giới hạn 50."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+          "line": 488,
+          "end_line": 505,
+          "sha256": "844319faf83e103dc4d86f401b06047ef48ebfcdc140a11eb44f89efb4d568a2",
+          "excerpt": "488:               <div className=\"space-y-2 max-h-64 overflow-y-auto\">\n489:                 {notifs.length === 0 ? (\n490:                   <p className=\"px-1 py-3 text-center text-xs text-ink-muted\">\n491:                     Chưa có thông báo nào.\n492:                   </p>\n493:                 ) : (\n494:                   notifs.map((n) => {\n495:                     // BẤM VÀO LÀ SANG THẲNG TRANG XỬ LÝ.\n496:                     //\n497:                     // Thông báo đã mang sẵn `duong_dan` từ lúc backend sinh ra\n498:                     // nó (\"Cần xếp bác sĩ\" → /appointments/cho-xep-bac-si),\n499:                     // nhưng giao diện chỉ in chữ ra rồi thôi. Người đọc biết có\n500:                     // việc mà phải tự đi tìm màn nào xử lý — với quản lý đang có\n501:                     // hai mươi mục trên thanh bên thì đó là một bước thừa mỗi\n502:                     // lần chuông kêu.\n503:                     const noiDung = (\n504:                       <>\n505:                       {n.khan ? (",
+          "detail": "UI chỉ duyệt danh sách đã nhận; không có pagination/overflow indicator ở chuông."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "CLIN-037",
+    "title": "Bản in phiếu khám không phân biệt dữ liệu đang nhập với bản đã chốt",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_document_release_state",
+    "summary": "PhieuKhamService.doc_luot đọc nội dung phiếu theo visit nhưng không chọn trạng thái lượt, luôn trả che_do=editable. Trang in cho quầy đọc endpoint này và dựng nội dung hiện có mà không hiện nhãn nháp hay kiểm trạng thái lượt. Một lượt IN_PROGRESS có thể có nội dung tự lưu một phần nhưng vẫn đủ dữ liệu để tạo bản in.",
+    "trigger": "Quầy tiếp đón/thu tiền/nhà thuốc in phiếu cho khách khi bác sĩ vẫn đang ghi hoặc chưa chốt lượt.",
+    "impact": "Người nhận không phân biệt được tài liệu chưa hoàn tất với bản đã chốt; có thể gây chờ hỏi lại hoặc dùng nhầm nội dung chưa đủ. Chưa có bằng chứng bản in như vậy đã được giao trong production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/phieu_kham_service.py",
+        "line": 269,
+        "end_line": 302,
+        "detail": "Đọc form row theo visit; query không chọn visit.status."
+      },
+      {
+        "path": "src/clinicai/services/phieu_kham_service.py",
+        "line": 319,
+        "end_line": 339,
+        "detail": "Payload trả dữ liệu phiếu và che_do=editable, không kèm trạng thái release của lượt."
+      },
+      {
+        "path": "src/dashboard/app/print/phieu-kham/[visitId]/page.tsx",
+        "line": 1,
+        "end_line": 15,
+        "detail": "Trang in được mở cho nhóm quầy/tiếp đón để in cho khách."
+      },
+      {
+        "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+        "line": 373,
+        "end_line": 410,
+        "detail": "Component lấy phiếu và đưa dữ liệu hiện tại vào bản in mà không nhãn nháp."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static trace nối trạng thái bị bỏ khỏi projection với luồng in dành cho quầy; không chạy UI hoặc in tài liệu thật.",
+      "limitations": "Static review only. No ClinicAI application test, DB, HTTP request, production runtime, secrets or patient data was used in round 19."
+    },
+    "recommendation": "Trả trạng thái/version phát hành cùng phiếu; chỉ in bản đã chốt, hoặc in bản nháp có watermark rõ và không gọi là phiếu chính thức. Đồng bộ quy tắc với cổng FINALIZED/amendment.",
+    "acceptance": "Với visit IN_PROGRESS có phiếu tự lưu, preview/PDF phải bị chặn hoặc ghi rõ NHÁP; sau khi chốt, bản in phải gắn revision đã phát hành và không đổi khi có chỉnh sửa mới chưa duyệt.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_phieu_kham_luot_db.py — đọc phiếu với RECEPTION; không kiểm nhãn/trạng thái bản in.",
+      "src/tests/services/test_phieu_kham_db.py — fixture có visit IN_PROGRESS."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/phieu_kham_service.py": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+      "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx": "aa5cec6028ecc98222a0da5577f198a055ed6e41be5dfb2bc8dc352ab1946708",
+      "src/dashboard/app/print/phieu-kham/[visitId]/page.tsx": "9c4017c59b4060230bc027fdd6d7ba3d1ce217d78f131ac1268fefbbcc65e8cd"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main trace: endpoint đọc phiếu không lấy visit.status và trả editable; route in dành cho quầy, component in render dữ liệu hiện tại không có nhãn trạng thái.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 269,
+          "end_line": 302,
+          "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+          "excerpt": "269:     async def doc_luot(\n270:         self, *, visit_id: str, form_id: str | None, identity: StaffIdentity\n271:     ) -> dict[str, Any]:\n272:         \"\"\"Phiếu của lượt. Chưa có bản ghi thì dựng từ loại khám của lượt;\n273:         loại khám không gắn phiếu nào thì trả danh sách để bác sĩ chọn.\"\"\"\n274:         cid = identity.clinic_id\n275:         async with self._pool.acquire() as conn:\n276:             await self._kiem_quyen(conn, identity, \"doc_phieu\")\n277:             luot = await conn.fetchrow(\n278:                 \"SELECT st.form_code, st.nhom FROM visit v\"\n279:                 \" LEFT JOIN service_type st ON st.id = v.service_type_id\"\n280:                 \" WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid\",\n281:                 cid,\n282:                 visit_id,\n283:             )\n284:             if luot is None:\n285:                 raise ValidationError(\"Không tìm thấy lượt khám.\")\n286:             khoi1 = che_do_khoi1(luot[\"nhom\"], luot[\"form_code\"])\n287:             # PHIẾU THEO DỊCH VỤ HIỆN TẠI (T5, 07/10/2026): đổi dịch vụ khám thì\n288:             # mở phiếu của dịch vụ mới; phiếu cũ GIỮ NGUYÊN dòng của nó, đổi\n289:             # ngược về là mở lại đúng phiếu cũ đủ dữ liệu. Dịch vụ không gắn\n290:             # phiếu (Điều trị, Khác) thì giữ phiếu người dùng đã tự chọn gần nhất.\n291:             if form_id is None and luot[\"form_code\"] in FORM_IDS:\n292:                 form_id = str(luot[\"form_code\"])\n293:             dong = await conn.fetchrow(\n294:                 \"SELECT form_id, version, du_lieu, revision, sua_luc\"\n295:                 \"  FROM phieu_kham_luot\"\n296:                 \" WHERE clinic_id = $1::uuid AND visit_id = $2::uuid\"\n297:                 \"   AND ($3::text IS NULL OR form_id = $3)\"\n298:                 \" ORDER BY sua_luc DESC LIMIT 1\",\n299:                 cid,\n300:                 visit_id,\n301:                 form_id,\n302:             )",
+          "detail": "Đọc form row theo visit; query không chọn visit.status."
+        },
+        {
+          "path": "src/clinicai/services/phieu_kham_service.py",
+          "line": 319,
+          "end_line": 339,
+          "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af",
+          "excerpt": "319:         ban = await self.khung_theo_ban(\n320:             form_id=chon,\n321:             version=int(dong[\"version\"]) if dong else None,\n322:             identity=identity,\n323:         )\n324:         du_lieu: Any = dong[\"du_lieu\"] if dong else {}\n325:         if isinstance(du_lieu, str):\n326:             du_lieu = json.loads(du_lieu)\n327:         du_lieu = await self._dien_nguoc_thai_ky(\n328:             ban[\"khung\"], du_lieu, clinic_id=cid, visit_id=visit_id\n329:         )\n330:         return {\n331:             **ban,\n332:             \"du_lieu\": du_lieu,\n333:             \"revision\": int(dong[\"revision\"]) if dong else 0,\n334:             \"sua_luc\": dong[\"sua_luc\"].isoformat() if dong else None,\n335:             \"che_do\": CHE_DO_MO,\n336:             \"mac_dinh_theo_loai_kham\": luot[\"form_code\"] in FORM_IDS,\n337:             # Khối 1 vẽ gì theo loại lượt — màn chỉ đọc (`che_do_khoi1`).\n338:             \"khoi1\": khoi1,\n339:         }",
+          "detail": "Payload trả dữ liệu phiếu và che_do=editable, không kèm trạng thái release của lượt."
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/page.tsx",
+          "line": 1,
+          "end_line": 15,
+          "sha256": "9c4017c59b4060230bc027fdd6d7ba3d1ce217d78f131ac1268fefbbcc65e8cd",
+          "excerpt": "1: // IN PHIẾU KHÁM của một lượt (Tuyền 24/09/2026: \"chỗ cho in phiếu khám của bệnh\n2: // nhân đâu?\"). Đặt NGOÀI nhóm (dashboard) → không thanh bên, in sạch khổ A4.\n3: // Đọc ĐÚNG các nguồn Bàn khám đang đọc (`/api/phieu-kham`), không đọc thẳng\n4: // database, không dựng lại dữ liệu.\n5: \n6: import { requireInPhieu } from \"../../../../lib/clinic-session\";\n7: import InPhieuKham from \"./InPhieuKham\";\n8: \n9: export const dynamic = \"force-dynamic\";\n10: \n11: const PHAN = [\"tom_tat\", \"don\", \"cls_kem\", \"cls\", \"cls_anh\"] as const;\n12: \n13: export default async function InPhieuKhamPage({\n14:   params,\n15:   searchParams,",
+          "detail": "Trang in được mở cho nhóm quầy/tiếp đón để in cho khách."
+        },
+        {
+          "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+          "line": 373,
+          "end_line": 410,
+          "sha256": "aa5cec6028ecc98222a0da5577f198a055ed6e41be5dfb2bc8dc352ab1946708",
+          "excerpt": "373:   useEffect(() => {\n374:     let huy = false;\n375:     void (async () => {\n376:       const [phieu, dau, kq, don, tc, gc] = await Promise.all([\n377:         doc<PhieuLuot & { form_id: string | null }>(\n378:           `/api/phieu-kham?visit_id=${visitId}&xem=phieu`,\n379:         ),\n380:         doc<DauPhieu>(`/api/phieu-kham?visit_id=${visitId}&xem=dau-phieu`),\n381:         doc<{ chi_dinh: ChiDinhVaKetQua[] }>(`/api/phieu-kham?visit_id=${visitId}`),\n382:         doc<{ dong: DongDonMayChu[] }>(`/api/phieu-kham?visit_id=${visitId}&xem=don-thuoc`),\n383:         doc<{ thu_thuat: ThuThuatNguon[] }>(\"/api/phieu-kham?xem=tham-chieu\"),\n384:         doc<{ ban: { noi_dung: string } | null }>(`/api/ho-so-kham?visit_id=${visitId}&xem=ghi-chu`),\n385:       ]);\n386:       if (huy) return;\n387:       if (!phieu && !kq) {\n388:         setLoi(\"Không đọc được lượt khám này.\");\n389:         return;\n390:       }\n391:       // IN GỘP MỘT LƯỢT (Tuyền 07/10/2026): lượt chưa mở phiếu khám (Điều trị,\n392:       // Khác) vẫn in thông tin lượt + dịch vụ + phiếu điều trị + ghi chú. Trước\n393:       // đó báo \"chưa có gì để in\" dù lượt có phiếu điều trị.\n394:       const ghiChu = gc?.ban?.noi_dung?.trim() ? gc.ban.noi_dung : null;\n395:       const chiDinh = kq?.chi_dinh ?? [];\n396:       const dsDon = don?.dong ?? [];\n397:       if (!phieu?.form_id && chiDinh.length === 0 && dsDon.length === 0 && !ghiChu) {\n398:         setLoi(\"Lượt này chưa có phiếu khám, dịch vụ, đơn thuốc hay ghi chú nào — chưa có gì để in.\");\n399:         return;\n400:       }\n401:       setDl({\n402:         phieu: phieu?.form_id ? phieu : null,\n403:         dau,\n404:         chiDinh,\n405:         don: dsDon,\n406:         maThuThuat: new Set(\n407:           (tc?.thu_thuat ?? []).flatMap((t) => (t.service_code ? [t.service_code] : [])),\n408:         ),\n409:         ghiChu,\n410:       });",
+          "detail": "Component lấy phiếu và đưa dữ liệu hiện tại vào bản in mà không nhãn nháp."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "CLIN-020",
+        "relationship": "CLIN-020 là ghi phiếu sau FINALIZED; CLIN-037 là phát hành bản in trước khi lượt chốt."
+      },
+      {
+        "id": "CLIN-021",
+        "relationship": "CLIN-021 là kết quả form_instance chưa release; CLIN-037 là phiếu khám v5 của visit."
+      }
+    ]
+  },
+  {
+    "id": "CLIN-038",
+    "title": "Backend cho phép gắn mẫu kết quả sai dịch vụ vào chỉ định",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_form_service_binding",
+    "summary": "Khi chưa có gợi ý mẫu theo service_code, chon_mau đánh dấu mọi mẫu cua_dich_vu=True. UI chỉ chặn lựa chọn được đánh dấu false. POST /phieu/mo kiểm quyền và mẫu đã xuất bản nhưng không đối chiếu form_id với service_code của service_order_id; service_order_id chỉ được dùng cho giới hạn việc đối tác. Vì vậy request có quyền phù hợp có thể mở form loại khác dưới một chỉ định dịch vụ.",
+    "trigger": "Người có quyền điền kết quả mở chỉ định dịch vụ A bằng form_id của dịch vụ B, đặc biệt khi mapping/gợi ý chưa được cấu hình.",
+    "impact": "Kết quả sai loại có thể được lưu và hiển thị dưới chỉ định đó; bác sĩ hoặc khách hàng có thể hiểu nhầm dữ liệu là kết quả của dịch vụ đã đặt. Chưa tái hiện qua HTTP/DB hay thấy sự cố thực tế.",
+    "evidence": [
+      {
+        "path": "src/clinicai/phieu_kham/mau_goi_y.py",
+        "line": 64,
+        "end_line": 89,
+        "detail": "Không có gợi ý thì mọi form được trả cua_dich_vu=True."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+        "line": 420,
+        "end_line": 447,
+        "detail": "Việc chặn form khác dịch vụ chỉ nằm trong UI."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/phieu.py",
+        "line": 65,
+        "end_line": 78,
+        "detail": "Route nhận service_order_id và form_id rồi gọi service."
+      },
+      {
+        "path": "src/clinicai/services/form_engine_service.py",
+        "line": 176,
+        "end_line": 207,
+        "detail": "Service kiểm quyền, form_definition published và tạo form_instance; không đối chiếu form với service của chỉ định."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static call trace xác nhận validation cua_dich_vu ở client không có bản kiểm tương đương trong FormEngineService.mo_phieu.",
+      "limitations": "Static review only. No ClinicAI application test, DB, HTTP request, production runtime, secrets or patient data was used in round 19."
+    },
+    "recommendation": "Kiểm tra quan hệ form–service ở backend trong cùng clinic; chỉ cho phép mẫu gắn với dịch vụ hoặc mẫu CHUNG được duyệt. Thiếu mapping phải trả chưa xác minh/không cho lưu, không tự coi mọi mẫu là hợp lệ.",
+    "acceptance": "API phải từ chối form không gắn với service order; mẫu CHUNG được duyệt vẫn hoạt động; test bao gồm doctor/partner, cùng clinic, service/form đúng và sai.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_ket_qua_chung_lam_them_db.py — xác nhận mẫu không ánh xạ được đánh dấu cho phép; không kiểm API từ chối mẫu sai dịch vụ."
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/phieu.py": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+      "src/clinicai/phieu_kham/mau_goi_y.py": "4d377ad3550d5fd22644df4c403f6bb0cf24a923b05e4c395b65a4ecaae861fa",
+      "src/clinicai/services/form_engine_service.py": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+      "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx": "ff3acc2fdd9eb3347b1069d1d47493a4b7a1465d30c1145af44756811e3394fe"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main trace: client kiểm cua_dich_vu, nhưng backend mo_phieu kiểm permission + published form và không xác nhận form/service binding.",
+      "evidence": [
+        {
+          "path": "src/clinicai/phieu_kham/mau_goi_y.py",
+          "line": 64,
+          "end_line": 89,
+          "sha256": "4d377ad3550d5fd22644df4c403f6bb0cf24a923b05e4c395b65a4ecaae861fa",
+          "excerpt": "64:     tự do). Gắn mẫu riêng sau này thì mẫu đã gắn thắng, ``mac_dinh`` về false.\n65:     \"\"\"\n66:     if da_gan:\n67:         return {\n68:             \"mau\": [{**m, \"cua_dich_vu\": True} for m in da_gan],\n69:             \"chon_san\": da_gan[0][\"ma\"],\n70:             \"mac_dinh\": False,\n71:         }\n72:     tat_ca = list(tat_ca)\n73:     goi_y = ma_mau_goi_y(service_code)\n74:     if goi_y and any(m[\"ma\"] == goi_y for m in tat_ca):\n75:         tat_ca.sort(key=lambda m: m[\"ma\"] != goi_y)\n76:         return {\n77:             \"mau\": [\n78:                 {**m, \"cua_dich_vu\": m[\"ma\"] in (goi_y, MAU_CHUNG)} for m in tat_ca\n79:             ],\n80:             \"chon_san\": goi_y,\n81:             \"mac_dinh\": True,\n82:         }\n83:     co_chung = any(m[\"ma\"] == MAU_CHUNG for m in tat_ca)\n84:     tat_ca.sort(key=lambda m: m[\"ma\"] != MAU_CHUNG)\n85:     return {\n86:         \"mau\": [{**m, \"cua_dich_vu\": True} for m in tat_ca],\n87:         \"chon_san\": MAU_CHUNG if co_chung else None,\n88:         \"mac_dinh\": True,\n89:     }",
+          "detail": "Không có gợi ý thì mọi form được trả cua_dich_vu=True."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+          "line": 420,
+          "end_line": 447,
+          "sha256": "ff3acc2fdd9eb3347b1069d1d47493a4b7a1465d30c1145af44756811e3394fe",
+          "excerpt": "420:   const dangSuaLai = phieu?.trang_thai === \"READY\" && phieu.dang_sua;\n421: \n422:   return (\n423:     <section aria-label=\"Phiếu kết quả\" className=\"space-y-3\">\n424:       <div className=\"flex flex-wrap items-center gap-2\">\n425:         <h3 className=\"text-body font-semibold text-ink\">Phiếu kết quả</h3>\n426:         {mau.length > 1 ? (\n427:           <label className=\"min-w-0 max-w-full text-body\">\n428:             <span className=\"sr-only\">Chọn mẫu kết quả</span>\n429:             <select\n430:               value={chonMau ?? \"\"}\n431:               onChange={(e) => {\n432:                 const ma = e.target.value || null;\n433:                 const m = mau.find((x) => x.ma === ma);\n434:                 if (m && m.cua_dich_vu === false) {\n435:                   setBaoKhacDv(\n436:                     `“${m.ten}” là dịch vụ khác — khách chưa thanh toán dịch vụ này. ` +\n437:                       \"Muốn làm thì bác sĩ chỉ định và khách thanh toán trước.\",\n438:                   );\n439:                   return;\n440:                 }\n441:                 setBaoKhacDv(null);\n442:                 // Lưu nốt phiếu đang điền TRƯỚC khi mở mẫu khác — mở mẫu mới\n443:                 // là nạp bản máy chủ, phần chưa lưu của phiếu cũ sẽ mất.\n444:                 void tuLuu.luuNgay().then((ok) => {\n445:                   if (ok) setChonMau(ma);\n446:                   else setLoi(\"Phiếu đang điền CHƯA lưu được — chưa đổi mẫu. Bấm [Thử lại] ở dòng trạng thái lưu.\");\n447:                 });",
+          "detail": "Việc chặn form khác dịch vụ chỉ nằm trong UI."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/phieu.py",
+          "line": 65,
+          "end_line": 78,
+          "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+          "excerpt": "65:             identity.clinic_id,\n66:         )\n67:     return {\"bieu_mau\": [dict(r) for r in rows]}\n68: \n69: \n70: @router.post(\"/phieu/mo\")\n71: async def mo_phieu(\n72:     body: MoPhieuBody,\n73:     identity: StaffIdentity = Depends(get_current_identity),\n74:     pool: asyncpg.Pool = Depends(get_db_pool),\n75: ) -> dict[str, Any]:\n76:     return await FormEngineService(pool).mo_phieu(\n77:         service_order_id=str(body.service_order_id),\n78:         form_id=body.form_id,",
+          "detail": "Route nhận service_order_id và form_id rồi gọi service."
+        },
+        {
+          "path": "src/clinicai/services/form_engine_service.py",
+          "line": 176,
+          "end_line": 207,
+          "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+          "excerpt": "176:     async def mo_phieu(\n177:         self,\n178:         *,\n179:         service_order_id: str,\n180:         form_id: str,\n181:         identity: StaffIdentity,\n182:     ) -> dict[str, Any]:\n183:         \"\"\"Mở (hoặc tạo) phiếu cho một chỉ định, theo bản mẫu ĐANG DÙNG.\n184: \n185:         Mở lần thứ hai KHÔNG tạo phiếu thứ hai, và KHÔNG nhảy sang bản mẫu mới\n186:         hơn: phiếu đang điền dở phải giữ nguyên bản nó bắt đầu.\n187:         \"\"\"\n188:         async with self._pool.acquire() as conn, conn.transaction():\n189:             await doi_quyen_dien(conn, identity, service_order_id=service_order_id)\n190: \n191:             co = await conn.fetchrow(\n192:                 \"SELECT * FROM form_instance\"\n193:                 \" WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid\"\n194:                 \"   AND form_id = $3\",\n195:                 identity.clinic_id,\n196:                 service_order_id,\n197:                 form_id,\n198:             )\n199:             if co is not None:\n200:                 khung = await self._khung(\n201:                     conn, identity.clinic_id, form_id, co[\"version\"]\n202:                 )\n203:                 return {\n204:                     **self._tra_phieu(co, khung),\n205:                     \"nguoi_sua\": await _ten_nguoi_sua(conn, co),\n206:                 }\n207: ",
+          "detail": "Service kiểm quyền, form_definition published và tạo form_instance; không đối chiếu form với service của chỉ định."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "CLIN-039",
+    "title": "Hai người sửa cùng ô phiếu khám có thể ghi đè nhau mà cả hai tab báo đã lưu",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_form_concurrent_edit",
+    "summary": "ServiceFormEngine tính các ô thay đổi trên baseline cục bộ, gửi ghep=true và đánh dấu baseline cục bộ mới là đã lưu sau bất kỳ 2xx. BFF không chuyển revision/base version. Backend khóa visit để tuần tự hóa request rồi merge JSONB theo key, nhưng không so revision. Hai tab cùng sửa một key từ baseline giống nhau nên lần ghi sau thắng mà không có 409; tab trước vẫn hiện đã tự lưu.",
+    "trigger": "Hai nhân viên mở cùng phiếu, cùng sửa một trường lâm sàng trước khi nhận được trạng thái mới từ người kia.",
+    "impact": "Giá trị đã lưu của người đầu bị thay thế âm thầm trong DB; tab người đầu có thể vẫn hiển thị giá trị cũ và báo đã lưu. Chưa tái hiện bằng concurrency test ở vòng này và chưa có bằng chứng occurrence production.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+        "line": 160,
+        "end_line": 208,
+        "detail": "Client diff theo baseline và đánh dấu chuỗi cục bộ đã lưu sau response 2xx."
+      },
+      {
+        "path": "src/dashboard/app/api/clinical-form/route.ts",
+        "line": 73,
+        "end_line": 119,
+        "detail": "BFF gửi form_data/ghep/bo_truong, không gửi revision/base version."
+      },
+      {
+        "path": "src/clinicai/services/clinical_form_service.py",
+        "line": 254,
+        "end_line": 322,
+        "detail": "Transaction khóa visit và upsert JSONB merge theo key; không có điều kiện revision."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static sequence trace xác nhận last-writer-wins semantics, không chạy interleaving test.",
+      "limitations": "Static review only. No ClinicAI application test, DB, HTTP request, production runtime, secrets or patient data was used in round 19."
+    },
+    "recommendation": "Thêm revision compare-and-swap hoặc conflict detection theo field; trả 409 kèm bản remote mà không xóa bản local. Cho người dùng so sánh/hợp nhất và chỉ xác nhận đã lưu khi server xác nhận đúng revision.",
+    "acceptance": "Hai request cùng base revision sửa cùng field: request sau nhận conflict có local+remote giữ nguyên; sửa field khác nhau vẫn merge nếu contract cho phép; audit giữ actor/revision và autosave không báo xanh cho bản stale.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/clinical_form_service.py": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5",
+      "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+      "src/dashboard/app/api/clinical-form/route.ts": "de514e4d994dc2ba03d3208c1033d919fa8b98c2c07ec1dd6bdd481dfd2464df"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main trace: client gửi chỉ các ô đổi nhưng không gửi revision; backend merge theo key dưới transaction mà không kiểm baseline, nên cùng key là last-writer-wins.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 160,
+          "end_line": 208,
+          "sha256": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+          "excerpt": "160:   async function luu(guiDi: FormData, tuDong: boolean) {\n161:     if (readOnly || !schema || !visitId) return;\n162:     const chuoi = JSON.stringify(guiDi);\n163:     // GỬI ĐÚNG CÁC Ô VỪA ĐỔI so với bản đã khớp máy chủ (17/09/2026). Gửi cả\n164:     // phiếu thì hai người gõ cùng lúc hai ô khác nhau, người lưu sau xoá chữ\n165:     // của người lưu trước — đã thấy thật khi thư ký và bác sĩ cùng mở phiếu.\n166:     let goc: FormData = {};\n167:     try {\n168:       goc = daLuuRef.current ? (JSON.parse(daLuuRef.current) as FormData) : {};\n169:     } catch {\n170:       goc = {};\n171:     }\n172:     const thayDoi: FormData = {};\n173:     for (const [k, v] of Object.entries(guiDi)) {\n174:       if (JSON.stringify(v) !== JSON.stringify(goc[k])) thayDoi[k] = v;\n175:     }\n176:     const boTruong = Object.keys(goc).filter((k) => !(k in guiDi));\n177:     if (Object.keys(thayDoi).length === 0 && boTruong.length === 0) {\n178:       daLuuRef.current = chuoi;\n179:       return;\n180:     }\n181:     setSaving(true);\n182:     if (!tuDong) setMsg(null);\n183:     const res = await fetch(\"/api/clinical-form\", {\n184:       method: \"POST\",\n185:       headers: { \"Content-Type\": \"application/json\" },\n186:       body: JSON.stringify({\n187:         visitId,\n188:         serviceCode: schema.service_code,\n189:         form_data: thayDoi,\n190:         ghep: true,\n191:         bo_truong: boTruong,\n192:       }),\n193:     }).catch(() => null);\n194:     setSaving(false);\n195:     if (res?.ok) {\n196:       daLuuRef.current = chuoi;\n197:       baoBenhAnDaLuu(visitId);\n198:       setMsg(\n199:         tuDong\n200:           ? `Đã tự lưu lúc ${new Date().toLocaleTimeString(\"vi-VN\", { hour: \"2-digit\", minute: \"2-digit\", second: \"2-digit\", timeZone: \"Asia/Ho_Chi_Minh\" })}.`\n201:           : \"Đã lưu phiếu khám.\",\n202:       );\n203:       return;\n204:     }\n205:     setMsg(\n206:       res\n207:         ? ((await res.json().catch(() => ({}))) as { error?: string }).error ?? \"Lỗi lưu phiếu.\"\n208:         : \"Mất kết nối — phiếu CHƯA được lưu, sẽ thử lại khi bạn gõ tiếp.\",",
+          "detail": "Client diff theo baseline và đánh dấu chuỗi cục bộ đã lưu sau response 2xx."
+        },
+        {
+          "path": "src/dashboard/app/api/clinical-form/route.ts",
+          "line": 73,
+          "end_line": 119,
+          "sha256": "de514e4d994dc2ba03d3208c1033d919fa8b98c2c07ec1dd6bdd481dfd2464df",
+          "excerpt": "73: async function write(request: Request) {\n74:   // 1) Auth + gate bác sĩ.\n75:   const caller = await getSupabaseServer();\n76:   const {\n77:     data: { user },\n78:   } = await caller.auth.getUser();\n79:   if (!user) return NextResponse.json({ error: \"Unauthorised\" }, { status: 401 });\n80: \n81:   // Quyền do BACKEND quyết (khối ghi bệnh án / điền kết quả —\n82:   // permissions/y_khoa.py, 24/09/2026). Giao diện không gác vai nữa: hai hệ\n83:   // quyền từng chặn nhầm người đã được cấp (BAN-DO mục 45).\n84: \n85:   let body: WriteBody;\n86:   try {\n87:     body = (await request.json()) as WriteBody;\n88:   } catch {\n89:     return NextResponse.json({ error: \"Invalid JSON\" }, { status: 400 });\n90:   }\n91:   const visitId = (body.visitId ?? \"\").trim();\n92:   const serviceCode = (body.serviceCode ?? \"\").trim().toUpperCase();\n93:   if (!visitId || !serviceCode) {\n94:     return NextResponse.json({ error: \"Thiếu visitId / serviceCode.\" }, { status: 400 });\n95:   }\n96:   if (!getFormSchema(serviceCode)) {\n97:     return NextResponse.json(\n98:       { error: `Chưa có cấu hình form cho service_code ${serviceCode}.` },\n99:       { status: 400 },\n100:     );\n101:   }\n102:   const formData =\n103:     body.form_data && typeof body.form_data === \"object\" && !Array.isArray(body.form_data)\n104:       ? (body.form_data as Record<string, unknown>)\n105:       : {};\n106: \n107:   // The FINALIZED gate and the upsert live in FastAPI, in one transaction. The\n108:   // schema check above stays here because lib/form-schemas is the rendering\n109:   // registry; the backend checks the same code against clinical_form_catalogue,\n110:   // which is the same list kept where both sides can read it (ADR-0011).\n111:   return proxyJsonToBackend(\"PUT\", \"/api/v1/clinical-forms\", {\n112:     visit_id: visitId,\n113:     service_code: serviceCode,\n114:     form_data: formData,\n115:     ghep: body.ghep === true,\n116:     bo_truong: Array.isArray(body.bo_truong)\n117:       ? body.bo_truong.filter((k): k is string => typeof k === \"string\").slice(0, 500)\n118:       : [],\n119:   });",
+          "detail": "BFF gửi form_data/ghep/bo_truong, không gửi revision/base version."
+        },
+        {
+          "path": "src/clinicai/services/clinical_form_service.py",
+          "line": 254,
+          "end_line": 322,
+          "sha256": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5",
+          "excerpt": "254:         async with self._pool.acquire() as conn:\n255:             async with conn.transaction():\n256:                 # Bác sĩ của lượt: CÙNG nguồn với bệnh án SOAP (bác sĩ của lịch\n257:                 # hẹn), lùi về bác sĩ phụ trách lượt khi lượt không có lịch.\n258:                 # Khóa visit (FOR UPDATE OF v) để đồng bộ với transaction ký (sign),\n259:                 # ngăn form bị sửa quanh/sau chữ ký mà không đi qua AMENDED.\n260:                 visit = await conn.fetchrow(\n261:                     \"SELECT v.visit_id, v.status,\"\n262:                     \" coalesce(a.doctor_id, v.attending_doctor_id)::text AS bac_si\"\n263:                     \" FROM visit v LEFT JOIN appointment a\"\n264:                     \" ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id\"\n265:                     \" WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid\"\n266:                     \" FOR UPDATE OF v\",\n267:                     visit_id,\n268:                     identity.clinic_id,\n269:                 )\n270:                 if visit is None:\n271:                     raise NotFoundError(\"Không tìm thấy buổi khám\")\n272:                 if visit[\"status\"] not in WRITABLE_VISIT_STATUSES:\n273:                     raise ConflictError(\n274:                         \"Hồ sơ không còn ở trạng thái cho phép sửa — luật cấm sửa. \"\n275:                         \"Phải đính chính qua luồng AMENDED.\"\n276:                     )\n277:                 # S0-4 (18/09/2026): thư ký chỉ ghi phiếu cho bác sĩ mình được\n278:                 # phân — y hệt bệnh án SOAP. Trước bản này phiếu chuyên khoa bỏ\n279:                 # qua bước kiểm này. (Công tắc mở quyền tạm BẬT thì hàm tự bỏ\n280:                 # qua — xem thu_ky_bac_si.bac_si_cua_thu_ky.)\n281:                 if identity.co_vai({ClinicRole.TKYK}):\n282:                     kiem_thu_ky_duoc_lam(\n283:                         await bac_si_cua_thu_ky(conn, identity), visit[\"bac_si\"]\n284:                     )\n285: \n286:                 known_code = await conn.fetchval(\n287:                     \"SELECT 1 FROM clinical_form_catalogue \"\n288:                     \"WHERE form_code = $1 AND is_active \"\n289:                     \"AND clinic_id = $2::uuid \"\n290:                     \"LIMIT 1\",\n291:                     code,\n292:                     identity.clinic_id,\n293:                 )\n294:                 if not known_code:\n295:                     raise ValidationError(f\"Phòng khám chưa dùng phiếu: {code}\")\n296: \n297:                 # created_by is stamped once and never overwritten — it answers\n298:                 # \"who opened this form\", which an update must not rewrite.\n299:                 await conn.execute(\n300:                     \"\"\"\n301:                     INSERT INTO clinical_form_response\n302:                         (clinic_id, visit_id, service_code, form_data,\n303:                          created_by, updated_by)\n304:                     VALUES ($5::uuid, $1::uuid, $2, $3, $4, $4)\n305:                     ON CONFLICT ON CONSTRAINT uq_clinical_form_visit_service\n306:                     DO UPDATE SET\n307:                         form_data  = CASE WHEN $6::boolean\n308:                             THEN (coalesce(clinical_form_response.form_data,\n309:                                            '{}'::jsonb)\n310:                                   || EXCLUDED.form_data) - $7::text[]\n311:                             ELSE EXCLUDED.form_data END,\n312:                         updated_by = EXCLUDED.updated_by,\n313:                         updated_at = now()\n314:                     \"\"\",\n315:                     visit_id,\n316:                     code,\n317:                     json.dumps(payload),\n318:                     actor,\n319:                     identity.clinic_id,\n320:                     ghep,\n321:                     list(bo_truong or []),\n322:                 )",
+          "detail": "Transaction khóa visit và upsert JSONB merge theo key; không có điều kiện revision."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "FE-005",
+        "relationship": "FE-005 là ghi chú lượt có 409 nhưng client làm mất local draft; CLIN-039 là form tự lưu không có revision conflict response."
+      }
+    ]
+  },
+  {
+    "id": "SEC-027",
+    "title": "API tra bệnh nhân theo ID hoặc số điện thoại trả hồ sơ mà thiếu quyền xem danh sách",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "privacy_authorization",
+    "summary": "GET /patients/{id} và GET /patients?phone= chỉ dùng get_current_identity. Dependency này chặn DISPLAY/PARTNER nhưng không yêu cầu patient.list.view. Cùng router, /patients/danh-sach có guard patient.list.view; preset PHARMACIST không có capability đó. Hai đường đọc SELECT * trả PatientDTO gồm số điện thoại, email, địa chỉ, ngày sinh, người giám hộ và dữ liệu hành chính; national ID được che. Query giới hạn clinic_id đúng identity.",
+    "trigger": "Một vai đã đăng nhập nhưng không có patient.list.view, như PHARMACIST preset, gọi endpoint theo UUID hoặc số điện thoại cùng clinic.",
+    "impact": "Vai không được cấp quyền xem danh sách có thể đọc PII hồ sơ bệnh nhân trong cùng clinic; không có bằng chứng đọc chéo clinic hay dashboard hiện tại gọi các endpoint này.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/patients.py",
+        "line": 253,
+        "end_line": 264,
+        "detail": "GET by ID chỉ phụ thuộc get_current_identity."
+      },
+      {
+        "path": "src/clinicai/api/v1/patients.py",
+        "line": 273,
+        "end_line": 316,
+        "detail": "Route danh sách dùng patient.list.view; route phone chỉ dùng get_current_identity."
+      },
+      {
+        "path": "src/clinicai/services/patient_service.py",
+        "line": 333,
+        "end_line": 345,
+        "detail": "GET by ID SELECT * và chuyển toàn dòng thành PatientDTO."
+      },
+      {
+        "path": "src/clinicai/services/patient_service.py",
+        "line": 384,
+        "end_line": 402,
+        "detail": "Phone lookup SELECT * và giới hạn clinic_id."
+      },
+      {
+        "path": "src/clinicai/schemas/patient.py",
+        "line": 328,
+        "end_line": 356,
+        "detail": "PatientDTO có phone/email/address/DOB/guardian; national ID chỉ được mask."
+      },
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 638,
+        "end_line": 659,
+        "detail": "get_current_identity chặn DISPLAY/PARTNER nhưng không áp patient.list.view."
+      },
+      {
+        "path": "src/clinicai/permissions/catalogue.py",
+        "line": 791,
+        "end_line": 792,
+        "detail": "PHARMACIST preset có quyền quầy thuốc, không có patient.list.view."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static route-to-service-to-schema trace; không gọi API hoặc query dữ liệu bệnh nhân.",
+      "limitations": "No runtime API/JWT test; exact-main static evidence only. The API queries retain clinic_id scoping, national ID masking, and no dashboard callsite was found in the agent's source search."
+    },
+    "recommendation": "Đặt permission guard cho mọi route đọc PatientDTO theo ma trận được duyệt hoặc trả projection tối thiểu theo use case. Giữ clinic predicate và thêm audit/negative tests cho role không có quyền.",
+    "acceptance": "Role thiếu patient.list.view bị từ chối ở cả ID và phone endpoint; role được duyệt chỉ nhận field cần thiết; kiểm tra hai clinic và masked national ID bằng identity giả tổng hợp.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/api/test_patients_api.py:182-266 — kiểm đường đọc với Reception; không kiểm role thiếu capability bị từ chối."
+    ],
+    "source_hashes": {
+      "src/clinicai/api/identity.py": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "src/clinicai/api/v1/patients.py": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "src/clinicai/permissions/catalogue.py": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "src/clinicai/schemas/patient.py": "0f306e8715b53ad6946b2b09324c827b6819b05b6e354ac13775caef614f5ba4",
+      "src/clinicai/services/patient_service.py": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main trace: endpoint theo ID/phone chỉ có get_current_identity; danh sách chính thức có patient.list.view; PHARMACIST preset không chứa capability đó; query trả PatientDTO đầy đủ trong cùng clinic.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/patients.py",
+          "line": 253,
+          "end_line": 264,
+          "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+          "excerpt": "253: @router.get(\"/patients/{id:uuid}\", response_model=PatientDTO)\n254: async def get_patient_by_id(\n255:     id: UUID,\n256:     identity: StaffIdentity = Depends(get_current_identity),\n257:     pool: asyncpg.Pool = Depends(get_db_pool),\n258: ) -> PatientDTO:\n259:     \"\"\"Retrieve a single patient by ID. Raises ResourceNotFoundError if not found.\"\"\"\n260:     service = PatientService(pool)\n261:     patient = await service.get_by_id(id, identity.clinic_id)\n262:     if patient is None:\n263:         raise ResourceNotFoundError(f\"Patient {id} not found\")\n264:     return patient",
+          "detail": "GET by ID chỉ phụ thuộc get_current_identity."
+        },
+        {
+          "path": "src/clinicai/api/v1/patients.py",
+          "line": 273,
+          "end_line": 316,
+          "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+          "excerpt": "273: # Lego 13 \"Danh sách bệnh nhân\" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai.\n274: # Migration 20260925000015 cấp lego này cho đúng 11 vai trước đây vào được.\n275: _DANH_SACH_GUARD = cua_quyen(\"patient.list.view\")\n276: \n277: \n278: @router.get(\"/patients/danh-sach\")\n279: async def danh_sach_benh_nhan(\n280:     trang: str | None = None,\n281:     q: str | None = None,\n282:     loc: str | None = None,\n283:     sap: str | None = None,\n284:     chon: str | None = None,\n285:     identity: StaffIdentity = Depends(_DANH_SACH_GUARD),\n286:     pool: asyncpg.Pool = Depends(get_db_pool),\n287: ) -> dict[str, Any]:\n288:     \"\"\"Một trang (50) hồ sơ + các lượt khám (khách ĐÃ TỚI, bất kể ngày) + số tổng.\n289: \n290:     Thay truy vấn Supabase của màn Danh sách bệnh nhân — bản cũ chỉ đếm lượt\n291:     COMPLETED hoặc CHECKED_IN trong HÔM NAY nên qua nửa đêm mất hết lượt đang mở\n292:     (16/09/2026). Thư ký y khoa chỉ nhận khách của bác sĩ mình.\n293: \n294:     06/10/2026: phân trang + tìm phía máy chủ. ``trang`` là chuỗi, không phải\n295:     int — ``?trang=abc`` về trang 1 thay vì 422. ``q`` tìm tên không dấu / mã /\n296:     một phần SĐT; ``loc`` = lan-dau | tai-kham | chua-kham; ``sap`` = gan | xa;\n297:     ``chon`` = mã khách mở sẵn (trả riêng ở ``chon`` nếu ngoài trang).\n298:     \"\"\"\n299:     from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService\n300: \n301:     return await DanhSachBenhNhanService(pool).lay(\n302:         identity=identity, trang=trang, q=q, loc=loc, sap=sap, chon=chon\n303:     )\n304: \n305: \n306: @router.get(\"/patients\", response_model=list[PatientDTO])\n307: async def get_patients_by_phone(\n308:     phone: str,\n309:     identity: StaffIdentity = Depends(get_current_identity),\n310:     pool: asyncpg.Pool = Depends(get_db_pool),\n311: ) -> list[PatientDTO]:\n312:     \"\"\"Retrieve all patients matching a primary or secondary phone number.\"\"\"\n313:     if not phone.strip():\n314:         raise ValidationError(\"phone query parameter must not be blank\")\n315:     service = PatientService(pool)\n316:     return await service.get_by_phone(phone, identity.clinic_id)",
+          "detail": "Route danh sách dùng patient.list.view; route phone chỉ dùng get_current_identity."
+        },
+        {
+          "path": "src/clinicai/services/patient_service.py",
+          "line": 333,
+          "end_line": 345,
+          "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+          "excerpt": "333:     async def get_by_id(\n334:         self, clinic_patient_id: UUID, clinic_id: str\n335:     ) -> PatientDTO | None:\n336:         \"\"\"Fetch a single patient by primary key. Returns None if absent.\"\"\"\n337:         query = (\n338:             \"SELECT * FROM patient WHERE clinic_patient_id = $1 \"\n339:             \"AND clinic_id = $2::uuid;\"\n340:         )\n341:         async with self._pool.acquire() as conn:\n342:             row = await conn.fetchrow(query, clinic_patient_id, clinic_id)\n343:         if row is None:\n344:             return None\n345:         return _record_to_dto(row)",
+          "detail": "GET by ID SELECT * và chuyển toàn dòng thành PatientDTO."
+        },
+        {
+          "path": "src/clinicai/services/patient_service.py",
+          "line": 384,
+          "end_line": 402,
+          "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+          "excerpt": "384:     async def get_by_phone(self, phone: str, clinic_id: str) -> list[PatientDTO]:\n385:         \"\"\"Return all patients matching a phone number (primary or secondary).\"\"\"\n386:         variants = _phone_variants(phone)\n387:         if not variants:\n388:             return []\n389:         query = \"\"\"\n390:             SELECT * FROM patient\n391:             WHERE clinic_id = $2::uuid\n392:               AND (phone_primary = ANY($1::text[])\n393:                    OR phone_secondary = ANY($1::text[])\n394:                    OR EXISTS (SELECT 1 FROM public.patient_sdt_them t\n395:                                WHERE t.clinic_patient_id\n396:                                      = patient.clinic_patient_id\n397:                                  AND t.so_dien_thoai = ANY($1::text[])))\n398:             ORDER BY created_at DESC;\n399:         \"\"\"\n400:         async with self._pool.acquire() as conn:\n401:             rows = await conn.fetch(query, variants, clinic_id)\n402:         return [_record_to_dto(r) for r in rows]",
+          "detail": "Phone lookup SELECT * và giới hạn clinic_id."
+        },
+        {
+          "path": "src/clinicai/schemas/patient.py",
+          "line": 328,
+          "end_line": 356,
+          "sha256": "0f306e8715b53ad6946b2b09324c827b6819b05b6e354ac13775caef614f5ba4",
+          "excerpt": "328: class PatientDTO(BaseModel):\n329:     \"\"\"Output schema returned from service layer. national_id is masked.\"\"\"\n330: \n331:     model_config = ConfigDict(from_attributes=True)\n332: \n333:     clinic_patient_id: UUID\n334:     patient_code: str\n335:     national_id_number: str | None = None\n336:     full_name: str\n337:     date_of_birth: date | None = None\n338:     phone_primary: str | None = None\n339:     phone_secondary: str | None = None\n340:     location_id: UUID\n341:     is_active: bool\n342:     created_at: datetime\n343:     updated_at: datetime\n344:     gender: str | None = None\n345:     ethnicity: str | None = None\n346:     nationality: str | None = None\n347:     occupation: str | None = None\n348:     patient_objection: str | None = None\n349:     address: str | None = None\n350:     guardian_name: str | None = None\n351:     email: str | None = None\n352: \n353:     @field_validator(\"national_id_number\", mode=\"before\")\n354:     @classmethod\n355:     def mask_national_id(cls, v: str | None) -> str | None:\n356:         return _mask_national_id(v)",
+          "detail": "PatientDTO có phone/email/address/DOB/guardian; national ID chỉ được mask."
+        },
+        {
+          "path": "src/clinicai/api/identity.py",
+          "line": 638,
+          "end_line": 659,
+          "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+          "excerpt": "638: async def get_current_identity(\n639:     identity: StaffIdentity = Depends(_resolve_identity),\n640: ) -> StaffIdentity:\n641:     \"\"\"Danh tính của một NGƯỜI đang làm việc.\n642: \n643:     Từ chối vai DISPLAY. Đây là chốt quan trọng nhất của vai đó: mọi endpoint\n644:     trong hệ đều đi qua dependency này (có RoleGuard hay không), nên chặn ở đây\n645:     nghĩa là cái tivi bị chặn ở khắp nơi MÀ KHÔNG PHẢI liệt kê chỗ nào. Bản\n646:     kiểm kê 06/08 đếm được 26/119 endpoint chưa có RoleGuard — một danh sách\n647:     cho phép sẽ bỏ sót đúng những chỗ ấy.\n648:     \"\"\"\n649:     if identity.role is ClinicRole.DISPLAY:\n650:         raise HTTPException(\n651:             status_code=status.HTTP_403_FORBIDDEN,\n652:             detail=\"Tài khoản màn hình chỉ được xem bảng gọi số\",\n653:         )\n654:     if identity.role is ClinicRole.PARTNER:\n655:         raise HTTPException(\n656:             status_code=status.HTTP_403_FORBIDDEN,\n657:             detail=\"Tài khoản đối tác chỉ được gửi kết quả\",\n658:         )\n659:     return identity",
+          "detail": "get_current_identity chặn DISPLAY/PARTNER nhưng không áp patient.list.view."
+        },
+        {
+          "path": "src/clinicai/permissions/catalogue.py",
+          "line": 791,
+          "end_line": 792,
+          "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+          "excerpt": "791:     \"PHARMACIST\": [\"thu_tien_thuoc\", \"nha_thuoc\", \"xem_nha_thuoc\"],\n792:     \"CSKH\": [\"dat_lich\", \"quan_ly_lich\"],",
+          "detail": "PHARMACIST preset có quyền quầy thuốc, không có patient.list.view."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "SEC-018",
+        "relationship": "Cùng lớp least-privilege PII nội clinic; SEC-018 là PostgREST contact tables, SEC-027 là FastAPI PatientDTO endpoints."
+      }
+    ]
+  },
+  {
+    "id": "INF-023",
+    "title": "Một kênh Telegram lỗi làm các kênh đã nhận tin bị gửi lặp khi relay thử lại",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "notification_fanout_delivery",
+    "summary": "send_telegram gửi tuần tự cùng message tới các TELEGRAM_CHAT_ID. Nếu một chat lỗi, kết quả tổng thể là lỗi dù chat trước đã nhận. notification_relay retry toàn event tối đa MAX_RETRIES và để event chưa published khi hết lượt, nên poll sau có thể gửi lại tới các chat đã thành công. Code comment chấp nhận tradeoff này; relay hiện bị tắt mặc định và phải bật tường minh.",
+    "trigger": "Relay được bật với nhiều chat ID; ít nhất một kênh lỗi/timeout trong khi kênh khác đã nhận message.",
+    "impact": "Nhân viên ở kênh khỏe có thể nhận trùng nhiều lần, làm loãng cảnh báo hoặc gây nhầm lẫn. Không khẳng định tin bị mất hoặc lỗi production; đây là hệ quả delivery at-least-once đã ghi rõ trong code.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/providers/telegram.py",
+        "line": 33,
+        "end_line": 79,
+        "detail": "Fanout tới mọi channel; return cuối phản ánh lỗi, không có trạng thái per-chat."
+      },
+      {
+        "path": "src/clinicai/services/notification_relay.py",
+        "line": 216,
+        "end_line": 245,
+        "detail": "Relay retry toàn event và chỉ publish khi toàn lần gửi trả success."
+      },
+      {
+        "path": "src/clinicai/worker.py",
+        "line": 94,
+        "end_line": 108,
+        "detail": "Notification relay yêu cầu NOTIFICATION_RELAY_ENABLED=true; hiện tắt mặc định."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static exact-main trace. Không gửi Telegram thật; relay opt-in được ghi rõ.",
+      "limitations": "Static review only. No ClinicAI application test, DB, HTTP request, production runtime, secrets or patient data was used in round 19."
+    },
+    "recommendation": "Theo dõi delivery riêng từng chat ID, chỉ retry đích thất bại, lưu message/provider ID khi có và hiển thị trạng thái đối soát; giữ relay opt-in đến khi có fixture multi-recipient failure.",
+    "acceptance": "Fake Telegram: chat A thành công, B lỗi rồi thành công; A nhận đúng một tin, B được thử lại, event chỉ hoàn tất khi tất cả đích đạt chính sách; timeout vẫn đi vào trạng thái chưa rõ có thể đối soát.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/unit/test_notification_relay.py::test_failed_sends_wait_between_attempts",
+      "src/tests/unit/test_notification_relay.py::test_relay_does_not_publish_unaccepted_delivery — kiểm retry event, không kiểm partial success giữa nhiều chat."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/notification_relay.py": "3ede1c519c646d43ffa83daaa9d6a6bcdea08887f6822a79301e684524cd409f",
+      "src/clinicai/services/providers/telegram.py": "6516fd4dfc75f10183d7c04659d6226b3db2298da2c592873e644c4873a98e74",
+      "src/clinicai/worker.py": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Static trace xác nhận fanout trả một kết quả tổng, relay retry toàn message và event chưa publish được poll lại. Relay bị tắt mặc định; rủi ro chỉ áp dụng khi cấu hình bật.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/providers/telegram.py",
+          "line": 33,
+          "end_line": 79,
+          "sha256": "6516fd4dfc75f10183d7c04659d6226b3db2298da2c592873e644c4873a98e74",
+          "excerpt": "33:     # NHIỀU KÊNH, phân cách bằng dấu phẩy (15/08/2026: chat riêng của Tuyền\n34:     # + nhóm \"MVP2: Clinic AI\"). Tin đi ĐỦ mọi kênh; \"thành công\" nghĩa là\n35:     # tất cả cùng nhận — thiếu một kênh là relay giữ sự kiện lại thử tiếp,\n36:     # chấp nhận hiếm hoi trùng tin ở kênh đã nhận còn hơn một kênh lặng lẽ\n37:     # không bao giờ được báo.\n38:     chat_id = os.environ.get(\"TELEGRAM_CHAT_ID\", \"\").strip()\n39: \n40:     if not token or not chat_id:\n41:         logger.info(\n42:             \"telegram_skipped\",\n43:             reason=\"TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set\",\n44:         )\n45:         return {\"ok\": False, \"skipped\": True}\n46: \n47:     url = f\"{TELEGRAM_API}/bot{token}/sendMessage\"\n48:     cac_kenh = [c.strip() for c in chat_id.split(\",\") if c.strip()]\n49: \n50:     try:\n51:         ket_cuoi: dict[str, Any] = {\"ok\": True}\n52:         async with httpx.AsyncClient(timeout=SEND_TIMEOUT) as client:\n53:             for kenh in cac_kenh:\n54:                 resp = await client.post(\n55:                     url,\n56:                     json={\n57:                         \"chat_id\": kenh,\n58:                         \"text\": message,\n59:                         \"parse_mode\": \"HTML\",\n60:                         \"disable_web_page_preview\": True,\n61:                     },\n62:                 )\n63:                 raw_result = resp.json()\n64:                 result: dict[str, Any] = (\n65:                     raw_result\n66:                     if isinstance(raw_result, dict)\n67:                     else {\"ok\": False, \"error\": \"invalid Telegram response\"}\n68:                 )\n69:                 if not result.get(\"ok\"):\n70:                     logger.warning(\n71:                         \"telegram_send_failed\",\n72:                         chat_id=kenh,\n73:                         status_code=resp.status_code,\n74:                         description=result.get(\"description\"),\n75:                     )\n76:                     ket_cuoi = result\n77:                 else:\n78:                     logger.info(\"telegram_sent\", chat_id=kenh)\n79:         return ket_cuoi",
+          "detail": "Fanout tới mọi channel; return cuối phản ánh lỗi, không có trạng thái per-chat."
+        },
+        {
+          "path": "src/clinicai/services/notification_relay.py",
+          "line": 216,
+          "end_line": 245,
+          "sha256": "3ede1c519c646d43ffa83daaa9d6a6bcdea08887f6822a79301e684524cd409f",
+          "excerpt": "216:                 success = False\n217:                 for attempt in range(1, MAX_RETRIES + 1):\n218:                     result = await telegram.send_telegram(message)\n219:                     if result.get(\"ok\") is True:\n220:                         success = True\n221:                         break\n222:                     if result.get(\"skipped\"):\n223:                         # Missing provider config cannot recover within this\n224:                         # poll. Leave the event pending for a later fixed run.\n225:                         break\n226:                     logger.warning(\n227:                         \"relay_telegram_retry\",\n228:                         event_id=str(event_id),\n229:                         attempt=attempt,\n230:                     )\n231:                     # Không ngủ sau lần cuối: lúc đó không còn lần thử nào để chờ.\n232:                     if attempt < MAX_RETRIES:\n233:                         await asyncio.sleep(\n234:                             RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))\n235:                         )\n236: \n237:                 if success:\n238:                     await _mark_published(conn, event_id, clinic_id)\n239:                     delivered += 1\n240:                 else:\n241:                     logger.error(\n242:                         \"relay_delivery_failed\",\n243:                         event_id=str(event_id),\n244:                         event_type=event_type,\n245:                     )",
+          "detail": "Relay retry toàn event và chỉ publish khi toàn lần gửi trả success."
+        },
+        {
+          "path": "src/clinicai/worker.py",
+          "line": 94,
+          "end_line": 108,
+          "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+          "excerpt": "94:     # CHỐT CỨNG TRƯỚC BẢN DÙNG THỬ 15/08 (Quang chốt 09/08/2026: \"ngắt cái tele\n95:     # đã\"). MVP này là CSKH thao tác tay và tự bấm gửi; không có gì được tự bắn\n96:     # ra ngoài.\n97:     #\n98:     # `profiles` của compose KHÔNG đủ để coi là đã tắt: `--profile workers` bật\n99:     # MỘT LÚC cả worker, pos-relay VÀ notification-relay. Ai bật worker cho việc\n100:     # khác là relay đi theo, và ngay lúc đó nó gặp 208 dòng `event_log` chưa\n101:     # publish còn tồn (docs/DANG-LAM.md §5) — bắn cả 208 tin trong mấy vòng poll\n102:     # đầu, gồm sự kiện từ nhiều ngày trước.\n103:     #\n104:     # Cờ này phải BẬT TƯỜNG MINH mới chạy. Mở lại: đặt NOTIFICATION_RELAY_ENABLED=true\n105:     # trong .env — và xử lý đống tồn đọng trước khi mở.\n106:     if os.environ.get(\"NOTIFICATION_RELAY_ENABLED\", \"\").strip().lower() != \"true\":\n107:         raise SystemExit(\n108:             \"notification-relay đang TẮT có chủ ý \"",
+          "detail": "Notification relay yêu cầu NOTIFICATION_RELAY_ENABLED=true; hiện tắt mặc định."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "INF-024",
+    "title": "Timeout Zalo không lưu trạng thái gửi chưa rõ để nhân viên đối soát",
+    "severity": "MEDIUM",
+    "evidence_level": "design_gap",
+    "category": "external_delivery_unknown_state",
+    "summary": "Provider trả HET_GIO và nói rõ chưa chắc đã gửi. GuiZaloService thoát trước khi ghi tương tác; route gửi không nhận Idempotency-Key và không lưu attempt UNKNOWN. Nếu Zalo đã nhận request nhưng response timeout, hệ thống không có trạng thái bền để kiểm tra; gửi lại có thể gửi trùng. Tracking ID hiện là clinic_patient_id, không phân biệt từng lần gửi.",
+    "trigger": "POST gửi ZNS tới Zalo bị timeout sau khi request được gửi nhưng trước khi nhận phản hồi.",
+    "impact": "Nhân viên phải kiểm tra thủ công; lần thử không nằm trong sổ CSKH. Nếu họ thử lại sau khi Zalo đã nhận, khách có thể nhận lặp. Route tồn tại nhưng chưa tìm thấy callsite dashboard hiện tại; chưa xác minh luồng này được dùng trên production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/providers/zalo.py",
+        "line": 129,
+        "end_line": 154,
+        "detail": "Gửi request tới Zalo; timeout trả HET_GIO với trạng thái chưa rõ."
+      },
+      {
+        "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+        "line": 891,
+        "end_line": 919,
+        "detail": "Thất bại/timeout return trước khi ghi sổ CSKH; tracking dùng clinic_patient_id."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 1074,
+        "end_line": 1092,
+        "detail": "POST Zalo nhận body không có idempotency key và gọi service."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Đối chiếu provider, service và endpoint; không gọi Zalo/vendor hoặc HTTP thật.",
+      "limitations": "The route has no current dashboard caller in source search; usage by external scripts or production operators is unknown. No vendor behavior, delivery receipt or production configuration was checked."
+    },
+    "recommendation": "Ghi durable send attempt trước external call với ID riêng, trạng thái PENDING/UNKNOWN/ACCEPTED/FAILED, provider tracking ID và thời điểm; cho đối soát trước retry và áp idempotency key nếu vendor hỗ trợ.",
+    "acceptance": "Fault test provider nhận request nhưng làm rơi response: DB giữ UNKNOWN và attempt ID; retry không tạo message thứ hai nếu vendor idempotent, hoặc bắt người dùng xác nhận sau bước đối soát; sổ CSKH chỉ ghi đã liên hệ khi có acceptance bằng chứng.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_zalo_provider.py::test_het_gio_noi_ro_la_chua_chac_da_gui",
+      "src/tests/unit/test_so_tuong_tac_cskh.py::test_zalo_that_bai_thi_khong_ghi_so — xác nhận không giả ghi đã gửi, không kiểm attempt reconciliation."
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/cskh.py": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "src/clinicai/services/providers/zalo.py": "c75db233171290e9ce104c94ff120e5bb0f6428070d213e462b74beca28708be",
+      "src/clinicai/services/tuong_tac_cskh_service.py": "5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Design gap tĩnh: response timeout có nội dung ‘chưa chắc đã gửi’, nhưng service không ghi lại attempt và route không có request idempotency; chưa thấy dashboard caller.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/providers/zalo.py",
+          "line": 129,
+          "end_line": 154,
+          "sha256": "c75db233171290e9ce104c94ff120e5bb0f6428070d213e462b74beca28708be",
+          "excerpt": "129:     than = {\n130:         \"phone\": so,\n131:         \"template_id\": template_id,\n132:         \"template_data\": du_lieu,\n133:     }\n134:     if ma_theo_doi:\n135:         than[\"tracking_id\"] = ma_theo_doi\n136: \n137:     try:\n138:         async with httpx.AsyncClient(timeout=het_gio_giay) as client:\n139:             r = await client.post(ZNS_URL, headers={\"access_token\": token}, json=than)\n140:     except httpx.TimeoutException:\n141:         return {\n142:             \"da_gui\": False,\n143:             \"ly_do\": \"HET_GIO\",\n144:             \"chi_tiet\": (\n145:                 \"Zalo không trả lời kịp. CHƯA CHẮC ĐÃ GỬI — kiểm tra rồi \"\n146:                 \"thử lại, đừng ghi là đã gửi.\"\n147:             ),\n148:         }\n149:     except httpx.HTTPError as e:\n150:         return {\n151:             \"da_gui\": False,\n152:             \"ly_do\": \"KHONG_KET_NOI\",\n153:             \"chi_tiet\": f\"Không gọi được Zalo: {type(e).__name__}.\",\n154:         }",
+          "detail": "Gửi request tới Zalo; timeout trả HET_GIO với trạng thái chưa rõ."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 891,
+          "end_line": 919,
+          "sha256": "5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118",
+          "excerpt": "891:         ket_qua = await zalo.gui_zns(\n892:             sdt=row[\"phone_primary\"],\n893:             template_id=zalo.template_cho(loai_tin) or \"\",\n894:             du_lieu={\"ten\": row[\"full_name\"] or \"\", \"gio_hen\": gio_hen},\n895:             ma_theo_doi=clinic_patient_id,\n896:         )\n897: \n898:         if not ket_qua.get(\"da_gui\"):\n899:             # KHÔNG ghi sổ. Một dòng \"đã liên hệ\" cho một tin chưa gửi là đúng\n900:             # thứ tính năng này phải chống.\n901:             logger.warning(\n902:                 \"zalo_gui_that_bai\",\n903:                 ly_do=ket_qua.get(\"ly_do\"),\n904:                 by_staff_id=identity.staff_id,\n905:             )\n906:             return {\"da_gui\": False, **ket_qua}\n907: \n908:         await TuongTacCskhService(self._pool).ghi(\n909:             identity=identity,\n910:             clinic_patient_id=clinic_patient_id,\n911:             appointment_id=appointment_id,\n912:             # ZNS chỉ báo \"đã có kết quả\", không mang tệp. Ghi TRA_KQ ở đây\n913:             # sẽ làm KQ_CHUA_GUI biến mất dù chưa ai gửi ảnh/PDF/video.\n914:             loai=\"NHAC_HEN\" if loai_tin == \"NHAC_HEN\" else \"KHAC\",\n915:             kenh=\"ZALO\",\n916:             ket_qua=\"DA_LIEN_HE\",\n917:             noi_dung=\"Đã gửi tin Zalo (ZNS).\",\n918:         )\n919:         return {\"da_gui\": True, \"ly_do\": \"OK\"}",
+          "detail": "Thất bại/timeout return trước khi ghi sổ CSKH; tracking dùng clinic_patient_id."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cskh.py",
+          "line": 1074,
+          "end_line": 1092,
+          "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+          "excerpt": "1074: class GuiZaloRequest(BaseModel):\n1075:     clinic_patient_id: UUID\n1076:     loai_tin: Literal[\"NHAC_HEN\", \"TRA_KET_QUA\"]\n1077:     appointment_id: UUID | None = None\n1078: \n1079: \n1080: @router.post(\"/cskh/zalo/gui\", status_code=201)\n1081: async def gui_zalo(\n1082:     body: GuiZaloRequest,\n1083:     identity: StaffIdentity = Depends(_INTAKE_GUARD),\n1084:     pool: asyncpg.Pool = Depends(get_db_pool),\n1085: ) -> dict[str, Any]:\n1086:     \"\"\"Gửi một tin ZNS. Chỉ ghi sổ khi Zalo thật sự nhận.\"\"\"\n1087:     return await GuiZaloService(pool).gui(\n1088:         identity=identity,\n1089:         clinic_patient_id=str(body.clinic_patient_id),\n1090:         loai_tin=body.loai_tin,\n1091:         appointment_id=str(body.appointment_id) if body.appointment_id else None,\n1092:     )",
+          "detail": "POST Zalo nhận body không có idempotency key và gọi service."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "INF-025",
+    "title": "Dữ liệu bệnh nhân được ghép vào HTML Telegram mà không escape",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "telegram_message_markup",
+    "summary": "Template đưa tên khách, patient_code, giờ, dịch vụ và tên bác sĩ trực tiếp vào chuỗi HTML; Telegram provider gửi với parse_mode=HTML. Giá trị có ký tự markup có thể làm thay đổi cách hiển thị hoặc khiến Telegram từ chối tin.",
+    "trigger": "Một giá trị động được lưu có ký tự &, < hoặc > và template phát sự kiện tương ứng khi relay bật.",
+    "impact": "Tin có thể hiển thị sai hoặc thất bại vì markup; đây không phải browser XSS và không mở quyền đọc dữ liệu. Relay đang opt-in/tắt mặc định.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/notification_templates.py",
+        "line": 37,
+        "end_line": 57,
+        "detail": "Giá trị tên, mã khách, dịch vụ và bác sĩ được nội suy trực tiếp."
+      },
+      {
+        "path": "src/clinicai/services/providers/telegram.py",
+        "line": 52,
+        "end_line": 62,
+        "detail": "Provider gửi text với parse_mode=HTML."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static string construction trace; không gửi message tới Telegram.",
+      "limitations": "Static review only. No ClinicAI application test, DB, HTTP request, production runtime, secrets or patient data was used in round 19."
+    },
+    "recommendation": "Escape mọi giá trị động theo HTML Telegram trước khi nội suy, hoặc bỏ parse_mode và gửi plain text; giữ bold markup tĩnh riêng.",
+    "acceptance": "Unit tests dùng tên/dịch vụ chứa &, <b>, </b> và chuỗi giả tag; Telegram nhận văn bản nguyên nghĩa hoặc plain text, không lỗi parse; trường không được dùng vẫn không xuất hiện.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/unit/test_notification_templates.py::test_lich_moi_du_du_lieu — không dùng markup trong dữ liệu và không kiểm escaping."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/notification_templates.py": "b4a6eecdec0e01cf7f820ccc575a48b70c8e9870e7fbada17fa1a39f28698f6d",
+      "src/clinicai/services/providers/telegram.py": "6516fd4dfc75f10183d7c04659d6226b3db2298da2c592873e644c4873a98e74"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main template nội suy field động vào HTML và provider bật parse_mode=HTML; mức ảnh hưởng giới hạn định dạng/khả năng gửi.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/notification_templates.py",
+          "line": 37,
+          "end_line": 57,
+          "sha256": "b4a6eecdec0e01cf7f820ccc575a48b70c8e9870e7fbada17fa1a39f28698f6d",
+          "excerpt": "37: def _khach(payload: dict[str, Any]) -> str:\n38:     ten = payload.get(\"ten_khach\") or \"—\"\n39:     ma = payload.get(\"patient_code\")\n40:     return f\"{ten} ({ma})\" if ma else str(ten)\n41: \n42: \n43: def _gio(payload: dict[str, Any]) -> str:\n44:     return str(payload.get(\"gio_kham\") or \"—\")\n45: \n46: \n47: def lich_moi(payload: dict[str, Any]) -> str:\n48:     bs = payload.get(\"ten_bac_si\") or \"chờ xếp bác sĩ\"\n49:     dv = payload.get(\"dich_vu\") or \"—\"\n50:     return f\"📅 <b>Lịch mới</b> · {_gio(payload)}\\n{_khach(payload)} · {dv} · BS {bs}\"\n51: \n52: \n53: def huy_lich(payload: dict[str, Any]) -> str:\n54:     ly_do = _LY_DO_HUY_NGAN.get(\n55:         str(payload.get(\"ly_do_huy_ma\") or \"\"), \"không rõ lý do\"\n56:     )\n57:     return f\"❌ <b>Huỷ lịch</b> · {_gio(payload)}\\n{_khach(payload)} · {ly_do}\"",
+          "detail": "Giá trị tên, mã khách, dịch vụ và bác sĩ được nội suy trực tiếp."
+        },
+        {
+          "path": "src/clinicai/services/providers/telegram.py",
+          "line": 52,
+          "end_line": 62,
+          "sha256": "6516fd4dfc75f10183d7c04659d6226b3db2298da2c592873e644c4873a98e74",
+          "excerpt": "52:         async with httpx.AsyncClient(timeout=SEND_TIMEOUT) as client:\n53:             for kenh in cac_kenh:\n54:                 resp = await client.post(\n55:                     url,\n56:                     json={\n57:                         \"chat_id\": kenh,\n58:                         \"text\": message,\n59:                         \"parse_mode\": \"HTML\",\n60:                         \"disable_web_page_preview\": True,\n61:                     },\n62:                 )",
+          "detail": "Provider gửi text với parse_mode=HTML."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "FE-021",
+    "title": "Bảng lịch vẫn mời nhân viên tự đăng ký dù backend đã đóng luồng",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "roster_ui_contract",
+    "summary": "Backend ghi rõ luồng tự đăng ký đã đóng, ROSTER_ROLES chỉ còn nhóm người xếp lịch và route POST dùng _ROSTER_GUARD. Nhưng RosterRegisterTable vẫn hiển thị cho vai không phải approver chọn ca và bấm tự đăng ký; khi POST bị từ chối, UI hiện lỗi chung ‘Lỗi khi xếp ca’. Đây là mismatch UI/API theo chính sách backend hiện tại.",
+    "trigger": "Nhân viên có roster.view nhưng không có roster.manage/config.clinic.manage mở bảng đăng ký rồi bấm đăng ký ca.",
+    "impact": "Người dùng được mời làm thao tác không thể hoàn tất và có thể nghĩ lịch trực đang lỗi. Chính sách backend hiện tại chủ ý để quản lý xếp lịch; không kết luận tự đăng ký phải được mở lại.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 87,
+        "end_line": 97,
+        "detail": "Backend ghi rõ luồng tự đăng ký ca đã đóng và ROSTER_ROLES chỉ còn roster admin."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/config.py",
+        "line": 48,
+        "end_line": 60,
+        "detail": "POST roster dùng guard yêu cầu quyền xếp lịch; GET có guard riêng roster.view."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+        "line": 489,
+        "end_line": 535,
+        "detail": "Handler non-approver tự gửi POST và chỉ hiện lỗi chung khi server từ chối."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+        "line": 1171,
+        "end_line": 1198,
+        "detail": "Non-approver vẫn thấy nội dung và controls ‘tự đăng ký ca’."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static UI/API contract comparison; không thực hiện POST hoặc kiểm production policy.",
+      "limitations": "Backend comment is explicit that self-registration is intentionally closed. The finding is only the stale/misleading UI affordance; the audit does not recommend changing the policy without product confirmation."
+    },
+    "recommendation": "Nếu chính sách tiếp tục đóng self-service, ẩn/disable nút và nói rõ liên hệ người xếp lịch; nếu muốn mở lại thì cập nhật guard, workflow duyệt và hiển thị PENDING đồng bộ.",
+    "acceptance": "Với non-approver, giao diện không đưa nút tự đăng ký khi backend đóng; với approver, thao tác xếp người vẫn hoạt động; test matrix đối chiếu quyền API và trạng thái UI.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/config.py": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "src/clinicai/services/config_service.py": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+      "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx": "8cf05701f56f20f886f5befa0da56bc2d5f91e7a98ccbf9a389cd106ee21ad9f"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Backend comment ghi rõ self-registration đã đóng và guard hạn chế POST; UI non-approver vẫn vẽ luồng tự đăng ký. Mức LOW vì chính sách xếp bởi quản lý có thể là chủ ý.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/config_service.py",
+          "line": 87,
+          "end_line": 97,
+          "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+          "excerpt": "87: ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})\n88: \n89: # LUỒNG TỰ ĐĂNG KÝ CA ĐANG ĐÓNG (Quang, 07/08/2026): quản lý tự xếp lịch cho\n90: # mọi người rồi bấm áp dụng; nhân viên chỉ xem. Đây là ĐÓNG chứ không phải bỏ —\n91: # bảng đăng ký và luồng duyệt vẫn còn nguyên để mở lại khi cần đường xin đổi ca.\n92: #\n93: # Phải siết ở ĐÂY chứ không chỉ ẩn bảng ngoài giao diện. Ẩn nút mà để nguyên\n94: # đường ghi thì bất kỳ ai cũng còn POST thẳng vào /api/v1/roster/shifts được, và\n95: # ca họ ghi rơi vào PENDING — vô hình với cả người xếp lịch (lưới sửa chỉ đọc\n96: # APPROVED) lẫn màn chính thức. Treo vĩnh viễn, không ai thấy.\n97: ROSTER_ROLES: frozenset[ClinicRole] = ROSTER_ADMIN_ROLES",
+          "detail": "Backend ghi rõ luồng tự đăng ký ca đã đóng và ROSTER_ROLES chỉ còn roster admin."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/config.py",
+          "line": 48,
+          "end_line": 60,
+          "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+          "excerpt": "48: # Everyone works a shift, so everyone may sign up for one; the service decides\n49: # who may schedule somebody else.\n50: # 21 lego (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai. Bảng giá dịch vụ là\n51: # lego 16. Xếp lịch trực (01/10/2026, Tuyền): trưởng ca — quyền `roster.manage`\n52: # trong lego Điều phối khách; lego 18 \"Cài đặt phòng khám\" vẫn xếp được.\n53: _ROSTER_GUARD = cua_quyen(\"roster.manage\", \"config.clinic.manage\")\n54: # Phạm vi vị trí (vai nào được đứng trạm nào) là CẤU HÌNH, ở /settings — chỉ\n55: # lego 18, không theo người xếp lịch.\n56: _PHAM_VI_GUARD = cua_quyen(\"config.clinic.manage\")\n57: # XEM lịch làm việc = lego 15 (quyền `roster.view`, kiểm toán 27/09/2026 — trước\n58: # chỉ cần đăng nhập nên thu lego chỉ mất mục trên thanh bên). Người xếp lịch\n59: # (lego 18) đương nhiên xem được bảng mình xếp.\n60: _ROSTER_READ_GUARD = cua_quyen(\"roster.view\", \"config.clinic.manage\")",
+          "detail": "POST roster dùng guard yêu cầu quyền xếp lịch; GET có guard riêng roster.view."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+          "line": 489,
+          "end_line": 535,
+          "sha256": "8cf05701f56f20f886f5befa0da56bc2d5f91e7a98ccbf9a389cd106ee21ad9f",
+          "excerpt": "489:   /** Quản lý xếp NGƯỜI ĐƯỢC CHỌN; vai khác tự đăng ký chính mình. */\n490:   async function xepCa() {\n491:     if (!open) return;\n492:     const { date, station } = open;\n493:     const picked = isApprover ? staff.find((s) => s.id === pickedId) : null;\n494:     if (isApprover && !picked) {\n495:       setError(\"Chọn nhân viên trước đã.\");\n496:       return;\n497:     }\n498:     setError(null);\n499:     setBusy(true);\n500:     const tempId = `temp-${date}-${station}-${picked?.id ?? myStaffId}-${shift}`;\n501:     setOptimistic((opt) => [\n502:       ...opt,\n503:       {\n504:         id: tempId,\n505:         work_date: date,\n506:         station,\n507:         shift,\n508:         staff_id: picked?.id ?? myStaffId,\n509:         staff_name: picked?.name ?? myStaffName ?? \"Tôi\",\n510:         // Quản lý xếp → backend ghi thẳng APPROVED. Vẽ optimistic là PENDING thì\n511:         // ô nhấp nháy đổi nhãn khi server trả về.\n512:         status: isApprover ? \"APPROVED\" : \"PENDING\",\n513:         reject_reason: null,\n514:       },\n515:     ]);\n516:     const res = await fetch(\"/api/roster\", {\n517:       method: \"POST\",\n518:       headers: { \"Content-Type\": \"application/json\" },\n519:       body: JSON.stringify({\n520:         week_start: weekStart,\n521:         work_date: date,\n522:         station,\n523:         shift,\n524:         staff_id: picked?.id ?? null,\n525:         staff_name: picked?.name ?? null,\n526:         // Người xếp sau nằm ở hàng con dưới. Không gửi thì mọi dòng cùng sort=0\n527:         // và thứ tự hai hàng đảo qua đảo lại giữa các lần tải trang.\n528:         sort: openCellRows.filter((r) => !laBong(r)).length,\n529:       }),\n530:     });\n531:     setBusy(false);\n532:     const than = await res.json().catch(() => ({}));\n533:     if (!res.ok) {\n534:       setOptimistic((opt) => opt.filter((o) => o.id !== tempId));\n535:       setError(loiDocDuoc(than, \"Lỗi khi xếp ca.\"));",
+          "detail": "Handler non-approver tự gửi POST và chỉ hiện lỗi chung khi server từ chối."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+          "line": 1171,
+          "end_line": 1198,
+          "sha256": "8cf05701f56f20f886f5befa0da56bc2d5f91e7a98ccbf9a389cd106ee21ad9f",
+          "excerpt": "1171:             ) : myStaffId == null ? (\n1172:               <p className=\"rounded-control bg-warning-bg px-3 py-2 text-sm text-warning\">\n1173:                 Chưa chọn danh tính nhân viên — không thể tự đăng ký ca.\n1174:               </p>\n1175:             ) : myHere ? (\n1176:               <p className=\"rounded-control bg-status-in-progress-bg px-3 py-2 text-sm text-status-in-progress\">\n1177:                 Bạn đã đăng ký ô này.\n1178:               </p>\n1179:             ) : (\n1180:               <div className=\"flex items-end gap-2\">\n1181:                 <div className=\"flex-1\">\n1182:                   <label\n1183:                     htmlFor={`${dialogTitleId}-ca-toi`}\n1184:                     className=\"mb-1 block text-xs font-medium text-ink-muted\"\n1185:                   >\n1186:                     Ca\n1187:                   </label>\n1188:                   <select\n1189:                     id={`${dialogTitleId}-ca-toi`}\n1190:                     className=\"w-full rounded-control border border-line bg-surface px-3 py-2 text-sm focus:border-brand-600 focus:outline-none\"\n1191:                     value={shift}\n1192:                     onChange={(e) => setShift(e.target.value as Shift)}\n1193:                   >\n1194:                     {SHIFTS.map((s) => (\n1195:                       <option key={s} value={s}>\n1196:                         {SHIFT_LABEL[s]}\n1197:                       </option>\n1198:                     ))}",
+          "detail": "Non-approver vẫn thấy nội dung và controls ‘tự đăng ký ca’."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "OPS-003",
+    "title": "Áp dụng tuần coi mọi ca cùng ngày là ca phủ lịch hẹn",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "roster_booking_coverage",
+    "summary": "Trước khi áp dụng tuần, query tìm lịch hẹn có doctor_id nhưng chỉ coi lịch mất bác sĩ nếu không tồn tại bất kỳ work_roster row cùng bác sĩ/ngày/cơ sở. Query không lọc status APPROVED và không so giờ hẹn với ca. CapacityService lại chỉ tính ca APPROVED rồi xét theo shift/time. Vì vậy ca PENDING/REJECTED hoặc ca sáng có thể làm query bỏ qua lịch hẹn buổi tối không được phủ.",
+    "trigger": "Áp dụng tuần có lịch hẹn đã gán bác sĩ nhưng ca cùng ngày chỉ ở trạng thái chờ/từ chối hoặc không bao phủ giờ hẹn.",
+    "impact": "Không tạo cảnh báo ‘mất bác sĩ’ cho CSKH và lịch vẫn mang tên bác sĩ dù không có ca đã duyệt phù hợp giờ. Đây là khoảng trống cảnh báo; chưa chứng minh lịch hẹn thực tế bị bỏ lỡ.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 1125,
+        "end_line": 1158,
+        "detail": "Apply-week query dùng NOT EXISTS theo ngày/cơ sở, không lọc status hoặc phủ giờ."
+      },
+      {
+        "path": "src/clinicai/services/capacity_service.py",
+        "line": 145,
+        "end_line": 181,
+        "detail": "Capacity chỉ lấy ca APPROVED và giữ shift theo bác sĩ để xác định khung."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static comparison giữa cảnh báo khi áp tuần và bộ lọc lịch được dùng cho sức chứa.",
+      "limitations": "Không dùng DB production hoặc dữ liệu lịch thật; tác động phụ thuộc appointment/roster state cụ thể."
+    },
+    "recommendation": "Dùng cùng hàm xác định ca đã duyệt và khung thời gian như CapacityService; cảnh báo từng appointment không có ca phủ, gồm ca pending/rejected/khác buổi; giao owner xử lý trước khi coi tuần là áp dụng an toàn.",
+    "acceptance": "Fixture lịch 19:00 + ca sáng APPROVED, ca tối PENDING và ca tối REJECTED phải tạo cảnh báo; ca tối APPROVED đúng cơ sở phải không cảnh báo; kiểm tenant/location và không lộ tên khách ngoài role nhận việc.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/capacity_service.py": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a",
+      "src/clinicai/services/config_service.py": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main query kiểm bất kỳ dòng roster theo ngày/cơ sở; capacity query chỉ lấy APPROVED và ánh xạ ca theo bác sĩ. Chưa chạy DB/API test cho interleaving các trạng thái.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/config_service.py",
+          "line": 1125,
+          "end_line": 1158,
+          "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+          "excerpt": "1125:             \"\"\"\n1126:             SELECT a.slot_start, bs.full_name AS bac_si, p.full_name AS khach\n1127:               FROM public.appointment a\n1128:               LEFT JOIN public.staff bs ON bs.id = a.doctor_id\n1129:               LEFT JOIN public.patient p\n1130:                 ON p.clinic_patient_id = a.clinic_patient_id\n1131:                AND p.clinic_id = a.clinic_id\n1132:              WHERE a.clinic_id = $1::uuid\n1133:                AND a.doctor_id IS NOT NULL\n1134:                AND a.slot_start >= now()\n1135:                AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',\n1136:                                     'COMPLETED')\n1137:                AND (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date\n1138:                      BETWEEN $2 AND $2 + 6\n1139:                AND NOT EXISTS (\n1140:                      SELECT 1 FROM public.work_roster w\n1141:                       WHERE w.clinic_id = a.clinic_id\n1142:                         AND w.staff_id = a.doctor_id\n1143:                         AND w.work_date =\n1144:                             (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date\n1145:                         -- Ca ở cơ sở khác không giữ lịch ở cơ sở này.\n1146:                         AND \"\"\"\n1147:             + ca_thuoc_co_so(\"w\", \"(a.location_id)\")\n1148:             + \"\"\")\n1149:              ORDER BY a.slot_start\n1150:             \"\"\",\n1151:             identity.clinic_id,\n1152:             mon,\n1153:         )\n1154:         if mat:\n1155:             await self._bao_lich_mat_bac_si(\n1156:                 week_start=mon, mat=list(mat), identity=identity\n1157:             )\n1158: ",
+          "detail": "Apply-week query dùng NOT EXISTS theo ngày/cơ sở, không lọc status hoặc phủ giờ."
+        },
+        {
+          "path": "src/clinicai/services/capacity_service.py",
+          "line": 145,
+          "end_line": 181,
+          "sha256": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a",
+          "excerpt": "145:             ca_truc = await conn.fetch(\n146:                 \"\"\"\n147:                 SELECT work_date, staff_id::text AS staff_id,\n148:                        array_agg(DISTINCT shift) AS shifts\n149:                   FROM work_roster\n150:                  WHERE clinic_id = $1::uuid AND work_date = ANY($2::date[])\n151:                    AND status = 'APPROVED'\n152:                    AND EXISTS (\n153:                      SELECT 1 FROM roster_week rw\n154:                       WHERE rw.clinic_id = work_roster.clinic_id\n155:                         AND rw.week_start = work_roster.week_start\n156:                    )\n157:                    AND \"\"\"\n158:                 + ca_thuoc_co_so(\"work_roster\", \"$3\")\n159:                 + \"\"\"\n160:                  GROUP BY work_date, staff_id\n161:                 \"\"\",\n162:                 clinic_id,\n163:                 ds,\n164:                 location_id,\n165:             )\n166:         theo_ngay: dict[str, dict[str, Any]] = {\n167:             r[\"work_date\"].isoformat(): {\n168:                 \"roster_known\": r[\"roster_known\"],\n169:                 \"open_minute\": r[\"open_minute\"],\n170:                 \"close_minute\": r[\"close_minute\"],\n171:                 \"settings\": r[\"settings\"],\n172:                 \"tuan_da_cong_bo\": r[\"tuan_da_cong_bo\"],\n173:                 \"ca_theo_bac_si\": {},\n174:             }\n175:             for r in chung\n176:         }\n177:         for r in ca_truc:\n178:             o = theo_ngay.get(r[\"work_date\"].isoformat())\n179:             if o is not None:\n180:                 o[\"ca_theo_bac_si\"][r[\"staff_id\"]] = list(r[\"shifts\"] or [])\n181:         return theo_ngay",
+          "detail": "Capacity chỉ lấy ca APPROVED và giữ shift theo bác sĩ để xác định khung."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "SEC-028",
+    "title": "Ca PENDING có thể cấp quyền làm thay bác sĩ trước khi được duyệt",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "clinical_authorization_state",
+    "summary": "_lich_hom_nay đưa vào phép tính mọi work_roster status khác REJECTED, nên PENDING cũng được dùng để xác định ca/phòng của bác sĩ và nhân viên hỗ trợ. duoc_lam_thay sau đó cấp phép TKYK/NURSE_ULTRASOUND làm thay khi cùng phòng/ca. Luồng sức chứa và gỡ ca chỉ dùng APPROVED, tạo hai cách hiểu khác nhau về trạng thái ca.",
+    "trigger": "Có ca PENDING cho bác sĩ và người hỗ trợ cùng ngày/phòng/ca; người hỗ trợ gọi nghiệp vụ đi qua kiem_dung_ca trước khi ca được duyệt.",
+    "impact": "Có thể cho phép thao tác lâm sàng nhân danh bác sĩ theo một phân công chưa được duyệt. Luồng self-registration hiện đóng, nên điều kiện phụ thuộc dữ liệu PENDING cũ hoặc đường ghi khác; chưa kiểm DB production và không kết luận có hàng pending thực tế.",
+    "evidence": [
+      {
+        "path": "src/clinicai/permissions/ca_truc.py",
+        "line": 73,
+        "end_line": 99,
+        "detail": "Query đưa status khác REJECTED vào danh sách ca để xác định substitute."
+      },
+      {
+        "path": "src/clinicai/permissions/ca_truc.py",
+        "line": 150,
+        "end_line": 194,
+        "detail": "kiem_dung_ca gọi duoc_lam_thay từ danh sách lấy ở trên."
+      },
+      {
+        "path": "src/clinicai/services/capacity_service.py",
+        "line": 145,
+        "end_line": 165,
+        "detail": "Đối chiếu: capacity lấy duy nhất ca APPROVED."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static trace nối trạng thái work_roster với clinical authorization helper; không dùng identity hay lượt khám thật.",
+      "limitations": "The self-registration flow is intentionally closed in current source. Impact requires an existing PENDING row from legacy data or another write path; no production roster rows were read."
+    },
+    "recommendation": "Chỉ ca APPROVED (và quy tắc legacy NULL đã duyệt rõ) mới cấp quyền lâm sàng; thêm test fail-closed cho PENDING/REJECTED và tái tính cache ngay khi duyệt/từ chối.",
+    "acceptance": "Synthetic PENDING không cấp quyền thay bác sĩ; APPROVED cùng phòng/ca cấp đúng quyền; REJECTED/khác cơ sở/khác ca từ chối; kiểm các callsite clinical gate.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/test_vai_theo_vi_tri.py::test_chi_dong_da_duyet_moi_cap_vi_tri — kiểm trạng thái ở luồng role/position, không kiểm gate substitute lâm sàng."
+    ],
+    "source_hashes": {
+      "src/clinicai/permissions/ca_truc.py": "deb482a8ecb5215169e43f177079b9d55525ff15832f3e89551da65f1872e17d",
+      "src/clinicai/services/capacity_service.py": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main helper loại REJECTED nhưng không yêu cầu APPROVED; capacity/remove paths yêu cầu APPROVED. Điều kiện phụ thuộc dữ liệu PENDING có tồn tại.",
+      "evidence": [
+        {
+          "path": "src/clinicai/permissions/ca_truc.py",
+          "line": 73,
+          "end_line": 99,
+          "sha256": "deb482a8ecb5215169e43f177079b9d55525ff15832f3e89551da65f1872e17d",
+          "excerpt": "73: async def _lich_hom_nay(\n74:     conn: asyncpg.Connection, clinic_id: str, ngay: date\n75: ) -> list[CaLam]:\n76:     rows = await conn.fetch(\n77:         \"\"\"\n78:         SELECT w.staff_id::text AS staff_id, v.room_id::text AS room_id,\n79:                w.shift, v.lan, (v.nhom_nghe = 'BAC_SI') AS bac_si\n80:           FROM work_roster w\n81:           JOIN vi_tri_lam_viec v\n82:             ON v.clinic_id=w.clinic_id AND v.code=w.station AND v.is_active\n83:          WHERE w.clinic_id=$1::uuid AND w.work_date=$2::date\n84:            AND w.status <> 'REJECTED' AND w.staff_id IS NOT NULL\n85:            AND v.room_id IS NOT NULL\n86:         \"\"\",\n87:         clinic_id,\n88:         ngay,\n89:     )\n90:     return [\n91:         CaLam(\n92:             staff_id=str(r[\"staff_id\"]),\n93:             room_id=str(r[\"room_id\"]),\n94:             ca=str(r[\"shift\"]),\n95:             lan=int(r[\"lan\"]) if r[\"lan\"] is not None else None,\n96:             bac_si=bool(r[\"bac_si\"]),\n97:         )\n98:         for r in rows\n99:     ]",
+          "detail": "Query đưa status khác REJECTED vào danh sách ca để xác định substitute."
+        },
+        {
+          "path": "src/clinicai/permissions/ca_truc.py",
+          "line": 150,
+          "end_line": 194,
+          "sha256": "deb482a8ecb5215169e43f177079b9d55525ff15832f3e89551da65f1872e17d",
+          "excerpt": "150: async def kiem_dung_ca(\n151:     conn: asyncpg.Connection,\n152:     identity: StaffIdentity,\n153:     bac_si_id: str | None,\n154:     *,\n155:     visit_id: str | None = None,\n156: ) -> str | None:\n157:     \"\"\"Kiểm cửa không mở context; dùng cho service có transaction dài.\"\"\"\n158:     if not bac_si_id:\n159:         return None\n160:     # Lệnh HTTP thật luôn có staff nối auth.users (get_current_identity từ chối\n161:     # nếu không). Các job nhập lịch sử và fixture cũ gọi service bằng nhân sự\n162:     # chưa nối tài khoản: không biến cửa triển khai mới thành khoá dữ liệu cũ.\n163:     if not await conn.fetchval(\n164:         \"SELECT auth_user_id FROM staff WHERE id=$1::uuid\", identity.staff_id\n165:     ):\n166:         return bac_si_id\n167:     row = await conn.fetchrow(\n168:         \"SELECT gia_tri FROM day_nghiep_vu\"\n169:         \" WHERE clinic_id=$1::uuid AND ma='ca_truc_lam_sang'\",\n170:         identity.clinic_id,\n171:     )\n172:     if row is not None and not giai_gia_tri(\"ca_truc_lam_sang\", row[\"gia_tri\"]):\n173:         return bac_si_id\n174:     if await _duoc_noi_tiep_luot_cu(conn, identity.clinic_id, visit_id):\n175:         return bac_si_id\n176:     ngay = hom_nay_vn()\n177:     if await _dang_co_ngoai_le(conn, identity, bac_si_id, ngay):\n178:         return bac_si_id\n179:     lich = await _lich_hom_nay(conn, identity.clinic_id, ngay)\n180:     if duoc_lam_thay(\n181:         nguoi_bam=identity.staff_id,\n182:         bac_si_id=bac_si_id,\n183:         vai_goc=identity.vai_goc,\n184:         lich=lich,\n185:     ):\n186:         return bac_si_id\n187:     ten = await conn.fetchval(\n188:         \"SELECT full_name FROM staff WHERE id=$1::uuid\", bac_si_id\n189:     )\n190:     raise SafetyGateError(\n191:         f\"Bạn không được phân công đi kèm BS {ten or 'phụ trách'} hôm nay. \"\n192:         \"Nhờ trưởng ca đổi người trong ca (Lịch làm việc → Đổi người trong ca → \"\n193:         \"Thay người) rồi bấm lại.\"\n194:     )",
+          "detail": "kiem_dung_ca gọi duoc_lam_thay từ danh sách lấy ở trên."
+        },
+        {
+          "path": "src/clinicai/services/capacity_service.py",
+          "line": 145,
+          "end_line": 165,
+          "sha256": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a",
+          "excerpt": "145:             ca_truc = await conn.fetch(\n146:                 \"\"\"\n147:                 SELECT work_date, staff_id::text AS staff_id,\n148:                        array_agg(DISTINCT shift) AS shifts\n149:                   FROM work_roster\n150:                  WHERE clinic_id = $1::uuid AND work_date = ANY($2::date[])\n151:                    AND status = 'APPROVED'\n152:                    AND EXISTS (\n153:                      SELECT 1 FROM roster_week rw\n154:                       WHERE rw.clinic_id = work_roster.clinic_id\n155:                         AND rw.week_start = work_roster.week_start\n156:                    )\n157:                    AND \"\"\"\n158:                 + ca_thuoc_co_so(\"work_roster\", \"$3\")\n159:                 + \"\"\"\n160:                  GROUP BY work_date, staff_id\n161:                 \"\"\",\n162:                 clinic_id,\n163:                 ds,\n164:                 location_id,\n165:             )",
+          "detail": "Đối chiếu: capacity lấy duy nhất ca APPROVED."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "INF-026",
+    "title": "Gỡ ca giữ một kết nối rồi mượn kết nối thứ hai từ cùng pool",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "database_pool_starvation",
+    "summary": "RosterService.remove mở pool connection và transaction, sau đó gọi _xep_lich để kiểm quyền. _xep_lich lại acquire từ cùng pool trong khi connection đầu chưa được trả. Một request cần đồng thời hai connection; nếu nhiều request remove cùng chiếm mỗi request một connection rồi chờ connection thứ hai, pool bị cạn và các request cùng chờ.",
+    "trigger": "Nhiều request gỡ/xem trước ca trực chạy đồng thời, đủ để các transaction giữ connection đầu trong lúc chờ acquire thứ hai; rủi ro rõ nhất khi POOL_MAX_SIZE được đặt thấp.",
+    "impact": "Request gỡ ca có thể treo/timeout dù DB query bên trong chưa chạy lâu; cản việc đổi lịch và xử lý lịch hẹn. Pool API mặc định 20, cấu hình cho phép 2–60; chưa chạy saturation test để xác nhận ngưỡng hoặc timeout cụ thể.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 143,
+        "end_line": 151,
+        "detail": "_xep_lich tự acquire connection từ pool để kiểm capability."
+      },
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 598,
+        "end_line": 612,
+        "detail": "remove đang giữ conn/transaction rồi gọi _xep_lich."
+      },
+      {
+        "path": "src/clinicai/core/database.py",
+        "line": 14,
+        "end_line": 27,
+        "detail": "Pool API mặc định max 20 và comment nêu ngân sách kết nối."
+      },
+      {
+        "path": "src/clinicai/core/database.py",
+        "line": 43,
+        "end_line": 61,
+        "detail": "Cấu hình POOL_MAX_SIZE cho phép giá trị thấp nhất 2."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static pool topology trace; không chạy load/concurrency test.",
+      "limitations": "No deadlock, timeout, pool statistics or production config was observed. The finding identifies a possible exhaustion cycle, not an observed outage."
+    },
+    "recommendation": "Tính quyền trước khi mở transaction hoặc truyền conn hiện có vào permission check; giữ transaction ngắn và theo dõi thời gian chờ pool. Thêm concurrency test với pool max=2 và nhiều remove.",
+    "acceptance": "Với disposable pool size 2, hai request remove đồng thời hoàn tất hoặc trả lỗi nghiệp vụ xác định mà không kẹt; không có connection leak và permission vẫn đúng.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/core/database.py": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+      "src/clinicai/services/config_service.py": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Static trace cho thấy nested acquire trên cùng pool trong lúc connection đầu đang ở transaction; ngưỡng gây nghẽn chưa được động tái hiện.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/config_service.py",
+          "line": 143,
+          "end_line": 151,
+          "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+          "excerpt": "143: class RosterService:\n144:     async def _xep_lich(self, identity: StaffIdentity) -> bool:\n145:         \"\"\"Người XẾP lịch trực = trưởng ca (quyền `roster.manage`, lego Điều\n146:         phối khách — Tuyền 01/10/2026) hoặc lego 18 \"Cài đặt phòng khám\". Hỏi\n147:         quyền, không hỏi vai — `ROSTER_ADMIN_ROLES` cũ giữ làm bản OFF.\"\"\"\n148:         async with self._pool.acquire() as conn:\n149:             return await can(conn, identity, \"roster.manage\") or await can(\n150:                 conn, identity, \"config.clinic.manage\"\n151:             )",
+          "detail": "_xep_lich tự acquire connection từ pool để kiểm capability."
+        },
+        {
+          "path": "src/clinicai/services/config_service.py",
+          "line": 598,
+          "end_line": 612,
+          "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+          "excerpt": "598:         async with self._pool.acquire() as conn:\n599:             async with conn.transaction():\n600:                 row = await conn.fetchrow(\n601:                     \"SELECT staff_id, work_date, station FROM work_roster \"\n602:                     \"WHERE id = $1::uuid AND clinic_id = $2::uuid\",\n603:                     roster_id,\n604:                     identity.clinic_id,\n605:                 )\n606:                 if row is None:\n607:                     raise NotFoundError(\"Không tìm thấy ca trực\")\n608: \n609:                 if not await self._xep_lich(identity) and (\n610:                     str(row[\"staff_id\"] or \"\") != identity.staff_id\n611:                 ):\n612:                     raise SafetyGateError(\"Chỉ được xoá ca của chính mình\")",
+          "detail": "remove đang giữ conn/transaction rồi gọi _xep_lich."
+        },
+        {
+          "path": "src/clinicai/core/database.py",
+          "line": 14,
+          "end_line": 27,
+          "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+          "excerpt": "14: POOL_MIN_SIZE = 2\n15: # Request mượn kết nối từ bể rồi trả lại, không mở/đóng mỗi lần.\n16: #\n17: # API: mặc định 20, đặt lại bằng biến môi trường `POOL_MAX_SIZE` (14/10/2026,\n18: # nâng từ 10 sau sự cố tối 12/10 nghi cạn bể — một tiến trình uvicorn, 14 req/s,\n19: # nhiều request giữ kết nối hàng trăm ms). Bể chỉ mở thêm kết nối khi có người\n20: # chờ nên trần cao không tốn gì lúc rảnh. NGÂN SÁCH KẾT NỐI Postgres\n21: # (max_connections=100; staging 60) — API này + checkpointer 10 + broker 1 +\n22: # GoTrue 10 + PostgREST 10 + Realtime ~10 + su-kien/day-tep + quản trị — tính\n23: # trong thân PR; đổi số này phải tính lại. Staging ghim 10 ở docker-compose.staging.yml.\n24: POOL_MAX_SIZE = 20\n25: # Các worker (su-kien, day-tep, relay…) làm việc tuần tự, dùng 1–3 kết nối:\n26: # giữ trần cũ 10, không theo biến của API (cùng env_file nên biến ấy cũng hiện\n27: # trong container của chúng).",
+          "detail": "Pool API mặc định max 20 và comment nêu ngân sách kết nối."
+        },
+        {
+          "path": "src/clinicai/core/database.py",
+          "line": 43,
+          "end_line": 61,
+          "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+          "excerpt": "43: \n44: \n45: def normalize_dsn(dsn: str) -> str:\n46:     \"\"\"Strip SQLAlchemy-style '+asyncpg' driver suffix; asyncpg needs bare scheme.\n47: \n48:     CÔNG KHAI vì có hai nơi mở kết nối, không phải một. Bể kết nối dùng nó từ\n49:     đầu; bộ nghe LISTEN (change_broker) mở một kết nối RIÊNG và lúc đầu đọc\n50:     thẳng DATABASE_URL — nên nó chết ngay khi khởi động với `invalid DSN: scheme\n51:     is expected to be either \"postgres\"…`, vì .env của phòng khám dùng dạng\n52:     `postgresql+asyncpg://`. Một hàm chuẩn hoá mà chỉ một trong hai chỗ gọi thì\n53:     chưa phải chuẩn hoá.\n54:     \"\"\"\n55:     return dsn.replace(\"postgresql+asyncpg://\", \"postgresql://\", 1)\n56: \n57: \n58: #: Tên cũ, giữ cho các chỗ gọi nội bộ đã có.\n59: _normalize_dsn = normalize_dsn\n60: \n61: ",
+          "detail": "Cấu hình POOL_MAX_SIZE cho phép giá trị thấp nhất 2."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": []
+  },
+  {
+    "id": "OPS-004",
+    "title": "API có thể từ chối ca đã duyệt mà không chạy luồng gỡ lịch an toàn",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "roster_state_transition",
+    "summary": "PATCH quyết định ca ánh xạ approve/reject và UPDATE work_roster theo id+clinic, không yêu cầu trạng thái hiện tại PENDING. Vì vậy stale request hoặc request trực tiếp có thể đổi ca APPROVED thành REJECTED. Khác remove(), decide không kiểm lịch hẹn đã gán bác sĩ, không gỡ assignment ngoài khung và không giao việc chờ xếp.",
+    "trigger": "Quản lý gửi reject cho một id đã APPROVED, ví dụ tab hàng chờ cũ hoặc thao tác gọi API ngoài UI hiện hành.",
+    "impact": "Ca bị coi là từ chối trong quyền theo ca nhưng appointment vẫn giữ doctor_id; không có chuyển giao lịch tương đương thao tác gỡ ca. Rủi ro phụ thuộc lời gọi hợp lệ của manager; chưa tái hiện và chưa kiểm caller UI hiện tại.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/config.py",
+        "line": 294,
+        "end_line": 308,
+        "detail": "PATCH decision nhận approve/reject và chuyển trực tiếp tới service."
+      },
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 524,
+        "end_line": 558,
+        "detail": "UPDATE chỉ lọc id+clinic, không lọc trạng thái hiện tại."
+      },
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 614,
+        "end_line": 626,
+        "detail": "Luồng remove ghi audit và sau đó có bước xử lý lịch bác sĩ bị gỡ."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Static route/state-transition trace; không gọi API hoặc thay đổi roster data.",
+      "limitations": "No current dashboard caller for rejecting an approved row was established; trigger includes direct API or stale concurrent request. No production roster state was inspected."
+    },
+    "recommendation": "Chỉ cho approve/reject khi row đang PENDING bằng UPDATE có điều kiện status='PENDING' và kiểm rowcount; thay đổi ca đã duyệt phải dùng luồng remove/reassign có dry-run, chuyển appointment không phủ vào worklist và audit.",
+    "acceptance": "Hai manager thao tác cùng một pending row: chỉ một quyết định thắng; reject row APPROVED trả conflict; gỡ ca APPROVED chuyển đúng appointment không phủ sang hàng chờ có owner và không tự hủy lịch.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/config.py": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "src/clinicai/services/config_service.py": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main route cho manager gọi decide; UPDATE không kiểm status. Service remove có bước reconciliation lịch ngoài ca, còn decide chỉ đổi status.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/config.py",
+          "line": 294,
+          "end_line": 308,
+          "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+          "excerpt": "294: @router.patch(\"/roster/shifts/{roster_id}\")\n295: async def decide_shift(\n296:     roster_id: UUID,\n297:     body: RosterDecisionRequest,\n298:     identity: StaffIdentity = Depends(_ROSTER_GUARD),\n299:     pool: asyncpg.Pool = Depends(get_db_pool),\n300: ) -> dict[str, object]:\n301:     \"\"\"Approve or reject a self-registered shift. Management only.\"\"\"\n302:     await RosterService(pool).decide(\n303:         roster_id=str(roster_id),\n304:         decision=body.decision,\n305:         reason=body.reason,\n306:         identity=identity,\n307:     )\n308:     return {\"ok\": True}",
+          "detail": "PATCH decision nhận approve/reject và chuyển trực tiếp tới service."
+        },
+        {
+          "path": "src/clinicai/services/config_service.py",
+          "line": 524,
+          "end_line": 558,
+          "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+          "excerpt": "524:     async def decide(\n525:         self,\n526:         *,\n527:         roster_id: str,\n528:         decision: RosterDecision,\n529:         reason: str | None,\n530:         identity: StaffIdentity,\n531:     ) -> None:\n532:         \"\"\"Approve or reject a self-registered shift. Management only.\"\"\"\n533:         if not await self._xep_lich(identity):\n534:             raise SafetyGateError(\"Chỉ trưởng ca / quản lý được duyệt ca\")\n535: \n536:         status = \"APPROVED\" if decision == \"approve\" else \"REJECTED\"\n537:         # Approving clears any earlier rejection reason, in case a manager\n538:         # changed their mind about a shift they had turned down.\n539:         reject_reason = (reason or \"\").strip() or None if status == \"REJECTED\" else None\n540: \n541:         async with (\n542:             self._pool.acquire() as conn,\n543:             giao_dich_lich_truc(conn, identity.staff_id),\n544:         ):\n545:             updated = await conn.fetchval(\n546:                 \"\"\"\n547:                 UPDATE work_roster\n548:                    SET status = $3, reject_reason = $4, updated_at = now()\n549:                  WHERE id = $1::uuid AND clinic_id = $2::uuid\n550:                 RETURNING id\n551:                 \"\"\",\n552:                 roster_id,\n553:                 identity.clinic_id,\n554:                 status,\n555:                 reject_reason,\n556:             )\n557:         if updated is None:\n558:             raise NotFoundError(\"Không tìm thấy ca trực\")",
+          "detail": "UPDATE chỉ lọc id+clinic, không lọc trạng thái hiện tại."
+        },
+        {
+          "path": "src/clinicai/services/config_service.py",
+          "line": 614,
+          "end_line": 626,
+          "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+          "excerpt": "614:                 if not dry_run:\n615:                     await dat_nguoi_bam(conn, identity.staff_id)\n616:                     await conn.execute(\n617:                         \"DELETE FROM work_roster \"\n618:                         \"WHERE id = $1::uuid AND clinic_id = $2::uuid\",\n619:                         roster_id,\n620:                         identity.clinic_id,\n621:                     )\n622:                     # Dòng ca bị xoá khỏi bảng thì dấu vết duy nhất còn lại\n623:                     # là ở đây: ai gỡ ca của ai, ngày nào.\n624:                     await conn.execute(\n625:                         \"\"\"\n626:                         INSERT INTO public.event_log",
+          "detail": "Luồng remove ghi audit và sau đó có bước xử lý lịch bác sĩ bị gỡ."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "OPS-003",
+        "relationship": "OPS-003 nói query áp tuần bỏ qua trạng thái/giờ ca; OPS-004 là mutation có thể đổi ca APPROVED sang REJECTED mà không reconciliation."
+      }
+    ]
+  }
+]

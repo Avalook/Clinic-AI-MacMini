@@ -1,0 +1,775 @@
+{
+  "round": 36,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_static_semantic_review",
+  "scope": [
+    "cashier material addition and transaction-list completeness",
+    "UI unknown write outcomes",
+    "permission preset deactivation and fallback",
+    "clinic room creation audit boundary",
+    "booking policy and selected settings authorization"
+  ],
+  "method": "Static exact-main trace with whole-file SHA-256 and line ranges. Tests read-not-run; no ClinicAI runtime/API/DB/provider, production, secrets or PHI access.",
+  "result": "No independent new finding ID. FIN-003 and FIN-005 expanded; FE-023 and INF-021 expanded. Inactive permission preset fallback held for product-contract clarification; no new authorization bypass found in reviewed paths. Room-create retry consequence is conditional: form retained after error and unique code does not prove a duplicate occurred.",
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx",
+      "read_ranges": [
+        {
+          "start": 74,
+          "end": 96
+        },
+        {
+          "start": 109,
+          "end": 127
+        }
+      ],
+      "sha256": "6f4307eded8d113c7fe670c372b480c312650d13aa10d9622e77f0979705759f",
+      "lines": 435,
+      "depth": "targeted_trace",
+      "notes": "Round 36: cashier add-material mutation, retry state and UI call."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+      "read_ranges": [
+        {
+          "start": 212,
+          "end": 250
+        }
+      ],
+      "sha256": "ae815d5fa84b582396b10a3508193f764203a7dab930f9dfd23684c3ff90e216",
+      "lines": 344,
+      "depth": "targeted_trace",
+      "notes": "Round 36: mutation helper creates a new key and reports network failure as not recorded."
+    },
+    {
+      "path": "src/dashboard/app/api/luot-kham/route.ts",
+      "read_ranges": [
+        {
+          "start": 69,
+          "end": 80
+        },
+        {
+          "start": 107,
+          "end": 109
+        },
+        {
+          "start": 264,
+          "end": 265
+        }
+      ],
+      "sha256": "912e9ddf0887162cd7c21fca5e9bb54b66efa622bfe882ce0c14b890b1ba1a69",
+      "lines": 266,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: action mapping and forwarded idempotency key."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "read_ranges": [
+        {
+          "start": 488,
+          "end": 507
+        }
+      ],
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "lines": 1221,
+      "depth": "targeted_trace",
+      "notes": "Round 36: add-material endpoint does not consume the forwarded idempotency key."
+    },
+    {
+      "path": "src/clinicai/services/vat_tu_service.py",
+      "read_ranges": [
+        {
+          "start": 342,
+          "end": 360
+        },
+        {
+          "start": 435,
+          "end": 453
+        }
+      ],
+      "sha256": "9b04c282868865dab92790c54623b8fdf4eda5b854deee34da10ce45eafc06b8",
+      "lines": 642,
+      "depth": "targeted_trace",
+      "notes": "Round 36: repeated add command increments quantity on an existing pending material line."
+    },
+    {
+      "path": "src/tests/services/test_vat_tu_ban_them_db.py",
+      "read_ranges": [
+        {
+          "start": 173,
+          "end": 193
+        }
+      ],
+      "sha256": "473d09c0840c2dd61d8120961ff30cd22a0aed60957a7ff3efca75917a2493df",
+      "lines": 592,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36: test reads two calls as two intentional quantity additions; no response-loss case."
+    },
+    {
+      "path": "src/dashboard/tests/quay-thu-vat-tu-boundary.test.mts",
+      "read_ranges": [
+        {
+          "start": 59,
+          "end": 98
+        }
+      ],
+      "sha256": "0f265cb5279030e2591069eb12887ff913dad3572719cd89ce79f71f209df6b3",
+      "lines": 105,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36: UI boundary/route allowlist coverage; no idempotency retry case."
+    },
+    {
+      "path": "src/clinicai/services/cashier_board_service.py",
+      "read_ranges": [
+        {
+          "start": 471,
+          "end": 521
+        },
+        {
+          "start": 547,
+          "end": 588
+        }
+      ],
+      "sha256": "469db7b83c873eef9f0065cb93de53d67f0ff061995190841225405594097f6e",
+      "lines": 1173,
+      "depth": "targeted_trace",
+      "notes": "Round 36: transaction query is capped at 1,000 and response lacks completeness metadata."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cashier.py",
+      "read_ranges": [
+        {
+          "start": 94,
+          "end": 121
+        }
+      ],
+      "sha256": "e37295d74204bd0cb310278436e9c07a16130d563bdd41921ebb11b0a078ae00",
+      "lines": 295,
+      "depth": "targeted_trace",
+      "notes": "Round 36: cashier route returns the capped service result directly."
+    },
+    {
+      "path": "src/dashboard/app/api/cashier/route.ts",
+      "read_ranges": [
+        {
+          "start": 25,
+          "end": 35
+        }
+      ],
+      "sha256": "b01c6d21afb04b47b37c27c8b7cbe7dc1d22efd057e5ecfab71629eae88224ed",
+      "lines": 136,
+      "depth": "targeted_trace",
+      "notes": "Round 36: BFF forwards query without adding pagination metadata."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/GiaoDich.tsx",
+      "read_ranges": [
+        {
+          "start": 120,
+          "end": 152
+        },
+        {
+          "start": 173,
+          "end": 181
+        }
+      ],
+      "sha256": "f21da62bd6b0dab34725a73ee7646376e6bc351ee68f358b41d37964fa371221",
+      "lines": 278,
+      "depth": "targeted_trace",
+      "notes": "Round 36: transaction tab renders the returned subset and computes total on that subset."
+    },
+    {
+      "path": "src/tests/services/test_cashier_scope_db.py",
+      "read_ranges": [
+        {
+          "start": 66,
+          "end": 112
+        }
+      ],
+      "sha256": "44189a0f05779c5dc36aa0a6597480b8e7c98b8a5cde5707c279a1c9f97d443a",
+      "lines": 288,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36: test checks cashier scope/time filters, not the 1,000-row completeness cap."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/XoaTep.tsx",
+      "read_ranges": [
+        {
+          "start": 64,
+          "end": 75
+        },
+        {
+          "start": 137,
+          "end": 143
+        },
+        {
+          "start": 248,
+          "end": 255
+        }
+      ],
+      "sha256": "9c66fc8460274f0f960335ab4d4ab9919ce3c855cc6c1b5078c0be2c0d639936",
+      "lines": 302,
+      "depth": "targeted_trace",
+      "notes": "Round 36: delete/restore reports a definite network failure and refreshes only after a successful response."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungTep.tsx",
+      "read_ranges": [
+        {
+          "start": 314,
+          "end": 326
+        }
+      ],
+      "sha256": "68c899dbbf086050445a870e9716d806a81f143ea6a02ff433f37adbe03797c2",
+      "lines": 462,
+      "depth": "targeted_trace",
+      "notes": "Round 36: parent reload callback for result-file changes."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/xoa/route.ts",
+      "read_ranges": [
+        {
+          "start": 9,
+          "end": 30
+        }
+      ],
+      "sha256": "29f3b32818736a36f93098c1e7fd9429c7797529802a58f61accdf2005d376c6",
+      "lines": 31,
+      "depth": "targeted_trace",
+      "notes": "Round 36: BFF delete route."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/ket-qua/[tepId]/khoi-phuc/route.ts",
+      "read_ranges": [
+        {
+          "start": 9,
+          "end": 20
+        }
+      ],
+      "sha256": "5b9268d44cdaa762075dedb07a1d069435bbf6d2b0765800c58f461280bb2b42",
+      "lines": 20,
+      "depth": "targeted_trace",
+      "notes": "Round 36: BFF restore route."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "read_ranges": [
+        {
+          "start": 897,
+          "end": 925
+        }
+      ],
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "lines": 1092,
+      "depth": "targeted_trace",
+      "notes": "Round 36: FastAPI delete/restore route contracts."
+    },
+    {
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "read_ranges": [
+        {
+          "start": 1340,
+          "end": 1418
+        },
+        {
+          "start": 1438,
+          "end": 1512
+        }
+      ],
+      "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "lines": 1900,
+      "depth": "targeted_trace",
+      "notes": "Round 36: delete/restore transaction has already-state replay branches."
+    },
+    {
+      "path": "src/tests/services/test_xoa_mem_tep_db.py",
+      "read_ranges": [
+        {
+          "start": 162,
+          "end": 209
+        }
+      ],
+      "sha256": "f6a734f2e932e7cde5fbc33253661e7fb0adfe4af028f22bfc81a02ef94a1cbe",
+      "lines": 390,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36: delete retry is idempotent; UI response-loss is not tested."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/NutCheckOut.tsx",
+      "read_ranges": [
+        {
+          "start": 118,
+          "end": 150
+        }
+      ],
+      "sha256": "7383db6a0cc49df957ca8fa9b63f294e123374b900c9f14caa2fc13cb56b6a69",
+      "lines": 243,
+      "depth": "targeted_trace",
+      "notes": "Round 36: checkout network failure is shown as definitely not completed."
+    },
+    {
+      "path": "src/clinicai/services/checkout_service.py",
+      "read_ranges": [
+        {
+          "start": 760,
+          "end": 768
+        }
+      ],
+      "sha256": "538aff29032bb6ba1ad548bdcbce5a98c1c3ad005d2c51ef15040858e861f029",
+      "lines": 1196,
+      "depth": "targeted_trace",
+      "notes": "Round 36: checkout retry returns already_closed after the first commit."
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_moi_thao_tac_db.py",
+      "read_ranges": [
+        {
+          "start": 490,
+          "end": 524
+        }
+      ],
+      "sha256": "1599fb995b99d283899636c3860c66cdbff782d627321775613ed7105d4ec32d",
+      "lines": 702,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36: normal checkout/undo test read; no lost-response test."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phan-quyen/NhomQuyenMau.tsx",
+      "read_ranges": [
+        {
+          "start": 229,
+          "end": 231
+        },
+        {
+          "start": 252,
+          "end": 260
+        }
+      ],
+      "sha256": "20bd2b051bf0a40b84a0aec38097eaa40450075e585061835db78b4476d55766",
+      "lines": 270,
+      "depth": "targeted_trace",
+      "notes": "Round 36: UI shows preset disabled and exposes a disable action; wording does not define fallback policy."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phan-quyen/BangPhanQuyen.tsx",
+      "read_ranges": [
+        {
+          "start": 98,
+          "end": 116
+        },
+        {
+          "start": 214,
+          "end": 222
+        }
+      ],
+      "sha256": "3ccbea0f3f85bb65537cf0fb7e55ef6c079647cc7ae2dbfa13ac315ada16f808",
+      "lines": 258,
+      "depth": "targeted_trace",
+      "notes": "Round 36: UI apply-preset action remains available for the reviewed route."
+    },
+    {
+      "path": "src/dashboard/app/api/phan-quyen/route.ts",
+      "read_ranges": [
+        {
+          "start": 25,
+          "end": 35
+        },
+        {
+          "start": 117,
+          "end": 129
+        }
+      ],
+      "sha256": "405aa1b031bbdeaf4ab5485917da747acdd1d7608cb7120d2325fd26cd593f2a",
+      "lines": 141,
+      "depth": "targeted_trace",
+      "notes": "Round 36: BFF apply/deactivate routes."
+    },
+    {
+      "path": "src/clinicai/services/permission_service.py",
+      "read_ranges": [
+        {
+          "start": 292,
+          "end": 311
+        },
+        {
+          "start": 556,
+          "end": 603
+        }
+      ],
+      "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+      "lines": 620,
+      "depth": "targeted_trace",
+      "notes": "Round 36: deactivation leaves a row inactive; active-only lookup falls back to built-in PRESET."
+    },
+    {
+      "path": "src/clinicai/services/staff_service.py",
+      "read_ranges": [
+        {
+          "start": 141,
+          "end": 149
+        }
+      ],
+      "sha256": "10c60e19effc32cd97a35a8270827145c0018e24068d2b1f7e466fb1b1b2ff22",
+      "lines": 659,
+      "depth": "targeted_trace",
+      "notes": "Round 36: staff creation path calls default preset assignment."
+    },
+    {
+      "path": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+      "read_ranges": [
+        {
+          "start": 24,
+          "end": 48
+        }
+      ],
+      "sha256": "9457e2c7704c45399a607f744f3a4d906ec7b9873fe67149ccb534e6b786e88c",
+      "lines": 197,
+      "depth": "targeted_trace",
+      "notes": "Round 36: SQL capability-resolution path also coalesces missing active preset to default blocks."
+    },
+    {
+      "path": "src/tests/services/test_permission_db.py",
+      "read_ranges": [
+        {
+          "start": 384,
+          "end": 395
+        }
+      ],
+      "sha256": "174834e553a18cad726220f145b1b274313a66c0c754900fccc0ed2aee8998a7",
+      "lines": 428,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36: test checks inactive flag but not apply/create behavior after deactivation."
+    },
+    {
+      "path": "src/clinicai/services/clinic_config_service.py",
+      "read_ranges": [
+        {
+          "start": 257,
+          "end": 276
+        },
+        {
+          "start": 514,
+          "end": 514
+        },
+        {
+          "start": 531,
+          "end": 585
+        }
+      ],
+      "sha256": "890bb55bf85f7a86fe15617b4468319142ac0759b6a2dfb12cbfd0738befa332",
+      "lines": 1396,
+      "depth": "targeted_trace",
+      "notes": "Round 36: room/location creation and post-commit audit boundary, extension of INF-021. Round 36: verify room creation commits before post-commit audit; audit helper uses its own connection."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/CoSoPhong.tsx",
+      "read_ranges": [
+        {
+          "start": 80,
+          "end": 85
+        },
+        {
+          "start": 143,
+          "end": 154
+        },
+        {
+          "start": 145,
+          "end": 145
+        },
+        {
+          "start": 271,
+          "end": 289
+        }
+      ],
+      "sha256": "42676851987ec0d80966a4c92e3a86dd3f83808e8d54e191b8a499ffffa1da96",
+      "lines": 724,
+      "depth": "targeted_trace",
+      "notes": "Round 36: UI reports config operation failure on returned error; retry risk is conditional. Round 36: room-create response failure keeps the form mounted; same-name retry is an inference."
+    },
+    {
+      "path": "supabase/migrations/20260804000001_dispatch_rooms.sql",
+      "read_ranges": [
+        {
+          "start": 15,
+          "end": 15
+        },
+        {
+          "start": 15,
+          "end": 36
+        }
+      ],
+      "sha256": "e2274fe83deb99896afd63348874569037ec6592c6dde8e093c1a31f023294d0",
+      "lines": 171,
+      "depth": "targeted_trace",
+      "notes": "Round 36: room code uniqueness does not enforce uniqueness by display name. Round 36: verify room name field and declared clinic/code uniqueness; no same-name duplicate claimed as observed."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/BookingPolicyCard.tsx",
+      "read_ranges": [
+        {
+          "start": 56,
+          "end": 56
+        }
+      ],
+      "sha256": "f10ea70d30ea2147d9e866404d1e9205c98cd38f7555b2a908db5e43d7f2b165",
+      "lines": 171,
+      "depth": "targeted_trace",
+      "notes": "Round 36: network reject may leave booking-policy UI pending; no authorization issue found."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "read_ranges": [
+        {
+          "start": 611,
+          "end": 611
+        }
+      ],
+      "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "lines": 1132,
+      "depth": "targeted_trace",
+      "notes": "Round 36: backend checks config.clinic.manage and derives clinic from identity."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx",
+      "read_ranges": [
+        {
+          "start": 64,
+          "end": 72
+        },
+        {
+          "start": 229,
+          "end": 244
+        },
+        {
+          "start": 327,
+          "end": 340
+        }
+      ],
+      "sha256": "5c79b68416f1739cb25b4e433e734d7a2a08c230518d0a735ab3b0d65252127b",
+      "lines": 582,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: soon-to-expire action and refresh-after-error behavior; sequential retry checked, concurrency is CLIN-051."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/lieu-trinh/[id]/route.ts",
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 40
+        }
+      ],
+      "sha256": "7b625b72fca9df26a891b5356752118350c6416c301a1e5a60e820d91cedee9c",
+      "lines": 40,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: BFF route for soon-to-expire action."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/lieu_trinh.py",
+      "read_ranges": [
+        {
+          "start": 233,
+          "end": 243
+        }
+      ],
+      "sha256": "37dc5b3c5b4bdfba52cd488889ec833fa654e7454d750efcb74a546a7bea67ff",
+      "lines": 370,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: API action route."
+    },
+    {
+      "path": "src/clinicai/services/lieu_trinh_service.py",
+      "read_ranges": [
+        {
+          "start": 1434,
+          "end": 1483
+        }
+      ],
+      "sha256": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452",
+      "lines": 1763,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: sequential replay returns existing interaction; simultaneous race maps to CLIN-051."
+    },
+    {
+      "path": "src/tests/services/test_lieu_trinh_sap_het_db.py",
+      "read_ranges": [
+        {
+          "start": 210,
+          "end": 227
+        }
+      ],
+      "sha256": "1cce39a764257ca9e9de11e71800e48084285447df01dc76aecc189b3d5d3e18",
+      "lines": 309,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36 spot-check: sequential retry only; no concurrent test."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/SoSuaChiDinh.tsx",
+      "read_ranges": [
+        {
+          "start": 64,
+          "end": 69
+        },
+        {
+          "start": 93,
+          "end": 119
+        }
+      ],
+      "sha256": "d6a99f0e1ed25e2ba85cefa1a4ae142a45682f457ca0d21ba91d34a8a6f7941d",
+      "lines": 123,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: undo action refreshes through SSE; no separate UI defect."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/hoan-tac.ts",
+      "read_ranges": [
+        {
+          "start": 30,
+          "end": 40
+        }
+      ],
+      "sha256": "4799050eb62478522f4a2fa4c36687a53981561d1768c25d9d6e84887a4b6ef3",
+      "lines": 41,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: undo command helper."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/hoan_tac.py",
+      "read_ranges": [
+        {
+          "start": 135,
+          "end": 146
+        }
+      ],
+      "sha256": "168828b95be1608837999688697eaf8d1e89551ccc0a80046271ae918bd5b3ea",
+      "lines": 146,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: undo route."
+    },
+    {
+      "path": "src/clinicai/services/so_sua_chi_dinh_service.py",
+      "read_ranges": [
+        {
+          "start": 653,
+          "end": 717
+        }
+      ],
+      "sha256": "456259c038d2159e7c84805296a9d6b1609c3f1256cbdc6e3025d74216c2d823",
+      "lines": 1037,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: undo transaction and already-state branch."
+    },
+    {
+      "path": "src/tests/services/test_so_sua_chi_dinh_db.py",
+      "read_ranges": [
+        {
+          "start": 152,
+          "end": 191
+        }
+      ],
+      "sha256": "cf5c01991c2f2ba07b1615a80171eea3d433aee481ccc4ffcb5bda7cf54cfc46",
+      "lines": 596,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36 spot-check: undo replay idempotency; no new finding."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiPhong.tsx",
+      "read_ranges": [
+        {
+          "start": 139,
+          "end": 164
+        }
+      ],
+      "sha256": "ec2d8f1e63c32a90ba03852dee0b535dae90fa0f3a6222309590f5d09227c0bf",
+      "lines": 487,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: expected revision and reload on conflict."
+    },
+    {
+      "path": "src/clinicai/services/service_routing_service.py",
+      "read_ranges": [
+        {
+          "start": 1249,
+          "end": 1296
+        },
+        {
+          "start": 1330,
+          "end": 1334
+        }
+      ],
+      "sha256": "872ba98d465a775db628d71d5a47fc8ef10c98897582ce22635c053d50712967",
+      "lines": 2479,
+      "depth": "targeted_trace",
+      "notes": "Round 36 spot-check: routing revision compare-and-swap."
+    },
+    {
+      "path": "src/tests/services/test_service_routing_db.py",
+      "read_ranges": [
+        {
+          "start": 454,
+          "end": 462
+        },
+        {
+          "start": 485,
+          "end": 498
+        }
+      ],
+      "sha256": "cf6e6047d34018106301cdf9b22a5e2f4724c8f74d48a62e9082234771a24741",
+      "lines": 856,
+      "depth": "targeted_test_trace",
+      "notes": "Round 36 spot-check: same-key replay and stale-revision competition allow one winner."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/PhongForms.tsx",
+      "read_ranges": [
+        {
+          "start": 88,
+          "end": 92
+        }
+      ],
+      "sha256": "7ca0ef9a14cd7dd7fe50f674bfa01df8c543dd7fbb99fee654ecd0b3101b5d95",
+      "lines": 145,
+      "depth": "targeted_trace",
+      "notes": "Round 36: verify local room-name form state retained across request error."
+    }
+  ],
+  "held_observations": [
+    {
+      "id": "PERMISSION-PRESET-INACTIVE-FALLBACK-001",
+      "classification": "held_product_contract_question",
+      "observation": "xoa_nhom sets an existing system preset active=false, while active-only service/SQL lookups fall back to the built-in PRESET when no active row is returned. A staff-create path also invokes default preset assignment. UI says 'đã tắt' but does not state whether fallback is prohibited; code/docs do not resolve whether inactive means unavailable or use built-in defaults.",
+      "impact": "Could reapply default capabilities after a manager deactivates a preset, depending on intended product contract. The action remains manager-gated; this is not an unprivileged authorization bypass.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/permission_service.py",
+          "lines": "573-582,590-603",
+          "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3"
+        },
+        {
+          "path": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+          "lines": "38-42",
+          "sha256": "9457e2c7704c45399a607f744f3a4d906ec7b9873fe67149ccb534e6b786e88c"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/phan-quyen/NhomQuyenMau.tsx",
+          "lines": "229-231,252-260",
+          "sha256": "20bd2b051bf0a40b84a0aec38097eaa40450075e585061835db78b4476d55766"
+        }
+      ],
+      "next": "Product owner defines whether inactive presets are never assignable or whether immutable built-in fallback is expected; then make API/UI/docs consistent and add create/apply-after-deactivate tests."
+    },
+    {
+      "id": "ROOM-PRESET-CONCURRENCY-001",
+      "classification": "held_static_race",
+      "observation": "PermissionService.doi_man may overwrite a concurrent preset edit in a read-modify-write path; full UI/race trace was not completed.",
+      "next": "Trace the full apply/overwrite flow and validate with a barrier-driven synthetic test before promotion."
+    }
+  ],
+  "not_reviewed": [
+    "Remaining settings screens and complete clinic_config_service.py branches",
+    "Unread cashier/payment/refund/settlement paths",
+    "Remaining _lam-viec selection/booking/queue/partner/phieu-kham UI",
+    "Runtime or fault-injection scenarios for the findings above"
+  ],
+  "full_source_audit_complete": false
+}

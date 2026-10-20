@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_selected_core_primitives_static_slice_no_new_candidate",
+  "scope": [
+    "Clock/date normalization and selected date-boundary callers",
+    "Clinic-context selection helper",
+    "Phone normalization helper and selected caller test",
+    "Location-code parser",
+    "GS1 parser and validation",
+    "Observability helper functions and direct tests",
+    "Sentry bootstrap privacy configuration and direct tests"
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/core/clock.py",
+      "sha256": "3da03a79f36ee13a6cb12f1d54bb87d1608782096b0b524cce8477299c6a71ae",
+      "line_count": 90,
+      "ranges_read": [
+        "1-90"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn clock/timezone helpers; so sánh với callers và date-boundary tests đã chọn."
+    },
+    {
+      "path": "src/clinicai/core/chon_co_so.py",
+      "sha256": "62d4993e866f9fd2aa6666d67805d5b1389afebbe0672808b2422785c0314b01",
+      "line_count": 34,
+      "ranges_read": [
+        "1-34"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn context chọn cơ sở và fallback behavior."
+    },
+    {
+      "path": "src/clinicai/core/phone.py",
+      "sha256": "1c13b2f31e387c73033981be61579aa75f6b203135f423fb44e162b8bcaaeff6",
+      "line_count": 45,
+      "ranges_read": [
+        "1-45"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn normalizer và edge cases; coverage test trực tiếp còn mỏng."
+    },
+    {
+      "path": "src/clinicai/core/ma_vi_tri.py",
+      "sha256": "6aef56775b1b3e8982b4f0ef26e29e13a8ad5006f405601f7c01160d8dedaad2",
+      "line_count": 24,
+      "ranges_read": [
+        "1-24"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn parser/validator mã vị trí."
+    },
+    {
+      "path": "src/clinicai/core/gs1.py",
+      "sha256": "4992c2b10808a0edc8af3df9f7db93bf76b717c8e47705601cd5ca50e3b4acff",
+      "line_count": 131,
+      "ranges_read": [
+        "1-131"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn GS1 parser/validation và error behavior."
+    },
+    {
+      "path": "src/clinicai/core/quan_sat.py",
+      "sha256": "ad32ab0d9c6cd0bb9ff5af58195fac31f8eef0ed92fab26e12f02d7dd93cf76f",
+      "line_count": 309,
+      "ranges_read": [
+        "1-309"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn helpers quan sát/telemetry và đường gọi được chọn."
+    },
+    {
+      "path": "src/clinicai/core/sentry.py",
+      "sha256": "f2bbd03274c30a09000a3716cea26b383ed1df448e366f0e37659e8d4936410e",
+      "line_count": 88,
+      "ranges_read": [
+        "1-88"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn bootstrap Sentry, privacy options và config gates; không kiểm tra env/runtime."
+    },
+    {
+      "path": "src/tests/unit/test_gs1.py",
+      "sha256": "d1519a9e002bc3874d9c1042ad5e154ad86c4d92d32ea81d7d419337ed1eab15",
+      "line_count": 83,
+      "ranges_read": [
+        "1-83"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn test GS1; không chạy."
+    },
+    {
+      "path": "src/tests/unit/test_ma_vi_tri.py",
+      "sha256": "83f208d0373a254c4b2a06a9c8004a8509745a9b06ed3df0a55427933f97bf61",
+      "line_count": 63,
+      "ranges_read": [
+        "1-63"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn test mã vị trí; không chạy."
+    },
+    {
+      "path": "src/tests/core/test_quan_sat.py",
+      "sha256": "7b83aac6aea776f4948043bc0464745fdf4d0f16e73794cd316615171086d54f",
+      "line_count": 405,
+      "ranges_read": [
+        "1-405"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn test helpers quan sát; không chạy."
+    },
+    {
+      "path": "src/tests/test_sentry_privacy.py",
+      "sha256": "f4c6d1e76d941c588da735d573a06775bd22c5a32c4027cacb60c9686f0d7bce",
+      "line_count": 81,
+      "ranges_read": [
+        "1-81"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn test cấu hình privacy Sentry; không chạy."
+    },
+    {
+      "path": "src/tests/unit/test_ngay_xem_va_ben_thu.py",
+      "sha256": "aca4146f61a1cda2e79a1dc83ae19fe02ea76331a888817d76e8ac94cc86e3e8",
+      "line_count": 82,
+      "ranges_read": [
+        "1-82"
+      ],
+      "status": "full",
+      "notes": "Đọc trọn test các date/time helper được chọn; không chạy."
+    },
+    {
+      "path": "src/tests/unit/test_patient_service.py",
+      "sha256": "b50cade2271a2feb7f4cfbab75f6c93b65b805dd62d3460834e15597066c2cbb",
+      "line_count": 678,
+      "ranges_read": [
+        "366-380"
+      ],
+      "status": "targeted",
+      "notes": "Chỉ đọc đoạn test về phone normalization được chọn; không đọc toàn file."
+    }
+  ],
+  "cross_check": {
+    "related_findings": [
+      "SEC-021",
+      "SEC-024"
+    ],
+    "result": "No distinct defect observed in selected utility implementations. Sentry initialization remains wired in main.py behind SENTRY_DSN despite repository policy marking Sentry dead; code-level privacy options exist. This is policy/configuration drift only, not evidence that Sentry is enabled in production."
+  },
+  "result": {
+    "new_candidates": [],
+    "no_new_issue_observed": [
+      "Selected parsers and pure helpers have direct tests; those tests were read, not executed.",
+      "Sentry code sets send_default_pii=False, include_local_variables=False, and max_request_body_size=\"never\"; environment and runtime activation were not checked."
+    ]
+  },
+  "not_done": [
+    "No tests were run.",
+    "No runtime environment variables, Sentry project, network, production logs or user data were accessed.",
+    "Phone helper test coverage and callers beyond the selected test remain open.",
+    "This slice does not constitute a review of all core modules or the full source tree."
+  ]
+}

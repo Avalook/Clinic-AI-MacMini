@@ -1,0 +1,1067 @@
+{
+  "round": 32,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "static_exact_main_only",
+  "scope": [
+    "Patient identity intake concurrency",
+    "Event/timer terminal alert age",
+    "Clinical read permission and assignment",
+    "Clinical forms, prescriptions, result review and lab safety",
+    "Legacy service-order draft lifecycle/timeline",
+    "Exam-fee to billing/payment boundary"
+  ],
+  "method": "Read-only source/migration/test review from pinned Git tree; path hashes and selected line ranges recorded. No ClinicAI test/runtime/API/DB/provider/VPS/production calls; no secrets or PHI.",
+  "result": "Added CLIN-047, SEC-033 and CLIN-048 as conditional confirmed-static findings. Expanded INF-017 to timer CHET alert expiry and SEC-011 to GET phi-kham missing capability/assignment. Service-order retry deduplicated to CLIN-031; current cleanup goes through authorize-orders, not retired 410 route. No distinct fee defect; price policy held.",
+  "files": [
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "read_ranges": [
+        {
+          "start": 103,
+          "end": 120
+        },
+        {
+          "start": 148,
+          "end": 186
+        },
+        {
+          "start": 204,
+          "end": 210
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260915000015_cccd_trung_canh_bao.sql",
+      "sha256": "15d8c773d326f9c0d1f06dfaba4c67d277e1673b94f5efa9309d20fd8aa9260d",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 16
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+      "sha256": "fc5be0e240e3067eac8f38367eee4e96776fca5cf9e7a4ee7b706fa15a1e6adf",
+      "read_ranges": [
+        {
+          "start": 1036,
+          "end": 1077
+        },
+        {
+          "start": 1812,
+          "end": 1827
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/patients/route.ts",
+      "sha256": "200bb7040838a8521576cba36d8a752bdc096fd69d70cc4570124d0132c2ee6f",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 120
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/patients.py",
+      "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 180
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/schemas/patient.py",
+      "sha256": "0f306e8715b53ad6946b2b09324c827b6819b05b6e354ac13775caef614f5ba4",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 150
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/integration/test_patient_integration.py",
+      "sha256": "b4e00010d9fd6f9ab0d67afb03f3674e2ffb234447148e20ea81c0c6e4ec05e2",
+      "read_ranges": [
+        {
+          "start": 185,
+          "end": 221
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/unit/test_patient_service.py",
+      "sha256": "b50cade2271a2feb7f4cfbab75f6c93b65b805dd62d3460834e15597066c2cbb",
+      "read_ranges": [
+        {
+          "start": 129,
+          "end": 160
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/health.py",
+      "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+      "read_ranges": [
+        {
+          "start": 49,
+          "end": 105
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/events/hen_gio.py",
+      "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "read_ranges": [
+        {
+          "start": 157,
+          "end": 190
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/canh_gac.py",
+      "sha256": "5376f1ab3a237dc1123490cf6548dd3f69b4d7fcb9d23ad961024457e5750d5e",
+      "read_ranges": [
+        {
+          "start": 60,
+          "end": 65
+        },
+        {
+          "start": 291,
+          "end": 314
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/test_health_su_kien.py",
+      "sha256": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+      "read_ranges": [
+        {
+          "start": 38,
+          "end": 52
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_hen_gio_db.py",
+      "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+      "read_ranges": [
+        {
+          "start": 187,
+          "end": 207
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "read_ranges": [
+        {
+          "start": 592,
+          "end": 620
+        },
+        {
+          "start": 730,
+          "end": 745
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "read_ranges": [
+        {
+          "start": 638,
+          "end": 659
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/phi_kham_service.py",
+      "sha256": "db9542c581ac1196c1ad5b526985923fa4bce08b93e8f7492eec11a86b042d8b",
+      "read_ranges": [
+        {
+          "start": 50,
+          "end": 72
+        },
+        {
+          "start": 125,
+          "end": 158
+        },
+        {
+          "start": 294,
+          "end": 303
+        },
+        {
+          "start": 323,
+          "end": 338
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/luot-kham/route.ts",
+      "sha256": "912e9ddf0887162cd7c21fca5e9bb54b66efa622bfe882ce0c14b890b1ba1a69",
+      "read_ranges": [
+        {
+          "start": 89,
+          "end": 91
+        },
+        {
+          "start": 157,
+          "end": 160
+        },
+        {
+          "start": 211,
+          "end": 266
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "read_ranges": [
+        {
+          "start": 101,
+          "end": 139
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+      "sha256": "de235f9428fb6b97d89c318716dc5f398a088a924a0a899bddf8f88c2a91d69f",
+      "read_ranges": [
+        {
+          "start": 74,
+          "end": 89
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/ChonDichVuKham.tsx",
+      "sha256": "56c4ff5173d54f099c33820dafc92e772d785b22339591d01c09959493bf4c43",
+      "read_ranges": [
+        {
+          "start": 52,
+          "end": 98
+        },
+        {
+          "start": 118,
+          "end": 142
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/bill_service.py",
+      "sha256": "345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "read_ranges": [
+        {
+          "start": 282,
+          "end": 337
+        },
+        {
+          "start": 390,
+          "end": 425
+        },
+        {
+          "start": 648,
+          "end": 685
+        },
+        {
+          "start": 809,
+          "end": 850
+        },
+        {
+          "start": 927,
+          "end": 940
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/payment_service.py",
+      "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+      "read_ranges": [
+        {
+          "start": 935,
+          "end": 973
+        },
+        {
+          "start": 2252,
+          "end": 2296
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/tien_thua_service.py",
+      "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+      "read_ranges": [
+        {
+          "start": 70,
+          "end": 115
+        },
+        {
+          "start": 133,
+          "end": 160
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/hoan_tac_service.py",
+      "sha256": "1862331194da8a219dd6b18ef045350c47e1f20598901a26e691fd44d69e55d9",
+      "read_ranges": [
+        {
+          "start": 330,
+          "end": 362
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260928000100_phi_kham_theo_kiotviet.sql",
+      "sha256": "972be6d4aaae8551ef498e55956bdf310d7265bc802fb608f50acffb070fc7cf",
+      "read_ranges": [
+        {
+          "start": 55,
+          "end": 67
+        },
+        {
+          "start": 99,
+          "end": 131
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+      "sha256": "f0b22f84593b5e5b80dd950e1eace3ce19cb7bde594411eaf644eebf7a893a2b",
+      "read_ranges": [
+        {
+          "start": 80,
+          "end": 131
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+      "sha256": "3bc22710b520176bb19b3839304ba8e4f70a228603c6f7fd6cba71f1674ceec5",
+      "read_ranges": [
+        {
+          "start": 445,
+          "end": 465
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_phi_kham_chon_db.py",
+      "sha256": "2fdde89fa3ee035319fb4c7244095b48764ca63e66e971edc3ae3f53bd67fb43",
+      "read_ranges": [
+        {
+          "start": 77,
+          "end": 109
+        },
+        {
+          "start": 295,
+          "end": 354
+        },
+        {
+          "start": 408,
+          "end": 425
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_thu_dich_vu_nhieu_lan_db.py",
+      "sha256": "4dbf5c5d7132740af95aebd3a24db407b8218a216abbacb25b60c04d14fad92c",
+      "read_ranges": [
+        {
+          "start": 230,
+          "end": 305
+        },
+        {
+          "start": 521,
+          "end": 564
+        },
+        {
+          "start": 862,
+          "end": 875
+        },
+        {
+          "start": 919,
+          "end": 952
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx",
+      "sha256": "16aab719c694ab504ccc385243f92e5723b8a597e0085b85473f7f2bf9683da3",
+      "read_ranges": [
+        {
+          "start": 400,
+          "end": 510
+        },
+        {
+          "start": 680,
+          "end": 870
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/clinical-record/route.ts",
+      "sha256": "5d760bb299ab40e3c1bcee56002e8368870c2a63fec5831641df5afa7b1d6aa1",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 202
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_records.py",
+      "sha256": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 142
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/clinical_prescription_service.py",
+      "sha256": "afca45bbc735070ba44e49704977c056df9d3f3e21305538e97222b07bb12cf9",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 209
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/clinical_record_service.py",
+      "sha256": "8598b59bbb579902e6d3460a5d0613ec40df66ba7810307e0d86b892d5db402e",
+      "read_ranges": [
+        {
+          "start": 320,
+          "end": 564
+        },
+        {
+          "start": 806,
+          "end": 860
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/dinh_chinh_don.py",
+      "sha256": "1cf96800b290dfba9b8580a007d47f47bd892e331a051cd70903399d5183b317",
+      "read_ranges": [
+        {
+          "start": 90,
+          "end": 138
+        },
+        {
+          "start": 280,
+          "end": 370
+        },
+        {
+          "start": 580,
+          "end": 1005
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/DonThuocPhieu.tsx",
+      "sha256": "3db18c6c61d81f4335addc858b65dc169b627694b13312f9686eb4e678ed5f68",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 306
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/tests/clinical-record-boundary.test.mts",
+      "sha256": "a23c5d9a42d605ea99db33626bcdaa3e089b5f938949d1b492eb74b8d8eb00f6",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 95
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/test_clinical_data_integrity.py",
+      "sha256": "ec21cb3355595d59e8a764d66563e57c9e78ce0dc7241c542d75942ba0673f81",
+      "read_ranges": [
+        {
+          "start": 317,
+          "end": 376
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/duyet-ket-qua/DuyetKetQua.tsx",
+      "sha256": "625b57b8f8335fa979d30f536cdb5cdcd4409e787c8337b408a8627661f7592a",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 184
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+      "sha256": "ae815d5fa84b582396b10a3508193f764203a7dab930f9dfd23684c3ff90e216",
+      "read_ranges": [
+        {
+          "start": 205,
+          "end": 252
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_doc.py",
+      "sha256": "a7f6f62cb2cca3a8b9788f76c3a4e8bd11b6889570da3a5c8d6d7adcafe0bf8e",
+      "read_ranges": [
+        {
+          "start": 1395,
+          "end": 1475
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_luot_kham_service_db.py",
+      "sha256": "722f9db4144fc05c4cff5f21461c7b310568349ea1eb4af6a5f2879d3893d862",
+      "read_ranges": [
+        {
+          "start": 1370,
+          "end": 1465
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/lab_safety_service.py",
+      "sha256": "afb270acda297eb0147f3b921caeaa90a46263cb2793c9883ce207e3db3d60de",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 356
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/lab.py",
+      "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 70
+        },
+        {
+          "start": 75,
+          "end": 211
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/lab_order_service.py",
+      "sha256": "9da6879b4249fcc65bdd8945a19d808c9d6663ee6fc0a69cd2bb2aab84a1ad01",
+      "read_ranges": [
+        {
+          "start": 145,
+          "end": 255
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/lab-result/route.ts",
+      "sha256": "d701075fcb97c3c0f593a4bf9699f7164fbdb782bba61111e14373b049bdfd9e",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 109
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/lab-result/[id]/review/route.ts",
+      "sha256": "ec47101d9d06ef55844b7fd285980d61e593adf548a81ea1df677dd4e2050e31",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 48
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/unit/test_lab_safety_service.py",
+      "sha256": "161ee3c72dbd43250c846784405cc64966d519bff6d7c58913c7b63c03dbeda5",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 327
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/api/test_lab_review_endpoint.py",
+      "sha256": "bacab77b9480b78f3b475e9f3a700960a17644de1ec8dd28690ee0503726a142",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 131
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+      "read_ranges": [
+        {
+          "start": 545,
+          "end": 583
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260926000004_mau_ket_qua_v3.sql",
+      "sha256": "e595fb81a53a638f605fd754294a1b660bd780a892bccf57b680a4bf6e00b8b0",
+      "read_ranges": [
+        {
+          "start": 175,
+          "end": 260
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "sha256": "ccd860a32d945adcf57c08cf0c409a4860a618819b223a02a34fd9e491670c24",
+      "read_ranges": [
+        {
+          "start": 981,
+          "end": 1005
+        },
+        {
+          "start": 1579,
+          "end": 1623
+        },
+        {
+          "start": 1728,
+          "end": 1788
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/proxy.ts",
+      "sha256": "02dd6df0002d6704afbac15c41793be59be374ad17d7c6ebc561cb4906bc01bc",
+      "read_ranges": [
+        {
+          "start": 25,
+          "end": 32
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/lib/route-da-tat.ts",
+      "sha256": "820b1abf94ab2ebb771112ff43c52afde68c6fc29dd4ac887991415fff1b4040",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 24
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/dashboard/tests/route-da-tat-boundary.test.mts",
+      "sha256": "123da742988f7dc89ee78de42390841e470a08f255810079d857c7b4f8486c6a",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 43
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103",
+      "read_ranges": [
+        {
+          "start": 1307,
+          "end": 1346
+        },
+        {
+          "start": 2245,
+          "end": 2415
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/permissions/can.py",
+      "sha256": "fc0e2ba27b8db2a2e7a129104b56da1a154cb03452b42b28e405724aab0c7c37",
+      "read_ranges": [
+        {
+          "start": 115,
+          "end": 126
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/lenh_kham_core.py",
+      "sha256": "034b8f33755bc55f4283d706e2b287bddca3a424f38fd1d516d325a2f8a7cb28",
+      "read_ranges": [
+        {
+          "start": 164,
+          "end": 229
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/audit.py",
+      "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+      "read_ranges": [
+        {
+          "start": 51,
+          "end": 98
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/dieu_tri_ban_kham.py",
+      "sha256": "d7d27ab133a21c88b93ee405b2eaf46204de31cbef85454a0336553067c12d88",
+      "read_ranges": [
+        {
+          "start": 497,
+          "end": 519
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/service_selection_service.py",
+      "sha256": "a56df40594820e9c82830b5bb78d058c30f7566cf16b0c3449d648183aefd3b9",
+      "read_ranges": [
+        {
+          "start": 510,
+          "end": 608
+        },
+        {
+          "start": 619,
+          "end": 659
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/events/catalogue.py",
+      "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+      "read_ranges": [
+        {
+          "start": 1417,
+          "end": 1427
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 14
+        },
+        {
+          "start": 215,
+          "end": 245
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/xem_luot_service.py",
+      "sha256": "5170b060aa02d09572916a8b1d4da1f3ea42c10bd5ca2cfa67d9cceaa3828ca2",
+      "read_ranges": [
+        {
+          "start": 176,
+          "end": 191
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260911000001_luot_kham_lat_1.sql",
+      "sha256": "7bd3e70f895505e3d6ef4e2a3ebdbaafa6fe6f070a21eba82c07e9f52d5a6609",
+      "read_ranges": [
+        {
+          "start": 153,
+          "end": 206
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260922000001_service_lifecycle_v1_schema.sql",
+      "sha256": "65411ee74f36915c9a6ef587063bae58d118ea09965df98dfcf8f8cd941223b5",
+      "read_ranges": [
+        {
+          "start": 25,
+          "end": 75
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+      "sha256": "d044070664a338a927d6390d03ae2627a60ee888cad4c46e083208b82c65ae29",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 102
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+      "sha256": "931dd87e32107b5a569ae85c6d9cc4e6597c2bb3ba035bc7c776a36a062af5aa",
+      "read_ranges": [
+        {
+          "start": 56,
+          "end": 59
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/clinicai/services/chi_dinh_service.py",
+      "sha256": "58bf83daa0d2aeee93a24011cc47ab7a95314cc31a7e58991b709b1d3ab1071e",
+      "read_ranges": [
+        {
+          "start": 135,
+          "end": 301
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_chi_dinh_db.py",
+      "sha256": "bd652ebd93b218c2ceac3662c5fb9ee8cf56349eae04c8dc8e10d931e93a13e8",
+      "read_ranges": [
+        {
+          "start": 154,
+          "end": 211
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_lan_chi_dinh_db.py",
+      "sha256": "ca0c7ea4e9c5c07e82dd60a0660bec9e38677e7bab9e5312d5b03909ff095e04",
+      "read_ranges": [
+        {
+          "start": 65,
+          "end": 107
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_order_authorization_db.py",
+      "sha256": "55c4624f271467504f23f9dfca0fc2ccaa7b1e5b8f1128b6a66df472e9aeb5a2",
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 103
+        },
+        {
+          "start": 156,
+          "end": 185
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    },
+    {
+      "path": "src/tests/services/test_slice1_http_db.py",
+      "sha256": "49b8c759b3c6039908e71882e091df01c5ae691129c1ec4ecc2a53a58618af65",
+      "read_ranges": [
+        {
+          "start": 37,
+          "end": 48
+        },
+        {
+          "start": 240,
+          "end": 271
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Pinned Git source; selected lines only. Tests were read, not run."
+    }
+  ],
+  "tests_run": [],
+  "tests_read_not_run": [
+    "src/tests/integration/test_patient_integration.py",
+    "src/tests/unit/test_patient_service.py",
+    "src/tests/test_health_su_kien.py",
+    "src/tests/services/test_hen_gio_db.py",
+    "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+    "src/tests/services/test_phi_kham_chon_db.py",
+    "src/tests/services/test_thu_dich_vu_nhieu_lan_db.py",
+    "src/tests/services/test_order_authorization_db.py",
+    "src/tests/services/test_chi_dinh_db.py",
+    "src/tests/services/test_lan_chi_dinh_db.py",
+    "src/tests/services/test_luot_kham_service_db.py",
+    "src/tests/services/test_slice1_http_db.py",
+    "src/dashboard/tests/route-da-tat-boundary.test.mts",
+    "src/dashboard/tests/clinical-record-boundary.test.mts",
+    "src/tests/test_clinical_data_integrity.py",
+    "src/tests/unit/test_lab_safety_service.py",
+    "src/tests/api/test_lab_review_endpoint.py"
+  ],
+  "deduplication": [
+    "CLIN-008 is PATCH CCCD validation; CLIN-030 is lost-response patient retry; CLIN-047 is concurrent same-CCCD create across distinct/no phone locks.",
+    "CLIN-031 already covers service-order retry with fresh idempotency key.",
+    "SEC-011 remains same-clinic read/assignment gap; phi-kham is an extra read surface, not cross-clinic.",
+    "INF-022 is per-record event/timer recovery UI; INF-017 is terminal-alert lifetime.",
+    "Clinical result/prescription/lab overlaps deduplicated to existing clinical/lab findings.",
+    "Legacy service-order routes return 410; current duyet-chi-dinh uses authorize-orders."
+  ],
+  "limitations": [
+    "Concurrency/timing findings are static interleaving inferences; no DB barrier reproduction.",
+    "No production occurrence claimed; no production or PHI access.",
+    "Coverage ranges are selected evidence, not full-file or behavioral-completeness claims. Full source audit remains incomplete.",
+    "No reviewed product policy establishes whether service price freezes at selection or uses current price at charge."
+  ]
+}

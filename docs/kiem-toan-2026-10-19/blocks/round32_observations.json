@@ -1,0 +1,18 @@
+[
+  {
+    "id": "FIN-PRICE-QUOTE-CONTRACT-001",
+    "classification": "held_product_contract_question",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "question": "Giá hiển thị/chọn lúc A phải đóng băng như quote, hay dùng danh mục hiện hành lúc thu tiền B?",
+    "observation": "Static trace follows ChonDichVuKham → PhiKhamService → visit fee rows → billing/payment. Sources do not establish quote validity versus repricing-at-charge. Price drift may be policy-valid; do not call a defect until product/finance owner sets the contract.",
+    "evidence": [
+      "src/dashboard/app/(dashboard)/_lam-viec/ChonDichVuKham.tsx",
+      "src/clinicai/services/phi_kham_service.py",
+      "src/clinicai/services/bill_service.py",
+      "src/clinicai/services/payment_service.py",
+      "supabase/migrations/20260928000100_phi_kham_theo_kiotviet.sql"
+    ],
+    "not_promoted_reason": "Missing product/finance contract; source alone cannot decide whether price drift is intended.",
+    "next": "Define quote validity, repricing at charge, and what staff/patient sees when price changes after selection."
+  }
+]

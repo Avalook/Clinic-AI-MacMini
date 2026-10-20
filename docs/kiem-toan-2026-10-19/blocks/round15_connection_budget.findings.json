@@ -1,0 +1,176 @@
+[
+  {
+    "id": "CAND-R15-DB-BUDGET-001",
+    "title": "Ngân sách các pool có thể vượt trần kết nối của PostgreSQL",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "database_connection_budget",
+    "summary": "API chấp nhận POOL_MAX_SIZE từ 2 đến 60, còn checkpointer, ChangeBroker, GoTrue, PostgREST và worker giữ pool/kết nối riêng. Với production API=60, các trần đã khai báo của API 60 + checkpointer 10 + broker 1 + GoTrue 10 + PostgREST 10 + hai worker bắt buộc 10 mỗi pool là 111, vượt ngân sách max_connections=100 mà source dùng làm cơ sở; chưa tính Realtime, POS, notification, quản trị hay dự phòng. Staging ghim DB ở 60 nhưng cho phép API=20; API 20 + checkpointer 10 + broker 1 + auth 10 + PostgREST 10 + su-kien 10 là 61 nếu cùng chạm trần. Đây là tổng trần lý thuyết, không phải số kết nối quan sát được.",
+    "trigger": "Lưu lượng đồng thời làm các pool tiến gần trần sau khi đặt POOL_MAX_SIZE cao (ví dụ 60 production hoặc 20 staging), hoặc bật thêm worker profile; không có preflight tính tổng theo số replica/profile.",
+    "impact": "Tổng kết nối có thể chạm/vượt max_connections, khiến pool hoặc PostgREST/GoTrue không lấy được kết nối lúc cao tải; đăng nhập, thao tác nghiệp vụ và worker có thể cùng suy giảm. Không có bằng chứng cấu hình production hiện tại đang vượt trần hoặc đã có outage do nguyên nhân này.",
+    "evidence": [
+      {
+        "path": "src/clinicai/core/database.py",
+        "line": 17,
+        "end_line": 30,
+        "detail": "API pool default 20, allowed override 2–60, and the shared-connection budget comment."
+      },
+      {
+        "path": "src/clinicai/main.py",
+        "line": 133,
+        "end_line": 152,
+        "detail": "Every API process creates its request pool, starts a dedicated LISTEN broker, and enters the configured checkpointer for app lifetime."
+      },
+      {
+        "path": "src/clinicai/orchestrator/checkpointer.py",
+        "line": 56,
+        "end_line": 63,
+        "detail": "Postgres checkpointer owns a separate pool capped at 10."
+      },
+      {
+        "path": "docker-compose.supabase.yml",
+        "line": 101,
+        "end_line": 108,
+        "detail": "GoTrue is capped at 10; adjacent comment budgets against Postgres max_connections=100."
+      },
+      {
+        "path": "docker-compose.supabase.yml",
+        "line": 160,
+        "end_line": 164,
+        "detail": "PostgREST pool is capped at 10."
+      },
+      {
+        "path": "src/clinicai/worker.py",
+        "line": 261,
+        "end_line": 263,
+        "detail": "The required event worker creates its own worker-default pool."
+      },
+      {
+        "path": "src/clinicai/worker.py",
+        "line": 349,
+        "end_line": 352,
+        "detail": "The required file worker creates another independent worker-default pool."
+      },
+      {
+        "path": "docker-compose.supabase.staging.yml",
+        "line": 21,
+        "end_line": 39,
+        "detail": "Staging pins the database to 60 connections."
+      },
+      {
+        "path": "docker-compose.staging.yml",
+        "line": 48,
+        "end_line": 52,
+        "detail": "Staging permits API pool override to 20 while documenting only a manual check."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_service_pool_budget_arithmetic_on_pinned_main",
+      "command": null,
+      "result": "Đã đối chiếu giới hạn pool tại API/checkpointer/worker với các service và cap auth/PostgREST trong compose. Tổng trần tại API=60 là 111 cho các pool đã liệt kê; staging API=20 là 61 trước Realtime/quản trị. Không chạy container, DB hay tải.",
+      "limitations": "Pool chỉ mở thêm kết nối khi cần; tổng trần không chứng minh chúng cùng đạt cực đại. Không đọc env production hoặc pg_stat_activity; max_connections=100 là ngân sách được ghi trong source, không phải số đo runtime. Chưa tính trần thực của Realtime, số replica, tác vụ admin và cấu hình server thật."
+    },
+    "recommendation": "Tạo ngân sách kết nối theo topology: số replica/process × pool max của từng service/profile, kèm reserve cho quản trị/migration và dịch vụ Supabase; sinh preflight từ cùng một cấu hình và từ chối deploy khi tổng trần vượt budget. Theo dõi tổng connections của PostgreSQL, không chỉ pool API.",
+    "acceptance": "Test compose matrix cho production/staging và mọi profile: tổng max của từng topology phải thấp hơn max_connections sau reserve đã chốt; thay API replica count hoặc pool limit khiến preflight fail nếu vượt; runtime monitoring phân biệt pool API đầy với tổng server connection saturation.",
+    "alignment": [
+      "Unknown ngắn hơn",
+      "Vấn đề được phát hiện sớm hơn",
+      "Nhân viên làm việc bền vững hơn"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/core/database.py": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+      "src/clinicai/main.py": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "src/clinicai/orchestrator/checkpointer.py": "96db03ab11efa083fca2af1c9227c729b9eac6ef143247c85f1f195fdfd0a16f",
+      "docker-compose.supabase.yml": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+      "src/clinicai/worker.py": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "docker-compose.supabase.staging.yml": "a23e17eb15f13c70eaf690ec193072011de9ed293ca10bbf074856afc42c250d",
+      "docker-compose.staging.yml": "eed570ab0b3cc2b900127e94df103ab0700e94371ddf6b1faf9d31bb23002e7f"
+    },
+    "status": "candidate_for_triage",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Static budget check trên exact-main xác nhận các trần độc lập có thể cộng vượt DB cap trong cấu hình được chấp nhận; chưa kiểm runtime hoặc production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/core/database.py",
+          "line": 17,
+          "end_line": 30,
+          "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+          "excerpt": "17: # API: mặc định 20, đặt lại bằng biến môi trường `POOL_MAX_SIZE` (14/10/2026,\n18: # nâng từ 10 sau sự cố tối 12/10 nghi cạn bể — một tiến trình uvicorn, 14 req/s,\n19: # nhiều request giữ kết nối hàng trăm ms). Bể chỉ mở thêm kết nối khi có người\n20: # chờ nên trần cao không tốn gì lúc rảnh. NGÂN SÁCH KẾT NỐI Postgres\n21: # (max_connections=100; staging 60) — API này + checkpointer 10 + broker 1 +\n22: # GoTrue 10 + PostgREST 10 + Realtime ~10 + su-kien/day-tep + quản trị — tính\n23: # trong thân PR; đổi số này phải tính lại. Staging ghim 10 ở docker-compose.staging.yml.\n24: POOL_MAX_SIZE = 20\n25: # Các worker (su-kien, day-tep, relay…) làm việc tuần tự, dùng 1–3 kết nối:\n26: # giữ trần cũ 10, không theo biến của API (cùng env_file nên biến ấy cũng hiện\n27: # trong container của chúng).\n28: WORKER_POOL_MAX_SIZE = 10\n29: #: Giá trị `POOL_MAX_SIZE` ngoài khoảng này bị coi là gõ nhầm → dùng mặc định.\n30: POOL_MAX_SIZE_KHOANG = (2, 60)"
+        },
+        {
+          "path": "src/clinicai/main.py",
+          "line": 133,
+          "end_line": 152,
+          "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+          "excerpt": "133:     app.state.db_pool = await create_pool(max_size=doc_pool_max_size_api())\n134:     # ĐO BỂ KẾT NỐI (14/10/2026): thời gian chờ mượn + số người chờ (vòng nền ở\n135:     # dưới ghi mỗi phút một dòng `api_nhip_phut` + cảnh báo `POOL_API_DAY`).\n136:     gan_do_pool(app.state.db_pool)\n137:     # Bộ nhận thay đổi cho màn hình (thay Supabase Realtime). Nó tự nối lại khi\n138:     # rớt và KHÔNG được phép làm chết app khi database chưa sẵn sàng — mất nó\n139:     # thì màn hình rơi về nhịp làm mới dự phòng, chứ không ai đăng nhập hỏng.\n140:     app.state.change_broker = ChangeBroker(os.environ[\"DATABASE_URL\"])\n141:     await app.state.change_broker.start()\n142:     # CANH GÁC KHO TỆP (29/09/2026): đo ổ Viettel CFS mỗi phút — chạy ở đây vì\n143:     # chỉ container api gắn thư mục media. Xem services/canh_gac_kho_tep.py.\n144:     do_kho: asyncio.Task[None] | None = None\n145:     if canh_gac_kho_tep.bat():\n146:         do_kho = asyncio.create_task(canh_gac_kho_tep.chay_nen(app.state.db_pool))\n147:     do_pool: asyncio.Task[None] | None = None\n148:     if canh_gac_pool.bat():\n149:         do_pool = asyncio.create_task(canh_gac_pool.chay_nen(app.state.db_pool))\n150:     try:\n151:         async with AsyncExitStack() as stack:\n152:             checkpointer = await stack.enter_async_context(make_checkpointer())"
+        },
+        {
+          "path": "src/clinicai/orchestrator/checkpointer.py",
+          "line": 56,
+          "end_line": 63,
+          "sha256": "96db03ab11efa083fca2af1c9227c729b9eac6ef143247c85f1f195fdfd0a16f",
+          "excerpt": "56:         async with AsyncConnectionPool(\n57:             conninfo=dsn,\n58:             max_size=10,\n59:             min_size=2,\n60:             kwargs={\n61:                 \"autocommit\": True,\n62:                 \"prepare_threshold\": 0,\n63:                 \"options\": f\"-c search_path={CHECKPOINTER_SCHEMA},public\","
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 101,
+          "end_line": 108,
+          "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+          "excerpt": "101:       # TRẦN POOL BẮT BUỘC. Không đặt thì gotrue mở kết nối KHÔNG GIỚI HẠN —\n102:       # đo tải 100 người đăng nhập cùng lúc (22/08/2026): 13–19% lượt trả 500,\n103:       # log gotrue ghi \"FATAL: remaining connection slots are reserved for\n104:       # roles with the SUPERUSER attribute\" — tức nó nuốt sạch 100 slot của\n105:       # Postgres rồi tự chết đói. Trần 10 khớp ngân sách kết nối: FastAPI 10\n106:       # + PostgREST 10 + gotrue 10 + realtime/worker/psql ~20 — dư già nửa\n107:       # max_connections=100 cho đột biến.\n108:       GOTRUE_DB_MAX_POOL_SIZE: \"10\""
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 160,
+          "end_line": 164,
+          "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+          "excerpt": "160:     environment:\n161:       PGRST_DB_URI: postgres://authenticator:${SUPABASE_DB_PASSWORD}@db:5432/postgres\n162:       # Trùng mặc định, khai tường minh: ngân sách kết nối của cả stack phải\n163:       # đọc được từ file này, không phải đi tra tài liệu từng bản.\n164:       PGRST_DB_POOL: \"10\""
+        },
+        {
+          "path": "src/clinicai/worker.py",
+          "line": 261,
+          "end_line": 263,
+          "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+          "excerpt": "261:     pool = await create_pool()\n262:     stop = asyncio.Event()\n263: "
+        },
+        {
+          "path": "src/clinicai/worker.py",
+          "line": 349,
+          "end_line": 352,
+          "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+          "excerpt": "349:     from clinicai.core.database import close_pool, create_pool\n350:     from clinicai.services import day_tep, don_tep_ket_qua, media_service\n351: \n352:     pool = await create_pool()"
+        },
+        {
+          "path": "docker-compose.supabase.staging.yml",
+          "line": 21,
+          "end_line": 39,
+          "sha256": "a23e17eb15f13c70eaf690ec193072011de9ed293ca10bbf074856afc42c250d",
+          "excerpt": "21: services:\n22:   db:\n23:     <<: *staging-bao-ve\n24:     mem_limit: ${STG_DB_MEMORY_LIMIT:-384m}\n25:     # Bỏ wal_level=logical (chỉ Realtime cần). shared_buffers nhỏ cho vừa trần.\n26:     command:\n27:       - postgres\n28:       - -c\n29:       - shared_preload_libraries=pg_stat_statements\n30:       - -c\n31:       - shared_buffers=64MB\n32:       - -c\n33:       - max_connections=60\n34:       # Nạp lại đêm (staging-nap-ban-sao.sh) DROP + tạo lại ~300 bảng kèm chỉ\n35:       # mục trong MỘT giao dịch — giữ khoá trên từng đối tượng tới COMMIT. Mặc\n36:       # định 64 × 60 kết nối = 3.840 khoá → 08/10/2026 hỏng \"out of shared\n37:       # memory\". 256 tốn thêm vài MB bộ nhớ chung, vẫn dư trong mem_limit.\n38:       - -c\n39:       - max_locks_per_transaction=256"
+        },
+        {
+          "path": "docker-compose.staging.yml",
+          "line": 48,
+          "end_line": 52,
+          "sha256": "eed570ab0b3cc2b900127e94df103ab0700e94371ddf6b1faf9d31bb23002e7f",
+          "excerpt": "48:     environment:\n49:       # Bể kết nối API: prod mặc định 20 (core/database.py), staging ghim 10 vì\n50:       # Postgres staging chỉ có max_connections=60 + RAM 384m. Muốn thử 20 trên\n51:       # staging thì đặt POOL_MAX_SIZE=20 trong .env.staging (kiểm số kết nối trước).\n52:       POOL_MAX_SIZE: ${POOL_MAX_SIZE:-10}"
+        }
+      ],
+      "production_verified": false
+    },
+    "canonical_id": "INF-020",
+    "deduplication": {
+      "reviewed": [
+        "INF-004",
+        "INF-013",
+        "INF-015",
+        "INF-016",
+        "INF-019"
+      ],
+      "duplicate": false,
+      "reason": "Các hồ sơ kia nói về worker liveness, alert/data path, deploy Caddy, upload hoặc backup; candidate này là tổng budget pool DB trên nhiều process/service và cấu hình được phép vượt cap."
+    }
+  }
+]

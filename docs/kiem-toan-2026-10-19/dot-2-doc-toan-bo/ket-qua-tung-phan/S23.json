@@ -1,0 +1,1099 @@
+{
+  "chunk": "S23",
+  "findings": [
+    {
+      "tmp_id": "S23-1",
+      "title": "Danh mục riêng của Dr4Women (chuyên khoa, mã vị trí, mã phòng, ca, vai, tên miền) được biên dịch cứng vào lõi trình duyệt",
+      "severity": "MEDIUM",
+      "category": "packaging_hardcode",
+      "evidence_level": "design_gap",
+      "summary": "Ngoài danh mục ở database (DB-004), lõi giao diện còn chép cứng nhiều sự thật của một phòng khám: năm chuyên khoa kèm nội dung năm phiếu khám, mã vị trí Kim Ngưu (T1_*, T4_*), mã phòng KN-*, nếp ca 'chỉ tối T2–T6', mười lăm vai đóng, tên miền giám sát dr4women.io.vn, múi giờ/tiền tệ/ngôn ngữ cố định. Cơ sở thứ hai (Hào Nam) đang được 'ánh xạ về mẫu Kim Ngưu' bằng cắt tiền tố, tức là đã có dấu hiệu gượng.",
+      "trigger": "Onboard một phòng khám khác (nhi khoa, da liễu, hoặc cơ sở có mã vị trí/phòng khác) mà không sửa mã nguồn và dựng lại ảnh Docker.",
+      "impact": "Có thể xảy ra: phòng khám mới không thêm được chuyên khoa/phiếu khám, không có màu phòng, không có cột ca đúng, lịch bác sĩ đặt lịch không nhận ca khám vì mã vị trí không nằm trong danh sách chép cứng; mọi thay đổi đều đòi phát hành mã. Mỗi bản sao hằng số là một chỗ lệch với Python (đã phải thêm test chống lệch).",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/ca-kham-bac-si.ts",
+          "line": 1,
+          "end_line": 17,
+          "detail": "MA_CA_KHAM_BAC_SI chép 10 mã vị trí Kim Ngưu (LICH_KHAM, T1_BS_NOITIET, T4_SA_BS1...). Vị trí mới ngoài danh sách không được coi là ca khám của bác sĩ ở đường đặt lịch."
+        },
+        {
+          "path": "src/dashboard/lib/ma-vi-tri.ts",
+          "line": 1,
+          "end_line": 6,
+          "detail": "maMau() cắt tiền tố 'HN__' để đưa mã cơ sở thứ hai về 'mã mẫu Kim Ngưu'; mọi bảng tra phía sau viết theo mã Kim Ngưu."
+        },
+        {
+          "path": "src/dashboard/lib/roster.ts",
+          "line": 155,
+          "end_line": 186,
+          "detail": "MAU_PHONG khoá theo KN-TIEPDON/KN-NOITIET/...; mauPhong() ghép 'KN-' + phần sau tiền tố cho phòng cơ sở khác."
+        },
+        {
+          "path": "src/dashboard/lib/roster.ts",
+          "line": 350,
+          "end_line": 367,
+          "detail": "CA_THEO_THU: nếp 'T2–T6 chỉ ca Tối, T7/CN đủ 3 ca' ghi cứng theo Kim Ngưu để dựng cột bảng lịch."
+        },
+        {
+          "path": "src/dashboard/lib/loai-kham.ts",
+          "line": 30,
+          "end_line": 36,
+          "detail": "LOAI_KHAM: 5 màn khám và mã phiếu NT/PK/SK/HMVS/NK cứng."
+        },
+        {
+          "path": "src/dashboard/lib/linh-vuc.ts",
+          "line": 5,
+          "end_line": 11,
+          "detail": "5 lĩnh vực CSKH cứng, dùng chung với form-schemas."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/index.ts",
+          "line": 23,
+          "end_line": 48,
+          "detail": "REGISTRY 5 phiếu nằm trong bundle; resolveServiceCode() đoán phiếu từ chữ tiếng Việt trong tên dịch vụ ('sản', 'nội tiết', 'nam khoa')."
+        },
+        {
+          "path": "src/dashboard/lib/roles.ts",
+          "line": 7,
+          "end_line": 50,
+          "detail": "ClinicRole là enum đóng 15 vai (TKYK, CSKH, TRUONG_CA, PARTNER...). NAV_ROLES (279-488) và NAV_QUYEN (632-687) cũng cứng theo luồng Dr4Women."
+        },
+        {
+          "path": "src/dashboard/lib/cong-giam-sat.ts",
+          "line": 14,
+          "end_line": 14,
+          "detail": "Host giám sát mặc định 'giamsat.dr4women.io.vn,giamsat.localhost' ghi trong mã (đổi được bằng env GIAMSAT_HOST nhưng mặc định là của một khách hàng)."
+        },
+        {
+          "path": "src/dashboard/lib/datetime.ts",
+          "line": 6,
+          "end_line": 12,
+          "detail": "VN_TZ='Asia/Ho_Chi_Minh', VN_OFFSET='+07:00' là hằng toàn cục; components/ui/TrangThaiLuu.tsx:23-30 và lib/lieu-trinh.ts:201-203 cũng cứng vi-VN/'đ'."
+        }
+      ],
+      "limitations": "Một phần đã được chủ ý (xem comment 'Chỉ bán trong VN', 'CORE-C' chuyển danh mục vị trí về DB). Chưa kiểm cách backend xử lý phòng khám thứ hai khi không có mã mẫu KN-*. Không đánh giá chi phí chuyển sang cấu hình theo tenant.",
+      "recommendation": "Đưa danh mục chuyên khoa/phiếu khám, ca khám của bác sĩ, màu phòng, nếp ca, giờ mở cửa, host giám sát, locale/tiền tệ thành cấu hình theo clinic do backend trả (một lần, có phiên bản); trình duyệt chỉ vẽ. Với form engine, lưu schema phiếu trong DB có phiên bản và chữ ký duyệt (đã có clinical_form_catalogue/approval) thay vì bundle. Thêm một 'kiểm kê hằng số Dr4Women' vào CI: grep các tiền tố KN-/T1_/dr4women và buộc mỗi chỗ có ghi chú ngoại lệ.",
+      "acceptance": "Tạo clinic thử có mã vị trí/phòng/chuyên khoa hoàn toàn khác (không bắt đầu bằng KN-/T1_), bác sĩ vẫn nhận lịch, bảng lịch vẽ đúng cột và màu, chọn được phiếu khám của clinic đó mà không đổi mã nguồn; test CI báo đỏ nếu thêm hằng 'KN-'/'dr4women' mới ngoài danh sách cho phép.",
+      "alignment": [
+        "Bán được cho nhiều phòng khám",
+        "Ownership rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S23-2",
+      "title": "Container dashboard ('chỉ giao diện') nhận toàn bộ env_file production, trong đó có khoá service-role Supabase và khoá ký JWT",
+      "severity": "MEDIUM",
+      "category": "least_privilege_secret",
+      "evidence_level": "design_gap",
+      "summary": "docker-compose.yml nạp nguyên tệp bí mật của môi trường vào dịch vụ dashboard. Mã dashboard thực sự đọc SUPABASE_SERVICE_ROLE_KEY (bỏ qua RLS, quản trị GoTrue) và SUPABASE_JWT_SECRET (xác minh và, về mặt kỹ thuật, ký được mọi access token mà FastAPI tin). Từ 30/09 việc kiểm token cục bộ ở Next làm khoá ký có mặt thêm một nơi nữa.",
+      "trigger": "Một lỗ hổng thực thi mã/đọc biến môi trường trong tiến trình Next (ví dụ lớp xử lý ảnh đã có advisory ở SEC-004, hoặc một route lộ process.env).",
+      "impact": "Có thể xảy ra: kẻ tấn công ở tầng giao diện lấy được khoá ký JWT thì tự dựng được token của bất kỳ nhân viên nào (kể cả quản lý), qua thẳng FastAPI; có khoá service-role thì đọc/ghi toàn bộ Postgres bỏ qua RLS. Phá giả định 'frontend chỉ là giao diện, mọi quyết định ở backend' của CLAUDE.md.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "line": 84,
+          "end_line": 85,
+          "detail": "Chú thích dịch vụ dashboard: 'Frontend (Next.js standalone) — UI only'."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 118,
+          "end_line": 118,
+          "detail": "env_file: [\"${CLINIC_ENV_FILE...}\"] — cả tệp .env.prod/.env.staging vào dashboard, không chọn lọc biến (environment: ở 119-127 chỉ thêm biến, không bớt)."
+        },
+        {
+          "path": "src/dashboard/lib/kiem-phien-tai-cho.ts",
+          "line": 123,
+          "end_line": 128,
+          "detail": "ganKiemPhienTaiCho đọc process.env.SUPABASE_JWT_SECRET trong tiến trình Next để tự xác minh HS256."
+        },
+        {
+          "path": "src/dashboard/lib/supabase-service.ts",
+          "line": 9,
+          "end_line": 17,
+          "detail": "getSupabaseService() tạo client service-role từ SUPABASE_SERVICE_ROLE_KEY."
+        },
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 86,
+          "end_line": 114,
+          "detail": "authorizeAdmin() dựng client service-role trong route Next để gọi GoTrue admin (tạo/đặt lại/xoá tài khoản)."
+        }
+      ],
+      "limitations": "Không mở .env.prod nên không xác nhận giá trị thực có trong tệp; kết luận dựa trên việc mã đọc các biến này và compose nạp cả tệp. Việc dùng service-role cho GoTrue admin đã được ghi trong ADR-0012 (không đọc được ADR trong chunk này). Chưa đánh giá API có cho phép kiểm token ở mức nào khác ngoài HS256.",
+      "recommendation": "Tách bí mật theo dịch vụ: dashboard chỉ nhận biến nó cần (URL nội bộ, anon key, BACKEND_API_KEY). Chuyển các lệnh GoTrue admin sang FastAPI (đã có kiểm quyền account.manage và phạm vi clinic) để khoá service-role không rời backend. Với kiểm JWT cục bộ, hoặc dùng khoá bất đối xứng/JWKS (chỉ giữ khoá công khai ở Next), hoặc bỏ tối ưu này nếu phải giữ khoá đối xứng ở giao diện.",
+      "acceptance": "Chạy `docker compose config` hoặc `docker exec dashboard env` cho thấy không có SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET, DATABASE_URL, khoá LLM/Telegram trong dashboard; test CI quét compose và fail nếu dashboard dùng env_file dùng chung; đăng nhập, đổi mật khẩu, tạo tài khoản vẫn chạy qua backend.",
+      "alignment": [
+        "Bán được cho nhiều phòng khám",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-004",
+        "SEC-001",
+        "SEC-006"
+      ]
+    },
+    {
+      "tmp_id": "S23-3",
+      "title": "Lệnh 'tạo/đề xuất liệu trình' sinh khoá gửi lại mới ở mỗi lần gọi nên bấm lại sau khi mất phản hồi có thể tạo liệu trình thứ hai",
+      "severity": "MEDIUM",
+      "category": "idempotency_retry",
+      "evidence_level": "confirmed_static",
+      "summary": "lenhLT() chèn idempotency_key=khoaLT() (ngẫu nhiên theo từng lần gọi). Ở các lệnh khác (đăng ký, dừng, mở lại, hoàn tác) màn tự đặt khoá xác định theo (liệu trình, revision) nên bấm lại là cùng khoá. Riêng 'tao' (hai chỗ gọi ở thẻ liệu trình) không truyền khoá, nên mỗi lần bấm là một khoá mới; backend 'tao' chỉ ghi nhận lặp theo khoá, không kiểm có sẵn liệu trình đề xuất cho cùng lượt/dịch vụ/chỉ định.",
+      "trigger": "Bác sĩ bấm 'Đề xuất liệu trình', máy chủ đã INSERT nhưng phản hồi mất (mạng, Next restart, hết thời gian); hàm catch trả 'Mất kết nối — chưa ghi. Thử lại.' và nút bật lại; bác sĩ bấm lần nữa.",
+      "impact": "Có thể xảy ra: hai bản ghi lieu_trinh DE_XUAT cho cùng chỉ định, hiện hai dòng ở danh sách CSKH/đề xuất, CSKH gọi khách hai lần hoặc đăng ký nhầm bản; nếu cả hai được đăng ký thì kế hoạch buổi bị nhân đôi. Thông báo 'chưa ghi' có thể sai.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/lieu-trinh.ts",
+          "line": 217,
+          "end_line": 259,
+          "detail": "khoaLT() = lt-<Date.now>-<random>; lenhLT đặt `{ idempotency_key: khoaLT(), ...duLieu }`; catch trả 'Mất kết nối — chưa ghi'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/LieuTrinhThe.tsx",
+          "line": 474,
+          "end_line": 497,
+          "detail": "tao() gọi lenhLT('tao', {...}) không truyền idempotency_key; setDang(false) rồi onDoi()."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/LieuTrinhThe.tsx",
+          "line": 667,
+          "end_line": 678,
+          "detail": "gui() — đề xuất không làm hôm nay — cũng gọi lenhLT('tao') không khoá cố định."
+        },
+        {
+          "path": "src/clinicai/services/lieu_trinh_service.py",
+          "line": 1063,
+          "end_line": 1208,
+          "detail": "tao(): INSERT INTO lieu_trinh (1159-1177) không kiểm tồn tại liệu trình DE_XUAT cùng nguon_order_id/dịch vụ; chống lặp chỉ qua _lenh+bien_nhan theo khoá (916-941)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx",
+          "line": 349,
+          "end_line": 371,
+          "detail": "Đối chiếu tốt: khoá xác định `lt-${id}-dang-ky-${n}-r${revision}`."
+        }
+      ],
+      "limitations": "Chưa đọc migration để kiểm có unique index ngầm chặn hai DE_XUAT cùng nguon_order_id (đã tìm uq_lieu_trinh_buoi_* chỉ cho bảng buổi). Nút 'đề xuất' có thể bị ẩn khi dữ liệu nạp lại (deXuatTuDay) nên cửa sổ rủi ro chỉ là lúc phản hồi mất.",
+      "recommendation": "Sinh khoá trong state của form/thẻ (một khoá cho đến khi lệnh thành công hoặc người dùng đổi nội dung), hoặc xác định theo (visit_id, service_order_id|service_code, so_buoi). Backend thêm ràng buộc 'một DE_XUAT mở cho mỗi (bệnh nhân, dịch vụ, nguon_order_id)'. Đổi câu báo lỗi mạng thành 'chưa rõ đã ghi chưa — kiểm tra lại danh sách' và tự nạp lại.",
+      "acceptance": "Test tích hợp: gọi 'tao' hai lần với khoá khác nhau cùng nội dung chỉ ra một liệu trình hoặc 409 rõ ràng; test UI: mô phỏng timeout sau commit, bấm lại không sinh bản ghi thứ hai.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-031",
+        "CLIN-044",
+        "CLIN-057",
+        "LAB-001"
+      ]
+    },
+    {
+      "tmp_id": "S23-4",
+      "title": "Lớp đọc backend gộp mọi lỗi thành null/[] nên màn cấu hình nói sai (ví dụ 'Chưa có luật nào. Mọi dịch vụ đều đặt được với bất kỳ bác sĩ nào')",
+      "severity": "MEDIUM",
+      "category": "failure_shown_as_empty",
+      "evidence_level": "confirmed_static",
+      "summary": "fetchFromBackend() trả null cho: thiếu CLINIC_API_URL, mất phiên, HTTP không ok (401/403/429/5xx), lỗi mạng. Các helper phía trên (listBookingRules, layCoSo, layDichVu, listBookableDoctors, trang luật đặt lịch) đổi null thành []. Màn Luật đặt lịch truyền `luatRes?.items ?? []` vào LuatBacSiCard, vốn in một câu khẳng định khi danh sách rỗng.",
+      "trigger": "API chậm/429/đang deploy đúng lúc Trưởng ca/Quản lý mở /settings/booking-policy; hoặc người mở màn thiếu quyền đọc luật bác sĩ.",
+      "impact": "Có thể xảy ra: Quản lý đọc câu 'Chưa có luật nào…' (sai) và tạo lại hoặc tin là không còn ràng buộc bác sĩ theo dịch vụ; bảng 'luật số chỗ' trống làm họ nghĩ chưa có override; ô chọn cơ sở/dịch vụ/bác sĩ trống ở màn khác trông như chưa cấu hình. Cùng nhóm với FE-004 nhưng ở lớp helper dùng chung nên lan sang nhiều màn.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/backend-proxy.ts",
+          "line": 233,
+          "end_line": 268,
+          "detail": "fetchFromBackend: `return null` ở 245 (thiếu API_BASE), 254 (không token), 263 (!res.ok), 265 (catch) — không phân biệt lỗi với 'không có dữ liệu'. Comment 240-243 nói 'render trang không có chi tiết' nhưng không đánh dấu."
+        },
+        {
+          "path": "src/dashboard/lib/booking-policy.ts",
+          "line": 165,
+          "end_line": 170,
+          "detail": "listBookingRules: `return raw?.items ?? []`."
+        },
+        {
+          "path": "src/dashboard/lib/danh-muc.ts",
+          "line": 24,
+          "end_line": 44,
+          "detail": "layCoSo/layDichVu: `data ?? []`."
+        },
+        {
+          "path": "src/dashboard/lib/doctors-server.ts",
+          "line": 58,
+          "end_line": 81,
+          "detail": "Doc comment: 'Trả mảng rỗng khi đọc lỗi'; `(data ?? []).map(...)`."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/booking-policy/page.tsx",
+          "line": 39,
+          "end_line": 53,
+          "detail": "Promise.all các lần đọc; 113: rules={rules}; 120: luat={luatRes?.items ?? []}."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/LuatBacSiCard.tsx",
+          "line": 175,
+          "end_line": 178,
+          "detail": "Rỗng ⇒ in 'Chưa có luật nào. Mọi dịch vụ đều đặt được với bất kỳ bác sĩ nào.'"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/OverridePolicyCard.tsx",
+          "line": 387,
+          "end_line": 388,
+          "detail": "Đối chiếu tốt: khi policy null màn nói 'Chưa đọc được luật mặc định' — mẫu nên áp cho các thẻ còn lại."
+        }
+      ],
+      "limitations": "bo-nho-tam không cache kết quả rỗng nên lỗi tự hết ở lần tải sau (chỉ ảnh hưởng đúng lần lỗi). Chưa kiểm hết các màn dùng layCoSo; một số màn chỉ dùng để lọc nên hậu quả nhẹ hơn.",
+      "recommendation": "Đổi fetchFromBackend thành kết quả có phân biệt (ok|không đăng nhập|bị từ chối|tạm lỗi) hoặc thêm biến thể docBackendCoTrangThai. Helper catalog/luật trả {du_lieu, loi}; thẻ cấu hình hiển thị 'Không đọc được — thử lại' thay vì câu khẳng định, và khoá nút ghi khi chưa đọc được trạng thái hiện hành.",
+      "acceptance": "Test component: mô phỏng 503 ở /booking-rules/doctor, thẻ không được hiện 'Chưa có luật nào'; nút Thêm bị khoá hoặc kèm cảnh báo; log có mã lỗi tương ứng.",
+      "alignment": [
+        "Reality rõ",
+        "Unknown ngắn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-004",
+        "FE-008",
+        "FE-019"
+      ]
+    },
+    {
+      "tmp_id": "S23-5",
+      "title": "Lỗi đọc quyền được xử lý theo hai nghĩa trái ngược: quyền rỗng (redirect im lặng về /home) và rơi về luật theo vai",
+      "severity": "MEDIUM",
+      "category": "permission_read_failure",
+      "evidence_level": "confirmed_static",
+      "summary": "Có hai bộ đọc 'quyền của tôi'. getQuyenCuaToi() phân biệt null (chưa biết) với [] (biết chắc) và rơi về luật vai khi null. quyenCuaToi() trong quyen-cua-toi.ts đổi lỗi thành Set rỗng; các guard dùng nó (docDuocYKhoa, inDuocPhieu → requireClinicalRole/requireInPhieu) redirect('/home') không thông báo. Cả hai nhánh đều không nói với người dùng rằng việc đọc quyền thất bại.",
+      "trigger": "API trả 429/5xx hoặc đang khởi động lại đúng lúc người dùng mở trang in/lâm sàng hoặc trang có `enablePopup`.",
+      "impact": "Có thể xảy ra: bác sĩ/lễ tân đang đứng quầy bị đưa về Trang chủ mà không có lời giải thích, hoặc mất khối lâm sàng/bản in trong lúc khách chờ, và nghĩ là mình mất quyền (gọi quản lý/IT). Ở chiều ngược, khi null thì vaoDuocMan rơi về vai gốc nên màn thuộc lego đã bị thu quyền vẫn mở vỏ trang trong lúc lỗi (backend vẫn từ chối lệnh ghi/đọc dữ liệu).",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/quyen-cua-toi.ts",
+          "line": 29,
+          "end_line": 54,
+          "detail": "quyenCuaToi(): `new Set(d?.quyen ?? [])`; docDuocYKhoa/inDuocPhieu dựa trên đó."
+        },
+        {
+          "path": "src/dashboard/lib/clinic-session.ts",
+          "line": 96,
+          "end_line": 110,
+          "detail": "getQuyenCuaToi: null = máy chủ không trả lời (phân biệt rõ)."
+        },
+        {
+          "path": "src/dashboard/lib/clinic-session.ts",
+          "line": 157,
+          "end_line": 172,
+          "detail": "requireClinicalRole / requireInPhieu: `if (!(await docDuocYKhoa())) redirect('/home')`."
+        },
+        {
+          "path": "src/dashboard/lib/roles.ts",
+          "line": 797,
+          "end_line": 813,
+          "detail": "vaoDuocMan: quyen===null ⇒ vai.some(canSeeNavGoc) — fail-open theo vai; quyen có ⇒ theo lego."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/patient-list/page.tsx",
+          "line": 141,
+          "end_line": 141,
+          "detail": "enablePopup = await docDuocYKhoa() — lỗi đọc quyền tắt popup như không có quyền."
+        }
+      ],
+      "limitations": "Backend vẫn tự kiểm quyền từng lệnh nên không thấy đường lộ dữ liệu; chỉ đánh giá hành vi giao diện. Chưa đo tần suất 429/5xx của /phan-quyen/toi trong thực tế.",
+      "recommendation": "Gom về một bộ đọc quyền ba trạng thái (có/không/chưa biết). Với 'chưa biết': thử lại một lần, rồi hiện trang 'Không xác nhận được quyền — thử lại' (không redirect) trên các trang lâm sàng/in. Ghi log/đếm số lần để thấy xu hướng.",
+      "acceptance": "Test: mock /phan-quyen/toi 503 — trang in phiếu hiện thông báo thử lại thay vì chuyển trang; test hợp nhất đảm bảo không còn nơi nào đổi lỗi thành Set rỗng.",
+      "alignment": [
+        "Reality rõ",
+        "Unknown ngắn",
+        "Con người ít bị gián đoạn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-004",
+        "FE-009"
+      ]
+    },
+    {
+      "tmp_id": "S23-6",
+      "title": "Tab bị ẩn/che khuất không nhận tin lẫn không hỏi dự phòng, và hệ thống không có kênh báo ngoài tab",
+      "severity": "MEDIUM",
+      "category": "realtime_visibility",
+      "evidence_level": "design_gap",
+      "summary": "Để tránh cạn 6 kết nối HTTP/1.1, dòng SSE chỉ mở khi tab hiện; nhịp hỏi dự phòng huỷ hẳn khi tab ẩn; tin tới lúc ẩn bị bỏ, chỉ 'bắt kịp' một lần khi hiện lại. Toàn bộ kho mã dashboard không có Notification API, service worker, hay huy hiệu tiêu đề tab nào (đã grep). Hệ quả: mọi cảnh báo (chuông ca, lịch bác sĩ từ chối, việc quá hạn) chỉ tới người đang nhìn đúng tab đó.",
+      "trigger": "Màn hình quầy/trưởng ca nằm sau cửa sổ khác hoặc thu nhỏ; người dùng làm ở tab khác (Zalo, Excel); máy khoá màn hình lâu.",
+      "impact": "Có thể xảy ra: thông báo gấp (khách chờ lâu, kết quả cần duyệt, ca bị từ chối) không tới nhân viên đang ở tab khác; khi quay lại thì số liệu nhảy một lần. Đi ngược mục tiêu 'phát hiện sớm' và 'gián đoạn đúng lúc': chỉ người mở màn mới biết, còn lại phải gọi điện/nhắn tin hỏi nhau.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/nhip-khi-hien.ts",
+          "line": 58,
+          "end_line": 110,
+          "detail": "nhipKhiHien: tab ẩn ⇒ huỷ hẳn setInterval; quay lại mới hỏi một lần."
+        },
+        {
+          "path": "src/dashboard/lib/nhip-lam-moi.ts",
+          "line": 126,
+          "end_line": 134,
+          "detail": "Tab ẩn: nhan() bỏ hẳn lượt, không ghi sổ nợ."
+        },
+        {
+          "path": "src/dashboard/lib/nhip-lam-moi.ts",
+          "line": 253,
+          "end_line": 305,
+          "detail": "moDongTheoHien: đóng dòng SSE khi ẩn, mở lại + khiMoLai khi hiện."
+        },
+        {
+          "path": "src/dashboard/lib/nhip-lam-moi.ts",
+          "line": 345,
+          "end_line": 403,
+          "detail": "TrangThaiDong chỉ có song/dang-noi/rot; không có kênh dự phòng ngoài tab."
+        }
+      ],
+      "limitations": "Chrome/Edge có thể không coi mọi cửa sổ che một phần là 'hidden' (phụ thuộc hệ điều hành); chưa đo trên máy quầy thật. Thiết kế này là một đánh đổi có chủ ý, đã ghi lý do kỹ thuật (giới hạn 6 kết nối) và cho biết HTTP/2 sẽ gỡ giới hạn.",
+      "recommendation": "Khi đã có HTTPS/HTTP2 (đã có tên miền), cân nhắc giữ MỘT dòng cho mỗi trình duyệt (SharedWorker/BroadcastChannel với Web Locks) và thêm báo ngoài tab cho đúng vài loại sự kiện quan trọng (thông báo trình duyệt + huy hiệu số trên tiêu đề). Với việc quá hạn, cần worker backend gửi nhắc (Zalo/Telegram nội bộ) theo người nhận chứ không chỉ chờ người mở màn.",
+      "acceptance": "Mở hai tab, để tab quầy ở nền 10 phút, phát một sự kiện quá hạn: trong ≤30 giây tab tiêu đề/huy hiệu hoặc thông báo trình duyệt cảnh báo; khi quay lại không cần tải lại mới thấy.",
+      "alignment": [
+        "Unknown ngắn",
+        "Phát hiện sớm",
+        "Con người ít bị gián đoạn nhưng đúng lúc"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-002",
+        "FE-019",
+        "OPS-001"
+      ]
+    },
+    {
+      "tmp_id": "S23-7",
+      "title": "Thời gian chờ/làm và 'khung đã qua' tính theo đồng hồ máy của người dùng, không hiệu chỉnh theo giờ máy chủ",
+      "severity": "LOW",
+      "category": "client_clock_skew",
+      "evidence_level": "confirmed_static",
+      "summary": "Các nhãn 'chờ 12′', 'đang làm 6′', 'vừa xong', 'quá hạn' lấy mốc ISO từ máy chủ nhưng trừ cho Date.now() trình duyệt (state bayGio cập nhật 30–60 giây). Hàm phut() và phutDichVu() kẹp kết quả âm về 0 nên máy chạy chậm hơn máy chủ sẽ hiện 0′ mà không dấu hiệu bất thường; máy chạy nhanh làm số phút bị phóng đại. khungDaQua() và các helper VN today cũng dùng giờ máy khách.",
+      "trigger": "Máy trạm quầy/bác sĩ lệch giờ (không đồng bộ NTP, đặt tay, VM) vài phút.",
+      "impact": "Có thể xảy ra: bảng hành trình báo khách chờ lâu hơn/ít hơn thực tế; quyết định ưu tiên và đo SLA dựa bằng chứng sai; lưới đặt lịch mời hoặc chặn nhầm khung quanh giờ hiện tại (máy chủ vẫn chốt lại).",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/hanh-trinh-khach.ts",
+          "line": 175,
+          "end_line": 181,
+          "detail": "phut(): Math.max(0, floor((den - tu)/60000)) — âm bị che thành 0."
+        },
+        {
+          "path": "src/dashboard/lib/hanh-trinh-khach.ts",
+          "line": 188,
+          "end_line": 221,
+          "detail": "chipGon dùng bayGio truyền vào."
+        },
+        {
+          "path": "src/dashboard/lib/hanh-trinh.ts",
+          "line": 74,
+          "end_line": 131,
+          "detail": "phutGiua(a, bayGio) và doanNoi dùng bayGio."
+        },
+        {
+          "path": "src/dashboard/lib/hanh-trinh.ts",
+          "line": 152,
+          "end_line": 171,
+          "detail": "phutDichVu: phut(a,b) kẹp 0; ms(d.thu ?? d.gui) có thể NaN nếu ISO hỏng."
+        },
+        {
+          "path": "src/dashboard/lib/khung-da-qua.ts",
+          "line": 37,
+          "end_line": 41,
+          "detail": "khungDaQua so với bayGio phía khách."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx",
+          "line": 109,
+          "end_line": 111,
+          "detail": "bayGio = useState(() => Date.now()), setInterval 30s."
+        }
+      ],
+      "limitations": "Máy chủ vẫn chốt các luật đặt lịch; ảnh hưởng chủ yếu là hiển thị. Chưa biết máy quầy có đồng bộ NTP hay không.",
+      "recommendation": "API trả kèm `may_chu_luc` (hoặc dùng header Date), client tính offset một lần và áp cho mọi phép trừ; khi |offset| > 2 phút hiện cảnh báo 'đồng hồ máy lệch'. Không kẹp âm im lặng: ghi nhận và hiển thị '—'.",
+      "acceptance": "Test: đặt Date.now lệch +10 phút so với `may_chu_luc`, chip chờ vẫn đúng ±1 phút và có cảnh báo lệch đồng hồ.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S23-8",
+      "title": "Phiếu Hiếm muộn (HMVS) lưu khám nam khoa và tinh dịch đồ của người chồng dưới dạng chữ tự do trong hồ sơ người vợ, tách khỏi luồng Nam khoa có cờ WHO và đồng ý",
+      "severity": "MEDIUM",
+      "category": "clinical_data_model",
+      "evidence_level": "design_gap",
+      "summary": "NK (nam khoa) dùng ô số kèm đơn vị, hai lần đo, bảng ngưỡng tham chiếu phía server (flag_semen) và ghi rõ rằng chia sẻ dữ liệu giữa hai bệnh nhân cần đồng ý riêng. HMVS vẫn chứa 'Tiền sử (chồng)', 'Khám nam khoa', và 9 thông số tinh dịch đồ x2 lần ở dạng text, trong phiếu của vợ. Hai phiếu dùng đơn vị khác nhau cho cùng xét nghiệm (testosterone ng/dL vs nmol/L).",
+      "trigger": "Bác sĩ khám hiếm muộn cặp đôi, nhập kết quả tinh dịch đồ của chồng vào phiếu HMVS của vợ; sau đó chồng khám NK.",
+      "impact": "Có thể xảy ra: không có cờ bất thường theo ngưỡng WHO/AUA cho tinh dịch đồ nằm trong HMVS; dữ liệu của chồng nằm trong hồ sơ người khác (quyền riêng tư, đồng ý, quyền truy cập theo bệnh nhân không áp cho chồng); không tổng hợp được kết quả giữa HMVS và NK; trộn đơn vị khi so sánh/xuất.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/form-schemas/hmvs.ts",
+          "line": 94,
+          "end_line": 109,
+          "detail": "TDD_PARAMS: 9 thông số, type 'text', _l1/_l2."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/hmvs.ts",
+          "line": 148,
+          "end_line": 157,
+          "detail": "Section 'Tiền sử (chồng)' trong phiếu vợ."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/hmvs.ts",
+          "line": 217,
+          "end_line": 225,
+          "detail": "Section 'Khám nam khoa' trong phiếu vợ."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/hmvs.ts",
+          "line": 250,
+          "end_line": 250,
+          "detail": "cls_testosterone đơn vị ng/dL (text)."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/nk.ts",
+          "line": 16,
+          "end_line": 19,
+          "detail": "Ngưỡng nằm ở semen_reference_range, cờ do andrology_service.flag_semen."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/nk.ts",
+          "line": 119,
+          "end_line": 127,
+          "detail": "'lien_ket_hmvs' không tự mở hồ sơ vợ; chia sẻ cần clinical_data_consent."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/nk.ts",
+          "line": 622,
+          "end_line": 629,
+          "detail": "nt_testosterone type number, đơn vị nmol/L."
+        }
+      ],
+      "limitations": "Chưa đọc spec-form-nam-khoa và phía server để biết có kế hoạch gỡ phần chồng khỏi HMVS hay đã có cơ chế đồng ý cho dữ liệu này. flag_semen chỉ thấy được dùng trong andrology_service/andrology_review_service.",
+      "recommendation": "Chuyển phần chồng sang hồ sơ NK của chính người chồng (liên kết cặp đôi + clinical_data_consent), HMVS chỉ hiện tóm tắt chỉ-đọc kèm nhãn đồng ý. Tinh dịch đồ dùng ô số + đơn vị chung và cùng bộ cờ WHO. Chuẩn hóa đơn vị theo một danh mục dùng chung cho mọi phiếu.",
+      "acceptance": "Test: nhập tinh dịch đồ ở luồng cặp đôi tạo bản ghi trên hồ sơ chồng, có cờ bất thường; không thể xem dữ liệu chồng khi thiếu đồng ý; xuất dữ liệu xét nghiệm có đơn vị thống nhất.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-034",
+        "CLIN-041",
+        "SEC-018"
+      ]
+    },
+    {
+      "tmp_id": "S23-9",
+      "title": "Quyết định dùng liệu pháp hormone (MHT) không bị ràng buộc bởi yếu tố chống chỉ định ghi ngay trong cùng phiếu",
+      "severity": "MEDIUM",
+      "category": "clinical_safety_gap",
+      "evidence_level": "design_gap",
+      "summary": "Phiếu Nội tiết ghi chống chỉ định/thận trọng ở ô chữ tự do và 'Quyết định MHT' ở ô radio riêng. Hệ thống coi cả hai chỉ là 'có dữ liệu' để cho phép ký (soap_plan), không có kiểm tra chéo hay cảnh báo, và comment ghi rõ mọi luật 'chống chỉ định thì chặn' đang HOLD chờ nguồn Dr4Women.",
+      "trigger": "Bác sĩ ghi 'tiền sử ung thư vú' ở ô chống chỉ định nhưng chọn 'Dùng MHT' và kê estrogen (hoặc nhập thiếu ô chống chỉ định).",
+      "impact": "Có thể xảy ra: kê MHT cho bệnh nhân có chống chỉ định mà hệ thống không nhắc ở bước ký/kê đơn; thiếu dấu vết rằng đã cân nhắc chống chỉ định. Đây là đường lâm sàng có hậu quả nặng nhưng chỉ dựa vào trí nhớ bác sĩ.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/form-schemas/nt.ts",
+          "line": 133,
+          "end_line": 166,
+          "detail": "Ba ô textarea yếu tố chỉ định/chống chỉ định/thận trọng + radio mht_quyet_dinh; comment 142-143: danh mục có cấu trúc và luật chặn là HOLD."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/nt.ts",
+          "line": 167,
+          "end_line": 188,
+          "detail": "mht_phac_do/mht_ten_thuoc/mht_lieu là ô độc lập, không nối đơn thuốc."
+        },
+        {
+          "path": "src/clinicai/services/clinical_sign_service.py",
+          "line": 740,
+          "end_line": 749,
+          "detail": "soap_plan chỉ đếm sự hiện diện của mht_quyet_dinh/mht_phac_do..., không đối chiếu ô chống chỉ định."
+        }
+      ],
+      "limitations": "Chưa tìm được kiểm tra chéo ở dịch vụ kê đơn hay màn kê đơn (grep 'mht_yeu_to'/'chong_chi_dinh' trong src/clinicai chỉ thấy một chỗ ở clinical_sign_service). Hạn chế 'HOLD' là quyết định chủ ý chờ guideline của phòng khám.",
+      "recommendation": "Dưới dạng gợi ý, không phải chặn: yêu cầu ít nhất một lựa chọn có cấu trúc 'Đã đánh giá chống chỉ định: không/có (chọn từ danh mục BS duyệt)'; nếu quyết định = Dùng MHT và có chống chỉ định, buộc nhập lý do và hiển thị trên đơn/giao thuốc; ghi sự kiện để duyệt chất lượng.",
+      "acceptance": "Test: ký phiếu với mht_quyet_dinh=chi_dinh và chống chỉ định 'có' thiếu lý do bị từ chối; có báo cáo đếm số ca MHT kèm chống chỉ định cho bác sĩ chủ nhiệm xem lại.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-056",
+        "CLIN-020"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "FE-001",
+      "detail": "Phạm vi rộng hơn bản nháp bệnh nhân mới: lib/luu-nhap.ts:1-24 lưu cả bản nháp bệnh án (ClinicalRecordForm.tsx:617 gọi donNhapCu) vào localStorage 24 giờ. Dọn nháp chỉ chạy khi mở NewPatientForm.tsx:472 hoặc ClinicalRecordForm.tsx:617 (luu-nhap.ts:53-67); luồng đăng xuất (app/(auth)/login/actions.ts:97 signOut) không xoá clinicai:nhap:*. Máy dùng chung có thể giữ nháp bệnh án tới 24h sau khi người dùng đã thoát."
+    },
+    {
+      "id": "FE-002",
+      "detail": "lib/mot-luot.ts:21-41: khi một lượt tải chạy lỗi (viec() ném), khối finally đặt sau=null nên lượt tải lại đã xếp hàng (đại diện cho thay đổi xảy ra trong lúc đang tải, ví dụ đổi ngày/quầy) bị bỏ, và mọi người đang chờ nhận cùng lỗi; không có đánh dấu 'dữ liệu có thể cũ'. lib/doc-gop.ts:52-66 chia sẻ cùng kết quả/lỗi giữa các người gọi."
+    },
+    {
+      "id": "SEC-003",
+      "detail": "lib/gui-tep-co-tien-do.ts:1-6 ghi quyết định 'không giới hạn dung lượng' (video vài GB) và XHR không có timeout/ontimeout/huỷ; nên không có chặn ở phía khách để bù cho việc server không biết dung lượng trước (kết hợp SEC-008: proxy Next cắt 10 MiB)."
+    }
+  ],
+  "held": [
+    {
+      "title": "Đăng xuất không thu hồi access token cho đến khi hết hạn (kiểm JWT cục bộ ở Next)",
+      "reason": "lib/kiem-phien-tai-cho.ts:16-20 tự ghi nhận đánh đổi; identity.py:386-425 vẫn tra membership/is_active với TTL 30s và invalidate khi sửa nhân sự nên tắt tài khoản có hiệu lực nhanh. Rủi ro còn lại là token bị lấy cắp dùng được tối đa GOTRUE_JWT_EXP=3600s. Chưa chắc là lỗ hổng cần ghi."
+    },
+    {
+      "title": "Giao thuốc khi đơn vị lô khác đơn vị kê vẫn 'giao được nhưng kho KHÔNG tự trừ'",
+      "reason": "lib/lo-bi-loai.ts:20-44 nói thẳng hệ quả; backend có đường 'giao không lô' và kiem_ke_ca_service.py:402 nêu thuốc đã giao chưa gắn lô khi kết ca. Cần đối chiếu với đợt quy đổi hộp-gói 17/10 (không có trong SHA này) trước khi coi là lỗ hổng chưa xử lý."
+    },
+    {
+      "title": "Công tắc MO_QUYEN_TAM_THOI (mở quyền cho mọi vai ngoài bác sĩ) vẫn nằm trong lõi",
+      "reason": "Mặc định ĐÓNG ở cả hai tầng (roles.ts:586-588, identity.py:1054-1076, docker-compose.yml:106-109), có log khi bật (main.py:124-130). Chỉ là gánh nặng cấu hình cho sản phẩm bán nhiều nơi; chưa là lỗi."
+    },
+    {
+      "title": "feature-mode.ts rơi về FULL_CLINIC khi không đọc được cấu hình",
+      "reason": "lib/feature-mode.ts:18-27 fail-open cho phòng khám CSKH_ONLY nhưng chỉ ảnh hưởng thanh bên (CLINICAL_HREFS); backend vẫn gác quyền. Rất thấp."
+    },
+    {
+      "title": "Modul chết còn giữ: event-log.ts, event-log-redaction.ts, roster-names.ts, cashier-total.ts",
+      "reason": "Không còn nơi nào import (grep) nhưng còn test; event-log-redaction dùng danh sách khoá cấm (denylist) nên trường mới dễ lọt nếu bị bật lại. Rủi ro chỉ khi ai đó dùng lại."
+    },
+    {
+      "title": "XuatBangTrongVung xuất đúng phần DOM đang hiển thị, tên .csv, không ghi giờ xuất/bộ lọc/tổng",
+      "reason": "components/ui/XuatBangTrongVung.tsx + lib/xuat-bang-excel.ts:28-47: có chủ ý 'Xuất bảng đang xem'. Có thể bị hiểu là báo cáo đầy đủ nếu bảng bị cắt (FE-022/FIN-005) nhưng cần xác nhận cách nhân viên dùng file."
+    },
+    {
+      "title": "baoLoiTrinhDuyet gửi thong_diep nguyên văn (tối đa 1000 ký tự) tới /api/loi",
+      "reason": "lib/bao-loi-trinh-duyet.ts:66-76; chỉ khoá gộp lỗi bỏ số/uuid, nội dung gửi không bị làm sạch. Chưa kiểm nơi sinh thông điệp có chứa PII hay không (liên quan SEC-024)."
+    },
+    {
+      "title": "Sinh hiệu hiển thị cho bác sĩ không kèm giờ đo và cờ bất thường",
+      "reason": "lib/sinh-hieu-dong-bo.ts:42-66 chỉ định dạng giá trị; sinh_hieu_service.py:404-405 có nhắc chỉ số bất thường lúc nhập (ngưỡng ở luot_kham_rules, chưa đọc). Chưa đủ để kết luận thiếu cảnh báo phía bác sĩ."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Bộ nhớ tạm theo tenant, không cache kết quả rỗng/lỗi",
+      "detail": "nhoTheoPhongKham buộc clinic_id, từ chối khoá rỗng, chỉ dùng cho danh mục gần như bất biến, và không ghi null/[] (luật ③); nhờ vậy danh mục sai/rỗng không dính 60 giây. Endpoint nguồn trả Cache-Control private,no-store theo clinic.",
+      "evidence": "src/dashboard/lib/bo-nho-tam.ts:15-79; src/clinicai/api/v1/routers/catalog.py:49-60"
+    },
+    {
+      "title": "Báo lỗi trình duyệt tự giới hạn để không tự DoS",
+      "detail": "Gộp lỗi trùng theo khoá chuẩn hoá, trần 6 lượt/phút, gửi một bản tóm tắt 'lặp thêm N lần', không nuốt số đếm, hỏng thì im; logic thuần tiêm cổng nên test được.",
+      "evidence": "src/dashboard/lib/bao-loi-trinh-duyet.ts:1-112"
+    },
+    {
+      "title": "Nhịp làm mới có jitter, trần chờ, backoff nối lại và 'bắt kịp' khi hiện lại tab",
+      "detail": "Debounce có trần, lệch ngẫu nhiên chống bầy đàn, nối lại SSE gấp đôi có trần, một lần bắt kịp rõ ràng sau quãng mù; các tham số tiêm vào để test với đồng hồ giả.",
+      "evidence": "src/dashboard/lib/nhip-lam-moi.ts:111-305; lib/nhip-khi-hien.ts:68-178"
+    },
+    {
+      "title": "Gộp lượt đọc không làm người gọi nhận dữ liệu cũ hơn lúc mình gọi",
+      "detail": "doc-gop chia sẻ kết quả chỉ trong 50ms; lượt đến sau đó xếp đúng một lượt nối đuôi; mot-luot gộp bằng 'việc sau cùng'. Tốt cho quá tải, đúng ngữ nghĩa 'đọc sau lệnh của tôi'.",
+      "evidence": "src/dashboard/lib/doc-gop.ts:1-66; lib/mot-luot.ts:1-41"
+    },
+    {
+      "title": "Hằng số quyền/ca ở TS có test chống lệch với Python",
+      "detail": "MA_CA_KHAM_BAC_SI, QUYEN_Y_KHOA được so với bản Python bằng bài kiểm ranh giới; quyền chỉ ẩn/hiện, backend vẫn tự kiểm.",
+      "evidence": "src/dashboard/lib/quyen-cua-toi.ts:10-19; tests/ca-kham-bac-si-boundary.test.mts:5-29"
+    },
+    {
+      "title": "Chính sách đặt lịch lấy một nguồn từ backend, không có mặc định âm thầm",
+      "detail": "booking-policy trả null khi không đọc/không hợp lệ và để màn nói rõ; khung nhận lịch do backend tính sẵn; kiểm lại 60%slot để tránh vòng lặp vô hạn. OverridePolicyCard hiển thị 'Chưa đọc được luật mặc định'.",
+      "evidence": "src/dashboard/lib/booking-policy.ts:10-130; app/(dashboard)/settings/OverridePolicyCard.tsx:387"
+    },
+    {
+      "title": "Phiếu Nam khoa: ô số có đơn vị, ngưỡng WHO ở server theo ấn bản, ghi chú lý do lâm sàng cho từng ô",
+      "detail": "Không nhốt ngưỡng vào bundle; giải thích vì sao đòi giờ lấy máu, cách đo thể tích, điều kiện lấy mẫu; không chép bộ câu hỏi có bản quyền (IIEF-5).",
+      "evidence": "src/dashboard/lib/form-schemas/nk.ts:1-80, 570-640"
+    },
+    {
+      "title": "Khung nháp cục bộ có bốn chốt (khoá theo người, hạn 24h, xoá khi lưu, chỉ lưu thứ người dùng gõ)",
+      "detail": "Tách mã tab bằng sessionStorage để hai tab không đè nháp; hỏng kho thì im.",
+      "evidence": "src/dashboard/lib/luu-nhap.ts:1-67; lib/ma-tab.ts:1-47"
+    },
+    {
+      "title": "Khoá gửi lại xác định theo (đối tượng, revision) ở các lệnh liệu trình sửa",
+      "detail": "LieuTrinhKhach dùng khoá `lt-<id>-<hành động>-r<revision>` nên bấm lại sau lỗi mạng là cùng một lệnh; lệnh quầy trả trước thêm expected_so_buoi (so sánh-và-đặt).",
+      "evidence": "src/dashboard/app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx:111, 349-482; thu-ngan/LieuTrinhQuay.tsx:81-86"
+    },
+    {
+      "title": "Bộ đọc lỗi API không bao giờ ném và chuẩn hóa ba hình dạng lỗi",
+      "detail": "doCau luôn trả chuỗi hoặc undefined; ghép tên ô vào câu 422; ưu tiên message trước mã máy.",
+      "evidence": "src/dashboard/lib/loi-api.ts:36-124; lib/loi-doc-duoc.ts:24-50"
+    },
+    {
+      "title": "Cổng host giám sát là hàm thuần, fail-closed (404) cho đường giám sát ở host chính",
+      "detail": "quyetDinhCong tách quyết định khỏi middleware; staging/dev mở bằng cờ riêng; quyền giamsat.view vẫn gác thêm.",
+      "evidence": "src/dashboard/lib/cong-giam-sat.ts:50-57"
+    },
+    {
+      "title": "Chống chèn công thức khi xuất CSV",
+      "detail": "Ô bắt đầu bằng = + @ hoặc '-' không phải số âm được tiền tố dấu nháy; có BOM UTF-8 cho Excel.",
+      "evidence": "src/dashboard/lib/xuat-bang-excel.ts:3-12"
+    },
+    {
+      "title": "Cổng hai khoá cho phiếu khám mới (registry TS + clinical_form_catalogue/approval)",
+      "detail": "Phiếu NK tắt cho tới khi có dòng duyệt của bác sĩ; test ranh giới đảm bảo registry khớp phê duyệt.",
+      "evidence": "src/dashboard/lib/form-schemas/index.ts:1-29; lib/form-schemas/nk.ts:1-6"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/dashboard/components/ui/TrangThaiLuu.tsx",
+      "lines": 87,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/components/ui/WorkItemActions.tsx",
+      "lines": 147,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/components/ui/XacNhanTaiCho.tsx",
+      "lines": 64,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/components/ui/XuatBangTrongVung.tsx",
+      "lines": 59,
+      "full_read": true,
+      "note": "Đọc đủ; xuất đúng DOM đang xem (held)."
+    },
+    {
+      "path": "src/dashboard/components/ui/mau-theo-ma.ts",
+      "lines": 22,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/eslint.config.mjs",
+      "lines": 30,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/bao-loi-trinh-duyet.ts",
+      "lines": 124,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/bo-nho-tam.ts",
+      "lines": 94,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/booking-policy.ts",
+      "lines": 170,
+      "full_read": true,
+      "note": "Đọc đủ; mẫu tốt không mặc định ngầm; listBookingRules gộp lỗi thành [] (S23-4)."
+    },
+    {
+      "path": "src/dashboard/lib/ca-kham-bac-si.ts",
+      "lines": 17,
+      "full_read": true,
+      "note": "Đọc đủ; mã vị trí Kim Ngưu chép cứng (S23-1)."
+    },
+    {
+      "path": "src/dashboard/lib/capacity.ts",
+      "lines": 45,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/cashier-total.ts",
+      "lines": 52,
+      "full_read": true,
+      "note": "Đọc đủ; không còn nơi gọi ngoài test."
+    },
+    {
+      "path": "src/dashboard/lib/chi-dinh-chua-gui.ts",
+      "lines": 70,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/chi-tiet-thong-bao.ts",
+      "lines": 12,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/chon-nhan-vien.ts",
+      "lines": 93,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/cong-giam-sat.ts",
+      "lines": 57,
+      "full_read": true,
+      "note": "Đọc đủ; host mặc định dr4women (S23-1); cổng thuần tốt."
+    },
+    {
+      "path": "src/dashboard/lib/danh-muc.ts",
+      "lines": 46,
+      "full_read": true,
+      "note": "Đọc đủ; gộp lỗi thành [] (S23-4)."
+    },
+    {
+      "path": "src/dashboard/lib/datetime.ts",
+      "lines": 230,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/doc-gop.ts",
+      "lines": 69,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/doctor-name.ts",
+      "lines": 139,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/doctors-server.ts",
+      "lines": 82,
+      "full_read": true,
+      "note": "Đọc đủ; trả [] khi lỗi (S23-4)."
+    },
+    {
+      "path": "src/dashboard/lib/event-log-redaction.ts",
+      "lines": 73,
+      "full_read": true,
+      "note": "Đọc đủ; denylist khoá, mô-đun gần như chết."
+    },
+    {
+      "path": "src/dashboard/lib/event-log.ts",
+      "lines": 58,
+      "full_read": true,
+      "note": "Đọc đủ; mô-đun chết (không import)."
+    },
+    {
+      "path": "src/dashboard/lib/feature-mode-client.ts",
+      "lines": 22,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/feature-mode.ts",
+      "lines": 35,
+      "full_read": true,
+      "note": "Đọc đủ; fail-open FULL_CLINIC (held)."
+    },
+    {
+      "path": "src/dashboard/lib/form-schemas/hmvs.ts",
+      "lines": 375,
+      "full_read": true,
+      "note": "Một số dòng rất dài bị cắt ở 220 ký tự khi hiển thị; nội dung cấu trúc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/form-schemas/index.ts",
+      "lines": 49,
+      "full_read": true,
+      "note": "Đọc đủ; registry cứng + resolveServiceCode theo tên (S23-1)."
+    },
+    {
+      "path": "src/dashboard/lib/form-schemas/nk.ts",
+      "lines": 704,
+      "full_read": false,
+      "note": "Dòng 200-675 đọc qua bộ lọc bỏ các dòng cấu trúc ({ value..}, options, type, fullWidth, ]/}); đọc đủ nhãn, khoá, chú thích; chưa xem từng giá trị option."
+    },
+    {
+      "path": "src/dashboard/lib/form-schemas/nt.ts",
+      "lines": 207,
+      "full_read": true,
+      "note": "Đọc đủ; S23-9 (MHT)."
+    },
+    {
+      "path": "src/dashboard/lib/form-schemas/pk.ts",
+      "lines": 170,
+      "full_read": true,
+      "note": "Đọc đủ; mẫu phiếu cứng."
+    },
+    {
+      "path": "src/dashboard/lib/form-schemas/sk.ts",
+      "lines": 136,
+      "full_read": true,
+      "note": "Đọc đủ; mẫu phiếu cứng."
+    },
+    {
+      "path": "src/dashboard/lib/form-schemas/types.ts",
+      "lines": 51,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/gui-tep-co-tien-do.ts",
+      "lines": 46,
+      "full_read": true,
+      "note": "Đọc đủ; liên quan SEC-003."
+    },
+    {
+      "path": "src/dashboard/lib/hanh-trinh-khach.ts",
+      "lines": 352,
+      "full_read": true,
+      "note": "Đọc đủ; giờ chờ tính theo đồng hồ máy khách."
+    },
+    {
+      "path": "src/dashboard/lib/hanh-trinh.ts",
+      "lines": 172,
+      "full_read": true,
+      "note": "Đọc đủ; thời gian theo đồng hồ khách (S23-7)."
+    },
+    {
+      "path": "src/dashboard/lib/hoa-don-quay.ts",
+      "lines": 41,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/khach-moi-cu.ts",
+      "lines": 30,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/khung-da-qua.ts",
+      "lines": 72,
+      "full_read": true,
+      "note": "Đọc đủ; so với giờ khách (S23-7)."
+    },
+    {
+      "path": "src/dashboard/lib/khung-nhan-lich.ts",
+      "lines": 58,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/kiem-phien-tai-cho.ts",
+      "lines": 146,
+      "full_read": true,
+      "note": "Đọc đủ; xem S23-2 và held về thu hồi token."
+    },
+    {
+      "path": "src/dashboard/lib/lam-them.ts",
+      "lines": 7,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/lien-ket-lich.ts",
+      "lines": 33,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/lieu-trinh-cskh.ts",
+      "lines": 208,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/lieu-trinh.ts",
+      "lines": 260,
+      "full_read": true,
+      "note": "Đọc đủ; khoaLT() sinh khoá theo lần gọi (S23-3)."
+    },
+    {
+      "path": "src/dashboard/lib/linh-vuc.ts",
+      "lines": 20,
+      "full_read": true,
+      "note": "Đọc đủ; 5 lĩnh vực cứng (S23-1)."
+    },
+    {
+      "path": "src/dashboard/lib/lo-bi-loai.ts",
+      "lines": 63,
+      "full_read": true,
+      "note": "Đọc đủ; xem held về lô khác đơn vị."
+    },
+    {
+      "path": "src/dashboard/lib/loai-kham.ts",
+      "lines": 42,
+      "full_read": true,
+      "note": "Đọc đủ; 5 chuyên khoa cứng (S23-1)."
+    },
+    {
+      "path": "src/dashboard/lib/loc-tiep-don-context.ts",
+      "lines": 19,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/loi-api.ts",
+      "lines": 124,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/loi-doc-duoc.ts",
+      "lines": 50,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/luu-nhap.ts",
+      "lines": 110,
+      "full_read": true,
+      "note": "Đọc đủ; mở rộng FE-001."
+    },
+    {
+      "path": "src/dashboard/lib/ly-do-huy.ts",
+      "lines": 39,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/ly-do-xoa-tep.ts",
+      "lines": 23,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/ma-tab.ts",
+      "lines": 47,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/ma-vach.ts",
+      "lines": 58,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/ma-vi-tri.ts",
+      "lines": 7,
+      "full_read": true,
+      "note": "Đọc đủ; ánh xạ về mã mẫu Kim Ngưu (S23-1)."
+    },
+    {
+      "path": "src/dashboard/lib/man-tu-tai.ts",
+      "lines": 53,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/mot-luot.ts",
+      "lines": 42,
+      "full_read": true,
+      "note": "Đọc đủ; mở rộng FE-002."
+    },
+    {
+      "path": "src/dashboard/lib/ngan-gap.ts",
+      "lines": 46,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/nhan-luot.ts",
+      "lines": 50,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/nhip-khi-hien.ts",
+      "lines": 178,
+      "full_read": true,
+      "note": "Đọc đủ; xem S23-6."
+    },
+    {
+      "path": "src/dashboard/lib/nhip-lam-moi.ts",
+      "lines": 403,
+      "full_read": true,
+      "note": "Đọc đủ; mẫu tốt về nhịp/backoff."
+    },
+    {
+      "path": "src/dashboard/lib/o-so.ts",
+      "lines": 121,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/phan-loai-kham.ts",
+      "lines": 46,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/phieu-ket-qua.ts",
+      "lines": 151,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/postgrest-embed.ts",
+      "lines": 26,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/quyen-cua-toi.ts",
+      "lines": 73,
+      "full_read": true,
+      "note": "Đọc đủ; S23-5."
+    },
+    {
+      "path": "src/dashboard/lib/roles.ts",
+      "lines": 848,
+      "full_read": true,
+      "note": "Đọc dòng 1-848; vài dòng chú thích dài bị cắt hiển thị ở ~190-200 ký tự."
+    },
+    {
+      "path": "src/dashboard/lib/roster-names.ts",
+      "lines": 59,
+      "full_read": true,
+      "note": "Đọc đủ; mô-đun chết (OFF 24/09)."
+    },
+    {
+      "path": "src/dashboard/lib/roster.ts",
+      "lines": 608,
+      "full_read": true,
+      "note": "Đọc dòng 1-608; vài dòng chú thích dài bị cắt ở ~200 ký tự. MAU_PHONG/CA_THEO_THU cứng theo Kim Ngưu."
+    },
+    {
+      "path": "src/dashboard/lib/route-da-tat.ts",
+      "lines": 24,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/sinh-hieu-dong-bo.ts",
+      "lines": 93,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/slot-capacity.ts",
+      "lines": 64,
+      "full_read": true,
+      "note": "Đọc đủ."
+    },
+    {
+      "path": "src/dashboard/lib/so-sua-chi-dinh.ts",
+      "lines": 33,
+      "full_read": true,
+      "note": "Đọc đủ."
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+[
+  {
+    "id": "FIN-017",
+    "title": "Hồ sơ khách có thể bỏ sót công nợ ở các lượt khám cũ",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "operations/financial-integrity",
+    "summary": "Hàm tổng hợp hồ sơ chỉ lấy năm lượt gần nhất để tính tiền còn phải thu, trong khi phần đã thanh toán được cộng trên toàn lịch sử. Khoản còn nợ gắn với lượt cũ hơn năm lượt gần nhất có thể không nằm trong phép tính; UI hiển thị một con số chung là còn phải thu.",
+    "trigger": "Một khách có hơn năm lượt khám và còn số dư chưa thanh toán ở lượt cũ hơn năm lượt gần nhất.",
+    "impact": "Nhân viên CSKH/thu ngân có thể thấy số dư thấp hơn khoản cần thu và quyết định dựa trên tổng hợp thiếu phạm vi. Chưa có dữ liệu production để xác minh điều kiện này đã xảy ra.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/ghi_chu_khach_service.py",
+        "line": 235,
+        "end_line": 253,
+        "detail": "Danh sách lượt khám để tính khoản còn phải thu bị giới hạn ở 5 lượt gần nhất."
+      },
+      {
+        "path": "src/clinicai/services/ghi_chu_khach_service.py",
+        "line": 275,
+        "end_line": 319,
+        "detail": "Tổng đã trả lấy toàn lịch sử, còn khoản phải thu duyệt danh sách lượt đã bị giới hạn."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+        "line": 444,
+        "end_line": 455,
+        "detail": "UI hiển thị con số còn phải thu, không nêu phạm vi 5 lượt."
+      },
+      {
+        "path": "src/clinicai/services/cong_no_service.py",
+        "line": 366,
+        "end_line": 380,
+        "detail": "Đối chiếu hàm công nợ chuẩn không có cutoff 5 lượt."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Đối chiếu tĩnh service/API/UI trên snapshot main ghim xác nhận đường dữ liệu mô tả.",
+      "limitations": "Không chạy ClinicAI, API, DB hoặc test; không đọc production/PHI. Điều kiện kích hoạt chưa xác minh thực tế."
+    },
+    "recommendation": "Tính số dư từ nguồn công nợ chuẩn có phạm vi đầy đủ, hoặc ghi rõ phạm vi/thời điểm và tách nợ theo lượt; tránh trộn tổng đã trả all-time với cửa sổ năm lượt.",
+    "acceptance": "Synthetic fixture có ít nhất sáu lượt, nợ ở lượt đầu và thu ở lượt cuối: hồ sơ phải khớp sổ công nợ; kiểm tra cả loading/error và lọc thời gian.",
+    "alignment": [
+      "Reality ngày càng dễ nhìn thấy",
+      "Khoảng Unknown ngày càng ngắn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_ghi_chu_khach_db.py — đọc trọn, không chạy; summary fixture hiện có một lượt.",
+      "src/tests/services/test_cong_no_check_out_db.py — đọc trọn, không chạy; kiểm tra nợ còn sau checkout và hết sau thu."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/ghi_chu_khach_service.py": "17de8b83c3974a6293bfb954d21583cb080c76e301975ea458c88555460545e2",
+      "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+      "src/clinicai/services/cong_no_service.py": "1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Còn trên main ghim. Tĩnh xác nhận giới hạn trước vòng tính debt; chưa dựng fixture sáu lượt hoặc kiểm tra production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ghi_chu_khach_service.py",
+          "line": 235,
+          "end_line": 253,
+          "sha256": "17de8b83c3974a6293bfb954d21583cb080c76e301975ea458c88555460545e2",
+          "excerpt": "235:             luot = await conn.fetch(\n236:                 \"\"\"\n237:                 SELECT v.visit_id::text AS visit_id, v.status, v.checked_in_at,\n238:                        v.closed_at, v.exam_completed_at,\n239:                        st.name AS dich_vu, d.full_name AS bac_si,\n240:                        coalesce(r.name, n.name) AS dang_o\n241:                   FROM visit v\n242:                   LEFT JOIN service_type st ON st.id = v.service_type_id\n243:                   LEFT JOIN staff d ON d.id = v.attending_doctor_id\n244:                   LEFT JOIN node_definition n\n245:                     ON n.clinic_id = v.clinic_id AND n.code = v.current_node_code\n246:                   LEFT JOIN clinic_room r\n247:                     ON r.id = v.current_room_id AND r.clinic_id = v.clinic_id\n248:                  WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid\n249:                  ORDER BY coalesce(v.checked_in_at, v.created_at) DESC\n250:                  LIMIT 5\n251:                 \"\"\",\n252:                 cid,\n253:                 pid,"
+        },
+        {
+          "path": "src/clinicai/services/ghi_chu_khach_service.py",
+          "line": 275,
+          "end_line": 319,
+          "sha256": "17de8b83c3974a6293bfb954d21583cb080c76e301975ea458c88555460545e2",
+          "excerpt": "275:             da_tra = await conn.fetchrow(\n276:                 \"\"\"\n277:                 -- Sự thật tiền là `payment_cycle` (dịch vụ thu NHIỀU lần; `payment`\n278:                 -- chỉ là hình chiếu lần mới nhất → cộng nó thì thiếu các lần trước:\n279:                 -- prod 16/10 có 17 lần thu / 19,65 triệu không có dòng payment riêng).\n280:                 SELECT coalesce(sum(pc.amount), 0) AS tong, count(*) AS so_lan,\n281:                        max(pc.paid_at) AS lan_cuoi\n282:                   FROM payment_cycle pc\n283:                   JOIN visit v\n284:                     ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id\n285:                  WHERE pc.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid\n286:                    AND pc.status = 'PAID'\n287:                 \"\"\",\n288:                 cid,\n289:                 pid,\n290:             )\n291:             # CÒN PHẢI THU: đúng hoá đơn quầy thu sẽ tính (`tinh_hoa_don`) cho\n292:             # các lượt gần đây — tiền dịch vụ = hoá đơn còn nợ; tiền thuốc chỉ\n293:             # khi lượt ấy chưa có phiếu thu thuốc.\n294:             con_no: list[dict[str, Any]] = []\n295:             for v in luot:\n296:                 vid = v[\"visit_id\"]\n297:                 dv = await tinh_hoa_don(\n298:                     conn, clinic_id=cid, visit_id=vid, kind=\"dich_vu\"\n299:                 )\n300:                 if dv.tong > 0:\n301:                     con_no.append(\n302:                         {\"visit_id\": vid, \"loai\": \"dich_vu\", \"so_tien\": dv.tong}\n303:                     )\n304:                 da_thu_thuoc = await conn.fetchval(\n305:                     \"SELECT EXISTS (SELECT 1 FROM payment pm\"\n306:                     \" WHERE pm.clinic_id = $1::uuid AND pm.visit_id = $2::uuid\"\n307:                     \" AND pm.kind = 'thuoc' AND pm.status = 'PAID'\"\n308:                     \" AND pm.voided_at IS NULL)\",\n309:                     cid,\n310:                     vid,\n311:                 )\n312:                 if not da_thu_thuoc:\n313:                     th = await tinh_hoa_don(\n314:                         conn, clinic_id=cid, visit_id=vid, kind=\"thuoc\"\n315:                     )\n316:                     if th.tong > 0:\n317:                         con_no.append(\n318:                             {\"visit_id\": vid, \"loai\": \"thuoc\", \"so_tien\": th.tong}\n319:                         )"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+          "line": 444,
+          "end_line": 455,
+          "sha256": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+          "excerpt": "444:       <div>\n445:         <p className=\"font-semibold text-ink\">Tiền</p>\n446:         <dl className=\"mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 text-ink\">\n447:           <dt className=\"text-ink-muted\">Đã trả ({t.tien.so_lan_tra} lần)</dt>\n448:           <dd className=\"text-right tabular-nums\">{tien(t.tien.da_tra)}</dd>\n449:           <dt className=\"text-ink-muted\">Còn phải thu</dt>\n450:           <dd className=\"text-right tabular-nums\">\n451:             {t.tien.con_phai_thu > 0 ? (\n452:               <Chip tone=\"warning\">{tien(t.tien.con_phai_thu)}</Chip>\n453:             ) : (\n454:               tien(0)\n455:             )}"
+        },
+        {
+          "path": "src/clinicai/services/cong_no_service.py",
+          "line": 366,
+          "end_line": 380,
+          "sha256": "1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294",
+          "excerpt": "366:     \"\"\" \"Khách còn nợ: n — x đ\" — số dư PHẢI THU của SỔ NỢ (14/10/2026): mọi\n367:     lượt đã về còn nợ, kể cả không ai bấm \"Ghi nợ\" (huỷ phiếu sau khi về, bấm\n368:     Xong muộn, CK chờ xác minh…); trả một phần thì giảm ngay. Không hạn ngày.\n369: \n370:     ``kem_ds`` thêm danh sách truy thu (mới nhất trước, tối đa ``_TRAN_DS`` dòng,\n371:     ``bi_cat`` nói ra; tổng không bị cắt). ``location_id``: chỉ lượt của cơ sở\n372:     ấy. ``id`` của dòng = khoản ghi nợ của lễ tân nếu có, không thì dòng sổ.\n373:     \"\"\"\n374:     from clinicai.services.so_no_service import PHAI_THU, doc_so_du_mo\n375: \n376:     rows = await doc_so_du_mo(conn, clinic_id, PHAI_THU, location_id)\n377:     out: dict[str, Any] = {\n378:         \"so_khach\": len({r[\"patient_id\"] for r in rows}),\n379:         \"so_luot\": len(rows),\n380:         \"so_tien\": sum(r[\"so_du\"] for r in rows),"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "OPS-009",
+    "title": "Tổng lượt trên màn giám sát có thể thấp hơn thực tế sau giới hạn 400",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "operations/observability-completeness",
+    "summary": "Dispatch overview chỉ trả tối đa 400 lượt và ghi cảnh báo ở log khi chạm giới hạn. Tổng quan đếm KPI từ danh sách đã giới hạn; response/UI không có total, has_more hay cờ dữ liệu thiếu, nên số trên màn có vẻ đầy đủ dù có thể bị cắt.",
+    "trigger": "Một phòng khám có hơn 400 lượt phù hợp bộ lọc overview trong cùng thời điểm đọc.",
+    "impact": "Trưởng ca có thể đánh giá thiếu tải đang chờ/đang phục vụ và phân bổ nguồn lực dựa trên tổng không đầy đủ. Chưa đo volume để xác nhận điều kiện ở production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/dispatch_service.py",
+        "line": 220,
+        "end_line": 235,
+        "detail": "Query overview sắp xếp lượt và giới hạn kết quả ở 400 dòng."
+      },
+      {
+        "path": "src/clinicai/services/dispatch_service.py",
+        "line": 318,
+        "end_line": 335,
+        "detail": "Service cảnh báo log khi chạm ngưỡng nhưng không trả metadata truncation."
+      },
+      {
+        "path": "src/clinicai/services/tong_quan_giam_sat.py",
+        "line": 33,
+        "end_line": 59,
+        "detail": "Các KPI được đếm từ danh sách overview."
+      },
+      {
+        "path": "src/clinicai/services/tong_quan_giam_sat.py",
+        "line": 70,
+        "end_line": 77,
+        "detail": "Tổng quan nhận danh sách capped từ dispatch overview."
+      },
+      {
+        "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+        "line": 66,
+        "end_line": 87,
+        "detail": "Kiểu dữ liệu UI thiếu total/has_more/truncated."
+      },
+      {
+        "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+        "line": 681,
+        "end_line": 721,
+        "detail": "KPI hiển thị như tổng số mà không báo giới hạn."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Đối chiếu tĩnh service/API/UI trên snapshot main ghim xác nhận đường dữ liệu mô tả.",
+      "limitations": "Không chạy ClinicAI, API, DB hoặc test; không đọc production/PHI. Điều kiện kích hoạt chưa xác minh thực tế."
+    },
+    "recommendation": "Tính KPI bằng aggregate độc lập với danh sách, hoặc trả metadata phân trang/truncation và ghi rõ phạm vi cạnh số.",
+    "acceptance": "Synthetic test với hơn 400 lượt: KPI phải bằng tổng thật hoặc màn công khai giới hạn/còn dữ liệu; kiểm tra total riêng với danh sách preview.",
+    "alignment": [
+      "Reality ngày càng dễ nhìn thấy",
+      "Khoảng Unknown ngày càng ngắn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_loc_co_so_nhom_a_db.py — đọc chọn lọc, không chạy; chưa chứng minh metadata/UI khi vượt cap.",
+      "src/tests/services/test_truong_ca_3_loi_db.py — đọc chọn lọc, không chạy; chưa xác nhận tổng overview vượt cap."
+    ],
+    "source_hashes": {
+      "src/clinicai/services/dispatch_service.py": "cb3b2dbe53a151c66754e4442b15a3cb7eb8bba01dc586254a37427a37e1f35f",
+      "src/clinicai/services/tong_quan_giam_sat.py": "529ef8e0385a748410c61a07644745436165cd557c530a049888db0ba708268c",
+      "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx": "a14778ef1d3a0c887e2c06dd2a3c9d9b5b25625c684d13784906dc95fe6d0245"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Còn trên main ghim; chỉ tác động nếu vượt ngưỡng 400, chưa có đo volume/production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/dispatch_service.py",
+          "line": 220,
+          "end_line": 235,
+          "sha256": "cb3b2dbe53a151c66754e4442b15a3cb7eb8bba01dc586254a37427a37e1f35f",
+          "excerpt": "220:    -- CHỈ LƯỢT CÒN MỞ HÔM NAY (Tuyền 29/09/2026): khách đã check-out / đóng lượt\n221:    -- (`closed_at`, hoặc đứng ở bước đóng lượt LUOTKHAM-15) và lượt của các ngày\n222:    -- trước không còn \"trong phòng khám\" — không đếm, không báo chờ quá lâu.\n223:    AND v.closed_at IS NULL\n224:    AND v.current_node_code IS DISTINCT FROM 'LUOTKHAM-15'\n225:    -- V8: lượt BÁN LẺ (khách chỉ mua thuốc ở quầy) không qua điều phối.\n226:    AND NOT v.ban_le\n227:    AND coalesce(v.checked_in_at, v.created_at) >=\n228:        (date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')\n229:         AT TIME ZONE 'Asia/Ho_Chi_Minh')\n230:    -- CHỈ LƯỢT CỦA CƠ SỞ ĐANG ĐỨNG (08/10/2026). Không biết cơ sở của lượt hoặc\n231:    -- không truyền cơ sở ($3 rỗng) → giữ.\n232:    AND coalesce(v.location_id, a.location_id, $3::uuid)\n233:        IS NOT DISTINCT FROM coalesce($3::uuid, v.location_id, a.location_id)\n234:  ORDER BY v.current_node_since NULLS LAST, v.checked_in_at\n235:  LIMIT 400"
+        },
+        {
+          "path": "src/clinicai/services/dispatch_service.py",
+          "line": 318,
+          "end_line": 335,
+          "sha256": "cb3b2dbe53a151c66754e4442b15a3cb7eb8bba01dc586254a37427a37e1f35f",
+          "excerpt": "318:     async def overview(\n319:         self, *, clinic_id: str, location_id: str | None = None\n320:     ) -> list[dict[str, Any]]:\n321:         \"\"\"Mỗi bệnh nhân đang trong phòng khám là một dòng.\n322: \n323:         `location_id` = cơ sở người đang xem; None = mọi cơ sở.\n324:         \"\"\"\n325:         async with self._pool.acquire() as conn:\n326:             rows = await conn.fetch(\n327:                 _OVERVIEW_SQL,\n328:                 clinic_id,\n329:                 list(LIVE_VISIT_STATUSES),\n330:                 location_id or None,\n331:             )\n332:         # Mỗi dòng là một người đang ở trong phòng khám. Cắt im lặng ở đây nghĩa\n333:         # là có người đứng đó mà bảng điều phối không thấy.\n334:         canh_bao_neu_day(\"dieu_phoi.tong_quan\", len(rows), 400, clinic_id=clinic_id)\n335:         return [_overview_row(r) for r in rows]"
+        },
+        {
+          "path": "src/clinicai/services/tong_quan_giam_sat.py",
+          "line": 33,
+          "end_line": 59,
+          "sha256": "529ef8e0385a748410c61a07644745436165cd557c530a049888db0ba708268c",
+          "excerpt": "33: def van_hanh_tu_dieu_phoi(patients: list[dict[str, Any]]) -> dict[str, Any]:\n34:     \"\"\"HÀM THUẦN: từ danh sách khách đang trong phòng khám → các con số.\"\"\"\n35:     dang_cho = dang_lam = qua_nguong = 0\n36:     cho_lau_nhat = 0\n37:     for p in patients:\n38:         if not isinstance(p, dict):\n39:             continue\n40:         nhan = p.get(\"trang_thai\")\n41:         ma = nhan.get(\"ma\") if isinstance(nhan, dict) else None\n42:         w = p.get(\"wait_minutes\")\n43:         w = w if isinstance(w, int) and not isinstance(w, bool) else 0\n44:         nguong = p.get(\"threshold_minutes\")\n45:         nguong = nguong if isinstance(nguong, int) and nguong > 0 else 20\n46:         if ma == _KHACH_DANG_CHO:\n47:             dang_cho += 1\n48:             cho_lau_nhat = max(cho_lau_nhat, w)\n49:             if w > nguong:\n50:                 qua_nguong += 1\n51:         elif ma in _KHACH_DANG_LAM:\n52:             dang_lam += 1\n53:     return {\n54:         \"dang_trong_phong_kham\": sum(1 for p in patients if isinstance(p, dict)),\n55:         \"dang_cho\": dang_cho,\n56:         \"dang_lam\": dang_lam,\n57:         \"cho_qua_nguong\": qua_nguong,\n58:         \"cho_lau_nhat_phut\": cho_lau_nhat,\n59:     }"
+        },
+        {
+          "path": "src/clinicai/services/tong_quan_giam_sat.py",
+          "line": 70,
+          "end_line": 77,
+          "sha256": "529ef8e0385a748410c61a07644745436165cd557c530a049888db0ba708268c",
+          "excerpt": "70: async def doc(\n71:     pool: asyncpg.Pool, *, clinic_id: str, location_id: str | None = None\n72: ) -> dict[str, Any]:\n73:     \"\"\"`location_id` = cơ sở đang chọn (Hào Nam / Kim Ngưu nhân bản cùng tên\n74:     phòng — gộp lại là bản đồ có hai \"Siêu âm tầng 2\"). None = mọi cơ sở.\"\"\"\n75:     dv = DispatchService(pool)\n76:     patients = await dv.overview(clinic_id=clinic_id, location_id=location_id)\n77:     rooms = await dv.stations(clinic_id=clinic_id, location_id=location_id)"
+        },
+        {
+          "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+          "line": 66,
+          "end_line": 87,
+          "sha256": "a14778ef1d3a0c887e2c06dd2a3c9d9b5b25625c684d13784906dc95fe6d0245",
+          "excerpt": "66: interface TongQuan {\n67:   van_hanh: {\n68:     dang_trong_phong_kham: number;\n69:     dang_cho: number;\n70:     dang_lam: number;\n71:     cho_qua_nguong: number;\n72:     cho_lau_nhat_phut: number;\n73:     check_in_hom_nay: number;\n74:     da_ve_hom_nay: number;\n75:     check_in_hom_qua_cung_gio?: number;\n76:     theo_gio: readonly { gio: number; so: number }[];\n77:   };\n78:   phong: readonly Phong[];\n79:   he_thong: {\n80:     su_kien_on: boolean;\n81:     su_kien_ly_do: readonly string[];\n82:     loi_moi: number;\n83:     loi_24h: number;\n84:     canh_bao: readonly { ma: string; muc: string; noi_dung: string }[];\n85:   };\n86:   agent: { critical: number; warning: number; vong_cuoi: string | null };\n87: }"
+        },
+        {
+          "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+          "line": 681,
+          "end_line": 721,
+          "sha256": "a14778ef1d3a0c887e2c06dd2a3c9d9b5b25625c684d13784906dc95fe6d0245",
+          "excerpt": "681:             nhan=\"Đang trong phòng khám\"\n682:             icon={<DoorOpen className=\"size-4\" />}\n683:             gia_tri={vh ? so(vh.dang_trong_phong_kham) : \"—\"}\n684:             duoi={\n685:               vh ? (\n686:                 <span className={`text-xs ${CHU_PHU}`}>\n687:                   <span className={`font-medium ${CHU}`}>{vh.dang_lam}</span> đang làm ·{\" \"}\n688:                   <span className={`font-medium ${CHU}`}>{vh.dang_cho}</span> đang chờ\n689:                 </span>\n690:               ) : null\n691:             }\n692:             ve={\n693:               vh && vh.dang_trong_phong_kham > 0 ? (\n694:                 <div className=\"flex h-11 w-24 items-end gap-1\" aria-hidden>\n695:                   {[vh.dang_lam, vh.dang_cho, Math.max(0, vh.dang_trong_phong_kham - vh.dang_lam - vh.dang_cho)].map((v, k) => (\n696:                     <div\n697:                       key={k}\n698:                       className={`flex-1 rounded-t-sm ${k === 0 ? \"bg-gradient-to-b from-[#3f3f46] to-[#18181b]\" : k === 1 ? \"bg-amber-400\" : \"bg-[#ececee]\"}`}\n699:                       style={{ height: `${Math.max(6, (v / vh.dang_trong_phong_kham) * 100)}%` }}\n700:                     />\n701:                   ))}\n702:                 </div>\n703:               ) : null\n704:             }\n705:           />\n706:           <ChiSo\n707:             nhan=\"Chờ lâu nhất\"\n708:             icon={<Hourglass className=\"size-4\" />}\n709:             gia_tri={vh ? `${vh.cho_lau_nhat_phut} phút` : \"—\"}\n710:             muc={vh && vh.cho_qua_nguong > 0 ? \"warning\" : \"ok\"}\n711:             duoi={\n712:               vh ? (\n713:                 vh.cho_qua_nguong > 0 ? (\n714:                   <span className=\"text-xs\">\n715:                     <span className=\"font-medium text-amber-600\">{vh.cho_qua_nguong} khách</span>{\" \"}\n716:                     <span className={CHU_PHU}>đang chờ quá ngưỡng</span>\n717:                   </span>\n718:                 ) : (\n719:                   <span className=\"text-xs text-emerald-600\">Không ai chờ quá ngưỡng</span>\n720:                 )\n721:               ) : null"
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

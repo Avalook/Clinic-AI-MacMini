@@ -1,0 +1,642 @@
+{
+  "round": 28,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "scope": "CSKH callback retry/idempotency; stocktake concurrent draft edits and close acknowledgement; vitals stale refresh. Static exact-main only.",
+  "method": "Read-only cross-layer trace of UI → BFF → FastAPI → service/schema and selected test source. No ClinicAI tests, API, DB, provider, VPS or production access; no secrets/PHI.",
+  "result": "Added CLIN-044, PHAR-003 and PHAR-004 as confirmed-static findings; extended FE-002 for vitals refresh visibility. No runtime incidence or fault-injection claim.",
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/HanhDongTrangThai.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 432,
+          "end": 463,
+          "purpose": "Create callback form, request outcome and loading recovery"
+        },
+        {
+          "start": 1073,
+          "end": 1081,
+          "purpose": "Submit button and retry availability"
+        }
+      ],
+      "sha256": "d2637c746c37448936436e6ae2681f8711272e328c10b6ecc917793f803aa38f",
+      "line_count": 1103,
+      "purpose": "CSKH patient-detail callback create UI."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/hen-goi-lai/route.ts",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 37,
+          "purpose": "Full BFF POST/PATCH contract"
+        }
+      ],
+      "sha256": "116980d9322f7c8385a343f159077f8fa68362aebab0f47b0eeaf0d7333e3f25",
+      "line_count": 37,
+      "purpose": "CSKH callback BFF."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 576,
+          "end": 608,
+          "purpose": "Request schema, create and close routes"
+        }
+      ],
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "line_count": 1092,
+      "purpose": "CSKH callback API route; remainder of router stays partially reviewed."
+    },
+    {
+      "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 657,
+          "end": 790,
+          "purpose": "Callback create, notification boundary and service result"
+        }
+      ],
+      "sha256": "5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118",
+      "line_count": 919,
+      "purpose": "CSKH callback service; remainder of service stays partially reviewed."
+    },
+    {
+      "path": "supabase/migrations/20260809000005_trang_thai_cskh_suy_ra.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 94,
+          "end": 117,
+          "purpose": "Callback table and non-unique open-task index"
+        }
+      ],
+      "sha256": "2a8058676cf9d96f5880f06fb2559a9c6627b0c675ee778c2e009ef890b6dda6",
+      "line_count": 332,
+      "purpose": "Existing schema evidence for callback identity/deduplication."
+    },
+    {
+      "path": "src/tests/unit/test_so_tuong_tac_cskh.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 144,
+          "end": 187,
+          "purpose": "Clinic-scope behavior; inspected retry-test gap"
+        }
+      ],
+      "sha256": "1ab3a82e1fdd31205321d139bcdc42f9f283cc8d86866969467f7bd2227da016",
+      "line_count": 1004,
+      "purpose": "CSKH service tests read selectively; not executed."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 712,
+          "purpose": "Full file"
+        },
+        {
+          "start": 89,
+          "end": 111,
+          "purpose": "Fetch error classification"
+        },
+        {
+          "start": 153,
+          "end": 254,
+          "purpose": "List/read/open"
+        },
+        {
+          "start": 256,
+          "end": 351,
+          "purpose": "Save/close/adjust/reverse"
+        },
+        {
+          "start": 486,
+          "end": 706,
+          "purpose": "Inputs and actions"
+        }
+      ],
+      "sha256": "231e74f17853c4effe5b5159e8298140ded567d5892fefa2b04cc1a2c45c253c",
+      "line_count": 712,
+      "purpose": "Stocktake UI draft concurrency and write-outcome review."
+    },
+    {
+      "path": "src/dashboard/app/api/pharmacy/kiem-ke-ca/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 40,
+          "purpose": "Full file"
+        }
+      ],
+      "sha256": "2c75bb606570ed48af60e14fa98b996b70c0420f9955368e335eb5d5a4e2dca3",
+      "line_count": 40,
+      "purpose": "Stocktake list/open BFF."
+    },
+    {
+      "path": "src/dashboard/app/api/pharmacy/kiem-ke-ca/[id]/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 18,
+          "purpose": "Full file"
+        }
+      ],
+      "sha256": "987d9a93af42ce52b4d202245fcd21fd9b05f1989902d67520c13e7dd34cdc8f",
+      "line_count": 18,
+      "purpose": "Stocktake detail BFF."
+    },
+    {
+      "path": "src/dashboard/app/api/pharmacy/kiem-ke-ca/[id]/[buoc]/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 29,
+          "purpose": "Full file"
+        }
+      ],
+      "sha256": "4df8e0409732af80121bc002e9d5ecd0a62891e542ae68b1fdb6c66f6572df10",
+      "line_count": 29,
+      "purpose": "Stocktake write-step BFF."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 54,
+          "purpose": "Permissions and router helpers"
+        },
+        {
+          "start": 761,
+          "end": 933,
+          "purpose": "Stocktake read/write routes"
+        }
+      ],
+      "sha256": "f5d2086e4c71db714773f4d5bd62bd4fce3d7d474eea407c834b8c039a2b4ff8",
+      "line_count": 1372,
+      "purpose": "FastAPI stocktake contracts and guards."
+    },
+    {
+      "path": "src/clinicai/services/kiem_ke_ca_service.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 520,
+          "end": 599,
+          "purpose": "List/detail query"
+        },
+        {
+          "start": 645,
+          "end": 710,
+          "purpose": "Open"
+        },
+        {
+          "start": 713,
+          "end": 834,
+          "purpose": "Draft save and row lock"
+        },
+        {
+          "start": 884,
+          "end": 1006,
+          "purpose": "Close/replay-safe state transition"
+        },
+        {
+          "start": 1023,
+          "end": 1161,
+          "purpose": "Adjustment"
+        },
+        {
+          "start": 1194,
+          "end": 1336,
+          "purpose": "Reverse and correction"
+        }
+      ],
+      "sha256": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+      "line_count": 1336,
+      "purpose": "Service full-read in Round 12; targeted re-trace in Round 28."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 88,
+          "end": 145,
+          "purpose": "Realtime table subscriptions"
+        },
+        {
+          "start": 173,
+          "end": 213,
+          "purpose": "Refresh handling"
+        }
+      ],
+      "sha256": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+      "line_count": 350,
+      "purpose": "Stocktake notification coverage uses parent-table trigger; partial trace."
+    },
+    {
+      "path": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 57,
+          "end": 80,
+          "purpose": "Detail schema and unique key"
+        },
+        {
+          "start": 151,
+          "end": 180,
+          "purpose": "RLS, grants and parent notification trigger"
+        }
+      ],
+      "sha256": "c23f1bc1f8cba9e679efa389f403c3480e083fd02a14c359f85c7319decd285d",
+      "line_count": 182,
+      "purpose": "Migration full-read earlier; targeted cross-check."
+    },
+    {
+      "path": "supabase/migrations/20261018120000_kiem_ke_ca_dinh_chinh.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 60,
+          "purpose": "Full file"
+        }
+      ],
+      "sha256": "1bcf7b0dcba9929fb2a5eb99c79123e79e1934bfd799bcc457380b1a815d9701",
+      "line_count": 60,
+      "purpose": "Stocktake correction migration."
+    },
+    {
+      "path": "src/dashboard/tests/kiem-ke-ca-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 197,
+          "purpose": "Full boundary test file; not executed"
+        }
+      ],
+      "sha256": "35c862c63c44f10d3d39cc52613119e350cc38bbdaafd460e2282cbdfb0e9311",
+      "line_count": 197,
+      "purpose": "Stocktake UI/BFF source-boundary tests."
+    },
+    {
+      "path": "src/dashboard/tests/kho-thuoc-giao-dien-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 86,
+          "purpose": "Full boundary test file; not executed"
+        }
+      ],
+      "sha256": "1f50f82b0a34535ef1afba62c5f80cea1026f2c8f00cbdbac9b3c8df6ddb22ed",
+      "line_count": 86,
+      "purpose": "Pharmacy UI boundary tests."
+    },
+    {
+      "path": "src/tests/services/test_kiem_ke_ca_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 90,
+          "end": 470,
+          "purpose": "Open, validation and draft save cases"
+        },
+        {
+          "start": 618,
+          "end": 769,
+          "purpose": "Close/adjust cases"
+        },
+        {
+          "start": 772,
+          "end": 930,
+          "purpose": "Replay/reverse/correction cases"
+        }
+      ],
+      "sha256": "f836844d0a9f652ca961acd95727dc7e2305800efab0ca3bf9850b94d53e686f",
+      "line_count": 946,
+      "purpose": "Stocktake service DB tests read selectively; not executed."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/do-sinh-hieu/page.tsx",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 28,
+          "purpose": "Full access guard and mount"
+        }
+      ],
+      "sha256": "b8360ac0f59bb2c89ecd25bfb1f19294421736fa93cd338fceb9ab9ec969e5ae",
+      "line_count": 28,
+      "purpose": "Vitals page wrapper."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 804,
+          "purpose": "Full file"
+        },
+        {
+          "start": 159,
+          "end": 168,
+          "purpose": "Load success/error"
+        },
+        {
+          "start": 195,
+          "end": 236,
+          "purpose": "SSE, polling and visibility refresh"
+        },
+        {
+          "start": 391,
+          "end": 424,
+          "purpose": "Save/reload state"
+        },
+        {
+          "start": 494,
+          "end": 503,
+          "purpose": "Initial error rendering"
+        },
+        {
+          "start": 749,
+          "end": 756,
+          "purpose": "Selected-patient error rendering"
+        }
+      ],
+      "sha256": "859d2e45bed49936888546a60db874ada5edc30cc835aa5d260062e0e28f0dd4",
+      "line_count": 804,
+      "purpose": "Vitals queue stale data and unknown refresh review."
+    },
+    {
+      "path": "src/dashboard/app/api/luot-kham/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 18,
+          "end": 29,
+          "purpose": "Action whitelist"
+        },
+        {
+          "start": 219,
+          "end": 266,
+          "purpose": "GET/POST BFF and idempotency forwarding"
+        }
+      ],
+      "sha256": "912e9ddf0887162cd7c21fca5e9bb54b66efa622bfe882ce0c14b890b1ba1a69",
+      "line_count": 266,
+      "purpose": "Vitals dashboard BFF read/write path."
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 115,
+          "end": 197,
+          "purpose": "Proxy headers, idempotency and error mapping"
+        }
+      ],
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "line_count": 323,
+      "purpose": "Shared proxy contract; read previously, rechecked in Round 28."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 58,
+          "end": 112,
+          "purpose": "Permission guards"
+        },
+        {
+          "start": 171,
+          "end": 211,
+          "purpose": "Vitals endpoints"
+        },
+        {
+          "start": 269,
+          "end": 283,
+          "purpose": "Save request model"
+        }
+      ],
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "line_count": 1221,
+      "purpose": "Vitals FastAPI routes; partial trace."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_doc.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 75,
+          "end": 157,
+          "purpose": "Clinic/location/secretary scoping"
+        },
+        {
+          "start": 356,
+          "end": 420,
+          "purpose": "List projection"
+        },
+        {
+          "start": 443,
+          "end": 460,
+          "purpose": "Same-day reading helper use"
+        },
+        {
+          "start": 581,
+          "end": 615,
+          "purpose": "Actor/time projection"
+        }
+      ],
+      "sha256": "a7f6f62cb2cca3a8b9788f76c3a4e8bd11b6889570da3a5c8d6d7adcafe0bf8e",
+      "line_count": 1511,
+      "purpose": "Vitals query service partial trace."
+    },
+    {
+      "path": "src/clinicai/services/sinh_hieu_buoi.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 81,
+          "purpose": "Same-day latest-reading selection"
+        }
+      ],
+      "sha256": "d0748495b158f98f486e3bffcfafb9d1dd1239c99b85a4c706f92f12b5c4fd20",
+      "line_count": 125,
+      "purpose": "Vitals carry-forward helper read previously."
+    },
+    {
+      "path": "src/clinicai/services/sinh_hieu_service.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 433,
+          "purpose": "Full file"
+        }
+      ],
+      "sha256": "d9d36c2b7d0ce7d5287cfbb829ff07b433ae72fc4f896cf4fe1d0cda615fe995",
+      "line_count": 433,
+      "purpose": "Vitals start/save transaction, audit, event and idempotency."
+    },
+    {
+      "path": "src/dashboard/tests/bat-dau-do-sinh-hieu-boundary.test.mts",
+      "status": "read",
+      "prior_status": "inventoried",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 69,
+          "purpose": "Full file; not executed"
+        }
+      ],
+      "sha256": "dfd912ad60f0e33d17d770fc6e756eb41d437d7b1b951cf3582c615464f62475",
+      "line_count": 69,
+      "purpose": "Vitals boundary test."
+    },
+    {
+      "path": "src/tests/services/test_bat_dau_do_sinh_hieu_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 141,
+          "end": 236,
+          "purpose": "Persistence/status/actor"
+        },
+        {
+          "start": 239,
+          "end": 349,
+          "purpose": "Idempotency, race and handoff"
+        },
+        {
+          "start": 355,
+          "end": 367,
+          "purpose": "Saved event"
+        }
+      ],
+      "sha256": "a9f5319a3e37076a8826d967502e48dd32f90f6254fda1d0e13a36d311ca626e",
+      "line_count": 410,
+      "purpose": "Vitals service DB tests read selectively; not executed."
+    },
+    {
+      "path": "src/clinicai/services/man_khach_hang_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 654,
+          "purpose": "Full service: customer projections, callbacks, pagination/caps and roster/week lookup"
+        }
+      ],
+      "sha256": "f42edad47d7c011d06fad69b3f45b58d865c0d1f6a9d85124b127251c9ed4331",
+      "line_count": 654,
+      "purpose": "CSKH projection service; 5000-row unordered roster/week cap retained as volume-policy observation."
+    }
+  ]
+}

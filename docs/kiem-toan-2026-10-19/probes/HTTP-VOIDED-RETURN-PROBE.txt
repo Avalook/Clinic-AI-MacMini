@@ -1,0 +1,75 @@
+Audit-only note — pharmacy return after payment void
+Date: 2026-10-19
+Pinned source HEAD: 956ba4f236b1c92f1280d2097018c199e90ce8c7
+
+Purpose
+Verify through the FastAPI ASGI route whether a medicine return with HOAN or DOI can refund a cycle that was paid, dispensed, then voided; verify the GIU_LAI path and the ledger recomputation. No production database was used.
+
+Transient probe source
+src/tests/services/test_audit_1910_voided_return_http_probe.py
+The probe source was temporary and was removed after the run. It is not a tracked test and is not preserved in this note. The test created an isolated paid medicine-cycle fixture for a 10-unit prescription, dispensed all 10 units, checked out, then voided the cycle. It exercised the general refund service as a control and posted to `/api/v1/pharmacy/khach-tra` through the ASGI app with FastAPI pool/identity overrides and an `Idempotency-Key`. HOAN returned 409; GIU_LAI returned 200. The probe then asserted the observed balance remained PHAI_THU=50,000 / PHAI_TRA=0 before and after GIU_LAI and that no `so_no` ledger row was written for `medicine.returned`.
+
+Exact command used
+PATH=/tmp/clinicai-audit-no-fetch-bin:$PATH TEST_NHANH_PYTHON=.venv/bin/python scripts/test-nhanh.sh src/tests/services/test_audit_1910_voided_return_http_probe.py -q
+
+The temporary `git` shim at `/tmp/clinicai-audit-no-fetch-bin/git` prevented the harness from fetching while the test ran. The runner created disposable database `tam_92618_dr4women_macmini`; it did not connect to production. The runner reported that its reusable template was `main@27e010d6` with seed `a2fb441101963564c2beb1d4dff65d72`, then applied 42 migrations present in the pinned tree but absent from that template. It also warned that the pinned `supabase/seed.sql` differs from the template seed. Therefore this is an isolated DB probe against pinned application/migrations, not a fresh main-seed/bootstrap validation.
+
+Captured test-run output
+(The command tool returned the following combined output; PostgreSQL NOTICE and pytest warnings may be on stderr rather than stdout.)
+
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_92618_dr4women_macmini (1 worker) sẵn sàng sau 4s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+.                                                                        [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+  /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or 'core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.53s

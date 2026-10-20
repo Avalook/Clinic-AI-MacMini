@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "audit": "round15_connection_budget",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha_verification": "Source files read from the active detached checkout at exact pinned Git SHA; source paths are clean, audit artifacts are untracked."
+  },
+  "review_mode": "static_read_only_cross_service_capacity_trace",
+  "scope": [
+    "asyncpg API/worker pools",
+    "psycopg LangGraph checkpointer pool",
+    "dedicated ChangeBroker connection",
+    "GoTrue/PostgREST caps",
+    "production/staging compose topology and permitted overrides",
+    "pool observability and direct tests"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "files": [
+    {
+      "path": "src/clinicai/core/database.py",
+      "sha256": "88d87730a2db751b1e1d9ec37f44f2983bfdcf6034903c4943872c6ceaffbb0f",
+      "line_count": 140,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "1-140: pool lifecycle, bounds, retry and shutdown"
+    },
+    {
+      "path": "src/clinicai/core/change_broker.py",
+      "sha256": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+      "line_count": 153,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "1-153: dedicated LISTEN lifecycle and reconnect loop"
+    },
+    {
+      "path": "src/clinicai/orchestrator/checkpointer.py",
+      "sha256": "96db03ab11efa083fca2af1c9227c729b9eac6ef143247c85f1f195fdfd0a16f",
+      "line_count": 85,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "1-85: backend selection and separate psycopg pool"
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "line_count": 654,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "129-160 and lifespan cleanup: API pool, broker, monitor and checkpointer composition"
+    },
+    {
+      "path": "src/clinicai/worker.py",
+      "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "line_count": 483,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "251-263; 349-352: selected pool creation callsites only"
+    },
+    {
+      "path": "src/clinicai/services/canh_gac_pool.py",
+      "sha256": "023efae881e4591663ecab0b580e15bc4f221288f3f56983b0c5c33cfa613693",
+      "line_count": 192,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "1-192: API-only pool monitor, warning pool, thresholds and shutdown"
+    },
+    {
+      "path": "src/tests/unit/test_database_pool.py",
+      "sha256": "b80c04d7e22f8e57d51586b0ebb0085501545ecd6c4c0cd6024d4178d127a85e",
+      "line_count": 25,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "1-25: direct pool-construction test"
+    },
+    {
+      "path": "src/tests/core/test_quan_sat.py",
+      "sha256": "7b83aac6aea776f4948043bc0464745fdf4d0f16e73794cd316615171086d54f",
+      "line_count": 405,
+      "coverage": "targeted",
+      "reviewed_ranges_or_notes": "382-395: default and permitted API pool-size tests; no aggregate budget test"
+    },
+    {
+      "path": "docker-compose.supabase.yml",
+      "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+      "line_count": 253,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "61-70; 101-108; 153-164: DB command, GoTrue cap, PostgREST cap"
+    },
+    {
+      "path": "docker-compose.supabase.staging.yml",
+      "sha256": "a23e17eb15f13c70eaf690ec193072011de9ed293ca10bbf074856afc42c250d",
+      "line_count": 76,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "21-39: staging database cap and resource overlay"
+    },
+    {
+      "path": "docker-compose.staging.yml",
+      "sha256": "eed570ab0b3cc2b900127e94df103ab0700e94371ddf6b1faf9d31bb23002e7f",
+      "line_count": 76,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "48-52: API pool override permitted to 20"
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839",
+      "line_count": 536,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "173-186; 292-303; 323-337; 359-372: API checkpointer setting and required/optional worker profiles"
+    }
+  ]
+}

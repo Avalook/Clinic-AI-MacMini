@@ -1,0 +1,102 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_38036_dr4women_macmini (1 worker) sẵn sàng sau 5s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_split_refunds_never_exceed_original_collected_amount ___________
+
+q = Quay(pool=<asyncpg.pool.Pool object at 0x10cf07d00>, visit_id='fc009e20-928c-408d-a3a6-412372df7d1a', consultation_id=...ame='', vai_theo_vi_tri=frozenset(), vai_tai_khoan=None, vai_theo_lego=None, cashier_head_scope=None), duoi='cbd87b2b')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cf76fc0>
+
+    async def test_split_refunds_never_exceed_original_collected_amount(
+        q: Quay,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
+        _, drug = await _dong_da_xac_dinh(q, 1)
+        await q.pool.execute(
+            "UPDATE drug_catalog SET unit_price=100001 WHERE id=$1::uuid", drug
+        )
+        cycle = (await _thu(q))["payment_cycle_id"]
+        line = await q.pool.fetchval(
+            "SELECT id::text FROM payment_bill_line"
+            " WHERE payment_cycle_id=$1::uuid AND source_type='prescription'",
+            cycle,
+        )
+        service = HoanTienService(q.pool)
+        for _ in range(2):
+            await service.tao(
+                identity=q.thu_ngan,
+                payment_cycle_id=cycle,
+                visit_id=q.visit_id,
+                kind="thuoc",
+                dong=[{"payment_bill_line_id": line, "so_luong": Decimal("0.5")}],
+                method="CASH",
+                reason="Synthetic audit: refund half of the original item",
+            )
+        state = await q.pool.fetchrow(
+            "SELECT c.amount AS collected,"
+            " (SELECT sum(r.amount) FROM payment_refund r"
+            "   WHERE r.payment_cycle_id=c.payment_cycle_id"
+            "     AND r.status IN ('PENDING','COMPLETED')) AS refunded"
+            " FROM payment_cycle c WHERE c.payment_cycle_id=$1::uuid",
+            cycle,
+        )
+>       assert state["refunded"] <= state["collected"], (
+            f"Refunded {state['refunded']} exceeds collected {state['collected']}"
+        )
+E       AssertionError: Refunded 100002 exceeds collected 100001
+E       assert Decimal('100002') <= 100001
+
+src/tests/services/test_audit_1910_refund_rounding_db.py:57: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-10-19 18:02:28 [debug    ] pos_outbox_enqueued            kind=invoice subject_id=5df32fd6-5382-430b-9fe7-39ff16113157
+2026-10-19 18:02:28 [info     ] payment_recorded               by_staff_id=60dc39a5-6d5b-4423-84d6-8fd46c1a27e6 kind=thuoc method=CASH visit_id=fc009e20-928c-408d-a3a6-412372df7d1a
+=========================== short test summary info ============================
+FAILED src/tests/services/test_audit_1910_refund_rounding_db.py::test_split_refunds_never_exceed_original_collected_amount
+1 failed in 0.36s

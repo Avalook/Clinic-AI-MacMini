@@ -1,0 +1,393 @@
+{
+ "chunk": "S25",
+ "findings": [
+  {
+   "tmp_id": "S25-1",
+   "title": "seed.sql không có chốt chặn: chạy lại trên DB đang sống vẫn kích hoạt 13 hàm đồng bộ ghi đè giá, danh mục thuốc và hướng dẫn dùng của mọi phòng khám",
+   "severity": "HIGH",
+   "category": "seed_rerun_unguarded",
+   "evidence_level": "confirmed_static",
+   "summary": "Phần đầu seed.sql là INSERT thuần (không ON CONFLICT) nên trên DB đã có dữ liệu chúng chỉ báo lỗi trùng khoá; nhưng phần đuôi (dòng 3719-3758) gọi 13 hàm SQL đồng bộ danh mục và các hàm này CHẠY ĐƯỢC LẠI mà không kiểm DB đích có phải DB mới hay không. chuan_hoa_danh_muc_thuoc_kiotviet() lặp qua MỌI clinic có drug_catalog, đặt lại tên/giá/đơn vị/cách dùng/lưu ý theo bản chuẩn Dr4Women (kể cả ghi NULL đè chữ do dược sĩ nhập) và tắt (is_active=false) mọi mặt hàng ngoài 82 mã chuẩn. dong_bo_danh_muc_dich_vu() đặt lại tên, nhóm, active=true, bên thu và giá (khi giá Excel > 0 hoặc thu hộ) của dịch vụ khớp tên. Bản migration của chính các hàm này có chốt IF EXISTS(staff), còn seed thì không. README.md:79 và supabase/config.toml:11-13 hướng dẫn nạp seed bằng psql/db reset, không nhắc rủi ro này.",
+   "trigger": "Có thể xảy ra nếu một người vận hành chạy psql -f seed.sql (README) hoặc supabase db reset/seed trỏ nhầm vào DB đã có khách (staging đã nạp bản sao prod, prod, hoặc DB của phòng khám thứ hai). Không cần quyền đặc biệt ngoài quyền DB. psql mặc định tiếp tục sau lỗi trùng khoá nên phần đuôi vẫn chạy.",
+   "impact": "Giá dịch vụ/thuốc do quản lý đã chỉnh sau 01/10 bị đặt về bảng giá 01/10; dịch vụ/thuốc phòng khám đã tắt bị bật lại hoặc thuốc dược sĩ thêm sau bị tắt; hướng dẫn dùng thuốc đã sửa bị thay bằng văn bản mặc định hoặc NULL (Ozempic, Eluna, Espana mama... có cách dùng NULL). Không có dòng nhật ký nào ghi 'ai đã đổi giá' vì đi qua hàm SQL. Với DB có nhiều tenant, mọi tenant có drug_catalog/service_price đều bị áp bảng Dr4Women.",
+   "evidence": [
+    {
+     "path": "supabase/seed.sql",
+     "line": 3717,
+     "end_line": 3758,
+     "detail": "13 lệnh SELECT gọi hàm đồng bộ ngay sau khi tắt session_replication_role; không có điều kiện (không kiểm staff, không kiểm bảng rỗng, không kiểm tên DB)."
+    },
+    {
+     "path": "supabase/seed.sql",
+     "line": 1,
+     "end_line": 9,
+     "detail": "Tiêu đề chỉ nói 'Applied by supabase db reset locally, or manually to a fresh project' - chỉ là lời dặn; câu lệnh đầu SET session_replication_role = replica không đi kèm kiểm tra gì."
+    },
+    {
+     "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+     "line": 54,
+     "end_line": 54,
+     "detail": "FOR c IN SELECT DISTINCT d.clinic_id FROM drug_catalog - áp cho mọi clinic."
+    },
+    {
+     "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+     "line": 626,
+     "end_line": 643,
+     "detail": "UPDATE đặt name_raw, unit_price, cach_dung, luu_y... = giá trị chuẩn (kể cả NULL) rồi tắt mọi dòng không thuộc 82 mã; tắt luôn service_price nhóm thuốc."
+    },
+    {
+     "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+     "line": 648,
+     "end_line": 657,
+     "detail": "Bản migration có chốt IF EXISTS (SELECT 1 FROM public.staff) để không chạy trên DB dựng mới; seed.sql gọi thẳng hàm mà không có chốt tương đương."
+    },
+    {
+     "path": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+     "line": 246,
+     "end_line": 267,
+     "detail": "UPDATE service_price đặt name, category, active=true, billing_owner, unit_price (coalesce giá Excel) cho dòng khớp tên - trên mọi clinic."
+    },
+    {
+     "path": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+     "line": 273,
+     "end_line": 299,
+     "detail": "CROSS JOIN public.clinic: thêm dịch vụ thiếu cho mọi clinic đã có bảng giá dịch vụ."
+    },
+    {
+     "path": "supabase/README.md",
+     "line": 75,
+     "end_line": 80,
+     "detail": "Hướng dẫn 'psql $DATABASE_URL -f seed.sql  # optional reference data' không kèm -v ON_ERROR_STOP và không cảnh báo."
+    },
+    {
+     "path": "supabase/config.toml",
+     "line": 11,
+     "end_line": 13,
+     "detail": "[db.seed] enabled=true sql_paths=[./seed.sql]: supabase db reset tự nạp."
+    }
+   ],
+   "limitations": "Chưa thấy đường tự động nào đưa seed vào prod: scripts/dev-up.sh chỉ nạp seed khi chưa có schema_migrations (dòng 264-268) và apply-pending-migrations.sh không đụng seed. Rủi ro là thao tác tay/runbook. Chưa đọc hết các hàm đuôi khác (gan_mau_*, them_dau_do_bio, dong_bo_vat_tu...) - chỉ đọc kỹ hàm thuốc, hàm danh mục dịch vụ, nap_phong_lam_theo_dich_vu và hàm điền giá trống (hàm này an toàn vì chỉ điền khi NULL). Không tìm thấy test nào khẳng định 'seed chạy lại không đổi gì' hoặc 'seed bị từ chối trên DB có dữ liệu' (grep tên seed.sql trong src/tests và scripts/tests).",
+   "recommendation": "1) Tách seed.sql thành bootstrap-chỉ-DB-rỗng: đầu file kiểm 'SELECT count(*) FROM staff/visit/patient = 0' và RAISE EXCEPTION nếu khác; hoặc kiểm một cờ rõ ràng (ví dụ bảng config 'cho_phep_seed'). 2) Các hàm đồng bộ danh mục nhận tham số clinic_id (bắt buộc) và chế độ 'chỉ điền chỗ trống' làm mặc định; chế độ ghi đè cần tham số riêng và ghi một dòng vào nhật ký vận hành/audit cho từng thay đổi giá. 3) Cập nhật README/config.toml: ghi rõ DB rỗng và -v ON_ERROR_STOP=1.",
+   "acceptance": "Test CI: nạp migration + seed, sửa tay một giá dịch vụ, một giá thuốc và một cách_dung, chạy lại seed -> seed bị từ chối (hoặc không đổi gì) và các giá trị sửa tay còn nguyên. Thêm test tenant thứ hai có bảng giá riêng: sau khi chạy hàm đồng bộ cho tenant 1, bảng giá tenant 2 không đổi.",
+   "alignment": [
+    "Reality rõ",
+    "Quyết định dựa bằng chứng",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004",
+    "DB-005",
+    "INF-003"
+   ]
+  },
+  {
+   "tmp_id": "S25-2",
+   "title": "DB dựng bằng 'migration + seed' không giống prod: seed ghi đè về 14 loại khám cũ (có cả '***#Thủ thuật', FREE), còn khuôn test/CI không chạy lại các migration chỉnh",
+   "severity": "MEDIUM",
+   "category": "seed_state_diverges_from_prod",
+   "evidence_level": "confirmed_static",
+   "summary": "Seed chèn 14 service_type đều is_active='t' với tên bản tháng 6 (Sản 1/2/3, 'Nội tiết - Tình dục', FREE, '***#Thủ thuật'...), không có form_code. Các migration 20260807000007 và 20260917000006 tắt 9 loại này và đổi tên, nhưng trên DB dựng mới chúng chạy TRƯỚC seed nên không trúng dòng nào. Migration 20260917000006 viết rằng 'seed.sql đã được sửa cùng lúc để không tái phát' nhưng nội dung seed hiện tại vẫn là 14 loại bật. scripts/dev-up.sh bù bằng cách chạy lại 4 migration thủ công sau seed; scripts/tests/dung-db-kiem.sh (CI) và khuôn của scripts/test-nhanh.sh thì KHÔNG bù. Nghĩa là test chạy trên một trạng thái danh mục khác prod, và phòng khám mới dựng theo chuỗi chuẩn sẽ thấy loại khám sai ở màn đặt lịch.",
+   "trigger": "Dựng DB mới bằng chuỗi migration rồi seed.sql (tạo phòng khám mới, DB test CI, khuôn test-nhanh).",
+   "impact": "(a) Phòng khám mới thấy 14 loại khám gồm 'FREE' và '***#Thủ thuật' ở màn đặt lịch cho tới khi ai đó chạy lại migration/sửa tay - đúng lỗi 17/09 từng bắt được ở prod. (b) Bài test phụ thuộc loại khám/form_code có thể xanh trên trạng thái sai prod hoặc đỏ giả. (c) Mỗi lần có migration 'chỉnh danh mục' mới, dev-up.sh phải thêm một dòng replay; dễ quên, khó phát hiện.",
+   "evidence": [
+    {
+     "path": "supabase/seed.sql",
+     "line": 65,
+     "end_line": 79,
+     "detail": "14 service_type đều 't'; dòng 77 tên '***#Thủ thuật'; dòng 78 'FREE'; không có cột form_code/qua_tu_van/di_thang_phong."
+    },
+    {
+     "path": "supabase/seed.sql",
+     "line": 81,
+     "end_line": 90,
+     "detail": "Chỉ vá riêng qua_tu_van; không vá is_active/name."
+    },
+    {
+     "path": "supabase/migrations/20260917000006_nam_dich_vu_kham_ap_lai.sql",
+     "line": 3,
+     "end_line": 8,
+     "detail": "Chính migration thừa nhận seed ghi đè kết quả của 20260807000007 và nói seed đã sửa - nhưng seed hiện không chứa sửa đổi đó."
+    },
+    {
+     "path": "supabase/migrations/20260807000007_nam_dich_vu_kham.sql",
+     "line": 24,
+     "end_line": 43,
+     "detail": "Tắt mọi loại ngoài 5 mã, đổi tên + gán form_code - trên DB mới tác động rỗng."
+    },
+    {
+     "path": "scripts/dev-up.sh",
+     "line": 287,
+     "end_line": 300,
+     "detail": "Replay thủ công 4 migration sau seed ('seed nạp lại dịch vụ mà migration này ẩn đi')."
+    },
+    {
+     "path": "scripts/tests/dung-db-kiem.sh",
+     "line": 34,
+     "end_line": 38,
+     "detail": "CI/DB dùng-một-lần: bootstrap + toàn bộ migration + seed, không replay."
+    },
+    {
+     "path": "scripts/test-nhanh.sh",
+     "line": 167,
+     "end_line": 172,
+     "detail": "Khuôn test chung: migration rồi seed.sql, không replay."
+    }
+   ],
+   "limitations": "Chưa chạy DB nên chưa xác nhận danh sách service_type thực tế sau chuỗi đầy đủ (có migration sau 0917 có thể bù một phần - ví dụ 20260925000006 chạy trước seed nên cũng không trúng THU_THUAT). Chưa kiểm test nào cụ thể phụ thuộc trạng thái này.",
+   "recommendation": "Đưa trạng thái đích của service_type (5 loại lõi + THU_THUAT + SAN_CHAU, form_code, qua_tu_van, di_thang_phong) vào chính seed hoặc vào một hàm 'chuan_hoa_loai_kham()' được seed gọi (giống các hàm đuôi hiện có) và để dev-up.sh/CI dùng chung; bỏ cơ chế replay 4 file trong dev-up.sh. Thêm một bài kiểm 'DB dựng mới == bất biến danh mục' (liệt kê loại khám đang bật).",
+   "acceptance": "Sau migration + seed, truy vấn service_type is_active trả đúng bộ loại khám đích, không có tên bắt đầu '***' hoặc 'FREE'; dev-up.sh và dung-db-kiem.sh cho cùng kết quả mà không cần replay.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-003",
+    "DB-004"
+   ]
+  },
+  {
+   "tmp_id": "S25-3",
+   "title": "Phòng khám mới dựng từ migration + seed không có dòng giá tiền khám (KHAM_*): prod được 'nạp tay', không có đường tái lập",
+   "severity": "MEDIUM",
+   "category": "onboarding_missing_exam_fee",
+   "evidence_level": "confirmed_static",
+   "summary": "Tiền khám tra theo tên loại khám trong service_price (mã KHAM_*). Seed chỉ chứa 31 dòng service_price mã CLS_* (giá NULL); các migration KHAM_* chỉ UPDATE hoặc chỉ INSERT 'nếu clinic đã có sẵn dòng KHAM_*'. Migration 20260925000006 ghi thẳng: 'prod: nạp tay 17/09... Database dựng mới không có dòng KHAM_* nào thì không thêm'. dong_bo_danh_muc_dich_vu cũng cố ý không thêm 'Phí khám'. Fixture gia_thu_local.sql chỉ chữa cho local bằng dòng DEMO_KHAM_* giá 100.000 và ghi rõ 'KHÔNG PHẢI GIÁ DR4WOMEN'.",
+   "trigger": "Dựng phòng khám mới theo chuỗi chuẩn (migration + seed) rồi bắt đầu thu tiền.",
+   "impact": "Quầy thu báo 'dịch vụ khám đã chọn chưa có giá' hoặc không tìm được dòng giá cho từng khách, tới khi quản lý tự tạo đúng các dòng KHAM_*/Phí khám bằng tay đúng tên loại khám. Thao tác tay không có danh sách kiểm; tạo sai tên (tên loại khám đổi mà dòng giá không đổi theo) khoá nút Thu tiền (chính migration 0917 mô tả hậu quả này).",
+   "evidence": [
+    {
+     "path": "supabase/seed.sql",
+     "line": 119,
+     "end_line": 153,
+     "detail": "service_price chỉ có mã CLS_*, unit_price NULL; không có KHAM_*."
+    },
+    {
+     "path": "supabase/migrations/20260925000006_dat_lich_thu_thuat_san_chau.sql",
+     "line": 54,
+     "end_line": 70,
+     "detail": "Chỉ thêm KHAM_THU_THUAT/KHAM_SAN_CHAU khi clinic đã có KHAM_* khác; comment nói prod 'nạp tay 17/09'."
+    },
+    {
+     "path": "supabase/migrations/20260926000003_phi_kham_kiotviet.sql",
+     "line": 18,
+     "end_line": 27,
+     "detail": "Chỉ UPDATE các dòng KHAM_* đã tồn tại và còn nhãn 'GIÁ GIẢ ĐỊNH'."
+    },
+    {
+     "path": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+     "line": 28,
+     "end_line": 28,
+     "detail": "'Phí khám thiếu thì KHÔNG thêm'."
+    },
+    {
+     "path": "supabase/fixtures/gia_thu_local.sql",
+     "line": 1,
+     "end_line": 26,
+     "detail": "Chữa riêng cho local: tạo DEMO_KHAM_* 100.000đ; ghi rõ không phải giá Dr4Women."
+    },
+    {
+     "path": "src/clinicai/services/bill_service.py",
+     "line": 279,
+     "end_line": 315,
+     "detail": "Hằng KHAM_CHUA_CO_GIA và cờ van_de khi unit_price None - chính là trạng thái phòng khám mới gặp."
+    }
+   ],
+   "limitations": "Chưa tìm thấy script/migration/UI 'khởi tạo bảng giá khám' nào ngoài phần bảng giá thủ công; có thể Cấu hình có nút tạo dòng (chưa đọc màn). Số 31 dòng seed so với '29' trong README là lệch tài liệu.",
+   "recommendation": "Thêm bước provision rõ ràng: hàm/tập lệnh 'khoi_tao_phi_kham(clinic_id)' tạo một dòng phí khám trống cho mỗi loại khám đang bật + chặn bật loại khám nếu chưa có dòng giá; hiện trạng 'chưa có giá' phải là checklist go-live (xem DB-005), không phải lỗi gặp ở quầy.",
+   "acceptance": "Với clinic mới (chưa có dữ liệu), sau bước provision mọi service_type đang bật có đúng một dòng phí khám (giá có thể trống nhưng hiển thị trong danh sách 'cần nhập giá'); trước khi có giá, hệ thống không cho đặt lịch loại đó hoặc cảnh báo cho quản lý, thay vì phát hiện lúc thu.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ",
+    "Bệnh nhân ít chờ trong bất định"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-005"
+   ]
+  },
+  {
+   "tmp_id": "S25-4",
+   "title": "Seed gắn cứng vào một phòng khám: UUID clinic và UUID từng dòng cố định, tên cơ sở/kênh đặt lịch và mã phòng riêng Dr4Women; không thể nạp lại cho tenant khác",
+   "severity": "MEDIUM",
+   "category": "seed_hardcoded_tenant",
+   "evidence_level": "design_gap",
+   "summary": "Cả 118 dòng có clinic_id viết cứng 'a0000000-0000-4000-8000-000000000001' (tenant do migration 0730003 tạo với tên 'Phòng khám Dr4Women'); id của từng dòng service_type/service_price/booking_channel/drug_catalog/clinic_location cũng là UUID cố định từ bản dump 'fzw dev project' (dự án đã không còn). Seed không có tham số clinic, nên nạp cho phòng khám thứ hai sẽ đụng khoá chính (nếu PK là id) hoặc phải sao chép/sửa chuỗi bằng tay. Dữ liệu mang bản sắc riêng: 2 cơ sở 'Kim Ngưu'/'Hào Nam' kèm địa chỉ thật, kênh 'FB Dr4women (BS Thành)', 'FB 4women Clinic', 'FB Academy', 'Zalo OA Phòng khám', 64 tên thuốc và các hàm đuôi (mã KiotViet SPxxxxxx, mã phòng 'KN-SANCHAU', bảng giá Excel 01/10 của Dr4Women).",
+   "trigger": "Bán/triển khai cho phòng khám khác hoặc dựng tenant thứ hai trong cùng DB.",
+   "impact": "Mỗi khách hàng mới phải sửa tay hoặc fork seed; dễ lẫn dữ liệu và danh mục Dr4Women (tên bác sĩ, giá, thuốc) sang phòng khám khác. Dữ liệu 'kênh' có tên một bác sĩ (BS Thành) trong dữ liệu tham chiếu dùng chung.",
+   "evidence": [
+    {
+     "path": "supabase/seed.sql",
+     "line": 34,
+     "end_line": 36,
+     "detail": "clinic_location: 2 cơ sở thật + clinic_id cố định; KN active, HN inactive."
+    },
+    {
+     "path": "supabase/seed.sql",
+     "line": 182,
+     "end_line": 189,
+     "detail": "booking_channel với tên kênh/nhân sự riêng Dr4Women."
+    },
+    {
+     "path": "supabase/seed.sql",
+     "line": 1,
+     "end_line": 3,
+     "detail": "Nguồn: 'fzw dev project schema-frozen seed.sql on 2026-07-14' - dự án Supabase cloud đã bỏ; không thể dump lại."
+    },
+    {
+     "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+     "line": 73,
+     "end_line": 78,
+     "detail": "Tenant #1 'Phòng khám Dr4Women' với id cố định được tạo trong migration, nghĩa là mọi DB mới đều khởi đầu là Dr4Women."
+    },
+    {
+     "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+     "line": 81,
+     "end_line": 94,
+     "detail": "default_clinic_id() trả NULL khi có từ 2 clinic - seed buộc phải ghi clinic_id tường minh, hệ quả là không thể dùng chung."
+    },
+    {
+     "path": "supabase/migrations/20261001210000_phong_lam_theo_dich_vu.sql",
+     "line": 165,
+     "end_line": 178,
+     "detail": "Hàm đuôi seed gọi: gắn dịch vụ Sàn chậu vào phòng mã 'KN-SANCHAU'."
+    }
+   ],
+   "limitations": "Chưa xác nhận ràng buộc khoá chính các bảng (giả định PK là id). Rủi ro cross-tenant của các hàm đuôi (ghi đè/CROSS JOIN mọi clinic) đã được tính ở S25-1 và ghi thêm vào DB-004; dữ liệu địa chỉ cơ sở không phải PII cá nhân.",
+   "recommendation": "Tách seed thành (1) tham chiếu dùng chung toàn quốc: province, ward; (2) 'gói mẫu phòng khám' có tham số (:clinic_id, :ten, :co_so) sinh id bằng gen_random_uuid()/uuid_generate_v5 theo clinic; (3) gói riêng Dr4Women đặt ngoài đường nâng cấp chung. Có script provision_clinic(code,name,...) đọc gói mẫu.",
+   "acceptance": "Dựng DB rỗng, chạy provision hai clinic khác nhau liên tiếp bằng cùng một gói mẫu: không lỗi trùng khoá, không dòng nào mang tên 'Dr4Women/Kim Ngưu/Hào Nam' trong clinic thứ hai, và truy vấn từng clinic chỉ thấy dữ liệu của mình.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004",
+    "DB-005"
+   ]
+  },
+  {
+   "tmp_id": "S25-5",
+   "title": "Bản chuẩn thuốc mà seed nạp điền sẵn vào đơn các hướng dẫn gộp hai hàm lượng và một câu khẳng định 'an toàn tuyệt đối'",
+   "severity": "MEDIUM",
+   "category": "clinical_default_text_in_catalog",
+   "evidence_level": "confirmed_static",
+   "summary": "chuan_hoa_danh_muc_thuoc_kiotviet() (hàm seed gọi ở dòng 3729) ghi vào drug_catalog.cach_dung/luu_y các đoạn văn mặc định; màn kê đơn điền sẵn các trường này vào dòng thuốc (phieu_kham_service.py:737-749). Một số đoạn là hướng dẫn cho nhiều hàm lượng trong cùng một mặt hàng: 'Tadal extra 20mg' và 'Tadalafin 5mg' cùng mang 'Loại 5mg: Uống 1 viên/ngày sau ăn. Loại 20mg: Uống 1 viên trước khi quan hệ 30-60 phút'; 'Dipherelin 0.1' và 'Dipherelin 3.75' cùng mang đoạn nói cả tiêm dưới da hằng ngày lẫn tiêm bắp 1 mũi/28 ngày. Pruzena có lưu ý 'quý I an toàn tuyệt đối', Duphaston 'an thai an toàn không gây ức chế rụng trứng'. Nguồn chữ là phiếu v5 và 'Liều tham khảo' từ Notion, không ghi người duyệt chuyên môn.",
+   "trigger": "Bác sĩ chọn một trong các mặt hàng này khi kê đơn và để nguyên đoạn điền sẵn (vội, không đọc kỹ), hoặc bản in cho bệnh nhân lấy đoạn này.",
+   "impact": "Bệnh nhân/nhà thuốc có thể đọc một hướng dẫn chứa liều của hàm lượng khác mặt hàng đang kê; lưu ý tuyệt đối về an toàn thai kỳ có thể đọc như lời bảo đảm của phòng khám. Mỗi lần chạy lại hàm chuẩn hoá, mọi chỉnh sửa của dược sĩ/bác sĩ bị thay bằng văn bản này (xem S25-1).",
+   "evidence": [
+    {
+     "path": "supabase/seed.sql",
+     "line": 3728,
+     "end_line": 3729,
+     "detail": "Seed gọi chuan_hoa_danh_muc_thuoc_kiotviet()."
+    },
+    {
+     "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+     "line": 520,
+     "end_line": 531,
+     "detail": "Tadal extra 20mg và Tadalafin 5mg dùng chung đoạn 'Loại 5mg... Loại 20mg...'."
+    },
+    {
+     "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+     "line": 214,
+     "end_line": 225,
+     "detail": "Dipherelin 0.1 và 3.75 cùng đoạn hướng dẫn hai đường dùng khác nhau."
+    },
+    {
+     "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+     "line": 508,
+     "end_line": 512,
+     "detail": "Pruzena: 'an toàn tuyệt đối'."
+    },
+    {
+     "path": "src/clinicai/services/phieu_kham_service.py",
+     "line": 733,
+     "end_line": 749,
+     "detail": "dosage/note của dòng thuốc lấy từ drug_catalog.cach_dung/luu_y làm giá trị điền sẵn (kho là nguồn)."
+    }
+   ],
+   "limitations": "Tôi chỉ đọc các dòng 1-300 và 490-657 của migration thuốc (khoảng 2/3 danh mục), không đánh giá y khoa từng đoạn; bác sĩ có thể sửa trước khi ký; chưa xác nhận bản in cho bệnh nhân có hiện trường 'luu_y' hay không.",
+   "recommendation": "Tách mặt hàng theo hàm lượng/đường dùng, mỗi mặt hàng một hướng dẫn một nghĩa; đưa nội dung lâm sàng vào quy trình duyệt của giám đốc chuyên môn tenant (có người duyệt, ngày duyệt, nguồn) thay vì hằng số trong migration; bỏ khẳng định tuyệt đối; hiển thị rõ 'gợi ý mặc định chưa xác nhận' trên dòng thuốc cho tới khi bác sĩ bấm xác nhận.",
+   "acceptance": "Test dữ liệu: không mặt hàng nào có cach_dung nhắc nhiều hơn một hàm lượng trong chuỗi 'Loại Xmg: ... Loại Ymg: ...'; có trường người duyệt/ngày duyệt cho từng bản ghi hướng dẫn mặc định; bản in/đơn hiển thị trạng thái gợi ý chưa xác nhận.",
+   "alignment": [
+    "Quyết định dựa bằng chứng",
+    "Bệnh nhân ít chờ trong bất định"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-007",
+    "FIN-003"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "DB-004",
+   "detail": "Bằng chứng thêm từ phía seed: supabase/seed.sql:3719-3758 gọi 13 hàm mang bảng giá/danh mục Dr4Women; chuan_hoa_danh_muc_thuoc_kiotviet lặp mọi clinic có drug_catalog (20260925000014:54) và dong_bo_danh_muc_dich_vu/dong_bo_vat_tu/nap_phong_lam_theo_dich_vu dùng CROSS JOIN public.clinic (20261002100000:273-281, 20261001210000:138-150) nên tenant thứ hai có bảng giá sẽ được thêm dịch vụ/thuốc và ghi giá của Dr4Women; khối DO ở 20261002100000:427-435 chạy không điều kiện khi áp migration."
+  },
+  {
+   "id": "DB-005",
+   "detail": "Seed.sql:34-36 và 182-189 cố định clinic_id a000...0001, địa chỉ cơ sở, tên kênh; migration 0730003:76-78 tạo tenant #1 là 'Phòng khám Dr4Women' trên mọi DB mới - không có tham số/ quy trình provision; xem thêm S25-3 (thiếu dòng phí khám) và S25-4."
+  }
+ ],
+ "held": [
+  {
+   "title": "Mã KiotViet trùng giữa danh mục thuốc và danh mục dịch vụ",
+   "reason": "38 trong 80 mã drug_catalog.ma_hang (ví dụ SP000025 = Glucophage XR; SP000005 = DHEA Avemos; SP000007 = Femoston 1/10) cũng xuất hiện làm service_price.ma_kiotviet cho dịch vụ khác (SP000025 = Tổng phân tích nước tiểu; SP000005 = Khám tư vấn viêm nhiễm PK; SP000007 = Khám nam khoa) ở migration 20260926000001/20260926000003/20260928000100. Trong một cửa hàng KiotViet mã hàng là duy nhất, nên có thể hai file xuất thuộc hai danh mục khác nhau hoặc một bên gán nhầm mã. Chưa chứng minh tác hại: xuat_hoa_don_service.py:86 dùng ma_hang cho thuốc và service_code cho dịch vụ nên không đụng nhau. Cần chủ sản phẩm xác nhận nguồn trước khi coi là lỗi."
+  },
+  {
+   "title": "Cơ sở nào đang hoạt động trong seed",
+   "reason": "Seed cho Kim Ngưu active, Hào Nam inactive (dòng 35-36). Bộ nhớ làm việc ghi từ 14/10 chỉ Hào Nam hoạt động; trạng thái prod là dữ liệu chỉnh trên màn, không kiểm chứng được từ blob. Nếu seed được dùng dựng staging/DB mới, cơ sở đang hoạt động sẽ ngược prod. Chưa đủ bằng chứng trong mã để thành phát hiện."
+  },
+  {
+   "title": "service_type của seed thiếu cột form_code/di_thang_phong",
+   "reason": "INSERT dòng 65 chỉ có id, code, name, default_duration_minutes, is_active, created_at, clinic_id. Giá trị mặc định của form_code và di_thang_phong trên DB mới chưa kiểm (cần đọc schema), nên chưa khẳng định bàn khám thiếu biểu mẫu."
+  },
+  {
+   "title": "Tài liệu lệch với seed",
+   "reason": "supabase/README.md:88-89 và docs/GIAI-THICH-CODE.md:5062 ghi service_price (29), seed thực có 31 dòng (2 dòng Biofeedback chèn tay, ghi ở seed.sql:130-132); tiêu đề seed.sql:2 nhắc 'supabase db push' đã bỏ. Mức thấp, chỉ gây hiểu sai khi vận hành."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Cổng 'SQL thuần' cho migration và seed",
+   "detail": "CI và ci-may.sh grep chặn \\restrict/\\unrestrict và 'FROM stdin' để seed/migration chạy được bằng executor SQL thường; tiêu đề seed giải thích lý do.",
+   "evidence": "scripts/ci-may.sh:173; .github/workflows/ci.yml:291-297; supabase/seed.sql:4-8"
+  },
+  {
+   "title": "Tách dữ liệu tham chiếu khỏi dữ liệu thử",
+   "detail": "Seed không có nhân viên/bệnh nhân (đã kiểm: không có email, mật khẩu, token, CCCD, số điện thoại trong 3.758 dòng); nhân viên và bệnh nhân giả nằm ở supabase/fixtures, dev-up.sh có chú thích vì sao tách và fail-fast khi thiếu fixture.",
+   "evidence": "scripts/dev-up.sh:277-286; supabase/seed.sql (grep password/token/@/cccd/phone không có kết quả)"
+  },
+  {
+   "title": "Tỉnh/phường dùng chung, không gắn tenant",
+   "detail": "province/ward được loại có chủ ý khỏi cột clinic_id vì là dữ liệu quốc gia; seed có 34 tỉnh, 3.321 phường, không trùng mã, mọi province_code đều có tỉnh.",
+   "evidence": "supabase/migrations/20260730000003_multi_tenant_foundation.sql:99-101; supabase/seed.sql:311-345"
+  },
+  {
+   "title": "Phát hiện seed trôi so với khuôn test",
+   "detail": "test-nhanh.sh ghi md5 của seed vào chú thích khuôn và cảnh báo khi cây làm việc có seed khác khuôn.",
+   "evidence": "scripts/test-nhanh.sh:158,173,295-296"
+  },
+  {
+   "title": "Hàm điền giá chỉ điền chỗ trống",
+   "detail": "dien_gia_trong_theo_phieu_v5 chỉ UPDATE khi unit_price IS NULL và ghi rõ 'giá đã đặt là quyết định kinh doanh: KHÔNG đè' - mẫu nên áp cho các hàm đồng bộ khác (đối chiếu S25-1).",
+   "evidence": "supabase/migrations/20260924000012_dien_gia_trong_dich_vu_va_thuoc.sql:12,73-78,141-145"
+  },
+  {
+   "title": "Fixture giá thử gắn nhãn rõ",
+   "detail": "gia_thu_local.sql dùng số tròn 100.000 và tên DEMO_ để không ai nhầm với giá thật, ghi rõ 'không bao giờ nạp vào prod'.",
+   "evidence": "supabase/fixtures/gia_thu_local.sql:1-8"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "supabase/seed.sql",
+   "lines": 3758,
+   "full_read": false,
+   "note": "Đọc từng dòng 1-620 (clinic_location, service_type, service_price, booking_channel, drug_catalog, province, đầu bảng ward) và 3585-3758 (cuối ward + 14 lệnh đuôi). Dòng 621-3584 là 2.964 dòng ward: KHÔNG đọc từng dòng bằng mắt, đã kiểm bằng script toàn bộ 3.321 dòng ward (đúng định dạng, không trùng mã, mọi province_code thuộc 34 tỉnh, không có dòng lạ) và grep PII/bí mật toàn tệp. Đã đọc thêm các hàm đuôi mà seed gọi (thuốc, danh mục dịch vụ, phòng làm, giá trống, một phần vật tư) từ blob cùng SHA."
+  }
+ ]
+}

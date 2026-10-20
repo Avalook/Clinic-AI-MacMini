@@ -1,0 +1,221 @@
+{
+  "round": 29,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "static_exact_main_only",
+  "scope": [
+    "CSKH patient receivable summary",
+    "dispatch monitor cap and panel freshness",
+    "course prepayment/refund trace"
+  ],
+  "reviewed_paths": [
+    {
+      "path": "src/clinicai/services/ghi_chu_khach_service.py",
+      "status": "read",
+      "sha256": "17de8b83c3974a6293bfb954d21583cb080c76e301975ea458c88555460545e2",
+      "note": "Đọc toàn bộ service; FIN-017."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/khach/[id]/route.ts",
+      "status": "read",
+      "sha256": "14749069fa842b2568ad376291c00d148468a3a176567cd84ab2466f9b6deea7",
+      "note": "Đọc trọn BFF hồ sơ khách."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+      "status": "read",
+      "sha256": "e6cc262d72ad86f6e2287b374e3984057af16d7170545daeb3f0624c6f2b6712",
+      "note": "Đọc trọn UI hồ sơ khách."
+    },
+    {
+      "path": "src/tests/services/test_ghi_chu_khach_db.py",
+      "status": "read",
+      "sha256": "2573eef74569567c0fc7d5a40ed63d6020b51a29a915a899436ef7472ab1a72d",
+      "note": "Đọc trọn; fixture chưa có nợ lượt cũ."
+    },
+    {
+      "path": "src/clinicai/services/cong_no_service.py",
+      "status": "read",
+      "sha256": "1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294",
+      "note": "Đọc hàm truy vấn công nợ đối chiếu."
+    },
+    {
+      "path": "src/clinicai/services/so_no_service.py",
+      "status": "traced",
+      "sha256": "977d4862794b48aa3d860842b223b6dcd9e563a569222db47f0f9a3a8c8790d9",
+      "note": "Truy vết truy vấn số dư mở all dates."
+    },
+    {
+      "path": "src/tests/services/test_cong_no_check_out_db.py",
+      "status": "read",
+      "sha256": "fe73b7ddb30b41f1e5b67fa07665531db0ac25ac3d30de9e65d9861dbad61120",
+      "note": "Đọc trọn test synthetic nợ sau checkout."
+    },
+    {
+      "path": "src/clinicai/services/tong_quan_giam_sat.py",
+      "status": "read",
+      "sha256": "529ef8e0385a748410c61a07644745436165cd557c530a049888db0ba708268c",
+      "note": "Đọc trọn service tổng quan."
+    },
+    {
+      "path": "src/dashboard/app/api/ops/agent/route.ts",
+      "status": "read",
+      "sha256": "1eae35c37cc33f1ebef5ab54d4463c71cd1ca987e233414cb95a61273ae0fdf2",
+      "note": "Đọc trọn BFF agent."
+    },
+    {
+      "path": "src/dashboard/app/giam-sat/page.tsx",
+      "status": "read",
+      "sha256": "cbc04c71b23ef60f755bb69cbeaa1255d71871dc6e3729fcaf639a75325bdbd4",
+      "note": "Đọc trọn server page."
+    },
+    {
+      "path": "src/dashboard/app/giam-sat/TrungTamGiamSat.tsx",
+      "status": "traced",
+      "sha256": "a14778ef1d3a0c887e2c06dd2a3c9d9b5b25625c684d13784906dc95fe6d0245",
+      "note": "Đọc các đoạn refresh, KPI, lỗi; không đọc toàn bộ UI."
+    },
+    {
+      "path": "src/clinicai/services/dispatch_service.py",
+      "status": "traced",
+      "sha256": "cb3b2dbe53a151c66754e4442b15a3cb7eb8bba01dc586254a37427a37e1f35f",
+      "note": "Đọc overview query, cap và method."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "status": "traced",
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "note": "Đọc route response contract chọn lọc."
+    },
+    {
+      "path": "src/tests/services/test_loc_co_so_nhom_a_db.py",
+      "status": "traced",
+      "sha256": "7fd35688d9a811a1c2dde74ab51190a12da4bce16cbf5d73f786705715bfdfa0",
+      "note": "Đọc đoạn cap fixture; không chạy."
+    },
+    {
+      "path": "src/tests/services/test_truong_ca_3_loi_db.py",
+      "status": "traced",
+      "sha256": "411ef5399e2d2e2f4cc41a7ae65733e02a09d134c547cb526054f8fc9bfd2648",
+      "note": "Đọc đoạn liên quan overview; không chạy."
+    },
+    {
+      "path": "src/tests/services/test_agent_giam_sat_db.py",
+      "status": "read",
+      "sha256": "9907e6e07b28f8127531427121f988789c37f88a82c1d7607079eb134aabf7d9",
+      "note": "Đọc trọn test giam sat DB."
+    },
+    {
+      "path": "src/tests/services/test_quyen_noi_bo_giam_sat_db.py",
+      "status": "read",
+      "sha256": "a0eecd221f8f0a02c730364cdbb03792f268e65e092ceaa40af4af44fee39373",
+      "note": "Đọc trọn capability test."
+    },
+    {
+      "path": "src/tests/api/test_ops_api.py",
+      "status": "read",
+      "sha256": "0dc3b862208724cb0b76d42a7d32df9dcc3306b69319ff908182200ae0c8d8f1",
+      "note": "Đọc trọn ops API test."
+    },
+    {
+      "path": "src/tests/unit/test_agent_giam_sat.py",
+      "status": "read",
+      "sha256": "74eb7e1c3c5502241d78fe9354e757b394cce9dd8b2b01073b9d884c424019cf",
+      "note": "Đọc trọn agent unit test."
+    },
+    {
+      "path": "src/tests/unit/test_ops_status.py",
+      "status": "read",
+      "sha256": "62de13bc9f7b874e5b29ccd97b2af4deb7137a004fc8b251cc2c4e967d8f9e8a",
+      "note": "Đọc trọn ops status unit test."
+    },
+    {
+      "path": "src/tests/services/test_dispatch_rules.py",
+      "status": "traced",
+      "sha256": "1ea8f3654e158fcf93d033ac1c84b4577df64355aa3e18a45751a6e2cfdd7d5d",
+      "note": "Đọc chọn lọc rule dispatch."
+    },
+    {
+      "path": "src/clinicai/services/lieu_trinh_tien.py",
+      "status": "read",
+      "sha256": "fcc40bc644d3ba539a2bd3c688eccf4db37a9941dfe247dad37f986f7370c98b",
+      "note": "Đọc trọn service tiền liệu trình."
+    },
+    {
+      "path": "src/dashboard/app/api/lieu-trinh/route.ts",
+      "status": "read",
+      "sha256": "ed9ebbdff5fecf7737e6557922649ba2de5fadaf0557708125460fb9537e814c",
+      "note": "Đọc trọn BFF liệu trình."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/LieuTrinhQuay.tsx",
+      "status": "read",
+      "sha256": "f64af2fe65cf7b706774c24ea2010412af2c41300403c409538214a0642ab0ec",
+      "note": "Đọc trọn UI thu liệu trình."
+    },
+    {
+      "path": "src/dashboard/lib/lieu-trinh.ts",
+      "status": "traced",
+      "sha256": "11ae7eba4646287fe77ec617ebc41dcad9cdeb26af719a0203a45a5596ab7670",
+      "note": "Đọc chọn lọc helper boundary."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/HoanTien.tsx",
+      "status": "traced",
+      "sha256": "026cb6df025ac1f53cb7775ff9e3425b4f8dcd0d3df04ae154909d3ae9406af2",
+      "note": "Đọc input quantity refund chọn lọc."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "status": "traced",
+      "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+      "note": "Đọc route order service rồi receipt."
+    },
+    {
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "status": "traced",
+      "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "note": "Đọc transaction và rounding path."
+    },
+    {
+      "path": "src/clinicai/services/bill_service.py",
+      "status": "traced",
+      "sha256": "345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "note": "Đọc source_type prepay course."
+    },
+    {
+      "path": "supabase/migrations/20261013100000_giam_gia.sql",
+      "status": "traced",
+      "sha256": "8e0845d9ea433d7ffa8675586414cabcbdec793524da22fb085535908cf9eb52",
+      "note": "Đọc constraint refund quantity/money."
+    },
+    {
+      "path": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+      "status": "read",
+      "sha256": "71da05c9f0c2878120a1ace06ae996198eed0fcf2eb1d676e3239bf70177759c",
+      "note": "Đọc trọn migration tiền liệu trình."
+    },
+    {
+      "path": "src/tests/services/test_lieu_trinh_tien_db.py",
+      "status": "traced",
+      "sha256": "acb56e23e29a106a82d0a70c7aaae8422200eaa4fe57c7b93ada90521fe7a338",
+      "note": "Đọc test hoàn tiền chọn lọc; không chạy."
+    },
+    {
+      "path": "src/dashboard/tests/lieu-trinh-boundary.test.mts",
+      "status": "read",
+      "sha256": "d4f0bd5b65d3a0281eae2c86ea2162f0a5c734ef1aafd69f1dc199b39173dea3",
+      "note": "Đọc trọn boundary test liệu trình."
+    },
+    {
+      "path": "src/dashboard/tests/cong-giam-sat-boundary.test.mts",
+      "status": "read",
+      "sha256": "2c55c123700e06da59275e5742f215ff93869730b4958bf883b8a991ebea9deb",
+      "note": "Đọc trọn host gate test."
+    }
+  ],
+  "limitations": [
+    "Không chạy ClinicAI/runtime/API/DB/tests/providers/VPS; không đọc production hoặc PHI.",
+    "Path coverage không đồng nghĩa review hành vi đầy đủ.",
+    "Volume condition của FIN-017 và OPS-009 chưa xác minh production."
+  ]
+}

@@ -1,0 +1,115 @@
+[
+  {
+    "id": "OBS-TAX-EXPORT-MULTIRATE-001",
+    "classification": "held_business_contract_question",
+    "severity_assessment": "Chưa xếp mức; đường xuất XLSX khác biệt đã xác nhận tĩnh nhưng hợp đồng nhập MISA/kế toán chưa biết.",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "trigger": "Chọn chế độ giữ một hóa đơn khi các dòng có nhiều thuế suất rồi tải XLSX MISA.",
+    "impact": "Luồng thuế nhiều suất có thể ra mẫu một thuế suất với ô thuế suất trống và VAT tổng; người nhận file có thể không nhập/đối soát đúng. Chưa có bằng chứng MISA từ chối hoặc dữ liệu kế toán sai.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx",
+        "lines": "157-170",
+        "sha256": "298ebc61c41afc4608f7ed6cf0a72496127932ef30a8c39f7b6aa888d5a41a31"
+      },
+      {
+        "path": "src/clinicai/services/thue_gtgt.py",
+        "lines": "140-147, 234-275",
+        "sha256": "a9a9dcaee43e850916ecdc0635527b95b014a7184243ca4bfdbbc43c8e78f824"
+      },
+      {
+        "path": "src/clinicai/services/xuat_hoa_don_service.py",
+        "lines": "39-41, 294-354",
+        "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145"
+      }
+    ],
+    "not_promoted_reason": "Chưa xác nhận hợp đồng MISA hoặc cách kế toán muốn hạch toán nhiều thuế suất trong một hóa đơn; source comment cũng ghi template multi-rate chờ kế toán xác nhận.",
+    "next": "Kế toán xác nhận mẫu nhập và tổng thuế được chấp nhận; nếu chưa, chặn tải ở chế độ này hoặc chỉ cho tách hóa đơn. Thêm test workbook đọc lại chính các cột thuế và import contract."
+  },
+  {
+    "id": "OBS-TAX-REFUND-EXCEPTION-002",
+    "classification": "held_accounting_policy_question",
+    "severity_assessment": "Chưa xếp mức; cảnh báo mất khỏi artifact tải được là xác nhận tĩnh, tác động kế toán phụ thuộc chính sách.",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "trigger": "Có khoản refund COMPLETED không gắn dòng hóa đơn, sau đó người dùng tải file xuất hóa đơn.",
+    "impact": "Preview báo số hoàn cần kiểm lại nhưng XLSX không mang cảnh báo/exception; người nhận XLSX tách khỏi UI không thấy điều kiện cần đối soát. Chưa biết cách hạch toán đúng cho refund này.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/xuat_hoa_don_service.py",
+        "lines": "179-197, 237-245, 280-282, 316-354",
+        "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145"
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx",
+        "lines": "79-84, 218-220, 236",
+        "sha256": "298ebc61c41afc4608f7ed6cf0a72496127932ef30a8c39f7b6aa888d5a41a31"
+      }
+    ],
+    "not_promoted_reason": "Chưa xác nhận nghiệp vụ kế toán đối với hoàn tiền không gắn dòng; đây là khoảng trống truyền cảnh báo từ preview sang workbook, chưa chứng minh tổng thuế/đầu vào sai.",
+    "next": "Chốt chính sách với kế toán: chặn xuất khi có ngoại lệ hoặc thêm sheet/dòng ngoại lệ có định danh, số tiền và trạng thái đối chiếu; acceptance test phải mở file độc lập với UI."
+  },
+  {
+    "id": "OBS-PHARM-CATALOG-ALIAS-003",
+    "classification": "held_catalog_identity_question",
+    "severity_assessment": "Chưa xếp mức; mapping alias tĩnh đã xác nhận nhưng dữ liệu catalog phòng khám và tính thay thế lâm sàng chưa kiểm.",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "trigger": "Mẫu kê đơn dùng rx_030 hoặc rx_031 và resolver tìm một mục catalog theo tên ánh xạ.",
+    "impact": "Hai thương hiệu nguồn khác nhau cùng quy về một nhãn catalog “Dunium (clomiphen citrat)”; nếu clinic cần giữ thương hiệu/nhà sản xuất, danh tính hiển thị có thể không đủ phân biệt. Không kết luận thuốc sai hoặc bệnh nhân bị ảnh hưởng.",
+    "evidence": [
+      {
+        "path": "src/clinicai/phieu_kham/anh_xa_danh_muc.py",
+        "lines": "258-259",
+        "sha256": "5a5e5ef6f1bdcd7f5aa1c8f355203db8ac919d3f4c9a2c3b6b7f1e59f0a43c64"
+      },
+      {
+        "path": "src/clinicai/phieu_kham/dinh_nghia/tham_chieu_nguon.json",
+        "lines": "618, 628",
+        "sha256": "26a839858be9703adde8d705815ec93273d66a7bb67282140e19ba90027045ce"
+      },
+      {
+        "path": "src/clinicai/services/phieu_kham_service.py",
+        "lines": "733-770",
+        "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af"
+      }
+    ],
+    "not_promoted_reason": "Không xem catalog thực, UI lựa chọn/đơn kê tại phòng khám, nhà sản xuất hoặc policy cho phép thay thế tương đương. Cùng hoạt chất/nồng độ có thể là mapping có chủ đích.",
+    "next": "Dược sĩ/chủ catalog xác nhận equivalence policy. Nếu phân biệt thương hiệu, mapping phải giữ canonical drug ID, hoạt chất, hàm lượng, dạng dùng và brand/manufacturer; test hai source ID không nhập nhằng."
+  },
+  {
+    "id": "OBS-AUDIT-ZERO-VND-REPEAT-004",
+    "classification": "held_event-semantics_question",
+    "severity_assessment": "Chưa xếp mức; mỗi lần gọi thành công ghi event là tĩnh, nhưng việc lặp có thể là một actor action hợp lệ.",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "trigger": "Nhân viên xác nhận lại một hóa đơn 0đ cùng revision bằng một Idempotency-Key mới.",
+    "impact": "Timeline có thể chứa nhiều sự kiện cùng kết quả; có thể gây nhiễu khi đọc lịch sử, hoặc đúng nếu audit trail cần ghi từng lần xác nhận. Bảng thu ngân đang gom theo revision nên chưa thấy ảnh hưởng đến trạng thái vận hành.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/chot_0d.py",
+        "lines": "29-54",
+        "sha256": "72f392a55f3390430e5ab67a806cca34579cce52741f8e658b3d60a10e128409"
+      },
+      {
+        "path": "src/clinicai/services/payment_service.py",
+        "lines": "729-739, 875-895",
+        "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1"
+      },
+      {
+        "path": "src/tests/services/test_quay_thu_mot_hoa_don_db.py",
+        "lines": "425-445",
+        "sha256": "3faa766c2f9d88d309f63956b5fd917793d54bbea99129269b91c429adc730b0"
+      },
+      {
+        "path": "src/clinicai/services/xem_luot_service.py",
+        "lines": "100-125",
+        "sha256": "5170b060aa02d09572916a8b1d4da1f3ea42c10bd5ca2cfa67d9cceaa3828ca2"
+      },
+      {
+        "path": "src/clinicai/services/cashier_board_service.py",
+        "lines": "698-770",
+        "sha256": "469db7b83c873eef9f0065cb93de53d67f0ff061995190841225405594097f6e"
+      }
+    ],
+    "not_promoted_reason": "Semantics của event có thể là audit “mỗi lần người dùng xác nhận”, không phải chỉ chuyển trạng thái lần đầu; chưa có test đếm event hoặc quy ước chống lặp.",
+    "next": "Chốt event là transition hay command/actor action. Thêm test phân biệt cùng idempotency key (replay) và key mới (hành động mới), đồng thời kiểm tra timeline và KPI không biến audit noise thành trạng thái mới."
+  }
+]

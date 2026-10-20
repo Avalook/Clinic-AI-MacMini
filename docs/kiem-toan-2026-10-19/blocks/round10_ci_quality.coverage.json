@@ -1,0 +1,121 @@
+{
+  "audit": "round10_ci_quality",
+  "snapshot": {
+    "path": "/tmp/clinicai-audit-main-956ba4f2",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "git_metadata_present": false,
+    "sha_source": "task-provided exact-main pin"
+  },
+  "review_policy": "Read-only static review. Did not run tests, CI, hooks, npm, builds, DB, production, or inspect secrets/PHI.",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "line_count": 40,
+      "sha256": "0fc9aa3560f097e9680ad481ddf6112f839b49c4f9fd8be308c2b6941371697a",
+      "ranges_read": ["1-40"],
+      "status": "read"
+    },
+    {
+      "path": "CLAUDE.md",
+      "line_count": 167,
+      "sha256": "a032c40c1cffd3a41a1bc96bf8f895d629b2367c824fdd5327fb8d709147a70b",
+      "ranges_read": ["1-167"],
+      "status": "read"
+    },
+    {
+      "path": "docs/DANG-LAM.md",
+      "line_count": 2764,
+      "sha256": "beb066beacfaa8afee931b64a92b69509139df6d95310dce995707848325cf82",
+      "ranges_read": ["1-150", "focused search results in remainder"],
+      "status": "partial"
+    },
+    {
+      "path": "scripts/ci-may.sh",
+      "line_count": 254,
+      "sha256": "ce48320f6bddf8db24af50f9c70e1f9d1ae01ef59c05778a15ce716d499e82d6",
+      "ranges_read": ["1-254"],
+      "status": "read"
+    },
+    {
+      "path": "scripts/test-nhanh.sh",
+      "line_count": 314,
+      "sha256": "f28797bfe7c96bbb33cdfba6e316733823995924726bc526c94b94506d621d88",
+      "ranges_read": ["1-260", "314", "focused search results"],
+      "status": "partial"
+    },
+    {
+      "path": "pyproject.toml",
+      "line_count": 72,
+      "sha256": "9c3d52d174f3aa74e1f0c24e3087c10e28bdeda833ab9ca857be25f66acdf14f",
+      "ranges_read": ["1-72"],
+      "status": "read"
+    },
+    {
+      "path": "pytest.ini",
+      "line_count": 11,
+      "sha256": "872acc0f51fb9d9a50f410b01fc3628a97fab945bf139b17559b16da9a88f996",
+      "ranges_read": ["1-11"],
+      "status": "read"
+    },
+    {
+      "path": "src/dashboard/package.json",
+      "line_count": 69,
+      "sha256": "4d441eebfa932d1d28f7f0573566003c1b67abbac950131a84d3e105bd9d6cbc",
+      "ranges_read": ["1-69"],
+      "status": "read"
+    },
+    {
+      "path": "scripts/git-hooks/pre-commit",
+      "line_count": 160,
+      "sha256": "f42bd3bf59258be527f2ce9a516f3bae58b0a9699d1445d8d081acc8c441f50d",
+      "ranges_read": ["1-160"],
+      "status": "read"
+    },
+    {
+      "path": "scripts/tests/test-infra-safety.sh",
+      "line_count": 955,
+      "sha256": "a12c0f0d330c2ad258fa1b0bda0cd56d3816038e72d60c817a4d7c9cc78a2ea8",
+      "ranges_read": ["273-274", "519", "790", "835-955"],
+      "status": "targeted"
+    },
+    {
+      "path": "src/dashboard/lib/xuat-bang-excel.test.mts",
+      "line_count": 18,
+      "sha256": "bfa8250100dbb3a45d3faae9038c9254f271058ebe89bd4344204cc135e67607",
+      "ranges_read": ["1-18"],
+      "status": "read"
+    },
+    {
+      "path": "scripts/deploy-backend.sh",
+      "line_count": 511,
+      "sha256": "b2e1d1cb9445d31bcf82168e5207bc3442d7c47d8926339c79e305a6b321e74a",
+      "ranges_read": ["49-57"],
+      "status": "targeted"
+    }
+  ],
+  "searched_for": [
+    "pre-commit configuration, core.hooksPath, and GitHub workflow files",
+    "pytest, ruff, mypy, pyright, npm test selection and CI calls",
+    "dirty/untracked detection and CI status publication"
+  ],
+  "not_present_in_exact_snapshot": [
+    "docs/SO-LUAT.md",
+    "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "Git .git metadata",
+    "pre-commit config file",
+    "pyrightconfig.json",
+    "GitHub workflow files"
+  ],
+  "external_dedup_only": {
+    "path": "/Users/quangdang/Projects/Dr4Women-MacMini/docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "sha256": "f4c89cd370978fdb57b4e8e30945a56c8639f90b9ac018f2213a29cb0a66c426",
+    "range_read": "8771-8858",
+    "purpose": "Compare INF-014 to avoid duplicate finding; not evidence from exact-main source snapshot."
+  },
+  "result": {
+    "new_static_candidates": ["CAND-CI-001", "CAND-CI-002"],
+    "existing_duplicate_excluded": ["INF-014"],
+    "tests_run": false,
+    "false_green_reproduced": false
+  }
+}

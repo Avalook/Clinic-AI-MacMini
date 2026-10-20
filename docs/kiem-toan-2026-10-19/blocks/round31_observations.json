@@ -1,0 +1,29 @@
+[
+  {
+    "id": "CLIN-FEEDBACK-OWNER-SLA-001",
+    "classification": "held_product_contract_question",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "trigger": "Một khiếu nại MOI/DANG_XU_LY khi đổi ca hoặc người tiếp nhận nghỉ; phản hồi cần nhắc lại/mở lại.",
+    "observation": "Schema có người tiếp nhận và lưu người xử lý khi đóng; UI cho xem người tiếp nhận. Trong phạm vi đã trace chưa thấy SLA, xác nhận bàn giao, escalation hay quy tắc reopen. Không kết luận thiếu owner tuyệt đối vì có nguoi_tiep_nhan_staff_id và CLIN-004 đã bàn ownership chung.",
+    "impact": "Nếu intake actor được hiểu là current owner vô thời hạn, trách nhiệm lúc đổi ca có thể mơ hồ; nếu người tiếp nhận là owner theo chủ đích thì cần định nghĩa handoff và hạn phản hồi. Chưa có incident/policy đủ rõ để kết luận finding.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260809000007_hanh_trinh_cskh_bam_duoc_het.sql",
+        "lines": "88–104",
+        "sha256": "106a69f83750c17cb1bbf391ccbce9fe982a2155a976c6df927eb84a7bcfe517"
+      },
+      {
+        "path": "src/clinicai/services/phan_hoi_khach_service.py",
+        "lines": "88–143",
+        "sha256": "81c71c844eb0da4db0af8d19e82dbb8672ff4f07c928b7ebd87837e9b8783cc1"
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/customers/PhanHoiKhach.tsx",
+        "lines": "18–31,175–205",
+        "sha256": "cbe05c2df2b1b6ce13fa974c4eb9801cddd84e7b537def486fd7a7ae2a0144bb"
+      }
+    ],
+    "not_promoted_reason": "Product/ops cần chốt ai giữ ownership sau intake, SLA và reopen; chưa có contract để đánh giá code tuân thủ hay không. Liên quan nhưng không đồng nhất với CLIN-004.",
+    "next": "Chốt policy owner/acknowledgement, thời gian phản hồi, handoff ca, escalation và reopen; rồi trace implementation và tests."
+  }
+]

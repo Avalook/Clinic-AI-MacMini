@@ -1,0 +1,159 @@
+[
+  {
+    "id": "SEC-011",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "GET clinical-forms và history chỉ yêu cầu capability y khoa, còn service truy vấn theo clinic cùng visit_id hoặc clinic_patient_id do caller truyền mà không gọi helper phân công. clinical-records/doc có check phân công theo patient_id, nhưng nhánh appointment_id tìm visit chỉ theo clinic+appointment rồi ghép với patient_id đã kiểm, nên hai đối tượng có thể lệch. RPC read_prescription_draft cũng được cấp cho authenticated và chỉ kiểm vai/clinic; một số luồng in/liệu trình có chủ ý quyền đọc rộng, nhưng không chặn các đường đọc phiếu/history nêu trên.",
+    "bang_chung": [
+      {"path": "src/clinicai/api/v1/routers/clinical_forms.py", "line": 39, "end_line": 75, "y": "Hai endpoint form/history chỉ dùng cua_y_khoa và nhận visit_id hoặc clinic_patient_id từ request."},
+      {"path": "src/clinicai/services/clinical_form_service.py", "line": 83, "end_line": 109, "y": "Đọc form giới hạn clinic + visit_id + service_code, không kiểm assignment."},
+      {"path": "src/clinicai/services/clinical_form_service.py", "line": 112, "end_line": 160, "y": "Lịch sử đọc form theo clinic + clinic_patient_id, không kiểm assignment."},
+      {"path": "src/clinicai/services/ho_so_lam_sang_doc.py", "line": 80, "end_line": 127, "y": "Có check patient assignment, nhưng appointment branch không đối chiếu appointment/visit với patient_id đã kiểm."},
+      {"path": "src/clinicai/api/v1/routers/clinical_records.py", "line": 90, "end_line": 109, "y": "API in theo lịch chỉ dùng capability y khoa và appointment_id."},
+      {"path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql", "line": 22, "end_line": 44, "y": "RPC SECURITY DEFINER được grant authenticated; kiểm role/clinic, không assignment."}
+    ],
+    "chot_chan_da_tim_thay": "Các API vẫn yêu cầu capability y khoa và giới hạn clinic. Một nhánh doc có helper phân công, nhưng không ràng buộc appointment với patient_id; một số quyền đọc để in/liệu trình được mở có chủ ý, không thay cho kiểm đối tượng ở form/history.",
+    "ghi_chu_sua": "Dùng helper assignment ở ranh giới service cho mọi đường đọc lâm sàng có bệnh nhân/lượt; xác nhận visit và appointment cùng clinic_patient_id trước khi ghép dữ liệu."
+  },
+  {
+    "id": "CLIN-010",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "UI gửi action reschedule kèm service_type_id và không loại lịch CHECKED_IN còn giờ hẹn tương lai. Nhánh reschedule chấp nhận CHECKED_IN, giữ status rồi cập nhật service_type_id trên appointment, nhưng không cập nhật visit; phiếu khám hiện tại lấy loại dịch vụ từ visit. Vì vậy hai bản ghi có thể lệch và Bàn khám chọn sai loại phiếu; mã không chứng minh đã gây tổn hại bệnh nhân thực tế.",
+    "bang_chung": [
+      {"path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx", "line": 290, "end_line": 310, "y": "Luồng đổi lịch gửi action=reschedule cùng service_type_id."},
+      {"path": "src/clinicai/api/v1/routers/booking.py", "line": 718, "end_line": 744, "y": "Route chuyển request reschedule vào apply_action."},
+      {"path": "src/clinicai/services/booking_service.py", "line": 416, "end_line": 423, "y": "Reschedule chấp nhận _ALIVE gồm CHECKED_IN và giữ trạng thái."},
+      {"path": "src/clinicai/services/booking_service.py", "line": 1837, "end_line": 1868, "y": "Nhánh reschedule kiểm dịch vụ thuộc clinic rồi đưa service_type_id vào patch."},
+      {"path": "src/clinicai/services/booking_service.py", "line": 1088, "end_line": 1153, "y": "Sau update generic reschedule không cập nhật visit; mở visit chỉ ở nhánh check-in."},
+      {"path": "src/clinicai/services/phieu_kham_service.py", "line": 269, "end_line": 292, "y": "Loại phiếu của lượt được chọn từ service_type_id trên visit."}
+    ],
+    "chot_chan_da_tim_thay": "Có endpoint đổi dịch vụ riêng khóa và cập nhật cả appointment lẫn visit, nhưng UI/API reschedule không gọi endpoint đó. Không thấy ràng buộc DB đồng bộ hai service_type_id.",
+    "ghi_chu_sua": "Với lịch CHECKED_IN, từ chối đổi dịch vụ trong generic reschedule hoặc chuyển qua service chuyên biệt để cập nhật đồng bộ hai bảng dưới cùng lock/guard."
+  },
+  {
+    "id": "SEC-012",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "KyNangService xóa assignment trong transaction riêng rồi mới tính kế hoạch và thu từng lego qua các lần gọi PermissionService. Nếu một lần thu lỗi giữa chuỗi, retry thấy kỹ năng đã tắt và trả already trước khi đối soát lại capability. Khi đó grant của các lego chưa xử lý có thể còn hiệu lực dù assignment kỹ năng đã mất.",
+    "bang_chung": [
+      {"path": "src/clinicai/api/v1/routers/phan_quyen.py", "line": 307, "end_line": 315, "y": "API gọi KyNangService.doi để bật/tắt kỹ năng."},
+      {"path": "src/clinicai/services/ky_nang_service.py", "line": 209, "end_line": 249, "y": "Assignment đổi trong transaction; thao tác lặp trả already khi assignment đã ở trạng thái yêu cầu."},
+      {"path": "src/clinicai/services/ky_nang_service.py", "line": 251, "end_line": 286, "y": "Sau transaction, quyền được thu theo từng lego qua nhiều lần gọi riêng."},
+      {"path": "src/clinicai/services/permission_service.py", "line": 254, "end_line": 290, "y": "Mỗi thu quyền có transaction riêng rồi xóa cache; không có transaction chung cho toàn chuỗi."}
+    ],
+    "chot_chan_da_tim_thay": "Mỗi lần thu quyền có transaction và xóa cache; điều đó bảo vệ từng lego, nhưng không đảm bảo nguyên tử cho cả chuỗi hoặc tự sửa khi retry.",
+    "ghi_chu_sua": "Cho thao tác tắt kỹ năng trở thành reconcile lặp an toàn: nếu assignment đã tắt vẫn tính lại và thu các lego còn thừa; hoặc gom toàn bộ thay đổi vào một transaction."
+  },
+  {
+    "id": "SEC-013",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "Sự kiện patient.created ghi nguyên họ tên, ngày sinh, hai số điện thoại và CCCD vào payload. AuditLogService đọc payload từ v_audit_log và trả nguyên dictionary cho endpoint /audit/events, không thấy bước che các trường này. Truy cập bị giới hạn bởi audit.view và cùng clinic, nhưng các vai được phép gồm Management, Trưởng ca và CSKH theo policy; đây vẫn là mở rộng lưu giữ/hiển thị PII trong nhật ký.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/patient_service.py", "line": 211, "end_line": 237, "y": "Event patient.created chứa họ tên, ngày sinh, phone_primary/secondary và national_id_number."},
+      {"path": "supabase/migrations/20260805000001_v_audit_log.sql", "line": 39, "end_line": 48, "y": "View v_audit_log đưa nguyên payload vào kết quả."},
+      {"path": "src/clinicai/services/audit_log_service.py", "line": 68, "end_line": 88, "y": "SQL đọc payload theo clinic và khoảng ngày."},
+      {"path": "src/clinicai/services/audit_log_service.py", "line": 209, "end_line": 240, "y": "Response trả payload qua _payload_dict mà không lọc trường nhạy cảm."},
+      {"path": "src/clinicai/api/v1/routers/audit_log.py", "line": 22, "end_line": 36, "y": "Endpoint yêu cầu audit.view và lấy clinic từ danh tính."},
+      {"path": "supabase/migrations/20260803000004_realtime_and_audit_scope.sql", "line": 54, "end_line": 64, "y": "Policy cho authenticated giới hạn event log vào vai Management, TRUONG_CA, CSKH."}
+    ],
+    "chot_chan_da_tim_thay": "Có gate audit.view và scope clinic; đó là giới hạn người đọc/tenant, không loại PII khỏi payload hoặc giới hạn theo trường.",
+    "ghi_chu_sua": "Không ghi CCCD/số liên hệ nguyên văn vào event payload, hoặc phân loại và che trường trước khi lưu/trả; giữ audit cần thiết bằng mã tham chiếu."
+  },
+  {
+    "id": "INF-015",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "Compose bind-mount một file Caddyfile riêng. Khi nội dung file cùng đường dẫn thay đổi, deploy chỉ docker cp bản mới vào /tmp/Caddyfile.moi để validate rồi restart container hiện có; không cập nhật đường dẫn đang mount hoặc recreate container, nên cấu hình mới chưa được chứng minh là đã nạp. Khẳng định gộp cả trường hợp đổi CADDY_FILE hơi rộng: code không chứng minh nhánh đổi source path có cùng lỗi; healthcheck chỉ kiểm HTTP health.",
+    "bang_chung": [
+      {"path": "docker-compose.yml", "line": 63, "end_line": 70, "y": "Caddyfile được bind-mount thành file riêng, chỉ đọc."},
+      {"path": "scripts/deploy-backend.sh", "line": 321, "end_line": 341, "y": "So file hiện tại, validate candidate trong /tmp rồi restart Caddy mà không recreate."},
+      {"path": "caddy/Caddyfile", "line": 8, "end_line": 10, "y": "Admin endpoint bị tắt, không có đường reload qua admin API."},
+      {"path": "docker-compose.yml", "line": 76, "end_line": 78, "y": "Healthcheck chỉ gọi /health, không xác minh cấu hình mới đã nạp."}
+    ],
+    "chot_chan_da_tim_thay": "Cấu hình candidate được validate trước restart và container có HTTP healthcheck; hai bước này không kiểm tra Caddy đang dùng file mới. Chỉ xác nhận lỗi cho nội dung file cùng bind path, không xác nhận mọi trường hợp đổi CADDY_FILE.",
+    "ghi_chu_sua": "Sau validate, recreate Caddy để bind lại file mới rồi xác minh cấu hình đang nạp; không chỉ restart container hiện tại."
+  },
+  {
+    "id": "SEC-016",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "POST/PATCH thai kỳ yêu cầu clinical.record.write và kiểm clinic/trạng thái, nhưng không gọi kiem_khach; đọc thai kỳ có gọi helper phân công, nên lỗi quyền đối tượng ở đường ghi là có thật. PUT ghi chú lượt cũng kiểm quyền và trạng thái lượt mà không kiểm phân công. Phần PATCH thông tin hành chính dùng guard gồm nhiều quyền vận hành clinic-wide, nên không đủ căn cứ gộp nó thành cùng lỗi phạm vi bệnh nhân.",
+    "bang_chung": [
+      {"path": "src/clinicai/api/v1/routers/thai_ky.py", "line": 59, "end_line": 85, "y": "POST/PATCH thai kỳ dùng _GHI_GUARD và chuyển patient/pregnancy ID vào service."},
+      {"path": "src/clinicai/services/thai_ky_service.py", "line": 310, "end_line": 318, "y": "Gate ghi thai kỳ kiểm capability, không kiểm phân công bệnh nhân."},
+      {"path": "src/clinicai/services/thai_ky_service.py", "line": 370, "end_line": 390, "y": "Đường đọc có kiem_khach, đối chứng với đường ghi."},
+      {"path": "src/clinicai/services/thai_ky_service.py", "line": 412, "end_line": 430, "y": "Tạo thai kỳ kiểm patient/visit cùng clinic và cùng bệnh nhân, không kiểm bác sĩ được phân."},
+      {"path": "src/clinicai/services/thai_ky_service.py", "line": 476, "end_line": 488, "y": "Cập nhật chỉ truy vấn pregnancy theo clinic+ID và trạng thái ongoing."},
+      {"path": "src/clinicai/api/v1/routers/ho_so_kham.py", "line": 171, "end_line": 184, "y": "PUT ghi chú lượt chỉ dùng get_current_identity trước khi gọi service."}
+    ],
+    "chot_chan_da_tim_thay": "Các service bảo vệ clinic, visit-patient liên kết, trạng thái thai kỳ và trạng thái lượt; không có helper assignment ở các đường ghi nêu trên. Quyền sửa nhân khẩu học là nhánh hành chính riêng với guard vận hành rộng.",
+    "ghi_chu_sua": "Gọi helper phân công trước khi ghi thai kỳ/ghi chú lượt cho TKYK đã được phân; giữ nguyên quyền hành chính clinic-wide nếu đó là chính sách sản phẩm."
+  },
+  {
+    "id": "SEC-019",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "form_instance_lich_su lưu du_lieu và trạng thái cũ; luot_ghi_chu lưu nội dung ghi chú tự do theo phiên bản. Cả hai bật RLS nhưng policy SELECT chỉ kiểm clinic_id thuộc current_clinic_ids(), và đều GRANT SELECT cho authenticated. current_clinic_ids chỉ kiểm staff còn active và membership active, không lọc vai lâm sàng hay assignment bệnh nhân; do đó user authenticated cùng clinic có thể đọc trực tiếp các dòng này qua PostgREST.",
+    "bang_chung": [
+      {"path": "supabase/migrations/20261007630000_form_instance_lich_su.sql", "line": 18, "end_line": 31, "y": "Bảng lịch sử lưu du_lieu JSONB và trạng thái cũ."},
+      {"path": "supabase/migrations/20261007630000_form_instance_lich_su.sql", "line": 74, "end_line": 81, "y": "RLS SELECT chỉ giới hạn clinic_id và cấp SELECT cho authenticated."},
+      {"path": "supabase/migrations/20261007640000_luot_ghi_chu.sql", "line": 18, "end_line": 29, "y": "Bảng lưu noi_dung ghi chú theo từng phiên bản."},
+      {"path": "supabase/migrations/20261007640000_luot_ghi_chu.sql", "line": 41, "end_line": 47, "y": "RLS SELECT giới hạn clinic, GRANT SELECT cho authenticated."},
+      {"path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql", "line": 228, "end_line": 246, "y": "current_clinic_ids chỉ xác định staff active và membership active, không xét vai/assignment."}
+    ],
+    "chot_chan_da_tim_thay": "RLS ngăn đọc chéo clinic; trigger append-only ngăn sửa/xóa lịch sử. Không có chốt role hoặc assignment cho SELECT trong hai policy này.",
+    "ghi_chu_sua": "Đổi policy sang quyền lâm sàng có kiểm phân công bệnh nhân, hoặc thu hồi direct SELECT và chỉ cung cấp dữ liệu qua API đã kiểm quyền đối tượng."
+  },
+  {
+    "id": "INF-019",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "Backup script ghi trạng thái verified thành công và gửi Kuma heartbeat sau khi kiểm bản local; trường offsite_uploaded phản ánh R2, không phải CFS. Uploader CFS chạy riêng sau backup trong systemd unit, và prefix '-' bỏ qua exit code lỗi của uploader. Collector/Ops chỉ dựa vào trạng thái backup local nên CFS upload có thể lỗi mà heartbeat/Ops vẫn xanh; mã chỉ chứng minh khả năng này, không chứng minh CFS đang lỗi thực tế.",
+    "bang_chung": [
+      {"path": "scripts/backup-db.sh", "line": 598, "end_line": 616, "y": "Status local ghi succeeded/verified và offsite_uploaded lấy từ R2_UPLOADED."},
+      {"path": "scripts/backup-db.sh", "line": 623, "end_line": 650, "y": "Kuma push thành công ở cuối backup script sau kiểm tra local."},
+      {"path": "scripts/systemd/clinicai-backup.service", "line": 24, "end_line": 30, "y": "Unit gọi uploader CFS riêng với '-' bỏ qua exit code lỗi."},
+      {"path": "scripts/systemd/clinicai-backup-15p.service", "line": 24, "end_line": 30, "y": "Unit backup 15 phút cũng chạy uploader CFS như bước riêng và bỏ qua mã lỗi."},
+      {"path": "scripts/collect_ops_status.py", "line": 195, "end_line": 216, "y": "Collector đọc trạng thái backup từ backup-status local."},
+      {"path": "src/clinicai/services/ops_status.py", "line": 317, "end_line": 340, "y": "Tổng hợp Ops không đưa kết quả CFS vào trạng thái overall."}
+    ],
+    "chot_chan_da_tim_thay": "Uploader CFS tự kiểm mount/seal/hash và lỗi còn trong journal; nhưng kết quả đó không nối vào status/Kuma/Ops tổng thể.",
+    "ghi_chu_sua": "Ghi trạng thái CFS riêng sau khi xác minh upload, đưa trạng thái thiếu/lỗi CFS vào cảnh báo Ops/Kuma thay vì chỉ báo backup local."
+  },
+  {
+    "id": "SEC-020",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Guard dùng OR giữa crm.manage, clinical.record.write, result.form.fill và reception.checkin.perform; quyền theo bất kỳ phòng nào cũng đủ cho nhánh check-in. Service chỉ tra appointment trong clinic rồi trả thông tin liên hệ, sinh hiệu, SOAP/form_data, kết quả xét nghiệm/chỉ định và đơn thuốc, không lọc theo cơ sở hoặc bệnh nhân được phân. Tuy nhiên code ghi rõ chủ ý rằng ai được mở tệp kết quả thì được xem hồ sơ lượt để CSKH xem/in; vì thế dữ kiện mở rộng quyền là đúng nhưng cách trình bày như một bypass không chủ ý bị thổi phồng.",
+    "bang_chung": [
+      {"path": "src/clinicai/api/v1/routers/cskh.py", "line": 673, "end_line": 679, "y": "Guard chấp nhận một trong nhiều capability và bật moi_phong."},
+      {"path": "src/clinicai/permissions/cua_quyen.py", "line": 27, "end_line": 49, "y": "Cửa qua khi caller có ít nhất một quyền; moi_phong nhận quyền từ bất kỳ phòng nào."},
+      {"path": "src/clinicai/api/v1/routers/cskh.py", "line": 783, "end_line": 798, "y": "GET ho-so-kham dùng guard đó và gọi service theo appointment_id."},
+      {"path": "src/clinicai/services/ho_so_kham_service.py", "line": 40, "end_line": 72, "y": "Lookup chỉ giới hạn appointment trong clinic và trả thông tin nhận diện/liên hệ."},
+      {"path": "src/clinicai/services/ho_so_kham_service.py", "line": 105, "end_line": 169, "y": "Các phần tổng hợp đọc SOAP/form, chỉ định và đơn theo visit+clinic."},
+      {"path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx", "line": 560, "end_line": 573, "y": "Giao diện có gọi endpoint để mở hồ sơ khám."},
+      {"path": "src/clinicai/permissions/y_khoa.py", "line": 39, "end_line": 52, "y": "Comment nêu chủ ý cho quầy/CSKH đọc phiếu và kết quả để in."}
+    ],
+    "chot_chan_da_tim_thay": "Endpoint yêu cầu capability và giới hạn clinic; không kiểm cơ sở, đối tượng phân công hay visit-level permission. Comment và UI cho thấy quyền đọc rộng phục vụ CSKH/in là chủ ý sản phẩm.",
+    "ghi_chu_sua": "Nếu chính sách không chủ trương cho mọi quyền tải kết quả xem toàn bộ hồ sơ, tách capability đọc hồ sơ đầy đủ khỏi quyền mở tệp và áp kiểm visit/patient cụ thể."
+  },
+  {
+    "id": "SEC-036",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "POST review chỉ kiểm result.review.approve; service khóa kết quả và xác thực đúng bộ lab_result_id, clinic_id, clinic_patient_id nhưng không kiểm bệnh nhân có thuộc bác sĩ được phân hay không. Queue hiện gọi khach_duoc_xem, còn route review không; endpoint BFF vẫn nhận ID và gọi được dù màn hiện hành ưu tiên luồng review theo lượt khác có kiểm ca/bác sĩ. Chưa thấy bằng chứng route này gửi thông báo bệnh nhân, nên kết luận chỉ xác nhận khả năng chốt ngoài assignment.",
+    "bang_chung": [
+      {"path": "src/clinicai/api/v1/routers/lab.py", "line": 63, "end_line": 68, "y": "Review guard là capability result.review.approve."},
+      {"path": "src/clinicai/api/v1/routers/lab.py", "line": 135, "end_line": 169, "y": "Queue review gọi khach_duoc_xem để lọc bệnh nhân."},
+      {"path": "src/clinicai/api/v1/routers/lab.py", "line": 187, "end_line": 202, "y": "POST review gọi service bằng ID kết quả và clinic_patient_id của request."},
+      {"path": "src/clinicai/services/lab_safety_service.py", "line": 178, "end_line": 221, "y": "Service khóa giao dịch và kiểm cặp result/patient/clinic, nhưng không assignment."},
+      {"path": "src/clinicai/services/lab_safety_service.py", "line": 223, "end_line": 255, "y": "Service idempotent với kết quả đã finalized và kiểm có dữ liệu trước khi chốt."},
+      {"path": "src/dashboard/app/api/lab-result/[id]/review/route.ts", "line": 12, "end_line": 47, "y": "BFF nhận request và proxy ID cùng patient ID tới endpoint review."},
+      {"path": "src/dashboard/app/(dashboard)/duyet-ket-qua/DuyetKetQua.tsx", "line": 42, "end_line": 49, "y": "Màn review hiện hành nạp luồng kết quả theo lượt, không phải route lab_result này."}
+    ],
+    "chot_chan_da_tim_thay": "Service ngăn chéo clinic, sai patient tuple, kết quả rỗng và chốt lặp; queue review lọc assignment nhưng kiểm tra đó không được lặp ở mutation. Không thấy bằng chứng notification được gửi từ endpoint này.",
+    "ghi_chu_sua": "Gọi helper assignment trong transaction ngay trước khi finalize; nếu cố ý cho TKYK duyệt thay bác sĩ, ghi rõ phạm vi quyền và audit riêng."
+  }
+]

@@ -1,0 +1,346 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "targeted_static_review_complete_for_round13_receivables_cashier_slice",
+  "scope": [
+    "Round 13 targeted review of receivables/debt acknowledgement/open balance projections, cashier navigation and finance gate, selecting files marked scanned/traced in the exact-main manifest.",
+    "Deduplicated against PHAT-HIEN.json and prior finance blocks; Round 11 shift-close/reconciliation, refund/void PHAR-001, payment slices already covered and DB-007 were not re-reported.",
+    "Static-only. No test/runtime execution, database/VPS/secrets/PHI access, source or migration edits."
+  ],
+  "identity_check": {
+    "manifest": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "snapshot_has_git_metadata": false,
+    "note": "SHA-256 và số dòng được đối chiếu trực tiếp với snapshot. Coverage không khẳng định đã đọc hết module hoặc repository."
+  },
+  "finding_ids": [
+    "CAND-R13-AR-01",
+    "CAND-R13-AR-02"
+  ],
+  "finding_count": 2,
+  "cross_check": {
+    "ledger_ids_checked": [
+      "DB-007",
+      "PHAR-001",
+      "FIN-001",
+      "FIN-002",
+      "FIN-003",
+      "FIN-004",
+      "FIN-005",
+      "FIN-006",
+      "FIN-007",
+      "FIN-008",
+      "FIN-009",
+      "FIN-010",
+      "FIN-011",
+      "FIN-012",
+      "INF-007"
+    ],
+    "result": "Không lặp các finding canonical đã nêu. DB-007 là FK patient/visit mismatch; FIN/PHAR/INF trong scope có trigger khác hai candidate về unknown debt amount và freshness của acknowledgement."
+  },
+  "files": [
+    {
+      "path": "src/clinicai/services/cong_no_service.py",
+      "sha256": "1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294",
+      "lines_total": 582,
+      "manifest_status": "scanned",
+      "read_level": "full_file_static_read",
+      "ranges": [
+        "1-582"
+      ],
+      "notes": "Debt item model, unknown-price handling, source-ID coverage, open cong_no lookup/write/cancel and receivables projection."
+    },
+    {
+      "path": "src/clinicai/services/cashier_navigation_service.py",
+      "sha256": "5c6f1ed5843d934196f228e8a2a6cfd419e182154a9880bcce09a390487f9ac8",
+      "lines_total": 91,
+      "manifest_status": "scanned",
+      "read_level": "full_file_static_read",
+      "ranges": [
+        "1-91"
+      ],
+      "notes": "Capability-to-roster navigation projection and refresh boundary."
+    },
+    {
+      "path": "src/clinicai/services/finance_gate.py",
+      "sha256": "c569748a8e98fa3e48030890bf55ffcdf0be96c66f4397150238425fed3374d4",
+      "lines_total": 454,
+      "manifest_status": "scanned",
+      "read_level": "full_file_static_read",
+      "ranges": [
+        "1-454"
+      ],
+      "notes": "Finance facts/decision pure logic; selected callers checked for path-specific exception handling."
+    },
+    {
+      "path": "src/clinicai/services/so_no_service.py",
+      "sha256": "977d4862794b48aa3d860842b223b6dcd9e563a569222db47f0f9a3a8c8790d9",
+      "lines_total": 677,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "91-118",
+        "215-313",
+        "350-405",
+        "451-522",
+        "527-542",
+        "580-615"
+      ],
+      "notes": "Unknown debt amount normalization, zero-delta skip, open-balance filter/count source and periodic reconciliation candidate selection."
+    },
+    {
+      "path": "src/clinicai/services/checkout_service.py",
+      "sha256": "538aff29032bb6ba1ad548bdcbce5a98c1c3ad005d2c51ef15040858e861f029",
+      "lines_total": 1196,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "1051-1096",
+        "1099-1128"
+      ],
+      "notes": "Builds no_khi_ve and checkout blockers keyed by chan_no/chan."
+    },
+    {
+      "path": "src/clinicai/services/bill_service.py",
+      "sha256": "345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "lines_total": 1276,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "184-220",
+        "233-264",
+        "425-445",
+        "660-686",
+        "853-940"
+      ],
+      "notes": "Missing-price representation, stable service-order source ID and current active service_price projection."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/dispatch.py",
+      "sha256": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+      "lines_total": 625,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "441-472"
+      ],
+      "notes": "Ghi/huy cong_no routes, receptionist guard and service dispatch."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phan_quyen.py",
+      "sha256": "bce5882167696d75a7b414217570382e07a2e24a694c235bdf061512c2b748ab",
+      "lines_total": 331,
+      "manifest_status": "read",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "164-178"
+      ],
+      "notes": "Cashier navigation API response and refresh deadline."
+    },
+    {
+      "path": "src/clinicai/services/cashier_scope_service.py",
+      "sha256": "c48ff84bb659445c9bad1d1514b78d0dcd6010d2f02005d823628b3a045e5337",
+      "lines_total": 483,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "217-347",
+        "349-405"
+      ],
+      "notes": "Roster scope and cashier authorization basis."
+    },
+    {
+      "path": "src/clinicai/services/cashier_board_service.py",
+      "sha256": "469db7b83c873eef9f0065cb93de53d67f0ff061995190841225405594097f6e",
+      "lines_total": 1173,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "684-768"
+      ],
+      "notes": "Cashier board open-debt projection/call path."
+    },
+    {
+      "path": "src/clinicai/services/service_routing_service.py",
+      "sha256": "872ba98d465a775db628d71d5a47fc8ef10c98897582ce22635c053d50712967",
+      "lines_total": 2479,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "95-120",
+        "635-643",
+        "1125-1144",
+        "1335-1358"
+      ],
+      "notes": "Finance gate consumers including intentional receive-at-room exception and service routing."
+    },
+    {
+      "path": "src/clinicai/services/dispatch_service.py",
+      "sha256": "cb3b2dbe53a151c66754e4442b15a3cb7eb8bba01dc586254a37427a37e1f35f",
+      "lines_total": 1150,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "337-375"
+      ],
+      "notes": "Finance gate caller path."
+    },
+    {
+      "path": "src/clinicai/services/bang_hanh_trinh_service.py",
+      "sha256": "eeec73ad07c35ca9fc5b6fe1bae4278bb6f8734619af18167a5976a6a92a8d5b",
+      "lines_total": 345,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "243-249"
+      ],
+      "notes": "Finance gate caller path."
+    },
+    {
+      "path": "src/clinicai/services/lam_them_dong_dich_vu.py",
+      "sha256": "27d4b4772af7b4d6e618c3e1a1f1827bca2071290f2874121d64115c4cf95b92",
+      "lines_total": 235,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "65-90"
+      ],
+      "notes": "Finance gate caller path."
+    },
+    {
+      "path": "src/clinicai/services/service_execution_service.py",
+      "sha256": "3abcc1358aaa0291b718144b1cc29866efd735da52916cf31a008329088abcad",
+      "lines_total": 2409,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "268-361",
+        "1760-1809"
+      ],
+      "notes": "Finance gate checks around execution start/continuation."
+    },
+    {
+      "path": "src/clinicai/services/nhan_tai_phong.py",
+      "sha256": "bd35eb8d4cfaef3481a510116219cf4c9f23ad32228eccca495e83f2f9c0ce16",
+      "lines_total": 1577,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "325-382"
+      ],
+      "notes": "Finance gate caller path."
+    },
+    {
+      "path": "src/clinicai/services/chi_dinh_service.py",
+      "sha256": "58bf83daa0d2aeee93a24011cc47ab7a95314cc31a7e58991b709b1d3ab1071e",
+      "lines_total": 506,
+      "manifest_status": "traced",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "438-465"
+      ],
+      "notes": "Finance gate caller path."
+    },
+    {
+      "path": "src/clinicai/events/consumers/cong_no.py",
+      "sha256": "474185e02b7bb8ab1f79915d4b0d2564c0422c7e2c5ef5d1f4bb71773018dd4c",
+      "lines_total": 87,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "1-87"
+      ],
+      "notes": "Debt receipt event consumer path."
+    },
+    {
+      "path": "src/clinicai/events/consumers/so_no.py",
+      "sha256": "c9d05af3fffcfbfa92d6184e63984ce396012d7b16ee98deed4d666fed8f112b",
+      "lines_total": 128,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_trace",
+      "ranges": [
+        "1-128"
+      ],
+      "notes": "Ledger event consumer path."
+    },
+    {
+      "path": "src/tests/services/test_cong_no_check_out_db.py",
+      "sha256": "fe73b7ddb30b41f1e5b67fa07665531db0ac25ac3d30de9e65d9861dbad61120",
+      "lines_total": 383,
+      "manifest_status": "scanned",
+      "read_level": "full_file_static_read",
+      "ranges": [
+        "1-383"
+      ],
+      "notes": "Known-price debt, checkout, updates after additional source, and collection; no same-source amount-drift test."
+    },
+    {
+      "path": "src/tests/services/test_so_no_hai_chieu_db.py",
+      "sha256": "556d09817960a03b9b6118073b1e331f312b866300feb3cddef23bb8d4d700d5",
+      "lines_total": 373,
+      "manifest_status": "scanned",
+      "read_level": "full_file_static_read",
+      "ranges": [
+        "1-373"
+      ],
+      "notes": "Debt ledger reconciliation and collection cases; no unknown-price projection test found in full file."
+    },
+    {
+      "path": "src/tests/services/test_cashier_navigation.py",
+      "sha256": "71571700e1f9126ff810ea85473f03bf6ec80a977d003dbef3e8d8fad9bbd96b",
+      "lines_total": 88,
+      "manifest_status": "scanned",
+      "read_level": "full_file_static_read",
+      "ranges": [
+        "1-88"
+      ],
+      "notes": "Roster/capability navigation unit tests."
+    },
+    {
+      "path": "src/tests/services/test_viec_ton_noi_man_db.py",
+      "sha256": "bc70c62180b195995ae24857ab866e0e588267a6fd688d2f475467dfc03601a7",
+      "lines_total": 210,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_read",
+      "ranges": [
+        "1-150"
+      ],
+      "notes": "Outstanding work/debt dashboard projection counterpart."
+    },
+    {
+      "path": "src/tests/services/test_checkout_blockers.py",
+      "sha256": "8fe15fcf58fdc87d0331dd5b5353c295f7a72bec06fa0e405cbc09f1bec79175",
+      "lines_total": 341,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_read",
+      "ranges": [
+        "308-341"
+      ],
+      "notes": "Blocker behavior adjacent to checkout debt gate."
+    },
+    {
+      "path": "src/tests/unit/test_hanh_trinh_khach.py",
+      "sha256": "b22c40fca4adda50f0660f41b405cf4f3faae95b6591e36fe20aaa09442ef649",
+      "lines_total": 799,
+      "manifest_status": "scanned",
+      "read_level": "targeted_static_read",
+      "ranges": [
+        "695-711"
+      ],
+      "notes": "Checks user wording for an unpriced debt item; does not assert debt ledger projection."
+    }
+  ],
+  "non_findings_and_controls": [
+    "Cashier navigation is roster-scoped and uses capability input as navigation only; route/service authorization remains enforced separately. No separate navigation issue found in the read paths.",
+    "FinanceGate caller traces showed the receive-at-room special case is documented as intentional; other checked callers use the finance decision serviceability predicate. No separate receivables candidate was raised from those callers.",
+    "The existing checkout DB test blocks a newly added debt source after a prior note and passes after re-recording; the untested case is changed value under the same source ID."
+  ],
+  "explicit_limitations": [
+    "This is not a full-module or repository-wide audit. Many files were read only over the ranges listed.",
+    "No tests/runtime/API calls, DB queries, production/VPS inspection, secrets, or PHI access; no production incident is established.",
+    "Periodic reconciliation candidate selection was reviewed only at its selection/query boundary; eventual behavior after an unpriced amount becomes known was not established.",
+    "A policy decision is needed on whether changed debt amounts require a fresh acknowledgment before checkout."
+  ]
+}

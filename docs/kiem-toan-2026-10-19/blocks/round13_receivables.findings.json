@@ -1,0 +1,77 @@
+[
+  {
+    "id": "CAND-R13-AR-01",
+    "canonical_id": null,
+    "title": "Khoản nợ chưa có giá bị quy thành 0 trong số dư phải thu",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "receivables_unknown_amount_projection",
+    "status": "candidate_for_triage",
+    "summary": "Dòng hóa đơn thanh_tien=None vẫn được loc_no_dich_vu giữ thành nợ. NoKhiVe.tong và so_no_service quy None về 0; ghi_chenh_lech bỏ chênh 0, projection dư nợ mở lọc so_du > 0, nên doc_khach_con_no không đếm khoản đó dù cong_no có thể còn CHUA_THU và dong chứa so_tien:null.",
+    "trigger": "Dịch vụ đã làm, chưa thu, không có giá hiện hành; nhân viên ghi nợ và khách check-out; quản lý đọc danh sách/tổng số dư phải thu mở.",
+    "impact": "Bản ghi công nợ có thể tồn tại với trạng thái chưa thu nhưng danh sách/tổng dư nợ mở theo sổ tiền không biểu diễn khoản chưa định giá. Không kết luận khoản biến mất khỏi mọi màn hình hay không thể được cập nhật sau này.",
+    "recommendation": "Biểu diễn riêng khoản chưa định giá trong projection truy thu/số dư và đếm trạng thái unknown tách khỏi tổng tiền; nếu chính sách không cho checkout khi chưa có giá, từ chối nhất quán thay vì tạo trạng thái nhìn như nợ 0.",
+    "acceptance": "Test khoản dịch vụ đã làm chưa thu, giá None: sau ghi nợ và checkout phải còn hàng đợi/trạng thái chưa định giá rõ ràng và được tính trong số khoản, không được suy thành hết nợ. Khi giá được bổ sung, projection chuyển đúng sang số dư phải thu, không nhân đôi/mất khoản. Nếu chính sách cấm checkout, API từ chối và không sinh biểu diễn dư nợ 0.",
+    "evidence": [
+      {"path":"src/clinicai/services/bill_service.py","sha256":"345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966","line":198,"end_line":220,"detail":"Không có giá thì _dong_gia giữ thanh_tien=None; trạng thái này được tạo có chủ đích."},
+      {"path":"src/clinicai/services/cong_no_service.py","sha256":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294","line":126,"end_line":181,"detail":"DongNo cho phép so_tien None; NoKhiVe.tong đổi None thành 0 trong tổng tiền nhưng câu mô tả vẫn ghi số khoản chưa giá."},
+      {"path":"src/clinicai/services/cong_no_service.py","sha256":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294","line":238,"end_line":251,"detail":"loc_no_dich_vu giữ dòng thanh_tien=None vào danh sách nợ."},
+      {"path":"src/clinicai/services/cong_no_service.py","sha256":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294","line":441,"end_line":476,"detail":"Ghi tổng số tiền đã quy None thành 0, đồng thời lưu JSON chi tiết dòng nợ."},
+      {"path":"src/clinicai/services/so_no_service.py","sha256":"977d4862794b48aa3d860842b223b6dcd9e563a569222db47f0f9a3a8c8790d9","line":228,"end_line":267,"detail":"Sổ nhận chi tiết từ no_khi_ve nhưng quy so_tien None về 0 khi tổng phải thu."},
+      {"path":"src/clinicai/services/so_no_service.py","sha256":"977d4862794b48aa3d860842b223b6dcd9e563a569222db47f0f9a3a8c8790d9","line":285,"end_line":313,"detail":"Không tạo dòng sổ khi chênh lệch bằng 0."},
+      {"path":"src/clinicai/services/so_no_service.py","sha256":"977d4862794b48aa3d860842b223b6dcd9e563a569222db47f0f9a3a8c8790d9","line":451,"end_line":489,"detail":"Projection dư nợ mở chỉ chọn số dư cuối > 0."},
+      {"path":"src/clinicai/services/cong_no_service.py","sha256":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294","line":359,"end_line":398,"detail":"Tổng và số khách còn nợ lấy từ projection dư nợ mở, không quét khoản cong_no có số tiền 0."},
+      {"path":"src/tests/services/test_cong_no_check_out_db.py","sha256":"fe73b7ddb30b41f1e5b67fa07665531db0ac25ac3d30de9e65d9861dbad61120","line":137,"end_line":215,"detail":"Ca nợ/thu/check-out/report được đọc dùng số tiền xác định; không có ca giá None trong đường này."},
+      {"path":"src/tests/services/test_so_no_hai_chieu_db.py","sha256":"556d09817960a03b9b6118073b1e331f312b866300feb3cddef23bb8d4d700d5","line":99,"end_line":112,"detail":"Ca sổ công nợ đọc kiểm tra khoản có giá xác định 300.000đ."}
+    ],
+    "validation": {"method":"static_trace_pinned_main","command":null,"result":"Đối chiếu biểu diễn thiếu giá trong bill_service, luật chọn nợ, tổng ghi nhận, phép tính sổ, bộ lọc dư nợ mở và test counterpart đã đọc.","limitations":"Không chạy test/runtime hoặc truy vấn dữ liệu. Chưa truy toàn bộ UI hiển thị cong_no mở, đường sự kiện thay giá hay xác nhận cấu hình thiếu giá ở production; không kết luận khoản không thể được cập nhật sau này."},
+    "related_findings": [
+      {"id":"DB-007","relationship":"Không trùng: DB-007 là FK clinic_patient_id không được ràng buộc với patient của visit; candidate này là biểu diễn/đếm số tiền chưa định giá."},
+      {"id":"FIN-011","relationship":"Không trùng Round 11 chốt ca: race/cutoff snapshot tài chính; candidate này là số dư phải thu bằng 0 do unknown amount."}
+    ],
+    "source_hashes": {
+      "src/clinicai/services/bill_service.py":"345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "src/clinicai/services/cong_no_service.py":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294",
+      "src/clinicai/services/so_no_service.py":"977d4862794b48aa3d860842b223b6dcd9e563a569222db47f0f9a3a8c8790d9",
+      "src/tests/services/test_cong_no_check_out_db.py":"fe73b7ddb30b41f1e5b67fa07665531db0ac25ac3d30de9e65d9861dbad61120",
+      "src/tests/services/test_so_no_hai_chieu_db.py":"556d09817960a03b9b6118073b1e331f312b866300feb3cddef23bb8d4d700d5"
+    },
+    "version_scope":"exact_main_snapshot_956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "main_validation":{"sha":"956ba4f236b1c92f1280d2097018c199e90ce8c7","status":"candidate_present_in_static_source","note":"Static candidate only; not production-verified.","production_verified":false}
+  },
+  {
+    "id":"CAND-R13-AR-02",
+    "canonical_id":null,
+    "title":"Ghi nợ chỉ khớp source_id nên có thể cho check-out với số tiền snapshot đã cũ",
+    "severity":"MEDIUM",
+    "evidence_level":"confirmed_static",
+    "category":"receivable_acknowledgement_staleness",
+    "status":"candidate_for_triage",
+    "summary":"NoKhiVe.phu_boi_ghi_no chỉ so source_id của nghĩa vụ hiện tại với chi tiết lần ghi nợ. Ghi nợ lưu tổng/chi tiết số tiền tại lúc ghi, trong khi service_order giữ source_id ổn định và bill_service tra giá qua service_price active. Nếu số tiền cùng nguồn đổi trước checkout, phu_du có thể vẫn true, chan_no false và checkout không yêu cầu cập nhật snapshot.",
+    "trigger":"Một khoản cùng source ID đã được ghi nợ; trước checkout, giá trị hiện hành của hóa đơn đổi (ví dụ service_order được tính lại từ bảng giá active); checkout dựng lại hóa đơn và chỉ so source_id.",
+    "impact":"Nhân viên có thể hoàn tất checkout sau khi xác nhận một snapshot có số tiền khác với nghĩa vụ hiện tại; cong_no.so_tien/dong có thể cũ. Không xác nhận thay đổi giá có xảy ra trong production hoặc kết luận sổ cuối cùng sai.",
+    "recommendation":"So sánh tuple nghĩa vụ (source_type, source_id, amount, unresolved-price marker) với snapshot còn hiệu lực. Nếu thay đổi, yêu cầu ghi nợ/xác nhận lại theo chính sách và lưu rõ phần thay đổi.",
+    "acceptance":"Ghi nợ service_order với giá A, đổi giá trị hiện hành cùng source ID thành B trước checkout: checkout bị chặn/phu_du=false cho đến khi ghi nợ được cập nhật; bản ghi sau cập nhật phải có tổng và chi tiết khớp B. Bổ sung ca source type nếu ID có thể giao nhau.",
+    "evidence":[
+      {"path":"src/clinicai/services/cong_no_service.py","sha256":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294","line":126,"end_line":171,"detail":"Snapshot debt chứa source_type/source_id/so_tien nhưng phu_boi_ghi_no chỉ lập tập và so source_id."},
+      {"path":"src/clinicai/services/cong_no_service.py","sha256":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294","line":441,"end_line":476,"detail":"Ghi lại tổng và JSON chi tiết của nghĩa vụ được dựng tại thời điểm thực hiện lệnh."},
+      {"path":"src/clinicai/services/bill_service.py","sha256":"345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966","line":433,"end_line":445,"detail":"Dòng service_order dùng ID order làm source_id ổn định."},
+      {"path":"src/clinicai/services/bill_service.py","sha256":"345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966","line":663,"end_line":685,"detail":"Giá dịch vụ lấy từ service_price đang active khi dựng hóa đơn."},
+      {"path":"src/clinicai/services/checkout_service.py","sha256":"538aff29032bb6ba1ad548bdcbce5a98c1c3ad005d2c51ef15040858e861f029","line":1110,"end_line":1128,"detail":"Checkout tạo blocker tiền theo chan_no/chan; nếu coverage source ID vẫn true thì blocker công nợ không xuất hiện."},
+      {"path":"src/tests/services/test_cong_no_check_out_db.py","sha256":"fe73b7ddb30b41f1e5b67fa07665531db0ac25ac3d30de9e65d9861dbad61120","line":295,"end_line":331,"detail":"Test chứng minh source ID mới sau ghi nợ sẽ chặn và ghi lại cập nhật tổng; không đổi số tiền trên cùng source ID."}
+    ],
+    "validation":{"method":"static_call_chain_and_test_review_pinned_main","command":null,"result":"Theo dấu source_id từ bill projection tới NoKhiVe, snapshot cong_no và checkout blocker; đọc test hiện có về khoản nợ mới sau lần ghi.","limitations":"Không chạy test, không gọi API/DB; chưa kiểm tra quyền và đường thay đổi giá trong production. Cần chốt chính sách liệu thay đổi giá có bắt buộc xác nhận lại hay không."},
+    "related_findings":[
+      {"id":"DB-007","relationship":"Không trùng: DB-007 ràng buộc clinic_patient_id với lượt, không nói về độ mới của snapshot amount."},
+      {"id":"FIN-003","relationship":"Không trùng: FIN-003 là retry thêm thuốc tạo dòng lặp; candidate này là snapshot ghi nợ không phát hiện giá trị đổi cùng source ID."}
+    ],
+    "source_hashes":{
+      "src/clinicai/services/cong_no_service.py":"1927c9e6c2f8177c0556f2986bcb16a480cd08bf192925ef331e2a507eec8294",
+      "src/clinicai/services/bill_service.py":"345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "src/clinicai/services/checkout_service.py":"538aff29032bb6ba1ad548bdcbce5a98c1c3ad005d2c51ef15040858e861f029",
+      "src/tests/services/test_cong_no_check_out_db.py":"fe73b7ddb30b41f1e5b67fa07665531db0ac25ac3d30de9e65d9861dbad61120"
+    },
+    "version_scope":"exact_main_snapshot_956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "main_validation":{"sha":"956ba4f236b1c92f1280d2097018c199e90ce8c7","status":"candidate_present_in_static_source","note":"Static candidate only; not production-verified.","production_verified":false}
+  }
+]

@@ -1,0 +1,81 @@
+[
+  {
+    "id": "SEC-001",
+    "title": "Đặt lại mật khẩu GoTrue không thu hồi thông tin đăng nhập ở cửa auth nội bộ",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "identity_consistency",
+    "summary": "Màn quản lý thay mật khẩu/email ở GoTrue, trong khi /auth/login còn xác thực app_credential chép từ trước và mint JWT cùng hệ tin cậy.",
+    "trigger": "Người gọi có X-API-Key nội bộ và mật khẩu cũ của nhân viên còn active, linked; quản lý vừa reset GoTrue.",
+    "impact": "Cửa nội bộ có thể tiếp tục cấp token từ mật khẩu cũ. Đây không phải public bypass; gỡ tài khoản đã có chốt thu_hoi và auth_user_id.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/api/admin/users/route.ts",
+        "line": 270,
+        "end_line": 319,
+        "detail": "Reset/change email chỉ update GoTrue rồi ghi nhật ký."
+      },
+      {
+        "path": "src/clinicai/services/auth_service.py",
+        "line": 93,
+        "end_line": 116,
+        "detail": "Login đối chiếu password_hash của app_credential."
+      },
+      {
+        "path": "src/clinicai/services/auth_service.py",
+        "line": 206,
+        "end_line": 240,
+        "detail": "Mint token cùng secret/audience."
+      },
+      {
+        "path": "src/clinicai/api/auth.py",
+        "line": 76,
+        "end_line": 130,
+        "detail": "API key là điều kiện tiên quyết của đường nội bộ."
+      }
+    ],
+    "validation": {
+      "method": "static_trace",
+      "command": null,
+      "result": "Root đã đọc và đối chiếu code hiện hành; chưa tái hiện UI/transaction.",
+      "limitations": "Static hiện hành; không thử đăng nhập bằng credential thật. Cần xác minh cửa nội bộ có caller vận hành nào còn dùng."
+    },
+    "recommendation": "Chọn một authority thông tin xác thực; tắt cửa cũ sau kiểm dependencies hoặc đồng bộ/revoke credential version khi reset. Không giữ hai kho password độc lập.",
+    "acceptance": "Sau reset, mật khẩu cũ bị từ chối ở mọi cửa được hỗ trợ; test cả active/unlinked/revoked và phiên token theo chính sách đã chốt.",
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Ownership rõ",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/dashboard/app/api/admin/users/route.ts": "a30f891040f8405065d06fc71dd41d0638bf7ed22e28f382916ccce5bc89e5c6",
+      "src/clinicai/services/auth_service.py": "a7678c105726cd4f2865f55ff3304be727d7ff01cfb1aa8431148a078ea5e536",
+      "src/clinicai/api/auth.py": "a651e46ac5e5082835dac8e3e0b54b3f92c3ada3009515537f5b789c54ab06cd"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 354,
+          "end_line": 371,
+          "sha256": "4fce6107a22a8d1c5b08ce9b419468c4f24d11a3ba1ac5d5cc7be84313ec93d7",
+          "excerpt": "354:   if (action === \"reset_password\") {\n355:     const password = body.password ?? \"\";\n356:     if (password.length < MIN_PASSWORD) {\n357:       return NextResponse.json(\n358:         { error: `Mật khẩu phải có ít nhất ${MIN_PASSWORD} ký tự.` },\n359:         { status: 400 },\n360:       );\n361:     }\n362:     const { error } = await admin.auth.admin.updateUserById(authUserId, {\n363:       password,\n364:     });\n365:     if (error) {\n366:       return NextResponse.json({ error: error.message }, { status: 500 });\n367:     }\n368:     await ghiNhatKy(staffId, \"doi_mat_khau\");\n369:     return NextResponse.json({\n370:       ok: true,\n371:       action,"
+        },
+        {
+          "path": "src/clinicai/services/auth_service.py",
+          "line": 93,
+          "end_line": 116,
+          "sha256": "a7678c105726cd4f2865f55ff3304be727d7ff01cfb1aa8431148a078ea5e536",
+          "excerpt": "93:                     SELECT c.staff_id, c.password_hash, c.locked_until,\n94:                            c.failed_attempts, c.thu_hoi_luc,\n95:                            s.auth_user_id, s.is_active\n96:                       FROM public.app_credential c\n97:                       JOIN public.staff s ON s.id = c.staff_id\n98:                      WHERE lower(c.email) = lower($1)\n99:                      FOR UPDATE OF c\n100:                     \"\"\",\n101:                     email,\n102:                 )\n103: \n104:                 now = datetime.now(timezone.utc)\n105:                 if row is None:\n106:                     ket_qua = \"sai\"\n107:                 elif row[\"locked_until\"] is not None and row[\"locked_until\"] > now:\n108:                     ket_qua = \"khoa\"\n109:                     con_lai_phut = (\n110:                         int((row[\"locked_until\"] - now).total_seconds() // 60) + 1\n111:                     )\n112:                 else:\n113:                     khop: bool = await conn.fetchval(\n114:                         \"SELECT $1 = extensions.crypt($2, $1)\",\n115:                         row[\"password_hash\"],\n116:                         password,"
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

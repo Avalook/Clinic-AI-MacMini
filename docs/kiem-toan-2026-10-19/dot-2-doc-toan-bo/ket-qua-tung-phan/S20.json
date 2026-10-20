@@ -1,0 +1,1409 @@
+{
+  "chunk": "S20",
+  "findings": [
+    {
+      "tmp_id": "S20-1",
+      "title": "Hàm dùng chung guiThaoTac sinh khoá Idempotency mới ở MỖI lần gọi nên bấm lại sau mất phản hồi vẫn tạo bản ghi mới",
+      "severity": "MEDIUM",
+      "category": "idempotency_helper",
+      "evidence_level": "confirmed_static",
+      "summary": "Repo đã có cơ chế khoá theo THAO TÁC (khoa-mot-lan.ts: cùng thao tác thì cùng khoá cho tới khi thành công) và tự giải thích vì sao khoá không được sinh mới mỗi lần bấm. Nhưng helper guiThaoTac của các màn làm việc theo phòng gọi khoaGuiLai() bên trong thân hàm, nên mỗi lần gọi là một khoá mới. Khoảng 16 tệp không phải test dùng helper này (Bàn khám, Phòng dịch vụ, Đổi phòng, Duyệt kết quả, Vật tư quầy, Trưởng ca…).",
+      "trigger": "Có thể xảy ra nếu mạng rớt đúng lúc máy chủ đã commit nhưng trình duyệt không nhận phản hồi (guiThaoTac trả status 0 'CHƯA được ghi'), người dùng bấm lại. Ví dụ ở quầy thu: bấm nút vật tư 'bấm nữa = thêm một cái' (cong_don) sau khi mất phản hồi sẽ cộng thêm một đơn vị nữa.",
+      "impact": "Máy chủ không thể nhận ra lần gửi lại. Với lệnh dạng 'thêm' hoặc 'cộng dồn' (thêm vật tư vào hoá đơn, tạo chỉ định, xếp việc) có thể sinh dòng/số lượng gấp đôi, ảnh hưởng tiền hoá đơn và hàng đợi. Màn báo 'CHƯA được ghi' khiến người dùng tin thao tác chưa chạy nên càng dễ bấm lại.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+          "line": 212,
+          "end_line": 215,
+          "detail": "khoaGuiLai() trả chuỗi mới theo Date.now()+Math.random() mỗi lần gọi."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+          "line": 217,
+          "end_line": 247,
+          "detail": "guiThaoTac đặt Idempotency-Key: khoaGuiLai() ngay trong thân hàm (dòng 234); lỗi mạng trả status 0 'thao tác CHƯA được ghi' (dòng 244)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/customers/khoa-mot-lan.ts",
+          "line": 14,
+          "end_line": 20,
+          "detail": "Tài liệu tự nêu nguyên tắc: khoá theo THAO TÁC, sinh mới mỗi lần bấm thì chốt chống trùng vô nghĩa."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx",
+          "line": 115,
+          "end_line": 119,
+          "detail": "Thêm vật tư gọi guiThaoTac('vat-tu-them') với so_luong 1; nút '+'/'-' cũng qua đường này (dòng 339, 363)."
+        },
+        {
+          "path": "src/clinicai/services/vat_tu_service.py",
+          "line": 356,
+          "end_line": 358,
+          "detail": "Server cộng dồn số lượng khi mặt hàng đã có dòng (cong_don mặc định), dòng 437-439."
+        }
+      ],
+      "limitations": "Chưa kiểm từng endpoint phía server xem có tự idempotent theo trạng thái hay không (nhiều lệnh đặt-giá-trị thì an toàn). Không khẳng định đã xảy ra trên production. Các lệnh dùng khoaThaoTac (thu, hoàn, chốt dịch vụ) không bị.",
+      "recommendation": "Cho guiThaoTac nhận tham số định danh thao tác (dinhDanhThaoTac + khoaThaoTac/xongThaoTac như quầy thu) và coi khoá ngẫu nhiên mỗi lần gọi là lỗi cấu hình; lệnh dạng cộng dồn nên có khoá bắt buộc ở server (từ chối thiếu khoá). Thêm test ranh giới: gọi hai lần cùng thao tác sau status 0 phải mang cùng khoá.",
+      "acceptance": "Test đơn vị: mô phỏng fetch ném lỗi lần 1 rồi gọi lại cùng thao tác; hai request mang cùng Idempotency-Key. Test tích hợp: gửi lại 'vat-tu-them' cùng khoá chỉ tăng số lượng một lần.",
+      "alignment": [
+        "Reality rõ",
+        "Lỗi lặp thành cải tiến hệ thống"
+      ],
+      "extends": [
+        "CLIN-031"
+      ],
+      "related_ids": [
+        "CLIN-031",
+        "CLIN-044",
+        "CLIN-057",
+        "CLIN-058",
+        "FIN-003"
+      ]
+    },
+    {
+      "tmp_id": "S20-2",
+      "title": "Hoàn tác lần thu: server không giới hạn thời gian/ca, lý do tuỳ chọn được tự điền 'thao tác nhầm', đi vòng quyền Hoàn tiền chỉ dành quản lý",
+      "severity": "MEDIUM",
+      "category": "money_control",
+      "evidence_level": "design_gap",
+      "summary": "Hoàn tiền (HoanTien.tsx) là đường có kiểm soát: chỉ quản lý, lý do >= 5 ký tự, mã giao dịch bắt buộc khi chuyển khoản. Hoàn tác lần thu (NutHoanTac) cũng trả lại toàn bộ khoản thu nhưng chỉ cần quyền thu đúng loại tiền; lý do không bắt buộc và nếu bỏ trống server ghi câu mặc định 'Hoàn tác lần thu (thao tác nhầm)' như thể người thu đã khai. Giao diện chỉ đưa nút ở tab hôm nay, nhưng hàm server hoan_tac nhận payment_cycle_id bất kỳ, không kiểm ngày, ca hay người đã thu.",
+      "trigger": "Có thể xảy ra nếu một tài khoản có quyền thu tiền gọi trực tiếp POST /api/payment {action:'hoan-tac'} (hoặc dùng nút ở lịch sử) cho phiếu PAID của người khác hoặc của ngày trước, không nhập lý do.",
+      "impact": "Một người đứng quầy có thể huỷ phiếu đã thu và (nếu khách đã về, dịch vụ đã làm) hệ thống ghi nợ thay, trong khi lý do trong sổ là câu do máy sinh nên không phản ánh lời khai. Kiểm soát tiền yếu hơn đường hoàn tiền; nhật ký chỉ trả lời 'ai', không trả lời 'vì sao'.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/NutHoanTac.tsx",
+          "line": 11,
+          "end_line": 13,
+          "detail": "Ghi rõ: hoàn tác = thu nhầm, lý do không bắt buộc."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/NutHoanTac.tsx",
+          "line": 87,
+          "end_line": 94,
+          "detail": "Ô lý do 'không bắt buộc'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/HoanTien.tsx",
+          "line": 10,
+          "end_line": 11,
+          "detail": "Hoàn tiền tạm chỉ Quản lý; lý do >= 5 ký tự (dòng 228)."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 278,
+          "end_line": 295,
+          "detail": "ly_do_hoan_tac trả câu mặc định 'Hoàn tác lần thu (thao tác nhầm)' khi trống."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 1647,
+          "end_line": 1686,
+          "detail": "hoan_tac: ai có quyền thu đúng loại tiền cũng làm được; không có điều kiện ngày/ca/người thu; PAID gọi void_payment."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 1400,
+          "end_line": 1409,
+          "detail": "void_payment: 'mở full lego' cho người khác huỷ phiếu của nhau."
+        }
+      ],
+      "limitations": "Đây là quyết định sản phẩm có chủ ý (Tuyền 01/10/2026: mọi thao tác phải hoàn tác được). Có sự kiện payment.collection_undone và tự ghi nợ khi khách đã về là biện pháp giảm nhẹ. Chưa kiểm báo cáo ca có làm nổi số hoàn tác theo người thu hay không.",
+      "recommendation": "Giữ khả năng hoàn tác nhưng thêm: (1) cửa sổ thời gian/ca cho hoàn tác tự do, quá cửa sổ thì cần quản lý; (2) lý do mã hoá (chọn từ danh sách) thay vì câu mặc định, và lưu 'không khai lý do' như một giá trị riêng; (3) số hoàn tác theo người thu trong báo cáo ca và cảnh báo khi vượt ngưỡng.",
+      "acceptance": "Test: gọi hoan-tac cho phiếu PAID ngày hôm trước bằng tài khoản thu ngân thường bị từ chối hoặc cần duyệt; phiếu hoàn tác không lý do được lưu với cờ 'không khai lý do'; báo cáo cuối ca có dòng số lần hoàn tác theo người thu.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Ownership rõ",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-010",
+        "FIN-009"
+      ]
+    },
+    {
+      "tmp_id": "S20-3",
+      "title": "Xác minh chuyển khoản do chính thu ngân tự khai số tiền ngân hàng nhận; lần thu vẫn PAID đủ và cờ cần đối soát không có người nhận, hạn, hay đường đóng",
+      "severity": "MEDIUM",
+      "category": "reconciliation_ownership",
+      "evidence_level": "design_gap",
+      "summary": "Bấm 'Đã nhận tiền' chuyển lần chờ thành PAID theo đúng số hoá đơn, bất kể 'Ngân hàng nhận' người thu gõ (kể cả 0). Mã giao dịch tuỳ chọn. Số lệch chỉ bật cờ can_doi_soat và mã SO_TIEN_LECH. Tìm trong toàn repo tại SHA không thấy chỗ nào đặt lại can_doi_soat về false, tạo việc cho người đối soát, hạn xử lý hay thông báo; cờ chỉ được hiển thị ở danh sách giao dịch/hoá đơn.",
+      "trigger": "Có thể xảy ra nếu thu ngân (nhầm hoặc cố ý) xác nhận đã nhận tiền chuyển khoản khi tiền chưa về hoặc về thiếu; hoặc hoá đơn đổi trong lúc chờ.",
+      "impact": "Sổ ghi đã thu, thuốc có thể được ghi bán/trừ kho theo lần thu, trong khi tiền thật chưa chắc đã về. Phát hiện lệch phụ thuộc người nhớ mở màn hoá đơn; không ai được giao, không có đồng hồ đếm lùi, nên khoản lệch có thể tồn tại vô thời hạn.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+          "line": 1155,
+          "end_line": 1210,
+          "detail": "NhomThu chờ xác minh: mã GD tuỳ chọn; 'Ngân hàng nhận' điền sẵn, sửa tự do; 'khác số chuyển khoản thì vẫn ghi đã thu'."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 1076,
+          "end_line": 1081,
+          "detail": "Docstring: khác phần CK thì vẫn ghi đã thu, mã SO_TIEN_LECH, 'người đối soát quyết'."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 1124,
+          "end_line": 1130,
+          "detail": "Chỉ bắt buộc có số thực nhận, không bắt buộc bằng chứng ngoài."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 1193,
+          "end_line": 1234,
+          "detail": "lech_so chỉ bật can_doi_soat; UPDATE sang PAID luôn chạy với đủ amount; ghi_ban chạy ở dòng 1253-1265."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/payment.py",
+          "line": 254,
+          "end_line": 254,
+          "detail": "so_tien_thuc_nhan: Field(ge=0) nên 0 hợp lệ."
+        }
+      ],
+      "limitations": "Đã grep 'can_doi_soat = false', 'doi_soat_xong', 'giai_quyet_doi_soat' trên SHA không có kết quả; chưa loại trừ khả năng người vận hành sửa tay trong database. Không kiểm các báo cáo cuối ngày xem có liệt kê phiếu cần đối soát không (grep trong bao_cao_cuoi_ngay_service không thấy).",
+      "recommendation": "Biến can_doi_soat thành một hàng việc có chủ (người đối soát theo vai/ca), hạn (cuối ngày kế tiếp), nhắc khi quá hạn và hành động đóng bắt buộc ghi kết luận (đã khớp / thu thêm / hoàn). Với chuyển khoản, cho phép nhập sao kê/mã giao dịch từ nguồn độc lập và tách người tạo lần chờ khỏi người xác nhận cho số tiền lớn.",
+      "acceptance": "Test DB: xác minh với thuc_nhan khác so_ck tạo đúng một việc đối soát có người nhận và hạn; việc quá hạn sinh cảnh báo; đóng việc ghi kết luận và xoá cờ. Báo cáo ca liệt kê số phiếu còn cờ chưa đóng.",
+      "alignment": [
+        "Ownership rõ",
+        "Phát hiện sớm",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [
+        "FIN-012"
+      ],
+      "related_ids": [
+        "FIN-012",
+        "INF-013"
+      ]
+    },
+    {
+      "tmp_id": "S20-4",
+      "title": "Quầy thu luôn giải thích cờ 'cần đối soát' là 'hoá đơn đã đổi' dù lý do thật có thể là lệch số ngân hàng hoặc thuốc chưa được ghi bán",
+      "severity": "MEDIUM",
+      "category": "false_reason_display",
+      "evidence_level": "confirmed_static",
+      "summary": "Server lưu mã nguyên nhân (HOA_DON_DOI, CHUA_GHI_BAN, SO_TIEN_LECH) nhưng bảng quầy thu chỉ gửi can_doi_soat dạng boolean. GiaoDich.tsx hard-code câu 'Cần đối soát: hoá đơn đã đổi trong lúc chờ xác minh' cho mọi trường hợp. Màn Hoá đơn thì hiển thị đúng lý do.",
+      "trigger": "Có thể xảy ra mỗi khi lần thu có cờ vì SO_TIEN_LECH hoặc CHUA_GHI_BAN, người xem là thu ngân ở tab 'Đã thanh toán hôm nay' hoặc 'Lịch sử'.",
+      "impact": "Thu ngân đọc thành 'giá đổi, không sao' trong khi thực tế là tiền ngân hàng nhận khác số hoặc thuốc đã thu tiền nhưng kho/lịch bán chưa được ghi (CHUA_GHI_BAN). Người đọc không có thông tin để hành động đúng, làm giảm giá trị của cờ ngay tại nơi tiền được xử lý.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/GiaoDich.tsx",
+          "line": 24,
+          "end_line": 52,
+          "detail": "Kiểu GiaoDichDong chỉ có can_doi_soat boolean, không có doi_soat_ly_do."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/GiaoDich.tsx",
+          "line": 200,
+          "end_line": 206,
+          "detail": "Câu cố định: 'hoá đơn đã đổi trong lúc chờ xác minh'."
+        },
+        {
+          "path": "src/clinicai/services/cashier_board_service.py",
+          "line": 483,
+          "end_line": 483,
+          "detail": "SELECT chỉ lấy pc.can_doi_soat; trả 'can_doi_soat' ở dòng 567, không có doi_soat_ly_do."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 1196,
+          "end_line": 1204,
+          "detail": "Ba mã nguyên nhân khác nhau được lưu."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/hoa-don/ChiTietHoaDon.tsx",
+          "line": 38,
+          "end_line": 38,
+          "detail": "Màn Hoá đơn dùng doi_soat_ly_do để hiển thị đúng ghi chú."
+        }
+      ],
+      "limitations": "Không xác nhận có hay không route /api/cashier bổ sung trường lý do ở tầng BFF; đã thấy SELECT phía dịch vụ không có.",
+      "recommendation": "Trả doi_soat_ly_do và so_tien_thuc_nhan trong giao_dich của bảng quầy và dùng cùng bảng nhãn như ChiTietHoaDon; tuyệt đối không hard-code một nguyên nhân cho một cờ nhiều nguyên nhân.",
+      "acceptance": "Test giao diện/hợp đồng: lần thu có SO_TIEN_LECH hiện 'Ngân hàng báo nhận X khác số chuyển khoản'; CHUA_GHI_BAN hiện cảnh báo thuốc chưa ghi bán; không còn câu 'hoá đơn đã đổi' cho hai trường hợp này.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-012"
+      ]
+    },
+    {
+      "tmp_id": "S20-5",
+      "title": "Thu ngân đặt lại số lượng thuốc bác sĩ đã kê tuỳ ý, không trần, không cần bác sĩ xác nhận; bác sĩ chỉ thấy nhãn thụ động",
+      "severity": "MEDIUM",
+      "category": "clinical_quantity_override",
+      "evidence_level": "design_gap",
+      "summary": "Từ C19 (02/10/2026) quầy thu thuốc được đặt số lượng bất kỳ số dương cho dòng bác sĩ kê (tăng hay giảm); không còn 'trần số kê'. Màn nói 'cách dùng là quyết định chuyên môn nên chỉ xem' nhưng số lượng, cũng là liều theo đợt, thì không. Hệ thống ghi số cũ-mới và hiện chip 'SL do thu ngân sửa' ở màn kê đơn, nhưng không có thông báo/hàng việc cho bác sĩ và không có giới hạn theo loại thuốc.",
+      "trigger": "Có thể xảy ra nếu thu ngân gõ số lượng lớn hơn số kê (nhầm hay theo yêu cầu khách) cho một thuốc cần kiểm soát, hoặc giảm số lượng làm đợt điều trị thiếu.",
+      "impact": "Số thuốc giao và tiền thu có thể khác đơn mà bác sĩ không biết trước khi khách rời quầy. Với thuốc kê đơn/kiểm soát, đây là thay đổi y lệnh bởi người không phải người kê. Vẫn có audit ('pharmacy.counter_changed') nhưng phát hiện chỉ khi có người mở lịch sử.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx",
+          "line": 9,
+          "end_line": 21,
+          "detail": "Ghi rõ C19: quầy gõ số khác bác sĩ ghi, bỏ trần số kê."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx",
+          "line": 165,
+          "end_line": 177,
+          "detail": "doiSo gửi so_luong mới khi rời ô; chỉ bỏ qua nếu không đổi."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 9,
+          "end_line": 21,
+          "detail": "Docstring: BAC_SI — đặt SỐ LƯỢNG tuỳ ý (tăng hay giảm), cách dùng chỉ xem."
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 265,
+          "end_line": 337,
+          "detail": "doi_so_luong: ghi DIEN_SO_LUONG/SUA_SO_LUONG và phát sự kiện; không có kiểm giới hạn theo thuốc/đơn."
+        }
+      ],
+      "limitations": "Là quyết định sản phẩm đã chốt. Chưa kiểm xem sự kiện counter_changed có tạo thông báo cho bác sĩ hay không (không thấy trong các tệp đã đọc). Chưa biết quầy thuốc có dược sĩ kiểm lại trước khi giao hay không.",
+      "recommendation": "Giữ quyền điền số khi bác sĩ để trống; khi sửa số bác sĩ đã ghi, đặt trần mặc định theo hộp/đợt (hoặc yêu cầu lý do + người duyệt) và gửi việc đọc-xác-nhận cho bác sĩ kê hoặc dược sĩ trước khi giao thuốc. Báo cáo ca liệt kê mọi lần thu ngân sửa số.",
+      "acceptance": "Test: sửa số lượng vượt N lần số kê tạo yêu cầu duyệt thay vì áp ngay; bác sĩ kê nhận một việc/thông báo ghi số cũ-mới; báo cáo ca có mục 'số lượng do thu ngân sửa'.",
+      "alignment": [
+        "AI hỗ trợ người",
+        "Phát hiện sớm",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-007"
+      ]
+    },
+    {
+      "tmp_id": "S20-6",
+      "title": "Quầy thuốc: tải đơn bán lỗi hoặc tải lại sau khi chỉnh thất bại hiển thị thành danh sách thuốc rỗng, không có thông báo lỗi",
+      "severity": "MEDIUM",
+      "category": "load_error_as_empty",
+      "evidence_level": "confirmed_static",
+      "summary": "ChinhDonQuay tải /api/quay-thuoc?visit_id=... và khi response không ok hoặc ném lỗi đều gọi setDong([]). Hàm tai() (chạy sau mỗi lần tích/bỏ/đổi số) thậm chí không kiểm r.ok và đặt setDong(d?.dong ?? []). Phần mẫu thuốc cũng rơi về mảng rỗng. Khối vẫn hiện 'Khách lấy thuốc nào?' với danh sách trống.",
+      "trigger": "Có thể xảy ra khi API trả 500/403/timeout ở lần tải đầu hoặc ở lần tải lại ngay sau một thao tác thành công.",
+      "impact": "Thu ngân thấy đơn rỗng như thể bác sĩ chưa kê hoặc thuốc vừa chỉnh biến mất; có thể thêm thuốc 'lấy thêm' và thu tiền chỉ một phần đơn, hoặc chỉnh lại gây lệch. Nhiều màn khác trong khối thu vẫn hiện hoá đơn thuốc từ nguồn khác nên dễ mâu thuẫn.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx",
+          "line": 113,
+          "end_line": 118,
+          "detail": "tai(): không kiểm r.ok; setDong(d?.dong ?? [])."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx",
+          "line": 120,
+          "end_line": 141,
+          "detail": "Tải ban đầu: !r.ok -> null -> []; catch -> setDong([]); mẫu thuốc cũng []."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx",
+          "line": 223,
+          "end_line": 241,
+          "detail": "Chỉ khi dong === null mới 'Đang tải'; mảng rỗng được vẽ như đơn không có thuốc."
+        }
+      ],
+      "limitations": "Hoá đơn thuốc ở NhomThu lấy từ bảng quầy khác nên có thể vẫn đúng; chưa kiểm khả năng người dùng nhận ra mâu thuẫn.",
+      "recommendation": "Dùng trạng thái ba giá trị (đang tải / lỗi / có dữ liệu); lỗi thì hiển thị 'Không đọc được đơn bán — bấm tải lại' và khoá nút thu thuốc cho tới khi đọc được.",
+      "acceptance": "Test giao diện: mock /api/quay-thuoc trả 500 -> hiện thông báo lỗi và nút thử lại, không hiện danh sách rỗng; sau khi chỉnh thành công mà tải lại lỗi vẫn không xoá danh sách đang hiển thị.",
+      "alignment": [
+        "Reality rõ",
+        "Unknown ngắn"
+      ],
+      "extends": [
+        "FE-004"
+      ],
+      "related_ids": [
+        "FE-004",
+        "FE-019"
+      ]
+    },
+    {
+      "tmp_id": "S20-7",
+      "title": "Duyệt bán vật tư cần quản lý chỉ là chọn tên người duyệt trong danh sách; người duyệt không phải xác nhận",
+      "severity": "MEDIUM",
+      "category": "approval_control",
+      "evidence_level": "design_gap",
+      "summary": "Với hàng 'thường không bán' (vòng Mirena…), thu ngân chọn một tên trong danh sách người có quyền duyệt và gõ lý do. Server chỉ kiểm người đó tồn tại, đang làm việc và có quyền Duyệt vật tư; không có bước người duyệt tự xác nhận (PIN, bấm trên thiết bị của họ, hoặc yêu cầu duyệt). Người có quyền duyệt thì tự duyệt cho chính mình.",
+      "trigger": "Có thể xảy ra nếu thu ngân chọn tên một quản lý đang ca mà người đó không biết việc bán này.",
+      "impact": "Dấu vết 'người duyệt: X' có thể sai sự thật, làm mất giá trị của kiểm soát dành cho vật tư vốn bị chặn mặc định. Với quy mô nhiều phòng khám, một trưởng ca không đứng quầy cũng bị 'đứng tên' duyệt.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx",
+          "line": 257,
+          "end_line": 281,
+          "detail": "UI: select 'Người đã duyệt' + lý do; thu ngân tự bấm 'Xác nhận bán'."
+        },
+        {
+          "path": "src/clinicai/services/vat_tu_service.py",
+          "line": 318,
+          "end_line": 340,
+          "detail": "_nguoi_duyet: chỉ kiểm tồn tại + có quyền; người có quyền duyệt 'tự thêm = tự duyệt'."
+        },
+        {
+          "path": "src/clinicai/services/vat_tu_service.py",
+          "line": 387,
+          "end_line": 388,
+          "detail": "can_ql_duyet gọi _nguoi_duyet; không có luồng yêu cầu duyệt bất đồng bộ."
+        }
+      ],
+      "limitations": "Có thể phòng khám chấp nhận 'duyệt miệng' như quy trình giấy. Chưa kiểm báo cáo có liệt kê vật tư bán qua duyệt hay không.",
+      "recommendation": "Thay bằng yêu cầu duyệt thật: thu ngân tạo yêu cầu, người duyệt nhận chuông và bấm xác nhận (hoặc nhập PIN tại quầy); cấm tự duyệt cho dòng do chính mình chọn nếu dây 'hai người' bật.",
+      "acceptance": "Test: bán hàng cần duyệt chỉ vào hoá đơn sau khi người duyệt xác nhận; yêu cầu quá hạn tự huỷ; thu ngân không chọn được người duyệt không phản hồi.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định dựa bằng chứng",
+        "Ít gián đoạn đúng lúc"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S20-8",
+      "title": "Giảm giá và miễn phí đến 100% do thu ngân tự quyết với lý do tự do, không ngưỡng hay người duyệt",
+      "severity": "MEDIUM",
+      "category": "discount_control",
+      "evidence_level": "design_gap",
+      "summary": "Lệnh thu nhận discount_type/value/reason; server chỉ kiểm giá trị hữu hạn, > 0, phần trăm <= 100 và lý do không rỗng (<= 500). Giao diện cho 'Giảm giá / Miễn phí' ở mọi hoá đơn và 'miễn phí = giảm 100%'. Không có ngưỡng theo vai, không cần quản lý duyệt, không giới hạn số lần theo người. Lý do hiển thị trong lịch sử và báo cáo cuối ngày là biện pháp phát hiện duy nhất.",
+      "trigger": "Có thể xảy ra nếu thu ngân áp giảm lớn hoặc miễn phí cho người quen, ghi lý do chung chung ('khách quen').",
+      "impact": "Doanh thu có thể bị giảm mà không có người thứ hai biết; chỉ phát hiện nếu có người đọc báo cáo. Khó mở rộng cho nhiều phòng khám vì chính sách giảm giá khác nhau không cấu hình được.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/GiamGia.tsx",
+          "line": 1,
+          "end_line": 7,
+          "detail": "Người thu tiền chọn tiền hoặc %, lý do chữ tự do bắt buộc; máy chủ chặn vượt phần giảm được."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/GiamGia.tsx",
+          "line": 63,
+          "end_line": 90,
+          "detail": "Kiểm tra phía màn chỉ về định dạng/không vượt phần được giảm."
+        },
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 241,
+          "end_line": 268,
+          "detail": "_validate_discount_input: không có trần theo vai/ngưỡng hay yêu cầu duyệt."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/payment.py",
+          "line": 91,
+          "end_line": 94,
+          "detail": "Request nhận discount_type/value/reason cùng với lệnh thu."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx",
+          "line": 370,
+          "end_line": 377,
+          "detail": "Thu nợ cũng giảm được, 'miễn phí = giảm 100%'."
+        }
+      ],
+      "limitations": "Là quyết định sản phẩm (Tuyền 13/10/2026). Không kiểm xem báo cáo cuối ngày có cảnh báo tỉ lệ giảm bất thường theo người thu không.",
+      "recommendation": "Thêm chính sách giảm giá cấu hình theo phòng khám: trần theo vai, ngưỡng cần quản lý duyệt, danh sách mã lý do, và cảnh báo khi một người thu vượt tỉ lệ giảm trung bình.",
+      "acceptance": "Test: thu ngân giảm vượt trần của vai bị chuyển sang trạng thái chờ duyệt; báo cáo ca có tổng giảm theo người và lý do mã hoá; ngưỡng đổi được theo clinic mà không sửa code.",
+      "alignment": [
+        "Quyết định dựa bằng chứng",
+        "Phát hiện sớm",
+        "Đóng gói bán được"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FIN-001"
+      ]
+    },
+    {
+      "tmp_id": "S20-9",
+      "title": "Một lần tải/poll thất bại làm quầy thu biến mất và mất dữ liệu đang nhập (ngày trực, hàng đợi)",
+      "severity": "MEDIUM",
+      "category": "transient_error_destroys_state",
+      "evidence_level": "confirmed_static",
+      "summary": "useNgayTruc poll mỗi 30 giây và khi lỗi gọi setDs(null); TabThuNgan chỉ vẽ quầy khi phamVi.ready (cần ds khác null) nên QuayThuNgan bị tháo khỏi cây. Bên trong, QuayThuNgan.nhan() khi một lần tải lỗi cũng đặt ds=null và vẽ thẻ lỗi thay cho cả quầy, tháo HoaDonMot/NhomThu cùng lựa chọn tick, số chia tiền mặt/chuyển khoản, lý do giảm giá, ảnh chuyển khoản đã chọn.",
+      "trigger": "Có thể xảy ra khi mạng chập chờn hoặc API trả lỗi trong lúc thu ngân đang nhập (chọn giảm giá, gõ số chuyển khoản, chọn ảnh).",
+      "impact": "Dữ liệu đang nhập mất không báo; người thu nhập lại hoặc thu sai hình thức. Với quầy phục vụ nhiều khách, lỗi tạm thời tạo gián đoạn không cần thiết.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/NgayTruc.tsx",
+          "line": 37,
+          "end_line": 55,
+          "detail": "tai() mỗi 30 giây; catch -> setLoi, setDs(null) (dòng 48)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/NgayTruc.tsx",
+          "line": 68,
+          "end_line": 76,
+          "detail": "ready = !!currentDs && (...)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/TabThuNgan.tsx",
+          "line": 62,
+          "end_line": 68,
+          "detail": "Quầy chỉ vẽ khi phamVi.ready."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+          "line": 273,
+          "end_line": 286,
+          "detail": "nhan(): kq.loi -> setDs(null), setDaThu([]), setCho([])."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+          "line": 568,
+          "end_line": 577,
+          "detail": "ds === null với loi thì chỉ vẽ thẻ lỗi."
+        }
+      ],
+      "limitations": "Chưa kiểm hành vi thực với React (state con bị mất khi unmount là hành vi chuẩn). Mức ảnh hưởng phụ thuộc tần suất lỗi tải.",
+      "recommendation": "Giữ dữ liệu cũ và nhãn 'dữ liệu cũ từ HH:MM — đang thử lại' khi lỗi tải lại; chỉ thay bằng thẻ lỗi nếu chưa từng có dữ liệu. Lưu bản nháp thu (giảm giá, chia hình thức) theo visit_id.",
+      "acceptance": "Test giao diện: sau khi đã có danh sách, một lần fetch lỗi không tháo HoaDonMot và giữ giá trị ô nhập; xuất hiện dải 'đang dùng dữ liệu cũ' và tự thử lại.",
+      "alignment": [
+        "Reality rõ",
+        "Ít gián đoạn đúng lúc",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-002"
+      ]
+    },
+    {
+      "tmp_id": "S20-10",
+      "title": "Nút 'Tất cả bình thường' của phiếu chuyên khoa ghi đè mọi lựa chọn đã nhập và điền 'Không' cho cả câu hỏi chưa hỏi",
+      "severity": "MEDIUM",
+      "category": "clinical_default_overwrite",
+      "evidence_level": "confirmed_static",
+      "summary": "Engine nhận diện 'bình thường' bằng nhãn/giá trị chuỗi chung ('bình thường', 'bt', 'không', 'ko'), không bằng cờ trong schema. datBinhThuong thay giá trị của mọi radio/checkbox_group trong mục nếu có option khớp, không kiểm ô đã có dữ liệu hay ô còn trống, rồi tự lưu sau 1,2 giây. Các câu như 'Quai bị có biến chứng' (Không/Có/Không rõ) hoặc 'Tinh hoàn ẩn' (Không/Trái/Phải/Hai bên) bị đặt thành 'Không' dù chưa hỏi hay bác sĩ đã chọn 'Không rõ'/'Trái'.",
+      "trigger": "Có thể xảy ra khi bác sĩ hoặc thư ký bấm 'Tất cả bình thường' ở mục tiền sử/khám lâm sàng sau khi đã điền một phần, hoặc để điền nhanh mục chưa khám hết.",
+      "impact": "Có thể ghi phủ định (không có tiền sử/bất thường) vào hồ sơ y tế cho điều chưa được hỏi, hoặc xoá một phát hiện bất thường đã nhập; được tự lưu và khó phân biệt về sau với câu trả lời có chủ đích. Rủi ro đọc sai khi kê đơn/tái khám.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 41,
+          "end_line": 51,
+          "detail": "NORMAL_LABELS = bình thường/bt/không/ko; normalOption lấy option khớp nhãn hoặc giá trị đầu tiên."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 219,
+          "end_line": 239,
+          "detail": "datBinhThuong: next[f.key] = nv (radio) hoặc [nv] (checkbox_group) cho mọi field khớp, không kiểm giá trị cũ."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 303,
+          "end_line": 312,
+          "detail": "Nút hiện ở mọi mục có field khớp, không xác nhận."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/nk.ts",
+          "line": 28,
+          "end_line": 41,
+          "detail": "KHONG_CO_KHONGRO/HAI_BEN có option label 'Không'."
+        },
+        {
+          "path": "src/dashboard/lib/form-schemas/nk.ts",
+          "line": 204,
+          "end_line": 215,
+          "detail": "ts_quai_bi và ts_tinh_hoan_an dùng các tập option trên."
+        }
+      ],
+      "limitations": "Form NK hiện đang tắt trong danh mục (đầu nk.ts); nguy cơ áp dụng cho mọi schema khác dùng nhãn 'Không'. Chưa kiểm từng schema đang bật.",
+      "recommendation": "Dùng cờ rõ ràng trong schema (field.mac_dinh_binh_thuong) thay vì khớp chuỗi; chỉ điền ô còn TRỐNG; hiển thị xem trước/hoàn tác; ghi nguồn giá trị (mặc định so với đã hỏi) để bản in và báo cáo phân biệt được.",
+      "acceptance": "Test: bấm nút khi một ô đã có giá trị khác 'bình thường' thì giữ nguyên; ô 'Không rõ' không bị đổi; sau khi bấm có nút 'Hoàn tác' và giá trị mặc định được đánh dấu nguồn.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng",
+        "AI hỗ trợ người"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-039",
+        "CLIN-041"
+      ]
+    },
+    {
+      "tmp_id": "S20-11",
+      "title": "Phiếu chuyên khoa tải lỗi (không ok / mạng) hiện thành phiếu trống không có thông báo, và lần poll lỗi bị nuốt",
+      "severity": "MEDIUM",
+      "category": "load_error_as_empty",
+      "evidence_level": "confirmed_static",
+      "summary": "Lần tải đầu .then(r => r.json()) không kiểm r.ok; JSON lỗi (không có form_data) và nhánh .catch đều thành setValues({}) rồi loading=false, form hiển thị rỗng. Poll 4 giây dùng .catch(() => {}) nuốt lỗi và không báo 'đang không đồng bộ'. Người dùng thấy một phiếu trắng như bệnh nhân chưa có dữ liệu.",
+      "trigger": "Có thể xảy ra khi API phiếu trả 403/500/timeout ở lần mở, hoặc mất mạng kéo dài sau đó.",
+      "impact": "Bác sĩ có thể nhập lại và ghi đè giá trị mà thư ký đã nhập (cùng ô), hoặc kết luận sai vì không thấy tiền sử đã lưu. Khi API hồi phục, poll tự thay thế nội dung nếu không có thay đổi chưa lưu, gây nháy dữ liệu bất ngờ.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 91,
+          "end_line": 108,
+          "detail": "fetch(...).then(r => r.json()).then(d => setValues(d.form_data ?? {})).catch(() => setValues({})).finally(setLoading(false))."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 122,
+          "end_line": 145,
+          "detail": "Poll: !r.ok -> null; catch(() => {}) không phát tín hiệu."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 255,
+          "end_line": 258,
+          "detail": "loading false -> hiển thị form."
+        }
+      ],
+      "limitations": "Chưa kiểm route /api/clinical-form có trả lỗi có cấu trúc. Rủi ro giảm nếu lỗi tải gây trang lỗi bên ngoài.",
+      "recommendation": "Ba trạng thái: đang tải, lỗi (kèm nút thử lại, khoá nhập), sẵn sàng. Khi poll lỗi liên tục hiển thị 'mất đồng bộ từ HH:MM'.",
+      "acceptance": "Test giao diện: mock GET trả 500 -> hiện thông báo lỗi và không cho nhập; sau thử lại thành công mới hiện dữ liệu; poll lỗi 3 lần liền hiện dải cảnh báo.",
+      "alignment": [
+        "Reality rõ",
+        "Unknown ngắn"
+      ],
+      "extends": [
+        "FE-004"
+      ],
+      "related_ids": [
+        "FE-004",
+        "CLIN-039"
+      ]
+    },
+    {
+      "tmp_id": "S20-12",
+      "title": "Tự lưu phiếu khám: rời màn trong 1,2 giây hoặc lỗi lưu không được thử lại có thể làm mất chữ vừa nhập, và poll lệch có thể kéo giá trị cũ về",
+      "severity": "MEDIUM",
+      "category": "autosave_edit_loss",
+      "evidence_level": "confirmed_static",
+      "summary": "Tự lưu dùng setTimeout 1,2 giây và cleanup clearTimeout khi đổi/unmount; không flush trước khi rời, không có cảnh báo rời trang. Khi lưu lỗi mạng thông báo 'sẽ thử lại khi bạn gõ tiếp' nhưng không có bộ hẹn giờ thử lại. Ngoài ra poll có thể trả về bản đọc bắt đầu trước lúc lưu xong: nếu cur === daLuuRef lúc đó, giá trị trên màn bị đưa về bản cũ cho tới nhịp poll sau.",
+      "trigger": "Có thể xảy ra khi bác sĩ gõ rồi chuyển lượt/tab/đóng trong chưa tới 1,2 giây, hoặc lưu thất bại rồi ngừng gõ; hoặc poll vắt qua một lần lưu.",
+      "impact": "Mất một đoạn chữ lâm sàng mà màn không báo; hoặc hiển thị tạm giá trị cũ khiến người dùng sửa tiếp trên nền sai. Vì tự lưu là cơ chế thay nút Lưu, người dùng tin dữ liệu đã an toàn.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 110,
+          "end_line": 118,
+          "detail": "setTimeout(() => luu(values, true), 1200) với cleanup clearTimeout."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 183,
+          "end_line": 209,
+          "detail": "luu(): lỗi mạng -> msg 'sẽ thử lại khi bạn gõ tiếp'; không retry theo hẹn giờ."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 125,
+          "end_line": 144,
+          "detail": "Poll cập nhật values nếu cur === daLuuRef; không loại các phản hồi tới muộn so với lần lưu."
+        }
+      ],
+      "limitations": "Không tìm thấy beforeunload hay flush ở tệp này; có thể được xử lý ở thành phần cha (BanKham, ClinicalRecordForm) mà chưa đọc. Mức độ phụ thuộc vào tần suất chuyển màn.",
+      "recommendation": "Flush đồng bộ (sendBeacon/fetch keepalive) khi unmount và beforeunload; hẹn giờ thử lại có backoff và chỉ báo 'CHƯA LƯU' bền vững; gắn số thứ tự yêu cầu để bỏ qua phản hồi poll cũ hơn lần lưu cuối.",
+      "acceptance": "Test: gõ rồi đổi lượt sau 300 ms vẫn lưu đủ; lưu lỗi mạng -> tự thử lại trong 10 giây, banner 'chưa lưu' tới khi thành công; poll trả bản cũ hơn lần lưu không làm đổi giá trị trên màn.",
+      "alignment": [
+        "Reality rõ",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [
+        "CLIN-039"
+      ],
+      "related_ids": [
+        "CLIN-039",
+        "FE-023"
+      ]
+    },
+    {
+      "tmp_id": "S20-13",
+      "title": "Tạo tài khoản: lỗi mơ hồ khi nối nhân viên (mất phản hồi) khiến route xoá người dùng GoTrue dù backend có thể đã nối thành công",
+      "severity": "MEDIUM",
+      "category": "compensation_race",
+      "evidence_level": "design_gap",
+      "summary": "POST /api/admin/users tạo user GoTrue rồi gọi backend '/tai-khoan/noi'. Nếu proxyJsonToBackend thất bại (fetch ném lỗi -> 502, hoặc backend trả lỗi sau khi đã commit), route xoá ngay user GoTrue vừa tạo. proxyJsonToBackend dùng fetch không có timeout/AbortSignal và gom mọi lỗi mạng thành 502, không phân biệt 'chưa nhận' với 'đã commit nhưng mất phản hồi'. Không có khoá idempotency cho thao tác này.",
+      "trigger": "Có thể xảy ra nếu backend commit nối nhân viên nhưng kết nối bị ngắt trước khi route nhận phản hồi, hoặc timeout hạ tầng.",
+      "impact": "staff.auth_user_id có thể trỏ tới người dùng GoTrue không còn tồn tại; nhân viên hiện 'Đã link' nhưng không đăng nhập được; thử tạo lại bị chặn 409 'đã link' cho tới khi thu hồi. Rủi ro vận hành nhỏ nhưng khó chẩn đoán.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 192,
+          "end_line": 235,
+          "detail": "createUser -> proxyJsonToBackend('/tai-khoan/noi') -> nếu !noi.ok thì deleteUser(newUserId)."
+        },
+        {
+          "path": "src/dashboard/lib/backend-proxy.ts",
+          "line": 131,
+          "end_line": 153,
+          "detail": "fetch không có AbortSignal; catch trả 502 'Không kết nối được máy chủ'."
+        },
+        {
+          "path": "src/dashboard/lib/backend-proxy.ts",
+          "line": 66,
+          "end_line": 100,
+          "detail": "Tham số idempotencyKey tuỳ chọn; route tạo user không truyền."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/new-user/NewUserForm.tsx",
+          "line": 49,
+          "end_line": 60,
+          "detail": "Form gọi POST không khoá và không try/catch quanh fetch/json."
+        }
+      ],
+      "limitations": "Chưa đọc phía backend 'noi' để biết nó có idempotent theo (staffId, auth_user_id) hay có thể truy vấn trạng thái. Hậu quả giả định commit-rồi-mất-phản-hồi.",
+      "recommendation": "Trước khi xoá user GoTrue, hỏi lại backend (GET tài khoản của staff) xem đã nối chưa; đặt timeout và khoá idempotency cho lệnh nối; nếu không chắc thì giữ user và báo 'cần kiểm tra' thay vì xoá.",
+      "acceptance": "Test tích hợp: mô phỏng lỗi mạng sau khi backend commit -> route không xoá user, trả trạng thái 'không rõ'; gọi lại tự khôi phục; test timeout trả 504 rõ ràng.",
+      "alignment": [
+        "Reality rõ",
+        "Unknown ngắn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-023",
+        "SEC-006"
+      ]
+    },
+    {
+      "tmp_id": "S20-14",
+      "title": "Khoá nhân viên nghỉ việc báo thành công dù lệnh khoá đăng nhập GoTrue lỗi; chỉ ghi console",
+      "severity": "MEDIUM",
+      "category": "offboarding_partial_failure",
+      "evidence_level": "confirmed_static",
+      "summary": "ban_staff gọi backend khoa-nghi-viec trước, rồi updateUserById(ban_duration='876000h'). Nếu bước GoTrue lỗi chỉ console.error('gotrue_ban_error') và vẫn trả ok:true. Đây là mặt đối xứng của SEC-006 (mở lại) nhưng theo hướng nguy hiểm hơn: tài khoản đã nghỉ vẫn có thể đăng nhập GoTrue. Phiên đang mở cũng không bị thu hồi.",
+      "trigger": "Có thể xảy ra khi GoTrue lỗi tạm thời, hoặc quản trị khoá nhiều người liền nhau.",
+      "impact": "Người đã nghỉ có thể giữ khả năng đăng nhập hoặc dùng token còn hạn (kể cả đường PostgREST trực tiếp nếu RLS chỉ dựa trên đăng nhập). Quản trị tin rằng đã khoá.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 282,
+          "end_line": 318,
+          "detail": "ban_staff: backend ok -> updateUserById; banErr chỉ console.error; trả ok:true."
+        },
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 320,
+          "end_line": 345,
+          "detail": "unban cùng kiểu: lỗi GoTrue chỉ console.error."
+        },
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 412,
+          "end_line": 440,
+          "detail": "unlink có trả 'warning' khi xoá GoTrue lỗi — ban_staff không có."
+        }
+      ],
+      "limitations": "Chưa xác nhận backend khoa-nghi-viec có tự chặn API khi staff.is_active=false (rất có thể), nên mức rủi ro chủ yếu ở đường đăng nhập trực tiếp GoTrue/PostgREST và phiên cũ.",
+      "recommendation": "Trả cờ partial và cảnh báo trong response khi bước GoTrue lỗi, tự thử lại hoặc ghi nhật ký việc cần xử lý; thu hồi refresh token/phiên khi khoá; thêm hành động 'đồng bộ trạng thái đăng nhập' để chạy lại.",
+      "acceptance": "Test route: mock updateUserById lỗi -> response có warning và nhật ký vận hành ghi lỗi; gọi lại hành động đồng bộ hoàn tất việc ban và thu hồi phiên.",
+      "alignment": [
+        "Reality rõ",
+        "Phát hiện sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-006",
+        "SEC-001",
+        "SEC-025",
+        "SEC-029"
+      ]
+    },
+    {
+      "tmp_id": "S20-15",
+      "title": "Không gian tên đăng nhập là toàn cục theo cấu hình build, và danh sách tài khoản GoTrue bị cắt ở 1000 mà không báo",
+      "severity": "MEDIUM",
+      "category": "tenant_login_namespace",
+      "evidence_level": "design_gap",
+      "summary": "Tên đăng nhập trần được gắn đuôi mặc định 'dr4women.vn' (đổi bằng NEXT_PUBLIC_DUOI_TEN_DANG_NHAP lúc build). GoTrue lưu thành email duy nhất toàn hệ; hai phòng khám chung một GoTrue sẽ đụng nhau ở 'bacsithanh'. Route GET liệt kê người dùng GoTrue với perPage:1000, không phân trang, rồi tra email theo auth_user_id; từ người thứ 1001 trở đi email vắng mà không có lỗi, và listUsers lỗi bị coi là danh sách rỗng.",
+      "trigger": "Có thể xảy ra khi triển khai nhiều phòng khám trong cùng một GoTrue/dashboard, hoặc tổng số tài khoản vượt 1000.",
+      "impact": "Cản trở bán nhiều phòng khám trên một hạ tầng (cần quy ước tiền tố theo clinic); màn Tài khoản thiếu email của người dùng ngoài trang đầu mà không biết. Ngoài ra route dùng service-role để đọc toàn bộ người dùng mọi phòng khám trong bộ nhớ trước khi lọc.",
+      "evidence": [
+        {
+          "path": "src/dashboard/lib/ten-dang-nhap.ts",
+          "line": 16,
+          "end_line": 30,
+          "detail": "Đuôi mặc định dr4women.vn; NEXT_PUBLIC_ nhúng lúc build; emailTuTenDangNhap dùng một đuôi chung."
+        },
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 143,
+          "end_line": 157,
+          "detail": "listUsers({ perPage: 1000 }) không phân trang, `users?.users ?? []` che lỗi; lọc theo nhân viên cùng clinic sau đó."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/new-user/NewUserForm.tsx",
+          "line": 112,
+          "end_line": 119,
+          "detail": "Placeholder và hướng dẫn người dùng gắn dr4women.vn."
+        }
+      ],
+      "limitations": "Nếu mỗi phòng khám có triển khai riêng (một GoTrue/tenant) thì vấn đề đụng tên không phát sinh. Chưa xác định mô hình triển khai mục tiêu.",
+      "recommendation": "Chốt mô hình: một GoTrue mỗi tenant hoặc tên đăng nhập có tiền tố clinic (clinic_slug.user). Phân trang listUsers đến hết hoặc tra theo từng auth_user_id; không nuốt lỗi listUsers.",
+      "acceptance": "Test: hai clinic cùng tạo 'bacsithanh' không đụng nhau; với 1500 user GET trả đủ email; listUsers lỗi trả 502 thay vì danh sách rỗng.",
+      "alignment": [
+        "Đóng gói bán được",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S20-16",
+      "title": "Mật khẩu tạm do quản lý đặt không buộc đổi ở lần đăng nhập đầu và chỉ yêu cầu 8 ký tự",
+      "severity": "LOW",
+      "category": "credential_hygiene",
+      "evidence_level": "design_gap",
+      "summary": "Form và route cấp tài khoản chỉ kiểm độ dài >= 8; user được tạo với email_confirm:true và không có cờ 'phải đổi mật khẩu'. Hướng dẫn 'nhân viên nên đổi sau lần đầu' chỉ là lời khuyên. Đặt lại mật khẩu cũng không thu hồi phiên cũ (SEC-001, SEC-025).",
+      "trigger": "Có thể xảy ra khi quản lý chọn mật khẩu dễ nhớ cho nhiều nhân viên rồi không ai đổi.",
+      "impact": "Quản lý (và bất kỳ ai biết mật khẩu tạm) có thể đăng nhập thay nhân viên, làm mờ trách nhiệm cá nhân trong các thao tác tiền và lâm sàng.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/new-user/NewUserForm.tsx",
+          "line": 44,
+          "end_line": 47,
+          "detail": "Chỉ kiểm độ dài >= 8."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/new-user/NewUserForm.tsx",
+          "line": 122,
+          "end_line": 144,
+          "detail": "Nhãn 'Mật khẩu tạm thời'; lời khuyên đổi sau, không ép."
+        },
+        {
+          "path": "src/dashboard/app/api/admin/users/route.ts",
+          "line": 203,
+          "end_line": 208,
+          "detail": "createUser(email, password, email_confirm:true) — không đặt metadata buộc đổi."
+        }
+      ],
+      "limitations": "Chưa kiểm màn đăng nhập có kiểm user_metadata buộc đổi (không thấy trong tệp được giao).",
+      "recommendation": "Sinh mật khẩu một lần dùng hoặc đặt cờ must_change_password; chặn mọi route nghiệp vụ cho tới khi đổi; chính sách mật khẩu cấu hình theo clinic.",
+      "acceptance": "Test: tài khoản mới đăng nhập lần đầu bị buộc sang màn đổi mật khẩu trước khi vào bất kỳ màn nào; mật khẩu tạm hết hạn sau N giờ.",
+      "alignment": [
+        "Ownership rõ",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-032",
+        "SEC-001",
+        "SEC-025"
+      ]
+    },
+    {
+      "tmp_id": "S20-17",
+      "title": "Các màn cấu hình khởi tạo state cục bộ từ props rồi gửi cả tập/giá trị suy từ state cũ nên hai quản lý sửa cùng lúc ghi đè nhau âm thầm",
+      "severity": "MEDIUM",
+      "category": "config_lost_update",
+      "evidence_level": "design_gap",
+      "summary": "DayNoiBoard: DongChuong/DongDay lấy state ban đầu từ props (useState(new Set(c.vai)), String(d.gia_tri)) và không đồng bộ lại khi tải lại; nút bật/tắt gửi gia_tri: !d.gia_tri theo state cũ; màn không nghe sự kiện. ViecCuaPhong gửi nguyên danh sách nhóm việc/dịch vụ đã tính từ r.serves của lần đọc trước. LamThemTaiQuayCauHinh trộn giá trị từ bản dl cũ và đánh lại thứ tự cả danh sách (doiCho). Không có expected_version như TrinhSuaMau.",
+      "trigger": "Có thể xảy ra khi hai người dùng quyền cấu hình mở màn gần nhau, hoặc một người mở màn lâu rồi bấm lưu.",
+      "impact": "Cấu hình điều khiển luồng (chuông, người nhận chuông, phòng làm việc gì, nút tại quầy) có thể bị sửa ngược hoặc mất mục mà không ai biết; kết quả là chuông im hoặc dịch vụ không còn phòng làm.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx",
+          "line": 252,
+          "end_line": 262,
+          "detail": "DongDay: so = useState(String(d.gia_tri)); bật/tắt gửi !d.gia_tri."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx",
+          "line": 306,
+          "end_line": 308,
+          "detail": "DongChuong: useState từ props, không reset khi dl đổi."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx",
+          "line": 355,
+          "end_line": 361,
+          "detail": "Lưu gửi vai/bs/bat từ state cục bộ."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/clinic-config/ViecCuaPhong.tsx",
+          "line": 140,
+          "end_line": 143,
+          "detail": "doiNhom/doiMot tính danh sách mới từ r.serves/daGanLe cũ rồi gửi cả tập."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/day-noi/LamThemTaiQuayCauHinh.tsx",
+          "line": 118,
+          "end_line": 158,
+          "detail": "luu trộn từ dl cũ; doiCho gửi thứ tự toàn bộ danh sách."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/TrinhSuaMau.tsx",
+          "line": 8,
+          "end_line": 9,
+          "detail": "Đối chiếu tốt: TrinhSuaMau gửi expected_version nên bị 409 khi người khác xuất bản trước."
+        }
+      ],
+      "limitations": "Chưa đọc phần PUT của ClinicConfigBoard/CoSoPhong để chắc chắn ngữ nghĩa thay-thế-cả-tập phía server; kết luận về ViecCuaPhong dựa vào kiểu doiViec(nodes: string[]).",
+      "recommendation": "Mọi lệnh sửa cấu hình mang expected_version (hoặc updated_at) và trả 409 kèm bản mới; dùng lệnh delta thay vì cả tập; nghe SSE để làm mới state con; ghi nhật ký 'ai đổi gì' hiển thị ngay trên màn.",
+      "acceptance": "Test hai phiên: A đổi người nhận chuông, B (mở trước) bấm lưu bị 409 và thấy bản mới; ghi chuông không thể xoá mục do người khác vừa thêm.",
+      "alignment": [
+        "Reality rõ",
+        "Ownership rõ",
+        "Lỗi lặp thành cải tiến hệ thống"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-010",
+        "INF-021"
+      ]
+    },
+    {
+      "tmp_id": "S20-18",
+      "title": "Trang Cài đặt: lỗi đọc cấu hình làm thẻ biến mất hoặc hiển thị chế độ mặc định, đổi chế độ lỗi thì tự quay lại không báo",
+      "severity": "LOW",
+      "category": "config_page_silent_failure",
+      "evidence_level": "confirmed_static",
+      "summary": "settings/page.tsx chỉ vẽ ReportSettingsCard và PhamViViTriCard khi fetch thành công, nếu không thì không hiện gì. getFeatureMode() trả 'FULL_CLINIC' mặc định khi backend lỗi nên FeatureModeCard hiển thị 'Đang dùng' sai. FeatureModeCard khi PUT lỗi chỉ setMode(mode) quay lại, không thông báo. Đổi chế độ CSKH_ONLY ẩn Bàn khám/Siêu âm/Thu ngân/Nhà thuốc khỏi thanh bên bằng một cú bấm, không xác nhận.",
+      "trigger": "Có thể xảy ra khi backend lỗi tạm thời lúc mở trang Cài đặt hoặc khi PUT thất bại.",
+      "impact": "Quản lý thấy cấu hình trống/đang ở chế độ đầy đủ mặc dù không đọc được; bấm đổi mà không hiểu vì sao không đổi. Nhỏ nhưng làm người vận hành mất niềm tin cấu hình.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/page.tsx",
+          "line": 26,
+          "end_line": 48,
+          "detail": "reportSettings ? card : null; phamVi && card; featureMode mặc định."
+        },
+        {
+          "path": "src/dashboard/lib/feature-mode.ts",
+          "line": 18,
+          "end_line": 27,
+          "detail": "Không đọc được -> return 'FULL_CLINIC'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/FeatureModeCard.tsx",
+          "line": 40,
+          "end_line": 59,
+          "detail": "!res.ok hoặc catch -> setMode(mode) không có thông báo; một cú bấm đổi toàn bộ nav."
+        },
+        {
+          "path": "src/dashboard/lib/booking-policy.ts",
+          "line": 10,
+          "end_line": 16,
+          "detail": "Đối chiếu tốt: luật đặt lịch cố ý không có mặc định, null = nói thẳng không đọc được."
+        }
+      ],
+      "limitations": "Mức độ nhỏ vì backend vẫn gác quyền; chưa kiểm cách layout dùng featureMode khi lỗi.",
+      "recommendation": "Dùng mẫu của booking-policy: null = 'không đọc được'; hiển thị thẻ lỗi thay vì ẩn; FeatureModeCard hiện thông báo lỗi khi PUT hỏng và hộp xác nhận khi đổi chế độ.",
+      "acceptance": "Test: mock các GET lỗi -> thẻ hiện 'Không đọc được ...'; PUT lỗi hiện thông báo; đổi chế độ cần xác nhận.",
+      "alignment": [
+        "Reality rõ",
+        "Unknown ngắn"
+      ],
+      "extends": [
+        "FE-004"
+      ],
+      "related_ids": [
+        "FE-004"
+      ]
+    },
+    {
+      "tmp_id": "S20-19",
+      "title": "Mã nhập siêu âm phụ khoa có cấu trúc đã thành mã chết, còn bài test khẳng định hành vi bỏ qua số gõ sai (kể cả dấu phẩy thập phân) thay vì báo lỗi",
+      "severity": "LOW",
+      "category": "dead_code_misleading_test",
+      "evidence_level": "confirmed_static",
+      "summary": "KetQuaPhuKhoa, ket-qua-phu-khoa-du-lieu.ts và types.ts của /sieu-am không được import ở nơi nào khác ngoài test (git grep toàn src). /sieu-am và /sono chỉ redirect sang /phong. Hàm so() trả undefined khi Number(v) không hữu hạn nên '8,5' (cách gõ Việt) bị loại thầm lặng; bài test 'số gõ sai không lọt xuống database' khẳng định đúng hành vi bỏ qua ô, chứ không phải báo lỗi.",
+      "trigger": "Chỉ xảy ra nếu ai đó nối lại component này vào màn khác (hiện là mã không dùng).",
+      "impact": "Rủi ro tiềm ẩn: kết quả đo (nội mạc, AFC) có thể mất khi người nhập dùng dấu phẩy, trong khi test tạo cảm giác an toàn; mã chết làm bản đồ code và chi phí duy trì tăng.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/sieu-am/ket-qua-phu-khoa-du-lieu.ts",
+          "line": 20,
+          "end_line": 27,
+          "detail": "so(): Number.isFinite ? n : undefined."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/sieu-am/KetQuaPhuKhoa.tsx",
+          "line": 56,
+          "end_line": 62,
+          "detail": "Ô inputMode='decimal' nhận chuỗi tự do."
+        },
+        {
+          "path": "src/dashboard/tests/ket-qua-sieu-am-co-cau-truc-boundary.test.mts",
+          "line": 48,
+          "end_line": 52,
+          "detail": "Test khẳng định 'tám phẩy năm' -> null."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/sieu-am/page.tsx",
+          "line": 5,
+          "end_line": 9,
+          "detail": "Trang chỉ redirect('/phong')."
+        }
+      ],
+      "limitations": "Kết luận 'không dùng' dựa trên git grep tên tệp/hàm tại SHA; có thể được nạp động.",
+      "recommendation": "Xoá mã chết hoặc chuyển vào engine chung; nếu giữ, cho so() hiểu dấu phẩy và trả lỗi trường thay vì im lặng bỏ qua, đổi test thành 'báo lỗi cho người dùng'.",
+      "acceptance": "git grep không còn import tới sieu-am/KetQuaPhuKhoa; nếu giữ lại thì test mới: '8,5' -> 8.5 và 'abc' -> lỗi hiển thị ở ô.",
+      "alignment": [
+        "Lỗi lặp thành cải tiến hệ thống",
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-041"
+      ]
+    },
+    {
+      "tmp_id": "S20-20",
+      "title": "Giao diện lõi ghi cứng ngôn ngữ, múi giờ, tiền tệ và tên quy trình riêng Dr4Women (máy Bio, đầu dò, Mirena, mã form NK)",
+      "severity": "LOW",
+      "category": "sellability_hardcode",
+      "evidence_level": "design_gap",
+      "summary": "Nhiều thành phần quầy thu/cài đặt ghi cứng 'vi-VN', 'Asia/Ho_Chi_Minh', hậu tố 'đ', số nguyên đồng. VatTuQuay có câu 'Khách làm máy Bio — gợi ý đầu dò', 'Lý do bỏ đầu dò', chú thích Mirena; ServiceFormEngine bật AndrologyReview theo schema.service_code === 'NK'; DayNoiBoard có bảng TEN_VAI các vai cố định. Phần múi giờ Việt Nam là quyết định đã chốt, nhưng tên sản phẩm/quy trình riêng không nên nằm trong mã dùng chung.",
+      "trigger": "Xuất hiện khi dựng cho phòng khám thứ hai với danh mục dịch vụ khác (ví dụ không có máy Bio).",
+      "impact": "Phải sửa mã (chứ không chỉ cấu hình) cho mỗi khách mới; chữ hướng dẫn sai ngữ cảnh; gánh nặng bảo trì khi gộp nhiều phiên bản.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx",
+          "line": 3,
+          "end_line": 14,
+          "detail": "Chú thích và UI nói đầu dò Bio / vòng Mirena."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx",
+          "line": 178,
+          "end_line": 181,
+          "detail": "'Khách làm máy Bio — gợi ý đầu dò'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+          "line": 338,
+          "end_line": 338,
+          "detail": "schema.service_code === 'NK' để gắn AndrologyReview."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx",
+          "line": 57,
+          "end_line": 74,
+          "detail": "Nhãn vai/nhóm nghề cố định trong mã."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/thu-ngan/GiaoDich.tsx",
+          "line": 71,
+          "end_line": 81,
+          "detail": "Ngày và múi giờ cố định 'Asia/Ho_Chi_Minh', định dạng vi-VN."
+        }
+      ],
+      "limitations": "Chủ sản phẩm đã chốt chỉ bán trong Việt Nam nên phần múi giờ/tiền tệ chỉ là ghi chú; phần quan trọng là tên sản phẩm/quy trình.",
+      "recommendation": "Đưa nhãn đặc thù (Bio, Mirena, NK) vào dữ liệu catalog/cấu hình theo clinic; gom định dạng tiền/giờ vào một module cấu hình theo clinic (mặc định VN).",
+      "acceptance": "Dựng clinic thử không có Bio/Mirena: UI không nhắc đến chúng; thêm một mã form mới không cần sửa ServiceFormEngine.",
+      "alignment": [
+        "Đóng gói bán được"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004"
+      ]
+    },
+    {
+      "tmp_id": "S20-21",
+      "title": "Lệnh Mẫu kết quả (tạo/gắn/gỡ) không mang khoá Idempotency; tạo mẫu lặp khi mất phản hồi",
+      "severity": "LOW",
+      "category": "idempotency_missing",
+      "evidence_level": "design_gap",
+      "summary": "guiLenh() gửi POST /api/mau-ket-qua không có Idempotency-Key. Lệnh 'tao' sinh mẫu mới mỗi lần gọi; nếu mất phản hồi, người dùng bấm lại sẽ có hai mẫu cùng tên (nhóm) lẫn trong danh sách gắn cho dịch vụ. Gắn/gỡ tự nhiên idempotent, xuất bản đã có expected_version.",
+      "trigger": "Có thể xảy ra khi mạng rớt sau khi máy chủ lưu mẫu.",
+      "impact": "Mẫu trùng tên có thể bị gắn nhầm vào dịch vụ; mẫu đã gắn rồi khó gỡ gọn.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/du-lieu.ts",
+          "line": 59,
+          "end_line": 64,
+          "detail": "guiLenh không đặt header Idempotency-Key."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/SuaMau.tsx",
+          "line": 42,
+          "end_line": 61,
+          "detail": "tao(): gọi guiLenh({thao_tac:'tao', ten, nhom, chep_tu}) không khoá."
+        }
+      ],
+      "limitations": "Chưa kiểm server có unique theo (clinic, nhóm, tên) hay không.",
+      "recommendation": "Khoá theo thao tác (dinhDanhThaoTac('tao-mau', ten, nhom, chep)) và ràng buộc duy nhất theo (clinic, nhóm, tên).",
+      "acceptance": "Test: gửi lại 'tao' cùng khoá chỉ tạo một mẫu; tạo hai mẫu cùng tên bị từ chối.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "S20-1"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "OPS-011",
+      "detail": "src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/DonDuLieuThu.tsx:105-109,226-250 — màn liệt kê MỌI khách theo ngày (chỉ loại khách 'đang mở hôm nay') và có ô 'Chọn cả ngày' chọn tất cả cùng lúc, rồi nút Xoá đã chọn; không có dấu hiệu 'khách thử' nào để lọc, dù tiêu đề nói 'khách thử'. Dòng hiển thị cả 'Đã thu' (da_thu) và tệp, nhưng chỉ khoá khi lượt đang mở hôm nay (dòng 297). Hộp xác nhận chỉ cần gõ 'XOA' (dòng 328-346). src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/page.tsx:1-5: cửa chỉ là quyền permission.manage. Xoá hẳn khách ở MỌI ngày kèm dữ liệu (dòng 195)."
+    },
+    {
+      "id": "FIN-005",
+      "detail": "src/dashboard/app/(dashboard)/thu-ngan/LichSuThu.tsx:80-84,190-197 — kiểu GoiLichSu không có trường báo cắt/còn nữa nên màn không thể nói 'danh sách bị cắt'; bốn ô tổng hiển thị như tổng đầy đủ. src/dashboard/app/(dashboard)/thu-ngan/GiaoDich.tsx:149-152,179-182 cộng tổng 'đã thu' từ ds nhận được mà không biết ds có bị cắt."
+    },
+    {
+      "id": "FIN-003",
+      "detail": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx:70-83,201-221 — hàm gui() không gửi Idempotency-Key; luuThem() gửi cả mảng 'them' kèm dòng mới nên bấm lại sau mất phản hồi ('Mất kết nối — CHƯA lưu') có thể thêm lần hai; nút chỉ bị khoá bởi `dang`, không bởi khoá thao tác."
+    },
+    {
+      "id": "CLIN-039",
+      "detail": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx:163-190 gửi delta (thayDoi + bo_truong) nên hai người sửa KHÁC ô thì giữ được; nhưng cùng một ô thì lần lưu sau thắng, không có expected_version/hash trước đó, và daLuuRef (dòng 195-197) được cập nhật như thể thành công — cả hai tab đều báo 'Đã tự lưu'."
+    },
+    {
+      "id": "FIN-012",
+      "detail": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx:1177-1179,1200-1202 — số 'Ngân hàng nhận' là ô thu ngân tự gõ, điền sẵn bằng đúng số chuyển khoản; sai lệch chỉ đánh dấu 'cần đối soát' và vẫn ghi PAID (payment_service.py:1193-1234); nên cờ khớp chỉ phản ánh lời khai của người thu. Xem S20-3."
+    },
+    {
+      "id": "FE-023",
+      "detail": "src/dashboard/app/(dashboard)/settings/new-user/NewUserForm.tsx:49-64 — fetch và await res.json() không bọc try/catch, nếu mạng lỗi hoặc thân không phải JSON thì ném lỗi, setLoading(false) không chạy nên nút kẹt 'Đang tạo...'. src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx:210-227 datPhong cũng không bắt lỗi fetch (void ...)."
+    },
+    {
+      "id": "FE-004",
+      "detail": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx:113-141 và src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx:91-108: lỗi tải đơn bán/phiếu khám thành danh sách/phiếu trống không thông báo (xem S20-6, S20-11)."
+    }
+  ],
+  "held": [
+    {
+      "title": "ChonDichVu lưu ba bước tuần tự (chốt lựa chọn rồi từng lệnh phong-du-kien không có khoá)",
+      "reason": "Nếu lệnh phòng thất bại sau khi chốt, màn báo 'đã chốt nhưng CHƯA ghi được phòng' (đúng sự thật), nhưng lệnh phong-du-kien không có Idempotency-Key; chưa kiểm tính idempotent theo trạng thái ở server."
+    },
+    {
+      "title": "Chuỗi số lượng thuốc ở quầy dùng Number(v.replace(',', '.'))",
+      "reason": "'1.000' bị đọc thành 1 (dấu chấm nghìn kiểu Việt). Chưa kiểm server có kiểm lại định dạng hoặc giới hạn trần; số lượng thuốc thường nhỏ nên rủi ro thấp."
+    },
+    {
+      "title": "CongTyKhiThu chuyển lặng lẽ sang công ty đầu danh sách khi công ty đã chọn biến mất khỏi hồ sơ",
+      "reason": "Panel hiển thị chi tiết công ty được chọn nên người thu có thể thấy; chưa rõ máy chủ có kiểm cong_ty_id thuộc khách (đã ghi FIN-015 ở mức replay)."
+    },
+    {
+      "title": "TabThuNgan dùng ngay={homNay} cho quầy 'Chờ thanh toán' khi để màn qua nửa đêm",
+      "reason": "Chưa đọc useNgayXem/useDoiCa nên không biết homNay có tự cập nhật khi qua ngày."
+    },
+    {
+      "title": "Cron/hạn nhắc cho cờ 'Tiền thừa' ở quầy",
+      "reason": "TienThuaKhoi chỉ hiển thị cần hoàn; chưa kiểm xem có hàng việc có chủ/hạn hay chỉ chờ người mở quầy (liên quan Ownership)."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Optimistic concurrency + bảo vệ thay đổi chưa lưu khi sửa mẫu kết quả",
+      "detail": "TrinhSuaMau gửi expected_version, 409 khi ai đó xuất bản trước, nạp lại danh sách; SuaMau hỏi tại chỗ trước khi bỏ thay đổi chưa xuất bản. Đáng nhân rộng cho mọi màn cấu hình.",
+      "evidence": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/TrinhSuaMau.tsx:8-9,120-142; src/dashboard/app/(dashboard)/settings/mau-ket-qua/SuaMau.tsx:26-34"
+    },
+    {
+      "title": "Khoá chống ghi hai lần theo THAO TÁC (không theo lần bấm)",
+      "detail": "dinhDanhThaoTac + khoaThaoTac/xongThaoTac cho thu tiền, hoàn tiền, chốt dịch vụ; khoá bao gồm revision, tập chọn, hình thức chia, giảm giá, công ty nên đổi nội dung là khoá mới.",
+      "evidence": "src/dashboard/app/(dashboard)/customers/khoa-mot-lan.ts:14-53; src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx:446-455"
+    },
+    {
+      "title": "Tiền do máy chủ tính, màn chỉ đối chiếu",
+      "detail": "Quầy gửi tổng gốc + revision, server tính lại, bắt BILL_CHANGED; ChiaHinhThuc/GiamGia chỉ xem trước. Server cũng có biên nhận cùng giao dịch cho tiền dịch vụ.",
+      "evidence": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx:11-14; src/dashboard/app/(dashboard)/thu-ngan/ChiaHinhThuc.tsx:11-13; src/clinicai/services/payment_service.py:385-388"
+    },
+    {
+      "title": "Dựng lại thành phần khi tập chỉ định/revision đổi để tránh state cũ",
+      "detail": "ChonDichVu và HoaDonMot dùng key theo danh sách id chỉ định/revision nên chỉ định mới của bác sĩ không bị coi là 'đã bỏ tick'.",
+      "evidence": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx:816,834"
+    },
+    {
+      "title": "Lỗi tải không thành trạng thái 'chưa cấu hình'",
+      "detail": "clinic-config/page.tsx truyền cờ ok để màn nói thẳng khi backend không trả lời; booking-policy không có mặc định ngầm.",
+      "evidence": "src/dashboard/app/(dashboard)/settings/clinic-config/page.tsx:63-65; src/dashboard/lib/booking-policy.ts:10-16"
+    },
+    {
+      "title": "Gửi delta khi tự lưu phiếu khám và không ghi đè khi có chữ chưa lưu",
+      "detail": "ServiceFormEngine gửi đúng các ô đổi (ghep + bo_truong) và poll chỉ thay values nếu không có chữ chưa lưu.",
+      "evidence": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx:163-190,135-141"
+    },
+    {
+      "title": "Xoá dữ liệu thử có xem trước, gõ XOA, khoá idempotency, nhật ký và chuyển tệp sang lưu trữ thay vì xoá",
+      "detail": "DonDuLieuThu hiển thị số dòng theo nhóm, chặn khách đang khám, lưu nguyên văn dòng bị xoá để khôi phục tay.",
+      "evidence": "src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/DonDuLieuThu.tsx:143-186,327-382"
+    },
+    {
+      "title": "Bù trừ giao dịch khi tạo tài khoản và thứ tự backend-trước cho thu hồi",
+      "detail": "Route admin users xoá user GoTrue nếu nối thất bại; unlink làm backend trước, GoTrue sau, trả warning nếu xoá GoTrue lỗi.",
+      "evidence": "src/dashboard/app/api/admin/users/route.ts:217-235,412-440"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/TangEditor.tsx",
+      "lines": 171,
+      "full_read": true,
+      "note": "Soạn tầng; chặn ngừng tầng còn phòng bật. Không phát hiện lỗi."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/ViTriEditor.tsx",
+      "lines": 57,
+      "full_read": true,
+      "note": "Soạn vị trí; chỉ gửi tên/is_active."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/ViecCuaPhong.tsx",
+      "lines": 250,
+      "full_read": true,
+      "note": "Gửi cả tập serves/dịch vụ riêng (S20-17)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/page.tsx",
+      "lines": 69,
+      "full_read": true,
+      "note": "Cờ ok khi backend không trả lời — mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/types.ts",
+      "lines": 113,
+      "full_read": true,
+      "note": "Kiểu dữ liệu; ghi chú rằng đổi một bên mà quên bên kia thì màn trống."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx",
+      "lines": 534,
+      "full_read": true,
+      "note": "State cục bộ khởi tạo từ props, không version (S20-17)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/day-noi/LamThemTaiQuayCauHinh.tsx",
+      "lines": 370,
+      "full_read": true,
+      "note": "Trộn từ dl cũ, đánh lại thứ tự cả danh sách (S20-17)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/day-noi/page.tsx",
+      "lines": 28,
+      "full_read": true,
+      "note": "Gác requireNavAccess; chỉ ghép hai khối."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/DonDuLieuThu.tsx",
+      "lines": 385,
+      "full_read": true,
+      "note": "Xoá hẳn khách; mở rộng OPS-011."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/page.tsx",
+      "lines": 35,
+      "full_read": true,
+      "note": "Cửa quyền permission.manage; server hỏi lại mỗi lệnh."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/GanMau.tsx",
+      "lines": 213,
+      "full_read": true,
+      "note": "Gắn/gỡ mẫu; đề xuất theo tên chỉ khi bấm Gắn."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/MauKetQuaView.tsx",
+      "lines": 66,
+      "full_read": true,
+      "note": "Khung hai tab, nạp lại bảng sau đổi."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/SuaMau.tsx",
+      "lines": 194,
+      "full_read": true,
+      "note": "Tạo mẫu không khoá idempotency (S20-21)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/TrinhSuaMau.tsx",
+      "lines": 466,
+      "full_read": true,
+      "note": "Mẫu tốt: expected_version."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/du-lieu.ts",
+      "lines": 64,
+      "full_read": true,
+      "note": "guiLenh không có Idempotency-Key."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/mau-ket-qua/page.tsx",
+      "lines": 24,
+      "full_read": true,
+      "note": "Gác quyền, bọc MauKetQuaView."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/new-user/NewUserForm.tsx",
+      "lines": 175,
+      "full_read": true,
+      "note": "Không bắt lỗi fetch; mật khẩu tạm (S20-13, S20-16)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/new-user/page.tsx",
+      "lines": 98,
+      "full_read": true,
+      "note": "Danh sách nhân viên chưa nối; lỗi đọc hiện thông báo."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/page.tsx",
+      "lines": 51,
+      "full_read": true,
+      "note": "Thẻ ẩn/mặc định khi lỗi đọc (S20-18)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/tai-khoan/page.tsx",
+      "lines": 268,
+      "full_read": true,
+      "note": "Danh sách tài khoản; nhãn tiếng Anh (Active/Inactive) lẫn tiếng Việt, không phát hiện lỗi logic."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/sieu-am/KetQuaPhuKhoa.tsx",
+      "lines": 156,
+      "full_read": true,
+      "note": "Mã chết (S20-19)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/sieu-am/ket-qua-phu-khoa-du-lieu.ts",
+      "lines": 100,
+      "full_read": true,
+      "note": "so() bỏ thầm lặng số gõ sai (S20-19)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/sieu-am/page.tsx",
+      "lines": 9,
+      "full_read": true,
+      "note": "Chỉ redirect /phong."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/sieu-am/types.ts",
+      "lines": 82,
+      "full_read": true,
+      "note": "Kiểu không còn được import (mã chết)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/sono/page.tsx",
+      "lines": 9,
+      "full_read": true,
+      "note": "Chỉ redirect /phong."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+      "lines": 548,
+      "full_read": true,
+      "note": "Engine phiếu chuyên khoa (S20-10, S20-11, S20-12; mở rộng CLIN-039)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/AnhChuyenKhoan.tsx",
+      "lines": 144,
+      "full_read": true,
+      "note": "Thu nhỏ ảnh, lỗi ảnh báo riêng; gỡ ảnh bằng DELETE không khoá thao tác."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/ChiaHinhThuc.tsx",
+      "lines": 190,
+      "full_read": true,
+      "note": "Chỉ hiển thị cộng; server kiểm — mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx",
+      "lines": 390,
+      "full_read": true,
+      "note": "Chỉnh đơn bán (S20-5, S20-6; mở rộng FIN-003)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/ChonDichVu.tsx",
+      "lines": 369,
+      "full_read": true,
+      "note": "Chốt dịch vụ + phòng tuần tự; khoá thao tác có."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/CongTyKhiThu.tsx",
+      "lines": 93,
+      "full_read": true,
+      "note": "Chọn công ty theo lượt; held mục fallback ds[0]."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/GiamGia.tsx",
+      "lines": 183,
+      "full_read": true,
+      "note": "Giảm giá tự do cho thu ngân (S20-8)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/GiaoDich.tsx",
+      "lines": 278,
+      "full_read": true,
+      "note": "Hiển thị sai nguyên nhân cờ đối soát (S20-4)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx",
+      "lines": 560,
+      "full_read": true,
+      "note": "Một hoá đơn; datPhong không bắt lỗi (FE-023)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/HoanTien.tsx",
+      "lines": 261,
+      "full_read": true,
+      "note": "Hoàn tiền chỉ quản lý, lý do >=5, khoá thao tác — mẫu tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/LichSuThu.tsx",
+      "lines": 323,
+      "full_read": true,
+      "note": "Kiểu không có cờ cắt (mở rộng FIN-005)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/NgayTruc.tsx",
+      "lines": 97,
+      "full_read": true,
+      "note": "Poll lỗi setDs(null) (S20-9)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/NutHoanTac.tsx",
+      "lines": 108,
+      "full_read": true,
+      "note": "Lý do tuỳ chọn, không idempotency (S20-2)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+      "lines": 1358,
+      "full_read": true,
+      "note": "Đọc đủ 1358 dòng (S20-3, S20-9; FIN-012)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/TabThuNgan.tsx",
+      "lines": 71,
+      "full_read": true,
+      "note": "Quầy chỉ vẽ khi ready (S20-9)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx",
+      "lines": 435,
+      "full_read": true,
+      "note": "Duyệt tự chọn tên, khoá guiThaoTac (S20-1, S20-7, S20-20)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/XepPhongDaThu.tsx",
+      "lines": 81,
+      "full_read": true,
+      "note": "Dùng lại DoiPhong, nguồn quay_thu; không phát hiện lỗi."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/dich-vu/lich-su/page.tsx",
+      "lines": 13,
+      "full_read": true,
+      "note": "Trang mỏng, chiXem."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/dich-vu/page.tsx",
+      "lines": 29,
+      "full_read": true,
+      "note": "Trang mỏng gác quyền."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/thuoc/lich-su/page.tsx",
+      "lines": 13,
+      "full_read": true,
+      "note": "Trang mỏng, chiXem."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/thuoc/page.tsx",
+      "lines": 29,
+      "full_read": true,
+      "note": "Trang mỏng gác quyền."
+    }
+  ]
+}

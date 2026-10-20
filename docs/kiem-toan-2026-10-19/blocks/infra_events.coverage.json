@@ -1,0 +1,1282 @@
+[
+  {
+    "path": ".github/workflows/ci.yml",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 10, 'build': 12, 'backup': 2, 'timeout': 4}",
+    "sha256": "a302e9ec52361e793449c28def059f41c96000a3051bc4f352a71897226ecbb6"
+  },
+  {
+    "path": "Dockerfile.api",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "a7de0b27dea0e0a7ad6125a31ba926f7b4fb265bd590d347b7a386858f057950"
+  },
+  {
+    "path": "Makefile",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 1}",
+    "sha256": "cd8f71299876e1c80dbb9d2633637f97a86069d768ee4d26c5f819d3d9213bbf"
+  },
+  {
+    "path": "docker-compose.journald.yml",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "b88406e3ab566ee70d071868707a978afa2575af7f86f7f8e6923f7c36527e57"
+  },
+  {
+    "path": "docker-compose.staging.yml",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "7f64316e15717ba91f4387845244e38289cf7a83b4e231a34386bbba327dce4c"
+  },
+  {
+    "path": "docker-compose.supabase.staging.yml",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1}",
+    "sha256": "a23e17eb15f13c70eaf690ec193072011de9ed293ca10bbf074856afc42c250d"
+  },
+  {
+    "path": "docker-compose.supabase.yml",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 4, 'build': 6, 'timeout': 3}",
+    "sha256": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76"
+  },
+  {
+    "path": "docker-compose.yml",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839"
+  },
+  {
+    "path": "docker/auth-guard.conf",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2, 'timeout': 2}",
+    "sha256": "44db2cf34ad0ef158d49f239f0ad74021fb0a821c001f5728ffde46e73bb8477"
+  },
+  {
+    "path": "docker/khong-co-khoa-llm",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "docker/rabbitmq/.gitignore",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "83678957176fa72c28cf960970148a007b094d2dc65b8e639f59cae3ee411c35"
+  },
+  {
+    "path": "docker/rabbitmq/README.md",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1, 'destructive': 1}",
+    "sha256": "58fab0380100e2259817fdc53a999296af6f2eaec052ded0899c1f6fc1ff097a"
+  },
+  {
+    "path": "docker/rabbitmq/definitions.json",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "81c6708ab7b242de36b521626da513b8cd661b1abb718eba566e46c23e563c12"
+  },
+  {
+    "path": "docker/rabbitmq/rabbitmq.conf",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "9f758fcdf3fc97c376cdba70d2370f971afe0b98f9ad01cd8f9414b24f25582a"
+  },
+  {
+    "path": "monitoring/README.md",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "30b0d1ffca76fd6023fdb585e31448c9cee92763c3e850e592ed2d42e2cc5998"
+  },
+  {
+    "path": "monitoring/monitors.json",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 6, 'backup': 3}",
+    "sha256": "14b2d6361b7dea973dd5ce7a9901240463ddcd53ca6d01e39cfd58871eca2cfb"
+  },
+  {
+    "path": "poetry.lock",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1, 'build': 1}",
+    "sha256": "5b2ee908f9da89a57007463326b4ead85c9b4018d4b141e9f398ea6520bddc10"
+  },
+  {
+    "path": "pyproject.toml",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 2}",
+    "sha256": "70a868f498ba361935c4fa4522ea5d2c6051d343cbf3db1d040f2e6db23714ea"
+  },
+  {
+    "path": "pytest.ini",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "872acc0f51fb9d9a50f410b01fc3628a97fab945bf139b17559b16da9a88f996"
+  },
+  {
+    "path": "scripts/ap-lich-tuan-2809.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 3",
+    "sha256": "31c6a2e5f1194bb9640fc326c099920f4ec3e407307cf6e298c81473c81d77aa"
+  },
+  {
+    "path": "scripts/apply-pending-migrations.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721"
+  },
+  {
+    "path": "scripts/backup-db.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d"
+  },
+  {
+    "path": "scripts/ban-do-code.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 31",
+    "sha256": "6c66ba4566431a3f8cf523ee856da3662ec712662e8de67b8aa8600f2b08ba1a"
+  },
+  {
+    "path": "scripts/bao-cao/khach-con-no.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "a6d9848921a5c4a2f2788b7de512727cc7d72d31ac61da7b0540956955f2f837"
+  },
+  {
+    "path": "scripts/cap-duyet-ket-qua.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "f43aa1a35b9f8f76a24e7fad964420f4b03dced73ed9c849542a9ad5da906e39"
+  },
+  {
+    "path": "scripts/check-monitoring.sh",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "cce57d3fc6ead5c7281944a7cd44b086d4101fa2c30551cf4943a95f1fcfa5e8"
+  },
+  {
+    "path": "scripts/check_rabbitmq.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 3, 'timeout': 2} functions 1",
+    "sha256": "f2442dfd7bafc9b38842c90e8dfb9e1d88f00c31d15a3ec5b1abb68a0832f5fb"
+  },
+  {
+    "path": "scripts/chuyen-luot-that.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2}",
+    "sha256": "684bf7cdc3aaf8e4f7eb2f0ae61f6ff611f9cc32673e4afb5b55066eeeab7411"
+  },
+  {
+    "path": "scripts/ci-may.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "9534f6e66a4031c4d8b3ca51bfab2a9a7c9cbd328f0f94ae695b23ba2003e04b"
+  },
+  {
+    "path": "scripts/collect_ops_status.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1, 'backup': 4, 'timeout': 1} functions 14",
+    "sha256": "0faca8e7c1a07e230aca97dc6b85633692602f478828a66ad86e82627b3c11a0"
+  },
+  {
+    "path": "scripts/danh-dau-event-cu-truoc-khi-bat-telegram.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "6b82c0f2b8529ce09168108ebf3840ea527026dc7a29129fd2850f576b3698ea"
+  },
+  {
+    "path": "scripts/dat-lai-mat-khau.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1}",
+    "sha256": "2f9f6088d3be1961cc57482772896d9d717de19d2534931aac7cee43edd42f7b"
+  },
+  {
+    "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730"
+  },
+  {
+    "path": "scripts/day-sao-luu-len-viettel.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2, 'destructive': 1, 'backup': 5}",
+    "sha256": "8113c5e5af4ef7bb16e3a3014522263ff2bf29c318b7074a39a74facaf607016"
+  },
+  {
+    "path": "scripts/deploy-backend.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "b2e1d1cb9445d31bcf82168e5207bc3442d7c47d8926339c79e305a6b321e74a"
+  },
+  {
+    "path": "scripts/deploy-staging.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 3, 'swallow': 9, 'build': 29}",
+    "sha256": "0449d1551e74ff8d27ec8d86c2a4fab5f2c4b27f01b1c6f2c060e1f331706663"
+  },
+  {
+    "path": "scripts/dev-giao-dien.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 3, 'swallow': 5}",
+    "sha256": "88c63e709bfdc44ec04582007357aedf013242efa1591f0c6ecb409ef88f84a1"
+  },
+  {
+    "path": "scripts/dev-nap-lai.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 3, 'swallow': 3, 'build': 4}",
+    "sha256": "5fb4ff5d495d4df96fbf92e22319f7ebe887257e2e05b0f5408648bdeef5d4e0"
+  },
+  {
+    "path": "scripts/dev-up.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 14, 'swallow': 14, 'build': 9, 'timeout': 4}",
+    "sha256": "72b9334b959aa19ee5e8958ea9a153f1bcd84d8c5b881c35bc711274165d9b3b"
+  },
+  {
+    "path": "scripts/don-du-lieu-thu.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 2}",
+    "sha256": "c1b335075b6dabcc67cd4d109a34769c46bf722766ce1783966d8a83ec1016bb"
+  },
+  {
+    "path": "scripts/don-prod-truoc-ban-giao.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1, 'swallow': 2, 'backup': 2}",
+    "sha256": "d88f8851b33b796d4ece305aa6062c96636623428a4d73d45c80c2f0e87bc482"
+  },
+  {
+    "path": "scripts/don-prod-truoc-ban-giao.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 6, 'timeout': 1}",
+    "sha256": "4ce937aa6ecaa6c081774fdc0534e11a2168053de5f3845741e60e4869892139"
+  },
+  {
+    "path": "scripts/don-truoc-moc.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1, 'swallow': 5, 'backup': 2}",
+    "sha256": "00f23736d36ebb3e037d9c887fee875e7ce1e0ce0bdc739eea4c7e2ad5898367"
+  },
+  {
+    "path": "scripts/don-truoc-moc.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'timeout': 1}",
+    "sha256": "b005b2e4de14937c33779cc18627e761e1128a1aa10a1c7ea0755e4ac581fe2f"
+  },
+  {
+    "path": "scripts/git-hooks/pre-commit",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2, 'backup': 2}",
+    "sha256": "f42bd3bf59258be527f2ce9a516f3bae58b0a9699d1445d8d081acc8c441f50d"
+  },
+  {
+    "path": "scripts/gop-tai-khoan-thu-ngan.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "6e5bf866dd799614e620ba9bc7a716cef6bacf57490c5b4ece23af9c2efb6313"
+  },
+  {
+    "path": "scripts/hoan-tac-lich-su-notion.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 1}",
+    "sha256": "c8b481e318cd720ddcf5f035fd540a352523322f2cdbdf76688a3e2b8abb2d6b"
+  },
+  {
+    "path": "scripts/hoan-tac-luot-that.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 15}",
+    "sha256": "a8fb5b6f59d0f7027e4a525efe1f32804692baca7cc422c3b4d59b612fb80ab1"
+  },
+  {
+    "path": "scripts/kiem-database-ngoai.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 4, 'destructive': 1, 'timeout': 1}",
+    "sha256": "350c1961198ee7b0c4914f22466b0ea6d004894f80733dda6cb9fa07f45ef2cf"
+  },
+  {
+    "path": "scripts/kim-nguu-3-tang-2709.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1, 'destructive': 4} functions 6",
+    "sha256": "0a342611ba45574b9c438c2321411a30e5cac96999a5c5010ea6a142043da0d3"
+  },
+  {
+    "path": "scripts/ky-nang-tu-file.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 3",
+    "sha256": "085fa521f1e2c8891b84e231ebeffae93be5ed136dc2605501033316640f44ad"
+  },
+  {
+    "path": "scripts/lib/moi-truong-web.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2}",
+    "sha256": "1987218014cf92c57cf51e0acc1672647bd035c8c79607cf22c52d60bb927442"
+  },
+  {
+    "path": "scripts/lib/parse-postgres-url.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "830e7bd63d5f778d9928fb827ccbb514640c554c8455d9afa49bd5813be39ce7"
+  },
+  {
+    "path": "scripts/lib/staging-chung.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1}",
+    "sha256": "5823a38a9faa37e88af141736f3113f11e1505aa55da1b53a75ea6a0902777f1"
+  },
+  {
+    "path": "scripts/maintenance/don_data_khach.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 1}",
+    "sha256": "21a53f331a9799ea136b4ac7a99b5a447c2808ec3a04695373bca04f2f895509"
+  },
+  {
+    "path": "scripts/maintenance/enable_realtime_dynamic_tables.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "cc5d1e82d297007615c1bf0c354193efa30233ce231e6fa07d91c960ecf43f76"
+  },
+  {
+    "path": "scripts/may-chu/bat-theo-doi-may-chu.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "b2fc72a068c9fa26337ccfdd5622ef25abee1be651956d4834fda31703b931ab"
+  },
+  {
+    "path": "scripts/may-chu/cung-co-may-chu.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 4, 'build': 4, 'retry': 1}",
+    "sha256": "2213c10f91cfc0eda038b06ae455180795e4b272b8c007fbf07a3d2fb9b93fdd"
+  },
+  {
+    "path": "scripts/may-chu/journald-clinicai.conf",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "f5e26c0a55b10d796065300e35e7506f6b6b5e5e8bc93768ab2f5e42d6b34e48"
+  },
+  {
+    "path": "scripts/mo-phong/buoc.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 36",
+    "sha256": "7c4975aa8b1485be76f676dd7643dd7c44ee2d079bb3924d10885b92d49f6080"
+  },
+  {
+    "path": "scripts/mo-phong/do_luong.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1} functions 12",
+    "sha256": "8c16dd39c04e000fa1788156b9191ad0d6759fa65c27d07c40025bba891514f0"
+  },
+  {
+    "path": "scripts/mo-phong/dung_phong_kham.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 3",
+    "sha256": "9a908616b672bd4da933267af8a09f6b9f680bf01cad4816d5bd6d036609a41b"
+  },
+  {
+    "path": "scripts/mo-phong/ket_noi.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 5, 'timeout': 4} functions 12",
+    "sha256": "ec4f12f84057b7c1b1ce6a2e8fa08fa50cf4901f600ded5ba67cd9376db05175"
+  },
+  {
+    "path": "scripts/mo-phong/mo_phong.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2} functions 32",
+    "sha256": "97f754ebba304be18c7ec24958c5316a0a56920746ce63f57eac11df09b7d522"
+  },
+  {
+    "path": "scripts/mo-phong/ngay_kham.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2} functions 9",
+    "sha256": "751b7580eff3df31b262582717267bdfb36bff8a86e286a6eb8f633dfdd7c3f5"
+  },
+  {
+    "path": "scripts/mo-phong/pha_dat_lich.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 11",
+    "sha256": "e20f69474758a3b0111560b1659986a0e8a48df8ad419446bc94a6289e6f08f5"
+  },
+  {
+    "path": "scripts/mo-phong/pha_kham.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 22",
+    "sha256": "8e78b7c51deabeede0fd834e23cb48d18d1347439ac3adb52cd323153f6e88c6"
+  },
+  {
+    "path": "scripts/mo-phong/pha_pha.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2} functions 6",
+    "sha256": "45150df50c7333f34980bdc47e99e791679a7f6b296bcc6d45b80978f5e4e5ae"
+  },
+  {
+    "path": "scripts/mo-phong/theo_doi.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2, 'timeout': 1} functions 9",
+    "sha256": "5bc93df5b3fad351808d63bf149e50f9e5109b79e4c86bdd1135183e2f8140fc"
+  },
+  {
+    "path": "scripts/nhan-ban-co-so.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1} functions 28",
+    "sha256": "431bd6464c7454ba01bd0661ddab45706c796893ccc8422b0c45683a2c4d4a38"
+  },
+  {
+    "path": "scripts/nhan-su-kim-nguu.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1, 'timeout': 2} functions 15",
+    "sha256": "6cc90ccd77bf63a136b30f498212ea968b2f45e473ec3a459217fc95a89fd5bd"
+  },
+  {
+    "path": "scripts/nhap-lich-su-notion.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2, 'destructive': 2}",
+    "sha256": "4b9a75adec26a067c491bea7b328b6dd6af5f4bb0681162cc42da6ed27cff517"
+  },
+  {
+    "path": "scripts/pg-dump-qua-container.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'backup': 4}",
+    "sha256": "980be8864ed1ccf0ef4f225014ca929a16a70377478d6f46506b0362f158aea9"
+  },
+  {
+    "path": "scripts/phieu-kham/dung-mau-ket-qua-v3.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 1} functions 5",
+    "sha256": "bba14506706ad358c94237fcdc4928e8dcce5309677abd23c335b06386d13891"
+  },
+  {
+    "path": "scripts/phieu-kham/dung-mau-ket-qua.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 11",
+    "sha256": "1abf58c9803bac3f93fa020b35b86f3cfe17be0bb63cbe49fcce4ec81f38b189"
+  },
+  {
+    "path": "scripts/phieu-kham/dung-phieu-v2.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 6",
+    "sha256": "714e875c940bdb7545e45d9fafefe41c038ac2f1f172bf043b0ffe62e399bca8"
+  },
+  {
+    "path": "scripts/phieu-kham/trich-tu-html.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 18",
+    "sha256": "06af6f5092a6df7faa2be56b5654384b4d81e9a2f4243a036e6b884c4ac4b6f5"
+  },
+  {
+    "path": "scripts/provision-staff-logins.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2}",
+    "sha256": "a31cad6998237f71546203e58711775e3909842ea82f078cc72797a476143489"
+  },
+  {
+    "path": "scripts/read-feedback.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "6522d421e943c656544f015963e3c05828b75e528665fca361e86300f28b3c09"
+  },
+  {
+    "path": "scripts/restore-db.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "1fb1a84bad3980d0756f8294acc73580a03d265438bdf2a29bef783364f8fd9d"
+  },
+  {
+    "path": "scripts/restore-drill.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "0851c74d42ddb7a16720e2333e6dffa0678812faff60050f5753a13d03dc7f38"
+  },
+  {
+    "path": "scripts/restore-preflight.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'backup': 1}",
+    "sha256": "8cd3e73cd43d950a8b908ea0db985f46e8753dbfffcb1b30609965ff74fa6d42"
+  },
+  {
+    "path": "scripts/setup-uptime-kuma.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 5, 'swallow': 1, 'destructive': 1, 'backup': 2, 'timeout': 2, 'retry': 2}",
+    "sha256": "1369d6095a5fb391eaf641b26d1d441a096c56c5773b71fb9741a63e01253a8d"
+  },
+  {
+    "path": "scripts/sinh-khoa-supabase.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 4",
+    "sha256": "7e0ac13d6c00260ac7c7622e7120a0243425cc5130b575027078735ebc1b82d8"
+  },
+  {
+    "path": "scripts/staging-che-du-lieu.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 4, 'build': 1}",
+    "sha256": "9d07d09ce9520b95c0451899823de1661b58e268576ab601d1bd67db4021d8eb"
+  },
+  {
+    "path": "scripts/staging-dung-lan-dau.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 8, 'swallow': 4}",
+    "sha256": "0100ee14753adca26e67fe62d7e3a93e3128b28ad5971c559259a73b28b60e8d"
+  },
+  {
+    "path": "scripts/staging-nap-ban-sao.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 11, 'destructive': 4, 'backup': 4}",
+    "sha256": "0d93db9baca406d7a721bd621e3de9a2835d40fcfa7e9ca6ce489f5e091b4ea2"
+  },
+  {
+    "path": "scripts/staging-tu-ban-sao.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2, 'swallow': 7, 'destructive': 3}",
+    "sha256": "1fda280ecaa2198a49a030bf7e358d952f6d19f8191e0a9a81e303e4f7aa1f48"
+  },
+  {
+    "path": "scripts/sua-ky-nang-lay-mau.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "ea96949f13b7dabd311a286ad671f12daea0065bd59dbbed30fc1dcc5e19e221"
+  },
+  {
+    "path": "scripts/suc-khoe.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2, 'swallow': 2, 'build': 1, 'backup': 2}",
+    "sha256": "3cdd79aed9f6d4fab1c59d3d95d4226e43998b2b1656d0938233679ef8c37269"
+  },
+  {
+    "path": "scripts/supabase-local-nap.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "d363e3bd3a22d55cf27265258d410b8075a8e7f572cada91eb63009af59bb648"
+  },
+  {
+    "path": "scripts/systemd/clinicai-backup-15p.service",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "d7427c5e7b5caf73a62c8d5192d5c1663b7bd05643f724292b91d48ce21833eb"
+  },
+  {
+    "path": "scripts/systemd/clinicai-backup-15p.timer",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "5b08df80cacee5731260e82b18b50c867d1d91da8a18fe055d6c48d1e3ee201e"
+  },
+  {
+    "path": "scripts/systemd/clinicai-backup.service",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "042298b6c2ed9598b1008a2638bb6ef28821755d4ea3b2647faa02446d2ad31f"
+  },
+  {
+    "path": "scripts/systemd/clinicai-backup.timer",
+    "status": "read",
+    "method": "section/config reading",
+    "note": "Đọc cấu hình liên quan vận hành; docker-compose chỉ vùng service/health liên quan, không toàn bộ.",
+    "sha256": "55455098217fdbedf7c416f274641007e80b1eabda45dfd65f9b68a71a677ec4"
+  },
+  {
+    "path": "scripts/systemd/clinicai-ops-status.service",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "84c378d6df36fdb872d6f688098d94f3dd076164cae97c2fb24b5be1fe09076a"
+  },
+  {
+    "path": "scripts/systemd/clinicai-ops-status.timer",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "06988cb0dcf05253ea4cfb27d00a7b6e5a654002b0b8cef3306d16e974fe7ab9"
+  },
+  {
+    "path": "scripts/systemd/clinicai-staging-nap.service",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "8fec86ad7f0eea5f22c1f631c88cd80117a12f5a716aafead60ee19aa67a1de7"
+  },
+  {
+    "path": "scripts/systemd/clinicai-staging-nap.timer",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "b9d22ffebc1907e975ca0f228cc8f9d38e444281bae84e9660ef384cb3553214"
+  },
+  {
+    "path": "scripts/tai-khoan-theo-danh-sach.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'timeout': 1} functions 1",
+    "sha256": "92e85c22f1a208d349f9a629a2bb9525046d2e0cb915ac054b50b9b5bbc6d6ee"
+  },
+  {
+    "path": "scripts/tao-tai-khoan-cskh.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'timeout': 1} functions 2",
+    "sha256": "4b875e2e8a57c764646e2ec64c14ed1bb326d0d89ecd9d9530dc44df8192e6fd"
+  },
+  {
+    "path": "scripts/tao-tai-khoan-man-hinh.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "f6d5fa80dfbf5b013d114c8a68f77a7e264df4ff68124c287249b83a2173509a"
+  },
+  {
+    "path": "scripts/tao-tai-khoan-nhan-su.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'timeout': 1} functions 2",
+    "sha256": "e827791347544a059584a37fec52c91d3256e9d3ea3241ca38c958abee409625"
+  },
+  {
+    "path": "scripts/test-nhanh.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 4, 'destructive': 7}",
+    "sha256": "f28797bfe7c96bbb33cdfba6e316733823995924726bc526c94b94506d621d88"
+  },
+  {
+    "path": "scripts/tests/buoi-kham-that.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 3, 'swallow': 3, 'timeout': 1} functions 13",
+    "sha256": "be9f12afc21ba03948eaa9e90afee5e21db0b17d18227c41dab6a29c4ffcff56"
+  },
+  {
+    "path": "scripts/tests/do-giu-cho.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "79c098f3b495c72629cf16b7e3fbd14f635d8fad9af0bb333e1d68581959988e"
+  },
+  {
+    "path": "scripts/tests/do-nhip-hoi.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1, 'timeout': 2} functions 2",
+    "sha256": "fbfb3b7e13e2ad3e5e3dee0c22e5cbe4226472ca95939e2176e57f759c5edf32"
+  },
+  {
+    "path": "scripts/tests/do-tam-cskh.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "6ec08a10de5c3dfe354f84ab4ea3692fcb543438f85efa991cde27633ab38a20"
+  },
+  {
+    "path": "scripts/tests/dua-tranh.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2, 'swallow': 2, 'timeout': 4} functions 10",
+    "sha256": "b2ef4fdb529d198752b901d9cf64d350e25dce03763e3d153d442755e09e7929"
+  },
+  {
+    "path": "scripts/tests/dung-db-kiem.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1}",
+    "sha256": "63537f1f357f72db39cc12340e845ca4bb6d2e2361a7f5aa5527a4226c62dd0d"
+  },
+  {
+    "path": "scripts/tests/e2e-booking-local.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2}",
+    "sha256": "e9ecca4b58356d8cb496c48ff506d5c0e8b7b8c378953f75096b1ec3f71ff3de"
+  },
+  {
+    "path": "scripts/tests/e2e-clinical-local.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 3, 'build': 1}",
+    "sha256": "490c5d8132438fd6cb9aef6b5fe3970a41cc271237a89e7fa4116b3fc54ce8f1"
+  },
+  {
+    "path": "scripts/tests/e2e-dashboard-staging.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 4, 'swallow': 1, 'destructive': 1, 'build': 1}",
+    "sha256": "fb1d41db7923cb8b527f18b4cc6b55ce08256eb04ba27ca025dd090484ea3662"
+  },
+  {
+    "path": "scripts/tests/khach-gia-luong-chuan.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1} functions 23",
+    "sha256": "12a0a0571de623adb889ac9ddceedb6fd9b4939e8757971a54080d127918aa2a"
+  },
+  {
+    "path": "scripts/tests/ngoai-le.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2, 'swallow': 2, 'timeout': 4} functions 12",
+    "sha256": "25f839568aea9960a67d05b0984afcd30e737a90c41becf3891004309054dbea"
+  },
+  {
+    "path": "scripts/tests/tao-khach-de-thao-tac.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 2, 'swallow': 1, 'timeout': 4} functions 14",
+    "sha256": "7af68340ff75598e5120fa7f6eb755d7aaa9724f7f169d29936e80d63ba79202"
+  },
+  {
+    "path": "scripts/tests/tenant-scope-audit.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 8",
+    "sha256": "f8f0f5c6d0b7cdfadb9ac0731bda52fe7936849ff26efa2ca1d7ee71e8c79577"
+  },
+  {
+    "path": "scripts/tests/tenant-scope-runtime-check.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2, 'destructive': 3} functions 2",
+    "sha256": "a18aededfaceaf3a5cbdae4d63bb3cb9b5b0acc32bea27c19bcd9fb8834b4d37"
+  },
+  {
+    "path": "scripts/tests/test-infra-safety.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 3, 'swallow': 1, 'destructive': 5, 'backup': 141}",
+    "sha256": "a12c0f0d330c2ad258fa1b0bda0cd56d3816038e72d60c817a4d7c9cc78a2ea8"
+  },
+  {
+    "path": "scripts/them-lego-cho-ky-nang.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "d17c80cd45ee46f3e31f7e07e85603fa4a59beeef9e2d26869f9e6e24af31683"
+  },
+  {
+    "path": "scripts/undo-roster-fixture.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 3}",
+    "sha256": "cfcd09ccaaa28a69cd85ae9c37d797d30cf4b3b79062d1bb015097ba10388075"
+  },
+  {
+    "path": "scripts/verify-backup.sh",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "eb6a82161b9d5d60f277fd6ebfb6f305db4c41081d6eb0ac19c5db0c15ca3b00"
+  },
+  {
+    "path": "scripts/vps-chuan-bi.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'external': 1}",
+    "sha256": "05e2f20fdd07a13795020b0510231974312b5b6c73e400f4f4b8fcf80918555c"
+  },
+  {
+    "path": "scripts/xem-kho-thuoc.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {}",
+    "sha256": "4518d892fad53991f28a25522ad15c68fa1a3f4dea50f86b5062b912f77b1746"
+  },
+  {
+    "path": "scripts/xoa-du-lieu-khach-truoc-khi-mo-cua.sql",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 23}",
+    "sha256": "c6dfa44a6e24a19da1c682dc9052675c058fef24faeb6718d05c9dd5070392d4"
+  },
+  {
+    "path": "scripts/xoa-du-lieu-test.sh",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'destructive': 32, 'backup': 3}",
+    "sha256": "95a63dd949e4df4af7e4e9dc31458c5c62ea8fb0fbd1c97d48c8314b6a259cd8"
+  },
+  {
+    "path": "src/clinicai/event_bus/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "65f2a4246dd844d8b6d94730df13be23408fa576c2e08cc398376a688bb66671"
+  },
+  {
+    "path": "src/clinicai/event_bus/adapters/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "eb4a22cf0647d5fd68caca34d1a32d7ecdfb5b92b4688a0ab154470b7a874f19"
+  },
+  {
+    "path": "src/clinicai/event_bus/adapters/base.py",
+    "status": "traced",
+    "method": "Full 74-line semantic read; adapter calls the generic EventService, but no active production construction was found in the selected repo-wide search.",
+    "note": "Pinned-main selected path trace only; no production behavior verified.",
+    "sha256": "8250e7b8567e7180c296a2f4a19c5a6e1837e496f79f8e2de9cc1ab918950e0e",
+    "full_file_read": true
+  },
+  {
+    "path": "src/clinicai/event_bus/consumer.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1, 'retry': 2} functions 7",
+    "sha256": "a3ff7098f1ce903f101431450c4cc26999b1cf616f07b37ecd58afbd80e94a21"
+  },
+  {
+    "path": "src/clinicai/event_bus/publisher.py",
+    "status": "traced",
+    "method": "Full 58-line semantic read; RabbitMQPublisher remains a NotImplementedError stub; no production wiring found in source search.",
+    "note": "Pinned-main selected path trace only; no production behavior verified.",
+    "sha256": "e81872fd6c19251c8aadf77594e416f2f24e69fb08eb1513ee5bd7b952edcef0",
+    "full_file_read": true
+  },
+  {
+    "path": "src/clinicai/event_bus/topics.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "db8f99bb65ebb00fe9902424835fe1b3923f2fb597542192136e92e827964459"
+  },
+  {
+    "path": "src/clinicai/events/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "906a1ca3af947ce7851707ec1c38384bc58bc67ea5d116c3390cd52e2332a5ba"
+  },
+  {
+    "path": "src/clinicai/events/catalogue.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'backup': 4, 'retry': 2} functions 2",
+    "sha256": "81ae104dad3dd13fd49a44f858ca283c74243c458184931f1e1e1e4078c9a3e5"
+  },
+  {
+    "path": "src/clinicai/events/consumers/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "235da3ab98daded0149e957d62de30dd418de0c36e0077d69b6b66411632f592"
+  },
+  {
+    "path": "src/clinicai/events/consumers/chuong.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "fc72a675db996f14307ba5b2ac81556eb718fe21720a575e95937aaac0ee984d"
+  },
+  {
+    "path": "src/clinicai/events/consumers/chuong_nhan_cheo.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 6",
+    "sha256": "bf7f537e24fc51c883ac8a814f44956707b06d110ae1d433cf36cbc6819f022a"
+  },
+  {
+    "path": "src/clinicai/events/consumers/cong_no.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "5b8e2ff7b38a21f47223c4f8505ce19784f4ad4119a6689819f47ba15ca5ff95"
+  },
+  {
+    "path": "src/clinicai/events/consumers/dieu_tri.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "2c4072a2bb67e53cebbba079acbb57a8807986379d3907eda55fb5539e0825a4"
+  },
+  {
+    "path": "src/clinicai/events/consumers/doi_tac.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 2",
+    "sha256": "8662f2ae66f66469cb5a36d8b26d7d21b720a2f0a651601b435df542708f7e95"
+  },
+  {
+    "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "b589479a68d4f8477ca8e1a06937831598e855409e13f1bb319e85eb30a838c2"
+  },
+  {
+    "path": "src/clinicai/events/consumers/hanh_trinh.py",
+    "status": "traced",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "Selected H7 dispatch and partner-result timer condition; static only; not full file.",
+    "sha256": "c3ed581ec935e8034f04f3725b02cb2a4047b05987016f7936fffc6ee1854bed",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/events/consumers/lieu_trinh_sap_het.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "8c22e3f8ce808008513be92827fbcf8f8bfdc43ac93e2065271ee8b822b7d6b5"
+  },
+  {
+    "path": "src/clinicai/events/consumers/nhac_tai_kham.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "f87d84db9df4c911cc7450c433d4c74d8c51a5835b22aacf409088254c91037a"
+  },
+  {
+    "path": "src/clinicai/events/consumers/nhac_viec.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "ea9da9d16aa3d18da87ccfa8d788b15abdefd9dff1fffef03b5616c4df636796"
+  },
+  {
+    "path": "src/clinicai/events/consumers/trach_nhiem.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "ee1ce2dea8659af48ca68eac42d466d87d5b898ed4511b5f8ab7951813747848"
+  },
+  {
+    "path": "src/clinicai/events/consumers/vong_doc.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "d534970753f1816a95036349f350b99e44e40f6130dc2c7aabafc3e827951b3b"
+  },
+  {
+    "path": "src/clinicai/events/emit.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616"
+  },
+  {
+    "path": "src/clinicai/events/hen_gio.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868"
+  },
+  {
+    "path": "src/clinicai/events/nang_cap.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'retry': 2} functions 4",
+    "sha256": "753b6be4531c7108524e899e820e46ad0f4d873e8dc6746e2f0723405b94ff78"
+  },
+  {
+    "path": "src/clinicai/events/phat_lai.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05"
+  },
+  {
+    "path": "src/clinicai/events/worker.py",
+    "status": "traced",
+    "method": "targeted code/config reading + caller/companion trace",
+    "note": "Đọc sâu đường rủi ro trọng yếu; không khẳng định mọi hàm trong file đã đọc. verify-backup synthetic case reproduced; không phải DB restore.",
+    "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363"
+  },
+  {
+    "path": "src/clinicai/graphs/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "src/clinicai/graphs/lab_triage/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 2} functions 0",
+    "sha256": "4d1a0be78c831424ae5ef991db44ed5496b225281a646eedcd151298376f1652"
+  },
+  {
+    "path": "src/clinicai/graphs/lab_triage/graph.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 2} functions 5",
+    "sha256": "27cb880489073cda3bd92727825658f9245f53c86126ee423099f62597510c17"
+  },
+  {
+    "path": "src/clinicai/graphs/lab_triage/nodes.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 4, 'build': 1} functions 14",
+    "sha256": "cb39d03490b2c3255966725e65b9059b32fdd4ed1d299007b47427771f59ca23"
+  },
+  {
+    "path": "src/clinicai/graphs/lab_triage/state.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "a1cd2fd879293176bc9a7c7cde7f92a5149e95d34427fb96224424a1c7e65c0c"
+  },
+  {
+    "path": "src/clinicai/graphs/scheduling/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 2} functions 0",
+    "sha256": "3dc68e3b5cc8d14e1000c218b6c0cdd1cb3d14da2878ae8501fcdc46b72fb46c"
+  },
+  {
+    "path": "src/clinicai/graphs/scheduling/graph.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 1} functions 4",
+    "sha256": "d043fa4c1e6d833a9fc4363a86fa3e0bad8c3bc846c3a5112a75fddc30f90928"
+  },
+  {
+    "path": "src/clinicai/graphs/scheduling/nodes.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1} functions 5",
+    "sha256": "e1b071dfbde956325cff8ad44d3d0026ef34d8f2a6be1081c45c5955c90f2346"
+  },
+  {
+    "path": "src/clinicai/graphs/scheduling/parsers.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 3",
+    "sha256": "3d273a7dd8696bf0a6a542530da4788c530271933a91e85a91484f9cfc87ef17"
+  },
+  {
+    "path": "src/clinicai/graphs/scheduling/session_mapper.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "44ca9067b5d92e46c6dee937b7a163132bc144115c958f3fd444cbd1b6814bfa"
+  },
+  {
+    "path": "src/clinicai/graphs/scheduling/state.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "a3f9bd9a2ee8e7061d944aa7bde0de4101827c31d623bfc4b86241445e846dd5"
+  },
+  {
+    "path": "src/clinicai/graphs/task_manager/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 2} functions 0",
+    "sha256": "6aaadd11ec13aedd74ffd5e0c9642e225ca594fad522329e48660afededb0f85"
+  },
+  {
+    "path": "src/clinicai/graphs/task_manager/graph.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 2} functions 1",
+    "sha256": "1ee6872c40a68467e2e21c553ef63d7fff0c7ab0f325454c47cfab1bb78ebf82"
+  },
+  {
+    "path": "src/clinicai/graphs/task_manager/nodes.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 1} functions 8",
+    "sha256": "463ef122f3ad79add68ca2b575acb72fdfc625ccbec9d9c0441f66ddcbd0e7c2"
+  },
+  {
+    "path": "src/clinicai/graphs/task_manager/state.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "376eaa8ea2d5e7ea81898642c65268ce83c03b6e58a5637fd4bf59d17fe70c3e"
+  },
+  {
+    "path": "src/clinicai/orchestrator/__init__.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "src/clinicai/orchestrator/checkpointer.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 1",
+    "sha256": "96db03ab11efa083fca2af1c9227c729b9eac6ef143247c85f1f195fdfd0a16f"
+  },
+  {
+    "path": "src/clinicai/orchestrator/graph.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'build': 7} functions 6",
+    "sha256": "bbeabbad8a4ae660eaeb0974ba98b940465f6c25ed5d7fa89bb2c0ae9a5e7524"
+  },
+  {
+    "path": "src/clinicai/orchestrator/llm_nodes.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 2} functions 5",
+    "sha256": "dfa971c72bfac2e03fade52515d3df72726765b7d50fabe17a37a82db2f172d3"
+  },
+  {
+    "path": "src/clinicai/orchestrator/nodes.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 4",
+    "sha256": "647d14b84be20e3e8f642f775191ec2dd1e2c1735f057fa597c0eb6f75ba5997"
+  },
+  {
+    "path": "src/clinicai/orchestrator/service.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {'swallow': 1, 'build': 2} functions 2",
+    "sha256": "5e1051e77ae6077500cc44882b89e707d380cd7bbc336de019c99932487934ba"
+  },
+  {
+    "path": "src/clinicai/orchestrator/state.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 0",
+    "sha256": "7ee27425dd281287645d449e10092a4782bf5e0bc53f98dc27f63eacfe49655d"
+  },
+  {
+    "path": "src/clinicai/orchestrator/stubs.py",
+    "status": "scanned",
+    "method": "AST/pattern inventory; whole content machine scan",
+    "note": "risk indicators {} functions 6",
+    "sha256": "e143291d3865b4f25352bc70d4378a56b535f7b70bc5dd7b74a9692f5b160f2d"
+  },
+  {
+    "path": "src/clinicai/services/event_service.py",
+    "status": "traced",
+    "method": "Full 146-line semantic read on pinned main; reviewed persist/publish failure path and searched every caller of get_unpublished; no active relay caller found in source search.",
+    "note": "Pinned-main selected path trace only; no production behavior verified.",
+    "sha256": "8c28b2661f421ceb82ee38c11d588c300a96a7fa1b9621c6769c42bdd0f890bf",
+    "full_file_read": true,
+    "symbols": [
+      "EventService/record_and_publish",
+      "EventService/get_unpublished"
+    ]
+  },
+  {
+    "path": "src/dashboard/app/api/events/stream/route.ts",
+    "status": "traced",
+    "method": "Full 80-line semantic read; checked server session, API forwarding, abort propagation, streaming headers and failure status.",
+    "note": "Pinned-main selected path trace only; no production behavior verified.",
+    "sha256": "e3238c4f9708843954e994426b107683ba03cf4eb0b3b218fea7f8dcc6a49677",
+    "full_file_read": true,
+    "symbols": [
+      "GET"
+    ]
+  },
+  {
+    "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+    "status": "traced",
+    "method": "Partial semantic read of event inventory, hidden-tab behavior, reconnect/catch-up and fallback polling sections; component not fully reviewed.",
+    "note": "Pinned-main selected path trace only; no production behavior verified.",
+    "sha256": "c3a177f8f9b33adea96cce16b39f5a3732598feb0722eb650b74a87e30160d37",
+    "full_file_read": false,
+    "symbols": [
+      "SSE subscription/reconnect",
+      "fallback poll",
+      "visibility catch-up"
+    ]
+  },
+  {
+    "path": "src/clinicai/tools/event_log/append.py",
+    "status": "traced",
+    "method": "Full 72-line semantic read; wrapper constructs EventService but no production registration/caller found in source search.",
+    "note": "Pinned-main selected path trace only; no production behavior verified.",
+    "sha256": "75d7aa149f6e1047108a4aec2b4f6c1f319cfb02c88c66a438cd44e45e10d2e4",
+    "full_file_read": true
+  },
+  {
+    "path": "src/clinicai/golden_record/engine.py",
+    "status": "traced",
+    "method": "Full 94-line semantic read; resolution and domain write are explicit stubs; class is not constructed in the selected production source search.",
+    "note": "Pinned-main selected path trace only; no production behavior verified.",
+    "sha256": "d745ce1f7a3fb67afbabd0df9ef2165a7eb458cadbf46403f2a2805ff5a644e0",
+    "full_file_read": true
+  }
+]

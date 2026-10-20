@@ -1,0 +1,1593 @@
+[
+  {
+    "path": "src/clinicai/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/adapters/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/adapters/pos/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/adapters/pos/kiotviet.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "0ca83b9eed320b29e639603741f00fa3c696d384b53fdfb07b57a05cbbc5c318",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/adapters/pos/null.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "758074dda78898afdda875dc2cb5bb62c4df525fe4ce648419889d58f7ec5dc0",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/auth.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: api_key_middleware, _is_exempt",
+    "sha256": "a651e46ac5e5082835dac8e3e0b54b3f92c3ada3009515537f5b789c54ab06cd",
+    "full_file_read": false,
+    "symbols": [
+      "api_key_middleware",
+      "_is_exempt"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/exceptions.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "33d675efc0704e0408310b9aecf0944d5542d6e12a52993d478e842e3728ab79",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/idempotency.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: IdempotencyGuard",
+    "sha256": "e65b9c4c93437c49ffba735d6ee5dc7e1174c8822f6599c4333304e840bb9461",
+    "full_file_read": false,
+    "symbols": [
+      "IdempotencyGuard"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/identity.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: verify_supabase_jwt, _resolve_identity, get_current_identity, _cache_get",
+    "sha256": "a282356ac37231dbf213e0e001f52c7d88051f66d5428fd4cfa99b8ceaeec638",
+    "full_file_read": false,
+    "symbols": [
+      "verify_supabase_jwt",
+      "_resolve_identity",
+      "get_current_identity",
+      "_cache_get"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/middleware.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: CskhUploadSizeLimitMiddleware, DbErrorMiddleware",
+    "sha256": "a2d6485559308c38e64f2a4740c78a99a827ec73644a3367aaaac1374351c00e",
+    "full_file_read": false,
+    "symbols": [
+      "CskhUploadSizeLimitMiddleware",
+      "DbErrorMiddleware"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/nghi_huu.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "cdf9df4200eed79f14da788ae49ecd26b379db249cf3a5a59fe455afc23d7c1f",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/rate_limit.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "b29e4ca0316842f01e2a388dc5f860203f606be97ca900b988c7bdc0ad931cb2",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/runaway_guard.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: runaway_guard",
+    "sha256": "ca06cfaafaa40baa0471726cc8a6fbc989f15ac7733c661130aa354bb377a87a",
+    "full_file_read": false,
+    "symbols": [
+      "runaway_guard"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/health.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/patients.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: get_patient_by_id, lich_su_notion_tep_xet_nghiem",
+    "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+    "full_file_read": false,
+    "symbols": [
+      "get_patient_by_id",
+      "lich_su_notion_tep_xet_nghiem"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/audit_log.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "70c8bd56ca6006af8f059954a1cfcde4f08b8a85baead31cf578d84aeafa21f3",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/auth.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: login",
+    "sha256": "fe6f909881db1beb301cf67db19abf745985efbbfeb6ba0400c3938a1a8af9c2",
+    "full_file_read": false,
+    "symbols": [
+      "login"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/booking.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "f08eb0fd1a7848d0dbd89011c4f8d78d562ac7ef07160be6a78d9521f3ef612d",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/cashier.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "abeef3d1c76a90f8b58fe3446cb10dd1bb7603e875c6d8a61219f3f210150dfd",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/catalog.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: list_locations, list_service_types",
+    "sha256": "d50f928cbf55249a203609a1054c0c68b016fef880005907aa484b88247e1ca3",
+    "full_file_read": false,
+    "symbols": [
+      "list_locations",
+      "list_service_types"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/clinic_config.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "c6495fec8cbf6a11360f6eab81584e5bb69420d70ed7b7b99dcdcf1b9c935807",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "76188d1a37af45d5be2d5d1e7be9a6b42694ccbc9c3366e81df92057046a676b",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/clinical_records.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: doc_ho_so_lam_sang, in_phieu_theo_lich",
+    "sha256": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd",
+    "full_file_read": false,
+    "symbols": [
+      "doc_ho_so_lam_sang",
+      "in_phieu_theo_lich"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/clinical_sign.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "802d1d360af31840746fe6f65f276f09b42beb68470c5c2e57bba2ce3aeec344",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/config.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "f1e71ded87290ec86522199974b348e7505fdce7a68da4b4274e647fa15f941e",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/consent.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "6e68c4c00e96afc9c029b49a358f3e6c9faef2501ec2d1812961754326f5bb29",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/console.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "c3be74c02acaad08c40d00dfdcf05aa0c4c85da34e9121faf733b38a50747462",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/cskh.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: tai_len_ket_qua, doc_tep_ket_qua",
+    "sha256": "226ae2398129de979722f14925fd32886e6a6e427e874eaccc93ccf83ee4ca87",
+    "full_file_read": false,
+    "symbols": [
+      "tai_len_ket_qua",
+      "doc_tep_ket_qua"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/day_noi.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "abc9bfe70c55cce7b78fc2c7d80cccc6ceedb2fec79f1492b54ec25cdeb16917",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/dispatch.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "cad39f1fbbf67c7425945d99212a7743d6a37e2e66a06c3e10e6baa1221f3089",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/display.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "878f16b775e8e092078d6b96e86eae2fd3af79bb9e09f2e97085df84947ec2c6",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/doi_tac.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "8a1c1ddb97f472777ccb9845fb087c83bc12251f917846d6708c8caf07f21021",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/don_du_lieu_thu.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "af60a0f07c207600948a0b5ac42fdc3b1c3888a2efbb6ba64313025e3797519a",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/episodes.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "5942a4f19067908218a4699414da4624a17fe04507a85ba4f5af53286e367ac3",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/events.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: stream",
+    "sha256": "cec344cbaafb4bfe6cf8ddd803bee3de16a23d5d5bf87464d5643cc0e6d11e6b",
+    "full_file_read": false,
+    "symbols": [
+      "stream"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/ho_so_kham.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: doi_dich_vu, lich_su",
+    "sha256": "c17ca292c4e378059dbec4dee5c2102e0c812ce638172720ebb805ef3ec3a4fd",
+    "full_file_read": false,
+    "symbols": [
+      "doi_dich_vu",
+      "lich_su"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/hoan_tac.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "168828b95be1608837999688697eaf8d1e89551ccc0a80046271ae918bd5b3ea",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/home.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "dc5d8f68a8b1b565e34df4cd3ba9412ce65832e5a843fbf8fe0d511edb20714a",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/identity.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "c8232c0559ee3547e7f185949fbb9615274128be96eb9d3cbcbde55799863cc9",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/lab.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: triage_lab_result",
+    "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+    "full_file_read": false,
+    "symbols": [
+      "triage_lab_result"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/lam_them_tai_quay.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "08cf5cfd9fc386f836647fb4048c48cf460ced43dcf01b0a65faea704dc66073",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/lieu_trinh.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "37dc5b3c5b4bdfba52cd488889ec833fa654e7454d750efcb74a546a7bea67ff",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/luot_kham.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "a52c57320d91a39f610dc6f8f8b70ef8091abc08e068192487d9eab30ca3c45a",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/mau_ket_qua.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "57a126079cb98b96471bbc97a27541c7ee7888626038011d3275e50299c916a4",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/ops.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: lay_bao_cao_traffic",
+    "sha256": "e214890049bb14a709b5101083cba123461318254c8286bbc06bbffe05bed4b3",
+    "full_file_read": false,
+    "symbols": [
+      "lay_bao_cao_traffic"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/orchestrator.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: require_orchestrator_enabled",
+    "sha256": "f523a115820797cd4b5f8e3dc620c016b8e8f5aa6028e9b1e13311fbe98386ef",
+    "full_file_read": false,
+    "symbols": [
+      "require_orchestrator_enabled"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/payment.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "ef77f31ba202568d3d42e1620905e962a24122d1922038c58370ced7fca465c4",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/phan_quyen.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "bce5882167696d75a7b414217570382e07a2e24a694c235bdf061512c2b748ab",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/pharmacy.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "617d4f09d5d388374f32511ef1e499d982b51d7b123c48a8d9288ad27b0eb827",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/phieu.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "4072fa5df01b9b056ff42fa367aceb3519edda44fe4826133d030cdb83111a3f",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/phieu_kham.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "2b5d0fccfabacb6255ea7e5c473c793999c4785260d49736faec95a6362a5eaf",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/quay_thuoc.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "6ac0cc74ceb4bd49d6e9f2c0ab68bc32b63e2e3bd3026bff8851f5e4a6c74c8f",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/queue.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "0ef07879529f0d0ca394e1bb7157a6f1a65afa04f801a481363d53e86ef806ca",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/reports.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "7e05324fa832494792ab017ea265914ab6f34211ad8a4f9b40168cbae9bc99f7",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/scheduling.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "ba06405025a81bd2ad69bc03d40ab2619fd9d28fe97fbf97864258f4b37897c3",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/service_log.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "77d21d531e6dc73377a83bf41d4d4998c880eb2a8d4645f660918ae2d7f9f8f5",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/staff.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "b63a92461d60e909235d6d28afdfab3f8a2b58813ff0d3c72fd2edf0bd528ac0",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/thai_ky.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "426d59638872d6490bbc0760bfaad19c6a6a1123adb5de714cec0cd32751f9c3",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/theo_doi_thu_thuat.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "18c2f6be69a3318043c424fdbf65ae358370531b7e162b175c64e18ca22f7c9b",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/thu_ky.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "42ce0064f2e197839191778df434bf10317931ebe51827136b8fd13963f0c654",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/tools.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: _require_tools_access",
+    "sha256": "aecc67237bd60123e3bb845acdbbd3294d941df21e7f37410bd629f22e4b3696",
+    "full_file_read": false,
+    "symbols": [
+      "_require_tools_access"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/ultrasound.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: upload_image, get_image",
+    "sha256": "6812f2c9f3a08715a2ef107e842b41a50136fc1864f84c18fe0018e66624f0cb",
+    "full_file_read": false,
+    "symbols": [
+      "upload_image",
+      "get_image"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/visit_progress.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "a6c8dc6dbed960e9a0f86e189c2510e6e6f4664ffe605ceeda8024c9eb9df1ee",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/voice.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: transcribe_audio",
+    "sha256": "962db9ec23a51ace8706bb482c2ef7e0dc8356a771342ba80dd17ec606244e8e",
+    "full_file_read": false,
+    "symbols": [
+      "transcribe_audio"
+    ]
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/work_items.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/api/v1/routers/xem_luot.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "4e5eba248e887f14f25a7344949f61d3c6b2f2db50e7053f0533fbf8bc73c0d1",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "563a8ec0dd8683b22c4441550833d0bfc3d6643afd0c1a8cbd0f635c020417ff",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/change_broker.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "68ed91a761460d0531cbb01d240233f50c3011f8b02aa95030a6623fab5511e7",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/chon_co_so.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "62d4993e866f9fd2aa6666d67805d5b1389afebbe0672808b2422785c0314b01",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/clock.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "3da03a79f36ee13a6cb12f1d54bb87d1608782096b0b524cce8477299c6a71ae",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/database.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: create_pool",
+    "sha256": "d9829819305c8e22672449bb363103ce431dd991e106869bdf72c58be8573bea",
+    "full_file_read": false,
+    "symbols": [
+      "create_pool"
+    ]
+  },
+  {
+    "path": "src/clinicai/core/exceptions.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "8a5274eb8d4f5b4304fc67ca728d6a8a6d4a8ae338435f185fc7522b027ff42a",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/kho_tep.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "2830529b08b64517617614cff6f215bfc6c24f980235d0eac9578ec89a9a3790",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/logging.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: _redact_text, _redact_value, _is_sensitive_key, setup_logging",
+    "sha256": "23a8b7ff32e594634faa12c90a8da4adf0225e0b2818682e75310791dfbb03b6",
+    "full_file_read": false,
+    "symbols": [
+      "_redact_text",
+      "_redact_value",
+      "_is_sensitive_key",
+      "setup_logging"
+    ]
+  },
+  {
+    "path": "src/clinicai/core/ma_vi_tri.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "6aef56775b1b3e8982b4f0ef26e29e13a8ad5006f405601f7c01160d8dedaad2",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/phone.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "1c13b2f31e387c73033981be61579aa75f6b203135f423fb44e162b8bcaaeff6",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/sentry.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "f2bbd03274c30a09000a3716cea26b383ed1df448e366f0e37659e8d4936410e",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/shifts.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "139d2cc730d785048cfe17a73f497bd43a176e773ace084d663a8784399144c2",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/telemetry.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "24e231cc92dbd3301b91c800a225c6589f98945053ef5c8c36f68b47795423cf",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/tran.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "91bded2bf0285884923b036fd42692c7cbdea00a8cd66bdfb127eff0c68e3256",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/core/trang_thai_lich.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "9afaa4050f0e936fe819da4e8ff89ae298c1c36b4daafc48da405375da9df88b",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/golden_record/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "a8b13dfa7dbc729cdab8ad7b0dc2767eeeb94c299b0cd5d4a3a3071e7ab48baf",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/golden_record/engine.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "d745ce1f7a3fb67afbabd0df9ef2165a7eb458cadbf46403f2a2805ff5a644e0",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/ho_so/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "5d758181972635a4f7bd06354844160e51547ff47b109fec546469c95a7cdb07",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/ho_so/cong_doc.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "9f6ec9e991781ecacc922b7c77df0b33d702a669654fba01dfd636af30a93d03",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/llm/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/llm/anthropic_client.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: AnthropicClient/chat",
+    "sha256": "78b44a6e72b3f2483930698e68b242dbe456feb21466f92e5e5c32bea0a1652c",
+    "full_file_read": false,
+    "symbols": [
+      "AnthropicClient/chat"
+    ]
+  },
+  {
+    "path": "src/clinicai/llm/batch.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "0d579b0470217f01f408a07b788b4db288184a6386e30047a5e7e16a402fc967",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/llm/chi_phi.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "db37ce0b0c6e328dd0d5de7182ddcd1ecc0d082480a2146b81791ceae2ecf29b",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/llm/models.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "a8fe3e175ec1466a90355505950a89933064ba45ccb0e7f8d7f6636ddcad7c15",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/main.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: clinicai_exception_handler, unhandled_exception_handler, foreign_key_violation_handler",
+    "sha256": "72a11b185028c1511136c90c9ad5d40ea7404470da31d04f00cc90db3315dc41",
+    "full_file_read": false,
+    "symbols": [
+      "clinicai_exception_handler",
+      "unhandled_exception_handler",
+      "foreign_key_violation_handler"
+    ]
+  },
+  {
+    "path": "src/clinicai/modules.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "68c7dbfea09ac5a07c83cdd0d7702162336527db82c49a60cfaad8377327a2b8",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/permissions/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "bc2fb104b3f8b99c7ec9016ba6e8172a7e793c1f38b8c8c8123f5fc626dd3575",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/permissions/ca_truc.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "0190fc567eaf1613d94c02c23ccf80001d281341b41b01e2762e4c8dad255134",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/permissions/cache.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "ae82f456de13a1ec64243b4ff8e43518a6639596e8feb8167a80afcecdf41337",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/permissions/can.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: can",
+    "sha256": "fc0e2ba27b8db2a2e7a129104b56da1a154cb03452b42b28e405724aab0c7c37",
+    "full_file_read": false,
+    "symbols": [
+      "can"
+    ]
+  },
+  {
+    "path": "src/clinicai/permissions/catalogue.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "bc82c3b27ed24193beef5a73f8049f937dcf1b85aaef8bc0eef24a53b547a238",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/permissions/cua_quyen.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: cua_quyen",
+    "sha256": "2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9",
+    "full_file_read": false,
+    "symbols": [
+      "cua_quyen"
+    ]
+  },
+  {
+    "path": "src/clinicai/permissions/doc_bang.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "5b3a85b29594403aca8cfa6ae25f63d9c2a0ff800e15c1ff29a554a2f65dbc81",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/permissions/lich.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "9017bb9cef0b8458e829ed33e925bb337b0bfbee4d280781e4a9bd9e8498b636",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/permissions/y_khoa.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: doc_duoc_in_phieu, ghi_mo_ho_so",
+    "sha256": "a235a6077ebfc66ffd0e446214edcf6c43de1793bc6c0656ca57a845692bc4c3",
+    "full_file_read": false,
+    "symbols": [
+      "doc_duoc_in_phieu",
+      "ghi_mo_ho_so"
+    ]
+  },
+  {
+    "path": "src/clinicai/phieu_kham/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "21016d81bc74ccba62871d92c1fad39f86248a181723f654cf87dab35602d63a",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/anh_xa_danh_muc.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "5a5e5ef6f1bdcd7f5aa1c8f355203db8ac919d3f4c9a2c3b6b7f1e59f0a43c64",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/che_do.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "8914ef7322b47ce071f328baaac189f804ece012a4aa7611a26794e44b7d3391",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/HMVS.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "430c9410a4c1d33116bdde691a9639af909ab22dae8e6faf0ed818fe04807525",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/HO_SO_DIEU_TRI.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "c9af7e610494a017e912a8f91f3a31c462446b22e31022838e156de8068e51c9",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/NK.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e8f133944a9439b318c538494181591344e92f119786853a56544fe3df33ab79",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/NT.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "cce51a045f1c47239a9d0cc116d5609bb9a19a588e01145a034da1109e24cc44",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/PK.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "dfcddd58c0454b93f3451025c4722c83c795e445b9084473798cf9cecc6fdc00",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/SAN_CHAU.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "b635417a0ef17337996d89f59c6611cf0f3b6693288ab795f5d73334d459dd95",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/SK.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "6da1d668584a64ce154a11efebd3f718376f5fdc945abb85287790bbb72590e3",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/THU_THUAT.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "4a61edfc6081d8fa54585c1c34f372b4efb98ccd1c7c6b570c592135689b3469",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/dinh_nghia/tham_chieu_nguon.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "26a839858be9703adde8d705815ec93273d66a7bb67282140e19ba90027045ce",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/doc_chu.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "32729abc73b06666dfa70df523f32a7306faaeaa6624e3e35d224010c0564da6",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/hanh_trinh.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "ed4cb8d0a3d057014b027579c99eecc19e825ef6cdbcfb8cf3f1388b772fe964",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/ket_qua_chi_dinh.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "0469628d027052da943dd4dfb323a282804aaa565f8c90233793bca716014b02",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/khung.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "131b67230462c41521b5e3fd0bfa1a6b809033b9f318a0708fb5b1b8511efa6a",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/kiem_khung_mau.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "8a64ac51661b3be195ab2483d908b033bcdb5e3a9a0c7f5f07585bcbe0af59d2",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/mang_sang.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "1553f6dd1bb372fc29fdb12f6272dbf7e1a5166a2d943499887eeb90cd036120",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/mau_dieu_tri.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "de4cab79b35cf3ed0e2a467aba21917e8a1fd3c3d9863117137290564e90345e",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/mau_goi_y.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "4d377ad3550d5fd22644df4c403f6bb0cf24a923b05e4c395b65a4ecaae861fa",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/mau_ket_qua.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "b51163cad28121bb069f050bbfa81ea39dacf0959c80c4cbd7f43fbb3140157f",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/mau_ket_qua_v3.json",
+    "status": "scanned",
+    "method": "JSON parse/structure",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "15911c73ddb0202c6e8ebbce9ed773e85406d85a93dbdce9419e893e32db1618",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/phieu_kham/nap.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "077f18c3a259727ddb3f742954b7702634ae1b39502e844fc618c66e55159d50",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/ports/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/ports/pos.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "54492e205b0fa945d6e63a9e3fea64b9120fa2383b0ab4ae202cb054092dd458",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/schemas/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "451e83a01a6cea94de9333897eeb3fb6d1c1f8a6d50c0dd6112a3be7cc9680bc",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/schemas/events.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "cebd95283a5fc70429a5cda01fa84b0e560ced3a9a961428565c350287d93225",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/schemas/ops.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "b9cc7c13cc73b58efca72bf6255030006f66c1c9060f48af0101d692fc40eba0",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/schemas/patient.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "efe73577f2a7602e279f06cf25160973b8605d865fe83447098ed390fb67ca06",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/schemas/scheduling.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "612ba9b92a233cda3a5d86784064cb246b520505bc0e630769cbf06ff868d967",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/schemas/staff.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "ab4bf86d93f6e342a525795b84dbe53b24fa71359d7de7d93627697e80aac156",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/auth_service.py",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: AuthService, _mint",
+    "symbols": [
+      "AuthService",
+      "_mint"
+    ],
+    "sha256": "a7678c105726cd4f2865f55ff3304be727d7ff01cfb1aa8431148a078ea5e536",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/kho_loi.py",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: ghi_loi, thong_diep_sach",
+    "symbols": [
+      "ghi_loi",
+      "thong_diep_sach"
+    ],
+    "sha256": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/media_service.py",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: MediaService/attach_ultrasound_image, safe_path",
+    "symbols": [
+      "MediaService/attach_ultrasound_image",
+      "safe_path"
+    ],
+    "sha256": "54bb599468bf44ec2df3676e1252b736667ddc8baddd2aef324059349069c5a5",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/services/tai_khoan_service.py",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: TaiKhoanService/thu_hoi",
+    "symbols": [
+      "TaiKhoanService/thu_hoi"
+    ],
+    "sha256": "2fdf127981f1a1555c8a35c39483b57abf324f778182aa27b7932a372d6c2530",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "85a646f6c0cb78784e4c0ac13e58c637f258d878f949e85364dc04a578bda92d",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/_common/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "a12c81638306c274a9cf25c5d271b2267d1016791ae6eed76be0e73a304335fb",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/_common/context.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "13686dc39784929de4a2e3211e7fa7282d649de6e106c44a299b5689239039e4",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/communication/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "733bddc27d32c41eedb240f53542404655ac4711ea175f6f654f503e88148b51",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/communication/send_zalo.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "faffb14056db9bea061ef243af85e20ef0e4c30bb97e5fdb253b69c470f87f91",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/event_log/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "01845d268eb76e7afa8035cdbea0020e1fa7fa031ded5ef15154acdae92e9ee0",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/event_log/append.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "75d7aa149f6e1047108a4aec2b4f6c1f319cfb02c88c66a438cd44e45e10d2e4",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/kb/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "ab76cdd93e8f9bf21a3d851597c23dfc302774bc2047500b9e0785aa4f752b93",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/kb/read_policy.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "04770bf91c41c47819d62aa2f8be83522d07a04cdc6a7043958f61d13072737b",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/lab/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "83a1b4ea3bc31fd074806a55fa0b1a1308f3339910970646f41c251ab00fd602",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/lab/_rules.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "3eb02a19d5e2dd9f0cc80872f192f82128b181c57d703f6c550435b29d1cf80c",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/lab/classify.py",
+    "status": "traced",
+    "method": "Serena symbol read + caller/callee/config tracing",
+    "note": "Selected symbols only: _build_classify_prompt",
+    "sha256": "7ff5144241e639bbe146e18756581e77696327f136056799736dd07445244765",
+    "full_file_read": false,
+    "symbols": [
+      "_build_classify_prompt"
+    ]
+  },
+  {
+    "path": "src/clinicai/tools/lab/query_lab_result.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "fade51fb33b99cd36499184889b210b788259959f8b114e33ecdc4dd104bc863",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/patient/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "75a7e8d9717d90e6f719fb9ec683c5b13423906097a6a4bfad93cf7e8584ce51",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/patient/get_summary.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "00b44d2c968f430967f86e8831f68a5e02c90a0659c1b1fd7014509e02e0f8e9",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/registry.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "c2a4ade00cd93b2b019406c6cc299050f7ab2064d1845a1227372396e4ff51e5",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/scheduling/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "a95f868a4ec801a2d8db75ad0ff62ddc6b248e2db98fbf8df6e6973b594d88ea",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/scheduling/cancel_appointment.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "e47bbaed03a21c4a102af7ea505dce504e8ea631f156e8b6f7d296260bcc942e",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/scheduling/confirm_appointment.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "83d3770c95f38cf37cb58924c02b521ec8b6d0213b6ff33a65157cdcb85926f5",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/scheduling/create_appointment.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "d3b692b38315405bd7671d58bb2cad88050582def5159308d1674f21cf543229",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/scheduling/find_oncall.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "5cbd193a83015041f8b918477c8891a48d89583851b5b426ffbbcfc2cc54d027",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/scheduling/find_work_sessions.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "933aa3bd2a14aec590467f55ced356ca76993266edc8c58f4d553c58b7bd759b",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/task/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "3ff3aaff00fe4a57c37f4dce279aa3f74d2b099b88b9948586ac8bc8504b92af",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/task/check_sla.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "d9d58110e1f5799e8a243123a8ed15c56ad617f0b072fcef5fa426f5d27d1f62",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/task/create_task.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "648b61219de4b039ced6b10f07ca70da9c1f962759cc42d414b90fa585f92c30",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/task/query_tasks.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "8830110c450081d2a927d91dd785ca36960cb0f352dc439f1b148e0c202c5680",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/tools/task/update_task_status.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "66bc45a3045d49488e41113b922bdf0db8cbdc61ff32eb3718a1b2760256a24c",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/voice/__init__.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "aac2e20d64a8bad98ea28b5430fa4eeb14ed7ff3e3dc82d0eb06fad43642ebbe",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/voice/transcribe.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "65b551f7dc01a465cb301ff3bb7ffe7183353067a044e94933938870cff633a5",
+    "full_file_read": false
+  },
+  {
+    "path": "src/clinicai/worker.py",
+    "status": "scanned",
+    "method": "AST structure + boundary pattern discovery",
+    "note": "Structural scan only; not a full semantic read",
+    "sha256": "27ad98f6028aa0544e2c6027f8d4c16aa4f06663e978b6ca14fa17832c50c388",
+    "full_file_read": false
+  },
+  {
+    "path": "src/dashboard/app/(auth)/login/actions.ts",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: loginStaff, logout",
+    "symbols": [
+      "loginStaff",
+      "logout"
+    ],
+    "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+    "full_file_read": false
+  },
+  {
+    "path": "src/dashboard/app/api/admin/users/route.ts",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: PATCH",
+    "symbols": [
+      "PATCH"
+    ],
+    "sha256": "a30f891040f8405065d06fc71dd41d0638bf7ed22e28f382916ccce5bc89e5c6",
+    "full_file_read": false
+  },
+  {
+    "path": "src/dashboard/app/api/ultrasound/image/route.ts",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: POST",
+    "symbols": [
+      "POST"
+    ],
+    "sha256": "4422f6cb0645475c17ece8c235b59e02dd44cc9eff854438866c7a698945bf93",
+    "full_file_read": false
+  },
+  {
+    "path": "src/dashboard/lib/clinic-session.ts",
+    "status": "traced",
+    "method": "Serena symbol read + cross-boundary tracing",
+    "note": "Selected symbols only: getActiveStaff",
+    "symbols": [
+      "getActiveStaff"
+    ],
+    "sha256": "135e24055424f0bbe629cc39dee49ac13e6d1c03acbd7f305aa5fa01b501be94",
+    "full_file_read": false
+  },
+  {
+    "path": "src/tests/api/test_upload_size_middleware.py",
+    "status": "traced",
+    "method": "Full 152-line semantic read on pinned main; tests the chunk/declared/multipart cap only for CSKH route; no ultrasound route case.",
+    "note": "Security test source read; existing upload cap coverage is CSKH-only or starts after bytes are materialized.",
+    "sha256": "1f85dd3f459d0952f8e12efc11011a3a114b0eca8d5ef05639927d907302d036",
+    "full_file_read": true,
+    "symbols": [
+      "test_chunked_multipart_is_rejected_before_route_handler",
+      "TestAttachIO/test_too_large_never_reaches_the_database"
+    ]
+  },
+  {
+    "path": "src/tests/services/test_media.py",
+    "status": "traced",
+    "method": "Read lines 1–260 on pinned main; service-level oversized test uses pre-materialized bytes and does not cover HTTP multipart/body parsing; file not fully read.",
+    "note": "Security test source read; existing upload cap coverage is CSKH-only or starts after bytes are materialized.",
+    "sha256": "ef9a35d7ecf17f1439ddbe94a1a079d50337d773d83df4fdadcecb280e21a7d1",
+    "full_file_read": false,
+    "symbols": [
+      "test_chunked_multipart_is_rejected_before_route_handler",
+      "TestAttachIO/test_too_large_never_reaches_the_database"
+    ]
+  },
+  {
+    "path": "src/tests/services/test_prescription_draft_privacy_db.py",
+    "status": "traced",
+    "method": "Full 44-line semantic read on pinned main; verified existing database test checks table/column/function privileges but not two-clinic role outcome.",
+    "note": "Full source read; no dynamic two-clinic/role result test.",
+    "sha256": "fbfa451d958c819a415e1fa324bdb6708cf467b95552b99d04f844ee9b9ae4e3",
+    "full_file_read": true,
+    "symbols": [
+      "test_draft_column_needs_checked_rpc_not_raw_table_read"
+    ]
+  },
+  {
+    "path": "src/dashboard/app/api/console/feedback/route.ts",
+    "status": "traced",
+    "method": "Full 50-line semantic read; multipart write-before-auth and error/orphan lifecycle",
+    "note": "Conditional on writable FEEDBACK_DIR; production override unverified.",
+    "sha256": "b2054e6c5ff3b161c36b28ac63491f29acb37ebcf08e4195a8fb4df37be2b312",
+    "full_file_read": true,
+    "symbols": [
+      "POST"
+    ]
+  },
+  {
+    "path": "src/dashboard/proxy.ts",
+    "status": "traced",
+    "method": "Read API bypass lines 97–100 in exact-main proxy auth flow",
+    "note": "Confirms /api route handler owns authorization; no global login gate before feedback route.",
+    "sha256": "02dd6df0002d6704afbac15c41793be59be374ad17d7c6ebc561cb4906bc01bc",
+    "full_file_read": false,
+    "symbols": [
+      "proxy"
+    ]
+  },
+  {
+    "path": "src/dashboard/lib/backend-proxy.ts",
+    "status": "traced",
+    "method": "Read session guard lines 101–113 of proxyJsonToBackend",
+    "note": "401 is checked only after feedback route has written image.",
+    "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+    "full_file_read": false,
+    "symbols": [
+      "proxyJsonToBackend"
+    ]
+  },
+  {
+    "path": "src/dashboard/Dockerfile.dashboard",
+    "status": "traced",
+    "method": "Full 82-line semantic read; runner is WORKDIR /app and USER node",
+    "note": "Default route path resolves to /.feedback; filesystem writeability not runtime-tested.",
+    "sha256": "047fcda2ae9217b9623834f82b188a6f908150a89b07aff883a26439326cce1a",
+    "full_file_read": true
+  },
+  {
+    "path": "docker-compose.yml",
+    "status": "traced",
+    "method": "Read dashboard env wiring and runtime vars only",
+    "note": "CLINIC_ENV_FILE is passed; no explicit FEEDBACK_DIR in compose.",
+    "sha256": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839",
+    "full_file_read": false
+  },
+  {
+    "path": ".env.prod.example",
+    "status": "traced",
+    "method": "Search/inspect documented upload configuration",
+    "note": "Sample config has no FEEDBACK_DIR; actual production env intentionally not read.",
+    "sha256": "046ee04614dbb49c941f676b5d15b01bfb10cccfbb1a4626ed5c9442913eb89a",
+    "full_file_read": false
+  }
+]

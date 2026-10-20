@@ -1,0 +1,353 @@
+{
+ "chunk": "T11",
+ "findings": [
+  {
+   "tmp_id": "T11-1",
+   "title": "Test cache quyền và test quyền khởi động đọc DATABASE_URL, trong khi lời nhắc và thông báo skip nói DATABASE_URL_TEST",
+   "severity": "MEDIUM",
+   "category": "test_env_guard",
+   "evidence_level": "confirmed_static",
+   "summary": "Bốn tệp test chạy DB thật (cache quyền, quyền khởi động, quyền theo lego, slice1 http) lấy URL từ biến DATABASE_URL, nhưng docstring và thông báo skip lại dặn đặt DATABASE_URL_TEST. Tệp test_queue_return_regressions_db lại dùng DATABASE_URL_TEST. Cách dùng hai biến không thống nhất.",
+   "trigger": "Một máy dev hoặc CI có DATABASE_URL trỏ tới DB thật hoặc staging, rồi chạy pytest.",
+   "impact": "Test có thể ghi nhân viên, grant, phòng khám và dữ liệu giả vào DB không dùng một lần. Người chạy làm theo hướng dẫn đặt DATABASE_URL_TEST sẽ thấy test bị skip lặng lẽ và tưởng đã được kiểm.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_quyen_cache_db.py",
+     "line": 32,
+     "end_line": 34,
+     "detail": "Đọc DATABASE_URL nhưng thông báo skip nói DATABASE_URL_TEST."
+    },
+    {
+     "path": "src/tests/services/test_quyen_khoi_dong_db.py",
+     "line": 38,
+     "end_line": 41,
+     "detail": "Cũng đọc DATABASE_URL, và còn tạo clinic mới trong DB đó."
+    },
+    {
+     "path": "src/tests/services/test_quyen_lego_man_db.py",
+     "line": 50,
+     "end_line": 52,
+     "detail": "Cùng mẫu, gọi HTTP thật rồi ghi dữ liệu."
+    },
+    {
+     "path": "src/tests/services/test_queue_return_regressions_db.py",
+     "line": 27,
+     "end_line": 29,
+     "detail": "Tệp này dùng DATABASE_URL_TEST nên hai quy ước lệch nhau."
+    }
+   ],
+   "limitations": "Chưa thấy conftest nên không biết có ánh xạ hai biến hay có guard riêng. Phát hiện INF-003 đã nói về guard production, đây là điểm khác: biến môi trường không đồng nhất giữa các test.",
+   "recommendation": "Dùng một fixture pool dùng chung, đọc DATABASE_URL_TEST, kiểm tên DB hoặc host dùng một lần rồi mới chạy, và sửa mọi thông báo cho khớp.",
+   "acceptance": "Đặt DATABASE_URL mà không đặt DATABASE_URL_TEST thì mọi test DB đều skip. Test DB từ chối chạy khi host hoặc tên DB không nằm trong danh sách cho phép.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-003"
+   ]
+  },
+  {
+   "tmp_id": "T11-2",
+   "title": "Test xác minh quyền theo lego kiểm 403 hoặc !=403 ở lệnh ghi và không kiểm nhất quán phạm vi cơ sở hay bệnh nhân",
+   "severity": "MEDIUM",
+   "category": "test_gap_authz",
+   "evidence_level": "design_gap",
+   "summary": "Bộ test lego chỉ kiểm có hoặc không có quyền cho lệnh ghi, bằng mã giả và khẳng định status khác 403. Không test nào chứng minh người của cơ sở A không đọc hay ghi được lượt của cơ sở B, hay bác sĩ không đọc được bệnh nhân ngoài phân công. Một lệnh trả 404, 409 hay 500 cũng được tính là qua cửa.",
+   "trigger": "Một lệnh ghi bị bỏ gác quyền nhưng lỗi ở bước sau vì mã giả.",
+   "impact": "Các lỗ hổng phạm vi cơ sở và phân công đã biết có thể quay lại mà không test nào đỏ.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_quyen_lego_man_db.py",
+     "line": 340,
+     "end_line": 341,
+     "detail": "Chỉ khẳng định status != 403 với mã giả."
+    },
+    {
+     "path": "src/tests/services/test_quyen_lego_man_db.py",
+     "line": 218,
+     "end_line": 235,
+     "detail": "Test đọc kiểm 200 với một lượt, không có người ở cơ sở khác hoặc bác sĩ khác."
+    }
+   ],
+   "limitations": "Có thể các bộ test khác ngoài chunk đã phủ phần này.",
+   "recommendation": "Thêm test ma trận: người cơ sở khác và người ngoài phân công gọi các API đọc và ghi trên lượt thật, kỳ vọng 403 hoặc 404 đúng mã.",
+   "acceptance": "Test đỏ khi bỏ guard cơ sở hoặc phân công ở bất kỳ endpoint nào trong danh sách.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-011",
+    "API-002",
+    "SEC-037"
+   ]
+  },
+  {
+   "tmp_id": "T11-3",
+   "title": "Test thu ngân và thuốc phụ thuộc đồng hồ, dữ liệu danh mục dùng chung và ngày cứng, dễ flaky",
+   "severity": "LOW",
+   "category": "flaky_test",
+   "evidence_level": "confirmed_static",
+   "summary": "Nhiều test dựa vào thời điểm chạy hoặc dữ liệu chung. Test báo cáo dùng ngày cố định 2026-10-12 và xóa work_roster theo staff. Test nửa đêm phải tự skip. Fixture chọn dịch vụ hay phòng lấy dòng đầu tiên theo ORDER BY, và một test đếm lượt bằng truy vấn trên toàn bảng.",
+   "trigger": "Chạy song song, chạy sát nửa đêm giờ VN, hoặc thêm dữ liệu seed mới.",
+   "impact": "Kết quả test đổi theo giờ chạy hoặc dữ liệu seed, làm mất niềm tin vào cảnh báo thật.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_sinh_hieu_cung_buoi_db.py",
+     "line": 374,
+     "end_line": 379,
+     "detail": "Phải skip khi sát nửa đêm."
+    },
+    {
+     "path": "src/tests/services/test_service_routing_db.py",
+     "line": 675,
+     "end_line": 686,
+     "detail": "Đếm toàn bảng event_log trước và sau; test chạy song song sẽ lệch."
+    },
+    {
+     "path": "src/tests/services/test_report_access_db.py",
+     "line": 22,
+     "end_line": 25,
+     "detail": "Giả đồng hồ ngày cố định rồi xóa work_roster theo staff trong finally."
+    }
+   ],
+   "limitations": "Chưa biết CI có chạy song song hay không.",
+   "recommendation": "Dùng đồng hồ cố định có thể tiêm, giới hạn truy vấn đếm theo dữ liệu riêng của test, và dựng seed riêng thay vì lấy dòng đầu tiên.",
+   "acceptance": "Chạy lặp 50 lần và chạy song song vẫn xanh ổn định.",
+   "alignment": [
+    "Quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T11-4",
+   "title": "Test hoàn tiền chỉ dựng một khoản hoàn cố định 200000, chưa phủ hoàn chia nhỏ hay vượt số đã thu",
+   "severity": "MEDIUM",
+   "category": "test_gap_refund",
+   "evidence_level": "design_gap",
+   "summary": "Trong nhóm test, khoản hoàn chỉ xuất hiện như điều kiện chặn nhận khách, với số tiền cố định. Không test nào hoàn nhiều lần hoặc hoàn vượt tổng đã thu, hoàn đồng thời, hay đối soát tổng hoàn so với số đã thu.",
+   "trigger": "Hai thao tác hoàn một phần liên tiếp hoặc đồng thời trên cùng một phiếu.",
+   "impact": "Lỗi làm tròn hoặc hoàn vượt tiền đã biết có thể quay lại mà không có test bắt.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_review_0710_nhan_tai_phong_db.py",
+     "line": 51,
+     "end_line": 70,
+     "detail": "Khoản hoàn PENDING cố định 200000, chỉ để kích hoạt cổng tài chính."
+    }
+   ],
+   "limitations": "Có thể test hoàn tiền nằm ở các tệp ngoài chunk này.",
+   "recommendation": "Thêm test: hoàn chia 3 phần làm tròn, hoàn vượt số đã thu bị từ chối, hai hoàn đồng thời chỉ một thành công.",
+   "acceptance": "Tổng hoàn luôn nhỏ hơn hoặc bằng tổng đã thu trong mọi tổ hợp test.",
+   "alignment": [
+    "Quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-004",
+    "FIN-001"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FIN-003",
+   "detail": "test_quay_thuoc_db.py:67-95 gọi luu_dong_them nhiều lần nhưng chỉ kiểm tuần tự, không kiểm gửi lại cùng một yêu cầu hay gửi đồng thời, nên không có test canh việc thêm thuốc bị nhân đôi."
+  },
+  {
+   "id": "INF-006",
+   "detail": "test_script_doi_tac_1610_db.py chỉ chạy script SQL đối tác trong giao dịch hoàn lại. Không test nào ở chunk này phủ backup hay restore."
+  }
+ ],
+ "held": [
+  {
+   "title": "Test chấp nhận cả hai thứ tự cho mốc HUY_XEP_PHONG và HUY_BAT_DAU",
+   "reason": "Có thể cố ý vì thứ tự không xác định, nhưng cũng có thể che lỗi thứ tự ghi sổ; chưa đủ bằng chứng."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Test race nhiều giao dịch kiểm bất biến ở cấp database",
+   "detail": "Hai giao dịch gỡ quyền cấp quyền song song, kỳ vọng đúng một bên thất bại, và tự dựng phòng khám riêng để đếm không bị lệch.",
+   "evidence": "src/tests/services/test_quyen_khoi_dong_db.py:215"
+  },
+  {
+   "title": "Test cache quyền kiểm thu quyền mất hiệu lực ngay và không cache câu trả lời không",
+   "detail": "Có ca cắt đường DB để chứng minh cache thật sự được dùng, và ca hỏi kèm phòng luôn đi xuống DB.",
+   "evidence": "src/tests/services/test_quyen_cache_db.py:91"
+  },
+  {
+   "title": "Số mong đợi tính tay độc lập với hàm đang thử",
+   "detail": "Test quy đổi đơn vị ghi rõ phép tính trên giấy, có ca hệ số rác và ca phiếu nhiều dòng hỏng thì cả phiếu không vào.",
+   "evidence": "src/tests/services/test_quy_doi_don_vi_db.py:1"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/tests/services/test_quay_thuoc_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quay_thuoc_dien_so_luong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quay_va_tu_van_2409_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_queue_entry_vao_hang_luc_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_queue_return_regressions_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quy_doi_don_vi_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quyen_cache_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quyen_khoi_dong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quyen_lego_man_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quyen_theo_lich_mo_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quyen_theo_lich_phong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_report_access_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_review_0710_ban_kham_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_review_0710_nhan_tai_phong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_route_derivation.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_rx_catalog_and_payment_simple_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_scheduling_service_oncall.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_script_doi_tac_1610_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_service_execution_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_service_order_draft.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_service_routing_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_service_selection_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_sinh_hieu_bat_buoc_va_lich_su.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_sinh_hieu_cung_buoi_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_sinh_hieu_khong_chan_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_slice1_http_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_slice1_rail_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

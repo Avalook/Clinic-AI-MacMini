@@ -1,0 +1,593 @@
+{
+  "round": 34,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_static_semantic_review",
+  "scope": [
+    "doctor-board authorization and patient PII",
+    "result-file list completeness and filter ordering",
+    "treatment-stage CSKH marker concurrency",
+    "new-booking selected-location availability",
+    "doctor assignment queue truncation and reminder recovery",
+    "partner detail/actions across clinic locations"
+  ],
+  "method": "Trace active UI/BFF → FastAPI/service → query/test; verify SHA and excerpts against immutable pinned Git snapshot. No ClinicAI runtime.",
+  "result": "Extended SEC-027; added CLIN-050/051/052/053, OPS-010 and API-007. Static only; tests read, not run.",
+  "files": [
+    {
+      "path": "src/clinicai/api/identity.py",
+      "read_ranges": [
+        {
+          "start": 638,
+          "end": 659
+        },
+        {
+          "start": 674,
+          "end": 700
+        }
+      ],
+      "notes": "Round 34: get_partner_identity requires identity and partner.work, not object location. get_current_identity chỉ chặn DISPLAY/PARTNER, không kiểm capability đọc hồ sơ/lịch. Partial path trace; tests read, not run.",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "read_ranges": [
+        {
+          "start": 328,
+          "end": 380
+        },
+        {
+          "start": 510,
+          "end": 537
+        },
+        {
+          "start": 593,
+          "end": 631
+        },
+        {
+          "start": 718,
+          "end": 726
+        }
+      ],
+      "notes": "Round 34: Availability route dựng ngữ cảnh ca trực từ identity.location_id. Backend áp action đổi lịch trước marker CSKH riêng. Hai nhóm lịch chờ đều LIMIT 500; response có bi_cat/tran. Doctor-board chỉ nhận identity chung; docstring giao giới hạn bác sĩ cho màn hình gọi. Partial path trace; tests read, not run.",
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/doi_tac.py",
+      "read_ranges": [
+        {
+          "start": 107,
+          "end": 118
+        },
+        {
+          "start": 295,
+          "end": 312
+        }
+      ],
+      "notes": "Round 34: GET detail passes identity and target UUID to service. POST collection route passes target UUID to service. Partial path trace; tests read, not run.",
+      "sha256": "180703e1fde229df2725d57ebe5e517311ff342e976ec140c662cfbf5605c10e",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "read_ranges": [
+        {
+          "start": 416,
+          "end": 423
+        }
+      ],
+      "notes": "Round 34: Booking router gắn runaway_guard; không có guard quyền theo đối tượng. Partial path trace; tests read, not run.",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "read_ranges": [
+        {
+          "start": 609,
+          "end": 629
+        }
+      ],
+      "notes": "Round 34: Write giữ location do người dùng chọn và kiểm ca trực theo location đó. Partial path trace; tests read, not run.",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/capacity_service.py",
+      "read_ranges": [
+        {
+          "start": 723,
+          "end": 744
+        }
+      ],
+      "notes": "Round 34: Capacity service dùng location truyền vào để chọn ngữ cảnh ca trực. Partial path trace; tests read, not run.",
+      "sha256": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/doctor_board_service.py",
+      "read_ranges": [
+        {
+          "start": 49,
+          "end": 75
+        },
+        {
+          "start": 115,
+          "end": 129
+        }
+      ],
+      "notes": "Round 34: SQL lọc clinic/location; doctor_id có thể bỏ trống, assignment filter chỉ áp cho TKYK. Kết quả trả tên, ngày sinh, số điện thoại, địa chỉ và người giám hộ. Partial path trace; tests read, not run.",
+      "sha256": "1be0c0e7eea9964e5e40b352e77cdf56afa320c3c65c6d8a73d0a72bf4756497",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/doi_tac_service.py",
+      "read_ranges": [
+        {
+          "start": 239,
+          "end": 245
+        },
+        {
+          "start": 408,
+          "end": 431
+        },
+        {
+          "start": 487,
+          "end": 504
+        },
+        {
+          "start": 1116,
+          "end": 1139
+        }
+      ],
+      "notes": "Round 34: Service guard checks partner.work only. Detail lookup scopes clinic/UUID/type, but not location. Internal staff list filters location; PARTNER is intentionally multi-location. Collection lookup scopes clinic/UUID but does not verify target location. Partial path trace; tests read, not run.",
+      "sha256": "fb6ac3744877fb211de8638e950bfea3910f62cac2b867ccfea195828a0529ae",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/lieu_trinh_service.py",
+      "read_ranges": [
+        {
+          "start": 1434,
+          "end": 1483
+        }
+      ],
+      "notes": "Round 34: Marker mốc hiện tại được SELECT, rồi rời connection trước khi tạo tương tác ở bước riêng. Partial path trace; tests read, not run.",
+      "sha256": "fea95c576932cc63f17436ce9a74a390d8c8b400fae32e84bd0652882ad26452",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "read_ranges": [
+        {
+          "start": 1272,
+          "end": 1308
+        },
+        {
+          "start": 1310,
+          "end": 1338
+        }
+      ],
+      "notes": "Round 34: Danh sách theo toàn bệnh nhân, mới nhất trước, LIMIT 200; cảnh báo chỉ vào log, response vẫn là list. Danh sách khôi phục trong 30 ngày có LIMIT 100, không có completeness metadata. Partial path trace; tests read, not run.",
+      "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+      "read_ranges": [
+        {
+          "start": 234,
+          "end": 257
+        },
+        {
+          "start": 234,
+          "end": 266
+        }
+      ],
+      "notes": "Round 34: Tạo tương tác trong transaction riêng; không có idempotency key cho marker. Marker được ghi trong transaction riêng khi service được gọi thành công. Partial path trace; tests read, not run.",
+      "sha256": "5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungTep.tsx",
+      "read_ranges": [
+        {
+          "start": 218,
+          "end": 247
+        }
+      ],
+      "notes": "Round 34: UI tải danh sách toàn bệnh nhân rồi lọc service_order_id/bên ở client. Partial path trace; tests read, not run.",
+      "sha256": "68c899dbbf086050445a870e9716d806a81f143ea6a02ff433f37adbe03797c2",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/HangChoView.tsx",
+      "read_ranges": [
+        {
+          "start": 90,
+          "end": 135
+        }
+      ],
+      "notes": "Round 34: UI PATCH đổi lịch trước, POST marker gọi báo khách sau; không kiểm response.ok và nuốt lỗi. Partial path trace; tests read, not run.",
+      "sha256": "78d9020685734c510265c0f21acfe8a784791787d667df7eed91eea685935aa2",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/page.tsx",
+      "read_ranges": [
+        {
+          "start": 33,
+          "end": 61
+        }
+      ],
+      "notes": "Round 34: Trang server chỉ nhận/render items, bỏ qua metadata bị cắt. Partial path trace; tests read, not run.",
+      "sha256": "ade1a4548eada57e4825d65a37fbde54a542e9c405ba1bf4c0389cf1e4925158",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/CustomersView.tsx",
+      "read_ranges": [
+        {
+          "start": 1040,
+          "end": 1060
+        }
+      ],
+      "notes": "Round 34: Customer view đọc marker để hiện nhắc gọi báo khách. Partial path trace; tests read, not run.",
+      "sha256": "957afb9b35cd0bb8a44f4b5c7f66c02c3593a1d950f7304b8fa2991975658c08",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/khung-bao.ts",
+      "read_ranges": [
+        {
+          "start": 91,
+          "end": 110
+        }
+      ],
+      "notes": "Round 34: Logic cảnh báo dùng trạng thái marker để xác định cần liên hệ khách. Partial path trace; tests read, not run.",
+      "sha256": "8f6a1f01b42f002a27b7d77dc9434f64608bfe263385474ee7ef4f89fc88b892",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "read_ranges": [
+        {
+          "start": 128,
+          "end": 185
+        },
+        {
+          "start": 321,
+          "end": 330
+        }
+      ],
+      "notes": "Round 34: Form giữ location đã chọn nhưng availability hook/roster call không nhận locationId. Request tạo lịch gửi location_id đã chọn. Partial path trace; tests read, not run.",
+      "sha256": "98a82533a1a34882aa35b37128360602f8d1913f947ad446998ed45298faacc1",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/dung-suc-chua-ngay.ts",
+      "read_ranges": [
+        {
+          "start": 42,
+          "end": 64
+        }
+      ],
+      "notes": "Round 34: Availability request được tạo từ ngày/bác sĩ/lịch cần bỏ qua, không có location. Partial path trace; tests read, not run.",
+      "sha256": "2affa5c2127b30fe1227d8244398e5866ec1e9989b9cf381635587feb5501685",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phong/[ma]/PhongDichVu.tsx",
+      "read_ranges": [
+        {
+          "start": 1153,
+          "end": 1190
+        }
+      ],
+      "notes": "Round 34: Active room UI calls BFF detail by order UUID. Partial path trace; tests read, not run.",
+      "sha256": "c1757977d8fb3a63c58fba11a5fcdccb03ab3e113d5a8019d008664e336dcdc0",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/TepCuaLuotKham.tsx",
+      "read_ranges": [
+        {
+          "start": 34,
+          "end": 58
+        }
+      ],
+      "notes": "Round 34: UI tải danh sách toàn bệnh nhân rồi lọc appointment_id ở client. Partial path trace; tests read, not run.",
+      "sha256": "8bd79b7cf08407218e91fc6bccf94f86515ce3ce0ca5c058acf88a70d5aed6da",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/luoi-ngay/route.ts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 24
+        }
+      ],
+      "notes": "Round 34: BFF lưới ngày không truyền location. Partial path trace; tests read, not run.",
+      "sha256": "04ddb6fd1a3e7b1b89ba564e11c876b7cbcc343635259301ff7fa40915e179bd",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/route.ts",
+      "read_ranges": [
+        {
+          "start": 267,
+          "end": 286
+        }
+      ],
+      "notes": "Round 34: BFF chuyển PATCH lịch xuống backend. Partial path trace; tests read, not run.",
+      "sha256": "46f7dedccaf35018a23ac27a76de0731f4e8a730d55eff3873afa382e42e81bc",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/ket-qua/route.ts",
+      "read_ranges": [
+        {
+          "start": 21,
+          "end": 40
+        }
+      ],
+      "notes": "Round 34: BFF chuyển payload từ backend nguyên trạng, không thêm total/has_more/truncated. Partial path trace; tests read, not run.",
+      "sha256": "ce817fa5229502e4e6835bc8b059917d911b529a174071434461662bd183400a",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/tuong-tac/route.ts",
+      "read_ranges": [
+        {
+          "start": 37,
+          "end": 55
+        }
+      ],
+      "notes": "Round 34: BFF tương tác CSKH chuyển response lỗi; không có retry bền. Partial path trace; tests read, not run.",
+      "sha256": "ce640a3cd4b837332bee5a2e3299ae22e01d762ab3e5d79972c8a060343931cb",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/doi-tac/da-thu-tien/route.ts",
+      "read_ranges": [
+        {
+          "start": 12,
+          "end": 42
+        }
+      ],
+      "notes": "Round 34: Active BFF POST forwards collection operation. Partial path trace; tests read, not run.",
+      "sha256": "a4de8901997a629ba8d1469a3ba1493443a02cf1ba8bd4bc4d6c6712256e3649",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/app/api/doi-tac/viec/route.ts",
+      "read_ranges": [
+        {
+          "start": 11,
+          "end": 19
+        }
+      ],
+      "notes": "Round 34: Active BFF validates UUID and forwards detail. Partial path trace; tests read, not run.",
+      "sha256": "16ddbb7a1c682c3061041af2928b0fd1c19c978b875fa5c8e637781bd58a1c4a",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "read_ranges": [
+        {
+          "start": 115,
+          "end": 124
+        }
+      ],
+      "notes": "Round 34: Backend proxy attaches Bearer identity and X-Location-ID. Partial path trace; tests read, not run.",
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/lib/co-so.ts",
+      "read_ranges": [
+        {
+          "start": 13,
+          "end": 22
+        }
+      ],
+      "notes": "Round 34: Location header comes from the user's current location. Partial path trace; tests read, not run.",
+      "sha256": "2f88d8e28b56264f2c2e5ecd0edef8af74629912ec92fe8b5a1d01f5b72314e6",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/tests/hang-cho-bac-si-boundary.test.mts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 99
+        }
+      ],
+      "notes": "Round 34: Boundary tests cover list/labels, not over-500/truncated UI. Partial path trace; tests read, not run.",
+      "sha256": "c784fb4a3fbc57e60d800b287b51f0462627771888bac18747014086c5c8aaf4",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/tests/khung-bao-cskh-boundary.test.mts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 99
+        }
+      ],
+      "notes": "Round 34: CLIN-053 reminder display only; no marker failure after PATCH. Partial path trace; tests read, not run.",
+      "sha256": "75485bd86d3eb61ff34d6a60b7e7fd57a5bc9112f57898a32c109df447f590ae",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/dashboard/tests/luoi-ngoai-ca-truc-boundary.test.mts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 128
+        }
+      ],
+      "notes": "Round 34: CLIN-052 shift test; not form-to-BFF location chain. Partial path trace; tests read, not run.",
+      "sha256": "706a2128c4c6cc70e83f158d3c1d710bc9b93448902e488db083d81c322fcd8e",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_dat_lich_theo_co_so_db.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 220
+        }
+      ],
+      "notes": "Round 34: CLIN-052 location booking tests; no full UI selected-location read chain. Partial path trace; tests read, not run.",
+      "sha256": "f0a75947806da29b39978eefc8db8b3af791bad84ab563259e29f5726b4c9604",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_doctor_board.py",
+      "read_ranges": [
+        {
+          "start": 127,
+          "end": 166
+        }
+      ],
+      "notes": "Round 34: Test chỉ kiểm tham số service/datetime, không có authorization test cho route. Partial path trace; tests read, not run.",
+      "sha256": "1690169a91133e31964c71b4be3531f47a2e147428c4bee4ffecd832e3d9f46d",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_doi_tac_nhan_mau_la_xong_db.py",
+      "read_ranges": [
+        {
+          "start": 117,
+          "end": 240
+        }
+      ],
+      "notes": "Round 34: API-007 sample/return tests; no cross-location. Partial path trace; tests read, not run.",
+      "sha256": "6a0bba0f76758c017222e9b8574cddd102b57a20fd9c30ec2686af655a9846df",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_doi_tac_tu_thu_db.py",
+      "read_ranges": [
+        {
+          "start": 332,
+          "end": 404
+        }
+      ],
+      "notes": "Round 34: API-007 collect/void tests; no cross-location. Partial path trace; tests read, not run.",
+      "sha256": "dc7af4a9e391837e2336fcd920b9af96e876682ffeb1bb9677913eca2c93f28f",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_in_anh_dot3_db.py",
+      "read_ranges": [
+        {
+          "start": 301,
+          "end": 347
+        }
+      ],
+      "notes": "Round 34: CLIN-050 test boundary; no cap/context-filter case. Partial path trace; tests read, not run.",
+      "sha256": "4f0d979b4b7fcc3a219fa0ac06415518e592be46d034377c658ae7e3981d17e6",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_lay_mau_doi_tac_db.py",
+      "read_ranges": [
+        {
+          "start": 74,
+          "end": 78
+        }
+      ],
+      "notes": "Round 34: API-007 internal partner.work setup only. Partial path trace; tests read, not run.",
+      "sha256": "f7e622f701bc1661bc9834972d3aee3a924422eaab8f6778915567b66fee5143",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_lieu_trinh_sap_het_db.py",
+      "read_ranges": [
+        {
+          "start": 210,
+          "end": 228
+        }
+      ],
+      "notes": "Round 34: Test retry hai lần tuần tự và mong cùng ID; không chạy song song. Partial path trace; tests read, not run.",
+      "sha256": "1cce39a764257ca9e9de11e71800e48084285447df01dc76aecc189b3d5d3e18",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_loc_co_so_nhom_b_db.py",
+      "read_ranges": [
+        {
+          "start": 208,
+          "end": 228
+        }
+      ],
+      "notes": "Round 34: Two-location test covers list policy, not detail/action by UUID. Partial path trace; tests read, not run.",
+      "sha256": "84dc5da93270fa56e8d2372ecc95ae0b615838940bbc1705ebefed40cf43f3ea",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_luoi_ngay_khop_trigger_db.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 220
+        }
+      ],
+      "notes": "Round 34: CLIN-052 availability/trigger test; no selected-location UI contract. Partial path trace; tests read, not run.",
+      "sha256": "a5cb1e4c0d71361ef47d8b1ff7c2794f8fede9dcc1a59c3f398922d4837d0ceb",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/services/test_phong_doi_tac_luong_chung_db.py",
+      "read_ranges": [
+        {
+          "start": 234,
+          "end": 264
+        }
+      ],
+      "notes": "Round 34: API-007 PARTNER detail/form; no two-location staff case. Partial path trace; tests read, not run.",
+      "sha256": "fe88fe4aff6ad38b63926f3bb94a156d92108fa3e04594aede6849e1c2ed2ff5",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/unit/test_so_tuong_tac_cskh.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 220
+        }
+      ],
+      "notes": "Round 34: CLIN-053 interaction tests; no two-step UI failure case. Partial path trace; tests read, not run.",
+      "sha256": "1ab3a82e1fdd31205321d139bcdc42f9f283cc8d86866969467f7bd2227da016",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "src/tests/unit/test_tran_khong_cat_im_lang.py",
+      "read_ranges": [
+        {
+          "start": 54,
+          "end": 69
+        }
+      ],
+      "notes": "Round 34: CLIN-050 warning helper is log-oriented, not UI completeness. Partial path trace; tests read, not run.",
+      "sha256": "23438c71f22b92b5b61c028e1aec50690617131cb53f8f1122bf919fdf8bcbaa",
+      "depth": "targeted_trace"
+    },
+    {
+      "path": "supabase/migrations/20260810000002_tuong_tac_gan_trang_thai.sql",
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 34
+        }
+      ],
+      "notes": "Round 34: Index tra trạng thái là index thường, không unique. Partial path trace; tests read, not run.",
+      "sha256": "9ce5d15d50eb0e5193359fb95b754b7ed48a99d7bcb2f2bcf3bada1eb1a39ae6",
+      "depth": "targeted_trace"
+    }
+  ]
+}

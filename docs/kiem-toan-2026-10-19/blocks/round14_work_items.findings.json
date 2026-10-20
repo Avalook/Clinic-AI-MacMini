@@ -1,0 +1,111 @@
+[
+  {
+    "id": "CAND-R14-WI-SCOPE-001",
+    "canonical_id": null,
+    "title": "Lệnh đổi trạng thái work item không kiểm tra cơ sở của lượt gắn kèm",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static_boundary_mismatch_effect_inferred",
+    "category": "work_item_location_authorization",
+    "status": "candidate_for_triage",
+    "summary": "WorkItemService.issue ràng buộc work item, membership và update vào cùng clinic; đồng thời kiểm role/quyền workspace, state transition, blocker và expected_version nếu được gửi. Tuy vậy, lệnh không đọc hoặc kiểm location_id của visit/appointment liên kết với work item. Worklist lại lọc các work item có lượt/lịch theo identity.location_id. Vì vậy nhân viên cùng clinic/cùng role có UUID của việc ở cơ sở khác có thể gọi trực tiếp command API start/complete/skip/cancel từ cơ sở hiện tại và vượt ranh giới cơ sở của hàng chờ.",
+    "trigger": "Staff ở location A gửi POST /api/v1/work-items/{id}/commands/{start|complete|skip|cancel} cho work item đang ở trạng thái hợp lệ, thuộc cùng clinic nhưng liên kết với visit hoặc appointment tại location B. Staff có active membership/role phù hợp hoặc quyền workspace theo policy hiện hành và biết UUID. Không áp dụng cho việc không gắn visit/appointment (ví dụ OPS locationless), vốn hiện được chủ ý hiển thị ở cả hai cơ sở.",
+    "impact": "Có thể đổi trạng thái và ghi work_item_event cho luồng tại cơ sở khác. Skip có thể giải phóng bước sau; start/complete có thể làm luồng bước qua mốc tại cơ sở mà người thao tác không đứng. Các kiểm tra cùng clinic, quyền/role, transition, blocker và expected_version vẫn chạy; không thấy bypass sang clinic khác. Hiệu ứng thực tế chưa được xác minh runtime hoặc production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/work_item_service.py",
+        "lines": "143-168",
+        "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396",
+        "detail": "issue khóa item và xác minh active membership, vai trò và clinic_id; SELECT không join visit/appointment hoặc so location_id với identity.location_id."
+      },
+      {
+        "path": "src/clinicai/services/work_item_service.py",
+        "lines": "243-269",
+        "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396",
+        "detail": "UPDATE lọc id, status, clinic_id và expected_version tùy chọn; không lọc cơ sở. State và version đổi trong transaction sau kiểm tra quyền/gate."
+      },
+      {
+        "path": "src/clinicai/services/work_item_service.py",
+        "lines": "541-617",
+        "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396",
+        "detail": "Worklist join visit/appointment và áp predicate location_id từ identity cho việc có lượt/lịch; ghi chú riêng việc locationless hiển thị ở cả hai cơ sở."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/work_items.py",
+        "lines": "180-263",
+        "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+        "detail": "_run gọi WorkItemService.issue; bốn POST start/complete/skip/cancel cùng dùng guard work-item."
+      },
+      {
+        "path": "supabase/migrations/20260730000005_workflow_kernel.sql",
+        "lines": "295-317",
+        "sha256": "3c8491a0c1624addddc7d0c13e6470305653089ba4f57cdea93066baa7278b7e",
+        "detail": "Gate coi predecessor SKIPPED là đã kết thúc; xác nhận tác động của skip lên các bước sau. CANCELLED vẫn có khác biệt theo dependency type."
+      },
+      {
+        "path": "src/clinicai/api/identity.py",
+        "lines": "180-193",
+        "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+        "detail": "StaffIdentity có location_id bắt buộc; issue không dùng trường này."
+      },
+      {
+        "path": "src/dashboard/lib/backend-proxy.ts",
+        "lines": "115-124",
+        "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+        "detail": "BFF chuyển identity/location headers sang API; việc này không thay thế kiểm tra đối tượng đích ở service."
+      },
+      {
+        "path": "src/dashboard/app/api/work-items/[id]/commands/[command]/route.ts",
+        "lines": "1-48",
+        "sha256": "d4cf3a38737fd4c756f166bd951cba663d08f2b9aa7e1b1989a23b94915a9170",
+        "detail": "Command BFF route chuyển command/body tới backend; service cần bảo vệ cả caller không qua dashboard."
+      },
+      {
+        "path": "src/tests/test_work_item_service.py",
+        "lines": "88-156",
+        "sha256": "4adf4b8b7b2d104544e8f254eec5fd791e9df53f4ea31d22b4ff584c9edd8d8a",
+        "detail": "Test ràng buộc clinic và membership role; không dựng hai location trong cùng clinic hoặc kiểm command ngoài identity.location_id."
+      }
+    ],
+    "validation": {
+      "method": "static_service_to_api_to_bff_to_worklist_and_direct_test_trace",
+      "result": "Xác nhận tĩnh scope khác nhau: worklist là clinic + location cho visit/appointment; command là clinic + role/permission/state, không location. Direct unit test kiểm clinic/role nhưng không kiểm hai cơ sở trong một clinic.",
+      "limitations": "Không chạy test, app, HTTP/ASGI, DB, VPS hoặc CI; không đọc secrets/PHI. Không chứng minh UUID có thể bị lộ hoặc sự việc từng xảy ra production. Chỉ áp dụng cùng clinic; quyền/role/gate vẫn còn hiệu lực. Snapshot export không có .git; SHA là pin do task cung cấp."
+    },
+    "recommendation": "Trong cùng transaction, ràng buộc command trên work item có visit/appointment với location_id của identity sau khi xác thực tenant; giữ policy tường minh cho work item locationless. Không dựa riêng vào việc UUID không có trên worklist.",
+    "acceptance": "Test service/API với một clinic, hai location: identity A cùng role/quyền không thể start/complete/skip/cancel item của B; identity B được phép theo transition/gate bình thường; item OPS locationless giữ policy. Từ chối xảy ra trước UPDATE/event. Giữ test clinic isolation, quyền, gate và optimistic version.",
+    "related_existing_findings": [
+      "CLIN-004",
+      "API-001",
+      "API-002",
+      "AI-001"
+    ],
+    "deduplication": {
+      "reviewed": [
+        "WORKITEM-API-001 (held)",
+        "WORKITEM-POLICY-001 (held)",
+        "CLIN-004",
+        "API-001",
+        "API-002",
+        "AI-001",
+        "SEC-011",
+        "INF-010",
+        "CLIN-022",
+        "CLIN-023",
+        "CLIN-027",
+        "FE-008"
+      ],
+      "duplicate": false,
+      "reason": "WORKITEM-API-001 held là bất tương thích reassign giữa BFF/backend, không có active UI caller; WORKITEM-POLICY-001 held là câu hỏi mine_only, không phải authorization defect. CLIN-004 nói về claim/assignment/hand-off. API-001 là scope hàng đợi (pinned code hiện lọc location); API-002 và GET /visits/{visit_id}/work-items là đường đọc, được loại khỏi candidate mutation này. AI-001 là giới hạn monitor 200 dòng, không chứng minh SLA per-item bị bỏ lỡ. Các mục khác không có cùng trigger và outcome trong lát này."
+    },
+    "related_tests": [
+      "src/tests/test_work_item_service.py",
+      "src/tests/api/test_worklist.py",
+      "src/tests/api/test_visit_work_items_read.py",
+      "src/dashboard/tests/route-da-tat-boundary.test.mts",
+      "src/dashboard/tests/lego-dot3-boundary.test.mts",
+      "src/dashboard/tests/workspace-route-authorization-boundary.test.mts"
+    ],
+    "version_scope": "exact_main_snapshot_956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "production_verified": false
+  }
+]

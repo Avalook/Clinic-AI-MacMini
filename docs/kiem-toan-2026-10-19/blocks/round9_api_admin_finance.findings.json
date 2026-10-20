@@ -1,0 +1,111 @@
+[
+  {
+    "id": "CAND-R9-API-ADMIN-01",
+    "canonical_id": null,
+    "title": "Fallback cơ sở trong identity có thể giữ location thuộc clinic khác",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "tenant_location_context_integrity",
+    "status": "candidate_for_triage",
+    "summary": "FastAPI lọc membership theo X-Clinic-ID nhưng khi không có X-Location-ID chỉ thay staff.primary_location_id bằng default location nếu clinic được chọn có cấu hình co_so_mac_dinh. Nếu staff có membership ở clinic A và B, primary location thuộc A, B không có default thì identity được tạo với clinic_id=B và location_id=A. /me trả ngữ cảnh trộn clinic/location; các thao tác vật tư cần location thuộc clinic nên thất bại fail-closed. Chưa tìm thấy bằng chứng đọc hoặc ghi chéo clinic.",
+    "trigger": "Một staff có active membership ở clinic A và B, primary_location_id nằm trong A, clinic B không có clinic.settings.co_so_mac_dinh; caller gửi X-Clinic-ID=B nhưng bỏ X-Location-ID. Đây là selector được FastAPI hỗ trợ; khi có nhiều membership, backend yêu cầu clinic selector tường minh.",
+    "impact": "Identity mang cặp clinic/location không hợp lệ. /me/co-so có thể trả dang_chon không nằm trong danh sách co_so của clinic hiện hành. API vật tư nhập/kho tra mã cơ sở bằng cả clinic_id và location_id rồi dừng nếu không khớp; những request dựa vào location fallback có thể không dùng được cho tới khi client chọn cơ sở hợp lệ. Không có bằng chứng về truy cập hồ sơ hoặc ghi sổ vật tư sang clinic khác.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 443,
+        "end_line": 488,
+        "detail": "Đọc X-Clinic-ID và X-Location-ID; query chỉ chọn active membership theo requested clinic. JOIN primary location qua id đơn lẻ, còn chosen/default location được ràng buộc với m.clinic_id."
+      },
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 526,
+        "end_line": 559,
+        "detail": "location_id khởi tạo từ staff.primary_location_id; chỉ đổi khi có requested location hoặc default location của clinic; nếu primary location khác clinic nhưng khác null thì không bị từ chối."
+      },
+      {
+        "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+        "line": 44,
+        "end_line": 67,
+        "detail": "Schema mô tả staff có thể làm ở nhiều clinic, membership mang role riêng của từng clinic."
+      },
+      {
+        "path": "supabase/migrations/20260803000007_staff_identity_completeness.sql",
+        "line": 145,
+        "end_line": 183,
+        "detail": "staff_location_matches_clinic chỉ xác minh primary location thuộc một clinic mà staff có membership; không gắn location với membership hiện được chọn."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/identity.py",
+        "line": 53,
+        "end_line": 63,
+        "detail": "/me trả clinic_id và location_id từ cùng StaffIdentity."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/identity.py",
+        "line": 85,
+        "end_line": 129,
+        "detail": "/me/co-so lọc co_so theo identity.clinic_id nhưng trả identity.location_id trực tiếp làm dang_chon."
+      },
+      {
+        "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+        "line": 148,
+        "end_line": 155,
+        "detail": "Mã location của yêu cầu nhập được tra với cả identity.clinic_id và identity.location_id; cặp không khớp thì dừng với NotFoundError."
+      },
+      {
+        "path": "src/clinicai/services/vat_tu_kho_service.py",
+        "line": 167,
+        "end_line": 174,
+        "detail": "Tạo phiếu kho cũng yêu cầu mã location khớp clinic; cặp không khớp thì dừng."
+      },
+      {
+        "path": "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql",
+        "line": 64,
+        "end_line": 71,
+        "detail": "Trigger yêu cầu clinic_location của yêu cầu nhập có cùng clinic_id và location_id, là chốt DB bổ sung."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đối chiếu nhánh chọn membership/location trong identity resolver, contract multi-clinic, trigger primary-location, phản hồi identity và các guard clinic/location ở service vật tư. Không chạy test hoặc query DB.",
+      "limitations": "Dashboard hiện từ chối tài khoản có nhiều clinic membership và backend-proxy hiện không gửi X-Clinic-ID theo finding FE-009; do đó chưa chứng minh người dùng dashboard hiện tại kích hoạt được tình huống. Không xác minh dữ liệu/cấu hình production, không thực hiện HTTP request hay DB probe. Impact được giới hạn ở ngữ cảnh cơ sở sai và thao tác location-scoped fail-closed; không suy ra rò dữ liệu hoặc ghi chéo clinic."
+    },
+    "recommendation": "Khi giải quyết clinic context, chỉ lấy location cùng clinic với membership đã chọn. Nếu không có X-Location-ID hợp lệ và không có default thuộc clinic đó, trả 403 yêu cầu client chọn cơ sở thay vì dùng staff.primary_location_id toàn cục. Về lâu dài lưu cơ sở mặc định theo clinic_membership hoặc cấu trúc membership-location tương đương.",
+    "acceptance": "Fixture tổng hợp có staff active ở clinic A+B, primary location thuộc A, clinic B không có default: request chọn B và bỏ X-Location-ID phải bị từ chối rõ ràng; gửi location B hợp lệ phải tạo identity clinic B/location B; gửi location thuộc A trong ngữ cảnh B phải 403. /me/co-so.dang_chon luôn thuộc co_so trả về. Tài khoản một clinic và đường chọn location hợp lệ vẫn hoạt động.",
+    "related_findings": [
+      {
+        "id": "FE-009",
+        "relationship": "Related but distinct. FE-009 ghi dashboard hiện không hỗ trợ chọn clinic và proxy không gửi X-Clinic-ID. Candidate này ghi fallback location sai sau khi backend đã nhận clinic selector; không phải bypass membership hay duplicate product-capability gap."
+      },
+      {
+        "id": "SEC-011",
+        "relationship": "Đã kiểm tra để tránh nhân đôi; SEC-011 liên quan phạm vi bệnh án thư ký/bác sĩ, khác dữ liệu và đường thực thi."
+      },
+      {
+        "id": "SEC-018",
+        "relationship": "Đã kiểm tra để tránh nhân đôi; SEC-018 là quyền đọc contact/kin qua PostgREST, không liên quan clinic/location identity fallback."
+      },
+      {
+        "id": "FIN-006",
+        "relationship": "Đã kiểm tra để tránh nhân đôi; FIN-006 liên quan giới hạn khoảng ngày xuất hóa đơn."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/api/identity.py": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "supabase/migrations/20260730000003_multi_tenant_foundation.sql": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "supabase/migrations/20260803000007_staff_identity_completeness.sql": "d32cdcc6ac192ea45773a6b16a3f7d009980fe54e4390ad1d0ac087a22cab971",
+      "src/clinicai/api/v1/routers/identity.py": "ed4087251f20a0abdbfa384c0951aaa8938c856bede12fee5681514f7cfb28ab",
+      "src/clinicai/services/vat_tu_nhap_duyet_service.py": "b31a499786e4321d1c19dfb448a541c2682d74688f6877080e27a2bdb14608d4",
+      "src/clinicai/services/vat_tu_kho_service.py": "008b508eeaba625615464a1dfec57337041911cd16572ef71a2f193ddd49fefa",
+      "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql": "9733f233d7f8c68b0836bad65430968ff21024995861d63523382169d584672c"
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "candidate_present_in_static_source",
+      "note": "Candidate is based on the pinned source only; not runtime- or production-verified.",
+      "production_verified": false
+    }
+  }
+]

@@ -1,0 +1,389 @@
+{
+  "round": 33,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_static_semantic_review",
+  "scope": [
+    "patient profile API and existing SEC-027 boundary",
+    "permission UI and ROOM-to-CLINIC scope",
+    "cashier transfer proof hide/read lifecycle",
+    "booking same-time doctor-switch hold lifecycle"
+  ],
+  "method": "Trace UI → BFF → router/service → permission/schema/event/test where applicable; verify file SHA-256 and excerpts against pinned Git snapshot. No ClinicAI runtime.",
+  "result": "SEC-027 extended with legacy profile/CSKH routes; added SEC-034, SEC-035, CLIN-049. Related paths reviewed with no additional finding: quick reschedule, service switch and post-procedure follow-up.",
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "read_ranges": [
+        {
+          "start": 856,
+          "end": 884
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: same-time doctor-switch hold lifecycle; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+      "read_ranges": [
+        {
+          "start": 537,
+          "end": 557
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: hidden transfer-proof GET/access scope; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phan_quyen.py",
+      "sha256": "bce5882167696d75a7b414217570382e07a2e24a694c235bdf061512c2b748ab",
+      "read_ranges": [
+        {
+          "start": 55,
+          "end": 62
+        },
+        {
+          "start": 250,
+          "end": 264
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/thu_ky.py",
+      "sha256": "42ce0064f2e197839191778df434bf10317931ebe51827136b8fd13963f0c654",
+      "read_ranges": [
+        {
+          "start": 68,
+          "end": 77
+        },
+        {
+          "start": 95,
+          "end": 106
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: profile PII/CSKH role boundary; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/permissions/can.py",
+      "sha256": "fc0e2ba27b8db2a2e7a129104b56da1a154cb03452b42b28e405724aab0c7c37",
+      "read_ranges": [
+        {
+          "start": 32,
+          "end": 40
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/permissions/catalogue.py",
+      "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "read_ranges": [
+        {
+          "start": 1000,
+          "end": 1008
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/services/anh_chuyen_khoan_service.py",
+      "sha256": "bfd1b3eca5aceec428a835df3fb7f0098b744e67b24d1b505a84e423cc3179c4",
+      "read_ranges": [
+        {
+          "start": 74,
+          "end": 83
+        },
+        {
+          "start": 186,
+          "end": 205
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: hidden transfer-proof GET/access scope; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/services/ho_so_khach_doc.py",
+      "sha256": "f90eb5c9ed3723bc50f68cff3cf777bae742472964d1e79d97ce387935b784bf",
+      "read_ranges": [
+        {
+          "start": 46,
+          "end": 69
+        },
+        {
+          "start": 72,
+          "end": 117
+        },
+        {
+          "start": 200,
+          "end": 218
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: profile PII/CSKH role boundary; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/services/payment_access_service.py",
+      "sha256": "c207d46396949125270fc000034dd0682ee99bc47faf3e62db7b41700a46f291",
+      "read_ranges": [
+        {
+          "start": 48,
+          "end": 56
+        },
+        {
+          "start": 93,
+          "end": 108
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: hidden transfer-proof GET/access scope; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/services/permission_service.py",
+      "sha256": "fa4aebab3761bf2487f35c8472611daa97623f46609402a55b81f5a8cb423bc3",
+      "read_ranges": [
+        {
+          "start": 400,
+          "end": 428
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/clinicai/services/slot_hold_service.py",
+      "sha256": "874334281fafdb0f9e8de024b5e94367d8f05bcdafd71a40739397f05e96cc6a",
+      "read_ranges": [
+        {
+          "start": 78,
+          "end": 105
+        },
+        {
+          "start": 185,
+          "end": 218
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: same-time doctor-switch hold lifecycle; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/BookingHub.tsx",
+      "sha256": "8197d4c11cc26b7daee888d94c780522bf386873454b46378044c1cc40a5a922",
+      "read_ranges": [
+        {
+          "start": 761,
+          "end": 800
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: same-time doctor-switch hold lifecycle; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/dung-giu-cho.ts",
+      "sha256": "a5601637836767ceacd7af9f577a695e70d9c9606474b3e085641a731389144b",
+      "read_ranges": [
+        {
+          "start": 19,
+          "end": 59
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: same-time doctor-switch hold lifecycle; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/phan-quyen/LegoCuaNguoi.tsx",
+      "sha256": "519d56c30bac765b03a137efa9a3852c4c11c66f075487ec154a99bea5abd96f",
+      "read_ranges": [
+        {
+          "start": 71,
+          "end": 89
+        },
+        {
+          "start": 145,
+          "end": 179
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/AnhChuyenKhoan.tsx",
+      "sha256": "7ef0ee91e66a0e5c498687cb9b08b46588f6d011ccc50cae62407c9f1f326906",
+      "read_ranges": [
+        {
+          "start": 83,
+          "end": 118
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: hidden transfer-proof GET/access scope; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/slot-hold/route.ts",
+      "sha256": "15fd955da2ab3ab24f95bd7e0cf0bee0ef5fd6d6bdde8a8ee3ac9d07d0eea6f1",
+      "read_ranges": [
+        {
+          "start": 47,
+          "end": 66
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: same-time doctor-switch hold lifecycle; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/payment/anh-ck/route.ts",
+      "sha256": "e73469ca42374f3d4781ccd7714565b1c9e38739430302960cfd77185ad788f8",
+      "read_ranges": [
+        {
+          "start": 18,
+          "end": 43
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: hidden transfer-proof GET/access scope; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/dashboard/app/api/phan-quyen/route.ts",
+      "sha256": "405aa1b031bbdeaf4ab5485917da747acdd1d7608cb7120d2325fd26cd593f2a",
+      "read_ranges": [
+        {
+          "start": 132,
+          "end": 141
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/tests/services/test_lego_21_db.py",
+      "sha256": "b85182ed994fdafd7dc2a284cae8be2440fb99695f4a1971805c7b935162decf",
+      "read_ranges": [
+        {
+          "start": 97,
+          "end": 143
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/tests/services/test_slot_hold.py",
+      "sha256": "ab96dff7760f108c02998f2446a91be21aa4c3876ac64caeb7b1ee54d34b6d47",
+      "read_ranges": [
+        {
+          "start": 42,
+          "end": 103
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: same-time doctor-switch hold lifecycle; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+      "sha256": "5ab8b1b25c0cc807008ca93fb15942df7c4408fadc8618c29fb567d78c3355d2",
+      "read_ranges": [
+        {
+          "start": 221,
+          "end": 261
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: hidden transfer-proof GET/access scope; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "supabase/migrations/20260804000008_slot_hold.sql",
+      "sha256": "85fd27d3d2306b3d72eeeab77537e281b28e9f7e9f76b56f4ee06319f2c71351",
+      "read_ranges": [
+        {
+          "start": 46,
+          "end": 56
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: same-time doctor-switch hold lifecycle; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "supabase/migrations/20260923000003_capability.sql",
+      "sha256": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677",
+      "read_ranges": [
+        {
+          "start": 46,
+          "end": 74
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: room-scope permission change; not a full-file review. Tests read only, not run."
+    },
+    {
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+      "read_ranges": [
+        {
+          "start": 234,
+          "end": 235
+        },
+        {
+          "start": 264,
+          "end": 270
+        }
+      ],
+      "depth": "targeted_trace",
+      "notes": "Round 33 targeted semantic trace: hidden transfer-proof GET/access scope; not a full-file review. Tests read only, not run."
+    }
+  ],
+  "tests_run": [],
+  "tests_read_not_run": [
+    {
+      "path": "src/tests/services/test_ho_so_khach_doc_db.py",
+      "lines": "24-44"
+    },
+    {
+      "path": "src/tests/unit/test_ho_so_khach_quan_ly.py",
+      "lines": "18-40"
+    },
+    {
+      "path": "src/tests/services/test_lego_21_db.py",
+      "lines": "97-143"
+    },
+    {
+      "path": "src/tests/services/test_permission_db.py",
+      "lines": "selected grant/revoke cases"
+    },
+    {
+      "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+      "lines": "221-261"
+    },
+    {
+      "path": "src/tests/unit/test_payment_access.py",
+      "lines": "75-121"
+    },
+    {
+      "path": "src/tests/services/test_slot_hold.py",
+      "lines": "42-103"
+    },
+    {
+      "path": "src/tests/services/test_doi_lich_nhanh_db.py",
+      "lines": "read for dedupe only"
+    }
+  ],
+  "deduplication": [
+    "SEC-012 skill capability revocation retry differs from empty-room scope conversion.",
+    "SEC-026 consolidated audit visibility differs from actual grant scope.",
+    "SEC-027 retained and widened to cover profile/CSKH routes; same missing capability family, no duplicate.",
+    "SEC-030 PostgREST payment metadata differs from authenticated proof bytes GET.",
+    "INF-001/INF-013 backup/worker health differ from proof GET-by-id after hide.",
+    "FIN-016 tender breakdown differs from proof visibility.",
+    "CLIN-005/010/016/024/026/035/043 appointment/schedule overlap checked; same-time doctor-switch false hold remains distinct."
+  ],
+  "limitations": [
+    "Static source audit only; no tests, app, API, database, provider, production, secrets or PHI were accessed.",
+    "No production occurrence counts for hidden proof re-reads, room-scope clicks, or stale holds.",
+    "The proof migration explicitly defines go as hide/retain; contract decision remains open.",
+    "Whole-source audit remains incomplete: scanned and inventoried paths remain."
+  ]
+}

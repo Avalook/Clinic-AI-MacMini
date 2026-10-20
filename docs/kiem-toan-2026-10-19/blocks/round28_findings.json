@@ -1,0 +1,332 @@
+[
+  {
+    "id": "CLIN-044",
+    "title": "Retry hẹn gọi lại có thể tạo nhiều việc và thông báo cho cùng một lần hẹn",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "followup_create_idempotency",
+    "summary": "Form gửi POST hẹn gọi lại không kèm Idempotency-Key; BFF chuyển payload và FastAPI gọi service tạo việc trực tiếp. Mỗi lần gọi service INSERT một id mới, còn schema chỉ có khóa chính và index thường cho việc đang mở. Nếu DB đã commit nhưng response bị mất, lần retry cùng khách/ngày/giờ/lý do tạo thêm việc mở và thông báo riêng.",
+    "trigger": "Request POST đã ghi `hen_goi_lai` nhưng client mất response hoặc gặp lỗi mạng; form chưa chuyển sang trạng thái thành công và `finally` mở lại nút. Nhân viên gửi lại cùng nội dung.",
+    "impact": "Một lời hứa gọi lại có thể thành nhiều việc và nhiều thông báo trong hàng đợi; nhân viên ca sau có thể gọi trùng khách và tăng việc thủ công. Đây là kết quả có thể có từ luồng code, chưa có bằng chứng đã xảy ra trên production.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/customers/HanhDongTrangThai.tsx",
+        "line": 432,
+        "end_line": 461,
+        "detail": "Form gửi POST không có Idempotency-Key; lỗi mạng thoát qua finally, mở lại nút, còn payload vẫn giữ."
+      },
+      {
+        "path": "src/dashboard/app/api/cskh/hen-goi-lai/route.ts",
+        "line": 13,
+        "end_line": 20,
+        "detail": "BFF nhận JSON rồi proxy POST, không tạo/forward khóa thao tác ổn định."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cskh.py",
+        "line": 585,
+        "end_line": 598,
+        "detail": "Handler gọi service trực tiếp, không khai báo IdempotencyGuard."
+      },
+      {
+        "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+        "line": 693,
+        "end_line": 739,
+        "detail": "Mỗi request INSERT một dòng mới; tạo thông báo theo id hẹn mới."
+      },
+      {
+        "path": "supabase/migrations/20260809000005_trang_thai_cskh_suy_ra.sql",
+        "line": 94,
+        "end_line": 117,
+        "detail": "Bảng có UUID riêng và partial index không unique; không ràng buộc một ý định hẹn trùng."
+      }
+    ],
+    "validation": {
+      "method": "static_UI_BFF_API_service_schema_trace_on_pinned_main",
+      "command": null,
+      "result": "Đã nối payload UI → BFF → handler → INSERT/notification và đối chiếu constraint. Cùng request lặp lại sinh id khác; chưa fault-inject mất response hoặc chạy DB.",
+      "limitations": "Static exact-main only. Không chạy API, UI, DB, test, provider hay production; không xác nhận tần suất retry hoặc cuộc gọi trùng đã xảy ra. Nhắc tái khám dùng unique conflict riêng, không suy rộng finding này sang endpoint đó."
+    },
+    "recommendation": "Tạo operation ID ổn định từ lúc người trực xác nhận hẹn và giữ nguyên qua mọi retry. Backend lưu receipt/kết quả cùng transaction với việc, hoặc dùng domain key có chính sách rõ để cùng một intent trả lại resource cũ. UI cần hiển thị trạng thái chưa rõ và đối soát theo operation ID trước khi cho tạo một ý định mới.",
+    "acceptance": "Fault-inject mất response sau commit rồi gửi lại cùng key/body: chỉ có một hàng hẹn và một thông báo mở, response trả cùng id. Cùng key khác body trả conflict. Một lần hẹn mới có key mới vẫn tạo resource riêng; UI có thể đối soát trạng thái trước khi retry.",
+    "alignment": [
+      "Reality ngày càng dễ nhìn thấy hơn",
+      "Unknown ngày càng ngắn hơn",
+      "Ownership ngày càng rõ hơn",
+      "Con người bị gián đoạn ít hơn nhưng đúng lúc hơn",
+      "Lỗi lặp lại dần biến thành cải tiến hệ thống"
+    ],
+    "related_tests": [
+      "src/tests/unit/test_so_tuong_tac_cskh.py:144-187 — có kiểm tra khách khác clinic không được ghi; không có case retry/duplicate cho endpoint tạo hẹn gọi lại."
+    ],
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Luồng tạo hẹn gọi lại trên main ghim không có operation key hoặc dedupe cho cùng intent; đây là static behavior, chưa tái hiện retry và không chứng minh production occurrence.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/customers/HanhDongTrangThai.tsx",
+          "line": 432,
+          "end_line": 461,
+          "sha256": "d2637c746c37448936436e6ae2681f8711272e328c10b6ecc917793f803aa38f",
+          "excerpt": "432:   async function henGoiLai() {\n433:     setDangLuu(\"hen\");\n434:     setLoi(null);\n435:     try {\n436:       const res = await fetch(\"/api/cskh/hen-goi-lai\", {\n437:         method: \"POST\",\n438:         headers: { \"Content-Type\": \"application/json\" },\n439:         body: JSON.stringify({\n440:           clinic_patient_id: clinicPatientId,\n441:           ngay_goi: ngayHen,\n442:           // Chuỗi rỗng KHÔNG được gửi thành \"\" — backend khai `time | None`,\n443:           // và \"\" không parse ra giờ. null nói đúng \"chỉ hẹn tới ngày\".\n444:           gio_goi: gioHen || null,\n445:           ly_do: lyDoHen.trim(),\n446:         }),\n447:       });\n448:       if (!res.ok) {\n449:         const d = (await res.json().catch(() => null)) as {\n450:           error?: string;\n451:           message?: string;\n452:         } | null;\n453:         setLoi(nhanLoi(d, \"Không hẹn được.\"));\n454:         return;\n455:       }\n456:       router.refresh();\n457:       setDaHen(true);\n458:       setMoHen(false);\n459:       setLyDoHen(\"\");\n460:     } finally {\n461:       setDangLuu(null);",
+          "detail": "UI POST và finally giải phóng trạng thái gửi."
+        },
+        {
+          "path": "src/dashboard/app/api/cskh/hen-goi-lai/route.ts",
+          "line": 13,
+          "end_line": 20,
+          "sha256": "116980d9322f7c8385a343f159077f8fa68362aebab0f47b0eeaf0d7333e3f25",
+          "excerpt": "13: export async function POST(request: Request) {\n14:   let body: unknown;\n15:   try {\n16:     body = await request.json();\n17:   } catch {\n18:     return NextResponse.json({ error: \"Invalid JSON\" }, { status: 400 });\n19:   }\n20:   return proxyJsonToBackend(\"POST\", \"/api/v1/cskh/hen-goi-lai\", body);",
+          "detail": "BFF proxy request body trực tiếp."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cskh.py",
+          "line": 585,
+          "end_line": 598,
+          "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+          "excerpt": "585: @router.post(\"/cskh/hen-goi-lai\", status_code=201)\n586: async def tao_hen_goi_lai(\n587:     body: HenGoiLaiRequest,\n588:     identity: StaffIdentity = Depends(_INTAKE_GUARD),\n589:     pool: asyncpg.Pool = Depends(get_db_pool),\n590: ) -> dict[str, Any]:\n591:     \"\"\"Tự hẹn một việc gọi lại — chỗ đựng việc hệ thống chưa suy được.\"\"\"\n592:     return await HenGoiLaiService(pool).tao(\n593:         identity=identity,\n594:         clinic_patient_id=str(body.clinic_patient_id),\n595:         ngay_goi=body.ngay_goi,\n596:         gio_goi=body.gio_goi,\n597:         ly_do=body.ly_do,\n598:     )",
+          "detail": "API handler không có idempotency dependency."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 693,
+          "end_line": 739,
+          "sha256": "5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118",
+          "excerpt": "693:         async with self._pool.acquire() as conn:\n694:             ok = await conn.fetchval(\n695:                 \"SELECT 1 FROM public.patient \"\n696:                 \" WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid\",\n697:                 clinic_patient_id,\n698:                 identity.clinic_id,\n699:             )\n700:             if not ok:\n701:                 raise NotFoundError(\"Không tìm thấy khách hàng này.\")\n702:             row_id = await conn.fetchval(\n703:                 \"\"\"\n704:                 INSERT INTO public.hen_goi_lai\n705:                     (clinic_id, clinic_patient_id, ngay_goi, gio_goi, ly_do,\n706:                      tao_boi_staff_id)\n707:                 VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid)\n708:                 RETURNING id::text\n709:                 \"\"\",\n710:                 identity.clinic_id,\n711:                 clinic_patient_id,\n712:                 ngay_goi,\n713:                 gio_goi,\n714:                 ly_do,\n715:                 identity.staff_id,\n716:             )\n717:             ten_khach = await conn.fetchval(\n718:                 \"SELECT full_name FROM public.patient \"\n719:                 \" WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid\",\n720:                 clinic_patient_id,\n721:                 identity.clinic_id,\n722:             )\n723: \n724:         await self._bao_hen_goi_lai(\n725:             identity=identity,\n726:             hen_id=row_id,\n727:             clinic_patient_id=clinic_patient_id,\n728:             ten_khach=ten_khach or \"Khách\",\n729:             ngay_goi=ngay_goi,\n730:             gio_goi=gio_goi,\n731:             ly_do=ly_do,\n732:         )\n733:         logger.info(\n734:             \"cskh_hen_goi_lai\",\n735:             ngay=str(ngay_goi),\n736:             gio=str(gio_goi) if gio_goi else None,\n737:             by=identity.staff_id,\n738:         )\n739:         return {\"ok\": True, \"id\": row_id}",
+          "detail": "Service tạo id mới rồi gọi notification helper."
+        },
+        {
+          "path": "supabase/migrations/20260809000005_trang_thai_cskh_suy_ra.sql",
+          "line": 94,
+          "end_line": 117,
+          "sha256": "2a8058676cf9d96f5880f06fb2559a9c6627b0c675ee778c2e009ef890b6dda6",
+          "excerpt": "94: CREATE TABLE IF NOT EXISTS public.hen_goi_lai (\n95:     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n96:     clinic_id  uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,\n97:     clinic_patient_id uuid NOT NULL\n98:         REFERENCES public.patient(clinic_patient_id) ON DELETE CASCADE,\n99:     ngay_goi   date NOT NULL,\n100:     ly_do      text NOT NULL,\n101:     tao_boi_staff_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE RESTRICT,\n102:     dong_luc   timestamptz,\n103:     dong_boi_staff_id uuid REFERENCES public.staff(id) ON DELETE SET NULL,\n104:     created_at timestamptz NOT NULL DEFAULT now(),\n105: \n106:     -- Đóng việc mà không biết ai đóng thì không truy lại được. Hai nửa đi cùng\n107:     -- nhau, cùng khuôn với nhac_tai_kham.\n108:     CONSTRAINT hen_goi_lai_dong_du_doi\n109:         CHECK ((dong_luc IS NULL) = (dong_boi_staff_id IS NULL))\n110: );\n111: \n112: COMMENT ON TABLE public.hen_goi_lai IS\n113:     'Việc CSKH tự hẹn: \"gọi lại ngày…\". Chỗ đựng những việc hệ chưa suy được.';\n114: \n115: CREATE INDEX IF NOT EXISTS idx_hen_goi_lai_dang_mo\n116:     ON public.hen_goi_lai (clinic_id, ngay_goi)\n117:     WHERE dong_luc IS NULL;",
+          "detail": "Schema không có unique constraint theo clinic/patient/date/time/intent."
+        }
+      ]
+    },
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/customers/HanhDongTrangThai.tsx": "d2637c746c37448936436e6ae2681f8711272e328c10b6ecc917793f803aa38f",
+      "src/dashboard/app/api/cskh/hen-goi-lai/route.ts": "116980d9322f7c8385a343f159077f8fa68362aebab0f47b0eeaf0d7333e3f25",
+      "src/clinicai/api/v1/routers/cskh.py": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "src/clinicai/services/tuong_tac_cskh_service.py": "5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118",
+      "supabase/migrations/20260809000005_trang_thai_cskh_suy_ra.sql": "2a8058676cf9d96f5880f06fb2559a9c6627b0c675ee778c2e009ef890b6dda6"
+    }
+  },
+  {
+    "id": "PHAR-003",
+    "title": "Hai người sửa phiếu kiểm kê cùng lúc có thể âm thầm ghi đè số đếm",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "pharmacy_stocktake_concurrent_edit",
+    "summary": "Hai người có quyền ghi có thể mở cùng phiếu NHAP và giữ số đếm cũ trong state cục bộ. API gửi các dòng hiện tại mà không có revision; service khóa phiếu để tuần tự hóa nhưng không so phiên bản, rồi upsert dem = EXCLUDED.dem. Lần lưu sau ghi đè giá trị trước mà không báo xung đột.",
+    "trigger": "Nhân viên A và B cùng mở phiếu kiểm kê NHAP; A lưu số mới, sau đó B lưu bản nháp từ tab cũ cho cùng thuốc/đơn vị.",
+    "impact": "Số đếm dùng để tính lệch khi chốt có thể không phải số người cuối cùng vừa quan sát. Người chốt có thể nhìn vào kết quả dựa trên giá trị bị ghi đè và phát sinh chênh lệch tồn kho sai; chưa có bằng chứng việc này xảy ra trên production.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+        "line": 256,
+        "end_line": 280,
+        "detail": "Payload lưu gửi giá trị cục bộ theo thuốc/đơn vị, không gửi revision hay expected value."
+      },
+      {
+        "path": "src/clinicai/services/kiem_ke_ca_service.py",
+        "line": 713,
+        "end_line": 729,
+        "detail": "Khóa header và kiểm tra trạng thái NHAP, nhưng không kiểm tra revision của bản nháp."
+      },
+      {
+        "path": "src/clinicai/services/kiem_ke_ca_service.py",
+        "line": 820,
+        "end_line": 834,
+        "detail": "Upsert luôn thay dem bằng giá trị request hiện tại."
+      },
+      {
+        "path": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+        "line": 57,
+        "end_line": 76,
+        "detail": "Schema lưu một giá trị cho mỗi thuốc/đơn vị, không có version để CAS."
+      }
+    ],
+    "validation": {
+      "method": "static_UI_API_service_schema_trace_on_pinned_main",
+      "command": null,
+      "result": "UI giữ input cục bộ; service tuần tự hóa qua FOR UPDATE nhưng thực hiện last-write-wins. Test hiện có kiểm tra ghi đè tuần tự theo chủ đích; không có test hai editor dùng cùng revision.",
+      "limitations": "Không chạy concurrency test, UI, API, DB hay production. Tác động sai số tồn là hệ quả có thể có khi hai nhân viên cùng sửa một phiếu, chưa tái hiện bằng dữ liệu synthetic trong lượt này. CLIN-039 cùng lớp lost update nhưng áp dụng phiếu khám riêng; record này giới hạn vào kiểm kê thuốc."
+    },
+    "recommendation": "Thêm revision tăng đơn điệu vào phiếu nháp và yêu cầu mỗi lần lưu so sánh expected_revision. Nếu revision cũ, trả 409 kèm snapshot mới để nhân viên tải lại/so sánh trước khi lưu. Ghi actor, thời điểm và thay đổi nháp để người chốt truy được nguồn số đếm.",
+    "acceptance": "Hai request cùng base revision sửa một dòng: request đầu thành công, request sau nhận conflict và không đổi DB; UI giữ dữ liệu cục bộ và cho so với server. Revision mới ghi thành công; chốt lưu revision được dùng trong phép tính lệch và audit actor/time.",
+    "alignment": [
+      "Reality ngày càng dễ nhìn thấy hơn",
+      "Unknown ngày càng ngắn hơn",
+      "Ownership ngày càng rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn",
+      "Lỗi lặp lại dần biến thành cải tiến hệ thống"
+    ],
+    "related_tests": [
+      "src/tests/services/test_kiem_ke_ca_db.py:185-191 — xác nhận ghi đè tuần tự; không mô phỏng hai editor với cùng revision hoặc stale state.",
+      "src/dashboard/tests/kiem-ke-ca-boundary.test.mts:1-197 — boundary assertions; không chạy trong lượt này, không kiểm xung đột stale save."
+    ],
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Hợp đồng lưu kiểm kê trên main ghim là last-write-wins cho mỗi thuốc/đơn vị; kết luận static, chưa có race test hoặc production occurrence.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+          "line": 256,
+          "end_line": 280,
+          "sha256": "231e74f17853c4effe5b5159e8298140ded567d5892fefa2b04cc1a2c45c253c",
+          "excerpt": "256:   /** Lưu nháp: gửi dòng có số + dòng đã có mà người dùng xoá trống (= bỏ dòng). */\n257:   const luu = async (): Promise<boolean> => {\n258:     if (!phieu) return false;\n259:     const gui = dong\n260:       .filter(\n261:         (d) =>\n262:           (nhap[d.khoa] ?? \"\").trim() !== \"\" ||\n263:           phieu.dong.some((x) => khoaDong(x.drug_catalog_id, x.don_vi) === d.khoa),\n264:       )\n265:       .map((d) => ({\n266:         drug_catalog_id: d.thuoc,\n267:         don_vi: d.dv,\n268:         dem: (nhap[d.khoa] ?? \"\").trim() || null,\n269:       }));\n270:     if (gui.length === 0) {\n271:       setLoi(\"Chưa đếm thuốc nào — nhập số đếm rồi mới lưu.\");\n272:       return false;\n273:     }\n274:     const r = await goi<Phieu>(\"POST\", `${URL_GOC}/${phieu.id}/dem`, { dong: gui });\n275:     if (!r.ok) {\n276:       setLoi(r.loi);\n277:       return false;\n278:     }\n279:     nap(r.data);\n280:     return true;",
+          "detail": "Request body chứa dòng đếm, không chứa revision."
+        },
+        {
+          "path": "src/clinicai/services/kiem_ke_ca_service.py",
+          "line": 713,
+          "end_line": 729,
+          "sha256": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+          "excerpt": "713: async def _khoa_phieu_nhap(\n714:     conn: asyncpg.Connection, identity: StaffIdentity, pid: str\n715: ) -> asyncpg.Record:\n716:     p = await conn.fetchrow(\n717:         \"SELECT id::text, loai, ngay, ca, trang_thai, phieu_truoc_id::text\"\n718:         \" FROM public.kiem_ke_ca\"\n719:         \" WHERE id = $1::uuid AND clinic_id = $2::uuid AND location_id = $3::uuid\"\n720:         \" FOR UPDATE\",\n721:         pid,\n722:         identity.clinic_id,\n723:         _co_so(identity),\n724:     )\n725:     if p is None:\n726:         raise NotFoundError(\"Không tìm thấy phiếu kiểm kê này.\")\n727:     if p[\"trang_thai\"] != \"NHAP\":\n728:         raise ConflictError(\"Phiếu đã chốt — không sửa số đếm được.\")\n729:     return p",
+          "detail": "Khóa phiếu và chỉ kiểm trạng thái NHAP."
+        },
+        {
+          "path": "src/clinicai/services/kiem_ke_ca_service.py",
+          "line": 820,
+          "end_line": 834,
+          "sha256": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+          "excerpt": "820:             try:\n821:                 await conn.execute(\n822:                     \"INSERT INTO public.kiem_ke_ca_dong (clinic_id, kiem_ke_ca_id,\"\n823:                     \" drug_catalog_id, don_vi, dem) VALUES ($1::uuid, $2::uuid,\"\n824:                     \" $3::uuid, $4, $5) ON CONFLICT (kiem_ke_ca_id, drug_catalog_id,\"\n825:                     \" don_vi) DO UPDATE SET dem = EXCLUDED.dem\",\n826:                     identity.clinic_id,\n827:                     pid,\n828:                     thuoc,\n829:                     dv,\n830:                     so,\n831:                 )\n832:             except asyncpg.ForeignKeyViolationError as exc:\n833:                 raise NotFoundError(\"Có thuốc không có trong danh mục kho.\") from exc\n834:         return await _doc_phieu(conn, identity, pid)",
+          "detail": "Upsert ghi đè số đếm theo request."
+        },
+        {
+          "path": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+          "line": 57,
+          "end_line": 76,
+          "sha256": "c23f1bc1f8cba9e679efa389f403c3480e083fd02a14c359f85c7319decd285d",
+          "excerpt": "57: CREATE TABLE IF NOT EXISTS public.kiem_ke_ca_dong (\n58:     id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n59:     clinic_id        uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,\n60:     kiem_ke_ca_id    uuid NOT NULL REFERENCES public.kiem_ke_ca(id) ON DELETE CASCADE,\n61:     drug_catalog_id  uuid NOT NULL,\n62:     -- Đơn vị lô ở dạng so khớp (lower(btrim)) — không cộng hộp với viên.\n63:     don_vi           text NOT NULL CHECK (length(btrim(don_vi)) > 0),\n64:     dem              numeric(14, 3) NOT NULL CHECK (dem >= 0),\n65:     -- Điền lúc CHỐT: tồn máy ở quầy tại giờ chốt, lệch = đếm − tồn máy.\n66:     ton_may          numeric(14, 3),\n67:     lech             numeric(14, 3),\n68:     -- Thuốc đã giao mà chưa gắn lô lúc chốt: làm tồn máy cao hơn kệ thật, KHÔNG\n69:     -- phải lệch đếm — hiện riêng để người rà thấy.\n70:     giao_chua_gan_lo numeric(14, 3),\n71:     CONSTRAINT kiem_ke_ca_dong_thuoc_fkey FOREIGN KEY (drug_catalog_id, clinic_id)\n72:         REFERENCES public.drug_catalog (id, clinic_id) ON DELETE RESTRICT,\n73:     CONSTRAINT uq_kiem_ke_ca_dong UNIQUE (kiem_ke_ca_id, drug_catalog_id, don_vi),\n74:     CONSTRAINT kiem_ke_ca_dong_lech_dung CHECK (\n75:         (ton_may IS NULL) = (lech IS NULL)\n76:         AND (lech IS NULL OR lech = dem - ton_may))",
+          "detail": "Chi tiết phiếu không có revision token."
+        }
+      ]
+    },
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx": "231e74f17853c4effe5b5159e8298140ded567d5892fefa2b04cc1a2c45c253c",
+      "src/clinicai/services/kiem_ke_ca_service.py": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+      "supabase/migrations/20261014170000_kiem_ke_ca.sql": "c23f1bc1f8cba9e679efa389f403c3480e083fd02a14c359f85c7319decd285d"
+    }
+  },
+  {
+    "id": "PHAR-004",
+    "title": "Mất phản hồi khi chốt kiểm kê bị báo là chưa lưu dù phiếu đã chốt",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "pharmacy_stocktake_unknown_write_outcome",
+    "summary": "Fetch helper biến mọi exception thành “Mất kết nối — CHƯA lưu”. Nếu POST chốt đã commit ở server nhưng response bị rơi, UI không gọi `nap()` và giữ phiếu NHAP cũ. Service đã có nhánh trả lại phiếu khi chốt lặp, nhưng nút chốt luôn gọi lưu số đếm trước; lần thử lại gặp guard NHAP ở bước lưu và dừng trước khi gọi nhánh replay-safe.",
+    "trigger": "Người dùng chốt phiếu sau khi đã lưu số đếm; server commit trạng thái CHOT nhưng response hoặc kết nối bị mất trước khi client nhận 2xx.",
+    "impact": "Giao diện khẳng định sai rằng dữ liệu chưa lưu và để nhân viên trong trạng thái không rõ; lần chốt tiếp theo có thể chỉ hiện conflict từ bước lưu số đếm. Họ phải tải lại thủ công để xác minh. Service guard chặn ghi lại sau khi đã chốt; không có bằng chứng tồn kho bị điều chỉnh trùng.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+        "line": 89,
+        "end_line": 110,
+        "detail": "Fetch exception luôn bị gán nhãn “CHƯA lưu”."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+        "line": 293,
+        "end_line": 301,
+        "detail": "Chỉ cập nhật phiếu và danh sách khi client nhận response thành công; chốt luôn chạy luu() trước."
+      },
+      {
+        "path": "src/clinicai/services/kiem_ke_ca_service.py",
+        "line": 713,
+        "end_line": 729,
+        "detail": "Lần retry qua UI dừng ở guard nếu phiếu đã CHOT."
+      },
+      {
+        "path": "src/clinicai/services/kiem_ke_ca_service.py",
+        "line": 884,
+        "end_line": 905,
+        "detail": "Service chốt có nhánh replay-safe trả lại phiếu nếu endpoint được gọi trực tiếp lần nữa."
+      },
+      {
+        "path": "src/clinicai/services/kiem_ke_ca_service.py",
+        "line": 972,
+        "end_line": 1006,
+        "detail": "Trạng thái CHOT và audit/event được ghi trong transaction."
+      }
+    ],
+    "validation": {
+      "method": "static_UI_service_write_response_trace_on_pinned_main",
+      "command": null,
+      "result": "Đối chiếu fetch catch, chuỗi `luu → chot`, guard trạng thái NHAP và transaction chốt. Điều kiện mất response sau commit chưa được fault-inject.",
+      "limitations": "Static exact-main only. Không chạy API/DB/UI, không mô phỏng mất response sau commit và không xác nhận production occurrence. Service có guard chặn lần lưu sau khi chốt; phát hiện này giới hạn ở feedback/reconciliation trong UI."
+    },
+    "recommendation": "Sau lỗi mạng ở write, hiển thị “Kết quả chưa xác định” thay vì “chưa lưu”, giữ correlation/operation ID, rồi tự tải lại phiếu để đối soát trạng thái. Retry chốt cần kiểm tra receipt/trạng thái trước khi chạy bước lưu nháp.",
+    "acceptance": "Fault-inject mất response sau commit CHOT: UI hiện unknown, tải lại tự động thấy phiếu đã chốt và xác nhận thành công; không chạy lại thao tác điều chỉnh tồn. Nếu request chưa commit, UI giữ nháp và cho retry an toàn.",
+    "alignment": [
+      "Reality ngày càng dễ nhìn thấy hơn",
+      "Unknown ngày càng ngắn hơn",
+      "Nhân viên làm việc trong điều kiện bền vững hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_kiem_ke_ca_db.py — service kiểm tra chốt lặp lại; không kiểm đường UI mất phản hồi sau commit hoặc đối soát tự động.",
+      "src/dashboard/tests/kiem-ke-ca-boundary.test.mts:1-197 — kiểm source boundary, không kiểm kết quả unknown của fetch."
+    ],
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "UI dùng thông báo xác định “chưa lưu” khi fetch ném lỗi; service-side replay-safe branch không được chạm bởi retry UI vì luu() chạy trước. Chỉ static, không tái hiện lỗi mạng.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+          "line": 89,
+          "end_line": 110,
+          "sha256": "231e74f17853c4effe5b5159e8298140ded567d5892fefa2b04cc1a2c45c253c",
+          "excerpt": "89: async function goi<T>(method: \"GET\" | \"POST\", url: string, body?: unknown): Promise<KetQua<T>> {\n90:   try {\n91:     const r = await fetch(url, {\n92:       method,\n93:       cache: \"no-store\",\n94:       headers: body === undefined ? undefined : { \"Content-Type\": \"application/json\" },\n95:       body: body === undefined ? undefined : JSON.stringify(body),\n96:     });\n97:     const d = (await r.json().catch(() => null)) as\n98:       | (T & { message?: string; detail?: unknown; error?: string })\n99:       | null;\n100:     if (r.ok && d) return { ok: true, data: d };\n101:     const ct = typeof d?.detail === \"string\" ? d.detail : null;\n102:     const thongDiep = d?.message ?? ct ?? d?.error ?? \"Máy chủ từ chối.\";\n103:     const loiKyThuat = /mã lỗi\\s*[a-f\\d-]+|lỗi chưa lường trước/i.test(thongDiep);\n104:     return {\n105:       ok: false,\n106:       loi: loiKyThuat ? null : thongDiep,\n107:     };\n108:   } catch {\n109:     return { ok: false, loi: \"Mất kết nối — CHƯA lưu.\" };\n110:   }",
+          "detail": "Catch không phân biệt request chưa tới server với response rơi sau commit."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx",
+          "line": 293,
+          "end_line": 301,
+          "sha256": "231e74f17853c4effe5b5159e8298140ded567d5892fefa2b04cc1a2c45c253c",
+          "excerpt": "293:   const chot = () =>\n294:     chay(async () => {\n295:       if (!(await luu())) return;\n296:       const p = await buocPhieu(\"chot\");\n297:       if (p) {\n298:         nap(p);\n299:         void taiDs(ngay);\n300:       }\n301:     });",
+          "detail": "Sau lỗi close, state chỉ được cập nhật nếu nhận phiếu thành công."
+        },
+        {
+          "path": "src/clinicai/services/kiem_ke_ca_service.py",
+          "line": 713,
+          "end_line": 729,
+          "sha256": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+          "excerpt": "713: async def _khoa_phieu_nhap(\n714:     conn: asyncpg.Connection, identity: StaffIdentity, pid: str\n715: ) -> asyncpg.Record:\n716:     p = await conn.fetchrow(\n717:         \"SELECT id::text, loai, ngay, ca, trang_thai, phieu_truoc_id::text\"\n718:         \" FROM public.kiem_ke_ca\"\n719:         \" WHERE id = $1::uuid AND clinic_id = $2::uuid AND location_id = $3::uuid\"\n720:         \" FOR UPDATE\",\n721:         pid,\n722:         identity.clinic_id,\n723:         _co_so(identity),\n724:     )\n725:     if p is None:\n726:         raise NotFoundError(\"Không tìm thấy phiếu kiểm kê này.\")\n727:     if p[\"trang_thai\"] != \"NHAP\":\n728:         raise ConflictError(\"Phiếu đã chốt — không sửa số đếm được.\")\n729:     return p",
+          "detail": "Bước luu() sau khi CHOT bị conflict."
+        },
+        {
+          "path": "src/clinicai/services/kiem_ke_ca_service.py",
+          "line": 884,
+          "end_line": 905,
+          "sha256": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+          "excerpt": "884: async def chot(\n885:     pool: asyncpg.Pool, *, identity: StaffIdentity, phieu_id: Any\n886: ) -> dict[str, Any]:\n887:     \"\"\"CHỐT phiếu: ghi tồn máy ở quầy TẠI GIỜ CHỐT và lệch = đếm − tồn máy (bán\n888:     giữa lúc đếm không làm lệch tính theo giờ đếm — ghi rõ giờ chốt). Chốt lần\n889:     hai trả lại đúng phiếu đã chốt. Có lệch → chuông. KHÔNG sửa tồn.\"\"\"\n890:     pid = _doc_uuid(phieu_id, \"Mã phiếu\")\n891:     co_so = _co_so(identity)\n892:     async with pool.acquire() as conn, conn.transaction():\n893:         p = await conn.fetchrow(\n894:             \"SELECT id::text, ngay, ca, loai, trang_thai, phieu_truoc_id::text\"\n895:             \" FROM public.kiem_ke_ca\"\n896:             \" WHERE id = $1::uuid AND clinic_id = $2::uuid AND location_id =\"\n897:             \" $3::uuid FOR UPDATE\",\n898:             pid,\n899:             identity.clinic_id,\n900:             co_so,\n901:         )\n902:         if p is None:\n903:             raise NotFoundError(\"Không tìm thấy phiếu kiểm kê này.\")\n904:         if p[\"trang_thai\"] == \"CHOT\":\n905:             return {**await _doc_phieu(conn, identity, pid), \"gui_lai\": True}",
+          "detail": "Endpoint close tự nó có đường replay-safe."
+        },
+        {
+          "path": "src/clinicai/services/kiem_ke_ca_service.py",
+          "line": 972,
+          "end_line": 1006,
+          "sha256": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca",
+          "excerpt": "972:         await conn.execute(\n973:             \"UPDATE public.kiem_ke_ca SET trang_thai = 'CHOT', mot_phan = $2,\"\n974:             \" chot_boi = $3::uuid, chot_luc = now(), moc_ton_luc = coalesce(\"\n975:             \" (SELECT coalesce(moc_ton_luc, chot_luc) FROM public.kiem_ke_ca\"\n976:             \" WHERE id=$4::uuid), now()) WHERE id = $1::uuid\",\n977:             pid,\n978:             mot_phan,\n979:             identity.staff_id,\n980:             p[\"phieu_truoc_id\"],\n981:         )\n982:         await ghi_nhat_ky(\n983:             conn,\n984:             identity=identity,\n985:             event_type=\"pharmacy.kiem_ke_ca_chot\",\n986:             aggregate_type=\"kiem_ke_ca\",\n987:             aggregate_id=pid,\n988:             payload={\n989:                 \"loai\": p[\"loai\"],\n990:                 \"so_dong\": len(dong),\n991:                 \"so_lech\": so_lech,\n992:                 \"mot_phan\": mot_phan,\n993:             },\n994:         )\n995:         if so_lech:\n996:             await emit_event(\n997:                 conn,\n998:                 ten=\"pharmacy.stocktake_mismatch\",\n999:                 clinic_id=identity.clinic_id,\n1000:                 aggregate_id=pid,\n1001:                 payload=KiemKeLech(\n1002:                     ngay=p[\"ngay\"], ca=p[\"ca\"], loai=p[\"loai\"], so_dong_lech=so_lech\n1003:                 ),\n1004:                 boi=nguoi(identity),\n1005:             )\n1006:         return {**await _doc_phieu(conn, identity, pid), \"gui_lai\": False}",
+          "detail": "Commit trạng thái, audit và event trong transaction chốt."
+        }
+      ]
+    },
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx": "231e74f17853c4effe5b5159e8298140ded567d5892fefa2b04cc1a2c45c253c",
+      "src/clinicai/services/kiem_ke_ca_service.py": "4cb558007716c3c3f3f68bab66b5f1ab1c1d3ba62e9feab46f6e89f1d10ebfca"
+    }
+  }
+]

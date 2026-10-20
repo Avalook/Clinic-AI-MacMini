@@ -1,0 +1,492 @@
+{
+  "schema_version": 1,
+  "round": 44,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_parallel_semantic_review",
+  "scope": [
+    "Backup manifest, local verification, restore and restore drill, status collector",
+    "Authentication, staff identity and PII projection boundary",
+    "Refund/void/reversal and tender semantics",
+    "Clinical prescription identity and lab review authorization",
+    "Clinic configuration writers, permission boundaries and room/location invariants"
+  ],
+  "method": "All code evidence is from immutable Git blobs via git show at the pinned SHA. Twenty full-file reads are hash/line-count checked; selected cross-layer paths and tests are listed separately. Tests were read but not run. No ClinicAI app/API/DB/provider/VPS/production/secrets/PHI access.",
+  "result": {
+    "new_findings": [
+      "CLIN-056",
+      "SEC-036"
+    ],
+    "extended_findings": [
+      "INF-006",
+      "INF-021"
+    ],
+    "deduplicated": [
+      "Auth/staff PII and revoke-cache observations match existing committed audit notes; no new finding.",
+      "FIN-004, INF-007 and FIN-016 corroborated in refund/undo slice; no new finding.",
+      "Config commit-before-audit paths extend INF-021; no new ID.",
+      "Pharmacy/finance report caps and payment receipt paths remain covered by existing FIN/INF findings."
+    ],
+    "held_candidates": [
+      {
+        "topic": "Active clinic_room under inactive clinic_location",
+        "why_held": "Room can be reactivated after parent location is deactivated; some downstream routing filters room state without parent state. A booking path does validate active location, while identity has a primary-location fallback. User/patient impact is not sufficiently established; retain as config-integrity candidate pending an end-to-end synthetic trace/policy decision.",
+        "source_ranges": [
+          "clinic_config_service.py:618-677",
+          "clinic_config_service.py:812-850",
+          "dispatch_service.py:292-301,1108-1119",
+          "service_routing_service.py:277-286",
+          "identity.py:472-480,529-548"
+        ]
+      },
+      {
+        "topic": "Room creation may accept an existing admin/inactive workflow node as room primary/served node",
+        "why_held": "Database enforces same-clinic existence but the reviewed create path does not apply the interactive picker category/active filter; concrete workflow impact not established.",
+        "source_ranges": [
+          "clinic_config_service.py:531-578",
+          "clinic_config_service.py:993-1000"
+        ]
+      },
+      {
+        "topic": "Config capability is checked before, not serialized with every config writer",
+        "why_held": "Potential permission-revocation race resembles SEC-033 but is a timing-only static candidate and was not shown with a concrete interleaving or new impact."
+      },
+      {
+        "topic": "Transfer/QR proof reference is manually confirmed in code slice",
+        "why_held": "No bank/provider verification appears in the paths read, but this is not a defect unless product promises automatic reconciliation."
+      }
+    ]
+  },
+  "full_files": [
+    {
+      "path": "scripts/backup-db.sh",
+      "sha256": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d",
+      "lines": 653
+    },
+    {
+      "path": "scripts/verify-backup.sh",
+      "sha256": "eb6a82161b9d5d60f277fd6ebfb6f305db4c41081d6eb0ac19c5db0c15ca3b00",
+      "lines": 136
+    },
+    {
+      "path": "scripts/restore-db.sh",
+      "sha256": "1fb1a84bad3980d0756f8294acc73580a03d265438bdf2a29bef783364f8fd9d",
+      "lines": 267
+    },
+    {
+      "path": "scripts/restore-drill.sh",
+      "sha256": "0851c74d42ddb7a16720e2333e6dffa0678812faff60050f5753a13d03dc7f38",
+      "lines": 323
+    },
+    {
+      "path": "scripts/collect_ops_status.py",
+      "sha256": "0faca8e7c1a07e230aca97dc6b85633692602f478828a66ad86e82627b3c11a0",
+      "lines": 298
+    },
+    {
+      "path": "src/clinicai/services/auth_service.py",
+      "sha256": "a7678c105726cd4f2865f55ff3304be727d7ff01cfb1aa8431148a078ea5e536",
+      "lines": 240
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/staff.py",
+      "sha256": "44d97c9b399b47e1117c83fb6bd00f3e1f39d858898870e537e4d599cc27c41c",
+      "lines": 397
+    },
+    {
+      "path": "src/clinicai/services/staff_service.py",
+      "sha256": "10c60e19effc32cd97a35a8270827145c0018e24068d2b1f7e466fb1b1b2ff22",
+      "lines": 659
+    },
+    {
+      "path": "src/clinicai/services/tai_khoan_service.py",
+      "sha256": "00b1eae788286d044225cd33172eba7f330414613f4caa3b9279a56931b6596a",
+      "lines": 193
+    },
+    {
+      "path": "docker/auth-guard.conf",
+      "sha256": "44db2cf34ad0ef158d49f239f0ad74021fb0a821c001f5728ffde46e73bb8477",
+      "lines": 93
+    },
+    {
+      "path": "src/tests/unit/test_auth_service.py",
+      "sha256": "743df64b739feb183de7f12c18312c9e346585488ec22877dcb73f6b05225cf0",
+      "lines": 241
+    },
+    {
+      "path": "src/clinicai/services/clinical_prescription_service.py",
+      "sha256": "afca45bbc735070ba44e49704977c056df9d3f3e21305538e97222b07bb12cf9",
+      "lines": 209
+    },
+    {
+      "path": "src/clinicai/services/lab_order_service.py",
+      "sha256": "9da6879b4249fcc65bdd8945a19d808c9d6663ee6fc0a69cd2bb2aab84a1ad01",
+      "lines": 304
+    },
+    {
+      "path": "src/clinicai/services/lab_safety_service.py",
+      "sha256": "afb270acda297eb0147f3b921caeaa90a46263cb2793c9883ce207e3db3d60de",
+      "lines": 356
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/lab.py",
+      "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+      "lines": 341
+    },
+    {
+      "path": "src/clinicai/services/clinic_config_service.py",
+      "sha256": "890bb55bf85f7a86fe15617b4468319142ac0759b6a2dfb12cbfd0738befa332",
+      "lines": 1396
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinic_config.py",
+      "sha256": "84c27645632e9877351a197c9ffd757e19e56cd93850e3543e27b8c1d41012d0",
+      "lines": 511
+    },
+    {
+      "path": "src/tests/services/test_clinic_config.py",
+      "sha256": "777e4915fdb7d0b4e3c56f930f322fd5b507669f75689a69dfadcdb2c80539b9",
+      "lines": 421
+    },
+    {
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "lines": 628
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/hoan_tac.py",
+      "sha256": "168828b95be1608837999688697eaf8d1e89551ccc0a80046271ae918bd5b3ea",
+      "lines": 146
+    }
+  ],
+  "partial_files": [
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_records.py",
+      "sha256": "0669769ff47a8486897f36673df5dadccbcba8081961d4430dd0ef2aa35750bd",
+      "lines": 142,
+      "read_ranges": [
+        {
+          "start": 34,
+          "end": 42
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Request accepts drug_catalog_id; partial route read."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/clinical_record_service.py",
+      "sha256": "8598b59bbb579902e6d3460a5d0613ec40df66ba7810307e0d86b892d5db402e",
+      "lines": 987,
+      "read_ranges": [
+        {
+          "start": 445,
+          "end": 453
+        },
+        {
+          "start": 499,
+          "end": 511
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Prescription preparation and conditional persistence path."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/dinh_chinh_don.py",
+      "sha256": "1cf96800b290dfba9b8580a007d47f47bd892e331a051cd70903399d5183b317",
+      "lines": 1005,
+      "read_ranges": [
+        {
+          "start": 185,
+          "end": 196
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Correction helper treats catalog ID difference as drug change."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+      "lines": 239,
+      "read_ranges": [
+        {
+          "start": 120,
+          "end": 147
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "TKYK assignment helper and denial behavior."
+      ]
+    },
+    {
+      "path": "src/clinicai/permissions/catalogue.py",
+      "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "lines": 1271,
+      "read_ranges": [
+        {
+          "start": 723,
+          "end": 735
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "TKYK preset includes result-review permission."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/dispatch_service.py",
+      "sha256": "cb3b2dbe53a151c66754e4442b15a3cb7eb8bba01dc586254a37427a37e1f35f",
+      "lines": 1150,
+      "read_ranges": [
+        {
+          "start": 292,
+          "end": 301
+        },
+        {
+          "start": 1108,
+          "end": 1119
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Room routing filters active room but not active parent location."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/service_routing_service.py",
+      "sha256": "872ba98d465a775db628d71d5a47fc8ef10c98897582ce22635c053d50712967",
+      "lines": 2479,
+      "read_ranges": [
+        {
+          "start": 277,
+          "end": 286
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Service routing filters room state and location match; no parent-active check."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "lines": 1120,
+      "read_ranges": [
+        {
+          "start": 472,
+          "end": 480
+        },
+        {
+          "start": 529,
+          "end": 548
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Active default/requested location handling and primary-location fallback."
+      ]
+    },
+    {
+      "path": "src/tests/services/test_clinical_prescription_draft.py",
+      "sha256": "078d70e05275821dd65421b2c32a2787629c533f480faf8accb88159371f9721",
+      "lines": 249,
+      "read_ranges": [
+        {
+          "start": 119,
+          "end": 145
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Related draft tests; read only, not run."
+      ]
+    },
+    {
+      "path": "src/tests/api/test_lab_review_endpoint.py",
+      "sha256": "bacab77b9480b78f3b475e9f3a700960a17644de1ec8dd28690ee0503726a142",
+      "lines": 131,
+      "read_ranges": [
+        {
+          "start": 62,
+          "end": 131
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Role denial and patient mismatch tests; no assignment case; read only, not run."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/hoan_tac_service.py",
+      "sha256": "1862331194da8a219dd6b18ef045350c47e1f20598901a26e691fd44d69e55d9",
+      "lines": 1241,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 32
+        },
+        {
+          "start": 82,
+          "end": 152
+        },
+        {
+          "start": 204,
+          "end": 403
+        },
+        {
+          "start": 411,
+          "end": 691
+        },
+        {
+          "start": 694,
+          "end": 893
+        },
+        {
+          "start": 895,
+          "end": 1064
+        },
+        {
+          "start": 1066,
+          "end": 1178
+        },
+        {
+          "start": 1181,
+          "end": 1230
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Partial refund/undo flow semantic review."
+      ]
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+      "lines": 570,
+      "read_ranges": [
+        {
+          "start": 378,
+          "end": 468
+        },
+        {
+          "start": 471,
+          "end": 498
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Refund route portion; partial read."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/payment_service.py",
+      "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+      "lines": 2400,
+      "read_ranges": [
+        {
+          "start": 1390,
+          "end": 1623
+        },
+        {
+          "start": 1625,
+          "end": 1686
+        },
+        {
+          "start": 1689,
+          "end": 1715
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Payment/reversal portion; partial read."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/tien_thua_service.py",
+      "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+      "lines": 407,
+      "read_ranges": [
+        {
+          "start": 48,
+          "end": 112
+        },
+        {
+          "start": 133,
+          "end": 165
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Overpayment return portion; partial read."
+      ]
+    },
+    {
+      "path": "src/clinicai/schemas/staff.py",
+      "sha256": "01f6632fc5489c5933790170979843fadd76d99d023c9a036669f86235cfd0b5",
+      "lines": 223,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 220
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Staff DTO/schema support read; last lines not reviewed."
+      ]
+    },
+    {
+      "path": "caddy/Caddyfile",
+      "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "lines": 256,
+      "read_ranges": [
+        {
+          "start": 173,
+          "end": 193
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "GoTrue proxy/rate boundary selected read; not full file."
+      ]
+    },
+    {
+      "path": "src/clinicai/services/clinic_config_service.py",
+      "sha256": "890bb55bf85f7a86fe15617b4468319142ac0759b6a2dfb12cbfd0738befa332",
+      "lines": 1396,
+      "read_ranges": [
+        {
+          "start": 618,
+          "end": 677
+        },
+        {
+          "start": 812,
+          "end": 850
+        },
+        {
+          "start": 672,
+          "end": 687
+        },
+        {
+          "start": 843,
+          "end": 856
+        },
+        {
+          "start": 980,
+          "end": 1015
+        }
+      ],
+      "status_disposition": "traced",
+      "notes": [
+        "Candidate config invariant and post-commit audit paths; full file read separately."
+      ]
+    }
+  ],
+  "tests": "Related tests read only; no ClinicAI tests executed.",
+  "runtime": "No app, API, database, provider, VPS, production, secrets or PHI access."
+}

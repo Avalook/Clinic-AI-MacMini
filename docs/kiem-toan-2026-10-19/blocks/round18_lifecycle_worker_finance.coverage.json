@@ -1,0 +1,478 @@
+{
+  "schema_version": 1,
+  "audit": "round18_lifecycle_worker_finance",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "static_read_only_cross_layer_trace",
+  "scope": [
+    "result-file revoke after staff-recorded patient send",
+    "event and timer dead-letter ownership and recovery surface",
+    "mixed-tender payment-cycle excess refund attribution"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "All reviewed paths were already present in the source ledger. Three previously scanned paths were upgraded to targeted traced; no full-file read is claimed for this round.",
+  "files": [
+    {
+      "path": "src/clinicai/events/worker.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 96,
+          "end": 115,
+          "purpose": "Claim rule blocks a newer aggregate version while any older delivery is unfinished."
+        },
+        {
+          "start": 182,
+          "end": 217,
+          "purpose": "Callback failure can set DEAD, aggregates the error and notifies staff only when the event has an actor."
+        },
+        {
+          "start": 226,
+          "end": 270,
+          "purpose": "Dead-event notification is role-based; the helper requires actor_staff_id and creates no per-delivery retry action."
+        }
+      ],
+      "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "line_count": 328
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 112,
+          "end": 126,
+          "purpose": "The event operations endpoint returns counts grouped by consumer, not delivery rows or retry actions."
+        },
+        {
+          "start": 132,
+          "end": 165,
+          "purpose": "The separate error endpoint groups scrubbed error types and changes acknowledgement state; it does not reset an event delivery."
+        }
+      ],
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "line_count": 404
+    },
+    {
+      "path": "src/clinicai/events/phat_lai.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 7,
+          "end": 14,
+          "purpose": "Projection replay explicitly leaves event_delivery unchanged and is not a delivery retry path."
+        }
+      ],
+      "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+      "line_count": 141
+    },
+    {
+      "path": "src/clinicai/events/hen_gio.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 145,
+          "end": 190,
+          "purpose": "Missing handler or exhausted callback attempts can leave a timer CHET; alerting is attempted only on the exhausted-error branch."
+        },
+        {
+          "start": 193,
+          "end": 224,
+          "purpose": "Timer alerting returns without a notification when chi_tiet.nguoi_goi is absent."
+        }
+      ],
+      "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "line_count": 266
+    },
+    {
+      "path": "src/clinicai/api/v1/health.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 68,
+          "end": 101,
+          "purpose": "Health counts aged DEAD/CHET and overdue work in aggregate; it does not expose individual records."
+        }
+      ],
+      "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+      "line_count": 137
+    },
+    {
+      "path": "supabase/migrations/20260923000001_domain_event.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 151,
+          "end": 225,
+          "purpose": "Delivery rows retain status/error fields while the health view exposes grouped counts."
+        }
+      ],
+      "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+      "line_count": 228
+    },
+    {
+      "path": "src/tests/services/test_event_worker_db.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 164,
+          "end": 201,
+          "purpose": "The related test checks transition to DEAD and aggregate count, not row-level ownership or retry/recovery."
+        }
+      ],
+      "sha256": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+      "line_count": 273
+    },
+    {
+      "path": "src/tests/services/test_hen_gio_db.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 187,
+          "end": 205,
+          "purpose": "The related timer test checks stale-lease reclaim to CHO, not CHET management or operator recovery."
+        }
+      ],
+      "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+      "line_count": 259
+    },
+    {
+      "path": "src/tests/test_health_su_kien.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 38,
+          "end": 51,
+          "purpose": "Health tests assert that aggregate counters create alert reasons; they do not exercise a per-record recovery flow."
+        }
+      ],
+      "sha256": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+      "line_count": 130
+    },
+    {
+      "path": "src/clinicai/services/phan_thu.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 144,
+          "end": 146,
+          "purpose": "A mixed payment cycle's scalar primary method becomes TRANSFER whenever any part is transfer."
+        }
+      ],
+      "sha256": "2d165eeb7c0cdb8d681f1e30720f6588b1d2bdac76e49c2495d93d44f0fdce30",
+      "line_count": 231
+    },
+    {
+      "path": "src/clinicai/services/tien_thua_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 84,
+          "end": 100,
+          "purpose": "Excess-refund query obtains one effective scalar method for the payment cycle, not its tender breakdown."
+        },
+        {
+          "start": 133,
+          "end": 160,
+          "purpose": "The service returns that scalar method on each invoice line and aggregates the displayed method summary from it."
+        },
+        {
+          "start": 201,
+          "end": 230,
+          "purpose": "Checkout summary groups excess amounts by each line's scalar hinh_thuc."
+        }
+      ],
+      "sha256": "cc253f64120d6886a8904e2fc2affd014d527ccfce79e00e5b21bbc8a1cd7d79",
+      "line_count": 407
+    },
+    {
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 133,
+          "end": 150,
+          "purpose": "The refund contract says default to the original method for each collection cycle."
+        },
+        {
+          "start": 159,
+          "end": 197,
+          "purpose": "With method omitted, the service groups every excess line using d.hinh_thuc and creates one refund method per group."
+        }
+      ],
+      "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "line_count": 628
+    },
+    {
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 186,
+          "end": 220,
+          "purpose": "The database already provides phan_thu_hieu_luc as an exact per-tender breakdown."
+        }
+      ],
+      "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+      "line_count": 619
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/dispatch.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 475,
+          "end": 510,
+          "purpose": "The refund method is optional; omitted input is passed as None to the service's default behavior."
+        }
+      ],
+      "sha256": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+      "line_count": 625
+    },
+    {
+      "path": "src/dashboard/app/api/reception/checkout/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 59,
+          "end": 75,
+          "purpose": "The BFF forwards hinh_thuc only when supplied; the default action sends null/omitted method."
+        }
+      ],
+      "sha256": "cf7510b3ea8bae858cb80f03859404c20406ca4579b4a869042fab9031856381",
+      "line_count": 88
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 46,
+          "end": 54,
+          "purpose": "The button labels the default action from the supplied method breakdown, but falls back to a generic original-method label."
+        },
+        {
+          "start": 60,
+          "end": 70,
+          "purpose": "The default request sends hinh_thuc as null."
+        },
+        {
+          "start": 82,
+          "end": 96,
+          "purpose": "The selector has a single-method override and a default option, but no split-method allocation control."
+        }
+      ],
+      "sha256": "199dceb330661c218623c543b7e01c4f8a7a3a07c3fff07c85554f3699a2f31c",
+      "line_count": 112
+    },
+    {
+      "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 45,
+          "end": 101,
+          "purpose": "A real 100k CASH + 50k TRANSFER cycle stores and displays both tender parts; this test does not refund its excess."
+        }
+      ],
+      "sha256": "5ab8b1b25c0cc807008ca93fb15942df7c4408fadc8618c29fb567d78c3355d2",
+      "line_count": 261
+    },
+    {
+      "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 363,
+          "end": 403,
+          "purpose": "Default excess refund is tested for a single TRANSFER method, not a mixed-tender cycle."
+        }
+      ],
+      "sha256": "80b0d45bc22f7a7ce8f3c71818083efde0f57c3853619634efcec06c97ffc8cf",
+      "line_count": 536
+    },
+    {
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1131,
+          "end": 1160,
+          "purpose": "The revoke query does not select gui_luc, so the service cannot branch on whether staff marked the file sent."
+        },
+        {
+          "start": 1199,
+          "end": 1256,
+          "purpose": "Before review starts, a valid file can be revoked and emits result_file.revoked without creating a corrective follow-up task."
+        },
+        {
+          "start": 1267,
+          "end": 1298,
+          "purpose": "The current-file list reads the effective view, from which revoked files are excluded."
+        },
+        {
+          "start": 1673,
+          "end": 1682,
+          "purpose": "gui_luc is a staff confirmation of a manual send, not proof of automated delivery."
+        },
+        {
+          "start": 1709,
+          "end": 1750,
+          "purpose": "The send flow records gui_luc and emits sent_to_patient after staff confirmation."
+        }
+      ],
+      "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "line_count": 1900
+    },
+    {
+      "path": "supabase/migrations/20260920000005_xac_nhan_tep_ket_qua.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 124,
+          "end": 140,
+          "purpose": "The database permits HOP_LE to THU_HOI and preserves approval history; it does not gate on gui_luc."
+        }
+      ],
+      "sha256": "86b4467de6be9674f22b911e6631b18f2fe10d577d9ae106518999ef474a8ca7",
+      "line_count": 476
+    },
+    {
+      "path": "src/clinicai/events/catalogue.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1852,
+          "end": 1860,
+          "purpose": "result_file.revoked is subscribed to by the timeline and review-round consumer, not CHUONG."
+        }
+      ],
+      "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+      "line_count": 2401
+    },
+    {
+      "path": "src/clinicai/events/consumers/chuong.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 34,
+          "end": 52,
+          "purpose": "The default notification map includes uploaded and confirmed result files, not revoked files."
+        }
+      ],
+      "sha256": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+      "line_count": 377
+    },
+    {
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 90,
+          "end": 103,
+          "purpose": "Timeline detail allowlist includes confirmation and send events but not revoke reason/detail."
+        },
+        {
+          "start": 215,
+          "end": 239,
+          "purpose": "The timeline consumer still writes an event label for revoke, so audit trace is not absent."
+        }
+      ],
+      "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "line_count": 247
+    },
+    {
+      "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 945,
+          "end": 1007,
+          "purpose": "The test covers revoke before sending and the review boundary."
+        },
+        {
+          "start": 1589,
+          "end": 1679,
+          "purpose": "The test covers that a revoked file cannot be sent later; it never marks gui_luc before revoking."
+        }
+      ],
+      "sha256": "0623256720cb6d4e3a323a9dbba33c79d2768dba1acd6688cef7c960e5baaa99",
+      "line_count": 1762
+    }
+  ]
+}

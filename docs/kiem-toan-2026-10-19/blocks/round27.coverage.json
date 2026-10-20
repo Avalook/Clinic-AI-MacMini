@@ -1,0 +1,659 @@
+{
+  "round": 27,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "scope": "Clinic config audit boundary; patient/assignment ownership; account recovery; migration/RLS static cross-check.",
+  "method": "Static exact-main only. Promoted INF-021 evidence hashes were checked against pinned snapshot. No ClinicAI tests/API/DB/provider/VPS/production; no secrets/PHI.",
+  "result": "INF-021 expanded; no new canonical finding. Assignment slice found no distinct issue. Three policy/contract candidates held.",
+  "files": [
+    {
+      "path": "src/clinicai/services/clinic_config_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 257,
+          "end": 276,
+          "purpose": "Audit helper acquires separate connection"
+        },
+        {
+          "start": 413,
+          "end": 438,
+          "purpose": "Service-form write then audit"
+        },
+        {
+          "start": 470,
+          "end": 501,
+          "purpose": "Room-floor transaction then audit"
+        },
+        {
+          "start": 975,
+          "end": 1034,
+          "purpose": "Room-node write then audit then cache invalidation"
+        },
+        {
+          "start": 1047,
+          "end": 1091,
+          "purpose": "Counterexample: special-room event in same transaction"
+        },
+        {
+          "start": 1112,
+          "end": 1160,
+          "purpose": "Room-service mapping then audit"
+        },
+        {
+          "start": 1184,
+          "end": 1265,
+          "purpose": "Service-room mapping then audit"
+        },
+        {
+          "start": 1277,
+          "end": 1307,
+          "purpose": "Staff-node write then audit"
+        }
+      ],
+      "sha256": "890bb55bf85f7a86fe15617b4468319142ac0759b6a2dfb12cbfd0738befa332",
+      "line_count": 1396,
+      "purpose": "Clinic configuration writer and audit transaction boundary."
+    },
+    {
+      "path": "src/clinicai/services/audit.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 109,
+          "purpose": "Full-file audit writer contract"
+        }
+      ],
+      "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+      "line_count": 109,
+      "purpose": "Audit event helper contract."
+    },
+    {
+      "path": "src/clinicai/services/clinic_floor_service.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 97,
+          "end": 114,
+          "purpose": "Separate audit connection"
+        },
+        {
+          "start": 124,
+          "end": 156,
+          "purpose": "Floor mutation before audit"
+        }
+      ],
+      "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+      "line_count": 310,
+      "purpose": "Existing INF-021 behavior rechecked."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinic_config.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 389,
+          "end": 398,
+          "purpose": "Room-node route"
+        },
+        {
+          "start": 429,
+          "end": 441,
+          "purpose": "Room-service route"
+        },
+        {
+          "start": 450,
+          "end": 477,
+          "purpose": "Service-room/staff-node routes"
+        }
+      ],
+      "sha256": "84c27645632e9877351a197c9ffd757e19e56cd93850e3543e27b8c1d41012d0",
+      "line_count": 511,
+      "purpose": "Backend route and guard trace."
+    },
+    {
+      "path": "src/dashboard/app/api/clinic-config/route.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 47,
+          "end": 65,
+          "purpose": "BFF write mapping"
+        },
+        {
+          "start": 79,
+          "end": 95,
+          "purpose": "PUT dispatch"
+        }
+      ],
+      "sha256": "9f6936eca57ca7995bf7d209b414680edd64e2b3dbcdc48f9674a8ea8eceb16b",
+      "line_count": 112,
+      "purpose": "BFF route trace."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/CoSoPhong.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 140,
+          "end": 155,
+          "purpose": "Shared save/error/reload helper"
+        },
+        {
+          "start": 449,
+          "end": 471,
+          "purpose": "Two sequential PUTs for room name/floor"
+        }
+      ],
+      "sha256": "42676851987ec0d80966a4c92e3a86dd3f83808e8d54e191b8a499ffffa1da96",
+      "line_count": 724,
+      "purpose": "Configuration UI and held partial-save contract."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/clinic-config/ClinicConfigBoard.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 50,
+          "end": 66,
+          "purpose": "Configuration write helper"
+        },
+        {
+          "start": 148,
+          "end": 166,
+          "purpose": "Staff-node save caller"
+        }
+      ],
+      "sha256": "7abdfe8f08ba87d2f2be84233490f33e1696f749e1e7511d1abb19233e7f8b6d",
+      "line_count": 451,
+      "purpose": "Configuration UI caller."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/cashier/DanhMucDichVuPhong.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 345,
+          "end": 360,
+          "purpose": "Service-room mapping write caller"
+        }
+      ],
+      "sha256": "c665a0fa15dbe8786be3d3cec746c7dd46d93d881f3b0ee7ff441d7656ad4164",
+      "line_count": 688,
+      "purpose": "Cashier mapping UI caller."
+    },
+    {
+      "path": "src/tests/services/test_clinic_config.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 185,
+          "end": 260,
+          "purpose": "Room/staff-node success and validation; no audit fault injection"
+        }
+      ],
+      "sha256": "777e4915fdb7d0b4e3c56f930f322fd5b507669f75689a69dfadcdb2c80539b9",
+      "line_count": 421,
+      "purpose": "Targeted test coverage review."
+    },
+    {
+      "path": "src/tests/services/test_tang_va_vi_tri_moi_db.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 45,
+          "end": 106,
+          "purpose": "Floor success-path tests; no audit insert fault injection"
+        }
+      ],
+      "sha256": "16e31f6e7a7cc099f5457b444c45fae749ee061b5bfaea468a1339a28da4aaad",
+      "line_count": 447,
+      "purpose": "Existing INF-021 test boundary."
+    },
+    {
+      "path": "src/clinicai/services/bac_si_phu_trach.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 411,
+          "purpose": "Full-file read: provider selection and PENDING roster semantics"
+        }
+      ],
+      "sha256": "312fd1d1c2f7689a8a1f0f92a208d4ef2c6b56055db6194382f79afa254c8565",
+      "line_count": 411,
+      "purpose": "Assignment helper review; overlaps existing findings."
+    },
+    {
+      "path": "src/tests/unit/test_bac_si_phu_trach.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 112,
+          "purpose": "Full-file read; no PENDING-specific assertion"
+        }
+      ],
+      "sha256": "d1f0b91244675fef715a75fedba2caa98cacbc9258f7423c3691ff4d55c83a6c",
+      "line_count": 112,
+      "purpose": "Assignment helper unit tests."
+    },
+    {
+      "path": "src/tests/services/test_tro_ly_bac_si_tron_quyen_db.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 309,
+          "purpose": "Full-file read; assistant/doctor access and actor selection"
+        }
+      ],
+      "sha256": "267b238164bcbd2d9acab74953c626b19f9ecb3209363415e270ff7b72abbe1a",
+      "line_count": 309,
+      "purpose": "Role-scope integration tests."
+    },
+    {
+      "path": "src/clinicai/services/form_engine_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 579,
+          "end": 579,
+          "purpose": "Completion actor selection"
+        },
+        {
+          "start": 742,
+          "end": 742,
+          "purpose": "Selected clinician"
+        },
+        {
+          "start": 801,
+          "end": 807,
+          "purpose": "Default/fallback performer"
+        }
+      ],
+      "sha256": "c1f64f9466aa58e828c6d011cbf1a894e10e77129828e0a32ed5cad65e6627d0",
+      "line_count": 1580,
+      "purpose": "Clinical form actor selection trace."
+    },
+    {
+      "path": "src/clinicai/services/work_item_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 185,
+          "purpose": "Ownership/command helpers"
+        },
+        {
+          "start": 316,
+          "end": 340,
+          "purpose": "Assignment transition"
+        },
+        {
+          "start": 577,
+          "end": 603,
+          "purpose": "mine_only queue semantics"
+        }
+      ],
+      "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396",
+      "line_count": 703,
+      "purpose": "Work-item policy cross-check."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/work_items.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 212,
+          "end": 263,
+          "purpose": "Backend commands omit reassign"
+        }
+      ],
+      "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+      "line_count": 719,
+      "purpose": "Backend/BFF command contract cross-check."
+    },
+    {
+      "path": "src/dashboard/app/api/work-items/[id]/commands/[command]/route.ts",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 48,
+          "purpose": "Full-file BFF read; allowlist includes reassign"
+        }
+      ],
+      "sha256": "d4cf3a38737fd4c756f166bd951cba663d08f2b9aa7e1b1989a23b94915a9170",
+      "line_count": 48,
+      "purpose": "Held reassign contract mismatch."
+    },
+    {
+      "path": "src/clinicai/api/v1/patients.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 82,
+          "end": 112,
+          "purpose": "check-phone and duplicate-check identity guards"
+        }
+      ],
+      "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "line_count": 435,
+      "purpose": "Patient lookup boundary; overlaps SEC-027."
+    },
+    {
+      "path": "src/dashboard/app/api/patients/check-phone/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 72,
+          "purpose": "Full-file read; intake authorization/minimal response"
+        }
+      ],
+      "sha256": "0f6e002eb3372eec4a5e492adc06d7a0b077259edbd85abd8ea5df5770185b93",
+      "line_count": 72,
+      "purpose": "Patient duplicate-check BFF."
+    },
+    {
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 170,
+          "purpose": "Assistant-doctor capability helper"
+        }
+      ],
+      "sha256": "e0b8bffdbdf68fca424a3cbc2c5021c48bea97f1f4fabdc1bbe04fca18eca9d6",
+      "line_count": 239,
+      "purpose": "Role scope; overlaps SEC-011/SEC-016."
+    },
+    {
+      "path": "src/clinicai/permissions/lich.py",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 70,
+          "end": 144,
+          "purpose": "Schedule permission predicates"
+        }
+      ],
+      "sha256": "2b4438961131dd23cae2ce24bd9e13ad84b225effd6aa45ce5344b71db1743e8",
+      "line_count": 144,
+      "purpose": "Schedule access helper cross-check."
+    },
+    {
+      "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+      "status": "read",
+      "prior_status": "read",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 117,
+          "purpose": "Secretary RLS policy cross-check"
+        }
+      ],
+      "sha256": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674",
+      "line_count": 117,
+      "purpose": "Migration/RLS slice; no live catalog check."
+    },
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 430,
+          "end": 443,
+          "purpose": "Patient update boundary"
+        },
+        {
+          "start": 570,
+          "end": 680,
+          "purpose": "Assignment and visibility service paths"
+        }
+      ],
+      "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "line_count": 712,
+      "purpose": "Patient service access trace."
+    },
+    {
+      "path": "src/dashboard/app/api/patients/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 160,
+          "purpose": "Patient BFF intake boundary"
+        }
+      ],
+      "sha256": "200bb7040838a8521576cba36d8a752bdc096fd69d70cc4570124d0132c2ee6f",
+      "line_count": 331,
+      "purpose": "Patient BFF route trace."
+    },
+    {
+      "path": "src/dashboard/app/api/patients/[id]/uu-tien/route.ts",
+      "status": "read",
+      "prior_status": "scanned",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 20,
+          "purpose": "Full-file read"
+        }
+      ],
+      "sha256": "0184ecfcfb663109276efa81b5bc28ae8e108237f08bccdd02850f181cfa0387",
+      "line_count": 20,
+      "purpose": "Patient priority update route."
+    },
+    {
+      "path": "src/dashboard/app/api/staff/route.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 106,
+          "purpose": "Staff list clinic identity boundary"
+        }
+      ],
+      "sha256": "6e3ab5e9983e80e037d23e2da79d2060fab9ab4e5d301186e96c3ea4b7867169",
+      "line_count": 107,
+      "purpose": "Staff route trace."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 24,
+          "end": 31,
+          "purpose": "Bare username normalization at login"
+        }
+      ],
+      "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+      "line_count": 105,
+      "purpose": "Login identifier behavior."
+    },
+    {
+      "path": "src/dashboard/lib/ten-dang-nhap.ts",
+      "status": "traced",
+      "prior_status": "scanned",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 16,
+          "end": 30,
+          "purpose": "Username to local email normalization"
+        }
+      ],
+      "sha256": "d33ac9ebcb9c0f4ae98bfb19219fa35348e4e04191178959fd0287a58b41abfc",
+      "line_count": 61,
+      "purpose": "Normalization helper."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/AccountActions.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 281,
+          "end": 290,
+          "purpose": "Account setup username contract"
+        }
+      ],
+      "sha256": "7606b35c1708b6f1f8a44d64b1a5a66b3cf915338fac77363b4af90d03128520",
+      "line_count": 464,
+      "purpose": "Account setup input."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/forgot-password/ForgotPasswordForm.tsx",
+      "status": "traced",
+      "prior_status": "traced",
+      "full_file_read_this_round": false,
+      "read_level_this_round": "traced",
+      "ranges": [
+        {
+          "start": 20,
+          "end": 31,
+          "purpose": "Recovery field requires email"
+        },
+        {
+          "start": 73,
+          "end": 90,
+          "purpose": "Recovery submits raw value"
+        }
+      ],
+      "sha256": "a8f656432cf6a53906665d6aa229179cba3cc0c827f57919f5a3f47901c05f3b",
+      "line_count": 118,
+      "purpose": "Recovery input contract."
+    },
+    {
+      "path": "scripts/apply-pending-migrations.sh",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 81,
+          "end": 88,
+          "purpose": "Ledger objects created before dry-run branch"
+        },
+        {
+          "start": 118,
+          "end": 120,
+          "purpose": "List-only dry-run branch"
+        }
+      ],
+      "sha256": "358d9356b82f54751798e1abcb9ac169dd80d48c13ed0a05ce0d14345aaa6721",
+      "line_count": 158,
+      "purpose": "Full migration runner read; dry-run candidate held."
+    },
+    {
+      "path": "scripts/restore-preflight.sql",
+      "status": "read",
+      "prior_status": "traced",
+      "full_file_read_this_round": true,
+      "read_level_this_round": "read",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 56,
+          "purpose": "Full-file read"
+        }
+      ],
+      "sha256": "8cd3e73cd43d950a8b908ea0db985f46e8753dbfffcb1b30609965ff74fa6d42",
+      "line_count": 56,
+      "purpose": "Restore preflight contract."
+    }
+  ],
+  "held_observations": [
+    "AUTH-RECOVERY-USERNAME-001",
+    "MIGRATION-DRYRUN-001",
+    "CLINIC-CONFIG-PARTIAL-SAVE-001"
+  ],
+  "migration_scope_note": "All 373 migrations have prior read status in MAIN-PHAM-VI.json. This round cross-checked prior RLS/tenant findings; it is not a live database catalog validation."
+}

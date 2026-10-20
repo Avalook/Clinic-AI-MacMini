@@ -1,0 +1,900 @@
+{
+ "chunk": "S17",
+ "findings": [
+  {
+   "tmp_id": "S17-1",
+   "title": "Lưới lịch hẹn tuần bị cắt ở 500 dòng theo thứ tự thời gian mà Trang chủ, Tiếp đón và Lịch đổ về không báo",
+   "severity": "MEDIUM",
+   "category": "silent_truncation",
+   "evidence_level": "confirmed_static",
+   "summary": "WeekAppointmentsService đọc lịch cả tuần bằng một CTE có LIMIT 500, sắp xếp slot_start tăng dần, rồi trả về một danh sách thuần, không có cờ bị cắt hay tổng thật. Cùng danh sách này nuôi bảng lịch ở Trang chủ, các ô số của Lễ tân (Chờ check-in hôm nay, Đã check-in hôm nay), bảng ở màn Tiếp đón (/home/lich-hen-tuan) và toàn bộ thống kê Lịch đổ về. Nếu một tuần có hơn 500 lịch còn giữ chỗ thì các lịch muộn nhất trong tuần rơi khỏi mọi màn, còn giao diện vẫn viết số lịch theo danh sách đã cắt hoặc “chưa có lịch hẹn nào”.",
+   "trigger": "Một tuần (một cơ sở đang đứng) có hơn 500 lịch không thuộc nhóm đã huỷ/không đến/từ chối. Với quy mô khoảng 70 lịch mỗi ngày là chạm trần. Các ngày cuối tuần (hoặc phần cuối ngày hôm nay nếu hôm nay đã nằm sau điểm cắt) bị mất trước.",
+   "impact": "Lễ tân/CSKH có thể không thấy khách có hẹn trên lưới và trên màn Tiếp đón khi cần check-in; thẻ “Chờ check-in hôm nay/Đã check-in hôm nay” đếm thiếu trong khi khối “Tải bác sĩ hôm nay” (đếm riêng bằng GROUP BY, không có trần) vẫn đúng, nên hai con số trên cùng một trang có thể mâu thuẫn. Quản lý đọc Lịch đổ về để quyết định nhân lực theo khung giờ có thể thấy tổng thấp hơn thực tế mà không có dấu hiệu. Đây là khả năng khi quy mô tăng, không phải khẳng định đã xảy ra ở production (bình luận trong mã ghi prod từng chỉ có vài chục lịch).",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/week_appointments_service.py",
+     "line": 51,
+     "end_line": 53,
+     "detail": "MAX_ROWS = 500, ghi là giữ đúng trần của bản cũ."
+    },
+    {
+     "path": "src/clinicai/services/week_appointments_service.py",
+     "line": 61,
+     "end_line": 87,
+     "detail": "CTE tuan: ORDER BY a.slot_start, a.created_at, a.id LIMIT %d (thay bằng MAX_ROWS ở dòng 247). Không có truy vấn đếm tổng nào."
+    },
+    {
+     "path": "src/clinicai/services/week_appointments_service.py",
+     "line": 256,
+     "end_line": 300,
+     "detail": "week() trả list[dict]; chỉ logger.info(rows=len(rows)), không trả cờ bi_cat hay tổng thật."
+    },
+    {
+     "path": "src/clinicai/services/man_trang_chu_service.py",
+     "line": 402,
+     "end_line": 410,
+     "detail": "goi_du_lieu nạp tuan_hen từ WeekAppointmentsService.week; tai_bac_si (dòng 222-243) lại đếm riêng không trần nên có thể lệch với tuan_hen."
+    },
+    {
+     "path": "src/clinicai/services/man_trang_chu_service.py",
+     "line": 478,
+     "end_line": 506,
+     "detail": "goi_lich_hen_tuan (cho /reception/queue, xem home.py:49-68) dùng cùng week() nên màn Tiếp đón bị cùng trần."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+     "line": 342,
+     "end_line": 371,
+     "detail": "Hai thẻ của Lễ tân đếm từ goi.tuan_hen; nhãn nói “đếm trên CHÍNH danh sách lịch tuần … không cãi nhau với bảng” nhưng danh sách đã cắt."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+     "line": 678,
+     "end_line": 685,
+     "detail": "Nếu mọi ngày rỗng: “Chưa có lịch hẹn nào trong tuần này.” Không có nhánh nào nói danh sách có thể bị cắt."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/lich-do-ve/page.tsx",
+     "line": 56,
+     "end_line": 62,
+     "detail": "Thống kê khung giờ và tổng tính trên items của /appointments/week (cùng service) — đếm trên dữ liệu đã cắt."
+    },
+    {
+     "path": "src/tests/services/test_thu_thuat_nhu_kham_thuong_db.py",
+     "line": 188,
+     "detail": "Một test còn thay chuỗi LIMIT MAX_ROWS bằng LIMIT 100000 để né trần; không thấy test nào khẳng định hành vi khi vượt 500."
+    }
+   ],
+   "limitations": "Chưa chạy; không biết số lịch/tuần thật. Điểm cắt tính theo hàng ghi lịch (không theo ngày) nên ngày bị ảnh hưởng đầu tiên phụ thuộc phân bố. Đã thấy DEAD_STATUSES loại huỷ/không đến khỏi lưới nên số dòng tính là các lịch còn sống.",
+   "recommendation": "Bỏ trần cho truy vấn theo một ngày (Tiếp đón chỉ cần hôm nay) hoặc phân trang theo ngày; trả kèm tổng thật và cờ bi_cat; giao diện luôn hiện “Hiển thị N/M lịch” khi M>N. Thống kê Lịch đổ về nên tính bằng GROUP BY trong SQL thay vì tải dòng. Đồng bộ các thẻ đếm với cùng một nguồn.",
+   "acceptance": "Test DB tạo 600 lịch trong một tuần: API trả tổng=600 và bi_cat=true (hoặc không cắt); lịch của ngày thứ Sáu vẫn tìm được ở màn Tiếp đón khi hôm nay là thứ Sáu; Lịch đổ về hiện tổng 600; UI hiện banner khi dữ liệu bị cắt; thẻ Chờ check-in hôm nay khớp truy vấn đếm trực tiếp.",
+   "alignment": [
+    "Reality rõ",
+    "Unknown ngắn",
+    "Bệnh nhân ít chờ trong bất định"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FE-024",
+    "OPS-010",
+    "FIN-007",
+    "CLIN-027"
+   ]
+  },
+  {
+   "tmp_id": "S17-2",
+   "title": "Gói lịch tuần của Trang chủ và /appointments/week trả hồ sơ nhân khẩu học đầy đủ của mọi bệnh nhân có hẹn cho bất kỳ vai nào trong clinic",
+   "severity": "MEDIUM",
+   "category": "pii_overexposure",
+   "evidence_level": "confirmed_static",
+   "summary": "Truy vấn lịch tuần JOIN bảng patient và chọn ngày sinh, hai số điện thoại, giới tính, dân tộc, quốc tịch, nghề nghiệp, đối tượng (patient_objection), địa chỉ và tên người giám hộ cho mọi lịch của cả tuần, kèm ghi chú CSKH của lịch. Hai endpoint dùng nó (/home/bang-dieu-khien, /home/lich-hen-tuan, /appointments/week) chỉ yêu cầu get_current_identity, được ghi rõ “không guard theo vai”. Bảng lịch ở giao diện chỉ dùng họ tên, SĐT, mã bệnh nhân và id; các trường còn lại được đưa tới trình duyệt nhưng không hiển thị ở bảng này.",
+   "trigger": "Bất kỳ nhân viên đã đăng nhập thuộc clinic (kể cả vai không có quyền đọc hồ sơ bệnh nhân, thư ký chưa được phân bác sĩ, vai thu ngân…) mở /home hoặc gọi trực tiếp các endpoint trên.",
+   "impact": "Nguyên tắc tối thiểu đặc quyền không được áp dụng cho một payload chứa thông tin nhân thân/nhạy cảm của tất cả khách trong tuần; nó vượt mọi hạn chế phạm vi phân công (bác sĩ/thư ký) áp ở các API hồ sơ. Khi bán cho nhiều phòng khám, các chủ phòng khám sẽ yêu cầu phân quyền theo vai nhưng lưới này bỏ qua nó.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/week_appointments_service.py",
+     "line": 201,
+     "end_line": 204,
+     "detail": "SELECT p.date_of_birth, p.phone_primary, p.phone_secondary, p.gender, p.ethnicity, p.nationality, p.occupation, p.patient_objection, p.address, p.guardian_name."
+    },
+    {
+     "path": "src/clinicai/services/week_appointments_service.py",
+     "line": 130,
+     "detail": "Cũng trả t.notes (ghi chú CSKH lúc đặt) cho mọi dòng."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/booking.py",
+     "line": 565,
+     "end_line": 590,
+     "detail": "/appointments/week chỉ Depends(get_current_identity); docstring: “bảng lịch tuần ở trang chủ hiện cho mọi vai”; lọc duy nhất là location."
+    },
+    {
+     "path": "src/clinicai/api/v1/routers/home.py",
+     "line": 22,
+     "end_line": 46,
+     "detail": "bang-dieu-khien “Không guard theo vai … mở cho mọi vai đã đăng nhập”; lich-hen-tuan (49-68) cùng cổng."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+     "line": 102,
+     "end_line": 116,
+     "detail": "Kiểu WeekApptRow.patient khai đủ các trường trên; phần vẽ (dòng 926-937, 376-388) chỉ dùng full_name, phone_primary, patient_code, clinic_patient_id."
+    }
+   ],
+   "limitations": "Chưa soát mọi nơi tiêu thụ payload này (màn Tiếp đón hoặc màn khác có thể dùng ngày sinh/địa chỉ). Các vai bị chặn ở get_current_identity (DISPLAY, người lạ) không đọc được. Nhật ký truy cập hồ sơ không được kiểm tra.",
+   "recommendation": "Tách hai tầng: payload lưới chỉ có tối thiểu (mã, tên, SĐT nếu vai có quyền liên hệ, dịch vụ, giờ, trạng thái); trường nhân khẩu học chỉ trả qua endpoint hồ sơ có capability và phạm vi phân công. Thêm test hợp đồng chặn việc thêm trường PII vào gói lưới.",
+   "acceptance": "Gọi /appointments/week và /home/bang-dieu-khien bằng tài khoản không có quyền đọc hồ sơ: JSON không chứa date_of_birth, address, guardian_name, ethnicity, nationality, occupation, patient_objection, phone_secondary; các màn hiện tại vẫn hiển thị đủ cột cần thiết.",
+   "alignment": [
+    "Ownership rõ",
+    "Nhân viên làm việc bền vững"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-018",
+    "SEC-027",
+    "SEC-022",
+    "SEC-005"
+   ]
+  },
+  {
+   "tmp_id": "S17-3",
+   "title": "Thẻ “Việc đang chờ làm” và dòng “việc quá hạn” đếm toàn bộ work_item của clinic nhưng dẫn tới màn chỉ chứa một phần việc đó, và không có người nhận",
+   "severity": "MEDIUM",
+   "category": "number_destination_mismatch",
+   "evidence_level": "design_gap",
+   "summary": "Máy chủ đếm viec_dang_cho là mọi work_item PENDING/IN_PROGRESS trong cơ sở đang đứng (mọi node, mọi trạm, không lọc theo người hay vị trí) và viec_qua_han là mọi work_item có due_at đã qua. Trang chủ gắn thẻ đầu tiên với /customers (màn CSKH) và dòng “việc quá hạn” với /viec-can-xu-ly, màn này chỉ đọc workspace khu_van_hanh với ba node OPS. Bình luận trong mã tự mô tả ô này là “việc CHĂM SÓC KHÁCH”, trái với định nghĩa của câu đếm.",
+   "trigger": "Có work_item đang mở thuộc node khác (đo sinh hiệu, khám, xét nghiệm…) hoặc việc của người khác; người trực nhìn con số trên Trang chủ rồi bấm vào.",
+   "impact": "Số liệu đầu trang không giải thích được: người dùng có thể thấy “37 việc đang chờ” nhưng không tìm ra 37 việc ở đích. Số này không thuộc về ai (không có “của tôi/của vị trí tôi”), nên dễ trở thành con số mọi người nhìn mà không ai chịu. Có thể khiến việc quá hạn của node không thuộc khu vận hành vừa được đếm đỏ vừa không có chỗ xử lý từ chính ô đó.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/man_trang_chu_service.py",
+     "line": 84,
+     "end_line": 98,
+     "detail": "so_viec = count(work_item) WHERE status IN (PENDING, IN_PROGRESS) và chỉ lọc theo cơ sở; không lọc node, vị trí hay người nhận."
+    },
+    {
+     "path": "src/clinicai/services/man_trang_chu_service.py",
+     "line": 274,
+     "end_line": 288,
+     "detail": "so_viec_qua_han cùng phạm vi, due_at < now()."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+     "line": 331,
+     "end_line": 341,
+     "detail": "Bình luận mô tả ô này là việc chăm sóc khách."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+     "line": 384,
+     "end_line": 390,
+     "detail": "Thẻ “Việc đang chờ làm” href = toi(\"/customers\")."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+     "line": 601,
+     "end_line": 607,
+     "detail": "viec_qua_han → /viec-can-xu-ly."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/viec-can-xu-ly/page.tsx",
+     "line": 26,
+     "end_line": 29,
+     "detail": "Màn đích mô tả đúng ba loại việc khu vận hành (xem thêm BangViecCanXuLy.tsx:34-38, 55 đọc workspace=khu_van_hanh)."
+    }
+   ],
+   "limitations": "Chưa mở /customers để đếm; kết luận dựa trên định nghĩa câu đếm và danh sách node thấy ở BangViecCanXuLy. Có thể nhiều node chỉ tồn tại ngắn nên chênh lệch thực tế nhỏ; xu hướng 7 ngày (dòng 176-219) dùng cùng định nghĩa.",
+   "recommendation": "Gắn mỗi ô số với đúng một bảng đích dựng từ cùng truy vấn (cùng bộ lọc/tham số), thêm cột “người/vị trí phụ trách” và lọc “của tôi/của trạm tôi”; nếu cần số tổng clinic thì dán nhãn rõ và dẫn tới danh sách tương ứng.",
+   "acceptance": "Với dữ liệu mẫu có 5 work_item thuộc 3 node khác nhau, số trên thẻ bằng số dòng của màn đích khi mở bằng liên kết của thẻ; test hợp đồng so sánh count API với count danh sách đích.",
+   "alignment": [
+    "Reality rõ",
+    "Ownership rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "OPS-002",
+    "FE-020"
+   ]
+  },
+  {
+   "tmp_id": "S17-4",
+   "title": "Danh sách hoá đơn giữ số liệu của bộ lọc cũ dưới nhãn bộ lọc mới khi đổi ngày/ca/cơ sở hoặc khi lần đọc mới lỗi",
+   "severity": "MEDIUM",
+   "category": "stale_scope_display",
+   "evidence_level": "confirmed_static",
+   "summary": "DanhSachHoaDon chỉ gọi setData khi lần đọc thành công; khi người dùng đổi khoảng ngày, ca, cơ sở hoặc nhóm thì data cũ vẫn nằm đó trong lúc chờ, và nếu lần đọc lỗi thì chỉ hiện một dải đỏ phía trên trong khi toàn bộ tổng tiền, bảng khách, tab việc tồn của bộ lọc trước vẫn hiển thị. Chỉ báo duy nhất đang tải là prop dangTai của bộ chọn ngày. Nút Excel dùng chuỗi lọc mới, nên số trên màn có thể khác số trong file. Màn Kế toán cùng loại đã tự xoá data khi lỗi (KeToan.tsx:70) nên hai màn tiền không nhất quán.",
+   "trigger": "Người đối soát đổi “30 ngày” thành “hôm nay” (hoặc ngược lại) khi mạng chậm hoặc backend trả lỗi/timeout, rồi chụp hoặc đọc số tổng.",
+   "impact": "Số “Thực thu/Tiền đã thu/Chưa trả lại khách” của phạm vi A có thể được đọc như của phạm vi B ở màn đối soát tiền; file Excel xuất sau đó không khớp với số vừa nhìn.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/hoa-don/DanhSachHoaDon.tsx",
+     "line": 145,
+     "end_line": 159,
+     "detail": "setDangTai/ setLoi đầu mỗi lần; setData(d) chỉ khi thành công; catch chỉ setLoi."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/hoa-don/DanhSachHoaDon.tsx",
+     "line": 232,
+     "end_line": 235,
+     "detail": "Dải lỗi hiện nhưng “Đang tải hoá đơn…” chỉ khi !data; không có chỉ báo dữ liệu cũ."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/hoa-don/DanhSachHoaDon.tsx",
+     "line": 235,
+     "end_line": 260,
+     "detail": "Khối tổng và bảng vẽ từ data cũ vô điều kiện."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/hoa-don/DanhSachHoaDon.tsx",
+     "line": 197,
+     "detail": "Liên kết xuất Excel dùng chuỗi lọc hiện tại."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/ke-toan/KeToan.tsx",
+     "line": 69,
+     "end_line": 71,
+     "detail": "Đối chiếu: màn Kế toán gọi setData(null) khi lỗi."
+    }
+   ],
+   "limitations": "Chưa chạy trình duyệt. Dải lỗi luôn hiện cùng lúc nên người chú ý có thể nhận ra; rủi ro chủ yếu là lúc đang tải (không có lỗi) và khi dải lỗi bị bỏ qua.",
+   "recommendation": "Gắn khoá bộ lọc vào data (data.tu/den/ca/co_so) và so với bộ lọc hiện tại: khác thì làm mờ/ẩn số và hiện “Đang cập nhật”, hoặc xoá data khi đổi bộ lọc như KeToan.",
+   "acceptance": "Test giao diện: chặn phản hồi thứ hai, đổi bộ lọc → các số tổng không còn hiển thị như của bộ lọc mới; trả 500 → bảng không còn dữ liệu cũ hoặc có nhãn “dữ liệu của <phạm vi cũ>”.",
+   "alignment": [
+    "Reality rõ",
+    "Unknown ngắn",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FE-002",
+    "FE-004",
+    "FIN-006"
+   ]
+  },
+  {
+   "tmp_id": "S17-5",
+   "title": "Luật “lịch sống / sắp tới / mất bác sĩ / lịch trùng” được cài lại trong server component TSX, song song với bản SQL, vi phạm luật repo và có thể lệch nhau",
+   "severity": "MEDIUM",
+   "category": "business_rule_in_ui",
+   "evidence_level": "design_gap",
+   "summary": "customers/page.tsx tự dựng từ danh sách thô: tập trạng thái chết/chưa đóng, chọn lịch đại diện, cờ qua_gio_hen, mat_bac_si (kèm hàng rào doCaTruc/daCongBo), mat_bac_si cho từng lượt, và phép tính lịch trùng (cùng dịch vụ cùng ngày). Trong khi đó week_appointments_service.py tính mat_bac_si bằng SQL riêng cho Trang chủ, không có hàng rào doCaTruc. Trang chủ và WeeklyAppointmentsTable cũng chép danh sách trạng thái (SCHEDULED/CSKH_CONFIRMED/CONFIRMED, TRUOC_KHI_DEN, CON_SONG) trong TSX. CLAUDE.md của repo nêu rõ không đặt luật nghiệp vụ trong TSX; 123 chỗ if theo vai còn lại là mục tiêu dọn.",
+   "trigger": "Thêm trạng thái lịch mới, đổi luật “lịch còn cứu được”, công bố lịch trực nhưng chưa có ca nào trong cửa sổ dữ liệu, hoặc phòng khám mới có quy trình khác.",
+   "impact": "Hai màn có thể kết luận khác nhau về cùng một khách (Trang chủ cảnh báo “bác sĩ đã đổi lịch” còn màn CSKH thì im vì doCaTruc=false), dẫn tới việc không ai gọi khách hoặc gọi sai. Mỗi tenant có luật riêng đều phải sửa TSX, khó đóng gói và khó viết test hợp đồng.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+     "line": 456,
+     "end_line": 480,
+     "detail": "DEAD và CHUA_DONG định nghĩa lại; upcoming tính ở TSX."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+     "line": 550,
+     "end_line": 570,
+     "detail": "qua_gio_hen và mat_bac_si tính ở TSX với doCaTruc, daCongBo, coCa."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+     "line": 621,
+     "end_line": 644,
+     "detail": "Phép trùng lịch = cùng service_type_id cùng ngày, tính ở TSX."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+     "line": 1014,
+     "end_line": 1030,
+     "detail": "mat_bac_si từng lượt: thêm nhánh bac_si_da_go_id; bs_go_co_ca_lai."
+    },
+    {
+     "path": "src/clinicai/services/week_appointments_service.py",
+     "line": 146,
+     "end_line": 192,
+     "detail": "Bản SQL của mat_bac_si và bs_go_co_ca_lai, không có doCaTruc."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+     "line": 357,
+     "end_line": 371,
+     "detail": "Danh sách trạng thái viết tay để đếm “Chờ check-in/Đã check-in”."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+     "line": 362,
+     "end_line": 365,
+     "detail": "TRUOC_KHI_DEN, CON_SONG chép từ _ALIVE/_PRE_ARRIVAL trong booking_service.py:275-276 (bình luận nói máy chủ chốt lại)."
+    }
+   ],
+   "limitations": "Chưa chứng minh một trường hợp lệch cụ thể ở production; doCaTruc là hàng rào cố ý chống báo nhầm hàng loạt. Chỉ khẳng định có hai bản luật độc lập với điều kiện biên khác nhau.",
+   "recommendation": "Để backend trả các cờ đã tính (lịch đại diện, sap_toi, mat_bac_si, trung_lich, qua_gio_hen) từ một hàm duy nhất dùng cho Trang chủ, CSKH, Tiếp đón; TSX chỉ vẽ. Thêm test hợp đồng giữa hai màn và một test quét cấm danh sách trạng thái lịch trong TSX.",
+   "acceptance": "Cùng bộ dữ liệu, cờ mat_bac_si ở /home và /cskh/man-khach-hang giống nhau kể cả khi không có ca trực nào trong cửa sổ; tìm chuỗi “CSKH_CONFIRMED” trong src/dashboard (trừ nhãn/test) không còn trả về logic.",
+   "alignment": [
+    "Reality rõ",
+    "Lỗi lặp thành cải tiến hệ thống"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-049",
+    "FE-012"
+   ]
+  },
+  {
+   "tmp_id": "S17-6",
+   "title": "Thẻ của Lễ tân lọc lịch “hôm nay” bằng 10 ký tự đầu của slot_start dạng UTC, không phải ngày giờ Việt Nam",
+   "severity": "LOW",
+   "category": "timezone_slice",
+   "evidence_level": "confirmed_static",
+   "summary": "WeekAppointmentsService trả slot_start bằng datetime.isoformat() của giá trị asyncpg (timestamptz decode thành datetime múi UTC), tức dạng “…+00:00”. BaOSo ở Trang chủ so slot_start.slice(0,10) với todayVn(). Lịch lúc 00:00 đến 06:59 giờ VN có phần ngày UTC là hôm trước, nên rơi ra khỏi “hôm nay” trong hai thẻ. Chính customers/page.tsx đã ghi bẫy này (cắt chuỗi ISO sai) và lich-hen-ngay.ts làm đúng bằng mốc ms.",
+   "trigger": "Phòng khám mở cửa sớm (lịch trước 07:00 giờ VN), hoặc tài khoản đang xem lúc backend đổi cách serialize.",
+   "impact": "Hai thẻ “Chờ check-in hôm nay/Đã check-in hôm nay” đếm thiếu các lịch sớm; thẻ không khớp bảng bên dưới (vốn lọc đúng bằng mốc ms).",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+     "line": 342,
+     "end_line": 345,
+     "detail": "henHomNay = tuan_hen.filter(a => a.slot_start.slice(0, 10) === homNay)."
+    },
+    {
+     "path": "src/clinicai/services/week_appointments_service.py",
+     "line": 376,
+     "detail": "\"slot_start\": r[\"slot_start\"].isoformat()."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/home/lich-hen-ngay.ts",
+     "line": 46,
+     "end_line": 54,
+     "detail": "Cách đúng: gom theo mốc ms từ vnLocalToUtcISO."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+     "line": 331,
+     "end_line": 341,
+     "detail": "Bình luận nêu chính bẫy cắt chuỗi ISO."
+    }
+   ],
+   "limitations": "Giả định asyncpg trả datetime UTC (mặc định) và phòng khám có lịch trước 07:00; ảnh hưởng nhỏ.",
+   "recommendation": "Dùng cùng hàm ngày VN (ngayVN) như nơi khác hoặc để máy chủ trả sẵn cờ la_hom_nay.",
+   "acceptance": "Test đơn vị: slot 2026-10-20T23:30:00+00:00 (06:30 ngày 21 giờ VN) được tính vào ngày 21.",
+   "alignment": [
+    "Reality rõ"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "S17-7",
+   "title": "Bảng Hành trình khách không huỷ hoặc đánh số các lần đọc nên phản hồi của ngày cũ có thể ghi đè ngày đang xem",
+   "severity": "LOW",
+   "category": "stale_response_race",
+   "evidence_level": "confirmed_static",
+   "summary": "BangHanhTrinh có hai đường đọc: effect ban đầu (có cờ huy) và tai() dùng cho nhịp 60 giây, tin SSE và sau check-out. tai() bị ràng buộc theo ngay lúc tạo, không có AbortController hay số thứ tự. Khi người dùng chuyển ngày, goNhip() chỉ chặn nhịp tương lai; yêu cầu tai() đang bay của ngày cũ vẫn hoàn tất và setBang(dữ liệu ngày cũ), còn nhãn và ngay đã là ngày mới.",
+   "trigger": "Xem lại hôm qua trong lúc có tin SSE hoặc nhịp hỏi vừa bắn một lần tai() với ngày trước và máy chủ trả chậm hơn lần đọc của ngày mới.",
+   "impact": "Danh sách khách và nút “Check-out” của ngày A có thể hiển thị dưới tiêu đề ngày B; thao tác sau đó nhắm tới visitId đúng nhưng người trực hiểu sai ngày.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+     "line": 63,
+     "end_line": 72,
+     "detail": "tai() không có cờ huỷ; luôn setBang nếu kq.ok."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+     "line": 74,
+     "end_line": 92,
+     "detail": "Cờ huy chỉ bọc lần đọc đầu; cleanup chỉ gọi goNhip(); useNgheBang gọi tai qua ref."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/dung-nghe-bang.ts",
+     "line": 45,
+     "end_line": 83,
+     "detail": "Hook gọi khiDoi mới nhất nhưng không huỷ lượt đang chạy của closure cũ."
+    }
+   ],
+   "limitations": "Cửa sổ lệch hẹp; chưa kiểm thử runtime.",
+   "recommendation": "Gắn mã yêu cầu hoặc AbortSignal cho cả tai(); bỏ qua kết quả nếu ngay đã đổi; hoặc kèm ngay trong payload và so khớp trước setBang.",
+   "acceptance": "Test giả lập: gọi tai(ngày A) chậm, đổi sang B, trả A sau B → state vẫn là B.",
+   "alignment": [
+    "Reality rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FE-016",
+    "FE-002"
+   ]
+  },
+  {
+   "tmp_id": "S17-8",
+   "title": "Kho vật tư y tế không có khái niệm lô và hạn dùng dù đã có sổ nhập/xuất/huỷ đầy đủ",
+   "severity": "LOW",
+   "category": "inventory_lot_expiry_gap",
+   "evidence_level": "design_gap",
+   "summary": "Phiếu vật tư (nhập, cấp, trả, chuyển, kiểm, huỷ) chỉ mang vật tư, nơi chứa, số lượng, giá nhập và ghi chú. Dòng tồn (DongTon) là số lượng theo vật tư × nơi chứa. Nhóm VTYT (vật tư y tế, ví dụ kim tiêm, ống nghiệm, hoá chất) thường có hạn dùng và cần truy vết lô khi thu hồi, nhưng màn không có trường lô/HSD nên không có cảnh báo cận hạn hay truy ngược lô tới phòng/lượt dùng.",
+   "trigger": "Nhà sản xuất thu hồi một lô vật tư hoặc vật tư hết hạn nằm trong phòng nào đó.",
+   "impact": "Không thể trả lời “lô nào ở phòng nào, dùng cho khách nào”, ảnh hưởng an toàn người bệnh và tuân thủ khi bán cho phòng khám có quy trình kiểm soát chất lượng. Thuốc đã có lô (hạng mục khác) nên khoảng trống nằm riêng ở vật tư.",
+   "evidence": [
+    {
+     "path": "src/dashboard/app/(dashboard)/kho-vat-tu/LapPhieuVatTu.tsx",
+     "line": 83,
+     "end_line": 90,
+     "detail": "Dong chỉ có ten, tu, den, so, gia — không có lô/HSD."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/kho-vat-tu/LapPhieuVatTu.tsx",
+     "line": 227,
+     "end_line": 241,
+     "detail": "Payload dòng: vat_tu_id, don_vi, tu_room_id, den_room_id, so_luong, gia_nhap."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/kho-vat-tu/TonVatTu.tsx",
+     "line": 18,
+     "end_line": 30,
+     "detail": "DongTon không có lô/hạn."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/kho-vat-tu/TonVatTu.tsx",
+     "line": 38,
+     "end_line": 46,
+     "detail": "Hai nhóm VPP và VTYT dùng chung mô hình."
+    }
+   ],
+   "limitations": "Chưa xem schema vat_tu_* ngoài phần dashboard; nhóm VTYT có thể chỉ là vật tư tiêu hao rẻ nên quyết định bỏ lô có thể là chủ ý. Bộ nhớ dự án ghi thuốc “lô không hạn” đang tạm hoãn nhưng chưa có ghi chú tương đương cho vật tư.",
+   "recommendation": "Cho mặt hàng VTYT bật cờ “theo dõi lô/HSD” theo cấu hình tenant; khi bật, phiếu nhập yêu cầu lô+HSD, tồn tách theo lô, báo cận hạn.",
+   "acceptance": "Mặt hàng có cờ lô: nhập thiếu HSD bị từ chối; báo cáo liệt kê lô sắp hết hạn trong 30 ngày theo phòng.",
+   "alignment": [
+    "Quyết định dựa bằng chứng",
+    "Phát hiện vấn đề sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "PHAR-002",
+    "CLIN-007"
+   ]
+  },
+  {
+   "tmp_id": "S17-9",
+   "title": "Duyệt nhập vật tư cho phép người xin tự duyệt chính yêu cầu của mình, không có chế độ hai người cấu hình được",
+   "severity": "LOW",
+   "category": "maker_checker_gap",
+   "evidence_level": "design_gap",
+   "summary": "Khi một phiếu nhập có dòng “cần duyệt nhập”, người có quyền vat_tu.approve sẽ được tự duyệt ngay lúc lập (tu_dong=True) và ghi sổ luôn; giao diện còn hiển thị nút Duyệt/Từ chối cho mọi yêu cầu khi người xem có quyền, kể cả yêu cầu có cờ cua_toi. Cờ can_duyet_nhap có thể được gỡ hàng loạt cho cả loại bằng một thao tác (Đặt cho cả loại) bởi người có quyền bảng giá, có hoàn tác tại chỗ nhưng không có lớp duyệt thứ hai. Thiết kế phù hợp nhóm nhỏ nhưng khó dùng cho phòng khám yêu cầu phân tách người lập/người duyệt.",
+   "trigger": "Một người vừa có quyền lập phiếu vừa có vat_tu.approve (kể cả quản lý tạo rồi tự duyệt).",
+   "impact": "Kiểm soát hàng nhập có giá trị cao chỉ còn mang tính hình thức khi cùng một người làm cả hai bước; khi bán cho tenant cần luật riêng thì phải sửa mã.",
+   "evidence": [
+    {
+     "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+     "line": 200,
+     "end_line": 203,
+     "detail": "Nếu can(conn, identity, QUYEN_DUYET) → _duyet_tren_conn(..., tu_dong=True)."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/kho-vat-tu/LapPhieuVatTu.tsx",
+     "line": 109,
+     "end_line": 111,
+     "detail": "Thông báo “bạn có quyền Duyệt vật tư nên đã tự duyệt và nhập kho”."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/kho-vat-tu/ChoDuyetVatTu.tsx",
+     "line": 176,
+     "end_line": 195,
+     "detail": "Nút Duyệt/Từ chối chỉ phụ thuộc goi.duoc_duyet, không loại trừ y.cua_toi."
+    },
+    {
+     "path": "src/dashboard/app/(dashboard)/kho-vat-tu/DatCoTheoLoai.tsx",
+     "line": 24,
+     "end_line": 28,
+     "detail": "Cờ can_duyet_nhap nằm trong danh sách có thể gắn/gỡ hàng loạt."
+    }
+   ],
+   "limitations": "Mục tiêu có chủ ý (comment: cùng luật với bán thêm vật tư). Chưa xem audit của dat_co_hang_loat.",
+   "recommendation": "Thêm cấu hình tenant “không được tự duyệt” (so sánh người lập và người duyệt), và ghi nhật ký có ngưỡng giá trị cho việc gỡ cờ hàng loạt.",
+   "acceptance": "Khi bật cấu hình, người lập không thấy/bấm được Duyệt trên yêu cầu của chính mình và API trả 403; gỡ cờ hàng loạt sinh một dòng audit.",
+   "alignment": [
+    "Ownership rõ",
+    "Quyết định dựa bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "SEC-033",
+    "FIN-010"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "FE-004",
+   "detail": "Thêm các màn đọc lỗi thành rỗng/số 0: (1) Trang chủ BaOSo lấy goi?.so_lieu ?? 0 nên khi backend im, ba ô số hiện 0 (home/page.tsx:384-406) còn dòng cảnh báo nằm ở island khác phía dưới (518-526); (2) Lịch đổ về coi fetch null là “Tuần này chưa có lịch nào” và giải thích đó là đúng sự thật (lich-do-ve/page.tsx:53-59,128-133,190-194); (3) Kho vật tư: phieu?.items ?? [] khi đọc hỏng (kho-vat-tu/page.tsx:26-27,49) hiện “Chưa ghi nhận thao tác nào.” (DanhSachPhieuVatTu.tsx:187-190) và không có nút Tải thêm; (4) CongTyHoaDon.xemLichSu coi !r.ok là danh sách rỗng “Chưa có thay đổi nào” và không có try/catch (CongTyHoaDon.tsx:83-87,139)."
+  },
+  {
+   "id": "FE-002",
+   "detail": "BangHanhTrinh: lỗi của lần tai() sau lần đầu chỉ setLoi nhưng lỗi chỉ được vẽ khi !bang (BangHanhTrinh.tsx:63-72,94-101) nên danh sách cũ ở lại không đánh dấu; DuyetKetQua giữ ds cũ khi nạp lại lỗi (DuyetKetQua.tsx:44-50) nhưng có hiện loi nên nhẹ hơn."
+  },
+  {
+   "id": "FE-003",
+   "detail": "BangHanhTrinh.tsx:106-110 lọc tìm kiếm chỉ trên mảng đã tải (300 lượt) trong khi cảnh báo ở 141-145 nói “tìm theo tên để thấy khách khác”; ô tìm không gửi q lên máy chủ."
+  },
+  {
+   "id": "FE-023",
+   "detail": "WeeklyAppointmentsTable.act() (dòng 641-660) gọi fetch PATCH không try/catch/finally: lỗi mạng làm busyId không được xoá (nút Check-in/Không đến/Hoàn tác của dòng bị disabled mãi) và (await res.json()).error ném khi phản hồi không phải JSON."
+  },
+  {
+   "id": "CLIN-035",
+   "detail": "Phía giao diện: nút “Không đến” hiện cho mọi lịch trước-đến của HÔM NAY bất kể giờ hẹn, một chạm không xác nhận (WeeklyAppointmentsTable.tsx:1027-1046); chuyển tiếp no_show chỉ nhận trạng thái trước đến và không có chuyển tiếp hoàn tác (booking_service.py:383-389, 275-276), còn NO_SHOW nằm ngoài _ALIVE nên không đổi lịch/đưa lại được: trái nguyên tắc “mọi thao tác nhân viên bấm phải hoàn tác được”."
+  },
+  {
+   "id": "OPS-001",
+   "detail": "customers/page.tsx:281-299 và 1069-1098 ghi rõ lời gọi /cskh/recall-jobs là thứ DUY NHẤT sinh việc nhắc tái khám, vì “dự án CHƯA CÓ BỘ HẸN GIỜ NÀO”; kết quả null khi vai không đọc được hoặc backend im (không phân biệt) và không có báo lỗi riêng (goiLoi chỉ kiểm bundle man-khach-hang)."
+  },
+  {
+   "id": "CLIN-023",
+   "detail": "Phía UI: DuyetKetQua mặc định chiCuaToi=true (dòng 37) và câu “Không có kết quả nào đang chờ duyệt.” (90-94) hiện cả khi chỉ vì bộ lọc ẩn kết quả của bác sĩ khác hoặc chưa gán bác sĩ; số “N kết quả chờ duyệt” là số sau lọc (74)."
+  },
+  {
+   "id": "FIN-006",
+   "detail": "Giao diện không đối chiếu khoảng ngày máy chủ trả về: DanhSachHoaDon (types.ts:61 có tu/den) và KeToan (Data.tu/den, KeToan.tsx:26) không so với khoang người chọn nên khi máy chủ co về 93 ngày cuối, màn vẫn hiện khoảng đã chọn mà không cảnh báo."
+  },
+  {
+   "id": "SEC-027",
+   "detail": "Thêm payload cùng loại: /appointments/week, /home/bang-dieu-khien, /home/lich-hen-tuan trả ngày sinh, địa chỉ, người giám hộ… cho mọi vai (xem S17-2)."
+  }
+ ],
+ "held": [
+  {
+   "title": "Khoá chống gửi trùng của phiếu vật tư lưu 24 giờ theo nội dung JSON",
+   "reason": "gui-vat-tu.ts:89-125 dùng lại cùng Idempotency-Key cho cùng body trong sessionStorage 24 giờ. Nếu lần gửi đầu thành công nhưng mất phản hồi rồi người dùng cố ý lập phiếu giống hệt vào hôm sau trên cùng tab, máy chủ có thể trả bản cũ và UI vẫn báo “Đã ghi nhận … Tồn đã cập nhật”. Chưa xác minh cách service xử lý replay và thông báo gui_lai chỉ thấy ở nhánh duyệt nhập."
+  },
+  {
+   "title": "Thêm vật tư mới qua POST /api/service-price không có Idempotency-Key",
+   "reason": "DanhMucVatTu.themVatTu (dòng 61-100) báo “vật tư chưa được thêm” khi mất kết nối; thử lại có thể tạo mặt hàng trùng tên. Chưa đọc service-price xem có chống trùng theo tên/mã (chỉ thấy chỉ mục unique theo clinic+code+group)."
+  },
+  {
+   "title": "Gỡ cờ duyệt/kinh doanh hàng loạt cho cả loại vật tư",
+   "reason": "DatCoTheoLoai có xem trước và hoàn tác trong bộ nhớ trang, nhưng chưa xác nhận dat_co_hang_loat ghi audit từng mặt hàng; nếu không, việc gỡ can_duyet_nhap cho mọi VTYT không để lại vết bền."
+  },
+  {
+   "title": "Kiểm kê (DIEU_CHINH) hiển thị chênh lệch theo tồn lúc tải trang",
+   "reason": "LapPhieuVatTu.tsx:348-363 tính “Tồn sổ” và chênh lệch từ prop ton tải sẵn; nếu có phiếu khác xen vào, số hiển thị lệch. Phụ thuộc cách service áp số đếm (PHAR-003 đã nêu phần ghi đè đồng thời)."
+  },
+  {
+   "title": "CotTongQuan bỏ im mã “cần xử lý” lạ và hiện “Không có việc tồn” với dấu tích xanh",
+   "reason": "CotTongQuan.tsx:61,95-99 lọc bỏ mã không có trong NHAN_CAN_XU_LY. Hiện cả năm mã đều có nhãn nên chưa có lệch thực tế; rủi ro khi backend thêm mã mới hoặc vai bị lọc bớt dòng (home/page.tsx:598-600)."
+  },
+  {
+   "title": "Danh mục kênh đặt lịch viết cứng trong mã, có mã mang tên thương hiệu",
+   "reason": "form-ui.ts:70-84 liệt kê kênh (FB_DR4WOMEN, ZALO_PK…) và danh sách kênh chọn được; tìm thấy FB_DR4WOMEN chỉ ở file này nên có thể không bị ràng buộc ở backend. Chưa xác minh cách backend kiểm booking_channel; ảnh hưởng chủ yếu tới tính đóng gói."
+  },
+  {
+   "title": "Thẻ trang chủ dùng vai đầu tiên (role === \"RECEPTION\") để quyết định hiện bảng Lễ tân",
+   "reason": "home/page.tsx:192 chỉ xét getVaiChinh() (phần tử đầu), trong khi backend (man_trang_chu_service.py:350 identity.co_vai) trả bảng cho bất kỳ vai hôm nay nào. Người có nhiều vai có thể không thấy bảng dù dữ liệu đã được trả; chưa xác minh thứ tự vai thực tế."
+  },
+  {
+   "title": "Kho vật tư làm mới cả trang cho mọi người xem mỗi khi bảng vat_tu_txn đổi",
+   "reason": "KhoVatTu.tsx:65-72 mỗi tin SSE gọi router.refresh() và nạp lại báo cáo; với nhiều người mở tab kho cùng lúc có thể gây tải nhưng chưa có số đo."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Bộ nhớ đệm theo lượt render bằng React cache() thay vì Map module",
+   "detail": "goiTrangChu dùng cache() để hai island Suspense dùng chung một lời gọi mà không chia sẻ promise giữa hai người dùng khác nhau; bình luận nêu rõ rủi ro rò dữ liệu.",
+   "evidence": "src/dashboard/app/(dashboard)/home/page.tsx:297-311"
+  },
+  {
+   "title": "Nói rõ khi backend im thay vì vẽ bảng rỗng",
+   "detail": "Trang chủ và Quản lý khách hàng có dải lỗi riêng khi gói dữ liệu null (“các bảng trống vì thế, không phải vì hôm nay không có gì”); đây là mẫu cần nhân rộng sang Lịch đổ về và Kho vật tư.",
+   "evidence": "src/dashboard/app/(dashboard)/home/page.tsx:456-526; src/dashboard/app/(dashboard)/customers/page.tsx:1085-1092"
+  },
+  {
+   "title": "Máy chủ bận khác hết phiên",
+   "detail": "Layout chỉ redirect /login khi /me trả 401/403; lỗi tạm thời ném trang lỗi có nút Thử lại.",
+   "evidence": "src/dashboard/app/(dashboard)/layout.tsx:49-55"
+  },
+  {
+   "title": "Một dòng SSE chung, gộp nhịp, một lượt tải một lúc",
+   "detail": "useNgheBang nghe sự kiện window do RealtimeRefresher phát, gộp 250ms, và không mở lượt thứ hai khi lượt trước chưa xong; không thêm EventSource nào.",
+   "evidence": "src/dashboard/app/(dashboard)/dung-nghe-bang.ts:45-83"
+  },
+  {
+   "title": "Sổ kho chỉ thêm, sai thì lập phiếu đảo, kèm Idempotency-Key bền qua reload",
+   "detail": "Phiếu vật tư không có nút sửa/xoá; hoàn tác là phiếu đảo; khoá chống gửi trùng lưu trong sessionStorage gắn với nội dung và chỉ xoá khi máy chủ xác nhận.",
+   "evidence": "src/dashboard/app/(dashboard)/kho-vat-tu/DanhSachPhieuVatTu.tsx:1-6; src/dashboard/app/(dashboard)/kho-vat-tu/gui-vat-tu.ts:89-141"
+  },
+  {
+   "title": "Báo “chưa đủ dữ liệu” thay vì bịa số mức dùng",
+   "detail": "Báo cáo mức dùng theo phòng chỉ tính khi có hai lần đếm thật; thiếu thì hiện lý do và chip “Chưa đủ dữ liệu”.",
+   "evidence": "src/dashboard/app/(dashboard)/kho-vat-tu/TieuHaoVatTu.tsx:90-108"
+  },
+  {
+   "title": "Xem trước rồi áp dụng, có hoàn tác, cho thao tác hàng loạt",
+   "detail": "DatCoTheoLoai đếm trước số vật tư bị tác động (máy chủ), xác nhận tại chỗ rồi mới ghi, kèm Hoàn tác theo đúng danh sách id.",
+   "evidence": "src/dashboard/app/(dashboard)/kho-vat-tu/DatCoTheoLoai.tsx:96-120"
+  },
+  {
+   "title": "Duyệt lại khi có tệp kết quả mới",
+   "detail": "Kết quả đã duyệt mà có tệp mới chưa được cho gửi sẽ quay lại hàng duyệt với giải thích “Bản mới không thừa hưởng lần duyệt cũ”.",
+   "evidence": "src/dashboard/app/(dashboard)/duyet-ket-qua/DuyetKetQua.tsx:132-142"
+  },
+  {
+   "title": "Kế toán xoá dữ liệu cũ khi lần đọc lỗi",
+   "detail": "KeToan gọi setData(null) trong catch nên không để số cũ nằm cạnh thông báo lỗi.",
+   "evidence": "src/dashboard/app/(dashboard)/ke-toan/KeToan.tsx:69-71"
+  },
+  {
+   "title": "Hiển thị “Không có dữ liệu” riêng với số 0",
+   "detail": "Hàm ngày giờ/chuỗi của hoá đơn trả “Không có dữ liệu” hoặc “—” khi thiếu, không trộn với 0.",
+   "evidence": "src/dashboard/app/(dashboard)/hoa-don/types.ts:100-122"
+  },
+  {
+   "title": "Hàm lọc ngày từ URL không ném, rác rơi về mặc định",
+   "detail": "ngayDangChon/laNgayThat xử lý chuỗi rác và ngày ngoài tuần bằng giá trị mặc định, tuân luật của repo về đầu vào ngày/giờ.",
+   "evidence": "src/dashboard/app/(dashboard)/home/loc-ngay.ts:19-43"
+  },
+  {
+   "title": "Một hàm dựng dữ liệu bảng lịch dùng cho hai màn",
+   "detail": "dungLichHenTuan được Trang chủ và Tiếp đón dùng chung để hai bảng không lệch nhau.",
+   "evidence": "src/dashboard/app/(dashboard)/home/lich-hen-ngay.ts:1-6"
+  },
+  {
+   "title": "Bản chụp công ty trên từng hoá đơn kèm lịch sử và hoàn tác",
+   "detail": "Thông tin công ty được lưu theo phiếu, có lịch sử sửa, nhắc MST, và đánh dấu khác biệt sau khi đã xuất MISA ở backend.",
+   "evidence": "src/dashboard/app/(dashboard)/hoa-don/CongTyHoaDon.tsx:1-8; src/clinicai/services/hoa_don_misa_doc.py:15-30"
+  },
+  {
+   "title": "Log Caddy cắt chuỗi truy vấn",
+   "detail": "Access log và log lỗi của Caddy thay phần ?… bằng dấu lược, tránh để từ khoá tìm khách (tên/SĐT) nằm trong log.",
+   "evidence": "caddy/Caddyfile:10-18"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+   "lines": 1193,
+   "full_read": true,
+   "note": "Đọc hết 1193 dòng; lõi là server component dựng dữ liệu CSKH; luật nghiệp vụ nhân đôi trong TSX (S17-5); khoi() trả error:null nhưng đã có goiLoi bù; OPS-001."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/customers/so-tuong-tac.ts",
+   "lines": 31,
+   "full_read": true,
+   "note": "Kiểu dữ liệu; không có vấn đề."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/dung-doi-ca.ts",
+   "lines": 35,
+   "full_read": true,
+   "note": "Hook chuông ca trực; mẫu tốt, không vấn đề."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/dung-nghe-bang.ts",
+   "lines": 93,
+   "full_read": true,
+   "note": "Hook SSE chung; mẫu tốt."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/duyet-ket-qua/DuyetKetQua.tsx",
+   "lines": 184,
+   "full_read": true,
+   "note": "Màn duyệt kết quả; mẫu duyệt lại tệp mới; bộ lọc mặc định chỉ khách của tôi (CLIN-023)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/duyet-ket-qua/page.tsx",
+   "lines": 20,
+   "full_read": true,
+   "note": "Cửa trang requireNavAccess."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/episodes/page.tsx",
+   "lines": 8,
+   "full_read": true,
+   "note": "Redirect sang /customers."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/form-ui.ts",
+   "lines": 89,
+   "full_read": true,
+   "note": "Token giao diện + danh mục kênh viết cứng (held)."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+   "lines": 237,
+   "full_read": true,
+   "note": "FE-002/FE-003, race S17-7."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hanh-trinh/page.tsx",
+   "lines": 23,
+   "full_read": true,
+   "note": "Cửa trang."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hoa-don/ChiTietHoaDon.tsx",
+   "lines": 147,
+   "full_read": true,
+   "note": "Chỉ vẽ; không vấn đề riêng."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hoa-don/CongTyHoaDon.tsx",
+   "lines": 154,
+   "full_read": true,
+   "note": "FE-004: lịch sử lỗi thành rỗng."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hoa-don/DanhSachHoaDon.tsx",
+   "lines": 411,
+   "full_read": true,
+   "note": "S17-4, FIN-006."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hoa-don/FormCongTy.tsx",
+   "lines": 47,
+   "full_read": true,
+   "note": "Ô nhập; không vấn đề."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hoa-don/page.tsx",
+   "lines": 43,
+   "full_read": true,
+   "note": "Cửa trang, kiểm tham số."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/hoa-don/types.ts",
+   "lines": 122,
+   "full_read": true,
+   "note": "Kiểu + định dạng; mẫu tốt về “Không có dữ liệu”."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/home/CotTongQuan.tsx",
+   "lines": 130,
+   "full_read": true,
+   "note": "Held: mã lạ bị bỏ im."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+   "lines": 1157,
+   "full_read": true,
+   "note": "S17-1, S17-2, S17-5, FE-023, CLIN-035."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/home/lich-hen-ngay.ts",
+   "lines": 61,
+   "full_read": true,
+   "note": "Hàm dựng dùng chung; mẫu tốt."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/home/loc-ngay.ts",
+   "lines": 68,
+   "full_read": true,
+   "note": "Hàm thuần, không ném; mẫu tốt."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/home/page.tsx",
+   "lines": 647,
+   "full_read": true,
+   "note": "S17-1, S17-3, S17-6, FE-004."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ke-toan/KeToan.tsx",
+   "lines": 189,
+   "full_read": true,
+   "note": "FIN-006; mẫu xoá data khi lỗi."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ke-toan/page.tsx",
+   "lines": 17,
+   "full_read": true,
+   "note": "Cửa trang."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/ke-toan/thue-suat.ts",
+   "lines": 27,
+   "full_read": true,
+   "note": "Nhãn thuế; luật ở máy chủ."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kham/[loai]/page.tsx",
+   "lines": 9,
+   "full_read": true,
+   "note": "Redirect."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/ChoDuyetVatTu.tsx",
+   "lines": 270,
+   "full_read": true,
+   "note": "S17-9."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/DanhMucVatTu.tsx",
+   "lines": 179,
+   "full_read": true,
+   "note": "Held: thêm vật tư không idempotent."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/DanhSachPhieuVatTu.tsx",
+   "lines": 259,
+   "full_read": true,
+   "note": "FE-004: lỗi đọc thành rỗng; mẫu sổ chỉ thêm."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/DatCoTheoLoai.tsx",
+   "lines": 256,
+   "full_read": true,
+   "note": "Mẫu xem trước/hoàn tác; held audit."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/KhoVatTu.tsx",
+   "lines": 177,
+   "full_read": true,
+   "note": "Held: làm mới toàn trang theo SSE."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/LapPhieuVatTu.tsx",
+   "lines": 444,
+   "full_read": true,
+   "note": "S17-8 (không lô/HSD), S17-9, held idempotency/kiểm kê."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/TieuHaoVatTu.tsx",
+   "lines": 117,
+   "full_read": true,
+   "note": "Mẫu “chưa đủ dữ liệu”."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/TonVatTu.tsx",
+   "lines": 452,
+   "full_read": true,
+   "note": "S17-8."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/bao-cao-vat-tu.ts",
+   "lines": 84,
+   "full_read": true,
+   "note": "Kiểu và hàm đọc; lỗi đã được trả thành loi."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/gui-vat-tu.ts",
+   "lines": 142,
+   "full_read": true,
+   "note": "Idempotency-Key bền; held."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/kho-vat-tu/page.tsx",
+   "lines": 62,
+   "full_read": true,
+   "note": "FE-004: phiếu đọc hỏng thành rỗng."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/lab-queue/page.tsx",
+   "lines": 9,
+   "full_read": true,
+   "note": "Redirect."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/layout.tsx",
+   "lines": 181,
+   "full_read": true,
+   "note": "Mẫu máy chủ bận ≠ hết phiên; DeclinedNotice thuộc dữ liệu cũ nên bỏ."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/lich-do-ve/page.tsx",
+   "lines": 256,
+   "full_read": true,
+   "note": "S17-1, FE-004."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/loading.tsx",
+   "lines": 44,
+   "full_read": true,
+   "note": "Skeleton; không vấn đề."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/luot-kham/page.tsx",
+   "lines": 9,
+   "full_read": true,
+   "note": "Redirect."
+  },
+  {
+   "path": "src/dashboard/app/(dashboard)/nav-bien-hinh.ts",
+   "lines": 121,
+   "full_read": true,
+   "note": "Bảng icon; thuần trình bày."
+  }
+ ]
+}

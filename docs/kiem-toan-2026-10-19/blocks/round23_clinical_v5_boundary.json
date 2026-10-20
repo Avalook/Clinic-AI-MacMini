@@ -1,0 +1,134 @@
+{
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "result": "No new finding in the versioned phiếu-khám v5 path: PhieuKhamService validates data against the pinned frame before save; existing test rejects unknown keys.",
+  "tests": "test_phieu_kham_db.py and test_phieu_kham_v2_db.py inspected; not run.",
+  "limitations": "Static source trace only; not an exhaustive review of all form callers or tests.",
+  "ranges": [
+    {
+      "path": "src/clinicai/phieu_kham/doc_chu.py",
+      "start": 34,
+      "end": 55,
+      "purpose": "Text field reader for pinned phiếu-khám v5.",
+      "sha256": "32729abc73b06666dfa70df523f32a7306faaeaa6624e3e35d224010c0564da6"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/doc_chu.py",
+      "start": 58,
+      "end": 77,
+      "purpose": "Structured form content reader.",
+      "sha256": "32729abc73b06666dfa70df523f32a7306faaeaa6624e3e35d224010c0564da6"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/doc_chu.py",
+      "start": 80,
+      "end": 109,
+      "purpose": "Version-5 typed form reader.",
+      "sha256": "32729abc73b06666dfa70df523f32a7306faaeaa6624e3e35d224010c0564da6"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/hanh_trinh.py",
+      "start": 623,
+      "end": 678,
+      "purpose": "Read lifecycle/visit history behavior.",
+      "sha256": "3554f05f7fe163aaecac9a3892edf9e5da534be53276d65f4670b9e4fc584a6e"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/ket_qua_chi_dinh.py",
+      "start": 79,
+      "end": 281,
+      "purpose": "Read result-by-order projection.",
+      "sha256": "894c321b4498b6eceed0f10d7561e8fec3e1f7aeeff479de7035e3196146d28d"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/kiem_khung_mau.py",
+      "start": 69,
+      "end": 218,
+      "purpose": "Validate configured frame/model.",
+      "sha256": "8a64ac51661b3be195ab2483d908b033bcdb5e3a9a0c7f5f07585bcbe0af59d2"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/mang_sang.py",
+      "start": 81,
+      "end": 99,
+      "purpose": "Build clinical record projection.",
+      "sha256": "1553f6dd1bb372fc29fdb12f6272dbf7e1a5166a2d943499887eeb90cd036120"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/mang_sang.py",
+      "start": 150,
+      "end": 167,
+      "purpose": "Build vital measurement projection.",
+      "sha256": "1553f6dd1bb372fc29fdb12f6272dbf7e1a5166a2d943499887eeb90cd036120"
+    },
+    {
+      "path": "src/clinicai/phieu_kham/nap.py",
+      "start": 25,
+      "end": 50,
+      "purpose": "Load initial pinned frame.",
+      "sha256": "077f18c3a259727ddb3f742954b7702634ae1b39502e844fc618c66e55159d50"
+    },
+    {
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "start": 244,
+      "end": 264,
+      "purpose": "Versioned v5 schema-validation entry point.",
+      "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af"
+    },
+    {
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "start": 374,
+      "end": 419,
+      "purpose": "Save path calls schema validation before write.",
+      "sha256": "233f405e872f33ec3a7e598cde536722eb2c60a22df0326e1cd99d30889572af"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/phieu_kham.py",
+      "start": 161,
+      "end": 193,
+      "purpose": "Versioned phiếu-khám API contract.",
+      "sha256": "fdf85d2b08cf8c7fbdc617d7e9ecc9930ad0e8a5f9d9c9be1b614b02c85b2aee"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+      "start": 92,
+      "end": 109,
+      "purpose": "Versioned v5 form writer.",
+      "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+      "start": 188,
+      "end": 220,
+      "purpose": "Versioned v5 form reader/caller.",
+      "sha256": "e6967fd22fff5f3b6ee5b2dd45b150eb3936c9650a07e88b1b360012192d3c62"
+    },
+    {
+      "path": "src/dashboard/app/api/phieu-kham/route.ts",
+      "start": 1,
+      "end": 125,
+      "purpose": "BFF path for versioned phiếu-khám API.",
+      "sha256": "2ff0486e686ef5e93635d63d83b313df6dd7723eb3449b31e9b6dcfe88fbf3a5"
+    },
+    {
+      "path": "src/tests/services/test_phieu_kham_db.py",
+      "start": 245,
+      "end": 275,
+      "purpose": "Test rejects keys outside the pinned v5 schema; inspected, not run.",
+      "sha256": "61a2e4ae318710ade7b67c6b778b80b7a61070f3f0b2d64cccc68f449921edc6"
+    },
+    {
+      "path": "src/tests/services/test_phieu_kham_v2_db.py",
+      "start": 66,
+      "end": 90,
+      "purpose": "Tests version pinning; inspected, not run.",
+      "sha256": "29d1fd2843c6ae33d51392f160ad527d784a8782ec45af6c4fb040cf29899e89"
+    },
+    {
+      "path": "src/tests/unit/test_phieu_kham_khung.py",
+      "start": 281,
+      "end": 356,
+      "purpose": "Unit test for frame/schema validation; inspected, not run.",
+      "sha256": "150e5bcb8260a5c3ef355c1959bee735b209f22a6ec3987103ce1426f0bfb681"
+    }
+  ]
+}

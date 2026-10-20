@@ -1,0 +1,3435 @@
+{
+  "scope": "Source path/hash/line integrity only, not a replacement for semantic review",
+  "checks": [
+    {
+      "id": "CLIN-001",
+      "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-002",
+      "path": "src/clinicai/services/hanh_trinh_khach_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-003",
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-003",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-004",
+      "path": "src/clinicai/services/work_item_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-004",
+      "path": "src/clinicai/api/v1/routers/work_items.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-004",
+      "path": "src/clinicai/services/ultrasound_board_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-008",
+      "path": "src/dashboard/app/(dashboard)/PatientAdminEditor.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-008",
+      "path": "src/clinicai/schemas/patient.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-008",
+      "path": "src/clinicai/api/v1/patients.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-008",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-008",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-008",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-008",
+      "path": "supabase/migrations/20260915000015_cccd_trung_canh_bao.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-001",
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-001",
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-002",
+      "path": "scripts/staging-nap-ban-sao.sh",
+      "valid": true
+    },
+    {
+      "id": "DB-002",
+      "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-002",
+      "path": "scripts/restore-db.sh",
+      "valid": true
+    },
+    {
+      "id": "DB-002",
+      "path": "scripts/restore-db.sh",
+      "valid": true
+    },
+    {
+      "id": "DB-002",
+      "path": "scripts/apply-pending-migrations.sh",
+      "valid": true
+    },
+    {
+      "id": "DB-002",
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-002",
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-003",
+      "path": "supabase/migrations/20261013100000_giam_gia.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-004",
+      "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-004",
+      "path": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+      "valid": true
+    },
+    {
+      "id": "FIN-001",
+      "path": "src/clinicai/services/bill_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/clinicai/services/ban_thuoc_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/dashboard/app/(dashboard)/pharmacy/PharmacyBoard.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/dashboard/app/(dashboard)/pharmacy/history/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/dashboard/app/(dashboard)/pharmacy/consult/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-003",
+      "path": "src/clinicai/api/v1/routers/quay_thuoc.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-003",
+      "path": "src/clinicai/services/quay_thuoc_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-001",
+      "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-001",
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-003",
+      "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-003",
+      "path": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-004",
+      "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-004",
+      "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-004",
+      "path": "src/dashboard/app/(dashboard)/reports/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "INF-001",
+      "path": "scripts/verify-backup.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-001",
+      "path": "scripts/verify-backup.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-002",
+      "path": "src/clinicai/services/canh_gac.py",
+      "valid": true
+    },
+    {
+      "id": "INF-002",
+      "path": "src/clinicai/services/canh_gac.py",
+      "valid": true
+    },
+    {
+      "id": "INF-003",
+      "path": "scripts/tests/do-giu-cho.py",
+      "valid": true
+    },
+    {
+      "id": "INF-003",
+      "path": "scripts/tests/do-tam-cskh.py",
+      "valid": true
+    },
+    {
+      "id": "INF-004",
+      "path": "src/clinicai/worker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-005",
+      "path": "src/clinicai/events/worker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-006",
+      "path": "scripts/verify-backup.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-006",
+      "path": "scripts/restore-db.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-006",
+      "path": "scripts/apply-pending-migrations.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-006",
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-001",
+      "path": "src/dashboard/app/api/admin/users/route.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-001",
+      "path": "src/clinicai/services/auth_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-001",
+      "path": "src/dashboard/app/(auth)/reset-password/ResetPasswordForm.tsx",
+      "valid": true
+    },
+    {
+      "id": "INF-007",
+      "path": "src/clinicai/api/idempotency.py",
+      "valid": true
+    },
+    {
+      "id": "INF-007",
+      "path": "src/clinicai/api/idempotency.py",
+      "valid": true
+    },
+    {
+      "id": "INF-007",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "INF-007",
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "valid": true
+    },
+    {
+      "id": "INF-007",
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "valid": true
+    },
+    {
+      "id": "AI-001",
+      "path": "src/clinicai/services/agent_giam_sat.py",
+      "valid": true
+    },
+    {
+      "id": "AI-001",
+      "path": "src/clinicai/services/agent_giam_sat.py",
+      "valid": true
+    },
+    {
+      "id": "AI-001",
+      "path": "src/clinicai/services/agent_giam_sat.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-004",
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-004",
+      "path": "supabase/migrations/20261013100000_giam_gia.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-002",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-002",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-002",
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-002",
+      "path": "src/clinicai/api/v1/routers/phieu.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-002",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-002",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-005",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-005",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-005",
+      "path": "src/clinicai/services/ghi_chu_luot.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-005",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-005",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-005",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-005",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-006",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-006",
+      "path": "src/clinicai/events/consumers/chuong.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-006",
+      "path": "src/clinicai/events/consumers/chuong.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-006",
+      "path": "src/clinicai/services/thong_bao_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-006",
+      "path": "src/clinicai/services/thong_bao_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-003",
+      "path": "src/clinicai/services/nhan_tep_luong.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-003",
+      "path": "src/clinicai/services/nhan_tep_luong.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-003",
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-004",
+      "path": "src/dashboard/package-lock.json",
+      "valid": true
+    },
+    {
+      "id": "SEC-004",
+      "path": "src/dashboard/package-lock.json",
+      "valid": true
+    },
+    {
+      "id": "SEC-004",
+      "path": "src/dashboard/next.config.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-004",
+      "path": "src/dashboard/proxy.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-004",
+      "path": "src/dashboard/package.json",
+      "valid": true
+    },
+    {
+      "id": "SEC-004",
+      "path": "src/dashboard/Dockerfile.dashboard",
+      "valid": true
+    },
+    {
+      "id": "CLIN-007",
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-007",
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-007",
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-007",
+      "path": "supabase/migrations/20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql",
+      "valid": true
+    },
+    {
+      "id": "FE-006",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-006",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-006",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-006",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-006",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-006",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/clinicai/services/quay_thu_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/clinicai/services/quay_thu_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/clinicai/services/quay_thu_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/clinicai/services/cashier_scope_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/clinicai/services/cashier_board_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/clinicai/api/v1/routers/cashier.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/clinicai/api/v1/routers/cashier.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/LichSuThu.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-005",
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/LichSuThu.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/services/cashier_board_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/services/danh_sach_hoa_don_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/services/danh_sach_hoa_don_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/services/xuat_hoa_don_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/dashboard/components/ui/LichKhoangNgay.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/api/v1/routers/hoa_don.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/api/v1/routers/reports.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/api/v1/routers/reports.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/clinicai/api/v1/routers/reports.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/dashboard/app/(dashboard)/reports/CuoiNgay.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/dashboard/app/(dashboard)/reports/CuoiNgay.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/dashboard/app/(dashboard)/reports/CuoiNgay.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-006",
+      "path": "src/dashboard/app/(dashboard)/reports/TomTatCuoiNgay.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-005",
+      "path": "src/clinicai/api/v1/routers/staff.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-005",
+      "path": "src/clinicai/services/staff_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-005",
+      "path": "src/clinicai/services/staff_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-005",
+      "path": "src/clinicai/schemas/staff.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-005",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-005",
+      "path": "src/dashboard/app/api/staff/route.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-006",
+      "path": "src/dashboard/app/api/admin/users/route.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-006",
+      "path": "src/clinicai/services/staff_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-006",
+      "path": "src/dashboard/app/(dashboard)/settings/AccountActions.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "supabase/migrations/20260803000011_standing_rules_and_clinic_hours.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "supabase/migrations/20260803000001_clinic_booking_policy.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "supabase/migrations/20260916000005_suc_chua_mot_lan_cho_ca_ngay.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "supabase/migrations/20260916000005_suc_chua_mot_lan_cho_ca_ngay.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "supabase/migrations/20260803000011_standing_rules_and_clinic_hours.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "supabase/migrations/20260803000011_standing_rules_and_clinic_hours.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "caddy/Caddyfile",
+      "valid": true
+    },
+    {
+      "id": "SEC-007",
+      "path": "docker/supabase/Caddyfile",
+      "valid": true
+    },
+    {
+      "id": "SEC-008",
+      "path": "src/dashboard/proxy.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-008",
+      "path": "src/dashboard/next.config.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-008",
+      "path": "src/dashboard/app/api/ultrasound/image/route.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-008",
+      "path": "src/clinicai/services/media_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-008",
+      "path": "src/clinicai/services/media_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-008",
+      "path": "src/tests/services/test_media.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-009",
+      "path": "src/dashboard/app/api/console/feedback/route.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-009",
+      "path": "src/dashboard/proxy.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-009",
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-009",
+      "path": "src/dashboard/Dockerfile.dashboard",
+      "valid": true
+    },
+    {
+      "id": "FIN-007",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-007",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-007",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-007",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-007",
+      "path": "src/clinicai/api/v1/routers/reports.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-007",
+      "path": "src/clinicai/core/tran.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-008",
+      "path": "src/clinicai/services/bao_cao_thuoc_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-008",
+      "path": "src/clinicai/services/bao_cao_thuoc_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-008",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-008",
+      "path": "src/clinicai/services/excel_report_export.py",
+      "valid": true
+    },
+    {
+      "id": "INF-008",
+      "path": "scripts/supabase-local-nap.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-008",
+      "path": "scripts/supabase-local-nap.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-008",
+      "path": "scripts/dev-up.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-008",
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-005",
+      "path": "supabase/migrations/20260730000006_seed_node_catalogue.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-005",
+      "path": "supabase/migrations/20260802000001_pharmacy_inventory.sql",
+      "valid": true
+    },
+    {
+      "id": "DB-005",
+      "path": "src/clinicai/services/clinic_config_service.py",
+      "valid": true
+    },
+    {
+      "id": "DB-005",
+      "path": "scripts/tao-tai-khoan-nhan-su.py",
+      "valid": true
+    },
+    {
+      "id": "DB-005",
+      "path": "scripts/tao-tai-khoan-cskh.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-010",
+      "path": "src/clinicai/api/v1/routers/consent.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-010",
+      "path": "src/clinicai/services/consent_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-010",
+      "path": "src/clinicai/services/consent_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-010",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-010",
+      "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-009",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-009",
+      "path": "src/clinicai/services/mpi_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-009",
+      "path": "src/clinicai/services/mpi_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-009",
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-009",
+      "path": "supabase/migrations/20260730000002_reference_lookup_select_policies.sql",
+      "valid": true
+    },
+    {
+      "id": "FE-007",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-007",
+      "path": "src/dashboard/app/(dashboard)/doctor/board/LuotKhamTruoc.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-007",
+      "path": "src/dashboard/app/(dashboard)/doctor/board/LuotKhamTruoc.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-007",
+      "path": "src/dashboard/app/api/clinical-forms/history/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-007",
+      "path": "src/clinicai/services/clinical_form_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/ChoBacSiQuyet.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/dashboard/app/api/luot-kham/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-008",
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-009",
+      "path": "src/clinicai/events/hen_gio.py",
+      "valid": true
+    },
+    {
+      "id": "INF-009",
+      "path": "src/clinicai/events/hen_gio.py",
+      "valid": true
+    },
+    {
+      "id": "INF-009",
+      "path": "src/clinicai/events/hen_gio.py",
+      "valid": true
+    },
+    {
+      "id": "INF-009",
+      "path": "src/clinicai/services/hen_tai_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-009",
+      "path": "src/clinicai/events/consumers/nhac_tai_kham.py",
+      "valid": true
+    },
+    {
+      "id": "INF-009",
+      "path": "supabase/migrations/20260923000008_hen_gio.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/permissions/catalogue.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/permissions/y_khoa.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/clinical_form_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/clinical_form_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/api/v1/routers/clinical_records.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/ho_so_lam_sang_doc.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/modules.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/tests/api/test_clinical_read_and_legacy_boundaries.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/tests/services/test_ho_so_lam_sang_doc_db.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-010",
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-010",
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-010",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-010",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-010",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-010",
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-011",
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-011",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-011",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-011",
+      "path": "src/clinicai/events/catalogue.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-011",
+      "path": "supabase/migrations/20260924000004_ket_qua_chuong_doi_lich.sql",
+      "valid": true
+    },
+    {
+      "id": "PHAR-001",
+      "path": "src/clinicai/services/payment_service.py",
+      "valid": true
+    },
+    {
+      "id": "PHAR-001",
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "valid": true
+    },
+    {
+      "id": "PHAR-001",
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-012",
+      "path": "src/clinicai/services/ky_nang_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-012",
+      "path": "src/clinicai/services/ky_nang_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-012",
+      "path": "src/clinicai/services/permission_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-012",
+      "path": "src/clinicai/events/consumers/hanh_trinh.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-012",
+      "path": "src/clinicai/events/consumers/hanh_trinh.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-012",
+      "path": "src/clinicai/services/doi_tac_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-012",
+      "path": "src/tests/services/test_mau_gui_doi_tac_db.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-012",
+      "path": "src/tests/services/test_mau_gui_doi_tac_db.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-013",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-013",
+      "path": "src/clinicai/services/audit_log_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-013",
+      "path": "src/clinicai/api/v1/routers/audit_log.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-013",
+      "path": "supabase/migrations/20260803000004_realtime_and_audit_scope.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-013",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-014",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-014",
+      "path": "src/clinicai/schemas/patient.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-014",
+      "path": "src/clinicai/api/v1/patients.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-014",
+      "path": "src/clinicai/services/config_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-014",
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "valid": true
+    },
+    {
+      "id": "INF-010",
+      "path": "src/clinicai/services/config_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-010",
+      "path": "src/clinicai/services/audit_log_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-010",
+      "path": "supabase/migrations/20260809000002_vai_duoc_vao_tram.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-015",
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-015",
+      "path": "src/clinicai/services/display_board_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-016",
+      "path": "src/clinicai/services/service_routing_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-016",
+      "path": "src/clinicai/services/clinic_config_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-017",
+      "path": "src/clinicai/services/hoan_tac_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-017",
+      "path": "src/clinicai/api/v1/routers/hoan_tac.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-017",
+      "path": "src/dashboard/app/(dashboard)/phong/[ma]/PhongDichVu.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-018",
+      "path": "src/clinicai/services/service_execution_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-019",
+      "path": "src/clinicai/services/doi_tac_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-019",
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-019",
+      "path": "src/clinicai/events/consumers/hanh_trinh.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-019",
+      "path": "supabase/migrations/20260930700000_xoa_mem_tep.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-020",
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-020",
+      "path": "src/clinicai/api/v1/routers/phieu_kham.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-020",
+      "path": "src/clinicai/phieu_kham/che_do.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-020",
+      "path": "src/clinicai/services/clinical_record_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-021",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-021",
+      "path": "src/clinicai/api/v1/routers/phieu.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-021",
+      "path": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-022",
+      "path": "src/clinicai/services/lieu_trinh_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-022",
+      "path": "src/clinicai/api/v1/routers/lieu_trinh.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-022",
+      "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/LieuTrinhCskh.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-009",
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "valid": true
+    },
+    {
+      "id": "FE-009",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "FE-009",
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-009",
+      "path": "src/dashboard/lib/identity-authority.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-009",
+      "path": "src/dashboard/app/(auth)/chon-co-so/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-009",
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "valid": true
+    },
+    {
+      "id": "INF-011",
+      "path": "src/clinicai/services/pos_config.py",
+      "valid": true
+    },
+    {
+      "id": "INF-011",
+      "path": "src/clinicai/services/pos_relay.py",
+      "valid": true
+    },
+    {
+      "id": "INF-011",
+      "path": "src/clinicai/api/v1/health.py",
+      "valid": true
+    },
+    {
+      "id": "INF-011",
+      "path": "supabase/migrations/20260730000007_pos_outbox.sql",
+      "valid": true
+    },
+    {
+      "id": "INF-011",
+      "path": "docker-compose.yml",
+      "valid": true
+    },
+    {
+      "id": "INF-011",
+      "path": "src/tests/test_pos_relay.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "supabase/migrations/20260915000007_prescription_draft_column_privacy.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/lieu_trinh_service.py",
+      "valid": true
+    },
+    {
+      "id": "PHAR-001",
+      "path": "src/dashboard/app/(dashboard)/pharmacy/DongThuoc.tsx",
+      "valid": true
+    },
+    {
+      "id": "PHAR-001",
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "valid": true
+    },
+    {
+      "id": "INF-005",
+      "path": "src/clinicai/events/hen_gio.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-023",
+      "path": "src/clinicai/services/luot_kham_doc.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-023",
+      "path": "src/dashboard/app/(dashboard)/duyet-ket-qua/DuyetKetQua.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-010",
+      "path": "src/clinicai/services/nhan_tai_phong.py",
+      "valid": true
+    },
+    {
+      "id": "FE-010",
+      "path": "src/dashboard/app/(dashboard)/phong/[ma]/KhungChiDinhKhach.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-010",
+      "path": "src/clinicai/services/service_routing_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-024",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-024",
+      "path": "supabase/migrations/20260805000007_appointment_patient_slot_unique.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-024",
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-024",
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-025",
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-025",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-026",
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-026",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-027",
+      "path": "src/clinicai/services/checkout_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-027",
+      "path": "src/clinicai/api/v1/routers/dispatch.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-027",
+      "path": "src/dashboard/app/api/reception/checkout/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-027",
+      "path": "src/dashboard/app/(dashboard)/reception/checkout/LuotTonDong.tsx",
+      "valid": true
+    },
+    {
+      "id": "INF-012",
+      "path": "src/clinicai/services/notification_relay.py",
+      "valid": true
+    },
+    {
+      "id": "INF-012",
+      "path": "src/clinicai/worker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-012",
+      "path": "src/clinicai/api/v1/health.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/clinicai/services/kho_thuoc_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-002",
+      "path": "src/dashboard/app/(dashboard)/pharmacy/inventory/TheKho.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/api/v1/routers/ultrasound.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/media_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/ultrasound_board_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-013",
+      "path": "src/clinicai/services/day_tep.py",
+      "valid": true
+    },
+    {
+      "id": "INF-013",
+      "path": "src/clinicai/api/v1/health.py",
+      "valid": true
+    },
+    {
+      "id": "INF-013",
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "valid": true
+    },
+    {
+      "id": "INF-013",
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "valid": true
+    },
+    {
+      "id": "INF-014",
+      "path": "scripts/ci-may.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-014",
+      "path": "scripts/deploy-backend.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-015",
+      "path": "docker-compose.yml",
+      "valid": true
+    },
+    {
+      "id": "INF-015",
+      "path": "scripts/deploy-backend.sh",
+      "valid": true
+    },
+    {
+      "id": "SEC-016",
+      "path": "src/clinicai/api/v1/routers/thai_ky.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-016",
+      "path": "src/clinicai/services/thai_ky_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-016",
+      "path": "src/clinicai/services/thu_ky_bac_si.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-016",
+      "path": "src/clinicai/permissions/catalogue.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-017",
+      "path": "supabase/migrations/20260923000003_capability.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-017",
+      "path": "supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-017",
+      "path": "supabase/migrations/20260730000015_patient_summary_security_invoker.sql",
+      "valid": true
+    },
+    {
+      "id": "FIN-009",
+      "path": "src/clinicai/services/tien_thua_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-009",
+      "path": "src/clinicai/api/v1/routers/dispatch.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-028",
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-028",
+      "path": "src/dashboard/app/(dashboard)/customers/AppointmentEditModal.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-029",
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-029",
+      "path": "src/dashboard/app/api/appointments/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-029",
+      "path": "src/dashboard/app/(dashboard)/customers/AppointmentEditModal.tsx",
+      "valid": true
+    },
+    {
+      "id": "AI-002",
+      "path": "src/clinicai/orchestrator/graph.py",
+      "valid": true
+    },
+    {
+      "id": "AI-002",
+      "path": "src/clinicai/api/v1/routers/orchestrator.py",
+      "valid": true
+    },
+    {
+      "id": "AI-003",
+      "path": "src/clinicai/graphs/scheduling/nodes.py",
+      "valid": true
+    },
+    {
+      "id": "AI-003",
+      "path": "src/clinicai/graphs/scheduling/graph.py",
+      "valid": true
+    },
+    {
+      "id": "AI-003",
+      "path": "src/clinicai/orchestrator/graph.py",
+      "valid": true
+    },
+    {
+      "id": "AI-003",
+      "path": "src/clinicai/api/v1/routers/orchestrator.py",
+      "valid": true
+    },
+    {
+      "id": "INF-001",
+      "path": "scripts/backup-db.sh",
+      "valid": true
+    },
+    {
+      "id": "INF-001",
+      "path": "src/clinicai/services/day_tep.py",
+      "valid": true
+    },
+    {
+      "id": "INF-001",
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-030",
+      "path": "src/dashboard/app/(dashboard)/pharmacy/KhachMuaThuoc.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-030",
+      "path": "src/dashboard/app/api/pharmacy/[action]/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-030",
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-030",
+      "path": "src/clinicai/services/ban_le_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-030",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-031",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/api.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-031",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-031",
+      "path": "src/dashboard/app/api/luot-kham/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-031",
+      "path": "src/clinicai/services/chi_dinh_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-031",
+      "path": "src/tests/services/test_chi_dinh_db.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-031",
+      "path": "src/tests/services/test_lan_chi_dinh_db.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-032",
+      "path": "src/clinicai/services/recall_job_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-032",
+      "path": "src/clinicai/core/tran.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-032",
+      "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-032",
+      "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-033",
+      "path": "src/dashboard/app/(dashboard)/customers/VungLamViecKhach.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-033",
+      "path": "src/dashboard/app/api/cskh/hen-goi-lai/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-033",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-033",
+      "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-033",
+      "path": "supabase/migrations/20260809000005_trang_thai_cskh_suy_ra.sql",
+      "valid": true
+    },
+    {
+      "id": "OPS-001",
+      "path": "src/clinicai/services/recall_job_service.py",
+      "valid": true
+    },
+    {
+      "id": "OPS-001",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "OPS-001",
+      "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "OPS-001",
+      "path": "src/dashboard/tests/goi-man-khach-boundary.test.mts",
+      "valid": true
+    },
+    {
+      "id": "OPS-002",
+      "path": "supabase/migrations/20260807000005_nhac_tai_kham_hai_luot_goi.sql",
+      "valid": true
+    },
+    {
+      "id": "OPS-002",
+      "path": "src/clinicai/services/recall_job_service.py",
+      "valid": true
+    },
+    {
+      "id": "OPS-002",
+      "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+      "valid": true
+    },
+    {
+      "id": "PAT-001",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "PAT-001",
+      "path": "src/clinicai/services/mpi_service.py",
+      "valid": true
+    },
+    {
+      "id": "PAT-001",
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "valid": true
+    },
+    {
+      "id": "PAT-002",
+      "path": "src/clinicai/schemas/patient.py",
+      "valid": true
+    },
+    {
+      "id": "PAT-002",
+      "path": "src/clinicai/services/mpi_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-016",
+      "path": "src/dashboard/app/api/ultrasound/image/route.ts",
+      "valid": true
+    },
+    {
+      "id": "INF-016",
+      "path": "src/clinicai/api/v1/routers/ultrasound.py",
+      "valid": true
+    },
+    {
+      "id": "INF-016",
+      "path": "src/clinicai/services/media_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-016",
+      "path": "src/clinicai/api/middleware.py",
+      "valid": true
+    },
+    {
+      "id": "INF-016",
+      "path": "docker-compose.yml",
+      "valid": true
+    },
+    {
+      "id": "SEC-017",
+      "path": "supabase/migrations/20260928000097_quyen_theo_lich_phong.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-017",
+      "path": "supabase/migrations/20261019100000_harden_public_function_acl.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/clinical_record_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/api/v1/health.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/services/canh_gac.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/events/worker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/tests/test_health_su_kien.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "supabase/migrations/20260923000001_domain_event.sql",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/api/v1/health.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/api/v1/health.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/services/canh_gac.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/services/canh_gac.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/events/worker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "src/tests/test_health_su_kien.py",
+      "valid": true
+    },
+    {
+      "id": "INF-017",
+      "path": "supabase/migrations/20260923000001_domain_event.sql",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "src/dashboard/lib/chuyen-tiep-tai-len.ts",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "src/dashboard/app/api/cskh/ket-qua/route.ts",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "src/dashboard/app/(dashboard)/customers/TepKetQua.tsx",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "src/clinicai/services/media_service.py",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "supabase/migrations/20260809000008_tep_ket_qua.sql",
+      "valid": true
+    },
+    {
+      "id": "LAB-001",
+      "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-034",
+      "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-034",
+      "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-034",
+      "path": "src/dashboard/app/api/clinical-form/andrology-review/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-034",
+      "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+      "valid": true
+    },
+    {
+      "id": "FE-011",
+      "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-011",
+      "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-011",
+      "path": "src/dashboard/app/api/clinical-form/andrology-review/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-011",
+      "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+      "valid": true
+    },
+    {
+      "id": "FE-011",
+      "path": "src/clinicai/permissions/y_khoa.py",
+      "valid": true
+    },
+    {
+      "id": "FE-011",
+      "path": "src/clinicai/services/andrology_review_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/migrations/20260801000003_adopt_prod_only_tables.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "docker-compose.supabase.yml",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "caddy/Caddyfile",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/tests/tenant_scoped_rls.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/tests/role_scoped_clinical_read.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/tests/multi_tenant_foundation.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql",
+      "valid": true
+    },
+    {
+      "id": "AI-004",
+      "path": "src/clinicai/main.py",
+      "valid": true
+    },
+    {
+      "id": "AI-004",
+      "path": "src/clinicai/llm/anthropic_client.py",
+      "valid": true
+    },
+    {
+      "id": "AI-004",
+      "path": "src/clinicai/llm/chi_phi.py",
+      "valid": true
+    },
+    {
+      "id": "AI-004",
+      "path": "src/clinicai/api/v1/routers/lab.py",
+      "valid": true
+    },
+    {
+      "id": "AI-004",
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "valid": true
+    },
+    {
+      "id": "AI-004",
+      "path": "src/tests/services/test_llm_chi_phi_db.py",
+      "valid": true
+    },
+    {
+      "id": "AI-004",
+      "path": "supabase/migrations/20261009870000_llm_chi_phi.sql",
+      "valid": true
+    },
+    {
+      "id": "FE-016",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-016",
+      "path": "src/dashboard/app/api/phieu-kham/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-017",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/XemLuot.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-017",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/LichSuKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-011",
+      "path": "src/clinicai/services/chot_so_ca_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-011",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-011",
+      "path": "supabase/migrations/20261014149000_chot_so_ca.sql",
+      "valid": true
+    },
+    {
+      "id": "FIN-011",
+      "path": "src/tests/services/test_chot_so_ca_db.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-012",
+      "path": "src/clinicai/services/tom_tat_tai_chinh_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-012",
+      "path": "src/clinicai/services/bao_cao_cuoi_ngay_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-012",
+      "path": "src/tests/unit/test_tom_tat_tai_chinh.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-012",
+      "path": "src/dashboard/app/(dashboard)/reports/TomTatCuoiNgay.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/clinicai/permissions/cua_quyen.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/clinicai/services/ho_so_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/clinicai/services/luot_kham_chung.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/dashboard/app/(dashboard)/customers/ThanhLuotKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/dashboard/app/api/cskh/ho-so-kham/[appointmentId]/route.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/tests/unit/test_ho_so_kham.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/tests/services/test_doc_luot_v5_sinh_hieu_buoi_db.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-020",
+      "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+      "valid": true
+    },
+    {
+      "id": "PHAR-002",
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "valid": true
+    },
+    {
+      "id": "PHAR-002",
+      "path": "src/clinicai/services/pharmacy_service.py",
+      "valid": true
+    },
+    {
+      "id": "PHAR-002",
+      "path": "supabase/migrations/20260802000001_pharmacy_inventory.sql",
+      "valid": true
+    },
+    {
+      "id": "PHAR-002",
+      "path": "src/tests/unit/test_pharmacy_inventory_p1.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-035",
+      "path": "src/clinicai/services/booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-035",
+      "path": "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-035",
+      "path": "src/dashboard/app/api/appointments/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-035",
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-035",
+      "path": "src/clinicai/core/trang_thai_lich.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-035",
+      "path": "src/tests/test_booking_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-021",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-021",
+      "path": "src/clinicai/main.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-021",
+      "path": "src/clinicai/core/logging.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/clinicai/services/danh_sach_benh_nhan_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/clinicai/api/v1/patients.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/dashboard/app/(dashboard)/patient-list/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/dashboard/app/(dashboard)/patient-list/PatientListView.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/clinicai/services/danh_sach_khach_cskh.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/dashboard/app/(dashboard)/customers/CustomersView.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-022",
+      "path": "src/clinicai/schemas/patient.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "supabase/migrations/20260925000015_lego_21.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/clinicai/permissions/catalogue.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/clinicai/permissions/cua_quyen.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/dashboard/lib/roles.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/dashboard/lib/quyen-cua-toi.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/dashboard/app/(dashboard)/customers/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/dashboard/app/(dashboard)/customers/CustomersView.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-023",
+      "path": "src/tests/unit/test_man_khach_hang.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-013",
+      "path": "src/clinicai/services/bill_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-013",
+      "path": "src/clinicai/services/cong_no_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-013",
+      "path": "src/clinicai/services/so_no_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-013",
+      "path": "src/tests/services/test_cong_no_check_out_db.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-013",
+      "path": "src/tests/services/test_so_no_hai_chieu_db.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-014",
+      "path": "src/clinicai/services/cong_no_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-014",
+      "path": "src/clinicai/services/bill_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-014",
+      "path": "src/clinicai/services/checkout_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-014",
+      "path": "src/tests/services/test_cong_no_check_out_db.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/clinicai/services/payment_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/clinicai/services/lenh_kham_core.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/dashboard/app/api/payment/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/clinicai/services/xuat_hoa_don_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/tests/services/test_thu_dich_vu_nhieu_lan_db.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-015",
+      "path": "src/tests/services/test_tick_cong_ty_khi_thu_db.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-024",
+      "path": "src/clinicai/core/telemetry.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-024",
+      "path": "src/clinicai/api/middleware.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-024",
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-024",
+      "path": "src/clinicai/services/kho_loi.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-024",
+      "path": "src/tests/core/test_telemetry.py",
+      "valid": true
+    },
+    {
+      "id": "API-004",
+      "path": "src/clinicai/services/work_item_service.py",
+      "valid": true
+    },
+    {
+      "id": "API-004",
+      "path": "src/clinicai/api/v1/routers/work_items.py",
+      "valid": true
+    },
+    {
+      "id": "API-004",
+      "path": "supabase/migrations/20260730000005_workflow_kernel.sql",
+      "valid": true
+    },
+    {
+      "id": "API-004",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "API-004",
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "valid": true
+    },
+    {
+      "id": "API-004",
+      "path": "src/dashboard/app/api/work-items/[id]/commands/[command]/route.ts",
+      "valid": true
+    },
+    {
+      "id": "API-004",
+      "path": "src/tests/test_work_item_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "src/clinicai/core/database.py",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "src/clinicai/main.py",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "src/clinicai/orchestrator/checkpointer.py",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "src/clinicai/core/change_broker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "src/clinicai/services/canh_gac_pool.py",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "docker-compose.yml",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "docker-compose.supabase.yml",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "docker-compose.supabase.staging.yml",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "docker-compose.staging.yml",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "src/tests/unit/test_database_pool.py",
+      "valid": true
+    },
+    {
+      "id": "INF-020",
+      "path": "src/tests/core/test_quan_sat.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-025",
+      "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-025",
+      "path": "src/dashboard/tests/doi-mat-khau-modal-cuon-boundary.test.mts",
+      "valid": true
+    },
+    {
+      "id": "SEC-026",
+      "path": "src/clinicai/services/permission_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-026",
+      "path": "src/clinicai/events/emit.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-026",
+      "path": "src/clinicai/services/audit_log_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-026",
+      "path": "src/clinicai/api/v1/routers/audit_log.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-026",
+      "path": "src/dashboard/app/(dashboard)/audit-log/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-026",
+      "path": "src/tests/services/test_permission_db.py",
+      "valid": true
+    },
+    {
+      "id": "INF-021",
+      "path": "src/clinicai/services/audit.py",
+      "valid": true
+    },
+    {
+      "id": "INF-021",
+      "path": "src/clinicai/services/clinic_floor_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-021",
+      "path": "src/tests/services/test_tang_va_vi_tri_moi_db.py",
+      "valid": true
+    },
+    {
+      "id": "FE-018",
+      "path": "src/dashboard/app/api/clinical/[visit_id]/[action]/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-018",
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-018",
+      "path": "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-018",
+      "path": "src/dashboard/app/(dashboard)/error.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-018",
+      "path": "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/clinicai/api/v1/health.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/clinicai/events/hen_gio.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/clinicai/events/phat_lai.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/clinicai/events/worker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/tests/services/test_event_worker_db.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/tests/services/test_hen_gio_db.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "src/tests/test_health_su_kien.py",
+      "valid": true
+    },
+    {
+      "id": "INF-022",
+      "path": "supabase/migrations/20260923000001_domain_event.sql",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/clinicai/api/v1/routers/dispatch.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/clinicai/services/phan_thu.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/clinicai/services/tien_thua_service.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/NutHoanTienThua.tsx",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/dashboard/app/api/reception/checkout/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/tests/services/test_mo_phong_dong_tien_db.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+      "valid": true
+    },
+    {
+      "id": "FIN-016",
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-036",
+      "path": "src/clinicai/events/catalogue.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-036",
+      "path": "src/clinicai/events/consumers/chuong.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-036",
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-036",
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-036",
+      "path": "src/tests/services/test_xac_nhan_tep_ket_qua_db.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-036",
+      "path": "supabase/migrations/20260920000005_xac_nhan_tep_ket_qua.sql",
+      "valid": true
+    },
+    {
+      "id": "FE-019",
+      "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-019",
+      "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-019",
+      "path": "src/dashboard/app/api/thong-bao/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-020",
+      "path": "src/clinicai/services/thong_bao_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-020",
+      "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-037",
+      "path": "src/clinicai/services/phieu_kham_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-037",
+      "path": "src/dashboard/app/print/phieu-kham/[visitId]/page.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-037",
+      "path": "src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-038",
+      "path": "src/clinicai/phieu_kham/mau_goi_y.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-038",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-038",
+      "path": "src/clinicai/api/v1/routers/phieu.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-038",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-039",
+      "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-039",
+      "path": "src/dashboard/app/api/clinical-form/route.ts",
+      "valid": true
+    },
+    {
+      "id": "CLIN-039",
+      "path": "src/clinicai/services/clinical_form_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-027",
+      "path": "src/clinicai/api/v1/patients.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-027",
+      "path": "src/clinicai/services/patient_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-027",
+      "path": "src/clinicai/schemas/patient.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-027",
+      "path": "src/clinicai/api/identity.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-027",
+      "path": "src/clinicai/permissions/catalogue.py",
+      "valid": true
+    },
+    {
+      "id": "INF-023",
+      "path": "src/clinicai/services/providers/telegram.py",
+      "valid": true
+    },
+    {
+      "id": "INF-023",
+      "path": "src/clinicai/services/notification_relay.py",
+      "valid": true
+    },
+    {
+      "id": "INF-023",
+      "path": "src/clinicai/worker.py",
+      "valid": true
+    },
+    {
+      "id": "INF-024",
+      "path": "src/clinicai/services/providers/zalo.py",
+      "valid": true
+    },
+    {
+      "id": "INF-024",
+      "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-024",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "INF-025",
+      "path": "src/clinicai/services/notification_templates.py",
+      "valid": true
+    },
+    {
+      "id": "INF-025",
+      "path": "src/clinicai/services/providers/telegram.py",
+      "valid": true
+    },
+    {
+      "id": "FE-021",
+      "path": "src/clinicai/services/config_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-021",
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "valid": true
+    },
+    {
+      "id": "FE-021",
+      "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+      "valid": true
+    },
+    {
+      "id": "OPS-003",
+      "path": "src/clinicai/services/config_service.py",
+      "valid": true
+    },
+    {
+      "id": "OPS-003",
+      "path": "src/clinicai/services/capacity_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-028",
+      "path": "src/clinicai/permissions/ca_truc.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-028",
+      "path": "src/clinicai/services/capacity_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-026",
+      "path": "src/clinicai/services/config_service.py",
+      "valid": true
+    },
+    {
+      "id": "INF-026",
+      "path": "src/clinicai/core/database.py",
+      "valid": true
+    },
+    {
+      "id": "OPS-004",
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "valid": true
+    },
+    {
+      "id": "OPS-004",
+      "path": "src/clinicai/services/config_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-016",
+      "path": "src/dashboard/app/api/ho-so-kham/route.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-016",
+      "path": "src/clinicai/api/v1/routers/ho_so_kham.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-016",
+      "path": "src/clinicai/services/ghi_chu_luot.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-018",
+      "path": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+      "valid": true
+    },
+    {
+      "id": "OPS-005",
+      "path": "src/clinicai/services/recall_job_service.py",
+      "valid": true
+    },
+    {
+      "id": "OPS-005",
+      "path": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+      "valid": true
+    },
+    {
+      "id": "OPS-005",
+      "path": "src/dashboard/app/(dashboard)/nhac-tai-kham/ViecGoiNhac.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-022",
+      "path": "src/clinicai/services/nhac_viec_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-022",
+      "path": "src/clinicai/api/v1/routers/day_noi.py",
+      "valid": true
+    },
+    {
+      "id": "FE-022",
+      "path": "src/dashboard/app/api/nhac-viec/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-022",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/TuNhac.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-040",
+      "path": "src/clinicai/services/ultrasound_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-040",
+      "path": "src/clinicai/services/ultrasound_board_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-040",
+      "path": "src/clinicai/api/v1/routers/ultrasound.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-028",
+      "path": "src/clinicai/services/hang_cho.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "caddy/Caddyfile",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "src/dashboard/lib/supabase-browser.ts",
+      "valid": true
+    },
+    {
+      "id": "SEC-029",
+      "path": "supabase/tests/role_scoped_clinical_read.sql",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhanHoiThuocKhach.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/dashboard/app/api/cskh/khach/[id]/route.ts",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/KhungKhach.tsx",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260730000008_table_grants.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "src/clinicai/api/v1/routers/cashier.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "src/clinicai/services/cashier_scope_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "src/clinicai/permissions/catalogue.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260923000003_capability.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "caddy/Caddyfile",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "src/tests/services/test_cashier_scope_db.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-030",
+      "path": "supabase/tests/role_scoped_clinical_read.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "supabase/migrations/20260915000008_service_order_draft.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "src/clinicai/services/service_order_service.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-011",
+      "path": "supabase/tests/thu_ky_rls_theo_bac_si.sql",
+      "valid": true
+    },
+    {
+      "id": "CLIN-041",
+      "path": "src/clinicai/api/v1/routers/phieu.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-041",
+      "path": "src/clinicai/services/form_engine_service.py",
+      "valid": true
+    },
+    {
+      "id": "CLIN-041",
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx",
+      "valid": true
+    },
+    {
+      "id": "CLIN-041",
+      "path": "src/tests/services/test_form_engine_db.py",
+      "valid": true
+    },
+    {
+      "id": "SEC-031",
+      "path": "scripts/staging-che-du-lieu.sql",
+      "valid": true
+    },
+    {
+      "id": "SEC-031",
+      "path": "docs/STAGING.md",
+      "valid": true
+    },
+    {
+      "id": "SEC-031",
+      "path": "scripts/staging-nap-ban-sao.sh",
+      "valid": true
+    },
+    {
+      "id": "SEC-032",
+      "path": "scripts/tai-khoan-theo-danh-sach.py",
+      "valid": true
+    },
+    {
+      "id": "FE-023",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-024",
+      "path": "src/clinicai/services/man_trang_chu_service.py",
+      "valid": true
+    },
+    {
+      "id": "FE-024",
+      "path": "src/dashboard/app/(dashboard)/home/VisitStatusBoard.tsx",
+      "valid": true
+    },
+    {
+      "id": "API-005",
+      "path": "src/clinicai/services/clinical_record_service.py",
+      "valid": true
+    },
+    {
+      "id": "API-005",
+      "path": "src/clinicai/phieu_kham/mang_sang.py",
+      "valid": true
+    },
+    {
+      "id": "API-005",
+      "path": "src/clinicai/modules.py",
+      "valid": true
+    },
+    {
+      "id": "API-005",
+      "path": "src/clinicai/api/v1/routers/clinical_records.py",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/clinicai/api/v1/routers/events.py",
+      "valid": true
+    },
+    {
+      "id": "FE-002",
+      "path": "src/clinicai/core/change_broker.py",
+      "valid": true
+    }
+  ]
+}

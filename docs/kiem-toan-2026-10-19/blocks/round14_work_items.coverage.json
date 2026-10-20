@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "audit": "round14_work_items",
+  "snapshot": {
+    "path": "/tmp/clinicai-audit-main-956ba4f2",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha_verification": "task-provided pin; snapshot export has no .git metadata"
+  },
+  "review_mode": "static_read_only_targeted_trace",
+  "scope": [
+    "work-item command service/API and status/event transaction",
+    "worklist, blocker endpoint, visit-work-item read scope",
+    "BFF/backend proxy/dashboard UI and direct tests",
+    "ownership, transitions, blockers, idempotency, stale updates, clinic/location/role, SLA and recovery"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "files": [
+    {
+      "path": "src/clinicai/services/work_item_service.py",
+      "sha256": "ee22eb79c6189b01d5f39a218c0b41ee48153cda78ff30d567e52331363ab396",
+      "line_count": 703,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "143-269 command lock/role/permission/gate/update/event; 392-423 visit reader; 510-617 worklist location/state policy"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/work_items.py",
+      "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+      "line_count": 719,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "126-157 visit read guard; 180-263 command runner/routes; worklist and blocker route inventory"
+    },
+    {
+      "path": "supabase/migrations/20260730000005_workflow_kernel.sql",
+      "sha256": "3c8491a0c1624addddc7d0c13e6470305653089ba4f57cdea93066baa7278b7e",
+      "line_count": 392,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "295-317 dependency gate: SKIPPED releases predecessor dependency; CANCELLED behavior differs"
+    },
+    {
+      "path": "src/clinicai/api/idempotency.py",
+      "sha256": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+      "line_count": 305,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "Acquire/replay/release/save behavior cross-checked; no finding promoted"
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "line_count": 1120,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "180-193 StaffIdentity location_id required; service/API identity context"
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "line_count": 323,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "115-124 location and identity header forwarding"
+    },
+    {
+      "path": "src/dashboard/lib/worklist.ts",
+      "sha256": "cba7eaa85e681b79443fba61c7c246487c80ad6c907db8a15d59a79a95aa2003",
+      "line_count": 77,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole worklist data shaping source read"
+    },
+    {
+      "path": "src/dashboard/lib/worklist-server.ts",
+      "sha256": "b28bb5764a0ed22271027a3a535d9e6e4bb8300f25b09c92daf943e810cd032a",
+      "line_count": 64,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole server loader source read"
+    },
+    {
+      "path": "src/dashboard/app/api/work-items/route.ts",
+      "sha256": "6b0f221f4225768210d7acecf43cfaf94bd65afe66ecdc25c610f5f2edabaab1",
+      "line_count": 29,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole worklist BFF route read"
+    },
+    {
+      "path": "src/dashboard/app/api/work-items/[id]/blockers/route.ts",
+      "sha256": "019e725e6bb0a4ca0067c302bc18b9c4435784e80c61339fd06b76daf0ba00f6",
+      "line_count": 56,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole blocker BFF route read"
+    },
+    {
+      "path": "src/dashboard/app/api/work-items/[id]/commands/[command]/route.ts",
+      "sha256": "d4cf3a38737fd4c756f166bd951cba663d08f2b9aa7e1b1989a23b94915a9170",
+      "line_count": 48,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole mutating command BFF route read"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/viec-can-xu-ly/BangViecCanXuLy.tsx",
+      "sha256": "fca456c9973a0776a4f12de54ae7461ac605e53d36be8a96b7dfafd8dc893a20",
+      "line_count": 211,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "66-101 SSE + 60-second visible-tab refresh; 103-147 start/complete with expected_version; row shows created_at only, no due_at/priority"
+    },
+    {
+      "path": "src/dashboard/components/ui/WorkItemActions.tsx",
+      "sha256": "0f5569547839545ad9d33d27cc6cd6379ffa95222b20206e37a7d54342f27a32",
+      "line_count": 147,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "Action request, expected_version, command visibility/refresh"
+    },
+    {
+      "path": "src/dashboard/lib/work-item-status.ts",
+      "sha256": "4e4cd839e9df16af311968b42dfa475796357b480c7e0065aacbd56907498099",
+      "line_count": 159,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "Overdue helper inventoried; no active dashboard import found"
+    },
+    {
+      "path": "src/tests/test_work_item_service.py",
+      "sha256": "4adf4b8b7b2d104544e8f254eec5fd791e9df53f4ea31d22b4ff584c9edd8d8a",
+      "line_count": 518,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "88-156 clinic/membership-role command case; other relevant cases inventoried; not run"
+    },
+    {
+      "path": "src/tests/api/test_worklist.py",
+      "sha256": "ebaba482dfc369a6de5f803fb6cdfc6fdc808268e96a2d1d8c250d22d9065d37",
+      "line_count": 323,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "Location, role, blocker/worklist cases read selectively; not run"
+    },
+    {
+      "path": "src/tests/api/test_visit_work_items_read.py",
+      "sha256": "ba58375151c3e45935cffe404a12283b22bc5af747877185c3c17e62e7f73a69",
+      "line_count": 194,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "Read-access boundary cases read selectively; not run"
+    },
+    {
+      "path": "src/tests/unit/test_idempotency.py",
+      "sha256": "4c2e0381008afe2419d1cbce285724274eb75d2c9022dda3f1edcf472d3f8b08",
+      "line_count": 296,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "Lease/key tests inventoried; not run"
+    },
+    {
+      "path": "src/dashboard/tests/route-da-tat-boundary.test.mts",
+      "sha256": "123da742988f7dc89ee78de42390841e470a08f255810079d857c7b4f8486c6a",
+      "line_count": 43,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole source test read; not run"
+    },
+    {
+      "path": "src/dashboard/tests/lego-dot3-boundary.test.mts",
+      "sha256": "973a16a59deca41481459bfa12c0946ba0d1f76e67648f9a7595470203d34672",
+      "line_count": 130,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole source test read; not run"
+    },
+    {
+      "path": "src/dashboard/tests/workspace-route-authorization-boundary.test.mts",
+      "sha256": "4e178eab711b2af2878d76c3da99f7b7d3a47884437cd1276c69250f9a3018cb",
+      "line_count": 48,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "Whole source test read; not run"
+    },
+    {
+      "path": "src/clinicai/events/consumers/trach_nhiem.py",
+      "sha256": "ee1ce2dea8659af48ca68eac42d466d87d5b898ed4511b5f8ab7951813747848",
+      "line_count": 180,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "107-140 create OPS work with due_at and same-transaction reminder; 143-167 overdue recheck promotes open work to P0"
+    },
+    {
+      "path": "src/clinicai/services/agent_giam_sat.py",
+      "sha256": "e8017e1f8ea8174acb790e4ada8afa6a196918fecdfec3d03c0c587e83e6da48",
+      "line_count": 687,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "262-276 overdue query capped by TRAN; 335-360 builds overdue finding; cross-checked against AI-001"
+    },
+    {
+      "path": "src/clinicai/services/man_trang_chu_service.py",
+      "sha256": "7b1f69e1a0f51038d14fb6f30ea1121195d5370858e86ea333b49a337307d98b",
+      "line_count": 564,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "274-288 overdue aggregate count by location"
+    }
+  ],
+  "findings": [
+    "CAND-R14-WI-SCOPE-001"
+  ],
+  "deduplication": {
+    "reviewed_canonical_ids": [
+      "CLIN-004",
+      "API-001",
+      "API-002",
+      "AI-001",
+      "SEC-011",
+      "INF-010",
+      "CLIN-022",
+      "CLIN-023",
+      "CLIN-027",
+      "FE-008"
+    ],
+    "held_noncanonical_candidates": [
+      "WORKITEM-API-001",
+      "WORKITEM-POLICY-001"
+    ],
+    "result": "one_distinct_static_candidate; held and existing findings excluded",
+    "notes": "Mutation authorization for same-clinic location is distinct from queue read scope (API-001), workflow read scope (API-002), and missing claim/assignment/handoff (CLIN-004). Held work-item candidates and SLA monitor truncation were not repeated.",
+    "canonical_ledger_sha256_at_review": "592744974b4cca154c220a9973b0a47f0642828c506af8541a45f26eb3c085c5"
+  },
+  "limitations": [
+    "Targeted source trace, not exhaustive repository review.",
+    "No tests, app/runtime, HTTP/ASGI, database, VPS, or CI were executed; no secrets or PHI were accessed.",
+    "Snapshot has no Git metadata; commit SHA is task-provided. File hashes are evidence for exported snapshot only.",
+    "Static source does not establish UUID discoverability, occurrence, production impact, SLA miss frequency, or post-deploy behavior.",
+    "Tests were inspected statically only; no test outcomes are claimed."
+  ]
+}

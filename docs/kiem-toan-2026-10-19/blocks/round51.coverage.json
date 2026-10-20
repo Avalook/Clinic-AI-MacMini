@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "round": 51,
+  "report_version": "v0.74",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_scoped_semantic_review",
+  "scope": [
+    "quick reschedule UI, BFF and API idempotency-key flow",
+    "shared appointment transition read/update/history/event path",
+    "current unit and database tests for quick rescheduling"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Recorded source ranges are line-checked and file SHA-256 checked. Tests were read-not-run. No ClinicAI application/runtime/API/DB/provider/VPS/production/secrets/PHI was accessed.",
+  "result": {
+    "new_findings": [
+      "CLIN-059"
+    ],
+    "extended_findings": [],
+    "deduplicated": [
+      "The same-key response-loss replay remains CLIN-057; CLIN-059 is the distinct lost-update case where two different requested target slots each use a different key and race on the same still-eligible appointment status.",
+      "The GET screen's slot capacity is advisory and the shared service/DB guard rechecks it on write; this review does not certify capacity concurrency beyond existing database guards."
+    ],
+    "held_candidates": [
+      "Whether the desired product policy is last-write-wins or conflict-on-stale-edit should be confirmed; an explicit optimistic concurrency token is recommended for truthful transition history even if the user may retry after refresh."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/clinicai/services/doi_lich_nhanh.py",
+      "sha256": "4c9eba0021005adc7c9d443ab0918e523dd95cf258797b6637a285cc46ee36ef",
+      "lines": 292,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 292
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: quick-reschedule option construction and capacity/status presentation."
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/doi-lich-nhanh/route.ts",
+      "sha256": "07800d95714018e222bdd1261503ceb8f8807bd8b050177ec0b7ac6d3b6cc9e6",
+      "lines": 61,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 61
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: BFF validation and idempotency header forwarding."
+    },
+    {
+      "path": "src/tests/services/test_doi_lich_nhanh_db.py",
+      "sha256": "237d79bd8bb1aff716b1cdf9a24bc909c6085d24a8f0262856a19577e51f6dfe",
+      "lines": 351,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 351
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: database tests for quick-reschedule, same-key replay, capacity and check-in; not run."
+    },
+    {
+      "path": "src/tests/unit/test_doi_lich_nhanh.py",
+      "sha256": "6fff1f9ddbc19bec2eb8829c320dae91ec24b0162263607b3bbb9987ab32b5aa",
+      "lines": 98,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 98
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full-file read: pure quick-reschedule slot and clock tests; not run."
+    }
+  ],
+  "targeted_traces": [
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "read_ranges": [
+        {
+          "start": 955,
+          "end": 1004
+        },
+        {
+          "start": 1036,
+          "end": 1102
+        },
+        {
+          "start": 1209,
+          "end": 1323
+        },
+        {
+          "start": 2102,
+          "end": 2132
+        },
+        {
+          "start": 2880,
+          "end": 2923
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: appointment state read and transition preconditions. Targeted read: status check, patch build and optimistic-update outcome. Targeted read: quick reschedule plus optional check-in transaction. Targeted read: SQL update predicate and exclusion/check error mapping. Targeted read: appointment reschedule history and domain event side effects."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "lines": 904,
+      "read_ranges": [
+        {
+          "start": 747,
+          "end": 802
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: HTTP schema, permission and idempotency boundary."
+    },
+    {
+      "path": "src/clinicai/api/idempotency.py",
+      "sha256": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+      "lines": 305,
+      "read_ranges": [
+        {
+          "start": 72,
+          "end": 180
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: per-key actor/endpoint reservation and replay behavior."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/DoiLichTaiCho.tsx",
+      "sha256": "24adedf1f18e1cd9a1680d3e9083c160b3ff84dc45ca13692ba4fecac69733d4",
+      "lines": 464,
+      "read_ranges": [
+        {
+          "start": 132,
+          "end": 206
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: request key lifecycle, target-specific key and response handling."
+    },
+    {
+      "path": "src/clinicai/events/catalogue.py",
+      "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+      "lines": 2401,
+      "read_ranges": [
+        {
+          "start": 1938,
+          "end": 1946
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: reschedule event consumer configuration."
+    },
+    {
+      "path": "src/clinicai/events/emit.py",
+      "sha256": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616",
+      "lines": 239,
+      "read_ranges": [
+        {
+          "start": 118,
+          "end": 228
+        }
+      ],
+      "full_read": false,
+      "outcome": "Targeted read: event append path and delivery fan-out; no request-level dedupe in this function."
+    }
+  ],
+  "reviewer_note": "Round 51 is a scoped static review of appointment rescheduling and not a concurrency reproduction or full booking audit. CLIN-059 is separated from CLIN-057 because a stable replay receipt does not prevent two different intents from overwriting a still-eligible row."
+}

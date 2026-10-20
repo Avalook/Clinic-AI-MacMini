@@ -1,0 +1,230 @@
+[
+  {
+    "id": "FIN-001",
+    "title": "WIP giảm giá: phân bổ xuống dòng có thể hụt tổng giảm, làm lệch số có thể hoàn",
+    "severity": "MEDIUM",
+    "evidence_level": "reproduced_local",
+    "category": "financial_integrity",
+    "summary": "Hàm phan_bo_giam dồn dư vào dòng cuối rồi chặn ở giá dòng cuối mà không phân phối phần còn dư sang dòng khác. Vì vậy tổng discount_allocated có thể nhỏ hơn discount_amount.",
+    "trigger": "Hoá đơn 3 dòng CLINIC giá [100,100,1], giảm AMOUNT 200 trên tổng201. Đây là ví dụ số học tổng quát, không phải dữ liệu bệnh nhân.",
+    "impact": "Thu1 nhưng snapshot dòng còn net2. Dòng có giảm dùng net snapshot để tính hoàn; ngân sách hoàn theo dòng có thể vượt số tiền đã thu của cycle. Chưa chạy giao dịch hoàn thực trên DB.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/bill_service.py",
+        "line": 1211,
+        "end_line": 1244,
+        "detail": "Sau floor các dòng trước, dòng cuối nhận dư rồi min với giá; không xử lý dư chưa phân."
+      },
+      {
+        "path": "src/clinicai/services/payment_service.py",
+        "line": 2137,
+        "end_line": 2182,
+        "detail": "_ghi_anh_hoa_don ghi kết quả phân bổ xuống payment_bill_line."
+      },
+      {
+        "path": "src/clinicai/services/hoan_tien_service.py",
+        "line": 341,
+        "end_line": 367,
+        "detail": "Số hoàn dựa line_total-discount_allocated và số còn hoàn."
+      },
+      {
+        "path": "supabase/migrations/20261013100000_giam_gia.sql",
+        "line": 228,
+        "end_line": 243,
+        "detail": "Guard chỉ giới hạn thực thu từng dòng; chưa thấy tổng cycle ở đây."
+      }
+    ],
+    "validation": {
+      "method": "isolated_actual_function",
+      "command": "python3: parse AST bill_service.py, compile unchanged phan_bo_giam, call using Decimal line totals [100,100,1] and tong_giam=200",
+      "result": "discount_allocations=[99,99,1]; allocated_total=199; cash_collected=1; net_line_total=2; invariant false",
+      "limitations": "Tái hiện hàm thuần bằng AST không import app/DB; chưa xác minh toàn transaction. Tính năng giảm giá đang WIP chưa commit, không kết luận prod bị lỗi."
+    },
+    "recommendation": "Dùng phân bổ phần dư theo largest remainder hoặc phân phối qua các dòng còn sức chứa. Ép tổng giảm dòng bằng giảm cycle và tổng hoàn pending/completed không vượt số thực thu cycle.",
+    "acceptance": "Property tests cho mọi danh sách dòng: 0<=allocation_i<=line_i, sum(allocation)=discount; net sum=cycle.amount; tổng hoàn không vượt cycle.amount. Có ca [100,100,1]/200 và hoán vị dòng.",
+    "alignment": [
+      "quyết định dựa bằng chứng",
+      "lỗi lặp thành cải tiến",
+      "giảm kiểm tra thủ công"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/bill_service.py": "2d48ac835f39ea8a0fbcebdcddcfed013479187fe43f9ad645bb5f5dbb411713",
+      "src/clinicai/services/payment_service.py": "bc1c700b3b7cfd8e3a1637ead1318d5c55d419c33e86aef06a70229b787eb875",
+      "src/clinicai/services/hoan_tien_service.py": "82cb37c216a11483cb80b681d6287311c041da45ea8b57ea1deadc38d1c305b1",
+      "supabase/migrations/20261013100000_giam_gia.sql": "7f1c21accc59e4b05b403bc654b8053b279002923f2e279d568762e1ccf54ff1"
+    },
+    "status": "open",
+    "version_scope": "working_tree_WIP",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "addressed_on_main",
+      "note": "Main dùng largest remainder; probe độc lập trả [100,99,1], tổng200. Lỗi tái hiện chỉ thuộc WIP nhánh đang mở. Cần tránh mang WIP cũ đè implementation main.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/bill_service.py",
+          "line": 1254,
+          "end_line": 1275,
+          "sha256": "345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+          "excerpt": "1254: def phan_bo_giam(dong: Sequence[DongHoaDon], tong_giam: int) -> list[int]:\n1255:     \"\"\"Chia ``tong_giam`` xuống từng dòng theo tỉ lệ giá (phương pháp phần dư\n1256:     lớn nhất): tổng các phần LUÔN đúng bằng ``tong_giam`` và không dòng nào bị\n1257:     giảm quá giá của nó. Dòng không giảm được nhận 0. Thuần.\n1258:     \"\"\"\n1259:     ra = [0] * len(dong)\n1260:     if tong_giam <= 0:\n1261:         return ra\n1262:     gia = [_giam_duoc(d) for d in dong]\n1263:     duoc = sum(gia)\n1264:     if tong_giam > duoc:\n1265:         raise ValueError(\"tong_giam vượt phần giảm được\")\n1266:     du: list[tuple[int, int]] = []\n1267:     for i, g in enumerate(gia):\n1268:         if g <= 0:\n1269:             continue\n1270:         ra[i], phan_du = divmod(tong_giam * g, duoc)\n1271:         du.append((phan_du, i))\n1272:     con = tong_giam - sum(ra)\n1273:     # Phần dư lớn nhất lấy trước; bằng nhau thì dòng đứng trước.\n1274:     for _, i in sorted(du, key=lambda x: (-x[0], x[1]))[:con]:\n1275:         ra[i] += 1"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FIN-002",
+    "title": "Nhà thuốc cắt 300 dòng đơn trước khi nhóm khách và UI không báo dữ liệu thiếu",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "workflow_visibility",
+    "summary": "man_nha_thuoc chỉ lấy300 prescription rows mới nhất rồi nhóm thành lượt. Backend trả bi_cat/tran, nhưng PharmacyBoard không hiển thị cảnh báo và tìm kiếm chỉ chạy trên man.luot đã bị cắt.",
+    "trigger": "Có hơn300 dòng prescription thỏa điều kiện truy vấn; gồm các dòng chưa đóng từ ngày trước, không chỉ khách trong hôm nay. Một đơn nhiều dòng có thể nằm ngay ranh giới300.",
+    "impact": "Khách/thuốc cũ bị thiếu trên bảng; một lượt có thể hiện đơn không đủ dòng. Nhân viên không tìm được bằng ô tìm hiện tại và không biết đang nhìn subset. Chưa đo tần suất dữ liệu thật.",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/ban_thuoc_service.py",
+        "line": 194,
+        "end_line": 257,
+        "detail": "Truy vấn ORDER BY created_at DESC LIMIT300 trước nhóm visit; r.closed_at IS NULL không giới hạn ngày."
+      },
+      {
+        "path": "src/clinicai/services/ban_thuoc_service.py",
+        "line": 539,
+        "end_line": 549,
+        "detail": "API trả bi_cat và tran300."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/pharmacy/PharmacyBoard.tsx",
+        "line": 44,
+        "end_line": 66,
+        "detail": "Đếm/tìm client chỉ trên man.luot."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/pharmacy/PharmacyBoard.tsx",
+        "line": 67,
+        "end_line": 211,
+        "detail": "Render không hiển thị bi_cat/tran hoặc phân trang."
+      }
+    ],
+    "validation": {
+      "method": "static_end_to_end_trace",
+      "command": null,
+      "result": "Đã đọc query, grouping, API page và toàn function PharmacyBoard; flag không được render.",
+      "limitations": "Chưa seed >300 rows và bấm UI thật; chưa kết luận đã xảy ra prod."
+    },
+    "recommendation": "Phân trang theo lượt/khách trước, tải đủ dòng mỗi lượt; tìm kiếm phía server; ưu tiên việc chưa xong. UI phải ghi dữ liệu thiếu và có đường tải tiếp.",
+    "acceptance": "Seed >300 dòng với một đơn nằm qua ranh giới; mọi dòng của lượt được chọn đều đầy đủ, tìm theo mã khách truy cập được lượt ngoài trang đầu, UI thể hiện phân trang/trạng thái thiếu.",
+    "alignment": [
+      "reality dễ nhìn",
+      "unknown ngắn",
+      "bệnh nhân ít chờ bất định",
+      "giảm hỏi ngoài hệ thống"
+    ],
+    "related_tests": [],
+    "source_hashes": {
+      "src/clinicai/services/ban_thuoc_service.py": "c19a3becfbe331d89effd50bc28c12090fac4cf480de95f1d412c9423a4bb809",
+      "src/dashboard/app/(dashboard)/pharmacy/PharmacyBoard.tsx": "f2215b8c50a492641b05b038aa76940c70defa8e110f77d29c9822e6d309b8b5"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Root đối chiếu vùng code liên quan trên bản main ghim; kết luận giữ ở đúng mức bằng chứng, chưa kiểm production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ban_thuoc_service.py",
+          "line": 250,
+          "end_line": 274,
+          "sha256": "d178f54c9511077387c10837f6dab20552c3b50b12f0b679415f6f77213ecf6c",
+          "excerpt": "250:                                            AND x.reverses_txn_id = s.id)\n251:                                     AND -s.quantity > coalesce((\n252:                                         SELECT -sum(d.quantity)\n253:                                           FROM public.inventory_txn d\n254:                                          WHERE d.txn_type = 'DISPENSE'\n255:                                            AND d.allocation_id = a.id), 0))\n256:                              OR EXISTS (\n257:                                  SELECT 1 FROM public.prescription_allocation a\n258:                                    JOIN public.payment_cycle c\n259:                                      ON c.payment_cycle_id = a.payment_cycle_id\n260:                                     AND c.clinic_id = a.clinic_id\n261:                                   WHERE a.clinic_id = r.clinic_id\n262:                                     AND a.prescription_id = r.id\n263:                                     AND a.released_at IS NULL\n264:                                     AND c.status = 'PENDING_VERIFICATION'))))\n265:                -- Chỉ đơn của cơ sở đang đứng ($3 NULL = không lọc).\n266:                AND coalesce(v.location_id, ap.location_id, $3::uuid)\n267:                    IS NOT DISTINCT FROM\n268:                    coalesce($3::uuid, v.location_id, ap.location_id)\n269:              ORDER BY r.created_at DESC, r.id\n270:              LIMIT 300\n271:             \"\"\",\n272:             identity.clinic_id,\n273:             dau_ngay,\n274:             co_so,"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/pharmacy/PharmacyBoard.tsx",
+          "line": 62,
+          "end_line": 77,
+          "sha256": "38539794c0b7d67dbfb5b0a76407c76b38d7b085e9a65ba40d12ad94368bae7d",
+          "excerpt": "62:     }),\n63:     [man.luot],\n64:   );\n65:   const danhSach = useMemo(() => {\n66:     const q = tim.trim().toLowerCase();\n67:     return man.luot\n68:       .filter((l) => (tab === \"xong\" ? xongHet(l) : !xongHet(l)))\n69:       .filter(\n70:         (l) =>\n71:           !q ||\n72:           l.ten_khach?.toLowerCase().includes(q) ||\n73:           l.patient_code?.toLowerCase().includes(q) ||\n74:           l.dong.some((d) => d.drug_name_raw?.toLowerCase().includes(q)),\n75:       );\n76:   }, [man.luot, tab, tim]);\n77:   const luot = man.luot.find((l) => l.visit_id === chon) ?? null;"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "FIN-003",
+    "title": "Thử lại thao tác thêm thuốc ở quầy có thể tạo thêm dòng mới",
+    "severity": "HIGH",
+    "evidence_level": "reproduced_local",
+    "category": "command_idempotency",
+    "summary": "Đường thêm thuốc không nhận idempotency key; dòng thiếu id luôn sinh UUID/source_ref ngẫu nhiên, trong khi FE giữ bản nháp khi request lỗi.",
+    "trigger": "DB đã commit lần thêm nhưng response mất mạng; nhân viên bấm lưu lại cùng dữ liệu.",
+    "impact": "Có thể tạo hai dòng cho một ý định thêm thuốc, làm tăng số lượng/tiền bán nếu không phát hiện.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/quay_thuoc.py",
+        "line": 90,
+        "end_line": 116,
+        "detail": "Endpoint chuyển dòng thiếu id, không command id/idempotency wrapper."
+      },
+      {
+        "path": "src/clinicai/services/quay_thuoc_service.py",
+        "line": 384,
+        "end_line": 545,
+        "detail": "Nhánh pid trống insert với uuid/source_ref mới trong mỗi lần gọi."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx",
+        "line": 167,
+        "end_line": 186,
+        "detail": "Payload thêm không id; lỗi thì không xóa them."
+      }
+    ],
+    "validation": {
+      "method": "pinned_main_service_and_postgres_invariant_test",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_rx_retry_db.py src/tests/services/test_audit_1910_recall_failure_db.py -q",
+      "result": "Invoke same add-drug payload after discarding first committed response: Postgres contains2 QUAY rows; invariant count1 fails on exact pinned main.",
+      "limitations": "Synthetic data on ephemeral DB, no browser fault injection or production inspection. Tests assert desired invariant and intentionally fail before a fix."
+    },
+    "recommendation": "Client tạo command_id/draft_line_id ổn định trước lần gửi đầu; server persist receipt và unique scope tenant+command; retry trả cùng kết quả.",
+    "acceptance": "Mất response sau commit rồi retry không tăng số dòng; hai ý định thêm hợp lệ khác nhau vẫn được ghi; kiểm concurrency hai request cùng key.",
+    "alignment": [
+      "Reality rõ",
+      "Unknown ngắn",
+      "Ownership rõ",
+      "Quyết định có bằng chứng"
+    ],
+    "related_tests": [
+      "probes/test_audit_1910_rx_retry_db.py"
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/quay_thuoc.py": "6ac0cc74ceb4bd49d6e9f2c0ab68bc32b63e2e3bd3026bff8851f5e4a6c74c8f",
+      "src/clinicai/services/quay_thuoc_service.py": "a531f4d62ae1a258611486994ca318679d50c6c0e884656dfca0966ae880aaa9",
+      "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx": "2ffe2f78bbf4b8261448365cdf344e7fe93d6e3fc7a975cffedb83e943d285e6"
+    },
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Đã tái hiện trên checkout main ghim và DB tạm được áp đủ42 migration còn thiếu: cùng payload thêm thuốc được gửi lại sau khi bỏ response lần commit đầu; DB có2 dòng QUAY thay vì1. Test bất biến RED xác nhận lỗi ở tầng service+Postgres. Chưa thử mất response HTTP trên browser hay kiểm prod.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/quay_thuoc.py",
+          "line": 90,
+          "end_line": 116,
+          "sha256": "6ac0cc74ceb4bd49d6e9f2c0ab68bc32b63e2e3bd3026bff8851f5e4a6c74c8f",
+          "excerpt": "90: @router.post(\"/quay-thuoc/luot/{visit_id}/them\")\n91: async def luu_dong_them(\n92:     visit_id: UUID,\n93:     body: LuuThemBody,\n94:     identity: StaffIdentity = Depends(get_current_identity),\n95:     pool: asyncpg.Pool = Depends(get_db_pool),\n96: ) -> dict[str, Any]:\n97:     \"\"\"Lấy thêm thuốc: thêm dòng mới / sửa dòng quầy đã thêm. Không xoá dòng nào.\"\"\"\n98:     identity = await authorize_payment(\n99:         pool, identity, visit_id=str(visit_id), kind=\"thuoc\"\n100:     )\n101:     return await QuayThuocService(pool).luu_dong_them(\n102:         visit_id=str(visit_id),\n103:         dong=[\n104:             {\n105:                 \"id\": str(d.id) if d.id else None,\n106:                 \"drug_catalog_id\": str(d.drug_catalog_id)\n107:                 if d.drug_catalog_id\n108:                 else None,\n109:                 \"quantity\": d.quantity,\n110:                 \"dosage\": d.dosage,\n111:                 \"caution\": d.caution,\n112:             }\n113:             for d in body.dong\n114:         ],\n115:         identity=identity,\n116:     )"
+        },
+        {
+          "path": "src/clinicai/services/quay_thuoc_service.py",
+          "line": 529,
+          "end_line": 546,
+          "sha256": "1e6c6651fd2350ac8f48849e6a181eba8ff43099e95d9686a4e24a193f7e8231",
+          "excerpt": "529:                 moi = str(uuid.uuid4())\n530:                 await conn.execute(\n531:                     \"\"\"\n532:                     INSERT INTO prescription (\n533:                         id, source_ref, clinic_patient_id, visit_id, drug_name_raw,\n534:                         quantity, dosage_instructions, caution, clinic_id,\n535:                         quantity_num, unit, created_by, nguon,\n536:                         drug_catalog_id, drug_mapped_by, drug_mapped_at\n537:                     )\n538:                     VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5, $6, $7, $8,\n539:                             $9::uuid, public.so_luong_tu_van_ban($6),\n540:                             public.don_vi_tu_van_ban($6), $10::uuid, 'QUAY',\n541:                             $11::uuid, $10::uuid, now())\n542:                     \"\"\",\n543:                     moi,\n544:                     f\"quay-rx-{visit_id}-{uuid.uuid4().hex}\",\n545:                     luot[\"pid\"],\n546:                     visit_id,"
+        }
+      ],
+      "production_verified": false,
+      "evidence_level": "reproduced_local"
+    },
+    "version_scope": "working_tree static; pinned main956ba4f2 service+DB reproduction"
+  }
+]

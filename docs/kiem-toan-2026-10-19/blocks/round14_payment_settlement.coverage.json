@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "audit": "round14_payment_settlement",
+  "snapshot": {
+    "path": "/tmp/clinicai-audit-main-956ba4f2",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha_verification": "task-provided pin; snapshot export has no .git metadata"
+  },
+  "review_mode": "static_read_only_targeted_trace",
+  "scope": [
+    "service and medicine collection",
+    "receipt and invoice export",
+    "idempotency",
+    "refund boundary",
+    "API/BFF/UI/direct test source"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+      "line_count": 570,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "74-217; 359-468: collect/refund/idempotency/company routes"
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cashier.py",
+      "sha256": "e37295d74204bd0cb310278436e9c07a16130d563bdd41921ebb11b0a078ae00",
+      "line_count": 295,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "32-121; 129-159; 244-295: cashier/history/receipt routes"
+    },
+    {
+      "path": "src/clinicai/api/idempotency.py",
+      "sha256": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+      "line_count": 305,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "46-210: guard lease, fingerprint, replay, save"
+    },
+    {
+      "path": "src/clinicai/services/payment_service.py",
+      "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+      "line_count": 2400,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "353-570; 708-999; 1059-1305; 1388-1624; 1625-1687; 2064-2296: payment/verification/void/refund snapshots"
+    },
+    {
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "line_count": 628,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "91-198; 199-307; 310-448; 481-545: refund create/status/amount/reservations"
+    },
+    {
+      "path": "src/clinicai/services/lenh_kham_core.py",
+      "sha256": "034b8f33755bc55f4283d706e2b287bddca3a424f38fd1d516d325a2f8a7cb28",
+      "line_count": 242,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "164-230: command receipt hash/read/write"
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+      "sha256": "5a531711543f93e9d8c5a008e55d25d8f7fd484e3b0da3c5ca770e0877dfa194",
+      "line_count": 772,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "537-665; 731-760: attach/no-op/unselect/export reader"
+    },
+    {
+      "path": "src/clinicai/services/bill_service.py",
+      "sha256": "345494d2bb36bd5bc858192050a64fe6da40be97b0954a88a15f76d1bbe90966",
+      "line_count": 1276,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "90-103; 1205-1215; 1254-1276: totals/discount allocation"
+    },
+    {
+      "path": "src/clinicai/services/quay_thu_service.py",
+      "sha256": "4b9e52c3c8acb212fa35347e6c0f25a738348aeb119a7f6a86c06d10e7c2fd52",
+      "line_count": 1646,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "1195-1265; 1417-1597: history/receipt/refund line mapping; cap finding deduped"
+    },
+    {
+      "path": "src/clinicai/services/xuat_hoa_don_service.py",
+      "sha256": "35b3b9f60e6a35086c66462f04767320475a4155286657521f6291e5c0be3145",
+      "line_count": 459,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "148-285: payment/refund/company export"
+    },
+    {
+      "path": "src/dashboard/app/api/payment/route.ts",
+      "sha256": "a83e494f7b4513bf032c7d29239d0e5becddb13ed3f9a26002497cbd85311487",
+      "line_count": 191,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "29-191: BFF action routing and key forwarding"
+    },
+    {
+      "path": "src/dashboard/app/api/cashier/route.ts",
+      "sha256": "b01c6d21afb04b47b37c27c8b7cbe7dc1d22efd057e5ecfab71629eae88224ed",
+      "line_count": 136,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "73-94: print receipt proxy and UUID validation"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx",
+      "sha256": "733c8dffc1cc0da8387c65919f57919f14297b17256ecab3e41d43a00853a199",
+      "line_count": 1358,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "328-401; 406-500; 544-565: payment request/key/response"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/HoanTien.tsx",
+      "sha256": "026cb6df025ac1f53cb7775ff9e3425b4f8dcd0d3df04ae154909d3ae9406af2",
+      "line_count": 261,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "56-71; 97-117; 120-254: refund form/key/status"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx",
+      "sha256": "6a9c99462aea06b3580f7cda71307322e48efa61334a0e62eafc2a3a5dc2f55b",
+      "line_count": 560,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "250-275: invoice command key/body includes company selection"
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/khoa-mot-lan.ts",
+      "sha256": "a08571bce4175ff5f0d793058fb99ca853485ca2969ecbf0e53e5a09cc8426ff",
+      "line_count": 53,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "22-53: in-memory action key lifecycle"
+    },
+    {
+      "path": "src/dashboard/app/print/phieu-thu/[id]/InPhieuThu.tsx",
+      "sha256": "825bbcaec8af1e358fa58f88c410badac3d811bab1796af091df0645c2fe808d",
+      "line_count": 401,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "19-89; 106-156; 193-280: receipt types/print rendering"
+    },
+    {
+      "path": "src/tests/services/test_thu_dich_vu_nhieu_lan_db.py",
+      "sha256": "4dbf5c5d7132740af95aebd3a24db407b8218a216abbacb25b60c04d14fad92c",
+      "line_count": 953,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "test name inventory; read 477-510, 598-625, 699-740; not run"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp2_db.py",
+      "sha256": "74ecfda0f45fd25b315f51f1ba26d113626177e719ba63f7d9f6f91351cf4870",
+      "line_count": 702,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "function names inventoried for payment retry/target/status/concurrency; not run"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp5_db.py",
+      "sha256": "0c7514a9fd81ab47590fb4e80cf3e146f3f6d265f6f6aa9547ca311d01c8922d",
+      "line_count": 632,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "function names inventoried for refund/status/void/concurrency; not run"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp5_http_db.py",
+      "sha256": "4ac27e4ce56903f898ee69ab727e3b05a5391117f2b0f444538a2310509df851",
+      "line_count": 137,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "function names inventoried for same-key refund/return HTTP cases; not run"
+    },
+    {
+      "path": "src/tests/services/test_quay_thu_mot_hoa_don_db.py",
+      "sha256": "3faa766c2f9d88d309f63956b5fd917793d54bbea99129269b91c429adc730b0",
+      "line_count": 441,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "selection/revision/replay/rollback test range summarized from inspection; not run"
+    },
+    {
+      "path": "src/tests/services/test_tick_cong_ty_khi_thu_db.py",
+      "sha256": "3bdb6e524f1fabb74751299993111ea21004292a0445fd800f4ff2f9a4345b07",
+      "line_count": 223,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "152-213 read: no-resurrection and router helper cases; not run"
+    },
+    {
+      "path": "src/tests/services/test_giam_gia_db.py",
+      "sha256": "d258f21c1cfeab2be4341420cae93306f07806cbceef0eef2d2defbab0906c2c",
+      "line_count": 529,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "function names inventoried for discount/replay/refund/export; not run"
+    },
+    {
+      "path": "src/tests/services/test_thu_nhieu_hinh_thuc_db.py",
+      "sha256": "5ab8b1b25c0cc807008ca93fb15942df7c4408fadc8618c29fb567d78c3355d2",
+      "line_count": 261,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "function names inventoried for split amount/receipt/void; not run"
+    },
+    {
+      "path": "src/tests/unit/test_idempotency.py",
+      "sha256": "4c2e0381008afe2419d1cbce285724274eb75d2c9022dda3f1edcf472d3f8b08",
+      "line_count": 297,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "function names inventoried for acquire/replay/hash/lease/release; not run"
+    },
+    {
+      "path": "src/dashboard/tests/quay-thu-ngan-boundary.test.mts",
+      "sha256": "fba041102591192513f363e7542933a5997e04678d8d91a854f82df8a0ccb76e",
+      "line_count": 66,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "whole source test read; not run"
+    },
+    {
+      "path": "src/dashboard/tests/cong-ty-khi-thu-boundary.test.mts",
+      "sha256": "d379bb190ebd5dcc0800334c3f1989d9b1bc4b6fbf6c71acb7970a4982019d45",
+      "line_count": 45,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "whole source test read; not run"
+    },
+    {
+      "path": "src/dashboard/tests/hoa-don-cong-ty-boundary.test.mts",
+      "sha256": "fe0b03a6cbf707a9535f81d7691226f50917a59190ecc2f632941b9f2ef1b4ee",
+      "line_count": 41,
+      "coverage": "full",
+      "reviewed_ranges_or_notes": "whole source test read; not run"
+    },
+    {
+      "path": "src/dashboard/tests/xuat-hoa-don-boundary.test.mts",
+      "sha256": "d88e08cdd2a4952d577186139ffb9f3bfe2b848a9ca2a7ba4587d2b40af2b93a",
+      "line_count": 18,
+      "coverage": "partial",
+      "reviewed_ranges_or_notes": "listed only; content not reviewed; not run"
+    }
+  ],
+  "findings": [
+    "CAND-R14-PAY-IDEM-001"
+  ],
+  "deduplication": {
+    "reviewed_canonical_ids": [
+      "FIN-001",
+      "FIN-002",
+      "FIN-003",
+      "FIN-004",
+      "FIN-005",
+      "FIN-006",
+      "FIN-007",
+      "FIN-008",
+      "FIN-009",
+      "FIN-010",
+      "FIN-011",
+      "FIN-012",
+      "INF-007",
+      "INF-011",
+      "INF-017",
+      "INF-018",
+      "DB-006",
+      "DB-007",
+      "PHAR-001",
+      "PHAR-002"
+    ],
+    "result": "one_distinct_static_candidate; existing findings excluded as duplicate or out of slice",
+    "notes": "FIN-001 allocation path appears corrected in pinned source; FIN-004 rounding is a pre-existing refund candidate and is not repeated. INF-007 has a different receipt/lease failure path.",
+    "reviewed_prior_artifacts": [
+      "blocks/round12_pos_outbox.findings.json: []"
+    ]
+  },
+  "limitations": [
+    "Selective source trace; not an exhaustive repository review.",
+    "No tests, runtime probes, HTTP/ASGI, database, VPS, or CI were executed.",
+    "SHA is task-provided because the exact-main export has no Git metadata.",
+    "Static evidence does not prove same-key/different-cong_ty_id requests have occurred in production.",
+    "Some direct test files were inventoried by function names; no test outcomes are claimed.",
+    "No production invoice configuration, data, exported file, or occurrence frequency was inspected."
+  ]
+}

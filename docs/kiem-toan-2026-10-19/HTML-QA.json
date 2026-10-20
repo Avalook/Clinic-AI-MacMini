@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-20T04:09:46.356Z",
+  "reportSha256": "8b307076fb08d21123e5bad7ea20fc05b5329a9a8c0bf4a716f718b1f662a94a",
+  "desktop": {
+    "width": 1280,
+    "scroll": 1280,
+    "cards": 212,
+    "ledgerRows": 2890
+  },
+  "mobile": {
+    "width": 375,
+    "scroll": 375
+  },
+  "search": 1,
+  "patched": 2,
+  "printOpen": 212,
+  "printVisible": 212,
+  "pageErrors": [],
+  "externalRequests": [],
+  "limitations": [
+    "Validates report UI only, not the ClinicAI application",
+    "No accessibility certification"
+  ]
+}

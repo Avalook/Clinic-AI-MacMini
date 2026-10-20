@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_api_logging_slice",
+  "findings": [
+    {
+      "id": "CAND-LOG-PII-001",
+      "title": "Exception lookup hồ sơ có thể ghi mã bệnh nhân vào log ứng dụng",
+      "severity": "LOW",
+      "evidence_level": "confirmed_static",
+      "category": "security_log_data_minimization",
+      "summary": "Khi lookup bệnh nhân không tìm thấy, patient_service tạo ResourceNotFoundError chứa clinic_patient_id trong message. Global ClinicAI exception handler ghi exc.message vào field reason. Logging scrubber redacts key clinic_patient_id, phone, email, bearer token và vài loại free-text; regex free-text hiện chỉ che email, phone và secret/token, không che UUID. Vì vậy trường reason có thể lưu UUID bệnh nhân trong structured application logs. Static trace xác nhận đường ghi, chưa có log production hoặc retention proof; không thấy dữ liệu bệnh án đi cùng đường này.",
+      "trigger": "Một request nội bộ gọi patient lookup/update với clinic_patient_id không tồn tại trong clinic; service ném ResourceNotFoundError chứa UUID, handler ghi reason=exc.message.",
+      "impact": "UUID hồ sơ nội bộ có thể tồn tại trong application log, cho phép người có quyền đọc log liên kết lần lookup lỗi với hồ sơ nếu họ có quyền truy cập nguồn khác. Chưa có bằng chứng log production, log retention hoặc nội dung bệnh án bị ghi.",
+      "recommendation": "Không ghi raw exception message mặc định. Ghi error_code, exception type, request_id và route template; nếu cần identifier, truyền dưới structured key đã scrub hoặc dùng correlation token không ánh xạ trực tiếp. Bổ sung test cho UUID trong reason và exception text.",
+      "acceptance": "Unit test chứng minh UUID/clinic_patient_id trong reason và formatted exception bị redacted hoặc không được log; ASGI test tạo lookup miss và capture log xác nhận không có UUID, vẫn có request_id/error_code/route template.",
+      "limitations": "Chỉ trace tĩnh trên pinned snapshot; không chạy test, không kiểm tra log thật, logger sinks, quyền đọc, retention hay production config. Severity LOW phản ánh UUID nội bộ, không thấy clinical text qua đường này.",
+      "related_existing_findings": [
+        "SEC-013"
+      ],
+      "deduplication": {
+        "duplicate": false,
+        "reason": "SEC-013 là dữ liệu CCCD/liên hệ ghi vào event/audit record khi tạo bệnh nhân. Candidate này là UUID trong structured application logs khi lookup miss; khác trigger, sink và dữ liệu, nhưng đều cần đặt cạnh nhau khi thiết kế data minimization."
+      },
+      "evidence": [
+        {
+          "path": "src/clinicai/services/patient_service.py",
+          "line": 552,
+          "end_line": 552,
+          "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+          "detail": "Lookup không có row tạo ResourceNotFoundError với clinic_patient_id nằm trong text."
+        },
+        {
+          "path": "src/clinicai/main.py",
+          "line": 596,
+          "end_line": 602,
+          "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+          "detail": "Global handler ghi reason=exc.message trước khi tạo response JSON."
+        },
+        {
+          "path": "src/clinicai/core/logging.py",
+          "line": 77,
+          "end_line": 82,
+          "sha256": "23a8b7ff32e594634faa12c90a8da4adf0225e0b2818682e75310791dfbb03b6",
+          "detail": "Free-text sanitizer chỉ thay bearer/secret assignment, email và số điện thoại; không nhận dạng UUID."
+        },
+        {
+          "path": "src/clinicai/core/logging.py",
+          "line": 85,
+          "end_line": 97,
+          "sha256": "23a8b7ff32e594634faa12c90a8da4adf0225e0b2818682e75310791dfbb03b6",
+          "detail": "Key clinic_patient_id được redact khi là key; reason là key khác, sau đó giá trị text chỉ qua regex ở _redact_text."
+        },
+        {
+          "path": "src/clinicai/main.py",
+          "line": 111,
+          "end_line": 111,
+          "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+          "detail": "setup_logging được gọi khi khởi tạo API."
+        },
+        {
+          "path": "src/clinicai/core/logging.py",
+          "line": 172,
+          "end_line": 182,
+          "sha256": "23a8b7ff32e594634faa12c90a8da4adf0225e0b2818682e75310791dfbb03b6",
+          "detail": "redact_sensitive_data là processor dùng trong shared logging pipeline."
+        }
+      ],
+      "validation": {
+        "method": "static_exception_to_structured_logger_trace",
+        "result": "Source xác nhận lookup miss đưa UUID vào exception message, handler chép message vào field reason, và sanitizer hiện tại không xóa UUID khỏi free text. Không xác nhận production logging/retention.",
+        "tests_run": false
+      }
+    }
+  ]
+}

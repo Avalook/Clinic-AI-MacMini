@@ -1,0 +1,553 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_dashboard_schedule_patient_slice",
+  "scope": [
+    "Static review of the 49 inventoried dashboard UI candidates under appointments, reception, patients, patient-list, doctor, tasks and schedule, focused on patient/visit state, stale/error/empty states, permission affordances, hidden limits, retries/idempotency, temporal and ownership correctness.",
+    "Every candidate has exact pinned SHA-256, source line count and read range/status. Two task files were excluded from new finding creation because round8 already covered them; the doctor prior-visit component received targeted rather than full reading and is not used as finding evidence.",
+    "Backend/BFF/service/schema source was traced only where necessary for the four candidate behaviors; no tests, database, production, secrets or PHI access; no application edits."
+  ],
+  "finding_ids": [
+    "CAND-R9-DASH-SCHED-01",
+    "CAND-R9-DASH-SCHED-02",
+    "CAND-R9-DASH-SCHED-03",
+    "CAND-R9-DASH-SCHED-04"
+  ],
+  "canonical_finding_count": 0,
+  "candidate_finding_count": 4,
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/BangBacSiTuan.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-479",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "bb2ff35f443735528286db079a98c42c64e95e5ba625f4f618613170fc390269",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/BookingHub.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-1728",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "8197d4c11cc26b7daee888d94c780522bf386873454b46378044c1cc40a5a922",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/LichSapToiCuaKhach.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-158",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "cdb099021ac9c1d81c76ca884f5ac176b6bde6cecfc5201fce14bf391e19a075",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/cho-trong.ts",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-169",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "aa3b869b3674ea27c9bbac47caa592273fda00da12a7093ef3dc18ee21ad70c7",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/HangChoView.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-295",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "78d9020685734c510265c0f21acfe8a784791787d667df7eed91eea685935aa2",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-62",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "ade1a4548eada57e4825d65a37fbde54a542e9c405ba1bf4c0389cf1e4925158",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/dung-giu-cho.ts",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-138",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "a5601637836767ceacd7af9f577a695e70d9c9606474b3e085641a731389144b",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/appointments/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-94",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "ce11788ef5bdd69bc7e23a1eb166adc79a7d2a20394100a3c55f2af6c7822391",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/doctor/board/LuotKhamTruoc.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-213",
+      "note": "Đọc toàn bộ lịch sử các lượt khám trước; theo dõi thay đổi clinicPatientId, response guard, trạng thái loading/error/empty và hành vi chọn lượt cũ.",
+      "sha256": "b1b76c8dbc7bf4a856c9c9d06f827f13a2684a6c72cc4bf483180c84c6f5bac4",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/doctor/board/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-9",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "fda3be022588161fed28e3179bdcc0217c4cecc3584f766e6bd4b0b65925ba2f",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/doctor/orders/[visitId]/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-9",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "4cddeb096373bd143072c6e3ff70212c3c4328d3a21ab749f87e2141de087f88",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patient-list/LichSuNotion.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-424",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "b305d2dc72e1d176648ed6f14918596248f7436acb8121b00a820b17cb8edc29",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patient-list/PatientListView.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-994",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "228a978ef94e8d8f7bd9b8df5c7c1851c74f5dda1cba4e971af0ddbd7f010d76",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patient-list/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-244",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "7c0743b7b997ac27bf8008bd40eafbb1577d540b30355536ff2d7c28503f7aff",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-627",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "98a82533a1a34882aa35b37128360602f8d1913f947ad446998ed45298faacc1",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/CinemaSlotPicker.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-457",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "be08c4cebe56ecaf79a251fb5840c0e643e53c0ccdf206075ce38dafc96e3e8e",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/DoctorLoadBoard.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-225",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "cb7b7be46b0a2598daf90e918d0256f1dcdcab66065e6ac934d2721c5e35c03a",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/[id]/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-14",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "92882907937465d815f26c20f4f4e858f412f2e27204d8ab8eb94741bc918e44",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/dung-suc-chua-ngay.ts",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-66",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "2affa5c2127b30fe1227d8244398e5866ec1e9989b9cf381635587feb5501685",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-1866",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "fc5be0e240e3067eac8f38367eee4e96776fca5cf9e7a4ee7b706fa15a1e6adf",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/new/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-138",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "19bac97b41966931ab11967e5cfedabd15018f3796c8346e20e23ac6875a4167",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/checkout/CheckoutBoard.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-400",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "b82361f75bfcd5c0409e1023a074ba9c62bf2707b7d716d6898382a93d892844",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/checkout/ChiTietLuot.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-443",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "936715d3651edf3deefb8bbc2c42d64230502e404d41ba251a450fbbd1f15705",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/checkout/LuotTonDong.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-297",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "34105ebd01529a09f6eb4583bbd31bf45c4b64ca08d66fb8152b2b5b33c4c5e3",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/checkout/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-42",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "8c9180769957cb2d74f6166068ecc499d618a958f49a724de973cfe9b91fc272",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/queue/ManTiepDon.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-32",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "14d6807bec5f602f756948f40d594caacdfb0551da96f1d2f795e7c4c4e9601c",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/queue/QueueBoard.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-334",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "f2103d488601469e0e4d689368723035978ba892adb56f9840d3174675dcfdc3",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/queue/ThanhLocTiepDon.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-59",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "6ccefbde4fe254a77694826e993d2ff592103255d1fb80632f2691fd32261cf7",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/reception/queue/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-134",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "c4db7592ff94e27dccc9918c23c966923c9b12a429f1d10147d6738b863dc793",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/ApDungTuan.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-126",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "f9fc70ff2946d419dc5f959f7586d138887631e8236580a56b5aaecd29bd2f8b",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/ChonNhanVien.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-142",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "2ac0a956670297bcc9e0087a6e8d4638ed7c82c91e3b3122d02dc54f353279e8",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/LichTheoNguoi.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-89",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "cc03e83ab97cd7ff5caf51ffbf94e957bf8ecff4bcb19edca853841c056b59c8",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/NgoaiLeCaTruc.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-157",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "0e7eb9b61ac6c41e53a001d47e2044ae7f00f577bf10e49bf6e0a0adfd402b7d",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/OfficialRosterTable.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-28",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "20a334c3f619f70852339470a7214cbc0fb4d5b6413f1f71fa31ebf342d79d28",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/PhienBanLich.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-209",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "d99dff559ea7bda745d15b10aa988832d78334af30c43d422d2843acd3d9163b",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-1239",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "8cf05701f56f20f886f5befa0da56bc2d5f91e7a98ccbf9a389cd106ee21ad9f",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/TabLichLamViec.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-37",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "be66c4e89b21c40174a0559c7a037bbfcd1ea5f0540f63f0887035d98d3df343",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-273",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "fde390b1f453f3338f91cdc537aca9d79892565d2ff7b23fa17ca927511396ca",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+      "status": "excluded_previously_reviewed",
+      "method": "Prior round8 artifact reference",
+      "lines_read": "1-181",
+      "note": "Đã được round8 kiểm tra; loại khỏi tạo finding trong round9 theo yêu cầu.",
+      "sha256": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+      "full_file_read": false
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-1832",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "16aab719c694ab504ccc385243f92e5723b8a597e0085b85473f7f2bf9683da3",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/DoctorApptRow.ts",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-61",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "41ccd74025a4f981ec0a4eca5c988a113387f84f274ad31b375ee34b8d18003d",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-324",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "e516cdc82d2285ee3cdb6d94b9c6173a453ebc1f2989454abbbfc85b126fe437",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+      "status": "excluded_previously_reviewed",
+      "method": "Prior round8 artifact reference",
+      "lines_read": "1-548",
+      "note": "Đã được round8 kiểm tra; loại khỏi tạo finding trong round9 theo yêu cầu.",
+      "sha256": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+      "full_file_read": false
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/SonoBiometry.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-182",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "f15d6407146c779d561ba5cf4bfc36e7665b0ca81b3a617eb953eca040feb087",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/TepCuaLuotKham.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-84",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "8bd79b7cf08407218e91fc6bccf94f86515ce3ce0ca5c058acf88a70d5aed6da",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/TheoDoiThuThuat.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-146",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "9b0cfd7fbdce54e1e420fef253099b368c1144869fc4dd77ee1de272bef734a7",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/WorkspacePrimitives.module.css",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-31",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "5a179df4239391a2e60d480ddc822e13eaedccf9d665612f73f28ef562650e2a",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/WorkspacePrimitives.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-120",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "3ce89e878988d79864f272fcc3ea40db982b7c408d057f77fd1f60f79dfa482d",
+      "full_file_read": true
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/page.tsx",
+      "status": "read",
+      "method": "Pinned snapshot full-file read",
+      "lines_read": "1-37",
+      "note": "Đọc toàn bộ file line-numbered; xem xét state loading/error/empty, hành động và nhánh quyền phù hợp với màn.",
+      "sha256": "877c7b74b51b4f8c1451f8a463b10c7ea0359e784a3b000de57a0a7aa35c801e",
+      "full_file_read": true
+    }
+  ],
+  "context": [
+    {
+      "path": "src/dashboard/app/api/patients/route.ts",
+      "lines_read": "156-160",
+      "note": "BFF forwards patient-create body to FastAPI; traced only for ward/province candidate."
+    },
+    {
+      "path": "src/clinicai/schemas/patient.py",
+      "lines_read": "53-58",
+      "note": "Patient create DTO province/ward fields; traced only for ward/province candidate."
+    },
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "lines_read": "55-67,256-277",
+      "note": "Insert columns and insert operation; traced only for ward/province candidate."
+    },
+    {
+      "path": "src/dashboard/app/api/roster/ngoai-le-ca-truc/route.ts",
+      "lines_read": "26-35",
+      "note": "Exception-cancel BFF; traced only for stale-date candidate."
+    },
+    {
+      "path": "src/clinicai/services/ngoai_le_ca_truc_service.py",
+      "lines_read": "102-118,134-158",
+      "note": "Exception cancel/list service; traced only for stale-date candidate."
+    },
+    {
+      "path": "src/dashboard/app/api/roster/route.ts",
+      "lines_read": "247-264",
+      "note": "Roster preview and delete BFF; traced only for preview/mutation candidate."
+    },
+    {
+      "path": "src/clinicai/services/config_service.py",
+      "lines_read": "591-667,750-782",
+      "note": "Dry-run, real delete and appointment re-assignment behavior; traced only for preview/mutation candidate."
+    }
+  ],
+  "existing_finding_corroborated": [
+    {
+      "canonical_id": "FE-007",
+      "candidate_path": "src/dashboard/app/(dashboard)/patient-list/PatientListView.tsx",
+      "disposition": "duplicate_not_raised",
+      "note": "FE-007 bao phủ context lượt khám cũ còn hiển thị khi chuyển bệnh nhân trong các luồng lịch sử khám của dashboard; PatientListView và LuotKhamTruoc không tạo finding mới."
+    },
+    {
+      "canonical_id": "CLIN-028",
+      "candidate_path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "disposition": "covered_no_new_finding",
+      "note": "Doctor-field dirty state behavior is already tracked."
+    },
+    {
+      "canonical_id": "CLIN-029",
+      "candidate_path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "disposition": "covered_no_new_finding",
+      "note": "Location missing from PATCH is already tracked."
+    },
+    {
+      "canonical_id": "CLIN-027",
+      "candidate_path": "src/dashboard/app/(dashboard)/reception/checkout/CheckoutBoard.tsx",
+      "disposition": "covered_no_new_finding",
+      "note": "Checkout list cap is already tracked; no new related behavior established in this slice."
+    },
+    {
+      "canonical_id": "CLIN-013",
+      "candidate_path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+      "disposition": "distinct",
+      "note": "Existing secondary phone duplicate omission differs from stale duplicate candidates remaining actionable after query change."
+    },
+    {
+      "canonical_id": "FE-001",
+      "candidate_path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+      "disposition": "distinct",
+      "note": "Local draft persistence after logout differs from stale duplicate-query candidate state."
+    }
+  ],
+  "cross_checked_canonical_ids": [
+    "FE-001",
+    "FE-007",
+    "CLIN-010",
+    "CLIN-011",
+    "CLIN-013",
+    "CLIN-027",
+    "CLIN-028",
+    "CLIN-029",
+    "FE-008"
+  ],
+  "notes": [
+    "Source files were read only from the pinned snapshot, not the shared dirty checkout. Manifest matching confirmed exact candidate SHA-256 and line count.",
+    "Candidate IDs are block-local placeholders; parent audit owns canonical triage/ID assignment.",
+    "No finding was raised for BookHub save-error ambiguity or PatientListView visit-state leakage in this block: the former lacked a confirmed new behavior from static evidence; the latter duplicates FE-007."
+  ]
+}

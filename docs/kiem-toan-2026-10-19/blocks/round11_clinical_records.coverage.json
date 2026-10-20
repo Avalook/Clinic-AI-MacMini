@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_clinical_record_slice",
+  "scope": [
+    "Đọc các service và test counterpart về vòng đời phiếu khám/điều trị/sinh hiệu, kết quả xét nghiệm, tệp kết quả; ưu tiên các file MAIN-PHAM-VI/clinical.coverage.json mới ở trạng thái scanned hoặc cskh.py mới được trace một phần.",
+    "Truy dấu authorization ở endpoint hồ sơ CSKH, permission dependency, service data projection và caller UI; đối chiếu test đang kiểm tra clinic scope hay HTTP authorization.",
+    "Đọc chéo finding ledger cùng clinical, round8_lab, round9_api_clinical và round9_worker_event; không lặp LAB-001, CLIN-034, API-001..003 hoặc INF-018.",
+    "Không dùng dirty checkout làm bằng chứng. Snapshot không có .git metadata; xác nhận exact-main qua STATE.json/MAIN-PHAM-VI.json và SHA-256 file.",
+    "Không chạy test/runtime/DB, không truy cập VPS/secrets/PHI, không sửa source/migration; chỉ tạo ba artifact round11 được giao."
+  ],
+  "identity_check": {
+    "state_file": "docs/kiem-toan-2026-10-19/STATE.json",
+    "primary_reference_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "main_manifest": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "manifest_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "selected_code_file_sha256_match_manifest": true,
+    "snapshot_has_git_metadata": false,
+    "note": "Hash của mọi file trong source_hashes đã đối chiếu từ snapshot; dashboard/test files không phải mọi file đều có entry trong main source manifest."
+  },
+  "finding_ids": [
+    "CAND-CLIN-REC-001"
+  ],
+  "finding_count": 1,
+  "cross_check": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json (read-only cross-check)",
+    "blocks_read": [
+      "docs/kiem-toan-2026-10-19/blocks/clinical.md",
+      "docs/kiem-toan-2026-10-19/blocks/clinical.coverage.json",
+      "docs/kiem-toan-2026-10-19/blocks/round8_lab.md",
+      "docs/kiem-toan-2026-10-19/blocks/round9_api_clinical.md",
+      "docs/kiem-toan-2026-10-19/blocks/round9_worker_event.md"
+    ],
+    "result": "Không trùng LAB-001 (upload retry), CLIN-034 (gợi ý Andrology stale), API-001..003 (queue/workflow/schedule) hoặc INF-018 (worker lease). SEC-011 và SEC-019 có chủ đề đọc dữ liệu lâm sàng nhưng root/path khác như giải thích trong finding; không gộp thành cùng issue. API-002 là workflow tiến trình ở visit_progress.py, không phải endpoint chart này.",
+    "nearby_existing_ids": [
+      "SEC-011",
+      "SEC-019",
+      "API-002"
+    ]
+  },
+  "non_findings_and_controls": [
+    "TepKetQuaService có policy đọc tệp riêng và service kiểm file cùng clinic/điều kiện đọc; finding này giới hạn ở việc hồ sơ tổng hợp kế thừa quyền upload/tiếp đón và không khẳng định binary attachment bị lộ.",
+    "HoSoKhamService lọc appointment, patient, visit, order, prescription, lab result và tệp theo clinic_id; static trace không cho thấy vượt clinic.",
+    "Legacy POST /lab/orders và PATCH /lab/results/{id} trả 410 theo src/clinicai/api/v1/routers/lab.py:105-132; không coi lab_order_service là luồng HTTP hiện hành trong lát này.",
+    "Test unit và service hiện có kiểm clinic scoping, shape và projection dữ liệu; call service trực tiếp không kiểm FastAPI dependency. Chưa thấy test route `/cskh/ho-so-kham/{appointment_id}` hoặc matrix reception/CRM vs clinical-read trong src/tests."
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/cskh.py",
+      "sha256": "cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58",
+      "lines": 1092,
+      "ledger_status_at_start": "traced (partial)",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "673-705",
+        "774-798",
+        "930-1000"
+      ],
+      "notes": "Guard upload/result alias, chart route, and related result-file routes; file previously only slice-traced."
+    },
+    {
+      "path": "src/clinicai/permissions/cua_quyen.py",
+      "sha256": "2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9",
+      "lines": 56,
+      "ledger_status_at_start": "read",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "27-53"
+      ],
+      "notes": "OR semantics and moi_phong behavior."
+    },
+    {
+      "path": "src/clinicai/services/ho_so_kham_service.py",
+      "sha256": "523487883d6338dcba63b2b3b3a5e04cc166d1eb3620fb3510413d9e51a0fc5c",
+      "lines": 223,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-223"
+      ],
+      "notes": "Appointment/visit query, clinical form, order, prescription, file metadata, lab result and response projection."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_chung.py",
+      "sha256": "c4910e4fabb1c7870286e19aec6c282341c019f12de13e03a4a39702bb9d6eb3",
+      "lines": 242,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "145-153",
+        "173-199"
+      ],
+      "notes": "Compared documented clinical content read policy; exact-main hash differs from older clinical coverage entry, used snapshot hash."
+    },
+    {
+      "path": "src/clinicai/services/dieu_tri_ban_kham.py",
+      "sha256": "d7d27ab133a21c88b93ee405b2eaf46204de31cbef85454a0336553067c12d88",
+      "lines": 533,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-533"
+      ],
+      "notes": "Treatment/consultation state transitions and result handling; no new candidate promoted."
+    },
+    {
+      "path": "src/clinicai/services/don_tep_ket_qua.py",
+      "sha256": "59b6dfe89204656c6e74f8bd55efe7686da982bf9a3e8595cb513553e084472c",
+      "lines": 232,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-232"
+      ],
+      "notes": "Result file transitions; deduplicated against LAB-001 and existing attachment lifecycle findings."
+    },
+    {
+      "path": "src/clinicai/services/tep_ket_qua_service.py",
+      "sha256": "319301ae8f945fae34257672dc0f9777c44ff40a5f07abb8b3bf8718056ee226",
+      "lines": 1900,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "145-255",
+        "1544-1598"
+      ],
+      "notes": "Read-role policy and byte-read authorization context only; not a full-file review."
+    },
+    {
+      "path": "src/clinicai/services/lab_order_service.py",
+      "sha256": "9da6879b4249fcc65bdd8945a19d808c9d6663ee6fc0a69cd2bb2aab84a1ad01",
+      "lines": 304,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "1-304"
+      ],
+      "notes": "Legacy service callers and retirement status traced; HTTP lab write routes return 410."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/lab.py",
+      "sha256": "7bb9a85f02cc4b2c1cb6a8db436ce49f075379483fc239d53ba1e7c7a5b88494",
+      "lines": 341,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "105-132"
+      ],
+      "notes": "Legacy lab endpoints return 410; SHA to be filled from snapshot."
+    },
+    {
+      "path": "src/clinicai/services/lenh_kham_core.py",
+      "sha256": "034b8f33755bc55f4283d706e2b287bddca3a424f38fd1d516d325a2f8a7cb28",
+      "lines": 242,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-242"
+      ],
+      "notes": "Order/result domain helpers traced; no new issue raised."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_rules.py",
+      "sha256": "01e63fab701888ee1a2a0f75abd7e747e69cd4c879a781e0beb1b27fd6d34951",
+      "lines": 769,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-769"
+      ],
+      "notes": "Clinical visit invariants reviewed for this slice."
+    },
+    {
+      "path": "src/clinicai/services/sinh_hieu_buoi.py",
+      "sha256": "d0748495b158f98f486e3bffcfafb9d1dd1239c99b85a4c706f92f12b5c4fd20",
+      "lines": 125,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-125"
+      ],
+      "notes": "Same-day vital projection for record read."
+    },
+    {
+      "path": "src/clinicai/services/sinh_hieu_service.py",
+      "sha256": "d9d36c2b7d0ce7d5287cfbb829ff07b433ae72fc4f896cf4fe1d0cda615fe995",
+      "lines": 433,
+      "ledger_status_at_start": "scanned",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-433"
+      ],
+      "notes": "Vital lifecycle and role boundaries traced."
+    },
+    {
+      "path": "src/clinicai/services/so_sua_chi_dinh_service.py",
+      "sha256": "456259c038d2159e7c84805296a9d6b1609c3f1256cbdc6e3025d74216c2d823",
+      "lines": 1037,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "1-1037"
+      ],
+      "notes": "Order lifecycle read from exact snapshot; hash differs from current checkout and no checkout file used as evidence."
+    },
+    {
+      "path": "src/tests/unit/test_ho_so_kham.py",
+      "sha256": "bba7d8d83c2a924b8da4466c85afdb9e2c9a79ca8e90cea903c06f7d862887e1",
+      "lines": 92,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "56-92"
+      ],
+      "notes": "Service unit assertions for clinic scope/response, not route authorization."
+    },
+    {
+      "path": "src/tests/services/test_doc_luot_v5_sinh_hieu_buoi_db.py",
+      "sha256": "3c456cb6a73228cb7e085a1bd843fc1122674ed33abafacd40d4dcc4100ebb15",
+      "lines": 281,
+      "ledger_status_at_start": "scanned",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "73-100",
+        "130-168",
+        "230-272"
+      ],
+      "notes": "Service-direct coverage including receptionist identity; not an HTTP gate test."
+    },
+    {
+      "path": "src/tests/services/test_full_chi_dinh_slice_ab_db.py",
+      "sha256": "e331aec7a70d56a43901cfa2e7ae2c3639091c5c2db7b968ab36aa8555b5c064",
+      "lines": 1572,
+      "ledger_status_at_start": "traced",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "1168-1182"
+      ],
+      "notes": "Adjacent test rejects PARTNER on result-file read guard; does not test chart route role boundary."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/ThanhLuotKham.tsx",
+      "sha256": "34a399ac862a9056dbcb7f8147d9bce562c3338905bfbb6fbfef7cf8095a96f7",
+      "lines": 199,
+      "ledger_status_at_start": "not_in_service_manifest",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "68-92"
+      ],
+      "notes": "Caller evidence: CSKH chart fetch and print entrypoint; line count omitted from backend manifest."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/HoSoKham.tsx",
+      "sha256": "3ae2ce525a1d9e75ad9b49f4dd10020a568088f6cb278ecd0911e7d3f178b5b8",
+      "lines": 649,
+      "ledger_status_at_start": "not_in_service_manifest",
+      "read_level": "targeted_semantic_read",
+      "ranges": [
+        "547-573"
+      ],
+      "notes": "Modal fetches and displays the aggregated chart; line count omitted."
+    },
+    {
+      "path": "src/dashboard/app/api/cskh/ho-so-kham/[appointmentId]/route.ts",
+      "sha256": "9f99d890b4e663006eab0ed3c74f1bae9fa99b5f1045052117c20ab6fc0f295c",
+      "lines": 16,
+      "ledger_status_at_start": "not_in_service_manifest",
+      "read_level": "full_semantic_read",
+      "ranges": [
+        "1-16"
+      ],
+      "notes": "Thin BFF proxy; no authorization decision."
+    }
+  ],
+  "limitations": [
+    "This is one bounded slice, not a claim that the whole repository or every migration was read.",
+    "Authorization findings are static call-chain evidence. Production role grants, HTTP outcomes, location policy and business-approved field projections remain unverified.",
+    "No tests were executed by design."
+  ]
+}

@@ -1,0 +1,121 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_59809_dr4women_macmini (1 worker) sẵn sàng sau 5s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+2026-10-19 18:46:09 [info     ] pharmacy_batch_received        batch_id=8f703309-95f9-41a7-9b61-2dd4dc6bbeb2 by_staff_id=c7193516-36fb-4369-bf32-df1034af3671 quantity=10
+2026-10-19 18:46:09 [debug    ] pos_outbox_enqueued            kind=invoice subject_id=87252d4f-7761-4063-b06b-94b9178c3a38
+2026-10-19 18:46:09 [info     ] payment_recorded               by_staff_id=ae0f5877-1b92-456a-9133-1514f2280a0c kind=thuoc method=CASH visit_id=834cacbf-83fb-4fbc-9bfb-42266e57d3fa
+2026-10-19 18:46:09 [info     ] pharmacy_dispensed             by_staff_id=c7193516-36fb-4369-bf32-df1034af3671 prescription_id=afa6e398-15f7-423e-a214-9d70413d521f quantity=1
+{"finding": "CLIN-007", "result": {"ok": true, "dispensed_qty": "1", "dispense_status": "CAP_MOT_PHAN"}, "state": {"ordered_drug": "71867b65-8c6c-41d8-a1f5-f6027484d584", "dispensed_drug": "23126a15-ae5f-46f5-b821-c8fa3974b6ca", "dispensed_qty": "1", "quantity_on_hand": "9.000"}}
+F2026-10-19 18:46:09 [info     ] pharmacy_batch_received        batch_id=4f51ecbb-b719-429b-87ac-7b1dfb75930d by_staff_id=8f13b2b0-c39a-400f-bbf0-8f9317cacb16 quantity=10
+2026-10-19 18:46:09 [debug    ] pos_outbox_enqueued            kind=invoice subject_id=91444c14-c446-42f5-b54e-c28df4bad36a
+2026-10-19 18:46:09 [info     ] payment_recorded               by_staff_id=a86e3e68-ac03-43c0-ad37-0e9880d1fb1f kind=thuoc method=CASH visit_id=a4b9ebda-f47d-49fb-8c43-bdf96e7a073c
+2026-10-19 18:46:09 [info     ] pharmacy_dispensed             by_staff_id=8f13b2b0-c39a-400f-bbf0-8f9317cacb16 prescription_id=21e40fb9-34ff-4c40-9e4a-c258c2e9ed1a quantity=1.0
+{"finding": "CLIN-007", "http_status": 201, "body": {"ok": true, "dispensed_qty": 1.0, "dispense_status": "CAP_MOT_PHAN"}}
+F
+=================================== FAILURES ===================================
+____________ test_dispense_rejects_batch_of_another_catalogue_drug _____________
+
+q = Quay(pool=<asyncpg.pool.Pool object at 0x10bdb4940>, visit_id='834cacbf-83fb-4fbc-9bfb-42266e57d3fa', consultation_id=...ame='', vai_theo_vi_tri=frozenset(), vai_tai_khoan=None, vai_theo_lego=None, cashier_head_scope=None), duoi='ee6b4652')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bd96300>
+
+    async def test_dispense_rejects_batch_of_another_catalogue_drug(
+        q: Quay, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Turning off stock reservation cannot allow a different medicine."""
+        monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
+        rx, ordered = await _dong_da_xac_dinh(q, 2)
+        other = await _thuoc(q, ten="AUDIT other medicine " + q.duoi)
+        assert ordered != other
+        batch = await _nhap_lo(q, other, 10)
+        await _thu(q)
+>       with pytest.raises((ValidationError, ConflictError)):
+E       Failed: DID NOT RAISE (<class 'clinicai.api.exceptions.ValidationError'>, <class 'clinicai.api.exceptions.ConflictError'>)
+
+src/tests/services/test_audit_1910_wrong_drug_db.py:46: Failed
+_______ test_http_dispense_rejects_other_drug_with_real_permission_guard _______
+
+q = Quay(pool=<asyncpg.pool.Pool object at 0x10be044c0>, visit_id='a4b9ebda-f47d-49fb-8c43-bdf96e7a073c', consultation_id=...ame='', vai_theo_vi_tri=frozenset(), vai_tai_khoan=None, vai_theo_lego=None, cashier_head_scope=None), duoi='a75ea9ec')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b00d250>
+
+    async def test_http_dispense_rejects_other_drug_with_real_permission_guard(
+        q: Quay, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Keep router permissions/validation/idempotency; replace login identity."""
+        monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
+        rx, ordered = await _dong_da_xac_dinh(q, 2)
+        other = await _thuoc(q, ten="AUDIT HTTP other medicine " + q.duoi)
+        assert ordered != other
+        batch = await _nhap_lo(q, other, 10)
+        await _thu(q)
+        app = FastAPI()
+        app.include_router(rt.router, prefix="/api/v1")
+    
+        async def test_pool() -> AsyncIterator[asyncpg.Pool]:
+            yield q.pool
+    
+        app.dependency_overrides[get_db_pool] = test_pool
+        app.dependency_overrides[get_current_identity] = lambda: q.duoc_si
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://audit.local"
+        ) as client:
+            response = await client.post(
+                "/api/v1/pharmacy/dispense",
+                json={"prescription_id": rx, "drug_batch_id": batch, "so_luong": 1},
+                headers={"Idempotency-Key": uuid.uuid4().hex},
+            )
+        print(json.dumps({"finding": "CLIN-007", "http_status": response.status_code,
+                          "body": response.json()}, default=str))
+>       assert response.status_code in {400, 409, 422}
+E       assert 201 in {400, 409, 422}
+E        +  where 201 = <Response [201 Created]>.status_code
+
+src/tests/services/test_audit_1910_wrong_drug_db.py:94: AssertionError
+=========================== short test summary info ============================
+FAILED src/tests/services/test_audit_1910_wrong_drug_db.py::test_dispense_rejects_batch_of_another_catalogue_drug
+FAILED src/tests/services/test_audit_1910_wrong_drug_db.py::test_http_dispense_rejects_other_drug_with_real_permission_guard
+2 failed in 0.53s

@@ -1,0 +1,87 @@
+[
+  {
+    "id": "PHAR-001",
+    "title": "Khách trả thuốc sau khi phiếu thu bị hủy không thể chọn hoàn/đổi trong cùng giao dịch",
+    "severity": "MEDIUM",
+    "evidence_level": "reproduced_local",
+    "category": "pharmacy_return_refund",
+    "summary": "Đường khách trả thuốc gọi _hoan_phan_tra trước khi ghi drug_return trong cùng transaction. Helper chỉ tìm cycle PAID/PENDING_VERIFICATION; nếu phiếu đã VOIDED thì HOAN lỗi và rollback cả ghi nhận hàng trả. GIU_LAI vẫn ghi được hàng và nợ tiền để thu ngân xử lý sau.",
+    "trigger": "Đơn thuốc đã thanh toán và giao; phiếu thu sau đó bị hủy theo CP5, để lại thuốc cần trả; nhân viên chọn HOAN hoặc DOI khi ghi nhận thuốc khách mang lại.",
+    "impact": "Thao tác hoàn/đổi thất bại, không ghi nhận lần trả vật lý trong transaction đó. Nhân viên phải chọn GIU_LAI làm đường vòng và theo dõi tiền riêng. Probe không cho thấy mất tiền vĩnh viễn: GIU_LAI có thể ghi lại hàng trả và giữ rõ khoản cần xử lý.",
+    "recommendation": "Tách trạng thái phiếu bị VOIDED khỏi bằng chứng tiền đã thu: nếu cycle có paid_at và còn số lượng đủ điều kiện hoàn, cho flow trả thuốc tham chiếu đúng bill line/lần thu gốc sau void; giữ khóa chống hoàn vượt, duplicate và audit. Nếu chính sách không cho hoàn ở đây, UI phải nói rõ quy trình GIU_LAI và owner xử lý khoản phải trả.",
+    "acceptance": "Trên DB dùng một lần: paid→dispense→void→HOAN/DOI phải ghi đúng một drug_return và hoàn đúng phần còn thu; retry không nhân đôi. Trường hợp chưa thu/đã hoàn hết phải bị chặn; GIU_LAI ghi nợ/owner và trạng thái xử lý nhìn thấy được.",
+    "reference_version": "pinned_main",
+    "status": "open",
+    "evidence": [
+      {
+        "path": "src/clinicai/services/payment_service.py",
+        "line": 1497,
+        "end_line": 1538,
+        "detail": "Void phiếu đã trả và phát drug_return_needed cho phần thuốc đã giao."
+      },
+      {
+        "path": "src/clinicai/services/pharmacy_service.py",
+        "line": 1954,
+        "end_line": 1993,
+        "detail": "HOAN/DOI gọi helper trước khi insert drug_return trong cùng transaction."
+      },
+      {
+        "path": "src/clinicai/services/pharmacy_service.py",
+        "line": 3261,
+        "end_line": 3274,
+        "detail": "Helper chỉ chọn cycle PAID/PENDING_VERIFICATION, loại cycle VOIDED."
+      }
+    ],
+    "source_hashes": {
+      "src/clinicai/services/payment_service.py": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+      "src/clinicai/services/pharmacy_service.py": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+      "src/dashboard/app/(dashboard)/pharmacy/DongThuoc.tsx": "76113eacbba7c4f344bce11c8ffd5b0bdb7deae1e4cf3692ef741dade6f4553d"
+    },
+    "validation": {
+      "method": "actual_pharmacy_service_and_postgres_synthetic",
+      "command": "scripts/test-nhanh.sh src/tests/services/test_audit_1910_return_after_void_db.py -q",
+      "result": "Probe pay→dispense→void rồi HOAN: ConflictError “Không tìm thấy lần thu”, không có drug_return. Chọn GIU_LAI với cùng thuốc trả ghi thành công một drug_return, hoan=None. 1 test passed.",
+      "limitations": "DB dùng một lần và dữ liệu giả; gọi service trực tiếp, không ASGI/browser/production. DOI dùng chung helper với HOAN nhưng probe chỉ thực thi HOAN; GIU_LAI là đường vòng còn cần đối soát."
+    },
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Source exact-main giới hạn cycle tìm được ở PAID/PENDING_VERIFICATION. Probe synthetic xác nhận HOAN rollback return; GIU_LAI ghi nhận được và không tạo refund.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/payment_service.py",
+          "line": 1497,
+          "end_line": 1538,
+          "detail": "Hủy cycle PAID thành VOIDED và để lại event cần xử lý trả thuốc nếu thuốc đã giao.",
+          "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+          "excerpt": "1497:                 payment_id = str(payment[\"id\"])\n1498:                 try:\n1499:                     await conn.execute(\n1500:                         \"\"\"\n1501:                         UPDATE payment_cycle\n1502:                            SET status = 'VOIDED', closed_at = now(),\n1503:                                closed_by = $2::uuid, close_reason = $3\n1504:                          WHERE payment_cycle_id = $1::uuid AND status = 'PAID'\n1505:                         \"\"\",\n1506:                         payment_cycle_id,\n1507:                         identity.staff_id,\n1508:                         normalized_reason,\n1509:                     )\n1510:                 except asyncpg.CheckViolationError as e:\n1511:                     # Lần thu có tiền TRẢ TRƯỚC liệu trình mà buổi đã làm bằng\n1512:                     # tiền ấy (08/10/2026, #16) — Postgres từ chối.\n1513:                     raise loi_tien_lieu_trinh(\n1514:                         e, cau_phu_vuot=CAU_HUY_TRA_TRUOC_DA_DUNG\n1515:                     ) from None\n1516:                 if phan_lo:\n1517:                     # CP3: dòng chưa giao gì → đảo bán đúng một lần; dòng đã\n1518:                     # giao → không tự nhập lại kho, ghi cần xử lý trả thuốc (CP5).\n1519:                     can_tra = await dao_ban(\n1520:                         conn,\n1521:                         clinic_id=identity.clinic_id,\n1522:                         cycle_id=payment_cycle_id,\n1523:                         staff_id=identity.staff_id,\n1524:                         ly_do=f\"Huỷ phiếu thu: {normalized_reason}\",\n1525:                         phan_lo=phan_lo,\n1526:                     )\n1527:                     if can_tra:\n1528:                         await _log_payment_event(\n1529:                             conn,\n1530:                             event_type=\"payment.drug_return_needed\",\n1531:                             payment_id=payment_cycle_id,\n1532:                             payment_cycle_id=payment_cycle_id,\n1533:                             visit_id=visit_id,\n1534:                             kind=kind,\n1535:                             amount=None,\n1536:                             identity=identity,\n1537:                             note=\",\".join(can_tra),\n1538:                         )"
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 1954,
+          "end_line": 1993,
+          "detail": "HOAN/DOI hoàn trước rồi mới ghi drug_return và sổ kho; cùng transaction.",
+          "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+          "excerpt": "1954:                 hoan = (\n1955:                     await _hoan_phan_tra(\n1956:                         conn,\n1957:                         identity=identity,\n1958:                         prescription_id=xuat[\"prescription_id\"],\n1959:                         so_luong=luong,\n1960:                         hinh_thuc=hinh_thuc,\n1961:                         ly_do=(\n1962:                             f\"Đổi thuốc: {ly}\"\n1963:                             if ket_cuc_tien == \"DOI\"\n1964:                             else f\"Khách trả thuốc: {ly}\"\n1965:                         ),\n1966:                     )\n1967:                     if ket_cuc_tien in (\"HOAN\", \"DOI\")\n1968:                     else None\n1969:                 )\n1970:                 tra_id = await conn.fetchval(\n1971:                     \"\"\"\n1972:                     INSERT INTO public.drug_return\n1973:                         (clinic_id, visit_id, prescription_id,\n1974:                          original_dispense_txn_id, allocation_id, drug_batch_id,\n1975:                          returned_qty, reason, returned_by,\n1976:                          ket_cuc_tien, ly_do_tien, refund_id)\n1977:                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,\n1978:                             $7, $8, $9::uuid, $10, $11, $12::uuid)\n1979:                     RETURNING id::text\n1980:                     \"\"\",\n1981:                     identity.clinic_id,\n1982:                     don[\"visit_id\"],\n1983:                     xuat[\"prescription_id\"],\n1984:                     dispense_txn_id,\n1985:                     xuat[\"allocation_id\"],\n1986:                     xuat[\"drug_batch_id\"],\n1987:                     luong,\n1988:                     ly,\n1989:                     identity.staff_id,\n1990:                     ket_cuc_tien,\n1991:                     ly_tien if ket_cuc_tien == \"GIU_LAI\" else None,\n1992:                     hoan[\"refund_id\"] if hoan else None,\n1993:                 )"
+        },
+        {
+          "path": "src/clinicai/services/pharmacy_service.py",
+          "line": 3261,
+          "end_line": 3274,
+          "detail": "Truy vấn hoàn loại VOIDED nên không tìm thấy lần thu khi khách trả thuốc.",
+          "sha256": "4d2c4e2478b29750e83476d55f99f8a3ca19bc8fea6fe8be1240a41e93f10f0a",
+          "excerpt": "3261:          WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'prescription'\n3262:            AND bl.source_id = $2 AND bl.billing_owner = 'CLINIC'\n3263:            AND c.status IN ('PAID', 'PENDING_VERIFICATION')\n3264:          ORDER BY (c.paid_at IS NULL), c.paid_at DESC\n3265:          LIMIT 1\n3266:         \"\"\",\n3267:         identity.clinic_id,\n3268:         prescription_id,\n3269:     )\n3270:     if dong is None:\n3271:         raise ConflictError(\n3272:             \"Không tìm thấy lần thu của dòng thuốc này — không hoàn được; chọn \"\n3273:             '\"Giữ lại\" (ghi lý do) rồi xử lý ở quầy thu.'\n3274:         )"
+        }
+      ],
+      "production_verified": false
+    },
+    "related_tests": [
+      "probes/test_audit_1910_return_after_void_db.py"
+    ],
+    "alignment": [
+      "Reality ngày càng dễ nhìn thấy",
+      "Khoảng thời gian Unknown ngày càng ngắn",
+      "Lỗi lặp lại dần biến thành cải tiến hệ thống"
+    ]
+  }
+]

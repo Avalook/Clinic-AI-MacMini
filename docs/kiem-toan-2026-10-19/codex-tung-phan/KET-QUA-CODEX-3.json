@@ -1,0 +1,153 @@
+[
+  {
+    "id": "INF-001",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "Verifier kiểm checksum và số tệp của media_artifact chính, nên khẳng định bỏ kiểm media nói chung là sai. Nhưng nó không xác minh auth_artifact hoặc tar tệp chờ đẩy; query tar chỉ lấy tep_ket_qua, trong khi worker xử lý cả anh_chuyen_khoan. Vì vậy backup có thể qua kiểm tra dù companion auth hoặc ảnh chuyển khoản còn duy nhất trên VPS bị thiếu.",
+    "bang_chung": [
+      {"path": "scripts/verify-backup.sh", "line": 92, "end_line": 105, "y": "Verifier kiểm scope public và checksum archive; không kiểm auth_artifact trong manifest."},
+      {"path": "scripts/verify-backup.sh", "line": 112, "end_line": 134, "y": "Media artifact chính được kiểm hiện diện, gzip, checksum và số mục trong tar."},
+      {"path": "scripts/backup-db.sh", "line": 503, "end_line": 516, "y": "Manifest ghi auth và tar pending riêng, nhưng verifier không xác minh chúng."},
+      {"path": "scripts/backup-db.sh", "line": 393, "end_line": 424, "y": "Tệp VPS chưa đẩy được tar riêng; truy vấn chỉ chọn public.tep_ket_qua."},
+      {"path": "src/clinicai/services/day_tep.py", "line": 111, "end_line": 116, "y": "Worker định nghĩa cả tep_ket_qua và anh_chuyen_khoan trong danh sách bảng đẩy."}
+    ],
+    "chot_chan_da_tim_thay": "Media artifact chính có kiểm tra nội dung cơ bản. Backup cũng ghi số tệp pending bị bỏ qua do vượt trần, nhưng đó chỉ là cảnh báo trong manifest/log, không làm verify thất bại.",
+    "ghi_chu_sua": "Mở rộng verifier để bắt buộc kiểm tra hash và tính toàn vẹn của auth_artifact, pending tar, cùng số tệp bị bỏ sót; bổ sung anh_chuyen_khoan vào truy vấn tar pending."
+  },
+  {
+    "id": "INF-002",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "Khi cảnh báo cùng mã vẫn mở, hàm _mo chỉ cộng dồn và trả false; ap_dung chỉ gửi Telegram cho thay đổi trạng thái. Nếu gửi lần đầu thất bại, các vòng sau không tạo thay đổi nên không thử gửi lại khi sự cố còn mở. Cảnh báo vẫn được lưu và hiển thị ở /ops, vì vậy phần bị mất là lần gửi qua Telegram chứ không phải toàn bộ cảnh báo.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/canh_gac.py", "line": 249, "end_line": 263, "y": "Conflict trên cảnh báo đang mở chỉ tăng số lần và trả false."},
+      {"path": "src/clinicai/services/canh_gac.py", "line": 291, "end_line": 315, "y": "Telegram chỉ được gọi với thay_doi; trạng thái gửi thành công chỉ ghi sau khi gửi."},
+      {"path": "src/clinicai/services/canh_gac.py", "line": 273, "end_line": 288, "y": "Thiếu cấu hình hoặc lỗi HTTP trả false; không tạo hàng đợi gửi lại."},
+      {"path": "src/clinicai/api/v1/routers/ops.py", "line": 170, "end_line": 185, "y": "Cảnh báo còn được trả về trong API ops."}
+    ],
+    "chot_chan_da_tim_thay": "Cảnh báo vẫn ở bảng canh_bao và được phục vụ qua /ops; chốt này giảm phạm vi ảnh hưởng nhưng không retry Telegram.",
+    "ghi_chu_sua": "Tạo trạng thái gửi Telegram pending/retry độc lập với chuyển trạng thái cảnh báo, có backoff và giới hạn thử lại."
+  },
+  {
+    "id": "INF-003",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "Cả hai script chỉ từ chối khi APP_ENV đúng bằng prod, rồi kết nối trực tiếp bằng DATABASE_URL. Cấu hình deploy prod trong mã đặt APP_ENV là production, nên guard không khớp nếu script được chạy với chính giá trị đó. Mã không chứng minh người vận hành đã nạp cấu hình prod hoặc chạy script; bài đo còn có dọn dữ liệu nhưng lịch hẹn chỉ bị huỷ chứ không xoá cứng.",
+    "bang_chung": [
+      {"path": "scripts/tests/do-giu-cho.py", "line": 143, "end_line": 153, "y": "Guard chỉ so sánh với prod, sau đó kết nối DATABASE_URL."},
+      {"path": "scripts/tests/do-tam-cskh.py", "line": 109, "end_line": 117, "y": "Script đo CSKH cũng chỉ chặn APP_ENV=prod rồi kết nối DB trực tiếp."},
+      {"path": "scripts/deploy-backend.sh", "line": 15, "end_line": 19, "y": "Nhánh deploy prod khai báo EXPECTED_APP_ENV=production."},
+      {"path": "scripts/deploy-backend.sh", "line": 137, "end_line": 139, "y": "Deploy từ chối nếu APP_ENV trong cấu hình prod không đúng giá trị production."},
+      {"path": "scripts/tests/do-giu-cho.py", "line": 453, "end_line": 504, "y": "Cleanup huỷ lịch thử và xoá staff/tài khoản; lịch huỷ vẫn để lại dấu vết."}
+    ],
+    "chot_chan_da_tim_thay": "Script có cleanup cho staff/tài khoản; lịch hẹn không xoá cứng được và được đổi sang CANCELLED. Không thấy guard khác ngăn kết nối tới production.",
+    "ghi_chu_sua": "Dùng allowlist môi trường an toàn hoặc yêu cầu cờ xác nhận riêng, đồng thời kiểm host/database đích trước khi chạy bài đo."
+  },
+  {
+    "id": "INF-006",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Các script trong repo chỉ khôi phục và kiểm tra public DB; restore-drill chỉ tạo bản auth tối thiểu bằng UUID, không thử đăng nhập hay mở tệp. Migration ledger cũng được tạo rỗng nếu thiếu, khiến runner có thể xem các migration là pending. Tuy nhiên manifest nói rõ đây chưa phải DR đầy đủ và đòi backup auth/PITR ngoài repo, nên không thể suy ra các bản sao ngoài repo không dùng được; tên Supabase Cloud trong hợp đồng đó còn không khớp kiến trúc self-hosted hiện hành.",
+    "bang_chung": [
+      {"path": "scripts/restore-db.sh", "line": 128, "end_line": 143, "y": "Restore được mô tả là public-schema-only và yêu cầu auth/PITR ngoài."},
+      {"path": "scripts/restore-db.sh", "line": 207, "end_line": 267, "y": "Các bước restore/kiểm tra tập trung vào public DB và media artifact tùy chọn."},
+      {"path": "scripts/restore-drill.sh", "line": 121, "end_line": 169, "y": "Drill lấy UUID auth để seed dữ liệu kiểm tra tối thiểu, không khôi phục đăng nhập đầy đủ."},
+      {"path": "scripts/restore-drill.sh", "line": 211, "end_line": 293, "y": "Các kiểm tra drill là schema, RLS và truy vấn; không có kiểm thử login hoặc mở tệp."},
+      {"path": "scripts/apply-pending-migrations.sh", "line": 81, "end_line": 100, "y": "Khi thiếu ledger, runner tạo ledger rỗng rồi nhận diện migration chưa có phiên bản."},
+      {"path": "scripts/backup-db.sh", "line": 495, "end_line": 516, "y": "Manifest đánh dấu complete_supabase_dr=false và yêu cầu PITR/auth backup ngoài."}
+    ],
+    "chot_chan_da_tim_thay": "Manifest và restore script cảnh báo rõ rằng public dump không đủ, yêu cầu nguồn auth/PITR bổ sung; bằng chứng trong repo không xác nhận hoặc phủ nhận khả năng khôi phục của nguồn ngoài đó.",
+    "ghi_chu_sua": "Bổ sung quy trình khôi phục/kiểm tra riêng cho auth, kho tệp và migration ledger self-hosted; cập nhật hợp đồng DR để không phụ thuộc tên cloud đã lỗi thời."
+  },
+  {
+    "id": "INF-007",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "IdempotencyGuard cho phép reclaim PROCESSING quá hạn, còn các route ghi nghiệp vụ lưu receipt sau khi service hoàn tất transaction; do đó tồn tại cửa sổ commit nghiệp vụ nhưng chưa lưu receipt. Với trả thuốc, retry cùng key có thể thử ghi lại khi vẫn còn lượng được phép trả. Báo cáo nói dùng pool riêng là sai, và giới hạn tổng lượng trả/hoàn theo lượng đã giao/thu làm giảm nguy cơ lặp vô hạn; chưa có bằng chứng fault-injection xác nhận đã xảy ra.",
+    "bang_chung": [
+      {"path": "src/clinicai/api/idempotency.py", "line": 108, "end_line": 136, "y": "PROCESSING được reclaim sau khi lease hết hạn."},
+      {"path": "src/clinicai/api/idempotency.py", "line": 182, "end_line": 210, "y": "Receipt COMPLETED được lưu ở bước riêng sau handler."},
+      {"path": "src/clinicai/api/v1/routers/pharmacy.py", "line": 1342, "end_line": 1375, "y": "Route gọi service trả thuốc rồi mới lưu idempotency receipt."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 1937, "end_line": 1953, "y": "Service giới hạn lượng trả theo lượng đã giao trừ lượng đã trả."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 2022, "end_line": 2043, "y": "Nghiệp vụ trả thuốc hoàn tất trong transaction trước khi trả về route."}
+    ],
+    "chot_chan_da_tim_thay": "Có giới hạn domain cho tổng lượng trả/hoàn, nên không phải thao tác lặp vô hạn. Hai bước nghiệp vụ và receipt không cùng một transaction; mã dùng pool chung chứ không phải pool riêng.",
+    "ghi_chu_sua": "Giảm cửa sổ commit/receipt bằng cách ghi receipt trong cùng transaction với side effect, hoặc thêm khóa domain để retry nhận ra thao tác đã được áp dụng."
+  },
+  {
+    "id": "AI-001",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "Query lấy tối đa 200 việc quá hạn, không có ORDER BY; khi danh sách chạm giới hạn, code chỉ ghi log rồi tiếp tục. Hàm đối soát đóng mọi nhận định đang mở cùng loại nếu khóa không nằm trong tập vừa lấy, nên đối tượng bị cắt có thể bị đóng nhầm. Tuy vậy module tự mô tả là shadow-only và blob không chứng minh đã có hơn 200 việc quá hạn; tác động mức cao bị thổi phồng.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/agent_giam_sat.py", "line": 47, "end_line": 48, "y": "Giới hạn TRAN được đặt là 200."},
+      {"path": "src/clinicai/services/agent_giam_sat.py", "line": 262, "end_line": 276, "y": "SQL chọn việc quá hạn với LIMIT nhưng không sắp xếp đầy đủ tập."},
+      {"path": "src/clinicai/services/agent_giam_sat.py", "line": 335, "end_line": 360, "y": "Chạm giới hạn chỉ tạo log/cảnh báo rồi trả tập kết quả."},
+      {"path": "src/clinicai/services/agent_giam_sat.py", "line": 407, "end_line": 455, "y": "Đối soát đóng các judgment mở cùng loại vắng khỏi tập đã nạp."},
+      {"path": "src/clinicai/services/agent_giam_sat.py", "line": 1, "end_line": 10, "y": "Module ghi rõ chạy shadow, không phát lệnh vận hành."}
+    ],
+    "chot_chan_da_tim_thay": "Lỗi phát hiện/nạp dữ liệu thì không chạy cập nhật loại tương ứng; riêng tình huống chạm LIMIT không bị coi là lỗi và không chặn bước đóng. Chế độ shadow giới hạn tác động trực tiếp lên vận hành.",
+    "ghi_chu_sua": "Chỉ đóng nhận định khi truy vấn chứng minh đã lấy đủ tập, hoặc phân trang và đối soát bằng snapshot/version thay vì xem danh sách bị giới hạn là đầy đủ."
+  },
+  {
+    "id": "CLIN-005",
+    "ket_luan": "DUNG",
+    "muc_do_dung": "CAO",
+    "ly_do": "Luồng đổi lịch đọc trạng thái hiện tại mà không khóa hàng, lưu status cũ vào patch và UPDATE chấp nhận nhóm trạng thái _ALIVE. CHECKED_IN nằm trong nhóm này, nên nếu thao tác check-in commit giữa lần đọc và UPDATE thì đổi lịch có thể ghi đè trạng thái về CONFIRMED. Đây là race phụ thuộc đúng thứ tự thời gian, không phải kết quả của mọi lần đổi lịch.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/booking_service.py", "line": 275, "end_line": 275, "y": "Tập _ALIVE bao gồm trạng thái lịch đang được giữ lại."},
+      {"path": "src/clinicai/services/booking_service.py", "line": 955, "end_line": 1002, "y": "Luồng lấy lịch để đổi không khóa hàng bằng FOR UPDATE."},
+      {"path": "src/clinicai/services/booking_service.py", "line": 1036, "end_line": 1052, "y": "Status được đọc và snapshot trước khi xử lý tiếp."},
+      {"path": "src/clinicai/services/booking_service.py", "line": 1764, "end_line": 1765, "y": "Patch ghi lại status đã snapshot."},
+      {"path": "src/clinicai/services/booking_service.py", "line": 2113, "end_line": 2125, "y": "UPDATE chấp nhận from_statuses thay vì yêu cầu đúng revision/status đã đọc."}
+    ],
+    "chot_chan_da_tim_thay": "Check-in khóa hàng ở luồng riêng, nhưng khóa đó không bảo vệ lần đọc trước của đổi lịch; CHECKED_IN vẫn thuộc tập _ALIVE được UPDATE chấp nhận.",
+    "ghi_chu_sua": "Khóa hàng trước khi đọc trạng thái hoặc thêm điều kiện compare-and-swap theo status/revision đã snapshot; không ghi status cũ nếu nghiệp vụ đổi lịch không cần đổi status."
+  },
+  {
+    "id": "CLIN-006",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "Event result.corrected mang phiên bản nhưng consumer tạo khóa dedupe chỉ từ event_type và aggregate_id; notification unresolved trùng khóa được xử lý theo hướng không tạo bản mới. Lệnh ẩn tất cả chỉ thêm trạng thái ẩn cho user, không đóng notification gốc, nên lần đính chính mới có thể tiếp tục bị ẩn với chính user đó. Tác động giới hạn ở người đã ẩn chuông; notification dùng chung vẫn còn cho những người đủ điều kiện khác.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/form_engine_service.py", "line": 895, "end_line": 929, "y": "Event correction có aggregate_version trong payload."},
+      {"path": "src/clinicai/events/consumers/chuong.py", "line": 189, "end_line": 195, "y": "Consumer dựng khóa từ event_type và aggregate_id, không dùng phiên bản."},
+      {"path": "src/clinicai/events/consumers/chuong.py", "line": 331, "end_line": 355, "y": "Notification unresolved trùng khóa được dedupe thay vì tạo notification mới."},
+      {"path": "src/clinicai/services/thong_bao_service.py", "line": 346, "end_line": 355, "y": "Danh sách loại các notification user đã ẩn."},
+      {"path": "src/clinicai/services/thong_bao_service.py", "line": 410, "end_line": 433, "y": "Ẩn tất cả ghi trạng thái ẩn theo user, không đóng notification gốc."}
+    ],
+    "chot_chan_da_tim_thay": "Ẩn là theo từng người dùng; chuông chưa bị xoá/đóng cho các nhân viên phù hợp khác. Báo cáo đúng trong phạm vi người đã ẩn chuông cũ.",
+    "ghi_chu_sua": "Đưa phiên bản kết quả vào khóa dedupe của correction, hoặc cập nhật notification hiện hữu theo phiên bản để user có thể nhận biết lần sửa mới."
+  },
+  {
+    "id": "CLIN-007",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "CAO",
+    "ly_do": "Trong nhánh cấp phát cũ, backend tìm lô theo clinic rồi kiểm cơ sở, vị trí, đơn vị, tồn và hạn dùng nhưng không so drug_catalog_id của lô với thuốc trên dòng đơn trước khi ghi DISPENSE. Nhánh phân lô mới có kiểm tra đối chiếu thuốc, và giao diện thường đưa ra các lô gợi ý; do đó lỗ hổng cần rơi vào đường legacy/direct request được phép, không phải mọi luồng cấp phát.",
+    "bang_chung": [
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 710, "end_line": 776, "y": "Luồng legacy/direct chọn _cap_phat_cu khi đủ điều kiện."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 1250, "end_line": 1309, "y": "Nhánh cũ kiểm clinic, cơ sở, vị trí, unit, số lượng, hạn rồi ghi sổ; không so drug_catalog_id."},
+      {"path": "src/clinicai/services/pharmacy_service.py", "line": 2498, "end_line": 2514, "y": "Nhánh phân lô có đối chiếu drug_catalog_id với dòng đơn."},
+      {"path": "src/clinicai/api/v1/routers/pharmacy.py", "line": 1002, "end_line": 1015, "y": "API nhận drug_batch_id do caller gửi và dùng guard cấp phát."},
+      {"path": "src/dashboard/app/(dashboard)/pharmacy/DongThuoc.tsx", "line": 453, "end_line": 485, "y": "UI chọn từ danh sách lô gợi ý, là chốt ở giao diện nhưng không thay guard backend."}
+    ],
+    "chot_chan_da_tim_thay": "Nhánh phân lô mới kiểm đúng thuốc; UI giới hạn lựa chọn ở lô gợi ý. Chưa chứng minh trạng thái cờ production hoặc request người dùng đã đi vào nhánh legacy.",
+    "ghi_chu_sua": "Thêm so sánh drug_catalog_id vào nhánh _cap_phat_cu trước khi ghi sổ, dùng cùng điều kiện với nhánh phân lô mới."
+  },
+  {
+    "id": "SEC-010",
+    "ket_luan": "DUNG_MOT_PHAN",
+    "muc_do_dung": "VUA",
+    "ly_do": "API cho caller truyền viewing_patient_id, dependency chỉ từ chối DISPLAY/PARTNER, và may_surface cho phép khi hai patient ID bằng nhau; service sau đó truy vấn form_data trong cùng clinic. Đây là thiếu kiểm quyền y khoa/đồng ý ở endpoint. Tuy nhiên API có middleware yêu cầu X-API-Key và trong cây dashboard không thấy route gọi shared-form; vì vậy chưa chứng minh nhân viên thường có thể tự gọi endpoint hoặc lấy được API key.",
+    "bang_chung": [
+      {"path": "src/clinicai/api/v1/routers/consent.py", "line": 50, "end_line": 71, "y": "Endpoint nhận patient_id và viewing_patient_id từ URL/query, phụ thuộc get_current_identity."},
+      {"path": "src/clinicai/api/identity.py", "line": 638, "end_line": 659, "y": "Identity guard chặn DISPLAY/PARTNER, không đòi capability y khoa cho các vai trò khác."},
+      {"path": "src/clinicai/services/consent_service.py", "line": 69, "end_line": 97, "y": "may_surface trả allow vô điều kiện khi subject và viewing patient trùng nhau."},
+      {"path": "src/clinicai/services/consent_service.py", "line": 229, "end_line": 259, "y": "Service truy vấn và trả form_data theo patient/clinic sau khi allow."},
+      {"path": "src/clinicai/api/v1/routers/clinical_forms.py", "line": 23, "end_line": 50, "y": "Endpoint đọc form thông thường yêu cầu cua_y_khoa."},
+      {"path": "src/clinicai/api/auth.py", "line": 76, "end_line": 130, "y": "Middleware yêu cầu và xác thực X-API-Key trên route không miễn trừ."}
+    ],
+    "chot_chan_da_tim_thay": "API key middleware là rào ở lớp HTTP; proxy giữ key phía server. Chưa tìm thấy caller dashboard cho shared-form, nên khả năng khai thác trực tiếp từ tài khoản nhân viên thường chưa được chứng minh.",
+    "ghi_chu_sua": "Đưa kiểm capability y khoa và quan hệ với visit/bệnh nhân vào endpoint trước khi gọi ConsentService; không xem hai ID bằng nhau là căn cứ thay cho quyền nhân viên."
+  }
+]

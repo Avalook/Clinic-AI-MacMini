@@ -1,0 +1,139 @@
+
+##### THOI DIEM
+2026-10-20T12:35:06+07:00
+clinicai-eeny
+
+##### GIT PROD
+956ba4f236b1c92f1280d2097018c199e90ce8c7
+2026-10-19 12:35:47 +0700 fix: cascade floor cleanup with deleted locations
+nhanh: main
+tep thay doi chua commit: 0
+
+##### HE DIEU HANH
+PRETTY_NAME="Ubuntu 25.04"
+6.14.0-36-generic
+khoi dong luc: 2026-09-16 09:36:27
+ 12:35:06 up 34 days,  2:58,  2 users,  load average: 0.54, 0.80, 0.75
+CAN KHOI DONG LAI (reboot-required)
+Docker version 29.2.1, build a5c7197
+docker daemon bat tu: Wed 2026-10-14 09:11:25 +07
+
+##### DIA VA BO NHO
+Filesystem                               Size  Used Avail Use% Mounted on
+/dev/root                                 48G   37G   11G  79% /
+//pv-cfs.viettelidc.com.vn/qtree_352817  1.1T   58G  993G   6% /mnt/viettel-cfs
+/dev/root                                 48G   37G   11G  79% /
+               total        used        free      shared  buff/cache   available
+Mem:            7952        3662        1359         222        3558        4290
+Swap:              0           0           0
+
+##### CONTAINER (ten | restart policy | so lan restart | suc khoe | trang thai)
+/clinicai_prod-su-kien-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T06:12:47.235905795Z
+/clinicai_prod-dashboard-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T06:12:47.234373982Z
+/clinicai_prod-api-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T06:12:36.440412214Z
+/clinicai_prod-day-tep-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T06:12:36.44096048Z
+/clinicai_prod-media-quyen-1 | no | restarts=0 | health=none | exited | start=2026-10-19T06:12:35.707544892Z
+/clinicai_staging-su-kien-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T20:46:50.541874201Z
+/clinicai_staging-dashboard-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T20:46:50.828925115Z
+/clinicai_staging-api-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T20:46:50.279008115Z
+/clinicai_staging-media-quyen-1 | no | restarts=0 | health=none | exited | start=2026-10-19T05:48:15.881891399Z
+/clinicai_staging-caddy-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T05:48:33.112705132Z
+/buildx_buildkit_clinicai-staging-builder-3g0 | unless-stopped | restarts=0 | health=none | running | start=2026-10-14T02:11:58.939746886Z
+/clinicai_stg_auth_guard | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:55:43.171604282Z
+/clinicai_stg_supabase_gateway | unless-stopped | restarts=0 | health=none | running | start=2026-10-14T02:55:43.889165147Z
+/clinicai_stg_auth | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T20:46:51.148399669Z
+/clinicai_stg_rest | unless-stopped | restarts=0 | health=none | running | start=2026-10-19T20:46:51.484572281Z
+/clinicai_stg_db | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:55:36.569643154Z
+/clinicai_prod-caddy-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-16T09:34:00.954171866Z
+/clinicai_prod-uptime-kuma-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:12:09.053207877Z
+/clinicai_prod-dozzle-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:12:09.059096521Z
+/clinicai_auth_guard | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:22:49.302192059Z
+/clinicai_supabase_gateway | unless-stopped | restarts=0 | health=none | running | start=2026-10-14T02:22:49.954616233Z
+/clinicai_realtime | unless-stopped | restarts=0 | health=none | exited | start=2026-09-16T03:17:49.130127868Z
+/clinicai_auth | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:22:49.515392504Z
+/clinicai_rest | unless-stopped | restarts=0 | health=none | running | start=2026-10-14T02:22:49.728639806Z
+/clinicai_db | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:22:42.730587073Z
+
+##### HEN GIO (systemd timers clinicai)
+NEXT                            LEFT LAST                               PASSED UNIT                          ACTIVATES
+Tue 2026-10-20 12:42:08 +07     7min Tue 2026-10-20 12:32:08 +07  2min 58s ago clinicai-traffic-report.timer clinicai-traffic-report.service
+Tue 2026-10-20 12:45:19 +07    10min Tue 2026-10-20 12:30:02 +07      5min ago clinicai-backup-15p.timer     clinicai-backup-15p.service
+Wed 2026-10-21 00:00:00 +07      11h Tue 2026-10-20 00:00:00 +07       12h ago dpkg-db-backup.timer          dpkg-db-backup.service
+Wed 2026-10-21 02:15:32 +07      13h Tue 2026-10-20 02:15:38 +07       10h ago clinicai-backup.timer         clinicai-backup.service
+Wed 2026-10-21 03:30:20 +07      14h Tue 2026-10-20 03:30:16 +07        9h ago clinicai-staging-nap.timer    clinicai-staging-nap.service
+-                                  - Tue 2026-10-20 12:34:56 +07       11s ago clinicai-ops-status.timer     clinicai-ops-status.service
+--- dich vu clinicai that bai:
+* clinicai-staging-nap.service loaded failed failed ClinicAI STAGING — nạp bản sao lưu prod mới nhất + che dữ liệu khách
+
+##### SAO LUU (ten, thoi gian, kich thuoc; khong doc noi dung)
+2026-10-19 12:46:08.301398518 +0700 9893 /home/clinicai/clinicai-staging/supabase/migrations/20261019150000_clinic_floor.sql
+2026-10-19 10:52:46.306000173 +0700 3643 /home/clinicai/clinicai-staging/supabase/migrations/20261018130000_doi_chieu_giao_tu_kho.sql
+2026-10-19 10:52:46.306000173 +0700 3473 /home/clinicai/clinicai-staging/supabase/migrations/20261018120000_kiem_ke_ca_dinh_chinh.sql
+2026-10-19 10:52:46.306000173 +0700 3147 /home/clinicai/clinicai-staging/supabase/migrations/20261018140000_vat_tu_tra_nha_san_xuat.sql
+2026-10-19 10:52:46.306000173 +0700 1589 /home/clinicai/clinicai-staging/supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql
+2026-10-19 10:52:46.306000173 +0700 1204 /home/clinicai/clinicai-staging/supabase/migrations/20261018180000_an_thong_bao_rieng_theo_nhan_vien.sql
+2026-10-19 10:52:46.305000109 +0700 7029 /home/clinicai/clinicai-staging/supabase/migrations/20261017200000_thuoc_tra_quyet_dinh_xu_ly.sql
+2026-10-19 10:52:46.305000109 +0700 4690 /home/clinicai/clinicai-staging/supabase/fixtures/tai_khoan_chi_xem_kho.sql
+2026-10-20 07:00:44.470798400 +0700 19271 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261020_070026_auth.sql.gz
+2026-10-20 07:00:37.643777100 +0700 31415485 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261020_070026.sql.gz
+2026-10-19 07:00:38.785736400 +0700 19278 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261019_070019_auth.sql.gz
+2026-10-19 07:00:31.427747500 +0700 29255493 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261019_070019.sql.gz
+2026-10-18 07:15:36.911684900 +0700 19236 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261018_071526_auth.sql.gz
+2026-10-18 07:00:36.941758800 +0700 19237 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261018_070019_auth.sql.gz
+2026-10-18 07:00:29.637697300 +0700 28418281 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261018_070019.sql.gz
+2026-10-17 07:00:35.951636800 +0700 19090 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261017_070019_auth.sql.gz
+--- thu muc co chu backup:
+/home/clinicai/backups
+/mnt/viettel-cfs/db-backups
+
+##### CONG MANG DANG LANG NGHE
+0.0.0.0:22
+0.0.0.0:443
+0.0.0.0:80
+127.0.0.1:3001
+127.0.0.1:54321
+127.0.0.1:54322
+127.0.0.1:54331
+127.0.0.1:54332
+127.0.0.1:8080
+127.0.0.1:8443
+127.0.0.1:8888
+127.0.0.53%lo:53
+127.0.0.54:53
+[::]:22
+--- tuong lua:
+ERROR: You need to be root to run this script
+
+##### TRUY CAP CONG KHAI (ma HTTP)
+https://dr4women.io.vn/ -> 307
+https://dr4women.io.vn/health -> 200
+https://staging.dr4women.io.vn/ -> 307
+
+##### FILE MOI TRUONG (chi ten bien, quyen file, SO SANH PROD vs STAGING bang bam; khong in gia tri)
+quyen/chu: -rw------- clinicai
+so bien prod: 57
+file staging: /home/clinicai/clinicai-staging/.env.staging
+SUPABASE_ANON_KEY: khac nhau
+NEXT_PUBLIC_SUPABASE_ANON_KEY: khac nhau
+SUPABASE_SERVICE_ROLE_KEY: khac nhau
+SUPABASE_JWT_SECRET: khac nhau
+BACKEND_API_KEY: khac nhau
+TELEGRAM_BOT_TOKEN: GIONG NHAU giua prod va staging
+ZALO_ZNS_ACCESS_TOKEN: GIONG NHAU giua prod va staging
+OPS_TRAFFIC_PASSWORD: chi co o prod
+ANTHROPIC_API_KEY: khac nhau
+AGENT_LLM_KEY_FILE: chi co o prod
+
+##### LOI TRONG LOG 7 NGAY (chi dem, khong in noi dung)
+clinicai_prod-su-kien-1: 7 ngay=0 ; 24 gio=0
+clinicai_prod-dashboard-1: 7 ngay=93 ; 24 gio=93
+clinicai_prod-api-1: 7 ngay=554 ; 24 gio=554
+clinicai_prod-day-tep-1: 7 ngay=0 ; 24 gio=0
+clinicai_prod-caddy-1: 7 ngay=12705 ; 24 gio=3132
+clinicai_prod-uptime-kuma-1: 7 ngay=0 ; 24 gio=0
+clinicai_prod-dozzle-1: 7 ngay=0 ; 24 gio=0
+
+##### DATABASE (chi doc, chi dem/ten, ep read-only)
+container db: KHONG TIM THAY
+
+##### HET

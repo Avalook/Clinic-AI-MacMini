@@ -1,0 +1,400 @@
+{
+  "audit_id": "round9_worker_event",
+  "source": {
+    "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+    "repository_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "basis": "exact-main content snapshot chỉ định; source không bị chỉnh sửa"
+  },
+  "scope": [
+    "toàn bộ consumers trong su-kien",
+    "event/timer claim và reclaim",
+    "retry và dead-letter",
+    "health/alerts/metrics",
+    "worker lifecycle và shutdown",
+    "test/migration liên quan"
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/events/__init__.py",
+      "sha256": "906a1ca3af947ce7851707ec1c38384bc58bc67ea5d116c3390cd52e2332a5ba",
+      "line_count": 16,
+      "reviewed_ranges": [
+        "1-16"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/catalogue.py",
+      "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+      "line_count": 2401,
+      "reviewed_ranges": [
+        "1-115",
+        "1291-1335",
+        "1770-1820",
+        "2290-2315"
+      ],
+      "review_status": "partial",
+      "notes": "Có tìm kiếm registry/consumer association trên toàn file; chỉ các dải này được đọc chi tiết."
+    },
+    {
+      "path": "src/clinicai/events/consumers/__init__.py",
+      "sha256": "472367e128d0060b1d931789a7d3eb8bd05995c888e013093adc8bc10f602802",
+      "line_count": 34,
+      "reviewed_ranges": [
+        "1-34"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/chuong.py",
+      "sha256": "15a1a7c67d8c84e601077ed0eadecc9dd36098555d8c11c5f6022fd791ff7132",
+      "line_count": 377,
+      "reviewed_ranges": [
+        "1-377"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/chuong_nhan_cheo.py",
+      "sha256": "bf7f537e24fc51c883ac8a814f44956707b06d110ae1d433cf36cbc6819f022a",
+      "line_count": 158,
+      "reviewed_ranges": [
+        "1-158"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/cong_no.py",
+      "sha256": "474185e02b7bb8ab1f79915d4b0d2564c0422c7e2c5ef5d1f4bb71773018dd4c",
+      "line_count": 87,
+      "reviewed_ranges": [
+        "1-87"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/dieu_tri.py",
+      "sha256": "2c4072a2bb67e53cebbba079acbb57a8807986379d3907eda55fb5539e0825a4",
+      "line_count": 40,
+      "reviewed_ranges": [
+        "1-40"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/doi_tac.py",
+      "sha256": "994b774d0c08f5f99a9460e44b3f0ec493287895e740453647ae7450ed6096f1",
+      "line_count": 174,
+      "reviewed_ranges": [
+        "1-174"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/dong_thoi_gian.py",
+      "sha256": "0717c9b36ea1589cee1a12f98aa3923df48004c907a1f30e8e2971a2933380f2",
+      "line_count": 247,
+      "reviewed_ranges": [
+        "1-247"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/hanh_trinh.py",
+      "sha256": "c3ed581ec935e8034f04f3725b02cb2a4047b05987016f7936fffc6ee1854bed",
+      "line_count": 405,
+      "reviewed_ranges": [
+        "1-405"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/lieu_trinh_sap_het.py",
+      "sha256": "8c22e3f8ce808008513be92827fbcf8f8bfdc43ac93e2065271ee8b822b7d6b5",
+      "line_count": 81,
+      "reviewed_ranges": [
+        "1-81"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/nhac_tai_kham.py",
+      "sha256": "f87d84db9df4c911cc7450c433d4c74d8c51a5835b22aacf409088254c91037a",
+      "line_count": 90,
+      "reviewed_ranges": [
+        "1-90"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/nhac_viec.py",
+      "sha256": "ea9da9d16aa3d18da87ccfa8d788b15abdefd9dff1fffef03b5616c4df636796",
+      "line_count": 41,
+      "reviewed_ranges": [
+        "1-41"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/so_no.py",
+      "sha256": "c9d05af3fffcfbfa92d6184e63984ce396012d7b16ee98deed4d666fed8f112b",
+      "line_count": 128,
+      "reviewed_ranges": [
+        "1-128"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/trach_nhiem.py",
+      "sha256": "ee1ce2dea8659af48ca68eac42d466d87d5b898ed4511b5f8ab7951813747848",
+      "line_count": 180,
+      "reviewed_ranges": [
+        "1-180"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/consumers/vong_doc.py",
+      "sha256": "d534970753f1816a95036349f350b99e44e40f6130dc2c7aabafc3e827951b3b",
+      "line_count": 101,
+      "reviewed_ranges": [
+        "1-101"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/emit.py",
+      "sha256": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616",
+      "line_count": 239,
+      "reviewed_ranges": [
+        "1-239"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/hen_gio.py",
+      "sha256": "bc7043474aae3693211ba52ce3c0135cf433c18163eb986ed7d3a5e878d3b868",
+      "line_count": 266,
+      "reviewed_ranges": [
+        "1-266"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/nang_cap.py",
+      "sha256": "753b6be4531c7108524e899e820e46ad0f4d873e8dc6746e2f0723405b94ff78",
+      "line_count": 78,
+      "reviewed_ranges": [
+        "1-78"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/phat_lai.py",
+      "sha256": "f45e9ff4c4bfd9a857aa4b940195f13b54f5980f161f6249a729599541b0fb05",
+      "line_count": 141,
+      "reviewed_ranges": [
+        "1-141"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/events/worker.py",
+      "sha256": "e48c44c90133bd604d03b45bd446bb37005580c928ccc3c0de7b72228bfdf363",
+      "line_count": 328,
+      "reviewed_ranges": [
+        "1-328"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/worker.py",
+      "sha256": "bedfe3ef2cb93379826806ad0fdf43402fcad638ecfda98abdb6390e35396019",
+      "line_count": 483,
+      "reviewed_ranges": [
+        "1-483"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/api/v1/health.py",
+      "sha256": "02ed67509c1ba55560dd6287976c74eba626f2887b7104d165d78266dc82d86f",
+      "line_count": 137,
+      "reviewed_ranges": [
+        "1-137"
+      ],
+      "review_status": "full"
+    },
+    {
+      "path": "src/clinicai/services/canh_gac.py",
+      "sha256": "5376f1ab3a237dc1123490cf6548dd3f69b4d7fcb9d23ad961024457e5750d5e",
+      "line_count": 348,
+      "reviewed_ranges": [
+        "1-260",
+        "245-348"
+      ],
+      "review_status": "full",
+      "notes": "Hai dải chồng lấp, tổng cộng bao phủ toàn file."
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "d45163c3d4ee2f689a8d13bac0d884c9d0943150e20dd39b637ebb3ebe8f8839",
+      "line_count": 536,
+      "reviewed_ranges": [
+        "287-314"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc cấu hình service su-kien, restart, giới hạn tài nguyên, dependency, heartbeat healthcheck."
+    },
+    {
+      "path": "src/tests/services/test_event_worker_db.py",
+      "sha256": "6c25bb29d18ac0c4bfbfbf070a137e29dd390a9def473d32cc211ba5601a8199",
+      "line_count": 273,
+      "reviewed_ranges": [
+        "1-273"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/services/test_hen_gio_db.py",
+      "sha256": "ee6520ebc77086c9ef62194bce58f04f139a8a4303b0a85c9ec8add4aca0d9e1",
+      "line_count": 259,
+      "reviewed_ranges": [
+        "1-259"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/test_health_su_kien.py",
+      "sha256": "9c957a0a7539be03ba3fd5e7d0bbc959d9ccc33b0203eae53439dcd368fc81d4",
+      "line_count": 130,
+      "reviewed_ranges": [
+        "1-130"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/services/test_chuong_nhan_cheo_db.py",
+      "sha256": "528a9d0779c01d7d7cc0b99e1ca83f2e80f8a2bb8dd28ed3ac34bc8212be645a",
+      "line_count": 198,
+      "reviewed_ranges": [
+        "1-198"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/unit/test_danh_muc_su_kien.py",
+      "sha256": "26abc7407981da8f2fceb5b6a37cb4d8eed901aee25d7985d9db167a7d8d7f3a",
+      "line_count": 99,
+      "reviewed_ranges": [
+        "1-99"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/unit/test_su_kien_phat_that.py",
+      "sha256": "2d7c15ff452967616342d676fb7a013c132855b4fcd3fbcab517b5fe00668bef",
+      "line_count": 52,
+      "reviewed_ranges": [
+        "1-52"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/unit/test_nang_cap_su_kien.py",
+      "sha256": "da53e1a0a99a2f8b2d4adfed91fbb4e3465ebb1d7bf8a91731bf5a48e3f4a33c",
+      "line_count": 92,
+      "reviewed_ranges": [
+        "1-92"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/services/test_su_kien_hieu_nang_db.py",
+      "sha256": "05725fca40b150c2f026caeb0525c49331cdba952cbde9e294e08ce2a31d0e62",
+      "line_count": 211,
+      "reviewed_ranges": [
+        "1-211"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "src/tests/unit/test_canh_gac_kho_tep.py",
+      "sha256": "2bae9c8c24bc072758ae2d85ae831902bf292657e89435dfec32cefc20e013c2",
+      "line_count": 167,
+      "reviewed_ranges": [
+        "1-167"
+      ],
+      "review_status": "full",
+      "notes": "Đọc tĩnh; không thực thi."
+    },
+    {
+      "path": "supabase/migrations/20260923000001_domain_event.sql",
+      "sha256": "d76477198dbda1aefc79dda32e1ab96ae18f2c745bc1e84291e7a641f286d156",
+      "line_count": 228,
+      "reviewed_ranges": [
+        "151-205"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc status, lease, attempts và index event_delivery."
+    },
+    {
+      "path": "supabase/migrations/20260923000008_hen_gio.sql",
+      "sha256": "e3915c3c0b8f81bf40508820628113bd657b437112a36524e25174ebcba34dc3",
+      "line_count": 74,
+      "reviewed_ranges": [
+        "22-64"
+      ],
+      "review_status": "partial",
+      "notes": "Đọc attempts/status/lease và index hàng đợi hen_gio."
+    }
+  ],
+  "canonical_dedup": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "sha256_at_review": "1a62440db6221a30dd88f8f9a28be2882b324c075b4c742bbd42b059705104a6",
+    "ids_checked": [
+      "INF-001",
+      "INF-002",
+      "INF-003",
+      "INF-004",
+      "INF-005",
+      "INF-006",
+      "INF-007",
+      "INF-008",
+      "INF-009",
+      "INF-010",
+      "INF-011",
+      "INF-012",
+      "INF-013",
+      "INF-014",
+      "INF-015",
+      "INF-016",
+      "INF-017",
+      "AI-004"
+    ],
+    "note": "Ledger dùng để khử trùng; không phải bằng chứng nguồn cho finding."
+  },
+  "result": {
+    "new_candidate_count": 1,
+    "candidate_ids": [
+      "CAND-WRK-001"
+    ],
+    "tests_run": false,
+    "database_or_production_access": false,
+    "app_or_migration_changes": false,
+    "additional_candidate": "Không có candidate khác đạt ngưỡng chắc chắn trong lượt static này."
+  },
+  "limitations": [
+    "Không DB/production, secrets hoặc PHI; không chạy test hay mô phỏng crash/restart.",
+    "13 consumer module đã đọc đầy đủ; events/catalogue.py chỉ đọc các dải được liệt kê và tìm kiếm registry toàn file.",
+    "Không xác minh trạng thái migration đang áp dụng hoặc tần suất runtime."
+  ]
+}

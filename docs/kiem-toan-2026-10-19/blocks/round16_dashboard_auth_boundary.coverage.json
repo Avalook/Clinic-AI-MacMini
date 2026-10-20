@@ -1,0 +1,101 @@
+[
+  {
+    "path": "src/dashboard/lib/current-staff.ts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Server-side identity comes from FastAPI /api/v1/me; no Supabase auth fallback. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "ffbade1bf9b141de518396a3b67f2ebbc9b51230def390cd36093ec8ef6a8a4e",
+    "git_blob_sha1": "2a4418dd364c7469ee13a1b135c8055c5b534321",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/lib/supabase-service.ts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Server-only service-role constructor; cross-checked references and client boundary. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "0c2cd09d4186e2608801b87f4713009569259946831d9db1d2a4657446caf127",
+    "git_blob_sha1": "f3a279402e84bfd765ce9051cc853f1d4b66c5ea",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/lib/het-phien.ts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Separates expired sessions from transient network/Auth failures and scopes own-origin API 401 redirects. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "5fdde5871861682789f2fe3809f30257145363c99d998e478e17bdc04dbf69c1",
+    "git_blob_sha1": "172f1a954b48c0ae0c9329eda6114fe0d1f72261",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/lib/quyen-client.ts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "UI permission helper only; caller-side visibility is not an authorization boundary. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "a31ac3c04397c72e70da1a8fa26f43a8af411aa9a4b196fd721d5a70416fddef",
+    "git_blob_sha1": "370b3709e6bf00d911422213478353b6b9315a9a",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/lib/validation.ts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Shared name/date validators; followed patient POST/PATCH callers. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "82242692722163253f2688ad5657284235d132f42c3dd60bba95db314fa503ef",
+    "git_blob_sha1": "59a399144d35593489cb48a2e80321c3c775db27",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/lib/clinic-session.ts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Backend-derived clinic role/capabilities; clinic_id remains a filter hint, with server/RLS authority. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "135e24055424f0bbe629cc39dee49ac13e6d1c03acbd7f305aa5fa01b501be94",
+    "git_blob_sha1": "806b18d68de3d71c13f3b5569a8fcaa208012e75",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/tests/het-phien-boundary.test.mts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Read full boundary suite; included in RUN-068, 22 selected boundary tests pass across three suites. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "62cc6105f59784f302b54d07ff69a3aa72451f5400439e4f4de75505f07f56e4",
+    "git_blob_sha1": "1724a2782555924f7deea7d396aaedc08c3a9fc3",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/tests/nhap-lieu-benh-nhan-boundary.test.mts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Read full suite and verified both POST/PATCH route wiring; included in RUN-068. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "df1906c1e485d7ce88fadc98a3f9283f5d0e5a7288f9345b54324c0cd707c1f9",
+    "git_blob_sha1": "55a28fcd535d704f150d40080068c4d21daae7a1",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/tests/service-role-boundary.test.mts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Read full static boundary suite; included in RUN-068. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "8a44e3c91202569ea7f92d741e95b45a50a03c1324adcc88bde6ff8ea3eef314",
+    "git_blob_sha1": "a6d868e34adff1fc5b498e6bb169a4d33f82e30b",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/app/api/admin/users/route.ts",
+    "status": "read",
+    "method": "Full semantic read",
+    "note": "Full 446-line Auth-admin BFF read: authorization comes from caller session + backend capability; SEC-006 partial-success path remains the relevant finding. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "4fce6107a22a8d1c5b08ce9b419468c4f24d11a3ba1ac5d5cc7be84313ec93d7",
+    "git_blob_sha1": "ab0fa916462994cbfdc273676ead7e6928c666ad",
+    "full_file_read": true
+  },
+  {
+    "path": "src/dashboard/app/api/patients/route.ts",
+    "status": "traced",
+    "method": "Targeted semantic trace",
+    "note": "POST lines 78–108 and PATCH lines 250–282 call shared name/date validation; no full route review claimed. Round 16 dashboard identity/authorization boundary.",
+    "sha256": "200bb7040838a8521576cba36d8a752bdc096fd69d70cc4570124d0132c2ee6f",
+    "git_blob_sha1": "bdc7d7fa892aa09fd084d40c192d68aa5d5dd6a7",
+    "full_file_read": false
+  }
+]

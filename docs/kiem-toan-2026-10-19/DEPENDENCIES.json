@@ -1,0 +1,54 @@
+{
+  "at": "2026-10-19T18:42:29.202723+07:00",
+  "registry": "https://registry.npmjs.org/",
+  "lockfile_sha256": "7fdf94660f18d6270574bc89c0fe1d8528ed7dd4811f1ce2ebecd76d9d4206b2",
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 5,
+      "high": 24,
+      "critical": 1,
+      "total": 31
+    },
+    "dependencies": {
+      "prod": 67,
+      "dev": 383,
+      "optional": 106,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 504
+    }
+  },
+  "runtime": {
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "sharp": "0.35.3",
+    "libheif": "1.23.1",
+    "platform": "linux",
+    "resolution": "sharp resolved from next/package.json module context",
+    "alpine": "3.24.2",
+    "glibcVersionRuntime": null
+  },
+  "triage": {
+    "windows": "not applicable to observed Linux",
+    "remote_ssrf": "no remotePatterns configured; maintainer says unaffected in this case",
+    "next_og": "no next/og/ImageResponse uses found in pinned dashboard source",
+    "avif": "affected component present; end-to-end attacker input reachability not demonstrated",
+    "libheif_RCE_condition": "Sharp upstream describes glibc Linux under certain conditions. Observed Alpine with no glibc runtime header does not match that condition; no RCE claim for observed deployment.",
+    "sharp_override": "package.json overrides next.sharp to0.35.3; Next upgrade alone may retain old sharp"
+  },
+  "sources": [
+    "https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4",
+    "https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c",
+    "https://github.com/vercel/next.js/security/advisories/GHSA-cjq9-62q9-8jv4",
+    "https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j",
+    "https://github.com/vercel/next.js/security/advisories/GHSA-p293-qw3h-jr36"
+  ],
+  "limitations": [
+    "No exploit run",
+    "No Python/OS dependency scan yet",
+    "No npm fix/install or lockfile mutations",
+    "Audit counts are packages including dev/transitive, not independent reachable exploits"
+  ]
+}

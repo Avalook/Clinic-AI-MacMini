@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_patient_lookup_slice",
+  "scope": [
+    "Service/router/callers/UI/tests cho directory, search, danh sách CSKH; tập trung clinic/location scope, field minimization, notes visibility và quyền đọc/ghi.",
+    "Chỉ audit tĩnh snapshot exact-main; không test/runtime/DB/VPS/secrets/PHI; không sửa source, migration, ledger, STATE, HTML hoặc handoff.",
+    "Đối chiếu PHAT-HIEN.json và các block round8_lab, round9_api_clinical, round9_worker_event; tránh LAB-001, CLIN-034, API-001..003, INF-018, SEC-020."
+  ],
+  "identity_check": {
+    "manifest": "docs/kiem-toan-2026-10-19/MAIN-PHAM-VI.json",
+    "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "snapshot_has_git_metadata": false,
+    "note": "SHA-256 được lấy từ file trong snapshot exact-main; current checkout ledger/artifact chỉ dùng để tra dedupe, không phải nguồn code evidence."
+  },
+  "finding_ids": ["CAND-PAT-LOOKUP-001", "CAND-PAT-LOOKUP-002"],
+  "finding_count": 2,
+  "cross_check": {
+    "ledger": "docs/kiem-toan-2026-10-19/PHAT-HIEN.json (read-only; 123 entries at review)",
+    "nearby_existing_ids": ["LAB-001", "CLIN-034", "API-001", "API-002", "API-003", "INF-018", "SEC-013", "SEC-018", "SEC-020", "CAND-LOG-PII-001"],
+    "result": "Không thấy finding ledger trùng raw CCCD/email trong các list response hoặc preset CASHIER có crm.manage mở quyền ghi CSKH. SEC-020 là route tải chart/hồ sơ khám qua CRM guard; finding mới chỉ nói quyền ghi tương tác/follow-up/phản hồi. SEC-013 là PII trong event log, SEC-018 là direct PostgREST contacts/kin."
+  },
+  "files": [
+    {"path":"src/clinicai/services/danh_sach_benh_nhan_service.py","sha256":"6d440aac59d3f084c969910e37da0bc5627b5a458be03d0e8ed43a404449d125","lines":393,"ledger_status_at_start":"scanned; AST structural parse only","read_level":"targeted_semantic_read","ranges":["85-120","136-149","184-194","253-267","320-393"],"notes":"Projection, clinic filtering, search normalization, page/selected serialization. Not full module semantic review."},
+    {"path":"src/clinicai/api/v1/patients.py","sha256":"a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a","lines":435,"ledger_status_at_start":"traced","read_level":"targeted_semantic_read","ranges":["267-303"],"notes":"Danh sách route, capability guard và service call only."},
+    {"path":"src/dashboard/app/(dashboard)/patient-list/page.tsx","sha256":"7c0743b7b997ac27bf8008bd40eafbb1577d540b30355536ff2d7c28503f7aff","lines":244,"ledger_status_at_start":"read","read_level":"targeted_semantic_read","ranges":["81-118","165-215"],"notes":"API response-to-row mapping and passing props into patient-list client component."},
+    {"path":"src/dashboard/app/(dashboard)/patient-list/PatientListView.tsx","sha256":"228a978ef94e8d8f7bd9b8df5c7c1851c74f5dda1cba4e971af0ddbd7f010d76","lines":994,"ledger_status_at_start":"read","read_level":"targeted_semantic_read_plus_full_file_field_search","ranges":["1","35-39","587-627","full-file rg search for national_id_number/email"],"notes":"Inspected client boundary, patient row type and rendered admin block; field search found no national ID/email usage. Not a full-file semantic read."},
+    {"path":"src/clinicai/services/danh_sach_khach_cskh.py","sha256":"87049a9af28683bd123c1e36286ade640aee4be0d4bd781f03182e1f0589db39","lines":292,"ledger_status_at_start":"scanned; AST structural parse only","read_level":"targeted_semantic_read","ranges":["63-79","170-201","220-281"],"notes":"CSKH directory projection, search cleanup, clinic filtering and serialization."},
+    {"path":"src/dashboard/app/(dashboard)/customers/page.tsx","sha256":"9449faacef9c91fc05dddd447d584b5a2dbdb0b06883842d602aff223b46e28c","lines":1194,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["105-120","1105-1138"],"notes":"Role/capability-derived write flag and passing the customer rows plus CSKH data to view."},
+    {"path":"src/dashboard/app/(dashboard)/customers/CustomersView.tsx","sha256":"957afb9b35cd0bb8a44f4b5c7f66c02c3593a1d950f7304b8fa2991975658c08","lines":2363,"ledger_status_at_start":"scanned; structural inventory/pattern scan","read_level":"targeted_semantic_read","ranges":["1","1754-1847","2005-2009","2100-2109"],"notes":"Inspected client boundary, write workspace vs readonly branch and CSKH controls keyed by canOperateCskh."},
+    {"path":"src/clinicai/api/v1/routers/cskh.py","sha256":"cec03c42973f5f1c28212abbd3dc69891d0c0bb5788324d416a2ed93294d7a58","lines":1092,"ledger_status_at_start":"traced","read_level":"targeted_semantic_read","ranges":["45-57","65-86","491-540","585-608","642-657"],"notes":"CSKH list guard and selected write endpoints only; no full route audit."},
+    {"path":"src/clinicai/permissions/cua_quyen.py","sha256":"2a2e327efe394435a729d9c6f91caaf4176adfb3594449a581967161cea380e9","lines":56,"ledger_status_at_start":"read","read_level":"targeted_semantic_read","ranges":["27-53"],"notes":"Semantics of permission-only guard; several permissions are ORed."},
+    {"path":"src/clinicai/permissions/catalogue.py","sha256":"b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158","lines":1271,"ledger_status_at_start":"traced","read_level":"targeted_semantic_read","ranges":["593-605"],"notes":"Mapping crm.manage to cham_soc_khach only."},
+    {"path":"supabase/migrations/20260925000015_lego_21.sql","sha256":"4add5ba36487c6beea1a2d5ef7bf15dd4ceb29792fc6732be950b5dd45f8dc36","lines":104,"ledger_status_at_start":"read; full file reviewed in round9 migration slice","read_level":"reference_read","ranges":["52-55","80-104"],"notes":"Capability category and default preset grants to cashier roles."},
+    {"path":"src/dashboard/lib/roles.ts","sha256":"3650af19bac02f1c3d3a2aff480456278f7cc2141800ed0ee8d4c3bb376255b9","lines":848,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["350-371","382-391","650-655"],"notes":"Cashier contract comment, /customers and /patient-list navigation and capability mapping."},
+    {"path":"src/dashboard/lib/quyen-cua-toi.ts","sha256":"e055f4b9caba4ffd2ca0cd172b85b8206e801831fca7937df00bcea3df9b25aa","lines":73,"ledger_status_at_start":"scanned","read_level":"targeted_semantic_read","ranges":["56-63"],"notes":"Capability list gates CSKH write controls."},
+    {"path":"src/clinicai/schemas/patient.py","sha256":"0f306e8715b53ad6946b2b09324c827b6819b05b6e354ac13775caef614f5ba4","lines":384,"ledger_status_at_start":"traced","read_level":"targeted_semantic_read","ranges":["328-356"],"notes":"Contrast point: DTO masks national ID; list route bypasses it."},
+    {"path":"src/clinicai/services/man_khach_hang_service.py","sha256":"f42edad47d7c011d06fad69b3f45b58d865c0d1f6a9d85124b127251c9ed4331","lines":654,"ledger_status_at_start":"scanned; AST structural parse only","read_level":"targeted_control_read","ranges":["240-334","430-480"],"notes":"CSKH notes, customer feedback, call-back reasons/interactions are returned under crm.manage and clinic_id; not promoted as separate issue."},
+    {"path":"src/clinicai/services/tuong_tac_cskh_service.py","sha256":"5d6627f31b51180b5136385080a8877d95d55a776a8a7b28c151b8752b61f118","lines":919,"ledger_status_at_start":"not yet reviewed in this slice","read_level":"targeted_route_call_trace","ranges":["not directly relied on for permission finding"],"notes":"Route guard-to-service call is sufficient to prove entry path; service internals not used to infer role authorization."},
+    {"path":"src/tests/unit/test_danh_sach_benh_nhan.py","sha256":"83e4dd7403ca1e830a4f0b68dab93e39c796415817809be3548ec7549efae41e","lines":231,"ledger_status_at_start":"scanned","read_level":"targeted_test_read","ranges":["144-175","199-231"],"notes":"Doctor-assignment scope and selected/pagination behavior; no assertion excluding raw CCCD/email."},
+    {"path":"src/tests/services/test_danh_sach_benh_nhan_phan_trang_db.py","sha256":"1d8c16a37b2f70b3b00badcb5ab97f223b07bb28005150d0704f5179dc91294a","lines":249,"ledger_status_at_start":"scanned","read_level":"targeted_pattern_search","ranges":["full-file search for CCCD/email/minimization; no matching assertions"],"notes":"No test executed."},
+    {"path":"src/tests/api/test_patients_api.py","sha256":"03c493c850b6824a808dad337ae37cf8da467cc8bac2ce37d32c544c8af57087","lines":468,"ledger_status_at_start":"scanned","read_level":"targeted_pattern_search","ranges":["full-file search for /patients/danh-sach and field masking"],"notes":"Tests mask national ID through other PatientDTO paths; no coverage for patient list endpoint."},
+    {"path":"src/tests/unit/test_man_khach_hang.py","sha256":"aa3f531ddaedb71cf933a20407922f9ec1a099e6a2880a8adf52e01b62400008","lines":271,"ledger_status_at_start":"scanned","read_level":"targeted_test_read","ranges":["35-66","194-210"],"notes":"Checks UI/API share crm.manage and SQL clinic scope; does not assert cashier read/write policy."}
+  ],
+  "non_findings_and_controls": [
+    "Patient-list service constrains rows to identity.clinic_id and applies doctor/secretary patient assignments where relevant; CSKH list SQL similarly filters clinic_id. No cross-clinic leak established in reviewed paths.",
+    "The list services do not enforce location_id. Comments describe clinic-wide patient visibility for the applicable roles; product branch-isolation policy was not sufficiently specified to call this a defect.",
+    "Search cleaners strip ILIKE wildcard/control characters and parameters are passed separately; no SQL injection issue confirmed in these paths.",
+    "man_khach_hang_service returns notes, feedback text, call-back reasons and interaction notes within clinic scope to crm.manage. This is part of the cashier-capability mismatch context, not a separate clinical-chart finding.",
+    "No separately evidenced logging disclosure was found in the inspected list/search functions; logging paths outside these functions were not audited."
+  ],
+  "explicit_limitations": [
+    "Only selected service/router/UI/test regions were read; no full-repository audit claim.",
+    "No tests, application runtime, database, VPS, secrets or patient data were accessed.",
+    "Actual production member grants and location/branch isolation requirements were not inspected."
+  ]
+}

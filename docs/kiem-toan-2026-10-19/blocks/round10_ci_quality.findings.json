@@ -1,0 +1,102 @@
+{
+  "audit": "round10_ci_quality",
+  "snapshot": {
+    "path": "/tmp/clinicai-audit-main-956ba4f2",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha_verification": "not independently verifiable: content export has no .git"
+  },
+  "review_mode": "static_read_only",
+  "tests_run": false,
+  "false_green_reproduced": false,
+  "findings": [
+    {
+      "id": "CAND-CI-001",
+      "title": "CI stale-lock recovery can admit concurrent runs",
+      "severity": "MEDIUM",
+      "evidence_level": "confirmed_static_race_path",
+      "category": "ci_concurrency",
+      "summary": "On mkdir failure, ci-may.sh checks the PID. For a stale PID it prints that it is taking the lock back, but does not remove/recreate the lock directory or perform an atomic ownership claim before starting jobs. Two callers observing the stale PID can both proceed. They share .ci-may log filenames and ci_may_test/ci_may_db resource names, so overlapping invocations can corrupt each other's run evidence or job state.",
+      "trigger": "A leftover scripts' common Git-directory lock has a dead PID and two CI invocations reach the stale-lock branch before either replaces the PID.",
+      "evidence": [
+        {
+          "path": "scripts/ci-may.sh",
+          "lines": "56-67",
+          "sha256": "ce48320f6bddf8db24af50f9c70e1f9d1ae01ef59c05778a15ce716d499e82d6",
+          "detail": "Dead-PID branch only echoes; proceeds to write into existing lock directory, without atomic stale-lock replacement."
+        },
+        {
+          "path": "scripts/ci-may.sh",
+          "lines": "34-35",
+          "sha256": "ce48320f6bddf8db24af50f9c70e1f9d1ae01ef59c05778a15ce716d499e82d6",
+          "detail": "Every invocation uses shared .ci-may logs."
+        },
+        {
+          "path": "scripts/ci-may.sh",
+          "lines": "53-54, 93",
+          "sha256": "ce48320f6bddf8db24af50f9c70e1f9d1ae01ef59c05778a15ce716d499e82d6",
+          "detail": "Default database/container identities are shared across runs."
+        }
+      ],
+      "validation": {
+        "method": "static_lock_control_flow_and_shared_resource_trace",
+        "result": "Race path follows from the stale-lock branch and shared destinations; not executed or reproduced.",
+        "limitations": "No CI or concurrency simulation was run; timing and operational frequency are unknown."
+      },
+      "recommendation": "Recover stale locks with an atomic claim protocol (for example, rename/remove under a guarded ownership scheme) and ensure only the owner removes the lock; alternatively fail closed and require explicit cleanup.",
+      "acceptance": "A disposable repo test with a dead-PID lock and two concurrent invocations proves only one obtains the gate; the owner alone releases it, and shared logs/containers are not concurrently written."
+    },
+    {
+      "id": "CAND-CI-002",
+      "title": "Frontend CI omits the Excel export unit test",
+      "severity": "LOW",
+      "evidence_level": "confirmed_static_test_selection_gap",
+      "category": "test_selection",
+      "summary": "The dashboard CI invokes a fixed set of named test groups. src/dashboard/lib/xuat-bang-excel.test.mts is present but is not referenced by a package test script or by the CI group list, so this test does not run in the documented CI command.",
+      "trigger": "A change to the Excel export utility is reviewed using only the documented ci-may.sh gate.",
+      "evidence": [
+        {
+          "path": "scripts/ci-may.sh",
+          "lines": "129-130",
+          "sha256": "ce48320f6bddf8db24af50f9c70e1f9d1ae01ef59c05778a15ce716d499e82d6",
+          "detail": "Frontend tests are selected by a finite explicit loop."
+        },
+        {
+          "path": "src/dashboard/package.json",
+          "lines": "9-29",
+          "sha256": "4d441eebfa932d1d28f7f0573566003c1b67abbac950131a84d3e105bd9d6cbc",
+          "detail": "No test script includes xuat-bang-excel.test.mts."
+        },
+        {
+          "path": "src/dashboard/lib/xuat-bang-excel.test.mts",
+          "lines": "1-18",
+          "sha256": "bfa8250100dbb3a45d3faae9038c9254f271058ebe89bd4344204cc135e67607",
+          "detail": "An actual test file exists for the export utility."
+        }
+      ],
+      "validation": {
+        "method": "static_test_file_to_package_and_ci_reference_search",
+        "result": "The file is absent from the explicit CI list and package scripts.",
+        "limitations": "No frontend tests were run; this establishes selection omission, not a product bug or a previously observed false-green build."
+      },
+      "recommendation": "Add this file to a named CI test group or make the CI test command discover all intended `*.test.mts` files.",
+      "acceptance": "CI command selection includes xuat-bang-excel.test.mts and a deliberate failure in that test fails the frontend job."
+    }
+  ],
+  "deduplication": {
+    "canonical_ledger": "/Users/quangdang/Projects/Dr4Women-MacMini/docs/kiem-toan-2026-10-19/PHAT-HIEN.json",
+    "canonical_ledger_sha256_read_only": "f4c89cd370978fdb57b4e8e30945a56c8639f90b9ac018f2213a29cb0a66c426",
+    "existing_ids_reviewed": ["INF-014"],
+    "duplicate_excluded": {
+      "id": "INF-014",
+      "title": "CI trên máy có thể đăng trạng thái xanh cho commit dù đã kiểm mã untracked",
+      "reason": "Exact same finding: status check uses --untracked-files=no and status publication attaches to HEAD. Do not create a duplicate candidate.",
+      "ledger_lines": "8771-8858"
+    },
+    "note": "The exact snapshot itself omits the canonical ledger. Its prior review metadata in round9_worker_event records a different ledger hash. Current ledger was used solely to avoid duplicate IDs/topics; it is not source evidence for this snapshot."
+  },
+  "limitations": [
+    "No test, hook, CI, build, database, production, secret, or PHI access.",
+    "No false-green result was dynamically reproduced.",
+    "Git SHA could not be checked locally because snapshot has no .git metadata."
+  ]
+}

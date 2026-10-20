@@ -1,0 +1,208 @@
+[
+  {
+    "id": "FE-026",
+    "title": "Lịch sử điều phối có thể kẹt ở trạng thái đang tải",
+    "severity": "LOW",
+    "evidence_level": "confirmed_static",
+    "category": "operations/unknown-read-state",
+    "summary": "Panel lịch sử chỉ cập nhật khi nhận được mảng items. Khi API trung gian trả {ok:false} vì backend không phản hồi, component nuốt lỗi và giữ lichSu=null; giao diện tiếp tục hiện ‘Đang tải…’. Panel được thử lại gián tiếp khi danh sách hàng đợi đổi hoặc component được dựng lại, nhưng không có lỗi/retry riêng.",
+    "trigger": "Backend dispatch/history lỗi kéo dài trong lúc bảng hàng đợi vẫn được dựng và không có lần refresh danh sách bệnh nhân mới.",
+    "impact": "Trưởng ca không phân biệt được lịch sử chưa tải, không có sự kiện hay đang lỗi; khó xác minh ai vừa chuyển bệnh nhân và làm giảm khả năng phối hợp. Đây là panel phụ; chưa có bằng chứng gây chậm chăm sóc hoặc sự cố thực tế.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/truong-ca/QueuesClient.tsx",
+        "line": 43,
+        "end_line": 55,
+        "detail": "History state chỉ nhận items array; lỗi bị bỏ qua nên null không được đổi."
+      },
+      {
+        "path": "src/dashboard/app/api/dispatch-read/route.ts",
+        "line": 48,
+        "end_line": 51,
+        "detail": "BFF biểu diễn backend không trả lời bằng HTTP 200 {ok:false}."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/truong-ca/QueuesClient.tsx",
+        "line": 401,
+        "end_line": 415,
+        "detail": "Khi state còn null, panel chỉ hiện ‘Đang tải…’; empty chỉ dành cho items rỗng đã tải."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/dispatch.py",
+        "line": 86,
+        "end_line": 98,
+        "detail": "Đường đọc thành công trả {ok:true, items}; đối chiếu contract với nhánh lỗi của BFF."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Tĩnh exact-main cho thấy nhánh lỗi không cập nhật state lịch sử; lần làm mới tiếp theo phụ thuộc thay đổi danh sách bệnh nhân hoặc remount.",
+      "limitations": "Không chạy component/browser test hay fault injection. Không kết luận panel ảnh hưởng luồng điều trị; refresh hàng đợi và SSE có thể kích hoạt lần đọc tiếp."
+    },
+    "recommendation": "Dùng trạng thái loading/loaded-empty/error riêng; khi lỗi, hiện dấu hiệu và nút thử lại, đồng thời giữ dữ liệu thành công gần nhất cùng thời điểm tải.",
+    "acceptance": "Component test cho backend trả {ok:false}, HTTP lỗi, network reject, danh sách rỗng hợp lệ và lần thử lại thành công; không trường hợp lỗi nào bị hiển thị là đang tải vô hạn hoặc không có thao tác.",
+    "alignment": [
+      "Reality dễ nhìn thấy",
+      "Khoảng Unknown ngắn hơn",
+      "Ownership rõ hơn"
+    ],
+    "related_tests": [
+      "src/dashboard/tests/truong-ca-phong-ui-boundary.test.mts — đọc trọn, không chạy; kiểm giao diện/nhịp dữ liệu, không kiểm lỗi panel lịch sử."
+    ],
+    "source_hashes": {
+      "src/dashboard/app/(dashboard)/truong-ca/QueuesClient.tsx": "522b70e5ad0bf07a08cc96e19e456185bac1b2afa6b1245e082a3932975c420b",
+      "src/dashboard/app/api/dispatch-read/route.ts": "430f7b2fa88083aba4d64f2d0d565b77ebddf5f0eabea90f24eb3ce6364ce9f5",
+      "src/clinicai/api/v1/routers/dispatch.py": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Còn trên snapshot main ghim; trạng thái loading vô thời hạn là suy luận từ state/effect khi lỗi lặp lại, chưa tái hiện runtime.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/truong-ca/QueuesClient.tsx",
+          "line": 43,
+          "end_line": 55,
+          "sha256": "522b70e5ad0bf07a08cc96e19e456185bac1b2afa6b1245e082a3932975c420b",
+          "excerpt": "43:   const [lichSu, setLichSu] = useState<DispatchHistoryRow[] | null>(null);\n44:   useEffect(() => {\n45:     let song = true;\n46:     void fetch(\"/api/dispatch-read?what=history\", { cache: \"no-store\" })\n47:       .then((r) => (r.ok ? r.json() : null))\n48:       .then((j: { items?: DispatchHistoryRow[] } | null) => {\n49:         if (song && j && Array.isArray(j.items)) setLichSu(j.items);\n50:       })\n51:       .catch(() => undefined);\n52:     return () => {\n53:       song = false;\n54:     };\n55:   }, [live.patients]);"
+        },
+        {
+          "path": "src/dashboard/app/api/dispatch-read/route.ts",
+          "line": 48,
+          "end_line": 51,
+          "sha256": "430f7b2fa88083aba4d64f2d0d565b77ebddf5f0eabea90f24eb3ce6364ce9f5",
+          "excerpt": "48:   const data = await fetchFromBackend<Record<string, unknown>>(path);\n49:   // `null` = backend không trả lời. Trả `ok: false` để màn hình bật chỉ báo\n50:   // \"dữ liệu cũ X giây\" thay vì âm thầm giữ số cũ như thể vẫn đang cập nhật.\n51:   return NextResponse.json(data ?? { ok: false });"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/truong-ca/QueuesClient.tsx",
+          "line": 401,
+          "end_line": 415,
+          "sha256": "522b70e5ad0bf07a08cc96e19e456185bac1b2afa6b1245e082a3932975c420b",
+          "excerpt": "401: /** LỊCH SỬ ĐIỀU PHỐI GỌN — ai chuyển ai, từ đâu sang đâu, lúc nào. Bản đầy đủ\n402:  *  (lý do, lọc) vẫn ở /truong-ca/lich-su. */\n403: function LichSuGon({ ds }: { ds: DispatchHistoryRow[] | null }) {\n404:   return (\n405:     <section aria-label=\"Lịch sử điều phối\" className=\"rounded-card border border-line bg-surface p-3 shadow-card\">\n406:       <div className=\"flex items-baseline justify-between gap-2 px-1\">\n407:         <h2 className=\"text-emph font-semibold text-ink\">Lịch sử điều phối</h2>\n408:         <Link href=\"/truong-ca/lich-su\" className=\"text-meta text-brand-700 hover:underline\">\n409:           Xem tất cả\n410:         </Link>\n411:       </div>\n412:       {ds === null ? (\n413:         <p className=\"px-1 py-2 text-meta text-ink-muted\">Đang tải…</p>\n414:       ) : ds.length === 0 ? (\n415:         <p className=\"px-1 py-2 text-meta text-ink-muted\">Chưa có thao tác điều phối nào.</p>"
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/dispatch.py",
+          "line": 86,
+          "end_line": 98,
+          "sha256": "3356db9fe0c7d98c5887ef515b1d265b45677d1b727ded1ffb1de3dbcb803f66",
+          "excerpt": "86: @router.get(\"/dispatch/history\")\n87: async def history(\n88:     limit: int = Query(default=200, ge=1, le=1000),\n89:     identity: StaffIdentity = Depends(get_current_identity),\n90:     pool: asyncpg.Pool = Depends(get_db_pool),\n91: ) -> dict[str, Any]:\n92:     \"\"\"Nhật ký điều phối: ai chuyển ai, từ đâu sang đâu, vì sao.\"\"\"\n93:     items = await DispatchService(pool).history(\n94:         clinic_id=identity.clinic_id,\n95:         limit=limit,\n96:         location_id=identity.location_id or None,\n97:     )\n98:     return {\"ok\": True, \"items\": items}"
+        }
+      ],
+      "production_verified": false
+    }
+  },
+  {
+    "id": "OPS-008",
+    "title": "Danh sách kiểu lỗi chỉ lấy 100 dòng mà không báo còn dữ liệu",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "operations/observability-pagination",
+    "summary": "Service sắp xếp các nhóm lỗi theo lần xuất hiện gần nhất rồi LIMIT 100. API chỉ trả mảng loi; giao diện không nhận tổng số, has_more hoặc cursor. Ở chế độ ‘chỉ lỗi còn phải xử lý’, hơn 100 nhóm đang mở có thể khiến nhóm cũ không xuất hiện và operator không biết danh sách bị cắt.",
+    "trigger": "Có hơn 100 nhóm lỗi thuộc tập đang xem, đặc biệt nhiều nhóm mới hơn che các nhóm MOI/DA_BIET cũ.",
+    "impact": "Một lỗi cũ còn cần xử lý có thể bị khuất khỏi màn theo dõi, làm giảm khả năng phát hiện sớm. Chưa có số liệu volume để kết luận điều kiện này đang xảy ra trong production.",
+    "evidence": [
+      {
+        "path": "src/clinicai/api/v1/routers/ops.py",
+        "line": 132,
+        "end_line": 143,
+        "detail": "Endpoint trả một mảng loi, không kèm metadata phân trang."
+      },
+      {
+        "path": "src/clinicai/services/kho_loi.py",
+        "line": 155,
+        "end_line": 171,
+        "detail": "Mặc định giới hạn 100 nhóm; sắp xếp theo lan_cuoi DESC rồi LIMIT."
+      },
+      {
+        "path": "src/dashboard/app/api/ops/theo-doi/route.ts",
+        "line": 9,
+        "end_line": 18,
+        "detail": "BFF chuyển tiếp endpoint loi mà không có query phân trang."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx",
+        "line": 80,
+        "end_line": 103,
+        "detail": "UI nhận toàn bộ trường loi dưới dạng mảng, không nhận total/cursor."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx",
+        "line": 201,
+        "end_line": 220,
+        "detail": "UI mô tả mỗi kiểu lỗi một dòng và empty state nhưng không hiển thị dấu cắt danh sách."
+      }
+    ],
+    "validation": {
+      "method": "static_exact_main_cross_layer_trace",
+      "command": null,
+      "result": "Trần 100, thứ tự mới nhất trước và thiếu metadata phân trang được xác nhận tĩnh xuyên service/API/BFF/UI.",
+      "limitations": "Không truy vấn production, không đo số nhóm lỗi thực tế và không chạy test/API; tác động chỉ xảy ra khi vượt quá giới hạn."
+    },
+    "recommendation": "Thêm phân trang/cursor ổn định và metadata total/has_more; nếu giữ trần, hiện rõ giới hạn và ưu tiên nhóm chưa xử lý theo mức độ/tuổi thay vì chỉ thời điểm cuối.",
+    "acceptance": "Tạo 101+ nhóm tổng hợp bằng fixture synthetic, trong đó nhóm MOI cũ nhất; màn phải phân trang hoặc báo còn dữ liệu và cho operator tìm được nhóm cũ. Kiểm tra thứ tự ổn định khi có nhóm mới đồng thời.",
+    "alignment": [
+      "Vấn đề được phát hiện sớm hơn",
+      "Reality ngày càng dễ nhìn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_theo_doi_pha_1_db.py — đọc đoạn liên quan, không chạy; test gom lỗi/che thông tin, không kiểm giới hạn danh sách.",
+      "src/tests/unit/test_theo_doi_pha_1.py — đọc trọn, không chạy; không có test pagination/cap.",
+      "src/tests/api/test_ops_api.py — đọc trọn, không chạy; kiểm quyền/status, không kiểm danh sách lỗi quá 100 nhóm."
+    ],
+    "source_hashes": {
+      "src/clinicai/api/v1/routers/ops.py": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "src/clinicai/services/kho_loi.py": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+      "src/dashboard/app/api/ops/theo-doi/route.ts": "b5a69c8c80ae08f12751295600e5b0d99ca9537bf423edc92eb37f7d16b5b4f1",
+      "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx": "52432044de01fd956ce0f6b9d1167325a55b1473f7ff2ebaf5a8fe0bd51a72d4"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Giới hạn 100 còn trên snapshot main ghim; mức ảnh hưởng phụ thuộc số nhóm lỗi thực tế, chưa kiểm chứng production.",
+      "evidence": [
+        {
+          "path": "src/clinicai/api/v1/routers/ops.py",
+          "line": 132,
+          "end_line": 143,
+          "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+          "excerpt": "132: @router.get(\"/ops/loi\")\n133: async def ds_loi(\n134:     response: Response,\n135:     chi_mo: bool = Query(default=False),\n136:     _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),\n137:     pool: asyncpg.Pool = Depends(get_db_pool),\n138: ) -> dict[str, object]:\n139:     \"\"\"Các KIỂU lỗi đã gom (api / worker / web), mới nhất trước. Không dữ liệu\n140:     khách — thông điệp đã qua bộ che (services/kho_loi.py).\"\"\"\n141:     response.headers[\"Cache-Control\"] = \"no-store\"\n142:     return {\"loi\": await kho_loi.danh_sach(pool, chi_mo=chi_mo)}\n143: "
+        },
+        {
+          "path": "src/clinicai/services/kho_loi.py",
+          "line": 155,
+          "end_line": 171,
+          "sha256": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+          "excerpt": "155: async def danh_sach(\n156:     pool: asyncpg.Pool, *, chi_mo: bool = False, gioi_han: int = 100\n157: ) -> list[dict[str, Any]]:\n158:     \"\"\"Các kiểu lỗi, mới nhất trước (cho /ops).\"\"\"\n159:     rows = await pool.fetch(\n160:         \"\"\"\n161:         SELECT l.id::text, l.nguon, l.vi_tri, l.kieu, l.thong_diep, l.so_lan,\n162:                l.lan_dau, l.lan_cuoi, l.ma_yeu_cau, l.trang_thai, l.doi_luc,\n163:                s.full_name AS doi_boi\n164:           FROM loi_nhom l LEFT JOIN staff s ON s.id = l.doi_boi\n165:          WHERE NOT $1::boolean OR l.trang_thai IN ('MOI', 'DA_BIET')\n166:          ORDER BY l.lan_cuoi DESC\n167:          LIMIT $2\n168:         \"\"\",\n169:         chi_mo,\n170:         gioi_han,\n171:     )"
+        },
+        {
+          "path": "src/dashboard/app/api/ops/theo-doi/route.ts",
+          "line": 9,
+          "end_line": 18,
+          "sha256": "b5a69c8c80ae08f12751295600e5b0d99ca9537bf423edc92eb37f7d16b5b4f1",
+          "excerpt": "9: export async function GET(request: Request) {\n10:   const u = new URL(request.url);\n11:   const xem = u.searchParams.get(\"xem\");\n12:   if (xem === \"loi\") {\n13:     return proxyJsonToBackend(\n14:       \"GET\",\n15:       u.searchParams.get(\"chi_mo\") === \"1\" ? \"/api/v1/ops/loi?chi_mo=true\" : \"/api/v1/ops/loi\",\n16:       undefined,\n17:     );\n18:   }"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx",
+          "line": 80,
+          "end_line": 103,
+          "sha256": "52432044de01fd956ce0f6b9d1167325a55b1473f7ff2ebaf5a8fe0bd51a72d4",
+          "excerpt": "80: async function doc<T>(xem: string): Promise<T | null> {\n81:   const r = await fetch(`/api/ops/theo-doi?xem=${xem}`, { cache: \"no-store\" }).catch(() => null);\n82:   return r && r.ok ? ((await r.json()) as T) : null;\n83: }\n84: \n85: export default function LoiCanhBao() {\n86:   const [canh, setCanh] = useState<CanhBao[] | null>(null);\n87:   const [khoTep, setKhoTep] = useState<KhoTep | null>(null);\n88:   const [loi, setLoi] = useState<Loi[] | null>(null);\n89:   const [chiMo, setChiMo] = useState(true);\n90:   const [dang, setDang] = useState<string | null>(null);\n91:   const [baoLoi, setBaoLoi] = useState<string | null>(null);\n92: \n93:   const nap = useCallback(async () => {\n94:     const [c, l] = await Promise.all([\n95:       doc<{ canh_bao: CanhBao[]; kho_tep?: KhoTep | null }>(\"canh-bao\"),\n96:       doc<{ loi: Loi[] }>(`loi${chiMo ? \"&chi_mo=1\" : \"\"}`),\n97:     ]);\n98:     if (!c || !l) setBaoLoi(\"Không đọc được — thử tải lại.\");\n99:     else setBaoLoi(null);\n100:     setCanh(c?.canh_bao ?? []);\n101:     setKhoTep(c?.kho_tep ?? null);\n102:     setLoi(l?.loi ?? []);\n103:   }, [chiMo]);"
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx",
+          "line": 201,
+          "end_line": 220,
+          "sha256": "52432044de01fd956ce0f6b9d1167325a55b1473f7ff2ebaf5a8fe0bd51a72d4",
+          "excerpt": "201:           <h2 className=\"text-emph font-semibold text-ink\">Lỗi theo kiểu</h2>\n202:           <label className=\"flex min-h-10 items-center gap-2 text-meta text-ink\">\n203:             <input\n204:               type=\"checkbox\"\n205:               className=\"size-4 accent-brand-600\"\n206:               checked={chiMo}\n207:               onChange={(e) => setChiMo(e.target.checked)}\n208:             />\n209:             Chỉ lỗi còn phải xử lý (Mới · Đã biết)\n210:           </label>\n211:         </div>\n212:         <p className=\"text-meta text-ink-muted\">\n213:           Mỗi kiểu lỗi một dòng, đếm số lần. Thông điệp đã che số điện thoại / tên / mã khách. Mã yêu\n214:           cầu dùng để tra log: <code>journalctl CONTAINER_NAME=clinicai_prod-api-1 | grep &lt;mã&gt;</code>.\n215:         </p>\n216:         {loi === null ? (\n217:           <p className=\"text-body text-ink-muted\">Đang tải…</p>\n218:         ) : loi.length === 0 ? (\n219:           <p className=\"rounded-control bg-success-bg px-3 py-2 text-body text-success\">Không có lỗi nào cần xử lý.</p>\n220:         ) : ("
+        }
+      ],
+      "production_verified": false
+    }
+  }
+]

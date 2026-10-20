@@ -1,0 +1,238 @@
+{
+ "xac_nhan": [
+  {
+   "id": "SEC-038",
+   "bang_chung": "https://staging.dr4women.io.vn/ -> 307",
+   "y_nghia": "Bản thử nghiệm (staging) đang mở ra Internet: ai cũng truy cập được tới trang đăng nhập."
+  },
+  {
+   "id": "OPS-022",
+   "bang_chung": "* clinicai-staging-nap.service loaded failed failed ClinicAI STAGING — nạp bản sao lưu prod mới nhất + che dữ liệu khách",
+   "y_nghia": "Lần nạp dữ liệu staging đêm qua đã thất bại và hiện chỉ thấy dấu này trong hệ thống, chưa thấy dấu hiệu có ai được báo."
+  },
+  {
+   "id": "SEC-044",
+   "bang_chung": "/clinicai_staging-api-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-19T20:46:50.279008115Z",
+   "y_nghia": "Staging được bật lại lúc 03:46 sáng nay, đúng lúc lần nạp và che dữ liệu đang chạy rồi thất bại; có dấu hiệu staging vẫn phục vụ dù bước che dữ liệu chưa xong trọn vẹn."
+  },
+  {
+   "id": "ARCH-001",
+   "bang_chung": "ZALO_ZNS_ACCESS_TOKEN: GIONG NHAU giua prod va staging",
+   "y_nghia": "Khóa Zalo và Telegram của phòng khám nằm trong tệp cấu hình chung của cả hệ thống, chưa tách theo từng phòng khám."
+  },
+  {
+   "id": "AI-005",
+   "bang_chung": "ANTHROPIC_API_KEY: khac nhau",
+   "y_nghia": "Cả prod và staging đều có khóa dịch vụ AI bên ngoài, nên có dấu hiệu đường gửi nội dung ra AI đang được bật chỉ vì có khóa."
+  },
+  {
+   "id": "DB-001",
+   "bang_chung": "48",
+   "y_nghia": "Database có 48 hàm chạy với quyền cao (SECURITY DEFINER), nên bề mặt rủi ro này có thật; dữ kiện chưa cho biết ai được phép gọi chúng."
+  },
+  {
+   "id": "OPS-028",
+   "bang_chung": "/clinicai_rest | unless-stopped | restarts=0 | health=none | running | start=2026-10-14T02:22:49.728639806Z",
+   "y_nghia": "Cổng dữ liệu và cổng đăng nhập (rest, supabase_gateway) không có kiểm tra sức khỏe, nên nếu chúng treo thì hệ thống không tự biết."
+  },
+  {
+   "id": "INF-030",
+   "bang_chung": "/clinicai_prod-uptime-kuma-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:12:09.053207877Z",
+   "y_nghia": "Công cụ canh hệ thống chạy ngay trên chính máy chủ mà nó canh; dữ kiện không cho thấy có điểm kiểm tra nào từ bên ngoài."
+  },
+  {
+   "id": "INF-006",
+   "bang_chung": "/mnt/viettel-cfs/db-backups",
+   "y_nghia": "Ổ lưu bên ngoài chỉ thấy bản sao database và tài khoản đăng nhập, không thấy bản sao tệp kết quả (bảng tep_ket_qua có 8386 dòng), cũng chưa thấy dấu vết đã thử khôi phục."
+  }
+ ],
+ "phu_nhan_hoac_giam_nhe": [
+  {
+   "id": "INF-019",
+   "bang_chung": "2026-10-20 07:00:37.643777100 +0700 31415485 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261020_070026.sql.gz",
+   "y_nghia": "Bản sao ngoài máy chủ có thật, mới từ 7 giờ sáng nay, dung lượng 31MB và tăng đều theo ngày."
+  },
+  {
+   "id": "INF-001",
+   "bang_chung": "2026-10-20 07:00:44.470798400 +0700 19271 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261020_070026_auth.sql.gz",
+   "y_nghia": "Bản sao tài khoản đăng nhập vẫn có mỗi ngày đi kèm bản database, nên rủi ro thiếu phần đăng nhập hiện chưa xảy ra."
+  },
+  {
+   "id": "INF-029",
+   "bang_chung": "/clinicai_prod-uptime-kuma-1 | unless-stopped | restarts=0 | health=healthy | running | start=2026-10-14T02:12:09.053207877Z",
+   "y_nghia": "Sau lần Docker khởi động lại lúc 09:11 ngày 14/10, các dịch vụ đặt chế độ tự bật lại đã lên trong khoảng 1 phút; riêng database lên muộn khoảng 11 phút, chưa rõ tự lên hay có người bật."
+  },
+  {
+   "id": "SEC-043",
+   "bang_chung": "/clinicai_realtime | unless-stopped | restarts=0 | health=none | exited | start=2026-09-16T03:17:49.130127868Z",
+   "y_nghia": "Dịch vụ Realtime đang tắt nên cửa /realtime công khai có dấu hiệu không còn phục vụ; dữ kiện chưa đo phần cấu hình đăng ký thay đổi (publication) và điểm giữ nhật ký (replication slot) bên trong database."
+  },
+  {
+   "id": "CLIN-080",
+   "bang_chung": "0 dang bat / 0 tong",
+   "y_nghia": "Hiện chưa có luật 'bác sĩ bắt buộc' nào nên lỗ hổng vòng qua luật này chưa gây ảnh hưởng thực tế."
+  },
+  {
+   "id": "OPS-014",
+   "bang_chung": "0 dang bat / 0 tong",
+   "y_nghia": "Không có luật thứ tự bắt buộc nào đang bật nên việc luật không chặn được qua API chưa ảnh hưởng hôm nay."
+  }
+ ],
+ "quan_sat_moi": [
+  {
+   "ten": "Staging dùng chung khóa Zalo và Telegram thật với prod",
+   "muc": "HIGH",
+   "chuyen_gi": "Bản thử nghiệm đang cầm đúng khóa gửi tin Zalo cho khách và khóa Telegram của phòng khám thật. Nếu có ai thử tính năng nhắc hẹn trên staging, khách thật có thể nhận tin, và nhóm vận hành có thể nhận cảnh báo giả lẫn với cảnh báo thật.",
+   "bang_chung": "TELEGRAM_BOT_TOKEN: GIONG NHAU giua prod va staging",
+   "cach_sua": "Cấp khóa Zalo và Telegram riêng cho staging (hoặc để trống) rồi đổi lại khóa của prod.",
+   "muc_tieu": [
+    "Con người ít bị gián đoạn nhưng đúng lúc",
+    "Đóng gọn, bán được cho phòng khám khác"
+   ]
+  },
+  {
+   "ten": "Mỗi ngày có hàng trăm lỗi chưa xử lý ở API",
+   "muc": "HIGH",
+   "chuyen_gi": "Trong 24 giờ, phần máy chủ ghi 434 lần lỗi ngoài dự kiến và màn hình nhân viên ghi 93 lỗi. Chưa rõ người dùng có thấy những lỗi này hay không, nhưng con số này đủ lớn để cần xem ngay.",
+   "bang_chung": "434 \"message\": \"clinicai_exception\"",
+   "cach_sua": "Gom lỗi theo loại và theo màn hình, xử lý trước những loại xuất hiện nhiều nhất.",
+   "muc_tieu": [
+    "Vấn đề được phát hiện sớm hơn",
+    "Lỗi lặp lại thành cải tiến hệ thống"
+   ]
+  },
+  {
+   "ten": "Nhật ký lỗi mất sau mỗi lần cập nhật phần mềm",
+   "muc": "MEDIUM",
+   "chuyen_gi": "Số lỗi 7 ngày đúng bằng số lỗi 24 giờ, vì nhật ký bị xóa theo mỗi lần cập nhật (lần gần nhất sáng 19/10). Muốn xem lại lỗi của tuần trước để tìm nguyên nhân thì không còn dữ liệu.",
+   "bang_chung": "clinicai_prod-api-1: 7 ngay=554 ; 24 gio=554",
+   "cach_sua": "Đẩy nhật ký ra nơi lưu riêng, giữ ít nhất 30 ngày, không phụ thuộc vòng đời container.",
+   "muc_tieu": [
+    "Lỗi lặp lại thành cải tiến hệ thống",
+    "Thực tế ngày càng dễ nhìn thấy"
+   ]
+  },
+  {
+   "ten": "Mỗi lần cập nhật có khoảng ngắn màn hình không vào được",
+   "muc": "MEDIUM",
+   "chuyen_gi": "Lúc cập nhật, cổng web tạm không tìm thấy màn hình nhân viên, có lần bị từ chối kết nối. Nhân viên đang thao tác đúng lúc đó có thể gặp lỗi và phải thử lại.",
+   "bang_chung": "8 \"msg\":\"dial tcp: lookup dashboard on 127.0.0.11:53: server misbehaving\"",
+   "cach_sua": "Cập nhật ngoài giờ khám, hoặc giữ bản cũ chạy cho tới khi bản mới sẵn sàng.",
+   "muc_tieu": [
+    "Bệnh nhân ít chờ trong bất định",
+    "Con người ít bị gián đoạn nhưng đúng lúc"
+   ]
+  },
+  {
+   "ten": "Hệ điều hành bản ngắn hạn, đang chờ khởi động lại",
+   "muc": "MEDIUM",
+   "chuyen_gi": "Máy chủ chạy Ubuntu 25.04, là bản hỗ trợ ngắn hạn (khoảng 9 tháng, đã hết từ đầu năm 2026), nên có thể không còn nhận bản vá bảo mật. Máy cũng đang báo cần khởi động lại để áp bản cập nhật đã cài.",
+   "bang_chung": "CAN KHOI DONG LAI (reboot-required)",
+   "cach_sua": "Lên kế hoạch chuyển sang bản hỗ trợ dài hạn (LTS) và khởi động lại ngoài giờ khám, có kiểm tra hệ thống tự lên lại.",
+   "muc_tieu": [
+    "Vấn đề được phát hiện sớm hơn"
+   ]
+  },
+  {
+   "ten": "Staging và công cụ build chạy chung máy với prod, không có bộ nhớ dự phòng",
+   "muc": "MEDIUM",
+   "chuyen_gi": "Cùng một máy 8GB vừa phục vụ khách thật, vừa chạy nguyên bộ staging (có database riêng) và công cụ build, trong khi không có bộ nhớ đệm (swap). Lúc staging nạp dữ liệu hay lúc build, prod có thể bị chậm hoặc bị tắt tiến trình vì hết bộ nhớ.",
+   "bang_chung": "Swap:              0           0           0",
+   "cach_sua": "Tách staging và build sang máy khác, hoặc ít nhất thêm swap và giới hạn bộ nhớ cho staging.",
+   "muc_tieu": [
+    "Bệnh nhân ít chờ trong bất định",
+    "Đóng gọn, bán được cho phòng khám khác"
+   ]
+  },
+  {
+   "ten": "Bản sao ra ngoài chỉ một lần mỗi ngày",
+   "muc": "MEDIUM",
+   "chuyen_gi": "Trên ổ lưu bên ngoài chỉ thấy bản sao lúc 7 giờ sáng mỗi ngày; bản sao 15 phút một lần chưa thấy được đẩy ra ngoài. Nếu mất cả máy chủ, có thể mất tới gần một ngày dữ liệu khám và thu tiền.",
+   "bang_chung": "2026-10-19 07:00:31.427747500 +0700 29255493 /mnt/viettel-cfs/db-backups/clinicai_production_clinicai-db_20261019_070019.sql.gz",
+   "cach_sua": "Đẩy bản sao 15 phút (hoặc bản theo giờ) ra ổ ngoài và báo động khi bản ngoài cũ hơn mức cho phép.",
+   "muc_tieu": [
+    "Khoảng chưa biết ngày càng ngắn"
+   ]
+  },
+  {
+   "ten": "Bốn bảng chưa bật khóa dữ liệu theo hàng",
+   "muc": "LOW",
+   "chuyen_gi": "Bốn bảng về lịch bác sĩ và vị trí làm việc chưa bật khóa phân quyền theo từng dòng (RLS). Hiện chưa có quyền ghi trực tiếp từ ngoài, nhưng khi có phòng khám thứ hai thì có nguy cơ thấy dữ liệu của nhau.",
+   "bang_chung": "doctor_booking_override",
+   "cach_sua": "Bật RLS và thêm luật lọc theo phòng khám cho bốn bảng này.",
+   "muc_tieu": [
+    "Đóng gọn, bán được cho phòng khám khác"
+   ]
+  },
+  {
+   "ten": "Ổ đĩa đã dùng gần 80%",
+   "muc": "LOW",
+   "chuyen_gi": "Ổ chính còn 11GB trống trên 48GB, trong khi dữ liệu và bản sao lưu tăng mỗi ngày. Nếu đầy ổ, database và việc tải ảnh có thể dừng.",
+   "bang_chung": "/dev/root                                 48G   37G   11G  79% /",
+   "cach_sua": "Đặt cảnh báo khi ổ vượt 85% và dọn hoặc chuyển ảnh, bản sao cũ ra ổ ngoài.",
+   "muc_tieu": [
+    "Vấn đề được phát hiện sớm hơn"
+   ]
+  }
+ ],
+ "muc_tieu": [
+  {
+   "ten": "Thực tế ngày càng dễ nhìn thấy",
+   "trang_thai": "Còn hở",
+   "thuc_te_prod": "Đã có công cụ canh hệ thống, công cụ xem nhật ký và báo cáo lưu lượng 10 phút một lần. Tuy vậy nhật ký lỗi bị xóa sau mỗi lần cập nhật (7 ngày=554 ; 24 gio=554)."
+  },
+  {
+   "ten": "Khoảng chưa biết ngày càng ngắn",
+   "trang_thai": "Còn hở",
+   "thuc_te_prod": "Bản sao ngoài máy chủ chỉ thấy mỗi ngày một lần. Tường lửa không đo được ('You need to be root') và câu đếm phòng khám/nhân viên bị lỗi ('relation \"public.location\" does not exist')."
+  },
+  {
+   "ten": "Mỗi việc có chủ rõ ràng",
+   "trang_thai": "Chưa đo được",
+   "thuc_te_prod": "Chỉ có số đếm (work_item 3232, canh_bao 52, loi_nhom 11), chưa có dữ kiện về người nhận hay hạn xử lý."
+  },
+  {
+   "ten": "Vấn đề được phát hiện sớm hơn",
+   "trang_thai": "Còn hở",
+   "thuc_te_prod": "Lần nạp staging thất bại và 434 lỗi API/ngày chưa thấy dấu hiệu được báo ra ngoài. Công cụ canh nằm chung máy và cổng dữ liệu/đăng nhập không có kiểm tra sức khỏe (health=none)."
+  },
+  {
+   "ten": "Con người ít bị gián đoạn nhưng đúng lúc",
+   "trang_thai": "Còn hở",
+   "thuc_te_prod": "Staging dùng chung bot Telegram với prod (TELEGRAM_BOT_TOKEN: GIONG NHAU), nên cảnh báo thử nghiệm có thể lẫn vào kênh thật."
+  },
+  {
+   "ten": "Bệnh nhân ít chờ trong bất định",
+   "trang_thai": "Chưa đo được",
+   "thuc_te_prod": "Chưa có dữ kiện về thời gian chờ. Chỉ thấy lúc cập nhật có lỗi kết nối ngắn tới màn hình nhân viên (8 lần 'server misbehaving')."
+  },
+  {
+   "ten": "Nhân viên làm việc bền vững",
+   "trang_thai": "Chưa đo được",
+   "thuc_te_prod": "chưa có dữ kiện"
+  },
+  {
+   "ten": "Quyết định dựa trên bằng chứng",
+   "trang_thai": "Chưa đo được",
+   "thuc_te_prod": "Dữ liệu được ghi liên tục (lượt khám gần nhất 21:04 và lần thu tiền gần nhất 22:36 ngày 19/10), nhưng chưa có dữ kiện về việc dùng số liệu để ra quyết định."
+  },
+  {
+   "ten": "Lỗi lặp lại thành cải tiến hệ thống",
+   "trang_thai": "Còn hở",
+   "thuc_te_prod": "Đã có bảng gom nhóm lỗi (loi_nhom 11 dòng), nhưng nhật ký container mất sau mỗi lần cập nhật nên khó lần lại lỗi lặp qua nhiều ngày."
+  },
+  {
+   "ten": "Đóng gọn, bán được cho phòng khám khác",
+   "trang_thai": "Chưa sẵn sàng",
+   "thuc_te_prod": "Khóa Zalo/Telegram nằm trong tệp cấu hình chung và dùng chung với staging; staging, build và prod cùng chạy trên một máy; 4 bảng chưa bật RLS."
+  }
+ ],
+ "khoe_manh": [
+  "Cả 5 dịch vụ chính của prod đều 'healthy', chưa tự khởi động lại lần nào (restarts=0); tải máy thấp (load 0.54) và còn 4290MB bộ nhớ trống.",
+  "Database đã áp đủ 373/373 bản cập nhật cấu trúc, không còn bản nào treo; mã nguồn trên prod không có thay đổi chưa ghi nhận (0 tệp).",
+  "Chỉ 3 cổng mở ra ngoài (22, 80, 443); database và các công cụ nội bộ chỉ nghe trong máy (127.0.0.1).",
+  "Truy cập ẩn danh có 0 quyền trên bảng nào, và tài khoản đăng nhập có 0 bảng được ghi trực tiếp.",
+  "Bản sao lưu ra ổ ngoài có mỗi ngày, bản mới nhất lúc 07:00 hôm nay (31MB), kèm bản sao tài khoản đăng nhập.",
+  "Tệp cấu hình prod chỉ chủ sở hữu đọc được (-rw-------), và 5 khóa quan trọng (JWT, service role, anon, backend, AI) đều khác nhau giữa prod và staging."
+ ]
+}

@@ -1,0 +1,374 @@
+{
+ "chunk": "T10",
+ "findings": [
+  {
+   "tmp_id": "T10-1",
+   "title": "Script nhân bản cơ sở chạy dọn dữ liệu bằng session_replication_role=replica; thiếu rào chống chạy nhầm trên DB không dùng một lần",
+   "severity": "MEDIUM",
+   "category": "test_safety",
+   "evidence_level": "design_gap",
+   "summary": "Fixture dọn của test nhân bản tắt trigger chỉ-thêm (sổ kho, lịch hẹn, bệnh nhân) bằng SET LOCAL session_replication_role = replica rồi DELETE theo clinic_id. Pool đọc DATABASE_URL, chỉ bỏ qua nếu biến rỗng, không kiểm tra tên/host database là loại dùng một lần (khác test_pharmacy_dispense_units_db có kiểm tra tiền tố tam_/ci_gw và localhost).",
+   "trigger": "Nếu DATABASE_URL trỏ nhầm tới DB có dữ liệu thật và test chạy, bước dọn có thể bỏ qua trigger bảo vệ sổ chỉ-thêm.",
+   "impact": "Về lý thuyết có thể làm mất bằng chứng sổ kho/lịch hẹn nếu mã clinic trùng hoặc fixture hỏng giữa chừng; mức ảnh hưởng bị giới hạn bởi lọc clinic_id ngẫu nhiên.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_nhan_ban_co_so_db.py",
+     "line": 112,
+     "end_line": 119,
+     "detail": "Pool lấy từ DATABASE_URL, chỉ skip khi rỗng, không kiểm tra database dùng một lần."
+    },
+    {
+     "path": "src/tests/services/test_nhan_ban_co_so_db.py",
+     "line": 125,
+     "end_line": 132,
+     "detail": "Tắt trigger chỉ-thêm rồi DELETE inventory_txn, appointment, patient, service_type."
+    }
+   ],
+   "limitations": "Chỉ thấy test; script nhân bản và cấu hình CI không được đưa vào. Bản thân DELETE đã lọc theo clinic_id vừa tạo.",
+   "recommendation": "Dùng guard chung (host localhost + tên DB tiền tố tạm) cho mọi fixture dùng replica; tách helper dọn dùng chung.",
+   "acceptance": "Chạy test với DATABASE_URL trỏ DB không có tiền tố cho phép phải skip/fail trước khi ghi bất cứ thứ gì.",
+   "alignment": [
+    "quyết định có bằng chứng",
+    "phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-003"
+   ]
+  },
+  {
+   "tmp_id": "T10-2",
+   "title": "Test thao tác kho chỉ khẳng định retry cùng khoá tuần tự; thiếu ca đồng thời cho discard/receive và thiếu kiểm quyền/cơ sở",
+   "severity": "LOW",
+   "category": "test_gap",
+   "evidence_level": "design_gap",
+   "summary": "Chỉ adjust có ca asyncio.gather cùng khoá; discard và receive retry chạy tuần tự. Không có test từ chối khi vai không phải dược sĩ gọi receive/adjust/discard, hay lô thuộc cơ sở khác. Test 'khoá của nhân viên khác' khẳng định cả hai đều ghi (2 dòng ADJUST) — hành vi chủ ý nhưng chưa có bằng chứng quyền của bác sĩ được phép chỉnh kho.",
+   "trigger": "Hai request song song cùng khoá cho discard/receive; hoặc vai không có quyền kho gọi API.",
+   "impact": "Hồi quy về idempotency đồng thời hoặc phân quyền kho khó bị phát hiện sớm.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_pharmacy_inventory_p1_db.py",
+     "line": 78,
+     "end_line": 81,
+     "detail": "Chỉ adjust dùng gather đồng thời."
+    },
+    {
+     "path": "src/tests/services/test_pharmacy_inventory_p1_db.py",
+     "line": 111,
+     "end_line": 112,
+     "detail": "discard gửi tuần tự."
+    },
+    {
+     "path": "src/tests/services/test_pharmacy_inventory_p1_db.py",
+     "line": 175,
+     "end_line": 187,
+     "detail": "Bác sĩ (q.bac_si) gọi /pharmacy/adjust thành công, tạo dòng sổ thứ hai; không có ca từ chối theo vai."
+    }
+   ],
+   "limitations": "Quyền thực tế có thể được kiểm ở test khác không đưa vào.",
+   "recommendation": "Thêm gather cho discard/receive; thêm test 403 cho vai không phải kho và lô khác cơ sở.",
+   "acceptance": "Có test song song cho cả ba thao tác và test từ chối vai/cơ sở.",
+   "alignment": [
+    "quyết định có bằng chứng",
+    "ownership rõ"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-003"
+   ]
+  },
+  {
+   "tmp_id": "T10-3",
+   "title": "Test cấp phát thuốc dùng kết nối giả và bảng TEMP tự dựng nên có thể lệch schema thật",
+   "severity": "LOW",
+   "category": "test_validity",
+   "evidence_level": "design_gap",
+   "summary": "test_pharmacy_dispense_units dùng MagicMock với chuỗi side_effect cố định theo thứ tự fetchrow; test _db dựng bảng TEMP, thay 'public.' bằng 'pg_temp.', thay emit_event và hàm lô đúng cơ sở bằng giả (luôn true). Thứ tự/số lệnh SQL được khẳng định cứng (await_count == 3, chỉ mục await_args_list).",
+   "trigger": "Refactor thứ tự truy vấn hoặc thêm cột/ràng buộc/trigger thật trong cấp phát.",
+   "impact": "Test gãy khi đổi cách cài đặt dù hành vi đúng, hoặc vẫn xanh khi schema thật (kho theo cơ sở, trigger sổ) khác; kiểm tra đơn vị không chứng minh lô sai cơ sở bị chặn.",
+   "evidence": [
+    {
+     "path": "src/tests/services/test_pharmacy_dispense_units.py",
+     "line": 34,
+     "end_line": 59,
+     "detail": "side_effect cố định theo thứ tự lời gọi."
+    },
+    {
+     "path": "src/tests/services/test_pharmacy_dispense_units.py",
+     "line": 100,
+     "end_line": 100,
+     "detail": "Khẳng định cứng số lần fetchrow."
+    },
+    {
+     "path": "src/tests/services/test_pharmacy_dispense_units_db.py",
+     "line": 103,
+     "end_line": 104,
+     "detail": "lo_dung_co_so_luot luôn trả true nên kiểm tra cơ sở của lô không được thử."
+    }
+   ],
+   "limitations": "Có thể có test DB đầy đủ khác ngoài chunk.",
+   "recommendation": "Giữ test đơn vị nhưng bổ sung ca trên schema thật cho lô khác cơ sở/khác thuốc.",
+   "acceptance": "Có test DB thật từ chối lô sai cơ sở và lô của thuốc khác dòng đơn.",
+   "alignment": [
+    "quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-007"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "SEC-011",
+   "detail": "test_quan_ly_doc_y_khoa_db và test_phieu_kham_luot_db chỉ kiểm vai lễ tân/dược sĩ bị chặn và quản lý đọc được; không có ca bác sĩ/thư ký đọc bệnh nhân ngoài phân công (test_phieu_chuyen_khoa_pham_vi_thu_ky chỉ phủ save_form), nên khoảng trống phạm vi phân công chưa có test."
+  },
+  {
+   "id": "FIN-005",
+   "detail": "test_quay_thu_mot_hoa_don_db kiểm lich_su/csv nhưng không có ca vượt trần dòng để khẳng định có cờ cắt."
+  },
+  {
+   "id": "INF-007",
+   "detail": "test_no_con_lai_db chạy hẹn giờ hỏng thử SO_LAN_THU_TOI_DA=1 nhưng không có ca nghiệp vụ đã commit mà mất receipt."
+  }
+ ],
+ "held": [
+  {
+   "title": "Test phụ thuộc ngày cố định 2026-10-12/13 và đồng hồ giả",
+   "reason": "test_payment_head_scope_db đặt now_vn cố định, có thể ổn nhưng chưa rõ ca trực/roster có đụng dữ liệu chung; chưa đủ bằng chứng flaky."
+  },
+  {
+   "title": "Dữ liệu Dr4Women ghi cứng trong test nhân bản cơ sở",
+   "reason": "Địa chỉ, SĐT, tên in Hào Nam là kỳ vọng của script riêng cho Dr4Women, nằm ở test riêng chứ không phải fixture dùng chung; chỉ là rủi ro nếu tái dùng cho phòng khám khác."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Test nhân bản chạy thử không ghi gì, chạy lại không nhân đôi, đổi bộ rồi quay lại trả đúng như cũ",
+   "detail": "Mỗi bài dựng phòng khám riêng mã ngẫu nhiên, so ảnh chụp trạng thái trước/sau và khẳng định cơ sở nguồn không đổi.",
+   "evidence": "src/tests/services/test_nhan_ban_co_so_db.py:512"
+  },
+  {
+   "title": "Test số câu SQL không tăng theo số khách",
+   "detail": "Bọc kết nối đếm lời gọi để chặn N+1 trên gói màn khách hàng.",
+   "evidence": "src/tests/services/test_phan_hoi_thuoc_cot_db.py:161"
+  },
+  {
+   "title": "Test quan sát bể kết nối bắt lỗi mượn kết nối lồng nhau",
+   "detail": "Dùng bể 1 kết nối và wait_for để lỗi treo thành thất bại rõ ràng.",
+   "evidence": "src/tests/services/test_quan_sat_pool_db.py:99"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/tests/services/test_nhan_ban_co_so_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_nhan_luot_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_nhan_tai_phong_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_nhom_dich_vu_dat_lich_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_no_con_lai_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_o_tuy_chon_don_vi_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_order_authorization_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_patient_service_summary.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_payment_head_scope_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phan_hoi_thuoc_cot_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phan_hoi_thuoc_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_pharmacy_dispense_units.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_pharmacy_dispense_units_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_pharmacy_inventory_p1_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phi_kham_chon_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phieu_chuyen_khoa_pham_vi_thu_ky.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phieu_dong_dich_vu_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phieu_huong_dan_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phieu_kham_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phieu_kham_lich_su_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phieu_kham_luot_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phieu_kham_v2_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phong_bat_dau_chot_ho_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phong_doi_tac_luong_chung_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phong_la_tai_nguyen_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phong_lam_theo_dich_vu.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phong_lam_theo_dich_vu_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phong_theo_bang_lich_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_phu_thu_cu_doc_duoc_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_prescription_draft_privacy_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_prescription_row_identity.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quan_ly_doc_y_khoa_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quan_sat_pool_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quay_kho_dot3_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/services/test_quay_thu_mot_hoa_don_db.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

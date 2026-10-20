@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot_path": "/tmp/clinicai-audit-main-956ba4f2",
+  "status": "complete_for_assigned_observability_error_telemetry_slice",
+  "scope": [
+    "In-process telemetry data model, bounded error ring, snapshot projection and nearest-rank metric code",
+    "Timing middleware exception-to-telemetry path",
+    "Management endpoint for telemetry and ops.view guard",
+    "Comparison with persistent error-store scrubber",
+    "Direct telemetry unit tests; read only, not executed"
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/core/telemetry.py",
+      "sha256": "24e231cc92dbd3301b91c800a225c6589f98945053ef5c8c36f68b47795423cf",
+      "line_count": 195,
+      "ranges_read": [
+        "1-195"
+      ],
+      "status": "full",
+      "notes": "Full semantic read of bounded request/error buffers, snapshot serialization and route-template behavior."
+    },
+    {
+      "path": "src/tests/core/test_telemetry.py",
+      "sha256": "21e4513b5268b08957245f2d5eda17eea102d6670c1ab661089de1bf3fc14720",
+      "line_count": 148,
+      "ranges_read": [
+        "1-148"
+      ],
+      "status": "full",
+      "notes": "Full read of direct unit tests; not run. Tests cover route template and 5xx selection, not detail redaction."
+    },
+    {
+      "path": "src/clinicai/api/middleware.py",
+      "sha256": "0d68531a1636fd1a4a69202ef9621d289296eab7d6e33179bedb66918880fd40",
+      "line_count": 295,
+      "ranges_read": [
+        "241-295"
+      ],
+      "status": "targeted",
+      "notes": "Read TimingMiddleware exception capture and finally path only."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/ops.py",
+      "sha256": "3852c88df1b283ec4aa9f1d9771014225268cfc39cb7f737d66757c45837fc63",
+      "line_count": 404,
+      "ranges_read": [
+        "1-27",
+        "70-89"
+      ],
+      "status": "targeted",
+      "notes": "Read router imports, management guard and /ops/telemetry endpoint only."
+    },
+    {
+      "path": "src/clinicai/services/kho_loi.py",
+      "sha256": "ae1c747ca6f2bc16e5b31ef5830023076fe958ca7d3ac9110ddcf190a0f275da",
+      "line_count": 198,
+      "ranges_read": [
+        "41-47",
+        "98-123"
+      ],
+      "status": "targeted",
+      "notes": "Compared persistent error text scrubber and exception capture call only."
+    }
+  ],
+  "cross_check": {
+    "ledger": "Read-only PHAT-HIEN.json review.",
+    "related_existing_ids": [
+      "SEC-021"
+    ],
+    "result": "Different sink and trigger: SEC-021 is a known lookup-miss custom error logged through the application logger; this candidate is unhandled 5xx detail in process memory and a management API."
+  },
+  "result": {
+    "new_candidates": [
+      "CAND-OBS-RAW-ERROR-001"
+    ],
+    "no_new_issue_observed": [
+      "Route templates are used rather than filled paths; direct tests exist for patient-id path omission.",
+      "Ring buffer is bounded to 200 error entries and /ops endpoint is guarded by ops.view."
+    ]
+  },
+  "not_done": [
+    "No exception carrying PII/PHI was demonstrated.",
+    "No tests, API, DB, production, logs, permissions or retention were inspected.",
+    "Broader middleware, exception source and API audit remain incomplete."
+  ]
+}

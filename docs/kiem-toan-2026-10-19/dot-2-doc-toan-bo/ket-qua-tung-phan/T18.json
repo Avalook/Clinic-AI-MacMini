@@ -1,0 +1,402 @@
+{
+ "chunk": "T18",
+ "findings": [
+  {
+   "tmp_id": "T18-1",
+   "title": "Test đếm số chính sách RLS và số bảng tenant bị ghim cứng, gắn với lịch sử migration và dễ vỡ khi DB dùng chung",
+   "severity": "LOW",
+   "category": "test_fragility",
+   "evidence_level": "confirmed_static",
+   "summary": "tenant_scoped_rls.sql ghim đúng 116 policy `_select_own_clinic`, còn multi_tenant_foundation.sql ghim tối thiểu 132 bảng tenant. Hơn 100 dòng chú thích lịch sử gắn với số liệu này. Mỗi migration mới buộc phải sửa số trong test. Việc này dễ bị làm máy móc, khiến bài kiểm không còn bắt được bảng thiếu RLS thật.",
+   "trigger": "Một migration thêm hoặc bớt bảng, hoặc DB test dùng chung đã nhận migration của nhánh khác.",
+   "impact": "Bài kiểm có thể đỏ vì lý do vô hại và bị sửa số cho qua. Ngược lại, thêm một bảng và bỏ một bảng khác trong cùng đợt sẽ triệt tiêu nhau mà không bị phát hiện (đã xảy ra ở bước 127→116).",
+   "evidence": [
+    {
+     "path": "supabase/tests/tenant_scoped_rls.sql",
+     "line": 219,
+     "end_line": 221,
+     "detail": "So sánh bằng đúng 116, không liệt kê danh sách bảng kỳ vọng."
+    },
+    {
+     "path": "supabase/tests/multi_tenant_foundation.sql",
+     "line": 168,
+     "end_line": 168,
+     "detail": "Ngưỡng tối thiểu 132, chỉ bắt thiếu, không bắt bảng thay thế."
+    }
+   ],
+   "limitations": "Các bài này vẫn có kiểm NOT NULL, FK và index theo từng bảng nên giá trị bảo vệ không bằng 0.",
+   "recommendation": "Thay phép đếm bằng danh sách bảng ngoại lệ tường minh, hoặc kiểm từng bảng có clinic_id đều có policy đọc theo tenant. Bỏ phần đếm số.",
+   "acceptance": "Thêm một bảng tenant mới có đủ policy thì test không cần sửa số. Thêm một bảng thiếu policy thì test đỏ và nêu tên bảng.",
+   "alignment": [
+    "decision_evidence",
+    "repeat_to_improvement"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T18-2",
+   "title": "Test phụ thuộc dòng đầu tiên của bảng dùng chung (LIMIT 1) và id mặc định của Dr4Women",
+   "severity": "LOW",
+   "category": "test_flaky_shared_fixture",
+   "evidence_level": "confirmed_static",
+   "summary": "Nhiều bài lấy clinic hoặc location bằng `ORDER BY id LIMIT 1`, hoặc mượn `staff ... LIMIT 1`. Nhiều bài khác ghi cứng UUID `a0000000-...0001` của phòng khám Dr4Women và mã `DR4WOMEN` làm fixture dùng chung. Kết quả đổi theo dữ liệu seed hoặc theo bài chạy trước.",
+   "trigger": "Chạy trên DB đã có seed hoặc có phòng khám khác có id nhỏ hơn. Hoặc test khác chèn clinic trước đó.",
+   "impact": "Bài kiểm có thể đạt hoặc hỏng tùy dữ liệu nền. Điều này trái với chính các chú thích trong repo về việc tự dựng fixture. Các bài này cũng cho thấy khó tái dùng cho phòng khám thứ hai.",
+   "evidence": [
+    {
+     "path": "supabase/tests/dem_ghe_ca_ngay_mot_lan.sql",
+     "line": 22,
+     "end_line": 23,
+     "detail": "Lấy clinic và location đầu tiên theo id."
+    },
+    {
+     "path": "supabase/tests/nhac_tai_kham_hai_luot_goi.sql",
+     "line": 13,
+     "end_line": 16,
+     "detail": "Lấy staff đầu tiên sẵn có, có nhánh dự phòng nhưng vẫn phụ thuộc dữ liệu."
+    },
+    {
+     "path": "supabase/tests/multi_tenant_foundation.sql",
+     "line": 386,
+     "end_line": 386,
+     "detail": "Khẳng định code = 'DR4WOMEN' là phòng khám duy nhất."
+    }
+   ],
+   "limitations": "CI chạy trên DB trắng nên hiện ít lộ. Rủi ro chủ yếu khi chạy trên DB dùng chung hoặc đã seed.",
+   "recommendation": "Mỗi bài tự tạo clinic và location riêng với id cố định, không chọn LIMIT 1. Gom id mặc định vào một helper chung.",
+   "acceptance": "Chạy các bài theo thứ tự ngẫu nhiên trên DB đã seed đều cho cùng kết quả.",
+   "alignment": [
+    "decision_evidence",
+    "repeat_to_improvement"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T18-3",
+   "title": "Thiếu test cho trần/tính đúng của hoàn tiền, đối soát và các RPC tiền thuốc",
+   "severity": "MEDIUM",
+   "category": "test_gap_money",
+   "evidence_level": "design_gap",
+   "summary": "Trong 34 tệp, phần tiền chỉ có payment_audit (void và cycle), thu_dich_vu_nhieu_lan (chỉ mục và phủ trùng) và bài chỉ mục trong service_lifecycle_v1_schema. Không có test cho payment_refund, payment_refund_line, drug_return hay tổng hoàn không vượt số đã thu. Các phát hiện FIN-004 và FIN-001 cần loại test này.",
+   "trigger": "Thay đổi logic hoàn chia nhỏ hoặc làm tròn.",
+   "impact": "Hoàn vượt số đã thu có thể lọt qua CI. Sai lệch chỉ lộ khi đối soát cuối ngày hoặc khi khách phàn nàn.",
+   "evidence": [
+    {
+     "path": "supabase/tests/multi_tenant_foundation.sql",
+     "line": 106,
+     "end_line": 108,
+     "detail": "Chỉ kiểm payment_refund, payment_refund_line và drug_return có clinic_id, không kiểm hành vi."
+    },
+    {
+     "path": "supabase/tests/payment_audit.sql",
+     "line": 123,
+     "end_line": 143,
+     "detail": "Chỉ kiểm void của payment, không có hoàn từng phần."
+    }
+   ],
+   "limitations": "Có thể test hoàn tiền nằm ở pytest backend, không có trong danh sách tệp được đưa.",
+   "recommendation": "Thêm test SQL: nhiều lần hoàn nhỏ có tổng không vượt số đã thu, hoàn trên phiếu bị hủy, và đồng thời hai lần hoàn.",
+   "acceptance": "Test đỏ khi tổng hoàn vượt số thu dù chia nhỏ hoặc chạy đồng thời.",
+   "alignment": [
+    "decision_evidence",
+    "early_detection"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-004",
+    "FIN-001"
+   ]
+  },
+  {
+   "tmp_id": "T18-4",
+   "title": "Test đồng thời/idempotency chỉ kiểm tuần tự trong một giao dịch, không chứng minh được race thật",
+   "severity": "LOW",
+   "category": "test_gap_concurrency",
+   "evidence_level": "design_gap",
+   "summary": "thong_bao_goi_bo_phan, lab_review_idempotency và nhac_tai_kham chạy trong một phiên, một giao dịch. Chúng chứng minh ràng buộc unique và ON CONFLICT hoạt động tuần tự, nhưng không có phiên thứ hai nên không kiểm khóa hay race thật. Chú thích của test còn nói chống trùng 'nằm ở database' chống mở hai tab.",
+   "trigger": "Hai request đồng thời cùng ghi, như CLIN-005, CLIN-044 và CLIN-059.",
+   "impact": "Các lỗi đồng thời đã biết không có test hồi quy ở tầng DB.",
+   "evidence": [
+    {
+     "path": "supabase/tests/thong_bao_goi_bo_phan.sql",
+     "line": 54,
+     "end_line": 66,
+     "detail": "Mười lần chèn tuần tự coi như mô phỏng bấm đồng thời."
+    },
+    {
+     "path": "supabase/tests/lab_review_idempotency.sql",
+     "line": 84,
+     "end_line": 103,
+     "detail": "'Raw race loser' được mô phỏng bằng insert thứ hai cùng giao dịch."
+    }
+   ],
+   "limitations": "psql một phiên khó mô phỏng race. Cần harness nhiều kết nối, ví dụ dblink hoặc pytest.",
+   "recommendation": "Thêm một test hai kết nối (pytest với hai connection) cho các đường đã có lỗi biết trước: đổi lịch với check-in, hẹn gọi lại, hoàn tiền.",
+   "acceptance": "Có test hai phiên chứng minh chỉ một bên thắng và bên kia nhận lỗi nghiệp vụ.",
+   "alignment": [
+    "early_detection",
+    "repeat_to_improvement"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-005",
+    "CLIN-044",
+    "CLIN-059"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "INF-006",
+   "detail": "run-local.sh chỉ chạy migration rồi các file assertion (dòng 43-69). Không có bước pg_dump/restore, đăng nhập hay kiểm tệp, nên không chứng minh khả năng khôi phục."
+  },
+  {
+   "id": "CLIN-024",
+   "detail": "Các test đặt lịch bắt check_violation (SQLSTATE 23514) cho luật sức chứa. Test này không có phần nào kiểm race hai lịch trùng bị chặn bởi unique index và được đổi thành lỗi nghiệp vụ."
+  },
+  {
+   "id": "SEC-029",
+   "detail": "tenant_scoped_rls.sql khẳng định staff cùng clinic đọc được patient qua PostgREST (dòng 394-402), tức hành vi này đang được test coi là đúng."
+  }
+ ],
+ "held": [
+  {
+   "title": "Test stock_postgrest_read_acl hạn chế kiểm tra ở vai authenticated/anon",
+   "reason": "Không có bằng chứng thiếu bảng kho khác nằm ngoài danh sách 11 bảng, nên chưa đủ chắc để nêu."
+  },
+  {
+   "title": "luot_kham_do bắt mọi exception (WHEN others) ở khối ④ và ⑤",
+   "reason": "Chỉ re-raise khi thông điệp chứa chuỗi tự đặt. Một lỗi khác vẫn được coi là 'đúng' nên có thể hiểu sai, nhưng chưa có bằng chứng lỗi thật."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Test bắt đúng nguyên nhân lỗi thay vì chỉ mã SQLSTATE",
+   "detail": "book_a phân biệt check_violation do hết chỗ với CHECK khác bằng nội dung thông báo, tránh test xanh rỗng. Có kèm ghi chú vì sao cần fixture bác sĩ.",
+   "evidence": "supabase/tests/clinic_booking_policy.sql:292"
+  },
+  {
+   "title": "Kiểm ca hợp lệ đi qua trước các ca bị chặn",
+   "detail": "Bài kho kiểm cấp thuốc hợp lệ trước, để một ràng buộc chặn tất cả không làm test xanh nhầm. Bài cũng kiểm biên phòng khám và FK RESTRICT.",
+   "evidence": "supabase/tests/inventory_write_guards.sql:58"
+  },
+  {
+   "title": "Test idempotency cho hàm sinh việc chạy mỗi lần mở màn hình",
+   "detail": "Gọi lại nhiều lần và khẳng định số dòng không đổi, cả sau khi đã gọi xong.",
+   "evidence": "supabase/tests/nhac_tai_kham_hai_luot_goi.sql:120"
+  },
+  {
+   "title": "Kiểm quyền bằng hành vi hai chiều (vai bị chặn và vai vẫn đọc được)",
+   "detail": "Kiểm lễ tân, thu ngân và quản lý đọc 0 dòng bệnh án, nhưng bác sĩ vẫn đọc được, và các bảng vận hành vẫn mở.",
+   "evidence": "supabase/tests/role_scoped_clinical_read.sql:102"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "supabase/tests/clinic_booking_policy.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/clinical_form_quarantine.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/dem_ghe_ca_ngay_mot_lan.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/dieu_phoi_chi_chi_dinh_da_duyet.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/event_log_rls.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/ghe_vang_lai_khach_den_muon.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/hang_cho_xep_bac_si.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/inventory_write_guards.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/lab_review_idempotency.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/lich_vuot_suc_chua.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/luot_da_dong_thi_dung_yen.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/luot_kham_do.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/luot_kham_lat_1.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/multi_tenant_foundation.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/nhac_lich_truoc_7_ngay_va_1_ngay.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/nhac_tai_kham_hai_luot_goi.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/nhieu_so_dien_thoai.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/order_services.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/payment_audit.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/public_function_acl.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/role_scoped_clinical_read.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/run-local.sh",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/service_lifecycle_v1_schema.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/service_order_draft_khong_co_selection.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/sinh_hieu_chi_them.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/stock_postgrest_read_acl.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/suc_chua_chi_chan_khi_da_cong_bo.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/tenant_scoped_rls.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/thong_bao_goi_bo_phan.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/thu_dich_vu_nhieu_lan.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/thu_ky_rls_theo_bac_si.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/tuan_lich_truc_da_ap_dung.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/visit_workflow_instantiation.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "supabase/tests/workflow_kernel.sql",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

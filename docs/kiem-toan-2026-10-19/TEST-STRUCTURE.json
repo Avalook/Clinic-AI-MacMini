@@ -1,0 +1,315 @@
+{
+  "metrics": {
+    "python_files": 527,
+    "test_functions": 3970
+  },
+  "heuristic_candidates": [
+    {
+      "path": "src/tests/conftest.py",
+      "line": 100,
+      "function": "test_db_url",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_clinic_config.py",
+      "line": 62,
+      "function": "test_only_management",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_clinical_prescription_draft.py",
+      "line": 238,
+      "function": "test_dieu_duong_ghi_duoc_phan_chuyen_mon",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_cung_phong_dang_lam_db.py",
+      "line": 103,
+      "function": "test_khac_phong_van_theo_luat_cu",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_check_in_db.py",
+      "line": 100,
+      "function": "test_da_do_sinh_hieu_thi_tu_choi",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_check_in_db.py",
+      "line": 112,
+      "function": "test_dang_o_phong_bac_si_thi_tu_choi",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_check_in_db.py",
+      "line": 125,
+      "function": "test_da_nop_tien_thi_tu_choi",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_hoan_tac_check_in_db.py",
+      "line": 140,
+      "function": "test_chi_dinh_roi_thu_tien_thi_tu_choi",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_luot_kham_service_db.py",
+      "line": 550,
+      "function": "test_chi_dinh_khach_bo_khong_chan_hoan_tat",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_media.py",
+      "line": 241,
+      "function": "test_khong_cau_hinh_thi_khong_chan",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_media.py",
+      "line": 259,
+      "function": "test_co_tep_danh_dau_thi_cho_ghi",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_ngay_kham_lo_hong_db.py",
+      "line": 160,
+      "function": "test_khach_quen_vao_thang_bac_si_chinh",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_quyen_khoi_dong_db.py",
+      "line": 253,
+      "function": "test_phong_kham_chua_co_ai_van_sua_viec_khac_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_routing_db.py",
+      "line": 465,
+      "function": "test_7_cung_khoa_khac_noi_dung",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_routing_db.py",
+      "line": 655,
+      "function": "test_mat_hieu_luc_chi_khi_da_xep",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_routing_db.py",
+      "line": 660,
+      "function": "test_ly_do_other_bi_tu_choi_vi_chua_co_cho_luu_ghi_chu",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_selection_db.py",
+      "line": 344,
+      "function": "test_3_cung_khoa_khac_noi_dung",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_selection_db.py",
+      "line": 390,
+      "function": "test_6_ma_lap_lai_bi_tu_choi",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_selection_db.py",
+      "line": 396,
+      "function": "test_7_chon_ngoai_danh_sach_da_hoi",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_selection_db.py",
+      "line": 496,
+      "function": "test_15_da_bat_dau_hoac_ket_thuc_thi_khoa",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_service_selection_db.py",
+      "line": 694,
+      "function": "test_khong_con_chi_dinh_nao",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_slot_hold.py",
+      "line": 63,
+      "function": "test_co_quyen_thi_giu_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_theo_doi_pha_1_db.py",
+      "line": 59,
+      "function": "test_ghi_loi_khong_bao_gio_nem_khi_db_hong",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp1_db.py",
+      "line": 568,
+      "function": "test_doi_thuoc_cho_lan_thu_dang_chay",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp1_db.py",
+      "line": 582,
+      "function": "test_doi_so_mua_cho_lan_thu_dang_chay",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp1_db.py",
+      "line": 595,
+      "function": "test_tu_choi_cho_lan_thu_dang_chay",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp4_db.py",
+      "line": 119,
+      "function": "test_chua_kham_xong_van_chon_lo_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/services/test_tien_thuoc_cp6_dinh_chinh_db.py",
+      "line": 558,
+      "function": "test_da_ky_nha_thuoc_van_van_hanh_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/test_booking_service.py",
+      "line": 924,
+      "function": "test_khung_dang_chay_thi_van_dat_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/test_clinical_cluster.py",
+      "line": 468,
+      "function": "test_valid_vietnamese_numbers_pass",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/test_clinical_cluster.py",
+      "line": 480,
+      "function": "test_a_blank_number_is_allowed",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/test_dashboard_backend_paths.py",
+      "line": 98,
+      "function": "test_dashboard_only_calls_paths_that_exist",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/test_man_khach_hang_kieu_tra_ve.py",
+      "line": 39,
+      "function": "test_phan_hoi_that_qua_duoc_cua_kiem_kieu",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/test_nav_role_drift.py",
+      "line": 180,
+      "function": "test_every_role_that_sees_a_page_can_load_that_page",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_booking_override_minutes.py",
+      "line": 59,
+      "function": "test_each_quarter_hour_takes_its_own_cap",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_booking_override_minutes.py",
+      "line": 96,
+      "function": "test_midnight_end_is_allowed",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_booking_override_minutes.py",
+      "line": 143,
+      "function": "test_forever_rule_may_pick_a_weekday",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_chan_dat_ngoai_khung_ca.py",
+      "line": 166,
+      "function": "test_ngay_dong_cua_thi_chot_nay_im_lang",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_chan_dat_ngoai_khung_ca.py",
+      "line": 182,
+      "function": "test_khong_co_dong_nao_cung_im_lang",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_idempotency.py",
+      "line": 100,
+      "function": "test_missing_key_never_touches_database",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_idempotency.py",
+      "line": 186,
+      "function": "test_chay_xuoi_thi_khong_dong_toi_khoa",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_loi_cu_luot_kham_tat.py",
+      "line": 32,
+      "function": "test_bat_co_thi_cua_cu_chay_lai",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_pham_vi_vi_tri_lich_truc.py",
+      "line": 104,
+      "function": "test_trong_pham_vi_thi_cho_qua",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_pham_vi_vi_tri_lich_truc.py",
+      "line": 131,
+      "function": "test_chua_khai_ma_tran_thi_cho_qua",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_phieu_kham_v2.py",
+      "line": 201,
+      "function": "test_khung_hop_le_qua_kiem",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_phieu_kham_v2.py",
+      "line": 219,
+      "function": "test_hien_khi_tro_o_dung_sau_van_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_phieu_kham_v2.py",
+      "line": 292,
+      "function": "test_hai_nhom_khac_ten_gap_khac_nhau_van_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_thu_ky_dinh_chinh_don.py",
+      "line": 87,
+      "function": "test_thu_ky_cua_bac_si_chinh_dinh_chinh_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_thu_ky_dinh_chinh_don.py",
+      "line": 102,
+      "function": "test_thu_ky_co_lego_ban_kham_dinh_chinh_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_thu_ky_dinh_chinh_don.py",
+      "line": 113,
+      "function": "test_dieu_duong_co_lego_ban_kham_dinh_chinh_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    },
+    {
+      "path": "src/tests/unit/test_thu_ky_dinh_chinh_don.py",
+      "line": 135,
+      "function": "test_bac_si_chinh_dinh_chinh_duoc",
+      "note": "no local assert/known pytest check; helper may assert"
+    }
+  ],
+  "warning": "Heuristic signals only; helper assertions/parameterization not evaluated; zero runtime tests in this scan."
+}

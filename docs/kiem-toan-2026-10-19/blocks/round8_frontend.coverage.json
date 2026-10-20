@@ -1,0 +1,120 @@
+{
+  "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "snapshot": "/tmp/clinicai-audit-main-956ba4f2",
+  "scope": "Một workflow: panel đối chiếu Nam khoa (service_code NK), UI state/error và quyền API. Tám file chính được trace từ mount form tới service/test. Static only; không chạy app, test, DB hoặc production.",
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/AndrologyReview.tsx",
+      "sha256": "eeaf1097fa781b32055146fb8a8e8cb7fdf5e71a83eb216f69d713dd881162a8",
+      "lines": 181,
+      "status": "traced_full",
+      "ranges": "1-181",
+      "note": "Đọc toàn bộ component; debounce, stale-state, non-2xx/catch và render."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx",
+      "sha256": "155b379759cc764360720d648acb57f5b70b8bee408c297793e2588f3fec22cb",
+      "lines": 548,
+      "status": "traced_partial",
+      "ranges": "69-108;110-145;335-339",
+      "note": "Prop readOnly, vòng nạp/đồng bộ form và chỗ mount review; không đọc toàn file."
+    },
+    {
+      "path": "src/dashboard/app/api/clinical-form/andrology-review/route.ts",
+      "sha256": "90a2a45f34d83c83fbabf1f3d2a66172b85fdb8b333a7a179b817ed59e4cfa5c",
+      "lines": 28,
+      "status": "traced_full",
+      "ranges": "1-28",
+      "note": "BFF auth, body parsing fallback và đường proxy."
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "lines": 323,
+      "status": "traced_partial",
+      "ranges": "61-66;101-139;155-197",
+      "note": "Caller token/clinic headers, forward và status/error mirror; không đọc toàn file."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/clinical_forms.py",
+      "sha256": "08c822d3eea4ad4d48bf383eb85dfb0fda8f4c82d66e65385bfff3833ff63967",
+      "lines": 122,
+      "status": "traced_partial",
+      "ranges": "23-26;39-53;78-93;96-122",
+      "note": "Đối chiếu GET/read guard, save guard và POST review request/response."
+    },
+    {
+      "path": "src/clinicai/permissions/y_khoa.py",
+      "sha256": "a235a6077ebfc66ffd0e446214edcf6c43de1793bc6c0656ca57a845692bc4c3",
+      "lines": 137,
+      "status": "traced_partial",
+      "ranges": "1-60",
+      "note": "Đọc contract QUYEN_Y_KHOA và QUYEN_GHI_Y_KHOA; không rà audit helper bên dưới."
+    },
+    {
+      "path": "src/clinicai/services/andrology_review_service.py",
+      "sha256": "d1b17d21e3dcc985e9d298b97bf64d5a4e40941db64ae7526c2dd29238e77458",
+      "lines": 235,
+      "status": "traced_full",
+      "ranges": "1-235",
+      "note": "Đọc đầy đủ dịch form→flags/suggestions/BMI và truy vấn read-only."
+    },
+    {
+      "path": "src/tests/services/test_andrology_review.py",
+      "sha256": "2ac5ad8f20eb9b468a769502673f858395d7c583f4ccd625561a7a79e0a911ca",
+      "lines": 291,
+      "status": "traced_full",
+      "ranges": "1-291",
+      "note": "Đọc toàn bộ unit tests hiện có; dùng FakePool cho logic service, không có test component/endpoint permission trong file này."
+    }
+  ],
+  "cross_reference_only": [
+    {
+      "path": "src/clinicai/services/andrology_service.py",
+      "sha256": "8c1e236b29dbf67c7237fada8c18e5e80be37c47ddd90f48a23ec0d48c8ee37e",
+      "ranges": "1-196",
+      "status": "spot_check_only",
+      "note": "Đọc để hiểu function flag/gợi ý; không đưa ra finding về luật lâm sàng."
+    },
+    {
+      "path": "src/dashboard/app/api/clinical-form/route.ts",
+      "sha256": "de514e4d994dc2ba03d3208c1033d919fa8b98c2c07ec1dd6bdd481dfd2464df",
+      "ranges": "23-62",
+      "status": "spot_check_only",
+      "note": "Đối chiếu đường GET/read-only; không audit đầy đủ route."
+    },
+    {
+      "path": "src/clinicai/services/clinical_form_service.py",
+      "sha256": "f265119b0f93badd5c537cfe6e448007a83b4673b0dccac302d2ace11b1001d5",
+      "ranges": "77-110;112-190",
+      "status": "spot_check_only",
+      "note": "Spot-check GET form contract/history trong lúc loại một hướng khác; không dùng làm evidence finding."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx",
+      "sha256": "16aab719c694ab504ccc385243f92e5723b8a597e0085b85473f7f2bf9683da3",
+      "ranges": "289-523;1053-1215;1678-1745",
+      "status": "spot_check_only",
+      "note": "Đọc các span của pager/current service để loại candidate lịch sử; không kết luận về lịch sử."
+    },
+    {
+      "path": "supabase/migrations/20260804000019_andrology_catalogue.sql",
+      "sha256": "0b7d75178b26c1c27f44b72e43b45c80dc20bb37a9549b2e32566748c4553337",
+      "ranges": "118-198",
+      "status": "spot_check_only",
+      "note": "Spot-check schema/seed ngưỡng; không đưa ra finding về provisioning tenant trong round này."
+    }
+  ],
+  "negative_findings": [
+    "`con_song` cleanup trong AndrologyReview chặn response cũ ghi đè state sau khi values/visitId đổi; finding CLIN-034 chỉ nói state cũ còn nhìn thấy trong lúc chờ, không cáo buộc stale response overwrite.",
+    "BFF andrology-review xác thực user rồi dùng proxy caller-scoped; backend kiểm StaffIdentity và clinic scope qua dependency, theo flow đã đọc. Không thấy bypass auth trong lát cắt này.",
+    "AndrologyReviewService chỉ truy vấn ranges và sinh hiệu, không ghi phiếu hay tự tạo chỉ định; không tìm thấy mutation trong service path đã đọc.",
+    "Không kết luận toàn bộ clinical form engine/API an toàn hoặc đúng; chỉ các spans ghi trong coverage."
+  ],
+  "validation": {
+    "method": "read_only_static_trace",
+    "tests_run": [],
+    "result": "Không sửa source. Hash file được tính trên snapshot exact-main; so với SHA256 đã có trong MAIN-PHAM-VI.json cho các file đã inventoried.",
+    "limitations": "Không runtime/browser, không chạy unit/integration/E2E tests; không database, production, secrets hay PHI. Mỗi nhận định giới hạn ở spans nêu trên."
+  }
+}

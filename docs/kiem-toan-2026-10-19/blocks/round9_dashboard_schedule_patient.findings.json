@@ -1,0 +1,204 @@
+[
+  {
+    "id": "CAND-R9-DASH-SCHED-01",
+    "canonical_id": null,
+    "title": "Cảnh báo trùng bệnh nhân có thể giữ liên kết của lần tra trước",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "patient_identity_workflow_integrity",
+    "status": "candidate_for_triage",
+    "summary": "Khi người dùng đổi số điện thoại/tên hợp lệ, NewPatientForm giữ danh sách trùng đã tìm được cho giá trị trước trong lúc debounce và truy vấn mới chạy; khi phản hồi lỗi hoặc fetch ném lỗi, danh sách cũ cũng không bị xoá. UI vẫn render nút mở lịch đặt khám theo patient_code của candidate cũ. Người dùng có thể tiếp tục đặt lịch nhầm vào hồ sơ ứng viên cũ trong khi đang nhập người khác. Chưa thấy bằng chứng thao tác này ghi thay đổi thông tin nhận diện của hồ sơ cũ.",
+    "trigger": "Tìm số/tên của bệnh nhân A để xuất hiện candidate, sau đó sửa trường tìm kiếm thành số/tên hợp lệ của bệnh nhân B; trong cửa sổ debounce/truy vấn hoặc khi truy vấn B lỗi, bấm nút mở lịch ở candidate A còn hiển thị.",
+    "impact": "Luồng điều hướng đặt lịch nhận patient_code của A mặc dù trường đang nhập là B. Điều này tạo cơ hội gắn lượt hẹn mới nhầm hồ sơ; kết quả thực tế phụ thuộc người dùng có nhận ra tên candidate cũ hay không. Không kết luận có ghi đè hồ sơ hoặc lộ dữ liệu ngoài phạm vi tenant.",
+    "recommendation": "Xoá candidates ngay khi giá trị truy vấn đổi hoặc trạng thái chuyển loading/error; gắn mỗi kết quả với khóa truy vấn đã chuẩn hoá và chỉ cho phép hành động khi khóa kết quả khớp giá trị hiện tại. Hiển thị lỗi truy vấn rõ ràng và vô hiệu hoá nút candidate khi kết quả đã cũ.",
+    "acceptance": "Sau khi candidate A xuất hiện, đổi truy vấn sang B: không thể mở lịch bằng candidate A trong lúc chờ hoặc khi truy vấn B lỗi; kết quả B chỉ được thao tác sau khi phản hồi tương ứng hoàn tất. Test cho phản hồi chậm, lỗi HTTP và reject fetch.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+        "line": 684,
+        "end_line": 747,
+        "detail": "Effect tra trùng debounce 450 ms; guard alive ngăn kết quả cũ ghi đè, nhưng nhánh !res.ok/catch không xoá state candidates và không gắn state cũ với khóa input hiện tại."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+        "line": 1237,
+        "end_line": 1277,
+        "detail": "Danh sách phoneDupes/trungTen đang có trong state được render làm candidate và có hành động dù giá trị input đã đổi."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+        "line": 130,
+        "end_line": 176,
+        "detail": "LỗiRaKhiTrungSo cung cấp link đặt lịch trực tiếp bằng patient_code của candidate."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đọc toàn bộ component trên snapshot được ghim; lần theo effect truy vấn, nhánh lỗi, state render và link hành động. Đối chiếu duplicate register; không tìm thấy finding canonical cùng đường UI và nguyên nhân stale candidate.",
+      "limitations": "Không chạy UI/test, không xác minh tần suất lỗi mạng hoặc thao tác thực tế; tác động là khả năng chọn sai hồ sơ qua hành động được giữ lại, chưa có bằng chứng dữ liệu đã bị ghi nhầm."
+    }
+  },
+  {
+    "id": "CAND-R9-DASH-SCHED-02",
+    "canonical_id": null,
+    "title": "Đổi tỉnh liên tiếp có thể lưu phường của tỉnh trước",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "patient_address_integrity",
+    "status": "candidate_for_triage",
+    "summary": "Mỗi lần đổi tỉnh, form khởi chạy tải danh sách phường bất đồng bộ nhưng không huỷ request cũ hay kiểm tra tỉnh hiện hành trước khi setWards. Nếu request tỉnh A về sau request tỉnh B, danh sách phường của A có thể thay danh sách B trong khi state tỉnh vẫn là B; form tạo hồ sơ gửi province_code hiện tại cùng ward_code được chọn từ danh sách đang hiển thị. Schema/service tiếp nhận hai trường độc lập, không có kiểm tra phường thuộc tỉnh được gửi.",
+    "trigger": "Chọn tỉnh A rồi nhanh chóng chọn B; phản hồi lấy phường của B về trước, sau đó phản hồi A về sau. Chọn một phường A còn hiển thị và lưu hồ sơ.",
+    "impact": "Hồ sơ bệnh nhân có thể được lưu với cặp province_code/ward_code không nhất quán, làm sai địa chỉ trong tìm kiếm hoặc xử lý hành chính. Bằng chứng chỉ xác nhận khả năng sai cặp dữ liệu địa chỉ; không suy rộng thành sai bệnh nhân hoặc sai tenant.",
+    "recommendation": "Huỷ request trước đó bằng AbortController hoặc gắn sequence/province_code vào request và bỏ response không còn khớp tỉnh hiện tại; reset ward_code và danh sách phường khi đổi tỉnh. Thêm kiểm tra server-side rằng ward thuộc province trước khi insert.",
+    "acceptance": "Với hai phản hồi đảo thứ tự, chỉ danh sách phường của tỉnh cuối cùng được hiển thị và lưu; API từ chối cặp ward_code/province_code không thuộc nhau. Kiểm thử race đổi tỉnh và validate tại service/schema.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+        "line": 482,
+        "end_line": 500,
+        "detail": "onProvinceChange fetch theo tỉnh nhưng mỗi response đều setWards và finally đều set loading; không có abort hoặc identity check gắn response với selected province hiện hành."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx",
+        "line": 1031,
+        "end_line": 1059,
+        "detail": "Payload tạo hồ sơ lấy province_code từ tỉnh hiện tại và ward_code từ ward được chọn trong danh sách hiện có, tách rời."
+      },
+      {
+        "path": "src/clinicai/schemas/patient.py",
+        "line": 53,
+        "end_line": 58,
+        "detail": "DTO khai báo province_code và ward_code độc lập, không có validator liên kết hai trường."
+      },
+      {
+        "path": "src/clinicai/services/patient_service.py",
+        "line": 55,
+        "end_line": 67,
+        "detail": "Cả hai cột cấu trúc địa chỉ đều nằm trong tập cột insert."
+      },
+      {
+        "path": "src/clinicai/services/patient_service.py",
+        "line": 256,
+        "end_line": 277,
+        "detail": "Insert dùng trực tiếp province_code/ward_code đầu vào; không tra quan hệ ward thuộc province trước khi lưu."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đọc toàn component form, DTO và đoạn insert service trên snapshot được ghim; truy vấn trạng thái trùng và manifest không cho thấy finding canonical tương đương.",
+      "limitations": "Không chạy request đảo thứ tự hoặc kiểm tra dữ liệu địa giới runtime. Finding xác định race và thiếu guard tĩnh; không khẳng định dữ liệu production đã chứa cặp sai."
+    }
+  },
+  {
+    "id": "CAND-R9-DASH-SCHED-03",
+    "canonical_id": null,
+    "title": "Danh sách ngoại lệ ca trực có thể hiển thị ngày cũ và huỷ theo ID không ràng buộc ngày",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "schedule_temporal_integrity",
+    "status": "candidate_for_triage",
+    "summary": "Màn ngoại lệ tải theo ngày nhưng giữ danh sách cũ khi request lỗi và không gắn response với ngày hiện chọn. Khi đổi ngày nhanh hoặc tải lỗi, bản ghi của ngày trước có thể còn hiển thị dưới ngày mới; nút huỷ chỉ gửi ID. BFF/service huỷ ngoại lệ theo clinic + ID + trạng thái active, không kiểm ngày mà UI đang hiển thị. Vì vậy thao tác trên bản ghi stale có thể huỷ ngoại lệ của ngày khác.",
+    "trigger": "Mở ngày A để tải ngoại lệ; đổi sang ngày B khi request B lỗi hoặc khi response A về muộn, để bản ghi A còn hiển thị; bấm huỷ trên bản ghi đó.",
+    "impact": "Ngoại lệ ca trực của ngày A có thể bị huỷ trong khi nhân viên đang xem ngày B, gây thay đổi lịch ngoài ý định và khó truy nguyên khi thao tác theo màn ngày. Service giới hạn theo clinic và chỉ huỷ bản ghi active, nên không có bằng chứng vượt tenant hay huỷ bản ghi đã kết thúc.",
+    "recommendation": "Xoá/ẩn danh sách cũ khi đổi ngày và khi lỗi; dùng abort/request sequence để chỉ nhận response của ngày hiện tại. Truyền expected_date/version khi huỷ và để service từ chối nếu không khớp bản ghi đang được xem; yêu cầu xác nhận có ngày/người trực cụ thể.",
+    "acceptance": "Khi đổi ngày hoặc request lỗi, không thể thao tác trên dữ liệu của ngày trước. Request huỷ kèm expected_date không khớp phải bị từ chối, còn ngày khớp chỉ huỷ một ngoại lệ active trong đúng clinic.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/schedule/NgoaiLeCaTruc.tsx",
+        "line": 47,
+        "end_line": 58,
+        "detail": "tai() lọc theo date nhưng response trực tiếp cập nhật items; HTTP error không reset items, không có catch, không kiểm tra date hiện hành."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/schedule/NgoaiLeCaTruc.tsx",
+        "line": 108,
+        "end_line": 113,
+        "detail": "Đổi ngày cập nhật date và gọi tai bất đồng bộ; không huỷ request trước hoặc gắn kết quả với ngày."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/schedule/NgoaiLeCaTruc.tsx",
+        "line": 142,
+        "end_line": 152,
+        "detail": "Các items đang giữ được hiển thị kèm nút huỷ gửi record.id."
+      },
+      {
+        "path": "src/dashboard/app/api/roster/ngoai-le-ca-truc/route.ts",
+        "line": 26,
+        "end_line": 35,
+        "detail": "BFF DELETE chỉ chuyển id tới backend, không gửi expected_date."
+      },
+      {
+        "path": "src/clinicai/services/ngoai_le_ca_truc_service.py",
+        "line": 102,
+        "end_line": 118,
+        "detail": "Huỷ lọc ngoại lệ active theo clinic_id và id; không nhận/ràng buộc ngày kỳ vọng từ màn hình."
+      },
+      {
+        "path": "src/clinicai/services/ngoai_le_ca_truc_service.py",
+        "line": 134,
+        "end_line": 158,
+        "detail": "Danh sách mới lọc theo date, nhưng điều kiện ngày của lệnh huỷ không gắn với filter đang xem."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đọc toàn component, BFF DELETE và hai nhánh service list/cancel. Đối chiếu registry canonical không thấy finding cùng đường ngoại lệ ca trực.",
+      "limitations": "Không chạy thao tác UI hoặc service; yêu cầu mạng trễ/lỗi để biểu hiện stale list. Clinic scope và trạng thái active được kiểm tra tại service."
+    }
+  },
+  {
+    "id": "CAND-R9-DASH-SCHED-04",
+    "canonical_id": null,
+    "title": "Gỡ lịch bác sĩ có thể fail-open khi xem trước lỗi và kết quả xem trước không khoá lệnh xoá",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "schedule_mutation_safety",
+    "status": "candidate_for_triage",
+    "summary": "Khi gỡ cấu hình ca trực, UI gọi dry-run riêng để đếm lượt bị ảnh hưởng. Nếu phản hồi preview không hợp lệ/lỗi parse, UI mặc định số lượt bằng 0; modal cảnh báo số lượt chỉ hiện khi preview ok và count lớn hơn 0, nhưng nút xác nhận vẫn gọi lệnh xoá. Ngay cả preview thành công, lệnh xoá là request khác và không mang version/snapshot của preview. Service thực tế xoá roster rồi cập nhật doctor_id=NULL cho các lịch đang mở không còn ca trực bao phủ. Do đó lỗi preview hoặc thay đổi giữa preview/confirm có thể dẫn tới gỡ ca và bỏ phân công nhiều lượt hơn những gì người dùng đã được cảnh báo.",
+    "trigger": "Thực hiện gỡ ca; làm request dry-run lỗi/trả payload không parse được, hoặc lịch thay đổi sau preview nhưng trước confirm; tiếp tục xác nhận modal.",
+    "impact": "Cấu hình ca bị xoá dù preview chưa xác nhận số lượt ảnh hưởng, hoặc phạm vi ảnh hưởng lúc mutation khác preview. Backend có thể tháo bác sĩ khỏi các lịch đang mở theo ngày bị ảnh hưởng, làm lịch cần được phân công lại. Không có bằng chứng lệnh xoá vượt clinic; service ràng buộc theo clinic.",
+    "recommendation": "Fail closed: không mở xác nhận xoá nếu dry-run lỗi hoặc thiếu dữ liệu hợp lệ; yêu cầu tải lại preview. Gắn revision/hash hoặc chạy preview + mutation trong transaction/command có kiểm tra expected affected set, và trả kết quả số lượt thực sự bị ảnh hưởng trước khi commit hoặc từ chối nếu tập thay đổi.",
+    "acceptance": "Lỗi/JSON sai ở preview không thể gọi DELETE; nếu dữ liệu thay đổi sau preview thì mutation bị từ chối với yêu cầu xem trước lại, hoặc dùng chính snapshot đã khoá để đảm bảo tập ảnh hưởng không đổi. Log/audit ghi số lượng lịch mất phân công.",
+    "evidence": [
+      {
+        "path": "src/dashboard/app/(dashboard)/schedule/RosterRegisterTable.tsx",
+        "line": 565,
+        "end_line": 622,
+        "detail": "Luồng remove gọi preview rồi mutation tách biệt; response preview không hợp lệ mặc định soChoXep về 0, cảnh báo chỉ hiện nếu preview ok và count > 0, nhưng thao tác xoá vẫn tiếp tục."
+      },
+      {
+        "path": "src/dashboard/app/api/roster/route.ts",
+        "line": 247,
+        "end_line": 264,
+        "detail": "Route preview và DELETE là hai nhánh request độc lập; DELETE chuyển tiếp yêu cầu xoá, không mang token/revision của kết quả preview."
+      },
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 591,
+        "end_line": 597,
+        "detail": "Nhánh dry_run chỉ xem trước và thoát, không giữ transaction/snapshot sang lệnh xoá tiếp theo."
+      },
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 598,
+        "end_line": 667,
+        "detail": "Lệnh thật xoá roster và tiếp tục xử lý các lịch đang mở trong phạm vi clinic/ngày."
+      },
+      {
+        "path": "src/clinicai/services/config_service.py",
+        "line": 750,
+        "end_line": 782,
+        "detail": "Các appointment đang mở không còn bác sĩ được ca trực bao phủ bị cập nhật doctor_id=NULL."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": null,
+      "result": "Đọc toàn component lịch, route preview/delete, service dry-run và mutation thực tế. Đối chiếu canonical findings; không thấy finding cùng hành vi fail-open/preview race cho màn này.",
+      "limitations": "Không chạy UI/backend, không kiểm tra xác suất request lỗi hay có người dùng đồng thời; tác động chỉ theo điều kiện lỗi preview hoặc state thay đổi giữa hai request. Không xác nhận có lịch production bị mất phân công."
+    }
+  }
+]

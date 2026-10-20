@@ -1,0 +1,378 @@
+[
+  {
+    "id": "SEC-030",
+    "title": "PostgREST đọc dữ liệu thu tiền vượt phạm vi ca trực của API",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "financial_postgrest_scope",
+    "summary": "Các bảng payment, payment_cycle, payment_bill_line, payment_refund và các bảng phân bổ/chứng từ liên quan cho phép authenticated SELECT với RLS chủ yếu lọc clinic_id; không có predicate capability, roster, ca hoặc actor như các route nghiệp vụ. Dữ liệu có số tiền, phương thức, trạng thái, người thu/xác nhận, lý do hoàn, dòng hóa đơn và metadata chứng từ chuyển khoản. Đây là đường đọc trực tiếp qua PostgREST khác với scope của endpoint thu ngân.",
+    "trigger": "Một tài khoản authenticated trong clinic gọi trực tiếp /rest/v1/ trên các bảng thanh toán ngoài ngày, ca, loại nghiệp vụ hoặc phạm vi actor mà route thu ngân cho tài khoản đó.",
+    "impact": "Cấu hình tĩnh cho phép đọc hàng tài chính cùng clinic rộng hơn guard của một số endpoint: lịch sử API giới hạn theo ngày/loại/roster/ca/actor, còn RLS bảng gốc chỉ giới hạn clinic. Một migration cũ chủ ý đọc payment clinic-wide cho quầy và đối soát; chưa có chính sách được xác nhận rằng mọi vai và mọi ca đều cần phạm vi đó. Không có bằng chứng cross-clinic, request thực tế, tải file chứng từ hoặc dữ liệu đã bị đọc.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+        "line": 152,
+        "end_line": 168,
+        "detail": "Bảng payment nhận policy authenticated chỉ lọc clinic_id qua current_clinic_ids."
+      },
+      {
+        "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+        "line": 235,
+        "end_line": 246,
+        "detail": "current_clinic_ids lọc membership active, không lọc role/capability."
+      },
+      {
+        "path": "supabase/migrations/20260730000008_table_grants.sql",
+        "line": 47,
+        "end_line": 59,
+        "detail": "Dynamic grant SELECT authenticated trên public tables có read policy."
+      },
+      {
+        "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+        "line": 744,
+        "end_line": 758,
+        "detail": "Payment lưu visit/patient/kind/status/amount/paid_by/paid_at."
+      },
+      {
+        "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+        "line": 21,
+        "end_line": 46,
+        "detail": "Payment cycle chứa số tiền, visit, kind, phương thức/trạng thái, creator/confirmer và thời điểm."
+      },
+      {
+        "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+        "line": 246,
+        "end_line": 252,
+        "detail": "Payment cycle bật RLS và grant SELECT cho authenticated theo clinic."
+      },
+      {
+        "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+        "line": 85,
+        "end_line": 110,
+        "detail": "Bill-line snapshot lưu dịch vụ/thuốc, số lượng, đơn giá và tổng tiền."
+      },
+      {
+        "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+        "line": 127,
+        "end_line": 136,
+        "detail": "Bill line bật RLS và grant SELECT authenticated theo clinic."
+      },
+      {
+        "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+        "line": 41,
+        "end_line": 69,
+        "detail": "Refund/return lưu tiền, trạng thái, lý do, người tạo/xác nhận và thời điểm."
+      },
+      {
+        "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+        "line": 542,
+        "end_line": 557,
+        "detail": "Các bảng refund/return có RLS và grant đọc cùng clinic."
+      },
+      {
+        "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+        "line": 43,
+        "end_line": 50,
+        "detail": "Phần thanh toán lưu số tiền và khách đưa theo hình thức."
+      },
+      {
+        "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+        "line": 224,
+        "end_line": 258,
+        "detail": "Metadata ảnh chuyển khoản gồm key, MIME, hash/size, actor và lifecycle; không chứng minh tải được file."
+      },
+      {
+        "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+        "line": 267,
+        "end_line": 272,
+        "detail": "Bảng metadata ảnh chuyển khoản grant SELECT authenticated theo clinic."
+      },
+      {
+        "path": "src/clinicai/api/v1/routers/cashier.py",
+        "line": 129,
+        "end_line": 159,
+        "detail": "Route lịch sử thu gọi CashierScopeService và truyền giới hạn ngày/actor."
+      },
+      {
+        "path": "src/clinicai/services/cashier_scope_service.py",
+        "line": 349,
+        "end_line": 422,
+        "detail": "Guard áp kind, ngày, approved roster, location/shift, active shift và actor."
+      },
+      {
+        "path": "src/clinicai/permissions/catalogue.py",
+        "line": 373,
+        "end_line": 378,
+        "detail": "Capability thu dịch vụ riêng biệt."
+      },
+      {
+        "path": "src/clinicai/permissions/catalogue.py",
+        "line": 519,
+        "end_line": 524,
+        "detail": "Capability thu thuốc riêng biệt."
+      },
+      {
+        "path": "supabase/migrations/20260923000003_capability.sql",
+        "line": 151,
+        "end_line": 169,
+        "detail": "Preset vai có capability thu khác nhau."
+      },
+      {
+        "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+        "line": 19,
+        "end_line": 26,
+        "detail": "Comment migration nói front desk/cashier/đối soát cần đọc payment clinic-wide."
+      },
+      {
+        "path": "caddy/Caddyfile",
+        "line": 191,
+        "end_line": 194,
+        "detail": "Caddy route /rest/v1/* vào Supabase gateway."
+      },
+      {
+        "path": "src/tests/services/test_cashier_scope_db.py",
+        "line": 18,
+        "end_line": 63,
+        "detail": "Test được đọc, không chạy: cashier scope phụ thuộc ngày/ca/roster và bị thu hồi khi roster rejected."
+      },
+      {
+        "path": "supabase/tests/role_scoped_clinical_read.sql",
+        "line": 174,
+        "end_line": 201,
+        "detail": "Test được đọc, không chạy: operational payment rows được giữ clinic-wide; chưa assert boundary theo role/ca."
+      }
+    ],
+    "validation": {
+      "method": "static_cross_layer_trace_on_pinned_main",
+      "command": null,
+      "result": "Đã đối chiếu grants/policies trên payment, payment cycle, bill lines, refund/return và metadata chuyển khoản với cashier route scope; chưa gọi PostgREST hoặc xác nhận role thực tế qua JWT.",
+      "limitations": "Static exact-main migration and API trace only. No PostgREST request/JWT, ClinicAI app test, DB runtime, production, secret or patient record was used in this round. The migrations document a clinic-wide operational read need for some front-desk/cashier/reconciliation flows; role and roster policy therefore needs an explicit product decision before tightening."
+    },
+    "recommendation": "Chốt ma trận role × capability × loại thanh toán × ca/roster × ngày. Thu hồi SELECT bảng gốc khỏi client nếu không cần; nếu cần, cung cấp projection/API giới hạn theo nghiệp vụ và metadata tối thiểu. Tách quyền xem chứng từ khỏi metadata bảng; giữ ngoại lệ clinic-wide chỉ cho vai đối soát đã được duyệt và có audit.",
+    "acceptance": "Trên Supabase disposable chạy đúng migrations, dùng JWT tổng hợp cho các vai Reception, Cashier, Management và một vai không thu ngân. So sánh direct PostgREST với endpoint lịch sử dụng cùng clinic, ngày, ca, roster, actor và loại; vai không được cấp không đọc hàng hoặc metadata ngoài phạm vi. Đối soát clinic-wide chỉ hoạt động cho vai/purpose đã duyệt; cross-clinic luôn bị chặn.",
+    "alignment": [
+      "Reality dễ nhìn thấy hơn",
+      "Unknown ngắn hơn",
+      "Ownership rõ hơn",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "src/tests/services/test_cashier_scope_db.py:18-63 — đã đọc, không chạy; kiểm scope route theo roster/ca.",
+      "supabase/tests/role_scoped_clinical_read.sql:174-201 — đã đọc, không chạy; chưa kiểm direct PostgREST role/roster scope."
+    ],
+    "source_hashes": {
+      "caddy/Caddyfile": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "src/clinicai/api/v1/routers/cashier.py": "e37295d74204bd0cb310278436e9c07a16130d563bdd41921ebb11b0a078ae00",
+      "src/clinicai/permissions/catalogue.py": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "src/clinicai/services/cashier_scope_service.py": "c48ff84bb659445c9bad1d1514b78d0dcd6010d2f02005d823628b3a045e5337",
+      "src/tests/services/test_cashier_scope_db.py": "44189a0f05779c5dc36aa0a6597480b8e7c98b8a5cde5707c279a1c9f97d443a",
+      "supabase/migrations/20260714000001_baseline_schema.sql": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+      "supabase/migrations/20260730000003_multi_tenant_foundation.sql": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "supabase/migrations/20260730000004_tenant_scoped_rls.sql": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+      "supabase/migrations/20260730000008_table_grants.sql": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+      "supabase/migrations/20260730000013_role_scoped_clinical_read.sql": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql": "f0b22f84593b5e5b80dd950e1eace3ce19cb7bde594411eaf644eebf7a893a2b",
+      "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql": "d031bb0a0e30ff99c0867921b6e1692c3114bed711ed95602770bcbc2480a994",
+      "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql": "0e330c5459303095cbb1b571de3509c4e5e95a1724cc4073b1851f379310bc2a",
+      "supabase/migrations/20260923000003_capability.sql": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677",
+      "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+      "supabase/tests/role_scoped_clinical_read.sql": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87"
+    },
+    "status": "open",
+    "reference_version": "pinned_main",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Exact-main static chain: RLS/grant authenticated trên bảng thanh toán theo clinic; CashierScopeService giới hạn route lịch sử theo kind/date/approved roster/location/shift/actor. Migration role-scoped cũ ghi rõ một số quầy/đối soát cần payment clinic-wide, nên đây là chênh lệch scope cần policy owner chốt, không khẳng định mọi SELECT clinic-wide đều trái nghiệp vụ. Không kiểm PostgREST/JWT runtime.",
+      "evidence": [
+        {
+          "path": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+          "line": 152,
+          "end_line": 168,
+          "sha256": "6d441a8cf138cf5f918eeac29ae15512b537cc0d2a99e657fcdc3f26459b283a",
+          "excerpt": "152:     tables text[] := ARRAY[\n153:         'appointment', 'booking_channel', 'care_episode', 'clinic_location',\n154:         'clinical_form_response', 'clinical_record', 'cskh_action', 'cskh_log',\n155:         'drug_catalog', 'lab_result', 'patient', 'patient_medical_profile',\n156:         'payment', 'pregnancy', 'prescription', 'service_log', 'service_price',\n157:         'service_type', 'staff_task', 'visit', 'work_roster', 'work_session',\n158:         'work_session_staff'\n159:     ];\n160: BEGIN\n161:     FOREACH t IN ARRAY tables LOOP\n162:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_authenticated', t);\n163:         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select_own_clinic', t);\n164:         EXECUTE format(\n165:             'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated '\n166:             'USING (clinic_id IN (SELECT public.current_clinic_ids()))',\n167:             t || '_select_own_clinic', t\n168:         );",
+          "detail": "Bảng payment nhận policy authenticated chỉ lọc clinic_id qua current_clinic_ids."
+        },
+        {
+          "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+          "line": 235,
+          "end_line": 246,
+          "sha256": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+          "excerpt": "235: CREATE OR REPLACE FUNCTION public.current_clinic_ids()\n236: RETURNS SETOF uuid\n237: LANGUAGE sql\n238: STABLE\n239: SECURITY DEFINER\n240: SET search_path = public, pg_temp\n241: AS $$\n242:     SELECT m.clinic_id\n243:     FROM public.clinic_membership m\n244:     WHERE m.staff_id = public.current_staff_id()\n245:       AND m.is_active\n246: $$;",
+          "detail": "current_clinic_ids lọc membership active, không lọc role/capability."
+        },
+        {
+          "path": "supabase/migrations/20260730000008_table_grants.sql",
+          "line": 47,
+          "end_line": 59,
+          "sha256": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+          "excerpt": "47:     -- Read access for end users, exactly where a policy grants it.\n48:     FOR t IN\n49:         SELECT DISTINCT c.relname\n50:           FROM pg_class c\n51:           JOIN pg_namespace n ON n.oid = c.relnamespace\n52:           JOIN pg_policy p ON p.polrelid = c.oid\n53:          WHERE n.nspname = 'public'\n54:            AND c.relkind = 'r'\n55:            AND p.polcmd IN ('r', '*')\n56:     LOOP\n57:         EXECUTE format('GRANT SELECT ON public.%I TO authenticated', t.relname);\n58:         granted := granted + 1;\n59:     END LOOP;",
+          "detail": "Dynamic grant SELECT authenticated trên public tables có read policy."
+        },
+        {
+          "path": "supabase/migrations/20260714000001_baseline_schema.sql",
+          "line": 744,
+          "end_line": 758,
+          "sha256": "51ffe8d334bc9df6d294321cb7e42e81c3646ae56a79a808eafd5469e1eb5186",
+          "excerpt": "744: CREATE TABLE public.payment (\n745:     id uuid DEFAULT gen_random_uuid() NOT NULL,\n746:     visit_id uuid NOT NULL,\n747:     clinic_patient_id uuid,\n748:     kind text NOT NULL,\n749:     status text DEFAULT 'PAID'::text NOT NULL,\n750:     amount bigint,\n751:     paid_by_staff_id uuid,\n752:     paid_by_text text,\n753:     paid_at timestamp with time zone DEFAULT now(),\n754:     created_at timestamp with time zone DEFAULT now(),\n755:     updated_at timestamp with time zone DEFAULT now(),\n756:     CONSTRAINT payment_kind_check CHECK ((kind = ANY (ARRAY['thuoc'::text, 'dich_vu'::text]))),\n757:     CONSTRAINT payment_status_check CHECK ((status = 'PAID'::text))\n758: );",
+          "detail": "Payment lưu visit/patient/kind/status/amount/paid_by/paid_at."
+        },
+        {
+          "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+          "line": 21,
+          "end_line": 46,
+          "sha256": "d031bb0a0e30ff99c0867921b6e1692c3114bed711ed95602770bcbc2480a994",
+          "excerpt": "21: CREATE TABLE IF NOT EXISTS public.payment_cycle (\n22:     payment_cycle_id uuid PRIMARY KEY,\n23:     clinic_id        uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,\n24:     visit_id         uuid NOT NULL,\n25:     kind             text NOT NULL CHECK (kind IN ('thuoc', 'dich_vu')),\n26:     payment_id       uuid REFERENCES public.payment(id) ON DELETE RESTRICT,\n27:     amount           bigint NOT NULL CHECK (amount > 0),\n28:     bill_revision    text,\n29:     method           text CHECK (method IN ('CASH', 'TRANSFER', 'QR')),\n30:     status           text NOT NULL\n31:         CHECK (status IN ('PENDING_VERIFICATION', 'PAID', 'VOIDED', 'CANCELLED')),\n32:     legacy           boolean NOT NULL DEFAULT false,\n33:     created_by       uuid REFERENCES public.staff(id) ON DELETE RESTRICT,\n34:     created_at       timestamptz NOT NULL DEFAULT now(),\n35:     paid_at          timestamptz,\n36:     confirmed_by     uuid REFERENCES public.staff(id) ON DELETE RESTRICT,\n37:     reference        text,\n38:     closed_at        timestamptz,\n39:     closed_by        uuid REFERENCES public.staff(id) ON DELETE RESTRICT,\n40:     close_reason     text,\n41:     -- Xác minh tiền THẬT đã nhận nhưng hoá đơn hiện tại đã khác ảnh chụp của lần\n42:     -- thu (vd bảng giá đổi trong lúc chờ): vẫn ghi đã thu, đánh dấu cần đối soát\n43:     -- (review CP2 #3). Chỉ đặt được đúng lúc chờ → đã thu.\n44:     can_doi_soat     boolean NOT NULL DEFAULT false,\n45:     CONSTRAINT payment_cycle_visit_fkey FOREIGN KEY (clinic_id, visit_id)\n46:         REFERENCES public.visit (clinic_id, visit_id) ON DELETE RESTRICT,",
+          "detail": "Payment cycle chứa số tiền, visit, kind, phương thức/trạng thái, creator/confirmer và thời điểm."
+        },
+        {
+          "path": "supabase/migrations/20260919000002_tien_thuoc_cp2_payment_cycle.sql",
+          "line": 246,
+          "end_line": 252,
+          "sha256": "d031bb0a0e30ff99c0867921b6e1692c3114bed711ed95602770bcbc2480a994",
+          "excerpt": "246: ALTER TABLE public.payment_cycle ENABLE ROW LEVEL SECURITY;\n247: DROP POLICY IF EXISTS payment_cycle_select_own_clinic ON public.payment_cycle;\n248: CREATE POLICY payment_cycle_select_own_clinic ON public.payment_cycle\n249:     FOR SELECT TO authenticated\n250:     USING (clinic_id IN (SELECT current_clinic_ids()));\n251: GRANT SELECT ON public.payment_cycle TO authenticated;\n252: GRANT SELECT, INSERT, UPDATE ON public.payment_cycle TO service_role;",
+          "detail": "Payment cycle bật RLS và grant SELECT cho authenticated theo clinic."
+        },
+        {
+          "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+          "line": 85,
+          "end_line": 110,
+          "sha256": "f0b22f84593b5e5b80dd950e1eace3ce19cb7bde594411eaf644eebf7a893a2b",
+          "excerpt": "85: CREATE TABLE IF NOT EXISTS public.payment_bill_line (\n86:     id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n87:     clinic_id        uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,\n88:     payment_id       uuid NOT NULL REFERENCES public.payment(id) ON DELETE RESTRICT,\n89:     payment_cycle_id uuid NOT NULL,\n90:     visit_id         uuid NOT NULL,\n91:     kind             text NOT NULL CHECK (kind IN ('thuoc', 'dich_vu')),\n92:     source_type      text NOT NULL\n93:         CHECK (source_type IN ('exam', 'service_order', 'prescription')),\n94:     source_id        text NOT NULL,\n95:     name_snapshot    text NOT NULL,\n96:     quantity         numeric NOT NULL CHECK (quantity > 0),\n97:     unit             text,\n98:     -- NULL = CHƯA BIẾT giá, không phải 0đ (review CP1 #5). Chỉ dòng đối tác tự\n99:     -- thu được phép chưa biết giá; dòng phòng khám thu thì lúc thu phải có giá.\n100:     unit_price       numeric(12, 0) CHECK (unit_price >= 0),\n101:     line_total       numeric(14, 0) CHECK (line_total >= 0),\n102:     billing_owner    text NOT NULL CHECK (billing_owner IN ('CLINIC', 'EXTERNAL_PARTNER')),\n103:     drug_catalog_id  uuid,\n104:     created_at       timestamptz NOT NULL DEFAULT now(),\n105:     CONSTRAINT payment_bill_line_clinic_co_gia CHECK (\n106:         billing_owner = 'EXTERNAL_PARTNER'\n107:         OR (unit_price IS NOT NULL AND line_total IS NOT NULL)),\n108:     CONSTRAINT payment_bill_line_gia_di_cung CHECK (\n109:         (unit_price IS NULL) = (line_total IS NULL))\n110: );",
+          "detail": "Bill-line snapshot lưu dịch vụ/thuốc, số lượng, đơn giá và tổng tiền."
+        },
+        {
+          "path": "supabase/migrations/20260919000001_tien_thuoc_cp1_hoa_don.sql",
+          "line": 127,
+          "end_line": 136,
+          "sha256": "f0b22f84593b5e5b80dd950e1eace3ce19cb7bde594411eaf644eebf7a893a2b",
+          "excerpt": "127: ALTER TABLE public.payment_bill_line ENABLE ROW LEVEL SECURITY;\n128: DROP POLICY IF EXISTS payment_bill_line_select_own_clinic ON public.payment_bill_line;\n129: CREATE POLICY payment_bill_line_select_own_clinic ON public.payment_bill_line\n130:     FOR SELECT TO authenticated\n131:     USING (clinic_id IN (SELECT current_clinic_ids()));\n132: -- Policy chỉ THU HẸP quyền có sẵn, không tạo quyền (review CP1 #6): bảng sinh\n133: -- sau phải grant tay. service_role chỉ THÊM + ĐỌC — bảng chỉ-thêm, không cấp\n134: -- UPDATE/DELETE cho ai.\n135: GRANT SELECT ON public.payment_bill_line TO authenticated;\n136: GRANT SELECT, INSERT ON public.payment_bill_line TO service_role;",
+          "detail": "Bill line bật RLS và grant SELECT authenticated theo clinic."
+        },
+        {
+          "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+          "line": 41,
+          "end_line": 69,
+          "sha256": "0e330c5459303095cbb1b571de3509c4e5e95a1724cc4073b1851f379310bc2a",
+          "excerpt": "41: CREATE TABLE IF NOT EXISTS public.payment_refund (\n42:     refund_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n43:     clinic_id        uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,\n44:     visit_id         uuid NOT NULL,\n45:     kind             text NOT NULL CHECK (kind IN ('thuoc', 'dich_vu')),\n46:     payment_cycle_id uuid NOT NULL,\n47:     amount           numeric(14, 0) NOT NULL CHECK (amount > 0),\n48:     status           text NOT NULL\n49:         CHECK (status IN ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED')),\n50:     method           text NOT NULL CHECK (method IN ('CASH', 'TRANSFER', 'QR')),\n51:     reason           text NOT NULL CHECK (length(btrim(reason)) >= 5),\n52:     reference        text,\n53:     created_by       uuid NOT NULL REFERENCES public.staff(id) ON DELETE RESTRICT,\n54:     created_at       timestamptz NOT NULL DEFAULT now(),\n55:     completed_by     uuid REFERENCES public.staff(id) ON DELETE RESTRICT,\n56:     completed_at     timestamptz,\n57:     closed_by        uuid REFERENCES public.staff(id) ON DELETE RESTRICT,\n58:     closed_at        timestamptz,\n59:     closed_reason    text,\n60:     CONSTRAINT payment_refund_cycle_fkey\n61:         FOREIGN KEY (payment_cycle_id, clinic_id, visit_id)\n62:         REFERENCES public.payment_cycle (payment_cycle_id, clinic_id, visit_id)\n63:         ON DELETE RESTRICT,\n64:     CONSTRAINT payment_refund_hoan_co_nguoi CHECK (\n65:         (status = 'COMPLETED') = (completed_at IS NOT NULL AND completed_by IS NOT NULL)),\n66:     -- Chuyển khoản / QR: hoàn xong phải có mã giao dịch (giống lúc thu).\n67:     CONSTRAINT payment_refund_dien_tu_co_ma CHECK (\n68:         status <> 'COMPLETED' OR method = 'CASH' OR reference IS NOT NULL),\n69:     CONSTRAINT payment_refund_dong_co_ly_do CHECK (",
+          "detail": "Refund/return lưu tiền, trạng thái, lý do, người tạo/xác nhận và thời điểm."
+        },
+        {
+          "path": "supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql",
+          "line": 542,
+          "end_line": 557,
+          "sha256": "0e330c5459303095cbb1b571de3509c4e5e95a1724cc4073b1851f379310bc2a",
+          "excerpt": "542: ALTER TABLE public.payment_refund ENABLE ROW LEVEL SECURITY;\n543: ALTER TABLE public.payment_refund_line ENABLE ROW LEVEL SECURITY;\n544: ALTER TABLE public.drug_return ENABLE ROW LEVEL SECURITY;\n545: DROP POLICY IF EXISTS payment_refund_select_own_clinic ON public.payment_refund;\n546: CREATE POLICY payment_refund_select_own_clinic ON public.payment_refund\n547:     FOR SELECT TO authenticated USING (clinic_id IN (SELECT current_clinic_ids()));\n548: DROP POLICY IF EXISTS payment_refund_line_select_own_clinic ON public.payment_refund_line;\n549: CREATE POLICY payment_refund_line_select_own_clinic ON public.payment_refund_line\n550:     FOR SELECT TO authenticated USING (clinic_id IN (SELECT current_clinic_ids()));\n551: DROP POLICY IF EXISTS drug_return_select_own_clinic ON public.drug_return;\n552: CREATE POLICY drug_return_select_own_clinic ON public.drug_return\n553:     FOR SELECT TO authenticated USING (clinic_id IN (SELECT current_clinic_ids()));\n554: GRANT SELECT ON public.payment_refund, public.payment_refund_line, public.drug_return\n555:     TO authenticated;\n556: GRANT SELECT, INSERT, UPDATE ON public.payment_refund TO service_role;\n557: GRANT SELECT, INSERT ON public.payment_refund_line, public.drug_return TO service_role;",
+          "detail": "Các bảng refund/return có RLS và grant đọc cùng clinic."
+        },
+        {
+          "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+          "line": 43,
+          "end_line": 50,
+          "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+          "excerpt": "43: CREATE TABLE IF NOT EXISTS public.payment_cycle_phan (\n44:     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n45:     clinic_id   uuid NOT NULL REFERENCES public.clinic (id) ON DELETE RESTRICT,\n46:     cycle_id    uuid NOT NULL,\n47:     hinh_thuc   text NOT NULL CHECK (hinh_thuc IN ('CASH', 'TRANSFER')),\n48:     so_tien     bigint NOT NULL CHECK (so_tien > 0),\n49:     khach_dua   bigint,\n50:     tao_luc     timestamptz NOT NULL DEFAULT now(),",
+          "detail": "Phần thanh toán lưu số tiền và khách đưa theo hình thức."
+        },
+        {
+          "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+          "line": 224,
+          "end_line": 258,
+          "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+          "excerpt": "224: CREATE TABLE IF NOT EXISTS public.anh_chuyen_khoan (\n225:     id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n226:     clinic_id            uuid NOT NULL REFERENCES public.clinic (id) ON DELETE RESTRICT,\n227:     cycle_id             uuid NOT NULL,\n228:     khoa                 text NOT NULL UNIQUE,\n229:     mime                 text NOT NULL,\n230:     so_byte              bigint NOT NULL CHECK (so_byte > 0),\n231:     sha256               text NOT NULL,\n232:     tai_len_boi_staff_id uuid NOT NULL REFERENCES public.staff (id) ON DELETE RESTRICT,\n233:     tai_len_luc          timestamptz NOT NULL DEFAULT now(),\n234:     -- Gỡ ảnh nhầm: ẩn khỏi màn, giữ tệp + dòng (vết).\n235:     go_luc               timestamptz,\n236:     go_boi_staff_id      uuid REFERENCES public.staff (id) ON DELETE RESTRICT,\n237:     -- Cùng cột đẩy tệp với tep_ket_qua (mig 20261001000000) — day_tep đọc cả hai.\n238:     vi_tri               text NOT NULL DEFAULT 'vps',\n239:     da_day_luc           timestamptz,\n240:     so_lan_day_loi       int NOT NULL DEFAULT 0,\n241:     loi_day_cuoi         text,\n242:     day_loi_luc          timestamptz,\n243:     da_xoa_ban_vps_luc   timestamptz,\n244:     -- Luôn NULL (bảng này không có job dọn V9) — để câu chọn lô của day_tep\n245:     -- dùng chung được cho hai bảng.\n246:     da_don_tep_luc       timestamptz,\n247:     CONSTRAINT anh_chuyen_khoan_cycle_fkey\n248:         FOREIGN KEY (cycle_id, clinic_id)\n249:         REFERENCES public.payment_cycle (payment_cycle_id, clinic_id)\n250:         ON DELETE RESTRICT,\n251:     CONSTRAINT anh_chuyen_khoan_go_du_vet CHECK (\n252:         (go_luc IS NULL) = (go_boi_staff_id IS NULL)),\n253:     CONSTRAINT anh_chuyen_khoan_vi_tri_hop_le CHECK (\n254:         vi_tri IN ('vps', 'cfs')\n255:         AND so_lan_day_loi >= 0\n256:         AND (vi_tri = 'cfs' OR (da_day_luc IS NULL AND da_xoa_ban_vps_luc IS NULL))\n257:         AND (da_xoa_ban_vps_luc IS NULL OR da_day_luc IS NOT NULL))\n258: );",
+          "detail": "Metadata ảnh chuyển khoản gồm key, MIME, hash/size, actor và lifecycle; không chứng minh tải được file."
+        },
+        {
+          "path": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+          "line": 267,
+          "end_line": 272,
+          "sha256": "dbb2f361b57d864c9babe78ae84f1bd680d202792cd268cac5704b7f06d0f62f",
+          "excerpt": "267: ALTER TABLE public.anh_chuyen_khoan ENABLE ROW LEVEL SECURITY;\n268: DROP POLICY IF EXISTS anh_chuyen_khoan_select_own_clinic ON public.anh_chuyen_khoan;\n269: CREATE POLICY anh_chuyen_khoan_select_own_clinic ON public.anh_chuyen_khoan\n270:     FOR SELECT TO authenticated USING (clinic_id IN (SELECT current_clinic_ids()));\n271: GRANT SELECT ON public.anh_chuyen_khoan TO authenticated;\n272: GRANT SELECT, INSERT, UPDATE ON public.anh_chuyen_khoan TO service_role;",
+          "detail": "Bảng metadata ảnh chuyển khoản grant SELECT authenticated theo clinic."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cashier.py",
+          "line": 129,
+          "end_line": 159,
+          "sha256": "e37295d74204bd0cb310278436e9c07a16130d563bdd41921ebb11b0a078ae00",
+          "excerpt": "129: @router.get(\"/cashier/lich-su\")\n130: async def cashier_lich_su(\n131:     tu: str | None = Query(None, description=\"YYYY-MM-DD; rỗng/rác = hôm nay\"),\n132:     den: str | None = Query(None, description=\"YYYY-MM-DD; rỗng/rác = hôm nay\"),\n133:     tim: str | None = Query(None, max_length=200),\n134:     hinh_thuc: str | None = Query(None, max_length=20),\n135:     nguoi_thu: str | None = Query(None, max_length=200),\n136:     kind: str = Query(\"dich_vu\", max_length=20),\n137:     chi_tiet: bool = Query(False),\n138:     ca: str | None = Query(None, max_length=10),\n139:     co_so: str | None = Query(None, max_length=40),\n140:     identity: StaffIdentity = Depends(_GUARD),\n141:     pool: asyncpg.Pool = Depends(get_db_pool),\n142: ) -> dict[str, Any]:\n143:     \"\"\"Sổ thu / hoàn GOM THEO KHÁCH (tab Đã thu hôm nay · Lịch sử) — chỉ đọc.\"\"\"\n144:     scope = await CashierScopeService(pool).authorize(\n145:         identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so\n146:     )\n147:     return await QuayThuService(pool).lich_su(\n148:         identity=scope.identity,\n149:         tu=tu,\n150:         den=den,\n151:         tim=tim,\n152:         hinh_thuc=hinh_thuc,\n153:         nguoi_thu=nguoi_thu,\n154:         kind=kind,\n155:         chi_tiet=chi_tiet,\n156:         scope_starts=scope.starts,\n157:         scope_ends=scope.ends,\n158:         scope_actor=scope.actor_id,\n159:     )",
+          "detail": "Route lịch sử thu gọi CashierScopeService và truyền giới hạn ngày/actor."
+        },
+        {
+          "path": "src/clinicai/services/cashier_scope_service.py",
+          "line": 349,
+          "end_line": 422,
+          "sha256": "c48ff84bb659445c9bad1d1514b78d0dcd6010d2f02005d823628b3a045e5337",
+          "excerpt": "349:     async def authorize(\n350:         self,\n351:         identity: StaffIdentity,\n352:         *,\n353:         tu: str | None,\n354:         den: str | None,\n355:         kind: str,\n356:         ca: str | None,\n357:         co_so: str | None,\n358:     ) -> CashierScope:\n359:         if identity.co_vai([ClinicRole.MANAGEMENT]):\n360:             return CashierScope(identity, None, None)\n361:         day = ngay_hop_le(tu) if tu is not None else now_vn().date()\n362:         end_day = ngay_hop_le(den) if den is not None else day\n363:         if (\n364:             day is None\n365:             or day != end_day\n366:             or day > now_vn().date()\n367:             or kind not in STATIONS\n368:             or ca not in (*SHIFTS, None, \"\")\n369:         ):\n370:             raise SafetyGateError(\"Chỉ xem một ngày và ca trực được phân công.\")\n371:         rows = await self.pool.fetch(\n372:             _ROSTER + \" AND w.work_date=$3::date\",\n373:             identity.clinic_id,\n374:             identity.staff_id,\n375:             day,\n376:         )\n377:         scopes = allowed_roster([dict(r) for r in rows], kind)\n378:         location = co_so or identity.location_id\n379:         shifts = scopes.get(location, set())\n380:         selected = [ca] if ca else [s for s in SHIFTS if s in shifts]\n381:         if not selected or any(s not in shifts for s in selected):\n382:             raise SafetyGateError(\"Bạn không được phân công ở quầy, cơ sở và ca này.\")\n383:         settings = await self.pool.fetchval(\n384:             \"SELECT settings FROM clinic WHERE id=$1::uuid\", identity.clinic_id\n385:         )\n386:         head = any(\n387:             ma_mau(str(r[\"station\"])) == \"DIEU_PHOI\"\n388:             and str(r[\"location_id\"]) == location\n389:             for r in rows\n390:         )\n391:         if head:\n392:             midnight = datetime.combine(day, time.min, tzinfo=CLINIC_TZ)\n393:             return CashierScope(\n394:                 replace(identity, location_id=location),\n395:                 [midnight],\n396:                 [midnight + timedelta(days=1)],\n397:                 None,\n398:             )\n399:         starts, ends = scope_intervals(day, selected, settings)\n400:         if not starts:\n401:             raise SafetyGateError(\"Ca trực chưa có khung giờ hợp lệ.\")\n402:         if day == now_vn().date():\n403:             if ca and any(start > now_vn() for start in starts):\n404:                 raise SafetyGateError(\"Ca trực này chưa bắt đầu.\")\n405:             intervals = [\n406:                 (lo, hi) for lo, hi in zip(starts, ends, strict=True) if lo <= now_vn()\n407:             ]\n408:             starts = [lo for lo, _ in intervals]\n409:             ends = [hi for _, hi in intervals]\n410:             if not starts:\n411:                 raise SafetyGateError(\"Ca trực này chưa bắt đầu.\")\n412:         head = any(\n413:             ma_mau(str(r[\"station\"])) == \"DIEU_PHOI\"\n414:             and str(r[\"location_id\"]) == location\n415:             for r in rows\n416:         )\n417:         return CashierScope(\n418:             replace(identity, location_id=location),\n419:             starts,\n420:             ends,\n421:             None if head else identity.staff_id,\n422:         )",
+          "detail": "Guard áp kind, ngày, approved roster, location/shift, active shift và actor."
+        },
+        {
+          "path": "src/clinicai/permissions/catalogue.py",
+          "line": 373,
+          "end_line": 378,
+          "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+          "excerpt": "373:             \"payment.service.collect\",\n374:             \"Thu tiền dịch vụ\",\n375:             \"thu_tien_dv\",\n376:             \"payment\",\n377:             MucRuiRo.TIEN,\n378:         ),",
+          "detail": "Capability thu dịch vụ riêng biệt."
+        },
+        {
+          "path": "src/clinicai/permissions/catalogue.py",
+          "line": 519,
+          "end_line": 524,
+          "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+          "excerpt": "519:             \"payment.medicine.collect\",\n520:             \"Thu tiền thuốc\",\n521:             \"thu_tien_thuoc\",\n522:             \"payment\",\n523:             MucRuiRo.TIEN,\n524:         ),",
+          "detail": "Capability thu thuốc riêng biệt."
+        },
+        {
+          "path": "supabase/migrations/20260923000003_capability.sql",
+          "line": 151,
+          "end_line": 169,
+          "sha256": "2e7c8fd5ed787865d0d69c35dcb1ba967f0e9f4ca3549d0d74782ffcd4198677",
+          "excerpt": "151:   JOIN LATERAL (\n152:       SELECT unnest(CASE m.role\n153:           WHEN 'DOCTOR'            THEN ARRAY['chi_dinh', 'dieu_phoi']\n154:           WHEN 'TKYK'              THEN ARRAY['chi_dinh', 'dieu_phoi']\n155:           WHEN 'RECEPTION'         THEN ARRAY['tiep_don', 'chon_dich_vu', 'thu_tien_dv', 'dieu_phoi']\n156:           WHEN 'NURSE_ULTRASOUND'  THEN ARRAY['sinh_hieu', 'dieu_phoi']\n157:           WHEN 'CASHIER'           THEN ARRAY['thu_tien_dv', 'chon_dich_vu']\n158:           WHEN 'CASHIER_DV'        THEN ARRAY['thu_tien_dv', 'chon_dich_vu']\n159:           WHEN 'CASHIER_THUOC'     THEN ARRAY['thu_tien_dv']\n160:           WHEN 'TRUONG_CA'         THEN ARRAY['dieu_phoi', 'tiep_don', 'chon_dich_vu']\n161:           WHEN 'ULTRASOUND_DOCTOR' THEN ARRAY['dieu_phoi']\n162:           WHEN 'MANAGEMENT'        THEN ARRAY['tiep_don', 'sinh_hieu', 'chi_dinh',\n163:                                               'chon_dich_vu', 'dieu_phoi',\n164:                                               'thu_tien_dv', 'quan_tri_quyen']\n165:           ELSE ARRAY[]::text[]\n166:       END) AS khoi\n167:   ) AS p ON true\n168:   JOIN public.capability c ON c.work_pack = p.khoi\n169:  WHERE m.is_active",
+          "detail": "Preset vai có capability thu khác nhau."
+        },
+        {
+          "path": "supabase/migrations/20260730000013_role_scoped_clinical_read.sql",
+          "line": 19,
+          "end_line": 26,
+          "sha256": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+          "excerpt": "19: -- lab_result, prescription, payment and service_log stay clinic-scoped on\n20: -- purpose. Reception hands over lab request forms, the cashier charges for the\n21: -- medicine on the prescription, the shift lead reconciles the day. Those roles\n22: -- have an operational reason to see that a test or a drug exists, and cutting\n23: -- it would break the front desk to no benefit. pregnancy and\n24: -- patient_medical_profile are also left alone: /patients/[id] shows them to\n25: -- CSKH and reception today, and whether that should continue is a clinic\n26: -- decision, not a security bug to fix quietly in a migration.",
+          "detail": "Comment migration nói front desk/cashier/đối soát cần đọc payment clinic-wide."
+        },
+        {
+          "path": "caddy/Caddyfile",
+          "line": 191,
+          "end_line": 194,
+          "sha256": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+          "excerpt": "191: \t@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*\n192: \thandle @supabase {\n193: \t\treverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000\n194: \t}",
+          "detail": "Caddy route /rest/v1/* vào Supabase gateway."
+        },
+        {
+          "path": "src/tests/services/test_cashier_scope_db.py",
+          "line": 18,
+          "end_line": 63,
+          "sha256": "44189a0f05779c5dc36aa0a6597480b8e7c98b8a5cde5707c279a1c9f97d443a",
+          "excerpt": "18: @pytest.mark.db\n19: @pytest.mark.asyncio\n20: async def test_assigned_days_roster_revoke_and_quay(pool: asyncpg.Pool) -> None:\n21:     q = await tao_quay(pool)\n22:     svc = CashierScopeService(pool)\n23:     day = date(2026, 10, 12)\n24:     roster_id = await pool.fetchval(\n25:         \"\"\"INSERT INTO work_roster\n26:         (clinic_id,week_start,work_date,shift,station,staff_id,staff_name,status)\n27:         VALUES ($1::uuid,$2::date,$2::date,'SANG','T1_THUNGAN',\n28:                 $3::uuid,'Scope test','APPROVED') RETURNING id\"\"\",\n29:         q.thu_ngan.clinic_id,\n30:         day,\n31:         q.thu_ngan.staff_id,\n32:     )\n33:     try:\n34:         ds = await svc.days(q.thu_ngan, kind=\"dich_vu\")\n35:         assert ds[\"items\"][0][\"ngay\"] == \"2026-10-12\"\n36:         assert ds[\"items\"][0][\"cac_ca\"] == [\"SANG\"]\n37:         assert not (await svc.days(q.thu_ngan, kind=\"thuoc\"))[\"items\"]\n38:         location = ds[\"items\"][0][\"co_so_ids\"][0]\n39:         scope = await svc.authorize(\n40:             q.thu_ngan,\n41:             tu=\"2026-10-12\",\n42:             den=\"2026-10-12\",\n43:             kind=\"dich_vu\",\n44:             ca=\"SANG\",\n45:             co_so=location,\n46:         )\n47:         assert scope.starts and scope.ends and scope.starts[0] < scope.ends[0]\n48:         for kind, ca in [(\"thuoc\", \"SANG\"), (\"dich_vu\", \"TOI\")]:\n49:             with pytest.raises(SafetyGateError):\n50:                 await svc.authorize(\n51:                     q.thu_ngan,\n52:                     tu=\"2026-10-12\",\n53:                     den=\"2026-10-12\",\n54:                     kind=kind,\n55:                     ca=ca,\n56:                     co_so=location,\n57:                 )\n58:         await pool.execute(\n59:             \"UPDATE work_roster SET status='REJECTED' WHERE id=$1\", roster_id\n60:         )\n61:         assert not (await svc.days(q.thu_ngan, kind=\"dich_vu\"))[\"items\"]\n62:     finally:\n63:         await pool.execute(\"DELETE FROM work_roster WHERE id=$1\", roster_id)",
+          "detail": "Test được đọc, không chạy: cashier scope phụ thuộc ngày/ca/roster và bị thu hồi khi roster rejected."
+        },
+        {
+          "path": "supabase/tests/role_scoped_clinical_read.sql",
+          "line": 174,
+          "end_line": 201,
+          "sha256": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+          "excerpt": "174: -- The operational tables stay open, deliberately\n175: -- ---------------------------------------------------------------------------\n176: -- The cashier charges for what is on the prescription and reception hands over\n177: -- lab forms. If a later change narrows these too, it should be a decision with\n178: -- a screen behind it, not a side effect — so state the expectation here.\n179: \n180: SELECT set_config('request.jwt.claim.sub',\n181:                   'a1000000-0000-4000-8000-000000000003', true);\n182: \n183: DO $cashier_still_works$\n184: DECLARE\n185:     narrowed text;\n186: BEGIN\n187:     SELECT string_agg(p.tablename, ', ')\n188:       INTO narrowed\n189:       FROM pg_policies p\n190:      WHERE p.schemaname = 'public'\n191:        AND p.tablename IN ('prescription', 'lab_result', 'payment', 'service_log')\n192:        AND p.cmd = 'SELECT'\n193:        AND p.qual LIKE '%current_clinical_clinic_ids%';\n194: \n195:     IF narrowed IS NOT NULL THEN\n196:         RAISE EXCEPTION\n197:             'these are operational, not the note — narrowing them breaks the '\n198:             'front desk: %', narrowed;\n199:     END IF;\n200: END\n201: $cashier_still_works$;",
+          "detail": "Test được đọc, không chạy: operational payment rows được giữ clinic-wide; chưa assert boundary theo role/ca."
+        }
+      ],
+      "production_verified": false
+    },
+    "related_findings": [
+      {
+        "id": "SEC-029",
+        "relationship": "Cùng kênh PostgREST authenticated nhưng SEC-029 là PII bệnh nhân; SEC-030 là dữ liệu tài chính và scope ca/actor."
+      },
+      {
+        "id": "SEC-018",
+        "relationship": "SEC-018 là dữ liệu liên hệ/thân nhân; không bao gồm payment rows hoặc scope cashier."
+      }
+    ]
+  }
+]

@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "audit": "round17_audit_visibility_commit_boundary",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+    "sha_verification": "Read from the active detached checkout at exact pinned Git SHA; application source is Git-exact."
+  },
+  "review_mode": "static_read_only_cross_layer_trace",
+  "scope": [
+    "permission grant/revoke event stream and consolidated audit API/UI",
+    "audit writer transaction contract and clinic-floor mutation boundaries",
+    "clinical status BFF error mapping and consuming dashboard panel",
+    "closest existing tests and dashboard error boundary"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "files": [
+    {
+      "path": "src/clinicai/services/audit.py",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full semantic read; record_event requires the caller transaction.",
+      "sha256": "12d1e61bba996cb4b48f0dcaddf24b21dcb8e56b78602f580d6021c10786bedf",
+      "git_blob_sha1": "b7afaf7094263bfe0b05274670bc78e907e518ad",
+      "full_file_read": true,
+      "line_count": 109
+    },
+    {
+      "path": "src/clinicai/services/audit_log_service.py",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full semantic read; audit SQL sources and day-window behavior.",
+      "sha256": "d9b87a0288aebe397706eeac5c5ae2a060fe5434b35bfee9c9412e2ec8a8b100",
+      "git_blob_sha1": "6c84e7b542227d621eb39203701653ba68e9ae68",
+      "full_file_read": true,
+      "line_count": 256
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/audit_log.py",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full route read; audit.view guard and identity-derived clinic.",
+      "sha256": "a051947281cea33f3bb4e70ea2bf40f3fcd58c6a6b8bf853990d821b64c57445",
+      "git_blob_sha1": "80ac85cf055ebecb3611de088018a9b94f12e1a5",
+      "full_file_read": true,
+      "line_count": 38
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/audit-log/page.tsx",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full page read; consumes only /api/v1/audit/events.",
+      "sha256": "8d8a03829b0f50f6029239094a1e7f3ce67f4b63b8273823d40c8bcb456d76d2",
+      "git_blob_sha1": "2155617cf814031dc1799ffc08387b7481177dfd",
+      "full_file_read": true,
+      "line_count": 62
+    },
+    {
+      "path": "src/clinicai/services/clinic_floor_service.py",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full service read; four post-mutation audit calls.",
+      "sha256": "3ac601a470d696baaed14fe362a08973500da6d54a48ac8f484333641fffdf2f",
+      "git_blob_sha1": "594cdafe85d81bbd2a73fce3ce02e7a3c3a964c4",
+      "full_file_read": true,
+      "line_count": 310
+    },
+    {
+      "path": "src/tests/test_audit_log_day_window.py",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full test read; day boundaries and >200 rows, no domain-event projection assertion.",
+      "sha256": "f6bc8d248a34c880312f757877ad9b7247683ff3d356cd82da494b5926b66758",
+      "git_blob_sha1": "65e2d287e8a3cda9d118ba0eedc08aa037bc0a8c",
+      "full_file_read": true,
+      "line_count": 76
+    },
+    {
+      "path": "src/dashboard/app/api/clinical/[visit_id]/[action]/route.ts",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full BFF route read; GET status error payload uses default HTTP 200.",
+      "sha256": "9607035ad3e0790b853593a03e65502046baf53d8bb9613741e1cd0e2064d09d",
+      "git_blob_sha1": "fc8b81d088842b1066e5253ed74c53f9cbfb72b1",
+      "full_file_read": true,
+      "line_count": 70
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/error.tsx",
+      "status": "read",
+      "method": "Full semantic read",
+      "note": "Round 17 full dashboard segment error-boundary read; scopes render fallback to route segment.",
+      "sha256": "06b155858451ae931ea7f5c940cc64953b54c8f19c1541d5335bb32d65910f95",
+      "git_blob_sha1": "cad1bf67b46de04425d387ab5727776af7604710",
+      "full_file_read": true,
+      "line_count": 96
+    },
+    {
+      "path": "src/tests/services/test_tang_va_vi_tri_moi_db.py",
+      "status": "traced",
+      "method": "Targeted semantic trace",
+      "note": "Round 17 targeted happy-path floor tests; no audit-insert fault injection.",
+      "sha256": "16e31f6e7a7cc099f5457b444c45fae749ee061b5bfaea468a1339a28da4aaad",
+      "git_blob_sha1": "4928c5ec2129d68f01d6367e4faf446661e3de46",
+      "full_file_read": false,
+      "line_count": 447
+    },
+    {
+      "path": "src/dashboard/tests/hoan-tat-khong-ky-boundary.test.mts",
+      "status": "traced",
+      "method": "Targeted semantic trace",
+      "note": "Round 17 targeted boundary-test trace; no status-fetch error/shape assertion.",
+      "sha256": "f26ae14d5707ceb9c7dab2a7c831a117c4c02c7a8d3526652822c899e70f59f7",
+      "git_blob_sha1": "778c48b33ca16a15aaf677a7d50f7f01fa8aaf1b",
+      "full_file_read": false,
+      "line_count": 51
+    }
+  ]
+}

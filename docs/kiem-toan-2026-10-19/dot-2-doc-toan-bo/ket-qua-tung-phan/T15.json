@@ -1,0 +1,684 @@
+{
+ "chunk": "T15",
+ "findings": [
+  {
+   "tmp_id": "T15-1",
+   "title": "Test xóa dữ liệu thử chỉ xác nhận lệnh gọi chứ không chứng minh chống xóa nhầm",
+   "severity": "LOW",
+   "category": "test_gap",
+   "evidence_level": "design_gap",
+   "summary": "test_catalog_cleanup_safety dùng mock pool, chỉ đếm số lần execute (=4). Không kiểm câu SQL có bị giới hạn theo clinic/danh mục mới hay không.",
+   "trigger": "Nếu câu DELETE/UPDATE trong teardown đổi phạm vi lọc nhưng vẫn gọi 4 lần, test vẫn xanh.",
+   "impact": "Có thể xóa hoặc vô hiệu hóa nhầm dòng danh mục thật trên DB dùng chung mà test không bắt được.",
+   "evidence": [
+    {
+     "path": "src/tests/unit/test_catalog_cleanup_safety.py",
+     "line": 55,
+     "detail": "Chỉ assert pool.execute.await_count == 4, không kiểm nội dung hay phạm vi SQL."
+    }
+   ],
+   "limitations": "Chưa thấy mã tests/catalog_cleanup.py nên không biết SQL thật có lọc đúng hay không.",
+   "recommendation": "Thêm test kiểm SQL gửi đi có điều kiện lọc theo tập id/clinic của test, hoặc chạy trên Postgres dùng-một-lần và kiểm các dòng cũ còn nguyên.",
+   "acceptance": "Có test chứng minh dòng danh mục có sẵn từ trước không bị đổi sau teardown.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004"
+   ]
+  },
+  {
+   "tmp_id": "T15-2",
+   "title": "Test hoàn tác/đổi giờ bằng so khớp chuỗi mã nguồn thay vì hành vi, dễ xanh giả",
+   "severity": "LOW",
+   "category": "test_brittle",
+   "evidence_level": "design_gap",
+   "summary": "Nhiều test dùng inspect.getsource và tìm chuỗi (ví dụ 'CANCELLED' không có trong add_shift, 'doctor_id = NULL', thứ tự index chuỗi). Đổi tên biến hay refactor thì test đỏ oan, còn đổi logic giữ nguyên chuỗi thì vẫn xanh.",
+   "trigger": "Refactor SQL sang hằng số hoặc builder; hoặc thêm bước hủy ở hàm phụ ngoài hàm được quét.",
+   "impact": "Luật 'gỡ ca không bao giờ hủy lịch' có thể bị phá mà không bị phát hiện, hoặc test bị tắt vì báo đỏ oan.",
+   "evidence": [
+    {
+     "path": "src/tests/test_khoi_phuc_lich_khi_xep_lai_ca.py",
+     "line": 53,
+     "detail": "Chỉ kiểm chuỗi trong hai hàm cụ thể; hàm gọi từ chúng không được quét."
+    },
+    {
+     "path": "src/tests/test_lich_truc_cong_bo_chan_sua_lich.py",
+     "line": 38,
+     "detail": "Kiểm _guard_slot( có mặt trong khối mã chứ không kiểm hành vi chặn."
+    },
+    {
+     "path": "src/tests/test_dong_luot_giu_viec_ket_qua.py",
+     "line": 20,
+     "detail": "Kiểm 'NOT EXISTS' và flow_group trong chuỗi nguồn, không chạy truy vấn."
+    }
+   ],
+   "limitations": "Một số có test hành vi bổ trợ (test_go_ca_theo_khung_gio dùng connection giả); chỉ phần luật hủy lịch và việc kết quả là phụ thuộc chuỗi.",
+   "recommendation": "Bổ sung test hành vi (conn giả hoặc Postgres thật) cho đóng lượt giữ việc kết quả và chặn sửa lịch ở tuần đã công bố.",
+   "acceptance": "Đổi tên biến SQL không làm test đỏ; bỏ chốt thì test đỏ.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Lỗi lặp thành cải tiến"
+   ],
+   "extends": [],
+   "related_ids": [
+    "CLIN-001"
+   ]
+  },
+  {
+   "tmp_id": "T15-3",
+   "title": "Chưa có test cho danh sách bị cắt và lỗi tải thành trống ở tầng backend",
+   "severity": "MEDIUM",
+   "category": "test_gap",
+   "evidence_level": "design_gap",
+   "summary": "Các test truy vấn (query_lab_result, query_tasks, bang_tuan...) chỉ kiểm LIMIT và tham số, không có test nào khẳng định API báo 'còn dữ liệu' hoặc lỗi DB không biến thành danh sách rỗng. test_query_tasks còn khẳng định rỗng trả [].",
+   "trigger": "Dữ liệu vượt limit mặc định (50 xét nghiệm, 7/n việc) hoặc DB lỗi tạm thời.",
+   "impact": "Người dùng thấy danh sách thiếu mà không biết, nhất quán với các phát hiện cắt danh sách đã biết nhưng không có test để chặn tái phát.",
+   "evidence": [
+    {
+     "path": "src/tests/tools/lab/test_query_lab_result.py",
+     "line": 214,
+     "detail": "Chỉ kiểm LIMIT $3 và params, không có cờ truncated."
+    },
+    {
+     "path": "src/tests/tools/task/test_query_tasks.py",
+     "line": 140,
+     "detail": "Test 'empty returns list' không phân biệt hết dữ liệu với lỗi tải."
+    },
+    {
+     "path": "src/tests/unit/test_bao_cao_viec_tien.py",
+     "line": 6,
+     "detail": "Mẫu tốt: có cờ bi_cat, nên nhân rộng cho các danh sách khác."
+    }
+   ],
+   "limitations": "Giao diện có thể đã xử lý ở nơi khác; chỉ nói về test.",
+   "recommendation": "Thêm hợp đồng chung: truy vấn trả (rows, bi_cat) và test cho từng danh sách; thêm test lỗi DB phải ném chứ không trả [].",
+   "acceptance": "Mỗi danh sách có giới hạn có một test vượt giới hạn kiểm cờ cắt.",
+   "alignment": [
+    "Thực tế dễ thấy",
+    "Quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-005",
+    "CLIN-022",
+    "CLIN-032"
+   ]
+  },
+  {
+   "tmp_id": "T15-4",
+   "title": "Test thanh toán chỉ dùng DB giả, không có test đồng thời hoặc idempotency thật",
+   "severity": "MEDIUM",
+   "category": "test_gap",
+   "evidence_level": "design_gap",
+   "summary": "Các test thanh toán/hoàn/void trong test_clinical_data_integrity đều dùng AsyncMock theo thứ tự side_effect. Khoá idempotency luôn là uuid mới nên không có test thử lại cùng khoá hay hai lần thu đồng thời; hoàn nhiều lần chưa có test.",
+   "trigger": "Hai thu ngân bấm cùng lúc hoặc client thử lại cùng khóa sau mất phản hồi.",
+   "impact": "Rủi ro thu đôi hoặc hoàn vượt khó bị phát hiện sớm; side_effect theo thứ tự khiến test giòn khi thêm một truy vấn.",
+   "evidence": [
+    {
+     "path": "src/tests/test_clinical_data_integrity.py",
+     "line": 398,
+     "detail": "idempotency_key=f\"test-{uuid.uuid4().hex}\" luôn mới, không có ca replay."
+    },
+    {
+     "path": "src/tests/test_clinical_data_integrity.py",
+     "line": 462,
+     "detail": "fetchrow.side_effect theo thứ tự cố định, phụ thuộc số lần truy vấn nội bộ."
+    }
+   ],
+   "limitations": "Có tham chiếu test_thu_dich_vu_nhieu_lan_db ngoài chunk, có thể đã phủ một phần.",
+   "recommendation": "Thêm test Postgres thật: cùng idempotency_key hai lần song song; chia nhỏ hoàn tổng vượt đã thu.",
+   "acceptance": "Replay trả cùng kết quả, không tạo thêm phiếu; hoàn vượt bị từ chối.",
+   "alignment": [
+    "Quyết định có bằng chứng",
+    "Phát hiện sớm"
+   ],
+   "extends": [],
+   "related_ids": [
+    "FIN-004",
+    "FIN-015",
+    "FIN-003"
+   ]
+  },
+  {
+   "tmp_id": "T15-5",
+   "title": "Fixture dùng chung ghi cứng tên bác sĩ, phòng khám và cơ sở Dr4Women",
+   "severity": "LOW",
+   "category": "test_fixture_hardcode",
+   "evidence_level": "confirmed_static",
+   "summary": "Nhiều test và hằng cứng location_id 'fe45d9f6-…', 'Kim Ngưu', 'Phòng khám Dr4Women', 'TS.BS. Phan Chí Thành'. Cũng thấy mã đặt tên 'Hào Nam' trong test định danh.",
+   "trigger": "Chạy bộ test cho phòng khám khác hoặc đổi dữ liệu mẫu.",
+   "impact": "Khó tái sử dụng cho tenant mới và lẫn dữ liệu thật với giả.",
+   "evidence": [
+    {
+     "path": "src/tests/test_clinical_cluster.py",
+     "line": 550,
+     "detail": "location_id và 'Kim Ngưu' ghi cứng trong helper _staff."
+    },
+    {
+     "path": "src/tests/test_identity.py",
+     "line": 182,
+     "detail": "Tên bác sĩ thật 'TS.BS. Phan Chí Thành' và 'Phòng khám Dr4Women' trong dữ liệu thử."
+    }
+   ],
+   "limitations": "Là dữ liệu thử, không phải PII thật nhất định; chỉ nêu rủi ro tái sử dụng.",
+   "recommendation": "Gom vào một module fixture trung tính (tests/mau.py) với tên giả.",
+   "acceptance": "Không còn tên người thật hoặc UUID cơ sở thật trong fixture dùng chung.",
+   "alignment": [
+    "Lỗi lặp thành cải tiến"
+   ],
+   "extends": [],
+   "related_ids": [
+    "DB-004",
+    "DB-005"
+   ]
+  },
+  {
+   "tmp_id": "T15-6",
+   "title": "Test phụ thuộc giờ hệ thống và lệnh docker ngoài, có thể thất thường",
+   "severity": "LOW",
+   "category": "test_flaky",
+   "evidence_level": "design_gap",
+   "summary": "test_bao_cao_cuoi_ngay lấy hôm nay theo đồng hồ thật; test_gio_vn_tinh_tu_utc_cong_7 chỉ kiểm 0..23; test staging gọi docker compose thật và bỏ qua chuyện thiếu docker.",
+   "trigger": "Chạy lúc sát nửa đêm giờ VN hoặc CI không có docker.",
+   "impact": "Test đỏ ngẫu nhiên hoặc xanh giả; làm giảm tin cậy chốt an toàn staging.",
+   "evidence": [
+    {
+     "path": "src/tests/unit/test_bao_cao_cuoi_ngay.py",
+     "line": 18,
+     "detail": "_hom_nay dùng datetime.now, có thể lệch giữa lúc gọi và lúc so."
+    },
+    {
+     "path": "src/tests/test_staging_bootstrap_safety.py",
+     "line": 409,
+     "detail": "Gọi docker compose config thật, không skip khi docker vắng."
+    }
+   ],
+   "limitations": "Rủi ro thấp; trạng thái CI thật chưa rõ.",
+   "recommendation": "Tiêm đồng hồ hoặc freeze time; thêm pytest.mark.skipif khi không có docker.",
+   "acceptance": "Test ổn định ở mọi giờ và môi trường không docker thì skip rõ ràng.",
+   "alignment": [
+    "Quyết định có bằng chứng"
+   ],
+   "extends": [],
+   "related_ids": []
+  },
+  {
+   "tmp_id": "T15-7",
+   "title": "Chưa có test timer/worker và backup/restore trong cụm tệp này",
+   "severity": "MEDIUM",
+   "category": "test_gap",
+   "evidence_level": "design_gap",
+   "summary": "Test sự kiện chỉ phủ MockConsumer và publisher, không có test lease, fencing, retry, timer hay kiểm khôi phục. test_consumer chỉ kiểm handler được gọi, không kiểm lỗi handler hay nhận trùng.",
+   "trigger": "Worker chết giữa chừng hoặc nhận cùng sự kiện hai lần.",
+   "impact": "Các phát hiện về lease/receipt/restore chưa có test chặn tái phát.",
+   "evidence": [
+    {
+     "path": "src/tests/unit/test_consumer.py",
+     "line": 26,
+     "detail": "Chỉ có ca vui: mọi event đều xử lý thành công."
+    },
+    {
+     "path": "src/tests/tools/test_event_log_tools.py",
+     "line": 91,
+     "detail": "Publisher lỗi bị nuốt, nhưng không có test về việc thử lại phát hành sau."
+    }
+   ],
+   "limitations": "Có thể có test worker ở chunk khác.",
+   "recommendation": "Thêm test handler lỗi, trùng event, lease hết hạn và kiểm khôi phục từ bản sao.",
+   "acceptance": "Mỗi phát hiện INF-005/007 có test tái hiện.",
+   "alignment": [
+    "Phát hiện sớm",
+    "Lỗi lặp thành cải tiến"
+   ],
+   "extends": [],
+   "related_ids": [
+    "INF-005",
+    "INF-007",
+    "INF-006"
+   ]
+  }
+ ],
+ "extensions": [
+  {
+   "id": "SEC-011",
+   "detail": "test_clinical_cluster chỉ kiểm tập khối/quyền trong PRESET và thuộc tính quyen của guard, không có test chặn theo phạm vi bệnh nhân/bác sĩ được phân; test_mo_quyen_tam_thoi còn khẳng định cửa router lâm sàng là get_current_identity."
+  },
+  {
+   "id": "SEC-019",
+   "detail": "Không thấy test nào kiểm đọc lịch sử form hoặc ghi chú lượt theo vai/phạm vi trong cụm này."
+  },
+  {
+   "id": "FE-025",
+   "detail": "test_nhieu_so_dien_thoai kiểm check_duplicate bằng chuỗi nguồn; không có test lỗi tra trùng bị hiểu thành không trùng."
+  }
+ ],
+ "held": [
+  {
+   "title": "test_vai_theo_vi_tri.test_nghiep_vu_khong_so_vai_tai_khoan_truc_tiep chỉ quét dòng đơn",
+   "reason": "Regex chạy theo từng dòng; biểu thức nhiều dòng hoặc alias bỏ lọt, nhưng chưa thấy mã vi phạm cụ thể."
+  }
+ ],
+ "good_patterns": [
+  {
+   "title": "Chốt chống xanh giả cho các bộ quét",
+   "detail": "Test quét mã đặt ngưỡng tối thiểu và test tự kiểm bộ nhận diện để quét rỗng không báo xanh.",
+   "evidence": "src/tests/test_dashboard_backend_paths.py:120"
+  },
+  {
+   "title": "Cờ bi_cat cho tổng đầy đủ khi chi tiết bị cắt",
+   "detail": "Tổng tính trên toàn bộ dữ liệu, danh sách chi tiết cắt kèm cờ rõ ràng.",
+   "evidence": "src/tests/unit/test_bao_cao_viec_tien.py:6"
+  },
+  {
+   "title": "Test hợp đồng giữa dashboard và backend",
+   "detail": "So khớp đường dẫn, trường /me và vai menu với route thật, bắt lệch giữa hai ngôn ngữ ngay ở CI.",
+   "evidence": "src/tests/test_me_contract.py:75"
+  },
+  {
+   "title": "Test chống rò vào staging/prod",
+   "detail": "Kiểm tên mạng, cổng, khóa, ngưỡng tài nguyên và thứ tự trước khi gọi docker.",
+   "evidence": "src/tests/test_staging_bootstrap_safety.py:116"
+  }
+ ],
+ "coverage": [
+  {
+   "path": "src/tests/test_clinical_cluster.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_clinical_data_integrity.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_csv_to_sources.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_dashboard_backend_paths.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_doc_don_thuoc_hien_hanh.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_dong_luot_giu_viec_ket_qua.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_episode_service.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_go_ca_theo_khung_gio.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_health.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_identity.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_khoi_phuc_lich_khi_xep_lai_ca.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_lich_truc_cong_bo_chan_sua_lich.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_me_contract.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_mo_quyen_tam_thoi.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_nav_role_drift.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_nhieu_so_dien_thoai.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_no_queue_rule_in_dashboard.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_notion_to_sources.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_payment_service.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_queue_order.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_rail_cu_da_nghi_slice1.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_router_wiring.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_staging_bootstrap_safety.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_sync_to_supabase_helpers.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_trang_thai_luot_kham_khong_bo_sot.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_vai_man_hinh.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_vai_theo_lego.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/test_vai_theo_vi_tri.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/__init__.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/lab/__init__.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/lab/test_classify.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/lab/test_query_lab_result.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/scheduling/__init__.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/scheduling/test_find_work_sessions.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/task/__init__.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/task/conftest.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/task/test_check_sla.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/task/test_create_task.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/task/test_query_tasks.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/task/test_update_task_status.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/test_communication_tools.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/test_event_log_tools.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/test_kb_tools.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/test_patient_tools.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/test_registry.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/tools/test_scheduling_tools.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/__init__.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_bac_si_ky.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_ban_le_dau_vao.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_ban_theo_don.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_bang_tuan_cho_trong.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_bao_cao_cuoi_ngay.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_bao_cao_pham_vi.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_bao_cao_theo_co_so.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_bao_cao_thuoc.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_bao_cao_viec_tien.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_base_adapter.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_ca_truc.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_capacity_cell_state.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_cashier_scope.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_catalog_cleanup_safety.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_chan_dat_ngoai_khung_ca.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_checkout_trang_thai_kham.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_clinic_policy.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_clinic_settings_service.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  },
+  {
+   "path": "src/tests/unit/test_consumer.py",
+   "lines": null,
+   "full_read": true,
+   "note": "Đưa nguyên văn vào một lượt đọc qua API (không tool, một lượt)."
+  }
+ ]
+}

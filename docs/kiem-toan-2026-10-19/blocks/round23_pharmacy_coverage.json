@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "audit": "round23_pharmacy_billing_lifecycle",
+  "snapshot": {
+    "path": "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini",
+    "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7"
+  },
+  "review_mode": "static_read_only_exact_main_cross_layer_trace",
+  "scope": [
+    "prescription sale/re-sale, order-history contract, Bio selection, billing and inventory reporting"
+  ],
+  "tests_run": false,
+  "runtime_db_vps_secrets_phi_touched": false,
+  "coverage_note": "Three full service reads, API/UI/migration/test traces. No finding was promoted. Bio mapping semantics and the 200-row order history cap remain held; tests were read, not run.",
+  "held_observations": [
+    "PHARMACY-BIO-SERVICE-MAP-001",
+    "PHARMACY-ORDER-HISTORY-CAP-001"
+  ],
+  "files": [
+    {
+      "path": "src/clinicai/api/v1/routers/hoa_don.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 123,
+          "end": 158,
+          "purpose": "Invoice-facing route and permission boundary."
+        }
+      ],
+      "sha256": "beb678ee2e8e4e56d81a1da33838011bf7997130c02e8f310282068732f11814",
+      "line_count": 158
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 548,
+          "end": 581,
+          "purpose": "Visit endpoint for Bio/visit prescription flow."
+        }
+      ],
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "line_count": 1221
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/pharmacy.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 196,
+          "end": 292,
+          "purpose": "Pharmacy endpoints and service boundaries."
+        }
+      ],
+      "sha256": "f5d2086e4c71db714773f4d5bd62bd4fce3d7d474eea407c834b8c039a2b4ff8",
+      "line_count": 1372
+    },
+    {
+      "path": "src/clinicai/services/ban_le_service.py",
+      "status": "traced",
+      "prior_status": "traced",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 125,
+          "end": 180,
+          "purpose": "Retail sales and billing interaction."
+        }
+      ],
+      "sha256": "e2722b1adbd7d0c5096c73d0a6e568d25461b9a9212362e462e3fe6fb920fc9a",
+      "line_count": 432
+    },
+    {
+      "path": "src/clinicai/services/ban_theo_don_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 258,
+          "end": 279,
+          "purpose": "Held PHARMACY-ORDER-HISTORY-CAP-001; see STATE.json for remaining evidence."
+        },
+        {
+          "start": 1,
+          "end": 485,
+          "purpose": "Full 485-line read; order-history cap, sale/re-sale idempotency and bill interactions reviewed."
+        }
+      ],
+      "sha256": "6cc0c6e8f6b70eca3d6ac02933d8381cf1e632a81fee423eaff6330f4771dec4",
+      "line_count": 485
+    },
+    {
+      "path": "src/clinicai/services/bio_chi_dinh_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 67,
+          "end": 78,
+          "purpose": "Held PHARMACY-BIO-SERVICE-MAP-001; see STATE.json for remaining evidence."
+        },
+        {
+          "start": 1,
+          "end": 390,
+          "purpose": "Full 390-line read; Bio selection validation, approval and bill coupling reviewed."
+        }
+      ],
+      "sha256": "0e4ace302441fee102f99cb56fb51ee62e6415a17f1d803f823f245f958f4ad3",
+      "line_count": 390
+    },
+    {
+      "path": "src/clinicai/services/theo_hang_hoa_service.py",
+      "status": "read",
+      "prior_status": "scanned",
+      "read_level_this_round": "full_file_read",
+      "full_file_read_this_round": true,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 209,
+          "purpose": "Full 209-line read; inventory reporting delegates to invoice source and uses accounting access path."
+        }
+      ],
+      "sha256": "cbf86d96298f34732b145b906b2206cf8b644115a93221c532ad19a22bcd54ec",
+      "line_count": 209
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/DauDoChiDinh.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 6,
+          "end": 13,
+          "purpose": "Held PHARMACY-BIO-SERVICE-MAP-001; see STATE.json for remaining evidence."
+        },
+        {
+          "start": 1,
+          "end": 130,
+          "purpose": "UI mapping and Bio selection payload."
+        }
+      ],
+      "sha256": "16e8ff197619b24bd0570e3c938c2f50dfa8b5891b1b2804b2edc31ddf1bc9f6",
+      "line_count": 146
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/pharmacy/LichSuDonThuoc.tsx",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 260,
+          "purpose": "Held PHARMACY-ORDER-HISTORY-CAP-001; see STATE.json for remaining evidence."
+        },
+        {
+          "start": 1,
+          "end": 260,
+          "purpose": "History table shows pagination/cap presentation."
+        }
+      ],
+      "sha256": "76385db3aa59823eba052ea170052dee25cc02ac6016a6fd123dcf6a6de7f6f9",
+      "line_count": 419
+    },
+    {
+      "path": "src/tests/services/test_ban_theo_don_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 442,
+          "purpose": "DB test suite reviewed; not executed."
+        }
+      ],
+      "sha256": "a69875f781c6f4d9404787020c1fd6d8676e3705ea418d0d17dd129f09b30bb9",
+      "line_count": 442
+    },
+    {
+      "path": "src/tests/services/test_bio_chi_dinh_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 100,
+          "end": 210,
+          "purpose": "Fixtures reviewed; not executed."
+        },
+        {
+          "start": 330,
+          "end": 720,
+          "purpose": "Bio DB behavior and invariant tests reviewed; not executed."
+        }
+      ],
+      "sha256": "9dba2df9e35b90e3250619add6672eeb937ba5369135754acf54d7c1764610e9",
+      "line_count": 822
+    },
+    {
+      "path": "src/tests/services/test_theo_hang_hoa_db.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 106,
+          "purpose": "Inventory reporting access/source test reviewed; not executed."
+        }
+      ],
+      "sha256": "9c1a5c4fd313082237aacb40ec1d86002df48bcfd100d81dde9f60f704ba80e7",
+      "line_count": 106
+    },
+    {
+      "path": "src/tests/unit/test_ban_theo_don.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 154,
+          "purpose": "Pure helper tests reviewed; not executed."
+        }
+      ],
+      "sha256": "10a165ef30b8d6786d44b4bbf850a1b9a29bdc1ed60921b9db932f57ccfcdb3e",
+      "line_count": 154
+    },
+    {
+      "path": "src/tests/unit/test_theo_hang_hoa.py",
+      "status": "traced",
+      "prior_status": "scanned",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 1,
+          "end": 115,
+          "purpose": "Pure output/formula safety tests reviewed; not executed."
+        }
+      ],
+      "sha256": "3fd8e7a79d3d47b5220064a147f78b64e01cb7eefc13e7e0d3a00354ec787418",
+      "line_count": 115
+    },
+    {
+      "path": "supabase/migrations/20261014190000_bio_theo_chi_dinh.sql",
+      "status": "read",
+      "prior_status": "read",
+      "read_level_this_round": "targeted_semantic_trace",
+      "full_file_read_this_round": false,
+      "ranges": [
+        {
+          "start": 26,
+          "end": 64,
+          "purpose": "Bio mapping schema/comment semantics."
+        }
+      ],
+      "sha256": "252d90fa1d10ff9d393406d60e9ad8f5671d59d7a88f86c047bad2aa0441cc1d",
+      "line_count": 68
+    }
+  ]
+}

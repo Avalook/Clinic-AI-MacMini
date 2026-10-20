@@ -1,0 +1,762 @@
+Khuôn thiếu 42 migration của cây này → áp vào DB tạm (khuôn không đổi):
+  • 20261010100000
+  • 20261010100001
+  • 20261010200000
+  • 20261014110000
+  • 20261014130000
+  • 20261014130002
+  • 20261014135000
+  • 20261014140000
+  • 20261014147000
+  • 20261014148000
+  • 20261014149000
+  • 20261014150000
+  • 20261014155000
+  • 20261014156000
+  • 20261014157000
+  • 20261014160000
+  • 20261014170000
+  • 20261014180000
+  • 20261014180100
+  • 20261014180101
+  • 20261014181000
+  • 20261014181100
+  • 20261014190000
+  • 20261014200000
+  • 20261014200100
+  • 20261014220000
+  • 20261015110000
+  • 20261016300000
+  • 20261016400000
+  • 20261017100000
+  • 20261017200000
+  • 20261018120000
+  • 20261018130000
+  • 20261018140000
+  • 20261018180000
+  • 20261018200000
+  • 20261019100000
+  • 20261019110000
+  • 20261019120000
+  • 20261019130000
+  • 20261019140000
+  • 20261019150000
+  ⚠️  42 cái đã có trên origin/main — chạy scripts/test-nhanh.sh --cap-nhat-khuon cho các lượt sau khỏi áp lại.
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+⚠️  supabase/seed.sql của cây khác seed trong khuôn — bài phụ thuộc seed mới thì: scripts/test-nhanh.sh --dung-lai-khuon
+DB tạm tam_39966_dr4women_macmini (6 worker) sẵn sàng sau 5s — khuôn: main@27e010d6 seed=a2fb441101963564c2beb1d4dff65d72 cap-nhat=14/10 15:35
+============================= test session starts ==============================
+platform darwin -- Python 3.12.9, pytest-8.3.5, pluggy-1.6.0
+rootdir: /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini
+configfile: pytest.ini
+plugins: cov-6.1.0, asyncio-0.26.0, langsmith-0.8.5, xdist-3.6.1, anyio-4.13.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+created: 6/6 workers
+6 workers [6979 items]
+
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................x............................... [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+.....................x.................................................. [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+........................................................................ [ 99%]
+.....................FFFFFFFFF.....................................      [100%]
+=================================== FAILURES ===================================
+__________ test_split_refunds_never_exceed_original_collected_amount ___________
+[gw3] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+q = Quay(pool=<asyncpg.pool.Pool object at 0x112c43b80>, visit_id='46e3a101-3bda-45f5-a6fa-3ed618171a51', consultation_id=...ame='', vai_theo_vi_tri=frozenset(), vai_tai_khoan=None, vai_theo_lego=None, cashier_head_scope=None), duoi='80a8e689')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112070b60>
+
+    async def test_split_refunds_never_exceed_original_collected_amount(
+        q: Quay,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
+        _, drug = await _dong_da_xac_dinh(q, 1)
+        await q.pool.execute(
+            "UPDATE drug_catalog SET unit_price=100001 WHERE id=$1::uuid", drug
+        )
+        cycle = (await _thu(q))["payment_cycle_id"]
+        line = await q.pool.fetchval(
+            "SELECT id::text FROM payment_bill_line"
+            " WHERE payment_cycle_id=$1::uuid AND source_type='prescription'",
+            cycle,
+        )
+        service = HoanTienService(q.pool)
+        for _ in range(2):
+            await service.tao(
+                identity=q.thu_ngan,
+                payment_cycle_id=cycle,
+                visit_id=q.visit_id,
+                kind="thuoc",
+                dong=[{"payment_bill_line_id": line, "so_luong": Decimal("0.5")}],
+                method="CASH",
+                reason="Synthetic audit: refund half of the original item",
+            )
+        state = await q.pool.fetchrow(
+            "SELECT c.amount AS collected,"
+            " (SELECT sum(r.amount) FROM payment_refund r"
+            "   WHERE r.payment_cycle_id=c.payment_cycle_id"
+            "     AND r.status IN ('PENDING','COMPLETED')) AS refunded"
+            " FROM payment_cycle c WHERE c.payment_cycle_id=$1::uuid",
+            cycle,
+        )
+>       assert state["refunded"] <= state["collected"], (
+            f"Refunded {state['refunded']} exceeds collected {state['collected']}"
+        )
+E       AssertionError: Refunded 100002 exceeds collected 100001
+E       assert Decimal('100002') <= 100001
+
+src/tests/services/test_audit_1910_refund_rounding_db.py:57: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"service": "clinicai-api", "environment": "test", "visit_id": "46e3a101-3bda-45f5-a6fa-3ed618171a51", "kind": "thuoc", "method": "CASH", "by_staff_id": "585e2eff-8f1e-4061-a07e-7e996f2ab40d", "level": "info", "logger": "clinicai.services.payment_service", "timestamp": "2026-10-19T11:33:41.185002Z", "message": "payment_recorded"}
+------------------------------ Captured log call -------------------------------
+INFO     clinicai.services.payment_service:payment_service.py:696 {'service': 'clinicai-api', 'environment': 'test', 'visit_id': '46e3a101-3bda-45f5-a6fa-3ed618171a51', 'kind': 'thuoc', 'method': 'CASH', 'by_staff_id': '585e2eff-8f1e-4061-a07e-7e996f2ab40d', 'level': 'info', 'logger': 'clinicai.services.payment_service', 'timestamp': '2026-10-19T11:33:41.185002Z', 'message': 'payment_recorded'}
+_________ test_capped_detection_keeps_unobserved_overdue_incident_open _________
+[gw1] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+pool = <asyncpg.pool.Pool object at 0x1129f4400>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112877da0>
+
+    async def test_capped_detection_keeps_unobserved_overdue_incident_open(
+        pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ids = [str(uuid.uuid4()) for _ in range(ag.TRAN + 1)]
+        async with pool.acquire() as conn:
+            tx = conn.transaction()
+            await tx.start()
+            try:
+                node = await conn.fetchrow(
+                    "SELECT n.code, nv.id FROM node_definition n"
+                    " JOIN node_definition_version nv ON nv.node_definition_id=n.id"
+                    " AND nv.clinic_id=n.clinic_id AND nv.version=n.current_version"
+                    " WHERE n.clinic_id=$1::uuid LIMIT 1",
+                    CLINIC,
+                )
+                assert node is not None
+                await conn.executemany(
+                    "INSERT INTO work_item(id,clinic_id,node_code,node_version_id,due_at)"
+                    " VALUES($1::uuid,$2::uuid,$3,$4,now()-interval '5 hours')",
+                    [(key, CLINIC, node["code"], node["id"]) for key in ids],
+                )
+                observations = [
+                    ag.NhanDinh(
+                        "viec_qua_han",
+                        key,
+                        "critical",
+                        "Synthetic audit",
+                        "quan_sat",
+                        {"work_item_id": key},
+                    )
+                    for key in ids
+                ]
+                await ag.ap_dung(conn, CLINIC, {"viec_qua_han": observations}, set())
+                # Scope the actual detector to our synthetic rows; preserve its real LIMIT.
+                safe_ids = ",".join("'" + str(uuid.UUID(key)) + "'" for key in ids)
+                monkeypatch.setattr(
+                    ag,
+                    "_QUA_HAN_SQL",
+                    ag._QUA_HAN_SQL.replace(
+                        f"  LIMIT {ag.TRAN}",
+                        f" AND w.id IN ({safe_ids})\n  LIMIT {ag.TRAN}",
+                    ),
+                )
+                now = await conn.fetchval("SELECT now()")
+                observed = await ag.phat_hien_sql(conn, CLINIC, now)
+                assert len(observed["viec_qua_han"]) == ag.TRAN
+                await ag.ap_dung(
+                    conn, CLINIC, {"viec_qua_han": observed["viec_qua_han"]}, set()
+                )
+                falsely_closed = await conn.fetchval(
+                    "SELECT count(*) FROM agent_nhan_dinh a JOIN work_item w"
+                    " ON a.khoa=w.id::text AND a.clinic_id=w.clinic_id"
+                    " WHERE w.id=ANY($1::uuid[]) AND w.status='PENDING'"
+                    " AND w.due_at<now() AND a.ly_do_dong='HET'",
+                    ids,
+                )
+>               assert falsely_closed == 0, "Unobserved overdue work was declared resolved"
+E               AssertionError: Unobserved overdue work was declared resolved
+E               assert 1 == 0
+
+src/tests/services/test_audit_1910_agent_limit_db.py:74: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"service": "clinicai-api", "environment": "test", "bang": "agent.viec_qua_han", "so_dong": 200, "tran": 200, "clinic_id": "a[REDACTED]-4000-8000-000000000001", "level": "warning", "logger": "clinicai.core.tran", "timestamp": "2026-10-19T11:33:40.819850Z", "message": "bang_bi_cat"}
+------------------------------ Captured log call -------------------------------
+WARNING  clinicai.core.tran:tran.py:44 {'service': 'clinicai-api', 'environment': 'test', 'bang': 'agent.viec_qua_han', 'so_dong': 200, 'tran': 200, 'clinic_id': 'a[REDACTED]-4000-8000-000000000001', 'level': 'warning', 'logger': 'clinicai.core.tran', 'timestamp': '2026-10-19T11:33:40.819850Z', 'message': 'bang_bi_cat'}
+__________ test_retry_after_lost_response_does_not_duplicate_added_rx __________
+[gw0] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+q = Quay(pool=<asyncpg.pool.Pool object at 0x115427400>, visit_id='46aee528-3d0c-4dec-9b4c-913c91d5fca2', consultation_id=...ame='', vai_theo_vi_tri=frozenset(), vai_tai_khoan=None, vai_theo_lego=None, cashier_head_scope=None), duoi='61fe9549')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1162dc7a0>
+
+    async def test_retry_after_lost_response_does_not_duplicate_added_rx(
+        q: Quay,
+        monkeypatch: pytest.MonkeyPatch,  # noqa: F811
+    ) -> None:
+        monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
+        _, drug = await _dong_da_xac_dinh(q, 10)
+        payload = [{"drug_catalog_id": drug, "quantity": "5 viên"}]
+        service = QuayThuocService(q.pool)
+        # First call commits; its response is deliberately ignored, as if lost.
+        await service.luu_dong_them(visit_id=q.visit_id, dong=payload, identity=q.thu_ngan)
+        # The browser still has the same draft without IDs and retries it.
+        await service.luu_dong_them(visit_id=q.visit_id, dong=payload, identity=q.thu_ngan)
+        count = await q.pool.fetchval(
+            "SELECT count(*) FROM prescription WHERE clinic_id=$1::uuid"
+            " AND visit_id=$2::uuid AND nguon='QUAY' AND removed_at IS NULL",
+            q.thu_ngan.clinic_id,
+            q.visit_id,
+        )
+>       assert count == 1, f"One retried intent produced {count} QUAY rows"
+E       AssertionError: One retried intent produced 2 QUAY rows
+E       assert 2 == 1
+
+src/tests/services/test_audit_1910_rx_retry_db.py:35: AssertionError
+___________ test_reschedule_preserves_concurrently_committed_checkin ___________
+[gw4] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+pool = <asyncpg.pool.Pool object at 0x113d6e380>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x113cc2840>
+
+    async def test_reschedule_preserves_concurrently_committed_checkin(
+        pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ca = await _dung(pool)
+        start = datetime.now(UTC) + timedelta(minutes=30)
+        appt = await pool.fetchval(
+            "INSERT INTO appointment (clinic_id,clinic_patient_id,location_id,"
+            "service_type_id,slot_start,slot_end,doctor_id,status)"
+            " VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7::uuid,'CONFIRMED')"
+            " RETURNING id::text",
+            CLINIC,
+            await _benh_nhan(pool, ca),
+            ca.loc,
+            ca.loai_kham,
+            start,
+            start + timedelta(minutes=15),
+            ca.bac_si.staff_id,
+        )
+        reader_ready, resume = asyncio.Event(), asyncio.Event()
+        changing = BookingService(pool)
+        original_update = changing._update
+    
+        async def pause_before_update(*args: Any, **kwargs: Any) -> bool:
+            reader_ready.set()
+            await asyncio.wait_for(resume.wait(), timeout=10)
+            return await original_update(*args, **kwargs)
+    
+        async def independent_hours_guard(*args: Any, **kwargs: Any) -> None:
+            # Fix the clock-dependent opening-hours precondition; preserve all writes,
+            # transactions, state reads, update predicates, triggers and event emission.
+            return None
+    
+        monkeypatch.setattr(changing, "_update", pause_before_update)
+        monkeypatch.setattr(changing, "_chan_dat_ngoai_khung_ca", independent_hours_guard)
+        task = asyncio.create_task(
+            changing.apply_action(
+                appointment_id=appt,
+                action="reschedule",
+                identity=ca.le_tan,
+                slot_start=start,
+                slot_end=start + timedelta(minutes=15),
+                ghi_chu="Synthetic reschedule note",
+                ghi_chu_provided=True,
+            )
+        )
+        try:
+            await asyncio.wait_for(reader_ready.wait(), timeout=10)
+            checked = await BookingService(pool).apply_action(
+                appointment_id=appt,
+                action="checkin",
+                identity=ca.le_tan,
+            )
+            assert checked["status"] == "CHECKED_IN"
+            resume.set()
+            await asyncio.wait_for(task, timeout=10)
+            state = await pool.fetchrow(
+                "SELECT a.status, v.visit_id IS NOT NULL AS has_visit,"
+                " v.closed_at IS NULL AS visit_open FROM appointment a"
+                " JOIN visit v ON v.appointment_id=a.id WHERE a.id=$1::uuid",
+                appt,
+            )
+            assert state["has_visit"] and state["visit_open"]
+>           assert state["status"] == "CHECKED_IN", "Stale reschedule reversed arrival"
+E           AssertionError: Stale reschedule reversed arrival
+E           assert 'CONFIRMED' == 'CHECKED_IN'
+E             
+E             - CHECKED_IN
+E             + CONFIRMED
+
+src/tests/services/test_audit_1910_booking_race_db.py:83: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"service": "clinicai-api", "environment": "test", "visit_id": "710d9672-0e45-4ae9-86ff-d76abbf46c51", "clinic_id": "a[REDACTED]-4000-8000-000000000001", "level": "info", "logger": "clinicai.services.booking_service", "timestamp": "2026-10-19T11:33:40.941946Z", "message": "visit_placed_at_first_station"}
+{"service": "clinicai-api", "environment": "test", "appointment_id": "f34ff860-1c6b-42e7-8ed8-fd5edae25644", "action": "checkin", "status": "CHECKED_IN", "by_staff_id": "9cf0ff14-69bb-4700-b752-188c531d4621", "level": "info", "logger": "clinicai.services.booking_service", "timestamp": "2026-10-19T11:33:40.945381Z", "message": "appointment_action"}
+{"service": "clinicai-api", "environment": "test", "appointment_id": "f34ff860-1c6b-42e7-8ed8-fd5edae25644", "action": "reschedule", "status": "CONFIRMED", "by_staff_id": "9cf0ff14-69bb-4700-b752-188c531d4621", "level": "info", "logger": "clinicai.services.booking_service", "timestamp": "2026-10-19T11:33:40.951621Z", "message": "appointment_action"}
+------------------------------ Captured log call -------------------------------
+INFO     clinicai.services.booking_service:booking_service.py:2754 {'service': 'clinicai-api', 'environment': 'test', 'visit_id': '710d9672-0e45-4ae9-86ff-d76abbf46c51', 'clinic_id': 'a[REDACTED]-4000-8000-000000000001', 'level': 'info', 'logger': 'clinicai.services.booking_service', 'timestamp': '2026-10-19T11:33:40.941946Z', 'message': 'visit_placed_at_first_station'}
+INFO     clinicai.services.booking_service:booking_service.py:901 {'service': 'clinicai-api', 'environment': 'test', 'appointment_id': 'f34ff860-1c6b-42e7-8ed8-fd5edae25644', 'action': 'checkin', 'status': 'CHECKED_IN', 'by_staff_id': '9cf0ff14-69bb-4700-b752-188c531d4621', 'level': 'info', 'logger': 'clinicai.services.booking_service', 'timestamp': '2026-10-19T11:33:40.945381Z', 'message': 'appointment_action'}
+INFO     clinicai.services.booking_service:booking_service.py:901 {'service': 'clinicai-api', 'environment': 'test', 'appointment_id': 'f34ff860-1c6b-42e7-8ed8-fd5edae25644', 'action': 'reschedule', 'status': 'CONFIRMED', 'by_staff_id': '9cf0ff14-69bb-4700-b752-188c531d4621', 'level': 'info', 'logger': 'clinicai.services.booking_service', 'timestamp': '2026-10-19T11:33:40.951621Z', 'message': 'appointment_action'}
+____________ test_unknown_length_upload_respects_remaining_capacity ____________
+[gw0] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+tmp_path = PosixPath('/private/var/folders/s0/xk2mg359457c1cl15pw58c680000gn/T/pytest-of-quangdang/pytest-1732/popen-gw0/test_unknown_length_upload_res0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x116290e60>
+
+    async def test_unknown_length_upload_respects_remaining_capacity(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        free_bytes, reserve = 1024, 256
+        pdf = b"%PDF-1.7\n" + b"x" * 2048
+        body = (
+            b'--audit\r\nContent-Disposition: form-data; name="file"; filename="audit.pdf"'
+            b"\r\nContent-Type: application/pdf\r\n\r\n" + pdf + b"\r\n--audit--\r\n"
+        )
+        checked = 0
+    
+        def free() -> int:
+            nonlocal checked
+            checked += 1
+            used = sum(p.stat().st_size for p in tmp_path.rglob("*.part"))
+            return max(0, free_bytes - used)
+    
+        monkeypatch.setattr(media_service, "MEDIA_LOCAL_ROOT", tmp_path)
+        monkeypatch.setattr(media_service, "MAX_BYTES_THEO_LOAI", {"PDF": 0})
+        monkeypatch.setattr(nhan_tep_luong, "cho_trong_o_vps", free)
+        monkeypatch.setattr(tep_ket_qua_service, "MEDIA_LOCAL_MIN_FREE_BYTES", reserve)
+        sent = False
+    
+        async def receive() -> dict:
+            nonlocal sent
+            if sent:
+                return {"type": "http.disconnect"}
+            sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+    
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/audit",
+                "headers": [(b"content-type", b"multipart/form-data; boundary=audit")],
+            },
+            receive,
+        )
+        received = None
+        try:
+            try:
+                _, received = await nhan_tep_luong.nhan_multipart(request)
+            except ValidationError:
+                return
+>           assert received.so_byte <= free_bytes - reserve, (
+                f"Stored {received.so_byte} bytes with budget {free_bytes - reserve};"
+                f" free-space checked only {checked} time(s)"
+            )
+E           AssertionError: Stored 2057 bytes with budget 768; free-space checked only 1 time(s)
+E           assert 2057 <= (1024 - 256)
+E            +  where 2057 = TepDaNhan(duong=PosixPath('/private/var/folders/s0/xk2mg359457c1cl15pw58c680000gn/T/pytest-of-quangdang/pytest-1732/po...xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', ten='audit.pdf').so_byte
+
+src/tests/services/test_audit_1910_upload_space.py:62: AssertionError
+_____ test_saved_follow_date_recovers_handoff_after_transient_sync_failure _____
+[gw1] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+pool = <asyncpg.pool.Pool object at 0x112dc13c0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112837230>
+
+    async def test_saved_follow_date_recovers_handoff_after_transient_sync_failure(
+        pool: asyncpg.Pool,
+        monkeypatch: pytest.MonkeyPatch,  # noqa: F811
+    ) -> None:
+        doctor, visit = await _chuan_bi(pool)
+        day = (_hom_nay() + dt.timedelta(days=30)).isoformat()
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                htk, "dong_bo", AsyncMock(side_effect=RuntimeError("audit transient"))
+            )
+            first = await _luu(pool, doctor, visit["visit"], {"pk_follow_date": _o(day)})
+        assert first["ok"] is True
+        assert first["hen_tai_kham"]["trang_thai"] == "LOI"
+        # Healthy retry keeps the doctor's date, rather than fabricating a date edit.
+        second = await _luu(
+            pool,
+            doctor,
+            visit["visit"],
+            {"pk_follow_date": _o(day), "pk_follow_note": _o("Synthetic audit note")},
+        )
+        assert second["ok"] is True
+        tasks = await _viec(pool, visit["visit"])
+>       assert len(tasks) == 1, "The follow date persisted but its CSKH handoff was lost"
+E       AssertionError: The follow date persisted but its CSKH handoff was lost
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+src/tests/services/test_audit_1910_recall_failure_db.py:48: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"service": "clinicai-api", "environment": "test", "visit_id": "336291d0-6d1a-45fc-a82d-499c0cc5487e", "level": "error", "logger": "clinicai.services.phieu_kham_service", "timestamp": "2026-10-19T11:33:41.409253Z", "exception": "Traceback (most recent call last):\n  File \"/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/clinicai/services/phieu_kham_service.py\", line 520, in luu_luot\n    hen = await htk.dong_bo(\n          ^^^^^^^^^^^^^^^^^^\n  File \"/Users/quangdang/.pyenv/versions/3.12.9/lib/python3.12/unittest/mock.py\", line 2291, in _execute_mock_call\n    raise effect\nRuntimeError: audit transient", "message": "hen_tai_kham_dong_bo_hong"}
+------------------------------ Captured log call -------------------------------
+ERROR    clinicai.services.phieu_kham_service:phieu_kham_service.py:528 {'service': 'clinicai-api', 'environment': 'test', 'visit_id': '336291d0-6d1a-45fc-a82d-499c0cc5487e', 'level': 'error', 'logger': 'clinicai.services.phieu_kham_service', 'timestamp': '2026-10-19T11:33:41.409253Z', 'exception': 'Traceback (most recent call last):\n  File "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/clinicai/services/phieu_kham_service.py", line 520, in luu_luot\n    hen = await htk.dong_bo(\n          ^^^^^^^^^^^^^^^^^^\n  File "/Users/quangdang/.pyenv/versions/3.12.9/lib/python3.12/unittest/mock.py", line 2291, in _execute_mock_call\n    raise effect\nRuntimeError: audit transient', 'message': 'hen_tai_kham_dong_bo_hong'}
+Traceback (most recent call last):
+  File "/Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/src/clinicai/services/phieu_kham_service.py", line 520, in luu_luot
+    hen = await htk.dong_bo(
+          ^^^^^^^^^^^^^^^^^^
+  File "/Users/quangdang/.pyenv/versions/3.12.9/lib/python3.12/unittest/mock.py", line 2291, in _execute_mock_call
+    raise effect
+RuntimeError: audit transient
+_______ test_new_correction_remains_visible_after_previous_notice_hidden _______
+[gw4] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+pool = <asyncpg.pool.Pool object at 0x1141abf40>
+
+    async def test_new_correction_remains_visible_after_previous_notice_hidden(
+        pool: asyncpg.Pool,
+    ) -> None:
+        doctor, visit = await _chuan_bi(pool)
+        await pool.execute(
+            "UPDATE visit SET attending_doctor_id=$1::uuid WHERE visit_id=$2::uuid",
+            doctor.staff_id,
+            visit["visit"],
+        )
+        result = str(uuid.uuid4())
+        event = SuKienDaNhan(
+            event_id=str(uuid.uuid4()),
+            event_type="result.corrected",
+            clinic_id=doctor.clinic_id,
+            aggregate_id=result,
+            aggregate_version=2,
+            occurred_at=datetime.now(UTC),
+            seq=1,
+            actor_type="HUMAN",
+            actor_staff_id=doctor.staff_id,
+            payload={
+                "visit_id": visit["visit"],
+                "service_order_id": str(uuid.uuid4()),
+                "form_id": "AUDIT",
+                "form_version": 1,
+                "ban_thu": 2,
+            },
+            replay_id=None,
+            attempts=0,
+        )
+        async with pool.acquire() as conn, conn.transaction():
+            await bao_chuong(conn, event)
+        notices = ThongBaoService(pool)
+        first = await notices.cua_toi(identity=doctor)
+        assert first, "Initial correction notice must be present"
+        await notices.an_tat_ca_cua_toi(identity=doctor)
+        assert not await notices.cua_toi(identity=doctor)
+        later = replace(
+            event,
+            event_id=str(uuid.uuid4()),
+            aggregate_version=3,
+            seq=2,
+            payload={**event.payload, "ban_thu": 3},
+        )
+        async with pool.acquire() as conn, conn.transaction():
+            await bao_chuong(conn, later)
+        current = await notices.cua_toi(identity=doctor)
+>       assert current, (
+            "A different result revision was deduplicated into a hidden notice"
+        )
+E       AssertionError: A different result revision was deduplicated into a hidden notice
+E       assert []
+
+src/tests/services/test_audit_1910_result_revision_notice_db.py:69: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"service": "clinicai-api", "environment": "test", "so_an": 1, "by_staff_id": "6bb60067-b4d9-4a98-9f0b-6b1e6935fba0", "level": "info", "logger": "clinicai.services.thong_bao_service", "timestamp": "2026-10-19T11:33:41.443250Z", "message": "thong_bao_an_tat_ca_cua_toi"}
+------------------------------ Captured log call -------------------------------
+INFO     clinicai.services.thong_bao_service:thong_bao_service.py:434 {'service': 'clinicai-api', 'environment': 'test', 'so_an': 1, 'by_staff_id': '6bb60067-b4d9-4a98-9f0b-6b1e6935fba0', 'level': 'info', 'logger': 'clinicai.services.thong_bao_service', 'timestamp': '2026-10-19T11:33:41.443250Z', 'message': 'thong_bao_an_tat_ca_cua_toi'}
+_____ test_committed_interaction_retries_once_after_receipt_write_failure ______
+[gw1] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+pool = <asyncpg.pool.Pool object at 0x112dc28c0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112834ce0>
+
+    async def test_committed_interaction_retries_once_after_receipt_write_failure(
+        pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async with pool.acquire() as conn:
+            person = await _nguoi(conn, "CSKH")
+            visit = await _luot(conn, person)
+        key = "audit-crash-" + uuid.uuid4().hex
+        endpoint = "POST /api/v1/cskh/tuong-tac"
+        body = TuongTacRequest(
+            clinic_patient_id=uuid.UUID(visit["patient"]),
+            loai="KHAC",
+            kenh="GOI",
+            ket_qua="DA_LIEN_HE",
+            noi_dung="Synthetic audit contact, once only",
+        )
+        guard = IdempotencyGuard(key=key, endpoint=endpoint, request_hash="a" * 64)
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                IdempotencyGuard,
+                "save",
+                AsyncMock(
+                    side_effect=RuntimeError("Synthetic receipt persistence failure")
+                ),
+            )
+            with pytest.raises(RuntimeError, match="receipt persistence"):
+                await ghi_tuong_tac(body=body, identity=person, pool=pool, idem=guard)
+        first = await pool.fetchval(
+            "SELECT count(*) FROM tuong_tac_cskh WHERE clinic_patient_id=$1::uuid",
+            visit["patient"],
+        )
+        assert first == 1, "The domain operation committed before receipt failure"
+        # Advance just the reservation's timestamp; no sleep or system clock changes.
+        await pool.execute(
+            "UPDATE idempotency_key SET updated_at=now()-interval '6 minutes'"
+            " WHERE key=$1 AND endpoint=$2 AND actor_id=$3",
+            key,
+            endpoint,
+            person.auth_user_id,
+        )
+        await ghi_tuong_tac(body=body, identity=person, pool=pool, idem=guard)
+        count = await pool.fetchval(
+            "SELECT count(*) FROM tuong_tac_cskh WHERE clinic_patient_id=$1::uuid",
+            visit["patient"],
+        )
+>       assert count == 1, "Same command was executed twice after its receipt was lost"
+E       AssertionError: Same command was executed twice after its receipt was lost
+E       assert 2 == 1
+
+src/tests/services/test_audit_1910_receipt_crash_db.py:64: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"service": "clinicai-api", "environment": "test", "loai": "KHAC", "kenh": "GOI", "ket_qua": "DA_LIEN_HE", "by_staff_id": "e2691fbc-12cc-48f6-9c6d-2b9cdceb1f2b", "level": "info", "logger": "clinicai.services.tuong_tac_cskh_service", "timestamp": "2026-10-19T11:33:41.464885Z", "message": "cskh_tuong_tac_ghi"}
+{"service": "clinicai-api", "environment": "test", "loai": "KHAC", "kenh": "GOI", "ket_qua": "DA_LIEN_HE", "by_staff_id": "e2691fbc-12cc-48f6-9c6d-2b9cdceb1f2b", "level": "info", "logger": "clinicai.services.tuong_tac_cskh_service", "timestamp": "2026-10-19T11:33:41.473043Z", "message": "cskh_tuong_tac_ghi"}
+------------------------------ Captured log call -------------------------------
+INFO     clinicai.services.tuong_tac_cskh_service:tuong_tac_cskh_service.py:290 {'service': 'clinicai-api', 'environment': 'test', 'loai': 'KHAC', 'kenh': 'GOI', 'ket_qua': 'DA_LIEN_HE', 'by_staff_id': 'e2691fbc-12cc-48f6-9c6d-2b9cdceb1f2b', 'level': 'info', 'logger': 'clinicai.services.tuong_tac_cskh_service', 'timestamp': '2026-10-19T11:33:41.464885Z', 'message': 'cskh_tuong_tac_ghi'}
+INFO     clinicai.services.tuong_tac_cskh_service:tuong_tac_cskh_service.py:290 {'service': 'clinicai-api', 'environment': 'test', 'loai': 'KHAC', 'kenh': 'GOI', 'ket_qua': 'DA_LIEN_HE', 'by_staff_id': 'e2691fbc-12cc-48f6-9c6d-2b9cdceb1f2b', 'level': 'info', 'logger': 'clinicai.services.tuong_tac_cskh_service', 'timestamp': '2026-10-19T11:33:41.473043Z', 'message': 'cskh_tuong_tac_ghi'}
+________ test_revoking_all_capabilities_does_not_restore_result_access _________
+[gw4] darwin -- Python 3.12.9 /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/bin/python
+
+pool = <asyncpg.pool.Pool object at 0x113fc4c40>
+
+    async def test_revoking_all_capabilities_does_not_restore_result_access(
+        pool: asyncpg.Pool,
+    ) -> None:
+        async with pool.acquire() as conn:
+            doctor = await _nguoi(conn, "DOCTOR")
+            await conn.execute(
+                "UPDATE capability_grant SET revoked_at=now(),revoked_by=$1::uuid,"
+                " ly_do='Synthetic audit: revoke all work packs'"
+                " WHERE staff_id=$1::uuid AND revoked_at IS NULL", doctor.staff_id
+            )
+        assert (
+            await pool.fetchval(
+                "SELECT count(*) FROM v_quyen_thuc_te WHERE clinic_id=$1::uuid"
+                " AND staff_id=$2::uuid",
+                doctor.clinic_id,
+                doctor.staff_id,
+            )
+            == 0
+        )
+        roles = await doc_vai_theo_lego(
+            pool, doctor.clinic_id, doctor.staff_id, doctor.role
+        )
+        identity = replace(doctor, vai_theo_lego=roles)
+        async with pool.acquire() as conn:
+            assert not await can(conn, identity, "clinical.consult.perform")
+            allowed = await doc_duoc_tep_ket_qua(conn, identity)
+>       assert allowed is False, "Legacy role restored result access after final revoke"
+E       AssertionError: Legacy role restored result access after final revoke
+E       assert True is False
+
+src/tests/services/test_audit_1910_revoked_roles_db.py:46: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+  /Users/quangdang/.codex/worktrees/audit-main-1910/Dr4Women-MacMini/.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+src/tests/services/test_thu_dich_vu_nhieu_lan_db.py::test_gia_hoac_ben_thu_mau_thuan_la_chua_du_du_lieu
+  src/tests/services/test_thu_dich_vu_nhieu_lan_db.py:763: PytestWarning: The test <Function test_gia_hoac_ben_thu_mau_thuan_la_chua_du_du_lieu> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_gia_hoac_ben_thu_mau_thuan_la_chua_du_du_lieu() -> None:
+
+src/tests/services/test_service_routing_db.py::test_23_lich_truc_va_tai_chi_la_tin_hieu_xep_hang
+  src/tests/services/test_service_routing_db.py:689: PytestWarning: The test <Function test_23_lich_truc_va_tai_chi_la_tin_hieu_xep_hang> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_23_lich_truc_va_tai_chi_la_tin_hieu_xep_hang() -> None:
+
+src/tests/services/test_lego_21_db.py::test_21_lego_theo_thu_tu_thanh_ben
+  src/tests/services/test_lego_21_db.py:43: PytestWarning: The test <Function test_21_lego_theo_thu_tu_thanh_ben> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_21_lego_theo_thu_tu_thanh_ben() -> None:
+
+src/tests/services/test_quay_thuoc_dien_so_luong_db.py::test_nhan_dong_thoi_gian_noi_ro_so_cu_moi_khong_co_ten_thuoc
+  src/tests/services/test_quay_thuoc_dien_so_luong_db.py:395: PytestWarning: The test <Function test_nhan_dong_thoi_gian_noi_ro_so_cu_moi_khong_co_ten_thuoc> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_nhan_dong_thoi_gian_noi_ro_so_cu_moi_khong_co_ten_thuoc() -> None:
+
+src/tests/services/test_day_noi_nhac_db.py::test_doc_nhac_luc_rac_thi_rong_khong_nem
+  src/tests/services/test_day_noi_nhac_db.py:233: PytestWarning: The test <Function test_doc_nhac_luc_rac_thi_rong_khong_nem> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_doc_nhac_luc_rac_thi_rong_khong_nem() -> None:
+
+src/tests/services/test_ngay_kham_lo_hong_db.py::test_khoa_ngoai_sai_tra_422_khong_500
+  src/tests/services/test_ngay_kham_lo_hong_db.py:320: PytestWarning: The test <Function test_khoa_ngoai_sai_tra_422_khong_500> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_khoa_ngoai_sai_tra_422_khong_500() -> None:
+
+src/tests/services/test_ket_qua_chuong_hanh_trinh_db.py::test_dang_o_va_con_cho_la_ham_thuan
+  src/tests/services/test_ket_qua_chuong_hanh_trinh_db.py:319: PytestWarning: The test <Function test_dang_o_va_con_cho_la_ham_thuan> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_dang_o_va_con_cho_la_ham_thuan() -> None:
+
+src/tests/services/test_ket_qua_chuong_hanh_trinh_db.py::test_ket_qua_sua_lai_reo_chuong_va_chay_vong_doc
+  src/tests/services/test_ket_qua_chuong_hanh_trinh_db.py:359: PytestWarning: The test <Function test_ket_qua_sua_lai_reo_chuong_va_chay_vong_doc> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_ket_qua_sua_lai_reo_chuong_va_chay_vong_doc() -> None:
+
+src/tests/services/test_vai_ke_toan_db.py::test_vai_ke_toan_la_thanh_vien_noi_bo_nhu_vai_thuong
+  src/tests/services/test_vai_ke_toan_db.py:238: PytestWarning: The test <Function test_vai_ke_toan_la_thanh_vien_noi_bo_nhu_vai_thuong> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_vai_ke_toan_la_thanh_vien_noi_bo_nhu_vai_thuong() -> None:
+
+src/tests/services/test_vai_ke_toan_db.py::test_dto_nhan_ke_toan_va_chan_vai_rac
+  src/tests/services/test_vai_ke_toan_db.py:263: PytestWarning: The test <Function test_dto_nhan_ke_toan_va_chan_vai_rac> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_dto_nhan_ke_toan_va_chan_vai_rac() -> None:
+
+src/tests/services/test_xem_luot_db.py::test_muc_theo_quyen
+  src/tests/services/test_xem_luot_db.py:41: PytestWarning: The test <Function test_muc_theo_quyen> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_muc_theo_quyen() -> None:
+
+src/tests/services/test_xem_luot_db.py::test_khoang_ngay_rac_ve_mac_dinh_khong_nem
+  src/tests/services/test_xem_luot_db.py:140: PytestWarning: The test <Function test_khoang_ngay_rac_ve_mac_dinh_khong_nem> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_khoang_ngay_rac_ve_mac_dinh_khong_nem() -> None:
+
+src/tests/services/test_cp6_4c_smoke_route.py::test_smoke_amend_request_giu_du_field
+  src/tests/services/test_cp6_4c_smoke_route.py:191: PytestWarning: The test <Function test_smoke_amend_request_giu_du_field> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_smoke_amend_request_giu_du_field() -> None:
+
+src/tests/services/test_cp6_4c_smoke_route.py::test_smoke_ui_khong_auto_retry
+  src/tests/services/test_cp6_4c_smoke_route.py:212: PytestWarning: The test <Function test_smoke_ui_khong_auto_retry> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_smoke_ui_khong_auto_retry() -> None:
+
+src/tests/services/test_ghi_chu_luot_db.py::test_rac_khong_nem
+  src/tests/services/test_ghi_chu_luot_db.py:115: PytestWarning: The test <Function test_rac_khong_nem> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_rac_khong_nem() -> None:
+
+src/tests/services/test_khoi_kho_vat_tu_db.py::test_khoi_kho_vat_tu_trong_catalogue
+  src/tests/services/test_khoi_kho_vat_tu_db.py:23: PytestWarning: The test <Function test_khoi_kho_vat_tu_trong_catalogue> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_khoi_kho_vat_tu_trong_catalogue() -> None:
+
+src/tests/services/test_khoi_kho_vat_tu_db.py::test_lego_kho_vat_tu_tren_thanh_ben
+  src/tests/services/test_khoi_kho_vat_tu_db.py:31: PytestWarning: The test <Function test_lego_kho_vat_tu_tren_thanh_ben> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_lego_kho_vat_tu_tren_thanh_ben() -> None:
+
+src/tests/services/test_khach_bo_chi_dinh_vong_doc_db.py::test_luat_khach_khong_chon_la_viec_bac_si_quyet
+  src/tests/services/test_khach_bo_chi_dinh_vong_doc_db.py:33: PytestWarning: The test <Function test_luat_khach_khong_chon_la_viec_bac_si_quyet> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_luat_khach_khong_chon_la_viec_bac_si_quyet() -> None:
+
+src/tests/services/test_trach_nhiem_khong_roi_nhom6_db.py::test_duoc_si_thu_tien_thuoc_khong_thu_tien_dich_vu
+  src/tests/services/test_trach_nhiem_khong_roi_nhom6_db.py:44: PytestWarning: The test <Function test_duoc_si_thu_tien_thuoc_khong_thu_tien_dich_vu> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_duoc_si_thu_tien_thuoc_khong_thu_tien_dich_vu() -> None:
+
+src/tests/services/test_vai_doi_tac_nhan_su_db.py::test_vai_la_hoac_sai_chu_hoa_van_bi_tu_choi
+  src/tests/services/test_vai_doi_tac_nhan_su_db.py:98: PytestWarning: The test <Function test_vai_la_hoac_sai_chu_hoa_van_bi_tu_choi> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_vai_la_hoac_sai_chu_hoa_van_bi_tu_choi() -> None:
+
+src/tests/services/test_thai_ky_db.py::test_tuoi_thai_la_phep_tru_tu_du_kien_sinh
+  src/tests/services/test_thai_ky_db.py:30: PytestWarning: The test <Function test_tuoi_thai_la_phep_tru_tu_du_kien_sinh> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_tuoi_thai_la_phep_tru_tu_du_kien_sinh() -> None:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED src/tests/services/test_audit_1910_refund_rounding_db.py::test_split_refunds_never_exceed_original_collected_amount
+FAILED src/tests/services/test_audit_1910_agent_limit_db.py::test_capped_detection_keeps_unobserved_overdue_incident_open
+FAILED src/tests/services/test_audit_1910_rx_retry_db.py::test_retry_after_lost_response_does_not_duplicate_added_rx
+FAILED src/tests/services/test_audit_1910_booking_race_db.py::test_reschedule_preserves_concurrently_committed_checkin
+FAILED src/tests/services/test_audit_1910_upload_space.py::test_unknown_length_upload_respects_remaining_capacity
+FAILED src/tests/services/test_audit_1910_recall_failure_db.py::test_saved_follow_date_recovers_handoff_after_transient_sync_failure
+FAILED src/tests/services/test_audit_1910_result_revision_notice_db.py::test_new_correction_remains_visible_after_previous_notice_hidden
+FAILED src/tests/services/test_audit_1910_receipt_crash_db.py::test_committed_interaction_retries_once_after_receipt_write_failure
+FAILED src/tests/services/test_audit_1910_revoked_roles_db.py::test_revoking_all_capabilities_does_not_restore_result_access
+====== 9 failed, 6968 passed, 2 xfailed, 27 warnings in 153.91s (0:02:33) ======

@@ -1,0 +1,115 @@
+[
+  {
+    "id": "CAND-OPS-001",
+    "title": "Monitor backup xanh trước khi xác nhận bản sao ngoài VPS đã lên CFS",
+    "severity": "HIGH",
+    "evidence_level": "confirmed_static",
+    "category": "backup_offsite_monitoring",
+    "summary": "backup-db.sh chỉ đánh dấu hoàn tất sau khi dump cục bộ được kiểm tra, rồi gửi nhịp Kuma ngay trong cùng tiến trình. Upload Viettel CFS được gọi bằng ExecStart thứ hai của systemd service sau đó; tiền tố '-' khiến lỗi upload không làm unit thất bại. Nhịp Kuma không chờ upload CFS. Trạng thái offsite_uploaded do script ghi phản ánh riêng R2 (mặc định false), không phản ánh CFS; Ops Center chuyển tiếp trường này nhưng không hiển thị, còn trạng thái tổng thể chỉ xét độ mới/verified của backup. Do đó CFS có thể hỏng liên tục trong khi dump cục bộ thành công và monitor vẫn được làm mới xanh.",
+    "trigger": "Timer backup nightly hoặc 15 phút chạy backup-db.sh thành công trên ổ cục bộ trong lúc /mnt/viettel-cfs không mount, mất kết nối, mất seal, hoặc upload/checksum CFS thất bại. Bước upload báo lỗi nhưng systemd bỏ qua mã lỗi; các lượt backup cục bộ tiếp theo lại đẩy trạng thái Kuma thành công.",
+    "impact": "Bản sao duy nhất còn trên cùng VPS có thể bị hiểu nhầm là đã có bản sao ngoài máy. Nếu đồng thời mất VPS/ổ gốc trước khi CFS được khôi phục, có thể mất điểm khôi phục gần nhất mà Kuma/Ops không báo tình trạng CFS này. Đây là rủi ro control-flow, không phải bằng chứng CFS hiện đang hỏng hoặc đã mất dữ liệu.",
+    "evidence": [
+      {
+        "path": "scripts/backup-db.sh",
+        "line": 579,
+        "end_line": 595,
+        "sha256": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d",
+        "detail": "R2_UPLOADED khởi tạo false; chỉ được đặt true khi rclone hoàn tất; trường này không được cập nhật bởi uploader CFS riêng."
+      },
+      {
+        "path": "scripts/backup-db.sh",
+        "line": 598,
+        "end_line": 616,
+        "sha256": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d",
+        "detail": "Sau local archive verification, status succeeded=true/verified=true được ghi; offsite_uploaded lấy từ cờ R2_UPLOADED."
+      },
+      {
+        "path": "scripts/backup-db.sh",
+        "line": 623,
+        "end_line": 650,
+        "sha256": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d",
+        "detail": "Kuma nhận status=up sau khi backup script kết thúc phần kiểm local; call không đợi hoặc phụ thuộc upload Viettel CFS."
+      },
+      {
+        "path": "scripts/systemd/clinicai-backup.service",
+        "line": 24,
+        "end_line": 30,
+        "sha256": "042298b6c2ed9598b1008a2638bb6ef28821755d4ea3b2647faa02446d2ad31f",
+        "detail": "Systemd chạy backup-db.sh rồi mới chạy uploader; uploader được tiền tố '-' nên exit khác 0 không làm thất bại service. Comment xác nhận chỉ ghi lỗi vào journal."
+      },
+      {
+        "path": "scripts/systemd/clinicai-backup-15p.service",
+        "line": 24,
+        "end_line": 30,
+        "sha256": "d7427c5e7b5caf73a62c8d5192d5c1663b7bd05643f724292b91d48ce21833eb",
+        "detail": "Đường backup 15 phút lặp cùng thứ tự và cùng cách bỏ qua lỗi CFS."
+      },
+      {
+        "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+        "line": 31,
+        "end_line": 40,
+        "sha256": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+        "detail": "Uploader dừng lỗi khi mount CFS không tồn tại hoặc thiếu tùy chọn seal; đây là tình huống lỗi có thể kích hoạt trigger."
+      },
+      {
+        "path": "scripts/day-sao-luu-len-viettel-storage.sh",
+        "line": 58,
+        "end_line": 84,
+        "sha256": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+        "detail": "CFS upload kiểm SHA-256 đọc lại, nhưng không ghi kết quả vào backup-status hoặc báo Kuma khi upload thành công/thất bại."
+      },
+      {
+        "path": "scripts/collect_ops_status.py",
+        "line": 195,
+        "end_line": 216,
+        "sha256": "0faca8e7c1a07e230aca97dc6b85633692602f478828a66ad86e82627b3c11a0",
+        "detail": "Collector giữ lại offsite_uploaded trong snapshot, nên upstream có dữ liệu nhưng downstream vẫn phải đánh giá nó."
+      },
+      {
+        "path": "src/clinicai/services/ops_status.py",
+        "line": 177,
+        "end_line": 203,
+        "sha256": "850c3087d18eb1b8be057fd6e59265b7f233babb074dee1fc6746a623cfc5fb2",
+        "detail": "BackupState được quyết theo verified và tuổi; offsite_uploaded chỉ được trả kèm, không ảnh hưởng trạng thái backup."
+      },
+      {
+        "path": "src/clinicai/services/ops_status.py",
+        "line": 320,
+        "end_line": 340,
+        "sha256": "850c3087d18eb1b8be057fd6e59265b7f233babb074dee1fc6746a623cfc5fb2",
+        "detail": "Tổng quan degraded phụ thuộc backup.state, không xét cờ offsite_uploaded."
+      },
+      {
+        "path": "src/dashboard/app/(dashboard)/ops/OpsCenter.tsx",
+        "line": 201,
+        "end_line": 209,
+        "sha256": "a88f6bf733320f66cda4de29ac76090bfeccafb824d9876a3cb965571a8f442c",
+        "detail": "Thẻ Backup & tài nguyên hiển thị freshness, restore drill, dung lượng; không hiển thị summary.backup.offsiteUploaded."
+      },
+      {
+        "path": "monitoring/monitors.json",
+        "line": 97,
+        "end_line": 107,
+        "sha256": "14b2d6361b7dea973dd5ce7a9901240463ddcd53ca6d01e39cfd58871eca2cfb",
+        "detail": "Monitor push được định nghĩa là đo backup gần nhất còn tươi và dùng thông báo ops; nhịp hiện tại được phát từ script trước bước CFS."
+      }
+    ],
+    "caller_and_side_effect": "clinicai-backup.timer → clinicai-backup.service (đêm) và clinicai-backup-15p.timer → clinicai-backup-15p.service; mỗi service gọi backup-db.sh trước, rồi day-sao-luu-len-viettel-storage.sh. Backup script phát Kuma push thành công và ghi `succeeded/verified`; unit tiếp tục chạy uploader với lỗi được bỏ qua. `monitoring/monitors.json` nhận heartbeat xanh; API/OpsCenter không làm trạng thái suy giảm theo CFS upload.",
+    "recommendation": "Tách hai trạng thái local_verified và offsite_verified. Chỉ cập nhật monitor/badge CFS sau khi uploader đã mount-check, copy, đọc lại checksum và ghi receipt bền cho đúng archive/manifest. Lỗi upload phải mở cảnh báo còn tồn tại hoặc để offsite heartbeat quá hạn; không để local backup thành công đóng tín hiệu offsite. Bổ sung hiển thị trạng thái CFS trong Ops và nghiệm thu trên staging disposable với mount fail/copy fail/success.",
+    "acceptance": "Trong staging/disposable, backup cục bộ thành công nhưng CFS unmounted hoặc upload/checksum lỗi phải giữ Kuma/offsite state ở warning/critical, hiện cảnh báo tại Ops và không ghi receipt cho archive đó. Khi upload+checksum thành công, trạng thái offsite chỉ chuyển xanh nếu receipt khớp đúng public/auth/manifest và các tệp bắt buộc theo policy. Diễn tập một lỗi rồi phục hồi CFS xác nhận cảnh báo đóng sau thành công mới; kiểm tra bằng log/status không chứa dữ liệu khách.",
+    "limitations": "Chỉ truy vết source và unit files trên exact-main snapshot. Không đọc systemd/runtime state, không kiểm tra mount CFS thật, cấu hình Kuma/Telegram, journal, payload backup hoặc PHI; không chạy script/test. CFS uploader tự nó có mountpoint, seal và checksum checks. Không kết luận lỗi CFS đang tồn tại. Existing INF-006 đã ghi nhận bộ khôi phục đầy đủ chưa được chứng minh; candidate này là nhánh hẹp hơn về sai lệch tín hiệu vận hành (heartbeat, status, UI) khi CFS upload thất bại.",
+    "related_existing_findings": [
+      "INF-001",
+      "INF-006"
+    ],
+    "source_hashes": {
+      "scripts/backup-db.sh": "a0a08aa93077e25ad9b30160387ec5435da76123b1c37e9c4b3f276c376f423d",
+      "scripts/day-sao-luu-len-viettel-storage.sh": "fb5bf108b8df40bafe0220a8b0a4cdb36254f9eea824872c2dfae2434cccd730",
+      "scripts/systemd/clinicai-backup.service": "042298b6c2ed9598b1008a2638bb6ef28821755d4ea3b2647faa02446d2ad31f",
+      "scripts/systemd/clinicai-backup-15p.service": "d7427c5e7b5caf73a62c8d5192d5c1663b7bd05643f724292b91d48ce21833eb",
+      "src/clinicai/services/ops_status.py": "850c3087d18eb1b8be057fd6e59265b7f233babb074dee1fc6746a623cfc5fb2",
+      "src/dashboard/app/(dashboard)/ops/OpsCenter.tsx": "a88f6bf733320f66cda4de29ac76090bfeccafb824d9876a3cb965571a8f442c"
+    },
+    "status": "candidate"
+  }
+]

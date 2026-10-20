@@ -1,0 +1,107 @@
+[
+  {
+    "id": "SEC-018",
+    "title": "Kênh liên hệ và thân nhân bệnh nhân đọc được bởi mọi vai trong cùng clinic",
+    "severity": "MEDIUM",
+    "evidence_level": "confirmed_static",
+    "category": "intra_tenant_patient_contact_privacy",
+    "summary": "Hai bảng patient_contact_channel và patient_next_of_kin cấp SELECT cho authenticated. RLS chỉ kiểm clinic_id qua current_clinic_ids(), helper này trả mọi clinic có membership active mà không lọc role. Comment migration nói dữ liệu dành cho nhu cầu Reception/CSKH. Đường direct PostgREST có thể cho các role authenticated khác cùng clinic đọc kênh liên hệ và dữ liệu thân nhân; chưa chứng minh runtime. RLS tiếp tục lọc theo clinic, không có bằng chứng cross-tenant.",
+    "trigger": "Một người dùng có token authenticated và membership active của clinic gọi GET /rest/v1/patient_contact_channel?select=* hoặc GET /rest/v1/patient_next_of_kin?select=* bằng PostgREST. Nếu RLS vận hành đúng, hàng trả về vẫn giới hạn ở clinic trong current_clinic_ids(); policy không áp allowlist role.",
+    "impact": "Role cùng clinic không thuộc Reception/CSKH (ví dụ DOCTOR, CASHIER hoặc role nội bộ khác) có thể có khả năng đọc hàng loạt điện thoại, Zalo, email của bệnh nhân và tên/điện thoại/quan hệ/ghi chú thân nhân. Đây là rủi ro quyền riêng tư nội tenant; không kết luận dữ liệu đã bị đọc, đã có sự cố hoặc có thể đọc chéo clinic.",
+    "evidence": [
+      {
+        "path": "supabase/migrations/20260801000003_adopt_prod_only_tables.sql",
+        "line": 70,
+        "end_line": 118,
+        "detail": "Định nghĩa hai bảng mang dữ liệu liên hệ bệnh nhân và thân nhân: channel_value, full_name, phone, relation, zalo_id, notes."
+      },
+      {
+        "path": "supabase/migrations/20260801000003_adopt_prod_only_tables.sql",
+        "line": 126,
+        "end_line": 150,
+        "detail": "Bật RLS; hai SELECT policy chỉ predicate clinic_id IN current_clinic_ids(); comment nói contact/kin là dữ liệu hành chính Reception và CSKH cần; GRANT SELECT cho authenticated."
+      },
+      {
+        "path": "supabase/migrations/20260730000003_multi_tenant_foundation.sql",
+        "line": 235,
+        "end_line": 267,
+        "detail": "current_clinic_ids() SECURITY DEFINER lấy clinic_id từ mọi clinic_membership active của current_staff_id(), không predicate role; authenticated có EXECUTE. File ở trạng thái traced trong ledger; đoạn helper/ACL được targeted-read."
+      },
+      {
+        "path": "docker-compose.supabase.yml",
+        "line": 152,
+        "end_line": 171,
+        "detail": "PostgREST v12.2.3 bật schema public; role anon và JWT được cấu hình. Cùng migration nền GRANT USAGE schema public cho authenticated."
+      },
+      {
+        "path": "caddy/Caddyfile",
+        "line": 191,
+        "end_line": 194,
+        "detail": "Route /rest/v1/* được proxy qua Supabase gateway; đây là đường dẫn direct REST suy ra từ cấu hình."
+      },
+      {
+        "path": "src/clinicai/api/identity.py",
+        "line": 56,
+        "end_line": 70,
+        "detail": "Role enum có DOCTOR, RECEPTION, CSKH, MANAGEMENT, CASHIER và các role nội bộ khác."
+      },
+      {
+        "path": "supabase/tests/tenant_scoped_rls.sql",
+        "line": 388,
+        "end_line": 429,
+        "detail": "Test SET ROLE authenticated và kiểm tra hai clinic cho patient, patient_summary, clinic_location; không có assertion cho patient_contact_channel hoặc patient_next_of_kin."
+      },
+      {
+        "path": "supabase/tests/role_scoped_clinical_read.sql",
+        "line": 102,
+        "end_line": 144,
+        "detail": "Test doctor/reception về clinical_record, clinical_form_response và patient; không kiểm tra role boundary của contact/kin."
+      }
+    ],
+    "validation": {
+      "method": "static_trace_pinned_main",
+      "command": "nl -ba supabase/migrations/20260801000003_adopt_prod_only_tables.sql | sed -n '70,150p'; nl -ba supabase/migrations/20260730000003_multi_tenant_foundation.sql | sed -n '235,267p'; nl -ba docker-compose.supabase.yml | sed -n '152,171p'; nl -ba caddy/Caddyfile | sed -n '191,194p'; nl -ba supabase/tests/tenant_scoped_rls.sql | sed -n '388,429p'; nl -ba supabase/tests/role_scoped_clinical_read.sql | sed -n '102,144p'",
+      "result": "Migration target, role helper, REST exposure config, role enum, grants and test coverage traced statically on the pinned snapshot. No DB/HTTP/test command executed.",
+      "limitations": "PostgREST access is a static inference from schema exposure, route, table SELECT privilege and policy, not a successful runtime request. No effective catalog ACL or JWT-role query was run. No production/disposable database probe. Migration comment documents intended Reception/CSKH users but business owner has not confirmed the complete role matrix."
+    },
+    "recommendation": "Xác nhận ma trận vai với chủ phòng khám; sau đó giới hạn SELECT bằng clinic+role helper/allowlist đã duyệt hoặc thu hồi quyền đọc trực tiếp authenticated và đưa qua FastAPI projection có authorization và audit. Giữ clinic predicate. Bổ sung test synthetic cho hai clinic và nhiều role trên cả SQL authenticated session lẫn PostgREST, đồng thời bảo toàn đường đọc email cần cho invoice.",
+    "acceptance": "Trong disposable DB từ migration state xác định, Reception/CSKH và role được duyệt đọc đúng clinic của mình; role không được duyệt không đọc được hàng hai bảng qua REST; identity clinic A không thấy clinic B; invoice projection cần email contact vẫn hoạt động trong scope giao dịch. Ghi migration/schema state và test output không chứa hàng dữ liệu.",
+    "alignment": [
+      "Reality dễ nhìn thấy",
+      "Ownership rõ",
+      "Bệnh nhân ít phải chờ trong bất định",
+      "Quyết định dựa trên bằng chứng tốt hơn"
+    ],
+    "related_tests": [
+      "supabase/tests/tenant_scoped_rls.sql:388-429 (không bao gồm hai bảng contact/kin)",
+      "supabase/tests/role_scoped_clinical_read.sql:102-144 (không bao gồm role boundary của hai bảng contact/kin)",
+      "supabase/tests/multi_tenant_foundation.sql (đã targeted-read; kiểm contract tenant, không phải role boundary contact/kin)"
+    ],
+    "related_findings": [
+      {
+        "id": "SEC-005",
+        "relationship": "Related least-privilege/privacy class but distinct candidate: SEC-005 concerns staff identity/legal records exposed by backend staff list/read; SEC-018 concerns patient/relative contact tables with direct PostgREST SELECT. Different subjects, tables, access paths and evidence."
+      }
+    ],
+    "status": "open",
+    "main_validation": {
+      "sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+      "status": "still_present_on_main",
+      "note": "Static policy/grant/helper/config remain on the exact pinned source. No runtime or production verification.",
+      "production_verified": false
+    },
+    "source_hashes": {
+      "supabase/migrations/20260801000003_adopt_prod_only_tables.sql": "07b5ecaa90ae9b493def14757f17c696d2c90dd6b9762a817595b4943fd1549b",
+      "supabase/migrations/20260730000003_multi_tenant_foundation.sql": "576ec5f9fe153ef8bf12af942a64ef9f8bc36f64060428eb4df1dd2e1c2bae23",
+      "docker-compose.supabase.yml": "b2d13fc2f6f0597684c618d1af6a085a56bf64d86d1240621120d3b75eb16c76",
+      "caddy/Caddyfile": "e4e6d08d9773e723ad3f5ee3315e6834669d83625a52880f9232a89289812739",
+      "src/clinicai/api/identity.py": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "supabase/tests/tenant_scoped_rls.sql": "d9e56b39281ce8364c94602c2466ddc814027f72bdc01b5bfecd4fccf2076383",
+      "supabase/tests/role_scoped_clinical_read.sql": "6e483d91038a036d7f5e02bb7ab9d78dbc44e7f9283b60bdaa41a59d5ddafc87",
+      "supabase/tests/multi_tenant_foundation.sql": "c4d559d49f698d4f8e352f90534b0b0811e35fcd67587de1c1a446141a18ffae",
+      "supabase/migrations/20260730000008_table_grants.sql": "9ea0bba006570080f88fea0c545bd12c015159ceda21ed48dfa764c969198f37",
+      "supabase/migrations/20260730000013_role_scoped_clinical_read.sql": "af2665b4bea1c78645b6e152b4fe51fd41ffb0d1e7a3b5ae4be7ac2a89c4a464",
+      "supabase/migrations/20260915000021_thu_ky_rls_theo_bac_si.sql": "7b162f610db3b7a4c2127003bd261f89cfe49fae29db5c0e02b495587edef674"
+    }
+  }
+]

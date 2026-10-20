@@ -1,0 +1,879 @@
+{
+  "schema_version": 1,
+  "round": 46,
+  "report_version": "v0.69",
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_parallel_semantic_review",
+  "scope": [
+    "booking/reschedule lifecycle",
+    "auth and location recovery",
+    "cashier/payment/refund",
+    "shift configuration"
+  ],
+  "method": "Immutable pinned Git blobs via git show. Full reads and targeted ranges are SHA-256/line checked. Tests read-not-run. No ClinicAI runtime/API/DB/provider/VPS/production/secrets/PHI.",
+  "result": {
+    "new_findings": [
+      "FE-027",
+      "CLIN-057"
+    ],
+    "extended_findings": [
+      "FE-023",
+      "SEC-027"
+    ],
+    "deduplicated": [
+      "Payment/refund candidates dedupe with INF-007, FIN-001/004/015/016 and DB-007.",
+      "Doctor assignment worklist PII adds to SEC-027; no separate ID.",
+      "Booking POST no-key replay path remains inside FE-023/CLIN-024; no duplicate appointment proven."
+    ],
+    "held_candidates": [
+      "Cashier old-date outstanding backlog scope held: comments and DB test indicate intentional cross-day work; owner policy needed.",
+      "Unassigned appointment capacity precheck vs trigger retained as policy/source-of-truth question.",
+      "Closing hour 24:30 is accepted by validation; no user-visible booking beyond shift/day boundary proved, so not promoted.",
+      "Monitor self-health and TKYK file-write assignment remain held from prior rounds."
+    ],
+    "full_source_audit_complete": false
+  },
+  "full_files": [
+    {
+      "path": "src/clinicai/core/shifts.py",
+      "sha256": "139d2cc730d785048cfe17a73f497bd43a176e773ace084d663a8784399144c2",
+      "lines": 382,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 382
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/booking.py",
+      "sha256": "776cb1df091ffaacbd200125245273c22a8e126fd2ddeaa52b3cb43512a3521e",
+      "lines": 904,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 904
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/services/booking_service.py",
+      "sha256": "583b6667005658acbbcc7e063e9d8220b2a3d02fc3136b078d2710e67c07ecb1",
+      "lines": 2998,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 2998
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/payment.py",
+      "sha256": "6280932f237506f9ad3881a904402baf76c7322055ef96131b6d41296cb9de47",
+      "lines": 570,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 570
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/cashier.py",
+      "sha256": "e37295d74204bd0cb310278436e9c07a16130d563bdd41921ebb11b0a078ae00",
+      "lines": 295,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 295
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/services/payment_service.py",
+      "sha256": "4eac996a07dedc6fe601ebd0c0a51fe54477ef79fcd2211710955e9b32ae41d1",
+      "lines": 2400,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 2400
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/services/cashier_scope_service.py",
+      "sha256": "c48ff84bb659445c9bad1d1514b78d0dcd6010d2f02005d823628b3a045e5337",
+      "lines": 483,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 483
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/services/cashier_board_service.py",
+      "sha256": "469db7b83c873eef9f0065cb93de53d67f0ff061995190841225405594097f6e",
+      "lines": 1173,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 1173
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/services/quay_thu_service.py",
+      "sha256": "4b9e52c3c8acb212fa35347e6c0f25a738348aeb119a7f6a86c06d10e7c2fd52",
+      "lines": 1646,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 1646
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/services/hoan_tien_service.py",
+      "sha256": "5da6bc69d8d6901ab9f3dec93c3173088991109c9f4d9814680970a7b21ed0d8",
+      "lines": 628,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 628
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/clinicai/api/idempotency.py",
+      "sha256": "144bd4389ed74146e90fc9b0058cef6a0bd59a596ad0d8dceaf134936fed231b",
+      "lines": 305,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 305
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/tests/services/test_cashier_scope_db.py",
+      "sha256": "44189a0f05779c5dc36aa0a6597480b8e7c98b8a5cde5707c279a1c9f97d443a",
+      "lines": 288,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 288
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/tests/services/test_cashier_board.py",
+      "sha256": "de13eaacdce29aaaae69b7f1d1255cc23e08410556447c683d9a0745be13d2bd",
+      "lines": 204,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 204
+        }
+      ],
+      "full_read": true,
+      "outcome": "Full read; finding/dedupe decisions recorded in round46.md."
+    },
+    {
+      "path": "src/tests/unit/test_kiem_cau_hinh_ca.py",
+      "sha256": "bc842b8bca520827c6e54445cc99bdac36f30cda4aa442ee01de0260f6459261",
+      "lines": 139,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 139
+        }
+      ],
+      "full_read": true,
+      "outcome": "Read validation cases; no explicit assertion for close time greater than 24:00. Test not run."
+    },
+    {
+      "path": "src/tests/unit/test_ba_ca_lam_viec.py",
+      "sha256": "333f57fdf784e2d0f892d975afebd0897827a4d07c84cd96a1c0b5f0d282cc8a",
+      "lines": 210,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 210
+        }
+      ],
+      "full_read": true,
+      "outcome": "Read shift conversion and weekday window tests; test not run."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/chon-co-so/actions.ts",
+      "sha256": "17038ce92c49dd1a1422186b8e518c9a44d19343c7dfbfb6a2206d527ed36e5e",
+      "lines": 25,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 25
+        }
+      ],
+      "full_read": true,
+      "outcome": "Read location-choice action/cookie write."
+    },
+    {
+      "path": "src/dashboard/tests/identity-authority-boundary.test.mts",
+      "sha256": "276df7ac1db5670bde65f8933080d26fc148d73041586e0a9b51856ed430e993",
+      "lines": 44,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 44
+        }
+      ],
+      "full_read": true,
+      "outcome": "Read identity authority boundary tests; no selector/form network case; test not run."
+    }
+  ],
+  "targeted_traces": [
+    {
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "lines": 1132,
+      "read_ranges": [
+        {
+          "start": 839,
+          "end": 1032
+        }
+      ],
+      "full_read": false,
+      "outcome": "Trace PATCH shift/opening-hours validation and transactional settings write."
+    },
+    {
+      "path": "src/clinicai/services/capacity_service.py",
+      "sha256": "65d465f0f52671818225f85cf8cef5a1102d48925dec3d2224206bd49b95930a",
+      "lines": 744,
+      "read_ranges": [
+        {
+          "start": 350,
+          "end": 479
+        }
+      ],
+      "full_read": false,
+      "outcome": "Trace slot generation and filtering against half-open shift windows."
+    },
+    {
+      "path": "src/dashboard/lib/soat-gio-ca.ts",
+      "sha256": "2a744d9e31297d930acfb5070c9175b093331300f3ad7b2dd51a9d56328811eb",
+      "lines": 136,
+      "read_ranges": [
+        {
+          "start": 37,
+          "end": 135
+        }
+      ],
+      "full_read": false,
+      "outcome": "Browser/server hour parsing has matching 24-hour bound; route remains server source of truth."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/GioCaLamViecCard.tsx",
+      "sha256": "21e160718ea846315daa8020b71acf43aeded799793397525d5d92876d8e6202",
+      "lines": 260,
+      "read_ranges": [
+        {
+          "start": 43,
+          "end": 143
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read state/save flow and catch/finally behavior for settings card."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/settings/GioCaLamViecCard.tsx",
+      "sha256": "21e160718ea846315daa8020b71acf43aeded799793397525d5d92876d8e6202",
+      "lines": 260,
+      "read_ranges": [
+        {
+          "start": 165,
+          "end": 259
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read input, warning, and save UI; time entries are text inputs."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/patients/AppointmentBooking.tsx",
+      "sha256": "98a82533a1a34882aa35b37128360602f8d1913f947ad446998ed45298faacc1",
+      "lines": 627,
+      "read_ranges": [
+        {
+          "start": 285,
+          "end": 355
+        },
+        {
+          "start": 287,
+          "end": 313
+        },
+        {
+          "start": 322,
+          "end": 355
+        },
+        {
+          "start": 290,
+          "end": 310
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read first-party PATCH/POST booking flows; no idempotency key in body/headers."
+    },
+    {
+      "path": "src/clinicai/events/catalogue.py",
+      "sha256": "495889a4fde8829dbd4617a579be72cb7025fcb294bb411975bb5a7ad64be853",
+      "lines": 2401,
+      "read_ranges": [
+        {
+          "start": 470,
+          "end": 478
+        }
+      ],
+      "full_read": false,
+      "outcome": "Reschedule event contract includes from/to appointment time and doctor-change flag."
+    },
+    {
+      "path": "src/clinicai/services/notification_relay.py",
+      "sha256": "3ede1c519c646d43ffa83daaa9d6a6bcdea08887f6822a79301e684524cd409f",
+      "lines": 269,
+      "read_ranges": [
+        {
+          "start": 128,
+          "end": 257
+        },
+        {
+          "start": 128,
+          "end": 145
+        },
+        {
+          "start": 216,
+          "end": 240
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read unpublished event polling and per-event delivery/mark-published path."
+    },
+    {
+      "path": "src/clinicai/services/notification_templates.py",
+      "sha256": "b4a6eecdec0e01cf7f820ccc575a48b70c8e9870e7fbada17fa1a39f28698f6d",
+      "lines": 124,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 112
+        },
+        {
+          "start": 107,
+          "end": 112
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read operations notification templates; appointment.rescheduled is registered."
+    },
+    {
+      "path": "src/clinicai/events/emit.py",
+      "sha256": "07f3767c324fe5eedb6abf50901f9411e3f011d5ef0877388709b3edcb0b8616",
+      "lines": 239,
+      "read_ranges": [
+        {
+          "start": 118,
+          "end": 228
+        },
+        {
+          "start": 178,
+          "end": 228
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read event ID creation and event_delivery insertion."
+    },
+    {
+      "path": "src/clinicai/api/identity.py",
+      "sha256": "0149cbcc5a84af627c17c51226430b8d71a6007d730d250371af6080e8c978ea",
+      "lines": 1120,
+      "read_ranges": [
+        {
+          "start": 531,
+          "end": 538
+        },
+        {
+          "start": 638,
+          "end": 659
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read location selector validation in authenticated identity resolution."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/identity.py",
+      "sha256": "ed4087251f20a0abdbfa384c0951aaa8938c856bede12fee5681514f7cfb28ab",
+      "lines": 262,
+      "read_ranges": [
+        {
+          "start": 74,
+          "end": 78
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read /me/co-so endpoint and guard dependency."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/chon-co-so/page.tsx",
+      "sha256": "e0ccd31718c4d2e35ed2f5209e4023b04b83081a09e981cadd9b9e138a0b0219",
+      "lines": 86,
+      "read_ranges": [
+        {
+          "start": 21,
+          "end": 85
+        },
+        {
+          "start": 26,
+          "end": 34
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read selector loading, redirect, and option rendering."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "sha256": "b91e0f70a9d124e48a4a117dfc6239945e541276c7de7868983f487b6bd8f040",
+      "lines": 105,
+      "read_ranges": [
+        {
+          "start": 80,
+          "end": 105
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read logout/login cleanup for stale location cookie workaround."
+    },
+    {
+      "path": "src/tests/test_identity.py",
+      "sha256": "4ef37b41fa43749d7aa35e3eefa814f2ac24f55fcd716c61e8732e6f62a713a2",
+      "lines": 498,
+      "read_ranges": [
+        {
+          "start": 394,
+          "end": 456
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read inactive/invalid location authorization tests; no selector recovery assertion; test not run."
+    },
+    {
+      "path": "src/tests/test_booking_service.py",
+      "sha256": "79cfb11305c82bbb1386c1ee3e3e8f9050ffb392a41a23dc845249120eeafbd0",
+      "lines": 1095,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 120
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read test structure/transition setup; test not run."
+    },
+    {
+      "path": "src/tests/unit/test_idempotency.py",
+      "sha256": "4c2e0381008afe2419d1cbce285724274eb75d2c9022dda3f1edcf472d3f8b08",
+      "lines": 297,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 180
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read generic idempotency guard tests; PATCH reschedule path not covered; test not run."
+    },
+    {
+      "path": "src/tests/services/test_doi_lich_nhanh_db.py",
+      "sha256": "237d79bd8bb1aff716b1cdf9a24bc909c6085d24a8f0262856a19577e51f6dfe",
+      "lines": 351,
+      "read_ranges": [
+        {
+          "start": 150,
+          "end": 185
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read event/history assertions for the separate fast-reschedule POST flow; test not run."
+    },
+    {
+      "path": "src/dashboard/tests/hang-cho-bac-si-boundary.test.mts",
+      "sha256": "c784fb4a3fbc57e60d800b287b51f0462627771888bac18747014086c5c8aaf4",
+      "lines": 99,
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 80
+        }
+      ],
+      "full_read": false,
+      "outcome": "Read worklist projection/UI boundary test; no route capability test; test not run."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx",
+      "sha256": "b3301ee546160cb5855b4940954298c18f51fcd96fff362b3aa0fd470808a1ce",
+      "lines": 279,
+      "read_ranges": [
+        {
+          "start": 113,
+          "end": 140
+        },
+        {
+          "start": 262,
+          "end": 275
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/BaoXepBacSi.tsx",
+      "sha256": "99a169854d0783c44971b4dae052459147745ff0f4d1921ca7ab2aa515369237",
+      "lines": 66,
+      "read_ranges": [
+        {
+          "start": 13,
+          "end": 65
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/DauUuTien.tsx",
+      "sha256": "4381d48b6377b6a65e2b27af1e1c8a31019ce9754783cf46dc0094ade57e0fde",
+      "lines": 92,
+      "read_ranges": [
+        {
+          "start": 9,
+          "end": 91
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/customers/LichTrungCuaKhach.tsx",
+      "sha256": "97ccecfb420559906fb0c946fa95f2398354d20d943f4091cc72a32477829737",
+      "lines": 169,
+      "read_ranges": [
+        {
+          "start": 33,
+          "end": 168
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/app/api/appointments/route.ts",
+      "sha256": "46f7dedccaf35018a23ac27a76de0731f4e8a730d55eff3873afa382e42e81bc",
+      "lines": 310,
+      "read_ranges": [
+        {
+          "start": 176,
+          "end": 209
+        },
+        {
+          "start": 16,
+          "end": 28
+        },
+        {
+          "start": 267,
+          "end": 309
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "supabase/migrations/20260805000007_appointment_patient_slot_unique.sql",
+      "sha256": "e31e76d68b3dc64464f88795a18267a1d0c2c0e674aad6f5c45c750d71ffa159",
+      "lines": 74,
+      "read_ranges": [
+        {
+          "start": 67,
+          "end": 69
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/forgot-password/ForgotPasswordForm.tsx",
+      "sha256": "a8f656432cf6a53906665d6aa229179cba3cc0c827f57919f5a3f47901c05f3b",
+      "lines": 118,
+      "read_ranges": [
+        {
+          "start": 20,
+          "end": 39
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/reset-password/ResetPasswordForm.tsx",
+      "sha256": "733881a027a6c12c50e526daf24928f7f488a8e9feec68ec7dc9ecd7e266fcce",
+      "lines": 181,
+      "read_ranges": [
+        {
+          "start": 31,
+          "end": 44
+        },
+        {
+          "start": 46,
+          "end": 73
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/clinicai/api/v1/patients.py",
+      "sha256": "a68c249ec34ea4d71839f5e786471a52c24868b2e8aeb5c006c7938473d9574a",
+      "lines": 435,
+      "read_ranges": [
+        {
+          "start": 253,
+          "end": 264
+        },
+        {
+          "start": 273,
+          "end": 316
+        },
+        {
+          "start": 82,
+          "end": 101
+        }
+      ],
+      "full_read": false,
+      "outcome": "GET by ID chỉ phụ thuộc get_current_identity."
+    },
+    {
+      "path": "src/clinicai/services/patient_service.py",
+      "sha256": "61c7e5c26040e0cc479291e6d7f6906e73544415555b253f15340e626cf9d424",
+      "lines": 712,
+      "read_ranges": [
+        {
+          "start": 333,
+          "end": 345
+        },
+        {
+          "start": 384,
+          "end": 402
+        },
+        {
+          "start": 404,
+          "end": 442
+        }
+      ],
+      "full_read": false,
+      "outcome": "GET by ID SELECT * và chuyển toàn dòng thành PatientDTO."
+    },
+    {
+      "path": "src/clinicai/schemas/patient.py",
+      "sha256": "0f306e8715b53ad6946b2b09324c827b6819b05b6e354ac13775caef614f5ba4",
+      "lines": 384,
+      "read_ranges": [
+        {
+          "start": 328,
+          "end": 356
+        }
+      ],
+      "full_read": false,
+      "outcome": "PatientDTO có phone/email/address/DOB/guardian; national ID chỉ được mask."
+    },
+    {
+      "path": "src/clinicai/permissions/catalogue.py",
+      "sha256": "b160070a879a4c32f82ffc2239fbfa2692d1216415cc5057c7c6653e89024158",
+      "lines": 1271,
+      "read_ranges": [
+        {
+          "start": 791,
+          "end": 792
+        }
+      ],
+      "full_read": false,
+      "outcome": "PHARMACIST preset có quyền quầy thuốc, không có patient.list.view."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/thu_ky.py",
+      "sha256": "42ce0064f2e197839191778df434bf10317931ebe51827136b8fd13963f0c654",
+      "lines": 106,
+      "read_ranges": [
+        {
+          "start": 68,
+          "end": 77
+        },
+        {
+          "start": 95,
+          "end": 106
+        }
+      ],
+      "full_read": false,
+      "outcome": "GET hành chính chỉ yêu cầu get_current_identity rồi trả hồ sơ qua service."
+    },
+    {
+      "path": "src/clinicai/services/ho_so_khach_doc.py",
+      "sha256": "f90eb5c9ed3723bc50f68cff3cf777bae742472964d1e79d97ce387935b784bf",
+      "lines": 221,
+      "read_ranges": [
+        {
+          "start": 46,
+          "end": 69
+        },
+        {
+          "start": 72,
+          "end": 117
+        },
+        {
+          "start": 200,
+          "end": 218
+        }
+      ],
+      "full_read": false,
+      "outcome": "Luật mở hồ sơ cho mọi vai ngoài TKYK (TKYK chưa phân công được mở toàn clinic)."
+    },
+    {
+      "path": "src/clinicai/services/doctor_board_service.py",
+      "sha256": "1be0c0e7eea9964e5e40b352e77cdf56afa320c3c65c6d8a73d0a72bf4756497",
+      "lines": 274,
+      "read_ranges": [
+        {
+          "start": 49,
+          "end": 75
+        },
+        {
+          "start": 115,
+          "end": 129
+        }
+      ],
+      "full_read": false,
+      "outcome": "SQL lọc clinic/location; doctor_id có thể bỏ trống, assignment filter chỉ áp cho TKYK."
+    },
+    {
+      "path": "src/clinicai/main.py",
+      "sha256": "d5f6fdfb1a9b2c8ef50d41cb0b9d3f69deec4fd9021dfecffaff26bb17ed0e30",
+      "lines": 654,
+      "read_ranges": [
+        {
+          "start": 416,
+          "end": 423
+        }
+      ],
+      "full_read": false,
+      "outcome": "Booking router gắn runaway_guard; không có guard quyền theo đối tượng."
+    },
+    {
+      "path": "src/tests/services/test_doctor_board.py",
+      "sha256": "1690169a91133e31964c71b4be3531f47a2e147428c4bee4ffecd832e3d9f46d",
+      "lines": 166,
+      "read_ranges": [
+        {
+          "start": 127,
+          "end": 166
+        }
+      ],
+      "full_read": false,
+      "outcome": "Test chỉ kiểm tham số service/datetime, không có authorization test cho route."
+    },
+    {
+      "path": "src/clinicai/services/lich_hen_doc.py",
+      "sha256": "3669a4b4effc30cbdfbdecd2a3baf641f7c1afac50396b31c937ceae9980c64f",
+      "lines": 175,
+      "read_ranges": [
+        {
+          "start": 105,
+          "end": 132
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/consent.py",
+      "sha256": "6e68c4c00e96afc9c029b49a358f3e6c9faef2501ec2d1812961754326f5bb29",
+      "lines": 138,
+      "read_ranges": [
+        {
+          "start": 36,
+          "end": 47
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/clinicai/services/consent_service.py",
+      "sha256": "b2f1f305282eace46a6fc38d0dab4ad7a4acdf65afeea84037b16abb2eb9d2d2",
+      "lines": 454,
+      "read_ranges": [
+        {
+          "start": 140,
+          "end": 185
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/lib/co-so.ts",
+      "sha256": "2f88d8e28b56264f2c2e5ecd0edef8af74629912ec92fe8b5a1d01f5b72314e6",
+      "lines": 23,
+      "read_ranges": [
+        {
+          "start": 9,
+          "end": 23
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    },
+    {
+      "path": "src/dashboard/lib/backend-proxy.ts",
+      "sha256": "3fc121a9f75cd42e8304c974224fe7584749e10f3fce79d71a3a632304f74515",
+      "lines": 323,
+      "read_ranges": [
+        {
+          "start": 256,
+          "end": 267
+        }
+      ],
+      "full_read": false,
+      "outcome": "Evidence range read and hash-checked."
+    }
+  ],
+  "reviewer_note": "Booking and payment subagents read the assigned full files. Candidate severities reflect conditional same-tenant operational effects; no runtime or production behavior was claimed."
+}

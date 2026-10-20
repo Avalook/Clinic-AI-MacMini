@@ -1,0 +1,448 @@
+{
+  "round": 39,
+  "snapshot_sha": "956ba4f236b1c92f1280d2097018c199e90ce8c7",
+  "mode": "read_only_exact_main_semantic_review",
+  "scope": [
+    "company invoice history UI failure/cap semantics and company-profile concurrent upsert",
+    "roster substitution scope and clinical competency policy",
+    "service-order assignment boundaries and deduplication",
+    "password change session revocation and audit event response"
+  ],
+  "method": "Read immutable Git content via git show at the pinned commit. Tests and migrations were read only; no ClinicAI test/runtime/API/DB/provider, production, secrets or patient data access. Exact source hashes and targeted ranges recorded below.",
+  "result": "Extended FE-004 and FE-022; extended SEC-025 with conditional audit-event persistence gap; added FIN-018 for a conditional duplicate company-profile race. No new clinical authorization finding: service-order assignment and roster clinical competency remain held product-policy questions.",
+  "files": [
+    {
+      "path": "src/dashboard/app/(dashboard)/hoa-don/CongTyHoaDon.tsx",
+      "read_ranges": [
+        {
+          "start": 83,
+          "end": 87
+        },
+        {
+          "start": 136,
+          "end": 145
+        }
+      ],
+      "sha256": "d6c11a88bc2aab1a3b1c2c2331ede4a98603c31dc2aa856d2fc98ec444f714e1",
+      "lines": 154,
+      "depth": "targeted_trace",
+      "notes": "History fetch error-to-empty state and rendered empty copy."
+    },
+    {
+      "path": "src/dashboard/app/api/hoa-don/cong-ty/phieu/[id]/lich-su/route.ts",
+      "read_ranges": [
+        {
+          "start": 8,
+          "end": 12
+        }
+      ],
+      "sha256": "a702de6bdaaacb803e3543c965c76130006b0c4dea13d06c26ef6bc08789c41d",
+      "lines": 12,
+      "depth": "targeted_trace",
+      "notes": "BFF history response forwarding."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/hoa_don_cong_ty.py",
+      "read_ranges": [
+        {
+          "start": 138,
+          "end": 147
+        }
+      ],
+      "sha256": "6cace4124b7e883edfa5224d4dae9399245f02eebe6ed468b42cbe66f98418c7",
+      "lines": 147,
+      "depth": "targeted_trace",
+      "notes": "History endpoint guard and response."
+    },
+    {
+      "path": "src/clinicai/services/hoa_don_cong_ty_service.py",
+      "read_ranges": [
+        {
+          "start": 374,
+          "end": 394
+        },
+        {
+          "start": 492,
+          "end": 520
+        },
+        {
+          "start": 705,
+          "end": 728
+        }
+      ],
+      "sha256": "5a531711543f93e9d8c5a008e55d25d8f7fd484e3b0da3c5ca770e0877dfa194",
+      "lines": 772,
+      "depth": "targeted_trace",
+      "notes": "Invoice lock scope, company profile lookup/insert, capped invoice history."
+    },
+    {
+      "path": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+      "read_ranges": [
+        {
+          "start": 14,
+          "end": 38
+        }
+      ],
+      "sha256": "3d0c14703267d659bdfb1d6c93583dfd7299fd25f820cf4b2216b6c4850d9585",
+      "lines": 110,
+      "depth": "targeted_trace",
+      "notes": "Company profile uniqueness/index contract."
+    },
+    {
+      "path": "src/tests/services/test_hoa_don_cong_ty_db.py",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 463
+        }
+      ],
+      "sha256": "84b9d531f7720be5e331c00e30bebfee7ff9bb5a9965a1046fd8f4a2bc3f8a9c",
+      "lines": 463,
+      "depth": "test_read",
+      "notes": "Company invoice/profile tests read only; no cross-cycle concurrent upsert test found."
+    },
+    {
+      "path": "src/clinicai/services/ngoai_le_ca_truc_service.py",
+      "read_ranges": [
+        {
+          "start": 26,
+          "end": 100
+        },
+        {
+          "start": 102,
+          "end": 132
+        },
+        {
+          "start": 134,
+          "end": 158
+        }
+      ],
+      "sha256": "a11e78bd23aeb7f3fae5622ea57c6d39a1b4ca01d246c384337ab52b20ee27c7",
+      "lines": 161,
+      "depth": "targeted_trace",
+      "notes": "Roster exception workflow and replacement acceptance."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/schedule/NgoaiLeCaTruc.tsx",
+      "read_ranges": [
+        {
+          "start": 47,
+          "end": 58
+        },
+        {
+          "start": 108,
+          "end": 113
+        },
+        {
+          "start": 142,
+          "end": 152
+        }
+      ],
+      "sha256": "0e7eb9b61ac6c41e53a001d47e2044ae7f00f577bf10e49bf6e0a0adfd402b7d",
+      "lines": 157,
+      "depth": "targeted_trace",
+      "notes": "Exception roster UI states."
+    },
+    {
+      "path": "src/clinicai/services/config_service.py",
+      "read_ranges": [
+        {
+          "start": 823,
+          "end": 1017
+        }
+      ],
+      "sha256": "8bbac0e8bada2d5cb65a5f4b6c4d8817e4e7ff2b6ebad0f66ce56c424cbd2fba",
+      "lines": 1954,
+      "depth": "targeted_trace",
+      "notes": "Shift-swap policy and open replacement selection path."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/config.py",
+      "read_ranges": [
+        {
+          "start": 61,
+          "end": 62
+        },
+        {
+          "start": 408,
+          "end": 428
+        }
+      ],
+      "sha256": "2a868481567f9f301cded3f8bd0e12b8351d0d348682f95823051ae7dc323a7f",
+      "lines": 1132,
+      "depth": "targeted_trace",
+      "notes": "Roster route capability guards."
+    },
+    {
+      "path": "src/dashboard/app/api/roster/ngoai-le-ca-truc/route.ts",
+      "read_ranges": [
+        {
+          "start": 1,
+          "end": 25
+        }
+      ],
+      "sha256": "ba837e70bfdcbe6a4617b6288bf8a9591e244af1316902c8a1e7b621d7e3bccc",
+      "lines": 36,
+      "depth": "targeted_trace",
+      "notes": "Roster BFF route."
+    },
+    {
+      "path": "src/tests/services/test_doi_nguoi_trong_ca_db.py",
+      "read_ranges": [
+        {
+          "start": 39,
+          "end": 105
+        }
+      ],
+      "sha256": "7f3965929b08c41cb077fd020374d7715d384aa81fae4accd492253c6ee76be6",
+      "lines": 168,
+      "depth": "test_read",
+      "notes": "Read-only test deliberately swaps reception to CSKH and checks transferred station permissions."
+    },
+    {
+      "path": "supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql",
+      "read_ranges": [
+        {
+          "start": 110,
+          "end": 151
+        },
+        {
+          "start": 168,
+          "end": 227
+        }
+      ],
+      "sha256": "f2c29e4dcc397c6cf9a349917c2cd51f69b9cbfbba4ffb764477d6126e842426",
+      "lines": 229,
+      "depth": "targeted_trace",
+      "notes": "Roster substitute membership and permission transfer schema."
+    },
+    {
+      "path": "src/clinicai/permissions/can.py",
+      "read_ranges": [
+        {
+          "start": 8,
+          "end": 11
+        }
+      ],
+      "sha256": "fc0e2ba27b8db2a2e7a129104b56da1a154cb03452b42b28e405724aab0c7c37",
+      "lines": 145,
+      "depth": "targeted_trace",
+      "notes": "Authorization capability helper."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/luot_kham.py",
+      "read_ranges": [
+        {
+          "start": 676,
+          "end": 693
+        }
+      ],
+      "sha256": "ddfd5649bdb8ee21a24b5ebee57e147d38675aaf72173364d5fa5e47669f986a",
+      "lines": 1221,
+      "depth": "targeted_trace",
+      "notes": "Current POST service-order route and capability."
+    },
+    {
+      "path": "src/clinicai/services/chi_dinh_service.py",
+      "read_ranges": [
+        {
+          "start": 177,
+          "end": 195
+        },
+        {
+          "start": 211,
+          "end": 230
+        }
+      ],
+      "sha256": "58bf83daa0d2aeee93a24011cc47ab7a95314cc31a7e58991b709b1d3ab1071e",
+      "lines": 506,
+      "depth": "targeted_trace",
+      "notes": "Service-order consultation resolution, locking and order insert path."
+    },
+    {
+      "path": "src/clinicai/services/luot_kham_service.py",
+      "read_ranges": [
+        {
+          "start": 2138,
+          "end": 2144
+        },
+        {
+          "start": 2292,
+          "end": 2298
+        }
+      ],
+      "sha256": "5f64596a1367fdb42d84900008b60e3466633372b7286793f4adb3c63c326103",
+      "lines": 3929,
+      "depth": "targeted_trace",
+      "notes": "Comparison paths that validate on-duty doctor."
+    },
+    {
+      "path": "src/clinicai/permissions/ca_truc.py",
+      "read_ranges": [
+        {
+          "start": 150,
+          "end": 194
+        }
+      ],
+      "sha256": "deb482a8ecb5215169e43f177079b9d55525ff15832f3e89551da65f1872e17d",
+      "lines": 215,
+      "depth": "targeted_trace",
+      "notes": "On-duty doctor/team assignment helper."
+    },
+    {
+      "path": "src/tests/services/test_chi_dinh_db.py",
+      "read_ranges": [
+        {
+          "start": 154,
+          "end": 229
+        }
+      ],
+      "sha256": "bd652ebd93b218c2ceac3662c5fb9ee8cf56349eae04c8dc8e10d931e93a13e8",
+      "lines": 319,
+      "depth": "test_read",
+      "notes": "Order tests read only; no unrelated-staff negative case found."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/work_items.py",
+      "read_ranges": [
+        {
+          "start": 482,
+          "end": 566
+        },
+        {
+          "start": 642,
+          "end": 660
+        }
+      ],
+      "sha256": "ebb7020d9835d0e13f6d82ea6923139011cfa963126881defae4b6083ab11376",
+      "lines": 719,
+      "depth": "targeted_trace",
+      "notes": "Draft/current-order and duplicate-service reads."
+    },
+    {
+      "path": "src/clinicai/services/service_order_service.py",
+      "read_ranges": [
+        {
+          "start": 85,
+          "end": 120
+        },
+        {
+          "start": 263,
+          "end": 290
+        },
+        {
+          "start": 433,
+          "end": 449
+        },
+        {
+          "start": 553,
+          "end": 574
+        }
+      ],
+      "sha256": "7769a29159ba4b807da90fea28694d1868458a5056ea1513b68dda7a9bfcf732",
+      "lines": 868,
+      "depth": "targeted_trace",
+      "notes": "Service-order read/approval assignment checks across role paths."
+    },
+    {
+      "path": "supabase/migrations/20260801000002_order_services.sql",
+      "read_ranges": [
+        {
+          "start": 177,
+          "end": 215
+        }
+      ],
+      "sha256": "5b95455c2949e2607c09d32e27fc2629e8ed30959fb5a9c42393b13471d33a87",
+      "lines": 215,
+      "depth": "targeted_trace",
+      "notes": "Duplicate-service RPC scope and execute grants."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+      "read_ranges": [
+        {
+          "start": 107,
+          "end": 115
+        },
+        {
+          "start": 117,
+          "end": 120
+        }
+      ],
+      "sha256": "627d76d7ecb3973e13eb403c73300923b042e10ee44bb782d738082e0b6e84bd",
+      "lines": 276,
+      "depth": "targeted_trace",
+      "notes": "Session revocation result and audit POST response handling."
+    },
+    {
+      "path": "src/dashboard/app/api/auth/nhat-ky-doi-mat-khau/route.ts",
+      "read_ranges": [
+        {
+          "start": 5,
+          "end": 14
+        }
+      ],
+      "sha256": "c1965845e0dca15ca0553a1501718c8471df920cef6039f5a6622f28013d83c1",
+      "lines": 15,
+      "depth": "targeted_trace",
+      "notes": "Audit BFF preserves backend error response."
+    },
+    {
+      "path": "src/clinicai/api/v1/routers/identity.py",
+      "read_ranges": [
+        {
+          "start": 243,
+          "end": 262
+        }
+      ],
+      "sha256": "ed4087251f20a0abdbfa384c0951aaa8938c856bede12fee5681514f7cfb28ab",
+      "lines": 262,
+      "depth": "targeted_trace",
+      "notes": "Password-change audit event transaction."
+    },
+    {
+      "path": "src/tests/services/test_tai_khoan_db.py",
+      "read_ranges": [
+        {
+          "start": 448,
+          "end": 468
+        }
+      ],
+      "sha256": "60ce0aa0b599ecb72710bfc8aa7e321857c05fabfdf1d13a0d0937da2a8495ed",
+      "lines": 468,
+      "depth": "test_read",
+      "notes": "Success-path audit test read only; no BFF non-2xx handling test."
+    }
+  ],
+  "held_policy_questions": [
+    {
+      "id": "ORDER-SCOPE-001",
+      "question": "Should a staff member with clinical.order.place be allowed to place an order on any same-clinic consultation, or only consultations assigned to their on-duty doctor/team?",
+      "not_promoted_reason": "Current POST lacks a per-consultation assignment check, while note-save and legacy authorization paths call kiem_dung_ca; capability scope may intentionally be clinic-wide. No explicit policy was found and no cross-clinic path is alleged.",
+      "evidence_paths": [
+        "src/clinicai/api/v1/routers/luot_kham.py",
+        "src/clinicai/services/chi_dinh_service.py",
+        "src/clinicai/services/luot_kham_service.py",
+        "src/clinicai/permissions/ca_truc.py"
+      ]
+    },
+    {
+      "id": "ROSTER-COMPETENCY-001",
+      "question": "Can an exception roster swap substitute any active same-clinic staff into a clinical station and inherit its station permissions, or is role/competency approval required?",
+      "not_promoted_reason": "Test deliberately permits a CSKH replacement for reception and checks permission transfer; product matrix for clinical rooms is not established. No auth bypass is concluded.",
+      "evidence_paths": [
+        "src/clinicai/services/config_service.py",
+        "src/tests/services/test_doi_nguoi_trong_ca_db.py",
+        "supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql"
+      ]
+    },
+    {
+      "id": "COMPANY-HIDDEN-REUSE-001",
+      "question": "Should selecting a previously hidden company profile be allowed to reuse/unhide it on a historical invoice?",
+      "not_promoted_reason": "Explicit khach_cong_ty_id validation checks clinic/patient but not an_luc; automatic suggestion lookup excludes hidden rows. Could be intentional history repair or inconsistent semantics; no policy or user impact evidence.",
+      "evidence_paths": [
+        "src/clinicai/services/hoa_don_cong_ty_service.py"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1336 @@
+{
+  "chunk": "S13",
+  "findings": [
+    {
+      "tmp_id": "S13-1",
+      "title": "Hàng chờ và bản nháp siêu âm chưa ký chỉ nhìn thấy từ 00:00 hôm nay, nên việc dở của hôm qua biến mất khỏi màn mà không báo",
+      "severity": "MEDIUM",
+      "category": "hidden_open_work",
+      "evidence_level": "confirmed_static",
+      "summary": "Màn Siêu âm lọc hàng chờ bằng work_item.created_at >= nửa đêm hôm nay và lọc tab 'soạn kết quả' bằng ultrasound_record.performed_at >= nửa đêm (days mặc định 1). performed_at chỉ được đặt một lần lúc INSERT (now()) và không đổi khi sửa nháp. Tìm trong src/clinicai không còn màn/truy vấn nào khác liệt kê bản siêu âm chưa ký. Phần dịch vụ khác (work_item_service.list_worklist) lại cố ý bỏ lọc ngày vì 'việc đang mở không hết mở khi qua nửa đêm', nên hai màn mâu thuẫn nhau về nguyên tắc.",
+      "trigger": "Có thể xảy ra nếu: bản nháp siêu âm được soạn ngày D mà chưa ký trước 00:00 (bác sĩ ký hôm sau, hoặc quên), hoặc work_item DICHVU-SIEUAM tạo ngày D còn PENDING/IN_PROGRESS sang ngày D+1. Sang D+1 màn không còn hiện chúng (trừ khi người dùng tự chỉnh tham số days; UI mặc định gửi days=1).",
+      "impact": "Kết quả siêu âm đã soạn nhưng chưa ký không có chủ, không có hạn, không có chỗ nào nhắc: bệnh nhân có thể không bao giờ nhận kết quả mà không ai biết. Thời gian 'chưa biết' kéo dài tới khi bệnh nhân gọi hỏi. Checkout cũng không chặn vì build_blockers đếm service_order/lab chứ không đếm ultrasound_record chưa ký.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 56,
+          "end_line": 63,
+          "detail": "_vn_midnight(): mốc cắt là nửa đêm hôm nay giờ VN."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 111,
+          "end_line": 114,
+          "detail": "_QUEUE_SQL: w.status IN (PENDING, IN_PROGRESS) AND w.created_at >= $3 ($3 = nửa đêm hôm nay, truyền ở dòng 252)."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 189,
+          "end_line": 191,
+          "detail": "_RECORDS_SQL: (NOT $2 AND u.signed_at IS NULL) AND u.performed_at >= $3."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 414,
+          "end_line": 418,
+          "detail": "UPDATE nháp không đổi performed_at; INSERT đặt performed_at = now() (dòng 437): sửa nháp hôm nay vẫn mang mốc ngày cũ."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 486,
+          "end_line": 492,
+          "detail": "records(): since = nửa đêm - (days-1) ngày; không có cờ báo 'còn bản chưa ký ngoài cửa sổ'."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ultrasound.py",
+          "line": 154,
+          "end_line": 168,
+          "detail": "days Query mặc định 1 (ge=1, le=90); tab soạn dùng mặc định."
+        },
+        {
+          "path": "src/dashboard/app/api/ultrasound/route.ts",
+          "line": 29,
+          "end_line": 30,
+          "detail": "BFF chuyển days = sp.get('days') ?? '1'."
+        },
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "line": 485,
+          "end_line": 489,
+          "detail": "Đối chiếu: list_worklist ghi rõ không lọc theo ngày vì 'việc mở không hết mở khi qua nửa đêm'."
+        }
+      ],
+      "limitations": "Chưa xác minh màn sieu-am của dashboard có tab nào tự truyền days lớn cho tab soạn hay không (route.ts chỉ chuyển tham số nhận được). Chưa xác nhận màn Siêu âm cũ còn được dùng để soạn kết quả thật, hay kết quả đã chuyển hết sang form_instance/tep_ket_qua. cap 300 có cờ bi_cat (điểm tốt) nhưng cửa sổ ngày thì không có cờ.",
+      "recommendation": "Bỏ lọc ngày cho cả hai danh sách chưa hoàn tất (hàng chờ PENDING/IN_PROGRESS và bản nháp chưa ký), chỉ giữ lọc ngày cho tab 'đã ký'. Thêm cờ 'còn N bản chưa ký quá 24 giờ' và gắn bản nháp chưa ký quá hạn vào một hàng việc có chủ (bác sĩ siêu âm thực hiện) + nhắc. Cân nhắc cho checkout cảnh báo mềm khi còn ultrasound_record chưa ký của lượt.",
+      "acceptance": "Test: tạo bản nháp ultrasound_record có performed_at = hôm qua, signed_at NULL, gọi records(signed=False, days=1) phải trả bản đó (hoặc bi_cat/cờ quá hạn). Test: work_item DICHVU-SIEUAM created_at hôm qua còn PENDING phải có trong queue(). Test regress: tab đã ký vẫn tôn trọng days.",
+      "alignment": [
+        "Reality rõ",
+        "Thời gian 'chưa biết' ngắn",
+        "Ownership rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-023",
+        "CLIN-050"
+      ]
+    },
+    {
+      "tmp_id": "S13-2",
+      "title": "Gửi Zalo ZNS cho khách là tác dụng phụ không hoàn tác, chạy trước khi biết việc ghi sổ có thành công không, không có idempotency, và nhánh nhắc hẹn không kèm lịch hẹn luôn hỏng sau khi đã gửi",
+      "severity": "MEDIUM",
+      "category": "external_side_effect_ordering",
+      "evidence_level": "confirmed_static",
+      "summary": "GuiZaloService.gui kiểm khách và số điện thoại rồi gọi zalo.gui_zns, sau đó mới gọi TuongTacCskhService.ghi. Request cho phép loai_tin='NHAC_HEN' với appointment_id = null (GuiZaloRequest.appointment_id tuỳ chọn). Khi đó gio_hen = '' và tin vẫn đi; rồi ghi(loai='NHAC_HEN') bị chặn ở dòng 159-160 ('Việc này phải gắn với một lịch hẹn cụ thể') và trả 422 cho người dùng. Endpoint không có Idempotency-Key và không có chặn gửi trùng.",
+      "trigger": "(a) Gọi POST /cskh/zalo/gui với loai_tin=NHAC_HEN và không có appointment_id (API không cấm; UI có thể không gửi như vậy nhưng không có gì chặn ở backend). (b) Bất kỳ lỗi nào ở ghi() sau khi Zalo đã nhận (DB lỗi, NotFound, mất kết nối). (c) Bấm lại sau khi mất phản hồi hoặc lỗi 422/500.",
+      "impact": "Khách có thể nhận nhiều tin nhắc hẹn/'đã có kết quả' trùng, tin nhắc hẹn có giờ hẹn rỗng, trong khi sổ CSKH không có dòng nào nên người trực ca sau tưởng chưa ai báo và gọi thêm lần nữa. Với loại TRA_KET_QUA, hệ thống nói với khách 'đã có kết quả' mà không kiểm tra kết quả nào đã được phát hành/duyệt.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 861,
+          "end_line": 873,
+          "detail": "Chỉ kiểm loại tin, khách thuộc clinic, có số điện thoại."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 875,
+          "end_line": 896,
+          "detail": "gio_hen rỗng khi không có appointment_id; gọi zalo.gui_zns ngay."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 898,
+          "end_line": 906,
+          "detail": "Nhánh thất bại không ghi sổ (đúng) nhưng cũng không có khoá chống gửi trùng."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 908,
+          "end_line": 918,
+          "detail": "Chỉ SAU khi gửi mới gọi ghi(loai='NHAC_HEN' ...) mà không truyền appointment_id đã kiểm."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 83,
+          "end_line": 85,
+          "detail": "CAN_LICH_HEN gồm NHAC_HEN."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 159,
+          "end_line": 160,
+          "detail": "ghi() ném ValidationError khi loai thuộc CAN_LICH_HEN mà thiếu appointment_id."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/cskh.py",
+          "line": 1074,
+          "end_line": 1092,
+          "detail": "GuiZaloRequest.appointment_id: UUID | None; endpoint không có idempotency guard."
+        }
+      ],
+      "limitations": "Chưa đọc services/providers/zalo.py nên không biết provider có tự khử trùng theo ma_theo_doi hay không. Chưa xác minh UI có luôn gửi appointment_id cho NHAC_HEN.",
+      "recommendation": "Đặt thứ tự: kiểm toàn bộ điều kiện của ghi() trước khi gửi (đặc biệt appointment_id bắt buộc cho NHAC_HEN); ghi một dòng 'đang gửi' (outbox) với khoá idempotency rồi mới gọi Zalo, sau đó cập nhật kết quả; thêm Idempotency-Key cho endpoint; với TRA_KET_QUA chỉ cho gửi khi lượt có kết quả đã duyệt/phát hành.",
+      "acceptance": "Test: gui(NHAC_HEN, appointment_id=None) phải bị từ chối TRƯỚC khi gọi provider (mock provider không được gọi). Test: ghi() ném lỗi sau khi gửi thì lần gọi lại cùng khoá không gửi tin thứ hai. Test: TRA_KET_QUA cho lượt chưa có kết quả duyệt trả lỗi.",
+      "alignment": [
+        "Reality rõ",
+        "Bệnh nhân ít chờ trong bất định",
+        "Ownership rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "INF-024",
+        "CLIN-058"
+      ]
+    },
+    {
+      "tmp_id": "S13-3",
+      "title": "Phiếu nhập vật tư chờ duyệt không có người nhận, không thông báo, không hạn xử lý, và người lập không được báo kết quả",
+      "severity": "MEDIUM",
+      "category": "orphan_pending_approval",
+      "evidence_level": "design_gap",
+      "summary": "Khi phiếu NHẬP có mặt hàng 'cần duyệt', hệ thống tạo yêu cầu CHO_DUYET và chỉ phát sự kiện vat_tu.nhap_cho_duyet / vat_tu.nhap_da_quyet. Catalogue sự kiện không khai báo consumer cho hai sự kiện này, trong repo không có chỗ nào tạo thông báo/việc cho người có quyền vat_tu.approve. Yêu cầu chỉ hiện khi ai đó mở màn Kho vật tư (màn tự refresh khi bảng đổi nhưng chỉ khi đang mở).",
+      "trigger": "Nhân viên kho lập phiếu nhập có mặt hàng cần duyệt rồi rời đi; người có lego Duyệt vật tư không mở màn kho trong ca.",
+      "impact": "Hàng đã về nhưng chưa ghi sổ nên tồn hiển thị thiếu; các nghiệp vụ dùng tồn (bán thêm, cảnh báo hết hàng) sai cho tới khi có người tình cờ mở màn. Người lập không biết yêu cầu bị từ chối/duyệt nên có thể lập lại (trùng) hoặc nhắn tin/gọi hỏi trực tiếp.",
+      "evidence": [
+        {
+          "path": "src/clinicai/events/catalogue.py",
+          "line": 1389,
+          "end_line": 1405,
+          "detail": "Hai SuKien vat_tu.nhap_cho_duyet / vat_tu.nhap_da_quyet không có consumers=[...] (khác visit.supply_changed ở 1380-1388 có consumers)."
+        },
+        {
+          "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+          "line": 175,
+          "end_line": 203,
+          "detail": "Tạo yêu cầu, phát sự kiện + record_event rồi trả cho_duyet=True; không gọi ThongBaoService hay tạo work_item."
+        },
+        {
+          "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+          "line": 284,
+          "end_line": 373,
+          "detail": "duyet/tu_choi/rut_lai chỉ cập nhật trạng thái và ghi sự kiện, không báo người lập."
+        },
+        {
+          "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+          "line": 376,
+          "end_line": 440,
+          "detail": "doc_cho_duyet: chỉ là danh sách đọc khi mở màn; LIMIT 100-200 không có cờ cắt (chờ duyệt xếp đầu nên rủi ro cắt thấp)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/kho-vat-tu/ChoDuyetVatTu.tsx",
+          "line": 86,
+          "end_line": 86,
+          "detail": "Chỉ useNgheBang(['vat_tu_nhap_cho_duyet']) để refresh khi màn đang mở."
+        }
+      ],
+      "limitations": "Chưa quét hết các consumer đăng ký theo module (modules.py:883 liệt kê phat=...). Có thể một badge ở thanh bên đếm yêu cầu chờ; chưa thấy trong các tệp đã đọc.",
+      "recommendation": "Dùng cùng mẫu thong_bao có nguon/nguon_id (đã có ON CONFLICT chống trùng) gửi cho vai/lego vat_tu.approve khi tạo yêu cầu và gửi lại cho người lập khi có quyết định; thêm hạn (vd 24 giờ) và cảnh báo quá hạn lên bảng việc của người duyệt; hiển thị số chờ duyệt ở thanh bên.",
+      "acceptance": "Test tích hợp: tạo phiếu nhập cần duyệt thì tồn tại một thong_bao chưa xử lý cho người có vat_tu.approve; duyệt/từ chối tạo thông báo cho người lập; thông báo tự đóng khi yêu cầu rời CHO_DUYET.",
+      "alignment": [
+        "Ownership rõ",
+        "Phát hiện vấn đề sớm",
+        "Thời gian 'chưa biết' ngắn"
+      ],
+      "extends": [],
+      "related_ids": [
+        "OPS-001",
+        "OPS-002"
+      ]
+    },
+    {
+      "tmp_id": "S13-4",
+      "title": "Xem lượt: sinh hiệu lấy 30 dòng mới nhất của cả bệnh nhân rồi mới lọc 'lượt này', nên mở lượt cũ có thể trống sinh hiệu; dòng thời gian cắt 300 từ cũ nhất nên giấu sự kiện mới nhất",
+      "severity": "MEDIUM",
+      "category": "truncation_filter_after_limit",
+      "evidence_level": "confirmed_static",
+      "summary": "_sinh_hieu truy vấn vital_measurement của MỌI lượt bệnh nhân, ORDER BY created_at DESC LIMIT 30, sau đó Python mới tách luot_nay = các dòng có visit_id trùng lượt đang xem. Khi xem một lượt cũ (mở từ danh sách _lich_su), các số đo của lượt đó có thể nằm ngoài 30 dòng mới nhất nên luot_nay rỗng và giao diện hiểu như 'chưa đo'. Tương tự doc_su_kien_luot và dong_thoi_gian_luot ORDER BY thời gian TĂNG DẦN rồi LIMIT 300: lượt có >300 sự kiện sẽ mất các sự kiện cuối (mới nhất) và không có cờ cắt.",
+      "trigger": "Bệnh nhân tái khám nhiều (nhiều lượt, mỗi lượt vài lần đo, vượt 30 bản ghi) rồi nhân viên mở Xem lượt của lượt cũ; hoặc một lượt dài có nhiều sự kiện (>300) do thao tác lặp/hoàn tác.",
+      "impact": "Sinh hiệu của lượt cũ có thể bị trình bày như không có, ảnh hưởng đối chiếu khi bác sĩ/điều dưỡng xem lại hoặc khi có khiếu nại. Dòng thời gian lượt dài thiếu phần kết thúc nên người xem tưởng lượt chưa đóng.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 520,
+          "end_line": 534,
+          "detail": "SELECT ... FROM vital_measurement m JOIN visit x ... WHERE x.clinic_patient_id = $2 ORDER BY m.created_at DESC LIMIT 30 (không lọc visit)."
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 553,
+          "end_line": 557,
+          "detail": "luot_nay = các dòng visit_id == lượt đang xem (lọc sau LIMIT); luot_truoc cắt thêm 10."
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 108,
+          "end_line": 121,
+          "detail": "doc_su_kien_luot: ORDER BY e.occurred_at, e.event_id LIMIT 300 (cũ trước)."
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 182,
+          "end_line": 193,
+          "detail": "dong_thoi_gian_luot: ORDER BY d.occurred_at, d.thu_tu LIMIT 300 (cũ trước), không trả cờ cắt."
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 485,
+          "end_line": 504,
+          "detail": "_lich_su LIMIT 20 không có cờ."
+        }
+      ],
+      "limitations": "Chưa kiểm UI Xem lượt có hiển thị 'chưa đo' khi luot_nay rỗng; chưa đo số bản ghi vital_measurement thực tế/bệnh nhân. Lượt có >300 sự kiện có thể hiếm.",
+      "recommendation": "Truy vấn luot_nay riêng WHERE visit_id = $lượt (không LIMIT hoặc LIMIT lớn có cờ), luot_truoc riêng LIMIT 10. Với timeline đổi thành lấy 300 dòng MỚI nhất rồi đảo thứ tự, và trả cờ bi_cat/tong như ultrasound_board (canh_bao_neu_day).",
+      "acceptance": "Test: bệnh nhân có 40 bản ghi sinh hiệu ở các lượt mới hơn, xem lượt cũ vẫn trả đủ sinh hiệu của lượt đó. Test: lượt có 350 sự kiện trả sự kiện mới nhất hoặc cờ bi_cat=true.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-022",
+        "FE-003"
+      ]
+    },
+    {
+      "tmp_id": "S13-5",
+      "title": "Trang /reset-password cho đổi mật khẩu chỉ cần BẤT KỲ phiên đăng nhập sẵn có, không cần mật khẩu cũ hay link khôi phục (vòng qua kiểm mật khẩu cũ của hộp Đổi mật khẩu)",
+      "severity": "MEDIUM",
+      "category": "auth_password_change_bypass",
+      "evidence_level": "confirmed_static",
+      "summary": "ResetPasswordForm chuyển sang stage 'ready' khi supabase.auth.getSession() trả về một session bất kỳ, rồi gọi auth.updateUser({password}). Một phiên đăng nhập bình thường (không phải phiên recovery) thoả điều kiện đó. /reset-password nằm trong PUBLIC_PATHS của proxy và docker-compose.supabase.yml không bật GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_REAUTHENTICATION. Hộp DoiMatKhauModal thì cố ý bắt nhập và kiểm mật khẩu hiện tại bằng signInWithPassword.",
+      "trigger": "Có thể xảy ra nếu một người có tay trên trình duyệt đang đăng nhập (máy quầy bỏ trống, phiên bị đánh cắp bằng XSS/cookie) mở thẳng /reset-password.",
+      "impact": "Đổi mật khẩu tài khoản nhân viên mà không biết mật khẩu cũ; kèm signOut() toàn cục khiến chủ tài khoản bị đá khỏi mọi thiết bị (mất lối vào, phải nhờ quản lý đặt lại). Làm yếu giá trị của bước kiểm mật khẩu cũ ở hộp đổi mật khẩu.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(auth)/reset-password/ResetPasswordForm.tsx",
+          "line": 31,
+          "end_line": 44,
+          "detail": "Stage ready khi getSession() có session, không phân biệt recovery với phiên thường."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/reset-password/ResetPasswordForm.tsx",
+          "line": 58,
+          "end_line": 68,
+          "detail": "updateUser({password}) rồi signOut() (phạm vi mặc định global)."
+        },
+        {
+          "path": "src/dashboard/proxy.ts",
+          "line": 18,
+          "end_line": 18,
+          "detail": "PUBLIC_PATHS gồm /forgot-password và /reset-password."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+          "line": 84,
+          "end_line": 108,
+          "detail": "Đường chính đáng: kiểm mật khẩu cũ bằng signInWithPassword rồi mới updateUser."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 129,
+          "end_line": 144,
+          "detail": "Khối cấu hình GoTrue không có REAUTHENTICATION cho đổi mật khẩu."
+        }
+      ],
+      "limitations": "Hành vi mặc định của GoTrue với updateUser khi không bật reauthentication dựa trên tài liệu/hiểu biết chung, chưa chạy thật. Không có bằng chứng nội dung session recovery khác với session thường được kiểm ở phía backend.",
+      "recommendation": "Chỉ hiện form khi URL mang tham số/sự kiện PASSWORD_RECOVERY (onAuthStateChange) hoặc cờ amr 'recovery'; ngược lại chuyển về /login. Bật GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_REAUTHENTICATION hoặc chuyển đổi mật khẩu qua một endpoint backend yêu cầu mật khẩu cũ và ghi nhật ký.",
+      "acceptance": "Test e2e: đăng nhập thường rồi mở /reset-password phải không hiện form đổi mật khẩu. Test: với phiên recovery hợp lệ form vẫn hoạt động.",
+      "alignment": [
+        "Reality rõ",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-001",
+        "SEC-025"
+      ]
+    },
+    {
+      "tmp_id": "S13-6",
+      "title": "Đăng xuất và các nhánh đăng nhập thất bại gọi signOut() phạm vi toàn cục, nên thao tác ở một máy đá luôn phiên đang làm việc ở máy/tab khác của cùng tài khoản",
+      "severity": "MEDIUM",
+      "category": "session_scope_interruption",
+      "evidence_level": "confirmed_static",
+      "summary": "logout() và ba nhánh lỗi sau signInWithPassword trong loginStaff (chưa gắn nhân viên, không đúng một phòng khám, vai không hợp lệ) đều gọi supabase.auth.signOut() không truyền scope. Với @supabase/supabase-js ^2.106 mặc định là scope 'global', thu hồi mọi refresh token của người dùng. Ngược lại DoiMatKhauModal cố ý dùng scope 'others'. Bộ nhớ dự án (17/10) đã ghi nhận hiện tượng 'đá đăng nhập'.",
+      "trigger": "Một nhân viên đăng nhập ở quầy và ở điện thoại/tab khác, bấm Thoát ở một nơi; hoặc đăng nhập lỗi do cấu hình tài khoản (FE-009: nhiều membership).",
+      "impact": "Phiên đang thao tác dở ở thiết bị khác bị về /login giữa chừng (mất bản nháp chưa lưu, gián đoạn ca), tăng cuộc gọi 'bị đăng xuất' cho quản lý. Người làm sai cấu hình tài khoản còn làm văng phiên của chính họ.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "line": 50,
+          "end_line": 51,
+          "detail": "signOut() khi thiếu liên kết staff."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "line": 60,
+          "end_line": 66,
+          "detail": "signOut() khi membership không hợp lệ."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "line": 69,
+          "end_line": 72,
+          "detail": "signOut() khi vai không hợp lệ."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "line": 95,
+          "end_line": 104,
+          "detail": "logout(): signOut() rồi xoá cookie."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/reset-password/ResetPasswordForm.tsx",
+          "line": 68,
+          "end_line": 68,
+          "detail": "signOut() sau đổi mật khẩu (toàn cục là hợp lý ở đây)."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+          "line": 108,
+          "end_line": 108,
+          "detail": "Đối chiếu: scope: 'others' khi đổi mật khẩu."
+        },
+        {
+          "path": "src/dashboard/package.json",
+          "line": 33,
+          "end_line": 33,
+          "detail": "@supabase/supabase-js ^2.106.1 (scope mặc định global)."
+        }
+      ],
+      "limitations": "Mặc định scope dựa trên API của supabase-js, chưa chạy thật trong phiên bản đã khoá. Cơ chế proxy/refresh có thể làm hiện tượng nặng hơn hoặc nhẹ hơn.",
+      "recommendation": "Dùng signOut({ scope: 'local' }) cho Thoát thông thường và cho các nhánh đăng nhập thất bại; chỉ dùng 'global' khi quản lý chủ động thu hồi hoặc sau đổi mật khẩu. Thêm nút 'Thoát khỏi mọi thiết bị' tường minh.",
+      "acceptance": "Test e2e hai ngữ cảnh trình duyệt cùng tài khoản: đăng xuất ở A không làm B mất phiên; đăng nhập lỗi cấu hình ở B không làm A mất phiên.",
+      "alignment": [
+        "Con người bị gián đoạn ít hơn nhưng đúng lúc",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-025",
+        "FE-009"
+      ]
+    },
+    {
+      "tmp_id": "S13-7",
+      "title": "Trang đăng nhập mời 'Quên mật khẩu' bằng email trong khi GoTrue chưa nối máy chủ mail và tài khoản có thể là nick không có hộp thư thật",
+      "severity": "LOW",
+      "category": "dead_end_recovery_path",
+      "evidence_level": "confirmed_static",
+      "summary": "LoginForm hiển thị liên kết Quên mật khẩu; ForgotPasswordForm gọi resetPasswordForEmail(email) và hiển thị nguyên authError.message nếu lỗi, hoặc 'Đã gửi email' nếu GoTrue trả thành công. Cấu hình GoTrue ghi rõ 'Chưa nối máy chủ mail' (MAILER_AUTOCONFIRM) và không có biến SMTP. Đăng nhập chấp nhận nick không có đuôi email (emailTuTenDangNhap), tức nhiều tài khoản có email nội bộ dạng .local.",
+      "trigger": "Nhân viên quên mật khẩu và bấm liên kết trên trang đăng nhập.",
+      "impact": "Đường tự phục hồi không dùng được (lỗi tiếng Anh thô hoặc thông báo gửi mail sai thực tế), người dùng quay lại nhờ quản lý đặt lại mật khẩu: đúng kiểu phụ thuộc vào gọi điện/nhắn tin mà sản phẩm muốn giảm.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(auth)/login/LoginForm.tsx",
+          "line": 71,
+          "end_line": 76,
+          "detail": "Liên kết 'Quên mật khẩu?'."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/forgot-password/ForgotPasswordForm.tsx",
+          "line": 24,
+          "end_line": 38,
+          "detail": "resetPasswordForEmail; lỗi hiện nguyên message; thành công hiện 'Đã gửi email đặt lại mật khẩu đến {email}'."
+        },
+        {
+          "path": "docker-compose.supabase.yml",
+          "line": 141,
+          "end_line": 143,
+          "detail": "Chú thích 'Chưa nối máy chủ mail', không có GOTRUE_SMTP_* trong tệp."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/login/actions.ts",
+          "line": 24,
+          "end_line": 30,
+          "detail": "Tên trần cũng đăng nhập được: nick không phải email thật."
+        }
+      ],
+      "limitations": "Có thể SMTP được cấp qua .env.prod ngoài repo; không thể xác minh tĩnh. Chưa biết hành vi GoTrue khi không có SMTP với phiên bản đang chạy (lỗi hay im lặng).",
+      "recommendation": "Ẩn liên kết khi không có mail (cờ cấu hình, như /cskh/zalo/cau-hinh), hoặc thay bằng 'Nhờ quản lý đặt lại mật khẩu' kèm nút tạo yêu cầu có người nhận; ghi việc đặt lại mật khẩu vào nhật ký vận hành.",
+      "acceptance": "Khi mail chưa cấu hình, trang đăng nhập không còn dẫn tới đường chắc chắn thất bại; test e2e xác nhận thông báo là tiếng Việt và có hướng dẫn thật.",
+      "alignment": [
+        "Reality rõ",
+        "Con người bị gián đoạn ít hơn nhưng đúng lúc"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-001",
+        "FE-023"
+      ]
+    },
+    {
+      "tmp_id": "S13-8",
+      "title": "Bộ lọc đường về sau chọn cơ sở (duongVeAnToan) chỉ kiểm tiền tố chuỗi thô nên có thể bị vòng bằng ký tự tab/xuống dòng nằm giữa, dẫn tới chuyển hướng ra ngoài",
+      "severity": "LOW",
+      "category": "open_redirect",
+      "evidence_level": "design_gap",
+      "summary": "duongVeAnToan loại '//host' và '/\\' bằng startsWith trên chuỗi chưa chuẩn hoá. Giá trị như '/<TAB>/example.com' (tab hoặc CR/LF ở giữa, không bị trim) qua được cả ba kiểm tra, trong khi bộ phân tích URL của trình duyệt bỏ tab/xuống dòng nên '/\\t/example.com' thành '//example.com'. next lấy từ query ?next= và được dùng trong redirect() cả ở trang và ở server action. Không có test cho hàm này trong src/dashboard/tests.",
+      "trigger": "Kẻ tấn công gửi nhân viên (đang đăng nhập) liên kết /chon-co-so?next=/%09/example.com; nếu phòng khám chỉ có một cơ sở hoặc công tắc hoi_chon tắt, trang gọi redirect(next) ngay.",
+      "impact": "Chuyển nhân viên sang trang giả mạo (lừa nhập mật khẩu) từ tên miền thật của hệ thống. Rủi ro thấp vì cần nhân viên bấm liên kết.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(auth)/chon-co-so/duong-ve.ts",
+          "line": 3,
+          "end_line": 7,
+          "detail": "startsWith('/'), không '//' và không '/\\'; không loại ký tự điều khiển."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/chon-co-so/page.tsx",
+          "line": 27,
+          "end_line": 34,
+          "detail": "next = duongVeAnToan(sp.next); redirect(next) khi không cần chọn."
+        },
+        {
+          "path": "src/dashboard/app/(auth)/chon-co-so/actions.ts",
+          "line": 14,
+          "end_line": 24,
+          "detail": "Server action cũng redirect(next) với giá trị từ form ẩn."
+        }
+      ],
+      "limitations": "Hành vi chuẩn hoá của Next router/trình duyệt khi redirect '/\\t/host' chưa được chạy thử; kết luận dựa trên đặc tả URL (bỏ tab/LF/CR). Chưa kiểm proxy/Caddy có làm sạch header Location hay không.",
+      "recommendation": "Chuẩn hoá: new URL(v, 'http://x') và so origin, hoặc dùng regex ^/[A-Za-z0-9_\\-][^\\s\\\\]*$ loại mọi ký tự trắng/điều khiển; thêm test đơn vị với '/\\t/evil', '/\\n/evil', '/%09/evil', '/\\\\evil'.",
+      "acceptance": "Test đơn vị: duongVeAnToan('/\\t/example.com') và '/\\r\\n/x' trả '/home'; đường hợp lệ '/appointments?x=1' giữ nguyên.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": []
+    },
+    {
+      "tmp_id": "S13-9",
+      "title": "Check-out hộ từ màn CSKH tự vượt các chốt mềm (kết quả chờ bác sĩ đọc, dịch vụ chưa xong, khách còn ở trạm) bằng lý do do máy sinh, không tạo việc cho người chịu trách nhiệm",
+      "severity": "LOW",
+      "category": "silent_override_ownership",
+      "evidence_level": "design_gap",
+      "summary": "TuongTacCskhService._dong_luot_kham gọi CheckoutService.close với ly_do_tu_dong. Trong close, chỉ blocker có cờ chan (nợ, tiền thừa) là không vượt được; các blocker còn lại (svc_open, lab_pending, exam_open, still_at_station, unpaid_service/unpaid_drug khi không là nợ) được vượt tự động và chỉ ghi vào override_reason. Tài liệu trong code ghi đây là quyết định của chủ (14/08) vì khách đã về.",
+      "trigger": "CSKH có quyền ghi mốc CHECK_OUT bấm check-out cho khách khi còn kết quả chờ bác sĩ đọc hoặc dịch vụ chưa xong.",
+      "impact": "Lượt bị đóng nên biến khỏi hàng đợi, nhưng kết quả đang chờ bác sĩ có thể không còn nằm ở hàng việc có người nhận nào (bác sĩ không được báo). Lý do đã ghi nên truy vết được, nhưng không có người nhận việc sau khi vượt chốt.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 551,
+          "end_line": 613,
+          "detail": "Giải thích chủ ý và gọi CheckoutService.close(ly_do_tu_dong=...)."
+        },
+        {
+          "path": "src/clinicai/services/checkout_service.py",
+          "line": 770,
+          "end_line": 789,
+          "detail": "chan → từ chối; blocker mềm + ly_do_tu_dong → tự dựng reason, không ném lỗi."
+        },
+        {
+          "path": "src/clinicai/services/checkout_service.py",
+          "line": 1146,
+          "end_line": 1169,
+          "detail": "svc_open, lab_pending, exam_open là blocker mềm."
+        }
+      ],
+      "limitations": "Chưa đọc phần còn lại của close() (dòng 830-1040) để biết có tạo follow_up/thông báo cho bác sĩ khi vượt lab_pending hay không. Đây là quyết định sản phẩm đã ghi, chỉ đề xuất bổ sung người nhận.",
+      "recommendation": "Khi vượt blocker lab_pending/exam_open, tự tạo một việc theo dõi (follow_up_case hoặc thông báo) cho bác sĩ phụ trách với hạn; hiển thị số lượt đóng hộ có blocker trong báo cáo cuối ngày để quản lý soát.",
+      "acceptance": "Test: check-out từ CSKH khi lab_pending>0 tạo đúng một việc theo dõi có chủ; test: chan (nợ) vẫn không vượt được.",
+      "alignment": [
+        "Ownership rõ",
+        "Phát hiện vấn đề sớm"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-002",
+        "CLIN-001"
+      ]
+    },
+    {
+      "tmp_id": "S13-10",
+      "title": "Lưu nháp siêu âm không đối chiếu lượt khám với một chỉ định siêu âm thật, loại siêu âm là chuỗi tự do và performed_by có thể để trống",
+      "severity": "LOW",
+      "category": "clinical_record_without_order",
+      "evidence_level": "design_gap",
+      "summary": "UltrasoundBoardService.save_draft chỉ kiểm visit thuộc clinic (và với TKYK là khách của bác sĩ mình). Không kiểm lượt có work_item DICHVU-SIEUAM hay service_order siêu âm, không kiểm cơ sở (location) của lượt với danh tính, và ultrasound_type chỉ giới hạn độ dài (1-120) ở router. Với vai không phải bác sĩ siêu âm, performed_by lấy từ work_item.assigned_to mới nhất, có thể NULL.",
+      "trigger": "Gọi API trực tiếp (hoặc UI chọn nhầm lượt) với visit_id của một bệnh nhân khác/lượt không có siêu âm.",
+      "impact": "Có thể tạo bản ghi kết quả siêu âm cho lượt/bệnh nhân không được chỉ định (nguy cơ nhầm bệnh nhân), hoặc bản ghi không có người thực hiện nên không rõ ai chịu trách nhiệm. Người ký là bác sĩ siêu âm nên còn một lớp chặn, nhưng bản nháp đã vào hồ sơ.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 363,
+          "end_line": 384,
+          "detail": "Chỉ kiểm visit trong clinic, TKYK qua kiem_khach; không kiểm chỉ định hay location."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 447,
+          "end_line": 463,
+          "detail": "performed_by = staff gọi nếu là bác sĩ siêu âm, ngược lại lấy assigned_to (có thể NULL)."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/ultrasound.py",
+          "line": 171,
+          "end_line": 181,
+          "detail": "ultrasound_type: str min 1 max 120, không enum theo danh mục."
+        }
+      ],
+      "limitations": "Chưa đọc ultrasound_service.sign (nơi kiểm quyền ký) nên chưa biết phiếu performed_by NULL ký được hay không. Giao diện chọn lượt từ hàng chờ nên rủi ro thực tế thấp hơn.",
+      "recommendation": "Bắt save_draft tham chiếu một work_item/service_order siêu âm đang mở của lượt (hoặc cờ ngoại lệ có lý do), chuẩn hoá ultrasound_type theo danh mục dịch vụ, lọc location_id, và từ chối khi không xác định được người thực hiện.",
+      "acceptance": "Test: visit không có chỉ định siêu âm bị từ chối 422; visit của cơ sở khác bị 404; ultrasound_type ngoài danh mục bị từ chối.",
+      "alignment": [
+        "Ownership rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "API-002",
+        "CLIN-038"
+      ]
+    },
+    {
+      "tmp_id": "S13-11",
+      "title": "Miễn/huỷ một bước workflow chỉ cần lý do khác rỗng, và bất kỳ ai thuộc actor_roles của bước đều làm được, không cần là người được giao",
+      "severity": "LOW",
+      "category": "weak_justification_control",
+      "evidence_level": "confirmed_static",
+      "summary": "WorkItemService.issue chỉ kiểm (reason or '').strip() không rỗng cho skip/cancel (một ký tự là đủ), và cửa quyền là 'vai thuộc actor_roles của node' (hoặc quyền khu); không đối chiếu work_item.assigned_to. Cùng nhóm kho vật tư lại yêu cầu lý do 5-500 ký tự. Đồng thời lệnh skip/cancel 'không bao giờ bị chặn' để gỡ kẹt luồng.",
+      "trigger": "Một nhân viên cùng vai bấm miễn/huỷ bước do đồng nghiệp đang làm với lý do 'x'.",
+      "impact": "Dấu vết lý do vô nghĩa làm nhật ký ít giá trị cho truy vết và cải tiến hệ thống; bước của người khác có thể bị bỏ qua mà người được giao không được báo.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "line": 58,
+          "end_line": 64,
+          "detail": "Chú thích: huỷ/miễn phải có lý do; bước dịch vụ chỉ bác sĩ quyết."
+        },
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "line": 138,
+          "end_line": 139,
+          "detail": "Chỉ kiểm lý do khác rỗng."
+        },
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "line": 182,
+          "end_line": 229,
+          "detail": "Quyền = vai ∈ actor_roles (hoặc quyền khu), không có kiểm assigned_to."
+        },
+        {
+          "path": "src/clinicai/services/work_item_service.py",
+          "line": 80,
+          "end_line": 82,
+          "detail": "skip/cancel không bị gate."
+        },
+        {
+          "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+          "line": 48,
+          "end_line": 60,
+          "detail": "Đối chiếu: _ly_do bắt 5-500 ký tự."
+        }
+      ],
+      "limitations": "Giới hạn max_length=500 đã có ở schema CommandRequest. Có thể chủ ý để tránh kẹt luồng.",
+      "recommendation": "Đặt độ dài tối thiểu hoặc danh mục lý do + ghi chú tự do; thông báo cho assigned_to khi bước của họ bị miễn/huỷ bởi người khác.",
+      "acceptance": "Test: reason ' x ' bị từ chối; skip bởi người không phải assigned_to tạo thông báo cho assigned_to.",
+      "alignment": [
+        "Ownership rõ",
+        "Lỗi lặp lại thành cải tiến hệ thống"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-004"
+      ]
+    },
+    {
+      "tmp_id": "S13-12",
+      "title": "Khoá lạc quan là tuỳ chọn ở các API cốt lõi: bỏ trống thì mặc nhiên ghi đè (last-write-wins)",
+      "severity": "LOW",
+      "category": "optional_concurrency_guard",
+      "evidence_level": "design_gap",
+      "summary": "PATCH hồ sơ bệnh nhân chỉ khoá khi client gửi sua_luc ('Bỏ trống = không khoá'). Lệnh work-item chỉ khoá khi client gửi expected_version ('omitting it accepts last-write-wins'). Giao diện PatientAdminEditor cho phép updated_at rỗng (optional) và lúc đó gửi sua_luc: undefined; ClinicalRecordForm truyền updated_at ?? null.",
+      "trigger": "Client mới/script/BFF khác hoặc dòng dữ liệu không select updated_at gọi API mà không gửi thẻ khoá.",
+      "impact": "Hai người sửa cùng hồ sơ hoặc cùng bước: người sau ghi đè người trước mà không biết, đúng lớp lỗi 11/08 đã gặp.",
+      "evidence": [
+        {
+          "path": "src/clinicai/schemas/patient.py",
+          "line": 191,
+          "end_line": 204,
+          "detail": "sua_luc: datetime | None = None; bỏ trống = không khoá."
+        },
+        {
+          "path": "src/clinicai/services/patient_service.py",
+          "line": 462,
+          "end_line": 464,
+          "detail": "updates.pop('sua_luc', None); chỉ thêm điều kiện khi khác None (506-507)."
+        },
+        {
+          "path": "src/clinicai/api/v1/routers/work_items.py",
+          "line": 168,
+          "end_line": 170,
+          "detail": "expected_version tuỳ chọn; bỏ trống = last-write-wins."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/PatientAdminEditor.tsx",
+          "line": 37,
+          "end_line": 38,
+          "detail": "updated_at? tuỳ chọn."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/PatientAdminEditor.tsx",
+          "line": 189,
+          "end_line": 193,
+          "detail": "sua_luc: cur.updated_at ?? undefined."
+        }
+      ],
+      "limitations": "Hai lệnh work_item đã có FOR UPDATE nên mất cập nhật thực sự khó xảy ra ở cấp hàng; rủi ro chính là ghi đè dựa trên màn cũ. Cả hai giao diện hiện đều gửi thẻ khi có.",
+      "recommendation": "Bắt buộc thẻ khoá (hoặc If-Match) cho PATCH hồ sơ; coi thiếu thẻ là 428; chỉ giữ ngoại lệ cho lệnh nội bộ có chú thích.",
+      "acceptance": "Test: PATCH /patients không có sua_luc trả 428; có sua_luc cũ trả 409.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-039",
+        "PHAR-003"
+      ]
+    },
+    {
+      "tmp_id": "S13-13",
+      "title": "Hoàn tác mốc CHECK_IN ở sổ CSKH gồm hai bước không nguyên tử; lỗi giữa chừng để dòng sổ còn hiệu lực và lần thử lại bị từ chối",
+      "severity": "LOW",
+      "category": "non_atomic_undo",
+      "evidence_level": "confirmed_static",
+      "summary": "hoan_tac gọi BookingService.apply_action(undo_checkin) trên pool (commit riêng), rồi mới mở giao dịch thứ hai để đặt huy_luc. Nếu bước hai lỗi (mất kết nối, restart), lịch đã về CONFIRMED nhưng dòng CHECK_IN vẫn tính. Lần thử lại đọc trạng thái lịch, thấy không còn CHECKED_IN và ném 'Lịch không còn ở trạng thái CHECKED_IN nên không thể hoàn tác mốc check-in này' — không có đường tự chữa.",
+      "trigger": "Lỗi hạ tầng giữa hai commit trong hoan_tac.",
+      "impact": "Sổ CSKH nói khách đã check-in trong khi lịch là CONFIRMED; chuỗi bước/ghi nhận 'đã tới' sai, cần sửa tay ở DB.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 347,
+          "end_line": 393,
+          "detail": "Kiểm tra rồi gọi apply_action(undo_checkin) bằng self._pool."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 395,
+          "end_line": 403,
+          "detail": "Giao dịch riêng UPDATE tuong_tac_cskh SET huy_luc."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 360,
+          "end_line": 364,
+          "detail": "Nhánh thử lại bị chặn vì trạng thái đã đổi."
+        },
+        {
+          "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+          "line": 487,
+          "end_line": 522,
+          "detail": "Đối chiếu: check-out dùng _ConnectionBoundPool để gộp một giao dịch (mẫu đúng)."
+        }
+      ],
+      "limitations": "Xác suất thấp. Chưa kiểm BookingService.apply_action có tự ghi dấu hiệu để hỗ trợ chữa lành hay không.",
+      "recommendation": "Dùng lại _ConnectionBoundPool cho hoan_tac: undo_checkin và đặt huy_luc trong cùng giao dịch; hoặc cho phép đóng dòng sổ khi lịch đã không còn CHECKED_IN do chính undo.",
+      "acceptance": "Test mô phỏng lỗi ở bước hai: sau retry, dòng sổ được huỷ và lịch ở CONFIRMED (hoặc cả hai không đổi).",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-017"
+      ]
+    },
+    {
+      "tmp_id": "S13-14",
+      "title": "Ảnh dashboard nung cấu hình môi trường vào bundle lúc build và có tên 'Dr4Women' làm giá trị dự phòng trong khung giao diện, nên chưa đóng gói thành một ảnh dùng cho nhiều phòng khám",
+      "severity": "MEDIUM",
+      "category": "packaging_build_time_tenant_config",
+      "evidence_level": "design_gap",
+      "summary": "Dockerfile.dashboard dựng với ARG NEXT_PUBLIC_SUPABASE_URL / ANON_KEY / MO_QUYEN_TAM_THOI / APP_ENV được 'nung' vào bundle; muốn đổi phòng khám/miền phải build lại ảnh. Cờ giao diện mở quyền tạm thời là một nửa của công tắc server, hai nửa có thể lệch. Shell.tsx suy tên phòng khám và cơ sở bằng cách tách chuỗi identity theo ' · ' và dùng 'Dr4Women' làm giá trị dự phòng; GlobalHeader cũng suy tên người từ chuỗi đó. Ảnh nền dùng tag trôi (node:22-alpine) nên không tái lập được.",
+      "trigger": "Bán/triển khai cho phòng khám thứ hai, hoặc đổi URL Supabase/miền, hoặc tên nhân viên chứa ' · '.",
+      "impact": "Mỗi tenant/môi trường cần một lần build riêng (CI/CD phức tạp, dễ sai lệch phiên bản); tên phòng khám hiển thị sai thành 'Dr4Women' khi chuỗi identity không đủ phần; cờ NEXT_PUBLIC_MO_QUYEN_TAM_THOI lệch với MO_QUYEN_TAM_THOI của backend cho giao diện nói khác server.",
+      "evidence": [
+        {
+          "path": "src/dashboard/Dockerfile.dashboard",
+          "line": 16,
+          "end_line": 31,
+          "detail": "ARG NEXT_PUBLIC_* nung vào ENV lúc build."
+        },
+        {
+          "path": "src/dashboard/Dockerfile.dashboard",
+          "line": 6,
+          "end_line": 6,
+          "detail": "FROM node:22-alpine (tag trôi, không ghim digest); lặp ở dòng 14, 61."
+        },
+        {
+          "path": "src/dashboard/Dockerfile.dashboard",
+          "line": 18,
+          "end_line": 22,
+          "detail": "Nửa giao diện của công tắc mở quyền tạm thời được nung lúc build."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/Shell.tsx",
+          "line": 85,
+          "end_line": 89,
+          "detail": "Tách identity bằng ' · '; tenPhongKham = phan.length >= 4 ? ... : 'Dr4Women'."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+          "line": 63,
+          "end_line": 67,
+          "detail": "staffName suy từ identity.split(' · ').at(-1) khi thiếu tenNguoi."
+        }
+      ],
+      "limitations": "Chưa đọc lib/ cấu hình tenant hay layout để biết tenNguoi/tên phòng khám luôn được truyền (nếu có thì giá trị dự phòng hiếm khi dùng). NEXT_PUBLIC_SUPABASE_ANON_KEY là khoá công khai theo thiết kế.",
+      "recommendation": "Đọc cấu hình tenant lúc chạy (endpoint /api/config hoặc tiêm biến runtime qua script ở layout) thay vì NEXT_PUBLIC_ lúc build; layout truyền tên phòng khám/cơ sở/người dưới dạng trường riêng thay vì chuỗi ghép; bỏ giá trị 'Dr4Women' cứng; ghim digest ảnh nền.",
+      "acceptance": "Một ảnh duy nhất khởi động hai lần với hai bộ biến môi trường khác nhau và hiển thị đúng tên/miền của từng phòng khám; test: identity thiếu phần vẫn không in 'Dr4Women'.",
+      "alignment": [
+        "Reality rõ",
+        "Lỗi lặp lại thành cải tiến hệ thống"
+      ],
+      "extends": [],
+      "related_ids": [
+        "DB-004",
+        "DB-005"
+      ]
+    },
+    {
+      "tmp_id": "S13-15",
+      "title": "Thông báo quyết định ca làm việc được suy ra ở trình duyệt và nhớ bằng localStorage; lần đầu trên một trình duyệt mới thì nuốt im lặng mọi quyết định đã có",
+      "severity": "LOW",
+      "category": "client_derived_notification",
+      "evidence_level": "confirmed_static",
+      "summary": "NotificationProvider poll /api/roster?ca_cua_toi=1 rồi tự so với tập 'seen' lưu ở localStorage roster_notif_<staffId>. Khi chưa có store (trình duyệt/máy mới, xoá dữ liệu), nhánh !hadStore ghi nhận mọi quyết định APPROVED/REJECTED hiện có là 'đã thấy' và không báo gì. Chỉ lưu tối đa 40 thông báo (MAX_KEEP).",
+      "trigger": "Nhân viên đăng nhập ở máy khác (quầy dùng chung, điện thoại mới) sau khi quản lý đã duyệt/từ chối ca.",
+      "impact": "Ca bị từ chối trong lúc nhân viên không mở app có thể không bao giờ được hiển thị là thông báo; nhân viên vẫn tới/không tới theo ca đã biết, dẫn tới trao đổi qua điện thoại/chat. Trạng thái 'đã đọc' khác nhau giữa các thiết bị.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+          "line": 221,
+          "end_line": 257,
+          "detail": "shownKeys/notifs/unread lưu và nạp từ localStorage theo staffId."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+          "line": 324,
+          "end_line": 332,
+          "detail": "Lần đầu của một danh tính: ghi nhận im lặng toàn bộ quyết định hiện có."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+          "line": 36,
+          "end_line": 36,
+          "detail": "MAX_KEEP = 40."
+        }
+      ],
+      "limitations": "Trạng thái ca vẫn thấy được ở màn lịch trực; đây chỉ là kênh nhắc. Dữ liệu trong localStorage là lịch ca, không phải PII bệnh nhân.",
+      "recommendation": "Chuyển thông báo quyết định ca sang bảng thong_bao phía máy chủ (nguon='work_roster', nguoi_nhan_staff_id) với da_doc/da_xu_ly theo người; xoá localStorage làm nguồn sự thật.",
+      "acceptance": "Test: duyệt/từ chối ca tạo một thong_bao gửi đúng nhân viên; đăng nhập trình duyệt mới vẫn thấy thông báo chưa đọc.",
+      "alignment": [
+        "Reality rõ",
+        "Nhân viên làm việc bền vững"
+      ],
+      "extends": [],
+      "related_ids": [
+        "FE-019",
+        "FE-020"
+      ]
+    },
+    {
+      "tmp_id": "S13-16",
+      "title": "Ghi chú tự do khi bấm 'Xong' ở phòng dịch vụ được coi là ghi chú vận hành và hiện cho mọi vai nội bộ, ngoài cổng quyền y khoa của Xem lượt",
+      "severity": "LOW",
+      "category": "freetext_outside_clinical_gate",
+      "evidence_level": "design_gap",
+      "summary": "XemLuotService._dich_vu luôn trả ghi_chu (gồm service_execution_attempt.ghi_chu, tối đa 2000 ký tự, do điều dưỡng/phòng nhập khi hoàn tất) và ly_do_khong_lam cho mọi người gọi, trong khi nội dung kết quả (result_note) chỉ trả khi có quyền y khoa. Ví dụ trong tài liệu hàm là 'khách khó lấy ven' — vẫn là thông tin lâm sàng.",
+      "trigger": "Nhân viên quầy thu tiền/tiếp đón mở Xem lượt của một lượt có ghi chú lâm sàng được gõ vào ô ghi chú vận hành.",
+      "impact": "Thông tin y khoa tự do có thể lộ cho vai không có quyền y khoa; ranh giới 'vận hành' và 'lâm sàng' do người gõ quyết định.",
+      "evidence": [
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 156,
+          "end_line": 173,
+          "detail": "muc_duoc_xem: dich_vu luôn True; lam_sang theo QUYEN_Y_KHOA."
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 407,
+          "end_line": 412,
+          "detail": "ghi_chu_lam lấy từ service_execution_attempt.ghi_chu."
+        },
+        {
+          "path": "src/clinicai/services/xem_luot_service.py",
+          "line": 456,
+          "end_line": 469,
+          "detail": "ket_qua_ghi bị cổng noi_dung nhưng ghi_chu/ly_do thì không."
+        },
+        {
+          "path": "src/clinicai/services/service_execution_service.py",
+          "line": 589,
+          "end_line": 603,
+          "detail": "ghi_chu tuỳ chọn tới 2000 ký tự khi CompleteService."
+        }
+      ],
+      "limitations": "Mô tả của mã nói đây chủ ý là ghi chú vận hành. Chưa khảo sát nội dung ghi chú thật.",
+      "recommendation": "Tách hai ô (ghi chú vận hành ngắn có danh mục vs ghi chú lâm sàng), hoặc che ghi_chu theo cổng lam_sang cho vai không có quyền y khoa.",
+      "acceptance": "Test: người chỉ có quyền thu tiền gọi Xem lượt thì ghi_chu rỗng hoặc chỉ gồm danh mục vận hành.",
+      "alignment": [
+        "Reality rõ"
+      ],
+      "extends": [],
+      "related_ids": [
+        "SEC-019",
+        "SEC-027"
+      ]
+    },
+    {
+      "tmp_id": "S13-17",
+      "title": "Ô ngày sinh nhập dở hoặc không hợp lệ trả về chuỗi rỗng và hồ sơ lưu thành null, xoá mất ngày sinh đã có mà không cảnh báo",
+      "severity": "MEDIUM",
+      "category": "silent_data_erase",
+      "evidence_level": "confirmed_static",
+      "summary": "DateField gọi onChange('') mỗi khi chuỗi chưa đủ/không hợp lệ (ví dụ '07/08/20', '31/02/2020'). PatientAdminEditor so form với bản gốc: giá trị '' khác ngày cũ nên coi là thay đổi và đặt changes.date_of_birth = form[key].trim() || null. Không có kiểm ngày sinh, không truyền invalid cho DateField, nút Lưu vẫn chạy. PATCH gửi date_of_birth: null.",
+      "trigger": "Người sửa hồ sơ bấm vào ô ngày sinh, gõ lại dở rồi Lưu; hoặc gõ ngày không tồn tại; hoặc xoá vô ý một ký tự.",
+      "impact": "Mất ngày sinh của bệnh nhân (nếu backend chấp nhận null), ảnh hưởng đối chiếu định danh (hàng chờ siêu âm coi 'đủ định danh' phải có năm sinh, tính tuổi/thai kỳ, mã trùng). Sai âm thầm, người dùng thấy 'Đã lưu thông tin'.",
+      "evidence": [
+        {
+          "path": "src/dashboard/app/(dashboard)/DateField.tsx",
+          "line": 136,
+          "end_line": 147,
+          "detail": "apply() luôn gọi onChange(partsToIso(...)) dù kết quả '' khi chưa hợp lệ."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/DateField.tsx",
+          "line": 28,
+          "end_line": 38,
+          "detail": "partsToIso trả '' khi thiếu phần hoặc ngày không tồn tại."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/PatientAdminEditor.tsx",
+          "line": 149,
+          "end_line": 156,
+          "detail": "changes[key] = form[key].trim() || null cho mọi trường đổi."
+        },
+        {
+          "path": "src/dashboard/app/(dashboard)/PatientAdminEditor.tsx",
+          "line": 311,
+          "end_line": 319,
+          "detail": "DateField ngày sinh không truyền invalid; không có kiểm tra ngày sinh trong save()."
+        },
+        {
+          "path": "src/clinicai/services/ultrasound_board_service.py",
+          "line": 506,
+          "end_line": 506,
+          "detail": "Hàng chờ siêu âm coi identified = có patient_code và birth_year."
+        }
+      ],
+      "limitations": "Chưa kiểm backend PATCH có chặn date_of_birth null (schema/patient_service.py chưa đọc đủ) hay trigger ngăn xoá. DateField có thể được các màn khác bao bọc bằng kiểm tra riêng.",
+      "recommendation": "Trong save(): nếu date_of_birth đổi sang '' trong khi giá trị gốc có thì chặn và yêu cầu xác nhận xoá rõ ràng; truyền invalid cho DateField khi text khác rỗng mà value rỗng; backend từ chối null cho ngày sinh khi đã có trừ lệnh xoá tường minh.",
+      "acceptance": "Test giao diện: nhập '07/08/20' rồi Lưu hiện lỗi 'Ngày sinh chưa hợp lệ' và không gửi PATCH. Test backend: PATCH date_of_birth null trên hồ sơ có ngày sinh bị từ chối trừ cờ xoá tường minh.",
+      "alignment": [
+        "Reality rõ",
+        "Quyết định dựa bằng chứng"
+      ],
+      "extends": [],
+      "related_ids": [
+        "CLIN-008",
+        "FE-025"
+      ]
+    }
+  ],
+  "extensions": [
+    {
+      "id": "FE-023",
+      "detail": "PatientAdminEditor.save() đặt setBusy(true) rồi await fetch không try/catch (src/dashboard/app/(dashboard)/PatientAdminEditor.tsx:184-200); mất mạng thì nút Lưu kẹt 'Đang lưu...' vĩnh viễn và nút Huỷ cũng disabled (dòng 447). xoaSo() (dòng 117-132) kẹt 'Đang xoá…'. CongTyKhach.an() (CongTyKhach.tsx:55-61) không bắt lỗi mạng. DoiMatKhauModal bắt lỗi nhưng handleClose chặn khi busy."
+    },
+    {
+      "id": "FE-019",
+      "detail": "NotificationContext.docThongBao: if (!res.ok) return; và catch rỗng (src/dashboard/app/(dashboard)/NotificationContext.tsx:143-145,178-180) giữ danh sách cũ mà không đánh dấu dữ liệu cũ/lỗi tải; GlobalHeader hiển thị 'Chưa có thông báo nào' khi notifs rỗng (GlobalHeader.tsx:489-492)."
+    },
+    {
+      "id": "FE-020",
+      "detail": "ThongBaoService.cua_toi giới hạn LIMIT 50 (src/clinicai/services/thong_bao_service.py:365) và chuông chỉ nạp danh sách này, không cờ cắt."
+    },
+    {
+      "id": "SEC-025",
+      "detail": "DoiMatKhauModal bỏ qua kết quả của signOut({scope:'others'}) (src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx:108) và vẫn hiện 'các phiên đăng nhập trên thiết bị khác đã được đăng xuất' (dòng 117-120); nhật ký đổi mật khẩu gọi fetch fire-and-forget, chỉ console.error nếu lỗi (111-115), nên sự kiện có thể mất mà người dùng không biết."
+    },
+    {
+      "id": "API-002",
+      "detail": "XemLuotService.doc (xem_luot_service.py:227-277) tra visit theo clinic_id + visit_id, không lọc location_id; save_draft siêu âm (ultrasound_board_service.py:363-373) và WorkItemService.list_for_visit/issue (work_item_service.py:143-173, 337-423) cũng chỉ lọc clinic_id."
+    },
+    {
+      "id": "API-004",
+      "detail": "WorkItemService.issue không kiểm cơ sở của lượt gắn với work_item (work_item_service.py:143-173): chỉ clinic_id + membership."
+    },
+    {
+      "id": "CLIN-004",
+      "detail": "WorkItemService.issue cho mọi người có vai thuộc actor_roles hoàn tất/miễn bước mà không đối chiếu assigned_to (work_item_service.py:182-229); thông tin assigned_to chỉ được trả để hiển thị (dòng 436)."
+    },
+    {
+      "id": "CLIN-033",
+      "detail": "HenGoiLaiService.dong (tuong_tac_cskh_service.py:793-831) chỉ kiểm đã tới giờ rồi đặt dong_luc, không yêu cầu bất kỳ dòng tuong_tac_cskh/kết quả cuộc gọi nào."
+    },
+    {
+      "id": "OPS-002",
+      "detail": "Thông báo hẹn gọi lại gửi theo vai CSKH, không theo người tạo hẹn (tuong_tac_cskh_service.py:765-789) và nuốt lỗi gửi (790-791); không có timer đến giờ (docstring 754-759 tự thừa nhận)."
+    },
+    {
+      "id": "CLIN-044",
+      "detail": "HenGoiLaiService.tao (tuong_tac_cskh_service.py:675-739) INSERT mỗi lần gọi mà không có khoá idempotency hay UNIQUE (clinic_patient_id, ngay_goi, ly_do)."
+    },
+    {
+      "id": "CLIN-058",
+      "detail": "TuongTacCskhService.ghi (tuong_tac_cskh_service.py:109-297) INSERT tuong_tac_cskh không khoá idempotency; cũng áp cho CHECK_IN/CHECK_OUT mô tả ở S13-2 khi Zalo gọi lại."
+    },
+    {
+      "id": "FE-022",
+      "detail": "XemLuotService._lich_su LIMIT 20 (xem_luot_service.py:499), doc_su_kien_luot/dong_thoi_gian_luot LIMIT 300 (120,190), _sinh_hieu LIMIT 30 (531): không trả cờ cắt; riêng _sinh_hieu lọc luot_nay sau LIMIT (xem S13-4)."
+    },
+    {
+      "id": "FE-013",
+      "detail": "SearchSelect hiển thị ô trống khi value không nằm trong options (src/dashboard/app/(dashboard)/SearchSelect.tsx:35,49) nên giá trị phường cũ của tỉnh trước vẫn nằm trong form mà người dùng không thấy."
+    },
+    {
+      "id": "SEC-027",
+      "detail": "XemLuotService mở mục lich_su (dịch vụ + bác sĩ của 20 lượt trước) và su_kien cho mọi VAI_LAM_VIEC (xem_luot_service.py:49-54, 157-173, 485-514), không theo quyền y khoa."
+    },
+    {
+      "id": "CLIN-040",
+      "detail": "UltrasoundBoardService.save_draft đọc existing rồi UPDATE theo ultrasound_id mà không có version/updated_at so sánh (ultrasound_board_service.py:385-428): lần lưu sau ghi đè findings của lần trước."
+    },
+    {
+      "id": "FE-001",
+      "detail": "Ngoài bản nháp bệnh nhân, localStorage còn giữ roster_notif_<staffId> (NotificationContext.tsx:227-229,259-271) và clinicai.nav.nhom-gap/ghim sidebar; logout() chỉ xoá cookie (login/actions.ts:95-104), không xoá localStorage."
+    },
+    {
+      "id": "SEC-020",
+      "detail": "AnhKetQua dựng URL /api/cskh/ket-qua/{id}/noi-dung cho ảnh/video/DICOM (src/dashboard/app/(dashboard)/_lam-viec/AnhKetQua.tsx:19,36-40,54,60); quyền đọc phụ thuộc hoàn toàn vào endpoint này, giao diện không kiểm."
+    }
+  ],
+  "held": [
+    {
+      "title": "Hàng chờ siêu âm đọc work_item DICHVU-SIEUAM trong khi chỉ định mới đi qua service_order/queue_entry",
+      "reason": "booking_service.py:2698-2735 ghi chú rằng chỉ lịch hẹn thẳng với bác sĩ siêu âm mới sinh work_item DICHVU-SIEUAM, và đường order_services đã đóng ở 20260915000013; luot_kham_service.start_service/complete_service (3762-3929) chỉ cập nhật service_order/queue_entry. Nếu không có đồng bộ, màn Siêu âm cũ chỉ thấy một phần ca. Cần xác minh các trigger/đồng bộ ngoài danh sách."
+    },
+    {
+      "title": "Hai máy trạng thái song song: work_item_service.issue (start/complete) và service_order.exec_status",
+      "reason": "work_items.py:212-263 vẫn cho hoàn tất work_item thuộc flow_group dich_vu/ket_qua bằng lệnh chung, không thấy cập nhật service_order/queue_entry trong cùng giao dịch; cần đọc thêm để biết có chặn hay đồng bộ."
+    },
+    {
+      "title": "Nút 'Xong' trên chuông đóng thông báo cho cả vai mà không đối chiếu điều kiện gốc",
+      "reason": "NotificationContext.danhDauDaXuLy (402-428) và ThongBaoService.da_xu_ly (thong_bao_service.py:441-488) đóng cả nhóm theo vai khi một người bấm; việc thật (vd xếp bác sĩ) có thể chưa làm. Chưa đọc đủ thong_bao_service để biết có tự đóng khi điều kiện hết."
+    },
+    {
+      "title": "UltrasoundBoardService.nhan_ca còn trong service dù endpoint đã trả 410",
+      "reason": "ultrasound_board_service.py:263-320 UPDATE assigned_to không có điều kiện assigned_to IS NULL và không lọc location; router 113-142 đã chặn nên chỉ là mã chết nguy hiểm nếu có nơi gọi lại. Cần grep gọi trực tiếp ngoài router."
+    },
+    {
+      "title": "'Xoá tất cả' trên chuông ẩn cả thông báo KHẨN của Trưởng ca và người gọi không biết đã ai đọc",
+      "reason": "GlobalHeader.tsx:467-481 + NotificationContext.anTatCaThongBao (430-443) ẩn riêng cho người bấm; chưa rõ trưởng ca có xem được 'đã đọc' theo người hay không (da_doc_luc có ở thong_bao)."
+    },
+    {
+      "title": "Lịch nhỏ ở thanh trên chỉ đổi nhãn ngày, không điều hướng",
+      "reason": "GlobalHeader.tsx:174-185,417-420: selectedDate chỉ dùng để in nhãn; người dùng có thể tưởng chọn ngày lọc dữ liệu. Tác động thấp; cần hỏi chủ về chủ ý."
+    },
+    {
+      "title": "Bố cục lịch trực và màu phòng bám file Excel Kim Ngưu",
+      "reason": "RosterGrid.tsx:1-23 ghi 'Y HỆT FILE EXCEL xếp lịch của PK Kim Ngưu', T2-T6 một ca Tối, mauPhong(maPhong) theo mã màu Excel (lib/roster chưa đọc): nếu cứng theo tên phòng/mã Dr4Women thì cản đóng gói. Cần đọc lib/roster.ts."
+    },
+    {
+      "title": "Mô-đun giọng nói chỉ có PhoWhisper tiếng Việt",
+      "reason": "voice/__init__.py chỉ re-export; ngôn ngữ/mô hình có thể cứng trong transcribe.py (chưa đọc) — liên quan đa ngôn ngữ khi bán cho phòng khám khác."
+    },
+    {
+      "title": "Cookie clinic_role / clinic_staff_id được ghi nhưng không thấy nơi đọc",
+      "reason": "login/actions.ts:81-82 và chon-co-so/actions.ts (chú thích 'cùng tuổi với cookie vai/nhân viên'); grep chỉ thấy ghi/xoá. Nếu route nào đó tin cookie này để phân quyền thì rất nguy hiểm; hiện chưa thấy bằng chứng, chỉ là trạng thái chết."
+    },
+    {
+      "title": "Người lập phiếu nhập vật tư có quyền duyệt tự duyệt phiếu của chính mình",
+      "reason": "vat_tu_nhap_duyet_service.py:200-203 là chủ ý (Q11) nhưng không có tách biệt nhiệm vụ cho giá trị nhập lớn; cần chủ quyết định ngưỡng."
+    },
+    {
+      "title": "Cache danh mục dịch vụ đặt lịch ở biến module, không TTL",
+      "reason": "ChonDichVuDatLich.tsx:37-52 giữ promise cho đến khi tải lại trang; tab dài có thể thấy danh mục cũ sau khi quản lý đổi. Tác động thấp, chưa kiểm endpoint có phụ thuộc cơ sở hay không (catalog.py:140 chỉ theo clinic)."
+    }
+  ],
+  "good_patterns": [
+    {
+      "title": "Sổ tương tác CSKH chỉ thêm, hoàn tác bằng huy_luc và sự kiện riêng",
+      "detail": "Không có hàm sửa/xoá; hoàn tác ghi cả sổ lẫn event_log; kiểm quyền sở hữu (bệnh nhân/lịch hẹn thuộc clinic và khớp nhau) làm trước mọi tác dụng phụ.",
+      "evidence": "src/clinicai/services/tuong_tac_cskh_service.py:8-10,162-183,299-437"
+    },
+    {
+      "title": "Check-out CSKH chạy trong MỘT giao dịch bằng _ConnectionBoundPool",
+      "detail": "Đóng lượt + hoàn tất lịch dùng chung kết nối và FOR UPDATE; chữa lành trạng thái nửa vời từ phiên bản hai giao dịch cũ. Nên nhân rộng cho hoan_tac CHECK_IN.",
+      "evidence": "src/clinicai/services/tuong_tac_cskh_service.py:43-59,487-522,585-598"
+    },
+    {
+      "title": "Danh sách bị cắt có cờ bi_cat/tran ở màn Siêu âm",
+      "detail": "canh_bao_neu_day trả cờ cắt để UI không nói 'hết' khi chạm trần 300.",
+      "evidence": "src/clinicai/services/ultrasound_board_service.py:257-261,494-498"
+    },
+    {
+      "title": "Hàng việc không lọc theo ngày vì 'việc mở không hết mở khi qua nửa đêm'",
+      "detail": "list_worklist cố ý bỏ lọc ngày mặc định và ghi lại bài học bệnh nhân đến 23:50 biến khỏi màn.",
+      "evidence": "src/clinicai/services/work_item_service.py:485-489"
+    },
+    {
+      "title": "Yêu cầu nhập vật tư: khoá gửi lại, ảnh chụp giá lúc xin, quyết định đúng một lần",
+      "detail": "Khoá khoa_gui chống nhân đôi kể cả khi cờ duyệt đổi; duyệt dùng khoá phiếu 'duyet-<id>' và FOR UPDATE; trả already=True khi hai máy cùng bấm.",
+      "evidence": "src/clinicai/services/vat_tu_nhap_duyet_service.py:104-115,206-243,284-302"
+    },
+    {
+      "title": "Lệnh work-item đi cùng khoá dòng, kiểm membership lại trong cùng truy vấn, và Idempotency-Key",
+      "detail": "issue() khoá FOR UPDATE, so vai tài khoản với membership còn hiệu lực, ghi work_item_event cùng giao dịch; router có tra_khoa_neu_bi_tu_choi để trả khoá khi 4xx.",
+      "evidence": "src/clinicai/services/work_item_service.py:141-168,276-297; src/clinicai/api/v1/routers/work_items.py:180-209"
+    },
+    {
+      "title": "Quyền hiển thị theo mục là hàm thuần test được (muc_duoc_xem)",
+      "detail": "Xem lượt cắt từng mục theo capability, không theo vai; thư ký còn qua kiem_khach.",
+      "evidence": "src/clinicai/services/xem_luot_service.py:157-173,277"
+    },
+    {
+      "title": "Hộp Đổi mật khẩu: kiểm mật khẩu cũ và thu hồi phiên khác (scope others)",
+      "detail": "Đúng mẫu cần nhân rộng (kèm sửa lỗi bỏ qua kết quả signOut).",
+      "evidence": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx:84-108"
+    },
+    {
+      "title": "Context 'null = chưa biết', không phải mặc định",
+      "detail": "BookingPolicyContext và QuyenContext tách rõ 'backend không trả lời' khỏi giá trị mặc định.",
+      "evidence": "src/dashboard/app/(dashboard)/BookingPolicyContext.tsx:12,33-36; src/dashboard/app/(dashboard)/QuyenContext.tsx:19"
+    },
+    {
+      "title": "Khung giao diện dựng lại cây con theo pathname",
+      "detail": "key={pathname} ngăn state ô nhập của bệnh nhân trước đi theo sang trang sau.",
+      "evidence": "src/dashboard/app/(dashboard)/Shell.tsx:323-330"
+    },
+    {
+      "title": "Vòng đời realtime theo tab hiển thị với bắt kịp một lần",
+      "detail": "Đóng SSE khi tab ẩn, bắt kịp khi hiện lại, nối lại có lùi mũ; tin méo thì làm mới thay vì bỏ sót.",
+      "evidence": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:38-58,231-315"
+    },
+    {
+      "title": "Chuông bỏ hẳn dòng giả 'quá SLA' và xoá lạc quan có hoàn lại bằng đọc lại",
+      "detail": "Ghi bài học vì sao thông báo giả làm cả phòng khám học cách bỏ qua chuông; danhDauDaXuLy xoá ngay rồi đọc lại nếu máy chủ từ chối.",
+      "evidence": "src/dashboard/app/(dashboard)/GlobalHeader.tsx:194-206; src/dashboard/app/(dashboard)/NotificationContext.tsx:402-428"
+    },
+    {
+      "title": "Dockerfile chặn NEXT_PUBLIC_SUPABASE_URL trỏ tên máy nội bộ ngay lúc build",
+      "detail": "Biến lỗi vận hành đã xảy ra hai lần thành bước build thất bại có thông báo rõ.",
+      "evidence": "src/dashboard/Dockerfile.dashboard:32-54"
+    },
+    {
+      "title": "Khoá lạc quan sua_luc cho PATCH hồ sơ bệnh nhân",
+      "detail": "Ghi rõ lý do và số liệu sự cố 11/08; giao diện gửi thẻ; cần bắt buộc để hoàn chỉnh (S13-12).",
+      "evidence": "src/clinicai/schemas/patient.py:191-204; src/dashboard/app/(dashboard)/PatientAdminEditor.tsx:189-193"
+    }
+  ],
+  "coverage": [
+    {
+      "path": "src/clinicai/services/tuong_tac_cskh_service.py",
+      "lines": 919,
+      "full_read": true,
+      "note": "Đọc hết; ghi/hoan_tac/hẹn gọi lại/Zalo; có S13-2, S13-9, S13-13 + extends."
+    },
+    {
+      "path": "src/clinicai/services/ultrasound_board_service.py",
+      "lines": 601,
+      "full_read": true,
+      "note": "Đọc hết; cửa sổ ngày, nháp, ghi nhận (S13-1, S13-10)."
+    },
+    {
+      "path": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+      "lines": 449,
+      "full_read": true,
+      "note": "Đọc hết; chờ duyệt không người nhận (S13-3); điểm tốt khoá gửi lại."
+    },
+    {
+      "path": "src/clinicai/services/work_item_service.py",
+      "lines": 703,
+      "full_read": true,
+      "note": "Đọc hết; lệnh work-item, worklist (S13-11, S13-12)."
+    },
+    {
+      "path": "src/clinicai/services/xem_luot_service.py",
+      "lines": 814,
+      "full_read": true,
+      "note": "Đọc hết; cắt dữ liệu (S13-4), ghi chú (S13-16)."
+    },
+    {
+      "path": "src/clinicai/voice/__init__.py",
+      "lines": 19,
+      "full_read": true,
+      "note": "Chỉ re-export PhoWhisper; ghi trong held."
+    },
+    {
+      "path": "src/dashboard/.dockerignore",
+      "lines": 13,
+      "full_read": true,
+      "note": "Đọc hết; loại .env* và node_modules, không vấn đề."
+    },
+    {
+      "path": "src/dashboard/.gitignore",
+      "lines": 44,
+      "full_read": true,
+      "note": "Đọc hết; mặc định Next, ignore .env*."
+    },
+    {
+      "path": "src/dashboard/Dockerfile.dashboard",
+      "lines": 82,
+      "full_read": true,
+      "note": "Đọc hết; nung NEXT_PUBLIC_ lúc build (S13-14); guard URL là điểm tốt."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/chon-co-so/duong-ve.ts",
+      "lines": 8,
+      "full_read": true,
+      "note": "Đọc hết; bộ lọc đường về (S13-8)."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/forgot-password/ForgotPasswordForm.tsx",
+      "lines": 118,
+      "full_read": true,
+      "note": "Đọc hết; S13-7."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/forgot-password/page.tsx",
+      "lines": 13,
+      "full_read": true,
+      "note": "Đọc hết; bọc Suspense."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/login/LoginForm.tsx",
+      "lines": 121,
+      "full_read": true,
+      "note": "Đọc hết; S13-7 (liên kết quên mật khẩu)."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/login/actions.ts",
+      "lines": 105,
+      "full_read": true,
+      "note": "Đọc hết; S13-6."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/login/page.tsx",
+      "lines": 12,
+      "full_read": true,
+      "note": "Đọc hết; bọc Suspense."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/reset-password/ResetPasswordForm.tsx",
+      "lines": 181,
+      "full_read": true,
+      "note": "Đọc hết; S13-5."
+    },
+    {
+      "path": "src/dashboard/app/(auth)/reset-password/page.tsx",
+      "lines": 10,
+      "full_read": true,
+      "note": "Đọc hết; bọc Suspense."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/BookingPolicyContext.tsx",
+      "lines": 36,
+      "full_read": true,
+      "note": "Đọc hết; điểm tốt (null = chưa biết)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/BottomNav.tsx",
+      "lines": 112,
+      "full_read": true,
+      "note": "Đọc hết; cùng bộ lọc với thanh bên."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/CongTyKhach.tsx",
+      "lines": 116,
+      "full_read": true,
+      "note": "Đọc hết; thiếu bắt lỗi mạng ở an() (extends FE-023)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/DateField.tsx",
+      "lines": 208,
+      "full_read": true,
+      "note": "Đọc hết; S13-17."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/DeclinedNotice.tsx",
+      "lines": 54,
+      "full_read": true,
+      "note": "Đọc hết; toast chỉ trong phiên, cho phép tắt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/DoiMatKhauModal.tsx",
+      "lines": 276,
+      "full_read": true,
+      "note": "Đọc hết; extends SEC-025, điểm tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/GlobalHeader.tsx",
+      "lines": 685,
+      "full_read": true,
+      "note": "Đọc hết; held về lịch nhỏ, 'Xoá tất cả'."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/Nav.tsx",
+      "lines": 328,
+      "full_read": true,
+      "note": "Đọc hết; không phát hiện mới."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/NotificationContext.tsx",
+      "lines": 465,
+      "full_read": true,
+      "note": "Đọc hết; S13-15, extends FE-019/FE-001."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/PatientAdminEditor.tsx",
+      "lines": 455,
+      "full_read": true,
+      "note": "Đọc hết; S13-17, S13-12, extends FE-023."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/QuyenContext.tsx",
+      "lines": 38,
+      "full_read": true,
+      "note": "Đọc hết; rơi về vai khi quyền null (server vẫn kiểm)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx",
+      "lines": 350,
+      "full_read": true,
+      "note": "Đọc hết; điểm tốt."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/RosterBell.tsx",
+      "lines": 117,
+      "full_read": true,
+      "note": "Đọc hết; chỉ thông báo ca."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/RosterGrid.tsx",
+      "lines": 222,
+      "full_read": true,
+      "note": "Đọc hết; held về bám Excel Kim Ngưu."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/SearchSelect.tsx",
+      "lines": 178,
+      "full_read": true,
+      "note": "Đọc hết; extends FE-013."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/Shell.tsx",
+      "lines": 352,
+      "full_read": true,
+      "note": "Đọc hết; S13-14."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/SplitPane.tsx",
+      "lines": 112,
+      "full_read": true,
+      "note": "Đọc hết; không vấn đề."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/StatCard.tsx",
+      "lines": 18,
+      "full_read": true,
+      "note": "Đọc hết; thuần hiển thị."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/StatusBadge.tsx",
+      "lines": 37,
+      "full_read": true,
+      "note": "Đọc hết; trạng thái lạ rơi về mã trần (tốt)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/TimNhanh.tsx",
+      "lines": 151,
+      "full_read": true,
+      "note": "Đọc hết; cùng hàm lọc với thanh bên."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/Time24Input.tsx",
+      "lines": 106,
+      "full_read": true,
+      "note": "Đọc hết; phút chỉ bội của 5 (giá trị lẻ không hiển thị)."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/WeekNav.tsx",
+      "lines": 84,
+      "full_read": true,
+      "note": "Đọc hết; không vấn đề."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/AnhKetQua.tsx",
+      "lines": 216,
+      "full_read": true,
+      "note": "Đọc hết; extends SEC-020."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/ChonBacSiLam.tsx",
+      "lines": 67,
+      "full_read": true,
+      "note": "Đọc hết; chọn bác sĩ chỉ là ưu tiên, không khoá."
+    },
+    {
+      "path": "src/dashboard/app/(dashboard)/_lam-viec/ChonDichVuDatLich.tsx",
+      "lines": 196,
+      "full_read": true,
+      "note": "Đọc hết; held về cache module."
+    }
+  ]
+}
