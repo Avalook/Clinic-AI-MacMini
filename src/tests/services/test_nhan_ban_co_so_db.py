@@ -403,7 +403,7 @@ async def _kiem_thong_tin_hn(pool: asyncpg.Pool, hn: str) -> None:
     assert dong["name"] == "Hào Nam" and dong["is_active"] is True
     assert dong["address"] == DIA_CHI_HN
     if "phone" in dong:
-        assert dong["phone"] == "0966 558 833"
+        assert dong["phone"] == "0899 973 555"
     if "ten_in" in dong:
         assert dong["ten_in"] == "Phòng khám chuyên khoa - Phụ sản 4WOMEN"
 
