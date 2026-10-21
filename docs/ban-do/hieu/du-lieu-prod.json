@@ -1,5 +1,5 @@
 {
- "nguon": "Tuyền chạy kiem-du-lieu-prod.sql trên VPS prod 21/10/2026 hai lần (lần 2 đã có câu D14 lọc closed_at rỗng — vẫn 460). Lượt 2 (kiem-du-lieu-prod-2.sql) chưa chạy.",
+ "nguon": "Tuyền chạy trên VPS prod 21/10/2026, chỉ đọc, chỉ con số: kiem-du-lieu-prod.sql (lượt 1) + kiem-du-lieu-prod-2.sql (lượt 2 tách D13/D14/D15).",
  "luc": "21/10/2026",
  "ket_qua": [
   {
@@ -69,16 +69,25 @@
    "muc": "vua",
    "khoi": "pharmacy",
    "tep": "src/clinicai/services/pharmacy_service.py",
-   "nghia": "SAI THẬT (đã biết 16/10: 110/160 lô lệch, nay 46). Giao thuốc theo đơn vị bán mà lô đếm đơn vị khác → trừ kho sai. Sửa bằng màn quy đổi của đợt kho 17/10 (CHƯA lên prod) hoặc nhập lại lô — việc dữ liệu trên màn."
+   "nghia": "SAI THẬT (đã biết 16/10: 110/160 lô lệch, nay 46). Giao thuốc theo đơn vị bán mà lô đếm đơn vị khác → trừ kho sai. Sửa bằng màn quy đổi của đợt kho 17/10 (CHƯA lên prod) hoặc nhập lại lô — việc dữ liệu trên màn. Lượt 2: Hào Nam 23, Kim Ngưu 23."
   },
   {
    "ma": "D14",
-   "ten": "Lượt mở/đang khám quá 2 ngày",
-   "so": 460,
+   "ten": "Lượt chưa check-out quá 2 ngày (treo thật)",
+   "so": 25,
    "muc": "vua",
    "khoi": "reception",
    "tep": "src/clinicai/services/checkout_service.py",
-   "nghia": "CHƯA RÕ — 460 lượt quá 2 ngày vẫn OPEN/IN_PROGRESS và CHƯA có mốc check-out (closed_at rỗng; cột có từ 07/08 nên không phải dữ liệu cũ thiếu cột). Claude từng nói 'đếm oan' — SAI, đã rút lại: chạy lại với closed_at rỗng vẫn 460. Nghi: lượt bán lẻ quầy thuốc không qua check-out, hoặc khách về mà quên check-out. Lượt 2 (D14a_loai, D14a_da_thu, D14a_thang) sẽ nói rõ."
+   "nghia": "TREO THẬT 25 (lượt 2): 24 lượt khám IN_PROGRESS + 1 bán lẻ; 21/25 ĐÃ THU TIỀN → khách trả tiền rồi về mà không ai bấm check-out. Toàn bộ tháng 10; Hào Nam 6, Kim Ngưu 19. Câu D14 cũ ra 460 vì đếm lẫn 435 lượt ĐÃ check-out (check-out không đổi visit.status) — đã sửa câu. Việc dữ liệu: lễ tân check-out 25 lượt."
+  },
+  {
+   "ma": "D14b",
+   "ten": "Đã check-out nhưng bác sĩ chưa ký bệnh án (quá 2 ngày)",
+   "so": 435,
+   "muc": "vua",
+   "khoi": "consultation",
+   "tep": "src/clinicai/services/checkout_service.py",
+   "nghia": "435 bệnh án chưa ký (visit chưa FINALIZED) dù khách đã về. Check-out cố ý không ký thay bác sĩ (TT13/2011). HỎI TUYỀN: có bắt bác sĩ ký không — nếu có thì đây là việc tồn đọng cần màn nhắc ký."
   },
   {
    "ma": "D15",
@@ -87,7 +96,7 @@
    "muc": "vua",
    "khoi": "booking",
    "tep": "src/clinicai/services/booking_service.py",
-   "nghia": "SAI THẬT về dữ liệu: 51 lịch qua ngày vẫn 'đã xác nhận' — khách không đến mà không ai đánh dấu → thống kê vắng mặt / danh sách gọi nhắc sai. Lượt 2 tách theo tháng + kênh đặt để biết có cần bước đóng lịch cuối ngày không."
+   "nghia": "51 lịch qua ngày vẫn 'đã xác nhận' (tháng 9: 5, tháng 10: 46; chủ yếu điện thoại 24, Zalo 13, Facebook 13). Hệ thống CÓ trạng thái NO_SHOW (36 lịch đang dùng) nhưng 51 lịch này chưa ai đánh dấu → thống kê vắng mặt / danh sách gọi nhắc sai. Việc dữ liệu: đánh dấu không đến; cân nhắc bước tự đóng lịch cuối ngày."
   },
   {
    "ma": "D16",
