@@ -42,7 +42,10 @@ findmnt -no OPTIONS "${VIETTEL_CFS_DIR:-/mnt/viettel-cfs}" | tr ',' '\n' | grep 
 mkdir -p "$DICH"
 
 # ── 2 · Tìm cặp mới nhất ───────────────────────────────────────────────────
-MOI_NHAT=$(ls -1t "$BACKUP_DIR"/*.sql.gz 2>/dev/null | grep -v '_auth\.sql\.gz$' | head -1 || true)
+# Hàm chung loại MỌI tệp đi kèm (_auth, _lich_su_notion) — chỉ loại _auth thì
+# "mới nhất" ra tệp notion và bước dưới dừng vì thiếu auth (21/10/2026).
+. "$(dirname "$0")/lib/chon-ban-sao.sh"
+MOI_NHAT=$(chon_ban_chinh_moi_nhat "$BACKUP_DIR" "")
 [ -n "$MOI_NHAT" ] || hong "không thấy bản sao lưu nào trong $BACKUP_DIR"
 
 AUTH="${MOI_NHAT%.sql.gz}_auth.sql.gz"
