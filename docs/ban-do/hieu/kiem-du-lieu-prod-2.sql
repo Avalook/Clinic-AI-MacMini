@@ -16,6 +16,12 @@ SELECT jsonb_build_object('ma','D14a','so_dong',(SELECT count(*) FROM visit WHER
 -- D14b Đã check-out nhưng bác sĩ chưa ký bệnh án
 BEGIN READ ONLY; SET LOCAL statement_timeout = '20s';
 SELECT jsonb_build_object('ma','D14b','so_dong',(SELECT count(*) FROM visit WHERE status IN ('OPEN','IN_PROGRESS') AND closed_at IS NOT NULL AND created_at < now() - interval '2 days'))::text; ROLLBACK;
+-- D14a tách: bán lẻ quầy thuốc (ban_le) hay lượt khám, và trạng thái
+BEGIN READ ONLY; SET LOCAL statement_timeout = '20s';
+SELECT jsonb_build_object('ma','D14a_loai','so',(SELECT coalesce(jsonb_object_agg(k, n), '{}'::jsonb) FROM (SELECT (CASE WHEN ban_le THEN 'ban_le ' ELSE 'kham ' END) || status AS k, count(*) AS n FROM visit WHERE status IN ('OPEN','IN_PROGRESS') AND closed_at IS NULL AND created_at < now() - interval '2 days' GROUP BY 1) t))::text; ROLLBACK;
+-- D14a: lượt khám (không bán lẻ) mà đã có thu tiền — tức khách đã qua quầy thu nhưng chưa check-out
+BEGIN READ ONLY; SET LOCAL statement_timeout = '20s';
+SELECT jsonb_build_object('ma','D14a_da_thu','so_dong',(SELECT count(*) FROM visit v WHERE v.status IN ('OPEN','IN_PROGRESS') AND v.closed_at IS NULL AND NOT coalesce(v.ban_le,false) AND v.created_at < now() - interval '2 days' AND EXISTS (SELECT 1 FROM payment_cycle c WHERE c.visit_id = v.visit_id AND c.status = 'PAID')))::text; ROLLBACK;
 -- D14a theo tháng tạo (treo mới hay treo cũ)
 BEGIN READ ONLY; SET LOCAL statement_timeout = '20s';
 SELECT jsonb_build_object('ma','D14a_thang','so',(SELECT coalesce(jsonb_object_agg(thang, n), '{}'::jsonb) FROM (SELECT to_char(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM') AS thang, count(*) AS n FROM visit WHERE status IN ('OPEN','IN_PROGRESS') AND closed_at IS NULL AND created_at < now() - interval '2 days' GROUP BY 1) t))::text; ROLLBACK;
