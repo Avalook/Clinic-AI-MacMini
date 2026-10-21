@@ -47,6 +47,7 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import hom_nay_vn
 
 logger = structlog.get_logger()
 
@@ -366,7 +367,7 @@ class BookingOverrideService:
         tới "tất cả bác sĩ mọi thứ". Hai luật đó cùng tồn tại, và
         ``resolve_effective_cap`` chọn cái cụ thể hơn.
         """
-        eff_from = date.today()
+        eff_from = hom_nay_vn()
         replaced = await self._clear_minute_window(
             conn,
             clinic_id=identity.clinic_id,

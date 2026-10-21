@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.services.queue_order import (
     VISIT_DA_RA_VE,
@@ -101,7 +102,7 @@ async def get_queue(
     names and codes for every clinic. It now requires a staff token and is
     scoped to that member's clinic.
     """
-    day = date or date_cls.today()
+    day = date or hom_nay_vn()
     appt_rows = await pool.fetch(
         _APPT_SQL,
         day,
