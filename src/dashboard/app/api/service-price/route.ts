@@ -1,4 +1,5 @@
 // Bảng giá khung dịch vụ/thuốc (service_price) — CRUD scaffold cho màn Bảng giá.
+//   GET    ?xem=lich-su-gia&id=…                          → mọi lần đổi giá của một dòng (21/10)
 //   GET    ?xem=phong-lam                                  → phòng làm (node) để chọn
 //   GET    ?xem=danh-muc                                   → Bảng giá dịch vụ & phòng (01/10/2026):
 //          mọi dịch vụ + nhóm hàng + phòng làm được + cờ chưa có phòng (máy chủ quyết)
@@ -25,6 +26,7 @@ type PriceGroup = "thuoc" | "dich_vu" | "vat_tu";
 
 const MA_KV_RE = /^[A-Za-z0-9_-]{1,32}$/;
 const NODE_RE = /^[A-Z0-9_-]{1,64}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function daDangNhap(): Promise<NextResponse | null> {
   const caller = await getSupabaseServer();
@@ -69,9 +71,15 @@ function parseNode(v: unknown): string | null | undefined {
 export async function GET(request: Request) {
   const chan = await daDangNhap();
   if (chan) return chan;
-  const xem = new URL(request.url).searchParams.get("xem");
+  const q = new URL(request.url).searchParams;
+  const xem = q.get("xem");
   if (xem === "danh-muc") {
     return proxyJsonToBackend("GET", "/api/v1/service-prices/danh-muc", undefined);
+  }
+  if (xem === "lich-su-gia") {
+    const id = q.get("id") ?? "";
+    if (!UUID_RE.test(id)) return sai("Mã dòng giá không hợp lệ.");
+    return proxyJsonToBackend("GET", `/api/v1/service-prices/${id}/lich-su-gia`, undefined);
   }
   if (xem !== "phong-lam") return sai("Không rõ cần đọc gì.");
   return proxyJsonToBackend("GET", "/api/v1/service-prices/phong-lam", undefined);

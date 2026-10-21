@@ -20,6 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Chip from "@/components/ui/Chip";
+import GiaSuaCuoi, { type LanDoiGia } from "@/components/ui/GiaSuaCuoi";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -43,6 +44,8 @@ export interface PriceRow {
   billing_owner?: "CLINIC" | "EXTERNAL_PARTNER";
   /** Quản lý đã chọn tay bên thu — đổi phòng làm không còn đổi bên thu. */
   billing_owner_chon_tay?: boolean;
+  /** Lần đổi giá gần nhất (21/10/2026); chưa đổi = null. */
+  gia_sua_cuoi?: LanDoiGia | null;
 }
 
 interface PhongLam {
@@ -436,6 +439,12 @@ export default function CashierView({
                               ) : null}
                             </div>
                           ) : null}
+                          <GiaSuaCuoi
+                            sua={row.gia_sua_cuoi}
+                            ten={row.name}
+                            duongLichSu={`/api/service-price?xem=lich-su-gia&id=${row.id}`}
+                            canhPhai
+                          />
                         </td>
                         <td className="px-4 py-3">
                           <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-ink-soft">

@@ -102,6 +102,11 @@ const DOC: Record<string, (q: URLSearchParams) => string | null> = {
       ids: q.get("ids") ?? "",
       phieu: q.get("phieu") ?? "",
     })}`,
+  // 21/10: mọi lần đổi giá bán của một thuốc kho.
+  "lich-su-gia": (q) => {
+    const id = q.get("id") ?? "";
+    return UUID_RE.test(id) ? `/api/v1/pharmacy/danh-muc/${id}/lich-su-gia` : null;
+  },
   // 09/10: chọn khách cũ → lịch sử đơn thuốc theo trang (chưa mở lượt).
   "lich-su-don": (q) => {
     const id = q.get("clinic_patient_id") ?? "";

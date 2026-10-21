@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import GiaSuaCuoi, { type LanDoiGia } from "@/components/ui/GiaSuaCuoi";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import { guiKho, soKho, tienVnd, tonTheoDonVi } from "./gui-kho";
 
@@ -35,6 +36,8 @@ export interface ThuocKho {
   don_vi_lo: string[];
   /** Tồn tách theo đơn vị lô — không cộng hộp với viên (29/09/2026). */
   ton_theo_don_vi: { don_vi: string | null; ton: number }[];
+  /** Lần đổi giá bán gần nhất (21/10/2026); chưa đổi = null. */
+  gia_sua_cuoi?: LanDoiGia | null;
 }
 
 type Loc = "dang_dung" | "sap_het" | "can_soat" | "da_tat" | "tat_ca";
@@ -302,7 +305,14 @@ export default function DanhMucKho({
                     {!t.dang_dung ? <Chip tone="neutral">Đã tắt</Chip> : null}
                   </td>
                   <td className="px-3 py-2 text-ink-muted">{t.don_vi_ban ?? "—"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-ink">{tienVnd(t.gia)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-ink">
+                    {tienVnd(t.gia)}
+                    <GiaSuaCuoi
+                      sua={t.gia_sua_cuoi}
+                      ten={t.ten}
+                      duongLichSu={`/api/pharmacy/lich-su-gia?id=${t.id}`}
+                    />
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums text-ink">
                     {tonTheoDonVi(t.ton_theo_don_vi)}
                     {t.so_lo > 0 ? <span className="block text-meta text-ink-muted">{t.so_lo} lô</span> : null}
