@@ -1,6 +1,57 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **21/10/2026** — mục "21/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 21/10/2026 — DỌN REPO + KIỂM EVENT-DRIVEN / LEGO + BẢN ĐỒ THEO KHỐI (Claude, Tuyền duyệt từng bước)
+
+**Prod:** `bbd7327d` (= origin/main, kiểm chỉ đọc 21/10). Staging: `0b53b1bc` (nhánh
+`codex/clinic-floors-roster`, chưa vào main theo SHA — giữ nhánh). Hôm nay **không
+đụng VPS**.
+
+**1. Dọn (xong)** — chi tiết + đường dẫn sao lưu: `docs/KE-HOACH-DON-REPO-VA-QUY-TRINH-2110.md`
+mục 0. PR mở 98 → 34, nhánh GitHub 536 → 74 (tự xoá nhánh khi merge đã BẬT), worktree
+106 → 34, ổ Mac +28 GB. Mọi nhánh `dot/*`, `gop-staging-*` đã xoá — nội dung đều đã
+trong main; cần lại thì lấy từ `~/Projects/ClinicAI-Backups/code/clinicai-20261021-truoc-don.bundle`.
+Checkout chính `Dr4Women-MacMini` đứng **detached ở origin/main** (nhánh `main` đang
+bị worktree Codex `backup-integrity` giữ); đồ sửa dở cũ của nó ở nhánh local
+`wip/checkout-chinh-1810`.
+
+**2. Kiểm event-driven + lego (chỉ đọc)** — `docs/kiem-tra-su-kien-lego-2110/BAO-CAO.md`.
+Dây sự kiện tốt (97/97 khai = phát, 0 kẹt trên prod); ~1/3 chỗ đổi dữ liệu nghiệp vụ
+không phát sự kiện (sửa giá không dấu vết, xoá ca gỡ bác sĩ khỏi lịch, đính chính đơn
+đã ký, hồ sơ khách, kho); 12 hàm SQL làm quyết định nghiệp vụ không phát sự kiện
+(liệu trình, chuỗi việc, nhắc tái khám). 7 gói sửa đề xuất ở mục 5 của báo cáo.
+
+**3. PR chờ Tuyền — merge ĐÚNG THỨ TỰ, mỗi cái không đổi giao diện, không migration:**
+
+| PR | Việc | Trạng thái |
+|---|---|---|
+| #511 | cô lập 3 test đỏ giả khi ci-may chạy song song | chờ merge |
+| #512 | gói 1: chuông nhận chéo tắt khi trưởng ca chuyển phòng đang làm; sổ nợ nghe "đối tác lấy mẫu" | CI lượt 2 đỏ đúng bài đỏ giả #511 sửa → merge #511 rồi cập nhật nhánh + chạy lại CI |
+| #513 | bước 1 lego: 129 bảng có chủ, 110 tệp khai khối, CI bánh cóc chặn ghi chéo mới (sổ nợ 97 chỗ) | CI xanh, chờ merge |
+| #514 | bước 2: bản đồ thống nhất `docs/BAN-DO-KHOI.md` (chồng #513) | CI xanh, merge sau #513 |
+
+Hai lỗi của gói 1 mới **tiềm ẩn** (prod: 18 chuông nhận chéo, 0 treo; chưa lần nào đi
+đường lấy mẫu không Bắt đầu). Gói 1 việc 3 ("bắt đầu tại bàn khám tự xếp phòng") là
+**đúng thiết kế** → chỉ khai ngoại lệ ở bản khai (gói 4).
+
+**4. Việc tiếp (đường "dễ thêm tính năng"):**
+- **Bước 3 — tách tệp to theo khối** (luot_kham 3.929 dòng, pharmacy 3.335, booking
+  2.998…): chỉ dời code, không đổi logic. **Chặn bởi:** Tuyền chốt Giữ/Đóng 34 PR mở
+  (bảng ở mục 6 kế hoạch dọn repo) — #497, #489, #169 đang sửa đúng các tệp ấy.
+- Gói 2: dấu vết khi sửa giá dịch vụ / giá thuốc + 3 chỗ xoá cứng (Mức 2).
+- Gói 3: sự kiện cho việc "lặng lẽ" (hồ sơ khách, kho, đổi/gỡ bác sĩ…) (Mức 2).
+- Bản khai khai trùng `service_order.required_changed` hai lần ở `phat` — sửa khi đụng.
+
+**5. Chờ Tuyền quyết:** 14 worktree có sửa dở thật (giảm giá máy chủ, hoá đơn công ty
+Antigravity, Notion bổ sung, agent soát xuyên tệp…), 14 worktree Codex; xoá bí mật cũ
+trên Mac (`.release-env-prod/` 44 tệp .env thời 08/2026, `~/.clinicai-audit.env`) +
+Quang bật FileVault; quy trình mới "mỗi việc vào thẳng main, đợt = mốc" (mục 3 kế
+hoạch) và "phiếu hiểu việc" — CHƯA duyệt, chưa sửa CLAUDE.md quy trình.
+
+**Bẫy hôm nay (đã ghi memory):** RTK cắt output → mở bản đủ; hook RTK đổi `git` thành
+`rtk git` bị bộ chặn worktree từ chối → gọi `/usr/bin/git`; zsh không tách biến thành
+nhiều tham số; mức "nặng" của agent đọc code chỉ là ứng viên — phải test đỏ / đếm prod.
 
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
 

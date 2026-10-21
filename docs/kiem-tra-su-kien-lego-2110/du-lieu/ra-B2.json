@@ -1,0 +1,1793 @@
+[
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/vat_tu_kho_service.py",
+  "dong": 158,
+  "ham": "_mo_phieu",
+  "bang": [
+   "vat_tu_phieu"
+  ],
+  "ly_do": "Mở phiếu kho vật tư (nhập/xuất phòng/huỷ/kiểm/đảo) qua tao_phieu/hoan_phieu (dòng 308, 357) — cả chuỗi không emit_event; chỉ khi NHẬP đi đường duyệt mới có vat_tu.nhap_da_quyet. Sổ vat_tu_phieu chỉ-thêm có tao_boi nên còn vết",
+  "vi_du": "Kho xuất 10 găng tay lên phòng thủ thuật hoặc huỷ vật tư hỏng — khối báo cáo/canh gác tồn không nhận sự kiện nào để phản ứng, chỉ biết khi tự đọc bảng."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/vat_tu_kho_service.py",
+  "dong": 200,
+  "ham": "_ton",
+  "bang": [
+   "vat_tu_ton"
+  ],
+  "ly_do": "INSERT … ON CONFLICT DO NOTHING tạo dòng tồn rỗng rồi khoá (dòng 218-230); số tồn thật do trigger vat_tu_txn_cong_ton cộng"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/vat_tu_kho_service.py",
+  "dong": 238,
+  "ham": "_ghi",
+  "bang": [
+   "vat_tu_txn"
+  ],
+  "ly_do": "Ghi dòng sổ vat_tu_txn (dòng 249) trong _ghi_phieu/hoan_phieu — biến động tồn vật tư không có sự kiện (trừ đường duyệt nhập)",
+  "vi_du": "Đảo một phiếu xuất vật tư (hoàn phiếu) làm tồn phòng thay đổi mà không khối nào được báo."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 338,
+  "ham": "bao_bac_si_chinh",
+  "bang": [
+   "so_sua_chi_dinh"
+  ],
+  "ly_do": "Chỉ đóng dấu da_bao_bac_si_luc (dòng 391); gọi từ phi_kham_service.chon (emit visit.exam_service_changed) và hoan_tac_service.huy_chi_dinh (emit service_order.cancelled)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 400,
+  "ham": "ghi_so_thuoc",
+  "bang": [
+   "so_sua_chi_dinh"
+  ],
+  "ly_do": "Ghi sổ sửa đơn (so_sua_chi_dinh là sổ chỉ-thêm) trong dinh_chinh_don.luu_don_chua_ky; đường phieu_kham_service.luu_don_thuoc emit prescription.saved (889) — riêng đường clinical_record_service.save (500→827) chỉ record_event, không prescription.saved"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 653,
+  "ham": "hoan_tac",
+  "bang": [
+   "thong_bao"
+  ],
+  "ly_do": "Hàm con _dat_lai_chi_dinh (754) emit service_order.restored, _tick_lai_kham (956) emit visit.exam_service_changed; UPDATE thong_bao (dòng 725) chỉ đóng thông báo"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/mau_ket_qua_service.py",
+  "dong": 148,
+  "ham": "tao_mau",
+  "bang": [
+   "form_definition",
+   "ket_qua_mau"
+  ],
+  "ly_do": "Mẫu kết quả = cấu hình; form_definition có version + tao_boi/xuat_ban_boi/xuat_ban_luc (dòng 201-205)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/mau_ket_qua_service.py",
+  "dong": 241,
+  "ham": "gan",
+  "bang": [
+   "dich_vu_mau_ket_qua"
+  ],
+  "ly_do": "Gắn mẫu↔dịch vụ = cấu hình; cột gan_boi (dòng 263) giữ người gắn, không sổ lịch sử"
+ },
+ {
+  "loai": "cau_hinh_khong_nhat_ky",
+  "tep": "src/clinicai/services/mau_ket_qua_service.py",
+  "dong": 273,
+  "ham": "go",
+  "bang": [
+   "dich_vu_mau_ket_qua"
+  ],
+  "ly_do": "DELETE dich_vu_mau_ket_qua (dòng 280) không record_event, xoá luôn gan_boi",
+  "vi_du": "Quản lý gỡ mẫu siêu âm thai khỏi dịch vụ — hôm sau bác sĩ không thấy mẫu, không ai tra được ai gỡ, lúc nào."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/phan_lo_service.py",
+  "dong": 201,
+  "ham": "gan_lan_thu",
+  "bang": [
+   "prescription_allocation"
+  ],
+  "ly_do": "Gắn phân lô vào lần thu; gọi trong record_payment (payment_service 670) — tiền mặt emit payment.medicine_collected qua _ghi_da_thu (2157), chuyển khoản phát khi xac_minh_dien_tu"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/phan_lo_service.py",
+  "dong": 215,
+  "ham": "ghi_ban",
+  "bang": [
+   "inventory_txn"
+  ],
+  "ly_do": "Ghi SALE kho; gọi trong record_payment (677) và xac_minh_dien_tu (1259) — cùng giao dịch _ghi_da_thu emit payment.medicine_collected"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/phan_lo_service.py",
+  "dong": 243,
+  "ham": "go_va_giu_ke_hoach",
+  "bang": [
+   "prescription_allocation"
+  ],
+  "ly_do": "Gọi từ huy_cho_xac_minh (1357, emit payment.collection_undone dòng 1376 qua _phat_hoan_tac) và dao_ban/void_payment"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/phan_lo_service.py",
+  "dong": 290,
+  "ham": "dao_ban",
+  "bang": [
+   "inventory_txn"
+  ],
+  "ly_do": "Gọi từ void_payment (1519) — cùng giao dịch _phat_hoan_tac emit payment.collection_undone (1588)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/pos_relay.py",
+  "dong": 104,
+  "ham": "_deliver",
+  "bang": [
+   "pos_outbox"
+  ],
+  "ly_do": "Worker đẩy hàng đợi pos_outbox sang máy POS — bảng outbox kỹ thuật"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/pos_relay.py",
+  "dong": 161,
+  "ham": "_schedule_retry",
+  "bang": [
+   "pos_outbox"
+  ],
+  "ly_do": "Hẹn lại lần đẩy pos_outbox — hàng đợi kỹ thuật"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/pos_relay.py",
+  "dong": 192,
+  "ham": "_dead_letter",
+  "bang": [
+   "pos_outbox"
+  ],
+  "ly_do": "Đánh dead-letter pos_outbox — hàng đợi kỹ thuật"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/thue_suat_service.py",
+  "dong": 105,
+  "ham": "dat_nhom",
+  "bang": [
+   "thue_suat_nhom"
+  ],
+  "ly_do": "Thuế suất nhóm = cấu hình; record_event (dòng 131) + cột sua_boi"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/thue_suat_service.py",
+  "dong": 142,
+  "ham": "dat_mat_hang",
+  "bang": [
+   "drug_catalog",
+   "service_price"
+  ],
+  "ly_do": "Thuế suất mặt hàng = cấu hình; record_event (dòng 164)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/patient_service.py",
+  "dong": 256,
+  "ham": "_insert_patient",
+  "bang": [
+   "patient"
+  ],
+  "ly_do": "Tạo hồ sơ khách (create_patient dòng 103) chỉ INSERT event_log thô (dòng ~213), danh mục không có sự kiện patient.created",
+  "vi_du": "Lễ tân tạo hồ sơ khách mới — khối CSKH/Zalo/MPI không nhận sự kiện \"có khách mới\", dòng thời gian khách bắt đầu trống."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/patient_service.py",
+  "dong": 445,
+  "ham": "update_patient",
+  "bang": [
+   "patient"
+  ],
+  "ly_do": "Sửa hồ sơ khách chỉ record_event (dòng 523) vào sổ cũ; không có sự kiện patient.updated",
+  "vi_du": "Lễ tân sửa số điện thoại/tên khách — khối CSKH gửi Zalo vẫn không biết để cập nhật, chỉ có dòng nhật ký không ai nghe."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/patient_service.py",
+  "dong": 561,
+  "ham": "them_so_dien_thoai",
+  "bang": [
+   "event_log",
+   "patient_sdt_them"
+  ],
+  "ly_do": "Thêm SĐT phụ: INSERT event_log thô (dòng 628), không emit",
+  "vi_du": "Thêm số người nhà cho khách — khối nhắc tái khám/CSKH không được báo có số mới để gọi."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/patient_service.py",
+  "dong": 654,
+  "ham": "xoa_so_dien_thoai",
+  "bang": [
+   "event_log",
+   "patient_sdt_them"
+  ],
+  "ly_do": "Xoá thật SĐT phụ, vết chỉ ở event_log thô (dòng 692)",
+  "vi_du": "Gỡ số cũ của khách — khối gửi tin không biết để ngừng gửi vào số đó."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/so_no_service.py",
+  "dong": 616,
+  "ham": "_dau_ky",
+  "bang": [
+   "so_no_moc"
+  ],
+  "ly_do": "Worker bù số dư đầu kỳ, cập nhật con trỏ so_no_moc (dòng 649, 657); dòng so_no do ghi_chenh_lech ghi — việc di trú/bù lịch sử"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/thu_tu_kham_service.py",
+  "dong": 86,
+  "ham": "keo",
+  "bang": [
+   "visit"
+  ],
+  "ly_do": "Kéo thứ tự hàng chờ (UPDATE visit dòng 125) chỉ record_event (135), không sự kiện lượt",
+  "vi_du": "Lễ tân kéo khách lên trước trong hàng chờ — dòng thời gian lượt không ghi, các khối nghe hàng chờ không có sự kiện để phản ứng."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/thu_tu_kham_service.py",
+  "dong": 153,
+  "ham": "dat_uu_tien",
+  "bang": [
+   "patient"
+  ],
+  "ly_do": "Bật/tắt khách ưu tiên (UPDATE patient dòng 172) chỉ record_event (188)",
+  "vi_du": "Đánh dấu khách ưu tiên (thai phụ đau bụng) — các khối xếp hàng/bác sĩ không nhận sự kiện, chỉ thấy khi tải lại."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/mpi_service.py",
+  "dong": 172,
+  "ham": "auto_queue_if_needed",
+  "bang": [
+   "mpi_merge_queue"
+  ],
+  "ly_do": "Xếp cặp nghi trùng hồ sơ vào hàng đợi mpi_merge_queue — hàng đợi kỹ thuật"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/lenh_kham_core.py",
+  "dong": 112,
+  "ham": "khoa_flow",
+  "bang": [
+   "encounter_flow"
+  ],
+  "ly_do": "INSERT encounter_flow ON CONFLICT DO NOTHING rồi FOR UPDATE (dòng 116-130) — chỉ tạo/khoá dòng đệm; hàm gọi (record_vitals, _gan…) tự emit"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/lenh_kham_core.py",
+  "dong": 204,
+  "ham": "bien_nhan_ghi",
+  "bang": [
+   "command_receipt"
+  ],
+  "ly_do": "Ghi command_receipt chống bấm đúp (idempotency, dòng 217) — bảng kỹ thuật"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_order_service.py",
+  "dong": 788,
+  "ham": "_sync_route",
+  "bang": [
+   "visit_route"
+  ],
+  "ly_do": "Chỉ được gọi bởi create/approve_draft/bo_chi_dinh (dòng 174, 485, 682) — các hàm này không router nào gọi, chỉ test (mã chết)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_order_service.py",
+  "dong": 323,
+  "ham": "save_draft",
+  "bang": [
+   "service_order_draft"
+  ],
+  "ly_do": "ServiceOrderService.save_draft không router nào gọi (work_items.py chỉ dùng catalogue/get_draft/duplicates/charges); chỉ tests gọi — mã chết, có record_event"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_order_service.py",
+  "dong": 414,
+  "ham": "approve_draft",
+  "bang": [
+   "service_order_draft"
+  ],
+  "ly_do": "Không router nào gọi, chỉ test_service_order_draft.py — mã chết"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_order_service.py",
+  "dong": 502,
+  "ham": "discard_draft",
+  "bang": [
+   "service_order_draft"
+  ],
+  "ly_do": "Không router nào gọi — mã chết"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_order_service.py",
+  "dong": 576,
+  "ham": "bo_chi_dinh",
+  "bang": [
+   "work_item"
+  ],
+  "ly_do": "Không router nào gọi (bỏ chỉ định thật đi qua hoan_tac_service.huy_chi_dinh có emit service_order.cancelled) — mã chết"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/lieu_trinh_tien.py",
+  "dong": 291,
+  "ham": "dat_tra_truoc",
+  "bang": [
+   "lieu_trinh_tra_truoc"
+  ],
+  "ly_do": "Gọi self._phat(... 'dat') dòng 391 → emit lieu_trinh.prepay_set"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/lieu_trinh_tien.py",
+  "dong": 413,
+  "ham": "bo_tra_truoc",
+  "bang": [
+   "lieu_trinh_tra_truoc"
+  ],
+  "ly_do": "Gọi self._phat dòng 455 → emit lieu_trinh.prepay_set"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/nhac_viec_service.py",
+  "dong": 44,
+  "ham": "tao",
+  "bang": [
+   "nhac_viec_ca_nhan"
+  ],
+  "ly_do": "Nhắc việc CÁ NHÂN của nhân viên (nhac_viec_ca_nhan, dòng 65) + hẹn giờ — không phải nghiệp vụ khám/tiền/kho"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/nhac_viec_service.py",
+  "dong": 118,
+  "ham": "xong",
+  "bang": [
+   "nhac_viec_ca_nhan"
+  ],
+  "ly_do": "Đánh dấu xong nhắc việc cá nhân (dòng 121) — việc riêng của người dùng"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/scheduling_service.py",
+  "dong": 59,
+  "ham": "create_work_session",
+  "bang": [
+   "work_session"
+  ],
+  "ly_do": "Mô hình work_session cũ: /work-sessions đã gộp/chuyển hướng (dashboard lib/roles.ts:326-329 ghi prod 0 dòng) — API còn mở nhưng không màn nào dùng"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/scheduling_service.py",
+  "dong": 101,
+  "ham": "assign_staff_to_session",
+  "bang": [
+   "work_session_staff"
+  ],
+  "ly_do": "work_session_staff thuộc mô hình work_session cũ (0 dòng prod, màn đã gộp) — đường chết"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/scheduling_service.py",
+  "dong": 244,
+  "ham": "create_appointment",
+  "bang": [
+   "appointment"
+  ],
+  "ly_do": "Chỉ tools/scheduling/create_appointment.py gọi, công cụ đăng ký vào REGISTRY nhưng không nơi nào thực thi — mã chết; NẾU nối lại sẽ đặt lịch bỏ qua booking_service (không appointment.booked)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/scheduling_service.py",
+  "dong": 337,
+  "ham": "confirm_appointment",
+  "bang": [
+   "appointment"
+  ],
+  "ly_do": "Chỉ công cụ agent tools/scheduling/confirm_appointment.py (không ai thực thi) — mã chết"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/scheduling_service.py",
+  "dong": 374,
+  "ham": "cancel_appointment",
+  "bang": [
+   "appointment"
+  ],
+  "ly_do": "Chỉ công cụ agent tools/scheduling/cancel_appointment.py (không ai thực thi) — mã chết; bỏ qua appointment.cancelled nếu nối lại"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 1959,
+  "ham": "_huy_hinh_chieu_dich_vu",
+  "bang": [
+   "payment"
+  ],
+  "ly_do": "Chỉ gọi trong void_payment (dòng 1445) — cùng giao dịch _phat_hoan_tac emit payment.collection_undone (dòng 1588)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 2234,
+  "ham": "_ghi_phan",
+  "bang": [
+   "payment_cycle_phan"
+  ],
+  "ly_do": "Chia hình thức của lần thu; gọi trong record_payment (637) và _ghi_lan_thu_dich_vu (950) — cả hai phát payment.*_collected khi tiền đã nhận"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 2252,
+  "ham": "_ghi_anh_hoa_don",
+  "bang": [
+   "payment_bill_line"
+  ],
+  "ly_do": "Ảnh chụp hoá đơn; gọi trong record_payment (653) và _ghi_lan_thu_dich_vu (966) — sau đó _phat_da_thu_dich_vu (975)/_ghi_da_thu emit"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 353,
+  "ham": "record_payment",
+  "bang": [
+   "payment_cycle"
+  ],
+  "ly_do": "Tiền mặt: _ghi_da_thu (640) emit payment.medicine_collected (2157); chuyển khoản: chỉ event_log payment.pending_verification (685), sự kiện chuẩn phát lúc xac_minh_dien_tu — có chủ ý (chưa nhận tiền)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 829,
+  "ham": "_ghi_lan_thu_dich_vu",
+  "bang": [
+   "payment_cycle"
+  ],
+  "ly_do": "Gọi _phat_da_thu_dich_vu (dòng 975) → emit payment.service_collected (2325)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 1059,
+  "ham": "xac_minh_dien_tu",
+  "bang": [
+   "payment_cycle"
+  ],
+  "ly_do": "Gọi _phat_da_thu_dich_vu (1236) / _ghi_da_thu (1206, emit payment.medicine_collected)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 1306,
+  "ham": "huy_cho_xac_minh",
+  "bang": [
+   "payment_cycle"
+  ],
+  "ly_do": "Gọi _phat_hoan_tac (1376) → emit payment.collection_undone (1735)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 1388,
+  "ham": "void_payment",
+  "bang": [
+   "payment",
+   "payment_cycle"
+  ],
+  "ly_do": "Gọi _phat_hoan_tac (1588) → emit payment.collection_undone"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+  "dong": 299,
+  "ham": "hoan_tac",
+  "bang": [
+   "event_log",
+   "tuong_tac_cskh"
+  ],
+  "ly_do": "Rút lại một lần chạm CSKH: UPDATE tuong_tac_cskh (dòng ~398) + INSERT event_log thô 'cskh.tuong_tac_hoan_tac' (dòng ~408); lần chạm gốc đã phát patient.contacted nhưng rút lại không có sự kiện đối ứng (check-in đảo qua BookingService.apply_action giao dịch riêng)",
+  "vi_du": "CSKH bấm nhầm \"đã gọi khách\" rồi rút lại — dòng thời gian vẫn giữ sự kiện \"đã liên hệ\", không khối nào biết lần liên hệ ấy đã bị huỷ."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+  "dong": 675,
+  "ham": "tao",
+  "bang": [
+   "hen_goi_lai"
+  ],
+  "ly_do": "Tạo hẹn gọi lại khách (INSERT hen_goi_lai dòng 704) — chỉ báo thong_bao, không sự kiện",
+  "vi_du": "CSKH hẹn \"thứ Năm gọi lại chị A\" — dòng thời gian khách không có, khối khác không phản ứng được."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+  "dong": 793,
+  "ham": "dong",
+  "bang": [
+   "hen_goi_lai"
+  ],
+  "ly_do": "Đóng hẹn gọi lại (UPDATE hen_goi_lai dòng 821) — không sự kiện, không record_event",
+  "vi_du": "CSKH đóng việc hẹn gọi lại — không ai tra được đã đóng bởi ai qua sự kiện, dòng thời gian khách trống."
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/report_access_service.py",
+  "dong": 102,
+  "ham": "save",
+  "bang": [
+   "clinic"
+  ],
+  "ly_do": "Thiết lập báo cáo = cấu hình clinic.settings; record_event (dòng 120)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/permission_service.py",
+  "dong": 447,
+  "ham": "luu_nhom",
+  "bang": [
+   "quyen_preset"
+  ],
+  "ly_do": "Nhóm quyền mẫu = cấu hình; quyen_preset ghi tao_boi/sua_boi/sua_luc (dòng 483-489), không record_event"
+ },
+ {
+  "loai": "cau_hinh_khong_nhat_ky",
+  "tep": "src/clinicai/services/permission_service.py",
+  "dong": 556,
+  "ham": "xoa_nhom",
+  "bang": [
+   "quyen_preset"
+  ],
+  "ly_do": "Nhóm tự đặt bị DELETE cứng (dòng 584), không record_event — mất cả tao_boi/sua_boi (nhóm hệ thống chỉ tắt, dòng 575, còn sua_boi)",
+  "vi_du": "Quản lý xoá nhóm quyền \"Lễ tân ca tối\" — sau này không tra được nhóm đó từng có, ai xoá, lúc nào."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/recall_job_service.py",
+  "dong": 158,
+  "ham": "tao_thu_cong",
+  "bang": [
+   "nhac_tai_kham"
+  ],
+  "ly_do": "CSKH gõ tay ngày tái khám → INSERT nhac_tai_kham (dòng 201), không record_event/emit",
+  "vi_du": "Khách báo qua điện thoại \"tháng sau quay lại\", CSKH đặt nhắc — dòng thời gian khách và khối đặt lịch không biết có hẹn tái khám."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/recall_job_service.py",
+  "dong": 238,
+  "ham": "ghi_ket_qua",
+  "bang": [
+   "cskh_log",
+   "nhac_tai_kham"
+  ],
+  "ly_do": "Ghi kết quả cuộc gọi nhắc tái khám vào cskh_log (dòng 308) — không phát patient.contacted dù đúng là CSKH đã liên hệ",
+  "vi_du": "CSKH gọi nhắc tái khám, khách hẹn thứ Hai — dòng thời gian lượt/khách không có sự kiện \"đã liên hệ\" như đường tuong_tac_cskh."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/recall_job_service.py",
+  "dong": 333,
+  "ham": "bo_qua",
+  "bang": [
+   "nhac_tai_kham"
+  ],
+  "ly_do": "UPDATE nhac_tai_kham → KHONG_CAN (dòng 343) không lưu người bỏ, không record_event/emit",
+  "vi_du": "CSKH bỏ qua việc gọi nhắc một khách — không ai biết ai bỏ, và không khối nào được báo khách này đã rời danh sách gọi."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 2314,
+  "ham": "_doi_trang_thai",
+  "bang": [
+   "service_order"
+  ],
+  "ly_do": "Hàm con đổi execution_status; mọi nơi gọi đều emit (bat_dau service.started, xong/_ghi_xong service.completed, gian_doan, khong_lam, huy_bat_dau…)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 2351,
+  "ham": "_dong_hang_cho",
+  "bang": [
+   "queue_entry"
+  ],
+  "ly_do": "Gọi từ gian_doan/xong_tai_ban_kham/_ghi_xong/khong_lam — đều emit service.* cùng giao dịch"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/service_routing_service.py",
+  "dong": 1039,
+  "ham": "_vao_hang_tai_phong",
+  "bang": [
+   "queue_entry"
+  ],
+  "ly_do": "Chỉ gọi từ _gan (emit service.routed)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/service_routing_service.py",
+  "dong": 1786,
+  "ham": "dat_phong_du_kien",
+  "bang": [
+   "service_order"
+  ],
+  "ly_do": "Gọi ghi_huong_dan (1862/1892/1906) → emit service.room_guided (993); nhánh đã chốt đi _gan emit service.routed"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/service_routing_service.py",
+  "dong": 2408,
+  "ham": "_xep_hang",
+  "bang": [
+   "queue_entry"
+  ],
+  "ly_do": "Gọi từ _gan (service.routed) và chuyen_phong_dang_lam (service.room_transferred)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/quay_thuoc_service.py",
+  "dong": 223,
+  "ham": "chon",
+  "bang": [
+   "prescription"
+  ],
+  "ly_do": "Gọi self._ghi_su_kien (dòng 255) → emit medicine.counter_changed (146)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/quay_thuoc_service.py",
+  "dong": 265,
+  "ham": "doi_so_luong",
+  "bang": [
+   "prescription"
+  ],
+  "ly_do": "Gọi self._ghi_su_kien (dòng 323) → emit medicine.counter_changed"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/quay_thuoc_service.py",
+  "dong": 340,
+  "ham": "_dien_so_luong",
+  "bang": [
+   "prescription"
+  ],
+  "ly_do": "Chỉ gọi trong doi_so_luong (dòng 307), hàm này emit medicine.counter_changed (323)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/quay_thuoc_service.py",
+  "dong": 398,
+  "ham": "luu_dong_them",
+  "bang": [
+   "prescription"
+  ],
+  "ly_do": "Gọi self._ghi_su_kien (dòng 519, 556) → emit medicine.counter_changed"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/tien_thua_service.py",
+  "dong": 343,
+  "ham": "giu_lai",
+  "bang": [
+   "tien_thua_giu_lai"
+  ],
+  "ly_do": "Ghi \"khách không lấy tiền thừa\" (INSERT tien_thua_giu_lai dòng 364) — chuyện tiền, không record_event/emit",
+  "vi_du": "Khách không lấy lại 20.000đ tiền thừa, thu ngân bấm giữ lại — báo cáo kết ca/sổ quỹ không nhận sự kiện nào, dòng thời gian lượt trống."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/tien_thua_service.py",
+  "dong": 375,
+  "ham": "huy_giu_lai",
+  "bang": [
+   "tien_thua_giu_lai"
+  ],
+  "ly_do": "Hoàn tác giữ tiền thừa (UPDATE dòng 386, có huy_boi) — không sự kiện",
+  "vi_du": "Thu ngân huỷ \"giữ lại tiền thừa\" vì bấm nhầm — khối báo cáo tiền không biết số tiền thừa đổi lại."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/lieu_trinh_service.py",
+  "dong": 993,
+  "ham": "_sua",
+  "bang": [
+   "lieu_trinh"
+  ],
+  "ly_do": "Gọi self._phat_sua (dòng 1016) → emit lieu_trinh.revised (969); lieu_trinh còn có trigger lịch sử lieu_trinh_lich_su"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "src/clinicai/services/phieu_kham_service.py",
+  "dong": 374,
+  "ham": "luu_luot",
+  "bang": [
+   "phieu_kham_luot"
+  ],
+  "ly_do": "Tự lưu phiếu khám (INSERT/UPDATE phieu_kham_luot 448-486), có trigger lịch sử trg_phieu_kham_lich_su; sự kiện chốt là consultation.completed — chưa rõ thesis có đòi sự kiện mỗi lần lưu nháp không"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/ultrasound_board_service.py",
+  "dong": 217,
+  "ham": "ghi_bac_si_thuc_hien",
+  "bang": [
+   "work_item"
+  ],
+  "ly_do": "Gán bác sĩ thực hiện siêu âm vào work_item (UPDATE 228) khi save_measurements (đường sống) — không sự kiện, không record_event riêng",
+  "vi_du": "Bác sĩ siêu âm nhập số đo → máy ghi chị ấy là người thực hiện ca — thư ký/bảng siêu âm/khối công không nhận sự kiện \"đã có người nhận ca\"."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/ultrasound_board_service.py",
+  "dong": 263,
+  "ham": "nhan_ca",
+  "bang": [
+   "work_item"
+  ],
+  "ly_do": "Không router/service nào gọi UltrasoundBoardService.nhan_ca — mã chết (có record_event 311)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/ultrasound_board_service.py",
+  "dong": 343,
+  "ham": "save_draft",
+  "bang": [
+   "ultrasound_record"
+  ],
+  "ly_do": "Chỉ router /ultrasound sono_save_draft; dashboard lib/route-da-tat.ts:13 đã TẮT /api/sono (410) — đường chết"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+  "dong": 206,
+  "ham": "_duyet_tren_conn",
+  "bang": [
+   "vat_tu_nhap_cho_duyet"
+  ],
+  "ly_do": "Gọi _ghi_quyet (dòng 237) → emit vat_tu.nhap_da_quyet (dòng 252) cùng giao dịch"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+  "dong": 305,
+  "ham": "tu_choi",
+  "bang": [
+   "vat_tu_nhap_cho_duyet"
+  ],
+  "ly_do": "Dòng 333 gọi _ghi_quyet → emit vat_tu.nhap_da_quyet (dòng 252)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+  "dong": 337,
+  "ham": "rut_lai",
+  "bang": [
+   "vat_tu_nhap_cho_duyet"
+  ],
+  "ly_do": "Dòng 372 gọi _ghi_quyet → emit vat_tu.nhap_da_quyet (dòng 252)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/vat_tu_danh_muc_service.py",
+  "dong": 113,
+  "ham": "dat_co_hang_loat",
+  "bang": [
+   "service_price"
+  ],
+  "ly_do": "Cờ danh mục vật tư = cấu hình; record_event (dòng 168) cùng giao dịch"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/lo_thuoc_service.py",
+  "dong": 30,
+  "ham": "doi_canh_bao",
+  "bang": [
+   "clinic"
+  ],
+  "ly_do": "Số ngày cảnh báo hạn = cấu hình clinic; ghi_nhat_ky (dòng 48, = pharmacy_service._log → event_log)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/lo_thuoc_service.py",
+  "dong": 72,
+  "ham": "sua_lo",
+  "bang": [
+   "drug_batch"
+  ],
+  "ly_do": "Sửa số lô/hạn dùng của lô thuốc (UPDATE drug_batch 103) chỉ ghi_nhat_ky event_log (116)",
+  "vi_du": "Dược sĩ sửa hạn dùng một lô từ 2027 về 11/2026 — khối canh hạn/kho không nhận sự kiện, chỉ phát hiện khi tự quét."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/lo_thuoc_service.py",
+  "dong": 135,
+  "ham": "huy_lo",
+  "bang": [
+   "inventory_txn"
+  ],
+  "ly_do": "Huỷ lô hết hạn = INSERT inventory_txn DISCARD (165), chỉ ghi_nhat_ky (178) — biến động kho thuốc không sự kiện",
+  "vi_du": "Dược sĩ huỷ 30 viên thuốc hết hạn — báo cáo kho/kế toán không nhận sự kiện xuất huỷ."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/lo_thuoc_service.py",
+  "dong": 193,
+  "ham": "hoan_huy_lo",
+  "bang": [
+   "inventory_txn"
+  ],
+  "ly_do": "Hoàn huỷ lô = INSERT inventory_txn đảo (220), chỉ ghi_nhat_ky (231)",
+  "vi_du": "Dược sĩ hoàn tác lần huỷ lô bấm nhầm — tồn tăng lại mà không khối nào được báo."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/vat_tu_service.py",
+  "dong": 342,
+  "ham": "them",
+  "bang": [
+   "luot_vat_tu"
+  ],
+  "ly_do": "Gọi ghi_su_kien_vat_tu (dòng 454) → emit visit.supply_changed (579)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/vat_tu_service.py",
+  "dong": 488,
+  "ham": "dat_so_luong",
+  "bang": [
+   "luot_vat_tu"
+  ],
+  "ly_do": "Gọi ghi_su_kien_vat_tu (dòng 519) → emit visit.supply_changed"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/vat_tu_service.py",
+  "dong": 534,
+  "ham": "bo",
+  "bang": [
+   "luot_vat_tu"
+  ],
+  "ly_do": "Gọi ghi_su_kien_vat_tu (dòng 562) → emit visit.supply_changed"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/slot_hold_service.py",
+  "dong": 221,
+  "ham": "release_on_booking",
+  "bang": [
+   "slot_hold"
+  ],
+  "ly_do": "Thả giữ chỗ tạm 10 phút khi đặt xong, cùng giao dịch booking_service.create (emit appointment.booked); _log event_log"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/slot_hold_service.py",
+  "dong": 60,
+  "ham": "hold",
+  "bang": [
+   "slot_hold"
+  ],
+  "ly_do": "Giữ khung giờ tạm 10 phút khi CSKH đang đặt (slot_hold) — khoá mềm kỹ thuật, có _log"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/slot_hold_service.py",
+  "dong": 185,
+  "ham": "_release_mine",
+  "bang": [
+   "slot_hold"
+  ],
+  "ly_do": "Thả chỗ giữ tạm của chính mình — khoá mềm kỹ thuật"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/staff_service.py",
+  "dong": 103,
+  "ham": "create_staff",
+  "bang": [
+   "clinic_membership",
+   "staff"
+  ],
+  "ly_do": "Hồ sơ nhân sự = danh mục; self._audit → record_event (staff_service.py:93)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/staff_service.py",
+  "dong": 239,
+  "ham": "update_staff",
+  "bang": [
+   "clinic_membership",
+   "staff"
+  ],
+  "ly_do": "Sửa nhân sự; self._audit (351) → record_event"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/staff_service.py",
+  "dong": 409,
+  "ham": "deactivate",
+  "bang": [
+   "clinic_membership",
+   "event_log",
+   "work_roster"
+  ],
+  "ly_do": "Khoá nhân sự + xoá lịch trực tương lai (DELETE work_roster 454, có trigger lich_truc_ghi_thay_doi) + event_log (470) + _audit (510)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/staff_service.py",
+  "dong": 533,
+  "ham": "activate",
+  "bang": [
+   "clinic_membership",
+   "staff"
+  ],
+  "ly_do": "Mở lại nhân sự; _audit (560) → record_event"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/staff_service.py",
+  "dong": 580,
+  "ham": "_deactivate_global_if_orphaned",
+  "bang": [
+   "staff"
+  ],
+  "ly_do": "Hàm con của deactivate/update_staff — cả hai _audit cùng giao dịch"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/work_item_service.py",
+  "dong": 121,
+  "ham": "issue",
+  "bang": [
+   "work_item",
+   "work_item_event"
+  ],
+  "ly_do": "Lệnh start/complete/skip/cancel của bảng \"Việc cần xử lý\" (BangViecCanXuLy.tsx:113) — UPDATE work_item (245) + work_item_event riêng (278), không emit_event lego",
+  "vi_du": "Nhân viên bấm \"Xong\" một việc ở bảng Việc cần xử lý — hành trình khách/quầy thu không nhận sự kiện, chỉ bảng work_item_event riêng biết."
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/lam_them_tai_quay_config.py",
+  "dong": 54,
+  "ham": "luu_muc",
+  "bang": [
+   "lam_them_tai_quay"
+  ],
+  "ly_do": "Nút làm thêm tại quầy = cấu hình; record_event (dòng 135)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/lam_them_tai_quay_config.py",
+  "dong": 154,
+  "ham": "bo_muc",
+  "bang": [
+   "lam_them_tai_quay"
+  ],
+  "ly_do": "Tắt mềm nút + updated_by (163) + record_event (172)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/lam_them_tai_quay_config.py",
+  "dong": 184,
+  "ham": "doi_thu_tu",
+  "bang": [
+   "lam_them_tai_quay"
+  ],
+  "ly_do": "Đổi thứ tự nút = cấu hình; record_event (225)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+  "dong": 527,
+  "ham": "dat",
+  "bang": [
+   "lam_them_tai_quay_revision"
+  ],
+  "ly_do": "Ghi revision (592) rồi self._tick (666, emit service_order.desk_added) / self._bo (668, emit service_order.desk_removed)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 205,
+  "ham": "_mo_hang_bac_si_chinh",
+  "bang": [
+   "consultation"
+  ],
+  "ly_do": "Chỉ gọi từ xep_sau_check_in và chuyen_bac_si_chinh — cả hai gọi _phat_da_xep emit visit.routed (243)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 264,
+  "ham": "xep_sau_check_in",
+  "bang": [
+   "consultation",
+   "encounter_flow",
+   "queue_entry"
+  ],
+  "ly_do": "Gọi _phat_da_xep → emit visit.routed (243); chạy trong consumer hanh_trinh phản ứng visit.checked_in"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 457,
+  "ham": "_nhan_sinh_hieu_cua_buoi",
+  "bang": [
+   "encounter_flow"
+  ],
+  "ly_do": "Chỉ gọi từ xep_sau_check_in (emit visit.routed)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 509,
+  "ham": "mo_hang_tu_van",
+  "bang": [
+   "queue_entry"
+  ],
+  "ly_do": "Chỉ gọi từ consumer events/consumers/hanh_trinh.py:73 — phản ứng của sự kiện vitals.recorded (sự kiện gốc đã có)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 576,
+  "ham": "xep_lai_sau_doi_dich_vu",
+  "bang": [
+   "consultation",
+   "encounter_flow",
+   "queue_entry"
+  ],
+  "ly_do": "Consumer hanh_trinh gọi khi visit.exam_service_changed; hàm con xep_sau_check_in → _phat_da_xep emit visit.routed"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 648,
+  "ham": "tra_ve_tu_van",
+  "bang": [
+   "consultation",
+   "encounter_flow",
+   "queue_entry"
+  ],
+  "ly_do": "Gọi _phat_da_xep → emit visit.routed"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 742,
+  "ham": "bo_qua_tu_van",
+  "bang": [
+   "consultation",
+   "queue_entry"
+  ],
+  "ly_do": "Gọi xep/chuyen_bac_si_chinh → _phat_da_xep emit visit.routed"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 803,
+  "ham": "chuyen_bac_si_chinh",
+  "bang": [
+   "encounter_flow"
+  ],
+  "ly_do": "Gọi _phat_da_xep → emit visit.routed"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 913,
+  "ham": "_evaluate_rounds",
+  "bang": [
+   "consultation",
+   "queue_entry",
+   "review_round",
+   "round_requirement"
+  ],
+  "ly_do": "Hệ quả nội bộ: gọi từ complete_consultation (emit consultation.completed), mo_lai_kham, huy_chi_dinh, hoan_tac_xong_dich_vu (đều emit) và consumer vong_doc; tự thân chỉ record_event (992, 1060, 1095)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1212,
+  "ham": "_mo_theo_doi",
+  "bang": [
+   "follow_up_case"
+  ],
+  "ly_do": "Gọi từ complete_consultation (2637, emit followup.scheduled) và quyet_yeu_cau (2997); có record_event (1289)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1384,
+  "ham": "_gan_bac_si_phien",
+  "bang": [
+   "consultation",
+   "queue_entry",
+   "visit"
+  ],
+  "ly_do": "Gọi từ start_consultation (emit consultation.started/resumed) và complete_consultation"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1492,
+  "ham": "goi_khach",
+  "bang": [
+   "queue_entry"
+  ],
+  "ly_do": "Endpoint /luot-kham/hang-cho/{id}/goi: không màn nào gửi thao_tac \"goi-khach\" (chỉ còn khai trong dashboard/app/api/luot-kham/route.ts:52) — đường cũ; có record_event (1567)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1942,
+  "ham": "luu_noi_dung_tu_van",
+  "bang": [
+   "consultation_note"
+  ],
+  "ly_do": "Màn ONhapTuVan.tsx còn dùng; consultation_note chỉ-thêm + record_event (2011), không sự kiện lego",
+  "vi_du": "Bác sĩ tư vấn ghi xong nội dung tư vấn — dòng thời gian lượt và bác sĩ chính không nhận sự kiện \"đã có nội dung tư vấn\", chỉ thấy khi mở phiếu."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 2124,
+  "ham": "save_note",
+  "bang": [
+   "consultation_note",
+   "encounter_flow"
+  ],
+  "ly_do": "thao_tac \"ghi-chu\" (/consultations/{id}/notes) không màn nào gửi — đường cũ; có record_event (2162)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 2177,
+  "ham": "propose_orders",
+  "bang": [
+   "service_order"
+  ],
+  "ly_do": "thao_tac \"nhap-chi-dinh\" (draft-orders) không màn nào gửi nữa (BanKham.tsx:1602 dùng \"chi-dinh\" mới) — đường cũ còn mở API"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 2245,
+  "ham": "authorize_orders",
+  "bang": [
+   "service_order"
+  ],
+  "ly_do": "BanKham.tsx:1611 vẫn gọi \"duyet-chi-dinh\" cho bản nháp cũ: UPDATE/INSERT service_order (2345, 2376) chỉ record_event (2396), không service_order.placed; còn kéo _tu_xep_phong",
+  "vi_du": "Bác sĩ duyệt bản nháp chỉ định cũ — chỉ định mới vào phòng mà khối thu tiền/hành trình không nhận service_order.placed."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 2842,
+  "ham": "quyet_yeu_cau",
+  "bang": [
+   "round_requirement"
+  ],
+  "ly_do": "Bác sĩ miễn/chuyển theo dõi yêu cầu đọc kết quả (UPDATE round_requirement 2986, 3007) chỉ record_event (3024); visit.exam_completed chỉ phát khi lượt khép (_ket_thuc_neu_xong 3043)",
+  "vi_du": "Bác sĩ bấm \"không cần đọc lại, chuyển theo dõi\" cho kết quả xét nghiệm — dòng thời gian lượt không có, CSKH/theo dõi không nhận sự kiện."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3290,
+  "ham": "_gan_phong",
+  "bang": [
+   "queue_entry",
+   "service_order"
+  ],
+  "ly_do": "Gọi từ dispatch_order (thao_tac \"xep-phong\", truong-ca/ChiDinhCuaBacSi.tsx:100 còn dùng) và _tu_xep_phong: UPDATE service_order/queue_entry (3362, 3386) chỉ record_event (3399), khác đường mới _gan emit service.routed",
+  "vi_du": "Trưởng ca chọn phòng cho chỉ định ở popup cũ — phòng đích và hành trình khách không nhận service.routed, chỉ có nhật ký."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3514,
+  "ham": "duyet_ket_qua",
+  "bang": [
+   "follow_up_case",
+   "service_order",
+   "tep_ket_qua"
+  ],
+  "ly_do": "Gọi _phat_da_duyet ở cả hai nhánh (3628, 3679) → emit result.reviewed"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3762,
+  "ham": "start_service",
+  "bang": [
+   "queue_entry",
+   "service_order"
+  ],
+  "ly_do": "thao_tac \"bat-dau-dich-vu\" (/orders/{id}/start) không màn nào gửi — đường cũ; đường thật service_execution_service.bat_dau emit service.started"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3835,
+  "ham": "complete_service",
+  "bang": [
+   "follow_up_case",
+   "queue_entry",
+   "service_order"
+  ],
+  "ly_do": "thao_tac \"xong-dich-vu\" (/orders/{id}/complete) không màn nào gửi — đường cũ; đường thật emit service.completed"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/thu_ky_bac_si.py",
+  "dong": 178,
+  "ham": "dat_bac_si_cho_thu_ky",
+  "bang": [
+   "thu_ky_bac_si"
+  ],
+  "ly_do": "Phân thư ký↔bác sĩ = cấu hình; DELETE/INSERT (215, 222) + record_event (230)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/pos_outbox.py",
+  "dong": 33,
+  "ham": "cancel_pending_invoice",
+  "bang": [
+   "pos_outbox"
+  ],
+  "ly_do": "Huỷ dòng pos_outbox chờ đẩy sang POS — outbox kỹ thuật; gọi trong void_payment (đã emit)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/pos_outbox.py",
+  "dong": 56,
+  "ham": "enqueue",
+  "bang": [
+   "pos_outbox"
+  ],
+  "ly_do": "Xếp hoá đơn vào pos_outbox — outbox kỹ thuật; gọi trong _ghi_da_thu/void_payment (đã emit)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/vat_tu_kho_man_service.py",
+  "dong": 32,
+  "ham": "dat_muc_toi_thieu",
+  "bang": [
+   "vat_tu_ton"
+  ],
+  "ly_do": "Mức tồn tối thiểu = cấu hình; UPDATE ghi muc_sua_boi/muc_sua_luc (dòng 51) — chỉ vết lần sửa cuối, không lịch sử"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/lam_truoc_thu_sau.py",
+  "dong": 349,
+  "ham": "_ghi_mot_lua_chon",
+  "bang": [
+   "service_order",
+   "service_selection_state"
+  ],
+  "ly_do": "Gọi từ chot_mot_chi_dinh (emit service_selection.confirmed) và tra_lua_chon_chot_ho ← service_execution _tra_lua_chon/_cua_tien_chot_ho trong huy_bat_dau/bat_dau (emit service.*)"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/media_service.py",
+  "dong": 328,
+  "ham": "attach_ultrasound_image",
+  "bang": [
+   "ultrasound_record"
+  ],
+  "ly_do": "Route /api/ultrasound/image đã TẮT ở dashboard lib/route-da-tat.ts:15 — đường chết"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/thong_bao_service.py",
+  "dong": 79,
+  "ham": "ghi_thong_bao_nguoi",
+  "bang": [
+   "event_log",
+   "thong_bao"
+  ],
+  "ly_do": "Thông báo chuông cho một người (thong_bao + event_log) — kênh báo tin, là hệ quả của nghiệp vụ đã có sự kiện ở hàm gọi"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/thong_bao_service.py",
+  "dong": 156,
+  "ham": "goi",
+  "bang": [
+   "event_log",
+   "thong_bao"
+  ],
+  "ly_do": "Gửi thông báo cho vai (thong_bao + event_log) — kênh báo tin phụ trợ"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/thong_bao_service.py",
+  "dong": 376,
+  "ham": "danh_dau_da_doc",
+  "bang": [
+   "thong_bao"
+  ],
+  "ly_do": "Đóng dấu đã đọc chuông — trạng thái giao diện"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/thong_bao_service.py",
+  "dong": 410,
+  "ham": "an_tat_ca_cua_toi",
+  "bang": [
+   "thong_bao_an_cua_toi"
+  ],
+  "ly_do": "Ẩn thông báo khỏi chuông riêng — trạng thái giao diện"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/thong_bao_service.py",
+  "dong": 441,
+  "ham": "da_xu_ly",
+  "bang": [
+   "thong_bao"
+  ],
+  "ly_do": "Đóng việc thông báo (đo thời gian phản hồi) — kênh báo tin phụ trợ"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 3027,
+  "ham": "quy_doi_dong_nhap",
+  "bang": [
+   "thuoc_quy_doi"
+  ],
+  "ly_do": "Hệ số quy đổi đơn vị = danh mục, học khi nhập; thuoc_quy_doi ghi cap_nhat_boi/cap_nhat_luc (3083-3089)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 3100,
+  "ham": "nhap_vao_lo",
+  "bang": [
+   "drug_batch"
+  ],
+  "ly_do": "Nhập kho thuốc vào lô (INSERT drug_batch 3201 + dòng RECEIVE) — chuỗi nhap_lo/tao_phieu_nhap không emit_event, danh mục không có sự kiện nhập kho thuốc",
+  "vi_du": "Kho nhập 5 hộp kháng sinh lô mới — báo cáo kho/kế toán/canh hạn không nhận sự kiện \"đã nhập\", chỉ có dòng sổ."
+ },
+ {
+  "loai": "cau_hinh_khong_nhat_ky",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 442,
+  "ham": "luu_thuoc",
+  "bang": [
+   "drug_catalog"
+  ],
+  "ly_do": "Thêm/sửa danh mục thuốc kể cả giá bán unit_price (INSERT 507 / UPDATE 521) — không record_event/_log, không cột người sửa/lúc sửa",
+  "vi_du": "Quản lý đổi giá bán một thuốc từ 50.000đ lên 80.000đ — sau này khách thắc mắc không ai tra được ai đổi giá, lúc nào."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 807,
+  "ham": "_giao_theo_phan_lo",
+  "bang": [
+   "prescription",
+   "prescription_allocation"
+  ],
+  "ly_do": "Chỉ gọi từ cap_phat (672) — emit medicine.dispensed (781)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 943,
+  "ham": "_giao_khong_lo",
+  "bang": [
+   "prescription",
+   "thuoc_giao_chua_gan_lo"
+  ],
+  "ly_do": "Chỉ gọi từ cap_phat — emit medicine.dispensed (781)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 1115,
+  "ham": "gan_lo_da_giao",
+  "bang": [
+   "inventory_txn",
+   "thuoc_giao_chua_gan_lo"
+  ],
+  "ly_do": "Gán lô cho lần giao không lô → INSERT inventory_txn DISPENSE (1184) lúc này, chỉ _log event_log (1208)",
+  "vi_du": "Dược sĩ gán lô cho 10 viên đã giao hôm qua — kho trừ tồn hôm nay mà khối kho/báo cáo không nhận sự kiện."
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 1222,
+  "ham": "_cap_phat_cu",
+  "bang": [
+   "prescription"
+  ],
+  "ly_do": "Chỉ gọi từ cap_phat — emit medicine.dispensed"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 1342,
+  "ham": "xac_dinh_thuoc",
+  "bang": [
+   "prescription"
+  ],
+  "ly_do": "Gắn dòng đơn với thuốc trong kho (UPDATE prescription 1385) — quyết định dòng vào hoá đơn, chỉ _log event_log (1395)",
+  "vi_du": "Dược sĩ gắn \"Amox 500\" bác sĩ gõ tay với đúng mã thuốc kho — hoá đơn đổi mà quầy thu/dòng thời gian không nhận sự kiện."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 1412,
+  "ham": "khai_so_luong_mua",
+  "bang": [
+   "prescription"
+  ],
+  "ly_do": "Số khách đồng ý mua (UPDATE prescription 1446) đổi tiền thuốc, chỉ _log (1454); đường quầy thuốc tương tự lại emit medicine.counter_changed",
+  "vi_du": "Khách chỉ lấy 1 trong 3 hộp thuốc kê — tiền thuốc đổi nhưng quầy thu/hành trình không nhận sự kiện như đường quầy thuốc."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 1777,
+  "ham": "huy_phan_chua_giao",
+  "bang": [
+   "inventory_txn"
+  ],
+  "ly_do": "Nhả phần đã bán chưa giao = INSERT inventory_txn đảo (1837), chỉ _log (1861)",
+  "vi_du": "Dược sĩ nhả 5 viên đã bán mà khách không lấy — tồn kho tăng lại, khối kho/kế toán không được báo."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 2098,
+  "ham": "xu_ly_thuoc_tra",
+  "bang": [
+   "drug_return"
+  ],
+  "ly_do": "Quyết định thuốc khách trả (bán lại/huỷ) UPDATE drug_return (2174), chỉ _log (2188); lúc nhận trả đã emit medicine.returned",
+  "vi_du": "Dược sĩ kiểm thuốc khách trả và quyết \"huỷ, không bán lại\" — kho/kế toán không nhận sự kiện về quyết định ấy."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 2211,
+  "ham": "phan_lo",
+  "bang": [
+   "prescription_allocation"
+  ],
+  "ly_do": "Chọn lô cho dòng đơn TRƯỚC khi thu (INSERT prescription_allocation 2267), _log (2287); bán/giao thật đã có sự kiện ở thu tiền + cap_phat — bước chuẩn bị, tuỳ thesis"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 2301,
+  "ham": "bo_phan_lo",
+  "bang": [
+   "prescription_allocation"
+  ],
+  "ly_do": "Bỏ lô đã chọn chưa gắn lần thu (UPDATE 2319), _log (2328) — bước chuẩn bị trước thu"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 2338,
+  "ham": "doi_lo_khi_cho",
+  "bang": [
+   "prescription_allocation"
+  ],
+  "ly_do": "Đổi lô đang giữ cho lần chuyển khoản chờ xác minh (UPDATE/INSERT 2394, 2406), _log (2426) — giữ chỗ, chưa bán"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 2537,
+  "ham": "_chot_dong",
+  "bang": [
+   "prescription",
+   "prescription_allocation"
+  ],
+  "ly_do": "Từ tu_choi/chot (1686, 1703): khách KHÔNG mua thuốc / chốt dòng — UPDATE prescription (2579) chỉ event_log 'pharmacy.refused' (_log 2620), không medicine.declined dù danh mục có",
+  "vi_du": "Khách từ chối mua thuốc ở nhà thuốc (\"đã có thuốc ở nhà\") — CSKH cần gọi lại hỏi lý do nhưng khối CSKH không nhận medicine.declined."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 2682,
+  "ham": "_luu_yeu_cau_gui_lai",
+  "bang": [
+   "app_private"
+  ],
+  "ly_do": "Lưu yêu cầu kho cho chống gửi lại (app_private.pharmacy_inventory_request, 2698) — idempotency kỹ thuật"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/nhan_tai_phong.py",
+  "dong": 762,
+  "ham": "_ve_chua_xep",
+  "bang": [
+   "service_order"
+  ],
+  "ly_do": "Gọi từ hoan_tac_nhan (emit service.room_receive_undone) và roi_phong (emit service.room_released)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/nhan_tai_phong.py",
+  "dong": 1241,
+  "ham": "_huy_cho",
+  "bang": [
+   "queue_entry"
+  ],
+  "ly_do": "Gọi từ hoan_tac_nhan / _ve_lai_phong_cu (emit service.room_receive_undone, service.room_release_undone)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/luat_bac_si_service.py",
+  "dong": 60,
+  "ham": "luu",
+  "bang": [
+   "event_log",
+   "luat_bac_si_bat_buoc"
+  ],
+  "ly_do": "Luật bác sĩ bắt buộc = cấu hình; INSERT event_log (dòng 147)"
+ },
+ {
+  "loai": "cau_hinh_khong_nhat_ky",
+  "tep": "src/clinicai/services/luat_bac_si_service.py",
+  "dong": 177,
+  "ham": "xoa",
+  "bang": [
+   "luat_bac_si_bat_buoc"
+  ],
+  "ly_do": "DELETE cứng luat_bac_si_bat_buoc (dòng 185), không event_log/record_event — khác hẳn luu",
+  "vi_du": "Quản lý xoá luật \"siêu âm thai chỉ bác sĩ X\" — hôm sau không ai tra được luật từng có, ai xoá, lúc nào."
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/ma_vach_service.py",
+  "dong": 235,
+  "ham": "gan_ma",
+  "bang": [
+   "drug_ma_vach"
+  ],
+  "ly_do": "Mã vạch↔thuốc = danh mục; ghi_nhat_ky (309)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/ma_vach_service.py",
+  "dong": 320,
+  "ham": "go_ma",
+  "bang": [
+   "drug_ma_vach"
+  ],
+  "ly_do": "Gỡ mã vạch; ghi_nhat_ky ai gỡ (336)"
+ },
+ {
+  "loai": "co_su_kien_o_ham_goi",
+  "tep": "src/clinicai/services/tep_ket_qua_service.py",
+  "dong": 541,
+  "ham": "_tinh_lai_ket_qua_luc",
+  "bang": [
+   "service_order"
+  ],
+  "ly_do": "Chỉ gọi từ xoa_tep (1340) — emit result_file.deleted cùng giao dịch"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/tep_ket_qua_service.py",
+  "dong": 1743,
+  "ham": "cho_phep_gui",
+  "bang": [
+   "tep_ket_qua"
+  ],
+  "ly_do": "Route dashboard /api/cskh/ket-qua/[tepId]/cho-phep-gui đã TẮT (lib/route-da-tat.ts:10) — đường chết; duyệt gửi thật đi duyet_ket_qua (emit result.reviewed)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/phan_hoi_khach_service.py",
+  "dong": 30,
+  "ham": "ghi",
+  "bang": [
+   "event_log",
+   "phan_hoi_khach"
+  ],
+  "ly_do": "Ghi phản hồi/khiếu nại của khách (INSERT phan_hoi_khach 57) chỉ event_log thô (71)",
+  "vi_du": "Khách phàn nàn chờ siêu âm 1 tiếng, CSKH ghi lại — quản lý/khối canh gác không nhận sự kiện \"có khiếu nại mới\"."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/phan_hoi_khach_service.py",
+  "dong": 88,
+  "ham": "cap_nhat",
+  "bang": [
+   "event_log",
+   "phan_hoi_khach"
+  ],
+  "ly_do": "Chuyển trạng thái xử lý khiếu nại (UPDATE 109) chỉ event_log thô (129)",
+  "vi_du": "CSKH đóng khiếu nại \"đã gọi xin lỗi\" — dòng thời gian khách không có sự kiện xử lý xong."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/sinh_hieu_service.py",
+  "dong": 70,
+  "ham": "goi_do_sinh_hieu",
+  "bang": [
+   "encounter_flow"
+  ],
+  "ly_do": "thao_tac \"goi-do\" màn Đo sinh hiệu đã thôi dùng (dashboard app/api/luot-kham/route.ts:24-28 ghi rõ) — đường cũ; có record_event (102)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/theo_doi_thu_thuat_service.py",
+  "dong": 97,
+  "ham": "dat",
+  "bang": [
+   "visit"
+  ],
+  "ly_do": "Bác sĩ quyết theo dõi sau thủ thuật (UPDATE visit 138) chỉ record_event (150), không followup.scheduled",
+  "vi_du": "Bác sĩ chọn \"cần theo dõi sau 7 ngày\" sau đặt vòng — khối nhắc/CSKH không nhận sự kiện hẹn theo dõi, chỉ có nhật ký."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/nhap_lich_su_notion.py",
+  "dong": 90,
+  "ham": "_nap",
+  "bang": [
+   "_ghep",
+   "lich_su_notion",
+   "patient"
+  ],
+  "ly_do": "Script nhập lịch sử Notion một lần (_main dòng 501) — di trú dữ liệu"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/ultrasound_service.py",
+  "dong": 106,
+  "ham": "save_measurements",
+  "bang": [
+   "ultrasound_record",
+   "visit"
+  ],
+  "ly_do": "Số đo siêu âm thai (kết quả) chỉ record_event (299); nếu lịch hẹn chưa có lượt còn tự INSERT visit IN_PROGRESS (dòng 177) không phát visit.checked_in",
+  "vi_du": "Bác sĩ siêu âm nhập số đo cho khách chưa check-in — máy tự mở lượt khám mới mà hành trình/quầy thu không nhận sự kiện check-in, và kết quả siêu âm không báo khối nào."
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/tai_khoan_service.py",
+  "dong": 73,
+  "ham": "noi",
+  "bang": [
+   "app_credential",
+   "staff"
+  ],
+  "ly_do": "Nối tài khoản đăng nhập ↔ nhân viên = cấu hình tài khoản; record_event (113)"
+ },
+ {
+  "loai": "cau_hinh_co_nhat_ky",
+  "tep": "src/clinicai/services/tai_khoan_service.py",
+  "dong": 132,
+  "ham": "thu_hoi",
+  "bang": [
+   "app_credential",
+   "staff"
+  ],
+  "ly_do": "Thu hồi tài khoản đăng nhập; record_event (179)"
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/thai_ky_service.py",
+  "dong": 155,
+  "ham": "dong_bo_tu_phieu",
+  "bang": [
+   "pregnancy"
+  ],
+  "ly_do": "Chép kinh cuối/dự kiến sinh từ phiếu sang pregnancy (UPDATE 212 / INSERT 241) chỉ record_event (222, 262)",
+  "vi_du": "Bác sĩ ghi dự kiến sinh trong phiếu → hồ sơ thai kỳ đổi theo — khối nhắc khám thai/CSKH không được báo."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/thai_ky_service.py",
+  "dong": 392,
+  "ham": "tao",
+  "bang": [
+   "pregnancy"
+  ],
+  "ly_do": "Mở hồ sơ thai kỳ (INSERT pregnancy 434) chỉ record_event (458)",
+  "vi_du": "Bác sĩ mở hồ sơ thai cho khách — CSKH/lịch khám thai không nhận sự kiện \"có thai kỳ mới\"."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/thai_ky_service.py",
+  "dong": 469,
+  "ham": "cap_nhat",
+  "bang": [
+   "pregnancy"
+  ],
+  "ly_do": "Sửa thai kỳ/kết cục/nguy cơ cao (UPDATE pregnancy 516) chỉ record_event (535)",
+  "vi_du": "Bác sĩ đánh dấu thai nguy cơ cao — khối nhắc/ưu tiên không nhận sự kiện để phản ứng."
+ },
+ {
+  "loai": "nghiep_vu_thieu_su_kien",
+  "tep": "src/clinicai/services/phan_hoi_thuoc_service.py",
+  "dong": 224,
+  "ham": "go",
+  "bang": [
+   "tuong_tac_cskh"
+  ],
+  "ly_do": "Gỡ phản hồi thuốc (UPDATE tuong_tac_cskh huy_luc 231) chỉ record_event (244); lúc ghi đã emit patient.contacted (dòng 210) nhưng gỡ không có sự kiện đối ứng",
+  "vi_du": "CSKH gỡ ghi chú \"khách báo uống thuốc bị buồn nôn\" — dòng thời gian vẫn hiện đã liên hệ, không khối nào biết phản hồi bị rút."
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_log_service.py",
+  "dong": 102,
+  "ham": "create",
+  "bang": [
+   "service_log"
+  ],
+  "ly_do": "Route dashboard /api/service-log đã TẮT (lib/route-da-tat.ts:14) — đường chết; có _log"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_log_service.py",
+  "dong": 167,
+  "ham": "apply_patch",
+  "bang": [
+   "service_log"
+  ],
+  "ly_do": "Route /api/service-log đã TẮT — đường chết"
+ },
+ {
+  "loai": "phu_tro",
+  "tep": "src/clinicai/services/service_log_service.py",
+  "dong": 215,
+  "ham": "remove",
+  "bang": [
+   "service_log"
+  ],
+  "ly_do": "Route /api/service-log đã TẮT — đường chết"
+ }
+]

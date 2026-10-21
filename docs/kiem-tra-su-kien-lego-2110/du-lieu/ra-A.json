@@ -1,0 +1,1583 @@
+[
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   0
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 956,
+  "ham": "_tick_lai_kham",
+  "bang_hoac_goi": [
+   "luot_phi_kham"
+  ],
+  "khoi_chu": "phi_kham",
+  "ly_do": "Hoàn tác một lần bỏ tick dịch vụ khám (so_sua_chi_dinh_service.hoan_tac:653-715 gọi); dùng đúng luật chan_trung_dich_vu_kham và quyền _co_quyen_tick của khối Phí khám rồi mới INSERT (986)."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   1
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/doi_bac_si_service.py",
+  "dong": 101,
+  "ham": "doi",
+  "bang_hoac_goi": [
+   "queue_entry",
+   "appointment"
+  ],
+  "khoi_chu": "service_routing, booking",
+  "ly_do": "Lệnh đổi bác sĩ tự UPDATE hàng chờ bác sĩ (195-205) và lịch hẹn appointment.doctor_id (171-178), chỉ ghi sổ cũ record_event 'visit.doctor_reassigned' (206), không phát emit_event.",
+  "muc_do": "vua",
+  "hau_qua": "Không khối nào được báo qua sự kiện lego (dòng thời gian, chuông) khi bác sĩ của lượt đổi; luật hàng chờ/vị trí khách của khối Điều phối không chạy lại.",
+  "nen_doi": "Gọi lệnh của khối Điều phối/Đặt lịch (hoặc phát sự kiện visit.doctor_reassigned qua emit_event để chúng tự nghe) và khai goi_dong_bo."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   2
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 150,
+  "ham": "_ghi_chu_doi_tac",
+  "bang_hoac_goi": [
+   "doi_tac_nhan_viec"
+  ],
+  "khoi_chu": "doi_tac",
+  "ly_do": "doi_tac_service.py là tệp của chính khối Đối tác (docstring dòng 1-5, 'bảng của khối Đối tác' dòng 153); máy đoán nhầm là service_order."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   3
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 999,
+  "ham": "_ghi_da_lay_mau",
+  "bang_hoac_goi": [
+   "service_order",
+   "queue_entry"
+  ],
+  "khoi_chu": "service_order/execution, service_routing",
+  "ly_do": "Khối Đối tác tự đặt service_order.exec_status='performed' + phòng (1014-1037) và tự đóng chỗ chờ bằng câu SQL chép riêng (1041-1052), không có lần làm, không phát service.completed.",
+  "muc_do": "cao",
+  "hau_qua": "Việc đối tác 'đã làm' mà không có lần làm và không có sự kiện service.completed; câu đóng hàng chép tay thiếu nhánh nhận chéo mà _dong_hang_cho (execution:2374-2397) đã có — luật đóng hàng đổi ở một chỗ sẽ không tới chỗ này.",
+  "nen_doi": "Chuyển sang gọi lệnh của khối Thực hiện (như nhánh _ghi_xong ở dòng 692) và hàm đóng hàng của khối Điều phối; khai goi_dong_bo execution.CompleteService."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   4,
+   5
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 1082,
+  "ham": "ghi_nhan_da_thu / huy_da_thu",
+  "bang_hoac_goi": [
+   "doi_tac_thanh_toan"
+  ],
+  "khoi_chu": "doi_tac",
+  "ly_do": "Hai lệnh RecordPartnerPayment / VoidPartnerPayment của chính khối Đối tác (1157, 1215); máy đoán nhầm khối của tệp."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   6
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/form_engine_service.py",
+  "dong": 259,
+  "ham": "xem_ket_qua",
+  "bang_hoac_goi": [
+   "service_order"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Khối Biểu mẫu kết quả ghi cột 'đã xem' service_order.da_xem_ket_qua_luc (300-308) khi bác sĩ mở phiếu.",
+  "muc_do": "thap",
+  "hau_qua": "Chỉ lệch bản khai: cột vòng đời kết quả nằm nhờ bảng chỉ định; chưa thấy luật nào của khối Chỉ định bị bỏ qua.",
+  "nen_doi": "Khai trong modules.py rằng các cột kết quả (da_xem_*, duyet_*, ket_qua_luc) thuộc khối result, hoặc tách sang bảng riêng."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   7,
+   8
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/form_engine_service.py",
+  "dong": 1300,
+  "ham": "xuat_ban",
+  "bang_hoac_goi": [
+   "form_definition",
+   "ket_qua_mau"
+  ],
+  "khoi_chu": "catalogue",
+  "ly_do": "Hàm chính là lệnh PublishFormVersion của khối Danh mục (docstring 1310, modules.py:300), chỉ nằm trong tệp form_engine."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   9
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 155,
+  "ham": "mo_lai_moc_kham_xong",
+  "bang_hoac_goi": [
+   "appointment"
+  ],
+  "khoi_chu": "booking",
+  "ly_do": "Nghịch đảo của _ket_thuc_neu_xong (docstring 158-164): đưa lịch hẹn COMPLETED về CHECKED_IN (191-200) trong cùng giao dịch hoàn tác."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   10
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 204,
+  "ham": "_mo_lai_luot_trong",
+  "bang_hoac_goi": [
+   "appointment",
+   "queue_entry"
+  ],
+  "khoi_chu": "booking, service_routing",
+  "ly_do": "Phần ghi của ReopenVisit — nghịch đảo đúng CheckoutService.close (docstring 207-215): mở lại chỗ chờ 'left' và lịch hẹn."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   11
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 418,
+  "ham": "mo_lai_kham",
+  "bang_hoac_goi": [
+   "review_round"
+  ],
+  "khoi_chu": "vong_doc",
+  "ly_do": "ReopenConsultation (426): thu về vòng đọc vừa mở (557, 580) cùng giao dịch hoàn tác Khám xong."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   12
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 694,
+  "ham": "huy_chi_dinh",
+  "bang_hoac_goi": [
+   "service_order"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Hàm là lệnh CancelServiceOrder của chính khối Chỉ định (modules.py khối service_order, docstring hoan_tac:10); máy đoán nhầm cả tệp là service_routing."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   13
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 895,
+  "ham": "hoan_tac_xong_dich_vu",
+  "bang_hoac_goi": [
+   "service_execution_attempt"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Hàm là lệnh UndoServiceCompletion của khối Thực hiện (modules.py khối execution, docstring hoan_tac:11); ghi lần làm (994) là ghi bảng của chính mình."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   14
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 1067,
+  "ham": "thu_hoi_duyet_ket_qua",
+  "bang_hoac_goi": [
+   "service_order"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "RevokeResultApproval — nghịch đảo đúng duyet_ket_qua: gỡ duyet_luc/duyet_boi (1129) đã ghi ở bản xuôi; số phận theo mục duyet_ket_qua."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   15
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/checkout_service.py",
+  "dong": 723,
+  "ham": "close",
+  "bang_hoac_goi": [
+   "queue_entry",
+   "appointment"
+  ],
+  "khoi_chu": "service_routing, booking",
+  "ly_do": "Check-out tự cho mọi chỗ chờ thành 'left' (925-935) và tự đặt lịch hẹn COMPLETED (847-855) bằng SQL riêng.",
+  "muc_do": "vua",
+  "hau_qua": "Luật rời hàng nằm ở khối Tiếp đón chứ không ở khối Điều phối: không gọi cap_nhat_vi_tri, và là bản thứ ba khác nhau (booking huỷ thì 'cancelled' không tăng version) — đổi luật hàng chờ phải nhớ sửa nhiều chỗ.",
+  "nen_doi": "Đưa 'khách rời mọi hàng' thành một hàm của hang_cho (khối Điều phối) và để Đặt lịch nghe visit.checked_out tự chuyển lịch hẹn; khai goi_dong_bo."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   16
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 372,
+  "ham": "bat_dau",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "StartService tự UPDATE chỗ chờ sang 'blocked' / 'serving' (510-533) bằng SQL trong khối Thực hiện.",
+  "muc_do": "vua",
+  "hau_qua": "Luật trạng thái hàng chờ bị chia giữa Thực hiện và Điều phối; Postgres giữ được luật 'một serving' nhưng các luật khác (vị trí, nhận chéo) phải sửa ở nhiều nơi.",
+  "nen_doi": "Gom các bước 'khách vào phòng / chặn chỗ khác' thành hàm của hang_cho và gọi từ đây; khai goi_dong_bo."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   17
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 947,
+  "ham": "huy_bat_dau",
+  "bang_hoac_goi": [
+   "form_instance"
+  ],
+  "khoi_chu": "result",
+  "ly_do": "CancelMistakenStart tự viết lại nội dung phiếu nháp form_instance bằng SQL dựng câu mẫu từ form_definition (1012-1045) thay vì gọi khối Biểu mẫu.",
+  "muc_do": "vua",
+  "hau_qua": "Luật 'câu mẫu điền sẵn' bị chép thành hai bản (SQL ở đây và _mac_dinh_tu_khung trong form_engine:1459); khối Biểu mẫu đổi cách điền sẵn (vd. mẫu gợi ý theo dịch vụ) thì huỷ bắt đầu sẽ trả phiếu về sai mặc định.",
+  "nen_doi": "Thêm lệnh/hàm 'đặt lại phiếu nháp' trong form_engine_service và gọi nó; khai goi_dong_bo result.*."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   18,
+   19
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 1216,
+  "ham": "bat_dau_tai_ban_kham",
+  "bang_hoac_goi": [
+   "service_order (cột xếp phòng)",
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "StartServiceAtDesk tự xếp phòng: UPDATE room_id/routing_status/routing_revision (1298-1309), tự phát service.routed (1313) — sự kiện catalogue khai source_module=service_routing (catalogue.py:1751) — và tự chặn chỗ chờ (1359).",
+  "muc_do": "cao",
+  "hau_qua": "Khối Thực hiện làm việc của khối Điều phối mà không qua AssignServiceRoom: các kiểm của lệnh xếp phòng (phòng làm được dịch vụ, cơ sở, quyền xếp) không chạy, và sự kiện 'Đã xếp phòng' có hai nơi phát.",
+  "nen_doi": "Gọi lệnh xếp phòng của khối Điều phối (một biến thể 'xếp vào phòng bàn khám') rồi mới mở lần làm; khai goi_dong_bo service_routing.AssignServiceRoom."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   20
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 1485,
+  "ham": "huy_bat_dau_tai_ban_kham",
+  "bang_hoac_goi": [
+   "service_order (cột xếp phòng)"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "CancelDeskStart — nghịch đảo đúng phần xếp phòng của bat_dau_tai_ban_kham (1528, 1567 trả phòng cũ); số phận theo mục bat_dau_tai_ban_kham."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   21
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 1630,
+  "ham": "hoan_tac_xong_tai_ban_kham",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "UndoDeskCompletion: đưa chỗ chờ vừa 'done' về 'blocked' (1683-1695) trong cùng giao dịch hoàn tác."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   22
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 2314,
+  "ham": "_doi_trang_thai",
+  "bang_hoac_goi": [
+   "service_order.execution_status"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Hàm duy nhất của khối Thực hiện đổi execution_status trên bảng service_order (2331-2342); trigger đồng bộ exec_status.",
+  "muc_do": "thap",
+  "hau_qua": "Chỉ lệch bản khai: trạng thái thực hiện là state của khối Thực hiện nhưng nằm nhờ bảng chỉ định; code đã gom về một hàm.",
+  "nen_doi": "Khai trong modules.py cột execution_* thuộc khối execution (luật cắm theo cột), không cần sửa code."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   23
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 2351,
+  "ham": "_dong_hang_cho",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Hàm đóng chỗ chờ khi xong (2367-2397, có nhánh nhận chéo) nằm trong khối Thực hiện chứ không ở hang_cho của khối Điều phối.",
+  "muc_do": "vua",
+  "hau_qua": "Vì không nằm ở khối chủ nên các khối khác chép lại bản riêng (doi_tac:1041, checkout:925, booking:2839) và lệch nhau.",
+  "nen_doi": "Chuyển hàm này sang hang_cho.py (khối Điều phối) và cho mọi chỗ đóng hàng gọi nó."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   24,
+   27,
+   28
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/service_routing_service.py",
+  "dong": 1039,
+  "ham": "_vao_hang_tai_phong / invalidate / _xep_hang",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "service_routing_service.py là tệp của chính khối Điều phối (docstring 1-11: 'lệnh DUY NHẤT đổi trạng thái routing'); máy đoán nhầm là service_order."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   25
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/service_routing_service.py",
+  "dong": 2008,
+  "ham": "chuyen_phong_dang_lam",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "TransferInProgressService là lệnh của khối Điều phối (modules.py khối service_routing); phần ghi queue_entry (2140) là bảng của chính nó."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   26
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/service_routing_service.py",
+  "dong": 2008,
+  "ham": "chuyen_phong_dang_lam",
+  "bang_hoac_goi": [
+   "service_execution_attempt",
+   "service_order.execution_status"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Lệnh chuyển phòng tự đóng lần làm đang chạy thành INTERRUPTED (2108-2117) và tự đặt execution_status='PENDING' (2120-2130), không gọi InterruptService, không phát service.interrupted.",
+  "muc_do": "cao",
+  "hau_qua": "Chuông nhận chéo chỉ tự tắt khi nghe service.completed/interrupted/start_cancelled (consumers/chuong_nhan_cheo.py:34-40) nên chuông của phòng cũ có thể kêu mãi; các kiểm của InterruptService (lý do hợp lệ, revision) bị bỏ qua.",
+  "nen_doi": "Gọi lệnh dừng lần làm của khối Thực hiện (hoặc phát service.interrupted cùng giao dịch); khai goi_dong_bo execution.InterruptService."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   29,
+   30
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/dinh_chinh_don.py",
+  "dong": 413,
+  "ham": "ap_dung_don_da_ky / luu_don_chua_ky",
+  "bang_hoac_goi": [
+   "prescription_allocation"
+  ],
+  "khoi_chu": "pharmacy",
+  "ly_do": "Bác sĩ đính chính đơn thì khối Khám tự nhả phân lô chưa thu của Quầy thuốc (444-455, 683-693); chỉ ghi sổ cũ 'prescription.corrected'.",
+  "muc_do": "vua",
+  "hau_qua": "Quầy thuốc không nhận sự kiện lego nào; nếu khối Quầy thuốc thêm luật khi nhả lô (đã có 3 chỗ nhả riêng ở pharmacy_service 2320/2395/2596 và phan_lo_service:259) thì đường này bỏ qua.",
+  "nen_doi": "Gọi một hàm nhả phân lô của khối Quầy thuốc (phan_lo_service) hoặc phát sự kiện đính chính để Quầy thuốc tự nhả; khai goi_dong_bo."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   31
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/booking_service.py",
+  "dong": 2765,
+  "ham": "_cancel_visit_workflow",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Huỷ lịch / hoàn tác check-in tự cho chỗ chờ 'cancelled' (2839-2847) mà không tăng version, không cập nhật vị trí khách.",
+  "muc_do": "vua",
+  "hau_qua": "Không tăng queue_entry.version nên màn hoặc lệnh đang cầm bản cũ không bị chặn ghi đè; là bản đóng hàng thứ ba khác checkout ('left') và execution ('done').",
+  "nen_doi": "Gọi hàm đóng hàng chung của hang_cho (khối Điều phối); khai goi_dong_bo."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   32
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+  "dong": 842,
+  "ham": "_bo",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "RemoveDeskService — nghịch đảo của AddDeskService: bỏ tick dịch vụ thêm thì huỷ chỗ chờ của chính chỉ định ấy (889-895, chặn khi đang serving) và gọi cap_nhat_vi_tri (927)."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   33
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 913,
+  "ham": "_evaluate_rounds",
+  "bang_hoac_goi": [
+   "review_round"
+  ],
+  "khoi_chu": "vong_doc",
+  "ly_do": "Đây là luật của khối Vòng đọc: consumer vong_doc.py:96 gọi chính hàm này; modules.py ghi rõ luật vòng đọc 'vẫn nằm trong khối Khám' chờ bóc."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   34
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1105,
+  "ham": "_ket_thuc_neu_xong",
+  "bang_hoac_goi": [
+   "appointment"
+  ],
+  "khoi_chu": "booking",
+  "ly_do": "Khép lượt (luật Vòng đọc) tự UPDATE lịch hẹn sang COMPLETED, chỉ ghi sổ cũ 'appointment.completed'.",
+  "muc_do": "vua",
+  "hau_qua": "Trạng thái lịch hẹn bị đổi ở ba nơi (đây, checkout:847, hoan_tac:191) mà khối Đặt lịch không có lệnh hay sự kiện nào cho việc đó.",
+  "nen_doi": "Để khối Đặt lịch nghe visit.exam_completed (đã phát ngay đây) tự đặt COMPLETED, hoặc thêm lệnh của booking và khai goi_dong_bo."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   35
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1709,
+  "ham": "start_consultation",
+  "bang_hoac_goi": [
+   "review_round"
+  ],
+  "khoi_chu": "vong_doc",
+  "ly_do": "Khối Khám tự đổi vòng đọc 'ready' -> 'in_review' (1904-1913) khi bác sĩ bắt đầu đọc.",
+  "muc_do": "thap",
+  "hau_qua": "Nợ đã ghi trong modules.py (khối vong_doc: luật vẫn ở khối Khám); rủi ro thấp nhưng bóc khối Vòng đọc sẽ phải sửa chỗ này.",
+  "nen_doi": "Khi bóc luật vòng đọc, chuyển bước này thành hàm của khối Vòng đọc."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   36
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 2177,
+  "ham": "propose_orders",
+  "bang_hoac_goi": [
+   "service_order"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Khối Khám tự INSERT chỉ định nháp (2214) — nhưng cửa API đã tắt (_tat_loi_cu, routers/luot_kham.py:717, LOI_CU_MO=False).",
+  "muc_do": "thap",
+  "hau_qua": "Mã chết: không chạy trên prod, chỉ gây nhiễu khi đọc.",
+  "nen_doi": "Xoá hàm cùng route."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   37
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 2245,
+  "ham": "authorize_orders",
+  "bang_hoac_goi": [
+   "service_order"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Khối Khám tự UPDATE nháp -> authorized (2345) và, khi gửi service_codes, tự INSERT chỉ định (2375-2394) thay vì gọi PlaceServiceOrders; chỉ ghi sổ cũ 'orders.authorized'.",
+  "muc_do": "vua",
+  "hau_qua": "Cửa API còn mở (BanKham.tsx:1611 vẫn gọi nhánh nháp): chỉ định sinh ra không phát service_order.placed (dòng thời gian thiếu), không qua chặn trùng chỉ định điều trị (chi_dinh_service:197-209) và dat_ngu_canh của sổ sửa.",
+  "nen_doi": "Cho nhánh service_codes gọi ChiDinhService (PlaceServiceOrders) hoặc tắt nhánh ấy; nhánh nháp xoá khi hết dòng nháp cũ."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   38,
+   39
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 2446,
+  "ham": "complete_consultation",
+  "bang_hoac_goi": [
+   "review_round",
+   "service_order"
+  ],
+  "khoi_chu": "vong_doc, service_order",
+  "ly_do": "CompleteConsultation tự mở/đóng vòng đọc (2775-2797) và tự huỷ chỉ định nháp (2560-2571) — có phát service_order.cancelled nhưng không qua CancelServiceOrder.",
+  "muc_do": "thap",
+  "hau_qua": "Chỉ đụng nháp (chưa thu, chưa xếp hàng) nên chưa thấy hỏng; vòng đọc là nợ đã khai. Sự kiện service_order.cancelled có hai nơi phát.",
+  "nen_doi": "Gọi lệnh huỷ của khối Chỉ định cho nháp; chuyển phần mở vòng sang khối Vòng đọc khi bóc."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   40
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3290,
+  "ham": "_gan_phong",
+  "bang_hoac_goi": [
+   "service_order (cột xếp phòng)",
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Đường xếp phòng cũ trong khối Khám tự UPDATE room_id/exec_status='assigned' (3380-3391) và hàng chờ, không đặt routing_status/routing_revision, không phát service.routed; chỉ chạy cho chỉ định đời cũ (selection_status NULL, chặn ở 3243).",
+  "muc_do": "thap",
+  "hau_qua": "Chỉ còn ảnh hưởng dòng đời cũ; với dòng ấy cột routing_status/routing_revision không theo kịp phòng thật.",
+  "nen_doi": "Đếm dòng service_order còn sống có selection_status NULL; hết thì xoá dispatch_order/_tu_xep_phong/_gan_phong."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   41,
+   42
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3514,
+  "ham": "duyet_ket_qua",
+  "bang_hoac_goi": [
+   "service_order (cột duyệt)",
+   "tep_ket_qua"
+  ],
+  "khoi_chu": "service_order, result_file",
+  "ly_do": "Lệnh bác sĩ duyệt kết quả tự ghi service_order.duyet_*/bac_si_danh_gia (3606, 3636) và tự mở quyền gửi tep_ket_qua.cho_phep_gui_luc (3589, 3649), lặp lại điều kiện lọc tệp (da_xoa_luc, HOP_LE).",
+  "muc_do": "vua",
+  "hau_qua": "Luật 'tệp nào được gửi' của khối Tệp kết quả bị chép sang đây; khối ấy đổi điều kiện hợp lệ (vd. thêm trạng thái tệp) thì duyệt vẫn mở gửi theo luật cũ.",
+  "nen_doi": "Thêm hàm 'cho phép gửi các tệp hợp lệ của chỉ định' trong tep_ket_qua_service và gọi nó; khai cột duyet_* thuộc khối result."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   43,
+   44
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3683,
+  "ham": "_phat_da_duyet",
+  "bang_hoac_goi": [
+   "service_order (cột đã xem)",
+   "tep_ket_qua"
+  ],
+  "khoi_chu": "service_order, result_file",
+  "ly_do": "Đánh dấu đã xem cả tep_ket_qua.da_xem_luc (3693) lẫn service_order.da_xem_ket_qua_luc (3701) ngay trong khối Khám/Kết quả.",
+  "muc_do": "thap",
+  "hau_qua": "Khối Tệp kết quả có lệnh OpenResultFile tự ghi 'đã xem'; ở đây ghi tắt nên hai đường có thể ghi khác người/khác lúc; rủi ro thấp.",
+  "nen_doi": "Gọi hàm ghi đã xem của tep_ket_qua_service; khai cột da_xem_* thuộc khối result."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   45,
+   46
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3762,
+  "ham": "start_service / complete_service",
+  "bang_hoac_goi": [
+   "service_order"
+  ],
+  "khoi_chu": "service_order/execution",
+  "ly_do": "Đường Bắt đầu/Xong dịch vụ đời cũ trong khối Khám — cửa API đã tắt (routers/luot_kham.py:1021, 1038, _tat_loi_cu).",
+  "muc_do": "thap",
+  "hau_qua": "Mã chết: không chạy, nhưng còn 2 bản luật 'xong dịch vụ' song song với khối Thực hiện.",
+  "nen_doi": "Xoá hai hàm cùng route."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   47
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/lam_truoc_thu_sau.py",
+  "dong": 349,
+  "ham": "_ghi_mot_lua_chon",
+  "bang_hoac_goi": [
+   "service_selection_state"
+  ],
+  "khoi_chu": "service_selection",
+  "ly_do": "lam_truoc_thu_sau.py là lệnh SetDeferPayment của chính khối Khách chọn dịch vụ (docstring 15-21; modules.py khối service_selection)."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   48
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/service_selection_service.py",
+  "dong": 452,
+  "ham": "ap_lua_chon",
+  "bang_hoac_goi": [
+   "service_selection_state"
+  ],
+  "khoi_chu": "service_selection",
+  "ly_do": "ConfirmServiceSelection của chính khối Khách chọn dịch vụ (docstring 1-13)."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   49,
+   50,
+   51,
+   52,
+   53,
+   54
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/pharmacy_service.py",
+  "dong": 807,
+  "ham": "_giao_theo_phan_lo / _giao_khong_lo / _cap_phat_cu / xac_dinh_thuoc / khai_so_luong_mua / _chot_dong",
+  "bang_hoac_goi": [
+   "prescription (cột quầy thuốc)"
+  ],
+  "khoi_chu": "consultation",
+  "ly_do": "Các lệnh của khối Quầy thuốc (DispenseMedicine, MapDrug, SetPurchasedQty, CloseLine) ghi cột riêng của quầy trên bảng đơn: dispensed_* (913, 979, 1314), drug_catalog_id (1385), purchased_qty (1446), closed_at/refusal_reason (2579).",
+  "muc_do": "thap",
+  "hau_qua": "Chỉ lệch bản khai: bác sĩ không ghi các cột này; modules.py chính khối pharmacy đã nói 'hai bản đơn' trên cùng bảng.",
+  "nen_doi": "Khai trong modules.py các cột quầy thuốc của prescription thuộc khối pharmacy (luật cắm theo cột)."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   55
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/clinical_record_service.py",
+  "dong": 680,
+  "ham": "_ghi_sinh_hieu",
+  "bang_hoac_goi": [
+   "vital_measurement"
+  ],
+  "khoi_chu": "vitals",
+  "ly_do": "Lưu bệnh án tự INSERT sinh hiệu (700) không qua RecordVitals (không parse_vitals_co_truong, không phát vitals.recorded) — nhưng đang tắt bằng HO_SO_GHI_SINH_HIEU=False (229, 398).",
+  "muc_do": "thap",
+  "hau_qua": "Hiện không chạy; bật lại cờ thì sinh hiệu vào mà không kiểm số và không ai nghe được vitals.recorded.",
+  "nen_doi": "Xoá đường này, hoặc khi bật lại thì gọi SinhHieuService.record_vitals."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   56
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/nhan_tai_phong.py",
+  "dong": 762,
+  "ham": "_ve_chua_xep",
+  "bang_hoac_goi": [
+   "service_order (cột xếp phòng)"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Khối Điều phối (Nhận tại phòng) gỡ phòng của chỉ định: routing_status/room_id/routing_revision (767-774).",
+  "muc_do": "thap",
+  "hau_qua": "Chỉ lệch bản khai: cột xếp phòng là state của khối Điều phối nằm nhờ bảng chỉ định.",
+  "nen_doi": "Khai cột routing_*/room_id/assigned_* thuộc khối service_routing trong modules.py."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   57
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/nhan_tai_phong.py",
+  "dong": 1290,
+  "ham": "_ve_lai_phong_cu",
+  "bang_hoac_goi": [
+   "service_order (cột xếp phòng)"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Chỉ gọi từ hoan_tac_nhan (1187) — UndoReceiveAtRoom trả chỉ định về phòng cũ; ghi đúng các cột xếp phòng mà lệnh Nhận đã đổi."
+ },
+ {
+  "nhom": "ghi_cheo",
+  "chi_so_vao": [
+   58,
+   59,
+   60,
+   61
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/tep_ket_qua_service.py",
+  "dong": 541,
+  "ham": "_tinh_lai_ket_qua_luc / tai_len / xac_nhan_tep / khoi_phuc_tep",
+  "bang_hoac_goi": [
+   "service_order.ket_qua_luc"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Khối Tệp kết quả tự đặt/gỡ mốc 'có kết quả' service_order.ket_qua_luc (548, 953, 1101, 1482).",
+  "muc_do": "thap",
+  "hau_qua": "Cột ket_qua_luc bị ba khối cùng ghi (Tệp kết quả, Đối tác doi_tac:846/893, Biểu mẫu) và chỉ phối hợp bằng comment (_VIEC_DOI_TAC_SQL ở 551-554); một khối đổi luật 'khi nào có kết quả' dễ làm khối kia hiện sai.",
+  "nen_doi": "Khai ket_qua_luc thuộc một khối (result) và cho các khối khác gọi một hàm tính lại duy nhất."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   0
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/chi_dinh_service.py",
+  "dong": 175,
+  "ham": "dat",
+  "bang_hoac_goi": [
+   "luot_kham_service.LuotKhamService._consultation_in_progress/_services"
+  ],
+  "khoi_chu": "consultation",
+  "ly_do": "PlaceServiceOrders mượn hai hàm ĐỌC/kiểm của khối Khám (191, 195) rồi tự ghi bảng của mình — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   1
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 664,
+  "ham": "hoan_tac",
+  "bang_hoac_goi": [
+   "hoan_tac_service.mo_lai_moc_kham_xong/doc_ly_do/tien_da_thu_cua_chi_dinh"
+  ],
+  "khoi_chu": "reception/consultation",
+  "ly_do": "Dùng trong hoàn tác bỏ chỉ định (664, 777): mở lại mốc khám xong + đọc tiền đã thu — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   2
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 666,
+  "ham": "hoan_tac",
+  "bang_hoac_goi": [
+   "phi_kham_service._co_quyen_tick/chan_trung_dich_vu_kham"
+  ],
+  "khoi_chu": "phi_kham",
+  "ly_do": "Hoàn tác tick lại dịch vụ khám dùng đúng luật quyền + chống trùng của khối Phí khám (666-669) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   3
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 903,
+  "ham": null,
+  "bang_hoac_goi": [
+   "bio_chi_dinh_service.chuyen_bio_chua_thu"
+  ],
+  "khoi_chu": "vat_tu",
+  "ly_do": "Hoàn tác đặt lại chỉ định mới gọi hàm của chính khối Vật tư để dời Bio chưa thu (903; hàm ghi luot_vat_tu ở bio_chi_dinh:129) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   4
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 663,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hang_cho.cap_nhat_vi_tri"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Gọi hàm của khối Điều phối để dời con trỏ vị trí sau hoàn tác (663) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   5
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+  "dong": 665,
+  "ham": null,
+  "bang_hoac_goi": [
+   "luot_kham_service.LuotKhamService._evaluate_rounds"
+  ],
+  "khoi_chu": "vong_doc",
+  "ly_do": "Hoàn tác chạy lại luật vòng đọc cùng giao dịch (721) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   6
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/ho_so_dich_vu.py",
+  "dong": 164,
+  "ham": null,
+  "bang_hoac_goi": [
+   "booking_service.BookingService.doi_dich_vu_kham"
+  ],
+  "khoi_chu": "booking",
+  "ly_do": "Đổi dịch vụ khám trong hồ sơ đi qua 'đường ghi DUY NHẤT của BookingService' (163-175) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   7
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/phi_kham_service.py",
+  "dong": 34,
+  "ham": null,
+  "bang_hoac_goi": [
+   "so_sua_chi_dinh_service.dat_ngu_canh/dong_bo_moi_nhat/bao_bac_si_chinh/chan_ho_so_cu"
+  ],
+  "khoi_chu": "so_sua_chi_dinh (sổ sửa, không có khối trong modules.py)",
+  "ly_do": "Khối Phí khám đặt ngữ cảnh + đồng bộ dòng sổ sửa chỉ định do trigger ghi (phi_kham:330-378); sổ sửa là tầng nhật ký dùng chung."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   8
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/anh_chuyen_khoan_service.py",
+  "dong": 184,
+  "ham": "doc",
+  "bang_hoac_goi": [
+   "tep_ket_qua_service._tim_ban"
+  ],
+  "khoi_chu": "result_file",
+  "ly_do": "Chỉ mượn hàm tiện ích đọc tệp trên ổ VPS/CFS (184), không đụng state của Tệp kết quả; hàm tiện ích nằm nhầm tệp (tên _ riêng tư).",
+  "nen_doi": "Chuyển _tim_ban sang một mô-đun lưu trữ dùng chung."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   9
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 742,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hoan_tac_service.HoanTacService.hoan_tac_xong_dich_vu"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Hoàn tác trả kết quả đối tác gọi đúng lệnh UndoServiceCompletion của khối Thực hiện (742-746) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   10
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 266,
+  "ham": null,
+  "bang_hoac_goi": [
+   "tep_ket_qua_service.COT_XOA_SQL/gan_co_xoa/quyen_xoa_tep"
+  ],
+  "khoi_chu": "result_file",
+  "ly_do": "Chỉ đọc: hằng SQL + hàm thuần gắn cờ xoá + hỏi quyền xoá để hiện nút trên bàn đối tác (266-275)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   11
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 678,
+  "ham": null,
+  "bang_hoac_goi": [
+   "service_execution_service.ServiceExecutionService._ghi_xong"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Đối tác bấm xong khi đã có lần làm ở phòng thì ghi qua hàm của chính khối Thực hiện (692) — chưa khai goi_dong_bo (nên khai execution.CompleteService)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   12
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 33,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hang_cho.cap_nhat_vi_tri/mo_cho_bi_chan"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Gọi hàm của khối Điều phối (33-36) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   13
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/form_engine_service.py",
+  "dong": 146,
+  "ham": null,
+  "bang_hoac_goi": [
+   "doi_tac_service.LA_VIEC_DOI_TAC_SQL"
+  ],
+  "khoi_chu": "doi_tac",
+  "ly_do": "Chỉ đọc hằng SQL nhận diện việc đối tác (146)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   14
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/form_engine_service.py",
+  "dong": 1193,
+  "ham": "_dong_dich_vu_neu_dang_lam",
+  "bang_hoac_goi": [
+   "service_execution_service.ServiceExecutionService.xong"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Đã khai: khối result có goi_dong_bo=['execution.CompleteService']; gọi ở _dong_dich_vu_neu_dang_lam (1193-1240)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   15
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_no_service.py",
+  "dong": 40,
+  "ham": null,
+  "bang_hoac_goi": [
+   "cong_no_service.no_khi_ve"
+  ],
+  "khoi_chu": "cong_no",
+  "ly_do": "Sổ nợ chỉ ĐỌC luật nợ của khối Công nợ (modules.py khối so_no: 'Chỉ ĐỌC luật của các khối khác')."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   16
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/so_no_service.py",
+  "dong": 41,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hoan_tac_service.tien_da_thu_cua_chi_dinh"
+  ],
+  "khoi_chu": "service_order/payment",
+  "ly_do": "Chỉ đọc số tiền đã thu của chỉ định (41)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   17
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 713,
+  "ham": "huy_chi_dinh",
+  "bang_hoac_goi": [
+   "so_sua_chi_dinh_service.dat_ngu_canh/dong_bo_moi_nhat/..."
+  ],
+  "khoi_chu": "so_sua_chi_dinh",
+  "ly_do": "CancelServiceOrder ghi sổ sửa bằng trigger + hàm của sổ (713)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   18
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 775,
+  "ham": "huy_chi_dinh",
+  "bang_hoac_goi": [
+   "bio_chi_dinh_service.bio_da_thu_cua_chi_dinh"
+  ],
+  "khoi_chu": "vat_tu",
+  "ly_do": "Chỉ đọc tiền Bio đã thu để hỏi xác nhận trước khi bỏ chỉ định (775-783)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   19
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/hoan_tac_service.py",
+  "dong": 913,
+  "ham": "hoan_tac_xong_dich_vu",
+  "bang_hoac_goi": [
+   "service_execution_service.QUYEN_XONG/_doi_quyen_lam"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "hoan_tac_xong_dich_vu là lệnh UndoServiceCompletion của chính khối Thực hiện (911-913) — cùng khối, máy đoán nhầm."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   20
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 63,
+  "ham": null,
+  "bang_hoac_goi": [
+   "lieu_trinh_tien.loi_tien_lieu_trinh/CAU_HUY_TRA_TRUOC_DA_DUNG"
+  ],
+  "khoi_chu": "lieu_trinh",
+  "ly_do": "Chỉ dùng hàm thuần + câu thông báo (63-66)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   21
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 88,
+  "ham": null,
+  "bang_hoac_goi": [
+   "service_selection_service.ap_lua_chon/validate_input"
+  ],
+  "khoi_chu": "service_selection",
+  "ly_do": "Thu tiền chốt lựa chọn qua đúng hàm ghi của khối Khách chọn dịch vụ (88) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   22
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 1711,
+  "ham": null,
+  "bang_hoac_goi": [
+   "cong_no_service.ghi_no_trong"
+  ],
+  "khoi_chu": "cong_no",
+  "ly_do": "Huỷ phiếu sau khi khách về thì ghi nợ qua hàm của khối Công nợ (1711-1719) — chưa khai goi_dong_bo (GhiNo)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   23
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/payment_service.py",
+  "dong": 69,
+  "ham": null,
+  "bang_hoac_goi": [
+   "phan_lo_service.gan_lan_thu/ghi_ban/dao_ban/go_va_giu_ke_hoach"
+  ],
+  "khoi_chu": "pharmacy",
+  "ly_do": "Thu tiền thuốc ghi phân lô + inventory_txn qua hàm của chính khối Quầy thuốc (69-78; phan_lo_service:225) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   24
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+  "dong": 348,
+  "ham": null,
+  "bang_hoac_goi": [
+   "booking_service.BookingService"
+  ],
+  "khoi_chu": "booking",
+  "ly_do": "CSKH đặt/đổi lịch qua lệnh của khối Đặt lịch (348, 453, 491) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   25
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+  "dong": 574,
+  "ham": null,
+  "bang_hoac_goi": [
+   "checkout_service.CheckoutService"
+  ],
+  "khoi_chu": "reception",
+  "ly_do": "CSKH đóng lượt treo qua lệnh check-out của khối Tiếp đón (574) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   26
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/checkout_service.py",
+  "dong": 1060,
+  "ham": null,
+  "bang_hoac_goi": [
+   "cong_no_service.no_khi_ve/tien_vn"
+  ],
+  "khoi_chu": "cong_no",
+  "ly_do": "Check-out chỉ ĐỌC nợ (modules.py khối cong_no: 'Check-out chỉ ĐỌC bảng này')."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   27
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/cong_no_service.py",
+  "dong": 374,
+  "ham": null,
+  "bang_hoac_goi": [
+   "so_no_service.PHAI_THU/doc_so_du_mo"
+  ],
+  "khoi_chu": "so_no",
+  "ly_do": "Chỉ đọc số dư sổ nợ (374)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   28
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 1642,
+  "ham": "hoan_tac_xong_tai_ban_kham",
+  "bang_hoac_goi": [
+   "hoan_tac_service.mo_lai_moc_kham_xong"
+  ],
+  "khoi_chu": "consultation/vong_doc",
+  "ly_do": "UndoDeskCompletion mở lại mốc khám xong cùng giao dịch (1642, 1698)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   29
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 1795,
+  "ham": null,
+  "bang_hoac_goi": [
+   "lam_truoc_thu_sau.chot_mot_chi_dinh/tra_lua_chon_chot_ho"
+  ],
+  "khoi_chu": "service_selection",
+  "ly_do": "Bắt đầu ở bàn khám chốt hộ/trả lựa chọn qua hàm của khối Khách chọn dịch vụ (1795, 1824) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   30
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 1892,
+  "ham": null,
+  "bang_hoac_goi": [
+   "nhan_tai_phong.ban_kham_dang_lam/roi_phong"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Đọc trạng thái + cho khách rời phòng qua hàm của khối Điều phối (1892, 2197) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   31
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 65,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hang_cho.cap_nhat_vi_tri/mo_cho_bi_chan/ve_lai_hang_phong"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Gọi đúng hàm của khối Điều phối (65-69) — chưa khai goi_dong_bo; phần UPDATE queue_entry viết tay xem các mục ghi chéo bat_dau/_dong_hang_cho."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   32
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_execution_service.py",
+  "dong": 1643,
+  "ham": "hoan_tac_xong_tai_ban_kham",
+  "bang_hoac_goi": [
+   "luot_kham_service.LuotKhamService._evaluate_rounds/_ket_thuc_neu_xong"
+  ],
+  "khoi_chu": "vong_doc",
+  "ly_do": "UndoDeskCompletion chạy lại luật vòng đọc cùng giao dịch (1697-1699)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   33
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/service_routing_service.py",
+  "dong": 46,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hang_cho.*"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "hang_cho.py và service_routing_service.py cùng là khối Điều phối; máy đoán service_routing_service là service_order."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   34
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/quay_thuoc_service.py",
+  "dong": 49,
+  "ham": null,
+  "bang_hoac_goi": [
+   "pharmacy_service.PharmacyService"
+  ],
+  "khoi_chu": "pharmacy",
+  "ly_do": "quay_thuoc_service.py là lệnh AdjustSaleAtCounter của chính khối Quầy thuốc (docstring 1-20); máy đoán là consultation vì nó ghi bảng prescription."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   35
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/lieu_trinh_service.py",
+  "dong": 1444,
+  "ham": null,
+  "bang_hoac_goi": [
+   "tuong_tac_cskh_service.TuongTacCskhService"
+  ],
+  "khoi_chu": "cskh",
+  "ly_do": "Ghi mốc chạm khách qua lệnh của khối CSKH (1438-1444) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   36
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/lieu_trinh_service.py",
+  "dong": 46,
+  "ham": null,
+  "bang_hoac_goi": [
+   "service_execution_service.NOI_BAN_KHAM"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Chỉ đọc hằng."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   37
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/dinh_chinh_don.py",
+  "dong": 598,
+  "ham": "luu_don_chua_ky",
+  "bang_hoac_goi": [
+   "so_sua_chi_dinh_service.ghi_so_thuoc/doc_don_de_so/chan_ho_so_cu"
+  ],
+  "khoi_chu": "so_sua_chi_dinh",
+  "ly_do": "Ghi sổ sửa đơn thuốc qua hàm của sổ (598)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   38
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+  "dong": 46,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hang_cho.cap_nhat_vi_tri"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Gọi hàm của khối Điều phối (46) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   39
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+  "dong": 60,
+  "ham": null,
+  "bang_hoac_goi": [
+   "service_execution_service.GHI_CHU_TAI_QUAY"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Chỉ đọc hằng (60)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   40
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 158,
+  "ham": null,
+  "bang_hoac_goi": [
+   "sinh_hieu_service.SinhHieuService"
+  ],
+  "khoi_chu": "vitals",
+  "ly_do": "Chỉ còn các hàm chuyển tiếp sang lệnh của khối Sinh hiệu sau khi bóc (1688-1703)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   41
+  ],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 3305,
+  "ham": "_gan_phong/_tu_xep_phong",
+  "bang_hoac_goi": [
+   "service_routing_service.eligible_rooms/rank_rooms/phong_gan_dich_vu"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Khối Khám mượn luật xếp hạng phòng (3305, 3429) rồi tự xếp bằng _gan_phong thay vì gọi AssignServiceRoom; chỉ áp cho chỉ định đời cũ selection_status NULL (3459).",
+  "muc_do": "thap",
+  "hau_qua": "Không qua FinanceGate/routing_revision của lệnh xếp phòng mới; phạm vi chỉ còn dòng đời cũ.",
+  "nen_doi": "Xoá _tu_xep_phong/_gan_phong khi hết dòng đời cũ."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   42
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 59,
+  "ham": null,
+  "bang_hoac_goi": [
+   "doi_tac_service.DoiTacService"
+  ],
+  "khoi_chu": "doi_tac",
+  "ly_do": "Chỉ còn hàm chuyển tiếp sang lệnh của khối Đối tác (3724-3735)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   43
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1317,
+  "ham": null,
+  "bang_hoac_goi": [
+   "phi_kham_service.chan_trung_dich_vu_kham"
+  ],
+  "khoi_chu": "phi_kham",
+  "ly_do": "Dùng đúng luật chống tính tiền khám hai lần của khối Phí khám (1317)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   44
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 1673,
+  "ham": null,
+  "bang_hoac_goi": [
+   "booking_service.BookingService.apply_action('checkin')"
+  ],
+  "khoi_chu": "booking",
+  "ly_do": "Check-in đi qua lệnh của khối Đặt lịch (1673-1679) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   45
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/service_selection_service.py",
+  "dong": 538,
+  "ham": null,
+  "bang_hoac_goi": [
+   "nhan_tai_phong.nha_khi_bo_chon"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Khách bỏ chọn thì nhả phòng qua hàm của khối Điều phối (538) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   46
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/clinical_record_service.py",
+  "dong": 674,
+  "ham": null,
+  "bang_hoac_goi": [
+   "sinh_hieu_service.SinhHieuService.dong_bo_sinh_hieu_tu_ho_so"
+  ],
+  "khoi_chu": "vitals",
+  "ly_do": "Gọi lệnh của khối Sinh hiệu (674-678) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   47
+  ],
+  "loai": "may_doan_sai",
+  "tep": "src/clinicai/services/nhan_tai_phong.py",
+  "dong": 61,
+  "ham": null,
+  "bang_hoac_goi": [
+   "service_routing_service.*"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "nhan_tai_phong.py (ReceiveAtRoom/UndoReceiveAtRoom) và service_routing_service.py cùng khối Điều phối; máy đoán nhầm."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   48
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/nhan_tai_phong.py",
+  "dong": 346,
+  "ham": null,
+  "bang_hoac_goi": [
+   "service_execution_service.chan_vi_chua_thu"
+  ],
+  "khoi_chu": "execution",
+  "ly_do": "Hàm THUẦN đọc quyết định cửa tiền (execution:325-333)."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   49
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/services/sinh_hieu_service.py",
+  "dong": 32,
+  "ham": null,
+  "bang_hoac_goi": [
+   "hang_cho.cap_nhat_vi_tri"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Gọi hàm của khối Điều phối (32) — chưa khai goi_dong_bo."
+ },
+ {
+  "nhom": "goi_cheo",
+  "chi_so_vao": [
+   50
+  ],
+  "loai": "dung_thiet_ke",
+  "tep": "src/clinicai/events/consumers/doi_tac.py",
+  "dong": 52,
+  "ham": null,
+  "bang_hoac_goi": [
+   "service_routing_service.DOI_TAC_LAM_TRON_SQL"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Chỉ đọc hằng SQL (52)."
+ },
+ {
+  "nhom": "ngoai_dau_vao",
+  "chi_so_vao": [],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/luot_kham_service.py",
+  "dong": 402,
+  "ham": "xep_sau_check_in, mo_hang_tu_van, xep_lai_sau_doi_dich_vu, tra_ve_tu_van, bo_qua_tu_van, _gan_bac_si_phien, goi_khach, start_consultation, xong_tu_van, complete_consultation …",
+  "bang_hoac_goi": [
+   "queue_entry"
+  ],
+  "khoi_chu": "service_routing",
+  "ly_do": "Máy đoán luot_kham_service là service_routing nên bỏ sót: khối Khám UPDATE/INSERT queue_entry ở ~14 hàm (hàng bác sĩ/tư vấn).",
+  "muc_do": "vua",
+  "hau_qua": "Bảng queue_entry thực tế có ít nhất 7 khối cùng ghi (Khám, Thực hiện, Đối tác, Tiếp đón, Đặt lịch, Hoàn tác, Điều phối); bản khai nói chỉ một.",
+  "nen_doi": "Hoặc khai rõ làn DOCTOR/TU_VAN do khối Khám giữ, hoặc gom mọi chuyển trạng thái hàng chờ vào hang_cho.py."
+ },
+ {
+  "nhom": "ngoai_dau_vao",
+  "chi_so_vao": [],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/doi_tac_service.py",
+  "dong": 631,
+  "ham": "doi_tac_cho_tai_lieu / huy_cho_tai_lieu / tra_ket_qua / huy_tra_ket_qua",
+  "bang_hoac_goi": [
+   "service_order (doi_tac_cho_tai_lieu_*, ket_qua_luc)"
+  ],
+  "khoi_chu": "service_order",
+  "ly_do": "Máy đoán doi_tac_service là service_order nên bỏ sót các UPDATE service_order ở 631, 773, 846, 893.",
+  "muc_do": "thap",
+  "hau_qua": "Cột riêng của đối tác nằm nhờ bảng chỉ định; ket_qua_luc dùng chung với Tệp kết quả (xem mục tep_ket_qua_service).",
+  "nen_doi": "Khai cột đối tác thuộc khối doi_tac trong modules.py."
+ },
+ {
+  "nhom": "ngoai_dau_vao",
+  "chi_so_vao": [],
+  "loai": "vi_pham",
+  "tep": "src/clinicai/services/quay_thuoc_service.py",
+  "dong": 249,
+  "ham": "(các lệnh chỉnh đơn bán ở quầy)",
+  "bang_hoac_goi": [
+   "prescription"
+  ],
+  "khoi_chu": "consultation",
+  "ly_do": "Máy đoán quay_thuoc_service là consultation nên bỏ sót: khối Quầy thuốc UPDATE purchased_qty/quantity (249, 314, 368, 498) và INSERT dòng đơn nguồn QUAY (532).",
+  "muc_do": "thap",
+  "hau_qua": "Có chủ đích (C14/C19, số bác sĩ kê giữ ở so_luong_ke_goc) nhưng bản khai không nói quầy được ghi bảng đơn.",
+  "nen_doi": "Khai các cột/dòng nguồn QUAY của prescription thuộc khối pharmacy."
+ }
+]

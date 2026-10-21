@@ -1,0 +1,1199 @@
+[
+ {
+  "bang": "visit",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "reception",
+  "so_tep_ghi": 15,
+  "tep_ghi": [
+   "services/ban_le_service.py",
+   "services/ban_theo_don_service.py",
+   "services/booking_service.py",
+   "services/checkout_service.py",
+   "services/chuyen_luot_that.py",
+   "services/clinical_record_service.py",
+   "services/clinical_sign_service.py",
+   "services/doi_bac_si_service.py",
+   "services/hang_cho.py",
+   "services/hoan_tac_service.py",
+   "services/lam_truoc_thu_sau.py",
+   "services/luot_kham_service.py",
+   "services/theo_doi_thu_thuat_service.py",
+   "services/thu_tu_kham_service.py",
+   "services/ultrasound_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 13,
+  "ly_do": "Bảng gốc của lượt khám; reception có lệnh CheckIn/CheckOut/ReopenVisit nên hợp làm chủ, các khối khác (thu tiền, đổi BS, hoàn tác, bán lẻ…) nên gửi lệnh thay vì UPDATE thẳng."
+ },
+ {
+  "bang": "thong_bao",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "chuong",
+  "so_tep_ghi": 7,
+  "tep_ghi": [
+   "events/consumers/chuong.py",
+   "events/consumers/chuong_nhan_cheo.py",
+   "events/hen_gio.py",
+   "events/worker.py",
+   "services/hen_tai_kham_service.py",
+   "services/so_sua_chi_dinh_service.py",
+   "services/thong_bao_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Tin chuông/thông báo; 7 tệp (consumer chuông, hẹn giờ, worker, tái khám, sổ sửa chỉ định) cùng chèn trực tiếp."
+ },
+ {
+  "bang": "work_item",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "trach_nhiem",
+  "so_tep_ghi": 7,
+  "tep_ghi": [
+   "events/consumers/trach_nhiem.py",
+   "services/booking_service.py",
+   "services/checkout_service.py",
+   "services/hoan_tac_service.py",
+   "services/service_order_service.py",
+   "services/ultrasound_board_service.py",
+   "services/work_item_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 12,
+  "ly_do": "Bảng việc lõi của workflow kernel, 7 tệp đang mở/đóng việc trực tiếp."
+ },
+ {
+  "bang": "clinic",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "cau_hinh_chung",
+  "so_tep_ghi": 5,
+  "tep_ghi": [
+   "api/v1/routers/config.py",
+   "services/clinic_config_service.py",
+   "services/clinic_settings_service.py",
+   "services/lo_thuoc_service.py",
+   "services/report_access_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 8,
+  "ly_do": "Thông tin cơ sở/phòng khám, 5 tệp cấu hình cùng sửa."
+ },
+ {
+  "bang": "encounter_flow",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "hanh_trinh",
+  "so_tep_ghi": 5,
+  "tep_ghi": [
+   "services/booking_service.py",
+   "services/hoan_tac_service.py",
+   "services/lenh_kham_core.py",
+   "services/luot_kham_service.py",
+   "services/sinh_hieu_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "ly_do": "Trạng thái luồng một-một của lượt (lát 1 luot_kham), đúng phần việc của khối Hành trình (Process Manager)."
+ },
+ {
+  "bang": "consultation",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "consultation",
+  "so_tep_ghi": 4,
+  "tep_ghi": [
+   "services/chuyen_luot_that.py",
+   "services/doi_bac_si_service.py",
+   "services/hoan_tac_service.py",
+   "services/luot_kham_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "ly_do": "Phiên khám/vòng đọc của bác sĩ — khối consultation đang giữ bệnh án nhưng chưa khai bảng này."
+ },
+ {
+  "bang": "drug_catalog",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "catalogue",
+  "so_tep_ghi": 4,
+  "tep_ghi": [
+   "services/config_service.py",
+   "services/dinh_chinh_don.py",
+   "services/pharmacy_service.py",
+   "services/thue_suat_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 5,
+  "ly_do": "Danh mục thuốc; 4 tệp (cấu hình, định chính đơn, quầy, thuế) cùng ghi — có thể giao pharmacy."
+ },
+ {
+  "bang": "patient",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "khoi_moi:ho_so_khach",
+  "so_tep_ghi": 4,
+  "tep_ghi": [
+   "services/booking_service.py",
+   "services/nhap_lich_su_notion.py",
+   "services/patient_service.py",
+   "services/thu_tu_kham_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 2,
+  "ly_do": "Hồ sơ khách là gốc dữ liệu nhưng chưa khối nào giữ; nên có khối Hồ sơ khách (gồm MPI, SĐT phụ, liên kết, đồng ý)."
+ },
+ {
+  "bang": "service_price",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "catalogue",
+  "so_tep_ghi": 4,
+  "tep_ghi": [
+   "services/clinic_config_service.py",
+   "services/config_service.py",
+   "services/thue_suat_service.py",
+   "services/vat_tu_danh_muc_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 23,
+  "ly_do": "Bảng giá dịch vụ; 4 tệp (cấu hình, thuế, vật tư) cùng ghi."
+ },
+ {
+  "bang": "ultrasound_record",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "result",
+  "so_tep_ghi": 4,
+  "tep_ghi": [
+   "services/clinical_sign_service.py",
+   "services/media_service.py",
+   "services/ultrasound_board_service.py",
+   "services/ultrasound_service.py"
+  ],
+  "nhieu_tep_ghi": true,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Bản ghi siêu âm; 4 tệp (ký, ảnh, bảng SA, SA) cùng ghi — nên một chủ kết quả."
+ },
+ {
+  "bang": "drug_batch",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 3,
+  "tep_ghi": [
+   "services/kho_thuoc_service.py",
+   "services/lo_thuoc_service.py",
+   "services/pharmacy_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 9,
+  "ly_do": "Lô thuốc và tồn — 3 tệp kho/lô/quầy cùng ghi, dễ lệch tồn."
+ },
+ {
+  "bang": "service_type",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "catalogue",
+  "so_tep_ghi": 3,
+  "tep_ghi": [
+   "services/chuyen_luot_that.py",
+   "services/clinic_config_service.py",
+   "services/day_noi_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 10,
+  "ly_do": "Danh mục loại dịch vụ."
+ },
+ {
+  "bang": "staff",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "permission",
+  "so_tep_ghi": 3,
+  "tep_ghi": [
+   "services/chuyen_luot_that.py",
+   "services/staff_service.py",
+   "services/tai_khoan_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 2,
+  "ly_do": "Danh mục nhân viên; permission đã giữ kỹ năng/quyền nên hợp giữ luôn (hoặc khối mới nhan_su)."
+ },
+ {
+  "bang": "staff_task",
+  "loai": "co_the_bo",
+  "so_tep_ghi": 3,
+  "tep_ghi": [
+   "services/lab_safety_service.py",
+   "tools/task/create_task.py",
+   "tools/task/update_task_status.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 2,
+  "ly_do": "Việc kiểu cũ trước work_item: ghi từ tools/task (route /api/v1/tools không màn nào gọi) và lab_safety (triage xét nghiệm vẫn chạy) — cần gỡ nốt chỗ triage trước."
+ },
+ {
+  "bang": "work_roster",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "lich_truc",
+  "so_tep_ghi": 3,
+  "tep_ghi": [
+   "services/booking_service.py",
+   "services/config_service.py",
+   "services/staff_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Lịch trực/ca làm; 3 tệp (đặt lịch, cấu hình, nhân viên) cùng ghi."
+ },
+ {
+  "bang": "app_credential",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "permission",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/auth_service.py",
+   "services/tai_khoan_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Tài khoản đăng nhập của nhân viên (tạo/thu hồi)."
+ },
+ {
+  "bang": "care_episode",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "booking",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/booking_service.py",
+   "services/episode_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 4,
+  "ly_do": "Đợt chăm sóc tạo kèm khi đặt lịch; route PATCH /episodes không màn nào gọi nên nếu bỏ thì chỉ còn booking ghi."
+ },
+ {
+  "bang": "clinic_location",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "cau_hinh_chung",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/clinic_config_service.py",
+   "services/kho_thuoc_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 3,
+  "ly_do": "Địa điểm cơ sở (SĐT, địa chỉ)."
+ },
+ {
+  "bang": "clinical_release",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "consultation",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/chuyen_luot_that.py",
+   "services/clinical_sign_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Bác sĩ cho phép gửi kết quả cho khách — bước sau ký, thuộc luồng khám/hoàn tất."
+ },
+ {
+  "bang": "cskh_action",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "cskh",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/clinical_sign_service.py",
+   "services/cskh_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Hành động CSKH (vd tạo từ form khách mới)."
+ },
+ {
+  "bang": "cskh_log",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "cskh",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/cskh_service.py",
+   "services/recall_job_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Nhật ký cuộc gọi CSKH; trùng nghĩa với tuong_tac_cskh mà cskh đã giữ — nên gộp."
+ },
+ {
+  "bang": "follow_up_case",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "trach_nhiem",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/hoan_tac_service.py",
+   "services/luot_kham_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Việc chưa xong khi đóng lượt phải có người chịu — đúng nghĩa \"trách nhiệm không được rơi\"."
+ },
+ {
+  "bang": "hen_goi_lai",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "cskh",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/clinical_sign_service.py",
+   "services/tuong_tac_cskh_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Việc CSKH tự hẹn gọi lại; ghi từ ký kết quả và tương tác CSKH."
+ },
+ {
+  "bang": "lich_su_notion",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/chuyen_luot_that.py",
+   "services/nhap_lich_su_notion.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Là SCHEMA nhập lịch sử Notion một lần (lan_chuyen, luot_that…), chỉ script nhập/chuyển ghi."
+ },
+ {
+  "bang": "luot_phu_thu",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "service_order",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/lam_them_tai_quay_service.py",
+   "services/service_selection_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Phụ thu kèm dịch vụ, ghi từ làm thêm tại quầy và chọn dịch vụ."
+ },
+ {
+  "bang": "nhac_tai_kham",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "cskh",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/hen_tai_kham_service.py",
+   "services/recall_job_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 5,
+  "ly_do": "Lịch nhắc tái khám hai lượt gọi."
+ },
+ {
+  "bang": "phieu_kham_luot",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "consultation",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/chuyen_luot_that.py",
+   "services/phieu_kham_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Phiếu khám (chẩn đoán, mục A) của lượt; một nơi ghi còn lại là script chuyển dữ liệu Notion một lần."
+ },
+ {
+  "bang": "pos_outbox",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/pos_outbox.py",
+   "services/pos_relay.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Outbox đẩy sang POS ngoài, worker xả; POS_ADAPTER mặc định none nên có thể chưa từng bật."
+ },
+ {
+  "bang": "round_requirement",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "vong_doc",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/hoan_tac_service.py",
+   "services/luot_kham_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Yêu cầu của từng vòng đọc kết quả, đi cùng review_round mà vong_doc đã giữ."
+ },
+ {
+  "bang": "so_sua_chi_dinh",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "service_order",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/phi_kham_service.py",
+   "services/so_sua_chi_dinh_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Sổ sửa chỉ định dịch vụ (ghi từ phí khám và sổ sửa)."
+ },
+ {
+  "bang": "vai_duoc_vao_tram",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "permission",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/config_service.py",
+   "services/day_noi_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 4,
+  "ly_do": "Vai nào được vào trạm nào."
+ },
+ {
+  "bang": "visit_amendment",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "consultation",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/clinical_sign_service.py",
+   "services/form_engine_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Vết sửa hồ sơ lượt theo TT13, ghi từ ký kết quả và biểu mẫu."
+ },
+ {
+  "bang": "visit_route",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "service_routing",
+  "so_tep_ghi": 2,
+  "tep_ghi": [
+   "services/dispatch_service.py",
+   "services/service_order_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Tuyến đang áp cho lượt (append-only), thuộc điều phối khách."
+ },
+ {
+  "bang": "_ghep",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/nhap_lich_su_notion.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Bảng TEMP ON COMMIT DROP trong script nhập Notion, không phải bảng thật."
+ },
+ {
+  "bang": "agent_cau_hinh",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "van_hanh",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/agent_giam_sat.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Cấu hình agent giám sát."
+ },
+ {
+  "bang": "agent_nhan_dinh",
+  "loai": "phu_tro_ky_thuat",
+  "khoi_de_xuat": "van_hanh",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/agent_giam_sat.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Nhận định của agent giám sát."
+ },
+ {
+  "bang": "agent_tom_tat",
+  "loai": "phu_tro_ky_thuat",
+  "khoi_de_xuat": "van_hanh",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/agent_tom_tat.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Tóm tắt của agent giám sát."
+ },
+ {
+  "bang": "app_private",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/pharmacy_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Thực ra là bảng app_private.pharmacy_inventory_request (khoá chống trùng kho thuốc), máy quét lấy nhầm tên schema."
+ },
+ {
+  "bang": "canh_bao",
+  "loai": "phu_tro_ky_thuat",
+  "khoi_de_xuat": "van_hanh",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/canh_gac.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Cảnh báo của bộ canh gác mỗi phút."
+ },
+ {
+  "bang": "chot_so_ca",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "payment",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/chot_so_ca_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Khoá sổ cuối ca thu ngân (có thể chuyển ke_toan nếu kế toán chốt)."
+ },
+ {
+  "bang": "clinic_floor",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "cau_hinh_chung",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/clinic_floor_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Tầng của cơ sở, mới 19/10."
+ },
+ {
+  "bang": "clinic_membership",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "permission",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/staff_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 3,
+  "ly_do": "Nhân viên thuộc cơ sở nào — quyết định phạm vi quyền."
+ },
+ {
+  "bang": "clinic_room",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "cau_hinh_chung",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/clinic_config_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 8,
+  "ly_do": "Danh mục phòng."
+ },
+ {
+  "bang": "clinic_room_node",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "cau_hinh_chung",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/clinic_config_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 5,
+  "ly_do": "Phòng phục vụ những trạm nào."
+ },
+ {
+  "bang": "clinic_room_service",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "cau_hinh_chung",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/clinic_config_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 2,
+  "ly_do": "Phòng làm những dịch vụ nào."
+ },
+ {
+  "bang": "clinical_data_consent",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "khoi_moi:ho_so_khach",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/consent_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Đồng ý dùng dữ liệu y khoa của khách, đi cùng patient_link."
+ },
+ {
+  "bang": "clinical_form_response",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "result",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/clinical_form_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Biểu mẫu khám lâm sàng kiểu cũ vẫn đang dùng (ServiceFormEngine ở bàn khám); về lâu dài gộp vào form_instance."
+ },
+ {
+  "bang": "command_receipt",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/lenh_kham_core.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Biên nhận lệnh chống chạy trùng (cùng giao dịch)."
+ },
+ {
+  "bang": "consultation_note",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "consultation",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/luot_kham_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Ghi chú khám chỉ-thêm của bác sĩ/thư ký trong phiên khám."
+ },
+ {
+  "bang": "day_nghiep_vu",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "cau_hinh_chung",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/day_noi_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 3,
+  "ly_do": "Dây nối nghiệp vụ bật/tắt trên màn."
+ },
+ {
+  "bang": "dispatch_threshold",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "service_routing",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/dispatch_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 2,
+  "ly_do": "Ngưỡng điều phối."
+ },
+ {
+  "bang": "doctor_booking_override",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "booking",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/booking_override_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Ngoại lệ sức chứa đặt lịch theo bác sĩ (màn Settings vẫn gọi)."
+ },
+ {
+  "bang": "drug_ma_vach",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/ma_vach_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Mã vạch → thuốc."
+ },
+ {
+  "bang": "drug_return",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/pharmacy_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Thuốc khách trả lại quầy."
+ },
+ {
+  "bang": "hen_gio",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "events/hen_gio.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 2,
+  "ly_do": "Bảng hẹn giờ của bus sự kiện."
+ },
+ {
+  "bang": "hoa_don_cong_ty",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "ke_toan",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/hoa_don_cong_ty_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Hoá đơn công ty tick theo lượt ở quầy thu."
+ },
+ {
+  "bang": "hoa_don_cong_ty_lich_su",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "ke_toan",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/hoa_don_cong_ty_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Lịch sử đổi của hoá đơn công ty."
+ },
+ {
+  "bang": "hoa_don_misa_xuat",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "ke_toan",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/hoa_don_misa_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Lần xuất file hoá đơn MISA."
+ },
+ {
+  "bang": "hoa_don_misa_xuat_dong",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "ke_toan",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/hoa_don_misa_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Dòng của lần xuất MISA."
+ },
+ {
+  "bang": "idempotency_key",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "api/idempotency.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Khoá chống gửi trùng của API."
+ },
+ {
+  "bang": "khach_cong_ty",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "ke_toan",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/hoa_don_cong_ty_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Khách là công ty để xuất hoá đơn."
+ },
+ {
+  "bang": "kiem_ke_ca",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/kiem_ke_ca_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Phiếu kiểm kê thuốc ở quầy theo ca."
+ },
+ {
+  "bang": "kiem_ke_ca_dong",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/kiem_ke_ca_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Dòng của phiếu kiểm kê thuốc theo ca."
+ },
+ {
+  "bang": "lam_them_tai_quay_revision",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "service_order",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/lam_them_tai_quay_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Phiên bản của lam_them_tai_quay mà service_order đã giữ."
+ },
+ {
+  "bang": "lan_don_du_lieu_thu",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/don_du_lieu_thu_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 4,
+  "ly_do": "Sổ ghi các lần dọn dữ liệu thử."
+ },
+ {
+  "bang": "llm_lan_goi",
+  "loai": "phu_tro_ky_thuat",
+  "khoi_de_xuat": "van_hanh",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "llm/chi_phi.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Sổ ghi chi phí từng lần gọi LLM."
+ },
+ {
+  "bang": "luat_bac_si_bat_buoc",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "booking",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/luat_bac_si_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Luật bắt buộc bác sĩ khi đặt lịch (memory: luật BS Thành chưa từng bật)."
+ },
+ {
+  "bang": "luot_dong_thoi_gian",
+  "loai": "phu_tro_ky_thuat",
+  "khoi_de_xuat": "journey",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "events/consumers/dong_thoi_gian.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Projection dòng thời gian — journey đã khai ở projection, chỉ máy quét chưa đọc trường này."
+ },
+ {
+  "bang": "mpi_merge_queue",
+  "loai": "co_the_bo",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/mpi_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Tạo khách mới tự chèn hàng chờ gộp nhưng hàm đọc get_pending_queue không ai gọi — hàng đợi chỉ ghi, không ai xử lý."
+ },
+ {
+  "bang": "nhac_viec_ca_nhan",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "trach_nhiem",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/nhac_viec_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Việc một người tự hẹn nhắc mình; tới giờ réo chuông — gần với việc có người chịu."
+ },
+ {
+  "bang": "owner_feedback",
+  "loai": "phu_tro_ky_thuat",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/console_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Hộp góp ý của chủ sản phẩm ở /console, đọc bằng script."
+ },
+ {
+  "bang": "patient_link",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "khoi_moi:ho_so_khach",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/consent_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Liên kết hồ sơ khách (người thân/giám hộ), đi cùng patient."
+ },
+ {
+  "bang": "patient_sdt_them",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "khoi_moi:ho_so_khach",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/patient_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Số điện thoại phụ của khách, chỉ patient_service ghi."
+ },
+ {
+  "bang": "payment",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "payment",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/payment_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Lần thu tiền thật; khối payment giữ payment_cycle… nhưng quên khai chính bảng payment."
+ },
+ {
+  "bang": "payment_refund",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "payment",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/hoan_tien_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Phiếu hoàn tiền, chỉ hoan_tien_service ghi."
+ },
+ {
+  "bang": "payment_refund_line",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "payment",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/hoan_tien_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Dòng của phiếu hoàn tiền."
+ },
+ {
+  "bang": "phan_hoi_khach",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "cskh",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/phan_hoi_khach_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Phản hồi/khiếu nại của khách và vòng đời xử lý."
+ },
+ {
+  "bang": "phieu_kho",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/kho_thuoc_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Phiếu nhập/xuất kho thuốc kiểu KiotViet."
+ },
+ {
+  "bang": "phieu_kho_dong",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/kho_thuoc_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Dòng phiếu kho thuốc."
+ },
+ {
+  "bang": "prescription_correction",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/dinh_chinh_don.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Định chính đơn thuốc sau khi đã kê/giao (tiền thuốc CP6), chỉ dinh_chinh_don ghi."
+ },
+ {
+  "bang": "result_correction",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "result",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/form_engine_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Sửa kết quả giữ bản cũ, đi cùng form_instance."
+ },
+ {
+  "bang": "roster_week",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "lich_truc",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/config_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Tuần lịch trực đã áp dụng."
+ },
+ {
+  "bang": "service_log",
+  "loai": "co_the_bo",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/service_log_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Route /api/service-log và /api/sono đã tắt 24/09 (lib/route-da-tat.ts trả 410), không màn nào gọi — chỉ còn backend ghi."
+ },
+ {
+  "bang": "service_order_draft",
+  "loai": "co_the_bo",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/service_order_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Route visits/[id]/service-orders/draft|approve|discard đã tắt 24/09 (route-da-tat.ts), nháp chỉ định không còn lối vào."
+ },
+ {
+  "bang": "slot_booking_override",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "booking",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/booking_override_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Ngoại lệ sức chứa theo khung giờ."
+ },
+ {
+  "bang": "slot_hold",
+  "loai": "phu_tro_ky_thuat",
+  "khoi_de_xuat": "booking",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/slot_hold_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Giữ chỗ tư vấn tạm khi CSKH chọn giờ, không phải khoá thật."
+ },
+ {
+  "bang": "staff_node",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "permission",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/clinic_config_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 2,
+  "ly_do": "Nhân viên gắn trạm/node thanh bên."
+ },
+ {
+  "bang": "thong_bao_an_cua_toi",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "chuong",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/thong_bao_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Ẩn thông báo theo từng nhân viên, đi kèm thong_bao."
+ },
+ {
+  "bang": "thu_ky_bac_si",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "lich_truc",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/thu_ky_bac_si.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Thư ký gắn bác sĩ; đọc ở 20 chỗ nhưng chỉ một tệp ghi."
+ },
+ {
+  "bang": "thue_suat_nhom",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "ke_toan",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/thue_suat_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Thuế suất GTGT theo nhóm hàng."
+ },
+ {
+  "bang": "thuoc_giao_chua_gan_lo",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/pharmacy_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Thuốc đã giao nhưng chưa gắn được lô — hàng chờ đối chiếu kho."
+ },
+ {
+  "bang": "thuoc_quy_doi",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "pharmacy",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/pharmacy_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Hệ số quy đổi hộp↔gói của thuốc."
+ },
+ {
+  "bang": "tien_thua_giu_lai",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "payment",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/tien_thua_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Tiền thừa giữ lại cho khách ở quầy thu."
+ },
+ {
+  "bang": "vi_tri_lam_viec",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "lich_truc",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/day_noi_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 10,
+  "ly_do": "Vị trí làm việc của ca (đọc 23 chỗ)."
+ },
+ {
+  "bang": "visit_gate_override",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "service_routing",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/gate_rule_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Cho qua cổng chặn của tuyến — điều phối."
+ },
+ {
+  "bang": "work_item_event",
+  "loai": "loi_nen_co_chu",
+  "khoi_de_xuat": "trach_nhiem",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/work_item_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 3,
+  "ly_do": "Nhật ký đổi trạng thái của work_item, nên cùng chủ với work_item."
+ },
+ {
+  "bang": "work_roster_thay_nguoi",
+  "loai": "cau_hinh",
+  "khoi_de_xuat": "lich_truc",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/config_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Đổi người trong ca."
+ },
+ {
+  "bang": "work_session",
+  "loai": "co_the_bo",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/scheduling_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 1,
+  "ly_do": "Chỉ ghi qua POST /api/v1/scheduling và tools LLM; dashboard không gọi /scheduling, lịch thật đã chuyển sang work_roster."
+ },
+ {
+  "bang": "work_session_staff",
+  "loai": "co_the_bo",
+  "so_tep_ghi": 1,
+  "tep_ghi": [
+   "services/scheduling_service.py"
+  ],
+  "nhieu_tep_ghi": false,
+  "ly_do": "Đi kèm work_session, cùng một lối ghi không màn nào gọi."
+ },
+ {
+  "bang": "public",
+  "loai": "chua_chac",
+  "so_tep_ghi": 0,
+  "tep_ghi": [],
+  "nhieu_tep_ghi": false,
+  "trigger_sql_cung_ghi": 179,
+  "ly_do": "Không phải bảng: máy quét đọc nhầm tiền tố schema \"public.\" thành tên bảng — cần sửa máy quét, các bảng thật đã nằm trong danh sách."
+ }
+]

@@ -1,0 +1,94 @@
+ham_vai	app/page.tsx	15	redirect(roleLanding(role));
+tap_vai	lib/chon-nhan-vien.ts	33	const THU_TU_DAU: ClinicRole[] = ["DOCTOR", "NURSE_ULTRASOUND", "TRUONG_CA", "CSKH"];
+ham_vai	lib/clinic-session.ts	85	return nutBanKham(quyen, vai);
+ham_vai	lib/clinic-session.ts	127	return vaoDuocMan(href, vai, quyen) || luonBatChoVaiGoc(href, await getClinicRole());
+quyen	lib/quyen-client.ts	14	export const QUYEN_CHECK_OUT = "reception.checkin.perform";
+quyen	lib/quyen-client.ts	18	export function coQuyen(
+quyen	lib/quyen-client.ts	27	return coQuyen(quyen, QUYEN_CHECK_OUT);
+quyen	lib/quyen-cua-toi.ts	12	export const QUYEN_Y_KHOA = [
+quyen	lib/quyen-cua-toi.ts	23	export const QUYEN_BAN_LE = [
+quyen	lib/quyen-cua-toi.ts	36	const q = await quyenCuaToi();
+quyen	lib/quyen-cua-toi.ts	37	return QUYEN_Y_KHOA.some((x) => q.has(x));
+quyen	lib/quyen-cua-toi.ts	42	export const QUYEN_IN_PHIEU = [
+quyen	lib/quyen-cua-toi.ts	52	const q = await quyenCuaToi();
+quyen	lib/quyen-cua-toi.ts	53	return [...QUYEN_Y_KHOA, ...QUYEN_IN_PHIEU].some((x) => q.has(x));
+quyen	lib/quyen-cua-toi.ts	59	export const QUYEN_GHI_CHAM_SOC = [
+quyen	lib/quyen-cua-toi.ts	68	export const QUYEN_DOI_DICH_VU_KHAM = ["booking.manage", "reception.checkin.perform"] as const;
+so_vai	lib/identity-authority.ts	44	return membership?.role === "MANAGEMENT" ? membership.clinic_id : null;
+tap_vai	lib/doctors-server.ts	46	export const BOOKABLE_DOCTOR_ROLES = ["DOCTOR", "ULTRASOUND_DOCTOR"] as const;
+ham_vai	app/(dashboard)/Nav.tsx	76	(r, href) => hienTrenThanhBen(r, href, quyen),
+so_vai	app/(dashboard)/nav-items.ts	293	if (item.href === "/patients/new" && role === "CSKH") {
+so_vai	app/(dashboard)/nav-items.ts	298	if (item.href === "/patients/new" && role === "RECEPTION") {
+so_vai	app/(dashboard)/nav-items.ts	512	if (viTri === "T1_HOIBENH" && role === "DOCTOR") return "BAC_SI";
+so_vai	app/(dashboard)/nav-items.ts	612	const theoViTri = role !== "MANAGEMENT" ? hrefTheoViTri(viTriHomNay, phong) : [];
+ham_vai	app/(dashboard)/nav-items.ts	619	.filter((h) => legoChoHien(quyen, h))
+ham_vai	app/(dashboard)/nav-items.ts	624	return NAV.filter((item) => hienTrenThanhBen(role, item.href) && conLai(item));
+so_vai	app/(dashboard)/nav-items.ts	654	const coCa = role !== "MANAGEMENT" && hrefTheoViTri(viTriHomNay).length > 0;
+ham_vai	app/(dashboard)/nav-items.ts	676	if (!conLai.some((i) => i.href === "/schedule") && legoChoHien(quyen, "/schedule")) {
+ham_vai	app/(dashboard)/nav-items.ts	681	quyen !== null && laManLego(i.href) && quyenMoDuocMan(quyen, i.href);
+ham_vai	app/(dashboard)/BottomNav.tsx	51	(r, href) => hienTrenThanhBen(r, href, quyen),
+so_vai	app/(dashboard)/BottomNav.tsx	66	viTriHomNay.length > 0 && role !== "MANAGEMENT"
+ham_vai	app/(dashboard)/TimNhanh.tsx	43	const t = nhomThanhBen(role, (r, href) => hienTrenThanhBen(r, href, quyen), featureMode, CLINICAL_HREFS, [], {}, quyen);
+so_vai	app/(dashboard)/layout.tsx	110	vaiTaiKhoan === "TKYK"
+so_vai	app/(dashboard)/layout.tsx	128	vaiTaiKhoan === "TKYK" && role === "TKYK" && (phamViThuKy === null || phamViThuKy.bac_si.length === 0);
+ham_vai	app/(dashboard)/QuyenContext.tsx	36	? canCheckin(role ?? null)
+quyen	app/(dashboard)/QuyenContext.tsx	37	: coQuyen(quyen, "reception.checkin.perform");
+ham_vai	app/api/lab-result/route.ts	34	const role = await vaiLamViec((r) => isPhysicianRole(r));
+ham_vai	app/api/lab-result/route.ts	37	if (!isPhysicianRole(role)) {
+ham_vai	app/api/lab-result/route.ts	74	const role = await vaiLamViec((r) => canWriteClinical(r));
+ham_vai	app/api/lab-result/route.ts	77	if (!canWriteClinical(role)) {
+ham_vai	app/api/service-log/route.ts	34	const role = await vaiLamViec((r) => canWriteClinical(r));
+ham_vai	app/api/service-log/route.ts	37	if (!canWriteClinical(role)) {
+so_vai	app/api/sono/route.ts	24	if (role !== "NURSE_ULTRASOUND" && role !== "MANAGEMENT") {
+ham_vai	app/(auth)/login/actions.ts	89	const dich = laHostGiamSat((await headers()).get("host")) ? "/giam-sat" : roleLanding(role);
+quyen	app/(dashboard)/customers/page.tsx	115	: coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC);
+ham_vai	app/(dashboard)/customers/page.tsx	118	quyen === null ? canManageAppt(role) : quyen.includes("booking.manage");
+ham_vai	app/(dashboard)/home/WeeklyAppointmentsTable.tsx	606	const showActions = choCheckIn && (duocCheckIn ?? canCheckin(role));
+ham_vai	app/(dashboard)/home/WeeklyAppointmentsTable.tsx	609	const doiLichDuoc = duocDoiLich ?? canManageAppt(role);
+ham_vai	app/(dashboard)/home/WeeklyAppointmentsTable.tsx	637	const isNurse = choDoSinhHieu ?? isNurseRole(role);
+ham_vai	app/(dashboard)/home/WeeklyAppointmentsTable.tsx	805	choThemKhach && (duocDatLich ?? canWriteIntake(role)),
+ham_vai	app/(dashboard)/home/page.tsx	176	: isNurseRole(role);
+ham_vai	app/(dashboard)/home/page.tsx	183	.filter((h) => legoChoHien(quyenHomNay, h))
+so_vai	app/(dashboard)/home/page.tsx	192	const isReception = role === "RECEPTION"; // bảng trạng thái buổi khám: chỉ Lễ tân
+ham_vai	app/(dashboard)/home/page.tsx	330	vaoDuocMan(href, vaiHomNay, quyen) ? href : undefined;
+ham_vai	app/(dashboard)/home/page.tsx	455	vaoDuocMan(href, vaiHomNay, quyen) ? href : undefined;
+ham_vai	app/(dashboard)/home/page.tsx	561	{(quyen === null ? canCheckin(role) : quyen.includes("reception.checkin.perform")) && (
+quyen	app/(dashboard)/home/page.tsx	581	duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
+quyen	app/(dashboard)/home/page.tsx	583	duocDoiDichVu={coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)}
+ham_vai	app/(dashboard)/home/page.tsx	584	duocXemHoSo={vaoDuocMan("/patient-list", vaiHomNay, quyen)}
+ham_vai	app/(dashboard)/home/page.tsx	585	moHoSoKhach={vaoDuocMan("/customers", vaiHomNay, quyen)}
+ham_vai	app/(dashboard)/home/page.tsx	634	const actions = NAV.filter(n => n.href !== "/home" && canSeeNav(role, n.href));
+quyen	app/(dashboard)/kho-vat-tu/page.tsx	30	quyenCuaToi(),
+quyen	app/(dashboard)/kho-vat-tu/page.tsx	59	suaGiaDuoc={quyen.has("price.service.manage")}
+so_vai	app/(dashboard)/schedule/NgoaiLeCaTruc.tsx	43	() => nhanSu.filter((n) => n.vai === "DOCTOR" || n.vai === "ULTRASOUND_DOCTOR"),
+ham_vai	app/(dashboard)/schedule/page.tsx	72	const laNguoiXep = (r: ClinicRole | null) => r === "TRUONG_CA" || isAdminRole(r);
+ham_vai	app/(dashboard)/tasks/page.tsx	29	if (isCashierRole(role)) redirect("/thu-ngan/dich-vu");
+ham_vai	app/(dashboard)/tasks/page.tsx	30	if (isUltrasoundDoctorRole(role)) redirect("/phong");
+ham_vai	app/(dashboard)/tasks/page.tsx	31	if (isDoctorRole(role)) redirect("/ban-kham");
+ham_vai	app/(dashboard)/tasks/page.tsx	32	if (isNurseRole(role)) redirect("/do-sinh-hieu");
+so_vai	app/(dashboard)/tasks/page.tsx	33	if (role === "RECEPTION") redirect("/reception/queue");
+so_vai	app/(dashboard)/tasks/page.tsx	35	if (role === "MANAGEMENT" || role === "CSKH") redirect("/customers");
+ham_vai	app/(dashboard)/patient-list/page.tsx	156	canEditPatient(role),
+ham_vai	app/(dashboard)/patient-list/page.tsx	160	canManageAppt(role) || canWriteIntake(role),
+so_vai	app/(dashboard)/appointments/BangBacSiTuan.tsx	343	: b.role === "ULTRASOUND_DOCTOR"
+quyen	app/(dashboard)/hoa-don/DanhSachHoaDon.tsx	63	if (x.lego && !coQuyen(quyen, x.lego)) {
+quyen	app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx	101	loai.has("dich_vu") && no.thu_ngay?.dich_vu && coQuyen(quyen, "payment.service.collect")
+quyen	app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx	104	loai.has("thuoc") && no.thu_ngay?.thuoc && coQuyen(quyen, "payment.medicine.collect")
+ham_vai	app/(dashboard)/ops/ToanCanh.tsx	50	? isOpsAdmin(await vaiLamViec(isOpsAdmin))
+ham_vai	app/(dashboard)/ops/PortalBoard.tsx	440	return canSeeNav(r, item.href); // Kiểm tra quyền xem
+quyen	app/(dashboard)/pharmacy/inventory/page.tsx	59	quyenCuaToi(),
+quyen	app/(dashboard)/pharmacy/inventory/page.tsx	102	ghiDuoc={quyen.has("pharmacy.dispense")}
+ham_vai	app/api/patients/check-phone/route.ts	36	if (!canWriteIntake(role)) {
+ham_vai	app/api/ops/summary/route.ts	33	: isAdminRole(await vaiLamViec((r) => isAdminRole(r)));
+so_vai	app/(dashboard)/patients/new/NewPatientForm.tsx	891	if (role === "CSKH" && !walkin && !wantsAppointment) {
+so_vai	app/(dashboard)/patients/new/NewPatientForm.tsx	908	if (role === "RECEPTION") {
+so_vai	app/(dashboard)/patients/new/NewPatientForm.tsx	1847	? role === "CSKH" || role === "TRUONG_CA" || role === "MANAGEMENT"
+so_vai	app/(dashboard)/patients/new/NewPatientForm.tsx	1850	: role === "CSKH" || role === "TRUONG_CA" || role === "MANAGEMENT"
+ham_vai	app/(dashboard)/patients/new/page.tsx	37	const nurse = isNurseRole(role);
+so_vai	app/(dashboard)/patients/new/page.tsx	41	const canBothFlows = role === "TRUONG_CA" || role === "MANAGEMENT";
+so_vai	app/(dashboard)/settings/clinic-config/ClinicConfigBoard.tsx	196	const thuKy = staff.filter((s) => s.role === "TKYK");
+so_vai	app/(dashboard)/settings/clinic-config/ClinicConfigBoard.tsx	198	(s) => s.role === "DOCTOR" || s.role === "ULTRASOUND_DOCTOR",
+so_vai	app/api/dispatch/alerts-call/route.ts	21	if (role !== "TRUONG_CA" && role !== "MANAGEMENT") {
+ham_vai	app/(dashboard)/appointments/cho-xep-bac-si/page.tsx	29	? canManageAppt(await vaiLamViec(canManageAppt))
+quyen	app/(dashboard)/reception/queue/page.tsx	107	duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
+quyen	app/(dashboard)/reception/queue/page.tsx	109	duocDoiDichVu={coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)}
