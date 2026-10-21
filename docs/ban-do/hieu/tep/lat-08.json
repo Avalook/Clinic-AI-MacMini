@@ -590,8 +590,8 @@
    "goi_api": [],
    "bay": [
     {
-     "dong": 5,
-     "noi_dung": "Không được thêm làm mới riêng ở đây — trước đây hai bộ làm mới chạy song song khiến trang chủ tự nạp ~5 lần/phút; làm mới chỉ thuộc RealtimeRefresher."
+     "dong": 38,
+     "noi_dung": "Component này chỉ đọc trạng thái SSE; không tự làm mới dữ liệu. Thêm router.refresh/poll tại đây sẽ chạy song song với RealtimeRefresher và dựng lại cả trang dư thừa."
     }
    ],
    "muon_sua": [],
@@ -2309,8 +2309,8 @@
    ],
    "bay": [
     {
-     "dong": 35,
-     "noi_dung": "Việc gọi của hôm nay chỉ được SINH khi có người mở màn này (không có bộ hẹn giờ) — không ai mở thì không có việc; hàm sinh phải giữ tính lặp lại an toàn (gọi 10 lần vẫn ra đúng chừng ấy việc)."
+     "dong": 42,
+     "noi_dung": "Lời gọi endpoint cũng là lúc máy chủ sinh việc nhắc hôm nay; không có scheduler riêng. Sinh việc phải idempotent để refresh trang không tạo trùng."
     }
    ],
    "muon_sua": [],
@@ -3677,7 +3677,11 @@
    "luat": [
     {
      "dong": 41,
-     "noi_dung": "[TSX quyết] Chọn luồng theo VAI: TRUONG_CA/MANAGEMENT chọn được hai luồng; điều dưỡng bị ép luồng vãng lai; còn lại luồng full."
+     "noi_dung": "[TSX quyết] Chỉ TRUONG_CA và MANAGEMENT được bật quyền chọn giữa hai luồng full/walkin qua ?mode=walkin."
+    },
+    {
+     "dong": 52,
+     "noi_dung": "[TSX quyết] Điều dưỡng luôn bị ép vào walkin; vai khác dùng full trừ khi được chọn walkin ở dòng 53."
     }
    ],
    "doc_bang": [],
@@ -3685,7 +3689,8 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [
-    "/api/v1/catalog/provinces"
+    "/api/v1/catalog/provinces",
+    "listBookableDoctors"
    ],
    "bay": [
     {
@@ -7063,7 +7068,13 @@
   "src/dashboard/app/(dashboard)/reception/checkout/page.tsx": {
    "lam_gi": "Trang /reception/checkout: kiểm quyền, nhận ?luot= (chỉ UUID), đọc /api/v1/reception/checkout và vẽ CheckoutBoard (báo riêng khi máy chủ không trả lời).",
    "khoi": "reception",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "ReceptionCheckoutPage",
+     "dong": 16,
+     "lam_gi": "kiểm quyền, chỉ nhận ?luot= nếu đúng UUID, nạp dữ liệu checkout từ FastAPI và dựng CheckoutBoard"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -7168,7 +7179,13 @@
   "src/dashboard/app/(dashboard)/reception/queue/ThanhLocTiepDon.tsx": {
    "lam_gi": "Thanh tìm + ba tab lọc (Tất cả / Chưa check-in / Đã check-in, kèm số máy chủ đếm) trên cùng màn Tiếp đón, và nút '+ Thêm khách hàng' khi được vào màn thêm khách.",
    "khoi": "reception",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "ThanhLocTiepDon",
+     "dong": 20,
+     "lam_gi": "vẽ ô tìm, ba tab lọc kèm số đếm và nút thêm khách nếu được phép"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],

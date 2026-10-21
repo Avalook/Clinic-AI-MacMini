@@ -2915,7 +2915,7 @@
    "yeu": [
     {
      "dong": 107,
-     "noi_dung": "test_moi_loai_co_ten_va_dung_mau_ten_cot chỉ kiểm định dạng tên khoá a-z_."
+     "noi_dung": "test_moi_loai_co_ten_va_dung_mau_ten_cot chỉ kiểm tên loại khớp [a-z_]+ và nhãn tương ứng không rỗng; không kiểm danh sách loại cố định hay nội dung nhãn."
     }
    ],
    "chua_chac": []
@@ -3604,15 +3604,14 @@
    "yeu": [
     {
      "dong": 69,
-     "noi_dung": "test_the_old_hour_model_could_not_say_this chỉ làm phép tính trên danh sách tự tạo trong test, không gọi mã nào."
+     "noi_dung": "test_the_old_hour_model_could_not_say_this chỉ làm phép tính trên danh sách tự tạo trong test; không gọi mã nào."
+    },
+    {
+     "dong": 12,
+     "noi_dung": "Docstring nói các test khoá cả việc không cho ngoại lệ chồng nhau, nhưng tệp này không có test tạo hai luật chồng phạm vi."
     }
    ],
-   "chua_chac": [
-    {
-     "dong": 1,
-     "noi_dung": "Docstring ghi 'không thể chồng ngoại lệ lên ngoại lệ khác' nhưng không bài nào kiểm chồng chéo."
-    }
-   ]
+   "chua_chac": []
   },
   "src/tests/unit/test_ca_truc.py": {
    "lam_gi": "Canh hàm xác định lượt check-in thuộc ngày cũ theo giờ VN (không theo ngày UTC).",
@@ -3685,7 +3684,12 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 43,
+     "noi_dung": "test_do_that_tren_o_may dùng tmp_path (ổ tạm của pytest), không kiểm tốc độ hay quyền truy cập trên CFS thật; test còn lại giả lập thời gian và lỗi bằng monkeypatch."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_capacity_cell_state.py": {
@@ -4579,7 +4583,7 @@
    "yeu": [
     {
      "dong": 29,
-     "noi_dung": "Chỉ bắt 'INSERT INTO appointment'; ghi qua UPDATE hay COPY, hoặc từ dashboard/SQL migration, thì không thấy."
+     "noi_dung": "Regex chỉ bắt INSERT tĩnh trong Python; UPDATE/COPY, dashboard hay SQL migration bị bỏ sót; comment/chuỗi không thực thi có thể bị đếm nhầm."
     }
    ],
    "chua_chac": []
@@ -5045,7 +5049,7 @@
     {
      "test": "test_ma_gd_va_ly_do_tuy_chon",
      "dong": 40,
-     "luat": "Mã giao dịch và lý do tuỳ chọn (trống/không phải chuỗi → None, cắt khoảng trắng); mã >100 ký tự, lý do >500 ký tự bị từ chối.",
+     "luat": "Mã giao dịch: None/rỗng/không phải chuỗi → None, cắt khoảng trắng; mã >100 ký tự bị từ chối. Lý do: rỗng → None, cắt khoảng trắng; >500 ký tự bị từ chối.",
      "tep_code": [
       "src/clinicai/services/doi_hinh_thuc_service.py"
      ]
@@ -5061,7 +5065,7 @@
     {
      "test": "test_bao_cao_co_muc_doi_hinh_thuc_khong_tinh_la_huy / test_bao_cao_khong_truyen_doi_hinh_thuc_van_chay",
      "dong": 104,
-     "luat": "Đổi 150.000đ từ tiền mặt sang chuyển khoản: huỷ = 0, thực thu 150.000đ, tiền mặt 0, CK 150.000đ; mục đổi hình thức có trong báo cáo và CSV ('=nhầm' được thêm nháy); không truyền thì mục rỗng.",
+     "luat": "Đổi 150.000đ từ tiền mặt sang chuyển khoản: huỷ = 0, thực thu 150.000đ, tiền mặt 0, CK 150.000đ; mục đổi hình thức có trong báo cáo và CSV (ô =nhầm được thêm nháy); không truyền thì mục rỗng.",
      "tep_code": [
       "src/clinicai/services/bao_cao_cuoi_ngay_service.py"
      ]
@@ -5820,7 +5824,7 @@
     {
      "test": "test_lich_khong_co_hoac_khac_phong_kham_thi_404",
      "dong": 56,
-     "luat": "Không thấy lịch (hoặc lịch phòng khám khác) → NotFound.",
+     "luat": "Pool giả không trả lịch → NotFound. Test không cung cấp riêng một lịch thuộc phòng khám khác.",
      "tep_code": [
       "src/clinicai/services/ho_so_kham_service.py"
      ]
@@ -5842,7 +5846,12 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 56,
+     "noi_dung": "Dù tên test nhắc lịch thuộc phòng khám khác, chỉ Pool(None) được thử; chưa có fixture row với clinic_id khác."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_hoa_don_cong_ty.py": {
@@ -5910,7 +5919,7 @@
     {
      "test": "test_giam_gia_khong_phai_lech_nhung_co_bo_loc_rieng / test_nhom_loc / test_hinh_thuc",
      "dong": 43,
-     "luat": "Giảm giá không phải lệch nhưng có bộ lọc riêng; phiếu huỷ thuộc 'không đúng' và 'trả lại'; nhóm rác = không lọc; QR thuộc lọc Chuyển khoản.",
+     "luat": "Giảm giá không phải lệch nhưng có bộ lọc riêng; phiếu huỷ thuộc 'không đúng' và 'trả lại'; nhóm rác và hình thức None/rác → không lọc; QR thuộc lọc Chuyển khoản.",
      "tep_code": [
       "src/clinicai/services/hoa_don_projection.py"
      ]
@@ -6795,7 +6804,7 @@
    "chua_chac": []
   },
   "src/tests/unit/test_luat_cam_ghi_cheo.py": {
-   "lam_gi": "Canh LUẬT CẮM lego: đọc mọi câu SQL INSERT/UPDATE/DELETE trong src/clinicai, đòi bảng bị ghi có khối chủ (hoặc là bảng kỹ thuật), tệp ghi bảng phải khai khối, và mọi chỗ khối A ghi bảng khối B phải nằm trong sổ nợ NO_GHI_CHEO (bánh cóc: 97 chỗ, 17 VI_PHAM, 71 CHUA_XET).",
+   "lam_gi": "Canh luật cắm lego: quét các câu SQL INSERT/UPDATE/DELETE có thể phân tích trong src/clinicai, kiểm bảng có chủ, tệp khai khối và chỗ ghi chéo khớp sổ NO_GHI_CHEO.",
    "khoi": "van_hanh",
    "loai": "khac",
    "canh": [
@@ -7475,7 +7484,7 @@
    "yeu": [
     {
      "dong": 82,
-     "noi_dung": "Chỉ tìm chữ 'phone' trong mã nguồn — SĐT lọt qua trường tên khác (sdt, so_dien_thoai) thì không bắt."
+     "noi_dung": "Chỉ tìm chữ phone trong mã nguồn; cách lưu số điện thoại dưới tên trường khác như sdt hoặc so_dien_thoai không bị phát hiện."
     }
    ],
    "chua_chac": []
@@ -7559,7 +7568,11 @@
    "yeu": [
     {
      "dong": 22,
-     "noi_dung": "Tìm 'NGHI' trong 600 ký tự sau FROM — cửa sổ ký tự đặt tay, câu dài thêm là bài đỏ hoặc tìm nhầm câu khác."
+     "noi_dung": "Tìm NGHI trong 600 ký tự sau FROM — cửa sổ ký tự đặt tay, câu dài thêm là bài đỏ hoặc tìm nhầm câu khác."
+    },
+    {
+     "dong": 19,
+     "noi_dung": "Chỉ xác nhận predicate ly_do=NGHI có mặt, chưa kiểm kết quả truy vấn không chứa ô DONG hay trạng thái khác."
     }
    ],
    "chua_chac": []

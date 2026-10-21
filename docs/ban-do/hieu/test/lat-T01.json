@@ -509,7 +509,7 @@
     {
      "test": "test_stack_is_outermost_first",
      "dong": 48,
-     "luat": "Thứ tự middleware đúng 5 lớp: RequestId, Timing, CskhUploadSizeLimit, api_key, DbError.",
+     "luat": "Thứ tự danh sách user_middleware phải là RequestId, Timing, CskhUploadSizeLimit, api_key, DbError.",
      "tep_code": [
       "src/clinicai/main.py",
       "src/clinicai/api/middleware.py"
@@ -518,7 +518,7 @@
     {
      "test": "test_timing_is_outside_the_api_key_gate / test_request_id_wraps_everything / test_db_error_is_inside_timing",
      "dong": 59,
-     "luat": "Timing nằm ngoài cổng khoá API (đo cả request bị từ chối); RequestId bọc mọi thứ; DbError nằm trong Timing (ghi 503 không phải 500).",
+     "luat": "Timing đứng trước api_key; RequestId ở đầu danh sách; DbError đứng sau Timing, theo thứ tự middleware đã đăng ký.",
      "tep_code": [
       "src/clinicai/main.py"
      ]
@@ -526,13 +526,18 @@
     {
      "test": "test_telemetry_reads_the_generated_request_id",
      "dong": 85,
-     "luat": "current_request_id() đọc mã sinh ra trong contextvar, trả None khi đã reset.",
+     "luat": "current_request_id() đọc giá trị đang có trong request_id_ctx và trả None sau khi contextvar được reset.",
      "tep_code": [
       "src/clinicai/api/middleware.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 85,
+     "noi_dung": "Test tự đặt request_id_ctx rồi gọi current_request_id(); không kiểm middleware tự gán ID hay TimingMiddleware thực sự ghi telemetry."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/api/test_ops_api.py": {
@@ -1545,7 +1550,7 @@
     {
      "test": "test_lab_triage__group_a_routes_to_advise",
      "dong": 136,
-     "luat": "Nhóm A → có lời gửi khách, không chuyển cấp; lưu phân loại đúng 1 lần với đúng tham số (nhóm, lý do, RULE).",
+     "luat": "Khi bộ phân loại giả trả nhóm A → có lời gửi khách, không chuyển cấp; gọi lưu phân loại đúng 1 lần với nhóm, lý do và RULE.",
      "tep_code": [
       "src/clinicai/graphs/lab_triage/nodes.py",
       "src/clinicai/services/lab_safety_service.py"
@@ -1554,7 +1559,7 @@
     {
      "test": "test_retry_uses_persisted_group_c_instead_of_downgraded_result",
      "dong": 200,
-     "luat": "Chạy lại mà bộ phân loại ra nhóm A nhưng DB đã lưu nhóm C → giữ nhóm C, không gửi khách (không hạ mức nguy hiểm).",
+     "luat": "Chạy lại mà bộ phân loại giả trả nhóm A nhưng kết quả giả đã lưu là nhóm C → giữ nhóm C, không gửi khách.",
      "tep_code": [
       "src/clinicai/graphs/lab_triage/nodes.py",
       "src/clinicai/services/lab_safety_service.py"
@@ -1563,7 +1568,7 @@
     {
      "test": "test_lab_triage__group_c_unreviewed__safety_gate_populated",
      "dong": 252,
-     "luat": "Nhóm C (HIV dương tính) → không lời gửi khách, có ghi chú chuyển cấp, cần bác sĩ xem.",
+     "luat": "Khi bộ phân loại giả trả nhóm C → không lời gửi khách, có ghi chú chuyển cấp, cần bác sĩ xem.",
      "tep_code": [
       "src/clinicai/graphs/lab_triage/nodes.py"
      ]
@@ -1588,7 +1593,7 @@
    "yeu": [
     {
      "dong": 136,
-     "noi_dung": "classify_lab_result bị monkeypatch ở mọi ca — luật phân loại thật (cờ, ngưỡng tham chiếu) không được kiểm ở đây."
+     "noi_dung": "Các ca A/C và chạy lại thay classify bằng kết quả giả nên không kiểm luật phân loại thật; ca thiếu LLM gọi phân loại thật không dùng mô hình ngoài."
     }
    ],
    "chua_chac": []
@@ -1832,15 +1837,20 @@
    "chua_chac": []
   },
   "src/tests/integration/conftest.py": {
-   "lam_gi": "Fixture DB thật cho thư mục integration: pool asyncpg, PatientService, location_id (lấy cơ sở đang hoạt động hoặc tạo), dọn khách theo mã, AsyncClient vào app; clean_db XOÁ TRẮNG appointment/work_session/staff/patient… trước và sau mỗi test. CI máy bỏ qua cả thư mục này (--ignore=src/tests/integration).",
+   "lam_gi": "Fixture integration: đọc DATABASE_URL từ môi trường/.env để mở pool asyncpg; tạo location/service nếu thiếu, dọn dữ liệu theo mã hoặc qua clean_db, cấp AsyncClient vào app. clean_db xoá toàn bộ các bảng liệt kê trước và sau test.",
    "khoi": "khac",
    "loai": "khac",
    "canh": [],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 15,
+     "noi_dung": "DATABASE_URL không bị giới hạn vào DB thử; nếu chạy integration trên môi trường trỏ DB có dữ liệu thật, fixture clean_db xoá toàn bộ appointment/work_session/staff/patient và các bảng liên quan (dòng 134–147)."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/integration/test_patient_integration.py": {
-   "lam_gi": "PatientService trên DB thật: tạo rồi đọc lại, tra theo SĐT, sửa, SĐT trùng đẩy vào hàng ghép hồ sơ (MPI), CCCD trùng phải ghi lý do mới tạo. Không chạy trong CI máy (thư mục integration bị bỏ qua).",
+   "lam_gi": "Test PatientService trên DB do DATABASE_URL cấu hình: tạo/đọc/sửa khách, tra SĐT, đưa trùng SĐT vào hàng MPI và cho tạo CCCD trùng khi có lý do. Dữ liệu tạo theo patient_code được dọn sau test; thư mục bị CI máy bỏ qua.",
    "khoi": "ho_so_khach",
    "loai": "db",
    "canh": [
@@ -1888,8 +1898,8 @@
    ],
    "yeu": [
     {
-     "dong": 29,
-     "noi_dung": "Cả tệp nằm trong src/tests/integration mà scripts/ci-may.sh --ignore — luật CCCD/SĐT trùng trên DB thật không được canh trong CI."
+     "dong": 14,
+     "noi_dung": "Test dùng clinic_id cố định; nếu DATABASE_URL trỏ nhầm DB có dữ liệu, vẫn ghi khách vào đó trước khi dọn theo mã. Không có bước xác nhận đây là DB thử."
     }
    ],
    "chua_chac": [
@@ -1920,7 +1930,11 @@
    "yeu": [
     {
      "dong": 17,
-     "noi_dung": "Không gọi code ClinicAI nào, và CI bỏ qua thư mục integration — test hạ tầng có vẻ đã chết."
+     "noi_dung": "Không gọi service ClinicAI và thư mục integration bị CI máy bỏ qua; nếu có RABBITMQ_URL, test vẫn nối broker thật."
+    },
+    {
+     "dong": 49,
+     "noi_dung": "Round-trip publish tin test thật vào events.topic rồi tìm trong events.audit; không tạo queue/exchange riêng, nên broker dùng chung có thể nhận tin test."
     }
    ],
    "chua_chac": []
@@ -1985,7 +1999,7 @@
    "chua_chac": []
   },
   "src/tests/integration/test_staff_endpoints.py": {
-   "lam_gi": "HTTP trên DB thật cho /staff với danh tính quản lý: tạo/xem, 404, lọc theo cơ sở và 'giao việc được' (không đang học việc), sửa, xoá mềm. Không chạy trong CI máy.",
+   "lam_gi": "HTTP cho /staff trên DB do DATABASE_URL cấu hình, với danh tính quản lý giả: tạo/xem, 404, lọc cơ sở và assignable, sửa, xoá mềm. CI máy bỏ qua thư mục integration.",
    "khoi": "permission",
    "loai": "db",
    "canh": [
@@ -2026,7 +2040,7 @@
    "yeu": [
     {
      "dong": 14,
-     "noi_dung": "Thư mục integration bị ci-may.sh bỏ qua; clean_db xoá trắng bảng staff nên chỉ chạy được trên DB rỗng."
+     "noi_dung": "Cần clean_db; fixture xoá toàn bộ appointment/work_session/staff/pregnancy/profile/mpi_merge_queue/patient trước và sau test. Nếu DATABASE_URL trỏ DB có dữ liệu, test sẽ xoá dữ liệu đó, không tự giới hạn vào bản ghi test."
     }
    ],
    "chua_chac": []
@@ -2953,6 +2967,10 @@
     {
      "dong": 118,
      "noi_dung": "Đồ thị thật: chấp nhận step thuộc 4 giá trị bất kỳ — gần như luôn đúng, không kiểm bước kế đúng là confirm."
+    },
+    {
+     "dong": 70,
+     "noi_dung": "Bài mang tên real_subgraph nhưng monkeypatch find_work_sessions; kiểm luồng đồ thị với tool giả, không kiểm truy vấn DB thật."
     }
    ],
    "chua_chac": []

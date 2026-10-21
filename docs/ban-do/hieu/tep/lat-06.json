@@ -8165,7 +8165,7 @@
    "bay": [
     {
      "dong": 64,
-     "noi_dung": "Chỉ chặn chồng lượt khi khiDoi trả về Promise (hàm async); khiDoi trả void thì không chờ — tải chậm có thể chạy song song."
+     "noi_dung": "Hook đưa khiDoi vào motLuot dưới dạng Promise: nếu callback trả Promise thì nó đợi xong mới chạy lượt nối đuôi; callback void hoàn tất ngay, nên tác vụ async không được return có thể chồng lượt."
     },
     {
      "dong": 75,
@@ -8188,9 +8188,7 @@
      "vi_sao": "dòng 5–11 kể lịch sử supabase.channel/wal2json và số lỗi đo 27/09 — chuyện cũ, hợp commit message hơn"
     }
    ],
-   "chua_chac": [
-    "Comment dòng 35 nói gộp 250ms, lệch 0–400ms; NHIP_NGHE_TIN trong lib là {choToiDa: 600, jitter: 400} — không rõ 250ms còn là mặc định của taoNhipLamMoi không."
-   ]
+   "chua_chac": []
   },
   "src/dashboard/app/(dashboard)/error.tsx": {
    "lam_gi": "Trang lỗi chung của cả khu bảng điều khiển: báo bằng tiếng Việt rằng thao tác vừa rồi có thể đã lưu, có nút Thử lại / Về trang chủ, in mã lỗi (digest), và gửi lỗi về kho lỗi (/ops tab 'Lỗi & cảnh báo').",
@@ -10130,11 +10128,11 @@
    "luat": [
     {
      "dong": 136,
-     "noi_dung": "Hoàn tất kết quả ở quầy = dịch vụ XONG (máy chủ đóng bằng lệnh Bắt đầu + Xong); 'Hoàn tác — mở lại dịch vụ' đưa dịch vụ về hàng chờ phòng, kết quả đã nhập vẫn giữ."
+     "noi_dung": "[TSX quyết] Khi máy chủ trả xong_tai_quay = true, hiện trạng thái dịch vụ đã xong và nút Hoàn tác để mở lại; giao diện phản ánh cờ máy chủ, không tự quyết dịch vụ đã hoàn tất."
     },
     {
      "dong": 157,
-     "noi_dung": "Kết quả đã hoàn tất mà dịch vụ chưa đóng được (vd chưa thu tiền, chưa xếp phòng, thiếu quyền) → hiện đúng câu máy chủ; có cờ co_the_dong thì có nút 'Đóng dịch vụ'."
+     "noi_dung": "Nếu máy chủ còn câu chặn hoặc cho phép đóng (co_the_dong), hiện lý do; chỉ khi co_the_dong = true mới hiện nút 'Đóng dịch vụ'."
     }
    ],
    "doc_bang": [],
@@ -10341,7 +10339,7 @@
   },
   "src/dashboard/app/(dashboard)/_lam-viec/OLamTruocThuSau.tsx": {
    "lam_gi": "Ô tick 'Làm trước – thu sau' của một lượt, dùng ở Bàn khám, khung phải phòng dịch vụ và quầy thu: khi dây 'thu trước khi làm' bật, chưa thu tiền thì chỉ lượt được tick mới được xếp phòng / bắt đầu làm. Tick lần nữa là hoàn tác.",
-   "khoi": "reception",
+   "khoi": "payment",
    "ham_chinh": [
     {
      "ten": "OLamTruocThuSau",
@@ -10367,19 +10365,19 @@
    "luat": [
     {
      "dong": 170,
-     "noi_dung": "Không tick: phải thu tiền xong mới được xếp phòng và bắt đầu làm. Ví dụ khách có siêu âm 500.000đ chưa trả: không tick thì phòng siêu âm không bắt đầu được."
+     "noi_dung": "[TSX quyết] Khi chưa tick, chỉ hiện lời nhắc 'thu tiền xong mới được xếp phòng, bắt đầu làm'; cổng thực thi nằm ở máy chủ."
     },
     {
      "dong": 122,
-     "noi_dung": "Tick / bỏ tick được hay không do cờ máy chủ (tick_duoc, bo_tick_duoc); không bỏ được thì hiện lý do máy chủ viết."
+     "noi_dung": "[TSX quyết] Khoá checkbox theo cờ tick_duoc hoặc bo_tick_duoc máy chủ trả; nếu không bỏ được thì hiện ly_do_khong_bo."
     },
     {
      "dong": 129,
-     "noi_dung": "Bật ở quầy thì máy chủ chốt luôn các chỉ định còn chờ khách quyết theo lựa chọn đang tick trên màn (kèm số phiên bản lựa chọn)."
+     "noi_dung": "[TSX quyết] Khi bật, gửi kèm snapshot lựa chọn đang tick ở quầy để máy chủ chốt các chỉ định còn chờ khách quyết."
     },
     {
      "dong": 68,
-     "noi_dung": "Ở phòng dịch vụ / Bàn khám khối 1: ô mặc định ẩn, chỉ hiện khi máy chủ mời (nhac_tick — cổng tiền đang chặn và lượt chưa tick)."
+     "noi_dung": "[TSX quyết] Ô tự hiện khi máy chủ mời; sau đó giữ mở cho cùng visitId để người dùng vẫn hoàn tác ngay cả khi lời mời đã hết."
     }
    ],
    "doc_bang": [],

@@ -533,15 +533,15 @@
    "luat": [
     {
      "dong": 421,
-     "noi_dung": "[TSX quyết] Chỉ định trạng thái khach_khong_lam bị lọc khỏi danh sách việc, chỉ gom thành một dòng 'Khách không làm: …'."
+     "noi_dung": "[TSX quyết] Chỉ định 'khách không làm' được gom thành một dòng thay vì dòng việc riêng; nếu tất cả chỉ định đều loại này thì danh sách thay bằng 'Không có chỉ định'."
     },
     {
      "dong": 318,
-     "noi_dung": "[TSX quyết] Lượt đã đóng (có dong_luot_luc) thì 'Đang ở' ghi 'Đã về' bất kể dang_o máy chủ trả."
+     "noi_dung": "[TSX quyết] Nếu lượt đã đóng (dong_luot_luc có giá trị), phần 'Đang ở' hiện 'Đã về' bất kể dang_o máy chủ trả."
     },
     {
      "dong": 321,
-     "noi_dung": "[TSX quyết] Lượt hồ sơ cũ (Notion) thì 'Thu dịch vụ' hiện '—' thay vì 'Chưa thu'."
+     "noi_dung": "[TSX quyết] Với hồ sơ cũ chuyển từ Notion, 'Thu dịch vụ' hiện '—' thay vì 'Chưa thu'."
     },
     {
      "dong": 463,
@@ -821,16 +821,27 @@
    "chua_chac": []
   },
   "src/dashboard/app/(dashboard)/_lam-viec/dung-ngay-xem.ts": {
-   "lam_gi": "Hook ngày xem của các màn làm việc (đo sinh hiệu, bàn khám, phòng dịch vụ): ngày nằm trên thanh địa chỉ ?ngay=, hôm nay thì bỏ tham số; ngày rác / tương lai quy về hôm nay.",
+   "lam_gi": "Hook ngày xem các màn làm việc: đọc ngày từ ?ngay=, cho màn đổi ngày bằng cách cập nhật URL mà không tải lại; khi chọn hôm nay thì xoá tham số ngày. Việc chuẩn hoá ngày giao cho helper ngayXemTuUrl.",
    "khoi": null,
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "useNgayXem",
+     "dong": 21,
+     "lam_gi": "trả ngày đang xem, ngày hôm nay, cờ laHomNay và hàm chonNgay; khi đổi ngày giữ các tham số URL khác, xoá ngay nếu chọn hôm nay."
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [],
-   "bay": [],
+   "bay": [
+    {
+     "dong": 33,
+     "noi_dung": "Đọc URL hiện tại trước khi đổi ngày để giữ các query param khác; thay bằng router.push hoặc dựng URL mới từ đầu sẽ làm mất bộ lọc hiện có."
+    }
+   ],
    "muon_sua": [],
    "comment_cu": [],
    "chua_chac": []
@@ -2162,27 +2173,27 @@
    "luat": [
     {
      "dong": 342,
-     "noi_dung": "Ô chọn lưu MÃ lựa chọn (vd 'nt_endo_hist_2'), không lưu chữ hiển thị ('Tuyến giáp'); nhiều chọn bật/tắt qua batTatLuaChon."
+     "noi_dung": "[TSX quyết] Khi lưu ô chọn, gửi mã của lựa chọn (vd 'nt_endo_hist_2'), không gửi chữ đang hiển thị ('Tuyến giáp'); nhiều lựa chọn bật/tắt qua batTatLuaChon."
     },
     {
      "dong": 344,
-     "noi_dung": "Ô chọn một (radio) bấm lại lựa chọn đang chọn thì bỏ chọn → lưu chuỗi rỗng."
+     "noi_dung": "[TSX quyết] Với ô chọn một (radio), bấm lại giá trị đang chọn sẽ gửi chuỗi rỗng để bỏ chọn."
     },
     {
      "dong": 419,
-     "noi_dung": "Chip chọn nhanh ngày tái khám tính từ HÔM NAY theo giờ Việt Nam (vnYmd), không theo múi giờ máy. Ví dụ hôm nay 21/10, chip '1 tháng' (nếu có) ra ngày theo hàm ngayHenTaiKham."
+     "noi_dung": "[TSX quyết] Chip ngày tái khám tính từ hôm nay theo giờ Việt Nam (vnYmd), rồi chuyển ngày được chọn vào ô."
     },
     {
-     "dong": 202,
-     "noi_dung": "Nhóm có ô ngày tái khám (và không chỉ đọc) thì vẽ khung đặt lịch hẹn THẬT bên dưới, nhận ngày đang điền."
+     "dong": 221,
+     "noi_dung": "[TSX quyết] Nếu nhóm có ô ngày tái khám và đang cho sửa thì vẽ khung đặt lịch bên dưới, truyền ngày hiện có trong ô."
     },
     {
      "dong": 124,
-     "noi_dung": "Ô 'thu gọn' chưa điền hiện thành chip '+ tên ô'; chỉ đọc thì không có chip. Ô đã có giá trị luôn hiện (oDangHien)."
+     "noi_dung": "[TSX quyết] Ô thu gọn chưa có giá trị hiện thành chip '+ tên ô'; chỉ đọc không có chip. Ô đã có giá trị luôn hiện nhờ oDangHien."
     },
     {
      "dong": 197,
-     "noi_dung": "Chỉ đọc mà cả nhóm không còn ô nào hiện → bỏ cả nhóm."
+     "noi_dung": "[TSX quyết] Khi chỉ đọc mà không còn ô nào hiện và không có chip thu gọn, bỏ cả nhóm khỏi màn."
     }
    ],
    "doc_bang": [],
@@ -2333,35 +2344,35 @@
    "luat": [
     {
      "dong": 272,
-     "noi_dung": "Chế độ không ghi được (ghiDuoc(cheDo) sai — vd hồ sơ đã chốt) thì mọi lần gõ bị bỏ qua và tự lưu tắt (dòng 257)."
+     "noi_dung": "[TSX quyết] Khi ghiDuoc(cheDo) là false, bỏ thay đổi ô và tắt tự lưu phiếu (tat: !ghi)."
     },
     {
      "dong": 248,
-     "noi_dung": "Gói lưu giữ đúng NGUỒN của từng ô (dungGoiLuu từ giá trị + dữ liệu gốc); máy chủ trả cảnh báo từng ô (số/ngày không đọc được → lưu RỖNG) và màn hiện lỗi ngay dưới ô."
+     "noi_dung": "Gói lưu giữ nguồn từng ô qua dungGoiLuu; cảnh báo theo mã ô được ghép vào trạng thái và hiện ngay dưới ô."
     },
     {
      "dong": 309,
-     "noi_dung": "Chế độ phiếu lạ (không phải editable/finalized_locked/amendment_mode) hiện nhãn 'Chế độ lạ — chỉ đọc'."
+     "noi_dung": "[TSX quyết] Chế độ không có trong NHAN_CHE_DO hiện nhãn 'Chế độ lạ — chỉ đọc'; khả năng ghi thực tế phụ thuộc ghiDuoc."
     },
     {
      "dong": 329,
-     "noi_dung": "Chỉ định của lượt được chia ba nhóm điều trị / thủ thuật / cận lâm sàng bằng phanChiDinh theo cờ máy chủ + danh sách mã thủ thuật + loại khối 1; mỗi chỉ định chỉ rơi vào một nhóm."
+     "noi_dung": "[TSX quyết] Chỉ định được chia thành điều trị, thủ thuật và CLS qua phanChiDinh theo cờ máy chủ, mã thủ thuật và loại lượt; mỗi chỉ định được xếp một nhóm."
     },
     {
      "dong": 493,
-     "noi_dung": "Lượt Điều trị ẩn mục A/B ở khối 1 (mucAnKhoi1) — dữ liệu cũ giữ nguyên, chỉ không vẽ."
+     "noi_dung": "[TSX quyết] Ở khối 1, ẩn các mục mà mucAnKhoi1 trả theo loại lượt; giá trị cũ vẫn nằm trong dữ liệu."
     },
     {
      "dong": 438,
-     "noi_dung": "Đơn thuốc trong phiếu chỉ sửa được khi phiếu đang ghi được; không thì DonThuocPhieu chỉ đọc."
+     "noi_dung": "[TSX quyết] Đơn thuốc chỉ nhận callback onDoi khi phiếu ghi được; nếu không, DonThuocPhieu chỉ đọc."
     },
     {
      "dong": 337,
-     "noi_dung": "[TSX quyết] Tóm tắt khối 3 'có hẹn' khi một ô mục G có mã chứa 'follow_date' hoặc 'ngay' và đã điền — đoán theo tên mã ô."
+     "noi_dung": "[TSX quyết] Tóm tắt khối 3 ghi 'có hẹn' nếu mã ô thuộc mục G chứa follow_date hoặc ngay và ô đã có giá trị; đây là nhận diện theo mã ô."
     },
     {
      "dong": 316,
-     "noi_dung": "[TSX quyết] Số 'N ô đã điền' trên nút khối 1 chỉ đếm ô của mục A và B."
+     "noi_dung": "[TSX quyết] Số ô đã điền trên nút khối 1 chỉ đếm dữ liệu ở mục A và B."
     }
    ],
    "doc_bang": [],
@@ -4520,7 +4531,13 @@
   "src/dashboard/app/(dashboard)/cashier/thuoc/page.tsx": {
    "lam_gi": "Trang máy chủ của Bảng giá thuốc (/cashier/thuoc): kiểm quyền, đọc bảng giá nhóm thuốc từ FastAPI (lọc ở máy chủ) rồi vẽ bằng CashierView; đọc hỏng thì báo lỗi thay vì hiện bảng rỗng.",
    "khoi": "co_so",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "PriceThuocPage",
+     "dong": 12,
+     "lam_gi": "kiểm quyền vào màn, đọc giá nhóm thuốc từ FastAPI và chỉ vẽ CashierView khi đọc thành công"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -5204,7 +5221,13 @@
   "src/dashboard/app/(dashboard)/customers/KhungBao.tsx": {
    "lam_gi": "Vẽ danh sách dòng cảnh báo dưới tên khách (nội dung do khung-bao.ts dựng); dòng có hành động thì bấm được để mở sửa lịch hoặc chọn việc.",
    "khoi": null,
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "KhungBao",
+     "dong": 8,
+     "lam_gi": "ẩn khi không có dòng cảnh báo; còn lại vẽ từng dòng và biến dòng có handler thành nút bấm"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -5523,9 +5546,15 @@
    "chua_chac": []
   },
   "src/dashboard/app/(dashboard)/customers/PhanHoiThuocCot.tsx": {
-   "lam_gi": "Ô cột 'Phản hồi thuốc' trong bảng danh sách khách: số phản hồi · ngày gần nhất và nội dung rút gọn (máy chủ cắt sẵn); không có phản hồi thì để trống.",
+   "lam_gi": "Ô cột Phản hồi thuốc trong bảng khách: hiện số phản hồi, ngày gần nhất, nhãn kênh và tóm tắt; tooltip có nội dung đầy đủ. Khách chưa có phản hồi thì ô trống.",
    "khoi": "cskh",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "PhanHoiThuocCot",
+     "dong": 31,
+     "lam_gi": "ẩn nếu không có phản hồi; nếu có thì dựng số lượng, ngày, kênh, tóm tắt và tooltip nội dung đầy đủ"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],

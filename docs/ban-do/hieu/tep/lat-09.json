@@ -753,7 +753,13 @@
   "src/dashboard/app/(dashboard)/schedule/LichTheoNguoi.tsx": {
    "lam_gi": "Bảng lịch làm việc 'Theo người': mỗi người một hàng, từng ngày trong tuần đứng vị trí nào, ca nào (chỉ ca đã duyệt).",
    "khoi": "lich_truc",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "LichTheoNguoi",
+     "dong": 23,
+     "lam_gi": "gom nhân sự từ các ca đã duyệt và vẽ một hàng cho mỗi người theo từng ngày trong tuần"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -1762,9 +1768,20 @@
    ]
   },
   "src/dashboard/app/(dashboard)/settings/ReportSettingsCard.tsx": {
-   "lam_gi": "Thẻ 'Thiết lập báo cáo' ở /settings: một ô tick cho phép hiện đầy đủ doanh thu/hoàn/nợ/giảm giá trong báo cáo, lưu PATCH /api/reports/settings.",
+   "lam_gi": "Thẻ Thiết lập báo cáo ở /settings: chỉnh cờ hiển thị chi tiết tài chính, gửi PATCH /api/reports/settings và báo kết quả lưu.",
    "khoi": "co_so",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "ReportSettingsCard",
+     "dong": 12,
+     "lam_gi": "vẽ ô cờ thiết lập báo cáo và nút lưu"
+    },
+    {
+     "ten": "save",
+     "dong": 16,
+     "lam_gi": "PATCH giá trị hiện tại lên /api/reports/settings, báo lỗi hoặc thành công và gỡ trạng thái đang lưu"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -1781,7 +1798,13 @@
   "src/dashboard/app/(dashboard)/settings/page.tsx": {
    "lam_gi": "Trang /settings (Cài đặt phòng khám, server component): gác quyền lego, đọc thiết lập báo cáo, chế độ tính năng, luật đặt lịch, phạm vi vị trí rồi xếp bốn thẻ.",
    "khoi": "co_so",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "SettingsPage",
+     "dong": 22,
+     "lam_gi": "kiểm quyền /settings, tải các thiết lập và vị trí hôm nay, rồi chỉ vẽ các thẻ có dữ liệu"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -1803,7 +1826,7 @@
     {
      "ten": "BookingPolicyPage",
      "dong": 32,
-     "lam_gi": "nạp song song 6 nguồn, đổi doctor_id → tên cho bảng thời lượng, vẽ các thẻ"
+     "lam_gi": "kiểm quyền vào trang, nạp song song 6 nguồn, đổi doctor_id thành tên cho bảng thời lượng và dựng 5 thẻ cấu hình"
     }
    ],
    "luat": [],
@@ -3889,7 +3912,38 @@
   "src/dashboard/app/(dashboard)/tasks/WorkspacePrimitives.tsx": {
    "lam_gi": "Mảnh giao diện dùng chung cho các màn làm việc: chữ viết tắt tên (avatar), ô số liệu, hàng số liệu, khung trống, tiêu đề khung.",
    "khoi": null,
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "initials",
+     "dong": 13,
+     "lam_gi": "lấy chữ viết tắt tên, nếu trống dùng fallback"
+    },
+    {
+     "ten": "Monogram",
+     "dong": 23,
+     "lam_gi": "vẽ avatar chữ viết tắt"
+    },
+    {
+     "ten": "WorkspaceMetric",
+     "dong": 42,
+     "lam_gi": "vẽ một ô số liệu"
+    },
+    {
+     "ten": "WorkspaceMetricRow",
+     "dong": 74,
+     "lam_gi": "xếp các ô số liệu theo hàng"
+    },
+    {
+     "ten": "EmptyWorkspace",
+     "dong": 82,
+     "lam_gi": "vẽ trạng thái khung trống"
+    },
+    {
+     "ten": "PanelHeading",
+     "dong": 102,
+     "lam_gi": "vẽ tiêu đề khung kèm mô tả và hành động tùy chọn"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -6133,7 +6187,12 @@
     {
      "ten": "nodeLabel",
      "dong": 122,
-     "lam_gi": "đổi mã bước sang tên đọc được (bảng viết cứng NODE_LABEL dòng 107)"
+     "lam_gi": "đổi mã bước sang tên tiếng Việt từ NODE_LABEL; mã chưa có trong bảng trả nguyên mã"
+    },
+    {
+     "ten": "humanMinutes",
+     "dong": 128,
+     "lam_gi": "đổi số phút thành dạng phút nếu dưới 60, hoặc giờ và phút có hai chữ số nếu từ 60 trở lên"
     }
    ],
    "luat": [],
@@ -6202,11 +6261,17 @@
   "src/dashboard/app/(dashboard)/truong-ca/tv/page.tsx": {
    "lam_gi": "Trang /truong-ca/tv: liệt kê TV của từng phòng (link /display?phong=…) + TV chung cả phòng khám.",
    "khoi": "service_routing",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "Page",
+     "dong": 14,
+     "lam_gi": "kiểm quyền, nạp bảng sống, rồi hiện link TV chung và các phòng bật TV"
+    }
+   ],
    "luat": [
     {
      "dong": 17,
-     "noi_dung": "Chỉ phòng bật 'hiện trên TV' (show_on_tv) mới có trong danh sách."
+     "noi_dung": "[TSX quyết] Chỉ hiện phòng có show_on_tv=true; các phòng còn lại không có link TV riêng."
     }
    ],
    "doc_bang": [],
@@ -6716,19 +6781,27 @@
    "luat": [
     {
      "dong": 123,
-     "noi_dung": "Đặt lịch bắt buộc có bệnh nhân + dịch vụ + giờ bắt đầu/kết thúc; cơ sở (location_id) để trống thì backend lấy cơ sở của người đặt."
+     "noi_dung": "Đặt lịch cần bệnh nhân, dịch vụ và đủ giờ bắt đầu/kết thúc; location_id để trống được gửi thành null để backend dùng cơ sở người đặt."
     },
     {
      "dong": 140,
-     "noi_dung": "[TSX quyết] Giờ hẹn phải đọc được và giờ kết thúc phải sau giờ bắt đầu, kiểm ở route Next để trả câu tiếng Việt (backend vẫn kiểm kiểu ngày). Ví dụ 09:00→09:00 → 'Giờ kết thúc phải sau giờ bắt đầu'."
+     "noi_dung": "[TSX quyết] Nếu không phân tích được slot_start hoặc slot_end thành thời điểm, trả 400 với thông báo tiếng Việt trước khi gọi backend."
     },
     {
-     "dong": 160,
-     "noi_dung": "Loại khách chỉ nhận NEW hoặc RETURN; giá trị khác bị đổi thành null. Phút khám/siêu âm không tự suy ra từ loại khách nữa, chỉ chuyển đúng số người dùng gõ."
+     "dong": 146,
+     "noi_dung": "[TSX quyết] Thời điểm kết thúc phải sau thời điểm bắt đầu; bằng hoặc sớm hơn thì trả 400."
+    },
+    {
+     "dong": 158,
+     "noi_dung": "patient_kind được đổi sang chữ hoa; chỉ NEW/RETURN được giữ, giá trị khác thành null."
+    },
+    {
+     "dong": 161,
+     "noi_dung": "need_sono chỉ chuyển tiếp khi đúng kiểu boolean; kiểu khác thành null. thanh_min và sono_min chỉ chuyển tiếp khi đúng kiểu number, không tự suy từ loại khách."
     },
     {
      "dong": 282,
-     "noi_dung": "PATCH chỉ nhận 9 action: complete, checkin, undo_checkin, cskh_confirm, cancel, no_show, reassign, assign_doctor, reschedule; action khác → 400 ngay ở route. Quyền theo từng action do backend hỏi."
+     "noi_dung": "PATCH chỉ nhận 9 action đã liệt kê trong ALL_ACTIONS; thiếu id/action hoặc action khác trả 400, còn quyền theo từng thao tác do backend kiểm tra."
     }
    ],
    "doc_bang": [],
@@ -6752,7 +6825,7 @@
     },
     {
      "dong": 91,
-     "noi_dung": "GET theo ngày kiểm ngày đọc được theo giờ Việt Nam (VN_OFFSET); ngày rác → 400 thay vì để backend ném."
+     "noi_dung": "Ngày chỉ bị từ chối nếu Date không phân tích được thành thời điểm; đây không phải kiểm tra nghiêm dạng YYYY-MM-DD hay xác nhận ngày lịch thực tế."
     }
    ],
    "muon_sua": [
@@ -6926,7 +6999,13 @@
   "src/dashboard/app/api/appointments/luoi-ngay/route.ts": {
    "lam_gi": "Chuyển tiếp lưới sức chứa đặt chỗ của một ngày (mỗi bác sĩ một hàng) cho màn đặt lịch; số ghế và trần tính ở backend.",
    "khoi": "booking",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 12,
+     "lam_gi": "yêu cầu date đúng dạng YYYY-MM-DD, chép doctor_ids và bo_qua_lich_id nếu có rồi chuyển tiếp lưới ngày sang backend"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -6935,7 +7014,12 @@
    "goi_api": [
     "/api/v1/appointments/luoi-ngay"
    ],
-   "bay": [],
+   "bay": [
+    {
+     "dong": 15,
+     "noi_dung": "Biểu thức chính quy chỉ kiểm dạng YYYY-MM-DD, không xác nhận ngày lịch có thật; ngày như 2026-02-31 vẫn qua cửa này nếu backend không chặn."
+    }
+   ],
    "muon_sua": [],
    "comment_cu": [],
    "chua_chac": []
@@ -6947,7 +7031,7 @@
     {
      "ten": "GET",
      "dong": 11,
-     "lam_gi": "kiểm phiên + date, gắn token, X-API-Key và cơ sở đang đứng rồi gọi /api/v1/appointments/quote"
+     "lam_gi": "đòi phiên đăng nhập, chỉ kiểm date có mặt, gắn token và cơ sở hiện hành rồi chuyển tiếp báo giá tới FastAPI"
     }
    ],
    "luat": [],
@@ -6961,7 +7045,11 @@
    "bay": [
     {
      "dong": 45,
-     "noi_dung": "Tự chép tay cách gắn header (Bearer, X-API-Key, cơ sở qua ganCoSo) thay vì dùng lib/backend-proxy — đổi cách xác thực chung thì phải sửa riêng tệp này, dễ sót."
+     "noi_dung": "Tự chép tay cách gắn header (Bearer, X-API-Key nếu có, cơ sở qua ganCoSo) thay vì dùng lib/backend-proxy — đổi cách xác thực chung thì phải sửa riêng tệp này, dễ sót."
+    },
+    {
+     "dong": 53,
+     "noi_dung": "Date chỉ được kiểm tra có mặt ở dòng 33; nội dung được chuyển tiếp nguyên dạng, nên định dạng/ngày thực tế phải được backend kiểm tra."
     }
    ],
    "muon_sua": [],
@@ -6971,7 +7059,13 @@
   "src/dashboard/app/api/appointments/service-history/route.ts": {
    "lam_gi": "Chỉ đọc: khách này đã khám dịch vụ này mấy lần và còn đợt khám nào đang mở không — để màn đặt lịch gợi ý khách mới/tái khám.",
    "khoi": "booking",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 13,
+     "lam_gi": "yêu cầu phiên đăng nhập và đủ clinic_patient_id với service_type_id, rồi chuyển tiếp lịch sử dịch vụ sang backend"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -7010,6 +7104,10 @@
     },
     {
      "dong": 53,
+     "noi_dung": "POST nhận JSON sai định dạng rồi âm thầm đổi thành object rỗng; backend vẫn nhận request thay vì route báo 400."
+    },
+    {
+     "dong": 54,
      "noi_dung": "DELETE không gửi thân và không gửi tham số nào — backend phải tự biết bỏ giữ chỗ nào (theo người gọi)."
     }
    ],
@@ -7022,7 +7120,13 @@
   "src/dashboard/app/api/appointments/tim-khach/route.ts": {
    "lam_gi": "Ô tìm khách có sẵn ở màn Đặt lịch — chuyển tiếp từ khoá q sang backend (tìm trên toàn bộ hồ sơ, tối đa 20 kết quả).",
    "khoi": "booking",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 9,
+     "lam_gi": "lấy q nguyên trạng và chuyển tiếp sang tìm khách ở backend"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -7056,7 +7160,13 @@
   "src/dashboard/app/api/booking-overrides/doctor/[id]/route.ts": {
    "lam_gi": "Xoá một ngoại lệ số chỗ theo bác sĩ (màn cấu hình đặt lịch); chỉ kiểm đã đăng nhập, quyền do backend hỏi.",
    "khoi": "booking",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "DELETE",
+     "dong": 7,
+     "lam_gi": "kiểm người dùng đã đăng nhập rồi chuyển tiếp lệnh xoá ngoại lệ số chỗ theo bác sĩ; quyền thuộc backend"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -7578,7 +7688,13 @@
   "src/dashboard/app/api/clinical-form/andrology-review/route.ts": {
    "lam_gi": "Chuyển tiếp phiếu Nam khoa đang gõ dở sang backend để lấy cờ dưới ngưỡng WHO và gợi ý xét nghiệm di truyền (ngưỡng nằm ở bảng semen_reference_range). Dùng POST để nội dung lâm sàng không lọt vào log qua query string.",
    "khoi": "result",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 14,
+     "lam_gi": "kiểm đăng nhập rồi chuyển nguyên form đang nhập tới backend để tính cờ nam khoa"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -7587,7 +7703,12 @@
    "goi_api": [
     "/api/v1/clinical-forms/andrology-review"
    ],
-   "bay": [],
+   "bay": [
+    {
+     "dong": 22,
+     "noi_dung": "JSON sai định dạng bị đổi thành object rỗng rồi vẫn chuyển tiếp, không trả lỗi 400 ở route."
+    }
+   ],
    "muon_sua": [],
    "comment_cu": [],
    "chua_chac": []
@@ -7595,7 +7716,13 @@
   "src/dashboard/app/api/clinical-forms/history/route.ts": {
    "lam_gi": "Danh sách lượt khám trước của một bệnh nhân (backend lọc phòng khám + gác vai lâm sàng); không đọc được thì báo 502 chứ không trả rỗng.",
    "khoi": "result",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 10,
+     "lam_gi": "kiểm phiên đăng nhập và clinic_patient_id có mặt, lấy danh sách lượt khám trước từ backend; backend lỗi thì trả 502"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -7632,11 +7759,15 @@
    "luat": [
     {
      "dong": 100,
-     "noi_dung": "[TSX quyết] Số đo sinh hiệu mới nhất ĐÈ lên ô sinh hiệu cùng tên trong nháp khi mở hồ sơ (ví dụ nháp ghi HA 120/80, điều dưỡng vừa đo 130/85 → màn hiện 130/85). Ghép ở route Next, không ở backend."
+     "noi_dung": "[TSX quyết] Sinh hiệu đo mới nhất đè lên ô sinh hiệu cùng tên trong objective khi mở hồ sơ. Ví dụ nháp ghi HA 120/80, số đo mới 130/85 → màn nhận 130/85."
     },
     {
      "dong": 178,
-     "noi_dung": "Lưu hồ sơ bắt buộc có lịch hẹn + bệnh nhân; quyền ghi (clinical.record.write), khoá 48 giờ, trạng thái lượt được ghi, giữ sinh hiệu của điều dưỡng đều do backend kiểm trong một giao dịch."
+     "noi_dung": "Khi ghi, appointmentId và clinicPatientId đều bắt buộc; thiếu một trong hai thì route trả 400."
+    },
+    {
+     "dong": 188,
+     "noi_dung": "Route chuyển dữ liệu tới FastAPI; kiểm FINALIZED, quyền ghi, khoá 48 giờ và các điều kiện ghi khác không được thực hiện ở file này."
     }
    ],
    "doc_bang": [],
@@ -7744,7 +7875,18 @@
   "src/dashboard/app/api/config/feature-mode/route.ts": {
    "lam_gi": "Đọc/đổi chế độ tính năng của phòng khám (mặc định FULL_CLINIC) — chuyển tiếp sang /api/v1/feature-mode.",
    "khoi": "co_so",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 4,
+     "lam_gi": "đọc chế độ từ backend; nếu không có dữ liệu thì trả ok:false với FULL_CLINIC"
+    },
+    {
+     "ten": "PUT",
+     "dong": 15,
+     "lam_gi": "đọc JSON yêu cầu và chuyển PUT tới FastAPI mà không bắt lỗi JSON tại route"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -7792,6 +7934,10 @@
    ],
    "bay": [
     {
+     "dong": 30,
+     "noi_dung": "Chỉ kiểm kích thước tệp; không kiểm MIME hay chữ ký nội dung, nhưng tên lưu luôn có đuôi .png."
+    },
+    {
      "dong": 39,
      "noi_dung": "Ảnh ghi ra đĩa TRƯỚC khi gọi backend: backend lỗi thì ảnh nằm lại không ai tham chiếu."
     },
@@ -7811,11 +7957,21 @@
   "src/dashboard/app/api/cskh-action/route.ts": {
    "lam_gi": "CSKH ghi tay một việc chăm sóc khách (loại việc, nội dung, trạng thái, mã khách) — chuyển tiếp sang /api/v1/cskh/actions.",
    "khoi": "cskh",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 19,
+     "lam_gi": "kiểm đăng nhập, yêu cầu category và description không rỗng, rồi chuyển tiếp dữ liệu sang backend"
+    }
+   ],
    "luat": [
     {
      "dong": 39,
-     "noi_dung": "Việc CSKH bắt buộc có loại việc và nội dung; mã khách không khớp → backend trả 404."
+     "noi_dung": "category bắt buộc; thiếu thì trả 400."
+    },
+    {
+     "dong": 42,
+     "noi_dung": "description bắt buộc; thiếu thì trả 400."
     }
    ],
    "doc_bang": [],
@@ -7833,7 +7989,9 @@
      "vi_sao": "nói 'ghi qua service-role' — nay ghi qua FastAPI (dòng 48), không dùng service-role"
     }
    ],
-   "chua_chac": []
+   "chua_chac": [
+    "Comment nói patient_code không khớp thì backend trả 404; chưa xác minh bằng code backend hoặc test trong lượt soát này."
+   ]
   },
   "src/dashboard/app/api/cskh/hen-goi-lai/route.ts": {
    "lam_gi": "Việc CSKH tự hẹn 'gọi lại ngày…': POST tạo việc (giờ để trống = chỉ hẹn tới ngày), PATCH đóng việc đã gọi xong.",
@@ -8121,7 +8279,13 @@
   "src/dashboard/app/api/cskh/ket-qua/cho-xac-nhan/route.ts": {
    "lam_gi": "Danh sách tệp kết quả từ ngoài đang chờ xác nhận (CHO_XAC_NHAN) — tự gọi fetch sang backend, giữ nguyên mã trạng thái.",
    "khoi": "result_file",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 10,
+     "lam_gi": "kiểm URL backend và header phiên đăng nhập, gọi danh sách kết quả chờ xác nhận rồi trả dữ liệu cùng status backend"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -8174,6 +8338,10 @@
     {
      "dong": 66,
      "noi_dung": "Gỡ ghi chú với ghi_chu_id sai dạng rơi xuống câu chung 'Thao tác không hợp lệ' — không nói rõ là sai mã."
+    },
+    {
+     "dong": 50,
+     "noi_dung": "JSON hỏng hoặc thao_tac không hợp lệ đều rơi xuống lỗi chung 'Thao tác không hợp lệ' ở cuối POST, không có thông báo riêng cho JSON hỏng."
     }
    ],
    "muon_sua": [],
@@ -8309,7 +8477,13 @@
   "src/dashboard/app/api/cskh/nhac-tai-kham/route.ts": {
    "lam_gi": "CSKH gõ tay ngày tái khám cho một khách (khi khách hẹn qua điện thoại, không có phiếu khám để hệ thống tự đọc) — chuyển tiếp sang backend.",
    "khoi": "cskh",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 17,
+     "lam_gi": "đọc JSON rồi chuyển tiếp yêu cầu ghi ngày tái khám tới backend; JSON sai dạng trả 400"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -8328,7 +8502,18 @@
   "src/dashboard/app/api/cskh/phan-hoi/route.ts": {
    "lam_gi": "Phản hồi/khiếu nại của khách: POST ghi một phản hồi, PATCH chuyển trạng thái xử lý (kèm hướng xử lý). Người tiếp nhận/xử lý lấy từ phiên ở backend.",
    "khoi": "cskh",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 12,
+     "lam_gi": "đọc JSON và chuyển tiếp yêu cầu ghi phản hồi tới backend"
+    },
+    {
+     "ten": "PATCH",
+     "dong": 22,
+     "lam_gi": "đòi id phản hồi rồi chuyển trạng thái/hướng xử lý tới backend"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -8384,7 +8569,13 @@
   "src/dashboard/app/api/cskh/tuong-tac/[id]/hoan-tac/route.ts": {
    "lam_gi": "Rút lại một lần chạm CSKH bấm nhầm — không xoá, backend đánh dấu huỷ trên chính dòng đó.",
    "khoi": "cskh",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 12,
+     "lam_gi": "yêu cầu id thao tác có giá trị rồi chuyển tiếp lệnh hoàn tác tới backend"
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -8401,7 +8592,18 @@
   "src/dashboard/app/api/cskh/zalo/route.ts": {
    "lam_gi": "Gửi tin Zalo (ZNS) cho khách: GET xem Zalo đã cấu hình đủ chưa, POST gửi thật. Token Zalo chỉ nằm ở backend.",
    "khoi": "cskh",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 16,
+     "lam_gi": "đọc trạng thái cấu hình Zalo; backend không đọc được thì trả bat:false và nêu lý do."
+    },
+    {
+     "ten": "POST",
+     "dong": 28,
+     "lam_gi": "đọc JSON, gửi yêu cầu gửi tin sang backend; JSON sai trả 400."
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -8809,8 +9011,12 @@
    "ham_chinh": [],
    "luat": [
     {
-     "dong": 12,
-     "noi_dung": "Chỉ 3 lệnh: tra-ket-qua, huy-tra-ket-qua, huy-nhan-mau. Hai lệnh hoàn tác gửi kèm lý do + xac_nhan; tra-ket-qua gửi thân rỗng."
+     "dong": 23,
+     "noi_dung": "Chỉ nhận 3 tên lệnh trong LENH và chi_dinh_id đúng dạng UUID; sai một trong hai trả 400."
+    },
+    {
+     "dong": 32,
+     "noi_dung": "Lệnh tra-ket-qua gửi thân rỗng; hai lệnh hoàn tác chuyển ly_do dạng chuỗi hoặc null và xac_nhan chỉ true nếu đúng boolean true."
     }
    ],
    "doc_bang": [],
@@ -8867,7 +9073,13 @@
   "src/dashboard/app/api/doi-tac/viec/route.ts": {
    "lam_gi": "Đọc MỘT việc đối tác (trạng thái, thu hộ, tệp, mẫu kết quả) cho Phòng đối tác; máy chủ gác quyền partner.work.",
    "khoi": "doi_tac",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 11,
+     "lam_gi": "đọc một việc theo chi_dinh UUID; mã sai trả 400."
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -9319,7 +9531,13 @@
   "src/dashboard/app/api/lab-result/[id]/review/route.ts": {
    "lam_gi": "Bác sĩ duyệt một kết quả xét nghiệm của bệnh nhân — ống dẫn; quyền result.review.approve ở backend.",
    "khoi": "lab",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 12,
+     "lam_gi": "yêu cầu đăng nhập, nhận mã kết quả và mã khách dạng UUID rồi chuyển yêu cầu duyệt sang backend; quyền duyệt được backend kiểm."
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -9328,7 +9546,16 @@
    "goi_api": [
     "/api/v1/lab/results/{id}/review"
    ],
-   "bay": [],
+   "bay": [
+    {
+     "dong": 20,
+     "noi_dung": "Proxy chỉ kiểm có phiên đăng nhập, không kiểm quyền result.review.approve; backend là nơi gác quyền duyệt."
+    },
+    {
+     "dong": 36,
+     "noi_dung": "Cả mã kết quả trên URL và clinic_patient_id trong thân đều phải đúng dạng UUID; sai trả 400."
+    }
+   ],
    "muon_sua": [],
    "comment_cu": [],
    "chua_chac": []

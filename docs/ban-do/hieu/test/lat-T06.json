@@ -1335,65 +1335,9 @@
    "loai": "unit",
    "canh": [
     {
-     "test": "test_create_staff_success / test_create_staff_rejects_location_from_another_clinic",
-     "dong": 71,
-     "luat": "Tạo nhân viên chèn staff và clinic_membership cho đúng phòng khám; cơ sở chính thuộc phòng khám khác bị từ chối, không chèn gì.",
-     "tep_code": [
-      "src/clinicai/services/staff_service.py"
-     ]
-    },
-    {
-     "test": "test_list_assignable_excludes_training / test_list_assignable_excludes_inactive",
-     "dong": 124,
-     "luat": "Danh sách có thể giao việc bỏ nhân viên đang học (is_training) và đã khoá, lọc theo phòng khám.",
-     "tep_code": [
-      "src/clinicai/services/staff_service.py"
-     ]
-    },
-    {
-     "test": "test_get_by_id_not_found",
-     "dong": 160,
-     "luat": "Tìm nhân viên theo id lọc qua clinic_membership của phòng khám; không có trả None.",
-     "tep_code": [
-      "src/clinicai/services/staff_service.py"
-     ]
-    },
-    {
-     "test": "test_update_staff / test_update_staff_no_fields_raises",
-     "dong": 176,
-     "luat": "Sửa nhân viên chỉ SET trường được gửi, trong phạm vi phòng khám; không gửi trường nào thì lỗi.",
-     "tep_code": [
-      "src/clinicai/services/staff_service.py"
-     ]
-    },
-    {
-     "test": "test_update_shared_profile_requires_system_administration / test_update_other_tenants_profile_is_not_found",
-     "dong": 207,
-     "luat": "Hồ sơ dùng chung nhiều phòng khám chỉ quản trị hệ thống sửa được; dò UUID nhân viên phòng khám khác trả NotFound (không lộ tồn tại).",
-     "tep_code": [
-      "src/clinicai/services/staff_service.py"
-     ]
-    },
-    {
-     "test": "test_update_active_state_is_membership_scoped / test_update_department_changes_only_callers_membership_role",
-     "dong": 252,
-     "luat": "Khoá ở một phòng khám chỉ khoá membership đó, staff toàn cục chỉ khoá khi không còn membership nào; đổi vai chỉ đổi role trong membership của người gọi.",
-     "tep_code": [
-      "src/clinicai/services/staff_service.py"
-     ]
-    },
-    {
-     "test": "test_deactivate_sets_inactive / test_deactivate_not_found_raises / test_deactivate_self_raises_validation_error",
-     "dong": 299,
-     "luat": "Khoá nhân viên là khoá mềm membership của phòng khám; không có thì NotFound; không tự khoá chính mình.",
-     "tep_code": [
-      "src/clinicai/services/staff_service.py"
-     ]
-    },
-    {
-     "test": "test_activate_sets_active",
-     "dong": 351,
-     "luat": "Mở khoá bật lại membership và bản ghi staff.",
+     "test": "test_ca_truc_tuong_lai",
+     "dong": 367,
+     "luat": "Service trả lại các ca trực tương lai có shift/station từ dữ liệu trả về của DB.",
      "tep_code": [
       "src/clinicai/services/staff_service.py"
      ]
@@ -2615,7 +2559,12 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 45,
+     "noi_dung": "test_ca_cua_gio chỉ kiểm giờ giữa mỗi ca (09:00, 15:00, 23:30), chưa kiểm đúng ranh giới chuyển ca 14:00/17:30."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_xoa_mem_tep.py": {
@@ -11364,9 +11313,17 @@
      ]
     },
     {
+     "test": "đầu vào: ISO, Date, số ms đều hiểu",
+     "dong": 25,
+     "luat": "Mốc bắt đầu nhận chuỗi ISO, Date hoặc epoch mili giây.",
+     "tep_code": [
+      "src/dashboard/lib/khung-da-qua.ts"
+     ]
+    },
+    {
      "test": "rác không ném / ô Ngày + Giờ rác không ném",
      "dong": 30,
-     "luat": "Không biết giờ → chưa qua; độ dài rác/âm/0 → so giờ bắt đầu; ngày '2026-13-40', giờ '25:99' → chưa qua; hôm qua → đã qua.",
+     "luat": "Không biết giờ → chưa qua; độ dài rác/âm/0 → so giờ bắt đầu; ngày “2026-13-40”, giờ “25:99” → chưa qua; hôm qua → đã qua.",
      "tep_code": [
       "src/dashboard/lib/khung-da-qua.ts"
      ]

@@ -151,9 +151,9 @@
   "scripts/apply-pending-migrations.sh": {
    "lam_gi": "Áp các migration chưa có trong sổ supabase_migrations.schema_migrations; mặc định chỉ liệt kê (thử khô), `--apply` mới áp. Người chạy tay trên VPS (prod/staging) hoặc Mac, đích chọn bằng CLINIC_DB_CONTAINER hoặc CLINIC_DB_DSN.",
    "khoi": null,
-   "chay_o": "VPS prod",
+   "chay_o": "Máy có quyền truy cập DB (thường VPS prod hoặc staging); đích thực tế do CLINIC_DB_CONTAINER/CLINIC_DB_DSN quyết định.",
    "ghi_prod": true,
-   "nguy_hiem": "Chạy `--apply` nhầm container (vd clinicai_db thay vì clinicai_stg_db) là đổi lược đồ prod chưa diễn tập. Migration hỏng giữa chừng tự rollback nhưng migration nặng khoá bảng giữa giờ khám.",
+   "nguy_hiem": "`--apply` áp tuần tự, mỗi migration có giao dịch riêng: migration lỗi được rollback nhưng các migration trước đó trong cùng lượt vẫn đã commit. Chọn nhầm đích làm đổi DB đó; migration có thể khóa bảng.",
    "ham_chinh": [
     {
      "ten": "run_sql",
@@ -182,19 +182,15 @@
    "bay": [
     {
      "dong": 128,
-     "noi_dung": "Gói mọi migration trong giao dịch — migration nào dùng CREATE INDEX CONCURRENTLY sẽ hỏng; phải sửa script có ý thức."
+     "noi_dung": "Gói từng migration trong giao dịch; migration dùng CREATE INDEX CONCURRENTLY sẽ lỗi, cần xử lý riêng có chủ ý."
     },
     {
      "dong": 144,
-     "noi_dung": "Đầu ra ghi vào tệp chung /tmp/clinic-migration-out.txt — hai lượt chạy song song (prod + staging) đè lên nhau."
-    },
-    {
-     "dong": 157,
-     "noi_dung": "Áp xong KHÔNG gửi `NOTIFY pgrst, 'reload schema'` như luật migration đòi — PostgREST chưa thấy cột mới cho tới khi có người gửi tay."
+     "noi_dung": "Đầu ra lỗi dùng chung `/tmp/clinic-migration-out.txt`; hai lượt chạy đồng thời có thể ghi đè chẩn đoán của nhau."
     },
     {
      "dong": 97,
-     "noi_dung": "Hai tệp cùng số version (trùng số giữa các đợt) thì cái thứ hai bị coi là đã áp và bỏ qua im lặng."
+     "noi_dung": "Danh sách pending được tính một lần trước vòng lặp. Hai tệp cùng version đều vào danh sách; tệp thứ hai sẽ lỗi khi INSERT khóa chính version trùng và dừng lượt chạy, không bị bỏ qua im lặng."
     }
    ],
    "muon_sua": [
@@ -411,7 +407,7 @@
   "scripts/backup-db.sh": {
    "lam_gi": "Sao lưu database: dump lược đồ public + tệp auth.users/identities + (nếu có) tar media trên ổ máy + tar tệp kết quả chưa đẩy sang CFS + (đêm) lịch sử Notion; kiểm toàn vẹn, ghi manifest, xoá bản cũ, đẩy R2 nếu cấu hình, ghi trạng thái cho /ops, báo nhịp tim Kuma. Chạy bằng systemd timer trên VPS (đêm + 15 phút).",
    "khoi": null,
-   "chay_o": "systemd timer",
+   "chay_o": "Trên VPS qua systemd timer (bản đêm và bản 15 phút); cũng có thể chạy thủ công trên máy có quyền truy cập DB và dữ liệu lưu trữ.",
    "ghi_prod": false,
    "nguy_hiem": "Chỉ ĐỌC database prod, nhưng ghi lên ổ VPS: ổ đầy là Postgres prod chết (đã xảy ra 11–12/10). Dump nặng giữa giờ khám (bản 15 phút) tốn CPU/IO của prod.",
    "ham_chinh": [
@@ -723,7 +719,15 @@
    "luat": [
     {
      "dong": 16,
-     "noi_dung": "Nice=19, IO idle, OOMScoreAdjust=900: staging luôn nhường prod, bị kernel giết trước."
+     "noi_dung": "Nice=19 giảm ưu tiên CPU của service."
+    },
+    {
+     "dong": 17,
+     "noi_dung": "IOSchedulingClass=idle cho service chạy ở ưu tiên I/O thấp."
+    },
+    {
+     "dong": 18,
+     "noi_dung": "OOMScoreAdjust=900 khiến kernel ưu tiên giết service staging khi thiếu bộ nhớ."
     }
    ],
    "bay": [
@@ -746,7 +750,15 @@
    "luat": [
     {
      "dong": 6,
-     "noi_dung": "03:30, Persistent=true, lệch tối đa 120s."
+     "noi_dung": "Chạy theo lịch hằng ngày lúc 03:30."
+    },
+    {
+     "dong": 7,
+     "noi_dung": "Persistent=true để chạy bù sau khi máy lỡ lịch khi tắt."
+    },
+    {
+     "dong": 8,
+     "noi_dung": "Khởi chạy có thể trễ ngẫu nhiên tối đa 120 giây."
     }
    ],
    "bay": [],
@@ -757,7 +769,7 @@
   "scripts/pg-dump-qua-container.sh": {
    "lam_gi": "Đứng thay `pg_dump`: chạy pg_dump bên trong container database để phiên bản luôn khớp máy chủ. backup-db.sh gọi qua PG_DUMP_BIN trong unit systemd.",
    "khoi": null,
-   "chay_o": "systemd timer",
+   "chay_o": "Máy có Docker và quyền `docker exec` vào container DB đích; thường được backup-db.sh gọi qua systemd timer trên VPS, cũng chạy thủ công được.",
    "ghi_prod": false,
    "nguy_hiem": "",
    "ham_chinh": [],
@@ -770,7 +782,7 @@
    "bay": [
     {
      "dong": 54,
-     "noi_dung": "Bỏ qua PGPORT/PGPASSWORD — luôn nối socket trong container bằng user postgres (trust)."
+     "noi_dung": "Bỏ qua cấu hình PGHOST/PGPORT/PGPASSWORD của host; chạy pg_dump qua socket trong container với PGUSER/PGDATABASE (mặc định postgres). User khác postgres cần truyền PGUSER."
     }
    ],
    "muon_sua": [],
@@ -998,9 +1010,9 @@
   "scripts/restore-preflight.sql": {
    "lam_gi": "SQL chạy TRƯỚC khi nạp bản sao lưu vào Postgres trắng: tạo extension (unaccent, pg_trgm, btree_gist ở public; pgcrypto, uuid-ossp ở extensions), vai anon/authenticated/service_role, schema auth.",
    "khoi": null,
-   "chay_o": "không rõ",
+   "chay_o": "Chạy bằng psql với DSN tới DB đích phục hồi; thường là Postgres/Supabase tự dựng mới, không chạy lên prod đang phục vụ khách.",
    "ghi_prod": false,
-   "nguy_hiem": "Chạy vào DB đang có là vô hại (IF NOT EXISTS).",
+   "nguy_hiem": "Các lệnh IF NOT EXISTS vẫn tạo extension, schema và vai còn thiếu nếu trỏ nhầm DB. Tệp chỉ tạo schema auth rỗng, không tạo bảng auth.users/auth.identities để nạp dump auth.",
    "ham_chinh": [],
    "luat": [
     {
@@ -1022,7 +1034,7 @@
    "comment_cu": [
     {
      "dong": 39,
-     "vi_sao": "Nói 'project Supabase mới' — nay tự dựng GoTrue, đích đầy đủ là bộ docker-compose.supabase.yml."
+     "vi_sao": "Hướng dẫn chỉ sang project Supabase mới có thể bị hiểu là Supabase cloud; hiện ClinicAI dùng Supabase tự dựng, GoTrue cung cấp sẵn bảng auth cần cho bản dump."
     }
    ],
    "chua_chac": []
@@ -1284,8 +1296,8 @@
    "lam_gi": "Chạy pytest trên DB TẠM nhân bản từ khuôn sạch `khuon` (bootstrap + migration origin/main + seed) trong container chung_test_db, tự áp migration của nhánh vào DB tạm, xong xoá. Cách test chuẩn hằng ngày trên Mac.",
    "khoi": null,
    "chay_o": "Mac dev",
-   "ghi_prod": false,
-   "nguy_hiem": "Không đụng prod. `--dung-lai-khuon` xoá và dựng lại khuôn chung mà mọi worktree đang dùng.",
+   "ghi_prod": true,
+   "nguy_hiem": "Mặc định dùng chung_test_db và không đụng dữ liệu DB postgres, nhưng TEST_NHANH_CONTAINER cho phép trỏ sang container DB khác. Khi đó script có thể tạo/xoá database khuon, tam_* trên instance đích, làm tốn tài nguyên prod hoặc xoá DB cùng tên.",
    "ham_chinh": [
     {
      "ten": "sql",
@@ -1358,15 +1370,19 @@
    "bay": [
     {
      "dong": 233,
-     "noi_dung": "Không có .venv ở cây này thì mượn .venv của cây/worktree khác — có thể khác phiên bản thư viện."
+     "noi_dung": "Nếu cây không có .venv thì mượn .venv của cây/worktree khác — có thể khác phiên bản thư viện."
     },
     {
      "dong": 295,
-     "noi_dung": "seed.sql của nhánh khác khuôn chỉ cảnh báo; bài phụ thuộc seed mới sẽ đỏ tới khi --dung-lai-khuon."
+     "noi_dung": "seed.sql khác khuôn chỉ cảnh báo; bài cần seed mới sẽ lỗi cho tới khi dựng lại khuôn."
     },
     {
      "dong": 135,
-     "noi_dung": "Không fetch được origin thì dùng origin/main cũ đang có — khuôn có thể tụt."
+     "noi_dung": "Không fetch được origin thì dùng origin/main đã có sẵn; khuôn có thể tụt so với main hiện tại."
+    },
+    {
+     "dong": 44,
+     "noi_dung": "TEST_NHANH_CONTAINER có thể đổi container đích; script chỉ chặn cổng 55433, không xác minh nhãn/project của container. Trỏ nhầm sang DB prod vẫn có thể tạo/xoá database khuon hoặc tam_*."
     }
    ],
    "muon_sua": [],
@@ -1620,7 +1636,7 @@
    "luat": [
     {
      "dong": 24,
-     "noi_dung": "Mọi service dùng chung khối: log có trần 10m×5, no-new-privileges, init (test infra-safety đòi đủ)."
+     "noi_dung": "Mọi service áp khối chung: log có trần 10 MB × 5, no-new-privileges và init (test infra-safety yêu cầu đủ)."
     },
     {
      "dong": 118,
@@ -1632,23 +1648,39 @@
     },
     {
      "dong": 161,
-     "noi_dung": "Chỉ chown khi chủ thư mục chưa phải 1000 — ổ CIFS Viettel từ chối chown."
+     "noi_dung": "Chỉ chown thư mục media khi chủ chưa phải uid 1000; ổ CIFS Viettel từ chối chown dù đã đúng chủ."
     },
     {
      "dong": 196,
-     "noi_dung": "TMPDIR của api trỏ vào ổ VPS .tam để tệp tải lên lớn không ghi vào /tmp không trần."
+     "noi_dung": "TMPDIR của api trỏ vào ổ VPS .tam để thân tải lên lớn không ghi vào /tmp không giới hạn."
     },
     {
      "dong": 227,
-     "noi_dung": "api khoẻ = /health/db (chạm được DB), không chỉ tiến trình sống."
+     "noi_dung": "api chỉ được coi khoẻ khi /health/db chạm được DB, không chỉ khi tiến trình còn sống."
+    },
+    {
+     "dong": 253,
+     "noi_dung": "worker (profile workers) khoẻ theo nhịp tim /tmp/worker-alive, không chỉ theo tiến trình còn sống."
+    },
+    {
+     "dong": 280,
+     "noi_dung": "pos-relay (profile pos) khoẻ theo nhịp tim /tmp/worker-alive; cửa sổ 300 giây."
     },
     {
      "dong": 309,
-     "noi_dung": "su-kien/day-tep/relay khoẻ = tệp nhịp tim /tmp/worker-alive còn mới."
+     "noi_dung": "su-kien bắt buộc khoẻ theo nhịp tim /tmp/worker-alive; cửa sổ 120 giây."
+    },
+    {
+     "dong": 351,
+     "noi_dung": "day-tep bắt buộc khoẻ theo nhịp tim /tmp/worker-alive; cửa sổ 180 giây."
+    },
+    {
+     "dong": 386,
+     "noi_dung": "notification-relay khoẻ theo nhịp tim /tmp/worker-alive; cửa sổ 180 giây."
     },
     {
      "dong": 528,
-     "noi_dung": "Khoá LLM của agent giám sát đọc từ tệp secret, tách khỏi ANTHROPIC_API_KEY; không đặt → tệp rỗng → LLM tắt."
+     "noi_dung": "Khoá LLM agent giám sát đọc từ tệp secret, tách khỏi ANTHROPIC_API_KEY; không đặt → tệp rỗng → LLM tắt."
     }
    ],
    "bay": [
@@ -1682,23 +1714,11 @@
    "comment_cu": [
     {
      "dong": 428,
-     "vi_sao": "'private via Tailscale' — Tailscale đã chết; nay vào bằng ssh -L."
+     "vi_sao": "Comment nói private via Tailscale; Tailscale đã chết, nay vào bằng ssh -L."
     },
     {
      "dong": 487,
-     "vi_sao": "Khối Cloudflare Tunnel — đã chết theo CLAUDE.md (dòng 14 tự nhận legacy)."
-    },
-    {
-     "dong": 127,
-     "vi_sao": "OPS_SENTRY_PUBLIC_URL — Sentry đã chết."
-    },
-    {
-     "dong": 509,
-     "vi_sao": "Nói 'vẫn ở Supabase cloud' — không còn."
-    },
-    {
-     "dong": 201,
-     "vi_sao": "'not just this Mac' — prod đã ở VPS."
+     "vi_sao": "Khối Cloudflare Tunnel legacy, hạ tầng này đã chết theo CLAUDE.md."
     }
    ],
    "chua_chac": []
@@ -1748,23 +1768,27 @@
     },
     {
      "dong": 108,
-     "noi_dung": "GoTrue phải có trần pool 10 — không trần thì nuốt hết slot Postgres (đo 22/08)."
+     "noi_dung": "GoTrue phải có trần pool 10 — không trần thì có thể chiếm hết slot Postgres (đã đo 22/08)."
     },
     {
      "dong": 130,
-     "noi_dung": "Khoảng dùng lại khoá làm mới 10s — hai tab cùng làm mới không đá nhau về /login."
+     "noi_dung": "Khoảng dùng lại refresh token 10 giây để hai phiên cùng làm mới không đá phiên chậm về /login."
     },
     {
      "dong": 136,
-     "noi_dung": "GOTRUE_JWT_AUD=authenticated bắt buộc, bỏ trống là mọi tài khoản báo sai mật khẩu."
+     "noi_dung": "GOTRUE_JWT_AUD=authenticated bắt buộc; thiếu thì tài khoản chuẩn báo sai mật khẩu."
     },
     {
      "dong": 139,
-     "noi_dung": "Cấm tự đăng ký; tài khoản do quản lý tạo."
+     "noi_dung": "Tắt tự đăng ký; tài khoản do quản lý tạo."
+    },
+    {
+     "dong": 115,
+     "noi_dung": "GoTrue dùng SUPABASE_JWT_SECRET làm khoá JWT."
     },
     {
      "dong": 169,
-     "noi_dung": "PostgREST và GoTrue phải cùng JWT secret."
+     "noi_dung": "PostgREST dùng cùng SUPABASE_JWT_SECRET với GoTrue để xác thực cùng một JWT."
     }
    ],
    "bay": [
@@ -1827,21 +1851,25 @@
    "luat": [
     {
      "dong": 18,
-     "noi_dung": "Staging bị kernel giết trước khi hết RAM, nhường CPU cho prod."
+     "noi_dung": "oom_score_adj 900 để kernel ưu tiên giết container staging khi thiếu RAM."
+    },
+    {
+     "dong": 19,
+     "noi_dung": "cpu_shares 256 để khi tranh CPU prod (1024) được gấp bốn lần staging."
     },
     {
      "dong": 39,
-     "noi_dung": "max_locks_per_transaction=256 để nạp lại đêm (DROP + tạo ~300 bảng trong một giao dịch) không hết bộ nhớ chung."
+     "noi_dung": "max_locks_per_transaction=256 để nạp lại đêm (DROP + tạo khoảng 300 bảng trong một giao dịch) không hết bộ nhớ chung."
     },
     {
      "dong": 52,
-     "noi_dung": "Realtime tắt bằng profile không ai bật."
+     "noi_dung": "Realtime chỉ khởi động khi bật profile realtime-tat-o-staging; mặc định profile này không được chọn."
     }
    ],
    "bay": [
     {
-     "dong": 57,
-     "noi_dung": "Gateway vẫn định tuyến /realtime/v1 → trả 502."
+     "dong": 59,
+     "noi_dung": "Gateway bỏ realtime khỏi depends_on nhưng Caddy vẫn giữ đường /realtime/v1; nếu gọi khi service realtime tắt thì nhận 502."
     }
    ],
    "muon_sua": [],
@@ -2174,7 +2202,7 @@
    "bay": [
     {
      "dong": 14,
-     "noi_dung": "Deploy prod mà rollback thì compose chạy từ bản git archive cũ (không có tệp ở đây) → site staging mất tới lần deploy sau."
+     "noi_dung": "Deploy prod rồi rollback sẽ chạy từ bản git archive cũ, không có các site phụ trong thư mục này; site phụ mất tới khi deploy mới hoặc chạy lại script staging."
     }
    ],
    "muon_sua": [],
@@ -2204,8 +2232,8 @@
    ],
    "bay": [
     {
-     "dong": 43,
-     "noi_dung": "Comment nói lấy phần TỬ CUỐI của X-Forwarded-For, nhưng `map` thật lấy NGUYÊN chuỗi header. An toàn chỉ nhờ Caddy mặc định ghi đè X-Forwarded-For bằng IP thật; nếu ai bật trusted_proxies ở Caddy thì kẻ dò tự chèn header giả để có xô đếm mới mỗi lần."
+     "dong": 45,
+     "noi_dung": "map lấy nguyên chuỗi X-Forwarded-For làm khoá, không tách phần tử cuối như lời chú thích dòng 39–42; an toàn phụ thuộc Caddy ghi đè header từ phía khách. Nếu thay cấu hình proxy tin header do khách gửi, họ có thể đổi khoá giới hạn theo mỗi lượt."
     }
    ],
    "muon_sua": [
@@ -2687,16 +2715,16 @@
    "chua_chac": []
   },
   "scripts/staging-tu-ban-sao.sh": {
-   "lam_gi": "Biến bản local trên Mac (container clinicai_thu_db của dev-up.sh) thành bản sao prod từ bản sao lưu đêm đã kéo về: xoá dữ liệu thử, nạp tài khoản + public, ghi sổ migration theo thư mục, bật lại API/web/người đưa tin. Đăng nhập bằng tài khoản prod.",
+   "lam_gi": "Biến stack local thành bản sao prod từ bản sao lưu có sẵn trên Mac: xoá dữ liệu thử, nạp public và auth, ghi sổ migration theo thư mục code rồi bật API/web/worker. Mặc định nhắm clinicai_thu_db; tài khoản sau đó là tài khoản prod.",
    "khoi": null,
    "chay_o": "Mac dev",
-   "ghi_prod": false,
-   "nguy_hiem": "Dữ liệu khách CHƯA CHE nằm trên Mac — cấm mở đường hầm ra ngoài. Xoá sạch dữ liệu thử local.",
+   "ghi_prod": true,
+   "nguy_hiem": "Nạp dữ liệu khách chưa che vào máy local và xoá sạch DB container đích. CLINIC_THU_DB có thể đổi tên container, nên trỏ nhầm có thể phá DB khác; không mở đường hầm từ máy có bản sao này.",
    "ham_chinh": [
     {
      "ten": "psql_db",
      "dong": 40,
-     "lam_gi": "psql trong container clinicai_thu_db"
+     "lam_gi": "gọi psql trong container được chọn bởi CLINIC_THU_DB (mặc định clinicai_thu_db)"
     }
    ],
    "luat": [
@@ -2935,7 +2963,7 @@
   "scripts/lib/parse-postgres-url.py": {
    "lam_gi": "Đọc DATABASE_URL từ stdin, in host/port/user/password/db/sslmode mỗi dòng một trường để script bash đặt biến PG* mà mật khẩu không lên dòng lệnh.",
    "khoi": null,
-   "chay_o": "systemd timer",
+   "chay_o": "CLI dùng chung; backup-db.sh gọi trong lượt chạy thủ công hoặc systemd timer.",
    "ghi_prod": false,
    "nguy_hiem": "",
    "ham_chinh": [
@@ -3041,7 +3069,7 @@
   "scripts/sinh-khoa-supabase.py": {
    "lam_gi": "Sinh bộ khoá cho một bộ Supabase tự dựng: JWT secret, anon key, service_role key (JWT HS256 tự ký, hạn 20 năm), mật khẩu DB; in ra hoặc `--ghi` vào .env.supabase-local (không đè).",
    "khoi": null,
-   "chay_o": "Mac dev",
+   "chay_o": "Máy có Python 3, thường Mac dev hoặc VPS mới dựng; `--ghi` tạo .env.supabase-local ngay thư mục làm việc hiện tại.",
    "ghi_prod": false,
    "nguy_hiem": "In bí mật ra màn hình khi không có --ghi — chạy trong phiên được ghi lại là lộ khoá.",
    "ham_chinh": [
@@ -3176,7 +3204,7 @@
   "scripts/check-monitoring.sh": {
    "lam_gi": "So bản khai monitoring/monitors.json với Kuma: Kuma có trả lời không, và từng endpoint HTTP trong bản khai có phục vụ không. Chạy tay.",
    "khoi": null,
-   "chay_o": "không rõ",
+   "chay_o": "Máy dev hoặc VPS có mạng tới Uptime Kuma và các endpoint trong monitoring/monitors.json; chỉ gọi HTTP GET kiểm tra.",
    "ghi_prod": false,
    "nguy_hiem": "",
    "ham_chinh": [],
@@ -3540,11 +3568,19 @@
    "luat": [
     {
      "dong": 8,
-     "noi_dung": "Trần 2G, chừa 5G trống."
+     "noi_dung": "journald giữ tổng log tối đa 2 GB."
+    },
+    {
+     "dong": 9,
+     "noi_dung": "journald chừa ít nhất 5 GB trống."
+    },
+    {
+     "dong": 12,
+     "noi_dung": "Giới hạn cửa sổ rate limit là 30 giây."
     },
     {
      "dong": 13,
-     "noi_dung": "Burst 50.000 dòng / 30 giây."
+     "noi_dung": "Cho phép tối đa 50.000 dòng trong cửa sổ rate limit."
     }
    ],
    "bay": [],
@@ -3796,12 +3832,12 @@
    "ham_chinh": [],
    "luat": [
     {
-     "dong": 10,
-     "noi_dung": "Bộ nạp chạy trong một giao dịch; thử khô chạy hết rồi quay lui."
+     "dong": 39,
+     "noi_dung": "Gọi importer trong container API với cờ --khong-chep-tep; mặc định thử khô, --that mới ghi dữ liệu."
     },
     {
      "dong": 51,
-     "noi_dung": "cp -an: không ghi đè tệp đã có."
+     "noi_dung": "Tệp PDF chỉ được chép khi --that và cp -an không ghi đè tệp đã có."
     }
    ],
    "bay": [
@@ -3999,7 +4035,7 @@
    "khoi": null,
    "chay_o": "container",
    "ghi_prod": true,
-   "nguy_hiem": "--that trên prod: đặt lại mật khẩu của mọi người trong danh sách về mật khẩu chung, đổi email đăng nhập, khoá tài khoản — nhân viên bị đá ra / không vào được.",
+   "nguy_hiem": "--that đặt lại mật khẩu và email của người trong danh sách, tạo tài khoản mới, hoặc khoá hồ sơ/tài khoản bị loại; cần rà kỹ danh sách vì ảnh hưởng đăng nhập và hồ sơ nhân sự prod.",
    "ham_chinh": [
     {
      "ten": "main",
@@ -4009,26 +4045,26 @@
    ],
    "luat": [
     {
-     "dong": 7,
-     "noi_dung": "Khoá = tắt đăng nhập + ẩn, không xoá cứng (giữ lịch sử khám/thu)."
+     "dong": 235,
+     "noi_dung": "Khi khoá nhân sự, tắt mọi membership của họ rồi đánh dấu hồ sơ staff không hoạt động; không xoá cứng."
     },
     {
      "dong": 89,
-     "noi_dung": "Hồ sơ tham chiếu phải tìm thấy ĐÚNG 1; trùng email với tài khoản khác thì dừng."
+     "noi_dung": "Hồ sơ tham chiếu phải khớp đúng một người; trùng email với tài khoản khác thì dừng."
     }
    ],
    "bay": [
     {
      "dong": 35,
-     "noi_dung": "Mật khẩu chung mặc định viết cứng ở dòng 35 (giữ có chủ ý theo memory 15/10)."
+     "noi_dung": "Mật khẩu mặc định chung được khai báo trong mã."
     },
     {
      "dong": 53,
-     "noi_dung": "Tìm phòng khám qua phòng KN-TIEPDON (Kim Ngưu) — Kim Ngưu đã ngưng, chỉ Hào Nam hoạt động; chạy nay có thể nhắm sai cơ sở hoặc dừng."
+     "noi_dung": "Phòng KN-TIEPDON được dùng để lấy clinic_id; nếu đổi mã hoặc phòng không có thì script không xác định được cơ sở."
     },
     {
      "dong": 152,
-     "noi_dung": "Đổi tên hồ sơ theo full_name KHÔNG lọc phòng khám/cơ sở — mọi hồ sơ đang hoạt động trùng tên đều bị đổi."
+     "noi_dung": "Đổi hồ sơ theo full_name không giới hạn clinic_id, nên các hồ sơ hoạt động trùng tên ngoài cơ sở mục tiêu cũng có thể bị đổi."
     }
    ],
    "muon_sua": [],
@@ -4051,7 +4087,7 @@
    "luat": [
     {
      "dong": 146,
-     "noi_dung": "Hồ sơ + thẻ thành viên + cấp quyền preset trong cùng giao dịch."
+     "noi_dung": "Tạo hồ sơ staff, membership và cấp preset CSKH trong cùng giao dịch để tài khoản mới có quyền dùng màn."
     }
    ],
    "bay": [
@@ -4105,15 +4141,15 @@
    "bay": [
     {
      "dong": 47,
-     "noi_dung": "Mật khẩu chung mặc định viết cứng ở dòng 47."
+     "noi_dung": "Mật khẩu mặc định chung được khai báo trong mã; nhánh tạo tài khoản dùng nó và yêu cầu đổi sau khi đăng nhập lần đầu."
     },
     {
      "dong": 115,
-     "noi_dung": "`SELECT id FROM clinic LIMIT 1` — phòng khám bất kỳ."
+     "noi_dung": "Truy vấn lấy clinic bằng SELECT id FROM clinic LIMIT 1, không lọc cơ sở cụ thể."
     },
     {
      "dong": 240,
-     "noi_dung": "Người mới gắn vào cơ sở tạo SỚM NHẤT (có thể là Kim Ngưu đã ngưng)."
+     "noi_dung": "Người mới được gắn vào clinic_location có thứ tự tạo sớm nhất, không chọn theo mã cơ sở mong muốn."
     }
    ],
    "muon_sua": [
@@ -4156,15 +4192,15 @@
    "bay": [
     {
      "dong": 151,
-     "noi_dung": "Chỉ nhắm cơ sở Kim Ngưu (KN-TIEPDON) và mã phòng KN-* viết cứng — Kim Ngưu đã ngưng."
+     "noi_dung": "Script lấy clinic_id qua phòng code viết cứng KN-TIEPDON; nếu phòng đổi mã hoặc không còn thì không tìm được cơ sở."
     },
     {
      "dong": 223,
-     "noi_dung": "--cap-quyen return sớm TRONG khối transaction rồi gọi _cap_quyen bằng pool khác — định nghĩa kỹ năng chưa commit khi _cap_quyen đọc."
+     "noi_dung": "Nhánh --cap-quyen return sớm trong khối transaction rồi gọi _cap_quyen bằng pool khác, nên định nghĩa kỹ năng chưa commit khi hàm đó đọc."
     },
     {
      "dong": 98,
-     "noi_dung": "Mọi thao tác ghi sổ kiểm toán dưới tên 'Quản lý hệ thống', không phải người chạy."
+     "noi_dung": "Ghi sổ kiểm toán dưới danh tính Quản lý hệ thống thay vì danh tính người đang chạy script."
     }
    ],
    "muon_sua": [
@@ -4182,11 +4218,17 @@
    "chay_o": "container",
    "ghi_prod": true,
    "nguy_hiem": "--that đổi quyền nhân viên prod.",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "main",
+     "dong": 33,
+     "lam_gi": "Kiểm tra lego, đọc kỹ năng và nhân sự, rồi nếu --that thì cập nhật kỹ năng và bật quyền qua PermissionService."
+    }
+   ],
    "luat": [
     {
-     "dong": 38,
-     "noi_dung": "Lego không có trong catalogue thì dừng."
+     "dong": 41,
+     "noi_dung": "Lego không có trong catalogue thì dừng trước khi mở kết nối database."
     }
    ],
    "bay": [
@@ -4232,8 +4274,27 @@
    "chay_o": "container",
    "ghi_prod": true,
    "nguy_hiem": "--that đổi quyền nhân viên prod (mở duyệt/gửi kết quả).",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "main",
+     "dong": 30,
+     "lam_gi": "chọn nhân sự mục tiêu, in kế hoạch thử khô, rồi qua PermissionService cập nhật khi có --that"
+    }
+   ],
+   "luat": [
+    {
+     "dong": 62,
+     "noi_dung": "Cấp duyet_ket_qua cho nhân sự đang có quyền kham/thuc_hien nhưng chưa có duyet_ket_qua."
+    },
+    {
+     "dong": 79,
+     "noi_dung": "Chỉ bác sĩ đang hoạt động, có tài khoản, chưa có quyền hiệu lực nào mới được bật ba lego mặc định."
+    },
+    {
+     "dong": 100,
+     "noi_dung": "Không có --that thì chỉ in thử khô rồi thoát trước khi ghi quyền."
+    }
+   ],
    "bay": [
     {
      "dong": 39,
@@ -4249,7 +4310,7 @@
    "khoi": null,
    "chay_o": "container",
    "ghi_prod": true,
-   "nguy_hiem": "NGUY HIỂM NHẤT trong scripts: chạy --that HÔM NAY sẽ chuyển mọi lượt/lịch hẹn/khách/nhân sự của Hào Nam (cơ sở DUY NHẤT đang đón khách) sang Kim Ngưu, XOÁ phòng và cơ sở Hào Nam, đưa tên phòng KN về bản 27/09, và TẮT lego không có trong bảng của từng nhân viên.",
+   "nguy_hiem": "Chạy --that sẽ chuyển dữ liệu từ các cơ sở ghi trong danh sách sang Kim Ngưu, xoá cơ sở và phòng đó, sửa cấu hình phòng KN rồi đổi lego theo bảng kỹ năng. Pha cấu trúc commit trước; pha lego chạy sau và không cùng giao dịch.",
    "ham_chinh": [
     {
      "ten": "phong_thay",
@@ -4274,30 +4335,26 @@
    ],
    "luat": [
     {
-     "dong": 4,
-     "noi_dung": "Tự ghi ĐÃ CŨ — chỉ để tra lịch sử."
-    },
-    {
      "dong": 436,
-     "noi_dung": "Pha cấu trúc một giao dịch, thử khô thì ROLLBACK; pha lego chạy SAU commit, không giao dịch."
+     "noi_dung": "Pha cấu trúc có giao dịch riêng, thử khô thì rollback; pha chỉnh lego chạy sau khi pha này đã commit."
     }
    ],
    "bay": [
     {
      "dong": 42,
-     "noi_dung": "XOA = ('Phòng khám Dr4Women', 'Hào Nam') — Hào Nam nay là cơ sở đang dùng duy nhất."
+     "noi_dung": "Danh sách XOA viết cứng hai mã cơ sở; nếu chạy lại khi dữ liệu/cấu trúc đã đổi, có thể xoá nhầm cơ sở cùng tên."
     },
     {
      "dong": 236,
-     "noi_dung": "DELETE block_budget, visit_gate_rule, staff_node, clinic_room, clinic_location của cơ sở bị xoá."
+     "noi_dung": "Xoá block_budget, visit_gate_rule, staff_node, clinic_room, clinic_location thuộc cơ sở được chọn."
     },
     {
      "dong": 414,
-     "noi_dung": "Tắt mọi lego không có trong bảng (co - muon) của từng người — mất quyền đã cấp tay sau 27/09."
+     "noi_dung": "Tắt mọi lego không có trong bảng kỹ năng của từng người, kể cả quyền cấp tay sau này."
     },
     {
      "dong": 215,
-     "noi_dung": "Câu UPDATE ghép tên bảng/cột bằng f-string (từ hằng số, không từ người dùng)."
+     "noi_dung": "SQL động ghép tên bảng/cột bằng f-string từ hằng số nội bộ, không từ đầu vào người dùng."
     }
    ],
    "muon_sua": [],
@@ -4404,7 +4461,7 @@
    "khoi": null,
    "chay_o": "container",
    "ghi_prod": true,
-   "nguy_hiem": "--that đặt primary_location_id của MỌI người khớp về 'Kim Ngưu' (CO_SO mặc định) — nay Hào Nam là cơ sở đang dùng; ghi đè họ tên/SĐT/email nhân sự; tạo tài khoản mật khẩu chung.",
+   "nguy_hiem": "--that chuyển primary_location_id của mọi nhân sự khớp sang cơ sở Kim Ngưu, ghi đè họ tên/SĐT/email và có thể tạo tài khoản mới dùng mật khẩu mặc định chung.",
    "ham_chinh": [
     {
      "ten": "doc_excel",
@@ -4448,19 +4505,19 @@
    "bay": [
     {
      "dong": 56,
-     "noi_dung": "CO_SO mặc định 'Kim Ngưu' — Kim Ngưu đã ngưng."
+     "noi_dung": "CO_SO mặc định là Kim Ngưu; script đặt primary_location_id của mọi nhân sự khớp về cơ sở này, nên phải rà danh sách trước khi chạy."
     },
     {
      "dong": 55,
-     "noi_dung": "Mật khẩu chung mặc định viết cứng ở dòng 55; dòng 503 dùng luôn nó để đăng nhập tài khoản quản lý."
+     "noi_dung": "Mật khẩu mặc định chung được khai báo trong mã và nhánh tạo tài khoản dùng giá trị đó để đăng nhập quản lý."
     },
     {
      "dong": 749,
-     "noi_dung": "Vòng cập nhật hồ sơ khớp không bọc giao dịch — đứt giữa chừng là nửa số người đã đổi."
+     "noi_dung": "Vòng cập nhật hồ sơ khớp không bọc giao dịch; lỗi giữa chừng có thể để lại một phần nhân sự đã đổi."
     },
     {
      "dong": 571,
-     "noi_dung": "`SELECT id FROM clinic LIMIT 1`."
+     "noi_dung": "Truy vấn chọn clinic dùng SELECT id FROM clinic LIMIT 1, không lọc clinic cụ thể."
     }
    ],
    "muon_sua": [
@@ -4497,12 +4554,12 @@
    ],
    "luat": [
     {
-     "dong": 15,
-     "noi_dung": "Gỡ ca qua RosterService.remove — lịch hẹn mất bác sĩ chuyển 'chờ xếp', không huỷ."
+     "dong": 363,
+     "noi_dung": "Trong THỬ KHÔ, tính trước các ca sẽ gỡ qua RosterService.remove; khi `--that` thì thực sự gỡ tại dòng 398."
     },
     {
-     "dong": 21,
-     "noi_dung": "Tên chưa chốt (None) thì bỏ qua ô."
+     "dong": 325,
+     "noi_dung": "Tên nhân sự ánh xạ thành None thì bỏ qua dòng lịch, không xếp ca đó."
     }
    ],
    "bay": [
@@ -4584,34 +4641,46 @@
    "ham_chinh": [],
    "luat": [
     {
-     "dong": 18,
-     "noi_dung": "Không CASCADE — bảng giữ còn trỏ vào bảng xoá thì từ chối."
+     "dong": 200,
+     "noi_dung": "TRUNCATE không dùng CASCADE; bảng ngoài danh sách còn tham chiếu thì Postgres từ chối."
     },
     {
-     "dong": 101,
-     "noi_dung": "Bảng trong danh sách phải tồn tại; bảng GIỮ trỏ vào bảng XOÁ thì dừng."
+     "dong": 106,
+     "noi_dung": "Nếu bảng ghi trong danh sách không tồn tại thì báo lỗi và dừng."
     },
     {
-     "dong": 22,
-     "noi_dung": "Chỉ tắt trigger chặn TRUNCATE, không dùng session_replication_role."
+     "dong": 123,
+     "noi_dung": "Nếu bảng được giữ còn khóa ngoại tới bảng sắp xoá thì báo lỗi và dừng."
     },
     {
-     "dong": 227,
-     "noi_dung": "Sau xoá phải 0 dòng, không lô tồn âm, không trigger nào còn tắt."
+     "dong": 195,
+     "noi_dung": "Chỉ tắt các trigger người dùng có sự kiện TRUNCATE, rồi bật lại sau khi xoá."
+    },
+    {
+     "dong": 234,
+     "noi_dung": "Sau khi xoá, tổng số dòng của các bảng được dọn phải bằng 0."
+    },
+    {
+     "dong": 235,
+     "noi_dung": "Nếu giữ kho thì dừng khi phát hiện lô thuốc có tồn âm."
+    },
+    {
+     "dong": 239,
+     "noi_dung": "Dừng nếu còn trigger người dùng bị tắt ở bảng bị dọn hoặc inventory_txn."
     }
    ],
    "bay": [
     {
      "dong": 184,
-     "noi_dung": "Gỡ tạm khoá ngoại của inventory_txn rồi gắn lại — gắn lại kiểm toàn bảng, chậm trên kho lớn."
+     "noi_dung": "Ở chế độ giữ kho, gỡ rồi tạo lại FK của inventory_txn tới bảng bị xoá; khi tạo lại, Postgres kiểm lại toàn bộ dòng còn lại."
     },
     {
      "dong": 219,
-     "noi_dung": "RESTART patient_code_seq — mã bệnh nhân mới trùng mã đã in ra giấy trước đó."
+     "noi_dung": "RESTART patient_code_seq làm mã bệnh nhân mới có thể trùng mã đã ghi trên giấy cũ."
     },
     {
      "dong": 50,
-     "noi_dung": "Danh sách bảng viết tay: bảng mới (vd hoá đơn công ty, liệu trình) chưa có → Chốt 2 dừng cả script."
+     "noi_dung": "Danh sách bảng viết tay; Chốt 2 bắt bảng thiếu chỉ khi nó có FK tham chiếu bảng bị xoá. Bảng không có FK vẫn có thể để sót dòng liên quan."
     }
    ],
    "muon_sua": [],
@@ -4719,32 +4788,32 @@
   "scripts/don-du-lieu-thu.sh": {
    "lam_gi": "Dọn dữ liệu thử để bàn giao (đời 08/2026): chỉ chạy khi MỌI hồ sơ bệnh nhân khớp mẫu mã thử (DEMO-, BN-KIEMTHU…, ZZ…), rồi TRUNCATE … CASCADE ~40 bảng với session_replication_role=replica. Chạy trên máy có container DB.",
    "khoi": null,
-   "chay_o": "không rõ",
+   "chay_o": "Máy có Docker daemon và quyền gọi container DB đích (ví dụ VPS prod/staging hoặc stack dev local); script dùng Docker của máy đang chạy lệnh.",
    "ghi_prod": true,
    "nguy_hiem": "Chốt mẫu mã hiện chặn được (prod có khách thật). Nếu chốt lọt: TRUNCATE CASCADE lan sang mọi bảng tham chiếu (kho, chỉ định, hoá đơn…) và xoá luôn work_roster / work_session (lịch trực).",
    "ham_chinh": [],
    "luat": [
     {
      "dong": 57,
-     "noi_dung": "Còn một hồ sơ không khớp mẫu thử là DỪNG, không xoá gì."
-    },
-    {
-     "dong": 39,
-     "noi_dung": "KHÔNG thêm mẫu mã mà ứng dụng tự sinh (BN-<năm>-…)."
+     "noi_dung": "Nếu còn ít nhất một bệnh nhân không khớp mẫu thử đã biết thì dừng trước lệnh dọn."
     }
    ],
    "bay": [
     {
+     "dong": 50,
+     "noi_dung": "Danh sách mẫu thử là whitelist trong SQL; chỉ thêm mã chắc chắn do fixture/seed tạo, không thêm định dạng mã mà ứng dụng sinh cho bệnh nhân thật."
+    },
+    {
      "dong": 75,
-     "noi_dung": "session_replication_role=replica tắt mọi trigger kể cả kiểm khoá ngoại."
+     "noi_dung": "session_replication_role=replica tắt trigger do người dùng tạo, gồm trigger khóa ngoại; transaction chỉ bảo đảm đặt lại khi COMMIT/ROLLBACK thành công."
     },
     {
      "dong": 102,
-     "noi_dung": "TRUNCATE … CASCADE — danh sách bảng cũ, CASCADE xoá lan bảng mới không ai liệt kê."
+     "noi_dung": "TRUNCATE ... CASCADE có thể xoá lan các bảng tham chiếu ngoài danh sách; cần rà quan hệ mới trước khi mở rộng danh sách."
     },
     {
      "dong": 98,
-     "noi_dung": "Xoá cả lịch trực work_roster — ngược với don_data_khach.sql (giữ lịch trực)."
+     "noi_dung": "Danh sách truncate gồm work_roster/work_session/work_session_staff, tức lịch trực thử cũng bị xoá."
     }
    ],
    "muon_sua": [],
@@ -4855,12 +4924,12 @@
    "ham_chinh": [],
    "luat": [
     {
-     "dong": 52,
-     "noi_dung": "Tắt trigger theo TÊN, không dùng DISABLE TRIGGER USER hay replica."
+     "dong": 68,
+     "noi_dung": "Chỉ tắt đúng năm trigger chống xoá nêu trong bảng, không dùng DISABLE TRIGGER USER hay replica."
     },
     {
-     "dong": 139,
-     "noi_dung": "Gắn lại ràng buộc đúng dạng NOT VALID."
+     "dong": 140,
+     "noi_dung": "Gắn lại appointment_huy_phai_co_ly_do ở dạng NOT VALID."
     }
    ],
    "bay": [
@@ -4889,17 +4958,34 @@
    ]
   },
   "scripts/maintenance/enable_realtime_dynamic_tables.sql": {
-   "lam_gi": "ĐÃ CHẾT theo CLAUDE.md (Supabase Realtime / publication supabase_realtime đã bỏ từ 27/09): thêm 18 bảng động vào publication supabase_realtime và đặt REPLICA IDENTITY FULL. Nhắc project fzw/atf của Supabase cloud cũ.",
+   "lam_gi": "SQL lịch sử để bật Supabase Realtime cho các bảng động: chỉ thêm bảng đang tồn tại nhưng chưa có trong publication, rồi đặt REPLICA IDENTITY FULL. Không dùng cho hệ thống hiện tại vì kênh Realtime đã bỏ.",
    "khoi": null,
    "chay_o": "không rõ",
    "ghi_prod": true,
    "nguy_hiem": "Chạy nhầm vào DB prod (wal_level=logical, Realtime còn chạy): thêm bảng vào publication + REPLICA IDENTITY FULL → mỗi UPDATE/DELETE ghi cả dòng cũ vào WAL, phình WAL/đĩa — trong khi kênh thời gian thực thật là LISTEN/NOTIFY.",
    "ham_chinh": [],
-   "luat": [],
-   "bay": [
+   "luat": [
+    {
+     "dong": 34,
+     "noi_dung": "Duyệt các tên bảng trong danh sách; bảng chưa tồn tại hoặc đã có trong publication sẽ bị bỏ qua."
+    },
+    {
+     "dong": 43,
+     "noi_dung": "Chỉ bảng có mặt trong schema public và chưa thuộc publication mới được thêm vào supabase_realtime."
+    },
     {
      "dong": 46,
-     "noi_dung": "REPLICA IDENTITY FULL đổi lược đồ ngoài migration (vi phạm luật 'chỉ qua migration')."
+     "noi_dung": "Sau khi thêm bảng vào publication, đặt REPLICA IDENTITY FULL để dữ liệu cũ có mặt trong sự kiện."
+    }
+   ],
+   "bay": [
+    {
+     "dong": 39,
+     "noi_dung": "Nếu bảng đã có trong publication, cả lệnh đặt REPLICA IDENTITY FULL bên trong nhánh cũng bị bỏ qua; script không sửa identity đã thiếu."
+    },
+    {
+     "dong": 46,
+     "noi_dung": "REPLICA IDENTITY FULL đổi cấu hình ngoài migration; hệ thống hiện đã bỏ Supabase Realtime."
     }
    ],
    "muon_sua": [],
@@ -4914,7 +5000,7 @@
   "scripts/undo-roster-fixture.sh": {
    "lam_gi": "Việc một lần đời 07–08/2026: xoá 35 dòng staff do supabase/fixtures/clinic_roster.sql tạo nhầm trên prod (id tiền tố d0000000-…), sau khi kiểm không có tham chiếu nghiệp vụ. Mặc định thử.",
    "khoi": null,
-   "chay_o": "không rõ",
+   "chay_o": "Máy có psql và kết nối tới DATABASE_URL trong tệp ENV_FILE (mặc định .env.prod); script mặc định nhắm DB production.",
    "ghi_prod": true,
    "nguy_hiem": "--apply XOÁ CỨNG staff + membership + staff_capability có id dạng fixture trên DB mà .env.prod trỏ tới.",
    "ham_chinh": [],
@@ -4939,12 +5025,7 @@
     }
    ],
    "muon_sua": [],
-   "comment_cu": [
-    {
-     "dong": 6,
-     "vi_sao": "Kể sự cố 06/2026–08/2026 — lịch sử."
-    }
-   ],
+   "comment_cu": [],
    "chua_chac": [
     "Nên gỡ — việc đã xong."
    ]
@@ -5192,12 +5273,8 @@
    "ham_chinh": [],
    "luat": [
     {
-     "dong": 11,
-     "noi_dung": "Viết lại luật hoá đơn (bill_service.hoa_don_con_no) bằng SQL thuần."
-    },
-    {
      "dong": 156,
-     "noi_dung": "Đối tác tự thu (EXTERNAL_PARTNER) không tính nợ."
+     "noi_dung": "Chỉ định do đối tác tự thu không được cộng vào khoản nợ của phòng khám."
     }
    ],
    "bay": [
@@ -6182,7 +6259,7 @@
    "khoi": null,
    "chay_o": "Mac dev",
    "ghi_prod": false,
-   "nguy_hiem": "DSN viết cứng 127.0.0.1:54322 — trên VPS đó là cổng DB PROD (chỉ hỏng vì khác mật khẩu).",
+   "nguy_hiem": "DSN cố định 127.0.0.1:54322; script tạo clinic và dữ liệu test rồi xoá các dòng đó trên database đang nghe cổng này, không xác minh project. Stack dev-up hiện dùng cổng 54422.",
    "ham_chinh": [
     {
      "ten": "main",
@@ -6194,7 +6271,7 @@
    "bay": [
     {
      "dong": 26,
-     "noi_dung": "Dựa Supabase CLI (npx supabase start) — stack thử nay là dev-up.sh cổng 54422."
+     "noi_dung": "Tài liệu hướng dẫn chạy bằng Supabase CLI, nhưng DSN bị ghim ở 54322 và không khớp stack dev-up dùng 54422."
     }
    ],
    "muon_sua": [],
@@ -6211,7 +6288,7 @@
   "scripts/tests/buoi-kham-that.py": {
    "lam_gi": "Một buổi khám thật đo từng chặng: đăng nhập GoTrue nhiều vai, gọi thẳng FastAPI, tạo khách/lịch/lượt mang dấu [e2e], đo ms; `--rollback` huỷ/đóng phần đã mở. Tài khoản đọc từ TK_<vai> — chạy được cả trên máy chủ thật.",
    "khoi": null,
-   "chay_o": "không rõ",
+   "chay_o": "Mac dev mặc định; biến môi trường có thể trỏ API/Supabase khác",
    "ghi_prod": true,
    "nguy_hiem": "Trỏ vào prod (TK_* là người thật) thì tạo khách/lịch/lượt [e2e] trong DB prod; không xoá cứng được, chỉ huỷ/đóng.",
    "ham_chinh": [
@@ -6329,7 +6406,7 @@
   "scripts/tests/ngoai-le.py": {
    "lam_gi": "Nhóm ngoại lệ SC-08..12, 28: huỷ lịch, không đến, đổi ý về, đặt ngày khác, ra ngoài quay lại, đến muộn — kiểm số lượt sinh ra; `--rollback` dọn theo vết.",
    "khoi": null,
-   "chay_o": "không rõ",
+   "chay_o": "Mac dev mặc định; có thể trỏ API/Supabase khác bằng biến môi trường",
    "ghi_prod": true,
    "nguy_hiem": "Chạy vào prod tạo khách/lịch/lượt [ngoại] thật.",
    "ham_chinh": [
@@ -6353,7 +6430,7 @@
   "scripts/tests/tao-khach-de-thao-tac.py": {
    "lam_gi": "Dựng 20 khách ở đủ trạng thái (chờ check-in, đã đo, đang khám, có đơn thuốc chờ thu…) qua API THẬT để người thật bấm thử; DỰNG RỒI ĐỂ ĐẤY, không dọn.",
    "khoi": null,
-   "chay_o": "không rõ",
+   "chay_o": "Mac dev mặc định; biến môi trường có thể trỏ API/Supabase khác",
    "ghi_prod": true,
    "nguy_hiem": "Trỏ vào prod là thêm 20 khách tên người Việt như thật (không dấu thử), có lịch/đơn/thu — lẫn vào dữ liệu thật và báo cáo tiền.",
    "ham_chinh": [
@@ -6365,8 +6442,8 @@
    ],
    "luat": [
     {
-     "dong": 8,
-     "noi_dung": "Đi qua API thật, không nhét DB."
+     "dong": 232,
+     "noi_dung": "Tạo hồ sơ khách bằng POST /api/v1/patients qua API; không chèn trực tiếp vào database."
     }
    ],
    "bay": [
@@ -6384,7 +6461,7 @@
    "chua_chac": []
   },
   "scripts/tests/khach-gia-luong-chuan.py": {
-   "lam_gi": "Một khách giả [khach-gia] đi 11 bước luồng chuẩn bằng cách gọi thẳng service Python (không qua HTTP), in sự kiện mới + bên nhận, sổ event_log cũ, và các node đang thấy khách — để tìm bước chưa thành lego.",
+   "lam_gi": "Dựng một khách giả theo luồng chuẩn 11 bước, kèm pha check-out và hôm sau làm thủ thuật; gọi trực tiếp các dịch vụ Python. Chỉ cho DATABASE_URL localhost.",
    "khoi": null,
    "chay_o": "Mac dev",
    "ghi_prod": false,
