@@ -3,6 +3,41 @@
  "ds": [
   {
    "trang_thai": "dung",
+   "tep": "scripts/day-sao-luu-len-viettel-storage.sh",
+   "dong": 45,
+   "tieu_de": "Đẩy sao lưu lên ổ Viettel chọn nhầm tệp notion → dừng mỗi đêm, systemd nuốt lỗi",
+   "chi_tiet": "backup-db.sh ghi X_lich_su_notion.sql.gz sau cùng; script chỉ loại _auth nên tìm X_lich_su_notion_auth không có → dừng; ExecStart=- nuốt lỗi. Bản kéo về Mac vẫn tốt (21/10, 16 giờ tuổi). ĐÃ SỬA ở nhánh claude/sua-chon-ban-sao (5 script, hàm chung). Cần xem journal VPS để biết hỏng từ bao giờ."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/ci-may.sh",
+   "dong": 116,
+   "tieu_de": "CI máy bỏ qua cả thư mục test integration",
+   "chi_tiet": "--ignore=src/tests/integration: 4 tệp (bệnh nhân, đặt lịch, nhân sự, RabbitMQ) không bao giờ chạy; một tệp còn gọi route đã gỡ. Cần quyết: chạy lại / sửa / xoá."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/kim-nguu-3-tang-2709.py",
+   "dong": 42,
+   "tieu_de": "Script cũ chạy --that sẽ XOÁ cơ sở Hào Nam (cơ sở duy nhất đang đón khách)",
+   "chi_tiet": "XOA = ('Phòng khám Dr4Women', 'Hào Nam'). Tự ghi ĐÃ CŨ nhưng vẫn chạy được. Nên xoá khỏi repo hoặc chặn chạy."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/tests/services/test_thai_ky_db.py",
+   "dong": 95,
+   "tieu_de": "Thai kỳ đã có kết cục thì khoá cứng, không hoàn tác được",
+   "chi_tiet": "Trái mục 7 CLAUDE.md (mọi thao tác hoàn tác được). HỎI TUYỀN: chủ ý?"
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/tests/services/test_xu_ly_thuoc_tra_db.py",
+   "dong": 166,
+   "tieu_de": "Quyết định xử lý thuốc khách trả khoá cứng, không đổi lại được",
+   "chi_tiet": "Trái mục 7 CLAUDE.md. HỎI TUYỀN: chủ ý?"
+  },
+  {
+   "trang_thai": "dung",
    "tep": "src/clinicai/api/v1/routers/queue.py",
    "dong": 104,
    "tieu_de": "Hàng chờ lấy 'hôm nay' theo đồng hồ máy chủ, không theo giờ VN",

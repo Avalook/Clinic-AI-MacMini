@@ -1665,12 +1665,30 @@ def du_lieu_hieu() -> dict[str, object]:
             cu["cot"].update(x.get("cot") or {})  # type: ignore[attr-defined]
             cu["rang_buoc"] += x.get("rang_buoc") or []  # type: ignore[operator]
     the = {f.stem: json.loads(doc(f)) for f in sorted((HIEU / "khoi").glob("*.json"))}
+    # Ghi chú test: tệp test canh luật nào của tệp code nào → "test canh tệp này".
+    ghi_test: dict[str, dict[str, object]] = {}
+    for f in sorted((HIEU / "test").glob("*.json")):
+        ghi_test.update(json.loads(doc(f)).get("tep") or {})
+    test_cua: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for tt, g in ghi_test.items():
+        for c in g.get("canh") or []:  # type: ignore[attr-defined]
+            for tc in c.get("tep_code") or []:
+                test_cua[str(tc)].append(
+                    {
+                        "tep": tt,
+                        "test": c.get("test"),
+                        "dong": c.get("dong"),
+                        "luat": c.get("luat"),
+                    }
+                )
     tq = HIEU / "tong-quan.json"
     return {
         "ghi_chu": ghi,
         "bang_hieu": bang,
         "the_khoi": the,
         "tong_quan": json.loads(doc(tq)) if tq.exists() else None,
+        "ghi_test": ghi_test,
+        "test_cua": test_cua,
     }
 
 
@@ -1798,6 +1816,49 @@ def sinh_html(nc: NguCanhMan) -> str:
                 "dong": x["dong"],
             }
         )
+    # Kiểm toán prod 19–20/10 (545 mục, đọc trên bản prod 956ba4f2 — dòng có thể lệch).
+    kt = HIEU / "kiem-toan-1910.json"
+    for x in (json.loads(doc(kt)).get("ds") or []) if kt.exists() else []:
+        cua = x["tep"].removeprefix("src/clinicai/")
+        du_lieu["van_de"].append(  # type: ignore[union-attr]
+            {
+                "loai": "kiem_toan",
+                "muc": x["muc"],
+                "khoi": cua_tep.get(cua, "?"),
+                "tieu_de": f"[{x['ma']}] {x['tieu_de']}",
+                "chi_tiet": f"{x['chi_tiet']} — Hệ quả: {x['tac_dong']}".strip(" —"),
+                "tep": x["tep"],
+                "dong": x["dong"],
+            }
+        )
+    # Test canh hời hợt / kiểm giả (đọc kỹ test 21/10).
+    for tt, g in du_lieu["ghi_test"].items():  # type: ignore[union-attr]
+        for x in g.get("yeu") or []:
+            du_lieu["van_de"].append(  # type: ignore[union-attr]
+                {
+                    "loai": "test_yeu",
+                    "muc": "thap",
+                    "khoi": g.get("khoi") or "?",
+                    "tieu_de": f"Test canh hời hợt ở {Path(tt).name}",
+                    "chi_tiet": x.get("noi_dung", ""),
+                    "tep": tt,
+                    "dong": x.get("dong", 0),
+                }
+            )
+    # Script ghi prod mà chạy sai thì hỏng (đọc kỹ vận hành 21/10).
+    for tep, g in du_lieu["ghi_chu"].items():  # type: ignore[union-attr]
+        if g.get("ghi_prod") and g.get("nguy_hiem"):
+            du_lieu["van_de"].append(  # type: ignore[union-attr]
+                {
+                    "loai": "van_hanh",
+                    "muc": "vua",
+                    "khoi": "?",
+                    "tieu_de": f"Script ghi prod: {Path(tep).name} ({g.get('chay_o', '')})",
+                    "chi_tiet": str(g["nguy_hiem"]),
+                    "tep": tep,
+                    "dong": 0,
+                }
+            )
     # Ghi chú tệp sinh thêm vấn đề: comment lỗi thời, luật nghiệp vụ nằm trong TSX.
     for tep, g in du_lieu["ghi_chu"].items():  # type: ignore[union-attr]
         for x in g.get("comment_cu") or []:

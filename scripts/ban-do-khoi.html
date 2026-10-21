@@ -252,6 +252,10 @@ const GHI = D.ghi_chu || {};
 const BANG_HIEU = D.bang_hieu || {};
 const THE_KHOI = D.the_khoi || {};
 const TQ = D.tong_quan;
+const GHI_TEST = D.ghi_test || {};
+const TEST_CUA = D.test_cua || {};
+// Tệp test cũng mở được khung chi tiết: gộp vào GHI dưới dạng ghi chú test.
+for (const [t, g] of Object.entries(GHI_TEST)) if (!GHI[t]) GHI[t] = { ...g, la_test: true };
 const TEP_CUA_KHOI = {};
 for (const [t, g] of Object.entries(GHI)) if (g.khoi) (TEP_CUA_KHOI[g.khoi] = TEP_CUA_KHOI[g.khoi] || []).push(t);
 
@@ -267,7 +271,7 @@ const LOAI_VD = {
   bang_chua_chu: ["Bảng chưa có chủ", ""], quyen: ["Quyền", "do"],
   luat_tsx: ["Giao diện tự quyết", "cam"], comment_cu: ["Comment cũ", ""],
   phat_hien_dung: ["Đã kiểm: có thật", "do"], phat_hien_can_soat: ["Đã kiểm: cần soát tiếp", "vang"],
-  phat_hien_sai: ["Đã kiểm: báo oan", ""], phat_hien_chu_y: ["Đã kiểm: chủ ý (Tuyền chốt)", "xanh"],
+  kiem_toan: ["Kiểm toán 19–20/10", "vang"], test_yeu: ["Test canh hời hợt", ""], van_hanh: ["Script ghi prod", "cam"], phat_hien_sai: ["Đã kiểm: báo oan", ""], phat_hien_chu_y: ["Đã kiểm: chủ ý (Tuyền chốt)", "xanh"],
 };
 const MUC = { cao: "Cao", vua: "Vừa", thap: "Thấp" };
 
@@ -643,6 +647,11 @@ function chiTietTep(f) {
     (g.cu ? `<p class="canh-bao-the">Tệp đã đổi sau lần đọc kỹ — ghi chú có thể cũ, đối chiếu code trước khi tin.</p>` : "") +
     (g.sai_dong && g.sai_dong.length ? `<p class="canh-bao-the">Có số dòng vượt độ dài tệp (${g.sai_dong.join(", ")}) — ghi chú lệch.</p>` : "") +
     `<div class="the-hieu"><p>${e(g.lam_gi)}</p>${g.khoi ? `<div class="chips">${chipKhoi(g.khoi)}</div>` : ""}</div>` +
+    (g.chay_o ? `<p class="goi-y">Chạy ở: <b>${e(g.chay_o)}</b>${g.ghi_prod ? ' · <span class="nhan do">GHI PROD</span>' : ""}</p>` : "") +
+    (g.nguy_hiem ? `<p class="canh-bao-the">Chạy sai thì: ${e(g.nguy_hiem)}</p>` : "") +
+    ((g.canh || []).length ? muc(`Bài test canh luật (${g.canh.length})`, g.canh.map(c => dongLuat(f, { dong: c.dong, noi_dung: `${c.test} — ${c.luat}` })).join("")) : "") +
+    ((g.yeu || []).length ? muc(`Test hời hợt (${g.yeu.length})`, ds("yeu", x => dongLuat(f, x))) : "") +
+    ((TEST_CUA[f] || []).length ? muc(`Test canh tệp này (${TEST_CUA[f].length})`, xemThem(TEST_CUA[f], c => dongLuat(c.tep, { dong: c.dong, noi_dung: `${c.luat} (${c.test})` }), 8)) : "") +
     ((g.luat || []).length ? muc(`Luật nghiệp vụ (${g.luat.length})`, ds("luat", x => dongLuat(f, x))) : "") +
     ((g.ham_chinh || []).length ? muc(`Hàm chính (${g.ham_chinh.length})`, ds("ham_chinh", x => dongLuat(f, { dong: x.dong, noi_dung: `${x.ten} — ${x.lam_gi}` }))) : "") +
     ((g.muon_sua || []).length ? muc("Muốn sửa gì thì vào đâu", ds("muon_sua", x => `<div class="dong-luat"><div><b>${e(x.viec)}</b> — ${e(x.cho)}</div></div>`)) : "") +
