@@ -82,12 +82,12 @@
   },
   {
    "ma": "D14b",
-   "ten": "Đã check-out nhưng bác sĩ chưa ký bệnh án (quá 2 ngày)",
+   "ten": "Đã check-out, visit chưa FINALIZED (KHÔNG phải 'chưa ký')",
    "so": 435,
-   "muc": "vua",
+   "muc": "thap",
    "khoi": "consultation",
    "tep": "src/clinicai/services/checkout_service.py",
-   "nghia": "435 bệnh án chưa ký (visit chưa FINALIZED) dù khách đã về. Check-out cố ý không ký thay bác sĩ (TT13/2011). HỎI TUYỀN: có bắt bác sĩ ký không — nếu có thì đây là việc tồn đọng cần màn nhắc ký."
+   "nghia": "Bình thường theo luật hiện tại: bước 'Ký bệnh án' đã NGHỈ 23/09/2026 (clinical_sign.py:62, trả 410) — mốc khoá là bác sĩ bấm Hoàn tất / Khám xong = visit.exam_completed_at; FINALIZED giờ chỉ còn ở dữ liệu cũ nhập từ Notion. Số 'khách đã về mà bác sĩ CHƯA Hoàn tất khám' thật: kiem-du-lieu-prod-3.sql (K1)."
   },
   {
    "ma": "D15",
