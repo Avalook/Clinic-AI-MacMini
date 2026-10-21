@@ -1,6 +1,43 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **21/10/2026** — mục "21/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **21/10/2026 khuya** — hai mục "21/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 21/10/2026 tối–khuya — BẢN ĐỒ HIỂU HỆ THỐNG + VẾT ĐỔI GIÁ + SỬA LỖI BẢN ĐỒ TÌM RA
+
+**Không đụng VPS / prod / staging.** Mọi thứ nằm trên PR chưa merge. Soát dữ liệu prod
+chỉ đếm: Tuyền tự chạy 3 lượt `docs/ban-do/hieu/kiem-du-lieu-prod*.sql` (nhánh #521).
+
+| PR | Việc | Trạng thái |
+|---|---|---|
+| #517 | bản đồ v2: khối lego nối dây (sự kiện, trigger ngầm, liên kết bảng), tô đỏ chỗ chưa lego/chưa sự kiện (chồng #516) | CI xanh, chờ merge sau #516 |
+| #521 | lớp "hiểu" (chồng #517): ghi chú 1.139 tệp code + 816 tệp test + 134 script, 183 bảng, **250/250 hàm/view SQL**, 36 thẻ khối, 545 phát hiện kiểm toán, 21 phát hiện đã kiểm tay; `scripts/ban-do-doc-lai.py` đọc lại qua AVIS | @75d34305: CI máy xanh 23:26; lượt `--bao-github` 23:30 **đỏ giả** (họ test lịch hẹn rơi sang ngày mai) → chạy lại ban ngày |
+| #519 → #520 | ghi vết đổi giá dịch vụ + giá thuốc; "sửa lần cuối" dưới dòng giá + nút Lịch sử. Giá lúc thu giữ như cũ | Tuyền: "khoan staging, đọc diff trước" |
+| #522 | lệch ngày 0h–7h (4 chỗ dùng giờ máy chủ), nhóm quyền đã tắt vẫn thêm nhanh được; luật chung đầu `hoan_tac_service` ghi khớp "mở lại lượt KHÔNG hỏi lý do" | chờ duyệt |
+| #523 | **Mức 3** — sao lưu Viettel chọn nhầm tệp `_lich_su_notion` (TIỀM ẨN: VPS chưa sinh tệp notion); chặn script `kim-nguu-3-tang` (xoá Hào Nam) | chờ duyệt |
+
+Thứ tự merge: #511 → #513 → #514 → #516 → #517 → #521; #519 → #520; #522; #523.
+
+**Soát prod 21/10 (chỉ đếm):** 15/18 bất biến = 0 (lỗi #522 chưa từng xảy ra trên prod).
+Việc DỮ LIỆU Tuyền làm trên màn: 25 lượt treo thật (21 đã thu) cần check-out; 51 lịch
+còn CONFIRMED phải đánh dấu không đến; 46 lô lệch đơn vị (cần đợt kho 17/10 lên prod
+trước). "435 chưa FINALIZED" KHÔNG phải chưa ký — bước Ký bệnh án đã nghỉ 23/09
+(`clinical_sign.py` trả 410), mốc khoá là Hoàn tất khám (`visit.exam_completed_at`);
+0 lượt về mà chưa Hoàn tất (442/445 tháng 10) → **chưa cần màn nhắc** (chờ Tuyền chốt bỏ).
+
+**Chờ Tuyền quyết nghiệp vụ:** giá tái khám (chỉ có ở `dong_kham`, không ai dùng); bỏ
+tick phí khám đã thu thành tiền thừa; khoá cứng thai kỳ / thuốc trả có chủ ý không; 4
+tệp test integration CI bỏ qua (`ci-may.sh:116`); trang `/traffic` giữ hay gỡ.
+
+**Dùng bản đồ:** `python3 scripts/ban-do-code.py --html` rồi mở `.ban-do/index.html`
+(hoặc preview `ban-do-web` cổng 8790). Tệp/hàm đổi sau lần đọc → cờ "ghi chú cũ"; đọc
+lại bằng `python3 scripts/ban-do-doc-lai.py` (mặc định tệp code, `--sql` hàm SQL,
+`--soat` lượt vá) rồi `--dong-dau`. Chỉ tin phát hiện trong `phat-hien.json`; ghi chú
+máy viết vẫn phải đối chiếu code trước khi sửa tiền/kho/quyền.
+
+**Bẫy tối nay (đã ghi memory):** đổi worktree khi agent nền đang ghi = khoá agent;
+AVIS lượt đầu bỏ sót nhánh ngoại lệ → luôn `--soat`; CI máy sau ~23:30 và đêm đỏ giả
+→ chạy 08:00–23:00. **Khoá AVIS Tuyền dán vào chat → nên đổi khoá**; khoá chỉ nằm ở
+`~/.clinicai-avis.env` (ngoài repo).
 
 ## 21/10/2026 — DỌN REPO + KIỂM EVENT-DRIVEN / LEGO + BẢN ĐỒ THEO KHỐI (Claude, Tuyền duyệt từng bước)
 
