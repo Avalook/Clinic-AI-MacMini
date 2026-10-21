@@ -1,0 +1,39 @@
+{
+  "tom_tat": "Khối Điều trị lo phần 'làm' trong hồ sơ khám ở Bàn khám: (1) khách có lịch ĐIỀU TRỊ vào hàng thì tự có sẵn chỉ định đúng dịch vụ đã đặt; (2) thẻ chỉ định điều trị với nút [Làm tại bàn khám] → [Xong] và hoàn tác, kèm phiếu điều trị và dải liệu trình; (3) lượt Thủ thuật chọn '＋ Thủ thuật đã làm'; (4) đổi dịch vụ khám ngay trong hồ sơ; (5) ô ghi chú tự do của lượt nhóm 'Khác'. Người dùng là bác sĩ / thư ký / điều dưỡng có quyền y khoa (hoặc dispatch.manage) ở hồ sơ khám (KhoiDieuTri.tsx, ChonThuThuatBanKham.tsx, KhoiDichVuHoSo.tsx, GhiChuLuot.tsx). Bảng riêng của khối chỉ có `luot_ghi_chu`; chỉ định là `service_order` của khối Chỉ định, lần làm là `service_execution_attempt` của khối Thực hiện — khối này gọi lệnh của họ. Theo TEP_CUA_KHOI khối chỉ có ghi_chu_luot.py; phần sinh chỉ định chạy ở bên nghe sự kiện `dieu_tri_sinh_chi_dinh` (events/consumers/dieu_tri.py), phần thẻ ở services/dieu_tri_ban_kham.py (chưa khai khối).",
+  "luong": [
+    "Bước 1: Khách có lịch điều trị check-in; khối Hành trình mở phiên khám và phát `visit.routed`.",
+    "Bước 2: bên nghe `dieu_tri_sinh_chi_dinh` gọi `sinh_chi_dinh_dieu_tri`: lượt còn mở, loại khám nhóm DIEU_TRI, chưa có chỉ định cùng mã còn sống → tạo một service_order bình thường (authorized, khách còn chờ chọn PENDING, chưa xếp phòng UNASSIGNED) gắn phiên khám, phát sự kiện chỉ định. Phát lại thì bỏ qua; chạy hai lần vẫn một chỉ định.",
+    "Bước 3: bác sĩ mở hồ sơ khám → GET /ho-so-kham/{visit}/dieu-tri (`doc_the`) dựng thẻ cho từng chỉ định làm-được-tại-bàn-khám: trạng thái, Đã thu/Chưa thu, nút nào bật (lam_duoc, xong_duoc…), phiếu điều trị.",
+    "Bước 4: bấm [Làm tại bàn khám] → POST …/dieu-tri/{order}/lam → `thao_tac` chuyển sang lệnh StartServiceAtDesk của khối Thực hiện (kèm expected_execution_revision + attempt_id để hai nơi không cùng làm). Nút chỉ mở khi cửa tiền mở: đã thu hoặc đã tick 'Làm trước – thu sau'.",
+    "Bước 5: điền phiếu điều trị (không tính là đã làm), rồi bấm [Xong] → CompleteServiceAtDesk. Bấm nhầm thì 'huy-lam' (CancelDeskStart) hoặc 'hoan-tac-xong' (UndoDeskCompletion).",
+    "Bước 6 (lượt Thủ thuật): chọn thủ thuật đã làm → `chon_thu_thuat` tạo chỉ định thật rồi Bắt đầu tại bàn khám ngay; cửa tiền chặn thì chỉ định vẫn giữ, trả lý do.",
+    "Bước 7 (khi cần): đổi dịch vụ khám ngay trong hồ sơ → POST /ho-so-kham/{visit}/doi-dich-vu → ho_so_dich_vu.doi → BookingService.doi_dich_vu_kham(trong_ho_so=True); phiếu đang ghi không mất, hiện thành 'Phiếu cũ'.",
+    "Bước 8 (lượt nhóm Khác): gõ ô ghi chú tự do → tự lưu sau 1,2 giây → PUT /ho-so-kham/{visit}/ghi-chu (`ghi_chu_luot.luu`) thêm một phiên bản mới vào luot_ghi_chu."
+  ],
+  "luu_y": [
+    "Dịch vụ được làm tại bàn khám: dịch vụ ĐIỀU TRỊ (dịch vụ mà loại khám nhóm DIEU_TRI trỏ tới) ở mọi lượt; dịch vụ THỦ THUẬT chỉ khi lượt là lượt Thủ thuật — lượt khám thường kê thủ thuật vẫn đi phòng.",
+    "Cửa tiền dùng CHUNG với phòng (`cua_tien_chot_ho`) và thẻ tính tiền như thể khách đã chọn (gia_su_chon=True) — phải cùng giả định với lệnh Bắt đầu, lệch là nút sáng mà lệnh từ chối.",
+    "Lượt đã check-out hoặc không còn OPEN/IN_PROGRESS (kể cả INCOMPLETE, FINALIZED) → thẻ chỉ đọc, mọi lệnh bị từ chối. Sinh chỉ định tự động cũng không chạy cho lượt đã đóng (tránh 'nợ ảo' — chỉ định chưa thu cho lượt đã về).",
+    "Sinh chỉ định cần có phiên khám (bác sĩ chính trước) và một người đứng tên (người bấm / người check-in / bác sĩ phụ trách); thiếu thì chỉ ghi log cảnh báo, không tạo — khách sẽ không có chỉ định sẵn.",
+    "Đổi dịch vụ trong hồ sơ dễ hơn ở dòng lịch hẹn: đã bắt đầu khám, đã có phiếu, đã thu tiền khám, đã tick dịch vụ con vẫn đổi được (chênh tiền theo luật tiền thừa / nợ); chỉ lượt đã check-out hoặc chưa mở là không. Lượt không gắn lịch hẹn → không đổi ở đây.",
+    "Ghi chú lượt: chỉ thêm, không sửa dòng cũ (trigger chặn); mỗi lượt không trùng số phiên bản (ràng buộc DB). Ví dụ A mở bản 3, B lưu bản 4, A lưu → 409 và màn nạp bản 4 — chữ A vừa gõ mà chưa lưu bị MẤT khỏi màn. Gửi y hệt bản mới nhất thì không đẻ phiên bản. Tối đa 20.000 ký tự. Chỉ ghi khi lượt OPEN/IN_PROGRESS.",
+    "Idempotency-Key trên thẻ điều trị và chọn thủ thuật sinh MỚI mỗi lần bấm — bấm lại sau mất mạng có thể tạo chỉ định thứ hai; chống trùng thật chỉ dựa vào expected_execution_revision. Máy chủ có chặn chọn trùng thủ thuật không thì chưa rõ, chỉ thấy màn chặn.",
+    "Lệnh ở đường /dieu-tri/{order}/{lenh} là chuỗi tự do (lam / xong / huy-lam / hoan-tac-xong) — service phải tự từ chối lệnh lạ.",
+    "Ghi chép lệch khai báo: dieu_tri_ban_kham.py (thẻ, chọn thủ thuật) chưa nằm trong TEP_CUA_KHOI (ghi chú xếp nó vào execution); bên nghe dieu_tri.py gọi sinh_chi_dinh_dieu_tri nằm ở ho_so_dich_vu.py (khối service_order) và ghi service_order. Phần ghi của DoiDichVuTrongHoSo thực chất ở BookingService (khối booking), không phải doi_dich_vu_kham.py như ghi chú KhoiDichVuHoSo nói."
+  ],
+  "muon_sua": [
+    {"viec": "đổi dịch vụ nào được làm tại bàn khám", "cho": "ma_ban_kham_sql (và MA_DIEU_TRI_SQL dòng 54)", "tep": "src/clinicai/services/dieu_tri_ban_kham.py", "dong": 78},
+    {"viec": "đổi khi nào nút [Làm tại bàn khám] mở (cửa tiền, phòng)", "cho": "doc_the — lam_duoc lấy từ cua_tien_chot_ho", "tep": "src/clinicai/services/dieu_tri_ban_kham.py", "dong": 272},
+    {"viec": "đổi nhãn trạng thái thẻ điều trị", "cho": "từ điển NHAN và hàm trang_thai_the (màu ở TONE trong KhoiDieuTri.tsx dòng 63)", "tep": "src/clinicai/services/dieu_tri_ban_kham.py", "dong": 192},
+    {"viec": "đổi luật chọn '＋ Thủ thuật đã làm' (lượt nào, bắt đầu ngay hay không)", "cho": "chon_thu_thuat", "tep": "src/clinicai/services/dieu_tri_ban_kham.py", "dong": 362},
+    {"viec": "thêm / đổi lệnh trên thẻ (lam, xong, huy-lam, hoan-tac-xong)", "cho": "thao_tac — chuyển sang ServiceExecutionService", "tep": "src/clinicai/services/dieu_tri_ban_kham.py", "dong": 431},
+    {"viec": "đổi luật tự sinh chỉ định khi khách điều trị vào hàng", "cho": "sinh_chi_dinh_dieu_tri — điều kiện lượt mở, trùng mã, chọn phiên khám, người đứng tên", "tep": "src/clinicai/services/ho_so_dich_vu.py", "dong": 183},
+    {"viec": "đổi luật được đổi dịch vụ khám trong hồ sơ", "cho": "ly_do_khong_doi — nhánh trong_ho_so", "tep": "src/clinicai/services/doi_dich_vu_kham.py", "dong": 82},
+    {"viec": "đổi ai được đổi dịch vụ trong hồ sơ / ghi ghi chú lượt", "cho": "QUYEN_DOI_TRONG_HO_SO (quyền y khoa + dispatch.manage)", "tep": "src/clinicai/services/doi_dich_vu_kham.py", "dong": 40},
+    {"viec": "đổi khi nào ô ghi chú tự do hiện", "cho": "hien_o_ghi_chu — nhóm KHAC hoặc đã có chữ", "tep": "src/clinicai/services/ghi_chu_luot.py", "dong": 51},
+    {"viec": "đổi độ dài tối đa ghi chú lượt", "cho": "hằng DAI_TOI_DA = 20000", "tep": "src/clinicai/services/ghi_chu_luot.py", "dong": 29},
+    {"viec": "đổi trạng thái lượt còn ghi được ghi chú / luật chống đè 409", "cho": "luu — kiểm lượt OPEN/IN_PROGRESS rồi so phiên bản", "tep": "src/clinicai/services/ghi_chu_luot.py", "dong": 138},
+    {"viec": "giữ lại chữ đang gõ khi bị 409, hoặc đổi nhịp tự lưu", "cho": "CHO_LUU_MS = 1200; nhánh 409 ở dòng 88", "tep": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx", "dong": 17},
+    {"viec": "đổi khi nào dùng phiếu điều trị 2 ô thay phiếu kết quả chung", "cho": "điều kiện mau_chon_san === MAU_PHIEU_DIEU_TRI || !ghiPhieu", "tep": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KhoiDieuTri.tsx", "dong": 287}
+  ]
+}

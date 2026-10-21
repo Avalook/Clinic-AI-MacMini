@@ -1,0 +1,44 @@
+{
+  "tom_tat": "Khối Chuông lo cái chuông thông báo trên thanh trên cùng của mọi màn: khi có kết quả/tệp kết quả mới, kết quả xét nghiệm về, việc mới sang bàn đối tác, lô thuốc sắp hết hạn, kiểm kê quầy thuốc lệch… thì ghi một thông báo (bảng `thong_bao`) cho đúng VAI (CSKH, thư ký y khoa TKYK, dược sĩ, quản lý, trưởng ca, đối tác…) và cho bác sĩ chính đích danh. Ai nhận chuông của sự kiện nào là DỮ LIỆU (bảng `day_nhan_thong_bao`) quản lý chỉnh trên màn; chưa chỉnh thì dùng mặc định trong code. Người dùng là mọi nhân viên: đọc, bấm Xong (đóng việc), Hoàn tác, ẩn hết. Khối cũng giữ hạ tầng đưa tin của bus sự kiện (`events/worker.py`, `events/hen_gio.py`): bên nghe nào chết quá 5 lần thì réo chuông KHẨN cho trưởng ca + quản lý.",
+  "luong": [
+    "Bước 1: Một khối khác phát sự kiện (vd result.ready, result_file.uploaded, partner.result_returned, pharmacy.expiry_checked). Worker sự kiện (`events/worker.py`) lấy dòng giao chưa xong, gọi bên nghe `chuong_thong_bao` trong cùng giao dịch với dấu DONE.",
+    "Bước 2: `bao_chuong` bỏ nếu là phát lại; với result_file.confirmed chỉ réo khi trạng thái HỢP LỆ.",
+    "Bước 3: Đọc dây nhận: có dòng trong `day_nhan_thong_bao` của phòng khám thì dùng (kể cả đang tắt), không có thì dùng MAC_DINH trong code.",
+    "Bước 4: Nhánh kho thuốc: hạn lô → chuông \"Hạn dùng lô thuốc\" cho từng vai, không có người gọi (nguồn lo_thuoc_han); kiểm kê lệch → chuông cho từng vai, cần người gây ra.",
+    "Bước 5: Nhánh kết quả: sự kiện hệ thống (không có người gây ra) thì không réo; tìm khách + bác sĩ chính; tệp do ĐỐI TÁC tải không réo từng tệp mà chỉ réo một lần khi đối tác bấm \"Trả kết quả\".",
+    "Bước 6: Ghi chuông cho từng vai (`ghi_chuong_vai`) và đích danh bác sĩ chính (`ghi_chuong_nguoi`); chống trùng bằng khoá (nguồn, mã nguồn, vai/người) khi chuông cũ chưa xử lý.",
+    "Bước 7: Trình duyệt (`NotificationContext.tsx`) đọc `/api/thong-bao` khi có tin SSE bảng thong_bao, mỗi 20 giây và lúc mở lại tab; hiện số chưa đọc trên chuông (`GlobalHeader.tsx`).",
+    "Bước 8: Người nhận bấm vào thông báo (đi tới màn xử lý, CHƯA đóng), \"đã đọc\" (tắt chấm đỏ), \"Xong\" (`da_xu_ly` — đóng việc, đo giây phản hồi), hoặc ẩn hết khỏi chuông riêng của mình.",
+    "Bước 9: Chuông khác do người gọi tay: `ThongBaoService.goi` (gọi một bộ phận theo vai) và `ghi_thong_bao_nguoi` (đích danh, trong giao dịch của người gọi) với các nguồn trong NGUON (cảnh báo điều phối, hẹn gọi lại, bỏ chỉ định…)."
+  ],
+  "luu_y": [
+    "Người nhận là dữ liệu: dòng trong `day_nhan_thong_bao` THẮNG mặc định MAC_DINH; quản lý đã chỉnh trên màn thì sửa code MAC_DINH không có tác dụng ở phòng khám đó. Màn chỉnh dây ghi qua `day_noi_service.dat_chuong` (khối Cơ sở) — tức là khối khác ghi bảng của Chuông.",
+    "Kết quả đối tác trả về luôn báo CSKH và bác sĩ chính dù quản lý chỉnh người nhận khác; một chuông cho một chỉ định.",
+    "Cột người gọi `thong_bao.nguoi_goi_staff_id` bắt buộc, TRỪ chuông tự động hạn lô (nguon = lo_thuoc_han) — database ép bằng ràng buộc CHECK. Ghi chuông tự động mới không có người phải nới ràng buộc này bằng migration.",
+    "Chống trùng chỉ chạy khi có mã nguồn (nguon_id): gọi bộ phận không kèm mã nguồn thì bấm 10 lần ra 10 thông báo. Đổi công thức nguon_id (\"loại sự kiện:đối tượng\") làm hỏng chống trùng và chuông cũ không tự đóng.",
+    "\"Đã đọc\" ghi trên hàng chung của cả vai: một người bấm là tắt chấm đỏ cho mọi người cùng vai. Ẩn tất cả thì chỉ ẩn riêng mình (bảng `thong_bao_an_cua_toi`).",
+    "Bẫy: `da_xu_ly` (nút Xong) chỉ lọc theo mã thông báo + phòng khám, KHÔNG kiểm người bấm có phải người nhận.",
+    "Thông báo \"chỉ định bị bỏ\" (nguồn bo_chi_dinh) không có nút Xong, chỉ có Hoàn tác; qua ngày (giờ VN) thì thôi hiện.",
+    "Chuông gộp: các hàng cùng (nguồn, mã nguồn, tiêu đề, nội dung) gửi cho nhiều vai của tôi chỉ hiện một — vd quản lý kiêm dược sĩ kiêm trưởng ca thấy 1 chuông kiểm kê thay vì 3; tối đa 50, KHẨN trước rồi mới nhất trước.",
+    "Worker: thử lại tối đa 5 lần, giãn 2s → 4s → 8s → 16s (trần 300s, ±10%); lần 5 hỏng → DEAD. Một dòng DEAD CHẶN mãi các sự kiện sau của cùng đối tượng cho bên nghe đó (với Hành trình là khách đứng kẹt) — phải xử lý tay ở /ops. Dòng chết chỉ réo người trực khi sự kiện có người gây ra.",
+    "Bên nghe phải ghi bằng đúng connection worker đưa (cùng giao dịch với DONE), không tự mở pool riêng; mọi bên nghe phải chạy lại được nhiều lần.",
+    "Thêm nguồn thông báo mới phải tự thêm nhãn vào `audit_labels.EVENT_LABELS` (mã sự kiện là tham số, bộ quét nhãn không thấy).",
+    "Giờ hiện trên chuông lấy theo múi giờ của máy (toLocaleTimeString không ép giờ VN)."
+  ],
+  "muon_sua": [
+    {"viec": "đổi vai nhận chuông mặc định của một sự kiện", "cho": "từ điển MAC_DINH (phòng khám đã chỉnh trên màn thì sửa dữ liệu day_nhan_thong_bao)", "tep": "src/clinicai/events/consumers/chuong.py", "dong": 35},
+    {"viec": "đổi màn mở ra khi bấm chuông theo vai", "cho": "từ điển _DUONG_DAN", "tep": "src/clinicai/events/consumers/chuong.py", "dong": 55},
+    {"viec": "đổi luật réo chuông kết quả (xác nhận HỢP LỆ, sự kiện hệ thống, tệp đối tác)", "cho": "đầu hàm bao_chuong", "tep": "src/clinicai/events/consumers/chuong.py", "dong": 141},
+    {"viec": "đổi chữ chuông hạn lô thuốc", "cho": "nhánh pharmacy.expiry_checked trong bao_chuong", "tep": "src/clinicai/events/consumers/chuong.py", "dong": 154},
+    {"viec": "cho thêm sự kiện được chỉnh dây chuông trên màn / đổi kiểm vai hợp lệ", "cho": "hàm dat_chuong (kiểm NHAN_CHUONG, VAI_NHAN_DUOC)", "tep": "src/clinicai/services/day_noi_service.py", "dong": 237},
+    {"viec": "thêm một loại thông báo gọi tay mới", "cho": "từ điển NGUON + nhãn trong audit_labels.EVENT_LABELS", "tep": "src/clinicai/services/thong_bao_service.py", "dong": 46},
+    {"viec": "cho loại thông báo chỉ đóng bằng Hoàn tác", "cho": "NGUON_CHI_HOAN_TAC (kèm điều kiện hết ngày trong cua_toi)", "tep": "src/clinicai/services/thong_bao_service.py", "dong": 71},
+    {"viec": "đổi số thông báo tối đa / thứ tự trên chuông", "cho": "ORDER BY + LIMIT 50 trong cua_toi", "tep": "src/clinicai/services/thong_bao_service.py", "dong": 364},
+    {"viec": "chặn người không phải người nhận bấm Xong", "cho": "câu UPDATE trong da_xu_ly (chỉ lọc id + clinic_id)", "tep": "src/clinicai/services/thong_bao_service.py", "dong": 441},
+    {"viec": "đổi nút trên mỗi thông báo (Xong / Hoàn tác)", "cho": "biến nutXong", "tep": "src/dashboard/app/(dashboard)/GlobalHeader.tsx", "dong": 552},
+    {"viec": "đổi nhịp hỏi dự phòng của chuông", "cho": "hằng POLL_MS = 20 giây", "tep": "src/dashboard/app/(dashboard)/NotificationContext.tsx", "dong": 34},
+    {"viec": "đổi số lần thử / giãn cách / hạn thuê của bus sự kiện", "cho": "hằng SO_LAN_THU_TOI_DA, GIAN_CACH_*, HAN_THUE_GIAY", "tep": "src/clinicai/events/worker.py", "dong": 43},
+    {"viec": "đổi ai được réo khi một sự kiện chết", "cho": "VAI_BIET_KHI_CHET", "tep": "src/clinicai/events/worker.py", "dong": 223},
+    {"viec": "đổi số lần thử / hạn thuê của hẹn giờ", "cho": "hằng SO_LAN_THU_TOI_DA, HAN_THUE_GIAY", "tep": "src/clinicai/events/hen_gio.py", "dong": 38}
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "tom_tat": "Khối Kết quả lo việc ĐIỀN và CHỐT kết quả của từng chỉ định: phiếu kết quả theo biểu mẫu (siêu âm, xét nghiệm, thủ thuật, phiếu điều trị — 'Form Engine': cỗ máy vẽ ô theo bản mẫu máy chủ trả), tự lưu nháp, [Hoàn tất], [Sửa lại] có lý do, xem và in phiếu; ngoài ra còn phiếu khám chuyên khoa đời cũ (PK, SK, NT, HMVS, NK) trên Bàn khám, số đo thai siêu âm và ảnh siêu âm. Người dùng: KTV / bác sĩ / BS siêu âm ở phòng dịch vụ và bàn đối tác (PhieuKetQua.tsx, PhieuDieuTri.tsx), bác sĩ chính và thư ký ở Bàn khám (KetQuaChiDinh.tsx, XemPhieuKetQua.tsx, ServiceFormEngine.tsx, LuotKhamTruoc.tsx), CSKH in kết quả (/print/ket-qua). Bảng: form_instance (phiếu kết quả, có bản nháp sửa và lịch sử), result_correction (mỗi lần sửa một dòng, chỉ thêm), clinical_form_response (phiếu chuyên khoa cũ), ultrasound_record (siêu âm, đã ký thì khoá). Khối phát result_form.completed, result.ready, result.corrected, result.viewed — khối Vòng đọc, Chuông, Hành trình nghe.",
+  "luong": [
+    "Bước 1: dịch vụ được Bắt đầu ở phòng → người làm mở phiếu (POST /api/phieu thao_tac=mo → FormEngineService.mo_phieu): đã có phiếu thì mở lại, chưa có thì tạo theo bản mẫu PUBLISHED đang gắn với dịch vụ, điền câu mẫu sẵn; phiếu GHIM phiên bản mẫu lúc tạo.",
+    "Bước 2: gõ ô → tự lưu nháp sau 1,5 giây ngừng gõ (phiếu điều trị: 1,2 giây) (luu_nhap), mỗi lần gửi kèm revision mới nhất để hai người không đè nhau; tự lưu KHÔNG phát sự kiện.",
+    "Bước 3: bấm [Hoàn tất] (hoan_tat): màn lưu nốt trước; máy chủ kiểm quyền result.form.fill + đúng ca + revision, đẩy nháp thành bản chính thức (mọi câu mẫu thành 'người dùng đã xác nhận'), người thực hiện mặc định là bác sĩ đứng phòng; phát `result_form.completed` và — nếu dịch vụ có kết quả ngay tại phòng (INLINE) — `result.ready`.",
+    "Bước 4: sau khi giao dịch phiếu đã lưu xong, nếu dịch vụ còn đang làm thì đóng hộ bằng lệnh Xong của khối Thực hiện (execution.CompleteService); làm thêm tại quầy chưa ai bắt đầu thì bắt đầu + xong tại quầy. Đóng không được thì trả lý do cho màn.",
+    "Bước 5: bác sĩ chính mở kết quả ở Bàn khám (GET /api/phieu?xem= → xem_ket_qua) → lần đầu bác sĩ/BS siêu âm/thư ký mở thì ghi 'đã xem', phát `result.viewed`. Bác sĩ duyệt kết quả (result.reviewed — phát từ luot_kham_service) và hoàn tác duyệt (result.approval_revoked — phát từ hoan_tac_service).",
+    "Bước 6 (khi sai): [Sửa lại] (mo_sua) chép bản chính thức sang bản nháp MỘT lần — khách vẫn cầm bản cũ; gõ vào nháp; [Xác nhận sửa] phải có thay đổi thật + lý do → ghi visit_amendment + một dòng result_correction (bản 2, 3…), phát `result.corrected`. [Huỷ sửa] bỏ bản nháp.",
+    "Bước 7: in phiếu (in_ket_qua, /print/ket-qua/{chỉ định}): có bản READY thì in bản đó, chưa có thì in nháp kèm nhãn BẢN NHÁP; ảnh in 2 tấm/hàng, chữ ký bác sĩ luôn cuối cùng.",
+    "Đường phụ: phiếu khám chuyên khoa đời cũ lưu qua PUT /api/v1/clinical-forms (ClinicalFormService.save_form, ghép theo ô để bác sĩ và thư ký gõ cùng lúc); số đo thai siêu âm qua UltrasoundService.save_measurements; ảnh siêu âm qua MediaService.attach_ultrasound_image."
+  ],
+  "luu_y": [
+    "Hoàn tất = xác nhận TOÀN BỘ nội dung, kể cả ô còn là câu mẫu. Điền thiếu vẫn Hoàn tất được — máy chỉ đếm 'còn N mục chưa điền' (ô tuỳ chọn không tính).",
+    "Đang sửa lại: bản chính thức đứng yên tới khi [Xác nhận sửa]. Lần sửa phải có thay đổi thật (đổi chữ ô hoặc người thực hiện; chỉ đổi nguồn mà chữ y nguyên không tính) và bắt buộc lý do. Database ép số bản liền mạch: đang có bản 3 thì lần sửa mới phải là 4; result_correction và form_instance_lich_su chỉ thêm, không sửa/xoá; cờ dang_sua chỉ bật khi phiếu đã READY và phải đi cặp với bản nháp sửa.",
+    "Phiếu đã Hoàn tất không tự lưu được tới khi bấm [Sửa lại] — trừ phiếu điều trị (KQ_PHIEU_DIEU_TRI, không có bước Hoàn tất) lưu thẳng.",
+    "result.ready chỉ phát khi dịch vụ có result_mode INLINE (mặc định khi chưa cấu hình ở dich_vu_mau_ket_qua); NONE / LATER thì không — vòng đọc của bác sĩ chính sẽ không biết có kết quả.",
+    "Đóng dịch vụ chạy SAU khi giao dịch phiếu đã commit (tránh khoá chéo) và nuốt lỗi (trả vi_sao='loi') — đóng hỏng chỉ thấy trong câu trả về. dong_tai_quay phải gọi sau khi trả kết nối (gọi lồng từng làm cạn bể kết nối, 14/10).",
+    "Người thực hiện mặc định là BÁC SĨ đứng phòng làm chỉ định hôm nay, không phải người bấm Hoàn tất; lưu / hoàn tất phải đúng ca trực của bác sĩ ấy.",
+    "'Đã xem' ghi bằng một lệnh GET (/api/phieu?xem=) và chỉ tính khi VAI tài khoản gốc là bác sĩ / BS siêu âm / thư ký; màn nuốt lỗi khi ghi. In không tính là đã xem.",
+    "Siêu âm: kết quả đã ký không sửa được nội dung/ảnh (trigger trg_ultrasound_signed_lock) — phải qua đính chính; EFW (cân thai ước tính) gõ tay, không tự tính; ô trống / rác không bao giờ thành 0. Bẫy: save_measurements tìm phiếu mới nhất của lượt KHÔNG lọc loại — số đo thai có thể gộp vào phiếu 'Ổ bụng'; và nó tự tạo dòng visit khi lịch chưa có lượt (ghi chéo khối Tiếp đón).",
+    "Phiếu chuyên khoa cũ: chỉ sửa khi lượt OPEN / IN_PROGRESS / INCOMPLETE (danh sách trắng); thư ký chỉ ghi cho bác sĩ mình được phân; mã phiếu phải có trong clinical_form_catalogue VÀ trong lib/form-schemas của giao diện (thiếu bên nào cũng hỏng). Ghi chú router nói 'từ chối khi FINALIZED' — khớp code (FINALIZED/AMENDED bị từ chối), dù modules.py ghi 'Hoàn tất khám không khoá hồ sơ' (nói về consultation, không về phiếu).",
+    "Kiểu tệp ảnh/kết quả xét theo byte đầu (media_service); HEIC/AVIF của iPhone bị từ chối kèm hướng dẫn; video tắt mặc định (KET_QUA_VIDEO_UPLOAD_ENABLED).",
+    "Màn tự quyết vài luật: chọn mẫu của dịch vụ khác thì PhieuKetQua chặn và báo 'khách chưa thanh toán dịch vụ này' (cờ thật ra nghĩa là 'mẫu của dịch vụ khác'); thứ tự chip trạng thái chỉ định và cách chọn mẫu mặc định ở KetQuaChiDinh; nút 'Tất cả bình thường' ở ServiceFormEngine tự điền giá trị lâm sàng.",
+    "Ghi chéo / khai lệch: form_engine_service ghi service_order (khối Chỉ định); lệnh RevokeResultApproval và sự kiện result.reviewed / result.approval_revoked khai cho khối này nhưng code phát ở luot_kham_service (khối Khám) và hoan_tac_service (khối Điều phối)."
+  ],
+  "muon_sua": [
+    {"viec": "đổi khi nào phát result.ready (kết quả tại phòng hay trả sau)", "cho": "_result_mode — đọc dich_vu_mau_ket_qua.result_mode, mặc định INLINE", "tep": "src/clinicai/services/form_engine_service.py", "dong": 1152},
+    {"viec": "bỏ / đổi luật bắt buộc lý do khi sửa kết quả đã hoàn tất", "cho": "hoan_tat — kiểm ly_do_sua khi đang sửa", "tep": "src/clinicai/services/form_engine_service.py", "dong": 790},
+    {"viec": "đổi người thực hiện mặc định ghi trên phiếu", "cho": "hoan_tat gọi bac_si_phu_trach.bac_si_thuc_hien_mac_dinh", "tep": "src/clinicai/services/form_engine_service.py", "dong": 807},
+    {"viec": "đổi ai được xem phiếu kết quả đã hoàn tất", "cho": "tập vai DOC_KET_QUA (in phiếu: in_ket_qua dòng 327)", "tep": "src/clinicai/services/form_engine_service.py", "dong": 64},
+    {"viec": "đổi ai được điền phiếu kết quả (kể cả đối tác)", "cho": "doi_quyen_dien — result.form.fill hoặc partner.work đúng việc", "tep": "src/clinicai/services/form_engine_service.py", "dong": 128},
+    {"viec": "đổi luật đếm 'còn N mục chưa điền'", "cho": "hàm _con_trong", "tep": "src/clinicai/services/form_engine_service.py", "dong": 1552},
+    {"viec": "thêm nguồn giá trị ô hợp lệ", "cho": "tập NGUON (mỗi ô {gia_tri, nguon})", "tep": "src/clinicai/services/form_engine_service.py", "dong": 82},
+    {"viec": "đổi luật xuất bản bản mẫu kết quả mới", "cho": "FormEngineService.xuat_ban", "tep": "src/clinicai/services/form_engine_service.py", "dong": 1300},
+    {"viec": "đổi trạng thái lượt còn được sửa phiếu khám chuyên khoa", "cho": "WRITABLE_VISIT_STATUSES", "tep": "src/clinicai/services/clinical_form_service.py", "dong": 56},
+    {"viec": "đổi số lượt hiện trong 'Lượt khám trước'", "cho": "LIMIT 20 trong lich_su_kham (và ra[:20] cuối hàm)", "tep": "src/clinicai/services/clinical_form_service.py", "dong": 156},
+    {"viec": "thêm chỉ số đo thai siêu âm", "cho": "MEASURE_KEYS (màn: FIELDS trong tasks/SonoBiometry.tsx dòng 10)", "tep": "src/clinicai/services/ultrasound_service.py", "dong": 43},
+    {"viec": "thêm kiểu tệp kết quả được nhận (theo byte đầu)", "cho": "_MAGIC_KET_QUA + sniff_ket_qua (dòng 203)", "tep": "src/clinicai/services/media_service.py", "dong": 164},
+    {"viec": "bật tải video kết quả / đặt trần dung lượng theo loại", "cho": "biến KET_QUA_VIDEO_UPLOAD_ENABLED; MEDIA_MAX_BYTES_ANH/_VIDEO/_PDF/_TAI_LIEU (dòng 107)", "tep": "src/clinicai/services/media_service.py", "dong": 129},
+    {"viec": "đổi thời gian chờ tự lưu phiếu kết quả", "cho": "hằng CHO_TU_LUU_MS", "tep": "src/dashboard/app/(dashboard)/_lam-viec/PhieuKetQua.tsx", "dong": 130},
+    {"viec": "đổi chữ / thứ tự chip trạng thái của thẻ chỉ định", "cho": "hàm trangThai", "tep": "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx", "dong": 79}
+  ]
+}

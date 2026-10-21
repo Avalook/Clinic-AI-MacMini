@@ -1,0 +1,38 @@
+{
+  "tom_tat": "Khối Thai kỳ theo dõi một lần mang thai của khách: ngày đầu kỳ kinh cuối, ngày dự kiến sinh (kèm nguồn: kỳ kinh cuối / siêu âm / khác), tuổi thai, cờ nguy cơ cao, và kết cục (đã sinh, sảy, đình chỉ, không rõ). Người dùng là người có quyền ghi bệnh án `clinical.record.write` (bác sĩ, thư ký, điều dưỡng cùng phòng) ở khung 'Thai kỳ' cạnh phiếu Sản khoa trên Bàn khám (ThaiKy.tsx); người có quyền tư vấn ghi phiếu cũng gián tiếp ghi được qua hai ô của phiếu khám. Dữ liệu chính là bảng `pregnancy` — mỗi khách chỉ một thai kỳ đang theo dõi (ONGOING). Khối không phát sự kiện lên bus, chỉ ghi nhật ký cũ (record_event pregnancy.*); khối Sinh hiệu đọc bảng này để đòi thêm chiều cao/cân nặng khi khách đang có thai, và hồ sơ khám đọc qua cổng `thai_ky_cho_ho_so`.",
+  "luong": [
+    "Bước 1: Bác sĩ (hoặc người có quyền ghi bệnh án) xác nhận có thai → ở khung Thai kỳ bấm Tạo, nhập dự kiến sinh + chọn nguồn (bắt buộc), kinh cuối tuỳ chọn, tick nguy cơ cao thì phải ghi lý do → POST /api/thai-ky → ThaiKyService.tao ghi một dòng pregnancy ONGOING, gắn lượt khám xác nhận.",
+    "Bước 2 (đường phụ, tự động): khi lưu phiếu khám có hai ô Kinh cuối / Dự kiến sinh, phieu_kham_service gọi `dong_bo_tu_phieu` trong CÙNG giao dịch lưu phiếu: chưa có thai kỳ đang theo dõi thì tạo, đã có thì cập nhật chính nó; không dùng được hoặc không có quyền thì im lặng bỏ qua — phiếu vẫn lưu.",
+    "Bước 3: màn phiếu khám phát tin trong trình duyệt SU_KIEN_THAI_KY → khung Thai kỳ nạp lại.",
+    "Bước 4: mỗi lần mở phiếu khám, `thai_ky_cua_luot` tìm thai kỳ bao trùm ngày khám để điền ngược hai ô Kinh cuối / Dự kiến sinh.",
+    "Bước 5: trong thai kỳ, người được ghi sửa dự kiến sinh / nguy cơ cao qua PATCH /api/v1/thai-ky/{id} (ThaiKyService.cap_nhat); tuổi thai tính lại theo ngày hôm nay mỗi lần đọc.",
+    "Bước 6: khi thai kỳ kết thúc, ghi kết cục (DELIVERED / MISCARRIAGE / TERMINATED / UNKNOWN) kèm ngày kết cục → thai kỳ khoá, không sửa được nữa; khách có thể tạo thai kỳ mới."
+  ],
+  "luu_y": [
+    "Tuổi thai = 280 ngày − số ngày còn tới dự kiến sinh; ngoài 0–300 ngày thì không hiện. Ví dụ hôm nay 21/10/2026, dự kiến sinh 01/03/2027 (còn 131 ngày) → 149 ngày = 21 tuần 2 ngày. Thai kỳ đã có kết cục không hiện tuổi thai.",
+    "Phiếu chỉ ghi kinh cuối → máy tự tính dự kiến sinh = kinh cuối + 280 ngày (kinh cuối 01/01/2026 → dự kiến sinh 08/10/2026), nguồn 'Kỳ kinh cuối'. Gõ dự kiến sinh lệch dù 1 ngày so với kinh cuối + 280 → nguồn 'Khác'.",
+    "Kinh cuối không đè siêu âm: phiếu chỉ ghi kinh cuối mà thai kỳ đã có dự kiến sinh nguồn Siêu âm/Khác → giữ dự kiến sinh cũ. Nhưng thai kỳ cũ chưa có nguồn (NULL) bị coi như nguồn kinh cuối → bị đè.",
+    "Đồng bộ từ phiếu tính tuổi thai theo HÔM NAY, không theo ngày khám: lưu lại phiếu cũ nhiều tháng sau có thể bị bỏ qua vì tuổi thai đã quá 300 ngày.",
+    "Mỗi khách chỉ một thai kỳ ONGOING — ép bằng chỉ mục duy nhất ở Postgres. Đồng bộ từ phiếu chạy vòng 2 lần + điểm lưu (savepoint) để hai người lưu phiếu cùng lúc không hỏng giao dịch; hết 2 vòng vẫn không ghi được thì trả None im lặng.",
+    "Database còn ép: dự kiến sinh phải sau kinh cuối; nguồn chỉ KY_KINH_CUOI / SIEU_AM / KHAC. Ghi chú cột edd_nguon nói 'hệ thống không tự tính' nhưng code có tự tính dự kiến sinh từ kinh cuối (dòng 141).",
+    "Quyền: tạo/sửa trên khung Thai kỳ cần `clinical.record.write` (thư ký, điều dưỡng cũng được). Comment đầu tệp (dòng 7, 70) và tên hàm _chi_bac_si còn nói 'chỉ bác sĩ' — đã sai so với code.",
+    "Khi sửa: gửi nguy_co_cao = null → thành False (vô tình bỏ cờ); gửi riêng nguon_du_kien_sinh không kèm du_kien_sinh thì Python không kiểm nguồn. Trên màn, bỏ tick nguy cơ cao mà lý do cũ vẫn gửi đi.",
+    "Cổng đọc thai_ky_cho_ho_so đọc cột gestational_age_at_registration mà khối không bao giờ ghi — có thể luôn rỗng.",
+    "Phụ thuộc: khối Sinh hiệu đọc pregnancy (outcome ONGOING hoặc rỗng) để đòi thêm chiều cao + cân nặng; phieu_kham_service (khối Khám) gọi dong_bo_tu_phieu / thai_ky_cua_luot."
+  ],
+  "muon_sua": [
+    {"viec": "đổi số ngày thai kỳ đủ tháng (280)", "cho": "hằng NGAY_THAI_KY (và số 280 viết cứng trong tuoi_thai_tu_edd dòng 91)", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 98},
+    {"viec": "đổi khoảng tuổi thai còn hiện / còn nhận (0–300 ngày)", "cho": "tuoi_thai_tu_edd", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 87},
+    {"viec": "đổi ai được tạo / sửa thai kỳ trên khung Thai kỳ", "cho": "hằng QUYEN_GHI_THAI_KY = clinical.record.write", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 74},
+    {"viec": "đổi ai được ghi thai kỳ gián tiếp qua lưu phiếu khám", "cho": "hằng QUYEN_GHI_THAI_KY_TU_PHIEU", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 104},
+    {"viec": "thêm / đổi nguồn dự kiến sinh (Kỳ kinh cuối / Siêu âm / Khác)", "cho": "từ điển NGUON_EDD (nhớ CHECK database ở migration 20260918000003)", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 54},
+    {"viec": "thêm kiểu kết cục thai kỳ", "cho": "KET_CUC ở máy chủ — và danh sách cứng KET_CUC trên màn ThaiKy.tsx dòng 40", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 59},
+    {"viec": "nhận thêm kiểu ngày gõ tự do trên phiếu", "cho": "biểu thức _NGAY_VN + doc_ngay_tu_do", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 107},
+    {"viec": "đổi luật tự tính dự kiến sinh từ kinh cuối / gán nguồn", "cho": "thai_ky_tu_phieu", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 141},
+    {"viec": "đổi luật kinh cuối không đè dự kiến sinh siêu âm", "cho": "dong_bo_tu_phieu — điều kiện edd_tu_tinh + edd_nguon", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 201},
+    {"viec": "bỏ bắt buộc ghi lý do khi đánh dấu nguy cơ cao", "cho": "ThaiKyService.tao (khi sửa: dòng 506)", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 410},
+    {"viec": "cho sửa thai kỳ đã có kết cục", "cho": "ThaiKyService.cap_nhat — ConflictError 'đã có kết cục'", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 487},
+    {"viec": "đổi luật điền ngược hai ô thai kỳ khi mở phiếu", "cho": "thai_ky_cua_luot", "tep": "src/clinicai/services/thai_ky_service.py", "dong": 275},
+    {"viec": "đổi chữ / nút trên khung Thai kỳ ở Bàn khám", "cho": "phần vẽ nút Tạo / Sửa / Ghi kết cục (chỉ hiện khi duoc_ghi)", "tep": "src/dashboard/app/(dashboard)/ban-kham/ThaiKy.tsx", "dong": 190}
+  ]
+}

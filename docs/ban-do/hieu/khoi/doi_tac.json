@@ -1,0 +1,44 @@
+{
+  "tom_tat": "Khối Đối tác lo các việc làm BÊN NGOÀI phòng khám: xét nghiệm gửi lab ngoài, chụp phim ngoài, và mẫu làm ở phòng của phòng khám nhưng gửi đối tác đọc (vd Giải phẫu bệnh). Người dùng là tài khoản đối tác (vai PARTNER) và nhân viên có lego 21 'Đối tác' (quyền partner.work), ở bàn /doi-tac (BangDoiTac.tsx) và Phòng đối tác (cùng bộ phần KhoiDoiTac.tsx). Việc chính: Nhận mẫu (= XONG việc đối tác), Trả kết quả (tệp / phiếu theo mẫu / ghi chữ), hoàn tác hai bước ấy, và ghi sổ 'khách trả thẳng đối tác' (tiền KHÔNG vào két phòng khám). Dữ liệu: doi_tac_nhan_viec (chỉ định nào đã sang bàn đối tác, vì sao) và doi_tac_thanh_toan (đối tác ghi đã thu tiền khách).",
+  "luong": [
+    "Bước 1: Bác sĩ chỉ định dịch vụ làm bên ngoài; khách chốt (service_selection.confirmed), hẹn trả sau (visit.defer_payment_set), thu tiền (payment.service_collected), làm xong (service.completed) hoặc đối tác bấm đã lấy mẫu (partner.sample_collected) → worker gọi bên nghe doi_tac_nhan_viec (nhan_viec_doi_tac).",
+    "Bước 2: Bên nghe chọn các chỉ định của lượt khách đã chọn làm mà chưa sang bàn (_CHO_NHAN_SQL): bước làm bên ngoài mà đối tác làm trọn → nhận ngay khi đã duyệt/xếp/đang làm/đã làm; bước bên ngoài khác → chỉ khi đã làm xong; dịch vụ thu hộ đối tác (EXTERNAL_PARTNER) làm ở phòng phòng khám đã xong → nhận với lý do MAU_GUI_DOI_TAC.",
+    "Bước 3: Với việc đối tác tự lấy mẫu, hỏi cửa tiền (finance_gate): tiền đang hoàn/đã hoàn/sổ lệch → chưa nhận; đã thu → lý do DA_THU_TIEN; chưa thu → KHACH_DA_CHON, kèm cờ thu_sau nếu phòng khám thu hộ (đối tác không thu tiền khách). Ghi một dòng doi_tac_nhan_viec (trùng thì bỏ qua) và phát partner.order_received → bàn đối tác + chuông vai Đối tác.",
+    "Bước 4: Đối tác mở bàn /doi-tac (GET /doi-tac/viec, tự làm mới 20 giây): khách gom theo nhóm Chờ làm / Đã nhận mẫu / Có kết quả; hôm nay = việc chưa trả kết quả trong 60 ngày + việc có hoạt động hôm nay, tối đa 300 dòng.",
+    "Bước 5: Bấm Nhận mẫu (lệnh MarkAwaitingDocuments → doi_tac_cho_tai_lieu): khoá visit rồi chỉ định; việc đối tác làm trọn chưa xong thì đóng lần làm như [Xong] của phòng (service.completed) hoặc ghi 'đã làm' nếu chưa ai Bắt đầu (partner.sample_collected); ghi mốc nhận mẫu MỘT lần; phát partner.sample_received. Từ đây việc đối tác coi là XONG — khách không bị giữ lượt.",
+    "Bước 6: Đối tác tải tệp kết quả (POST /doi-tac/ket-qua theo MÃ CHỈ ĐỊNH) và/hoặc điền phiếu theo mẫu (/doi-tac/phieu/…), rồi bấm Trả kết quả (ReturnPartnerResult → tra_ket_qua): phải có tệp còn hiệu lực, hoặc phiếu READY, hoặc kết quả chữ; chưa nhận mẫu thì tự nhận trước; đặt ket_qua_luc → 'Có kết quả' ở mọi màn; phát partner.result_returned.",
+    "Bước 7 (hoàn tác): Huỷ trả kết quả (UndoPartnerResult) giữ tệp + phiếu, về 'Đã nhận mẫu · chờ kết quả'; Huỷ nhận mẫu (UndoSampleReceipt) phải hoàn tác trả kết quả trước, có thể mở lại lần làm ở phòng. Hai lệnh hoàn tác cần lý do + xác nhận.",
+    "Bước 8 (tiền khách trả thẳng đối tác): chỉ với việc có bên thu EXTERNAL_PARTNER — đối tác ghi số tiền + hình thức (RecordPartnerPayment → ghi_nhan_da_thu, phát partner.payment_recorded); sửa số = huỷ bản cũ kèm lý do (VoidPartnerPayment → huy_da_thu, partner.payment_voided) rồi ghi lại."
+  ],
+  "luu_y": [
+    "NHẬN MẪU LÀ XONG: trạng thái DA_NHAN_MAU và DA_GUI_KET_QUA đều là việc xong; kết quả về sau chỉ là mốc tuỳ chọn. Thứ tự trạng thái: DA_GUI_KET_QUA > DA_NHAN_MAU > DA_LAY_MAU > CHO_LAY_MAU. Màn (KhoiDoiTac.tsx dòng 34) CHÉP TAY tập 'xong' này — đổi máy chủ phải đổi cả màn.",
+    "Cửa vào = quyền partner.work (lego 21) qua get_partner_identity; vai PARTNER vẫn bị mọi router khác từ chối. Tài khoản PARTNER bên ngoài thấy việc mọi cơ sở; nhân viên nội bộ chỉ thấy cơ sở đang đứng.",
+    "Gửi kết quả nhận MÃ CHỈ ĐỊNH, không nhận mã khách; chỉ định không phải việc đối tác thì báo cùng câu với 'không có' — để đối tác không dò được mã nào tồn tại. Không có đường tải tệp xuống và không có ô tìm kiếm cho đối tác.",
+    "'Việc của đối tác' (LA_VIEC_DOI_TAC_SQL) = bước làm bên ngoài HOẶC chỉ định đã có dòng nhận việc. Router ghép chuỗi SQL này — đổi một chỗ là đổi cả danh sách lẫn cửa gửi tệp. Điều kiện 'đối tác làm trọn' (DOI_TAC_LAM_TRON_SQL) nằm ở service_routing_service, dùng chung với xếp phòng.",
+    "Tiền đối tác thu: số nguyên 0 – 100.000.000đ, nhận cả chuỗi '900.000đ' (máy chủ tự đọc kiểu VN — route Next không được parseFloat, vì parseFloat('900.000') = 900). Để trống = không ghi gì, không lỗi; 0 vẫn là một ghi nhận. Ô trên màn điền sẵn giá tham khảo khi giá > 0 (vd 450.000đ).",
+    "Database ép: một việc một ghi nhận 'đã thu' còn hiệu lực; doi_tac_thanh_toan không xoá, không sửa, chỉ huỷ một lần với người + lúc + lý do 3–2.000 ký tự. doi_tac_nhan_viec: mỗi chỉ định một dòng, ly_do chỉ 5 giá trị (DA_THU_TIEN, KHACH_DA_CHON, DA_LAY_MAU, MAU_GUI_DOI_TAC, BU_DU_LIEU).",
+    "Ví dụ cờ thu sau: XN gửi ngoài 500.000đ phòng khám thu hộ, khách chốt chưa trả → đối tác vẫn nhận việc, chuông ghi 'phòng khám thu tiền sau' — đối tác KHÔNG thu tiền khách.",
+    "Thứ tự khoá: dòng visit TRƯỚC dòng chỉ định (như mọi lệnh khác) — đảo là dễ khoá chết.",
+    "tra_ket_qua kiểm nội dung ngoài giao dịch, rồi nhận mẫu (giao dịch riêng), rồi đặt mốc (giao dịch thứ ba) — hỏng giữa chừng có thể đã nhận mẫu mà chưa trả kết quả.",
+    "Ghi chéo khối: doi_tac_service UPDATE thẳng service_order / queue_entry (khối service_order, service_routing) và gọi hàm riêng ServiceExecutionService._ghi_xong — đổi chữ ký hàm đó là vỡ ở đây.",
+    "Bên nghe chọn giá bằng một dòng service_price đang bật (ưu tiên nhóm 'dich_vu'); cùng mã có nhiều giá đang bật thì billing_owner có thể lấy nhầm dòng.",
+    "Lệnh 'Đã lấy mẫu' (doi_tac_da_lay_mau / MarkSampleCollected) là lệnh cũ — màn đã bỏ nút từ 16/10, route vẫn còn."
+  ],
+  "muon_sua": [
+    {"viec": "đổi khi nào một chỉ định sang bàn đối tác", "cho": "câu SQL _CHO_NHAN_SQL trong bên nghe (bước bên ngoài / mẫu gửi đối tác / exec_status)", "tep": "src/clinicai/events/consumers/doi_tac.py", "dong": 59},
+    {"viec": "đổi lý do nhận việc / cờ 'phòng khám thu sau' / chặn theo tiền", "cho": "hàm nhan_viec_doi_tac — nhánh finance_gate và ly_do", "tep": "src/clinicai/events/consumers/doi_tac.py", "dong": 123},
+    {"viec": "đổi điều kiện 'việc của đối tác' (danh sách + cửa gửi tệp)", "cho": "hằng LA_VIEC_DOI_TAC_SQL", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 57},
+    {"viec": "đổi khi nào việc đối tác là 'xong'", "cho": "VIEC_DOI_TAC_XONG + hàm trang_thai_doi_tac (nhớ sửa tập chép tay ở KhoiDoiTac.tsx dòng 34)", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 106},
+    {"viec": "đổi chữ trạng thái trên mọi màn ('Chờ làm', 'Đã nhận mẫu · chờ kết quả', 'Có kết quả')", "cho": "hằng CHU_CHO_LAM / CHU_DA_NHAN_MAU / CHU_CO_KET_QUA và CHU_TRANG_THAI_DOI_TAC", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 134},
+    {"viec": "đổi trần số tiền / hình thức đối tác ghi nhận", "cho": "HINH_THUC_THU, SO_TIEN_TOI_DA và hàm doc_so_tien", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 62},
+    {"viec": "đổi cửa sổ việc trên bàn (60 ngày, trần 300 dòng)", "cho": "câu SQL trong viec_doi_tac — interval '60 days', LIMIT 300", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 433},
+    {"viec": "đổi việc Nhận mẫu làm gì (đóng lần làm, ghi 'đã làm', mốc một lần)", "cho": "DoiTacService.doi_tac_cho_tai_lieu", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 548},
+    {"viec": "đổi điều kiện được Trả kết quả (phải có tệp / phiếu READY / chữ)", "cho": "DoiTacService.tra_ket_qua — câu kiểm co_noi_dung", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 809},
+    {"viec": "đổi luật hoàn tác Nhận mẫu (bắt hoàn tác trả kết quả trước, mở lại phòng)", "cho": "DoiTacService.huy_nhan_mau", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 707},
+    {"viec": "đổi luật ghi nhận đối tác đã thu tiền khách (chỉ EXTERNAL_PARTNER, bấm lại cùng số)", "cho": "DoiTacService.ghi_nhan_da_thu", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 1082},
+    {"viec": "đổi độ dài lý do huỷ ghi nhận đã thu", "cho": "kiểm 3–2.000 ký tự trong huy_da_thu (kèm ràng buộc DB)", "tep": "src/clinicai/services/doi_tac_service.py", "dong": 1196},
+    {"viec": "đổi ai được vào cửa đối tác", "cho": "hàm get_partner_identity (quyền partner.work)", "tep": "src/clinicai/api/identity.py", "dong": 674},
+    {"viec": "đổi nhóm cột trái / thứ tự trạng thái trên bàn /doi-tac", "cho": "NHOM + THU_TU trong BangDoiTac", "tep": "src/dashboard/app/doi-tac/BangDoiTac.tsx", "dong": 132},
+    {"viec": "đổi quy tắc điền sẵn ô tiền thu hộ", "cho": "useState trong ThuHoDoiTac (giá > 0 thì điền sẵn)", "tep": "src/dashboard/app/(dashboard)/_lam-viec/KhoiDoiTac.tsx", "dong": 262}
+  ]
+}

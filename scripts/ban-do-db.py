@@ -34,9 +34,10 @@ KHUON = "khuon"
 SQL = r"""
 SELECT json_build_object(
   'bang', (SELECT json_agg(json_build_object(
-      'ten', c.relname, 'rls', c.relrowsecurity,
+      'ten', c.relname, 'rls', c.relrowsecurity, 'mo_ta', obj_description(c.oid, 'pg_class'),
       'cot', (SELECT json_agg(json_build_object('ten', a.attname,
-                 'kieu', format_type(a.atttypid, a.atttypmod), 'bat_buoc', a.attnotnull)
+                 'kieu', format_type(a.atttypid, a.atttypmod), 'bat_buoc', a.attnotnull,
+                 'mo_ta', col_description(c.oid, a.attnum))
                  ORDER BY a.attnum)
                FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped),
       'khoa_chinh', (SELECT json_agg(a.attname) FROM pg_index i

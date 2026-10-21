@@ -1,0 +1,27 @@
+{
+  "tom_tat": "Khối Chuông nhận chéo lo một tình huống: khách đang được LÀM dở ở phòng A (phòng quên bấm Xong) thì phòng B bấm Nhận khách (\"nhận chéo\", khi dây `nhan_tai_phong` bật). Hệ thống không đoán thay phòng A — lần làm ở A vẫn mở — nên khối này réo chuông đích danh cho người đã bấm Bắt đầu ở A và mọi người trực phòng A hôm nay, bảo họ tự bấm Xong hoặc Gián đoạn; khi lần làm ở A đóng thì chuông tự đóng. Khối không có màn, không có lệnh, không có bảng riêng: chỉ là một bên nghe sự kiện (consumer `chuong_nhan_cheo`, tệp `events/consumers/chuong_nhan_cheo.py` — khai trong TEP_CUA_KHOI của khối Chuông) chạy trong worker su-kien, ghi vào bảng `thong_bao` của khối Chuông. Người thấy là nhân sự phòng dịch vụ (chuông trên thanh trên cùng, bấm mở `/phong/<phòng A>?chi_dinh=…`).",
+  "luong": [
+    "Bước 1: Phòng B bấm Nhận khách đang làm ở phòng A → khối Thực hiện (`service_execution_service.py`, gọi `nhan_tai_phong.roi_phong` với lý do NHAN_CHEO) phát `service.room_released` kèm attempt_id (lần làm), room_id (phòng A), sang_room_id (phòng B), trang_thai_truoc.",
+    "Bước 2: `_reo` chỉ chạy khi: không phải phát lại, lý do = NHAN_CHEO, trạng thái trước = 'lam' (đang làm), có attempt_id, và có người bấm Nhận. Khách chỉ đang CHỜ ở A thì không réo.",
+    "Bước 3: Đọc lần làm (service_execution_attempt) còn IN_PROGRESS kèm tên dịch vụ, tên + mã khách, tên phòng cũ/mới; lần làm đã đóng trước khi tin tới thì thôi.",
+    "Bước 4: Người nhận = người bấm Bắt đầu lần làm + mọi người có lịch trực phòng A hôm nay (giờ VN), bỏ trùng. Ghi chuông đích danh từng người: \"Khách X đã sang phòng B lúc HH:MM — bấm Xong hoặc Gián đoạn cho <dịch vụ> ở phòng A\"; mã nguồn = nhan_cheo:<attempt_id>.",
+    "Bước 5: Phòng A bấm Xong (service.completed), Gián đoạn (service.interrupted), huỷ Bắt đầu (service.start_cancelled), hoặc phòng B hoàn tác nhận chéo (service.room_release_undone) → `_dong` đóng mọi chuông chưa xử lý cùng mã nguồn, ghi chú lý do."
+  ],
+  "luu_y": [
+    "Giao tin lặp không nhân đôi chuông: dựa vào khoá \"một việc đang mở một lần\" (nguồn, mã nguồn, người nhận) của bảng thong_bao.",
+    "Thêm một sự kiện đóng chuông mới phải làm HAI chỗ: thêm vào `_DONG` trong tệp này VÀ thêm CHUONG_NHAN_CHEO vào consumers của sự kiện đó trong `events/catalogue.py`; thiếu `_DONG` thì nhánh đóng không bao giờ chạy.",
+    "Bẫy: dùng hàm riêng tư `_lich_hom_nay` của `permissions/ca_truc.py` để lấy lịch trực — đổi tên/chữ ký hàm ấy làm vỡ bên nghe này.",
+    "Cột người gọi của thong_bao bắt buộc → sự kiện hệ thống (không có người bấm Nhận) thì không réo.",
+    "Nhánh đóng không bỏ qua phát lại (phát lại chỉ đóng lại thứ đã đóng, vô hại); người đóng ghi là người gây ra sự kiện, không có thì là người gọi.",
+    "Docstring đầu tệp chỉ kể 3 sự kiện đóng; code có thêm service.room_release_undone."
+  ],
+  "muon_sua": [
+    {"viec": "thêm/bớt sự kiện làm chuông nhận chéo tự đóng (và chữ ghi chú khi đóng)", "cho": "từ điển _DONG", "tep": "src/clinicai/events/consumers/chuong_nhan_cheo.py", "dong": 34},
+    {"viec": "đổi ai nhận chuông nhận chéo (thứ tự, bỏ trùng)", "cho": "hàm nguoi_nhan", "tep": "src/clinicai/events/consumers/chuong_nhan_cheo.py", "dong": 47},
+    {"viec": "đổi chữ chuông nhận chéo", "cho": "hàm cau_chuong", "tep": "src/clinicai/events/consumers/chuong_nhan_cheo.py", "dong": 53},
+    {"viec": "réo cả khi khách mới đang chờ ở phòng A (chưa Bắt đầu)", "cho": "điều kiện trang_thai_truoc == 'lam' trong _reo", "tep": "src/clinicai/events/consumers/chuong_nhan_cheo.py", "dong": 64},
+    {"viec": "đổi người trực được réo (lấy lịch trực hôm nay theo phòng)", "cho": "đoạn truc = _lich_hom_nay(...)", "tep": "src/clinicai/events/consumers/chuong_nhan_cheo.py", "dong": 97},
+    {"viec": "đổi màn mở ra khi bấm chuông", "cho": "tham số duong_dan=/phong/<room>?chi_dinh=…", "tep": "src/clinicai/events/consumers/chuong_nhan_cheo.py", "dong": 122},
+    {"viec": "đổi khi nào phòng B nhận chéo phát room_released lý do NHAN_CHEO", "cho": "chỗ gọi roi_phong(ly_do=NHA_NHAN_CHEO)", "tep": "src/clinicai/services/service_execution_service.py", "dong": 2197}
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "tom_tat": "Khối Sổ nợ hai chiều là sổ kế toán theo từng lượt khám ĐÃ VỀ: chiều PHAI_THU (khách nợ phòng khám) và chiều PHAI_TRA (phòng khám nợ khách — tiền thừa, đã thu mà chưa làm, thuốc đã thu chưa giao). Khối này không có màn hay lệnh riêng: nó chạy ngầm ở worker su-kien — bên nghe sự kiện 'so_no' (events/consumers/so_no.py) nghe 22 loại sự kiện tiền/dịch vụ/thuốc/lượt, cộng hai vòng nền (ghi số dư đầu kỳ, đối chiếu định kỳ 10 phút) trong worker.py. Dữ liệu là bảng so_no (chỉ thêm, mỗi dòng = phần chênh có dấu + số dư sau) và so_no_moc (mốc bật sổ từng phòng khám). Người xem là kế toán / quản lý qua báo cáo cuối ngày (mục sổ nợ theo kỳ), danh sách hoá đơn (việc tồn: khách còn nợ / còn nợ khách) và thẻ 'Khách còn nợ' ở trang chủ.",
+  "luong": [
+    "Bước 1: Có việc làm đổi tiền của lượt — khách check-out / về giữa chừng, mở lại lượt, ghi/huỷ ghi nợ, thu, huỷ phiếu, hoàn tiền, bỏ/khôi phục/mang sang chỉ định, bắt đầu/xong/không làm dịch vụ, đổi vật tư, đổi dịch vụ khám, giao thuốc, khách trả thuốc, lưu đơn thuốc → khối chủ phát sự kiện tương ứng.",
+    "Bước 2: Worker su-kien giao sự kiện cho bên nghe so_no (ghi_so). Sự kiện phát lại lịch sử thì bỏ qua (số dư đọc bây giờ không phải số dư lúc ấy).",
+    "Bước 3: ghi_chenh_lech khoá tư vấn theo lượt ('so_no:<phòng khám>:<lượt>'), gọi so_du_hien_tai tính số dư hai chiều TẠI giờ sự kiện: lượt chưa 'về' → 0; đã về → PHAI_THU = nợ khi về (no_khi_ve của khối cong_no) + chuyển khoản chờ xác minh (số gốc); PHAI_TRA = tiền thừa (tien_thua_service) + chỉ định đã thu chưa bắt đầu (đã thu − đã hoàn) + thuốc đã thu chưa giao.",
+    "Bước 4: So với số dư dòng cuối trong sổ; khác thì thêm một dòng mới (chênh lệch + số dư sau + loại lý do theo LOAI_THEO_SU_KIEN + chi tiết các khoản). Không sửa dòng cũ. Trigger Postgres kiểm số dư sau = trước + chênh.",
+    "Bước 5: Tìm các lượt KHÁC mà dòng hoá đơn của lần thu/lần hoàn chạm tới (chỉ định mang sang lượt mới, đơn thuốc, phụ thu) và ghi chênh cho cả các lượt ấy.",
+    "Bước 6 (nền, mỗi 60 giây tới khi xong): dau_ky_mot_vong ghi dòng DAU_KY cho lượt có trước mốc bật sổ (so_no_moc), lô 300 lượt, đi từ mới về cũ.",
+    "Bước 7 (nền, mỗi 600 giây): doi_chieu_mot_vong xét lại tối đa 300 lượt còn số dư hoặc vừa về trong 48 giờ — số dư lệch thì ghi dòng DOI_CHIEU (bắt hoàn xong, thất bại… mà không có sự kiện).",
+    "Bước 8: Màn đọc sổ: báo cáo cuối ngày gọi doc_so_no_ky (phát sinh / điều chỉnh / thu tách TM–CK–giảm giá + số dư đầu/cuối kỳ); danh sách hoá đơn và trang chủ gọi doc_so_du_mo (lượt đang còn số dư một chiều)."
+  ],
+  "luu_y": [
+    "'Đã về' = lượt đã check-out trước giờ sự kiện, HOẶC lượt của ngày trước (giờ VN) chưa đóng. Lượt còn ở phòng khám hôm nay có số dư 0 — tiền đang xử lý ở quầy chưa là nợ.",
+    "Chuyển khoản CHỜ xác minh vẫn là khách nợ, đúng số GỐC trước giảm: khách về, CK 500.000đ đang chờ → PHAI_THU 500.000đ ghi 'chờ xác minh'; xác minh xong mới giảm. no_khi_ve thì coi lần chờ là đã phủ (để check-out qua) còn sổ cộng lại — đổi một bên mà không đổi bên kia là đếm nợ hai lần hoặc mất nợ.",
+    "Thuốc phòng khám nợ khách theo dòng đơn = đã thu − đã hoàn − đã giao + khách trả lại, nhân đơn giá ảnh chụp, làm tròn đồng. Vd thu 10 viên × 5.000đ, giao 6, chưa hoàn → nợ khách 20.000đ. Lượt bán lẻ và lần thu thuốc sau check-out CÙNG ngày chưa tính là nợ (khách còn đứng quầy chờ giao); qua ngày mới là nợ thật.",
+    "'Giữ lại tiền thừa' vẫn là phòng khám nợ khách; không có hạn 90 ngày.",
+    "Tiền và chỉ định có thể nằm ở hai lượt: chỉ định 300.000đ của lượt 01/10 mang sang lượt 05/10 và thu ở 05/10 → số dư lượt 01/10 cũng giảm 300.000đ (bên nghe tự tìm lượt liên quan).",
+    "Khoá tư vấn 'so_no:<phòng khám>:<lượt>' phải giống hệt trong trigger so_no_kiem_so_du; đổi chuỗi khoá là hai bên ghi cùng lượt chen nhau, số dư sai.",
+    "Lượt phụ (lượt liên quan) ghi KHÔNG kèm mã sự kiện — an toàn chỉ vì ghi phần chênh so với dòng cuối; đổi ghi_chenh_lech sang ghi số tuyệt đối là nhân đôi.",
+    "Database ép: sổ chỉ thêm (sửa/xoá bị chặn); một sự kiện chỉ ghi một dòng mỗi chiều; loai chỉ nhận 10 giá trị (DAU_KY, KHI_VE, MO_LAI_LUOT, GHI_NO, THU, HUY_PHIEU, HOAN_TIEN, DOI_CHI_DINH, TRA_THUOC, DOI_CHIEU); chênh ≠ 0, số dư ≥ 0. Thêm loại mới phải sửa cả migration CHECK.",
+    "Vòng đối chiếu lấy tối đa 300 lượt bằng UNION không sắp xếp — quá 300 lượt còn số dư thì có lượt vừa về không được xét trong vòng đó. Vòng đối chiếu chỉ chạy khi phòng khám đã ghi xong đầu kỳ. Lượt cũ bị đụng tới trước khi lô đầu kỳ tới nó thì phần đổi ấy không vào sổ.",
+    "Khi một lần thu đóng nợ, báo cáo chia phần giảm nợ thành TM/CK theo tỷ lệ các phần của lần thu (không quá số tiền lần thu); phần giảm còn lại tính là giảm giá.",
+    "Số 'đang chờ CK' trên màn tồn đọng phải đọc hiện tại, không lấy từ chi_tiet: huỷ lần chờ không đổi số dư nên sổ không có dòng mới. Không chọn cơ sở thì màn tồn đọng ẩn lượt của cơ sở đã ngừng (sổ không đổi).",
+    "Thêm sự kiện mới làm đổi tiền: phải thêm vào LOAI_THEO_SU_KIEN VÀ đăng ký bên nghe so_no cho sự kiện ấy ở danh mục sự kiện (catalogue) + khai 'nghe' trong modules.py; thiếu bên nghe thì sổ chỉ bắt được khi vòng đối chiếu 10 phút chạy (ghi nhãn DOI_CHIEU)."
+  ],
+  "muon_sua": [
+    {"viec": "thêm / đổi nhãn lý do của một sự kiện trong sổ nợ", "cho": "bảng LOAI_THEO_SU_KIEN (sự kiện → loại dòng sổ)", "tep": "src/clinicai/services/so_no_service.py", "dong": 53},
+    {"viec": "đổi định nghĩa 'khách đã về' (khi nào bắt đầu tính nợ)", "cho": "câu SQL _LUOT_SQL — closed_at ≤ giờ sự kiện hoặc lượt ngày trước", "tep": "src/clinicai/services/so_no_service.py", "dong": 94},
+    {"viec": "đổi khoản 'đã thu mà chưa làm' tính là nợ khách", "cho": "câu SQL _CHUA_LAM_SQL — exec_status authorized/assigned", "tep": "src/clinicai/services/so_no_service.py", "dong": 104},
+    {"viec": "đổi cách tính chuyển khoản chờ xác minh vào nợ", "cho": "câu SQL _CK_CHO_SQL — số gốc original_amount", "tep": "src/clinicai/services/so_no_service.py", "dong": 113},
+    {"viec": "đổi cách tính thuốc phòng khám nợ khách (thu − hoàn − giao + trả, cùng ngày không tính)", "cho": "câu SQL _THUOC_PHAI_TRA_SQL", "tep": "src/clinicai/services/so_no_service.py", "dong": 128},
+    {"viec": "đổi thành phần số dư hai chiều của một lượt", "cho": "hàm so_du_hien_tai — cộng nợ khi về + CK chờ; tiền thừa + chưa làm + thuốc", "tep": "src/clinicai/services/so_no_service.py", "dong": 215},
+    {"viec": "đổi cách ghi dòng chênh lệch vào sổ", "cho": "hàm ghi_chenh_lech — khoá lượt, so dòng cuối, thêm dòng", "tep": "src/clinicai/services/so_no_service.py", "dong": 270},
+    {"viec": "đổi nhịp / cỡ lô vòng đối chiếu và đầu kỳ (600 giây, 300 lượt, 48 giờ)", "cho": "hằng NHIP_GIAY, NHIP_DAU_KY_GIAY, DOI_CHIEU_MOI_VONG, DAU_KY_MOI_VONG, DOI_CHIEU_SO_GIO", "tep": "src/clinicai/services/so_no_service.py", "dong": 79},
+    {"viec": "đổi cách cộng sổ theo kỳ trên báo cáo (phát sinh / thu TM–CK / giảm giá)", "cho": "hàm thuần gom_so_no_ky", "tep": "src/clinicai/services/so_no_service.py", "dong": 373},
+    {"viec": "đổi chữ hiện cho từng loại dòng sổ trên màn", "cho": "bảng NHAN_LOAI (vd DAU_KY → 'Nợ từ trước khi bật sổ')", "tep": "src/clinicai/services/so_no_service.py", "dong": 438},
+    {"viec": "đổi danh sách lượt còn số dư (lọc cơ sở ngừng, ngày thật, đang chờ CK)", "cho": "hàm doc_so_du_mo + _SO_DU_MO_SQL", "tep": "src/clinicai/services/so_no_service.py", "dong": 494},
+    {"viec": "đổi cách tìm các lượt khác cùng khoản tiền (chỉ định mang sang, đơn thuốc, phụ thu)", "cho": "câu SQL _LUOT_LIEN_QUAN_SQL trong bên nghe", "tep": "src/clinicai/events/consumers/so_no.py", "dong": 42},
+    {"viec": "đổi cách bên nghe ghi sổ cho lượt của sự kiện và lượt liên quan", "cho": "hàm ghi_so", "tep": "src/clinicai/events/consumers/so_no.py", "dong": 93}
+  ]
+}

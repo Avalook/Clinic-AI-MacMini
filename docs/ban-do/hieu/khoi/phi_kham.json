@@ -1,0 +1,38 @@
+{
+  "tom_tat": "Khối Dịch vụ khám (tiền khám) quyết định lượt khám tính tiền khám bao nhiêu: bác sĩ/thư ký/tư vấn hoặc thu ngân tick đúng 'dịch vụ khám' (mã KiotViet) đã làm, tiền khám = tổng giá các dịch vụ còn tick — không bịa giá. Ai tick được là theo QUYỀN (khám, ghi bệnh án, tư vấn, hoặc thu tiền dịch vụ), không theo vai. Màn dùng: ô 'Dịch vụ khám' (ChonDichVuKham.tsx) ở Bàn khám và quầy thu, qua API /luot-kham/visits/{id}/phi-kham. Dữ liệu là bảng luot_phi_kham (mỗi tick một dòng, bỏ tick = đóng dấu bo_luc); danh sách chọn được lấy từ bảng loai_kham_phi theo loại khám của lượt.",
+  "luong": [
+    "Bước 1: Màn mở → GET phi-kham → _doc đọc loại khám của lượt (visit/appointment → service_type, encounter_flow), danh sách dịch vụ khám chọn được (loai_kham_phi + service_price còn active), những gì đang tick, và 'chưa tick thì có tự cộng phí khám mặc định không'. Lượt đi thẳng phòng hoặc không có lựa chọn → màn ẩn khối.",
+    "Bước 2: Người dùng tick / bỏ tick một dịch vụ → POST {them:[id]} hoặc {bo:[id]} (gửi theo từng dịch vụ, không gửi cả tập) → lệnh ChonDichVuKham (PhiKhamService.chon).",
+    "Bước 3: chon() kiểm quyền (một trong QUYEN_TICK), khoá dòng visit, đặt ngữ cảnh người bấm cho trigger sổ sửa chỉ định, chặn hồ sơ cũ; chặn nếu lượt đã check-out; chặn nếu loại khám đi thẳng phòng; chặn dịch vụ không thuộc danh sách.",
+    "Bước 4: Bỏ dịch vụ đã thu: chặn nếu dịch vụ nằm trong lần chuyển khoản chờ xác minh hoặc phiếu gộp cũ 'exam-<lượt>'; còn lại cho bỏ và tính tiền thừa = đã thu − đã hoàn. Thêm dịch vụ: chặn nếu dịch vụ ấy đang là chỉ định còn tính tiền (tiền khám không tính hai lần).",
+    "Bước 5: Ghi bảng: bỏ = UPDATE bo_luc/bo_boi; thêm = INSERT dòng mới. Trigger trg_so_sua_phi_kham tự ghi sổ sửa chỉ định (nhóm KHAM); bỏ đã thu thì ghi da_thu/tien_thua vào sổ ấy và báo bác sĩ chính nếu người bỏ không phải bác sĩ chính.",
+    "Bước 6: Phát sự kiện visit.exam_service_changed (tên + giá lúc ấy, lên Hành trình khách) và ghi event_log 'visit.exam_fee_selected'. Khối so_no nghe sự kiện này (loại DOI_CHI_DINH).",
+    "Bước 7: Hoá đơn (bill_service.dong_kham_theo_chon) dựng dòng tiền khám với source_id 'exam-<lượt>-selected-<service_price_id>'; quầy thu thu theo dòng ấy; cong_no coi phí khám đã tick là nợ khi về."
+  ],
+  "luu_y": [
+    "Tiền khám = tổng các dòng luot_phi_kham còn sống. Vd tick 'Khám tư vấn viêm nhiễm PK' 300.000đ → tiền khám 300.000đ. Database ép mỗi lượt chỉ một dòng CÒN SỐNG cho mỗi dịch vụ — tick hai lần không tính hai lần.",
+    "Chưa tick gì: tuỳ loại khám — lượt khám thường thì hoá đơn tự cộng phí khám mặc định; lượt Điều trị (nhóm DIEU_TRI) và lượt Thủ thuật (trừ lượt cũ đã qua TƯ VẤN) thì không tính tiền khám (bill_service.khong_tu_cong_phi_kham). Phí khám mặc định chưa tick KHÔNG là nợ khi về.",
+    "Bỏ dịch vụ đã thu được phép ngay: đã thu 300.000đ, chưa hoàn → tiền thừa 300.000đ ở quầy (khối payment / tien_thua lo hoàn). Chỉ chặn khi CK đang chờ xác minh hoặc phiếu gộp cũ.",
+    "Loại Điều trị/Khác không có danh sách riêng thì chọn được mọi dịch vụ khám của các loại nhóm KHAM. Tick còn sống nhưng không thuộc danh sách loại hiện tại (đổi loại khám) vẫn hiện để bỏ được.",
+    "Một dịch vụ đang tick ở Dịch vụ khám thì không chỉ định lại thành chỉ định, và ngược lại — chặn hai chiều trong chan_trung_dich_vu_kham (khối service_order gọi hàm này khi chỉ định).",
+    "Dạng gửi cũ 'ids' đặt CẢ TẬP — màn cầm tập cũ gửi lên sẽ bỏ tick của người khác vừa tick. Đừng thêm lối gọi dạng ids; dùng them/bo.",
+    "Dịch vụ khám đã thu được nhận ra bằng mẫu source_id 'exam-<lượt>-selected-<service_price_id>' của payment_bill_line; đổi cách bill_service đặt source_id là hỏng tính tiền thừa và hỏng luật nợ (cong_no lọc theo '-selected-').",
+    "Ghi chéo khối: chon() UPDATE thẳng bảng so_sua_chi_dinh (của khối service_order) để ghi da_thu/tien_thua; dòng sổ do trigger trên luot_phi_kham tạo trước, nên phải gọi dat_ngu_canh trước khi ghi.",
+    "Cờ 'khoa' trong dữ liệu trả về luôn False; 'duoc_tick' chỉ phản ánh quyền. Chặn sau check-out nằm ở chon(), không ở cờ.",
+    "Danh sách dịch vụ khám của từng loại khám và giá là DỮ LIỆU (bảng loai_kham_phi, service_price) — sửa trên màn, không sửa code."
+  ],
+  "muon_sua": [
+    {"viec": "đổi ai được tick dịch vụ khám", "cho": "hằng QUYEN_TICK (4 quyền: khám, ghi bệnh án, tư vấn, thu tiền dịch vụ)", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 43},
+    {"viec": "đổi danh sách dịch vụ khám chọn được của một loại khám", "cho": "câu SQL _LUA_CHON_SQL đọc loai_kham_phi (đổi danh sách cụ thể là việc dữ liệu trên màn)", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 65},
+    {"viec": "đổi luật loại Điều trị/Khác được chọn mọi dịch vụ khám", "cho": "_LUA_CHON_CHUNG_SQL và nhánh nhom in DIEU_TRI/KHAC trong _doc", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 116},
+    {"viec": "đổi loại khám nào không có tiền khám (đi thẳng phòng)", "cho": "cột khong_kham trong _LOAI_KHAM_SQL (di_thang_phong + route SERVICES)", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 53},
+    {"viec": "đổi luật chưa tick thì có tự cộng phí khám mặc định không", "cho": "hàm khong_tu_cong_phi_kham (DIEU_TRI, THU_THUAT trừ đi qua TU_VAN)", "tep": "src/clinicai/services/bill_service.py", "dong": 752},
+    {"viec": "cho đổi dịch vụ khám sau khi khách đã check-out", "cho": "chặn closed_at trong PhiKhamService.chon", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 334},
+    {"viec": "đổi luật bỏ dịch vụ khám đã thu (chặn CK chờ / phiếu gộp, cách tính tiền thừa)", "cho": "hàm _chan_bo_dich_vu_da_thu — chặn ở dòng 212, tiền thừa dòng 226", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 162},
+    {"viec": "đổi luật chống tính tiền khám hai lần (tick vs chỉ định)", "cho": "hàm chan_trung_dich_vu_kham", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 232},
+    {"viec": "đổi nội dung sự kiện visit.exam_service_changed (tên, giá lên Hành trình)", "cho": "emit_event trong chon() với payload DichVuKhamDaDoi", "tep": "src/clinicai/services/phi_kham_service.py", "dong": 411},
+    {"viec": "đổi cách tính dòng tiền khám trên hoá đơn theo tick", "cho": "hàm dong_kham_theo_chon (source_id 'selected-<id>')", "tep": "src/clinicai/services/bill_service.py", "dong": 292},
+    {"viec": "đổi chữ trên ô Dịch vụ khám ('Chưa chọn — đang tính giá mặc định'…)", "cho": "component ChonDichVuKham — dòng trạng thái dưới tiêu đề", "tep": "src/dashboard/app/(dashboard)/_lam-viec/ChonDichVuKham.tsx", "dong": 112},
+    {"viec": "đổi quyền đọc / gọi API phi-kham", "cho": "route GET/POST /luot-kham/visits/{visit_id}/phi-kham (chỉ cần đăng nhập, quyền kiểm trong service)", "tep": "src/clinicai/api/v1/routers/luot_kham.py", "dong": 604}
+  ]
+}

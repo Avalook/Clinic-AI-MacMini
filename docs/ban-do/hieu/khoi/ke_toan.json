@@ -1,0 +1,44 @@
+{
+  "tom_tat": "Khối Kế toán phục vụ kế toán / quản lý làm sổ sách sau khi tiền đã thu: xuất file hoá đơn GTGT đúng mẫu nhập MISA meInvoice (/xuat-hoa-don), đánh dấu kỳ nào đã xuất MISA và báo hoá đơn nào đổi sau khi xuất, thống kê theo hàng hoá và đặt thuế suất GTGT theo nhóm / mặt hàng (/ke-toan), và quản lý thông tin công ty để xuất hoá đơn đỏ (hồ sơ khách + bản chụp công ty trên từng phiếu thu; thu ngân chỉ tick chọn công ty có sẵn ở quầy). Quyền: accounting.finance.full (xem tài chính đầy đủ, đánh dấu MISA, ghi công ty), accounting.tax.manage (đặt thuế), config.clinic.manage (quản lý — ghi công ty). Khối CHỈ ĐỌC tiền: số liệu lấy từ phiếu thu / dòng hoá đơn / phiếu hoàn của khối payment (qua DanhSachHoaDonService), không bao giờ đổi số tiền khách trả. Bảng riêng: khach_cong_ty, hoa_don_cong_ty (+ _lich_su), hoa_don_misa_xuat (+ _dong), thue_suat_nhom.",
+  "luong": [
+    "Bước 1 (chuẩn bị thuế, làm một lần): kế toán vào /ke-toan tab Thuế suất, đặt thuế GTGT cho ba nhóm Dịch vụ / Thuốc / Vật tư (bảng thue_suat_nhom) và, nếu cần, cho từng mặt hàng (cột thue_suat_ma trên service_price / drug_catalog). Nhận số 0–100, '8,5', KCT, KKKNT; để trống = bỏ đặt.",
+    "Bước 2 (công ty của khách): kế toán / quản lý thêm công ty (tên, MST, địa chỉ, email) vào hồ sơ khách (CongTyKhach.tsx → khach_cong_ty). MST sai dạng vẫn lưu, chỉ nhắc.",
+    "Bước 3 (lúc thu tiền): thu ngân tick 'Xuất hoá đơn về công ty' và chọn công ty có sẵn của đúng khách (CongTyKhiThu.tsx) → sau khi thu xong, router thu tiền (api/v1/routers/payment.py dòng 206) gọi gan_khi_thu chép công ty vào bản chụp hoa_don_cong_ty của phiếu vừa thu. Kế toán cũng có thể ghi / sửa / bỏ chọn bản chụp ở khối 'Hoá đơn công ty' trên phiếu (mỗi đổi ghi một dòng lịch sử).",
+    "Bước 4 (xem / đối soát): màn /hoa-don (DanhSachHoaDon) đọc sổ hoá đơn đã thu + tab Việc còn tồn (do DanhSachHoaDonService của khối payment dựng); /ke-toan tab Theo hàng hoá gộp dòng hoá đơn trong kỳ theo mặt hàng, kèm thuế suất và tiền thuế, tải Excel.",
+    "Bước 5 (xuất MISA): kế toán vào /xuat-hoa-don chọn khoảng ngày, loại (dịch vụ/thuốc), cơ sở, chế độ tách thuế, có ghi giảm giá không, sửa tay thuế từng dòng → XuatHoaDonService.xem: lấy phiếu THU trong kỳ chưa huỷ, trừ phần hoàn ĐÃ XONG theo dòng, chia lại giảm giá, gán thuế suất (sửa tay > mặt hàng > nhóm), chọn thông tin người mua / công ty, tách mỗi thuế suất một hoá đơn (mặc định) → xem trước, rồi tải Excel mẫu MISA (xlsx_misa).",
+    "Bước 6 (đánh dấu đã xuất): sau khi tải file, kế toán bấm Đánh dấu đã xuất MISA → HoaDonMisaService.danh_dau tự dựng lại danh sách hoá đơn của khoảng ngày (không tin danh sách trình duyệt gửi), lưu một dòng hoa_don_misa_xuat + dấu vân tay (người mua, nội dung) của từng hoá đơn.",
+    "Bước 7 (báo đổi sau xuất): mỗi lần mở màn xuất, gan_trang_thai lấy lần xuất mới nhất còn hiệu lực của từng hoá đơn, so dấu vân tay với hiện tại (hoa_don_misa_doc.so_sanh) → hiện 'Đã xuất MISA lúc…' và 'Có thay đổi sau khi xuất' kèm lý do. Bỏ đánh dấu / khôi phục đều hoàn tác được (đặt / gỡ huy_luc, không xoá)."
+  ],
+  "luu_y": [
+    "Tiền trên hoá đơn xuất = dòng đã thu (sau giảm) − hoàn ĐÃ XONG theo đúng dòng. Vd dòng 500.000đ hoàn xong 200.000đ → hoá đơn ghi 300.000đ; dòng hoàn hết → bỏ dòng; phiếu không còn dòng → bỏ phiếu.",
+    "Hoàn xong mà KHÔNG theo dòng thì KHÔNG trừ, chỉ ghi chú 'Có hoàn …đ không theo dòng — kiểm lại'; hoàn đang chờ cũng không trừ ('Đang chờ hoàn …đ'). Vd phiếu 1.000.000đ, hoàn 200.000đ không theo dòng → hoá đơn vẫn 1.000.000đ.",
+    "Hoàn một phần thì giảm giá còn lại theo tỉ lệ, làm tròn nửa lên: dòng sau giảm 1.000.000đ (giảm 100.000đ), hoàn 500.000đ → giảm còn 50.000đ, trước giảm 550.000đ.",
+    "Giá trong bảng giá ĐÃ GỒM thuế; thuế tách ngược = giá × t / (100 + t), làm tròn tới đồng. Vd 108.000đ thuế 8% → thuế 8.000đ, tiền hàng 100.000đ. KCT/KKKNT tính như 0%. Tổng thuế tính một lần trên tổng hoá đơn, lệch làm tròn dồn dòng cuối.",
+    "Thuế suất ưu tiên: sửa tay trên dòng (chỉ cho lần xuất này, đi trong URL) > đặt cho mặt hàng > đặt cho nhóm > trống (không thuế). Ở màn đặt thuế gõ rác thì BÁO LỖI; trong hàm thuần thue_gtgt gõ rác thì lặng lẽ coi như chưa đặt.",
+    "Hoá đơn công ty: đơn vị mua = công ty (địa chỉ, email, MST công ty), KHÔNG đưa SĐT / CCCD / địa chỉ cá nhân khách; 'Người mua' luôn là tên khách thật. Không xuất công ty thì cột C để trống.",
+    "Bản chụp công ty trên phiếu độc lập với hồ sơ: sửa hồ sơ KHÔNG đổi hoá đơn đã ghi; ghi bản chụp kèm 'lưu vào hồ sơ' thì hồ sơ theo lần ghi mới nhất. Quầy thu tick lại trên phiếu đã có bản chụp (kể cả đã bị kế toán bỏ) thì không ghi đè.",
+    "Dấu vân tay MISA gồm thông tin người mua và nội dung (ngày, tổng, từng dòng tên/ĐVT/SL/đơn giá/thành tiền) nhưng KHÔNG gồm thuế suất — đổi thuế sau khi xuất không báo 'có thay đổi'. Thứ tự dòng và kiểu số nằm trong dấu: đổi cách sắp dòng là MỌI hoá đơn đã xuất bỗng 'có thay đổi'.",
+    "Đánh dấu MISA đọc danh sách hoá đơn NGOÀI giao dịch ghi — ai thu/hoàn đúng lúc bấm thì dấu lưu có thể lệch file vừa tải.",
+    "Ghi chéo khối: thue_suat_service UPDATE thẳng service_price / drug_catalog (bảng của khối danh mục); loai 'dich_vu' và 'vat_tu' dùng chung một câu UPDATE, không kiểm nhóm khớp loại.",
+    "Hàm không tự kiểm quyền, dựa vào nơi gọi: gan_khi_thu (quầy thu đã qua authorize_payment), gan_trang_thai (màn xuất), cong_ty_cua_khach. Các router hoa_don.py / ke_toan.py chỉ đòi đăng nhập — quyền nằm trong service.",
+    "Khối không phát sự kiện miền (chỉ record_event vào event_log cũ) — không khối nào nghe được việc ghi/bỏ hoá đơn công ty hay đánh dấu MISA.",
+    "Đơn giá trong file = thành tiền sau giảm ÷ số lượng, có thể lẻ (100.000đ ÷ 3 = 33.333,3333đ) — MISA có thể làm tròn khác. Thuế dịch vụ nối service_price theo mã nhóm 'dich_vu': hai dòng giá cùng mã thì dòng hoá đơn có thể nhân đôi."
+  ],
+  "muon_sua": [
+    {"viec": "đổi cách trừ hoàn tiền / ghi chú hoàn trên hoá đơn xuất", "cho": "vòng duyệt phiếu hoàn trong dung_hoa_don (COMPLETED mới trừ, không theo dòng thì chỉ ghi chú)", "tep": "src/clinicai/services/xuat_hoa_don_service.py", "dong": 179},
+    {"viec": "đổi cột nào ghi gì trong file Excel MISA (tên công ty, địa chỉ, MST, người mua…)", "cho": "từ điển van_ban trong xlsx_misa", "tep": "src/clinicai/services/xuat_hoa_don_service.py", "dong": 322},
+    {"viec": "đổi mặc định tách / gộp hoá đơn nhiều thuế suất", "cho": "XuatHoaDonService.xem — che_do tach/mot, gọi ap_thue_hoa_don", "tep": "src/clinicai/services/xuat_hoa_don_service.py", "dong": 430},
+    {"viec": "đổi thứ tự ưu tiên thuế suất (dòng > mặt hàng > nhóm)", "cho": "hàm nguon_thue_suat", "tep": "src/clinicai/services/thue_gtgt.py", "dong": 78},
+    {"viec": "đổi cách tách thuế từ giá đã gồm thuế / làm tròn", "cho": "hàm tach_thue", "tep": "src/clinicai/services/thue_gtgt.py", "dong": 93},
+    {"viec": "đổi ai được đặt / xem thuế suất", "cho": "hằng QUYEN_DAT (accounting.tax.manage), QUYEN_XEM", "tep": "src/clinicai/services/thue_suat_service.py", "dong": 24},
+    {"viec": "đổi giá trị thuế suất được nhập ở màn đặt (và câu báo sai)", "cho": "hàm doc_thue_dat", "tep": "src/clinicai/services/thue_suat_service.py", "dong": 30},
+    {"viec": "thêm mức thuế có sẵn trong ô chọn", "cho": "mảng MUC_THUE", "tep": "src/dashboard/app/(dashboard)/ke-toan/thue-suat.ts", "dong": 24},
+    {"viec": "đổi ai được đọc / ghi thông tin công ty xuất hoá đơn", "cho": "hằng QUYEN_CONG_TY (accounting.finance.full, config.clinic.manage)", "tep": "src/clinicai/services/hoa_don_cong_ty_service.py", "dong": 37},
+    {"viec": "đổi dạng MST hợp lệ / câu nhắc MST", "cho": "_MST_RE (dòng 42) và hàm nhac_mst", "tep": "src/clinicai/services/hoa_don_cong_ty_service.py", "dong": 66},
+    {"viec": "đổi luật tick công ty ở quầy thu (chỉ công ty của đúng khách, không ghi đè)", "cho": "HoaDonCongTyService.gan_khi_thu", "tep": "src/clinicai/services/hoa_don_cong_ty_service.py", "dong": 537},
+    {"viec": "đổi cách tìm / tạo công ty trùng khi ghi bản chụp (theo MST hoặc tên)", "cho": "HoaDonCongTyService._khach_cong_ty_id", "tep": "src/clinicai/services/hoa_don_cong_ty_service.py", "dong": 460},
+    {"viec": "thêm/bớt trường làm hoá đơn bị coi là 'đổi sau khi xuất MISA'", "cho": "hàm dau_van_tay (đổi xong mọi lần xuất cũ sẽ hiện 'có thay đổi')", "tep": "src/clinicai/services/hoa_don_misa_doc.py", "dong": 36},
+    {"viec": "đổi số lần xuất MISA hiện trong danh sách / quyền đánh dấu", "cho": "hằng QUYEN_MISA và TOI_DA_LAN_XUAT = 50", "tep": "src/clinicai/services/hoa_don_misa_service.py", "dong": 33},
+    {"viec": "đổi cách gộp dòng theo mặt hàng trên màn Theo hàng hoá (mã + ĐVT)", "cho": "khoá gộp (nhóm, mã hoặc tên, ĐVT) trong theo_hang_hoa_service", "tep": "src/clinicai/services/theo_hang_hoa_service.py", "dong": 64}
+  ]
+}

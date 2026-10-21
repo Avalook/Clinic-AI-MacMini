@@ -1,0 +1,38 @@
+{
+  "tom_tat": "Khối 'Trách nhiệm không được rơi' biến những chuyện dễ bị quên thành một VIỆC có người chịu trách nhiệm, có hạn, hiện trên màn. Phần lõi là bên nghe sự kiện trach_nhiem_dich_vu (events/consumers/trach_nhiem.py, chạy trong worker su-kien — không có lệnh, không có màn riêng): khách đã trả tiền mà dịch vụ không làm → việc 'Đối soát tiền'; dịch vụ bị gián đoạn → việc 'Quyết định làm lại'; xếp phòng bị huỷ → việc 'Xếp lại phòng'. Các việc này nằm ở bảng work_item, người có quyền worklist.handle xử lý ở màn /viec-can-xu-ly. Khối cũng giữ đường lệnh work_item đời cũ (start/complete/skip/cancel, bảng việc theo khu), việc theo dõi sau lượt (follow_up_case), bảng siêu âm đời cũ (ultrasound_board_service) và 'Tự nhắc tôi' — nhân viên tự hẹn giờ nhắc chính mình (nhac_viec_ca_nhan, ô TuNhac ở Xem lại lượt khám).",
+  "luong": [
+    "Bước 1 — Khối Thực hiện / Điều phối phát service.not_performed, service.interrupted hoặc service.routing_invalidated. Worker sự kiện giao cho bên nghe trach_nhiem_dich_vu (giao 'ít nhất một lần').",
+    "Bước 2 — _can_mo_viec lọc: Không làm mà CHƯA thu tiền (payload da_thu_tien rỗng) → bỏ qua; huỷ xếp phòng do hoàn tác 'Làm tại bàn khám' (ly_do HUY_LAM_TAI_BAN_KHAM) → bỏ qua; sự kiện phát lại lịch sử → bỏ qua.",
+    "Bước 3 — Tra phiên bản loại việc (node_definition: OPS-FINANCIAL-RESOLUTION / OPS-SERVICE-INTERRUPTED / OPS-ROUTING-REASSIGN) của phòng khám; chưa khai → ném lỗi để dòng giao vào RETRY/DEAD (dừng có tiếng).",
+    "Bước 4 — INSERT work_item mức P1, hạn 4 giờ (đối soát tiền) hoặc 8 giờ (gián đoạn, mặc định); ON CONFLICT DO NOTHING dựa chỉ mục duy nhất (clinic, service_order, node_code) khi việc còn mở — sự kiện tới hai lần không mở hai việc. Cùng giao dịch, hẹn giờ (hen_gio) 'trach_nhiem.kiem_lai'.",
+    "Bước 5 — Màn /viec-can-xu-ly (BangViecCanXuLy) liệt kê việc khu khu_van_hanh; người có quyền worklist.handle bấm 'Đã xử lý' → màn gửi lệnh start rồi complete (WorkItemService.issue: khoá dòng, kiểm chuyển trạng thái + phiên bản, ghi work_item_event cùng giao dịch).",
+    "Bước 6 — Tới hạn: kiem_lai_viec_con_mo kiểm việc còn PENDING/IN_PROGRESS thì nâng lên P0 để nổi đầu bảng; đã xong thì 'hết cần'. Việc mở ra KHÔNG tự hoàn tiền, không tự xếp lại phòng — người quyết và dùng lệnh của khối Tài chính / Điều phối.",
+    "Bước 7 — Tự nhắc tôi: nhân viên gõ việc + giờ (TuNhac.tsx → /api/nhac-viec) → NhacViecService.tao ghi nhac_viec_ca_nhan + hẹn giờ cùng giao dịch; tới giờ bên nghe nhac_viec réo chuông đích danh người hẹn (trừ khi đã đánh dấu xong)."
+  ],
+  "luu_y": [
+    "Ví dụ đúng luật: khách đã trả 400.000đ siêu âm, máy hỏng, phòng bấm Không làm → mở việc 'Đối soát tiền' hạn 4 giờ; quá 4 giờ còn mở → nâng P0. Khách chưa trả mà không làm → không mở việc nào.",
+    "Chống trùng dựa HOÀN TOÀN vào chỉ mục duy nhất trong migration; câu ON CONFLICT không chỉ rõ cột — mất chỉ mục là mở trùng việc. Hẹn kiểm lại phải cùng giao dịch với việc vừa mở; tách ra là có việc mà lời nhắc không bao giờ tới (luật này áp cả nhac_viec_service).",
+    "Thêm một trách nhiệm được canh = thêm một dòng VIEC_THEO_SU_KIEN + khai node ở phòng khám + khai bên nghe trong events/catalogue.py; KHÔNG sửa khối phát sự kiện. Consumer đăng ký bằng TÊN CHUỖI — 'không ai import' không có nghĩa là code chết.",
+    "Quyền trên work_item trộn hai hệ: khu do lego quyết (QUYEN_THEO_KHU: khu_van_hanh → worklist.handle, bang_dieu_phoi → reception.checkin.perform); ngoài khu thì theo VAI trong actor_roles của bước (bước chưa khai vai = không ai làm được); miễn/huỷ bước DỊCH VỤ chỉ vai DOCTOR / ULTRASOUND_DOCTOR. list_for_visit tính 'tôi làm được' chỉ theo vai — người có lego mà không có vai thấy nút tắt dù lệnh cho phép.",
+    "Chuyển trạng thái: Bắt đầu chỉ từ CHỜ, Xong chỉ từ ĐANG LÀM, Miễn/Huỷ từ CHỜ hoặc ĐANG LÀM và BẮT ghi lý do; chỉ Bắt đầu/Xong bị cổng phụ thuộc chặn (work_item_gate_blockers), Miễn/Huỷ không bao giờ bị chặn để gỡ luồng kẹt. Màn 'Đã xử lý' gửi start rồi complete là hai giao dịch — complete lỗi thì việc kẹt IN_PROGRESS.",
+    "Trigger trg_work_item_update_visit_node tự ghi visit.current_node_code (khối Tiếp đón) theo việc IN_PROGRESS mới nhất — ghi chéo ở tầng database.",
+    "Bảng siêu âm đời cũ (ultrasound_board_service): Nhận ca ĐÈ người đã nhận trước (BS A nhận, BS B bấm → ca sang BS B); đếm số ở tab phòng không lọc ngày nên có thể lớn hơn hàng chờ hôm nay; tệp ghi ultrasound_record (bảng khối Kết quả). Router work_items.py và visit_progress.py còn chứa SQL lớn (trái luật router mỏng) và dựa trên work_item/node_definition đời cũ.",
+    "Tự nhắc: nội dung 1–500 ký tự, giờ nhắc trong vòng 400 ngày, giờ đã qua thì nhắc ngay; chỉ người tạo đánh dấu xong; đánh dấu xong KHÔNG có hoàn tác (trái luật 'mọi thao tác hoàn tác được'). Màn gửi giờ datetime-local không múi giờ — máy chủ phải hiểu là giờ VN."
+  ],
+  "muon_sua": [
+    {"viec": "thêm một loại trách nhiệm được canh (sự kiện → loại việc)", "cho": "bảng VIEC_THEO_SU_KIEN (kèm khai node ở phòng khám + bên nghe trong catalogue)", "tep": "src/clinicai/events/consumers/trach_nhiem.py", "dong": 51},
+    {"viec": "đổi hạn kiểm lại / nâng P0 của từng loại việc (4 giờ, 8 giờ)", "cho": "HAN_KIEM_LAI (mặc định 8 giờ ở dòng 107)", "tep": "src/clinicai/events/consumers/trach_nhiem.py", "dong": 44},
+    {"viec": "đổi khi nào KHÔNG mở việc (chưa thu tiền, huỷ làm tại bàn khám)", "cho": "hàm _can_mo_viec", "tep": "src/clinicai/events/consumers/trach_nhiem.py", "dong": 60},
+    {"viec": "đổi mức ưu tiên lúc mở việc (P1) / lúc quá hạn (P0)", "cho": "câu INSERT work_item ('P1') và UPDATE ở kiem_lai_viec_con_mo dòng 161", "tep": "src/clinicai/events/consumers/trach_nhiem.py", "dong": 113},
+    {"viec": "cho khu làm việc mới quyết bằng lego thay vì vai", "cho": "QUYEN_THEO_KHU", "tep": "src/clinicai/services/work_item_service.py", "dong": 72},
+    {"viec": "thêm / đổi lệnh hoặc chuyển trạng thái work item", "cho": "_TRANSITIONS (lý do bắt buộc ở LENH_CAN_LY_DO dòng 62)", "tep": "src/clinicai/services/work_item_service.py", "dong": 49},
+    {"viec": "đổi ai được miễn/huỷ bước dịch vụ (đang theo VAI bác sĩ)", "cho": "VAI_QUYET_DICH_VU + khối kiểm trong issue dòng 186–198", "tep": "src/clinicai/services/work_item_service.py", "dong": 64},
+    {"viec": "đổi ai thấy việc nào trên bảng khu (Việc cần xử lý…)", "cho": "list_worklist — điều kiện WHERE theo vai / lego / thư ký theo bác sĩ", "tep": "src/clinicai/services/work_item_service.py", "dong": 456},
+    {"viec": "sửa 'tôi làm được' cho khớp lego khu", "cho": "list_for_visit (tính actionable_by_me chỉ theo actor_roles)", "tep": "src/clinicai/services/work_item_service.py", "dong": 316},
+    {"viec": "đổi giới hạn hẹn nhắc xa nhất (400 ngày)", "cho": "hằng _XA_NHAT", "tep": "src/clinicai/services/nhac_viec_service.py", "dong": 23},
+    {"viec": "thêm hoàn tác cho 'đánh dấu xong' việc tự nhắc", "cho": "NhacViecService.xong (hiện không đặt lại xong_luc, không hẹn lại)", "tep": "src/clinicai/services/nhac_viec_service.py", "dong": 118},
+    {"viec": "không cho bác sĩ siêu âm đè ca người khác đã nhận", "cho": "nhan_ca — câu UPDATE work_item SET assigned_to (thiếu điều kiện 'chưa ai nhận')", "tep": "src/clinicai/services/ultrasound_board_service.py", "dong": 296},
+    {"viec": "đổi cửa sổ thời gian / trần 300 dòng hàng chờ siêu âm", "cho": "_QUEUE_SQL (đếm phòng ở _ROOMS_SQL dòng 134 chưa lọc ngày)", "tep": "src/clinicai/services/ultrasound_board_service.py", "dong": 78},
+    {"viec": "đổi điều kiện 'đủ định danh' để được siêu âm", "cho": "hàm _queue_row", "tep": "src/clinicai/services/ultrasound_board_service.py", "dong": 501}
+  ]
+}

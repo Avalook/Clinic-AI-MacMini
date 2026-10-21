@@ -1,0 +1,37 @@
+{
+  "tom_tat": "Khối Bán thêm vật tư lo những món vật tư khách mua kèm trong một lượt khám (đầu dò Bio, vòng Mirena…), tính tiền vào hoá đơn DỊCH VỤ của lượt chứ không vào tiền thuốc. Có hai lối vào: (1) quầy Thu tiền dịch vụ (khối 'Mua thêm vật tư' — VatTuQuay.tsx) do người có quyền thu tiền dịch vụ hoặc chọn dịch vụ thao tác; (2) bác sĩ chọn đầu dò ngay ở chỉ định siêu âm/tập Bio trên phiếu khám (DauDoChiDinh.tsx), ai có quyền chỉ định dịch vụ đều chọn được. Dữ liệu chính là bảng luot_vat_tu (mỗi dòng: lượt, mặt hàng, số lượng, đơn giá, có/không gắn chỉ định, người duyệt, dấu bỏ) và vat_tu_goi_y (dịch vụ nào hay mua kèm vật tư nào). Danh mục và giá vật tư nằm ở service_price (khối Danh mục giữ).",
+  "luong": [
+    "Bước 1: màn quầy/phiếu khám đọc danh mục vật tư được kinh doanh (service_price nhóm 'vat_tu', kinh_doanh_vat_tu = TRUE) + các dòng đã thêm của lượt + tổng tiền; vật tư gắn với dịch vụ đang có trong lượt (vat_tu_goi_y) được đẩy lên đầu.",
+    "Bước 2a (quầy): lệnh AddSupplyToBill — VatTuService.them khoá lượt, kiểm còn bán được (cho kinh doanh, đang bán, giá > 0), hàng cần duyệt thì bắt người duyệt + lý do, dây bắt lý do bán bật thì bắt nguyên nhân; đã có dòng quầy chờ thu cùng mặt hàng thì cộng dồn (trần 99), chưa có thì thêm dòng mới với giá hiện tại.",
+    "Bước 2b (phiếu khám): BioChiDinhService.chon đặt đầu dò cho MỘT chỉ định — mỗi chỉ định tối đa một đầu dò còn sống; chọn hàng khác = đóng dấu bỏ dòng cũ + thêm dòng mới gắn order_id; hàng cần duyệt không chọn ở đây được.",
+    "Bước 3: đổi số lượng (SetSupplyQuantity → dat_so_luong) hoặc bỏ dòng (RemoveSupply → bo: đóng dấu bo_luc/bo_boi/bo_ly_do, không xoá) khi dòng chưa thu tiền.",
+    "Bước 4: mỗi lần ghi phát sự kiện visit.supply_changed + ghi nhật ký cũ trong cùng giao dịch (ghi_su_kien_vat_tu, dùng chung cho cả hai lối); màn nghe bảng luot_vat_tu để tự cập nhật.",
+    "Bước 5: quầy thu dịch vụ thu tiền — dòng vật tư thành dòng hoá đơn (source_type 'vat_tu'); từ lúc nằm trong lần thu chờ xác minh/đã thu thì khoá, muốn đổi phải 'Hoàn tác lần thu' trước."
+  ],
+  "luu_y": [
+    "Tiền: đơn giá × số lượng. Ví dụ Bio 150.000đ × 2 lần = 300.000đ vào hoá đơn dịch vụ cùng chỉ định. Dòng gắn chỉ định mà khách KHÔNG chọn làm dịch vụ đó thì vẫn hiện nhưng không tính tiền (Bio 300.000đ kèm Tập máy, khách bỏ Tập máy → tổng không cộng 300.000đ); chỉ định huỷ/không làm thì dòng Bio bị ẩn, khôi phục chỉ định thì hiện lại; dòng đã thu luôn hiện.",
+    "Cộng dồn GHI ĐÈ đơn giá bằng giá hiện tại: thêm Bio lúc giá 300.000đ, quản lý đổi giá 350.000đ, bấm thêm lần nữa → cả 2 cái tính 350.000đ (comment đầu tệp nói 'chốt lúc thêm' là sai).",
+    "Trần số lượng 99, cộng dồn chạm trần thì cắt im: đang 98 bấm thêm 5 → 99, không báo lỗi. Ô gõ tay để trống rời ô sẽ gửi 0 — chỉ máy chủ chặn.",
+    "Hàng cần duyệt (Mirena…): mỗi lần THÊM phải có người duyệt + lý do 5–500 ký tự; người có quyền vat_tu.approve tự thêm thì tự là người duyệt. Nhưng dat_so_luong khi TĂNG chỉ kiểm 'được kinh doanh' — không đòi duyệt lại, không kiểm ngưng bán/chưa có giá: tăng Mirena 1 → 3 không cần duyệt lại.",
+    "Bỏ dòng đầu dò bác sĩ chọn (có order_id) BẮT ghi lý do 5–500 ký tự; dòng quầy tự thêm bỏ không cần lý do. Bỏ chỉ định đã thu: tiền Bio đã trả không tự thành tiền thừa — phải hoàn ở quầy thu.",
+    "'Đã thu' không có cờ riêng — suy từ sổ lần thu qua hằng _DA_PHU của bill_service (khối payment). Đổi cách payment lưu nguồn dòng (source_type 'vat_tu', source_id = id dòng) là hỏng khoá ở đây.",
+    "Mọi lệnh ghi phải khoá lượt (khoa_luot) trước khi đọc dòng; luồng Bio khoá lượt → chỉ định → dòng Bio theo đúng thứ tự, đổi thứ tự dễ kẹt chéo với lệnh thu.",
+    "Quyền: thêm/sửa/bỏ ở quầy cần payment.service.collect hoặc service_selection.confirm (quyền thu thuốc không đủ); chọn đầu dò ở chỉ định cần clinical.order.place. Không gác theo vai.",
+    "Database ép lại (trigger luot_vat_tu_gac): phải là vật tư của phòng khám, đang bán, giá > 0; hàng cần duyệt phải có người CÓ quyền duyệt kèm lý do; dòng đã nằm trong lần thu thì không đổi số lượng/giá/bỏ. Mỗi (lượt, hàng, chỉ định) chỉ một dòng sống; người duyệt và lý do duyệt luôn đi cùng nhau.",
+    "Dòng đầu dò của bác sĩ và dòng quầy là hai dòng riêng: quầy bấm thêm cùng mặt hàng không cộng vào dòng của bác sĩ."
+  ],
+  "muon_sua": [
+    {"viec": "đổi điều kiện một vật tư được bán (giá, ngưng bán, cho kinh doanh)", "cho": "hàm thuần ly_do_khong_ban — trả lý do không bán, None là bán được", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 133},
+    {"viec": "đổi trần số lượng một dòng (đang 99)", "cho": "SO_LUONG_TOI_DA — phải khớp CHECK 1–99 của bảng luot_vat_tu", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 62},
+    {"viec": "đổi ai được chọn làm người duyệt hàng cần duyệt", "cho": "câu _NGUOI_DUYET_SQL (và trigger luot_vat_tu_gac ở migration 20261014200000)", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 120},
+    {"viec": "đổi luật tự duyệt / bắt chọn người duyệt", "cho": "VatTuService._nguoi_duyet", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 318},
+    {"viec": "giữ giá cũ khi cộng dồn thay vì lấy giá hiện tại", "cho": "câu UPDATE so_luong + don_gia trong them", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 441},
+    {"viec": "bắt duyệt lại khi tăng số lượng hàng cần duyệt", "cho": "nhánh sl > so_luong cũ trong dat_so_luong (hiện chỉ kiểm kinh_doanh_vat_tu)", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 504},
+    {"viec": "đổi khi nào bỏ dòng phải ghi lý do", "cho": "VatTuService.bo — _ly_do_bo(bat_buoc = có order_id)", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 534},
+    {"viec": "đổi thứ tự hiện danh mục vật tư ở quầy", "cho": "danh_muc.sort trong _doc", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 238},
+    {"viec": "đổi payload sự kiện visit.supply_changed (ảnh hưởng cả luồng Bio)", "cho": "ghi_su_kien_vat_tu", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 579},
+    {"viec": "cho chọn hàng cần duyệt ngay ở chỉ định / đổi luật một đầu dò mỗi chỉ định", "cho": "BioChiDinhService.chon — đoạn chặn can_ql_duyet và vòng giữ/bỏ dòng cũ", "tep": "src/clinicai/services/bio_chi_dinh_service.py", "dong": 212},
+    {"viec": "đổi điều kiện khoá nút thêm vật tư ở quầy (thiếu lý do bán)", "cho": "biến thieuLyDo / khongThem", "tep": "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx", "dong": 103},
+    {"viec": "đổi đầu dò gợi ý theo dịch vụ (vd Tập máy Bio → đầu dò)", "cho": "dữ liệu bảng vat_tu_goi_y — việc dữ liệu, không sửa code; đọc ở VatTuService._doc", "tep": "src/clinicai/services/vat_tu_service.py", "dong": 210}
+  ]
+}

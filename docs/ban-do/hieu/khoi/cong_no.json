@@ -1,0 +1,41 @@
+{
+  "tom_tat": "Khối Công nợ lo một việc: khách sắp về mà còn khoản đã làm/đã mua chưa trả tiền thì máy chủ CHẶN check-out, chỉ có hai lối qua — thu ngay ở quầy, hoặc bấm \"Ghi nợ\" kèm lý do. Người dùng là lễ tân / người đứng quầy (quyền reception.checkin.perform) ở nút Check-out nhanh, màn Check-out và Lượt tồn đọng (khối giao diện \"Khách còn nợ lúc về\" — KhoanNoKhiVe.tsx); thu ngân thu nợ sau ở quầy thu. Dữ liệu chính là bảng cong_no: mỗi lượt tối đa một khoản CHUA_THU, kèm ảnh chụp các dòng nợ lúc ghi; khoản ấy thành DA_THU khi lượt hết nợ, hoặc HUY khi huỷ vì bấm nhầm. Tổng \"khách còn nợ\" trên báo cáo đọc từ sổ nợ (khối so_no), không đọc từ cong_no.",
+  "luong": [
+    "Bước 1: Khi mở hộp check-out, máy chủ gọi no_khi_ve (cong_no_service) — dựng hoá đơn dịch vụ + thuốc của lượt rồi lọc ra khoản nào là NỢ theo luật (phí khám đã tick, chỉ định đang/đã làm, phụ thu và vật tư đi theo chỉ định, vật tư rời, thuốc đã mua/đã cấp chưa thu). Kết quả gắn vào hàng check-out (checkout_service, dòng 1076) cùng tiền thừa chưa hoàn.",
+    "Bước 2: Còn khoản nợ mà chưa ghi nợ phủ đủ → cờ chan bật, mọi nút Check-out khoá và hiện câu \"Khách còn nợ …đ — thu ngay ở quầy hoặc bấm Ghi nợ\". Nút \"Thu ngay — dịch vụ/thuốc\" chỉ hiện khi quầy thu đã nhận lượt (khám xong hoặc đã có chỉ định) và tài khoản có quyền thu.",
+    "Bước 3a (thu ngay): khách sang quầy thu, khối payment thu tiền → khoản biến khỏi danh sách nợ, check-out mở.",
+    "Bước 3b (ghi nợ): lễ tân bấm Ghi nợ, nhập lý do 3–500 ký tự → POST /reception/checkout/ghi-no → lệnh GhiNo (CongNoService.ghi → ghi_no_trong): khoá dòng visit, tính lại nợ, tạo dòng cong_no CHUA_THU (hoặc ghi đè dòng CHUA_THU đang có) và phát sự kiện cong_no.ghi. Khối so_no nghe và ghi sổ.",
+    "Bước 4: Khách check-out. Nếu sau khi ghi nợ lại phát sinh khoản mới (BS thêm chỉ định), ghi nợ không còn phủ đủ → bị chặn lại tới khi Ghi nợ lần nữa.",
+    "Bước 5 (huỷ nhầm): trước khi khách check-out, bấm Huỷ ghi nợ (lý do bắt buộc) → lệnh HuyGhiNo đổi dòng sang HUY, phát cong_no.huy. Khách đã về thì không huỷ được — nợ chỉ hết khi thu.",
+    "Bước 6 (thu nợ sau): khách quay lại trả, thu ngân thu ở quầy → sự kiện payment.service_collected / payment.medicine_collected → bên nghe cong_no (xet_da_thu) khoá khoản CHUA_THU, gọi lại no_khi_ve; lượt hết nợ hẳn thì đổi sang DA_THU, ghi giờ thu và phát cong_no.da_thu kèm số thực thu và số giảm. Thu một phần thì khoản nợ giữ nguyên.",
+    "Nhánh máy tự ghi: huỷ phiếu thu SAU khi khách đã về (payment_service) gọi ghi_no_trong với nguồn HUY_PHIEU — khoản đã làm thành nợ chờ xử lý (thu lại hoặc miễn bằng thu 0đ giảm 100%)."
+  ],
+  "luu_y": [
+    "Luật \"nợ là gì\" chỉ nằm MỘT chỗ: no_khi_ve / loc_no_dich_vu / loc_no_thuoc. Check-out, Ghi nợ, bên nghe đóng nợ và sổ nợ (so_no_service dòng 228) đều gọi cùng hàm — sửa luật ở đây là đổi cả bốn nơi cùng lúc.",
+    "Phí khám chỉ là nợ khi đã TICK dịch vụ khám (source_id có '-selected-'); phí khám mặc định chưa tick không là nợ dù có giá. Chỉ định chưa làm hoặc khách không chọn không là nợ. Trả trước liệu trình chưa thu không là nợ. Dịch vụ đối tác tự thu không tính.",
+    "Dòng chưa có giá vẫn là nợ nhưng tính 0đ vào tổng: vd siêu âm chưa có giá + thuốc 120.000đ → \"Khách còn nợ 120.000đ (+1 khoản chưa có giá)\"; số tiền ghi vào cong_no cũng không gồm khoản chưa có giá.",
+    "\"Phủ đủ\" so theo MÃ dòng chứ không so số tiền: ghi nợ 300.000đ rồi giá một dòng đã ghi tăng lên → vẫn coi là phủ đủ, số ghi nợ thấp hơn nợ thật. Còn thêm DÒNG mới (vd chỉ định 200.000đ) thì bị chặn, phải ghi nợ lại cho đủ 500.000đ.",
+    "Ghi nợ phải khoá dòng visit FOR UPDATE — cùng khoá với check-out và thu tiền; bỏ khoá là ghi nợ chen giữa lúc đang thu.",
+    "Database ép: một lượt chỉ một khoản CHUA_THU (hai người bấm cùng lúc thì một người bị từ chối); cong_no không xoá được; DA_THU/HUY là trạng thái cuối; mỗi trạng thái phải có đủ dấu vết (giờ, người, lý do 3–500 ký tự).",
+    "Đóng nợ tính tiền thực thu/giảm = tổng các lần thu PAID hoặc chờ xác minh tạo SAU giờ ghi nợ. Vd nợ 700.000đ, lần thu sau đó giảm hết 700.000đ → lịch sử ghi 'thu 0đ, giảm 700.000đ'. Lần thu trước khi ghi nợ hoặc đã hoàn tác không tính.",
+    "CongNoService không tự kiểm quyền — router dispatch.py chặn bằng quyền reception.checkin.perform (dòng 38). Thêm lối gọi mới phải tự chặn quyền.",
+    "Giao diện: mọi hành động dùng chung một ô lý do — đóng hộp bằng 'Thôi' không xoá chữ, lần sau gửi lại chữ cũ; 'Huỷ giữ lại' (tiền thừa) gửi ngay không mở ô lý do. Lượt ngày trước chưa ghi nợ không có ở quầy thu hôm nay — nơi gọi phải truyền choThuNgay=false.",
+    "Phụ thuộc: bill_service (hoá đơn), khối payment (thu tiền phát sự kiện), tien_thua_service (tiền thừa cũng chặn check-out nhưng là luật riêng), so_no (sổ nợ đọc no_khi_ve và cộng lại CK chờ xác minh — đổi một bên phải đổi bên kia)."
+  ],
+  "muon_sua": [
+    {"viec": "đổi khoản dịch vụ nào bị coi là nợ khi khách về (phí khám, chỉ định, phụ thu, vật tư)", "cho": "hàm loc_no_dich_vu — lọc từng dòng hoá đơn theo source_type", "tep": "src/clinicai/services/cong_no_service.py", "dong": 207},
+    {"viec": "đổi thế nào là chỉ định 'đã làm' (tính nợ)", "cho": "câu SQL _DA_LAM_SQL — exec_status in_progress/performed, khách SELECTED/PENDING", "tep": "src/clinicai/services/cong_no_service.py", "dong": 57},
+    {"viec": "đổi thế nào là thuốc còn nợ", "cho": "câu SQL _THUOC_CHUA_THU_SQL — đã mua/cấp > 0, chưa từ chối/gỡ, chưa có lần thu phủ", "tep": "src/clinicai/services/cong_no_service.py", "dong": 68},
+    {"viec": "đổi điều kiện ghi nợ 'phủ đủ' (vd so cả số tiền chứ không chỉ mã dòng)", "cho": "thuộc tính NoKhiVe.phu_boi_ghi_no", "tep": "src/clinicai/services/cong_no_service.py", "dong": 161},
+    {"viec": "đổi câu chặn check-out hiện cho lễ tân", "cho": "hàm NoKhiVe.cau_chan", "tep": "src/clinicai/services/cong_no_service.py", "dong": 176},
+    {"viec": "đổi khi nào nút 'Thu ngay' dịch vụ bật (quầy thu đã nhận lượt)", "cho": "câu SQL _QUAY_NHAN_DV_SQL — phải khớp cashier_board_service", "tep": "src/clinicai/services/cong_no_service.py", "dong": 97},
+    {"viec": "đổi độ dài lý do ghi nợ / huỷ ghi nợ", "cho": "hàm _ly_do (3–500 ký tự) — kèm Field ở router và ràng buộc DB", "tep": "src/clinicai/services/cong_no_service.py", "dong": 417},
+    {"viec": "đổi cách ghi đè khi ghi nợ lần hai", "cho": "hàm ghi_no_trong — UPDATE dòng CHUA_THU đang có hoặc INSERT mới, phát cong_no.ghi", "tep": "src/clinicai/services/cong_no_service.py", "dong": 426},
+    {"viec": "cho huỷ ghi nợ cả sau khi khách đã về", "cho": "CongNoService.huy — chặn khi closed_at khác rỗng", "tep": "src/clinicai/services/cong_no_service.py", "dong": 534},
+    {"viec": "đổi ai được bấm Ghi nợ / Huỷ ghi nợ", "cho": "_RECEPTION_GUARD = cua_quyen('reception.checkin.perform') dùng cho hai route ghi-no / huy-ghi-no", "tep": "src/clinicai/api/v1/routers/dispatch.py", "dong": 38},
+    {"viec": "đổi khi nào khoản nợ tự chuyển ĐÃ THU (vd thu một phần cũng đóng)", "cho": "bên nghe xet_da_thu — gọi no_khi_ve, còn dòng thì giữ nợ", "tep": "src/clinicai/events/consumers/cong_no.py", "dong": 46},
+    {"viec": "đổi cách tính số thực thu / số giảm khi đóng nợ", "cho": "SQL cộng payment_cycle tạo sau ghi_luc trong xet_da_thu", "tep": "src/clinicai/events/consumers/cong_no.py", "dong": 51},
+    {"viec": "đổi trần danh sách truy thu trên báo cáo Khách còn nợ", "cho": "hằng _TRAN_DS = 500", "tep": "src/clinicai/services/cong_no_service.py", "dong": 53},
+    {"viec": "đổi chữ / nút trên khối 'Khách còn nợ lúc về' (độ dài lý do phía màn, nút Thu ngay)", "cho": "component KhoanNoKhiVe — kiểm lý do ≥3 ký tự ở dòng 252, nút Thu ngay dòng 101", "tep": "src/dashboard/app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx", "dong": 252}
+  ]
+}

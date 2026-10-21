@@ -1,0 +1,33 @@
+{
+  "tom_tat": "Khối Khách chọn dịch vụ ghi quyết định của KHÁCH: trong các chỉ định bác sĩ ra, khách đồng ý làm cái nào (SELECTED) và không làm cái nào (NOT_SELECTED). Người dùng là quầy thu ngân / lễ tân ở màn /thu-ngan (ô 'khách làm dịch vụ nào' — ChonDichVu.tsx, nay gộp với hoá đơn), cần quyền service_selection.confirm. Dữ liệu chính: cột selection_status trên từng service_order và bảng service_selection_state giữ số phiên bản lựa chọn theo lượt (ai xác nhận, lúc nào). Khối còn giữ tick 'Làm trước – thu sau' của lượt (cột lam_truoc_thu_sau_* trên visit) — bàn khám hoặc quầy thu tick để khách được làm trước khi trả tiền. Khối không tính tiền, không xoá chỉ định, không xếp phòng.",
+  "luong": [
+    "Bước 1 — Sau khi bác sĩ chỉ định (service_order.placed), quầy thu mở màn: cho_khach_quyet đọc các chỉ định còn chờ khách quyết (exec_status authorized; cả assigned khi dây 'Nhận tại phòng' bật) kèm giá, khoá, bắt buộc. Màn mặc định coi khách làm mọi chỉ định chưa bị từ chối lần trước.",
+    "Bước 2 — Thu ngân tick / bỏ tick → lệnh ConfirmServiceSelection: hỏi quyền service_selection.confirm trong giao dịch, khoá lượt → đọc biên nhận chống trùng → khoá service_selection_state → khoá các service_order; so revision lựa chọn với lúc mở màn; kiểm tập đang hỏi đúng bằng tập còn ở giai đoạn quyết; chặn bỏ dịch vụ 'Bắt buộc'; ghi SELECTED / NOT_SELECTED, tăng revision; bỏ một dịch vụ thì đóng luôn phụ thu kèm (luot_phu_thu). Phát service_selection.confirmed.",
+    "Bước 3 — Màn gửi tiếp lệnh 'phong-du-kien' (khối Điều phối) để ghi phòng / bác sĩ khách chọn — lệnh RIÊNG, không cùng giao dịch với bước 2.",
+    "Bước 4 — Các khối nghe service_selection.confirmed: Hành trình (dây H4 tự xếp phòng nếu tiền cho phép), Vòng đọc kết quả (tính lại việc còn lại của lượt), Dòng thời gian lượt.",
+    "Bước 5 — 'Làm trước – thu sau' (SetDeferPayment): người có một trong các quyền clinical.order.place / clinical.consult.finalize / payment.service.collect tick ở bàn khám hoặc quầy thu → ghi visit.lam_truoc_thu_sau_luc, đồng thời chốt luôn các chỉ định khách còn chờ quyết thành 'làm', phát visit.defer_payment_set (+ service_selection.confirmed nếu có chốt). Bỏ tick → visit.defer_payment_cleared; dịch vụ đã/đang làm vẫn còn nợ, dịch vụ chưa làm quay về phải thu trước.",
+    "Bước 6 — Làm tại bàn khám: khối Thực hiện gọi chot_mot_chi_dinh để chốt hộ 'khách làm' đúng MỘT chỉ định khi cửa tiền mở; huỷ bắt đầu thì trả lại lựa chọn cũ nếu revision chưa đổi và chưa có lần thu."
+  ],
+  "luu_y": [
+    "Lựa chọn bị khoá khi: chỉ định đã bắt đầu / kết thúc (SELECTION_EXECUTION_LOCKED); đã xếp phòng (SELECTION_ROUTING_LOCKED) — trừ khi dây 'Nhận tại phòng' bật; đã có lần thu PHÒNG KHÁM đang PAID hoặc chờ xác minh (SELECTION_FINANCIAL_LOCKED) — muốn bỏ phải đi luồng tài chính (hoàn tiền / bỏ chỉ định). Dịch vụ khách trả thẳng đối tác không bị khoá bởi lần thu của phòng khám.",
+    "Lệnh bắt buộc khoá gửi lại (Idempotency-Key) dài 8–200 ký tự, tối đa 100 chỉ định một lần. Biên nhận được đọc TRƯỚC khi so revision: lần trước đã commit mà mất phản hồi thì gửi lại vẫn nhận đúng kết quả cũ.",
+    "Thứ tự khoá: visit → biên nhận → service_selection_state → service_order (ORDER BY id). Hàm ap_lua_chon giả định người gọi ĐÃ khoá lượt — gọi từ chỗ mới mà quên khoá là tranh chấp với quầy thu.",
+    "Cửa tiền phụ thuộc dây 'thu_truoc_khi_lam' (mặc định BẬT): bật thì chỉ định chưa thu chỉ được xếp phòng / bắt đầu làm khi lượt đã tick 'Làm trước – thu sau'. Ví dụ siêu âm 400.000đ chưa thu, lượt chưa tick → phòng không Bắt đầu được; tick xong → làm được, 400.000đ vẫn là nợ ở quầy.",
+    "Lệnh bật tick KHÔNG tự kiểm dây thu-trước có bật không — cờ tick_duoc chỉ ẩn nút trên màn; gọi API thẳng vẫn tick được khi dây tắt. Chốt chờ quyết lúc bật tick chạy trong savepoint và NUỐT LuotKhamConflictError: chốt hỏng thì tick vẫn ghi, quầy phải chốt sau.",
+    "Bỏ tick 'Làm trước – thu sau' được bất cứ lúc nào (không khoá cứng), kể cả lượt đã về giữa chừng / check-out. Bật lần hai không ghi lại giờ/người, không phát sự kiện lần hai.",
+    "Ghi chéo: lam_truoc_thu_sau.py ghi thẳng cột lam_truoc_thu_sau_* của bảng visit (khối Tiếp đón) — nằm trong sổ nợ ghi chéo.",
+    "Màn ChonDichVu: chốt dịch vụ và ghi phòng là HAI lần gọi; chốt xong mà ghi phòng lỗi thì dịch vụ đã chốt, phòng chưa — màn báo lỗi riêng."
+  ],
+  "muon_sua": [
+    {"viec": "đổi ai được xác nhận khách chọn dịch vụ", "cho": "hằng QUYEN_CHON_DICH_VU = 'service_selection.confirm'", "tep": "src/clinicai/services/service_selection_service.py", "dong": 70},
+    {"viec": "đổi khi nào lựa chọn bị khoá (đã làm / đã xếp phòng / đã thu)", "cho": "hàm thuần lock_of (và decision_ids dòng 188 cho tập còn quyết được)", "tep": "src/clinicai/services/service_selection_service.py", "dong": 167},
+    {"viec": "đổi luật dịch vụ 'Bắt buộc' (quầy không bỏ được)", "cho": "hàm plan — lỗi SERVICE_REQUIRED", "tep": "src/clinicai/services/service_selection_service.py", "dong": 247},
+    {"viec": "đổi giới hạn khoá gửi lại / số chỉ định một lần", "cho": "hàm kiểm đầu vào (8–200 ký tự, tối đa 100 chỉ định)", "tep": "src/clinicai/services/service_selection_service.py", "dong": 114},
+    {"viec": "đổi dữ liệu quầy thấy cho từng chỉ định chờ quyết", "cho": "_CHO_QUYET_SQL và cho_khach_quyet dòng 371", "tep": "src/clinicai/services/service_selection_service.py", "dong": 300},
+    {"viec": "đổi ai được tick 'Làm trước – thu sau'", "cho": "tuple QUYEN_TICK (clinical.order.place, clinical.consult.finalize, payment.service.collect)", "tep": "src/clinicai/services/lam_truoc_thu_sau.py", "dong": 81},
+    {"viec": "đổi cờ hiện nút tick / câu lưu ý trên màn", "cho": "hàm co_tick (câu CAU_* ở dòng 87–99)", "tep": "src/clinicai/services/lam_truoc_thu_sau.py", "dong": 128},
+    {"viec": "đổi cách chốt các chỉ định chờ quyết khi bật tick", "cho": "hàm _chot_cho_quyet", "tep": "src/clinicai/services/lam_truoc_thu_sau.py", "dong": 272},
+    {"viec": "bắt lệnh bật tick kiểm dây 'thu trước khi làm' ở máy chủ", "cho": "nhánh `if bat:` trong lệnh SetDeferPayment (hiện chỉ màn ẩn nút)", "tep": "src/clinicai/services/lam_truoc_thu_sau.py", "dong": 546},
+    {"viec": "đổi lựa chọn mặc định khi quầy mở ô chọn dịch vụ", "cho": "useState chon (mặc định: làm mọi chỉ định chưa bị từ chối)", "tep": "src/dashboard/app/(dashboard)/thu-ngan/ChonDichVu.tsx", "dong": 95}
+  ]
+}

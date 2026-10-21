@@ -1,0 +1,2296 @@
+{
+ "nua": "B",
+ "bang": {
+  "agent_cau_hinh": {
+   "lam_gi": "Công tắc agent giám sát theo loại nhận định ('*' = mọi loại). Không có dòng = shadow. Tắt là một UPDATE, không cần deploy.",
+   "cot": {
+    "che_do": "tat / shadow (giai đoạn này chỉ hai giá trị).",
+    "loai": "'*' hoặc mã loại chữ thường."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261009860000_agent_giam_sat.sql",
+     "dong": 63,
+     "noi_dung": "che_do chỉ nhận tat / shadow; loai là '*' hoặc chữ thường + gạch dưới."
+    }
+   ]
+  },
+  "agent_nhan_dinh": {
+   "lam_gi": "Nhận định của agent giám sát vận hành (giai đoạn shadow): mỗi chuyện agent thấy (khách chờ lâu, khách lặng im, việc quá hạn) là MỘT dòng, giữ bằng chứng và vòng đời. Không tên/SĐT khách. Chạy lại mỗi phút chỉ cộng dồn.",
+   "cot": {
+    "loai": "Loại nhận định, chữ thường + gạch dưới.",
+    "khoa": "Đối tượng (id lượt/phòng/việc) — cùng loại + cùng khoá = cùng một chuyện.",
+    "muc": "warning / critical.",
+    "muc_bang_chung": "quan_sat (đọc hiện trạng) / suy_ra (đoán từ chỗ vắng sự kiện).",
+    "ly_do_dong": "HET (hiện trạng hết chuyện, tự đóng) / TAT (công tắc tắt).",
+    "danh_gia": "Quản lý chấm dung / sai / khong_ro — số đo độ đúng để quyết lên giai đoạn sau; agent không ghi cột này.",
+    "so_lan": "Số lần thấy lại (≥ 1)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261009860000_agent_giam_sat.sql",
+     "dong": 52,
+     "noi_dung": "Mỗi (phòng khám, loại, khoá) chỉ MỘT nhận định đang mở — chạy lại chỉ cộng dồn, không đẻ dòng."
+    },
+    {
+     "tep": "supabase/migrations/20261009860000_agent_giam_sat.sql",
+     "dong": 46,
+     "noi_dung": "Đóng phải có lý do (HET/TAT); chấm điểm phải có lúc chấm; muc, muc_bang_chung, danh_gia chỉ nhận giá trị trong danh sách."
+    }
+   ]
+  },
+  "agent_tom_tat": {
+   "lam_gi": "Bản tóm tắt cuối ngày do LLM viết từ nhận định của agent (đã không tên khách). Giữ mọi lần tạo để so; màn đọc bản mới nhất của ngày.",
+   "cot": {
+    "tao_boi": "Trống = vòng su-kien tự tạo cuối ngày; có = người bấm 'Tóm tắt ngay'.",
+    "lan_goi_id": "Lần gọi LLM đã sinh bản này."
+   }
+  },
+  "anh_chuyen_khoan": {
+   "lam_gi": "Ảnh màn hình chuyển khoản của một lần thu (chứng từ quầy thu, khác tệp kết quả khám). Tệp lưu ổ VPS trước rồi day-tep đẩy sang Viettel CFS. Gỡ ảnh nhầm = ẩn (go_luc), không xoá tệp.",
+   "cot": {
+    "khoa": "Khoá tệp trong kho (duy nhất).",
+    "vi_tri": "vps = bản duy nhất ở ổ VPS chờ đẩy; cfs = đã có bản trên CFS.",
+    "da_don_tep_luc": "Luôn trống (bảng này không có job dọn) — để câu chọn lô của day_tep dùng chung với tep_ket_qua."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+     "dong": 253,
+     "noi_dung": "vi_tri chỉ vps/cfs; ảnh còn ở VPS thì chưa thể có mốc đẩy hay xoá bản VPS; xoá bản VPS thì phải đã đẩy. Gỡ phải có cả người lẫn lúc gỡ."
+    }
+   ]
+  },
+  "app_credential": {
+   "cot": {
+    "thu_hoi_luc": "Bị thu hồi lúc nào (nút Gỡ tài khoản) — đăng nhập ứng dụng từ chối dòng có mốc này. Trống = dùng được. Tạo tài khoản lại cho đúng nhân viên ấy thì xoá dấu (đường hoàn tác).",
+    "thu_hoi_boi": "Nhân viên đã bấm thu hồi."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261006410000_app_credential_thu_hoi.sql",
+     "dong": 30,
+     "noi_dung": "Có người thu hồi thì phải có lúc thu hồi (ngược lại được, khi người thu hồi đã bị xoá)."
+    }
+   ]
+  },
+  "appointment": {
+   "cot": {
+    "so_booking": "Số thứ tự ĐẶT LỊCH trong ngày hẹn (cả phòng khám), cấp lúc tạo lịch bằng trigger. Đổi sang ngày khác nhận số mới, đổi giờ trong ngày hoặc huỷ giữ số. Khác so_tiep_don (cấp lúc check-in) và queue_number (số riêng từng bác sĩ).",
+    "hen_tu_visit_id": "Lượt khám mà bác sĩ đặt lịch tái khám này ngay từ phiếu. Trống = lịch đặt ở màn Đặt lịch / CSKH. Việc gọi CSKH của chính lượt ấy KHÔNG tự đóng vì lịch này."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261003720000_lich_hen_tu_phieu_kham.sql",
+     "dong": 25,
+     "noi_dung": "Một lượt khám chỉ đặt được MỘT lịch tái khám còn sống (SCHEDULED/CSKH_CONFIRMED/CONFIRMED/CHECKED_IN) — bấm đúp hay hai tab cùng đặt thì cái thứ hai bị từ chối."
+    },
+    {
+     "tep": "supabase/migrations/20260923000020_so_booking.sql",
+     "dong": 63,
+     "noi_dung": "Trigger BEFORE cấp so_booking cho MỌI đường tạo lịch, khoá advisory theo (phòng khám, ngày hẹn) — hai người đặt cùng lúc không ra trùng số; đổi sang ngày khác thì cấp số mới của ngày ấy."
+    }
+   ]
+  },
+  "appointment_doi_lich": {
+   "lam_gi": "Mỗi lần đổi giờ / đổi bác sĩ của một lịch hẹn là một dòng: từ → đến, ai đổi, lý do. Chỉ thêm.",
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260924000004_ket_qua_chuong_doi_lich.sql",
+     "dong": 61,
+     "noi_dung": "Xoá lịch hẹn thì lịch sử đổi lịch bị xoá theo (ON DELETE CASCADE)."
+    }
+   ]
+  },
+  "canh_bao": {
+   "lam_gi": "Cảnh báo của bộ canh gác (chạy mỗi phút trong su-kien): mở khi có chuyện (tin sự kiện kẹt, lỗi dồn dập, hàng chờ ma…) và tự đóng khi hết.",
+   "cot": {
+    "muc": "warning / critical.",
+    "dong_luc": "Lúc tự đóng; trống = đang mở.",
+    "bao_luc": "Lúc đã gửi báo (vd Telegram)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260927000004_loi_va_canh_bao.sql",
+     "dong": 49,
+     "noi_dung": "Mỗi mã cảnh báo chỉ có MỘT cảnh báo đang mở (chỉ mục duy nhất có điều kiện dong_luc trống) — chạy lại vô hại."
+    }
+   ]
+  },
+  "capability_grant": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+     "dong": 156,
+     "noi_dung": "Bất biến: mỗi phòng khám luôn còn ≥1 người ĐANG LÀM giữ permission.manage. Trigger hoãn tới COMMIT, khoá dòng phòng khám rồi đếm — thu quyền/xoá/cho nghỉ quản lý cuối cùng thì bị từ chối, kể cả hai người thu cùng lúc."
+    },
+    {
+     "tep": "supabase/migrations/20261009880000_quyen_noi_bo_giam_sat.sql",
+     "dong": 62,
+     "noi_dung": "Quyền nội bộ giamsat.view (trung tâm giám sát AI của đội vận hành) bị Postgres BỎ DÒNG (kèm cảnh báo, không ném lỗi) nếu phiên không bật cờ clinicai.cap_noi_bo — quản lý phòng khám, kể cả người có permission.manage, không tự cấp được."
+    },
+    {
+     "tep": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+     "dong": 149,
+     "noi_dung": "Quyền permission.manage (cấp quyền) không được có hạn dùng và luôn phạm vi toàn phòng khám — hết hạn theo đồng hồ thì không trigger nào bắt được."
+    }
+   ]
+  },
+  "chot_so_ca": {
+   "lam_gi": "Khoá sổ theo ca: số liệu báo cáo ca chụp lúc chốt (vd ca sáng chốt 10.000.000đ thì mãi là 10tr); huỷ phiếu/hoàn tác sau giờ chốt tính vào ca đang làm. Mở khoá = Quản lý + lý do (không xoá, không sửa số).",
+   "cot": {
+    "ca": "SANG / CHIEU / TOI.",
+    "tu_luc": "Khung giờ ca lúc chốt (giữ khung đã dùng dù cài đặt ca đổi sau).",
+    "so_lieu": "Ảnh số liệu báo cáo ca lúc chốt.",
+    "mo_luc": "Lúc mở khoá; đi cùng mo_boi + ly_do_mo (3–500 ký tự)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014149000_chot_so_ca.sql",
+     "dong": 36,
+     "noi_dung": "Một lần chốt CÒN HIỆU LỰC cho mỗi (phòng khám, cơ sở, ngày, ca) — hai người bấm Chốt ca cùng lúc thì người sau bị từ chối."
+    },
+    {
+     "tep": "supabase/migrations/20261014149000_chot_so_ca.sql",
+     "dong": 29,
+     "noi_dung": "Mở khoá phải đủ lúc + người + lý do 3–500 ký tự; khung giờ hợp lệ (đến > từ)."
+    },
+    {
+     "tep": "supabase/migrations/20261014149000_chot_so_ca.sql",
+     "dong": 69,
+     "noi_dung": "Không xoá; chỉ được một lần UPDATE là mở khoá, số đã chốt không sửa."
+    }
+   ]
+  },
+  "clinic_floor": {
+   "lam_gi": "Danh mục tầng theo từng cơ sở, có thứ tự, ẩn mềm (xoá trên giao diện = is_active false). clinic_room.floor_id trỏ vào đây; cột chữ clinic_room.floor giữ bản tương thích, trigger đồng bộ hai bên.",
+   "cot": {
+    "name": "Nhãn tự do: Tầng 1, Trệt, B1… (1–40 ký tự, không trống).",
+    "sort_order": "Thứ tự hiển thị (≥ 0)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261019150000_clinic_floor.sql",
+     "dong": 20,
+     "noi_dung": "Tên tầng không trùng trong một cơ sở; tên không trống, ≤ 40 ký tự; thứ tự ≥ 0. Cơ sở phải cùng phòng khám; xoá cơ sở thì tầng bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "clinic_location": {
+   "cot": {
+    "phone": "SĐT cơ sở in trên phiếu.",
+    "ten_in": "Tên in trên phiếu của cơ sở (vd Hào Nam treo biển pháp nhân khác); trống = in tên phòng khám như cũ.",
+    "tach_kho_quay": "Bật = nhập kho đi vào KHO, quầy nhận hàng bằng phiếu chuyển; tắt (mặc định) = một kho như trước."
+   }
+  },
+  "clinic_membership": {
+   "cot": {
+    "role": "Vai: DOCTOR / ULTRASOUND_DOCTOR / NURSE_ULTRASOUND / RECEPTION / CSKH / MANAGEMENT / CASHIER / CASHIER_THUOC / CASHIER_DV / TKYK / TRUONG_CA / PHARMACIST / DISPLAY / PARTNER / ACCOUNTANT. Vai chỉ là gói quyền mẫu — quyền thật ở capability_grant."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+     "dong": 172,
+     "noi_dung": "Cho nghỉ/xoá thành viên mà làm phòng khám không còn ai giữ permission.manage → bị từ chối lúc COMMIT."
+    },
+    {
+     "tep": "supabase/migrations/20261016400000_vai_ke_toan.sql",
+     "dong": 32,
+     "noi_dung": "Vai chỉ nhận 15 giá trị trong danh sách (kể cả ACCOUNTANT — kế toán)."
+    }
+   ]
+  },
+  "clinic_room": {
+   "cot": {
+    "floor_id": "Tầng (clinic_floor) — định danh chuẩn; phải cùng phòng khám và cùng cơ sở với phòng.",
+    "floor": "Tên tầng dạng chữ, giữ cho màn/báo cáo cũ; trigger đồng bộ với floor_id."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261019150000_clinic_floor.sql",
+     "dong": 71,
+     "noi_dung": "Tầng của phòng phải thuộc đúng phòng khám và cơ sở của phòng (khoá ngoại ghép 3 cột); trigger từ chối 'Tầng không thuộc cơ sở của phòng'."
+    },
+    {
+     "tep": "supabase/migrations/20261019150000_clinic_floor.sql",
+     "dong": 196,
+     "noi_dung": "Trigger giữ floor (chữ) và floor_id (tầng chuẩn) đồng bộ; đổi tên tầng thì tên ở các phòng đổi theo."
+    }
+   ]
+  },
+  "clinic_room_node": {
+   "cot": {
+    "chuyen": "true = phòng này là PHÒNG CHUYÊN ★ của chức năng (node): tick sẵn khi phòng Nhận chỉ định chưa có hướng dẫn và gợi ý hướng dẫn ở quầy/phiếu. Không thu hẹp phòng làm được."
+   }
+  },
+  "clinic_room_service": {
+   "lam_gi": "Phòng làm dịch vụ nào — lớp THU HẸP trên clinic_room_node. Dịch vụ có dòng ở đây thì CHỈ các phòng được gắn làm được (vd Ghế điện từ trường chỉ Phòng Sàn chậu); không có dòng thì theo node như cũ. Luật ở hàm phong_lam_duoc().",
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261001210000_phong_lam_theo_dich_vu.sql",
+     "dong": 77,
+     "noi_dung": "Trigger chặn: phòng phải thuộc đúng phòng khám và mã phải là dịch vụ có trong bảng giá (thay cho khoá ngoại)."
+    },
+    {
+     "tep": "supabase/migrations/20261001210000_phong_lam_theo_dich_vu.sql",
+     "dong": 85,
+     "noi_dung": "RLS: trình duyệt chỉ đọc trong phòng khám của mình, không ghi — ghi chỉ qua API cấu hình. Xoá phòng thì dòng gắn bị xoá theo."
+    }
+   ]
+  },
+  "cong_no": {
+   "lam_gi": "Khoản khách còn NỢ lúc check-out, lễ tân 'Ghi nợ' kèm lý do (check-out bị chặn nếu còn khoản chưa thu mà không thu/ghi nợ). Thu nợ sau ở quầy → dòng chuyển DA_THU khi lượt hết nợ. Bảng của khối Công nợ.",
+   "cot": {
+    "trang_thai": "CHUA_THU → DA_THU (lượt hết nợ sau khi thu ở quầy) hoặc HUY (có người, lúc, lý do 3–500 ký tự). DA_THU/HUY là trạng thái cuối.",
+    "so_tien": "Tổng đồng nợ lúc ghi, số nguyên ≥ 0 (vd 650.000).",
+    "dong": "Ảnh chụp các khoản nợ lúc ghi [{loai, source_type, source_id, ten, so_tien}] — check-out so nợ hiện tại với tập này để biết đã phủ đủ chưa."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002500000_cong_no.sql",
+     "dong": 50,
+     "noi_dung": "Một lượt chỉ có MỘT khoản nợ CHƯA THU — hai người bấm Ghi nợ cùng lúc thì một người bị từ chối."
+    },
+    {
+     "tep": "supabase/migrations/20261002500000_cong_no.sql",
+     "dong": 42,
+     "noi_dung": "Mỗi trạng thái mang đúng dấu vết: CHUA_THU không có giờ thu/huỷ; DA_THU có giờ thu; HUY có giờ, người huỷ và lý do 3–500 ký tự. Lý do ghi nợ 3–500 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261002500000_cong_no.sql",
+     "dong": 80,
+     "noi_dung": "Không xoá; chỉ sửa được khoản đang CHƯA THU của chính lượt/khách ấy; DA_THU/HUY thì không đổi nữa."
+    }
+   ]
+  },
+  "consultation": {
+   "cot": {
+    "kind": "TU_VAN (vòng 0, bác sĩ tư vấn) / PRIMARY (vòng 1, bác sĩ chính) / REVIEW (vòng ≥2, đọc kết quả).",
+    "outcome": "PRIMARY: NO_SERVICES | SERVICES; REVIEW: DONE | MORE_SERVICES; TU_VAN: HANDED_OVER (đã chuyển bác sĩ chính)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260924000001_kham_tu_van.sql",
+     "dong": 34,
+     "noi_dung": "Loại phiên khớp số vòng: PRIMARY ⇔ vòng 1, TU_VAN ⇔ vòng 0 (vòng ≥ 0)."
+    },
+    {
+     "tep": "supabase/migrations/20260924000001_kham_tu_van.sql",
+     "dong": 41,
+     "noi_dung": "Kết cục phải hợp loại phiên: PRIMARY chỉ NO_SERVICES/SERVICES, REVIEW chỉ DONE/MORE_SERVICES, TU_VAN chỉ HANDED_OVER."
+    }
+   ]
+  },
+  "consultation_note": {
+   "cot": {
+    "body": "Nội dung ô chữ tự do (tư vấn/khám); mỗi lần lưu một dòng, giữ lịch sử. Được RỖNG để ghi 'đã xoá trắng'."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000001_ghi_chu_tu_van_cho_xoa_trang.sql",
+     "dong": 15,
+     "noi_dung": "Nội dung tối đa 20.000 ký tự; cho phép rỗng (trước đây bắt có chữ làm lệnh lưu vỡ 500 khi bác sĩ xoá hết chữ)."
+    }
+   ]
+  },
+  "danh_muc_dich_vu_nguon": {
+   "lam_gi": "Danh mục dịch vụ chuẩn nguyên văn từ file phòng khám gửi (vd đợt kiot_0110: 93 dịch vụ Excel 01/10/2026). Chỉ để đồng bộ/đối chiếu — vận hành đọc service_price.",
+   "cot": {
+    "nguon": "Tên đợt nguồn, vd kiot_0110.",
+    "gia": "Giá bán đồng trong file (≥ 0; 0đ chỉ nạp cho dịch vụ thu hộ đối tác).",
+    "ma_kiotviet": "Ánh xạ tay khi tên trên hệ thống khác tên Excel (mã SP KiotViet).",
+    "nhom": "Cột Nhóm hàng của file (Siêu âm, Thủ thuật, XN thu hộ…)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+     "dong": 57,
+     "noi_dung": "Giá trong bảng nguồn không âm; RLS bật và thu hết quyền của anon/authenticated (chỉ backend đọc)."
+    }
+   ]
+  },
+  "day_nghiep_vu": {
+   "lam_gi": "Dây nối nghiệp vụ quản lý chỉnh trên màn (bật/tắt, thời hạn) — vd h4_tu_xep_phong, h8_nhac_check_out_phut. Không có dòng = mặc định trong code. Dây LÕI không nằm ở đây.",
+   "cot": {
+    "ma": "Mã dây, vd h4_tu_xep_phong, h6_bao_cskh_khi_ve_con_viec, h7_ket_qua_doi_tac_qua_han_ngay, h8_nhac_check_out_phut.",
+    "gia_tri": "Giá trị dây dạng JSON (bật/tắt, số ngày, số phút…)."
+   }
+  },
+  "day_nhan_thong_bao": {
+   "lam_gi": "Dây nối chuông: sự kiện nào báo cho vai nào (+ bác sĩ chính đích danh). Quản lý chỉnh trên màn; không có dòng = mặc định trong code.",
+   "cot": {
+    "vai": "Danh sách vai nhận — ai đang đứng vai ấy cũng thấy.",
+    "bac_si_chinh": "true = bác sĩ chính của lượt nhận đích danh."
+   }
+  },
+  "dich_vu_mau_ket_qua": {
+   "cot": {
+    "result_mode": "INLINE = kết quả có ngay tại phòng (siêu âm, thủ thuật) → hoàn tất phiếu là phát result.ready; LATER = làm xong nhưng kết quả về sau (mẫu gửi đi); NONE = không sinh kết quả để đọc.",
+    "thu_tu": "Thứ tự mẫu của một dịch vụ — nhỏ đứng trước và được chọn sẵn; bằng nhau thì theo tên. 0 = như cũ (vd quý II–III thu_tu 0 chọn sẵn, quý III gắn thêm đứng sau)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000010_ket_qua_san_sang.sql",
+     "dong": 40,
+     "noi_dung": "result_mode chỉ nhận INLINE / LATER / NONE."
+    }
+   ]
+  },
+  "doi_tac_nhan_viec": {
+   "lam_gi": "Việc đã sang bàn đối tác (khối Đối tác, nhận qua sự kiện): chỉ định làm bên ngoài, hoặc dịch vụ thu hộ đối tác làm ở phòng của phòng khám đã xong (mẫu gửi đối tác). Một chỉ định tối đa một dòng.",
+   "cot": {
+    "ly_do": "DA_THU_TIEN / KHACH_DA_CHON / DA_LAY_MAU / MAU_GUI_DOI_TAC (dịch vụ thu hộ làm ở phòng phòng khám, xong thì gửi mẫu cho đối tác) / BU_DU_LIEU.",
+    "ghi_chu_lay_mau": "Ghi chú khi đối tác bấm 'Đã lấy mẫu'.",
+    "ghi_chu_tai_lieu": "Ghi chú khi đối tác bấm 'Chờ tài liệu'.",
+    "nguon_event_id": "Sự kiện đã sinh ra dòng này."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260925000009_doi_tac_nhan_viec.sql",
+     "dong": 20,
+     "noi_dung": "ly_do chỉ nhận DA_THU_TIEN / DA_LAY_MAU / BU_DU_LIEU; mỗi chỉ định chỉ một dòng (khoá chính). Xoá chỉ định thì dòng bị xoá theo (CASCADE)."
+    },
+    {
+     "tep": "supabase/migrations/20260929800000_mau_gui_doi_tac.sql",
+     "dong": 28,
+     "noi_dung": "ly_do chỉ nhận DA_THU_TIEN / KHACH_DA_CHON / DA_LAY_MAU / MAU_GUI_DOI_TAC / BU_DU_LIEU; mỗi chỉ định một dòng (khoá chính) — nhận lại là không làm gì."
+    }
+   ]
+  },
+  "doi_tac_thanh_toan": {
+   "lam_gi": "Đối tác ghi nhận đã thu tiền khách cho một việc làm bên ngoài (khách trả thẳng đối tác). KHÔNG phải sổ tiền phòng khám — tiền này không vào két. Sửa = huỷ bản cũ có lý do rồi ghi mới.",
+   "cot": {
+    "so_tien": "Số đồng đối tác thu, số nguyên ≥ 0 (vd 900000).",
+    "hinh_thuc": "CASH (tiền mặt) / TRANSFER (chuyển khoản).",
+    "huy_luc": "Lúc huỷ ghi nhận; đi cùng huy_boi + ly_do_huy (3–2000 ký tự)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql",
+     "dong": 60,
+     "noi_dung": "Một việc chỉ có MỘT ghi nhận còn hiệu lực — hai người bấm cùng lúc thì một người bị từ chối."
+    },
+    {
+     "tep": "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql",
+     "dong": 53,
+     "noi_dung": "Huỷ phải đủ người huỷ + lúc huỷ + lý do 3–2000 ký tự (hoặc cả ba trống)."
+    },
+    {
+     "tep": "supabase/migrations/20260928000091_doi_tac_tu_thu_tien.sql",
+     "dong": 90,
+     "noi_dung": "Không xoá được, không sửa nội dung; chỉ được huỷ ghi nhận đang hiệu lực đúng một lần."
+    }
+   ]
+  },
+  "domain_event": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000012_fk_clinic_bay_bang.sql",
+     "dong": 25,
+     "noi_dung": "clinic_id phải trỏ tới phòng khám có thật (ON DELETE RESTRICT) — sổ sự kiện chỉ thêm, dòng mồ côi sẽ nằm lại vĩnh viễn."
+    }
+   ]
+  },
+  "drug_batch": {
+   "cot": {
+    "location_id": "Cơ sở giữ lô — kho riêng từng cơ sở; cùng số lô được có ở hai cơ sở.",
+    "expiry_date": "Hạn dùng của lô — được bổ sung sau (có thể trống). Lô đã hết hạn thì sổ kho chặn bán/giao.",
+    "ma_tem": "Mã tem riêng của LÔ (LT + 8 số), sinh tự động, in dán lúc nhập; hai hàng KHO/QUẦY của cùng lô dùng chung mã tem. Không đổi được.",
+    "noi_chua": "KHO hoặc QUAY. Một lô vật lý ở một cơ sở có tối đa HAI hàng (KHO + QUẦY) cùng số lô/thuốc/hạn/đơn vị/mã tem; tồn từng nơi là quantity_on_hand của hàng ấy. Mặc định QUAY = một kho như trước. Bán/giao chỉ ở QUAY."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008710000_kho_theo_co_so.sql",
+     "dong": 92,
+     "noi_dung": "Lô phải trỏ một cơ sở CỦA CHÍNH phòng khám (khoá ngoại ghép), bắt buộc có cơ sở."
+    },
+    {
+     "tep": "supabase/migrations/20261014130000_lo_thuoc_han_tuy_chon.sql",
+     "dong": 22,
+     "noi_dung": "Ghi sổ kho bán/giao bằng lô đã hết hạn (theo ngày giờ VN) bị từ chối — đổi lô hoặc hoàn phần chưa giao; bút toán hoàn/huỷ không bị chặn."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 33,
+     "noi_dung": "Số lô duy nhất theo (phòng khám, cơ sở, nơi chứa): cùng số lô được có một hàng KHO và một hàng QUẦY."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 38,
+     "noi_dung": "Mã tem duy nhất theo nơi chứa (một hàng KHO + một hàng QUẦY dùng chung tem); trigger cấm đổi mã tem đã cấp."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 65,
+     "noi_dung": "Trigger hoãn tới COMMIT: hai hàng KHO/QUẦY cùng (cơ sở, số lô) phải cùng thuốc, hạn, đơn vị và mã tem."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 27,
+     "noi_dung": "noi_chua chỉ nhận KHO / QUAY."
+    },
+    {
+     "tep": "supabase/migrations/20261019110000_pharmacy_inventory_p1_guards.sql",
+     "dong": 19,
+     "noi_dung": "Tồn lô và giá vốn phải là số hữu hạn (không NaN, không vô cực)."
+    },
+    {
+     "tep": "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql",
+     "dong": 21,
+     "noi_dung": "Sổ kho thuốc/vật tư (lô, sổ kho, trả thuốc, phiếu kho, kiểm kê, vật tư) bỏ policy đọc và thu mọi quyền của anon/authenticated — chỉ đọc qua FastAPI (kiểm capability)."
+    }
+   ]
+  },
+  "drug_catalog": {
+   "cot": {
+    "don_vi_ban": "Đơn vị của unit_price (hộp / viên / ống…) — giá bán MỘT đơn vị này. Vd unit_price 120000, don_vi_ban 'hộp' = 120.000đ một hộp.",
+    "cach_dung": "Hướng dẫn sử dụng mặc định — điền sẵn vào đơn khi bác sĩ chọn thuốc.",
+    "ma_hang": "Mã hàng KiotViet của mặt hàng.",
+    "needs_review": "true = mặt hàng cần dược sĩ soát (thêm tự động từ tên gõ tay, hoặc có trên phiếu mà KiotViet không bán).",
+    "ton_toi_thieu": "Tồn tối thiểu (đơn vị tồn). Tổng tồn ≤ ngưỡng → cảnh báo sắp hết hàng, vd ngưỡng 5 hộp mà còn 4 → báo. Trống = không canh.",
+    "thue_suat_ma": "Thuế GTGT của thuốc: KCT / KKKNT / % 0–100. Trống = theo nhóm Thuốc."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+     "dong": 24,
+     "noi_dung": "Tồn tối thiểu không âm (hoặc trống)."
+    },
+    {
+     "tep": "supabase/migrations/20261014155000_thue_gtgt.sql",
+     "dong": 40,
+     "noi_dung": "Thuế suất chỉ nhận KCT / KKKNT / số 0–100 tối đa 2 chữ số thập phân (hoặc trống)."
+    }
+   ]
+  },
+  "drug_ma_vach": {
+   "lam_gi": "Mã vạch in sẵn trên hộp (EAN/GTIN) của nhà sản xuất: nhiều mã → MỘT thuốc. Gỡ mã được (ghi nhật ký).",
+   "cot": {
+    "ma": "Mã như quét/gõ: 4–64 ký tự, không khoảng trắng đầu/cuối, không trùng dạng mã tem lô (LT + 8 số).",
+    "ma_chuan": "Dạng so khớp tự sinh: mã số 8–14 chữ số đệm 0 đầu cho đủ 14 (EAN-13 trên hộp và GTIN-14 trong mã vuông GS1 thành cùng một mã).",
+    "nguon": "tay (gõ/quét ở ô gắn mã) / quet (quét hộp) / gs1 (lấy từ mã vuông GTIN)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014135000_ma_vach.sql",
+     "dong": 70,
+     "noi_dung": "Một mã (dạng chuẩn) chỉ thuộc MỘT thuốc trong phòng khám — hai người gắn cùng lúc thì một người nhận 409; thuốc phải cùng phòng khám."
+    }
+   ]
+  },
+  "drug_return": {
+   "cot": {
+    "ket_cuc_tien": "Kết cục tiền khi khách trả thuốc: HOAN (tạo khoản hoàn) / DOI (đổi thuốc khác — cũng là khoản hoàn) / GIU_LAI (khách để lại tiền, ghi lý do — vẫn là nợ khách). Trống = lần trả cũ trước 14/10/2026.",
+    "refund_id": "Khoản hoàn sinh ra (HOAN/DOI).",
+    "ly_do_tien": "Lý do giữ lại tiền (GIU_LAI, ≥ 3 ký tự).",
+    "disposition": "Quyết định xử lý thuốc khách trả: trống = đã nhận lại, CHƯA quyết (bị trừ khỏi tồn khả dụng); BAN_LAI = nhập lại bán được; HUY = huỷ (kèm dòng DISCARD giảm tồn). Chỉ quyết MỘT lần.",
+    "disposition_reason": "Lý do quyết định — bắt buộc (≥ 3 ký tự) khi HUY.",
+    "disposition_txn_id": "Dòng sổ DISCARD (đúng phòng khám, đúng lô) khi HUY."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014148000_tra_thuoc_ket_cuc_tien.sql",
+     "dong": 23,
+     "noi_dung": "HOAN/DOI bắt buộc có khoản hoàn; GIU_LAI không có khoản hoàn và phải có lý do ≥ 3 ký tự; lần trả cũ thì cả ba cột trống."
+    },
+    {
+     "tep": "supabase/migrations/20261017200000_thuoc_tra_quyet_dinh_xu_ly.sql",
+     "dong": 24,
+     "noi_dung": "Chưa quyết thì không kèm gì; BAN_LAI không có dòng huỷ; HUY bắt lý do ≥ 3 ký tự và bắt có dòng DISCARD (huỷ mà tồn không giảm là sai sổ)."
+    },
+    {
+     "tep": "supabase/migrations/20261017200000_thuoc_tra_quyet_dinh_xu_ly.sql",
+     "dong": 36,
+     "noi_dung": "Dòng DISCARD phải cùng phòng khám và đúng LÔ của lần trả; một dòng DISCARD chỉ phục vụ một lần trả."
+    },
+    {
+     "tep": "supabase/migrations/20261017200000_thuoc_tra_quyet_dinh_xu_ly.sql",
+     "dong": 44,
+     "noi_dung": "Không xoá; chỉ được đặt quyết định xử lý đúng một lần (BAN_LAI/HUY), không sửa cột khác; người quyết phải thuộc phòng khám; HUY phải trỏ DISCARD đủ số lượng; lần trả phải trỏ đúng DISPENSE gốc và không trả vượt số đã xuất (vd đã giao 5 hộp, trả trước 3 thì lần sau tối đa 2)."
+    }
+   ]
+  },
+  "du_lieu_da_xoa": {
+   "lam_gi": "Bản lưu nguyên văn (to_jsonb) mọi dòng bị don_khach_thu xoá, để khôi phục bằng tay nếu lỡ tay.",
+   "cot": {
+    "bang": "Tên bảng của dòng bị xoá.",
+    "du_lieu": "Nguyên dòng dạng JSON."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261001240000_don_du_lieu_thu.sql",
+     "dong": 100,
+     "noi_dung": "Bản lưu không sửa được."
+    }
+   ]
+  },
+  "encounter_flow": {
+   "cot": {
+    "vitals_status": "pending → in_progress (đã bấm Bắt đầu đo) → recorded. Mọi cổng chỉ so = 'recorded'; lưu thẳng pending → recorded vẫn được.",
+    "vitals_started_at": "Lúc bấm [Bắt đầu] đo sinh hiệu. Trống nếu lưu thẳng mà không ai bấm.",
+    "vitals_started_by": "Người bấm [Bắt đầu] — không suy từ goi_do_boi ('đã gọi' ≠ 'đã đo').",
+    "goi_do_luc": "DỮ LIỆU CŨ trước 23/09/2026 (giờ bấm Gọi vào đo); giữ để đọc lịch sử, không còn là trạng thái.",
+    "route_decision": "Đường đi sau check-in: TU_VAN (qua bác sĩ tư vấn) / PRIMARY (bác sĩ chính) / SERVICES (đi thẳng làm dịch vụ).",
+    "vitals_tu_visit_id": "Lượt cùng buổi (cùng khách, cùng ngày) có lần đo sinh hiệu mà lượt này dùng thay cho đo lại (dây h1_cung_buoi_thang_dich_vu). Trống = tự đo/chưa đo. Chỉ để truy vết — số đo vẫn đọc ở vital_measurement."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260924000001_kham_tu_van.sql",
+     "dong": 61,
+     "noi_dung": "route_decision chỉ nhận TU_VAN / PRIMARY / SERVICES (hoặc trống)."
+    },
+    {
+     "tep": "supabase/migrations/20260923000015_bat_dau_do_sinh_hieu.sql",
+     "dong": 55,
+     "noi_dung": "vitals_status chỉ nhận pending / in_progress / recorded."
+    },
+    {
+     "tep": "supabase/migrations/20260923000015_bat_dau_do_sinh_hieu.sql",
+     "dong": 78,
+     "noi_dung": "'Đang đo' (in_progress) thì phải có giờ bắt đầu đo; người bấm Bắt đầu và giờ bắt đầu luôn đi cặp."
+    },
+    {
+     "tep": "supabase/migrations/20260928000031_sinh_hieu_theo_buoi.sql",
+     "dong": 41,
+     "noi_dung": "Lượt nguồn sinh hiệu phải là lượt KHÁC cùng phòng khám (khoá ngoại ghép); xoá lượt nguồn chỉ đặt cột này về trống (ON DELETE SET NULL một cột)."
+    }
+   ]
+  },
+  "event_delivery": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000012_fk_clinic_bay_bang.sql",
+     "dong": 30,
+     "noi_dung": "clinic_id phải trỏ phòng khám có thật (ON DELETE RESTRICT)."
+    }
+   ]
+  },
+  "form_instance": {
+   "cot": {
+    "dang_sua": "true = phiếu ĐÃ hoàn tất đang được sửa lại; bản cũ vẫn là kết quả chính thức trong lúc sửa. Bấm Hoàn tất lần nữa → phát result.corrected.",
+    "du_lieu": "Bản kết quả CHÍNH THỨC hiện hành. Tự lưu lúc đang sửa không chạm vào đây.",
+    "du_lieu_dang_sua": "Bản nháp của lần sửa, chỉ có khi dang_sua = true; [Xác nhận sửa] mới đẩy nó thành chính thức.",
+    "nhap_boi_dang_sua": "Người GÕ bản nháp sửa (khác người gõ bản chính thức và người bấm Xác nhận sửa).",
+    "thuc_hien_boi_dang_sua": "Người THỰC HIỆN theo lựa chọn đang sửa — có cột riêng nên đổi lựa chọn rồi tải lại trang không mất.",
+    "revision": "Số tăng mỗi lần lưu (kể cả tự lưu nháp) — để hai người gõ không đè nhau; KHÔNG phải số bản chuyên môn (xem result_correction.ban_thu)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000010_ket_qua_san_sang.sql",
+     "dong": 33,
+     "noi_dung": "Cờ dang_sua chỉ bật được khi phiếu đã READY (đã hoàn tất) — phiếu nháp không có chuyện 'đang sửa lại'."
+    },
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 39,
+     "noi_dung": "Phiếu kết quả phải trỏ một chỉ định có thật CÙNG phòng khám (khoá ngoại ghép, ON DELETE RESTRICT) — trước đó service_order_id không có khoá ngoại nào."
+    },
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 85,
+     "noi_dung": "Đang sửa ⇔ có bản nháp sửa (du_lieu_dang_sua): bật cờ mà không có nháp, hoặc có nháp mà không bật cờ, đều bị từ chối."
+    },
+    {
+     "tep": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+     "dong": 64,
+     "noi_dung": "Trước mỗi lần du_lieu/trang_thai đổi, trigger chụp bản CŨ vào form_instance_lich_su — không bản nào bị đè mất, kể cả nháp."
+    }
+   ]
+  },
+  "form_instance_lich_su": {
+   "lam_gi": "Bản CŨ của phiếu kết quả mỗi lần du_lieu hoặc trang_thai đổi (kể cả tự lưu nháp) — không cái gì sau đè cái trước. Trigger BEFORE UPDATE trên form_instance ghi; mỗi bản cũ một dòng, không gộp.",
+   "cot": {
+    "revision": "revision của bản cũ được chụp.",
+    "sua_boi": "Người gây ra lần đổi (người bấm Hoàn tất nếu lần ấy là Hoàn tất, không thì người gõ)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+     "dong": 70,
+     "noi_dung": "Chỉ thêm — sửa/xoá bị trigger chặn."
+    }
+   ]
+  },
+  "form_result_release": {
+   "lam_gi": "Bác sĩ CHO PHÉP GỬI một bản kết quả cụ thể (theo ban_thu). Sửa v1→v2 thì dòng của v1 ở lại; v2 phải được duyệt riêng. Chưa có thu hồi; tới 23/09 chưa đường gửi/in nào đọc bảng này.",
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 166,
+     "noi_dung": "Mỗi bản của một phiếu chỉ được phát hành một lần."
+    },
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 221,
+     "noi_dung": "Không phát hành bản chưa tồn tại: phiếu phải đã hoàn tất, và bản ≥2 phải có dòng result_correction tương ứng."
+    },
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 268,
+     "noi_dung": "Chỉ được THÊM — sửa/xoá bị trigger chặn."
+    }
+   ]
+  },
+  "ghi_chu_khach": {
+   "lam_gi": "Sổ ghi chú CHUNG về một khách (CSKH, lễ tân… ai ghi cũng thấy), không gắn cuộc gọi hay chỉ định — vd 'khách dặn chỉ gọi sau 17h'. Chỉ thêm; ghi nhầm thì người ghi gỡ, không sửa nội dung.",
+   "cot": {
+    "go_luc": "Lúc gỡ (ẩn khỏi danh sách, dòng vẫn còn). Đi cặp với go_boi_staff_id."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260927000003_ghi_chu_khach.sql",
+     "dong": 30,
+     "noi_dung": "Gỡ ghi chú phải có đủ cả người gỡ lẫn lúc gỡ (hoặc cả hai trống); nội dung 1–2000 ký tự."
+    }
+   ]
+  },
+  "hen_gio": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000012_fk_clinic_bay_bang.sql",
+     "dong": 55,
+     "noi_dung": "clinic_id phải trỏ phòng khám có thật (ON DELETE RESTRICT)."
+    }
+   ]
+  },
+  "hoa_don_cong_ty": {
+   "lam_gi": "BẢN CHỤP thông tin công ty trên MỘT hoá đơn (phiếu thu = payment_cycle) khi khách xuất hoá đơn về công ty. Sửa công ty trong hồ sơ khách không đổi bản chụp này; sửa thẳng bản chụp thì ghi hoa_don_cong_ty_lich_su.",
+   "cot": {
+    "nguoi_mua": "Ô 'Người mua' của mẫu MISA — mặc định để trống, ai muốn thì điền (≤ 200).",
+    "bo_luc": "Bỏ chọn 'xuất hoá đơn công ty' (hoàn tác được: ghi lại là hết bỏ).",
+    "khach_cong_ty_id": "Công ty trong hồ sơ khách đã dùng để điền (trống nếu công ty đã bị xoá)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+     "dong": 68,
+     "noi_dung": "Mỗi phiếu thu chỉ một bản chụp công ty; xoá phiếu thu thì bản chụp bị xoá theo (CASCADE). Tên công ty 1–400 ký tự, MST ≤ 20, email ≤ 254."
+    }
+   ]
+  },
+  "hoa_don_cong_ty_lich_su": {
+   "lam_gi": "Lịch sử ghi/sửa/bỏ công ty trên hoá đơn: ai, lúc nào, giá trị cũ → mới.",
+   "cot": {
+    "hanh_dong": "ghi (lần đầu) / sua / bo / lai (ghi lại sau khi bỏ).",
+    "cu_ten": "Tên công ty trước khi đổi (các cột cu_* là bản cũ, moi_* là bản mới)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+     "dong": 86,
+     "noi_dung": "hanh_dong chỉ nhận ghi / sua / bo / lai; service_role chỉ được SELECT, INSERT (không sửa)."
+    }
+   ]
+  },
+  "hoa_don_misa_xuat": {
+   "lam_gi": "Một lần kế toán đánh dấu 'đã xuất sang MISA' cho một khoảng ngày (sau khi tải Excel nhập vào MISA). Bỏ đánh dấu = huy_luc, không xoá.",
+   "cot": {
+    "so_hoa_don": "Số hoá đơn trong lần xuất (≥ 0).",
+    "tong_tien": "Tổng đồng của lần xuất.",
+    "huy_luc": "Lúc bỏ đánh dấu; trống = còn hiệu lực.",
+    "co_so": "Cơ sở lọc khi xuất (trống = mọi cơ sở).",
+    "loai": "Loại hoá đơn lọc khi xuất."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014157000_hoa_don_misa_xuat.sql",
+     "dong": 23,
+     "noi_dung": "Đến ngày phải ≥ từ ngày; ghi chú ≤ 500 ký tự."
+    }
+   ]
+  },
+  "hoa_don_misa_xuat_dong": {
+   "lam_gi": "Mỗi hoá đơn trong một lần xuất MISA + hai dấu vân tay lúc xuất (người mua, nội dung) — tính lại và so để biết hoá đơn nào CÓ THAY ĐỔI SAU KHI XUẤT. Không khoá ngoại sang payment_cycle để dấu vết còn dù phiếu bị dọn.",
+   "cot": {
+    "dau_nguoi_mua": "Dấu vân tay thông tin người mua lúc xuất.",
+    "dau_noi_dung": "Dấu vân tay nội dung hoá đơn lúc xuất.",
+    "tong": "Tổng đồng của hoá đơn lúc xuất."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014157000_hoa_don_misa_xuat.sql",
+     "dong": 40,
+     "noi_dung": "Một lần xuất không chứa một phiếu thu hai lần; xoá lần xuất thì các dòng bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "idempotency_key": {
+   "cot": {
+    "request_hash": "SHA-256 (64 ký tự hex) của JSON yêu cầu chuẩn hoá + query. Không cho một Idempotency-Key đã ghi thành công bị dùng lại với body khác. Trống = giữ chỗ trước migration."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261019140000_idempotency_payload_hash.sql",
+     "dong": 15,
+     "noi_dung": "request_hash phải là 64 ký tự hex (hoặc trống)."
+    }
+   ]
+  },
+  "inventory_txn": {
+   "lam_gi": "Sổ kho thuốc chỉ thêm: mọi thay đổi tồn lô đi qua đây (trigger inventory_txn_apply cập nhật tồn).",
+   "cot": {
+    "txn_type": "RECEIVE (nhập, +) / DISPENSE (giao, −) / ADJUST (điều chỉnh, ±) / DISCARD (huỷ, −) / SALE (−) / SALE_REVERSAL (+) / RETURN_RECEIVED (khách trả, +) / CHUYEN_RA (−, hàng nguồn) / CHUYEN_VAO (+, hàng đích). Vd chuyển 10 hộp KHO→QUẦY = CHUYEN_RA −10 ở KHO + CHUYEN_VAO +10 ở QUẦY.",
+    "quantity": "Số lượng có dấu theo loại: loại nhập vào > 0, loại xuất ra < 0, ADJUST ≠ 0."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+     "dong": 119,
+     "noi_dung": "Sổ kho cấm cả TRUNCATE (xoá sạch bảng) — trigger hàng không bắt được nên có trigger riêng."
+    },
+    {
+     "tep": "supabase/migrations/20261008710000_kho_theo_co_so.sql",
+     "dong": 199,
+     "noi_dung": "Dòng sổ kho giao thuốc theo dòng đơn (ref_type prescription) phải dùng lô thuộc cơ sở của lượt."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 85,
+     "noi_dung": "Dấu số lượng đúng loại: RECEIVE/SALE_REVERSAL/RETURN_RECEIVED/CHUYEN_VAO > 0; DISPENSE/DISCARD/SALE/CHUYEN_RA < 0; ADJUST ≠ 0. Loại chỉ nhận 9 giá trị trong danh sách."
+    },
+    {
+     "tep": "supabase/migrations/20261018130000_doi_chieu_giao_tu_kho.sql",
+     "dong": 3,
+     "noi_dung": "Bán / giao / phân lô trước giao CHỈ trên hàng QUẦY; ngoại lệ: đối chiếu thuốc đã giao (giao chưa gắn lô) được ghi đúng lô thực tế ở KHO, không cần phiếu chuyển giả. Không chuyển lô hết hạn ra quầy."
+    },
+    {
+     "tep": "supabase/migrations/20261019110000_pharmacy_inventory_p1_guards.sql",
+     "dong": 11,
+     "noi_dung": "Số lượng sổ kho phải là số hữu hạn (không NaN, không vô cực)."
+    }
+   ]
+  },
+  "khach_cong_ty": {
+   "lam_gi": "Công ty trong HỒ SƠ khách (một khách nhiều công ty) để lần sau xuất hoá đơn công ty điền sẵn. Sửa ở đây không đổi bản chụp trên hoá đơn đã ghi. Gỡ = ẩn (an_luc), không xoá.",
+   "cot": {
+    "dung_luc": "Lần gần nhất công ty này được gắn vào một hoá đơn → 'điền sẵn lần trước'.",
+    "an_luc": "Gỡ khỏi hồ sơ (hoàn tác được).",
+    "ma_so_thue": "MST ≤ 20 ký tự — sai chỉ NHẮC ở service, không chặn ở DB."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql",
+     "dong": 18,
+     "noi_dung": "Tên công ty 1–400 ký tự; địa chỉ ≤ 500; MST ≤ 20; email ≤ 254; người mua ≤ 200. Xoá hồ sơ khách thì công ty bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "kiem_ke_ca": {
+   "lam_gi": "Phiếu kiểm kê thuốc ở QUẦY theo ca của một cơ sở: DAU/CUOI một phiếu mỗi ca, DOT_XUAT bất kỳ lúc. NHAP → CHOT; chốt KHÔNG tự sửa tồn — 'điều chỉnh theo kiểm kê' là bước riêng ghi ADJUST vào sổ kho, hoàn tác được.",
+   "cot": {
+    "loai": "DAU (đầu ca) / CUOI (cuối ca) / DOT_XUAT.",
+    "trang_thai": "NHAP (đang đếm) / CHOT.",
+    "ca": "SANG / CHIEU / TOI.",
+    "mot_phan": "true = chốt mà còn thuốc có tồn ở quầy chưa được đếm (kiểm một phần).",
+    "dung_so_ca_truoc": "Đầu ca dùng luôn số đếm cuối ca trước.",
+    "dieu_chinh_ly_do": "Lý do điều chỉnh tồn theo kiểm kê (bắt buộc khi điều chỉnh).",
+    "phieu_truoc_id": "Phiếu đã chốt mà phiếu này là bản ĐÍNH CHÍNH (phiên bản mới); trống = bản gốc. Phiếu cũ và số chốt của nó giữ nguyên.",
+    "phien_ban": "Số phiên bản (1 = bản gốc, > 1 = bản đính chính).",
+    "moc_ton_luc": "Mốc giờ lấy tồn máy để so; phiếu đã chốt thì không sửa.",
+    "ly_do_sua": "Lý do đính chính (1–1000 ký tự), bắt buộc ở bản sửa."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+     "dong": 40,
+     "noi_dung": "CHOT ⇔ có giờ + người chốt; điều chỉnh chỉ sau khi chốt và phải có người, giờ, lý do; hoàn tác chỉ sau điều chỉnh, có người + giờ."
+    },
+    {
+     "tep": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+     "dong": 120,
+     "noi_dung": "Phiếu đã CHỐT không sửa được (đếm, thuốc, người chốt); điều chỉnh đã ghi chỉ hoàn tác được; đã hoàn tác thì thôi."
+    },
+    {
+     "tep": "supabase/migrations/20261018120000_kiem_ke_ca_dinh_chinh.sql",
+     "dong": 13,
+     "noi_dung": "Bản gốc: không phiếu trước, phiên bản 1, không lý do; bản đính chính: có phiếu trước, phiên bản > 1, lý do 1–1000 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261018120000_kiem_ke_ca_dinh_chinh.sql",
+     "dong": 19,
+     "noi_dung": "Đầu ca / cuối ca: một phiếu GỐC cho mỗi (cơ sở, ngày, ca, loại); mỗi phiếu chỉ có MỘT bản đính chính (uq_kiem_ke_ca_mot_ban_sua)."
+    },
+    {
+     "tep": "supabase/migrations/20261018120000_kiem_ke_ca_dinh_chinh.sql",
+     "dong": 58,
+     "noi_dung": "Không sửa liên kết/lý do phiên bản; không sửa mốc tồn của phiếu đã chốt; phiếu đã có bản sửa thì không điều chỉnh bản cũ; bản sửa phải nối phiếu đã chốt cùng ca và điều chỉnh của phiếu cũ (nếu có) phải đã hoàn tác."
+    }
+   ]
+  },
+  "kiem_ke_ca_dong": {
+   "lam_gi": "Số ĐẾM từng (thuốc, đơn vị) của một phiếu kiểm kê ca; lúc chốt ghi tồn máy tại giờ chốt và lệch = đếm − tồn máy.",
+   "cot": {
+    "don_vi": "Đơn vị lô dạng so khớp (lower(btrim)) — không cộng hộp với viên.",
+    "dem": "Số đếm thực tế (≥ 0).",
+    "ton_may": "Tồn máy ở quầy tại giờ chốt.",
+    "lech": "= đếm − tồn máy. Vd máy 12 hộp, đếm 10 → lệch −2.",
+    "giao_chua_gan_lo": "Thuốc đã giao mà chưa gắn lô lúc chốt — làm tồn máy cao hơn kệ thật, KHÔNG phải lệch đếm, hiện riêng."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+     "dong": 74,
+     "noi_dung": "Tồn máy và lệch đi cặp, lệch đúng = đếm − tồn máy; mỗi (phiếu, thuốc, đơn vị) một dòng; đếm ≥ 0."
+    },
+    {
+     "tep": "supabase/migrations/20261014170000_kiem_ke_ca.sql",
+     "dong": 142,
+     "noi_dung": "Dòng của phiếu đã chốt không thêm/sửa/xoá được."
+    }
+   ]
+  },
+  "ky_nang": {
+   "lam_gi": "Kỹ năng (vị trí) của phòng khám, vd Phụ SA, Bio, TKYK, Lấy mẫu = một tập lego (khối màn) + những phòng làm. Tick kỹ năng cho người = service bật đúng các lego ấy trong capability_grant.",
+   "cot": {
+    "ma": "Mã thường a-z/0-9/_ dài 2–40.",
+    "lego": "Danh sách mã lego (mã MAN trong permissions/catalogue.py) mà kỹ năng mở.",
+    "phong_ids": "Các phòng người có kỹ năng này làm (lego 'phong')."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000093_ky_nang.sql",
+     "dong": 20,
+     "noi_dung": "Mã kỹ năng chỉ chữ thường/số/gạch dưới, 2–40 ký tự; tên 1–80 ký tự."
+    }
+   ]
+  },
+  "lam_them_tai_quay": {
+   "lam_gi": "Danh sách nút '+ dịch vụ' ở Tiếp đón / Đo sinh hiệu do quản lý quản (vd Nước tiểu): lễ tân/người đo tick là ra chỉ định ngay, không cần bác sĩ.",
+   "cot": {
+    "nhan": "Chữ trên nút (1–40 ký tự); trống = tên dịch vụ trong bảng giá.",
+    "o_tiep_don": "Hiện nút ở màn Tiếp đón.",
+    "o_sinh_hieu": "Hiện nút ở màn Đo sinh hiệu.",
+    "bat": "Bật/tắt nút."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+     "dong": 117,
+     "noi_dung": "Nút đang bật phải hiện ở ít nhất một nơi (Tiếp đón hoặc Đo sinh hiệu); nhãn 1–40 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+     "dong": 143,
+     "noi_dung": "Trigger chặn mã không phải dịch vụ có trong bảng giá cùng phòng khám."
+    },
+    {
+     "tep": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+     "dong": 151,
+     "noi_dung": "RLS: trình duyệt chỉ đọc trong phòng khám của mình; ghi chỉ qua API."
+    }
+   ]
+  },
+  "lam_them_tai_quay_revision": {
+   "lam_gi": "Bộ đếm tăng dần (tombstone) cho mỗi nút làm thêm của một lượt — chặn lệnh cũ tới muộn sau chuỗi thêm → bỏ khiến trạng thái nhìn bề ngoài lại 'chưa có' (lỗi ABA).",
+   "cot": {
+    "revision": "Số lần đổi (≥ 0), chỉ tăng."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002220000_lam_them_tai_quay_revision.sql",
+     "dong": 10,
+     "noi_dung": "Xoá lượt thì bộ đếm của lượt bị xoá theo (CASCADE); bảng chỉ backend dùng (thu quyền anon/authenticated)."
+    }
+   ]
+  },
+  "lan_don_du_lieu_thu": {
+   "lam_gi": "Nhật ký dọn dữ liệu khách THỬ: ai xoá, lúc nào, xoá những khách nào (mã + tên), bao nhiêu dòng mỗi bảng, tệp nào. Hàm don_khach_thu ghi.",
+   "cot": {
+    "nguon": "man_quan_tri (quản trị chọn khách trên màn) / script_moc (script xoá theo mốc thời gian).",
+    "khach": "Danh sách khách bị xoá (mã + tên).",
+    "so_dong": "Số dòng đã xoá theo từng bảng.",
+    "tep_da_chuyen": "Kết quả chuyển tệp sang thư mục lưu trữ, điền một lần sau giao dịch xoá."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261001240000_don_du_lieu_thu.sql",
+     "dong": 73,
+     "noi_dung": "Nhật ký chỉ thêm — không sửa/xoá/TRUNCATE (trừ điền kết quả chuyển tệp một lần)."
+    }
+   ]
+  },
+  "lich_truc_anh": {
+   "lam_gi": "Ảnh chụp CẢ TUẦN lịch trực lúc áp dụng tuần (hoặc lúc lên bản) — mốc gốc để dựng lại lịch ở từng thời điểm kiểu lịch sử Google Docs. Chỉ thêm, trigger ghi.",
+   "cot": {
+    "loai": "GOC = lần áp dụng đầu; AP_DUNG_LAI = sửa rồi áp dụng lại; LEN_BAN = tuần đã áp dụng trước ngày lên bản (chụp trong migration).",
+    "ca": "Mảng ô lịch [{id, work_date, shift, station, staff_id, staff_name, status}].",
+    "txid": "Mã giao dịch — một giao dịch = một phiên bản."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+     "dong": 37,
+     "noi_dung": "loai chỉ nhận GOC / AP_DUNG_LAI / LEN_BAN. Xoá phòng khám thì sổ bị xoá theo (CASCADE) để dọn dữ liệu thử không bị chặn."
+    }
+   ]
+  },
+  "lich_truc_thay_doi": {
+   "lam_gi": "Sổ từng thay đổi ô lịch trực (thêm/xoá/đổi người/sửa ca), một giao dịch = một phiên bản (txid). Trigger trên work_roster ghi mọi lối, kể cả lối thêm sau này. Chỉ thêm.",
+   "cot": {
+    "hanh_dong": "THEM / XOA / DOI_NGUOI / SUA.",
+    "truoc": "Ô lịch trước khi đổi (trống khi THEM).",
+    "sau": "Ô lịch sau khi đổi (trống khi XOA).",
+    "roster_id": "Dòng work_roster (có thể đã bị xoá).",
+    "boi_staff_id": "Người sửa, lấy từ app.staff_id của giao dịch; lối nào quên đặt thì trống, không chặn."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+     "dong": 53,
+     "noi_dung": "hanh_dong chỉ nhận THEM / XOA / DOI_NGUOI / SUA."
+    }
+   ]
+  },
+  "lieu_trinh": {
+   "lam_gi": "Liệu trình điều trị nhiều buổi: SỔ KẾ HOẠCH của một khách cho MỘT dịch vụ nhóm Điều trị (bao nhiêu buổi, đơn giá chốt, ghi chú tần suất). Mỗi buổi vẫn là một service_order thường, nối qua lieu_trinh_buoi. Trạng thái do trigger suy ra; mọi lần đổi ghi lieu_trinh_lich_su.",
+   "cot": {
+    "trang_thai": "Do trigger SUY RA, không ai ghi tay: DE_XUAT (mới đề xuất) / DANG_LAM (khách đã nhận: CSKH đăng ký, có buổi khách chọn, đã làm hoặc đã trả trước) / XONG (số buổi đã làm ≥ số buổi kế hoạch) / DUNG (có dung_luc).",
+    "so_buoi": "Số buổi kế hoạch 1–200; không được nhỏ hơn số buổi đang gắn hay số buổi đã trả trước.",
+    "don_gia": "Đơn giá CHỐT lúc tạo = giá bảng giá lúc ấy (đổi bảng giá sau không đụng); không đổi được khi đã có tiền trả trước. Vd 10 buổi × 500.000đ.",
+    "nguon": "BAC_SI (bác sĩ đề xuất) / CSKH.",
+    "hanh_dong": "Nhãn lần đổi gần nhất (vào lịch sử): TAO, DIEU_CHINH, DANG_KY, DUNG, MO_LAI, HOAN_TAC, TU_THEM_BUOI, TU_TRANG_THAI…",
+    "revision": "Tăng mỗi lần sửa — chống hai người sửa đè nhau."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 70,
+     "noi_dung": "trang_thai = DUNG ⇔ có giờ dừng; số buổi 1–200; đơn giá ≥ 0; ghi chú lộ trình ≤ 1000, lý do dừng ≤ 500 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 467,
+     "noi_dung": "Trigger chặn: dịch vụ phải thuộc nhóm Điều trị; không đổi khách/dịch vụ; đã trả trước thì không đổi đơn giá; không giảm số buổi dưới số buổi đang gắn hoặc đã trả (vd đã trả 5 buổi thì phải hoàn tiền phần dư trước rồi mới giảm). Trigger cũng suy trạng thái, tự thêm buổi, tăng revision, ghi lịch sử."
+    }
+   ]
+  },
+  "lieu_trinh_buoi": {
+   "lam_gi": "Buổi của liệu trình: nối một chỉ định ↔ liệu trình, số buổi, buổi có dùng tiền trả trước không. Trigger trên service_order tự gắn buổi kế khi khách có đúng MỘT liệu trình cùng dịch vụ, tự gỡ khi chỉ định huỷ/không làm. Gỡ = đóng dấu go_luc.",
+   "cot": {
+    "buoi_so": "Số thứ tự buổi (≥ 1).",
+    "tra_truoc": "true = buổi trừ vào tiền đã trả trước (không vào hoá đơn, cổng tiền coi như đã thu, không thành nợ).",
+    "gan_cach": "TU_DONG (trigger) / TAY (người gắn).",
+    "go_cach": "TU_DONG (chỉ định huỷ/không làm/không chọn) / TAY (người gỡ) / CHUYEN (gắn sang liệu trình khác)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 126,
+     "noi_dung": "Một chỉ định thuộc tối đa MỘT liệu trình, và số buổi không trùng trong các buổi còn sống của một liệu trình."
+    },
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 123,
+     "noi_dung": "Buổi đã gỡ không được còn đánh dấu trả trước; giờ gỡ và cách gỡ đi cặp."
+    },
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 543,
+     "noi_dung": "Trigger chặn: chỉ định phải cùng khách, cùng dịch vụ với liệu trình; liệu trình đã dừng thì không gắn; buổi đã gắn/gỡ không sửa lại; số buổi dùng tiền trả trước không vượt số buổi đã trả (vd trả 3 buổi thì buổi phủ thứ 4 bị từ chối)."
+    },
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 120,
+     "noi_dung": "Xoá chỉ định thì dòng buổi bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "lieu_trinh_lich_su": {
+   "lam_gi": "Lịch sử sửa liệu trình: mỗi lần kế hoạch đổi (người sửa hay hệ thống tự thêm buổi/đổi trạng thái) một dòng bản cũ → bản mới. Trigger ghi; chỉ thêm.",
+   "cot": {
+    "revision": "revision SAU lần đổi này (dòng TAO = 1).",
+    "ban_cu": "Ảnh liệu trình trước khi đổi.",
+    "ban_moi": "Ảnh liệu trình sau khi đổi."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 170,
+     "noi_dung": "Chỉ thêm — sửa/xoá bị trigger chặn."
+    }
+   ]
+  },
+  "lieu_trinh_tra_truoc": {
+   "lam_gi": "Ý định trả trước k buổi liệu trình vào hoá đơn dịch vụ của lượt khách đang có mặt; tiền là dòng payment_bill_line loại lieu_trinh (quantity = k, đơn giá chốt). Vd trả trước 5 buổi × 500.000đ = 2.500.000đ. Bỏ = đóng dấu bo_luc.",
+   "cot": {
+    "so_buoi": "Số buổi trả trước (1–200).",
+    "don_gia": "Phải đúng đơn giá chốt của liệu trình (> 0).",
+    "bo_luc": "Lúc bỏ ý định; trống = còn sống (dòng đã thu cũng vẫn sống)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 255,
+     "noi_dung": "Trigger chặn: liệu trình đã dừng thì không trả trước; đơn giá phải là đơn giá chốt; tổng đã trả + đang chờ thu không vượt số buổi kế hoạch (vd liệu trình 10 buổi, đã trả 8 → chỉ trả thêm được 2)."
+    },
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 33,
+     "noi_dung": "Xoá lượt thì ý định trả trước của lượt bị xoá theo (CASCADE); liệu trình thì RESTRICT."
+    }
+   ]
+  },
+  "llm_lan_goi": {
+   "lam_gi": "Mỗi lần ClinicAI gọi Anthropic API là một dòng: model, token vào/ra/cache, tiền USD — 'đồng hồ điện' để biết đã đốt bao nhiêu và tự dừng khi vượt trần ngày. Không lưu nội dung; không clinic_id (tính theo tài khoản Anthropic).",
+   "cot": {
+    "tinh_nang": "Mã tính năng gọi (chữ thường + gạch dưới).",
+    "chi_phi_usd": "Tiền USD tính theo bảng giá trong code lúc gọi; trống = model chưa có trong bảng giá.",
+    "cache_doc_tokens": "Token đọc từ cache.",
+    "cache_ghi_tokens": "Token ghi vào cache."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261009870000_llm_chi_phi.sql",
+     "dong": 18,
+     "noi_dung": "Số token không âm; chi phí USD không âm (hoặc trống)."
+    }
+   ]
+  },
+  "loai_kham_phi": {
+   "lam_gi": "Loại khám → các dịch vụ khám (phí khám mã KiotViet) chọn được. Lượt đi thẳng phòng dùng ở quầy để thêm dịch vụ; loại khác tick ở Bàn khám/quầy để tính tiền khám.",
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000100_phi_kham_theo_kiotviet.sql",
+     "dong": 58,
+     "noi_dung": "Xoá loại khám hoặc dòng giá thì dòng ghép bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "loi_nhom": {
+   "lam_gi": "Kho lỗi hệ thống tự dựng trong Postgres (thay Sentry): MỘT dòng cho mỗi kiểu lỗi, đếm số lần, lần đầu/cuối, mã yêu cầu gần nhất. Không giữ dữ liệu khách.",
+   "cot": {
+    "nguon": "api / worker / web.",
+    "dau_van": "Dấu vân = nguồn + vị trí + kiểu lỗi + khung code — để gom các lần cùng một lỗi.",
+    "trang_thai": "MOI (mới) / DA_BIET (đã biết) / DA_SUA (đã sửa) / BO_QUA (bỏ qua).",
+    "so_lan": "Số lần lỗi xảy ra (≥ 1).",
+    "ma_yeu_cau": "Mã yêu cầu gần nhất để tra log."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260927000004_loi_va_canh_bao.sql",
+     "dong": 31,
+     "noi_dung": "Mỗi (nguồn, dấu vân) chỉ một dòng — lỗi lặp thì tăng so_lan, không đẻ dòng mới. nguon và trang_thai chỉ nhận giá trị trong danh sách."
+    }
+   ]
+  },
+  "luot_dong_thoi_gian": {
+   "cot": {
+    "thu_tu": "Bản chép domain_event.seq (số thứ tự ghi sổ) — dùng xếp thứ tự khi nhiều sự kiện cùng giao dịch có occurred_at y hệt nhau (now() là giờ bắt đầu giao dịch)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000012_fk_clinic_bay_bang.sql",
+     "dong": 35,
+     "noi_dung": "clinic_id phải trỏ tới phòng khám có thật; ON DELETE RESTRICT — không xoá được phòng khám khi còn dòng dòng thời gian."
+    }
+   ]
+  },
+  "luot_ghi_chu": {
+   "lam_gi": "Ô chữ tự do của hồ sơ lượt 'Khác': mỗi lần lưu là MỘT phiên bản mới, không sửa/xoá dòng cũ; màn và bản in đọc phiên bản lớn nhất.",
+   "cot": {
+    "phien_ban": "Số phiên bản tăng dần từ 1.",
+    "noi_dung": "Nội dung ≤ 20.000 ký tự (được rỗng)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261007640000_luot_ghi_chu.sql",
+     "dong": 28,
+     "noi_dung": "Mỗi lượt không trùng số phiên bản — hai người cùng lưu thì người sau nhận 409 rồi lưu lại trên bản mới."
+    },
+    {
+     "tep": "supabase/migrations/20261007640000_luot_ghi_chu.sql",
+     "dong": 37,
+     "noi_dung": "Chỉ thêm — sửa/xoá bị trigger chặn."
+    }
+   ]
+  },
+  "luot_phi_kham": {
+   "lam_gi": "Dịch vụ khám đã chọn của một lượt (tick ở Bàn khám/quầy). Tiền khám = tổng các dòng còn sống, vd chọn 'Khám tư vấn viêm nhiễm PK' 300.000đ → tiền khám 300.000đ. Bỏ tick = đóng dấu bo_luc.",
+   "cot": {
+    "bo_luc": "Lúc bỏ tick; trống = còn tính tiền."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000100_phi_kham_theo_kiotviet.sql",
+     "dong": 111,
+     "noi_dung": "Mỗi lượt chỉ một dòng CÒN SỐNG cho mỗi dịch vụ khám — tick hai lần không tính tiền hai lần."
+    },
+    {
+     "tep": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+     "dong": 463,
+     "noi_dung": "Tick / bỏ tick dịch vụ khám tự ghi sổ sửa chỉ định (nhóm KHAM) trong cùng giao dịch."
+    }
+   ]
+  },
+  "luot_phu_thu": {
+   "lam_gi": "Món kèm đã tick cho MỘT chỉ định của lượt, giá đã chốt (khối cũ, đã gỡ 02/10/2026 — dòng cũ vẫn đọc được, dòng chưa thu vẫn nằm trong hoá đơn dịch vụ và thu được). Bỏ tick = đóng dấu bo_luc.",
+   "cot": {
+    "don_gia": "Giá chốt đồng ≥ 0 (vd 900000 cho đầu dò nhiều lần).",
+    "bo_luc": "Lúc bỏ tick; trống = còn sống."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000099_phu_thu_kem_dich_vu.sql",
+     "dong": 103,
+     "noi_dung": "Mỗi chỉ định chỉ một dòng CÒN SỐNG cho mỗi món kèm — tick hai lần không nhân đôi tiền."
+    }
+   ]
+  },
+  "luot_vat_tu": {
+   "lam_gi": "Vật tư khách mua thêm ở quầy thu dịch vụ, theo lượt (không gắn chỉ định). Tên/đơn vị/đơn giá chốt lúc thêm; tiền vào hoá đơn DỊCH VỤ (dòng vat_tu). Bỏ = đóng dấu bo_luc, không xoá.",
+   "cot": {
+    "don_gia": "Giá chốt đồng > 0 (vd đầu dò Bio 1 lần 300.000).",
+    "so_luong": "1–99; bấm thêm lần nữa = cộng số lượng vào dòng đang sống. Vd 2 cái × 300.000 = 600.000đ.",
+    "duyet_boi": "Người duyệt bán hàng cần duyệt — phải có quyền Duyệt vật tư (vat_tu.approve); đi cùng duyet_ly_do 5–500 ký tự.",
+    "bo_luc": "Lúc bỏ; trống = còn tính tiền.",
+    "order_id": "Chỉ định mà vật tư đi kèm (vd đầu dò Bio bác sĩ chọn ngay ở chỉ định siêu âm/tập Bio). Trống = dòng thêm ở quầy theo lượt. Tiền theo chỉ định: chỉ định huỷ / khách không chọn làm thì không tính, không thành nợ.",
+    "bo_ly_do": "Lý do bỏ dòng (5–500 ký tự) — chỉ có khi đã bỏ; quầy bỏ Bio do bác sĩ chọn thì bắt ghi.",
+    "ly_do_ban": "Nguyên nhân bán thêm (khách yêu cầu, dịch vụ cần thêm, thay vật tư hỏng…), 5–500 ký tự; bắt buộc khi dây vat_tu_bat_ly_do_ban BẬT."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261003000000_vat_tu_ban_them.sql",
+     "dong": 83,
+     "noi_dung": "Người duyệt và lý do duyệt (5–500 ký tự) luôn đi cùng nhau; số lượng 1–99; đơn giá > 0."
+    },
+    {
+     "tep": "supabase/migrations/20261014190000_bio_theo_chi_dinh.sql",
+     "dong": 37,
+     "noi_dung": "Một mặt hàng một dòng CÒN SỐNG theo (lượt, hàng, chỉ định): hai siêu âm cùng lượt cùng chọn Bio 1 lần ra hai dòng; dòng quầy (không chỉ định) vẫn gộp — bấm thêm = cộng số lượng."
+    },
+    {
+     "tep": "supabase/migrations/20261014190000_bio_theo_chi_dinh.sql",
+     "dong": 28,
+     "noi_dung": "Lý do bỏ chỉ có khi đã bỏ, dài 5–500 ký tự; lý do bán (nếu có) 5–500 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261014190000_bio_theo_chi_dinh.sql",
+     "dong": 66,
+     "noi_dung": "Chỉ định đi kèm phải cùng lượt, cùng phòng khám."
+    },
+    {
+     "tep": "supabase/migrations/20261014200000_duyet_vat_tu_lego.sql",
+     "dong": 56,
+     "noi_dung": "Trigger chặn: phải là vật tư (nhóm vat_tu) của phòng khám, đang bán, giá > 0; hàng cần duyệt phải có người CÓ quyền Duyệt vật tư (phạm vi cả phòng khám) duyệt kèm lý do; dòng đã nằm trong lần thu chờ xác minh/đã thu thì không đổi số lượng, giá hay bỏ."
+    }
+   ]
+  },
+  "ngoai_le_ca_truc": {
+   "lam_gi": "Quản lý mở quyền cho một nhân viên làm thay bác sĩ NGOÀI ca trực trong một ngày (có lý do, huỷ được); không xoá lịch sử. Dùng khi dây 'ca trực lâm sàng' bật.",
+   "cot": {
+    "bac_si_id": "Bác sĩ được làm thay (trống = mọi bác sĩ).",
+    "ly_do": "Lý do mở 3–500 ký tự.",
+    "huy_luc": "Lúc huỷ ngoại lệ; đi cặp huy_boi."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002600000_ca_truc_lam_sang.sql",
+     "dong": 19,
+     "noi_dung": "Lý do 3–500 ký tự; huỷ phải có cả người huỷ lẫn lúc huỷ (hoặc cả hai trống)."
+    }
+   ]
+  },
+  "nhac_tai_kham": {
+   "cot": {
+    "dong_vi": "Việc đóng vì sao: DA_CO_LICH (khách đã có lịch) · BS_BO_HEN · BS_DOI_NGAY · TRUNG_VIEC · NGAY_DA_QUA. Trống = đóng tay / đã gọi / còn mở.",
+    "nguon": "PHIEU_KHAM = sinh từ ngày tái khám bác sĩ đặt trên phiếu (hạn gọi = ngày hẹn − 7 ngày, vd hẹn 20/10 → gọi từ 13/10); khác = CSKH tự nhập.",
+    "han_goi": "Ngày bắt đầu phải gọi; việc từ phiếu chỉ hiện ở màn CSKH từ ngày này."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+     "dong": 65,
+     "noi_dung": "Một lượt khám chỉ có MỘT việc gọi lượt-1 từ phiếu đang chờ (CHO_GOI) — hai lần tự lưu sát nhau không đẻ hai việc."
+    },
+    {
+     "tep": "supabase/migrations/20261003720000_lich_hen_tu_phieu_kham.sql",
+     "dong": 36,
+     "noi_dung": "Trigger trên appointment: lịch hẹn còn sống rơi từ hạn gọi trở đi → việc mời tái khám từ phiếu tự đóng DA_CO_LICH — TRỪ lịch bác sĩ đặt từ phiếu của chính lượt ấy (CSKH vẫn phải gọi chốt giờ)."
+    },
+    {
+     "tep": "supabase/migrations/20260929950000_hen_tai_kham_bam_theo_luot.sql",
+     "dong": 37,
+     "noi_dung": "dong_vi chỉ nhận DA_CO_LICH / BS_BO_HEN / BS_DOI_NGAY / TRUNG_VIEC / NGAY_DA_QUA (hoặc trống)."
+    }
+   ]
+  },
+  "nhac_viec_ca_nhan": {
+   "lam_gi": "Việc một nhân viên tự hẹn nhắc chính mình (vd gọi lại khách tái khám). Tới nhac_luc hệ thống réo chuông cho đúng người ấy.",
+   "cot": {
+    "xong_luc": "Lúc đánh dấu xong; trống = còn nhắc."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260924000005_day_nghiep_vu_nhac_viec.sql",
+     "dong": 40,
+     "noi_dung": "Nội dung nhắc phải có chữ, dài 1–500 ký tự."
+    }
+   ]
+  },
+  "nhan_su_ky_nang": {
+   "lam_gi": "Ai có kỹ năng nào. Lưu riêng vì không suy ngược được từ lego (TKYK và Phụ BS Sản cùng mở Bàn khám).",
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000093_ky_nang.sql",
+     "dong": 42,
+     "noi_dung": "Xoá kỹ năng hoặc xoá nhân sự thì các dòng gán bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "patient": {
+   "cot": {
+    "nguoi_gioi_thieu": "Ai giới thiệu khách tới (đặt lịch kênh 'Giới thiệu') — lưu ở hồ sơ, hiện ở phiếu khám.",
+    "nguon_nhap": "notion = hồ sơ tạo khi nhập lịch sử Notion (05/10/2026); trống = tạo trên hệ thống. Hoàn tác nhập = ẩn đúng các hồ sơ này.",
+    "email": "Email bệnh nhân (≤ 254 ký tự, không duy nhất) — liên hệ và xuất hoá đơn kế toán."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261005100000_lich_su_notion.sql",
+     "dong": 33,
+     "noi_dung": "nguon_nhap chỉ nhận 'notion' hoặc trống."
+    },
+    {
+     "tep": "supabase/migrations/20260925000004_nguoi_gioi_thieu.sql",
+     "dong": 15,
+     "noi_dung": "Tên người giới thiệu tối đa 200 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261014110000_them_email_benh_nhan.sql",
+     "dong": 12,
+     "noi_dung": "Email tối đa 254 ký tự (không bắt duy nhất)."
+    }
+   ]
+  },
+  "payment": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261013100000_giam_gia.sql",
+     "dong": 91,
+     "noi_dung": "Hình chiếu payment: số tiền ≥ 0 (0đ chỉ đi cùng lần thu giảm hết) trừ khi đã VOIDED. NOT VALID — không quét lại dòng lịch sử."
+    }
+   ]
+  },
+  "payment_bill_line": {
+   "cot": {
+    "source_type": "Loại nguồn dòng hoá đơn: exam (tiền khám) / service_order (chỉ định) / prescription (thuốc) / phu_thu (món kèm cũ) / vat_tu (vật tư bán thêm) / lieu_trinh (trả trước k buổi liệu trình, quantity = k).",
+    "kind": "Loại tiền của dòng: thuoc (chỉ dòng prescription) / dich_vu (khám, chỉ định, phụ thu, vật tư). Phải cùng loại với lần thu chứa nó.",
+    "discount_allocated": "Phần giảm giá chia cho dòng này (đồng). line_total đã là số SAU giảm. Vd dòng 500.000 được chia giảm 50.000 → line_total 450.000.",
+    "line_total": "Tiền dòng SAU giảm; mọi chỗ cộng 'số đã thu' dùng cột này."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002800000_tach_thu_thuoc_dich_vu.sql",
+     "dong": 45,
+     "noi_dung": "Trigger chặn dòng hoá đơn khác loại với lần thu chứa nó (vd dòng thuốc lọt vào lần thu dịch vụ)."
+    },
+    {
+     "tep": "supabase/migrations/20261006200003_tien_thua_xu_ly_va_chan_thu_dong_huy.sql",
+     "dong": 93,
+     "noi_dung": "Không thu dòng của chỉ định đã bỏ / không làm (và phụ thu của nó); khoá dòng chỉ định FOR SHARE nên lệnh thu và lệnh bỏ chạy song song phải xếp hàng."
+    },
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 63,
+     "noi_dung": "source_type chỉ nhận exam / service_order / prescription / phu_thu / vat_tu / lieu_trinh."
+    },
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 70,
+     "noi_dung": "Tiền thuốc và tiền dịch vụ thu RIÊNG HẲN: dòng thuốc chỉ ở loại thuoc; khám/chỉ định/phụ thu/vật tư/trả trước liệu trình chỉ ở loại dich_vu. NOT VALID — canh dòng ghi mới."
+    },
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 83,
+     "noi_dung": "Trigger chặn thu hai lần: khám/chỉ định/phụ thu/vật tư/ý định trả trước liệu trình (phần phòng khám thu) đã nằm trong lần thu đang chờ xác minh hoặc đã PAID thì không vào lần thu khác. Riêng tiền khám: lần thu đã hoàn hết không giữ phủ."
+    },
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 150,
+     "noi_dung": "Buổi đang dùng tiền trả trước KHÔNG được thu lẻ lần nữa (khoá dòng buổi FOR SHARE)."
+    },
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 334,
+     "noi_dung": "Ghi dòng trả trước (hoãn tới COMMIT) → chia lại tiền trả trước cho các buổi; buổi ĐÃ làm bằng tiền trả trước mà tiền không còn đủ (hoàn/huỷ thu) → từ chối cả lệnh."
+    },
+    {
+     "tep": "supabase/migrations/20261013100000_giam_gia.sql",
+     "dong": 102,
+     "noi_dung": "Phần giảm ≥ 0; có giảm thì chỉ ở dòng phòng khám thu có giá, và line_total + phần giảm = đơn giá × số lượng (vd 450.000 + 50.000 = 1 × 500.000)."
+    }
+   ]
+  },
+  "payment_cycle": {
+   "cot": {
+    "reference": "Mã giao dịch ngân hàng — từ 25/09/2026 là TUỲ CHỌN khi thu QR/chuyển khoản (người bấm 'đã nhận tiền' confirmed_by là dấu vết); mã đã ghi thì không sửa được.",
+    "discount_type": "AMOUNT = giảm bằng số tiền, PERCENT = giảm bằng %. Trống = không giảm.",
+    "discount_value": "Giá trị người thu nhập: số đồng hoặc % (0–100].",
+    "discount_amount": "Tiền giảm thực tế (đồng), máy chủ tính, làm tròn 1đ; 0 = không giảm. Vd hoá đơn 1.000.000, giảm 10% → 100.000 và amount = 900.000.",
+    "discount_reason": "Lý do giảm — chữ tự do, bắt buộc khi có giảm.",
+    "discount_by": "Nhân viên bấm giảm.",
+    "original_amount": "Tổng hoá đơn TRƯỚC giảm; trống = lần thu không giảm (kể cả lần thu cũ).",
+    "amount": "Số đồng của lần thu SAU giảm = original_amount − discount_amount. Chỉ được 0đ khi giảm hết.",
+    "so_tien_thuc_nhan": "Số tiền ngân hàng THẬT nhận khi xác minh chuyển khoản (tuỳ chọn, ≥ 0), ghi đúng lúc chờ → đã thu rồi bất biến. Lệch phần chuyển khoản → mã đối soát SO_TIEN_LECH; sổ vẫn ghi số hoá đơn.",
+    "doi_soat_ly_do": "Mảng mã đối soát: HOA_DON_DOI / CHUA_GHI_BAN / SO_TIEN_LECH (khách chuyển thiếu/thừa)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 306,
+     "noi_dung": "Lần thu đổi trạng thái (PAID / huỷ) → chia lại tiền trả trước liệu trình; không cho huỷ lần thu nếu làm buổi đã làm thành 'trả bằng tiền đã mất'."
+    },
+    {
+     "tep": "supabase/migrations/20261013100000_giam_gia.sql",
+     "dong": 43,
+     "noi_dung": "Hoặc không giảm gì (mọi cột giảm trống, discount_amount 0), hoặc giảm đủ bộ: loại AMOUNT/PERCENT, giá trị > 0 (% ≤ 100), có lý do và người giảm, tiền giảm ≤ tổng trước giảm và amount = tổng trước giảm − tiền giảm."
+    },
+    {
+     "tep": "supabase/migrations/20261013100000_giam_gia.sql",
+     "dong": 82,
+     "noi_dung": "Lần thu phải > 0đ; chỉ được 0đ khi có giảm giá (giảm hết, vd giảm 100%)."
+    },
+    {
+     "tep": "supabase/migrations/20261014147000_ck_so_tien_thuc_nhan.sql",
+     "dong": 18,
+     "noi_dung": "Mã đối soát chỉ nhận HOA_DON_DOI / CHUA_GHI_BAN / SO_TIEN_LECH, không phần tử trống; số tiền thực nhận không âm."
+    },
+    {
+     "tep": "supabase/migrations/20261014147000_ck_so_tien_thuc_nhan.sql",
+     "dong": 23,
+     "noi_dung": "Sổ các lần thu: không xoá; chỉ được chuyển trạng thái theo luồng cho phép; cột đã ghi (kể cả 6 cột giảm giá và số tiền thực nhận) không sửa được — số thực nhận chỉ ghi đúng lúc chờ → đã thu."
+    }
+   ]
+  },
+  "payment_cycle_doi_hinh_thuc": {
+   "lam_gi": "Sổ đổi hình thức thu SAU khi đã thu (vd thu nhầm tiền mặt mà khách chuyển khoản). payment_cycle.method là hình thức lúc thu, bất biến; hình thức HIỆU LỰC = dòng mới nhất ở đây. Chỉ thêm.",
+   "cot": {
+    "method_cu": "Hình thức hiệu lực trước khi đổi (CASH / TRANSFER / QR); trống = phiếu cũ không rõ. Phải đúng hình thức đang hiệu lực.",
+    "method_moi": "Hình thức mới CASH / TRANSFER / QR, khác method_cu.",
+    "reference": "Mã giao dịch tuỳ chọn, 1–100 ký tự.",
+    "tien_mat": "Khi đổi sang CHIA: phần tiền mặt (> 0). Cùng chuyen_khoan phải cộng đúng số tiền phiếu.",
+    "chuyen_khoan": "Khi đổi sang CHIA: phần chuyển khoản (> 0); chia thì method_moi phải là TRANSFER."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+     "dong": 143,
+     "noi_dung": "Trigger chặn: chỉ thêm (không sửa/xoá/TRUNCATE); chỉ đổi phiếu đang PAID; phiếu đã có khoản hoàn chờ/đã hoàn thì không đổi; method_cu phải đúng hình thức hiện tại (hai người đổi cùng lúc thì người sau bị từ chối); chia thì tiền mặt + chuyển khoản phải bằng số tiền phiếu."
+    },
+    {
+     "tep": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+     "dong": 137,
+     "noi_dung": "Chia phần: hoặc không chia (cả hai trống), hoặc cả tiền mặt và chuyển khoản > 0 với hình thức mới là TRANSFER."
+    }
+   ]
+  },
+  "payment_cycle_phan": {
+   "lam_gi": "Một LẦN THU chia theo hình thức: vd khách chuyển khoản 200.000đ + đưa tiền mặt 300.000đ cho phiếu 500.000đ = 2 dòng. Lần thu cũ không có dòng nào (một phần = hình thức hiệu lực + amount). Chỉ thêm.",
+   "cot": {
+    "hinh_thuc": "CASH (tiền mặt) / TRANSFER (chuyển khoản; QR cũ đọc ra là chuyển khoản).",
+    "so_tien": "Số đồng của phần này (> 0).",
+    "khach_dua": "Tiền mặt khách đưa (≥ phần tiền mặt) — chỉ để in 'trả lại khách'; vd phần TM 300.000, khách đưa 500.000 → trả 200.000."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+     "dong": 111,
+     "noi_dung": "Trigger hoãn tới COMMIT: tổng các phần phải BẰNG số tiền lần thu (vd 200.000 + 300.000 = 500.000), và có phần chuyển khoản ⇔ lần thu ghi là chuyển khoản."
+    },
+    {
+     "tep": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+     "dong": 55,
+     "noi_dung": "Mỗi hình thức tối đa một phần mỗi lần thu; khach_dua chỉ có ở phần tiền mặt và ≥ số tiền phần ấy."
+    },
+    {
+     "tep": "supabase/migrations/20261002300000_thu_nhieu_hinh_thuc.sql",
+     "dong": 73,
+     "noi_dung": "Sổ chỉ thêm — sửa/xoá/TRUNCATE bị chặn."
+    }
+   ]
+  },
+  "payment_refund": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 376,
+     "noi_dung": "Khoản hoàn đổi trạng thái → chia lại tiền trả trước liệu trình."
+    }
+   ]
+  },
+  "payment_refund_line": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008110000_lieu_trinh_tien.sql",
+     "dong": 357,
+     "noi_dung": "Hoàn tiền dòng trả trước liệu trình → chia lại phủ buổi; không hoàn quá số buổi chưa dùng."
+    },
+    {
+     "tep": "supabase/migrations/20261013100000_giam_gia.sql",
+     "dong": 166,
+     "noi_dung": "Dòng hoàn chỉ thêm; phải thuộc đúng lần thu của khoản hoàn còn mở; chỉ hoàn dòng phòng khám thu có giá; không hoàn vượt số lượng đã thu; dòng không giảm thì tiền hoàn = số lượng × đơn giá, dòng có giảm thì luỹ kế hoàn ≤ line_total (số đã thu thật sau giảm)."
+    }
+   ]
+  },
+  "phieu_kham_lich_su": {
+   "lam_gi": "Lịch sử sửa phiếu khám: ai, lúc nào, ô nào, trước → sau. Trigger ghi mọi lần lưu; cùng người sửa cùng phiếu trong 10 phút thì gộp vào một dòng.",
+   "cot": {
+    "truoc": "{khoá_ô: {gia_tri, nguon} | null} — giá trị TRƯỚC lần sửa đầu của dòng gộp; null = ô chưa có/đã xoá. Chỉ lưu ô đổi.",
+    "sau": "Giá trị mới nhất của các ô đổi.",
+    "bat_dau": "Lúc mở dòng gộp (lần lưu đầu).",
+    "tu_revision": "revision phiếu đầu đoạn gộp.",
+    "den_revision": "revision phiếu cuối đoạn gộp."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260925000018_phieu_kham_lich_su.sql",
+     "dong": 25,
+     "noi_dung": "Xoá phiếu khám thì lịch sử sửa của nó bị xoá theo (ON DELETE CASCADE)."
+    }
+   ]
+  },
+  "phieu_kham_luot": {
+   "lam_gi": "Phiếu khám (bảy phiếu v5) của một lượt khám — mỗi lượt một phiếu cho mỗi form_id, sống qua mọi vòng khám. Tự lưu theo nhịp gõ; không khoá — Hoàn tất chỉ là mốc giờ.",
+   "cot": {
+    "du_lieu": "{khoá_ô: {gia_tri, nguon}} — khoá ổn định của nguồn, không suy từ nhãn.",
+    "revision": "Đếm lần lưu để hai người cùng gõ không đè nhau im lặng (≥ 0).",
+    "version": "Phiên bản khung form_definition mà phiếu ghim (khoá ngoại 3 cột)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260924000008_phieu_kham_luot.sql",
+     "dong": 39,
+     "noi_dung": "Một lượt chỉ một phiếu cho mỗi loại form — tự lưu bắn hai lần không đẻ hai phiếu."
+    },
+    {
+     "tep": "supabase/migrations/20260925000018_phieu_kham_lich_su.sql",
+     "dong": 126,
+     "noi_dung": "Mọi lần thêm/sửa du_lieu của phiếu khám tự ghi lịch sử (ô đổi, trước → sau) — đường ghi nào cũng để vết; cùng người trong 10 phút thì gộp."
+    }
+   ]
+  },
+  "phieu_kho": {
+   "lam_gi": "Phiếu NHẬP (nhà cung cấp, số hoá đơn, ngày chứng từ) hoặc phiếu KIỂM kho thuốc, mã PN…/KK…. Chỉ thêm. Dòng sổ kho của phiếu nằm ở inventory_txn (ref_type='phieu_kho').",
+   "cot": {
+    "loai": "NHAP / KIEM / CHUYEN (chuyển giữa KHO và QUẦY).",
+    "khoa_gui": "Khoá chống gửi trùng của lần bấm (Idempotency-Key): gửi lại cùng khoá = cùng phiếu, không ghi sổ lần hai.",
+    "ma_phieu": "Mã phiếu duy nhất trong phòng khám.",
+    "location_id": "Cơ sở của phiếu nhập/kiểm kho; mã phiếu mang mã cơ sở.",
+    "huong": "Phiếu chuyển: KHO_QUAY / QUAY_KHO.",
+    "ly_do": "Lý do chuyển.",
+    "hoan_tac_cua": "Phiếu chuyển gốc mà phiếu này hoàn tác."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+     "dong": 45,
+     "noi_dung": "Gửi trùng một lệnh = một phiếu (khoa_gui duy nhất); mã phiếu không trùng trong phòng khám."
+    },
+    {
+     "tep": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+     "dong": 108,
+     "noi_dung": "Phiếu kho chỉ thêm — UPDATE/DELETE bị trigger chặn như sổ kho."
+    },
+    {
+     "tep": "supabase/migrations/20261008710000_kho_theo_co_so.sql",
+     "dong": 97,
+     "noi_dung": "Phiếu kho phải trỏ một cơ sở của chính phòng khám, bắt buộc có cơ sở."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 133,
+     "noi_dung": "Phiếu CHUYEN phải có hướng KHO_QUAY/QUAY_KHO; phiếu khác không có hướng, lý do, hoàn tác. Loại chỉ NHAP / KIEM / CHUYEN."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 138,
+     "noi_dung": "Mỗi phiếu chuyển bị hoàn tác nhiều nhất MỘT lần."
+    }
+   ]
+  },
+  "phieu_kho_dong": {
+   "lam_gi": "Từng dòng của phiếu kho: dòng nhập (thuốc, lô, số lượng, giá nhập) hoặc dòng kiểm (tồn máy / thực tế / lệch), trỏ về đúng dòng sổ kho đã ghi. Chỉ thêm.",
+   "cot": {
+    "lech": "Dòng kiểm: lệch = thực tế − tồn máy. Vd máy 10 hộp, đếm 8 → lệch −2 và có một dòng ADJUST −2 trong sổ kho.",
+    "gia_nhap": "Giá nhập đồng (số nguyên ≥ 0) cho dòng nhập.",
+    "ton_may": "Tồn theo máy lúc kiểm (≥ 0).",
+    "thuc_te": "Số đếm thực tế (≥ 0).",
+    "drug_batch_nguon_id": "Dòng CHUYỂN: hàng lô nguồn (khác hàng đích drug_batch_id).",
+    "inventory_txn_nguon_id": "Dòng CHUYỂN: dòng sổ CHUYEN_RA ở hàng nguồn.",
+    "so_luong_goc": "Số người nhập gõ theo đơn vị gốc (vd 6 hộp) để đối chiếu với so_luong đã quy đổi (60 gói). Trống = dòng không quy đổi.",
+    "don_vi_goc": "Đơn vị gốc lúc nhập (vd hộp).",
+    "he_so": "Hệ số đã dùng (vd 10)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+     "dong": 75,
+     "noi_dung": "Dòng phải cùng loại với phiếu (khoá ngoại ghép qua loai) và lô phải cùng phòng khám; một phiếu không hai dòng trùng lô hoặc trùng số thứ tự; mỗi dòng sổ kho chỉ gắn một dòng phiếu."
+    },
+    {
+     "tep": "supabase/migrations/20260929960000_kho_kieu_kiotviet.sql",
+     "dong": 113,
+     "noi_dung": "Dòng phiếu kho chỉ thêm — UPDATE/DELETE bị trigger chặn."
+    },
+    {
+     "tep": "supabase/migrations/20261008710000_kho_theo_co_so.sql",
+     "dong": 227,
+     "noi_dung": "Dòng phiếu kho chỉ trỏ lô cùng cơ sở với phiếu."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 153,
+     "noi_dung": "Dòng NHẬP: số lượng > 0, có dòng sổ. Dòng KIỂM: lệch = thực tế − tồn máy, lệch ≠ 0 ⇔ có dòng sổ. Dòng CHUYỂN: số lượng > 0, có cả dòng sổ nguồn lẫn đích, hàng nguồn khác hàng đích."
+    },
+    {
+     "tep": "supabase/migrations/20261014160000_tach_kho_quay.sql",
+     "dong": 194,
+     "noi_dung": "Dòng chuyển: hàng nguồn phải cùng cơ sở với phiếu."
+    },
+    {
+     "tep": "supabase/migrations/20261017100000_thuoc_quy_doi.sql",
+     "dong": 44,
+     "noi_dung": "Ba cột quy đổi (số gốc, đơn vị gốc, hệ số) có cùng có, trống cùng trống; hệ số > 0 và ≤ 10.000."
+    }
+   ]
+  },
+  "phu_thu_mau": {
+   "lam_gi": "Món kèm chọn được của một dịch vụ (đầu dò Bio…) + giá mặc định. ĐÃ GỠ khối tick từ 02/10/2026 (thay bằng luot_vat_tu): mọi dòng active = false, giữ để tra lịch sử.",
+   "cot": {
+    "gia_mac_dinh": "Giá mặc định đồng (≥ 0, trống = chưa có giá).",
+    "drug_catalog_id": "Mặt hàng kho tương ứng (để gắn kho sau)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000099_phu_thu_kem_dich_vu.sql",
+     "dong": 66,
+     "noi_dung": "Một dịch vụ không có hai món kèm trùng tên."
+    }
+   ]
+  },
+  "prescription": {
+   "cot": {
+    "bac_si_chinh_id": "Bác sĩ chính của lượt lúc dòng đơn được ghi (trigger chụp từ visit.attending_doctor_id). Người nhập ở created_by — thư ký nhập thay bác sĩ là chuyện thường.",
+    "nguon": "BAC_SI = bác sĩ/thư ký kê (mặc định); QUAY = quầy thuốc thêm lúc bán. Đơn bác sĩ chỉ đọc/sửa dòng BAC_SI; hoá đơn, nhà thuốc, giao thuốc đọc cả hai.",
+    "so_luong_dien_boi": "Nhân sự quầy thu thuốc đã ĐIỀN/SỬA số lượng (bác sĩ để trống hoặc quầy chỉnh). Trống = số do người kê ghi. Đi cặp so_luong_dien_luc.",
+    "so_luong_dien_luc": "Lúc quầy điền/sửa số lượng gần nhất.",
+    "so_luong_ke_goc": "Số lượng bác sĩ đã ghi, giữ lại lần ĐẦU quầy sửa — để màn kê đơn hiện 'SL do thu ngân sửa (bác sĩ kê X)'. Trống = bác sĩ để trống hoặc quầy chưa sửa.",
+    "purchased_qty": "Số khách MUA (có thể vượt số bác sĩ kê). Quầy chỉ giao trong số đã mua; trống thì dùng số kê.",
+    "quantity_num": "Số bác sĩ kê (dạng số) — giữ để đối chiếu/cảnh báo khi mua vượt kê.",
+    "dispense_status": "Cột tự sinh: TU_CHOI (chưa giao, có lý do từ chối) / CHUA_CAP / CAP_DU (đã giao ≥ số mua, không có số mua thì so số kê) / CAP_MOT_PHAN. Vd kê 2 hộp, mua 3, giao 3 → CAP_DU."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261003100000_quay_thuoc_dien_so_luong.sql",
+     "dong": 15,
+     "noi_dung": "Người điền số lượng và giờ điền luôn đi cặp."
+    },
+    {
+     "tep": "supabase/migrations/20261003500000_quay_thuoc_so_luong_tuy_y.sql",
+     "dong": 204,
+     "noi_dung": "Trigger chốt đơn: hồ sơ đã ký thì thêm/sửa/gỡ dòng phải qua đính chính hồ sơ; dòng có dấu vết (nhà thuốc/thu tiền/đính chính) không xoá được; dòng đã thu/bán/giao/trả thì đổi thuốc, số lượng, liều, lưu ý đều phải tạo dòng thay thế; dòng còn phân lô chưa thu phải nhả trước khi gỡ. Ngoại lệ hẹp: quầy thuốc được đặt số lượng."
+    },
+    {
+     "tep": "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+     "dong": 9,
+     "noi_dung": "Số đã giao không vượt số khách mua (chưa có số mua thì không vượt số kê). Vd mua 3 hộp thì giao tối đa 3 — bán vượt kê được, giao vượt mua thì không."
+    },
+    {
+     "tep": "supabase/migrations/20261018200000_thuoc_mua_vuot_ke_chi_nhac.sql",
+     "dong": 5,
+     "noi_dung": "Số mua ≥ 0 và chỉ có khi đã có số kê dạng số."
+    },
+    {
+     "tep": "supabase/migrations/20260925000005_quay_thuoc_nguon_dong.sql",
+     "dong": 21,
+     "noi_dung": "nguon chỉ nhận BAC_SI / QUAY."
+    },
+    {
+     "tep": "supabase/migrations/20260924000003_don_thuoc_bac_si_chinh.sql",
+     "dong": 33,
+     "noi_dung": "Lúc thêm dòng đơn, trigger chụp bác sĩ chính hiện tại của lượt vào bac_si_chinh_id (đổi bác sĩ chính về sau không đổi đơn đã kê)."
+    }
+   ]
+  },
+  "prescription_allocation": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008710000_kho_theo_co_so.sql",
+     "dong": 171,
+     "noi_dung": "Phân lô cho một lượt chỉ nhận lô thuộc kho cơ sở của LƯỢT (lượt không rõ cơ sở thì không chặn)."
+    }
+   ]
+  },
+  "queue_entry": {
+   "cot": {
+    "lane": "TU_VAN (hàng chung bác sĩ tư vấn, không gắn bác sĩ/phòng) / DOCTOR (hàng của một bác sĩ) / ROOM (hàng phòng dịch vụ).",
+    "reason": "TU_VAN / PRIMARY / SERVICE / REVIEW — lý do vào hàng.",
+    "vao_hang_luc": "Lần ĐẦU chỗ chờ có giờ vào hàng (bắt đầu chờ thật) — không bao giờ ghi đè. Khác eligible_at là khoá xếp hàng (bị đặt lại khi khách quay lại → xếp sau).",
+    "eligible_at": "Khoá xếp hàng: khách rời phòng dịch vụ quay lại thì đặt lại = now() để xếp sau người đang chờ."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260924000001_kham_tu_van.sql",
+     "dong": 55,
+     "noi_dung": "Làn khớp lý do: làn DOCTOR ⇔ PRIMARY/REVIEW; làn TU_VAN ⇔ TU_VAN."
+    },
+    {
+     "tep": "supabase/migrations/20261009400000_queue_entry_vao_hang_luc.sql",
+     "dong": 63,
+     "noi_dung": "vao_hang_luc tự = eligible_at đầu tiên của chỗ chờ; đã có giá trị thì trigger giữ nguyên, kể cả khi lệnh ghi thẳng cột."
+    }
+   ]
+  },
+  "quyen_preset": {
+   "lam_gi": "Nhóm quyền mẫu do quản lý tự đặt: bấm một cái cấp cả loạt khối. KHÔNG phải quyền — quyền thật nằm ở từng dòng capability_grant; sửa nhóm không đổi quyền của ai đã được cấp.",
+   "cot": {
+    "khoi": "Danh sách mã khối công việc trong nhóm (khối không có thật thì lệnh cấp từ chối — kiểm ở lệnh, không ở DB).",
+    "he_thong": "true = nhóm dựng sẵn theo vai; quản lý tắt (active=false) chứ không xoá cứng để còn tra 'hồi ấy cấp theo nhóm nào'.",
+    "ma": "Mã nhóm, chữ HOA/số/gạch dưới, 2–32 ký tự."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000011_nhom_quyen_mau.sql",
+     "dong": 39,
+     "noi_dung": "Mã nhóm phải viết HOA, chỉ A-Z/0-9/_ và dài 2–32 ký tự; tên không được rỗng."
+    }
+   ]
+  },
+  "result_correction": {
+   "lam_gi": "Mỗi dòng = một lần SỬA một phiếu kết quả đã hoàn tất (bản 2, 3…). Link mỏng sang visit_amendment, nơi giữ ảnh chụp trước/sau, người, lý do. Chỉ thêm, không sửa, không xoá.",
+   "cot": {
+    "ban_thu": "Số bản chuyên môn ≥ 2 (bản 1 = lần Hoàn tất đầu, nằm ngay trong form_instance). Phải đúng bản kế tiếp: đang có bản 3 thì lần sửa mới phải là 4.",
+    "visit_id": "Chỉ để khoá toàn vẹn (trigger ép khớp với lượt suy qua service_order), không để đọc.",
+    "amendment_id": "Lần sửa sinh đúng MỘT dòng visit_amendment (giữ người · lý do · giá trị cũ/mới)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 117,
+     "noi_dung": "Mỗi phiếu chỉ có một dòng cho mỗi số bản; mỗi amendment chỉ gắn một lần sửa."
+    },
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 177,
+     "noi_dung": "Trigger chặn: visit_id phải đúng lượt của phiếu, và ban_thu phải đúng số kế tiếp (không nhảy cóc, không trùng)."
+    },
+    {
+     "tep": "supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql",
+     "dong": 263,
+     "noi_dung": "Chỉ được THÊM: UPDATE/DELETE bị trigger ném lỗi — lịch sử kết quả y khoa không sửa, không xoá."
+    }
+   ]
+  },
+  "roster_week": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+     "dong": 179,
+     "noi_dung": "Áp dụng tuần (thêm/đổi applied_at) tự chụp ảnh cả tuần vào lich_truc_anh."
+    }
+   ]
+  },
+  "service_execution_attempt": {
+   "cot": {
+    "ghi_chu": "Ghi chú của LẦN LÀM khi phòng bấm Xong / Đã lấy mẫu (độ dài ≤ 2000 canh ở service).",
+    "interruption_reason_code": "Lý do dừng lần làm: EQUIPMENT_FAILURE / PATIENT_REQUEST / CLINICAL_SAFETY / TECHNICAL_FAILURE / STAFF_UNAVAILABLE / OTHER (người chọn) + PATIENT_MOVED (khách chuyển phòng) / STARTED_IN_ERROR (huỷ bắt đầu nhầm) / RESULT_UNDONE (hoàn tác kết quả làm thêm tại quầy, dịch vụ về 'chờ làm') — ba mã cuối do hệ thống ghi.",
+    "noi_lam": "Trống = làm ở phòng của chỉ định; BAN_KHAM = bác sĩ làm luôn tại bàn khám (room_id_snapshot = phòng bác sĩ).",
+    "gan_phong_ban_kham": "true = lần làm tại bàn khám đã xếp chỉ định (chưa có phòng) vào phòng bác sĩ — hoàn tác Bắt đầu gỡ đúng phòng ấy.",
+    "chot_lua_chon_tu": "Lần làm tại bàn khám đã chốt hộ lựa chọn khách cho CHỈ ĐỊNH NÀY: trạng thái lựa chọn trước đó (trống = không chốt hộ).",
+    "chot_lua_chon_rev": "Revision lựa chọn của lượt ngay sau lần chốt hộ — hoàn tác chỉ trả lại khi chưa ai chốt lại sau đó.",
+    "phong_truoc_ban_kham": "Lần làm tại bàn khám đã CHUYỂN chỉ định từ phòng này sang phòng bàn khám; trống = không chuyển. Huỷ bắt đầu trả chỉ định về phòng này và khách về hàng chờ của nó."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261002700000_hoan_tac_xong_tai_quay.sql",
+     "dong": 13,
+     "noi_dung": "Mã lý do dừng chỉ nhận 9 giá trị trong danh sách (kể cả PATIENT_MOVED, STARTED_IN_ERROR, RESULT_UNDONE)."
+    },
+    {
+     "tep": "supabase/migrations/20261007620000_phieu_dieu_tri_ban_kham.sql",
+     "dong": 62,
+     "noi_dung": "noi_lam chỉ nhận BAN_KHAM (hoặc trống)."
+    }
+   ]
+  },
+  "service_order": {
+   "cot": {
+    "mang_tu_visit_id": "Lượt khám cũ mà chỉ định (đã trả, chưa làm) được mang sang từ đó. Trống = chỉ định của chính lượt này.",
+    "da_xem_ket_qua_luc": "Lần ĐẦU bác sĩ / thư ký y khoa / BS siêu âm mở PHIẾU kết quả đã hoàn tất của chỉ định (tự ghi). Duyệt cũng tính là đã xem.",
+    "execution_status": "Trạng thái làm (đường mới) — NGUỒN THẬT; trigger tự suy ra exec_status và ghi giờ bắt đầu/xong.",
+    "exec_status": "Cột cũ, bản chiếu của execution_status cho màn/view còn đọc cột cũ (assigned/in_progress/performed/not_performed…).",
+    "phong_du_kien_id": "Phòng khách chọn ở quầy TRƯỚC khi thu tiền (chỉ là ý định); dây H4 thu xong đọc cột này để xếp phòng nếu phòng còn nhận. Xoá phòng thì về trống.",
+    "routing_nguon": "Nguồn của lần xếp phòng hiệu lực: quay_thu · truong_ca · tu_dong (dây H4) · khac · tai_phong (phòng tự bấm Nhận). Trưởng ca đã xếp thì chỉ trưởng ca đổi được; trống = trước 25/09.",
+    "bat_buoc": "Bác sĩ đánh dấu dịch vụ bắt buộc — quầy thu không bỏ chọn được (muốn bỏ phải quay lại người chỉ định).",
+    "lan_chi_dinh": "Lần chỉ định trong lượt (1, 2, 3…): mặc định vào LẦN HIỆN TẠI (lần lớn nhất đã có); chỉ lệnh 'mở lần mới' (nút 'Chỉ định thêm (lần N)') mới sang lần kế, và chỉ khi lần hiện tại còn chỉ định sống. Mang sang / làm thêm tại quầy = trống.",
+    "bac_si_lam_id": "Bác sĩ quầy chọn trong phòng nhiều bác sĩ. Chỉ là lựa chọn — không khoá ai bắt đầu làm. Đổi phòng thì trigger tự xoá.",
+    "lan_lam": "Làn của bác sĩ được chọn lúc chọn — để lọc 'Khách của làn tôi' ở hàng chờ phòng.",
+    "nguon_lam_them": "Chỉ định LÀM THÊM TẠI QUẦY: tiep_don = lễ tân tick lúc check-in, sinh_hieu = người đo sinh hiệu tick. Trống = bác sĩ/thư ký chỉ định trong phiên khám. Chỉ định quầy không có consultation_id và không có lan_chi_dinh.",
+    "consultation_id": "Phiên khám sinh ra chỉ định; trống khi là chỉ định làm thêm tại quầy."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260924000011_dong_bo_hai_cot_trang_thai.sql",
+     "dong": 25,
+     "noi_dung": "Chỉ định ở trạng thái assigned / in_progress / performed bắt buộc phải có phòng (not_performed thì không cần — khách có thể từ chối lúc chờ)."
+    },
+    {
+     "tep": "supabase/migrations/20261001250000_chon_bac_si_trong_phong.sql",
+     "dong": 108,
+     "noi_dung": "Phòng của chỉ định (phòng đã xếp, chưa xếp thì phòng dự kiến) đổi mà lệnh không ghi bác sĩ mới → trigger xoá lựa chọn bác sĩ cũ."
+    },
+    {
+     "tep": "supabase/migrations/20261002210000_lam_them_tai_quay_xor.sql",
+     "dong": 7,
+     "noi_dung": "Chỉ định thuộc đúng MỘT nguồn: hoặc có phiên khám (bác sĩ), hoặc là làm thêm tại quầy — không được cả hai, không được thiếu cả hai."
+    },
+    {
+     "tep": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+     "dong": 41,
+     "noi_dung": "nguon_lam_them chỉ nhận tiep_don / sinh_hieu (hoặc trống)."
+    },
+    {
+     "tep": "supabase/migrations/20261002200000_lam_them_tai_quay.sql",
+     "dong": 57,
+     "noi_dung": "Mỗi lượt chỉ một chỉ định làm-thêm-tại-quầy CÒN SỐNG cho mỗi dịch vụ — lễ tân và điều dưỡng bấm cùng lúc thì người sau nhận lại chỉ định của người trước."
+    },
+    {
+     "tep": "supabase/migrations/20261006200001_lan_chi_dinh_on_dinh.sql",
+     "dong": 58,
+     "noi_dung": "Trigger gán lần chỉ định (khoá advisory theo lượt): hai người bấm cùng lúc không đẻ hai lần; người khác đã mở lần mới thì vào lần ấy, không mở thêm."
+    },
+    {
+     "tep": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+     "dong": 392,
+     "noi_dung": "Mọi lần thêm chỉ định / đổi exec_status (bỏ, hoàn tác) đều tự ghi một dòng sổ sửa chỉ định trong cùng giao dịch."
+    },
+    {
+     "tep": "supabase/migrations/20261007500000_moc_hanh_trinh.sql",
+     "dong": 25,
+     "noi_dung": "routing_nguon chỉ nhận quay_thu / truong_ca / tu_dong / khac / tai_phong (hoặc trống)."
+    },
+    {
+     "tep": "supabase/migrations/20261008100000_lieu_trinh.sql",
+     "dong": 633,
+     "noi_dung": "Thêm chỉ định / đổi trạng thái tự gắn hoặc gỡ buổi liệu trình trong cùng giao dịch (mọi đường tạo chỉ định đều đi qua)."
+    },
+    {
+     "tep": "supabase/migrations/20260924000011_dong_bo_hai_cot_trang_thai.sql",
+     "dong": 84,
+     "noi_dung": "Trigger giữ hai cột trạng thái khớp nhau ở MỘT chỗ: execution_status đổi → suy exec_status và ghi giờ bắt đầu/xong; lối cũ chỉ đổi exec_status trên chỉ định đời mới → kéo execution_status theo."
+    }
+   ]
+  },
+  "service_price": {
+   "cot": {
+    "ma_kiotviet": "Mã phòng khám (mã SP KiotViet) — mã chuẩn để tra/nhập/hiển thị; service_code giữ làm khoá ẩn.",
+    "billing_owner": "CLINIC = phòng khám thu; EXTERNAL_PARTNER = thu hộ đối tác (không cộng vào hoá đơn phòng khám). Thuộc TỪNG dịch vụ, quản lý chọn ở Bảng giá. Dịch vụ thu hộ làm ở phòng của phòng khám: xong thì lên bàn đối tác (mẫu gửi đối tác).",
+    "gia_tam": "true = giá giả định chờ phòng khám xác nhận; quản lý sửa/lưu lại đơn giá thì tự bỏ cờ.",
+    "billing_owner_chon_tay": "true = quản lý (hoặc migration theo quyết định của Tuyền) đã CHỌN TAY bên thu; suy từ phòng làm chỉ là mặc định khi chưa chọn tay và không được ghi đè.",
+    "group": "Nhóm dòng giá: thuoc / dich_vu / vat_tu (vật tư bán thêm ở quầy dịch vụ — không phòng, không nhóm việc).",
+    "don_vi": "Đơn vị tính (cái, hộp…) — hiện cho vật tư.",
+    "can_ql_duyet": "true = vật tư KHÔNG bán thông thường: mỗi dòng bán phải có một quản lý đang làm việc duyệt + lý do (vd vòng Mirena thứ hai 4.000.000đ).",
+    "chon_nhanh": "true = vật tư hiện thành nút chọn nhanh ở quầy thu dịch vụ (vd đầu dò Bio).",
+    "unit_price": "Đơn giá đồng. Trống = chưa có giá (quầy chặn thu/không bán); không bao giờ nạp 0đ cho dòng phòng khám thu — 0đ chỉ cho dịch vụ thu hộ đối tác.",
+    "thue_suat_ma": "Thuế GTGT của mặt hàng: KCT (không chịu thuế) / KKKNT (không kê khai nộp thuế) / số % 0–100 (≤ 2 chữ số thập phân). Trống = theo nhóm. Giá bảng giá ĐÃ GỒM thuế, kế toán tách ngược khi xuất; vận hành không đọc.",
+    "loai_vat_tu": "Phân loại vật tư: VPP (văn phòng phẩm) / VTYT (vật tư y tế).",
+    "gia_nhap_vat_tu": "Giá nhập vật tư (đồng, ≥ 0).",
+    "ma_vach_vat_tu": "Mã vạch của vật tư (1–120 ký tự).",
+    "kinh_doanh_vat_tu": "Phân loại kinh doanh (có bán cho khách) — KHÔNG thêm điều kiện chặn bán; luật bán vẫn theo active/giá/duyệt.",
+    "can_duyet_nhap_vat_tu": "true = nhập vật tư này phải chờ duyệt."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260926000001_danh_muc_dich_vu_kiotviet.sql",
+     "dong": 30,
+     "noi_dung": "Mã KiotViet duy nhất trong một phòng khám (khi có điền)."
+    },
+    {
+     "tep": "supabase/migrations/20261003000000_vat_tu_ban_them.sql",
+     "dong": 33,
+     "noi_dung": "Nhóm dòng giá chỉ nhận thuoc / dich_vu / vat_tu."
+    },
+    {
+     "tep": "supabase/migrations/20261014155000_thue_gtgt.sql",
+     "dong": 30,
+     "noi_dung": "Thuế suất chỉ nhận KCT / KKKNT / số 0–100 tối đa 2 chữ số thập phân (hoặc trống)."
+    },
+    {
+     "tep": "supabase/migrations/20261014180100_vat_tu_danh_muc.sql",
+     "dong": 8,
+     "noi_dung": "loai_vat_tu chỉ VPP / VTYT; giá nhập vật tư ≥ 0; mã vạch vật tư 1–120 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+     "dong": 37,
+     "noi_dung": "Vật tư đã có giao dịch kho hoặc phiếu nhập chờ duyệt thì KHÔNG đổi được đơn vị (đổi sẽ đổi nghĩa cả tồn lẫn lịch sử) — phải tạo mặt hàng mới."
+    }
+   ]
+  },
+  "service_type": {
+   "cot": {
+    "qua_tu_van": "true = check-in loại khám này thì khách qua bác sĩ tư vấn trước bác sĩ chính (dây H1). Quản lý chỉnh được.",
+    "di_thang_phong": "true = check-in loại lịch này thì đi thẳng phòng làm chỉ định hẹn từ lượt trước, không qua tư vấn/bác sĩ chính, không tính tiền khám (dây H2).",
+    "gia_mac_dinh": "Phí khám đồng dùng khi lượt chưa chọn dịch vụ khám con; mặc định 0đ. Số nguyên 0–1 tỷ.",
+    "nhom": "Nhóm ở bộ chọn đặt lịch: KHAM (loại khám) / DIEU_TRI (điều trị, trỏ dòng giá) / THUOC (ẩn) / KHAC (không bắt chọn dịch vụ).",
+    "thu_tu": "Thứ tự trong nhóm ở bộ chọn đặt lịch.",
+    "service_price_id": "Chỉ loại Điều trị: dòng bảng giá của chính dịch vụ — giá = dòng này, không thu phí khám."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260930000001_phi_kham_tuy_chon.sql",
+     "dong": 15,
+     "noi_dung": "Phí khám mặc định là số nguyên đồng từ 0 tới 1.000.000.000."
+    },
+    {
+     "tep": "supabase/migrations/20261007600000_nhom_dich_vu_dat_lich.sql",
+     "dong": 43,
+     "noi_dung": "Loại DIEU_TRI ⇔ có dòng giá; nhóm khác không mang dòng giá. Nhóm chỉ nhận KHAM / DIEU_TRI / THUOC / KHAC; dòng giá phải cùng phòng khám (khoá ngoại ghép)."
+    }
+   ]
+  },
+  "so_no": {
+   "lam_gi": "Sổ nợ hai chiều theo lượt khám đã về: PHAI_THU (khách nợ phòng khám) và PHAI_TRA (phòng khám nợ khách: đã thu mà chưa làm/đã bỏ, trừ phần đã hoàn; giữ lại tiền thừa vẫn là nợ khách). Mỗi dòng = chênh lệch có dấu + số dư sau. Chỉ thêm; sửa = dòng mới ở ngày sửa.",
+   "cot": {
+    "chieu": "PHAI_THU / PHAI_TRA.",
+    "so_tien": "Chênh lệch có dấu (+ phát sinh, − giảm), khác 0. Vd khách về nợ 300.000 → +300.000; thu nợ → −300.000.",
+    "so_du": "Số dư SAU dòng này của lượt theo chiều ấy (≥ 0) = số dư trước + so_tien.",
+    "loai": "Vì sao: DAU_KY (số dư lúc bật sổ) / KHI_VE / MO_LAI_LUOT / GHI_NO / THU / HUY_PHIEU / HOAN_TIEN / DOI_CHI_DINH / TRA_THUOC (khách trả thuốc) / DOI_CHIEU (đối chiếu định kỳ thấy lệch).",
+    "seq": "Thứ tự ghi tuyệt đối — 'số dư trước' = dòng seq lớn nhất của lượt.",
+    "luc": "Giờ NGHIỆP VỤ (giờ sự kiện xảy ra) — báo cáo lọc theo cột này; ghi_luc là giờ ghi sổ.",
+    "chi_tiet": "Các khoản tạo nên số dư sau dòng này [{ten, so_tien, loai}].",
+    "su_kien_id": "Sự kiện gây ra; trống = lượt đối chiếu định kỳ."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+     "dong": 92,
+     "noi_dung": "Trigger chặn: số dư sau phải đúng = số dư trước + chênh lệch (vd trước 300.000, chênh −300.000 → sau 0) — hai bên nhận chạy chen hay INSERT tay không làm sổ tự mâu thuẫn."
+    },
+    {
+     "tep": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+     "dong": 59,
+     "noi_dung": "Một sự kiện chỉ ghi một lần mỗi chiều — bên nhận chạy lại/phát lại thì im."
+    },
+    {
+     "tep": "supabase/migrations/20261014148000_tra_thuoc_ket_cuc_tien.sql",
+     "dong": 37,
+     "noi_dung": "loai chỉ nhận 10 giá trị trong danh sách (kể cả TRA_THUOC); chênh lệch ≠ 0, số dư ≥ 0."
+    },
+    {
+     "tep": "supabase/migrations/20261014140000_so_no_hai_chieu.sql",
+     "dong": 103,
+     "noi_dung": "Sổ chỉ thêm — sửa/xoá bị chặn, muốn sửa thì ghi một dòng chênh lệch mới."
+    }
+   ]
+  },
+  "so_no_moc": {
+   "lam_gi": "Mốc bật sổ nợ của từng phòng khám: lượt có TRƯỚC mốc mà còn số dư thì lượt đối chiếu ghi một dòng DAU_KY (giờ = mốc). Con trỏ nhớ chỗ dừng khi ghi đầu kỳ chạy dần.",
+   "cot": {
+    "bat_dau": "Mốc bật sổ.",
+    "dau_ky_den": "Con trỏ: đã ghi đầu kỳ tới lượt tạo lúc này (đi giảm dần).",
+    "dau_ky_den_id": "Con trỏ: id lượt cuối đã xử lý.",
+    "dau_ky_xong": "true = đã ghi xong đầu kỳ cho mọi lượt cũ."
+   }
+  },
+  "so_sua_chi_dinh": {
+   "lam_gi": "Sổ thêm / bỏ / hoàn tác / đổi chỉ định đủ bốn nhóm Khám · CLS · Điều trị · Thuốc: ai, vai, lúc nào, bàn bác sĩ nào, ai ra chỉ định gốc, tiền đã thu → tiền thừa, lý do, báo bác sĩ chính, ai hoàn tác. Trigger trên service_order/luot_phi_kham ghi; thuốc do Python ghi.",
+   "cot": {
+    "nhom": "KHAM (dịch vụ khám) / CLS (cận lâm sàng) / DIEU_TRI (thủ thuật, sàn chậu) / THUOC.",
+    "hanh_dong": "THEM / BO / HOAN_TAC (rút lại một dòng BO) / DOI (chỉ nhóm THUOC — đổi dòng đơn).",
+    "stt": "Thứ tự ổn định trong cùng giao dịch (now() như nhau).",
+    "chi_tiet": "THUỐC: {truoc:{…}, sau:{…}}; BỎ chỉ định: {truoc:{trạng thái cũ}}.",
+    "da_thu": "Số đồng đã thu của mục lúc ghi (≥ 0).",
+    "tien_thua": "Phần đã thu trở thành tiền thừa khi bỏ (0 ≤ tiền thừa ≤ đã thu). Vd chỉ định 500.000 đã thu rồi bỏ → da_thu 500.000, tien_thua 500.000.",
+    "sua_luc": "Thuốc tự lưu mỗi 1,5 giây: cùng người sửa cùng dòng trong 10 phút gộp vào dòng đang mở — sua_luc là lần gộp cuối.",
+    "hoan_tac_cua": "Dòng HOAN_TAC trỏ về đúng dòng BO nó rút lại.",
+    "dong_thuoc_id": "Dòng đơn prescription (không khoá ngoại vì đính chính thay dòng mới)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+     "dong": 85,
+     "noi_dung": "Mỗi dòng BỎ chỉ được hoàn tác MỘT lần — bác sĩ chính bấm Hoàn tác ở hai máy cùng lúc thì một bên bị từ chối."
+    },
+    {
+     "tep": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+     "dong": 72,
+     "noi_dung": "Dòng HOAN_TAC ⇔ có hoan_tac_cua; chỉ dòng BO mới có 'ai hoàn tác' (người và lúc đi cặp); DOI chỉ cho nhóm THUOC; tiền thừa ≤ đã thu, không âm; lý do ≤ 500 ký tự."
+    },
+    {
+     "tep": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+     "dong": 144,
+     "noi_dung": "Sổ không xoá được; các cột 'ai, lúc nào, làm gì' không sửa được (chỉ ghi thêm vết hoàn tác/báo bác sĩ)."
+    },
+    {
+     "tep": "supabase/migrations/20261006200002_bo_chi_dinh_thong_bao_dong_khi_chi_dinh_lai.sql",
+     "dong": 44,
+     "noi_dung": "Có dòng THEM cho một mục (cùng lượt, nhóm, mã) → mọi thông báo 'chỉ định bị bỏ' còn mở của mục ấy tự đóng 'Đã chỉ định lại'."
+    }
+   ]
+  },
+  "staff": {
+   "cot": {
+    "primary_department": "Bộ phận chính, cùng danh sách 15 vai với clinic_membership.role (kể cả ACCOUNTANT)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000016_quyen_khoi_dong.sql",
+     "dong": 188,
+     "noi_dung": "Tắt is_active của nhân sự mà làm phòng khám mất người cấp quyền cuối cùng → bị từ chối lúc COMMIT."
+    },
+    {
+     "tep": "supabase/migrations/20261016400000_vai_ke_toan.sql",
+     "dong": 41,
+     "noi_dung": "primary_department chỉ nhận 15 giá trị trong danh sách vai."
+    }
+   ]
+  },
+  "staff_capability": {
+   "lam_gi": "Hệ quyền CŨ (một quyền ket_qua.xac_nhan) — nghỉ từ 23/09/2026, chỉ còn để tra lịch sử. Quyền thật ở capability_grant (result.file.confirm)."
+  },
+  "tep_ket_qua": {
+   "cot": {
+    "cho_phep_gui_luc": "Mốc bác sĩ cho phép gửi — từ 23/09/2026 KHÔNG còn là cửa chặn gửi, chỉ ghi vết; đã ghi thì không sửa được.",
+    "xac_nhan_trang_thai": "Xác nhận tệp đối tác đúng người đúng chỉ định: CHO_XAC_NHAN / TU_CHOI / THU_HOI thì KHÔNG được gửi khách; HOP_LE mới gửi được.",
+    "da_xem_luc": "Lần ĐẦU bác sĩ / thư ký y khoa / BS siêu âm mở tệp (tự ghi, không phải bấm). Trống = chưa ai chuyên môn xem.",
+    "ben": "Bên của tệp trong mẫu hai bên (chỉ số cột 0–7 của mục bảng: Thai A=0, Thai B=1, trái/phải…). Trống = tệp chung/tệp cũ.",
+    "da_xoa_luc": "Xoá MỀM: tệp ẩn khỏi mọi chỗ đọc (view v_tep_ket_qua_hieu_luc), dòng vẫn còn; khôi phục được khi chưa dọn tệp vật lý (da_don_tep_luc trống).",
+    "da_xoa_loai": "XOA = xoá thường (chưa gửi khách); DINH_CHINH = 'đính chính – gỡ tệp' đã gửi khách / phiên đọc đã đóng (cần quyền duyệt kết quả).",
+    "da_don_tep_luc": "Job hằng ngày đã xoá tệp vật lý (chỉ tệp xoá quá 30 ngày và chưa từng xem/duyệt/gửi). Từ đây không khôi phục được.",
+    "vi_tri": "vps = bản DUY NHẤT đang ở ổ VPS, chờ đẩy sang Viettel CFS; cfs = đã có bản trên CFS (dòng cũ mặc định cfs).",
+    "da_day_luc": "Lúc container day-tep đẩy xong sang CFS (đã đọc lại, sha256 + số byte khớp).",
+    "so_lan_day_loi": "Số lần đẩy sang CFS hỏng liên tiếp (lùi dần theo số này; ≥5 → cảnh báo /ops).",
+    "da_xoa_ban_vps_luc": "Đã xoá bản trên ổ VPS (7 ngày sau khi đẩy, hoặc sớm hơn khi ổ VPS vượt trần)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260923000021_cskh_gui_ket_qua_khong_can_cho_phep.sql",
+     "dong": 17,
+     "noi_dung": "Trigger chặn ghi mốc đã gửi khi tệp đang CHO_XAC_NHAN / TU_CHOI / THU_HOI (chống gửi nhầm kết quả khách này cho khách khác); và không cho sửa mốc bác sĩ cho phép đã ghi."
+    },
+    {
+     "tep": "supabase/migrations/20260930700000_xoa_mem_tep.sql",
+     "dong": 59,
+     "noi_dung": "Vết xoá đủ bộ: có giờ xoá thì phải có người, lý do không rỗng, loại XOA/DINH_CHINH; giờ dọn tệp không trước giờ xoá (hoặc tất cả trống)."
+    },
+    {
+     "tep": "supabase/migrations/20260930700000_xoa_mem_tep.sql",
+     "dong": 78,
+     "noi_dung": "Không DELETE / TRUNCATE dòng tệp kết quả (prevent_hard_delete) — hồ sơ y khoa chỉ xoá mềm."
+    },
+    {
+     "tep": "supabase/migrations/20260930700000_xoa_mem_tep.sql",
+     "dong": 135,
+     "noi_dung": "Không sửa đè vết xoá; đã xoá chỉ được khôi phục (đưa cả bộ về trống, khi chưa dọn tệp) hoặc đánh dấu đã dọn một lần; tệp đã dọn khỏi ổ thì không khôi phục được."
+    },
+    {
+     "tep": "supabase/migrations/20261001000000_tep_luu_vps_truoc.sql",
+     "dong": 53,
+     "noi_dung": "vi_tri chỉ vps/cfs; tệp còn ở VPS (chưa đẩy) thì không thể có mốc đẩy hay mốc xoá bản VPS — bản duy nhất không bao giờ bị đánh dấu xoá; xoá bản VPS thì phải đã đẩy."
+    },
+    {
+     "tep": "supabase/migrations/20260926000005_tep_ket_qua_ben.sql",
+     "dong": 12,
+     "noi_dung": "ben chỉ nhận 0–7 (hoặc trống)."
+    }
+   ]
+  },
+  "thong_bao": {
+   "cot": {
+    "nguoi_goi_staff_id": "Người gọi/phát thông báo; chỉ được trống với chuông tự động hạn lô (nguon = lo_thuoc_han)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014130002_chuong_han_lo.sql",
+     "dong": 8,
+     "noi_dung": "Thông báo phải có người gọi, trừ chuông tự động báo hạn lô thuốc."
+    }
+   ]
+  },
+  "thong_bao_an_cua_toi": {
+   "lam_gi": "Thông báo một nhân viên tự ẩn khỏi chuông của RIÊNG mình — không đổi trạng thái đã đọc/đã xử lý dùng chung theo vai.",
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261018180000_an_thong_bao_rieng_theo_nhan_vien.sql",
+     "dong": 5,
+     "noi_dung": "Xoá thông báo / nhân viên / phòng khám thì dòng ẩn bị xoá theo (CASCADE); mỗi (nhân viên, thông báo) một dòng."
+    }
+   ]
+  },
+  "thue_suat_nhom": {
+   "lam_gi": "Thuế GTGT theo nhóm Dịch vụ / Thuốc / Vật tư do kế toán đặt cho từng phòng khám. Không có dòng = chưa đặt. Ưu tiên: sửa tay từng dòng lúc xuất > mặt hàng > nhóm.",
+   "cot": {
+    "nhom": "DICH_VU / THUOC / VAT_TU.",
+    "thue_suat_ma": "KCT / KKKNT / % (vd '8' = 8%)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014155000_thue_gtgt.sql",
+     "dong": 48,
+     "noi_dung": "nhom chỉ DICH_VU / THUOC / VAT_TU; thuế suất phải hợp lệ."
+    }
+   ]
+  },
+  "thuoc_giao_chua_gan_lo": {
+   "lam_gi": "Thuốc đã giao khách mà CHƯA gán lô kho. Lần giao không lô không ghi inventory_txn; khi kho có lô, người nhà thuốc gán dòng vào lô → lúc ấy mới ghi DISPENSE (tồn lô giảm, kiểm hạn). Tới khi gán, tồn kho báo cao hơn thực tế đúng bằng tổng các dòng chưa gán.",
+   "cot": {
+    "so_luong": "Số lượng đã giao (> 0), theo đơn vị của dòng đơn. Vd giao 2 hộp → 2.",
+    "drug_batch_id": "Lô được gán sau; trống = chưa gán.",
+    "inventory_txn_id": "Dòng DISPENSE trong sổ kho ghi lúc gán lô."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260928000096_thuoc_giao_chua_gan_lo.sql",
+     "dong": 32,
+     "noi_dung": "Gán lô phải đủ bộ: có lô thì phải có dòng sổ kho và giờ gán (hoặc cả ba trống). Số lượng > 0."
+    }
+   ]
+  },
+  "thuoc_quy_doi": {
+   "lam_gi": "Hệ số quy đổi đơn vị NHẬP → đơn vị BÁN của từng thuốc, nhớ lần đầu để lần sau không phải gõ lại. Vd 1 hộp Androgel = 10 gói: nhập 6 hộp → kho ghi 60 gói (kho chỉ giữ một đơn vị = đơn vị bán).",
+   "cot": {
+    "don_vi": "Đơn vị NHẬP đã chuẩn hoá (NFC, chữ thường, một khoảng trắng), 1–50 ký tự.",
+    "he_so": "1 đơn vị nhập = he_so đơn vị bán; > 0 và ≤ 10.000."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261017100000_thuoc_quy_doi.sql",
+     "dong": 23,
+     "noi_dung": "Hệ số > 0 và ≤ 10.000; mỗi (thuốc, đơn vị nhập) một dòng."
+    }
+   ]
+  },
+  "tien_thua_giu_lai": {
+   "lam_gi": "Tiền thừa khách KHÔNG lấy lại (vd bỏ chỉ định đã thu 200.000đ, khách để lại): quầy ghi giữ lại kèm lý do, ai, lúc nào; huỷ được (hoàn tác) tới khi check-out. Check-out còn tiền thừa chưa hoàn/chưa giữ thì máy chủ chặn.",
+   "cot": {
+    "so_tien": "Số đồng giữ lại (> 0).",
+    "huy_luc": "Lúc huỷ (hoàn tác) giữ lại; trống = còn hiệu lực."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261006200003_tien_thua_xu_ly_va_chan_thu_dong_huy.sql",
+     "dong": 40,
+     "noi_dung": "Một lượt chỉ MỘT lần giữ lại còn hiệu lực — hai máy bấm cùng lúc thì một máy thua. Số tiền > 0, lý do 3–500 ký tự."
+    }
+   ]
+  },
+  "tuong_tac_cskh": {
+   "cot": {
+    "visit_id": "Lượt khám mà lần chạm nói tới — hiện chỉ PHAN_HOI_THUOC dùng (lượt có đơn).",
+    "loai": "XAC_NHAN_LICH / NHAC_HEN / CHECK_XN / TRA_KQ / HOI_LY_DO_HUY / HOI_THAM / KHAC / CHECK_IN / CHECK_OUT / THANH_TOAN / MUA_THUOC / PHAN_HOI_THUOC (phản hồi sau dùng thuốc)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261010200000_phan_hoi_sau_dung_thuoc.sql",
+     "dong": 37,
+     "noi_dung": "Phản hồi sau dùng thuốc bắt buộc gắn lượt khám; loai chỉ nhận 12 giá trị trong danh sách. Xoá lượt thì dòng bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "vat_tu_goi_y": {
+   "lam_gi": "Dịch vụ nào thường mua kèm vật tư nào (vd Tập máy Bio → đầu dò Bio) — quầy thu cho vật tư ấy nổi lên đầu khi lượt có dịch vụ.",
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261003000000_vat_tu_ban_them.sql",
+     "dong": 51,
+     "noi_dung": "Xoá dòng giá dịch vụ hoặc vật tư thì dòng gợi ý bị xoá theo (CASCADE)."
+    }
+   ]
+  },
+  "vat_tu_nhap_cho_duyet": {
+   "lam_gi": "Yêu cầu nhập vật tư thuộc loại cần duyệt nhập, chờ người có lego Duyệt vật tư. KHÔNG nằm trong sổ vật tư: duyệt thì hệ thống lập phiếu NHẬP thật đúng số đã xin (phieu_id); từ chối/rút lại thì không gì vào sổ. Quyết một lần.",
+   "cot": {
+    "dong": "Các dòng xin nhập [{vat_tu_id, den_room_id, so_luong, gia_nhap}] (1–200 dòng); giá nhập là bản chụp lúc xin.",
+    "trang_thai": "CHO_DUYET → DA_DUYET (có phiếu nhập) / TU_CHOI (bắt lý do 5–500) / RUT_LAI.",
+    "khoa_gui": "Khoá chống gửi trùng — gửi lại cùng khoá = cùng yêu cầu."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql",
+     "dong": 37,
+     "noi_dung": "Đã quyết ⇔ có người + giờ quyết; DA_DUYET ⇔ có phiếu nhập; TU_CHOI phải có lý do. Khoá gửi và mã yêu cầu duy nhất."
+    },
+    {
+     "tep": "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql",
+     "dong": 111,
+     "noi_dung": "Không xoá; tạo mới phải ở CHO_DUYET, đúng cơ sở và người lập đang làm; nội dung đã gửi không sửa; chỉ quyết một lần; duyệt/từ chối phải có quyền Duyệt vật tư; rút lại chỉ người lập hoặc người có quyền duyệt."
+    },
+    {
+     "tep": "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+     "dong": 111,
+     "noi_dung": "Mỗi dòng yêu cầu nhập phải mang đơn vị và đơn vị phải khớp đơn vị hiện tại của vật tư (đổi rồi thì phải tải lại danh mục)."
+    }
+   ]
+  },
+  "vat_tu_phieu": {
+   "lam_gi": "Phiếu sổ kho VẬT TƯ (riêng, không chạm thuốc hay vật tư đã thu tiền) của một cơ sở. Chỉ thêm; hoàn tác = lập phiếu HOAN đảo phiếu gốc.",
+   "cot": {
+    "loai": "NHAP / XUAT_PHONG / TRA_KHO / CHUYEN_PHONG / KIEM / DIEU_CHINH / HUY / TRA_NCC (trả nhà sản xuất) / HOAN (phiếu đảo).",
+    "khoa_gui": "Khoá chống gửi trùng (1–200 ký tự) — gửi lại cùng khoá = cùng phiếu.",
+    "giao_dich": "Mã giao dịch tạo phiếu — chỉ thêm dòng được trong chính giao dịch ấy.",
+    "dao_phieu_id": "Phiếu gốc mà phiếu HOAN này đảo.",
+    "nha_cung_cap": "Nhà cung cấp nhận hàng trả — chỉ có ở phiếu TRA_NCC (2–200 ký tự)."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+     "dong": 16,
+     "noi_dung": "Phiếu HOAN ⇔ có phiếu gốc; mỗi phiếu chỉ bị đảo một lần; khoá gửi duy nhất theo cơ sở; mã phiếu duy nhất."
+    },
+    {
+     "tep": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+     "dong": 164,
+     "noi_dung": "Phiếu phải đúng cơ sở của phòng khám, người tạo là thành viên đang làm; không đảo phiếu khác cơ sở hoặc đảo một phiếu đảo."
+    },
+    {
+     "tep": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+     "dong": 172,
+     "noi_dung": "Kiểm nguyên phiếu lúc COMMIT: phiếu phải có dòng; phiếu chuyển phải đủ dòng đối ứng đúng nơi chứa; phiếu đảo phải đảo đủ dòng gốc."
+    },
+    {
+     "tep": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+     "dong": 166,
+     "noi_dung": "Sổ vật tư chỉ thêm — lập phiếu đảo để hoàn tác."
+    },
+    {
+     "tep": "supabase/migrations/20261018140000_vat_tu_tra_nha_san_xuat.sql",
+     "dong": 24,
+     "noi_dung": "Phiếu TRA_NCC ⇔ có nhà cung cấp (2–200 ký tự) và phải có ghi chú lý do ≥ 3 ký tự; loại chỉ nhận 9 giá trị trong danh sách."
+    }
+   ]
+  },
+  "vat_tu_ton": {
+   "lam_gi": "Tồn một mặt hàng vật tư tại một nơi chứa (cơ sở, hoặc một phòng). Số lượng chỉ đổi qua sổ vật_tu_txn. Tồn ÂM KHÔNG bị chặn (chỉ cảnh báo).",
+   "cot": {
+    "room_id": "Phòng chứa; trống = kho của cơ sở.",
+    "so_luong": "Tồn hiện tại (có thể âm — không chặn), không NaN/vô cực.",
+    "ton_toi_thieu": "Mức tối thiểu (≥ 0) do Quản lý sửa trên màn; dưới mức thì cảnh báo.",
+    "muc_sua_boi": "Ai sửa mức tối thiểu gần nhất."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+     "dong": 28,
+     "noi_dung": "Mỗi (phòng khám, cơ sở, mặt hàng, phòng) một dòng tồn — kể cả phòng trống (NULLS NOT DISTINCT)."
+    },
+    {
+     "tep": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+     "dong": 162,
+     "noi_dung": "Không xoá tồn; nơi chứa/mặt hàng phải thuộc đúng cơ sở + phòng khám; tồn ban đầu phải 0; không sửa nơi chứa hay tồn trực tiếp — phải ghi sổ vật tư."
+    }
+   ]
+  },
+  "vat_tu_txn": {
+   "lam_gi": "Dòng sổ kho vật tư: một biến động số lượng của một dòng tồn thuộc một phiếu. Trigger cộng vào vat_tu_ton. Chỉ thêm.",
+   "cot": {
+    "so_luong": "Biến động có dấu.",
+    "ton_may": "Tồn máy lúc ghi.",
+    "thuc_te": "Số đếm thực tế (phiếu KIEM/DIEU_CHINH, ≥ 0).",
+    "gia_nhap": "Giá nhập đồng (≥ 0).",
+    "dao_txn_id": "Dòng gốc mà dòng đảo này đối ứng."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261014180000_vat_tu_so_kho.sql",
+     "dong": 43,
+     "noi_dung": "Mỗi dòng gốc chỉ bị đảo một lần; sổ chỉ thêm."
+    },
+    {
+     "tep": "supabase/migrations/20261018140000_vat_tu_tra_nha_san_xuat.sql",
+     "dong": 34,
+     "noi_dung": "Trigger chặn: dòng phải đúng phiếu/nơi chứa/mặt hàng; chỉ thêm dòng trong chính giao dịch tạo phiếu; phiếu KIEM không đổi tồn; phiếu DIEU_CHINH: số lượng = thực tế − tồn máy; dòng đảo đúng −số lượng và cùng giá dòng gốc; mỗi loại phiếu đúng chiều số lượng (kể cả TRA_NCC)."
+    },
+    {
+     "tep": "supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql",
+     "dong": 65,
+     "noi_dung": "Ghi sổ vật tư khoá dòng mặt hàng (FOR SHARE) và mặt hàng phải là vật tư — đổi đơn vị song song phải xếp hàng."
+    }
+   ]
+  },
+  "vi_tri_lam_viec": {
+   "cot": {
+    "ten_ngan": "Nhãn in ở đầu hàng bảng lịch làm việc theo file Excel xếp lịch (vd dưới 'Phòng thủ thuật' chỉ ghi 'BS'). Trống = dùng ten.",
+    "lan": "Làn trong phòng (1–20): một vị trí bác sĩ + các vị trí ĐD/thư ký cùng số là một cặp làm việc (vd Phòng siêu âm 2 máy: BS1·ĐD1·TK1 = làn 1). Trống = không thuộc làn."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261001250000_chon_bac_si_trong_phong.sql",
+     "dong": 51,
+     "noi_dung": "Mỗi làn của một phòng chỉ có MỘT vị trí bác sĩ đang hoạt động; làn từ 1 đến 20."
+    },
+    {
+     "tep": "supabase/migrations/20261001250000_chon_bac_si_trong_phong.sql",
+     "dong": 41,
+     "noi_dung": "Làn chỉ nhận 1–20 (hoặc trống)."
+    }
+   ]
+  },
+  "visit": {
+   "cot": {
+    "ban_le": "true = lượt BÁN LẺ: khách chỉ mua thuốc. Không tiền khám, không hàng chờ/điều phối/hành trình, không tính vào số lượt khám; thu xong tiền thuốc thì tự đóng.",
+    "lam_truoc_thu_sau_luc": "Lúc tick 'Làm trước – thu sau' (trống = không tick). Dây thu_truoc_khi_lam BẬT: chỉ lượt có tick mới được xếp phòng/bắt đầu làm khi chưa thu.",
+    "lam_truoc_thu_sau_boi": "Ai tick 'Làm trước – thu sau'.",
+    "don_goc_visit_id": "Lượt bán lẻ bán theo đơn thuốc của lượt KHÁM nào; trống = bán không theo đơn. Chỉ lượt ban_le mới có; gỡ được khi tiền thuốc chưa thu."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260930600000_ban_le_thuoc.sql",
+     "dong": 24,
+     "noi_dung": "Mỗi khách chỉ MỘT lượt bán lẻ đang mở — hai người cùng bấm 'Khách mua thuốc' ra cùng một lượt."
+    },
+    {
+     "tep": "supabase/migrations/20261001100000_lam_truoc_thu_sau_tick.sql",
+     "dong": 19,
+     "noi_dung": "Có người tick 'Làm trước – thu sau' thì phải có giờ tick."
+    },
+    {
+     "tep": "supabase/migrations/20261008700000_co_so_hien_hanh.sql",
+     "dong": 68,
+     "noi_dung": "Phòng hiện tại của lượt phải cùng CƠ SỞ với lượt (cơ sở = visit.location_id, không có thì của lịch hẹn) — chặn khách Hào Nam bị xếp vào phòng Kim Ngưu. Không biết cơ sở thì không chặn."
+    },
+    {
+     "tep": "supabase/migrations/20261010100000_ban_le_theo_don_goc.sql",
+     "dong": 33,
+     "noi_dung": "Chỉ lượt BÁN LẺ mới mang đơn gốc, và không tự trỏ chính mình."
+    },
+    {
+     "tep": "supabase/migrations/20261010100000_ban_le_theo_don_goc.sql",
+     "dong": 61,
+     "noi_dung": "Đơn gốc phải là lượt KHÁM (không phải bán lẻ) của CHÍNH khách đó, cùng phòng khám."
+    }
+   ]
+  },
+  "work_item": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261008700000_co_so_hien_hanh.sql",
+     "dong": 73,
+     "noi_dung": "Phòng của việc phải cùng cơ sở với lượt (không biết cơ sở thì không chặn)."
+    }
+   ]
+  },
+  "work_roster": {
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+     "dong": 151,
+     "noi_dung": "Mọi thêm/sửa/xoá ô lịch trực tự ghi một dòng lich_truc_thay_doi (trigger SECURITY DEFINER, không bao giờ chặn thao tác)."
+    }
+   ]
+  },
+  "work_roster_thay_nguoi": {
+   "lam_gi": "Vết đổi người trong ca: dòng lịch work_roster đổi sang người mới, sổ này giữ ai thay ai, lúc nào, ai đổi, vì sao. Chỉ thêm.",
+   "cot": {
+    "nguoi_cu_ten": "Tên người cũ chép lại (còn đọc được khi người/dòng lịch bị xoá).",
+    "roster_id": "Dòng lịch bị đổi; dòng lịch xoá sau này thì về trống, vết (ngày, ca, vị trí) vẫn còn."
+   },
+   "rang_buoc": [
+    {
+     "tep": "supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql",
+     "dong": 85,
+     "noi_dung": "Người mới phải khác người cũ; lý do tối đa 500 ký tự."
+    }
+   ]
+  }
+ }
+}
