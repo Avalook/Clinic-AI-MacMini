@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
+import GiaSuaCuoi, { type LanDoiGia } from "@/components/ui/GiaSuaCuoi";
 import NganGap from "@/components/ui/NganGap";
 import PopoverNeo from "@/components/ui/PopoverNeo";
 
@@ -52,6 +53,8 @@ export interface DongDichVu {
   gan_rieng: boolean;
   phong: PhongDv[];
   chua_co_phong: boolean;
+  /** Lần đổi giá gần nhất (21/10/2026); chưa đổi = null. */
+  gia_sua_cuoi?: LanDoiGia | null;
 }
 
 export interface DanhMucGoi {
@@ -440,6 +443,12 @@ function DongDv({
           ) : null}
           {d.gia_tam ? <Chip tone="warning">Giá tạm</Chip> : null}
         </div>
+        <GiaSuaCuoi
+          sua={d.gia_sua_cuoi}
+          ten={d.name}
+          duongLichSu={`/api/service-price?xem=lich-su-gia&id=${d.id}`}
+          canhPhai
+        />
       </div>
 
       <label className="block">

@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import GiaSuaCuoi, { type LanDoiGia } from "@/components/ui/GiaSuaCuoi";
 import NganGap from "@/components/ui/NganGap";
 import { boDauVatTu } from "@/lib/vat-tu";
 import VatTuThuocTinh from "./VatTuThuocTinh";
@@ -37,6 +38,8 @@ export interface DongVatTu {
   chon_nhanh: boolean;
   ban_duoc: boolean;
   ly_do_khong_ban: string | null;
+  /** Lần đổi giá gần nhất (21/10/2026); chưa đổi = null. */
+  gia_sua_cuoi?: LanDoiGia | null;
 }
 
 const O_GIA =
@@ -106,6 +109,7 @@ export default function VatTuBangGia({
                         {!d.ban_duoc ? <Chip tone="neutral">{d.ly_do_khong_ban}</Chip> : null}
                       </p>
                     </div>
+                    <div>
                     <div className="flex items-center gap-1.5">
                       <input
                         aria-label={`Đơn giá ${d.name}`}
@@ -135,6 +139,12 @@ export default function VatTuBangGia({
                           Lưu
                         </Button>
                       ) : null}
+                    </div>
+                    <GiaSuaCuoi
+                      sua={d.gia_sua_cuoi}
+                      ten={d.name}
+                      duongLichSu={`/api/service-price?xem=lich-su-gia&id=${d.id}`}
+                    />
                     </div>
                     <label className="flex min-h-10 items-center gap-2 text-meta text-ink-soft lg:min-h-0">
                       <input
