@@ -23,11 +23,12 @@ Phân tích TĨNH, chỉ thư viện chuẩn (regex cho TSX, ast cho Python):
 
 Chấp nhận không hoàn hảo: chỗ không suy được ghi "?" chứ không đoán.
 
-    python3 scripts/ban-do-code.py           # ghi lại cả hai tệp
-    python3 scripts/ban-do-code.py --kiem    # exit 1 nếu tệp nào lệch code (CI)
+    python3 scripts/ban-do-code.py           # ghi lại hai tệp .md + bản web
+                                             # .ban-do/index.html (bấm tệp = mở
+                                             # VS Code / Antigravity; không commit)
+    python3 scripts/ban-do-code.py --html    # chỉ sinh lại bản web
+    python3 scripts/ban-do-code.py --kiem    # exit 1 nếu tệp .md nào lệch code (CI)
     python3 scripts/ban-do-code.py --in      # in BAN-DO-CODE ra stdout, không ghi
-    python3 scripts/ban-do-code.py --html    # bản web tương tác → .ban-do/index.html
-                                             # (bấm tệp = mở VS Code / Antigravity)
 """
 
 # ruff: noqa: E501 — chuỗi tài liệu tiếng Việt và regex, cắt dòng chỉ làm khó đọc.
@@ -1222,8 +1223,9 @@ def sinh_khoi(nc: NguCanhMan) -> str:
         '   những chỗ "sửa chỗ này dễ hỏng chỗ kia" — phải kiểm cùng.',
         "",
         "**Bản web tương tác** (tìm nhanh, sơ đồ dây sự kiện, bấm tệp là mở thẳng trong",
-        "VS Code / Antigravity, hàm router mở đúng dòng): `python3 scripts/ban-do-code.py",
-        "--html` rồi `open .ban-do/index.html`. Sinh trên máy mình, không commit.",
+        "VS Code / Antigravity, hàm router mở đúng dòng): mở `.ban-do/index.html` bằng",
+        "trình duyệt — chỉ là một tệp, không cần máy chủ. `python3 scripts/ban-do-code.py`",
+        "sinh lại nó cùng hai tệp .md. Sinh trên máy mình, không commit.",
         "",
         "Chi tiết từng màn (thành phần, API, router): `docs/BAN-DO-CODE.md`. Luật lego:",
         "`src/clinicai/modules.py`. Luật canh ghi chéo + sổ nợ:",
@@ -1403,19 +1405,20 @@ def main(argv: list[str]) -> int:
     if "--in" in argv:
         sys.stdout.write(noi_dung)
         return 0
-    if "--html" in argv:
-        DAU_RA_WEB.parent.mkdir(exist_ok=True)
-        DAU_RA_WEB.write_text(sinh_html(nc), encoding="utf-8")
-        print(f"Đã ghi {tuong_doi(DAU_RA_WEB)} — mở: open {tuong_doi(DAU_RA_WEB)}")
-        return 0
-    khoi = sinh_khoi(nc)
-    if "--kiem" in argv:
-        # Kiểm CẢ HAI rồi mới thoát — sửa một lần thấy hết.
-        lech = [_lech(DAU_RA, noi_dung), _lech(DAU_RA_KHOI, khoi)]
-        return 1 if any(lech) else 0
-    for tep, nd in ((DAU_RA, noi_dung), (DAU_RA_KHOI, khoi)):
-        tep.write_text(nd, encoding="utf-8")
-        print(f"Đã ghi {tuong_doi(tep)} ({nd.count(chr(10))} dòng)")
+    if "--html" not in argv:
+        khoi = sinh_khoi(nc)
+        if "--kiem" in argv:
+            # Kiểm CẢ HAI rồi mới thoát — sửa một lần thấy hết. CI: không ghi gì.
+            lech = [_lech(DAU_RA, noi_dung), _lech(DAU_RA_KHOI, khoi)]
+            return 1 if any(lech) else 0
+        for tep, nd in ((DAU_RA, noi_dung), (DAU_RA_KHOI, khoi)):
+            tep.write_text(nd, encoding="utf-8")
+            print(f"Đã ghi {tuong_doi(tep)} ({nd.count(chr(10))} dòng)")
+    # Bản web luôn sinh kèm (Tuyền 21/10): ai sinh lại bản đồ sau khi sửa code thì
+    # trang web cũng mới theo, không phải nhớ cờ.
+    DAU_RA_WEB.parent.mkdir(exist_ok=True)
+    DAU_RA_WEB.write_text(sinh_html(nc), encoding="utf-8")
+    print(f"Đã ghi {tuong_doi(DAU_RA_WEB)} — mở: open {tuong_doi(DAU_RA_WEB)}")
     return 0
 
 

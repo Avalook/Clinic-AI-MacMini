@@ -1,6 +1,6 @@
 # BẢN ĐỒ THEO KHỐI — muốn sửa / thêm gì thì vào khối nào
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-21 13:03. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-21 13:36. **Đừng sửa tay** —
 > sửa bản khai `src/clinicai/modules.py` rồi chạy `python3 scripts/ban-do-code.py`;
 > CI (`--kiem`) đỏ khi tệp này lệch code.
 
@@ -13,8 +13,9 @@
    những chỗ "sửa chỗ này dễ hỏng chỗ kia" — phải kiểm cùng.
 
 **Bản web tương tác** (tìm nhanh, sơ đồ dây sự kiện, bấm tệp là mở thẳng trong
-VS Code / Antigravity, hàm router mở đúng dòng): `python3 scripts/ban-do-code.py
---html` rồi `open .ban-do/index.html`. Sinh trên máy mình, không commit.
+VS Code / Antigravity, hàm router mở đúng dòng): mở `.ban-do/index.html` bằng
+trình duyệt — chỉ là một tệp, không cần máy chủ. `python3 scripts/ban-do-code.py`
+sinh lại nó cùng hai tệp .md. Sinh trên máy mình, không commit.
 
 Chi tiết từng màn (thành phần, API, router): `docs/BAN-DO-CODE.md`. Luật lego:
 `src/clinicai/modules.py`. Luật canh ghi chéo + sổ nợ:
