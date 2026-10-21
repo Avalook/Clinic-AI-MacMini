@@ -6,9 +6,12 @@ trên chính máy đó. Luật: **`docs/SO-LUAT.md`**.
 Giải thích code từ A tới Z (từng file, từng hàm, kèm những bẫy đã cắn thật):
 `docs/GIAI-THICH-CODE.md`. Kiểm toán gần nhất: `docs/KIEM-TOAN-HE-THONG-2709.md`.
 
-**Tìm chỗ sửa — trước khi grep:** đọc `docs/BAN-DO-SUA.md` (muốn sửa gì → màn
-hay file + hàm + test; việc dữ liệu thì làm trên màn), rồi tìm route trong
-`docs/BAN-DO-CODE.md` (sinh bởi `scripts/ban-do-code.py`, CI canh không lệch).
+**Tìm chỗ sửa — trước khi grep:** cửa vào là `docs/BAN-DO-KHOI.md` — bản đồ theo
+khối lego: màn / bảng → khối → tệp, lệnh, sự kiện (ai nghe), test, nợ ghi chéo.
+Việc theo nghiệp vụ (và việc dữ liệu làm trên màn): `docs/BAN-DO-SUA.md`. Chi
+tiết từng màn: `docs/BAN-DO-CODE.md`. Hai bản đồ sinh bởi `scripts/ban-do-code.py`
+từ bản khai `src/clinicai/modules.py`, CI canh không lệch. Khối KHÔNG tự ghi bảng
+của khối khác — `test_luat_cam_ghi_cheo.py` chặn chỗ ghi chéo mới.
 Việc chạm nhiều tầng → giao agent `tim-cho-sua` (chỉ đọc, trả danh sách điểm sửa).
 Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
 

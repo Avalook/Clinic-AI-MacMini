@@ -16,8 +16,12 @@ paths:
   `emit_event` từ chối). Thêm bên nghe = thêm consumer, không sửa nơi phát.
   Consumer được đăng ký bằng **tên chuỗi** trong catalogue — "không ai import"
   không có nghĩa là code chết.
-- Đổi router/service/route → chạy `python3 scripts/ban-do-code.py` rồi commit
-  `docs/BAN-DO-CODE.md` (CI `--kiem` đỏ nếu quên).
+- Đổi router/service/route hoặc bản khai `modules.py` → chạy
+  `python3 scripts/ban-do-code.py` rồi commit `docs/BAN-DO-CODE.md` +
+  `docs/BAN-DO-KHOI.md` (CI `--kiem` đỏ nếu quên).
+- **Tệp mới ghi database** → khai khối trong `TEP_CUA_KHOI`; **bảng mới** → khai
+  `bang` cho khối chủ. Ghi bảng của khối khác → gọi lệnh / phát sự kiện cho khối
+  chủ, không UPDATE thẳng (`test_luat_cam_ghi_cheo.py` đỏ với chỗ ghi chéo mới).
 - pytest chạy bằng `scripts/test-nhanh.sh <tệp test…>` (DB tạm từ khuôn sạch trong
   `chung_test_db`, migration nhánh tự áp vào DB tạm, xong tự xoá) — không trỏ
   `DATABASE_URL_TEST` thẳng vào DB `postgres` của :55600 (bẩn dần, 06–07/10 phải

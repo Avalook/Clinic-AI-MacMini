@@ -1,5 +1,9 @@
 # BẢN ĐỒ SỬA — muốn sửa gì thì đi đâu
 
+> **Cửa vào từ 21/10/2026: `docs/BAN-DO-KHOI.md`** (sinh từ code — màn / bảng →
+> khối → tệp, sự kiện + khối nghe, test, nợ ghi chéo). Tệp này giữ phần viết tay
+> theo NGHIỆP VỤ và các việc DỮ LIỆU làm trên màn.
+
 > Viết tay 01/10/2026 (Tuyền: "được chỉ định đúng chỗ nào, việc gì, kết quả cần
 > đạt như nào" thay vì đọc cả quyển). Ngắn có chủ ý: mỗi mục trỏ tới màn, file,
 > hàm, test. Chuỗi đầy đủ màn → route → router → service → test nằm ở
