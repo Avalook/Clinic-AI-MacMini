@@ -1,0 +1,4193 @@
+{
+"nguon": "Đợt soát 21/10/2026: máy quét + 10 agent đọc (Python 6, SQL 4); kết luận nặng đã kiểm tay / kiểm prod chỉ đọc. Bản ghi chú TĨNH — soát lại thì thay tệp này.",
+"ngay": "21/10/2026",
+"ham_sql": {
+"_don_thu_khoa": {
+"loai": "mot_lan",
+"khoi": "ky_thuat (dọn dữ liệu thử)",
+"lam_gi": "Hàm phụ của việc dọn khách thử: dựng biểu thức khoá chính của một bảng để lập danh sách dòng cần xoá.",
+"van_de": "",
+"ghi_cheo": []
+},
+"_don_thu_lan": {
+"loai": "mot_lan",
+"khoi": "ky_thuat (dọn dữ liệu thử)",
+"lam_gi": "Hàm phụ của việc dọn khách thử: lần theo các cột nối (visit_id, payment_id…) để gom mọi dòng dính tới khách thử, lặp tới khi không thêm được dòng nào.",
+"van_de": "",
+"ghi_cheo": []
+},
+"_don_thu_lap": {
+"loai": "mot_lan",
+"khoi": "ky_thuat (dọn dữ liệu thử)",
+"lam_gi": "Hàm phụ của việc dọn khách thử: ghi vào bảng tạm danh sách dòng của một bảng sẽ bị xoá.",
+"van_de": "",
+"ghi_cheo": []
+},
+"_don_thu_lap_so": {
+"loai": "mot_lan",
+"khoi": "ky_thuat (dọn dữ liệu thử)",
+"lam_gi": "Hàm phụ của việc dọn khách thử: lập danh sách dòng sự kiện, hẹn giờ, biên nhận lệnh, thông báo… của khách thử (hoặc cũ hơn mốc) để xoá theo.",
+"van_de": "",
+"ghi_cheo": []
+},
+"_lieu_trinh_ban": {
+"loai": "doc_tinh",
+"khoi": "lieu_trinh",
+"lam_gi": "Chụp các trường chính của một liệu trình thành một gói JSON để ghi vào lịch sử sửa.",
+"van_de": "",
+"ghi_cheo": []
+},
+"activate_clinical_form": {
+"loai": "mot_lan",
+"khoi": "catalogue (clinical_form_catalogue — bảng chưa khai khối)",
+"lam_gi": "Bật một mẫu phiếu khám cho phòng khám, chỉ khi đã có bản ghi duyệt mẫu đó; công cụ quản trị gọi tay.",
+"van_de": "",
+"ghi_cheo": []
+},
+"ap_ben_thu_theo_kiotviet": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Đặt bên thu tiền (phòng khám hay đối tác) cho 4 dịch vụ theo mã KiotViet, chạy một lần lúc nạp.",
+"van_de": "",
+"ghi_cheo": []
+},
+"assign_appointment_queue_number": {
+"loai": "ha_tang",
+"khoi": "booking",
+"lam_gi": "Khi lịch hẹn chuyển sang đã tới mà chưa có số thứ tự, tự cấp số kế tiếp theo ngày và bác sĩ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"bat_bien_lieu_trinh": {
+"loai": "canh_bat_bien",
+"khoi": "lieu_trinh",
+"lam_gi": "Soát liệu trình: báo những gói dùng quá số buổi đã trả, số buổi âm, buổi vừa trừ trả trước vừa thu lẻ, hoặc vượt kế hoạch (chỉ báo, không chặn).",
+"van_de": "",
+"ghi_cheo": []
+},
+"bat_bien_tien_chi_dinh": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Soát tiền chỉ định: so tiền đã thu trừ đã hoàn với chỉ định còn sống/đã bỏ của từng lượt để báo chỗ lệch (chỉ báo, không chặn).",
+"van_de": "",
+"ghi_cheo": []
+},
+"bump_clinical_record_revision": {
+"loai": "ha_tang",
+"khoi": "consultation",
+"lam_gi": "Mỗi lần sửa hồ sơ lâm sàng thì tăng số phiên bản lên 1.",
+"van_de": "",
+"ghi_cheo": []
+},
+"cancel_visit_workflow": {
+"loai": "logic_nghiep_vu",
+"khoi": "trach_nhiem",
+"lam_gi": "Khi lịch hẹn bị huỷ/không đến, huỷ hàng loạt mọi việc đang mở của lượt đó và ghi sổ việc.",
+"van_de": "Huỷ cả loạt việc mà không phát sự kiện cho từng việc; khối trách nhiệm không tự nghe 'lịch huỷ' mà bị khối đặt lịch gọi thẳng hàm ghi bảng của nó.",
+"ghi_cheo": []
+},
+"cap_quyen_cho_moi_thanh_vien": {
+"loai": "mot_lan",
+"khoi": "permission",
+"lam_gi": "Chạy lại việc cấp quyền theo vai mẫu cho mọi nhân sự đang làm — gọi trong migration mỗi khi thêm khối quyền mới.",
+"van_de": "",
+"ghi_cheo": []
+},
+"cap_quyen_theo_preset": {
+"loai": "logic_nghiep_vu",
+"khoi": "permission",
+"lam_gi": "Cấp cho một nhân sự mọi quyền thuộc các khối của vai mẫu, bỏ qua quyền người đó từng có (kể cả đã bị thu).",
+"van_de": "Thêm nhân sự mới là được cấp cả loạt quyền mà không có sự kiện capability.granted (đường cấp tay thì có) — sổ sự kiện không thấy ai được cấp gì lúc tạo tài khoản.",
+"ghi_cheo": []
+},
+"cap_so_booking": {
+"loai": "ha_tang",
+"khoi": "booking",
+"lam_gi": "Cấp số booking theo ngày cho lịch hẹn mới (đổi giờ trong cùng ngày thì giữ số).",
+"van_de": "",
+"ghi_cheo": []
+},
+"cap_so_tiep_don": {
+"loai": "ha_tang",
+"khoi": "booking",
+"lam_gi": "Khi khách tới (check-in) lần đầu, cấp số tiếp đón chung theo ngày và cơ sở.",
+"van_de": "",
+"ghi_cheo": []
+},
+"chan_cap_quyen_noi_bo": {
+"loai": "canh_bat_bien",
+"khoi": "permission",
+"lam_gi": "Lặng lẽ bỏ qua mọi lần cấp quyền giám sát nội bộ (giamsat.view) nếu không bật cờ phiên riêng của đội vận hành.",
+"van_de": "",
+"ghi_cheo": []
+},
+"chan_phong_khac_co_so": {
+"loai": "canh_bat_bien",
+"khoi": "co_so",
+"lam_gi": "Chặn xếp lượt khám hoặc việc vào một phòng thuộc cơ sở khác cơ sở của lượt.",
+"van_de": "",
+"ghi_cheo": []
+},
+"check_in_appointment": {
+"loai": "logic_nghiep_vu",
+"khoi": "booking",
+"lam_gi": "Chuyển lịch hẹn sang 'đã tới' và cấp số thứ tự theo ngày + bác sĩ dưới khoá, để hai người bấm cùng lúc không trùng số.",
+"van_de": "Hàm tự không phát sự kiện; Python gọi nó phát visit.checked_in khi mở lượt nên hậu quả nhỏ — chỉ thiếu sự kiện riêng của lịch hẹn nếu có lần check-in không mở lượt mới.",
+"ghi_cheo": []
+},
+"chi_duoc_them_ket_qua": {
+"loai": "canh_bat_bien",
+"khoi": "result (dùng chung)",
+"lam_gi": "Chặn mọi sửa/xoá trên các sổ lịch sử kết quả, ghi chú lượt, lịch sử liệu trình — chỉ được thêm dòng.",
+"van_de": "",
+"ghi_cheo": []
+},
+"chot_so_ca_guard": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Sổ chốt ca không được xoá, số đã chốt không sửa, chỉ được mở khoá một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"chot_thu_ho_dich_vu_ngoai_kiotviet": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Đặt 10 dịch vụ xét nghiệm/chụp gửi ngoài thành 'đối tác thu', chạy một lần lúc nạp.",
+"van_de": "",
+"ghi_cheo": []
+},
+"chuan_hoa_danh_muc_dich_vu_kiotviet": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Gắn mã KiotViet và thêm các dịch vụ còn thiếu vào bảng giá, chạy lúc nạp danh mục.",
+"van_de": "",
+"ghi_cheo": []
+},
+"chuan_hoa_danh_muc_thuoc_kiotviet": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Nạp/chuẩn hoá danh mục thuốc (tên, giá, cách dùng…) theo file KiotViet, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"clinic_booking_policy": {
+"loai": "doc_tinh",
+"khoi": "co_so",
+"lam_gi": "Đọc độ dài khung giờ và số chỗ mỗi khung (khách hẹn / vãng lai) trong cài đặt phòng khám, thiếu thì lấy mặc định.",
+"van_de": "",
+"ghi_cheo": []
+},
+"clinic_booking_policy_is_valid": {
+"loai": "canh_bat_bien",
+"khoi": "co_so",
+"lam_gi": "Kiểm cài đặt đặt lịch của phòng khám hợp lệ (số nguyên trong khoảng, độ dài khung chia hết 60 phút).",
+"van_de": "",
+"ghi_cheo": []
+},
+"clinic_hours_for_date": {
+"loai": "doc_tinh",
+"khoi": "co_so",
+"lam_gi": "Trả giờ mở/đóng cửa của phòng khám cho một ngày (theo thứ trong tuần).",
+"van_de": "",
+"ghi_cheo": []
+},
+"clinic_policy_int_ok": {
+"loai": "canh_bat_bien",
+"khoi": "co_so",
+"lam_gi": "Hàm phụ kiểm một ô cài đặt là số nguyên nằm trong khoảng cho phép.",
+"van_de": "",
+"ghi_cheo": []
+},
+"clinic_room_primary_node_is_served": {
+"loai": "canh_bat_bien",
+"khoi": "co_so",
+"lam_gi": "Chặn đặt bước chính của phòng là một bước mà phòng đó không phục vụ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"clinic_room_service_cung_phong_kham": {
+"loai": "canh_bat_bien",
+"khoi": "co_so",
+"lam_gi": "Chặn gắn dịch vụ cho phòng khi phòng không thuộc phòng khám hoặc dịch vụ không có trong bảng giá.",
+"van_de": "",
+"ghi_cheo": []
+},
+"clinical_data_consent_needs_link": {
+"loai": "canh_bat_bien",
+"khoi": "ho_so_khach",
+"lam_gi": "Chặn ghi đồng ý chia sẻ hồ sơ giữa hai khách nếu hai người chưa được liên kết.",
+"van_de": "",
+"ghi_cheo": []
+},
+"co_so_cua_luot": {
+"loai": "doc_tinh",
+"khoi": "reception",
+"lam_gi": "Cho biết lượt khám thuộc cơ sở nào (lấy ở lượt, thiếu thì lấy ở lịch hẹn).",
+"van_de": "",
+"ghi_cheo": []
+},
+"con_nguoi_cap_quyen": {
+"loai": "doc_tinh",
+"khoi": "permission",
+"lam_gi": "Cho biết phòng khám còn ít nhất một người đang làm giữ quyền cấp quyền hay không.",
+"van_de": "",
+"ghi_cheo": []
+},
+"cong_no_chi_chuyen_tiep": {
+"loai": "canh_bat_bien",
+"khoi": "cong_no",
+"lam_gi": "Khoản nợ không được xoá; chỉ sửa được khi còn 'chưa thu' và không đổi lượt/khách.",
+"van_de": "",
+"ghi_cheo": []
+},
+"current_clinic_ids": {
+"loai": "quyen",
+"khoi": "permission",
+"lam_gi": "Trả các phòng khám mà người đang đăng nhập là thành viên — nền của gần hết chính sách RLS.",
+"van_de": "",
+"ghi_cheo": []
+},
+"current_clinic_ids_for_roles": {
+"loai": "quyen",
+"khoi": "permission",
+"lam_gi": "Trả các phòng khám mà người đang đăng nhập giữ một trong các vai cho trước.",
+"van_de": "",
+"ghi_cheo": []
+},
+"current_clinic_roles": {
+"loai": "co_the_chet",
+"khoi": "permission",
+"lam_gi": "Trả các vai của người đang đăng nhập trong một phòng khám.",
+"van_de": "Không chính sách RLS, view, hàm SQL hay python nào gọi — chỉ còn trong tệp kiểu sinh tự động database.generated.ts; để lại chỉ thêm bề mặt quyền phải canh.",
+"ghi_cheo": []
+},
+"current_clinical_clinic_ids": {
+"loai": "quyen",
+"khoi": "permission",
+"lam_gi": "Trả các phòng khám mà người đăng nhập giữ vai lâm sàng (bác sĩ, TKYK, điều dưỡng siêu âm) — dùng cho RLS hồ sơ khám.",
+"van_de": "",
+"ghi_cheo": []
+},
+"current_staff_department": {
+"loai": "co_the_chet",
+"khoi": "permission",
+"lam_gi": "Trả khoa chính của nhân sự đang đăng nhập.",
+"van_de": "Không chính sách RLS/hàm/view/python nào dùng nữa (chính sách cũ đã thay) — chỉ còn trong database.generated.ts.",
+"ghi_cheo": []
+},
+"current_staff_id": {
+"loai": "quyen",
+"khoi": "permission",
+"lam_gi": "Trả mã nhân sự của người đang đăng nhập (theo tài khoản Supabase).",
+"van_de": "",
+"ghi_cheo": []
+},
+"dang_dinh_chinh_ho_so": {
+"loai": "doc_tinh",
+"khoi": "consultation",
+"lam_gi": "Cho biết giao dịch hiện tại có đang trong một lần đính chính đơn thuốc hợp lệ của lượt này không (để gác đơn thuốc cho phép sửa).",
+"van_de": "",
+"ghi_cheo": []
+},
+"danh_muc_dich_vu": {
+"loai": "doc_tinh",
+"khoi": "catalogue",
+"lam_gi": "Trả danh mục dịch vụ của phòng khám kèm giá, bên thu, có phải phí khám, phòng làm được và cờ 'chưa có phòng'.",
+"van_de": "",
+"ghi_cheo": []
+},
+"default_clinic_id": {
+"loai": "doc_tinh",
+"khoi": "co_so",
+"lam_gi": "Trả phòng khám duy nhất nếu hệ thống chỉ có đúng một phòng khám.",
+"van_de": "",
+"ghi_cheo": []
+},
+"dien_gia_trong_theo_phieu_v5": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Điền giá cho các dịch vụ và thuốc còn trống giá theo phiếu v5, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"doctor_patient_count": {
+"loai": "co_the_chet",
+"khoi": "booking",
+"lam_gi": "Đếm số khách khác nhau từng có lịch với một bác sĩ.",
+"van_de": "Hàm từ bản schema gốc 14/07, không ai gọi; không lọc theo phòng khám nên nếu ai đó gọi lại sẽ đếm lẫn dữ liệu.",
+"ghi_cheo": []
+},
+"doctor_patient_list": {
+"loai": "co_the_chet",
+"khoi": "booking",
+"lam_gi": "Liệt kê khách từng có lịch với một bác sĩ, có tìm kiếm và phân trang.",
+"van_de": "Hàm từ bản schema gốc 14/07, không ai gọi; không lọc theo phòng khám — gọi lại sẽ lộ khách phòng khám khác.",
+"ghi_cheo": []
+},
+"doi_tac_thanh_toan_chi_huy": {
+"loai": "canh_bat_bien",
+"khoi": "doi_tac",
+"lam_gi": "Ghi nhận khách trả thẳng đối tác không được xoá hay sửa, chỉ được huỷ một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"domain_event_chi_them": {
+"loai": "canh_bat_bien",
+"khoi": "ky_thuat (domain_event)",
+"lam_gi": "Chặn mọi sửa/xoá trên sổ sự kiện — sai thì phát sự kiện bù.",
+"van_de": "",
+"ghi_cheo": []
+},
+"don_khach_thu": {
+"loai": "mot_lan",
+"khoi": "ky_thuat (dọn dữ liệu thử)",
+"lam_gi": "Xoá toàn bộ dữ liệu của khách thử (hoặc mọi thứ trước một mốc) ở mọi bảng có nối tới khách, lưu bản đã xoá và ghi nhật ký lần dọn.",
+"van_de": "Một hàm xoá thẳng bảng của gần như mọi khối, kể cả sổ sự kiện, mà không phát sự kiện — vẫn nối vào API màn quản trị nên chạy nhầm là mất dữ liệu ở mọi khối cùng lúc; bảng khách mới chưa khai vào danh sách thì hàm dừng và báo.",
+"ghi_cheo": [
+"anh_chuyen_khoan",
+"appointment",
+"appointment_doi_lich",
+"care_episode",
+"clinical_data_consent",
+"clinical_form_response",
+"clinical_record",
+"clinical_release",
+"consultation",
+"consultation_note",
+"cskh_action",
+"cskh_log",
+"doi_tac_nhan_viec",
+"doi_tac_thanh_toan",
+"drug_batch",
+"drug_return",
+"encounter_flow",
+"follow_up_case",
+"form_instance",
+"ghi_chu_khach",
+"hen_goi_lai",
+"inventory_txn",
+"lab_result",
+"lieu_trinh",
+"lieu_trinh_buoi",
+"lieu_trinh_lich_su",
+"lieu_trinh_tra_truoc",
+"luot_ghi_chu",
+"luot_phi_kham",
+"luot_phu_thu",
+"luot_vat_tu",
+"nhac_tai_kham",
+"nhac_viec_ca_nhan",
+"patient",
+"patient_link",
+"patient_medical_profile",
+"patient_sdt_them",
+"payment",
+"payment_bill_line",
+"payment_cycle",
+"payment_cycle_doi_hinh_thuc",
+"payment_cycle_phan",
+"payment_refund",
+"payment_refund_line",
+"phan_hoi_khach",
+"phieu_kham_luot",
+"pregnancy",
+"prescription",
+"prescription_allocation",
+"prescription_correction",
+"queue_entry",
+"result_correction",
+"review_round",
+"round_requirement",
+"service_execution_attempt",
+"service_order",
+"service_selection_state",
+"so_sua_chi_dinh",
+"tep_ket_qua",
+"thong_bao",
+"thuoc_giao_chua_gan_lo",
+"tien_thua_giu_lai",
+"tuong_tac_cskh",
+"ultrasound_record",
+"visit",
+"visit_amendment",
+"visit_gate_override",
+"visit_route",
+"vital_measurement",
+"work_item",
+"work_item_event"
+]
+},
+"don_thuoc_chup_bac_si_chinh": {
+"loai": "dong_bo_phu",
+"khoi": "consultation",
+"lam_gi": "Khi thêm dòng đơn thuốc mà chưa ghi bác sĩ chính, chép bác sĩ chính của lượt vào đơn.",
+"van_de": "",
+"ghi_cheo": []
+},
+"don_vi_chuan": {
+"loai": "doc_tinh",
+"khoi": "pharmacy",
+"lam_gi": "Chuẩn hoá chữ đơn vị (bỏ khoảng trắng thừa, chữ thường) để so sánh.",
+"van_de": "",
+"ghi_cheo": []
+},
+"don_vi_tu_van_ban": {
+"loai": "doc_tinh",
+"khoi": "pharmacy",
+"lam_gi": "Tách phần đơn vị ra khỏi chữ số lượng gõ tay (vd '2 hộp' → 'hộp').",
+"van_de": "",
+"ghi_cheo": []
+},
+"dong_bo_danh_muc_dich_vu": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Đồng bộ danh mục dịch vụ theo file nguồn 01/10: sửa tên/nhóm/giá, thêm dịch vụ mới, tắt dịch vụ không còn, gắn nhóm thủ thuật.",
+"van_de": "",
+"ghi_cheo": []
+},
+"dong_bo_vat_tu": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Nạp danh sách vật tư bán thêm vào bảng giá và gợi ý vật tư, chạy lúc nạp.",
+"van_de": "Ghi cả bảng gợi ý vật tư của khối vật tư; chỉ chạy một lần trong migration nên hậu quả nhỏ.",
+"ghi_cheo": [
+"vat_tu_goi_y"
+]
+},
+"drug_batch_hang_khop": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn một lô thuốc có hai hàng kho/quầy khác thuốc, hạn, đơn vị hoặc mã tem.",
+"van_de": "",
+"ghi_cheo": []
+},
+"drug_batch_kha_dung": {
+"loai": "doc_tinh",
+"khoi": "pharmacy",
+"lam_gi": "Tính số lượng còn bán được của một lô: tồn trừ phần đã giữ cho đơn, đã bán chưa giao và thuốc khách trả đang chờ xử lý.",
+"van_de": "",
+"ghi_cheo": []
+},
+"drug_batch_ma_tem_bat_doi": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn đổi mã tem của lô thuốc sau khi đã dán.",
+"van_de": "",
+"ghi_cheo": []
+},
+"drug_return_co_dong_kho": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Mỗi lần khách trả thuốc phải có dòng nhập lại tương ứng trong sổ kho (kiểm lúc chốt giao dịch).",
+"van_de": "",
+"ghi_cheo": []
+},
+"drug_return_guard": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Lần khách trả thuốc không được xoá; chỉ được quyết định xử lý (bán lại/huỷ) đúng một lần, đúng người, không vượt số đã giao.",
+"van_de": "",
+"ghi_cheo": []
+},
+"du_lieu_da_xoa_khong_sua": {
+"loai": "canh_bat_bien",
+"khoi": "ky_thuat (dọn dữ liệu thử)",
+"lam_gi": "Chặn sửa bản lưu dữ liệu đã xoá.",
+"van_de": "",
+"ghi_cheo": []
+},
+"dxa_ket_luan_nhanh": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Thêm ô 'kết luận nhanh' vào mẫu kết quả đo mật độ xương, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"enforce_append_only": {
+"loai": "canh_bat_bien",
+"khoi": "ky_thuat (event_log)",
+"lam_gi": "Chặn sửa/xoá/làm rỗng sổ sự kiện cũ event_log, chỉ cho lật cờ 'đã phát' từ chưa sang rồi.",
+"van_de": "",
+"ghi_cheo": []
+},
+"enforce_slot_capacity": {
+"loai": "canh_bat_bien",
+"khoi": "booking",
+"lam_gi": "Chặn đặt/đổi lịch khi khung giờ của bác sĩ đã đủ chỗ (trừ tuần chưa công bố lịch trực, khách đã có mặt…).",
+"van_de": "",
+"ghi_cheo": []
+},
+"event_log_append_only_guard": {
+"loai": "co_the_chet",
+"khoi": "ky_thuat (event_log)",
+"lam_gi": "Ném lỗi 'bảng chỉ được thêm' cho mọi thao tác.",
+"van_de": "Không còn trigger nào dùng (event_log nay do enforce_append_only canh) — hàm thừa, người đọc dễ tưởng đang có lớp canh thứ hai.",
+"ghi_cheo": []
+},
+"f_unaccent": {
+"loai": "doc_tinh",
+"khoi": "ky_thuat (dùng chung)",
+"lam_gi": "Bỏ dấu tiếng Việt để tìm kiếm tên không dấu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"fn_tep_ket_qua_chuyen_trang_thai": {
+"loai": "canh_bat_bien",
+"khoi": "result_file",
+"lam_gi": "Ép tệp kết quả gửi ngoài đi đúng chu trình chờ xác nhận → hợp lệ/từ chối → thu hồi, không sửa thông tin xác nhận cũ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"fn_tep_ket_qua_kiem_tra_cho_phep_gui": {
+"loai": "canh_bat_bien",
+"khoi": "result_file",
+"lam_gi": "Chỉ cho duyệt gửi khách những tệp kết quả gửi ngoài đã ở trạng thái hợp lệ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"gac_ban_tu_quay": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chỉ cho bán/giao thuốc từ lô ở quầy (trừ trường hợp giao thẳng từ kho đúng luật), chặn chuyển lô hết hạn ra quầy.",
+"van_de": "",
+"ghi_cheo": []
+},
+"gac_lo_het_han": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn bán/giao thuốc từ lô đã hết hạn.",
+"van_de": "",
+"ghi_cheo": []
+},
+"gan_lan_chi_dinh": {
+"loai": "ha_tang",
+"khoi": "service_order",
+"lam_gi": "Đánh số 'lần chỉ định' cho chỉ định mới của lượt (vào lần hiện tại hoặc mở lần mới khi người bấm yêu cầu).",
+"van_de": "",
+"ghi_cheo": []
+},
+"gan_mau_ket_qua_theo_kiotviet": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Gắn mẫu kết quả vào dịch vụ theo mã KiotViet, chạy lúc nạp.",
+"van_de": "",
+"ghi_cheo": []
+},
+"gan_mau_sa_thai_quy_3": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Gắn mẫu siêu âm thai quý 3 vào các dịch vụ đang có mẫu quý 2–3, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"generate_lab_result_code": {
+"loai": "co_the_chet",
+"khoi": "lab",
+"lam_gi": "Sinh mã kết quả xét nghiệm dạng LAB-năm-số.",
+"van_de": "Không cột nào lấy làm mặc định, không trigger/python/hàm nào gọi — sót từ schema gốc.",
+"ghi_cheo": []
+},
+"generate_patient_code": {
+"loai": "co_the_chet",
+"khoi": "ho_so_khach",
+"lam_gi": "Sinh mã khách dạng BN-năm-số.",
+"van_de": "Không cột nào lấy làm mặc định, không trigger/python/hàm nào gọi — sót từ schema gốc; dễ bị tưởng là nơi sinh mã khách thật.",
+"ghi_cheo": []
+},
+"ghep_danh_muc_dich_vu": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Hàm phụ của đồng bộ danh mục: ghép từng dòng file nguồn với dịch vụ trong bảng giá theo mã KiotViet hoặc tên.",
+"van_de": "",
+"ghi_cheo": []
+},
+"ghi_lich_su_form_instance": {
+"loai": "ghi_lich_su",
+"khoi": "result",
+"lam_gi": "Mỗi lần dữ liệu hoặc trạng thái phiếu kết quả đổi, lưu lại bản cũ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"ghi_lich_su_phieu_kham": {
+"loai": "ghi_lich_su",
+"khoi": "consultation",
+"lam_gi": "Ghi ô nào của phiếu khám đổi và ai đổi (gộp các lần sửa liền nhau của cùng người trong 10 phút).",
+"van_de": "",
+"ghi_cheo": []
+},
+"ghi_so_sua_chi_dinh": {
+"loai": "ghi_lich_su",
+"khoi": "service_order",
+"lam_gi": "Ghi sổ mỗi lần thêm / bỏ / hoàn tác chỉ định, kèm ai làm và tiền đã thu/đã hoàn lúc đó.",
+"van_de": "",
+"ghi_cheo": []
+},
+"ghi_so_sua_phi_kham": {
+"loai": "ghi_lich_su",
+"khoi": "phi_kham",
+"lam_gi": "Ghi sổ mỗi lần thêm / bỏ / hoàn tác phí khám vào chung sổ sửa chỉ định.",
+"van_de": "Trigger của bảng phí khám ghi thẳng vào sổ của khối chỉ định — hai khối dính nhau ở tầng database; chỉ là sổ lịch sử nên rủi ro thấp, nhưng đổi cấu trúc sổ chỉ định là vỡ phí khám.",
+"ghi_cheo": [
+"so_sua_chi_dinh"
+]
+},
+"giu_nguoi_cap_quyen": {
+"loai": "canh_bat_bien",
+"khoi": "permission",
+"lam_gi": "Chặn thu quyền / cho nghỉ khiến phòng khám không còn ai giữ quyền cấp quyền.",
+"van_de": "",
+"ghi_cheo": []
+},
+"hinh_thuc_hieu_luc": {
+"loai": "doc_tinh",
+"khoi": "payment",
+"lam_gi": "Trả hình thức thu (tiền mặt/chuyển khoản…) đang có hiệu lực của một lần thu, tính cả các lần đổi hình thức.",
+"van_de": "",
+"ghi_cheo": []
+},
+"instantiate_visit_workflow": {
+"loai": "logic_nghiep_vu",
+"khoi": "trach_nhiem",
+"lam_gi": "Khi khách tới, sinh cả chuỗi việc của lượt theo danh mục bước và quan hệ phụ thuộc (bước tiếp đón tự xong).",
+"van_de": "Khối trách nhiệm không tự nghe sự kiện 'khách đã tới' mà bị khối đặt lịch gọi thẳng hàm tạo việc; từng việc sinh ra không có sự kiện riêng nên màn/bên nghe khác chỉ biết qua visit.checked_in.",
+"ghi_cheo": []
+},
+"inventory_txn_append_only_guard": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Sổ kho thuốc và phiếu kho chỉ được thêm; nhầm thì ghi dòng điều chỉnh.",
+"van_de": "",
+"ghi_cheo": []
+},
+"inventory_txn_apply": {
+"loai": "dong_bo_phu",
+"khoi": "pharmacy",
+"lam_gi": "Mỗi dòng sổ kho (trừ bán/đảo bán) cộng/trừ ngay vào tồn của lô thuốc; lô sai phòng khám thì dừng.",
+"van_de": "",
+"ghi_cheo": []
+},
+"inventory_txn_ban_hop_le": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Kiểm dòng bán/giao/khách trả thuốc khớp phân lô, trạng thái thu tiền, số đã xuất và dòng đơn chưa bị đính chính.",
+"van_de": "",
+"ghi_cheo": []
+},
+"inventory_txn_dung_co_so": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn ghi sổ kho từ lô thuộc kho cơ sở khác cơ sở của lượt khám.",
+"van_de": "",
+"ghi_cheo": []
+},
+"kb_page_update_search_vector": {
+"loai": "co_the_chet",
+"khoi": "ky_thuat (kho kiến thức cũ)",
+"lam_gi": "Cập nhật chỉ mục tìm kiếm của trang kiến thức.",
+"van_de": "Bảng kb_page không còn trong database, không trigger nào dùng — hàm mồ côi.",
+"ghi_cheo": []
+},
+"kb_version_append_only_guard": {
+"loai": "co_the_chet",
+"khoi": "ky_thuat (kho kiến thức cũ)",
+"lam_gi": "Chặn sửa/xoá phiên bản trang kiến thức.",
+"van_de": "Bảng kb_version không còn, không trigger nào dùng — hàm mồ côi.",
+"ghi_cheo": []
+},
+"khoa_ten_dich_vu": {
+"loai": "doc_tinh",
+"khoi": "catalogue",
+"lam_gi": "Chuẩn hoá tên dịch vụ (chữ thường, bỏ khoảng trắng thừa) để so trùng.",
+"van_de": "",
+"ghi_cheo": []
+},
+"khung_tuy_chon_don_vi": {
+"loai": "doc_tinh",
+"khoi": "catalogue",
+"lam_gi": "Biến đổi khung mẫu kết quả để mọi ô số có tuỳ chọn đơn vị.",
+"van_de": "",
+"ghi_cheo": []
+},
+"khung_vuot_tran_trong_tuan": {
+"loai": "doc_tinh",
+"khoi": "booking",
+"lam_gi": "Liệt kê các khung giờ trong tuần mà bác sĩ đang có nhiều lịch hẹn hơn số chỗ cho phép.",
+"van_de": "",
+"ghi_cheo": []
+},
+"kiem_ke_ca_bat_doi": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Phiếu kiểm kê đã chốt không sửa; điều chỉnh và hoàn tác theo kiểm kê chỉ ghi một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"kiem_ke_ca_dong_phieu_da_chot": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn sửa dòng của phiếu kiểm kê đã chốt.",
+"van_de": "",
+"ghi_cheo": []
+},
+"kiem_ke_ca_phien_ban_hop_le": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Bản sửa phiếu kiểm kê phải nối đúng phiếu đã chốt cùng ca, đã hoàn tác điều chỉnh; không sửa liên kết phiên bản.",
+"van_de": "",
+"ghi_cheo": []
+},
+"la_ca_kham_bac_si": {
+"loai": "doc_tinh",
+"khoi": "lich_truc",
+"lam_gi": "Cho biết một vị trí trực có phải ca khám của bác sĩ không.",
+"van_de": "",
+"ghi_cheo": []
+},
+"la_khach_moi_cua_dich_vu": {
+"loai": "doc_tinh",
+"khoi": "booking",
+"lam_gi": "Cho biết khách có tính là 'khách mới' của một dịch vụ theo cách tính (chưa từng, đợt mới, quá N tháng), kể cả lịch sử Notion.",
+"van_de": "",
+"ghi_cheo": []
+},
+"la_luot_ho_so_cu": {
+"loai": "doc_tinh",
+"khoi": "reception",
+"lam_gi": "Cho biết lượt khám có phải lượt nhập từ hồ sơ cũ (Notion) không.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lam_them_tai_quay_co_dich_vu": {
+"loai": "canh_bat_bien",
+"khoi": "service_order",
+"lam_gi": "Chặn ghi 'làm thêm tại quầy' với dịch vụ không có trong bảng giá.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lan_chi_dinh_cua_luot": {
+"loai": "doc_tinh",
+"khoi": "service_order",
+"lam_gi": "Cho biết lượt đang ở lần chỉ định thứ mấy, lần kế tiếp là mấy và có mở lần mới được không.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lan_don_du_lieu_thu_chi_them": {
+"loai": "canh_bat_bien",
+"khoi": "ky_thuat (dọn dữ liệu thử)",
+"lam_gi": "Nhật ký dọn dữ liệu chỉ được thêm, chỉ cho điền kết quả chuyển tệp một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lich_truc_chup_anh": {
+"loai": "ghi_lich_su",
+"khoi": "lich_truc",
+"lam_gi": "Mỗi lần áp dụng lịch trực một tuần thì chụp lại toàn bộ lịch tuần đó.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lich_truc_ghi_thay_doi": {
+"loai": "ghi_lich_su",
+"khoi": "lich_truc",
+"lam_gi": "Ghi sổ từng ô lịch trực được thêm/xoá/đổi người/sửa và ai bấm.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lich_truc_nguoi_bam": {
+"loai": "ha_tang",
+"khoi": "lich_truc",
+"lam_gi": "Đọc mã nhân sự đang bấm từ biến phiên để ghi vào sổ lịch trực.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lich_truc_o": {
+"loai": "doc_tinh",
+"khoi": "lich_truc",
+"lam_gi": "Chụp một ô lịch trực thành JSON để ghi vào sổ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lich_vuot_suc_chua": {
+"loai": "doc_tinh",
+"khoi": "booking",
+"lam_gi": "Liệt kê các lịch hẹn tương lai đang vượt số chỗ của khung giờ (để CSKH gọi dời lịch).",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_buoi_da_thu_le": {
+"loai": "doc_tinh",
+"khoi": "lieu_trinh",
+"lam_gi": "Cho biết chỉ định của một buổi đã bị thu tiền lẻ (ngoài gói) chưa.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_buoi_gac": {
+"loai": "canh_bat_bien",
+"khoi": "lieu_trinh",
+"lam_gi": "Chặn gắn buổi sai khách/sai dịch vụ, gắn vào liệu trình đã dừng, sửa buổi đã gắn/đã gỡ, hoặc dùng quá số buổi đã trả trước.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_chi_dinh_song": {
+"loai": "doc_tinh",
+"khoi": "lieu_trinh",
+"lam_gi": "Cho biết một chỉ định còn 'sống' (không nháp, không huỷ, không bỏ, khách không bỏ chọn).",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_cua_lan_thu": {
+"loai": "doc_tinh",
+"khoi": "lieu_trinh",
+"lam_gi": "Liệt kê các liệu trình có dòng trả trước nằm trong một lần thu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_gan_buoi": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Khi thêm/khôi phục chỉ định, tự gắn nó vào liệu trình đang chạy của khách, đánh số buổi và quyết định buổi đó có trừ vào tiền trả trước không.",
+"van_de": "Buổi được gắn và trừ tiền trả trước ngay trong trigger của bảng chỉ định, không có sự kiện — các khối khác (thu ngân, báo cáo) chỉ biết qua pg_notify làm mới màn, không biết vì sao số buổi đổi.",
+"ghi_cheo": []
+},
+"lieu_trinh_go_buoi": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Khi chỉ định bị huỷ/không làm, tự gỡ buổi khỏi liệu trình, bỏ cờ trả trước và tính lại gói.",
+"van_de": "Buổi bị gỡ tự động không phát sự kiện — sổ sự kiện không ghi việc gói liệu trình được trả lại một buổi.",
+"ghi_cheo": []
+},
+"lieu_trinh_phu_lai": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Phân bổ lại buổi nào được trừ bằng tiền trả trước cho khớp số buổi đã trả (thừa thì bỏ cờ, thiếu thì phủ thêm buổi chưa thu lẻ).",
+"van_de": "Cờ trả trước của các buổi tự đổi mà không có sự kiện — thu ngân có thể thấy số phải thu đổi mà không có dấu vết vì sao.",
+"ghi_cheo": []
+},
+"lieu_trinh_sau_doi_hoan": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Khi một lần hoàn tiền dịch vụ đổi, tính lại các liệu trình có tiền trả trước trong lần thu đó.",
+"van_de": "Thu/hoàn tiền xong là liệu trình tự đổi buổi trả trước và trạng thái ngay trong trigger gắn trên bảng thu tiền, chỉ có pg_notify làm mới màn chứ không có sự kiện nghiệp vụ — nhật ký và khối khác không biết liệu trình vừa đổi vì sao.",
+"ghi_cheo": []
+},
+"lieu_trinh_sau_doi_lan_thu": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Khi một lần thu dịch vụ đổi trạng thái, tính lại các liệu trình có tiền trả trước trong lần thu đó.",
+"van_de": "Thu/hoàn tiền xong là liệu trình tự đổi buổi trả trước và trạng thái ngay trong trigger gắn trên bảng thu tiền, chỉ có pg_notify làm mới màn chứ không có sự kiện nghiệp vụ — nhật ký và khối khác không biết liệu trình vừa đổi vì sao.",
+"ghi_cheo": []
+},
+"lieu_trinh_sau_ghi_dong_hoan": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Khi ghi dòng hoàn tiền cho dòng trả trước liệu trình, tính lại liệu trình đó.",
+"van_de": "Thu/hoàn tiền xong là liệu trình tự đổi buổi trả trước và trạng thái ngay trong trigger gắn trên bảng thu tiền, chỉ có pg_notify làm mới màn chứ không có sự kiện nghiệp vụ — nhật ký và khối khác không biết liệu trình vừa đổi vì sao.",
+"ghi_cheo": []
+},
+"lieu_trinh_sau_ghi_dong_tra_truoc": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Khi thêm dòng thu tiền trả trước liệu trình vào hoá đơn, tính lại liệu trình đó.",
+"van_de": "Thu/hoàn tiền xong là liệu trình tự đổi buổi trả trước và trạng thái ngay trong trigger gắn trên bảng thu tiền, chỉ có pg_notify làm mới màn chứ không có sự kiện nghiệp vụ — nhật ký và khối khác không biết liệu trình vừa đổi vì sao.",
+"ghi_cheo": []
+},
+"lieu_trinh_sau_khi_tao": {
+"loai": "ghi_lich_su",
+"khoi": "lieu_trinh",
+"lam_gi": "Ghi dòng lịch sử 'TẠO' khi có liệu trình mới.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_sau_sua_chi_dinh": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Khi một chỉ định đổi trạng thái (huỷ, bắt đầu, xong, khách chọn lại) thì tự gắn buổi đó vào liệu trình của khách hoặc gỡ ra và đếm lại số buổi.",
+"van_de": "Chỉ định đổi là liệu trình tự gắn/gỡ buổi ngay trong SQL, không có sự kiện nào, nên dòng thời gian và khối khác không biết buổi nào vừa bị gắn hay gỡ; khối chỉ định và khối liệu trình dính nhau bằng trigger chứ không qua lệnh.",
+"ghi_cheo": []
+},
+"lieu_trinh_sau_them_chi_dinh": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Bác sĩ vừa chỉ định một dịch vụ điều trị mà khách đang có đúng một liệu trình của dịch vụ đó thì tự gắn chỉ định vào liệu trình.",
+"van_de": "Tự gắn buổi vào liệu trình mà không phát sự kiện, nên không ai thấy trên dòng thời gian là buổi đã được trừ vào gói.",
+"ghi_cheo": []
+},
+"lieu_trinh_so_buoi_da_tra": {
+"loai": "doc_tinh",
+"khoi": "lieu_trinh",
+"lam_gi": "Đếm số buổi của liệu trình khách đã thực trả trước (đã thu trừ phần đã hoàn).",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_tinh_lai": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Phân bổ lại buổi nào được trả trước rồi chạm dòng liệu trình để nó tự suy lại trạng thái, kèm báo màn hình làm mới.",
+"van_de": "Đổi trạng thái liệu trình (đang làm/xong) chỉ báo màn hình bằng pg_notify, không có domain_event, nên dòng thời gian khách không ghi lại.",
+"ghi_cheo": []
+},
+"lieu_trinh_tinh_lai_theo_lan_thu": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Thu ngân thu/huỷ/hoàn một lần thu có dính liệu trình thì tính lại từng liệu trình liên quan.",
+"van_de": "Khối thanh toán thu tiền là liệu trình tự đổi trạng thái qua trigger, không có sự kiện 'liệu trình đổi vì lần thu' nào.",
+"ghi_cheo": []
+},
+"lieu_trinh_tra_truoc_gac": {
+"loai": "canh_bat_bien",
+"khoi": "lieu_trinh",
+"lam_gi": "Chặn trả trước vượt số buổi, sai đơn giá chốt, trả cho liệu trình đã dừng, hay sửa dòng đã nằm trong lần thu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"lieu_trinh_truoc_khi_ghi": {
+"loai": "logic_nghiep_vu",
+"khoi": "lieu_trinh",
+"lam_gi": "Vừa chặn sửa sai (đổi giá khi đã trả, giảm buổi dưới số đã gắn) vừa tự suy trạng thái liệu trình, tự thêm buổi khi làm quá kế hoạch và ghi lịch sử.",
+"van_de": "Liệu trình tự chuyển Đang làm→Xong hoặc tự tăng số buổi ngay trong trigger, không phát sự kiện, nên khối khác không nghe được.",
+"ghi_cheo": []
+},
+"lieu_trinh_ung_vien_duy_nhat": {
+"loai": "doc_tinh",
+"khoi": "lieu_trinh",
+"lam_gi": "Tìm liệu trình đang làm duy nhất của khách cho một dịch vụ (có hai thì không chọn).",
+"van_de": "",
+"ghi_cheo": []
+},
+"lo_dung_co_so_luot": {
+"loai": "doc_tinh",
+"khoi": "pharmacy",
+"lam_gi": "Kiểm lô thuốc có thuộc đúng cơ sở của lượt khám không.",
+"van_de": "",
+"ghi_cheo": []
+},
+"luot_da_ky": {
+"loai": "doc_tinh",
+"khoi": "reception",
+"lam_gi": "Cho biết lượt khám đã ký chốt hồ sơ hay chưa.",
+"van_de": "",
+"ghi_cheo": []
+},
+"luot_vat_tu_chi_dinh_khop": {
+"loai": "canh_bat_bien",
+"khoi": "vat_tu",
+"lam_gi": "Chặn gắn vật tư vào một chỉ định không thuộc lượt khám đó.",
+"van_de": "",
+"ghi_cheo": []
+},
+"luot_vat_tu_gac": {
+"loai": "canh_bat_bien",
+"khoi": "vat_tu",
+"lam_gi": "Chặn bán vật tư chưa có giá/ngưng bán, hàng cần duyệt mà người duyệt không có quyền, hay sửa dòng đã thu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"ma_gd_hieu_luc": {
+"loai": "doc_tinh",
+"khoi": "payment",
+"lam_gi": "Trả mã giao dịch hiện hành của lần thu (lấy bản đổi hình thức mới nhất nếu có).",
+"van_de": "",
+"ghi_cheo": []
+},
+"map_services_to_nodes": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Gắn từng dịch vụ vào bước/phòng thực hiện theo danh sách viết sẵn, chạy lúc nạp.",
+"van_de": "",
+"ghi_cheo": []
+},
+"mau_ket_qua_tuy_chon_don_vi": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Xuất bản lại các mẫu kết quả để ô số đo có đơn vị và ô đề nghị thành tuỳ chọn, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"mau_mo_ta_nuoc_tieu_monitor": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Thêm mẫu kết quả dạng mô tả cho nước tiểu/monitor và nút 'làm thêm tại quầy' cho monitor thai, chạy một lần.",
+"van_de": "Ghi cả bảng nút làm thêm tại quầy của khối chỉ định; chấp nhận được vì chỉ chạy một lần lúc nạp.",
+"ghi_cheo": [
+"lam_them_tai_quay"
+]
+},
+"move_visit_to_station": {
+"loai": "logic_nghiep_vu",
+"khoi": "reception",
+"lam_gi": "Chuyển khách sang trạm/phòng khác: đóng việc ở trạm cũ, mở hoặc gắn phòng việc mới, đổi trạng thái lượt.",
+"van_de": "Đổi chỗ khách và đóng/mở việc của khối trách nhiệm ngay trong SQL, chỉ ghi event_log kiểu cũ chứ không domain_event, nên bên nghe sự kiện mới không biết khách vừa chuyển trạm.",
+"ghi_cheo": [
+"work_item"
+]
+},
+"nap_phong_lam_theo_dich_vu": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Nạp hai dịch vụ KiotViet mới và gắn các dịch vụ sàn chậu vào phòng Sàn chậu, chạy một lần.",
+"van_de": "Ghi cả bảng phòng–dịch vụ của khối cơ sở; chấp nhận được vì chỉ chạy một lần lúc nạp.",
+"ghi_cheo": [
+"clinic_room_service"
+]
+},
+"nhac_tai_kham_dong_khi_co_lich": {
+"loai": "logic_nghiep_vu",
+"khoi": "cskh",
+"lam_gi": "Khách vừa có lịch hẹn thì tự đóng việc gọi nhắc tái khám và tắt hẹn giờ nhắc.",
+"van_de": "Khối đặt lịch ghi lịch là việc CSKH tự đóng qua trigger, không có sự kiện, nên người CSKH và dòng thời gian không biết vì sao việc gọi biến mất.",
+"ghi_cheo": []
+},
+"nhom_chi_dinh": {
+"loai": "doc_tinh",
+"khoi": "service_order",
+"lam_gi": "Xếp một chỉ định vào nhóm Khám / Điều trị / Cận lâm sàng để ghi sổ sửa chỉ định.",
+"van_de": "",
+"ghi_cheo": []
+},
+"nhom_viec_theo_nhom_hang": {
+"loai": "doc_tinh",
+"khoi": "catalogue",
+"lam_gi": "Đoán phòng thực hiện mặc định từ nhóm hàng của dịch vụ (siêu âm, thủ thuật, lấy mẫu).",
+"van_de": "",
+"ghi_cheo": []
+},
+"notify_row_change": {
+"loai": "ha_tang",
+"khoi": null,
+"lam_gi": "Báo cho máy chủ biết bảng nào của phòng khám nào vừa đổi để màn hình tự làm mới.",
+"van_de": "",
+"ghi_cheo": []
+},
+"o_tuy_chon_don_vi": {
+"loai": "doc_tinh",
+"khoi": "catalogue",
+"lam_gi": "Sửa một ô của mẫu kết quả: thêm đơn vị đo và đánh dấu ô đề nghị là tuỳ chọn.",
+"van_de": "",
+"ghi_cheo": []
+},
+"order_services": {
+"loai": "co_the_chet",
+"khoi": "trach_nhiem",
+"lam_gi": "Rail chỉ định cũ: tạo hoặc gộp việc theo bước cho các dịch vụ bác sĩ chọn.",
+"van_de": "Hàm còn trong DB và còn quyền gọi; nếu ai gọi lại sẽ tạo việc trực tiếp không qua lệnh chỉ định mới và không phát sự kiện.",
+"ghi_cheo": []
+},
+"order_services_lock_visit": {
+"loai": "ha_tang",
+"khoi": "service_order",
+"lam_gi": "Khoá tạm theo lượt khám để hai lệnh sửa chỉ định cùng lượt không chen nhau.",
+"van_de": "",
+"ghi_cheo": []
+},
+"patient_lam_tuoi_sdt": {
+"loai": "dong_bo_phu",
+"khoi": "ho_so_khach",
+"lam_gi": "Dựng lại cột tìm kiếm số điện thoại của khách mỗi khi hồ sơ khách được ghi.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_bill_line_append_only": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Cấm sửa hoặc xoá dòng hoá đơn đã thu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_bill_line_chi_dinh_con_hieu_luc": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Chặn thu tiền một chỉ định đã bỏ/không làm.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_bill_line_khong_thu_buoi_da_tra": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Chặn thu lẻ một buổi điều trị đã được trả trước trong liệu trình.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_bill_line_khop_loai_lan_thu": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Chặn để dòng thuốc nằm trong lần thu dịch vụ và ngược lại.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_bill_line_mot_lan_phu": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Chặn thu hai lần cùng một khoản (dịch vụ, tiền khám, phụ thu, vật tư, liệu trình).",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_cycle_backfill_legacy": {
+"loai": "mot_lan",
+"khoi": "payment",
+"lam_gi": "Dựng lại các lần thu cũ từ bảng payment và sổ sự kiện cũ, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_cycle_doi_hinh_thuc_guard": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Chỉ cho đổi hình thức thu (tiền mặt/chuyển khoản) trên phiếu đã thu, chưa hoàn, đúng tổng tiền; sổ chỉ được thêm.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_cycle_dung_lai_ly_do_doi_soat": {
+"loai": "mot_lan",
+"khoi": "payment",
+"lam_gi": "Điền lý do cần đối soát cho các lần thu cũ từ sổ sự kiện cũ, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_cycle_guard": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Lần thu không xoá được, chỉ chuyển trạng thái đúng đường và không sửa cột đã ghi (tiền, giảm giá, mã giao dịch).",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_cycle_phan_chi_them": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Cấm sửa/xoá các phần chia hình thức thu của một lần thu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_cycle_phan_kiem_tong": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Kiểm tổng các phần tiền mặt/chuyển khoản phải bằng số tiền lần thu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_refund_guard": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Hoàn tiền chỉ trên lần thu đã thu, đúng loại, không xoá, chỉ đi Chờ→Xong/Lỗi/Huỷ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_refund_line_guard": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Chặn hoàn vượt số đã thu của từng dòng hoá đơn và sai số tiền hoàn.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_refund_line_tong_khop": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Kiểm tổng các dòng hoàn phải bằng số tiền của khoản hoàn.",
+"van_de": "",
+"ghi_cheo": []
+},
+"payment_refund_tong_khop": {
+"loai": "canh_bat_bien",
+"khoi": "payment",
+"lam_gi": "Kiểm số tiền khoản hoàn phải bằng tổng các dòng hoàn.",
+"van_de": "",
+"ghi_cheo": []
+},
+"phan_thu_hieu_luc": {
+"loai": "doc_tinh",
+"khoi": "payment",
+"lam_gi": "Trả cách chia tiền mặt/chuyển khoản hiện hành của một lần thu (tính cả lần đổi hình thức).",
+"van_de": "",
+"ghi_cheo": []
+},
+"phieu_kho_dong_dung_co_so": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn dòng phiếu kho dùng lô thuốc của kho cơ sở khác với phiếu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"phieu_kho_dong_nguon_dung_co_so": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn phiếu chuyển kho lấy hàng nguồn từ kho cơ sở khác.",
+"van_de": "",
+"ghi_cheo": []
+},
+"phong_chuyen": {
+"loai": "doc_tinh",
+"khoi": "co_so",
+"lam_gi": "Cho biết một phòng có phải phòng chuyên (★) làm được dịch vụ/bước đó không.",
+"van_de": "",
+"ghi_cheo": []
+},
+"phong_lam_duoc": {
+"loai": "doc_tinh",
+"khoi": "co_so",
+"lam_gi": "Cho biết một phòng có làm được dịch vụ/bước đó không (ưu tiên danh sách phòng–dịch vụ).",
+"van_de": "",
+"ghi_cheo": []
+},
+"place_visit_at_first_station": {
+"loai": "logic_nghiep_vu",
+"khoi": "reception",
+"lam_gi": "Lúc tiếp đón, tự chọn trạm/phòng đầu tiên còn nhận khách và đưa khách vào đó.",
+"van_de": "Tự quyết khách vào phòng nào và mở việc ở trạm đầu ngay trong SQL, chỉ ghi event_log cũ, không domain_event.",
+"ghi_cheo": [
+"work_item"
+]
+},
+"prescription_allocation_dung_co_so": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Chặn phân lô thuốc từ kho cơ sở khác với cơ sở của lượt khám.",
+"van_de": "",
+"ghi_cheo": []
+},
+"prescription_allocation_guard": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Giữ đúng luật phân lô thuốc: đúng thuốc, đúng đơn vị, không vượt số mua, không xoá, không gỡ khi đã giao/bán.",
+"van_de": "",
+"ghi_cheo": []
+},
+"prescription_correction_guard": {
+"loai": "canh_bat_bien",
+"khoi": "pharmacy",
+"lam_gi": "Sổ đính chính đơn chỉ được thêm; hồ sơ đã ký thì đính chính đơn phải đi kèm đính chính hồ sơ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"prescription_dinh_chinh_guard": {
+"loai": "canh_bat_bien",
+"khoi": "consultation",
+"lam_gi": "Chặn sửa/xoá dòng đơn thuốc sai đường: hồ sơ đã ký, dòng đã có dấu vết nhà thuốc/thu tiền thì phải tạo dòng thay thế qua đính chính.",
+"van_de": "",
+"ghi_cheo": []
+},
+"prescription_giu_phan_lo": {
+"loai": "canh_bat_bien",
+"khoi": "consultation",
+"lam_gi": "Chặn đổi thuốc/đơn vị/số lượng của dòng đơn đang có phân lô.",
+"van_de": "",
+"ghi_cheo": []
+},
+"prescription_muc_dau_vet": {
+"loai": "doc_tinh",
+"khoi": "pharmacy",
+"lam_gi": "Chấm mức dòng đơn đã bị nhà thuốc/thu tiền đụng tới (0 chưa, 1 đã chọn lô, 2 đã thu/giao/trả).",
+"van_de": "",
+"ghi_cheo": []
+},
+"prevent_dead_letter_modification": {
+"loai": "co_the_chet",
+"khoi": null,
+"lam_gi": "Cấm sửa/xoá sổ sự kiện hỏng (dead_letter_event).",
+"van_de": "Hàm mồ côi từ baseline, bảng nó canh không còn; để lại chỉ gây nhiễu khi đọc schema.",
+"ghi_cheo": []
+},
+"prevent_hard_delete": {
+"loai": "canh_bat_bien",
+"khoi": null,
+"lam_gi": "Cấm xoá cứng các bảng hồ sơ quan trọng, trừ khi job dọn dữ liệu bật cờ cho phép.",
+"van_de": "",
+"ghi_cheo": []
+},
+"queue_entry_giu_vao_hang_luc": {
+"loai": "canh_bat_bien",
+"khoi": "service_routing",
+"lam_gi": "Giữ nguyên giờ khách vào hàng chờ lần đầu, không cho bị đặt lại.",
+"van_de": "",
+"ghi_cheo": []
+},
+"quyen_theo_lich_bang": {
+"loai": "quyen",
+"khoi": "permission",
+"lam_gi": "Bảng tra cứng: ca trực ở phòng loại nào thì được những gói quyền (khối lego) nào.",
+"van_de": "",
+"ghi_cheo": []
+},
+"quyen_theo_vi_tri_bang": {
+"loai": "quyen",
+"khoi": "permission",
+"lam_gi": "Bảng tra cứng: vị trí Điều phối được quyền trưởng ca và điều phối.",
+"van_de": "",
+"ghi_cheo": []
+},
+"read_prescription_draft": {
+"loai": "co_the_chet",
+"khoi": "consultation",
+"lam_gi": "Cho bác sĩ/thư ký y khoa đọc bản nháp đơn thuốc của một lượt qua RPC.",
+"van_de": "Lối đọc nháp đơn thuốc vẫn mở cho mọi tài khoản đăng nhập gọi RPC dù không màn nào dùng — một cửa đọc thừa nằm ngoài API.",
+"ghi_cheo": []
+},
+"recent_duplicate_services": {
+"loai": "doc_tinh",
+"khoi": "trach_nhiem",
+"lam_gi": "Tìm các dịch vụ khách đã được chỉ định trong vài ngày gần đây để cảnh báo trùng.",
+"van_de": "",
+"ghi_cheo": []
+},
+"release_ban_phai_co_that": {
+"loai": "canh_bat_bien",
+"khoi": "result",
+"lam_gi": "Chặn duyệt phát hành một bản kết quả chưa tồn tại (phiếu chưa hoàn tất hoặc bản sửa chưa có).",
+"van_de": "",
+"ghi_cheo": []
+},
+"resolve_effective_cap": {
+"loai": "doc_tinh",
+"khoi": "booking",
+"lam_gi": "Tra sức chứa (số ghế hẹn, ghế vãng lai) của một bác sĩ ở một khung giờ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"resolve_effective_caps": {
+"loai": "doc_tinh",
+"khoi": "booking",
+"lam_gi": "Tra sức chứa theo ba tầng (mặc định phòng khám, luật thường trực, ngoại lệ tạm) cho nhiều khung giờ một lúc.",
+"van_de": "",
+"ghi_cheo": []
+},
+"result_correction_hop_le": {
+"loai": "canh_bat_bien",
+"khoi": "result",
+"lam_gi": "Bản sửa kết quả phải đúng lượt khám và đánh số liền mạch.",
+"van_de": "",
+"ghi_cheo": []
+},
+"rls_auto_enable": {
+"loai": "co_the_chet",
+"khoi": null,
+"lam_gi": "Tự bật RLS cho mọi bảng mới tạo trong schema public.",
+"van_de": "Nếu event trigger thật sự không gắn thì bảng mới không tự bật RLS — ai tưởng có lưới này sẽ quên bật tay. (đã kiểm trên prod: không ai gọi)",
+"ghi_cheo": []
+},
+"sa_tc_chi_con_phan_phu": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Đổi mẫu kết quả siêu âm tử cung bình thường sang mẫu tử cung–phần phụ, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"sdt_them_lam_tuoi_patient": {
+"loai": "dong_bo_phu",
+"khoi": "ho_so_khach",
+"lam_gi": "Thêm/sửa/xoá số điện thoại phụ thì chạm hồ sơ khách để cột tìm kiếm theo số điện thoại được dựng lại.",
+"van_de": "",
+"ghi_cheo": []
+},
+"service_order_bo_bac_si_khi_doi_phong": {
+"loai": "dong_bo_phu",
+"khoi": "service_order",
+"lam_gi": "Chỉ định đổi sang phòng khác thì tự bỏ bác sĩ làm đã chọn ở phòng cũ (cùng dòng).",
+"van_de": "",
+"ghi_cheo": []
+},
+"service_order_dong_bo_trang_thai": {
+"loai": "dong_bo_phu",
+"khoi": "service_order",
+"lam_gi": "Giữ hai cột trạng thái thực hiện cũ và mới của chỉ định khớp nhau, kèm giờ bắt đầu/xong.",
+"van_de": "",
+"ghi_cheo": []
+},
+"service_order_draft_khoa_sau_ket_thuc": {
+"loai": "canh_bat_bien",
+"khoi": "service_order",
+"lam_gi": "Bản nháp chỉ định không xoá được, đã duyệt/bỏ thì khoá; mỗi lần sửa tăng số phiên bản.",
+"van_de": "",
+"ghi_cheo": []
+},
+"service_type_form_code_exists": {
+"loai": "canh_bat_bien",
+"khoi": "catalogue",
+"lam_gi": "Chặn gắn loại khám với mã phiếu khám không có trong danh mục.",
+"van_de": "",
+"ghi_cheo": []
+},
+"set_updated_at": {
+"loai": "ha_tang",
+"khoi": null,
+"lam_gi": "Ghi giờ sửa gần nhất vào dòng vừa sửa.",
+"van_de": "",
+"ghi_cheo": []
+},
+"set_updated_at_timestamp": {
+"loai": "co_the_chet",
+"khoi": null,
+"lam_gi": "Ghi giờ sửa gần nhất (bản trùng của set_updated_at).",
+"van_de": "Hàm trùng lặp bỏ quên, không gây hại nhưng làm người đọc tưởng có bảng đang dùng nó. (đã kiểm trên prod: không ai gọi)",
+"ghi_cheo": []
+},
+"sinh_viec_nhac_tai_kham": {
+"loai": "logic_nghiep_vu",
+"khoi": "cskh",
+"lam_gi": "Tự quyết khách nào cần CSKH gọi nhắc tái khám (hẹn trong 0–7 ngày chưa đặt lịch) và ai cần gọi sáng ngày hẹn, rồi sinh việc gọi.",
+"van_de": "Sinh việc gọi nhắc cho CSKH mà không phát sự kiện, nên dòng thời gian khách và bên nghe không biết việc nhắc đã được tạo.",
+"ghi_cheo": []
+},
+"slot_seats_ban": {
+"loai": "doc_tinh",
+"khoi": "booking",
+"lam_gi": "Liệt kê các lịch hẹn đang chiếm ghế (hẹn trước hay vãng lai) của một bác sĩ trong khoảng giờ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"slot_seats_used": {
+"loai": "doc_tinh",
+"khoi": "booking",
+"lam_gi": "Đếm số ghế đã dùng trong một khung giờ của bác sĩ.",
+"van_de": "",
+"ghi_cheo": []
+},
+"so_chi_dinh_ngu_canh": {
+"loai": "doc_tinh",
+"khoi": "service_order",
+"lam_gi": "Tra bác sĩ chính và phòng khám của lượt để ghi kèm vào sổ sửa chỉ định.",
+"van_de": "",
+"ghi_cheo": []
+},
+"so_chi_dinh_nguoi": {
+"loai": "doc_tinh",
+"khoi": "service_order",
+"lam_gi": "Tra ai đang thao tác (tên, vai) để ghi vào sổ sửa chỉ định.",
+"van_de": "",
+"ghi_cheo": []
+},
+"so_luong_tu_van_ban": {
+"loai": "doc_tinh",
+"khoi": "pharmacy",
+"lam_gi": "Tách con số đầu tiên trong câu số lượng bác sĩ gõ (ví dụ '10 viên' → 10).",
+"van_de": "",
+"ghi_cheo": []
+},
+"so_no_chi_them": {
+"loai": "canh_bat_bien",
+"khoi": "so_no",
+"lam_gi": "Sổ nợ chỉ được thêm dòng, sửa bằng dòng chênh lệch mới.",
+"van_de": "",
+"ghi_cheo": []
+},
+"so_no_kiem_so_du": {
+"loai": "canh_bat_bien",
+"khoi": "so_no",
+"lam_gi": "Kiểm số dư mới của sổ nợ phải bằng số dư trước cộng khoản chênh.",
+"van_de": "",
+"ghi_cheo": []
+},
+"so_sua_chi_dinh_chi_ghi_them": {
+"loai": "canh_bat_bien",
+"khoi": "service_order",
+"lam_gi": "Sổ sửa chỉ định không xoá, không sửa ai/lúc/làm gì.",
+"van_de": "",
+"ghi_cheo": []
+},
+"so_sua_chi_dinh_dong_bao_khi_them": {
+"loai": "dong_bo_phu",
+"khoi": "service_order",
+"lam_gi": "Chỉ định lại đúng mục vừa bỏ thì tự đánh dấu 'đã xử lý' thông báo bỏ chỉ định.",
+"van_de": "Khối chỉ định tự sửa trạng thái thông báo của khối chuông qua trigger, không phát sự kiện; khối chuông không tự quyết thông báo của mình.",
+"ghi_cheo": [
+"thong_bao"
+]
+},
+"staff_default_primary_location": {
+"loai": "ha_tang",
+"khoi": "permission",
+"lam_gi": "Nhân sự mới chưa có cơ sở chính thì tự điền cơ sở, chỉ khi phòng khám có đúng một cơ sở.",
+"van_de": "",
+"ghi_cheo": []
+},
+"staff_ensure_default_membership": {
+"loai": "dong_bo_phu",
+"khoi": "permission",
+"lam_gi": "Nhân sự mới tự được làm thành viên phòng khám mặc định với vai theo phòng ban.",
+"van_de": "",
+"ghi_cheo": []
+},
+"staff_location_matches_clinic": {
+"loai": "canh_bat_bien",
+"khoi": "permission",
+"lam_gi": "Chặn gán nhân sự vào cơ sở của phòng khám mà người đó không là thành viên.",
+"van_de": "",
+"ghi_cheo": []
+},
+"staff_node_no_mixed_scope": {
+"loai": "canh_bat_bien",
+"khoi": "permission",
+"lam_gi": "Chặn khai một người làm được một bước vừa 'mọi cơ sở' vừa từng cơ sở riêng.",
+"van_de": "",
+"ghi_cheo": []
+},
+"sync_clinic_floor_name_to_rooms": {
+"loai": "dong_bo_phu",
+"khoi": "co_so",
+"lam_gi": "Đổi tên tầng thì chép tên mới vào mọi phòng thuộc tầng đó.",
+"van_de": "",
+"ghi_cheo": []
+},
+"sync_clinic_room_floor": {
+"loai": "dong_bo_phu",
+"khoi": "co_so",
+"lam_gi": "Giữ nhãn tầng và mã tầng của phòng khớp nhau; gõ nhãn tầng lạ thì tự tạo hoặc bật lại tầng trong danh mục.",
+"van_de": "",
+"ghi_cheo": []
+},
+"tep_ket_qua_gui_phai_duoc_cho_phep": {
+"loai": "canh_bat_bien",
+"khoi": "result_file",
+"lam_gi": "Chặn gửi cho khách tệp kết quả đối tác chưa xác nhận/bị từ chối/thu hồi, và chặn sửa mốc bác sĩ cho phép gửi.",
+"van_de": "",
+"ghi_cheo": []
+},
+"tep_ket_qua_khoa_vet_xoa": {
+"loai": "canh_bat_bien",
+"khoi": "result_file",
+"lam_gi": "Giữ nguyên vết xoá tệp (ai, lúc nào, vì sao); tệp đã dọn khỏi ổ thì không khôi phục được.",
+"van_de": "",
+"ghi_cheo": []
+},
+"them_dau_do_bio": {
+"loai": "mot_lan",
+"khoi": "catalogue",
+"lam_gi": "Thêm/sửa hai mặt hàng đầu dò máy Bio vào danh mục, chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"thu_ky_duoc_xem_khach": {
+"loai": "quyen",
+"khoi": "permission",
+"lam_gi": "Cho thư ký y khoa chỉ xem được khách của bác sĩ mình theo kèm.",
+"van_de": "",
+"ghi_cheo": []
+},
+"thue_suat_hop_le": {
+"loai": "canh_bat_bien",
+"khoi": "ke_toan",
+"lam_gi": "Kiểm mã thuế suất GTGT hợp lệ (KCT, KKKNT hoặc số 0–100).",
+"van_de": "",
+"ghi_cheo": []
+},
+"tien_cua_chi_dinh": {
+"loai": "doc_tinh",
+"khoi": "payment",
+"lam_gi": "Tính số tiền đã thu và đã hoàn của một chỉ định (kể cả phụ thu kèm).",
+"van_de": "",
+"ghi_cheo": []
+},
+"tinh_sdt_tim_kiem": {
+"loai": "doc_tinh",
+"khoi": "ho_so_khach",
+"lam_gi": "Ghép số chính, số người nhà và các số phụ thành chuỗi để tìm khách theo số điện thoại.",
+"van_de": "",
+"ghi_cheo": []
+},
+"truong_ca_quan_ly_ca_kham": {
+"loai": "mot_lan",
+"khoi": "lich_truc",
+"lam_gi": "Đổi tên phòng/tầng của vị trí Điều phối thành 'Quản lý ca khám', chạy một lần.",
+"van_de": "",
+"ghi_cheo": []
+},
+"tuan_lich_truc_da_cong_bo": {
+"loai": "doc_tinh",
+"khoi": "lich_truc",
+"lam_gi": "Cho biết lịch trực của tuần chứa giờ đó đã công bố chưa.",
+"van_de": "",
+"ghi_cheo": []
+},
+"ultrasound_signed_block_update": {
+"loai": "canh_bat_bien",
+"khoi": "result",
+"lam_gi": "Kết quả siêu âm đã ký thì không sửa nội dung, phải qua đính chính.",
+"van_de": "",
+"ghi_cheo": []
+},
+"update_visit_current_node": {
+"loai": "logic_nghiep_vu",
+"khoi": "trach_nhiem",
+"lam_gi": "Tự suy và ghi 'khách đang ở trạm nào' của lượt từ việc đang làm mới nhất; lượt đã đóng thì đứng yên.",
+"van_de": "Khối việc tự ghi vị trí khách vào bảng lượt khám của khối tiếp đón qua trigger, không có sự kiện chuyển trạm nên bên nghe không biết khách vừa đổi trạm.",
+"ghi_cheo": [
+"visit"
+]
+},
+"vat_tu_chan_doi_don_vi_co_giao_dich": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Chặn đổi đơn vị của vật tư đã có giao dịch kho hoặc phiếu nhập đang chờ duyệt.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_chi_them": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Sổ và phiếu vật tư chỉ được thêm, hoàn tác bằng phiếu đảo.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_nhap_cho_duyet_gac": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Chặn xoá, chặn sửa yêu cầu nhập vật tư đã gửi, chỉ người có quyền Duyệt vật tư mới duyệt/từ chối.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_nhap_cho_duyet_khoa_don_vi": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Chặn gửi yêu cầu nhập vật tư với đơn vị đã lỗi thời so với danh mục.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_phieu_du_dong": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Kiểm phiếu vật tư phải có dòng, phiếu chuyển phải đủ dòng đối ứng đúng nơi, phiếu đảo phải đảo đủ dòng gốc.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_phieu_gac": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Chặn phiếu vật tư sai cơ sở/người tạo hoặc đảo phiếu khác cơ sở.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_ton_gac": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Chặn xoá tồn, chặn sửa tồn trực tiếp (chỉ qua sổ), tồn mới phải bằng 0 và đúng cơ sở.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_txn_cong_ton": {
+"loai": "dong_bo_phu",
+"khoi": "kho_vat_tu",
+"lam_gi": "Mỗi dòng sổ vật tư ghi vào thì cộng/trừ tồn tương ứng, kèm kiểm đúng loại phiếu và dòng đảo.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vat_tu_txn_khoa_don_vi": {
+"loai": "canh_bat_bien",
+"khoi": "kho_vat_tu",
+"lam_gi": "Chặn ghi sổ vật tư cho mặt hàng không phải vật tư.",
+"van_de": "",
+"ghi_cheo": []
+},
+"visit_amendment_append_only": {
+"loai": "canh_bat_bien",
+"khoi": "consultation",
+"lam_gi": "Đính chính hồ sơ chỉ được thêm, không sửa/xoá (TT13).",
+"van_de": "",
+"ghi_cheo": []
+},
+"visit_don_goc_guard": {
+"loai": "canh_bat_bien",
+"khoi": "reception",
+"lam_gi": "Lượt bán lẻ theo đơn cũ phải trỏ về lượt khám của chính khách đó.",
+"van_de": "",
+"ghi_cheo": []
+},
+"visit_finalized_block_update": {
+"loai": "canh_bat_bien",
+"khoi": "reception",
+"lam_gi": "Lượt đã ký chốt không sửa được nữa, trừ chuyển sang đính chính hoặc ghi giờ khám xong lần đầu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"visit_gate_rule_nodes_exist": {
+"loai": "canh_bat_bien",
+"khoi": "service_routing",
+"lam_gi": "Chặn luật chặn bước trỏ tới bước chưa khai.",
+"van_de": "",
+"ghi_cheo": []
+},
+"vital_measurement_chi_them": {
+"loai": "canh_bat_bien",
+"khoi": "vitals",
+"lam_gi": "Sinh hiệu đã đo chỉ thêm, đo lại thì ghi dòng mới.",
+"van_de": "",
+"ghi_cheo": []
+},
+"work_item_dependency_inherit_clinic": {
+"loai": "canh_bat_bien",
+"khoi": "trach_nhiem",
+"lam_gi": "Chặn phụ thuộc giữa hai việc khác phòng khám, tự điền phòng khám cho dòng phụ thuộc.",
+"van_de": "",
+"ghi_cheo": []
+},
+"work_item_event_inherit_clinic": {
+"loai": "canh_bat_bien",
+"khoi": "trach_nhiem",
+"lam_gi": "Nhật ký việc phải cùng phòng khám với việc, tự điền nếu thiếu.",
+"van_de": "",
+"ghi_cheo": []
+},
+"work_item_gate_blockers": {
+"loai": "doc_tinh",
+"khoi": "trach_nhiem",
+"lam_gi": "Liệt kê các việc đi trước còn chặn một việc chưa được bắt đầu/hoàn tất.",
+"van_de": "",
+"ghi_cheo": []
+},
+"work_item_room_matches_clinic": {
+"loai": "canh_bat_bien",
+"khoi": "trach_nhiem",
+"lam_gi": "Chặn gán việc vào phòng của phòng khám khác.",
+"van_de": "",
+"ghi_cheo": []
+}
+},
+"trigger": {
+"anh_chuyen_khoan.trg_anh_chuyen_khoan_bao_tin_khi_go": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng anh_chuyen_khoan vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"anh_chuyen_khoan.trg_notify_anh_chuyen_khoan": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng anh_chuyen_khoan vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"appointment.appointment_assign_queue_number": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi lịch hẹn chuyển CHECKED_IN mà chưa có số thì cấp số thứ tự khám theo ngày + bác sĩ (khoá advisory)",
+"day_ngam": []
+},
+"appointment.trg_appointment_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE appointment (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"appointment.trg_appointment_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE appointment (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"appointment.trg_cap_so_booking": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "cấp số booking theo ngày khi tạo lịch / đổi sang ngày khác (giữ số nếu đổi giờ cùng ngày)",
+"day_ngam": []
+},
+"appointment.trg_cap_so_tiep_don": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi khách check-in lần đầu thì cấp số tiếp đón theo ngày + cơ sở",
+"day_ngam": []
+},
+"appointment.trg_enforce_slot_capacity": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn đặt / đổi lịch khi khung giờ của bác sĩ đã đầy ghế (bỏ qua lịch chưa xếp bác sĩ, tuần chưa công bố, khách đã có mặt)",
+"day_ngam": []
+},
+"appointment.trg_nhac_tai_kham_dong_khi_co_lich": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi khách có lịch hẹn sống thì tự đóng việc nhắc tái khám đang chờ gọi (KHONG_CAN/DA_CO_LICH) và bỏ hẹn giờ nhắc tương ứng",
+"day_ngam": [
+{
+"den_khoi": "cskh",
+"bang": "nhac_tai_kham"
+},
+{
+"den_khoi": "ky_thuat",
+"bang": "hen_gio"
+}
+]
+},
+"appointment.trg_notify_appointment": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng appointment vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"capability_grant.giu_nguoi_cap_quyen_grant_thu": {
+"loai": "canh_bat_bien",
+"lam_gi": "khi thu/xoá quyền permission.manage thì kiểm phòng khám vẫn còn ít nhất một người đang làm giữ quyền cấp quyền",
+"day_ngam": []
+},
+"capability_grant.giu_nguoi_cap_quyen_grant_xoa": {
+"loai": "canh_bat_bien",
+"lam_gi": "khi thu/xoá quyền permission.manage thì kiểm phòng khám vẫn còn ít nhất một người đang làm giữ quyền cấp quyền",
+"day_ngam": []
+},
+"capability_grant.trg_chan_cap_quyen_noi_bo": {
+"loai": "canh_bat_bien",
+"lam_gi": "lặng lẽ bỏ qua (RETURN NULL + WARNING) mọi lần cấp quyền nội bộ giamsat.view nếu phiên không bật cờ clinicai.cap_noi_bo",
+"day_ngam": []
+},
+"chot_so_ca.trg_chot_so_ca_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ chốt ca không xoá; số đã chốt không sửa, chỉ được mở khoá một lần",
+"day_ngam": []
+},
+"chot_so_ca.trg_notify_chot_so_ca": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng chot_so_ca vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"clinic_floor.trg_notify_clinic_floor": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng clinic_floor vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"clinic_floor.trg_sync_clinic_floor_name": {
+"loai": "dong_bo_phu",
+"lam_gi": "khi đổi tên tầng thì chép tên mới vào cột floor của mọi phòng trên tầng đó",
+"day_ngam": []
+},
+"clinic_membership.giu_nguoi_cap_quyen_membership_nghi": {
+"loai": "canh_bat_bien",
+"lam_gi": "khi một thành viên nghỉ/bị xoá khỏi phòng khám thì kiểm vẫn còn ít nhất một người giữ quyền cấp quyền",
+"day_ngam": []
+},
+"clinic_membership.giu_nguoi_cap_quyen_membership_xoa": {
+"loai": "canh_bat_bien",
+"lam_gi": "khi một thành viên nghỉ/bị xoá khỏi phòng khám thì kiểm vẫn còn ít nhất một người giữ quyền cấp quyền",
+"day_ngam": []
+},
+"clinic_room.trg_clinic_room_primary_node": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn đặt bước chính của phòng là bước mà phòng không phục vụ",
+"day_ngam": []
+},
+"clinic_room.trg_sync_clinic_room_floor": {
+"loai": "dong_bo_phu",
+"lam_gi": "giữ khớp nhãn floor ↔ floor_id của phòng; ghi nhãn tầng chưa có thì tự tạo / bật lại tầng trong danh mục",
+"day_ngam": []
+},
+"clinic_room_service.trg_clinic_room_service_cung_phong_kham": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn gắn dịch vụ vào phòng nếu phòng khác phòng khám hoặc dịch vụ không có trong bảng giá",
+"day_ngam": []
+},
+"clinic_secret.clinic_secret_set_updated_at": {
+"loai": "ha_tang_khac",
+"lam_gi": "tự đặt updated_at = now() mỗi lần sửa",
+"day_ngam": []
+},
+"clinical_data_consent.trg_clinical_data_consent_link": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn ghi đồng ý chia sẻ hồ sơ khi hai bệnh nhân chưa được liên kết (patient_link)",
+"day_ngam": []
+},
+"clinical_record.clinical_record_set_updated_at": {
+"loai": "ha_tang_khac",
+"lam_gi": "tự đặt updated_at = now() mỗi lần sửa",
+"day_ngam": []
+},
+"clinical_record.trg_clinical_record_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE clinical_record (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"clinical_record.trg_clinical_record_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE clinical_record (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"clinical_record.trg_clinical_record_revision": {
+"loai": "ha_tang_khac",
+"lam_gi": "tự tăng revision của bệnh án mỗi lần sửa",
+"day_ngam": []
+},
+"clinical_record.trg_notify_clinical_record": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng clinical_record vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"cong_no.trg_cong_no_chi_chuyen_tiep": {
+"loai": "canh_bat_bien",
+"lam_gi": "công nợ không xoá; chỉ sửa được khoản đang CHƯA THU của chính lượt ấy",
+"day_ngam": []
+},
+"cong_no.trg_notify_cong_no": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng cong_no vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"consultation.trg_notify_consultation": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng consultation vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"consultation_note.trg_notify_consultation_note": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng consultation_note vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"cskh_action.trg_notify_cskh_action": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng cskh_action vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"doi_tac_thanh_toan.trg_doi_tac_thanh_toan_chi_huy": {
+"loai": "canh_bat_bien",
+"lam_gi": "ghi nhận thanh toán đối tác không xoá, không sửa — chỉ được huỷ bản đang hiệu lực",
+"day_ngam": []
+},
+"domain_event.trg_domain_event_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ sự kiện domain_event chỉ thêm — sai thì phát sự kiện bù",
+"day_ngam": []
+},
+"drug_batch.drug_batch_ma_tem_bat_doi": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn đổi mã tem của lô thuốc (đã dán lên hộp)",
+"day_ngam": []
+},
+"drug_batch.trg_drug_batch_hang_khop": {
+"loai": "canh_bat_bien",
+"lam_gi": "cuối giao dịch kiểm hai hàng KHO/QUẦY cùng mã lô phải cùng thuốc, hạn, đơn vị, mã tem",
+"day_ngam": []
+},
+"drug_return.trg_drug_return_co_dong_kho": {
+"loai": "canh_bat_bien",
+"lam_gi": "cuối giao dịch kiểm lần khách trả thuốc phải có dòng RETURN_RECEIVED trong sổ kho",
+"day_ngam": []
+},
+"drug_return.trg_drug_return_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "khách trả thuốc: không xoá, trỏ đúng DISPENSE gốc, không trả vượt số đã xuất; quyết định BAN_LAI/HUY chỉ một lần, HUY phải trỏ đúng dòng DISCARD",
+"day_ngam": []
+},
+"du_lieu_da_xoa.trg_du_lieu_da_xoa_khong_sua": {
+"loai": "canh_bat_bien",
+"lam_gi": "bản lưu dữ liệu đã xoá không được sửa",
+"day_ngam": []
+},
+"encounter_flow.trg_notify_encounter_flow": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng encounter_flow vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"event_log.trg_event_log_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "event_log chỉ ghi thêm — chặn xoá/TRUNCATE, chỉ cho lật event_published false→true",
+"day_ngam": []
+},
+"event_log.trg_event_log_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "event_log chỉ ghi thêm — chặn xoá/TRUNCATE, chỉ cho lật event_published false→true",
+"day_ngam": []
+},
+"event_log.trg_event_log_no_update": {
+"loai": "canh_bat_bien",
+"lam_gi": "event_log chỉ ghi thêm — chặn xoá/TRUNCATE, chỉ cho lật event_published false→true",
+"day_ngam": []
+},
+"event_log.trg_notify_event_log": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng event_log vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"form_instance.trg_form_instance_lich_su": {
+"loai": "ghi_lich_su",
+"lam_gi": "khi phiếu kết quả đổi dữ liệu / trạng thái thì chụp bản cũ vào form_instance_lich_su",
+"day_ngam": []
+},
+"form_instance.trg_notify_form_instance": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng form_instance vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"form_instance_lich_su.trg_form_instance_lich_su_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "form_instance_lich_su chỉ được thêm — chặn mọi sửa / xoá",
+"day_ngam": []
+},
+"form_result_release.trg_form_result_release_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "form_result_release chỉ được thêm — chặn mọi sửa / xoá",
+"day_ngam": []
+},
+"form_result_release.trg_release_ban_phai_co_that": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn duyệt phát hành một bản kết quả chưa tồn tại (v1 phải đã hoàn tất, vN phải có result_correction)",
+"day_ngam": []
+},
+"hen_goi_lai.trg_notify_hen_goi_lai": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng hen_goi_lai vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"inventory_txn.inventory_txn_append_only": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ kho inventory_txn chỉ ghi thêm — chặn sửa / xoá / TRUNCATE (nhầm thì ghi dòng ADJUST)",
+"day_ngam": []
+},
+"inventory_txn.inventory_txn_apply_trigger": {
+"loai": "dong_bo_phu",
+"lam_gi": "mỗi dòng sổ kho (trừ SALE/SALE_REVERSAL) cộng/trừ ngay tồn của lô thuốc; lô không thuộc phòng khám thì chặn",
+"day_ngam": []
+},
+"inventory_txn.inventory_txn_khong_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ kho inventory_txn chỉ ghi thêm — chặn sửa / xoá / TRUNCATE (nhầm thì ghi dòng ADJUST)",
+"day_ngam": []
+},
+"inventory_txn.trg_gac_ban_tu_quay": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn bán / giao từ lô đang ở KHO (phải chuyển ra quầy), chặn chuyển lô hết hạn ra quầy; ngoại lệ trả về đúng lô kho đã giao",
+"day_ngam": []
+},
+"inventory_txn.trg_gac_lo_het_han_so": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn bán / giao thuốc từ lô đã hết hạn",
+"day_ngam": []
+},
+"inventory_txn.trg_inventory_txn_ban_hop_le": {
+"loai": "canh_bat_bien",
+"lam_gi": "kiểm dòng SALE / SALE_REVERSAL / DISPENSE / RETURN_RECEIVED khớp phân lô, lần thu đã PAID, không vượt số đã phân, không giao dòng đơn đã đính chính",
+"day_ngam": []
+},
+"inventory_txn.trg_inventory_txn_dung_co_so": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn ghi sổ kho theo đơn thuốc từ lô thuộc kho cơ sở khác với cơ sở của lượt khám",
+"day_ngam": []
+},
+"kiem_ke_ca.kiem_ke_ca_bat_doi": {
+"loai": "canh_bat_bien",
+"lam_gi": "phiếu kiểm kê đã chốt không sửa; điều chỉnh / hoàn tác chỉ ghi một lần",
+"day_ngam": []
+},
+"kiem_ke_ca.kiem_ke_ca_phien_ban_hop_le": {
+"loai": "canh_bat_bien",
+"lam_gi": "bản sửa kiểm kê phải nối đúng phiếu đã chốt cùng ca, đã hoàn tác điều chỉnh; không sửa liên kết phiên bản",
+"day_ngam": []
+},
+"kiem_ke_ca.trg_notify_kiem_ke_ca": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng kiem_ke_ca vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"kiem_ke_ca_dong.kiem_ke_ca_dong_phieu_da_chot": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn thêm / sửa / xoá dòng của phiếu kiểm kê đã chốt",
+"day_ngam": []
+},
+"lab_result.lab_result_set_updated_at": {
+"loai": "ha_tang_khac",
+"lam_gi": "tự đặt updated_at = now() mỗi lần sửa",
+"day_ngam": []
+},
+"lab_result.trg_lab_result_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE lab_result (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"lab_result.trg_lab_result_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE lab_result (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"lab_result.trg_notify_lab_result": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng lab_result vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"lam_them_tai_quay.trg_lam_them_tai_quay_co_dich_vu": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn ghi việc làm thêm tại quầy với mã dịch vụ không có trong bảng giá",
+"day_ngam": []
+},
+"lam_them_tai_quay.trg_notify_lam_them_tai_quay": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng lam_them_tai_quay vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"lan_don_du_lieu_thu.trg_lan_don_du_lieu_thu_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "nhật ký dọn dữ liệu thử chỉ thêm; chỉ cho điền tep_da_chuyen một lần",
+"day_ngam": []
+},
+"lan_don_du_lieu_thu.trg_lan_don_du_lieu_thu_khong_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "nhật ký dọn dữ liệu thử chỉ thêm; chỉ cho điền tep_da_chuyen một lần",
+"day_ngam": []
+},
+"lieu_trinh.trg_lieu_trinh_sau_khi_tao": {
+"loai": "ghi_lich_su",
+"lam_gi": "khi tạo liệu trình thì ghi dòng lịch sử TAO (revision 1)",
+"day_ngam": []
+},
+"lieu_trinh.trg_lieu_trinh_truoc_khi_ghi": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "chặn sai luật liệu trình (chỉ dịch vụ Điều trị, không đổi khách/dịch vụ, không đổi đơn giá khi đã trả, không giảm buổi dưới số đã gắn/đã trả), tự suy trạng thái DE_XUAT/DANG_LAM/XONG/DUNG, tự thêm buổi khi làm quá, tăng revision và ghi lịch sử",
+"day_ngam": []
+},
+"lieu_trinh.trg_notify_lieu_trinh": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng lieu_trinh vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"lieu_trinh_buoi.trg_lieu_trinh_buoi_gac": {
+"loai": "canh_bat_bien",
+"lam_gi": "buổi liệu trình: chỉ định phải cùng khách + dịch vụ, liệu trình chưa dừng, buổi đã gắn/gỡ không sửa lại, không dùng quá số buổi đã trả trước",
+"day_ngam": []
+},
+"lieu_trinh_buoi.trg_notify_lieu_trinh_buoi": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng lieu_trinh_buoi vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"lieu_trinh_lich_su.trg_lieu_trinh_lich_su_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "lieu_trinh_lich_su chỉ được thêm — chặn mọi sửa / xoá",
+"day_ngam": []
+},
+"lieu_trinh_lich_su.trg_notify_lieu_trinh_lich_su": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng lieu_trinh_lich_su vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"lieu_trinh_tra_truoc.trg_lieu_trinh_tra_truoc_gac": {
+"loai": "canh_bat_bien",
+"lam_gi": "trả trước liệu trình: đúng đơn giá chốt, liệu trình chưa dừng, không trả vượt số buổi, dòng đã nằm trong lần thu thì không đổi",
+"day_ngam": []
+},
+"lieu_trinh_tra_truoc.trg_notify_lieu_trinh_tra_truoc": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng lieu_trinh_tra_truoc vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"luot_dong_thoi_gian.trg_notify_luot_dong_thoi_gian": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng luot_dong_thoi_gian vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"luot_ghi_chu.trg_luot_ghi_chu_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "luot_ghi_chu chỉ được thêm — chặn mọi sửa / xoá",
+"day_ngam": []
+},
+"luot_phi_kham.trg_so_sua_phi_kham": {
+"loai": "ghi_lich_su",
+"lam_gi": "khi tick / bỏ / hoàn tác dịch vụ khám (phí khám) thì ghi một dòng THEM/BO/HOAN_TAC vào sổ sửa chỉ định (của khối chỉ định)",
+"day_ngam": [
+{
+"den_khoi": "service_order",
+"bang": "so_sua_chi_dinh"
+}
+]
+},
+"luot_vat_tu.trg_luot_vat_tu_chi_dinh_khop": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn gắn vật tư bán vào chỉ định không thuộc lượt khám / phòng khám này",
+"day_ngam": []
+},
+"luot_vat_tu.trg_luot_vat_tu_gac": {
+"loai": "canh_bat_bien",
+"lam_gi": "bán vật tư: phải là vật tư có giá, đang bán, cần người có quyền Duyệt vật tư nếu hàng cần duyệt; dòng đã nằm trong lần thu thì không đổi số lượng/giá/bỏ",
+"day_ngam": []
+},
+"luot_vat_tu.trg_notify_luot_vat_tu": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng luot_vat_tu vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"patient.trg_patient_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE patient (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"patient.trg_patient_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE patient (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"patient.trg_patient_sdt_tim_kiem": {
+"loai": "dong_bo_phu",
+"lam_gi": "tính lại cột sdt_tim_kiem của khách từ SĐT chính/phụ và SĐT thêm",
+"day_ngam": []
+},
+"patient_medical_profile.trg_notify_patient_medical_profile": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng patient_medical_profile vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"patient_sdt_them.trg_sdt_them_lam_tuoi": {
+"loai": "dong_bo_phu",
+"lam_gi": "khi thêm/sửa/xoá SĐT phụ của khách thì \"chạm\" dòng patient để tính lại cột tìm kiếm SĐT",
+"day_ngam": []
+},
+"payment.trg_notify_payment": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng payment vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"payment.trg_payment_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE payment (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"payment.trg_payment_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE payment (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"payment_bill_line.trg_lieu_trinh_sau_ghi_dong_tra_truoc": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "cuối giao dịch, khi hoá đơn có dòng trả trước liệu trình thì tự tính lại liệu trình: phủ lại buổi đã trả trước, trạng thái",
+"day_ngam": [
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh"
+},
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh_buoi"
+}
+]
+},
+"payment_bill_line.trg_payment_bill_line_append_only": {
+"loai": "canh_bat_bien",
+"lam_gi": "dòng hoá đơn đã thu là ảnh chụp — chặn sửa / xoá",
+"day_ngam": []
+},
+"payment_bill_line.trg_payment_bill_line_chi_dinh_con_hieu_luc": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn thu tiền chỉ định / phụ thu đã bỏ, không làm hoặc còn nháp",
+"day_ngam": []
+},
+"payment_bill_line.trg_payment_bill_line_khong_thu_buoi_da_tra": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn thu lẻ một buổi đã được trả trước trong liệu trình",
+"day_ngam": []
+},
+"payment_bill_line.trg_payment_bill_line_khop_loai_lan_thu": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn để dòng thuốc và dòng dịch vụ chung một lần thu",
+"day_ngam": []
+},
+"payment_bill_line.trg_payment_bill_line_mot_lan_phu": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn một mục (chỉ định/khám/phụ thu/vật tư/liệu trình) bị thu hai lần trong các lần thu còn sống",
+"day_ngam": []
+},
+"payment_cycle.trg_lieu_trinh_sau_doi_lan_thu": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi lần thu dịch vụ đổi trạng thái (thu / huỷ phiếu) thì tự tính lại các liệu trình dính lần thu ấy (buổi trả trước, trạng thái)",
+"day_ngam": [
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh"
+},
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh_buoi"
+}
+]
+},
+"payment_cycle.trg_notify_payment_cycle": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng payment_cycle vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"payment_cycle.trg_payment_cycle_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "lần thu không xoá; chỉ chuyển PENDING_VERIFICATION→PAID/CANCELLED, PAID→VOIDED; cột đã ghi (tiền, giảm giá, người…) không sửa",
+"day_ngam": []
+},
+"payment_cycle_doi_hinh_thuc.trg_notify_payment_cycle_doi_hinh_thuc": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng payment_cycle_doi_hinh_thuc vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"payment_cycle_doi_hinh_thuc.trg_payment_cycle_doi_hinh_thuc_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ đổi hình thức thu chỉ thêm; lúc thêm kiểm phiếu đang PAID, chưa có hoàn, hình thức cũ khớp, tiền mặt + CK = số tiền phiếu",
+"day_ngam": []
+},
+"payment_cycle_doi_hinh_thuc.trg_payment_cycle_doi_hinh_thuc_khong_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ đổi hình thức thu chỉ thêm; lúc thêm kiểm phiếu đang PAID, chưa có hoàn, hình thức cũ khớp, tiền mặt + CK = số tiền phiếu",
+"day_ngam": []
+},
+"payment_cycle_phan.trg_payment_cycle_phan_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "các phần của lần thu chỉ thêm — chặn sửa / xoá / TRUNCATE",
+"day_ngam": []
+},
+"payment_cycle_phan.trg_payment_cycle_phan_khong_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "các phần của lần thu chỉ thêm — chặn sửa / xoá / TRUNCATE",
+"day_ngam": []
+},
+"payment_cycle_phan.trg_payment_cycle_phan_kiem_tong": {
+"loai": "canh_bat_bien",
+"lam_gi": "cuối giao dịch kiểm tổng các phần = số tiền lần thu và có phần CK thì lần thu phải ghi CK",
+"day_ngam": []
+},
+"payment_refund.trg_lieu_trinh_sau_doi_hoan": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi khoản hoàn dịch vụ đổi trạng thái thì tự tính lại các liệu trình dính lần thu ấy",
+"day_ngam": [
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh"
+},
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh_buoi"
+}
+]
+},
+"payment_refund.trg_notify_payment_refund": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng payment_refund vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"payment_refund.trg_payment_refund_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "khoản hoàn không xoá; chỉ hoàn trên lần thu đã thu đúng loại; chỉ chuyển PENDING→COMPLETED/FAILED/CANCELLED, cột khác bất biến",
+"day_ngam": []
+},
+"payment_refund.trg_payment_refund_tong_khop": {
+"loai": "canh_bat_bien",
+"lam_gi": "cuối giao dịch kiểm tiền đầu khoản hoàn = tổng các dòng hoàn",
+"day_ngam": []
+},
+"payment_refund_line.trg_lieu_trinh_sau_ghi_dong_hoan": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi ghi dòng hoàn trên dòng hoá đơn trả trước liệu trình thì tự tính lại liệu trình (bỏ phủ buổi chưa làm)",
+"day_ngam": [
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh"
+},
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh_buoi"
+}
+]
+},
+"payment_refund_line.trg_notify_payment_refund_line": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng payment_refund_line vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"payment_refund_line.trg_payment_refund_line_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "dòng hoàn chỉ thêm; phải thuộc khoản hoàn còn mở của đúng lần thu, chỉ dòng phòng khám có giá, không hoàn vượt số lượng / tiền đã thu",
+"day_ngam": []
+},
+"payment_refund_line.trg_payment_refund_line_tong_khop": {
+"loai": "canh_bat_bien",
+"lam_gi": "cuối giao dịch kiểm tổng dòng hoàn = tiền đầu khoản hoàn",
+"day_ngam": []
+},
+"phan_hoi_khach.trg_notify_phan_hoi_khach": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng phan_hoi_khach vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"phieu_kham_luot.trg_notify_phieu_kham_luot": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng phieu_kham_luot vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"phieu_kham_luot.trg_phieu_kham_lich_su": {
+"loai": "ghi_lich_su",
+"lam_gi": "khi phiếu khám thêm/đổi dữ liệu thì ghi ô nào đổi (trước/sau) vào phieu_kham_lich_su, gộp các lần sửa cùng người trong 10 phút",
+"day_ngam": []
+},
+"phieu_kho.phieu_kho_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ kho phieu_kho chỉ ghi thêm — chặn sửa / xoá / TRUNCATE (nhầm thì ghi dòng ADJUST)",
+"day_ngam": []
+},
+"phieu_kho_dong.phieu_kho_dong_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ kho phieu_kho_dong chỉ ghi thêm — chặn sửa / xoá / TRUNCATE (nhầm thì ghi dòng ADJUST)",
+"day_ngam": []
+},
+"phieu_kho_dong.trg_phieu_kho_dong_dung_co_so": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn dòng phiếu kho dùng lô thuộc cơ sở khác với phiếu",
+"day_ngam": []
+},
+"phieu_kho_dong.trg_phieu_kho_dong_nguon_dung_co_so": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn dòng phiếu chuyển lấy hàng nguồn ở cơ sở khác với phiếu",
+"day_ngam": []
+},
+"prescription.trg_don_thuoc_chup_bac_si_chinh": {
+"loai": "dong_bo_phu",
+"lam_gi": "lúc thêm dòng đơn thuốc mà chưa có bác sĩ chính thì chụp bác sĩ chính của lượt khám vào dòng",
+"day_ngam": []
+},
+"prescription.trg_notify_prescription": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng prescription vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"prescription.trg_prescription_dinh_chinh_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "dòng đơn thuốc: hồ sơ đã ký thì thêm/sửa/gỡ phải qua đính chính hồ sơ; dòng có dấu vết nhà thuốc/thu tiền không xoá, không sửa chuyên môn; quầy được đổi số lượng khi chưa giao/thu",
+"day_ngam": []
+},
+"prescription.trg_prescription_giu_phan_lo": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn đổi thuốc / đơn vị / giảm số lượng dòng đơn khi đang có phân lô",
+"day_ngam": []
+},
+"prescription_allocation.trg_prescription_allocation_dung_co_so": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn phân lô từ kho cơ sở khác với cơ sở của lượt khám",
+"day_ngam": []
+},
+"prescription_allocation.trg_prescription_allocation_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "phân lô không xoá (gỡ bằng released_at); đúng thuốc, đơn vị, không vượt số mua; không gỡ khi đã giao / đang bán",
+"day_ngam": []
+},
+"prescription_correction.trg_prescription_correction_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "lịch sử đính chính đơn chỉ thêm; đặt corrected_at = now(); hồ sơ đã ký thì phải gắn đính chính hồ sơ đang mở",
+"day_ngam": []
+},
+"queue_entry.trg_notify_queue_entry": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng queue_entry vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"queue_entry.trg_queue_entry_vao_hang_luc": {
+"loai": "dong_bo_phu",
+"lam_gi": "giữ nguyên mốc vào hàng đầu tiên (vao_hang_luc), lần đầu lấy từ eligible_at",
+"day_ngam": []
+},
+"result_correction.trg_result_correction_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "result_correction chỉ được thêm — chặn mọi sửa / xoá",
+"day_ngam": []
+},
+"result_correction.trg_result_correction_hop_le": {
+"loai": "canh_bat_bien",
+"lam_gi": "bản sửa kết quả phải đúng lượt của phiếu và số bản liền mạch (v2, v3…)",
+"day_ngam": []
+},
+"review_round.trg_notify_review_round": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng review_round vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"roster_week.lich_truc_chup_anh": {
+"loai": "ghi_lich_su",
+"lam_gi": "khi áp dụng (công bố) lịch tuần thì chụp ảnh toàn bộ ô lịch trực tuần đó vào lich_truc_anh",
+"day_ngam": []
+},
+"round_requirement.trg_notify_round_requirement": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng round_requirement vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"service_log.trg_notify_service_log": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng service_log vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"service_order.service_order_dong_bo_trang_thai": {
+"loai": "dong_bo_phu",
+"lam_gi": "đồng bộ hai bộ cột trạng thái của chỉ định (execution_status mới ↔ exec_status cũ), đặt started_at/finished_at",
+"day_ngam": []
+},
+"service_order.trg_gan_lan_chi_dinh": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "đánh số \"lần chỉ định\" trong lượt cho chỉ định mới / nháp được duyệt (bỏ số với dòng mang sang, làm thêm tại quầy)",
+"day_ngam": []
+},
+"service_order.trg_lieu_trinh_sau_sua_chi_dinh": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi chỉ định bị huỷ / không làm / khách bỏ thì tự gỡ buổi khỏi liệu trình; khi bắt đầu/xong thì tính lại; khi sống lại thì tự gắn lại vào liệu trình cũ hoặc liệu trình ứng viên duy nhất",
+"day_ngam": [
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh"
+},
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh_buoi"
+}
+]
+},
+"service_order.trg_lieu_trinh_sau_them_chi_dinh": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi thêm chỉ định của dịch vụ đang có liệu trình DANG_LAM của khách thì tự gắn buổi vào liệu trình ứng viên duy nhất",
+"day_ngam": [
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh"
+},
+{
+"den_khoi": "lieu_trinh",
+"bang": "lieu_trinh_buoi"
+}
+]
+},
+"service_order.trg_notify_service_order": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng service_order vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"service_order.trg_service_order_bo_bac_si_khi_doi_phong": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi chỉ định đổi phòng thì tự bỏ bác sĩ làm đã chọn (bac_si_lam_id, lan_lam…)",
+"day_ngam": []
+},
+"service_order.trg_so_sua_chi_dinh": {
+"loai": "ghi_lich_su",
+"lam_gi": "khi chỉ định được thêm / bỏ / hoàn tác (exec_status) thì ghi một dòng vào sổ sửa chỉ định kèm người, bác sĩ chính, tiền đã thu, lý do",
+"day_ngam": []
+},
+"service_order_draft.trg_notify_service_order_draft": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng service_order_draft vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"service_order_draft.trg_service_order_draft_khoa": {
+"loai": "canh_bat_bien",
+"lam_gi": "nháp chỉ định không xoá; đã duyệt/bỏ thì không sửa; mỗi lần sửa tăng version",
+"day_ngam": []
+},
+"service_price.vat_tu_don_vi_bat_bien": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn đổi đơn vị của vật tư đã có giao dịch kho hoặc phiếu nhập chờ duyệt",
+"day_ngam": []
+},
+"service_type.trg_service_type_form_code": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn gán mã phiếu khám không có trong danh mục phiếu của phòng khám",
+"day_ngam": []
+},
+"slot_hold.trg_notify_slot_hold": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng slot_hold vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"so_no.trg_notify_so_no": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng so_no vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"so_no.trg_so_no_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ nợ chỉ thêm — sửa bằng dòng chênh lệch mới",
+"day_ngam": []
+},
+"so_no.trg_so_no_kiem_so_du": {
+"loai": "canh_bat_bien",
+"lam_gi": "kiểm số dư dòng sổ nợ mới = số dư trước + chênh lệch (khoá theo lượt)",
+"day_ngam": []
+},
+"so_sua_chi_dinh.trg_notify_so_sua_chi_dinh": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng so_sua_chi_dinh vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"so_sua_chi_dinh.trg_so_sua_chi_dinh_chi_ghi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ sửa chỉ định không xoá; ai/lúc/làm gì không sửa (chỉ cho đánh dấu hoàn tác một lần, gộp dòng THUỐC đang mở)",
+"day_ngam": []
+},
+"so_sua_chi_dinh.trg_so_sua_chi_dinh_dong_bao": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi một mục được chỉ định lại thì tự đóng các thông báo \"bỏ chỉ định\" còn mở của đúng mục ấy (đánh dấu đã xử lý)",
+"day_ngam": [
+{
+"den_khoi": "chuong",
+"bang": "thong_bao"
+}
+]
+},
+"staff.giu_nguoi_cap_quyen_staff_nghi": {
+"loai": "canh_bat_bien",
+"lam_gi": "khi nhân sự nghỉ việc thì kiểm phòng khám vẫn còn ít nhất một người giữ quyền cấp quyền",
+"day_ngam": []
+},
+"staff.staff_ensure_default_membership": {
+"loai": "logic_nghiep_vu",
+"lam_gi": "khi tạo nhân sự (triển khai một phòng khám) thì tự tạo thành viên phòng khám mặc định với vai = primary_department",
+"day_ngam": []
+},
+"staff.trg_staff_default_primary_location": {
+"loai": "dong_bo_phu",
+"lam_gi": "khi tạo nhân sự chưa có cơ sở chính mà phòng khám chỉ có đúng một cơ sở thì tự điền cơ sở đó",
+"day_ngam": []
+},
+"staff.trg_staff_location_matches_clinic": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn cơ sở chính của nhân sự thuộc phòng khám mà họ không là thành viên",
+"day_ngam": []
+},
+"staff_node.trg_staff_node_scope": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn khai một bước vừa \"mọi cơ sở\" vừa từng cơ sở cho cùng người",
+"day_ngam": []
+},
+"staff_task.staff_task_set_updated_at": {
+"loai": "ha_tang_khac",
+"lam_gi": "tự đặt updated_at = now() mỗi lần sửa",
+"day_ngam": []
+},
+"staff_task.trg_notify_staff_task": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng staff_task vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"tep_ket_qua.trg_notify_tep_ket_qua": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng tep_ket_qua vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"tep_ket_qua.trg_tep_ket_qua_bao_tin_khi_sua": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng tep_ket_qua vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"tep_ket_qua.trg_tep_ket_qua_chuyen_trang_thai": {
+"loai": "canh_bat_bien",
+"lam_gi": "máy trạng thái xác nhận tệp kết quả đối tác (CHO_XAC_NHAN→HOP_LE/TU_CHOI, HOP_LE→THU_HOI), dấu vết xác nhận/thu hồi không sửa",
+"day_ngam": []
+},
+"tep_ket_qua.trg_tep_ket_qua_gui_phai_duoc_cho_phep": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn gửi tệp kết quả đang chờ xác nhận / bị từ chối / thu hồi; mốc bác sĩ cho phép gửi không sửa",
+"day_ngam": []
+},
+"tep_ket_qua.trg_tep_ket_qua_khoa_vet_xoa": {
+"loai": "canh_bat_bien",
+"lam_gi": "vết xoá tệp kết quả (ai, lúc, vì sao) không sửa đè; đã dọn tệp vật lý thì đóng băng",
+"day_ngam": []
+},
+"tep_ket_qua.trg_tep_ket_qua_kiem_tra_cho_phep_gui": {
+"loai": "canh_bat_bien",
+"lam_gi": "chỉ tệp đối tác ở trạng thái HOP_LE mới được duyệt gửi cho khách",
+"day_ngam": []
+},
+"tep_ket_qua.trg_tep_ket_qua_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE tep_ket_qua (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"tep_ket_qua.trg_tep_ket_qua_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE tep_ket_qua (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"thong_bao.trg_notify_thong_bao": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng thong_bao vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"tuong_tac_cskh.trg_notify_tuong_tac_cskh": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng tuong_tac_cskh vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"ultrasound_record.trg_ultrasound_signed_lock": {
+"loai": "canh_bat_bien",
+"lam_gi": "siêu âm đã ký thì chặn sửa kết luận / mô tả / ảnh (phải qua đính chính)",
+"day_ngam": []
+},
+"ultrasound_record.ultrasound_record_set_updated_at": {
+"loai": "ha_tang_khac",
+"lam_gi": "tự đặt updated_at = now() mỗi lần sửa",
+"day_ngam": []
+},
+"vat_tu_nhap_cho_duyet.a_vat_tu_nhap_cho_duyet_khoa_don_vi": {
+"loai": "canh_bat_bien",
+"lam_gi": "yêu cầu nhập vật tư phải ghi đơn vị khớp đơn vị hiện tại trong danh mục",
+"day_ngam": []
+},
+"vat_tu_nhap_cho_duyet.trg_notify_vat_tu_nhap_cho_duyet": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng vat_tu_nhap_cho_duyet vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"vat_tu_nhap_cho_duyet.vat_tu_nhap_cho_duyet_gac": {
+"loai": "canh_bat_bien",
+"lam_gi": "yêu cầu nhập vật tư không xoá; mới phải CHO_DUYET, đúng cơ sở/người lập; nội dung không sửa; duyệt/từ chối chỉ người có quyền Duyệt vật tư",
+"day_ngam": []
+},
+"vat_tu_phieu.trg_notify_vat_tu_phieu": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng vat_tu_phieu vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"vat_tu_phieu.vat_tu_phieu_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ vật tư vat_tu_phieu chỉ thêm — hoàn tác bằng phiếu đảo",
+"day_ngam": []
+},
+"vat_tu_phieu.vat_tu_phieu_du_dong": {
+"loai": "canh_bat_bien",
+"lam_gi": "cuối giao dịch kiểm phiếu vật tư có dòng, phiếu chuyển/xuất/trả đủ dòng đối ứng đúng nơi chứa, phiếu đảo đảo đủ dòng gốc",
+"day_ngam": []
+},
+"vat_tu_phieu.vat_tu_phieu_gac": {
+"loai": "canh_bat_bien",
+"lam_gi": "phiếu vật tư phải đúng cơ sở / người tạo; phiếu đảo chỉ đảo phiếu cùng cơ sở, không đảo phiếu đảo",
+"day_ngam": []
+},
+"vat_tu_ton.trg_notify_vat_tu_ton": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng vat_tu_ton vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"vat_tu_ton.vat_tu_ton_gac": {
+"loai": "canh_bat_bien",
+"lam_gi": "tồn vật tư không xoá, không sửa trực tiếp (chỉ qua sổ), tồn ban đầu = 0, nơi chứa đúng cơ sở",
+"day_ngam": []
+},
+"vat_tu_txn.a_vat_tu_txn_khoa_don_vi": {
+"loai": "canh_bat_bien",
+"lam_gi": "dòng sổ vật tư phải trỏ mặt hàng nhóm vat_tu của phòng khám",
+"day_ngam": []
+},
+"vat_tu_txn.trg_notify_vat_tu_txn": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng vat_tu_txn vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"vat_tu_txn.vat_tu_txn_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sổ vật tư vat_tu_txn chỉ thêm — hoàn tác bằng phiếu đảo",
+"day_ngam": []
+},
+"vat_tu_txn.vat_tu_txn_cong_ton": {
+"loai": "dong_bo_phu",
+"lam_gi": "kiểm dòng sổ vật tư đúng phiếu / nơi chứa / loại phiếu rồi cộng ngay số lượng vào tồn vật tư (vat_tu_ton)",
+"day_ngam": []
+},
+"vat_tu_txn.vat_tu_txn_du_dong": {
+"loai": "canh_bat_bien",
+"lam_gi": "cuối giao dịch kiểm phiếu vật tư có dòng, phiếu chuyển/xuất/trả đủ dòng đối ứng đúng nơi chứa, phiếu đảo đảo đủ dòng gốc",
+"day_ngam": []
+},
+"visit.trg_notify_visit": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng visit vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"visit.trg_visit_don_goc_guard": {
+"loai": "canh_bat_bien",
+"lam_gi": "đơn gốc của lượt bán lẻ phải là lượt khám (không bán lẻ) của chính khách đó",
+"day_ngam": []
+},
+"visit.trg_visit_finalized_block": {
+"loai": "canh_bat_bien",
+"lam_gi": "lượt đã FINALIZED thì chặn sửa trừ chuyển AMENDED hoặc ghi exam_completed_at lần đầu (TT13)",
+"day_ngam": []
+},
+"visit.trg_visit_no_delete": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE visit (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"visit.trg_visit_no_truncate": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn xoá cứng / TRUNCATE visit (chỉ huỷ bằng trạng thái; mở bằng cờ app.allow_hard_delete cho ETL)",
+"day_ngam": []
+},
+"visit.trg_visit_phong_cung_co_so": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn gán phòng thuộc cơ sở khác với cơ sở của lượt khám (visit)",
+"day_ngam": []
+},
+"visit.visit_set_updated_at": {
+"loai": "ha_tang_khac",
+"lam_gi": "tự đặt updated_at = now() mỗi lần sửa",
+"day_ngam": []
+},
+"visit_amendment.trg_visit_amendment_append_only": {
+"loai": "canh_bat_bien",
+"lam_gi": "đính chính hồ sơ chỉ thêm (TT13) — chặn sửa / xoá",
+"day_ngam": []
+},
+"visit_gate_rule.trg_visit_gate_rule_nodes": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn luật cổng chứa mã bước chưa khai trong phòng khám",
+"day_ngam": []
+},
+"vital_measurement.trg_notify_vital_measurement": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng vital_measurement vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"vital_measurement.trg_vital_measurement_chi_them": {
+"loai": "canh_bat_bien",
+"lam_gi": "sinh hiệu chỉ thêm — đo lại thì ghi dòng mới",
+"day_ngam": []
+},
+"work_item.trg_notify_work_item": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng work_item vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"work_item.trg_work_item_phong_cung_co_so": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn gán phòng thuộc cơ sở khác với cơ sở của lượt khám (work_item)",
+"day_ngam": []
+},
+"work_item.trg_work_item_room_clinic": {
+"loai": "canh_bat_bien",
+"lam_gi": "chặn công việc gắn phòng của phòng khám khác",
+"day_ngam": []
+},
+"work_item.trg_work_item_update_visit_node": {
+"loai": "dong_bo_phu",
+"lam_gi": "khi công việc của lượt đổi trạng thái thì tự cập nhật bước hiện tại của lượt khám (visit.current_node_code) theo công việc IN_PROGRESS mới nhất; lượt đã đóng thì để yên",
+"day_ngam": [
+{
+"den_khoi": "reception",
+"bang": "visit"
+}
+]
+},
+"work_item_dependency.work_item_dependency_inherit_clinic": {
+"loai": "canh_bat_bien",
+"lam_gi": "quan hệ phụ thuộc công việc không được chéo phòng khám; tự điền clinic_id từ công việc",
+"day_ngam": []
+},
+"work_item_event.trg_notify_work_item_event": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng work_item_event vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+},
+"work_item_event.work_item_event_inherit_clinic": {
+"loai": "canh_bat_bien",
+"lam_gi": "sự kiện công việc phải cùng phòng khám với công việc; tự điền clinic_id",
+"day_ngam": []
+},
+"work_roster.lich_truc_ghi_thay_doi": {
+"loai": "ghi_lich_su",
+"lam_gi": "mỗi lần thêm / sửa / đổi người / xoá ô lịch trực thì ghi trước/sau vào lich_truc_thay_doi",
+"day_ngam": []
+},
+"work_roster.trg_notify_work_roster": {
+"loai": "ha_tang_realtime",
+"lam_gi": "phát tin 'bảng work_roster vừa đổi' (pg_notify clinicai_changes) để màn hình đang mở tự làm mới",
+"day_ngam": []
+}
+},
+"view": {
+"patient_summary": {
+"lam_gi": "Tóm tắt mỗi khách: thông tin cơ bản, lần khám gần nhất, tổng số lượt, lịch hẹn kế tiếp, kết quả xét nghiệm mới nhất.",
+"dung_o": "không ai — grep src/clinicai, src/dashboard chỉ thấy trong types/database.generated.ts (kiểu tự sinh); ngoài src chỉ có comment ở scripts/don-du-lieu-thu.sh và supabase/tests/tenant_scoped_rls.sql. Migration 20260730000015 đã REVOKE khỏi anon/authenticated, chỉ còn service_role.",
+"khoi": "ho_so_khach"
+},
+"v_audit_log": {
+"lam_gi": "Nhật ký thao tác (sổ event_log cũ) kèm tên người làm và tên/mã khách liên quan.",
+"dung_o": "src/clinicai/services/audit_log_service.py (FROM public.v_audit_log); slot_hold_service.py, config_service.py, BookingHub.tsx chỉ nhắc trong comment.",
+"khoi": "van_hanh"
+},
+"v_clinical_status": {
+"lam_gi": "Trạng thái hồ sơ khám của mỗi lượt: nháp / đã ký / đã trả cho khách / đã sửa, kèm số phiên bản.",
+"dung_o": "src/clinicai/services/clinical_sign_service.py",
+"khoi": "consultation"
+},
+"v_consultation_duration": {
+"lam_gi": "Thời gian thật mỗi lượt việc đã xong (1 phút – 4 giờ), tính theo giờ/thứ giờ Việt Nam.",
+"dung_o": "không code nào đọc thẳng (booking_service.py, capacity_service.py, dashboard chỉ nhắc trong comment); được dùng GIÁN TIẾP vì v_consultation_duration_stats đọc nó.",
+"khoi": "booking"
+},
+"v_consultation_duration_stats": {
+"lam_gi": "Trung vị, p90, min/max thời gian khám theo bác sĩ × dịch vụ × loại khách × thứ × giờ.",
+"dung_o": "src/clinicai/api/v1/routers/config.py (dòng ~1062); dashboard settings/booking-policy/page.tsx và MeasuredDurationCard.tsx nhận dữ liệu qua API.",
+"khoi": "booking"
+},
+"v_dispatch_history": {
+"lam_gi": "Lịch sử chuyển khách giữa trạm/phòng (sự kiện dispatch.*) kèm lý do, người chuyển, tên khách.",
+"dung_o": "src/clinicai/services/dispatch_service.py",
+"khoi": "service_routing"
+},
+"v_event_delivery_suc_khoe": {
+"lam_gi": "Đếm theo bên nghe: số dòng chờ giao, chết, đang làm, và tuổi dòng chờ lâu nhất.",
+"dung_o": "src/clinicai/api/v1/routers/ops.py; src/clinicai/events/worker.py; src/clinicai/events/nang_cap.py",
+"khoi": "hạ tầng sự kiện (bảng kỹ thuật event_delivery, không thuộc khối nghiệp vụ)"
+},
+"v_lieu_trinh_buoi": {
+"lam_gi": "Các buổi của liệu trình, đánh lại số thứ tự buổi theo thứ tự đã làm xong thật.",
+"dung_o": "src/clinicai/services/lieu_trinh_service.py, nhan_luot.py, service_selection_service.py, phieu_kham/ket_qua_chi_dinh.py",
+"khoi": "lieu_trinh"
+},
+"v_moc_hanh_trinh": {
+"lam_gi": "Các mốc hành trình của lượt (xếp phòng, nhận, bắt đầu, xong, hoàn tác…) đọc từ sổ sự kiện, có cờ 'đã bị hoàn tác'.",
+"dung_o": "không code chạy nào — src/clinicai chỉ nhắc trong comment (service_execution_service.py:1312); CHỈ test đọc: src/tests/services/test_nhan_tai_phong_db.py, test_dieu_tri_ban_kham_db.py, test_review_0710_ban_kham_db.py.",
+"khoi": "hanh_trinh"
+},
+"v_quyen_hieu_luc": {
+"lam_gi": "Quyền được cấp tay còn hiệu lực (chưa thu hồi, trong hạn).",
+"dung_o": "src/clinicai/services/permission_service.py, doi_bac_si_service.py; và view v_quyen_thuc_te",
+"khoi": "permission"
+},
+"v_quyen_thuc_te": {
+"lam_gi": "Quyền thật hôm nay của mỗi người = quyền cấp tay + quyền suy từ lịch trực/vị trí/phòng hôm nay.",
+"dung_o": "src/clinicai/permissions/can.py, api/identity.py, services/bac_si_phu_trach.py, services/vat_tu_service.py",
+"khoi": "permission"
+},
+"v_slot_hold_active": {
+"lam_gi": "Các chỗ đang được giữ tạm lúc đặt lịch (chưa nhả, chưa hết hạn) kèm tên người giữ.",
+"dung_o": "src/clinicai/services/slot_hold_service.py",
+"khoi": "booking"
+},
+"v_tep_ket_qua_hieu_luc": {
+"lam_gi": "Tệp kết quả còn hiệu lực (chưa xoá mềm, chưa thu hồi).",
+"dung_o": "15 tệp backend, vd tep_ket_qua_service.py, luot_kham_service.py, checkout_service.py, events/consumers/chuong.py, hanh_trinh.py, phieu_kham/ket_qua_chi_dinh.py",
+"khoi": "result_file"
+},
+"v_trang_thai_cskh": {
+"lam_gi": "Mỗi khách một dòng: việc CSKH gấp nhất đang mở, số việc mở, có việc quá hạn không, khách đã xác nhận lịch chưa.",
+"dung_o": "không code chạy nào — backend đã viết lại luật này bằng Python (man_khach_hang_service.trang_thai_tu_viec); src chỉ nhắc trong comment; src/tests/unit/test_man_khach_hang.py còn CẤM đọc nó; chỉ src/tests/services/test_giam_cham_khach_trang_chu_db.py đọc để so khớp kết quả.",
+"khoi": "cskh"
+},
+"v_viec_cskh": {
+"lam_gi": "Danh sách mọi việc CSKH đang mở theo từng khách/lịch hẹn (gọi xác nhận, nhắc hẹn, gửi kết quả, gọi lại, vượt sức chứa…) kèm hạn và cờ quá hạn.",
+"dung_o": "src/clinicai/services/man_khach_hang_service.py, week_appointments_service.py, man_trang_chu_service.py (dashboard chỉ comment/kiểu)",
+"khoi": "cskh"
+}
+},
+"python": [
+{
+"tep": "src/clinicai/services/ghi_chu_khach_service.py",
+"dong": 95,
+"ham": "ghi",
+"bang": [
+"ghi_chu_khach"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "CSKH/lễ tân thêm ghi chú về khách (dòng 106); bảng chỉ thêm có tao_boi nhưng không phát sự kiện — mức nhẹ.",
+"vi_du": "Lễ tân ghi chú 'khách dặn gọi sau 17h' — khung khách có, nhưng dòng thời gian/khối nhắc việc không biết."
+},
+{
+"tep": "src/clinicai/services/ghi_chu_khach_service.py",
+"dong": 153,
+"ham": "go",
+"bang": [
+"ghi_chu_khach"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gỡ ghi chú khách (dòng 160) có go_boi nhưng không sự kiện — mức nhẹ.",
+"vi_du": "Người ghi gỡ ghi chú; không khối nào biết ghi chú đã gỡ."
+},
+{
+"tep": "src/clinicai/services/doi_bac_si_service.py",
+"dong": 101,
+"ham": "doi",
+"bang": [
+"appointment",
+"consultation",
+"queue_entry",
+"visit"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đổi bác sĩ giữa lượt (UPDATE visit/appointment/consultation/queue_entry dòng 162-196) chỉ record_event dòng 207; router dispatch.py:620 cũng không emit.",
+"vi_du": "Trưởng ca chuyển khách từ BS A sang BS B giữa lượt — BS B không được chuông qua sự kiện, dòng thời gian lượt không ghi 'đổi bác sĩ'."
+},
+{
+"tep": "src/clinicai/services/hoa_don_misa_service.py",
+"dong": 57,
+"ham": "danh_dau",
+"bang": [
+"hoa_don_misa_xuat",
+"hoa_don_misa_xuat_dong"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đánh dấu đã xuất MISA (dòng 91-107) chỉ record_event dòng 118 — kế toán, mức nhẹ.",
+"vi_du": "Kế toán đánh dấu khoảng ngày đã xuất hoá đơn MISA; báo cáo/khối khác không nhận sự kiện."
+},
+{
+"tep": "src/clinicai/services/hoa_don_misa_service.py",
+"dong": 139,
+"ham": "huy_danh_dau",
+"bang": [
+"hoa_don_misa_xuat"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Bỏ đánh dấu xuất MISA (dòng 158) chỉ record_event dòng 164 — mức nhẹ.",
+"vi_du": "Kế toán huỷ đánh dấu đã xuất; không khối nào biết."
+},
+{
+"tep": "src/clinicai/services/hoa_don_misa_service.py",
+"dong": 175,
+"ham": "khoi_phuc",
+"bang": [
+"hoa_don_misa_xuat"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Khôi phục đánh dấu MISA (dòng 185) chỉ record_event dòng 192 — mức nhẹ.",
+"vi_du": "Kế toán khôi phục đánh dấu đã xuất; không khối nào biết."
+},
+{
+"tep": "src/clinicai/services/gate_rule_service.py",
+"dong": 218,
+"ham": "enforce",
+"bang": [
+"visit_gate_override"
+],
+"loai": "chua_chac",
+"ly_do": "Ghi lần bỏ qua luật thứ tự (dòng 258) — chỉ gọi từ dispatch_service.py:490, rail cũ move_visit_to_station đã chặn cho lượt luồng mới (dòng 482); có thể là đường chết.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/ghi_chu_luot.py",
+"dong": 104,
+"ham": "luu",
+"bang": [
+"luot_ghi_chu"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "BS ghi ô chữ hồ sơ lượt 'Khác' (dòng 149), có phiên bản + ghi_boi nhưng không phát sự kiện.",
+"vi_du": "BS lưu hồ sơ lượt 'Khác' — dòng thời gian lượt không có mục 'đã ghi hồ sơ'."
+},
+{
+"tep": "src/clinicai/services/anh_chuyen_khoan_service.py",
+"dong": 117,
+"ham": "tai_len",
+"bang": [
+"anh_chuyen_khoan"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Tải ảnh chuyển khoản lên lần thu (dòng 151), có tai_len_boi nhưng không sự kiện — mức nhẹ (chứng từ đính kèm).",
+"vi_du": "Thu ngân đính ảnh chuyển khoản vào lần thu; kế toán/khối đối soát không nhận tin."
+},
+{
+"tep": "src/clinicai/services/anh_chuyen_khoan_service.py",
+"dong": 207,
+"ham": "go",
+"bang": [
+"anh_chuyen_khoan"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gỡ ảnh chuyển khoản (dòng 221) có go_boi, không sự kiện — mức nhẹ.",
+"vi_du": "Thu ngân gỡ ảnh chuyển khoản; không ai được báo."
+},
+{
+"tep": "src/clinicai/services/kiem_ke_ca_service.py",
+"dong": 1023,
+"ham": "dieu_chinh_theo_kiem_ke",
+"bang": [
+"kiem_ke_ca"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Điều chỉnh tồn theo kiểm kê: ghi ADJUST vào sổ kho (_ghi_adjust → PharmacyService._ghi_so_trong) + UPDATE dòng 1143, chỉ event_log dòng 1149.",
+"vi_du": "Quản lý bấm 'điều chỉnh theo kiểm kê' làm tồn quầy giảm 5 hộp — khối báo cáo/cảnh báo hết hàng không nhận sự kiện tồn đổi."
+},
+{
+"tep": "src/clinicai/services/kiem_ke_ca_service.py",
+"dong": 1194,
+"ham": "hoan_tac_dieu_chinh",
+"bang": [
+"kiem_ke_ca"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Hoàn tác điều chỉnh tồn (dòng 1255) đổi lại tồn kho, chỉ event_log dòng 1260.",
+"vi_du": "Hoàn tác điều chỉnh làm tồn quầy tăng lại — không khối nào biết."
+},
+{
+"tep": "src/clinicai/services/clinical_form_service.py",
+"dong": 230,
+"ham": "save_form",
+"bang": [
+"clinical_form_response"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Lưu phiếu chuyên khoa clinical_form_response (dòng 301) chỉ record_event dòng 327; đường cũ (port từ Next) nhưng route FE app/api/clinical-form còn.",
+"vi_du": "BS lưu phiếu chuyên khoa nam học — dòng thời gian lượt không có, khối kết quả không biết."
+},
+{
+"tep": "src/clinicai/services/kho_thuoc_service.py",
+"dong": 416,
+"ham": "_mo_phieu",
+"bang": [
+"phieu_kho"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Mở phiếu kho (INSERT phieu_kho dòng 457) cho nhập/kiểm/chuyển/hoàn — cả kho_thuoc_service và vat_tu_kho_service không có emit nào.",
+"vi_du": "Thủ kho lập phiếu chuyển kho tổng → quầy; không khối nào nhận sự kiện kho."
+},
+{
+"tep": "src/clinicai/services/kho_thuoc_service.py",
+"dong": 488,
+"ham": "tao_phieu_nhap",
+"bang": [
+"phieu_kho_dong"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Nhập kho thuốc (phieu_kho_dong dòng 612) chỉ event_log (ghi_nhat_ky dòng 631); catalogue không có sự kiện nhập kho.",
+"vi_du": "Thủ kho nhập 10 hộp thuốc mới — cảnh báo hết hàng/báo cáo kho không nhận tin tồn tăng."
+},
+{
+"tep": "src/clinicai/services/kho_thuoc_service.py",
+"dong": 658,
+"ham": "kiem_kho",
+"bang": [
+"phieu_kho_dong"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Kiểm kho ghi lệch + ADJUST (dòng 735) chỉ event_log dòng 759.",
+"vi_du": "Kiểm kho thấy thiếu 3 vỉ, máy trừ tồn — không khối nào biết tồn vừa đổi."
+},
+{
+"tep": "src/clinicai/services/kho_thuoc_service.py",
+"dong": 852,
+"ham": "_chuyen_cac_dong",
+"bang": [
+"drug_batch",
+"phieu_kho_dong"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Chuyển kho: tạo lô đích drug_batch + dòng phiếu (dòng 943,985), người gọi chuyen_kho/hoan_tac_chuyen chỉ event_log (1077).",
+"vi_du": "Chuyển 20 hộp từ kho tổng ra quầy — quầy thuốc không nhận sự kiện có hàng mới."
+},
+{
+"tep": "src/clinicai/services/hen_tai_kham_service.py",
+"dong": 285,
+"ham": "_dong",
+"bang": [
+"nhac_tai_kham"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đóng việc nhắc tái khám (nhac_tai_kham dòng 292) — nằm trong dong_bo, chỉ record_event qua _ghi_lich_su.",
+"vi_du": "BS xoá ngày hẹn tái khám — việc gọi CSKH tự đóng nhưng dòng thời gian không ghi."
+},
+{
+"tep": "src/clinicai/services/hen_tai_kham_service.py",
+"dong": 356,
+"ham": "dong_bo",
+"bang": [
+"nhac_tai_kham"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đồng bộ hẹn tái khám từ phiếu khám (INSERT/UPDATE nhac_tai_kham dòng 488,507) chỉ record_event; gọi từ phieu_kham_service.luu_luot (520) không emit — trong khi đường bàn khám phát followup.scheduled (luot_kham_service.py:2753) và dong_thoi_gian.py:112 nghe nó.",
+"vi_du": "BS ghi 'hẹn tái khám 15/11' trong phiếu khám — dòng thời gian lượt không có mục hẹn, khác hẳn khi hẹn ở bàn khám."
+},
+{
+"tep": "src/clinicai/services/chot_so_ca_service.py",
+"dong": 150,
+"ham": "chot",
+"bang": [
+"chot_so_ca"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Chốt sổ ca thu tiền (chot_so_ca dòng 192) chỉ record_event dòng 214.",
+"vi_du": "Thu ngân chốt sổ ca chiều — báo cáo/khối kế toán không nhận sự kiện 'ca đã chốt'."
+},
+{
+"tep": "src/clinicai/services/chot_so_ca_service.py",
+"dong": 231,
+"ham": "mo_khoa",
+"bang": [
+"chot_so_ca"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Mở khoá ca đã chốt (dòng 244) chỉ record_event dòng 261.",
+"vi_du": "Quản lý mở khoá ca đã chốt để sửa tiền — không khối nào được báo."
+},
+{
+"tep": "src/clinicai/services/hoan_tien_service.py",
+"dong": 254,
+"ham": "dong",
+"bang": [
+"payment_refund"
+],
+"loai": "chua_chac",
+"ly_do": "Đóng khoản hoàn đang chờ FAILED/CANCELLED (dòng 282) chỉ event_log; khoản chờ vốn chưa phát sự kiện nên có thể không cần — chờ chốt.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/ban_le_service.py",
+"dong": 281,
+"ham": "_mo_hoac_lay",
+"bang": [
+"visit"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Mở lượt bán lẻ (INSERT visit dòng 296) chỉ record_event dòng 310; người gọi mo_luot/mo_theo_don không emit.",
+"vi_du": "Quầy thuốc mở lượt bán lẻ cho khách vãng lai — dòng thời gian/chuông không biết có lượt mới."
+},
+{
+"tep": "src/clinicai/services/clinic_floor_service.py",
+"dong": 116,
+"ham": "create",
+"bang": [
+"clinic_floor"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Tạo tầng (dòng 137) — clinic_floor_service không có record_event/event_log nào.",
+"vi_du": "Quản lý thêm 'Tầng 3' — không ai biết ai thêm, lúc nào."
+},
+{
+"tep": "src/clinicai/services/clinic_floor_service.py",
+"dong": 159,
+"ham": "rename",
+"bang": [
+"clinic_floor"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Đổi tên tầng (dòng 169) chỉ updated_at.",
+"vi_du": "Đổi tên 'Tầng 2' thành 'Tầng siêu âm' — không còn dấu ai đổi."
+},
+{
+"tep": "src/clinicai/services/clinic_floor_service.py",
+"dong": 187,
+"ham": "set_active",
+"bang": [
+"clinic_floor"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Bật/tắt tầng (dòng 238,247) chỉ updated_at.",
+"vi_du": "Tắt một tầng làm phòng ở đó biến khỏi màn — không ai tra được ai tắt."
+},
+{
+"tep": "src/clinicai/services/clinic_floor_service.py",
+"dong": 261,
+"ham": "reorder",
+"bang": [
+"clinic_floor"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Sắp xếp tầng (dòng 294) chỉ updated_at.",
+"vi_du": "Đổi thứ tự tầng — không dấu vết."
+},
+{
+"tep": "src/clinicai/services/dinh_chinh_don.py",
+"dong": 413,
+"ham": "ap_dung_don_da_ky",
+"bang": [
+"prescription",
+"prescription_allocation",
+"prescription_correction"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đính chính đơn thuốc ĐÃ KÝ (prescription/allocation/correction dòng 444-534) chỉ record_event dòng 554; người gọi clinical_sign_service.amend không emit.",
+"vi_du": "BS đính chính đơn đã ký (đổi liều, bỏ thuốc) — quầy thuốc không nhận prescription.saved, có thể giao theo đơn cũ."
+},
+{
+"tep": "src/clinicai/services/dinh_chinh_don.py",
+"dong": 912,
+"ham": "_chen",
+"bang": [
+"prescription"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Chèn dòng đơn; khi đi qua ap_dung_don_da_ky (đính chính đơn đã ký, dòng 513/541) thì không có sự kiện nào.",
+"vi_du": "BS thêm thuốc vào đơn đã ký — quầy thuốc không được báo."
+},
+{
+"tep": "src/clinicai/services/ban_theo_don_service.py",
+"dong": 397,
+"ham": "_doi_noi",
+"bang": [
+"visit"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Nối/gỡ nối lượt bán lẻ với đơn gốc (visit.don_goc_visit_id dòng 401); người gọi noi_don_conn/go_noi_don chỉ record_event — mức nhẹ.",
+"vi_du": "Quầy thuốc nối lượt bán với đơn của lượt khám cũ — lượt gốc không nhận tin đơn đã được mua."
+},
+{
+"tep": "src/clinicai/services/agent_giam_sat.py",
+"dong": 649,
+"ham": "dat_che_do",
+"bang": [
+"agent_cau_hinh",
+"agent_nhan_dinh"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Đặt chế độ agent (agent_cau_hinh dòng 660) chỉ có cap_nhat_boi của lần cuối, không lịch sử — mức nhẹ.",
+"vi_du": "Ai đó tắt agent giám sát — chỉ còn tên người sửa cuối, không biết trước đó ai bật/tắt."
+},
+{
+"tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+"dong": 340,
+"ham": "ghi_hoa_don",
+"bang": [
+"hoa_don_cong_ty",
+"khach_cong_ty"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Ghi hoá đơn công ty cho lần thu (dòng 403) có bảng lịch sử (dòng 442) + record_event dòng 443, nhưng không sự kiện lego — mức nhẹ.",
+"vi_du": "Thu ngân tick 'xuất hoá đơn công ty' cho lần thu — khối kế toán/xuất MISA không nhận sự kiện."
+},
+{
+"tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+"dong": 537,
+"ham": "gan_khi_thu",
+"bang": [
+"hoa_don_cong_ty",
+"khach_cong_ty"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gắn hoá đơn công ty khi thu (dòng 599) — gọi từ payment.py:206 SAU giao dịch thu (giao dịch riêng), chỉ lịch sử + record_event — mức nhẹ.",
+"vi_du": "Tick công ty ngay lúc thu — sự kiện thu tiền đã phát trước, phần hoá đơn công ty không ai biết."
+},
+{
+"tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+"dong": 632,
+"ham": "bo_hoa_don",
+"bang": [
+"hoa_don_cong_ty"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Bỏ hoá đơn công ty (dòng 651) có lịch sử + record_event — mức nhẹ.",
+"vi_du": "Bỏ tick hoá đơn công ty — kế toán không được báo."
+},
+{
+"tep": "src/clinicai/services/dispatch_service.py",
+"dong": 531,
+"ham": "apply_route",
+"bang": [
+"event_log",
+"visit_route"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Áp tuyến điều phối cho lượt (visit_route dòng 590/596) chỉ INSERT event_log thô dòng 614.",
+"vi_du": "Trưởng ca đổi tuyến khám của khách giữa chừng — dòng thời gian lượt và màn phòng không nhận sự kiện tuyến đổi."
+},
+{
+"tep": "src/clinicai/services/dispatch_service.py",
+"dong": 788,
+"ham": "set_threshold",
+"bang": [
+"dispatch_threshold"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Ngưỡng điều phối (dispatch_threshold dòng 806/821) chỉ updated_by/updated_at của lần cuối, không lịch sử.",
+"vi_du": "Quản lý đổi ngưỡng chờ phòng siêu âm từ 15 lên 30 phút — không tra được trước đó là bao nhiêu, ai đổi."
+},
+{
+"tep": "src/clinicai/services/clinical_record_service.py",
+"dong": 238,
+"ham": "save",
+"bang": [
+"clinical_record"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Lưu bệnh án đường bệnh án đầy đủ (clinical_record dòng 462, đơn qua _replace_prescriptions→luu_don_chua_ky) chỉ record_event dòng 426/513/530; route FE app/api/clinical-record còn.",
+"vi_du": "BS lưu bệnh án + đơn thuốc qua màn bệnh án đầy đủ — quầy thuốc/dòng thời gian không nhận prescription.saved như đường phiếu khám."
+},
+{
+"tep": "src/clinicai/services/clinical_record_service.py",
+"dong": 566,
+"ham": "_writable_visit",
+"bang": [
+"visit"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Tự tạo visit khi BS ghi bệnh án mà chưa có lượt (INSERT visit dòng 620) — trong save, chỉ record_event.",
+"vi_du": "BS ghi bệnh án cho lịch chưa check-in → hệ thống tự mở lượt, không ai nhận sự kiện check-in."
+},
+{
+"tep": "src/clinicai/services/clinical_record_service.py",
+"dong": 781,
+"ham": "_save_profile",
+"bang": [
+"patient_medical_profile"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Ghi hồ sơ y tế khách (patient_medical_profile dòng 796) trong save, chỉ record_event.",
+"vi_du": "BS cập nhật tiền sử dị ứng của khách — khối khác (kê đơn, cảnh báo) không nhận sự kiện hồ sơ đổi."
+},
+{
+"tep": "src/clinicai/services/config_service.py",
+"dong": 484,
+"ham": "dat_vi_tri_cho_vai",
+"bang": [
+"vai_duoc_vao_tram"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Bật/tắt vai được vào trạm (vai_duoc_vao_tram dòng 503) — chỉ logger.info, bảng không có cột người sửa.",
+"vi_du": "Quản lý cho 'Điều dưỡng' vào trạm Lấy mẫu — không tra được ai bật, lúc nào."
+},
+{
+"tep": "src/clinicai/services/config_service.py",
+"dong": 669,
+"ham": "_go_lich_ngoai_ca",
+"bang": [
+"appointment",
+"event_log"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gỡ ca BS → lịch hẹn còn sống bị gỡ bác sĩ, chuyển 'chờ xếp BS' (UPDATE appointment dòng 770), chỉ event_log 'appointment.doctor_removed' dòng 786; cũng chạy khi cho nhân sự nghỉ (staff_service.py:497).",
+"vi_du": "Quản lý xoá ca chiều của BS A — 4 lịch hẹn của khách mất bác sĩ, nhưng khối đặt lịch/CSKH/dòng thời gian không nhận sự kiện lịch nào."
+},
+{
+"tep": "src/clinicai/services/config_service.py",
+"dong": 1641,
+"ham": "_dong_bo_gia_danh_muc_thuoc",
+"bang": [
+"drug_catalog"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Đồng bộ giá danh mục thuốc theo bảng giá (drug_catalog.unit_price dòng 1667) — không vết, như hàm gọi add/update.",
+"vi_du": "Sửa giá thuốc ở bảng giá kéo theo giá danh mục — không tra được giá cũ."
+},
+{
+"tep": "src/clinicai/services/config_service.py",
+"dong": 1676,
+"ham": "add",
+"bang": [
+"service_price"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Thêm dòng giá (service_price dòng 1721/1747) — config_service không ghi nhật ký cho bảng giá, không trigger lịch sử.",
+"vi_du": "Quản lý thêm giá 'Siêu âm 4D: 500k' — không ai biết ai thêm, lúc nào."
+},
+{
+"tep": "src/clinicai/services/config_service.py",
+"dong": 1792,
+"ham": "update",
+"bang": [
+"service_price"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Sửa giá (dòng 1892) chỉ updated_at, không người sửa, không giá cũ.",
+"vi_du": "Ai đó sửa giá khám từ 300k xuống 200k — hoá đơn sau đó tính 200k, không tra được ai sửa, giá cũ bao nhiêu."
+},
+{
+"tep": "src/clinicai/services/config_service.py",
+"dong": 1945,
+"ham": "remove",
+"bang": [
+"service_price"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Xoá cứng dòng giá (DELETE dòng 1948) — không vết.",
+"vi_du": "Một dòng giá biến mất — không biết ai xoá, giá đó từng là bao nhiêu."
+},
+{
+"tep": "src/clinicai/services/episode_service.py",
+"dong": 64,
+"ham": "set_status",
+"bang": [
+"care_episode",
+"event_log"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đổi trạng thái đợt điều trị care_episode OPEN/CLOSED (dòng 82) chỉ event_log dòng 105; màn /episodes còn.",
+"vi_du": "Lễ tân đóng đợt điều trị của khách — lịch/khối liệu trình không nhận sự kiện."
+},
+{
+"tep": "src/clinicai/services/cskh_service.py",
+"dong": 86,
+"ham": "record_action",
+"bang": [
+"cskh_action"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "CSKH ghi một việc chăm sóc tay (cskh_action dòng 121), FE gọi /cskh/actions; không sự kiện — mức nhẹ.",
+"vi_du": "CSKH ghi 'đã gọi hỏi thăm sau thủ thuật' — dòng thời gian khách không có (khác patient.contacted)."
+},
+{
+"tep": "src/clinicai/services/cskh_service.py",
+"dong": 163,
+"ham": "record_followup_call",
+"bang": [
+"cskh_log"
+],
+"loai": "chua_chac",
+"ly_do": "Ghi cuộc gọi tái khám vào cskh_log (dòng 201) — không thấy màn nào gọi /cskh/followup-calls; có thể là đường cũ.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/clinical_sign_service.py",
+"dong": 832,
+"ham": "_create_renotify_task",
+"bang": [
+"cskh_action",
+"hen_goi_lai"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Tạo việc gọi lại báo khách khi đính chính hồ sơ (hen_goi_lai/cskh_action dòng 863/876) — phản ứng viết thẳng trong amend, không qua sự kiện.",
+"vi_du": "Hồ sơ đã gửi bị đính chính → CSKH có việc 'báo lại khách', nhưng không có sự kiện để khối khác cùng biết."
+},
+{
+"tep": "src/clinicai/services/clinical_sign_service.py",
+"dong": 230,
+"ham": "release",
+"bang": [
+"clinical_release"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "BS cho phép CSKH gửi bệnh án (clinical_release dòng 351) — clinical_sign_service không có emit nào; FE /tasks HoSoHoanTatPanel gọi.",
+"vi_du": "BS bấm 'cho phép gửi kết quả' — CSKH không được chuông qua sự kiện, phải tự mở màn mới thấy."
+},
+{
+"tep": "src/clinicai/services/clinical_sign_service.py",
+"dong": 372,
+"ham": "amend",
+"bang": [
+"clinical_record",
+"clinical_release",
+"visit",
+"visit_amendment"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đính chính bệnh án đã hoàn tất: visit→AMENDED, visit_amendment, clinical_record, release (dòng 519-587) + đính chính đơn — không emit; FE /tasks gọi /amend.",
+"vi_du": "BS mở đính chính bệnh án đã gửi khách — dòng thời gian lượt, quầy thuốc và CSKH đều không nhận sự kiện."
+},
+{
+"tep": "src/clinicai/services/clinical_sign_service.py",
+"dong": 639,
+"ham": "sign_ultrasound",
+"bang": [
+"ultrasound_record"
+],
+"loai": "chua_chac",
+"ly_do": "Ký kết quả siêu âm ultrasound_record (dòng 683) — không thấy màn nào gọi /clinical/ultrasound/{id}/sign; có thể đường cũ.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/consent_service.py",
+"dong": 263,
+"ham": "link",
+"bang": [
+"patient_link"
+],
+"loai": "chua_chac",
+"ly_do": "Liên kết hồ sơ khách patient_link (dòng 289) + record_event — không màn nào gọi /patients/links; có thể chưa dùng.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/consent_service.py",
+"dong": 324,
+"ham": "grant",
+"bang": [
+"clinical_data_consent"
+],
+"loai": "chua_chac",
+"ly_do": "Cấp đồng ý chia sẻ dữ liệu lâm sàng (dòng 353) + record_event — không màn nào gọi /patients/consents.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/consent_service.py",
+"dong": 393,
+"ham": "revoke",
+"bang": [
+"clinical_data_consent"
+],
+"loai": "chua_chac",
+"ly_do": "Thu hồi đồng ý (dòng 410) + record_event — không màn nào gọi.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/lab_safety_service.py",
+"dong": 64,
+"ham": "persist_classification",
+"bang": [
+"lab_result"
+],
+"loai": "chua_chac",
+"ly_do": "Ghi kết quả AI phân loại xét nghiệm (lab_result dòng 141) — chỉ chạy khi bật lab_triage (main.py:179); là đầu ra máy, chưa rõ có cần sự kiện.",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/lab_safety_service.py",
+"dong": 178,
+"ham": "finalize_review",
+"bang": [
+"lab_result",
+"staff_task"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "BS duyệt + chốt kết quả xét nghiệm (lab_result dòng 238, staff_task 263) chỉ record_event; catalogue có result.reviewed nhưng hàm không phát; FE app/api/lab-result/[id]/review gọi.",
+"vi_du": "BS duyệt chốt kết quả xét nghiệm bất thường — CSKH/dòng thời gian không nhận result.reviewed."
+},
+{
+"tep": "src/clinicai/api/v1/routers/config.py",
+"dong": 785,
+"ham": "update_display_settings",
+"bang": [
+"clinic"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "SQL ghi thẳng trong router: bật/tắt khu bảng gọi số, cách hiện tên (clinic dòng 822) — không nhật ký.",
+"vi_du": "Ai đó đổi bảng gọi số sang hiện đủ tên khách — không tra được ai đổi."
+},
+{
+"tep": "src/clinicai/api/v1/routers/config.py",
+"dong": 921,
+"ham": "sua_ca_lam_viec",
+"bang": [
+"clinic"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "SQL ghi thẳng trong router: sửa giờ các ca làm việc (clinic dòng 999/1012) — không nhật ký, mà giờ ca quyết định sức chứa đặt lịch.",
+"vi_du": "Đổi ca chiều từ 13:30 thành 14:00 — lịch đặt bị lệch ca, không ai biết ai đổi lúc nào."
+},
+{
+"tep": "src/clinicai/services/vat_tu_kho_service.py",
+"dong": 158,
+"ham": "_mo_phieu",
+"bang": [
+"vat_tu_phieu"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Mở phiếu kho vật tư (nhập/xuất phòng/huỷ/kiểm/đảo) qua tao_phieu/hoan_phieu (dòng 308, 357) — cả chuỗi không emit_event; chỉ khi NHẬP đi đường duyệt mới có vat_tu.nhap_da_quyet. Sổ vat_tu_phieu chỉ-thêm có tao_boi nên còn vết",
+"vi_du": "Kho xuất 10 găng tay lên phòng thủ thuật hoặc huỷ vật tư hỏng — khối báo cáo/canh gác tồn không nhận sự kiện nào để phản ứng, chỉ biết khi tự đọc bảng."
+},
+{
+"tep": "src/clinicai/services/vat_tu_kho_service.py",
+"dong": 238,
+"ham": "_ghi",
+"bang": [
+"vat_tu_txn"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Ghi dòng sổ vat_tu_txn (dòng 249) trong _ghi_phieu/hoan_phieu — biến động tồn vật tư không có sự kiện (trừ đường duyệt nhập)",
+"vi_du": "Đảo một phiếu xuất vật tư (hoàn phiếu) làm tồn phòng thay đổi mà không khối nào được báo."
+},
+{
+"tep": "src/clinicai/services/mau_ket_qua_service.py",
+"dong": 273,
+"ham": "go",
+"bang": [
+"dich_vu_mau_ket_qua"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "DELETE dich_vu_mau_ket_qua (dòng 280) không record_event, xoá luôn gan_boi",
+"vi_du": "Quản lý gỡ mẫu siêu âm thai khỏi dịch vụ — hôm sau bác sĩ không thấy mẫu, không ai tra được ai gỡ, lúc nào."
+},
+{
+"tep": "src/clinicai/services/patient_service.py",
+"dong": 256,
+"ham": "_insert_patient",
+"bang": [
+"patient"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Tạo hồ sơ khách (create_patient dòng 103) chỉ INSERT event_log thô (dòng ~213), danh mục không có sự kiện patient.created",
+"vi_du": "Lễ tân tạo hồ sơ khách mới — khối CSKH/Zalo/MPI không nhận sự kiện \"có khách mới\", dòng thời gian khách bắt đầu trống."
+},
+{
+"tep": "src/clinicai/services/patient_service.py",
+"dong": 445,
+"ham": "update_patient",
+"bang": [
+"patient"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Sửa hồ sơ khách chỉ record_event (dòng 523) vào sổ cũ; không có sự kiện patient.updated",
+"vi_du": "Lễ tân sửa số điện thoại/tên khách — khối CSKH gửi Zalo vẫn không biết để cập nhật, chỉ có dòng nhật ký không ai nghe."
+},
+{
+"tep": "src/clinicai/services/patient_service.py",
+"dong": 561,
+"ham": "them_so_dien_thoai",
+"bang": [
+"event_log",
+"patient_sdt_them"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Thêm SĐT phụ: INSERT event_log thô (dòng 628), không emit",
+"vi_du": "Thêm số người nhà cho khách — khối nhắc tái khám/CSKH không được báo có số mới để gọi."
+},
+{
+"tep": "src/clinicai/services/patient_service.py",
+"dong": 654,
+"ham": "xoa_so_dien_thoai",
+"bang": [
+"event_log",
+"patient_sdt_them"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Xoá thật SĐT phụ, vết chỉ ở event_log thô (dòng 692)",
+"vi_du": "Gỡ số cũ của khách — khối gửi tin không biết để ngừng gửi vào số đó."
+},
+{
+"tep": "src/clinicai/services/thu_tu_kham_service.py",
+"dong": 86,
+"ham": "keo",
+"bang": [
+"visit"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Kéo thứ tự hàng chờ (UPDATE visit dòng 125) chỉ record_event (135), không sự kiện lượt",
+"vi_du": "Lễ tân kéo khách lên trước trong hàng chờ — dòng thời gian lượt không ghi, các khối nghe hàng chờ không có sự kiện để phản ứng."
+},
+{
+"tep": "src/clinicai/services/thu_tu_kham_service.py",
+"dong": 153,
+"ham": "dat_uu_tien",
+"bang": [
+"patient"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Bật/tắt khách ưu tiên (UPDATE patient dòng 172) chỉ record_event (188)",
+"vi_du": "Đánh dấu khách ưu tiên (thai phụ đau bụng) — các khối xếp hàng/bác sĩ không nhận sự kiện, chỉ thấy khi tải lại."
+},
+{
+"tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+"dong": 299,
+"ham": "hoan_tac",
+"bang": [
+"event_log",
+"tuong_tac_cskh"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Rút lại một lần chạm CSKH: UPDATE tuong_tac_cskh (dòng ~398) + INSERT event_log thô 'cskh.tuong_tac_hoan_tac' (dòng ~408); lần chạm gốc đã phát patient.contacted nhưng rút lại không có sự kiện đối ứng (check-in đảo qua BookingService.apply_action giao dịch riêng)",
+"vi_du": "CSKH bấm nhầm \"đã gọi khách\" rồi rút lại — dòng thời gian vẫn giữ sự kiện \"đã liên hệ\", không khối nào biết lần liên hệ ấy đã bị huỷ."
+},
+{
+"tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+"dong": 675,
+"ham": "tao",
+"bang": [
+"hen_goi_lai"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Tạo hẹn gọi lại khách (INSERT hen_goi_lai dòng 704) — chỉ báo thong_bao, không sự kiện",
+"vi_du": "CSKH hẹn \"thứ Năm gọi lại chị A\" — dòng thời gian khách không có, khối khác không phản ứng được."
+},
+{
+"tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+"dong": 793,
+"ham": "dong",
+"bang": [
+"hen_goi_lai"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Đóng hẹn gọi lại (UPDATE hen_goi_lai dòng 821) — không sự kiện, không record_event",
+"vi_du": "CSKH đóng việc hẹn gọi lại — không ai tra được đã đóng bởi ai qua sự kiện, dòng thời gian khách trống."
+},
+{
+"tep": "src/clinicai/services/permission_service.py",
+"dong": 556,
+"ham": "xoa_nhom",
+"bang": [
+"quyen_preset"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Nhóm tự đặt bị DELETE cứng (dòng 584), không record_event — mất cả tao_boi/sua_boi (nhóm hệ thống chỉ tắt, dòng 575, còn sua_boi)",
+"vi_du": "Quản lý xoá nhóm quyền \"Lễ tân ca tối\" — sau này không tra được nhóm đó từng có, ai xoá, lúc nào."
+},
+{
+"tep": "src/clinicai/services/recall_job_service.py",
+"dong": 158,
+"ham": "tao_thu_cong",
+"bang": [
+"nhac_tai_kham"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "CSKH gõ tay ngày tái khám → INSERT nhac_tai_kham (dòng 201), không record_event/emit",
+"vi_du": "Khách báo qua điện thoại \"tháng sau quay lại\", CSKH đặt nhắc — dòng thời gian khách và khối đặt lịch không biết có hẹn tái khám."
+},
+{
+"tep": "src/clinicai/services/recall_job_service.py",
+"dong": 238,
+"ham": "ghi_ket_qua",
+"bang": [
+"cskh_log",
+"nhac_tai_kham"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Ghi kết quả cuộc gọi nhắc tái khám vào cskh_log (dòng 308) — không phát patient.contacted dù đúng là CSKH đã liên hệ",
+"vi_du": "CSKH gọi nhắc tái khám, khách hẹn thứ Hai — dòng thời gian lượt/khách không có sự kiện \"đã liên hệ\" như đường tuong_tac_cskh."
+},
+{
+"tep": "src/clinicai/services/recall_job_service.py",
+"dong": 333,
+"ham": "bo_qua",
+"bang": [
+"nhac_tai_kham"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "UPDATE nhac_tai_kham → KHONG_CAN (dòng 343) không lưu người bỏ, không record_event/emit",
+"vi_du": "CSKH bỏ qua việc gọi nhắc một khách — không ai biết ai bỏ, và không khối nào được báo khách này đã rời danh sách gọi."
+},
+{
+"tep": "src/clinicai/services/tien_thua_service.py",
+"dong": 343,
+"ham": "giu_lai",
+"bang": [
+"tien_thua_giu_lai"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Ghi \"khách không lấy tiền thừa\" (INSERT tien_thua_giu_lai dòng 364) — chuyện tiền, không record_event/emit",
+"vi_du": "Khách không lấy lại 20.000đ tiền thừa, thu ngân bấm giữ lại — báo cáo kết ca/sổ quỹ không nhận sự kiện nào, dòng thời gian lượt trống."
+},
+{
+"tep": "src/clinicai/services/tien_thua_service.py",
+"dong": 375,
+"ham": "huy_giu_lai",
+"bang": [
+"tien_thua_giu_lai"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Hoàn tác giữ tiền thừa (UPDATE dòng 386, có huy_boi) — không sự kiện",
+"vi_du": "Thu ngân huỷ \"giữ lại tiền thừa\" vì bấm nhầm — khối báo cáo tiền không biết số tiền thừa đổi lại."
+},
+{
+"tep": "src/clinicai/services/phieu_kham_service.py",
+"dong": 374,
+"ham": "luu_luot",
+"bang": [
+"phieu_kham_luot"
+],
+"loai": "chua_chac",
+"ly_do": "Tự lưu phiếu khám (INSERT/UPDATE phieu_kham_luot 448-486), có trigger lịch sử trg_phieu_kham_lich_su; sự kiện chốt là consultation.completed — chưa rõ thesis có đòi sự kiện mỗi lần lưu nháp không",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/ultrasound_board_service.py",
+"dong": 217,
+"ham": "ghi_bac_si_thuc_hien",
+"bang": [
+"work_item"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gán bác sĩ thực hiện siêu âm vào work_item (UPDATE 228) khi save_measurements (đường sống) — không sự kiện, không record_event riêng",
+"vi_du": "Bác sĩ siêu âm nhập số đo → máy ghi chị ấy là người thực hiện ca — thư ký/bảng siêu âm/khối công không nhận sự kiện \"đã có người nhận ca\"."
+},
+{
+"tep": "src/clinicai/services/lo_thuoc_service.py",
+"dong": 72,
+"ham": "sua_lo",
+"bang": [
+"drug_batch"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Sửa số lô/hạn dùng của lô thuốc (UPDATE drug_batch 103) chỉ ghi_nhat_ky event_log (116)",
+"vi_du": "Dược sĩ sửa hạn dùng một lô từ 2027 về 11/2026 — khối canh hạn/kho không nhận sự kiện, chỉ phát hiện khi tự quét."
+},
+{
+"tep": "src/clinicai/services/lo_thuoc_service.py",
+"dong": 135,
+"ham": "huy_lo",
+"bang": [
+"inventory_txn"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Huỷ lô hết hạn = INSERT inventory_txn DISCARD (165), chỉ ghi_nhat_ky (178) — biến động kho thuốc không sự kiện",
+"vi_du": "Dược sĩ huỷ 30 viên thuốc hết hạn — báo cáo kho/kế toán không nhận sự kiện xuất huỷ."
+},
+{
+"tep": "src/clinicai/services/lo_thuoc_service.py",
+"dong": 193,
+"ham": "hoan_huy_lo",
+"bang": [
+"inventory_txn"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Hoàn huỷ lô = INSERT inventory_txn đảo (220), chỉ ghi_nhat_ky (231)",
+"vi_du": "Dược sĩ hoàn tác lần huỷ lô bấm nhầm — tồn tăng lại mà không khối nào được báo."
+},
+{
+"tep": "src/clinicai/services/work_item_service.py",
+"dong": 121,
+"ham": "issue",
+"bang": [
+"work_item",
+"work_item_event"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Lệnh start/complete/skip/cancel của bảng \"Việc cần xử lý\" (BangViecCanXuLy.tsx:113) — UPDATE work_item (245) + work_item_event riêng (278), không emit_event lego",
+"vi_du": "Nhân viên bấm \"Xong\" một việc ở bảng Việc cần xử lý — hành trình khách/quầy thu không nhận sự kiện, chỉ bảng work_item_event riêng biết."
+},
+{
+"tep": "src/clinicai/services/luot_kham_service.py",
+"dong": 1942,
+"ham": "luu_noi_dung_tu_van",
+"bang": [
+"consultation_note"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Màn ONhapTuVan.tsx còn dùng; consultation_note chỉ-thêm + record_event (2011), không sự kiện lego",
+"vi_du": "Bác sĩ tư vấn ghi xong nội dung tư vấn — dòng thời gian lượt và bác sĩ chính không nhận sự kiện \"đã có nội dung tư vấn\", chỉ thấy khi mở phiếu."
+},
+{
+"tep": "src/clinicai/services/luot_kham_service.py",
+"dong": 2245,
+"ham": "authorize_orders",
+"bang": [
+"service_order"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "BanKham.tsx:1611 vẫn gọi \"duyet-chi-dinh\" cho bản nháp cũ: UPDATE/INSERT service_order (2345, 2376) chỉ record_event (2396), không service_order.placed; còn kéo _tu_xep_phong",
+"vi_du": "Bác sĩ duyệt bản nháp chỉ định cũ — chỉ định mới vào phòng mà khối thu tiền/hành trình không nhận service_order.placed."
+},
+{
+"tep": "src/clinicai/services/luot_kham_service.py",
+"dong": 2842,
+"ham": "quyet_yeu_cau",
+"bang": [
+"round_requirement"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Bác sĩ miễn/chuyển theo dõi yêu cầu đọc kết quả (UPDATE round_requirement 2986, 3007) chỉ record_event (3024); visit.exam_completed chỉ phát khi lượt khép (_ket_thuc_neu_xong 3043)",
+"vi_du": "Bác sĩ bấm \"không cần đọc lại, chuyển theo dõi\" cho kết quả xét nghiệm — dòng thời gian lượt không có, CSKH/theo dõi không nhận sự kiện."
+},
+{
+"tep": "src/clinicai/services/luot_kham_service.py",
+"dong": 3290,
+"ham": "_gan_phong",
+"bang": [
+"queue_entry",
+"service_order"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gọi từ dispatch_order (thao_tac \"xep-phong\", truong-ca/ChiDinhCuaBacSi.tsx:100 còn dùng) và _tu_xep_phong: UPDATE service_order/queue_entry (3362, 3386) chỉ record_event (3399), khác đường mới _gan emit service.routed",
+"vi_du": "Trưởng ca chọn phòng cho chỉ định ở popup cũ — phòng đích và hành trình khách không nhận service.routed, chỉ có nhật ký."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 3100,
+"ham": "nhap_vao_lo",
+"bang": [
+"drug_batch"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Nhập kho thuốc vào lô (INSERT drug_batch 3201 + dòng RECEIVE) — chuỗi nhap_lo/tao_phieu_nhap không emit_event, danh mục không có sự kiện nhập kho thuốc",
+"vi_du": "Kho nhập 5 hộp kháng sinh lô mới — báo cáo kho/kế toán/canh hạn không nhận sự kiện \"đã nhập\", chỉ có dòng sổ."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 442,
+"ham": "luu_thuoc",
+"bang": [
+"drug_catalog"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "Thêm/sửa danh mục thuốc kể cả giá bán unit_price (INSERT 507 / UPDATE 521) — không record_event/_log, không cột người sửa/lúc sửa",
+"vi_du": "Quản lý đổi giá bán một thuốc từ 50.000đ lên 80.000đ — sau này khách thắc mắc không ai tra được ai đổi giá, lúc nào."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 1115,
+"ham": "gan_lo_da_giao",
+"bang": [
+"inventory_txn",
+"thuoc_giao_chua_gan_lo"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gán lô cho lần giao không lô → INSERT inventory_txn DISPENSE (1184) lúc này, chỉ _log event_log (1208)",
+"vi_du": "Dược sĩ gán lô cho 10 viên đã giao hôm qua — kho trừ tồn hôm nay mà khối kho/báo cáo không nhận sự kiện."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 1342,
+"ham": "xac_dinh_thuoc",
+"bang": [
+"prescription"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gắn dòng đơn với thuốc trong kho (UPDATE prescription 1385) — quyết định dòng vào hoá đơn, chỉ _log event_log (1395)",
+"vi_du": "Dược sĩ gắn \"Amox 500\" bác sĩ gõ tay với đúng mã thuốc kho — hoá đơn đổi mà quầy thu/dòng thời gian không nhận sự kiện."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 1412,
+"ham": "khai_so_luong_mua",
+"bang": [
+"prescription"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Số khách đồng ý mua (UPDATE prescription 1446) đổi tiền thuốc, chỉ _log (1454); đường quầy thuốc tương tự lại emit medicine.counter_changed",
+"vi_du": "Khách chỉ lấy 1 trong 3 hộp thuốc kê — tiền thuốc đổi nhưng quầy thu/hành trình không nhận sự kiện như đường quầy thuốc."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 1777,
+"ham": "huy_phan_chua_giao",
+"bang": [
+"inventory_txn"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Nhả phần đã bán chưa giao = INSERT inventory_txn đảo (1837), chỉ _log (1861)",
+"vi_du": "Dược sĩ nhả 5 viên đã bán mà khách không lấy — tồn kho tăng lại, khối kho/kế toán không được báo."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 2098,
+"ham": "xu_ly_thuoc_tra",
+"bang": [
+"drug_return"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Quyết định thuốc khách trả (bán lại/huỷ) UPDATE drug_return (2174), chỉ _log (2188); lúc nhận trả đã emit medicine.returned",
+"vi_du": "Dược sĩ kiểm thuốc khách trả và quyết \"huỷ, không bán lại\" — kho/kế toán không nhận sự kiện về quyết định ấy."
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 2211,
+"ham": "phan_lo",
+"bang": [
+"prescription_allocation"
+],
+"loai": "chua_chac",
+"ly_do": "Chọn lô cho dòng đơn TRƯỚC khi thu (INSERT prescription_allocation 2267), _log (2287); bán/giao thật đã có sự kiện ở thu tiền + cap_phat — bước chuẩn bị, tuỳ thesis",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 2301,
+"ham": "bo_phan_lo",
+"bang": [
+"prescription_allocation"
+],
+"loai": "chua_chac",
+"ly_do": "Bỏ lô đã chọn chưa gắn lần thu (UPDATE 2319), _log (2328) — bước chuẩn bị trước thu",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 2338,
+"ham": "doi_lo_khi_cho",
+"bang": [
+"prescription_allocation"
+],
+"loai": "chua_chac",
+"ly_do": "Đổi lô đang giữ cho lần chuyển khoản chờ xác minh (UPDATE/INSERT 2394, 2406), _log (2426) — giữ chỗ, chưa bán",
+"vi_du": null
+},
+{
+"tep": "src/clinicai/services/pharmacy_service.py",
+"dong": 2537,
+"ham": "_chot_dong",
+"bang": [
+"prescription",
+"prescription_allocation"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Từ tu_choi/chot (1686, 1703): khách KHÔNG mua thuốc / chốt dòng — UPDATE prescription (2579) chỉ event_log 'pharmacy.refused' (_log 2620), không medicine.declined dù danh mục có",
+"vi_du": "Khách từ chối mua thuốc ở nhà thuốc (\"đã có thuốc ở nhà\") — CSKH cần gọi lại hỏi lý do nhưng khối CSKH không nhận medicine.declined."
+},
+{
+"tep": "src/clinicai/services/luat_bac_si_service.py",
+"dong": 177,
+"ham": "xoa",
+"bang": [
+"luat_bac_si_bat_buoc"
+],
+"loai": "cau_hinh_khong_nhat_ky",
+"ly_do": "DELETE cứng luat_bac_si_bat_buoc (dòng 185), không event_log/record_event — khác hẳn luu",
+"vi_du": "Quản lý xoá luật \"siêu âm thai chỉ bác sĩ X\" — hôm sau không ai tra được luật từng có, ai xoá, lúc nào."
+},
+{
+"tep": "src/clinicai/services/phan_hoi_khach_service.py",
+"dong": 30,
+"ham": "ghi",
+"bang": [
+"event_log",
+"phan_hoi_khach"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Ghi phản hồi/khiếu nại của khách (INSERT phan_hoi_khach 57) chỉ event_log thô (71)",
+"vi_du": "Khách phàn nàn chờ siêu âm 1 tiếng, CSKH ghi lại — quản lý/khối canh gác không nhận sự kiện \"có khiếu nại mới\"."
+},
+{
+"tep": "src/clinicai/services/phan_hoi_khach_service.py",
+"dong": 88,
+"ham": "cap_nhat",
+"bang": [
+"event_log",
+"phan_hoi_khach"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Chuyển trạng thái xử lý khiếu nại (UPDATE 109) chỉ event_log thô (129)",
+"vi_du": "CSKH đóng khiếu nại \"đã gọi xin lỗi\" — dòng thời gian khách không có sự kiện xử lý xong."
+},
+{
+"tep": "src/clinicai/services/theo_doi_thu_thuat_service.py",
+"dong": 97,
+"ham": "dat",
+"bang": [
+"visit"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Bác sĩ quyết theo dõi sau thủ thuật (UPDATE visit 138) chỉ record_event (150), không followup.scheduled",
+"vi_du": "Bác sĩ chọn \"cần theo dõi sau 7 ngày\" sau đặt vòng — khối nhắc/CSKH không nhận sự kiện hẹn theo dõi, chỉ có nhật ký."
+},
+{
+"tep": "src/clinicai/services/ultrasound_service.py",
+"dong": 106,
+"ham": "save_measurements",
+"bang": [
+"ultrasound_record",
+"visit"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Số đo siêu âm thai (kết quả) chỉ record_event (299); nếu lịch hẹn chưa có lượt còn tự INSERT visit IN_PROGRESS (dòng 177) không phát visit.checked_in",
+"vi_du": "Bác sĩ siêu âm nhập số đo cho khách chưa check-in — máy tự mở lượt khám mới mà hành trình/quầy thu không nhận sự kiện check-in, và kết quả siêu âm không báo khối nào."
+},
+{
+"tep": "src/clinicai/services/thai_ky_service.py",
+"dong": 155,
+"ham": "dong_bo_tu_phieu",
+"bang": [
+"pregnancy"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Chép kinh cuối/dự kiến sinh từ phiếu sang pregnancy (UPDATE 212 / INSERT 241) chỉ record_event (222, 262)",
+"vi_du": "Bác sĩ ghi dự kiến sinh trong phiếu → hồ sơ thai kỳ đổi theo — khối nhắc khám thai/CSKH không được báo."
+},
+{
+"tep": "src/clinicai/services/thai_ky_service.py",
+"dong": 392,
+"ham": "tao",
+"bang": [
+"pregnancy"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Mở hồ sơ thai kỳ (INSERT pregnancy 434) chỉ record_event (458)",
+"vi_du": "Bác sĩ mở hồ sơ thai cho khách — CSKH/lịch khám thai không nhận sự kiện \"có thai kỳ mới\"."
+},
+{
+"tep": "src/clinicai/services/thai_ky_service.py",
+"dong": 469,
+"ham": "cap_nhat",
+"bang": [
+"pregnancy"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Sửa thai kỳ/kết cục/nguy cơ cao (UPDATE pregnancy 516) chỉ record_event (535)",
+"vi_du": "Bác sĩ đánh dấu thai nguy cơ cao — khối nhắc/ưu tiên không nhận sự kiện để phản ứng."
+},
+{
+"tep": "src/clinicai/services/phan_hoi_thuoc_service.py",
+"dong": 224,
+"ham": "go",
+"bang": [
+"tuong_tac_cskh"
+],
+"loai": "nghiep_vu_thieu_su_kien",
+"ly_do": "Gỡ phản hồi thuốc (UPDATE tuong_tac_cskh huy_luc 231) chỉ record_event (244); lúc ghi đã emit patient.contacted (dòng 210) nhưng gỡ không có sự kiện đối ứng",
+"vi_du": "CSKH gỡ ghi chú \"khách báo uống thuốc bị buồn nôn\" — dòng thời gian vẫn hiện đã liên hệ, không khối nào biết phản hồi bị rút."
+}
+],
+"quyen": [
+{
+"muc": "cao",
+"bang": [
+"patient",
+"visit",
+"prescription",
+"tep_ket_qua"
+],
+"noi_dung": "Mọi tài khoản đăng nhập là thành viên phòng khám (kể cả 1 đối tác, 1 màn TV) gọi thẳng /rest/v1 đọc được TOÀN BỘ khách / lượt / đơn / tệp kết quả của phòng khám. Người ngoài không đăng nhập: không thấy bảng nào.",
+"sua": "Mức 3 — siết chính sách theo quyền lego, chặn vai PARTNER / DISPLAY."
+},
+{
+"muc": "vua",
+"bang": [
+"v_quyen_hieu_luc",
+"v_quyen_thuc_te"
+],
+"noi_dung": "Hai view quyền không chạy theo quyền người gọi (thiếu security_invoker) mà cấp đọc cho mọi người đăng nhập → xem được quyền + lịch trực mọi cơ sở. Không có dữ liệu khách.",
+"sua": "Bật security_invoker hoặc thu quyền đọc của authenticated."
+},
+{
+"muc": "thap",
+"bang": [
+"service_log",
+"staff_task"
+],
+"noi_dung": "Cơ chế realtime cũ (publication supabase_realtime) vẫn đăng 15 bảng, kể cả 2 bảng chờ bỏ — CLAUDE.md ghi cơ chế này đã thay bằng LISTEN/NOTIFY.",
+"sua": "Gỡ bảng khỏi publication (migration)."
+},
+{
+"muc": "thap",
+"bang": [
+"capability_grant"
+],
+"noi_dung": "Trigger chan_cap_quyen_noi_bo lặng lẽ BỎ QUA lệnh cấp quyền giamsat.view (chỉ WARNING) — màn có thể tưởng đã cấp.",
+"sua": "Báo lỗi rõ thay vì lặng lẽ bỏ qua (nếu màn cho bấm)."
+}
+]
+}

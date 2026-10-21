@@ -1271,6 +1271,284 @@ def sinh_khoi(nc: NguCanhMan) -> str:
 
 MAU_WEB = GOC / "scripts" / "ban-do-khoi.html"
 DAU_RA_WEB = GOC / ".ban-do" / "index.html"
+#: Chụp cấu trúc DB (scripts/ban-do-db.py) + ghi chú phân loại của đợt soát.
+DB_JSON = GOC / "docs" / "ban-do" / "db.json"
+PHAN_LOAI_JSON = GOC / "docs" / "ban-do" / "phan-loai.json"
+#: Bảng gần như ai cũng trỏ tới — bỏ khỏi dây "liên kết bảng" kẻo che hết.
+BANG_NEN = {"staff", "clinic"}
+MO_TA_PY = {
+    "nghiep_vu_thieu_su_kien": "đổi dữ liệu nghiệp vụ mà không phát sự kiện",
+    "cau_hinh_khong_nhat_ky": "sửa cấu hình không để dấu vết",
+    "chua_chac": "ghi dữ liệu, chưa chắc có cần sự kiện",
+}
+_GHI_SQL = re.compile(
+    r"\b(?:INSERT\s+INTO\s+(?:public\.)?(?P<i>[a-z_][a-z0-9_]*)"
+    r"|(?<!DO\s)(?<!FOR\s)UPDATE\s+(?:public\.)?(?P<u>[a-z_][a-z0-9_]*)"
+    r"\s+(?:(?:AS\s+)?[a-z_]+\s+)?SET\b"
+    r"|DELETE\s+FROM\s+(?:public\.)?(?P<d>[a-z_][a-z0-9_]*))",
+    re.IGNORECASE,
+)
+
+
+def _noi_phat_va_ghi() -> tuple[
+    dict[str, list[list[object]]], dict[tuple[str, str], int]
+]:
+    """(sự kiện → [[tệp, dòng]] chỗ emit_event) và ((tệp, bảng) → dòng hàm ghi)."""
+    phat: dict[str, list[list[object]]] = defaultdict(list)
+    ghi: dict[tuple[str, str], int] = {}
+    for p in sorted(PY.rglob("*.py")):
+        if "__pycache__" in p.parts:
+            continue
+        try:
+            cay = ast.parse(doc(p))
+        except SyntaxError:
+            continue
+        rel = p.relative_to(PY).as_posix()
+        for n in ast.walk(cay):
+            if isinstance(n, ast.Call) and _ten_goi(n.func) == "emit_event":
+                for kw in n.keywords:
+                    if kw.arg == "ten":
+                        for c in ast.walk(kw.value):
+                            if isinstance(c, ast.Constant) and isinstance(c.value, str):
+                                phat[c.value].append([tuong_doi(p), n.lineno])
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                sql = "\n".join(
+                    c.value
+                    for c in ast.walk(n)
+                    if isinstance(c, ast.Constant) and isinstance(c.value, str)
+                )
+                for m in _GHI_SQL.finditer(sql):
+                    b = (m.group("i") or m.group("u") or m.group("d")).lower()
+                    ghi.setdefault((rel, b), n.lineno)
+    return phat, ghi
+
+
+def du_lieu_lop(
+    khoi: dict[str, Khoi],
+    chu: dict[str, str],
+    cua_tep: dict[str, str],
+    no: dict[tuple[str, str], str],
+    ky_thuat: dict[str, str],
+) -> dict[str, object]:
+    """Lớp v2 của bản web: 4 loại dây giữa khối, danh sách vấn đề, chi tiết bảng.
+
+    Dây ở mức khối, mỗi dây kèm danh sách mục (sự kiện / trigger / chỗ ghi / khoá
+    ngoại) — bấm dây là thấy. Lớp database đọc docs/ban-do/db.json; phân loại
+    (logic SQL, chưa phát sự kiện…) đọc ghi chú tĩnh docs/ban-do/phan-loai.json."""
+    import json
+
+    db = json.loads(doc(DB_JSON)) if DB_JSON.exists() else {}
+    pl = json.loads(doc(PHAN_LOAI_JSON)) if PHAN_LOAI_JSON.exists() else {}
+    goc_py = tuong_doi(PY)
+    phat_o, ghi_o = _noi_phat_va_ghi()
+    tep_nghe = {ten: tep for tep, ten, _, _ in doc_su_kien()}
+    ham_db = {h["ten"]: h for h in db.get("ham", [])}
+
+    day: dict[tuple[str, str, str], list[dict[str, object]]] = defaultdict(list)
+    for k in khoi.values():
+        for ev in dict.fromkeys(k.phat):
+            for b in khoi.values():
+                if b.ma == k.ma or ev not in b.nghe:
+                    continue
+                day[("su_kien", k.ma, b.ma)].append(
+                    {
+                        "ten": ev,
+                        "phat_o": phat_o.get(ev, []),
+                        "nghe_o": [tep_nghe[c] for c in b.ben_nhan if c in tep_nghe],
+                    }
+                )
+    for (t, b), nhan in sorted(no.items()):
+        a, c = cua_tep.get(t), chu.get(b)
+        if a and c and a != c:
+            day[("ghi_cheo", a, c)].append(
+                {
+                    "tep": f"{goc_py}/{t}",
+                    "dong": ghi_o.get((t, b), 0),
+                    "bang": b,
+                    "nhan": nhan,
+                }
+            )
+
+    def dinh_nghia(ten_ham: str) -> dict[str, object]:
+        dn = ham_db.get(ten_ham, {}).get("dinh_nghia") or {}
+        return {"tep": dn.get("tep", ""), "dong": dn.get("dong", 0)}
+
+    for khoa, x in (pl.get("trigger") or {}).items():
+        bang, ten_tg = khoa.split(".", 1)
+        a = chu.get(bang)
+        tg = next(
+            (
+                t
+                for t in db.get("trigger", [])
+                if t["bang"] == bang and t["ten"] == ten_tg
+            ),
+            {},
+        )
+        for dn in x.get("day_ngam") or []:
+            c = dn.get("den_khoi")
+            if a and c and c in khoi and a != c:
+                day[("ngam", a, c)].append(
+                    {
+                        "ten": ten_tg,
+                        "bang": bang,
+                        "ghi": dn.get("bang"),
+                        "ham": tg.get("ham", ""),
+                        "khi": tg.get("khi", ""),
+                        "lam_gi": x.get("lam_gi", ""),
+                        **dinh_nghia(tg.get("ham", "")),
+                    }
+                )
+    for lk in db.get("lien_ket", []):
+        if lk["den"] in BANG_NEN:
+            continue
+        a, c = chu.get(lk["tu"]), chu.get(lk["den"])
+        if a and c and a != c:
+            day[("lien_ket", a, c)].append(
+                {"tu": lk["tu"], "cot": ", ".join(lk["tu_cot"] or []), "den": lk["den"]}
+            )
+
+    van_de: list[dict[str, object]] = []
+    for (loai, a, c), muc in day.items():
+        if loai == "ghi_cheo":
+            for m in muc:
+                if m["nhan"] == "DUNG_THIET_KE":
+                    continue
+                van_de.append(
+                    {
+                        "loai": "chua_lego",
+                        "muc": "vua" if m["nhan"] == "VI_PHAM" else "thap",
+                        "khoi": a,
+                        "tieu_de": f"Tệp khối {a} tự ghi bảng {m['bang']} của khối {c}",
+                        "chi_tiet": f"Nhãn sổ nợ: {NHAN_NO.get(str(m['nhan']), m['nhan'])}. Nên gọi lệnh / phát sự kiện cho khối {c}.",
+                        "tep": m["tep"],
+                        "dong": m["dong"],
+                    }
+                )
+        if loai == "ngam":
+            for m in muc:
+                van_de.append(
+                    {
+                        "loai": "day_ngam",
+                        "muc": "vua",
+                        "khoi": a,
+                        "tieu_de": f"Trigger {m['ten']} (bảng {m['bang']}) tự ghi {m['ghi']} của khối {c}",
+                        "chi_tiet": str(m["lam_gi"]),
+                        "tep": m["tep"],
+                        "dong": m["dong"],
+                    }
+                )
+    for x in pl.get("python") or []:
+        tep = str(x.get("tep", "")).removeprefix("src/clinicai/")
+        van_de.append(
+            {
+                "loai": "chua_su_kien"
+                if x["loai"] != "cau_hinh_khong_nhat_ky"
+                else "khong_vet",
+                "muc": "thap" if x["loai"] == "chua_chac" else "vua",
+                "khoi": cua_tep.get(tep, "?"),
+                "tieu_de": f"{x.get('ham')} — {MO_TA_PY.get(x['loai'], x['loai'])}",
+                "chi_tiet": str(x.get("vi_du") or x.get("ly_do") or ""),
+                "tep": f"{goc_py}/{tep}",
+                "dong": x.get("dong", 0),
+            }
+        )
+    for ten, x in (pl.get("ham_sql") or {}).items():
+        if x.get("loai") not in ("logic_nghiep_vu", "co_the_chet"):
+            continue
+        van_de.append(
+            {
+                "loai": "logic_sql" if x["loai"] == "logic_nghiep_vu" else "ham_chet",
+                "muc": "vua" if x["loai"] == "logic_nghiep_vu" else "thap",
+                "khoi": x.get("khoi") or "?",
+                "tieu_de": f"Hàm SQL {ten}: "
+                + (
+                    "tự quyết nghiệp vụ, không phát sự kiện"
+                    if x["loai"] == "logic_nghiep_vu"
+                    else "có thể đã chết"
+                ),
+                "chi_tiet": str(x.get("van_de") or x.get("lam_gi") or ""),
+                **dinh_nghia(ten),
+            }
+        )
+    co_chu = set(chu) | set(ky_thuat)
+    for b in db.get("bang", []):
+        if b["ten"] not in co_chu:
+            van_de.append(
+                {
+                    "loai": "bang_chua_chu",
+                    "muc": "thap",
+                    "khoi": "?",
+                    "tieu_de": f"Bảng {b['ten']} chưa khai khối chủ",
+                    "chi_tiet": "Chỉ SQL / migration ghi — khai `bang` cho khối chủ trong modules.py (hoặc BANG_KY_THUAT).",
+                    "tep": "src/clinicai/modules.py",
+                    "dong": 0,
+                }
+            )
+    for x in pl.get("quyen") or []:
+        van_de.append(
+            {
+                "loai": "quyen",
+                "muc": x["muc"],
+                "khoi": chu.get(x["bang"][0], "?"),
+                "tieu_de": "Quyền: " + ", ".join(x["bang"]),
+                "chi_tiet": f"{x['noi_dung']} Sửa: {x['sua']}",
+                "tep": "",
+                "dong": 0,
+            }
+        )
+
+    trigger_cua: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for t in db.get("trigger", []):
+        ghi_chu = (pl.get("trigger") or {}).get(f"{t['bang']}.{t['ten']}", {})
+        trigger_cua[t["bang"]].append(
+            {
+                "ten": t["ten"],
+                "ham": t["ham"],
+                "khi": t["khi"],
+                "loai": ghi_chu.get("loai", ""),
+                "lam_gi": ghi_chu.get("lam_gi", ""),
+                **dinh_nghia(t["ham"]),
+            }
+        )
+    so_dong = db.get("so_dong_prod") or {}
+    bang_ct = {
+        b["ten"]: {
+            "khoi": chu.get(b["ten"], ""),
+            "rls": b["rls"],
+            "cot": [[c["ten"], c["kieu"], c["bat_buoc"]] for c in b["cot"] or []],
+            "khoa_chinh": b["khoa_chinh"] or [],
+            "ra": [
+                [", ".join(lk["tu_cot"] or []), lk["den"]]
+                for lk in db.get("lien_ket", [])
+                if lk["tu"] == b["ten"]
+            ],
+            "vao": [
+                [lk["tu"], ", ".join(lk["tu_cot"] or [])]
+                for lk in db.get("lien_ket", [])
+                if lk["den"] == b["ten"]
+            ],
+            "trigger": trigger_cua.get(b["ten"], []),
+            "so_dong": so_dong.get(b["ten"]),
+        }
+        for b in db.get("bang", [])
+    }
+    so_tep_mig = len(list(MIGRATIONS.glob("*.sql")))
+    return {
+        "day": [
+            {"loai": loai, "tu": a, "den": c, "muc": muc}
+            for (loai, a, c), muc in sorted(day.items())
+        ],
+        "van_de": van_de,
+        "bang_ct": bang_ct,
+        "db": {
+            "co": bool(db),
+            "lay_luc": db.get("lay_luc", ""),
+            "so_migration": db.get("so_migration", 0),
+            "so_migration_repo": so_tep_mig,
+            "so_dong_luc": db.get("so_dong_luc", ""),
+        },
+        "phan_loai": {"nguon": pl.get("nguon", ""), "ngay": pl.get("ngay", "")},
+    }
 
 
 def sinh_html(nc: NguCanhMan) -> str:
@@ -1364,6 +1642,7 @@ def sinh_html(nc: NguCanhMan) -> str:
         "bang": chu,
         "ky_thuat": ky_thuat,
         "nhan_no": NHAN_NO,
+        **du_lieu_lop(khoi, chu, cua_tep, no, ky_thuat),
     }
     # `</` trong chuỗi JSON sẽ đóng nhầm thẻ <script> — thoát nó.
     nhung = json.dumps(du_lieu, ensure_ascii=False).replace("</", "<\\/")
