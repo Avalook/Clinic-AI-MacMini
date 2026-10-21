@@ -39,6 +39,7 @@ from clinicai.permissions.can import can
 from clinicai.services.cong_no_service import doc_khach_con_no
 from clinicai.services.danh_muc_dich_vu_service import dem_chua_co_phong
 from clinicai.services.hanh_trinh_khach_service import doc_hanh_trinh_khach
+from clinicai.services.nhac_chua_hoan_tat import dem_luot_chua_hoan_tat
 from clinicai.services.nhan_vai import gan_nhan_vai
 from clinicai.services.visit_progress_service import VisitProgressService
 from clinicai.services.week_appointments_service import WeekAppointmentsService
@@ -439,6 +440,17 @@ class ManTrangChuService:
                 )
                 can_no.append(
                     {"ma": "khach_con_no", "so": no["so_khach"], "tien": no["so_tien"]}
+                )
+            # LƯỢT CHƯA HOÀN TẤT KHÁM (22/10/2026) — chỉ quản lý (lego Cài đặt).
+            # Bác sĩ thấy từng lượt của mình ở đầu Bàn khám.
+            if await can(conn, identity, "config.clinic.manage"):
+                can_no.append(
+                    {
+                        "ma": "chua_hoan_tat_kham",
+                        "so": await dem_luot_chua_hoan_tat(
+                            conn, clinic_id=clinic_id, location_id=co_so
+                        ),
+                    }
                 )
 
         return {

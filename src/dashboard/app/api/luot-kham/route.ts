@@ -128,6 +128,7 @@ function duongDoc(url: URL): string | null {
   if (xem === "phong-hom-nay") return "/api/v1/luot-kham/phong-hom-nay";
   if (xem === "ket-qua-cho-duyet") return "/api/v1/luot-kham/ket-qua-cho-duyet";
   if (xem === "cho-quyet") return "/api/v1/luot-kham/cho-quyet";
+  if (xem === "chua-hoan-tat") return "/api/v1/luot-kham/chua-hoan-tat";
   // Xem lại một lượt (chỉ đọc, backend cắt theo vai) — batch pilot 18/09.
   if (xem === "xem-luot") {
     const luot = url.searchParams.get("luot") ?? "";

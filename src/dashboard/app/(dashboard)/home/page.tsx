@@ -603,6 +603,7 @@ async function KhoiDuLieu({
           chua_xep_bac_si: toi("/appointments/cho-xep-bac-si"),
           viec_qua_han: toi("/viec-can-xu-ly"),
           khach_con_no: toi("/reports"),
+          chua_hoan_tat_kham: toi("/ban-kham"),
           dich_vu_chua_phong: toi("/cashier/dich-vu") ? "/cashier/dich-vu?loc=chua-phong" : undefined,
         }}
       />

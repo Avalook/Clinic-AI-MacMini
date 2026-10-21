@@ -24,6 +24,7 @@ from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.nhac_chua_hoan_tat import luot_chua_hoan_tat
 from clinicai.services.nhan_tai_phong import NhanTaiPhongService
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import KHONG_DOI, ServiceRoutingService
@@ -407,6 +408,16 @@ async def cho_quyet(
 ) -> dict[str, Any]:
     """Kết quả chưa về / dịch vụ không làm được đang chờ bác sĩ quyết."""
     return await LuotKhamService(pool).cho_quyet(identity=identity)
+
+
+@router.get("/luot-kham/chua-hoan-tat")
+async def chua_hoan_tat(
+    identity: StaffIdentity = Depends(_CONSULT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lượt check-in quá 2 giờ mà chưa Hoàn tất khám, kèm việc còn dở."""
+    async with pool.acquire() as conn:
+        return await luot_chua_hoan_tat(conn, identity=identity)
 
 
 @router.post("/luot-kham/yeu-cau/{requirement_id}/quyet")

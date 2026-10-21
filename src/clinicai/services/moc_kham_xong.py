@@ -6,7 +6,8 @@ phép rỗng, nên một lượt không có lịch hẹn không bao giờ "khám
 ở Nhà thuốc và biến mất khỏi Thu ngân.
 
 MỐC CHUẨN là của LƯỢT KHÁM: `visit.exam_completed_at`, ghi khi bác sĩ bấm Khám
-xong (`luot_kham_service._khep_luot`), có lịch hẹn hay không.
+xong (`LuotKhamService._ket_thuc_neu_xong`), có lịch hẹn hay không. Lượt quá 2
+giờ mà chưa có mốc này được nhắc ở Bàn khám (`nhac_chua_hoan_tat.py`).
 
 NHÁNH TƯƠNG THÍCH DỮ LIỆU CŨ: lượt khám trước luồng lượt khám chỉ có lịch hẹn
 COMPLETED mà không có `exam_completed_at`. Nhánh ấy KHÔNG phải nguồn sự thật

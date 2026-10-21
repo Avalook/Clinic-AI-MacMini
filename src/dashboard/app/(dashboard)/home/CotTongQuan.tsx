@@ -40,6 +40,8 @@ const NHAN_CAN_XU_LY: Record<string, (r: CanXuLyRow) => string> = {
   // 01/10/2026 — chỉ người xem được báo cáo nhận dòng này (máy chủ quyết).
   khach_con_no: (r) =>
     `Khách còn nợ: ${r.so} — ${Math.round(r.tien ?? 0).toLocaleString("vi-VN")}đ`,
+  // 22/10/2026 — chỉ quản lý nhận dòng này (máy chủ quyết).
+  chua_hoan_tat_kham: (r) => `${r.so} lượt chưa Hoàn tất khám quá 2 giờ`,
   dich_vu_chua_phong: (r) => `${r.so} dịch vụ đang bán chưa có phòng làm`,
 };
 
