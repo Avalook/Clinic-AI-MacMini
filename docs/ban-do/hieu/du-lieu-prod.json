@@ -1,5 +1,5 @@
 {
- "nguon": "Tuyền chạy trên VPS prod 21/10/2026, chỉ đọc, chỉ con số: kiem-du-lieu-prod.sql (lượt 1) + kiem-du-lieu-prod-2.sql (lượt 2 tách D13/D14/D15).",
+ "nguon": "Tuyền chạy trên VPS prod 21/10/2026, chỉ đọc, chỉ con số: kiem-du-lieu-prod.sql (lượt 1) + kiem-du-lieu-prod-2.sql (lượt 2 tách D13/D14/D15). Lượt 3 (kiem-du-lieu-prod-3.sql): đếm 'chưa Hoàn tất khám' theo luật hiện tại.",
  "luc": "21/10/2026",
  "ket_qua": [
   {
@@ -88,6 +88,12 @@
    "khoi": "consultation",
    "tep": "src/clinicai/services/checkout_service.py",
    "nghia": "Bình thường theo luật hiện tại: bước 'Ký bệnh án' đã NGHỈ 23/09/2026 (clinical_sign.py:62, trả 410) — mốc khoá là bác sĩ bấm Hoàn tất / Khám xong = visit.exam_completed_at; FINALIZED giờ chỉ còn ở dữ liệu cũ nhập từ Notion. Số 'khách đã về mà bác sĩ CHƯA Hoàn tất khám' thật: kiem-du-lieu-prod-3.sql (K1)."
+  },
+  {
+   "ma": "K1",
+   "ten": "Khách đã về mà bác sĩ CHƯA Hoàn tất khám (= chưa ký theo luật hiện tại)",
+   "so": 0,
+   "nghia": "0 lượt. Tháng 10: 445 lượt khám đã check-out, 442 đã Hoàn tất (3 còn lại là về giữa chừng / dữ liệu cũ — đúng luồng). Tuyền chốt 21/10 'có bắt bác sĩ ký' = Hoàn tất khám; hiện không bỏ sót → chưa cần màn nhắc. Chạy lại lượt 3 định kỳ để canh."
   },
   {
    "ma": "D15",
