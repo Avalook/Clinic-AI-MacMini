@@ -1047,104 +1047,132 @@
    ]
   },
   "src/clinicai/services/tien_thua_service.py": {
-   "lam_gi": "Tiền thừa ở quầy: tìm các dòng hoá đơn đã thu mà chỉ định nay bị bỏ / không làm (hoặc tiền khám bỏ tick), trừ phần đã hoàn; hộp tiền thừa lúc check-out (chặn nếu chưa xử lý); lệnh giữ lại / huỷ giữ lại; số tiền thừa cho báo cáo cuối ngày. Lệnh hoàn tiền thừa không nằm ở tệp này.",
+   "lam_gi": "Tính tiền thừa ở quầy: khoản đã thu cho chỉ định bị huỷ/không làm, hoặc dịch vụ khám bị bỏ tick, trừ phần đã hoàn. Dùng cho hộp check-out (chặn hay cho qua), nút Giữ lại / Huỷ giữ lại và báo cáo cuối ngày. Nút Hoàn tiền thừa không nằm trong tệp này.",
    "khoi": "payment",
    "ham_chinh": [
     {
      "ten": "_DONG_THUA_SQL",
      "dong": 48,
-     "lam_gi": "câu tìm dòng hoá đơn còn tiền thừa, đi từ lượt (3 nhánh: chỉ định, phụ thu, tiền khám)"
+     "lam_gi": "Câu SQL tìm các dòng hoá đơn đã thu còn tiền thừa, đi từ lượt hỏi rồi mới nối tới dòng hoá đơn."
     },
     {
      "ten": "dong_tien_thua",
      "dong": 133,
-     "lam_gi": "lượt → các dòng còn thừa (số lượng còn, số tiền, loại, lý do, hình thức hoàn mặc định)"
+     "lam_gi": "Chạy SQL trên, trả về lượt → danh sách dòng thừa kèm loại, lý do, số tiền, số lượng còn, hình thức hoàn."
     },
     {
      "ten": "giu_lai_dang_co",
      "dong": 171,
-     "lam_gi": "lần giữ lại tiền thừa còn hiệu lực của các lượt"
+     "lam_gi": "Lấy lần 'giữ lại tiền thừa' còn hiệu lực (chưa huỷ) của từng lượt."
     },
     {
      "ten": "tom_tat_khi_ve",
      "dong": 201,
-     "lam_gi": "hàm thuần: hộp tiền thừa lúc check-out, cờ chặn"
+     "lam_gi": "Hàm thuần: gộp tổng, tách theo hình thức, quyết định có chặn check-out không."
     },
     {
      "ten": "tien_thua_khi_ve",
      "dong": 233,
-     "lam_gi": "ghép dòng thừa + giữ lại cho một lượt"
+     "lam_gi": "Ghép dòng thừa và giữ lại của một lượt thành hộp tóm tắt lúc check-out."
     },
     {
      "ten": "bao_cao_tien_thua",
      "dong": 293,
-     "lam_gi": "đã hoàn · giữ lại · còn treo của các lượt trong khoảng ngày"
+     "lam_gi": "Tính cho báo cáo cuối ngày: đã hoàn, giữ lại, còn treo, số lượt còn treo."
     },
     {
      "ten": "TienThuaService.giu_lai",
      "dong": 343,
-     "lam_gi": "ghi 'khách không lấy lại tiền thừa' kèm lý do"
+     "lam_gi": "Ghi 'khách không lấy lại tiền thừa' kèm lý do, thay lần giữ cũ nếu có."
     },
     {
      "ten": "TienThuaService.huy_giu_lai",
      "dong": 375,
-     "lam_gi": "hoàn tác giữ lại, chỉ khi chưa check-out"
+     "lam_gi": "Hoàn tác giữ lại khi khách chưa check-out."
     }
    ],
    "luat": [
     {
-     "dong": 58,
-     "noi_dung": "Tiền thừa = dòng hoá đơn của chỉ định đã huỷ / không làm (kể cả phụ thu gắn vào chỉ định đó, dòng 70), hoặc tiền dịch vụ khám đã thu nay bỏ tick (dòng 78)."
+     "dong": 108,
+     "noi_dung": "Chỉ tính dòng thuộc chu kỳ thu đã PAID, chủ thu là phòng khám (CLINIC), loại dịch vụ, nguồn là chỉ định / phụ thu / dịch vụ khám."
     },
     {
-     "dong": 108,
-     "noi_dung": "Chỉ tính dòng của phiếu ĐÃ THU (PAID), tiền của phòng khám (billing_owner CLINIC, không phải đối tác), loại dịch vụ."
+     "dong": 109,
+     "noi_dung": "Chỉ lấy dòng billing_owner='CLINIC' và kind='dich_vu'; dòng thuốc hay của bên khác không bao giờ thành tiền thừa."
+    },
+    {
+     "dong": 58,
+     "noi_dung": "Chỉ định thành tiền thừa khi trạng thái thực hiện là 'cancelled' (huỷ) hoặc 'not_performed' (không làm). Phụ thu gắn chỉ định đó cũng bị tính theo (dòng 70)."
+    },
+    {
+     "dong": 77,
+     "noi_dung": "Tiền dịch vụ khám (mã 'exam-…-selected-…') thành thừa khi không còn dòng phí khám đang hiệu lực (bo_luc IS NULL) khớp mã đó, tức đã bỏ tick."
+    },
+    {
+     "dong": 107,
+     "noi_dung": "Phần đã hoàn gồm cả phiếu hoàn PENDING lẫn COMPLETED, nên bấm hoàn xong chưa thành công vẫn không bị tính thừa lần nữa."
     },
     {
      "dong": 114,
-     "noi_dung": "Trừ phần đã hoàn (cả hoàn đang chờ lẫn đã xong). Ví dụ thu siêu âm 300.000, bác sĩ bỏ chỉ định, đã hoàn 100.000 → còn thừa 200.000."
+     "noi_dung": "Chỉ giữ dòng còn thừa dương: line_total − đã hoàn > 0. Ví dụ dòng 500.000đ đã hoàn 200.000đ thì còn thừa 300.000đ."
     },
     {
      "dong": 89,
-     "noi_dung": "Hình thức hoàn mặc định = hình thức HIỆU LỰC sau 'Đổi hình thức' của lần thu gốc: thu nhầm tiền mặt rồi đổi sang chuyển khoản thì hoàn mặc định chuyển khoản."
+     "noi_dung": "Hình thức hoàn mặc định là hình thức HIỆU LỰC sau khi 'Đổi hình thức' (thu nhầm tiền mặt, đổi sang chuyển khoản thì hoàn chuyển khoản), không phải lúc bấm thu."
     },
     {
-     "dong": 36,
-     "noi_dung": "Tiền thừa thuộc lượt đang GIỮ chỉ định (chỉ định mang sang lượt khác thì tính ở lượt mới), không theo lượt của dòng hoá đơn (dòng 95)."
+     "dong": 154,
+     "noi_dung": "Phân loại: nguồn 'exam' → BO_DICH_VU_KHAM; chỉ định 'cancelled' → BO_CHI_DINH; còn lại → KHONG_LAM. Lý do lấy cancel_reason hoặc not_performed_reason tương ứng."
+    },
+    {
+     "dong": 152,
+     "noi_dung": "Số lượng còn = số lượng đã thu − số lượng đã hoàn; số tiền còn = line_total − tiền đã hoàn (làm tròn về số nguyên đồng)."
+    },
+    {
+     "dong": 209,
+     "noi_dung": "Giữ lại chỉ 'phủ' khi số tiền đã giữ ≥ tổng thừa hiện tại. Ví dụ giữ 300.000đ rồi bỏ thêm chỉ định, thừa lên 450.000đ thì hộp hỏi lại."
     },
     {
      "dong": 229,
-     "noi_dung": "Check-out bị chặn khi còn tiền thừa mà lần giữ lại không phủ đủ. Ví dụ đã giữ lại 200.000, sau đó bỏ thêm chỉ định 150.000 → thừa 350.000 > 200.000 → chặn, hỏi lại."
+     "noi_dung": "Cờ chặn check-out = còn tiền thừa (tổng > 0) và chưa được giữ lại phủ đủ. Tệp chỉ báo cờ, nơi khác mới thực sự chặn."
     },
     {
      "dong": 215,
-     "noi_dung": "Hộp check-out tách số hoàn theo hình thức (vd 'hoàn 200.000 tiền mặt · 150.000 chuyển khoản'); dòng không rõ hình thức coi là tiền mặt."
+     "noi_dung": "Tổng thừa chia theo hình thức khách đã trả để hộp ghi 'hoàn X tiền mặt · Y chuyển khoản'; thiếu hình thức thì coi là CASH (dòng 214)."
     },
     {
-     "dong": 243,
-     "noi_dung": "Giữ lại tiền thừa bắt buộc lý do 3–500 ký tự; lượt không còn tiền thừa thì không giữ lại được (dòng 351)."
+     "dong": 351,
+     "noi_dung": "Chỉ cho giữ lại khi lượt còn tiền thừa (tổng > 0), nếu không báo lỗi."
     },
     {
      "dong": 354,
-     "noi_dung": "Giữ lại lần nữa = huỷ lần cũ (ghi 'Ghi lại theo số mới') rồi ghi lần mới với số thừa hiện tại; một lượt chỉ một lần giữ lại còn hiệu lực (ép bằng chỉ mục duy nhất ở Postgres)."
+     "noi_dung": "Giữ lại lần nữa = huỷ lần còn hiệu lực rồi ghi lần mới với số tiền = tổng thừa lúc đó (dòng 363–372). Trong cùng giao dịch, lượt bị khoá FOR UPDATE."
+    },
+    {
+     "dong": 243,
+     "noi_dung": "Lý do giữ lại phải từ 3 đến 500 ký tự sau khi bỏ khoảng trắng đầu cuối."
     },
     {
      "dong": 381,
-     "noi_dung": "Huỷ giữ lại chỉ được khi khách CHƯA check-out; đã về thì phải dùng Hoàn tiền thừa."
+     "noi_dung": "Huỷ giữ lại chỉ được khi lượt chưa check-out (closed_at rỗng); đã check-out thì phải bấm Hoàn tiền thừa."
     },
     {
-     "dong": 305,
-     "noi_dung": "Báo cáo: lượt tính theo ngày check-in (không có thì ngày tạo) giờ VN; giữ lại = min(số giữ, số thừa), còn treo = thừa − giữ. Ví dụ thừa 350.000, giữ 200.000 → giữ lại 200.000, còn treo 150.000."
+     "dong": 326,
+     "noi_dung": "Báo cáo: giữ lại tính tối đa bằng tổng thừa của lượt; còn treo = phần thừa vượt phần giữ. Ví dụ thừa 450.000đ, giữ 300.000đ → giữ lại 300.000đ, treo 150.000đ."
+    },
+    {
+     "dong": 306,
+     "noi_dung": "Báo cáo chọn lượt theo ngày giờ VN của checked_in_at (không có thì created_at); lọc cơ sở ở dòng 309–311."
     }
    ],
    "doc_bang": [
     "service_order",
     "luot_phu_thu",
     "payment_bill_line",
-    "luot_phi_kham",
     "payment_cycle",
     "payment_refund",
     "payment_refund_line",
+    "luot_phi_kham",
     "tien_thua_giu_lai",
     "staff",
     "visit"
@@ -1157,65 +1185,83 @@
    "goi_api": [],
    "bay": [
     {
-     "dong": 343,
-     "noi_dung": "giu_lai / huy_giu_lai không tự kiểm quyền và không ghi nhật ký sự kiện nào — chỉ trông vào router; dấu vết duy nhất là cột boi / huy_boi."
+     "dong": 126,
+     "noi_dung": "_uuid_chuan chỉ nhận UUID viết thường. UUID viết hoa bị bỏ im lặng, nên tien_thua_khi_ve ra 0 và giu_lai báo 'không còn tiền thừa' dù _khoa_luot chấp nhận UUID hoa."
     },
     {
-     "dong": 349,
-     "noi_dung": "giu_lai khoá lượt nhưng KHÔNG kiểm đã check-out (khác huy_giu_lai dòng 381) — giữ lại vẫn ghi được sau khi khách về."
-    },
-    {
-     "dong": 273,
-     "noi_dung": "_HOAN_TIEN_THUA_SQL vẫn nối o.id::text = bl.source_id và lọc bl.visit_id::text (ép kiểu → không dùng chỉ mục) — đúng kiểu chậm mà _DONG_THUA_SQL đã sửa (ghi chú dòng 38–42)."
+     "dong": 95,
+     "noi_dung": "visit_id trả về là lượt của chỉ định (mang sang vẫn tính lượt đang giữ), còn line_visit_id là lượt của dòng hoá đơn. Hai cái có thể khác nhau; đừng nhầm khi gom hay hoàn."
     },
     {
      "dong": 280,
-     "noi_dung": "Báo cáo 'đã hoàn' lọc theo lượt của DÒNG HOÁ ĐƠN, còn tiền thừa theo lượt GIỮ chỉ định — chỉ định mang sang lượt khác thì hai số có thể lệch kỳ."
+     "noi_dung": "_HOAN_TIEN_THUA_SQL lọc theo bl.visit_id (lượt của dòng hoá đơn), còn dòng thừa gom theo lượt của chỉ định. Chỉ định mang sang lượt khác thì 'đã hoàn' và 'còn thừa' của báo cáo có thể lệch lượt."
     },
     {
-     "dong": 279,
-     "noi_dung": "'Đã hoàn' của báo cáo gồm cả khoản hoàn đang chờ (PENDING), khác khối Dòng tiền chỉ tính hoàn đã xong."
+     "dong": 280,
+     "noi_dung": "Câu SQL đã hoàn vẫn ép kiểu visit_id::text và nối o.id::text = bl.source_id, đúng kiểu gây chậm mà comment dòng 35–47 nói đã bỏ. Báo cáo nhiều lượt có thể chậm."
     },
     {
-     "dong": 309,
-     "noi_dung": "Lọc cơ sở: lượt chưa xác định cơ sở (co_so_cua_luot NULL) bị đếm vào báo cáo của MỌI cơ sở được lọc."
+     "dong": 183,
+     "noi_dung": "giu_lai_dang_co so g.visit_id::text = ANY(text[]), không dùng được chỉ mục theo uuid. Chấp nhận được ở khối lượng nhỏ nhưng khác cách làm của _DONG_THUA_SQL."
     },
     {
-     "dong": 119,
-     "noi_dung": "_uuid_chuan lặng lẽ bỏ mã lượt viết hoa / sai dạng — gọi với uuid chữ hoa thì không ra tiền thừa."
+     "dong": 325,
+     "noi_dung": "Báo cáo chỉ duyệt các lượt có dòng thừa (vòng lặp trên dong). Lần giữ lại của lượt không còn dòng thừa (đã hoàn hết sau khi giữ) không được cộng vào giữ_lai."
+    },
+    {
+     "dong": 373,
+     "noi_dung": "giu_lai không kiểm lượt đã check-out chưa, chỉ huy_giu_lai kiểm. Đổi luật 'ghi giữ lại sau check-out' phải sửa cả hai."
+    },
+    {
+     "dong": 354,
+     "noi_dung": "Huỷ lần cũ rồi INSERT phải nằm cùng giao dịch. Nếu tách ra sẽ vi phạm chỉ mục duy nhất uq_tien_thua_giu_lai_song (tối đa một giữ lại sống mỗi lượt)."
     }
    ],
    "muon_sua": [
     {
-     "viec": "đổi điều kiện nào sinh tiền thừa",
-     "cho": "_DONG_THUA_SQL dòng 48 và _HOAN_TIEN_THUA_SQL dòng 264 (phải sửa cả hai cho khớp)"
+     "viec": "Đổi điều kiện loại dòng nào được coi là tiền thừa (thêm loại nguồn, đổi trạng thái chỉ định)",
+     "cho": "_DONG_THUA_SQL dòng 48–116 (nhánh nguồn 49–83), nhớ sửa cả _HOAN_TIEN_THUA_SQL dòng 264–290"
     },
     {
-     "viec": "đổi luật chặn check-out",
-     "cho": "tom_tat_khi_ve dòng 229"
+     "viec": "Đổi điều kiện chặn check-out (ví dụ cho giữ lại phủ một phần)",
+     "cho": "tom_tat_khi_ve dòng 209 và 229"
     },
     {
-     "viec": "đổi độ dài lý do giữ lại",
-     "cho": "_ly_do dòng 241"
+     "viec": "Đổi quy định lý do giữ lại (độ dài tối thiểu/tối đa)",
+     "cho": "_ly_do dòng 241–247"
     },
     {
-     "viec": "đổi cách báo cáo tiền thừa",
-     "cho": "bao_cao_tien_thua dòng 293"
+     "viec": "Đổi cách tính hình thức hoàn mặc định trong hộp check-out",
+     "cho": "_DONG_THUA_SQL dòng 89 và tom_tat_khi_ve dòng 213–215"
+    },
+    {
+     "viec": "Đổi số liệu báo cáo cuối ngày (đã hoàn / giữ / treo)",
+     "cho": "bao_cao_tien_thua dòng 322–336"
+    },
+    {
+     "viec": "Cho huỷ giữ lại sau check-out",
+     "cho": "huy_giu_lai dòng 381–384"
     }
    ],
    "comment_cu": [
     {
      "dong": 8,
-     "vi_sao": "mô tả hoan_tien_thua và luật 'ai có lego Thu tiền dịch vụ' như ở tệp này, nhưng tệp không có hàm hoàn cũng không kiểm quyền nào"
+     "vi_sao": "Nói tệp có `hoan_tien_thua` và luật 'ai có lego Thu tiền dịch vụ làm được' (dòng 8–11), nhưng tệp không có hàm hoàn tiền hay kiểm quyền; phần đó ở nơi khác."
     },
     {
-     "dong": 4,
-     "vi_sao": "'Trước đây tiền thừa chỉ hiện ở quầy…' — kể lịch sử"
+     "dong": 16,
+     "vi_sao": "Nói 'máy chủ CHẶN' ở check-out, nhưng ở đây chỉ tính cờ `chan` (dòng 229); việc chặn thật không nằm trong tệp."
+    },
+    {
+     "dong": 35,
+     "vi_sao": "Đoạn 35–47 chủ yếu kể lịch sử tối ưu (171 ms × 67k lần, bản cũ), không mô tả luật; chỉ phần 'ba nhánh loại trừ nhau' còn đúng với code."
     }
    ],
    "chua_chac": [
-    "Không thấy nơi kiểm quyền giữ lại / huỷ giữ lại — có thể ở router.",
-    "Hàm SQL hinh_thuc_hieu_luc (dòng 89) và co_so_cua_luot (dòng 309) nằm ở migration, chưa đọc."
+    "Hàm hoan_tien_thua và kiểm quyền 'Thu tiền dịch vụ' nằm ở tệp nào: không thấy trong tệp này.",
+    "Ai thực sự chặn check-out dựa trên cờ chan: không thấy trong tệp này.",
+    "hinh_thuc_hieu_luc(...) và co_so_cua_luot(...) là hàm SQL ngoài tệp, không rõ chi tiết.",
+    "Việc hoàn tiền có khoá lượt visit giống giu_lai không: không rõ, nên khó nói có race giữa hoàn và giữ lại."
    ]
   },
   "src/clinicai/services/tiep_don_service.py": {

@@ -253,6 +253,12 @@ const BANG_HIEU = D.bang_hieu || {};
 const THE_KHOI = D.the_khoi || {};
 const TQ = D.tong_quan;
 const GHI_TEST = D.ghi_test || {};
+// Ghi chú thân hàm / view SQL (đọc kỹ 21/10): khoá "ham:<tên>" / "view:<tên>".
+const HAM = D.ham_hieu || {};
+const HAM_CUA_KHOI = {};
+for (const [k, g] of Object.entries(HAM)) if (g.khoi) (HAM_CUA_KHOI[g.khoi] = HAM_CUA_KHOI[g.khoi] || []).push(k);
+const nutHam = k => `<button class="dong" data-ham="${e(k)}"><span class="chinh">${e(k.split(":")[1])}</span>` +
+  `<span class="phu">${e((HAM[k].lam_gi || "").slice(0, 90))}</span><span class="phai"><span class="nhan ${HAM[k].loai === "logic_nghiep_vu" ? "vang" : ""}">${e(HAM[k].loai || "")}</span></span></button>`;
 const TEST_CUA = D.test_cua || {};
 // Tệp test cũng mở được khung chi tiết: gộp vào GHI dưới dạng ghi chú test.
 for (const [t, g] of Object.entries(GHI_TEST)) if (!GHI[t]) GHI[t] = { ...g, la_test: true };
@@ -538,6 +544,7 @@ function veTim(q) {
   // Tìm trong nội dung ghi chú: "làm gì", luật, muốn sửa — gõ "giảm giá" ra đúng tệp.
   const ghi = Object.entries(GHI).filter(([f, g]) => !tep.some(x => x[0] === f) &&
     (co(g.lam_gi || "") || (g.luat || []).some(x => co(x.noi_dung)) || (g.muon_sua || []).some(x => co(x.viec))));
+  const ham = Object.keys(HAM).filter(k => co(k) || co(HAM[k].lam_gi || "") || (HAM[k].luat || []).some(x => co(x.noi_dung)));
   const nhom = (ten, ds, f) => ds.length ? muc(`${ten} (${ds.length})`, `<div class="danh-sach">${ds.slice(0, 30).map(f).join("")}</div>`) : "";
   return (nhom("Khối", khoi, k => `<button class="dong" data-khoi="${e(k.ma)}"><span class="chinh">${e(k.ma)}</span><span class="phu">${e(k.ten)}</span></button>`) +
     nhom("Màn", man, m => `<button class="dong" data-man="${e(m.route)}"><span class="chinh">${e(m.route)}</span><span class="phu">${e(m.tieu_de)}</span></button>`) +
@@ -545,6 +552,7 @@ function veTim(q) {
     nhom("Sự kiện", suKien, ev => `<button class="dong" data-khoi="${e(PHAT_BOI[ev])}"><span class="chinh">${e(ev)}</span><span class="phu">khối ${e(PHAT_BOI[ev])} phát</span></button>`) +
     nhom("Tệp (bấm mở ngay)", tep, ([f, o]) => GHI[f] ? theTep(f) : nutTep(f, 0, o)) +
     nhom("Ghi chú nhắc tới", ghi, ([f]) => theTep(f)) +
+    nhom("Hàm / view SQL", ham, nutHam) +
     (vd.length ? muc(`Vấn đề (${vd.length})`, veVanDe(vd, false)) : "")) || `<p class="trong">Không thấy gì khớp “${e(q)}”.</p>`;
 }
 
@@ -594,6 +602,7 @@ function chiTietKhoi(k) {
     tomTatDay(k.ma) +
     muc(`Tệp code (${k.tep.length}) — bấm tên để mở, bấm ? để xem tệp làm gì`, `<div class="cac-tep">${hoac(k.tep, theTep, "chưa khai tệp nào")}</div>`) +
     (tepGd.length ? muc(`Tệp giao diện gọi khối này (${tepGd.length})`, `<div class="cac-tep">${xemThem(tepGd, theTep, 8)}</div>`) : "") +
+    ((HAM_CUA_KHOI[k.ma] || []).length ? muc(`Hàm / view SQL của khối (${HAM_CUA_KHOI[k.ma].length})`, `<div class="danh-sach">${xemThem(HAM_CUA_KHOI[k.ma], nutHam, 8)}</div>`) : "") +
     muc(`Bảng giữ (${k.bang.length})`, `<div class="chips">${hoac(k.bang, chipBang)}</div>`) +
     (k.lenh.length ? muc("Lệnh", `<div class="chips">${k.lenh.map(chipTinh).join("")}</div>`) : "") +
     (k.quyen.length ? muc("Quyền (lego)", `<div class="chips">${k.quyen.map(chipTinh).join("")}</div>`) : "") +
@@ -631,7 +640,8 @@ function chiTietBang(b) {
       }).join("")) : "") +
     muc(`Trigger (${x.trigger.length})`, hoac(x.trigger, t => `<div class="muc-con"><div class="dau-con"><code>${e(t.ten)}</code>` +
       `${t.loai ? `<span class="nhan ${t.loai === "logic_nghiep_vu" ? "vang" : ""}">${e(t.loai)}</span>` : ""}</div>` +
-      `<div class="goi-y" style="margin:0 0 6px">${e(t.khi)}${t.lam_gi ? " · " + e(t.lam_gi) : ""}</div>${nutTep(t.tep, t.dong, "hàm " + t.ham)}</div>`)) +
+      `<div class="goi-y" style="margin:0 0 6px">${e(t.khi)}${t.lam_gi ? " · " + e(t.lam_gi) : ""}</div>` +
+      `<div class="tep-hang">${nutTep(t.tep, t.dong, "hàm " + t.ham)}${HAM["ham:" + t.ham] ? `<button class="nut-hieu" data-ham="ham:${e(t.ham)}" title="Hàm này làm gì">?</button>` : ""}</div></div>`)) +
     muc(`Liên kết ra (${x.ra.length})`, `<div class="chips">${hoac(x.ra, r => `<span class="chip tinh">${e(r[0])} →</span>${chipBang(r[1])}`)}</div>`) +
     muc(`Bảng trỏ vào nó (${x.vao.length})`, `<div class="chips">${hoac(x.vao, r => chipBang(r[0]))}</div>`) +
     muc(`Cột (${x.cot.length})`, `<table class="bang"><tbody>${x.cot.map(c => `<tr><td class="mono">${x.khoa_chinh.includes(c[0]) ? "🔑 " : ""}${e(c[0])}</td>` +
@@ -658,6 +668,26 @@ function chiTietTep(f) {
     ((g.bay || []).length ? muc(`Bẫy khi sửa (${g.bay.length})`, ds("bay", x => dongLuat(f, x))) : "") +
     ban("ghi_bang", "Ghi bảng") + ban("doc_bang", "Đọc bảng") + ban("su_kien_phat", "Phát sự kiện") + ban("su_kien_nghe", "Nghe sự kiện") + ban("goi_api", "Gọi API") +
     ((g.comment_cu || []).length ? muc(`Comment cũ nên xoá/sửa (${g.comment_cu.length})`, ds("comment_cu", x => dongLuat(f, { dong: x.dong, noi_dung: x.vi_sao }))) : "") +
+    ((g.chua_chac || []).length ? muc("Người đọc chưa chắc", `<ul class="luu-y">${g.chua_chac.map(x => `<li>${e(typeof x === "string" ? x : x.noi_dung || JSON.stringify(x))}</li>`).join("")}</ul>`) : "");
+}
+function chiTietHam(k) {
+  const g = HAM[k];
+  if (!g) return "";
+  const [loaiMuc, ten] = k.split(":");
+  const [tdn, ddn] = String(g.dinh_nghia || "").split(":");
+  const ds = (kk, fn) => (g[kk] || []).map(fn).join("");
+  const chi = s => `<div class="dong-luat"><div>${e(s)}</div></div>`;
+  return `<div class="ma-lon">${loaiMuc === "view" ? "VIEW" : "HÀM"} SQL</div><h2>${e(ten)}</h2>` +
+    (tdn ? `<div class="cac-tep">${nutTep(tdn, +ddn || 0, "bản đang chạy")}</div>` : "") +
+    (g.cu ? `<p class="canh-bao-the">Hàm đã được định nghĩa lại ở migration mới sau lần đọc kỹ — ghi chú có thể cũ.</p>` : "") +
+    `<div class="the-hieu"><p>${e(g.lam_gi)}</p><div class="chips">${g.khoi ? chipKhoi(g.khoi) : ""}${g.loai ? chipTinh(g.loai) : ""}</div></div>` +
+    (g.chay_khi ? `<p class="goi-y">Chạy khi: ${e(g.chay_khi)}</p>` : "") +
+    ((g.luat || []).length ? muc(`Luật nghiệp vụ (${g.luat.length})`, ds("luat", x => chi(x.noi_dung))) : "") +
+    ((g.bay || []).length ? muc(`Bẫy khi sửa (${g.bay.length})`, ds("bay", x => chi(x.noi_dung))) : "") +
+    ((g.muon_sua || []).length ? muc("Muốn sửa gì thì vào đâu", ds("muon_sua", x => chi(`${x.viec} — ${x.cho}`))) : "") +
+    ((g.ghi_bang || []).length ? muc("Ghi bảng", `<div class="chips">${g.ghi_bang.map(chipBang).join("")}</div>`) : "") +
+    ((g.doc_bang || []).length ? muc("Đọc bảng", `<div class="chips">${g.doc_bang.map(chipBang).join("")}</div>`) : "") +
+    ((g.goi_boi || []).length ? muc("Ai gọi", `<div class="cac-tep">${g.goi_boi.map(x => GHI[x] || /^(src|scripts)\//.test(x) ? nutTep(x) : chipTinh(x)).join("")}</div>`) : "") +
     ((g.chua_chac || []).length ? muc("Người đọc chưa chắc", `<ul class="luu-y">${g.chua_chac.map(x => `<li>${e(typeof x === "string" ? x : x.noi_dung || JSON.stringify(x))}</li>`).join("")}</ul>`) : "");
 }
 // ── Tổng quan ───────────────────────────────────────────────────────────────
@@ -687,6 +717,7 @@ function mo(loai, ma, ghi = true) {
   else if (loai === "man") html = MAN[ma] && chiTietMan(MAN[ma]);
   else if (loai === "bang") html = chiTietBang(ma);
   else if (loai === "tep") html = chiTietTep(ma);
+  else if (loai === "ham") html = chiTietHam(ma);
   else if (loai === "day") { const [l, a, b] = ma.split("|"); const d = DAY.find(x => x.loai === l && x.tu === a && x.den === b); html = d && chiTietDay(d); }
   if (!html) return;
   if (ghi) lichSu.push([loai, ma]);
@@ -709,8 +740,9 @@ function dong() {
 
 // ── Bấm ─────────────────────────────────────────────────────────────────────
 document.addEventListener("click", ev => {
-  const t = ev.target.closest("[data-tep],[data-khoi],[data-man],[data-bang],[data-the],[data-mo],[data-lop],[data-day],[data-day-key],[data-loc-loai],#chi-vd,#xep-lai");
+  const t = ev.target.closest("[data-ham],[data-tep],[data-khoi],[data-man],[data-bang],[data-the],[data-mo],[data-lop],[data-day],[data-day-key],[data-loc-loai],#chi-vd,#xep-lai");
   if (!t) return;
+  if (t.dataset.ham) { mo("ham", t.dataset.ham); return; }
   if (t.dataset.tep) { mo("tep", t.dataset.tep); return; }
   if (t.closest("#so-do") && t.dataset.khoi) return; // khối trên sơ đồ mở bằng pointerup (phân biệt kéo / bấm)
   if (t.dataset.the) { theDangXem = t.dataset.the; LUU("ban-do-the-v3", theDangXem); tuKhoa = ""; document.getElementById("o-tim").value = ""; veNoiDung(); return; }

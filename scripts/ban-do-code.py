@@ -1681,6 +1681,20 @@ def du_lieu_hieu() -> dict[str, object]:
                         "luat": c.get("luat"),
                     }
                 )
+    # Ghi chú thân hàm / view SQL. "Cũ" khi migration định nghĩa bản đang chạy đổi
+    # (đọc từ db.json) so với lúc ghi chú được duyệt.
+    db = json.loads(doc(DB_JSON)) if DB_JSON.exists() else {}
+    noi_ham = {
+        h["ten"]: f"{h['dinh_nghia']['tep']}:{h['dinh_nghia']['dong']}"
+        for h in db.get("ham", [])
+    }
+    ham_hieu: dict[str, dict[str, object]] = {}
+    for f in sorted((HIEU / "sql").glob("ham-*.json")):
+        ham_hieu.update(json.loads(doc(f)).get("muc") or {})
+    for k, g in ham_hieu.items():
+        ten = k.split(":", 1)[-1]
+        g["dinh_nghia"] = noi_ham.get(ten, "")
+        g["cu"] = k.startswith("ham:") and dau.get(k) != noi_ham.get(ten)
     tq = HIEU / "tong-quan.json"
     return {
         "ghi_chu": ghi,
@@ -1689,6 +1703,7 @@ def du_lieu_hieu() -> dict[str, object]:
         "tong_quan": json.loads(doc(tq)) if tq.exists() else None,
         "ghi_test": ghi_test,
         "test_cua": test_cua,
+        "ham_hieu": ham_hieu,
     }
 
 
@@ -1697,9 +1712,21 @@ def dong_dau() -> int:
     import json
 
     ghi = doc_ghi_chu_tep()
-    dau = {t: dau_tep(GOC / t) for t in sorted(ghi) if (GOC / t).exists()}
+    dau: dict[str, str] = {
+        t: dau_tep(GOC / t) for t in sorted(ghi) if (GOC / t).exists()
+    }
+    # Hàm SQL: dấu = migration CUỐI định nghĩa bản đang chạy (tệp:dòng, từ db.json).
+    db = json.loads(doc(DB_JSON)) if DB_JSON.exists() else {}
+    co_ghi_ham = set()
+    for f in sorted((HIEU / "sql").glob("ham-*.json")):
+        co_ghi_ham |= set(json.loads(doc(f)).get("muc") or {})
+    for h in db.get("ham", []):
+        if f"ham:{h['ten']}" in co_ghi_ham:
+            dau[f"ham:{h['ten']}"] = (
+                f"{h['dinh_nghia']['tep']}:{h['dinh_nghia']['dong']}"
+            )
     DAU_HIEU.write_text(json.dumps(dau, indent=0), encoding="utf-8")
-    print(f"Đã ghi dấu {len(dau)} tệp vào {tuong_doi(DAU_HIEU)}")
+    print(f"Đã ghi dấu {len(dau)} tệp / hàm vào {tuong_doi(DAU_HIEU)}")
     return 0
 
 

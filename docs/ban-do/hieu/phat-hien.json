@@ -140,6 +140,13 @@
    "dong": 70,
    "tieu_de": "[Báo oan] 'jsonb_set lên settings rỗng xoá trắng cấu hình'",
    "chi_tiet": "clinic.settings là NOT NULL — không xảy ra được."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "supabase/migrations/20260920000004_cho_phep_ghi_exam_completed_at_khi_da_ky.sql",
+   "dong": 31,
+   "tieu_de": "Khoá bệnh án FINALIZED hở: chuyển sang AMENDED thì sửa được MỌI cột, và AMENDED không khoá gì",
+   "chi_tiet": "visit_finalized_block_update chỉ chặn khi NEW.status <> 'AMENDED'. Một lệnh UPDATE đặt status='AMENDED' kèm đổi bác sĩ/chẩn đoán/ngày đều lọt; sau đó lượt AMENDED sửa tự do. Ảnh hưởng THẤP: Ký bệnh án đã nghỉ 23/09 nên lượt mới không còn lên FINALIZED. Muốn kín: migration mới — khi chuyển sang AMENDED chỉ cho đổi status/updated_at, và khoá AMENDED như FINALIZED."
   }
  ]
 }
