@@ -2,11 +2,11 @@
  "nguon": "Đợt đọc kỹ 21/10/2026: agent báo, Claude mở đúng dòng code kiểm tận mắt. dung = có thật trong code; can_soat = đúng một phần, cần xem máy chủ / dữ liệu / hỏi nghiệp vụ; sai = báo động oan (giữ lại để khỏi soát lại).",
  "ds": [
   {
-   "trang_thai": "dung",
+   "trang_thai": "can_soat",
    "tep": "scripts/day-sao-luu-len-viettel-storage.sh",
    "dong": 45,
-   "tieu_de": "Đẩy sao lưu lên ổ Viettel chọn nhầm tệp notion → dừng mỗi đêm, systemd nuốt lỗi",
-   "chi_tiet": "backup-db.sh ghi X_lich_su_notion.sql.gz sau cùng; script chỉ loại _auth nên tìm X_lich_su_notion_auth không có → dừng; ExecStart=- nuốt lỗi. Bản kéo về Mac vẫn tốt (21/10, 16 giờ tuổi). ĐÃ SỬA ở nhánh claude/sua-chon-ban-sao (5 script, hàm chung). Cần xem journal VPS để biết hỏng từ bao giờ."
+   "tieu_de": "Đẩy sao lưu Viettel sẽ chọn nhầm tệp notion — TIỀM ẨN, chưa xảy ra",
+   "chi_tiet": "Bằng chứng VPS 21/10: thư mục sao lưu KHÔNG có tệp _lich_su_notion; ổ Viettel có bản tới 21/10 22:00 (15 phút/bản) → đang chạy tốt. Tệp notion chỉ sinh khi unit đêm đặt BACKUP_LICH_SU_NOTION=1 — repo CÓ (clinicai-backup.service:22) mà VPS không sinh → unit trên VPS là bản cũ, hoặc dump notion lỗi. Ngày cài lại unit theo repo là bản đêm lên Viettel bắt đầu dừng. Phòng trước: PR #523."
   },
   {
    "trang_thai": "dung",
