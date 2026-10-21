@@ -26,6 +26,8 @@ Chấp nhận không hoàn hảo: chỗ không suy được ghi "?" chứ không
     python3 scripts/ban-do-code.py           # ghi lại cả hai tệp
     python3 scripts/ban-do-code.py --kiem    # exit 1 nếu tệp nào lệch code (CI)
     python3 scripts/ban-do-code.py --in      # in BAN-DO-CODE ra stdout, không ghi
+    python3 scripts/ban-do-code.py --html    # bản web tương tác → .ban-do/index.html
+                                             # (bấm tệp = mở VS Code / Antigravity)
 """
 
 # ruff: noqa: E501 — chuỗi tài liệu tiếng Việt và regex, cắt dòng chỉ làm khó đọc.
@@ -809,6 +811,12 @@ class NguCanhMan:
     man_tep: dict[str, set[str]]  # route → tệp (tính từ src/clinicai/)
     tieu_de: dict[str, str]
     test: KhoTest
+    # Cho bản web (--html): tệp nào mở được ngay từ một màn. Đường tính từ gốc repo.
+    trang: dict[str, str] = field(default_factory=dict)  # route → page.tsx
+    thanh_phan: dict[str, list[str]] = field(default_factory=dict)
+    api: dict[str, list[str]] = field(default_factory=dict)  # route → route.ts
+    #: route → [(tệp router, dòng, "METHOD /api/v1/…")]
+    router: dict[str, list[tuple[str, int, str]]] = field(default_factory=dict)
 
 
 def sinh() -> tuple[str, NguCanhMan]:
@@ -861,6 +869,7 @@ def sinh() -> tuple[str, NguCanhMan]:
     tren_man: dict[str, set[str]] = defaultdict(set)  # nhóm service → màn
     man_tep: dict[str, set[str]] = {}
     man_tieu_de: dict[str, str] = {}
+    nc_web = NguCanhMan({}, {}, test)
     next_tu_man: dict[str, set[str]] = defaultdict(set)
     khoi_man: list[str] = []
     du_lieu: list[
@@ -884,6 +893,8 @@ def sinh() -> tuple[str, NguCanhMan]:
             f.name if f.parent == p.parent else f.relative_to(DASH).as_posix()
             for f in thanh_phan
         ]
+        nc_web.trang[route] = tuong_doi(p)
+        nc_web.thanh_phan[route] = [tuong_doi(f) for f in thanh_phan]
         goi_next: list[str] = []
         goi_be_thang: list[str] = []
         khong_ro: list[str] = []
@@ -919,14 +930,19 @@ def sinh() -> tuple[str, NguCanhMan]:
             goi_next, key=lambda t: (len(next_tu_man[t]), goi_next.index(t))
         )
         sv: list[str] = []
+        ham_web: list[tuple[str, int, str]] = []
         for t in goi_next:
             for h, khoa in next_be.get(t, []):
                 if khoa is not None and khoa not in chu:
                     continue
                 sv.extend(x for x in h.service if x not in sv)
+                ham_web.append((tuong_doi(h.tep), h.dong, f"{h.method} {h.duong}"))
         for s in goi_be_thang:
             for h in tim_backend(None, s):
                 sv.extend(x for x in h.service if x not in sv)
+                ham_web.append((tuong_doi(h.tep), h.dong, f"{h.method} {h.duong}"))
+        nc_web.api[route] = [tuong_doi(api_next[t].tep) for t in goi_next]
+        nc_web.router[route] = list(dict.fromkeys(ham_web))
         for x in sv:
             tren_man[ky[x].nhom].add(route)
         man_tieu_de[route] = tieu_de
@@ -1084,7 +1100,8 @@ def sinh() -> tuple[str, NguCanhMan]:
         "",
     ]
     noi_dung = "\n".join(dau) + "\n\n".join(khoi_man) + "\n" + "\n".join(duoi)
-    return noi_dung, NguCanhMan(man_tep, man_tieu_de, test)
+    nc_web.man_tep, nc_web.tieu_de = man_tep, man_tieu_de
+    return noi_dung, nc_web
 
 
 NHAN_NO = {
@@ -1204,6 +1221,10 @@ def sinh_khoi(nc: NguCanhMan) -> str:
         "3. Trước khi sửa, xem **khối nghe** sự kiện của nó và **nợ ghi chéo**: đó là",
         '   những chỗ "sửa chỗ này dễ hỏng chỗ kia" — phải kiểm cùng.',
         "",
+        "**Bản web tương tác** (tìm nhanh, sơ đồ dây sự kiện, bấm tệp là mở thẳng trong",
+        "VS Code / Antigravity, hàm router mở đúng dòng): `python3 scripts/ban-do-code.py",
+        "--html` rồi `open .ban-do/index.html`. Sinh trên máy mình, không commit.",
+        "",
         "Chi tiết từng màn (thành phần, API, router): `docs/BAN-DO-CODE.md`. Luật lego:",
         "`src/clinicai/modules.py`. Luật canh ghi chéo + sổ nợ:",
         "`src/tests/unit/test_luat_cam_ghi_cheo.py`. Màn và mọi lối vào: `docs/SITEMAP.md`.",
@@ -1246,6 +1267,107 @@ def sinh_khoi(nc: NguCanhMan) -> str:
     return "\n".join(dau) + "\n\n".join(chi_tiet) + "\n" + "\n".join(duoi)
 
 
+MAU_WEB = GOC / "scripts" / "ban-do-khoi.html"
+DAU_RA_WEB = GOC / ".ban-do" / "index.html"
+
+
+def sinh_html(nc: NguCanhMan) -> str:
+    """Bản web tương tác của BAN-DO-KHOI — tệp nào cũng bấm mở được trong VS Code /
+    Antigravity. Đường dẫn TUYỆT ĐỐI của máy đang chạy nên KHÔNG commit (.gitignore)."""
+    import json
+
+    khoi, ky_thuat = doc_ban_khai()
+    no = doc_no_ghi_cheo()
+    chu = {b: k.ma for k in khoi.values() for b in k.bang}
+    cua_tep = {t: k.ma for k in khoi.values() for t in k.tep}
+    nghe_boi: dict[str, list[str]] = defaultdict(list)
+    for k in khoi.values():
+        for ev in k.nghe:
+            nghe_boi[ev].append(k.ma)
+    goc_py = tuong_doi(PY)
+
+    def test_cua(k: Khoi) -> list[str]:
+        than = [Path(t).stem for t in k.tep]
+        diem = [
+            (sum(c[s] for s in than), tuong_doi(p))
+            for p, c in nc.test.dem.items()
+            if p != TEST_LUAT_CAM and any(c[s] for s in than)
+        ]
+        diem.sort(key=lambda x: (-x[0], x[1]))
+        return [t for _, t in diem[:8]]
+
+    ds_khoi = []
+    for k in khoi.values():
+        ds_khoi.append(
+            {
+                "ma": k.ma,
+                "ten": k.ten,
+                "bang": k.bang,
+                "tep": [f"{goc_py}/{t}" for t in k.tep],
+                "lenh": k.lenh,
+                "phat": [
+                    {"ev": ev, "nghe": nghe_boi[ev]} for ev in dict.fromkeys(k.phat)
+                ],
+                "nghe": k.nghe,
+                "quyen": k.quyen,
+                "goi": k.goi_dong_bo,
+                "man": sorted(
+                    r
+                    for r, ts in nc.man_tep.items()
+                    if any(cua_tep.get(t) == k.ma for t in ts)
+                ),
+                "test": test_cua(k),
+                "no_ra": [
+                    {
+                        "tep": f"{goc_py}/{t}",
+                        "bang": b,
+                        "chu": chu.get(b, "?"),
+                        "nhan": n,
+                    }
+                    for (t, b), n in sorted(no.items())
+                    if cua_tep.get(t) == k.ma
+                ],
+                "no_vao": [
+                    {
+                        "tep": f"{goc_py}/{t}",
+                        "bang": b,
+                        "cua": cua_tep.get(t, "?"),
+                        "nhan": n,
+                    }
+                    for (t, b), n in sorted(no.items())
+                    if chu.get(b) == k.ma
+                ],
+            }
+        )
+    ds_man = [
+        {
+            "route": r,
+            "tieu_de": nc.tieu_de.get(r, ""),
+            "trang": nc.trang.get(r, ""),
+            "thanh_phan": nc.thanh_phan.get(r, []),
+            "api": list(dict.fromkeys(nc.api.get(r, []))),
+            "router": [
+                {"tep": t, "dong": d, "ten": ten} for t, d, ten in nc.router.get(r, [])
+            ],
+            "service": sorted(f"{goc_py}/{t}" for t in nc.man_tep[r]),
+            "khoi": sorted({cua_tep[t] for t in nc.man_tep[r] if t in cua_tep}),
+        }
+        for r in sorted(nc.man_tep)
+    ]
+    du_lieu = {
+        "goc": str(GOC),
+        "luc": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "khoi": ds_khoi,
+        "man": ds_man,
+        "bang": chu,
+        "ky_thuat": ky_thuat,
+        "nhan_no": NHAN_NO,
+    }
+    # `</` trong chuỗi JSON sẽ đóng nhầm thẻ <script> — thoát nó.
+    nhung = json.dumps(du_lieu, ensure_ascii=False).replace("</", "<\\/")
+    return doc(MAU_WEB).replace("/*__DU_LIEU__*/null", nhung)
+
+
 def bo_dong_sinh(s: str) -> str:
     return "\n".join(d for d in s.splitlines() if not d.startswith(DONG_SINH))
 
@@ -1280,6 +1402,11 @@ def main(argv: list[str]) -> int:
     noi_dung, nc = sinh()
     if "--in" in argv:
         sys.stdout.write(noi_dung)
+        return 0
+    if "--html" in argv:
+        DAU_RA_WEB.parent.mkdir(exist_ok=True)
+        DAU_RA_WEB.write_text(sinh_html(nc), encoding="utf-8")
+        print(f"Đã ghi {tuong_doi(DAU_RA_WEB)} — mở: open {tuong_doi(DAU_RA_WEB)}")
         return 0
     khoi = sinh_khoi(nc)
     if "--kiem" in argv:

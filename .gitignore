@@ -167,3 +167,6 @@ scripts/staff-emails.csv
 
 # CI chạy trên máy (scripts/ci-may.sh) — log từng job
 .ci-may/
+
+# Bản đồ web (scripts/ban-do-code.py --html) — đường dẫn tuyệt đối của máy, không commit.
+.ban-do/
