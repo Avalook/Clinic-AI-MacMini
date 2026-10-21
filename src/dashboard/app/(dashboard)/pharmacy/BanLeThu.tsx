@@ -19,6 +19,7 @@ import ChinhDonQuay from "../thu-ngan/ChinhDonQuay";
 import { nhanPhan } from "@/lib/hinh-thuc-thu";
 import { taiAnhChuyenKhoan } from "../thu-ngan/AnhChuyenKhoan";
 import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
+import type { GiamGiaParams } from "../thu-ngan/GiamGia";
 import NutHoanTac from "../thu-ngan/NutHoanTac";
 import { NhomThu, type ChoXacMinh, type HoaDon } from "../thu-ngan/QuayThuNgan";
 
@@ -168,7 +169,14 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         daThu={doc.da_thu}
         cho={doc.cho_xac_minh ?? undefined}
         dangThu={dangThu}
-        onThu={(hd: HoaDon, chia: KetQuaChia) =>
+        onThu={(hd: HoaDon, chia: KetQuaChia | null, discount?: GiamGiaParams) => {
+          const tongSauGiam = discount
+            ? (discount.discount_type === "AMOUNT"
+                ? Math.max(0, hd.tong - discount.discount_value)
+                : Math.max(0, Math.round(hd.tong * (1 - discount.discount_value / 100))))
+            : hd.tong;
+          const mienPhi = tongSauGiam === 0 && !!discount;
+          const pt = chia?.coChuyenKhoan ? "TRANSFER" : "CASH";
           void gui(
             {
               visitId,
@@ -176,15 +184,32 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
               kind: "thuoc",
               quay: "thuoc",
               billRevision: hd.revision,
-              amount: hd.tong,
-              method: chia.coChuyenKhoan ? "TRANSFER" : "CASH",
-              phan: chia.phan,
+              amount: mienPhi ? 0 : tongSauGiam,
+              method: mienPhi ? "CASH" : pt,
+              phan: mienPhi ? undefined : chia?.phan,
+              ...(discount
+                ? {
+                    discount_type: discount.discount_type,
+                    discount_value: discount.discount_value,
+                    discount_reason: discount.discount_reason,
+                  }
+                : {}),
             },
-            `Đã thu ${tien(hd.tong)} (${nhanPhan(chia.phan)}) — lượt bán lẻ đã tự đóng. Giao thuốc ở các dòng dưới.`,
-            dinhDanhThaoTac("thu", visitId, "thuoc", hd.revision, JSON.stringify(chia.phan), String(hd.tong)),
-            chia.anh,
-          )
-        }
+            mienPhi
+              ? "Đã ghi nhận miễn phí — lượt bán lẻ đã tự đóng. Giao thuốc ở các dòng dưới."
+              : `Đã thu ${tien(tongSauGiam)} (${chia ? nhanPhan(chia.phan) : "Tiền mặt"}) — lượt bán lẻ đã tự đóng. Giao thuốc ở các dòng dưới.`,
+            dinhDanhThaoTac(
+              "thu",
+              visitId,
+              "thuoc",
+              hd.revision,
+              JSON.stringify(mienPhi ? null : chia?.phan),
+              String(hd.tong),
+              discount ? `${discount.discount_type}:${discount.discount_value}` : "",
+            ),
+            mienPhi ? null : (chia?.anh ?? null),
+          );
+        }}
         onXacMinh={(ma: string) =>
           void gui(
             {

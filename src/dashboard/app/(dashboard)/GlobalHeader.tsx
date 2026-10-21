@@ -170,22 +170,21 @@ export default function GlobalHeader({
   const [viewYear, setViewYear] = useState(() => vnToday().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => vnToday().getMonth());
 
-  const dateStr = selectedDate.toLocaleDateString("vi-VN", {
+  const dateParts = new Intl.DateTimeFormat("vi-VN", {
     weekday: "long",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     timeZone: VN_TZ,
-  });
-  const formattedDateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-  // Bản gọn cho màn hẹp — cùng một ngày, chỉ khác cách viết.
-  const shortDateStr = selectedDate.toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: VN_TZ,
-  });
-
+  }).formatToParts(selectedDate);
+  const datePart = (type: "weekday" | "day" | "month" | "year") =>
+    dateParts.find((part) => part.type === type)?.value ?? "";
+  const weekday = datePart("weekday").toLocaleLowerCase("vi-VN");
+  const weekdayCap = weekday.charAt(0).toLocaleUpperCase("vi-VN") + weekday.slice(1);
+  const day = datePart("day");
+  const month = datePart("month");
+  const year = datePart("year");
+  const formattedDateStr = `${weekdayCap}, ngày ${day}-${month}-${year}`;
   // CHUÔNG ĐỌC NGUỒN THẬT (NotificationContext), KHÔNG CÒN BA DÒNG VIẾT CỨNG.
   //
   // Trước đây chỗ này là một mảng gõ tay, trong đó có một dòng ĐỎ
@@ -313,24 +312,17 @@ export default function GlobalHeader({
     NHOM_CONG_VIEC.find((g) =>
       g.hrefs.some((h) => h !== "/home" && (pathname === h || pathname.startsWith(`${h}/`))),
     )?.ten ?? null;
-  // "CN 27/09" — gọn, cùng ngày đang chọn ở lịch nhỏ.
-  const ngayGon = `${
-    ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][
-      new Date(selectedDate.toLocaleDateString("en-US", { timeZone: VN_TZ })).getDay()
-    ]
-  } ${shortDateStr.slice(0, 5)}`;
-
   return (
     // THANH TRÊN (bản "Đề xuất", Tuyền chốt 27/09/2026 tối): 48px, trong tấm
     // nội dung, không viền quanh từng món; đường kẻ dưới chỉ hiện khi đã cuộn.
     <header
       ref={headerRef}
-      className={`sticky top-0 z-30 flex h-12 w-full items-center justify-between gap-3 bg-surface/85 px-4 backdrop-blur-md transition-[border-color] md:px-6 border-b ${
+      className={`sticky top-0 z-30 grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 bg-surface/85 px-4 py-2 backdrop-blur-md transition-[border-color] xl:flex xl:h-12 xl:justify-between xl:gap-3 xl:px-6 xl:py-0 border-b ${
         daCuon ? "border-line" : "border-transparent"
       }`}
     >
       {/* Trái: ĐƯỜNG DẪN "Nhóm › Trang" thay tiêu đề to (trang đã có tiêu đề riêng). */}
-      <div className="flex min-w-0 items-center gap-1.5 text-meta" title={subtitle || undefined}>
+      <div className="row-start-1 flex min-w-0 items-center gap-1.5 text-meta xl:order-1" title={subtitle || undefined}>
         {nhomCuaTrang ? (
           <>
             <span className="hidden truncate text-ink-muted sm:inline">{nhomCuaTrang}</span>
@@ -340,19 +332,19 @@ export default function GlobalHeader({
         <h1 className="truncate font-semibold text-ink">{title}</h1>
       </div>
 
-      {/* Right Section: Widgets */}
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        <TimNhanh role={role} quyen={quyen} featureMode={featureMode} />
-        {/* Ngày · giờ — MỘT dòng chữ nhạt (bấm vẫn mở lịch nhỏ). */}
-        <div className="relative">
+      {/* Ngày · giờ nằm hàng riêng dưới 1024px để giữ nguyên ngày đầy đủ cạnh tìm nhanh. */}
+      <div className="relative col-span-2 row-start-2 justify-self-end xl:order-2">
           <button
             type="button"
             onClick={toggleCal}
             title={formattedDateStr}
-            className="h-8 rounded-control px-2 text-meta tabular-nums text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
+            className="inline-flex min-h-10 items-center gap-2 rounded-control px-2 text-meta tabular-nums text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink sm:h-8 sm:min-h-0"
+            aria-label={`${formattedDateStr} ${liveTime || "--:--"}. Mở lịch`}
           >
-            <span className="hidden md:inline">{ngayGon} · {liveTime || "--:--"}</span>
-            <span className="md:hidden">{shortDateStr}</span>
+            <span className="flex flex-col items-end gap-2 whitespace-nowrap sm:flex-row sm:items-center">
+              <span>{formattedDateStr}</span>
+              <span>{liveTime || "--:--"}</span>
+            </span>
           </button>
 
           {/* Mini Calendar Popover */}
@@ -420,7 +412,11 @@ export default function GlobalHeader({
               </div>
             </div>
           )}
-        </div>
+      </div>
+
+      {/* Right Section: Widgets */}
+      <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 sm:gap-2 xl:order-3">
+        <TimNhanh role={role} quyen={quyen} featureMode={featureMode} />
 
         {/* Notification Bell Widget */}
         <div className="relative">

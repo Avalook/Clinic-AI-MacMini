@@ -1164,3 +1164,81 @@ async def tinh_hoa_don(
             }
         )
     return ghep_thuoc(visit_id, dong)
+
+
+# ── Giảm giá (13/10/2026) ───────────────────────────────────────────────────
+
+_DISCOUNT_TYPES = frozenset({"AMOUNT", "PERCENT"})
+
+
+def ap_giam_gia(
+    hoa_don: HoaDon,
+    discount_type: str,
+    discount_value: Decimal,
+) -> tuple[int, int, int]:
+    """Tính giảm giá → (original_amount, discount_amount, amount_after). Thuần.
+
+    Không tự ép giảm vượt tổng: nhập vượt → raise.
+    """
+    from clinicai.api.exceptions import ValidationError
+
+    original = hoa_don.tong
+    if original <= 0:
+        raise ValidationError("Hóa đơn không có khoản nào — không giảm giá.")
+    if discount_type not in _DISCOUNT_TYPES:
+        raise ValidationError(f"Loại giảm giá không hợp lệ: {discount_type}")
+    if discount_value < 0:
+        raise ValidationError("Giá trị giảm không được âm.")
+
+    if discount_type == "AMOUNT":
+        giam = int(discount_value)
+    else:  # PERCENT
+        if discount_value > 100:
+            raise ValidationError("% giảm phải từ 0 đến 100.")
+        giam = int(
+            (Decimal(original) * discount_value / Decimal(100)).quantize(
+                Decimal(1), rounding=ROUND_HALF_UP
+            )
+        )
+
+    if giam > original:
+        raise ValidationError(
+            f"Tiền giảm {giam:,}đ vượt tổng hóa đơn {original:,}đ."
+        )
+    return original, giam, original - giam
+
+
+def phan_bo_giam(dong: list[DongHoaDon], tong_giam: int) -> list[int]:
+    """Phân bổ giảm giá pro-rata xuống từng dòng. Dư làm tròn dồn vào dòng cuối.
+
+    Chỉ phân bổ cho dòng phòng khám thu (CLINIC). Tổng phân bổ = tong_giam.
+    Phần giảm mỗi dòng ≤ thanh_tien của dòng đó.
+    """
+    if tong_giam <= 0:
+        return [0] * len(dong)
+
+    tong_gia = sum(int(d.thanh_tien or 0) for d in dong if d.ben_thu == CLINIC)
+    if tong_gia == 0:
+        return [0] * len(dong)
+
+    phan: list[int] = []
+    da_bo = 0
+    # Các dòng CLINIC
+    dong_clinic = [(i, d) for i, d in enumerate(dong) if d.ben_thu == CLINIC]
+
+    result = [0] * len(dong)
+    for seq, (idx, d) in enumerate(dong_clinic):
+        gia_dong = int(d.thanh_tien or 0)
+        if seq == len(dong_clinic) - 1:
+            # Dòng cuối: dồn phần dư
+            bo = tong_giam - da_bo
+        else:
+            bo = int(
+                Decimal(tong_giam) * Decimal(gia_dong) / Decimal(tong_gia)
+            )
+        # Không giảm quá giá dòng
+        bo = min(bo, gia_dong)
+        result[idx] = bo
+        da_bo += bo
+
+    return result

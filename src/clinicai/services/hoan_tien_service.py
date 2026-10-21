@@ -329,15 +329,51 @@ async def _tao_trong(
             raise ValidationError(
                 f"“{r['ten']}” không phải khoản phòng khám đã thu — không hoàn."
             )
-        if sl > r["con_hoan"]:
+        so_luong_tong = Decimal(str(r["so_luong"]))
+        da_hoan_sl = Decimal(str(r["da_hoan"]))
+        con_hoan_sl = Decimal(str(r["con_hoan"]))
+        if sl > con_hoan_sl:
             raise ConflictError(
-                f"“{r['ten']}” đã thu {so(r['so_luong'])}, đã hoàn "
-                f"{so(r['da_hoan'])} — chỉ còn hoàn được "
-                f"{so(r['con_hoan'])}."
+                f"“{r['ten']}” đã thu {so(so_luong_tong)}, đã hoàn "
+                f"{so(da_hoan_sl)} — chỉ còn hoàn được "
+                f"{so(con_hoan_sl)}."
             )
-        tien = int((sl * r["don_gia"]).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        giam = int(r["discount_allocated"] or 0)
+        line_total = int(
+            r["line_total"]
+            if r["line_total"] is not None
+            else round(so_luong_tong * r["don_gia"])
+        )
+        thuc_thu = max(0, line_total - giam)
+        da_hoan_tien = int(r["da_hoan_tien"] or 0)
+        con_hoan_tien = max(0, thuc_thu - da_hoan_tien)
+
+        if giam == 0:
+            tien = int(
+                (sl * r["don_gia"]).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+            )
+        else:
+            # Dòng có giảm giá: hoàn theo thực thu
+            if sl == con_hoan_sl:
+                # Hoàn hết số lượng còn lại: vét hết tiền còn hoàn được
+                tien = con_hoan_tien
+            else:
+                don_gia_thuc = (
+                    Decimal(thuc_thu) / so_luong_tong
+                    if so_luong_tong > 0
+                    else Decimal(0)
+                )
+                tien = int(
+                    (sl * don_gia_thuc).quantize(
+                        Decimal(1), rounding=ROUND_HALF_UP
+                    )
+                )
+                tien = min(tien, con_hoan_tien)
+
         if tien <= 0:
-            raise ValidationError(f"“{r['ten']}” thu 0đ — không có tiền để hoàn.")
+            raise ValidationError(
+                f"“{r['ten']}” thu 0đ — không có tiền để hoàn."
+            )
         ghi.append((ma, sl, tien))
         tong += tien
     refund_id = str(uuid.uuid4())
@@ -480,12 +516,16 @@ async def _con_hoan(
             """
             SELECT b.id::text AS id, b.name_snapshot AS ten, b.source_type,
                    b.source_id, b.quantity AS so_luong, b.unit AS don_vi,
-                   b.unit_price AS don_gia, b.billing_owner,
+                   b.unit_price AS don_gia, b.line_total,
+                   coalesce(b.discount_allocated, 0) AS discount_allocated,
+                   b.billing_owner,
                    coalesce(h.da_hoan, 0) AS da_hoan,
-                   b.quantity - coalesce(h.da_hoan, 0) AS con_hoan
+                   b.quantity - coalesce(h.da_hoan, 0) AS con_hoan,
+                   coalesce(h.da_hoan_tien, 0) AS da_hoan_tien
               FROM public.payment_bill_line b
               LEFT JOIN LATERAL (
-                   SELECT sum(l.quantity) AS da_hoan
+                   SELECT sum(l.quantity) AS da_hoan,
+                          sum(l.amount) AS da_hoan_tien
                      FROM public.payment_refund_line l
                      JOIN public.payment_refund r
                        ON r.refund_id = l.refund_id AND r.clinic_id = l.clinic_id
@@ -532,13 +572,26 @@ async def hoan_cua_cac_lan_thu(
     for c in cycle_ids:
         for d in await _con_hoan(conn, identity, c):
             if d["billing_owner"] == "CLINIC" and d["don_gia"] is not None:
+                giam = int(d["discount_allocated"] or 0)
+                line_total = int(
+                    d["line_total"]
+                    if d["line_total"] is not None
+                    else round(d["so_luong"] * d["don_gia"])
+                )
+                thuc_thu = max(0, line_total - giam)
+                don_gia_hien = (
+                    int(Decimal(thuc_thu) / Decimal(d["so_luong"]))
+                    if d["so_luong"] > 0 and giam > 0
+                    else d["don_gia"]
+                )
                 ket_qua[c]["dong_hoan_duoc"].append(
                     {
                         "payment_bill_line_id": d["id"],
                         "ten": d["ten"],
                         "so_luong": d["so_luong"],
                         "don_vi": d["don_vi"],
-                        "don_gia": d["don_gia"],
+                        "don_gia": don_gia_hien,
+                        "discount_allocated": giam,
                         "da_hoan": d["da_hoan"],
                         "con_hoan": d["con_hoan"],
                     }

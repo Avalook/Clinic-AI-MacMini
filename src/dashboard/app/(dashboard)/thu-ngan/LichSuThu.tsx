@@ -38,6 +38,11 @@ interface SuKien {
   tao_luc?: string | null;
   ma: string;
   so_tien: number;
+  original_amount?: number | null;
+  discount_amount?: number | null;
+  discount_type?: "AMOUNT" | "PERCENT" | null;
+  discount_value?: number | null;
+  discount_reason?: string | null;
   hinh_thuc: string | null;
   nguoi: string | null;
   dich_vu: string[];
@@ -232,8 +237,17 @@ export default function LichSuThu({ quay = "dich_vu", ngay, ca, coSo, restricted
                               {TEN_LOAI[s.loai]} · {s.ma}
                             </span>
                             <span className={`tabular-nums ${s.so_tien < 0 ? "text-warning" : "text-ink"}`}>
-                              {s.so_tien < 0 ? `−${tien(-s.so_tien)}` : tien(s.so_tien)}
+                              {s.so_tien === 0 && (s.discount_amount ?? 0) > 0
+                                ? "0đ (Miễn phí)"
+                                : s.so_tien < 0
+                                  ? `−${tien(-s.so_tien)}`
+                                  : tien(s.so_tien)}
                             </span>
+                            {(s.discount_amount ?? 0) > 0 ? (
+                              <span className="font-medium text-brand-600">
+                                [giảm {tien(s.discount_amount ?? 0)}{s.discount_reason ? ` — ${s.discount_reason}` : ""}]
+                              </span>
+                            ) : null}
                             <span className="min-w-0 flex-1 truncate text-ink-muted">
                               {[s.nhan_hinh_thuc || tenHinhThuc(s.hinh_thuc) || null, s.nguoi, s.dich_vu.join(", ")]
                                 .filter(Boolean)

@@ -11,6 +11,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { CircleCheck, Clock3, Package, Plus, Search, TriangleAlert } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -63,6 +64,22 @@ const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger"> = {
 
 type ThaoTacLo = { id: string; loai: "adjust" | "discard"; so_luong: string; ly_do: string };
 
+const FILTER_CARDS = [
+  { value: "all", label: "Tất cả lô", icon: Package },
+  { value: "con_han", label: "Còn hạn", icon: CircleCheck },
+  { value: "sap_het_han", label: "Sắp hết hạn", icon: Clock3 },
+  { value: "het_han", label: "Hết hạn", icon: TriangleAlert },
+] as const;
+
+type InventoryFilter = (typeof FILTER_CARDS)[number]["value"];
+
+const FILTER_CARD_TONE: Record<InventoryFilter, { icon: string; count: string }> = {
+  all: { icon: "bg-brand-50 text-brand-700", count: "text-ink" },
+  con_han: { icon: "bg-success-bg text-success", count: "text-success" },
+  sap_het_han: { icon: "bg-warning-bg text-warning", count: "text-warning" },
+  het_han: { icon: "bg-danger-bg text-danger", count: "text-danger" },
+};
+
 export default function InventoryBoard({
   batches,
   thuoc,
@@ -77,7 +94,7 @@ export default function InventoryBoard({
   onXemThe?: (id: string) => void;
 }) {
   const router = useRouter();
-  const [filter, setFilter] = useState<"all" | ExpiryState>("all");
+  const [filter, setFilter] = useState<InventoryFilter>("all");
   const [search, setSearch] = useState("");
   const [moNhap, setMoNhap] = useState(false);
   const [lo, setLo] = useState<ThaoTacLo | null>(null);
@@ -97,18 +114,24 @@ export default function InventoryBoard({
     });
   }, [batches, filter, search]);
 
-  const summary = useMemo(() => {
-    let totalUnits = 0;
-    let soonCount = 0;
-    let expiredCount = 0;
-    for (const b of batches) {
-      totalUnits += Number(b.quantity_on_hand);
-      // Chỉ đếm lô còn thuốc trên kệ (`canh_bao_han` máy chủ trả).
-      if (b.canh_bao_han && b.trang_thai_han === "sap_het_han") soonCount++;
-      if (b.canh_bao_han && b.trang_thai_han === "het_han") expiredCount++;
-    }
-    return { totalUnits, soonCount, expiredCount };
-  }, [batches]);
+  const statusCounts = useMemo(
+    () => ({
+      all: batches.length,
+      con_han: batches.filter((b) => b.trang_thai_han === "con_han").length,
+      sap_het_han: batches.filter((b) => b.trang_thai_han === "sap_het_han").length,
+      het_han: batches.filter((b) => b.trang_thai_han === "het_han").length,
+    }),
+    [batches],
+  );
+  const totalUnits = useMemo(
+    () => batches.reduce((total, batch) => total + Number(batch.quantity_on_hand), 0),
+    [batches],
+  );
+  const coBoLoc = search.trim() !== "" || filter !== "all";
+  const xoaBoLoc = () => {
+    setSearch("");
+    setFilter("all");
+  };
 
   const guiLo = async () => {
     if (!lo) return;
@@ -128,51 +151,223 @@ export default function InventoryBoard({
     router.refresh();
   };
 
-  const the = (so: string | number, nhan: string, tone?: string) => (
-    <div className="rounded-control border border-line bg-surface p-3">
-      <div className={`text-title font-semibold ${tone ?? "text-ink"}`}>{so}</div>
-      <div className="text-meta text-ink-muted">{nhan}</div>
-    </div>
-  );
-
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {the(batches.length, "Lô thuốc")}
-        {the(fmtQty(summary.totalUnits), "Tổng tồn (đơn vị)")}
-        {the(summary.soonCount, "Lô sắp hết hạn", summary.soonCount > 0 ? "text-warning" : undefined)}
-        {the(summary.expiredCount, "Lô hết hạn còn trên kệ", summary.expiredCount > 0 ? "text-danger" : undefined)}
+      <div
+        role="group"
+        aria-label="Lọc lô thuốc theo hạn dùng"
+        className="grid grid-cols-2 gap-3 md:grid-cols-4"
+      >
+        {FILTER_CARDS.map((card) => {
+          const Icon = card.icon;
+          const dangChon = filter === card.value;
+          const tone = FILTER_CARD_TONE[card.value];
+          return (
+            <button
+              key={card.value}
+              type="button"
+              aria-label={`${card.label}: ${statusCounts[card.value]} lô`}
+              aria-pressed={dangChon}
+              onClick={() => setFilter(card.value)}
+              className={`flex min-h-20 w-full items-center gap-3 rounded-card border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 ${
+                dangChon
+                  ? "border-brand-600 bg-surface-selected"
+                  : "border-line bg-surface hover:bg-surface-muted"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`flex size-10 shrink-0 items-center justify-center rounded-control ${tone.icon}`}
+              >
+                <Icon className="size-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-meta text-ink-muted">{card.label}</span>
+                <span className={`block text-title font-semibold tabular-nums ${tone.count}`}>
+                  {statusCounts[card.value]}
+                </span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {(["all", "con_han", "sap_het_han", "het_han"] as const).map((f) => (
-          <Button
-            key={f}
-            type="button"
-            size="sm"
-            variant={filter === f ? "primary" : "secondary"}
-            onClick={() => setFilter(f)}
-          >
-            {f === "all" ? "Tất cả" : STATE_LABEL[f]}
-          </Button>
-        ))}
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm thuốc / mã lô…"
-          aria-label="Tìm lô thuốc"
-          className={`${INPUT} sm:ml-auto sm:w-56`}
-        />
+      <p className="text-right text-meta text-ink-muted">
+        Tổng tồn: <span className="font-semibold tabular-nums text-ink">{fmtQty(totalUnits)}</span> đơn vị
+      </p>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
+          />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm theo tên thuốc, số lô…"
+            aria-label="Tìm thuốc hoặc mã lô"
+            className={`${INPUT} pl-10`}
+          />
+        </div>
         {ghiDuoc ? (
-          <Button type="button" variant="primary" size="sm" onClick={() => setMoNhap(true)}>
-            + Nhập lô
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            onClick={() => setMoNhap(true)}
+            className="shrink-0"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Plus aria-hidden="true" className="size-4" />
+              Nhập lô
+            </span>
           </Button>
         ) : null}
       </div>
 
       {moNhap ? <NhapLo thuoc={thuoc} onXong={() => setMoNhap(false)} /> : null}
 
-      <div className={`${TBL_WRAP} overflow-x-auto`}>
+      <ul aria-label="Danh sách lô thuốc" className="space-y-2 md:hidden">
+        {rows.length === 0 ? (
+          <li className="rounded-card border border-line bg-surface px-3 py-6 text-center">
+            <p className="text-body text-ink-muted">
+              {coBoLoc ? "Không có lô thuốc phù hợp với bộ lọc." : "Chưa có lô thuốc nào — bấm [Nhập lô] để nhập."}
+            </p>
+            {coBoLoc ? (
+              <Button type="button" size="sm" variant="ghost" aria-label="Xoá bộ lọc" onClick={xoaBoLoc}>
+                Xoá bộ lọc
+              </Button>
+            ) : null}
+          </li>
+        ) : (
+          rows.map((b) => {
+            const st = b.trang_thai_han;
+            const dangMo = lo?.id === b.id;
+            const catalogId = b.drug_catalog_id;
+            const tenThuoc = `${b.drug?.name_base ?? b.drug?.name_raw ?? "—"}${b.drug?.variant ? ` (${b.drug.variant})` : ""}`;
+            return (
+              <li key={b.id} className="rounded-card border border-line bg-surface p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    {onXemThe && catalogId ? (
+                      <button
+                        type="button"
+                        onClick={() => onXemThe(catalogId)}
+                        title="Xem thẻ kho"
+                        className="text-left text-emph font-semibold text-brand-700 hover:underline"
+                      >
+                        {tenThuoc}
+                      </button>
+                    ) : (
+                      <p className="text-emph font-semibold text-ink">{tenThuoc}</p>
+                    )}
+                  </div>
+                  <Chip tone={STATE_TONE[st]}>{STATE_LABEL[st]}</Chip>
+                </div>
+
+                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-hairline pt-3 text-meta">
+                  <div>
+                    <dt className="text-ink-faint">Mã lô</dt>
+                    <dd className="text-ink">{b.batch_code}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-ink-faint">Hạn dùng</dt>
+                    <dd className="text-ink">{fmtDate(b.expiry_date)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-ink-faint">Tồn</dt>
+                    <dd className="font-semibold tabular-nums text-ink">
+                      {fmtQty(b.quantity_on_hand)} {b.unit}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-ink-faint">Giá nhập</dt>
+                    <dd className="tabular-nums text-ink">{tienVnd(b.cost_price)}</dd>
+                  </div>
+                </dl>
+
+                {ghiDuoc ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="ghost"
+                      aria-label={`Điều chỉnh lô ${b.batch_code}`}
+                      onClick={() => {
+                        setLoi(null);
+                        setLo({ id: b.id, loai: "adjust", so_luong: "", ly_do: "" });
+                      }}
+                    >
+                      Điều chỉnh
+                    </Button>
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="ghost"
+                      aria-label={`Huỷ lô ${b.batch_code}`}
+                      onClick={() => {
+                        setLoi(null);
+                        setLo({ id: b.id, loai: "discard", so_luong: "", ly_do: "" });
+                      }}
+                    >
+                      Huỷ
+                    </Button>
+                  </div>
+                ) : null}
+
+                {dangMo && lo ? (
+                  <div className="mt-3 space-y-2 rounded-control bg-surface-muted p-3">
+                    <label className="block">
+                      <span className="mb-1 block text-meta text-ink-soft">
+                        {lo.loai === "adjust"
+                          ? "Lệch kiểm kê (âm = bớt, dương = thêm)"
+                          : "Số lượng huỷ"}
+                      </span>
+                      <input
+                        value={lo.so_luong}
+                        inputMode="decimal"
+                        onChange={(e) => setLo({ ...lo, so_luong: e.target.value })}
+                        className={INPUT}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-meta text-ink-soft">Lý do</span>
+                      <input
+                        value={lo.ly_do}
+                        onChange={(e) => setLo({ ...lo, ly_do: e.target.value })}
+                        placeholder={lo.loai === "adjust" ? "Kiểm kê cuối ngày…" : "Hết hạn, vỡ…"}
+                        className={INPUT}
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant={lo.loai === "discard" ? "danger" : "primary"}
+                        disabled={dang || !lo.so_luong.trim() || !lo.ly_do.trim()}
+                        onClick={() => void guiLo()}
+                      >
+                        {dang ? "Đang lưu…" : lo.loai === "adjust" ? "Lưu điều chỉnh" : "Huỷ thuốc"}
+                      </Button>
+                      <Button type="button" size="lg" variant="ghost" onClick={() => setLo(null)}>
+                        Thôi
+                      </Button>
+                    </div>
+                    {loi ? (
+                      <p role="alert" className="text-meta text-danger">
+                        {loi}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })
+        )}
+      </ul>
+
+      <div className={`${TBL_WRAP} hidden overflow-x-auto md:block`}>
         <table className="w-full min-w-2xl text-left text-body">
           <thead className={TBL_HEAD}>
             <tr>
@@ -190,20 +385,30 @@ export default function InventoryBoard({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-3 py-6 text-center text-ink-muted">
-                  Chưa có lô thuốc nào — bấm [+ Nhập lô] để nhập.
+                  <div className="space-y-2">
+                    <p>
+                      {coBoLoc ? "Không có lô thuốc phù hợp với bộ lọc." : "Chưa có lô thuốc nào — bấm [Nhập lô] để nhập."}
+                    </p>
+                    {coBoLoc ? (
+                      <Button type="button" size="sm" variant="ghost" aria-label="Xoá bộ lọc" onClick={xoaBoLoc}>
+                        Xoá bộ lọc
+                      </Button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ) : (
               rows.flatMap((b) => {
                 const st = b.trang_thai_han;
                 const dangMo = lo?.id === b.id;
+                const catalogId = b.drug_catalog_id;
                 const hang = (
                   <tr key={b.id}>
                     <td className="px-3 py-2 font-medium text-ink">
-                      {onXemThe && b.drug_catalog_id ? (
+                      {onXemThe && catalogId ? (
                         <button
                           type="button"
-                          onClick={() => b.drug_catalog_id && onXemThe(b.drug_catalog_id)}
+                          onClick={() => onXemThe(catalogId)}
                           title="Xem thẻ kho"
                           className="text-left font-medium text-brand-700 hover:underline"
                         >
@@ -232,28 +437,28 @@ export default function InventoryBoard({
                     <td className="whitespace-nowrap px-3 py-2 text-right">
                       {ghiDuoc ? (
                         <>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setLoi(null);
-                          setLo({ id: b.id, loai: "adjust", so_luong: "", ly_do: "" });
-                        }}
-                      >
-                        Điều chỉnh
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setLoi(null);
-                          setLo({ id: b.id, loai: "discard", so_luong: "", ly_do: "" });
-                        }}
-                      >
-                        Huỷ
-                      </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setLoi(null);
+                              setLo({ id: b.id, loai: "adjust", so_luong: "", ly_do: "" });
+                            }}
+                          >
+                            Điều chỉnh
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setLoi(null);
+                              setLo({ id: b.id, loai: "discard", so_luong: "", ly_do: "" });
+                            }}
+                          >
+                            Huỷ
+                          </Button>
                         </>
                       ) : null}
                     </td>

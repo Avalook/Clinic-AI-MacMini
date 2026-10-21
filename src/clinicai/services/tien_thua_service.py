@@ -37,6 +37,7 @@ WITH dong AS (
     SELECT bl.id::text AS line_id, bl.visit_id::text AS line_visit_id,
            bl.payment_cycle_id::text AS payment_cycle_id, bl.source_type,
            bl.source_id, bl.name_snapshot, bl.quantity, bl.line_total,
+           coalesce(bl.discount_allocated, 0) AS discount_allocated,
            CASE WHEN bl.source_type = 'service_order' THEN bl.source_id
                 WHEN bl.source_type = 'phu_thu' THEN (
                     SELECT p.service_order_id::text FROM public.luot_phu_thu p
@@ -62,7 +63,7 @@ SELECT d.*, coalesce(o.visit_id::text, d.line_visit_id) AS visit_id,
   FROM dong d
   LEFT JOIN public.service_order o
     ON o.clinic_id = $1::uuid AND o.id::text = d.order_id
- WHERE d.line_total - d.da_hoan > 0
+ WHERE (d.line_total - d.discount_allocated) - d.da_hoan > 0
    AND (
         (d.source_type IN ('service_order', 'phu_thu')
          AND o.exec_status IN ('cancelled', 'not_performed')
@@ -98,7 +99,8 @@ async def dong_tien_thua(
                 "order_id": d["order_id"],
                 "ten": d["name_snapshot"],
                 "con_sl": Decimal(str(d["quantity"])) - Decimal(str(d["da_hoan_sl"])),
-                "so_tien": int(d["line_total"]) - int(d["da_hoan"]),
+                "so_tien": (int(d["line_total"]) - int(d["discount_allocated"]))
+                - int(d["da_hoan"]),
                 "loai": (
                     "BO_DICH_VU_KHAM"
                     if d["source_type"] == "exam"
