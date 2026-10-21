@@ -483,6 +483,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "clinical_data_consent": "Đồng ý chia sẻ hồ sơ",
     "drug_batch": "Lô thuốc",
     "drug_catalog": "Thuốc trong danh mục",
+    "service_price": "Dòng bảng giá",
     "clinic_location": "Cơ sở",
     "phieu_kho": "Phiếu kho",
     "kiem_ke_ca": "Phiếu kiểm kê ca",

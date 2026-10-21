@@ -51,6 +51,7 @@ from clinicai.core.shifts import (
 )
 from clinicai.permissions import cache
 from clinicai.permissions.can import can
+from clinicai.services.lich_su_gia import ghi_doi_gia, sua_cuoi
 from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.lich_truc_phien_ban_service import (
     dat_nguoi_bam,
@@ -1630,16 +1631,27 @@ class PriceListService:
                 identity.clinic_id,
                 group,
             )
+            doi_gia = await sua_cuoi(
+                conn,
+                clinic_id=identity.clinic_id,
+                loai="dich_vu",
+                ids=[str(r["id"]) for r in rows],
+            )
             # asyncpg giải numeric có số 0 cuối thành Decimal('9.0E+5') — màn Bảng
             # giá hiện nguyên "9.0E+5" trong ô đơn giá (bấm thật 26/09/2026).
             # Tiền đồng luôn là số nguyên: trả dạng thường.
             return [
-                {**dict(r), "unit_price": _gia_thuong(r["unit_price"])} for r in rows
+                {
+                    **dict(r),
+                    "unit_price": _gia_thuong(r["unit_price"]),
+                    "gia_sua_cuoi": doi_gia.get(str(r["id"])),
+                }
+                for r in rows
             ]
 
     @staticmethod
     async def _dong_bo_gia_danh_muc_thuoc(
-        conn: asyncpg.Connection, clinic_id: str, ten: str, gia: Any
+        conn: asyncpg.Connection, identity: StaffIdentity, ten: str, gia: Any
     ) -> int:
         """Giá thuốc sửa ở màn Bảng giá thuốc → danh mục thuốc CÙNG TÊN CHUẨN.
 
@@ -1653,25 +1665,38 @@ class PriceListService:
         khoa = norm_name(ten)
         if not khoa:
             return 0
-        ids = [
-            r["id"]
+        clinic_id = identity.clinic_id
+        khop = [
+            r
             for r in await conn.fetch(
-                "SELECT id, name_base, name_raw FROM drug_catalog"
+                "SELECT id, name_base, name_raw, ma_hang, unit_price FROM drug_catalog"
                 " WHERE clinic_id = $1::uuid",
                 clinic_id,
             )
             if khoa in {norm_name(r["name_base"]), norm_name(r["name_raw"])}
         ]
-        if ids:
+        if khop:
             await conn.execute(
                 "UPDATE drug_catalog SET unit_price = $2"
                 " WHERE clinic_id = $3::uuid AND id = ANY($1::uuid[])"
                 " AND unit_price IS DISTINCT FROM $2",
-                ids,
+                [r["id"] for r in khop],
                 gia,
                 clinic_id,
             )
-        return len(ids)
+            for r in khop:
+                await ghi_doi_gia(
+                    conn,
+                    identity=identity,
+                    loai="thuoc",
+                    id=str(r["id"]),
+                    ten=r["name_raw"],
+                    ma=r["ma_hang"],
+                    gia_cu=r["unit_price"],
+                    gia_moi=gia,
+                    hanh_dong="SUA",
+                )
+        return len(khop)
 
     async def add(
         self,
@@ -1766,10 +1791,19 @@ class PriceListService:
                 raise ConflictError(
                     f"Mã {ma_kv or code} đã có trong bảng giá — tìm dòng ấy mà sửa."
                 ) from exc
+            await ghi_doi_gia(
+                conn,
+                identity=identity,
+                loai="dich_vu",
+                id=str(row_id),
+                ten=label,
+                ma=code or None,
+                gia_cu=None,
+                gia_moi=price,
+                hanh_dong="THEM",
+            )
             if group == "thuoc" and price is not None:
-                await self._dong_bo_gia_danh_muc_thuoc(
-                    conn, identity.clinic_id, label, price
-                )
+                await self._dong_bo_gia_danh_muc_thuoc(conn, identity, label, price)
         return str(row_id)
 
     @staticmethod
@@ -1884,6 +1918,16 @@ class PriceListService:
                     patch["billing_owner"] = await self._ben_thu_theo_phong(
                         conn, identity.clinic_id, patch["node_code"]
                     )
+            gia_cu = (
+                await conn.fetchval(
+                    "SELECT unit_price FROM service_price"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                    price_id,
+                    identity.clinic_id,
+                )
+                if unit_price_provided
+                else None
+            )
             columns = list(patch)
             assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
             try:
@@ -1891,7 +1935,7 @@ class PriceListService:
                     f"""
                     UPDATE service_price SET {assignments}, updated_at = now()
                      WHERE id = $1::uuid AND clinic_id = $2::uuid
-                    RETURNING id, "group", name, unit_price
+                    RETURNING id, "group", name, unit_price, service_code
                     """,
                     price_id,
                     identity.clinic_id,
@@ -1903,13 +1947,25 @@ class PriceListService:
                 ) from exc
             if updated is None:
                 raise NotFoundError("Không tìm thấy dòng giá")
+            if unit_price_provided:
+                await ghi_doi_gia(
+                    conn,
+                    identity=identity,
+                    loai="dich_vu",
+                    id=str(updated["id"]),
+                    ten=updated["name"],
+                    ma=updated["service_code"],
+                    gia_cu=gia_cu,
+                    gia_moi=updated["unit_price"],
+                    hanh_dong="SUA",
+                )
             if (
                 updated["group"] == "thuoc"
                 and unit_price_provided
                 and updated["unit_price"] is not None
             ):
                 await self._dong_bo_gia_danh_muc_thuoc(
-                    conn, identity.clinic_id, updated["name"], updated["unit_price"]
+                    conn, identity, updated["name"], updated["unit_price"]
                 )
 
     async def phong_lam(
@@ -1943,12 +1999,26 @@ class PriceListService:
         return ma
 
     async def remove(self, *, price_id: str, identity: StaffIdentity) -> None:
-        async with self._pool.acquire() as conn:
-            deleted = await conn.fetchval(
+        async with self._pool.acquire() as conn, conn.transaction():
+            deleted = await conn.fetchrow(
                 "DELETE FROM service_price "
-                "WHERE id = $1::uuid AND clinic_id = $2::uuid RETURNING id",
+                "WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                " RETURNING id, name, service_code, unit_price",
                 price_id,
                 identity.clinic_id,
             )
-        if deleted is None:
-            raise NotFoundError("Không tìm thấy dòng giá")
+            if deleted is None:
+                raise NotFoundError("Không tìm thấy dòng giá")
+            # Dòng mất nhưng giá cuối còn trong vết — tra được "trước khi xoá là
+            # bao nhiêu".
+            await ghi_doi_gia(
+                conn,
+                identity=identity,
+                loai="dich_vu",
+                id=str(deleted["id"]),
+                ten=deleted["name"],
+                ma=deleted["service_code"],
+                gia_cu=deleted["unit_price"],
+                gia_moi=None,
+                hanh_dong="XOA",
+            )

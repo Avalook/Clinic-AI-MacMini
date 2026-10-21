@@ -39,6 +39,7 @@ from clinicai.services.config_service import (
     Shift,
 )
 from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
+from clinicai.services.lich_su_gia import LichSuGiaService
 from clinicai.services.lich_truc_phien_ban_service import LichTrucPhienBanService
 from clinicai.services.ngoai_le_ca_truc_service import NgoaiLeCaTrucService
 from clinicai.services.vat_tu_danh_muc_service import dat_co_hang_loat
@@ -465,6 +466,22 @@ class PriceRow(BaseModel):
     billing_owner: str = "CLINIC"
     #: Quản lý đã chọn tay bên thu (không còn suy theo phòng làm) — 29/09/2026.
     billing_owner_chon_tay: bool = False
+    #: Lần đổi giá gần nhất {luc, boi, hanh_dong, gia_cu, gia_moi}; chưa đổi = rỗng.
+    gia_sua_cuoi: dict[str, Any] | None = None
+
+
+@router.get("/service-prices/{price_id}/lich-su-gia")
+async def lich_su_gia_dich_vu(
+    price_id: UUID,
+    identity: StaffIdentity = Depends(_PRICE_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mọi lần đổi giá của một dòng bảng giá, mới nhất trước (21/10/2026)."""
+    return {
+        "items": await LichSuGiaService(pool).doc(
+            identity=identity, loai="dich_vu", id=str(price_id)
+        )
+    }
 
 
 @router.get("/service-prices/phong-lam")

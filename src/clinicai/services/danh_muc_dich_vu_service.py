@@ -26,6 +26,7 @@ import asyncpg
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.permissions.can import can
+from clinicai.services.lich_su_gia import sua_cuoi
 
 #: Thứ tự nhóm hàng như file phòng khám (Excel 01/10) — nhóm lạ xếp sau, theo tên.
 THU_TU_NHOM = (
@@ -167,7 +168,10 @@ async def doc_vat_tu(conn: asyncpg.Connection, clinic_id: str) -> list[dict[str,
         """,
         clinic_id,
     )
-    return [dong_vat_tu(r) for r in rows]
+    doi_gia = await sua_cuoi(
+        conn, clinic_id=clinic_id, loai="dich_vu", ids=[str(r["id"]) for r in rows]
+    )
+    return [{**dong_vat_tu(r), "gia_sua_cuoi": doi_gia.get(str(r["id"]))} for r in rows]
 
 
 async def dem_chua_co_phong(conn: asyncpg.Connection, clinic_id: str) -> int:
@@ -209,7 +213,13 @@ class DanhMucDichVuService:
             # Gán phòng là đổi CẤU HÌNH phòng (lego "Cài đặt phòng khám") — màn
             # Bảng giá mở cho người giữ bảng giá, nên máy chủ nói có sửa được không.
             sua_phong = await can(conn, identity, "config.clinic.manage")
-        ds = [dong_danh_muc(r) for r in rows]
+            doi_gia = await sua_cuoi(
+                conn, clinic_id=cid, loai="dich_vu", ids=[str(r["id"]) for r in rows]
+            )
+        ds = [
+            {**dong_danh_muc(r), "gia_sua_cuoi": doi_gia.get(str(r["id"]))}
+            for r in rows
+        ]
         nhom = sorted(
             {d["nhom_hien"] for d in ds if d["nhom_hien"]} | {g for g in THU_TU_NHOM},
             key=thu_tu_nhom_hang,

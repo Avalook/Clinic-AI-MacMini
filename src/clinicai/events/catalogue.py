@@ -195,6 +195,19 @@ class VatTuNhapDaQuyet(PayloadSuKien):
     phieu_id: str | None = None
 
 
+class GiaDaDoi(PayloadSuKien):
+    """`gia_dich_vu.da_doi` / `gia_thuoc.da_doi` — một dòng giá THẬT SỰ đổi số
+    (`hanh_dong` 'THEM' | 'SUA' | 'XOA'). Hoá đơn tính theo giá lúc thu, nên đây là
+    chỗ duy nhất trả lời được "sao khách trả số này". Đồng, số nguyên; rỗng = chưa
+    có giá. Người sửa ở cột actor của sự kiện, không chép tên vào payload."""
+
+    ma: str | None = None
+    ten: str
+    gia_cu: int | None = None
+    gia_moi: int | None = None
+    hanh_dong: str
+
+
 class LieuTrinhDaTao(PayloadSuKien):
     """`lieu_trinh.created` — bác sĩ / ĐD / TKYK đề xuất một liệu trình điều trị
     nhiều buổi (08/10/2026). Có `service_order_id` = chỉ định hôm nay là buổi 1;
@@ -1405,6 +1418,24 @@ DANH_MUC: dict[str, SuKien] = {
             is_public=False,
         ),
         SuKien(
+            ten="gia_dich_vu.da_doi",
+            version=1,
+            aggregate_type="service_price",
+            source_module="catalogue",
+            payload=GiaDaDoi,
+            nhan="Giá dịch vụ / vật tư / thuốc trong bảng giá đã đổi",
+            is_public=False,
+        ),
+        SuKien(
+            ten="gia_thuoc.da_doi",
+            version=1,
+            aggregate_type="drug_catalog",
+            source_module="catalogue",
+            payload=GiaDaDoi,
+            nhan="Giá bán thuốc trong danh mục kho đã đổi",
+            is_public=False,
+        ),
+        SuKien(
             ten="visit.exam_service_changed",
             version=1,
             aggregate_type="visit",
@@ -2334,6 +2365,7 @@ __all__ = [
     "DaChonBacSiLam",
     "DaXepPhong",
     "DichVuDaChuyenPhong",
+    "GiaDaDoi",
     "HuongDanPhong",
     "KhachRoiPhong",
     "NhaPhongDaHoanTac",
