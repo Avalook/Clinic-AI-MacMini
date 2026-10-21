@@ -21,8 +21,9 @@ Khuôn: việc · ở đâu · kết quả cần đạt · cách kiểm · khôn
 ## Việc 1 — chốt lượt soát ghi chú (đang chạy nền bằng API Claude)
 
 - Ở đâu: worktree `.claude/worktrees/ban-do-hieu`, nhánh `claude/ban-do-hieu` (PR #521).
-- Đợi log `/private/tmp/claude-501/-Users-quangdang-Projects-Dr4Women-MacMini--claude-worktrees-repo-cleanup-process-3ce6b7/200dec86-fcc1-4c62-b879-920712f555ff/scratchpad/hieu/claude-not.log`
-  có dòng `Xong`. Có `DỪNG: chạm trần` / `HẾT TIỀN` → dừng, báo Tuyền, KHÔNG nâng trần.
+- Đợi log `/private/tmp/claude-501/-Users-quangdang-Projects-Dr4Women-MacMini--claude-worktrees-repo-cleanup-process-3ce6b7/200dec86-fcc1-4c62-b879-920712f555ff/scratchpad/hieu/claude-not-2.log`
+  có dòng `Xong` (lượt `nohup`, trần 26 USD; lượt trước bị cắt ngang ở 1.303/2.089 tệp, đã
+  tiêu 3,16 USD). Log đứng yên quá 15 phút mà chưa có `Xong` → chạy lại lệnh ở dòng dưới. Có `DỪNG: chạm trần` / `HẾT TIỀN` → dừng, báo Tuyền, KHÔNG nâng trần.
 - Còn sót: `python3 scripts/ban-do-doc-lai.py --soat --claude --toi-da 3000 --tran-usd 5 --song-song 4`.
 - Kết quả: `docs/ban-do/hieu/soat-tep.json` ≈ 2.089 mục; `python3 scripts/ban-do-code.py --html`
   chạy được; `--kiem` khớp; commit `docs/ban-do/hieu` + `scripts/ban-do-doc-lai.py`, push.
