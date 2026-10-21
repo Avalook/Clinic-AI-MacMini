@@ -18,15 +18,28 @@ Khuôn: việc · ở đâu · kết quả cần đạt · cách kiểm · khôn
   khung **08:00–23:00** (ngoài giờ có test đỏ giả theo giờ máy).
 - Mỗi việc ghi rõ đã kiểm ở lớp nào; chưa chạy thật thì nói "chưa chạy thật".
 
-## Việc 1 — chốt lượt soát ghi chú (đang chạy nền bằng API Claude)
+## Việc 1 — Codex TỰ soát nốt ~760 ghi chú tệp (KHÔNG gọi API, không trần tiền)
+
+Bản trên PR #521 (`54612bbb`): đã soát 1.329/2.089. KHÔNG chạy `--claude` hay AVIS nữa —
+Codex tự đọc tệp và tự soát; script chỉ để in đề và nạp kết quả qua máy kiểm.
 
 - Ở đâu: worktree `.claude/worktrees/ban-do-hieu`, nhánh `claude/ban-do-hieu` (PR #521).
-- Đợi log `/private/tmp/claude-501/-Users-quangdang-Projects-Dr4Women-MacMini--claude-worktrees-repo-cleanup-process-3ce6b7/200dec86-fcc1-4c62-b879-920712f555ff/scratchpad/hieu/claude-not-2.log`
-  có dòng `Xong` (lượt `nohup`, trần 26 USD; lượt trước bị cắt ngang ở 1.303/2.089 tệp, đã
-  tiêu 3,16 USD). Log đứng yên quá 15 phút mà chưa có `Xong` → chạy lại lệnh ở dòng dưới. Có `DỪNG: chạm trần` / `HẾT TIỀN` → dừng, báo Tuyền, KHÔNG nâng trần.
-- Còn sót: `python3 scripts/ban-do-doc-lai.py --soat --claude --toi-da 3000 --tran-usd 5 --song-song 4`.
-- Kết quả: `docs/ban-do/hieu/soat-tep.json` ≈ 2.089 mục; `python3 scripts/ban-do-code.py --html`
-  chạy được; `--kiem` khớp; commit `docs/ban-do/hieu` + `scripts/ban-do-doc-lai.py`, push.
+- B1 — danh sách việc: `python3 scripts/ban-do-doc-lai.py --soat --xuat-lo 1 --ra /tmp/codex-soat`
+  → `/tmp/codex-soat/lo-01.txt`, mỗi dòng một tệp chưa soát (tiền / kho / quyền đã xong trước).
+- B2 — với TỪNG tệp P trong danh sách:
+  1. `python3 scripts/ban-do-doc-lai.py --soat --in-de P` → in LỜI DẶN, tệp có số dòng, GHI CHÚ ĐÃ CÓ.
+  2. Làm đúng lời dặn: đối chiếu luật / bẫy / hàm chính / test với CODE (số dòng trỏ đúng
+     dòng thực thi, câu đúng điều code làm, không bỏ sót nhánh / ngoại lệ). Tiếng Việt lời
+     thường, mỗi chuỗi ≤ 300 ký tự, không bịa.
+  3. Ghi MỘT dòng vào `/tmp/codex-soat/kq.jsonl`:
+     `{"tep": "P", "doi": {<chỉ khoá cần đổi, giá trị mới ĐẦY ĐỦ>, "da_sua": ["..."]}}`
+     (ghi chú đã đúng → `{"tep": "P", "doi": {"da_sua": []}}`). Ghi dần, đừng gom cuối.
+  4. Cứ ~100 tệp: `python3 scripts/ban-do-doc-lai.py --soat --nap /tmp/codex-soat/kq.jsonl`
+     (nạp lại cả tệp an toàn — đã nạp thì ghi đè cùng nội dung). Dòng bị loại (`✗`) thì sửa
+     lại đúng số dòng rồi nạp lại. Chạy lại B1 thì danh sách tự bớt tệp đã nạp.
+- Tuyệt đối KHÔNG sửa tay `docs/ban-do/hieu/tep|test/*.json` — chỉ qua `--nap`.
+- Kết quả: `soat-tep.json` ≈ 2.089 mục; `python3 scripts/ban-do-code.py --html` chạy được;
+  `--kiem` khớp; commit `docs/ban-do/hieu`, push. Báo số tệp đã soát, số bị loại.
 
 ## Việc 2 — xác minh các "bẫy" agent mới tìm ra (chỉ đọc code + chạy test)
 
