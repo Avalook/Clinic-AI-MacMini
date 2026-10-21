@@ -1,5 +1,9 @@
 # BẢN ĐỒ DÂY NỐI LEGO — để Tuyền duyệt TRƯỚC khi code
 
+> ⚠️ **Trạng thái ✅ 🟡 ❌ dưới đây là của 23/09/2026 — ĐÃ CŨ.** Dây thật hôm nay
+> (khối nào phát, khối nào nghe) xem `docs/BAN-DO-KHOI.md`, sinh từ code. Tệp này
+> giữ làm BIÊN BẢN THIẾT KẾ các dây H1…H8 ("Bản chốt 24/09") mà code còn trỏ tới.
+
 Bản nháp 23/09/2026. Mục đích: duyệt NGHĨA nghiệp vụ của từng dây nối trước khi
 viết code (kỹ thuật *Event Storming*). Chuẩn mỗi khối: `docs/CHUAN-CAM-LEGO.md`.
 Luồng chuẩn 11 bước: memory `luong-chuan-tuyen-2309.md`.

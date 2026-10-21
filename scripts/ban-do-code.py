@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Sinh docs/BAN-DO-CODE.md — bản đồ "màn → API → router → service → test".
+"""Sinh docs/BAN-DO-KHOI.md (bản đồ THEO KHỐI lego — cửa vào) và
+docs/BAN-DO-CODE.md (chi tiết "màn → API → router → service → test").
+
+BAN-DO-KHOI đọc bản khai `src/clinicai/modules.py` (bảng, tệp, lệnh, sự kiện,
+quyền của từng khối) + sổ nợ ghi chéo của `test_luat_cam_ghi_cheo.py`, nối với
+màn / test suy ra ở dưới — để biết sửa / thêm gì thì vào khối nào và đụng ai.
 
 Tuyền 01/10/2026: "làm sao để tôi biết cần sửa bất cứ thứ gì ở đâu … để đưa
 con AI khác biết và sửa ngay mà không cần quét toàn bộ code". BAN-DO-SUA.md
@@ -18,9 +23,9 @@ Phân tích TĨNH, chỉ thư viện chuẩn (regex cho TSX, ast cho Python):
 
 Chấp nhận không hoàn hảo: chỗ không suy được ghi "?" chứ không đoán.
 
-    python3 scripts/ban-do-code.py           # ghi lại docs/BAN-DO-CODE.md
-    python3 scripts/ban-do-code.py --kiem    # exit 1 nếu tệp lệch code (CI)
-    python3 scripts/ban-do-code.py --in      # in ra stdout, không ghi
+    python3 scripts/ban-do-code.py           # ghi lại cả hai tệp
+    python3 scripts/ban-do-code.py --kiem    # exit 1 nếu tệp nào lệch code (CI)
+    python3 scripts/ban-do-code.py --in      # in BAN-DO-CODE ra stdout, không ghi
 """
 
 # ruff: noqa: E501 — chuỗi tài liệu tiếng Việt và regex, cắt dòng chỉ làm khó đọc.
@@ -42,6 +47,9 @@ ROUTERS = PY / "api" / "v1" / "routers"
 TESTS = GOC / "src" / "tests"
 MIGRATIONS = GOC / "supabase" / "migrations"
 DAU_RA = GOC / "docs" / "BAN-DO-CODE.md"
+DAU_RA_KHOI = GOC / "docs" / "BAN-DO-KHOI.md"
+BAN_KHAI = PY / "modules.py"
+TEST_LUAT_CAM = TESTS / "unit" / "test_luat_cam_ghi_cheo.py"
 
 DONG_SINH = "> Sinh bởi `scripts/ban-do-code.py` lúc "
 DUOI_TS = (".tsx", ".ts")
@@ -668,6 +676,100 @@ def doc_bang() -> list[tuple[str, str, int]]:
     return ra
 
 
+# ── Bản khai lego (khối) ────────────────────────────────────────────────────
+
+
+@dataclass
+class Khoi:
+    ma: str
+    ten: str
+    bang: list[str]
+    lenh: list[str]
+    phat: list[str]
+    nghe: list[str]
+    ben_nhan: list[str]
+    quyen: list[str]
+    goi_dong_bo: list[str]
+    tep: list[str] = field(default_factory=list)
+
+
+def _danh_sach(n: ast.expr | None) -> list[str]:
+    if n is None:
+        return []
+    try:
+        v = ast.literal_eval(n)
+    except ValueError:
+        return []
+    return [str(x) for x in v] if isinstance(v, (list, tuple)) else []
+
+
+def doc_ban_khai() -> tuple[dict[str, Khoi], dict[str, str]]:
+    """Khối (đúng thứ tự khai) + bảng kỹ thuật — đọc cú pháp modules.py."""
+    cay = ast.parse(doc(BAN_KHAI))
+    khoi: dict[str, Khoi] = {}
+    for n in ast.walk(cay):
+        if isinstance(n, ast.Call) and _ten_goi(n.func) == "Module":
+            kw = {k.arg: k.value for k in n.keywords if k.arg}
+            ma = str(ast.literal_eval(kw["ma"]))
+            khoi[ma] = Khoi(
+                ma,
+                str(ast.literal_eval(kw["ten"])),
+                *(
+                    _danh_sach(kw.get(t))
+                    for t in (
+                        "bang",
+                        "lenh",
+                        "phat",
+                        "nghe",
+                        "ben_nhan",
+                        "quyen",
+                        "goi_dong_bo",
+                    )
+                ),
+            )
+    ky_thuat: dict[str, str] = {}
+    for n in cay.body:
+        if not (
+            isinstance(n, ast.AnnAssign)
+            and isinstance(n.target, ast.Name)
+            and n.value is not None
+        ):
+            continue
+        if n.target.id == "TEP_CUA_KHOI":
+            for ma, ds in ast.literal_eval(n.value).items():
+                if ma in khoi:
+                    khoi[ma].tep = sorted(ds)
+        elif n.target.id == "BANG_KY_THUAT":
+            ky_thuat = dict(ast.literal_eval(n.value))
+    return khoi, ky_thuat
+
+
+def doc_no_ghi_cheo() -> dict[tuple[str, str], str]:
+    """Sổ nợ (tệp, bảng) → nhãn — đọc cú pháp test_luat_cam_ghi_cheo.py."""
+    try:
+        cay = ast.parse(doc(TEST_LUAT_CAM))
+    except (OSError, SyntaxError):
+        return {}
+    for n in cay.body:
+        if (
+            isinstance(n, ast.AnnAssign)
+            and isinstance(n.target, ast.Name)
+            and n.target.id == "NO_GHI_CHEO"
+            and isinstance(n.value, ast.Dict)
+        ):
+            ra: dict[tuple[str, str], str] = {}
+            for k, v in zip(n.value.keys, n.value.values, strict=True):
+                if (
+                    isinstance(k, ast.Tuple)
+                    and len(k.elts) == 2
+                    and all(isinstance(e, ast.Constant) for e in k.elts)
+                ):
+                    a, b = (str(e.value) for e in k.elts)  # type: ignore[attr-defined]
+                    ra[(a, b)] = v.id if isinstance(v, ast.Name) else "?"
+            return ra
+    return {}
+
+
 # ── Dựng tài liệu ───────────────────────────────────────────────────────────
 
 
@@ -700,7 +802,16 @@ def gom_service(sv: list[str], ky: dict[str, KyHieu], toi_da: int = 6) -> str:
     return " · ".join(phan) + (f" (+{du} service)" if du > 0 else "")
 
 
-def sinh() -> str:
+@dataclass
+class NguCanhMan:
+    """Thứ bản đồ khối mượn của bản đồ màn: màn nào chạm tệp service nào."""
+
+    man_tep: dict[str, set[str]]  # route → tệp (tính từ src/clinicai/)
+    tieu_de: dict[str, str]
+    test: KhoTest
+
+
+def sinh() -> tuple[str, NguCanhMan]:
     api_next = doc_api_next()
     ham_router, ky = doc_router()
     test = KhoTest()
@@ -748,6 +859,8 @@ def sinh() -> str:
     )
 
     tren_man: dict[str, set[str]] = defaultdict(set)  # nhóm service → màn
+    man_tep: dict[str, set[str]] = {}
+    man_tieu_de: dict[str, str] = {}
     next_tu_man: dict[str, set[str]] = defaultdict(set)
     khoi_man: list[str] = []
     du_lieu: list[
@@ -816,6 +929,12 @@ def sinh() -> str:
                 sv.extend(x for x in h.service if x not in sv)
         for x in sv:
             tren_man[ky[x].nhom].add(route)
+        man_tieu_de[route] = tieu_de
+        man_tep[route] = set()
+        for x in sv:
+            tep_sv = tep_module(ky[x].module)
+            if tep_sv is not None and PY in tep_sv.parents:
+                man_tep[route].add(tep_sv.relative_to(PY).as_posix())
         tests: Counter[str] = Counter()
         for x in sv:
             for tp in test.cho(ky[x]):
@@ -964,43 +1083,212 @@ def sinh() -> str:
         "\n".join(khoi_bang),
         "",
     ]
-    return "\n".join(dau) + "\n\n".join(khoi_man) + "\n" + "\n".join(duoi)
+    noi_dung = "\n".join(dau) + "\n\n".join(khoi_man) + "\n" + "\n".join(duoi)
+    return noi_dung, NguCanhMan(man_tep, man_tieu_de, test)
+
+
+NHAN_NO = {
+    "VI_PHAM": "vi phạm đã xác nhận",
+    "DUNG_THIET_KE": "đúng thiết kế",
+    "XEM_LAI_KHOI": "xem lại khối",
+    "CHUA_XET": "chưa xét",
+}
+
+
+def sinh_khoi(nc: NguCanhMan) -> str:
+    khoi, ky_thuat = doc_ban_khai()
+    no = doc_no_ghi_cheo()
+    chu = {b: k.ma for k in khoi.values() for b in k.bang}
+    cua_tep = {t: k.ma for k in khoi.values() for t in k.tep}
+    nghe_boi: dict[str, list[str]] = defaultdict(list)
+    for k in khoi.values():
+        for ev in k.nghe:
+            nghe_boi[ev].append(k.ma)
+    no_ra: dict[str, list[str]] = defaultdict(list)
+    no_vao: dict[str, list[str]] = defaultdict(list)
+    for (tep, b), nhan in sorted(no.items()):
+        a, c = cua_tep.get(tep, "?"), chu.get(b, "?")
+        no_ra[a].append(f"`{tep}` ghi `{b}` (của `{c}` · {NHAN_NO.get(nhan, nhan)})")
+        no_vao[c].append(f"`{tep}` (`{a}`) ghi `{b}` · {NHAN_NO.get(nhan, nhan)}")
+    man_cua: dict[str, list[str]] = defaultdict(list)
+    for route in sorted(nc.man_tep):
+        for ma in sorted({cua_tep[t] for t in nc.man_tep[route] if t in cua_tep}):
+            man_cua[ma].append(route)
+
+    def test_cua(k: Khoi, toi_da: int = 5) -> list[str]:
+        than = [Path(t).stem for t in k.tep]
+        # Bài luật cắm nhắc tên MỌI tệp có nợ ghi chéo — không phải test canh.
+        diem = [
+            (sum(c[s] for s in than), p.name)
+            for p, c in nc.test.dem.items()
+            if p != TEST_LUAT_CAM and any(c[s] for s in than)
+        ]
+        diem.sort(key=lambda x: (-x[0], x[1]))
+        return [ten for _, ten in diem[:toi_da]]
+
+    def ds(xs: list[str], toi_da: int = 12) -> str:
+        return gon([f"`{x}`" for x in xs], toi_da) if xs else "—"
+
+    muc = [
+        "| Khối | Việc | Bảng | Tệp | Màn | Ghi chéo ra / vào |",
+        "|---|---|---|---|---|---|",
+    ]
+    chi_tiet: list[str] = []
+    for k in khoi.values():
+        muc.append(
+            f"| `{k.ma}` | {k.ten} | {len(k.bang)} |"
+            f" {len(k.tep)} | {len(man_cua[k.ma])} |"
+            f" {len(no_ra[k.ma])} / {len(no_vao[k.ma])} |"
+        )
+        dong = [f"### `{k.ma}` — {k.ten}", ""]
+        dong.append(f"- **Giữ bảng:** {ds(k.bang)}")
+        dong.append(f"- **Tệp code** (`src/clinicai/`): {ds(k.tep, 20)}")
+        if k.lenh:
+            dong.append(f"- **Lệnh:** {ds(k.lenh, 20)}")
+        if k.phat:
+            # dict.fromkeys: bản khai có chỗ khai trùng một sự kiện hai lần.
+            phat = [
+                f"`{ev}` → {', '.join(nghe_boi[ev]) or 'chưa khối nào nghe'}"
+                for ev in dict.fromkeys(k.phat)
+            ]
+            dong.append("- **Phát sự kiện → khối nghe:** " + "; ".join(phat))
+        if k.nghe:
+            dong.append(f"- **Nghe:** {ds(k.nghe, 15)}")
+        if k.goi_dong_bo:
+            dong.append(
+                f"- **Gọi thẳng lệnh khối khác (đã khai):** {ds(k.goi_dong_bo)}"
+            )
+        if k.quyen:
+            dong.append(f"- **Quyền (lego):** {ds(k.quyen)}")
+        dong.append(f"- **Màn gọi tới:** {ds(man_cua[k.ma], 15)}")
+        dong.append(f"- **Test canh:** {ds(test_cua(k))}")
+        if no_ra[k.ma] or no_vao[k.ma]:
+            dong.append(
+                f"- **Nợ ghi chéo** — khối này ghi bảng khối khác ({len(no_ra[k.ma])}),"
+                f" khối khác ghi bảng của nó ({len(no_vao[k.ma])}):"
+            )
+            dong.extend(f"  - ra: {x}" for x in no_ra[k.ma])
+            dong.extend(f"  - vào: {x}" for x in no_vao[k.ma])
+        chi_tiet.append("\n".join(dong))
+
+    man = ["| Màn | Tiêu đề | Khối |", "|---|---|---|"]
+    for route in sorted(nc.man_tep):
+        ks = sorted({cua_tep[t] for t in nc.man_tep[route] if t in cua_tep})
+        man.append(
+            f"| `{route}` | {nc.tieu_de.get(route, '')} | {', '.join(ks) or '—'} |"
+        )
+
+    bang = [f"- `{b}` → `{chu[b]}` ({khoi[chu[b]].ten})" for b in sorted(chu)]
+    bang.append("")
+    bang.append("Bảng kỹ thuật (không thuộc khối nào — `BANG_KY_THUAT`):")
+    bang.extend(f"- `{b}` — {ly_do}" for b, ly_do in sorted(ky_thuat.items()))
+
+    da_khai = set(cua_tep)
+    chua_khai = sorted(
+        {t for ts in nc.man_tep.values() for t in ts if t.startswith("services/")}
+        - da_khai
+    )
+
+    dau = [
+        "# BẢN ĐỒ THEO KHỐI — muốn sửa / thêm gì thì vào khối nào",
+        "",
+        DONG_SINH + datetime.now().strftime("%Y-%m-%d %H:%M") + ". **Đừng sửa tay** —",
+        "> sửa bản khai `src/clinicai/modules.py` rồi chạy `python3 scripts/ban-do-code.py`;",
+        "> CI (`--kiem`) đỏ khi tệp này lệch code.",
+        "",
+        "**Cách tra (3 bước):**",
+        "",
+        "1. Biết **màn** đang thấy → mục 3 (tìm đường dẫn màn) ra các khối màn ấy chạm.",
+        "   Biết **dữ liệu / bảng** → mục 4 ra khối giữ bảng ấy.",
+        "2. Vào **khối** ở mục 2: tệp code, lệnh, sự kiện, quyền, màn, test.",
+        "3. Trước khi sửa, xem **khối nghe** sự kiện của nó và **nợ ghi chéo**: đó là",
+        '   những chỗ "sửa chỗ này dễ hỏng chỗ kia" — phải kiểm cùng.',
+        "",
+        "Chi tiết từng màn (thành phần, API, router): `docs/BAN-DO-CODE.md`. Luật lego:",
+        "`src/clinicai/modules.py`. Luật canh ghi chéo + sổ nợ:",
+        "`src/tests/unit/test_luat_cam_ghi_cheo.py`. Màn và mọi lối vào: `docs/SITEMAP.md`.",
+        "",
+        f"## 1. Các khối ({len(khoi)})",
+        "",
+        "Ghi chéo ra = tệp của khối này ghi bảng khối khác; vào = khối khác ghi bảng",
+        "của nó (sổ nợ, chỉ được ngắn đi).",
+        "",
+        "\n".join(muc),
+        "",
+        "## 2. Từng khối",
+        "",
+        "Tên mã khối (vd `so_no`) tra ở bảng mục 1. **Màn gọi tới** = màn có gọi một",
+        "tệp của khối, kể cả gián tiếp qua API dùng chung — không phải màn riêng của",
+        "khối. **Test canh** = tệp test nhắc tên tệp code của khối nhiều nhất.",
+        "",
+    ]
+    duoi = [
+        "",
+        f"## 3. Màn → khối ({len(man) - 2})",
+        "",
+        "Khối suy từ service mà màn gọi (qua API). `—` = màn tĩnh, hoặc service của",
+        "nó chưa khai khối (mục 5).",
+        "",
+        "\n".join(man),
+        "",
+        f"## 4. Bảng → khối ({len(chu)})",
+        "",
+        "\n".join(bang),
+        "",
+        f"## 5. Service có màn dùng nhưng chưa khai khối ({len(chua_khai)})",
+        "",
+        "Phần lớn là tệp CHỈ ĐỌC (luật lego chỉ bắt khai tệp có ghi database). Thêm",
+        "vào `TEP_CUA_KHOI` khi biết rõ khối — bản đồ sẽ tự xếp chúng vào đúng khối.",
+        "",
+        "\n".join(f"- `{t}`" for t in chua_khai) or "—",
+        "",
+    ]
+    return "\n".join(dau) + "\n\n".join(chi_tiet) + "\n" + "\n".join(duoi)
 
 
 def bo_dong_sinh(s: str) -> str:
     return "\n".join(d for d in s.splitlines() if not d.startswith(DONG_SINH))
 
 
+def _lech(tep: Path, noi_dung: str) -> bool:
+    """In chỗ khác và trả True nếu tệp đang có lệch bản sinh từ code."""
+    cu = doc(tep) if tep.exists() else ""
+    if bo_dong_sinh(cu) == bo_dong_sinh(noi_dung):
+        print(f"{tuong_doi(tep)} khớp code ✓")
+        return False
+    import difflib
+
+    khac = list(
+        difflib.unified_diff(
+            bo_dong_sinh(cu).splitlines(),
+            bo_dong_sinh(noi_dung).splitlines(),
+            f"{tuong_doi(tep)} (đang có)",
+            "sinh từ code hiện tại",
+            lineterm="",
+            n=0,
+        )
+    )
+    print("\n".join(khac[:40]))
+    print(
+        f"\nLỖI: {tuong_doi(tep)} lệch code ({len(khac)} dòng khác). "
+        "Chạy: python3 scripts/ban-do-code.py  rồi commit."
+    )
+    return True
+
+
 def main(argv: list[str]) -> int:
-    noi_dung = sinh()
+    noi_dung, nc = sinh()
     if "--in" in argv:
         sys.stdout.write(noi_dung)
         return 0
+    khoi = sinh_khoi(nc)
     if "--kiem" in argv:
-        cu = doc(DAU_RA)
-        if bo_dong_sinh(cu) != bo_dong_sinh(noi_dung):
-            import difflib
-
-            khac = list(
-                difflib.unified_diff(
-                    bo_dong_sinh(cu).splitlines(),
-                    bo_dong_sinh(noi_dung).splitlines(),
-                    "docs/BAN-DO-CODE.md (đang có)",
-                    "sinh từ code hiện tại",
-                    lineterm="",
-                    n=0,
-                )
-            )
-            print("\n".join(khac[:40]))
-            print(
-                f"\nLỖI: docs/BAN-DO-CODE.md lệch code ({len(khac)} dòng khác). "
-                "Chạy: python3 scripts/ban-do-code.py  rồi commit."
-            )
-            return 1
-        print("docs/BAN-DO-CODE.md khớp code ✓")
-        return 0
-    DAU_RA.write_text(noi_dung, encoding="utf-8")
-    print(f"Đã ghi {tuong_doi(DAU_RA)} ({noi_dung.count(chr(10))} dòng)")
+        # Kiểm CẢ HAI rồi mới thoát — sửa một lần thấy hết.
+        lech = [_lech(DAU_RA, noi_dung), _lech(DAU_RA_KHOI, khoi)]
+        return 1 if any(lech) else 0
+    for tep, nd in ((DAU_RA, noi_dung), (DAU_RA_KHOI, khoi)):
+        tep.write_text(nd, encoding="utf-8")
+        print(f"Đã ghi {tuong_doi(tep)} ({nd.count(chr(10))} dòng)")
     return 0
 
 

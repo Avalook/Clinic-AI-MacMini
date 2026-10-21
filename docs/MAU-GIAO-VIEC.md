@@ -20,7 +20,8 @@ AI**, không cần deploy. Chỉ giao AI khi màn không làm được điều �
 VIỆC (một câu, lời người dùng):
   <…>
 
-Ở ĐÂU (từ BAN-DO-SUA / BAN-DO-CODE — AI KHÔNG cần quét cả repo):
+Ở ĐÂU (từ BAN-DO-KHOI / BAN-DO-SUA / BAN-DO-CODE — AI KHÔNG cần quét cả repo):
+  Khối: <mã khối ở docs/BAN-DO-KHOI.md> (khối nghe sự kiện của nó + nợ ghi chéo = kiểm cùng)
   Màn: <route> (lối vào khác theo docs/SITEMAP.md mục B: <…> — sửa đủ / cố ý bỏ: <…>)
   File + hàm: <đường dẫn:hàm>, <…>
   Bảng/migration (nếu đổi DB): <…>

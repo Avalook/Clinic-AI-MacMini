@@ -28,7 +28,8 @@ thu ngân cũ (`/tasks`), trong khi màn đang dùng là `/thu-ngan/*`.
      `app/api/**/route.ts` chỉ chuyển tiếp (`docs/SO-LUAT.md` Phần 3).
 4. **Thêm, xoá hay đổi một route, một mục thanh bên, hoặc quyền trong
    `NAV_ROLES`:** sửa `docs/SITEMAP.md` trong **cùng commit**, rồi chạy
-   `python3 scripts/ban-do-code.py` và commit `docs/BAN-DO-CODE.md`.
+   `python3 scripts/ban-do-code.py` và commit `docs/BAN-DO-CODE.md` +
+   `docs/BAN-DO-KHOI.md`.
 5. **Báo cáo sau khi sửa phải có bảng "nút/link đã đụng"**, gồm: màn → nút →
    đi đâu hoặc gọi API nào → vai nào thấy.
 6. **Chưa bấm thật thì không báo "xong".** Ghi rõ đã kiểm ở lớp nào:
