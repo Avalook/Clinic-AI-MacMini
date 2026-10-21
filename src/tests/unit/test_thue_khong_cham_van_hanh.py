@@ -13,6 +13,8 @@ DUOC_PHEP = {
     "services/thue_gtgt.py",
     "services/thue_suat_service.py",
     "services/xuat_hoa_don_service.py",
+    # Bản khai lego chỉ NÊU tên bảng thuế của khối Kế toán — không đọc / ghi.
+    "modules.py",
 }
 TU_KHOA = ("thue_suat_ma", "thue_suat_nhom", "thue_mh")
 
@@ -27,6 +29,6 @@ def test_chi_ke_toan_doc_ghi_cot_thue() -> None:
         if any(k in txt for k in TU_KHOA):
             lo.append(rel)
     assert lo == [], f"thuế rò vào vận hành: {lo}"
-    # Chống xanh giả: hai tệp được phép thật sự dùng.
+    # Chống xanh giả: các tệp được phép thật sự dùng.
     for rel in DUOC_PHEP:
         assert "thue_suat" in (SRC / rel).read_text(encoding="utf-8")

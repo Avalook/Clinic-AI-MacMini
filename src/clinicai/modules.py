@@ -102,7 +102,13 @@ MODULE: dict[str, Module] = {
                 # Hoàn tác bỏ chỉ định (Khối 2, 06/10/2026).
                 "service_order.restored",
             ],
-            bang=["service_order", "lam_them_tai_quay"],
+            bang=[
+                "service_order",
+                "lam_them_tai_quay",
+                "lam_them_tai_quay_revision",
+                "luot_phu_thu",
+                "so_sua_chi_dinh",
+            ],
             quyen=["clinical.order.place"],
         ),
         Module(
@@ -206,7 +212,12 @@ MODULE: dict[str, Module] = {
                 "service.room_release_undone",
                 "service.room_guided",
             ],
-            bang=["queue_entry"],
+            bang=[
+                "queue_entry",
+                "visit_route",
+                "visit_gate_override",
+                "dispatch_threshold",
+            ],
             quyen=[
                 "service.routing.view",
                 "service.routing.assign",
@@ -278,7 +289,12 @@ MODULE: dict[str, Module] = {
                 "result.viewed",
                 "result.approval_revoked",
             ],
-            bang=["form_instance"],
+            bang=[
+                "form_instance",
+                "ultrasound_record",
+                "clinical_form_response",
+                "result_correction",
+            ],
             # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
             # vòng đời kết quả — cùng module, không mở module mới cho hai lệnh.
             quyen=[
@@ -299,7 +315,14 @@ MODULE: dict[str, Module] = {
                 "UnbindResultTemplate",
                 "PublishFormVersion",
             ],
-            bang=["ket_qua_mau", "dich_vu_mau_ket_qua", "form_definition"],
+            bang=[
+                "ket_qua_mau",
+                "dich_vu_mau_ket_qua",
+                "form_definition",
+                "service_price",
+                "service_type",
+                "drug_catalog",
+            ],
             quyen=[
                 "catalogue.result_template.manage",
                 "catalogue.form_template.edit",
@@ -338,6 +361,11 @@ MODULE: dict[str, Module] = {
                 "ky_nang",
                 "nhan_su_ky_nang",
                 "ngoai_le_ca_truc",
+                "staff",
+                "staff_node",
+                "clinic_membership",
+                "app_credential",
+                "vai_duoc_vao_tram",
             ],
             quyen=["permission.manage", "staff.manage", "account.manage"],
         ),
@@ -451,6 +479,12 @@ MODULE: dict[str, Module] = {
                 "service.routing_invalidated",
             ],
             ben_nhan=["trach_nhiem_dich_vu"],
+            bang=[
+                "work_item",
+                "work_item_event",
+                "follow_up_case",
+                "nhac_viec_ca_nhan",
+            ],
             viec=[
                 "OPS-ROUTING-REASSIGN",
                 "OPS-SERVICE-INTERRUPTED",
@@ -469,6 +503,9 @@ MODULE: dict[str, Module] = {
                 "visit.reopened",
             ],
             quyen=["reception.checkin.perform"],
+            # Lượt khám là của Tiếp đón (mở / đóng lượt). Nhiều khối còn tự ghi
+            # cột trạng thái của nó — sổ nợ ghi chéo trong test_luat_cam_ghi_cheo.
+            bang=["visit"],
         ),
         Module(
             ma="vitals",
@@ -509,6 +546,8 @@ MODULE: dict[str, Module] = {
                 "appointment.service_switched",
             ],
             ben_nhan=["hanh_trinh_luot_kham"],
+            # State riêng của Process Manager: lượt đang ở bước nào của đường đi.
+            bang=["encounter_flow"],
             goi_dong_bo=[
                 "consultation.RouteAfterCheckIn",
                 "consultation.RerouteAfterServiceSwitch",
@@ -559,7 +598,16 @@ MODULE: dict[str, Module] = {
                 "clinical.record.write",
                 "clinical.consult.finalize",
             ],
-            bang=["clinical_record", "patient_medical_profile", "prescription"],
+            bang=[
+                "clinical_record",
+                "patient_medical_profile",
+                "prescription",
+                "consultation",
+                "consultation_note",
+                "phieu_kham_luot",
+                "clinical_release",
+                "visit_amendment",
+            ],
             cong_doc=[
                 CongDoc(
                     "Tiền sử & hồ sơ y tế",
@@ -606,6 +654,11 @@ MODULE: dict[str, Module] = {
                 "payment_cycle_doi_hinh_thuc",
                 "payment_cycle_phan",
                 "anh_chuyen_khoan",
+                "payment",
+                "payment_refund",
+                "payment_refund_line",
+                "tien_thua_giu_lai",
+                "chot_so_ca",
             ],
             quyen=["payment.service.collect", "payment.medicine.collect"],
         ),
@@ -659,7 +712,7 @@ MODULE: dict[str, Module] = {
                 "result_file.restored",
             ],
             ben_nhan=["vong_doc_luot_kham"],
-            bang=["review_round"],
+            bang=["review_round", "round_requirement"],
         ),
         Module(
             ma="chuong",
@@ -678,7 +731,7 @@ MODULE: dict[str, Module] = {
                 "pharmacy.stocktake_mismatch",
             ],
             ben_nhan=["chuong_thong_bao"],
-            bang=["day_nhan_thong_bao"],
+            bang=["day_nhan_thong_bao", "thong_bao", "thong_bao_an_cua_toi"],
         ),
         Module(
             ma="chuong_nhan_cheo",
@@ -714,7 +767,14 @@ MODULE: dict[str, Module] = {
                 "appointment.no_show",
                 "appointment.confirmed_by_call",
             ],
-            bang=["appointment", "appointment_doi_lich"],
+            bang=[
+                "appointment",
+                "appointment_doi_lich",
+                "care_episode",
+                "doctor_booking_override",
+                "slot_booking_override",
+                "luat_bac_si_bat_buoc",
+            ],
             quyen=["booking.create", "booking.manage"],
         ),
         Module(
@@ -762,7 +822,15 @@ MODULE: dict[str, Module] = {
             lenh=["LogContact"],
             phat=["patient.contacted"],
             # Sổ ghi chú chung về khách (27/09/2026) — khung phải CSKH/Tiếp đón.
-            bang=["tuong_tac_cskh", "ghi_chu_khach"],
+            bang=[
+                "tuong_tac_cskh",
+                "ghi_chu_khach",
+                "cskh_action",
+                "cskh_log",
+                "hen_goi_lai",
+                "nhac_tai_kham",
+                "phan_hoi_khach",
+            ],
         ),
         Module(
             ma="lab",
@@ -812,7 +880,20 @@ MODULE: dict[str, Module] = {
                 "medicine.returned",
                 "pharmacy.stocktake_mismatch",
             ],
-            bang=["prescription_allocation", "inventory_txn"],
+            bang=[
+                "prescription_allocation",
+                "inventory_txn",
+                "drug_batch",
+                "drug_ma_vach",
+                "drug_return",
+                "thuoc_quy_doi",
+                "thuoc_giao_chua_gan_lo",
+                "prescription_correction",
+                "phieu_kho",
+                "phieu_kho_dong",
+                "kiem_ke_ca",
+                "kiem_ke_ca_dong",
+            ],
             quyen=["pharmacy.dispense", "pharmacy.view"],
         ),
         # 21 lego (Tuyền 25/09/2026): hai module chỉ-đọc cho lego Báo cáo /
@@ -906,11 +987,20 @@ MODULE: dict[str, Module] = {
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",
             quyen=["report.view", "ops.view", "audit.view", "giamsat.view"],
+            bang=["agent_cau_hinh"],
         ),
         Module(
             ma="ke_toan",
             ten="Kế toán — xem tài chính đầy đủ, hoá đơn, theo hàng hoá",
             quyen=["accounting.finance.full", "accounting.tax.manage"],
+            bang=[
+                "hoa_don_cong_ty",
+                "hoa_don_cong_ty_lich_su",
+                "hoa_don_misa_xuat",
+                "hoa_don_misa_xuat_dong",
+                "khach_cong_ty",
+                "thue_suat_nhom",
+            ],
         ),
         Module(
             ma="lich_truc",
@@ -918,9 +1008,251 @@ MODULE: dict[str, Module] = {
             # + đổi người trong ca (29/09/2026) và xếp lịch (01/10/2026), khối
             # trưởng ca.
             quyen=["roster.view", "roster.shift.swap", "roster.manage"],
+            bang=[
+                "work_roster",
+                "work_roster_thay_nguoi",
+                "roster_week",
+                "vi_tri_lam_viec",
+                "thu_ky_bac_si",
+            ],
+        ),
+        # Hai khối có từ 21/10/2026: bảng cấu hình cơ sở và hồ sơ khách trước đó
+        # không ai khai giữ (docs/kiem-tra-su-kien-lego-2110).
+        Module(
+            ma="co_so",
+            ten="Cấu hình cơ sở (phòng khám, cơ sở, tầng, phòng, dây nối)",
+            bang=[
+                "clinic",
+                "clinic_location",
+                "clinic_floor",
+                "clinic_room",
+                "clinic_room_node",
+                "clinic_room_service",
+                "day_nghiep_vu",
+            ],
+        ),
+        Module(
+            ma="ho_so_khach",
+            ten="Hồ sơ khách (thông tin, số điện thoại, đồng ý dữ liệu)",
+            bang=[
+                "patient",
+                "patient_sdt_them",
+                "patient_link",
+                "clinical_data_consent",
+            ],
         ),
     )
 }
+
+
+#: Bảng KHÔNG thuộc khối nào — sổ ghi, hàng đợi kỹ thuật, bảng dựng từ sự kiện.
+#: Bảng bị code ghi mà không có chủ và không nằm ở đây = CI đỏ
+#: (`test_luat_cam_ghi_cheo`): bảng mới phải khai chủ ngay lúc thêm.
+BANG_KY_THUAT: dict[str, str] = {
+    "domain_event": "sổ sự kiện chung — mọi khối ghi qua emit_event",
+    "event_delivery": "dòng giao sự kiện — emit_event ghi cùng giao dịch",
+    "event_log": "sổ cũ (record_event)",
+    "loi_nhom": "kho lỗi",
+    "canh_bao": "bộ canh gác",
+    "nhat_ky_van_hanh": "nhật ký vận hành",
+    "llm_lan_goi": "sổ lượt gọi model",
+    "command_receipt": "biên nhận lệnh (idempotency)",
+    "idempotency_key": "khoá chống bấm hai lần",
+    "hen_gio": "hẹn giờ của bên nghe",
+    "slot_hold": "giữ chỗ tạm lúc đặt lịch",
+    "pos_outbox": "hộp thư đi sang máy POS",
+    "luot_dong_thoi_gian": "dòng thời gian lượt — khối journey dựng từ sự kiện",
+    "agent_nhan_dinh": "agent giám sát (shadow)",
+    "agent_tom_tat": "agent giám sát (shadow)",
+    "owner_feedback": "góp ý của chủ phòng khám",
+    "lan_don_du_lieu_thu": "sổ các lần dọn dữ liệu thử",
+    # Kiểm 21/10/2026: màn đã tắt / chỉ ghi không ai đọc — CHỜ BỎ (Mức 3).
+    "service_log": "CHỜ BỎ — /api/service-log tắt từ 24/09",
+    "service_order_draft": "CHỜ BỎ — đường nháp chỉ định tắt từ 24/09",
+    "mpi_merge_queue": "CHỜ BỎ — chỉ ghi, không ai đọc",
+    "work_session": "CHỜ BỎ — lịch thật đã sang work_roster",
+    "work_session_staff": "CHỜ BỎ — lịch thật đã sang work_roster",
+    "staff_task": "CHỜ BỎ — còn triage xét nghiệm ghi, gỡ chỗ ấy trước",
+}
+
+#: Tệp code (tính từ src/clinicai/) thuộc khối nào — để biết chỗ ghi bảng là của
+#: khối nào. Tệp ghi database mà không nằm ở đây = CI đỏ. Tệp to làm việc của
+#: nhiều khối được xếp vào khối chính; phần ghi bảng khối khác nằm trong sổ nợ
+#: `NO_GHI_CHEO` của test_luat_cam_ghi_cheo (chỉ được ngắn đi).
+TEP_CUA_KHOI: dict[str, Sequence[str]] = {
+    "booking": [
+        "services/booking_override_service.py",
+        "services/booking_service.py",
+        "services/episode_service.py",
+        "services/luat_bac_si_service.py",
+        "services/scheduling_service.py",
+    ],
+    "catalogue": [
+        "phieu_kham/nap.py",
+        "services/mau_ket_qua_service.py",
+        "services/vat_tu_danh_muc_service.py",
+    ],
+    "chuong": [
+        "events/consumers/chuong.py",
+        "events/consumers/chuong_nhan_cheo.py",
+        # Hạ tầng sự kiện: bên nghe chết → chuông cho người (bảng thong_bao).
+        "events/hen_gio.py",
+        "events/worker.py",
+        "services/thong_bao_service.py",
+    ],
+    "co_so": [
+        # Router có SQL viết thẳng (giờ ca) — trái luật "router mỏng", để dời sau.
+        "api/v1/routers/config.py",
+        "services/clinic_config_service.py",
+        "services/clinic_floor_service.py",
+        "services/clinic_settings_service.py",
+        "services/config_service.py",
+        "services/day_noi_service.py",
+        "services/report_access_service.py",
+    ],
+    "cong_no": [
+        "events/consumers/cong_no.py",
+        "services/cong_no_service.py",
+    ],
+    "consultation": [
+        "services/clinical_record_service.py",
+        "services/clinical_sign_service.py",
+        "services/dinh_chinh_don.py",
+        "services/lenh_kham_core.py",
+        "services/luot_kham_service.py",
+        "services/phieu_kham_service.py",
+    ],
+    "cskh": [
+        "services/cskh_service.py",
+        "services/ghi_chu_khach_service.py",
+        "services/hen_tai_kham_service.py",
+        "services/phan_hoi_khach_service.py",
+        "services/phan_hoi_thuoc_service.py",
+        "services/recall_job_service.py",
+        "services/tuong_tac_cskh_service.py",
+    ],
+    "dieu_tri": ["services/ghi_chu_luot.py"],
+    "doi_tac": [
+        "events/consumers/doi_tac.py",
+        "services/doi_tac_service.py",
+    ],
+    "execution": ["services/service_execution_service.py"],
+    "ho_so_khach": [
+        "services/consent_service.py",
+        "services/patient_service.py",
+    ],
+    "ke_toan": [
+        "services/hoa_don_cong_ty_service.py",
+        "services/hoa_don_misa_service.py",
+        "services/thue_suat_service.py",
+    ],
+    "kho_vat_tu": [
+        "services/vat_tu_kho_man_service.py",
+        "services/vat_tu_kho_service.py",
+        "services/vat_tu_nhap_duyet_service.py",
+    ],
+    "lab": [
+        "services/lab_order_service.py",
+        "services/lab_safety_service.py",
+    ],
+    "lich_truc": ["services/thu_ky_bac_si.py"],
+    "lieu_trinh": [
+        "services/lieu_trinh_service.py",
+        "services/lieu_trinh_tien.py",
+    ],
+    "payment": [
+        "services/anh_chuyen_khoan_service.py",
+        "services/chot_so_ca_service.py",
+        "services/doi_hinh_thuc_service.py",
+        "services/hoan_tien_service.py",
+        "services/payment_service.py",
+        "services/tien_thua_service.py",
+    ],
+    "permission": [
+        "services/auth_service.py",
+        "services/ky_nang_service.py",
+        "services/ngoai_le_ca_truc_service.py",
+        "services/permission_service.py",
+        "services/staff_service.py",
+        "services/tai_khoan_service.py",
+    ],
+    "pharmacy": [
+        "services/ban_le_service.py",
+        "services/ban_theo_don_service.py",
+        "services/kho_thuoc_service.py",
+        "services/kiem_ke_ca_service.py",
+        "services/lo_thuoc_service.py",
+        "services/ma_vach_service.py",
+        "services/phan_lo_service.py",
+        "services/pharmacy_service.py",
+        "services/quay_thuoc_service.py",
+    ],
+    "phi_kham": ["services/phi_kham_service.py"],
+    "reception": [
+        "services/checkout_service.py",
+        "services/theo_doi_thu_thuat_service.py",
+        "services/thu_tu_kham_service.py",
+    ],
+    "result": [
+        "services/clinical_form_service.py",
+        "services/form_engine_service.py",
+        "services/media_service.py",
+        "services/ultrasound_service.py",
+    ],
+    "result_file": [
+        "services/don_tep_ket_qua.py",
+        "services/tep_ket_qua_service.py",
+    ],
+    "service_order": [
+        "services/chi_dinh_service.py",
+        "services/ho_so_dich_vu.py",
+        "services/lam_them_tai_quay_config.py",
+        "services/lam_them_tai_quay_service.py",
+        "services/service_order_service.py",
+        "services/so_sua_chi_dinh_service.py",
+    ],
+    "service_routing": [
+        "services/dispatch_service.py",
+        "services/doi_bac_si_service.py",
+        "services/gate_rule_service.py",
+        "services/hang_cho.py",
+        # Hoàn tác đụng nhiều khối trong MỘT giao dịch — xếp vào Điều phối.
+        "services/hoan_tac_service.py",
+        "services/nhan_tai_phong.py",
+        "services/service_routing_service.py",
+    ],
+    "service_selection": [
+        "services/lam_truoc_thu_sau.py",
+        "services/service_selection_service.py",
+    ],
+    "so_no": ["services/so_no_service.py"],
+    "thai_ky": ["services/thai_ky_service.py"],
+    "trach_nhiem": [
+        "events/consumers/trach_nhiem.py",
+        "services/nhac_viec_service.py",
+        "services/ultrasound_board_service.py",
+        "services/work_item_service.py",
+    ],
+    "van_hanh": [
+        "services/agent_giam_sat.py",
+        # Hai script nạp / chuyển dữ liệu chạy một lần (Notion, lượt thật).
+        "services/chuyen_luot_that.py",
+        "services/nhap_lich_su_notion.py",
+    ],
+    "vat_tu": [
+        "services/bio_chi_dinh_service.py",
+        "services/vat_tu_service.py",
+    ],
+    "vitals": ["services/sinh_hieu_service.py"],
+}
+
+
+def khoi_cua_tep(tep: str) -> str | None:
+    """Khối giữ tệp này (`tep` tính từ src/clinicai/)."""
+    for ma, ds in TEP_CUA_KHOI.items():
+        if tep in ds:
+            return ma
+    return None
 
 
 def module_phat(ten_su_kien: str) -> str | None:
@@ -938,4 +1270,13 @@ def module_cua_ben_nhan(consumer: str) -> str | None:
     return None
 
 
-__all__ = ["MODULE", "CongDoc", "Module", "module_cua_ben_nhan", "module_phat"]
+__all__ = [
+    "BANG_KY_THUAT",
+    "MODULE",
+    "TEP_CUA_KHOI",
+    "CongDoc",
+    "Module",
+    "khoi_cua_tep",
+    "module_cua_ben_nhan",
+    "module_phat",
+]

@@ -138,6 +138,9 @@ def test_ham_rap_ho_so_khong_tu_doc_bang_cua_module() -> None:
     from clinicai.services.ho_so_lam_sang_doc import doc_ho_so
 
     ma = inspect.getsource(doc_ho_so)
-    bang_module = {b for m in MODULE.values() for b in m.bang}
+    # Khách và lượt LÀ bối cảnh hồ sơ được tự đọc (từ 21/10/2026 hai bảng này có
+    # khối chủ — ho_so_khach, reception — nên phải nói rõ ngoại lệ).
+    boi_canh = {"patient", "visit"}
+    bang_module = {b for m in MODULE.values() for b in m.bang} - boi_canh
     doc = set(re.findall(r"\b(?:FROM|JOIN)\s+([a-z_]+)", ma))
     assert not doc & bang_module, sorted(doc & bang_module)
