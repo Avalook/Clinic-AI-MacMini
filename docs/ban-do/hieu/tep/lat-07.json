@@ -661,16 +661,58 @@
      "lam_gi": "gọi chip theo khoá ghép các mã lượt, nghe bảng lieu_trinh + lieu_trinh_buoi"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 24,
+     "noi_dung": "[TSX quyết] Không có mã lượt nào (khoá rỗng) thì không gọi API và hook trả null, màn vẽ như chưa có chip."
+    },
+    {
+     "dong": 40,
+     "noi_dung": "[TSX quyết] Chỉ trả chip khi khoá hiện tại còn có dữ liệu; chip đã lưu thuộc khoá cũ vẫn nằm trong state nhưng không bị dùng khi khoá đổi."
+    },
+    {
+     "dong": 27,
+     "noi_dung": "[TSX quyết] Server trả lỗi (403 không quyền, 5xx) hoặc mất mạng thì coi như null và không báo lỗi; ở dòng 30 chỉ ghi đè chip khi có dữ liệu, nên chip cũ (cùng khoá) được giữ."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
-   "su_kien_nghe": [],
+   "su_kien_nghe": [
+    "lieu_trinh",
+    "lieu_trinh_buoi"
+   ],
    "goi_api": [
     "/api/lieu-trinh/chip?luot=…"
    ],
-   "bay": [],
-   "muon_sua": [],
+   "bay": [
+    {
+     "dong": 30,
+     "noi_dung": "Lần nạp lại lỗi không xoá chip cũ: nếu quyền bị thu hồi giữa chừng, màn vẫn hiện chip cũ cho tới khi đổi khoá hoặc tải lại trang."
+    },
+    {
+     "dong": 19,
+     "noi_dung": "Khoá do khoaLuot ghép từ danh sách mã lượt; nếu đổi cách ghép (thứ tự, bỏ trùng) thì cả effect nạp lại và việc so khoá ở dòng 40 đổi theo."
+    },
+    {
+     "dong": 35,
+     "noi_dung": "Effect phụ thuộc [khoa, lan]; bỏ lan thì nghe bảng đổi sẽ không nạp lại."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "Đổi bảng nào làm chip nạp lại",
+     "cho": "useNgheBang dòng 38"
+    },
+    {
+     "viec": "Đổi địa chỉ hoặc tham số gọi chip",
+     "cho": "fetch dòng 26"
+    },
+    {
+     "viec": "Hiện lỗi thay vì im lặng khi không đọc được",
+     "cho": "chuỗi .then/.catch dòng 27-31"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
@@ -1689,8 +1731,23 @@
   "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/LieuTrinhChiDinh.tsx": {
    "lam_gi": "Dải liệu trình của một chỉ định, tự nạp — cho phòng dịch vụ (màn không có KhoiDieuTri) để bác sĩ lập/chọn lộ trình ngay ở phòng; dùng chung DaiLieuTrinh với bàn khám.",
    "khoi": "lieu_trinh",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "LieuTrinhChiDinh",
+     "dong": 16,
+     "lam_gi": "Nạp liệu trình theo lượt khám, lấy đúng chỉ định theo orderId và vẽ DaiLieuTrinh; nghe bảng liệu trình để tự nạp lại."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 35,
+     "noi_dung": "Chưa nạp xong hoặc không có chỉ định này trong chi_dinh (chỉ định không phải điều trị) thì không vẽ gì (return null)."
+    },
+    {
+     "dong": 38,
+     "noi_dung": "Được sửa hay không do máy chủ nói: choGhi = (ghi_duoc !== false). Máy chủ không gửi trường này thì mặc định cho sửa; chỉ khi trả false mới khóa."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -1704,10 +1761,34 @@
    "goi_api": [
     "GET /api/lieu-trinh (docLT 'theo-luot')"
    ],
-   "bay": [],
-   "muon_sua": [],
+   "bay": [
+    {
+     "dong": 19,
+     "noi_dung": "Hàm nap (nạp lại khi bảng đổi / sau khi bấm nút) chỉ setLt khi có dữ liệu; nạp lỗi/null thì giữ số cũ. Còn lần nạp đầu (dòng 25-27) đặt luôn cả null và có cờ huy chống ghi đè khi đổi visitId."
+    },
+    {
+     "dong": 32,
+     "noi_dung": "Danh sách bảng nghe quyết định khi nào dải tự đổi; thêm bảng liệu trình mới mà không thêm vào đây thì màn phòng dịch vụ sẽ không cập nhật theo."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi điều kiện hiện/ẩn dải",
+     "cho": "LieuTrinhChiDinh dòng 34-35"
+    },
+    {
+     "viec": "đổi bảng làm dải tự nạp lại",
+     "cho": "useNgheBang dòng 32"
+    },
+    {
+     "viec": "đổi quy tắc cho sửa/chỉ xem",
+     "cho": "prop choGhi dòng 38"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Không rõ máy chủ lọc chi_dinh theo tiêu chí nào (ở backend, không thấy trong tệp này)."
+   ]
   },
   "src/dashboard/app/(dashboard)/_lam-viec/phieu-kham/LieuTrinhThe.tsx": {
    "lam_gi": "Các mảnh giao diện liệu trình (nhiều buổi) trong thẻ chỉ định điều trị: khung lộ trình (tiến độ, đã trả/còn nợ, danh sách buổi, Điều chỉnh/Dừng/Mở lại/Hoàn tác/Lịch sử), khách chọn lộ trình bác sĩ đề xuất, gắn/gỡ/tách buổi, và 'chỉ đề xuất liệu trình'.",
@@ -1752,23 +1833,23 @@
    "luat": [
     {
      "dong": 233,
-     "noi_dung": "Mọi lệnh sửa một liệu trình gửi kèm expected_revision; người khác vừa sửa thì máy chủ từ chối, màn hiện lỗi và nạp lại."
+     "noi_dung": "Mọi lệnh sửa một liệu trình trong KhungLieuTrinh gửi kèm expected_revision; người khác vừa sửa thì máy chủ từ chối, màn hiện lỗi (dòng 236) và nạp lại. Lệnh gan, go, tao ở DaiLieuTrinh và KhachChonLoTrinh không gửi revision (riêng dang-ky ở dòng 400 có)."
     },
     {
      "dong": 242,
-     "noi_dung": "Dừng liệu trình KHÔNG tự hoàn tiền: còn buổi đã trả chưa dùng thì màn chỉ nhắc ra quầy thu dịch vụ hoàn. Ví dụ trả trước 10 buổi, làm 6, bấm Dừng → 'Còn 4 buổi đã trả chưa dùng — hoàn tiền ở quầy thu'."
+     "noi_dung": "Dừng liệu trình KHÔNG tự hoàn tiền: nếu lệnh dung thành công và còn buổi đã trả chưa dùng (con_tra_truoc > 0) thì màn chỉ nhắc ra quầy thu dịch vụ hoàn. Ví dụ trả trước 10 buổi, làm 6, bấm Dừng → 'Còn 4 buổi đã trả chưa dùng…'."
     },
     {
      "dong": 398,
-     "noi_dung": "Khách chọn lộ trình bác sĩ đề xuất: tick 'Tính buổi hôm nay' (mặc định) → lệnh gan (chỉ định hôm nay vào lộ trình); bỏ tick → lệnh dang-ky, buổi hôm nay vẫn là buổi lẻ."
+     "noi_dung": "Khách chọn lộ trình bác sĩ đề xuất: tick 'Tính buổi hôm nay' (mặc định) → lệnh gan với expected_lieu_trinh_id null (dòng 399); bỏ tick → lệnh dang-ky kèm revision (dòng 400), buổi hôm nay vẫn là buổi lẻ."
     },
     {
      "dong": 486,
-     "noi_dung": "Tạo lộ trình cho chỉ định đang là buổi của lộ trình khác → máy chủ trả DA_GAN_LIEU_TRINH, màn hỏi 'Lập lộ trình MỚI và tách buổi hôm nay sang?'; đồng ý thì gửi lại với tach=true và khach_chon=true (dòng 638)."
+     "noi_dung": "Tạo lộ trình mà máy chủ trả DA_GAN_LIEU_TRINH (và chưa tách) → màn hỏi 'Lập lộ trình MỚI và tách buổi hôm nay sang?'; đồng ý thì gửi lại tach=true, khach_chon=true (dòng 638). Lỗi khác chỉ hiện câu lỗi (dòng 489); thành công thì đóng các ô nhập (dòng 491-495)."
     },
     {
      "dong": 617,
-     "noi_dung": "[TSX quyết] Mặc định bác sĩ chỉ 'Đề xuất lộ trình' (khach_chon=false); chỉ khi tick 'Khách chọn lộ trình luôn' (hoặc đang tách) mới lập thật và buổi hôm nay là buổi 1."
+     "noi_dung": "[TSX quyết] Mặc định bác sĩ chỉ 'Đề xuất lộ trình' (khach_chon=false); chỉ khi tick 'Khách chọn lộ trình luôn' hoặc đang tách (moTach) mới lập thật và buổi hôm nay là buổi 1."
     },
     {
      "dong": 670,
@@ -1780,7 +1861,15 @@
     },
     {
      "dong": 290,
-     "noi_dung": "Còn nợ hiện 'còn nợ N buổi (tiền)' theo số máy chủ trả (chua_tra, tien_con_lai); không nợ thì 'đã trả đủ'. Liệu trình đang Đề xuất không hiện dòng tiền."
+     "noi_dung": "Còn nợ hiện 'còn nợ N buổi (tiền)' theo số máy chủ trả (chua_tra, tien_con_lai); không nợ thì 'đã trả đủ'. Liệu trình đang Đề xuất không hiện dòng tiền (dòng 284)."
+    },
+    {
+     "dong": 336,
+     "noi_dung": "[TSX quyết] Nút Điều chỉnh/Dừng/Mở lại/Hoàn tác và nút gỡ/tách chỉ hiện khi choGhi bật và máy chủ cho phép (lt.nut, lt.hoan_tac, cd.nut); choGhi tắt thì chỉ đọc."
+    },
+    {
+     "dong": 574,
+     "noi_dung": "[TSX quyết] Chỉ định buổi lẻ mà có lộ trình bác sĩ đề xuất từ chính nó thì hiện khung lộ trình đề xuất đó, và ẩn ô tạo mới (dòng 610)."
     }
    ],
    "doc_bang": [],
@@ -1801,12 +1890,16 @@
      "noi_dung": "Thanh tiến độ chấm chỉ vẽ khi lộ trình ≤ 40 buổi."
     },
     {
-     "dong": 375,
+     "dong": 376,
      "noi_dung": "Ô buổi trống hiện sẵn tối đa 3 (nếu còn ≤ 4 thì hiện hết); còn lại gom 'Còn k buổi chưa làm — xem hết'."
     },
     {
      "dong": 597,
      "noi_dung": "Ô chọn 'Chuyển sang lộ trình' value cố định '' — chọn xong gửi gan ngay, không có bước xác nhận."
+    },
+    {
+     "dong": 330,
+     "noi_dung": "Hộp xác nhận Dừng tự đóng sau khi gửi dù lệnh lỗi (then không kiểm kết quả); lỗi hiện ở dòng dưới."
     }
    ],
    "muon_sua": [

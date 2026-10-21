@@ -51,7 +51,7 @@
     },
     {
      "dong": 58,
-     "noi_dung": "Có DEPLOY_EXPECTED_SHA thì HEAD phải đúng SHA đó — đây là cách ghim SHA đã thử staging."
+     "noi_dung": "Có DEPLOY_EXPECTED_SHA thì HEAD phải đúng SHA đó và không `git pull` — đây là cách ghim SHA đã thử staging. Có DEPLOY_SOURCE_REF thì ref đó cũng phải đúng loại cho môi trường."
     },
     {
      "dong": 89,
@@ -78,8 +78,12 @@
      "noi_dung": "Sau deploy prod nối lại Caddy prod vào mạng cầu staging."
     },
     {
+     "dong": 365,
+     "noi_dung": "Env có NOTIFICATION_RELAY_ENABLED=true thì dựng thêm notification-relay (profile notifications) sau `up`; dựng lỗi chỉ in cảnh báo, không làm hỏng deploy."
+    },
+    {
      "dong": 414,
-     "noi_dung": "Health hỏng → gắn lại tag ảnh cũ và `up` bản phát hành trước; thiếu ảnh cũ hoặc bản trước thì để nguyên stack để soi."
+     "noi_dung": "Health hỏng (hoặc `up` lỗi) → gắn lại tag ảnh cũ và `up` bản phát hành trước; thiếu ảnh cũ hoặc bản trước thì để nguyên stack để soi."
     },
     {
      "dong": 470,
@@ -110,6 +114,10 @@
     {
      "dong": 165,
      "noi_dung": "Có TUNNEL_TOKEN trong env thì tự bật profile cloudflare — Cloudflare Tunnel đã chết theo CLAUDE.md."
+    },
+    {
+     "dong": 365,
+     "noi_dung": "Relay dựng ở bước 4b không nằm trong health check nếu COMPOSE_PROFILES không có workers/notifications; relay lỗi thì deploy vẫn báo xong."
     }
    ],
    "muon_sua": [

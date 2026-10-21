@@ -49,43 +49,79 @@
    "luat": [
     {
      "dong": 113,
-     "noi_dung": "Quản lý (MANAGEMENT) không bị giới hạn ca: xem/in mọi phiếu. CSKH có quyền crm.manage cũng được miễn khi in phiếu (dòng 115–119)."
+     "noi_dung": "Quản lý (MANAGEMENT) không bị giới hạn ca: xem/in mọi phiếu. CSKH có quyền crm.manage cũng được miễn khi in phiếu (dòng 115–119). Các vai khác phải qua kiểm tra lịch trực."
     },
     {
      "dong": 79,
-     "noi_dung": "Chỉ lịch trực trạng thái APPROVED (đã duyệt) mới cho quyền quầy; lịch nháp không tính."
+     "noi_dung": "Chỉ dòng lịch trực APPROVED (đã duyệt) và có ca nằm trong SHIFTS mới cho quyền quầy; lịch nháp bị bỏ qua. SQL ở _ROSTER (dòng 104) cũng đã lọc APPROVED."
     },
     {
-     "dong": 24,
-     "noi_dung": "Quầy dịch vụ = vị trí T1_THUNGAN, T1_LETAN, LE_TAN, T2_THUNGAN, T3_THUNGAN; quầy thuốc = T2_XEPTHUOC, T2_TAODON. Vị trí khác (vd phòng khám) không được xem sổ thu."
+     "dong": 81,
+     "noi_dung": "Quầy dịch vụ = T1_THUNGAN, T1_LETAN, LE_TAN, T2_THUNGAN, T3_THUNGAN; quầy thuốc = T2_XEPTHUOC, T2_TAODON (dòng 24). Ngoại lệ: vị trí DIEU_PHOI được tính cho CẢ HAI loại quầy. Vị trí khác (vd phòng khám) bị bỏ qua."
+    },
+    {
+     "dong": 83,
+     "noi_dung": "Dòng lịch trực không xác định được cơ sở (location_id rỗng) bị bỏ, không cấp quyền ở cơ sở nào."
     },
     {
      "dong": 86,
-     "noi_dung": "Trực ĐIỀU PHỐI (DIEU_PHOI) hoặc ca FULL được tính đủ mọi ca của cơ sở đó; điều phối còn được xem trọn ngày 00:00–24:00 (dòng 391–398) và xem giao dịch của mọi người."
+     "noi_dung": "Trực ĐIỀU PHỐI (DIEU_PHOI) hoặc ca FULL được tính đủ mọi ca của cơ sở đó (dòng 86–92)."
+    },
+    {
+     "dong": 391,
+     "noi_dung": "Nếu hôm đó người này trực ĐIỀU PHỐI tại đúng cơ sở đang xét thì được xem trọn ngày 00:00–24:00, không giới hạn người tạo (actor_id=None). Nhánh này return sớm, không xét 'ca chưa bắt đầu'."
     },
     {
      "dong": 363,
-     "noi_dung": "Chỉ được xem MỘT ngày một lần và không xem ngày tương lai. Ví dụ chọn từ 20/10 đến 21/10 → báo 'Chỉ xem một ngày và ca trực được phân công'."
+     "noi_dung": "Chỉ xem MỘT ngày một lần, không xem ngày tương lai, kind phải là dịch vụ/thuốc, ca phải hợp lệ. Ví dụ chọn 20/10 đến 21/10 → 'Chỉ xem một ngày và ca trực được phân công'. Ngày rác cũng báo lỗi này."
+    },
+    {
+     "dong": 381,
+     "noi_dung": "Cơ sở lấy từ co_so hoặc cơ sở của người dùng; nếu ca chọn (hoặc không chọn ca nào) không nằm trong các ca được phân công ở cơ sở đó → 'Bạn không được phân công ở quầy, cơ sở và ca này'."
     },
     {
      "dong": 402,
-     "noi_dung": "Xem ngày hôm nay: chỉ các khung giờ ca đã BẮT ĐẦU. Ví dụ ca chiều 13:30 mà giờ là 10:00 → chọn ca chiều báo 'Ca trực này chưa bắt đầu'."
+     "noi_dung": "Xem ngày hôm nay: nếu chọn ca cụ thể mà BẤT KỲ khung giờ nào của ca chưa bắt đầu → 'Ca trực này chưa bắt đầu' (dòng 403). Không chọn ca thì chỉ lặng lẽ bỏ khung chưa bắt đầu (405–411); không còn khung nào → cũng báo lỗi. Ví dụ ca chiều 13:30, lúc 10:00 → báo lỗi."
     },
     {
      "dong": 421,
-     "noi_dung": "Thu ngân thường (không trực điều phối) chỉ thấy phiếu do CHÍNH MÌNH tạo hoặc xác nhận; in phiếu của người khác báo 'Phiếu không thuộc giao dịch của bạn' (dòng 203–207)."
+     "noi_dung": "Thu ngân thường (không trực điều phối) bị gắn actor_id = chính mình, nên chỉ thấy phiếu do mình tạo hoặc xác nhận; in phiếu người khác báo 'Phiếu không thuộc giao dịch của bạn' (kiểm ở dòng 203–207)."
     },
     {
      "dong": 441,
-     "noi_dung": "Thao tác ghi (thu, hoàn…) chỉ khi đồng hồ đang nằm trong khung giờ ca trực. Ví dụ ca sáng 07:30–12:00, 12:05 bấm thu → 'Bạn không đang trực quầy này'."
+     "noi_dung": "Thao tác ghi (thu, hoàn…) chỉ khi giờ hiện tại nằm trong một khung ca (dòng 441–448). Ví dụ ca sáng 07:30–12:00, 12:05 bấm thu → 'Bạn không đang trực quầy này'. Nếu ca chưa bắt đầu, lỗi đến sớm hơn từ authorize ('Ca trực này chưa bắt đầu'). Điều phối và quản lý luôn qua."
+    },
+    {
+     "dong": 156,
+     "noi_dung": "In lại phiếu: không tìm thấy phiếu hoặc phiếu không xác định được cơ sở → 'Phiếu không thuộc phạm vi ca trực của bạn'."
+    },
+    {
+     "dong": 125,
+     "noi_dung": "Phiếu hướng dẫn (huong_dan): phải đang trực quầy dịch vụ (authorize_active, dòng 125) và cơ sở của lượt phải trùng cơ sở đang trực (dòng 159); xong là return, không xét người tạo hay khung giờ phiếu."
     },
     {
      "dong": 162,
-     "noi_dung": "In lại phiếu hoàn: nếu mình là người xác nhận hoàn thì lấy giờ xác nhận để xét ca; nếu mình là người thu phiếu gốc thì được in phiếu hoàn của phiếu đó (dòng 164–191)."
+     "noi_dung": "In lại phiếu hoàn: nếu mình là người xác nhận hoàn thì xét ca theo giờ hoàn tất (completed_at) thay vì giờ tạo (162–163). Nếu mình không phải người tạo/xác nhận hoàn nhưng là người TẠO hoặc XÁC NHẬN phiếu thu gốc thì được in, lấy người và giờ của phiếu gốc (164–191)."
     },
     {
-     "dong": 158,
-     "noi_dung": "Phiếu hướng dẫn (huong_dan) chỉ in được khi đang trực quầy dịch vụ và lượt thuộc đúng cơ sở đang trực."
+     "dong": 192,
+     "noi_dung": "In lại phiếu thu: nếu mình là người tạo phiếu thì xét ca theo giờ TẠO (created_at) thay vì giờ thanh toán (paid_at); người khác xét theo paid_at nếu có."
+    },
+    {
+     "dong": 227,
+     "noi_dung": "days(): quản lý nhận ngay kết quả quan_ly=True, danh sách ngày rỗng, thao_tac=True, không đọc lịch trực. Kind ngoài dịch vụ/thuốc → lỗi; mốc ngày (cursor) rác → 'Mốc ngày không hợp lệ'."
+    },
+    {
+     "dong": 268,
+     "noi_dung": "days(): với ngày hôm nay, chỉ giữ ca đã bắt đầu (khung đầu ≤ giờ hiện tại), trừ cơ sở mà mình trực điều phối giữ hết; cơ sở hết ca thì bị loại, ngày không còn cơ sở thì bỏ. Ngày xem tới hôm nay, không tương lai (dòng 246)."
+    },
+    {
+     "dong": 331,
+     "noi_dung": "days(): 'dang_truc' (quầy đang trực ngay lúc này): điều phối ở cơ sở nào → luôn ca FULL ở cơ sở đó; người khác → các ca có khung giờ chứa giờ hiện tại. thao_tac = có ít nhất một quầy đang trực."
+    },
+    {
+     "dong": 462,
+     "noi_dung": "active_visit: quản lý trả nguyên identity. Người khác: lấy cơ sở của lượt khám, thử authorize_active với từng loại quầy; được loại nào thì trả identity gắn cơ sở đó, không có thì 'Bạn không đang trực quầy của lượt này'."
     }
    ],
    "doc_bang": [
@@ -105,19 +141,27 @@
    "bay": [
     {
      "dong": 412,
-     "noi_dung": "Biến head được tính lại lần hai nhưng lúc này luôn False (nếu True đã return ở dòng 391) → nhánh 'None if head' ở dòng 421 là code chết; sửa một chỗ phải sửa cả hai."
+     "noi_dung": "Biến head được tính lại lần hai nhưng lúc này luôn False (nếu True đã return ở dòng 398) → 'None if head' ở dòng 421 là code chết; sửa một chỗ phải sửa cả hai."
     },
     {
      "dong": 243,
-     "noi_dung": "days() lấy TẤT CẢ ngày đã trực (không LIMIT) rồi mỗi ngày một câu truy vấn lịch (dòng 256) → người trực lâu năm sẽ chậm dần; vòng chỉ dừng khi đủ limit+1 ngày có quyền."
+     "noi_dung": "days() lấy TẤT CẢ ngày đã trực (không LIMIT) rồi mỗi ngày một câu truy vấn lịch (dòng 256) → người trực lâu năm sẽ chậm dần; vòng chỉ dừng khi đủ limit+1 ngày có quyền (dòng 312). Cũng đọc clinic.settings hai lần (240 và 321)."
     },
     {
      "dong": 361,
-     "noi_dung": "ngay_hop_le trả None với ngày rác → rơi vào lỗi SafetyGateError chứ không 500; giữ đúng luật 'ngày rác trả rỗng'."
+     "noi_dung": "ngay_hop_le trả None với ngày rác → dòng 363 ném SafetyGateError (không phải 500, cũng không trả rỗng); nếu bỏ điều kiện day is None sẽ lỗi ở bước sau."
     },
     {
      "dong": 51,
      "noi_dung": "zip(strict=True) — starts và ends phải luôn cùng độ dài; đổi scope_intervals mà lệch là ném lỗi."
+    },
+    {
+     "dong": 403,
+     "noi_dung": "Chọn ca cụ thể hôm nay mà ca có nhiều khung (nghỉ trưa) và khung sau chưa bắt đầu thì bị từ chối cả ca, dù khung đầu đã chạy; không chọn ca thì lại cho qua phần đã bắt đầu."
+    },
+    {
+     "dong": 454,
+     "noi_dung": "authorize_any_active (452–457) và active_visit (472–482) nuốt SafetyGateError của từng loại quầy, chỉ báo thông điệp chung → khó biết lý do thật (chưa bắt đầu, sai cơ sở, ngoài giờ)."
     }
    ],
    "muon_sua": [
@@ -515,11 +559,19 @@
    "luat": [
     {
      "dong": 74,
-     "noi_dung": "Lượt coi là xong tiền 0đ chỉ khi: hoá đơn có dòng, tổng ≤ 0, không có vấn đề, và revision hiện tại trùng revision đã chốt. Ví dụ chốt khám 0đ, sau đó BS chỉ định thêm siêu âm 300.000đ → revision đổi → lượt quay lại hàng chờ thu."
+     "noi_dung": "Lượt coi là xong tiền 0đ chỉ khi đủ 5 điều kiện: có revision đã chốt, hoá đơn có dòng, tổng ≤ 0, không có vấn đề, và revision hiện tại nằm trong tập revision đã chốt. Ví dụ: chốt khám 0đ, sau đó BS chỉ định thêm siêu âm 300.000đ thì revision đổi, lượt quay lại hàng chờ thu."
     },
     {
      "dong": 36,
-     "noi_dung": "Hoá đơn không có dòng nào thì không ghi chốt."
+     "noi_dung": "Hoá đơn không có dòng nào thì không ghi chốt (return sớm, không ghi gì vào nhật ký)."
+    },
+    {
+     "dong": 45,
+     "noi_dung": "Mỗi lần chốt ghi một dòng nhật ký mang đúng revision của hoá đơn lúc bấm. Đây là thứ duy nhất gắn bản chốt với bản hoá đơn."
+    },
+    {
+     "dong": 59,
+     "noi_dung": "Khi đọc, chỉ lấy các dòng chốt của đúng phòng khám (clinic_id), đúng lượt (visit) và đúng loại sự kiện. Mỗi lượt gom thành một tập revision (set), nên chốt nhiều lần cùng một revision không làm sai kết quả."
     }
    ],
    "doc_bang": [
@@ -534,7 +586,15 @@
    "bay": [
     {
      "dong": 38,
-     "noi_dung": "Trạng thái 'đã chốt 0đ' nằm trong event_log (nhật ký cũ) và được ĐỌC LẠI để quyết định (dòng 55) — dọn/đổi nhật ký cũ sẽ làm lượt 0đ quay lại hàng chờ thu."
+     "noi_dung": "Trạng thái 'đã chốt 0đ' nằm trong event_log (nhật ký cũ) và được ĐỌC LẠI để quyết định (dòng 55). Dọn hoặc đổi nhật ký cũ sẽ làm lượt 0đ quay lại hàng chờ thu."
+    },
+    {
+     "dong": 36,
+     "noi_dung": "ghi_chot_0d chỉ kiểm tra hoá đơn có dòng, KHÔNG kiểm tổng ≤ 0 hay không có vấn đề. Việc đó nằm ở da_chot_0d (dòng 77-78). Nơi gọi phải tự chỉ cho chốt hoá đơn 0đ, và không được coi 'đã có dòng chốt' là đã xong tiền."
+    },
+    {
+     "dong": 38,
+     "noi_dung": "ghi_chot_0d không chống ghi trùng: bấm hai lần ghi hai dòng event_log. Phần đọc dùng set nên không hại, nhưng ai đếm dòng sự kiện sẽ thấy trùng."
     }
    ],
    "muon_sua": [
@@ -586,31 +646,51 @@
    "luat": [
     {
      "dong": 133,
-     "noi_dung": "Chỉ người được xem TÀI CHÍNH của đúng ca và cơ sở đó mới chốt được (cùng cửa ReportAccessService)."
+     "noi_dung": "Chỉ người được xem TÀI CHÍNH của đúng ca và đúng cơ sở đó mới chốt hoặc mở khoá qua _kiem (cùng cửa ReportAccessService.authorize). Nếu cơ sở được duyệt khác cơ sở xin chốt thì bị chặn."
     },
     {
-     "dong": 128,
-     "noi_dung": "Mỗi cơ sở chốt riêng: không chọn cơ sở (hoặc chọn 'tất cả') thì không chốt."
+     "dong": 122,
+     "noi_dung": "Ngày của ca phải là chuỗi YYYY-MM-DD hợp lệ, nếu không thì báo lỗi, không chốt."
     },
     {
      "dong": 125,
-     "noi_dung": "Ca chỉ là SANG, CHIEU hoặc TOI."
+     "noi_dung": "Ca chỉ nhận SANG, CHIEU hoặc TOI (tự bỏ khoảng trắng, đổi sang chữ hoa)."
+    },
+    {
+     "dong": 128,
+     "noi_dung": "Mỗi cơ sở chốt riêng: cơ sở để trống hoặc giá trị không khớp (KHONG_KHOP) thì không chốt."
     },
     {
      "dong": 171,
-     "noi_dung": "Một ca đã chốt (chưa mở khoá) không chốt lần hai; hai người bấm cùng lúc thì database giữ đúng một lần (dòng 209)."
+     "noi_dung": "Ca đã chốt và chưa mở khoá thì không chốt lần hai. Hai người bấm cùng lúc thì ràng buộc duy nhất của database giữ đúng một lần (bắt ở dòng 209, báo lỗi ở 211)."
     },
     {
-     "dong": 52,
-     "noi_dung": "Khoản huỷ thuộc về ca ĐÃ CHỐT TRƯỚC giờ huỷ và chưa mở khoá lúc huỷ → tính vào ca đang làm (điều chỉnh ca trước). Ví dụ ca sáng 20/10 chốt 10tr lúc 12:05; 21/10 huỷ phiếu 800k của ca ấy → trừ vào ca 21/10, ca sáng 20/10 vẫn 10tr."
-    },
-    {
-     "dong": 234,
-     "noi_dung": "Chỉ Quản lý mở khoá; lý do 3–500 ký tự; mở khoá không xoá/không sửa số đã chụp, mở xong chốt lại được."
+     "dong": 61,
+     "noi_dung": "Chỉ lần chốt chưa mở khoá (mo_luc IS NULL) mới tính là 'ca đang khoá'. Ca đã mở khoá thì chốt lại được và lần chốt cũ vẫn nằm lại làm dấu."
     },
     {
      "dong": 180,
-     "noi_dung": "Phòng khám chưa cài giờ của ca → không chốt được."
+     "noi_dung": "Phòng khám chưa cài giờ của ca này (khung_ca trả None) thì báo lỗi, không chốt. Giờ bắt đầu và kết thúc của ca được lưu theo bản chốt (203–204)."
+    },
+    {
+     "dong": 166,
+     "noi_dung": "Ghi chú khi chốt được cắt tối đa 500 ký tự; chuỗi rỗng hoặc toàn khoảng trắng coi như không có ghi chú."
+    },
+    {
+     "dong": 51,
+     "noi_dung": "Khoản huỷ sau chốt thuộc ca đang làm (điều chỉnh ca trước) khi có một lần chốt phủ giờ thu, chốt trước giờ huỷ, và chưa mở khoá tại giờ huỷ (mo_luc rỗng hoặc sau giờ huỷ). VD ca sáng 20/10 chốt 10tr lúc 12:05, 21/10 huỷ phiếu 800k của ca ấy: trừ vào ca 21/10, ca 20/10 vẫn 10tr."
+    },
+    {
+     "dong": 234,
+     "noi_dung": "Chỉ Quản lý mở khoá được."
+    },
+    {
+     "dong": 237,
+     "noi_dung": "Mở khoá phải ghi lý do dài 3–500 ký tự (đã bỏ khoảng trắng hai đầu)."
+    },
+    {
+     "dong": 244,
+     "noi_dung": "Mở khoá chỉ điền mo_luc, mo_boi, ly_do_mo; không xoá dòng, không sửa số đã chụp. Chỉ áp dụng cho lần chốt còn hiệu lực (247), mở lần hai thì báo 'không tìm thấy' (258)."
     }
    ],
    "doc_bang": [
@@ -619,8 +699,7 @@
     "clinic"
    ],
    "ghi_bang": [
-    "chot_so_ca",
-    "event_log"
+    "chot_so_ca"
    ],
    "su_kien_phat": [],
    "su_kien_nghe": [],
@@ -628,15 +707,27 @@
    "bay": [
     {
      "dong": 183,
-     "noi_dung": "Bản chụp báo cáo dựng NGOÀI giao dịch ghi (dòng 187); thu tiền xảy ra giữa lúc chụp và lúc ghi sẽ không có trong bản chụp nhưng cũng không bị 'phát sinh sau chốt' báo lệch vì chenh_sau_chot so sống − chụp."
+     "noi_dung": "Bản chụp báo cáo dựng NGOÀI giao dịch ghi (transaction mở ở 188), và việc kiểm 'đã chốt chưa' (171) cũng nằm ngoài. Khoản thu chen vào giữa lúc chụp và lúc ghi không có trong bản chụp, sau này sẽ hiện ra ở số 'phát sinh sau chốt' (sống − chụp, dòng 109)."
     },
     {
-     "dong": 50,
-     "noi_dung": "KHOA_TRUOC_SQL xét trạng thái khoá TẠI GIỜ HUỶ (chot_luc < giờ huỷ, mo_luc > giờ huỷ) chứ không trạng thái hiện tại — đổi sang trạng thái hiện tại là một phiếu bị trừ hai lần ở hai ca."
+     "dong": 51,
+     "noi_dung": "KHOA_TRUOC_SQL xét trạng thái khoá TẠI GIỜ HUỶ (chot_luc < giờ huỷ; mo_luc rỗng hoặc > giờ huỷ), không xét trạng thái hiện tại. Đổi sang trạng thái hiện tại thì một phiếu bị trừ ở cả hai ca."
     },
     {
-     "dong": 186,
-     "noi_dung": "Số tiền chụp qua _json: Decimal nguyên thành int, lẻ thành float — đừng đổi sang chuỗi, chenh_sau_chot dùng int()."
+     "dong": 67,
+     "noi_dung": "_json đổi Decimal nguyên thành int, lẻ thành float, ngày giờ thành chuỗi ISO; đừng đổi Decimal sang chuỗi vì chenh_sau_chot dùng int() (109)."
+    },
+    {
+     "dong": 71,
+     "noi_dung": "_json ném TypeError với kiểu khác (vd UUID). Nếu báo cáo thêm trường kiểu lạ thì bấm chốt sẽ lỗi ở dòng 186, trước khi ghi gì."
+    },
+    {
+     "dong": 242,
+     "noi_dung": "mo_khoa chỉ lọc theo clinic_id và id lần chốt, không kiểm cơ sở hay quyền xem tài chính của cơ sở đó; Quản lý (234) mở được ca của mọi cơ sở trong phòng khám."
+    },
+    {
+     "dong": 255,
+     "noi_dung": "chot_id sai định dạng uuid làm asyncpg ném DataError, được đổi thành 'không tìm thấy lần chốt' thay vì lỗi dữ liệu."
     }
    ],
    "muon_sua": [
@@ -649,12 +740,24 @@
      "cho": "mo_khoa dòng 234"
     },
     {
+     "viec": "đổi độ dài lý do mở khoá",
+     "cho": "mo_khoa dòng 237"
+    },
+    {
      "viec": "đổi cách khoản huỷ sau chốt dồn sang ca nào",
-     "cho": "KHOA_TRUOC_SQL dòng 47 (bao_cao_cuoi_ngay_service dùng)"
+     "cho": "KHOA_TRUOC_SQL dòng 47–53 (bao_cao_cuoi_ngay_service dùng)"
+    },
+    {
+     "viec": "đổi các số tính vào 'phát sinh sau chốt'",
+     "cho": "chenh_sau_chot dòng 103–111 (danh sách ở dòng 110)"
     }
    ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "record_event (dòng 214, 261) ghi vào bảng nào (có phải event_log) thì không thấy trong tệp này.",
+    "Ràng buộc duy nhất ngăn chốt trùng nằm trong migration, không thấy ở đây; code chỉ dựa vào UniqueViolationError (209).",
+    "KONG_KHOP/doc_co_so: không rõ giá trị 'tất cả cơ sở' có được coi là None hay KHONG_KHOP, vì hai thứ này nằm ở co_so_bao_cao."
+   ]
   },
   "src/clinicai/services/chuyen_luot_that.py": {
    "lam_gi": "Script chạy một lần: biến lịch sử khám cũ nạp từ Notion (schema lich_su_notion) thành lượt khám THẬT đã khám xong (lịch hẹn, lượt, phiên khám, phiếu khám, chỉ định, tờ kết quả, tệp PDF, đơn thuốc) để mọi màn hồ sơ tự hiện.",
@@ -2193,51 +2296,55 @@
     },
     {
      "dong": 222,
-     "noi_dung": "Chỉ định là nợ chỉ khi ĐANG/ĐÃ LÀM (exec in_progress/performed) và khách chọn hoặc chưa chốt (dòng 57–65); chưa làm hoặc khách không chọn thì không tính. Phụ thu và vật tư kèm chỉ định đi theo chỉ định cha (dòng 225, 232)."
+     "noi_dung": "Chỉ định là nợ chỉ khi ĐANG/ĐÃ LÀM (exec in_progress/performed) và khách chọn hoặc chưa chốt (dòng 57–65); chưa làm hoặc khách không chọn thì không tính. Phụ thu đi theo chỉ định cha (dòng 225): không có chỉ định cha đang làm thì bỏ."
     },
     {
-     "dong": 227,
-     "noi_dung": "Vật tư khách đã được thêm vào hoá đơn (không gắn chỉ định) là nợ ngay."
+     "dong": 232,
+     "noi_dung": "Vật tư khách đã thêm vào hoá đơn mà không gắn chỉ định (order_id rỗng) là nợ ngay. Vật tư đi kèm chỉ định (đầu dò Bio) chỉ là nợ khi chỉ định đó đang/đã làm; chưa làm thì bỏ."
     },
     {
      "dong": 237,
-     "noi_dung": "Trả trước liệu trình chưa thu và các loại dòng khác không phải nợ."
+     "noi_dung": "Mọi loại dòng khác (ví dụ trả trước liệu trình chưa thu) không phải nợ: nhánh else bỏ qua hết."
     },
     {
      "dong": 215,
-     "noi_dung": "Chỉ khoản PHÒNG KHÁM thu mới là nợ; dịch vụ đối tác tự thu không tính."
+     "noi_dung": "Với dịch vụ, chỉ khoản PHÒNG KHÁM thu mới là nợ; dịch vụ đối tác tự thu không tính."
     },
     {
      "dong": 74,
-     "noi_dung": "Thuốc là nợ khi đã ghi số mua hoặc đã cấp > 0, chưa bị từ chối/gỡ, và chưa có lần thu (chờ xác nhận/đã thu) phủ dòng đó. Lượt có lần thu thuốc đời cũ không dòng hoá đơn → không đoán thành nợ (dòng 84)."
+     "noi_dung": "Thuốc là nợ khi đã ghi số mua hoặc đã cấp > 0 (dòng 74), chưa gỡ (72), chưa bị từ chối (73) và chưa có lần thu (chờ xác nhận/đã thu) phủ dòng đó (75–81). Lượt có lần thu thuốc đời cũ không có dòng hoá đơn → không đoán thành nợ (84–91)."
     },
     {
      "dong": 238,
-     "noi_dung": "Dòng chưa có giá vẫn là nợ (số tiền chưa rõ); dòng ≤ 0đ thì bỏ. Ví dụ siêu âm chưa có giá + thuốc 120.000đ → 'Khách còn nợ 120.000đ (+1 khoản chưa có giá)'."
+     "noi_dung": "Dòng chưa có giá (None) vẫn là nợ, số tiền chưa rõ; dòng ≤ 0đ thì bỏ (239). Thuốc cũng vậy (261–262). Ví dụ siêu âm chưa có giá + thuốc 120.000đ → 'Khách còn nợ 120.000đ (+1 khoản chưa có giá)' (dòng 176–181)."
     },
     {
      "dong": 166,
-     "noi_dung": "Ghi nợ 'phủ đủ' khi MỌI khoản nợ hiện tại có mã nằm trong lần ghi nợ đang mở; phát sinh khoản mới sau khi ghi → lại bị chặn tới khi ghi nợ lại."
+     "noi_dung": "Ghi nợ 'phủ đủ' khi MỌI khoản nợ hiện tại có mã nằm trong lần ghi nợ đang mở; phát sinh khoản mới sau khi ghi → lại bị chặn tới khi ghi nợ lại. Không có nợ hoặc chưa ghi nợ thì không phủ (163–164)."
+    },
+    {
+     "dong": 315,
+     "noi_dung": "Thu ngay cho thuốc luôn bật khi có dòng thuốc nợ (không kiểm điều kiện quầy). Thu ngay cho dịch vụ thì tuỳ quầy nhận lượt (dòng 310)."
     },
     {
      "dong": 419,
-     "noi_dung": "Ghi nợ / huỷ ghi nợ bắt buộc lý do 3–500 ký tự."
+     "noi_dung": "Ghi nợ / huỷ ghi nợ bắt buộc lý do 3–500 ký tự (sau khi cắt khoảng trắng đầu/cuối)."
     },
     {
      "dong": 442,
-     "noi_dung": "Mỗi lượt tối đa một khoản ghi nợ CHƯA THU; ghi lại thì ghi đè chính dòng đó bằng nợ hiện tại (sự kiện giữ dấu từng lần)."
+     "noi_dung": "Mỗi lượt tối đa một khoản ghi nợ CHƯA THU; ghi lại thì ghi đè chính dòng đó bằng nợ hiện tại (sự kiện giữ dấu từng lần); chưa có thì thêm dòng mới (459–476)."
+    },
+    {
+     "dong": 439,
+     "noi_dung": "Lượt không còn khoản nào chưa thu → ghi_no_trong trả None, không ghi gì; nút Ghi nợ báo lỗi 'không cần ghi nợ' (dòng 516)."
     },
     {
      "dong": 534,
-     "noi_dung": "Huỷ ghi nợ chỉ khi khách CHƯA check-out; đã về thì nợ chỉ hết khi thu ở quầy."
-    },
-    {
-     "dong": 516,
-     "noi_dung": "Lượt không còn khoản nào chưa thu → không cho ghi nợ."
+     "noi_dung": "Huỷ ghi nợ chỉ khi khách CHƯA check-out; đã về thì nợ chỉ hết khi thu ở quầy. Không có khoản CHƯA THU để huỷ → báo lỗi (552–553)."
     },
     {
      "dong": 97,
-     "noi_dung": "Nút 'Thu ngay' dịch vụ chỉ bật khi quầy thu nhận lượt (đã khám xong hoặc đã có chỉ định); không thì chỉ còn Ghi nợ."
+     "noi_dung": "Nút 'Thu ngay' dịch vụ chỉ bật khi quầy thu nhận lượt (đã khám xong hoặc đã có chỉ định không nháp/huỷ); không thì chỉ còn Ghi nợ."
     }
    ],
    "doc_bang": [
@@ -2247,8 +2354,7 @@
     "payment_cycle",
     "visit",
     "cong_no",
-    "staff",
-    "so_no"
+    "staff"
    ],
    "ghi_bang": [
     "cong_no"
@@ -2261,7 +2367,7 @@
    "goi_api": [],
    "bay": [
     {
-     "dong": 405,
+     "dong": 408,
      "noi_dung": "Phải khoá dòng visit (FOR UPDATE) — cùng khoá với check-out và thu tiền; bỏ là ghi nợ chen giữa lúc thu."
     },
     {
@@ -2274,7 +2380,11 @@
     },
     {
      "dong": 158,
-     "noi_dung": "tong cộng so_tien None như 0 — số tiền ghi nợ (dòng 472) không gồm khoản chưa có giá."
+     "noi_dung": "tong cộng so_tien None như 0 — số tiền ghi nợ (dòng 454 khi ghi đè, 472 khi thêm mới) không gồm khoản chưa có giá."
+    },
+    {
+     "dong": 439,
+     "noi_dung": "Khi hết nợ, ghi_no_trong trả None sớm mà KHÔNG đụng dòng cong_no CHUA_THU cũ (nếu có); việc đóng dòng đó thuộc bên nhận sự kiện, không nằm ở đây."
     },
     {
      "dong": 496,
@@ -2297,7 +2407,8 @@
    ],
    "comment_cu": [],
    "chua_chac": [
-    "Bên nhận đổi cong_no sang DA_THU nằm ở events/consumers/cong_no.py — không đọc trong lát này."
+    "Bên nhận đổi cong_no sang DA_THU nằm ở events/consumers/cong_no.py — không đọc trong lát này.",
+    "doc_khach_con_no đọc sổ nợ qua so_no_service.doc_so_du_mo — tên bảng cụ thể không thấy trong tệp này."
    ]
   },
   "src/clinicai/services/consent_service.py": {
@@ -2807,31 +2918,51 @@
    "luat": [
     {
      "dong": 266,
-     "noi_dung": "Chỉ người được xem TÀI CHÍNH (ReportAccessService) mới xem chi tiết hoá đơn."
+     "noi_dung": "Chỉ người được xem TÀI CHÍNH (ReportAccessService) mới xem chi tiết hoá đơn; không có quyền thì báo lỗi SafetyGateError."
     },
     {
      "dong": 276,
-     "noi_dung": "Xem một ngày có chọn ca → khung giờ là giờ ca đó (khung_ca); nhiều ngày thì bỏ qua ca."
+     "noi_dung": "Xem đúng một ngày (từ = đến) mà có chọn ca → khung giờ là giờ của ca đó (khung_ca). Xem nhiều ngày thì bỏ qua ca, lấy cả ngày."
+    },
+    {
+     "dong": 287,
+     "noi_dung": "Tham số loại chỉ nhận 'thuoc' hoặc 'dich_vu'; giá trị khác bị coi như không lọc (None). Quy tắc này áp cho cả phiếu, 'chưa làm' và việc tồn."
     },
     {
      "dong": 76,
-     "noi_dung": "Sổ gồm phiếu đã thu và cả lần chờ chuyển khoản bị HUỶ (chưa từng thu) để kế toán đối chiếu sao kê; phiếu vào kỳ nếu thu, huỷ, hoặc có hoàn tiền phát sinh trong kỳ (dòng 79–86)."
+     "noi_dung": "Sổ gồm phiếu đã thu và cả lần chờ chuyển khoản bị HUỶ (chưa từng thu) để kế toán đối chiếu sao kê. Phiếu vào kỳ nếu thu, đóng/huỷ, hoặc có hoàn tiền phát sinh trong kỳ (dòng 79–86)."
     },
     {
      "dong": 167,
-     "noi_dung": "'Đã thu nhưng khách về chưa làm': chỉ định còn chờ/đã xếp/đang làm, khách không bỏ chọn, lượt đã check-out hoặc của ngày trước, tạo trong 90 ngày gần nhất; số tiền = đã thu − đã hoàn (≤ 0 thì bỏ, dòng 202). Ví dụ thu siêu âm 300.000đ, khách về chưa làm → hiện 300.000đ cần trả lại."
+     "noi_dung": "'Đã thu nhưng khách về chưa làm': chỉ định còn chờ/đã xếp/đang làm (167), khách không bỏ chọn (168), lượt đã check-out hoặc tạo trước hôm nay (169), chỉ định tạo trong 90 ngày (170), chỉ xét các lượt có trong danh sách phiếu (174). Số tiền = đã thu − đã hoàn, ≤ 0 thì bỏ (202). Ví dụ thu siêu âm 300.000đ, khách về chưa làm → hiện 300.000đ cần trả lại."
+    },
+    {
+     "dong": 173,
+     "noi_dung": "Lọc loại 'thuoc' thì 'chưa làm' trả rỗng, vì chỉ định dịch vụ chỉ tính là dịch vụ; chỉ khi không lọc hoặc lọc 'dich_vu' mới có dòng."
+    },
+    {
+     "dong": 307,
+     "noi_dung": "Tiền thừa của mỗi lượt = tiền thừa từ hàm dùng chung (tien_thua_cua_luot) + khoản 'chưa làm', gộp theo lượt không sửa tại chỗ (_gop_thua). Mỗi dòng gắn ngày của lượt (giờ VN) ở dòng 330–332."
     },
     {
      "dong": 404,
-     "noi_dung": "Khách còn nợ ở việc tồn = số dư sổ nợ − phần chuyển khoản đang chờ (đã có dòng 'CK chưa về' riêng), không hiện một số hai lần."
+     "noi_dung": "Khách còn nợ ở việc tồn = số dư sổ nợ − phần chuyển khoản đang chờ (đã có dòng 'CK chưa về' riêng), không hiện một số hai lần. Chỉ hiện khi còn > 0 (411)."
     },
     {
      "dong": 410,
-     "noi_dung": "Lọc riêng thuốc/dịch vụ cho một khoản nợ hỗn hợp: chia theo tỉ lệ các khoản, làm tròn xuống. Ví dụ nợ 100.000đ gồm thuốc 30.000đ + DV 70.000đ, đã trả 1.000đ → còn 99.000đ; lọc thuốc → 99.000×30.000÷100.000 = 29.700đ."
+     "noi_dung": "Lọc riêng thuốc/dịch vụ cho một khoản nợ hỗn hợp: chia theo tỉ lệ các khoản (bỏ dòng CK_CHO), làm tròn xuống; tổng khoản = 0 thì còn 0. Ví dụ nợ 100.000đ gồm thuốc 30.000đ + DV 70.000đ, đã trả 1.000đ → còn 99.000đ; lọc thuốc → 99.000×30.000÷100.000 = 29.700đ."
     },
     {
-     "dong": 133,
-     "noi_dung": "Việc tồn khi chọn 'tất cả cơ sở' không đếm cơ sở đã ngừng; riêng 'chưa làm' gắn vào hoá đơn lịch sử nên không bỏ cơ sở ngừng (dòng 171)."
+     "dong": 426,
+     "noi_dung": "Phòng khám còn nợ khách (PHAI_TRA) cũng lọc theo loại: chỉ giữ các khoản thuốc hoặc không phải thuốc theo loại chọn; lượt không còn khoản nào thì bỏ."
+    },
+    {
+     "dong": 144,
+     "noi_dung": "Hoàn đang chờ và CK chưa về (dòng 144, 153, qua _LOC ở dòng 133): không chọn cơ sở thì không đếm cơ sở đã ngừng; chọn đúng cơ sở ngừng vẫn thấy. 'Chưa làm' thuộc hoá đơn lịch sử nên chỉ lọc khi chọn cơ sở (dòng 172)."
+    },
+    {
+     "dong": 341,
+     "noi_dung": "Khi không chọn cơ sở, trả thêm danh sách cơ sở ngừng (co_so_ngung) để màn ghi dòng trung tính; có chọn cơ sở thì để rỗng."
     }
    ],
    "doc_bang": [
@@ -2845,9 +2976,7 @@
     "payment_bill_line",
     "payment_cycle_doi_hinh_thuc",
     "service_order",
-    "clinic",
-    "so_no",
-    "clinic_location"
+    "clinic"
    ],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -2860,11 +2989,19 @@
     },
     {
      "dong": 410,
-     "noi_dung": "Chia tỉ lệ bằng phép chia nguyên (//) — cộng phần thuốc + phần dịch vụ có thể hụt 1đ so với tổng."
+     "noi_dung": "Chia tỉ lệ bằng phép chia nguyên (//) — cộng phần thuốc + phần dịch vụ có thể hụt vài đồng so với tổng."
     },
     {
      "dong": 170,
      "noi_dung": "'Chưa làm' chỉ xét chỉ định 90 ngày gần nhất — tiền thu từ trước đó mà khách chưa làm sẽ không hiện."
+    },
+    {
+     "dong": 293,
+     "noi_dung": "_BILLS dùng $2/$3 làm mốc giờ, còn _REFUNDS dùng $3/$4 (vì $2 là danh sách phiếu). Thêm hay bớt tham số phải sửa cả SQL lẫn thứ tự đối số."
+    },
+    {
+     "dong": 174,
+     "noi_dung": "'Chưa làm' trong xem() chỉ xét các lượt có phiếu trong kỳ (truyền vids). Dịch vụ chưa làm của lượt không có phiếu trong kỳ không hiện ở đây."
     }
    ],
    "muon_sua": [
@@ -2881,10 +3018,20 @@
      "cho": "_BILLS dòng 52 (điều kiện dòng 76–86)"
     }
    ],
-   "comment_cu": [],
+   "comment_cu": [
+    {
+     "dong": 156,
+     "vi_sao": "Phần đầu chỉ kể lịch sử (tên người báo, ngày, mã khách); luật thực thi là điều kiện SQL ở dòng 167–170."
+    },
+    {
+     "dong": 131,
+     "vi_sao": "Gắn ngày 14/10/2026 là kể lịch sử, không phải luật; luật thực thi nằm ở sql_loc_ton."
+    }
+   ],
    "chua_chac": [
     "Khối: không khai TEP_CUA_KHOI; ghi 'payment' (chỉ đọc bảng thu).",
-    "Lọc loại ở PHAI_THU dùng loai=='prescription' (dòng 398) nhưng PHAI_TRA dùng hằng THUOC (dòng 429) — không rõ hai sổ có dùng hai cách đặt tên loại khác nhau thật không."
+    "Lọc loại ở PHAI_THU dùng loai=='prescription' (dòng 398) nhưng PHAI_TRA dùng hằng THUOC (dòng 429) — không rõ hai hằng có cùng giá trị không.",
+    "Bảng sổ nợ (qua doc_so_du_mo) và bảng cơ sở (qua sql_loc_ton, doc_co_so_ngung) được đọc ở tệp khác; không thấy tên bảng trong tệp này nên bỏ khỏi doc_bang."
    ]
   },
   "src/clinicai/services/danh_sach_khach_cskh.py": {
@@ -4337,35 +4484,35 @@
    "luat": [
     {
      "dong": 267,
-     "noi_dung": "Ai giữ MỘT trong hai quyền thu tiền (dịch vụ hoặc thuốc) đều đổi được, không cần là người đã thu, không phân loại phiếu; trưởng quầy (cashier_head_scope) chỉ được phiếu thuộc loại tiền mình phụ trách (dòng 292)."
+     "noi_dung": "Ai giữ MỘT trong hai quyền thu tiền (dịch vụ hoặc thuốc) đều đổi được, không cần là người đã thu, không phân loại phiếu. Trưởng quầy (cashier_head_scope) được bỏ qua bước kiểm quyền này, nhưng ở dòng 292 chỉ được đổi phiếu đúng loại tiền được cấp."
     },
     {
-     "dong": 68,
-     "noi_dung": "Không đổi: phiếu đã huỷ, phiếu chưa PAID, phiếu có khoản hoàn đang chờ hoặc đã hoàn (tiền hoàn đã đi theo hình thức cũ). Trigger DB là lưới cuối."
+     "dong": 305,
+     "noi_dung": "Không đổi: phiếu đã huỷ, phiếu chưa PAID, phiếu có khoản hoàn PENDING/COMPLETED (luật ở dòng 68-73). Service ném 409 (ConflictError) với câu dễ hiểu, trigger DB là lưới cuối (dòng 344)."
     },
     {
      "dong": 120,
-     "noi_dung": "Chia hai hình thức: TM và CK đều > 0 và cộng bằng đúng số tiền phiếu. Ví dụ phiếu 500.000đ chia 200.000 TM + 300.000 CK được; 200.000 + 200.000 → 'phải bằng số tiền phiếu (500.000đ)'."
+     "noi_dung": "Chia hai hình thức: TM và CK đều > 0 và cộng bằng đúng số tiền phiếu. Ví dụ phiếu 500.000đ chia 200.000 TM + 300.000 CK được; 200.000 + 200.000 → 422 'phải bằng số tiền phiếu (500.000đ)'. Chỉ gửi một trong hai số cũng bị 422 (dòng 115)."
     },
     {
-     "dong": 258,
-     "noi_dung": "QR gộp vào Chuyển khoản; chia luôn ghi hình thức mới là chuyển khoản kèm hai số."
+     "dong": 256,
+     "noi_dung": "QR gộp vào Chuyển khoản: chuan_hinh_thuc đổi QR thành TRANSFER trước khi ghi (dòng 256). Khi có gửi tiền_mat hoặc chuyen_khoan thì hình thức mới luôn là chuyển khoản kèm hai số (dòng 257-258), bất kể trường hinh_thuc."
     },
     {
      "dong": 313,
-     "noi_dung": "Gửi lại đúng các phần đang hiệu lực → thành công, không ghi thêm dòng."
+     "noi_dung": "Gửi lại đúng các phần đang hiệu lực → trả thành công (da_la_hinh_thuc_nay), không ghi thêm dòng. Bước này chạy SAU kiểm huỷ/hoàn và TRƯỚC kiểm chống đè (dòng 319)."
     },
     {
      "dong": 319,
-     "noi_dung": "Hình thức màn đang thấy khác hình thức hiệu lực (người khác vừa đổi) → 409, không đè."
+     "noi_dung": "Hình thức màn đang thấy (so sau khi gộp QR=CK) khác hình thức hiệu lực (người khác vừa đổi) → 409, không đè. Bỏ trống hinh_thuc_cu thì không đối chiếu."
     },
     {
      "dong": 263,
-     "noi_dung": "Mã giao dịch chỉ nhận khi hình thức mới không phải tiền mặt, tối đa 100 ký tự; lý do tuỳ chọn ≤ 500."
+     "noi_dung": "Mã giao dịch chỉ nhận khi hình thức mới không phải tiền mặt (đổi sang TM thì mã bị bỏ im lặng), tối đa 100 ký tự; chia luôn tính là CK nên nhận mã. Lý do tuỳ chọn, tối đa 500 ký tự (dòng 264)."
     },
     {
-     "dong": 6,
-     "noi_dung": "payment_cycle.method (hình thức lúc thu) bất biến; hình thức hiệu lực = dòng sổ đổi mới nhất, đọc qua hàm SQL hinh_thuc_hieu_luc ở mọi chỗ."
+     "dong": 279,
+     "noi_dung": "payment_cycle.method (hình thức lúc thu) bất biến; hình thức hiệu lực đọc qua hàm SQL hinh_thuc_hieu_luc / phan_thu_hieu_luc (dòng 279-282); mỗi lần đổi chỉ thêm một dòng sổ (dòng 327)."
     }
    ],
    "doc_bang": [
@@ -4375,8 +4522,7 @@
     "staff"
    ],
    "ghi_bang": [
-    "payment_cycle_doi_hinh_thuc",
-    "event_log"
+    "payment_cycle_doi_hinh_thuc"
    ],
    "su_kien_phat": [
     "payment.method_changed"
@@ -4390,11 +4536,19 @@
     },
     {
      "dong": 111,
-     "noi_dung": "doc_chia làm tròn số thực bằng round() (kiểu ngân hàng: 0.5 → 0) — gửi số lẻ có thể lệch 1đ rồi bị từ chối vì tổng không khớp."
+     "noi_dung": "doc_chia làm tròn số thực bằng round() (kiểu ngân hàng: 0.5 → 0, 2.5 → 2) — gửi số lẻ có thể lệch 1đ rồi bị từ chối vì tổng không khớp; 0.5 làm tròn thành 0 nên bị coi là không hợp lệ."
     },
     {
      "dong": 344,
-     "noi_dung": "Vi phạm ràng buộc DB (tranh chấp lọt qua kiểm Python) được đổi thành 409 với câu của trigger."
+     "noi_dung": "Chỉ CheckViolationError (tranh chấp lọt qua kiểm Python) được đổi thành 409 với câu của trigger; lỗi DB loại khác không được bắt."
+    },
+    {
+     "dong": 313,
+     "noi_dung": "Thứ tự kiểm quan trọng: 'không đổi gì' trả thành công (313) trước kiểm chống đè (319). Đảo thứ tự sẽ làm lệnh gửi lại bị 409 oan."
+    },
+    {
+     "dong": 378,
+     "noi_dung": "Khi chia, sự kiện bus ghi sang='CASH+TRANSFER' (dòng 358) nhưng nhật ký cũ ghi method_moi='TRANSFER' kèm tien_mat/chuyen_khoan (dòng 377-379) — hai nơi biểu diễn khác nhau, người đọc phải biết."
     }
    ],
    "muon_sua": [
@@ -4408,7 +4562,10 @@
     }
    ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Bảng thật mà emit_event / record_event ghi vào (không thấy trong tệp này), nên không liệt kê event_log trong ghi_bang.",
+    "Khi phiếu đang ở trạng thái chia, method_cu ghi ở dòng 336 là 'hieu_luc' (một hình thức) — không rõ hàm SQL trả gì cho phiếu chia."
+   ]
   },
   "src/clinicai/services/doi_lich_nhanh.py": {
    "lam_gi": "Phần ĐỌC của popover 'Đổi lịch' tại chỗ (Tiếp đón, Trang chủ, Đặt lịch): chọn ngày → mỗi bác sĩ có ca hôm ấy một hàng ô giờ (trống / ít / đầy), ô 'Ngay bây giờ', và có cho 'Đổi & Check-in' không. Phần ghi ở BookingService.doi_lich_nhanh.",
@@ -5104,16 +5261,44 @@
    ],
    "luat": [
     {
-     "dong": 78,
-     "noi_dung": "Tóm tắt Excel chỉ chứa đúng những gì màn hiện, không thêm dòng chi tiết ẩn; khối Dòng tiền chỉ khi xuất đầy đủ và báo cáo có phần tài chính (dòng 93)."
+     "dong": 93,
+     "noi_dung": "Khối Dòng tiền trong bản tóm tắt chỉ được thêm khi gọi day_du=True VÀ báo cáo có phần tài chính (tai_chinh). Nếu không, tóm tắt chỉ có các dòng cố định như màn."
+    },
+    {
+     "dong": 81,
+     "noi_dung": "Tóm tắt luôn có: Tổng thu, Dịch vụ, Thuốc/vật tư, từng hình thức thanh toán, rồi Phiếu thu ở cuối. Nếu không có loại 'dich_vu' hoặc 'thuoc' trong theo_loai thì ghi 0, không báo lỗi."
     },
     {
      "dong": 19,
-     "noi_dung": "Loại hàng lạ → mặc định thuốc."
+     "noi_dung": "Mã loại hàng lạ hoặc không có trong TEN_LOAI thì xuất như loại 'thuoc'. Nếu báo cáo không có loại đó thì dùng bảng rỗng (dong=[])."
+    },
+    {
+     "dong": 22,
+     "noi_dung": "Mặt hàng có cờ co_ton thì xuất khuôn có tồn kho, cột theo TIEU_DE_CO_TON và dòng do dong_co_ton dựng. Không có cột 'Đơn vị' riêng. Không có cờ thì xuất khuôn bán/trả/doanh thu thuần (dòng 26-48)."
+    },
+    {
+     "dong": 54,
+     "noi_dung": "Khối dòng tiền rỗng thì dong_tien_rows trả về danh sách rỗng, không có dòng nào."
     },
     {
      "dong": 241,
-     "noi_dung": "Sheet 'Theo cơ sở' / 'Dòng tiền' / 'Thuốc theo khách' chỉ có khi báo cáo có dữ liệu ấy (người xem có quyền)."
+     "noi_dung": "Sheet 'Theo cơ sở' chỉ có khi bc có theo_co_so."
+    },
+    {
+     "dong": 265,
+     "noi_dung": "Sheet 'Dòng tiền' chỉ có khi bc có tai_chinh. Nếu dong_tien rỗng thì sheet chỉ có dòng tiêu đề."
+    },
+    {
+     "dong": 274,
+     "noi_dung": "Hai sheet 'Thuốc theo khách' và 'Tiêu hao thuốc' chỉ có khi bc có thuoc_theo_khach (dữ liệu không rỗng)."
+    },
+    {
+     "dong": 345,
+     "noi_dung": "Các sheet Tổng quan, Hình thức, Loại, Người thu, Theo ngày, Top dịch vụ, Hoàn hủy, Đổi hình thức, Đối tác thu hộ, Giảm giá luôn được tạo, kể cả khi không có dòng dữ liệu."
+    },
+    {
+     "dong": 177,
+     "noi_dung": "Sheet Hoàn hủy gắn nhãn: loại 'huy' là 'Hủy phiếu'; loại khác mà đang chờ chuyển (cho) là 'Hoàn (chờ chuyển)'; còn lại là 'Hoàn'."
     }
    ],
    "doc_bang": [],
@@ -5124,7 +5309,15 @@
    "bay": [
     {
      "dong": 28,
-     "noi_dung": "Đọc khoá bằng m[k] (không .get) — báo cáo thiếu một khoá là xuất Excel ném KeyError (500)."
+     "noi_dung": "Đọc m['ten'] và m[k] bằng ngoặc vuông (không .get). Dòng hàng thiếu khoá thì xuất Excel ném KeyError (lỗi 500)."
+    },
+    {
+     "dong": 237,
+     "noi_dung": "xlsx_bao_cao đọc nhiều khoá bắt buộc bằng ngoặc vuông: tong, khach, theo_ngay, top_dich_vu, hoan_huy, doi_tac['dong']... Báo cáo thiếu khoá nào là cả tệp lỗi KeyError."
+    },
+    {
+     "dong": 211,
+     "noi_dung": "Cột 'Loại' ở sheet Đổi hình thức tra bằng TEN_LOAI theo loai_tien. Khoá lạ cho ra chuỗi rỗng, không báo lỗi. Tương tự TEN_HINH_THUC ở dòng 186, 215, 235."
     }
    ],
    "muon_sua": [
@@ -5180,7 +5373,7 @@
    "luat": [
     {
      "dong": 208,
-     "noi_dung": "Buổi liệu trình đã TRẢ TRƯỚC (và không bị bỏ chọn, không có phiếu lẻ còn sống) → coi như ĐÃ THU, cửa mở ngay kể cả quầy chưa chốt lựa chọn."
+     "noi_dung": "Buổi liệu trình đã TRẢ TRƯỚC, không bị bỏ chọn (NOT_SELECTED) và không có phiếu thu còn sống (không VOIDED) → coi như ĐÃ THU (PAID), cửa mở ngay kể cả quầy chưa chốt lựa chọn."
     },
     {
      "dong": 215,
@@ -5188,27 +5381,35 @@
     },
     {
      "dong": 218,
-     "noi_dung": "Lượt có lần thu dịch vụ đời cũ không có dòng hoá đơn (không truy được trả cho chỉ định nào) → cần đối soát (ALLOCATION_UNKNOWN)."
+     "noi_dung": "Lượt có lần thu dịch vụ đời cũ không có dòng hoá đơn (không truy được trả cho chỉ định nào; SQL ở dòng 346–365) → cần đối soát (ALLOCATION_UNKNOWN), cửa làm đóng."
     },
     {
      "dong": 226,
-     "noi_dung": "Phiếu đã huỷ không còn phủ chỉ định (thu nhầm → huỷ → thu lại được); hai phiếu sống cùng phủ một chỉ định → cần đối soát (dòng 227)."
+     "noi_dung": "Phiếu đã huỷ không còn phủ chỉ định (thu nhầm → huỷ → thu lại được); hai phiếu sống trở lên cùng phủ một chỉ định → cần đối soát (MULTIPLE_SERVICE_COVERAGE, dòng 227)."
     },
     {
      "dong": 237,
-     "noi_dung": "Có hoàn đang chờ → REFUND_PENDING; hoàn xong một phần → cần đối soát; hoàn đủ → REFUNDED; phiếu chờ xác minh CK → PENDING_VERIFICATION; còn lại → PAID."
+     "noi_dung": "Có hoàn đang chờ → REFUND_PENDING (ưu tiên trước hoàn xong); hoàn xong một phần → cần đối soát (PARTIAL_REFUND); hoàn đủ → REFUNDED; phiếu chờ xác minh CK → PENDING_VERIFICATION; còn lại → PAID."
+    },
+    {
+     "dong": 343,
+     "noi_dung": "Chỉ tính làm dấu vết tiền các dòng hoá đơn do PHÒNG KHÁM thu, thuộc lần thu đang chờ xác minh hoặc đã có paid_at. Lần thu chưa thu hoặc dòng của đối tác không giữ phủ chỉ định."
     },
     {
      "dong": 259,
-     "noi_dung": "Chưa có dấu vết tiền: bên thu mâu thuẫn hoặc thiếu giá → FINANCIAL_DATA_INCOMPLETE (coi như phải thu); bên thu đối tác → PARTNER_COLLECTS (phòng khám không thu); giá 0đ → NOT_REQUIRED; còn lại → DUE (phải thu). Ví dụ siêu âm 300.000đ khách đã chọn, chưa thu → DUE."
+     "noi_dung": "Chưa có dấu vết tiền: bên thu mâu thuẫn → FINANCIAL_DATA_INCOMPLETE; bên thu đối tác → PARTNER_COLLECTS (phòng khám không thu); thiếu giá/có vấn đề giá → INCOMPLETE; giá 0đ → NOT_REQUIRED; còn lại DUE. Ví dụ siêu âm 300.000đ đã chọn, chưa thu → DUE."
     },
     {
      "dong": 273,
-     "noi_dung": "Đã làm dở rồi DỪNG GIỮA CHỪNG mà chưa thu → cần người quyết (không tự đòi tiền khách)."
+     "noi_dung": "Khoản phải thu (giá > 0, phòng khám thu, chưa có tiền) mà chỉ định đang DỪNG GIỮA CHỪNG (INTERRUPTED) → FINANCIAL_REVIEW_REQUIRED (EXECUTED_WITHOUT_PAYMENT): cần người quyết, cửa làm đóng, không tự đòi tiền khách."
     },
     {
      "dong": 187,
-     "noi_dung": "Cửa làm: dây thu_truoc_khi_lam BẬT (mặc định) và lượt KHÔNG tick 'Làm trước – thu sau' → chỉ được làm khi đã thu / miễn phí / đối tác thu / CK đang chờ xác minh; tick hoặc dây TẮT → được làm cả khi chưa thu hoặc thiếu giá. Đang hoàn / đã hoàn / cần đối soát luôn chặn."
+     "noi_dung": "Cửa làm: dây thu_truoc_khi_lam BẬT và lượt KHÔNG tick 'Làm trước – thu sau' → chỉ làm khi đã thu / miễn phí / đối tác thu / CK chờ xác minh; tick hoặc dây TẮT → làm cả khi chưa thu (DUE) hoặc thiếu giá. Đang hoàn / đã hoàn / cần đối soát / chưa chọn luôn chặn."
+    },
+    {
+     "dong": 170,
+     "noi_dung": "Mỗi quyết định: financially_ready = trạng thái thuộc READY_STATES (nhãn đã thu); needs_human_review chỉ khi FINANCIAL_REVIEW_REQUIRED; duoc_lam tính qua cua_lam."
     },
     {
      "dong": 63,
@@ -5216,11 +5417,11 @@
     },
     {
      "dong": 404,
-     "noi_dung": "Chế độ 'giả sử chốt hộ' (gia_su_chon): chỉ định còn chờ khách quyết tính như đã chọn; khách đã chọn KHÔNG làm thì giữ nguyên."
+     "noi_dung": "Chế độ 'giả sử chốt hộ' (gia_su_chon): chỉ định chưa phải NOT_SELECTED được tính như SELECTED; khách đã chọn KHÔNG làm thì giữ nguyên."
     },
     {
      "dong": 297,
-     "noi_dung": "Buổi liệu trình dùng đơn giá CHỐT của liệu trình, bên thu luôn phòng khám; dịch vụ thường lấy giá bảng giá đang bật nhóm dịch vụ."
+     "noi_dung": "Buổi liệu trình (chưa gỡ) dùng đơn giá CHỐT của liệu trình, bên thu luôn phòng khám; dịch vụ thường lấy giá từ bảng giá đang bật, nhóm dich_vu (dòng 312–314)."
     }
    ],
    "doc_bang": [
@@ -5247,15 +5448,19 @@
     },
     {
      "dong": 315,
-     "noi_dung": "CTE gia GROUP BY o.id, lt.id — chỉ định gắn với nhiều buổi liệu trình khác liệu trình sẽ ra nhiều dòng, dict kết quả lấy dòng cuối."
+     "noi_dung": "CTE gia GROUP BY o.id, lt.id — chỉ định gắn với nhiều buổi liệu trình khác liệu trình sẽ ra nhiều dòng, dict kết quả (dòng 428) lấy dòng cuối."
     },
     {
-     "dong": 258,
-     "noi_dung": "Giá/bên thu phải dùng ĐÚNG giai_gia của hoá đơn; đã có dấu vết tiền thì ảnh chụp lịch sử thắng — đừng đọc lại bảng giá mới cho chỉ định đã thu."
+     "dong": 234,
+     "noi_dung": "Đã có dấu vết tiền thì ảnh chụp lịch sử thắng (return trước dòng 258); chỉ khi chưa có dấu vết mới đọc bảng giá hiện hành (giai_gia, dòng 258) — đừng đọc giá mới cho chỉ định đã thu."
     },
     {
      "dong": 125,
      "noi_dung": "thu_truoc_khi_lam mặc định False trong dataclass (nghĩa V10) — gọi derive_finance_state thẳng mà quên điền là mở cửa làm khi chưa thu."
+    },
+    {
+     "dong": 196,
+     "noi_dung": "cau_chan_lam chỉ riêng DUE / FINANCIAL_DATA_INCOMPLETE ra câu 'chưa thu'; mọi trạng thái khác (kể cả NOT_APPLICABLE chưa chọn) ra câu 'đang hoàn/đối soát' — dễ sai chữ nếu gọi cho trạng thái ngoài ý."
     }
    ],
    "muon_sua": [
@@ -5280,6 +5485,10 @@
     {
      "dong": 53,
      "vi_sao": "kể lịch sử EXTERNAL_PAYMENT_UNRESOLVED trước 27/09 — nên ở commit message."
+    },
+    {
+     "dong": 250,
+     "vi_sao": "Comment '(Bỏ 24/09/2026)' chỉ kể lịch sử bước 6 đã bỏ, không có code tương ứng."
     }
    ],
    "chua_chac": [

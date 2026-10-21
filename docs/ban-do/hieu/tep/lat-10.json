@@ -477,17 +477,39 @@
    "khoi": "payment",
    "ham_chinh": [
     {
+     "ten": "body",
+     "dong": 29,
+     "lam_gi": "đọc JSON của request; JSON hỏng thì trả undefined để route trả 400"
+    },
+    {
      "ten": "POST",
      "dong": 37,
-     "lam_gi": "rẽ theo action; mặc định là một lần thu POST /api/v1/payments kèm khoá chống gửi trùng"
+     "lam_gi": "rẽ theo action sang đúng endpoint FastAPI; không có action khớp thì là một lần thu POST /api/v1/payments kèm khoá chống gửi trùng"
     },
     {
      "ten": "DELETE",
      "dong": 174,
-     "lam_gi": "huỷ đúng một phiếu thu có lý do"
+     "lam_gi": "huỷ đúng một phiếu thu có lý do, chuyển sang DELETE /api/v1/payments (không kèm khoá chống gửi trùng)"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 39,
+     "noi_dung": "Body không phải JSON hợp lệ thì trả 400 'Invalid JSON' ngay tại route, không gọi máy chủ (DELETE cũng vậy, dòng 176)."
+    },
+    {
+     "dong": 161,
+     "noi_dung": "Lần thu không nêu method hoặc để rỗng thì gửi CASH (tiền mặt, ghi là ĐÃ THU); chuyển khoản/QR sẽ ở trạng thái chờ xác minh do máy chủ quyết."
+    },
+    {
+     "dong": 167,
+     "noi_dung": "Chỉ gửi `chon` (lựa chọn dịch vụ ở quầy một hoá đơn) và `phan` (chia tiền mặt + chuyển khoản) khi màn hình có gửi; không có thì bỏ hẳn khỏi body."
+    },
+    {
+     "dong": 157,
+     "noi_dung": "clinicPatientId và billRevision rỗng được đổi thành null trước khi gửi."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -505,7 +527,7 @@
    "bay": [
     {
      "dong": 97,
-     "noi_dung": "Hoàn tiền và thu phải chuyển header Idempotency-Key (khoá chống gửi trùng — bấm hai lần chỉ ra một khoản). Thêm nhánh mới có ghi tiền mà quên chuyển khoá là mở cửa thu/hoàn trùng."
+     "noi_dung": "Chỉ hoàn tiền (dòng 97) và lần thu mặc định (dòng 170) chuyển header Idempotency-Key. xac-minh, huy-cho, doi-hinh-thuc, hoan-tac, hoan-tien-xac-nhan, hoan-tien-dong và DELETE không chuyển; thêm nhánh ghi tiền mới mà quên khoá là mở cửa ghi trùng."
     },
     {
      "dong": 161,
@@ -513,7 +535,11 @@
     },
     {
      "dong": 163,
-     "noi_dung": "Nhận cả hai kiểu tên trường giảm giá (discount_type và discountType…) — sửa một kiểu mà quên kiểu kia thì giảm giá mất."
+     "noi_dung": "Nhận cả snake_case và camelCase cho giảm giá (dòng 163-165), snake_case thắng nhờ ??. Sửa một kiểu mà quên kiểu kia thì giảm giá mất hoặc sai."
+    },
+    {
+     "dong": 128,
+     "noi_dung": "`quay` chỉ được chuyển ở thu (162), xac-minh (138), huy-cho (147), hoan-tac (128). hoan-tien và doi-hinh-thuc không gửi quay nên máy chủ không gác thuốc/dịch vụ ở hai lệnh này."
     }
    ],
    "muon_sua": [
@@ -528,8 +554,12 @@
    ],
    "comment_cu": [
     {
-     "dong": 21,
-     "vi_sao": "Liệt kê luật 'chỉ thu khi bác sĩ đã khám xong (visit.exam_completed_at)' — luật ở máy chủ, có thể đã đổi; route không kiểm."
+     "dong": 22,
+     "vi_sao": "Nêu luật 'chỉ thu khi bác sĩ khám xong (visit.exam_completed_at)' — luật ở máy chủ, route không kiểm, có thể đã đổi."
+    },
+    {
+     "dong": 7,
+     "vi_sao": "'review CP2 #1' chỉ kể lịch sử; điều code làm là chuyển paymentCycleId cho máy chủ."
     }
    ],
    "chua_chac": [
@@ -556,7 +586,36 @@
      "lam_gi": "gỡ ảnh nhầm bằng POST …/go (ẩn, giữ vết)"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 19,
+     "noi_dung": "GET và POST: chưa cấu hình CLINIC_API_URL thì trả 503, không gọi backend."
+    },
+    {
+     "dong": 23,
+     "noi_dung": "GET và POST: không có thông tin đăng nhập thì trả 401 'Chưa đăng nhập'."
+    },
+    {
+     "dong": 25,
+     "noi_dung": "GET: thiếu tham số id (rỗng hoặc chỉ có khoảng trắng) thì trả 400, không gọi backend."
+    },
+    {
+     "dong": 37,
+     "noi_dung": "GET: ảnh trả về luôn kèm 'private, no-store' và nosniff nên trình duyệt hoặc proxy không giữ lại ảnh chuyển khoản. Chỉ chuyển tiếp content-type và content-length từ backend."
+    },
+    {
+     "dong": 43,
+     "noi_dung": "GET: giữ nguyên status của backend (403, 404…) và truyền thẳng thân phản hồi, không đổi sang JSON."
+    },
+    {
+     "dong": 67,
+     "noi_dung": "POST: nếu mất kết nối giữa chừng thì trả 502 kèm thông báo 'ảnh CHƯA được lưu, hãy tải lại'."
+    },
+    {
+     "dong": 75,
+     "noi_dung": "POST: nếu backend trả thân không phải JSON thì bọc thành {error: nội dung}, rồi trả lại với đúng status của backend."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -568,15 +627,32 @@
    ],
    "bay": [
     {
-     "dong": 55,
-     "noi_dung": "Phải chuyển Content-Type gốc (có boundary) — thiếu là FastAPI không đọc được tệp."
+     "dong": 54,
+     "noi_dung": "POST phải chép Content-Type gốc (có boundary) sang header gửi đi; thiếu thì FastAPI không đọc được multipart. Cũng chép Content-Length ở dòng 57."
     },
     {
-     "dong": 84,
-     "noi_dung": "Nút xoá ảnh thật ra gọi POST …/go (ẩn), không xoá hẳn."
+     "dong": 83,
+     "noi_dung": "DELETE gọi POST …/go (ẩn ảnh, giữ vết), không xoá thật. Route này không tự kiểm tra cấu hình hay đăng nhập; việc đó do proxyJsonToBackend lo."
+    },
+    {
+     "dong": 29,
+     "noi_dung": "GET dùng fetch trực tiếp với header đăng nhập và cache 'no-store'. Nếu đổi sang proxyJsonToBackend thì ảnh nhị phân sẽ hỏng vì hàm đó xử lý JSON."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "đổi cách lấy mã ảnh từ query",
+     "cho": "hàm maAnh dòng 14"
+    },
+    {
+     "viec": "đổi header cache hoặc bảo mật khi xem ảnh",
+     "cho": "GET dòng 35-38"
+    },
+    {
+     "viec": "đổi thông báo lỗi khi tải ảnh lên",
+     "cho": "POST dòng 66-69"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
@@ -600,7 +676,24 @@
      "lam_gi": "doi-man|luu-nhom|xoa-nhom hoặc thao tác theo người"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 52,
+     "noi_dung": "GET ?ky-nang-cua, ?lego, ?staff: mã nhân sự phải đúng dạng UUID, sai thì trả 400 và không gọi backend."
+    },
+    {
+     "dong": 119,
+     "noi_dung": "xoa-nhom: mã nhóm phải khớp chữ/số/gạch dưới, 2–32 ký tự, sai thì trả 400; không phải UUID vì mã do người đặt."
+    },
+    {
+     "dong": 134,
+     "noi_dung": "POST theo người: thao tác phải nằm trong danh sách THAO_TAC và staff_id phải là UUID, thiếu một trong hai thì trả 400."
+    },
+    {
+     "dong": 99,
+     "noi_dung": "POST: thân yêu cầu không đọc được thành JSON thì trả 400."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -623,13 +716,38 @@
     {
      "dong": 119,
      "noi_dung": "Mã nhóm mẫu chỉ chữ/số/gạch dưới, 2–32 ký tự — đặt mã có dấu gạch ngang thì không xoá được nhóm."
+    },
+    {
+     "dong": 39,
+     "noi_dung": "GET kiểm tham số theo thứ tự nhom → man → ky-nang → ky-nang-cua → lego → staff. Truyền nhiều tham số cùng lúc thì chỉ tham số đứng trước được xử lý."
+    },
+    {
+     "dong": 111,
+     "noi_dung": "doi-man, luu-nhom chuyển nguyên du_lieu sang backend, không kiểm gì ở đây. Nếu client gửi thiếu du_lieu thì gửi {}. Việc kiểm hợp lệ nằm hết ở backend."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "thêm thao tác theo người mới",
+     "cho": "bảng THAO_TAC dòng 26"
+    },
+    {
+     "viec": "đổi quy tắc mã nhóm hợp lệ",
+     "cho": "POST dòng 119"
+    },
+    {
+     "viec": "thêm kiểu đọc GET mới",
+     "cho": "GET dòng 37, đặt trước nhánh staff dòng 75"
+    }
+   ],
    "comment_cu": [
     {
      "dong": 11,
-     "vi_sao": "Nói 'Ba thao tác' gắn nhóm mẫu nhưng chỉ kể hai (luu-nhom, xoa-nhom); thực tế còn doi-man."
+     "vi_sao": "Nói 'Ba thao tác' gắn nhóm mẫu nhưng chỉ kể hai (luu-nhom, xoa-nhom); thực tế còn doi-man (dòng 111). Comment dòng 109-110 về kiểm mã nhóm chỉ áp dụng cho xoa-nhom."
+    },
+    {
+     "dong": 3,
+     "vi_sao": "Đầu tệp liệt kê các GET nhưng thiếu ?man=1 (dòng 43), và POST không nhắc doi-man, luu-nhom, xoa-nhom."
     }
    ],
    "chua_chac": []
@@ -659,7 +777,36 @@
      "lam_gi": "ghi, chuyển kèm Idempotency-Key"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 125,
+     "noi_dung": "Chưa đăng nhập (không có user Supabase) thì đọc bị trả 401, không chuyển xuống backend."
+    },
+    {
+     "dong": 155,
+     "noi_dung": "Chưa đăng nhập thì ghi cũng bị 401. Proxy không gác vai; quyền 'Nhà thuốc' (pharmacy.dispense) do backend kiểm."
+    },
+    {
+     "dong": 163,
+     "noi_dung": "Thao tác ghi không có trong danh sách ACTIONS thì bị từ chối 400, không gọi backend."
+    },
+    {
+     "dong": 174,
+     "noi_dung": "Thân yêu cầu POST không phải JSON hợp lệ thì trả 400 'Invalid JSON'."
+    },
+    {
+     "dong": 141,
+     "noi_dung": "Đường đọc không có trong DOC, hoặc id không đúng dạng UUID (the-kho, ban-le, quy-doi, lich-su-don) thì trả 400 'Không đọc được', không gọi backend."
+    },
+    {
+     "dong": 127,
+     "noi_dung": "xuat-nhap-ton-xlsx là nhánh riêng: thiếu header đăng nhập hoặc thiếu CLINIC_API_URL thì 401. Có thì chuyển nguyên luồng tệp Excel cùng mã trạng thái backend, không cache."
+    },
+    {
+     "dong": 180,
+     "noi_dung": "POST chuyển Idempotency-Key (khoá chống gửi trùng) của trình duyệt xuống backend. Phiếu nhập, kiểm kho, chuyển kho bắt buộc có khoá này; việc kiểm do backend làm."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -684,11 +831,19 @@
     },
     {
      "dong": 16,
-     "noi_dung": "Thêm đường kho mới ở FastAPI mà quên thêm vào ACTIONS/DOC thì giao diện nhận 400 'Thao tác không hợp lệ'."
+     "noi_dung": "Thêm đường kho mới ở FastAPI mà quên thêm vào ACTIONS/DOC thì giao diện nhận 400 'Thao tác không hợp lệ'. Nhánh xuat-nhap-ton-xlsx (dòng 127) không nằm trong DOC mà viết cứng trong GET."
     },
     {
      "dong": 133,
      "noi_dung": "Nhánh tải Excel gọi fetch thẳng, không có hạn giờ chờ và không bắt lỗi mạng — máy chủ treo thì nút tải treo theo."
+    },
+    {
+     "dong": 20,
+     "noi_dung": "'so-ngay-canh-bao' có ở cả ACTIONS (ghi, dòng 20) lẫn DOC (đọc, dòng 67) cùng đường backend. Khoá ACTIONS 'luu-thuoc' (dòng 37) trỏ tới /danh-muc, tên khác đường."
+    },
+    {
+     "dong": 73,
+     "noi_dung": "Tham số ngày, loại phiếu, mã... chỉ chuyển nguyên văn, thiếu thì thành chuỗi rỗng (phieu-kho mặc định 'NHAP'). Backend phải tự xử lý giá trị rác."
     }
    ],
    "muon_sua": [
@@ -701,25 +856,85 @@
    "chua_chac": []
   },
   "src/dashboard/app/api/pharmacy/kiem-ke-ca/route.ts": {
-   "lam_gi": "Cửa chuyển tiếp kiểm kê đầu/cuối ca ở quầy thuốc: xem danh sách phiếu theo ngày, nhắc ca thiếu kiểm, mở phiếu mới.",
+   "lam_gi": "Cửa chuyển tiếp (proxy) của dashboard cho kiểm kê đầu/cuối ca ở quầy thuốc: GET xem danh sách phiếu theo ngày hoặc nhắc ca thiếu kiểm, POST mở phiếu mới. Phải đăng nhập; luật nghiệp vụ nằm ở FastAPI.",
    "khoi": "pharmacy",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "dangNhap",
+     "dong": 9,
+     "lam_gi": "Lấy người dùng đang đăng nhập từ Supabase; trả null nếu chưa đăng nhập."
+    },
+    {
+     "ten": "GET",
+     "dong": 17,
+     "lam_gi": "Chặn nếu chưa đăng nhập, chép tham số ngay/ca, chọn đường danh sách hoặc đường nhắc (nếu có ?nhac), rồi chuyển tiếp GET sang FastAPI."
+    },
+    {
+     "ten": "POST",
+     "dong": 31,
+     "lam_gi": "Chặn nếu chưa đăng nhập, đọc JSON thân yêu cầu (hỏng thì 400), chuyển tiếp POST mở phiếu sang FastAPI."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 18,
+     "noi_dung": "GET chưa đăng nhập thì trả 401 Unauthorised, không gọi FastAPI."
+    },
+    {
+     "dong": 21,
+     "noi_dung": "GET chỉ chuyển hai tham số ngay và ca (bỏ qua giá trị rỗng); tham số khác bị bỏ, kể cả khi gọi đường nhắc."
+    },
+    {
+     "dong": 27,
+     "noi_dung": "Có ?nhac (giá trị khác rỗng) thì gọi đường /kiem-ke-ca/nhac, không thì gọi đường danh sách /kiem-ke-ca. Lưu ý ?nhac=0 vẫn là chuỗi khác rỗng nên vẫn rẽ sang đường nhắc."
+    },
+    {
+     "dong": 32,
+     "noi_dung": "POST chưa đăng nhập thì trả 401 Unauthorised."
+    },
+    {
+     "dong": 37,
+     "noi_dung": "POST có thân không phải JSON hợp lệ thì trả 400 Invalid JSON ngay tại route."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [
-    "/api/v1/pharmacy/kiem-ke-ca",
-    "/api/v1/pharmacy/kiem-ke-ca/nhac"
+    "GET /api/v1/pharmacy/kiem-ke-ca",
+    "GET /api/v1/pharmacy/kiem-ke-ca/nhac",
+    "POST /api/v1/pharmacy/kiem-ke-ca"
    ],
-   "bay": [],
-   "muon_sua": [],
+   "bay": [
+    {
+     "dong": 27,
+     "noi_dung": "Hai đường được viết cố định, không ghép chuỗi, để test lệch-đường-dẫn đọc được; đừng gộp thành mẫu chuỗi."
+    },
+    {
+     "dong": 21,
+     "noi_dung": "Thêm tham số lọc mới ở FastAPI mà không thêm vào danh sách ['ngay','ca'] thì tham số bị route lặng lẽ bỏ."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "Cho GET chuyển thêm tham số lọc",
+     "cho": "GET dòng 21 (danh sách khóa)"
+    },
+    {
+     "viec": "Đổi điều kiện rẽ sang đường nhắc",
+     "cho": "GET dòng 27"
+    },
+    {
+     "viec": "Đổi địa chỉ backend của phiếu kiểm kê",
+     "cho": "GET dòng 27 và POST dòng 39"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
   "src/dashboard/app/api/pharmacy/kiem-ke-ca/[id]/route.ts": {
-   "lam_gi": "Cửa đọc một phiếu kiểm kê ca quầy thuốc.",
+   "lam_gi": "Cửa Next.js chuyển tiếp GET đọc một phiếu kiểm kê ca quầy thuốc (G6) xuống FastAPI; chặn người chưa đăng nhập (401) và mã phiếu không đúng dạng UUID (400) trước khi chuyển.",
    "khoi": "pharmacy",
    "ham_chinh": [],
    "luat": [],
@@ -727,9 +942,7 @@
    "ghi_bang": [],
    "su_kien_phat": [],
    "su_kien_nghe": [],
-   "goi_api": [
-    "/api/v1/pharmacy/kiem-ke-ca/{id}"
-   ],
+   "goi_api": [],
    "bay": [],
    "muon_sua": [],
    "comment_cu": [],
@@ -738,17 +951,50 @@
   "src/dashboard/app/api/pharmacy/kiem-ke-ca/[id]/[buoc]/route.ts": {
    "lam_gi": "Cửa các bước ghi của phiếu kiểm kê ca (đếm, dùng số cuối ca trước, chốt, điều chỉnh, hoàn tác điều chỉnh, sửa số đếm) theo danh sách trắng.",
    "khoi": "pharmacy",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 13,
+     "lam_gi": "Kiểm tra đăng nhập, id và bước hợp lệ, rồi chuyển nguyên thân yêu cầu sang FastAPI."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 21,
+     "noi_dung": "Chưa đăng nhập (không có user Supabase) thì trả 401, không gọi backend."
+    },
+    {
+     "dong": 23,
+     "noi_dung": "id phải đúng dạng UUID và bước phải nằm trong danh sách trắng (dòng 11); sai thì trả 400 'Thao tác không hợp lệ'."
+    },
+    {
+     "dong": 27,
+     "noi_dung": "Thân yêu cầu không đọc được hoặc rỗng thì dùng {} để gửi đi; các bước không cần dữ liệu vẫn chạy."
+    },
+    {
+     "dong": 28,
+     "noi_dung": "Chuyển POST nguyên văn sang FastAPI. Luật nghiệp vụ (đếm, chốt, điều chỉnh, hoàn tác) nằm ở backend, không ở tệp này."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [
-    "/api/v1/pharmacy/kiem-ke-ca/{id}/{buoc}"
+    "POST /api/v1/pharmacy/kiem-ke-ca/{id}/{buoc}"
    ],
-   "bay": [],
-   "muon_sua": [],
+   "bay": [
+    {
+     "dong": 11,
+     "noi_dung": "Danh sách trắng chỉ ở proxy này. Thêm bước mới ở FastAPI mà không thêm vào đây thì giao diện gọi sẽ nhận 400. Ngược lại, thêm ở đây mà backend chưa có thì lỗi sẽ đến từ backend."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "mở thêm một bước ghi mới cho phiếu kiểm kê ca",
+     "cho": "hằng BUOC dòng 11, đồng thời sửa comment dòng 3-4"
+    }
+   ],
    "comment_cu": [
     {
      "dong": 3,
@@ -859,7 +1105,24 @@
      "lam_gi": "thao_tac chon|so-luong|them"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 26,
+     "noi_dung": "Cả GET lẫn POST đều chặn khi chưa đăng nhập (không có phiên Supabase): trả 401 Unauthorised, không gọi FastAPI."
+    },
+    {
+     "dong": 28,
+     "noi_dung": "GET: visit_id phải đúng dạng UUID (36 ký tự hex và dấu gạch), sai thì trả 400 'Mã lượt khám không hợp lệ'."
+    },
+    {
+     "dong": 51,
+     "noi_dung": "POST thao_tac 'them': id lượt khám phải là chuỗi UUID hợp lệ, sai thì trả 400. Hai thao tác 'chon' và 'so-luong' không kiểm tra id vì mã lượt nằm trong du_lieu."
+    },
+    {
+     "dong": 56,
+     "noi_dung": "thao_tac khác chon/so-luong/them thì trả 400 'Thao tác không hợp lệ'."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -870,8 +1133,26 @@
     "/api/v1/quay-thuoc/so-luong",
     "/api/v1/quay-thuoc/luot/{visit}/them"
    ],
-   "bay": [],
-   "muon_sua": [],
+   "bay": [
+    {
+     "dong": 15,
+     "noi_dung": "UUID_RE chỉ kiểm tra 36 ký tự hex và dấu gạch, không kiểm tra đúng cấu trúc UUID; việc kiểm tra thật nằm ở FastAPI."
+    },
+    {
+     "dong": 42,
+     "noi_dung": "du_lieu được ép kiểu và chuyển nguyên cho backend, proxy không kiểm tra prescription_id, mua hay so_luong; mọi luật nằm ở FastAPI. Nếu du_lieu là chuỗi hoặc mảng thì vẫn được chuyển đi."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "thêm thao tác mới cho quầy thuốc",
+     "cho": "POST dòng 43-55 (thêm nhánh if mới và route ở FastAPI)"
+    },
+    {
+     "viec": "đổi cách kiểm tra mã lượt khám",
+     "cho": "UUID_RE dòng 15"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
@@ -1372,8 +1653,31 @@
   "src/dashboard/app/api/service-price/vat-tu-hang-loat/route.ts": {
    "lam_gi": "Cửa đặt cờ vật tư hàng loạt theo loại (Kho vật tư → Danh mục): ap_dung=false chỉ đếm, true thì ghi.",
    "khoi": "kho_vat_tu",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "POST",
+     "dong": 14,
+     "lam_gi": "Kiểm đăng nhập (401 nếu chưa), đọc JSON phải là object (400 nếu sai), rồi chuyển loai/co/bat/ap_dung/ids sang máy chủ."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 19,
+     "noi_dung": "Chưa đăng nhập thì trả 401, không gọi máy chủ. Quyền price.service.manage và các luật khác do máy chủ quyết."
+    },
+    {
+     "dong": 24,
+     "noi_dung": "Thân yêu cầu phải là object JSON; null, mảng hoặc kiểu khác bị coi là hỏng và trả 400 'Invalid JSON'."
+    },
+    {
+     "dong": 33,
+     "noi_dung": "Thiếu ap_dung (undefined hoặc null) thì gửi false = chỉ đếm, không ghi. Chỉ khi client gửi true mới ghi."
+    },
+    {
+     "dong": 34,
+     "noi_dung": "Chỉ gửi ids khi thân yêu cầu có khoá ids. Các khoá loai, co, bat đi nguyên văn, rác thì máy chủ trả 422."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -1384,10 +1688,23 @@
    "bay": [
     {
      "dong": 33,
-     "noi_dung": "Thiếu ap_dung thì mặc định false = chỉ đếm, không ghi — an toàn mặc định."
+     "noi_dung": "Dùng ?? nên chỉ undefined/null mới thành false. Giá trị lạ như chuỗi 'true' đi nguyên văn, máy chủ quyết xử lý thế nào. Đừng đổi mặc định sang true."
+    },
+    {
+     "dong": 34,
+     "noi_dung": "ids chỉ được chuyển khi khoá có mặt. Nếu thêm khoá mới cho máy chủ thì phải thêm tay ở đây, vì route chỉ chuyển đúng bốn khoá."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "Chuyển thêm một khoá nữa sang máy chủ",
+     "cho": "POST dòng 29-35"
+    },
+    {
+     "viec": "Đổi cách kiểm thân yêu cầu (lỗi 400)",
+     "cho": "POST dòng 21-28"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
@@ -1473,7 +1790,28 @@
      "lam_gi": "sửa, lọc danh sách trường cho phép"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 33,
+     "noi_dung": "GET: backend không trả về dữ liệu (rows rỗng/null) thì trả 502 'Không đọc được danh sách nhân sự'; ngược lại bọc thành {items: rows}."
+    },
+    {
+     "dong": 48,
+     "noi_dung": "POST chỉ chuyển 5 trường (họ tên, tên ngắn, phòng ban chính, cơ sở chính, loại hợp đồng). Trường khác (is_active, hồ sơ pháp lý...) bị bỏ lặng lẽ khi tạo."
+    },
+    {
+     "dong": 70,
+     "noi_dung": "PATCH bắt buộc body.id là chuỗi không rỗng sau khi cắt khoảng trắng, nếu không trả 400 'Thiếu mã nhân sự'; id được tách khỏi payload rồi nhét vào đường dẫn (encodeURIComponent)."
+    },
+    {
+     "dong": 102,
+     "noi_dung": "PATCH: sau khi lọc theo danh sách cho phép mà không còn trường nào thì trả 400 'Không có gì để lưu', không gọi backend."
+    },
+    {
+     "dong": 42,
+     "noi_dung": "POST và PATCH: body không phải JSON hợp lệ thì trả 400 'Dữ liệu gửi lên không hợp lệ' (PATCH ở dòng 63-68)."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -1484,12 +1822,34 @@
    ],
    "bay": [
     {
+     "dong": 48,
+     "noi_dung": "POST: danh sách 5 trường viết tay; backend thêm trường vào StaffCreateDTO mà quên thêm ở đây thì trường bị lặng lẽ bỏ."
+    },
+    {
      "dong": 79,
-     "noi_dung": "Danh sách trường sửa được viết tay ở đây; máy chủ thêm trường mới mà quên thêm vào allowed thì màn bấm lưu không có tác dụng (trường bị lặng lẽ bỏ)."
+     "noi_dung": "PATCH: danh sách trường sửa được viết tay; backend thêm trường mới mà quên thêm vào allowed thì màn bấm lưu không có tác dụng (trường bị bỏ lặng lẽ)."
+    },
+    {
+     "dong": 102,
+     "noi_dung": "Nếu chỉ gửi trường ngoài danh sách thì nhận 400 'Không có gì để lưu' dù người dùng đã sửa; dễ gây hiểu nhầm khi gỡ lỗi."
     }
    ],
-   "muon_sua": [],
-   "comment_cu": [],
+   "muon_sua": [
+    {
+     "viec": "Cho phép sửa thêm một trường nhân sự khi PATCH",
+     "cho": "mảng allowed trong PATCH, dòng 79-97"
+    },
+    {
+     "viec": "Cho phép nhập thêm trường khi tạo nhân viên",
+     "cho": "mảng allowed trong POST, dòng 48-54"
+    }
+   ],
+   "comment_cu": [
+    {
+     "dong": 87,
+     "vi_sao": "Comment kể lịch sử ('Trước đây màn hình liệt kê... khối Chưa lưu được'), không mô tả điều code làm hiện tại."
+    }
+   ],
    "chua_chac": [
     "Comment dòng 4 nói quyền sửa là require_role(MANAGEMENT) ở routers/staff.py — có thể đã đổi sang quyền lego; chưa kiểm."
    ]
@@ -1515,8 +1875,31 @@
   "src/dashboard/app/api/theo-hang-hoa/route.ts": {
    "lam_gi": "Cửa báo cáo 'theo hàng hoá' (kế toán): JSON hoặc tải xlsx, lọc ngày/loại/cơ sở.",
    "khoi": "ke_toan",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 4,
+     "lam_gi": "Cửa Next.js: lọc 4 tham số (tu, den, loai, co_so) rồi chuyển sang backend. Trả JSON, hoặc tải xlsx khi xuat=xlsx."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 7,
+     "noi_dung": "Chỉ cho 4 tham số tu, den, loai, co_so đi tiếp sang backend; tham số khác (kể cả xuat) bị bỏ, không chuyển đi."
+    },
+    {
+     "dong": 11,
+     "noi_dung": "Nếu xuat khác xlsx thì chuyển thẳng sang backend lấy JSON (proxyJsonToBackend), không tự xử lý gì thêm."
+    },
+    {
+     "dong": 14,
+     "noi_dung": "Với xlsx: thiếu header đăng nhập hoặc thiếu biến CLINIC_API_URL thì trả 401 kèm thông báo, không gọi backend."
+    },
+    {
+     "dong": 16,
+     "noi_dung": "Tải xlsx: chuyển nguyên luồng (stream) và mã trạng thái của backend (kể cả lỗi). Content-Type, Content-Disposition lấy từ backend, thiếu thì dùng mặc định theo-hang-hoa.xlsx; luôn gắn Cache-Control private, no-store."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -1528,10 +1911,27 @@
    "bay": [
     {
      "dong": 9,
-     "noi_dung": "Mọi tham số bị cắt còn 64 ký tự."
+     "noi_dung": "Mỗi giá trị bị cắt còn 64 ký tự; tham số vắng mặt thì bỏ qua, nhưng tham số có mặt mà rỗng vẫn được chuyển đi."
+    },
+    {
+     "dong": 15,
+     "noi_dung": "Nhánh xlsx tự gọi fetch tới backend chứ không qua proxyJsonToBackend. Sửa cách xử lý lỗi hay xác thực ở proxy thì nhánh này không tự đổi theo."
+    },
+    {
+     "dong": 14,
+     "noi_dung": "Thiếu CLINIC_API_URL (lỗi cấu hình) cũng trả 401 giống chưa đăng nhập, dễ nhầm nguyên nhân."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "Thêm hoặc bớt tham số lọc",
+     "cho": "GET dòng 7"
+    },
+    {
+     "viec": "Đổi tên file xlsx mặc định",
+     "cho": "GET dòng 18"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
@@ -1691,25 +2091,69 @@
     {
      "ten": "DOC",
      "dong": 15,
-     "lam_gi": "danh sách trắng đường đọc"
+     "lam_gi": "Danh sách trắng đường ĐỌC (ton, canh-bao, tieu-hao, cho-duyet, phieu) và cách dựng URL backend, tham số thiếu thành chuỗi rỗng."
+    },
+    {
+     "ten": "daDangNhap",
+     "dong": 29,
+     "lam_gi": "Kiểm đã đăng nhập Supabase; chưa thì trả 401."
+    },
+    {
+     "ten": "docBody",
+     "dong": 37,
+     "lam_gi": "Đọc JSON thân yêu cầu; hỏng thì trả 400 Invalid JSON."
+    },
+    {
+     "ten": "GET",
+     "dong": 45,
+     "lam_gi": "Chặn chưa đăng nhập, tra DOC, chuyển tiếp GET xuống backend."
     },
     {
      "ten": "QUYET_NHAP",
      "dong": 56,
-     "lam_gi": "lệnh quyết yêu cầu nhập"
+     "lam_gi": "Bảng đổi action nhap-duyet/nhap-tu-choi/nhap-rut-lai sang đuôi đường backend."
     },
     {
      "ten": "POST",
      "dong": 62,
-     "lam_gi": "phieu|hoan|nhap-duyet|nhap-tu-choi|nhap-rut-lai"
+     "lam_gi": "Xử lý phieu, hoan và 3 lệnh quyết yêu cầu nhập: kiểm UUID rồi chuyển tiếp."
     },
     {
      "ten": "PUT",
      "dong": 98,
-     "lam_gi": "muc-toi-thieu"
+     "lam_gi": "Chỉ cho muc-toi-thieu, chuyển tiếp PUT."
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 34,
+     "noi_dung": "Chưa đăng nhập thì mọi GET/POST/PUT bị chặn 401, không xuống backend. Quyền vat_tu.manage do máy chủ quyết."
+    },
+    {
+     "dong": 50,
+     "noi_dung": "GET chỉ cho các đường trong danh sách trắng DOC; đường khác trả 400."
+    },
+    {
+     "dong": 66,
+     "noi_dung": "POST chỉ nhận phieu, hoan, nhap-duyet, nhap-tu-choi, nhap-rut-lai; khác trả 400."
+    },
+    {
+     "dong": 73,
+     "noi_dung": "Lệnh quyết yêu cầu nhập: yeu_cau_id phải là chuỗi đúng dạng UUID, sai trả 400 ngay tại proxy."
+    },
+    {
+     "dong": 80,
+     "noi_dung": "Duyệt gửi thân rỗng; từ chối/rút lại gửi ly_do nguyên văn (thiếu thì null) để máy chủ kiểm 5–500 ký tự."
+    },
+    {
+     "dong": 87,
+     "noi_dung": "Đảo phiếu (hoan): phieu_id phải là UUID, sai trả 400; ghi_chu không phải chuỗi thì thành null."
+    },
+    {
+     "dong": 102,
+     "noi_dung": "PUT chỉ cho muc-toi-thieu; khác trả 400."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -1727,22 +2171,66 @@
    "bay": [
     {
      "dong": 84,
-     "noi_dung": "Lập phiếu và đảo phiếu phải chuyển Idempotency-Key (máy chủ từ chối khi thiếu)."
+     "noi_dung": "Idempotency-Key chỉ được chuyển cho lập phiếu (85) và đảo phiếu (94). Các lệnh duyệt/từ chối/rút lại (return sớm ở 77) và PUT mức tối thiểu không chuyển khoá."
     },
     {
      "dong": 80,
-     "noi_dung": "Duyệt gửi thân rỗng (undefined); từ chối/rút lại gửi ly_do."
+     "noi_dung": "Nhánh quyết nhập return sớm ở dòng 77, nên đoạn khoá chống trùng phía dưới không áp dụng cho nhánh này."
+    },
+    {
+     "dong": 21,
+     "noi_dung": "Tham số lọc thiếu bị đổi thành chuỗi rỗng, không bỏ khoá; backend phải chịu được giá trị rỗng, đổi cách xử lý ở backend dễ hỏng."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "Cho phép thêm đường đọc mới",
+     "cho": "DOC dòng 15"
+    },
+    {
+     "viec": "Thêm lệnh quyết yêu cầu nhập mới",
+     "cho": "QUYET_NHAP dòng 56"
+    },
+    {
+     "viec": "Đổi cách kiểm mã UUID",
+     "cho": "UUID_RE dòng 12"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
   "src/dashboard/app/api/visits/[id]/charges/route.ts": {
    "lam_gi": "[ĐÃ TẮT — proxy.ts trả 410 theo lib/route-da-tat.ts] Cửa đọc lượt khám nợ những gì và đã trả gì (chỉ đọc).",
    "khoi": "payment",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 10,
+     "lam_gi": "Nhận mã lượt khám, kiểm tra, gọi backend /visits/{id}/charges kèm header đăng nhập của người gọi, trả nguyên thân và mã trạng thái về giao diện."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 15,
+     "noi_dung": "Mã lượt khám không đúng dạng UUID thì trả 400 ngay, không gọi backend."
+    },
+    {
+     "dong": 18,
+     "noi_dung": "Chưa cấu hình CLINIC_API_URL thì trả 503, không gọi backend."
+    },
+    {
+     "dong": 25,
+     "noi_dung": "Không lấy được header đăng nhập của người gọi thì trả 401 'Chưa đăng nhập'."
+    },
+    {
+     "dong": 33,
+     "noi_dung": "Trả nguyên thân JSON và mã trạng thái của backend (kể cả lỗi 4xx/5xx), proxy không tự tính tiền hay lọc gì."
+    },
+    {
+     "dong": 34,
+     "noi_dung": "Lỗi khi gọi backend hoặc đọc JSON thì trả 502 'Không kết nối được máy chủ'."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -1752,17 +2240,28 @@
    ],
    "bay": [
     {
-     "dong": 1,
-     "noi_dung": "Route này nằm trong ROUTE_DA_TAT (lib/route-da-tat.ts) nên proxy.ts trả 410 trước khi tới đây — sửa tệp này không có tác dụng; bật lại thì bỏ dòng ở danh sách ấy."
+     "dong": 33,
+     "noi_dung": "Backend trả thân không phải JSON thì res.json() ném lỗi, rơi vào catch (dòng 34) và báo 'Không kết nối được máy chủ' sai bản chất."
     },
     {
-     "dong": 33,
-     "noi_dung": "Máy chủ trả thân không phải JSON thì res.json() ném → rơi vào catch và báo 'Không kết nối được máy chủ' sai bản chất."
+     "dong": 29,
+     "noi_dung": "Chỉ có GET, đọc thuần; cache: 'no-store' nên luôn lấy số mới. Đừng thêm cache vì số tiền đã trả đổi liên tục."
+    },
+    {
+     "dong": 24,
+     "noi_dung": "Header phải lấy qua getCallerAuthHeaders (có getUser làm mới token); tự dựng header sẽ lỗi 401 sau khi token hết hạn."
     }
    ],
    "muon_sua": [],
-   "comment_cu": [],
-   "chua_chac": []
+   "comment_cu": [
+    {
+     "dong": 21,
+     "vi_sao": "Chỉ kể lịch sử bản cũ (quên getUser), không mô tả hành vi hiện tại của dòng 24."
+    }
+   ],
+   "chua_chac": [
+    "Ghi chú cũ nói route nằm trong ROUTE_DA_TAT và proxy.ts trả 410; không thể kiểm chứng từ tệp này (tệp không có dấu hiệu bị tắt)."
+   ]
   },
   "src/dashboard/app/api/visits/[id]/service-orders/route.ts": {
    "lam_gi": "[ĐÃ TẮT — proxy.ts trả 410 theo lib/route-da-tat.ts] Cửa đặt chỉ định dịch vụ cho lượt khám. Kiểm mã lượt khám dạng UUID rồi chuyển tiếp nguyên thân.",
@@ -2017,8 +2516,39 @@
   "src/dashboard/app/api/xuat-hoa-don/route.ts": {
    "lam_gi": "Cửa xuất hoá đơn GTGT (kế toán): xem JSON hoặc tải xlsx; lọc ngày/loại/cơ sở/chế độ, ghi giảm giá, sửa tay thuế từng dòng (ghi_de).",
    "khoi": "ke_toan",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "GET",
+     "dong": 4,
+     "lam_gi": "Nhận bộ lọc từ URL rồi chuyển sang backend: trả JSON (proxy) hoặc tải file xlsx khi xuat=xlsx."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 7,
+     "noi_dung": "Chỉ chuyển 6 tham số lọc (tu, den, loai, co_so, che_do, ghi_giam_gia) sang backend; tham số khác bị bỏ."
+    },
+    {
+     "dong": 9,
+     "noi_dung": "Mỗi tham số lọc bị cắt tối đa 64 ký tự trước khi chuyển."
+    },
+    {
+     "dong": 13,
+     "noi_dung": "Tham số ghi_de (sửa tay thuế từng dòng) được chuyển đi, cắt tối đa 60.000 ký tự."
+    },
+    {
+     "dong": 14,
+     "noi_dung": "Nếu xuat khác \"xlsx\" thì đi proxy JSON tới /api/v1/hoa-don/xuat; nhánh này không tự kiểm đăng nhập."
+    },
+    {
+     "dong": 17,
+     "noi_dung": "[TSX quyết] Tải xlsx cần có header đăng nhập của người gọi và biến CLINIC_API_URL; thiếu một trong hai thì trả 401."
+    },
+    {
+     "dong": 19,
+     "noi_dung": "File xlsx được chuyển tiếp nguyên status, thân và tên file từ backend; mặc định hoa-don-gtgt.xlsx, đặt Cache-Control private, no-store."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -2030,12 +2560,35 @@
    "bay": [
     {
      "dong": 13,
-     "noi_dung": "ghi_de (sửa tay thuế từng dòng) đi qua URL, cắt ở 60.000 ký tự — sửa quá nhiều dòng sẽ bị cắt cụt lặng lẽ, JSON hỏng thì máy chủ bỏ."
+     "noi_dung": "ghi_de đi qua URL và bị cắt cụt ở 60.000 ký tự mà không báo; sửa nhiều dòng thì JSON có thể hỏng sau khi cắt."
+    },
+    {
+     "dong": 17,
+     "noi_dung": "Thiếu CLINIC_API_URL cũng trả 401 kèm thông báo 'Chưa đăng nhập', dễ nhầm với lỗi đăng nhập."
+    },
+    {
+     "dong": 19,
+     "noi_dung": "Nhánh xlsx dùng fetch trực tiếp, không qua proxyJsonToBackend; lỗi backend vẫn được trả với status gốc nhưng thân không phải JSON chuẩn."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "thêm tham số lọc mới",
+     "cho": "mảng khoá ở dòng 7"
+    },
+    {
+     "viec": "đổi giới hạn độ dài ghi_de",
+     "cho": "dòng 13"
+    },
+    {
+     "viec": "đổi tên file xlsx mặc định",
+     "cho": "dòng 21"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Máy chủ xử lý ghi_de hỏng thế nào (bỏ hay báo lỗi) không thấy trong tệp này, chỉ có comment dòng 11 nói vậy."
+   ]
   },
   "src/dashboard/app/console/FeedbackBox.tsx": {
    "lam_gi": "Khung 'Báo cho tôi' ở trang Bảng điều khiển: dán ảnh bằng Ctrl+V, chọn mức độ, viết một câu; tự ghi kèm URL và vai.",
@@ -2703,13 +3256,38 @@
     {
      "ten": "InHoaDonThuoc",
      "dong": 9,
-     "lam_gi": "đọc các lần thu tiền thuốc của lượt rồi vẽ"
+     "lam_gi": "Gọi API lấy các phiếu thu tiền thuốc của lượt rồi vẽ: 0 phiếu báo trống, 1 phiếu in thẳng, nhiều phiếu thì liệt kê."
+    },
+    {
+     "ten": "PhieuThuGiay (import từ InPhieuThu)",
+     "dong": 52,
+     "lam_gi": "Vẽ nội dung phiếu thu khổ giấy nhỏ; tệp này chỉ dùng lại, không tự tính tiền."
     }
    ],
    "luat": [
     {
+     "dong": 17,
+     "noi_dung": "[TSX quyết] Chỉ lấy phiếu của lượt đang xem (visit) và chỉ loại thuốc (kind=thuoc); thu tiền dịch vụ không hiện ở đây."
+    },
+    {
+     "dong": 26,
+     "noi_dung": "[TSX quyết] Nếu gọi API lỗi hoặc không có dữ liệu thì hiện thông báo lỗi của máy chủ (message/error), không có thì dùng câu mặc định."
+    },
+    {
      "dong": 40,
-     "noi_dung": "[TSX quyết] Nút In chỉ bật khi lượt có ĐÚNG một lần thu tiền thuốc; nhiều lần thì phải mở từng phiếu."
+     "noi_dung": "[TSX quyết] Nút In / tải PDF chỉ bật khi lượt có ĐÚNG một phiếu thu thuốc; 0 phiếu hoặc nhiều phiếu thì nút bị khoá (nhiều phiếu phải mở từng phiếu)."
+    },
+    {
+     "dong": 47,
+     "noi_dung": "[TSX quyết] Lượt chưa có lần thu tiền thuốc nào thì hiện dòng 'chưa có lần thu tiền thuốc nào', không có phiếu để in."
+    },
+    {
+     "dong": 52,
+     "noi_dung": "[TSX quyết] Đúng một phiếu thì in thẳng phiếu đó bằng PhieuThuGiay."
+    },
+    {
+     "dong": 53,
+     "noi_dung": "[TSX quyết] Nhiều phiếu thì liệt kê mã phiếu và tổng tiền (ví dụ 150.000đ), mỗi dòng có nút mở phiếu riêng trong tab mới để in."
     }
    ],
    "doc_bang": [],
@@ -2717,17 +3295,50 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [
-    "/api/cashier?xem=phieu-luot&kind=thuoc"
+    "/api/cashier?xem=phieu-luot&visit=<visitId>&kind=thuoc"
    ],
-   "bay": [],
-   "muon_sua": [],
-   "comment_cu": [],
+   "bay": [
+    {
+     "dong": 61,
+     "noi_dung": "Link mở phiếu riêng gắn cứng ?loai=thu; nếu trang phieu-thu đổi tên tham số loai thì link hỏng."
+    },
+    {
+     "dong": 40,
+     "noi_dung": "Điều kiện disabled là ds.length !== 1; đổi thành >=1 sẽ cho in khi có nhiều phiếu, khi đó chỉ in được phiếu đầu hoặc sai."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi kiểu in khổ 80mm của hoá đơn",
+     "cho": "KIEU_HOA_DON trong InPhieuThu.tsx (dùng ở dòng 38)"
+    },
+    {
+     "viec": "cho in khi có nhiều phiếu",
+     "cho": "nút In dòng 40 và nhánh danh sách dòng 53"
+    },
+    {
+     "viec": "đổi loại phiếu được lấy",
+     "cho": "tham số kind ở dòng 17"
+    }
+   ],
+   "comment_cu": [
+    {
+     "dong": 50,
+     "vi_sao": "Chỉ kể lịch sử (Tuyền 28/09/2026); phần mô tả hành vi đúng với code, nhưng ghi tên người/ngày không giúp hiểu luật."
+    }
+   ],
    "chua_chac": []
   },
   "src/dashboard/app/print/hoa-don-thuoc/[visitId]/page.tsx": {
-   "lam_gi": "Trang in hoá đơn thuốc của một lượt; quyền đọc do máy chủ gác.",
+   "lam_gi": "Trang in hoá đơn thuốc của một lượt khám: lấy mã lượt từ địa chỉ rồi giao cho component InHoaDonThuoc vẽ các phiếu thu thuốc khổ 80mm (dành cho quầy thu và CSKH). Tệp này chỉ là vỏ mỏng.",
    "khoi": "payment",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "InHoaDonThuocPage",
+     "dong": 10,
+     "lam_gi": "Đợi params (Promise) lấy visitId rồi render <InHoaDonThuoc visitId=.../>, không xử lý gì thêm."
+    }
+   ],
    "luat": [],
    "doc_bang": [],
    "ghi_bang": [],
@@ -2736,13 +3347,20 @@
    "goi_api": [],
    "bay": [
     {
-     "dong": 10,
-     "noi_dung": "Trang không tự gác đăng nhập/quyền ở tầng trang — dựa hoàn toàn vào /api/cashier phía sau."
+     "dong": 16,
+     "noi_dung": "Trang không tự kiểm tra đăng nhập hay quyền, cũng không gọi API; mọi việc đó nằm ở InHoaDonThuoc và máy chủ (GET /api/v1/cashier/phieu-luot/{visit}). Tệp này không thấy được lời gọi đó."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "đổi nội dung hoặc cách lấy dữ liệu của phiếu in",
+     "cho": "component InHoaDonThuoc (./InHoaDonThuoc), không phải tệp này"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "API cashier/phieu-luot và việc lọc 'chỉ các lần thu thuốc đã thu' nằm ngoài tệp này, chưa kiểm chứng được."
+   ]
   },
   "src/dashboard/app/print/ket-qua-luot/[visitId]/InKetQuaLuot.tsx": {
    "lam_gi": "Danh sách các chỉ định ĐÃ có kết quả của một lượt; mỗi dòng mở trang in riêng của chỉ định đó (phiếu nào ra phiếu đó).",
@@ -3061,19 +3679,19 @@
    "luat": [
     {
      "dong": 117,
-     "noi_dung": "[TSX quyết] Vừa thu xong, phòng có thể chưa xếp → đọc lại phiếu tối đa 5 lần, cách 1,5 giây, rồi in bản đang có."
+     "noi_dung": "[TSX quyết] Vừa thu xong, phòng có thể chưa xếp → đọc lại phiếu tối đa 5 lần (lần đầu + 4 lần hỏi lại), cách 1,5 giây (dòng 128–129), rồi giữ bản đang có để in."
     },
     {
      "dong": 249,
-     "noi_dung": "[TSX quyết] Dòng liệu trình in '(liệu trình)' thay '× số lượng'; dòng khác số lượng ≠1 in '× n'."
+     "noi_dung": "[TSX quyết] Dòng liệu trình in '(liệu trình)' thay '× số lượng'; dòng khác số lượng ≠1 in '× n'. Dòng có 'lan' in thêm 'Lần k'; dòng 'da_bo' in 'đã bỏ'."
     },
     {
      "dong": 293,
-     "noi_dung": "[TSX quyết] Một lần thu có từ 2 hình thức trở lên thì in từng phần (vd Tiền mặt 300.000đ, Chuyển khoản 200.000đ); một hình thức thì in một dòng 'Hình thức'."
+     "noi_dung": "[TSX quyết] Chỉ đếm các phần có hình thức. Từ 2 phần trở lên thì in từng phần (vd Tiền mặt 300.000đ, Chuyển khoản 200.000đ); ít hơn thì in một dòng 'Hình thức' (rơi về hinh_thuc của phiếu, hoặc '—')."
     },
     {
      "dong": 306,
-     "noi_dung": "[TSX quyết] Chỉ in 'Khách đưa / Trả lại' khi phần tiền mặt có khach_dua và tra_lai khác 0. Ví dụ khách đưa 500.000đ cho phiếu 430.000đ → in trả lại 70.000đ."
+     "noi_dung": "[TSX quyết] Chỉ in 'Khách đưa / Trả lại' khi phần tiền mặt có khach_dua và tra_lai khác 0/null. Ví dụ khách đưa 500.000đ cho phiếu 430.000đ → in trả lại 70.000đ."
     },
     {
      "dong": 290,
@@ -3081,7 +3699,19 @@
     },
     {
      "dong": 164,
-     "noi_dung": "[TSX quyết] Không cho đổi phòng trên phiếu hoàn."
+     "noi_dung": "[TSX quyết] Khung đổi phòng chỉ hiện với dòng có order_id và doi_phong_duoc; phiếu hoàn hoặc không có dòng nào thì ẩn. Khung không in."
+    },
+    {
+     "dong": 196,
+     "noi_dung": "[TSX quyết] loai=huong_dan dùng mẫu riêng không in tiền, ghi 'CHƯA THANH TOÁN'; hết dịch vụ thì in 'Không còn dịch vụ nào chờ làm'."
+    },
+    {
+     "dong": 380,
+     "noi_dung": "[TSX quyết] Phiếu hướng dẫn chọn dòng phòng: có phòng → phòng chuyên → danh sách phòng làm được → 'Chờ xếp phòng'. Phòng dự kiến ghi '(hướng dẫn)' nếu huong_dan_phong, ngược lại '(dự kiến)'."
+    },
+    {
+     "dong": 269,
+     "noi_dung": "[TSX quyết] Có giảm giá thì in 'Tổng trước giảm', dòng giảm (kèm % nếu loại PERCENT) và lý do nếu có."
     }
    ],
    "doc_bang": [],
@@ -3094,7 +3724,7 @@
    "bay": [
     {
      "dong": 128,
-     "noi_dung": "Vòng đọc lại chỉ dừng khi không còn dòng cho_xep hoặc đủ 5 lần — máy chủ chậm hơn ~6 giây thì phiếu in 'Chờ xếp phòng'."
+     "noi_dung": "Vòng đọc lại dừng khi không còn dòng cho_xep hoặc đủ 5 lần — máy chủ chậm hơn ~6 giây thì phiếu in 'Chờ xếp phòng'."
     },
     {
      "dong": 325,
@@ -3103,6 +3733,10 @@
     {
      "dong": 245,
      "noi_dung": "Khoá dòng theo vị trí (key=i) — đổi phòng làm danh sách đổi thứ tự có thể vẽ nhầm."
+    },
+    {
+     "dong": 152,
+     "noi_dung": "Đổi phòng xong tăng lanNap để nạp lại phiếu; bỏ onDaDoi thì bản in vẫn giữ phòng cũ."
     }
    ],
    "muon_sua": [
@@ -3119,7 +3753,7 @@
    "chua_chac": []
   },
   "src/dashboard/app/print/phieu-thu/[id]/page.tsx": {
-   "lam_gi": "Trang in phiếu thu/hoàn/hướng dẫn (?loai=); quyền đọc do máy chủ gác.",
+   "lam_gi": "Trang vỏ mỏng của Next.js: lấy id trên đường dẫn và ?loai= (thu / hoan / huong_dan; giá trị lạ thì coi là thu) rồi giao cho InPhieuThu vẽ phiếu. Dùng cho thu ngân, mở từ tab Lịch sử của /thu-ngan. Với huong_dan thì id là mã lượt.",
    "khoi": "payment",
    "ham_chinh": [],
    "luat": [],
@@ -3128,12 +3762,7 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [],
-   "bay": [
-    {
-     "dong": 20,
-     "noi_dung": "loai lạ thành 'thu'. Trang không tự gác đăng nhập — dựa vào /api/cashier."
-    }
-   ],
+   "bay": [],
    "muon_sua": [],
    "comment_cu": [],
    "chua_chac": []
@@ -3204,11 +3833,27 @@
    "luat": [
     {
      "dong": 57,
-     "noi_dung": "[TSX quyết] Cỡ tem rộng 20–200mm (mặc định 50), cao 15–200mm (mặc định 30); số tem mỗi lô 1–20. Gõ 300 → 200."
+     "noi_dung": "[TSX quyết] Cỡ tem rộng 20–200mm (mặc định 50), cao 15–200mm (mặc định 30); gõ 300 thì thành 200, gõ 5 thì thành 20. Ô không phải số thì về mặc định; dấu phẩy được đổi thành dấu chấm."
+    },
+    {
+     "dong": 59,
+     "noi_dung": "[TSX quyết] Số tem mỗi lô làm tròn rồi giới hạn 1–20; mỗi lô nhân thành đúng chừng đó tem (3 lô × 2 = 6 tem)."
+    },
+    {
+     "dong": 66,
+     "noi_dung": "[TSX quyết] Khổ decal: mỗi tem một trang cỡ w×h, không lề, ngắt trang sau mỗi tem. Khổ A4: lề 10mm, tem xếp lưới và không bị cắt đôi giữa hai trang."
     },
     {
      "dong": 134,
-     "noi_dung": "[TSX quyết] Lô không có hạn dùng in 'HSD chưa có'."
+     "noi_dung": "[TSX quyết] Lô không có hạn dùng thì in 'HSD chưa có'."
+    },
+    {
+     "dong": 132,
+     "noi_dung": "[TSX quyết] Lô không có tên thuốc thì in dấu '—'; tên dài bị cắt còn 2 dòng."
+    },
+    {
+     "dong": 19,
+     "noi_dung": "[TSX quyết] Nếu mã tem không mã hoá được Code128B thì không vẽ vạch, chỉ còn dòng chữ mã tem bên dưới."
     }
    ],
    "doc_bang": [],
@@ -3220,8 +3865,12 @@
    ],
    "bay": [
     {
-     "dong": 123,
-     "noi_dung": "Không lô nào để in thường vì lô không thuộc kho cơ sở đang đứng — máy chủ lọc."
+     "dong": 122,
+     "noi_dung": "Không có lô nào để in thường do lô không thuộc kho cơ sở đang làm; việc lọc nằm ở máy chủ (qua docKho), không nằm trong tệp này. Lúc đó nút In bị khoá (dòng 115)."
+    },
+    {
+     "dong": 68,
+     "noi_dung": "Cỡ @page decal lấy từ w, h trong ô nhập; đổi giới hạn ở dòng 57–58 sẽ ảnh hưởng cả kích thước in thật."
     }
    ],
    "muon_sua": [],
@@ -4430,11 +5079,23 @@
    "luat": [
     {
      "dong": 44,
-     "noi_dung": "[TSX quyết] Tiền thuốc mỗi dòng = làm tròn(đơn giá × số lượng). Ví dụ 12.500đ × 3 = 37.500đ; 3.333đ × 1,5 = 5.000đ (4.999,5 làm tròn)."
+     "noi_dung": "[TSX quyết] Tiền thuốc mỗi dòng = làm tròn(đơn giá × số lượng), số lượng phải qua parsePositiveQuantity. Ví dụ 12.500đ × 3 = 37.500đ; 3.333đ × 1,5 = 4.999,5 → 5.000đ."
     },
     {
-     "dong": 21,
-     "noi_dung": "[TSX quyết] Dòng giá 0, âm hoặc trống → không cộng và bật cờ 'thiếu giá' (dịch vụ 0đ cũng bị coi là thiếu)."
+     "dong": 33,
+     "noi_dung": "[TSX quyết] Dòng giá trống, không hữu hạn, 0 hoặc âm (validUnitPrice, dòng 21) → không cộng và bật cờ missing (thiếu giá); dịch vụ 0đ cũng bị coi là thiếu."
+    },
+    {
+     "dong": 39,
+     "noi_dung": "[TSX quyết] Chế độ thuốc: số lượng không hợp lệ (parse ra null, vd rỗng, 0, âm, chữ) → dòng đó không cộng và bật cờ missing dù có giá."
+    },
+    {
+     "dong": 29,
+     "noi_dung": "[TSX quyết] Chỉ tính một danh sách theo chế độ: 'thuoc' chỉ tính thuốc, 'dich_vu' chỉ tính dịch vụ; danh sách còn lại bị bỏ qua."
+    },
+    {
+     "dong": 48,
+     "noi_dung": "[TSX quyết] Chế độ dịch vụ: cộng thẳng đơn giá, không nhân số lượng, không làm tròn."
     }
    ],
    "doc_bang": [],
@@ -4445,11 +5106,15 @@
    "bay": [
     {
      "dong": 21,
-     "noi_dung": "Dịch vụ giá 0đ (miễn phí có chủ ý) bị coi là thiếu giá — tổng vẫn đúng nhưng màn báo 'chưa đủ'."
+     "noi_dung": "Dịch vụ giá 0đ (miễn phí có chủ ý) bị coi là thiếu giá — tổng vẫn đúng nhưng cờ missing bật nên màn báo 'chưa đủ'."
     },
     {
-     "dong": 24,
+     "dong": 44,
      "noi_dung": "Đây là tổng hiển thị ở trình duyệt; số tiền thu thật do máy chủ tính — hai bên làm tròn khác nhau sẽ lệch vài đồng."
+    },
+    {
+     "dong": 38,
+     "noi_dung": "Ép kiểu (line as PricedDrugLine) dựa vào mode; nếu truyền sai mode với danh sách thì quantity là undefined và dòng bị tính là thiếu."
     }
    ],
    "muon_sua": [],
@@ -4582,17 +5247,22 @@
     {
      "ten": "getVaiHomNay",
      "dong": 50,
-     "lam_gi": "ghép vai theo vị trí, vai tài khoản, vai lego"
+     "lam_gi": "ghép vai theo vị trí, vai tài khoản, vai lego; không có vai tài khoản thì trả mảng rỗng"
     },
     {
      "ten": "vaiLamViec",
      "dong": 89,
-     "lam_gi": "vai đầu tiên thoả điều kiện, không có thì vai đầu"
+     "lam_gi": "vai đầu tiên thoả điều kiện, không có thì vai đầu, không có nữa thì null"
     },
     {
      "ten": "getQuyenCuaToi",
      "dong": 108,
      "lam_gi": "danh sách quyền, null = máy chủ không trả lời"
+    },
+    {
+     "ten": "moDuocMan",
+     "dong": 125,
+     "lam_gi": "hỏi màn có mở được không (vai + quyền + màn luôn bật cho vai gốc)"
     },
     {
      "ten": "requireNavAccess",
@@ -4607,35 +5277,46 @@
     {
      "ten": "requireClinicalRole",
      "dong": 160,
-     "lam_gi": "phải đọc được y khoa"
+     "lam_gi": "phải đọc được y khoa, không → /home"
     },
     {
      "ten": "requireInPhieu",
      "dong": 168,
-     "lam_gi": "phải in được phiếu"
-    },
-    {
-     "ten": "getNutBanKham",
-     "dong": 80,
-     "lam_gi": "nút Bàn khám theo lego, lùi về vai"
+     "lam_gi": "phải in được phiếu, không → /home"
     }
    ],
    "luat": [
     {
      "dong": 64,
-     "noi_dung": "[TSX quyết] Vai làm việc hôm nay = vai theo vị trí lịch trực (giữ thứ tự máy chủ) lọc theo vai lego hiệu lực, rồi vai tài khoản nếu lego còn giữ, rồi vai lego khác. Vai tài khoản bị lego tắt thì không còn."
+     "noi_dung": "[TSX quyết] Vai làm việc hôm nay = vai theo vị trí (giữ thứ tự máy chủ) lọc theo vai lego hiệu lực, rồi vai tài khoản nếu lego còn giữ, rồi vai lego khác. Vai tài khoản bị lego tắt thì không còn."
+    },
+    {
+     "dong": 52,
+     "noi_dung": "[TSX quyết] Không có vai tài khoản (chưa đăng nhập/chưa liên kết nhân viên) → vai hôm nay là mảng rỗng, không gọi máy chủ vị trí."
     },
     {
      "dong": 60,
-     "noi_dung": "[TSX quyết] Máy chủ cũ không trả vai_hieu_luc → luật cũ: vai theo vị trí + vai tài khoản."
+     "noi_dung": "[TSX quyết] Máy chủ cũ không trả vai_hieu_luc → luật cũ: vai theo vị trí + vai tài khoản (thêm vai tài khoản nếu chưa có)."
     },
     {
      "dong": 93,
-     "noi_dung": "[TSX quyết] vaiLamViec: không vai nào thoả điều kiện thì trả vai ĐẦU TIÊN hôm nay (không phải null) — nơi gọi phải tự kiểm lại."
+     "noi_dung": "[TSX quyết] vaiLamViec: không vai nào thoả điều kiện thì trả vai ĐẦU TIÊN hôm nay; danh sách rỗng mới trả null — nơi gọi phải tự kiểm lại."
     },
     {
      "dong": 127,
-     "noi_dung": "[TSX quyết] Mở được màn = vaoDuocMan(href, vai, quyền) HOẶC màn luôn bật cho vai gốc."
+     "noi_dung": "[TSX quyết] Mở được màn = vaoDuocMan(href, vai, quyền) HOẶC màn luôn bật cho vai gốc (luonBatChoVaiGoc)."
+    },
+    {
+     "dong": 136,
+     "noi_dung": "[TSX quyết] Vai hiển thị: nếu vai hôm nay rỗng (đã tắt hết lego mang vai) thì lùi về vai tài khoản để layout không báo lỗi; không dùng để quyết 'được làm'."
+    },
+    {
+     "dong": 151,
+     "noi_dung": "[TSX quyết] requireClinicRole: không có phiên Supabase hoặc không có vai tài khoản → chuyển /login."
+    },
+    {
+     "dong": 162,
+     "noi_dung": "[TSX quyết] requireClinicalRole / requireInPhieu (dòng 170): thiếu quyền đọc y khoa / in phiếu → chuyển /home."
     }
    ],
    "doc_bang": [],
@@ -4649,18 +5330,31 @@
    "bay": [
     {
      "dong": 93,
-     "noi_dung": "vaiLamViec trả vai đầu tiên khi không vai nào khớp — gọi kiểu `const r = await vaiLamViec(f); if (!f(r))` là bắt buộc; quên kiểm lại là cho qua nhầm."
+     "noi_dung": "vaiLamViec trả vai đầu tiên khi không vai nào khớp — nơi gọi phải tự kiểm lại điều kiện; quên là cho qua nhầm."
     },
     {
-     "dong": 98,
-     "noi_dung": "Hỏng đọc quyền thì quyền = null và chỉ còn cửa vai — một lần mạng chập không làm mất thanh bên, nhưng cũng có thể mở theo vai cũ."
+     "dong": 109,
+     "noi_dung": "Hỏng đọc quyền thì getQuyenCuaToi trả null (không phải []); vaoDuocMan nhận null và xử lý theo luật lùi về vai (trong roles.ts, không thấy ở đây)."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "đổi cách ghép vai hôm nay (thứ tự, lọc lego)",
+     "cho": "getVaiHomNay dòng 50–68"
+    },
+    {
+     "viec": "đổi luật vào màn",
+     "cho": "moDuocMan dòng 125–128 (và vaoDuocMan trong roles.ts)"
+    },
+    {
+     "viec": "đổi nơi chuyển hướng khi thiếu quyền",
+     "cho": "requireNavAccess dòng 120, requireClinicRole dòng 151/153"
+    }
+   ],
    "comment_cu": [
     {
-     "dong": 97,
-     "vi_sao": "Hai khối docstring chồng nhau (dòng 96–102 và 103–104) trước getTrangThaiQuyenCuaToi — khối đầu nói 'hỏng thì trả rỗng' nhưng code trả null."
+     "dong": 96,
+     "vi_sao": "Hai khối docstring chồng nhau (dòng 96–102 và 103–104) trước getTrangThaiQuyenCuaToi — khối đầu nói 'hỏng thì trả rỗng' nhưng code trả null (dòng 109)."
     }
    ],
    "chua_chac": []
@@ -4843,7 +5537,24 @@
      "lam_gi": "đọc /me và đổi tên trường"
     }
    ],
-   "luat": [],
+   "luat": [
+    {
+     "dong": 80,
+     "noi_dung": "short_name rỗng hoặc trống từ backend thì đổi thành null, để chỗ gọi dùng `?? full_name` lấy tên đầy đủ."
+    },
+    {
+     "dong": 82,
+     "noi_dung": "location_id rỗng thì primary_location_id là null."
+    },
+    {
+     "dong": 87,
+     "noi_dung": "is_active luôn gán true, không đọc từ backend: /me chỉ trả lời cho nhân viên còn hoạt động (không thì lỗi 403)."
+    },
+    {
+     "dong": 92,
+     "noi_dung": "clinic_role lấy từ vai của tư cách thành viên phòng khám đang dùng (me.role), không lấy từ phòng ban chính."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -4854,21 +5565,45 @@
    "bay": [
     {
      "dong": 73,
-     "noi_dung": "Máy chủ không trả lời → null → các cửa gác coi như chưa đăng nhập (đá về /login)."
+     "noi_dung": "fetchFromBackend trả rỗng (null) thì hàm trả null, các cửa gác coi như chưa đăng nhập. Không có đường lùi về Supabase, nên api chết là mất danh tính."
+    },
+    {
+     "dong": 87,
+     "noi_dung": "is_active gán cứng true. Nếu sau này /me trả cả nhân viên đã khoá thì giao diện vẫn thấy là còn hoạt động."
     },
     {
      "dong": 92,
-     "noi_dung": "Vai lấy theo tư cách thành viên phòng khám (clinic_membership.role), không theo primary_department."
+     "noi_dung": "Vai lấy theo clinic_membership.role chứ không theo primary_department (dòng 81). Sửa nhầm sang department sẽ sai quyền với người làm nhiều cơ sở."
+    },
+    {
+     "dong": 71,
+     "noi_dung": "cache() của React chỉ nhớ trong một lượt dựng trang phía server. Cache 30 giây nằm ở backend, không phải ở đây."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "Thêm trường mới từ /me (ví dụ is_doctor, is_cashier)",
+     "cho": "interface MeResponse dòng 40, interface CurrentStaff dòng 24 và object trả về dòng 75"
+    },
+    {
+     "viec": "Đổi cách coi chuỗi rỗng thành null",
+     "cho": "getCurrentStaff dòng 80 và 82"
+    }
+   ],
    "comment_cu": [
     {
+     "dong": 1,
+     "vi_sao": "Đoạn đầu (dòng 1–19) kể lịch sử bản cũ tự truy vấn Supabase và lệch với backend. Phần còn đúng là: chỉ gọi /me, không có đường lùi."
+    },
+    {
      "dong": 56,
-     "vi_sao": "Đoạn dài kể ba hàm đã gỡ (audit 03/08) — chỉ là lịch sử."
+     "vi_sao": "Đoạn dài kể ba hàm đã gỡ (audit 03/08), chỉ là lịch sử. Phần còn dùng được là: logic vai nằm ở lib/roles.ts."
     }
    ],
-   "chua_chac": []
+   "chua_chac": [
+    "Chưa thấy fetchFromBackend (backend-proxy.ts) nên không rõ nó trả null ở những trường hợp nào (401, 403, lỗi mạng hay mọi lỗi).",
+    "Chưa thấy routers/identity.py nên chưa kiểm chứng comment về is_active và 403."
+   ]
   },
   "src/dashboard/lib/danh-muc.ts": {
    "lam_gi": "Danh mục ít đổi cho ô chọn: cơ sở và dịch vụ khám đang bật của phòng khám, nhớ 60 giây theo phòng khám.",
@@ -5356,12 +6091,28 @@
    ],
    "luat": [
     {
+     "dong": 38,
+     "noi_dung": "Lỗi tạm thời = tên lỗi AuthRetryableFetchError, hoặc status 0 hoặc ≥ 500. Các lỗi này KHÔNG coi là phiên chết."
+    },
+    {
      "dong": 53,
-     "noi_dung": "Lỗi tạm thời (mạng, GoTrue 5xx/0) KHÔNG coi là hết phiên — chỉ về /login, không xoá cookie."
+     "noi_dung": "Chưa có cookie phiên HOẶC lỗi tạm thời → 'chua_dang_nhap' (chỉ về /login, không xoá cookie). Còn lại (có cookie mà không ra người dùng) → 'het_phien'."
+    },
+    {
+     "dong": 59,
+     "noi_dung": "Cookie phiên gồm: đúng tên gốc, mảnh '<gốc>.N' (token dài bị chia), và '<gốc>-code-verifier'. Chỉ những cookie này bị xoá."
+    },
+    {
+     "dong": 77,
+     "noi_dung": "Chỉ status 401 mới xét chuyển về đăng nhập; mã lỗi khác (403, 500…) thì không."
     },
     {
      "dong": 84,
-     "noi_dung": "Chỉ chuyển về đăng nhập khi 401 đến từ /api của chính mình và đang không ở trang công khai (tránh vòng lặp)."
+     "noi_dung": "Chỉ coi là 'của mình' khi URL cùng origin; URL không phân tích được (dòng 81) hoặc khác origin thì không chuyển."
+    },
+    {
+     "dong": 88,
+     "noi_dung": "401 từ đường dẫn bắt đầu '/api/' (dòng 87) chỉ chuyển về /login khi trang hiện tại KHÔNG phải trang công khai, để tránh vòng lặp."
     }
    ],
    "doc_bang": [],
@@ -5376,12 +6127,31 @@
     },
     {
      "dong": 87,
-     "noi_dung": "Đường '/api/' ghép chuỗi có chủ ý để bản đồ code không tưởng mọi màn gọi route API."
+     "noi_dung": "Đường '/api/' ghép chuỗi từ GOC_API có chủ ý để bản đồ code không tưởng mọi màn gọi route API. Viết nguyên văn sẽ làm sai bản đồ."
+    },
+    {
+     "dong": 87,
+     "noi_dung": "Kiểm tra startsWith('/api/') có dấu '/' cuối nên đường dẫn đúng '/api' (không có gì sau) không khớp."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "đổi tiêu chí coi là lỗi tạm thời (không tính hết phiên)",
+     "cho": "loiTamThoi dòng 35"
+    },
+    {
+     "viec": "thêm/bớt trang công khai không bị chuyển hướng",
+     "cho": "TRANG_KHONG_GAC dòng 23 (đồng thời sửa PUBLIC_PATHS ở proxy.ts)"
+    },
+    {
+     "viec": "đổi đích chuyển hướng hoặc tên tham số hết phiên",
+     "cho": "THAM_SO_HET_PHIEN / DUONG_DANG_NHAP_HET_PHIEN dòng 19–20"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Chưa thấy proxy.ts và GacHetPhien.tsx ở đây nên không kiểm được hai nơi gọi có dùng đúng các hàm này không."
+   ]
   },
   "src/dashboard/lib/hinh-thuc-thu.ts": {
    "lam_gi": "Tên hiển thị hình thức thu (chỉ còn Tiền mặt, Chuyển khoản; QR cũ đọc là Chuyển khoản), ghép nhãn nhiều phần, tính tiền thừa trả khách, đọc số tiền gõ tay.",
@@ -5411,11 +6181,27 @@
    "luat": [
     {
      "dong": 51,
-     "noi_dung": "[TSX quyết] Tiền thừa = khách đưa − phần tiền mặt, chỉ khi khách đưa > phần tiền mặt. Ví dụ tiền mặt 430.000đ, khách đưa 500.000đ → trả lại 70.000đ. Chỉ hiển thị."
+     "noi_dung": "[TSX quyết] Tiền thừa = khách đưa − phần tiền mặt, chỉ khi khách đưa > phần tiền mặt. Ví dụ tiền mặt 430.000đ, khách đưa 500.000đ → trả lại 70.000đ. Chỉ hiển thị; không có phần tiền mặt hợp lệ thì trả null."
     },
     {
      "dong": 68,
-     "noi_dung": "[TSX quyết] Gõ '500k' = 500.000đ; '1,5k' = 1.500đ; '500.000' hoặc '500,000' = 500.000đ (dấu . , là phân cách nghìn); số âm/rác → null."
+     "noi_dung": "[TSX quyết] Đuôi 'k' = nghìn đồng, dấu phẩy thành dấu chấm thập phân: '500k' = 500.000đ, '1,5k' = 1.500đ."
+    },
+    {
+     "dong": 70,
+     "noi_dung": "[TSX quyết] Không có đuôi k thì mọi dấu . và , bị xoá (phân cách nghìn): '500.000' hoặc '500,000' = 500.000đ."
+    },
+    {
+     "dong": 71,
+     "noi_dung": "[TSX quyết] Số âm hoặc không phải số (rác) → null; chuỗi rỗng → null (dòng 66). Kết quả làm tròn về số nguyên đồng (dòng 72)."
+    },
+    {
+     "dong": 29,
+     "noi_dung": "[TSX quyết] Mã QR cũ vẫn hiển thị là 'Chuyển khoản'; mã lạ hiển thị nguyên mã, rỗng thì ra chuỗi rỗng (dòng 33)."
+    },
+    {
+     "dong": 42,
+     "noi_dung": "[TSX quyết] Nhãn nhiều phần bỏ qua phần không có hình thức; 1 phần chỉ hiện tên, ≥2 phần hiện tên kèm số tiền nối bằng ' + '."
     }
    ],
    "doc_bang": [],
@@ -5426,11 +6212,15 @@
    "bay": [
     {
      "dong": 70,
-     "noi_dung": "Ngoài đuôi k, dấu phẩy bị coi là phân cách nghìn: gõ '1,5' ra 15đ chứ không phải 1,5."
+     "noi_dung": "Không có đuôi k, dấu phẩy bị coi là phân cách nghìn: gõ '1,5' ra 15đ chứ không phải 1,5. Chỉ riêng nhánh đuôi k (dòng 69) mới coi dấu phẩy là thập phân."
     },
     {
      "dong": 50,
-     "noi_dung": "traLai chỉ xét phần tiền mặt ĐẦU TIÊN có khach_dua."
+     "noi_dung": "traLai trả ngay ở phần tiền mặt ĐẦU TIÊN có khach_dua lớn hơn so_tien (dòng 51–52); các phần tiền mặt sau bị bỏ qua."
+    },
+    {
+     "dong": 69,
+     "noi_dung": "Nhánh k chỉ đổi dấu phẩy ĐẦU TIÊN; '1.500k' → Number('1.500')*1000 = 1.500.000đ (dấu chấm giữ thành thập phân), dễ nhầm với nghĩa phân cách nghìn."
     }
    ],
    "muon_sua": [],
@@ -5444,7 +6234,7 @@
     {
      "ten": "dongDangChon",
      "dong": 10,
-     "lam_gi": "dòng có nằm trong lựa chọn không"
+     "lam_gi": "dòng có đang được chọn không; phụ thu theo chỉ định gốc, dòng khác theo lựa chọn hoặc cờ cố định"
     },
     {
      "ten": "tongTheoLuaChon",
@@ -5454,17 +6244,38 @@
     {
      "ten": "giaNhap",
      "dong": 31,
-     "lam_gi": "'1.500.000' → 1500000"
+     "lam_gi": "'1.500.000' → 1500000; không hợp lệ → null"
+    },
+    {
+     "ten": "giaNhapBang",
+     "dong": 38,
+     "lam_gi": "giá gõ có bằng giá hiện tại không"
     }
    ],
    "luat": [
     {
-     "dong": 15,
-     "noi_dung": "[TSX quyết] Dòng phụ thu đi theo chỉ định gốc: chỉ định được chọn thì phụ thu cũng tính; chỉ định không đổi được thì giữ cờ chọn cũ của dòng."
+     "dong": 16,
+     "noi_dung": "[TSX quyết] Dòng phụ thu có order_id: nếu tập chỉ định đổi được đã truyền và KHÔNG chứa order_id đó thì giữ cờ chọn cũ của dòng; ngược lại (kể cả không truyền tập) phụ thu theo chỉ định gốc trong lựa chọn."
+    },
+    {
+     "dong": 18,
+     "noi_dung": "[TSX quyết] Dòng khác (hoặc phụ thu không có order_id): nếu nằm trong lựa chọn của quầy (trong_lua_chon) thì chọn theo id; không thì dùng cờ chọn cố định của dòng."
     },
     {
      "dong": 28,
      "noi_dung": "[TSX quyết] Tổng tạm = cộng giá các dòng đang chọn, dòng không giá tính 0. Ví dụ khám 200.000đ + siêu âm 300.000đ (bỏ chọn xét nghiệm 150.000đ) → 500.000đ."
+    },
+    {
+     "dong": 33,
+     "noi_dung": "Giá gõ tay chỉ nhận chuỗi toàn chữ số sau khi bỏ dấu . và ,; có ký tự khác (âm, chữ, chuỗi rỗng) thì trả null."
+    },
+    {
+     "dong": 35,
+     "noi_dung": "Giá vượt số nguyên an toàn của JS thì trả null."
+    },
+    {
+     "dong": 40,
+     "noi_dung": "giaNhapBang chỉ đúng khi cả giá gõ và giá hiện tại đều hợp lệ (không null) và bằng nhau."
     }
    ],
    "doc_bang": [],
@@ -5479,7 +6290,11 @@
     },
     {
      "dong": 32,
-     "noi_dung": "giaNhap bỏ hết dấu . và , — '1.5' thành 15."
+     "noi_dung": "giaNhap bỏ hết dấu . và , — '1.5' thành 15, '1,5' cũng thành 15."
+    },
+    {
+     "dong": 16,
+     "noi_dung": "So sánh `=== false` nên orderIdsCoTheDoi undefined khác với tập rỗng: không truyền tập thì phụ thu luôn theo chon; truyền tập rỗng thì phụ thu giữ cờ cũ."
     }
    ],
    "muon_sua": [],
@@ -5489,19 +6304,43 @@
   "src/dashboard/lib/identity-authority.ts": {
    "lam_gi": "Kiểm danh tính thuần: chỉ nhận nhân viên còn hoạt động và gắn đúng tài khoản đăng nhập đã xác minh; chỉ chọn phòng khám khi có đúng MỘT tư cách thành viên đang hoạt động.",
    "khoi": "permission",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "resolveLinkedStaffAuthority",
+     "dong": 20,
+     "lam_gi": "Trả bản sao nhân viên nếu còn hoạt động và auth_user_id khớp người đăng nhập đã xác minh; ngược lại trả null."
+    },
+    {
+     "ten": "resolveSingleManagementClinic",
+     "dong": 40,
+     "lam_gi": "Trả mã phòng khám nếu người dùng có đúng một tư cách đang hoạt động và vai đó là MANAGEMENT; ngược lại trả null."
+    },
+    {
+     "ten": "resolveSingleActiveMembership",
+     "dong": 52,
+     "lam_gi": "Lọc các tư cách đang hoạt động; đúng 1 thì trả bản sao, còn 0 hoặc nhiều hơn thì trả null."
+    }
+   ],
    "luat": [
     {
      "dong": 24,
-     "noi_dung": "Nhân viên phải is_active và auth_user_id trùng người đăng nhập — mã nhân viên gửi lên hay cookie vai không bao giờ là quyền."
+     "noi_dung": "Từ chối (trả null) nếu thiếu id người đăng nhập, thiếu nhân viên, nhân viên không is_active, hoặc auth_user_id khác id người đăng nhập. Mã nhân viên gửi lên hay cookie vai không là quyền."
+    },
+    {
+     "dong": 32,
+     "noi_dung": "Khi hợp lệ, trả một bản sao nông của nhân viên, không phải chính đối tượng gốc."
+    },
+    {
+     "dong": 55,
+     "noi_dung": "Chỉ tính các tư cách có is_active = true; tư cách đã tắt bị bỏ qua trước khi đếm."
     },
     {
      "dong": 56,
-     "noi_dung": "Có 0 hoặc ≥2 tư cách thành viên đang hoạt động → từ chối (không tự chọn một)."
+     "noi_dung": "Có đúng 1 tư cách đang hoạt động thì trả bản sao của nó; có 0 hoặc ≥2 thì trả null, không tự chọn một."
     },
     {
      "dong": 44,
-     "noi_dung": "Thao tác quản trị tài khoản chỉ khi tư cách duy nhất là MANAGEMENT."
+     "noi_dung": "Chỉ trả mã phòng khám khi tư cách hoạt động duy nhất có vai đúng 'MANAGEMENT'; vai khác, hoặc 0/≥2 tư cách (null từ dòng 43), đều trả null."
     }
    ],
    "doc_bang": [],
@@ -5509,16 +6348,34 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [],
-   "bay": [],
-   "muon_sua": [],
-   "comment_cu": [
+   "bay": [
     {
-     "dong": 47,
-     "vi_sao": "Nói dashboard 'chưa có bộ chọn phòng khám' — nay đã có chọn cơ sở (/chon-co-so, lib/co-so.ts), dù đó là cơ sở chứ không phải phòng khám."
+     "dong": 44,
+     "noi_dung": "Vai so sánh bằng chuỗi chính xác 'MANAGEMENT' (phân biệt hoa thường). Người có 2 tư cách, dù một cái đã tắt, vẫn chỉ tính cái đang hoạt động."
+    },
+    {
+     "dong": 56,
+     "noi_dung": "Người có quyền ở nhiều phòng khám sẽ bị từ chối hoàn toàn cho đến khi có bộ chọn phòng khám. Nếu thêm bộ chọn thì phải sửa hàm này."
     }
    ],
+   "muon_sua": [
+    {
+     "viec": "Đổi điều kiện nhận nhân viên (thêm kiểm tra khác)",
+     "cho": "resolveLinkedStaffAuthority dòng 24–31"
+    },
+    {
+     "viec": "Cho phép chọn phòng khám khi có nhiều tư cách",
+     "cho": "resolveSingleActiveMembership dòng 55–56"
+    },
+    {
+     "viec": "Đổi vai được phép quản trị tài khoản",
+     "cho": "resolveSingleManagementClinic dòng 44"
+    }
+   ],
+   "comment_cu": [],
    "chua_chac": [
-    "Tệp còn được gọi ở đâu không (đăng nhập dùng /api/v1/me) — không thấy trong lát này."
+    "Tệp còn được gọi ở đâu không (đăng nhập dùng /api/v1/me) — không thấy trong lát này.",
+    "Comment dòng 47 nói chưa có bộ chọn phòng khám; không đủ căn cứ trong tệp này để xác nhận hay bác bỏ (có thể đã có /chon-co-so chọn cơ sở)."
    ]
   },
   "src/dashboard/lib/khach-moi-cu.ts": {
@@ -5629,27 +6486,52 @@
     {
      "ten": "kiemToken",
      "dong": 72,
-     "lam_gi": "kiểm chữ ký + aud + hạn, không ném"
+     "lam_gi": "Kiểm alg, chữ ký, sub/exp, aud và hạn; trả claims hoặc null, không bao giờ ném lỗi."
     },
     {
      "ten": "ganKiemPhienTaiCho",
      "dong": 123,
-     "lam_gi": "bọc client.auth.getUser"
+     "lam_gi": "Bọc client.auth.getUser: không tham số thì thử kiểm tại chỗ từ cookie, hỏng thì gọi hàm gốc."
     },
     {
      "ten": "nguoiDungTuClaims",
      "dong": 102,
-     "lam_gi": "dựng User từ claims"
+     "lam_gi": "Dựng đối tượng User từ claims (id = sub, role, email, metadata)."
+    },
+    {
+     "ten": "napKhoa",
+     "dong": 52,
+     "lam_gi": "Nạp khoá HMAC một lần cho mỗi bí mật và cache lại."
     }
    ],
    "luat": [
     {
-     "dong": 93,
-     "noi_dung": "Token còn hạn ≤60 giây thì không dùng tại chỗ — để GoTrue đổi token mới."
+     "dong": 81,
+     "noi_dung": "Chỉ nhận token có header alg = HS256; thuật toán khác (kể cả 'none') bị loại, trả null."
     },
     {
-     "dong": 81,
-     "noi_dung": "Chỉ chấp nhận thuật toán HS256 và audience 'authenticated'."
+     "dong": 88,
+     "noi_dung": "Chữ ký HMAC-SHA256 tính trên 'header.payload' bằng SUPABASE_JWT_SECRET phải khớp, sai thì trả null."
+    },
+    {
+     "dong": 90,
+     "noi_dung": "Payload bắt buộc có sub (chuỗi không rỗng) và exp (số), thiếu thì bị loại."
+    },
+    {
+     "dong": 92,
+     "noi_dung": "Audience phải là 'authenticated' (chuỗi hoặc nằm trong mảng aud), sai thì loại."
+    },
+    {
+     "dong": 93,
+     "noi_dung": "Token còn hạn ≤ 60 giây (hoặc đã hết) thì không dùng tại chỗ, trả null để rơi về GoTrue đổi token mới. Ví dụ: còn 45 giây → gọi mạng; còn 300 giây → dùng ngay."
+    },
+    {
+     "dong": 131,
+     "noi_dung": "Chỉ kiểm tại chỗ khi getUser() gọi KHÔNG tham số; có truyền jwt thì đi thẳng hàm gốc (dòng 143)."
+    },
+    {
+     "dong": 138,
+     "noi_dung": "Token hợp lệ thì trả user dựng từ claims ngay, không gọi GoTrue; không có session/token hoặc kiểm hỏng thì rơi về getUser gốc (dòng 143)."
     }
    ],
    "doc_bang": [],
@@ -5659,26 +6541,44 @@
    "goi_api": [],
    "bay": [
     {
-     "dong": 19,
-     "noi_dung": "Đăng xuất ở tab khác: token cũ vẫn dùng được tới hết hạn (cả ở Next lẫn FastAPI) — muốn thu hồi tức thì phải làm ở FastAPI."
+     "dong": 138,
+     "noi_dung": "Trả user ngay từ token nên đăng xuất ở tab khác vẫn qua được tới hết hạn JWT (cả Next lẫn FastAPI); muốn thu hồi tức thì phải làm ở FastAPI."
     },
     {
      "dong": 127,
-     "noi_dung": "Thiếu SUPABASE_JWT_SECRET thì tắt cơ chế này lặng lẽ (về gọi GoTrue như cũ)."
+     "noi_dung": "Thiếu SUPABASE_JWT_SECRET thì tắt cơ chế này lặng lẽ, về gọi GoTrue như cũ."
     },
     {
-     "dong": 116,
-     "noi_dung": "User dựng từ claims không có created_at thật — code gọi chỉ được đọc user.id."
-    }
-   ],
-   "muon_sua": [],
-   "comment_cu": [
+     "dong": 115,
+     "noi_dung": "User dựng từ claims có created_at rỗng và thiếu nhiều trường thật; code gọi chỉ được đọc user.id."
+    },
     {
-     "dong": 133,
-     "vi_sao": "Nói getSession 'tự đổi token mới' khi hết hạn — backend-proxy.ts dòng 102 nói ngược lại (getSession chỉ đọc cookie, không làm mới)."
+     "dong": 139,
+     "noi_dung": "Mọi lỗi trong nhánh tại chỗ (kể cả getSession lỗi) bị nuốt và rơi về getUser gốc, nên lỗi cấu hình khó thấy."
+    },
+    {
+     "dong": 51,
+     "noi_dung": "Khoá HMAC cache theo chuỗi bí mật trong bộ nhớ tiến trình; đổi secret thì thành khoá mới, khoá cũ không bị xoá."
     }
    ],
-   "chua_chac": []
+   "muon_sua": [
+    {
+     "viec": "đổi ngưỡng dự phòng trước khi hết hạn (60 giây)",
+     "cho": "hằng DU_PHONG_HET_HAN_GIAY dòng 28, dùng ở kiemToken dòng 93"
+    },
+    {
+     "viec": "đổi audience chấp nhận",
+     "cho": "hằng AUDIENCE dòng 30, kiểm ở kiemToken dòng 92"
+    },
+    {
+     "viec": "cần thêm trường cho User giả",
+     "cho": "nguoiDungTuClaims dòng 102-116"
+    }
+   ],
+   "comment_cu": [],
+   "chua_chac": [
+    "Comment dòng 133-134 nói getSession tự đổi token khi hết hạn; ghi chú cũ bảo backend-proxy.ts nói ngược lại nhưng không có tệp đó để đối chiếu, nên không kết luận là comment sai."
+   ]
   },
   "src/dashboard/lib/lab-release.ts": {
    "lam_gi": "Quyết định kết quả xét nghiệm được báo cho bệnh nhân chưa (nhãn + màu): chỉ nhóm A đã hoàn tất mới được báo; nhóm B chờ BS duyệt, nhóm C khẩn cấp, chưa phân loại → không báo.",
@@ -5759,41 +6659,75 @@
     {
      "ten": "soBuoiSauKhiThem",
      "dong": 127,
-     "lam_gi": "số buổi mới khi thêm, tổng ≤200"
+     "lam_gi": "Tính tổng số buổi kế hoạch mới = hiện tại + số gõ; sai định dạng hoặc vượt 200 thì trả null (tắt nút)"
     },
     {
      "ten": "docSoBuoiDangKy",
      "dong": 203,
-     "lam_gi": "số buổi đăng ký 1–200"
+     "lam_gi": "Đọc số buổi đăng ký, chỉ nhận số nguyên 1–200, sai thì null"
     },
     {
      "ten": "nhanLieuTrinhLuot",
      "dong": 183,
-     "lam_gi": "chip 'còn N buổi đã trả'"
+     "lam_gi": "Ghép chip theo lượt: mỗi liệu trình một câu, nối bằng ' · '"
     },
     {
      "ten": "nhanBuoi",
      "dong": 153,
-     "lam_gi": "'Buổi 3/10 · chưa làm · đã trả trước'"
+     "lam_gi": "Ghép chip 'Buổi k/N · đã/chưa làm · đã trả trước'; ưu tiên chữ máy chủ ghép sẵn (chu)"
+    },
+    {
+     "ten": "nhanBuoiCuaLuot",
+     "dong": 167,
+     "lam_gi": "Tìm chỉ định đầu tiên của lượt có buổi liệu trình để lấy chip cho dòng khách ở phòng dịch vụ"
     },
     {
      "ten": "khoaLuot",
      "dong": 144,
-     "lam_gi": "khoá ổn định cho lô lượt, tối đa 300"
+     "lam_gi": "Khoá ổn định cho lô lượt: bỏ rỗng, bỏ trùng, sắp xếp, giữ tối đa 300"
+    },
+    {
+     "ten": "nhanSapHet",
+     "dong": 119,
+     "lam_gi": "Chip 'Sắp hết lộ trình · lý do', thêm ' · CSKH đã xử lý' nếu đã xử lý; không có lý do thì null"
     }
    ],
    "luat": [
     {
+     "dong": 129,
+     "noi_dung": "[TSX quyết] Thêm buổi: chuỗi gõ phải là 1–3 chữ số, nếu không → null (nút tắt)."
+    },
+    {
      "dong": 132,
-     "noi_dung": "[TSX quyết] Thêm buổi: số gõ 1–3 chữ số, ≥1 và tổng sau khi thêm ≤200 buổi; sai thì tắt nút. Ví dụ đang 10 buổi, gõ 195 → bị chặn (205 > 200)."
+     "noi_dung": "[TSX quyết] Thêm buổi: số thêm ≥1 và tổng mới ≤200, nếu không → null. Ví dụ đang 10 buổi, gõ 195 → 205 > 200 → chặn; gõ 190 → 200 được."
+    },
+    {
+     "dong": 205,
+     "noi_dung": "[TSX quyết] Đăng ký: chuỗi gõ phải là 1–3 chữ số, nếu không → null (nút Đăng ký tắt)."
     },
     {
      "dong": 207,
-     "noi_dung": "[TSX quyết] Đăng ký: số buổi 1–200."
+     "noi_dung": "[TSX quyết] Đăng ký: số buổi phải trong 1–200, ngoài khoảng → null."
     },
     {
      "dong": 189,
-     "noi_dung": "[TSX quyết] Chip lượt: còn buổi đã trả trước thì 'còn N buổi đã trả', hết thì 'đã làm x/N'."
+     "noi_dung": "[TSX quyết] Chip lượt: còn buổi trả trước (>0) thì 'còn N buổi đã trả', hết thì 'đã làm x/N'."
+    },
+    {
+     "dong": 185,
+     "noi_dung": "[TSX quyết] Chip lượt: thiếu chip, thiếu visitId hoặc khách không có liệu trình đang chạy → null (không hiện chip)."
+    },
+    {
+     "dong": 161,
+     "noi_dung": "[TSX quyết] Chip buổi: dùng chữ máy chủ (chu) nếu có; không thì tự ghép 'Buổi k/N' + 'đã làm/chưa làm' (chỉ khi da_lam có giá trị); thêm ' · đã trả trước' nếu tra_truoc."
+    },
+    {
+     "dong": 175,
+     "noi_dung": "[TSX quyết] Dòng khách phòng dịch vụ: lấy chip của chỉ định đầu tiên thuộc đúng lượt đó; không có thì null."
+    },
+    {
+     "dong": 120,
+     "noi_dung": "[TSX quyết] Chip sắp hết lộ trình chỉ hiện khi máy chủ gửi lý do; CSKH đã xử lý đúng mốc hiện tại thì thêm hậu tố."
     }
    ],
    "doc_bang": [],
@@ -5803,17 +6737,24 @@
    "goi_api": [],
    "bay": [
     {
-     "dong": 98,
-     "noi_dung": "NHAN_TRANG_THAI_LT và NHAN_HANH_DONG_LT khai lần hai ở lib/lieu-trinh.ts với chữ khác ('Đã dừng' vs 'Dừng', 'Lập liệu trình' vs 'Tạo liệu trình', thiếu TU_THEM_BUOI) — hai màn gọi cùng trạng thái bằng hai chữ."
+     "dong": 147,
+     "noi_dung": "khoaLuot sắp xếp theo chữ cái RỒI mới cắt 300 → lượt bị bỏ là những id lớn theo thứ tự chữ, không phải lượt mới nhất; từ lượt thứ 301 không có chip."
     },
     {
-     "dong": 147,
-     "noi_dung": "khoaLuot cắt ở 300 lượt (máy chủ cũng cắt 300) — lượt thứ 301 trở đi không có chip."
+     "dong": 161,
+     "noi_dung": "nhanBuoi dùng `||`: chu là chuỗi rỗng cũng rơi về ghép tay; nếu chu đã chứa 'đã trả trước' thì hậu tố bị lặp."
+    },
+    {
+     "dong": 174,
+     "noi_dung": "nhanBuoiCuaLuot phân biệt kiểu phần tử bằng 'ref_id' in x; đổi tên trường ở hàng chờ phòng sẽ làm tra sai khoá âm thầm."
     }
    ],
    "muon_sua": [],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Ghi chú cũ nói NHAN_TRANG_THAI_LT/NHAN_HANH_DONG_LT bị khai lần hai ở lib/lieu-trinh.ts với chữ khác — không có tệp đó để kiểm chứng; cần mở tệp kia xác nhận.",
+    "Máy chủ cắt chip ở 300 lượt: chỉ có comment dòng 139, không xác minh được từ tệp này."
+   ]
   },
   "src/dashboard/lib/lieu-trinh.ts": {
    "lam_gi": "Kiểu dữ liệu liệu trình điều trị (buổi, chỉ định, khối quầy thu) + MỘT chỗ gọi /api/lieu-trinh (đọc, gửi lệnh kèm khoá chống gửi trùng) + chữ hiển thị (đã trả, hoàn tác, lịch sử đổi).",
@@ -5822,33 +6763,55 @@
     {
      "ten": "lenhLT",
      "dong": 234,
-     "lam_gi": "gửi lệnh, tự thêm idempotency_key"
+     "lam_gi": "POST lệnh liệu trình, tự thêm idempotency_key (người gọi truyền sẵn thì dùng cái đó); trả ok/lỗi gồm mã, câu lỗi, chi tiết"
     },
     {
      "ten": "docLT",
      "dong": 227,
-     "lam_gi": "đọc một bảng, hỏng → null"
+     "lam_gi": "GET một bảng theo xem + id; lỗi mạng/HTTP/JSON hỏng → null"
     },
     {
      "ten": "nhanDaTra",
      "dong": 167,
-     "lam_gi": "'đã trả 3 buổi (1 lẻ + 2 trả trước)'"
+     "lam_gi": "ghép câu 'đã trả N buổi (x lẻ + y trả trước)'"
     },
     {
      "ten": "nhanDoiLieuTrinh",
      "dong": 185,
-     "lam_gi": "chỉ ghi phần thật sự đổi"
+     "lam_gi": "ghép câu phần thật sự đổi giữa bản cũ và bản mới của liệu trình"
+    },
+    {
+     "ten": "nhanNutHoanTac",
+     "dong": 177,
+     "lam_gi": "đặt nhãn nút hoàn tác theo hành động gần nhất"
+    },
+    {
+     "ten": "nhanBuoi",
+     "dong": 207,
+     "lam_gi": "chip 'Buổi k/N · đã làm/chưa làm · đã trả trước'"
     },
     {
      "ten": "khoaLT",
      "dong": 218,
-     "lam_gi": "khoá gửi lại cho một lần bấm"
+     "lam_gi": "sinh khoá gửi lại ngẫu nhiên cho một lần bấm"
     }
    ],
    "luat": [
     {
-     "dong": 167,
-     "noi_dung": "[TSX quyết] Đã trả = buổi trả trước + buổi thu lẻ. Ví dụ 2 trả trước + 1 lẻ → 'đã trả 3 buổi (1 lẻ + 2 trả trước)'."
+     "dong": 168,
+     "noi_dung": "[TSX quyết] Tổng đã trả = buổi trả trước + buổi thu lẻ. Ví dụ 2 trả trước + 1 lẻ → 'đã trả 3 buổi (1 lẻ + 2 trả trước)'; tổng ≤ 0 → 'chưa trả buổi nào'."
+    },
+    {
+     "dong": 170,
+     "noi_dung": "[TSX quyết] Chỉ có trả trước → 'đã trả trước N buổi' (dòng 171); chỉ có lẻ → 'đã trả N buổi (trả lẻ)' (dòng 172)."
+    },
+    {
+     "dong": 178,
+     "noi_dung": "[TSX quyết] Nếu thao tác gần nhất là HOAN_TAC thì nút ghi 'Làm lại thao tác vừa hoàn tác'; hành động lạ/không có nhãn → 'Hoàn tác' trơn."
+    },
+    {
+     "dong": 192,
+     "noi_dung": "[TSX quyết] Dòng lịch sử chỉ ghi phần đổi: số buổi (không có bản cũ vẫn ghi '— → N buổi'), trạng thái và ghi chú chỉ so khi có bản cũ; không có bản mới → rỗng."
     }
    ],
    "doc_bang": [],
@@ -5856,20 +6819,50 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [
-    "/api/lieu-trinh"
+    "/api/lieu-trinh (GET xem+id, POST thao_tac)"
    ],
    "bay": [
     {
      "dong": 246,
-     "noi_dung": "Khoá chống gửi trùng sinh MỚI mỗi lần gọi lenhLT — bấm lại sau lỗi mạng là khoá mới, máy chủ không nhận ra là cùng một lệnh."
+     "noi_dung": "Khoá chống gửi trùng sinh MỚI mỗi lần gọi lenhLT; bấm lại sau lỗi mạng là khoá mới, máy chủ không nhận ra là cùng lệnh. Muốn chống trùng thật phải truyền sẵn idempotency_key (spread đứng sau nên thắng)."
     },
     {
      "dong": 11,
      "noi_dung": "Bản sao nhãn trạng thái khác lib/lieu-trinh-cskh.ts (DUNG: 'Dừng' vs 'Đã dừng')."
+    },
+    {
+     "dong": 230,
+     "noi_dung": "docLT trả null cho mọi lỗi (mạng, 4xx/5xx, JSON hỏng) nên người gọi không phân biệt được nguyên nhân."
+    },
+    {
+     "dong": 249,
+     "noi_dung": "lenhLT khi thành công vẫn ép kiểu body JSON thành T; body hỏng thành null mà vẫn báo ok."
     }
    ],
-   "muon_sua": [],
-   "comment_cu": [],
+   "muon_sua": [
+    {
+     "viec": "đổi chữ câu 'đã trả…'",
+     "cho": "hàm nhanDaTra dòng 167"
+    },
+    {
+     "viec": "đổi nhãn hành động trong lịch sử",
+     "cho": "NHAN_HANH_DONG_LT dòng 154"
+    },
+    {
+     "viec": "đổi cách sinh khoá gửi lại",
+     "cho": "hàm khoaLT dòng 218 và dòng 246"
+    }
+   ],
+   "comment_cu": [
+    {
+     "dong": 1,
+     "vi_sao": "Chỉ kể ngày làm; không mô tả việc tệp làm."
+    },
+    {
+     "dong": 166,
+     "vi_sao": "Chú thích mô tả cách gộp, đúng; nhưng dòng 176 và 184 kể lịch sử 'trước ghi…' không còn ý nghĩa với code hiện tại."
+    }
+   ],
    "chua_chac": []
   },
   "src/dashboard/lib/linh-vuc.ts": {
@@ -5894,23 +6887,43 @@
     {
      "ten": "cauKhoCoLoKhacDonVi",
      "dong": 20,
-     "lam_gi": "kho có lô nhưng khác đơn vị"
+     "lam_gi": "Dòng đơn không có lô gợi ý mà kho có lô khác đơn vị: trả câu nói rõ giao được nhưng kho không tự trừ. Không có lô khác đơn vị → null."
     },
     {
      "ten": "canhBaoNhapKhacDonViBan",
      "dong": 36,
-     "lam_gi": "cảnh báo nhập khác đơn vị bán"
+     "lam_gi": "Lúc nhập lô: đơn vị nhập khác đơn vị bán thì trả câu cảnh báo (không chặn); thiếu đơn vị hoặc trùng nhau → null."
     },
     {
      "ten": "cauLoKhongDungDuoc",
      "dong": 48,
-     "lam_gi": "lý do lô quét bị loại"
+     "lam_gi": "Tìm lô vừa quét trong danh sách lô bị loại, chọn câu theo lý do (khác đơn vị / khác cơ sở / câu chung)."
     }
    ],
    "luat": [
     {
+     "dong": 24,
+     "noi_dung": "Chỉ xét các lô bị loại có lý do KHAC_DON_VI; không có lô nào thì trả null và giao diện giữ câu 'kho chưa có lô'."
+    },
+    {
+     "dong": 30,
+     "noi_dung": "Câu thông báo nói rõ: thu tiền và giao vẫn được nhưng kho KHÔNG tự trừ vì khác đơn vị. Ví dụ lô tính 'hộp', đơn kê 'gói' → bán 1 gói không trừ tồn kho."
+    },
+    {
      "dong": 42,
-     "noi_dung": "[TSX quyết] Đơn vị nhập khác đơn vị bán (so sau khi chuẩn hoá chữ thường) → cảnh báo, KHÔNG chặn. Ví dụ nhập 'hộp', bán 'gói' → khi bán kho không tự trừ."
+     "noi_dung": "Đơn vị nhập khác đơn vị bán (sau khi chuẩn hoá NFC, bỏ khoảng trắng đầu/cuối, chữ thường) → cảnh báo, KHÔNG chặn. Thiếu một trong hai hoặc trùng nhau → null. Ví dụ nhập 'Hộp', bán 'hộp' → không cảnh báo."
+    },
+    {
+     "dong": 54,
+     "noi_dung": "Lô quét có lý do KHAC_DON_VI → câu nói lô tính theo đơn vị nào, đơn kê theo đơn vị nào; hướng dẫn giao không lô hoặc nhờ quản lý chỉnh đơn vị."
+    },
+    {
+     "dong": 59,
+     "noi_dung": "Lô quét có lý do KHAC_CO_SO → câu nói lô thuộc kho cơ sở khác, không dùng được cho dòng này."
+    },
+    {
+     "dong": 62,
+     "noi_dung": "Không tìm thấy lô, không có loId, hoặc lý do lạ → rơi về câu chung 'Không có lô còn bán được'."
     }
    ],
    "doc_bang": [],
@@ -5918,10 +6931,38 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [],
-   "bay": [],
-   "muon_sua": [],
+   "bay": [
+    {
+     "dong": 29,
+     "noi_dung": "Đơn vị kê lấy từ lô ĐẦU TIÊN trong danh sách khác đơn vị; đơn vị lô thì gộp các giá trị khác nhau. Nếu các lô có đơn vị kê khác nhau sẽ chỉ hiện một."
+    },
+    {
+     "dong": 10,
+     "noi_dung": "Kiểu ly_do có thêm `| string` nên máy chủ thêm lý do mới không báo lỗi biên dịch; lý do mới sẽ rơi về câu chung (dòng 62)."
+    },
+    {
+     "dong": 43,
+     "noi_dung": "Câu cảnh báo in đơn vị gốc (đã trim) chứ không in bản chuẩn hoá; so sánh thì dùng bản chuẩn hoá."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi chữ câu khi kho có lô khác đơn vị",
+     "cho": "cauKhoCoLoKhacDonVi dòng 30"
+    },
+    {
+     "viec": "đổi cách so sánh đơn vị nhập với đơn vị bán",
+     "cho": "hàm chuan dòng 15 và canhBaoNhapKhacDonViBan dòng 42"
+    },
+    {
+     "viec": "thêm lý do lô bị loại mới",
+     "cho": "cauLoKhongDungDuoc, thêm nhánh trước dòng 62"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Luật chọn lô thật nằm ở máy chủ (ban_thuoc_service.ly_do_lo_bi_loai), tệp này chỉ chọn chữ."
+   ]
   },
   "src/dashboard/lib/loai-kham.ts": {
    "lam_gi": "5 màn khám riêng ở thanh bên (/kham/noi-tiet NT, phu-khoa PK, san SK, hiem-muon HMVS, nam-khoa NK) và mã phiếu khớp service_type.form_code.",
@@ -6140,8 +7181,48 @@
   "src/dashboard/lib/ma-vach.ts": {
    "lam_gi": "Tự vẽ mã vạch Code 128 bộ B (ASCII 32–126, tối đa 80 ký tự) cho tem lô thuốc, có vùng yên tĩnh 10 module hai bên; ký tự khác → null.",
    "khoi": "pharmacy",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "doRongCode128B",
+     "dong": 27,
+     "lam_gi": "Đổi chuỗi thành dãy độ rộng thanh/khoảng xen kẽ (đơn vị module) gồm mã bắt đầu B, các ký tự, ký tự kiểm tra, mã kết thúc. Đầu vào không hợp lệ thì trả null."
+    },
+    {
+     "ten": "thanhVachCode128B",
+     "dong": 47,
+     "lam_gi": "Từ dãy độ rộng tính ra danh sách thanh đen (vị trí x, bề rộng w) và tổng bề rộng, có chừa vùng yên tĩnh 10 module mỗi bên; để giao diện vẽ SVG."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 28,
+     "noi_dung": "Đầu vào không phải chuỗi, chuỗi rỗng hoặc dài hơn 80 ký tự thì không tạo mã vạch (trả null, không ném lỗi)."
+    },
+    {
+     "dong": 33,
+     "noi_dung": "Chỉ nhận ký tự ASCII 32–126; chỉ cần một ký tự ngoài khoảng này (ví dụ chữ có dấu tiếng Việt) thì cả mã vạch bị bỏ (null)."
+    },
+    {
+     "dong": 35,
+     "noi_dung": "Tổng kiểm tra = mã bắt đầu 104 + Σ (giá trị ký tự × vị trí tính từ 1). Ví dụ chuỗi 'A': giá trị 33, tổng = 104 + 33×1 = 137."
+    },
+    {
+     "dong": 37,
+     "noi_dung": "Ký tự kiểm tra là tổng chia dư 103, rồi nối mã kết thúc 106. Ví dụ tổng 137 → 137 mod 103 = 34."
+    },
+    {
+     "dong": 38,
+     "noi_dung": "Mỗi mã tra bảng MAU thành dãy chữ số độ rộng. Mã kết thúc có 7 phần tử (kết thúc bằng thanh), các mã khác 6 phần tử."
+    },
+    {
+     "dong": 54,
+     "noi_dung": "Phần tử có chỉ số chẵn là thanh đen (được vẽ), chỉ số lẻ là khoảng trắng (chỉ cộng x); dãy luôn bắt đầu bằng thanh."
+    },
+    {
+     "dong": 57,
+     "noi_dung": "Tổng bề rộng = vị trí x cuối + 10 module vùng yên tĩnh bên phải; bên trái x bắt đầu từ 10."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -6150,12 +7231,35 @@
    "bay": [
     {
      "dong": 28,
-     "noi_dung": "Chuỗi có dấu tiếng Việt hoặc dài quá 80 ký tự → không vẽ mã vạch (trả null, tem không có vạch)."
+     "noi_dung": "Trả null khi chuỗi rỗng hoặc dài hơn 80 ký tự; nơi gọi phải xử lý null, nếu không tem sẽ không có vạch."
+    },
+    {
+     "dong": 33,
+     "noi_dung": "Chuỗi có dấu tiếng Việt cũng trả null (cả mã vạch bị bỏ, không cắt bớt ký tự). Số lô và tem lô phải là ASCII."
+    },
+    {
+     "dong": 20,
+     "noi_dung": "Bảng MAU có 107 mục (chỉ số 0–106); mục cuối 106 là mã kết thúc dài 7 chữ số. Sửa sai một số là mã vạch không quét được."
+    },
+    {
+     "dong": 37,
+     "noi_dung": "Phép chia dư 103 phải đứng trước mã kết thúc; đổi thứ tự sẽ làm sai ký tự kiểm tra."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "Đổi giới hạn độ dài chuỗi hoặc cho phép ký tự khác",
+     "cho": "doRongCode128B dòng 28 và 33"
+    },
+    {
+     "viec": "Đổi vùng yên tĩnh hai bên",
+     "cho": "thanhVachCode128B dòng 50"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Khối pharmacy suy từ tem lô thuốc; tệp không tự nói rõ khối."
+   ]
   },
   "src/dashboard/lib/ma-vi-tri.ts": {
    "lam_gi": "Đổi mã vị trí cơ sở thứ hai (vd HN__T1_LETAN, HN__T1_THUNGAN__2) về 'mã mẫu' Kim Ngưu (T1_LETAN, T1_THUNGAN) để tra các bảng viết cứng — bản sao của core/ma_vi_tri.py.",
@@ -6772,15 +7876,26 @@
   "src/dashboard/lib/quyen-client.ts": {
    "lam_gi": "Hỏi quyền ở trình duyệt từ danh sách capability layout đã đọc: coQuyen, checkOutDuoc (reception.checkin.perform). Chỉ để ẩn/hiện, máy chủ vẫn kiểm.",
    "khoi": "permission",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "coQuyen",
+     "dong": 18,
+     "lam_gi": "Trả true chỉ khi danh sách quyền là mảng và chứa đúng mã cần hỏi; null/undefined hoặc không phải mảng thì false."
+    },
+    {
+     "ten": "checkOutDuoc",
+     "dong": 26,
+     "lam_gi": "Hỏi có quyền reception.checkin.perform không, để quyết định hiện nút Check-out (đóng lượt)."
+    }
+   ],
    "luat": [
     {
      "dong": 22,
-     "noi_dung": "[TSX quyết] Quyền chưa biết (null) → coi như KHÔNG có: nút ẩn thay vì hiện rồi bị từ chối."
+     "noi_dung": "[TSX quyết] Danh sách quyền chưa biết (null/undefined) hoặc không phải mảng → coi như KHÔNG có quyền: nút ẩn thay vì hiện rồi bị từ chối. So khớp đúng nguyên chuỗi mã."
     },
     {
-     "dong": 14,
-     "noi_dung": "[TSX quyết] Nút Check-out chỉ hiện khi có quyền reception.checkin.perform."
+     "dong": 27,
+     "noi_dung": "[TSX quyết] Nút Check-out chỉ được bấm khi tài khoản có quyền reception.checkin.perform (hằng QUYEN_CHECK_OUT khai báo ở dòng 14)."
     }
    ],
    "doc_bang": [],
@@ -6788,8 +7903,26 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [],
-   "bay": [],
-   "muon_sua": [],
+   "bay": [
+    {
+     "dong": 14,
+     "noi_dung": "Mã quyền phải khớp _RECEPTION_GUARD ở dispatch.py; đổi một bên mà quên bên kia thì nút ẩn/hiện lệch với việc máy chủ cho phép."
+    },
+    {
+     "dong": 22,
+     "noi_dung": "Ẩn/hiện nút không phải bảo mật; máy chủ vẫn kiểm quyền ở mọi lệnh. Không được import thứ của máy chủ vào file này vì nó chạy ở trình duyệt."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "Đổi mã quyền cần để Check-out",
+     "cho": "hằng QUYEN_CHECK_OUT dòng 14 (đồng thời sửa _RECEPTION_GUARD ở backend)"
+    },
+    {
+     "viec": "Đổi cách kiểm quyền (ví dụ cho phép nhiều mã hoặc ký tự đại diện)",
+     "cho": "hàm coQuyen dòng 18"
+    }
+   ],
    "comment_cu": [],
    "chua_chac": []
   },
@@ -6819,12 +7952,24 @@
      "noi_dung": "[TSX quyết] Đọc nội dung y khoa khi có một trong: clinical.intake.perform, clinical.consult.perform, clinical.record.write, clinical.consult.finalize, result.form.fill, result.review.approve (bản sao QUYEN_Y_KHOA ở y_khoa.py)."
     },
     {
-     "dong": 42,
-     "noi_dung": "[TSX quyết] In phiếu khám khi có quyền y khoa HOẶC tiếp đón / thu tiền DV / thu tiền thuốc / giao thuốc / crm.manage."
+     "dong": 23,
+     "noi_dung": "[TSX quyết] Mở lượt 'Khách mua thuốc' khi có pharmacy.dispense, payment.medicine.collect hoặc payment.service.collect (hướng 'mở hết'). Tệp này chỉ khai danh sách; chưa có hàm dùng trong tệp."
+    },
+    {
+     "dong": 53,
+     "noi_dung": "[TSX quyết] In phiếu khám khi có BẤT KỲ quyền y khoa HOẶC quyền quầy: reception.checkin.perform, payment.service.collect, payment.medicine.collect, pharmacy.dispense, crm.manage (CSKH, chỉ đọc). Danh sách quầy khai ở dòng 42-49."
     },
     {
      "dong": 59,
-     "noi_dung": "[TSX quyết] Mục 'Gọi / ghi chăm sóc' hiện khi có crm.manage, reception.checkin.perform hoặc dispatch.manage; đổi dịch vụ khám khi có booking.manage hoặc reception.checkin.perform."
+     "noi_dung": "[TSX quyết] Mục 'Gọi / ghi chăm sóc' ở menu ⋯ lịch hẹn hiện khi có crm.manage, reception.checkin.perform hoặc dispatch.manage."
+    },
+    {
+     "dong": 68,
+     "noi_dung": "[TSX quyết] Mục đổi dịch vụ khám ở menu ⋯ lịch hẹn hiện khi có booking.manage hoặc reception.checkin.perform."
+    },
+    {
+     "dong": 72,
+     "noi_dung": "[TSX quyết] coMotQuyen: danh sách quyền là null (máy chủ chưa trả lời) → trả false; ngược lại true nếu có ít nhất một quyền trong danh sách cần."
     }
    ],
    "doc_bang": [],
@@ -6837,7 +7982,7 @@
    "bay": [
     {
      "dong": 31,
-     "noi_dung": "Máy chủ lỗi → tập quyền RỖNG (không phải null) → mọi cửa gác trang in/y khoa đá về /home khi mạng chập — khác clinic-session (null → lùi về vai)."
+     "noi_dung": "Nếu backend không trả lời hoặc thiếu trường quyen, d?.quyen ?? [] cho tập quyền RỖNG (không phải null) → docDuocYKhoa/inDuocPhieu trả false; trang dùng chúng để chặn có thể đá người dùng ra khi mạng chập."
     },
     {
      "dong": 12,
@@ -6846,7 +7991,10 @@
    ],
    "muon_sua": [],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Không rõ fetchFromBackend trả null hay ném lỗi khi máy chủ lỗi (hàm ở backend-proxy, không có trong tệp này).",
+    "Chưa kiểm các trang gọi hàm này có đá về /home khi tập rỗng hay không."
+   ]
   },
   "src/dashboard/lib/roles.ts": {
    "lam_gi": "Toàn bộ luật vai + thanh bên + cửa trang phía giao diện: danh sách vai, nhóm vai (bàn khám, bác sĩ hành nghề, quản trị…), NAV_ROLES (vai nào vào màn nào), NAV_QUYEN (lego nào mở màn nào), ẩn khỏi thanh bên, công tắc mở quyền tạm, cửa trang vaoDuocMan, nút Bàn khám theo lego, trang đích sau đăng nhập.",
@@ -6896,11 +8044,27 @@
    "luat": [
     {
      "dong": 279,
-     "noi_dung": "[TSX quyết] NAV_ROLES: bảng cứng vai nào vào màn nào khi màn KHÔNG thuộc lego hoặc máy chủ chưa trả quyền (vd /ban-kham: DOCTOR, TKYK, MANAGEMENT; /thu-ngan/thuoc: RECEPTION, CASHIER*, PHARMACIST, MANAGEMENT; /settings: MANAGEMENT)."
+     "noi_dung": "[TSX quyết] NAV_ROLES: bảng cứng vai nào vào màn nào khi màn KHÔNG thuộc lego hoặc máy chủ chưa trả quyền (vd /ban-kham: DOCTOR, TKYK, MANAGEMENT; /settings: MANAGEMENT). Màn không có dòng ở đây thì mở cho mọi vai (trừ PARTNER)."
     },
     {
-     "dong": 632,
-     "noi_dung": "[TSX quyết] NAV_QUYEN: mỗi màn lego mở bằng một (vài) capability (vd /ban-kham ← clinical.consult.perform, /thu-ngan/dich-vu ← payment.service.collect, /ke-toan ← accounting.finance.full) — phải khớp MAN trong permissions/catalogue.py."
+     "dong": 315,
+     "noi_dung": "[TSX quyết] /thu-ngan/dich-vu/lich-su và /thu-ngan/thuoc/lich-su có danh sách vai RỖNG: không vai nào vào được theo luật gốc, chỉ vào được khi có capability *.history."
+    },
+    {
+     "dong": 506,
+     "noi_dung": "[TSX quyết] AN_KHOI_THANH_BEN (ẩn nhưng vẫn vào được): Quản lý ẩn /appointments, /customers, /patients/new, /nhac-tai-kham, /reception/checkout, /reception/queue; CSKH ẩn /appointments/cho-xep-bac-si."
+    },
+    {
+     "dong": 692,
+     "noi_dung": "[TSX quyết] TAT_KHOI_THANH_BEN: /appointments/cho-xep-bac-si và /cashier/thuoc bị ẩn khỏi thanh bên của MỌI người (route vẫn mở thẳng được); hienTrenThanhBen kiểm tra ở dòng 539."
+    },
+    {
+     "dong": 538,
+     "noi_dung": "[TSX quyết] hienTrenThanhBen: PARTNER chỉ thấy /doi-tac; /thu-ngan/* chỉ hiện khi đã có quyền mở (quyen null thì ẩn); màn lego + đã biết quyền thì quyền quyết (trừ DISPLAY); quyen null thì rơi về canSeeNavGoc rồi trừ mục AN_KHOI."
+    },
+    {
+     "dong": 805,
+     "noi_dung": "[TSX quyết] vaoDuocMan với màn lego và đã biết quyền: có quyền thì vào; không có thì chỉ còn GIU_LOI_VAO_CU (nay rỗng) nên bị từ chối, bất kể vai."
     },
     {
      "dong": 802,
@@ -6916,7 +8080,7 @@
     },
     {
      "dong": 586,
-     "noi_dung": "[TSX quyết] Công tắc mở quyền tạm NEXT_PUBLIC_MO_QUYEN_TAM_THOI chỉ bật khi '1'/'true'/'yes' (mặc định tắt); không bao giờ mở /console, /ops, /settings, /reports, /hoa-don, /xuat-hoa-don, /ke-toan, /admin, /doi-tac, /display."
+     "noi_dung": "[TSX quyết] Công tắc mở quyền tạm NEXT_PUBLIC_MO_QUYEN_TAM_THOI chỉ bật khi '1'/'true'/'yes' (mặc định tắt); không mở /console, /ops, /settings, /reports, /hoa-don, /xuat-hoa-don, /ke-toan, /admin, /doi-tac, /display. Chỉ canSeeNav dùng, DISPLAY không bao giờ được nới (dòng 844)."
     },
     {
      "dong": 783,
@@ -6928,23 +8092,19 @@
     },
     {
      "dong": 215,
-     "noi_dung": "[TSX quyết] Trang đầu sau đăng nhập: PARTNER → /doi-tac, ACCOUNTANT → /ke-toan, BS siêu âm → /phong, BS/TKYK → /ban-kham, Trưởng ca → /truong-ca, còn lại /home."
+     "noi_dung": "[TSX quyết] Trang đầu: PARTNER → /doi-tac, ACCOUNTANT → /ke-toan, BS siêu âm → /phong, BS/TKYK → /ban-kham, Trưởng ca → /truong-ca, còn lại /home."
     },
     {
      "dong": 95,
      "noi_dung": "[TSX quyết] Chỉ DOCTOR và ULTRASOUND_DOCTOR là bác sĩ hành nghề (chỉ định XN, duyệt kết quả); TKYK ngồi bàn khám nhưng không phải bác sĩ."
     },
     {
-     "dong": 506,
-     "noi_dung": "[TSX quyết] Ẩn khỏi thanh bên Quản lý (vẫn vào được): /appointments, /customers, /patients/new, /nhac-tai-kham, /reception/checkout, /reception/queue; CSKH ẩn /appointments/cho-xep-bac-si; mọi người ẩn /cashier/thuoc."
-    },
-    {
      "dong": 140,
-     "noi_dung": "[TSX quyết] canWriteIntake: CSKH, Lễ tân, Quản lý, Trưởng ca (vẫn dùng ở route check-phone)."
+     "noi_dung": "[TSX quyết] canWriteIntake: CSKH, Lễ tân, Quản lý, Trưởng ca (điều dưỡng đã bỏ)."
     },
     {
      "dong": 127,
-     "noi_dung": "[TSX quyết] canWriteClinical: bác sĩ, BS siêu âm, TKYK, điều dưỡng (vẫn dùng ở route service-log)."
+     "noi_dung": "[TSX quyết] canWriteClinical: bác sĩ, BS siêu âm, TKYK, điều dưỡng."
     }
    ],
    "doc_bang": [],
@@ -7002,8 +8162,24 @@
      "vi_sao": "canWriteClinical ghi 'Chỉ còn hai route /api đã tắt (410) gọi hàm này' — service-log/route.ts vẫn gọi và không tắt."
     },
     {
-     "dong": 741,
+     "dong": 723,
      "vi_sao": "Docstring 'CỬA TRANG — MỘT luật…' đứng trên GIU_LOI_VAO_CU (rỗng) thay vì trên vaoDuocMan ở dòng 797."
+    },
+    {
+     "dong": 180,
+     "vi_sao": "canManageAppt ghi 'CSKH + Quản lý + Trưởng ca' nhưng code còn có RECEPTION (dòng 188)."
+    },
+    {
+     "dong": 192,
+     "vi_sao": "canEditPatient ghi nhóm intake gồm ĐD, nhưng canWriteIntake đã bỏ điều dưỡng; chỉ còn CSKH/Lễ tân/QL/Trưởng ca + bác sĩ/TKYK."
+    },
+    {
+     "dong": 444,
+     "vi_sao": "Ghi '/audit-log — CSKH + Quản lý + Trưởng ca' nhưng mảng ở dòng 445 chỉ có CSKH, MANAGEMENT."
+    },
+    {
+     "dong": 417,
+     "vi_sao": "Ghi nhà thuốc 'Quản lý/Trưởng ca xem' nhưng các dòng /pharmacy không có TRUONG_CA (có RECEPTION)."
     }
    ],
    "chua_chac": []
@@ -7460,8 +8636,35 @@
   "src/dashboard/lib/supabase-cookie.ts": {
    "lam_gi": "Tên cookie phiên đăng nhập 'clinicai-auth' (+ hậu tố cổng nếu URL Supabase có cổng khác 80/443) để máy chủ và trình duyệt đọc cùng một cookie và prod/staging không đè nhau khi cùng host.",
    "khoi": "permission",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "hauToTheoCong",
+     "dong": 47,
+     "lam_gi": "Nhận URL Supabase, trả hậu tố '-<cổng>' nếu cổng khác rỗng/80/443; ngược lại (kể cả URL thiếu hoặc hỏng) trả chuỗi rỗng."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 55,
+     "noi_dung": "Cổng rỗng, 80 hoặc 443 thì không có hậu tố, tên cookie vẫn là 'clinicai-auth' như cũ (giữ phiên đăng nhập của prod)."
+    },
+    {
+     "dong": 56,
+     "noi_dung": "Cổng khác (ví dụ 8080) thì thêm hậu tố '-8080', tên cookie thành 'clinicai-auth-8080' để môi trường này không đè phiên môi trường kia khi dùng chung host."
+    },
+    {
+     "dong": 48,
+     "noi_dung": "URL thiếu (undefined hoặc rỗng) thì không có hậu tố."
+    },
+    {
+     "dong": 53,
+     "noi_dung": "URL không phân tích được thì bỏ qua lỗi và trả chuỗi rỗng, không có hậu tố."
+    },
+    {
+     "dong": 67,
+     "noi_dung": "Tên cookie cuối cùng là 'clinicai-auth' cộng hậu tố tính từ NEXT_PUBLIC_SUPABASE_URL; máy chủ và trình duyệt dùng chung giá trị này nên đọc cùng một cookie."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
@@ -7470,14 +8673,31 @@
    "bay": [
     {
      "dong": 67,
-     "noi_dung": "Phải viết nguyên văn process.env.NEXT_PUBLIC_SUPABASE_URL — gán qua biến trung gian thì trình duyệt nhận undefined, tên cookie hai bên lệch, đăng nhập xong bị đá về /login."
+     "noi_dung": "Phải viết nguyên văn process.env.NEXT_PUBLIC_SUPABASE_URL. Gán qua biến trung gian thì trình duyệt nhận undefined, tên cookie hai bên lệch, đăng nhập xong bị đá về /login."
     },
     {
      "dong": 55,
-     "noi_dung": "Đổi tên cookie là đăng xuất mọi người."
+     "noi_dung": "Sửa điều kiện cổng mặc định sẽ đổi tên cookie của prod và đăng xuất mọi người."
+    },
+    {
+     "dong": 53,
+     "noi_dung": "URL hỏng bị nuốt lỗi, không báo gì. Nếu NEXT_PUBLIC_SUPABASE_URL sai định dạng thì hai môi trường lặng lẽ dùng chung tên cookie."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "Đổi quy tắc cổng nào được coi là mặc định (không hậu tố)",
+     "cho": "hàm hauToTheoCong dòng 55"
+    },
+    {
+     "viec": "Đổi tên gốc của cookie phiên",
+     "cho": "hằng SUPABASE_COOKIE_NAME dòng 67 (cẩn thận: đăng xuất mọi người)"
+    },
+    {
+     "viec": "Đổi dạng hậu tố cổng",
+     "cho": "hàm hauToTheoCong dòng 56"
+    }
+   ],
    "comment_cu": [
     {
      "dong": 9,
@@ -7493,26 +8713,74 @@
   "src/dashboard/lib/supabase-server.ts": {
    "lam_gi": "Tạo client Supabase phía server Next (một client mỗi lượt dựng trang), dùng địa chỉ container SUPABASE_URL, cookie ghim tên, getUser kiểm JWT tại chỗ.",
    "khoi": "permission",
-   "ham_chinh": [],
-   "luat": [],
+   "ham_chinh": [
+    {
+     "ten": "getSupabaseServer",
+     "dong": 34,
+     "lam_gi": "Hàm async bọc cache(): dựng client Supabase phía server từ cookie của request, gắn kiểm phiên tại chỗ; mỗi lượt dựng trang chỉ dựng một client."
+    }
+   ],
+   "luat": [
+    {
+     "dong": 21,
+     "noi_dung": "Phía server ưu tiên biến SUPABASE_URL (địa chỉ container tới được); không có thì dùng NEXT_PUBLIC_SUPABASE_URL (địa chỉ trình duyệt)."
+    },
+    {
+     "dong": 36,
+     "noi_dung": "Client được bọc ganKiemPhienTaiCho: getUser() kiểm JWT tại chỗ khi còn hạn, chỉ hỏi GoTrue khi hết hạn."
+    },
+    {
+     "dong": 42,
+     "noi_dung": "Ghim tên cookie phiên là SUPABASE_COOKIE_NAME để server và trình duyệt đọc cùng một cookie dù dùng hai URL khác nhau."
+    },
+    {
+     "dong": 44,
+     "noi_dung": "Cookie phiên được đọc từ kho cookie của request Next (cookies()), không tự lưu trạng thái."
+    }
+   ],
    "doc_bang": [],
    "ghi_bang": [],
    "su_kien_phat": [],
    "su_kien_nghe": [],
-   "goi_api": [],
+   "goi_api": [
+    "Supabase Auth (GoTrue) qua SERVER_SUPABASE_URL"
+   ],
    "bay": [
     {
      "dong": 52,
-     "noi_dung": "setAll trong server component bị nuốt lỗi — cookie làm mới chỉ ghi được ở proxy/route handler."
+     "noi_dung": "setAll nuốt lỗi khi ghi cookie thất bại (Server Component không ghi được cookie). Khi đó phiên làm mới không được lưu, phải có nơi khác ghi (middleware/proxy, route handler, server action)."
     },
     {
      "dong": 21,
-     "noi_dung": "Thiếu SUPABASE_URL thì dùng địa chỉ trình duyệt — trong container có thể ECONNREFUSED."
+     "noi_dung": "Thiếu SUPABASE_URL thì dùng địa chỉ trình duyệt — trong container có thể ECONNREFUSED. Dấu ! ở dòng 22 che việc thiếu cả hai biến."
+    },
+    {
+     "dong": 34,
+     "noi_dung": "cache() chỉ gộp client trong một lượt dựng trang; route handler không có kho theo-request nên mỗi request dựng client riêng. Đừng giả định client dùng chung giữa các request."
+    },
+    {
+     "dong": 42,
+     "noi_dung": "Đổi tên cookie hoặc bỏ cookieOptions.name sẽ làm server và trình duyệt đọc cookie khác nhau, người dùng bị coi là chưa đăng nhập."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "đổi địa chỉ Supabase phía server",
+     "cho": "hằng SERVER_SUPABASE_URL dòng 21"
+    },
+    {
+     "viec": "đổi cách kiểm phiên (tại chỗ hay hỏi GoTrue)",
+     "cho": "lời gọi ganKiemPhienTaiCho dòng 36 và lib/kiem-phien-tai-cho.ts"
+    },
+    {
+     "viec": "đổi tên cookie phiên",
+     "cho": "SUPABASE_COOKIE_NAME trong lib/supabase-cookie.ts, dùng ở dòng 42"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Comment dòng 54 nói 'Middleware handles the refresh write path'; tệp này không cho thấy middleware có thật sự ghi cookie hay không."
+   ]
   },
   "src/dashboard/lib/supabase-service.ts": {
    "lam_gi": "Client Supabase service-role (vượt RLS) phía server, cờ có khoá hay không; chỉ còn cần cho API quản trị tài khoản GoTrue.",
@@ -7554,15 +8822,47 @@
   "src/dashboard/lib/ten-dang-nhap.ts": {
    "lam_gi": "Tên đăng nhập trần ↔ địa chỉ GoTrue: gõ 'cskhdieuhoa' thành 'cskhdieuhoa@dr4women.vn' (đuôi đổi được bằng biến môi trường), có '@' thì giữ nguyên; hiển thị bỏ đuôi mặc định.",
    "khoi": "permission",
-   "ham_chinh": [],
+   "ham_chinh": [
+    {
+     "ten": "emailTuTenDangNhap",
+     "dong": 26,
+     "lam_gi": "Cắt khoảng trắng, đổi chữ thường; rỗng trả ''; có '@' giữ nguyên, không thì gắn '@' + đuôi mặc định."
+    },
+    {
+     "ten": "loiTenDangNhap",
+     "dong": 36,
+     "lam_gi": "Kiểm tên đăng nhập; trả câu báo lỗi hoặc null nếu hợp lệ."
+    },
+    {
+     "ten": "tenHienThi",
+     "dong": 57,
+     "lam_gi": "Đổi email GoTrue thành tên hiển thị bằng cách bỏ đuôi mặc định, giữ nguyên đuôi khác."
+    }
+   ],
    "luat": [
     {
+     "dong": 27,
+     "noi_dung": "Tên được cắt khoảng trắng hai đầu và đổi hết sang chữ thường trước khi xử lý, nên 'CSKH' và 'cskh' ra cùng một địa chỉ."
+    },
+    {
      "dong": 29,
-     "noi_dung": "Tên không có '@' được gắn đuôi mặc định (NEXT_PUBLIC_DUOI_TEN_DANG_NHAP, mặc định dr4women.vn); đã có '@' (vd @dr4women.local) thì giữ nguyên."
+     "noi_dung": "Tên không có '@' được gắn đuôi mặc định (NEXT_PUBLIC_DUOI_TEN_DANG_NHAP, mặc định dr4women.vn); đã có '@' (vd @dr4women.local) thì giữ nguyên, không ép về một đuôi."
+    },
+    {
+     "dong": 28,
+     "noi_dung": "Tên rỗng (sau khi cắt khoảng trắng) trả chuỗi rỗng để nơi gọi tự báo lỗi."
+    },
+    {
+     "dong": 38,
+     "noi_dung": "Tên rỗng bị báo 'Nhập tên đăng nhập.'."
     },
     {
      "dong": 39,
-     "noi_dung": "Tên đăng nhập không được có dấu cách và chỉ có đúng một '@'."
+     "noi_dung": "Tên có khoảng trắng bất kỳ (dấu cách, tab) bị từ chối."
+    },
+    {
+     "dong": 42,
+     "noi_dung": "Sau khi gắn đuôi, địa chỉ phải có đúng một '@' và không bắt đầu bằng '@'; nếu không báo 'Tên đăng nhập không hợp lệ.'. Không kiểm kiểu 'giống email'."
     }
    ],
    "doc_bang": [],
@@ -7573,12 +8873,35 @@
    "bay": [
     {
      "dong": 60,
-     "noi_dung": "Hiển thị chỉ bỏ đuôi MẶC ĐỊNH; đuôi khác giữ nguyên để hai tài khoản khác đuôi không trùng tên hiển thị."
+     "noi_dung": "Hiển thị chỉ bỏ đuôi MẶC ĐỊNH (so sánh không phân biệt hoa thường); đuôi khác giữ đủ để hai tài khoản khác đuôi không trùng tên hiển thị."
+    },
+    {
+     "dong": 19,
+     "noi_dung": "Đuôi đọc từ biến môi trường NEXT_PUBLIC_ lúc build; đổi đuôi mà không build lại thì màn đăng nhập và màn quản trị có thể lệch nhau."
+    },
+    {
+     "dong": 29,
+     "noi_dung": "Màn quản trị và màn đăng nhập phải cùng gọi emailTuTenDangNhap; nới một đầu mà không nới đầu kia thì nhân viên bị từ chối khi đăng nhập."
     }
    ],
-   "muon_sua": [],
+   "muon_sua": [
+    {
+     "viec": "Đổi đuôi mặc định",
+     "cho": "hằng DUOI_TEN_DANG_NHAP dòng 18 hoặc biến môi trường"
+    },
+    {
+     "viec": "Đổi luật hợp lệ của tên",
+     "cho": "loiTenDangNhap dòng 36-46"
+    },
+    {
+     "viec": "Đổi cách hiển thị tên trong bảng",
+     "cho": "tenHienThi dòng 57-61"
+    }
+   ],
    "comment_cu": [],
-   "chua_chac": []
+   "chua_chac": [
+    "Tên có ký tự lạ khác (ví dụ dấu tiếng Việt) có bị GoTrue từ chối hay không thì tệp này không kiểm."
+   ]
   },
   "src/dashboard/lib/thanh-ngay.ts": {
    "lam_gi": "Hàm thuần của thanh ngày: đọc ngày yyyy-mm-dd an toàn, cộng ngày, khoảng chip nhanh (hôm nay, hôm qua, hôm kia, 7 ngày, tuần trước, 30 ngày), chuẩn hoá khoảng tuỳ chọn (gương cua_so_khoang máy chủ), dải ngày, ngày xem từ URL.",

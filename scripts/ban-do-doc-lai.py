@@ -10,6 +10,9 @@ dau.json. Script này đọc lại đúng những tệp ấy (và tệp mới ch
     python3 scripts/ban-do-doc-lai.py                      # đọc lại, tối đa 20 tệp / 2 USD
     python3 scripts/ban-do-doc-lai.py --toi-da 50 --tran-usd 5
     python3 scripts/ban-do-doc-lai.py --tep src/clinicai/services/bill_service.py
+    python3 scripts/ban-do-doc-lai.py --sql [--soat]         # hàm / view SQL
+    python3 scripts/ban-do-doc-lai.py --soat --toi-da 2000 --tran-usd 80 --song-song 8
+        # lượt hai cho ghi chú tệp code: vá chỗ sai / sót; chạy lại thì đi tiếp
 
 Khoá: biến môi trường AVIS_BASE_URL / AVIS_API_KEY / AVIS_MODEL, hoặc tệp
 ~/.clinicai-avis.env (chmod 600, NGOÀI repo). Không bao giờ in khoá. Chỉ gửi MÃ
@@ -378,13 +381,292 @@ def lay_co(argv: list[str], co: str, mac_dinh: str) -> str:
     return argv[argv.index(co) + 1] if co in argv else mac_dinh
 
 
-def goi(env: dict[str, str], noi_dung: str, dan: str = DAN) -> tuple[dict, float]:
+DAN_SOAT_TEP = (
+    DAN
+    + """
+
+LƯỢT SOÁT: kèm theo là GHI CHÚ ĐÃ CÓ của tệp. Đối chiếu từng luật / bẫy / hàm chính
+với code: số dòng có trỏ đúng dòng thực thi không, câu có nói đúng điều code làm không,
+có bỏ sót NHÁNH (if / else / except / return sớm) hay NGOẠI LỆ cho qua không. Sửa câu
+sai, thêm cái bị bỏ, giữ nguyên câu đúng."""
+    + "\n"
+    + "{tra_ve}"
+)
+# Chỉ trả khoá ĐỔI: tệp ~1.300 dòng trả cả ghi chú thì cổng AVIS cắt 504 (đo
+# 22/10, bill_service.py ba lần liền); stream của cổng trả content null.
+TRA_VE_DOI = """TRẢ VỀ: DUY NHẤT một object JSON (không markdown) CHỈ GỒM các khoá cần đổi,
+mỗi khoá mang GIÁ TRỊ MỚI ĐẦY ĐỦ (cả mảng, không chỉ phần thêm); khoá đúng sẵn thì BỎ.
+Luôn có khoá "da_sua": ["mô tả ngắn từng chỗ đã sửa"]. Ghi chú đã đúng → {"da_sua": []}."""
+DAN_SOAT_TEP = DAN_SOAT_TEP.replace("{tra_ve}", TRA_VE_DOI)
+#: Script vận hành / tệp test: khuôn ghi chú KHÁC tệp code (script có chay_o,
+#: ghi_prod, nguy_hiem; test có canh, yeu) — giữ đúng khoá của ghi chú cũ.
+DAN_SOAT_CHUNG = (
+    """Bạn SOÁT LẠI ghi chú về MỘT tệp của ClinicAI (phần mềm phòng khám: FastAPI,
+Next.js, Postgres; script vận hành chạy trên Mac dev hoặc VPS; tệp test pytest / node).
+Kèm theo là nội dung tệp (số dòng ở đầu mỗi dòng) và GHI CHÚ ĐÃ CÓ (JSON). Đối chiếu
+từng mục với tệp: số dòng trỏ đúng dòng thực thi, câu nói đúng điều tệp làm (script:
+chạy ở đâu, có GHI prod không, chạy sai thì hỏng gì; test: luật nào được canh thật,
+test nào hời hợt — chỉ kiểm có chạy chứ không kiểm kết quả). Sửa câu sai, thêm cái bị
+bỏ, giữ câu đúng. Chỉ dùng các khoá của ghi chú cũ. Tiếng Việt lời thường, mỗi
+chuỗi ≤ 300 ký tự, không bịa.
+"""
+    + TRA_VE_DOI
+)
+SOAT_TEP = HIEU / "soat-tep.json"
+#: Soát trước: khối giữ tiền / kho / quyền — sai ở đây là sai tiền.
+UU_TIEN = {
+    "payment",
+    "pharmacy",
+    "kho_vat_tu",
+    "ke_toan",
+    "permission",
+    "cong_no",
+    "billing",
+    "lieu_trinh",
+}
+
+
+def main_soat_tep(argv: list[str], toi_da: int, tran: float) -> int:
+    """Lượt hai cho ghi chú tệp code: model đọc lại tệp + ghi chú cũ, vá chỗ sai /
+    sót. Ghi dấu từng tệp đã soát vào soat-tep.json — chạy lại thì đi tiếp."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    dau = json.loads(DAU.read_text(encoding="utf-8")) if DAU.exists() else {}
+    soat = json.loads(SOAT_TEP.read_text(encoding="utf-8")) if SOAT_TEP.exists() else {}
+    # Mọi ghi chú tệp: code + script vận hành (tep/) và test (test/).
+    ghi: dict[str, dict] = {}
+    cua: dict[str, Path] = {}
+    for thu_muc in ("tep", "test"):
+        for f in sorted((HIEU / thu_muc).glob("*.json")):
+            for t, g in (
+                json.loads(f.read_text(encoding="utf-8")).get("tep") or {}
+            ).items():
+                ghi[t], cua[t] = g, f
+    code = set(tep_nguon())
+    chi = lay_co(argv, "--tep", "")
+    ds = [
+        t
+        for t in (chi.split(",") if chi else sorted(ghi))
+        if t in ghi and (GOC / t).is_file()
+    ]
+    ds = [t for t in ds if soat.get(t) != dau_tep(GOC / t)]
+    # Thứ tự: code khối tiền/kho/quyền → code còn lại → script vận hành → test.
+    ds.sort(
+        key=lambda t: (
+            0
+            if t in code and ghi[t].get("khoi") in UU_TIEN
+            else 1
+            if t in code
+            else 2
+            if not t.startswith("src/tests")
+            else 3,
+            t,
+        )
+    )
+    print(
+        f"Tệp cần soát: {len(ds)}"
+        + (f" (lấy {min(len(ds), toi_da)})" if len(ds) > toi_da else "")
+    )
+    if "--thu" in argv:
+        print("\n".join(f"  {t}" for t in ds[:200]))
+        return 0
+    env = cau_hinh()
+    khoa, dung = threading.Lock(), threading.Event()
+    tong, xong, hong = [0.0], [0], []
+
+    def mot(t: str) -> None:
+        if dung.is_set():
+            return
+        p = GOC / t
+        dong = p.read_text(encoding="utf-8").splitlines()
+        than = "\n".join(f"{i}: {s}" for i, s in enumerate(dong, 1))
+        cu = json.dumps(ghi[t], ensure_ascii=False, indent=1)
+        la_code = t in code
+        try:
+            g, tien = goi(
+                env,
+                f"Tệp: {t}\n\n{than}\n\n// GHI CHÚ ĐÃ CÓ:\n{cu}",
+                DAN_SOAT_TEP if la_code else DAN_SOAT_CHUNG,
+                max_tokens=16000,
+            )
+        except HetTienError as e:
+            dung.set()
+            print(f"HẾT TIỀN / HẠN MỨC API: {e} — dừng", flush=True)
+            return
+        except (
+            urllib.error.URLError,
+            json.JSONDecodeError,
+            KeyError,
+            TimeoutError,
+        ) as e:
+            with khoa:
+                hong.append(t)
+            print(f"  ✗ {t}: {type(e).__name__} {getattr(e, 'code', '')}", flush=True)
+            return
+        sua = g.pop("da_sua", None) or []
+        g = {**ghi[t], **g}  # model chỉ trả khoá đổi — gộp vào ghi chú cũ
+        # Test: model đôi khi trả `yeu` / `canh` là câu chữ — bản đồ cần {noi_dung}.
+        for k in ("yeu", "canh"):
+            if isinstance(g.get(k), list):
+                g[k] = [{"noi_dung": x} if isinstance(x, str) else x for x in g[k]]
+        loi = kiem(g, len(dong), KHOA | set(ghi[t]))
+        with khoa:
+            tong[0] += tien
+            if tong[0] >= tran and not dung.is_set():
+                dung.set()
+                print(f"DỪNG: chạm trần {tran} USD", flush=True)
+            if loi:
+                hong.append(t)
+                print(f"  ✗ {t}: {'; '.join(loi[:3])}", flush=True)
+                return
+            f = cua[t]
+            du = json.loads(f.read_text(encoding="utf-8"))
+            du["tep"][t] = g
+            f.write_text(json.dumps(du, ensure_ascii=False, indent=1), encoding="utf-8")
+            soat[t] = dau_tep(p)
+            if t in dau or la_code:
+                dau[t] = soat[t]
+            SOAT_TEP.write_text(
+                json.dumps(dict(sorted(soat.items())), indent=0), encoding="utf-8"
+            )
+            DAU.write_text(
+                json.dumps(dict(sorted(dau.items())), indent=0), encoding="utf-8"
+            )
+            xong[0] += 1
+        nhan = " | ".join(map(str, sua))[:300] if sua else "đúng sẵn"
+        print(f"  ~ {t} ({tien:.3f} USD): {nhan}", flush=True)
+
+    with ThreadPoolExecutor(int(lay_co(argv, "--song-song", "8"))) as ex:
+        list(ex.map(mot, ds[:toi_da]))
+    print(f"Xong {xong[0]} · hỏng {len(hong)} · tổng {tong[0]:.4f} USD.", flush=True)
+    if hong:
+        print("Còn lại: " + ",".join(hong))
+    return 1 if hong or dung.is_set() else 0
+
+
+#: DỰ PHÒNG khi AVIS cạn tiền / hạn mức: API Claude chính hãng. Tuyền điền khoá vào
+#: ~/.clinicai-claude.env (NGOÀI repo, chmod 600); khoá trống = không có dự phòng.
+CLAUDE_ENV = Path.home() / ".clinicai-claude.env"
+#: USD / 1 triệu token (vào, ra) — bảng giá API Claude 10/2026.
+GIA_CLAUDE = {
+    "claude-opus-5-5": (4.0, 20.0),
+    "claude-sonnet-5-5": (2.0, 10.0),
+    "claude-haiku-5-5": (0.1, 0.5),
+}
+_NHA = {"claude": False}  # True = AVIS đã cạn, mọi lượt sau đi thẳng Claude
+
+
+def cau_hinh_claude() -> dict[str, str] | None:
+    """Khoá Claude: ~/.clinicai-claude.env, hoặc `.env.claude.local` ở repo / checkout
+    chính (Tuyền đặt ở đó 22/10 — gitignore `.env.*`). Không bao giờ in khoá."""
+    env: dict[str, str] = {}
+    tep = [CLAUDE_ENV] + [d / ".env.claude.local" for d in (GOC, *GOC.parents)]
+    for f in tep:
+        if not f.is_file():
+            continue
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                v = v.strip().strip('"').strip("'")
+                if v and not env.get(k.strip()):
+                    env[k.strip()] = v
+    return env if env.get("ANTHROPIC_API_KEY") else None
+
+
+def goi_claude(cfg: dict[str, str], noi_dung: str, dan: str) -> tuple[str, float]:
+    """Một lượt qua API Claude (SDK chính hãng). Stream để câu trả lời dài không
+    vướng giới hạn thời gian HTTP; max_tokens rộng vì suy nghĩ cũng tính vào."""
+    import anthropic
+
+    model = cfg.get("CLAUDE_MODEL") or "claude-opus-5-5"
+    client = anthropic.Anthropic(api_key=cfg["ANTHROPIC_API_KEY"], max_retries=3)
+    # Bị từ chối nhầm vì an toàn → API tự chạy lại trên model dự phòng. SDK trên máy
+    # (0.111) chỉ nhận dạng mảng; Sonnet 5.5 không nhận dạng mảng → bỏ qua.
+    du_phong: dict = (
+        {
+            "betas": ["server-side-fallback-2026-06-01"],
+            "fallbacks": [{"model": "claude-opus-4-8"}],
+        }
+        if model.startswith("claude-opus")
+        else {}
+    )
+    try:
+        with client.beta.messages.stream(
+            model=model,
+            max_tokens=64000,
+            system=dan,
+            messages=[{"role": "user", "content": noi_dung}],
+            # Đối chiếu ghi chú với code: không cần suy nghĩ sâu nhất — `medium`
+            # giữ chất lượng, bớt token suy nghĩ (tính tiền như token ra).
+            output_config={"effort": "medium"},
+            **du_phong,
+        ) as s:
+            m = s.get_final_message()
+    except (
+        anthropic.AuthenticationError,
+        anthropic.PermissionDeniedError,
+        anthropic.RateLimitError,
+    ) as e:
+        raise HetTienError(f"Claude {type(e).__name__}") from None
+    except anthropic.BadRequestError as e:
+        if "credit" in str(e).lower() or "billing" in str(e).lower():
+            raise HetTienError("Claude hết credit") from None
+        raise urllib.error.URLError(f"Claude {e}") from None
+    except anthropic.APIError as e:
+        raise urllib.error.URLError(f"Claude {type(e).__name__}") from None
+    if m.stop_reason == "refusal":
+        raise urllib.error.URLError("Claude từ chối")
+    vao, ra = GIA_CLAUDE.get(model, GIA_CLAUDE["claude-opus-5-5"])
+    tien = (m.usage.input_tokens * vao + m.usage.output_tokens * ra) / 1e6
+    return "".join(b.text for b in m.content if b.type == "text"), tien
+
+
+def doc_json(van: str) -> dict:
+    van = re.sub(r"^```(?:json)?\s*|\s*```$", "", van.strip())
+    # Lời dẫn / lời kết quanh object (lượt soát 22/10 gặp JSONDecodeError) → cắt.
+    if not van.startswith("{") and "{" in van:
+        van = van[van.index("{") : van.rindex("}") + 1]
+    return json.loads(van)
+
+
+def goi(
+    env: dict[str, str], noi_dung: str, dan: str = DAN, *, max_tokens: int = 8000
+) -> tuple[dict, float]:
+    """AVIS trước; AVIS cạn (401/402/403/429) mà có khoá Claude → chuyển hẳn sang
+    Claude cho mọi lượt còn lại."""
+    if not _NHA["claude"]:
+        try:
+            return goi_avis(env, noi_dung, dan, max_tokens=max_tokens)
+        except urllib.error.HTTPError as e:
+            # Cổng AVIS cắt 504 với tệp to dù đã thử lại — riêng lượt này qua Claude.
+            cfg = cau_hinh_claude()
+            if e.code < 500 or cfg is None:
+                raise
+            van, tien = goi_claude(cfg, noi_dung, dan)
+            return doc_json(van), tien
+        except HetTienError:
+            if cau_hinh_claude() is None:
+                raise
+            if not _NHA["claude"]:
+                _NHA["claude"] = True
+                print("AVIS CẠN — chuyển sang API Claude dự phòng", flush=True)
+    cfg = cau_hinh_claude()
+    if cfg is None:
+        raise HetTienError("không có khoá Claude dự phòng")
+    van, tien = goi_claude(cfg, noi_dung, dan)
+    return doc_json(van), tien
+
+
+def goi_avis(
+    env: dict[str, str], noi_dung: str, dan: str = DAN, *, max_tokens: int = 8000
+) -> tuple[dict, float]:
     req = urllib.request.Request(
         env["AVIS_BASE_URL"].rstrip("/") + "/chat/completions",
         data=json.dumps(
             {
                 "model": env["AVIS_MODEL"],
-                "max_tokens": 8000,
+                "max_tokens": max_tokens,
                 "temperature": 0,
                 "messages": [
                     {"role": "system", "content": dan},
@@ -399,27 +681,51 @@ def goi(env: dict[str, str], noi_dung: str, dan: str = DAN) -> tuple[dict, float
             "User-Agent": "clinicai-ban-do/1.0",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=300) as r:
-            d = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        # 401/402/403/429 = khoá / tiền / hạn mức — thử tiếp chỉ đốt thời gian.
-        if e.code in (401, 402, 403, 429):
-            raise HetTienError(f"HTTP {e.code}") from None
-        raise
+    import time
+
+    for lan in range(6):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as r:
+                d = json.loads(r.read())
+            break
+        except urllib.error.HTTPError as e:
+            # 401/402/403 = khoá / tiền — thử tiếp chỉ đốt thời gian.
+            if e.code in (401, 402, 403):
+                raise HetTienError(f"HTTP {e.code}") from None
+            if e.code == 429:
+                # 429 có hai nghĩa: HẾT TIỀN / hạn mức (dừng hẳn) hay chỉ gọi DỒN
+                # quá nhanh (22/10: 8 luồng, tệp thứ 52) — đợi rồi thử lại.
+                than = e.read().decode("utf-8", "replace").lower()
+                if any(
+                    # AVIS 22/10: "API key monthly spend limit reached".
+                    x in than
+                    for x in ("quota", "credit", "balance", "insufficient", "limit")
+                ):
+                    raise HetTienError(f"HTTP 429 {than[:80]}") from None
+                if lan == 5:
+                    raise HetTienError("HTTP 429 lặp 6 lần") from None
+                time.sleep(int(e.headers.get("retry-after") or 0) or 15 * (lan + 1))
+                continue
+            if lan >= 2:
+                raise
+            # 5xx của cổng (504 khi tệp to trả lời lâu) — thử lại tối đa 2 lần.
+            if e.code < 500 or lan == 2:
+                raise
     u = d.get("usage") or {}
     tien = float(u.get("cost_usd_input") or 0) + float(u.get("cost_usd_output") or 0)
-    van = d["choices"][0]["message"]["content"].strip()
-    van = re.sub(r"^```(?:json)?\s*|\s*```$", "", van)
-    return json.loads(van), tien
+    return doc_json(d["choices"][0]["message"]["content"]), tien
 
 
-def kiem(g: dict, so_dong: int) -> list[str]:
-    loi = [f"khoá lạ {k}" for k in set(g) - KHOA]
+def kiem(g: dict, so_dong: int, khoa: set[str] = KHOA) -> list[str]:
+    loi = [f"khoá lạ {k}" for k in set(g) - khoa]
     if not g.get("lam_gi"):
         loi.append("thiếu lam_gi")
-    for k in ("luat", "bay", "ham_chinh", "comment_cu"):
+    # canh / yeu: mục của ghi chú tệp test — cũng trỏ số dòng.
+    for k in ("luat", "bay", "ham_chinh", "comment_cu", "canh", "yeu"):
         for x in g.get(k) or []:
+            # Ghi chú test: `yeu` có thể là câu chữ không kèm số dòng.
+            if k in ("canh", "yeu") and not (isinstance(x, dict) and "dong" in x):
+                continue
             if not isinstance(x, dict) or not 0 < int(x.get("dong") or 0) <= so_dong:
                 loi.append(
                     f"{k} dòng ngoài tệp: {x.get('dong') if isinstance(x, dict) else x}"
@@ -434,6 +740,10 @@ def main(argv: list[str]) -> int:
     toi_da, tran = int(lay("--toi-da", "20")), float(lay("--tran-usd", "2"))
     if "--sql" in argv:
         return main_sql(argv, toi_da, tran)
+    if "--claude" in argv:  # AVIS đang cạn — đi thẳng API Claude dự phòng
+        _NHA["claude"] = True
+    if "--soat" in argv:
+        return main_soat_tep(argv, toi_da, tran)
     dau = json.loads(DAU.read_text(encoding="utf-8")) if DAU.exists() else {}
     ghi, cua = doc_ghi_chu()
     ds = [lay("--tep", "")] if "--tep" in argv else can_doc_lai(ghi, dau)
