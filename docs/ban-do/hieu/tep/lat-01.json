@@ -421,28 +421,40 @@
    ],
    "luat": [
     {
+     "dong": 470,
+     "noi_dung": "Chọn chế độ theo cờ dòng lệnh, thứ tự ưu tiên: --su-kien, --day-tep, --pos-relay, --relay; không cờ nào thì chạy chế độ RabbitMQ cũ (thiếu RABBITMQ_URL thì thoát, dòng 419)."
+    },
+    {
      "dong": 106,
      "noi_dung": "Relay Telegram chỉ chạy khi NOTIFICATION_RELAY_ENABLED=true; không thì thoát ngay — mọi tin nhắn do người bấm gửi."
     },
     {
      "dong": 115,
-     "noi_dung": "Relay đòi TELEGRAM_CLINIC_ID là UUID, thiếu thì từ chối để không chuyển chéo phòng khám."
+     "noi_dung": "Relay đòi TELEGRAM_CLINIC_ID có mặt (dòng 115) và là UUID (dòng 119-122), nếu không thì thoát để không chuyển chéo phòng khám."
     },
     {
      "dong": 275,
      "noi_dung": "Canh gác, sổ nợ, agent giám sát chỉ chạy khi worker giao MỌI bên nhận (không chỉ định tên bên nhận trên dòng lệnh) — tránh cảnh báo trùng khi chạy tay gỡ lỗi."
     },
     {
+     "dong": 302,
+     "noi_dung": "Cùng vòng giao sự kiện (nhịp 1 giây, dòng 332) còn xử lý các HẸN đã tới giờ (hen_gio) và thu hồi hẹn treo; tóm tắt cuối ngày bằng LLM chạy cùng nhịp agent giám sát (dòng 325)."
+    },
+    {
      "dong": 315,
-     "noi_dung": "Sổ nợ: chạy ghi số dư đầu kỳ từng lô mỗi nhịp cho tới khi hết lượt cũ ('con' = false), sau đó chỉ còn đối chiếu định kỳ."
+     "noi_dung": "Sổ nợ: chạy ghi số dư đầu kỳ mỗi nhịp cho tới khi hết lượt cũ ('con' = false), sau đó chỉ còn đối chiếu định kỳ (dòng 318)."
     },
     {
      "dong": 376,
-     "noi_dung": "Đẩy tệp: chỉ tiến trình giành được khoá tư vấn (pg_try_advisory_lock) mới làm; tiến trình thứ hai đứng im."
+     "noi_dung": "Đẩy tệp: chỉ tiến trình giành được khoá tư vấn (pg_try_advisory_lock) mới làm; tiến trình thứ hai đứng im và thử lại mỗi nhịp."
     },
     {
      "dong": 369,
      "noi_dung": "Lượt dọn tệp V9 đầu tiên chạy sau 10 phút kể từ khi khởi động (600 giây)."
+    },
+    {
+     "dong": 161,
+     "noi_dung": "Nhịp tim (_beat) chỉ ghi khi một vòng xong KHÔNG lỗi (relay dòng 161, pos-relay 224, su-kien 326, day-tep 389): vòng nào ném lỗi liên tục thì tệp nhịp tim đứng và healthcheck container báo hỏng."
     }
    ],
    "doc_bang": [
@@ -466,11 +478,15 @@
     },
     {
      "dong": 327,
-     "noi_dung": "Mọi lỗi trong vòng được nuốt + ghi log để một bên nhận hỏng không làm chết cả vòng giao — lỗi chỉ thấy trong log/kho lỗi."
+     "noi_dung": "Mọi lỗi trong vòng được nuốt + ghi log để một bên nhận hỏng không làm chết cả vòng giao — lỗi chỉ thấy trong log / kho lỗi, và vì lỗi bỏ qua _beat nên các việc phía sau trong cùng lượt (canh gác, sổ nợ, agent) cũng bị bỏ qua lượt đó."
     },
     {
      "dong": 358,
      "noi_dung": "Khoá tư vấn cấp phiên nằm trên kết nối 'giu' riêng; trả kết nối là mất khoá."
+    },
+    {
+     "dong": 376,
+     "noi_dung": "co_khoa chỉ được kiểm một lần rồi giữ True: nếu kết nối giữ khoá bị đứt thì khoá mất mà vòng vẫn tưởng còn giữ, hai container có thể cùng đẩy tệp."
     }
    ],
    "muon_sua": [

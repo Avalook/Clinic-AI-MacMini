@@ -697,19 +697,27 @@
    "luat": [
     {
      "dong": 51,
-     "noi_dung": "Không hoàn tác check-in được nếu khách đã: đang/đã đo sinh hiệu, được nhận vào phòng, bắt đầu tư vấn/khám, có phiếu khám, có chỉ định do người đặt, bắt đầu làm dịch vụ, hoặc nộp tiền (kể cả chuyển khoản đang chờ xác minh). Câu báo kể hết các việc rồi 'Nhờ trưởng ca điều phối.'"
+     "noi_dung": "Không hoàn tác check-in được nếu khách đã: đang/đã đo sinh hiệu, được nhận vào phòng, bắt đầu tư vấn/khám, có phiếu khám, có chỉ định do người đặt, bắt đầu làm dịch vụ, hoặc nộp tiền (kể cả chuyển khoản chờ xác minh). Câu báo kể hết các việc rồi 'Nhờ trưởng ca điều phối.' Chỉ cờ đúng True mới tính."
+    },
+    {
+     "dong": 60,
+     "noi_dung": "'Đang đo sinh hiệu' = luồng khám của lượt có vitals_status 'in_progress'; 'đã đo' = có bất kỳ bản đo nào gắn đúng lượt này (lần đo của buổi từ lượt khác không tính)."
     },
     {
      "dong": 73,
-     "noi_dung": "Phiên khám còn 'queued' (đang chờ) hoặc đã huỷ không tính là đã khám."
+     "noi_dung": "Phiên khám/tư vấn còn 'queued' (đang chờ) hoặc đã huỷ không tính là đã khám; phiên đang khám hoặc đã xong thì tính."
+    },
+    {
+     "dong": 76,
+     "noi_dung": "Chỉ cần có một dòng phiếu khám (phieu_kham_luot) của lượt là coi như 'có phiếu khám', không xét nội dung."
     },
     {
      "dong": 85,
-     "noi_dung": "Chỉ định mang sang từ lượt trước và chỉ định Điều trị tự sinh (gắn phiên khám còn chờ) KHÔNG tính là đã làm; chỉ định đã huỷ cũng không. Chỉ định thêm tại quầy thì TÍNH."
+     "noi_dung": "Chỉ định mang sang từ lượt trước và chỉ định Điều trị tự sinh (gắn phiên khám còn chờ) KHÔNG tính là đã làm; chỉ định đã huỷ cũng không. Chỉ định thêm tại quầy (không gắn phiên) thì TÍNH."
     },
     {
      "dong": 95,
-     "noi_dung": "Đã bắt đầu làm dịch vụ = có chỉ định đang làm / đã làm / đánh dấu không làm, hoặc việc thuộc nhóm dịch vụ / kết quả đang làm hay đã xong."
+     "noi_dung": "Đã bắt đầu làm dịch vụ = có chỉ định đang làm / đã làm / đánh dấu không làm được, hoặc việc thuộc nhóm dịch vụ / kết quả đang làm hay đã xong."
     },
     {
      "dong": 68,
@@ -718,6 +726,10 @@
     {
      "dong": 107,
      "noi_dung": "Nộp tiền = có lần thu đã PAID hoặc chuyển khoản đang chờ xác minh (PENDING_VERIFICATION)."
+    },
+    {
+     "dong": 151,
+     "noi_dung": "Lịch chưa có lượt nào thì không có gì để hỏi — cho hoàn tác (trả None)."
     }
    ],
    "doc_bang": [
@@ -776,11 +788,6 @@
      "lam_gi": "có hệ quả nghiệp vụ mà người bấm chưa xác nhận + lý do ≥5 ký tự → trả 409 CAN_XAC_NHAN để màn mở hộp xác nhận"
     },
     {
-     "ten": "mo_lai_moc_kham_xong",
-     "dong": 155,
-     "lam_gi": "bỏ mốc 'khám xong hẳn' của lượt (visit, encounter_flow, lịch hẹn COMPLETED → CHECKED_IN) nếu khách chưa check-out"
-    },
-    {
      "ten": "tien_da_thu_cua_chi_dinh",
      "dong": 270,
      "lam_gi": "mỗi chỉ định: đã thu (PAID), chuyển khoản chờ xác minh, đã/đang hoàn — gồm cả phụ thu đi kèm"
@@ -809,44 +816,57 @@
      "ten": "HoanTacService.thu_hoi_duyet_ket_qua",
      "dong": 1067,
      "lam_gi": "RevokeResultApproval — kết quả về 'chờ bác sĩ duyệt'"
+    },
+    {
+     "ten": "HoanTacService.mo_lai_luot",
+     "dong": 1181,
+     "lam_gi": "ReopenVisit — hoàn tác check-out / về giữa chừng, mở lại lượt"
     }
    ],
    "luat": [
     {
      "dong": 99,
-     "noi_dung": "Hoàn tác có hệ quả thật (đã thu tiền, khách đã về, kết quả đã duyệt/gửi…) không bị khoá: lần đầu máy chủ trả 409 kèm câu nói rõ hệ quả; người bấm phải tick xác nhận và ghi lý do ≥ 5 ký tự rồi gửi lại. Lý do > 500 ký tự bị cắt."
+     "noi_dung": "Hoàn tác có hệ quả thật (đã thu tiền, khách đã check-out, kết quả đã duyệt/gửi…) không bị khoá: lần đầu máy chủ trả 409 kèm câu nói rõ hệ quả; người bấm phải xác nhận và ghi lý do ≥ 5 ký tự rồi gửi lại. Không có hệ quả thì làm luôn. Lý do > 500 ký tự bị cắt (87)."
     },
     {
      "dong": 146,
-     "noi_dung": "Hồ sơ lượt đã KÝ (FINALIZED / AMENDED theo TT13) thì không hoàn tác được — phải đi đường đính chính hồ sơ."
+     "noi_dung": "Hồ sơ lượt đã KÝ (FINALIZED / AMENDED theo TT13) thì không hoàn tác được (VISIT_SIGNED) — phải đi đường đính chính hồ sơ. Áp cho mở lại khám, bỏ chỉ định, hoàn tác Xong dịch vụ, mở lại lượt."
     },
     {
      "dong": 453,
      "noi_dung": "Mở lại phiên khám đòi đúng quyền của lệnh gốc: phiên tư vấn cần 'clinical.intake.perform', phiên khám cần 'clinical.consult.perform'."
     },
     {
+     "dong": 473,
+     "noi_dung": "Bấm hai lần = không làm gì thêm (trả already): phiên đã đang khám (473), chỉ định đã huỷ (746), dịch vụ đã đang làm (933), kết quả chưa duyệt (1109), lượt chưa đóng (1205). Phiên chưa khám xong → lỗi CONSULTATION_NOT_COMPLETED (475)."
+    },
+    {
      "dong": 493,
-     "noi_dung": "Không mở lại phiên nếu phiên SAU đã có người nhận: sau tư vấn mà bác sĩ chính đã bắt đầu → không về tư vấn được; khám đã có lần đọc kết quả sau → phải hoàn tác lần đọc ấy trước."
+     "noi_dung": "Không mở lại phiên nếu phiên SAU đã có người nhận (đang làm hoặc đã xong): sau tư vấn mà bác sĩ chính đã bắt đầu → không về tư vấn được; khám đã có lần đọc kết quả sau → phải hoàn tác lần đọc ấy trước."
     },
     {
      "dong": 507,
-     "noi_dung": "Mở lại khám khi khách đã check-out = mở lại cả lượt (khách về lại hàng chờ) — cần xác nhận + lý do, phát thêm visit.reopened."
+     "noi_dung": "Mở lại khám khi khách đã check-out = mở lại cả lượt (khách về lại hàng chờ) — cần xác nhận + lý do, và phát thêm visit.reopened (516)."
     },
     {
-     "dong": 553,
-     "noi_dung": "Mở lại phiên khám (không phải tư vấn): xoá vòng đọc kết quả mở sau phiên này và huỷ việc theo dõi mở từ lúc bấm khám xong; phiên tư vấn: đưa đường đi về lại bàn tư vấn."
+     "dong": 532,
+     "noi_dung": "Mở lại phiên: phiên sau còn 'queued' (chưa ai nhận) bị huỷ cùng chỗ chờ của nó. Riêng phiên khám (553): xoá vòng đọc kết quả mở sau phiên này, huỷ việc theo dõi mở từ lúc bấm khám xong; phiên tư vấn: đưa đường đi về lại bàn tư vấn (589)."
     },
     {
      "dong": 616,
-     "noi_dung": "Sau khi mở lại: khách đang ở phòng khác → chờ ở hàng bàn khám; không ở đâu → 'đang khám' ngay và chặn các chỗ chờ khác."
+     "noi_dung": "Sau khi mở lại: khách đang được phục vụ ở phòng khác → chờ ở hàng bàn khám; không ở đâu → 'đang khám' ngay và chặn các chỗ chờ khác (chan_cho_khac)."
+    },
+    {
+     "dong": 172,
+     "noi_dung": "Mốc 'khám xong hẳn' chỉ mở lại khi khách chưa check-out; đã check-out thì để nguyên. Mở lại = bỏ exam_completed_at, finished_at và đưa lịch COMPLETED về CHECKED_IN."
     },
     {
      "dong": 728,
-     "noi_dung": "Bỏ chỉ định: ai có quyền 'clinical.order.place' bỏ được ngay (không theo vai, không chờ duyệt); bác sĩ chính được báo nếu người bỏ là người khác (dòng 844)."
+     "noi_dung": "Bỏ chỉ định: ai có quyền 'clinical.order.place' bỏ được ngay (không theo vai, không chờ duyệt); bác sĩ chính được báo nếu người bỏ là người khác (844)."
     },
     {
      "dong": 748,
-     "noi_dung": "Không bỏ được chỉ định đang làm hoặc đã làm xong — phòng phải bấm 'Huỷ bắt đầu nhầm' / 'Hoàn tác Xong' trước."
+     "noi_dung": "Không bỏ được chỉ định đang làm (ORDER_IN_PROGRESS, 748) hoặc đã làm xong (ORDER_PERFORMED, 754) — phòng phải bấm 'Huỷ bắt đầu nhầm' / 'Hoàn tác Xong' trước."
     },
     {
      "dong": 765,
@@ -854,7 +874,7 @@
     },
     {
      "dong": 779,
-     "noi_dung": "Đầu dò/vật tư đi kèm chỉ định đã thu (Bio) KHÔNG tự thành tiền thừa — chỉ cảnh báo để quầy tự hoàn dòng đầu dò."
+     "noi_dung": "Đầu dò/vật tư đi kèm chỉ định đã thu (Bio) KHÔNG tự thành tiền thừa — chỉ thêm câu cảnh báo để quầy tự hoàn dòng đầu dò."
     },
     {
      "dong": 786,
@@ -862,27 +882,43 @@
     },
     {
      "dong": 813,
-     "noi_dung": "Bỏ chỉ định: đóng chỗ chờ ở phòng của chỉ định, xoá yêu cầu của vòng đọc chưa đóng, huỷ việc theo dõi đang mở; nếu đó là dịch vụ cuối còn chờ thì lượt có thể thành 'khám xong hẳn' (dòng 849)."
+     "noi_dung": "Bỏ chỉ định: đóng chỗ chờ phòng của chỉ định (813), xoá yêu cầu của vòng đọc chưa đóng (824), huỷ việc theo dõi đang mở (835); nếu đó là dịch vụ cuối còn chờ thì lượt có thể thành 'khám xong hẳn' (849)."
+    },
+    {
+     "dong": 923,
+     "noi_dung": "Hoàn tác 'Xong' dịch vụ đòi đúng quyền của lệnh Xong (QUYEN_XONG, theo phòng của chỉ định) và lịch trực của phòng; chỉ định chưa 'Đã xong' thì lỗi EXECUTION_NOT_COMPLETED (935). Lần làm xong GẦN NHẤT được đưa về đang làm."
     },
     {
      "dong": 981,
-     "noi_dung": "Hoàn tác 'Xong' dịch vụ cần xác nhận + lý do khi: kết quả đã được bác sĩ duyệt, hoặc phiếu kết quả đã hoàn tất, hoặc bác sĩ đã vào đọc kết quả. Phiếu, tệp, kết quả đã gõ giữ nguyên."
+     "noi_dung": "Hoàn tác 'Xong' dịch vụ cần xác nhận + lý do khi: kết quả đã được bác sĩ duyệt, hoặc phiếu kết quả đã hoàn tất (chỉ nêu khi chưa duyệt), hoặc bác sĩ đã vào đọc kết quả. Phiếu, tệp, kết quả đã gõ giữ nguyên."
     },
     {
      "dong": 1024,
-     "noi_dung": "Hoàn tác Xong dịch vụ không giữ lượt (chuyển theo dõi / đối tác) thì lượt vẫn 'khám xong hẳn' như cũ."
+     "noi_dung": "Hoàn tác Xong dịch vụ mà dịch vụ không giữ lượt (chuyển theo dõi / đối tác) thì lượt vẫn 'khám xong hẳn' như cũ (mo_moc về False)."
+    },
+    {
+     "dong": 1089,
+     "noi_dung": "Thu hồi duyệt kết quả cần quyền 'result.review.approve'; không đòi lượt còn mở (kết quả muộn duyệt sau khi khách về)."
     },
     {
      "dong": 1121,
-     "noi_dung": "Thu hồi duyệt kết quả: cần quyền 'result.review.approve'; đã gửi tệp cho khách thì hỏi xác nhận (khách vẫn giữ bản đã nhận). Không đòi lượt còn mở."
+     "noi_dung": "Thu hồi duyệt: đã gửi tệp cho khách (gui_luc có, chưa xoá) thì hỏi xác nhận + lý do (khách vẫn giữ bản đã nhận); mốc 'cho phép gửi' trên tệp không xoá."
     },
     {
      "dong": 1139,
-     "noi_dung": "Thu hồi duyệt chỉ mở lại đúng việc theo dõi mà lần duyệt ấy đóng (cùng giờ duyet_luc), và chỉ khi chưa có việc mở khác cho chỉ định này."
+     "noi_dung": "Thu hồi duyệt chỉ mở lại đúng việc theo dõi mà lần duyệt ấy đóng (closed_at = duyet_luc), và chỉ khi chưa có việc mở khác cho chỉ định này."
     },
     {
      "dong": 1198,
      "noi_dung": "Mở lại lượt (hoàn tác check-out / về giữa chừng) dùng quyền check-out 'reception.checkin.perform'; lượt về IN_PROGRESS, bước 'Đóng lượt' về chờ, chỗ chờ 'left' mở lại, lịch hẹn về CHECKED_IN nếu bác sĩ chưa khám xong hẳn. Tiền đã thu, việc đã làm giữ nguyên."
+    },
+    {
+     "dong": 298,
+     "noi_dung": "Tiền đã thu của chỉ định chỉ tính dòng billing_owner CLINIC thuộc phiếu PAID hoặc chờ xác minh, gồm phụ thu đi kèm; 'đã hoàn' tính cả khoản hoàn đang làm (PENDING) lẫn xong (COMPLETED)."
+    },
+    {
+     "dong": 374,
+     "noi_dung": "Tiền thừa ở quầy: chỉ chỉ định đã huỷ hoặc 'không làm' còn dư sau khi trừ hoàn; cộng thêm tiền dịch vụ khám đã thu rồi bỏ tick (loại BO_DICH_VU_KHAM, 349)."
     }
    ],
    "doc_bang": [
@@ -936,23 +972,27 @@
     },
     {
      "dong": 556,
-     "noi_dung": "Mở lại khám XOÁ HẲN (DELETE) các vòng đọc có round_no lớn hơn — trái tinh thần 'không xoá lịch sử'; dựa vào việc chưa ai đọc. Nếu luật chặn phiên sau (dòng 484) đổi thì có thể xoá mất vòng đã đọc."
+     "noi_dung": "Mở lại khám XOÁ HẲN (DELETE) các vòng đọc có round_no lớn hơn — trái tinh thần 'không xoá lịch sử'; dựa vào việc chưa ai nhận (chặn ở dòng 484). Đổi luật chặn đó thì có thể xoá mất vòng đã đọc."
     },
     {
-     "dong": 572,
-     "noi_dung": "Huỷ việc theo dõi theo mốc thời gian created_at >= completed_at của phiên — mọi việc theo dõi mở sau mốc đó (kể cả do lệnh khác) đều bị huỷ."
+     "dong": 571,
+     "noi_dung": "Huỷ việc theo dõi theo mốc created_at >= completed_at của phiên — mọi việc theo dõi mở sau mốc đó (kể cả do lệnh khác) đều bị huỷ."
     },
     {
      "dong": 653,
-     "noi_dung": "Gọi hàm nội bộ của LuotKhamService (_evaluate_rounds, _ket_thuc_neu_xong) với pool=None — đổi chữ ký các hàm ấy là vỡ hoàn tác."
+     "noi_dung": "Gọi hàm nội bộ của LuotKhamService (_evaluate_rounds, _ket_thuc_neu_xong) với pool=None, và hàm riêng của ServiceExecutionService (_khoa_don 924, _doi_trang_thai 1001) — đổi chữ ký các hàm ấy là vỡ hoàn tác."
     },
     {
      "dong": 797,
-     "noi_dung": "Phải gọi dat_ngu_canh TRƯỚC câu UPDATE service_order: sổ sửa chỉ định được ghi bằng trigger trong chính câu UPDATE, thiếu ngữ cảnh thì sổ không biết ai bỏ / lý do."
+     "noi_dung": "Phải gọi dat_ngu_canh TRƯỚC câu UPDATE service_order: sổ sửa chỉnh chỉ định được ghi bằng trigger trong chính câu UPDATE, thiếu ngữ cảnh thì sổ không biết ai bỏ / lý do."
     },
     {
      "dong": 1181,
-     "noi_dung": "mo_lai_luot nhận xac_nhan nhưng KHÔNG gọi doi_xac_nhan — mở lại lượt đã check-out làm ngay không cần lý do, khác luật chung ở đầu tệp."
+     "noi_dung": "mo_lai_luot nhận ly_do/xac_nhan nhưng KHÔNG gọi doi_xac_nhan — mở lại lượt đã check-out làm ngay, không cần lý do; khác mo_lai_kham (507) hỏi xác nhận khi lượt đã đóng."
+    },
+    {
+     "dong": 1096,
+     "noi_dung": "thu_hoi_duyet_ket_qua chỉ khoá visit bằng SELECT FOR UPDATE thô, KHÔNG qua _khoa_luot_bat_ky nên không chặn hồ sơ đã KÝ."
     },
     {
      "dong": 1146,
@@ -984,15 +1024,15 @@
    "comment_cu": [
     {
      "dong": 7,
-     "vi_sao": "nói 'Bốn lệnh' nhưng liệt kê và cài NĂM lệnh (thêm RevokeResultApproval); dòng 412 cũng ghi 'Bốn lệnh hoàn tác'"
+     "vi_sao": "Nói 'Bốn lệnh' nhưng liệt kê và cài NĂM lệnh (thêm RevokeResultApproval); dòng 412 cũng ghi 'Bốn lệnh hoàn tác'."
     },
     {
      "dong": 24,
-     "vi_sao": "nói khách đã về là ràng buộc phải hỏi xác nhận, nhưng mo_lai_luot (dòng 1181) không hỏi"
+     "vi_sao": "Luật chung nói mọi lệnh có hệ quả thật đều hỏi xác nhận, nhưng mo_lai_luot (dòng 1181) không gọi doi_xac_nhan."
     },
     {
      "dong": 1066,
-     "vi_sao": "nhãn mục (a)(b)(c)(h)(d) lộn xộn, (h) không khớp danh sách nào"
+     "vi_sao": "Nhãn mục (a)(b)(c)(h)(d) lộn xộn, (h) không khớp danh sách nào."
     }
    ],
    "chua_chac": [
@@ -1245,23 +1285,31 @@
    "luat": [
     {
      "dong": 80,
-     "noi_dung": "Cùng nguồn + cùng dấu vân thì cộng dồn so_lan, không đẻ dòng mới; dấu vân không chứa số dòng nên sửa code chèn thêm dòng không biến lỗi cũ thành lỗi mới."
+     "noi_dung": "Cùng nguồn + cùng dấu vân thì cộng dồn so_lan, cập nhật lần cuối + thông điệp mới nhất, không đẻ dòng mới; dấu vân (dòng 62) không chứa số dòng nên sửa code chèn thêm dòng không biến lỗi cũ thành lỗi mới."
     },
     {
      "dong": 86,
-     "noi_dung": "Lỗi đã đánh dấu 'Đã sửa' mà tái diễn → tự mở lại thành 'Mới' cho người trực thấy."
+     "noi_dung": "Lỗi đã đánh dấu 'Đã sửa' (DA_SUA) mà tái diễn → tự mở lại thành 'Mới'; các trạng thái khác (DA_BIET, BO_QUA) giữ nguyên."
     },
     {
      "dong": 110,
-     "noi_dung": "Ghi lỗi có trần 0,5 giây và nuốt mọi lỗi của chính nó (chỉ ghi log cảnh báo) — ghi lỗi không được làm người dùng chờ thêm."
+     "noi_dung": "Ghi lỗi có trần 0,5 giây và nuốt mọi lỗi của chính nó (chỉ ghi log cảnh báo); không có kết nối (pool rỗng) thì bỏ qua im lặng (dòng 107)."
     },
     {
      "dong": 44,
-     "noi_dung": "Không lưu dữ liệu khách: giá trị Postgres '(Nguyễn Văn A)' thành '(…)', mã uuid thành ':id', vị trí lỗi web bỏ phần sau dấu '?'."
+     "noi_dung": "Không lưu dữ liệu khách: sau bộ che SĐT/email/token, giá trị Postgres '=(Nguyễn Văn A)' thành '=(…)', mã uuid thành ':id', gộp khoảng trắng, cắt 200 ký tự."
     },
     {
-     "dong": 137,
-     "noi_dung": "Lỗi web gom theo vị trí + loại + 80 ký tự đầu của thông điệp đã che."
+     "dong": 136,
+     "noi_dung": "Lỗi web: vị trí bỏ phần sau dấu '?' và đổi uuid thành ':id'; dấu vân gom theo vị trí + loại + 80 ký tự đầu của thông điệp đã che (dòng 137)."
+    },
+    {
+     "dong": 165,
+     "noi_dung": "Danh sách /ops: mới nhất trước (theo lần cuối), mặc định 100 dòng; chi_mo=true chỉ lấy trạng thái MOI và DA_BIET."
+    },
+    {
+     "dong": 189,
+     "noi_dung": "Đổi trạng thái chỉ nhận MOI / DA_BIET / DA_SUA / BO_QUA, ghi giờ + người đổi; trạng thái lạ hoặc không có dòng nào khớp → trả False."
     }
    ],
    "doc_bang": [
@@ -1277,14 +1325,18 @@
    "bay": [
     {
      "dong": 134,
-     "noi_dung": "ghi_loi_web che chữ và tính dấu vân NGOÀI khối try — thông điệp/vị trí kiểu lạ (None) sẽ ném lỗi ra nơi gọi, trái luật 'ghi lỗi không được sinh lỗi mới'."
+     "noi_dung": "ghi_loi_web che chữ và tính dấu vân NGOÀI khối try — đầu vào không phải chuỗi sẽ ném lỗi ra nơi gọi, trái luật 'ghi lỗi không được sinh lỗi mới' (ghi_loi thì an toàn)."
+    },
+    {
+     "dong": 91,
+     "noi_dung": "ghi_loi lưu vi_tri của người gọi nguyên văn (chỉ cắt 200 ký tự), KHÔNG tự che — người gọi phải đưa route template, không đưa đường dẫn đã điền mã khách."
     },
     {
      "dong": 191,
-     "noi_dung": "doi_trang_thai không bắt id rác: loi_id không phải uuid thì Postgres ném lỗi (500) thay vì trả False."
+     "noi_dung": "doi_trang_thai không bắt id rác: loi_id không phải uuid thì Postgres/driver ném lỗi thay vì trả False."
     },
     {
-     "dong": 159,
+     "dong": 78,
      "noi_dung": "loi_nhom không có clinic_id — kho lỗi chung toàn hệ thống, ai xem /ops là thấy lỗi mọi cơ sở."
     }
    ],
@@ -1908,27 +1960,35 @@
    "luat": [
     {
      "dong": 75,
-     "noi_dung": "Tạo xét nghiệm phải có tên; khách phải thuộc phòng khám; nếu kèm lịch hẹn thì lịch hẹn phải của đúng khách đó."
+     "noi_dung": "Tạo xét nghiệm phải có tên (bỏ khoảng trắng đầu/cuối); phiếu mới luôn test_code 'MANUAL', triage_group 'PENDING', chưa có kết quả (dòng 118)."
+    },
+    {
+     "dong": 100,
+     "noi_dung": "Khách phải thuộc phòng khám của người tạo; nếu kèm lịch hẹn thì lịch hẹn phải tồn tại ở phòng khám đó và là của đúng khách này (dòng 104)."
     },
     {
      "dong": 164,
-     "noi_dung": "Nhập kết quả phải có tóm tắt hoặc link phiếu — cả hai trống bị từ chối."
+     "noi_dung": "Nhập kết quả phải có tóm tắt hoặc link phiếu — cả hai trống bị từ chối, không đóng dấu nhận kết quả."
     },
     {
      "dong": 194,
-     "noi_dung": "Kết quả đã chốt (is_finalized) thì không sửa được; tệp này không bao giờ đặt chốt."
+     "noi_dung": "Kết quả đã chốt (is_finalized) thì không sửa được → báo 'không tìm thấy hoặc đã chốt' (dòng 207); tệp này không bao giờ đặt chốt."
     },
     {
      "dong": 212,
-     "noi_dung": "Chỉ phát lab_result.arrived (chuông CSKH + bác sĩ chính) khi kết quả về LẦN ĐẦU — trước đó chưa có cả kết quả lẫn link; sửa lại không phát nữa."
+     "noi_dung": "Chỉ phát lab_result.arrived (chuông CSKH + bác sĩ chính) khi kết quả về LẦN ĐẦU — trước câu này chưa có cả tóm tắt lẫn link; sửa lại không phát nữa. Sự kiện phát cùng giao dịch với việc ghi."
     },
     {
      "dong": 54,
-     "noi_dung": "Link dán 'drive.google.com/…' được lưu thành 'https://drive.google.com/…'; link đã có http(s)://, mailto:, tel:, // hoặc bắt đầu bằng '/' giữ nguyên."
+     "noi_dung": "Link dán 'drive.google.com/…' được lưu thành 'https://drive.google.com/…'; link đã có http(s)://, mailto:, tel:, // hoặc bắt đầu bằng '/' giữ nguyên; rỗng → không có link."
     },
     {
      "dong": 234,
      "noi_dung": "Nhật ký không chép nội dung kết quả (dữ liệu y khoa), chỉ ghi có link hay không."
+    },
+    {
+     "dong": 295,
+     "noi_dung": "Hồ sơ khám lấy 20 kết quả xét nghiệm gần nhất của khách (theo result_received_at mới trước); đủ 20 thì canh_bao_neu_day báo là đã chạm trần."
     }
    ],
    "doc_bang": [
@@ -1948,12 +2008,20 @@
    "goi_api": [],
    "bay": [
     {
+     "dong": 186,
+     "noi_dung": "enter_result GHI ĐÈ cả ba cột result_value, external_ref, lab_provider bằng giá trị gửi lên: sửa chữ mà không gửi lại link thì link cũ bị xoá (và ngược lại); người gọi phải gửi đủ cả ba."
+    },
+    {
      "dong": 189,
      "noi_dung": "result_received_at là NOT NULL DEFAULT now() từ lúc TẠO phiếu (comment dòng 169), nên coalesce không bao giờ đổi — 'giờ nhận kết quả' thực ra là giờ chỉ định, và hồ sơ (dòng 295) sắp theo giờ đó."
     },
     {
      "dong": 183,
      "noi_dung": "Khoá dòng (FOR UPDATE) trong CTE để quyết 'lần đầu' đúng khi hai người nhập cùng lúc — bỏ khoá thì chuông có thể kêu hai lần hoặc không kêu."
+    },
+    {
+     "dong": 112,
+     "noi_dung": "order_test không đặt visit_id cho phiếu; nên sự kiện lab_result.arrived (dòng 223) có thể mang visit_id rỗng nếu không có gì khác gán sau."
     }
    ],
    "muon_sua": [
@@ -2004,27 +2072,27 @@
    "luat": [
     {
      "dong": 25,
-     "noi_dung": "Thứ tự mức nặng: PENDING < GROUP_A < GROUP_B < GROUP_C; nhóm khác bị từ chối."
+     "noi_dung": "Thứ tự mức nặng: PENDING < GROUP_A < GROUP_B < GROUP_C; nhóm khác bị từ chối (dòng 81)."
     },
     {
      "dong": 108,
-     "noi_dung": "Bộ phân loại chỉ được NÂNG nhóm (A → B → C), không bao giờ hạ; chạy lại cùng kết quả là không làm gì."
+     "noi_dung": "Bộ phân loại chỉ được NÂNG nhóm (A → B → C), không bao giờ hạ (dòng 108–118); riêng lần PENDING đầu tiên (chưa từng phân loại) cũng được ghi để đóng dấu đã phân loại. Chạy lại cùng kết quả là không làm gì (dòng 122)."
     },
     {
      "dong": 105,
-     "noi_dung": "Kết quả bác sĩ đã chốt thì bộ phân loại không được ghi đè (kể cả nếu chốt xảy ra giữa lúc đọc và lúc ghi — đã khoá dòng)."
+     "noi_dung": "Kết quả bác sĩ đã chốt thì bộ phân loại không được ghi đè — trả nguyên trạng, changed=False (dòng 105); dòng được khoá FOR UPDATE nên chốt xen giữa cũng không lọt, và câu UPDATE còn lọc is_finalized=FALSE (dòng 153)."
     },
     {
      "dong": 119,
-     "noi_dung": "Cờ 'cần bác sĩ xem' một khi đã bật thì AI chạy lại không tắt được."
+     "noi_dung": "Cờ 'cần bác sĩ xem' một khi đã bật thì AI chạy lại không tắt được (dòng 136). Nếu chỉ cờ này tăng mà nhóm không tăng thì giữ nguyên nhóm / lý do / model cũ, chỉ bật cờ (dòng 125–135)."
     },
     {
      "dong": 231,
-     "noi_dung": "Bác sĩ chỉ chốt được khi đã có dữ liệu kết quả (chữ, số, link hoặc dữ liệu thô); nhóm PENDING (chưa AI phân loại) VẪN chốt được — nhóm AI chỉ là gợi ý."
+     "noi_dung": "Bác sĩ chỉ chốt được khi đã có dữ liệu kết quả (chữ, số, mã tham chiếu hoặc dữ liệu thô — dòng 202–207); nhóm PENDING (chưa AI phân loại) VẪN chốt được — nhóm AI chỉ là gợi ý."
     },
     {
      "dong": 223,
-     "noi_dung": "Chốt lại kết quả đã chốt trả về kết quả cũ, không ghi thêm nhật ký."
+     "noi_dung": "Chốt lại kết quả đã chốt trả về kết quả cũ, không ghi thêm nhật ký và không đóng việc lần nữa."
     },
     {
      "dong": 218,
@@ -2032,7 +2100,7 @@
     },
     {
      "dong": 261,
-     "noi_dung": "Chốt kết quả đóng luôn việc LAB_REVIEW đang chờ/đang làm của kết quả đó."
+     "noi_dung": "Chốt kết quả đóng luôn việc LAB_REVIEW đang chờ / đang làm (PENDING, IN_PROGRESS) của kết quả đó, rồi ghi nhật ký lab_result.finalized, tất cả trong một giao dịch."
     }
    ],
    "doc_bang": [
@@ -2054,6 +2122,14 @@
     {
      "dong": 263,
      "noi_dung": "Ghi vào staff_task — bảng đã đánh dấu 'CHỜ BỎ' trong modules.py (chỉ còn triage xét nghiệm ghi); gỡ bảng phải gỡ chỗ này trước."
+    },
+    {
+     "dong": 295,
+     "noi_dung": "_review_outcome ném ConflictError nếu dòng đã chốt mà thiếu người duyệt / giờ duyệt — kết quả chốt bằng đường khác (không qua đây) bấm chốt lại sẽ ra lỗi thay vì 'đã chốt'."
+    },
+    {
+     "dong": 336,
+     "noi_dung": "Nhật ký lab_result.finalized ghi thẳng event_log với event_published=FALSE, không qua emit_event — có bên nghe hay không phụ thuộc bộ chuyển phát từ event_log."
     }
    ],
    "muon_sua": [
@@ -2069,16 +2145,20 @@
    "comment_cu": [
     {
      "dong": 1,
-     "vi_sao": "nói 'doctor-only finalisation' nhưng finalize_review không kiểm vai/quyền nào trong tệp"
+     "vi_sao": "docstring nói 'doctor-only finalisation' nhưng finalize_review không kiểm vai / quyền nào trong tệp (chỉ lấy staff_id người bấm làm người duyệt)"
+    },
+    {
+     "dong": 188,
+     "vi_sao": "docstring nói trạng thái PENDING bị từ chối, nhưng code không còn chặn PENDING (chỉ chặn khi chưa có dữ liệu kết quả, dòng 231)"
     },
     {
      "dong": 226,
-     "vi_sao": "kể lịch sử bản cũ chặn PENDING (15/09) — chuyện đổi lúc nào"
+     "vi_sao": "kể lịch sử bản cũ chặn PENDING (15/09) — chuyện đổi lúc nào, nên đưa vào commit message"
     }
    ],
    "chua_chac": [
     "Quyền bác sĩ duyệt có thể được kiểm ở router; service không kiểm.",
-    "Không phát emit_event khi chốt (chỉ event_log) — không khối nào nghe được việc chốt xét nghiệm."
+    "Không gọi emit_event khi chốt (chỉ ghi event_log, event_published=FALSE) — chưa kiểm có bộ chuyển phát nào đọc dòng này."
    ]
   },
   "src/clinicai/services/lam_them_dong_dich_vu.py": {
@@ -2950,11 +3030,15 @@
     },
     {
      "dong": 45,
-     "noi_dung": "Bỏ dòng lịch REJECTED; dòng chưa duyệt vẫn hiện, đánh dấu duyet = false."
+     "noi_dung": "Bỏ dòng lịch REJECTED; dòng chưa duyệt (PENDING) vẫn hiện, đánh dấu duyet = false (dòng 69)."
     },
     {
      "dong": 36,
-     "noi_dung": "Chỉ vị trí đang bật và đã gắn phòng mới hiện."
+     "noi_dung": "Chỉ vị trí đang bật và đã gắn phòng mới hiện; phòng chưa có vị trí nào không có mặt trong kết quả."
+    },
+    {
+     "dong": 27,
+     "noi_dung": "Ngày vào rác hoặc rỗng → lấy tuần này (giờ Việt Nam), không ném lỗi; chuỗi dài hơn 10 ký tự được cắt lấy YYYY-MM-DD đầu."
     }
    ],
    "doc_bang": [
@@ -2969,6 +3053,14 @@
     {
      "dong": 54,
      "noi_dung": "Không kiểm quyền trong service — dựa vào router."
+    },
+    {
+     "dong": 45,
+     "noi_dung": "w.status <> 'REJECTED' loại luôn dòng có status trống (NULL <> 'x' không đúng) — các nơi khác coi trạng thái trống là đã duyệt; dòng lịch đời cũ nếu còn status trống sẽ không hiện ở đây."
+    },
+    {
+     "dong": 41,
+     "noi_dung": "Lịch không lọc theo cơ sở: chỉ khớp theo mã vị trí của phòng khám, nên ca ghi vào mã vị trí không thuộc phòng nào bị bỏ im lặng (dòng 80 chỉ lấy theo code của vị trí có phòng)."
     }
    ],
    "muon_sua": [
@@ -3014,19 +3106,27 @@
     },
     {
      "dong": 57,
-     "noi_dung": "Mốc của một lượt = giờ check-in, không có thì giờ hẹn, không có nữa thì giờ tạo lượt; ngày tính theo giờ VN."
+     "noi_dung": "Mốc của một lượt = giờ check-in, không có thì giờ hẹn, không có nữa thì giờ tạo lượt; ngày tính theo giờ VN (giờ không kèm múi coi là giờ VN, dòng 90)."
+    },
+    {
+     "dong": 81,
+     "noi_dung": "Ngày lọc là chuỗi người dùng gõ: lấy 10 ký tự đầu theo yyyy-mm-dd; rác / rỗng → None, tức bỏ lọc ấy (không lỗi)."
     },
     {
      "dong": 104,
-     "noi_dung": "Ngày lọc rác → bỏ lọc ấy (không lỗi); từ > đến thì tự đổi chỗ."
+     "noi_dung": "Từ ngày > đến ngày thì tự đổi chỗ; khoảng lọc gồm cả hai đầu (dòng 109, 111)."
     },
     {
-     "dong": 68,
-     "noi_dung": "Loại dịch vụ của lượt = dịch vụ khám của lượt, không có thì của lịch hẹn."
+     "dong": 113,
+     "noi_dung": "Lọc loại dịch vụ so đúng mã dịch vụ của lượt (dịch vụ của lượt, không có thì của lịch hẹn — dòng 68)."
     },
     {
      "dong": 72,
-     "noi_dung": "Đọc tối đa 500 lượt một khách."
+     "noi_dung": "Đọc tối đa 500 lượt mới nhất của một khách; 'tong' (dòng 165) cũng chỉ đếm trong 500 đó, trước khi lọc."
+    },
+    {
+     "dong": 160,
+     "noi_dung": "Ngày có khám và danh sách loại dịch vụ tính trên TẤT CẢ lượt, không bị bộ lọc ngày / dịch vụ ảnh hưởng (để lịch luôn chấm đủ)."
     }
    ],
    "doc_bang": [
@@ -3045,11 +3145,15 @@
    "bay": [
     {
      "dong": 140,
-     "noi_dung": "Lượt không có mốc giờ nào thì ngày = '0001-01-01' (date.min) — lọt vào ngay_co_kham và bị loại khi có lọc ngày."
+     "noi_dung": "Lượt không có mốc giờ hợp lệ thì ngày = '0001-01-01' (date.min): lọt vào ngay_co_kham; bị loại khi có 'từ ngày', nhưng vẫn LỌT khi chỉ có 'đến ngày' (vì nhỏ hơn mọi ngày)."
     },
     {
      "dong": 129,
      "noi_dung": "Không kiểm quyền, không kiểm dạng clinic_patient_id — dựa vào nơi gọi."
+    },
+    {
+     "dong": 133,
+     "noi_dung": "Import muộn phan_hoi_thuoc_service; nếu cột lượt không có đơn thì phan_hoi_thuoc là danh sách rỗng, không phải null."
     }
    ],
    "muon_sua": [
@@ -3094,24 +3198,36 @@
    ],
    "luat": [
     {
-     "dong": 6,
-     "noi_dung": "Hai tầng quyền: thấy DANH SÁCH lượt cũ = quyền màn Danh sách bệnh nhân (router gác); thấy NỘI DUNG (chẩn đoán, kết quả, thuốc, tệp, link Drive) = quyền xem lịch sử phiếu khám."
+     "dong": 54,
+     "noi_dung": "Hai tầng quyền: thấy DANH SÁCH lượt cũ = quyền màn Danh sách bệnh nhân (router gác, hàm này không kiểm); thấy NỘI DUNG = quyền 'xem_lich_su' của phiếu khám, kiểm ở dòng 54 (tóm tắt: chỉ ẩn bớt), 154 và 273 (chi tiết và tệp: không có quyền thì ném SafetyGateError)."
     },
     {
      "dong": 73,
-     "noi_dung": "Không có quyền nội dung thì chẩn đoán và link Drive bị để trống trong tóm tắt (dòng 127)."
+     "noi_dung": "Không có quyền nội dung thì chẩn đoán trong từng lượt bị để trống (dòng 73) và link Drive của người bị bỏ (dòng 127); lịch hẹn cũ, ghi chú lần đầu và số dịch vụ / xét nghiệm / thuốc vẫn hiện."
     },
     {
      "dong": 88,
-     "noi_dung": "Lượt Notion đã chuyển thành lượt thật không hiện ở đây nữa (hiện ở 'Lịch sử các lượt khám'); chỉ còn lượt chưa chuyển."
+     "noi_dung": "Lượt Notion đã chuyển thành lượt thật (có visit_id) không hiện ở đây nữa (hiện ở 'Lịch sử các lượt khám'); chỉ còn lượt chưa chuyển. Số lượt đã chuyển trả riêng ở so_luot_da_chuyen (dòng 97)."
+    },
+    {
+     "dong": 66,
+     "noi_dung": "Khách không có bản ghi người trong lich_su_notion thì trả co_lich_su = false và dừng, không đọc lượt hay lịch hẹn."
+    },
+    {
+     "dong": 91,
+     "noi_dung": "Lượt xếp ngày khám mới nhất trước, cùng ngày thì lần thứ lớn hơn trước (lần thứ rỗng xếp cuối)."
     },
     {
      "dong": 237,
-     "noi_dung": "Tệp xét nghiệm cũ chỉ trả tên + có tệp hay không; đường dẫn kho không bao giờ ra trình duyệt."
+     "noi_dung": "Tệp xét nghiệm cũ chỉ trả tên + có tệp hay không (khoá rỗng = không có); đường dẫn kho không bao giờ ra trình duyệt."
+    },
+    {
+     "dong": 282,
+     "noi_dung": "Tệp thứ i ngoài danh sách, hoặc không có khoá kho → NotFoundError; xét nghiệm của phòng khám khác coi như không tồn tại (dòng 277)."
     },
     {
      "dong": 284,
-     "noi_dung": "Khoá tệp luôn là '<clinic_id>/lich-su-notion/…'; có '..' trong đường dẫn → coi như không có tệp."
+     "noi_dung": "Khoá tệp luôn là '<clinic_id>/lich-su-notion/…'; có đoạn '..' trong đường dẫn → coi như không có tệp."
     }
    ],
    "doc_bang": [
@@ -3138,8 +3254,8 @@
      "noi_dung": "Các bảng con (dịch vụ, kết quả, xét nghiệm, thuốc, bất thường) chỉ lọc theo luot_kham_id, không lọc clinic_id — an toàn chỉ vì lượt cha đã được kiểm đúng phòng khám ở dòng 168; tách hàm ra dùng riêng là hở."
     },
     {
-     "dong": 189,
-     "noi_dung": "Nối service_price theo mã dịch vụ có thể ra nhiều dòng giá → một dịch vụ cũ hiện nhiều lần."
+     "dong": 174,
+     "noi_dung": "chi_tiet_luot không loại lượt đã chuyển thành lượt thật: gọi thẳng bằng id vẫn xem được lượt đó dù danh sách đã ẩn."
     }
    ],
    "muon_sua": [
@@ -3154,7 +3270,8 @@
    ],
    "comment_cu": [],
    "chua_chac": [
-    "Khối: tệp không có trong TEP_CUA_KHOI (chỉ đọc); xếp 'van_hanh' cùng nhap_lich_su_notion.py — cũng có thể coi là 'ho_so_khach'."
+    "Khối: tệp không có trong TEP_CUA_KHOI (chỉ đọc); xếp 'van_hanh' cùng nhap_lich_su_notion.py — cũng có thể coi là 'ho_so_khach'.",
+    "Dòng 189: nối service_price theo (phòng khám, mã dịch vụ) — nếu bảng giá có nhiều dòng cùng mã thì một dịch vụ cũ hiện nhiều lần; chưa kiểm ràng buộc duy nhất."
    ]
   },
   "src/clinicai/services/lich_su_phong.py": {
@@ -3180,15 +3297,19 @@
    "luat": [
     {
      "dong": 80,
-     "noi_dung": "Sự kiện xếp phòng có cờ tu_dong mà không ghi nguồn → hiện là 'Tự động'; có phòng cũ thì là 'đổi phòng', không thì 'xếp phòng'."
+     "noi_dung": "Sự kiện xếp phòng có cờ tu_dong mà không ghi nguồn → hiện 'Tự động'; có phòng cũ (from_room_id) thì là 'đổi phòng', không thì 'xếp phòng' (dòng 82)."
     },
     {
      "dong": 86,
      "noi_dung": "Tự động xếp theo phòng quầy thu / trưởng ca chọn trước → lý do 'theo phòng … chọn trước'."
     },
     {
-     "dong": 38,
-     "noi_dung": "Lần xếp đầu và đổi tay không hiện lý do; các mã khác đổi sang chữ (cân tải, hỏng máy, xếp nhầm phòng…)."
+     "dong": 84,
+     "noi_dung": "Mã lý do lạ (không có trong TEN_LY_DO) hiện nguyên mã thô; lần xếp đầu (INITIAL_ASSIGNMENT) và đổi tay (MANUAL_CORRECTION) không hiện lý do (dòng 38, 44)."
+    },
+    {
+     "dong": 88,
+     "noi_dung": "Nguồn lạ hoặc thiếu (không có trong TEN_NGUON) hiện 'Nhân viên'."
     },
     {
      "dong": 91,
@@ -3196,11 +3317,15 @@
     },
     {
      "dong": 75,
-     "noi_dung": "Chuyển phòng khi đang làm mặc định là 'Trưởng ca', kèm lý do chữ."
+     "noi_dung": "Chuyển phòng khi đang làm (service.room_transferred) mặc định nguồn 'Trưởng ca', kèm lý do chữ."
     },
     {
      "dong": 135,
-     "noi_dung": "Bác sĩ tự gán thì thêm 'phòng chỉ có một bác sĩ trực'."
+     "noi_dung": "Dòng chọn bác sĩ do HỆ THỐNG tự chọn (nguồn tu_dong) thì thêm 'phòng chỉ có một bác sĩ trực'; có cả bác sĩ cũ và mới là 'đổi', chỉ mới là 'chọn', không có mới là 'bỏ chọn' (dòng 126)."
+    },
+    {
+     "dong": 166,
+     "noi_dung": "Mỗi chỉ định xếp theo giờ xảy ra rồi số thứ tự sự kiện, cũ → mới; chỉ đọc sự kiện của các chỉ định thuộc đúng lượt và phòng khám."
     }
    ],
    "doc_bang": [
@@ -3217,6 +3342,10 @@
     {
      "dong": 7,
      "noi_dung": "Lịch sử CHỈ dựng từ sổ sự kiện — nơi xếp/đổi phòng nào quên phát sự kiện (hoặc đổi tên trường payload from_room_id / room_id / nguon) thì Hành trình thiếu dòng mà không báo lỗi."
+    },
+    {
+     "dong": 65,
+     "noi_dung": "Payload rác / thiếu trường không ném: dòng vẫn ra nhưng phòng hiện '—'; phòng/người không tra được tên cũng hiện '—' hoặc rỗng."
     }
    ],
    "muon_sua": [
@@ -3267,27 +3396,27 @@
    "luat": [
     {
      "dong": 70,
-     "noi_dung": "Xem cần quyền đọc phiếu; đặt / huỷ cần quyền ghi phiếu của lượt (kiem_quyen_core)."
+     "noi_dung": "Xem cần quyền đọc phiếu (doc_phieu); đặt và huỷ cần quyền ghi phiếu của lượt (ghi_phieu), cùng cổng kiem_quyen_core."
     },
     {
      "dong": 90,
-     "noi_dung": "Một lượt chỉ có MỘT lịch tái khám còn sống — đã có thì báo 'huỷ lịch đó rồi đặt lại'; hai cú bấm cùng lúc thì chỉ mục duy nhất giữ một (dòng 111)."
+     "noi_dung": "Một lượt chỉ có MỘT lịch tái khám còn sống — đã có thì báo 'huỷ lịch đó rồi đặt lại'; hai cú bấm cùng lúc thì chỉ mục duy nhất giữ một và báo 'vừa được đặt, tải lại' (dòng 111)."
     },
     {
      "dong": 95,
-     "noi_dung": "Lượt chưa có loại khám thì không đặt được lịch tái khám."
+     "noi_dung": "Lượt chưa có loại khám (cả lượt lẫn lịch trước đều không có) thì không đặt được lịch tái khám."
     },
     {
      "dong": 98,
-     "noi_dung": "Mọi luật đặt lịch (sức chứa, trùng giờ, ca trực, ngoài giờ) đi qua BookingService.create; lịch đặt là khách tái khám (RETURN), gắn lịch trước + lượt hẹn, ghi chú 'Bác sĩ hẹn tái khám từ phiếu khám'."
+     "noi_dung": "Mọi luật đặt lịch (sức chứa, trùng giờ, ca trực, ngoài giờ) đi qua BookingService.create; khách luôn là khách và dịch vụ của lượt (đọc ở máy chủ), loại RETURN, gắn lịch trước + lượt hẹn, ghi chú 'Bác sĩ hẹn tái khám từ phiếu khám'; bác sĩ do người gọi chọn, có thể để trống."
     },
     {
      "dong": 130,
-     "noi_dung": "Chỉ huỷ được lịch do chính lượt này hẹn (hen_tu_visit_id); khách đã tới theo lịch (CHECKED_IN) thì không huỷ ở phiếu."
+     "noi_dung": "Chỉ huỷ được lịch do chính lượt này hẹn (hen_tu_visit_id, khoá dòng lịch); không thấy thì báo không tìm thấy; khách đã tới theo lịch (CHECKED_IN) thì không huỷ ở phiếu. Trạng thái khác (đã xong, đã huỷ…) do luật huỷ của BookingService quyết."
     },
     {
      "dong": 151,
-     "noi_dung": "Huỷ dùng mã lý do KHAC kèm chữ 'Bác sĩ đổi hẹn tái khám trên phiếu khám'."
+     "noi_dung": "Huỷ dùng mã lý do KHAC kèm chữ 'Bác sĩ đổi hẹn tái khám trên phiếu khám', đi cùng đường huỷ với màn Đặt lịch (nhật ký, sự kiện, thả chỗ) trong một giao dịch."
     }
    ],
    "doc_bang": [
@@ -3323,7 +3452,7 @@
    ],
    "comment_cu": [],
    "chua_chac": [
-    "Khối: tệp không có trong TEP_CUA_KHOI; ghi appointment qua BookingService (khối booking) nên xếp 'booking'. Sự kiện appointment.booked/cancelled do BookingService phát."
+    "Việc doctor_id trống rơi vào hàng 'Chưa phân bác sĩ' (nêu trong docstring) do BookingService.create quyết, không thấy trong tệp này."
    ]
   },
   "src/clinicai/services/lich_truc_co_so.py": {
@@ -3339,7 +3468,15 @@
    "luat": [
     {
      "dong": 27,
-     "noi_dung": "Ca trực chỉ bị loại khỏi một cơ sở khi vị trí của nó gắn phòng có cơ sở KHÁC; vị trí điều phối / không phòng thì hiện ở mọi cơ sở."
+     "noi_dung": "Ca trực chỉ bị loại khỏi một cơ sở khi vị trí của nó (khớp station = code) gắn phòng có cơ sở KHÁC cơ sở đang xét."
+    },
+    {
+     "dong": 31,
+     "noi_dung": "Vị trí điều phối / không gắn phòng (không ra dòng ở JOIN) hoặc phòng chưa gắn cơ sở (location_id trống) thì KHÔNG bị loại → hiện ở mọi cơ sở."
+    },
+    {
+     "dong": 32,
+     "noi_dung": "Tham số cơ sở NULL: '<> NULL' ra NULL nên không dòng nào bị loại — màn không chọn cơ sở thấy toàn bộ ca."
     }
    ],
    "doc_bang": [
@@ -3354,6 +3491,10 @@
     {
      "dong": 20,
      "noi_dung": "Cột truyền vào phải viết trong ngoặc, vd '(a.location_id)' — chuỗi trơn bị bài kiểm nhãn sự kiện đọc nhầm."
+    },
+    {
+     "dong": 30,
+     "noi_dung": "Tham số `bang` phải là bí danh/tên của work_roster (dùng cột clinic_id và station); tham số cơ sở được ép ::uuid nên chuỗi không phải uuid sẽ lỗi lúc chạy SQL."
     }
    ],
    "muon_sua": [],
@@ -3402,32 +3543,44 @@
    ],
    "luat": [
     {
-     "dong": 17,
-     "noi_dung": "Một phiên bản = một giao dịch Postgres (txid); dựng lại = ảnh gần nhất ≤ phiên bản + các thay đổi sau ảnh theo thứ tự (txid, id)."
+     "dong": 160,
+     "noi_dung": "Một phiên bản = một giao dịch Postgres (txid); dựng lại = lấy trạng thái cả tuần của ảnh, rồi áp từng thay đổi sau ảnh theo thứ tự (txid, id): dòng XOÁ thì bỏ ô, dòng khác thì thay ô bằng bản 'sau'."
     },
     {
-     "dong": 136,
-     "noi_dung": "Lịch sử bắt đầu từ ẢNH ĐẦU TIÊN (lúc áp dụng tuần); thay đổi trước đó là lúc xếp nháp, không phải phiên bản. Giao dịch vừa có ảnh vừa có thay đổi → ảnh thắng."
+     "dong": 147,
+     "noi_dung": "Lịch sử bắt đầu từ ẢNH ĐẦU TIÊN (lúc áp dụng tuần); thay đổi có txid ≤ ảnh đầu (lúc xếp nháp) bị bỏ, không phải phiên bản. Giao dịch vừa có ảnh vừa có thay đổi → ảnh thắng."
     },
     {
      "dong": 201,
-     "noi_dung": "Chỉ ca ĐÃ DUYỆT (APPROVED) có mặt trên bảng — ca chuyển sang APPROVED hiện là THÊM; sửa ca chờ duyệt không thành phiên bản."
+     "noi_dung": "Chỉ ca ĐÃ DUYỆT (APPROVED) có mặt trên bảng — ca chuyển sang APPROVED hiện là THÊM."
+    },
+    {
+     "dong": 252,
+     "noi_dung": "Giao dịch sửa không đổi gì trên bảng (vd. sửa ca chờ duyệt) bị bỏ khỏi danh sách phiên bản; ảnh (gốc / áp dụng lại / lên bản) luôn giữ."
     },
     {
      "dong": 225,
-     "noi_dung": "Cùng dòng lịch mà đổi ngày / ca / vị trí → XOÁ chỗ cũ + THÊM chỗ mới; cùng chỗ đổi người → ĐỔI NGƯỜI kèm người trước."
+     "noi_dung": "Cùng dòng lịch mà đổi ngày / ca / vị trí → XOÁ chỗ cũ + THÊM chỗ mới; cùng chỗ đổi người (mã hoặc tên) → ĐỔI NGƯỜI kèm người trước."
     },
     {
-     "dong": 102,
-     "noi_dung": "Tuần / mã phiên bản rác → tuần None hoặc bản mới nhất, không ném."
+     "dong": 110,
+     "noi_dung": "Mã phiên bản rác / âm / rỗng → bản mới nhất; mã không khớp phiên bản nào cũng về mới nhất (dòng 368). Tuần rác → trả 'tuần: None', không ném (dòng 343)."
     },
     {
      "dong": 355,
-     "noi_dung": "Tuần chưa có ảnh → 'chưa có lịch sử' kèm mốc bắt đầu ghi của phòng khám."
+     "noi_dung": "Tuần chưa có ảnh → 'chưa có lịch sử' kèm mốc bắt đầu ghi của cả phòng khám (giờ ảnh sớm nhất)."
     },
     {
-     "dong": 12,
-     "noi_dung": "Quên đặt người bấm thì sổ vẫn ghi, chỉ thiếu tên — không bao giờ chặn thao tác."
+     "dong": 63,
+     "noi_dung": "Quên đặt người bấm (staff_id rỗng) thì sổ vẫn ghi, chỉ thiếu tên — không bao giờ chặn thao tác."
+    },
+    {
+     "dong": 267,
+     "noi_dung": "Nhật ký thay đổi của tuần (mới nhất trước) tính từ cùng phần khác với ô chọn phiên bản; ảnh đầu tiên không có bản trước nên không sinh dòng."
+    },
+    {
+     "dong": 321,
+     "noi_dung": "Vai hiển thị của người trong lịch lấy từ tài khoản còn hoạt động của phòng khám (cái tạo sớm nhất); tên chuẩn lấy từ hồ sơ nhân sự, không có thì dùng tên lưu trong ô lịch."
     }
    ],
    "doc_bang": [
@@ -3444,7 +3597,7 @@
    "bay": [
     {
      "dong": 57,
-     "noi_dung": "dat_nguoi_bam phải gọi trong conn.transaction(): set_config(..., true) là SET LOCAL, ngoài giao dịch thì mất ngay; dùng SET thường thì tên người này dính sang lượt người khác dùng chung kết nối."
+     "noi_dung": "dat_nguoi_bam phải gọi trong conn.transaction(): set_config(..., true) là SET LOCAL, ngoài giao dịch thì mất ngay nên hàm ném RuntimeError cho lộ ở test."
     },
     {
      "dong": 7,
@@ -3452,7 +3605,11 @@
     },
     {
      "dong": 333,
-     "noi_dung": "xem không kiểm quyền trong service — dựa vào router."
+     "noi_dung": "xem chỉ lọc theo phòng khám, không kiểm quyền trong service — dựa vào router."
+    },
+    {
+     "dong": 314,
+     "noi_dung": "Sổ thay đổi chỉ lấy dòng có txid lớn hơn txid ảnh đầu tiên của tuần; thay đổi xếp nháp trước đó không bao giờ hiện."
     }
    ],
    "muon_sua": [
@@ -4044,20 +4201,36 @@
    ],
    "luat": [
     {
-     "dong": 24,
-     "noi_dung": "Ba cách tính 'khách mới': CHUA_TUNG (chưa từng), DOT_MOI (đợt mới — mặc định), QUA_N_THANG (quá N tháng, N 1–120). Cách khác bị từ chối; không phải QUA_N_THANG thì số tháng bị xoá về trống."
+     "dong": 73,
+     "noi_dung": "Ba cách tính 'khách mới': CHUA_TUNG (chưa từng khám dịch vụ), DOT_MOI (đợt mới — mặc định), QUA_N_THANG (quá N tháng). Cách khác bị từ chối."
+    },
+    {
+     "dong": 75,
+     "noi_dung": "QUA_N_THANG bắt buộc nhập số tháng 1–120; hai cách còn lại thì số tháng bị xoá về trống (dòng 84) để bảng không chứa số vô nghĩa."
+    },
+    {
+     "dong": 94,
+     "noi_dung": "Dịch vụ phải thuộc đúng phòng khám của người lưu, không thì 'Không tìm thấy dịch vụ này'."
     },
     {
      "dong": 100,
-     "noi_dung": "Bác sĩ bắt buộc phải thuộc phòng khám, đang làm việc, khoa DOCTOR hoặc ULTRASOUND_DOCTOR — tránh luật trỏ vào người đã nghỉ chặn mọi khách mới."
+     "noi_dung": "Bác sĩ bắt buộc phải thuộc phòng khám, thành viên và nhân sự đang bật, khoa DOCTOR hoặc ULTRASOUND_DOCTOR — tránh luật trỏ vào người đã nghỉ chặn mọi khách mới của dịch vụ."
     },
     {
      "dong": 126,
-     "noi_dung": "Mỗi dịch vụ chỉ một luật: lưu lần hai là sửa luật cũ."
+     "noi_dung": "Mỗi dịch vụ chỉ một luật: lưu lần hai (cùng phòng khám + dịch vụ) là sửa luật cũ, đổi cả bác sĩ, cách tính, chặn hạn, bật/tắt, ghi chú."
     },
     {
-     "dong": 34,
-     "noi_dung": "Danh sách trả cả luật đang tắt (để không ai tạo trùng)."
+     "dong": 145,
+     "noi_dung": "Mỗi lần lưu ghi một dòng event_log 'booking.doctor_rule_saved' cùng giao dịch với việc lưu (tên dịch vụ, tên bác sĩ, cách tính, chan_han, is_active, người lưu)."
+    },
+    {
+     "dong": 53,
+     "noi_dung": "Danh sách trả cả luật đang tắt (không lọc is_active), sắp theo tên dịch vụ, để không ai tạo trùng."
+    },
+    {
+     "dong": 185,
+     "noi_dung": "Xoá là DELETE thật theo id + phòng khám; không thấy luật thì 'Không tìm thấy luật này'."
     }
    ],
    "doc_bang": [
@@ -4077,7 +4250,7 @@
    "bay": [
     {
      "dong": 185,
-     "noi_dung": "xoa là DELETE thật, không ghi nhật ký, không hoàn tác được — trái luật 'mọi thao tác hoàn tác được'; muốn tạm dừng thì dùng is_active."
+     "noi_dung": "xoa là DELETE thật, không ghi nhật ký, không hoàn tác được — khác luu (có event_log); muốn tạm dừng thì dùng is_active."
     },
     {
      "dong": 109,
@@ -4090,6 +4263,10 @@
     {
      "dong": 211,
      "noi_dung": "xem_thu gọi hàm Postgres la_khach_moi_cua_dich_vu cho MỌI khách của phòng khám — phòng khám đông khách thì chậm."
+    },
+    {
+     "dong": 209,
+     "noi_dung": "xem_thu chỉ kiểm cách tính, không kiểm số tháng 1–120 như luu và không kiểm dịch vụ có thật; nhập sai thì tuỳ hàm SQL xử lý."
     }
    ],
    "muon_sua": [
@@ -4119,7 +4296,7 @@
     {
      "ten": "CHI_DINH_CON_VIEC_GIU_LUOT_SQL",
      "dong": 109,
-     "lam_gi": "như trên nhưng bỏ việc làm bên ngoài (đối tác) — cho câu hỏi 'lượt còn giữ lại không'"
+     "lam_gi": "như trên nhưng bỏ chỉ định của bước làm bên ngoài (đối tác) — cho câu hỏi 'lượt còn giữ lại không'"
     },
     {
      "ten": "CO_KET_QUA_VONG_SQL",
@@ -4140,36 +4317,41 @@
      "ten": "_cung_ngay_vn",
      "dong": 217,
      "lam_gi": "mốc giờ có thuộc hôm nay giờ VN không"
+    },
+    {
+     "ten": "_CAU_CHAN_DIEU_PHOI",
+     "dong": 156,
+     "lam_gi": "bảng mã lý do chặn điều phối → câu báo cho người dùng"
     }
    ],
    "luat": [
     {
      "dong": 86,
-     "noi_dung": "Chỉ định còn việc dở = trạng thái authorized / assigned / in_progress, khách chưa BỎ (NOT_SELECTED), và chưa được bác sĩ MIỄN hay chuyển THEO DÕI ở vòng đọc. Chỉ định khách CHƯA chọn vẫn tính là dở (khách chưa quyết)."
+     "noi_dung": "Chỉ định còn việc dở = trạng thái authorized / assigned / in_progress, khách chưa BỎ (NOT_SELECTED), và chưa được bác sĩ MIỄN hay chuyển THEO DÕI ở vòng đọc (dòng 88–92). Chỉ định khách CHƯA chọn vẫn tính là dở (khách chưa quyết)."
     },
     {
-     "dong": 110,
-     "noi_dung": "Khi hỏi 'lượt còn giữ lại không' (khép lượt, đóng lượt) thì bỏ qua việc làm bên ngoài (đối tác): đối tác chưa bấm nút không giữ khách lại."
+     "dong": 111,
+     "noi_dung": "Khi hỏi 'lượt còn giữ lại không' (khép lượt, đóng lượt) thì bỏ qua chỉ định thuộc bước làm bên ngoài (node lam_ben_ngoai = đối tác): đối tác chưa bấm nút không giữ khách lại."
     },
     {
      "dong": 132,
-     "noi_dung": "Yêu cầu vòng đọc coi là có kết quả khi: đã có mốc nhận mẫu đối tác; hoặc việc làm bên ngoài có tệp kết quả xác nhận HỢP LỆ; hoặc việc nội bộ có ket_qua_luc. Kết quả đối tác về sau không giữ vòng."
+     "noi_dung": "Yêu cầu vòng đọc coi là có kết quả khi: đã có mốc nhận mẫu đối tác; hoặc bước làm bên ngoài có tệp kết quả xác nhận HỢP LỆ; hoặc việc nội bộ có ket_qua_luc. Kết quả đối tác về sau không giữ vòng."
     },
     {
      "dong": 147,
      "noi_dung": "Đọc nội dung khám (ghi chú, kết quả) theo vai: bác sĩ, TKYK, bác sĩ siêu âm, điều dưỡng siêu âm; lễ tân và trưởng ca không đọc — tập này KHÔNG nới theo công tắc."
     },
     {
-     "dong": 179,
-     "noi_dung": "Công tắc 'mở quyền tạm thời' chỉ nới các tập BOARD / CHECKIN / VITALS / DISPATCH / PERFORMER cho người có vai làm việc; DOCTOR, NOTE, DRAFT, REVIEW, đọc bệnh án không bao giờ nới."
+     "dong": 200,
+     "noi_dung": "Công tắc 'mở quyền tạm thời' chỉ nới các tập BOARD / CHECKIN / VITALS / DISPATCH / PERFORMER (dòng 179–185) cho người có vai làm việc; mọi tập khác (DOCTOR, CONSULT, NOTE, DRAFT, REVIEW, HO_TRO_PHONG, đọc bệnh án) không bao giờ nới."
     },
     {
      "dong": 64,
-     "noi_dung": "Duyệt kết quả + cho phép gửi chỉ bác sĩ và bác sĩ siêu âm (REVIEW_ROLES)."
+     "noi_dung": "Duyệt kết quả + cho phép gửi chỉ bác sĩ và bác sĩ siêu âm (REVIEW_ROLES); tập này không có trong danh sách nới nên công tắc không động tới."
     },
     {
-     "dong": 234,
-     "noi_dung": "Hàng chờ theo phòng xếp bằng rules.order_queue — ưu tiên (VIP) chỉ là nhãn, không tự đổi thứ tự; người đã xong đứng cuối."
+     "dong": 238,
+     "noi_dung": "Hàng chờ theo phòng xếp bằng rules.order_queue chỉ từ trạng thái, giờ đủ điều kiện, giờ tạo — mục đưa vào không mang cờ ưu tiên (VIP) nên ưu tiên không tự đổi thứ tự; người đã xong (không thuộc hàng sống) đứng cuối (dòng 241)."
     }
    ],
    "doc_bang": [],
@@ -4188,11 +4370,15 @@
     },
     {
      "dong": 188,
-     "noi_dung": "_require là cửa thật trong service; nới router mà quên chỗ này thì vai mới vẫn bị 403 ở trong."
+     "noi_dung": "_require là cửa thật trong service; nới router mà quên chỗ này thì vai mới vẫn bị chặn (SafetyGateError) ở trong."
     },
     {
      "dong": 5,
      "noi_dung": "Các tập vai ở đây là HỆ CŨ gác theo vai; đường khám chính đã hỏi quyền (capability) — đừng dùng tập vai cho tính năng mới."
+    },
+    {
+     "dong": 214,
+     "noi_dung": "_num đổi Decimal sang float — không dùng để cộng tiền."
     }
    ],
    "muon_sua": [
@@ -5627,11 +5813,15 @@
    "luat": [
     {
      "dong": 29,
-     "noi_dung": "Gắn / gỡ / đề xuất cần 'catalogue.result_template.manage'; tạo mẫu cần 'catalogue.form_template.publish'; xem bảng gắn cần ít nhất một trong ba quyền mẫu."
+     "noi_dung": "Gắn (249) / gỡ (278) / đề xuất (296) cần 'catalogue.result_template.manage'; tạo mẫu (166) cần 'catalogue.form_template.publish'; xem bảng gắn (93) cần ít nhất một trong ba quyền mẫu."
     },
     {
-     "dong": 7,
-     "noi_dung": "Không tự gắn mẫu theo tên — máy chỉ ĐỀ XUẤT khi trùng ≥ 2 từ khoá (bỏ dấu, bỏ từ đệm như 'kết quả', 'siêu âm', 'xét nghiệm'), người xác nhận."
+     "dong": 319,
+     "noi_dung": "Không tự gắn mẫu theo tên — máy chỉ ĐỀ XUẤT mẫu có từ chung nhiều nhất khi trùng ≥ 2 từ khoá (bỏ dấu, bỏ từ đệm như 'kết quả', 'siêu âm', 'xét nghiệm'), người xác nhận."
+    },
+    {
+     "dong": 299,
+     "noi_dung": "Đề xuất chỉ xét dịch vụ đang bán, KHÔNG phải vật tư (kể cả thuốc), chưa gắn mẫu nào; 'so_dich_vu_chua_gan' đếm cả dịch vụ không có gợi ý."
     },
     {
      "dong": 115,
@@ -5639,19 +5829,19 @@
     },
     {
      "dong": 161,
-     "noi_dung": "Tên mẫu bắt buộc, ≤ 200 ký tự; nhóm trống → 'Khác', ≤ 80 ký tự. Mẫu mới trống có sẵn một mục 'Kết luận'; chép thì chép khung bản ĐÃ XUẤT BẢN của mẫu nguồn."
+     "noi_dung": "Tên mẫu bắt buộc, ≤ 200 ký tự; nhóm trống → 'Khác', ≤ 80 ký tự. Mẫu mới trống có sẵn một mục 'Kết luận'; chép thì chép khung bản ĐÃ XUẤT BẢN của form có mã chep_tu, không có thì từ chối."
     },
     {
      "dong": 182,
-     "noi_dung": "Mã mẫu trùng thì thêm hậu tố _2, _3…; mẫu lưu form_id = 'KQ_' + mã."
+     "noi_dung": "Mã mẫu sinh từ tên; trùng với mẫu hoặc form 'KQ_…' đã có thì thêm hậu tố _2, _3…; mẫu lưu form_id = 'KQ_' + mã, bản 1 xuất bản ngay."
     },
     {
      "dong": 223,
-     "noi_dung": "Dịch vụ chưa gắn mẫu nào → máy chọn mẫu CHUNG nhập tự do hoặc mẫu gợi ý phiếu v5, mac_dinh = true; gắn mẫu riêng thì mẫu gắn thắng."
+     "noi_dung": "Dịch vụ chưa gắn mẫu nào → máy chọn mẫu CHUNG nhập tự do hoặc mẫu gợi ý phiếu v5, mac_dinh = true; gắn mẫu riêng thì mẫu gắn thắng (logic nằm ở mau_cho_cac_dich_vu, không ở tệp này)."
     },
     {
      "dong": 256,
-     "noi_dung": "Chỉ gắn cho mã dịch vụ có trong bảng giá phòng khám; mẫu không tồn tại bị khoá ngoại chặn; gắn trùng không lỗi."
+     "noi_dung": "Chỉ gắn cho mã dịch vụ có trong bảng giá phòng khám (kể cả dòng đã tắt); gắn trùng không lỗi (moi = false, dòng 261)."
     }
    ],
    "doc_bang": [
@@ -5680,7 +5870,19 @@
     },
     {
      "dong": 182,
-     "noi_dung": "Vòng tìm mã trống không khoá — hai người tạo cùng tên cùng lúc có thể đâm UNIQUE (500)."
+     "noi_dung": "Vòng tìm mã trống không khoá — hai người tạo cùng tên cùng lúc có thể đâm ràng buộc trùng khi INSERT (dòng 193)."
+    },
+    {
+     "dong": 261,
+     "noi_dung": "Mẫu không tồn tại chỉ bị khoá ngoại chặn — hàm gan không bắt lỗi ấy nên không ra ValidationError dễ hiểu như thiếu dịch vụ (dòng 257)."
+    },
+    {
+     "dong": 284,
+     "noi_dung": "go không cắt khoảng trắng mã dịch vụ (khác gan dòng 245) nên mã dính khoảng trắng gỡ không trúng, trả da_go = false."
+    },
+    {
+     "dong": 318,
+     "noi_dung": "Điểm bằng nhau thì xếp theo mã mẫu rồi tên theo thứ tự giảm dần (sort cả bộ ba) — mẫu được đề xuất khi hoà là mã lớn hơn theo chữ cái, không phải mẫu hợp nhất."
     }
    ],
    "muon_sua": [
@@ -5710,22 +5912,22 @@
     {
      "ten": "sniff_ket_qua",
      "dong": 203,
-     "lam_gi": "kiểu thật của tệp kết quả (mime, đuôi, loại ANH/PDF/VIDEO/TAI_LIEU) hoặc từ chối"
+     "lam_gi": "kiểu thật của tệp kết quả CSKH (mime, đuôi, loại ANH/PDF/VIDEO/TAI_LIEU) hoặc từ chối"
     },
     {
      "ten": "sniff",
      "dong": 295,
-     "lam_gi": "chỉ nhận ảnh JPG/PNG/DICOM cho ảnh siêu âm"
+     "lam_gi": "chỉ nhận JPG / PNG / DICOM cho ảnh siêu âm, hoặc từ chối"
     },
     {
      "ten": "kiem_kho_da_gan",
      "dong": 78,
-     "lam_gi": "tệp đánh dấu MEDIA_MARKER phải có trên kho thật, không thì không ghi"
+     "lam_gi": "nếu cấu hình MEDIA_MARKER, tệp đánh dấu phải có trong MEDIA_ROOT (kho CFS) thì mới ghi"
     },
     {
      "ten": "phan_tich_range",
      "dong": 250,
-     "lam_gi": "bytes=START-END → khoảng byte; ngoài tệp → (1,0) để trả 416"
+     "lam_gi": "bytes=START-END → (đầu, cuối) đã kẹp vào tệp; ngoài tệp → đầu > cuối để nơi gọi trả 416; rác → None (trả trọn tệp)"
     },
     {
      "ten": "duong_dan_ket_qua",
@@ -5735,59 +5937,63 @@
     {
      "ten": "MediaService.attach_ultrasound_image",
      "dong": 328,
-     "lam_gi": "gắn ảnh vào bản ghi siêu âm chưa ký"
+     "lam_gi": "gắn ảnh vào bản ghi siêu âm chưa ký: ghi tệp tạm rồi đổi tên, rồi thêm khoá vào image_refs"
     },
     {
      "ten": "MediaService.read_ultrasound_image",
      "dong": 414,
-     "lam_gi": "đọc ảnh sau khi xác nhận thuộc phòng khám + có trong image_refs"
+     "lam_gi": "đọc ảnh sau khi xác nhận khoá thuộc phòng khám và có trong image_refs"
     },
     {
      "ten": "giai_trong",
      "dong": 60,
-     "lam_gi": "đường dẫn chỉ hợp lệ khi nằm trong thư mục gốc"
+     "lam_gi": "đường dẫn chỉ hợp lệ khi giải ra vẫn nằm trong thư mục gốc"
     }
    ],
    "luat": [
     {
-     "dong": 12,
-     "noi_dung": "Tên tệp trên đĩa do hệ thống đặt (uuid), luôn dưới thư mục clinic_id; tên người tải lên chỉ làm nhãn hiển thị (cắt 120 ký tự)."
+     "dong": 320,
+     "noi_dung": "Ảnh siêu âm: tên tệp trên đĩa do hệ thống đặt (uuid) dưới thư mục clinic_id/ultrasound/…; tên người tải lên chỉ làm nhãn hiển thị (cắt 120 ký tự, dòng 410)."
     },
     {
      "dong": 152,
-     "noi_dung": "Nhận diện kiểu bằng mấy byte đầu tệp, không theo đuôi tên: JPG, PNG, PDF, WebM, GIF, WEBP, DOCX/XLSX, DICOM (byte 128), MP4/MOV (ftyp ở byte 4)."
+     "noi_dung": "Ảnh siêu âm nhận diện bằng mấy byte đầu tệp, không theo đuôi: chỉ JPG, PNG, DICOM (chữ ký ở byte 128, dòng 304); khác → từ chối. Tệp rỗng hoặc quá 12MB cũng từ chối (dòng 337–343)."
+    },
+    {
+     "dong": 164,
+     "noi_dung": "Tệp kết quả CSKH nhận theo chữ ký: JPG, PNG, GIF, WEBP (dòng 213), PDF, WebM, MP4/MOV (ftyp ở byte 4), DOCX/XLSX, DICOM; không khớp → từ chối."
     },
     {
      "dong": 235,
-     "noi_dung": "Ảnh HEIC/AVIF (iPhone) bị từ chối kèm hướng dẫn chuyển định dạng; ZIP không phải Word/Excel bị từ chối."
+     "noi_dung": "Ảnh HEIC/AVIF (iPhone) bị từ chối kèm hướng dẫn đổi định dạng; ZIP không phải Word/Excel bị từ chối (dòng 224)."
     },
     {
-     "dong": 228,
-     "noi_dung": "DICOM lưu loại TAI_LIEU (không xem nhanh như ảnh, chỉ tải về)."
+     "dong": 231,
+     "noi_dung": "Tệp kết quả DICOM lưu loại TAI_LIEU (chỉ tải về, không xem nhanh như ảnh)."
     },
     {
      "dong": 129,
-     "noi_dung": "Tải video kết quả TẮT mặc định — chỉ mở khi đặt KET_QUA_VIDEO_UPLOAD_ENABLED."
+     "noi_dung": "Tải video kết quả TẮT mặc định — chỉ nhận khi đặt KET_QUA_VIDEO_UPLOAD_ENABLED (1/true/yes); lúc đó mới thêm VIDEO vào loại cho phép (dòng 132)."
     },
     {
      "dong": 99,
-     "noi_dung": "Tệp kết quả KHÔNG giới hạn dung lượng mặc định (0 = không trần); đặt trần riêng từng loại bằng biến MEDIA_MAX_BYTES_*. Ảnh siêu âm cũ thì trần 12MB (dòng 90)."
+     "noi_dung": "Tệp kết quả KHÔNG giới hạn dung lượng mặc định (0 = không trần); đặt trần từng loại bằng biến MEDIA_MAX_BYTES_ANH/_VIDEO/_PDF/_TAI_LIEU (dòng 106–123). Trần chung chỉ khác 0 khi mọi loại cho phép đều có trần (dòng 138)."
     },
     {
      "dong": 80,
-     "noi_dung": "Có cấu hình MEDIA_MARKER mà tệp đánh dấu không có trên kho → từ chối ghi ('kho đang không kết nối'), tránh ảnh nằm nhầm ổ VPS."
+     "noi_dung": "Có cấu hình MEDIA_MARKER mà tệp đánh dấu không có trong kho → từ chối ghi ('kho đang không kết nối'), tránh ảnh nằm nhầm ổ VPS."
     },
     {
      "dong": 358,
-     "noi_dung": "Bản ghi siêu âm đã KÝ thì không thêm ảnh — phải qua đính chính."
+     "noi_dung": "Bản ghi siêu âm đã KÝ thì không thêm ảnh — phải qua đính chính; không thấy bản ghi trong phòng khám → báo không tìm thấy (dòng 353)."
     },
     {
      "dong": 424,
-     "noi_dung": "Đọc ảnh: khoá phải bắt đầu bằng clinic_id người hỏi VÀ nằm trong image_refs của một bản ghi của phòng khám; đường dẫn giải ra phải nằm trong thư mục media."
+     "noi_dung": "Đọc ảnh: khoá phải bắt đầu bằng clinic_id người hỏi VÀ nằm trong image_refs của bản ghi của phòng khám; đường dẫn giải ra phải nằm trong thư mục media (dòng 441)."
     },
     {
      "dong": 268,
-     "noi_dung": "Range 'bytes=-500' = 500 byte CUỐI (trình phát đọc chỉ mục MP4 ở đuôi)."
+     "noi_dung": "Range 'bytes=-500' = 500 byte CUỐI (trình phát đọc chỉ mục MP4 ở đuôi); 'bytes=-0' hay rác → trả trọn tệp."
     }
    ],
    "doc_bang": [
@@ -5801,12 +6007,16 @@
    "goi_api": [],
    "bay": [
     {
-     "dong": 370,
-     "noi_dung": "Ghi tệp tạm rồi đổi tên — ghi bị cắt chỉ để lại .tmp, không để ảnh hỏng mà DB khai là có. Nhưng tệp ghi TRƯỚC khi giao dịch DB commit: giao dịch hỏng thì tệp mồ côi trên đĩa."
+     "dong": 364,
+     "noi_dung": "Ghi tệp tạm rồi đổi tên (dòng 370–375), nhưng tệp được ghi TRƯỚC khi UPDATE (382) và trước khi giao dịch commit: UPDATE hỏng thì tệp mồ côi nằm lại trên đĩa."
     },
     {
      "dong": 380,
      "noi_dung": "Mọi thao tác chạm ổ mạng phải đi qua chay_tren_kho (luồng phụ có hạn giờ) — gọi thẳng là ổ Viettel treo kéo treo cả API (sự cố 29/09)."
+    },
+    {
+     "dong": 363,
+     "noi_dung": "Ảnh siêu âm (safe_path) luôn ghi thẳng vào MEDIA_ROOT (CFS), không qua ổ nóng VPS; kiem_kho_da_gan cũng đọc MEDIA_ROOT toàn cục chứ không qua goc_cfs()."
     },
     {
      "dong": 386,
@@ -5814,11 +6024,15 @@
     },
     {
      "dong": 40,
-     "noi_dung": "MEDIA_ROOT / MEDIA_LOCAL_ROOT đọc từ biến môi trường lúc import; muốn đổi trong test dùng goc_vps()/goc_cfs() đọc lúc gọi."
+     "noi_dung": "MEDIA_ROOT / MEDIA_LOCAL_ROOT và các trần dung lượng đọc từ biến môi trường LÚC IMPORT; muốn đổi trong test dùng goc_vps()/goc_cfs() (đọc lúc gọi) hoặc patch module."
     },
     {
      "dong": 328,
      "noi_dung": "attach / read không kiểm quyền trong service — dựa vào router."
+    },
+    {
+     "dong": 253,
+     "noi_dung": "Docstring phan_tich_range nói trả (1, 0), nhưng code thật trả (đầu, cuối) với đầu > cuối (vd (100, 49)); nơi gọi (cskh.py) kiểm khoang[0] > khoang[1] để trả 416, đừng so cứng (1, 0)."
     }
    ],
    "muon_sua": [
@@ -5838,11 +6052,15 @@
    "comment_cu": [
     {
      "dong": 3,
-     "vi_sao": "'lưu tạm trên máy Mac thay vì Supabase Storage' — đã lỗi thời: nay lưu ổ VPS + kho Viettel CFS (dòng 39–47)"
+     "vi_sao": "'lưu tạm trên máy Mac thay vì Supabase Storage' đã lỗi thời: nay lưu ổ VPS + kho Viettel CFS (dòng 39–47)"
     },
     {
      "dong": 88,
-     "vi_sao": "MAX_BYTES 12MB cho ảnh siêu âm đặt cạnh khối nói 'không giới hạn dung lượng' — dễ hiểu nhầm hai luật"
+     "vi_sao": "MAX_BYTES 12MB (chỉ cho ảnh siêu âm) đặt cạnh khối nói 'không giới hạn dung lượng' (tệp kết quả) — dễ hiểu nhầm hai luật"
+    },
+    {
+     "dong": 253,
+     "vi_sao": "nói trả (1, 0) khi ngoài tệp, code trả (đầu, cuối) với đầu > cuối"
     }
    ],
    "chua_chac": []
@@ -5860,7 +6078,11 @@
    "luat": [
     {
      "dong": 22,
-     "noi_dung": "Lượt 'khám xong' khi có visit.exam_completed_at; nhánh tương thích dữ liệu cũ: lịch hẹn của lượt đã COMPLETED."
+     "noi_dung": "Lượt 'khám xong' khi visit.exam_completed_at có giá trị — kể cả lượt không có lịch hẹn."
+    },
+    {
+     "dong": 24,
+     "noi_dung": "Nhánh tương thích dữ liệu cũ: chưa có exam_completed_at nhưng lịch hẹn của lượt (cùng phòng khám) đã COMPLETED vẫn tính là xong; lượt không có lịch hẹn thì nhánh này luôn sai."
     }
    ],
    "doc_bang": [
@@ -5871,7 +6093,12 @@
    "su_kien_phat": [],
    "su_kien_nghe": [],
    "goi_api": [],
-   "bay": [],
+   "bay": [
+    {
+     "dong": 21,
+     "noi_dung": "Hàm trả mẩu chuỗi SQL, bí danh bảng v được ghép thẳng vào chuỗi (không tham số hoá) — chỉ truyền bí danh viết cứng trong code, không truyền chữ từ người dùng; bảng bên trong mang bí danh a_kx nên đừng đặt bí danh trùng."
+    }
+   ],
    "muon_sua": [],
    "comment_cu": [
     {
@@ -5914,20 +6141,28 @@
      "noi_dung": "Điểm trùng: SĐT chính (đã chuẩn hoá) trùng = 50 điểm, CCCD trùng (cả hai có) = 40, tên giống nhau theo tỉ lệ × 10; trần 100. Ví dụ trùng SĐT + tên giống 90% = 59 điểm (< 70, không vào hàng chờ)."
     },
     {
-     "dong": 22,
-     "noi_dung": "Ngưỡng vào hàng chờ gộp: ≥ 70 điểm — tính theo trọng số thì chỉ đạt khi trùng CẢ SĐT lẫn CCCD (SĐT + tên giống hệt tối đa 60)."
+     "dong": 213,
+     "noi_dung": "Ngưỡng vào hàng chờ gộp: ≥ 70 điểm (dòng 22) — theo trọng số thì chỉ đạt khi trùng CẢ SĐT lẫn CCCD (SĐT + tên giống hệt tối đa 60; CCCD + tên tối đa 50). Dưới ngưỡng thì bỏ qua."
     },
     {
      "dong": 103,
-     "noi_dung": "Ứng viên theo SĐT tính cả số phụ và số trong bảng số thêm của khách."
+     "noi_dung": "Ứng viên theo SĐT tính cả số phụ (phone_secondary) và số trong bảng số thêm của khách."
     },
     {
      "dong": 140,
-     "noi_dung": "Ứng viên theo HỌ TÊN (bỏ dấu, đ→d) + NĂM sinh (lấy birth_year nếu có, không thì từ ngày sinh) — bắt người khai số khác."
+     "noi_dung": "Ứng viên theo HỌ TÊN (bỏ dấu, đ→d) + NĂM sinh (lấy birth_year nếu có, không thì từ ngày sinh) — chỉ khi có cả tên lẫn ngày sinh; bắt người khai số khác."
     },
     {
-     "dong": 155,
+     "dong": 151,
+     "noi_dung": "Không có SĐT, CCCD, và không đủ tên + ngày sinh → không tìm gì, trả danh sách rỗng."
+    },
+    {
+     "dong": 160,
      "noi_dung": "Chỉ so trong cùng phòng khám — không gộp chéo phòng khám."
+    },
+    {
+     "dong": 196,
+     "noi_dung": "Bỏ qua ứng viên chính là hồ sơ vừa tạo; hồ sơ mới không đọc lại được thì bỏ qua."
     }
    ],
    "doc_bang": [
@@ -5945,6 +6180,10 @@
     {
      "dong": 186,
      "noi_dung": "Ghi vào mpi_merge_queue — bảng đã đánh dấu 'CHỜ BỎ — chỉ ghi, không ai đọc' trong modules.py; điểm chấm (score) không dùng vế họ tên + năm sinh nên ứng viên tìm theo vế ấy gần như không bao giờ đạt 70."
+    },
+    {
+     "dong": 49,
+     "noi_dung": "score chỉ so phone_primary; ứng viên tìm ra nhờ số phụ / số thêm (find_candidates) không được điểm SĐT, nên điểm thấp dù cùng người."
     },
     {
      "dong": 201,
@@ -5973,7 +6212,7 @@
    ],
    "chua_chac": [
     "Khối: tệp không có trong TEP_CUA_KHOI; mpi_merge_queue là bảng kỹ thuật CHỜ BỎ; xếp 'ho_so_khach'.",
-    "Không rõ get_pending_queue còn màn nào gọi."
+    "get_pending_queue không có chỗ gọi nào trong src/clinicai (đã grep) — có thể là code chết."
    ]
   },
   "src/clinicai/services/ngoai_le_ca_truc_service.py": {
@@ -6105,15 +6344,23 @@
    "luat": [
     {
      "dong": 54,
-     "noi_dung": "Nội dung nhắc 1–500 ký tự; giờ nhắc phải hợp lệ và trong vòng 400 ngày tới; giờ đã qua thì nhắc ngay."
+     "noi_dung": "Nội dung nhắc phải từ 1 đến 500 ký tự (sau khi cắt khoảng trắng hai đầu); giờ nhắc phải đọc được và không quá 400 ngày tới."
+    },
+    {
+     "dong": 36,
+     "noi_dung": "Giờ nhắc không ghi múi giờ thì coi là giờ Việt Nam; 'Z' đổi thành UTC; chuỗi rác trả rỗng chứ không ném."
+    },
+    {
+     "dong": 82,
+     "noi_dung": "Giờ nhắc đã qua thì hẹn giờ với độ trễ 0 (nhắc ngay, không báo lỗi)."
     },
     {
      "dong": 98,
-     "noi_dung": "Danh sách hiện việc chưa xong và việc xong trong 7 ngày gần nhất; chưa xong lên trước, theo giờ nhắc."
+     "noi_dung": "Danh sách của tôi chỉ gồm việc của chính người xem: chưa xong, hoặc xong trong 7 ngày gần nhất; chưa xong lên trước theo giờ nhắc; có thể lọc theo một khách; tối đa 100."
     },
     {
      "dong": 122,
-     "noi_dung": "Chỉ người tạo mới đánh dấu xong việc nhắc của mình; xong lần hai giữ giờ xong cũ."
+     "noi_dung": "Chỉ người tạo mới đánh dấu xong việc nhắc của mình (không phải của mình thì báo không tìm thấy); bấm xong lần hai giữ giờ xong cũ; đánh dấu xong thì huỷ luôn hẹn giờ."
     }
    ],
    "doc_bang": [
@@ -6133,11 +6380,11 @@
     },
     {
      "dong": 118,
-     "noi_dung": "Đánh dấu xong không có hoàn tác (không đặt lại xong_luc = NULL, không hẹn lại) — trái luật 'mọi thao tác hoàn tác được'."
+     "noi_dung": "Đánh dấu xong không có đường hoàn tác (không đặt lại xong_luc = NULL, không hẹn lại) — trái luật 'mọi thao tác hoàn tác được'."
     },
     {
      "dong": 73,
-     "noi_dung": "clinic_patient_id / visit_id không được kiểm thuộc phòng khám trước khi ghi."
+     "noi_dung": "Tệp này không kiểm clinic_patient_id / visit_id có thuộc phòng khám trước khi ghi (chỉ dựa vào ràng buộc của database)."
     }
    ],
    "muon_sua": [
@@ -6181,24 +6428,32 @@
    ],
    "luat": [
     {
-     "dong": 3,
-     "noi_dung": "Mỗi lần CHECK-IN đến khám rồi về = MỘT lượt khám, đếm theo thời gian trên TOÀN BỘ lượt của khách — không theo dịch vụ hay chuỗi lịch nối; điều trị đếm theo BUỔI, không ăn số lượt khám. Ví dụ khách khám 3 lần, lần 2 là buổi điều trị → nhãn 'Lượt khám 1', 'Buổi 1/5…', 'Lượt khám 2'."
+     "dong": 99,
+     "noi_dung": "Lượt khám đánh số 1,2,3… theo thời gian (mốc = giờ check-in, không có thì giờ tạo) trên TOÀN BỘ lượt của khách — không theo dịch vụ hay chuỗi lịch nối; điều trị không ăn số. Ví dụ 3 lần tới, lần 2 là điều trị → 'Lượt khám 1', 'Điều trị…', 'Lượt khám 2'."
     },
     {
      "dong": 87,
-     "noi_dung": "Lượt nhóm ĐIỀU TRỊ có chỉ định gắn liệu trình → 'Buổi k/N'; không gắn → 'Điều trị · buổi lẻ'; nhóm THUỐC → 'Mua thuốc'; còn lại (KHÁM / KHÁC / chưa rõ) → 'Lượt khám n'."
+     "noi_dung": "Lượt đã check-in nhóm ĐIỀU TRỊ có chỉ định gắn liệu trình → 'Buổi k/N · đã làm/chưa làm'; không gắn → 'Điều trị · buổi lẻ'; nhóm THUỐC → 'Mua thuốc'; còn lại (KHÁM / KHÁC / chưa rõ nhóm) → 'Lượt khám n'. Lượt khám có buổi liệu trình vẫn kèm chip phụ 'Buổi k/N'."
     },
     {
      "dong": 78,
-     "noi_dung": "Lịch chưa check-in → 'Lịch hẹn'; lịch huỷ / bác sĩ từ chối → 'Đã huỷ'; khách không đến → 'Không đến'."
+     "noi_dung": "Mục chưa check-in → 'Lịch hẹn'; lịch huỷ hoặc bác sĩ từ chối → 'Đã huỷ'; khách không đến → 'Không đến' (không đánh số)."
     },
     {
-     "dong": 29,
-     "noi_dung": "Lượt có lịch chỉ tính đã check-in khi lịch CHECKED_IN / COMPLETED — lượt mà check-in đã hoàn tác (lịch về trạng thái khác) không đếm. Lượt không có lịch luôn tính đã check-in."
+     "dong": 161,
+     "noi_dung": "Lượt có lịch chỉ tính đã check-in khi lịch CHECKED_IN / COMPLETED — lượt mà check-in đã hoàn tác (lịch về trạng thái khác) thì hiện nhãn lịch, không đếm. Lượt không có lịch luôn tính đã check-in (163)."
     },
     {
-     "dong": 119,
-     "noi_dung": "Buổi liệu trình của lượt lấy từ chỉ định tạo SỚM NHẤT có buổi còn sống."
+     "dong": 155,
+     "noi_dung": "Một lịch có nhiều lượt (check-in lại sau hoàn tác) → MỘT mục, lấy lượt tạo mới nhất; mọi khoá v:<lượt> và a:<lịch> cùng trỏ về nhãn của mục đó."
+    },
+    {
+     "dong": 123,
+     "noi_dung": "Buổi liệu trình của lượt lấy từ chỉ định tạo SỚM NHẤT (127) trong lượt mà có buổi còn sống (go_luc trống, 123); chỉ buổi của lượt đại diện được dùng (171)."
+    },
+    {
+     "dong": 136,
+     "noi_dung": "Lịch chưa có lượt nào được gom thêm từ câu SQL thứ hai, mốc = giờ hẹn; tra nhãn bằng tra_nhan: theo lượt trước, không thì theo lịch (220–223)."
     }
    ],
    "doc_bang": [
@@ -6216,11 +6471,15 @@
    "bay": [
     {
      "dong": 163,
-     "noi_dung": "Lượt KHÔNG có lịch hẹn luôn được tính 'đã check-in' — kể cả lượt về giữa chừng (INCOMPLETE) hay lượt bán lẻ không thuộc nhóm THUỐC."
+     "noi_dung": "Lượt KHÔNG có lịch hẹn luôn được tính 'đã check-in'; nếu lại không có loại dịch vụ (nhom trống) thì rơi vào nhánh 'Lượt khám n' và tốn một số thứ tự."
     },
     {
-     "dong": 15,
-     "noi_dung": "Mọi màn phải dùng doc_nhan_luot — tự đếm chỉ số mảng trong TSX là quay lại lỗi cũ (mỗi màn một kiểu)."
+     "dong": 99,
+     "noi_dung": "Sắp xếp theo (mốc, khoá) — hai lượt cùng mốc phân theo chuỗi khoá ('a:' trước 'v:'); số thứ tự tính lại mỗi lần gọi trên tập khách truyền vào, nên màn phải truyền đủ khách của dòng cần hiển thị."
+    },
+    {
+     "dong": 73,
+     "noi_dung": "Mục không có khoá bị bỏ im lặng, không báo lỗi."
     }
    ],
    "muon_sua": [
@@ -6236,7 +6495,7 @@
    "comment_cu": [
     {
      "dong": 15,
-     "vi_sao": "kể lịch sử trước 08/10 mỗi màn tự đếm trong TSX — chuyện đổi lúc nào"
+     "vi_sao": "Kể lịch sử trước 08/10 mỗi màn tự đếm trong TSX — chuyện đổi lúc nào, nên ở commit message."
     }
    ],
    "chua_chac": [
@@ -6291,63 +6550,79 @@
    "luat": [
     {
      "dong": 924,
-     "noi_dung": "Nhận / hoàn tác nhận cần quyền điều phối (QUYEN_XEP); dây Nhận tại phòng phải BẬT, tắt thì báo phòng nhận theo cách cũ."
+     "noi_dung": "Nhận cần quyền điều phối (QUYEN_XEP) và dây Nhận tại phòng phải BẬT (dòng 930), tắt thì báo phòng nhận theo cách cũ. Hoàn tác Nhận (dòng 1143) chỉ kiểm quyền, KHÔNG kiểm dây."
     },
     {
      "dong": 943,
-     "noi_dung": "Khách đã check-out (có closed_at) thì không phòng nào nhận nữa — mở lại lượt trước."
+     "noi_dung": "Khách đã check-out (lượt có closed_at) thì không phòng nào nhận nữa — mở lại lượt trước. Cùng khoá lượt và có khoá chống bấm đôi (idempotency, dòng 936–940)."
     },
     {
-     "dong": 92,
-     "noi_dung": "Chỉ định 'chưa vào phòng nào': đã duyệt, khách chưa bỏ, chưa xếp phòng (hoặc cần xếp lại), chưa bắt đầu, lượt còn mở chưa check-out, không bị dặn 'làm sau vòng đọc' (trừ khi vòng đó đã đóng). KHÔNG đòi khách đã chốt / đã thu."
+     "dong": 93,
+     "noi_dung": "Chỉ định 'chưa vào phòng nào': đã duyệt, khách chưa bỏ, chưa xếp phòng (hoặc cần xếp lại), chưa bắt đầu, lượt còn mở (OPEN / IN_PROGRESS, chưa check-out; lượt INCOMPLETE bị loại), không bị dặn 'làm sau vòng đọc' trừ khi vòng đó đã đóng. Không đòi khách đã chốt / đã thu."
     },
     {
      "dong": 135,
-     "noi_dung": "Chỉ xét khách check-in HÔM NAY (giờ VN), cùng cơ sở với phòng; việc đối tác làm trọn chỉ hiện ở PHÒNG ĐỐI TÁC, phòng thường không thấy."
+     "noi_dung": "Chỉ xét khách check-in HÔM NAY (giờ VN), cùng cơ sở với phòng. Việc đối tác làm trọn chỉ hiện ở PHÒNG ĐỐI TÁC, phòng thường không thấy (dòng 169)."
     },
     {
      "dong": 286,
-     "noi_dung": "Sắp đến chỉ khi tiền không bị chặn (đang hoàn / đã hoàn / sổ lệch); chỉ định đang CHỜ ở phòng khác cũng nhận được (nhận chéo) nếu tiền không bị chặn — chặn thì trả câu vì sao."
+     "noi_dung": "Chỉ định hiện 'Sắp đến' khi chưa vào phòng nào và tiền không bị chặn (đang hoàn / đã hoàn / sổ lệch, dòng 368); chỉ định đang CHỜ ở phòng khác cũng nhận chéo được nếu tiền không bị chặn, bị chặn thì trả câu vì sao (dòng 291)."
     },
     {
      "dong": 270,
-     "noi_dung": "Chỉ định bác sĩ đang làm TẠI BÀN KHÁM hiện là 'ở chỗ khác — bàn khám BS …', không phải việc của phòng nào (không đếm đang làm, không Xong hộ)."
+     "noi_dung": "Chỉ định đang IN_PROGRESS mà lần làm do BÀN KHÁM mở hiện là 'ở chỗ khác — bàn khám BS …', không phải việc của phòng nào (không đếm đang làm, không Xong hộ)."
+    },
+    {
+     "dong": 308,
+     "noi_dung": "Cờ nhắc 'Làm trước – thu sau' (nhac_tick) chỉ bật cho dòng Sắp đến / đang chờ, theo cửa tiền 'nếu chốt hộ' cùng luật với lệnh Bắt đầu (chan_vi_chua_thu); đếm toàn phòng khám không tính."
+    },
+    {
+     "dong": 536,
+     "noi_dung": "Ô Sắp đến: mọi khách hôm nay trừ khách đang chờ / làm ở chính phòng này (dòng 536) và khách ĐÃ XONG ở phòng này mà không còn gì nhận được (dòng 540); phòng đối tác chỉ giữ khách có việc đối tác làm trọn (dòng 544)."
+    },
+    {
+     "dong": 570,
+     "noi_dung": "Xếp ô Sắp đến: có chỉ định nhận được mà ★ hoặc hướng dẫn tới phòng này → có chỉ định nhận được → còn lại; trong nhóm giữ thứ tự check-in."
     },
     {
      "dong": 1002,
-     "noi_dung": "Nhận chéo cần xác nhận (một nút, không lý do): chỉ định đang chờ ở phòng khác thì rời hàng ấy; khách đang LÀM ở phòng khác (quên Xong) thì đóng hàng ấy nhưng lần làm GIỮ mở — phòng cũ tự bấm Xong / Gián đoạn."
+     "noi_dung": "Nhận chéo cần xác nhận (xac_nhan, một nút không lý do): chỉ định đang chờ ở phòng khác thì rời hàng ấy; khách đang LÀM chỉ định khác ở phòng khác (quên Xong) thì đóng hàng ấy nhưng lần làm GIỮ mở — phòng cũ tự bấm Xong / Gián đoạn."
     },
     {
      "dong": 949,
-     "noi_dung": "Không gửi danh sách = nhận mọi chỉ định nhận được; chỉ định bị chặn tiền bị bỏ qua kèm lý do; không nhận được cái nào → báo lỗi của cái đầu tiên; mọi chỉ định đã ở phòng này → 'already'."
+     "noi_dung": "Không gửi danh sách = nhận mọi chỉ định nhận được. Chỉ định bị chặn tiền bị bỏ qua kèm lý do. Danh sách rỗng → lỗi chọn chỉ định (967). Không nhận được cái nào: đã ở phòng này → 'already'; bị chặn tiền → lỗi của cái đầu; còn lại 'không còn chờ'."
     },
     {
-     "dong": 20,
-     "noi_dung": "Không có nút Nhả; Xong không tự nhả chỉ định khác. Khách chỉ rời hàng một phòng khi phòng khác Nhận hoặc quầy bỏ dịch vụ."
+     "dong": 1093,
+     "noi_dung": "Mỗi chỉ định nhận trong một savepoint; chỉ định lỗi thì ghi vào bo_qua, các cái khác vẫn nhận; không nhận được cái nào thì ném lỗi của cái đầu tiên (dòng 1096)."
+    },
+    {
+     "dong": 692,
+     "noi_dung": "Không có lệnh Nhả riêng: khách chỉ rời hàng chờ một phòng qua roi_phong, gọi từ nhận chéo hoặc khi quầy bỏ dịch vụ (nha_khi_bo_chon). Xong không tự nhả chỉ định khác."
     },
     {
      "dong": 1171,
-     "noi_dung": "Hoàn tác Nhận chỉ đụng chỗ do Nhận tại phòng tạo (routing_nguon = tai_phong); chỗ quầy / trưởng ca xếp giữ nguyên. Nhận thường → về Sắp đến (không đẻ việc trưởng ca); nhận chéo → về đúng hàng phòng cũ với giờ vào hàng cũ."
+     "noi_dung": "Hoàn tác Nhận chỉ đụng chỗ do Nhận tại phòng tạo (routing_nguon = tai_phong); chỗ quầy / trưởng ca xếp giữ nguyên. Nhận thường → về Sắp đến (không đẻ việc trưởng ca); nhận chéo → về đúng hàng phòng cũ với giờ vào hàng cũ. Chỉ định đã bắt đầu thì không hoàn tác (vào bo_qua)."
     },
     {
      "dong": 1154,
-     "noi_dung": "Khách đang được làm ở phòng này → không hoàn tác Nhận, bấm Xong / Huỷ bắt đầu trước."
+     "noi_dung": "Khách đang được làm ở phòng này: nếu chỉ định cụ thể được chọn, hoặc không còn chỉ định chờ nào → báo bấm Xong / Huỷ bắt đầu trước; hoàn tác cả phòng thì chỉ định đang làm bị bỏ qua, chỉ hoàn các chỉ định đang chờ."
     },
     {
      "dong": 1513,
-     "noi_dung": "Hoàn tác lần nhận đã đóng hàng A của chỉ định đang làm → khi lần nhận ấy không còn chỉ định nào ở đây, dựng lại chỗ A 'đang làm' (giờ bắt đầu cũ); khách đang được làm chỗ khác thì để 'chờ' kèm ghi chú."
+     "noi_dung": "Hoàn tác lần nhận đã đóng hàng A của chỉ định đang làm: chỉ khi lần nhận ấy không còn chỉ định nào ở phòng này (dòng 1454) và lần làm ở A còn mở, dựng lại chỗ A 'đang làm' (giờ bắt đầu cũ); khách đang được làm chỗ khác thì để 'chờ' kèm ghi chú."
     },
     {
      "dong": 636,
-     "noi_dung": "Ba số mỗi phòng đếm KHÁCH hôm nay: có chỉ định đang làm → 'đang làm'; không thì có chờ → 'đang chờ'; khách đã ở phòng không tính 'sắp đến'; phòng không nhận khách (accepting = false) không có 'sắp đến'."
+     "noi_dung": "Ba số mỗi phòng đếm KHÁCH hôm nay: có chỉ định đang làm → 'đang làm'; không thì có chờ → 'đang chờ'; việc làm tại bàn khám không đếm; khách đã ở phòng không tính 'sắp đến'; phòng không nhận khách (accepting = false) có 'sắp đến' = 0."
     },
     {
-     "dong": 442,
-     "noi_dung": "Lượt Điều trị chưa từng vào bàn khám và không còn chỉ định chờ → nhãn 'chờ thanh toán / check-out' thay vì 'đang chờ khám'."
+     "dong": 475,
+     "noi_dung": "Lượt Điều trị chưa từng vào bàn khám và không còn chỉ định chờ làm → nhãn 'chờ thanh toán / check-out' thay vì 'đang chờ khám' (khi khách chưa đang được làm và hàng là bác sĩ hoặc không hàng)."
     },
     {
-     "dong": 451,
-     "noi_dung": "Lượt Thủ thuật chưa có chỉ định ở phòng làm thủ thuật → link 'Mở bàn khám' của phòng (bác sĩ chọn thủ thuật ở khối 1), phòng không tự chọn."
+     "dong": 457,
+     "noi_dung": "Lượt Thủ thuật (khối 1 THU_THUAT) chưa có chỉ định ở phòng làm thủ thuật → link 'Mở bàn khám' của phòng (bác sĩ chọn thủ thuật ở khối 1), phòng không tự chọn."
     }
    ],
    "doc_bang": [
@@ -6391,19 +6666,23 @@
     },
     {
      "dong": 1179,
-     "noi_dung": "Hoàn tác dựng lại hiện trạng bằng cách ĐỌC SỔ domain_event (lan_nhan_id, trang_thai_truoc, room_id, attempt_id trong payload) — đổi tên trường payload của service.routed / room_released là hoàn tác hỏng im lặng."
+     "noi_dung": "Hoàn tác dựng lại hiện trạng bằng cách ĐỌC SỔ domain_event (lan_nhan_id, trang_thai_truoc, room_id, attempt_id trong payload service.routed / room_released) — đổi tên trường payload là hoàn tác hỏng im lặng."
     },
     {
-     "dong": 1342,
+     "dong": 1343,
      "noi_dung": "Postgres chỉ cho MỘT chỗ chờ sống mỗi chỉ định (uq_queue_entry_live) và một chỗ 'serving' mỗi khách (uq_queue_entry_one_serving) — phải huỷ chỗ ở đây trước khi mở lại chỗ cũ."
     },
     {
      "dong": 556,
-     "noi_dung": "gom_sap_den đặt tinh_so theo SAP_DEN nhưng KHÔNG xét phòng accepting như dem_sap_den (dòng 502) — docstring nói 'cùng luật', thực tế số trên ô và số đếm có thể lệch khi phòng tạm không nhận khách."
+     "noi_dung": "gom_sap_den đặt tinh_so theo SAP_DEN nhưng KHÔNG xét phòng accepting như dem_sap_den (dòng 502) — số trên ô và số đếm có thể lệch khi phòng tạm không nhận khách."
     },
     {
      "dong": 1545,
      "noi_dung": "_su_kien_cuoi không ai gọi (code chết)."
+    },
+    {
+     "dong": 1067,
+     "noi_dung": "Việc ghi xếp phòng vào service_order gọi hàm nội bộ ServiceRoutingService._gan (nguồn tai_phong, lý do INITIAL_ASSIGNMENT) — luật xếp phòng nằm ở khối service_routing, sửa ở đó."
     }
    ],
    "muon_sua": [
@@ -6463,23 +6742,43 @@
    "luat": [
     {
      "dong": 103,
-     "noi_dung": "Chỉ nhận multipart/form-data có boundary; đúng MỘT phần tệp, đúng tên trường ('file'); trường chữ ≤ 4096 ký tự; tệp rỗng bị từ chối."
+     "noi_dung": "Chỉ nhận multipart/form-data có boundary, không thì ValidationError."
+    },
+    {
+     "dong": 153,
+     "noi_dung": "Phần tệp phải đặt tên trường đúng 'file' (hoặc tên route truyền vào) và chỉ được MỘT phần tệp mỗi lần gửi (dòng 156)."
+    },
+    {
+     "dong": 164,
+     "noi_dung": "Trường chữ (mã khách, mã chỉ định…) tối đa 4096 byte; quá thế báo 'Trường chữ quá dài'. Trường chữ được cắt khoảng trắng hai đầu."
     },
     {
      "dong": 118,
-     "noi_dung": "Ổ VPS còn trống trừ dung lượng khai (Content-Length) dưới ngưỡng MEDIA_LOCAL_MIN_FREE_BYTES → từ chối TRƯỚC khi nhận byte nào; không bao giờ ghi thẳng sang CFS."
+     "noi_dung": "Ổ VPS còn trống trừ dung lượng khai (Content-Length, thiếu = 0) dưới ngưỡng MEDIA_LOCAL_MIN_FREE_BYTES → từ chối TRƯỚC khi nhận byte nào; không bao giờ ghi thẳng sang CFS."
     },
     {
      "dong": 202,
-     "noi_dung": "Kiểu tệp xét ngay khi đủ 8KB đầu — tệp rác bị từ chối trước khi chiếm vài GB; video bị từ chối nếu chưa bật tải video."
+     "noi_dung": "Kiểu tệp xét ngay khi đủ 8KB đầu (hoặc hết tệp ngắn hơn); chưa nhận kiểu thì chưa ghi gì ra ổ (dòng 211). Tệp kiểu lạ bị sniff_ket_qua từ chối; video bị từ chối nếu chưa bật tải video (dòng 206)."
+    },
+    {
+     "dong": 213,
+     "noi_dung": "Byte gom trong bộ nhớ tới 4MB mới ghi một lần ra ổ; ghi lần cuối khi hết tệp."
     },
     {
      "dong": 220,
-     "noi_dung": "Vượt trần dung lượng của loại (nếu có đặt) → dừng nhận, báo tối đa bao nhiêu MB."
+     "noi_dung": "Vượt trần dung lượng của loại tệp (vuot_tran) → dừng nhận ngay, báo tối đa bao nhiêu MB."
     },
     {
      "dong": 240,
-     "noi_dung": "Mất kết nối giữa chừng → báo 'tệp CHƯA được lưu', xoá tệp .part."
+     "noi_dung": "Mất kết nối giữa chừng → báo 'tệp CHƯA được lưu, hãy tải lại', xoá tệp .part."
+    },
+    {
+     "dong": 247,
+     "noi_dung": "Không có phần tệp, hoặc 0 byte, hoặc chưa mở được tệp → 'Tệp rỗng'. Thành công thì trả các trường chữ + TepDaNhan (đường .part, số byte, sha256, 8KB đầu, tên gốc)."
+    },
+    {
+     "dong": 291,
+     "noi_dung": "uuid_hoac_loi: trường mã rỗng → None nếu không bắt buộc, bắt buộc thì 'Thiếu …'; sai dạng UUID → 'không hợp lệ'; đúng thì trả UUID chuẩn hoá."
     }
    ],
    "doc_bang": [],
@@ -6548,19 +6847,27 @@
    "luat": [
     {
      "dong": 89,
-     "noi_dung": "Thứ tự xét một dịch vụ: đã huỷ → không làm → xong (việc đối tác: có kết quả / đã nhận mẫu · chờ kết quả) → khách về → đang làm → dừng giữa chừng → đã gọi → đang chờ → chờ (khách ở bước khác) → chưa thu tiền → đối tác 'Chờ làm' → 'Chờ xếp phòng'."
+     "noi_dung": "Thứ tự xét một dịch vụ: đã huỷ → không làm → xong (việc đối tác: có kết quả / đã nhận mẫu · chờ kết quả) → khách về → đang làm → dừng giữa chừng → đã gọi → đang chờ → đang chờ vì khách ở bước khác → chưa thu tiền → đối tác 'Chờ làm' → 'Chờ xếp phòng'. Cái nào khớp trước thì dừng."
     },
     {
-     "dong": 61,
-     "noi_dung": "Nút [Chuyển phòng] chỉ ở dịch vụ đang chờ hoặc đang làm; [Đặt phòng] chỉ khi chưa thu hoặc chờ xếp phòng."
+     "dong": 95,
+     "noi_dung": "Dịch vụ đã xong của đối tác: có ket_qua_luc → 'Có kết quả'; chưa có kết quả nhưng đã nhận mẫu → 'Đã nhận mẫu · chờ kết quả'; còn lại 'Xong' (kể cả phòng khám làm mà đối tác chưa nhận mẫu)."
+    },
+    {
+     "dong": 103,
+     "noi_dung": "Nút [Chuyển phòng] (chuyen_duoc) chỉ bật ở dịch vụ đang làm (dòng 103), đang chờ (dòng 109) và đang chờ vì khách ở bước khác (dòng 112); 'Đã gọi', 'Xong' và mọi nhãn còn lại không bật."
+    },
+    {
+     "dong": 114,
+     "noi_dung": "Nút [Đặt phòng] (dat_phong_duoc) chỉ bật khi dịch vụ chưa thu tiền (dòng 114) hoặc chờ xếp phòng (dòng 118); dịch vụ đã thu của đối tác ('Chờ làm', dòng 117) không bật."
     },
     {
      "dong": 60,
-     "noi_dung": "STT = số người trước + 1, chỉ khi đang chờ."
+     "noi_dung": "STT = số người trước + 1, chỉ khi nhãn là Đang chờ và số người trước là số nguyên không âm (không nhận true/false, số âm → không có STT). Nhãn 'Đang chờ vì khách ở bước khác' ở mức dịch vụ không truyền số người trước nên không có STT."
     },
     {
      "dong": 137,
-     "noi_dung": "Nhãn khách: đang làm/khám > đã gọi > đang chờ > chờ bước khác > đã nhận mẫu chờ kết quả đối tác > chưa vào hàng; hàng bác sĩ / tư vấn hiện 'Đang khám'."
+     "noi_dung": "Nhãn khách theo chỗ chờ sống quan trọng nhất: đang làm/khám > đã gọi > đang chờ > chờ bước khác > đã nhận mẫu chờ kết quả đối tác > chưa vào hàng; hàng bác sĩ / tư vấn hiện 'Đang khám', khách đã về thì thắng tất cả (dòng 134). Mức khách không bật nút nào."
     }
    ],
    "doc_bang": [],
@@ -6571,7 +6878,11 @@
    "bay": [
     {
      "dong": 100,
-     "noi_dung": "'Khách về' xét SAU 'Xong' — dịch vụ đã xong vẫn hiện Xong dù khách đã về; thêm trạng thái mới phải đặt đúng thứ tự."
+     "noi_dung": "'Khách về' xét SAU 'Xong' nhưng TRƯỚC 'Đang làm / Đã gọi / Đang chờ' — dịch vụ đã xong vẫn hiện Xong dù khách đã về, dịch vụ chưa xong thì hiện Khách về; thêm trạng thái mới phải đặt đúng thứ tự."
+    },
+    {
+     "dong": 113,
+     "noi_dung": "Dịch vụ đã nằm trong hàng (đang chờ / đã gọi) được hiện theo hàng dù chưa thu tiền — 'Chưa thu tiền' chỉ hiện khi dịch vụ chưa vào hàng nào."
     }
    ],
    "muon_sua": [

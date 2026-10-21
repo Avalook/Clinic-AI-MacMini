@@ -471,6 +471,79 @@ def main_soat_tep(argv: list[str], toi_da: int, tran: float) -> int:
     if "--thu" in argv:
         print("\n".join(f"  {t}" for t in ds[:200]))
         return 0
+    # ── Chạy bằng AGENT (khi API cạn tiền): chia lô → agent đọc từng tệp qua
+    #    --in-de, ghi kết quả JSONL riêng → --nap nạp qua CÙNG máy kiểm. Agent
+    #    không tự sửa tệp ghi chú (nhiều agent ghi chung một lat-*.json là mất).
+    if "--xuat-lo" in argv:
+        so_lo, ra = (
+            int(lay_co(argv, "--xuat-lo", "10")),
+            Path(lay_co(argv, "--ra", ".")),
+        )
+        ra.mkdir(parents=True, exist_ok=True)
+        for i in range(so_lo):
+            (ra / f"lo-{i + 1:02d}.txt").write_text(
+                "\n".join(ds[i::so_lo]) + "\n", encoding="utf-8"
+            )
+        print(f"Đã chia {len(ds)} tệp thành {so_lo} lô ở {ra}")
+        return 0
+    if "--in-de" in argv:
+        t = lay_co(argv, "--in-de", "")
+        dong = (GOC / t).read_text(encoding="utf-8").splitlines()
+        print(DAN_SOAT_TEP if t in code else DAN_SOAT_CHUNG)
+        print(f"\n=== Tệp: {t} ===")
+        print("\n".join(f"{i}: {s}" for i, s in enumerate(dong, 1)))
+        print(
+            "\n// GHI CHÚ ĐÃ CÓ:\n" + json.dumps(ghi[t], ensure_ascii=False, indent=1)
+        )
+        return 0
+    if "--nap" in argv:
+        tot, hong_nap = 0, []
+        for line in (
+            Path(lay_co(argv, "--nap", "")).read_text(encoding="utf-8").splitlines()
+        ):
+            if not line.strip():
+                continue
+            try:
+                r = json.loads(line)
+                t, g = r["tep"], dict(r["doi"])
+            except (json.JSONDecodeError, KeyError, TypeError):
+                hong_nap.append(line[:60])
+                continue
+            if t not in ghi or not (GOC / t).is_file():
+                hong_nap.append(t)
+                continue
+            g.pop("da_sua", None)
+            g = {**ghi[t], **g}
+            for k in ("yeu", "canh"):
+                if isinstance(g.get(k), list):
+                    g[k] = [{"noi_dung": x} if isinstance(x, str) else x for x in g[k]]
+            loi = kiem(
+                g,
+                len((GOC / t).read_text(encoding="utf-8").splitlines()),
+                KHOA | set(ghi[t]),
+            )
+            if loi:
+                hong_nap.append(f"{t}: {'; '.join(loi[:2])}")
+                continue
+            du = json.loads(cua[t].read_text(encoding="utf-8"))
+            du["tep"][t] = ghi[t] = g
+            cua[t].write_text(
+                json.dumps(du, ensure_ascii=False, indent=1), encoding="utf-8"
+            )
+            soat[t] = dau_tep(GOC / t)
+            if t in dau or t in code:
+                dau[t] = soat[t]
+            tot += 1
+        SOAT_TEP.write_text(
+            json.dumps(dict(sorted(soat.items())), indent=0), encoding="utf-8"
+        )
+        DAU.write_text(
+            json.dumps(dict(sorted(dau.items())), indent=0), encoding="utf-8"
+        )
+        print(f"Nạp {tot} · hỏng {len(hong_nap)}")
+        for h in hong_nap[:20]:
+            print(f"  ✗ {h}")
+        return 1 if hong_nap else 0
     env = cau_hinh()
     khoa, dung = threading.Lock(), threading.Event()
     tong, xong, hong = [0.0], [0], []

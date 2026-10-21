@@ -259,15 +259,15 @@
     },
     {
      "test": "TestImmutability",
-     "dong": 285,
-     "luat": "Hồ sơ FINALIZED/AMENDED/CANCELLED khoá, INCOMPLETE còn ghi; sinh hiệu chỉ ghi khi khách CHECKED_IN/COMPLETED; hồ sơ khoá sau 48 giờ.",
+     "dong": 284,
+     "luat": "Hồ sơ FINALIZED/AMENDED/CANCELLED khoá, INCOMPLETE còn ghi; sinh hiệu chỉ ghi khi khách CHECKED_IN/COMPLETED; hồ sơ khoá sau 48 giờ (RECORD_LOCK).",
      "tep_code": [
       "src/clinicai/services/clinical_record_service.py"
      ]
     },
     {
      "test": "TestCskh",
-     "dong": 305,
+     "dong": 304,
      "luat": "Ghi việc CSKH chỉ CSKH/lễ tân/quản lý/trưởng ca; ngày làm việc tính theo giờ VN; mã nguồn thủ công không trùng.",
      "tep_code": [
       "src/clinicai/services/cskh_service.py"
@@ -275,7 +275,7 @@
     },
     {
      "test": "TestServiceLog",
-     "dong": 344,
+     "dong": 343,
      "luat": "Bắt đầu đóng dấu started_at, xong đóng finished_at; kết quả rỗng lưu trống; huỷ không xoá mốc đã có; hành động lạ bị từ chối; 3 mốc xét nghiệm là 3 cột riêng.",
      "tep_code": [
       "src/clinicai/services/service_log_service.py"
@@ -283,7 +283,7 @@
     },
     {
      "test": "TestRosterRules",
-     "dong": 410,
+     "dong": 409,
      "luat": "Tuần tính từ ngày (thứ Hai), không tin client; chỉ quản lý duyệt và xếp ca (tự đăng ký ca đã đóng).",
      "tep_code": [
       "src/clinicai/services/config_service.py"
@@ -291,7 +291,7 @@
     },
     {
      "test": "TestPriceParsing",
-     "dong": 433,
+     "dong": 432,
      "luat": "Giá làm tròn tới đồng (99.6 → 100); trống = chưa có giá (khác 0); âm/chữ/vô cực bị từ chối; chỉ thu ngân/quản lý sửa giá.",
      "tep_code": [
       "src/clinicai/services/config_service.py"
@@ -299,7 +299,7 @@
     },
     {
      "test": "TestPatientEditRules",
-     "dong": 457,
+     "dong": 456,
      "luat": "Người có quyền ghi bệnh án sửa được hồ sơ hành chính; số điện thoại VN 10 số hợp lệ, sai dạng bị từ chối ở máy chủ, trống thì cho.",
      "tep_code": [
       "src/clinicai/api/v1/patients.py",
@@ -308,8 +308,8 @@
     },
     {
      "test": "TestRosterAuthorisation",
-     "dong": 580,
-     "luat": "Nhân viên tự đăng ký ca thì PENDING và không đặt được tên người khác; quản lý xếp cho người khác thì APPROVED; tên lấy từ DB; trạm ngoài phạm vi vai/người phòng khám khác bị từ chối; ca lạ thành FULL, ca TOI giữ nguyên; chỉ quản lý duyệt; chỉ xoá ca của mình (quản lý xoá được mọi ca, ca ngoài trạm khám không đụng lịch hẹn).",
+     "dong": 555,
+     "luat": "Nhân viên tự đăng ký ca thì PENDING, không đặt được tên người khác; quản lý xếp cho người khác thì APPROVED; tên lấy từ DB; trạm ngoài phạm vi vai / người phòng khám khác bị từ chối; ca lạ thành FULL, ca TOI giữ nguyên; chỉ quản lý duyệt; chỉ xoá ca của mình (quản lý xoá mọi ca).",
      "tep_code": [
       "src/clinicai/services/config_service.py"
      ]
@@ -448,11 +448,19 @@
    "yeu": [
     {
      "dong": 118,
-     "noi_dung": "Dùng conn.execute.calls (thuộc tính tự sinh của AsyncMock, không phải danh sách lời gọi) để khẳng định 'không INSERT' — vế này luôn đúng, kiểm giả. Lặp ở dòng 248, 334, 404 (fetchrow.await_args_list thì đúng), 654."
+     "noi_dung": "Khẳng định 'không INSERT' dùng conn.execute.calls (thuộc tính tự sinh của mock, luôn rỗng) nên vế này luôn đúng, kiểm giả. Lặp ở dòng 248, 334 (fetchval.calls) và 654. Riêng dòng 404 dùng fetchrow.await_args_list nên kiểm thật."
     },
     {
      "dong": 808,
      "noi_dung": "test_mo_full_lego...: mock trả None cho UPDATE nên hàm vẫn ném 'thu ngân đã thu'; bài chỉ kiểm tham số $6 = True, không kiểm việc huỷ thành công."
+    },
+    {
+     "dong": 40,
+     "noi_dung": "Fixture tự chạy mọi bài giả cửa quyền ghi bệnh án thành luôn cho qua (và đặt quyền đặt lịch/thứ tự theo nhóm mẫu của vai), nên bài ở đây không canh được việc thiếu quyền; phần đó nằm ở test Postgres thật khác."
+    },
+    {
+     "dong": 689,
+     "noi_dung": "test_cancel_can_repair...: chỉ kiểm kết quả trả về {'status': 'CANCELLED'} trên mock; không kiểm câu UPDATE thật sự gạt trạng thái, nên đổi câu SQL huỷ không làm bài đỏ."
     }
    ],
    "chua_chac": []
@@ -785,6 +793,10 @@
     {
      "dong": 130,
      "noi_dung": "assert truoc_ma in (200, 503) luôn đúng với mọi trạng thái hợp lệ — không kiểm gì."
+    },
+    {
+     "dong": 89,
+     "noi_dung": "Bài Postgres bị bỏ qua (skip) nếu không có DATABASE_URL hoặc DB thử chưa có sự kiện nào trong domain_event — có thể không bao giờ chạy trên DB mới."
     }
    ],
    "chua_chac": []
@@ -859,7 +871,16 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 139,
+     "noi_dung": "Pool giả tự lọc theo clinic_id bằng Python và trả rỗng cho truy vấn work_roster / v_quyen_ — nên bài chỉ chứng minh cách đọc kết quả, không chứng minh câu SQL thật chọn đúng thành viên của phòng khám; vai theo lego và vị trí theo lịch trực không được kiểm ở đây."
+    },
+    {
+     "dong": 24,
+     "noi_dung": "JWT chỉ thử thuật toán HS256 với khoá giả 40 ký tự; không có bài cho token thiếu sub, thuật toán 'none' hay khoá RS256."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/test_khoi_phuc_lich_khi_xep_lai_ca.py": {
@@ -870,7 +891,7 @@
     {
      "test": "test_go_ca_khong_huy_lich",
      "dong": 40,
-     "luat": "Câu UPDATE lịch khi gỡ ca chỉ đặt doctor_id = NULL, không chạm status/cancelled_at/ly_do_huy_ma/cancelled_by.",
+     "luat": "Câu UPDATE lịch khi gỡ ca chứa 'doctor_id = NULL' và không chạm status, cancelled_at, ly_do_huy_ma, cancelled_by; mã gỡ ca cũng không còn lý do huỷ BAC_SI_DOI_LICH.",
      "tep_code": [
       "src/clinicai/services/config_service.py"
      ]
@@ -878,7 +899,7 @@
     {
      "test": "test_giu_vet_doi_tu_ai",
      "dong": 48,
-     "luat": "Gỡ ca ghi bac_si_da_go_id = bác sĩ cũ để CSKH nói được đổi từ ai.",
+     "luat": "Câu UPDATE có 'bac_si_da_go_id = doctor_id' để CSKH nói được đổi từ bác sĩ nào.",
      "tep_code": [
       "src/clinicai/services/config_service.py"
      ]
@@ -886,7 +907,7 @@
     {
      "test": "test_chi_lich_con_song_va_dung_bac_si",
      "dong": 52,
-     "luat": "Chỉ gỡ lịch chưa tới giờ, còn sống (SCHEDULED/CSKH_CONFIRMED/CONFIRMED) và đúng bác sĩ đó.",
+     "luat": "Mã gỡ ca có 'slot_start > now()' (chưa tới giờ); câu UPDATE tự kiểm lại trạng thái SCHEDULED / CSKH_CONFIRMED / CONFIRMED và 'AND doctor_id = $3' để lượt check-in hoặc gán lại chen giữa không bị gỡ nhầm.",
      "tep_code": [
       "src/clinicai/services/config_service.py"
      ]
@@ -894,7 +915,7 @@
     {
      "test": "test_go_ca_de_lai_dau_vet",
      "dong": 61,
-     "luat": "Gỡ ca phát sự kiện roster.shift_removed.",
+     "luat": "RosterService.remove phát sự kiện roster.shift_removed (dòng ca bị xoá khỏi bảng nên sự kiện là dấu vết duy nhất).",
      "tep_code": [
       "src/clinicai/services/config_service.py"
      ]
@@ -902,7 +923,7 @@
     {
      "test": "test_co_che_tu_gan_lai_cua_115_khong_quay_lai",
      "dong": 65,
-     "luat": "Thêm ca không tự gắn lại bác sĩ cho lịch bị gỡ và không đụng lịch đã huỷ.",
+     "luat": "RosterService không còn hàm _khoi_phuc_lich_bi_go và add_shift không nhắc tới trạng thái CANCELLED: thêm ca không tự gắn lại bác sĩ, việc gán lại là của người trực ở hàng chờ (cờ bs_go_co_ca_lai).",
      "tep_code": [
       "src/clinicai/services/config_service.py"
      ]
@@ -914,7 +935,13 @@
      "noi_dung": "Cả 5 bài chỉ tìm chuỗi trong inspect.getsource(RosterService…) — hành vi thật đã được canh ở test_go_ca_theo_khung_gio.py nhưng các điều kiện 'slot_start > now()', đúng bác sĩ thì chỉ có ở đây và chỉ dạng chuỗi."
     }
    ],
-   "chua_chac": []
+   "chua_chac": [],
+   "comment_cu": [
+    {
+     "dong": 3,
+     "vi_sao": "đoạn LỊCH SỬ (#103, #115, #117, CONTEXT v1.0) chỉ kể vì sao đảo luật — nên để commit message / docs"
+    }
+   ]
   },
   "src/tests/test_lich_truc_cong_bo_chan_sua_lich.py": {
    "lam_gi": "Canh tuần lịch trực đã công bố chặn cả ba đường sửa lịch (assign_doctor, reassign, reschedule) qua _guard_slot, và tự xếp ca chỉ khi tuần chưa công bố. Đọc mã nguồn.",
@@ -949,7 +976,7 @@
    "yeu": [
     {
      "dong": 21,
-     "noi_dung": "Cả 3 bài chỉ so vị trí/chuỗi trong mã nguồn; không bài nào chạy việc bị chặn thật (comment nói smoke 15/09 làm tay)."
+     "noi_dung": "Cả 3 bài chỉ so vị trí/chuỗi trong mã nguồn (inspect.getsource); không bài nào chạy việc bị chặn thật (comment nói smoke 15/09 làm tay). Bài dòng 27 cắt khối nhánh tới 'elif action ==' kế tiếp nên đổi cách viết nhánh (else, match) là đỏ giả hoặc lọt."
     }
    ],
    "chua_chac": []
@@ -1017,7 +1044,7 @@
     {
      "test": "test_cong_tac_doc_luc_goi_chu_khong_phai_luc_dung / test_thieu_bien_thi_tat / test_cac_cach_tat_cong_tac",
      "dong": 46,
-     "luat": "Công tắc đọc biến môi trường lúc gọi; '1' là bật; thiếu biến, '0', 'false', 'no', rỗng, rác đều là tắt.",
+     "luat": "Công tắc đọc biến môi trường lúc gọi (đổi biến sau khi dựng cửa vẫn có tác dụng); thiếu biến thì TẮT (hỏng thì đóng); '0', 'false', 'no', rỗng, 'maybe' đều là tắt — mã chỉ bật với '1', 'true', 'yes'.",
      "tep_code": [
       "src/clinicai/api/identity.py"
      ]
@@ -1041,7 +1068,7 @@
     {
      "test": "test_cua_cua_bac_si_khong_bi_noi",
      "dong": 100,
-     "luat": "Bật công tắc vẫn không cho điều dưỡng/lễ tân/CSKH qua cửa require_role(DOCTOR) → 403.",
+     "luat": "Bật công tắc vẫn không cho điều dưỡng / lễ tân / CSKH qua cửa require_role(DOCTOR) → 403.",
      "tep_code": [
       "src/clinicai/api/identity.py"
      ]
@@ -1049,7 +1076,7 @@
     {
      "test": "test_dung_cua_co_the_mo_o_cho_khong_phai_viec_bac_si",
      "dong": 114,
-     "luat": "Cửa làm dịch vụ của luot_kham hỏi quyền service.execute.start/complete; 9 cửa bảng/điều phối/khám/sinh hiệu chỉ là 'đã đăng nhập', quyền nằm trong hàm dịch vụ.",
+     "luat": "Cửa làm dịch vụ của luot_kham hỏi quyền service.execute.start / complete (không nới theo công tắc); 9 cửa bảng / điều phối / khám / sinh hiệu… chỉ là 'đã đăng nhập', quyền nằm trong hàm dịch vụ.",
      "tep_code": [
       "src/clinicai/api/v1/routers/luot_kham.py"
      ]
@@ -1057,7 +1084,7 @@
     {
      "test": "test_thu_ky_chua_phan_bac_si_van_lam_viec_duoc",
      "dong": 151,
-     "luat": "Thư ký chưa được xếp theo bác sĩ nào thì không lọc (thấy mọi khách); đã xếp thì chỉ khách của bác sĩ đó — bất kể công tắc.",
+     "luat": "Thư ký chưa được xếp theo bác sĩ nào thì không lọc (thấy mọi khách); đã xếp thì chỉ khách của bác sĩ đó — bất kể công tắc bật hay tắt.",
      "tep_code": [
       "src/clinicai/services/thu_ky_bac_si.py"
      ]
@@ -1065,7 +1092,7 @@
     {
      "test": "test_cua_trong_ham_dich_vu_cung_noi_theo_cong_tac / test_cong_tac_tat_thi_ham_dich_vu_ve_luat_goc",
      "dong": 181,
-     "luat": "Bật công tắc: CSKH/thu ngân DV/dược sĩ qua tập vai bảng, check-in, sinh hiệu, làm dịch vụ trong hàm dịch vụ; nhưng tập vai bác sĩ, ghi chú, đọc lâm sàng vẫn chặn. Tắt: CSKH bị chặn ở bảng, lễ tân vẫn qua.",
+     "luat": "Bật công tắc: CSKH / thu ngân DV / dược sĩ qua tập vai bảng, check-in, sinh hiệu, làm dịch vụ trong hàm dịch vụ; nhưng tập vai bác sĩ, ghi chú, đọc lâm sàng vẫn chặn. Tắt: CSKH bị chặn ở bảng, lễ tân vẫn qua.",
      "tep_code": [
       "src/clinicai/services/luot_kham_service.py"
      ]
@@ -1087,7 +1114,7 @@
     {
      "test": "test_every_role_that_sees_a_page_can_load_that_page",
      "dong": 180,
-     "luat": "Vai thấy mục menu phải nằm trong tập vai gọi được endpoint fetchFromBackend viết thẳng trong page.tsx của trang đó.",
+     "luat": "Vai thấy mục menu (NAV_ROLES, kể cả danh sách vai được trải ra bằng ...) phải nằm trong tập vai RoleGuard của endpoint fetchFromBackend viết thẳng trong page.tsx; trang rẽ nhánh theo vai bị bỏ qua. Cửa 'có thể mở' được đọc theo tập vai gốc.",
      "tep_code": [
       "src/dashboard/lib/roles.ts",
       "src/dashboard/app",
@@ -1098,7 +1125,7 @@
     {
      "test": "test_the_audit_still_sees_the_dashboard",
      "dong": 192,
-     "luat": "Bộ đọc phải kiểm được ít nhất 4 trang.",
+     "luat": "Bộ đọc phải kiểm được ít nhất 4 trang (MIN_PAGES_CHECKED); chỉ đếm trang có lời gọi fetchFromBackend và không rẽ nhánh theo vai.",
      "tep_code": [
       "src/dashboard/lib/roles.ts"
      ]
@@ -1107,15 +1134,18 @@
    "yeu": [
     {
      "dong": 201,
-     "noi_dung": "assert isinstance(branching, list) luôn đúng — tự ghi 'không phải khẳng định'."
-    }
-   ],
-   "chua_chac": [
+     "noi_dung": "assert isinstance(branching, list) luôn đúng — chính chú thích ghi 'không phải khẳng định'; danh sách trang bị bỏ qua không bị canh."
+    },
+    {
+     "dong": 165,
+     "noi_dung": "Biến checked đếm mọi trang có lời gọi fetchFromBackend, kể cả khi lời gọi không khớp route nào có RoleGuard. Ngưỡng 4 trang vì vậy vẫn qua được dù không còn gì để đối chiếu."
+    },
     {
      "dong": 90,
-     "noi_dung": "Từ khi đa số cửa đổi sang hỏi QUYỀN (lego) trong hàm dịch vụ, RoleGuard ở router còn rất ít — bài có thể còn qua được ngưỡng 4 trang nhưng gần như không còn gì để đối chiếu."
+     "noi_dung": "Chỉ route có RoleGuard mới được đọc (dòng 101-111). Từ khi cửa đổi sang hỏi QUYỀN trong hàm dịch vụ, require_role còn ít chỗ dùng (khoảng 12 ngoài identity.py), nên bài ngày càng ít việc để đối chiếu."
     }
-   ]
+   ],
+   "chua_chac": []
   },
   "src/tests/test_nhan_ca_sieu_am_da_nghi.py": {
    "lam_gi": "Canh endpoint 'nhận ca' siêu âm của rail cũ đã nghỉ: trả 410 ENDPOINT_RETIRED, không gọi logic cũ, ghi log người gọi.",
@@ -1542,7 +1572,11 @@
    "yeu": [
     {
      "dong": 49,
-     "noi_dung": "Hai đường /lab/orders và /lab/results đã trả 410 (test_rail_cu_da_nghi_slice1.py) — bài chỉ kiểm 'có gắn', không biết chúng đã nghỉ."
+     "noi_dung": "Hai đường /lab/orders và /lab/results/{id} đã nghỉ (trả 410 — test_rail_cu_da_nghi_slice1.py) nhưng bài này chỉ kiểm 'đã gắn vào app', không biết chúng đã nghỉ; docstring vẫn gọi chúng là đường ghi lâm sàng."
+    },
+    {
+     "dong": 18,
+     "noi_dung": "Danh sách module đã gắn suy từ tên module của endpoint (route.endpoint.__module__) — hai router cùng tên tệp ở thư mục khác sẽ che nhau; router chỉ gắn sub-route qua include với endpoint nằm ở module khác thì bị tính nhầm."
     }
    ],
    "chua_chac": []
@@ -1555,7 +1589,7 @@
     {
      "test": "test_khong_co_dsn_thi_tat_han",
      "dong": 41,
-     "luat": "Không có SENTRY_DSN thì Sentry tắt, không sập.",
+     "luat": "Không có biến SENTRY_DSN thì init_sentry() để Sentry tắt (client không hoạt động), không ném lỗi.",
      "tep_code": [
       "src/clinicai/core/sentry.py"
      ]
@@ -1563,7 +1597,7 @@
     {
      "test": "test_ba_chot_rieng_tu_khi_bat",
      "dong": 48,
-     "luat": "Bật Sentry thì send_default_pii=False, include_local_variables=False, max_request_body_size='never'.",
+     "luat": "Có DSN hợp lệ thì Sentry bật với ba chốt riêng tư: send_default_pii = False (không header / cookie / IP), include_local_variables = False (không biến cục bộ — chốt quan trọng nhất), max_request_body_size = 'never' (không thân request).",
      "tep_code": [
       "src/clinicai/core/sentry.py"
      ]
@@ -1571,7 +1605,15 @@
     {
      "test": "test_moi_truong_va_ban_phat_hanh_co_gan_nhan",
      "dong": 69,
-     "luat": "Gắn environment theo APP_ENV và release 'clinicai@<IMAGE_TAG>'.",
+     "luat": "environment lấy từ APP_ENV (production) và release = 'clinicai@' + IMAGE_TAG (clinicai@abc1234).",
+     "tep_code": [
+      "src/clinicai/core/sentry.py"
+     ]
+    },
+    {
+     "test": "fixture _tat_sentry_sau_moi_bai",
+     "dong": 26,
+     "luat": "Sau mỗi bài đóng client Sentry toàn cục và khởi tạo lại rỗng, để các bài chạy sau (gọi API bằng TestClient) không xếp hàng gửi sự kiện đi và treo cuối phiên.",
      "tep_code": [
       "src/clinicai/core/sentry.py"
      ]
@@ -1581,7 +1623,7 @@
    "chua_chac": [
     {
      "dong": 1,
-     "noi_dung": "CLAUDE.md ghi Sentry 'đã chết, đừng dùng' — tệp này có thể đang canh mã không còn chạy trên prod."
+     "noi_dung": "CLAUDE.md ghi Sentry 'đã chết, đừng dùng', nhưng main.py (dòng 113) vẫn gọi init_sentry() lúc nạp và chỉ bật khi có SENTRY_DSN (.env.prod.example để trống) — test canh mã còn nằm đó, không chứng minh prod đang bật."
     }
    ]
   },
@@ -1657,6 +1699,10 @@
     {
      "dong": 217,
      "noi_dung": "test_gio_vn_tinh_tu_utc_cong_7: tên và comment nói 'khớp UTC+7' nhưng chỉ kiểm giờ nằm trong 0..23."
+    },
+    {
+     "dong": 224,
+     "noi_dung": "Các test dòng 224, 230, 314, 321 và cả TestCaddy (350–387) chỉ tìm CHỮ trong script / yml / sql (index, 'in') — không chạy script hay Caddy; đổi cách viết hợp lệ là đỏ giả, còn chốt hỏng mà chữ vẫn còn thì vẫn xanh. Chỉ TestChotEnv, TestChotTaiNguyen (bash thật) và TestScriptDungTruocDocker (dòng 281–312) chạy script với docker giả."
     }
    ],
    "chua_chac": [
@@ -1672,9 +1718,9 @@
    "loai": "db",
    "canh": [
     {
-     "test": "TestChotChanTinh",
-     "dong": 54,
-     "luat": "SQL che dừng khi thiếu cờ clinicai.che_cho_phep; không tự mở/đóng giao dịch; script nạp đặt cờ SET LOCAL và che nằm trong --single-transaction; cột patient (tên, SĐT, CCCD, ngày sinh, địa chỉ) là 'rieng', staff.full_name 'giu'.",
+     "test": "TestChotChanTinh (kiểm tĩnh trên mã nguồn)",
+     "dong": 53,
+     "luat": "Kiểm tĩnh trên chữ: SQL che kiểm cờ clinicai.che_cho_phep, có RAISE EXCEPTION, không tự BEGIN/COMMIT/ROLLBACK; script nạp đặt SET LOCAL cờ, dùng --single-transaction, lệnh che đứng trước đó; cột patient (tên, SĐT, CCCD, ngày sinh, địa chỉ) là 'rieng', staff.full_name 'giu'.",
      "tep_code": [
       "scripts/staging-che-du-lieu.sql",
       "scripts/staging-nap-ban-sao.sh"
@@ -1683,7 +1729,7 @@
     {
      "test": "test_thieu_co_phien_thi_tu_choi",
      "dong": 235,
-     "luat": "Chạy SQL che không có cờ phiên → RaiseError.",
+     "luat": "Chạy SQL che không có cờ phiên → RaiseError (trên Postgres thật, giao dịch rollback).",
      "tep_code": [
       "scripts/staging-che-du-lieu.sql"
      ]
@@ -1691,7 +1737,7 @@
     {
      "test": "test_che_sach_dinh_danh_khach",
      "dong": 242,
-     "luat": "Tên thành 'Khách NNNN', SĐT 09/08/07 giả, CCCD 12 số khác, ngày sinh lệch ≤14 ngày, địa chỉ/người nhà/ghi chú '(đã che)', email @vi-du.invalid; tên/SĐT trong văn bản, thông báo, event_log JSON, ảnh dòng đã xoá đều bị thay; nội dung khám ('Đau bụng', 'Siêu âm') giữ; tên nhân sự giữ; trigger bật lại đúng trạng thái.",
+     "luat": "Tên → 'Khách NNNN', SĐT 09/08/07 giả, CCCD 12 số khác, ngày sinh lệch ≤14 ngày, địa chỉ / người nhà / ghi chú '(đã che)', email @vi-du.invalid; tên / SĐT trong văn bản, thông báo, event_log JSON, ảnh dòng đã xoá bị thay; nội dung khám và tên nhân sự giữ; trigger bật lại đúng.",
      "tep_code": [
       "scripts/staging-che-du-lieu.sql"
      ]
@@ -1699,15 +1745,23 @@
     {
      "test": "test_chay_hai_lan_ra_cung_ket_qua",
      "dong": 328,
-     "luat": "Che hai lần ra cùng tên, SĐT, CCCD giả.",
+     "luat": "Che hai lần ra cùng tên, SĐT, CCCD giả (ngày sinh không so vì lần hai lệch thêm).",
      "tep_code": [
       "scripts/staging-che-du-lieu.sql"
      ]
     },
     {
-     "test": "test_bang_chua_co_trong_luoc_do_thi_bo_qua / test_bang_co_ma_thieu_cot_van_dung / test_ban_sao_prod_chua_co_cot_email_van_che_duoc",
+     "test": "test_bang_chua_co_trong_luoc_do_thi_bo_qua",
      "dong": 351,
-     "luat": "Bảng chưa có trong lược đồ thì bỏ qua; bảng có mà thiếu cột (luot_ghi_chu.noi_dung) thì dừng báo rõ; riêng patient.email thiếu thì vẫn che phần còn lại.",
+     "luat": "Bảng của migration chưa lên prod (luot_ghi_chu, form_instance_lich_su) chưa có trong lược đồ thì che bỏ qua và vẫn che xong khách.",
+     "tep_code": [
+      "scripts/staging-che-du-lieu.sql"
+     ]
+    },
+    {
+     "test": "test_bang_co_ma_thieu_cot_van_dung",
+     "dong": 365,
+     "luat": "Bảng có mà thiếu cột cần che (luot_ghi_chu.noi_dung) thì dừng và báo rõ tên cột.",
      "tep_code": [
       "scripts/staging-che-du-lieu.sql"
      ]
@@ -1715,16 +1769,32 @@
     {
      "test": "test_moi_cot_dinh_danh_khach_da_duoc_xep_loai",
      "dong": 375,
-     "luat": "Mọi cột text/date trong lược đồ có tên dạng tên/SĐT/email/địa chỉ/CCCD/ngày sinh/người nhà/zalo đều có trong danh sách _che_cot (che hoặc 'giu').",
+     "luat": "Mọi cột text/date trong lược đồ có tên dạng tên / SĐT / email / địa chỉ / CCCD / ngày sinh / người nhà / zalo đều có trong danh sách _che_cot (che hoặc 'giu').",
      "tep_code": [
       "scripts/staging-che-du-lieu.sql",
       "supabase/migrations"
      ]
     },
     {
-     "test": "test_nhieu_khach_van_che_duoc / test_ngay_sinh_dau_nam_1900_khong_lui_qua_1900",
+     "test": "test_nhieu_khach_van_che_duoc",
      "dong": 404,
-     "luat": "5.000 khách vẫn che được hết (không lỗi regex quá phức tạp); ngày sinh 01/01/1900 không bị lùi qua 1900.",
+     "luat": "Thêm 5.000 khách vẫn che hết (không dính lỗi regex quá phức tạp), không còn tên cũ.",
+     "tep_code": [
+      "scripts/staging-che-du-lieu.sql"
+     ]
+    },
+    {
+     "test": "test_ngay_sinh_dau_nam_1900_khong_lui_qua_1900",
+     "dong": 432,
+     "luat": "Ngày sinh 01/01/1900 sau khi che không lùi xuống năm 1899 (vi phạm ràng buộc birth_year ≥ 1900).",
+     "tep_code": [
+      "scripts/staging-che-du-lieu.sql"
+     ]
+    },
+    {
+     "test": "test_ban_sao_prod_chua_co_cot_email_van_che_duoc",
+     "dong": 462,
+     "luat": "Lược đồ prod chưa có cột patient.email thì che vẫn chạy, không có email để che nhưng tên và SĐT vẫn được che.",
      "tep_code": [
       "scripts/staging-che-du-lieu.sql"
      ]
@@ -1734,6 +1804,10 @@
     {
      "dong": 328,
      "noi_dung": "test_chay_hai_lan_ra_cung_ket_qua lấy cả date_of_birth nhưng không so (comment thừa nhận lần hai lệch thêm)."
+    },
+    {
+     "dong": 54,
+     "noi_dung": "Phần 'dừng khi thiếu cờ' và 'một giao dịch' của TestChotChanTinh chỉ khớp chữ trong tệp (current_setting, RAISE EXCEPTION, --single-transaction), không chạy script nạp thật."
     }
    ],
    "chua_chac": []
@@ -1776,7 +1850,12 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 20,
+     "noi_dung": "Tệp nguồn scripts/data_import/sync_to_supabase.py không còn trong repo; src/tests/conftest.py (dòng 37–45) tự bỏ qua tệp test này khi nguồn vắng, nên bộ test này hiện KHÔNG được chạy và import ở dòng 20 sẽ lỗi nếu bị thu lại."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/test_tenant_scope_audit.py": {
@@ -1787,15 +1866,15 @@
     {
      "test": "test_projection_or_comment_does_not_count_as_tenant_scope / test_insert_column_and_filter_predicate_count_as_tenant_scope",
      "dong": 17,
-     "luat": "clinic_id chỉ trong cột SELECT hoặc comment không tính là lọc; cột INSERT hoặc điều kiện WHERE thì tính.",
+     "luat": "clinic_id chỉ nằm trong cột SELECT hoặc trong comment không tính là lọc phòng khám; cột INSERT hoặc điều kiện WHERE thì tính.",
      "tep_code": [
       "scripts/tests/tenant-scope-audit.py"
      ]
     },
     {
-     "test": "test_or_that_escapes_the_tenant_filter_is_caught + 4 bài OR",
+     "test": "test_or_that_escapes_the_tenant_filter_is_caught + 6 bài OR khác (48, 55, 62, 95, 99, 107)",
      "dong": 33,
-     "luat": "'clinic_id = $2 AND a OR b' (OR trần) bị bắt — câu tra số phụ từng trả bệnh nhân mọi phòng khám; OR trong ngoặc, lặp clinic_id ở mọi nhánh, OR trong hàm thì không bị báo; CTE + OR có ngoặc không báo giả, OR trần trong câu chính hay truy vấn con vẫn bị bắt.",
+     "luat": "'clinic_id = $2 AND a OR b' (OR trần) bị bắt — câu tra số phụ từng trả bệnh nhân mọi phòng khám; OR trong ngoặc, lặp clinic_id ở mọi nhánh thì không báo; CTE + OR có ngoặc không báo giả, nhưng OR trần trong câu chính hay trong truy vấn con vẫn bị bắt.",
      "tep_code": [
       "scripts/tests/tenant-scope-audit.py"
      ]
@@ -1803,13 +1882,22 @@
     {
      "test": "test_no_cross_tenant_exemption_is_stale",
      "dong": 68,
-     "luat": "Mọi miễn trừ của bộ soát vẫn còn cần thiết (không giữ miễn trừ khi câu đã lọc theo phòng khám).",
+     "luat": "Mọi miễn trừ của bộ soát vẫn còn cần thiết (không giữ miễn trừ khi câu đã lọc theo phòng khám); danh sách kiểm hai chiều.",
      "tep_code": [
       "scripts/tests/tenant-scope-audit.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 62,
+     "noi_dung": "Bài 'OR trong lời gọi hàm' dùng câu COALESCE(a, b) không có chữ OR nào, nên không chứng minh gì về OR nằm trong hàm."
+    },
+    {
+     "dong": 11,
+     "noi_dung": "Chỉ thử các hàm của bộ soát trên câu SQL viết tay; không chạy bộ soát trên toàn mã nguồn thật (đó là việc của scripts/tests/tenant-scope-audit.py trong CI)."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/test_trang_thai_luot_kham_khong_bo_sot.py": {
@@ -1820,7 +1908,7 @@
     {
      "test": "test_moi_noi_liet_ke_trang_thai_deu_da_tinh_den_kham_do",
      "dong": 101,
-     "luat": "Thêm trạng thái INCOMPLETE (khách về giữa chừng) thì mọi chỗ phân nhánh theo trạng thái lượt phải nói rõ chủ ý (nhắc nó hoặc miễn trừ kèm lý do).",
+     "luat": "Tệp backend (.py) hoặc dashboard (.ts/.tsx) có liệt kê từ 2 trạng thái lượt cũ trong dấu nháy thì phải nhắc INCOMPLETE (khách về giữa chừng) hoặc nằm trong MIEN_TRU kèm lý do.",
      "tep_code": [
       "src/clinicai",
       "src/dashboard/app"
@@ -1829,15 +1917,23 @@
     {
      "test": "test_bang_mien_tru_khong_co_dong_chet",
      "dong": 121,
-     "luat": "Mỗi khoá miễn trừ phải còn khớp một tệp có thật.",
+     "luat": "Mỗi khoá miễn trừ phải còn khớp (chứa trong đường dẫn) một tệp có thật.",
      "tep_code": [
       "src/tests/test_trang_thai_luot_kham_khong_bo_sot.py"
      ]
     },
     {
-     "test": "test_bai_canh_nay_that_su_co_quet_duoc_file / test_bo_do_nhan_biet_that_su_bat_duoc_mot_danh_sach",
+     "test": "test_bai_canh_nay_that_su_co_quet_duoc_file",
      "dong": 129,
-     "luat": "Quét >200 tệp có cả .py và .tsx; bộ nhận biết bắt được danh sách 2 trạng thái, không bắt phép gán đơn.",
+     "luat": "Chống xanh giả: quét hơn 200 tệp, có cả .py và .tsx.",
+     "tep_code": [
+      "src/tests/test_trang_thai_luot_kham_khong_bo_sot.py"
+     ]
+    },
+    {
+     "test": "test_bo_do_nhan_biet_that_su_bat_duoc_mot_danh_sach",
+     "dong": 137,
+     "luat": "Chống xanh giả: bộ nhận biết bắt danh sách 2 trạng thái (cả dạng SQL và so sánh TS), không bắt phép gán đơn hay văn xuôi.",
      "tep_code": [
       "src/tests/test_trang_thai_luot_kham_khong_bo_sot.py"
      ]
@@ -1847,6 +1943,14 @@
     {
      "dong": 107,
      "noi_dung": "Xét theo cả TỆP: chữ 'INCOMPLETE' xuất hiện ở bất kỳ đâu (kể cả comment) là cả tệp qua — một nhánh khác trong cùng tệp vẫn có thể bỏ sót."
+    },
+    {
+     "dong": 89,
+     "noi_dung": "Chỉ nhận trạng thái viết hoa trong dấu nháy ('OPEN'); tệp SQL/migration không được quét; danh sách viết bằng hằng số hay enum không dấu nháy cũng lọt."
+    },
+    {
+     "dong": 93,
+     "noi_dung": "Khoá miễn trừ khớp theo 'chuỗi con của đường dẫn', không theo đường dẫn đầy đủ — một tệp khác có đường dẫn chứa cùng chuỗi sẽ được miễn lây."
     }
    ],
    "chua_chac": []
@@ -2307,9 +2411,17 @@
    "loai": "unit",
    "canh": [
     {
-     "test": "test_find_work_sessions_returns_sessions_with_doctors / test_find_work_sessions_empty_result / test_find_work_sessions_parses_jsonb_string",
+     "test": "test_find_work_sessions_returns_sessions_with_doctors",
      "dong": 46,
-     "luat": "Buổi trả về mang danh sách bác sĩ (cả khi DB trả JSON dạng chuỗi); không có buổi → rỗng.",
+     "luat": "Một dòng trả về → một buổi mang đúng kiểu EVENING, giờ 18:00–21:00 và danh sách bác sĩ có tên.",
+     "tep_code": [
+      "src/clinicai/tools/scheduling/find_work_sessions.py"
+     ]
+    },
+    {
+     "test": "test_find_work_sessions_empty_result",
+     "dong": 70,
+     "luat": "Không có buổi khớp → danh sách buổi rỗng.",
      "tep_code": [
       "src/clinicai/tools/scheduling/find_work_sessions.py"
      ]
@@ -2317,7 +2429,7 @@
     {
      "test": "test_find_work_sessions_filters_by_session_type",
      "dong": 87,
-     "luat": "SQL nhận cơ sở, ngày, kiểu buổi làm tham số; chỉ lấy người role DOCTOR, is_training = FALSE.",
+     "luat": "Câu SQL gọi đúng một lần với tham số theo thứ tự cơ sở, ngày, kiểu buổi ($1–$3 có mặt trong câu); chỉ lấy người vai DOCTOR và is_training = FALSE (bỏ học việc).",
      "tep_code": [
       "src/clinicai/tools/scheduling/find_work_sessions.py"
      ]
@@ -2325,13 +2437,26 @@
     {
      "test": "test_find_work_sessions_input_validation",
      "dong": 113,
-     "luat": "Kiểu buổi ngoài danh sách ('MORNING') bị từ chối.",
+     "luat": "Kiểu buổi ngoài danh sách cho phép (vd 'MORNING') bị pydantic từ chối.",
+     "tep_code": [
+      "src/clinicai/tools/scheduling/find_work_sessions.py"
+     ]
+    },
+    {
+     "test": "test_find_work_sessions_parses_jsonb_string",
+     "dong": 124,
+     "luat": "Cột bác sĩ DB trả về dạng chuỗi JSON (một số cấu hình asyncpg) vẫn được đọc thành danh sách bác sĩ.",
      "tep_code": [
       "src/clinicai/tools/scheduling/find_work_sessions.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 88,
+     "noi_dung": "Pool bị giả; chỉ so chuỗi trong câu SQL và thứ tự tham số, không chạy SQL thật nên không chứng minh lọc bác sĩ đúng ca hay đúng cơ sở."
+    }
+   ],
    "chua_chac": [
     {
      "dong": 1,
@@ -2347,7 +2472,7 @@
     {
      "test": "test_check_sla__overdue__is_overdue_true_hours_populated",
      "dong": 16,
-     "luat": "Việc PENDING hạn 2 giờ trước → quá hạn, số giờ quá ≈ 2.",
+     "luat": "Việc PENDING hạn 2 giờ trước → quá hạn, số giờ quá ≈ 2 (1,9–2,1), không có số giờ còn lại.",
      "tep_code": [
       "src/clinicai/tools/task/check_sla.py"
      ]
@@ -2355,21 +2480,34 @@
     {
      "test": "test_check_sla__within_sla__is_overdue_false",
      "dong": 38,
-     "luat": "Hạn còn 3 giờ → chưa quá hạn, còn ≈ 3 giờ.",
+     "luat": "Hạn còn 3 giờ → chưa quá hạn, còn ≈ 3 giờ (2,9–3,1), không có số giờ quá.",
      "tep_code": [
       "src/clinicai/tools/task/check_sla.py"
      ]
     },
     {
-     "test": "test_check_sla__done_task… / no_due_at…",
-     "dong": 60,
-     "luat": "Việc DONE hoặc không có hạn → không tính SLA, không quá hạn.",
+     "test": "test_check_sla__done_task__hours_remaining_none",
+     "dong": 59,
+     "luat": "Việc DONE (trạng thái cuối) dù hạn đã qua 5 giờ → không quá hạn, không số giờ còn / quá, giữ nguyên trạng thái.",
+     "tep_code": [
+      "src/clinicai/tools/task/check_sla.py"
+     ]
+    },
+    {
+     "test": "test_check_sla__no_due_at__handled_gracefully",
+     "dong": 81,
+     "luat": "Việc PENDING không có hạn (due_at rỗng) → coi như chưa quá hạn, không số giờ.",
      "tep_code": [
       "src/clinicai/tools/task/check_sla.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 15,
+     "noi_dung": "Kết nối database là mock (mock_pool_conn) trả sẵn một dòng; không kiểm câu SQL hay việc không tồn tại / sai phòng khám."
+    }
+   ],
    "chua_chac": [
     {
      "dong": 1,
@@ -2454,6 +2592,10 @@
     {
      "dong": 83,
      "noi_dung": "assert all(r.status == 'PENDING') chỉ đọc lại dòng mock."
+    },
+    {
+     "dong": 62,
+     "noi_dung": "Chỉ dò chuỗi con trong câu SQL của mock; không kiểm điều kiện lọc phòng khám clinic_id = $1 (dòng 119 của query_tasks.py), danh sách trắng ORDER BY, hay trần LIMIT 200."
     }
    ],
    "chua_chac": []
@@ -2464,23 +2606,52 @@
    "loai": "unit",
    "canh": [
     {
-     "test": "test_update_status__done__completed_at_auto_set / test_update_status__cancelled__ok",
+     "test": "test_update_status__done__completed_at_auto_set",
      "dong": 48,
-     "luat": "Chuyển DONE thì tham số completed_at = giờ hiện tại; CANCELLED thì completed_at trống.",
+     "luat": "Chuyển DONE mà không khai completed_at thì tham số gửi xuống DB là một datetime (giờ hiện tại).",
      "tep_code": [
       "src/clinicai/tools/task/update_task_status.py"
      ]
     },
     {
-     "test": "test_update_status__invalid_status__pydantic_error / test_update_status__task_not_found__raises_lookup_error",
+     "test": "test_update_status__cancelled__ok",
+     "dong": 70,
+     "luat": "Chuyển CANCELLED thì tham số completed_at là None.",
+     "tep_code": [
+      "src/clinicai/tools/task/update_task_status.py"
+     ]
+    },
+    {
+     "test": "test_update_status__invalid_status__pydantic_error",
      "dong": 88,
-     "luat": "Trạng thái 'BOGUS' bị từ chối; không thấy việc → TaskNotFoundError.",
+     "luat": "Trạng thái ngoài PENDING/IN_PROGRESS/DONE/CANCELLED (ví dụ 'BOGUS') bị pydantic từ chối.",
+     "tep_code": [
+      "src/clinicai/tools/task/update_task_status.py"
+     ]
+    },
+    {
+     "test": "test_update_status__task_not_found__raises_lookup_error",
+     "dong": 97,
+     "luat": "Câu UPDATE không trả dòng nào (không có việc hoặc sai phòng khám) → TaskNotFoundError.",
      "tep_code": [
       "src/clinicai/tools/task/update_task_status.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 48,
+     "noi_dung": "Chỉ kiểm completed_at là một datetime, không kiểm gần giờ hiện tại; code dùng datetime.now() không múi giờ nên lệch kiểu so với mốc có múi giờ ở chỗ khác, bài không bắt được."
+    },
+    {
+     "dong": 61,
+     "noi_dung": "Không bài nào kiểm tham số thứ tư (clinic_id) gửi xuống câu UPDATE, tức luật 'chỉ đổi việc của đúng phòng khám' chỉ nằm trong SQL mà test không đụng tới."
+    },
+    {
+     "dong": 70,
+     "noi_dung": "Không có bài mở lại việc (DONE → PENDING/IN_PROGRESS xoá completed_at) và không có bài khai sẵn completed_at khi DONE (phải giữ nguyên); hai nhánh của code ở dòng 78-82 chưa được canh."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/tools/test_communication_tools.py": {
@@ -2757,7 +2928,7 @@
     {
      "test": "test_dang_nhap_dung_thi_cap_token_doc_duoc_boi_identity",
      "dong": 60,
-     "luat": "Đăng nhập đúng → JWT có sub = auth_user_id, aud và role = 'authenticated', còn hạn.",
+     "luat": "Đăng nhập đúng → JWT HS256 có sub = auth_user_id, aud và role đều = 'authenticated', hết hạn ở tương lai (chưa kiểm claim email/iat và đúng 12 giờ).",
      "tep_code": [
       "src/clinicai/services/auth_service.py"
      ]
@@ -2765,7 +2936,7 @@
     {
      "test": "test_ba_kieu_sai_deu_tra_ve_dung_mot_cau / test_da_thu_hoi_ma_sai_mat_khau_thi_van_mot_cau_chung",
      "dong": 80,
-     "luat": "Email không có, sai mật khẩu, nhân viên đã nghỉ, hoặc đã thu hồi mà sai mật khẩu → cùng một câu 'Email hoặc mật khẩu không đúng.'",
+     "luat": "Email không có, sai mật khẩu, nhân viên đã nghỉ (đúng mật khẩu), hoặc đã thu hồi mà sai mật khẩu → cùng một câu 'Email hoặc mật khẩu không đúng.' Thu hồi/chưa nối chỉ được nói thật SAU khi mật khẩu đúng.",
      "tep_code": [
       "src/clinicai/services/auth_service.py"
      ]
@@ -2773,7 +2944,7 @@
     {
      "test": "test_chua_noi_tai_khoan_thi_khong_cap_token / test_da_thu_hoi_thi_khong_cap_token_ke_ca_da_noi_lai",
      "dong": 110,
-     "luat": "auth_user_id trống hoặc thu_hoi_luc có giá trị → từ chối kèm câu riêng, không ghi đăng nhập thành công.",
+     "luat": "Đúng mật khẩu nhưng auth_user_id trống → TAI_KHOAN_CHUA_NOI; hoặc thu_hoi_luc có giá trị (dù auth_user_id đã có) → TAI_KHOAN_DA_THU_HOI. Cả hai không chạy UPDATE đăng nhập thành công.",
      "tep_code": [
       "src/clinicai/services/auth_service.py"
      ]
@@ -2781,7 +2952,7 @@
     {
      "test": "test_sai_lan_thu_nam_thi_khoa_tam",
      "dong": 164,
-     "luat": "Sai lần thứ MAX_FAILED → ghi failed_attempts và locked_until vào DB.",
+     "luat": "Sai khi đã sai MAX_FAILED-1 lần → đúng một UPDATE, SQL có failed_attempts và locked_until, tham số lần sai = MAX_FAILED. Việc khoá thật do CASE trong SQL (auth_service.py:131) — bài chỉ soi chuỗi SQL, không chạy DB.",
      "tep_code": [
       "src/clinicai/services/auth_service.py"
      ]
@@ -2789,7 +2960,7 @@
     {
      "test": "test_dang_bi_khoa_thi_khong_kiem_mat_khau_nua",
      "dong": 180,
-     "luat": "Đang khoá → từ chối ngay 'Thử lại sau', không băm mật khẩu.",
+     "luat": "locked_until còn ở tương lai → từ chối 'Thử lại sau N phút' ngay, không gọi crypt() (fetchval không được chờ).",
      "tep_code": [
       "src/clinicai/services/auth_service.py"
      ]
@@ -2797,7 +2968,7 @@
     {
      "test": "test_thieu_khoa_ky_thi_hong_on_ao",
      "dong": 200,
-     "luat": "Thiếu SUPABASE_JWT_SECRET → báo lỗi ngay khi đăng nhập.",
+     "luat": "Đúng mật khẩu nhưng thiếu SUPABASE_JWT_SECRET → ValidationError nêu tên biến, ngay lúc cấp token (_mint) thay vì cấp token vô dụng.",
      "tep_code": [
       "src/clinicai/services/auth_service.py"
      ]
@@ -2805,13 +2976,22 @@
     {
      "test": "test_bo_dem_lan_sai_duoc_ghi_chu_khong_bi_huy_theo_giao_dich",
      "dong": 215,
-     "luat": "Ném lỗi sai mật khẩu xảy ra SAU khi giao dịch đóng bình thường (không rollback mất bộ đếm).",
+     "luat": "Sai mật khẩu: giao dịch phải thoát với exc_type None (lỗi chỉ ném sau khi đóng giao dịch) để asyncpg không rollback bộ đếm.",
      "tep_code": [
       "src/clinicai/services/auth_service.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 164,
+     "noi_dung": "Toàn bộ pool/conn là mock: không chứng minh DB thật ghi bộ đếm và khoá (câu SQL ép kiểu $2::int cũng chưa từng chạy ở đây). Bài rollback (dòng 215) chỉ tin vào lời gọi __aexit__ của mock."
+    },
+    {
+     "dong": 59,
+     "noi_dung": "Chưa có bài cho: email hoặc mật khẩu rỗng (auth_service.py:71 'Nhập email và mật khẩu'), đăng nhập đúng xoá bộ đếm (dòng 175–183), và hết hạn khoá thì được kiểm mật khẩu lại."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_ba_ca_lam_viec.py": {
@@ -2895,7 +3075,7 @@
     {
      "test": "test_khong_ai_la_bac_si_thi_tra_none_khong_lui_ve_nguoi_bam",
      "dong": 38,
-     "luat": "Không ai trong ứng viên là bác sĩ → không in ai (None), không in điều dưỡng người bấm.",
+     "luat": "Không ứng viên nào là bác sĩ (kể cả người bấm là điều dưỡng) → không in ai (None), không lùi về tên người bấm.",
      "tep_code": [
       "src/clinicai/services/bac_si_ky.py"
      ]
@@ -2903,15 +3083,23 @@
     {
      "test": "test_lich_phong_theo_ngay_cua_luc_khong_phai_hom_nay",
      "dong": 49,
-     "luat": "Lấy bác sĩ đứng phòng theo ngày VN của thời điểm (23:30 UTC 27/09 = 28/09).",
+     "luat": "Khi không có bác sĩ trực tiếp, lấy bác sĩ đứng phòng từ lịch trực ĐÃ DUYỆT theo ngày VN của thời điểm làm (23:30 UTC 27/09 = 06:30 ngày 28/09 → tra ngày 28/09), không theo ngày hôm nay.",
      "tep_code": [
       "src/clinicai/services/bac_si_ky.py"
      ]
     },
     {
-     "test": "test_thu_tu_ung_vien_bac_si_chi_dinh / test_thu_tu_ung_vien_nguoi_ky_luot",
+     "test": "test_thu_tu_ung_vien_bac_si_chi_dinh",
      "dong": 74,
-     "luat": "Thứ tự ưu tiên: người duyệt chỉ định → người ghi → bác sĩ phụ trách → bác sĩ lịch hẹn; người ký lượt: finalized_by → bác sĩ phụ trách → bác sĩ lịch; chỉ nhận vai DOCTOR/ULTRASOUND_DOCTOR.",
+     "luat": "SQL chọn bác sĩ ký của một chỉ định xếp ứng viên theo thứ tự: người duyệt chỉ định (authorized_by) → người ghi (recorded_by) → bác sĩ phụ trách lượt (attending_doctor_id) → bác sĩ của lịch hẹn (aa.doctor_id); chỉ nhận vai DOCTOR / ULTRASOUND_DOCTOR.",
+     "tep_code": [
+      "src/clinicai/services/bac_si_ky.py"
+     ]
+    },
+    {
+     "test": "test_thu_tu_ung_vien_nguoi_ky_luot",
+     "dong": 89,
+     "luat": "SQL chọn người ký của cả lượt xếp ứng viên theo thứ tự: người chốt hồ sơ (finalized_by) → bác sĩ phụ trách (attending_doctor_id) → bác sĩ của lịch hẹn (aa.doctor_id), và dùng chung điều kiện vai bác sĩ (_VAI_SQL).",
      "tep_code": [
       "src/clinicai/services/bac_si_ky.py"
      ]
@@ -2971,7 +3159,11 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "noi_dung": "Chỉ thử các giờ giữa ca (9h, 15h, 20h) và ngoài giờ muộn (23h); không thử ranh giới ca (đúng giờ đổi ca) hay khe nghỉ trưa giữa hai ca, nên lỗi lệch một phút ở biên không bị bắt."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_ban_le_dau_vao.py": {
@@ -3064,7 +3256,7 @@
     {
      "test": "test_con_cho_it_cho_day_theo_tong_cua_ngay / test_it_cho_con_tinh_theo_20_phan_tram_khi_ngay_lon",
      "dong": 41,
-     "luat": "Trạng thái ô theo tổng chỗ của ngày: 12/12 còn → CON_CHO; còn 2 (≤ ngưỡng 2) → IT_CHO; hết → DAY; ngày 40 chỗ còn 8 (=20%) → IT_CHO.",
+     "luat": "Trạng thái ô theo tổng chỗ của ngày: 12/12 chỗ còn → CON_CHO; còn 2/10 (≤ ngưỡng 2) → IT_CHO; hết chỗ → DAY; ngày 40 chỗ còn 8 (=20%) → IT_CHO dù 8 > ngưỡng số 2.",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
@@ -3072,7 +3264,7 @@
     {
      "test": "test_tu_do_nghi_dong_cua_da_qua_khong_in_so_cho",
      "dong": 63,
-     "luat": "Đặt tự do → TU_DO không in số chỗ; bác sĩ nghỉ → NGHI; phòng khám đóng → DONG_CUA; ngày đã qua → DA_QUA không in số.",
+     "luat": "Đặt tự do → TU_DO, không in số chỗ còn (chỉ số đã đặt); vừa nghỉ vừa đóng cửa → NGHI; chỉ đóng cửa → DONG_CUA; ngày trước hôm nay → DA_QUA, không in số chỗ.",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
@@ -3080,7 +3272,7 @@
     {
      "test": "test_nguong_it_cho_doc_cau_hinh_khong_bao_gio_nem",
      "dong": 95,
-     "luat": "Ngưỡng ít chỗ đọc từ cấu hình (4, 0); rác/bool/999/JSON hỏng/None → mặc định 2.",
+     "luat": "Ngưỡng ít chỗ đọc từ cấu hình (chuỗi JSON hoặc dict: 4, 0); chữ, bool, 999, JSON hỏng, None → mặc định 2, không ném.",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
@@ -3088,13 +3280,22 @@
     {
      "test": "test_bang_tuan_moi_bac_si_7_ngay_them_hang_chua_phan",
      "dong": 131,
-     "luat": "Tuần lùi về thứ Hai, 7 ngày; thêm hàng 'Chưa phân bác sĩ'; chỉ hỏi lịch trực MỘT lần cho cả tuần (14 lần quote); tuần rác → ValidationError.",
+     "luat": "Ngày bất kỳ trong tuần lùi về thứ Hai, 7 ngày; thêm hàng 'Chưa phân bác sĩ' (ô tự do); chỉ hỏi lịch trực MỘT lần cho cả tuần dù có 14 ô (14 lần quote); ngày đã qua DA_QUA; tuần rác → ValidationError.",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 70,
+     "noi_dung": "Ca NGHI chỉ thử khi off_duty và closed cùng True; chưa có ca off_duty một mình hay thứ tự ưu tiên NGHI / DONG_CUA / TU_DO."
+    },
+    {
+     "dong": 133,
+     "noi_dung": "Bảng tuần dùng service và pool giả (quote trả khung cố định); không kiểm số chỗ thật theo ca trực."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_bao_cao_cuoi_ngay.py": {
@@ -3103,9 +3304,17 @@
    "loai": "unit",
    "canh": [
     {
-     "test": "test_ngay_rac_ve_hom_nay_khong_nem / test_ngay_dao_chieu_thi_doi_cho_va_toi_da_92_ngay",
-     "dong": 22,
-     "luat": "Ngày rác (kể cả chuỗi chèn SQL) → hôm nay; ngày đảo chiều thì đổi chỗ; khoảng tối đa 92 ngày.",
+     "test": "test_ngay_rac_ve_hom_nay_khong_nem",
+     "dong": 32,
+     "luat": "Ngày rác (rỗng, sai tháng, kiểu số/mảng, chuỗi chèn SQL) → cả hai đầu đều là hôm nay giờ VN, không ném lỗi.",
+     "tep_code": [
+      "src/clinicai/services/bao_cao_cuoi_ngay_service.py"
+     ]
+    },
+    {
+     "test": "test_ngay_dao_chieu_thi_doi_cho_va_toi_da_92_ngay",
+     "dong": 36,
+     "luat": "Ngày đảo chiều thì đổi chỗ; khoảng quá dài bị cắt còn đúng 92 ngày, giữ nguyên ngày cuối.",
      "tep_code": [
       "src/clinicai/services/bao_cao_cuoi_ngay_service.py"
      ]
@@ -3121,7 +3330,7 @@
     {
      "test": "test_gom_so_tm_ck_hoan_huy_thuoc",
      "dong": 102,
-     "luat": "Thu 700k TM + 150k CK + 150k TM (huỷ) + 80k QR: thu gốc 1.080.000, huỷ 150.000, hoàn xong 300.000, thực thu 630.000, hoàn chờ 50.000 không trừ; QR gộp vào chuyển khoản (230k); tổng theo hình thức = tổng chung; phiếu huỷ và thuốc không vào top dịch vụ; lượt chỉ có phiếu huỷ không tính 'đã thu'.",
+     "luat": "Thu 700k TM + 150k CK + 150k TM (huỷ) + 80k QR: thu gốc 1.080.000, huỷ 150.000, hoàn xong 300.000, thực thu 630.000; hoàn chờ 50.000 không trừ; QR gộp vào chuyển khoản; tổng theo hình thức = tổng chung; theo loại, theo người thu; huỷ/hoàn xếp có lý do; tiền đối tác 900.000 tính riêng ngoài thực thu; phiếu huỷ và thuốc không vào top dịch vụ; lượt chỉ có phiếu huỷ không tính 'đã thu'.",
      "tep_code": [
       "src/clinicai/services/bao_cao_cuoi_ngay_service.py"
      ]
@@ -3137,13 +3346,26 @@
     {
      "test": "test_rong_khong_nem_va_csv_co_bom_chong_cong_thuc",
      "dong": 279,
-     "luat": "Không dữ liệu → 0, không ném; CSV có BOM và ô bắt đầu '=' bị thêm dấu nháy (chống chèn công thức Excel).",
+     "luat": "Không dữ liệu → 0, không ném; CSV có BOM và tên người thu bắt đầu '=' bị thêm dấu nháy (chống chèn công thức Excel); có dòng 'Huỷ phiếu'.",
      "tep_code": [
       "src/clinicai/services/bao_cao_cuoi_ngay_service.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 32,
+     "noi_dung": "Mốc 'hôm nay' tính lại lúc chạy bài (_hom_nay), nên chạy đúng khoảnh khắc qua nửa đêm giờ VN có thể đỏ oan."
+    },
+    {
+     "dong": 102,
+     "noi_dung": "Một bài dài chứa gần 30 khẳng định gộp; lỗi ở khẳng định đầu che các khẳng định sau, khó biết số nào lệch."
+    },
+    {
+     "dong": 279,
+     "noi_dung": "Chống công thức chỉ thử ở một ô (tên người thu); tên khách, lý do huỷ/hoàn, tên dịch vụ cũng vào CSV nhưng chưa được thử."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_bao_cao_pham_vi.py": {
@@ -3474,7 +3696,7 @@
     {
      "test": "test_room_to_spare_reads_free / test_one_seat_left_reads_few",
      "dong": 20,
-     "luat": "Còn ≥2 chỗ → free; còn đúng 1 chỗ (6/5, 3/2, 1/0) → few.",
+     "luat": "Còn từ 2 chỗ trở lên (6/0, 6/1, 6/4, 3/1) → free; còn đúng 1 chỗ (6/5, 3/2, 1/0) → few. Ngưỡng là FEW_REMAINING = 1 (capacity_service.py:53).",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
@@ -3482,7 +3704,7 @@
     {
      "test": "test_at_the_cap_reads_full / test_over_the_cap_still_reads_full",
      "dong": 33,
-     "luat": "Đủ trần hoặc vượt trần (3/5) → full.",
+     "luat": "Đủ trần (6/6, 3/3, 1/1) hoặc vượt trần (3/5) → full, không rơi về free.",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
@@ -3490,14 +3712,28 @@
     {
      "test": "test_walkin_seats_never_colour_the_cell",
      "dong": 45,
-     "luat": "Hàm chỉ nhận regular_cap và regular_used (chỗ vãng lai không làm ô trông còn chỗ).",
+     "luat": "Chữ ký cell_state chỉ có hai tham số regular_cap, regular_used (chỗ vãng lai không được đưa vào). Bài soi tên tham số bằng inspect, không gọi hàm.",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
     }
    ],
-   "yeu": [],
-   "chua_chac": []
+   "yeu": [
+    {
+     "dong": 45,
+     "noi_dung": "Bài vãng lai chỉ kiểm tên tham số của hàm; ai đổi chữ ký giữ nguyên tên nhưng đưa chỗ vãng lai vào cap từ nơi gọi (capacity_service.py:472) thì bài vẫn xanh."
+    },
+    {
+     "dong": 24,
+     "noi_dung": "Chưa có ca trần 0 (cap 0, used 0 → full theo code dòng 536) và chưa có test cho ngưỡng 'ít chỗ' cấp NGÀY (tom_tat_ngay: ≤2 chỗ hoặc ≤20%) — khác ngưỡng của ô giờ."
+    }
+   ],
+   "chua_chac": [
+    {
+     "dong": 1,
+     "noi_dung": "Tiêu đề nói 'chỉ ba trạng thái' đúng với cell_state, nhưng kiểu CellState (capacity_service.py:49) khai thêm 'closed' — cell_state không bao giờ trả giá trị đó."
+    }
+   ]
   },
   "src/tests/unit/test_cashier_scope.py": {
    "lam_gi": "Canh phạm vi thu ngân theo lịch trực: quầy thu nào (dịch vụ/thuốc), ca nào, cơ sở nào được thu/xem; chỉ ca đã duyệt và đang diễn ra mới thu được; trưởng ca (DIEU_PHOI) có cả hai quầy.",
@@ -3561,24 +3797,24 @@
    "canh": [
     {
      "test": "test_unsafe_database_is_rejected_before_any_query",
-     "dong": 20,
-     "luat": "DSN trỏ VPS 222.255.214.133, cổng 54422, DB clinicai/khuon của 55600 → từ chối trước khi chạy truy vấn nào.",
+     "dong": 10,
+     "luat": "DSN trỏ máy khác (VPS 222.255.214.133), cổng 54422, hoặc DB 'clinicai' / 'khuon' của :55600 → ValueError 'disposable' ngay, trước khi chạy bất kỳ truy vấn nào (không fetchval, fetch, execute).",
      "tep_code": [
       "src/tests/catalog_cleanup.py"
      ]
     },
     {
      "test": "test_connection_database_must_match_validated_dsn",
-     "dong": 31,
-     "luat": "Tên DB thật của kết nối phải khớp DSN đã duyệt, không thì từ chối.",
+     "dong": 30,
+     "luat": "Tên DB thật của kết nối (current_database) phải bằng tên trong DSN đã duyệt, không thì ValueError 'database' và không chạy truy vấn lấy ảnh chụp hay dọn.",
      "tep_code": [
       "src/tests/catalog_cleanup.py"
      ]
     },
     {
      "test": "test_disposable_database_allows_cleanup",
-     "dong": 48,
-     "luat": "DB tạm (tam_*, ci_gw*, 55433/postgres) thì cho dọn (4 lệnh execute).",
+     "dong": 43,
+     "luat": "DB dùng một lần cho phép dọn: tam_<số>_<tên> hoặc ci_gw<số> ở mọi cổng cục bộ (vd :55600, :55530), hoặc 'postgres' ở cổng CI 55433 / 55530; dọn gọi đúng 4 lệnh execute (2 bảng × 2 lệnh).",
      "tep_code": [
       "src/tests/catalog_cleanup.py"
      ]
@@ -3588,7 +3824,7 @@
    "chua_chac": [
     {
      "dong": 46,
-     "noi_dung": "localhost:55433/postgres được coi là 'dùng một lần' — chỉ dựa vào cổng; nếu cổng đó là DB khác thì vẫn lọt."
+     "noi_dung": "'postgres' ở localhost:55433 / :55530 được coi là DB CI dùng một lần chỉ dựa vào cổng; nếu cổng đó đang trỏ tới một DB khác (vd đường hầm) thì vẫn lọt."
     }
    ]
   },
@@ -3600,7 +3836,7 @@
     {
      "test": "TestBaKhoangTrong",
      "dong": 97,
-     "luat": "07:15, 07:30 (trước ca sáng), 13:30 (nghỉ trưa), 21:30, 21:45 (sau ca tối) bị từ chối; câu nhắc đúng giờ, liệt kê khung 08:00–13:00…21:30, chỉ tới 'Cài đặt' chứ không 'Lịch làm việc'.",
+     "luat": "07:15, 07:30 (trước ca sáng), 13:30 (nghỉ trưa), 21:30, 21:45 (từ hết ca tối) bị từ chối; câu nhắc đúng giờ bị chặn, liệt kê khung nhận lịch 08:00–13:00 … 21:30, chỉ tới 'Cài đặt' chứ không 'Lịch làm việc'.",
      "tep_code": [
       "src/clinicai/services/booking_service.py"
      ]
@@ -3608,7 +3844,7 @@
     {
      "test": "TestGioTrongCaThiQua",
      "dong": 135,
-     "luat": "08:00, 10:00, 12:59, 14:00, 17:30, 18:20, 21:29 đặt được.",
+     "luat": "08:00, 10:00, 12:59, 14:00, 17:30, 18:20, 21:29 đặt được (giao ca chiều–tối không có kẽ hở).",
      "tep_code": [
       "src/clinicai/services/booking_service.py"
      ]
@@ -3616,7 +3852,7 @@
     {
      "test": "TestDocGioCaTuPhongKham",
      "dong": 142,
-     "luat": "Phòng khám khai ca khác thì luật đổi theo (08:30 chặn, 21:45 qua, 13:00 nghỉ trưa chặn); cấu hình hỏng dùng ca mặc định, không thành cho đặt mọi giờ.",
+     "luat": "Phòng khám khai ca khác thì luật đổi theo (08:30 chặn, 21:45 qua, 13:00 nghỉ trưa chặn); cấu hình hỏng (None, chuỗi không phải JSON, ca_lam_viec sai kiểu, rỗng) dùng ca mặc định, không thành cho đặt mọi giờ.",
      "tep_code": [
       "src/clinicai/services/booking_service.py",
       "src/clinicai/core/shifts.py"
@@ -3625,7 +3861,7 @@
     {
      "test": "TestNgayKhongCoGioMoCua",
      "dong": 166,
-     "luat": "Ngày đóng cửa hoặc không có dòng giờ mở cửa thì chốt này im lặng (để luật giờ mở cửa lo).",
+     "luat": "Ngày đóng cửa (không có giờ mở cửa) hoặc không có dòng giờ mở cửa thì chốt này im lặng (để luật giờ mở cửa lo).",
      "tep_code": [
       "src/clinicai/services/booking_service.py"
      ]
@@ -3633,7 +3869,7 @@
     {
      "test": "TestGanDuHaiDuongChonGio",
      "dong": 202,
-     "luat": "Chốt gắn ở create và _build_patch (đổi lịch), không gắn ở _guard_slot (để gán bác sĩ cho lịch cũ ngoài ca vẫn được); đúng 3 lần gọi trong BookingService.",
+     "luat": "Chốt gắn ở create và _build_patch (đổi lịch), KHÔNG gắn ở _guard_slot (để gán bác sĩ cho lịch cũ ngoài ca vẫn được); đúng 3 lần gọi trong BookingService: 2 đường đặt (create, reschedule) + 1 lần HỎI ở doi_lich_nhanh chỉ để ghi chú 'ngoài ca', không chặn.",
      "tep_code": [
       "src/clinicai/services/booking_service.py"
      ]
@@ -3646,7 +3882,11 @@
     },
     {
      "dong": 202,
-     "noi_dung": "TestGanDuHaiDuongChonGio chỉ đếm chuỗi trong mã nguồn."
+     "noi_dung": "TestGanDuHaiDuongChonGio chỉ đếm chuỗi trong mã nguồn (inspect.getsource): đúng 3 lần 'await self._chan_dat_ngoai_khung_ca(' — thêm lần gọi hợp lệ thứ tư là đỏ giả."
+    },
+    {
+     "dong": 54,
+     "noi_dung": "Giờ thử gắn vào NGÀY MAI theo giờ phòng khám nhưng chốt còn phụ thuộc giờ mở cửa/ca mặc định của _Conn giả; ngày mai trùng ngày đặc biệt có giờ mở cửa riêng không được thử."
     }
    ],
    "chua_chac": []
@@ -3771,9 +4011,17 @@
    "loai": "unit",
    "canh": [
     {
-     "test": "test_mock_consumer_calls_handler_for_each_event / test_mock_consumer_stop_is_noop",
+     "test": "test_mock_consumer_calls_handler_for_each_event",
      "dong": 27,
-     "luat": "MockConsumer gọi handler đúng 2 lần cho 2 sự kiện theo thứ tự; stop bật cờ, không ném.",
+     "luat": "MockConsumer.start gọi handler đúng 2 lần cho 2 sự kiện theo thứ tự đã xếp và đặt cờ started.",
+     "tep_code": [
+      "src/clinicai/event_bus/consumer.py"
+     ]
+    },
+    {
+     "test": "test_mock_consumer_stop_is_noop",
+     "dong": 42,
+     "luat": "MockConsumer.stop bật cờ stopped, không ném.",
      "tep_code": [
       "src/clinicai/event_bus/consumer.py"
      ]
@@ -3782,7 +4030,11 @@
    "yeu": [
     {
      "dong": 1,
-     "noi_dung": "Kiểm chính đồ giả MockConsumer — không có luật nghiệp vụ nào; docstring nói có kiểm RabbitMQConsumer nhưng không có bài nào."
+     "noi_dung": "Kiểm chính đồ giả MockConsumer, không có luật nghiệp vụ nào; docstring nói có kiểm RabbitMQConsumer (consumer.py dòng 22) nhưng không có bài nào đụng tới nó."
+    },
+    {
+     "dong": 27,
+     "noi_dung": "Không kiểm trường hợp handler ném lỗi giữa chừng hay thứ tự khi stop gọi trước start; chỉ đường vui."
     }
    ],
    "chua_chac": []
@@ -4355,17 +4607,42 @@
    "loai": "unit",
    "canh": [
     {
-     "test": "test_lui_dan_gap_doi_toi_tran / test_han_day_theo_co_tep",
+     "test": "test_lui_dan_gap_doi_toi_tran",
      "dong": 60,
-     "luat": "Lùi 60, 60, 120, 240, 960 giây… tới trần; hạn đẩy tăng theo cỡ tệp (10MB thêm 20 giây).",
+     "luat": "Lùi dần sau lỗi: 60, 60, 120, 240, 960 giây… tới trần LUI_TOI_DA_GIAY.",
      "tep_code": [
       "src/clinicai/services/day_tep.py"
      ]
     },
     {
-     "test": "test_chep_va_kiem_*",
+     "test": "test_han_day_theo_co_tep",
+     "dong": 65,
+     "luat": "Hạn đẩy một tệp = hạn cơ sở của kho_tep + thêm theo cỡ tệp (10MB thêm 20 giây; tệp rỗng giữ hạn cơ sở).",
+     "tep_code": [
+      "src/clinicai/services/day_tep.py",
+      "src/clinicai/core/kho_tep.py"
+     ]
+    },
+    {
+     "test": "test_chep_va_kiem_khop_thi_dat_dung_khoa",
      "dong": 73,
-     "luat": "Chép đúng khoá, giữ bản VPS, không để tệp tạm; bản VPS lệch sha hoặc đọc lại trên CFS lệch → không đặt, không rác; CFS chưa gắn (thiếu tệp đánh dấu) → không đẩy; mất bản VPS → lỗi của tệp.",
+     "luat": "Chép sang CFS qua tệp tạm .tam rồi đổi tên về đúng khoá; bản VPS giữ lại (dọn là bước riêng); không để tệp tạm.",
+     "tep_code": [
+      "src/clinicai/services/day_tep.py"
+     ]
+    },
+    {
+     "test": "test_ban_vps_lech_sha_thi_khong_dat_va_khong_de_rac / test_doc_lai_tren_cfs_lech_thi_khong_dat",
+     "dong": 83,
+     "luat": "Bản VPS lệch cỡ / sha256 → báo 'ổ VPS lệch'; ghi xong đọc lại trên CFS mà lệch → báo 'đọc lại trên CFS' — cả hai trường hợp không đặt tệp vào khoá và không để rác ở .tam.",
+     "tep_code": [
+      "src/clinicai/services/day_tep.py"
+     ]
+    },
+    {
+     "test": "test_kho_cfs_chua_gan_thi_khong_day / test_mat_ban_vps_la_loi_cua_tep",
+     "dong": 108,
+     "luat": "Có MEDIA_MARKER mà thiếu tệp đánh dấu trên CFS → 'chưa gắn', không đẩy; không thấy bản VPS → lỗi 'không thấy bản' của riêng tệp đó.",
      "tep_code": [
       "src/clinicai/services/day_tep.py"
      ]
@@ -4373,7 +4650,7 @@
     {
      "test": "test_doc_uu_tien_ban_vps / test_het_ban_vps_thi_doc_cfs",
      "dong": 128,
-     "luat": "Đọc ưu tiên bản ổ VPS, không có thì đọc CFS.",
+     "luat": "Đọc ưu tiên bản ổ VPS (kể cả khi CFS cũng có); không có bản VPS thì đọc CFS.",
      "tep_code": [
       "src/clinicai/services/tep_ket_qua_service.py"
      ]
@@ -4381,7 +4658,7 @@
     {
      "test": "test_cfs_dang_ngat_mach_thi_loi_nhanh_nhung_ban_vps_van_doc_duoc / test_tep_chua_day_mat_ban_vps_khong_cham_cfs",
      "dong": 145,
-     "luat": "CFS đang ngắt mạch → lỗi 'chậm' trong <0,5s, chỉ hỏi ổ VPS, không đẻ luồng; tệp chưa đẩy mà mất bản VPS → không thấy, không đọc CFS.",
+     "luat": "CFS đang ngắt mạch → báo 'chậm' trong dưới 0,5 giây, chỉ hỏi ổ VPS, không đẻ luồng chờ CFS; bản VPS còn thì vẫn đọc được. Tệp chưa đẩy (dòng nói kho vps) mất bản VPS → không tìm thấy, không đọc CFS.",
      "tep_code": [
       "src/clinicai/services/tep_ket_qua_service.py",
       "src/clinicai/core/kho_tep.py"
@@ -4390,15 +4667,32 @@
     {
      "test": "test_doc_dan_dung_khoang_va_dong_tep / test_doc_dan_manh_treo_thi_loi_theo_han_va_van_dong_tep",
      "dong": 180,
-     "luat": "Đọc dần đúng khoảng byte và đóng tệp; mảnh treo → lỗi theo hạn (<1s), không treo luồng.",
+     "luat": "Đọc dần đúng khoảng byte yêu cầu rồi đóng tệp; mỗi mảnh đọc có hạn giờ: mảnh treo → lỗi dịch vụ ngoài trong dưới 1 giây, không treo luồng.",
      "tep_code": [
-      "src/clinicai/services/tep_ket_qua_service.py"
+      "src/clinicai/services/tep_ket_qua_service.py",
+      "src/clinicai/core/kho_tep.py"
      ]
     },
     {
-     "test": "test_cfs_cham_thi_khong_day / test_on_mot_lan_chua_day_on_hai_lan_moi_day / test_vong_khong_bao_gio_nem",
+     "test": "test_cfs_cham_thi_khong_day",
      "dong": 227,
-     "luat": "CFS chậm → bỏ qua đẩy; phải ổn 2 lần liền mới đẩy (một lô cho mỗi bảng tệp); vòng lặp không bao giờ ném.",
+     "luat": "Phép đo CFS chậm (đọc 9 giây) → vòng lặp bỏ qua đẩy ('cfs_chua_on') ba vòng liền.",
+     "tep_code": [
+      "src/clinicai/services/day_tep.py"
+     ]
+    },
+    {
+     "test": "test_on_mot_lan_chua_day_on_hai_lan_moi_day",
+     "dong": 254,
+     "luat": "CFS ổn một lần thì chưa đẩy; ổn lần thứ hai mới đẩy, mỗi bảng tệp một lô (tep_ket_qua + anh_chuyen_khoan).",
+     "tep_code": [
+      "src/clinicai/services/day_tep.py"
+     ]
+    },
+    {
+     "test": "test_vong_khong_bao_gio_nem",
+     "dong": 285,
+     "luat": "Lỗi ở phép đo, dọn bản VPS hay áp cảnh báo (DB mất) đều không làm vòng lặp ném; vòng vẫn trả kết quả bỏ qua.",
      "tep_code": [
       "src/clinicai/services/day_tep.py"
      ]
@@ -4406,16 +4700,32 @@
     {
      "test": "test_do_toc_do_dung_tep_rieng",
      "dong": 300,
-     "luat": "day-tep đo tốc độ bằng tệp riêng, không ghi đè tệp đo của API.",
+     "luat": "day-tep đo tốc độ bằng tệp riêng, không dùng tệp đo của API (hai tiến trình cùng ổ, chung tệp thì ghi đè nhau → 'không khớp' giả).",
      "tep_code": [
       "src/clinicai/services/day_tep.py",
       "src/clinicai/services/canh_gac_kho_tep.py"
      ]
     },
     {
-     "test": "test_canh_bao_o_vps / test_suc_khoe_duong_day / test_dung_luong_dem_ca_thu_muc_con",
+     "test": "test_canh_bao_o_vps",
      "dong": 310,
-     "luat": "Ổ VPS gần trần hoặc sắp đầy → warning; còn dưới 1GB → critical 'TỪ CHỐI'; tệp chờ đẩy quá 7 giờ hoặc có lỗi nặng → báo; dung lượng đếm cả thư mục con.",
+     "luat": "Ổ VPS: thư mục tệp 1/8GB, đĩa còn 20GB → không cần báo; thư mục 7GB (gần trần 8GB) → warning; đĩa chỉ còn 4GB → báo; đĩa còn dưới ngưỡng tối thiểu (1GB) → critical, nội dung nói đang TỪ CHỐI tải lên.",
+     "tep_code": [
+      "src/clinicai/services/day_tep.py"
+     ]
+    },
+    {
+     "test": "test_suc_khoe_duong_day",
+     "dong": 322,
+     "luat": "Tệp chờ đẩy cũ nhất 5 phút → ổn; chờ đẩy quá 7 giờ hoặc có lỗi nặng → báo; thời điểm rác → không báo.",
+     "tep_code": [
+      "src/clinicai/services/day_tep.py"
+     ]
+    },
+    {
+     "test": "test_dung_luong_dem_ca_thu_muc_con",
+     "dong": 332,
+     "luat": "Dung lượng ổ VPS đếm cả thư mục con và thư mục tạm .tam (10 + 5 = 15 byte); thư mục không có → 0.",
      "tep_code": [
       "src/clinicai/services/day_tep.py"
      ]
@@ -4432,7 +4742,7 @@
     {
      "test": "test_chi_dem_luot_da_kham_xong_va_chuoi_tai_kham",
      "dong": 8,
-     "luat": "Chỉ lịch COMPLETED được đếm (đặt rồi huỷ không tính); lịch huỷ không giữ chuỗi tái khám; lịch còn sống có lich_truoc_id → đang tái khám.",
+     "luat": "dem_lan_kham: chỉ lịch COMPLETED được đếm vào soLanKham (đặt rồi huỷ không tính); laTaiKham = có ít nhất một lịch KHÔNG bị huỷ mang lich_truoc_id (lịch huỷ có lich_truoc_id không giữ chuỗi tái khám; lịch đã hoàn tất cũng tính, bài chỉ thử lịch CONFIRMED). Ví dụ khách a: 2 hoàn tất + 1 huỷ → 2 lần, không tái khám; khách b: 1 lịch xác nhận có lịch trước → 0 lần, đang tái khám.",
      "tep_code": [
       "src/clinicai/services/man_dat_lich_doc.py"
      ]
@@ -4543,7 +4853,13 @@
      "noi_dung": "TestLopGac, TestPhamViPhongKham, TestGhiDeCaCum, TestDangDuLieu chỉ đọc mã nguồn tìm chuỗi; quyền thật chưa được gọi."
     }
    ],
-   "chua_chac": []
+   "chua_chac": [],
+   "comment_cu": [
+    {
+     "dong": 37,
+     "vi_sao": "docstring nói 'sửa giờ ca: chỉ Quản lý; đọc: Trưởng ca + Quản lý' theo vai — code nay gác sửa bằng quyền config.clinic.manage (dòng 51–54), không theo vai; chỉ đọc còn cửa riêng _BOOKING_POLICY_READ."
+    }
+   ]
   },
   "src/tests/unit/test_dieu_tri_ban_kham.py": {
    "lam_gi": "Canh thẻ chỉ định điều trị làm tại bàn khám: trạng thái thẻ, cửa tiền (chưa thu chưa tick thì chặn, đã thu/tick thì làm, khách chưa chốt, đang hoàn), lượt đã check-out là chỉ đọc.",
@@ -4646,15 +4962,23 @@
     {
      "test": "test_capacity_quote_chi_doc_cot_da_chon",
      "dong": 33,
-     "luat": "Mọi duty[\"…\"] được đọc trong quote đều có 'AS …' trong câu SELECT (kể cả settings).",
+     "luat": "Mọi duty[\"…\"] được đọc trong CapacityService.quote đều có 'AS …' trong câu SELECT của hàm; riêng cột settings phải vừa được đọc vừa được chọn.",
      "tep_code": [
       "src/clinicai/services/capacity_service.py"
      ]
     },
     {
-     "test": "test_roster_warning_chi_doc_cot_da_chon / test_chot_gio_ca_chi_doc_cot_da_chon",
+     "test": "test_roster_warning_chi_doc_cot_da_chon",
      "dong": 48,
-     "luat": "Mọi row[\"…\"] đọc trong _roster_warning và _chan_dat_ngoai_khung_ca đều được chọn bằng AS.",
+     "luat": "Mọi row[\"…\"] đọc trong BookingService._roster_warning đều được chọn bằng AS, và hàm có đọc ít nhất một cột.",
+     "tep_code": [
+      "src/clinicai/services/booking_service.py"
+     ]
+    },
+    {
+     "test": "test_chot_gio_ca_chi_doc_cot_da_chon",
+     "dong": 58,
+     "luat": "Mọi row[\"…\"] đọc trong BookingService._chan_dat_ngoai_khung_ca đều được chọn bằng AS, và hàm có đọc ít nhất một cột.",
      "tep_code": [
       "src/clinicai/services/booking_service.py"
      ]
@@ -4663,7 +4987,11 @@
    "yeu": [
     {
      "dong": 25,
-     "noi_dung": "Chỉ nhận cột có 'AS ten'; cột chọn không có AS thì bài báo đỏ giả hoặc phải viết AS cho qua — phép đo dựa vào thói quen viết SQL."
+     "noi_dung": "Chỉ nhận cột có 'AS ten'; cột chọn trần không có AS sẽ làm bài đỏ giả (hoặc phải viết AS cho qua). Phép đo dựa vào thói quen viết SQL."
+    },
+    {
+     "dong": 30,
+     "noi_dung": "Chỉ bắt kiểu biến[\"cột\"] nháy kép; row.get(...), row['cột'] nháy đơn hay đọc bằng chỉ số không được thấy. Và chỉ canh 3 hàm; hàm khác trong service đọc cột thiếu vẫn lọt."
     }
    ],
    "chua_chac": []
@@ -5182,15 +5510,23 @@
     {
      "test": "test_khach_moi_check_in_chi_co_moc_dau_va_ve_chua / test_dat_lich_hom_truoc_duoc_danh_dau",
      "dong": 45,
-     "luat": "Mới check-in: 4 mốc, chỉ check-in xong; đặt lịch hôm trước được đánh dấu.",
+     "luat": "Mới check-in, chưa sự kiện nào: 4 mốc CHECK_IN, SINH_HIEU, KHAM, VE — chỉ check-in xong, sinh hiệu và về còn chưa; đặt lịch từ hôm trước thì mốc DAT_LICH có cờ hom_truoc.",
      "tep_code": [
       "src/clinicai/phieu_kham/hanh_trinh.py"
      ]
     },
     {
-     "test": "test_nhieu_chi_dinh_cung_lan_la_mot_moc_theo_lan / test_khach_bo_o_quay_khong_tinh_vao_thu_va_lam",
+     "test": "test_nhieu_chi_dinh_cung_lan_la_mot_moc_theo_lan",
      "dong": 67,
-     "luat": "Chỉ định gom theo lần (lần 1: 2, lần 2: 1); thu tiền còn chờ 3; 'Làm dịch vụ (0/3 xong)' ghi các phòng; việc khách bỏ ở quầy không tính vào thu và làm.",
+     "luat": "Ba chỉ định (2 ở lần 1, 1 ở lần 2) thành một mốc CHI_DINH gom theo lần [(1, 2), (2, 1)]; thu tiền đang chờ 3; 'Làm dịch vụ (0/3 xong)' ghi các phòng 'Phòng siêu âm · Phòng lấy mẫu'; sinh hiệu xong, tư vấn kết lúc bàn giao, khám đang diễn ra.",
+     "tep_code": [
+      "src/clinicai/phieu_kham/hanh_trinh.py"
+     ]
+    },
+    {
+     "test": "test_khach_bo_o_quay_khong_tinh_vao_thu_va_lam",
+     "dong": 95,
+     "luat": "Chỉ định khách không chọn (chon = false) không tính vào thu tiền và làm dịch vụ: còn 1 việc đã trả và xong → thu xong lúc thu, 'Làm dịch vụ (1/1 xong)' xong lúc có kết quả.",
      "tep_code": [
       "src/clinicai/phieu_kham/hanh_trinh.py"
      ]
@@ -5198,39 +5534,79 @@
     {
      "test": "test_doc_ket_qua_thuoc_va_ve",
      "dong": 119,
-     "luat": "Có phiên REVIEW, đơn thuốc, thu thuốc, phát thuốc, về → 3 mốc cuối DOC_KQ, THUOC, VE đều xong.",
+     "luat": "Có phiên đọc kết quả (REVIEW), đơn thuốc, thu thuốc, phát thuốc và giờ về → ba mốc cuối DOC_KQ, THUOC, VE đều xong (trừ sinh hiệu chưa có sự kiện).",
      "tep_code": [
       "src/clinicai/phieu_kham/hanh_trinh.py"
      ]
     },
     {
-     "test": "test_moc_ke_don_tu_van_chi_ve_khi_co_co_ke_tai_tu_van / test_moc_ke_don_tu_van_theo_lan_danh_dau_xong_moi_nhat",
+     "test": "test_moc_ke_don_tu_van_chi_ve_khi_co_co_ke_tai_tu_van",
      "dong": 140,
-     "luat": "Mốc 'Bác sĩ tư vấn kê đơn' chỉ có khi đơn được kê ở bàn tư vấn, đứng trước Nhận thuốc; bấm Xong → xong, mở lại → chưa xong.",
+     "luat": "Mốc 'Bác sĩ tư vấn kê đơn' chỉ xuất hiện khi có lần lưu đơn mang cờ ke_tai_tu_van (đơn chỉ do bác sĩ chính kê thì không có), đứng TRƯỚC mốc Nhận thuốc, ghi nơi 'Bàn tư vấn · <người kê>' và xong.",
      "tep_code": [
       "src/clinicai/phieu_kham/hanh_trinh.py"
      ]
     },
     {
-     "test": "test_tung_dich_vu_* (3 bài)",
+     "test": "test_moc_ke_don_tu_van_theo_lan_danh_dau_xong_moi_nhat",
+     "dong": 180,
+     "luat": "Mốc kê đơn tư vấn theo lần đánh dấu mới nhất: chỉ mới lưu → xong theo lần lưu cuối; bấm 'Xong kê đơn' → xong (giờ lần bấm); mở lại → chưa xong, không có giờ kết; bấm Xong dù chưa lưu dòng nào ở bàn tư vấn vẫn có mốc.",
+     "tep_code": [
+      "src/clinicai/phieu_kham/hanh_trinh.py"
+     ]
+    },
+    {
+     "test": "test_tung_dich_vu_mot_truc_trang_thai_va_thu_tu_gui",
      "dong": 224,
-     "luat": "Bảng từng dịch vụ xếp theo giờ gửi; trạng thái chờ thu/chờ làm/đang làm/đã xong/bỏ; đối tác lấy mẫu xong vẫn 'đang làm', không giờ xong; bị ngắt giữ giờ bắt đầu nhưng là chờ làm.",
+     "luat": "Bảng từng dịch vụ xếp theo giờ gửi chỉ định; trạng thái: chưa trả = chờ thu, đã trả chưa bắt đầu = chờ làm, đã bắt đầu = đang làm, xong = đã xong, khách không chọn = bỏ; mỗi dòng có giờ gửi / thu / bắt đầu / xong.",
      "tep_code": [
       "src/clinicai/phieu_kham/hanh_trinh.py"
      ]
     },
     {
-     "test": "test_sinh_hieu_xong_la_lan_do_dau_do_lai_tra_rieng / test_sinh_hieu_do_mot_lan_khong_co_do_lai",
+     "test": "test_tung_dich_vu_doi_tac_lay_mau_xong_la_dang_lam_chua_xong",
+     "dong": 260,
+     "luat": "Dịch vụ đối tác lấy mẫu: nơi ghi 'Đối tác'; lấy mẫu xong vẫn 'đang làm' và không ghi giờ xong (chưa có kết quả).",
+     "tep_code": [
+      "src/clinicai/phieu_kham/hanh_trinh.py"
+     ]
+    },
+    {
+     "test": "test_tung_dich_vu_bi_ngat_giu_gio_bat_dau_nhung_la_cho_lam",
+     "dong": 278,
+     "luat": "Dịch vụ bị ngắt giữa chừng giữ giờ bắt đầu cũ nhưng là chờ làm — cờ dang_lam quyết, không đoán theo giờ.",
+     "tep_code": [
+      "src/clinicai/phieu_kham/hanh_trinh.py"
+     ]
+    },
+    {
+     "test": "test_sinh_hieu_xong_la_lan_do_dau_do_lai_tra_rieng",
      "dong": 290,
-     "luat": "Đo 08:33 rồi 08:45: xong = 08:33, lần đo lại tách riêng kèm người đo.",
+     "luat": "Đo lúc 08:30, ghi 08:33, đo lại 08:44, ghi 08:45: bắt đầu 08:30, xong = 08:33 (không tính thời gian đo lại), lần đo lại 08:45 trả riêng trong do_lai, kèm danh sách từng lần đo và người đo.",
      "tep_code": [
       "src/clinicai/phieu_kham/hanh_trinh.py"
      ]
     },
     {
-     "test": "test_hoan_tac_kham_xong_… / test_kham_xong_lai_sau_hoan_tac… / test_mo_lai_phien_khac… / test_hoan_tac_xong_tu_van…",
+     "test": "test_sinh_hieu_do_mot_lan_khong_co_do_lai",
+     "dong": 316,
+     "luat": "Chỉ một lần ghi: bắt đầu = kết = lúc ghi, không có đo lại, người đo rỗng.",
+     "tep_code": [
+      "src/clinicai/phieu_kham/hanh_trinh.py"
+     ]
+    },
+    {
+     "test": "test_hoan_tac_kham_xong_rut_moc_xong_ve_dang_kham / test_kham_xong_lai_sau_hoan_tac_thi_xong_lan_nua",
      "dong": 341,
-     "luat": "Hoàn tác khám xong → đang khám, không giờ xong; xong lại → xong với giờ mới; mở lại phiên tư vấn không ảnh hưởng khám chính; hoàn tác tư vấn → tư vấn đang.",
+     "luat": "Mốc xong theo trạng thái hiện tại: khám xong rồi mở lại → mốc KHÁM về đang, không giờ kết, có mo_lai_luc; khám xong lại sau đó → xong với giờ mới và hết mo_lai_luc.",
+     "tep_code": [
+      "src/clinicai/phieu_kham/hanh_trinh.py"
+     ]
+    },
+    {
+     "test": "test_mo_lai_phien_khac_khong_dong_den_kham_chinh / test_hoan_tac_xong_tu_van_rut_moc_tu_van",
+     "dong": 380,
+     "luat": "Mở lại phiên TƯ VẤN không làm mốc khám chính mất xong; hoàn tác xong tư vấn thì mốc tư vấn về đang.",
      "tep_code": [
       "src/clinicai/phieu_kham/hanh_trinh.py"
      ]
@@ -5428,7 +5804,12 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 26,
+     "noi_dung": "Chỉ một ca: quản lý có thêm vai bác sĩ từ lego. Không có bài ngược lại (bác sĩ thuần chỉ mở khách có lịch với mình, bị từ chối khách khác), nên nhánh bị tránh ở đây không được canh trong tệp này."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_ho_so_kham.py": {
@@ -5974,7 +6355,12 @@
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 38,
+     "noi_dung": "Kết nối database là mock (AsyncMock trả sẵn từng dòng): các bài chỉ khớp chữ trong câu SQL (FOR UPDATE, clinic_id, is_finalized = FALSE) và thứ tự lời gọi, không chạy SQL thật nên không chứng minh khoá dòng hay lọc phòng khám hoạt động trên Postgres."
+    }
+   ],
    "chua_chac": [
     {
      "dong": 322,
@@ -6065,8 +6451,8 @@
    "canh": [
     {
      "test": "test_chua_thu_la_due_va_duoc_lam",
-     "dong": 51,
-     "luat": "Dịch vụ 300.000đ chưa thu ở mọi trạng thái làm (chưa, chờ, đang, xong) → DUE, chưa sẵn sàng tài chính nhưng duoc_lam = True, không cần người soát.",
+     "dong": 61,
+     "luat": "Dịch vụ 300.000đ chưa thu, ở mọi trạng thái làm (chưa, chờ, đang, xong, dòng cũ chỉ có exec_status) → DUE, chưa sẵn sàng tài chính nhưng duoc_lam = True, không cần người soát.",
      "tep_code": [
       "src/clinicai/services/finance_gate.py"
      ]
@@ -6082,15 +6468,23 @@
     {
      "test": "test_tien_dang_hoan_da_hoan_dung_giua_chung_van_chan",
      "dong": 92,
-     "luat": "Có hoàn đang chờ hoặc đã hoàn → không được làm; dừng giữa chừng chưa thu → FINANCIAL_REVIEW_REQUIRED (EXECUTED_WITHOUT_PAYMENT), chặn.",
+     "luat": "Có hoàn đang chờ hoặc đã hoàn → không được làm; dừng giữa chừng (INTERRUPTED) chưa thu → FINANCIAL_REVIEW_REQUIRED (EXECUTED_WITHOUT_PAYMENT), chặn.",
      "tep_code": [
       "src/clinicai/services/finance_gate.py"
      ]
     },
     {
-     "test": "test_khach_chua_chot_khong_duoc_lam / test_cho_api_co_duoc_lam",
+     "test": "test_khach_chua_chot_khong_duoc_lam",
      "dong": 103,
-     "luat": "Khách chưa chốt chọn → NOT_APPLICABLE, không làm; kết quả cho API có duoc_lam.",
+     "luat": "Khách chưa chốt chọn dịch vụ (selection_status PENDING) → NOT_APPLICABLE, không được làm.",
+     "tep_code": [
+      "src/clinicai/services/finance_gate.py"
+     ]
+    },
+    {
+     "test": "test_cho_api_co_duoc_lam",
+     "dong": 108,
+     "luat": "Kết quả trả cho API có khoá duoc_lam và bằng True khi chưa thu.",
      "tep_code": [
       "src/clinicai/services/finance_gate.py"
      ]
@@ -6098,13 +6492,22 @@
     {
      "test": "test_doi_phong_da_chot_chua_thu_la_xep",
      "dong": 112,
-     "luat": "Đổi phòng: đã chốt chọn mà chưa thu → chế độ xếp; chưa chốt → dự kiến.",
+     "luat": "Đổi phòng: đã chốt chọn và được làm → chế độ xếp; chưa chốt và chưa được làm → dự kiến.",
      "tep_code": [
       "src/clinicai/services/service_routing_service.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 92,
+     "noi_dung": "Hai ca có hoàn chỉ kiểm duoc_lam = False, không kiểm finance_state hay reason_code của chúng; chỉ ca dừng giữa chừng được kiểm đủ mã."
+    },
+    {
+     "dong": 112,
+     "noi_dung": "Khối Đổi phòng chỉ thử hai tổ hợp; các tham số hang, dieu_phoi, khach_ve luôn đặt cố định (None, True, False) nên ảnh hưởng của chúng tới chế độ không được canh."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_lan_bac_si.py": {
@@ -6489,7 +6892,7 @@
     {
      "test": "test_chua_do_sinh_hieu_van_vao_bac_si_chinh … test_trang_thai_ke_hoach_la_thi_no",
      "dong": 19,
-     "luat": "Sau check-in vào bác sĩ chính dù chưa đo sinh hiệu; kế hoạch chờ xác minh → chưa quyết; kế hoạch hợp lệ → đi thẳng dịch vụ; bị từ chối/bỏ → bác sĩ; đích đã ghi không đổi; trạng thái lạ → ValueError.",
+     "luat": "decide_route: sau check-in vào bác sĩ chính dù chưa đo sinh hiệu; có sinh hiệu mà kế hoạch còn chờ xác minh → chưa quyết (None); kế hoạch hợp lệ (applied) → đi thẳng dịch vụ; bị từ chối / bỏ → bác sĩ chính; đích đã ghi rồi thì kế hoạch đến muộn không đổi (None); trạng thái kế hoạch lạ → ValueError.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
@@ -6497,7 +6900,7 @@
     {
      "test": "test_tap_rong_khong_bao_gio_san_sang … test_chi_dinh_vua_bat_buoc_vua_bi_giu_toi_vong_do",
      "dong": 90,
-     "luat": "Vòng đọc rỗng không bao giờ sẵn sàng; cần kết quả thì phải có kết quả; một yêu cầu thiếu là chưa đủ; bác sĩ miễn thì tính đủ mà chỉ định vẫn chờ; chỉ định vừa bắt buộc vừa bị giữ tới chính vòng đó là vòng lặp.",
+     "luat": "round_ready: tập yêu cầu rỗng không bao giờ sẵn sàng; yêu cầu 'đã làm' đủ khi chỉ định đã performed; yêu cầu 'có kết quả' thì phải có kết quả; chưa làm thì chưa đủ; một yêu cầu thiếu là cả vòng chưa đủ; bác sĩ miễn (waived) tính là đủ dù chỉ định vẫn chờ; cyclic_orders: chỉ định vừa là yêu cầu của vòng n vừa bị giữ tới chính vòng n là vòng lặp.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
@@ -6505,15 +6908,31 @@
     {
      "test": "test_chi_dinh_da_duyet_dieu_phoi_duoc … test_bi_giu_toi_khi_vong_chua_dong",
      "dong": 152,
-     "luat": "Chỉ định đã duyệt điều phối được; nháp thư ký → NO_VALID_ORDER; đã làm → không điều phối lại; sinh hiệu không chặn xếp phòng; kế hoạch khi khách đã vào bác sĩ → PLAN_NOT_APPLIED; giữ tới vòng chưa đóng → HELD_UNTIL_ROUND.",
+     "luat": "dispatch_block: chỉ định đã duyệt điều phối được; nháp của thư ký (chưa ai duyệt) → NO_VALID_ORDER; đã làm xong → ORDER_NOT_DISPATCHABLE; sinh hiệu không còn chặn xếp phòng (chốt chặn còn lại là đích lượt: chưa quyết → ROUTE_NOT_DECIDED); kế hoạch cũ khi khách đã vào bác sĩ → PLAN_NOT_APPLIED; bị giữ tới vòng chưa đóng → HELD_UNTIL_ROUND, vòng đóng rồi thì cho.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
     },
     {
-     "test": "test_hang_cho_theo_luc_du_dieu_kien_khong_theo_gio_hen / test_dang_phuc_vu_dung_dau_bi_chan_dung_cuoi_da_xong_bi_bo / test_khach_dang_o_cho_khac_thi_vao_hang_o_trang_thai_cho_mo",
+     "test": "test_hang_cho_theo_luc_du_dieu_kien_khong_theo_gio_hen",
      "dong": 197,
-     "luat": "Hàng chờ theo lúc đủ điều kiện (A 18:10, B 18:12, C quay lại 18:15, D 18:16 → A, B, C, D); đang phục vụ đầu, bị chặn cuối, đã xong bỏ; khách đang ở chỗ khác vào hàng ở trạng thái blocked.",
+     "luat": "order_queue xếp theo lúc đủ điều kiện (eligible_at), không theo giờ hẹn: A 18:10, B 18:12, C quay lại 18:15, D 18:16 → A, B, C, D.",
+     "tep_code": [
+      "src/clinicai/services/luot_kham_rules.py"
+     ]
+    },
+    {
+     "test": "test_dang_phuc_vu_dung_dau_bi_chan_dung_cuoi_da_xong_bi_bo",
+     "dong": 210,
+     "luat": "Đang phục vụ đứng đầu, đang chờ kế tiếp, bị chặn (blocked) cuối cùng, đã xong bị bỏ khỏi hàng.",
+     "tep_code": [
+      "src/clinicai/services/luot_kham_rules.py"
+     ]
+    },
+    {
+     "test": "test_khach_dang_o_cho_khac_thi_vao_hang_o_trang_thai_cho_mo",
+     "dong": 222,
+     "luat": "Khách đang bận ở chỗ khác vào hàng ở trạng thái blocked; không bận thì waiting.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
@@ -6521,7 +6940,7 @@
     {
      "test": "test_ket_qua_phien_theo_dung_loai",
      "dong": 230,
-     "luat": "PRIMARY chỉ kết thúc NO_SERVICES/SERVICES; REVIEW chỉ DONE; loại lạ không gì.",
+     "luat": "Phiên PRIMARY chỉ kết thúc bằng NO_SERVICES hoặc SERVICES; REVIEW chỉ DONE; loại phiên lạ không kết thúc được bằng gì.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
@@ -6529,7 +6948,7 @@
     {
      "test": "test_sinh_hieu_hop_le / test_sinh_hieu_rac_tra_cau_loi_khong_nem / test_sinh_hieu_loi_noi_dung_o_nao / test_sinh_hieu_hop_le_khong_co_o_loi",
      "dong": 243,
-     "luat": "Đọc '120', 80, '36,8' đúng; rác (thiếu tâm trương, chữ, bool, 999, tâm thu ≤ tâm trương, 120.5, NaN, Infinity…) → câu lỗi kèm đúng ô, không ném.",
+     "luat": "parse_vitals đọc '120', 80, '36,8' (dấu phẩy thập phân) đúng; đầu vào rác (None, chuỗi, mảng, thiếu tâm trương, chữ, bool, 999, tâm thu ≤ tâm trương, số lẻ cho huyết áp, NaN, Infinity, SpO2 '98,5', cân nặng là đối tượng) → câu lỗi kèm đúng tên ô sai, không ném; vỏ hai phần tử nói cùng một câu.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
@@ -6537,7 +6956,7 @@
     {
      "test": "test_bmi_tu_tinh_khi_co_can_nang_va_chieu_cao / test_bmi_client_gui_len_bi_bo_qua_luon_tu_tinh / test_bmi_client_gui_ma_thieu_can_hoac_cao_thi_rong",
      "dong": 281,
-     "luat": "54kg/160cm → BMI 21,1; BMI client gửi (99) bị bỏ, luôn tự tính; thiếu cân hoặc cao → BMI trống.",
+     "luat": "54kg / 160cm → BMI 21,1; BMI client gửi lên (kể cả 99) bị bỏ, luôn tự tính; thiếu cân hoặc cao thì BMI trống dù client gửi số.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
@@ -6545,23 +6964,31 @@
     {
      "test": "test_co_thai_thieu_can_cao_noi_dung_o",
      "dong": 348,
-     "luat": "Khách có thai thiếu chiều cao/cân nặng → nêu đúng ô thiếu và câu nhắc.",
+     "luat": "Khách không có thai: không đòi gì; có thai mà thiếu chiều cao / cân nặng → nêu đúng ô thiếu và câu 'Khách đang có thai — sinh hiệu cần thêm …'.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
     },
     {
-     "test": "test_canh_bao_* (5 bài)",
+     "test": "test_canh_bao_binh_thuong_rong / test_canh_bao_nguong / test_canh_bao_co_cau_cho_nguoi_doc / test_canh_bao_dau_vao_rac_tra_rong / test_canh_bao_khong_chan_luu",
      "dong": 371,
-     "luat": "Cảnh báo: HA ≥140/90, SpO2 ≤93, nhiệt ≥38, mạch <50 hoặc >120; 139/89, SpO2 94, 37,9 không báo; rác → rỗng; chỉ số bất thường vẫn lưu được (nhắc, không chặn).",
+     "luat": "Cảnh báo chỉ số bất thường: huyết áp tâm thu ≥ 140, tâm trương ≥ 90, SpO2 ≤ 93, nhiệt độ ≥ 38, mạch < 50 hoặc > 120 (139/89, SpO2 94, 37,9, mạch 50 và 120 không báo); mỗi cảnh báo có câu cho người đọc; đầu vào rác → rỗng; chỉ số bất thường vẫn đọc được (nhắc, không chặn lưu) — 5 chỉ số xấu cho 5 cảnh báo.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
     },
     {
-     "test": "test_doi_phong_duoc / test_phut_cho_va_cho_lau",
+     "test": "test_doi_phong_duoc",
      "dong": 431,
-     "luat": "Đổi phòng chỉ khi khách đã chọn, chưa làm, không phải đối tác; chờ đo ≥20 phút là lâu; giờ rác/ngược/không múi giờ → None.",
+     "luat": "doi_phong_duoc: chỉ khi khách đã chọn dịch vụ (SELECTED), chưa làm (PENDING hoặc chưa có trạng thái thực hiện), chưa xong và không phải việc đối tác; khách chưa chọn, đang làm, đã xong, đối tác → không.",
+     "tep_code": [
+      "src/clinicai/services/luot_kham_rules.py"
+     ]
+    },
+    {
+     "test": "test_phut_cho_va_cho_lau",
+     "dong": 457,
+     "luat": "phut_cho tính phút chờ từ check-in (cắt phần lẻ giây: 19 phút 59 giây = 19); cho_do_lau từ 20 phút trở lên; giờ rác, thiếu, ngược, không múi giờ → None, không ném.",
      "tep_code": [
       "src/clinicai/services/luot_kham_rules.py"
      ]
@@ -6761,7 +7188,13 @@
      "noi_dung": "Đếm cứng 23 và 12 câu — mỗi lần thêm khối phải sửa số; kiểm số lần gọi chứ không kiểm nội dung từng khối."
     }
    ],
-   "chua_chac": []
+   "chua_chac": [],
+   "comment_cu": [
+    {
+     "dong": 6,
+     "vi_sao": "docstring nói 'ô check-in chỉ đổ cho MANAGEMENT' — khối checkin của Quản lý đã gỡ 18/09/2026 (man_trang_chu_service dòng 17); gói trả về không còn khối này (11 khối, dòng 198)."
+    }
+   ]
   },
   "src/tests/unit/test_mpi_service.py": {
    "lam_gi": "Canh bộ tìm hồ sơ trùng (MPI): chấm điểm SĐT 50 + CCCD 40 + tên 10, tra ứng viên theo các dạng số 0/+84, xếp hàng gộp khi ≥70 điểm, lỗi MPI không chặn tạo bệnh nhân.",
@@ -6771,7 +7204,7 @@
     {
      "test": "test_score_* (7 bài)",
      "dong": 96,
-     "luat": "Trùng SĐT (kể cả 0901… và +84901…) ≥50 điểm; trùng CCCD ≥40; trùng cả SĐT, CCCD, tên = 100 (trần 100); khác hết <70; chỉ trùng tên ≈10.",
+     "luat": "Trùng SĐT (kể cả 0901… và +84901…) ≥50 điểm; trùng CCCD ≥40; trùng cả SĐT, CCCD, tên = 100 (và không vượt trần 100); khác hết <70; chỉ trùng tên ≈10.",
      "tep_code": [
       "src/clinicai/services/mpi_service.py"
      ]
@@ -6787,7 +7220,7 @@
     {
      "test": "test_auto_queue_above_threshold / test_auto_queue_below_threshold / test_auto_queue_new_patient_not_found",
      "dong": 288,
-     "luat": "Ứng viên 100 điểm → INSERT mpi_merge_queue; <70 → không; hồ sơ mới không còn → bỏ qua.",
+     "luat": "Ứng viên 100 điểm (≥ ngưỡng 70) → INSERT mpi_merge_queue; <70 → không ghi gì; hồ sơ mới không còn → bỏ qua, trả rỗng.",
      "tep_code": [
       "src/clinicai/services/mpi_service.py"
      ]
@@ -6795,7 +7228,7 @@
     {
      "test": "test_get_pending_queue",
      "dong": 391,
-     "luat": "Hàng gộp chỉ PENDING, ORDER BY score DESC.",
+     "luat": "Câu đọc hàng gộp chỉ lấy PENDING và ORDER BY score DESC (kiểm bằng chuỗi SQL).",
      "tep_code": [
       "src/clinicai/services/mpi_service.py"
      ]
@@ -6812,19 +7245,18 @@
    "yeu": [
     {
      "dong": 199,
-     "noi_dung": "test_score_capped_at_100 trùng ý test_score_full_match (=100)."
+     "noi_dung": "test_score_capped_at_100 chấm một hồ sơ với chính nó, trùng ý test_score_full_match (=100); điểm tối đa thật ra là 100 nên bài không chứng minh trần có tác dụng."
     },
     {
-     "dong": 392,
-     "noi_dung": "test_get_pending_queue: docstring nói 'sorted by score DESC' nhưng thứ tự là của mock; chỉ kiểm chuỗi SQL."
+     "dong": 421,
+     "noi_dung": "test_get_pending_queue: thứ tự điểm giảm dần là của dữ liệu mock; bài chỉ kiểm chuỗi SQL có ORDER BY score DESC và status = 'PENDING'."
+    },
+    {
+     "dong": 391,
+     "noi_dung": "get_pending_queue không có nơi gọi nào trong src/clinicai (chỉ bài này gọi), và modules.py:1072 ghi bảng mpi_merge_queue là 'CHỜ BỎ — chỉ ghi, không ai đọc'; bài canh mã gần như chết."
     }
    ],
-   "chua_chac": [
-    {
-     "dong": 288,
-     "noi_dung": "mpi_merge_queue ghi 'CHỜ BỎ — chỉ ghi, không ai đọc' trong modules.py."
-    }
-   ]
+   "chua_chac": []
   },
   "src/tests/unit/test_nang_cap_su_kien.py": {
    "lam_gi": "Canh quy trình nâng cấp sự kiện khi đọc (sổ chỉ thêm): chuỗi hàm nâng cấp không hở, không hàm mồ côi, người đưa tin nâng bản cũ trước khi giao, thiếu hàm hoặc sổ mới hơn code thì từ chối.",
@@ -7285,7 +7717,7 @@
     {
      "test": "test_head_grant_preserves_actor_and_is_target_bound",
      "dong": 28,
-     "luat": "Trưởng ca đang trực được quyền thu đúng thuốc/lượt/cơ sở của lần thu; khác loại tiền, khác lượt, khác cơ sở → không; danh tính gốc không bị sửa.",
+     "luat": "Trưởng ca đang trực (quét lịch giả) được cấp quyền tiền gắn ĐÚNG mục tiêu của lần thu: loại thuốc, đúng lượt, đúng cơ sở; khác loại tiền (dich_vu), khác lượt, hoặc khác cơ sở → không có quyền; actor trả ra giữ staff_id và vai gốc và danh tính gốc không bị gắn quyền.",
      "tep_code": [
       "src/clinicai/services/payment_access_service.py"
      ]
@@ -7293,22 +7725,36 @@
     {
      "test": "test_off_shift_and_mismatched_target_never_get_grant",
      "dong": 53,
-     "luat": "Không đang trực, hoặc lượt/loại tiền yêu cầu lệch với lần thu → SafetyGateError.",
+     "luat": "Cả ba trường hợp (không nêu lượt / loại, nêu lượt khác, nêu loại khác) đều ném SafetyGateError khi người này không đang trực.",
      "tep_code": [
       "src/clinicai/services/payment_access_service.py"
      ]
     },
     {
-     "test": "test_proof_read_checks_receipt_without_write_grant / test_pending_proof_is_visible_to_active_counter_not_paid_history",
+     "test": "test_proof_read_checks_receipt_without_write_grant",
      "dong": 76,
-     "luat": "Xem ảnh chứng từ kiểm quyền xem biên nhận, không cấp quyền ghi; chứng từ chờ xác minh xem được ở quầy đang trực; phiếu đã thu của người khác thì không.",
+     "luat": "Xem chứng từ (read = true, theo proof_id) kiểm quyền xem biên nhận đúng một lần và không cấp quyền ghi của trưởng ca (cashier_head_scope rỗng).",
+     "tep_code": [
+      "src/clinicai/services/payment_access_service.py",
+      "src/clinicai/services/cashier_scope_service.py"
+     ]
+    },
+    {
+     "test": "test_pending_proof_is_visible_to_active_counter_not_paid_history",
+     "dong": 95,
+     "luat": "Chứng từ của lần thu đang CHỜ XÁC MINH xem được ở quầy đang trực (không cần kiểm biên nhận người khác); khi lần thu đã PAID thì quay về kiểm biên nhận và người khác thì bị SafetyGateError.",
      "tep_code": [
       "src/clinicai/services/payment_access_service.py",
       "src/clinicai/services/cashier_scope_service.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 60,
+     "noi_dung": "Ở bài ngoài ca, authorize_active giả luôn ném SafetyGateError nên cả ba trường hợp đều ném dù mục tiêu lệch hay không — bài không tách được luật 'lệch mục tiêu' ra khỏi luật 'ngoài ca'."
+    }
+   ],
    "chua_chac": []
   },
   "src/tests/unit/test_pham_vi_vi_tri_lich_truc.py": {
@@ -7483,7 +7929,7 @@
     {
      "test": "test_lan_dau_tinh_gia_lan_dau",
      "dong": 22,
-     "luat": "Hiếm muộn lần đầu → 400.000đ.",
+     "luat": "Hiếm muộn lần đầu → dòng khám giá 400.000đ.",
      "tep_code": [
       "src/clinicai/services/bill_service.py"
      ]
@@ -7491,7 +7937,7 @@
     {
      "test": "test_tai_kham_co_dong_rieng_thi_tinh_gia_tai_kham",
      "dong": 27,
-     "luat": "Hiếm muộn tái khám → dòng '(tái khám)' 150.000đ.",
+     "luat": "Hiếm muộn tái khám, bảng giá có dòng '(tái khám)' → lấy dòng ấy 150.000đ và đổi tên dòng thành '… (tái khám)'.",
      "tep_code": [
       "src/clinicai/services/bill_service.py"
      ]
@@ -7499,13 +7945,22 @@
     {
      "test": "test_tai_kham_khong_co_dong_rieng_thi_nhu_lan_dau",
      "dong": 33,
-     "luat": "Phụ khoa tái khám không có dòng riêng → 300.000đ như lần đầu.",
+     "luat": "Phụ khoa tái khám mà không có dòng '(tái khám)' → tính như lần đầu 300.000đ, giữ tên gốc.",
      "tep_code": [
       "src/clinicai/services/bill_service.py"
      ]
     }
    ],
-   "yeu": [],
+   "yeu": [
+    {
+     "dong": 22,
+     "noi_dung": "Chỉ thử nhánh có tên loại khám. Hai nhánh còn lại của dong_kham (bill_service.py:374-377: lượt không hẹn → KHAM_KHONG_HEN, không rõ loại khám → KHAM_KHONG_RO_LOAI, hiện 'Tiền khám' giá rỗng kèm vấn đề) và trường hợp kham_row None không có bài ở đây."
+    },
+    {
+     "dong": 27,
+     "noi_dung": "Khớp tên dòng giá đi qua norm_name (bill_service.py:359) nhưng bài chỉ dùng tên viết đúng y hệt; chưa thử khác hoa thường/khoảng trắng, và không kiểm ben_thu hay chuyện nhiều dòng giá khớp một tên."
+    }
+   ],
    "chua_chac": []
   }
  }
