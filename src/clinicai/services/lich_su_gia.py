@@ -138,8 +138,10 @@ class LichSuGiaService:
         agg, ten = _GOC[loai]
         async with self._pool.acquire() as conn:
             try:
+                # Không trần: một dòng giá chỉ đổi vài lần một năm — cắt thì người
+                # tra "sao khách trả số này" có thể mất đúng lần cần tìm.
                 rows = await conn.fetch(
-                    _CHON.format(dau="") + " LIMIT 200",
+                    _CHON.format(dau=""),
                     identity.clinic_id,
                     agg,
                     ten,
