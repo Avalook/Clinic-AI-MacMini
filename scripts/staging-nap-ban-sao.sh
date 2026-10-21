@@ -240,8 +240,11 @@ SQL
 } | psql_stg --single-transaction >/dev/null
 # The dump omits ACLs and the migration ledger may already contain prior
 # GRANTs, so restore the explicit function and stock-read ACLs on every restore.
-psql_stg -f "$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql"
-psql_stg -f "$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
+# Đưa tệp qua stdin, KHÔNG `-f`: psql chạy trong container DB, đường dẫn trên
+# VPS không tồn tại trong đó — 20 và 21/10 chết ở đây, hàm mất quyền EXECUTE,
+# đăng nhập staging bị tự đăng xuất.
+psql_stg < "$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql"
+psql_stg < "$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
 xong "đã nạp + che (giao dịch đã commit)"
 xong "giữ lại $(psql_stg -tAc 'SELECT count(*) FROM auth.sessions' | tr -d ' \r') phiên đăng nhập"
 
