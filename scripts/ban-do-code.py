@@ -1323,6 +1323,56 @@ def _noi_phat_va_ghi() -> tuple[
     return phat, ghi
 
 
+#: Hàm ghi vết đang dùng trong code: event_log cũ (record_event, _log = ghi_nhat_ky),
+#: bus lego (emit_event), bảng lịch sử riêng (_them_lich_su), sự kiện quầy thuốc.
+HAM_GHI_VET = {
+    "record_event",
+    "emit_event",
+    "_log",
+    "ghi_nhat_ky",
+    "_them_lich_su",
+    "_ghi_su_kien",
+}
+
+
+def _vet_cua_ham(tep: str, dong: int, cot_bang: dict[str, list[str]]) -> str:
+    """Hàm chứa dòng `dong` có để vết không — đợt soát 21/10 gắn cờ "chưa phát
+    sự kiện" cho cả hàm đã ghi event_log cũ, kiểm tay thì 19/20 hàm kho/tiền có vết.
+    Trả lời câu ngắn nói vết ở đâu, rỗng nếu không thấy."""
+    p = PY / tep
+    if not p.exists():
+        return ""
+    cay = ast.parse(doc(p))
+    ham = None
+    for n in ast.walk(cay):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+            n.lineno <= dong <= (n.end_lineno or 0)
+        ):
+            if ham is None or n.lineno > ham.lineno:
+                ham = n
+    if ham is None:
+        return ""
+    goi = {_ten_goi(c.func) for c in ast.walk(ham) if isinstance(c, ast.Call)}
+    if goi & {"emit_event"}:
+        return "đã phát sự kiện lego"
+    if goi & HAM_GHI_VET:
+        return "đã ghi vết vào nhật ký sự kiện cũ (event_log) — tra được, nhưng khối khác chưa nghe được"
+    sql = "\n".join(
+        c.value
+        for c in ast.walk(ham)
+        if isinstance(c, ast.Constant) and isinstance(c.value, str)
+    )
+    bang = {
+        (m.group("i") or m.group("u") or m.group("d")).lower()
+        for m in _GHI_SQL.finditer(sql)
+    }
+    if bang and all(
+        any("boi" in c and c in sql for c in cot_bang.get(b, [])) for b in bang
+    ):
+        return "dòng dữ liệu tự lưu ai làm, lúc nào — tra được, nhưng khối khác chưa nghe được"
+    return ""
+
+
 def du_lieu_lop(
     khoi: dict[str, Khoi],
     chu: dict[str, str],
@@ -1437,16 +1487,21 @@ def du_lieu_lop(
                         "dong": m["dong"],
                     }
                 )
+    cot_bang = {
+        b["ten"]: [c["ten"] for c in b.get("cot") or []] for b in db.get("bang", [])
+    }
     for x in pl.get("python") or []:
         tep = str(x.get("tep", "")).removeprefix("src/clinicai/")
+        vet = _vet_cua_ham(tep, int(x.get("dong") or 0), cot_bang)
         van_de.append(
             {
-                "loai": "chua_su_kien"
-                if x["loai"] != "cau_hinh_khong_nhat_ky"
-                else "khong_vet",
-                "muc": "thap" if x["loai"] == "chua_chac" else "vua",
+                "loai": "khong_vet"
+                if x["loai"] == "cau_hinh_khong_nhat_ky" and not vet
+                else "chua_su_kien",
+                "muc": "thap" if x["loai"] == "chua_chac" or vet else "vua",
                 "khoi": cua_tep.get(tep, "?"),
-                "tieu_de": f"{x.get('ham')} — {MO_TA_PY.get(x['loai'], x['loai'])}",
+                "tieu_de": f"{x.get('ham')} — "
+                + (vet or str(MO_TA_PY.get(x["loai"], x["loai"]))),
                 "chi_tiet": str(x.get("vi_du") or x.get("ly_do") or ""),
                 "tep": f"{goc_py}/{tep}",
                 "dong": x.get("dong", 0),
