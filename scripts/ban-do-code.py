@@ -1831,6 +1831,22 @@ def sinh_html(nc: NguCanhMan) -> str:
                 "dong": x["dong"],
             }
         )
+    # Soát dữ liệu prod chỉ-đọc (Tuyền chạy kiem-du-lieu-prod.sql) — số khác 0.
+    dp = HIEU / "du-lieu-prod.json"
+    for x in (json.loads(doc(dp)).get("ket_qua") or []) if dp.exists() else []:
+        if not x.get("so"):
+            continue
+        du_lieu["van_de"].append(  # type: ignore[union-attr]
+            {
+                "loai": "du_lieu_prod",
+                "muc": x.get("muc", "vua"),
+                "khoi": x.get("khoi", "?"),
+                "tieu_de": f"Dữ liệu prod {x['ma']}: {x['so']} — {x['ten']}",
+                "chi_tiet": x.get("nghia", ""),
+                "tep": x.get("tep", ""),
+                "dong": 0,
+            }
+        )
     # Test canh hời hợt / kiểm giả (đọc kỹ test 21/10).
     for tt, g in du_lieu["ghi_test"].items():  # type: ignore[union-attr]
         for x in g.get("yeu") or []:

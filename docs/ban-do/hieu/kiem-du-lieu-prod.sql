@@ -51,9 +51,11 @@ SELECT jsonb_build_object('ma','D12','so_dong',(SELECT count(*) FROM drug_batch 
 -- D13 Lô còn tồn khác đơn vị bán
 BEGIN READ ONLY; SET LOCAL statement_timeout = '20s';
 SELECT jsonb_build_object('ma','D13','so_dong',(SELECT count(*) FROM drug_batch b JOIN drug_catalog c ON c.id = b.drug_catalog_id WHERE c.don_vi_ban IS NOT NULL AND lower(btrim(b.unit)) <> lower(btrim(c.don_vi_ban)) AND b.quantity_on_hand > 0))::text; ROLLBACK;
--- D14 Lượt mở/đang khám quá 2 ngày
+-- D14 Lượt treo quá 2 ngày: CHƯA check-out (closed_at rỗng). Check-out KHÔNG đổi
+-- visit.status (FINALIZED = bác sĩ ký bệnh án), nên bản 18/10 không lọc closed_at
+-- đếm oan mọi lượt đã về mà chưa ký (lượt 1 ngày 21/10 ra 460).
 BEGIN READ ONLY; SET LOCAL statement_timeout = '20s';
-SELECT jsonb_build_object('ma','D14','so_dong',(SELECT count(*) FROM visit WHERE status IN ('OPEN','IN_PROGRESS') AND created_at < now() - interval '2 days'))::text; ROLLBACK;
+SELECT jsonb_build_object('ma','D14','so_dong',(SELECT count(*) FROM visit WHERE status IN ('OPEN','IN_PROGRESS') AND closed_at IS NULL AND created_at < now() - interval '2 days'))::text; ROLLBACK;
 -- D15 Lịch đã xác nhận quá 1 ngày chưa check-in/huỷ
 BEGIN READ ONLY; SET LOCAL statement_timeout = '20s';
 SELECT jsonb_build_object('ma','D15','so_dong',(SELECT count(*) FROM appointment WHERE status = 'CONFIRMED' AND slot_start < now() - interval '1 day'))::text; ROLLBACK;
