@@ -1,15 +1,56 @@
 # Soát 22/10 · Khối 5 — Sự kiện + mở rộng nhiều phòng khám + vận hành
 
-> Đang viết. Chỉ đọc code trên `main` @ `00bde52`. Không sửa code, không chạm prod.
+> Chỉ đọc code trên `main` @ `00bde52` (22/10/2026). Không sửa code, không chạm prod/VPS.
+> Một phần phần (b) và (c) do 2 agent con đọc; mọi phát hiện trong bảng đã được mở code kiểm lại
+> (1 phát hiện của agent bị gỡ vì báo oan — ghi ở cuối mục "Chậm dần").
 
 ## Tóm tắt 10 dòng
 
-(đang soát)
+1. **Dây sự kiện lõi chắc:** outbox cùng giao dịch, thuê có hạn, DEAD có người được réo, `/health/su-kien` đo từ ngoài. Khởi động lại su-kien **không mất** sự kiện nghiệp vụ, chỉ trễ ≤ 2 phút.
+2. **Tin thời gian thực (NOTIFY → SSE) thì có mất**, ở hai chỗ: trình duyệt tự nối lại không bắt kịp (A1), bộ nghe LISTEN của API nối lại không báo ai (A2). Màn chỉ tự lành ở nhịp dự phòng (60s hoặc nhịp riêng của màn).
+3. **Gọi LLM tóm tắt cuối ngày nằm ngay trong vòng giao tin** (A3): lúc đó chuông, hàng chờ, hành trình đứng chờ — không timeout, 3 lần thử, tới 600s/lần.
+4. **`event_delivery` không bao giờ dọn** và câu "sự kiện cũ hơn chưa xong" không dùng được chỉ mục (A4): chậm dần theo tháng.
+5. **Sự cố 14/10 không do thiếu `restart:`** (mọi container đã có). Ứng viên mạnh nhất: Docker bật lại trước khi ổ CFS gắn xong → api/day-tep nằm `Exited` (C1). Cần log VPS để chốt.
+6. **Sao lưu có thể dừng hẳn mà im lặng:** khoá `mkdir` kẹt sau SIGKILL (C2), unit không giới hạn giờ khi CFS treo (C4), /ops hiện "unknown" thay vì đỏ (C3).
+7. **Ảnh/video trên CFS vẫn không có bản thứ hai** (đã biết) — và hợp đồng CFS ghi hết hạn 16/10, repo chưa ghi đã gia hạn (C6).
+8. **Nhiều cơ sở trong một phòng khám: phần lõi đã lọc + có test.** Còn lọt: vai theo lịch không xét cơ sở (B1), bán lẻ dùng chung lượt (B2), chuông không có cơ sở (B3).
+9. **Nhiều phòng khám (tenant): chưa sẵn** — giao diện không gửi `X-Clinic-ID` (B5), vai/ca bác sĩ theo mã vị trí viết cứng, Python lệch SQL (B4), giờ ca/chính sách chỉ theo phòng khám (B7).
+10. **Việc Tuyền:** chạy 4 lệnh chỉ đọc ở cuối báo cáo; chốt 2 câu nghiệp vụ (B1, B3) và câu gia hạn CFS + chỗ đặt bản sao media (C6).
 
 ## Bảng phát hiện
 
 | # | Mức | Tệp:dòng | Phát hiện | Độ chắc | Đã biết? |
 |---|---|---|---|---|---|
+| C1 | CAO | `docker-compose.yml:216-222` | Docker bật lại trước khi CFS gắn → api/day-tep `Exited` (ứng viên sự cố 14/10) | khá | mới |
+| C2 | CAO | `scripts/backup-db.sh:127-134` | Khoá sao lưu `mkdir` kẹt sau SIGKILL → sao lưu dừng vĩnh viễn, im lặng | chắc | mới |
+| C6 | CAO | `scripts/backup-db.sh:349-357` | Media CFS không có bản thứ hai; hợp đồng CFS ghi hết 16/10 | chắc | đã biết (DANG-LAM:1484) |
+| B5 | CAO* | `api/identity.py:494-509` | Giao diện không gửi `X-Clinic-ID` → tài khoản 2 phòng khám bị 403 hết (*khi có tenant 2) | chắc | mới |
+| A1 | VỪA | `RealtimeRefresher.tsx:248-259` | Trình duyệt tự nối lại SSE không bắt kịp quãng mù | chắc | mới |
+| A2 | VỪA | `core/change_broker.py:91-114` | LISTEN nối lại không báo màn bắt kịp; NOTIFY trong quãng rớt mất hẳn | chắc | mới |
+| A3 | VỪA | `worker.py:290-329`, `agent_tom_tat.py:236-255` | Gọi LLM trong vòng su-kien chặn giao tin | chắc | mới |
+| A4 | VỪA | `events/worker.py:104-112` | Kiểm thứ tự không dùng được chỉ mục; `event_delivery` không dọn; đếm toàn bảng mỗi phút | khá | mới |
+| A5 | VỪA | `change_broker.py:131` | Tin SSE lọc theo phòng khám, không theo cơ sở → tải ×số cơ sở | chắc | mới |
+| C3 | VỪA | `scripts/collect_ops_status.py:195-216` | Sao lưu hỏng hiện "unknown", canh gác không kiểm sao lưu | chắc | mới |
+| C4 | VỪA | `scripts/systemd/clinicai-backup*.service` | Không `TimeoutStartSec`/`OnFailure`; CFS treo = sao lưu đứng mãi | chắc | mới |
+| C5 | VỪA | `day-sao-luu-len-viettel-storage.sh:23-25,108-118` | Dọn theo ngày nhưng chung thư mục bản 15 phút → CFS giữ ×N bản | khá | mới (khác #523) |
+| C7 | VỪA | `docker-compose.yml:307-313` | su-kien `unhealthy` không tự restart; canh gác nằm trong nó | chắc | mới |
+| B1 | VỪA | `api/identity.py:1011-1028` | Vai theo lịch không xét cơ sở đang đứng | chắc | mới |
+| B2 | VỪA | `ban_le_service.py:294-330` | Lượt bán lẻ đang mở dùng chung giữa cơ sở | khá | mới |
+| B3 | VỪA | `thong_bao_service.py:340-349` | Chuông gọi bộ phận không có cơ sở | chắc | mới (khác mục :458) |
+| B4 | VỪA | `api/identity.py:825-847`, `config_service.py:66-79` | Vai/ca bác sĩ theo mã vị trí viết cứng; Python lệch SQL | chắc | một phần (`ca-kham-bac-si.ts:6`) |
+| B6 | VỪA | `phieu_kham/anh_xa_danh_muc.py` | Ghép phiếu khám + thương hiệu Dr4Women trong code | chắc | mới |
+| B7 | VỪA | `core/shifts.py:58-63` | Giờ ca/chính sách/TV chỉ theo phòng khám, không theo cơ sở | chắc | mới |
+| S1 | VỪA | `bao_cao_viec_tien_service.py:85-104` | Báo cáo Cuối ngày lấy mọi lượt từ trước tới nay | chắc | mới |
+| A6 | THẤP | `events/catalogue.py` | 11 loại sự kiện không ai nghe (vẫn có vết trong sổ) | chắc | mới |
+| A7 | THẤP | `events/worker.py:283` | Bên nhận làm sập tiến trình → nhận lại mãi, không DEAD | chắc | mới |
+| C8 | THẤP | `docker-compose.supabase.yml:153-245` | rest/realtime/gateway không healthcheck; /ops không thấy auth | chắc | mới |
+| B8 | THẤP | `clinic_config_service.py:799-855` | SĐT/tên in cơ sở không sửa được trên màn | chắc | mới |
+| B9 | THẤP | `lich_hen_doc.py:52-61` | Lọt nhỏ: lịch ngày, số thứ tự theo bác sĩ không theo cơ sở | khá | mới |
+| S3 | THẤP | `canh_gac.py:187-190` | `bat_bien_lieu_trinh` duyệt mọi liệu trình mỗi phút | chắc | mới |
+
+**Đề xuất thứ tự:** C2 + C4 + C3 (sao lưu, Mức 1–2, một PR script) → A1 + A2 (một dòng mỗi bên,
+Mức 2) → A3 (tách task, Mức 2) → C1 + C7 (Mức 3, hạ tầng, kế hoạch trước) → A4 + S1 (Mức 3/2) →
+phần nhiều cơ sở theo câu Tuyền chốt.
 
 ## (a) Sự kiện: phát, nghe, mất tin
 
@@ -419,11 +460,27 @@ lấy **mọi lượt từ trước tới nay** của cơ sở (không giới h�
 trình từ trước tới nay (3 subquery/liệu trình). *Sửa:* chỉ xét liệu trình có thay đổi 24 giờ qua,
 như `bat_bien_tien_chi_dinh`.
 
-**S4 · THẤP · chắc** — `agent_tom_tat.py:333-343`: từ 18h, mỗi phút, với mỗi phòng khám chưa có
-tóm tắt, `EXISTS (... (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1)` — biểu thức
-không dùng được chỉ mục; ngày vắng (không có lượt) thì không bao giờ tạo tóm tắt nên câu này quét
-`visit` mỗi phút tới nửa đêm. *Sửa:* điều kiện khoảng `checked_in_at >= đầu ngày VN AND < cuối ngày`.
+**Đã gỡ (báo oan khi tự kiểm):** "câu `EXISTS … (checked_in_at AT TIME ZONE …)::date` ở
+`agent_tom_tat.py:338-343` quét cả bảng" — SAI: đã có chỉ mục biểu thức khớp từng chữ
+`idx_visit_ngay_check_in (clinic_id, ((checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date))`
+(`20261014220000_chi_muc_visit_ngay_check_in.sql`).
 
 **Ngờ:** `pharmacy_service.py:147-188` (`hang_doi`) lấy đơn `closed_at IS NULL` không giới hạn ngày;
 có chỉ mục + `LIMIT 300` nên rủi ro là hàng đầy đơn cũ hơn là chậm.
 *Kiểm:* `SELECT count(*) FROM prescription WHERE closed_at IS NULL AND removed_at IS NULL AND created_at < now()-interval '7 days'`.
+
+## Việc Tuyền làm
+
+Lệnh **chỉ đọc** trên VPS (ssh `clinic-vps-moi`):
+
+```bash
+journalctl -u docker --since "2026-10-14" --until "2026-10-15" | grep -iE "bind source|mount|restart"
+ls -la ~/backups/clinicai*/.backup.lock 2>/dev/null; systemctl list-units 'clinicai-backup*' --all
+ls /mnt/viettel-cfs/db-backups | wc -l; du -sh /mnt/viettel-cfs/db-backups; df -h /mnt/viettel-cfs
+docker exec "$(docker ps --format '{{.Names}}' | grep -m1 -E '(^|[-_])db([-_]|$)')" psql -U postgres -c "SELECT status, count(*) FROM event_delivery GROUP BY 1"
+```
+
+Cần chốt nghiệp vụ:
+1. **B1** — vai theo lịch trực có đi theo người sang cơ sở khác không?
+2. **B3** — chuông "gọi bộ phận" chỉ tới cơ sở của người gọi, hay cả phòng khám?
+3. **C6** — hợp đồng Viettel CFS đã gia hạn sau 16/10 chưa; bản thứ hai của ảnh/video đặt ở đâu?
