@@ -68,7 +68,10 @@ async def test_da_cap_theo_luong_cu_chi_phan_con_lai_moi_can_phan_lo(
         )
 
     assert can == {}
-    assert await quay.pool.fetchval(
-        "SELECT dispensed_qty FROM prescription WHERE id = $1::uuid",
-        prescription_id,
-    ) == 10
+    assert (
+        await quay.pool.fetchval(
+            "SELECT dispensed_qty FROM prescription WHERE id = $1::uuid",
+            prescription_id,
+        )
+        == 10
+    )
