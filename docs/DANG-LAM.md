@@ -1,6 +1,30 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **22/10/2026** — mục "22/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 22/10/2026 — PHA 1 SOÁT KHO THUỐC · QUẦY THUỐC · KHO VẬT TƯ (CHỜ DUYỆT PHA 2)
+
+Tiếp tục tại worktree `.claude/worktrees/codex-soat-kho-quay-vat-tu`, nhánh
+`codex/soat-kho-quay-vat-tu` từ `origin/main`. Đọc giao việc
+`docs/giao-viec/kho-quay-vat-tu-2210.md`; đầu ra là
+`docs/soat-he-thong-2210/6-kho-quay-vat-tu.md` + test xfail strict. Đã hoàn tất CI;
+đang đóng gói một PR Pha 1 rồi dừng chờ Tuyền duyệt Pha 2. Chưa sửa code sản phẩm,
+chưa deploy.
+
+**Đã làm:**
+- Đọc `CLAUDE.md`, `docs/SO-LUAT.md`, `docs/DANG-LAM.md`, bản đồ sửa/code và các skill ClinicAI liên quan.
+- Chạy mô phỏng DB cô lập: **295 passed** trên 7 tệp mô phỏng kho/quầy/tiền/vật tư; fixed-seed random 40×10 nằm trong hai mô phỏng.
+- Thêm `src/tests/services/test_kho_quay_event_contract_db.py`: hai hợp đồng đang lỗi được ghi `xfail(strict=True)` (nhập lô chưa ghi domain event vào `event_log`; thiếu notify trigger cho `drug_batch`, `inventory_txn`, `phieu_kho`). Chạy riêng: **2 xfailed**, không XPASS; full CI lần 2 **xanh 5/5** (backend 248s, frontend 57s, infra 6s, portability 0s, database 30s).
+- Bấm staging bằng tài khoản quản lý, chỉ đọc; không tạo phiếu/thu tiền/giao thuốc. 375px và 1280px: thấy bảng tồn thuốc tràn ngang, chi tiết cấp thuốc khó dùng trên màn hẹp; dòng “Đã giao đủ” vẫn có ô lý do và nút chốt; nút “Xem chi tiết lượt & lịch sử cấp” mở hồ sơ lượt khám tổng hợp, chưa thấy hoàn tác ngay trên dòng giao.
+- Staging hiện có 81 lô và 107 thuốc trong kho thuốc; cấp thuốc có 50 lượt đang xử lý; thu ngân có 59 lượt chờ và 216 lượt đã thu xong. Màn kho vật tư đang trống tồn/lịch sử/duyệt nên không có giao dịch để diễn tập. Đây là số đọc tại thời điểm kiểm tra, không đưa thông tin khách vào báo cáo.
+- Đối chiếu nhanh mã nguồn: nhập lô kho thuốc thiếu domain event; thiếu notify trigger cho ba bảng kho nêu trên; backend có kiểm lego, nhưng migration `20260930900000_mo_full_lego.sql` cấp rộng lego nội bộ theo mặc định. Chưa thử tắt quyền vì chỉ có tài khoản quản lý; cần ghi là chưa xác minh theo tài khoản nhân viên.
+- Đã khôi phục tab staging về `/thu-ngan/thuoc` và reset kích thước viewport.
+
+**Báo cáo đã tạo và review độc lập:** `docs/soat-he-thong-2210/6-kho-quay-vat-tu.md`. Bảng thao tác, quyền, sự kiện, 12 điểm nền, SO-LUAT 12.4 và kịch bản Pha 2 đã được ghi; các bước staging ghi dữ liệu/quyền được đánh dấu chưa thử. `git diff --check` sạch.
+
+**Còn làm:** chỉ đưa ba tệp Pha 1 vào commit, push nhánh và tạo một PR rồi attach vào chat. Không merge/deploy; Pha 1 dừng chờ Tuyền.
+
+**Lưu ý:** test mới và các thư mục `docs/giao-viec/`, `docs/soat-he-thong-2210/` đang untracked theo trạng thái gốc; kiểm tra `git status` trước khi commit để chỉ đưa các tệp thuộc Pha 1 vào PR và giữ nguyên tài liệu người dùng có sẵn.
 
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
 
