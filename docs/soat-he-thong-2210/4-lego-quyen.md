@@ -139,3 +139,128 @@ khu B) → người lưu sau đè mất thay đổi của người trước. Hà
 `FOR UPDATE`, hàm này thì không. Độ chắc: chắc (đọc code). Hậu quả nhỏ (công tắc
 bảng gọi số). Hướng sửa: dời vào `clinic_settings_service`, dùng `jsonb_set` theo
 từng khu hoặc `SELECT … FOR UPDATE`.
+
+---
+
+## Phần (b) — Luật nghiệp vụ còn nằm trong TSX
+
+Kết luận ngắn: **không tìm thấy chỗ nào giao diện tự quyết TIỀN mà máy chủ tin
+theo.** Giảm giá, chia hình thức thu, tiền thừa, hoàn tiền đều được FastAPI tính lại
+và từ chối khi lệch (`services/phan_thu.py:135-140`, `payment_service.py:418-425`).
+Cookie vai `clinic_role` chỉ được ghi lúc đăng nhập
+(`app/(auth)/login/actions.ts:81`), không chỗ nào đọc nó để quyết quyền.
+
+### b.1 Chỗ hỏi VAI trong TSX, theo nhóm
+
+Đếm bằng grep các mẫu `role ===`, `isXxxRole(`, `canWriteIntake/canEditPatient/
+canManageAppt/canCheckin/canSeeNav(`, `vaiLamViec(`, `getVaiChinh(`, `.includes(`
+trên vai — không tính định nghĩa trong `lib/roles.ts` và tệp test: **78 dòng**.
+(Con số ~123 ở CLAUDE.md có lẽ tính cả định nghĩa trong `roles.ts` và biến suy ra
+như `canEdit`/`canManage` truyền qua prop — vd `CustomersView` có 17 chỗ dùng prop.)
+
+| Nhóm | Số chỗ | Nguy hiểm? |
+|---|---|---|
+| Route Next ĐÃ TẮT (410): lab-result 4, check-phone 2, service-log 2, sono 2, dispatch/alerts-call 2 | 12 | Không — code chết, `proxy.ts` chặn trước (xem B4) |
+| Khung, điều hướng: tasks/page 7, layout 6, nav-items 5, home/page 5, BottomNav 1, app/page 1, ops/PortalBoard 1 | 26 | Không — chuyển trang, nhãn, menu |
+| Tiếp nhận / đặt lịch / khách: patient-list 5, customers/page 4, patients/new 3 + NewPatientForm 4, WeeklyAppointmentsTable 4, appointments 1, cho-xep-bac-si 1, reception/queue 1, QuyenContext 1 | 24 | Thấp — phần lớn "`quyen === null` thì dùng vai" |
+| Lịch làm việc: schedule/page 4, NgoaiLeCaTruc 1 | 5 | Thấp — dự phòng khi chưa có quyền |
+| Vận hành: ops/summary route 1, ops/ToanCanh 1 | 2 | Thấp (B5) |
+| Lọc theo vai của NHÂN VIÊN ĐƯỢC HIỂN THỊ (không phải người xem): ClinicConfigBoard 2, BangBacSiTuan 1, HangChoXacNhanKetQua 1 | 4 | Không — đây là dữ liệu, không phải quyền |
+| lib (clinic-session 3, identity-authority 1, quyen-cua-toi 1 là comment) | 5 | Không |
+
+Trong 78 chỗ, **~25 chỗ quyết thuần theo vai** (không có nhánh quyền): chuyển trang
+ở tasks, layout DISPLAY/PARTNER/TKYK, nav-items, `isReception` ở home, chọn luồng ở
+patients/new. Còn lại là code chết hoặc chỉ dùng vai khi máy chủ chưa trả lời quyền.
+
+### b.2 Route Next (`src/dashboard/app/api/**/route.ts`: 140 tệp)
+
+| Loại | Số | Ghi chú |
+|---|---|---|
+| Chỉ chuyển sang FastAPI qua `lib/backend-proxy` | 135 | đúng luật |
+| Tự `fetch` sang `CLINIC_API_URL` kèm token | 3 | `appointments/quote`, `appointments/slot-hold`, `ultrasound/image` (đã tắt) |
+| **Chạm thẳng DB** | **1** | `patients/check-phone` (`.from("patient")` dòng 56) — đã tắt qua `lib/route-da-tat.ts`, nhưng tệp còn. Đúng như CLAUDE.md nói |
+| Cầm khoá service-role | 1 | `admin/users` — cổng `authorizeAdmin` (dòng 68-113) xác minh phiên với GoTrue rồi hỏi `GET /api/v1/phan-quyen/toi`, phải có `account.manage`; trước mỗi lệnh GoTrue còn gọi backend kiểm cùng phòng khám (`tai_khoan_service.py:57-71`). **Không giả được bằng cookie vai.** |
+| Tự xử lý dữ liệu | 2 | `console/feedback` ghi ổ đĩa (B1), `service-price` tự chuẩn hoá giá (B8) |
+
+Ngoài route: `proxy.ts:140-145` mỗi lần mở trang đọc `.from("staff")` qua PostgREST
+bằng phiên người dùng (chỉ để chặn trang; API tự kiểm lại).
+
+Cờ mở quyền tạm `MO_QUYEN_TAM_THOI` / `NEXT_PUBLIC_MO_QUYEN_TAM_THOI`: mặc định TẮT ở
+cả hai nửa (`api/identity.py:1076`, `lib/roles.ts:586-588`, `Dockerfile.dashboard:23`),
+`main.py:123-133` cảnh báo khi bật. Rủi ro nhỏ: nửa giao diện là biến lúc build —
+bật trong `.env.prod` mà không build lại dashboard thì hai nửa lệch nhau.
+`lib/quyen-client.ts` đúng: `null` → `false` (hỏng thì đóng).
+
+### Phát hiện phần (b)
+
+**B1 · vừa · `/api/console/feedback` ghi ảnh ra ổ đĩa TRƯỚC khi kiểm người gọi** —
+`src/dashboard/app/api/console/feedback/route.ts:17-41`; `proxy.ts:100` cho mọi `/api`
+đi thẳng ("API tự kiểm").
+- Vì sao sai: route `mkdir` + `writeFile` tới 8MB rồi mới chuyển sang backend. Backend
+  trả 401 thì tệp đã nằm trên đĩa. Ngoài ra `role_at_time` do trình duyệt tự khai.
+- Kịch bản: người lạ KHÔNG đăng nhập lặp lại
+  `curl -F comment=x -F image=@anh-8mb.png https://dr4women.io.vn/api/console/feedback`
+  → mỗi lần thêm 8MB vào `.feedback/`, đầy dần ổ của máy chạy dashboard (cùng VPS với
+  prod). Tên tệp theo mili-giây nên hai lần trong cùng ms còn đè nhau.
+- Độ chắc: **chắc** (đã đọc code). Chưa kiểm Caddy có giới hạn kích thước/tần suất không.
+- Test đề xuất: POST không phiên → 401 và thư mục `.feedback/` không có tệp mới.
+- Hướng sửa: `supabase.auth.getUser()` trước; tốt hơn: gọi backend trước, `ok` mới
+  ghi tệp (hoặc chuyển tải ảnh xuống FastAPI). Bỏ `role_at_time` từ client.
+
+**B2 · vừa (cần Tuyền quyết) · Giảm giá không có quyền riêng** —
+`services/payment_service.py:240-268` (`_validate_discount_input`) chỉ kiểm số
+(0 < % ≤ 100, có lý do), `bill_service.py:1217-1251` tương tự; trong
+`permissions/catalogue.py` không có capability nào về giảm giá. TSX luôn hiện ô giảm
+(`thu-ngan/HoaDonMot.tsx:382`, `QuayThuNgan.tsx:1265`).
+- Kịch bản: bất kỳ ai có lego Thu tiền (thu ngân ca tối, người làm thay) chọn
+  "Giảm 100%", lý do gõ "x" → lượt thu 0đ. Sổ có ghi người giảm, nhưng không có gì chặn
+  trước.
+- Độ chắc: **chắc**.
+- Test đề xuất: tài khoản có `payment.service.collect` nhưng không có quyền giảm, gửi
+  `discount_*` → 403.
+- Hướng sửa: thêm capability `payment.discount.apply` (có thể kèm trần %), kiểm trong
+  `_thu_dich_vu` và nhánh tiền thuốc; màn ẩn/hiện theo quyền đó. **Hỏi Tuyền**: giảm
+  giá có cần quyền riêng / trần không?
+
+**B3 · vừa/thấp (cần Tuyền quyết) · Người có `account.manage` đặt lại mật khẩu được
+cho cả Quản lý** — `src/dashboard/app/api/admin/users/route.ts:350-372` (reset),
+`374-410` (đổi tên đăng nhập); `TaiKhoanService.doc` chỉ kiểm "cùng phòng khám".
+- Kịch bản: người được bật riêng lego Tài khoản (không có `permission.manage`) đặt lại
+  mật khẩu tài khoản Quản lý → đăng nhập bằng tài khoản đó → có toàn quyền. Đây là
+  đường leo thang quyền. Thêm: tài khoản GoTrue là toàn cục — khi có phòng khám thứ
+  hai, nhân viên làm ở cả hai sẽ bị phòng A đổi được mật khẩu dùng ở phòng B.
+- Độ chắc: **chắc** về code; mức thật tuỳ ai đang giữ `account.manage`
+  (`catalogue.py:671`, lego chỉ-quản-lý).
+- Test đề xuất: người giữ `account.manage` nhưng THIẾU một quyền mà người đích đang có
+  → reset/change_email/ban bị 403.
+- Hướng sửa: endpoint backend "được thao tác tài khoản này không" (người làm phải có
+  ⊇ quyền người đích), gọi trước mọi lệnh GoTrue.
+
+**B4 · thấp · 5 route đã tắt vẫn còn tệp, còn gác theo vai và chạm DB** —
+lab-result, check-phone, service-log, sono, dispatch/alerts-call; chỉ được che bởi
+`ROUTE_DA_TAT` (`proxy.ts:28`). Nếu ai thêm ngoại lệ vào matcher (như đã làm cho
+`cskh/ket-qua`) thì handler sống lại với luật theo vai + `.from("patient")`. Độ chắc:
+chắc. Test: mỗi mẫu trong `ROUTE_DA_TAT` không còn tệp `route.ts`. Sửa: xoá 5 tệp →
+"route Next chạm DB" về **0**.
+
+**B5 · thấp · `/phan-quyen/toi` hỏng (429, hết giờ) thì màn quay về luật theo vai** —
+`customers/page.tsx:99-118`, `patient-list/page.tsx:146-160`, `schedule/page.tsx:73-76`,
+`home/page.tsx:561`, `QuyenContext.tsx:36`, `lib/roles.ts:783-789, 808`. Lego đã tắt
+mà nút vẫn hiện; máy chủ vẫn từ chối khi bấm → chỉ gây nhiễu. Riêng
+`api/ops/summary/route.ts:31-33` trả link Kuma/Dozzle cho Quản lý đã tắt lego 20 (lộ
+rất ít: hai dịch vụ chỉ nghe 127.0.0.1). Sửa: khi `null` thì ẩn nút hành động.
+
+**B6 · thấp · Chọn luồng biểu mẫu tiếp nhận theo vai trong TSX** —
+`patients/new/page.tsx:36-48`, `NewPatientForm.tsx:891,908,1847`,
+`nav-items.ts:293,298,512`. Máy chủ vẫn ép đúng (`booking_service.py:571,588-596`: kênh
+WALK_IN cần `reception.checkin.perform`) → nợ kiến trúc, không phải lỗ.
+
+**B7 · thấp · Phép tính xem trước chép lại trong TSX** — `GiamGia.tsx:62-80` chép
+`ap_giam_gia`, `ChiaHinhThuc.tsx:40-80` chép `ap_phan`; câu "Đã thu X"
+(`QuayThuNgan.tsx:421-423`, `BanLeThu.tsx:269`) lấy số màn tự tính. Máy chủ tính lại và
+từ chối khi lệch → hỏng thì đóng. Sửa: hiện số tiền máy chủ trả về. (Đã biết, không
+báo lại: `HoaDonMot.tsx:254`, `ChiTietLuot.tsx:278`.)
+
+**B8 · thấp · `api/service-price/route.ts:42-47` tự chuẩn hoá giá** (tạo thì làm tròn,
+sửa thì gửi nguyên); backend `parse_price` (`config_service.py:1710,1825`) xử lý cả hai.
+Luật bị chép — bỏ ở route.
