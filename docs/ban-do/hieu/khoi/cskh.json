@@ -1,0 +1,44 @@
+{
+  "tom_tat": "Khối CSKH (chăm sóc khách hàng) lo mọi lần \"chạm\" tới khách ngoài buổi khám: gọi xác nhận lịch, nhắc hẹn, hỏi lý do huỷ, báo/trả kết quả, gọi nhắc tái khám, hẹn gọi lại, ghi phản hồi sau dùng thuốc, ghi khen/góp ý/khiếu nại, ghi chú chung về khách, gửi tin Zalo ZNS. Người dùng chính là CSKH (quyền crm.manage), một phần cho lễ tân/điều phối (khung khách ở Tiếp đón, ghi sổ tương tác). Màn chính: Quản lý khách hàng `/customers` (danh sách khách 50/trang, cột giữa là \"trạng thái khách\" theo từng lượt, cột phải là khung khách) và `/nhac-tai-kham` (hàng đợi gọi nhắc tái khám + liệu trình). Dữ liệu chính: sổ tương tác `tuong_tac_cskh` (lệnh LogContact, phát patient.contacted), việc gọi tái khám `nhac_tai_kham`, `hen_goi_lai`, `phan_hoi_khach`, `ghi_chu_khach`, sổ gọi cũ `cskh_log`, việc nhập từ Notion `cskh_action`.",
+  "luong": [
+    "Bước 1 (trước khám): Khách đặt lịch → việc CSKH mở trong view v_viec_cskh (chờ xác nhận, nhắc hẹn mai, vượt sức chứa, mất bác sĩ; khách mới tạo từ màn tiếp nhận chưa có lịch → việc CHO_DAT_LICH \"Gọi điện xác nhận\"). CSKH bấm nút ở cột giữa `/customers` → POST /api/v1/cskh/tuong-tac → `TuongTacCskhService.ghi` kiểm loại/kênh/kết quả, kiểm khách + lịch đúng phòng khám, ghi `tuong_tac_cskh` + event_log + phát patient.contacted.",
+    "Bước 2 (tại quầy): mốc CHECK_IN từ màn CSKH chạy check-in THẬT như lễ tân (giao dịch riêng, trước khi ghi sổ); CHECK_OUT đóng lượt khám (còn việc dở thì ghi lý do tự động) rồi đặt lịch COMPLETED trong một giao dịch. THANH_TOAN/MUA_THUOC chỉ ghi nhận.",
+    "Bước 3 (sau khám — kết quả): tệp kết quả về → chuông CSKH (khối Chuông); bác sĩ cho phép gửi; CSKH gửi cho khách bằng kênh riêng rồi bấm \"Đã gửi kết quả cho bệnh nhân\" (ghi TRA_KQ, kết quả đã liên hệ) — hệ thống không tự gửi tệp. Khách về còn việc dở / kết quả đối tác quá hạn → chuông CSKH (khối Hành trình).",
+    "Bước 4 (tái khám từ phiếu): bác sĩ ghi ngày tái khám trên phiếu → trong giao dịch lưu phiếu `hen_tai_kham_service.dong_bo` tạo/dời/đóng MỘT việc gọi `nhac_tai_kham` của lượt (hạn gọi = ngày hẹn − 7, không sớm hơn hôm nay) và hẹn chuông 07:00 ngày hạn gọi; tới giờ bên nghe hẹn `events/consumers/nhac_tai_kham.py` kiểm lại rồi réo chuông CSKH.",
+    "Bước 5 (tái khám CSKH tự nhập / hàng đợi): mở `/nhac-tai-kham` → `RecallJobService.danh_sach` gọi hàm SQL `sinh_viec_nhac_tai_kham` sinh việc hôm nay rồi trả việc CHO_GOI tới hạn (≤500). CSKH gõ ngày khách hẹn qua điện thoại → hai việc: lượt 1 = ngày hẹn − 7 (mời đặt lịch), lượt 2 = ngày hẹn − 1 (nhắc đi khám).",
+    "Bước 6: CSKH gọi và ghi kết quả bắt buộc (DA_LIEN_HE / CHUA_NGHE_MAY / CAN_BAC_SI / TU_CHOI) → đóng việc + ghi `cskh_log` cùng giao dịch; hoặc bỏ qua có lý do. Khách đặt lịch mới → trigger `nhac_tai_kham_dong_khi_co_lich` tự đóng việc DA_CO_LICH.",
+    "Bước 7: Việc phụ: hẹn gọi lại (ngày, giờ tuỳ chọn, lý do) dán ngay chuông cho vai CSKH, chỉ đóng được khi đã tới ngày+giờ; phản hồi sau dùng thuốc gắn vào lượt có đơn bác sĩ kê (bác sĩ đọc ở Bàn khám); phản hồi/khiếu nại đi MOI → DANG_XU_LY → DA_XU_LY (bắt buộc ghi hướng xử lý); ghi chú chung chỉ thêm, người ghi tự gỡ; gửi Zalo ZNS (nhắc hẹn / báo có kết quả) — chỉ ghi sổ khi Zalo nhận.",
+    "Bước 8: Bấm nhầm → \"Rút lại\" (hoàn tác): không xoá, đặt huy_luc + ghi event_log; CHECK_IN đảo check-in thật nếu chưa có bước nào ngoài trạm đầu xong; CHECK_OUT không hoàn tác được (nhờ quản lý mở lại lượt)."
+  ],
+  "luu_y": [
+    "Ví dụ hạn gọi tái khám từ phiếu: hẹn 30/10, hôm nay 21/10 → gọi từ 23/10; hẹn 25/10 → gọi từ 21/10 (hẹn gần hơn 7 ngày thì hạn là hôm nay). Chuông réo 07:00 giờ VN ngày hạn.",
+    "Ví dụ CSKH tự nhập: hẹn 20/11 → gọi mời đặt lịch 13/11, nhắc đi khám 19/11. Ngày tái khám không được ở quá khứ. Màn `NhacTaiKham.tsx` chép tay luật T−7/T−1 — đổi máy chủ phải đổi cả màn.",
+    "Bốn kết quả cuộc gọi khai ở NHIỀU chỗ phải khớp nhau: Literal ket_qua ở router `cskh.py`, KET_QUA_HOP_LE trong `tuong_tac_cskh_service`, `recall_job_service`, `cskh_service`, CHECK của cskh_log ở migration, mảng KET_QUA ở màn — từng hai lần chỉ sửa service là CSKH ăn 422.",
+    "Luật sổ tương tác: TRA_KQ chỉ ghi khi đã liên hệ (mọi dòng TRA_KQ làm việc \"kết quả chưa gửi\" biến mất); BO_QUA ↔ kênh KHONG_LIEN_HE; mốc quầy luôn GHI_NHAN + TRUC_TIEP; xác nhận lịch / nhắc hẹn / hỏi lý do huỷ / CHECK_IN / CHECK_OUT bắt buộc gắn lịch đúng khách.",
+    "Một lượt chỉ MỘT việc gọi lượt-1 từ phiếu đang chờ (ép bằng chỉ mục duy nhất); cùng khách cùng ngày đã có việc khác đang mở thì nhường, đóng việc của lượt này \"Trùng việc gọi\". Phải khoá FOR UPDATE các việc khi đồng bộ, không là đổ giao dịch lưu phiếu.",
+    "Khách đặt lịch sau khi có việc → trigger SQL tự đóng việc nhưng không phát sự kiện (CSKH và dòng thời gian không biết vì sao việc biến mất); hàm SQL sinh việc nhắc cũng không phát sự kiện. Sửa luật \"đã có lịch\" phải sửa cả trigger lẫn `hen_tai_kham_service`.",
+    "Đọc danh sách gọi nhắc có tác dụng phụ GHI (gọi sinh việc). Trần 500 việc, quá trần chỉ có cờ bi_cat.",
+    "\"Còn phải thu\" ở khung khách dùng hoá đơn quầy (cả chỉ định chưa làm) cho 5 lượt gần nhất — KHÁC con số \"Khách còn nợ\" ở quầy/sổ nợ (luật no_khi_ve). \"Đã trả\" cộng payment_cycle PAID, không cộng bảng payment.",
+    "Nhiều service không tự kiểm quyền (cskh_service, recall_job_service, phan_hoi_khach_service) — chỉ router gác: ghi việc chăm sóc cần crm.manage / reception.checkin.perform / dispatch.manage; màn Quản lý khách hàng + gọi nhắc chỉ crm.manage; khung khách cần crm.manage hoặc reception.checkin.perform.",
+    "Ghi chéo khối: `hen_tai_kham_service` ghi thẳng bảng thong_bao (khối Chuông) để đóng chuông cũ; CHECK_IN/CHECK_OUT ở CSKH đổi lịch hẹn và lượt khám thật qua BookingService/CheckoutService.",
+    "Màn `/customers` tự quyết nhiều thứ ở giao diện (chip trạng thái, bốn ô số, Quá SLA, mất bác sĩ, lịch trùng, lượt mở sẵn) — vd hẹn 08:15, 08:45 chưa check-in → vào \"Quá SLA\". Nợ: nên dời về `man_khach_hang_service`.",
+    "Màn `man_khach_hang_service` phải chạy TUẦN TỰ trên một kết nối (pool chỉ 10) và chỉ đọc view v_viec_cskh MỘT lần mỗi request (~225ms mỗi lần)."
+  ],
+  "muon_sua": [
+    {"viec": "đổi số ngày gọi trước ngày tái khám bác sĩ hẹn (đang 7)", "cho": "hằng SO_NGAY_TRUOC (và hàm SQL/trigger cùng luật)", "tep": "src/clinicai/services/hen_tai_kham_service.py", "dong": 45},
+    {"viec": "đổi giờ réo chuông tái khám (đang 07:00)", "cho": "hằng GIO_BAO", "tep": "src/clinicai/services/hen_tai_kham_service.py", "dong": 47},
+    {"viec": "đổi chữ lý do đóng việc tái khám", "cho": "từ điển LY_DO_DONG", "tep": "src/clinicai/services/hen_tai_kham_service.py", "dong": 58},
+    {"viec": "đổi hai mốc gọi khi CSKH tự nhập ngày tái khám (T−7, T−1)", "cho": "VALUES ($3 − 7), ($3 − 1) trong tao_thu_cong", "tep": "src/clinicai/services/recall_job_service.py", "dong": 206},
+    {"viec": "thêm kết quả cuộc gọi mới", "cho": "Literal ket_qua ở router + KET_QUA_HOP_LE ở các service + CHECK cskh_log", "tep": "src/clinicai/api/v1/routers/cskh.py", "dong": 469},
+    {"viec": "thêm loại tương tác / kênh / kết quả của sổ chăm sóc", "cho": "LOAI_HOP_LE, KENH_HOP_LE, KET_QUA_HOP_LE (kèm CHECK migration)", "tep": "src/clinicai/services/tuong_tac_cskh_service.py", "dong": 67},
+    {"viec": "đổi ai được ghi việc chăm sóc / mở màn Quản lý khách hàng", "cho": "_INTAKE_GUARD, _RECALL_GUARD, _MAN_KHACH_HANG_GUARD", "tep": "src/clinicai/api/v1/routers/cskh.py", "dong": 48},
+    {"viec": "đổi ai mở được khung khách (CSKH / Tiếp đón)", "cho": "QUYEN_KHUNG_KHACH", "tep": "src/clinicai/services/ghi_chu_khach_service.py", "dong": 38},
+    {"viec": "đổi câu lý do khi CSKH đóng lượt còn dở", "cho": "ly_do_tu_dong trong _dong_luot_kham", "tep": "src/clinicai/services/tuong_tac_cskh_service.py", "dong": 612},
+    {"viec": "cho đóng hẹn gọi lại sớm hơn giờ hẹn", "cho": "HenGoiLaiService.dong", "tep": "src/clinicai/services/tuong_tac_cskh_service.py", "dong": 793},
+    {"viec": "đổi kết quả cuộc gọi nào đóng việc 'Gọi điện xác nhận' (CHO_DAT_LICH)", "cho": "KET_QUA_DONG_CHO_DAT_LICH", "tep": "src/clinicai/services/man_khach_hang_service.py", "dong": 49},
+    {"viec": "thêm loại phản hồi khách (khen/góp ý/khiếu nại)", "cho": "LOAI_HOP_LE + CHECK migration 20260809000007 + Literal router dòng 616", "tep": "src/clinicai/services/phan_hoi_khach_service.py", "dong": 23},
+    {"viec": "đổi định nghĩa 'lượt có đơn' để gắn phản hồi thuốc / thêm kênh", "cho": "_CO_DON_SQL và KENH", "tep": "src/clinicai/services/phan_hoi_thuoc_service.py", "dong": 41},
+    {"viec": "đổi số khách mỗi trang / trạng thái lịch coi là 'chết'", "cho": "KHACH_MOT_TRANG, _LICH_CHET", "tep": "src/clinicai/services/danh_sach_khach_cskh.py", "dong": 32},
+    {"viec": "đổi nội dung chuông tái khám tới hạn", "cho": "hàm noi_dung_chuong", "tep": "src/clinicai/events/consumers/nhac_tai_kham.py", "dong": 22}
+  ]
+}

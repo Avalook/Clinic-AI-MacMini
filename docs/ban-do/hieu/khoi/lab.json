@@ -1,0 +1,39 @@
+{
+  "tom_tat": "Khối Xét nghiệm lo kết quả xét nghiệm của khách (bảng lab_result — mỗi dòng một chỉ số: giá trị, cờ cao/thấp, nhóm phân loại A/B/C, đã chốt chưa). Bác sĩ, thư ký y khoa và quản lý xem hàng chờ ở màn Duyệt kết quả (/duyet-ket-qua); người có quyền result.review.approve (lego Duyệt kết quả, không theo vai) bấm duyệt + chốt. Có một đồ thị AI (lab_triage) phân nhóm kết quả: luật cứng trước, không khớp thì hỏi Claude; nhóm C (nguy hiểm) thì chặn không báo khách và mở việc bác sĩ duyệt hạn 4 giờ. Lối tạo phiếu xét nghiệm và nhập kết quả cũ (POST /lab/orders, PATCH /lab/results/{id}) ĐÃ NGHỈ từ 18/09 — trả 410, kết quả nay gắn vào chỉ định ở phòng thực hiện; đường /lab-queue cũ chỉ chuyển sang /phong (phòng Lấy mẫu).",
+  "luong": [
+    "Bước 1 (lối cũ, đã nghỉ): bác sĩ chỉ định xét nghiệm → LabOrderService.order_test tạo dòng lab_result chờ (PENDING, test_code MANUAL); router nay trả 410 và chỉ sang khung Chỉ định của Bàn khám.",
+    "Bước 2 (lối cũ, đã nghỉ): nhập kết quả (tóm tắt chữ hoặc link PDF nơi xét nghiệm) → enter_result; lần đầu có kết quả thì phát sự kiện lab_result.arrived để khối Chuông báo CSKH + bác sĩ chính. Router cũng trả 410 — trong src không còn chỗ nào gọi LabOrderService.",
+    "Bước 3: màn Duyệt kết quả gọi GET /api/v1/lab/results/cho-duyet — lấy kết quả CHƯA chốt mà có giá trị hoặc mã tham chiếu ngoài, thư ký chỉ thấy khách của bác sĩ mình, tối đa 100 dòng (chạm trần gắn cờ bi_cat).",
+    "Bước 4 (tuỳ chọn): bấm phân loại AI → POST /lab/triage/{id} chạy đồ thị: đọc dòng → phân loại (luật _rules.py rồi tới LLM) → LƯU nhóm qua LabSafetyService.persist_classification (chỉ được nâng nhóm, không hạ) → nhóm C hoặc cờ 'cần bác sĩ xem' thì chặn cứng + mở việc LAB_REVIEW khẩn (bảng staff_task, hạn 4 giờ); còn lại soạn câu trả lời cho khách.",
+    "Bước 5: bác sĩ duyệt + chốt → POST /lab/results/{id}/review → LabSafetyService.finalize_review: khoá dòng, phải có dữ liệu kết quả, đặt is_finalized + người duyệt + giờ duyệt, đóng việc LAB_REVIEW, ghi 'lab_result.finalized' vào event_log cũ (không phát sự kiện mới cho khối khác nghe).",
+    "Bước 6: hỏi được báo khách chưa → GET /lab/results/{id}/release: đã chốt → được báo (nhóm C đã chốt kèm nhãn 'báo trực tiếp'); chưa chốt → không.",
+    "Hồ sơ khám đọc 20 xét nghiệm gần nhất của khách qua cổng đọc xet_nghiem_cho_ho_so."
+  ],
+  "luu_y": [
+    "Nhóm phân loại chỉ đi lên: PENDING < GROUP_A < GROUP_B < GROUP_C. Ví dụ AI lần 1 cho B, lần 2 cho A → giữ B; lần 3 cho C → thành C. Cờ 'cần bác sĩ xem' bật rồi thì AI chạy lại không tắt được. Kết quả bác sĩ đã chốt thì AI không ghi đè (có khoá dòng FOR UPDATE — bỏ khoá là AI đè được kết quả bác sĩ vừa chốt).",
+    "Luật cứng (tools/lab/_rules.py): HIV dương tính, NIPT nguy cơ cao, βHCG giảm bất thường, tải lượng HBV > 100.000 → nhóm C. Ví dụ HBV 150.000 → C, đúng 100.000 → không khớp (so 'lớn hơn' nghiêm ngặt). Glucose >7,0 đến 11,0 → B (8,2 → B); Hemoglobin 9,0 đến dưới 11,0 → B.",
+    "Bẫy ngưỡng: kết quả NẶNG hơn ngưỡng nhóm B lại rơi về luật chung 'cờ H/L → B' và không bắt bác sĩ xem — Hemoglobin 8,0 cờ L thành B, glucose 13 cờ H cũng B. Luật HIV/NIPT so theo panel_code; dòng chỉ có test_code thì không khớp.",
+    "Không luật nào khớp → hỏi LLM; tên chứa HIV/NIPT/HBV/HCV/CANCER/TUMOR/MARKER/KARYOTYPE dùng mô hình mạnh. LLM không nói có cần bác sĩ xem → mặc định CẦN. Không có AI hoặc AI lỗi → PENDING + cần bác sĩ xem → chặn cứng. classify.py chỉ GỢI Ý, không tự chặn — bên gọi phải tôn trọng requires_doctor_review.",
+    "Hai luật 'được báo khách' MÂU THUẪN: backend (routers/lab.py dòng 334) cho báo mọi kết quả đã chốt kể cả nhóm C; còn lib/lab-release.ts (giao diện) chỉ cho nhóm A đã chốt. lab-release.ts hiện chỉ còn test dùng, nhưng ai nối lại màn thì sẽ thấy hai câu trả lời khác nhau.",
+    "Route Next /api/lab-result (POST/PATCH) vẫn gác theo VAI (chỉ bác sĩ chỉ định; Lễ tân/Quản lý không nhập) rồi gọi hai đường backend đã nghỉ 410 — tức là dây chết, đừng sửa luật ở đó tưởng có tác dụng.",
+    "LabOrderService (order_test/enter_result) và finalize_review KHÔNG tự kiểm vai/quyền — quyền nằm ở router (result.review.approve; phân loại AI dùng cửa ghi y khoa, 30 lượt/phút/người; không có khoá AI → 503).",
+    "Đồ thị triage ghi bảng staff_task — modules.py đánh dấu bảng này 'CHỜ BỎ'; gỡ bảng phải gỡ chỗ ghi ở nodes.py và lab_safety_service.py trước. Mở việc LAB_REVIEW thất bại chỉ ghi vào state, không réo ai.",
+    "Database ép: kết quả đã chốt phải có người duyệt + giờ duyệt; cờ và nhóm chỉ nhận giá trị trong danh sách; cấm xoá hẳn dòng lab_result; thư ký chỉ đọc kết quả khách của bác sĩ mình (RLS).",
+    "result_received_at mặc định now() lúc TẠO phiếu nên 'giờ nhận kết quả' thực ra là giờ chỉ định; hồ sơ sắp theo giờ đó."
+  ],
+  "muon_sua": [
+    {"viec": "đổi luật khi nào được báo kết quả cho khách", "cho": "hàm lab_release_decision — đọc triage_group + is_finalized, đã chốt là cho báo", "tep": "src/clinicai/api/v1/routers/lab.py", "dong": 307},
+    {"viec": "đổi điều kiện bác sĩ được chốt kết quả (vd chặn khi chưa phân loại)", "cho": "LabSafetyService.finalize_review — đoạn kiểm has_result", "tep": "src/clinicai/services/lab_safety_service.py", "dong": 231},
+    {"viec": "thêm nhóm phân loại / đổi thứ tự mức nặng", "cho": "từ điển _TRIAGE_SEVERITY", "tep": "src/clinicai/services/lab_safety_service.py", "dong": 25},
+    {"viec": "đổi ngưỡng hoặc thêm luật phân nhóm (HIV, HBV, glucose, Hb…)", "cho": "danh sách LAB_TRIAGE_RULES", "tep": "src/clinicai/tools/lab/_rules.py", "dong": 41},
+    {"viec": "thêm từ khoá xét nghiệm nguy cơ cao (đi mô hình mạnh)", "cho": "_HIGH_RISK_KEYWORDS", "tep": "src/clinicai/tools/lab/classify.py", "dong": 38},
+    {"viec": "thêm kiểu điều kiện so khớp cho luật", "cho": "hàm _evaluate_match", "tep": "src/clinicai/tools/lab/classify.py", "dong": 132},
+    {"viec": "đổi khi nào chặn cứng không báo khách", "cho": "_route_after_persist — nhóm C hoặc cờ cần bác sĩ xem", "tep": "src/clinicai/graphs/lab_triage/graph.py", "dong": 65},
+    {"viec": "đổi hạn bác sĩ phải duyệt kết quả nhóm C (đang 4 giờ — cần duyệt lâm sàng)", "cho": "_LAB_REVIEW_SLA_HOURS", "tep": "src/clinicai/graphs/lab_triage/nodes.py", "dong": 343},
+    {"viec": "đổi câu trả lời khách cho nhóm A/B", "cho": "make_advise_node", "tep": "src/clinicai/graphs/lab_triage/nodes.py", "dong": 291},
+    {"viec": "đổi hàng chờ màn Duyệt kết quả (điều kiện, trần 100)", "cho": "ket_qua_cho_duyet — SQL viết ngay trong router", "tep": "src/clinicai/api/v1/routers/lab.py", "dong": 136},
+    {"viec": "đổi giới hạn phân loại AI 30 lượt/phút", "cho": "LAB_TRIAGE_RATE_LIMIT", "tep": "src/clinicai/api/v1/routers/lab.py", "dong": 58},
+    {"viec": "đổi số xét nghiệm hiện ở hồ sơ khám", "cho": "_TRAN_XN_HO_SO = 20", "tep": "src/clinicai/services/lab_order_service.py", "dong": 282},
+    {"viec": "bỏ gác theo vai ở route Next cũ (hoặc gỡ hẳn vì backend đã 410)", "cho": "khối gác isPhysicianRole (POST) và canWriteClinical (PATCH)", "tep": "src/dashboard/app/api/lab-result/route.ts", "dong": 34}
+  ]
+}

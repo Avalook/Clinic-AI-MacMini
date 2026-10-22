@@ -1,0 +1,119 @@
+{
+  "tieu_de": "ClinicAI chạy thế nào — đi theo một khách",
+  "gioi_thieu": [
+    "ClinicAI là phần mềm quản lý phòng khám Dr4Women. Nó đi theo một khách từ lúc đặt lịch, tới quầy, đo sinh hiệu, khám, làm dịch vụ, nhận kết quả, lấy thuốc, trả tiền, ra về, rồi được chăm sóc sau. Mỗi lần khách tới phòng khám là một LƯỢT KHÁM (bảng visit). Hệ thống chạy trên một VPS, tên miền https://dr4women.io.vn.",
+    "Ba tầng: giao diện (Next.js) CHỈ VẼ → máy chủ (FastAPI) giữ MỌI luật nghiệp vụ → database Postgres, nơi ép những luật dễ bị hai người bấm cùng lúc phá (trigger, ràng buộc). Đăng nhập đi qua bộ Supabase tự dựng. Tin 'có gì vừa đổi' đi kênh riêng: trigger trong database → pg_notify → máy chủ đẩy SSE (/api/events/stream) → màn tự nạp lại.",
+    "Code chia thành 36 KHỐI LEGO, khai ở src/clinicai/modules.py: mỗi khối giữ bảng và lệnh của mình. Khối KHÔNG ghi thẳng bảng khối khác; nó phát SỰ KIỆN (một dòng 'việc này đã xảy ra', vd visit.checked_in) và các khối khác NGHE trong tiến trình nền su-kien. Khối Hành trình là 'người điều phối' giữ thứ tự khách đi; quyền làm gì tính theo lego được bật cho từng người, không theo vai.",
+    "Hệ thống có nhiều cơ sở (Kim Ngưu, Hào Nam…); cơ sở đang dùng là Hào Nam. Sau đăng nhập mỗi nhân viên chọn 'Hôm nay làm ở cơ sở nào?' (/chon-co-so). Dưới đây là các chặng theo đúng thứ tự đời thật của một khách, rồi tới các chặng NỀN chạy song song."
+  ],
+  "chang": [
+    {
+      "ten": "Đặt lịch",
+      "mo_ta": "CSKH / lễ tân tìm hoặc tạo hồ sơ khách (chống trùng hồ sơ là việc chính), chọn dịch vụ khám, bác sĩ và khung giờ ở màn Đặt lịch hẹn; bác sĩ cũng đặt tái khám ngay trên phiếu khám. Máy chủ chặn khung đã qua, chặn bác sĩ không có ca khi tuần đã công bố lịch trực; trigger Postgres chốt số chỗ mỗi bác sĩ mỗi khung (mặc định 15 phút, 2 chỗ đặt trước + 1 vãng lai). Sinh dòng appointment và phát appointment.booked; dời / huỷ / đổi dịch vụ phát appointment.rescheduled / cancelled / service_switched. CSKH gọi xác nhận lịch thì ghi appointment.confirmed_by_call.",
+      "khoi": ["booking", "ho_so_khach", "lich_truc", "cskh"],
+      "man": ["/appointments", "/appointments/cho-xep-bac-si", "/patients/new", "/patient-list"]
+    },
+    {
+      "ten": "Đến quầy — check-in",
+      "mo_ta": "Lễ tân bấm Check-in trên dòng lịch hẹn ở màn Tiếp đón: lịch hẹn chuyển CHECKED_IN và MỞ LƯỢT khám (visit) trong cùng một giao dịch, phát visit.checked_in. Khối Hành trình nghe sự kiện này: mang chỉ định chưa làm của lượt trước sang lượt mới, rồi xếp đường đi đầu tiên (tư vấn / thẳng bác sĩ chính / thẳng dịch vụ). Lễ tân kéo thả thứ tự gọi khám, bật dấu ưu tiên; bấm nhầm thì hoàn tác check-in khi khách chưa có việc thật nào.",
+      "khoi": ["reception", "booking", "hanh_trinh", "service_order"],
+      "man": ["/reception/queue", "/hanh-trinh"]
+    },
+    {
+      "ten": "Đo sinh hiệu",
+      "mo_ta": "Điều dưỡng (quyền vitals.measure) thấy khách ở nhóm 'Chờ đo', gõ ô đầu tiên là máy ghi 'đang đo' (vitals.started), bấm Đo xong là lưu một dòng vital_measurement (chỉ thêm, không sửa đè) và phát vitals.recorded. Khách đang có thai (khối Thai kỳ) thì máy đòi thêm chiều cao, cân nặng. Khối Hành trình nghe vitals.recorded để xếp khách vào hàng tư vấn hoặc thẳng bác sĩ chính — khối Sinh hiệu không tự xếp hàng.",
+      "khoi": ["vitals", "thai_ky", "hanh_trinh"],
+      "man": ["/do-sinh-hieu"]
+    },
+    {
+      "ten": "Tư vấn & khám bác sĩ",
+      "mo_ta": "Loại khám cần tư vấn thì bác sĩ tư vấn ghi một ô chữ, bấm Xong tư vấn (consultation.handed_over) → Hành trình chuyển khách sang hàng chờ bác sĩ chính. Bác sĩ chính / thư ký y khoa Bắt đầu khám, ghi phiếu khám v5 (phiếu không khoá, database tự giữ lịch sử sửa), tiền sử, khung Thai kỳ. Ô 'Dịch vụ khám' tick đúng dịch vụ khám đã làm — tiền khám = tổng giá các ô còn tick, không bịa giá. Quyền theo lego: clinical.intake.perform (tư vấn), clinical.consult.perform (khám), clinical.record.write (ghi bệnh án).",
+      "khoi": ["consultation", "phi_kham", "thai_ky"],
+      "man": ["/tu-van", "/ban-kham"]
+    },
+    {
+      "ten": "Chỉ định dịch vụ",
+      "mo_ta": "Bác sĩ / thư ký tick cận lâm sàng, thủ thuật, điều trị trên phiếu khám → mỗi dịch vụ một dòng service_order, phát service_order.placed. Lễ tân / người đo sinh hiệu được thêm '+ dịch vụ' tại quầy theo danh sách quản lý cấu hình; lượt có lịch Điều trị được sinh sẵn chỉ định; bác sĩ chọn vật tư kèm (vd đầu dò Bio) và đề xuất liệu trình nhiều buổi. Mọi lần thêm / bỏ / hoàn tác ghi vào sổ sửa chỉ định. Khối Chỉ định không chọn thay khách, không xếp phòng, không thu tiền.",
+      "khoi": ["service_order", "dieu_tri", "vat_tu", "lieu_trinh"],
+      "man": ["/ban-kham"]
+    },
+    {
+      "ten": "Khách chốt dịch vụ & thu tiền dịch vụ",
+      "mo_ta": "Ở quầy Thu tiền dịch vụ, thu ngân ghi khách đồng ý làm chỉ định nào (service_selection.confirmed), thêm vật tư mua kèm, trả trước k buổi liệu trình, rồi thu tiền mặt / chuyển khoản / chia hai, có giảm giá kèm lý do. Số tiền LUÔN do máy chủ tính từ hoá đơn lúc thu; màn chỉ hiển thị. Dây 'thu trước khi làm' mặc định BẬT: chưa thu thì chỉ lượt được tick 'Làm trước – thu sau' mới được xếp phòng. Thu xong phát payment.service_collected → Hành trình tự xếp phòng nếu dây tự xếp bật.",
+      "khoi": ["service_selection", "payment", "phi_kham", "vat_tu", "lieu_trinh"],
+      "man": ["/thu-ngan/dich-vu"]
+    },
+    {
+      "ten": "Xếp phòng & làm dịch vụ",
+      "mo_ta": "Khối Điều phối quyết chỉ định làm ở phòng nào và giữ hàng chờ; trưởng ca nhìn toàn cảnh, kéo thả đổi phòng; TV phòng chờ gọi khách. Nhân viên đang có ca ở phòng bấm Bắt đầu / Xong / Không làm được / Gián đoạn (mỗi lần làm một dòng service_execution_attempt, phát service.started / service.completed…); bác sĩ cũng làm điều trị ngay tại bàn khám. Phòng khác bấm Nhận khách khi phòng cũ quên Xong → chuông réo phòng cũ. Không làm được / gián đoạn / mất phòng → khối Trách nhiệm mở việc có người chịu.",
+      "khoi": ["service_routing", "execution", "dieu_tri", "chuong_nhan_cheo", "trach_nhiem", "hanh_trinh"],
+      "man": ["/truong-ca", "/phong/[ma]", "/display", "/ban-kham"]
+    },
+    {
+      "ten": "Kết quả, tệp, đối tác, xét nghiệm",
+      "mo_ta": "KTV / bác sĩ điền phiếu kết quả theo biểu mẫu (tự lưu nháp, Hoàn tất, Sửa lại có lý do) → result.ready; ảnh / video / PDF / DICOM tải lên thành tệp kết quả (chỉ xoá mềm), nằm ổ VPS rồi được đẩy sang kho Viettel CFS. Việc làm bên ngoài (lab ngoài, đọc giải phẫu bệnh) đi qua bàn Đối tác: Nhận mẫu, Trả kết quả. Kết quả xét nghiệm được phân nhóm; nhóm C (nguy hiểm) bị chặn báo khách và mở việc bác sĩ duyệt. Chuông báo đúng người theo bảng 'ai nhận chuông gì'.",
+      "khoi": ["result", "result_file", "doi_tac", "lab", "chuong"],
+      "man": ["/phong/[ma]", "/doi-tac", "/xac-nhan-ket-qua", "/duyet-ket-qua"]
+    },
+    {
+      "ten": "Bác sĩ đọc kết quả & hoàn tất khám",
+      "mo_ta": "Bác sĩ bấm 'Đã khám xong' mà còn chỉ định chưa làm → mở VÒNG ĐỌC: khách đi làm dịch vụ rồi quay lại bác sĩ. Khối Vòng đọc nghe mọi lối 'đã xong' (phòng Xong, phiếu hoàn tất, đối tác nhận mẫu, tệp tải lên) và mở chỗ 'Kết quả cần đọc' cho bác sĩ chính; hết việc thì khép phần khám, phát visit.exam_completed. Bác sĩ Hoàn tất khám, duyệt kết quả, cho phép CSKH gửi hồ sơ; sửa hồ sơ đã ký thì làm phiếu đính chính.",
+      "khoi": ["vong_doc", "consultation", "lab"],
+      "man": ["/ban-kham", "/duyet-ket-qua"]
+    },
+    {
+      "ten": "Kê đơn & nhà thuốc",
+      "mo_ta": "Bác sĩ kê đơn trong hồ sơ khám (prescription.saved); đơn đã bị nhà thuốc / quầy thu chạm thì đổi phải qua đính chính. Nhà thuốc chọn lô cho đơn; tiền thuốc thu ở quầy RIÊNG (không trộn với tiền dịch vụ), và chỉ GIAO thuốc khi đã thu tiền thuốc, không giao quá số khách mua. Khách trả thuốc thì chọn hoàn tiền, đổi, hoặc giữ lại thành nợ khách. Khách chỉ đến mua thuốc thì bán lẻ ngay ở nhà thuốc.",
+      "khoi": ["consultation", "pharmacy", "payment"],
+      "man": ["/ban-kham", "/pharmacy", "/thu-ngan/thuoc"]
+    },
+    {
+      "ten": "Nợ, hoàn tiền & check-out",
+      "mo_ta": "Lễ tân mở Check-out: máy chủ liệt kê việc còn vướng; NỢ và TIỀN THỪA chưa xử lý thì chặn cứng — thu ngay, hoặc 'Ghi nợ' kèm lý do (bảng cong_no), tiền thừa thì hoàn hoặc giữ lại. Hoàn tiền theo từng dòng, có lý do. Đóng lượt ghi closed_at, phát visit.checked_out (hoặc visit.left_early); bấm nhầm thì 'Mở lại lượt khám'. Sổ nợ hai chiều ghi ngầm phải thu / phải trả của lượt; Hành trình nhắc lễ tân nếu đã thu 60 phút mà khách chưa check-out, và báo CSKH nếu khách về còn việc dở.",
+      "khoi": ["reception", "cong_no", "payment", "so_no", "hanh_trinh"],
+      "man": ["/reception/checkout", "/thu-ngan/dich-vu", "/hanh-trinh"]
+    },
+    {
+      "ten": "Chăm sóc sau",
+      "mo_ta": "CSKH ghi mọi lần chạm khách ngoài buổi khám (gọi, nhắc hẹn, phản hồi sau thuốc, khiếu nại, Zalo ZNS) vào sổ tương tác, phát patient.contacted; gửi kết quả cho khách và đánh dấu đã gửi qua kênh nào. Màn Nhắc tái khám là hàng đợi gọi tái khám và liệu trình: liệu trình giữ số buổi, đơn giá chốt, buổi đã làm / đã trả trước; buổi làm xong mà liệu trình sắp hết thì chuông CSKH. Khách đặt lịch tái khám là quay về chặng Đặt lịch.",
+      "khoi": ["cskh", "lieu_trinh", "result_file", "trach_nhiem", "booking"],
+      "man": ["/customers", "/nhac-tai-kham", "/viec-can-xu-ly"]
+    },
+    {
+      "ten": "NỀN — Kho thuốc & kho vật tư",
+      "mo_ta": "Kho thuốc: nhập lô (quy đổi hộp → đơn vị bán lúc nhập), tồn theo lô ở từng cơ sở, tách khu KHO / QUẦY, kiểm kê đầu / cuối ca, mã vạch và tem lô; lô sắp hết hạn hoặc kiểm kê lệch thì chuông. Kho vật tư là sổ RIÊNG cho vật tư tiêu hao (găng, gạc…): phiếu nhập / cấp phòng / chuyển / kiểm kê, nhập cần duyệt, hoàn tác bằng phiếu đảo. Sổ kho chỉ thêm, trigger cộng tồn; vật tư BÁN cho khách lại tính vào hoá đơn dịch vụ.",
+      "khoi": ["pharmacy", "kho_vat_tu", "vat_tu", "catalogue"],
+      "man": ["/pharmacy/inventory", "/kho-vat-tu"]
+    },
+    {
+      "ten": "NỀN — Kế toán, hoá đơn & sổ nợ",
+      "mo_ta": "Kế toán CHỈ ĐỌC tiền từ phiếu thu / dòng hoá đơn / phiếu hoàn của khối Thu tiền, không bao giờ đổi số khách trả: xuất file hoá đơn GTGT cho MISA, đặt thuế suất, giữ thông tin công ty xuất hoá đơn đỏ (thu ngân chỉ tick công ty có sẵn ở quầy). Thu ngân chốt sổ cuối ca. Sổ nợ hai chiều chạy ngầm trong tiến trình nền, đối chiếu mỗi 10 phút; báo cáo cuối ngày đọc tổng 'khách còn nợ' từ sổ này.",
+      "khoi": ["ke_toan", "so_no", "payment"],
+      "man": ["/xuat-hoa-don", "/ke-toan", "/hoa-don", "/reports"]
+    },
+    {
+      "ten": "NỀN — Cơ sở, danh mục, lịch trực, phân quyền",
+      "mo_ta": "Khung nhà: phòng khám, cơ sở, tầng, phòng làm dịch vụ nào, và DÂY NỐI nghiệp vụ (công tắc / con số quản lý tự chỉnh, không sửa code). Danh mục giữ bảng giá dịch vụ / thuốc / vật tư, loại khám, mẫu kết quả. Lịch trực (ai đứng vị trí nào, ca nào, tuần đã công bố chưa) là luật cao nhất: đặt lịch, quyền theo lịch, phạm vi xem đều đọc nó. Phân quyền: bật lego = cấp quyền; mọi lệnh hỏi quyền qua một chỗ permissions/can.py.",
+      "khoi": ["co_so", "catalogue", "lich_truc", "permission"],
+      "man": ["/settings/clinic-config", "/settings/day-noi", "/cashier/dich-vu", "/settings/mau-ket-qua", "/schedule", "/phan-quyen", "/nhan-su", "/chon-co-so"]
+    },
+    {
+      "ten": "NỀN — Vận hành, chuông, dòng thời gian, việc không được rơi",
+      "mo_ta": "Dòng thời gian của lượt được dựng lại hoàn toàn từ sổ sự kiện (domain_event), xoá đi phát lại phải ra y hệt, không dùng để ra quyết định. Chuông ghi thông báo cho đúng vai / đúng bác sĩ; bên nghe nào chết quá 5 lần thì réo chuông khẩn cho trưởng ca + quản lý. Việc dễ quên (đã thu mà không làm, gián đoạn, mất phòng) thành việc có người chịu ở /viec-can-xu-ly. Quản lý xem toàn cảnh, lỗi & cảnh báo, báo cáo, lịch sử thao tác, agent giám sát AI chế độ bóng.",
+      "khoi": ["van_hanh", "journey", "chuong", "trach_nhiem"],
+      "man": ["/ops", "/reports", "/audit-log", "/giam-sat", "/viec-can-xu-ly"]
+    }
+  ],
+  "nguyen_tac": [
+    "Giao diện chỉ vẽ. Mọi quyết định nằm ở máy chủ FastAPI hoặc SQL — không viết luật nghiệp vụ trong TSX. Ẩn nút trên màn không phải bảo mật: máy chủ vẫn kiểm.",
+    "Tiền do máy chủ tính từ hoá đơn ngay lúc thu. Màn gửi tổng + revision chỉ để đối chiếu: hoá đơn đổi (vd bác sĩ vừa thêm chỉ định) thì lần thu bị từ chối, tải lại. Tiền dịch vụ và tiền thuốc thu ở hai quầy riêng.",
+    "Khối không ghi bảng của khối khác: gọi lệnh của khối chủ hoặc phát sự kiện. test_luat_cam_ghi_cheo.py chặn chỗ ghi chéo mới; chỗ cũ nằm trong sổ nợ, không được tăng.",
+    "Khối nói chuyện bằng sự kiện. Sự kiện mới khai ở events/catalogue.py; thêm bên nghe = thêm consumer, không sửa nơi phát. Một sự kiện giao hỏng (DEAD) chặn các sự kiện sau của cùng lượt cho bên nghe đó → khách kẹt, xử lý ở /ops.",
+    "Mọi thao tác nhân viên bấm phải hoàn tác được và cập nhật ngay ở mọi màn liên quan (SSE). Không có thao tác khoá cứng.",
+    "Quyền theo LEGO (capability), hỏi một chỗ permissions/can.py; không thêm if theo vai. Lịch trực là luật cao nhất: quầy thu, đặt lịch, quyền theo ca đều đọc nó.",
+    "Bất biến dễ bị hai người bấm cùng lúc phá thì ép ở Postgres (vd sức chứa khung giờ, chống thu hai lần cùng khoản, mỗi phòng khám luôn còn ít nhất một người giữ quyền phân quyền). Khoá dòng theo thứ tự cố định: lượt (visit) trước rồi mới tới dòng khác — đảo thứ tự là kẹt chéo (deadlock).",
+    "Sổ sách chỉ thêm, không sửa / xoá: lần thu, sổ kho thuốc, sổ kho vật tư, sổ nợ, lịch sử liệu trình, sổ sửa chỉ định. Sai thì ghi dòng đảo / hoàn tác; tệp kết quả chỉ xoá mềm.",
+    "Hành vi quản lý muốn chỉnh là DỮ LIỆU (dây nối nghiệp vụ, ai nhận chuông gì, loại khám nào qua tư vấn) — chỉnh trên màn, không sửa code. Database chỉ đổi qua migration.",
+    "Hàm nhận ngày / giờ từ người dùng trả rỗng thay vì ném lỗi. Lệnh có thể bị bấm hai lần dùng Idempotency-Key. Cẩn thận date.today() giờ máy chủ (UTC): từ 00:00 tới 07:00 sáng giờ VN nó còn là hôm trước."
+  ]
+}

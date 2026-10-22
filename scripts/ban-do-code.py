@@ -29,6 +29,8 @@ Chấp nhận không hoàn hảo: chỗ không suy được ghi "?" chứ không
     python3 scripts/ban-do-code.py --html    # chỉ sinh lại bản web
     python3 scripts/ban-do-code.py --kiem    # exit 1 nếu tệp .md nào lệch code (CI)
     python3 scripts/ban-do-code.py --in      # in BAN-DO-CODE ra stdout, không ghi
+    python3 scripts/ban-do-code.py --dong-dau  # đã đọc lại / duyệt ghi chú docs/ban-do/
+                                               # hieu → ghi dấu tệp, hết cờ "ghi chú cũ"
 """
 
 # ruff: noqa: E501 — chuỗi tài liệu tiếng Việt và regex, cắt dòng chỉ làm khó đọc.
@@ -1570,7 +1572,11 @@ def du_lieu_lop(
         b["ten"]: {
             "khoi": chu.get(b["ten"], ""),
             "rls": b["rls"],
-            "cot": [[c["ten"], c["kieu"], c["bat_buoc"]] for c in b["cot"] or []],
+            "mo_ta": b.get("mo_ta") or "",
+            "cot": [
+                [c["ten"], c["kieu"], c["bat_buoc"], c.get("mo_ta") or ""]
+                for c in b["cot"] or []
+            ],
             "khoa_chinh": b["khoa_chinh"] or [],
             "ra": [
                 [", ".join(lk["tu_cot"] or []), lk["den"]]
@@ -1604,6 +1610,124 @@ def du_lieu_lop(
         },
         "phan_loai": {"nguon": pl.get("nguon", ""), "ngay": pl.get("ngay", "")},
     }
+
+
+#: Lớp "hiểu" (21/10/2026): ghi chú từng tệp + nghĩa bảng/cột do agent đọc kỹ,
+#: thẻ khối + tổng quan gộp từ đó. Văn viết tay → có thể CŨ: `dau.json` giữ dấu
+#: (git blob sha) của tệp lúc ghi chú được duyệt; tệp đổi mà chưa đọc lại = "cũ".
+HIEU = GOC / "docs" / "ban-do" / "hieu"
+DAU_HIEU = HIEU / "dau.json"
+
+
+def dau_tep(p: Path) -> str:
+    """Dấu tệp giống `git hash-object` — không gọi git."""
+    import hashlib
+
+    du = p.read_bytes()
+    return hashlib.sha1(b"blob %d\0" % len(du) + du).hexdigest()
+
+
+def doc_ghi_chu_tep() -> dict[str, dict[str, object]]:
+    import json
+
+    ra: dict[str, dict[str, object]] = {}
+    for f in sorted((HIEU / "tep").glob("*.json")):
+        ra.update(json.loads(doc(f)).get("tep") or {})
+    return ra
+
+
+def du_lieu_hieu() -> dict[str, object]:
+    """Ghi chú tệp (kèm cờ cũ / số dòng sai), nghĩa bảng, thẻ khối, tổng quan."""
+    import json
+
+    ghi = doc_ghi_chu_tep()
+    dau = json.loads(doc(DAU_HIEU)) if DAU_HIEU.exists() else {}
+    for tep, g in ghi.items():
+        p = GOC / tep
+        if not p.exists():
+            g["mat"] = True
+            continue
+        so = doc(p).count("\n") + 1
+        g["cu"] = dau.get(tep) != dau_tep(p)
+        g["sai_dong"] = sorted(
+            {
+                int(x.get("dong") or 0)
+                for k in ("luat", "bay", "ham_chinh", "comment_cu")
+                for x in g.get(k) or []  # type: ignore[attr-defined]
+                if int(x.get("dong") or 0) > so
+            }
+        )
+    bang: dict[str, dict[str, object]] = {}
+    for f in sorted((HIEU / "sql").glob("nua-*.json")):  # nửa sau ghi đè nửa trước
+        for ten, x in (json.loads(doc(f)).get("bang") or {}).items():
+            cu = bang.setdefault(ten, {"lam_gi": "", "cot": {}, "rang_buoc": []})
+            cu["lam_gi"] = x.get("lam_gi") or cu["lam_gi"]
+            cu["cot"].update(x.get("cot") or {})  # type: ignore[attr-defined]
+            cu["rang_buoc"] += x.get("rang_buoc") or []  # type: ignore[operator]
+    the = {f.stem: json.loads(doc(f)) for f in sorted((HIEU / "khoi").glob("*.json"))}
+    # Ghi chú test: tệp test canh luật nào của tệp code nào → "test canh tệp này".
+    ghi_test: dict[str, dict[str, object]] = {}
+    for f in sorted((HIEU / "test").glob("*.json")):
+        ghi_test.update(json.loads(doc(f)).get("tep") or {})
+    test_cua: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for tt, g in ghi_test.items():
+        for c in g.get("canh") or []:  # type: ignore[attr-defined]
+            for tc in c.get("tep_code") or []:
+                test_cua[str(tc)].append(
+                    {
+                        "tep": tt,
+                        "test": c.get("test"),
+                        "dong": c.get("dong"),
+                        "luat": c.get("luat"),
+                    }
+                )
+    # Ghi chú thân hàm / view SQL. "Cũ" khi migration định nghĩa bản đang chạy đổi
+    # (đọc từ db.json) so với lúc ghi chú được duyệt.
+    db = json.loads(doc(DB_JSON)) if DB_JSON.exists() else {}
+    noi_ham = {
+        h["ten"]: f"{h['dinh_nghia']['tep']}:{h['dinh_nghia']['dong']}"
+        for h in db.get("ham", [])
+    }
+    ham_hieu: dict[str, dict[str, object]] = {}
+    for f in sorted((HIEU / "sql").glob("ham-*.json")):
+        ham_hieu.update(json.loads(doc(f)).get("muc") or {})
+    for k, g in ham_hieu.items():
+        ten = k.split(":", 1)[-1]
+        g["dinh_nghia"] = noi_ham.get(ten, "")
+        g["cu"] = k.startswith("ham:") and dau.get(k) != noi_ham.get(ten)
+    tq = HIEU / "tong-quan.json"
+    return {
+        "ghi_chu": ghi,
+        "bang_hieu": bang,
+        "the_khoi": the,
+        "tong_quan": json.loads(doc(tq)) if tq.exists() else None,
+        "ghi_test": ghi_test,
+        "test_cua": test_cua,
+        "ham_hieu": ham_hieu,
+    }
+
+
+def dong_dau() -> int:
+    """Duyệt xong ghi chú → ghi dấu tệp hiện tại vào dau.json (hết cờ 'cũ')."""
+    import json
+
+    ghi = doc_ghi_chu_tep()
+    dau: dict[str, str] = {
+        t: dau_tep(GOC / t) for t in sorted(ghi) if (GOC / t).exists()
+    }
+    # Hàm SQL: dấu = migration CUỐI định nghĩa bản đang chạy (tệp:dòng, từ db.json).
+    db = json.loads(doc(DB_JSON)) if DB_JSON.exists() else {}
+    co_ghi_ham = set()
+    for f in sorted((HIEU / "sql").glob("ham-*.json")):
+        co_ghi_ham |= set(json.loads(doc(f)).get("muc") or {})
+    for h in db.get("ham", []):
+        if f"ham:{h['ten']}" in co_ghi_ham:
+            dau[f"ham:{h['ten']}"] = (
+                f"{h['dinh_nghia']['tep']}:{h['dinh_nghia']['dong']}"
+            )
+    DAU_HIEU.write_text(json.dumps(dau, indent=0), encoding="utf-8")
+    print(f"Đã ghi dấu {len(dau)} tệp / hàm vào {tuong_doi(DAU_HIEU)}")
+    return 0
 
 
 def sinh_html(nc: NguCanhMan) -> str:
@@ -1698,7 +1822,115 @@ def sinh_html(nc: NguCanhMan) -> str:
         "ky_thuat": ky_thuat,
         "nhan_no": NHAN_NO,
         **du_lieu_lop(khoi, chu, cua_tep, no, ky_thuat),
+        **du_lieu_hieu(),
     }
+    # Phát hiện đã kiểm tận mắt (dung / can_soat / sai) — đứng đầu thẻ Vấn đề.
+    ph = HIEU / "phat-hien.json"
+    for x in (json.loads(doc(ph)).get("ds") or []) if ph.exists() else []:
+        cua = (
+            Path(x["tep"]).relative_to("src/clinicai").as_posix()
+            if x["tep"].startswith("src/clinicai/")
+            else ""
+        )
+        du_lieu["van_de"].append(  # type: ignore[union-attr]
+            {
+                "loai": "phat_hien_" + x["trang_thai"],
+                "muc": {"dung": "cao", "can_soat": "vua"}.get(x["trang_thai"], "thap"),
+                "khoi": cua_tep.get(cua, "?"),
+                "tieu_de": x["tieu_de"],
+                "chi_tiet": x["chi_tiet"],
+                "tep": x["tep"],
+                "dong": x["dong"],
+            }
+        )
+    # Kiểm toán prod 19–20/10 (545 mục, đọc trên bản prod 956ba4f2 — dòng có thể lệch).
+    kt = HIEU / "kiem-toan-1910.json"
+    for x in (json.loads(doc(kt)).get("ds") or []) if kt.exists() else []:
+        cua = x["tep"].removeprefix("src/clinicai/")
+        du_lieu["van_de"].append(  # type: ignore[union-attr]
+            {
+                "loai": "kiem_toan",
+                "muc": x["muc"],
+                "khoi": cua_tep.get(cua, "?"),
+                "tieu_de": f"[{x['ma']}] {x['tieu_de']}",
+                "chi_tiet": f"{x['chi_tiet']} — Hệ quả: {x['tac_dong']}".strip(" —"),
+                "tep": x["tep"],
+                "dong": x["dong"],
+            }
+        )
+    # Soát dữ liệu prod chỉ-đọc (Tuyền chạy kiem-du-lieu-prod.sql) — số khác 0.
+    dp = HIEU / "du-lieu-prod.json"
+    for x in (json.loads(doc(dp)).get("ket_qua") or []) if dp.exists() else []:
+        if not x.get("so"):
+            continue
+        du_lieu["van_de"].append(  # type: ignore[union-attr]
+            {
+                "loai": "du_lieu_prod",
+                "muc": x.get("muc", "vua"),
+                "khoi": x.get("khoi", "?"),
+                "tieu_de": f"Dữ liệu prod {x['ma']}: {x['so']} — {x['ten']}",
+                "chi_tiet": x.get("nghia", ""),
+                "tep": x.get("tep", ""),
+                "dong": 0,
+            }
+        )
+    # Test canh hời hợt / kiểm giả (đọc kỹ test 21/10).
+    for tt, g in du_lieu["ghi_test"].items():  # type: ignore[union-attr]
+        for x in g.get("yeu") or []:
+            du_lieu["van_de"].append(  # type: ignore[union-attr]
+                {
+                    "loai": "test_yeu",
+                    "muc": "thap",
+                    "khoi": g.get("khoi") or "?",
+                    "tieu_de": f"Test canh hời hợt ở {Path(tt).name}",
+                    "chi_tiet": x.get("noi_dung", ""),
+                    "tep": tt,
+                    "dong": x.get("dong", 0),
+                }
+            )
+    # Script ghi prod mà chạy sai thì hỏng (đọc kỹ vận hành 21/10).
+    for tep, g in du_lieu["ghi_chu"].items():  # type: ignore[union-attr]
+        if g.get("ghi_prod") and g.get("nguy_hiem"):
+            du_lieu["van_de"].append(  # type: ignore[union-attr]
+                {
+                    "loai": "van_hanh",
+                    "muc": "vua",
+                    "khoi": "?",
+                    "tieu_de": f"Script ghi prod: {Path(tep).name} ({g.get('chay_o', '')})",
+                    "chi_tiet": str(g["nguy_hiem"]),
+                    "tep": tep,
+                    "dong": 0,
+                }
+            )
+    # Ghi chú tệp sinh thêm vấn đề: comment lỗi thời, luật nghiệp vụ nằm trong TSX.
+    for tep, g in du_lieu["ghi_chu"].items():  # type: ignore[union-attr]
+        for x in g.get("comment_cu") or []:
+            du_lieu["van_de"].append(  # type: ignore[union-attr]
+                {
+                    "loai": "comment_cu",
+                    "muc": "thap",
+                    "khoi": g.get("khoi") or "?",
+                    "tieu_de": f"Comment cũ ở {Path(tep).name}",
+                    "chi_tiet": x.get("vi_sao", ""),
+                    "tep": tep,
+                    "dong": x.get("dong", 0),
+                }
+            )
+        for x in g.get("luat") or []:
+            if str(x.get("noi_dung", "")).startswith("[TSX quyết]"):
+                du_lieu["van_de"].append(  # type: ignore[union-attr]
+                    {
+                        "loai": "luat_tsx",
+                        "muc": "vua",
+                        "khoi": g.get("khoi") or "?",
+                        "tieu_de": f"Giao diện tự quyết nghiệp vụ ở {Path(tep).name}",
+                        "chi_tiet": str(x["noi_dung"])
+                        .removeprefix("[TSX quyết]")
+                        .strip(),
+                        "tep": tep,
+                        "dong": x.get("dong", 0),
+                    }
+                )
     # `</` trong chuỗi JSON sẽ đóng nhầm thẻ <script> — thoát nó.
     nhung = json.dumps(du_lieu, ensure_ascii=False).replace("</", "<\\/")
     return doc(MAU_WEB).replace("/*__DU_LIEU__*/null", nhung)
@@ -1735,6 +1967,8 @@ def _lech(tep: Path, noi_dung: str) -> bool:
 
 
 def main(argv: list[str]) -> int:
+    if "--dong-dau" in argv:
+        return dong_dau()
     noi_dung, nc = sinh()
     if "--in" in argv:
         sys.stdout.write(noi_dung)

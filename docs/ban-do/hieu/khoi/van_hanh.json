@@ -1,0 +1,40 @@
+{
+  "tom_tat": "Khối Vận hành gom các màn nhìn TOÀN CẢNH hệ thống và phòng khám, phần lớn chỉ đọc: Vận hành hệ thống `/ops` (6 tab: Hệ thống, Sức khoẻ API, Toàn cảnh, Lỗi & cảnh báo, Nhật ký vận hành, Lưu lượng & Thiết bị), Báo cáo `/reports` (Vận hành, Cuối ngày tài chính kiểu KiotViet, Hàng hoá, chốt ca), Lịch sử thao tác `/audit-log`, Trung tâm giám sát `/giam-sat` (agent giám sát AI chế độ bóng — shadow, chỉ ghi nhận định, không tác động), Trang chủ, Bảng điều khiển chủ sản phẩm `/console` (chỉ ngoài production), Dọn dữ liệu khách thử, và các script nạp lịch sử khám cũ từ Notion. Người dùng: quản lý, trưởng ca, thu ngân/kế toán (báo cáo), đội ClinicAI (giám sát, kho lỗi). Quyền khai: report.view, ops.view, audit.view, giamsat.view. Bảng khối tự giữ chỉ có `agent_cau_hinh` (công tắc agent theo loại nhận định); còn lại đọc bảng của khối khác, kho lỗi `loi_nhom` và projection dòng thời gian.",
+  "luong": [
+    "Bước 1 (ghi nhận lỗi, chạy nền): mọi lỗi bất ngờ (500 ở API, bên nghe sự kiện hỏng, lỗi trình duyệt gửi qua /api/loi) vào `kho_loi` — gom theo \"dấu vân\" vào một dòng loi_nhom, cộng dồn số lần, che dữ liệu khách; bộ canh gác (canh_bao, mỗi phút trong su-kien) mở/đóng cảnh báo.",
+    "Bước 2 (giám sát, mỗi phút): `agent_giam_sat` đọc hiện trạng (màn Trưởng ca + vài câu SQL) và ghi \"nhận định\": khách chờ quá ngưỡng phòng, check-in chưa có bước, khách lặng im 30 phút, lượt không rõ cơ sở, việc quá hạn…; nhận định không còn thấy thì tự đóng (HET). Từ 18h giờ VN `agent_tom_tat` gửi số đếm + nhận định (không tên khách) cho LLM, lưu bản tóm tắt ngày.",
+    "Bước 3 (người trực xem /ops): tab Hệ thống (dịch vụ, backup, ổ đĩa, deploy), Sức khoẻ API (15 phút qua p50/p95, 5xx), Lỗi & cảnh báo (đánh dấu Đã biết / Đã sửa / Bỏ qua — lỗi đã sửa tái diễn tự mở lại), Nhật ký vận hành (dòng thời gian mọi lượt trong ngày + 6 chỉ số phút từng khâu, trung vị), Lưu lượng (PIN riêng). Uptime Kuma hỏi cờ \"on\" của đường đưa tin.",
+    "Bước 4 (báo cáo): `/reports` — `ReportAccessService.authorize` quyết phạm vi người xem (quản lý / chỉ bán hàng / tài chính theo ca đã trực); báo cáo cuối ngày theo khoảng ngày, loại tiền, ca, cơ sở, xuất CSV/Excel; chốt ca chụp lại số, mở khoá ca do quản lý kèm lý do.",
+    "Bước 5 (tra cứu): `/audit-log` đọc nhật ký thao tác trong ngày (quyền audit.view); Trang chủ gom ô số, tải bác sĩ, khách trễ, lịch cần xử lý trong một lần gọi.",
+    "Bước 6 (quản trị dữ liệu, hiếm): Dọn khách thử — chọn ngày (mặc định hôm qua), tick khách, xem trước số dòng, gõ \"XOA\" (quyền permission.manage, hàm SQL don_khach_thu quyết bảng nào bị xoá); script Notion chạy một lần (`nhap_lich_su_notion` nạp vào schema lich_su_notion, `chuyen_luot_that` biến thành lượt thật) — mặc định thử khô, `--that` mới ghi."
+  ],
+  "luu_y": [
+    "Agent giám sát chỉ ghi nhận định, không đổi dữ liệu nghiệp vụ. Công tắc '*' = 'tat' tắt hết và thắng mọi dòng riêng; không có dòng cấu hình = shadow. Tắt một loại là đóng ngay nhận định đang mở của loại đó; bộ phát hiện nào hỏng thì loại đó không bị xét (không đóng nhầm).",
+    "Ví dụ ngưỡng: khách chờ ngưỡng phòng 20 phút → chờ 25' là cảnh báo, 45' (quá gấp đôi) là nghiêm trọng; việc quá hạn > 4 giờ là nghiêm trọng. Độ đúng agent = đúng ÷ (đúng + sai): 8 đúng 2 sai → 0,8. Đổi ngưỡng thì tăng PHIEN_BAN.",
+    "Tóm tắt LLM: khoá đọc từ tệp /run/secrets/agent_llm_api_key (tách khỏi ANTHROPIC_API_KEY), model mặc định đổi bằng AGENT_LLM_MODEL, có trần chi phí ngày; gửi tối đa 80 nhận định, ghi chú chấm tay KHÔNG gửi đi; lỗi thì 30 phút sau mới thử lại.",
+    "Kho lỗi: ghi lỗi có trần 0,5 giây và tự nuốt lỗi của chính nó (không làm người dùng chờ); dấu vân không chứa số dòng; che tên trong thông điệp Postgres, uuid → ':id'. Trình duyệt chống trùng: cùng lỗi 5 phút gửi 1 lần + 1 bản tóm tắt, trần 6 lần/phút.",
+    "Đường đưa tin \"on\" khi mọi bên nghe không có tin chết và tin cũ nhất chờ < 300 giây.",
+    "Báo cáo: không có quyền tài chính → chỉ phần bán hàng và chỉ xuất mẫu hàng hoá; ngày rác/rỗng → hôm nay, mã cơ sở rác → số 0 (không 422/500). Sau khi chốt ca, huỷ/hoàn tác của ca đó tính vào ca đang làm.",
+    "Giao diện tự quyết nhiều thứ ở báo cáo (nợ cần dời về máy chủ): cơ sở mặc định viết cứng tên \"Hào Nam\"; ép người tai_chinh=false về tab Hàng hoá; tỷ lệ no-show 30 ngày = không đến ÷ (khám xong + không đến) — vd 10 không đến, 90 khám xong → 10%; ô \"chậm\" ở Nhật ký vận hành = lớn hơn gấp đôi trung vị (trung vị 6′ thì 13′ tô cam).",
+    "Lưới \"Vai trò & Màn hình\" ở tab Toàn cảnh tính theo luật VAI ở frontend trong khi quyền thật theo lego tài khoản — có thể nói sai.",
+    "Trung tâm giám sát cần giamsat.view (quyền nội bộ đội ClinicAI; quản lý phòng khám có ops.view cũng không vào); không có quyền → 404. Ở host giamsat.* chỉ mở /giam-sat và vài API; ở host chính /giam-sat là 404 trừ khi bật GIAMSAT_CHO_HOST_CHINH.",
+    "`/console` và router tools/orchestrator: không đặt APP_ENV thì coi là production → 404 (quên cấu hình phải dẫn tới đóng).",
+    "Dọn khách thử: khách có lượt MỞ hôm nay không xoá được; tối đa 200 khách một lần xoá (API nhận 500 để xem); tệp kết quả không xoá hẳn mà chuyển sang thư mục lưu trữ.",
+    "Script Notion: ghép người vào hồ sơ thật khi khớp CẢ 9 số cuối SĐT lẫn họ tên bỏ dấu; trùng SĐT khác tên thì không gộp mà ghi sổ bất thường; ngày đã có lượt thật thì không tạo lượt thứ hai; hồ sơ cũ coi như đã cho phép gửi kết quả."
+  ],
+  "muon_sua": [
+    {"viec": "đổi ngưỡng khách 'lặng im' / việc quá hạn nặng", "cho": "LANG_IM_PHUT = 30, QUA_HAN_NANG_GIO = 4 (nhớ tăng PHIEN_BAN dòng 40)", "tep": "src/clinicai/services/agent_giam_sat.py", "dong": 44},
+    {"viec": "thêm một loại nhận định của agent", "cho": "từ điển LOAI + một bộ phát hiện", "tep": "src/clinicai/services/agent_giam_sat.py", "dong": 52},
+    {"viec": "đổi nội dung / khung bản tóm tắt ngày bằng AI", "cho": "lời dặn HE_THONG", "tep": "src/clinicai/services/agent_tom_tat.py", "dong": 76},
+    {"viec": "đổi trần thời gian ghi lỗi vào kho", "cho": "TRAN_GIAY = 0.5", "tep": "src/clinicai/services/kho_loi.py", "dong": 33},
+    {"viec": "đổi ngưỡng 'on' của đường đưa tin (Kuma hỏi)", "cho": "biểu thức on: chet == 0 và cho_lau_giay < 300", "tep": "src/clinicai/api/v1/routers/ops.py", "dong": 123},
+    {"viec": "thêm / đổi chỉ số phút từng khâu ở Nhật ký vận hành", "cho": "bộ CHI_SO", "tep": "src/clinicai/services/nhat_ky_van_hanh.py", "dong": 30},
+    {"viec": "đổi ngưỡng tô cam 'chậm' ở Nhật ký vận hành", "cho": "biến cham (> 2 × trung vị)", "tep": "src/dashboard/app/(dashboard)/ops/NhatKyVanHanh.tsx", "dong": 198},
+    {"viec": "thêm tab vận hành mới", "cho": "mảng TAB", "tep": "src/dashboard/app/(dashboard)/ops/page.tsx", "dong": 19},
+    {"viec": "đổi ai xem báo cáo tài chính nào (ca, cơ sở, bán hàng)", "cho": "ReportAccessService.authorize + gioi_han_ban_hang / gioi_han_tai_chinh_ca", "tep": "src/clinicai/services/report_access_service.py", "dong": 222},
+    {"viec": "đổi cơ sở mặc định khi mở báo cáo Cuối ngày (đang viết cứng 'Hào Nam')", "cho": "useState coSoChon", "tep": "src/dashboard/app/(dashboard)/reports/CuoiNgay.tsx", "dong": 164},
+    {"viec": "đổi ngưỡng 'khách trễ' ở Trang chủ (đang 15 phút)", "cho": "_PHUT_TRE", "tep": "src/clinicai/services/man_trang_chu_service.py", "dong": 55},
+    {"viec": "đổi khách nào bị chặn không cho dọn / số khách tối đa mỗi lần xoá", "cho": "_SQL_DANG_MO_HOM_NAY, TOI_DA_KHACH = 200", "tep": "src/clinicai/services/don_du_lieu_thu_service.py", "dong": 499},
+    {"viec": "đổi số dòng tối đa của Nhật ký vận hành", "cho": "GIOI_HAN_DONG = 2000", "tep": "src/clinicai/services/nhat_ky_van_hanh.py", "dong": 27}
+  ]
+}

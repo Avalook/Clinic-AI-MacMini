@@ -1,0 +1,39 @@
+{
+  "tom_tat": "Khối Lịch làm việc giữ lịch trực của nhân sự: ai đứng vị trí (trạm) nào, ngày nào, ca nào (Sáng/Chiều/Tối/Cả ngày), tuần đã công bố chưa, ai thay ai giữa ca, và thư ký y khoa đi theo bác sĩ nào. Trưởng ca / quản lý xếp ca, duyệt ca, gỡ ca, đổi người và bấm 'Áp dụng tuần' ở màn Lịch làm việc (/schedule); mọi người xem bảng lịch chính thức ở /schedule và Trang chủ; quản lý khai ma trận 'chức danh nào được đứng vị trí nào' ở Cài đặt. Dữ liệu chính: work_roster (từng ô ca), roster_week (tuần đã công bố), work_roster_thay_nguoi (vết đổi người), vi_tri_lam_viec (vị trí trực, gắn phòng → cơ sở), thu_ky_bac_si. Lịch trực là 'luật cao nhất' cho các khối khác: đặt lịch chặn bác sĩ không có ca (tuần đã công bố), quyền theo lịch, phạm vi xem báo cáo và phạm vi thư ký đều đọc nó. Lưu ý: phần GHI lịch trực nằm ở RosterService trong services/config_service.py — tệp này modules.py khai cho khối co_so, không phải lich_truc.",
+  "luong": [
+    "Bước 1 — Khai nền (quản lý): tạo vị trí trực và gắn phòng ở Cài đặt → Dây nối (DayNoiService.tao_vi_tri, vị trí mới tự mở cho mọi chức danh đang có người); tick ma trận chức danh × vị trí (bảng vai_duoc_vao_tram) ở thẻ 'Phạm vi vị trí'.",
+    "Bước 2 — Xếp ca (RosterService.add_shift): người có roster.manage / config.clinic.manage chọn người cho ô vị trí × ngày × ca, ca vào thẳng APPROVED; người không có quyền thì chỉ tự đăng ký cho chính mình, trạng thái PENDING chờ duyệt. Chặn vị trí đã ngừng, chặn chức danh không được phép ở vị trí (nếu phòng khám đã khai ma trận cho chức danh đó). Ca khám bác sĩ đã duyệt mà khung ca có lịch hẹn chưa xếp bác sĩ → chuông CSKH.",
+    "Bước 3 — Áp dụng (công bố) tuần (RosterService.apply_week): không cho công bố tuần trống; trigger Postgres chụp ảnh cả tuần vào lich_truc_anh. Từ lúc này đặt lịch bắt đầu chặn bác sĩ không có ca và trần số chỗ đặt trước có hiệu lực; công bố chuông CSKH / Trưởng ca nếu có lịch chờ xếp, lịch mất bác sĩ, khung vượt sức chứa (không huỷ lịch nào).",
+    "Bước 4 — Sửa trong tuần: gỡ ca (remove, có đo trước số lịch hẹn bị ảnh hưởng) hoặc đổi người giữa ca (thay_nguoi, chỉ hôm nay và ngày tới, ghi vết work_roster_thay_nguoi). Lịch hẹn còn sống nằm ngoài các ca đã duyệt còn lại của bác sĩ bị gỡ bác sĩ (_go_lich_ngoai_ca) và sang 'Lịch chờ xếp bác sĩ' — không bao giờ huỷ lịch. Mọi thêm/sửa/xoá ô tự ghi sổ lich_truc_thay_doi bằng trigger.",
+    "Bước 5 — Xem lại: bảng chính thức chỉ vẽ ca APPROVED; 'Lịch sử phiên bản' (LichTrucPhienBanService) dựng lại tuần tại từng giao dịch từ ảnh + sổ thay đổi, tô THÊM / XOÁ / ĐỔI NGƯỜI.",
+    "Bước 6 — Khối khác đọc lịch trực: lưới đặt lịch lấy bác sĩ trực trong ngày (ca khám bác sĩ APPROVED ở cơ sở đang đứng — mã vị trí trong MA_CA_KHAM_BAC_SI); quyền theo lịch; phạm vi báo cáo theo ca; thư ký thấy khách của bác sĩ được phân + bác sĩ cùng phòng hôm nay (thu_ky_bac_si.py)."
+  ],
+  "luu_y": [
+    "Gỡ ca không huỷ lịch hẹn: ví dụ BS A có ca sáng + chiều, gỡ ca chiều → lịch 14:00 của A về 'chờ xếp' (lưu bác sĩ cũ), lịch 09:00 ở yên. Không tự gán sang bác sĩ mới.",
+    "Công bố một tuần trống = từ chối mọi lượt đặt cả tuần, nên bị chặn. Tuần CHƯA công bố thì đặt lịch 'tự do' (không chặn ca, không chặn trần đặt trước).",
+    "Ma trận chức danh × vị trí mở khi rỗng (fail-open): chức danh chưa khai dòng nào thì xếp được mọi vị trí — cố ý để phòng khám mới không chết màn xếp lịch. Đổi người giữa ca KHÔNG kiểm ma trận này.",
+    "Danh sách 'vị trí là ca khám bác sĩ' chép tay ở BA nơi: MA_CA_KHAM_BAC_SI trong config_service.py, src/dashboard/lib/ca-kham-bac-si.ts và hàm DB la_ca_kham_bac_si — đang chỉ có mã kiểu Kim Ngưu (LICH_KHAM, T1_…, T4_…); thêm vị trí bác sĩ ở cơ sở mới mà quên một nơi là màn đặt lịch thiếu bác sĩ.",
+    "Ca lạ (không thuộc SANG/CHIEU/TOI/FULL) bị lưu thành FULL không báo — ở cả máy chủ và route /api/roster. Nếp ca theo thứ (T2–T6 chỉ ca Tối; T7, CN đủ ba ca) viết cứng ở lib/roster.ts.",
+    "Sau mọi thay đổi lịch trực / vị trí phải gọi cache.quen (quên quyền đang nhớ) — quyền theo lịch đổi ngay; quên là người bị gỡ còn quyền một lúc. dat_nguoi_bam phải gọi trong conn.transaction() (SET LOCAL), nếu không tên người bấm dính sang kết nối người khác.",
+    "Thư ký: chưa phân bác sĩ nào → thấy cả phòng khám; đã phân → chỉ khách 'của' các bác sĩ ấy (có lịch hẹn, phụ trách lượt, hoặc làm siêu âm) + bác sĩ cùng phòng theo lịch hôm nay. Phân là THAY cả danh sách. Nhận diện thư ký / bác sĩ siêu âm theo VAI, không theo lego.",
+    "apply_week không tự kiểm quyền trong service (khác add_shift / remove) — chặn ở router config.py. Chuông 'lịch chờ xếp' (_bao_lich_cho_xep) nuốt mọi lỗi, có thể âm thầm không tới. Đếm ca 'hôm nay hoặc tương lai' khi ngừng vị trí dùng current_date của Postgres (có thể UTC).",
+    "Ghi chéo: RosterService ghi cả appointment (gỡ bác sĩ — khối booking) và thong_bao; BookingService ghi work_roster (tự thêm ca khi gán bác sĩ tuần chưa công bố); DayNoiService ghi vi_tri_lam_viec. Ràng buộc DB: mỗi làn của một phòng chỉ một vị trí bác sĩ đang hoạt động (làn 1–20); người mới khi đổi người phải khác người cũ."
+  ],
+  "muon_sua": [
+    {"viec": "đổi ai được xếp lịch / duyệt / gỡ ca người khác", "cho": "RosterService._xep_lich — roster.manage hoặc config.clinic.manage", "tep": "src/clinicai/services/config_service.py", "dong": 144},
+    {"viec": "đổi ai được đổi người trong ca", "cho": "RosterService._doi_nguoi_duoc — roster.shift.swap / roster.manage / config.clinic.manage", "tep": "src/clinicai/services/config_service.py", "dong": 823},
+    {"viec": "đổi luật xếp ca (vị trí ngừng, ca chờ duyệt khi tự đăng ký, chuông lịch chờ xếp)", "cho": "RosterService.add_shift", "tep": "src/clinicai/services/config_service.py", "dong": 163},
+    {"viec": "đổi luật chức danh nào được đứng vị trí nào (kể cả hành vi khi ma trận rỗng)", "cho": "RosterService._kiem_pham_vi_tram — đọc bảng vai_duoc_vao_tram", "tep": "src/clinicai/services/config_service.py", "dong": 389},
+    {"viec": "đổi lịch hẹn nào bị gỡ bác sĩ khi gỡ ca / đổi người", "cho": "RosterService._go_lich_ngoai_ca", "tep": "src/clinicai/services/config_service.py", "dong": 669},
+    {"viec": "cho đổi người cả ca đã qua / ca bị từ chối", "cho": "RosterService.thay_nguoi — chặn work_date < hôm nay và REJECTED", "tep": "src/clinicai/services/config_service.py", "dong": 833},
+    {"viec": "đổi điều kiện công bố tuần và chuông sau công bố", "cho": "RosterService.apply_week (chặn tuần trống ~dòng 1048)", "tep": "src/clinicai/services/config_service.py", "dong": 1027},
+    {"viec": "thêm vị trí được coi là ca khám bác sĩ (vd vị trí bác sĩ Hào Nam)", "cho": "MA_CA_KHAM_BAC_SI — sửa cùng src/dashboard/lib/ca-kham-bac-si.ts và hàm DB la_ca_kham_bac_si", "tep": "src/clinicai/services/config_service.py", "dong": 66},
+    {"viec": "thêm ca mới (vd ca đêm)", "cho": "SHIFTS + SHIFT_LABEL — route /api/roster tự nhận; máy chủ cũng phải nhận mã ca", "tep": "src/dashboard/lib/roster.ts", "dong": 450},
+    {"viec": "đổi nếp ca hiện theo thứ (vd mở ca sáng giữa tuần)", "cho": "CA_THEO_THU", "tep": "src/dashboard/lib/roster.ts", "dong": 359},
+    {"viec": "đổi ca nào hiện trên bảng lịch sử phiên bản", "cho": "hàm _hien (chỉ ca APPROVED)", "tep": "src/clinicai/services/lich_truc_phien_ban_service.py", "dong": 199},
+    {"viec": "đổi định nghĩa khách 'của' bác sĩ mà thư ký được xem", "cho": "_KHACH_CUA_BAC_SI_SQL", "tep": "src/clinicai/services/thu_ky_bac_si.py", "dong": 80},
+    {"viec": "bỏ / đổi luật thư ký thấy cả khách bác sĩ cùng phòng hôm nay", "cho": "bac_si_cua_thu_ky — cộng bac_si_cung_phong_hom_nay", "tep": "src/clinicai/services/thu_ky_bac_si.py", "dong": 58},
+    {"viec": "đổi câu báo chặn thư ký", "cho": "CHUA_PHAN dòng 27, KHAC_BAC_SI dòng 28", "tep": "src/clinicai/services/thu_ky_bac_si.py", "dong": 27},
+    {"viec": "đổi luật phân thư ký cho bác sĩ (ai được phân, thay cả danh sách)", "cho": "dat_bac_si_cho_thu_ky", "tep": "src/clinicai/services/thu_ky_bac_si.py", "dong": 178}
+  ]
+}

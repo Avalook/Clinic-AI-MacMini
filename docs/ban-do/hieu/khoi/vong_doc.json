@@ -1,0 +1,36 @@
+{
+  "tom_tat": "Khối Vòng đọc lo việc: khi một dịch vụ/kết quả/tệp kết quả của khách vừa xong ở BẤT KỲ lối nào (phòng bấm Xong, phiếu kết quả hoàn tất, đối tác nhận mẫu, tải tệp), thì mở chỗ chờ \"Kết quả cần đọc\" cho bác sĩ chính, và khép phần khám của lượt khi hết việc. Khối không có màn và không có lệnh riêng: nó là một bên nghe sự kiện (consumer `vong_doc_luot_kham`, tệp `events/consumers/vong_doc.py`) chạy trong worker su-kien. Người thấy kết quả của nó là bác sĩ chính (hàng chờ REVIEW ở bàn khám) và quầy thu (đợi mốc \"khám xong hẳn\"). Dữ liệu chính là hai bảng `review_round` (vòng đọc số ≥ 2 của lượt: collecting → ready → in_review → closed) và `round_requirement` (mỗi dịch vụ phải \"đã làm\" PERFORMED hay \"có kết quả hợp lệ\" VALID_RESULT) — nhưng code ghi hai bảng này vẫn nằm trong `LuotKhamService` của khối Khám.",
+  "luong": [
+    "Bước 1: Bác sĩ bấm \"Đã khám xong\" mà còn chỉ định chưa làm → khối Khám (`luot_kham_service.py`) tạo một vòng đọc mới trạng thái collecting và mỗi chỉ định một yêu cầu; mức cần mặc định: dịch vụ làm bên ngoài hoặc nhóm kết quả → VALID_RESULT, còn lại (thủ thuật, siêu âm…) → PERFORMED.",
+    "Bước 2: Dịch vụ/kết quả diễn ra ở các khối khác, mỗi lối chỉ phát sự kiện: service.completed / service.not_performed, result.ready / result.corrected, result_file.uploaded / confirmed / revoked / deleted / restored, partner.sample_collected / sample_received, service_selection.confirmed.",
+    "Bước 3: Worker gọi `xu_ly_vong_doc`: bỏ nếu là phát lại; bỏ nếu là tệp đối tác còn chờ xác nhận; tìm lượt (từ visit_id hoặc từ chỉ định); khoá dòng visit (FOR UPDATE).",
+    "Bước 4: Bỏ qua nếu lượt không còn OPEN/IN_PROGRESS hoặc đã check-out (closed_at có giá trị) — kết quả muộn thuộc việc theo dõi, không kéo khách đã về vào \"Kết quả cần đọc\".",
+    "Bước 5: Lấy người đứng tên: người gây ra sự kiện, không có thì bác sĩ chính của lượt; không có cả hai thì bỏ.",
+    "Bước 6: Chạy lại vòng đọc (`_evaluate_rounds`): cập nhật từng yêu cầu open↔satisfied; vòng rỗng hoặc mọi yêu cầu đã miễn/chuyển theo dõi/làm tại bàn khám → đóng vòng (review.skipped); đủ điều kiện → vòng ready, tạo phiên REVIEW + chỗ chờ DOCTOR cho bác sĩ chính (review.ready); đang ready mà lùi → về collecting, huỷ chỗ chờ (review.not_ready).",
+    "Bước 7: Khép lượt nếu xong (`_ket_thuc_neu_xong`): đặt encounter_flow.finished_at, lịch hẹn CHECKED_IN → COMPLETED, visit.exam_completed_at, và phát `visit.exam_completed` đúng một lần.",
+    "Bước 8: Cập nhật \"khách đang ở đâu\" (`hang_cho.cap_nhat_vi_tri`)."
+  ],
+  "luu_y": [
+    "Luật khép lượt (ví dụ): lượt có 1 phiên khám completed, không phiên nào queued/in_progress, mọi vòng đọc closed, và không còn chỉ định đã duyệt chưa làm → khép. Chỉ định của ĐỐI TÁC (node lam_ben_ngoai) không giữ lượt; việc theo dõi (follow_up_case) cũng không giữ lượt.",
+    "Tập rỗng không bao giờ \"sẵn sàng\": vòng không còn yêu cầu nào (vd huỷ chỉ định cuối cùng sau Khám xong) thì ĐÓNG chứ không gọi bác sĩ về đọc.",
+    "Yêu cầu trỏ tới dịch vụ KHÔNG THỰC HIỆN được hoặc khách KHÔNG CHỌN = needs_decision: không giữ vòng lại (khách quay về bác sĩ) nhưng cũng không tính là đạt — bác sĩ phải miễn (bắt buộc có người miễn + lý do, ép ở database) hoặc chuyển theo dõi (bắt buộc có người, lý do, người phụ trách, hạn).",
+    "Việc đối tác: \"đã nhận mẫu\" (doi_tac_cho_tai_lieu_luc) là thoả yêu cầu — kết quả đối tác về sau không giữ vòng, chỉ báo chuông.",
+    "Bẫy: consumer gọi thẳng hàm riêng tư `_evaluate_rounds` và `_ket_thuc_neu_xong` của LuotKhamService (khối Khám) — đổi tên/chữ ký ở đó làm vỡ khối này. `visit.exam_completed` khai là khối này phát nhưng thật ra phát trong `_ket_thuc_neu_xong` ở `luot_kham_service.py`.",
+    "Bẫy: bỏ khoá FOR UPDATE dòng visit thì hai sự kiện đến cùng lúc có thể khép lượt hai lần.",
+    "Thêm lối sinh kết quả mới = phát sự kiện + khai VONG_DOC trong `events/catalogue.py`; không sửa khối này. Chạy lại an toàn: ba việc đều tự bỏ qua nếu đã làm.",
+    "Phụ thuộc: khối Khám (luật vòng đọc trong `luot_kham_rules.py`, ghi bảng vòng đọc), Điều phối (`hang_cho.cap_nhat_vi_tri`), quầy thu/đóng lượt đợi mốc exam_completed_at."
+  ],
+  "muon_sua": [
+    {"viec": "đổi khi nào kết quả muộn (sau check-out / lượt đã đóng) vẫn mở vòng đọc", "cho": "điều kiện trạng thái lượt và closed_at", "tep": "src/clinicai/events/consumers/vong_doc.py", "dong": 76},
+    {"viec": "cho tệp đối tác chưa xác nhận cũng tính là kết quả", "cho": "lọc result_file.uploaded có cờ cho_xac_nhan", "tep": "src/clinicai/events/consumers/vong_doc.py", "dong": 57},
+    {"viec": "đổi người đứng tên khi sự kiện do hệ thống phát", "cho": "lấy actor hoặc bác sĩ chính của lượt", "tep": "src/clinicai/events/consumers/vong_doc.py", "dong": 82},
+    {"viec": "thêm/bớt sự kiện làm chạy lại vòng đọc", "cho": "danh sách consumers=[... VONG_DOC ...] từng sự kiện trong danh mục (vd result_file.uploaded)", "tep": "src/clinicai/events/catalogue.py", "dong": 1838},
+    {"viec": "đổi khi nào một yêu cầu tính là đạt (đã làm / có kết quả)", "cho": "hàm requirement_met + requirement_state", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 86},
+    {"viec": "đổi khi nào vòng đủ để gọi bác sĩ đọc", "cho": "hàm round_ready", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 112},
+    {"viec": "đổi khi nào vòng đóng luôn không cần đọc (miễn, theo dõi, làm tại bàn khám)", "cho": "hàm vong_khong_can_doc", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 129},
+    {"viec": "đổi mức cần mặc định của dịch vụ (PERFORMED hay VALID_RESULT)", "cho": "hàm need_mac_dinh", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 150},
+    {"viec": "đổi điều kiện khép lượt (khám xong hẳn)", "cho": "câu SQL `xong` trong _ket_thuc_neu_xong", "tep": "src/clinicai/services/luot_kham_service.py", "dong": 1132},
+    {"viec": "đổi chỉ định nào còn giữ lượt (vd việc đối tác)", "cho": "hằng CHI_DINH_CON_VIEC_GIU_LUOT_SQL", "tep": "src/clinicai/services/luot_kham_chung.py", "dong": 109},
+    {"viec": "đổi mở phiên REVIEW / chỗ chờ cho bác sĩ nào khi vòng sẵn sàng", "cho": "khối ready trong _evaluate_rounds (bác sĩ phiên 1, không có thì attending_doctor_id)", "tep": "src/clinicai/services/luot_kham_service.py", "dong": 1012}
+  ]
+}

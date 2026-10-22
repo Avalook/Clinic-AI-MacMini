@@ -1,0 +1,2062 @@
+{
+ "lat": 1,
+ "muc": {
+  "ham:_don_thu_khoa": {
+   "lam_gi": "Hàm phụ của bộ dọn dữ liệu thử: đọc khoá chính của một bảng từ pg_index và trả chuỗi biểu thức 'ROW(x.cot1, x.cot2)::text' để dùng làm khoá duy nhất cho mọi dòng.",
+   "khoi": "van_hanh",
+   "loai": "ha_tang",
+   "chay_khi": "gọi bởi _don_thu_lap (bộ dọn khách thử don_khach_thu)",
+   "goi_boi": [
+    "ham:_don_thu_lap"
+   ],
+   "doc_bang": [
+    "pg_index",
+    "pg_attribute"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Bảng không có khoá chính → trả NULL; _don_thu_lap bắt NULL và ném lỗi. Thêm bảng mới không có PK là làm hỏng bộ dọn."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi cách lấy khoá",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261001240000_don_du_lieu_thu.sql:122"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:_don_thu_lan": {
+   "lam_gi": "Hàm phụ của don_khach_thu: lan rộng tập 'dòng sẽ xoá' theo vòng — mỗi vòng quét mọi bảng trong danh sách, gom dòng có cột uuid nối (patient_id, visit_id, payment_cycle_id…) trỏ vào id đã nằm trong tập xoá, tới khi không thêm được dòng nào.",
+   "khoi": "van_hanh",
+   "loai": "ha_tang",
+   "chay_khi": "gọi bởi don_khach_thu",
+   "goi_boi": [
+    "ham:don_khach_thu"
+   ],
+   "doc_bang": [
+    "information_schema.columns",
+    "mọi bảng trong tham số bang_khach",
+    "_dt_d (bảng tạm)"
+   ],
+   "ghi_bang": [
+    "_dt_kh (bảng tạm)",
+    "_dt_d (bảng tạm)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Chỉ đi theo các cột uuid có tên nằm trong danh sách cứng cot_noi (khoảng 40 tên). Riêng inventory_txn còn đi theo ref_type ∈ (prescription, payment_cycle, drug_return) + ref_id."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Danh sách tên cột nối viết cứng: bảng mới nối khách bằng cột tên khác (vd 'luot_id') sẽ KHÔNG bị gom → còn sót dòng mồ côi hoặc xoá cha bị FK chặn. Thêm cột nối mới phải thêm tên vào cot_noi."
+    },
+    {
+     "noi_dung": "Quá 50 vòng thì ném lỗi 'có vòng lặp lạ' — chuỗi nối sâu bất thường sẽ làm hỏng cả lượt dọn."
+    },
+    {
+     "noi_dung": "Cần bảng tạm _dt_d/_dt_kh do don_khach_thu tạo sẵn; gọi riêng sẽ lỗi."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "thêm cột nối mới vào bộ dọn",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql:24"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:_don_thu_lap": {
+   "lam_gi": "Hàm phụ của bộ dọn: chạy câu SQL động 'chọn mọi dòng của bảng t thoả điều kiện dk' và ghi khoá của chúng vào kế hoạch xoá _dt_kh; nếu bảng có khoá chính một cột uuid thì thêm id vào tập _dt_d để vòng sau lan tiếp.",
+   "khoi": "van_hanh",
+   "loai": "ha_tang",
+   "chay_khi": "gọi bởi _don_thu_lan, _don_thu_lap_so, don_khach_thu",
+   "goi_boi": [
+    "ham:_don_thu_lan",
+    "ham:_don_thu_lap_so",
+    "ham:don_khach_thu"
+   ],
+   "doc_bang": [
+    "bảng t bất kỳ",
+    "pg_index",
+    "pg_attribute"
+   ],
+   "ghi_bang": [
+    "_dt_kh (bảng tạm)",
+    "_dt_d (bảng tạm)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Bảng không có khoá chính → ném lỗi, không lập kế hoạch xoá được."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Điều kiện dk được ghép thẳng vào SQL động (format %s, không trích dẫn) — chỉ an toàn vì mọi nơi gọi đều tự sinh dk; đừng truyền chữ người dùng vào."
+    },
+    {
+     "noi_dung": "Bảng khoá chính nhiều cột hoặc không phải uuid: dòng vẫn vào kế hoạch xoá nhưng KHÔNG lan tiếp sang bảng con."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi cách lập kế hoạch xoá",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261001240000_don_du_lieu_thu.sql:134"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:_don_thu_lap_so": {
+   "lam_gi": "Hàm phụ của bộ dọn: gom các dòng 'sổ sách' (domain_event, event_log, hen_gio, command_receipt, pos_outbox, staff_task, thong_bao) trỏ vào thứ sẽ xoá; nếu có mốc thời gian thì gom thêm mọi dòng sổ cũ hơn mốc không trỏ vào thứ còn sống.",
+   "khoi": "van_hanh",
+   "loai": "ha_tang",
+   "chay_khi": "gọi bởi don_khach_thu",
+   "goi_boi": [
+    "ham:don_khach_thu"
+   ],
+   "doc_bang": [
+    "domain_event",
+    "event_log",
+    "hen_gio",
+    "command_receipt",
+    "pos_outbox",
+    "staff_task",
+    "thong_bao",
+    "slot_hold",
+    "idempotency_key",
+    "loi_nhom",
+    "canh_bao",
+    "_dt_d",
+    "_dt_song",
+    "_dt_tb_uuid"
+   ],
+   "ghi_bang": [
+    "_dt_kh",
+    "_dt_d"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Có mốc p_moc: còn gom slot_hold giữ trước mốc không gắn lịch còn sống, toàn bộ idempotency_key/loi_nhom/canh_bao cũ hơn mốc (kể cả không liên quan khách thử)."
+    },
+    {
+     "noi_dung": "Sự kiện chỉ bị gom theo mốc khi aggregate_type thuộc 19 loại 'của khách' (patient, visit, payment_cycle…) và aggregate_id không thuộc tập còn sống _dt_song."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Dùng mốc là xoá luôn kho lỗi loi_nhom và cảnh báo canh_bao cũ — không chỉ dữ liệu khách thử."
+    },
+    {
+     "noi_dung": "Danh sách loại aggregate viết cứng; loại sự kiện mới của khách không có trong danh sách sẽ không bị dọn theo mốc."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi bảng sổ sách được dọn",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261001240000_don_du_lieu_thu.sql:213"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:_lieu_trinh_ban": {
+   "lam_gi": "Chụp một dòng lieu_trinh thành jsonb gồm các trường nghiệp vụ (số buổi, đơn giá, lộ trình, trạng thái, ai đăng ký/dừng) để ghi lịch sử sửa liệu trình.",
+   "khoi": "lieu_trinh",
+   "loai": "ha_tang",
+   "chay_khi": "hàm SQL khác gọi khi ghi lieu_trinh_lich_su (không thấy Python gọi thẳng)",
+   "goi_boi": [],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Thêm cột nghiệp vụ mới vào lieu_trinh mà không thêm vào đây thì lịch sử sửa sẽ không ghi cột đó."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "thêm trường vào bản chụp",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261008100000_lieu_trinh.sql:358"
+    }
+   ],
+   "chua_chac": [
+    "Chưa tra trigger/hàm nào gọi nó (nằm ngoài lát này)."
+   ]
+  },
+  "ham:activate_clinical_form": {
+   "lam_gi": "Bật một biểu mẫu lâm sàng (clinical_form_catalogue.is_active = true) cho phòng khám, chỉ khi đã có bản ghi duyệt đúng mã form + phiên bản trong clinical_form_approval.",
+   "khoi": "catalogue",
+   "loai": "canh_bat_bien",
+   "chay_khi": "gọi tay bằng SQL (không thấy Python gọi)",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinical_form_approval"
+   ],
+   "ghi_bang": [
+    "clinical_form_catalogue"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Không có dòng duyệt (clinic, form_code, schema_version) → ném check_violation, không bật."
+    },
+    {
+     "noi_dung": "Form không có trong danh mục → ném lỗi."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Duyệt theo phiên bản p_schema_version nhưng UPDATE bật mọi dòng của form_code, không lọc phiên bản."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi điều kiện bật form",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20260804000019_andrology_catalogue.sql:79"
+    }
+   ],
+   "chua_chac": [
+    "Có thể là hàm chết — chưa thấy chỗ gọi trong src/clinicai."
+   ]
+  },
+  "ham:ap_ben_thu_theo_kiotviet": {
+   "lam_gi": "Hàm nạp dữ liệu một lần: đặt bên thu tiền (billing_owner) cho 4 mã KiotViet cố định — SP000092, SP000075 là đối tác ngoài; SP000025, SP000076 là phòng khám — và đánh dấu 'chọn tay'.",
+   "khoi": "catalogue",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration nạp dữ liệu; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "service_price"
+   ],
+   "ghi_bang": [
+    "service_price"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Chỉ đụng dòng group='dich_vu' và chỉ đổi khi bên thu khác hoặc chưa đánh dấu chọn tay; trả số dòng đã đổi."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Mã viết cứng trong thân hàm; gọi lại sau khi Tuyền đổi bên thu trên màn sẽ ĐÈ lựa chọn của Tuyền cho 4 mã này."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi bên thu một dịch vụ",
+     "cho": "việc dữ liệu — sửa trên màn danh mục, không gọi lại hàm này (bản ở supabase/migrations/20260929000020_ben_thu_theo_dich_vu.sql:35)"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:assign_appointment_queue_number": {
+   "lam_gi": "Trigger cấp số thứ tự khám (queue_number) khi lịch hẹn chuyển sang CHECKED_IN mà chưa có số: số = lớn nhất trong ngày của cùng phòng khám + cùng bác sĩ + 1.",
+   "khoi": "booking",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OF status, queue_number, slot_start trên appointment (appointment_assign_queue_number)",
+   "goi_boi": [
+    "trigger appointment.appointment_assign_queue_number"
+   ],
+   "doc_bang": [
+    "appointment"
+   ],
+   "ghi_bang": [
+    "appointment (NEW.queue_number)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Dãy số tách theo (phòng khám, ngày giờ VN, bác sĩ); lịch chưa xếp bác sĩ có dãy riêng '~none~'. Vd BS A đã có 1,2,3 → khách check-in tiếp của BS A nhận 4, lịch chưa có BS nhận 1."
+    },
+    {
+     "noi_dung": "Đã có số (khác rỗng) thì giữ nguyên, không cấp lại."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Dùng khoá advisory theo đúng (clinic, ngày, bác sĩ) để hai lễ tân check-in cùng lúc không trùng số — đổi phạm vi đánh số phải đổi cả khoá."
+    },
+    {
+     "noi_dung": "SECURITY DEFINER: đọc toàn bộ appointment bỏ qua RLS."
+    },
+    {
+     "noi_dung": "Đổi bác sĩ sau check-in KHÔNG cấp lại số (trigger không nghe cột doctor_id và số đã có)."
+    },
+    {
+     "noi_dung": "Chỉ đếm queue_number toàn chữ số; số kiểu 'A1' bị bỏ qua khi tìm max."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi cách đánh số khám",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql:308"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:bat_bien_lieu_trinh": {
+   "lam_gi": "Hàm soát (chỉ đọc) tiền liệu trình của một phòng khám: trả danh sách liệu trình vi phạm bất biến — buổi dùng tiền trả trước nhiều hơn số đã trả, số đã trả âm, buổi trả trước vẫn bị thu lẻ, hoặc tổng vượt số buổi kế hoạch.",
+   "khoi": "lieu_trinh",
+   "loai": "bao_cao",
+   "chay_khi": "Python gọi ở services/canh_gac.py (bộ canh gác mỗi phút)",
+   "goi_boi": [
+    "src/clinicai/services/canh_gac.py"
+   ],
+   "doc_bang": [
+    "lieu_trinh",
+    "lieu_trinh_buoi",
+    "lieu_trinh_tra_truoc"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "PHU_VUOT: số buổi chưa gỡ đánh dấu tra_truoc > số buổi đã trả (lieu_trinh_so_buoi_da_tra). Vd trả trước 5 buổi mà đã có 6 buổi dùng tiền trả trước → báo."
+    },
+    {
+     "noi_dung": "AM: số buổi đã trả < 0 (hoàn nhiều hơn trả)."
+    },
+    {
+     "noi_dung": "THU_TRUNG: buổi đánh dấu trả trước mà vẫn có dòng thu lẻ (thu 2 lần)."
+    },
+    {
+     "noi_dung": "VUOT_KE_HOACH: đã trả + buổi thu lẻ > so_buoi. Vd kế hoạch 10 buổi, trả trước 8, thu lẻ 3 → 11 > 10 → báo."
+    },
+    {
+     "noi_dung": "Chỉ soát liệu trình có dòng trả trước hoặc có buổi tra_truoc."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Phụ thuộc lieu_trinh_so_buoi_da_tra và lieu_trinh_buoi_da_thu_le — đổi định nghĩa 'đã trả' ở đó là đổi kết quả canh gác."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "thêm loại vi phạm",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261008110000_lieu_trinh_tien.sql:386"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:bat_bien_tien_chi_dinh": {
+   "lam_gi": "Hàm soát (chỉ đọc) tiền dịch vụ phòng khám thu theo từng lượt đã thanh toán từ mốc p_tu: so thu−hoàn của từng chỉ định với trạng thái chỉ định để tìm lệch tổng, hoàn âm, thu trùng, và chỉ định còn hiệu lực mà đã hoàn hết.",
+   "khoi": "payment",
+   "loai": "bao_cao",
+   "chay_khi": "Python gọi ở services/canh_gac.py",
+   "goi_boi": [
+    "src/clinicai/services/canh_gac.py"
+   ],
+   "doc_bang": [
+    "payment_cycle",
+    "payment_bill_line",
+    "luot_phu_thu",
+    "payment_refund",
+    "payment_refund_line",
+    "service_order"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Chỉ xét kỳ thu PAID kind='dich_vu', dòng billing_owner='CLINIC', nguồn service_order hoặc phu_thu (phụ thu quy về chỉ định gốc qua luot_phu_thu.service_order_id). Hoàn tính khi refund PENDING hoặc COMPLETED."
+    },
+    {
+     "noi_dung": "LECH_TONG: tổng thu−hoàn của lượt ≠ (phần thuộc chỉ định còn hiệu lực) + (phần thuộc chỉ định đã huỷ/không làm = tiền thừa). Vd thu 500k, hoàn 0, chỉ định còn 300k + chỉ định huỷ 100k → 500 ≠ 400 → báo."
+    },
+    {
+     "noi_dung": "AM: hoàn > thu trên một chỉ định. THU_TRUNG: chỉ định còn hiệu lực giữ >1 dòng thu service_order chưa hoàn hết."
+    },
+    {
+     "noi_dung": "KET_DA_HOAN: chỉ định còn hiệu lực, đã thu >0 mà đã hoàn ≥ thu — kẹt, phải thành khoản chưa thu hoặc huỷ."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Dòng thu có order_id không khớp service_order nào (co_chi_dinh=false) bị loại khỏi b và c nên luôn sinh LECH_TONG."
+    },
+    {
+     "noi_dung": "so_dong_con chỉ đếm dòng source_type='service_order', không đếm dòng phụ thu."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi định nghĩa 'tiền thừa' hay trạng thái hoàn được tính",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261006200003_tien_thua_xu_ly_va_chan_thu_dong_huy.sql:141"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:bump_clinical_record_revision": {
+   "lam_gi": "Trigger tăng số phiên bản (revision) của bệnh án mỗi lần cập nhật, dùng cho khoá lạc quan khi nhiều người cùng sửa.",
+   "khoi": "consultation",
+   "loai": "ha_tang",
+   "chay_khi": "trigger BEFORE UPDATE trên clinical_record (trg_clinical_record_revision)",
+   "goi_boi": [
+    "trigger clinical_record.trg_clinical_record_revision"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:cancel_visit_workflow": {
+   "lam_gi": "Huỷ mọi việc (work_item) còn PENDING/IN_PROGRESS của một lượt khám và ghi sự kiện 'cancel' cho từng việc vào work_item_event; trả số việc đã huỷ.",
+   "khoi": "trach_nhiem",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/booking_service.py (khi huỷ lượt/lịch)",
+   "goi_boi": [
+    "src/clinicai/services/booking_service.py"
+   ],
+   "doc_bang": [
+    "work_item"
+   ],
+   "ghi_bang": [
+    "work_item",
+    "work_item_event"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Việc đã xong/đã huỷ giữ nguyên; việc đang chờ/đang làm chuyển CANCELLED, finished_at=now, version+1."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Không thể hoàn tác: hàm không ghi trạng thái cũ (from_status=NULL) nên khôi phục lượt không biết việc nào từng đang làm."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi cách huỷ việc khi huỷ lượt",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20260731000003_visit_workflow_instantiation.sql:190"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:cap_quyen_cho_moi_thanh_vien": {
+   "lam_gi": "Hàm khởi động quyền: duyệt mọi thành viên đang hoạt động của mọi phòng khám và cấp quyền theo preset của vai mỗi người (gọi cap_quyen_theo_preset); trả tổng số quyền mới cấp.",
+   "khoi": "permission",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration khởi động quyền; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinic_membership",
+    "staff"
+   ],
+   "ghi_bang": [
+    "capability_grant (qua cap_quyen_theo_preset)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Chỉ thành viên is_active và nhân sự is_active; không thu quyền đã có."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Gọi lại sẽ cấp lại quyền mà quản trị đã cố tình gỡ (cap_quyen_theo_preset chỉ bỏ qua quyền đang tồn tại)."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:cap_quyen_theo_preset": {
+   "lam_gi": "Cấp cho một nhân sự mọi quyền (capability) thuộc các khối mà preset của vai p_vai liệt kê; preset không có/không active thì dùng danh sách khối dự phòng; trả danh sách quyền mới cấp.",
+   "khoi": "permission",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/permission_service.py",
+   "goi_boi": [
+    "src/clinicai/services/permission_service.py",
+    "ham:cap_quyen_cho_moi_thanh_vien"
+   ],
+   "doc_bang": [
+    "capability",
+    "quyen_preset",
+    "capability_grant"
+   ],
+   "ghi_bang": [
+    "capability_grant"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Chỉ thêm, không gỡ: quyền đã có thì bỏ qua (NOT EXISTS + ON CONFLICT DO NOTHING). Ghi tu_khoi, tu_preset, ly_do."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Quyền giamsat.view bị trigger chan_cap_quyen_noi_bo âm thầm bỏ (RETURN NULL) nên không nằm trong kết quả trả về dù preset có khối đó."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi khối của một vai",
+     "cho": "việc dữ liệu — sửa quyen_preset trên màn phân quyền; logic ở supabase/migrations/20260923000016_quyen_khoi_dong.sql:24"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:cap_so_booking": {
+   "lam_gi": "Trigger cấp số đặt lịch (so_booking) theo ngày: lịch mới hoặc lịch dời sang ngày khác nhận số = lớn nhất trong ngày của phòng khám + 1.",
+   "khoi": "booking",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OF slot_start trên appointment (trg_cap_so_booking)",
+   "goi_boi": [
+    "trigger appointment.trg_cap_so_booking"
+   ],
+   "doc_bang": [
+    "appointment"
+   ],
+   "ghi_bang": [
+    "appointment (NEW.so_booking)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Dãy tính theo (phòng khám, ngày giờ VN), không tách cơ sở hay bác sĩ."
+    },
+    {
+     "noi_dung": "INSERT đã có số → giữ. Đổi giờ trong cùng ngày → giữ số. Dời sang ngày khác → cấp số mới của ngày mới. Vd ngày 22 đã có 1..7, dời lịch sang 22 → số 8."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Khoá advisory theo (clinic, ngày) để không trùng số khi tạo đồng thời."
+    },
+    {
+     "noi_dung": "Dời ngày làm mất số cũ; số trong ngày không liên tục khi lịch bị huỷ/dời (không dồn số)."
+    },
+    {
+     "noi_dung": "SECURITY DEFINER, bỏ qua RLS."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "tách số theo cơ sở",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20260923000020_so_booking.sql:25"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:cap_so_tiep_don": {
+   "lam_gi": "Trigger cấp số tiếp đón (so_tiep_don) lần đầu lịch hẹn chuyển sang CHECKED_IN: số = lớn nhất trong ngày của cùng phòng khám + cùng cơ sở + 1.",
+   "khoi": "booking",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OF status trên appointment (trg_cap_so_tiep_don)",
+   "goi_boi": [
+    "trigger appointment.trg_cap_so_tiep_don"
+   ],
+   "doc_bang": [
+    "appointment"
+   ],
+   "ghi_bang": [
+    "appointment (NEW.so_tiep_don)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Dãy tách theo (phòng khám, cơ sở location_id, ngày VN); khác số khám queue_number (theo bác sĩ). Vd Hào Nam ngày 21 có 1..12 → khách check-in tiếp nhận 13."
+    },
+    {
+     "noi_dung": "Đã có số thì giữ; khách bỏ check-in rồi check-in lại vẫn giữ số cũ."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Lấy ngày theo slot_start (giờ hẹn), không theo giờ check-in thật — khách hẹn hôm qua check-in hôm nay vẫn đánh số vào dãy hôm qua."
+    },
+    {
+     "noi_dung": "Khoá advisory theo (clinic, cơ sở, ngày)."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi cách đánh số tiếp đón",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20260917000009_so_tiep_don_chung.sql:21"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:chan_cap_quyen_noi_bo": {
+   "lam_gi": "Trigger chặn cấp quyền nội bộ giamsat.view: chỉ cho ghi khi phiên đặt cờ clinicai.cap_noi_bo='on', ngược lại bỏ dòng và in cảnh báo.",
+   "khoi": "permission",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OF capability trên capability_grant (trg_chan_cap_quyen_noi_bo)",
+   "goi_boi": [
+    "trigger capability_grant.trg_chan_cap_quyen_noi_bo"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Quyền giamsat.view chỉ cấp được khi SET clinicai.cap_noi_bo = 'on' trong phiên."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Không ném lỗi mà RETURN NULL (bỏ âm thầm): INSERT báo thành công 0 dòng, UPDATE đổi sang giamsat.view không có tác dụng — code gọi không biết bị chặn."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "thêm quyền nội bộ khác",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261009880000_quyen_noi_bo_giam_sat.sql:44"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:chan_phong_khac_co_so": {
+   "lam_gi": "Trigger chặn đặt lượt khám hoặc việc vào phòng thuộc cơ sở khác cơ sở của lượt.",
+   "khoi": "co_so",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE INSERT/UPDATE OF current_room_id, location_id trên visit (trg_visit_phong_cung_co_so) và OF room_id trên work_item (trg_work_item_phong_cung_co_so)",
+   "goi_boi": [
+    "trigger visit.trg_visit_phong_cung_co_so",
+    "trigger work_item.trg_work_item_phong_cung_co_so"
+   ],
+   "doc_bang": [
+    "appointment",
+    "clinic_room",
+    "visit (qua co_so_cua_luot)"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Cơ sở của lượt = visit.location_id, rỗng thì lấy appointment.location_id; với work_item dùng co_so_cua_luot(visit_id)."
+    },
+    {
+     "noi_dung": "Phòng có location_id khác cơ sở lượt → ném P0001 'Phòng này thuộc cơ sở khác…'."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Cho qua khi phòng rỗng, cơ sở lượt rỗng, hoặc phòng không gắn cơ sở — dữ liệu thiếu cơ sở không bị chặn."
+    },
+    {
+     "noi_dung": "Đổi location_id của visit sẽ chạy lại kiểm tra với phòng hiện tại — đổi cơ sở lượt khi khách đang ở phòng cơ sở cũ sẽ bị chặn."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi luật cơ sở/phòng",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261008700000_co_so_hien_hanh.sql:30"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:check_in_appointment": {
+   "lam_gi": "Check-in một lịch hẹn: khoá dòng, chỉ làm khi trạng thái hiện tại nằm trong danh sách cho phép; cấp số khám theo (phòng khám, ngày, bác sĩ) nếu chưa có rồi chuyển CHECKED_IN; trả id + số khám (rỗng nếu không đủ điều kiện).",
+   "khoi": "booking",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/booking_service.py",
+   "goi_boi": [
+    "src/clinicai/services/booking_service.py"
+   ],
+   "doc_bang": [
+    "appointment"
+   ],
+   "ghi_bang": [
+    "appointment"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Trạng thái không thuộc p_from_statuses hoặc không có lịch → trả 0 dòng, không ném lỗi (người gọi phải tự kiểm)."
+    },
+    {
+     "noi_dung": "Số khám = max số toàn chữ số của cùng phòng khám/ngày VN/bác sĩ + 1; lịch chưa có bác sĩ dùng dãy '~none~'."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Logic đánh số lặp lại y hệt trigger assign_appointment_queue_number — sửa một chỗ phải sửa cả hai, kể cả chuỗi khoá advisory 'clinicai:queue:…'."
+    },
+    {
+     "noi_dung": "SECURITY DEFINER + FOR UPDATE: chạy bỏ qua RLS, khoá dòng lịch tới hết giao dịch."
+    },
+    {
+     "noi_dung": "UPDATE ở cuối cũng kích trigger cap_so_tiep_don (cấp số tiếp đón) và assign_appointment_queue_number (không làm gì vì số đã có)."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi luật check-in / đánh số",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql:248 (sửa kèm trigger assign_appointment_queue_number)"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:chi_duoc_them_ket_qua": {
+   "lam_gi": "Trigger 'chỉ được thêm': mọi UPDATE/DELETE trên các bảng lịch sử kết quả đều bị từ chối.",
+   "khoi": "result",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE UPDATE OR DELETE trên form_instance_lich_su, form_result_release, lieu_trinh_lich_su, luot_ghi_chu, result_correction",
+   "goi_boi": [
+    "trigger form_instance_lich_su.trg_form_instance_lich_su_chi_them",
+    "trigger form_result_release.trg_form_result_release_chi_them",
+    "trigger lieu_trinh_lich_su.trg_lieu_trinh_lich_su_chi_them",
+    "trigger luot_ghi_chu.trg_luot_ghi_chu_chi_them",
+    "trigger result_correction.trg_result_correction_chi_them"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Năm bảng trên chỉ INSERT; sửa sai bằng cách thêm dòng mới."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Dùng chung cho cả luot_ghi_chu (ghi chú điều trị) và lieu_trinh_lich_su — không chỉ bảng kết quả như tên gọi; muốn cho sửa ghi chú phải gỡ trigger riêng bảng đó."
+    },
+    {
+     "noi_dung": "Chỉ bộ dọn don_khach_thu vượt được (tắt trigger BEFORE trong giao dịch)."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "cho phép sửa một bảng",
+     "cho": "migration mới DROP TRIGGER trên bảng đó — hàm ở supabase/migrations/20260923000014_sua_ket_qua_giu_ban_cu.sql:256"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:chot_so_ca_guard": {
+   "lam_gi": "Trigger canh sổ chốt ca: không cho xoá; chỉ cho đúng một lần UPDATE là mở khoá (đặt mo_luc), không đổi bất kỳ số liệu đã chốt nào.",
+   "khoi": "payment",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE UPDATE OR DELETE trên chot_so_ca (trg_chot_so_ca_guard)",
+   "goi_boi": [
+    "trigger chot_so_ca.trg_chot_so_ca_guard"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "DELETE luôn bị chặn (insufficient_privilege)."
+    },
+    {
+     "noi_dung": "UPDATE hợp lệ duy nhất: dòng chưa mở (OLD.mo_luc rỗng) → đặt mo_luc; các cột ngày, ca, tu_luc, den_luc, chot_luc, chot_boi, so_lieu, ghi_chu phải giữ nguyên. Mở rồi thì không sửa gì nữa."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Các cột khác ngoài danh sách (vd mo_boi, ly_do_mo) được tự do đổi trong lần mở; ghi_chu so bằng IS DISTINCT FROM nhưng các cột khác so bằng <> nên NULL lọt qua (NULL <> x không ra true)."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "cho chốt lại sau khi mở",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261014149000_chot_so_ca.sql:48"
+    }
+   ],
+   "chua_chac": [
+    "Không thấy tên cột lưu người/lý do mở trong thân hàm — chưa đối chiếu bảng."
+   ]
+  },
+  "ham:chot_thu_ho_dich_vu_ngoai_kiotviet": {
+   "lam_gi": "Hàm nạp dữ liệu một lần: đặt 10 dịch vụ cận lâm sàng gửi ngoài (xét nghiệm máu, nội tiết nam, CFTR, NST Y, karyotype, dịch âm đạo, nước tiểu sau xuất tinh, chụp vú ép, MRI vú, chụp tử cung–vòi trứng) thành bên thu EXTERNAL_PARTNER, chọn tay.",
+   "khoi": "catalogue",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "service_price"
+   ],
+   "ghi_bang": [
+    "service_price"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Chỉ dòng group='dich_vu' có service_code trong danh sách 10 mã; trả số dòng đổi."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Gọi lại sẽ đè lựa chọn bên thu Tuyền đã đổi trên màn cho 10 mã này."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi bên thu",
+     "cho": "việc dữ liệu trên màn danh mục (bản hàm ở supabase/migrations/20260929800000_mau_gui_doi_tac.sql:43)"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:chuan_hoa_danh_muc_dich_vu_kiotviet": {
+   "lam_gi": "Hàm nạp dữ liệu một lần (26/09): gắn mã KiotViet + tên + giá cho ~39 dịch vụ CLS_* có sẵn, và thêm ~45 dịch vụ mới mã 'KV_<mã KiotViet>' cho mọi phòng khám đã có dịch vụ CLS_*.",
+   "khoi": "catalogue",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "service_price",
+    "clinic"
+   ],
+   "ghi_bang": [
+    "service_price"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Dịch vụ có sẵn: ghi đè name, ma_kiotviet; giá NULL trong danh sách thì giữ giá cũ (vd CLS_THINPREP)."
+    },
+    {
+     "noi_dung": "Dịch vụ mới: giá NULL → category ghi 'CHƯA CÓ GIÁ — quản lý điền ở Bảng giá'; node_code lấy theo dịch vụ cha nếu không khai; trùng (clinic, group, service_code) thì bỏ qua."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Gọi lại sẽ ghi đè tên và giá mà Tuyền đã sửa trên Bảng giá cho các mã CLS_* trong danh sách."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi giá/tên dịch vụ",
+     "cho": "việc dữ liệu trên Bảng giá — không gọi lại hàm (bản ở supabase/migrations/20260926000001_danh_muc_dich_vu_kiotviet.sql:35)"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:chuan_hoa_danh_muc_thuoc_kiotviet": {
+   "lam_gi": "Hàm nạp dữ liệu một lần (25/09): với mỗi phòng khám, khớp danh sách thuốc chuẩn KiotViet (tên, mã hàng, giá, đơn vị, cách dùng, lưu ý, biệt dược) vào drug_catalog theo khoá tên đã bỏ dấu cách; không khớp thì thêm mới; thuốc còn lại bị tắt.",
+   "khoi": "catalogue",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "drug_catalog"
+   ],
+   "ghi_bang": [
+    "drug_catalog",
+    "service_price"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Khớp theo lower(name_raw) bỏ khoảng trắng ∈ danh sách khoá của từng thuốc; ưu tiên trùng tên y hệt, rồi đang active, rồi cũ nhất; mỗi dòng drug_catalog chỉ được chọn một lần."
+    },
+    {
+     "noi_dung": "Thuốc không nằm trong danh sách chuẩn → is_active=false. Mọi dòng service_price group='thuoc' → active=false (giá thuốc chuyển hẳn sang drug_catalog)."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Gọi lại là TẮT mọi thuốc Tuyền thêm sau 25/09 và ghi đè giá/đơn vị — tuyệt đối không chạy lại trên prod."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi danh mục thuốc",
+     "cho": "việc dữ liệu trên màn kho/danh mục thuốc (bản hàm ở supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql:44)"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:clinic_booking_policy": {
+   "lam_gi": "Đọc chính sách đặt lịch của phòng khám từ clinic.settings.booking: độ dài khung (mặc định 15 phút), số chỗ thường mỗi khung (mặc định 2), số chỗ khách vãng lai (mặc định 1).",
+   "khoi": "booking",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/clinic_policy.py; hàm SQL sức chứa (enforce_slot_capacity) gọi",
+   "goi_boi": [
+    "src/clinicai/services/clinic_policy.py"
+   ],
+   "doc_bang": [
+    "clinic"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Thiếu khoá nào thì dùng mặc định: slot_minutes 15, regular_cap 2, walkin_cap 1."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Mặc định viết cứng ở đây; Python/TSX có mặc định riêng thì phải khớp số này."
+    },
+    {
+     "noi_dung": "SECURITY DEFINER: đọc clinic bỏ qua RLS."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi số chỗ / độ dài khung",
+     "cho": "việc dữ liệu: sửa clinic.settings.booking trên màn cấu hình; đổi mặc định thì migration mới (bản ở supabase/migrations/20260803000001_clinic_booking_policy.sql:143)"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:clinic_booking_policy_is_valid": {
+   "lam_gi": "Kiểm clinic.settings.booking hợp lệ: slot_minutes số nguyên 1–60 và chia hết 60; regular_cap 1–100; walkin_cap 0–100; vắng mặt là hợp lệ.",
+   "khoi": "booking",
+   "loai": "canh_bat_bien",
+   "chay_khi": "dùng trong CHECK của bảng clinic (không thấy Python gọi)",
+   "goi_boi": [],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Khung phải chia hết 60 phút (5, 10, 15, 20, 30, 60…): khung cắt theo epoch UTC, VN lệch giờ chẵn nên chỉ khung chia hết 60 mới trùng lưới giờ địa phương. Vd 45 phút bị từ chối."
+    },
+    {
+     "noi_dung": "Giá trị phải là số JSON, không phải chuỗi '15'."
+    }
+   ],
+   "bay": [],
+   "muon_sua": [
+    {
+     "viec": "nới trần",
+     "cho": "migration mới CREATE OR REPLACE — bản ở supabase/migrations/20260803000001_clinic_booking_policy.sql:50"
+    }
+   ],
+   "chua_chac": [
+    "Chưa xác nhận tên CHECK constraint dùng hàm."
+   ]
+  },
+  "ham:clinic_hours_for_date": {
+   "lam_gi": "Trả giờ mở/đóng cửa (tính bằng phút trong ngày) của phòng khám cho một ngày, đọc clinic.settings.hours theo thứ trong tuần; ngày nghỉ hoặc open = close thì không trả dòng nào.",
+   "khoi": "booking",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/booking_service.py, capacity_service.py, config_service.py",
+   "goi_boi": [
+    "src/clinicai/services/booking_service.py",
+    "src/clinicai/services/capacity_service.py",
+    "src/clinicai/services/config_service.py"
+   ],
+   "doc_bang": [
+    "clinic"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Khoá theo DOW Postgres: 0 = Chủ nhật … 6 = thứ Bảy. Vd hours['1'] = {open:'08:00', close:'17:00'} → thứ Hai mở 480–1020."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Chuỗi giờ sai dạng (vd '8h') làm ::int ném lỗi → 500, trái luật 'đầu vào giờ phải trả rỗng thay vì ném'."
+    },
+    {
+     "noi_dung": "Giờ theo cả phòng khám, không theo cơ sở (location)."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "giờ mở cửa theo cơ sở",
+     "cho": "migration mới CREATE OR REPLACE — bản ở supabase/migrations/20260803000011_standing_rules_and_clinic_hours.sql:126"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:clinic_policy_int_ok": {
+   "lam_gi": "Hàm phụ kiểm một khoá trong jsonb: vắng → hợp lệ; có thì phải là số JSON nguyên nằm trong [min, max].",
+   "khoi": "booking",
+   "loai": "canh_bat_bien",
+   "chay_khi": "gọi bởi clinic_booking_policy_is_valid",
+   "goi_boi": [
+    "ham:clinic_booking_policy_is_valid"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:clinic_room_primary_node_is_served": {
+   "lam_gi": "Trigger kiểm bước chính (node_code) của phòng phải nằm trong danh sách bước mà phòng phục vụ (clinic_room_node).",
+   "khoi": "co_so",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OF node_code trên clinic_room (trg_clinic_room_primary_node)",
+   "goi_boi": [
+    "trigger clinic_room.trg_clinic_room_primary_node"
+   ],
+   "doc_bang": [
+    "clinic_room_node"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Phòng đã có dòng trong clinic_room_node mà bước chính không nằm trong đó → check_violation."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Phòng chưa có dòng nối nào thì cho qua; xoá dòng clinic_room_node của bước chính sau đó KHÔNG bị chặn (trigger chỉ ở clinic_room)."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi luật bước chính",
+     "cho": "migration mới — bản ở supabase/migrations/20260804000013_room_serves_many_nodes.sql:87"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:clinic_room_service_cung_phong_kham": {
+   "lam_gi": "Trigger kiểm dòng gán dịch vụ cho phòng (clinic_room_service): phòng phải thuộc cùng phòng khám và dịch vụ phải có trong bảng giá nhóm 'dich_vu'.",
+   "khoi": "co_so",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE trên clinic_room_service",
+   "goi_boi": [
+    "trigger clinic_room_service.trg_clinic_room_service_cung_phong_kham"
+   ],
+   "doc_bang": [
+    "clinic_room",
+    "service_price"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Thay khoá ngoại: phòng khác phòng khám hoặc mã dịch vụ không có trong service_price → foreign_key_violation."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Không kiểm dịch vụ còn active; đổi/xoá service_code ở service_price sau đó không bị trigger này bắt."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi điều kiện gán phòng",
+     "cho": "migration mới — bản ở supabase/migrations/20261001210000_phong_lam_theo_dich_vu.sql:54"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:clinical_data_consent_needs_link": {
+   "lam_gi": "Trigger chặn ghi đồng ý chia sẻ dữ liệu lâm sàng giữa hai bệnh nhân khi hai người chưa được liên kết trong patient_link.",
+   "khoi": "ho_so_khach",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OF subject_patient_id, grantee_patient_id trên clinical_data_consent",
+   "goi_boi": [
+    "trigger clinical_data_consent.trg_clinical_data_consent_link"
+   ],
+   "doc_bang": [
+    "patient_link"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Liên kết so không phân biệt chiều (least/greatest). Không có → foreign_key_violation."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Xoá patient_link sau khi đã có đồng ý không bị chặn ở đây."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:co_so_cua_luot": {
+   "lam_gi": "Trả cơ sở (location_id) của một lượt khám: visit.location_id, rỗng thì lấy location_id của lịch hẹn gốc. Có HAI bản: (p_clinic_id, p_visit_id) và (p_visit_id).",
+   "khoi": "co_so",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi rất nhiều nơi (lọc theo cơ sở) và trigger chan_phong_khac_co_so",
+   "goi_boi": [
+    "src/clinicai/services/luot_kham_service.py",
+    "src/clinicai/services/quay_thu_service.py",
+    "src/clinicai/services/cashier_board_service.py",
+    "src/clinicai/services/hang_cho.py",
+    "src/clinicai/services/pharmacy_service.py",
+    "src/clinicai/services/ban_thuoc_service.py",
+    "src/clinicai/services/checkout_service.py",
+    "src/clinicai/services/kiem_ke_ca_service.py",
+    "src/clinicai/services/dispatch_service.py",
+    "ham:chan_phong_khac_co_so",
+    "+ 8 service khác"
+   ],
+   "doc_bang": [
+    "visit",
+    "appointment"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Cơ sở của lượt = visit.location_id ?? appointment.location_id."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Bản 1 tham số không lọc clinic_id và không SET search_path; bản 2 tham số lọc clinic_id. Hai bản phải đổi cùng nhau."
+    },
+    {
+     "noi_dung": "Dùng trong WHERE của nhiều màn danh sách — hàm STABLE gọi theo từng dòng, sửa thành chậm là chậm mọi màn."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi cách xác định cơ sở lượt",
+     "cho": "migration mới CREATE OR REPLACE CẢ HAI bản — đang chạy ở supabase/migrations/20261008710000_kho_theo_co_so.sql:119"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:con_nguoi_cap_quyen": {
+   "lam_gi": "Hỏi phòng khám còn ít nhất một người đang hoạt động giữ quyền permission.manage phạm vi CLINIC (chưa thu hồi, đã có hiệu lực) không.",
+   "khoi": "permission",
+   "loai": "canh_bat_bien",
+   "chay_khi": "Python gọi ở services/permission_service.py; trigger giu_nguoi_cap_quyen",
+   "goi_boi": [
+    "src/clinicai/services/permission_service.py",
+    "ham:giu_nguoi_cap_quyen"
+   ],
+   "doc_bang": [
+    "capability_grant",
+    "staff",
+    "clinic_membership"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Đếm người: nhân sự active + thành viên active của phòng khám + grant permission.manage scope CLINIC, revoked_at rỗng, valid_from rỗng hoặc ≤ now."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Không xét valid_to/hết hạn (nếu bảng có) — chỉ xét valid_from."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": [
+    "Chưa đối chiếu capability_grant có cột hết hạn hay không."
+   ]
+  },
+  "ham:cong_no_chi_chuyen_tiep": {
+   "lam_gi": "Trigger canh khoản công nợ: không cho xoá; chỉ sửa được khi khoản đang CHUA_THU và không đổi phòng khám, lượt, khách.",
+   "khoi": "cong_no",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE UPDATE OR DELETE trên cong_no",
+   "goi_boi": [
+    "trigger cong_no.trg_cong_no_chi_chuyen_tiep"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "DELETE luôn bị chặn — huỷ kèm lý do."
+    },
+    {
+     "noi_dung": "Khoản đã thu/đã huỷ (trạng thái khác CHUA_THU) thì khoá cứng; khoản chưa thu được đổi trạng thái/số tiền nhưng không chuyển sang lượt/khách khác."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Một khi rời CHUA_THU thì không quay lại được — trái luật 'mọi thao tác hoàn tác được'; muốn hoàn tác phải sinh khoản mới."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "cho mở lại khoản nợ",
+     "cho": "migration mới CREATE OR REPLACE — bản ở supabase/migrations/20261002500000_cong_no.sql:65"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:current_clinic_ids": {
+   "lam_gi": "Trả các phòng khám mà người đang đăng nhập (current_staff_id) là thành viên active — nền cho chính sách RLS.",
+   "khoi": "permission",
+   "loai": "ha_tang",
+   "chay_khi": "dùng trong RLS policy",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinic_membership"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "SECURITY DEFINER để tránh RLS đệ quy trên clinic_membership."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:current_clinic_ids_for_roles": {
+   "lam_gi": "Như current_clinic_ids nhưng chỉ lấy phòng khám mà người đăng nhập có vai thuộc danh sách roles.",
+   "khoi": "permission",
+   "loai": "ha_tang",
+   "chay_khi": "dùng trong RLS policy và current_clinical_clinic_ids",
+   "goi_boi": [
+    "ham:current_clinical_clinic_ids"
+   ],
+   "doc_bang": [
+    "clinic_membership"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Lọc theo vai (role) — trái hướng 'quyền theo lego, không theo vai'; RLS dựa vào đây vẫn là vai."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:current_clinic_roles": {
+   "lam_gi": "Trả các vai của người đăng nhập tại một phòng khám.",
+   "khoi": "permission",
+   "loai": "ha_tang",
+   "chay_khi": "dùng trong RLS policy",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinic_membership"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:current_clinical_clinic_ids": {
+   "lam_gi": "Trả các phòng khám mà người đăng nhập có vai lâm sàng (DOCTOR, ULTRASOUND_DOCTOR, TKYK, NURSE_ULTRASOUND) — dùng cho RLS đọc dữ liệu lâm sàng.",
+   "khoi": "permission",
+   "loai": "ha_tang",
+   "chay_khi": "dùng trong RLS policy",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinic_membership"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Chỉ 4 vai trên được đọc dữ liệu lâm sàng qua PostgREST; điều dưỡng thường/lễ tân không có."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Danh sách vai viết cứng; vai mới (vd ĐD đã 'trọn quyền như bác sĩ') phải thêm ở đây nếu dùng đường PostgREST."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "thêm vai lâm sàng",
+     "cho": "migration mới — bản ở supabase/migrations/20260730000013_role_scoped_clinical_read.sql:69"
+    }
+   ],
+   "chua_chac": [
+    "Không rõ còn màn nào đọc lâm sàng qua PostgREST hay đã qua hết FastAPI."
+   ]
+  },
+  "ham:current_staff_department": {
+   "lam_gi": "Trả phòng ban chính (primary_department) của nhân sự đang đăng nhập (theo auth.uid()).",
+   "khoi": "permission",
+   "loai": "ha_tang",
+   "chay_khi": "dùng trong RLS của event_log",
+   "goi_boi": [],
+   "doc_bang": [
+    "staff"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "is_active IS TRUE (NULL bị loại) — khác current_staff_id coi NULL là active."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:current_staff_id": {
+   "lam_gi": "Trả id nhân sự ứng với người đăng nhập Supabase (auth.uid()) — nền cho mọi RLS.",
+   "khoi": "permission",
+   "loai": "ha_tang",
+   "chay_khi": "dùng trong RLS policy và các hàm current_*",
+   "goi_boi": [
+    "ham:current_clinic_ids",
+    "ham:current_clinic_ids_for_roles",
+    "ham:current_clinic_roles"
+   ],
+   "doc_bang": [
+    "staff"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "COALESCE(is_active, true): nhân sự is_active NULL vẫn được coi là đang làm."
+    },
+    {
+     "noi_dung": "LIMIT 1 không ORDER BY — nếu hai staff trùng auth_user_id thì chọn ngẫu nhiên."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:dang_dinh_chinh_ho_so": {
+   "lam_gi": "Trả mã phiếu đính chính (visit_amendment) đang mở trong giao dịch hiện tại nếu phiếu đó sửa 'don_thuoc' của đúng lượt — để trigger khác cho phép sửa đơn thuốc đã chốt.",
+   "khoi": "consultation",
+   "loai": "canh_bat_bien",
+   "chay_khi": "gọi từ trigger/hàm canh đơn thuốc (ngoài lát này)",
+   "goi_boi": [],
+   "doc_bang": [
+    "visit_amendment"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Chỉ hợp lệ khi: cờ phiên clinicai.amendment_id là uuid, phiếu cùng phòng khám + cùng lượt, có 'don_thuoc' trong corrected_fields, và amended_at = now() (tức tạo trong CÙNG giao dịch)."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "So amended_at = now(): phiếu đính chính phải được INSERT trong cùng giao dịch với lệnh sửa đơn; tách thành hai giao dịch là bị từ chối."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi điều kiện đính chính",
+     "cho": "migration mới — bản ở supabase/migrations/20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql:202"
+    }
+   ],
+   "chua_chac": [
+    "Chưa tra trigger nào gọi (nằm lát khác)."
+   ]
+  },
+  "ham:danh_muc_dich_vu": {
+   "lam_gi": "Đọc danh mục dịch vụ (service_price nhóm dich_vu) của phòng khám kèm tên nhóm việc, cờ 'là phí khám', cờ 'cần phòng', danh sách phòng làm được và cờ 'chưa có phòng'.",
+   "khoi": "catalogue",
+   "loai": "bao_cao",
+   "chay_khi": "Python gọi ở api/v1/routers/config.py, services/luot_kham_doc.py, phieu_kham_service.py, danh_muc_dich_vu_service.py, clinic_config_service.py",
+   "goi_boi": [
+    "src/clinicai/api/v1/routers/config.py",
+    "src/clinicai/services/luot_kham_doc.py",
+    "src/clinicai/services/phieu_kham_service.py",
+    "src/clinicai/services/danh_muc_dich_vu_service.py",
+    "src/clinicai/services/clinic_config_service.py"
+   ],
+   "doc_bang": [
+    "service_price",
+    "node_definition",
+    "clinic_room_service",
+    "clinic_room",
+    "loai_kham_phi"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Là phí khám khi KHÔNG có node_code VÀ (category bắt đầu 'Phí khám'/'Tiền khám', hoặc mã 'KHAM_*', hoặc được loai_kham_phi trỏ tới)."
+    },
+    {
+     "noi_dung": "Cần phòng = không phải đối tác lấy mẫu và nhóm việc không 'làm bên ngoài'."
+    },
+    {
+     "noi_dung": "Chưa có phòng = active + cần phòng + không phòng nội bộ (không phải phòng đối tác) active nào làm được (phong_lam_duoc)."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Cột 'nhom' trả về là sp.category, không phải sp.group."
+    },
+    {
+     "noi_dung": "Gọi phong_lam_duoc cho mọi cặp phòng × dịch vụ (hai lần) — danh mục lớn sẽ chậm."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi luật nhận diện phí khám",
+     "cho": "migration mới CREATE OR REPLACE — bản ở supabase/migrations/20261003700000_phi_kham_chi_dinh_duoc.sql:53"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:default_clinic_id": {
+   "lam_gi": "Trả id phòng khám nếu cả hệ thống chỉ có đúng MỘT phòng khám; có 2 trở lên thì trả rỗng.",
+   "khoi": "co_so",
+   "loai": "ha_tang",
+   "chay_khi": "giá trị mặc định cột clinic_id (đời đơn phòng khám); trong api/identity.py chỉ còn nhắc trong comment",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinic"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Có phòng khám thứ hai (vd staging/dữ liệu thử) thì mọi INSERT dựa vào mặc định này nhận clinic_id NULL."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": [
+    "Chưa xác nhận cột nào còn DEFAULT default_clinic_id()."
+   ]
+  },
+  "ham:dien_gia_trong_theo_phieu_v5": {
+   "lam_gi": "Hàm nạp dữ liệu một lần (24/09): điền giá cho dịch vụ CLS_* và thuốc (theo name_raw) CHỈ khi giá đang trống, theo phiếu v5.",
+   "khoi": "catalogue",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "service_price",
+    "drug_catalog"
+   ],
+   "ghi_bang": [
+    "service_price",
+    "drug_catalog"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Chỉ điền ô giá NULL, không ghi đè giá đã có."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Không lọc clinic_id — điền cho mọi phòng khám. Tên thuốc khớp tuyệt đối name_raw (đời trước khi chuẩn hoá KiotViet)."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:doctor_patient_count": {
+   "lam_gi": "Đếm số khách khác nhau từng có lịch hẹn với một bác sĩ.",
+   "khoi": "booking",
+   "loai": "co_the_chet",
+   "chay_khi": "không thấy Python gọi (từ baseline schema)",
+   "goi_boi": [],
+   "doc_bang": [
+    "appointment"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Không lọc clinic_id, không search_path cố định."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:doctor_patient_list": {
+   "lam_gi": "Danh sách khách từng có lịch với một bác sĩ, tìm theo mã/tên/SĐT (ILIKE), phân trang, kèm tổng số.",
+   "khoi": "booking",
+   "loai": "co_the_chet",
+   "chay_khi": "không thấy Python gọi (từ baseline schema)",
+   "goi_boi": [],
+   "doc_bang": [
+    "appointment",
+    "patient"
+   ],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Không lọc clinic_id; tìm không bỏ dấu (không dùng f_unaccent)."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:doi_tac_thanh_toan_chi_huy": {
+   "lam_gi": "Trigger canh ghi nhận đối tác tự thu tiền: không cho xoá; chỉ cho huỷ một ghi nhận đang hiệu lực, không đổi số tiền/hình thức/người ghi.",
+   "khoi": "doi_tac",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE UPDATE OR DELETE trên doi_tac_thanh_toan",
+   "goi_boi": [
+    "trigger doi_tac_thanh_toan.trg_doi_tac_thanh_toan_chi_huy"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "DELETE bị chặn. Dòng đã huỷ (huy_luc có) không sửa được nữa. Dòng hiệu lực chỉ được đổi các cột ngoài (clinic, chỉ định, so_tien, hinh_thuc, ghi_chu, ghi_boi, ghi_luc) — tức cột huỷ."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Muốn sửa số tiền phải huỷ rồi ghi dòng mới."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:domain_event_chi_them": {
+   "lam_gi": "Trigger 'chỉ thêm' cho sổ sự kiện domain_event: mọi UPDATE/DELETE bị từ chối, sai thì phát sự kiện bù.",
+   "khoi": "hanh_trinh",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE UPDATE OR DELETE trên domain_event",
+   "goi_boi": [
+    "trigger domain_event.trg_domain_event_chi_them"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Nếu worker cần đánh dấu 'đã xử lý' trên domain_event thì phải dùng bảng khác (event_delivery) — UPDATE ở đây luôn lỗi."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": [
+    "Khối giữ domain_event chưa thấy trong modules.py."
+   ]
+  },
+  "ham:don_khach_thu": {
+   "lam_gi": "Xoá sạch khách thử (và mọi dòng kéo theo) của một phòng khám: lập kế hoạch xoá lan theo cột nối, kiểm 4 chốt an toàn, chế độ xem trước chỉ trả số dòng; làm thật thì lưu nguyên văn vào du_lieu_da_xoa, trả tồn kho, xoá theo vòng.",
+   "khoi": "van_hanh",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/don_du_lieu_thu_service.py (xem trước lam_that=false, rồi làm thật)",
+   "goi_boi": [
+    "src/clinicai/services/don_du_lieu_thu_service.py"
+   ],
+   "doc_bang": [
+    "patient",
+    "~80 bảng dữ liệu khách trong bang_khach",
+    "thong_bao",
+    "tep_ket_qua",
+    "pg_constraint",
+    "pg_trigger"
+   ],
+   "ghi_bang": [
+    "lan_don_du_lieu_thu",
+    "du_lieu_da_xoa",
+    "drug_batch",
+    "care_episode",
+    "mọi bảng trong kế hoạch (DELETE)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Nguồn chỉ 'man_quan_tri' hoặc 'script_moc'; mọi khách phải thuộc phòng khám."
+    },
+    {
+     "noi_dung": "Chốt 2: dòng trong kế hoạch có clinic_patient_id/visit_id/appointment_id trỏ khách không được chọn → dừng."
+    },
+    {
+     "noi_dung": "Chốt 1: bảng ngoài kế hoạch có khoá ngoại trỏ vào dòng sắp xoá → dừng, báo tên bảng để khai vào bang_khach."
+    },
+    {
+     "noi_dung": "Kho: lô thuốc trừ đi tổng quantity của phiếu kho sắp xoá (phiếu xuất âm → cộng trả về lô). Sau xoá có lô tồn âm → dừng."
+    },
+    {
+     "noi_dung": "Chốt 4: số dòng mất mỗi bảng phải đúng bằng kế hoạch; không còn uuid trỏ dữ liệu đã xoá; số lịch/lượt của khách giữ không đổi."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "ALTER TABLE … DISABLE TRIGGER trên mọi bảng bị xoá: khoá ACCESS EXCLUSIVE tới hết giao dịch → chạy giờ khách đang dùng là đứng cả màn."
+    },
+    {
+     "noi_dung": "Chốt 4 đếm count(*) toàn bảng trước/sau: người khác ghi vào bảng đó trong lúc chạy sẽ làm lệch và dừng oan."
+    },
+    {
+     "noi_dung": "Có p_moc: quét khoá chính uuid của MỌI bảng vào _dt_song — nặng, và xoá theo mốc cả loi_nhom/canh_bao/idempotency_key."
+    },
+    {
+     "noi_dung": "Bảng mới chứa dữ liệu khách phải thêm vào bang_khach, cột nối mới thêm vào _don_thu_lan.cot_noi, nếu không Chốt 1/4 dừng."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "thêm bảng khách mới",
+     "cho": "migration mới CREATE OR REPLACE — bản đang chạy ở supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql:70"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:don_thuoc_chup_bac_si_chinh": {
+   "lam_gi": "Trigger khi tạo đơn thuốc: nếu chưa ghi bác sĩ chính thì chụp bác sĩ phụ trách hiện tại của lượt (visit.attending_doctor_id) vào bac_si_chinh_id.",
+   "khoi": "consultation",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "trigger BEFORE INSERT trên prescription (trg_don_thuoc_chup_bac_si_chinh)",
+   "goi_boi": [
+    "trigger prescription.trg_don_thuoc_chup_bac_si_chinh"
+   ],
+   "doc_bang": [
+    "visit"
+   ],
+   "ghi_bang": [
+    "prescription (NEW.bac_si_chinh_id)"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Bác sĩ chính của đơn = bác sĩ phụ trách lượt LÚC TẠO đơn; đổi bác sĩ lượt sau đó không đổi đơn."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Chỉ chạy lúc INSERT; Python truyền bac_si_chinh_id sẵn thì trigger không đè."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:don_vi_chuan": {
+   "lam_gi": "Chuẩn hoá chữ đơn vị (hộp, viên, gói…): chuẩn Unicode NFC, bỏ khoảng trắng thừa, viết thường — để so đơn vị lô với đơn vị bán.",
+   "khoi": "pharmacy",
+   "loai": "ha_tang",
+   "chay_khi": "gọi trong các hàm/ràng buộc kho thuốc (ngoài lát này)",
+   "goi_boi": [],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "'  Hộp ' và 'hộp' coi là cùng đơn vị; NULL thành chuỗi rỗng."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "IMMUTABLE — nếu dùng trong chỉ mục/cột sinh, đổi thân hàm phải dựng lại chỉ mục."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:don_vi_tu_van_ban": {
+   "lam_gi": "Tách phần ĐƠN VỊ từ chữ số lượng gõ tự do trên đơn thuốc (vd '2 hộp' → 'hộp'); chữ không bắt đầu bằng số hợp lệ thì trả NULL.",
+   "khoi": "pharmacy",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/quay_thuoc_service.py, services/dinh_chinh_don.py",
+   "goi_boi": [
+    "src/clinicai/services/quay_thuoc_service.py",
+    "src/clinicai/services/dinh_chinh_don.py"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Chỉ trả đơn vị khi so_luong_tu_van_ban đọc được số; bỏ số đầu chuỗi (cho phép thập phân '1,5' hoặc '1.5'), phần còn lại cắt khoảng trắng; rỗng → NULL."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Phụ thuộc so_luong_tu_van_ban (lát khác): hai hàm phải hiểu cùng một dạng chữ."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:dong_bo_danh_muc_dich_vu": {
+   "lam_gi": "Đồng bộ bảng giá dịch vụ theo danh mục nguồn đã nạp (danh_muc_dich_vu_nguon, mặc định 'kiot_0110'): sửa dòng đã ghép, thêm dòng thiếu, gắn nhóm cho dịch vụ ngoài Excel, tắt 2 dòng tiêu đề cũ, nối dịch vụ 'Thủ thuật' vào loại khám THU_THUAT.",
+   "khoi": "catalogue",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration 01/10; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "danh_muc_dich_vu_nguon",
+    "service_price",
+    "node_definition",
+    "clinic",
+    "service_type",
+    "loai_kham_phi"
+   ],
+   "ghi_bang": [
+    "service_price",
+    "loai_kham_phi"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Dòng đã ghép: ghi đè tên, nhóm (category), bật active; nhóm 'XN thu hộ' mà chưa chọn tay → bên thu EXTERNAL_PARTNER."
+    },
+    {
+     "noi_dung": "Giá: nguồn > 0 thì nạp và bỏ cờ giá tạm; nguồn 0 với dịch vụ phòng khám → giữ giá cũ; với thu hộ thì nạp kể cả 0."
+    },
+    {
+     "noi_dung": "Dòng thiếu (trừ nhóm 'Phí khám') → thêm mã 'DV_' + 10 ký tự md5 của tên chuẩn hoá."
+    },
+    {
+     "noi_dung": "CLS_XET_NGHIEM_DICH_AM_DAO, CLS_LASER chưa ghép → tắt (không xoá)."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Gọi lại sẽ bật lại (active=true) dịch vụ đã ghép mà Tuyền đã tắt trên màn và ghi đè tên/nhóm."
+    },
+    {
+     "noi_dung": "ghep_danh_muc_dich_vu được gọi lại 4 lần trong một lượt — nặng nếu nguồn lớn."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi danh mục dịch vụ",
+     "cho": "việc dữ liệu trên Bảng giá; hàm ở supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql:208"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:dong_bo_vat_tu": {
+   "lam_gi": "Đồng bộ danh mục vật tư (service_price group='vat_tu') theo danh sách 84 vật tư viết cứng: thêm thiếu, sửa tên/đơn vị/cờ, và gợi ý 2 đầu dò Bio cho dịch vụ Bio SP000145/SP000146.",
+   "khoi": "vat_tu",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration 03/10; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinic",
+    "service_price"
+   ],
+   "ghi_bang": [
+    "service_price",
+    "vat_tu_goi_y"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Mã vật tư: mã khai sẵn (vd VT_MIRENA) hoặc 'VT_' + md5(tên chuẩn hoá|đơn vị) — cùng tên khác đơn vị là hai vật tư."
+    },
+    {
+     "noi_dung": "Giá 0 trong danh sách → giá NULL (chưa có giá). Đầu dò Bio nhiều lần 900.000, 1 lần 300.000, Mirena 4.000.000 (cần quản lý duyệt)."
+    },
+    {
+     "noi_dung": "Mặc định không ghi đè giá đang có; p_ghi_de_gia=true thì đè."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "p_ghi_de_gia=true với vật tư giá 0 trong danh sách sẽ XOÁ giá đang có thành NULL."
+    },
+    {
+     "noi_dung": "Gọi lại sẽ đè tên/đơn vị/cờ chon_nhanh, can_ql_duyet mà Tuyền đã sửa."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi vật tư",
+     "cho": "việc dữ liệu trên màn danh mục; hàm ở supabase/migrations/20261003000000_vat_tu_ban_them.sql:222"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:drug_batch_hang_khop": {
+   "lam_gi": "Trigger kiểm cuối giao dịch: hai hàng drug_batch cùng phòng khám + cùng cơ sở + cùng mã lô (hàng KHO và hàng QUẦY) phải cùng thuốc, cùng hạn, cùng đơn vị, cùng mã tem.",
+   "khoi": "pharmacy",
+   "loai": "canh_bat_bien",
+   "chay_khi": "CONSTRAINT trigger AFTER INSERT OR UPDATE trên drug_batch, DEFERRABLE INITIALLY DEFERRED (chạy lúc COMMIT)",
+   "goi_boi": [
+    "trigger drug_batch.trg_drug_batch_hang_khop"
+   ],
+   "doc_bang": [
+    "drug_batch"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Cùng (clinic, location, batch_code) mà khác drug_catalog_id / expiry_date / unit / ma_tem → check_violation."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Hoãn tới COMMIT: lỗi nổ ở lúc commit chứ không ở câu UPDATE — Python thấy lỗi muộn; sửa đồng thời cả hai hàng trong cùng giao dịch thì qua."
+    },
+    {
+     "noi_dung": "So unit bằng IS DISTINCT FROM thô, không qua don_vi_chuan — 'Hộp' và 'hộp' bị coi là khác."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi điều kiện khớp",
+     "cho": "migration mới — bản ở supabase/migrations/20261014160000_tach_kho_quay.sql:46"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:drug_batch_kha_dung": {
+   "lam_gi": "Tính số lượng KHẢ DỤNG của một lô thuốc = tồn thực − phần đang giữ chỗ cho đơn chưa xuất − phần đã bán nhưng chưa giao − phần khách trả đang chờ quyết định xử lý.",
+   "khoi": "pharmacy",
+   "loai": "logic_nghiep_vu",
+   "chay_khi": "Python gọi ở services/phan_lo_service.py, ban_thuoc_service.py, kho_thuoc_service.py, pharmacy_service.py",
+   "goi_boi": [
+    "src/clinicai/services/phan_lo_service.py",
+    "src/clinicai/services/ban_thuoc_service.py",
+    "src/clinicai/services/kho_thuoc_service.py",
+    "src/clinicai/services/pharmacy_service.py"
+   ],
+   "doc_bang": [
+    "drug_batch",
+    "prescription_allocation",
+    "payment_cycle",
+    "inventory_txn",
+    "drug_return"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Trừ 1: phân lô chưa nhả (released_at rỗng) của kỳ thu PENDING_VERIFICATION, hoặc PAID mà chưa có dòng kho SALE."
+    },
+    {
+     "noi_dung": "Trừ 2: với mỗi phân lô, đã bán (−tổng SALE+SALE_REVERSAL) − đã giao (handed_over_qty), không âm."
+    },
+    {
+     "noi_dung": "Trừ 3: thuốc khách trả chưa quyết định (disposition rỗng). Vd tồn 20, giữ 3, bán chưa giao 2, trả chờ 1 → khả dụng 14."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Tính theo ĐƠN VỊ LÔ: nếu đơn vị lô ≠ đơn vị bán (hộp vs gói) thì các số trừ đi bị lệch đơn vị (xem memory kho-thuoc-don-vi-lo-lech)."
+    },
+    {
+     "noi_dung": "Không khoá dòng: hai người phân lô cùng lúc có thể cùng thấy đủ — khoá phải nằm ở người gọi."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi công thức khả dụng",
+     "cho": "migration mới CREATE OR REPLACE — bản ở supabase/migrations/20260919000004_tien_thuoc_cp5_hoan_tra.sql:507"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:drug_batch_ma_tem_bat_doi": {
+   "lam_gi": "Trigger cấm đổi mã tem (ma_tem) của lô thuốc sau khi đã có — tem đã dán lên hộp.",
+   "khoi": "pharmacy",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE UPDATE OF ma_tem trên drug_batch",
+   "goi_boi": [
+    "trigger drug_batch.drug_batch_ma_tem_bat_doi"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Mọi thay đổi ma_tem đều bị chặn, kể cả từ NULL sang có giá trị."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Từ NULL → có cũng bị chặn (IS DISTINCT FROM): lô tạo không tem thì không gắn tem sau được."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "cho gắn tem cho lô chưa có tem",
+     "cho": "migration mới — bản ở supabase/migrations/20261014135000_ma_vach.sql:34"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:drug_return_co_dong_kho": {
+   "lam_gi": "Trigger kiểm cuối giao dịch: mỗi lần khách trả thuốc (drug_return) phải có đúng một dòng sổ kho RETURN_RECEIVED trỏ về nó.",
+   "khoi": "pharmacy",
+   "loai": "canh_bat_bien",
+   "chay_khi": "CONSTRAINT trigger AFTER INSERT trên drug_return, DEFERRABLE INITIALLY DEFERRED",
+   "goi_boi": [
+    "trigger drug_return.trg_drug_return_co_dong_kho"
+   ],
+   "doc_bang": [
+    "inventory_txn"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Thiếu dòng inventory_txn RETURN_RECEIVED (ref_type='drug_return', ref_id=id lần trả) → lỗi lúc COMMIT."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Chỉ kiểm có, không kiểm số lượng dòng kho bằng returned_qty."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:drug_return_guard": {
+   "lam_gi": "Trigger canh lần khách trả thuốc: lúc thêm phải trỏ đúng phiếu xuất DISPENSE gốc và không trả vượt số đã xuất; sau đó chỉ được đặt quyết định xử lý (BAN_LAI hoặc HUY) đúng một lần; không xoá.",
+   "khoi": "pharmacy",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OR DELETE trên drug_return",
+   "goi_boi": [
+    "trigger drug_return.trg_drug_return_guard"
+   ],
+   "doc_bang": [
+    "inventory_txn",
+    "prescription",
+    "drug_return",
+    "clinic_membership"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "INSERT: dòng xuất gốc phải là DISPENSE, cùng đơn (ref_id = prescription_id), cùng phân lô, đơn thuộc đúng lượt; disposition phải rỗng."
+    },
+    {
+     "noi_dung": "Tổng đã trả + lần này ≤ số đã xuất. Vd xuất 10 viên, đã trả 7, trả thêm 4 → 11 > 10 → chặn."
+    },
+    {
+     "noi_dung": "UPDATE: chỉ từ NULL sang BAN_LAI/HUY, chỉ đổi 5 cột disposition*; người quyết là thành viên active."
+    },
+    {
+     "noi_dung": "HUY phải trỏ dòng DISCARD của đúng lần trả, cùng lô, số lượng = −returned_qty. Vd trả 3 viên → DISCARD −3."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Khoá FOR UPDATE dòng DISPENSE gốc để hai lần trả đồng thời không vượt tổng."
+    },
+    {
+     "noi_dung": "Quyết định xử lý không đảo được (đã BAN_LAI thì không chuyển HUY) — trái luật hoàn tác; muốn sửa phải có bút toán bù."
+    },
+    {
+     "noi_dung": "BAN_LAI không bị kiểm có dòng kho đi kèm."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi luật trả/xử lý thuốc trả",
+     "cho": "migration mới CREATE OR REPLACE — bản ở supabase/migrations/20261017200000_thuoc_tra_quyet_dinh_xu_ly.sql:44"
+    }
+   ],
+   "chua_chac": []
+  },
+  "ham:du_lieu_da_xoa_khong_sua": {
+   "lam_gi": "Trigger chặn sửa bản lưu dữ liệu đã xoá (du_lieu_da_xoa — bản chụp trước khi dọn khách thử).",
+   "khoi": "van_hanh",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE UPDATE trên du_lieu_da_xoa",
+   "goi_boi": [
+    "trigger du_lieu_da_xoa.trg_du_lieu_da_xoa_khong_sua"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Chỉ chặn UPDATE, DELETE vẫn được."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:dxa_ket_luan_nhanh": {
+   "lam_gi": "Hàm nạp dữ liệu một lần: tạo mẫu kết quả 'Đo mật độ xương' (DXA) có ô tick Kết luận nhanh (Bình thường / Tiền loãng xương / Loãng xương), gắn cho dịch vụ DXA, và thêm ô này vào mẫu DXA đang dùng (xuất bản phiên bản mới).",
+   "khoi": "catalogue",
+   "loai": "co_the_chet",
+   "chay_khi": "gọi trong migration 29/09; không thấy Python gọi",
+   "goi_boi": [],
+   "doc_bang": [
+    "clinic",
+    "ket_qua_mau",
+    "form_definition",
+    "dich_vu_mau_ket_qua",
+    "service_price"
+   ],
+   "ghi_bang": [
+    "ket_qua_mau",
+    "form_definition",
+    "dich_vu_mau_ket_qua"
+   ],
+   "luat": [
+    {
+     "noi_dung": "Dịch vụ DXA = CLS_DO_MAT_DO_XUONG hoặc mã KiotViet SP000134; chỉ gắn khi dịch vụ chưa có mẫu riêng (mẫu CHUNG không tính)."
+    },
+    {
+     "noi_dung": "Thêm ô = RETIRED bản đang dùng + INSERT bản mới version max+1 (không sửa tại chỗ)."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Chạy lại an toàn (bỏ qua mẫu đã có ô ket_luan_nhanh)."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:enforce_append_only": {
+   "lam_gi": "Trigger 'chỉ thêm' cho event_log: chặn DELETE, TRUNCATE; UPDATE chỉ được lật event_published từ false sang true khi các cột chính không đổi.",
+   "khoi": "hanh_trinh",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE DELETE/UPDATE (từng dòng) và BEFORE TRUNCATE trên event_log",
+   "goi_boi": [
+    "trigger event_log.trg_event_log_no_delete",
+    "trigger event_log.trg_event_log_no_update",
+    "trigger event_log.trg_event_log_no_truncate"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "UPDATE hợp lệ duy nhất: event_published false→true, event_id/event_type/aggregate_id/payload giữ nguyên."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Các cột khác (occurred_at, aggregate_type…) không được so — có thể bị đổi cùng lúc lật cờ."
+    },
+    {
+     "noi_dung": "payload so bằng '=' — payload NULL làm điều kiện ra NULL → bị chặn."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  },
+  "ham:enforce_slot_capacity": {
+   "lam_gi": "Trigger kiểm sức chứa khung giờ khi tạo/đổi lịch hẹn: đếm ghế đã dùng trong khung của bác sĩ và chặn nếu đã đủ trần (lịch hẹn và vãng lai có trần riêng).",
+   "khoi": "booking",
+   "loai": "canh_bat_bien",
+   "chay_khi": "trigger BEFORE INSERT OR UPDATE OF slot_start, doctor_id, booking_channel, status trên appointment; Python capacity_service.py cũng gọi tên này",
+   "goi_boi": [
+    "trigger appointment.trg_enforce_slot_capacity",
+    "src/clinicai/services/capacity_service.py"
+   ],
+   "doc_bang": [
+    "appointment (qua slot_seats_used)",
+    "resolve_effective_cap",
+    "tuan_lich_truc_da_cong_bo"
+   ],
+   "ghi_bang": [],
+   "luat": [
+    {
+     "noi_dung": "Bỏ qua: lịch huỷ/không đến/bác sĩ từ chối; lịch hẹn chưa có bác sĩ; lịch hẹn vào tuần chưa công bố lịch trực; khách đã có mặt (CHECKED_IN/COMPLETED) đổi bác sĩ/giờ; lịch không đổi giờ/bác sĩ/kênh."
+    },
+    {
+     "noi_dung": "Vãng lai (WALK_IN) luôn bị kiểm, kể cả chưa có bác sĩ."
+    },
+    {
+     "noi_dung": "Khung cắt theo epoch UTC, dài slot_minutes; trần lấy từ resolve_effective_cap. Vd trần 2, khung 9:00–9:15 BS A đã 2 lịch → lịch thứ 3 bị 'Khung giờ đã đầy'."
+    }
+   ],
+   "bay": [
+    {
+     "noi_dung": "Khoá advisory theo (clinic, bác sĩ, khung, loại w/r) — phải khớp quy ước '~none~' với slot_seats_used và assign_appointment_queue_number."
+    },
+    {
+     "noi_dung": "Không SECURITY DEFINER: chạy bằng quyền người gọi, slot_seats_used phải thấy được mọi lịch."
+    },
+    {
+     "noi_dung": "Lịch hẹn vào tuần chưa công bố được nhận vô hạn — đối soát lúc công bố, không ở đây."
+    }
+   ],
+   "muon_sua": [
+    {
+     "viec": "đổi luật trần/khung",
+     "cho": "migration mới CREATE OR REPLACE — bản ở supabase/migrations/20260915000017_doi_bac_si_khach_da_co_mat.sql:9"
+    }
+   ],
+   "chua_chac": [
+    "capacity_service.py nhắc tên trong chuỗi SQL — chưa mở xem là gọi hay chỉ comment."
+   ]
+  },
+  "ham:event_log_append_only_guard": {
+   "lam_gi": "Hàm trigger 'chỉ thêm' chung (từ chối mọi thao tác) — đời baseline.",
+   "khoi": "hanh_trinh",
+   "loai": "co_the_chet",
+   "chay_khi": "không thấy trigger nào gắn trong bản đang chạy",
+   "goi_boi": [],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [],
+   "muon_sua": [],
+   "chua_chac": [
+    "Khối không rõ — không thấy trigger gắn trong đầu mục."
+   ]
+  },
+  "ham:f_unaccent": {
+   "lam_gi": "Bỏ dấu tiếng Việt (bọc unaccent thành IMMUTABLE) để tìm kiếm tên khách không dấu và dựng chỉ mục.",
+   "khoi": "ho_so_khach",
+   "loai": "ha_tang",
+   "chay_khi": "Python gọi ở api/v1/patients.py, services/mpi_service.py, ban_le_service.py, man_dat_lich_doc.py, danh_sach_benh_nhan_service.py, danh_sach_khach_cskh.py…",
+   "goi_boi": [
+    "src/clinicai/api/v1/patients.py",
+    "src/clinicai/services/mpi_service.py",
+    "src/clinicai/services/ban_le_service.py",
+    "src/clinicai/services/man_dat_lich_doc.py",
+    "src/clinicai/services/danh_sach_benh_nhan_service.py",
+    "src/clinicai/services/danh_sach_khach_cskh.py",
+    "src/clinicai/services/chuyen_luot_that.py",
+    "src/clinicai/services/nhap_lich_su_notion.py"
+   ],
+   "doc_bang": [],
+   "ghi_bang": [],
+   "luat": [],
+   "bay": [
+    {
+     "noi_dung": "Gắn từ điển 'public.unaccent' bằng tên đầy đủ để hàm IMMUTABLE dùng được trong chỉ mục; đổi từ điển là phải REINDEX."
+    }
+   ],
+   "muon_sua": [],
+   "chua_chac": []
+  }
+ }
+}

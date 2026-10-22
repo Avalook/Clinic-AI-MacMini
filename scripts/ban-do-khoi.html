@@ -143,6 +143,34 @@ main { max-width: 1400px; margin: 0 auto; padding: 14px 16px; }
 .tep svg { flex: none; color: var(--nhan); }
 .tep.nho { display: inline-flex; padding: 1px 8px; }
 .cac-tep { display: flex; flex-direction: column; gap: 4px; }
+.tep-hang { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.tep-hang > a.tep { flex: 1 1 auto; }
+.tep-hang > a.tep.nho { flex: 0 1 auto; }
+.nut-hieu { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--vien); background: var(--mat);
+  color: var(--nhan); font: 600 12px var(--chu-than); cursor: pointer; transition: background .15s, border-color .15s; }
+.nut-hieu:hover { background: var(--nhan-nhat); border-color: var(--nhan); }
+.the-tep { display: flex; flex-direction: column; gap: 2px; }
+.the-tep .lam-gi { margin: 0 0 4px 10px; color: var(--chu-nhat); font-size: 12.5px; }
+.the-hieu { background: var(--nhan-nhat); border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+.the-hieu p { margin: 0 0 6px; }
+.the-hieu p:last-child { margin-bottom: 0; }
+.luong, .luu-y { margin: 6px 0 0; padding-left: 20px; }
+.luong li, .luu-y li { margin: 2px 0; }
+.dong-luat { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; padding: 7px 10px; border: 1px solid var(--vien);
+  border-radius: 8px; background: var(--mat); margin-bottom: 5px; font-size: 13px; }
+.dong-luat > div { flex: 1 1 240px; min-width: 0; }
+.them-nua summary { cursor: pointer; color: var(--nhan); font-size: 13px; margin: 4px 0 8px; }
+.canh-bao-the { background: var(--vang-nhat); color: var(--vang); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+td.nghia { color: var(--chu-nhat); font-size: 12.5px; }
+.tong-quan { max-width: 920px; }
+.tong-quan > h2 { font-size: 20px; margin: 4px 0 8px; letter-spacing: -.01em; }
+.tong-quan > p { margin: 0 0 8px; }
+ol.chang { list-style: none; padding: 0; margin: 14px 0; position: relative; }
+ol.chang::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; background: var(--vien); }
+ol.chang li { display: grid; grid-template-columns: 32px 1fr; gap: 12px; padding: 8px 0; animation: hien .35s both; position: relative; }
+ol.chang h3 { margin: 4px 0 2px; font-size: 15px; }
+ol.chang p { margin: 0 0 6px; color: var(--chu-nhat); }
+.so-chang { width: 32px; height: 32px; border-radius: 50%; background: var(--nhan); color: #fff; display: grid; place-items: center; font-weight: 600; z-index: 1; }
 
 table.bang { width: 100%; border-collapse: collapse; background: var(--mat); border: 1px solid var(--vien); border-radius: 12px; overflow: hidden; }
 table.bang td, table.bang th { padding: 6px 10px; border-bottom: 1px solid var(--vien); vertical-align: top; text-align: left; font-size: 13px; }
@@ -219,6 +247,23 @@ const VAN_DE = D.van_de || [];
 const BANG = D.bang_ct || {};
 const VD_CUA = {};
 for (const v of VAN_DE) (VD_CUA[v.khoi] = VD_CUA[v.khoi] || []).push(v);
+// Lớp "hiểu": ghi chú từng tệp + nghĩa bảng + thẻ khối + tổng quan (đọc kỹ 21/10).
+const GHI = D.ghi_chu || {};
+const BANG_HIEU = D.bang_hieu || {};
+const THE_KHOI = D.the_khoi || {};
+const TQ = D.tong_quan;
+const GHI_TEST = D.ghi_test || {};
+// Ghi chú thân hàm / view SQL (đọc kỹ 21/10): khoá "ham:<tên>" / "view:<tên>".
+const HAM = D.ham_hieu || {};
+const HAM_CUA_KHOI = {};
+for (const [k, g] of Object.entries(HAM)) if (g.khoi) (HAM_CUA_KHOI[g.khoi] = HAM_CUA_KHOI[g.khoi] || []).push(k);
+const nutHam = k => `<button class="dong" data-ham="${e(k)}"><span class="chinh">${e(k.split(":")[1])}</span>` +
+  `<span class="phu">${e((HAM[k].lam_gi || "").slice(0, 90))}</span><span class="phai"><span class="nhan ${HAM[k].loai === "logic_nghiep_vu" ? "vang" : ""}">${e(HAM[k].loai || "")}</span></span></button>`;
+const TEST_CUA = D.test_cua || {};
+// Tệp test cũng mở được khung chi tiết: gộp vào GHI dưới dạng ghi chú test.
+for (const [t, g] of Object.entries(GHI_TEST)) if (!GHI[t]) GHI[t] = { ...g, la_test: true };
+const TEP_CUA_KHOI = {};
+for (const [t, g] of Object.entries(GHI)) if (g.khoi) (TEP_CUA_KHOI[g.khoi] = TEP_CUA_KHOI[g.khoi] || []).push(t);
 
 const LOAI_DAY = {
   su_kien: { ten: "Sự kiện", mo_ta: "khối phát → khối nghe (đúng event-driven)", mau: "var(--d-su-kien)" },
@@ -230,6 +275,9 @@ const LOAI_VD = {
   chua_lego: ["Chưa lego", "do"], chua_su_kien: ["Chưa phát sự kiện", "cam"], khong_vet: ["Sửa không để vết", "cam"],
   logic_sql: ["Logic trong SQL", "vang"], day_ngam: ["Dây ngầm trigger", "vang"], ham_chet: ["Hàm/view chết", ""],
   bang_chua_chu: ["Bảng chưa có chủ", ""], quyen: ["Quyền", "do"],
+  luat_tsx: ["Giao diện tự quyết", "cam"], comment_cu: ["Comment cũ", ""],
+  phat_hien_dung: ["Đã kiểm: có thật", "do"], phat_hien_can_soat: ["Đã kiểm: cần soát tiếp", "vang"],
+  kiem_toan: ["Kiểm toán 19–20/10", "vang"], du_lieu_prod: ["Dữ liệu prod", "do"], test_yeu: ["Test canh hời hợt", ""], van_hanh: ["Script ghi prod", "cam"], phat_hien_sai: ["Đã kiểm: báo oan", ""], phat_hien_chu_y: ["Đã kiểm: chủ ý (Tuyền chốt)", "xanh"],
 };
 const MUC = { cao: "Cao", vua: "Vừa", thap: "Thấp" };
 
@@ -238,7 +286,7 @@ const DOC = (k, md) => { try { return localStorage.getItem(k) || md; } catch (_)
 // Kiểu link đọc từ Info.plist của app trên máy (21/10): vscode, antigravity-ide.
 const KIEU_LINK = { vscode: "vscode", antigravity: "antigravity-ide" };
 let trinhMo = DOC("ban-do-mo", "vscode");
-let theDangXem = DOC("ban-do-the-v2", "so-do");
+let theDangXem = DOC("ban-do-the-v3", "tong-quan");
 let tuKhoa = "";
 const lichSu = [];
 const e = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -247,10 +295,17 @@ const ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
 function nutTep(tep, dong, them, nho) {
   if (!tep) return "";
   const i = tep.lastIndexOf("/");
-  return `<a class="tep${nho ? " nho" : ""}" href="${e(linkMo(tep, dong))}" title="Mở ${e(tep)}${dong ? ":" + dong : ""}">${ICON}` +
+  const a = `<a class="tep${nho ? " nho" : ""}" href="${e(linkMo(tep, dong))}" title="Mở ${e(tep)}${dong ? ":" + dong : ""}">${ICON}` +
     `<span class="ten-tep">${e(tep.slice(i + 1))}${dong ? ":" + dong : ""}</span>` +
     (nho ? "" : `<span class="thu-muc">${e(tep.slice(0, i + 1))}</span>`) + (them ? `<span class="them">${e(them)}</span>` : "") + `</a>`;
+  return GHI[tep] ? `<span class="tep-hang">${a}<button class="nut-hieu" data-tep="${e(tep)}" title="Tệp này làm gì">?</button></span>` : a;
 }
+// Tệp kèm một dòng "làm gì" — danh sách tệp của khối / màn.
+function theTep(tep) {
+  const g = GHI[tep];
+  return `<div class="the-tep">${nutTep(tep)}${g ? `<p class="lam-gi">${g.cu ? '<span class="nhan vang">ghi chú cũ</span> ' : ""}${e(g.lam_gi)}</p>` : ""}</div>`;
+}
+const dongLuat = (tep, x) => `<div class="dong-luat"><div>${e(x.noi_dung)}</div>${nutTep(tep, x.dong, "", true)}</div>`;
 const chipKhoi = ma => KHOI[ma] ? `<button class="chip khoi" data-khoi="${e(ma)}" title="${e(KHOI[ma].ten)}">${e(ma)}</button>` : `<span class="chip tinh">${e(ma)}</span>`;
 const chipMan = r => `<button class="chip" data-man="${e(r)}">${e(r)}</button>`;
 const chipBang = b => BANG[b] ? `<button class="chip" data-bang="${e(b)}">${e(b)}</button>` : `<span class="chip tinh">${e(b)}</span>`;
@@ -262,7 +317,7 @@ const hoac = (ds, f, rong) => ds && ds.length ? ds.map(f).join("") : `<span clas
 // ── Thẻ ─────────────────────────────────────────────────────────────────────
 const soVD = VAN_DE.filter(v => v.muc !== "thap").length;
 const THE = [
-  ["so-do", "Sơ đồ lego", ""], ["van-de", "Vấn đề", VAN_DE.length], ["khoi", "Khối", D.khoi.length],
+  ["tong-quan", "Tổng quan", ""], ["so-do", "Sơ đồ lego", ""], ["van-de", "Vấn đề", VAN_DE.length], ["khoi", "Khối", D.khoi.length],
   ["man", "Màn", D.man.length], ["bang", "Bảng", Object.keys(BANG).length || Object.keys(D.bang).length],
 ];
 function veThe() {
@@ -486,12 +541,18 @@ function veTim(q) {
   for (const m of D.man) for (const f of [m.trang, ...m.thanh_phan, ...m.api]) if (f && co(f) && !tep.some(x => x[0] === f)) tep.push([f, m.route]);
   const suKien = Object.keys(PHAT_BOI).filter(co);
   const vd = VAN_DE.filter(v => co(v.tieu_de) || co(v.tep || ""));
+  // Tìm trong nội dung ghi chú: "làm gì", luật, muốn sửa — gõ "giảm giá" ra đúng tệp.
+  const ghi = Object.entries(GHI).filter(([f, g]) => !tep.some(x => x[0] === f) &&
+    (co(g.lam_gi || "") || (g.luat || []).some(x => co(x.noi_dung)) || (g.muon_sua || []).some(x => co(x.viec))));
+  const ham = Object.keys(HAM).filter(k => co(k) || co(HAM[k].lam_gi || "") || (HAM[k].luat || []).some(x => co(x.noi_dung)));
   const nhom = (ten, ds, f) => ds.length ? muc(`${ten} (${ds.length})`, `<div class="danh-sach">${ds.slice(0, 30).map(f).join("")}</div>`) : "";
   return (nhom("Khối", khoi, k => `<button class="dong" data-khoi="${e(k.ma)}"><span class="chinh">${e(k.ma)}</span><span class="phu">${e(k.ten)}</span></button>`) +
     nhom("Màn", man, m => `<button class="dong" data-man="${e(m.route)}"><span class="chinh">${e(m.route)}</span><span class="phu">${e(m.tieu_de)}</span></button>`) +
     nhom("Bảng", bang, b => `<button class="dong" data-bang="${e(b)}"><span class="chinh">${e(b)}</span><span class="phu">${e(BANG[b] ? BANG[b].khoi || "" : D.bang[b])}</span></button>`) +
     nhom("Sự kiện", suKien, ev => `<button class="dong" data-khoi="${e(PHAT_BOI[ev])}"><span class="chinh">${e(ev)}</span><span class="phu">khối ${e(PHAT_BOI[ev])} phát</span></button>`) +
-    nhom("Tệp (bấm mở ngay)", tep, ([f, o]) => nutTep(f, 0, o)) +
+    nhom("Tệp (bấm mở ngay)", tep, ([f, o]) => GHI[f] ? theTep(f) : nutTep(f, 0, o)) +
+    nhom("Ghi chú nhắc tới", ghi, ([f]) => theTep(f)) +
+    nhom("Hàm / view SQL", ham, nutHam) +
     (vd.length ? muc(`Vấn đề (${vd.length})`, veVanDe(vd, false)) : "")) || `<p class="trong">Không thấy gì khớp “${e(q)}”.</p>`;
 }
 
@@ -499,7 +560,7 @@ function veNoiDung() {
   veThe();
   const nd = document.getElementById("noi-dung");
   if (tuKhoa) { nd.innerHTML = veTim(tuKhoa); return; }
-  nd.innerHTML = { "so-do": veSoDo, "van-de": () => veVanDe(), khoi: veKhoi, man: veMan, bang: veBang }[theDangXem]();
+  nd.innerHTML = ({ "tong-quan": veTongQuan, "so-do": veSoDo, "van-de": () => veVanDe(), khoi: veKhoi, man: veMan, bang: veBang }[theDangXem] || veSoDo)();
   if (theDangXem === "so-do") { dungSoDo(); ganSoDo(); }
 }
 
@@ -512,12 +573,36 @@ function tomTatDay(ma) {
   return (ra.length ? muc(`Dây đi ra (${ra.length})`, `<div class="danh-sach">${ra.map(d => dong(d, "ra")).join("")}</div>`) : "") +
     (vao.length ? muc(`Dây đi vào (${vao.length})`, `<div class="danh-sach">${vao.map(d => dong(d, "vao")).join("")}</div>`) : "");
 }
+// Luật / bẫy / muốn sửa gom từ ghi chú mọi tệp của khối (Python + giao diện).
+function gomGhiChu(ds, khoa) {
+  const ra = [];
+  for (const f of ds) for (const x of (GHI[f] && GHI[f][khoa]) || []) ra.push([f, x]);
+  return ra;
+}
+const xemThem = (ds, f, dau = 12) => ds.length <= dau ? ds.map(f).join("") :
+  ds.slice(0, dau).map(f).join("") + `<details class="them-nua"><summary>Xem thêm ${ds.length - dau}</summary>${ds.slice(dau).map(f).join("")}</details>`;
+function theKhoi(ma) {
+  const t = THE_KHOI[ma];
+  if (!t) return "";
+  return `<div class="the-hieu"><p>${e(t.tom_tat)}</p>` +
+    (t.luong && t.luong.length ? `<ol class="luong">${t.luong.map(b => `<li>${e(b)}</li>`).join("")}</ol>` : "") +
+    (t.luu_y && t.luu_y.length ? `<ul class="luu-y">${t.luu_y.map(b => `<li>${e(b)}</li>`).join("")}</ul>` : "") + `</div>` +
+    (t.muon_sua && t.muon_sua.length ? muc(`Muốn sửa gì thì vào đâu (${t.muon_sua.length})`, `<div class="danh-sach">${t.muon_sua.map(m =>
+      `<div class="dong-luat"><div><b>${e(m.viec)}</b> — ${e(m.cho)}</div>${nutTep(m.tep, m.dong, "", true)}</div>`).join("")}</div>`) : "");
+}
 function chiTietKhoi(k) {
   const vd = VD_CUA[k.ma] || [];
-  return `<div class="ma-lon">${e(k.ma)}</div><h2>${e(k.ten)}</h2>` +
+  const tepGhi = [...new Set([...k.tep, ...(TEP_CUA_KHOI[k.ma] || [])])];
+  const tepGd = (TEP_CUA_KHOI[k.ma] || []).filter(f => !k.tep.includes(f) && f.startsWith("src/dashboard"));
+  const luat = gomGhiChu(tepGhi, "luat"), bay = gomGhiChu(tepGhi, "bay");
+  return `<div class="ma-lon">${e(k.ma)}</div><h2>${e(k.ten)}</h2>` + theKhoi(k.ma) +
+    (luat.length ? muc(`Luật nghiệp vụ trong code (${luat.length})`, xemThem(luat, ([f, x]) => dongLuat(f, x))) : "") +
+    (bay.length ? muc(`Bẫy khi sửa (${bay.length})`, xemThem(bay, ([f, x]) => dongLuat(f, x), 6)) : "") +
     (vd.length ? muc(`Vấn đề của khối (${vd.length})`, veVanDe(vd, false)) : "") +
     tomTatDay(k.ma) +
-    muc(`Tệp code (${k.tep.length}) — bấm để mở`, `<div class="cac-tep">${hoac(k.tep, f => nutTep(f), "chưa khai tệp nào")}</div>`) +
+    muc(`Tệp code (${k.tep.length}) — bấm tên để mở, bấm ? để xem tệp làm gì`, `<div class="cac-tep">${hoac(k.tep, theTep, "chưa khai tệp nào")}</div>`) +
+    (tepGd.length ? muc(`Tệp giao diện gọi khối này (${tepGd.length})`, `<div class="cac-tep">${xemThem(tepGd, theTep, 8)}</div>`) : "") +
+    ((HAM_CUA_KHOI[k.ma] || []).length ? muc(`Hàm / view SQL của khối (${HAM_CUA_KHOI[k.ma].length})`, `<div class="danh-sach">${xemThem(HAM_CUA_KHOI[k.ma], nutHam, 8)}</div>`) : "") +
     muc(`Bảng giữ (${k.bang.length})`, `<div class="chips">${hoac(k.bang, chipBang)}</div>`) +
     (k.lenh.length ? muc("Lệnh", `<div class="chips">${k.lenh.map(chipTinh).join("")}</div>`) : "") +
     (k.quyen.length ? muc("Quyền (lego)", `<div class="chips">${k.quyen.map(chipTinh).join("")}</div>`) : "") +
@@ -540,16 +625,82 @@ function chiTietDay(d) {
 function chiTietBang(b) {
   const x = BANG[b];
   if (!x) return `<h2>${e(b)}</h2><p class="trong">Không có dữ liệu database.</p>`;
+  const h = BANG_HIEU[b] || { cot: {}, rang_buoc: [] };
+  const nghia = c => h.cot[c[0]] || c[3] || "";
   return `<div class="ma-lon">${e(b)}</div><h2>${x.khoi ? chipKhoi(x.khoi) : D.ky_thuat[b] ? "Bảng kỹ thuật" : `<span class="nhan cam">chưa có khối chủ</span>`}</h2>` +
     `<p class="goi-y">${x.so_dong == null ? "" : `≈${x.so_dong.toLocaleString("vi-VN")} dòng trên prod · `}${x.rls ? "bật quyền theo hàng" : "TẮT quyền theo hàng"}` +
     `${D.ky_thuat[b] ? " · " + e(D.ky_thuat[b]) : ""}</p>` +
+    (h.lam_gi || x.mo_ta ? `<div class="the-hieu"><p>${e(h.lam_gi || x.mo_ta)}</p></div>` : "") +
+    // Mới nhất trước: luật ở migration sau có thể thay luật cũ cùng chủ đề (gộp hai nửa
+    // đọc migration không tự loại được bản cũ) — ngày tệp cho biết bản nào hiệu lực.
+    (h.rang_buoc.length ? muc(`Luật database tự ép (${h.rang_buoc.length}) — mới nhất trước`,
+      [...h.rang_buoc].sort((a, b) => String(b.tep).localeCompare(String(a.tep))).map(r => {
+        const n = /(\d{4})(\d{2})(\d{2})/.exec(r.tep || "");
+        return dongLuat(r.tep, { dong: r.dong, noi_dung: (n ? `[${n[3]}/${n[2]}] ` : "") + r.noi_dung });
+      }).join("")) : "") +
     muc(`Trigger (${x.trigger.length})`, hoac(x.trigger, t => `<div class="muc-con"><div class="dau-con"><code>${e(t.ten)}</code>` +
       `${t.loai ? `<span class="nhan ${t.loai === "logic_nghiep_vu" ? "vang" : ""}">${e(t.loai)}</span>` : ""}</div>` +
-      `<div class="goi-y" style="margin:0 0 6px">${e(t.khi)}${t.lam_gi ? " · " + e(t.lam_gi) : ""}</div>${nutTep(t.tep, t.dong, "hàm " + t.ham)}</div>`)) +
+      `<div class="goi-y" style="margin:0 0 6px">${e(t.khi)}${t.lam_gi ? " · " + e(t.lam_gi) : ""}</div>` +
+      `<div class="tep-hang">${nutTep(t.tep, t.dong, "hàm " + t.ham)}${HAM["ham:" + t.ham] ? `<button class="nut-hieu" data-ham="ham:${e(t.ham)}" title="Hàm này làm gì">?</button>` : ""}</div></div>`)) +
     muc(`Liên kết ra (${x.ra.length})`, `<div class="chips">${hoac(x.ra, r => `<span class="chip tinh">${e(r[0])} →</span>${chipBang(r[1])}`)}</div>`) +
     muc(`Bảng trỏ vào nó (${x.vao.length})`, `<div class="chips">${hoac(x.vao, r => chipBang(r[0]))}</div>`) +
     muc(`Cột (${x.cot.length})`, `<table class="bang"><tbody>${x.cot.map(c => `<tr><td class="mono">${x.khoa_chinh.includes(c[0]) ? "🔑 " : ""}${e(c[0])}</td>` +
-      `<td class="mono phu">${e(c[1])}${c[2] ? "" : " · có thể trống"}</td></tr>`).join("")}</tbody></table>`);
+      `<td class="mono phu">${e(c[1])}${c[2] ? "" : " · có thể trống"}</td><td class="nghia">${e(nghia(c))}</td></tr>`).join("")}</tbody></table>`);
+}
+function chiTietTep(f) {
+  const g = GHI[f];
+  if (!g) return "";
+  const ds = (k, fn) => (g[k] || []).length ? (g[k] || []).map(fn).join("") : "";
+  const ban = (k, t) => (g[k] || []).length ? muc(t, `<div class="chips">${g[k].map(b => k.endsWith("bang") ? chipBang(b) : chipTinh(b)).join("")}</div>`) : "";
+  return `<div class="ma-lon">${e(f.slice(0, f.lastIndexOf("/") + 1))}</div><h2>${e(f.slice(f.lastIndexOf("/") + 1))}</h2>` +
+    `<div class="cac-tep">${nutTep(f)}</div>` +
+    (g.cu ? `<p class="canh-bao-the">Tệp đã đổi sau lần đọc kỹ — ghi chú có thể cũ, đối chiếu code trước khi tin.</p>` : "") +
+    (g.sai_dong && g.sai_dong.length ? `<p class="canh-bao-the">Có số dòng vượt độ dài tệp (${g.sai_dong.join(", ")}) — ghi chú lệch.</p>` : "") +
+    `<div class="the-hieu"><p>${e(g.lam_gi)}</p>${g.khoi ? `<div class="chips">${chipKhoi(g.khoi)}</div>` : ""}</div>` +
+    (g.chay_o ? `<p class="goi-y">Chạy ở: <b>${e(g.chay_o)}</b>${g.ghi_prod ? ' · <span class="nhan do">GHI PROD</span>' : ""}</p>` : "") +
+    (g.nguy_hiem ? `<p class="canh-bao-the">Chạy sai thì: ${e(g.nguy_hiem)}</p>` : "") +
+    ((g.canh || []).length ? muc(`Bài test canh luật (${g.canh.length})`, g.canh.map(c => dongLuat(f, { dong: c.dong, noi_dung: `${c.test} — ${c.luat}` })).join("")) : "") +
+    ((g.yeu || []).length ? muc(`Test hời hợt (${g.yeu.length})`, ds("yeu", x => dongLuat(f, x))) : "") +
+    ((TEST_CUA[f] || []).length ? muc(`Test canh tệp này (${TEST_CUA[f].length})`, xemThem(TEST_CUA[f], c => dongLuat(c.tep, { dong: c.dong, noi_dung: `${c.luat} (${c.test})` }), 8)) : "") +
+    ((g.luat || []).length ? muc(`Luật nghiệp vụ (${g.luat.length})`, ds("luat", x => dongLuat(f, x))) : "") +
+    ((g.ham_chinh || []).length ? muc(`Hàm chính (${g.ham_chinh.length})`, ds("ham_chinh", x => dongLuat(f, { dong: x.dong, noi_dung: `${x.ten} — ${x.lam_gi}` }))) : "") +
+    ((g.muon_sua || []).length ? muc("Muốn sửa gì thì vào đâu", ds("muon_sua", x => `<div class="dong-luat"><div><b>${e(x.viec)}</b> — ${e(x.cho)}</div></div>`)) : "") +
+    ((g.bay || []).length ? muc(`Bẫy khi sửa (${g.bay.length})`, ds("bay", x => dongLuat(f, x))) : "") +
+    ban("ghi_bang", "Ghi bảng") + ban("doc_bang", "Đọc bảng") + ban("su_kien_phat", "Phát sự kiện") + ban("su_kien_nghe", "Nghe sự kiện") + ban("goi_api", "Gọi API") +
+    ((g.comment_cu || []).length ? muc(`Comment cũ nên xoá/sửa (${g.comment_cu.length})`, ds("comment_cu", x => dongLuat(f, { dong: x.dong, noi_dung: x.vi_sao }))) : "") +
+    ((g.chua_chac || []).length ? muc("Người đọc chưa chắc", `<ul class="luu-y">${g.chua_chac.map(x => `<li>${e(typeof x === "string" ? x : x.noi_dung || JSON.stringify(x))}</li>`).join("")}</ul>`) : "");
+}
+function chiTietHam(k) {
+  const g = HAM[k];
+  if (!g) return "";
+  const [loaiMuc, ten] = k.split(":");
+  const [tdn, ddn] = String(g.dinh_nghia || "").split(":");
+  const ds = (kk, fn) => (g[kk] || []).map(fn).join("");
+  const chi = s => `<div class="dong-luat"><div>${e(s)}</div></div>`;
+  return `<div class="ma-lon">${loaiMuc === "view" ? "VIEW" : "HÀM"} SQL</div><h2>${e(ten)}</h2>` +
+    (tdn ? `<div class="cac-tep">${nutTep(tdn, +ddn || 0, "bản đang chạy")}</div>` : "") +
+    (g.cu ? `<p class="canh-bao-the">Hàm đã được định nghĩa lại ở migration mới sau lần đọc kỹ — ghi chú có thể cũ.</p>` : "") +
+    `<div class="the-hieu"><p>${e(g.lam_gi)}</p><div class="chips">${g.khoi ? chipKhoi(g.khoi) : ""}${g.loai ? chipTinh(g.loai) : ""}</div></div>` +
+    (g.chay_khi ? `<p class="goi-y">Chạy khi: ${e(g.chay_khi)}</p>` : "") +
+    ((g.luat || []).length ? muc(`Luật nghiệp vụ (${g.luat.length})`, ds("luat", x => chi(x.noi_dung))) : "") +
+    ((g.bay || []).length ? muc(`Bẫy khi sửa (${g.bay.length})`, ds("bay", x => chi(x.noi_dung))) : "") +
+    ((g.muon_sua || []).length ? muc("Muốn sửa gì thì vào đâu", ds("muon_sua", x => chi(`${x.viec} — ${x.cho}`))) : "") +
+    ((g.ghi_bang || []).length ? muc("Ghi bảng", `<div class="chips">${g.ghi_bang.map(chipBang).join("")}</div>`) : "") +
+    ((g.doc_bang || []).length ? muc("Đọc bảng", `<div class="chips">${g.doc_bang.map(chipBang).join("")}</div>`) : "") +
+    ((g.goi_boi || []).length ? muc("Ai gọi", `<div class="cac-tep">${g.goi_boi.map(x => GHI[x] || /^(src|scripts)\//.test(x) ? nutTep(x) : chipTinh(x)).join("")}</div>`) : "") +
+    ((g.chua_chac || []).length ? muc("Người đọc chưa chắc", `<ul class="luu-y">${g.chua_chac.map(x => `<li>${e(typeof x === "string" ? x : x.noi_dung || JSON.stringify(x))}</li>`).join("")}</ul>`) : "");
+}
+// ── Tổng quan ───────────────────────────────────────────────────────────────
+function veTongQuan() {
+  const tong = Object.keys(GHI).length, cu = Object.values(GHI).filter(g => g.cu).length;
+  const soLuat = Object.values(GHI).reduce((n, g) => n + (g.luat || []).length, 0);
+  const phu = `<p class="goi-y">Đọc kỹ ${tong.toLocaleString("vi-VN")} tệp · ${soLuat.toLocaleString("vi-VN")} luật nghiệp vụ có chỉ dòng` +
+    `${cu ? ` · <b>${cu} tệp đã đổi sau lần đọc — ghi chú có thể cũ</b>` : ""}. Bấm chặng / khối để xem chi tiết.</p>`;
+  if (!TQ) return phu + `<p class="trong">Chưa có trang tổng quan — đang đọc code.</p>`;
+  return `<div class="tong-quan"><h2>${e(TQ.tieu_de)}</h2>${(TQ.gioi_thieu || []).map(p => `<p>${e(p)}</p>`).join("")}${phu}` +
+    `<ol class="chang">${(TQ.chang || []).map((c, i) => `<li style="animation-delay:${i * 40}ms"><div class="so-chang">${i + 1}</div><div>` +
+      `<h3>${e(c.ten)}</h3><p>${e(c.mo_ta)}</p><div class="chips">${(c.khoi || []).map(chipKhoi).join("")}${(c.man || []).map(chipMan).join("")}</div></div></li>`).join("")}</ol>` +
+    ((TQ.nguyen_tac || []).length ? muc("Nguyên tắc chung khi sửa", `<ul class="luu-y">${TQ.nguyen_tac.map(x => `<li>${e(x)}</li>`).join("")}</ul>`) : "") + `</div>`;
 }
 function chiTietMan(m) {
   return `<div class="ma-lon">${e(m.route)}</div><h2>${e(m.tieu_de || "Màn")}</h2>` +
@@ -565,6 +716,8 @@ function mo(loai, ma, ghi = true) {
   if (loai === "khoi") html = KHOI[ma] && chiTietKhoi(KHOI[ma]);
   else if (loai === "man") html = MAN[ma] && chiTietMan(MAN[ma]);
   else if (loai === "bang") html = chiTietBang(ma);
+  else if (loai === "tep") html = chiTietTep(ma);
+  else if (loai === "ham") html = chiTietHam(ma);
   else if (loai === "day") { const [l, a, b] = ma.split("|"); const d = DAY.find(x => x.loai === l && x.tu === a && x.den === b); html = d && chiTietDay(d); }
   if (!html) return;
   if (ghi) lichSu.push([loai, ma]);
@@ -587,10 +740,12 @@ function dong() {
 
 // ── Bấm ─────────────────────────────────────────────────────────────────────
 document.addEventListener("click", ev => {
-  const t = ev.target.closest("[data-khoi],[data-man],[data-bang],[data-the],[data-mo],[data-lop],[data-day],[data-day-key],[data-loc-loai],#chi-vd,#xep-lai");
+  const t = ev.target.closest("[data-ham],[data-tep],[data-khoi],[data-man],[data-bang],[data-the],[data-mo],[data-lop],[data-day],[data-day-key],[data-loc-loai],#chi-vd,#xep-lai");
   if (!t) return;
+  if (t.dataset.ham) { mo("ham", t.dataset.ham); return; }
+  if (t.dataset.tep) { mo("tep", t.dataset.tep); return; }
   if (t.closest("#so-do") && t.dataset.khoi) return; // khối trên sơ đồ mở bằng pointerup (phân biệt kéo / bấm)
-  if (t.dataset.the) { theDangXem = t.dataset.the; LUU("ban-do-the-v2", theDangXem); tuKhoa = ""; document.getElementById("o-tim").value = ""; veNoiDung(); return; }
+  if (t.dataset.the) { theDangXem = t.dataset.the; LUU("ban-do-the-v3", theDangXem); tuKhoa = ""; document.getElementById("o-tim").value = ""; veNoiDung(); return; }
   if (t.dataset.mo) { trinhMo = t.dataset.mo; LUU("ban-do-mo", trinhMo); veChon(); if (theDangXem !== "so-do") veNoiDung(); if (lichSu.length) mo(...lichSu[lichSu.length - 1], false); return; }
   if (t.dataset.lop) { lopBat[t.dataset.lop] = !lopBat[t.dataset.lop]; LUU("ban-do-lop", JSON.stringify(lopBat)); veNoiDung(); return; }
   if (t.id === "chi-vd") { chiVanDe = !chiVanDe; LUU("ban-do-chi-vd", chiVanDe ? "1" : "0"); veNoiDung(); return; }

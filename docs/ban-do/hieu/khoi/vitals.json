@@ -1,0 +1,41 @@
+{
+  "tom_tat": "Khối Sinh hiệu lo việc điều dưỡng đo huyết áp, mạch, nhiệt độ, cân nặng, chiều cao, nhịp thở, SpO₂ (độ bão hoà oxy máu), thang đau cho khách vừa check-in, trước khi khách vào bác sĩ. Người dùng là ai có quyền `vitals.measure` (thường là điều dưỡng), ở màn /do-sinh-hieu (BangDoSinhHieu.tsx): danh sách Chờ đo / Đang đo / Đã đo theo ngày, ô nhập 9 chỉ số, lưu xong tự sang khách kế. Dữ liệu chính là bảng `vital_measurement` — mỗi lần đo một dòng, chỉ thêm, không sửa đè; trạng thái đo của lượt (pending → in_progress → recorded) lại nằm ở bảng `encounter_flow` của khối Hành trình. Khối còn có một cổng đọc `sinh_hieu_cho_ho_so` đưa lần đo mới nhất vào hồ sơ khám.",
+  "luong": [
+    "Bước 1: Khách check-in xong hiện ở nhóm 'Chờ đo' trên /do-sinh-hieu (màn đọc GET /api/luot-kham?ngay=, tự làm mới khi bảng visit / encounter_flow / vital_measurement / queue_entry đổi).",
+    "Bước 2 (tuỳ chọn): bấm gọi khách vào đo — `goi_do_sinh_hieu` ghi giờ gọi; gọi lại thì cập nhật giờ. Lượt khách đã về giữa chừng thì không gọi được.",
+    "Bước 3: điều dưỡng gõ chữ đầu tiên vào bất kỳ ô nào → màn tự gửi lệnh StartVitals (`bat_dau_do_sinh_hieu`): encounter_flow chuyển pending → in_progress, ghi ai bắt đầu lúc nào, phát sự kiện `vitals.started` đúng một lần.",
+    "Bước 4: bấm [Đo xong] → lệnh RecordVitals (`record_vitals`): kiểm số (huyết áp bắt buộc, khoảng hợp lệ, tâm thu > tâm trương, BMI do máy tính), khoá encounter_flow, từ chối nếu còn pending, khách đang có thai thì đòi thêm chiều cao + cân nặng; ghi một dòng vital_measurement, đặt encounter_flow.vitals_status = 'recorded', phát `vitals.recorded` (kèm cờ 'bỏ qua bác sĩ tư vấn' nếu tick).",
+    "Bước 5: khối Hành trình nghe `vitals.recorded` để xếp khách vào hàng tư vấn hoặc thẳng bác sĩ chính — khối Sinh hiệu không tự xếp hàng, chỉ cập nhật con trỏ vị trí (`cap_nhat_vi_tri`).",
+    "Bước 6: máy chủ trả danh sách cảnh báo chỉ số bất thường; có cảnh báo thì màn đứng lại ở khách đó (tô vàng, nút 'Sang khách kế tiếp'), không có thì tự mở khách kế chưa đo.",
+    "Đường phụ: sinh hiệu lưu qua biểu mẫu bệnh án cũ (`dong_bo_sinh_hieu_tu_ho_so`) — có đủ huyết áp là đánh dấu 'recorded' và phát `vitals.recorded` luôn, không cần bước Bắt đầu."
+  ],
+  "luu_y": [
+    "Huyết áp (tâm thu + tâm trương) bắt buộc cho MỌI lượt; các chỉ số khác tuỳ chọn. Ví dụ: gửi mạch 80 mà thiếu tâm trương → từ chối 'Phải đo huyết áp…', tô ô diastolic.",
+    "Chỉ số bất thường chỉ NHẮC, không chặn ('đo gì ghi nấy'): tâm thu ≥ 140, tâm trương ≥ 90, mạch < 50 hoặc > 120, nhiệt độ ≥ 38 °C, SpO₂ < 94. Ví dụ 150/95 vẫn lưu, màn tô vàng hai ô huyết áp. Ngưỡng ở luot_kham_rules.py, không ở TSX.",
+    "BMI không nhận từ màn — máy tính từ cân/chiều cao: 54 kg, 160 cm → 21.1. Database còn chặn BMI ngoài 5–100.",
+    "Database có lưới an toàn riêng: tâm thu 50–260, tâm trương 30–180, mạch 20–250, nhiệt 34–43 °C, cân 1–300 kg, cao 30–230 cm, nhịp thở 4–80, SpO₂ 50–100, đau 0–10; và trigger cấm sửa/xoá dòng vital_measurement — đo lại là thêm dòng mới, cổng đọc lấy dòng mới nhất.",
+    "Phải bấm Bắt đầu trước khi lưu (máy chủ trả VITALS_NOT_STARTED). Màn tự gửi Bắt đầu ở lần gõ đầu nên người dùng ít khi thấy lỗi này. Riêng đường đồng bộ từ biểu mẫu bệnh án KHÔNG đòi Bắt đầu → lượt đó thiếu mốc bắt đầu đo.",
+    "Bấm Bắt đầu trùng: cùng người → coi như đã bắt đầu, không phát sự kiện lần hai; người khác → từ chối, nói rõ ai bắt đầu lúc mấy giờ; đã đo xong → từ chối VITALS_DONE.",
+    "Phụ thuộc khối khác: trạng thái đo ghi thẳng vào encounter_flow (bảng của khối Hành trình — chỗ ghi chéo khối); 'có thai' đọc từ bảng pregnancy của khối Thai kỳ (outcome rỗng hoặc ONGOING). Sự kiện vitals.recorded KHÔNG mang chỉ số vì sổ sự kiện không xoá được.",
+    "Khách về giữa chừng (INCOMPLETE) vẫn bắt đầu / lưu / sửa sinh hiệu được; chỉ riêng 'gọi vào đo' bị chặn.",
+    "Docstring của bat_dau_do_sinh_hieu (dòng 131–139) còn nói 'lưu mà chưa bấm Bắt đầu vẫn được' và 'gác theo VAI' — đều đã sai: code đòi Bắt đầu (dòng 319) và hỏi quyền vitals.measure (dòng 144, 302).",
+    "Màn: 'khách kế tiếp' (keTiep) xếp theo giờ check-in trong khi danh sách có thể xếp theo số booking, và có thể chọn cả khách đang được người khác đo; giờ hiện theo múi giờ máy người dùng."
+  ],
+  "muon_sua": [
+    {"viec": "đổi ngưỡng cảnh báo chỉ số bất thường (huyết áp cao, sốt, SpO₂ thấp, mạch)", "cho": "hằng số HA_TAM_THU_CAO… và hàm canh_bao_sinh_hieu", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 564},
+    {"viec": "đổi khoảng hợp lệ của từng chỉ số (vd nhiệt độ cho nhập tới 43)", "cho": "bảng _RANGES — nhãn, cận dưới, cận trên mỗi ô (nhớ CHECK database ở migration 20260911000001 / 20260916000003)", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 393},
+    {"viec": "đổi chỉ số nào bắt buộc (hiện chỉ huyết áp)", "cho": "parse_vitals_co_truong — đoạn kiểm systolic/diastolic thiếu", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 510},
+    {"viec": "đổi chỉ số bắt buộc thêm khi khách đang có thai", "cho": "truong_thieu_khi_co_thai / thieu_sinh_hieu_khi_co_thai", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 444},
+    {"viec": "đổi cách tính BMI", "cho": "parse_vitals_co_truong — đoạn BMI chỉ tính ra từ cân / chiều cao", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 536},
+    {"viec": "bỏ bắt buộc bấm Bắt đầu trước khi lưu", "cho": "record_vitals — nhánh vitals_status == 'pending' trả VITALS_NOT_STARTED", "tep": "src/clinicai/services/sinh_hieu_service.py", "dong": 319},
+    {"viec": "đổi luật bấm Bắt đầu trùng (cho người khác bắt đầu lại)", "cho": "bat_dau_do_sinh_hieu — nhánh in_progress, so người bấm", "tep": "src/clinicai/services/sinh_hieu_service.py", "dong": 152},
+    {"viec": "đổi cách xác định 'khách đang có thai'", "cho": "record_vitals — câu SQL đọc pregnancy outcome ONGOING", "tep": "src/clinicai/services/sinh_hieu_service.py", "dong": 324},
+    {"viec": "đổi điều kiện để lưu qua biểu mẫu bệnh án được tính 'đã đo'", "cho": "dong_bo_sinh_hieu_tu_ho_so — hiện chỉ cần đủ huyết áp", "tep": "src/clinicai/services/sinh_hieu_service.py", "dong": 232},
+    {"viec": "đổi quyền được đo sinh hiệu", "cho": "doi_quyen(… 'vitals.measure') trong record_vitals (cùng ở dòng 78, 144)", "tep": "src/clinicai/services/sinh_hieu_service.py", "dong": 302},
+    {"viec": "thêm / bớt ô sinh hiệu hoặc đổi thứ tự ô, nhãn, đơn vị", "cho": "mảng O (khoá `gui` phải khớp tên trường máy chủ)", "tep": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx", "dong": 101},
+    {"viec": "đổi cách chọn 'khách kế tiếp' sau khi lưu", "cho": "hàm keTiep (đang theo giờ check-in)", "tep": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx", "dong": 135},
+    {"viec": "đổi hành vi sau khi lưu (đứng lại khi có cảnh báo / tự sang khách kế)", "cho": "cuối hàm luu", "tep": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx", "dong": 404},
+    {"viec": "đổi nhịp tự làm mới danh sách (đang 60 giây)", "cho": "nhipKhiHien(…, 60000)", "tep": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx", "dong": 223},
+    {"viec": "đổi chữ / luật ô 'Bỏ qua bác sĩ tư vấn'", "cho": "nhãn ô trên màn; lệnh máy chủ là LuotKhamService.bo_qua_tu_van", "tep": "src/dashboard/app/(dashboard)/do-sinh-hieu/BangDoSinhHieu.tsx", "dong": 770}
+  ]
+}

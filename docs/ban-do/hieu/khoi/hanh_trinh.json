@@ -1,0 +1,44 @@
+{
+  "tom_tat": "Khối Hành trình là \"người điều phối\" lượt khám (Process Manager): giữ luật THỨ TỰ khách đi trong phòng khám — check-in → đo sinh hiệu → tư vấn hoặc thẳng bác sĩ chính → chốt dịch vụ → xếp phòng làm dịch vụ → thu tiền → check-out. Nó không có lệnh và không ghi bảng của ai: nghe các sự thật đã xảy ra rồi gọi lệnh của khối Khám, Chỉ định, Điều phối; phần backend là một bên nghe sự kiện (consumer `hanh_trinh_luot_kham`, tệp `events/consumers/hanh_trinh.py`) chạy trong worker su-kien, kèm hai loại hẹn giờ nhắc. Bảng khai là `encounter_flow` (lượt đang ở bước nào: route_decision TU_VAN/PRIMARY/SERVICES, vitals_status…), nhưng code ghi bảng này nằm ở `luot_kham_service.py`. Phần màn là /hanh-trinh (bảng mọi khách trong ngày: đang ở đâu, đã xong gì, còn chờ gì) và khung \"Hành trình khách\" dùng ở mọi màn — chỉ vẽ dữ liệu máy chủ tính.",
+  "luong": [
+    "Bước 1 (H2): visit.checked_in → khoá dòng visit; nếu lượt còn OPEN/IN_PROGRESS thì mang chỉ định chưa làm của lượt trước sang (`ChiDinhService.mang_sang_luot_moi`).",
+    "Bước 2 (H1): xếp đường đi sau check-in (`xep_sau_check_in`, luật `duong_sau_check_in`): có chỉ định mang sang + (lịch đi thẳng phòng hoặc cùng buổi đã khám) → DỊCH VỤ; loại khám qua tư vấn (trừ khách quen) → TƯ VẤN; còn lại → bác sĩ chính. Phát visit.routed (người phát = hệ thống). Có chỉ định mang sang và dây tự xếp bật → xếp phòng luôn.",
+    "Bước 3 (H1b): appointment.service_switched (đổi loại khám sau check-in) → xếp lại hàng đầu, chỉ khi loại khám hiện tại của lượt vẫn đúng loại trong sự kiện.",
+    "Bước 4: vitals.recorded → tự chữa: lượt chưa có đường đi thì xếp luôn; điều dưỡng tick \"bỏ qua tư vấn\" → thẳng bác sĩ chính, không thì mở hàng tư vấn (\"chờ đo\" → \"chờ tư vấn\").",
+    "Bước 5 (H3): consultation.handed_over (tư vấn bàn giao) → chuyển vào hàng chờ khám thật của bác sĩ chính.",
+    "Bước 6 (H4): service_selection.confirmed / visit.defer_payment_set (tick \"Làm trước – thu sau\") / service_order.desk_added (thêm dịch vụ tại quầy) / service_order.restored (hoàn tác bỏ chỉ định) / payment.service_collected → nếu dây tự xếp bật thì `tu_xep_da_thu` xếp phòng vắng nhất cho các chỉ định qua cửa làm, bằng quyền người bấm.",
+    "Bước 7 (H8): payment.service_collected / payment.medicine_collected → hẹn N phút (mặc định 60); tới giờ khách chưa check-out → chuông lễ tân (CHỈ nhắc, không tự đóng lượt).",
+    "Bước 8 (H7): service.completed / partner.sample_collected của dịch vụ làm bên ngoài chưa có kết quả → hẹn N ngày (mặc định 3); tới hạn vẫn chưa có kết quả và chưa huỷ → chuông CSKH.",
+    "Bước 9 (H6): visit.checked_out / visit.left_early → huỷ hẹn nhắc check-out; khách về còn việc dở (kết quả đối tác chưa về, kết quả chưa bác sĩ xem, dịch vụ đã chọn chưa làm) hoặc bỏ về giữa chừng → chuông CSKH.",
+    "Bước 10: Màn /hanh-trinh và khung Hành trình khách đọc `/api/v1/hanh-trinh/hom-nay` và `/luot-kham/visits/{id}/hanh-trinh-khach`, nạp lại khi các bảng liên quan đổi (SSE)."
+  ],
+  "luu_y": [
+    "Tự xếp phòng chỉ chạy khi dây h4_tu_xep_phong BẬT và dây nhan_tai_phong TẮT — bật \"Nhận tại phòng\" thì không ai xếp thay, phòng tự bấm Nhận.",
+    "Cửa làm theo dây thu_truoc_khi_lam (mặc định BẬT): chưa thu tiền thì chỉ lượt đã tick \"Làm trước – thu sau\" mới được xếp; TẮT thì khách chốt là xếp. Người bấm không có quyền điều phối thì để nguyên, thu tiền xong chạy lại bằng quyền người thu.",
+    "Ví dụ hẹn: H8 N=60 — thu 10:00, 11:00 khách chưa check-out → chuông lễ tân. H7 N=3 — lấy mẫu 01/10, 04/10 chưa có kết quả → chuông CSKH. Các số và bật/tắt này là DÂY NGHIỆP VỤ quản lý chỉnh trên màn (mặc định ở `services/day_noi.py`), không sửa code.",
+    "Mọi chuông/hẹn H6–H8 đòi có người gây ra sự kiện; sự kiện hệ thống thì im lặng không nhắc.",
+    "Mọi lệnh chạy bằng LuotKhamService(pool=None) trên chính giao dịch đánh DONE của worker — lệnh nào tự mở pool sẽ vỡ; hỏng giữa chừng thì cả bước cuộn lại, thử lại. Phát lại (la_phat_lai) thì không làm gì (xếp lại hàng cho khách hôm qua là sai). Mọi lệnh phải chạy lại được.",
+    "Một dòng giao sự kiện DEAD chặn các sự kiện sau của cùng lượt cho bên nghe này → khách đứng kẹt; phải xử lý tay ở /ops.",
+    "Hai cột trạng thái chỉ định: `execution_status` (nguồn thật) và `exec_status` (bản chiếu cũ) — trigger Postgres giữ khớp. Câu đếm \"việc dở\" dùng cả hai, dễ nhầm khi sửa.",
+    "Đối tác đã nhận mẫu = việc XONG: không tính là việc dở khi khách về; kết quả về sau có chuông riêng.",
+    "Loại khám nào qua tư vấn là dữ liệu (`service_type.qua_tu_van`), không viết cứng.",
+    "Giao diện tự quyết vài thứ hiển thị: hôm nay mặc định ẩn khách đã về; phút chờ dịch vụ tính từ lúc THU tiền (chưa thu thì lúc gửi chỉ định) — vd gửi 08:45, thu 08:50, bắt đầu 09:00 → chờ 10 phút; đếm \"x/y xong\" bỏ thẻ khách bỏ. Màn /hanh-trinh bị máy chủ cắt 300 lượt/ngày và ô tìm chỉ lọc trên 300 lượt đó.",
+    "visit.routed khai là khối này phát nhưng thật ra phát trong `LuotKhamService._phat_da_xep` (khối Khám)."
+  ],
+  "muon_sua": [
+    {"viec": "đổi điều kiện tự xếp phòng (dây h4 / nhận tại phòng)", "cho": "hàm _tu_xep_bat", "tep": "src/clinicai/events/consumers/hanh_trinh.py", "dong": 65},
+    {"viec": "mang chỉ định cũ sang cả lượt không còn mở", "cho": "điều kiện trang_thai in (OPEN, IN_PROGRESS) khi check-in", "tep": "src/clinicai/events/consumers/hanh_trinh.py", "dong": 98},
+    {"viec": "thêm một sự kiện kích hoạt xếp phòng (H4)", "cho": "bộ sự kiện của nhánh H4 (và khai HANH_TRINH trong catalogue)", "tep": "src/clinicai/events/consumers/hanh_trinh.py", "dong": 144},
+    {"viec": "đổi luật sau đo sinh hiệu (bỏ qua tư vấn / mở hàng tư vấn)", "cho": "nhánh vitals.recorded", "tep": "src/clinicai/events/consumers/hanh_trinh.py", "dong": 179},
+    {"viec": "đổi chữ / vai nhận nhắc check-out", "cho": "hàm nhac_check_out (vai RECEPTION, /reception/queue)", "tep": "src/clinicai/events/consumers/hanh_trinh.py", "dong": 245},
+    {"viec": "đổi việc nào tính là 'việc dở' khi khách về", "cho": "câu SQL trong _bao_ve_con_viec", "tep": "src/clinicai/events/consumers/hanh_trinh.py", "dong": 276},
+    {"viec": "đổi chữ chuông kết quả đối tác quá hạn", "cho": "hàm ket_qua_doi_tac_qua_han", "tep": "src/clinicai/events/consumers/hanh_trinh.py", "dong": 366},
+    {"viec": "đổi mặc định / giới hạn số phút nhắc check-out, số ngày quá hạn, bật tắt báo CSKH", "cho": "các Day h6/h7/h8 (giá trị mặc định; phòng khám chỉnh trên màn thì sửa dữ liệu)", "tep": "src/clinicai/services/day_noi.py", "dong": 122},
+    {"viec": "đổi mặc định dây tự xếp phòng / nhận tại phòng / thu trước khi làm", "cho": "các Day h4_tu_xep_phong, nhan_tai_phong, thu_truoc_khi_lam", "tep": "src/clinicai/services/day_noi.py", "dong": 71},
+    {"viec": "đổi luật đường đi sau check-in (tư vấn / bác sĩ chính / thẳng dịch vụ)", "cho": "hàm duong_sau_check_in", "tep": "src/clinicai/services/luot_kham_rules.py", "dong": 676},
+    {"viec": "đổi ai tính là khách quen vào thẳng bác sĩ chính", "cho": "cột khach_quen trong câu đọc của xep_sau_check_in", "tep": "src/clinicai/services/luot_kham_service.py", "dong": 300},
+    {"viec": "đổi cách chọn phòng khi tự xếp", "cho": "hàm tu_xep_da_thu", "tep": "src/clinicai/services/service_routing_service.py", "dong": 1622},
+    {"viec": "đổi mặc định ẩn khách đã về trên màn /hanh-trinh", "cho": "lọc ẩn khách đã về", "tep": "src/dashboard/app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx", "dong": 105},
+    {"viec": "đổi màu trạng thái các bước hành trình", "cho": "MAU_DOAN", "tep": "src/dashboard/app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx", "dong": 67}
+  ]
+}

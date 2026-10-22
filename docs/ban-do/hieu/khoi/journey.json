@@ -1,0 +1,35 @@
+{
+  "tom_tat": "Khối Journey (\"Hành trình lượt khám\" — phần GHI SỔ) chỉ NGHE: mỗi việc xảy ra với một lượt khám (check-in, đo sinh hiệu, chốt dịch vụ, bắt đầu/xong dịch vụ, đổi phòng, thu tiền, ghi nợ, kết quả về, check-out, hoàn tác…) được ghi thành một dòng trên dòng thời gian của lượt (bảng `luot_dong_thoi_gian`). Đây là \"projection\" — bảng dựng hoàn toàn từ sổ sự kiện `domain_event`, xoá đi phát lại phải ra y hệt, không ghi tay và không dùng để ra quyết định. Backend là bên nghe `dong_thoi_gian_luot` (tệp `events/consumers/dong_thoi_gian.py`) chạy trong worker su-kien, nghe khoảng 85 loại sự kiện. Mọi nhân viên nội bộ xem được dòng thời gian ở màn Xem lượt, khung Hành trình khách, màn /hanh-trinh (API ở `routers/xem_luot.py`), nội dung cắt theo quyền. Khối không có lệnh, không có quyền riêng, không khai bảng state (bảng của nó là projection).",
+  "luong": [
+    "Bước 1: Một khối bất kỳ ghi việc của nó và phát sự kiện (emit_event) trong cùng giao dịch; danh mục `events/catalogue.py` khai DONG_THOI_GIAN_LUOT trong consumers của sự kiện, kèm nhãn hiển thị (`nhan`).",
+    "Bước 2: Worker gọi `ghi_dong_thoi_gian`: sự kiện không mang visit_id trong payload thì bỏ (không thuộc lượt nào).",
+    "Bước 3: Lấy chi tiết hiện trên màn theo DANH SÁCH TRẮNG `CHI_TIET_HIEN` (chỉ trường được khai mới hiện); lấy nhãn: nhãn riêng `_nhan_rieng` (vd sửa số lượng thuốc, chọn dịch vụ khám kèm giá) hoặc nhãn trong danh mục.",
+    "Bước 4: Ghi một dòng vào `luot_dong_thoi_gian` (khoá event_id, ON CONFLICT DO NOTHING) kèm giờ xảy ra, người làm, thu_tu = số thứ tự ghi sổ.",
+    "Bước 5: Màn đọc: Xem lượt (`XemLuotService`, tối đa 300 dòng), khung Hành trình khách (`HanhTrinhKhachService`), bảng Hành trình trong ngày (`BangHanhTrinhService`) — qua `/api/v1/xem-luot/{visit}`, `/hanh-trinh/hom-nay`, `/luot-kham/visits/{id}/hanh-trinh-khach`.",
+    "Bước 6: Khi cần sửa dữ liệu dòng thời gian (đổi nhãn, thêm trường): sửa code rồi dựng lại bằng công cụ phát lại (`events/phat_lai.py`) — xoá bảng và phát lại mọi sự kiện trong MỘT giao dịch."
+  ],
+  "luu_y": [
+    "Không hiện tên thuốc trên dòng thời gian (tên thuốc lộ bệnh) — chỉ số dòng đơn; danh sách trắng chứ không phải danh sách đen: thêm trường vào payload KHÔNG tự hiện.",
+    "Ví dụ nhãn: đổi dịch vụ khám với gia=300000 → \"Chọn dịch vụ khám: Khám phụ khoa · 300.000đ\"; không có giá → \"chưa có giá\".",
+    "`_nhan_rieng` phải là hàm thuần của payload: đọc DB hay giờ hiện tại ở đó thì dựng lại từ sổ sẽ ra nhãn khác.",
+    "Khác các bên nghe tác vụ, bên nghe này KHÔNG bỏ qua phát lại (đúng thiết kế projection) — đừng thêm kiểm la_phat_lai.",
+    "Giao tin \"ít nhất một lần\": chống trùng ép ở Postgres bằng khoá event_id (mỗi sự kiện một dòng). Nhiều sự kiện cùng giao dịch có occurred_at giống nhau → xếp bằng thu_tu.",
+    "Thêm sự kiện mới muốn lên dòng thời gian: khai DONG_THOI_GIAN_LUOT trong consumers ở danh mục + payload có visit_id; không sửa nơi phát.",
+    "Nếu một dòng giao của bên nghe này chết (DEAD) thì các sự kiện sau của cùng đối tượng cho bên nghe này bị chặn → dòng thời gian thiếu (không chặn khách).",
+    "Ai mở được: mọi vai thuộc nhóm làm việc nội bộ (theo VAI tài khoản, không theo lego); nội dung cắt theo quyền: lâm sàng chỉ quyền y khoa, tài chính chỉ thu tiền/tiếp đón/điều phối, thuốc chỉ y khoa/nhà thuốc/thu thuốc; thư ký đã phân theo bác sĩ chỉ xem khách của bác sĩ mình.",
+    "Bảng /hanh-trinh: lọc theo ngày tạo lượt (không theo giờ check-in), không hiện lượt bán lẻ và lượt chuyển từ Notion, tối đa 300 lượt (cắt người đã về lâu nhất).",
+    "Ghi chú tệp xếp `api/reception/checkout/route.ts` (màn Đóng lượt) vào khối này nhưng nó gom cả đóng lượt, ghi nợ, tiền thừa — thực chất là việc của khối Lễ tân/Công nợ/Thu tiền."
+  ],
+  "muon_sua": [
+    {"viec": "cho một trường payload hiện trên dòng thời gian", "cho": "danh sách trắng CHI_TIET_HIEN", "tep": "src/clinicai/events/consumers/dong_thoi_gian.py", "dong": 33},
+    {"viec": "đổi chữ riêng của một sự kiện (sửa số lượng thuốc, dịch vụ khám kèm giá…)", "cho": "hàm _nhan_rieng", "tep": "src/clinicai/events/consumers/dong_thoi_gian.py", "dong": 159},
+    {"viec": "đổi nhãn chung của một sự kiện / cho sự kiện lên dòng thời gian", "cho": "trường nhan= và consumers=[DONG_THOI_GIAN_LUOT, …] của SuKien trong danh mục (vd result_file.uploaded)", "tep": "src/clinicai/events/catalogue.py", "dong": 1832},
+    {"viec": "đổi ai được mở Xem lượt / Hành trình", "cho": "_GUARD = cua_noi_bo của router", "tep": "src/clinicai/api/v1/routers/xem_luot.py", "dong": 20},
+    {"viec": "đổi ai thấy mục nào khi xem lại lượt (sinh hiệu, tài chính, thuốc)", "cho": "QUYEN_SINH_HIEU / QUYEN_TAI_CHINH / QUYEN_THUOC + muc_duoc_xem", "tep": "src/clinicai/services/xem_luot_service.py", "dong": 59},
+    {"viec": "đổi số dòng thời gian tối đa ở Xem lượt (đang cắt im lặng ở 300)", "cho": "LIMIT 300 câu đọc luot_dong_thoi_gian", "tep": "src/clinicai/services/xem_luot_service.py", "dong": 190},
+    {"viec": "đổi câu 'khách đang ở đâu' trên bảng hành trình", "cho": "hàm thuần dang_o", "tep": "src/clinicai/services/bang_hanh_trinh_service.py", "dong": 57},
+    {"viec": "đổi câu 'còn chờ gì' trên bảng hành trình", "cho": "hàm con_cho", "tep": "src/clinicai/services/bang_hanh_trinh_service.py", "dong": 75},
+    {"viec": "đổi thứ tự / trần 300 lượt của bảng hành trình", "cho": "ORDER BY + LIMIT $3", "tep": "src/clinicai/services/bang_hanh_trinh_service.py", "dong": 183},
+    {"viec": "đổi cách hiện giờ cạnh nhãn lượt (giờ thật / giờ hẹn)", "cho": "hàm gioLuot", "tep": "src/dashboard/lib/nhan-luot.ts", "dong": 39}
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "tom_tat": "Khối Danh mục & biểu mẫu giữ những thứ 'tra cứu' mà các khối khác dựa vào: bảng giá dịch vụ/thuốc/vật tư (service_price), loại khám khi đặt lịch (service_type), danh mục thuốc (drug_catalog), mẫu kết quả cận lâm sàng (ket_qua_mau) và dịch vụ nào điền mẫu nào (dich_vu_mau_ket_qua), cùng bản thiết kế biểu mẫu theo phiên bản (form_definition). Quản lý dùng nó ở màn Bảng giá dịch vụ & phòng (/cashier/dich-vu), Kho vật tư → tab Danh mục, và Cài đặt → Mẫu kết quả (/settings/mau-ket-qua). Mọi quyền theo lego: sửa giá cần price.service.manage, gắn/gỡ mẫu cần catalogue.result_template.manage, tạo/xuất bản mẫu cần catalogue.form_template.publish. Phần đọc (ô kê bệnh án, ô chọn dịch vụ khi đặt lịch, phường/tỉnh) đi qua router catalog.py. Lưu ý: lệnh GHI bảng giá (thêm/sửa/xoá) thực ra nằm ở PriceListService trong config_service.py — tệp khai cho khối Cơ sở — và xuất bản biểu mẫu nằm ở form_engine_service.py (khối Kết quả).",
+  "luong": [
+    "Bước 1 — bảng giá: quản lý thêm/sửa/xoá dòng giá ở màn Bảng giá hoặc Kho vật tư → route Next /api/service-price kiểm hình dữ liệu → FastAPI /api/v1/service-prices (router config.py, quyền price.service.manage) → PriceListService.add/update/remove ghi service_price. Vật tư thì thuộc tính riêng (loại, giá nhập, mã vạch, đơn vị, các cờ) đi qua patch_vat_tu kiểm trước.",
+    "Bước 2 — đặt cờ cả loại vật tư: khối 'Đặt cho cả loại' gọi /service-prices/vat-tu/hang-loat; dat_co_hang_loat chạy lần đầu với ap_dung=false để ĐẾM số món sẽ đổi, người xác nhận rồi mới áp; áp xong ghi một dòng event_log kèm danh sách id để màn gửi lại khi Hoàn tác.",
+    "Bước 3 — các khối khác đọc danh mục: ô kê bệnh án lấy thuốc kho đang bật + dịch vụ cận lâm sàng (danh_muc_ke); ô đặt lịch lấy dịch vụ 4 nhóm Khám/Điều trị/Thuốc (ẩn)/Khác (dich_vu_dat_lich_nhom); màn Bảng giá đọc qua hàm SQL danh_muc_dich_vu (DanhMucDichVuService.doc), dịch vụ chưa gắn nhóm việc thì ô chỉ định bị khoá.",
+    "Bước 4 — mẫu kết quả: ở tab 'Sửa · tạo mẫu', người có quyền xuất bản tạo mẫu mới (trống có sẵn mục Kết luận, hoặc chép khung bản đã xuất bản của mẫu khác) → MauKetQuaService.tao_mau ghi ket_qua_mau + form_definition bản 1 PUBLISHED.",
+    "Bước 5 — sửa mẫu: trình sửa gửi 'xuat-ban' kèm expected_version → FormEngineService.xuat_ban (phieu.py) tạo phiên bản mới; người khác vừa xuất bản trước thì 409. Phiếu đã điền giữ phiên bản cũ.",
+    "Bước 6 — gắn mẫu cho dịch vụ (BindResultTemplate/UnbindResultTemplate): tab 'Gắn mẫu' liệt kê dịch vụ theo phòng, máy ĐỀ XUẤT mẫu khi trùng ≥ 2 từ khoá, người bấm Gắn từng dòng → MauKetQuaService.gan / go. Dịch vụ chưa gắn mẫu thì phòng thực hiện dùng mẫu chung nhập tự do hoặc mẫu gợi ý."
+  ],
+  "luu_y": [
+    "Giá là đồng nguyên, ĐÃ GỒM thuế. Trống = chưa có giá (quầy chặn thu/không bán); không nạp 0đ cho dòng phòng khám thu — 0đ chỉ cho dịch vụ thu hộ đối tác (billing_owner = EXTERNAL_PARTNER, không cộng vào hoá đơn Dr4Women). Sửa/lưu lại đơn giá tự bỏ cờ 'Giá tạm'.",
+    "Lệch làm tròn giữa hai đường: POST /api/service-price làm tròn giá (gõ 150000.6 → 150001), PATCH gửi giá THÔ sang máy chủ. PATCH với node_code rỗng hoặc billing_owner rỗng bị bỏ qua — không gỡ được phòng làm / bên thu qua route Next này.",
+    "Xoá dòng giá là DELETE thật (PriceListService.remove), không phải tắt. Muốn ngưng bán thì đặt active = false.",
+    "Vật tư: giá nhập phải là số đồng nguyên 0 ≤ giá < 1.000 tỷ (12.500 được; 12.500,5 hoặc −1 bị từ chối); loại chỉ VPP/VTYT; đơn vị ≤ 40 ký tự. Vật tư đã có giao dịch kho hoặc phiếu nhập chờ duyệt thì database CẤM đổi đơn vị — phải tạo mặt hàng mới.",
+    "Đặt cờ cả loại chỉ đổi món ĐANG BÁN có giá trị khác đích. Ví dụ loại VTYT 30 món, 5 ngưng bán, 10 đã bật → bấm bật đổi đúng 15 món. Chỉ ba cờ (kinh doanh, cần QL duyệt bán, cần duyệt nhập), tối đa 2000 id. Hoàn tác dựa vào màn gửi lại đúng danh sách id — đổi lựa chọn trên form là mất nút Hoàn tác; không có bảng lưu lần đổi.",
+    "Màn Danh mục vật tư: sau khi thêm, ba ô nhãn và nhóm KHÔNG được đặt lại — món thêm sau mang nhãn của món trước.",
+    "Mẫu kết quả: máy KHÔNG tự gắn theo tên, chỉ đề xuất khi trùng ≥ 2 từ (đã bỏ từ đệm 'kết quả', 'siêu âm', 'xét nghiệm'…). Gỡ mẫu (go) là DELETE thật, không ghi nhật ký — trái comment đầu tệp. Tạo mẫu cùng tên cùng lúc có thể đâm UNIQUE (500) vì vòng tìm mã không khoá.",
+    "Trình sửa mẫu: mã ô là khoá của dữ liệu đã điền — đổi tên ô không đổi mã; mục dạng bảng tối đa 8 cột chỉ chặn ở giao diện, chưa thấy máy chủ chặn.",
+    "Database ép: mỗi (phòng khám, nhóm, mã) một dòng giá; mã KiotViet duy nhất; mã trạm DICHVU-…/KHAM-…; mỗi biểu mẫu chỉ MỘT phiên bản PUBLISHED; không xoá được mẫu đang gắn; mã mẫu viết HOA 1–48 ký tự.",
+    "Luật 'phí khám không, cần phòng không, phòng nào làm được' nằm trong hàm Postgres danh_muc_dich_vu — sửa luật phải viết migration. Phường/tỉnh public cache 1 giờ; dữ liệu theo phòng khám trả private, no-store."
+  ],
+  "muon_sua": [
+    {"viec": "đổi kiểm giá / thuộc tính khi sửa một dòng giá (và cờ giá tạm)", "cho": "PriceListService.update — dựng patch rồi UPDATE service_price", "tep": "src/clinicai/services/config_service.py", "dong": 1792},
+    {"viec": "đổi cách thêm dòng giá mới (tự sinh mã, vật tư)", "cho": "PriceListService.add", "tep": "src/clinicai/services/config_service.py", "dong": 1676},
+    {"viec": "cho xoá dòng giá thành tắt mềm thay vì DELETE", "cho": "PriceListService.remove", "tep": "src/clinicai/services/config_service.py", "dong": 1945},
+    {"viec": "thêm thuộc tính vật tư sửa được", "cho": "COT_VAT_TU + nhánh kiểm trong patch_vat_tu", "tep": "src/clinicai/services/vat_tu_danh_muc_service.py", "dong": 13},
+    {"viec": "đổi trần / luật giá nhập vật tư", "cho": "đoạn kiểm Decimal trong patch_vat_tu (< 1e12, nguyên, không âm)", "tep": "src/clinicai/services/vat_tu_danh_muc_service.py", "dong": 40},
+    {"viec": "thêm cờ được đặt cho cả loại vật tư", "cho": "CO_HANG_LOAT (máy chủ) — màn cũng phải thêm vào mảng CO ở DatCoTheoLoai.tsx", "tep": "src/clinicai/services/vat_tu_danh_muc_service.py", "dong": 76},
+    {"viec": "đổi kiểm dữ liệu ở cửa Bảng giá (làm tròn giá, nhóm, mã KiotViet)", "cho": "parsePrice và các hàm parse ở route Next", "tep": "src/dashboard/app/api/service-price/route.ts", "dong": 42},
+    {"viec": "đổi ngưỡng máy đề xuất mẫu (đang ≥ 2 từ trùng)", "cho": "MauKetQuaService.de_xuat", "tep": "src/clinicai/services/mau_ket_qua_service.py", "dong": 319},
+    {"viec": "đổi từ đệm bị bỏ qua khi đề xuất mẫu", "cho": "_BO_QUA", "tep": "src/clinicai/services/mau_ket_qua_service.py", "dong": 332},
+    {"viec": "đổi khung mẫu trống khi tạo mẫu mới (mục Kết luận)", "cho": "_KHUNG_TRONG", "tep": "src/clinicai/services/mau_ket_qua_service.py", "dong": 34},
+    {"viec": "ghi nhật ký / đổi gỡ mẫu thành mềm", "cho": "MauKetQuaService.go — DELETE FROM dich_vu_mau_ket_qua", "tep": "src/clinicai/services/mau_ket_qua_service.py", "dong": 273},
+    {"viec": "đổi luật xuất bản phiên bản biểu mẫu (xung đột 409)", "cho": "FormEngineService.xuat_ban — so expected_version", "tep": "src/clinicai/services/form_engine_service.py", "dong": 1300},
+    {"viec": "đổi danh mục cho ô kê bệnh án (thuốc + cận lâm sàng)", "cho": "danh_muc_ke — service_price nhóm 'dich_vu' đang active + thuốc kho bật", "tep": "src/clinicai/api/v1/routers/catalog.py", "dong": 155},
+    {"viec": "đổi thứ tự nhóm hàng trên màn Bảng giá", "cho": "THU_TU_NHOM", "tep": "src/clinicai/services/danh_muc_dich_vu_service.py", "dong": 31},
+    {"viec": "đổi câu khoá ô chỉ định khi dịch vụ chưa gắn nhóm việc", "cho": "KHOA_CHUA_NHOM_VIEC / ly_do_khoa_chi_dinh", "tep": "src/clinicai/services/danh_muc_dich_vu_service.py", "dong": 69}
+  ]
+}

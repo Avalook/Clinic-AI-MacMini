@@ -1,0 +1,38 @@
+{
+  "tom_tat": "Khối Hồ sơ khách giữ thông tin hành chính của khách (bảng patient: họ tên, ngày sinh, giới, CCCD, email, SĐT chính / người nhà, người giới thiệu, nguồn nhập Notion, dấu ưu tiên), các số điện thoại thêm (patient_sdt_them), liên kết giữa hai khách (patient_link: vợ/chồng, bạn đời, gia đình) và bản đồng ý chia sẻ hồ sơ khám giữa họ (clinical_data_consent). Người dùng: lễ tân, CSKH, trưởng ca tạo / sửa khách ở màn Thêm khách hàng (/patients/new, nhúng cả ở màn Đặt lịch) và khối sửa hành chính dùng chung (PatientAdminEditor); mọi vai tra cứu ở Danh sách bệnh nhân (/patient-list); bác sĩ xem hồ sơ người liên kết trong buổi khám khi đã có đồng ý. Khối không phát sự kiện miền nào (chỉ ghi nhật ký event_log) và không có lệnh khai trong modules.py; chống trùng hồ sơ là việc chính.",
+  "luong": [
+    "Bước 1 — Gõ thông tin khách mới: màn Thêm khách kiểm định dạng ngay (chỉ bắt buộc họ tên; SĐT 10 số, CCCD 12 số, năm sinh 1900–nay nếu có điền), và gọi kiểm trùng sớm /patients/check-duplicate (MPIService.find_candidates — theo SĐT kể cả số phụ / số thêm, CCCD, họ tên không dấu + năm sinh). Kết quả chỉ trả tên, mã hồ sơ, năm sinh.",
+    "Bước 2 — Đúng khách cũ: chọn 'Dùng bệnh nhân này' hoặc gắn thêm số vào hồ sơ có sẵn (PatientService.them_so_dien_thoai, bảng patient_sdt_them, loại CHINH / NGUOI_NHA).",
+    "Bước 3 — Tạo hồ sơ (PatientService.create_patient, quyền patient.create / booking.create / crm.manage): khoá theo (phòng khám, số điện thoại) trong giao dịch, CCCD trùng → trả tối đa 5 hồ sơ trùng và chỉ tạo khi gửi kèm lý do trùng (force không vượt được); SĐT trùng → cảnh báo, bấm 'vẫn tạo' (force) thì tạo (vd mẹ con chung số). Sinh mã BN-<năm>-<6 số>. Sau commit đẩy cặp nghi trùng điểm cao vào mpi_merge_queue.",
+    "Bước 4 — Đặt lịch đầu tiên (nếu có điền dịch vụ + ngày + giờ + kênh): màn gọi riêng lệnh đặt lịch của khối booking — đây là lời gọi thứ hai, hồ sơ đã tạo mà đặt lịch lỗi thì khách không có lịch.",
+    "Bước 5 — Sửa hồ sơ (update_patient, quyền patient.create / crm.manage / reception.checkin.perform / clinical.record.write): khoá lạc quan bằng mốc sua_luc — người khác sửa trước thì báo 'vừa được người khác sửa'; xoá trắng ô = xoá giá trị. Dấu khách ưu tiên (bật bắt buộc lý do) ghi qua ThuTuKhamService của khối reception.",
+    "Bước 6 — Tra cứu: Danh sách bệnh nhân (DanhSachBenhNhanService — tìm tên không dấu / mã / SĐT ≥ 3 chữ số, tab Chưa khám / Lần đầu / Tái khám, 50 hồ sơ mỗi trang, thư ký chỉ thấy khách của bác sĩ mình); trang hồ sơ đọc qua ho_so_khach_doc.duoc_mo; CSKH xem / xuất PDF một lần khám qua HoSoKhamService.",
+    "Bước 7 — Chia sẻ hồ sơ giữa hai khách: tạo liên kết (không mở quyền đọc gì) → cấp đồng ý kèm giấy có chữ ký và danh sách mã phiếu hoặc 'ALL' → bác sĩ thấy phiếu của người kia trong buổi khám (may_surface). Thu hồi bắt buộc lý do, giữ dòng cũ."
+  ],
+  "luu_y": [
+    "Điểm trùng (MPI): SĐT chính trùng 50 điểm, CCCD trùng 40, tên giống × 10, trần 100; vào hàng chờ gộp khi ≥ 70 → thực tế chỉ khi trùng CẢ SĐT lẫn CCCD (vd trùng SĐT + tên giống 90% = 59 điểm, không vào). mpi_merge_queue là bảng 'CHỜ BỎ — chỉ ghi, không ai đọc'.",
+    "Kiểm trùng SĐT lúc TẠO khách chỉ so phone_primary / phone_secondary, KHÔNG so bảng số thêm patient_sdt_them (trong khi get_by_phone và màn kiểm trùng sớm có so) — khách đã gắn số ấy làm số phụ vẫn bị tạo hồ sơ mới không cảnh báo.",
+    "Luật SĐT lệch giữa các tầng: core/phone.py chỉ nhận di động 03/05/07/08/09; PHONE_RE của patient_service và lib/validation.ts nhận cả 02x (số bàn); route /api/patients chặn 02x. Luật CCCD lệch: tạo đòi 12 số, sửa nhận 9 hoặc 12 số; route dùng CCCD_RE không kiểm mã tỉnh.",
+    "Liên kết KHÔNG mở quyền đọc: phải có bản đồng ý còn hiệu lực, đúng chiều (người chủ → người xem), có mã phiếu hoặc 'ALL'; database ép đồng ý chỉ ghi được khi đã liên kết, mỗi cặp một bản đồng ý đang hiệu lực, mỗi cặp khách một dòng liên kết bất kể thứ tự. shared_form chỉ đọc phiếu đời cũ clinical_form_response — phiếu v5 của người kia không đi qua cửa này.",
+    "Quyền nằm ở router: ConsentService (link/grant/revoke), HoSoKhamService, ho_so_khach_doc không tự kiểm quyền. GET /patients/{id} và /patients?phone= chỉ đòi đăng nhập. duoc_mo: mọi vai trừ thư ký đã phân bác sĩ đều mở được mọi hồ sơ.",
+    "Nhật ký patient.created ghi đủ SĐT và CCCD vào event_log, ngược với luật 'chỉ ghi 4 số cuối' của them_so_dien_thoai. Mỗi lần thử INSERT mã BN phải nằm trong savepoint (giao dịch lồng), bỏ đi là lỗi trùng mã hỏng cả giao dịch ngoài.",
+    "Database ép: cấm xoá cứng / TRUNCATE patient; số thêm đúng dạng 0 + 9 chữ số, một khách không ghi trùng một số nhưng hai khách dùng chung số được; trigger tự dựng cột tìm kiếm sdt_tim_kiem từ số chính, người nhà và số thêm. Hàm SQL generate_patient_code là hàm chết — mã thật sinh ở Python.",
+    "Ghi chéo vào bảng của khối này: BookingService ghi patient (người giới thiệu), ThuTuKhamService ghi patient (dấu ưu tiên). Route Next /api/patients/check-phone là route DUY NHẤT còn chạm thẳng database, đã tắt (proxy trả 410) — sửa tệp ấy không có tác dụng."
+  ],
+  "muon_sua": [
+    {"viec": "đổi luật chặn / cảnh báo trùng khi tạo khách (CCCD cần lý do, SĐT bấm 'vẫn tạo')", "cho": "PatientService.create_patient — đoạn kiểm trùng dòng 153–202", "tep": "src/clinicai/services/patient_service.py", "dong": 153},
+    {"viec": "cho kiểm trùng lúc tạo khách so cả bảng số thêm", "cho": "nhánh kiểm SĐT trùng khi chưa force", "tep": "src/clinicai/services/patient_service.py", "dong": 187},
+    {"viec": "đổi định dạng SĐT hợp lệ khi sửa hồ sơ", "cho": "PHONE_RE (số phụ dùng core/phone.normalize_vn_phone)", "tep": "src/clinicai/services/patient_service.py", "dong": 32},
+    {"viec": "nhận thêm đầu số / số bàn cho chuẩn hoá SĐT", "cho": "_VN_MOBILE_PREFIXES", "tep": "src/clinicai/core/phone.py", "dong": 7},
+    {"viec": "đổi mẫu mã khách (BN-năm-số)", "cho": "_generate_patient_code", "tep": "src/clinicai/services/patient_service.py", "dong": 74},
+    {"viec": "thêm trường hồ sơ tạo / sửa được", "cho": "_INSERT_COLUMNS (kèm DTO, PatientAdminEditor và PATCH ở route /api/patients)", "tep": "src/clinicai/services/patient_service.py", "dong": 45},
+    {"viec": "đổi ai được tạo khách / sửa hồ sơ", "cho": "_TAO_BENH_NHAN_GUARD dòng 36, _PATIENT_EDIT_GUARD dòng 38 — danh sách chép tay ở patient-list/page.tsx phải đổi theo", "tep": "src/clinicai/api/v1/patients.py", "dong": 36},
+    {"viec": "đổi ngưỡng / trọng số báo trùng hồ sơ (MPI)", "cho": "MPI_THRESHOLD = 70 và trọng số dòng 25–27", "tep": "src/clinicai/services/mpi_service.py", "dong": 22},
+    {"viec": "đổi luật hiện hồ sơ của người liên kết", "cho": "may_surface", "tep": "src/clinicai/services/consent_service.py", "dong": 69},
+    {"viec": "thêm loại quan hệ giữa hai khách", "cho": "RELATIONS (kèm enum patient_link_relation ở database)", "tep": "src/clinicai/services/consent_service.py", "dong": 43},
+    {"viec": "đổi ngưỡng phân loại Chưa khám / Lần đầu / Tái khám ở Danh sách bệnh nhân", "cho": "phan_loai — phải đổi cùng LOC_THEO_SO_LUOT dòng 52", "tep": "src/clinicai/services/danh_sach_benh_nhan_service.py", "dong": 223},
+    {"viec": "đổi số hồ sơ mỗi trang Danh sách bệnh nhân", "cho": "MOT_TRANG = 50", "tep": "src/clinicai/services/danh_sach_benh_nhan_service.py", "dong": 43},
+    {"viec": "đổi ai được mở hồ sơ khách", "cho": "duoc_mo", "tep": "src/clinicai/services/ho_so_khach_doc.py", "dong": 46},
+    {"viec": "đổi ô bắt buộc / định dạng khi tạo khách ở màn", "cho": "hàm save dòng 961–1009 (luật chung ở src/dashboard/lib/validation.ts)", "tep": "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx", "dong": 961}
+  ]
+}

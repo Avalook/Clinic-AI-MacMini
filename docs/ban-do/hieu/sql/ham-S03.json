@@ -1,0 +1,612 @@
+{
+  "lat": 3,
+  "muc": {
+    "ham:vat_tu_nhap_cho_duyet_khoa_don_vi": {
+      "lam_gi": "Trước khi lưu một yêu cầu nhập vật tư chờ duyệt, soát từng dòng trong mảng JSON `dong`: dòng phải ghi đơn vị, mặt hàng phải là vật tư của cơ sở, và đơn vị gửi lên phải trùng đơn vị hiện tại trong danh mục.",
+      "khoi": "kho_vat_tu",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT trên vat_tu_nhap_cho_duyet (a_vat_tu_nhap_cho_duyet_khoa_don_vi)",
+      "goi_boi": ["trigger vat_tu_nhap_cho_duyet.a_vat_tu_nhap_cho_duyet_khoa_don_vi", "src/clinicai/services/vat_tu_nhap_duyet_service.py (INSERT yêu cầu nhập)"],
+      "doc_bang": ["service_price"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Mỗi dòng yêu cầu nhập phải có khoá `don_vi`; thiếu là chặn."},
+        {"noi_dung": "Đơn vị gửi lên phải đúng đơn vị đang ghi trong danh mục. Ví dụ màn tải danh mục lúc 'hộp', quản lý đổi sang 'cái' rồi mới bấm gửi → chặn, bắt tải lại danh mục."},
+        {"noi_dung": "Mặt hàng phải là service_price nhóm 'vat_tu' của đúng cơ sở (clinic_id) của yêu cầu."}
+      ],
+      "bay": [
+        {"noi_dung": "Khoá FOR SHARE dòng service_price theo thứ tự vat_tu_id tăng dần — để không bế tắc (deadlock) với trigger vat_tu_don_vi_bat_bien chặn đổi đơn vị. Bỏ ORDER BY hay FOR SHARE là mở lại kẽ tranh chấp."},
+        {"noi_dung": "Chỉ chạy lúc INSERT. Sửa cột `dong` bằng UPDATE sau đó không bị soát lại."},
+        {"noi_dung": "Tên trigger bắt đầu 'a_' để chạy TRƯỚC các trigger BEFORE INSERT khác (Postgres chạy theo thứ tự tên chữ cái)."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật soát đơn vị khi gửi yêu cầu nhập", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION vat_tu_nhap_cho_duyet_khoa_don_vi — bản đang chạy ở supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql:70"}
+      ],
+      "chua_chac": []
+    },
+    "ham:vat_tu_phieu_du_dong": {
+      "lam_gi": "Kiểm cuối giao dịch (lúc COMMIT) rằng phiếu kho vật tư có dòng sổ, phiếu chuyển có đủ dòng đối ứng đúng nơi chứa, phiếu đảo (HOAN) đảo đủ số dòng của phiếu gốc.",
+      "khoi": "kho_vat_tu",
+      "loai": "canh_bat_bien",
+      "chay_khi": "constraint trigger AFTER INSERT DEFERRABLE INITIALLY DEFERRED trên vat_tu_phieu VÀ trên vat_tu_txn (chạy lúc COMMIT)",
+      "goi_boi": ["trigger vat_tu_phieu.vat_tu_phieu_du_dong", "trigger vat_tu_txn.vat_tu_txn_du_dong", "src/clinicai/services/vat_tu_kho_service.py (ghi phiếu + dòng)"],
+      "doc_bang": ["vat_tu_phieu", "vat_tu_txn", "vat_tu_ton"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Phiếu vật tư không có dòng sổ nào → không commit được."},
+        {"noi_dung": "XUAT_PHONG / TRA_KHO / CHUYEN_PHONG: với mỗi mặt hàng, tổng số lượng các dòng = 0 và phải có cả dòng âm lẫn dòng dương. Ví dụ xuất 5 hộp: kho tổng −5, phòng +5."},
+        {"noi_dung": "XUAT_PHONG: dòng âm phải ở kho tổng (room_id NULL), dòng dương ở phòng. TRA_KHO thì ngược lại. CHUYEN_PHONG: mọi dòng ở phòng (không kho tổng) và ít nhất 2 phòng khác nhau."},
+        {"noi_dung": "Phiếu HOAN (đảo) phải có số dòng bằng đúng số dòng của phiếu gốc (dao_phieu_id) — đảo là đảo trọn phiếu, không đảo lẻ."}
+      ],
+      "bay": [
+        {"noi_dung": "Gắn hai lần (trên phiếu và trên từng dòng) nên chạy lại N+1 lần cho một phiếu N dòng lúc COMMIT; phiếu rất nhiều dòng sẽ chậm commit."},
+        {"noi_dung": "Vì DEFERRED, lỗi chỉ nổ ở COMMIT, không nổ ở câu INSERT — Python thấy lỗi ở cuối khối transaction, không phải dòng gây ra."},
+        {"noi_dung": "Không SET search_path (khác các hàm vật tư 19/10) — dựa vào search_path của phiên; tên bảng đã ghi public. nên hiện ổn."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn thêm loại phiếu chuyển mới hoặc đổi luật đối ứng", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION vat_tu_phieu_du_dong — bản đang chạy ở supabase/migrations/20261014180000_vat_tu_so_kho.sql:131; nhớ sửa cả CHECK loai của vat_tu_phieu"}
+      ],
+      "chua_chac": []
+    },
+    "ham:vat_tu_phieu_gac": {
+      "lam_gi": "Gác cổng trước khi lưu phiếu kho vật tư: cơ sở (location) phải thuộc phòng khám, người tạo phải là nhân viên đang hoạt động của phòng khám, phiếu đảo chỉ được đảo phiếu cùng cơ sở và không phải phiếu đảo.",
+      "khoi": "kho_vat_tu",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT trên vat_tu_phieu",
+      "goi_boi": ["trigger vat_tu_phieu.vat_tu_phieu_gac", "src/clinicai/services/vat_tu_kho_service.py"],
+      "doc_bang": ["clinic_location", "clinic_membership", "vat_tu_phieu"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "location_id phải thuộc clinic_id của phiếu; tao_boi phải có clinic_membership is_active ở phòng khám đó."},
+        {"noi_dung": "Phiếu đảo (dao_phieu_id) chỉ trỏ phiếu cùng phòng khám + cùng cơ sở, và phiếu gốc không được là phiếu HOAN — không đảo một phiếu đảo."}
+      ],
+      "bay": [
+        {"noi_dung": "Chỉ chặn ở INSERT; không có trigger chặn UPDATE phiếu ở hàm này — muốn phiếu bất biến phải xem trigger/quyền khác."},
+        {"noi_dung": "Không chặn đảo HAI lần cùng một phiếu gốc ở đây; nếu có chặn thì nằm ở ràng buộc UNIQUE hoặc Python."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi điều kiện người tạo / đảo phiếu", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION vat_tu_phieu_gac — bản đang chạy ở supabase/migrations/20261014180000_vat_tu_so_kho.sql:79"}
+      ],
+      "chua_chac": ["Có UNIQUE trên vat_tu_phieu.dao_phieu_id để chặn đảo hai lần không — chưa soát lược đồ."]
+    },
+    "ham:vat_tu_ton_gac": {
+      "lam_gi": "Gác bảng tồn vật tư theo nơi chứa: cấm xoá, nơi chứa/mặt hàng phải thuộc đúng phòng khám và cơ sở, dòng tồn mới phải bắt đầu bằng 0, và cấm sửa tay số tồn hay nơi chứa — số tồn chỉ đổi qua ghi sổ.",
+      "khoi": "kho_vat_tu",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT OR UPDATE OR DELETE trên vat_tu_ton",
+      "goi_boi": ["trigger vat_tu_ton.vat_tu_ton_gac", "src/clinicai/services/vat_tu_kho_service.py (INSERT dòng tồn)", "hàm vat_tu_txn_cong_ton (UPDATE so_luong)"],
+      "doc_bang": ["clinic_location", "service_price", "clinic_room"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Không bao giờ xoá dòng tồn vật tư."},
+        {"noi_dung": "Dòng tồn mới phải so_luong = 0; muốn có số đầu kỳ thì ghi phiếu (NHAP/DIEU_CHINH)."},
+        {"noi_dung": "Phòng (room_id) nếu có phải thuộc đúng cơ sở; room_id NULL = kho tổng của cơ sở."},
+        {"noi_dung": "Không đổi clinic/cơ sở/mặt hàng/phòng của dòng tồn. Đổi so_luong chỉ được khi đi từ trigger ghi sổ."}
+      ],
+      "bay": [
+        {"noi_dung": "Phân biệt 'ghi sổ' với 'sửa tay' bằng pg_trigger_depth()<2: UPDATE từ trong trigger vat_tu_txn_cong_ton có độ sâu 2 nên lọt. BẤT KỲ trigger nào khác UPDATE so_luong cũng lọt — kẽ hở nếu thêm trigger mới."},
+        {"noi_dung": "Không chặn tồn âm — đúng chốt của Quang 17/10 (vật tư tồn âm chỉ cảnh báo)."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật tồn / nơi chứa", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION vat_tu_ton_gac — bản đang chạy ở supabase/migrations/20261014180000_vat_tu_so_kho.sql:54"}
+      ],
+      "chua_chac": []
+    },
+    "ham:vat_tu_txn_cong_ton": {
+      "lam_gi": "Trước khi lưu mỗi dòng sổ vật tư: soát dòng khớp phiếu/nơi chứa/mặt hàng và đúng dấu theo loại phiếu, chụp tồn máy (ton_may) lúc ghi, rồi cộng so_luong vào vat_tu_ton.",
+      "khoi": "kho_vat_tu",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "trigger BEFORE INSERT trên vat_tu_txn",
+      "goi_boi": ["trigger vat_tu_txn.vat_tu_txn_cong_ton", "src/clinicai/services/vat_tu_kho_service.py (INSERT INTO vat_tu_txn)"],
+      "doc_bang": ["vat_tu_phieu", "vat_tu_ton", "vat_tu_txn"],
+      "ghi_bang": ["vat_tu_ton"],
+      "luat": [
+        {"noi_dung": "Dòng chỉ thêm được trong CÙNG giao dịch đã tạo phiếu (so giao_dich với pg_current_xact_id). Phiếu đã lưu thì không thêm dòng — lập phiếu mới."},
+        {"noi_dung": "NHAP: số lượng > 0. HUY và TRA_NCC (trả nhà cung cấp): số lượng < 0. KIEM (kiểm đếm): số lượng = 0 và phải ghi thuc_te."},
+        {"noi_dung": "DIEU_CHINH: so_luong phải = thuc_te − tồn máy. Ví dụ máy 10, đếm được 8 → dòng −2; ghi −3 là bị chặn."},
+        {"noi_dung": "Dòng phiếu HOAN phải trỏ dòng gốc (dao_txn_id) thuộc phiếu gốc, cùng nơi chứa, số lượng đối dấu và cùng giá nhập. Ví dụ gốc +5 giá 20.000 → đảo −5 giá 20.000."},
+        {"noi_dung": "Sau khi qua soát: vat_tu_ton.so_luong += so_luong của dòng; ton_may lưu tồn TRƯỚC khi cộng."}
+      ],
+      "bay": [
+        {"noi_dung": "Khoá FOR UPDATE dòng tồn để hai phiếu ghi đồng thời không cộng lệch; ton_may đọc sau khoá nên đúng tồn lúc ghi."},
+        {"noi_dung": "Chạy SAU trigger a_vat_tu_txn_khoa_don_vi (tên chữ cái) — đổi tên trigger có thể đổi thứ tự soát."},
+        {"noi_dung": "UPDATE vat_tu_ton bên trong kích vat_tu_ton_gac ở độ sâu 2 — là cách duy nhất được đổi tồn; đừng chuyển sang AFTER trigger hay hàm gọi riêng mà không xem lại pg_trigger_depth."},
+        {"noi_dung": "Không chặn tồn âm (chốt 17/10). XUAT_PHONG/TRA_KHO/CHUYEN_PHONG không soát dấu ở đây — để vat_tu_phieu_du_dong soát lúc COMMIT."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn thêm loại phiếu mới hoặc đổi luật dấu", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION vat_tu_txn_cong_ton — bản đang chạy ở supabase/migrations/20261018140000_vat_tu_tra_nha_san_xuat.sql:34"}
+      ],
+      "chua_chac": []
+    },
+    "ham:vat_tu_txn_khoa_don_vi": {
+      "lam_gi": "Trước khi ghi một dòng sổ vật tư, khoá chia sẻ (FOR SHARE) dòng danh mục của mặt hàng và kiểm nó đúng là vật tư của phòng khám — để không ai đổi đơn vị cùng lúc đang ghi sổ.",
+      "khoi": "kho_vat_tu",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT trên vat_tu_txn (a_vat_tu_txn_khoa_don_vi)",
+      "goi_boi": ["trigger vat_tu_txn.a_vat_tu_txn_khoa_don_vi"],
+      "doc_bang": ["service_price"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Dòng sổ chỉ cho mặt hàng nhóm 'vat_tu' của đúng phòng khám."}
+      ],
+      "bay": [
+        {"noi_dung": "Không so đơn vị — chỉ khoá. Việc chặn đổi đơn vị nằm ở trigger vat_tu_don_vi_bat_bien trên service_price; FOR SHARE ở đây làm hai phía phải đợi nhau."},
+        {"noi_dung": "Tên 'a_' để chạy trước vat_tu_txn_cong_ton."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi cách khoá đơn vị khi ghi sổ", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION vat_tu_txn_khoa_don_vi — bản đang chạy ở supabase/migrations/20261019130000_vat_tu_don_vi_bat_bien.sql:44"}
+      ],
+      "chua_chac": []
+    },
+    "ham:visit_amendment_append_only": {
+      "lam_gi": "Cấm sửa và xoá dòng đính chính bệnh án (visit_amendment) — bảng chỉ được thêm dòng, theo TT13/2011/TT-BYT.",
+      "khoi": "consultation",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE UPDATE OR DELETE trên visit_amendment",
+      "goi_boi": ["trigger visit_amendment.trg_visit_amendment_append_only"],
+      "doc_bang": [],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Đính chính bệnh án đã ghi thì không sửa, không xoá; sai thì ghi đính chính mới."}
+      ],
+      "bay": [
+        {"noi_dung": "Chặn cả xoá dây chuyền (ON DELETE CASCADE) từ visit/patient. Script dọn dữ liệu thử phải tắt trigger bằng SET LOCAL session_replication_role = 'replica' (scripts/don-du-lieu-thu.sh)."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn cho phép sửa/xoá trong trường hợp đặc biệt", "cho": "viết migration MỚI thay hàm — bản đang chạy ở supabase/migrations/20260801000003_adopt_prod_only_tables.sql:50 (cân nhắc pháp lý TT13)"}
+      ],
+      "chua_chac": []
+    },
+    "ham:visit_don_goc_guard": {
+      "lam_gi": "Khi lượt bán lẻ trỏ về đơn gốc (don_goc_visit_id), kiểm đơn gốc là lượt khám thật (không phải bán lẻ) của chính khách đó, cùng phòng khám.",
+      "khoi": "pharmacy",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT OR UPDATE OF don_goc_visit_id trên visit",
+      "goi_boi": ["trigger visit.trg_visit_don_goc_guard", "src/clinicai/services/ban_theo_don_service.py", "src/clinicai/services/ban_le_service.py"],
+      "doc_bang": ["visit"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Bán theo đơn gốc: đơn gốc phải là lượt khám (ban_le = false) của cùng clinic_patient_id và cùng clinic_id. Không mượn đơn của khách khác."}
+      ],
+      "bay": [
+        {"noi_dung": "Chỉ chạy khi INSERT hoặc khi UPDATE đúng cột don_goc_visit_id. Đổi clinic_patient_id của lượt bán lẻ, hay đổi ban_le của lượt gốc về sau, không bị soát lại."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn nới/siết điều kiện đơn gốc", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION visit_don_goc_guard — bản đang chạy ở supabase/migrations/20261010100000_ban_le_theo_don_goc.sql:41"}
+      ],
+      "chua_chac": ["Bảng visit thuộc khối reception; luật đơn gốc phục vụ quầy thuốc — xếp khối pharmacy theo nghiệp vụ."]
+    },
+    "ham:visit_finalized_block_update": {
+      "lam_gi": "Khoá lượt khám đã ký (status FINALIZED): mọi UPDATE bị chặn, trừ chuyển sang AMENDED (đính chính) hoặc ghi mốc khám xong exam_completed_at lần đầu mà không đổi cột nào khác.",
+      "khoi": "consultation",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE UPDATE trên visit",
+      "goi_boi": ["trigger visit.trg_visit_finalized_block"],
+      "doc_bang": [],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Lượt FINALIZED chỉ được đổi status sang AMENDED (theo TT13/2011)."},
+        {"noi_dung": "Ngoại lệ: exam_completed_at từ NULL thành có giá trị, mọi cột khác (trừ updated_at) giữ nguyên — cho ca bác sĩ ký trước, bấm khám xong sau."}
+      ],
+      "bay": [
+        {"noi_dung": "Khi NEW.status = 'AMENDED' thì MỌI cột khác đổi cùng lúc cũng lọt — không chỉ status."},
+        {"noi_dung": "Lượt đã AMENDED không còn được khoá gì (chỉ soát OLD.status = 'FINALIZED')."},
+        {"noi_dung": "Mọi UPDATE khác trên lượt đã ký đều nổ: check-out (closed_at), hoàn tác khám xong (hoan_tac_service đặt exam_completed_at = NULL), chuyển lượt… Ký bệnh án đã nghỉ 23/09 nên chỉ cắn lượt cũ còn FINALIZED."},
+        {"noi_dung": "So bằng to_jsonb(NEW) − to_jsonb(OLD): trigger BEFORE UPDATE khác chạy trước (tên chữ cái nhỏ hơn) mà sửa cột sẽ làm ngoại lệ exam_completed_at thất bại."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn cho thêm cột được ghi sau khi ký (vd. closed_at)", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION visit_finalized_block_update — bản đang chạy ở supabase/migrations/20260920000004_cho_phep_ghi_exam_completed_at_khi_da_ky.sql:27"}
+      ],
+      "chua_chac": []
+    },
+    "ham:visit_gate_rule_nodes_exist": {
+      "lam_gi": "Khi thêm/sửa luật chặn chuyển bước (visit_gate_rule), kiểm mọi mã bước trong blocked_node_codes đã khai trong node_definition của phòng khám.",
+      "khoi": "service_routing",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT OR UPDATE OF blocked_node_codes trên visit_gate_rule",
+      "goi_boi": ["trigger visit_gate_rule.trg_visit_gate_rule_nodes"],
+      "doc_bang": ["node_definition"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Luật chặn chỉ được nhắc tới bước có thật của phòng khám; mã sai báo lỗi foreign_key_violation kèm tên mã."}
+      ],
+      "bay": [
+        {"noi_dung": "Như khoá ngoại 'nửa vời': xoá/đổi mã node_definition về sau không bị chặn, luật cũ có thể trỏ mã đã mất."},
+        {"noi_dung": "Python không ghi visit_gate_rule (gate_rule_service chỉ đọc); booking_service ghi chú luật này chỉ chạy lúc chuyển phòng, đã có luật bác sĩ bắt buộc thay ở bước đặt lịch."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi cách soát mã bước", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION visit_gate_rule_nodes_exist — bản đang chạy ở supabase/migrations/20260804000014_gate_rule.sql:91"}
+      ],
+      "chua_chac": ["visit_gate_rule và node_definition không nằm trong bang của khối nào ở modules.py — xếp khối service_routing theo nghiệp vụ."]
+    },
+    "ham:vital_measurement_chi_them": {
+      "lam_gi": "Cấm sửa và xoá sinh hiệu đã đo — đo lại thì ghi dòng mới.",
+      "khoi": "vitals",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE UPDATE OR DELETE trên vital_measurement",
+      "goi_boi": ["trigger vital_measurement.trg_vital_measurement_chi_them"],
+      "doc_bang": [],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Sinh hiệu chỉ thêm, không sửa/xoá; số mới nhất là dòng mới nhất."}
+      ],
+      "bay": [
+        {"noi_dung": "Chặn cả xoá dây chuyền từ visit/patient; dọn dữ liệu thử phải tắt trigger (session_replication_role = 'replica')."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn cho sửa sinh hiệu nhập nhầm", "cho": "viết migration MỚI thay hàm — bản đang chạy ở supabase/migrations/20260915000012_sinh_hieu_chi_them.sql:16"}
+      ],
+      "chua_chac": []
+    },
+    "ham:work_item_dependency_inherit_clinic": {
+      "lam_gi": "Khi thêm/sửa dây phụ thuộc giữa hai việc (work_item_dependency): hai việc phải tồn tại và cùng phòng khám; tự điền clinic_id nếu bỏ trống, báo lỗi nếu ghi lệch.",
+      "khoi": "trach_nhiem",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT OR UPDATE trên work_item_dependency",
+      "goi_boi": ["trigger work_item_dependency.work_item_dependency_inherit_clinic", "hàm SQL dựng quy trình lượt khám (migration 20260731000003, 20260915000022)"],
+      "doc_bang": ["work_item"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Dây phụ thuộc không được nối việc của hai phòng khám khác nhau."}
+      ],
+      "bay": [
+        {"noi_dung": "RAISE không ghi ERRCODE (mặc định P0001) — Python không phân biệt được với lỗi khác theo mã."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật thừa kế clinic_id", "cho": "viết migration MỚI thay hàm — bản đang chạy ở supabase/migrations/20260730000014_drop_clinic_id_default.sql:107"}
+      ],
+      "chua_chac": ["work_item_dependency không nằm trong bang của khối nào ở modules.py."]
+    },
+    "ham:work_item_event_inherit_clinic": {
+      "lam_gi": "Khi ghi sự kiện của một việc (work_item_event): việc phải tồn tại; tự điền clinic_id theo việc nếu bỏ trống, báo lỗi nếu lệch.",
+      "khoi": "trach_nhiem",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT OR UPDATE trên work_item_event",
+      "goi_boi": ["trigger work_item_event.work_item_event_inherit_clinic", "src/clinicai/services/work_item_service.py (INSERT INTO work_item_event)"],
+      "doc_bang": ["work_item"],
+      "ghi_bang": [],
+      "luat": [],
+      "bay": [
+        {"noi_dung": "RAISE không ghi ERRCODE (P0001)."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật thừa kế clinic_id", "cho": "viết migration MỚI thay hàm — bản đang chạy ở supabase/migrations/20260730000014_drop_clinic_id_default.sql:147"}
+      ],
+      "chua_chac": []
+    },
+    "ham:work_item_gate_blockers": {
+      "lam_gi": "Trả danh sách việc đi trước còn CHẶN một việc ở pha 'start' (bắt đầu) hoặc pha kết thúc, theo loại dây phụ thuộc và nhóm cổng AND/OR/XOR. Rỗng = được đi.",
+      "khoi": "trach_nhiem",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "Python gọi trong câu SQL (FROM work_item_gate_blockers(...))",
+      "goi_boi": ["src/clinicai/services/work_item_service.py", "src/clinicai/services/console_service.py", "src/clinicai/api/v1/routers/work_items.py"],
+      "doc_bang": ["work_item_dependency", "work_item"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Pha 'start' xét dây FS và SS; pha khác xét FF và SF. Chỉ xét dây is_blocking."},
+        {"noi_dung": "FS/FF thoả khi việc trước COMPLETED hoặc SKIPPED; SS/SF thoả khi việc trước đã IN_PROGRESS trở đi."},
+        {"noi_dung": "Nhóm cổng: AND cần mọi việc thoả; OR cần ít nhất 1; XOR cần đúng 1. Ví dụ nhóm XOR có 2 nhánh cùng xong → vẫn chặn và trả CẢ hai nhánh."},
+        {"noi_dung": "Dây không thuộc nhóm: mỗi dây chưa thoả là một dòng chặn."}
+      ],
+      "bay": [
+        {"noi_dung": "p_phase khác 'start' (kể cả gõ sai) đều bị coi là pha kết thúc — không báo lỗi."},
+        {"noi_dung": "Nhóm theo (gate_group, gate_operator): cùng gate_group mà ghi operator khác nhau sẽ thành hai nhóm riêng."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật cổng / thêm loại dây", "cho": "viết migration MỚI CREATE OR REPLACE FUNCTION work_item_gate_blockers — bản đang chạy ở supabase/migrations/20260730000005_workflow_kernel.sql:299"}
+      ],
+      "chua_chac": []
+    },
+    "ham:work_item_room_matches_clinic": {
+      "lam_gi": "Khi gán phòng cho một việc (work_item.room_id), kiểm phòng thuộc đúng phòng khám của việc.",
+      "khoi": "trach_nhiem",
+      "loai": "canh_bat_bien",
+      "chay_khi": "trigger BEFORE INSERT OR UPDATE OF room_id, clinic_id trên work_item",
+      "goi_boi": ["trigger work_item.trg_work_item_room_clinic"],
+      "doc_bang": ["clinic_room"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Việc chỉ được xếp vào phòng của chính phòng khám."}
+      ],
+      "bay": [
+        {"noi_dung": "SECURITY DEFINER (chạy với quyền chủ hàm, vượt RLS) để luôn thấy clinic_room; RAISE không ghi ERRCODE."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn siết thêm (vd. phòng phải đang hoạt động)", "cho": "viết migration MỚI thay hàm — bản đang chạy ở supabase/migrations/20260804000001_dispatch_rooms.sql:67"}
+      ],
+      "chua_chac": []
+    },
+    "view:patient_summary": {
+      "lam_gi": "Tóm tắt mỗi khách: lần khám gần nhất, tổng số lượt, lịch hẹn sắp tới (SCHEDULED/CONFIRMED), kết quả xét nghiệm gần nhất.",
+      "khoi": "ho_so_khach",
+      "loai": "co_the_chet",
+      "chay_khi": "không ai gọi (chỉ còn trong types/database.generated.ts; tool get_summary đọc qua patient_service, không qua view)",
+      "goi_boi": [],
+      "doc_bang": ["patient", "visit", "appointment", "lab_result"],
+      "ghi_bang": [],
+      "luat": [],
+      "bay": [
+        {"noi_dung": "total_visits đếm mọi dòng visit của khách, không lọc trạng thái hay ban_le — gồm cả lượt bán lẻ, không phải số lần khám thật."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn bỏ view", "cho": "migration MỚI DROP VIEW (Mức 3) — bản đang chạy ở supabase/migrations/20260730000015_patient_summary_security_invoker.sql:19"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_audit_log": {
+      "lam_gi": "Lịch sử thao tác dễ đọc từ sổ cũ event_log: ai làm (theo staff id hoặc auth id), vai, nguồn, khách bị ảnh hưởng (suy từ payload/lượt/giữ chỗ), loại đối tượng.",
+      "khoi": "van_hanh",
+      "loai": "bao_cao",
+      "chay_khi": "Python đọc ở services/audit_log_service.py (màn lịch sử thao tác)",
+      "goi_boi": ["src/clinicai/services/audit_log_service.py"],
+      "doc_bang": ["event_log", "staff", "visit", "slot_hold", "appointment", "patient"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Khách của dòng nhật ký: ưu tiên payload.clinic_patient_id → aggregate là patient → khách của lượt → khách của lịch hẹn qua giữ chỗ."}
+      ],
+      "bay": [
+        {"noi_dung": "Ép ::uuid trên payload/metadata: chỉ NULLIF chuỗi rỗng. Một sự kiện ghi chữ không phải uuid vào clinic_patient_id/doctor_id/clinic_staff_id làm CẢ truy vấn lỗi."},
+        {"noi_dung": "Chỉ đọc event_log (record_event cũ), KHÔNG đọc domain_event — thao tác chỉ phát qua emit_event sẽ không hiện."},
+        {"noi_dung": "slot_hold_service ghi chú phải đặt clinic_patient_id trong payload để view này tìm ra khách."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn thêm cột/nguồn sự kiện", "cho": "migration MỚI CREATE OR REPLACE VIEW v_audit_log — bản đang chạy ở supabase/migrations/20260805000001_v_audit_log.sql:125"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_clinical_status": {
+      "lam_gi": "Trạng thái pháp lý bệnh án của từng lượt: DRAFT / SIGNED (đã ký) / RELEASED (đã trả) / AMENDED (đã đính chính), kèm người ký, người trả, số phiên bản.",
+      "khoi": "consultation",
+      "loai": "bao_cao",
+      "chay_khi": "Python đọc ở services/clinical_sign_service.py",
+      "goi_boi": ["src/clinicai/services/clinical_sign_service.py"],
+      "doc_bang": ["visit", "staff", "clinical_release", "visit_amendment"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Thứ tự ưu tiên: AMENDED > RELEASED (có lần trả chưa thu hồi) > SIGNED (FINALIZED) > DRAFT. version = 1 + số lần đính chính."}
+      ],
+      "bay": [
+        {"noi_dung": "Lấy lần trả (clinical_release) bằng LIMIT 1 không ORDER BY — nhiều lần trả còn hiệu lực thì released_at/released_by không xác định."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi cách suy trạng thái", "cho": "migration MỚI CREATE OR REPLACE VIEW v_clinical_status — bản đang chạy ở supabase/migrations/20260804000007_clinical_sign_release.sql:150"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_consultation_duration": {
+      "lam_gi": "Thời lượng thật của từng việc đã xong (work_item COMPLETED), tính phút, kèm thứ/giờ theo giờ Việt Nam và thông tin lịch hẹn — nguồn cho thống kê thời lượng khám.",
+      "khoi": "booking",
+      "loai": "bao_cao",
+      "chay_khi": "được view v_consultation_duration_stats đọc; Python không đọc thẳng",
+      "goi_boi": ["view v_consultation_duration_stats"],
+      "doc_bang": ["work_item", "appointment"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Chỉ lấy việc kéo dài từ 1 phút tới 4 giờ; ngắn/dài hơn coi là bấm nhầm, bỏ."}
+      ],
+      "bay": [
+        {"noi_dung": "Không lọc theo node_code — mọi loại việc (không chỉ khám) đều vào; bên đọc phải tự lọc."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi ngưỡng lọc", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20260803000005_measured_consultation_duration.sql:84 (view stats phụ thuộc, có thể phải dựng lại cả hai)"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_consultation_duration_stats": {
+      "lam_gi": "Thống kê thời lượng đo được theo phòng khám × bước × bác sĩ × loại dịch vụ × loại khách × thứ × giờ: số mẫu, trung vị, p90, min, max.",
+      "khoi": "booking",
+      "loai": "bao_cao",
+      "chay_khi": "Python đọc ở api/v1/routers/config.py (GET /booking-rules/thoi-luong-do) cho màn cài đặt đặt lịch",
+      "goi_boi": ["src/clinicai/api/v1/routers/config.py"],
+      "doc_bang": ["v_consultation_duration"],
+      "ghi_bang": [],
+      "luat": [],
+      "bay": [
+        {"noi_dung": "Tính percentile trên toàn bộ lịch sử mỗi lần đọc — không có bảng tổng hợp sẵn; dữ liệu lớn sẽ chậm."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi cách gom nhóm", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20260803000005_measured_consultation_duration.sql:119"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_dispatch_history": {
+      "lam_gi": "Lịch sử điều phối khách (sự kiện dispatch.* của lượt) từ event_log: từ bước/phòng nào sang bước/phòng nào, lý do, người làm, khách.",
+      "khoi": "service_routing",
+      "loai": "bao_cao",
+      "chay_khi": "Python đọc ở services/dispatch_service.py",
+      "goi_boi": ["src/clinicai/services/dispatch_service.py"],
+      "doc_bang": ["event_log", "clinic_room", "staff", "visit", "patient"],
+      "ghi_bang": [],
+      "luat": [],
+      "bay": [
+        {"noi_dung": "Trả MÃ phòng (code) chứ không phải tên; dispatch_service join clinic_room lần nữa theo code để lấy tên."},
+        {"noi_dung": "Ép ::uuid trên payload from_room/to_room — chữ không phải uuid làm lỗi cả truy vấn. Chỉ đọc event_log cũ, không đọc domain_event."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn thêm cột", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20260804000003_dispatch_move.sql:178"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_event_delivery_suc_khoe": {
+      "lam_gi": "Sức khoẻ hàng giao sự kiện theo từng bên nghe (consumer): số dòng chờ làm, chết (DEAD), đang làm, tuổi dòng chờ cũ nhất.",
+      "khoi": "van_hanh",
+      "loai": "ha_tang",
+      "chay_khi": "Python đọc ở api/v1/routers/ops.py (màn /ops)",
+      "goi_boi": ["src/clinicai/api/v1/routers/ops.py"],
+      "doc_bang": ["event_delivery"],
+      "ghi_bang": [],
+      "luat": [],
+      "bay": [],
+      "muon_sua": [],
+      "chua_chac": []
+    },
+    "view:v_lieu_trinh_buoi": {
+      "lam_gi": "Các buổi của liệu trình kèm cờ đã làm và SỐ BUỔI HIỆN = thứ tự làm xong thật (không phải số gán lúc mua).",
+      "khoi": "lieu_trinh",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "Python đọc ở services/lieu_trinh_service.py, nhan_luot.py, service_selection_service.py, phieu_kham/ket_qua_chi_dinh.py",
+      "goi_boi": ["src/clinicai/services/lieu_trinh_service.py", "src/clinicai/services/nhan_luot.py", "src/clinicai/services/service_selection_service.py", "src/clinicai/phieu_kham/ket_qua_chi_dinh.py"],
+      "doc_bang": ["lieu_trinh_buoi", "service_order"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Đã làm = execution_status COMPLETED, hoặc (execution_status rỗng và exec_status 'performed')."},
+        {"noi_dung": "Buổi đã gỡ (go_luc có giá trị) giữ số gốc. Buổi đã làm đánh số theo giờ xong. Buổi chưa làm = số buổi đã làm + thứ tự theo số gốc."},
+        {"noi_dung": "Ví dụ liệu trình 3 buổi: làm buổi gốc 3 trước, rồi buổi gốc 1 → hiện buổi 3 là 'Buổi 1', buổi 1 là 'Buổi 2', buổi 2 chưa làm là 'Buổi 3'."}
+      ],
+      "bay": [
+        {"noi_dung": "Số buổi đổi theo thời điểm đọc (hoàn tác 'xong' là số nhảy lại) — đừng lưu số này sang bảng khác như số cố định."},
+        {"noi_dung": "Đếm đã làm cho buổi chưa làm chỉ tính buổi chưa gỡ; buổi đã gỡ chiếm số gốc nên có thể trùng số với buổi khác."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi cách đánh số buổi", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20261009145151_lieu_trinh_minh_bach.sql:90"}
+      ],
+      "chua_chac": ["Buổi đã gỡ giữ số gốc có thể trùng số hiện của buổi khác — chưa thử trên dữ liệu."]
+    },
+    "view:v_moc_hanh_trinh": {
+      "lam_gi": "Dịch sự kiện dịch vụ/khám trong domain_event thành mốc hành trình dễ đọc (XEP_PHONG, NHAN, BAT_DAU, XONG, KHAM_XONG…), kèm cờ mốc đã bị hoàn tác và lúc hoàn tác.",
+      "khoi": "journey",
+      "loai": "co_the_chet",
+      "chay_khi": "không code chạy nào đọc — chỉ test (test_nhan_tai_phong_db, test_dieu_tri_ban_kham_db, test_review_0710_ban_kham_db)",
+      "goi_boi": ["src/tests/services/test_nhan_tai_phong_db.py", "src/tests/services/test_dieu_tri_ban_kham_db.py"],
+      "doc_bang": ["domain_event", "service_execution_attempt", "staff"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "service.routed nguồn 'tai_phong' = NHAN (phòng tự nhận), còn lại = XEP_PHONG."},
+        {"noi_dung": "Mốc bị hoàn tác khi có sự kiện huỷ tương ứng SAU nó và TRƯỚC lần lặp lại cùng loại. Ví dụ XONG rồi HOAN_TAC_XONG → XONG bi_hoan_tac = true."}
+      ],
+      "bay": [
+        {"noi_dung": "tu_phong_id/sang_phong_id ép ::uuid không NULLIF — payload ghi chuỗi rỗng làm lỗi cả view."},
+        {"noi_dung": "Thêm loại sự kiện mới phải sửa ba chỗ: CASE loai_moc, CASE tìm sự kiện hoàn tác, và danh sách WHERE."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn thêm loại mốc", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20261007650001_moc_hanh_trinh_hoan_tac_nhan_cheo.sql:119"}
+      ],
+      "chua_chac": ["Có màn/dashboard đọc qua PostgREST không — grep src/dashboard không thấy."]
+    },
+    "view:v_quyen_hieu_luc": {
+      "lam_gi": "Quyền đã CẤP đang còn hiệu lực: capability_grant chưa thu hồi và nằm trong khoảng valid_from–valid_until, kèm khối (work_pack) của quyền.",
+      "khoi": "permission",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "Python đọc ở services/permission_service.py, doi_bac_si_service.py; view v_quyen_thuc_te đọc",
+      "goi_boi": ["src/clinicai/services/permission_service.py", "src/clinicai/services/doi_bac_si_service.py", "view v_quyen_thuc_te"],
+      "doc_bang": ["capability_grant", "capability"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Quyền có hiệu lực khi revoked_at rỗng, valid_from rỗng hoặc ≤ bây giờ, valid_until rỗng hoặc > bây giờ."}
+      ],
+      "bay": [
+        {"noi_dung": "Chỉ là quyền cấp tay; kiểm quyền thật phải hỏi v_quyen_thuc_te (gồm quyền theo lịch). Dùng nhầm view này sẽ thiếu quyền theo ca."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật hiệu lực", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20260923000003_capability.sql:192"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_quyen_thuc_te": {
+      "lam_gi": "Quyền THỰC TẾ hôm nay = quyền đã cấp ∪ quyền suy từ lịch làm việc hôm nay (phòng của vị trí trực, vị trí trực, phòng đối tác, ai có lịch đều có khối lich_lam_viec).",
+      "khoi": "permission",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "Python đọc ở permissions/can.py (mọi lần kiểm quyền), api/identity.py, vat_tu_service.py; hàm SQL vật tư cũng đọc",
+      "goi_boi": ["src/clinicai/permissions/can.py", "src/clinicai/api/identity.py", "src/clinicai/services/vat_tu_service.py", "src/clinicai/services/bac_si_phu_trach.py"],
+      "doc_bang": ["v_quyen_hieu_luc", "work_roster", "vi_tri_lam_viec", "clinic_room", "clinic_room_node", "capability"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Lịch hôm nay = work_roster ngày hôm nay theo giờ VN, có staff_id, trạng thái khác REJECTED."},
+        {"noi_dung": "Phòng của vị trí trực → mỗi bước (node) trong phòng khớp tiền tố dài nhất trong quyen_theo_lich_bang() → khối quyền; khối theo_phong thì phạm vi ROOM (chỉ phòng đó), không thì CLINIC."},
+        {"noi_dung": "Trực ở phòng đối tác (la_doi_tac) → khối doi_tac; vị trí trực có trong quyen_theo_vi_tri_bang() → khối của vị trí; có lịch hôm nay → khối lich_lam_viec."}
+      ],
+      "bay": [
+        {"noi_dung": "Đổi ngày theo now() giờ VN: quyền theo lịch tự mất lúc 00:00, ca qua đêm không được giữ."},
+        {"noi_dung": "Lịch chưa duyệt (khác REJECTED) cũng cấp quyền."},
+        {"noi_dung": "Gọi quyen_theo_lich_bang() hai lần mỗi lượt đọc; view nằm trên đường nóng kiểm quyền — thêm join nặng là chậm mọi API."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật quyền theo lịch", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql:226; bảng ánh xạ ở hàm quyen_theo_lich_bang / quyen_theo_vi_tri_bang"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_slot_hold_active": {
+      "lam_gi": "Các giữ chỗ đặt lịch đang còn hiệu lực (chưa nhả, chưa hết hạn) kèm tên người giữ.",
+      "khoi": "booking",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "Python đọc ở services/slot_hold_service.py",
+      "goi_boi": ["src/clinicai/services/slot_hold_service.py"],
+      "doc_bang": ["slot_hold", "staff"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Giữ chỗ còn hiệu lực = released_at rỗng và expires_at > bây giờ."}
+      ],
+      "bay": [],
+      "muon_sua": [],
+      "chua_chac": []
+    },
+    "view:v_tep_ket_qua_hieu_luc": {
+      "lam_gi": "Tệp kết quả còn hiệu lực: chưa xoá mềm và chưa thu hồi. Mọi nơi đếm/hiện tệp kết quả đọc view này.",
+      "khoi": "result_file",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "Python đọc ở ~15 tệp: tep_ket_qua_service, checkout_service, luot_kham_*, events/consumers/chuong & hanh_trinh…",
+      "goi_boi": ["src/clinicai/services/tep_ket_qua_service.py", "src/clinicai/services/checkout_service.py", "src/clinicai/services/luot_kham_doc.py", "src/clinicai/events/consumers/hanh_trinh.py", "src/clinicai/events/consumers/chuong.py", "src/clinicai/phieu_kham/ket_qua_chi_dinh.py"],
+      "doc_bang": ["tep_ket_qua"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Tệp có da_xoa_luc hoặc thu_hoi_luc thì coi như không có (xoá mềm khôi phục được 30 ngày)."}
+      ],
+      "bay": [
+        {"noi_dung": "Liệt kê cột tường minh: thêm cột vào tep_ket_qua phải dựng lại view mới thấy cột."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi định nghĩa 'còn hiệu lực'", "cho": "migration MỚI CREATE OR REPLACE VIEW — bản đang chạy ở supabase/migrations/20260930700000_xoa_mem_tep.sql:154"}
+      ],
+      "chua_chac": []
+    },
+    "view:v_trang_thai_cskh": {
+      "lam_gi": "Một dòng 'bước tiếp theo' CSKH cho mỗi khách có việc mở: việc gấp nhất (quá hạn trước, rồi ưu tiên nhỏ, rồi hạn sớm), số việc mở, có việc quá hạn không, lịch đã được khách xác nhận chưa.",
+      "khoi": "cskh",
+      "loai": "co_the_chet",
+      "chay_khi": "không code chạy nào đọc thẳng — man_khach_hang_service.trang_thai_tu_viec chép lại luật này trên v_viec_cskh; còn test đọc",
+      "goi_boi": ["src/tests/unit/test_man_khach_hang.py", "src/tests/services/test_clinical_sign.py"],
+      "doc_bang": ["v_viec_cskh", "tuong_tac_cskh"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Việc thắng: ORDER BY qua_han DESC, uu_tien, han_xu_ly. da_xac_nhan = có tương tác khach_xac_nhan chưa huỷ cho lịch hẹn của việc thắng."}
+      ],
+      "bay": [
+        {"noi_dung": "Đọc v_viec_cskh HAI lần (dem + gap_nhat) → gọi lich_vuot_suc_chua() nhiều lần; vì vậy Python đã bỏ view này."},
+        {"noi_dung": "Luật trùng hai nơi: sửa view phải sửa cả trang_thai_tu_viec trong man_khach_hang_service.py, và ngược lại."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn đổi luật việc thắng", "cho": "sửa man_khach_hang_service.trang_thai_tu_viec; view đang chạy ở supabase/migrations/20260810000008_viec_cskh_theo_tung_luot.sql:248"}
+      ],
+      "chua_chac": ["Dashboard còn đọc view qua PostgREST không — grep .from() không thấy."]
+    },
+    "view:v_viec_cskh": {
+      "lam_gi": "Mọi việc CSKH đang mở cho từng khách (gọi xác nhận, nhắc hẹn, hỏi lý do huỷ, gọi lại, chờ kết quả, kết quả chưa gửi, mời tái khám, vượt sức chứa…), hạn xử lý và cờ quá hạn. Loại việc bật/tắt theo luat_cskh.",
+      "khoi": "cskh",
+      "loai": "logic_nghiep_vu",
+      "chay_khi": "Python đọc ở services/man_khach_hang_service.py, man_trang_chu_service.py, week_appointments_service.py",
+      "goi_boi": ["src/clinicai/services/man_khach_hang_service.py", "src/clinicai/services/man_trang_chu_service.py", "src/clinicai/services/week_appointments_service.py"],
+      "doc_bang": ["appointment", "luat_cskh", "tuong_tac_cskh", "service_order", "visit", "node_definition", "follow_up_case", "lab_result", "tep_ket_qua", "hen_goi_lai", "nhac_tai_kham"],
+      "ghi_bang": [],
+      "luat": [
+        {"noi_dung": "Mỗi loại việc chỉ hiện khi phòng khám có dòng luat_cskh loai_viec đó và bat = true; so_ngay của luật dùng để tính hạn. Quá hạn = hạn < hôm nay (giờ VN)."},
+        {"noi_dung": "Ưu tiên (nhỏ = gấp): VUOT_SUC_CHUA 0, DA_CHECKIN 0, CHO_BAC_SI 1, KQ_CHUA_GUI 2, CHO_KQ_XN 3, GOI_LAI 4, HOI_LY_DO_HUY 5, HEN_GOI_LAI 6, NHAC_DI_KHAM 7, NHAC_HEN_MAI 8, MOI_TAI_KHAM 9, CHO_XAC_NHAN 10."},
+        {"noi_dung": "CHO_XAC_NHAN: lịch chưa huỷ/đến/xong trong [hôm nay, hôm nay + so_ngay], không phải WALK_IN, chưa có tương tác XAC_NHAN_LICH; hạn = max(ngày hẹn − so_ngay, ngày tạo lịch)."},
+        {"noi_dung": "HOI_LY_DO_HUY: lịch huỷ trong khoảng [hôm nay − cua_so_ngay (mặc định 14), hôm nay − so_ngay], chưa hỏi lý do. Ví dụ so_ngay 1: huỷ hôm qua tới 14 ngày trước."},
+        {"noi_dung": "GOI_LAI: lần chạm cuối của lịch là CHUA_NGHE_MAY / KHONG_LIEN_LAC_DUOC / HEN_GOI_LAI và lịch còn mở; hạn = ngày hẹn."},
+        {"noi_dung": "Nhắc tái khám: luot_goi 1 = MOI_TAI_KHAM, lượt sau = NHAC_DI_KHAM; nguồn PHIEU_KHAM chỉ hiện khi tới hạn gọi, nguồn khác hiện sớm; lịch gắn kèm đã đến/xong/huỷ thì bỏ."},
+        {"noi_dung": "CHO_KQ_XN từ chỉ định làm ngoài/nhóm kết quả: đã làm, chưa có kết quả, tạo trong 60 ngày; KQ_CHUA_GUI từ tệp kết quả hợp lệ hoặc chưa xác nhận mà chưa gửi."}
+      ],
+      "bay": [
+        {"noi_dung": "DA_CHECKIN hạn = hôm nay nên không bao giờ quá hạn."},
+        {"noi_dung": "KQ_CHUA_GUI nhánh lab_result đóng khi có BẤT KỲ tương tác TRA_KQ nào của khách sau giờ duyệt — trả một kết quả là tắt việc của mọi kết quả cũ hơn."},
+        {"noi_dung": "CHO_KQ_XN nhánh service_order giới hạn 60 ngày, nhánh lab_result không giới hạn."},
+        {"noi_dung": "Gọi hàm lich_vuot_suc_chua() mỗi lần đọc view — nặng; man_khach_hang_service đã gom về đọc MỘT lần mỗi request."},
+        {"noi_dung": "Hai nhánh KQ_CHUA_GUI từ tep_ket_qua giống hệt nhau trừ điều kiện xac_nhan_trang_thai (HOP_LE / NULL)."}
+      ],
+      "muon_sua": [
+        {"viec": "muốn thêm/đổi loại việc CSKH", "cho": "migration MỚI CREATE OR REPLACE VIEW v_viec_cskh — bản đang chạy ở supabase/migrations/20261015110000_goi_xac_nhan_moi_lich_dat_ho.sql:30; thêm dòng luat_cskh cho loại mới; xem lại trang_thai_tu_viec trong man_khach_hang_service.py"}
+      ],
+      "chua_chac": []
+    }
+  }
+}

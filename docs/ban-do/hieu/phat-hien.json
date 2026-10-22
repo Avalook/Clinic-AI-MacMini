@@ -1,0 +1,236 @@
+{
+ "nguon": "Đợt đọc kỹ 21/10/2026: agent báo, Claude mở đúng dòng code kiểm tận mắt. dung = có thật trong code; can_soat = đúng một phần, cần xem máy chủ / dữ liệu / hỏi nghiệp vụ; sai = báo động oan (giữ lại để khỏi soát lại).",
+ "ds": [
+  {
+   "trang_thai": "can_soat",
+   "tep": "scripts/day-sao-luu-len-viettel-storage.sh",
+   "dong": 45,
+   "tieu_de": "Đẩy sao lưu Viettel sẽ chọn nhầm tệp notion — TIỀM ẨN, chưa xảy ra",
+   "chi_tiet": "Bằng chứng VPS 21/10: thư mục sao lưu KHÔNG có tệp _lich_su_notion; ổ Viettel có bản tới 21/10 22:00 (15 phút/bản) → đang chạy tốt. Tệp notion chỉ sinh khi unit đêm đặt BACKUP_LICH_SU_NOTION=1 — repo CÓ (clinicai-backup.service:22) mà VPS không sinh → unit trên VPS là bản cũ, hoặc dump notion lỗi. Ngày cài lại unit theo repo là bản đêm lên Viettel bắt đầu dừng. Phòng trước: PR #523."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/ci-may.sh",
+   "dong": 116,
+   "tieu_de": "CI máy bỏ qua cả thư mục test integration",
+   "chi_tiet": "--ignore=src/tests/integration: 4 tệp (bệnh nhân, đặt lịch, nhân sự, RabbitMQ) không bao giờ chạy; một tệp còn gọi route đã gỡ. Cần quyết: chạy lại / sửa / xoá."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/kim-nguu-3-tang-2709.py",
+   "dong": 42,
+   "tieu_de": "Script cũ chạy --that sẽ XOÁ cơ sở Hào Nam (cơ sở duy nhất đang đón khách)",
+   "chi_tiet": "XOA = ('Phòng khám Dr4Women', 'Hào Nam'). Tự ghi ĐÃ CŨ nhưng vẫn chạy được. Nên xoá khỏi repo hoặc chặn chạy."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/tests/services/test_thai_ky_db.py",
+   "dong": 95,
+   "tieu_de": "Thai kỳ đã có kết cục thì khoá cứng, không hoàn tác được",
+   "chi_tiet": "Trái mục 7 CLAUDE.md (mọi thao tác hoàn tác được). HỎI TUYỀN: chủ ý?"
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/tests/services/test_xu_ly_thuoc_tra_db.py",
+   "dong": 166,
+   "tieu_de": "Quyết định xử lý thuốc khách trả khoá cứng, không đổi lại được",
+   "chi_tiet": "Trái mục 7 CLAUDE.md. HỎI TUYỀN: chủ ý?"
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/clinicai/api/v1/routers/queue.py",
+   "dong": 104,
+   "tieu_de": "Hàng chờ lấy 'hôm nay' theo đồng hồ máy chủ, không theo giờ VN",
+   "chi_tiet": "date_cls.today() — container chạy UTC thì 0h–7h sáng hàng chờ đọc sang ngày hôm trước. — ĐÃ SỬA ở PR #522 (chờ staging)."
+  },
+  {
+   "trang_thai": "chu_y",
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "dong": 1181,
+   "tieu_de": "Mở lại lượt check-out nhầm KHÔNG hỏi lý do — CHỦ Ý",
+   "chi_tiet": "Tuyền chốt 21/10: hoàn tác chính cái check-out là một chạm (test cố ý). Luật chung đầu tệp đã ghi khớp ở PR #522."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/clinicai/services/permission_service.py",
+   "dong": 599,
+   "tieu_de": "Nhóm quyền mẫu đã tắt vẫn cấp được nếu trùng mã nhóm cài sẵn",
+   "chi_tiet": "Không thấy nhóm đang bật thì quay về hằng PRESET trong code. — ĐÃ SỬA ở PR #522 (chờ staging)."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/traffic/page.tsx",
+   "dong": 64,
+   "tieu_de": "Trang /traffic lưu tên đăng nhập + mật khẩu nguyên văn trong sessionStorage",
+   "chi_tiet": "Trang của công cụ lạ cài 30/09 (CLAUDE.md: chờ chốt)."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/(dashboard)/truong-ca/ChiDinhCuaBacSi.tsx",
+   "dong": 68,
+   "tieu_de": "Khoá chống bấm trùng sinh mới mỗi lần bấm",
+   "chi_tiet": "Mất mạng rồi bấm lại = lần gửi mới với máy chủ. Có tạo trùng thật hay không tuỳ máy chủ còn chặn cách khác — xem tiếp phía máy chủ."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/clinicai/services/clinic_policy.py",
+   "dong": 163,
+   "tieu_de": "Đọc cấu hình đặt lịch lỗi thì lặng lẽ dùng mặc định 15 phút / 2+1 chỗ",
+   "chi_tiet": "except Exception → DEFAULT_POLICY, không báo ai."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/clinicai/services/bill_service.py",
+   "dong": 340,
+   "tieu_de": "Giá tái khám (150k thay 400k) chỉ có trong hàm dong_kham mà code chạy thật không gọi",
+   "chi_tiet": "Luồng thu thật dùng dong_kham_theo_chon (833) — không có chữ 'tái khám'. Có thể đã thay bằng lễ tân chọn phí tay: HỎI TUYỀN."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx",
+   "dong": 254,
+   "tieu_de": "Bỏ tick bớt dịch vụ thì màn tự cộng tổng, không gửi dấu hoá đơn",
+   "chi_tiet": "Vẫn gửi danh sách chọn + dấu lựa chọn. Cần xem máy chủ có tính lại số tiền hay tin số màn gửi."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/dashboard/app/(dashboard)/reception/checkout/ChiTietLuot.tsx",
+   "dong": 278,
+   "tieu_de": "Mọi khoản chưa huỷ đều in 'Đã thanh toán'",
+   "chi_tiet": "Sai thật chỉ khi danh sách này có lẫn khoản chưa thu — xem nguồn dữ liệu."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/clinicai/services/thong_bao_service.py",
+   "dong": 458,
+   "tieu_de": "Bấm 'Xong' thông báo không kiểm người bấm có phải người nhận",
+   "chi_tiet": "Chỉ kiểm cùng phòng khám. Có thể chủ ý (thông báo chung cả phòng)."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/dashboard/lib/ca-kham-bac-si.ts",
+   "dong": 6,
+   "tieu_de": "Mã vị trí bác sĩ chép tay ở giao diện, chú thích nói theo lịch Kim Ngưu",
+   "chi_tiet": "Xem mã vị trí thật của Hào Nam có nằm trong danh sách không — thiếu thì màn đặt lịch mất bác sĩ."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/clinicai/services/phi_kham_service.py",
+   "dong": 158,
+   "tieu_de": "Bỏ tick dịch vụ khám ĐÃ THU vẫn được — tiền đã thu thành tiền thừa",
+   "chi_tiet": "Máy chủ luôn trả khoa=False, duoc_tick chỉ xét quyền. Chủ ý (hoàn qua tiền thừa) hay sót luật khoá? HỎI TUYỀN."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/clinicai/services/thu_ky_bac_si.py",
+   "dong": 50,
+   "tieu_de": "Thư ký chưa được phân bác sĩ thì thấy CẢ phòng khám",
+   "chi_tiet": "Trả None = không lọc. Ghi chú SQL nói ngược lại (không thấy ai). Chạm quyền xem hồ sơ khách."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/clinicai/services/tep_ket_qua_service.py",
+   "dong": 898,
+   "tieu_de": "Tệp kết quả đối tác tự đặt HOP_LE dù comment nói 'không tự duyệt'",
+   "chi_tiet": "Comment + tên quyền trong docstring đã cũ; cần chốt luật duyệt tệp đối tác là gì."
+  },
+  {
+   "trang_thai": "sai",
+   "tep": "src/clinicai/services/clinic_settings_service.py",
+   "dong": 70,
+   "tieu_de": "[Báo oan] 'jsonb_set lên settings rỗng xoá trắng cấu hình'",
+   "chi_tiet": "clinic.settings là NOT NULL — không xảy ra được."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "supabase/migrations/20260920000004_cho_phep_ghi_exam_completed_at_khi_da_ky.sql",
+   "dong": 31,
+   "tieu_de": "Khoá bệnh án FINALIZED hở: chuyển sang AMENDED thì sửa được MỌI cột, và AMENDED không khoá gì",
+   "chi_tiet": "visit_finalized_block_update chỉ chặn khi NEW.status <> 'AMENDED'. Một lệnh UPDATE đặt status='AMENDED' kèm đổi bác sĩ/chẩn đoán/ngày đều lọt; sau đó lượt AMENDED sửa tự do. Ảnh hưởng THẤP: Ký bệnh án đã nghỉ 23/09 nên lượt mới không còn lên FINALIZED. Muốn kín: migration mới — khi chuyển sang AMENDED chỉ cho đổi status/updated_at, và khoá AMENDED như FINALIZED."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/vps-chuan-bi.sh",
+   "dong": 131,
+   "tieu_de": "sshd -t thất bại vẫn chạy lệnh reload sshd",
+   "chi_tiet": "Toán tử `&& ... || ...` khiến `systemctl reload sshd` chạy khi `sshd -t` lỗi; có thể nạp cấu hình SSH không hợp lệ thay vì dừng. Đã xác nhận từ luồng shell; chưa chạy trên máy chủ."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/vps-chuan-bi.sh",
+   "dong": 65,
+   "tieu_de": "Sao chép authorized_keys của root ghi đè khóa sẵn có của clinicai",
+   "chi_tiet": "`install` chép nguyên tệp root vào đúng đường dẫn authorized_keys của clinicai; nếu clinicai đã có khóa riêng, tệp bị thay toàn bộ. Chưa chạy trên máy chủ."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/clinicai/voice/transcribe.py",
+   "dong": 118,
+   "tieu_de": "Nạp model STT đồng bộ ngay trong event loop",
+   "chi_tiet": "`transcribe()` gọi `_ensure_model()` trước `asyncio.to_thread`; lần đầu `WhisperModel(...)` tải/nạp model đồng bộ nên chặn event loop cho đến khi nạp xong. Chưa đo tải trên máy chạy thật."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "scripts/supabase-local-nap.sh",
+   "dong": 91,
+   "tieu_de": "docker cp có thể đặt migration lồng khi /migrations đã tồn tại",
+   "chi_tiet": "Lệnh chép cả thư mục `migrations` vào `/migrations`; nếu đích đã là thư mục, Docker có thể tạo `/migrations/migrations`, trong khi vòng lặp chỉ đọc `/migrations/*.sql` và có thể dùng tệp cũ. Chưa tái hiện trên container disposable."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/provision-staff-logins.sh",
+   "dong": 93,
+   "tieu_de": "Nhân sự auth_user_id NULL bị báo là không tồn tại nên không được mời",
+   "chi_tiet": "SELECT trả chuỗi rỗng cả khi có staff với auth_user_id NULL lẫn khi không có dòng; nhánh `-z` ở dòng 96 báo không có staff rồi continue, nên nhánh invite không chạy cho trường hợp thường gặp này."
+  },
+  {
+   "trang_thai": "bao_oan",
+   "tep": "src/clinicai/services/checkout_service.py",
+   "dong": 1087,
+   "tieu_de": "chan của tiền thừa bị hiểu nhầm là nợ",
+   "chi_tiet": "Đã tách `chan_no` từ trạng thái nợ trước khi gộp cờ chặn tiền thừa vào `chan`; build_blockers ưu tiên `chan_no` (dòng 1114), nên tiền thừa không bị báo thành nợ."
+  },
+  {
+   "trang_thai": "bao_oan",
+   "tep": "src/clinicai/services/checkout_service.py",
+   "dong": 692,
+   "tieu_de": "Danh sách check-out tồn đọng không loại lượt đã đóng",
+   "chi_tiet": "stale_list dùng `dieu_kien_luot_treo('v')`; điều kiện chung loại `closed_at IS NOT NULL`, lượt đã check-out không xuất hiện."
+  },
+  {
+   "trang_thai": "bao_oan",
+   "tep": "src/dashboard/tests/route-da-tat-boundary.test.mts",
+   "dong": 21,
+   "tieu_de": "Cảnh báo trùng SĐT mất vì check-phone trả 410",
+   "chi_tiet": "Luồng tạo khách hiện gọi `/api/patients/check-duplicate` (NewPatientForm.tsx:727); route cũ check-phone bị proxy chặn 410 theo test, nên cảnh báo dùng endpoint mới chứ không mất."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx",
+   "dong": 123,
+   "tieu_de": "Lỗi lưu vị trí dây nối bị xóa sau khi tải lại thành công",
+   "chi_tiet": "Khi POST lỗi, gui đặt loi rồi luôn gọi tai(); nếu GET thành công, tai đặt loi=null. Promise vẫn resolve và caller ở dòng 417 xóa tên vừa nhập, làm lỗi trông như lưu thành công."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/(dashboard)/patient-list/LichSuNotion.tsx",
+   "dong": 281,
+   "tieu_de": "Lỗi tải chi tiết lịch sử Notion không có cách thử lại",
+   "chi_tiet": "Lỗi mạng/HTTP ghi `chiTiet[id] = 'loi'` (dòng 287), UI chỉ hiện câu chung (376); bấm mở lại bị chặn bởi điều kiện `chiTiet[id]` truthy nên không gửi lại request."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/console/FeedbackBox.tsx",
+   "dong": 69,
+   "tieu_de": "Lỗi mạng khi gửi phản hồi làm nút kẹt ở trạng thái đang gửi",
+   "chi_tiet": "fetch không có try/catch/finally; khi mạng từ chối Promise, `setState('error')` không chạy và state giữ `sending`, nút bị vô hiệu hóa, không có thông báo lỗi."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/clinicai/api/v1/routers/booking.py",
+   "dong": 292,
+   "tieu_de": "Hàng chờ xếp bác sĩ không trả đủ lịch MAT_BAC_SI trong mô phỏng A5",
+   "chi_tiet": "Mô phỏng tạo 3 lịch tự do, công bố lịch tuần khiến BS nghỉ thứ Năm, rồi phép kiểm `set(lich_tu_do) <= ids_cho` thất bại (scripts/mo-phong/pha_dat_lich.py:231). Endpoint còn lọc theo cơ sở tài khoản hiện đứng; chưa lưu được ID/lịch cụ thể và cơ sở phiên để phân biệt lỗi lọc với setup mô phỏng. Cần tái hiện cô lập trước khi kết luận."
+  }
+ ]
+}

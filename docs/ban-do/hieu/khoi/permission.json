@@ -1,0 +1,118 @@
+{
+  "tom_tat": "Khối Phân quyền lo \"ai là ai và được làm gì\": đăng nhập (kho mật khẩu riêng `app_credential`, cấp token 12 giờ), hồ sơ nhân sự (`staff`, `clinic_membership` — vai tài khoản như DOCTOR, RECEPTION, CSKH…), tài khoản đăng nhập, và quyền theo LEGO: mỗi màn trên thanh bên là một lego, bật lego = cấp các \"khối công việc\" (capability) vào `capability_grant`. Quản lý (quyền permission.manage / staff.manage / account.manage) dùng màn `/phan-quyen` (tick kỹ năng như Phụ SA, Bio, Lấy mẫu; bật/tắt lego từng người, theo phòng; nhóm quyền mẫu `quyen_preset`), `/nhan-su`, `/settings/tai-khoan`, `/settings/new-user` và khối Ngoại lệ ca trực ở Lịch làm việc. Mọi lệnh ở mọi khối khác hỏi quyền qua MỘT chỗ: `permissions/can.py` (đọc view v_quyen_thuc_te = quyền đã cấp ∪ quyền theo lịch trực hôm nay); cửa router dùng `cua_quyen`. Vai tài khoản nay chỉ là gói quyền mẫu, quyền thật ở capability_grant — nhưng vẫn còn nhiều chỗ hỏi vai (RoleGuard, `lib/roles.ts`).",
+  "luong": [
+    "Bước 1 (tạo người): quản lý thêm nhân sự ở `/nhan-su` → `staff_service` tạo staff + clinic_membership (trigger tự tạo membership mặc định theo phòng ban, tự điền cơ sở nếu phòng khám chỉ có một cơ sở) và cấp sẵn các khối theo nhóm mẫu của vai ngay trong giao dịch (`cap_quyen_theo_preset`).",
+    "Bước 2 (tạo tài khoản): `/settings/new-user` → route Next `/api/admin/users` (cầm khoá service-role, cần account.manage) tạo người dùng GoTrue với mật khẩu ≥ 8 ký tự → `tai_khoan_service` nối tài khoản vào nhân viên.",
+    "Bước 3 (đăng nhập): gõ nick (tự gắn đuôi @dr4women.vn) + mật khẩu → POST /auth/login → `AuthService.login` kiểm bcrypt; sai 5 lần liên tiếp khoá 15 phút; đúng thì cấp JWT 12 giờ. Hành động máy chủ đòi nhân viên có ĐÚNG MỘT membership đang hoạt động, ghi cookie vai/nhân viên 12 giờ, xoá cookie cơ sở cũ và chuyển qua `/chon-co-so`.",
+    "Bước 4 (mỗi yêu cầu): `proxy.ts` chặn trang khi chưa đăng nhập hoặc không gắn staff đang làm; `api/identity.py` xác định danh tính: nhân viên + phòng khám + cơ sở (header X-Location-ID hoặc cơ sở mặc định) + vai tài khoản, cộng vai theo vị trí trực hôm nay (chỉ Lễ tân / Điều dưỡng / Trưởng ca) và vai suy từ lego đang bật.",
+    "Bước 5 (hỏi quyền): lệnh nghiệp vụ gọi `can()` / `doi_quyen()`; tên quyền sai thì ném lỗi ngay; quyền toàn phòng khám luôn đủ, quyền theo phòng chỉ đủ khi lệnh truyền đúng phòng; câu trả lời 'CÓ' nhớ 5 giây.",
+    "Bước 6 (cấp/thu): màn `/phan-quyen` → `PermissionService.cap_khoi` / `thu_khoi` / `doi_lego` (phát capability.granted / capability.revoked), `KyNangService` (tick kỹ năng = bật/tắt đúng lego + phòng của kỹ năng qua `doi_lego`), nhóm mẫu SaveRolePreset/RemoveRolePreset. Thu quyền là đặt revoked_at, không xoá.",
+    "Bước 7 (ngoại lệ ca trực): khi dây \"ca trực lâm sàng\" bật, quản lý mở ngoại lệ cho một người làm thay bác sĩ ngoài ca trong một ngày (lý do ≥ 3 ký tự), huỷ được, không xoá — phát clinical_shift.exception_opened / cancelled.",
+    "Bước 8 (nghỉ việc / thu hồi): khoá nhân viên (tuỳ chọn gỡ ca trực từ hôm nay, gỡ lịch hẹn ngoài ca), GoTrue cấm đăng nhập ~100 năm; thu hồi tài khoản: DB gỡ nối + khoá app_credential + nhật ký TRƯỚC, xoá người dùng GoTrue SAU; mở lại / nối lại là đường hoàn tác."
+  ],
+  "luu_y": [
+    "Bất biến ép ở Postgres: mỗi phòng khám luôn còn ≥ 1 người ĐANG LÀM giữ permission.manage — trigger hoãn tới COMMIT, khoá dòng phòng khám rồi đếm; thu quyền / cho nghỉ / xoá membership người cuối cùng bị từ chối.",
+    "\"MỞ FULL LEGO\": mọi vai nội bộ (trừ PARTNER, MANAGEMENT) được cấp MỌI khối trừ khối chỉ-quản-lý (Phân quyền, Nhân sự, Cài đặt, Danh mục, Kế toán, Duyệt vật tư) và khối nội bộ — các preset theo vai cũ bị ghi đè (giữ trong PRESET_TRUOC_MO_FULL). Hệ quả: mọi nhân viên bật đủ Bàn khám nên qua cửa vai Bác sĩ ở những chỗ còn hỏi vai.",
+    "Gói Kế toán (và vai ACCOUNTANT) cố ý KHÔNG có thu tiền dịch vụ/thuốc. Tài khoản đối tác chỉ có khối Đối tác. Khối nội bộ \"Giám sát AI\" (giamsat.view) không ai trong phòng khám cấp/thu được — trigger lặng lẽ bỏ qua nếu phiên không bật cờ riêng của đội vận hành.",
+    "Tắt một lego chỉ gỡ khối không lego khác còn cần (tắt Phòng dịch vụ không mất Ghi bệnh án của Bàn khám). Bỏ hết tick phòng ở lego phòng = về \"tất cả phòng\", KHÔNG tắt lego. Ví dụ kỹ năng: đang có phòng SA1, tick kỹ năng mở SA2 → còn SA1+SA2.",
+    "Hiệu lực trễ: quyền nhớ 5 giây (QUYEN_CACHE_GIAY), vai theo lego nhớ 30 giây — cấp/thu ở tiến trình khác tối đa ~5 giây sau mới có tác dụng; đổi vai/khoá người thì xoá cache ngay.",
+    "Vai theo lịch trực: mặc định mọi dòng lịch hôm nay (trừ REJECTED) cấp vai cả ngày; bật settings.vai_lich_theo_ca thì chỉ dòng APPROVED trong giờ ca ± ân hạn. Lịch KHÔNG BAO GIỜ cấp vai bác sĩ, TKYK, quản lý, đối tác, TV.",
+    "Một login nhiều membership mà không gửi X-Clinic-ID → 403 (không đoán); cơ sở chọn không thuộc phòng khám → 403. Vai DISPLAY (tivi) và PARTNER bị từ chối ở mọi endpoint thường — chỉ qua cửa riêng.",
+    "Đăng nhập sai: email không có / sai mật khẩu / đã nghỉ → cùng một câu, không lộ email có thật; tài khoản bị thu hồi chỉ báo SAU khi mật khẩu đúng. Ví dụ sai lần thứ 5 lúc 08:00 → 08:15 mới thử lại được.",
+    "Luật mật khẩu tối thiểu 8 ký tự CHỈ nằm ở route Next / màn (FastAPI không thấy mật khẩu); \"không tự khoá chính mình\" có ở cả staff_service lẫn route Next.",
+    "Ẩn nút trên màn không phải bảo mật: `lib/roles.ts` (NAV_ROLES theo vai, NAV_QUYEN theo lego — phải khớp MAN trong catalogue.py), `quyen-client.ts` chỉ ẩn/hiện; máy chủ vẫn kiểm. Công tắc mở quyền tạm (MO_QUYEN_TAM_THOI / NEXT_PUBLIC_MO_QUYEN_TAM_THOI) mặc định TẮT.",
+    "Nợ: cấp preset cho nhân sự mới bằng hàm SQL không phát capability.granted; còn nhiều chỗ hỏi VAI thay vì quyền (RoleGuard, canWriteIntake, canWriteClinical, lưới Vai & Màn hình); không chặn tự cấp quyền cho chính mình."
+  ],
+  "muon_sua": [
+    {
+      "viec": "thêm một capability (quyền lệnh) mới",
+      "cho": "từ điển QUYEN + migration danh mục quyền",
+      "tep": "src/clinicai/permissions/catalogue.py",
+      "dong": 314
+    },
+    {
+      "viec": "đổi khối chỉ quản lý giữ (không vào 'mở full')",
+      "cho": "KHOI_CHI_QUAN_LY (kèm migration cấp/thu)",
+      "tep": "src/clinicai/permissions/catalogue.py",
+      "dong": 893
+    },
+    {
+      "viec": "đổi danh sách khối mọi vai nội bộ được mở full / gói theo vai",
+      "cho": "KHOI_MO_FULL và vòng ghi đè PRESET",
+      "tep": "src/clinicai/permissions/catalogue.py",
+      "dong": 898
+    },
+    {
+      "viec": "thêm màn vào lego / lego mới (màn nào cần khối nào)",
+      "cho": "từ điển MAN (phải khớp NAV_QUYEN ở lib/roles.ts)",
+      "tep": "src/clinicai/permissions/catalogue.py",
+      "dong": 960
+    },
+    {
+      "viec": "đổi số lần sai / thời gian khoá / tuổi token đăng nhập",
+      "cho": "TOKEN_TTL, MAX_FAILED, LOCK_FOR",
+      "tep": "src/clinicai/services/auth_service.py",
+      "dong": 37
+    },
+    {
+      "viec": "đổi hạn nhớ quyền",
+      "cho": "HAN_GIAY đọc QUYEN_CACHE_GIAY (mặc định 5 giây)",
+      "tep": "src/clinicai/permissions/cache.py",
+      "dong": 32
+    },
+    {
+      "viec": "thêm mã vị trí trực cấp vai vận hành",
+      "cho": "VAI_THEO_VI_TRI",
+      "tep": "src/clinicai/api/identity.py",
+      "dong": 825
+    },
+    {
+      "viec": "đổi luật vai theo giờ ca / ân hạn",
+      "cho": "hàm vi_tri_dang_trong_ca",
+      "tep": "src/clinicai/api/identity.py",
+      "dong": 957
+    },
+    {
+      "viec": "đổi cách chọn phòng khám / cơ sở khi xác định danh tính",
+      "cho": "hàm _resolve_identity",
+      "tep": "src/clinicai/api/identity.py",
+      "dong": 428
+    },
+    {
+      "viec": "chặn tự cấp quyền cho chính mình / đổi luật cấp khối",
+      "cho": "PermissionService.cap_khoi",
+      "tep": "src/clinicai/services/permission_service.py",
+      "dong": 158
+    },
+    {
+      "viec": "đổi luật gộp lego/phòng khi tick, bỏ tick kỹ năng",
+      "cho": "hàm thuần ke_hoach",
+      "tep": "src/clinicai/services/ky_nang_service.py",
+      "dong": 73
+    },
+    {
+      "viec": "đổi khâu nào được in phiếu khám ở quầy / ai đọc nội dung y khoa",
+      "cho": "QUYEN_IN_PHIEU, QUYEN_Y_KHOA",
+      "tep": "src/clinicai/permissions/y_khoa.py",
+      "dong": 44
+    },
+    {
+      "viec": "đổi cách gỡ ca trực / lịch hẹn khi khoá nhân viên nghỉ việc",
+      "cho": "StaffService.deactivate",
+      "tep": "src/clinicai/services/staff_service.py",
+      "dong": 409
+    },
+    {
+      "viec": "cho một vai / lego vào màn mới, đổi trang đích sau đăng nhập",
+      "cho": "NAV_QUYEN (lego), NAV_ROLES (vai), roleLanding",
+      "tep": "src/dashboard/lib/roles.ts",
+      "dong": 632
+    },
+    {
+      "viec": "đổi độ dài mật khẩu tối thiểu",
+      "cho": "MIN_PASSWORD = 8 (cũng có ở NewUserForm, AccountActions, DoiMatKhauModal, ResetPasswordForm)",
+      "tep": "src/dashboard/app/api/admin/users/route.ts",
+      "dong": 34
+    }
+  ]
+}

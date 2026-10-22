@@ -1,0 +1,125 @@
+{
+ "nguon": "Tuyền chạy trên VPS prod 21/10/2026, chỉ đọc, chỉ con số: kiem-du-lieu-prod.sql (lượt 1) + kiem-du-lieu-prod-2.sql (lượt 2 tách D13/D14/D15). Lượt 3 (kiem-du-lieu-prod-3.sql): đếm 'chưa Hoàn tất khám' theo luật hiện tại.",
+ "luc": "21/10/2026",
+ "ket_qua": [
+  {
+   "ma": "D01",
+   "ten": "Tồn lô thuốc âm",
+   "so": 0
+  },
+  {
+   "ma": "D02",
+   "ten": "Tồn lô lệch tổng sổ kho",
+   "so": 0
+  },
+  {
+   "ma": "D03",
+   "ten": "Vật tư tồn âm",
+   "so": 0
+  },
+  {
+   "ma": "D04",
+   "ten": "Giao thuốc nhiều hơn số đã gán lô",
+   "so": 0
+  },
+  {
+   "ma": "D05",
+   "ten": "Lịch hẹn kết thúc trước khi bắt đầu",
+   "so": 0
+  },
+  {
+   "ma": "D06",
+   "ten": "Phiếu thu huỷ thiếu lý do / mốc mâu thuẫn",
+   "so": 0
+  },
+  {
+   "ma": "D07",
+   "ten": "Lượt đã chốt thiếu mốc chốt",
+   "so": 0
+  },
+  {
+   "ma": "D08",
+   "ten": "Hoàn tiền mở quá 3 ngày",
+   "so": 0
+  },
+  {
+   "ma": "D09",
+   "ten": "Thuốc khách trả chờ kiểm quá 2 ngày",
+   "so": 0
+  },
+  {
+   "ma": "D10",
+   "ten": "Sự kiện chưa xử lý quá 15 phút",
+   "so": 0
+  },
+  {
+   "ma": "D11",
+   "ten": "Thuốc đã giao chưa gán lô quá 1 ngày",
+   "so": 0
+  },
+  {
+   "ma": "D12",
+   "ten": "Lô hết hạn vẫn còn tồn",
+   "so": 0
+  },
+  {
+   "ma": "D13",
+   "ten": "Lô còn tồn khác đơn vị bán",
+   "so": 46,
+   "muc": "vua",
+   "khoi": "pharmacy",
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "nghia": "SAI THẬT (đã biết 16/10: 110/160 lô lệch, nay 46). Giao thuốc theo đơn vị bán mà lô đếm đơn vị khác → trừ kho sai. Sửa bằng màn quy đổi của đợt kho 17/10 (CHƯA lên prod) hoặc nhập lại lô — việc dữ liệu trên màn. Lượt 2: Hào Nam 23, Kim Ngưu 23."
+  },
+  {
+   "ma": "D14",
+   "ten": "Lượt chưa check-out quá 2 ngày (treo thật)",
+   "so": 25,
+   "muc": "vua",
+   "khoi": "reception",
+   "tep": "src/clinicai/services/checkout_service.py",
+   "nghia": "TREO THẬT 25 (lượt 2): 24 lượt khám IN_PROGRESS + 1 bán lẻ; 21/25 ĐÃ THU TIỀN → khách trả tiền rồi về mà không ai bấm check-out. Toàn bộ tháng 10; Hào Nam 6, Kim Ngưu 19. Câu D14 cũ ra 460 vì đếm lẫn 435 lượt ĐÃ check-out (check-out không đổi visit.status) — đã sửa câu. Việc dữ liệu: lễ tân check-out 25 lượt."
+  },
+  {
+   "ma": "D14b",
+   "ten": "Đã check-out, visit chưa FINALIZED (KHÔNG phải 'chưa ký')",
+   "so": 435,
+   "muc": "thap",
+   "khoi": "consultation",
+   "tep": "src/clinicai/services/checkout_service.py",
+   "nghia": "Bình thường theo luật hiện tại: bước 'Ký bệnh án' đã NGHỈ 23/09/2026 (clinical_sign.py:62, trả 410) — mốc khoá là bác sĩ bấm Hoàn tất / Khám xong = visit.exam_completed_at; FINALIZED giờ chỉ còn ở dữ liệu cũ nhập từ Notion. Số 'khách đã về mà bác sĩ CHƯA Hoàn tất khám' thật: kiem-du-lieu-prod-3.sql (K1)."
+  },
+  {
+   "ma": "K1",
+   "ten": "Khách đã về mà bác sĩ CHƯA Hoàn tất khám (= chưa ký theo luật hiện tại)",
+   "so": 0,
+   "nghia": "0 lượt. Tháng 10: 445 lượt khám đã check-out, 442 đã Hoàn tất (3 còn lại là về giữa chừng / dữ liệu cũ — đúng luồng). Tuyền chốt 21/10 'có bắt bác sĩ ký' = Hoàn tất khám; hiện không bỏ sót → chưa cần màn nhắc. Chạy lại lượt 3 định kỳ để canh."
+  },
+  {
+   "ma": "D15",
+   "ten": "Lịch đã xác nhận quá 1 ngày chưa check-in/huỷ",
+   "so": 51,
+   "muc": "vua",
+   "khoi": "booking",
+   "tep": "src/clinicai/services/booking_service.py",
+   "nghia": "51 lịch qua ngày vẫn 'đã xác nhận' (tháng 9: 5, tháng 10: 46; chủ yếu điện thoại 24, Zalo 13, Facebook 13). Hệ thống CÓ trạng thái NO_SHOW (36 lịch đang dùng) nhưng 51 lịch này chưa ai đánh dấu → thống kê vắng mặt / danh sách gọi nhắc sai. Việc dữ liệu: đánh dấu không đến; cân nhắc bước tự đóng lịch cuối ngày."
+  },
+  {
+   "ma": "D16",
+   "ten": "Bảng có clinic_id đọc được mà chưa bật RLS",
+   "so": 0
+  },
+  {
+   "ma": "D17",
+   "ten": "Cấp quyền theo nhóm ĐÃ TẮT sau lúc tắt (lỗi #522)",
+   "so": 0,
+   "nghia": "Lỗi có trong code nhưng CHƯA từng xảy ra thật trên prod."
+  },
+  {
+   "ma": "D18",
+   "ten": "Luật sức chứa phút hiệu lực từ hôm trước (lỗi #522)",
+   "so": 0,
+   "nghia": "Lỗi có trong code nhưng CHƯA từng xảy ra thật trên prod."
+  }
+ ]
+}

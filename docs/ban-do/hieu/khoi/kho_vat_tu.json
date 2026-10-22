@@ -1,0 +1,44 @@
+{
+  "tom_tat": "Khối Kho vật tư giữ sổ kho RIÊNG cho vật tư tiêu hao (găng, gạc, văn phòng phẩm, vật tư y tế…) — tách hẳn khỏi kho thuốc và khỏi vật tư đã bán cho khách. Nó theo dõi tồn tại từng nơi chứa (Kho cơ sở và từng phòng), lập phiếu nhập/cấp phòng/trả kho/chuyển phòng/kiểm kê/điều chỉnh/huỷ/trả nhà sản xuất, hoàn tác bằng phiếu đảo, nhắc tồn âm hoặc dưới mức tối thiểu, và báo cáo mức dùng theo phòng. Người dùng là ai có lego Kho vật tư (quyền vat_tu.manage); duyệt phiếu nhập hàng 'cần duyệt nhập' cần lego Duyệt vật tư (vat_tu.approve). Màn /kho-vat-tu có 4 tab: Tồn kho, Lịch sử & báo cáo, Chờ duyệt, Danh mục (tab Danh mục thuộc khối Danh mục). Bảng chính: vat_tu_phieu (phiếu), vat_tu_txn (dòng sổ, chỉ thêm), vat_tu_ton (tồn từng nơi, do trigger cộng dồn), vat_tu_nhap_cho_duyet (yêu cầu nhập chờ duyệt).",
+  "luong": [
+    "Bước 1: trang /kho-vat-tu tải song song tồn từng nơi chứa (kèm cảnh báo), danh sách phiếu, yêu cầu chờ duyệt và quyền của người xem.",
+    "Bước 2: người dùng mở thao tác trên một dòng tồn (LapPhieuVatTu) → màn sinh khoá chống gửi trùng theo NỘI DUNG phiếu → POST /api/v1/vat-tu-kho/phieu (lệnh LapPhieuVatTu) → vat_tu_kho_service.tao_phieu: kiểm từng dòng theo loại phiếu, khoá cơ sở (advisory lock), khoá mặt hàng + kiểm đơn vị chưa đổi, gửi lại cùng khoá thì trả phiếu cũ.",
+    "Bước 3a: phiếu NHẬP có ít nhất một dòng vật tư cờ 'cần duyệt nhập' → cả phiếu thành yêu cầu chờ duyệt (vat_tu_nhap_duyet_service.xu_ly_nhap_can_duyet), chụp giá, phát vat_tu.nhap_cho_duyet; người lập có quyền duyệt thì tự duyệt ghi sổ ngay.",
+    "Bước 3b: phiếu khác → _ghi_phieu mở phiếu mã VT-<mã cơ sở>-<số 4 chữ số> và INSERT từng dòng vat_tu_txn; trigger ở database cộng vào vat_tu_ton.",
+    "Bước 4: tab Chờ duyệt — người có vat_tu.approve bấm Duyệt (lập phiếu NHẬP thật đúng số + giá đã chụp, khoá gửi 'duyet-<id>'), Từ chối (lý do 5–500 ký tự, không gì vào sổ), hoặc người lập/người duyệt Rút lại khi còn chờ; mỗi quyết định phát vat_tu.nhap_da_quyet.",
+    "Bước 5: hoàn tác — nút Hoàn tác ở Lịch sử gọi /phieu/{id}/hoan (HoanPhieuVatTu) → hoan_phieu lập phiếu HOAN ghi mỗi dòng ngược dấu, giữ giá cũ; mỗi phiếu chỉ đảo một lần, không đảo phiếu đảo.",
+    "Bước 6: đặt mức tối thiểu từng vật tư từng nơi (DatMucToiThieuVatTu, PUT /muc-toi-thieu); nơi chưa có sổ thì tạo sổ tồn 0.",
+    "Bước 7: báo cáo 'Mức dùng theo phòng' (vat_tu_tieu_hao_service) tính từ hai lần KIỂM ĐẾM thật đầu/cuối kỳ theo tuần/tháng/khoảng tự chọn; màn tự tải lại khi bảng vat_tu_txn đổi."
+  ],
+  "luu_y": [
+    "Tồn ÂM KHÔNG chặn (Quang chốt 17/10): kho cơ sở còn 5 hộp, xuất 8 sang phòng → kho cơ sở −3, chỉ hiện cảnh báo 'tồn âm — cần kiểm đếm'. Khác kho thuốc (vẫn chặn).",
+    "Biến động tồn theo loại phiếu: xuất phòng/trả kho/chuyển trừ nơi đi + cộng nơi đến; nhập cộng; huỷ và trả NSX trừ; KIỂM chỉ ghi số đếm, tồn không đổi; ĐIỀU CHỈNH đổi tồn = số đếm − tồn máy (máy 10, đếm 7 → −3).",
+    "Số lượng > 0 (kiểm/điều chỉnh cho 0), tối đa 3 chữ số lẻ, ≤ 1.000.000 (1,5 hộp được; 1,2345 bị từ chối). Giá nhập là đồng nguyên 0–1.000.000.000, chỉ phiếu NHẬP được khai giá; không gõ giá thì chụp giá nhập danh mục lúc lập (không có = 0đ).",
+    "Giá trị tồn = tồn × giá bình quân của lần NHẬP gần nhất chưa bị đảo. Ví dụ lần nhập cuối 10 hộp × 50.000đ, tồn 4 → 200.000đ.",
+    "Tiêu hao = đầu + nhận − trả − cuối, với đầu/cuối là SỐ ĐẾM THẬT, không phải tồn sổ. Ví dụ đầu đếm 10, nhận 20, trả 5, cuối đếm 8 → tiêu hao 17; trong đó huỷ 2 → đã dùng 15, giá trị = 15 × giá nhập. Thiếu hai lần đếm thì dòng ghi 'chưa đủ dữ liệu'. Kho cơ sở không có tiêu hao, chỉ phòng.",
+    "Báo cáo tiêu hao trộn hai trục: mốc đếm chọn theo GIỜ tạo phiếu, nhận/trả xếp theo số thứ tự sổ (giao_dich), 'cấp trong kỳ' theo giờ — sửa một chỗ phải soát cả ba. Cột 'trả' đã gồm trả nhà cung cấp, cột trả NSX hiện lại phần ấy — cộng hai cột là đếm trùng.",
+    "Chỉ INSERT vat_tu_txn; tồn do trigger cộng. UPDATE tay vat_tu_ton là lệch sổ (database còn chặn sửa tồn trực tiếp). Mọi lập phiếu/đảo/duyệt phải giữ khoá tư vấn theo cơ sở trước khi đọc tồn — mã phiếu đếm count+1 chỉ không trùng nhờ khoá này.",
+    "Chống gửi trùng: máy chủ bắt buộc có khoá (_khoa từ chối khi thiếu). Màn sinh khoá theo NỘI DUNG phiếu, giữ 24h — hai phiếu giống hệt nhau thật (cấp 2 hộp găng cho cùng phòng hai lần) bị coi là một nếu lần đầu chưa xoá khoá. Gửi lại cùng khoá mà nội dung khác vẫn trả phiếu cũ, không báo lệch.",
+    "Đơn vị bất biến: vật tư đã có giao dịch kho hoặc yêu cầu chờ duyệt thì không đổi được đơn vị; màn cũ gửi đơn vị đã đổi bị từ chối 'Đơn vị đã thay đổi, tải lại'; duyệt yêu cầu cũng kiểm lại đơn vị đã chụp.",
+    "Duyệt nhập: cả phiếu chờ nếu có MỘT dòng cần duyệt (phiếu 2 dòng, 1 dòng cần duyệt → không dòng nào vào sổ). Giá dùng đúng giá đã chụp lúc xin dù danh mục đổi giá. Duyệt chạy lại kiểm dòng nên yêu cầu cũ có giá lẻ / vượt trần mới sẽ không duyệt được. Rút lại mà màn gửi lý do chuỗi rỗng '' bị chặn (chỉ None mới được bỏ trống).",
+    "Phụ thuộc khối khác: danh mục vật tư, đơn vị, giá nhập, cờ 'cần duyệt nhập' nằm ở service_price (khối Danh mục); hàm chuẩn hoá khoá gửi mượn _khoa của kho_thuoc_service (khối Quầy thuốc) — đổi bên thuốc là đổi luôn bên vật tư.",
+    "Người dùng chưa gắn cơ sở thì chỉ thấy 'Kho cơ sở', không thấy phòng hay phiếu nào. Nút 'Xem ở Chờ duyệt' trong LapPhieuVatTu không bao giờ hiện vì TonVatTu không truyền prop xemChoDuyet."
+  ],
+  "muon_sua": [
+    {"viec": "chặn tồn âm khi xuất (đổi luật đã chốt — hỏi Quang trước)", "cho": "_ghi_phieu — đoạn tính delta và _ghi cho từng loại phiếu", "tep": "src/clinicai/services/vat_tu_kho_service.py", "dong": 290},
+    {"viec": "đổi trần số lượng / giá nhập trên phiếu", "cho": "SO_LUONG_TOI_DA, GIA_TOI_DA", "tep": "src/clinicai/services/vat_tu_kho_service.py", "dong": 55},
+    {"viec": "thêm loại phiếu kho vật tư", "cho": "LOAI + _dong (nơi đi/đến) + _ghi_phieu; màn: KIEU_PHIEU ở LapPhieuVatTu.tsx và bộ lọc DanhSachPhieuVatTu.tsx; migration mở CHECK loại", "tep": "src/clinicai/services/vat_tu_kho_service.py", "dong": 15},
+    {"viec": "đổi luật nơi đi / nơi đến theo loại phiếu", "cho": "hàm _dong", "tep": "src/clinicai/services/vat_tu_kho_service.py", "dong": 82},
+    {"viec": "đổi thế nào là cần nhắc (tồn âm / dưới mức)", "cho": "khối canh_bao cuối doc_ton", "tep": "src/clinicai/services/vat_tu_kho_service.py", "dong": 442},
+    {"viec": "đổi cách tính giá tham chiếu / giá trị tồn", "cho": "doc_ton — CTE giá nhập gần nhất", "tep": "src/clinicai/services/vat_tu_kho_service.py", "dong": 413},
+    {"viec": "đổi công thức tiêu hao / giá trị", "cho": "tinh_tieu_hao", "tep": "src/clinicai/services/vat_tu_kho_service.py", "dong": 29},
+    {"viec": "đổi loại phiếu tính là nhận / trả / huỷ trong báo cáo tiêu hao", "cho": "khối LATERAL f trong _SQL", "tep": "src/clinicai/services/vat_tu_tieu_hao_service.py", "dong": 113},
+    {"viec": "đổi định nghĩa kỳ tuần / tháng của báo cáo", "cho": "khoang_ky", "tep": "src/clinicai/services/vat_tu_tieu_hao_service.py", "dong": 134},
+    {"viec": "cho duyệt từng dòng thay vì cả phiếu chờ", "cho": "xu_ly_nhap_can_duyet — đoạn tìm dòng can_duyet_nhap_vat_tu", "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py", "dong": 117},
+    {"viec": "đổi độ dài lý do từ chối / rút lại", "cho": "_LY_DO_TOI_THIEU / _LY_DO_TOI_DA (và CHECK ở migration)", "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py", "dong": 48},
+    {"viec": "đổi luật mức tối thiểu (trần, số lẻ)", "cho": "dat_muc_toi_thieu", "tep": "src/clinicai/services/vat_tu_kho_man_service.py", "dong": 32},
+    {"viec": "đổi số phiếu mỗi trang ở Lịch sử", "cho": "_GIOI_HAN_MAC_DINH / _GIOI_HAN_TOI_DA", "tep": "src/clinicai/services/vat_tu_kho_man_service.py", "dong": 21},
+    {"viec": "đổi thao tác hiện ở Kho / ở Phòng trên bảng tồn", "cho": "CAC_THAO_TAC", "tep": "src/dashboard/app/(dashboard)/kho-vat-tu/TonVatTu.tsx", "dong": 48},
+    {"viec": "đổi điều kiện bật nút lưu phiếu", "cho": "biến thieu", "tep": "src/dashboard/app/(dashboard)/kho-vat-tu/LapPhieuVatTu.tsx", "dong": 200}
+  ]
+}
