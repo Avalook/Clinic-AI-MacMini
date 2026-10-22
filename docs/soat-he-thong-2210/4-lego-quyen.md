@@ -3,16 +3,49 @@
 > Phiên soát CHỈ ĐỌC trên nhánh `main` (SHA `00bde52`). Không sửa code, test hay
 > migration. Bản đồ dùng để định hướng: nhánh `claude/ban-do-hieu`; bản khai chủ
 > bảng: PR #513 (nhánh `claude/goi4-ranh-gioi-lego`, chưa merge).
->
-> **Đang viết dần** — các mục còn trống sẽ được bổ sung ở commit sau.
+> Phát hiện đã đối chiếu với `phat-hien.json`; trùng thì ghi "đã biết".
 
 ## Tóm tắt 10 dòng
 
-_(điền khi xong cả bốn phần)_
+1. **Lỗ nặng nhất không nằm ở FastAPI mà ở PostgREST** (`/rest/v1`, Supabase tự dựng, đang mở ra Internet).
+2. Mọi tài khoản đã đăng nhập — **kể cả đối tác (người ngoài) và tivi phòng chờ** — đọc thẳng được bảng khách, lịch hẹn, tiền, xét nghiệm, thai kỳ (C1).
+3. Mọi nhân viên đọc được CCCD / SĐT / ngày sinh của đồng nghiệp và CCCD khách không che (C2). Giao diện chỉ cần 2 bảng; ~40 bảng còn lại là bề mặt thừa (C3).
+4. Lỗ quyền thứ hai: **tự xếp mình vào ca "Điều phối" là thu tiền, hoàn tiền, xem hoá đơn được dù đã bị tắt lego** — vì gói "mở full" cho ai cũng quyền xếp lịch (C7).
+5. "Quyền theo tài khoản" chưa trọn: tắt hết lego thì vai cũ quay lại (C8); vai Quản lý vẫn mở khoá ca / xem tài chính bất kể lego (C9).
+6. FastAPI: 619 endpoint, không thấy lệnh ghi nào "quên kiểm quyền" — chỗ hở nằm ở luật lịch trực và vai.
+7. Giao diện (TSX) **không tự quyết tiền** — máy chủ tính lại và từ chối khi lệch. 78 chỗ hỏi vai, ~25 chỗ quyết thuần theo vai, đều đã có máy chủ chặn.
+8. Route Next chạm DB: đúng **1** (`check-phone`, đã tắt); xoá 5 tệp route chết là về 0. Riêng `console/feedback` cho người lạ ghi 8MB/lần lên đĩa (B1).
+9. Ranh giới lego: bản khai PR #513 khớp code `main` (bài quét xanh); 97 chỗ ghi chéo, bảng `visit` bị 11 tệp khối khác ghi; 53 hàm SQL ghi bảng nằm ngoài tầm quét.
+10. Lộ trình: khoá PostgREST + vá chuỗi Điều phối trước (Mức 3, cần Tuyền duyệt), rồi quyền theo tài khoản, cuối cùng mới gom luật khỏi TSX.
 
 ## Bảng phát hiện
 
-_(điền khi xong cả bốn phần)_
+| # | Mức | Ở đâu | Một câu | Độ chắc |
+|---|---|---|---|---|
+| C1 | **cao** | `20260730000004_tenant_scoped_rls.sql:149-171` | Đối tác / tivi đọc toàn bộ khách, tiền, xét nghiệm qua `/rest/v1` | chắc theo code, chưa chạy DB |
+| C2 | **cao** | `20260730000008_table_grants.sql:48-59` | Mọi nhân viên đọc CCCD đồng nghiệp + CCCD khách không che | chắc theo code |
+| C7 | **cao** | `cashier_scope_service.py:386`, `payment_service.py:342`, `config_service.py:163` | Tự xếp ca DIEU_PHOI ⇒ vượt lego Thu tiền / Hoàn tiền / Báo cáo | chắc |
+| C3 | vừa | `20260730000008_table_grants.sql` | Chưa có khoá PostgREST tổng; ~40 bảng đọc được không cần lego | chắc |
+| C4 | vừa (đã biết) | `20260923000003_capability.sql:175-188` | View quyền vượt RLS, đọc chéo phòng khám | chắc |
+| C8 | vừa | `api/identity.py:897` | Tắt hết lego ⇒ vai tài khoản quay lại | chắc |
+| C9 | vừa | `chot_so_ca_service.py:234`, `report_access_service.py:95` | Đặc quyền Quản lý chỉ hỏi vai, không theo lego | chắc |
+| C10 | vừa | `staff_service.py:310-320` | `staff.manage` tự nâng mình lên Quản lý | chắc, khó xảy ra |
+| C11 | vừa | `doi_tac_service.py:463-503` | Đối tác thấy và trả kết quả việc của đối tác khác | chắc |
+| C12 | vừa | `20260929000001_doi_nguoi_trong_ca.sql:168-175` | Quyền theo lịch tính cả ngày, cả dòng PENDING | chắc |
+| B1 | vừa | `app/api/console/feedback/route.ts:17-41` | Người lạ ghi ảnh 8MB lên đĩa trước khi kiểm phiên | chắc |
+| B2 | vừa (hỏi Tuyền) | `payment_service.py:240-268` | Giảm giá tới 100% không cần quyền riêng | chắc |
+| B3 | vừa/thấp (hỏi Tuyền) | `app/api/admin/users/route.ts:350-410` | Lego Tài khoản đặt lại mật khẩu Quản lý được | chắc |
+| A1 | vừa | sổ nợ PR #513 | `visit` bị 11 tệp khối khác ghi thẳng | chắc |
+| A3 | vừa | `routers/booking.py:337` | Cách ly phòng khám chỉ dựa `WHERE clinic_id` thủ công | chắc (cơ chế) |
+| C5 | thấp-vừa | Caddy `/realtime/v1` | Realtime không dùng mà vẫn mở | nghi |
+| C6 | thấp | `scripts/backup-db.sh:243` | Chưa biết ACL thật trên prod | — |
+| C13 | thấp | `routers/thu_ky.py:69,96` | Hồ sơ hành chính khách chỉ đòi đăng nhập | chắc |
+| C14 | thấp | `permission_service.py` | Tự cấp quyền; `valid_until` rác ⇒ 500 | chắc / nghi |
+| C15 | thấp (đã biết) | `permission_service.py:~601` | Nhóm mẫu tắt vẫn rơi về PRESET | chắc |
+| A2 | thấp | migrations | 53 hàm SQL ghi bảng ngoài tầm bài quét | chắc |
+| A4 | thấp | `routers/config.py:800-833` | display-settings đọc–trộn–ghi không khoá | chắc |
+| B4 | thấp | `proxy.ts:28` + 5 route | Route đã tắt còn tệp, còn chạm DB | chắc |
+| B5-B8 | thấp | xem phần (b) | Luật / phép tính chép trong TSX, máy chủ đã chặn | chắc |
 
 ---
 
@@ -269,6 +302,125 @@ Luật bị chép — bỏ ở route.
 
 ## Phần (c) — Quyền
 
+### c.1 Quyền phía API (FastAPI)
+
+Quét 619 endpoint trong 59 router (`main` 00bde52):
+
+| Kiểu kiểm ở cửa router | Số endpoint |
+|---|---|
+| Hỏi capability ngay ở cửa (`cua_quyen`, `cua_y_khoa`, `get_partner_identity`, `_require_tools_access`) | 328 |
+| Chỉ đòi đăng nhập ở router (`get_current_identity`) — 179 trong số này có kiểm quyền bên trong service | 276 |
+| Cửa nội bộ (`cua_noi_bo`) | 11 |
+| DISPLAY / công khai | 3 |
+
+Router không còn `require_role` (trừ một GET, `config.py:734`); hỏi vai đã dồn xuống
+service dạng `identity.co_vai(...)` — còn ~64 chỗ. Các lệnh GHI "chỉ đăng nhập" đã đọc
+tay: không có cái nào trống trơn (đều có `doi_quyen`/`can` trong service hoặc đã nghỉ
+trả 410). **Lỗ thật không nằm ở "endpoint quên kiểm" mà ở ba chỗ: chuỗi lịch trực, vai
+Quản lý theo tài khoản, và nhánh rơi về vai khi tắt hết lego.**
+
+Đã kiểm, KHÔNG phải lỗ: `identity.clinic_id` luôn lấy từ membership (`X-Clinic-ID`,
+`X-Location-ID` chỉ là bộ chọn, có đối chiếu DB); `location_id` trong body của
+`clinic_config`/`floor` có kiểm thuộc phòng khám; DISPLAY/PARTNER bị
+`get_current_identity` chặn ở mọi router thường; người KHÔNG có `permission.manage`
+không có đường ghi thẳng `capability_grant` (mọi lối qua
+`PermissionService.cap_khoi/thu_khoi` + `doi_quyen("permission.manage")`).
+
+### Phát hiện phần (c.1)
+
+**C7 · CAO · Tự xếp mình vào vị trí "Điều phối" (DIEU_PHOI) trong lịch trực là vượt
+được lego Thu tiền, Hoàn tiền và Báo cáo.**
+- Chuỗi (đã tự mở từng chỗ):
+  1. "Mở full lego" cấp khối `truong_ca` cho mọi vai nội bộ
+     (`permissions/catalogue.py:898-904`; `truong_ca` không thuộc `KHOI_CHI_QUAN_LY`
+     dòng 892) → ai cũng có `roster.manage`.
+  2. `services/config_service.py:144-150` `_xep_lich` = có `roster.manage` →
+     `add_shift` (dòng 163, 251) ghi ca **APPROVED** ngay, không chặn ngày đã qua;
+     `thay_nguoi` (~dòng 833) ghi rõ "không kiểm ma trận vai × vị trí".
+  3. Đứng DIEU_PHOI → `cashier_scope_service.py:386-397` coi là trưởng ca (head) →
+     `payment_access_service.py:114` gắn `cashier_head_scope` →
+     `head_money_grant(...)` **thay cho** `can(...)` ở `payment_service.py:342` (và
+     `:776`, `hoan_tien_service.py:69`, `quay_thuoc_service.py:84/199/419`) →
+     `report_access_service.py:189` cho `financial=True`.
+- Kịch bản: quản lý tắt lego Thu tiền và lego Báo cáo của lễ tân A. A (vẫn có
+  `roster.manage` từ gói mở full) gọi `POST /roster/shifts {work_date: hôm nay,
+  station: "DIEU_PHOI", shift: "FULL"}` → ca APPROVED → `POST /payments` thu được (kèm
+  giảm giá tới 100%, B2), `/payments/hoan-tien` hoàn được, `GET /hoa-don?tu=…&den=…`
+  xem toàn bộ hoá đơn + tên khách mọi ca. Đặt `work_date` ngày cũ → đọc tài chính ngày
+  đó (nếu ma trận vị trí cho phép).
+- Độ chắc: **chắc** (đã lần theo code); chưa bấm thật.
+- Test đề xuất: tài khoản có `roster.manage`, KHÔNG có `payment.service.collect` → tự
+  thêm DIEU_PHOI → `POST /payments` phải 403; `add_shift` ngày quá khứ → 422.
+- Hướng sửa: `head_money_grant` vẫn phải đòi capability thu tiền (bỏ "hoặc"); báo cáo
+  đòi `report.view`; cấm tự xếp / tự thay mình vào DIEU_PHOI; cấm `add_shift` quá khứ;
+  cân nhắc đưa `truong_ca` vào `KHOI_CHI_QUAN_LY`. Mức 3 (quyền + tiền).
+
+**C8 · VỪA · Tắt HẾT lego của một người thì vai tài khoản quay lại** —
+`api/identity.py:897` (`doc_vai_theo_lego`): không còn dòng quyền nào → trả `None` →
+`cac_vai()` dùng lại vai gốc (~`:236`). Các cửa còn hỏi vai mở ra:
+`tep_ket_qua_service.py:220,245` (đọc/tải tệp kết quả), `booking_service.py:867`,
+`ho_so_khach_doc.py:57`.
+- Kịch bản: quản lý "đình chỉ" bác sĩ X bằng cách tắt mọi lego → X vẫn đọc / tải tệp
+  kết quả mọi chỉ định (vì `co_vai(NORMAL_READ_ROLES)` đúng với DOCTOR).
+- Độ chắc: chắc. Test: staff chỉ có grant đã thu → `cac_vai()` không chứa DOCTOR.
+- Sửa: đã từng có grant (dù đã thu) → trả `frozenset()`, chỉ giữ lưới an toàn cho
+  phòng khám CHƯA TỪNG cấp quyền.
+
+**C9 · VỪA · Vai Quản lý / TKYK / BS siêu âm không đi theo lego, còn nhiều đặc quyền
+chỉ hỏi vai** — `VAI_DO_LEGO` không chứa các vai này (`catalogue.py:1204`). Chỉ hỏi
+`co_vai(MANAGEMENT)`: mở khoá ca đã chốt (`chot_so_ca_service.py:234`), xem tài chính
+đầy đủ mọi ca/cơ sở (`report_access_service.py:95/105/187`), bỏ qua lịch trực ở mọi
+quầy (`cashier_scope_service.py:113/359/462`), `tep_ket_qua_service.py:163`.
+- Kịch bản: tài khoản Quản lý bị tắt lego Báo cáo vẫn `GET /hoa-don`,
+  `/reports/cuoi-ngay`, `POST /reports/chot-ca/mo-khoa`. Đây chính là "quyền kiểm ở
+  vai, không theo TÀI KHOẢN" mà mục tiêu 21 lego muốn bỏ.
+- Độ chắc: chắc. Sửa: đổi sang capability (`report.view`,
+  `accounting.finance.full`, quyền mới cho mở khoá ca).
+
+**C10 · VỪA · `staff.manage` leo thang lên Quản lý** — `api/v1/routers/staff.py:167` →
+`staff_service.update_staff` dòng 310-320 đổi `clinic_membership.role` không chặn tự
+đổi cho mình, không chặn nâng lên MANAGEMENT; `create_staff` (`:144`) cấp preset theo
+vai mới, preset MANAGEMENT có `quan_tri_quyen` (= `permission.manage`).
+- Kịch bản: người có khối `nhan_su` nhưng không có `permission.manage` gọi
+  `PATCH /staff/{id-của-mình} {"primary_department":"MANAGEMENT"}` → nhận các đặc quyền
+  C9. Chỉ xảy ra khi `nhan_su` được cấp lẻ qua API (màn lego 19 luôn gộp hai khối).
+- Độ chắc: chắc về code; khả năng xảy ra thấp. Sửa: đổi/tạo vai có preset chứa
+  `quan_tri_quyen` phải đòi `permission.manage`; cấm đổi vai chính mình.
+
+**C11 · VỪA · Đối tác thấy việc của MỌI đối tác và mọi cơ sở** —
+`services/doi_tac_service.py:463-503` lọc theo `clinic_id` + có dòng
+`doi_tac_nhan_viec`; không có gì gắn việc với đối tác cụ thể; vai PARTNER còn bỏ lọc
+cơ sở. Kịch bản: tài khoản lab A `GET /doi-tac/viec` thấy tên + mã khách gửi lab B;
+`POST /doi-tac/viec/{id}/tra-ket-qua` lên việc của B được. Hôm nay nếu chỉ có MỘT đối
+tác thì chưa hại. Độ chắc: chắc. Sửa: gắn đối tác vào phòng/nút đối tác hoặc `staff`,
+lọc theo đó. **Hỏi Tuyền**: hiện có mấy tài khoản đối tác?
+
+**C12 · VỪA · Quyền theo lịch trong `v_quyen_thuc_te` không theo luật ca** —
+`supabase/migrations/20260929000001_doi_nguoi_trong_ca.sql:168-175`: chỉ lọc
+`status <> 'REJECTED'`, cả ngày; trong khi vai theo lịch (`identity.py`
+`vi_tri_dang_trong_ca`) xét APPROVED + giờ ca khi bật `vai_lich_theo_ca`. Kịch bản:
+người xếp ca SÁNG ở một phòng dịch vụ vẫn có quyền thực hiện / duyệt kết quả của phòng
+đó lúc 20h; dòng PENDING cũ cũng cấp quyền. Độ chắc: chắc. Sửa: thêm
+`status = 'APPROVED'` (và điều kiện ca khi bật) + test SQL. Mức 3 (migration).
+
+**C13 · THẤP · `ho-so-khach/{id}/hanh-chinh` và `/cskh` chỉ đòi đăng nhập** —
+`api/v1/routers/thu_ky.py:69,96`, không hỏi `patient.list.view`. Người bị tắt lego
+Danh sách bệnh nhân vẫn đọc SĐT, địa chỉ, nhật ký CSKH nếu biết `clinic_patient_id`.
+Sửa: thêm cửa quyền. (Lọc thư ký theo bác sĩ — **đã biết**, `thu_ky_bac_si.py:50`.)
+
+**C14 · THẤP · Tự cấp quyền** — `cap_khoi` cố ý không chặn tự cấp (docstring đầu
+`permission_service.py`): người có `permission.manage` tự cấp được mọi khối trừ
+`noi_bo_giam_sat`. Chấp nhận được nếu chỉ Quản lý giữ; nên ghi nhật ký riêng. Phụ:
+`valid_until` chuỗi thô vào `$6::timestamptz` → asyncpg ném DataError (500) — trái luật
+"đầu vào ngày giờ rác trả rỗng" (nghi, chưa chạy).
+
+**C15 · THẤP (đã biết) · Nhóm mẫu đã tắt vẫn rơi về hằng `PRESET`** —
+`permission_service.py:~601`; sửa ở PR #522 chưa merge, vẫn còn trên `main`.
+
+Bộ nhớ đệm quyền (5 giây "CÓ", danh tính 30 giây, `cache.quen()` sau cấp/thu/xếp lịch,
+uvicorn 1 worker) — không thấy cửa sổ đáng kể. `/display/config?clinic_id=` công khai:
+chỉ lộ cấu hình bảng gọi số; chuỗi không phải UUID → 5xx thay vì rỗng (thấp).
+
 ### c.2 PostgREST `/rest/v1` + RLS (đọc thẳng database qua Supabase tự dựng)
 
 **PostgREST** = dịch vụ của Supabase biến mỗi bảng Postgres thành một địa chỉ web
@@ -393,3 +545,38 @@ C1). Độ chắc: nghi (chưa thử). Sửa: bỏ `/realtime/v1` khỏi Caddy, 
 (`scripts/backup-db.sh:243`). Việc Tuyền làm (chỉ đọc):
 `SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants WHERE grantee IN ('anon','authenticated') ORDER BY 1,2;`
 trên prod, gửi kết quả để chốt C1–C3.
+
+---
+
+## Phần (d) — Lộ trình gỡ, xếp theo rủi ro
+
+Nguyên tắc xếp: **chặn đường lộ dữ liệu / leo thang trước, gom luật ra khỏi giao diện
+sau.** Giao diện hiện KHÔNG tự quyết tiền (máy chủ tính lại), nên việc gom TSX là nợ
+kiến trúc, không phải cháy nhà. Lỗ thật nằm ở PostgREST và chuỗi lịch trực.
+
+| Đợt | Việc | Phát hiện | Mức việc (CLAUDE.md) | Vì sao xếp ở đây |
+|---|---|---|---|---|
+| **0 — ngay** | Tuyền chạy truy vấn chỉ đọc ACL trên prod (C6) để chốt quy mô C1-C3 | C6 | 0 | Rẻ, quyết định độ khẩn của đợt 1 |
+| **1 — khẩn** | Khoá PostgREST tổng: `REVOKE ALL … FROM anon, authenticated`, chỉ GRANT lại cột `staff`/`clinic_membership` đăng nhập cần; tắt `/realtime/v1` | C1, C2, C3, C4, C5 | 3 (migration + quyền) | Lộ dữ liệu khách cho đối tác/tivi; một migration giải năm lỗ |
+| **1 — khẩn** | `head_money_grant` vẫn đòi capability; báo cáo đòi `report.view`; cấm tự xếp mình vào DIEU_PHOI / ngày quá khứ | C7 | 3 (tiền + quyền) | Vượt lego thu tiền / hoàn tiền |
+| **1** | `console/feedback` kiểm phiên trước khi ghi đĩa | B1 | 2 | Người lạ làm đầy ổ VPS |
+| **2** | Tắt hết lego ⇒ không còn vai (`frozenset()`); đổi đặc quyền "chỉ hỏi MANAGEMENT" sang capability; chặn `staff.manage` nâng vai | C8, C9, C10 | 3 | Quyền theo TÀI KHOẢN đúng nghĩa — đúng mục tiêu 21 lego |
+| **2** | `v_quyen_thuc_te` chỉ tính ca APPROVED (+ giờ ca); đối tác chỉ thấy việc của mình; cửa quyền cho `thu_ky` hồ sơ khách | C12, C11, C13 | 3 / 2 | |
+| **2** | Quyết nghiệp vụ rồi làm: quyền giảm giá riêng; `account.manage` không đụng tài khoản có nhiều quyền hơn mình | B2, B3 | 3 | Cần Tuyền quyết trước |
+| **3** | Xoá 5 route Next đã tắt → "route Next chạm DB" = **0** | B4 | 1 | Rẻ, đóng hẳn con số CLAUDE.md theo dõi |
+| **3** | Merge PR #513 (bánh cóc ghi chéo); mở lệnh của Tiếp đón cho `visit`, gỡ dần 17 `VI_PHAM` | A1 | 2 | Lego thật cho nhiều phòng khám |
+| **3** | Test "hai phòng khám" (GET `/{id}` chéo → 404) trước khi có phòng khám thứ hai | A3 | 1 (chỉ test) | Lưới an toàn duy nhất cho cách ly phòng khám |
+| **4** | Gom ~25 chỗ hỏi vai thuần trong TSX: (1) `patients/new` + `NewPatientForm` (luồng tiếp nhận) → backend trả "luồng được phép"; (2) `tasks/page`, `layout`, `home` → `roleLanding` do backend trả; (3) nhánh `quyen === null` ⇒ ẩn nút hành động; (4) bỏ phép tính xem trước chép tay (`GiamGia`, `ChiaHinhThuc`) — dùng số máy chủ trả | B5, B6, B7, B8 | 2 mỗi nhóm | Nợ kiến trúc, máy chủ đã chặn |
+| **4** | Dời luật giờ ca / display-settings từ `routers/config.py` sang `clinic_settings_service`; mở rộng bài quét ghi chéo sang hàm SQL | A2, A4 | 1-2 | |
+
+Ước: đợt 0-1 ≈ 2-3 PR (một Mức 3 có kế hoạch duyệt trước); đợt 2 ≈ 3-4 PR; đợt 3-4
+gom theo nhóm, mỗi nhóm một PR nhỏ < 400 dòng.
+
+## Việc Tuyền làm
+
+1. Chạy trên prod (chỉ đọc), gửi lại kết quả:
+   `SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants WHERE grantee IN ('anon','authenticated') ORDER BY 1,2;`
+2. Trả lời ba câu nghiệp vụ: (B2) giảm giá có cần quyền riêng / trần %? (B3) người giữ
+   lego Tài khoản có được đặt lại mật khẩu Quản lý? (C11) hiện có mấy tài khoản đối tác,
+   mỗi đối tác có nên chỉ thấy việc của mình?
+3. Duyệt kế hoạch Mức 3 cho đợt 1 (khoá PostgREST + vá C7) trước khi giao code.
