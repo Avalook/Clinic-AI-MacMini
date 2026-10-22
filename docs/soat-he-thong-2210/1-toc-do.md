@@ -281,3 +281,105 @@ hai lời gọi giống nhau trong 50ms **trên cùng một máy**. Không có `
 - `tasks/ClinicalRecordForm.tsx:637` (tự lưu `clinical_record`) và `:536-542` (nghe
   `clinical_record` → nạp lại chính nó). Đường cũ (sau `PHIEU_V5`), ảnh hưởng thấp.
   Độ chắc: chắc chắn về đường; **nghi** về tần suất trên prod.
+
+---
+
+## Nhóm D — Trang SSR nặng: vì sao màn này chậm, màn kia nhanh
+
+**Câu trả lời ngắn:** mọi trang trong `(dashboard)` trả chung một "phí vào cửa" ở layout
+(D1, D3) — kể cả `/ban-kham`, `/phong/[id]`, `/thu-ngan/*` là những trang phần server
+gần như không có gì riêng. Màn nào thêm một endpoint N+1 của riêng nó (D2, B4) hoặc đọc
+`v_viec_cskh` (B3) thì chậm hẳn. `/display` nhanh (59ms) vì không đi qua layout này.
+
+### D1 · CAO · `/phan-quyen/toi` (layout gọi ở MỖI lần dựng trang) lặp một câu SQL cho TỪNG ngày trực trong lịch sử — **MỚI**
+
+- **Ở đâu:** `src/dashboard/lib/clinic-session.ts:106` (layout → `getQuyenCuaToi`; mọi
+  `requireNavAccess` chờ nó) → `routers/phan_quyen.py:164-177` →
+  `cashier_navigation_service.py:38-46` gọi `CashierScopeService.days(kind, limit=1)` cho
+  **2 quầy** → `cashier_scope_service.py:243-253` lấy **mọi** `work_date` đã duyệt của người
+  ấy (không mốc dưới) rồi `:254-262` **một câu SQL mỗi ngày**; chỉ dừng khi gom được
+  `> limit` = **2 ngày có quầy thu** (`:309`).
+- **Cơ chế:** người KHÔNG đứng quầy thu (bác sĩ, điều dưỡng, phòng dịch vụ, CSKH, lễ tân
+  không thu) không bao giờ gom đủ 2 ngày → đi hết lịch sử, ×2 quầy. Ví dụ bác sĩ đã có
+  60 ngày ca: ~2 × (1 + 60 + 3) ≈ 130 câu SQL tuần tự, mỗi câu mượn/trả bể kết nối riêng
+  (`self.pool.fetch`). Con số **tăng mỗi ngày** người ấy đi làm — trang chậm dần theo
+  thời gian mà không ai đổi code.
+- **Vì sao giải thích được số đo:** `/ban-kham` và `/phong/{id}` đã ở `MAN_TU_TAI`, phần
+  page không gọi gì riêng, mà SSR vẫn ~0,9s — người dùng hai màn này đúng là nhóm "không
+  đứng quầy thu". Kèm theo: `report_access_service.py:143-157` (`/reports/access`, cũng
+  trong layout) đọc toàn bộ `work_roster` của người đó, không giới hạn.
+- **Kịch bản tái hiện:** DB thử có 1 bác sĩ với 90 ngày `work_roster` APPROVED ở trạm
+  `LICH_KHAM` → `GET /api/v1/phan-quyen/toi` bằng token bác sĩ → đếm câu SQL
+  (`log_min_duration_statement=0`) ≈ 2×90+; cùng gọi với thu ngân có 2 ngày `THU_NGAN` gần
+  nhất → chỉ ~10 câu.
+- **Độ chắc:** chắc chắn (đã đọc vòng lặp và điều kiện dừng). Thời gian thật trên prod: nghi.
+- **Ảnh hưởng ước:** ×2.000–5.000 lần dựng trang mỗi 3 giờ cao điểm (số RSC đo được) ×
+  ~100+ câu = vài trăm nghìn câu SQL nhỏ mỗi buổi tối chỉ để vẽ thanh bên.
+- **Đề xuất test:** test DB `cashier_navigation` cho nhân viên 100 ngày ca không có quầy thu:
+  số câu SQL ≤ hằng số (đếm qua wrapper conn) và kết quả bằng bản cũ.
+- **Hướng sửa:** một câu SQL gom lô (lấy các ngày có trạm quầy thu bằng `WHERE station IN …`
+  ngay trong câu `DISTINCT work_date`, `LIMIT limit+1`), hoặc giới hạn mốc dưới (vd 60 ngày)
+  cho đường thanh bên. **Rủi ro:** thấp–vừa (quyền hiển thị menu, không phải quyền thật —
+  backend vẫn kiểm từng lệnh); cần test tương đương.
+
+### D2 · CAO · `/reception/checkout`: N+1 tới 300 lượt, và mỗi tin chạy nó HAI lần — **MỚI**
+
+- **Ở đâu:** `checkout_service.py:401-428` (`pending_list`, `LIMIT 300` ở `:421`) và
+  `:700-706` (danh sách tồn) → `_gan_doi_tac_tu_thu` (`:1051-1095`): với **từng lượt**,
+  `hoa_don_con_no` (~10 câu), `no_khi_ve`, `tien_thua_khi_ve` (~3), có thể thêm
+  `tinh_hoa_don(thuoc)` → ~15–25 câu / lượt, tuần tự trên một kết nối.
+- **Đọc đôi:** trang gắn cả `LiveBoardSync` (`reception/checkout/page.tsx:32`) và
+  `CheckoutBoard` client tự tải `/api/reception/checkout` (`CheckoutBoard.tsx:115`, nghe
+  `visit, work_item, payment, service_order, consultation, cong_no`) — trong khi trang không
+  thuộc `MAN_TU_TAI` nên `RealtimeRefresher` cũng dựng lại phần server
+  (`checkout/page.tsx:27` gọi cùng endpoint). Một tin `visit` = `pending_list` chạy 2 lần
+  trên mỗi máy đang mở màn này.
+- **Độ chắc:** chắc chắn. Số lượt/ngày thật: nghi (40–80 lượt → 600–2.000 câu mỗi lần).
+- **Cách đo:** staging-local, 1 ngày dữ liệu thật, gọi `GET /api/v1/reception/checkout`
+  với `log_min_duration_statement=0` → đếm câu + tổng ms.
+- **Hướng sửa:** (1) đưa `/reception/checkout` vào `MAN_TU_TAI` (phần client đã tự tải) —
+  rẻ, cắt một nửa ngay; (2) gom lô `hoa_don_con_no`/`no_khi_ve`/`tien_thua` theo danh sách
+  lượt (mức 3 — tiền). **Rủi ro (1):** kiểm phần server còn vẽ gì sống (ô đếm?) trước khi
+  đưa vào; test `tai-lai-dong-loat-boundary.test.mts` cấm trang `MAN_TU_TAI` có
+  `LiveBoardSync` → phải gỡ `LiveBoardSync` cùng lúc.
+
+### D3 · VỪA · Layout chạy 3 đợt lời gọi nối tiếp trước khi trang được tải dữ liệu riêng — **MỚI** (định lượng)
+
+- **Ở đâu:** `app/(dashboard)/layout.tsx:46` (`getVaiHienThi` → `/api/v1/me`) → đợt 2
+  `getViTriHomNay` (`/me/vi-tri-hom-nay`, `lib/clinic-session.ts:59-74`) → đợt 3
+  `Promise.all` 6–7 lời gọi (`layout.tsx:96-121`: `/appointments/policy`, `/feature-mode`,
+  `/phan-quyen/toi`, `/reports/access`, …). Cộng 1 lời gọi PostgREST `staff` ở
+  `proxy.ts:139-144` cho MỌI request trang (kể cả RSC refresh).
+- **Cơ chế:** tất cả `cache: "no-store"` (`lib/backend-proxy.ts:262`) — `cache()` của React chỉ
+  khử trùng TRONG một lần dựng; giữa hai lần dựng cách nhau 1 giây vẫn hỏi lại hết, dù
+  vai, vị trí, chính sách đặt lịch, feature-mode gần như không đổi trong ngày.
+  Xác thực thì đã rẻ: `getUser()` kiểm JWT tại chỗ (`lib/kiem-phien-tai-cho.ts`), FastAPI cache
+  danh tính 30s (`api/identity.py:386`).
+- **Độ chắc:** chắc chắn về thứ tự gọi; thời gian mỗi đợt: nghi (đo được).
+- **Cách đo:** dev local, bật log thời gian ở `fetchFromBackend`, dựng `/ban-kham` 20 lần.
+- **Hướng sửa:** cache ngắn hạn phía Next (30–60s theo `staff_id`) cho `/me`, `/feature-mode`,
+  `/appointments/policy`, `/reports/access`, `/phan-quyen/toi` — làm mới khi đổi quyền
+  (`lam_moi_luc` đã có sẵn); bỏ / cache lời gọi `staff` ở proxy (layout đã kiểm `/me`).
+  **Rủi ro:** đổi quyền / đổi ca có trễ tới hết hạn cache — dùng `lam_moi_luc` làm hạn.
+
+### D4 · VỪA · `/customers` ghi `nhac_tai_kham` trong lúc dựng trang — **đã biết** (kế hoạch 3b)
+
+- **Xác nhận:** `customers/page.tsx:296-299` → `routers/cskh.py:317` →
+  `recall_job_service.py:84-94` (`sinh_truoc=True`) → hàm SQL `sinh_viec_nhac_tai_kham`
+  (`20260926000002_nhac_tai_kham_tu_phieu_v5.sql`): 2 câu `INSERT … ON CONFLICT DO NOTHING`,
+  câu 1 quét `visit` 183 ngày kèm `jsonb_each(phieu_kham_luot.du_lieu)` từng lượt. Lời gọi
+  khởi chạy sau đợt 2 của trang (`:226,296`) nên nằm trên đường chờ. Không tạo vòng tin
+  (`nhac_tai_kham` không trong `LIVE_TABLES`). Câu "danh sách khách"
+  (`danh_sach_khach_cskh.py:224`) sắp xếp theo `greatest(…)` của 3 truy vấn con cho MỌI
+  khách — **đã biết** (KE-HOACH-HAM-SUC-CHUA, mục "không làm").
+- **Độ chắc:** chắc chắn.
+- **Hướng sửa:** như kế hoạch (chạy theo lịch trong worker, mỗi phòng khám ≤ 1 lần / 10 phút).
+
+### D5 · THẤP · `MAN_TU_TAI` vẫn dựng lại cho `appointment` và khi tới giờ đổi quyền
+
+- `lib/man-tu-tai.ts:33,53` giữ `appointment`, `work_roster` cho phần layout (chuông bác sĩ từ
+  chối, vị trí hôm nay) — `appointment` là bảng đổi liên tục (lễ tân đặt/sửa lịch) → Bàn khám,
+  Phòng vẫn dựng lại toàn trang (gánh cả D1, D3) mỗi lần có lịch đổi. Timer `lamMoiQuyenLuc`
+  (`RealtimeRefresher.tsx:338-347`) gọi `nhip.nhan()` không xét `MAN_TU_TAI` (hiếm, đúng ý).
+- **Hướng sửa:** chuông "bác sĩ từ chối" tự tải ở client qua `useNgheBang(["appointment"])`
+  → bỏ `appointment` khỏi `BANG_LAYOUT`.
