@@ -166,3 +166,117 @@ nhưng không ai nghe, nên dòng thời gian lượt vẫn không ghi việc g�
   nhận lại (attempts 6, 7, …) → chết lại. Vòng lặp mãi, cứ 2 phút container sập một lần.
 - **Độ chắc:** chắc về code; chưa từng thấy trên prod (51.683 lần giao, 0 kẹt — báo cáo 21/10).
 - **Hướng sửa:** trong `thu_hoi_thue`, `status = CASE WHEN attempts >= 5 THEN 'DEAD' ELSE 'RETRY' END`.
+
+## (c) Ổn định vận hành: sao lưu, timer, healthcheck, tự bật lại
+
+Đã đọc: `docker-compose.yml`, `docker-compose.supabase*.yml`, `docker-compose.staging.yml`,
+`scripts/systemd/*`, `scripts/backup-db.sh`, `scripts/day-sao-luu-len-viettel-storage.sh`,
+`scripts/collect_ops_status.py`, `src/clinicai/services/ops_status.py`, `deploy-backend.sh`.
+
+### Phần đã kiểm, ổn
+
+- **Mọi container dài hạn đã có `restart: unless-stopped`** (prod, supabase qua anchor,
+  staging, theo dõi). Riêng `media-quyen` là `"no"` — đúng, nó chạy một lần. Vậy sự cố
+  14/10 **không** do thiếu `restart:`; repo không có tài liệu ghi nguyên nhân 14/10
+  (grep `docs/` theo "14/10" chỉ ra chuyện bể kết nối). Ứng viên mạnh nhất: C1.
+- `depends_on: condition: service_healthy` cho caddy → dashboard → api → db; healthcheck
+  api đo `/health/db`; su-kien đo tệp nhịp tim (vòng có quay, không chỉ PID).
+- Deploy chờ healthy rồi mới coi là xong, hỏng thì lùi bản (`deploy-backend.sh:372-441`).
+- Timer bản đêm + nạp staging `Persistent=true`; bản 15 phút `Persistent=false` có chủ ý.
+- Sao lưu: kiểm gzip, cỡ tối thiểu, dấu đủ bảng, kèm auth, đẩy CFS so sha256; chỉ dọn bản
+  cũ khi lần này thành công; có `restore-drill.sh`, staging nạp lại bản sao mỗi đêm = một
+  lần thử khôi phục thật.
+
+### C1 · CAO · Máy/Docker khởi động lại trước khi ổ CFS gắn xong ⇒ api, day-tep nằm im
+
+- **Tệp:** `docker-compose.yml:216-222` (api), `:164-169` (media-quyen), day-tep cùng kiểu:
+  gắn `type: bind` cú pháp dài, nguồn `${MEDIA_DIR}/production` =
+  `/mnt/viettel-cfs/clinicai-media/production` (`docs/DANG-LAM.md:1480`).
+  Repo không có drop-in nào cho `docker.service` chờ ổ mạng (`After=remote-fs.target`).
+- **Vì sao:** Docker bật lại container theo `restart:` ngay khi daemon lên. Nếu CIFS chưa
+  gắn, `/mnt/viettel-cfs` là thư mục rỗng → thư mục con không tồn tại → container báo
+  "bind source path does not exist" và **dừng hẳn** (chính sách restart không thử lại
+  khi tạo container thất bại). Nếu thư mục có sẵn trên ổ VPS thì tệ kiểu khác: api gắn vào
+  ổ VPS, ghi ảnh vào chỗ sai cho tới khi restart tay (DANG-LAM.md:1481 đã gặp).
+- **Tái hiện (staging/máy thử, KHÔNG prod):** `sudo umount /mnt/viettel-cfs && sudo systemctl
+  restart docker; docker ps -a` ⇒ api/day-tep `Exited`.
+- **Kiểm trên VPS (chỉ đọc):** `journalctl -u docker --since 2026-10-14 --until 2026-10-15 | grep -iE "bind source|mount"`.
+- **Độ chắc:** khá (cơ chế chắc; chưa có log 14/10 để khẳng định đây đúng là nguyên nhân).
+- **Hướng sửa (Mức 3, hạ tầng):** drop-in `docker.service.d/cho-o-mang.conf`:
+  `After=remote-fs.target` + `Wants=remote-fs.target` (không `Requires` — CFS chết thì prod vẫn
+  phải lên), fstab có `_netdev`; thêm một kiểm sau khởi động "mọi container `running`" vào
+  nhật ký vận hành.
+
+### C2 · CAO · Khoá sao lưu là thư mục trên đĩa: bị giết giữa chừng thì sao lưu dừng vĩnh viễn, im lặng
+
+- **Tệp:** `scripts/backup-db.sh:127-134` (`mkdir "$LOCK_DIR"` trong `BACKUP_DIR`) và
+  `:89-93` (`BACKUP_DECLINED=1` thì cố ý **không** ghi trạng thái lỗi).
+- **Vì sao:** SIGKILL (OOM, systemd giết lúc dừng, mất điện) không chạy `trap ... EXIT` →
+  `.backup.lock` ở lại trên đĩa bền. Mọi lần sau in "DECLINED" và thoát, không ghi
+  `backup-status.json`. Chỉ phép đo "bản cuối quá 26 giờ" còn bắt được — mà Kuma vẫn
+  "CHỜ TUYỀN dựng" (`docs/DANG-LAM.md:140`), và canh gác không có phép kiểm sao lưu (C3).
+- **Tái hiện:** `mkdir ~/backups/clinicai-15p/.backup.lock`; chờ một nhịp ⇒ log chỉ "DECLINED",
+  status không đổi, /ops không đỏ.
+- **Độ chắc:** chắc.
+- **Test:** `scripts/tests/test-infra-safety.sh` thêm ca "khoá cũ, PID chết ⇒ vẫn sao lưu".
+- **Hướng sửa:** `flock` trên tệp ở `/run` (hệ điều hành tự nhả khi tiến trình chết), hoặc ghi
+  PID vào khoá và coi là cũ khi PID không sống.
+
+### C3 · VỪA · Sao lưu hỏng hiện "không rõ" chứ không đỏ; canh gác không kiểm sao lưu
+
+- **Tệp:** `scripts/collect_ops_status.py:195-216` đòi `completed_at` + `verified is True`,
+  thiếu thì trả `None` ⇒ `/ops` hiện "unknown"; `src/clinicai/services/canh_gac.py:60-143`
+  không có mã nào về sao lưu.
+- **Vì sao:** `backup-db.sh` đã chịu ghi `succeeded:false`, nhưng tín hiệu ấy bị nuốt ở bộ thu.
+- **Độ chắc:** chắc. **Test:** unit `collect_ops_status.backup()` với `{"succeeded": false}`
+  ⇒ phải ra "failed".
+- **Hướng sửa:** collector trả `failed`, ops_status coi là critical, canh gác thêm mã
+  `SAO_LUU` (status quá 26 giờ hoặc failed) → có `canh_bao` + Telegram ops.
+
+### C4 · VỪA · Unit sao lưu không giới hạn giờ, không `OnFailure=`
+
+- **Tệp:** `scripts/systemd/clinicai-backup.service`, `clinicai-backup-15p.service`
+  (`Type=oneshot`, không `TimeoutStartSec`, không `OnFailure`); bước `cp` lên ổ SMB
+  (`scripts/day-sao-luu-len-viettel-storage.sh:78`) không có `timeout`.
+- **Vì sao:** ổ CFS treo (SMB hay treo kiểu "D state") thì unit đứng `activating` mãi; timer
+  không chạy chồng nên **mọi** lần sau bỏ lượt, và không có log lỗi nào.
+- **Độ chắc:** chắc về cấu hình. **Hướng sửa:** `TimeoutStartSec=20min` (15p: `10min`),
+  `timeout 600 cp …`, `OnFailure=` gọi một unit báo Telegram ops / ghi nhật ký vận hành.
+
+### C5 · VỪA · Dọn bản sao trên CFS đếm theo NGÀY nhưng chung thư mục với bản 15 phút
+
+- **Tệp:** `scripts/day-sao-luu-len-viettel-storage.sh:23-25` (`DICH=.../db-backups`,
+  `GIU_LAI=30` "số ĐÊM") và vòng dọn `:108-118` (giữ mọi tệp của 30 ngày gần nhất).
+- **Vì sao:** bản 15 phút cũng đẩy vào cùng thư mục, nên CFS giữ 30 ngày × mọi bản trong
+  ngày (dump + auth + manifest) thay vì 30 bản đêm. CFS cũng là kho ảnh/video gốc: đầy ổ
+  thì `day-tep` hỏng, tệp kết quả kẹt ở ổ VPS (bản duy nhất).
+- **Độ chắc:** khá (đọc script; số tệp thật cần đếm).
+- **Kiểm:** `ls /mnt/viettel-cfs/db-backups | wc -l; du -sh /mnt/viettel-cfs/db-backups; df -h /mnt/viettel-cfs`.
+- **Hướng sửa:** bản 15 phút vào `db-backups-15p/`, giữ 2 ngày; bản đêm giữ nguyên 30.
+- Gần với mục "đẩy sao lưu Viettel chọn nhầm tệp notion" trong `phat-hien.json`
+  (`day-sao-luu-len-viettel-storage.sh:45`, đã sửa ở #523) nhưng **khác lỗi**.
+
+### C6 · CAO (nghiệp vụ) · Ảnh/video kết quả trên CFS không có bản thứ hai
+
+- **Tệp:** `scripts/backup-db.sh:349-357` — kho có `MEDIA_MARKER` thì cố ý không đóng tar.
+  `docs/DANG-LAM.md:1484` đã ghi "còn hở" → **đã biết**, nhắc lại vì
+  `docs/VAN-HANH-MAY-CHU.md:92` ghi hợp đồng CFS hết hạn 16/10/2026 và repo không có
+  dòng nào xác nhận đã gia hạn.
+- **Việc Tuyền:** xác nhận đã gia hạn CFS; chốt chỗ đặt bản thứ hai của media (rẻ nhất:
+  kéo về ổ Mac cùng lúc kéo bản sao DB).
+
+### C7 · VỪA · su-kien treo thì Docker không tự bật lại, và canh gác nằm trong chính nó
+
+- **Tệp:** `docker-compose.yml:307-313` (healthcheck su-kien) · `src/clinicai/worker.py:290-329`.
+- **Vì sao:** Docker **không** restart container `unhealthy` (chỉ restart khi tiến trình
+  thoát). Canh gác chạy trong su-kien nên su-kien treo thì không tự báo. Lớp còn lại là Kuma
+  gọi `/health/su-kien` — chưa dựng. Ghép với A3: gọi LLM > 120s làm healthcheck đỏ giả.
+- **Độ chắc:** chắc. **Hướng sửa:** một timer systemd 1 phút: container `unhealthy` quá 3
+  lần liên tiếp ⇒ `docker restart` + ghi nhật ký vận hành (một unit, không phải hạ tầng mới).
+  Và dựng Kuma (đã có trong danh sách chờ).
+
+### C8 · THẤP · Supabase tự dựng: rest/realtime/gateway không có healthcheck; /ops không thấy auth/gateway
+
+- **Tệp:** `docker-compose.supabase.yml:153-245`; `scripts/collect_ops_status.py:16` (`SERVICE_IDS`
+  không gồm db, auth, gateway). Auth/gateway chết = không ai đăng nhập được mà /ops vẫn xanh.
+- **Hướng sửa:** thêm healthcheck HTTP đơn giản và đưa vào `SERVICE_IDS`.
