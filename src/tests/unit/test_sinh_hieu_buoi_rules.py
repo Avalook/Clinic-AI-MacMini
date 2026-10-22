@@ -2,7 +2,8 @@
 
 Góp ý phòng khám: khách đăng ký thêm dịch vụ lần 2 trong buổi bị đẩy về Đo
 sinh hiệu. Luật: ``(di_thang_phong OR cung_buoi_da_kham) AND co_mang_sang →
-DỊCH VỤ``; sinh hiệu của buổi dùng lại được (trừ khách có thai thiếu cân/cao).
+DỊCH VỤ``; chỉ định mang từ lượt cũ phải được chọn lại trong lượt hiện tại.
+Sinh hiệu của buổi dùng lại được (trừ khách có thai thiếu cân/cao).
 """
 
 from __future__ import annotations
@@ -32,8 +33,8 @@ def _duong(**kw: Any) -> str:
 @pytest.mark.parametrize(
     ("di_thang_phong", "cung_buoi", "mang_sang", "mong"),
     [
-        (True, False, True, rules.SERVICES),  # lịch thủ thuật có hẹn sẵn
-        (False, True, True, rules.SERVICES),  # lượt 2 cùng buổi, đã khám
+        (True, False, True, rules.SERVICES),  # lịch thủ thuật + chọn lại chỉ định
+        (False, True, True, rules.SERVICES),  # lượt 2 + chọn lại chỉ định
         (True, True, True, rules.SERVICES),
         (False, True, False, rules.TU_VAN),  # cùng buổi nhưng không có việc sẵn
         (True, False, False, rules.PRIMARY),  # hẹn thủ thuật chưa ai chỉ định

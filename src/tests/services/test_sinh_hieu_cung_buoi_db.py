@@ -1,4 +1,4 @@
-"""SINH HIỆU THEO BUỔI + dây H1 "cùng buổi thẳng dịch vụ" (27/09/2026, đợt 3).
+"""SINH HIỆU THEO BUỔI + dây H1 (27/09/2026, đợt 3).
 
     DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55500/postgres \\
         poetry run pytest src/tests/services/test_sinh_hieu_cung_buoi_db.py
@@ -216,10 +216,10 @@ async def test_chi_dinh_them_cung_luot_thu_xong_co_phong_giu_sinh_hieu(
     )
 
 
-# ── Lượt 2 cùng ngày: PK có chỉ định mang sang đã trả → thẳng dịch vụ ──────
+# ── Lượt 2 cùng ngày: chỉ định cũ vẫn thuộc lượt cũ ───────────────────────
 
 
-async def test_luot_2_cung_ngay_pk_mang_sang_da_tra_thang_dich_vu(
+async def test_luot_2_cung_ngay_pk_khong_nhan_chi_dinh_tu_luot_cu(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
     ca = await _dung(pool)
@@ -228,19 +228,19 @@ async def test_luot_2_cung_ngay_pk_mang_sang_da_tra_thang_dich_vu(
 
     l2 = await _check_in(pool, ca, pid, await _loai_pk(pool))
     f = await _flow(pool, l2.visit)
-    assert f["route_decision"] == "SERVICES"
-    assert "cùng buổi" in f["route_reason"]
+    assert f["route_decision"] == "TU_VAN"
+    assert "qua bác sĩ tư vấn" in f["route_reason"]
     # Không đo lại: lượt 2 nhận số của lượt 1 (truy vết), KHÔNG chép số.
     assert f["vitals_status"] == "recorded" and f["tu"] == l1.visit
     assert not await pool.fetchval(
         "SELECT count(*) FROM vital_measurement WHERE visit_id = $1::uuid", l2.visit
     )
-    # Không vào tư vấn / bác sĩ; chỉ định đã trả xếp phòng ngay.
+    # Lượt mới không hiển thị việc cũ như một chỉ định của hôm nay.
     hang = await _hang(pool, l2.visit)
-    assert "TU_VAN" not in hang and "DOCTOR" not in hang
+    assert "TU_VAN" in hang and "DOCTOR" not in hang
     d = await _don(pool, order)
-    assert d["visit_id"] == l2.visit and d["routing_status"] == "ASSIGNED"
-    # Con trỏ rời quầy Đo chỉ số.
+    assert d["visit_id"] == l1.visit and d["mang_tu"] is None
+    # Con trỏ rời quầy Đo chỉ số, sang bước tư vấn.
     assert f["node"] != "LUOTKHAM-03"
 
     # Màn Đo sinh hiệu: không "Chờ đo" — đã đo (lượt trước).

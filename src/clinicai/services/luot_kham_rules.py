@@ -684,25 +684,27 @@ def duong_sau_check_in(
     """(Đích, lý do) của dây H1 cho một lượt vừa check-in.
 
     * ``(di_thang_phong OR cung_buoi_da_kham) AND co_mang_sang`` → DỊCH VỤ:
-      có việc cụ thể đã chỉ định sẵn thì đi làm, không qua tư vấn / bác sĩ.
+      ``co_mang_sang`` chỉ đúng khi có chỉ định đã được chọn lại trong lượt
+      hiện tại; chỉ định mang từ lượt trước chưa được chọn lại không đủ để bỏ
+      qua bác sĩ chính.
       ``cung_buoi_da_kham`` = khách đã được bác sĩ chính khám ở một lượt khác
       trong CÙNG buổi (người gọi đưa False khi dây
       ``h1_cung_buoi_thang_dich_vu`` tắt).
     * Loại khám qua tư vấn (trừ khách quen khi dây khách quen bật) → TƯ VẤN.
-    * Còn lại → bác sĩ chính (kể cả lịch đi thẳng phòng mà không có chỉ định
-      mang sang: phải có người quyết làm gì).
+    * Còn lại → bác sĩ chính (kể cả lịch đi thẳng phòng chưa có chỉ định được
+      xác nhận trong lượt này: phải có người quyết làm gì).
     """
     if co_mang_sang and (di_thang_phong or cung_buoi_da_kham):
         return SERVICES, (
-            "lịch đi thẳng phòng — làm chỉ định hẹn từ lượt trước"
+            "lịch đi thẳng phòng — làm chỉ định đã chọn lại"
             if di_thang_phong
-            else "cùng buổi đã khám — làm luôn chỉ định mang sang"
+            else "cùng buổi đã khám — làm chỉ định đã chọn lại"
         )
     if qua_tu_van and not quen_vao_thang:
         return TU_VAN, "loại khám qua bác sĩ tư vấn"
     if di_thang_phong:
         return PRIMARY, (
-            "lịch đi thẳng phòng nhưng không có chỉ định mang sang — bác sĩ chính quyết"
+            "lịch đi thẳng phòng chưa chọn chỉ định lượt này — bác sĩ chính quyết"
         )
     if quen_vao_thang:
         return PRIMARY, "khách quen của bác sĩ chính — vào thẳng"

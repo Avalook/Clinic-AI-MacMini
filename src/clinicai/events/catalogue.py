@@ -745,7 +745,7 @@ class DaXepDuongDi(PayloadSuKien):
     """`visit.routed` — khối Hành trình đã quyết khách đi đâu tiếp.
 
     `dich`: TU_VAN (hàng bác sĩ tư vấn) · PRIMARY (hàng bác sĩ chính) ·
-    SERVICES (lịch đi thẳng phòng — làm chỉ định mang sang, dây H2).
+    SERVICES (lịch đi thẳng phòng và có chỉ định đã chọn lại trong lượt này).
     """
 
     visit_id: str

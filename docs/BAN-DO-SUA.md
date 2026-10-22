@@ -207,6 +207,14 @@ Code: `S/luot_kham_service.py` `LuotKhamService.check_in` + `xep_sau_check_in`
 `T/services/test_hoan_tac_check_in_db.py`, `T/unit/test_hoan_tac_check_in.py`,
 `T/services/test_check_in_lai_sau_hoan_tac_db.py`, `T/unit/test_tiep_don_service.py`.
 
+**Chỉ định tồn từ lượt cũ bị nhận nhầm thành việc của lượt mới (đã sửa code,
+chưa deploy):** H2 không còn tự gọi `S/chi_dinh_service.py`
+`mang_sang_luot_moi`; chỉ định tồn tiếp tục thuộc lượt cũ và không hiện trên
+hành trình lượt mới. Khách cần bác sĩ xác nhận/chỉ định lại trong lượt hiện tại.
+Test: `T/services/test_thu_tien_xep_phong_mang_sang_db.py`,
+`T/services/test_sinh_hieu_cung_buoi_db.py`. Không sửa hồ sơ prod hồi tố bằng
+code; cập nhật sự kiện thực tế phải do người có quyền thực hiện theo giờ đã xác minh.
+
 **Đo sinh hiệu** — màn duy nhất `/do-sinh-hieu` (`D/do-sinh-hieu/BangDoSinhHieu.tsx`).
 Code: `S/sinh_hieu_service.py` `SinhHieuService` (`record_vitals`,
 `bat_dau_do_sinh_hieu`); dùng lại số đo cùng buổi `S/sinh_hieu_buoi.py`. Test:

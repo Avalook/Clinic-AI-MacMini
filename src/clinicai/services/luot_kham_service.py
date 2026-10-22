@@ -270,23 +270,24 @@ class LuotKhamService:
         causation_id: str | None = None,
     ) -> str | None:
         """`RouteAfterCheckIn` — dây H1/H2: loại khám qua tư vấn → hàng TƯ VẤN;
-        lịch "đi thẳng phòng" có chỉ định mang sang → thẳng DỊCH VỤ (không vào
-        hàng bác sĩ nào — phòng nhận khách khi chỉ định được xếp, H4); còn lại →
-        hàng bác sĩ chính. Đã có đường đi thì thôi (chạy lại được).
+        lịch "đi thẳng phòng" chỉ đi thẳng DỊCH VỤ nếu lượt mới đã có chỉ định
+        được khách chọn lại. Chỉ định mang từ lượt cũ luôn về PENDING nên không
+        tự quyết định đường đi; còn lại → hàng bác sĩ chính. Đã có đường đi thì
+        thôi (chạy lại được).
 
         Hàng tư vấn: chưa có sinh hiệu thì "chờ đo sinh hiệu" (blocked) — đo
         trước rồi mới tư vấn (Tuyền 24/09) — nhưng KHÔNG khoá: tư vấn vẫn nhận
         được sớm (xem `start_consultation`).
 
-        Lịch đi thẳng phòng mà KHÔNG có chỉ định nào mang sang (hẹn thủ thuật
-        nhưng chưa ai chỉ định cụ thể) → hàng bác sĩ chính: phải có người quyết
-        làm gì, khách không được đứng im ở một đường không ai nhận.
+        Lịch đi thẳng phòng mà không có chỉ định nào đã được chọn trong lượt
+        này (kể cả có chỉ định cũ mang sang) → hàng bác sĩ chính: phải có người
+        quyết làm gì, khách không được đứng im ở một đường không ai nhận.
 
         CÙNG BUỔI (27/09/2026, dây ``h1_cung_buoi_thang_dich_vu``): lượt thứ hai
         cùng ngày của cùng khách nhận lần đo sinh hiệu của buổi (không đo lại,
-        chỗ chờ tư vấn là "chờ tư vấn" chứ không "chờ đo"); khách đã được bác sĩ
-        chính khám ở lượt trước + có chỉ định mang sang → thẳng DỊCH VỤ như lịch
-        đi thẳng phòng. Luật đường đi: ``rules.duong_sau_check_in``.
+        chỗ chờ tư vấn là "chờ tư vấn" chứ không "chờ đo"); chỉ định cũ không
+        tự đưa khách khỏi hàng bác sĩ. Luật đường đi:
+        ``rules.duong_sau_check_in``.
         """
         v = await conn.fetchrow(
             """
@@ -296,6 +297,7 @@ class LuotKhamService:
                        SELECT 1 FROM service_order o
                         WHERE o.clinic_id = v.clinic_id AND o.visit_id = v.visit_id
                           AND o.mang_tu_visit_id IS NOT NULL
+                          AND o.selection_status = 'SELECTED'
                           AND o.exec_status <> 'cancelled') AS co_mang_sang,
                    -- KHÁCH QUEN của bác sĩ chính (Tuyền 24/09/2026: "người quen
                    -- bác sĩ chính vào thẳng bác sĩ chính luôn"): lịch đánh dấu
@@ -334,8 +336,8 @@ class LuotKhamService:
             and await doc_day(conn, clinic_id, "h1_khach_quen_vao_thang_bs")
         )
         # CÙNG BUỔI (27/09/2026, đợt 3 — dây RIÊNG, không dính khách quen):
-        # khách check-in thêm lượt trong ngày thì không đo lại sinh hiệu, và đã
-        # được khám + có chỉ định mang sang thì đi thẳng phòng dịch vụ.
+        # khách check-in thêm lượt trong ngày thì không đo lại sinh hiệu. Chỉ
+        # định cũ phải được chọn lại ở lượt này mới có thể đi thẳng dịch vụ.
         cung_buoi_da_kham = False
         if await doc_day(conn, clinic_id, "h1_cung_buoi_thang_dich_vu"):
             da_do = await self._nhan_sinh_hieu_cua_buoi(
@@ -437,8 +439,8 @@ class LuotKhamService:
         )
         # CON TRỎ "khách đang ở đâu" rời quầy Đo chỉ số (check-in đặt ở trạm
         # đầu, `place_visit_at_first_station`) khi lượt KHÔNG cần đo: buổi đã
-        # đo, hay đi thẳng dịch vụ. Lượt chưa đo mà vào hàng bác sĩ chính thì
-        # giữ như cũ — khách vẫn qua điều dưỡng trước (luồng chuẩn, không khoá).
+        # đo, hay đã chọn dịch vụ để đi thẳng dịch vụ. Lượt chưa đo mà vào
+        # hàng bác sĩ chính thì giữ như cũ — khách vẫn qua điều dưỡng trước.
         # Chưa có chỗ chờ nào (dịch vụ chưa trả, chưa xếp phòng) thì để nguyên:
         # `cap_nhat_vi_tri` sẽ hiểu "hết chỗ" là bước đóng lượt ở quầy — sai.
         if (flow["vitals_status"] == "recorded" or dich == rules.SERVICES) and (

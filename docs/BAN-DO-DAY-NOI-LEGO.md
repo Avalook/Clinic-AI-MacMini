@@ -27,9 +27,10 @@ Kể theo một khách thật cho dễ theo: **chị Lan**, đặt khám Nội t
   mang `bo_qua_tu_van=true` → khối Hành trình gửi lệnh `bo_qua_tu_van` (tư vấn CHƯA nhận
   khách thì huỷ phiên tư vấn, khách vào thẳng hàng bác sĩ chính). Khách quen KHÔNG còn tự
   vào thẳng (dây `h1_khach_quen_vao_thang_bs` TẮT — bật lại được ở Dây nối).
-- **H2 — Check-in thủ thuật / sàn chậu → phòng.** Nếu lịch là thủ thuật hoặc sàn chậu:
-  không qua tư vấn. Hệ thống tạo sẵn chỉ định theo lịch. Đã trả tiền ở lượt trước mà
-  chưa làm → mang sang, vào thẳng hàng của phòng. Chưa trả → chờ lễ tân thu tiền (H4).
+- **H2 — Check-in lịch thủ thuật / sàn chậu.** Check-in không chuyển chỉ định tồn từ
+  lượt cũ sang lượt mới, dù đã thu tiền hay chưa. Chỉ định và thanh toán vẫn thuộc
+  lượt cũ; lượt mới đi theo luồng bác sĩ của chính lượt đó. Nếu khách xác nhận làm
+  tiếp, bác sĩ chỉ định lại/chốt dịch vụ trong lượt mới để H4 xử lý.
 - **H3 — Tư vấn xong → bác sĩ chính.** Bác sĩ tư vấn bấm Xong (đã ghi vào chính bệnh án
   của lượt) → chị Lan vào **hàng chờ khám thật** của bác sĩ chính.
 - **H4 — Chốt dịch vụ → tự xếp phòng (V10 30/09: làm trước, thu sau).** Lễ tân chốt
@@ -62,10 +63,9 @@ dòng thời gian, trách nhiệm tiền (không làm được mà đã thu ti�
 ### Đã làm — nhóm 1 + nhóm 2 (code, chưa deploy)
 
 - **H1, H3** (nhóm 1): check-in → tư vấn (đo trước) → bác sĩ chính, qua khối Hành trình.
-- **H2** (nhóm 2): check-in lịch "đi thẳng phòng" (`service_type.di_thang_phong`, bật
-  sẵn cho THỦ THUẬT) → chỉ định chưa làm của lượt trước đi theo khách sang lượt mới
-  (sự kiện `service_order.carried_over`), khách đi thẳng dịch vụ, không vào hàng bác sĩ.
-  Chỉ định ĐÃ TRẢ mà chưa làm thì mang sang ở MỌI lượt và vào thẳng hàng phòng.
+- **H2** (nhóm 2): check-in KHÔNG chuyển chỉ định còn dở hoặc khoản đã thu từ lượt cũ.
+  Chúng vẫn thuộc lượt cũ; khách vào luồng bác sĩ của lượt mới. Muốn làm tiếp phải
+  được bác sĩ xác nhận/chỉ định lại trong lượt mới.
   **30/09/2026 (Tuyền): TẮT cho THỦ THUẬT + SÀN CHẬU** — hai loại khám đi quy trình như
   5 loại kia (tư vấn → bác sĩ chính → chỉ định → thu → phòng), migration
   20261001230000. Dây vẫn còn: quản lý bật lại ở `/settings/day-noi` cột "Đi thẳng phòng".
@@ -76,19 +76,20 @@ dòng thời gian, trách nhiệm tiền (không làm được mà đã thu ti�
 - Phòng bấm Bắt đầu khi phiên bác sĩ còn mở → khách "đợi quay lại" ở hàng bác sĩ; phòng
   xong → khách về hàng bác sĩ; bác sĩ bấm Bắt đầu lần nữa = khám tiếp.
 
-**Chỗ Claude tự chốt khi làm nhóm 2 (Tuyền soát, sai thì nói một câu là đổi):**
+**Quyết định cũ — đã thay đổi ngày 22/10/2026:**
 1. Người thu KHÔNG có quyền điều phối (vd tài khoản "Thu ngân" riêng) → không tự xếp,
    để người có quyền xếp tay. Lễ tân có sẵn quyền điều phối nên lễ tân thu là tự xếp.
 2. Thu tiền dịch vụ được ngay khi lượt ĐÃ CÓ chỉ định. Lượt chỉ có tiền khám (chưa chỉ
    định gì) vẫn đợi khám xong — bác sĩ còn có thể chỉ định thêm.
 3. Lịch đi thẳng phòng: KHÔNG tính tiền khám (khách không khám). Không có chỉ định nào
    để mang sang → về hàng bác sĩ chính (có người quyết), khi đó tính tiền khám như thường.
-4. Lịch thủ thuật mang sang cả chỉ định hôm trước khách "không làm" — ngoài đời "hẹn hôm
-   khác" và "không làm" là cùng một cú bỏ tick; hôm nay hỏi lại. Lượt khám thường thì
-   chỉ mang cái đã trả tiền.
+4. **Hủy quyết định cũ:** trước đây lịch thủ thuật mang chỉ định tồn sang lượt mới.
+   Từ 22/10/2026 không chuyển tự động; khách/bác sĩ xác nhận lại bằng chỉ định thuộc
+   lượt mới để không ghi nhận nhầm việc cũ thành việc hôm nay.
 5. Phòng cũ bị huỷ (sự cố phòng) thì Hành trình KHÔNG tự xếp phòng khác — đã có việc
    "điều phối lại" cho người (giữ luật cũ).
-6. Chỉ định cũ quá 180 ngày không mang sang.
+6. Điều kiện "chỉ định cũ quá 180 ngày không mang sang" không còn áp dụng vì H2
+   hiện không chuyển chỉ định tồn tự động ở bất kỳ tuổi nào.
 
 **Nhóm 4 — kê đơn + quầy thuốc (đã làm):** thư ký y khoa ghi đơn THẲNG như bác sĩ (không
 nháp, không duyệt); dòng đơn ghi người nhập (`created_by`) + bác sĩ chính (`bac_si_chinh_id`,
@@ -275,7 +276,8 @@ khách, tới giờ chuông réo đúng người.
 - **Đổi lịch:** lưu từng lần đổi (từ giờ nào → giờ nào, ai đổi, lý do).
 - **Thêm 7 event:** khách không đến · CSKH gọi xác nhận lịch · khách bỏ về giữa chừng ·
   hoàn tiền · bác sĩ hẹn tái khám · đối tác đã lấy mẫu · CSKH đã liên hệ khách.
-- **Chỉ định cũ đã trả tiền mà chưa làm** → mang sang lượt mới, không thu lại.
+- **Chỉ định cũ đã trả tiền mà chưa làm** vẫn thuộc lượt cũ; không tự gắn vào hành
+  trình lượt mới. Muốn làm tiếp cần bác sĩ xác nhận/chỉ định trong lượt mới.
 - **Tiền thuốc:** không cần bác sĩ bấm Khám xong.
 
 ---
@@ -314,7 +316,7 @@ khách, tới giờ chuông réo đúng người.
 
 | Dây | Nghe | Điều kiện | Gửi lệnh (của khối khác) | Hiện trạng |
 |---|---|---|---|---|
-| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn, **trừ khách quen** (lịch đánh dấu tái khám / đặt từ lượt trước / từng được chính bác sĩ ấy khám xong — dây `h1_khach_quen_vao_thang_bs`, **mặc định TẮT từ 25/09**) · `vitals.recorded` có `bo_qua_tu_van` (điều dưỡng tick) | Xếp khách vào hàng **bác sĩ tư vấn**; điều dưỡng tick bỏ qua → thẳng bác sĩ chính. **27/09 (đợt 3), dây `h1_cung_buoi_thang_dich_vu` mặc định BẬT (luật RIÊNG, không dính khách quen):** lượt check-in thêm CÙNG BUỔI (cùng khách, cùng ngày VN) nhận lần đo của buổi (không đo lại; `encounter_flow.vitals_tu_visit_id`); đã được bác sĩ chính khám ở lượt trước + có chỉ định mang sang → thẳng DỊCH VỤ (`rules.duong_sau_check_in`) | ✅ |
+| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn, **trừ khách quen** (lịch đánh dấu tái khám / đặt từ lượt trước / từng được chính bác sĩ ấy khám xong — dây `h1_khach_quen_vao_thang_bs`, **mặc định TẮT từ 25/09**) · `vitals.recorded` có `bo_qua_tu_van` (điều dưỡng tick) | Xếp khách vào hàng **bác sĩ tư vấn**; điều dưỡng tick bỏ qua → thẳng bác sĩ chính. Lượt cùng buổi có thể nhận lại số đo với nguồn lượt trước, nhưng chỉ định dịch vụ vẫn không tự chuyển sang lượt mới. | ✅ |
 | H2 | `visit.checked_in` | không có bước tư vấn | Xếp khách vào hàng **bác sĩ chính** | 🟡 gọi thẳng (F2) |
 | H3 | `consultation.handed_over` | — | Xếp khách vào hàng bác sĩ chính | ❌ |
 | H4 | `visit.checked_in` | lịch hẹn là THỦ THUẬT/dịch vụ (đặt từ lượt trước) | Tạo sẵn chỉ định theo lịch → chờ thu tiền | ❌ |

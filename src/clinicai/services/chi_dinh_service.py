@@ -381,10 +381,11 @@ class ChiDinhService:
         Khách check-in một lượt mới; chỉ định của các lượt TRƯỚC mà chưa làm:
           * ĐÃ TRẢ TIỀN → mang sang, không thu lại (mọi loại lịch);
           * lịch "đi thẳng phòng" (thủ thuật / sàn chậu, `service_type
-            .di_thang_phong`) → mang sang cả chỉ định CHƯA TRẢ, kể cả cái hôm
-            trước khách không làm — ngoài đời "hẹn hôm khác làm" và "không làm"
-            là cùng một cú bỏ tick ở quầy. Cái khách không làm được HỎI LẠI
-            (về "chờ quyết"); lễ tân thu rồi H4 xếp phòng.
+            .di_thang_phong`) → mang sang cả chỉ định CHƯA TRẢ.
+
+        Mang sang chỉ giữ lại chỉ định và dấu vết tài chính — KHÔNG khẳng định
+        khách đồng ý làm tiếp ở lượt mới. Mọi chỉ định cũ về `PENDING` để hỏi
+        lại trong lượt mới; chỉ sau khi được chọn lại mới có thể tự xếp phòng.
 
         Chỉ định ĐI THEO KHÁCH, không đi theo lượt: dời `visit_id` sang lượt mới,
         giữ nguyên mã — dấu vết tiền (payment_bill_line) trỏ theo mã chỉ định nên
@@ -471,10 +472,9 @@ class ChiDinhService:
                        routing_revision = routing_revision + 1,
                        room_id = NULL, assigned_by = NULL, assigned_at = NULL,
                        exec_status = 'authorized',
-                       -- Hôm trước khách không làm → hỏi lại hôm nay.
-                       selection_status = CASE
-                           WHEN selection_status = 'NOT_SELECTED' THEN 'PENDING'
-                           ELSE selection_status END,
+                       -- Lượt cũ không chứng minh khách đồng ý làm ở lượt mới.
+                       -- Hỏi lại mọi chỉ định, kể cả cái đã thu/đã chọn lần trước.
+                       selection_status = 'PENDING',
                        version = version + 1, updated_at = now()
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
                 """,

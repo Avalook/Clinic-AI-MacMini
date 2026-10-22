@@ -3,10 +3,10 @@
 Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi LỆNH của khối Khám
 (không ghi bảng của ai). Dây nối (docs/BAN-DO-DAY-NOI-LEGO.md, "Bản chốt 24/09"):
 
-    H2  visit.checked_in          → mang chỉ định chưa làm của lượt trước sang
-                                    rồi xếp phòng luôn (qua cửa làm như H4;
-                                    lịch đi thẳng phòng: mang cả chỉ định chưa
-                                    trả)
+    H2  visit.checked_in          → KHÔNG tự chuyển chỉ định từ lượt trước;
+                                    chỉ định cũ vẫn thuộc lịch sử lượt cũ.
+                                    Muốn làm tiếp phải được xác nhận / chỉ định
+                                    ở lượt mới.
     H1  visit.checked_in          → xếp đường đi: qua tư vấn / thẳng bác sĩ chính /
                                     thẳng dịch vụ (lịch đi thẳng phòng)
         vitals.recorded           → hàng tư vấn: "chờ đo sinh hiệu" → "chờ tư vấn"
@@ -56,7 +56,6 @@ from clinicai.events.catalogue import HANH_TRINH
 from clinicai.events.consumers.chuong import ghi_chuong_vai
 from clinicai.events.hen_gio import HenDenHan, dang_ky_loai, hen, huy_hen
 from clinicai.events.worker import SuKienDaNhan, dang_ky
-from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.day_noi import doc_day
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.service_routing_service import ServiceRoutingService
@@ -80,41 +79,15 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
     # hỏng giữa chừng thì cả hai cùng cuộn lại, lần sau làm lại từ đầu.
     luot = LuotKhamService(pool=None)
     if su_kien.event_type == "visit.checked_in":
-        trang_thai = await conn.fetchval(
-            "SELECT status FROM visit WHERE clinic_id = $1::uuid"
-            " AND visit_id = $2::uuid FOR UPDATE",
-            su_kien.clinic_id,
-            visit_id,
-        )
-        mang = (
-            await ChiDinhService.mang_sang_luot_moi(
-                conn,
-                clinic_id=su_kien.clinic_id,
-                visit_id=visit_id,
-                causation_id=su_kien.event_id,
-            )
-            # Lượt vừa bị hoàn tác / khách bỏ về (INCOMPLETE) / đã đóng:
-            # không kéo chỉ định cũ sang một lượt không còn ai ở đó.
-            if trang_thai in ("OPEN", "IN_PROGRESS")
-            else []
-        )
+        # Chỉ định chưa làm vẫn thuộc lượt đã phát sinh; check-in lượt mới không
+        # biến chúng thành việc của hôm nay. Nếu khách xác nhận làm tiếp, bác sĩ
+        # tạo/chốt chỉ định trong lượt hiện tại qua luồng nghiệp vụ tương ứng.
         await luot.xep_sau_check_in(
             conn,
             clinic_id=su_kien.clinic_id,
             visit_id=visit_id,
             causation_id=su_kien.event_id,
         )
-        if mang and await _tu_xep_bat(conn, su_kien.clinic_id):
-            # Mang từ lượt trước: vào thẳng hàng phòng, thay người check-in —
-            # lệnh tự bỏ chỉ định không qua cửa làm (khách chưa chốt / tiền đang
-            # hoàn / dây thu trước bật mà chưa thu, lượt chưa tick).
-            await ServiceRoutingService(pool=None).tu_xep_da_thu(
-                conn,
-                clinic_id=su_kien.clinic_id,
-                visit_id=visit_id,
-                staff_id=su_kien.actor_staff_id,
-                causation_id=su_kien.event_id,
-            )
     elif su_kien.event_type == "appointment.service_switched":
         # Đổi lại lần nữa trước khi tin này tới → tin sau lo; không xếp theo
         # một loại khám đã cũ.

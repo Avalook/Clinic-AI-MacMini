@@ -18,21 +18,33 @@ from clinicai.services.bac_si_ky import (
 class _Conn:
     """Conn giả: không ai là bác sĩ, phòng không có lịch, lượt không có bác sĩ."""
 
-    def __init__(self, phong: list[dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self,
+        phong: list[dict[str, Any]] | None = None,
+        *,
+        bac_si_lam: str | None = None,
+        bac_si_ids: set[str] | None = None,
+    ) -> None:
         self.phong = phong or []
+        self.bac_si_lam = bac_si_lam
+        self.bac_si_ids = bac_si_ids or set()
         self.ngay: list[Any] = []
 
     async def fetch(self, sql: str, *args: Any) -> list[dict[str, Any]]:
         if "work_roster" in sql:
             self.ngay.append(args[2])
             return self.phong
+        if "clinic_membership" in sql:
+            return [{"id": i} for i in args[1] if i in self.bac_si_ids]
         return []  # bac_si_trong: không ai là bác sĩ
 
-    async def fetchrow(self, sql: str, *args: Any) -> None:
+    async def fetchrow(self, sql: str, *args: Any) -> dict[str, str] | None:
+        if "service_order" in sql and self.bac_si_lam:
+            return {"id": self.bac_si_lam}
         return None
 
     async def fetchval(self, sql: str, *args: Any) -> str:
-        return "BS Phòng"
+        return "BS Được giao" if args and args[0] == "bs-duoc-giao" else "BS Phòng"
 
 
 async def test_khong_ai_la_bac_si_thi_tra_none_khong_lui_ve_nguoi_bam() -> None:
@@ -69,6 +81,31 @@ async def test_lich_phong_theo_ngay_cua_luc_khong_phai_hom_nay() -> None:
     )
     assert ky == BacSi("bs-hom-qua", "BS Phòng")
     assert conn.ngay == [dt.date(2026, 9, 28)]
+
+
+async def test_bac_si_duoc_giao_cho_chi_dinh_duoc_uu_tien_hon_lich_phong() -> None:
+    conn = _Conn(
+        phong=[
+            {
+                "id": "bs-trong-ca",
+                "station": "VT",
+                "shift": "TOI",
+                "status": "APPROVED",
+                "settings": {},
+            }
+        ],
+        bac_si_lam="bs-duoc-giao",
+        bac_si_ids={"bs-duoc-giao"},
+    )
+    ky = await bac_si_ky_in(
+        conn,
+        clinic_id="c",
+        service_order_id="o",
+        nguoi_bam="dieu-duong",
+        luc=dt.datetime(2026, 9, 28, 20, 0, tzinfo=CLINIC_TZ),
+    )
+    assert ky == BacSi("bs-duoc-giao", "BS Được giao")
+    assert conn.ngay == []
 
 
 def test_thu_tu_ung_vien_bac_si_chi_dinh() -> None:

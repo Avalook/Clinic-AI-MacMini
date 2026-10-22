@@ -2,6 +2,48 @@
 
 Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
 
+## 22/10/2026 — OANH: CHỈ ĐỊNH CŨ BỊ KÉO SANG LƯỢT MỚI + SAI TÊN BS THỰC HIỆN (ĐANG LÀM, CHƯA LÊN PROD)
+
+Yêu cầu Tuyền: điều tra cả ba việc đã nêu trước khi sửa; với BN Nguyễn Thị Oanh,
+đưa lượt/hành trình về đúng sự thật theo ngày, không nhận chỉ định tồn từ lượt
+cũ thành việc của ngày 21/10. Ảnh mới xác nhận **check-out 22:27 ngày 21/10**;
+giờ gặp BS chính chưa được Tuyền cung cấp nên tuyệt đối không tự điền. Không có
+ghi/chỉnh dữ liệu prod nào do Codex thực hiện.
+
+**Thay đổi code hiện có trong worktree (chưa commit/merge/deploy):**
+- Bỏ tự động gọi `ChiDinhService.mang_sang_luot_moi` khi `visit.checked_in`, để
+  chỉ định còn tồn vẫn thuộc lượt cũ; lượt mới không nhận chúng. Giữ helper cho
+  luồng chủ động khác. Luật vị trí/hành trình và test liên quan đã chỉnh.
+- `bac_si_ky_in`: nếu nhân viên hỗ trợ hoàn tất chỉ định, ưu tiên BS được gán
+  rõ ở `service_order.bac_si_lam_id` trước lịch phòng. Test mới tái hiện tình
+  huống lịch phòng có BS khác. Đây là sửa code cục bộ, **chưa chứng minh được**
+  chữ ký của ca prod cụ thể cho tới khi đối chiếu dữ liệu chỉ định/phòng/lịch.
+- Cần tiếp tục xem vấn đề đơn thuốc Thu Hiền 21/10 (BS Thành kê nhưng hiển thị
+  BS Dương) và xác minh hai ca tên BS thực hiện/phiếu kết quả đã báo; chưa kết
+  luận gốc prod cho từng ca.
+
+**Kiểm tra:** test chữ ký `5 passed`; Ruff cho file chữ ký/test xanh; test hồi quy
+lượt cũ/lượt mới đã có `32 passed`, test sinh hiệu `27 passed`, Ruff và
+`git diff --check` xanh. CI đầy đủ lần đầu: backend đỏ chỉ do format một test
+(đã chạy formatter); frontend đỏ vì môi trường thiếu `@zxing/browser` và
+`@zxing/library`; infra, portability, database xanh. Ngày 22/10 đã chạy
+`npm ci` theo lockfile (không sửa manifest/lockfile), khôi phục node_modules;
+sau đó CI đầy đủ xanh **5/5 job** ở `bbd7327d` + thay đổi chưa commit (backend
+249s, frontend 57s, infra 7s, portability 1s, database 34s). Kết quả xác nhận
+cây làm việc, không phải commit sạch; không gửi GitHub status vì repo còn thay
+đổi chưa commit. npm ci báo 31 advisory (1 low, 5 moderate, 24 high, 1 critical),
+chưa chạy `npm audit fix` và chưa sửa dependency. Test tiếp tục: 32 test hồi quy
+DB + 32 test unit sinh hiệu/chữ ký xanh, Ruff và `git diff --check` xanh. GET
+công khai tới `https://dr4women.io.vn/` không kiểm tra được vì máy dev không
+phân giải DNS (`curl: Could not resolve host`); đây **không phải** bằng chứng
+prod đang down hay đang up.
+
+**Việc tiếp tục:** (1) đọc lại code/luật map và kiểm tra toàn bộ diff,
+không làm mất thay đổi có sẵn; (2) hoàn tất điều tra ba lỗi bác sĩ; (3) chỉ sau
+đó chuẩn bị release runbook. Chính sách prod: Tuyền tự chạy release/kiểm tra
+prod theo quy trình; Codex không deploy hoặc ghi sửa dữ liệu prod. Chỉnh dữ liệu
+Oanh phải làm có audit, theo giờ/ngày đã xác minh; không tự đoán giờ khám.
+
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
 
 **Cập nhật 16/10 sáng (sau CI xanh — CẦN CI MÁY LẠI trước khi lên prod):** (a) thêm PR "đặt cờ vật tư hàng loạt theo loại"
@@ -746,7 +788,8 @@ Thiết kế + các chỗ Claude tự chốt: `docs/BAN-DO-DAY-NOI-LEGO.md` mụ
   (bật THU_THUAT), `service_order.mang_tu_visit_id/mang_sang_luc`.
 - 3 sự kiện mới: `payment.service_collected` · `service.routed` · `service_order.carried_over`.
 - Khối Hành trình nghe thêm `payment.service_collected` (H4); lúc check-in gọi lệnh
-  `CarryOverUnfinishedOrders` của khối Chỉ định (H2).
+  `CarryOverUnfinishedOrders` của khối Chỉ định (H2) — **quy tắc cũ, đã bỏ ngày
+  22/10/2026**; check-in hiện không tự chuyển chỉ định tồn.
 - Thu tiền dịch vụ không đợi khám xong (đã có chỉ định là thu được); màn `/thu-ngan/dich-vu`
   có ô **"Khách làm dịch vụ nào?"** (`thu-ngan/ChonDichVu.tsx`) — lệnh chọn dịch vụ trước
   đây có mà KHÔNG màn nào gọi, nên chỉ định mới không vào được hoá đơn.
@@ -762,6 +805,21 @@ Thiết kế + các chỗ Claude tự chốt: `docs/BAN-DO-DAY-NOI-LEGO.md` mụ
 
 **OFF chờ Tuyền quyết xoá (thêm):** `_tu_xep_phong` trong `luot_kham_service.py` (chỉ còn
 chạy cho chỉ định đời cũ `selection_status IS NULL`).
+
+### 22/10/2026 — lỗi chỉ định lượt cũ tự kéo khách vào phòng dịch vụ (đang sửa, chưa deploy)
+
+- Gốc lỗi: H2 mang chỉ định chưa làm từ lượt cũ sang, sau đó coi chỉ định được mang
+  sang (đặc biệt đơn đã thu) là ý định hiện tại và tự xếp phòng; H1 vì thế bỏ qua bác
+  sĩ chính. Ca kiểm tra prod cho thấy trạng thái đó có thể không khớp sự kiện khách
+  thực sự đã trải qua trong lượt mới.
+- Đã sửa H2: check-in không chuyển đơn tồn từ lượt cũ sang lượt mới; hành trình mới
+  chỉ hiển thị việc của lượt mới. Muốn làm dịch vụ cũ tiếp phải được bác sĩ xác nhận/
+  chỉ định lại ở lượt mới. Hàm chuyển chỉ định vẫn giữ cho luồng nội bộ có chủ đích.
+  Đã thêm/cập nhật test H2 và luồng cùng buổi.
+- Kiểm: Ruff xanh; unit rules 27 bài xanh; hai bộ DB liên quan 32 bài xanh qua
+  `scripts/test-nhanh.sh`.
+- Chưa deploy. Chưa sửa dữ liệu prod: cần người có quyền cập nhật hồ sơ ghi nhận theo
+  kiểm soát và xác nhận giờ khám/giờ ra thực tế; không tự suy ra hoặc bịa giờ.
 
 **NỢ nhóm sau:** tiền thuốc vẫn đợi khám xong (nhóm 4) · bật/tắt tự xếp phòng trên màn
 (khối chỉnh dây, nhóm 5) · tài khoản "Thu ngân" riêng không có quyền điều phối → không

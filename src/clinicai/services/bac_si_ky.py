@@ -112,6 +112,12 @@ SELECT b.id::text AS id, b.full_name
  WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid AND b.id IS NOT NULL
 """
 
+_BAC_SI_LAM_SQL = """
+SELECT bac_si_lam_id::text AS id
+  FROM public.service_order
+ WHERE clinic_id = $1::uuid AND id = $2::uuid AND bac_si_lam_id IS NOT NULL
+"""
+
 # Bác sĩ của lượt (không tính người chỉ định) — bậc 3 của `bac_si_ky_in`: bác sĩ
 # chính của lượt → bác sĩ lịch hẹn → rồi mới tới bác sĩ đã chỉ định.
 _luot, _lich = _bac_si_luot_cua_chi_dinh("o")
@@ -163,12 +169,14 @@ async def bac_si_ky_in(
 ) -> BacSi | None:
     """Bác sĩ ký "Bác sĩ thực hiện" / "Người thực hiện" của chỉ định — hoặc None.
 
-    1. Người thực hiện / người bấm (`nguoi_bam`, theo thứ tự) là bác sĩ → họ.
-    2. Phòng của chỉ định có ĐÚNG MỘT bác sĩ đang trong ca lúc `luc` (lịch của
+    1. Người bấm hoàn tất là bác sĩ → họ (bác sĩ trực tiếp thực hiện).
+    2. Nếu người bấm là nhân viên hỗ trợ, bác sĩ được giao rõ cho chỉ định
+       (`service_order.bac_si_lam_id`) → bác sĩ ấy.
+    3. Phòng của chỉ định có ĐÚNG MỘT bác sĩ đang trong ca lúc `luc` (lịch của
        NGÀY `luc`, giờ `luc` — không phải giờ in) → bác sĩ ấy.
-    3. Bác sĩ chính của lượt → bác sĩ của lịch hẹn → bác sĩ đã chỉ định (người
+    4. Bác sĩ chính của lượt → bác sĩ của lịch hẹn → bác sĩ đã chỉ định (người
        duyệt, người ghi) — người đầu tiên là bác sĩ.
-    4. Không ai → None: chỗ ký để TRỐNG. Không bao giờ lùi về người bấm.
+    5. Không ai → None: chỗ ký để TRỐNG. Không bao giờ lùi về người bấm.
     """
     ds = [nguoi_bam] if isinstance(nguoi_bam, str) or nguoi_bam is None else nguoi_bam
     ung_vien = [str(x) for x in ds if x]
@@ -177,6 +185,11 @@ async def bac_si_ky_in(
         for ai in ung_vien:
             if ai in la_bs:
                 return await _ten(conn, ai)
+    duoc_giao = await conn.fetchrow(_BAC_SI_LAM_SQL, clinic_id, service_order_id)
+    if duoc_giao and duoc_giao["id"]:
+        bac_si_ids = await bac_si_trong(conn, clinic_id, [duoc_giao["id"]])
+        if duoc_giao["id"] in bac_si_ids:
+            return await _ten(conn, duoc_giao["id"])
     if luc is not None:
         gio = luc.astimezone(CLINIC_TZ)
         rows = await conn.fetch(

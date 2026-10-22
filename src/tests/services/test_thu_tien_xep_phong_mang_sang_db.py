@@ -485,27 +485,46 @@ async def test_h2_da_tra_chua_lam_mang_sang_luot_moi_khong_thu_lai(
     await chay_hanh_trinh(pool)
     await _dong_luot(pool, cu)  # khách về, chưa làm siêu âm
 
-    moi = await _check_in(pool, ca, pid, ca.loai_kham)
+    # Check-in lượt mới không nhận vơ chỉ định cũ thành việc của hôm nay.
+    moi = await _check_in(pool, ca, pid, ca.loai_thu_thuat)
     d = await _don(pool, order)
-    assert d["visit_id"] == moi and d["mang_tu"] == cu
-    [mang] = await _su_kien(pool, "service_order.carried_over", order)
-    assert json.loads(mang["payload"])["da_thu_tien"] is True
-    # Đã trả → vào thẳng hàng phòng, thay người check-in (lễ tân).
-    assert d["routing_status"] == "ASSIGNED"
-    assert d["assigned_by"] == ca.le_tan.staff_id
+    assert d["visit_id"] == cu and d["mang_tu"] is None
+    assert d["selection_status"] == "SELECTED"
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM event_log WHERE aggregate_id = $1::uuid"
+            " AND event_type = 'service_order.carried_over'",
+            order,
+        )
+        == 0
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT route_decision FROM encounter_flow WHERE visit_id = $1::uuid", moi
+        )
+        == "PRIMARY"
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
+            " AND lane = 'DOCTOR' AND status IN ('waiting', 'called', 'serving')",
+            moi,
+        )
+        == 1
+    )
     async with pool.acquire() as conn:
         hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=moi)
     assert order not in [x.source_id for x in hd.dong]  # không thu lại
-    # Lần chỉ định của lượt cũ không theo sang (lát 4, 26/09/2026).
+    # Lần chỉ định vẫn thuộc lượt cũ; không bị reset khi check-in lượt mới.
     assert (
         await pool.fetchval(
             "SELECT lan_chi_dinh FROM service_order WHERE id = $1::uuid", order
         )
-        is None
+        == 1
     )
 
 
-async def test_h2_lich_thu_thuat_mang_chi_dinh_chua_tra_di_thang_dich_vu(
+async def test_h2_lich_thu_thuat_giu_chi_dinh_chua_tra_o_luot_cu(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
     ca = await _dung(pool)
@@ -515,29 +534,30 @@ async def test_h2_lich_thu_thuat_mang_chi_dinh_chua_tra_di_thang_dich_vu(
     await _dong_luot(pool, cu)  # hẹn hôm khác làm, chưa trả
 
     moi = await _check_in(pool, ca, pid, ca.loai_thu_thuat)
-    assert (await _don(pool, order))["visit_id"] == moi
+    d = await _don(pool, order)
+    assert d["visit_id"] == cu and d["mang_tu"] is None
     assert (
         await pool.fetchval(
             "SELECT route_decision FROM encounter_flow WHERE visit_id = $1::uuid", moi
         )
-        == "SERVICES"
+        == "PRIMARY"
     )
-    assert not await pool.fetchval(
-        "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
-        " AND lane IN ('DOCTOR', 'TU_VAN')",
-        moi,
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
+            " AND lane = 'DOCTOR' AND status IN ('waiting', 'called', 'serving')",
+            moi,
+        )
+        == 1
     )
-    # Không có tiền khám: khách không khám, chỉ làm thủ thuật.
-    await _chon(pool, ca, moi, [order])
-    async with pool.acquire() as conn:
-        hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=moi)
-    assert [x.source_id for x in hd.dong] == [order]
-    b = await CashierBoardService(pool).board(identity=ca.le_tan, modes=["dich_vu"])
-    assert any(i["visit_id"] == moi for i in b["items"])
-
-    await _thu(pool, moi, ca.le_tan)
-    await chay_hanh_trinh(pool)
-    assert (await _don(pool, order))["routing_status"] == "ASSIGNED"
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM event_log WHERE aggregate_id = $1::uuid"
+            " AND event_type = 'service_order.carried_over'",
+            order,
+        )
+        == 0
+    )
 
 
 async def test_h2_lich_thu_thuat_khong_co_gi_mang_sang_ve_bac_si_chinh(
@@ -570,11 +590,10 @@ async def test_kham_thuong_khong_mang_chi_dinh_chua_tra(
     assert (await _don(pool, order))["visit_id"] == cu
 
 
-async def test_lich_thu_thuat_hoi_lai_ca_chi_dinh_hom_truoc_khach_khong_lam(
+async def test_h2_khong_chuyen_chi_dinh_hom_truoc_chua_duoc_chon(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
-    """Ngoài đời "hẹn hôm khác làm" là một cú bỏ tick ở quầy (NOT_SELECTED).
-    Hôm khách quay lại theo lịch thủ thuật, chỉ định ấy phải hiện lại để hỏi."""
+    """Check-in lượt mới không nhận chỉ định tồn từ lịch sử lượt trước."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
@@ -593,18 +612,20 @@ async def test_lich_thu_thuat_hoi_lai_ca_chi_dinh_hom_truoc_khach_khong_lam(
     )
     await _dong_luot(pool, cu)
 
-    moi = await _check_in(pool, ca, pid, ca.loai_thu_thuat)
+    await _check_in(pool, ca, pid, ca.loai_thu_thuat)
     for o in (bo, chua_quyet):
         d = await _don(pool, o)
-        assert d["visit_id"] == moi and d["selection_status"] == "PENDING"
+        assert d["visit_id"] == cu and d["mang_tu"] is None
 
-    # Chạy lại lệnh: không mang lần hai, không sự kiện thứ hai.
-    async with pool.acquire() as conn, conn.transaction():
-        again = await ChiDinhService.mang_sang_luot_moi(
-            conn, clinic_id=CLINIC, visit_id=moi
+    for o in (bo, chua_quyet):
+        assert (
+            await pool.fetchval(
+                "SELECT count(*) FROM event_log WHERE aggregate_id = $1::uuid"
+                " AND event_type = 'service_order.carried_over'",
+                o,
+            )
+            == 0
         )
-    assert again == []
-    assert len(await _su_kien(pool, "service_order.carried_over", bo)) == 1
 
 
 # ── Đợi quay lại ────────────────────────────────────────────────────────────
