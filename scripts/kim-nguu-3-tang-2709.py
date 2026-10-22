@@ -38,6 +38,11 @@ import sys
 
 import asyncpg
 
+# ĐÃ CŨ + NGUY HIỂM (bản đồ code 21/10/2026): XOA dưới đây gồm "Hào Nam" — từ
+# 14/10 là cơ sở DUY NHẤT đang đón khách. Chạy --that = chuyển dữ liệu Hào Nam đi
+# rồi xoá cơ sở. Giữ tệp để tra lịch sử; muốn chạy thật phải sửa tay dòng này.
+sys.exit("DỪNG: script cũ 27/09 — chạy sẽ xoá cơ sở Hào Nam. Chỉ để tra lịch sử.")
+
 KN = "Kim Ngưu"
 XOA = ("Phòng khám Dr4Women", "Hào Nam")
 

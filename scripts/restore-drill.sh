@@ -69,11 +69,10 @@ check() {
 command -v docker >/dev/null 2>&1 || fail_hard "docker is required for the drill"
 
 if [ -z "$BACKUP_FILE" ]; then
-    # The companion sorts AFTER the archive it belongs to, so it has to be
-    # excluded or "the newest backup" is the 1.5 KB auth file.
-    BACKUP_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -type f \
-        -name 'clinicai_*.sql.gz' ! -name '*_auth.sql.gz' \
-        -print 2>/dev/null | LC_ALL=C sort | tail -n 1)
+    # Companions (_auth, _lich_su_notion) are written AFTER the archive they
+    # belong to; the shared picker skips them all.
+    . "$REPO/scripts/lib/chon-ban-sao.sh"
+    BACKUP_FILE=$(chon_ban_chinh_moi_nhat "$BACKUP_DIR")
 fi
 [ -n "$BACKUP_FILE" ] && [ -f "$BACKUP_FILE" ] || \
     fail_hard "no backup to restore (looked in $BACKUP_DIR)"

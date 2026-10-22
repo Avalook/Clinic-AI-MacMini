@@ -43,7 +43,8 @@ psql_db() { docker exec -i "$DB" psql -v ON_ERROR_STOP=1 -q -U postgres -d postg
 [ -f .env.thu-local ] || dung "thiếu .env.thu-local — chạy scripts/dev-up.sh một lần trước."
 docker inspect "$DB" >/dev/null 2>&1 || dung "không có container $DB — chạy scripts/dev-up.sh trước."
 
-BAN="$(ls -t "$THU_MUC"/clinicai_production_*.sql.gz 2>/dev/null | grep -v '_auth\.sql\.gz$' | head -1 || true)"
+. "$REPO/scripts/lib/chon-ban-sao.sh"
+BAN="$(chon_ban_chinh_moi_nhat "$THU_MUC" clinicai_production_)"
 [ -n "$BAN" ] || dung "không thấy bản sao lưu nào trong $THU_MUC"
 AUTH="${BAN%.sql.gz}_auth.sql.gz"
 [ -f "$AUTH" ] || dung "thiếu tệp tài khoản $AUTH"

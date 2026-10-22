@@ -46,9 +46,10 @@ else
 fi
 
 if [ -z "$BACKUP_FILE" ]; then
-    BACKUP_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -type f \
-        -name 'clinicai_*.sql.gz' ! -name '*_auth.sql.gz' \
-        -print 2>/dev/null | LC_ALL=C sort | tail -n 1)
+    # Shared picker skips every companion (_auth, _lich_su_notion) — skipping only
+    # _auth made "the newest backup" the notion dump (21/10/2026).
+    . "$(dirname "$0")/lib/chon-ban-sao.sh"
+    BACKUP_FILE=$(chon_ban_chinh_moi_nhat "$BACKUP_DIR")
 fi
 [ -n "$BACKUP_FILE" ] || fail "no ClinicAI backup artifact found in $BACKUP_DIR"
 [ -f "$BACKUP_FILE" ] || fail "backup artifact not found: $BACKUP_FILE"

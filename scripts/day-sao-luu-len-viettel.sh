@@ -151,7 +151,8 @@ SQL
     noi "  đã đẩy $ten ($byte byte, mã băm khớp)"
 }
 
-MOI_NHAT=$(ls -1t "$BACKUP_DIR"/*.sql.gz 2>/dev/null | grep -v '_auth\.sql\.gz$' | head -1 || true)
+. "$REPO/scripts/lib/chon-ban-sao.sh"
+MOI_NHAT=$(chon_ban_chinh_moi_nhat "$BACKUP_DIR" "")
 [ -n "$MOI_NHAT" ] || hong "không thấy bản sao lưu nào trong $BACKUP_DIR"
 AUTH="${MOI_NHAT%.sql.gz}_auth.sql.gz"
 # CẢ HAI HOẶC KHÔNG CẢ HAI. Đẩy mỗi phần public sang là cất một bản không khôi
