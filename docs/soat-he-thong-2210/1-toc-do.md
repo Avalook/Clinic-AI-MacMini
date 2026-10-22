@@ -1,15 +1,49 @@
 # Soát 22/10 · Khối 1 · TỐC ĐỘ — vì sao màn chậm, vì sao tải lại thừa
 
-> Đang viết dần (commit theo nhóm phát hiện). Chỉ đọc code `main` @ `00bde52`.
+> Bản đủ (nhóm A–E + đối chiếu kế hoạch). Chỉ đọc code `main` @ `00bde52`.
 > Không đo trên VPS; mọi "cách đo" bên dưới chạy trên Mac / DB test.
 
 ## Tóm tắt 10 dòng
 
-(đang viết — xem cuối tệp)
+1. Gốc lớn nhất vẫn là kế hoạch đã nói (G1): mỗi tin của 41 bảng dựng lại toàn trang ở mọi màn "thường" (A1).
+2. Phần tự lưu bắn tin rộng hơn kế hoạch tính: ô tư vấn, ghi chú, đơn thuốc cũng vậy, không chỉ phiếu khám (A2).
+3. Câu `WITH dong AS (bl…` 67k lần: nghi mạnh nguồn chính là **worker sổ nợ** chạy 300 lượt × ~20 câu mỗi 10 phút, không phải màn hình (B1).
+4. `/ban-kham`, `/phong/{id}` ~0,9s dù trang gần như trống: layout gọi `/phan-quyen/toi`, hàm này lặp **một câu SQL cho mỗi ngày trực** của người không đứng quầy thu — chậm dần theo ngày (D1).
+5. Layout chạy 3 đợt gọi nối tiếp, không cache gì giữa hai lần dựng (D3) — "phí vào cửa" của mọi trang.
+6. Quầy thu / `/reception/checkout`: N+1 tới 300 lượt × 15–25 câu, và checkout bị chạy 2 lần mỗi tin (D2, B4).
+7. `/api/luot-kham` mỗi lần gọi đã gọn (~10 câu lô, có chỉ mục); 3.557 lần/30′ là do client gọi quá nhiều (C2, E4).
+8. Sau thao tác màn tự refresh rồi tin SSE refresh lần nữa (C1); tin không mang cơ sở nên cơ sở này dựng lại màn cơ sở kia (E2).
+9. Kế hoạch ghi S1/S2/S3a "Xong" nhưng chưa có trên `main`, và S8 thêm tiến trình sẽ vượt `max_connections` nếu giữ pool 20 (A3, E3).
+10. Thứ tự sửa đề xuất (lợi/rủi ro): D1 → checkout vào `MAN_TU_TAI` (D2-1) → C1 → A2 phía client → B1 (mức 3) → D3 → B3 → S6; không cần Redis/broker (E5).
 
 ## Bảng phát hiện
 
-(đang viết — xem cuối tệp)
+| # | Mức | Phát hiện | Ở đâu (chính) | Độ chắc | So kế hoạch | Ưu tiên |
+|---|---|---|---|---|---|---|
+| A1 | CAO | Mọi tin 41 bảng → dựng lại toàn trang | `RealtimeRefresher.tsx:88-147,297` | chắc | đã biết (G1) | S6 |
+| A2 | CAO | Ô tư vấn / ghi chú / đơn thuốc tự lưu bắn tin cả phòng khám | `OTuVanTuLuu.tsx:66`, `luot_kham_service.py:1942`, `PhieuKhamLuot.tsx:79` | chắc (tỉ lệ: nghi) | MỚI, kế hoạch hẹp | 4 |
+| A3 | VỪA | S1/S2/S3a ghi "Xong" nhưng chưa vào `main`; giờ migration S2 trùng | `login/actions.ts:50`, `man-tu-tai.ts:23` | chắc | kế hoạch sai | sửa tài liệu |
+| A4 | VỪA | Mở lại SSE → `null` → mọi widget tải lại | `RealtimeRefresher.tsx:203-218` | chắc (tỉ trọng: nghi) | đã biết (G3), thiếu phần widget | 7 |
+| B1 | CAO | Worker sổ nợ 300 lượt × ~20 câu / 10′; `LIMIT 300` không `ORDER BY` | `so_no_service.py:79-83,528-614` | chắc (nguồn 67k: nghi) | MỚI | 5 (mức 3) |
+| B2 | VỪA | `id::text = …` bỏ chỉ mục khoá chính (~41 chỗ) | `hoan_tac_service.py:297`, `so_no_service.py:162`, `consumers/so_no.py:47-71` | chắc (thời gian: nghi) | MỚI | 8 |
+| B3 | CAO | `lich_vuot_suc_chua()` quét mọi phòng khám | `20260915000014_…sql:65-115` | chắc | đã biết + MỚI (lọc phòng khám) | 6 (mức 3) |
+| B4 | VỪA | Bảng thu ngân N+1; vế lượt cũ không mốc ngày | `cashier_board_service.py:247-262,708-772` | chắc | đã biết một phần | 8 (mức 3) |
+| B5 | THẤP | JIT chỉ tắt ở bể FastAPI | `core/database.py:41` | chắc | MỚI | thấp |
+| C1 | VỪA | Refresh chủ động + refresh do SSE; vào màn = 2 lần dựng | `QueueBoard.tsx:113`, `CheckoutBoard.tsx:167`, `LiveBoardSync.tsx:50` | chắc | MỚI | 3 |
+| C2 | VỪA | Bàn khám 3 lời gọi/tin của 8 bảng; `null` ~15 lời gọi | `BanKham.tsx:330,566` | đường: chắc; số: nghi | MỚI (định lượng) | S6 |
+| C3 | THẤP | Poll cứng 4s/5s/30s còn sót | `ServiceFormEngine.tsx:144`, `dung-giu-cho.ts:90`, `DisplayBoard.tsx:103` | chắc | MỚI | thấp |
+| C4 | THẤP | `ClinicalRecordForm` tự nghe bảng mình ghi | `ClinicalRecordForm.tsx:536,637` | chắc | MỚI | thấp |
+| D1 | CAO | `/phan-quyen/toi` một câu SQL mỗi ngày trực | `cashier_scope_service.py:243-309` | chắc (ms: nghi) | MỚI | **1** |
+| D2 | CAO | `/reception/checkout` N+1 300 lượt, chạy 2 lần/tin | `checkout_service.py:401-428,1051-1095` | chắc | MỚI | **2** |
+| D3 | VỪA | Layout 3 đợt gọi nối tiếp, `no-store` | `layout.tsx:46,96-121`, `proxy.ts:139` | chắc (ms: nghi) | MỚI | 6 |
+| D4 | VỪA | `/customers` ghi `nhac_tai_kham` khi dựng | `customers/page.tsx:296` | chắc | đã biết | theo kế hoạch |
+| D5 | THẤP | `MAN_TU_TAI` vẫn dựng lại theo `appointment` | `man-tu-tai.ts:33,53` | chắc | MỚI | thấp |
+| E1 | THẤP | Cache tĩnh đã sửa; số đo 7.000 là số cũ | `caddy/Caddyfile:50-87,198` | chắc | đã sửa | — |
+| E2 | VỪA | Tin realtime không mang cơ sở | `20260806000001_…sql:29-43`, `change_broker.py:117-140` | chắc (ảnh hưởng: nghi) | MỚI | gộp S6 |
+| E3 | VỪA | 1 tiến trình, pool 20; S8 sẽ vượt `max_connections` | `Dockerfile.api:41`, `database.py:17-28` | chắc (bể cạn: nghi) | kế hoạch thiếu | sau D1/D2/B1 |
+| E4 | THẤP | `/api/luot-kham` mỗi lần gọi đã gọn | `luot_kham_doc.py:75-360` | chắc | xác nhận | — |
+| E5 | THẤP | SSE phía máy chủ ổn | `change_broker.py`, `events.py` | chắc | xác nhận | — |
+| E6 | THẤP | Chỉ mục đủ; 2 điểm nhỏ | `cashier_board_service.py:137-145` | nghi | MỚI (nhỏ) | thấp |
 
 ---
 
@@ -383,3 +417,123 @@ gần như không có gì riêng. Màn nào thêm một endpoint N+1 của riên
   (`RealtimeRefresher.tsx:338-347`) gọi `nhip.nhan()` không xét `MAN_TU_TAI` (hiếm, đúng ý).
 - **Hướng sửa:** chuông "bác sĩ từ chối" tự tải ở client qua `useNgheBang(["appointment"])`
   → bỏ `appointment` khỏi `BANG_LAYOUT`.
+
+---
+
+## Nhóm E — Hạ tầng: cache tĩnh, pool, SSE phía máy chủ, chỉ mục
+
+### E1 · THẤP · Cache tĩnh (manifest/icon `max-age=0`) — **đã sửa trên `main`**, số đo dùng là số cũ
+
+- **Ở đâu:** `caddy/Caddyfile:50-87` (snippet `tai_nguyen_tinh`: `/manifest.webmanifest`,
+  `/favicon.ico`, `/icon.png`, `/apple-icon.png`, `/pwa/*`, logo → `public, max-age=86400,
+  stale-while-revalidate=604800`, chỉ khi upstream 2xx), gắn ở `:198` trước khối
+  `reverse_proxy dashboard`; bản staging chép nguyên văn, `src/tests/test_caddy_cache_tinh.py`
+  canh hai bản khớp.
+- **Nhận xét:** con số "~7.000 req/30 phút do `max-age=0`" là của 14/10 **trước** khi sửa
+  (comment ghi 3.140 + 3.136 + 720). Kế hoạch 17/10 đã ghi "16/10 nhẹ hơn ~3 lần sau đợt sửa
+  cache tĩnh". Không còn gốc mới ở đây.
+- **Cách đo trên Mac:** stack dev có Caddy → `curl -sI https://localhost/manifest.webmanifest`
+  phải ra đúng một dòng `Cache-Control: public, max-age=86400…`. Trên log prod lần sau: đếm
+  lại `manifest.webmanifest` / 30 phút — phải về cỡ vài chục (mỗi máy ~1 lần/ngày).
+- **Độ chắc:** chắc chắn (đã đọc cấu hình).
+
+### E2 · VỪA · Tin realtime không mang **cơ sở** — ghi ở cơ sở B dựng lại màn ở cơ sở A — **MỚI** (kế hoạch S6 chỉ nói bảng + lượt/phòng)
+
+- **Ở đâu:** `notify_row_change` (`supabase/migrations/20260806000001_notify_change_for_live_screens.sql:29-43`)
+  chỉ gửi `{t: bảng, c: clinic_id}`; `ChangeBroker._on_notify` / `subscribe`
+  (`src/clinicai/core/change_broker.py:117-140`) chia tin theo `clinic_id`; route SSE Next
+  có gắn cơ sở (`app/api/events/stream/route.ts:51`, `ganCoSo`) nhưng phía FastAPI
+  (`api/v1/routers/events.py:52`) không dùng nó để lọc.
+- **Cơ chế:** từ 08/10 có hai cơ sở; mọi màn lọc dữ liệu theo cơ sở (`luot_kham_doc.py:131-137`)
+  nhưng tin đổi thì không — mỗi lượt ghi ở cơ sở này nhân A1 lên cả số màn của cơ sở kia.
+- **Ảnh hưởng:** tỉ lệ thuận với phần lượt ghi của cơ sở kia. Nếu cơ sở thứ hai đang ngừng
+  hoặc ít khách thì hiện gần 0 — **nghi** (chưa biết số lượt ghi theo cơ sở). Khi cơ sở thứ
+  hai chạy đủ, tải A1 tăng gần ×2.
+- **Cách đo trên Mac:** stack dev với 2 cơ sở; tab A đứng cơ sở 1 mở `/reception/queue`; tab B
+  đứng cơ sở 2 check-in một khách → tab A vẫn có request `?_rsc=`.
+- **Đề xuất test:** test broker: tin có `l` (cơ sở) chỉ tới hàng đợi của người đứng đúng cơ
+  sở hoặc người không chọn cơ sở; tin không có `l` vẫn tới mọi người (giữ đúng như cũ).
+- **Hướng sửa:** trigger thêm `l` khi dòng có sẵn `location_id` (đọc `to_jsonb(NEW)->>'location_id'`,
+  không tra thêm bảng); broker/SSE lọc theo cơ sở của người xem, tin không có `l` thì phát
+  hết. Gộp vào S6. **Rủi ro:** bảng không có `location_id` (đa số) sẽ vẫn phát hết — đúng,
+  chỉ không lợi; tuyệt đối không tra bảng khác trong trigger (thêm chi phí cho mọi lượt ghi). Mức 3.
+
+### E3 · VỪA · Pool kết nối và số tiến trình API: kế hoạch S8 thiếu ngân sách kết nối — **kế hoạch thiếu**
+
+- **Ở đâu:** `Dockerfile.api:41` — `uvicorn` **một** tiến trình, không `--workers`.
+  `src/clinicai/core/database.py:24` `POOL_MAX_SIZE = 20`, comment `:17-23` ghi ngân sách
+  `max_connections=100` (API 20 + checkpointer 10 + broker 1 + GoTrue 10 + PostgREST 10 +
+  Realtime ~10 + worker). Worker `su-kien` có bể riêng `WORKER_POOL_MAX_SIZE = 10` (`:28`).
+- **Cơ chế:** các chuỗi N+1 (D2 checkout, B4 thu ngân) giữ **một** kết nối hàng giây; D1 mượn/trả
+  bể từng câu (hàng trăm lượt mượn mỗi lần dựng trang). Lúc cao điểm, khi DB chậm vì B1 chạy
+  cùng giờ, 20 kết nối có thể bị giữ hết → request khác xếp hàng trong bể chứ không phải ở SQL
+  (khớp kiểu "p95 1,5s nhưng câu SQL đơn lẻ nhanh").
+- **Kế hoạch S8 ("2–4 tiến trình uvicorn + chỉnh pool"):** nếu giữ `POOL_MAX_SIZE=20` thì 4 tiến
+  trình × 20 = 80, cộng phần còn lại (~45) **vượt 100** → lỗi `too many connections` đúng lúc cao
+  điểm. Phải hạ trần mỗi tiến trình (vd 4 × 10) và ghi lại ngân sách trong cùng PR. Thêm tiến
+  trình cũng **không** giảm số câu SQL — sửa D1/D2/B1 trước rồi mới đo xem có cần S8.
+- **Độ chắc:** cấu hình chắc chắn; "bể cạn là nguyên nhân p95": **nghi** (comment `:17-19` cũng ghi
+  "nghi cạn bể" 12/10).
+- **Cách đo trên Mac:** stack dev + `scripts/do-tai` (khi có) hoặc 20 tab tự refresh;
+  trong lúc chạy: `SELECT state, count(*) FROM pg_stat_activity WHERE application_name LIKE
+  '%' GROUP BY 1` và log thời gian chờ `pool.acquire()` (bọc tạm trong `get_db_pool`).
+- **Hướng sửa:** trước hết giảm việc (D1, D2, B1); sau đó nếu cần thêm tiến trình thì chia lại
+  ngân sách (mức 3, hạ tầng).
+
+### E4 · THẤP · `/api/luot-kham` — đắt vì SỐ LẦN gọi, không phải vì mỗi lần gọi — **xác nhận** (bổ sung C2)
+
+- **Ở đâu:** proxy `app/api/luot-kham/route.ts:211-231` → `GET /api/v1/luot-kham/bang`
+  (`api/v1/routers/luot_kham.py:171`) → `BangLuotKham.bang` (`services/luot_kham_doc.py:75-360`):
+  ~10 câu theo **lô** (`= ANY($2::uuid[])`), không N+1; câu chính dùng chỉ mục biểu thức
+  `idx_visit_ngay_check_in` (`20261014220000_chi_muc_visit_ngay_check_in.sql:17-18`) khớp từng chữ
+  với điều kiện ngày ở `:124-125`.
+- **Kết luận:** 3.557 lần / 30 phút đến từ phía trình duyệt (C2: Bàn khám 3 lời gọi mỗi tin, `null`
+  khi mở lại SSE). Chỗ sửa là client (C2, A4), không phải SQL.
+- Lặt vặt: mỗi lời gọi Next kiểm phiên 2 lần (`coPhien` `route.ts:211-216` rồi `proxyJsonToBackend`
+  gọi lại `getUser()`+`getSession()`, `lib/backend-proxy.ts:53,109`) — kiểm JWT tại chỗ nên rẻ, bỏ
+  được nhưng lợi nhỏ.
+- **Độ chắc:** chắc chắn.
+
+### E5 · THẤP · SSE phía máy chủ ổn; không cần broker/Redis — **xác nhận** (đúng `SO-LUAT` Phần 7)
+
+- `change_broker.py`: một kết nối LISTEN riêng (không lấy từ bể), mỗi màn một hàng đợi 8 tin, đầy
+  thì bỏ (`:41-45,130-135`) — màn chậm không chặn ai. `events.py:30,52-62`: nhịp giữ 20s, kiểm
+  ngắt kết nối mỗi vòng. NOTIFY trùng nội dung trong **cùng** giao dịch được Postgres gộp làm một,
+  nên một lệnh sửa nhiều dòng một bảng chỉ ra một tin.
+- Chi phí mỗi lần mở lại dòng: kiểm JWT ở Next + `get_current_identity` (cache 30s,
+  `api/identity.py:386`, JWT vẫn kiểm mỗi lần) — nhỏ. Vấn đề của SSE nằm ở **phía nhận** (A1, A4), không phải đường truyền.
+
+### E6 · THẤP · Chỉ mục: các bảng nóng đã đủ cho những câu đã soát; hai điểm nhỏ
+
+- **Đã có** (soát toàn bộ `supabase/migrations`): `payment_bill_line (clinic_id, source_type,
+  source_id)`, `(clinic_id, payment_cycle_id)`, `(clinic_id, visit_id)`; `service_order (clinic_id,
+  visit_id, created_at)`; `so_no (clinic_id, visit_id, chieu, seq DESC)`; `cong_no` một phần theo
+  `CHUA_THU`; `payment_cycle` một phần theo trạng thái; `queue_entry` một phần theo hàng sống;
+  `visit` theo ngày check-in, `created_at`, lượt đang mở. → Chậm ở nhóm B/D là do **số câu**
+  và **ép kiểu trên cột** (B2), không phải thiếu chỉ mục.
+- **Nhỏ 1:** `work_roster` chỉ có chỉ mục đơn (`staff_id`, `work_date`), không có ghép
+  `(staff_id, work_date)` — vòng D1 đi `idx_work_roster_staff` rồi lọc. Sửa D1 (gom một câu) thì
+  không cần chỉ mục mới.
+- **Nhỏ 2:** `_chua_ngung` (`cashier_board_service.py:137-145`) gọi `co_so_cua_luot(uuid, uuid)`
+  (`20261008710000_kho_theo_co_so.sql:119-128`) cho từng dòng ứng viên của bảng thu ngân. Hàm SQL có
+  `FROM` nên Postgres **không nhúng** (inline) được → mỗi dòng một lần gọi, chỉ khi phòng khám có
+  cơ sở đã ngừng. **Nghi** nhỏ (điều kiện rẻ `_LUOT_CU_DA_VE` lọc trước); đo bằng `EXPLAIN ANALYZE`
+  bảng thu ngân trên staging-local, tìm `SubPlan` gọi hàm. Hướng sửa nếu đáng: nối thẳng
+  `coalesce(v.location_id, a.location_id)` trong câu.
+
+---
+
+## Đối chiếu `docs/KE-HOACH-ON-DINH-VA-HOP-NHAT.md` (nhánh `claude/ke-hoach-on-dinh`)
+
+| Điểm kế hoạch | Nhận định | Phát hiện |
+|---|---|---|
+| G1 — mọi tin dựng lại toàn trang | **Đúng** | A1 |
+| G2 / S2 — tự lưu phiếu khám | **Đúng nhưng hẹp:** ô tư vấn, ghi chú, đơn thuốc cũng tự lưu và bắn tin; "S2 chỉ ~10–15%" đánh giá thấp phần tự lưu | A2 |
+| G3 / S4 bỏ | Bỏ S4 hợp lý cho **dựng trang**, nhưng chưa tính các widget client tải lại theo tin `null` | A4, C2 |
+| 3b "S1/S2/S3a Xong" | **Sai trạng thái** với `main` @ `00bde52`; tên migration S2 đụng giờ đã dùng | A3 |
+| S5 staging đã có giới hạn | Đúng (đã được kế hoạch tự sửa) | — |
+| G4 / S8 thêm tiến trình + pool | **Thiếu** ngân sách `max_connections`; thêm tiến trình không giảm số câu SQL | E3 |
+| Cache tĩnh (ghi là đã sửa trước 16/10) | Đúng — đã có trên `main` | E1 |
+| `/customers` ghi `nhac_tai_kham` khi dựng | Đúng | D4 |
+| "Không cần Redis/broker" | Đúng | E5 |
+| **Không nói tới** | Worker sổ nợ — nghi là nguồn chính của câu 67k lần; `/phan-quyen/toi` lặp theo ngày; N+1 checkout/thu ngân; ép kiểu uuid; `lich_vuot_suc_chua` không lọc phòng khám; refresh đôi sau thao tác; layout 3 đợt gọi không cache; tin không mang cơ sở | B1, D1, D2, B4, B2, B3, C1, D3, E2 |
