@@ -216,3 +216,68 @@
   dev cùng một hành vi" — đúng cho API, không đúng cho cả DB.
 - **Hướng sửa:** `ALTER DATABASE … SET jit = off` một lần (mức 3, hạ tầng), hoặc giữ như cũ.
 
+
+---
+
+## Nhóm C — Widget phía trình duyệt (client) tự tải lại
+
+Nền: `useNgheBang` (`src/dashboard/app/(dashboard)/dung-nghe-bang.ts:45-83`) gộp nhịp
+250–600ms và **luôn** phản ứng với tin `null` (`:75`). `gopDoc` (`lib/doc-gop.ts`) chỉ gộp
+hai lời gọi giống nhau trong 50ms **trên cùng một máy**. Không có `AbortController`.
+
+### C1 · VỪA · Màn vừa tự gọi `router.refresh()` sau thao tác, vừa bị tin SSE dựng lại lần nữa — **MỚI** (kế hoạch không nêu)
+
+- **Ở đâu:** `reception/queue/QueueBoard.tsx:113,177,187,206`;
+  `reception/checkout/CheckoutBoard.tsx:167-168` (`reload()` rồi `router.refresh()`);
+  `truong-ca/shared.tsx:159`. Cả ba màn KHÔNG ở `MAN_TU_TAI` → tin `visit`/`queue_entry`/…
+  do chính thao tác ấy sinh ra 250–1000ms sau lại `router.refresh()` lần nữa.
+- **Thêm — đọc đôi mỗi tin:** `/reception/checkout` và `/truong-ca` có CẢ phần server
+  (dựng lại bởi `RealtimeRefresher`) LẪN phần client tự tải (`CheckoutBoard.tsx:115`,
+  `truong-ca/shared.tsx:118` — overview + alerts) → một tin = dựng trang + 1–2 lời gọi
+  client cho cùng dữ liệu.
+- **Thêm — vào màn = 2 lần dựng:** `LiveBoardSync.tsx:50` `router.refresh()` ngay khi
+  mount, sau khi trang vừa dựng xong (chủ ý né `staleTimes.dynamic: 10`,
+  `next.config.ts:29`). Gắn ở `/truong-ca`, `/reception/queue`, `/reception/checkout`, `/phong`.
+- **Kịch bản:** lễ tân bấm "Gọi vào" ở `/reception/queue` → DevTools thấy 2 request
+  `?_rsc=` cho `/reception/queue` trong ~1 giây.
+- **Độ chắc:** chắc chắn (đã đọc các dòng trên).
+- **Ảnh hưởng ước:** với người BẤM, mỗi thao tác ×2 lần dựng trang của chính họ
+  (`/reception/queue` ~338ms mỗi lần). Không nhân theo số máy như A1, nhưng là phần
+  dễ cắt nhất.
+- **Hướng sửa:** bỏ `router.refresh()` sau thao tác ở màn đã nghe đúng bảng (để tin SSE
+  làm), hoặc giữ cái chủ động và cho `RealtimeRefresher` bỏ qua tin trong ~1,5s sau một
+  lần refresh chủ động (một mốc `lanLamMoiCuoi` dùng chung). **Rủi ro:** SSE rớt thì
+  người bấm phải chờ nhịp 60s — giữ refresh chủ động khi `trangThaiDong !== "song"`.
+
+### C2 · VỪA · Bàn khám: 3 lời gọi cho mỗi tin của 8 bảng nóng; tin `null` bắn ~15 lời gọi cùng lúc — **MỚI** (định lượng)
+
+- **Ở đâu:** `ban-kham/BanKham.tsx:330` nghe `queue_entry, consultation, visit,
+  encounter_flow, service_order, form_instance, tep_ket_qua, vital_measurement` → tải
+  `luot-kham?xem=hang-cho` + `luot-kham` (bảng) + `cho-quyet` (qua `lanNap`, `:566`).
+  Khi đang mở phiếu: thêm `OLamTruocThuSau.tsx:113` (nghe `visit`, fetch thẳng không qua
+  `gopDoc`), `DauDoChiDinh.tsx:54`, `HanhTrinhKhach.tsx:410`, `PhieuKhamLuot.tsx:257,268`…
+- **Ảnh hưởng:** khớp số "~15 lời gọi API / 1 lượt ghi" và `/api/luot-kham` 3.557 lần /
+  30 phút (≈2/giây): ~6 máy ở Bàn khám/Phòng/Sinh hiệu × 1–3 lời gọi × một tin "nóng" mỗi
+  3–5 giây, cộng các đợt `null` khi đổi tab. Đây là **ước lượng**, chưa đo.
+- **Độ chắc:** đường gọi chắc chắn; con số **nghi**.
+- **Cách đo trên Mac:** một máy mở Bàn khám, máy khác check-in/đo sinh hiệu 10 lần; đếm
+  request theo `?xem=` trong DevTools (hoặc access log Caddy local).
+- **Hướng sửa:** (1) `cho-quyet` chỉ nghe bảng của nó (`service_order_draft`/`service_order`)
+  thay vì theo `lanNap`; (2) gộp `hang-cho` + `bang` thành một endpoint cho Bàn khám;
+  (3) tin SSE mang thêm `visit_id` (S6 của kế hoạch) để phiếu đang mở chỉ tải khi đúng lượt.
+
+### C3 · THẤP · Poll cứng ngắn còn sót
+
+- `tasks/ServiceFormEngine.tsx:144` đọc lại `/api/clinical-form` mỗi **4 giây** (dùng ở
+  `BanKham.tsx:1399,1466` — đường phiếu cũ, `PHIEU_V5 = true` nên chỉ khi xem lượt cũ).
+- `appointments/dung-giu-cho.ts:90` poll **5 giây** khi mở lưới đặt lịch (có cả nghe
+  `slot_hold`).
+- `display/DisplayBoard.tsx:103` `router.refresh()` mỗi 30 giây mỗi TV (poll thuần).
+- **Độ chắc:** chắc chắn; ảnh hưởng thấp (theo số màn đang mở).
+- **Hướng sửa:** đổi sang `useNgheBang` + nhịp 60s như các màn khác.
+
+### C4 · THẤP · `ClinicalRecordForm` tự lưu rồi tự nghe chính bảng mình ghi
+
+- `tasks/ClinicalRecordForm.tsx:637` (tự lưu `clinical_record`) và `:536-542` (nghe
+  `clinical_record` → nạp lại chính nó). Đường cũ (sau `PHIEU_V5`), ảnh hưởng thấp.
+  Độ chắc: chắc chắn về đường; **nghi** về tần suất trên prod.
