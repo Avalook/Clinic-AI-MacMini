@@ -1,9 +1,53 @@
 # Soát hệ thống 22/10/2026 · Khối 2 — TIỀN
 
-> Đang viết dần. Phạm vi: thu ngân, hoá đơn (`bill_service`), tiền thừa, nợ / sổ nợ,
-> hoàn tiền, huỷ / hoàn tác phiếu, giảm giá, đối tác (`billing_owner`), báo cáo cuối
-> ngày / chốt ca, xuất hoá đơn công ty. KHÔNG gồm thuốc bán ở quầy thuốc / kho / lô.
-> Code soát: nhánh `main` tại `00bde52`. Chỉ đọc — không sửa code.
+> Phạm vi: thu ngân, hoá đơn (`bill_service`), tiền thừa, nợ / sổ nợ, hoàn tiền, huỷ /
+> hoàn tác phiếu, giảm giá, đối tác (`billing_owner` = ai thu tiền dòng ấy: phòng khám hay đối
+> tác), báo cáo cuối ngày / chốt ca, xuất hoá đơn công ty / MISA. KHÔNG gồm thuốc bán ở quầy thuốc
+> / kho / lô. Code soát: nhánh `main` tại `00bde52`. Chỉ đọc — không sửa code, không chạy test.
+> Cách làm: người soát chính tự lần theo code nhóm A; ba agent con soát nhóm B, C, D song song;
+> người soát chính mở lại code các phát hiện chính của agent trước khi ghi. Mọi số tiền trong
+> báo cáo là **ví dụ minh hoạ** dựng từ luật trong code, không lấy từ dữ liệu khách.
+
+## Tóm tắt 10 dòng
+
+1. Sổ tiền lõi vững: máy chủ tự tính hoá đơn, Postgres chặn thu một dòng hai lần, chặn hoàn vượt số đã thu.
+2. Lối rò lớn nhất (A1): phí khám mặc định đã thu, sau đó tick "Dịch vụ khám" → khách trả tiền khám hai lần, phần cũ không thành tiền thừa.
+3. Lối rò thứ hai (A2/C3): hoàn tiền được trên phiếu ĐÃ HUỶ → tiền ra khỏi két hai lần, báo cáo âm.
+4. Lần thu chia TM + CK (A3): tiền mặt đã cầm bị sổ bỏ qua tới lúc xác minh CK, mất dấu nếu huỷ lần chờ.
+5. Nợ (B1): khoản ghi nợ có thể treo "chưa thu" vĩnh viễn khi nợ hết mà không qua lần thu nào.
+6. Báo cáo (C1, C2): hai màn báo cáo dùng hai mốc ngày khác nhau cho huỷ / hoàn; đổi hình thức sau chốt ca làm lệch ca đã nộp.
+7. MISA (C4): "đánh dấu đã xuất" dựng lại danh sách lúc bấm → có thể sót hoá đơn GTGT.
+8. Giao diện (D1, D2): hộp Hoàn tác hiện số trước giảm giá; màn Check-out chỉ hiện lần thu mới nhất.
+9. Ngày rác: chỉ còn lỗ năm 9999 (C5) gây 500; múi giờ VN đúng ở mọi chỗ đã soát.
+10. Năm việc cần Tuyền chốt nghiệp vụ: A1, A2/C3, C1, C2, D4. Bảng bất biến còn thiếu ở cuối nhóm A.
+
+## Bảng phát hiện
+
+| Mã | Mức | Tóm tắt | Ở đâu (chính) | Độ chắc |
+|---|---|---|---|---|
+| A1 | **cao** | Phí khám mặc định đã thu + tick dịch vụ khám = trả hai lần (150.000 + 280.000) | `bill_service.py:880-926`, `tien_thua_service.py:72-83` | chắc · cần chốt |
+| A2 | **cao** | Hoàn được trên phiếu đã huỷ (500.000 ra hai lần) | `hoan_tien_service.py:323-338`, trigger `payment_refund_guard` | chắc · cần chốt |
+| A3 | vừa | Chia TM+CK: TM tính theo giờ xác minh, mất dấu khi huỷ chờ | `payment_service.py:413-415, 1343-1354` | chắc |
+| B1 | vừa | Ghi nợ treo CHƯA THU mãi khi nợ hết không qua thu | `events/consumers/cong_no.py:28-66` | chắc |
+| B2 | thấp–vừa | "Phủ đủ" so theo mã dòng, không theo tiền (ghi 200.000, nợ 500.000) | `cong_no_service.py:161-166` | chắc |
+| B3 | thấp | Huỷ CK chờ sau khi về không sinh ghi nợ | `payment_service.py:1306-1386` | nghi |
+| B4 | vừa | Vòng đối chiếu sổ nợ `LIMIT 300` không sắp xếp → đói lượt mới | `so_no_service.py:528-543` | nghi |
+| B5 | thấp | Bốn lệch nhỏ ở `cong_no` / `so_no` (bảng trong mục) | nhiều | chắc / nghi |
+| B6 | chốt | Sổ nợ tính cả CK chờ cho dịch vụ chưa làm | `so_no_service.py:113-118, 234-243` | cần chốt |
+| C1 | vừa | Hai màn báo cáo, hai mốc ngày cho huỷ / hoàn | `bao_cao_cuoi_ngay_service.py:943-1006`, `danh_sach_hoa_don_service.py:63-96` | chắc · cần chốt |
+| C2 | vừa | Đổi hình thức sau chốt ca: ngày lệch bản chụp 800.000 | `doi_hinh_thuc_service.py:298-307`, `chot_so_ca_service.py:103-111` | chắc · cần chốt |
+| C3 | (cao) | Báo cáo trừ hai lần khi phiếu vừa huỷ vừa hoàn — hệ quả của A2 | `bao_cao_cuoi_ngay_service.py:209-272` | chắc |
+| C4 | vừa | Đánh dấu MISA không theo file đã tải → sót hoá đơn | `hoa_don_misa_service.py:79-117` | chắc |
+| C5 | thấp | Ngày 9999-12-31 → 500 | `danh_sach_hoa_don_service.py:271`, `bao_cao_cuoi_ngay_service.py:1274, 1299` | chắc |
+| C6 | thấp | MISA bỏ phiếu huỷ khỏi "có thay đổi"; đọc tiền đối tác "900,000.00" → 90 triệu; … | bảng trong mục | chắc |
+| D1 | vừa | Hộp Hoàn tác hiện số trước giảm (1.000.000 thay 800.000) | `QuayThuNgan.tsx:377` | chắc |
+| D2 | thấp–vừa | Check-out chỉ hiện lần thu mới nhất (600.000 thay 1.000.000) | `checkout_service.py:502-510` | chắc |
+| D3 | vừa | Bỏ tick + giảm % → màn và máy chủ ra hai số, 422 | `HoaDonMot.tsx:382` | chắc |
+| D4 | chốt | Khoản hoàn đã xong khoá cứng | `hoan_tien_service.py:273-279` | chắc · cần chốt |
+| D5 | thấp | Ô giảm giá đọc "900.000" = 900đ; báo "chưa ghi" khi mất mạng; … | bảng trong mục | chắc / nghi |
+
+Không phát hiện nào trùng `phat-hien.json` của bản đồ, trừ hai mục được **kết luận dứt điểm** ở đầu
+nhóm D (`HoaDonMot.tsx:254` → báo oan về tiền; `ChiTietLuot.tsx:278` → chữ đúng, số sai = D2).
 
 ## Nhóm A — Thu tiền, hoá đơn, hoàn tiền (người soát chính tự lần theo code)
 
@@ -259,3 +303,83 @@ có test); gắn công ty hai người cùng lúc (`FOR UPDATE OF pc` + `uq_hoa_
 tác tự thu vào két (báo cáo chỉ lấy `billing_owner='CLINIC'`, có test); múi giờ (mọi câu SQL dùng
 `AT TIME ZONE 'Asia/Ho_Chi_Minh'`); CK chờ vào số thu (không — `paid_at` chỉ đặt lúc xác minh); mở
 khoá ca / bỏ đánh dấu MISA / bỏ công ty / huỷ ghi nhận đối tác đều hoàn tác được và có vết.
+
+## Nhóm D — Giao diện tiền, chống bấm trùng, ngày giờ
+
+> Do agent con soát; người soát chính đã mở lại code D1, D2, D5. Kết luận chung: **máy chủ không
+> tin số màn gửi** — `record_payment` dựng lại hoá đơn trong giao dịch, lệch thì `BillChanged`;
+> phần chia TM/CK kiểm lại bằng `ap_phan` (`phan_thu.py:124-141`); hoàn tiền màn chỉ gửi số lượng.
+> Các lỗi dưới đây là màn **hiển thị / gợi ý sai số** cho người đứng quầy, không phải sổ ghi sai.
+
+**Kết luận hai mục còn treo trong `phat-hien.json`:**
+- `HoaDonMot.tsx:254` (bỏ tick thì màn tự cộng tổng) → **báo oan về tiền**: máy chủ chốt lựa chọn
+  (`_chot_lua_chon`, kiểm `expected_selection_revision`) rồi tự tính; số ghi luôn là số máy chủ.
+- `ChiTietLuot.tsx:278` (mọi khoản chưa huỷ in "Đã thanh toán") → **chữ đúng** (bảng `payment` chỉ
+  có PAID/VOIDED), nhưng **số tiền sai** — xem D2.
+
+### D1 · VỪA · Hộp "Hoàn tác lần thu" hiện số TRƯỚC giảm giá → thu ngân có thể trả khách thừa
+
+- **Ở đâu:** `src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx:377` (`tien0 = noiDung.amount`
+  — mà `amount` luôn là tổng GỐC, dòng 433) → `NutHoanTac soTien`.
+- **Kịch bản:** hoá đơn 1.000.000đ, giảm 200.000đ, thực thu 800.000đ → bấm Hoàn tác → màn hỏi
+  "Hoàn tác lần thu **1.000.000đ**? … trả lại tiền cho khách". Miễn phí 100% (thu 0đ) cũng hỏi trả
+  1.000.000đ. **Chắc chắn.**
+- **Hướng sửa:** `record_payment` trả thêm `amount` (số sau giảm), màn dùng số đó.
+  **Test:** e2e "thu có giảm rồi mở Hoàn tác thấy đúng 800.000đ".
+
+### D2 · THẤP–VỪA · Khối "Tài chính" ở màn Check-out chỉ hiện lần thu dịch vụ MỚI NHẤT
+
+- **Ở đâu:** `checkout_service.py:502-510` đọc bảng `payment` — bảng hình chiếu MỘT dòng cho mỗi
+  (lượt, loại tiền), `_ghi_da_thu` ghi đè `amount` bằng lần thu sau cùng
+  (`payment_service.py:2085-2100`, `ON CONFLICT (visit_id, kind) DO UPDATE`).
+  Trái chính luật của khối: "đừng cộng tiền từ bảng payment".
+- **Kịch bản:** thu khám 400.000đ, sau thu chỉ định 600.000đ → check-out hiện "Dịch vụ · Đã thanh
+  toán **600.000đ**", khách đã trả 1.000.000đ. Khoản hoàn và CK chờ cũng không hiện. **Chắc chắn.**
+- **Hướng sửa:** đọc `payment_cycle`. **Test:** lượt 2 lần thu PAID → `chi_tiet` ra 2 dòng, tổng 1.000.000đ.
+
+### D3 · VỪA (chặn nút, không mất tiền) · Bỏ tick dịch vụ + giảm % → màn và máy chủ ra hai số, thu ngân kẹt
+
+- **Ở đâu:** `HoaDonMot.tsx:382` truyền `giamDuoc` của lựa chọn CŨ (`quay_thu_service.py:371`).
+- **Kịch bản:** khám 400.000đ + siêu âm 600.000đ; bỏ tick siêu âm, giảm 10% → màn: giảm 100.000đ,
+  phải thu 300.000đ; máy chủ: giảm 40.000đ, phải thu 360.000đ → 422 "Tổng các phần (300.000đ) khác
+  số cần thu (360.000đ)". **Chắc chắn.** **Sửa:** khi đang đổi lựa chọn thì khoá giảm giá tới lúc
+  máy chủ tính lại, hoặc máy chủ trả `giam_duoc` theo dòng.
+
+### D4 · VỪA (cần Tuyền chốt) · Khoản hoàn tiền đã xong thì khoá cứng
+
+- **Ở đâu:** `hoan_tien_service.py:273-279` (chỉ đóng được khoản PENDING; hoàn TM là COMPLETED
+  ngay) + `payment_service.py:1433-1443` (phiếu DV đã có hoàn thì không huỷ được) + đổi hình thức
+  cũng từ chối (`doi_hinh_thuc_service.py:72-73`).
+- **Kịch bản:** hoàn nhầm dòng 300.000đ tiền mặt → không nút nào gỡ, phiếu cũng không huỷ/đổi được.
+  Trái CLAUDE.md mục 7 ("mọi thao tác hoàn tác được") — có thể chủ ý vì tiền đã ra khỏi két.
+- **Hướng sửa:** lệnh "huỷ khoản hoàn đã xong" kiểu chỉ thêm (dòng sổ ngược + lý do + người).
+
+### D5 · THẤP · Các điểm nhỏ khác
+
+| Ở đâu | Lỗi | Độ chắc |
+|---|---|---|
+| `GiamGia.tsx:65` (`Number(giaTri)`) | Gõ "900.000" vào ô giảm theo tiền → **900đ**; "900,000" → có trình duyệt trả rỗng → thu nguyên giá không báo. Dòng "1.000.000đ − 900đ" có hiện nên dễ nhận ra | chắc chắn về code, nghi về trình duyệt |
+| `HoaDonMot.tsx:258-264` | Bỏ tick hết rồi "Chốt": không gửi `amount` lẫn `billRevision` → máy chủ (`payment_service.py:905-914`) không còn gì để đối chiếu; nếu ai vừa thêm phụ thu 50.000đ thì máy ghi ĐÃ THU 50.000đ tiền mặt, màn báo "không có khoản thu" | nghi |
+| `QuayThuNgan.tsx:398` | Mất mạng thì báo "CHƯA ghi được" và không tải lại — trong khi sổ có thể đã ghi; thu ngân có thể nhận tiền khách lần hai ngoài đời (máy chủ vẫn chặn lần ghi thứ hai) | chắc chắn |
+| `hoan_tien_service.py:107-113` | (người soát chính) `Decimal('NaN') <= 0` ném `InvalidOperation`; nay không với tới được vì router ép `so_luong: float = Field(gt=0)` — chỉ hở nếu có lối gọi mới | chắc chắn, chưa khai thác được |
+
+**Ngày giờ (phạm vi B của agent):** `doc_khoang_ngay`, `doc_ngay_xem` có try/except; `ngay_hop_le`,
+`_ngay_ghi` (MISA), `chot_so_ca._kiem` trả 422 với ngày rác; "hôm nay" đều theo `CLINIC_TZ` /
+`now_vn()`; không thấy `date.today()` / `CURRENT_DATE` trong service/router tiền. Lỗ duy nhất: năm
+9999 (C5). Route Next cũng cho lọt vì regex `\d{4}-\d{2}-\d{2}` vẫn khớp.
+
+**Báo oan đã loại (nhóm D):** đổi hình thức / hoàn tác / xác minh / huỷ chờ / huỷ phiếu / ghi nợ /
+hoàn tiền thừa không gửi Idempotency-Key — máy chủ chống trùng theo trạng thái (gặp trạng thái đích
+thì trả "như cũ"); `DoiHinhThuc` gửi `tienMat = tong − ck` do màn tính — `doc_chia` ép lại; ô "Ngân
+hàng nhận" lọc ký tự không phải số nên "900.000" → 900000 đúng.
+
+## Việc Tuyền cần chốt (nghiệp vụ, không phải kỹ thuật)
+
+| Mã | Câu hỏi |
+|---|---|
+| A1 | Tick "Dịch vụ khám" sau khi đã thu phí mặc định: phí mặc định thành tiền thừa (hoàn/trừ), hay khách trả cả hai? |
+| A2 / C3 | "Huỷ phiếu" có nghĩa là đã trả lại tiền cho khách không? Nếu có → cấm hoàn tiền trên phiếu đã huỷ (ít nhất tiền dịch vụ); huỷ phiếu đã có hoàn thì trả khách đủ hay trừ phần đã hoàn? |
+| C1 | Phiếu huỷ / khoản hoàn tính vào ngày nào: ngày thu, ngày lập, hay ngày tiền thật ra? |
+| C2 | Đổi hình thức thu của ca đã chốt: chặn (Quản lý mở khoá trước) hay ghi điều chỉnh vào ca đang làm? |
+| B6 | Sổ nợ có coi CK đang chờ cho dịch vụ chưa làm là "khách nợ" không? |
+| D4 | Hoàn tiền nhầm (đã trả tiền mặt) có cần lối hoàn tác không? |
