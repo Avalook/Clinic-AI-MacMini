@@ -139,3 +139,95 @@ lần chạm với lần dời gần nhất (`appointment_doi_lich`).
 **1.11 · thấp · nghi · `capacity_service.py:367–380` — lưới sinh khung từ giờ mở cửa, trigger cắt khung theo epoch.**
 Hai cách cắt chỉ lệch khi giờ mở cửa không chia hết độ dài khung (vd luật bác sĩ khung 60′, mở 07:30). Không chỗ nào ép
 hai thứ khớp nhau. Dr4Women khung 15′ hiện không dính.
+
+## Nhóm 2 — Tiếp đón, check-in, xếp phòng, check-out, mở lại lượt
+
+> **Thuật ngữ.** *Lượt khám* (`visit`) = một lần khách tới phòng khám. *Hàng chờ* (`queue_entry`) = chỗ của khách ở một phòng,
+> trạng thái `waiting / called / serving / left / cancelled`. *Hoàn tác check-in* đưa lịch về `CONFIRMED` và lượt về
+> `INCOMPLETE` (lượt không bị xoá).
+
+**Đã soát, ổn:**
+- Hai lễ tân check-in cùng lúc: `check_in_appointment` có `FOR UPDATE` + khoá advisory, người sau nhận 409.
+- Cấp số tiếp đón / số khám: khoá advisory, ngày theo giờ VN.
+- Hai phòng cùng "Nhận" một khách: `khoa_luot` nối tiếp hai lệnh, người sau nhận `KHACH_O_PHONG_KHAC`.
+- Hoàn tác Nhận: có.
+- Lịch trực chỉ dùng để xếp hạng phòng, không phải điều kiện. Không phòng nào nhận được thì chuông "chờ xếp phòng" kêu ở quầy, không có khách bị bỏ rơi im lặng.
+- Check-out khoá lượt rồi mới tính vướng.
+- Lọc cơ sở ở mọi danh sách: Tiếp đón, `/queue`, Check-out, lượt treo, hành trình.
+- Trigger `chan_phong_khac_co_so` chặn xếp khách sang phòng cơ sở khác.
+
+**2.1 · CAO · Hoàn tác check-in xong, dòng Tiếp đón ghi "Về giữa chừng hh:mm", mất nút Check-in, hiện nút "Mở lại lượt".**
+- `services/booking_service.py:2813–2832`: hoàn tác đặt lượt `INCOMPLETE` + `incomplete_at = now()`, **giữ nguyên `checked_in_at`**.
+- `services/tiep_don_service.py:228–246`: câu đọc lấy lượt theo `appointment_id`, kèm `checked_in_at` và `ve_luc = coalesce(closed_at, incomplete_at)`.
+- `tiep_don_service.py:151`: chỉ coi "Chưa đến" khi `check_in` **không** phải datetime. Ở đây nó là datetime, nên rơi xuống `:163–166`
+  (`visit_status in VISIT_DA_RA_VE`) → chip `loai="ve"`, chữ **"Về giữa chừng 09:12"**, nhóm "Đã đến".
+- `:345` `check_in_duoc` = False (nhóm không phải `chua_den`); `:351` `mo_lai_duoc` = True.
+
+*Vì sao sai:* lịch đã về `CONFIRMED`, nhưng chip đọc giờ check-in và trạng thái của lượt cũ. Chú thích ở `QueueBoard.tsx:181`
+hứa "check-in nhầm → về Chưa đến"; thực tế màn không về Chưa đến. Khách **kẹt**: không check-in lại được từ màn Tiếp đón.
+*Tái hiện:* check-in khách DEMO → bấm "Hoàn tác" → màn tự nạp lại → chip "Về giữa chừng 09:12", không có nút Check-in,
+có nút "Mở lại lượt". Bấm "Mở lại lượt" (`hoan_tac_service.py:1205`, nhận mọi lượt INCOMPLETE) thì lượt thành IN_PROGRESS,
+nhưng lịch vẫn CONFIRMED (`:254–266` chỉ sửa lịch COMPLETED → CHECKED_IN). Hàng chờ đã `cancelled` không được dựng lại.
+Kết quả: khách "đang trong lượt" mà không ở hàng nào, và Hoàn tác check-in cũng hết làm được vì lịch không còn CHECKED_IN.
+*Độ chắc:* đã lần theo code, chắc chắn. `test_tiep_don_service.py` không có ca "lịch CONFIRMED + lượt INCOMPLETE".
+*Test:* (a) unit `dung_dong` với `status=CONFIRMED, visit_status=INCOMPLETE, checked_in_at, ve_luc` có giá trị → kỳ vọng
+`nhom="chua_den"`, `check_in_duoc=True`, `mo_lai_duoc=False`. (b) test DB: check-in → `undo_checkin` → `TiepDonService.hom_nay`.
+*Sửa:* trong `trang_thai`/`dung_dong`, khi lịch thuộc `CHO_CHECK_IN` thì bỏ qua lượt (coi `check_in=None`). Thêm
+`mo_lai_luot` từ chối lượt INCOMPLETE có `closed_at IS NULL` (xem 2.5).
+
+**2.2 · vừa · `services/checkout_service.py:85–87, 410–419` — lượt bị hoàn tác check-in nằm mãi ở danh sách Check-out, và "check-out" được khách chưa từng đến.**
+`already_closed` chỉ đúng khi bước `LUOTKHAM-15` ở COMPLETED, mà bước này đã bị huỷ lúc hoàn tác. `pending_list` chỉ loại
+`FINALIZED`, nên vẫn lấy lượt INCOMPLETE. `close` (`:792–813, 1012`) đặt `closed_at` và phát `visit.checked_out`. Sự kiện này kéo theo
+H6 báo chuông CSKH "khách về còn việc dở", và dòng vẫn ở mục chưa đóng vì `already_closed` vẫn false.
+Bảng `/hanh-trinh` thì ghi lượt này "Bỏ về giữa chừng" (`bang_hanh_trinh_service.py:59`). Ba màn nói ba điều khác nhau.
+*Tái hiện:* check-in → hoàn tác → mở `/reception/checkout` → khách hiện ở "chưa đóng". Bấm Check-out → báo thành công,
+tải lại vẫn còn. *Độ chắc:* đã lần theo code. *Test:* undo → `pending_list` không chứa lượt.
+*Sửa:* `pending_list` thêm điều kiện `(v.status IN ('OPEN','IN_PROGRESS') OR v.closed_at IS NOT NULL)`. `close` coi lượt INCOMPLETE
+chưa có `closed_at` là `already_closed`.
+
+**2.3 · vừa · chỉ định đã có phòng bị KẸT sau hoàn tác check-in rồi check-in lại.**
+Diễn biến theo code:
+1. Lúc check-in, H2 mang chỉ định đã trả từ lượt trước sang, `tu_xep_da_thu` gán phòng (`events/consumers/hanh_trinh.py:107–117`,
+   `service_routing_service.py:1683`).
+2. Hoàn tác vẫn được, vì `hoan_tac_check_in.py:65–69, 86` bỏ qua chỉ định mang sang.
+3. Hoàn tác huỷ `queue_entry` (booking_service.py:2839–2848), nhưng `service_order` giữ `routing_status=ASSIGNED`, `room_id`.
+4. Check-in lại: `mang_sang_luot_moi` không động tới (chỉ định đã ở lượt này), `tu_xep_da_thu` chỉ lấy UNASSIGNED.
+5. Xếp tay đúng phòng ấy: `_gan` rơi vào nhánh "cùng phòng" (`service_routing_service.py:1402–1427`) và trả về luôn, không tạo chỗ chờ.
+
+*Tái hiện (dây H4 tự xếp phòng bật):* khách có siêu âm đã trả từ hôm trước → check-in (tự xếp SA1) → Hoàn tác → Check-in lại →
+`/hanh-trinh` ghi "Chờ làm Siêu âm ở SA1", nhưng hàng chờ SA1 trống. Xếp lại vào SA1 cũng không đổi gì.
+*Độ chắc:* đã lần theo code (agent); tôi chưa mở `_gan`. *Test:* test DB chỉ định mang sang + H4 → undo → check-in → có queue_entry sống.
+*Sửa:* khi hoàn tác check-in, đưa chỉ định có chỗ chờ vừa huỷ về UNASSIGNED. Hoặc trong `_gan`, nhánh cùng phòng mà không có chỗ chờ sống thì vẫn tạo chỗ.
+
+**2.4 · vừa · `booking_service.py:376–382, 1040, 2839–2847` — huỷ lịch đã CHECKED_IN không chặn khi khách đang làm dịch vụ, và không hoàn tác được.**
+`cancel` nhận cả CHECKED_IN. Chỉ `undo_checkin` mới hỏi `chan_hoan_tac_neu_da_lam`. Đoạn dọn hàng chờ bỏ qua `serving`.
+*Tái hiện:* khách đang làm siêu âm (serving) → quản lý Huỷ lịch → lượt INCOMPLETE, phòng SA1 vẫn thấy khách "đang làm".
+Lịch CANCELLED không có đường khôi phục (cùng gốc với 1.1). *Độ chắc:* chắc ở backend; chưa kiểm màn nào mở nút Huỷ cho lịch đã check-in.
+*Sửa:* áp `chan_hoan_tac_neu_da_lam` cho `cancel` khi lịch đang CHECKED_IN, hoặc chỉ cho huỷ trước khi khách đến.
+
+**2.5 · vừa · `services/hoan_tac_service.py:1205` — "Mở lại lượt" nhận cả lượt INCOMPLETE sinh từ hoàn tác check-in / huỷ lịch.**
+Điều kiện `closed_at IS NULL AND status <> 'INCOMPLETE'` → mọi INCOMPLETE đều qua. Hệ quả: lượt IN_PROGRESS trong khi lịch
+CONFIRMED hoặc CANCELLED, hàng chờ không dựng lại. Màn chỉ tới được qua lỗi 2.1; gọi API tay thì tới được cả với lịch đã huỷ.
+*Sửa:* đòi `closed_at IS NOT NULL`, hoặc `incomplete_reason` phải đến từ check-out "về giữa chừng".
+
+**2.6 · thấp · `booking_service.py:2648–2655` — check-in lại sau hoàn tác giữ `thu_tu_tay_ms` cũ, khách vượt hàng.**
+`DO UPDATE` đặt lại `checked_in_at` nhưng không xoá mốc kéo tay. Mốc này được ưu tiên khi xếp (`thu_tu_kham_service.py:66`).
+*Tái hiện:* kéo khách lên đầu → hoàn tác → 1 giờ sau check-in lại → khách đứng trước những người đến trong 1 giờ ấy.
+*Sửa:* xoá `thu_tu_tay_*` trong `DO UPDATE`.
+
+**2.7 · thấp · `sinh_hieu_service.py:146` — điều dưỡng "Bắt đầu đo" được trên lượt vừa bị hoàn tác check-in.**
+`khoa_luot(..., cho_phep_ve_giua_chung=True)`. Khoá cùng thứ tự nên không đè nhau, nhưng hoàn tác vào trước thì điều dưỡng vẫn
+được báo OK trên lượt INCOMPLETE. *Sửa:* lệnh Bắt đầu (khác sửa số đo) từ chối lượt INCOMPLETE chưa có `closed_at`.
+
+**2.8 · thấp · nghi · check-in lại sau hoàn tác không đặt lại trạm đầu.** `current_node_code` cũ còn (vì `cap_nhat_vi_tri` bỏ qua
+lượt INCOMPLETE), `place_visit_at_first_station` (`20261008700000_co_so_hien_hanh.sql:94–99`) thấy đã có vị trí nên bỏ qua.
+Bảng Trưởng ca có thể chỉ sai phòng.
+
+**2.9 · thấp · ngày cực biên gây 500.** `GET /hanh-trinh/hom-nay?ngay=9999-12-31`: `bang_hanh_trinh_service.py:36,147`
+cộng một ngày → `OverflowError`. `lich_phong_service.doc_tuan("9999-12-31")` (`:67–68`) cũng vậy. Ngày đúng cú pháp nên qua
+bộ đọc, nhưng nổ khi cộng. *Sửa:* bắt `OverflowError`, hoặc chặn năm > 2100 ở `doc_ngay_xem`. *Test:* hai hàm với `9999-12-31` không ném.
+
+**2.10 · thấp · cần Tuyền quyết · lệnh GHI không kiểm cơ sở của người bấm.** `CheckoutService.close`, `mo_lai_luot`, hoàn tác
+check-in, hoàn tác Nhận nhận `visit_id` của bất kỳ cơ sở nào trong cùng phòng khám. Danh sách đã lọc cơ sở, nên chỉ lộ khi
+gọi API thẳng hoặc mở liên kết. Theo thiết kế hiện tại (`identity.py:345`: cơ sở là *bộ chọn*, không phải *thẩm quyền*) thì đây không
+phải lỗ quyền. Ghi lại để Tuyền chốt khi có phòng khám thứ hai dùng chung hệ thống.
