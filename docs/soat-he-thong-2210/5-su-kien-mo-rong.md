@@ -280,3 +280,150 @@ nhưng không ai nghe, nên dòng thời gian lượt vẫn không ghi việc g�
 - **Tệp:** `docker-compose.supabase.yml:153-245`; `scripts/collect_ops_status.py:16` (`SERVICE_IDS`
   không gồm db, auth, gateway). Auth/gateway chết = không ai đăng nhập được mà /ops vẫn xanh.
 - **Hướng sửa:** thêm healthcheck HTTP đơn giản và đưa vào `SERVICE_IDS`.
+
+## (b) Sẵn sàng nhiều cơ sở / nhiều phòng khám, và chỗ chậm theo số dòng
+
+**Hai tầng khoá trong repo:** tenant = `clinic_id` (mọi bảng nghiệp vụ, NOT NULL, đã gỡ
+DEFAULT ở `20260730000014`); cơ sở = `location_id`. Cơ sở người xem = `identity.location_id`
+từ header `X-Location-ID`, máy chủ kiểm thuộc phòng khám + đang bật
+(`api/identity.py:531-548`). Cơ sở của lượt = `co_so_cua_luot()` =
+`coalesce(visit.location_id, appointment.location_id)`.
+
+| Bảng | `clinic_id` | `location_id` |
+|---|---|---|
+| visit, appointment, patient, staff_task, pregnancy | có | có (không chỉ mục riêng) |
+| clinic_room, drug_batch, phieu_kho, chot_so_ca, kiem_ke_ca, vat_tu_*, staff_node | có | có |
+| queue_entry, work_item, payment, prescription | có | không — suy qua visit (đúng thiết kế) |
+| **thong_bao** | có | **không, và không suy được** (xem B3) |
+| work_roster, vi_tri_lam_viec | có | không — suy qua `station → vi_tri.room_id → clinic_room` |
+| service_price, service_type, `clinic.settings` | có | không — giá/ca/chính sách chung cả phòng khám (B7) |
+
+### Phần đã kiểm, ổn
+
+- Lọc cơ sở có test sẵn (`test_loc_co_so_nhom_a/b/c_db.py`, `test_an_ton_co_so_ngung_db.py`):
+  hàng chờ, bảng lượt, siêu âm, quầy thu, check-out, nhà thuốc, trang chủ, TV
+  (`display_board_service.py:126`), điều phối (`dispatch_service.py:293`).
+- Phòng khác cơ sở với lượt bị chặn ở Postgres (`chan_phong_khac_co_so`, `20261008700000`);
+  lô thuốc theo cơ sở (`lo_dung_co_so_luot`).
+- Không UUID cơ sở/phòng viết cứng trong code chạy thật; "Hào Nam/Kim Ngưu" trong `src/`
+  chỉ còn ở comment; `'KN'` trong migration là backfill một lần.
+- **SĐT in phiếu đọc từ DB** (`quay_thu_service.py:983-1003`, `mang_sang.py:267-273`) —
+  không viết cứng trong code chạy (xem B8 về chỗ SỬA nó).
+- Giá trong `phieu_kham/anh_xa_danh_muc.py` không dùng lúc chạy (giá đọc từ DB).
+- Quầy thu 7.539 lượt cũ: đã sửa (`cashier_board_service.py:95-134`: 30 ngày / 7 ngày / trần 400).
+
+### B1 · VỪA (nhiều cơ sở) · Vai theo lịch trực không xét cơ sở đang đứng
+
+- **Tệp:** `src/clinicai/api/identity.py:1011-1028` (`doc_vi_tri_hien_hanh` chỉ lọc
+  `clinic_id + staff_id + ngày`) → `vai_theo_vi_tri` (`:580`).
+- **Tái hiện:** điều dưỡng Y có ca `HN__T1_THUNGAN` hôm nay → chọn cơ sở Kim Ngưu → vẫn có vai
+  thu ngân, check-in/thu tiền được ở KN dù không có ca ở đó.
+- **Độ chắc:** chắc. **Test:** `test_vai_theo_lich_chi_o_co_so_co_ca`.
+- **Hướng sửa:** thêm điều kiện ca thuộc `identity.location_id`. **Cần Tuyền chốt** vai có đi
+  theo người sang cơ sở khác không.
+
+### B2 · VỪA (nhiều cơ sở) · Lượt bán lẻ đang mở dùng chung giữa hai cơ sở
+
+- **Tệp:** `supabase/migrations/20260930600000_*.sql:24` (`uq_visit_ban_le_dang_mo (clinic_id,
+  clinic_patient_id)`), `src/clinicai/services/ban_le_service.py:294-330` (ON CONFLICT rồi
+  UPDATE lấy lại theo khách, **không theo cơ sở**).
+- **Tái hiện:** khách mua lẻ ở HN, lượt chưa đóng → hôm khác mua ở KN → nhận lại lượt HN
+  (`location_id` = HN) ⇒ đơn không hiện ở Nhà thuốc KN, lô KN bị `lo_dung_co_so_luot` chặn.
+- **Độ chắc:** khá (cần xác nhận lượt bán lẻ có tự đóng cuối ngày không).
+- **Test:** `test_ban_le_moi_co_so_mot_luot_rieng`. **Hướng sửa (Mức 3):** thêm `location_id`
+  vào chỉ mục duy nhất và câu UPDATE.
+
+### B3 · VỪA (nhiều cơ sở) · Chuông gọi bộ phận không có cơ sở
+
+- **Tệp:** bảng `thong_bao` (`20260807000006`, không migration nào thêm `location_id`);
+  `services/thong_bao_service.py:186-207` (`goi`), `:340-349` (`cua_toi` chỉ lọc
+  `clinic_id` + vai/người nhận); `events/consumers/chuong.py:153-180`.
+- **Tái hiện:** trưởng ca HN "gọi Lễ tân" → lễ tân KN cũng thấy, bấm Xong được → việc ở HN
+  bị đóng mà không ai ở HN làm. Chuông hạn lô/kiểm kê lệch gộp mọi cơ sở, không ghi tên cơ sở.
+- **Độ chắc:** chắc. Gần với mục đã biết "Bấm 'Xong' thông báo không kiểm người bấm"
+  (`thong_bao_service.py:458`, `phat-hien.json`) nhưng là lỗi khác (phạm vi cơ sở).
+- **Hướng sửa (Mức 3):** cột `thong_bao.location_id` (NULL = mọi cơ sở), lọc trong `cua_toi`.
+  **Cần Tuyền chốt** chuông có chỉ tới cơ sở người gọi không.
+
+### B4 · VỪA · Vai và ca bác sĩ suy từ mã vị trí viết cứng; Python và SQL lệch nhau
+
+- **Tệp:** `api/identity.py:825-847` (`VAI_THEO_VI_TRI`), `services/config_service.py:66-79`
+  (`MA_CA_KHAM_BAC_SI`), `cashier_scope_service.py:266/329/387` + `report_access_service.py:51`
+  (`"DIEU_PHOI"`), `api/v1/routers/hang_cho.py:292,296` (`'LUOTKHAM-15'`, `'LUOTKHAM-01'`);
+  bản SQL `la_ca_kham_bac_si` (`20260917000004`) lại đọc dữ liệu `nhom_nghe='BAC_SI'`.
+- **Tái hiện:** tạo vị trí `T3_BS_MOI` (nhóm nghề BAC_SI) trên màn → lịch tuần (SQL) coi là ca
+  khám, nhưng Python (`config_service.py:260/993`) không báo CSKH "lịch chờ xếp". Phòng khám
+  thứ hai dùng bộ mã khác là hỏng hết.
+- **Độ chắc:** chắc. **Đã biết một phần:** `lib/ca-kham-bac-si.ts:6` (mã chép tay ở giao diện)
+  có trong `phat-hien.json`; phía Python/SQL lệch là mới.
+- **Test:** `test_vi_tri_bac_si_moi_khop_python_va_sql`. **Hướng sửa:** cột `vi_tri_lam_viec.vai`
+  đọc từ bảng thay dict; một hàm Python gọi chung luật SQL.
+
+### B5 · CAO (khi có tenant thứ hai) · Giao diện không bao giờ gửi `X-Clinic-ID`
+
+- **Tệp:** `api/identity.py:494-509` trả 403 khi tài khoản có ≥2 membership mà thiếu header;
+  `src/dashboard` không có chỗ nào gửi `X-Clinic-ID` (grep 0 kết quả), `lib/backend-proxy.ts`
+  chỉ gắn `X-Location-ID`.
+- **Tái hiện:** thêm `clinic_membership` thứ hai cho bác sĩ X ⇒ X đăng nhập, mọi API 403.
+- **Độ chắc:** chắc. Đúng hướng "đóng khi mơ hồ" (an toàn), chỉ là chưa có lối chọn.
+- **Hướng sửa:** cookie/màn chọn phòng khám giống `co-so.ts`, gắn header trong backend-proxy. Làm khi thật có tenant thứ hai.
+
+### B6 · VỪA · Cấu hình nghiệp vụ của Dr4Women nằm trong code
+
+- `phieu_kham/anh_xa_danh_muc.py` (nhãn → `service_code`/node), dùng ở
+  `phieu_kham_service.py:680-682`, `mau_goi_y.py:41-45`: tenant khác không đổi được nếu không sửa code.
+- Thương hiệu trong prompt LLM (`orchestrator/llm_nodes.py:36,164`, `agent_tom_tat.py:78`),
+  `manifest.ts:21-23`; `Asia/Ho_Chi_Minh` viết cứng trong SQL/`CLINIC_TZ` dù có `clinic.timezone`;
+  Telegram một kênh cho mọi cơ sở (`worker.py:114`, `providers/telegram.py:38`).
+- **Độ chắc:** chắc. **Hướng:** bảng `phieu_anh_xa(clinic_id, nhan, service_code)`; tên thương hiệu
+  lấy từ `clinic.name`. Không gấp khi chỉ có một tenant.
+
+### B7 · VỪA (nhiều cơ sở) · Giờ ca, chính sách đặt lịch, cấu hình TV là của cả phòng khám
+
+- **Tệp:** `core/shifts.py:58-63` + `ca_tu_settings(clinic.settings)` (11 chỗ gọi);
+  `services/clinic_policy.py:28-31`; `api/v1/routers/display.py:46-63`.
+- **Tái hiện:** KN mở 7:30, HN 8:00 → không khai được; TV hai cơ sở chung chân trang.
+- **Hướng sửa (Mức 3):** `clinic_location.settings` ghi đè `clinic.settings`.
+
+### B8 · THẤP · SĐT / tên in / địa chỉ cơ sở không sửa được trên màn
+
+- **Tệp:** `services/clinic_config_service.py:799-855` (`update_location` chỉ sửa
+  name/address/is_active). Đổi SĐT phải viết migration (`20261020100000`, viết cứng
+  `WHERE code IN ('HN','KN')` — chính là commit "Kim Ngưu cũng in SĐT 0899 973 555") hoặc chạy
+  `scripts/nhan-ban-co-so.py` (viết cứng `MA_HN="HN"`). Trái luật "việc dữ liệu làm trên màn".
+- **Test:** `test_sua_sdt_ten_in_co_so`. **Hướng sửa:** thêm `phone`, `ten_in` vào
+  `update_location` + màn Cấu trúc phòng khám.
+
+### B9 · THẤP · Các lọt nhỏ khác
+
+- `/appointments/lich-ngay` (`lich_hen_doc.py:52-61`) không lọc cơ sở; `NewPatientForm.tsx:620-633`
+  gợi ý số khám max+1 trên cả hai cơ sở (chỉ hiển thị — máy chủ đánh lại, `booking_service.py:685-689`).
+- Trigger `assign_appointment_queue_number` (`20260812000001`) đánh số theo bác sĩ trên mọi cơ sở.
+- Tin SSE theo tenant chứ không theo cơ sở: xem A5.
+- **Nghi, chưa xác minh:** CSKH/recall, `lich_bac_si_tu_choi` (`lich_hen_doc.py:135`) không lọc cơ
+  sở — có thể chủ ý (CSKH làm cho cả phòng khám).
+
+### Chậm dần theo số dòng
+
+**S1 · VỪA · chắc** — `src/clinicai/services/bao_cao_viec_tien_service.py:85-104` (`_thua`):
+lấy **mọi lượt từ trước tới nay** của cơ sở (không giới hạn ngày, không LIMIT), đẩy cả mảng id vào
+`dong_tien_thua` (`= ANY($2)`) rồi lọc bằng Python. Gọi mỗi lần mở báo cáo Cuối ngày
+(`bao_cao_cuoi_ngay_service.py:1258`). Cùng kiểu "lượt cũ" đã làm quầy thu 40 giây.
+*Kiểm:* `EXPLAIN ANALYZE` + đếm `len(vids)` trên staging. *Sửa:* tập ứng viên lấy từ
+`payment_bill_line` của chỉ định huỷ/không làm (đã có chỉ mục), không từ visit.
+
+**S2 · VỪA** — `event_delivery` không dọn + đếm toàn bảng mỗi phút: đã gộp vào **A4**.
+`hen_gio` cũng bị đếm toàn bảng (`api/v1/health.py:93-104`).
+
+**S3 · THẤP · chắc** — `canh_gac.py:187-190` gọi `bat_bien_lieu_trinh(c.id)` mỗi phút cho mọi liệu
+trình từ trước tới nay (3 subquery/liệu trình). *Sửa:* chỉ xét liệu trình có thay đổi 24 giờ qua,
+như `bat_bien_tien_chi_dinh`.
+
+**S4 · THẤP · chắc** — `agent_tom_tat.py:333-343`: từ 18h, mỗi phút, với mỗi phòng khám chưa có
+tóm tắt, `EXISTS (... (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1)` — biểu thức
+không dùng được chỉ mục; ngày vắng (không có lượt) thì không bao giờ tạo tóm tắt nên câu này quét
+`visit` mỗi phút tới nửa đêm. *Sửa:* điều kiện khoảng `checked_in_at >= đầu ngày VN AND < cuối ngày`.
+
+**Ngờ:** `pharmacy_service.py:147-188` (`hang_doi`) lấy đơn `closed_at IS NULL` không giới hạn ngày;
+có chỉ mục + `LIMIT 300` nên rủi ro là hàng đầy đơn cũ hơn là chậm.
+*Kiểm:* `SELECT count(*) FROM prescription WHERE closed_at IS NULL AND removed_at IS NULL AND created_at < now()-interval '7 days'`.
