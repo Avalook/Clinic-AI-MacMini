@@ -147,6 +147,90 @@
    "dong": 31,
    "tieu_de": "Khoá bệnh án FINALIZED hở: chuyển sang AMENDED thì sửa được MỌI cột, và AMENDED không khoá gì",
    "chi_tiet": "visit_finalized_block_update chỉ chặn khi NEW.status <> 'AMENDED'. Một lệnh UPDATE đặt status='AMENDED' kèm đổi bác sĩ/chẩn đoán/ngày đều lọt; sau đó lượt AMENDED sửa tự do. Ảnh hưởng THẤP: Ký bệnh án đã nghỉ 23/09 nên lượt mới không còn lên FINALIZED. Muốn kín: migration mới — khi chuyển sang AMENDED chỉ cho đổi status/updated_at, và khoá AMENDED như FINALIZED."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/vps-chuan-bi.sh",
+   "dong": 131,
+   "tieu_de": "sshd -t thất bại vẫn chạy lệnh reload sshd",
+   "chi_tiet": "Toán tử `&& ... || ...` khiến `systemctl reload sshd` chạy khi `sshd -t` lỗi; có thể nạp cấu hình SSH không hợp lệ thay vì dừng. Đã xác nhận từ luồng shell; chưa chạy trên máy chủ."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/vps-chuan-bi.sh",
+   "dong": 65,
+   "tieu_de": "Sao chép authorized_keys của root ghi đè khóa sẵn có của clinicai",
+   "chi_tiet": "`install` chép nguyên tệp root vào đúng đường dẫn authorized_keys của clinicai; nếu clinicai đã có khóa riêng, tệp bị thay toàn bộ. Chưa chạy trên máy chủ."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/clinicai/voice/transcribe.py",
+   "dong": 118,
+   "tieu_de": "Nạp model STT đồng bộ ngay trong event loop",
+   "chi_tiet": "`transcribe()` gọi `_ensure_model()` trước `asyncio.to_thread`; lần đầu `WhisperModel(...)` tải/nạp model đồng bộ nên chặn event loop cho đến khi nạp xong. Chưa đo tải trên máy chạy thật."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "scripts/supabase-local-nap.sh",
+   "dong": 91,
+   "tieu_de": "docker cp có thể đặt migration lồng khi /migrations đã tồn tại",
+   "chi_tiet": "Lệnh chép cả thư mục `migrations` vào `/migrations`; nếu đích đã là thư mục, Docker có thể tạo `/migrations/migrations`, trong khi vòng lặp chỉ đọc `/migrations/*.sql` và có thể dùng tệp cũ. Chưa tái hiện trên container disposable."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "scripts/provision-staff-logins.sh",
+   "dong": 93,
+   "tieu_de": "Nhân sự auth_user_id NULL bị báo là không tồn tại nên không được mời",
+   "chi_tiet": "SELECT trả chuỗi rỗng cả khi có staff với auth_user_id NULL lẫn khi không có dòng; nhánh `-z` ở dòng 96 báo không có staff rồi continue, nên nhánh invite không chạy cho trường hợp thường gặp này."
+  },
+  {
+   "trang_thai": "bao_oan",
+   "tep": "src/clinicai/services/checkout_service.py",
+   "dong": 1087,
+   "tieu_de": "chan của tiền thừa bị hiểu nhầm là nợ",
+   "chi_tiet": "Đã tách `chan_no` từ trạng thái nợ trước khi gộp cờ chặn tiền thừa vào `chan`; build_blockers ưu tiên `chan_no` (dòng 1114), nên tiền thừa không bị báo thành nợ."
+  },
+  {
+   "trang_thai": "bao_oan",
+   "tep": "src/clinicai/services/checkout_service.py",
+   "dong": 692,
+   "tieu_de": "Danh sách check-out tồn đọng không loại lượt đã đóng",
+   "chi_tiet": "stale_list dùng `dieu_kien_luot_treo('v')`; điều kiện chung loại `closed_at IS NOT NULL`, lượt đã check-out không xuất hiện."
+  },
+  {
+   "trang_thai": "bao_oan",
+   "tep": "src/dashboard/tests/route-da-tat-boundary.test.mts",
+   "dong": 21,
+   "tieu_de": "Cảnh báo trùng SĐT mất vì check-phone trả 410",
+   "chi_tiet": "Luồng tạo khách hiện gọi `/api/patients/check-duplicate` (NewPatientForm.tsx:727); route cũ check-phone bị proxy chặn 410 theo test, nên cảnh báo dùng endpoint mới chứ không mất."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx",
+   "dong": 123,
+   "tieu_de": "Lỗi lưu vị trí dây nối bị xóa sau khi tải lại thành công",
+   "chi_tiet": "Khi POST lỗi, gui đặt loi rồi luôn gọi tai(); nếu GET thành công, tai đặt loi=null. Promise vẫn resolve và caller ở dòng 417 xóa tên vừa nhập, làm lỗi trông như lưu thành công."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/(dashboard)/patient-list/LichSuNotion.tsx",
+   "dong": 281,
+   "tieu_de": "Lỗi tải chi tiết lịch sử Notion không có cách thử lại",
+   "chi_tiet": "Lỗi mạng/HTTP ghi `chiTiet[id] = 'loi'` (dòng 287), UI chỉ hiện câu chung (376); bấm mở lại bị chặn bởi điều kiện `chiTiet[id]` truthy nên không gửi lại request."
+  },
+  {
+   "trang_thai": "dung",
+   "tep": "src/dashboard/app/console/FeedbackBox.tsx",
+   "dong": 69,
+   "tieu_de": "Lỗi mạng khi gửi phản hồi làm nút kẹt ở trạng thái đang gửi",
+   "chi_tiet": "fetch không có try/catch/finally; khi mạng từ chối Promise, `setState('error')` không chạy và state giữ `sending`, nút bị vô hiệu hóa, không có thông báo lỗi."
+  },
+  {
+   "trang_thai": "can_soat",
+   "tep": "src/clinicai/api/v1/routers/booking.py",
+   "dong": 292,
+   "tieu_de": "Hàng chờ xếp bác sĩ không trả đủ lịch MAT_BAC_SI trong mô phỏng A5",
+   "chi_tiet": "Mô phỏng tạo 3 lịch tự do, công bố lịch tuần khiến BS nghỉ thứ Năm, rồi phép kiểm `set(lich_tu_do) <= ids_cho` thất bại (scripts/mo-phong/pha_dat_lich.py:231). Endpoint còn lọc theo cơ sở tài khoản hiện đứng; chưa lưu được ID/lịch cụ thể và cơ sở phiên để phân biệt lỗi lọc với setup mô phỏng. Cần tái hiện cô lập trước khi kết luận."
   }
  ]
 }
