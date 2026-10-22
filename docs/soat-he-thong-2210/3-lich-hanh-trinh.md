@@ -231,3 +231,85 @@ bộ đọc, nhưng nổ khi cộng. *Sửa:* bắt `OverflowError`, hoặc ch�
 check-in, hoàn tác Nhận nhận `visit_id` của bất kỳ cơ sở nào trong cùng phòng khám. Danh sách đã lọc cơ sở, nên chỉ lộ khi
 gọi API thẳng hoặc mở liên kết. Theo thiết kế hiện tại (`identity.py:345`: cơ sở là *bộ chọn*, không phải *thẩm quyền*) thì đây không
 phải lỗ quyền. Ghi lại để Tuyền chốt khi có phòng khám thứ hai dùng chung hệ thống.
+
+## Nhóm 3 — Bàn khám, Bàn tư vấn, chỉ định, Hoàn tất khám, liệu trình
+
+> **Thuật ngữ.** *Phiên khám* (`consultation`) = một lần bác sĩ hoặc tư vấn ngồi với khách, trạng thái `queued → in_progress → completed`.
+> *Vòng đọc* (`review_round`) = lượt chờ kết quả cận lâm sàng về để bác sĩ đọc. Mỗi kết quả cần chờ là một *yêu cầu* (`round_requirement`).
+> *Khám xong hẳn* = mốc `exam_completed_at`, do `_ket_thuc_neu_xong` ghi khi không còn gì giữ lượt. Lúc đó lịch hẹn thành COMPLETED.
+
+**Đã soát, ổn:**
+- Liệu trình (trigger bản 20261009145151 / 20261009900000): không đếm buổi hai lần nhờ khoá duy nhất. Huỷ / không làm / không chọn thì tự gỡ buổi, sống lại thì tự gắn lại. `lieu_trinh` khoá `FOR UPDATE` khi hai phòng cùng ghi. Tiền trả trước có trigger gác.
+- `mang_sang_luot_moi` không nhân đôi: `FOR UPDATE` và kiểm lại sau khi chờ khoá.
+- Bác sĩ sửa chỉ định cùng lúc thu ngân thu: mọi lệnh khoá `visit` trước rồi mới khoá chỉ định.
+- Hoàn tất khám **có** hoàn tác (`mo_lai_kham`).
+- Bỏ chỉ định đang làm / đã xong bị chặn đúng.
+- Không có `date.today()` / `CURRENT_DATE` trong các tệp thuộc phạm vi.
+- Bàn khám lọc cơ sở đúng.
+
+**3.1 · CAO · Hoàn tác "bỏ chỉ định" KHÔNG trả lại yêu cầu "cần kết quả" → kết quả xét nghiệm có thể không bao giờ về bác sĩ đọc.**
+- `services/hoan_tac_service.py:824–833`: `huy_chi_dinh` **DELETE** `round_requirement` của chỉ định ở mọi vòng đọc chưa đóng.
+- `:834–841`: huỷ `follow_up_case` OPEN.
+- `:847–849`: `_evaluate_rounds` đóng vòng rỗng, rồi `_ket_thuc_neu_xong` khép lượt.
+- `services/so_sua_chi_dinh_service.py:754–850` (`_dat_lai_chi_dinh`, đường Hoàn tác ở sổ sửa chỉ định) chỉ đưa
+  `service_order` về `authorized`. Grep cả tệp **không có** `round_requirement` hay `follow_up_case`. `mo_lai_moc_kham_xong` + `_evaluate_rounds` (:720)
+  chỉ xét vòng `collecting/ready`, không mở lại vòng đã đóng.
+
+*Tái hiện:*
+1. Bác sĩ "Đã khám xong" khi còn xét nghiệm X gửi ngoài cần kết quả → mở vòng 2, yêu cầu X.
+2. Trưởng ca bỏ nhầm X → vòng 2 rỗng, đóng; lượt "khám xong hẳn".
+3. Bấm Hoàn tác ở sổ sửa chỉ định → X sống lại, mốc khám xong mở lại, nhưng vòng 2 vẫn đóng và không còn yêu cầu X.
+4. X làm xong, kết quả về → lượt tự khép. Bác sĩ **không bao giờ** thấy "Kết quả cần đọc", quầy check-out không cảnh báo.
+
+Đây đúng là dạng "hoàn tác không trả lại đủ trạng thái", và ảnh hưởng an toàn người bệnh.
+*Độ chắc:* đã lần theo code, chắc chắn (tôi đã mở hai đoạn trên).
+*Test:* khám xong (X cần kết quả) → `huy_chi_dinh(X)` → `SoSuaChiDinhService.hoan_tac` → còn một vòng chưa đóng có yêu cầu X `open`.
+X xong mà chưa có kết quả thì `exam_completed_at` vẫn NULL.
+*Sửa:* lúc bỏ, lưu yêu cầu bị xoá (round_id, need, status) và id việc theo dõi vào `so_sua_chi_dinh.chi_tiet`. Lúc hoàn tác: dựng lại
+yêu cầu, mở lại vòng nếu nó đóng vì rỗng (về `collecting`), mở lại việc theo dõi đã huỷ.
+
+**3.2 · vừa · `services/luot_kham_service.py:1874, 1913` — "Bắt đầu khám" (nhận khách vào khám / tư vấn) không có hoàn tác.**
+Phiên chuyển `in_progress`, `_block_others` chặn chỗ chờ ở phòng khác. Không lệnh nào đưa phiên về `queued`; `mo_lai_kham` chỉ nhận phiên `completed`.
+*Tái hiện:* bác sĩ bấm Bắt đầu nhầm khách A (trùng tên) → A "đang khám", các chỗ chờ khác của A bị chặn. Hoàn tác check-in, đổi
+dịch vụ khám, bỏ qua tư vấn đều bị từ chối vì có phiên khám. Lối duy nhất là Hoàn tất khám, tức đóng sai phần khám.
+*Độ chắc:* chắc chắn (agent). *Sửa:* lệnh `huy_nhan_kham` khi phiên chưa có ghi chú / chỉ định, giống `huy_bat_dau` của dịch vụ.
+
+**3.3 · vừa · `services/service_execution_service.py:648–760` — phòng bấm "Không làm được" không có hoàn tác trực tiếp.**
+Chỉ định sang `NOT_PERFORMED`, hàng chờ đóng, buổi liệu trình bị gỡ. "Gián đoạn" có Làm lại, "Không làm" thì không.
+Thêm nữa, `dieu_tri_ban_kham.py:507–513` (`chi_dinh_dieu_tri_dang_co`) coi chỉ định `not_performed` là "đã có", nên bác sĩ kê lại thì
+nhận lại đúng chỉ định chết (`da_co_san`), không tạo dòng mới.
+*Đường vòng hiện có:* bỏ chỉ định (đã thu thì thành tiền thừa) rồi Hoàn tác bỏ. Vòng vèo, và dính 3.1.
+*Sửa:* lệnh `hoan_tac_khong_lam` khi chưa có lần làm; lọc `not_performed` khỏi `chi_dinh_dieu_tri_dang_co`.
+
+**3.4 · vừa · `luot_kham_service.py:2984–3030` — "Miễn" / "Chuyển theo dõi" một yêu cầu vòng đọc không hoàn tác được.**
+Ghi `waived`/`follow_up`, rồi `_evaluate_rounds` có thể đóng vòng, `_ket_thuc_neu_xong` khép lượt (:3043). Không lệnh nào trả yêu cầu về `open`.
+*Tái hiện:* bác sĩ bấm Miễn nhầm kết quả X → khách "khám xong". Muốn quay lại phải Hoàn tác cả phiên khám chính: việc này xoá mọi vòng sau.
+*Sửa:* lệnh `bo_quyet_yeu_cau` (yêu cầu về `open`, huỷ `follow_up_case` vừa mở, mở lại vòng, `mo_lai_moc_kham_xong`).
+
+**3.5 · vừa · `services/service_selection_service.py:504–517` (`ap_lua_chon`) — quầy tick lại dịch vụ đã bỏ sau khi lượt "khám xong hẳn" thì mốc không mở lại.**
+Đổi NOT_SELECTED → SELECTED mà không gọi `mo_lai_moc_kham_xong`. Consumer vòng đọc (`events/consumers/vong_doc.py:97`) chỉ khép, không mở.
+Cùng kiểu ở `lam_them_tai_quay_service.py:722`.
+*Tái hiện:* bác sĩ Hoàn tất khi X còn chờ → quầy bỏ X → lượt khép (lịch COMPLETED) → khách đổi ý, quầy tick lại X, thu tiền → X vào
+hàng phòng. Nhưng Trang chủ, Hành trình, lịch hẹn vẫn "Khám xong": **mâu thuẫn giữa các màn**.
+*Test:* khép lượt → NOT_SELECTED rồi SELECTED → `exam_completed_at IS NULL`, lịch về CHECKED_IN.
+*Sửa:* trong `ap_lua_chon`, có id chuyển sang SELECTED thì gọi `mo_lai_moc_kham_xong`.
+
+**3.6 · vừa · cần Tuyền quyết · `luot_kham_service.py:1133–1140` — lượt Điều trị không bao giờ "khám xong hẳn" nếu bác sĩ không nhận.**
+`_ket_thuc_neu_xong` đòi có phiên `completed` và không còn phiên `queued`. Lượt Điều trị luôn có phiên PRIMARY `queued` (hàng bác sĩ tuỳ chọn).
+`checkout_service.py:115–120` đã miễn trường hợp này, còn `_ket_thuc_neu_xong` thì không.
+*Tái hiện:* khách Điều trị làm xong buổi ở phòng → khách vẫn nằm ở hàng bác sĩ "chờ khám", lịch "đang khám" tới khi check-out.
+*Sửa (nếu Tuyền đồng ý):* áp cùng ngoại lệ DIEU_TRI vào `_ket_thuc_neu_xong`, đóng chỗ chờ PRIMARY `queued` khi khép.
+
+**3.7 · thấp · `src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx:952–958` — giao diện tự suy chế độ Hoàn tất bằng luật khác backend.**
+TSX đếm mọi chỉ định `authorized/assigned/in_progress`. Backend `kham_xong` (`luot_kham_service.py:1620–1635`) dùng `CHI_DINH_CON_VIEC_SQL`,
+loại NOT_SELECTED, đã miễn, làm thêm tại quầy. *Tái hiện:* trợ lý, chỉ còn dịch vụ khách đã bỏ → màn ghi "Khách còn chỉ định sẽ sang
+hàng chờ phòng", backend trả 403. Không hỏng dữ liệu, chỉ sai câu. Đây cũng là **luật nghiệp vụ trong TSX** (trái CLAUDE.md).
+*Sửa:* backend trả `che_do_hoan_tat`, TSX chỉ vẽ.
+
+**3.8 · thấp · nghi · `luot_kham_service.py:1133–1136` — `_ket_thuc_neu_xong` tính cả phiên TƯ VẤN là "đã khám".**
+Phiên PRIMARY chỉ được tạo bất đồng bộ khi consumer H3 nhận `consultation.handed_over` (`hanh_trinh.py:200`). Trong khoảng hở ấy
+(hoặc H3 lỗi và thử lại), một lệnh gọi khép có thể đánh lượt "khám xong hẳn" khi bác sĩ chính chưa khám. Cửa sổ hẹp.
+*Sửa:* điều kiện EXISTS thêm `c.kind <> 'TU_VAN'`.
+
+**3.9 · thấp · `hoan_tac_service.py:1023–1027`, `service_execution_service.py:1698–1700` — hoàn tác rồi khép lại thì phát `visit.exam_completed` lần hai và đè giờ.**
+`mo_lai_moc_kham_xong` đặt NULL, rồi `_ket_thuc_neu_xong` ghi `now()` mới. Hiện chỉ dòng thời gian nghe sự kiện này, nên chỉ lệch giờ và trùng mốc.
