@@ -264,3 +264,132 @@ báo lại: `HoaDonMot.tsx:254`, `ChiTietLuot.tsx:278`.)
 **B8 · thấp · `api/service-price/route.ts:42-47` tự chuẩn hoá giá** (tạo thì làm tròn,
 sửa thì gửi nguyên); backend `parse_price` (`config_service.py:1710,1825`) xử lý cả hai.
 Luật bị chép — bỏ ở route.
+
+---
+
+## Phần (c) — Quyền
+
+### c.2 PostgREST `/rest/v1` + RLS (đọc thẳng database qua Supabase tự dựng)
+
+**PostgREST** = dịch vụ của Supabase biến mỗi bảng Postgres thành một địa chỉ web
+(`/rest/v1/<bảng>`). **RLS** = luật lọc theo dòng do Postgres tự áp cho người gọi.
+FastAPI chạy bằng quyền chủ database nên RLS KHÔNG áp cho FastAPI; RLS chỉ là
+"cửa" khi ai đó gọi thẳng `/rest/v1`.
+
+**Có phơi ra Internet không? CÓ.** `caddy/Caddyfile:191` chuyển
+`/auth/v1/* /rest/v1/* /realtime/v1/*` sang gateway Supabase, gateway chuyển tiếp không
+lọc (`docker/supabase/Caddyfile:29-31` → `rest:3000`, `:51-56` → `realtime:4000`);
+staging cũng thế (`caddy/Caddyfile.staging:95-97`). Comment ở
+`docker/supabase/Caddyfile:12-13` ("chưa bao giờ được phơi ra Internet") nay đã sai.
+GoTrue tắt tự đăng ký (`docker-compose.supabase.yml:139`) → người lạ chỉ cầm khoá
+`anon` công khai; muốn có token `authenticated` phải có tài khoản nhân viên thật —
+**kể cả tài khoản ĐỐI TÁC (PARTNER) và TIVI (DISPLAY)**.
+
+| Vai gọi | Đọc | Ghi | Căn cứ |
+|---|---|---|---|
+| `anon` (khoá công khai trong JS) | không bảng nào | không | init chỉ cấp mặc định cho `service_role` (`docker/supabase/init/01-vai-va-extension.sql:161-166`); thu EXECUTE hàm khỏi anon `20261019100000_harden_public_function_acl.sql:9`; có test `supabase/tests/public_function_acl.sql` |
+| `authenticated` (mọi người đã đăng nhập) | **~40 bảng** (dưới) | không | ghi bị thu ở `20260804000016_no_client_write_policies.sql:36-44`, `20261001210000:89` |
+
+Bảng `authenticated` ĐỌC được, lọc theo `current_clinic_ids()` = **mọi thành viên
+phòng khám, bất kể vai** (`20260730000003_multi_tenant_foundation.sql:235-246`,
+policy `20260730000004_tenant_scoped_rls.sql:149-171`): `patient`, `appointment`,
+`visit`, `payment`, `prescription`, `lab_result`, `pregnancy`,
+`patient_medical_profile`, `cskh_action`, `cskh_log`, `work_roster`, `care_episode`,
+`drug_catalog`, `service_price`, `service_type`…; cộng `staff` (mọi cột,
+`:182`), và các bảng cấp riêng: `patient_sdt_them`, `patient_link`, `payment_cycle`,
+`payment_cycle_phan`, `payment_bill_line`, `payment_refund(_line)`,
+`anh_chuyen_khoan`, `tep_ket_qua`, `capability_grant`, `quyen_preset`,
+`clinic_membership`, `domain_event`, `tuong_tac_cskh`, `nhac_tai_kham`, `thong_bao`…
+Riêng bảng lâm sàng (`clinical_record`, `ultrasound_record`, `consultation`…) có lọc
+theo vai lâm sàng (`20260730000013_role_scoped_clinical_read.sql`). Đã thu, nay an
+toàn: 11 bảng kho (`20261019120000_restrict_stock_postgrest_reads.sql`, có test),
+`clinic_secret`, `idempotency_key`, `pos_outbox`.
+
+Giao diện hiện **chỉ cần** `staff` và `clinic_membership`
+(`app/(auth)/login/actions.ts:43,55`, `proxy.ts:141`, `lib/roster-names.ts:46`). Mọi
+quyền đọc còn lại là bề mặt thừa — và nó đi VÒNG qua mọi luật của FastAPI
+(capability, che CCCD, lọc thư ký theo bác sĩ).
+
+**Giới hạn của phần này:** đọc từ migration, CHƯA chạy trên database. Prod từng sống
+trên Supabase cloud (quyền mặc định ALL cho anon/authenticated) và bản sao lưu dùng
+`--no-acl` (`scripts/backup-db.sh:243`), nên ACL thật trên prod có thể khác — xem C6.
+
+### Phát hiện phần (c.2)
+
+**C1 · CAO · Tài khoản ĐỐI TÁC (người ngoài phòng khám) và TIVI đọc được toàn bộ
+khách, lịch hẹn, tiền, xét nghiệm, thai kỳ qua `/rest/v1`.**
+- Ở đâu: policy SELECT của `patient`, `appointment`, `visit`, `payment`,
+  `prescription`, `lab_result`, `pregnancy`, `patient_medical_profile`
+  (`20260730000004_tenant_scoped_rls.sql:149-171`) dùng `current_clinic_ids()` — hàm
+  trả MỌI membership đang hoạt động, không xét vai
+  (`20260730000003_multi_tenant_foundation.sql:235-246`). PARTNER/DISPLAY là
+  `clinic_membership.role` (xem `20260930900000_mo_full_lego.sql:35`). Policy
+  RESTRICTIVE duy nhất (`20260915000021_thu_ky_rls_theo_bac_si.sql`) chỉ chặn thư ký.
+  Comment ở `20260916000007_vai_doi_tac.sql:69-77` khẳng định "PARTNER không nằm
+  trong tập vai nào" — **sai** với bảng khách/lịch/tiền.
+- Kịch bản: nhân viên lab đối tác đăng nhập màn Đối tác → DevTools → cookie
+  `sb-…-auth-token` lấy `access_token` →
+  `curl 'https://dr4women.io.vn/rest/v1/patient?select=full_name,phone_primary,national_id_number,date_of_birth' -H "apikey: <khoá anon>" -H "Authorization: Bearer <token>"`
+  → dự kiến nhận TOÀN BỘ khách của phòng khám. Đổi `patient` thành `lab_result`,
+  `pregnancy`, `payment` cũng đọc được. Tivi phòng chờ (tài khoản DISPLAY, máy đặt nơi
+  công cộng) cũng có token như vậy.
+- Độ chắc: **chắc theo code** (đã tự mở hàm + policy); chưa chạy trên DB.
+- Test đề xuất (`supabase/tests/`): tạo staff có membership PARTNER và DISPLAY,
+  `SET LOCAL ROLE authenticated` + `request.jwt.claims`, assert `count(*) = 0` trên
+  `patient`, `appointment`, `payment`, `lab_result`, `visit`, `staff`.
+- Hướng sửa: nhanh nhất là C3 (khoá PostgREST tổng). Nếu chưa làm được C3: thêm policy
+  RESTRICTIVE "vai ∉ {PARTNER, DISPLAY}" cho mọi bảng có policy `current_clinic_ids()`.
+  Mức 3 (migration + quyền) → kế hoạch cho Tuyền duyệt trước.
+
+**C2 · CAO · Mọi nhân viên đọc được CCCD, SĐT, ngày sinh, số CCHN của đồng nghiệp,
+và CCCD khách KHÔNG che** —
+`staff` có SELECT toàn bảng cho `authenticated` (vòng lặp
+`20260730000008_table_grants.sql:48-59`, policy `20260730000004:182`); comment
+`20260806000005_ho_so_nhan_su_day_du.sql:49-52` nói CCCD "chỉ Quản lý và Trưởng ca
+đọc được — `_STAFF_MANAGEMENT_GUARD` là đường duy nhất" — sai, PostgREST là đường thứ
+hai. `patient.national_id_number` được API che (`src/clinicai/schemas/patient.py`)
+nhưng PostgREST trả nguyên số.
+- Kịch bản: lễ tân lấy token như C1 →
+  `curl '…/rest/v1/staff?select=full_name,national_id_number,phone,date_of_birth,license_number'`
+  → thấy CCCD mọi đồng nghiệp.
+- Độ chắc: chắc theo code; không migration nào thu quyền cột trên `staff`/`patient`.
+- Test: `has_column_privilege('authenticated','public.staff','national_id_number','SELECT')`
+  phải `false`; tương tự `patient`.
+- Hướng sửa: `REVOKE SELECT ON staff, patient FROM authenticated`; nếu đăng nhập còn
+  cần thì chỉ `GRANT SELECT (id, auth_user_id, full_name, is_active, primary_department)
+  ON staff`.
+
+**C3 · VỪA · Quyền đọc PostgREST cấp theo kiểu "có policy là có quyền", rộng hơn hẳn
+nhu cầu** — `20260730000008_table_grants.sql:48-59` + ~70 GRANT tay. **Chưa có
+migration "khoá PostgREST tổng"** — chỉ khoá lẻ từng bảng (kho, `clinic_secret`…).
+- Kịch bản: thu ngân `curl '…/rest/v1/capability_grant?select=*'` hoặc
+  `…/rest/v1/payment_cycle?select=*` → đọc bảng phân quyền và sổ thu, không cần lego.
+- Độ chắc: chắc.
+- Test: pytest đọc `information_schema.role_table_grants WHERE grantee IN
+  ('anon','authenticated')` so với danh sách cho phép cố định (chỉ `staff` vài cột,
+  `clinic_membership`).
+- Hướng sửa: một migration `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon,
+  authenticated` + `ALTER DEFAULT PRIVILEGES … REVOKE`, rồi GRANT lại đúng cột đăng
+  nhập cần. Tốt hơn nữa: chuyển hai chỗ đọc `staff`/`clinic_membership` của giao diện
+  sang FastAPI rồi chặn hẳn `/rest/v1` ở Caddy. Giải luôn C1, C2, C4.
+
+**C4 · VỪA (đã biết — P1 kiểm toán 19/10, chưa sửa trên `main`) · View
+`v_quyen_hieu_luc` vượt RLS, đọc chéo phòng khám** —
+`20260923000003_capability.sql:175-188`, không `security_invoker`, có GRANT cho
+`authenticated`. Một phòng khám hôm nay → tác động nhỏ. Nghi thêm: `v_quyen_thuc_te`
+(`20260929000001:168,229`) có thể lỗi `permission denied` với `authenticated` vì hàm
+`quyen_theo_lich_bang()` đã bị thu EXECUTE (chưa chạy, suy luận). Sửa:
+`ALTER VIEW … SET (security_invoker = true)`. Test: mọi view có grant cho
+`authenticated` phải có `reloptions @> '{security_invoker=true}'`.
+
+**C5 · THẤP–VỪA · Realtime vẫn chạy và mở ra ngoài dù không còn dùng** — Caddy
+`/realtime/v1`; publication còn `appointment`, `visit`, `payment`, `lab_result`,
+`prescription`… (`20260803000004:92-106`). App đã thôi dùng Realtime từ 27/09.
+`postgres_changes` theo RLS nên PARTNER/DISPLAY nhận được thay đổi trực tiếp (cùng lỗ
+C1). Độ chắc: nghi (chưa thử). Sửa: bỏ `/realtime/v1` khỏi Caddy, dừng dịch vụ
+`realtime`, gỡ bảng khỏi publication.
+
+**C6 · THẤP · Chưa biết ACL thật trên prod** — bản sao lưu `--no-acl`
+(`scripts/backup-db.sh:243`). Việc Tuyền làm (chỉ đọc):
+`SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants WHERE grantee IN ('anon','authenticated') ORDER BY 1,2;`
+trên prod, gửi kết quả để chốt C1–C3.
