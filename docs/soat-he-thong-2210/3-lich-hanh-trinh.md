@@ -1,13 +1,75 @@
 # Soát hệ thống 22/10/2026 · Khối 3 — Lịch + Hành trình
 
-> Soát CHỈ ĐỌC trên nhánh `main` (@00bde52). Đang viết dần — các nhóm phát hiện
-> sẽ được thêm theo từng lượt commit.
+> Soát **CHỈ ĐỌC** trên nhánh `main` @00bde52 (gần bản prod). Không sửa code, test hay migration.
+> Bản đồ `claude/ban-do-hieu` dùng để định hướng. Mọi kết luận dựa trên code thật: "đã lần theo code" nghĩa là đã mở đúng dòng
+> và đi hết đường gọi; "nghi" nghĩa là chưa đi hết, hoặc cần dữ liệu prod / Tuyền quyết nghiệp vụ. Chưa chạy test nào.
+> Đọc ba nhánh song song bằng 3 agent; các phát hiện mức cao đã được người viết mở lại đúng dòng kiểm tận mắt.
+
+## Tóm tắt 10 dòng
+
+1. Khối lịch + hành trình **chắc ở chỗ khó nhất**: hai người đặt cùng khung, hai lễ tân check-in cùng lúc, hai phòng cùng "Nhận" đều đã khoá đúng ở Postgres.
+2. Lỗi tập trung ở **hoàn tác**. Nhiều thao tác khoá cứng, hoặc hoàn tác được nhưng không trả lại đủ trạng thái.
+3. **Cao 3.1:** hoàn tác "bỏ chỉ định" không dựng lại yêu cầu "cần kết quả". Kết quả xét nghiệm có thể không bao giờ về bác sĩ đọc.
+4. **Cao 2.1:** hoàn tác check-in xong, màn Tiếp đón ghi "Về giữa chừng" và mất nút Check-in. Khách kẹt, phải đi đường vòng.
+5. **Cao 1.1:** "Không đến" và "Huỷ lịch" không có đường khôi phục. Bấm nhầm là phải đặt lịch mới.
+6. Hoàn tác check-in còn để lại rác ở màn Check-out (2.2) và chỉ định đã xếp phòng bị kẹt không vào hàng (2.3).
+7. Ba thao tác ở bàn khám / phòng chưa có hoàn tác: Bắt đầu khám (3.2), Không làm được (3.3), Miễn yêu cầu kết quả (3.4).
+8. Mâu thuẫn giữa màn: tick lại dịch vụ sau khi lượt "khám xong" (3.5); lưới đặt lịch nói "còn chỗ" mà bấm bị chặn (1.2, 1.4).
+9. Giờ VN gần như sạch: chỉ còn `queue.py:104` (đã biết, PR #522 chưa vào `main`) và vài `current_date` phụ thuộc cấu hình DB (0.3, cần một lệnh kiểm trên VPS).
+10. Lọc cơ sở ở mọi danh sách đều đúng. Lệnh ghi không kiểm cơ sở là theo thiết kế; Tuyền chốt lại khi có phòng khám thứ hai (2.10).
+
+## Bảng phát hiện
+
+| # | Mức | Chỗ | Một dòng | Độ chắc |
+|---|---|---|---|---|
+| 3.1 | **cao** | `hoan_tac_service.py:824` · `so_sua_chi_dinh_service.py:754` | Hoàn tác bỏ chỉ định không dựng lại yêu cầu kết quả, nên kết quả không về bác sĩ | chắc chắn |
+| 2.1 | **cao** | `tiep_don_service.py:151,163` · `booking_service.py:2813` | Hoàn tác check-in → chip "Về giữa chừng", mất nút Check-in | chắc chắn |
+| 1.1 | **cao** | `booking_service.py:324–425` | Không đến / Huỷ lịch khoá cứng, không khôi phục được | chắc chắn |
+| 2.2 | vừa | `checkout_service.py:85,410` | Lượt hoàn tác check-in nằm mãi ở Check-out; check-out khách chưa đến | chắc chắn |
+| 2.3 | vừa | `service_routing_service.py:1402` · `booking_service.py:2839` | Chỉ định đã xếp phòng kẹt sau hoàn tác + check-in lại | chắc chắn (agent) |
+| 2.4 | vừa | `booking_service.py:376,1040` | Huỷ lịch đã check-in khi khách đang làm dịch vụ | chắc ở backend |
+| 2.5 | vừa | `hoan_tac_service.py:1205` | Mở lại lượt nhận cả lượt INCOMPLETE do hoàn tác / huỷ | chắc chắn |
+| 3.2 | vừa | `luot_kham_service.py:1874` | Bắt đầu khám không hoàn tác được | chắc chắn (agent) |
+| 3.3 | vừa | `service_execution_service.py:648` · `dieu_tri_ban_kham.py:507` | "Không làm được" không hoàn tác; kê lại trả chỉ định chết | chắc chắn (agent) |
+| 3.4 | vừa | `luot_kham_service.py:2984` | Miễn / Chuyển theo dõi yêu cầu kết quả không hoàn tác | chắc chắn (agent) |
+| 3.5 | vừa | `service_selection_service.py:504` | Tick lại dịch vụ sau "khám xong" không mở lại mốc → màn mâu thuẫn | chắc chắn (agent) |
+| 3.6 | vừa | `luot_kham_service.py:1133` | Lượt Điều trị không tự "khám xong" khi bác sĩ không nhận | cần Tuyền quyết |
+| 1.2 | vừa | `booking_service.py:2449` | Lịch chưa phân bác sĩ: Python chặn, trigger + lưới cho | chắc chắn |
+| 1.3 | vừa | `booking_service.py:1785` · `doi_lich_nhanh.py:1209` | Dời / đổi lịch bỏ qua luật "khách mới → BS X" | chắc chắn (agent) |
+| 1.4 | vừa | `capacity_service.py:119,265` | Lưới hiểu "đã xếp ca" theo ngày, luật theo tuần | chắc chắn |
+| 1.5 | vừa | `routers/booking.py:304` | Chờ xếp bác sĩ sót lịch khi ca chưa duyệt | chắc về code |
+| 1.6 | vừa | `booking_service.py:345` | Check-in được lịch ngày khác | nghi (màn) |
+| 1.7 | vừa | `booking_service.py:419` | Dời được lịch đã CHECKED_IN sang ngày khác | cần Tuyền quyết |
+| 0.4 | vừa | `routers/booking.py:482,539` | `quote` / `cho-trong-tuan` 500 với UUID rác | chắc chắn |
+| 0.1 | thấp | `routers/queue.py:104` | Hàng chờ dùng `date.today()` | **đã biết** (#522) |
+| 0.2 | thấp | `booking_override_service.py:369` | Luật số chỗ dùng `date.today()` | **đã biết** (bản đồ) |
+| 0.3 | thấp | `booking_override_service.py:287,298,754` | `current_date` phụ thuộc múi của cụm DB | nghi, cần `SHOW timezone` |
+| 0.5 | thấp | `scheduling_service.py:244` | Nơi ghi lịch thứ hai là code chết, bỏ qua mọi luật, bài canh vẫn duyệt | chắc chắn |
+| 1.8 | thấp | `booking_service.py:612` | Dời lịch không chặn trùng giờ cùng khách | chắc chắn (agent) |
+| 1.9 | thấp | `v_viec_cskh` (20261015110000) | Đã xác nhận một lần → việc đóng vĩnh viễn kể cả khi dời | cần Tuyền quyết |
+| 1.10 | thấp | `clinic_policy.py:197` | `except: pass` trong giao dịch che lỗi gốc | chắc chắn (agent) |
+| 1.11 | thấp | `capacity_service.py:367` | Lưới và trigger cắt khung khác nhau khi giờ mở lệch | nghi |
+| 2.6 | thấp | `booking_service.py:2648` | Check-in lại giữ mốc kéo tay cũ → vượt hàng | chắc chắn (agent) |
+| 2.7 | thấp | `sinh_hieu_service.py:146` | Bắt đầu đo trên lượt đã hoàn tác check-in | chắc chắn (agent) |
+| 2.8 | thấp | `20261008700000_co_so_hien_hanh.sql:94` | Check-in lại không đặt lại trạm đầu | nghi |
+| 2.9 | thấp | `bang_hanh_trinh_service.py:36` · `lich_phong_service.py:67` | Ngày `9999-12-31` → 500 | chắc chắn |
+| 2.10 | thấp | lệnh ghi lượt | Lệnh ghi không kiểm cơ sở người bấm | theo thiết kế, Tuyền chốt |
+| 3.7 | thấp | `BanKham.tsx:952` | Luật chọn chế độ Hoàn tất nằm trong TSX, lệch backend | chắc chắn (agent) |
+| 3.8 | thấp | `luot_kham_service.py:1133` | Phiên tư vấn được tính là "đã khám" | nghi |
+| 3.9 | thấp | `hoan_tac_service.py:1023` | Phát `visit.exam_completed` hai lần, đè giờ | chắc chắn (agent) |
+
+"chắc chắn (agent)" = agent đã lần theo code tới đúng dòng; người viết đã kiểm lại các dòng chính của 1.1, 1.2, 2.1, 2.2, 3.1, 0.4, 0.5.
+
+## Việc cần Tuyền
+
+- **Quyết nghiệp vụ:** 1.7 (dời lịch đã check-in?), 1.9 (dời lịch thì gọi xác nhận lại?), 3.6 (lượt Điều trị tự "khám xong"?), 2.10 (lệnh ghi có chặn theo cơ sở?).
+- **Kiểm VPS (chỉ đọc), cho 0.3:** `docker exec clinicai_db psql -U postgres -c 'SHOW timezone'` (và container DB staging). Kỳ vọng `Asia/Ho_Chi_Minh`.
+- **Thứ tự sửa đề xuất** (mỗi việc một PR Mức 2): 3.1 → 2.1 + 2.5 → 1.1 + 2.4 → 2.2 → 2.3 → các lệnh hoàn tác 3.2/3.3/3.4 → 3.5 → nhóm sức chứa 1.2/1.4/1.5 → 0.4.
 
 ## Phạm vi
 
-Đặt lịch (3 nơi ghi lịch, sức chứa, gọi xác nhận, Không đến), tiếp đón / check-in,
-xếp phòng theo lịch trực, nhận khách tại phòng, Bàn khám / Bàn tư vấn, chỉ định,
-Hoàn tất khám, check-out, mở lại lượt, liệu trình, đa cơ sở.
+Đặt lịch (3 nơi ghi lịch, sức chứa, gọi xác nhận, Không đến), tiếp đón / check-in, xếp phòng theo lịch trực, nhận khách tại phòng,
+Bàn khám / Bàn tư vấn, chỉ định, Hoàn tất khám, check-out, mở lại lượt, liệu trình, đa cơ sở. **Không** gồm kho thuốc, quầy thuốc, kho vật tư.
 
 ## Nhóm 0 — Giờ Việt Nam và ngày rác (quét chéo)
 
