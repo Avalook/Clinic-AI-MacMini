@@ -372,6 +372,11 @@ VALUES
     ('a0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-00000000000a', 'DOCTOR'),
     ('b0000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-00000000000b', 'DOCTOR');
 
+-- /rest/v1 đã khoá (20261022900000): authenticated không còn SELECT bảng nào
+-- ngoài staff/clinic_membership. Mở tạm trong giao dịch sẽ ROLLBACK để kiểm
+-- lớp thứ hai — policy vẫn phải lọc đúng nếu một ngày ai đó lỡ GRANT lại.
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
+
 SET LOCAL ROLE authenticated;
 
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);

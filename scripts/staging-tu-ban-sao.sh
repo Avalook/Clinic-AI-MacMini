@@ -112,6 +112,10 @@ SQL
 # while the restored migration ledger says earlier GRANTs are already applied.
 psql_db -f supabase/migrations/20261019100000_harden_public_function_acl.sql
 psql_db -f supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql
+# Khoá /rest/v1 phải đứng SAU câu GRANT ALL ở trên, như trên prod.
+if [ -f supabase/migrations/20261022900000_khoa_rest_v1.sql ]; then
+  psql_db -f supabase/migrations/20261022900000_khoa_rest_v1.sql
+fi
 
 # ---- 4. sổ migration khớp dữ liệu vừa nạp ------------------------------------
 # Sổ ghi (`supabase_migrations.schema_migrations`) KHÔNG nằm trong bản sao lưu

@@ -198,6 +198,9 @@ async def test_realtime_rls_hides_unapproved_orders(kb: KichBan) -> None:
         )
         if not exists:
             await conn.execute(migration.read_text())
+        # /rest/v1 đã khoá (20261022900000): authenticated không còn SELECT
+        # service_order. Mở tạm trong giao dịch để kiểm lớp policy thứ hai.
+        await conn.execute("GRANT SELECT ON service_order TO authenticated")
         for identity in [kb.dieu_duong, kb.le_tan, kb.bac_si, kb.thu_ky]:
             await conn.execute(
                 "INSERT INTO auth.users (id) VALUES ($1::uuid)", identity.auth_user_id
@@ -221,3 +224,4 @@ async def test_realtime_rls_hides_unapproved_orders(kb: KichBan) -> None:
             if identity in [kb.bac_si, kb.thu_ky]:
                 expected.update(draft["order_ids"])
             assert {row["id"] for row in rows} == expected
+        await conn.execute("REVOKE SELECT ON service_order FROM authenticated")

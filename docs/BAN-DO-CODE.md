@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-19 12:17. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-22 04:37. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1906,7 +1906,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `clinic` | `20260730000003_multi_tenant_foundation.sql` | 2 |
 | `clinic_floor` | `20261019150000_clinic_floor.sql` | 0 |
 | `clinic_location` | `20260714000001_baseline_schema.sql` | 4 |
-| `clinic_membership` | `20260730000003_multi_tenant_foundation.sql` | 4 |
+| `clinic_membership` | `20260730000003_multi_tenant_foundation.sql` | 5 |
 | `clinic_room` | `20260804000001_dispatch_rooms.sql` | 5 |
 | `clinic_room_node` | `20260804000013_room_serves_many_nodes.sql` | 1 |
 | `clinic_room_service` | `20261001210000_phong_lam_theo_dich_vu.sql` | 0 |
@@ -2034,7 +2034,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `so_no` | `20261014140000_so_no_hai_chieu.sql` | 1 |
 | `so_no_moc` | `20261014140000_so_no_hai_chieu.sql` | 0 |
 | `so_sua_chi_dinh` | `20261006200000_so_sua_chi_dinh.sql` | 0 |
-| `staff` | `20260714000001_baseline_schema.sql` | 6 |
+| `staff` | `20260714000001_baseline_schema.sql` | 7 |
 | `staff_capability` | `20260714000001_baseline_schema.sql` | 0 |
 | `staff_node` | `20260804000018_staff_node.sql` | 0 |
 | `staff_task` | `20260714000001_baseline_schema.sql` | 1 |
