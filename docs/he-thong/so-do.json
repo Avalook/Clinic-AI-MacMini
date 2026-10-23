@@ -1,0 +1,491 @@
+{
+ "do_luc": "2026-10-23T15:33+07:00",
+ "ghi_chu": "Đo chỉ đọc từ Mac (scripts/do-so-do.py): 24 giờ log Caddy qua docker logs, pg_stat_activity/pg_stat_statements, df. Giờ VN. Không có IP/thông tin khách. p95_ms = /api/*; chi tiết api/trang ở *_chi_tiet; bỏ tệp tĩnh và SSE. cau_cham cộng dồn từ thong_ke_cau_tu.",
+ "prod": {
+  "tong_req_24h": 60366,
+  "req_moi_gio": [
+   37,
+   134,
+   0,
+   0,
+   0,
+   0,
+   2,
+   0,
+   855,
+   3491,
+   3305,
+   1617,
+   281,
+   400,
+   619,
+   1446,
+   2412,
+   3507,
+   8666,
+   10389,
+   15790,
+   6077,
+   1307,
+   31
+  ],
+  "gio_dinh": {
+   "gio": 20,
+   "so_req": 15790,
+   "req_moi_giay_tb": 4.4
+  },
+  "req_moi_giay_dinh": 63,
+  "p95_ms": 539,
+  "p50_ms_chi_tiet": {
+   "api": 63,
+   "trang": 42
+  },
+  "p95_ms_chi_tiet": {
+   "api": 539,
+   "trang": 738
+  },
+  "p99_ms_chi_tiet": {
+   "api": 2639,
+   "trang": 1078
+  },
+  "so_req_tren_3_giay": 156,
+  "trang_thai": {
+   "2xx": 57222,
+   "4xx": 277,
+   "3xx": 2857,
+   "0xx": 10
+  },
+  "tep_tinh": 487,
+  "mo_ket_noi_sse": 1851,
+  "so_may_khac_nhau": 35,
+  "top_duong": [
+   {
+    "duong": "GET /api/luot-kham",
+    "so": 9485,
+    "p95_ms": null,
+    "tb_ms": 197,
+    "tong_giay": 1866
+   },
+   {
+    "duong": "GET /home",
+    "so": 5236,
+    "p95_ms": null,
+    "tb_ms": 313,
+    "tong_giay": 1638
+   },
+   {
+    "duong": "GET /api/cashier",
+    "so": 1435,
+    "p95_ms": null,
+    "tb_ms": 1097,
+    "tong_giay": 1575
+   },
+   {
+    "duong": "GET /customers",
+    "so": 3294,
+    "p95_ms": null,
+    "tb_ms": 189,
+    "tong_giay": 622
+   },
+   {
+    "duong": "GET /reception/queue",
+    "so": 3335,
+    "p95_ms": null,
+    "tb_ms": 157,
+    "tong_giay": 524
+   },
+   {
+    "duong": "GET /api/thong-bao",
+    "so": 2359,
+    "p95_ms": null,
+    "tb_ms": 114,
+    "tong_giay": 270
+   },
+   {
+    "duong": "GET /api/phieu-kham",
+    "so": 3814,
+    "p95_ms": null,
+    "tb_ms": 70,
+    "tong_giay": 269
+   },
+   {
+    "duong": "GET /schedule",
+    "so": 1854,
+    "p95_ms": null,
+    "tb_ms": 135,
+    "tong_giay": 250
+   },
+   {
+    "duong": "GET /do-sinh-hieu",
+    "so": 762,
+    "p95_ms": null,
+    "tb_ms": 189,
+    "tong_giay": 144
+   },
+   {
+    "duong": "GET /api/roster",
+    "so": 2672,
+    "p95_ms": null,
+    "tb_ms": 50,
+    "tong_giay": 134
+   },
+   {
+    "duong": "GET /patients/new",
+    "so": 2379,
+    "p95_ms": null,
+    "tb_ms": 49,
+    "tong_giay": 116
+   },
+   {
+    "duong": "GET /reports",
+    "so": 1719,
+    "p95_ms": null,
+    "tb_ms": 61,
+    "tong_giay": 106
+   },
+   {
+    "duong": "GET /api/cskh/ket-qua/:id/noi-dung",
+    "so": 462,
+    "p95_ms": null,
+    "tb_ms": 203,
+    "tong_giay": 94
+   },
+   {
+    "duong": "GET /phong/:id",
+    "so": 1417,
+    "p95_ms": null,
+    "tb_ms": 56,
+    "tong_giay": 80
+   },
+   {
+    "duong": "GET /api/cskh/khach/:id",
+    "so": 1279,
+    "p95_ms": null,
+    "tb_ms": 62,
+    "tong_giay": 79
+   }
+  ]
+ },
+ "staging": {
+  "tong_req_24h": 970,
+  "req_moi_gio": [
+   0,
+   165,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   8,
+   0,
+   0,
+   0,
+   0,
+   26,
+   153,
+   0,
+   0,
+   0,
+   278,
+   0,
+   0,
+   62,
+   278
+  ],
+  "gio_dinh": {
+   "gio": 19,
+   "so_req": 278,
+   "req_moi_giay_tb": 0.1
+  },
+  "req_moi_giay_dinh": 29,
+  "p95_ms": 143,
+  "p50_ms_chi_tiet": {
+   "api": 59,
+   "trang": 4
+  },
+  "p95_ms_chi_tiet": {
+   "api": 143,
+   "trang": 47
+  },
+  "p99_ms_chi_tiet": {
+   "api": 201,
+   "trang": 220
+  },
+  "so_req_tren_3_giay": 0,
+  "trang_thai": {
+   "2xx": 317,
+   "3xx": 627,
+   "4xx": 26
+  },
+  "tep_tinh": 45,
+  "mo_ket_noi_sse": 10,
+  "so_may_khac_nhau": 1,
+  "top_duong": [
+   {
+    "duong": "GET /home",
+    "so": 18,
+    "p95_ms": null,
+    "tb_ms": 258,
+    "tong_giay": 5
+   },
+   {
+    "duong": "GET /api/luot-kham",
+    "so": 37,
+    "p95_ms": null,
+    "tb_ms": 78,
+    "tong_giay": 3
+   },
+   {
+    "duong": "GET /api/thong-bao",
+    "so": 14,
+    "p95_ms": null,
+    "tb_ms": 115,
+    "tong_giay": 2
+   },
+   {
+    "duong": "POST /login",
+    "so": 14,
+    "p95_ms": null,
+    "tb_ms": 84,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /login",
+    "so": 85,
+    "p95_ms": null,
+    "tb_ms": 11,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /forgot-password",
+    "so": 36,
+    "p95_ms": null,
+    "tb_ms": 21,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /reception/queue",
+    "so": 6,
+    "p95_ms": null,
+    "tb_ms": 96,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /api/phan-quyen",
+    "so": 10,
+    "p95_ms": null,
+    "tb_ms": 56,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /api/roster",
+    "so": 14,
+    "p95_ms": null,
+    "tb_ms": 40,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /customers",
+    "so": 6,
+    "p95_ms": null,
+    "tb_ms": 90,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /phan-quyen",
+    "so": 6,
+    "p95_ms": null,
+    "tb_ms": 88,
+    "tong_giay": 1
+   },
+   {
+    "duong": "GET /nhan-su",
+    "so": 2,
+    "p95_ms": null,
+    "tb_ms": 205,
+    "tong_giay": 0
+   },
+   {
+    "duong": "GET /ban-kham",
+    "so": 1,
+    "p95_ms": null,
+    "tb_ms": 265,
+    "tong_giay": 0
+   },
+   {
+    "duong": "GET /reports",
+    "so": 3,
+    "p95_ms": null,
+    "tb_ms": 62,
+    "tong_giay": 0
+   },
+   {
+    "duong": "GET /settings/clinic-config",
+    "so": 4,
+    "p95_ms": null,
+    "tb_ms": 43,
+    "tong_giay": 0
+   }
+  ]
+ },
+ "db": {
+  "ket_noi": 21,
+  "max_ket_noi": 100,
+  "dung_luong_gb": 0.48,
+  "ket_noi_theo_trang_thai": "",
+  "bang_to_mb": "ket_qua:47.0,ban_ghi_that:31.1,form_instance:29.5,domain_event:25.8,ke_thuoc:24.1,dich_vu:23.0,prescription:22.4,service_order:22.4",
+  "cau_cham": [
+   {
+    "so_lan": 97449,
+    "tb_ms": 175,
+    "tong_giay": 17052,
+    "cau": "WITH dong AS ( SELECT bl.id::text AS line_id, bl.visit_id::text AS line_visit_id, "
+   },
+   {
+    "so_lan": 19936,
+    "tb_ms": 261,
+    "tong_giay": 5208,
+    "cau": "WITH tuan AS ( SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id, "
+   },
+   {
+    "so_lan": 48889,
+    "tb_ms": 78,
+    "tong_giay": 3830,
+    "cau": "WITH o AS MATERIALIZED ( SELECT o.id, o.clinic_id, o.visit_id, o.node_code, o.service_"
+   },
+   {
+    "so_lan": 285759,
+    "tb_ms": 13,
+    "tong_giay": 3661,
+    "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+   },
+   {
+    "so_lan": 12224,
+    "tb_ms": 277,
+    "tong_giay": 3387,
+    "cau": "WITH tuan AS ( SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id, "
+   },
+   {
+    "so_lan": 21528,
+    "tb_ms": 157,
+    "tong_giay": 3384,
+    "cau": "SELECT count(DISTINCT x.pid) FROM ( SELECT v.clinic_patient_id AS pid "
+   },
+   {
+    "so_lan": 48881,
+    "tb_ms": 56,
+    "tong_giay": 2744,
+    "cau": "WITH o AS MATERIALIZED ( SELECT o.id, o.clinic_id, o.visit_id, o.node_code, o.service_"
+   },
+   {
+    "so_lan": 481087,
+    "tb_ms": 6,
+    "tong_giay": 2652,
+    "cau": "SELECT r.id::text AS room_id, r.code, r.sort, -- Phòng chuyên ★ (07/10/2026): chỉ đ"
+   }
+  ],
+  "thong_ke_cau_tu": "2026-09-16 13:11:31.364364+07"
+ },
+ "db_staging": {
+  "ket_noi": 8,
+  "max_ket_noi": 60,
+  "dung_luong_gb": 0.4,
+  "ket_noi_theo_trang_thai": "",
+  "bang_to_mb": "form_instance:50.0,domain_event:44.4,event_log:35.2,service_order:30.4,prescription:23.5,luot_dong_thoi_gian:21.3,form_instance_lich_su:20.5,phieu_kham_luot:17.1",
+  "cau_cham": [
+   {
+    "so_lan": 5,
+    "tb_ms": 998562,
+    "tong_giay": 4993,
+    "cau": "DO $$ DECLARE r record; set_ds text; where_ds text; BEGIN FOR r IN SELECT "
+   },
+   {
+    "so_lan": 39806,
+    "tb_ms": 13,
+    "tong_giay": 534,
+    "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+   },
+   {
+    "so_lan": 42287,
+    "tb_ms": 12,
+    "tong_giay": 522,
+    "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+   },
+   {
+    "so_lan": 41000,
+    "tb_ms": 12,
+    "tong_giay": 503,
+    "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+   },
+   {
+    "so_lan": 39108,
+    "tb_ms": 12,
+    "tong_giay": 485,
+    "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+   },
+   {
+    "so_lan": 21038,
+    "tb_ms": 11,
+    "tong_giay": 241,
+    "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+   },
+   {
+    "so_lan": 17570,
+    "tb_ms": 12,
+    "tong_giay": 210,
+    "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+   },
+   {
+    "so_lan": 1413,
+    "tb_ms": 103,
+    "tong_giay": 145,
+    "cau": "SELECT (SELECT count(*) FROM loi_nhom WHERE trang_thai = $4 AND lan_"
+   }
+  ],
+  "thong_ke_cau_tu": "2026-10-18 16:05:34.148837+07"
+ },
+ "o_dia": {
+  "vps_goc_pct": 80,
+  "vps_goc_con_gb": 10,
+  "cfs_pct": 7,
+  "cfs_con_gb": 986
+ },
+ "may_vps": {
+  "nhan": 4,
+  "tai_1_5_15": "1.56 1.15 0.92",
+  "ram_mb": 7952,
+  "ram_con_mb": 3789
+ },
+ "sao_luu": {
+  "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_153006.sql.gz",
+  "tuoi_gio": 0.1,
+  "hang_dem": {
+   "thu_muc": "/home/clinicai/backups/clinicai",
+   "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_021536.sql.gz",
+   "tuoi_gio": 13.3,
+   "co_mb": 32,
+   "so_tep": 50
+  },
+  "moi_15_phut": {
+   "thu_muc": "/home/clinicai/backups/clinicai-15p",
+   "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_153006.sql.gz",
+   "tuoi_gio": 0.1,
+   "co_mb": 33,
+   "so_tep": 556
+  },
+  "cfs": {
+   "thu_muc": "/mnt/viettel-cfs/db-backups",
+   "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_153006.sql.gz",
+   "tuoi_gio": 0.1,
+   "co_mb": 33,
+   "so_tep": 4362
+  },
+  "mac": {
+   "tep": "clinicai_production_clinicai-db_20261023_021536.sql.gz",
+   "tuoi_gio": 13.3,
+   "co_mb": 32
+  }
+ }
+}

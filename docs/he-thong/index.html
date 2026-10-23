@@ -1,0 +1,3271 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hệ thống ClinicAI</title>
+<meta name="description" content="Môi trường, đường đi của request, bảo mật và bảng điều khiển (ảnh chụp) của ClinicAI — sinh bởi scripts/he-thong-data.py.">
+<!--
+  TRANG TỰ CHỨA: không CDN, không fetch. Dữ liệu nằm trong <script id="du-lieu">
+  bên dưới, do scripts/he-thong-data.py ghi vào — đừng sửa tay khối ấy, sửa
+  docs/he-thong/viet-tay.json rồi chạy lại script.
+-->
+<style>
+:root {
+  --nen: #fcfcfb; --mat: #ffffff; --mat2: #f3f2ee; --vien: #e1e0d9;
+  --chu: #1b1b19; --chu2: #55534c;
+  --nhan: #2f5bd3; --nhan-nen: #eaf0fd;
+  --do: #d03b3b; --vang: #fab219; --xanh: #0ca30c;
+  --do-nen: #fbecec; --vang-nen: #fff6de; --xanh-nen: #e8f6e8;
+  --bong: 0 1px 2px rgba(11,11,11,.06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --nen: #1a1a19; --mat: #222220; --mat2: #2b2b29; --vien: #3a3a37;
+    --chu: #ecebe6; --chu2: #b4b2a9;
+    --nhan: #8fa9ff; --nhan-nen: #252e4d;
+    --do-nen: #3a2020; --vang-nen: #3a3119; --xanh-nen: #1c331c;
+    --bong: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --nen: #1a1a19; --mat: #222220; --mat2: #2b2b29; --vien: #3a3a37;
+  --chu: #ecebe6; --chu2: #b4b2a9;
+  --nhan: #8fa9ff; --nhan-nen: #252e4d;
+  --do-nen: #3a2020; --vang-nen: #3a3119; --xanh-nen: #1c331c;
+  --bong: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--nen); color: var(--chu);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-wrap: anywhere;
+}
+a { color: var(--nhan); }
+code, .ma { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+.ma { color: var(--chu2); }
+h1 { font-size: 24px; margin: 0 0 4px; line-height: 1.25; }
+h2 { font-size: 20px; margin: 28px 0 10px; line-height: 1.3; }
+h3 { font-size: 17px; margin: 0 0 8px; line-height: 1.35; }
+p { margin: 6px 0; }
+ul { margin: 6px 0; padding-left: 20px; }
+li { margin: 3px 0; }
+.khung { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+header.dau { border-bottom: 1px solid var(--vien); background: var(--mat); }
+header.dau .khung { padding-top: 16px; padding-bottom: 12px; }
+.phu { color: var(--chu2); font-size: 14px; }
+.hang-nut { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+button, .nut {
+  font: inherit; font-size: 14px; min-height: 36px; padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--vien); background: var(--mat); color: var(--chu); cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+button:hover, .nut:hover { background: var(--mat2); }
+button[aria-pressed="true"], button[aria-selected="true"] { background: var(--nhan-nen); border-color: var(--nhan); color: var(--chu); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--nhan); outline-offset: 2px; }
+nav.tab { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0; }
+nav.tab button { font-weight: 600; }
+.chu-giai { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; color: var(--chu2); margin-top: 8px; }
+
+/* chấm trạng thái: luôn đi kèm biểu tượng + chữ, không để màu nói một mình */
+.cham { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; white-space: nowrap; }
+.cham i { font-style: normal; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 14px; line-height: 1; font-weight: 700; color: #fff; }
+.cham.do i { background: var(--do); }
+.cham.vang i { background: var(--vang); color: #0b0b0b; border-radius: 3px; }
+.cham.xanh i { background: var(--xanh); }
+.the-nguon { display: inline-block; font-size: 14px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--vien); color: var(--chu2); white-space: nowrap; }
+.the-nguon.da-do { border-color: var(--nhan); color: var(--nhan); }
+
+.the { background: var(--mat); border: 1px solid var(--vien); border-radius: 12px; padding: 14px 16px; box-shadow: var(--bong); }
+.luoi { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.luoi-o { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); margin: 10px 0 14px; }
+.o-so { background: var(--mat); border: 1px solid var(--vien); border-radius: 12px; padding: 12px 14px; border-top: 4px solid var(--vien); }
+.o-so.do { border-top-color: var(--do); } .o-so.vang { border-top-color: var(--vang); } .o-so.xanh { border-top-color: var(--xanh); }
+.o-so .so { font-size: 24px; font-weight: 700; line-height: 1.2; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.o-so .nhan { font-size: 14px; color: var(--chu2); }
+
+.ds { list-style: none; padding: 0; margin: 8px 0; }
+.ds li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; padding: 8px 0; border-top: 1px solid var(--vien); }
+.ds li:first-child { border-top: 0; }
+.ds .noi { grid-column: 2; font-size: 14px; color: var(--chu2); }
+.ds .noi.lech { color: var(--do); }
+
+/* ô đề xuất kiểu bình luận bên lề — bật/tắt ở đầu trang */
+.co-bl { display: grid; gap: 12px 18px; grid-template-columns: 1fr; }
+@media (min-width: 1000px) { .co-bl { grid-template-columns: minmax(0, 1fr) 300px; } }
+.an-bl .co-bl { grid-template-columns: 1fr; }
+.an-bl .bl { display: none; }
+.bl { align-self: start; background: var(--nhan-nen); border-left: 4px solid var(--nhan); border-radius: 4px 10px 10px 4px; padding: 10px 12px; font-size: 15px; }
+.bl b.tieu { display: block; font-size: 14px; color: var(--chu2); margin-bottom: 4px; }
+.bl p { margin: 6px 0; }
+.muc { display: inline-block; font-size: 14px; font-weight: 700; padding: 0 7px; border-radius: 6px; border: 1px solid var(--nhan); color: var(--nhan); margin-right: 4px; }
+
+/* sơ đồ máy */
+.may h3 { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.may .vt { padding: 8px 0; border-top: 1px dashed var(--vien); }
+.may .vt:first-of-type { border-top: 0; }
+.noi-may { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); margin: 12px 0; }
+.noi-may div { font-size: 15px; background: var(--mat2); border-radius: 8px; padding: 8px 10px; }
+.lan { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin-top: 10px; }
+.lan > div { border: 1px solid var(--vien); border-radius: 10px; padding: 10px; background: var(--mat2); }
+.chip-dv { display: inline-flex; flex-direction: column; margin: 3px; padding: 4px 8px; border-radius: 8px; background: var(--mat); border: 1px solid var(--vien); font-size: 14px; line-height: 1.3; }
+.chip-dv small { color: var(--chu2); font-size: 14px; }
+.chip-dv.tat { opacity: .55; text-decoration: line-through; }
+
+/* chuỗi đường đi */
+.chuoi { display: flex; flex-direction: column; gap: 0; margin: 12px 0; }
+.buoc { position: relative; background: var(--mat); border: 1px solid var(--vien); border-radius: 10px; padding: 10px 12px; }
+.buoc + .buoc { margin-top: 28px; }
+.buoc + .buoc::before { content: "↓"; position: absolute; top: -26px; left: 18px; font-size: 18px; color: var(--chu2); }
+.buoc b { display: block; }
+@media (min-width: 1000px) {
+  .chuoi { flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: 0; }
+  .buoc { flex: 1 1 180px; max-width: 260px; }
+  .buoc + .buoc { margin-top: 0; margin-left: 30px; }
+  .buoc + .buoc::before { content: "→"; top: 40%; left: -24px; }
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-top: 1px solid var(--vien); }
+th { font-size: 14px; color: var(--chu2); font-weight: 600; }
+.bang-cuon { overflow-x: auto; border: 1px solid var(--vien); border-radius: 10px; background: var(--mat); }
+@media (max-width: 700px) {
+  table.xep thead { display: none; }
+  table.xep tr { display: block; border-top: 1px solid var(--vien); padding: 6px 0; }
+  table.xep td { display: block; border: 0; padding: 3px 10px; }
+  table.xep td[data-nhan]::before { content: attr(data-nhan) ": "; color: var(--chu2); font-size: 14px; }
+}
+
+.thanh { height: 10px; border-radius: 4px; background: var(--nhan); }
+.ngan-sach li { grid-template-columns: minmax(0, 1fr) 40px; }
+.ngan-sach .thanh-nen { grid-column: 1 / -1; background: var(--mat2); border-radius: 4px; }
+
+.bieu-do { position: relative; }
+.bieu-do svg { width: 100%; height: auto; display: block; }
+.bieu-do .tip { position: absolute; pointer-events: none; background: var(--chu); color: var(--nen); font-size: 14px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -110%); display: none; }
+.chua-do { border: 2px dashed var(--vien); border-radius: 12px; padding: 14px; color: var(--chu2); }
+.bao { border-radius: 10px; padding: 10px 14px; margin: 12px 0; border-left: 4px solid var(--nhan); background: var(--nhan-nen); }
+.bao.vang { border-left-color: var(--vang); background: var(--vang-nen); }
+pre { white-space: pre-wrap; word-break: break-word; background: var(--mat2); padding: 10px; border-radius: 8px; font-size: 14px; }
+footer { border-top: 1px solid var(--vien); margin-top: 36px; padding: 16px 0 40px; color: var(--chu2); font-size: 15px; }
+[hidden] { display: none !important; }
+@media print { nav.tab, .hang-nut { display: none; } [role="tabpanel"][hidden] { display: block !important; } }
+</style>
+</head>
+<body>
+<header class="dau">
+  <div class="khung">
+    <h1>Hệ thống ClinicAI — nhìn từ trên xuống</h1>
+    <div class="phu" id="dong-sinh">…</div>
+    <div class="chu-giai" aria-label="Chú giải">
+      <span class="cham do"><i>!</i>Rủi ro / chậm</span>
+      <span class="cham vang"><i>▲</i>Cần để ý</span>
+      <span class="cham xanh"><i>✓</i>Ổn</span>
+      <span><span class="the-nguon">theo code</span> đọc từ cấu hình trong repo</span>
+      <span><span class="the-nguon da-do">đã đo</span> số đo thật, có ghi ngày</span>
+      <span><span class="muc">Mức 2</span> mức việc theo CLAUDE.md (0–3)</span>
+    </div>
+    <div class="hang-nut">
+      <button type="button" id="nut-bl" aria-pressed="true">Đề xuất bên lề: bật</button>
+      <button type="button" id="nut-mau">Đổi sáng / tối</button>
+      <a class="nut" id="lk-lego" href="../lego/index.html">Bản đồ lego thao tác →</a>
+      <a class="nut" href="../so-hoc/index.html">Sổ học →</a>
+    </div>
+    <nav class="tab" role="tablist" aria-label="Các tab">
+      <button type="button" role="tab" data-tab="moi-truong">1 · Môi trường &amp; request</button>
+      <button type="button" role="tab" data-tab="luong">2 · Lượng request &amp; tài nguyên</button>
+      <button type="button" role="tab" data-tab="bao-mat">3 · Bảo mật</button>
+      <button type="button" role="tab" data-tab="bang">4 · Bảng điều khiển</button>
+      <button type="button" role="tab" data-tab="hang-cho">5 · Có cần Redis / RabbitMQ?</button>
+    </nav>
+  </div>
+</header>
+
+<main class="khung">
+  <section role="tabpanel" id="moi-truong" hidden></section>
+  <section role="tabpanel" id="luong" hidden></section>
+  <section role="tabpanel" id="bao-mat" hidden></section>
+  <section role="tabpanel" id="bang" hidden></section>
+  <section role="tabpanel" id="hang-cho" hidden></section>
+</main>
+<footer><div class="khung" id="chan"></div></footer>
+
+<script id="du-lieu" type="application/json">
+{
+ "sinh_luc": "2026-10-23",
+ "git": {
+  "sha": "00bde524",
+  "ngay_commit": "2026-10-22"
+ },
+ "theo_code": {
+  "compose": {
+   "ung_dung": {
+    "tep": "docker-compose.yml",
+    "dich_vu": {
+     "caddy": {
+      "image": "caddy:2-alpine",
+      "restart": "unless-stopped",
+      "mem_limit": "128m",
+      "ports": [
+       "0.0.0.0:80:80",
+       "0.0.0.0:443:443"
+      ]
+     },
+     "dashboard": {
+      "image": "clinicai-dashboard:latest",
+      "restart": "unless-stopped",
+      "mem_limit": "1g"
+     },
+     "media-quyen": {
+      "image": "clinicai-api:latest",
+      "mem_limit": "32m",
+      "restart": "no"
+     },
+     "api": {
+      "image": "clinicai-api:latest",
+      "restart": "unless-stopped",
+      "mem_limit": "1g"
+     },
+     "worker": {
+      "image": "clinicai-api:latest",
+      "profiles": [
+       "workers"
+      ],
+      "restart": "unless-stopped",
+      "mem_limit": "256m",
+      "command": [
+       "python",
+       "-m",
+       "clinicai.worker"
+      ]
+     },
+     "pos-relay": {
+      "image": "clinicai-api:latest",
+      "profiles": [
+       "pos"
+      ],
+      "restart": "unless-stopped",
+      "mem_limit": "256m",
+      "command": [
+       "python",
+       "-m",
+       "clinicai.worker",
+       "--pos-relay"
+      ]
+     },
+     "su-kien": {
+      "image": "clinicai-api:latest",
+      "restart": "unless-stopped",
+      "mem_limit": "256m",
+      "command": [
+       "python",
+       "-m",
+       "clinicai.worker",
+       "--su-kien"
+      ]
+     },
+     "day-tep": {
+      "image": "clinicai-api:latest",
+      "restart": "unless-stopped",
+      "mem_limit": "192m",
+      "command": [
+       "python",
+       "-m",
+       "clinicai.worker",
+       "--day-tep"
+      ]
+     },
+     "notification-relay": {
+      "image": "clinicai-api:latest",
+      "profiles": [
+       "workers",
+       "notifications"
+      ],
+      "restart": "unless-stopped",
+      "mem_limit": "256m",
+      "command": [
+       "python",
+       "-m",
+       "clinicai.worker",
+       "--relay"
+      ]
+     },
+     "rabbitmq": {
+      "image": "rabbitmq:3.13-management-alpine",
+      "profiles": [
+       "workers"
+      ],
+      "restart": "unless-stopped",
+      "mem_limit": "512m"
+     },
+     "uptime-kuma": {
+      "image": "louislam/uptime-kuma:1",
+      "restart": "unless-stopped",
+      "mem_limit": "256m",
+      "ports": [
+       "127.0.0.1:3001:3001"
+      ]
+     },
+     "dozzle": {
+      "image": "amir20/dozzle:v10.6.9",
+      "restart": "unless-stopped",
+      "mem_limit": "128m",
+      "ports": [
+       "127.0.0.1:8888:8080"
+      ]
+     },
+     "cloudflared": {
+      "image": "cloudflare/cloudflared:latest",
+      "profiles": [
+       "cloudflare"
+      ],
+      "restart": "unless-stopped",
+      "mem_limit": "128m"
+     }
+    }
+   },
+   "supabase": {
+    "tep": "docker-compose.supabase.yml",
+    "dich_vu": {
+     "db": {
+      "image": "postgres:17",
+      "container_name": "${SUPABASE_PREFIX:-clinicai}_db",
+      "command": [
+       "postgres",
+       "-c",
+       "wal_level=logical",
+       "-c",
+       "max_replication_slots=8",
+       "-c",
+       "max_wal_senders=8",
+       "-c",
+       "shared_preload_libraries=pg_stat_statements"
+      ],
+      "ports": [
+       "127.0.0.1:54322:5432"
+      ]
+     },
+     "auth": {
+      "image": "supabase/gotrue:v2.177.0",
+      "container_name": "${SUPABASE_PREFIX:-clinicai}_auth"
+     },
+     "rest": {
+      "image": "postgrest/postgrest:v12.2.3",
+      "container_name": "${SUPABASE_PREFIX:-clinicai}_rest"
+     },
+     "realtime": {
+      "image": "supabase/realtime:v2.34.47",
+      "container_name": "${SUPABASE_PREFIX:-clinicai}_realtime"
+     },
+     "auth-guard": {
+      "image": "nginx:1.27-alpine",
+      "container_name": "${SUPABASE_PREFIX:-clinicai}_auth_guard"
+     },
+     "gateway": {
+      "image": "caddy:2-alpine",
+      "container_name": "${SUPABASE_PREFIX:-clinicai}_supabase_gateway",
+      "ports": [
+       "127.0.0.1:54321:8000"
+      ]
+     }
+    }
+   },
+   "ung_dung_staging": {
+    "tep": "docker-compose.staging.yml",
+    "dich_vu": {
+     "caddy": {
+      "mem_limit": "64m"
+     },
+     "dashboard": {
+      "mem_limit": "288m"
+     },
+     "api": {
+      "mem_limit": "384m"
+     },
+     "su-kien": {
+      "mem_limit": "160m"
+     },
+     "media-quyen": {},
+     "day-tep": {
+      "profiles": [
+       "tat-o-staging"
+      ]
+     },
+     "uptime-kuma": {
+      "profiles": [
+       "tat-o-staging"
+      ]
+     },
+     "dozzle": {
+      "profiles": [
+       "tat-o-staging"
+      ]
+     }
+    }
+   },
+   "supabase_staging": {
+    "tep": "docker-compose.supabase.staging.yml",
+    "dich_vu": {
+     "db": {
+      "mem_limit": "384m",
+      "command": [
+       "postgres",
+       "-c",
+       "shared_preload_libraries=pg_stat_statements",
+       "-c",
+       "shared_buffers=64MB",
+       "-c",
+       "max_connections=60",
+       "-c",
+       "max_locks_per_transaction=256"
+      ]
+     },
+     "auth": {
+      "mem_limit": "64m"
+     },
+     "rest": {
+      "mem_limit": "96m"
+     },
+     "realtime": {
+      "profiles": [
+       "realtime-tat-o-staging"
+      ]
+     },
+     "gateway": {
+      "mem_limit": "48m"
+     },
+     "auth-guard": {
+      "mem_limit": "32m"
+     }
+    }
+   }
+  },
+  "caddy": [
+   {
+    "site": "http://localhost, http://127.0.0.1",
+    "duong": "/health",
+    "dich": "Caddy tự trả 200",
+    "noi": "caddy/Caddyfile:44"
+   },
+   {
+    "site": "đoạn dùng chung (tai_nguyen_tinh) — site nào import thì có",
+    "duong": "/manifest.webmanifest /favicon.ico /icon.png /apple-icon.png /pwa/* /logo.png /clinicai-logo.svg",
+    "dich": "dashboard:3000",
+    "noi": "caddy/Caddyfile:80"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "/health",
+    "dich": "Caddy tự trả 200",
+    "noi": "caddy/Caddyfile:149"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "/auth/v1/token*",
+    "dich": "clinicai_auth_guard:80",
+    "noi": "caddy/Caddyfile:188"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "/auth/v1/* /rest/v1/* /realtime/v1/*",
+    "dich": "clinicai_supabase_gateway:8000",
+    "noi": "caddy/Caddyfile:193"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "mọi đường còn lại",
+    "dich": "dashboard:3000",
+    "noi": "caddy/Caddyfile:201"
+   },
+   {
+    "site": "giamsat.dr4women.io.vn",
+    "duong": "/health",
+    "dich": "Caddy tự trả 200",
+    "noi": "caddy/Caddyfile:242"
+   },
+   {
+    "site": "giamsat.dr4women.io.vn",
+    "duong": "mọi đường còn lại",
+    "dich": "dashboard:3000",
+    "noi": "caddy/Caddyfile:248"
+   }
+  ],
+  "caddy_staging": [
+   {
+    "site": "http://localhost, http://127.0.0.1",
+    "duong": "/health",
+    "dich": "Caddy tự trả 200",
+    "noi": "caddy/Caddyfile.staging:35"
+   },
+   {
+    "site": "đoạn dùng chung (tai_nguyen_tinh) — site nào import thì có",
+    "duong": "/manifest.webmanifest /favicon.ico /icon.png /apple-icon.png /pwa/* /logo.png /clinicai-logo.svg",
+    "dich": "dashboard:3000",
+    "noi": "caddy/Caddyfile.staging:46"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "/health",
+    "dich": "Caddy tự trả 200",
+    "noi": "caddy/Caddyfile.staging:87"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "/auth/v1/token*",
+    "dich": "clinicai_stg_auth_guard:80",
+    "noi": "caddy/Caddyfile.staging:92"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "/auth/v1/* /rest/v1/* /realtime/v1/*",
+    "dich": "clinicai_stg_supabase_gateway:8000",
+    "noi": "caddy/Caddyfile.staging:97"
+   },
+   {
+    "site": "‹SITE_ADDRESS›",
+    "duong": "mọi đường còn lại",
+    "dich": "dashboard:3000",
+    "noi": "caddy/Caddyfile.staging:103"
+   }
+  ],
+  "systemd": [
+   {
+    "ten": "clinicai-backup-15p",
+    "mo_ta": "Sao lưu ClinicAI 15 phút/lần trong giờ mở cửa (7:00–22:00)",
+    "lich": [
+     "*-*-* 07..21:00,15,30,45:00",
+     "*-*-* 22:00:00"
+    ],
+    "noi": "scripts/systemd/clinicai-backup-15p.timer"
+   },
+   {
+    "ten": "clinicai-backup",
+    "mo_ta": "Chạy sao lưu ClinicAI hằng đêm",
+    "lich": [
+     "*-*-* 02:15:00"
+    ],
+    "noi": "scripts/systemd/clinicai-backup.timer"
+   },
+   {
+    "ten": "clinicai-ops-status",
+    "mo_ta": "Chụp tình trạng máy chủ ClinicAI mỗi phút",
+    "lich": [
+     "1min"
+    ],
+    "noi": "scripts/systemd/clinicai-ops-status.timer"
+   },
+   {
+    "ten": "clinicai-staging-nap",
+    "mo_ta": "Nạp lại dữ liệu STAGING mỗi đêm (sau sao lưu prod 02:15)",
+    "lich": [
+     "*-*-* 03:30:00"
+    ],
+    "noi": "scripts/systemd/clinicai-staging-nap.timer"
+   }
+  ],
+  "so_migration": 374,
+  "so_route_next_api": 61
+ },
+ "viet_tay": {
+  "_doc": "Phần VIẾT TAY của docs/he-thong/index.html. Sửa tệp này rồi chạy: python3 scripts/he-thong-data.py [--so-do so-do.json]. 'neo' = {tep, tim}: script tự tìm số dòng. mau: do (rủi ro/chậm) · vang (cần để ý) · xanh (ổn). muc: 0–3 theo CLAUDE.md.",
+  "repo": "https://github.com/Avalook/Clinic-AI-MacMini",
+  "lego": "../lego/index.html",
+  "may": [
+   {
+    "id": "mac",
+    "ten": "Máy Mac của Tuyền",
+    "phu": "máy làm việc — không chạy prod · Docker (Colima) 8 CPU / 16 GB / 100 GB",
+    "vai_tro": [
+     {
+      "ten": "Bản chạy thử để code",
+      "chu": "Cả hệ thống chạy trên máy với khách giả DEMO-* và tài khoản @dr4women.local.",
+      "nguon": "scripts/dev-up.sh"
+     },
+     {
+      "ten": "CI chạy trên máy",
+      "chu": "Chạy lần lượt 5 nhóm kiểm (lint, kiểu, test, migration, giao diện), có khoá xếp hàng; xanh mới được merge.",
+      "nguon": "scripts/ci-may.sh --bao-github"
+     },
+     {
+      "ten": "Test nhanh",
+      "chu": "Mỗi lần chạy nhân bản một database sạch tạm thời, áp migration của nhánh, chạy xong tự xoá.",
+      "nguon": "scripts/test-nhanh.sh · chung_test_db :55600"
+     },
+     {
+      "ten": "Staging trên Mac",
+      "chu": "Nạp bản sao lưu đêm của prod (CHƯA che thông tin khách) để đăng nhập bằng tài khoản thật. Cấm mở đường hầm ra ngoài.",
+      "nguon": "scripts/staging-tu-ban-sao.sh"
+     },
+     {
+      "ten": "Nhận bản sao lưu",
+      "chu": "Kéo bản sao lưu từ VPS về lúc 0:30 và 6:30 — bản sao phải nằm ở máy khác với thứ nó sao lưu.",
+      "nguon": "~/Projects/ClinicAI-Backups/keo-ve.sh · TRANG-THAI.txt"
+     }
+    ]
+   },
+   {
+    "id": "vps",
+    "ten": "VPS clinic-vps-moi",
+    "phu": "222.255.214.133 · 4 lõi · 8 GB RAM · 48 GB đĩa · prod và staging CHUNG một máy",
+    "vai_tro": [
+     {
+      "ten": "Prod — đang đón bệnh nhân",
+      "chu": "https://dr4women.io.vn · thư mục /home/clinicai/clinicai · nhánh main · hai nhóm container: ứng dụng (clinicai_prod) và Supabase tự dựng (clinicai_db).",
+      "nguon": "docker-compose.yml · docker-compose.supabase.yml"
+     },
+     {
+      "ten": "Staging — bản thử",
+      "chu": "https://staging.dr4women.io.vn · /home/clinicai/clinicai-staging · database, Supabase, khoá, mạng RIÊNG; dữ liệu là bản sao prod đã che, nạp lại mỗi đêm 03:30. Bị giới hạn RAM/CPU và bị hệ điều hành giết trước nếu máy hết RAM.",
+      "nguon": "docs/STAGING.md · docker-compose.staging.yml"
+     },
+     {
+      "ten": "Lịch chạy tự động",
+      "chu": "Đều là systemd timer (không crontab): sao lưu 15 phút/lần 7–22h, sao lưu đêm 02:15, chụp tình trạng máy cho /ops mỗi phút, nạp staging 03:30. Riêng clinicai-traffic-report (nuôi /traffic) nằm NGOÀI git.",
+      "nguon": "scripts/systemd/"
+     },
+     {
+      "ten": "Theo dõi",
+      "chu": "Uptime Kuma (canh trang sống/chết) và Dozzle (xem log) chỉ nghe 127.0.0.1 — vào bằng ssh -L. Lỗi ứng dụng gom ở /ops (kho lỗi + canh gác mỗi phút trong su-kien).",
+      "nguon": "docs/VAN-HANH-MAY-CHU.md"
+     }
+    ]
+   },
+   {
+    "id": "cfs",
+    "ten": "Ổ mạng Viettel CFS",
+    "phu": "/mnt/viettel-cfs · gắn vào VPS qua SMB 3.1.1 có mã hoá đường truyền (seal)",
+    "vai_tro": [
+     {
+      "ten": "Kho ảnh / video / PDF kết quả",
+      "chu": "Tải lên ghi vào ổ VPS trước (nhanh), container day-tep đẩy sang CFS khi ổ ổn, kiểm sha256 rồi mới dọn bản trên VPS.",
+      "nguon": "docker-compose.yml (day-tep)"
+     },
+     {
+      "ten": "Bản sao lưu ngoài máy",
+      "chu": "Sau mỗi lần sao lưu, script đẩy bản mới nhất lên CFS.",
+      "nguon": "scripts/day-sao-luu-len-viettel-storage.sh"
+     }
+    ]
+   },
+   {
+    "id": "github",
+    "ten": "GitHub",
+    "phu": "kho code Avalook/Clinic-AI-MacMini",
+    "vai_tro": [
+     {
+      "ten": "Chỉ giữ code và PR",
+      "chu": "Không có CD, GitHub Actions không còn chạy. Kết quả CI máy gửi lên dạng trạng thái ci-may/<job>. Deploy prod làm tay trên VPS, ghim đúng SHA đã thử.",
+      "nguon": "CLAUDE.md · skill len-prod"
+     }
+    ]
+   }
+  ],
+  "thanh_phan": [
+   {
+    "ten": "Caddy (cổng ngoài)",
+    "compose": [
+     "ung_dung",
+     "caddy"
+    ],
+    "lam_gi": "Cửa duy nhất mở ra Internet (80/443). Tự xin và gia hạn chứng chỉ Let's Encrypt, nén, gắn header bảo mật, ghi log truy cập (đã cắt ?… để không lưu SĐT/tên), rồi chia request theo đường.",
+    "tien_trinh": "1 tiến trình",
+    "ket_noi": "không chạm database"
+   },
+   {
+    "ten": "Next.js (dashboard)",
+    "compose": [
+     "ung_dung",
+     "dashboard"
+    ],
+    "lam_gi": "Chỉ là giao diện: dựng trang ở máy chủ (SSR) và có 61 nhóm route /api/* chỉ để chuyển tiếp sang FastAPI kèm phiên đăng nhập. Luồng SSE cũng chỉ đi xuyên qua.",
+    "tien_trinh": "cluster: số nhân CPU, trần 4 (prod); 1 ở staging",
+    "ket_noi": "không giữ kết nối Postgres (gọi http://api:8000)"
+   },
+   {
+    "ten": "FastAPI (api)",
+    "compose": [
+     "ung_dung",
+     "api"
+    ],
+    "lam_gi": "Mọi luật nghiệp vụ: quyền, tiền, kho, lịch… Kiểm JWT của GoTrue, đọc/ghi Postgres, phát dòng tin SSE /api/events/stream.",
+    "tien_trinh": "1 tiến trình uvicorn (async) — chưa chạy được 2 vì bộ đếm giới hạn nằm trong RAM",
+    "ket_noi": "bể asyncpg: tối thiểu 2, trần mặc định 20 (biến POOL_MAX_SIZE; staging 10) + 1 kết nối LISTEN + checkpointer 10; mỗi câu SQL tối đa 15 giây"
+   },
+   {
+    "ten": "su-kien (người đưa tin)",
+    "compose": [
+     "ung_dung",
+     "su-kien"
+    ],
+    "lam_gi": "Đọc event_delivery trên Postgres và gọi các bên nhận: xếp khách vào hàng sau check-in, dòng thời gian, chuông, canh gác lỗi mỗi phút, AI tóm tắt cuối ngày. Thiếu nó thì khách check-in xong không vào hàng nào.",
+    "tien_trinh": "1 vòng lặp; nghỉ cứng 1 giây giữa các vòng (việc 1 sẽ đổi)",
+    "ket_noi": "bể trần 10, thường dùng 1–3"
+   },
+   {
+    "ten": "day-tep (đẩy tệp)",
+    "compose": [
+     "ung_dung",
+     "day-tep"
+    ],
+    "lam_gi": "Đẩy ảnh/video/PDF từ ổ VPS sang CFS, kiểm sha256, dọn bản VPS sau 7 ngày hoặc khi quá 8 GB. Mọi thao tác ổ có hạn giờ — CFS treo thì bỏ lượt chứ không chết.",
+    "tien_trinh": "1 vòng lặp ~30 giây",
+    "ket_noi": "bể trần 10, dùng ít"
+   },
+   {
+    "ten": "media-quyen",
+    "compose": [
+     "ung_dung",
+     "media-quyen"
+    ],
+    "lam_gi": "Chạy một lần bằng root để trao thư mục tệp cho uid 1000 rồi thoát (Docker tự tạo thư mục bind với chủ root).",
+    "tien_trinh": "chạy rồi thoát",
+    "ket_noi": "không mạng"
+   },
+   {
+    "ten": "Postgres 17 (db)",
+    "compose": [
+     "supabase",
+     "db"
+    ],
+    "lam_gi": "Nơi DUY NHẤT giữ trạng thái. Trigger notify_row_change bắn pg_notify khi bảng đổi. Cổng 5432 chỉ mở ra 127.0.0.1 cho psql/pg_dump.",
+    "tien_trinh": "1 máy chủ Postgres",
+    "ket_noi": "max_connections 100 (staging 60)"
+   },
+   {
+    "ten": "GoTrue (auth)",
+    "compose": [
+     "supabase",
+     "auth"
+    ],
+    "lam_gi": "Đăng nhập: kiểm mật khẩu, cấp JWT hạn 1 giờ + khoá làm mới xoay vòng (cho dùng lại 10 giây để hai máy không đá nhau). Tắt tự đăng ký.",
+    "tien_trinh": "1",
+    "ket_noi": "bể trần 10"
+   },
+   {
+    "ten": "PostgREST (rest)",
+    "compose": [
+     "supabase",
+     "rest"
+    ],
+    "lam_gi": "Cổng đọc bảng thẳng từ trình duyệt qua /rest/v1, quyền theo RLS. Giao diện gần như không còn dùng; đang mở ra Internet — #532 khoá lại.",
+    "tien_trinh": "1",
+    "ket_noi": "bể 10"
+   },
+   {
+    "ten": "Realtime (realtime)",
+    "compose": [
+     "supabase",
+     "realtime"
+    ],
+    "lam_gi": "Websocket kiểu cũ của Supabase. Đã thay bằng LISTEN/NOTIFY + SSE và giao diện không còn gọi; prod VẪN chạy, /realtime/v1 vẫn mở (staging đã tắt).",
+    "tien_trinh": "1 (Erlang)",
+    "ket_noi": "~10"
+   },
+   {
+    "ten": "Gateway Supabase",
+    "compose": [
+     "supabase",
+     "gateway"
+    ],
+    "lam_gi": "Một Caddy nội bộ gom ba dịch vụ trên vào một địa chỉ :8000, cắt tiền tố /auth/v1 /rest/v1 /realtime/v1.",
+    "tien_trinh": "1",
+    "ket_noi": "không"
+   },
+   {
+    "ten": "auth-guard (nginx)",
+    "compose": [
+     "supabase",
+     "auth-guard"
+    ],
+    "lam_gi": "Chặn dò mật khẩu: chỉ đứng trước /auth/v1/token, 20 lần/phút mỗi địa chỉ, dồn 10, quá thì trả 429.",
+    "tien_trinh": "1",
+    "ket_noi": "không"
+   },
+   {
+    "ten": "Uptime Kuma",
+    "compose": [
+     "ung_dung",
+     "uptime-kuma"
+    ],
+    "lam_gi": "Canh các trang sống/chết, danh sách canh giữ trong git (monitoring/).",
+    "tien_trinh": "1",
+    "ket_noi": "không"
+   },
+   {
+    "ten": "Dozzle",
+    "compose": [
+     "ung_dung",
+     "dozzle"
+    ],
+    "lam_gi": "Xem log container qua trình duyệt. Gắn docker.sock (chỉ đọc).",
+    "tien_trinh": "1",
+    "ket_noi": "không"
+   }
+  ],
+  "duong_di": [
+   {
+    "id": "trang",
+    "ten": "Mở một trang",
+    "khi_nao": "Nhân viên bấm sang /reception, /thu-ngan… hoặc F5.",
+    "buoc": [
+     {
+      "ten": "Trình duyệt",
+      "chu": "Gửi HTTPS tới dr4women.io.vn."
+     },
+     {
+      "ten": "Caddy :443",
+      "chu": "Giải mã TLS, nén, gắn header bảo mật, ghi 1 dòng log. Không khớp /auth /rest /realtime hay tệp tĩnh → chuyển sang dashboard:3000.",
+      "nguon": "caddy/Caddyfile"
+     },
+     {
+      "ten": "Next.js :3000",
+      "chu": "Dựng trang ở máy chủ: hỏi đăng nhập 2 lần + 6–8 lần gọi API (layout gọi /phan-quyen/toi mỗi lần).",
+      "nguon": "src/dashboard/app/(dashboard)/layout.tsx"
+     },
+     {
+      "ten": "FastAPI :8000",
+      "chu": "Kiểm JWT, tính quyền theo lego/ca trực, gọi hàm dịch vụ.",
+      "nguon": "src/clinicai/api/identity.py"
+     },
+     {
+      "ten": "Postgres",
+      "chu": "Mượn kết nối từ bể, chạy câu SQL, trả kết nối."
+     }
+    ],
+    "mau": "vang",
+    "ghi_chu": "Chậm thêm mỗi ngày: kiểm quyền chạy một câu SQL cho từng ngày trực từ trước tới nay (việc 2)."
+   },
+   {
+    "id": "bam",
+    "ten": "Bấm một nút (ghi dữ liệu)",
+    "khi_nao": "Check-in, thu tiền, lưu phiếu khám…",
+    "buoc": [
+     {
+      "ten": "Trình duyệt",
+      "chu": "Gọi /api/... (cùng tên miền)."
+     },
+     {
+      "ten": "Caddy",
+      "chu": "Chuyển sang dashboard."
+     },
+     {
+      "ten": "Next route /api/*",
+      "chu": "Đọc phiên từ cookie, chuyển tiếp nguyên request sang FastAPI. Không quyết định gì.",
+      "nguon": "src/dashboard/app/api/"
+     },
+     {
+      "ten": "FastAPI → service",
+      "chu": "Router mỏng gọi hàm dịch vụ; ghi dữ liệu + nhật ký + sự kiện trong CÙNG một giao dịch."
+     },
+     {
+      "ten": "Postgres",
+      "chu": "COMMIT → trigger notify_row_change bắn pg_notify(tên bảng) → các màn khác sẽ tự cập nhật (xem đường SSE)."
+     }
+    ],
+    "mau": "do",
+    "ghi_chu": "Nút Thu ở quầy chờ ~7 giây dù máy chủ ghi chỉ 0,13 giây — chờ 2 lượt tải bảng (việc 3)."
+   },
+   {
+    "id": "sse",
+    "ten": "Màn tự cập nhật (SSE)",
+    "khi_nao": "Người khác vừa ghi; màn của mình tự đổi không cần F5.",
+    "buoc": [
+     {
+      "ten": "Postgres NOTIFY",
+      "chu": "Bắn đúng lúc COMMIT, mang tên bảng vừa đổi."
+     },
+     {
+      "ten": "FastAPI change_broker",
+      "chu": "Một kết nối LISTEN cho cả tiến trình, chia tin cho từng màn đang nối; mỗi màn có hàng chờ 8 tin, đầy thì bỏ tin.",
+      "nguon": "src/clinicai/core/change_broker.py"
+     },
+     {
+      "ten": "/api/events/stream",
+      "chu": "Dòng SSE mở mãi; Next chỉ chuyển tiếp.",
+      "nguon": "src/dashboard/app/api/events/stream/"
+     },
+     {
+      "ten": "Trình duyệt",
+      "chu": "RealtimeRefresher bầu MỘT tab chủ giữ dòng tin; thấy bảng mình nghe đổi thì dựng lại trang (hiện nghe chung 41 bảng).",
+      "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx"
+     }
+    ],
+    "mau": "do",
+    "ghi_chu": "Đo prod 14/10: 1 lần ghi = 9,8 lần dựng lại trang (việc 1). Nối lại thì mất tin trong quãng rớt (việc 9)."
+   },
+   {
+    "id": "dangnhap",
+    "ten": "Đăng nhập",
+    "khi_nao": "Trang /login, và mỗi giờ thư viện tự làm mới khoá.",
+    "buoc": [
+     {
+      "ten": "Trình duyệt / server action",
+      "chu": "Gửi email + mật khẩu tới /auth/v1/token."
+     },
+     {
+      "ten": "Caddy",
+      "chu": "Riêng /auth/v1/token* rẽ sang auth-guard.",
+      "nguon": "caddy/Caddyfile"
+     },
+     {
+      "ten": "auth-guard (nginx)",
+      "chu": "Đếm 20 lần/phút mỗi địa chỉ, dồn 10; quá thì 429.",
+      "nguon": "docker/auth-guard.conf"
+     },
+     {
+      "ten": "Gateway :8000",
+      "chu": "Cắt tiền tố /auth/v1."
+     },
+     {
+      "ten": "GoTrue :9999",
+      "chu": "Kiểm mật khẩu (bcrypt) trong schema auth, trả JWT hạn 1 giờ + khoá làm mới."
+     }
+    ],
+    "mau": "vang",
+    "ghi_chu": "Cả phòng khám chung một IP nên ngưỡng đặt rộng có chủ ý. Đăng xuất hiện đá mọi máy cùng tài khoản (việc 10, #490)."
+   },
+   {
+    "id": "rest",
+    "ten": "/rest/v1 và /realtime/v1",
+    "khi_nao": "Thư viện supabase-js gọi thẳng từ trình duyệt. Giao diện gần như đã thôi dùng.",
+    "buoc": [
+     {
+      "ten": "Trình duyệt (bất kỳ ai có JWT)",
+      "chu": "Gọi /rest/v1/<bảng> kèm token trong cookie."
+     },
+     {
+      "ten": "Caddy",
+      "chu": "Chuyển nguyên sang gateway Supabase."
+     },
+     {
+      "ten": "Gateway",
+      "chu": "/rest/v1 → PostgREST :3000; /realtime/v1 → Realtime :4000."
+     },
+     {
+      "ten": "PostgREST / Realtime",
+      "chu": "Chạy với vai authenticated; chỉ RLS đứng giữa người dùng và bảng."
+     }
+    ],
+    "mau": "do",
+    "ghi_chu": "Tài khoản đối tác, tivi phòng chờ đọc được ~40 bảng gồm khách, tiền, xét nghiệm (#527). #532 khoá lại (việc 7)."
+   },
+   {
+    "id": "tinh",
+    "ten": "Tệp tĩnh (icon, manifest)",
+    "khi_nao": "Mỗi lần chuyển trang.",
+    "buoc": [
+     {
+      "ten": "Trình duyệt",
+      "chu": "Hỏi manifest.webmanifest, icon, favicon."
+     },
+     {
+      "ten": "Caddy",
+      "chu": "Lấy từ dashboard, nếu 2xx thì gắn Cache-Control 1 ngày để lần sau trình duyệt khỏi hỏi lại.",
+      "nguon": "caddy/Caddyfile (tai_nguyen_tinh)"
+     }
+    ],
+    "mau": "xanh",
+    "ghi_chu": "Đo 14/10: ~28% request chỉ là tệp tĩnh bị hỏi lại — đã sửa bằng khối này."
+   },
+   {
+    "id": "staging",
+    "ten": "Vào staging",
+    "khi_nao": "Người thật bấm thử theo kịch bản.",
+    "buoc": [
+     {
+      "ten": "Trình duyệt",
+      "chu": "HTTPS tới staging.dr4women.io.vn."
+     },
+     {
+      "ten": "Caddy PROD",
+      "chu": "Giữ TLS cho cả hai tên miền; chuyển MỌI request staging qua mạng cầu clinicai_staging_edge.",
+      "nguon": "caddy/staging-tren-prod.caddy.mau"
+     },
+     {
+      "ten": "Caddy staging :80",
+      "chu": "Chia đường y như prod nhưng trỏ tới Supabase/DB của staging; gắn noindex.",
+      "nguon": "caddy/Caddyfile.staging"
+     },
+     {
+      "ten": "dashboard → api → Postgres staging",
+      "chu": "Database, khoá JWT riêng; token staging không dùng được ở prod."
+     }
+    ],
+    "mau": "vang",
+    "ghi_chu": "Chung đĩa, chung mạng với prod. Database staging chứa băm mật khẩu prod (bcrypt)."
+   },
+   {
+    "id": "giamsat",
+    "ten": "giamsat.dr4women.io.vn",
+    "khi_nao": "Đội vận hành mở Trung tâm giám sát AI.",
+    "buoc": [
+     {
+      "ten": "Caddy",
+      "chu": "Khối riêng, tự xin chứng chỉ, noindex; không có đường /auth /rest /realtime."
+     },
+     {
+      "ten": "Next.js",
+      "chu": "proxy.ts thấy Host giám sát → chỉ mở /giam-sat + đăng nhập; quyền giamsat.view vẫn gác ở trang và API.",
+      "nguon": "src/dashboard/lib/cong-giam-sat.ts"
+     }
+    ],
+    "mau": "xanh"
+   }
+  ],
+  "ngan_sach_ket_noi": [
+   {
+    "ai": "FastAPI (bể chính)",
+    "so": 20,
+    "ghi": "mặc định code; đo 14/10 còn là 10"
+   },
+   {
+    "ai": "FastAPI checkpointer + LISTEN",
+    "so": 11
+   },
+   {
+    "ai": "GoTrue",
+    "so": 10
+   },
+   {
+    "ai": "PostgREST",
+    "so": 10
+   },
+   {
+    "ai": "Realtime",
+    "so": 10,
+    "ghi": "không ai dùng"
+   },
+   {
+    "ai": "su-kien + day-tep",
+    "so": 6,
+    "ghi": "trần 10 mỗi bên, thường 1–3"
+   },
+   {
+    "ai": "sao lưu, psql, quản trị",
+    "so": 5
+   }
+  ],
+  "ngan_sach_nguon": "src/clinicai/core/database.py:17-24 · docker-compose.supabase.yml",
+  "so_do_cu": [
+   {
+    "nhom": "prod",
+    "nhan": "Cao điểm tối 18–21h",
+    "gia_tri": "~14–18 req/giây",
+    "ngay": "14 và 17/10/2026",
+    "mau": "vang",
+    "nguon": "#494 · log Caddy"
+   },
+   {
+    "nhom": "prod",
+    "nhan": "p95 thời gian trả lời",
+    "gia_tri": "1,3–1,5 giây",
+    "ngay": "14 và 17/10/2026",
+    "mau": "do",
+    "nguon": "#494"
+   },
+   {
+    "nhom": "prod",
+    "nhan": "p99",
+    "gia_tri": "3,1 giây",
+    "ngay": "14/10/2026",
+    "mau": "do",
+    "nguon": "#536 phần 3"
+   },
+   {
+    "nhom": "prod",
+    "nhan": "Một lần ghi kéo theo",
+    "gia_tri": "9,8 lần dựng lại trang",
+    "ngay": "14/10/2026",
+    "mau": "do",
+    "nguon": "#494 G1"
+   },
+   {
+    "nhom": "prod",
+    "nhan": "Tệp tĩnh trong tổng request",
+    "gia_tri": "~28%",
+    "ngay": "14/10/2026",
+    "mau": "xanh",
+    "nguon": "caddy/Caddyfile — đã sửa"
+   },
+   {
+    "nhom": "prod",
+    "nhan": "CPU dashboard lúc cao điểm",
+    "gia_tri": "130%",
+    "ngay": "14/10/2026",
+    "mau": "vang",
+    "nguon": "caddy/Caddyfile"
+   },
+   {
+    "nhom": "db",
+    "nhan": "Kết nối Postgres đang dùng",
+    "gia_tri": "~30 / 100",
+    "ngay": "14–17/10/2026",
+    "mau": "xanh",
+    "nguon": "#494"
+   },
+   {
+    "nhom": "db",
+    "nhan": "Bể API · số tiến trình uvicorn",
+    "gia_tri": "10 · 1",
+    "ngay": "14–17/10/2026",
+    "mau": "vang",
+    "nguon": "#494 (code nay mặc định 20)"
+   },
+   {
+    "nhom": "db",
+    "nhan": "Câu quầy thu WITH v AS",
+    "gia_tri": "TB 4,3 giây (tối đa 14 giây)",
+    "ngay": "14/10/2026",
+    "mau": "do",
+    "nguon": "pg_stat_statements · #534"
+   },
+   {
+    "nhom": "db",
+    "nhan": "Lần giao sự kiện 30 ngày",
+    "gia_tri": "51.683 lần, 0 kẹt",
+    "ngay": "21/10/2026",
+    "mau": "xanh",
+    "nguon": "#531"
+   },
+   {
+    "nhom": "o_dia",
+    "nhan": "Ổ gốc VPS",
+    "gia_tri": "~80%",
+    "ngay": "11/10/2026",
+    "mau": "do",
+    "nguon": "báo cáo phiên trước"
+   },
+   {
+    "nhom": "o_dia",
+    "nhan": "Ổ gốc VPS (mốc cũ)",
+    "gia_tri": "61%",
+    "ngay": "01/10/2026",
+    "mau": "vang",
+    "nguon": "docs/SO-LUAT.md Phần 1"
+   },
+   {
+    "nhom": "sao_luu",
+    "nhan": "Sao lưu từng ngừng",
+    "gia_tri": "21 giờ vì ổ đầy",
+    "ngay": "trước 11/10/2026",
+    "mau": "do",
+    "nguon": "báo cáo phiên trước"
+   },
+   {
+    "nhom": "sao_luu",
+    "nhan": "Bản sao về Mac từng ngừng",
+    "gia_tri": "12 → 27/09 (trỏ VPS cũ)",
+    "ngay": "09/2026",
+    "mau": "do",
+    "nguon": "skill len-prod"
+   }
+  ],
+  "khuon_so_do": {
+   "do_luc": "YYYY-MM-DDTHH:MM+07:00",
+   "prod": {
+    "req_moi_gio": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "p95_ms": 0,
+    "top_duong": [
+     {
+      "duong": "/duong/dan",
+      "so": 0,
+      "p95_ms": 0
+     }
+    ]
+   },
+   "staging": {
+    "req_moi_gio": null,
+    "p95_ms": null,
+    "top_duong": []
+   },
+   "db": {
+    "ket_noi": 0,
+    "max_ket_noi": 100,
+    "dung_luong_gb": 0,
+    "cau_cham": [
+     {
+      "cau": "WITH v AS (…)",
+      "tb_ms": 0,
+      "so_lan": 0
+     }
+    ]
+   },
+   "o_dia": {
+    "vps_goc_pct": 0,
+    "cfs_pct": null
+   },
+   "sao_luu": {
+    "ban_moi_nhat": "YYYY-MM-DDTHH:MM+07:00",
+    "tuoi_gio": 0
+   }
+  },
+  "cach_do": [
+   "Số request/giờ và p95: đọc log truy cập Caddy (JSON có duration) của 24 giờ, đếm theo giờ — từ Mac: ssh vào VPS chạy docker logs caddy, chỉ ĐỌC.",
+   "Kết nối DB: SELECT count(*) FROM pg_stat_activity; và SHOW max_connections;",
+   "Câu chậm: pg_stat_statements sắp theo mean_exec_time (đã bật sẵn).",
+   "Ổ đĩa: df -h / và df -h /mnt/viettel-cfs. Dung lượng DB: SELECT pg_database_size('postgres').",
+   "Sao lưu: tên + giờ tệp mới nhất trong ~/backups/clinicai-15p.",
+   "Ghi kết quả theo khuôn ở trên vào so-do.json rồi: python3 scripts/he-thong-data.py --so-do so-do.json"
+  ],
+  "bao_mat": [
+   {
+    "id": "tls",
+    "ten": "TLS và header ở Caddy",
+    "dang_lam": [
+     "Chứng chỉ Let's Encrypt tự xin, tự gia hạn cho dr4women.io.vn, giamsat.… và staging.…",
+     "HSTS 1 năm, chặn đoán kiểu tệp, cấm nhúng iframe, giới hạn Referrer, tắt camera/micro/định vị, giấu tên máy chủ.",
+     "Log truy cập cắt nguyên chuỗi ?… khỏi đường dẫn và Referer — ô tìm khách gửi SĐT/tên qua đó (Nghị định 13/2023)."
+    ],
+    "rui_ro": [
+     {
+      "mau": "vang",
+      "chu": "Chưa có Content-Security-Policy — nếu lọt một lỗi chèn script thì trình duyệt không có lớp chặn thứ hai.",
+      "neo": {
+       "tep": "caddy/Caddyfile",
+       "tim": "Permissions-Policy"
+      },
+      "noi": "caddy/Caddyfile:137,234"
+     },
+     {
+      "mau": "xanh",
+      "chu": "Caddy chạy admin off; healthcheck tách riêng localhost nên không có đèn đỏ giả.",
+      "neo": {
+       "tep": "caddy/Caddyfile",
+       "tim": "admin off"
+      },
+      "noi": "caddy/Caddyfile:9"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Thêm CSP ở chế độ chỉ báo (Report-Only) một tuần, đọc log, rồi mới bật chặn.",
+      "muc": 2
+     }
+    ],
+    "viec": []
+   },
+   {
+    "id": "cong",
+    "ten": "Cổng mạng và công cụ theo dõi",
+    "dang_lam": [
+     "Tường lửa ufw chỉ mở SSH, 80, 443.",
+     "Postgres (54322), gateway Supabase (54321), Uptime Kuma (3001), Dozzle (8888) chỉ nghe 127.0.0.1 — vào bằng ssh -L.",
+     "Dozzle nằm mạng riêng, không chung mạng với dịch vụ khám."
+    ],
+    "rui_ro": [
+     {
+      "mau": "vang",
+      "chu": "Docker tự mở cổng bằng iptables, đi vòng qua ufw. Hiện an toàn chỉ vì mọi dòng ports đều ghi 127.0.0.1 — chưa có bài kiểm nào canh điều này.",
+      "neo": {
+       "tep": "docker-compose.yml",
+       "tim": "127.0.0.1:${KUMA_PORT"
+      },
+      "noi": "docker-compose.yml:126,436"
+     },
+     {
+      "mau": "vang",
+      "chu": "Dozzle gắn docker.sock (tương đương quyền root trên máy) và mặc định không đòi đăng nhập; chỉ đường ssh -L đứng chắn.",
+      "neo": {
+       "tep": "docker-compose.yml",
+       "tim": "DOZZLE_AUTH_PROVIDER"
+      },
+      "noi": "docker-compose.yml:473"
+     },
+     {
+      "mau": "xanh",
+      "chu": "ufw mặc định chặn mọi chiều vào.",
+      "neo": {
+       "tep": "scripts/vps-chuan-bi.sh",
+       "tim": "ufw default deny incoming"
+      },
+      "noi": "scripts/vps-chuan-bi.sh:81"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Thêm vào scripts/tests/test-infra-safety.sh: mọi ports ngoài Caddy phải bắt đầu bằng 127.0.0.1.",
+      "muc": 1
+     },
+     {
+      "chu": "Bật đăng nhập cho Dozzle (DOZZLE_AUTH_PROVIDER=simple) trong .env.prod.",
+      "muc": 3
+     }
+    ],
+    "viec": []
+   },
+   {
+    "id": "dangnhap",
+    "ten": "Đăng nhập, JWT và đăng xuất",
+    "dang_lam": [
+     "GoTrue v2.177.0 tự dựng; tắt tự đăng ký — nhân sự do quản lý tạo.",
+     "JWT ký HS256, hạn 3600 giây; khoá làm mới xoay vòng, cho dùng lại 10 giây để hai máy cùng tài khoản không đá nhau.",
+     "auth-guard: 20 lần đăng nhập/phút mỗi địa chỉ, dồn 10, quá thì 429 và ghi log.",
+     "FastAPI tự kiểm chữ ký JWT ở mọi request."
+    ],
+    "rui_ro": [
+     {
+      "mau": "do",
+      "chu": "Đăng xuất dùng signOut() mặc định = thu hồi phiên ở MỌI máy. Log 14–17/10: 113 lần đăng xuất, 96 lần máy khác bị đá ra.",
+      "neo": {
+       "tep": "src/dashboard/app/(auth)/login/actions.ts",
+       "tim": "supabase.auth.signOut()"
+      },
+      "noi": "src/dashboard/app/(auth)/login/actions.ts:50,61,70,97"
+     },
+     {
+      "mau": "vang",
+      "chu": "GOTRUE_URI_ALLOW_LIST là \"*\": đường quay về sau đặt lại mật khẩu nhận địa chỉ bất kỳ.",
+      "neo": {
+       "tep": "docker-compose.supabase.yml",
+       "tim": "GOTRUE_URI_ALLOW_LIST"
+      },
+      "noi": "docker-compose.supabase.yml:114"
+     },
+     {
+      "mau": "vang",
+      "chu": "Realtime dùng khoá mã hoá mặc định công khai 'supabaserealtime' và dùng chung khoá JWT làm SECRET_KEY_BASE.",
+      "neo": {
+       "tep": "docker-compose.supabase.yml",
+       "tim": "DB_ENC_KEY:"
+      },
+      "noi": "docker-compose.supabase.yml:197"
+     },
+     {
+      "mau": "vang",
+      "chu": "Staging chứa băm mật khẩu prod — lộ staging là lộ băm (bcrypt chậm bẻ, mật khẩu yếu vẫn rơi).",
+      "neo": {
+       "tep": "docs/STAGING.md",
+       "tim": "Lộ staging = lộ BĂM"
+      },
+      "noi": "docs/STAGING.md:182"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Merge #490: signOut({ scope: \"local\" }) — chỉ đăng xuất máy này.",
+      "muc": 2
+     },
+     {
+      "chu": "Đặt GOTRUE_URI_ALLOW_LIST đúng hai tên miền; tắt hẳn Realtime ở prod (đã không ai dùng).",
+      "muc": 3
+     }
+    ],
+    "viec": [
+     10
+    ],
+    "pr": [
+     490
+    ]
+   },
+   {
+    "id": "quyen",
+    "ten": "Quyền theo lego và ca trực (FastAPI)",
+    "dang_lam": [
+     "Mọi quyết định quyền nằm ở FastAPI: lego bật cho từng người + ca trực của hôm nay.",
+     "Đã quét 619 endpoint: không lệnh ghi nào quên kiểm quyền; giao diện không tự quyết tiền (#527).",
+     "Công tắc MO_QUYEN_TAM_THOI thiếu biến thì TẮT — hỏng thì đóng."
+    ],
+    "rui_ro": [
+     {
+      "mau": "do",
+      "chu": "Ai có quyền xếp lịch tự đứng ca Điều phối được, rồi thu, hoàn tiền, xem hoá đơn — vượt mọi lego.",
+      "noi": "cashier_scope_service.py:386 · payment_service.py:342 · config_service.py:163"
+     },
+     {
+      "mau": "vang",
+      "chu": "Tắt hết lego của một người thì vai cũ quay lại (vd bác sĩ vẫn tải được tệp kết quả).",
+      "noi": "api/identity.py:897"
+     },
+     {
+      "mau": "vang",
+      "chu": "Người giữ lego Tài khoản đặt lại được mật khẩu của Quản lý — leo thang lên toàn quyền.",
+      "noi": "app/api/admin/users/route.ts:350-410"
+     },
+     {
+      "mau": "vang",
+      "chu": "Có lego Thu tiền là giảm giá được tới 100%, không cần quyền riêng.",
+      "noi": "payment_service.py:240-268"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Cấm tự xếp mình vào ca Điều phối hoặc vào ngày đã qua; tiền theo ca vẫn đòi lego Thu tiền.",
+      "muc": 3
+     },
+     {
+      "chu": "Chỉ Quản lý đặt lại mật khẩu Quản lý.",
+      "muc": 3
+     }
+    ],
+    "viec": [
+     7
+    ]
+   },
+   {
+    "id": "rest",
+    "ten": "PostgREST /rest/v1 và RLS",
+    "dang_lam": [
+     "Khoá anon công khai không đọc/ghi được bảng nào; người đăng nhập không ghi được qua PostgREST (#527).",
+     "RLS lọc theo phòng khám."
+    ],
+    "rui_ro": [
+     {
+      "mau": "do",
+      "chu": "Mọi tài khoản đã đăng nhập — kể cả đối tác, tivi phòng chờ — đọc được ~40 bảng: khách, lịch hẹn, tiền, xét nghiệm.",
+      "neo": {
+       "tep": "supabase/migrations/20260730000004_tenant_scoped_rls.sql"
+      },
+      "noi_ghi": ":149-171",
+      "noi": "supabase/migrations/20260730000004_tenant_scoped_rls.sql:149-171"
+     },
+     {
+      "mau": "do",
+      "chu": "Bảng staff cho mọi người đọc CCCD, SĐT đồng nghiệp; API che CCCD khách nhưng PostgREST trả nguyên số.",
+      "neo": {
+       "tep": "supabase/migrations/20260730000008_table_grants.sql"
+      },
+      "noi_ghi": ":48-59",
+      "noi": "supabase/migrations/20260730000008_table_grants.sql:48-59"
+     },
+     {
+      "mau": "do",
+      "chu": "Người chưa đăng nhập ghi được ảnh 8 MB mỗi lần lên đĩa VPS qua route góp ý.",
+      "neo": {
+       "tep": "src/dashboard/app/api/console/feedback/route.ts"
+      },
+      "noi_ghi": ":17-41",
+      "noi": "src/dashboard/app/api/console/feedback/route.ts:17-41"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "#532: thu mọi quyền đọc của anon/authenticated, chỉ cấp lại vài cột staff và clinic_membership cần cho đăng nhập. Tuyền chạy trước lệnh ACL chỉ đọc ở #527.",
+      "muc": 3
+     },
+     {
+      "chu": "Route góp ý kiểm phiên trước khi ghi đĩa.",
+      "muc": 2
+     }
+    ],
+    "viec": [
+     7
+    ],
+    "pr": [
+     532,
+     527
+    ]
+   },
+   {
+    "id": "bimat",
+    "ten": "Bí mật và khoá",
+    "dang_lam": [
+     "Bí mật chỉ nằm trong .env.prod / .env.staging trên VPS; .gitignore chặn mọi .env.* trừ tệp mẫu.",
+     "Mỗi container nhận đúng tệp env của môi trường mình (CLINIC_ENV_FILE bắt buộc) — lệnh staging không nạp nhầm khoá prod.",
+     "Khoá LLM của agent giám sát là tệp secret, không phải biến môi trường — không hiện ở docker inspect.",
+     "Trình duyệt chỉ nhận khoá anon (công khai theo thiết kế)."
+    ],
+    "rui_ro": [
+     {
+      "mau": "vang",
+      "chu": "Khoá service-role (vượt RLS) nằm trong container dashboard vì route quản trị tài khoản cần nó — lỗi ở Next là lộ khoá mạnh nhất.",
+      "neo": {
+       "tep": "src/dashboard/lib/supabase-service.ts"
+      },
+      "noi": "src/dashboard/lib/supabase-service.ts"
+     },
+     {
+      "mau": "xanh",
+      "chu": ".env và .env.* bị gitignore.",
+      "neo": {
+       "tep": ".gitignore",
+       "tim": ".env.*"
+      },
+      "noi": ".gitignore:50,111"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Chuyển nốt quản trị tài khoản sang FastAPI để dashboard không cần khoá service-role (nằm trong việc lớn 'đưa luật ra khỏi src/dashboard').",
+      "muc": 3
+     }
+    ],
+    "viec": []
+   },
+   {
+    "id": "nhatky",
+    "ten": "Nhật ký có lộ SĐT / CCCD không",
+    "dang_lam": [
+     "Log Caddy cắt chuỗi ?… nên không lưu SĐT/tên gõ vào ô tìm.",
+     "Log ứng dụng (structlog) khi tạo bệnh nhân chỉ ghi mã, không ghi SĐT.",
+     "Staging che cột payload của event_log khi nạp."
+    ],
+    "rui_ro": [
+     {
+      "mau": "do",
+      "chu": "ĐÃ XÁC NHẬN: sự kiện patient.created ghi NGUYÊN họ tên, ngày sinh, SĐT chính, SĐT phụ, số CCCD vào event_log. Bảng nhật ký có chốt cấm xoá → nằm vĩnh viễn và đi theo mọi bản sao lưu.",
+      "neo": {
+       "tep": "src/clinicai/services/patient_service.py",
+       "tim": "\"national_id_number\": data.national_id_number"
+      },
+      "noi": "src/clinicai/services/patient_service.py:232"
+     },
+     {
+      "mau": "xanh",
+      "chu": "Log truy cập cắt chuỗi truy vấn.",
+      "neo": {
+       "tep": "caddy/Caddyfile",
+       "tim": "request>uri regexp"
+      },
+      "noi": "caddy/Caddyfile:18,120,223"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Sự kiện mới chỉ ghi mã khách + cờ 'có SĐT/có CCCD'. Bản cũ đã ghi: cần kế hoạch riêng (bảng chỉ-thêm) — Tuyền quyết có che hay giữ.",
+      "muc": 3
+     }
+    ],
+    "viec": []
+   },
+   {
+    "id": "saoluu",
+    "ten": "Sao lưu: có mã hoá, có kiểm không",
+    "dang_lam": [
+     "pg_dump 15 phút/lần 7–22h (giữ 2 ngày) + đêm 02:15 (giữ 7 ngày), tệp chmod 600, kèm sha256 từng phần.",
+     "Đẩy lên CFS qua SMB có seal (mã hoá đường truyền) — script từ chối nếu ổ mất seal.",
+     "Mac kéo về 0:30 và 6:30; có script diễn tập khôi phục (restore-drill.sh) và kiểm bản sao (verify-backup.sh)."
+    ],
+    "rui_ro": [
+     {
+      "mau": "vang",
+      "chu": "Tệp sao lưu KHÔNG mã hoá khi nằm trên VPS, CFS và Mac — ai cầm được tệp là đọc được toàn bộ khách.",
+      "neo": {
+       "tep": "scripts/backup-db.sh",
+       "tim": "chmod 600 \"$BACKUP_FILE\""
+      },
+      "noi": "scripts/backup-db.sh:526"
+     },
+     {
+      "mau": "do",
+      "chu": "Khoá sao lưu là một thư mục: tiến trình bị giết giữa chừng thì khoá kẹt, mọi lần sau tự từ chối, không ai được báo.",
+      "neo": {
+       "tep": "scripts/backup-db.sh",
+       "tim": "if mkdir \"$LOCK_DIR\""
+      },
+      "noi": "scripts/backup-db.sh:128"
+     },
+     {
+      "mau": "do",
+      "chu": "Unit sao lưu không giới hạn giờ, không OnFailure; /ops hiện 'không rõ' chứ không đỏ. Từng ngừng 21 giờ vì ổ đầy.",
+      "neo": {
+       "tep": "scripts/systemd/clinicai-backup.service"
+      },
+      "noi": "scripts/systemd/clinicai-backup.service"
+     },
+     {
+      "mau": "do",
+      "chu": "Ảnh/video chỉ có một bản trên CFS; hợp đồng CFS ghi hết hạn 16/10 — cần Tuyền kiểm.",
+      "noi": "scripts/backup-db.sh:349-357 (#531)"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Một PR script: khoá bằng flock có hạn, TimeoutStartSec + OnFailure, /ops tô đỏ, canh gác kiểm tuổi bản sao.",
+      "muc": 2
+     },
+     {
+      "chu": "Mã hoá tệp sao lưu trước khi rời VPS (khoá giải nằm ở Mac, không ở VPS).",
+      "muc": 3
+     },
+     {
+      "chu": "Tuyền chốt nơi đặt bản thứ hai cho ảnh/video + gia hạn CFS.",
+      "muc": 3
+     }
+    ],
+    "viec": [
+     8
+    ]
+   },
+   {
+    "id": "ssh",
+    "ten": "SSH và quyền container",
+    "dang_lam": [
+     "SSH chỉ bằng khoá: tắt mật khẩu, cấm root.",
+     "Mọi container: no-new-privileges, giới hạn RAM và số tiến trình, log có trần (10 MB × 5).",
+     "api/su-kien/day-tep chạy uid 1000, dashboard chạy user node."
+    ],
+    "rui_ro": [
+     {
+      "mau": "vang",
+      "chu": "Tài khoản clinicai có sudo không mật khẩu + nhóm docker (tương đương root). Một khoá SSH lộ là mất cả máy — prod lẫn staging.",
+      "neo": {
+       "tep": "scripts/vps-chuan-bi.sh",
+       "tim": "NOPASSWD:ALL"
+      },
+      "noi": "scripts/vps-chuan-bi.sh:56"
+     },
+     {
+      "mau": "vang",
+      "chu": "Thư mục bind do Docker tự tạo có chủ root; media-quyen phải chạy root một lần để chown.",
+      "neo": {
+       "tep": "docker-compose.yml",
+       "tim": "user: \"0:0\""
+      },
+      "noi": "docker-compose.yml:153"
+     },
+     {
+      "mau": "xanh",
+      "chu": "PasswordAuthentication no, PermitRootLogin no.",
+      "neo": {
+       "tep": "scripts/vps-chuan-bi.sh",
+       "tim": "PasswordAuthentication no"
+      },
+      "noi": "scripts/vps-chuan-bi.sh:127"
+     }
+    ],
+    "de_xuat": [
+     {
+      "chu": "Khoá SSH có mật khẩu (passphrase), ghi rõ máy nào giữ khoá; cân nhắc chỉ cho SSH từ IP cố định.",
+      "muc": 3
+     }
+    ],
+    "viec": []
+   }
+  ],
+  "bang": [
+   {
+    "id": "tong",
+    "ten": "Tổng quan",
+    "o_so": [
+     {
+      "nhan": "Việc quan trọng",
+      "gia_tri": "10",
+      "mau": "do",
+      "ghi": "#536"
+     },
+     {
+      "nhan": "PR đang mở",
+      "gia_tri": "56",
+      "mau": "vang",
+      "ghi": "24 merge · 20 đóng · 12 chờ quyết"
+     },
+     {
+      "nhan": "p95 prod (14–17/10)",
+      "gia_tri": "1,3–1,5s",
+      "mau": "do"
+     },
+     {
+      "nhan": "Sự kiện 30 ngày",
+      "gia_tri": "51.683 · 0 kẹt",
+      "mau": "xanh"
+     }
+    ],
+    "muc": [
+     {
+      "mau": "do",
+      "chu": "Chậm: một lần ghi dựng lại ~10 lần trang; quầy thu N+1 hàng trăm câu SQL (việc 1–3)."
+     },
+     {
+      "mau": "do",
+      "chu": "Tiền có thể sai: thu phí khám hai lần, hoàn tiền trên phiếu đã huỷ (việc 4)."
+     },
+     {
+      "mau": "do",
+      "chu": "Người ngoài đọc dữ liệu khách qua /rest/v1 (việc 7)."
+     },
+     {
+      "mau": "do",
+      "chu": "Sao lưu có thể dừng im lặng; ảnh/video một bản (việc 8)."
+     },
+     {
+      "mau": "vang",
+      "chu": "Kho không trừ khi đơn vị hộp/gói lệch (việc 5)."
+     },
+     {
+      "mau": "xanh",
+      "chu": "Sổ tiền lõi vững: Postgres chặn thu trùng và hoàn vượt."
+     }
+    ],
+    "lien_ket": [
+     {
+      "chu": "Việc cần làm (#536)",
+      "pr": 536
+     }
+    ]
+   },
+   {
+    "id": "tocdo",
+    "ten": "Tốc độ",
+    "tu_bao_cao": "534",
+    "lien_ket": [
+     {
+      "chu": "Báo cáo #534",
+      "pr": 534
+     },
+     {
+      "chu": "Số đo 14–17/10 (#494)",
+      "pr": 494
+     }
+    ]
+   },
+   {
+    "id": "sukien",
+    "ten": "Sự kiện & vận hành",
+    "tu_bao_cao": "531",
+    "lien_ket": [
+     {
+      "chu": "Báo cáo #531",
+      "pr": 531
+     }
+    ]
+   },
+   {
+    "id": "tien",
+    "ten": "Tiền",
+    "tu_bao_cao": "526",
+    "lien_ket": [
+     {
+      "chu": "Báo cáo #526",
+      "pr": 526
+     },
+     {
+      "chu": "#508 chặn hoàn sau huỷ",
+      "pr": 508
+     }
+    ]
+   },
+   {
+    "id": "kho",
+    "ten": "Kho",
+    "tu_bao_cao": "529",
+    "lien_ket": [
+     {
+      "chu": "Báo cáo #529",
+      "pr": 529
+     },
+     {
+      "chu": "Kế hoạch quy đổi #498",
+      "pr": 498
+     }
+    ]
+   },
+   {
+    "id": "baomat",
+    "ten": "Bảo mật",
+    "tu_bao_mat": true,
+    "lien_ket": [
+     {
+      "chu": "Lego + quyền #527",
+      "pr": 527
+     },
+     {
+      "chu": "Khoá /rest/v1 #532",
+      "pr": 532
+     }
+    ]
+   },
+   {
+    "id": "saoluu",
+    "ten": "Sao lưu & ổ đĩa",
+    "o_so": [
+     {
+      "nhan": "Ổ gốc VPS (11/10)",
+      "gia_tri": "~80%",
+      "mau": "do"
+     },
+     {
+      "nhan": "Sao lưu từng ngừng",
+      "gia_tri": "21 giờ",
+      "mau": "do"
+     },
+     {
+      "nhan": "Nhịp sao lưu",
+      "gia_tri": "15 phút · đêm 02:15",
+      "mau": "xanh"
+     },
+     {
+      "nhan": "Bản ảnh/video",
+      "gia_tri": "1 (chỉ CFS)",
+      "mau": "do"
+     }
+    ],
+    "muc": [
+     {
+      "mau": "do",
+      "chu": "Khoá sao lưu kẹt → sao lưu dừng hẳn không báo.",
+      "noi": "scripts/backup-db.sh:127-134"
+     },
+     {
+      "mau": "do",
+      "chu": "Docker có thể bật API trước khi CFS gắn xong — ứng viên sự cố 14/10.",
+      "noi": "docker-compose.yml:216-222"
+     },
+     {
+      "mau": "vang",
+      "chu": "event_delivery không bao giờ dọn, CFS giữ nhiều bản 15 phút — chưa có số đo dung lượng."
+     },
+     {
+      "mau": "vang",
+      "chu": "Tệp sao lưu không mã hoá khi nằm yên."
+     },
+     {
+      "mau": "xanh",
+      "chu": "Đường lên CFS mã hoá (SMB seal); Mac kéo về 2 lần/ngày; có script diễn tập khôi phục."
+     }
+    ],
+    "lien_ket": [
+     {
+      "chu": "Báo cáo #531 mục C",
+      "pr": 531
+     },
+     {
+      "chu": "Staging nạp chết 2 đêm — #518",
+      "pr": 518
+     }
+    ]
+   },
+   {
+    "id": "viec",
+    "ten": "Việc cần làm + 56 PR",
+    "tu_viec": true,
+    "lien_ket": [
+     {
+      "chu": "docs/VIEC-CAN-LAM.md (#536)",
+      "pr": 536
+     }
+    ]
+   }
+  ],
+  "viec": [
+   {
+    "so": 1,
+    "ten": "Đông khách thì màn tự nháy, bấm gì cũng phải chờ",
+    "muc": 2,
+    "pr_co": [
+     491,
+     492
+    ],
+    "nhom": "Tốc độ"
+   },
+   {
+    "so": 2,
+    "ten": "Mở trang nào cũng chậm, và chậm thêm mỗi ngày",
+    "muc": 3,
+    "pr_co": [],
+    "nhom": "Tốc độ"
+   },
+   {
+    "so": 3,
+    "ten": "Quầy thu và check-out chậm; bấm Thu chờ ~7 giây",
+    "muc": 3,
+    "pr_co": [],
+    "nhom": "Tốc độ"
+   },
+   {
+    "so": 4,
+    "ten": "Tiền khách trả có thể sai",
+    "muc": 3,
+    "pr_co": [
+     508
+    ],
+    "nhom": "Tiền"
+   },
+   {
+    "so": 5,
+    "ten": "Giao thuốc mà kho không trừ; màn kho không tự cập nhật",
+    "muc": 3,
+    "pr_co": [
+     497,
+     498,
+     529
+    ],
+    "nhom": "Kho"
+   },
+   {
+    "so": 6,
+    "ten": "Bấm nhầm thì không gỡ được, hoặc gỡ xong màn kẹt",
+    "muc": 2,
+    "pr_co": [],
+    "nhom": "Hoàn tác"
+   },
+   {
+    "so": 7,
+    "ten": "Người ngoài đọc được dữ liệu khách; tự xếp ca để vượt quyền",
+    "muc": 3,
+    "pr_co": [
+     532
+    ],
+    "nhom": "Bảo mật"
+   },
+   {
+    "so": 8,
+    "ten": "Sao lưu có thể dừng mà không ai biết; ảnh/video chỉ có một bản",
+    "muc": 3,
+    "pr_co": [
+     518
+    ],
+    "nhom": "Sao lưu"
+   },
+   {
+    "so": 9,
+    "ten": "Người khác đã làm mà màn mình không đổi",
+    "muc": 2,
+    "pr_co": [],
+    "nhom": "Sự kiện"
+   },
+   {
+    "so": 10,
+    "ten": "Đang làm thì bị văng ra trang đăng nhập",
+    "muc": 2,
+    "pr_co": [
+     490
+    ],
+    "nhom": "Đăng nhập"
+   }
+  ],
+  "pr_mo": {
+   "dem_luc": "23/10/2026",
+   "tong": 56,
+   "merge": 24,
+   "dong": 20,
+   "quyet": 12,
+   "nhom_trung": [
+    "Bản đồ (5 bản lồng nhau): #513 ⊂ #514 ⊂ #516 ⊂ #517 ⊂ #521 — merge riêng #513, đóng #514/#516/#517, #521 để Tuyền chọn.",
+    "Sổ học: #533 và #535 · Soát tốc độ: #530 và #534 · Đợt 17/10: #493 = #490 + #491 + #492.",
+    "SĐT: chuỗi #501 → #505 · Đơn vị kho: #497, #498, #529 · Test cô lập: #488, #511 · Dọn code: #411–#414."
+   ],
+   "tuyen_lam_ngay": [
+    "Dọn PR theo #536 phần 2: đóng 20 PR, merge các PR chỉ .md.",
+    "Chốt 6 câu tiền (#526) + phí tái khám + quy đổi đơn vị (#498) + khoá cứng.",
+    "Chạy lệnh ACL chỉ đọc ở #527 và 4 lệnh chỉ đọc cuối #531; trả lời câu gia hạn CFS."
+   ]
+  },
+  "hang_cho": {
+   "hien_trang": [
+    "Tin 'bảng X vừa đổi': Postgres NOTIFY → một kết nối LISTEN trong FastAPI → SSE tới trình duyệt. Không broker ở giữa; nhiều bản API vẫn đúng vì NOTIFY phát tới mọi kết nối đang nghe.",
+    "Việc chạy sau (xếp hàng khám, chuông, dòng thời gian): ghi vào event_delivery cùng giao dịch với dữ liệu → worker su-kien đọc và gọi bên nhận. Khởi động lại không mất tin, chỉ trễ ≤ 2 phút.",
+    "RabbitMQ có sẵn trong compose nhưng nằm trong profile 'workers' — prod KHÔNG bật. Redis không có."
+   ],
+   "so_sanh": [
+    {
+     "luat": "Cài Redis làm cache/hàng chờ",
+     "nguong": "p95 một màn > 800 ms VÀ đã chứng minh nguyên nhân là số vòng đi về, không phải thiếu index",
+     "so_do": "p95 1,3–1,5 s (14–17/10) — vượt vế đầu. Nhưng nguyên nhân đã đo là dựng lại trang thừa và N+1 (hàng trăm câu SQL/lần tải) — lỗi trong code, cache chỉ che đi.",
+     "ket_luan": "Chưa mở lại. Sửa việc 1–3 trước rồi đo lại.",
+     "mau": "vang"
+    },
+    {
+     "luat": "Chạy 3–4 bản sao ứng dụng",
+     "nguong": "CPU backend > 70% kéo dài; trước đó phải chuyển bộ đếm giới hạn sang Postgres",
+     "so_do": "Chưa đo CPU api. Đã đo CPU dashboard 130% lúc cao điểm (Next đã chạy tới 4 tiến trình).",
+     "ket_luan": "Cần đo CPU api trước khi bàn.",
+     "mau": "vang"
+    },
+    {
+     "luat": "Hàng chờ (RabbitMQ) cho sự kiện",
+     "nguong": "Không bao giờ cho ghi vết. Chỉ đáng cân nhắc cho gửi thông báo ra ngoài.",
+     "so_do": "51.683 lần giao / 30 ngày ≈ 1 lần mỗi 50 giây, 0 kẹt. Chỗ nghẽn thật là worker nghỉ cứng 1 giây và gọi AI nằm trong vòng giao tin — sửa vài chục dòng.",
+     "ket_luan": "Không cần.",
+     "mau": "xanh"
+    },
+    {
+     "luat": "Elasticsearch/ClickHouse cho log",
+     "nguong": "nhật ký vượt ~50 triệu dòng",
+     "so_do": "~2.400 dòng/ngày (SO-LUAT Phần 1) — xa ngưỡng.",
+     "ket_luan": "Không cần.",
+     "mau": "xanh"
+    }
+   ],
+   "nguon": "docs/SO-LUAT.md Phần 7 · src/clinicai/core/change_broker.py · docker-compose.yml (profile workers)"
+  },
+  "chua_phu": [
+   "Số đo sống: trang là ẢNH CHỤP. Muốn số tự cập nhật thì làm trong /ops của app (mức 2–3), không làm ở trang tài liệu.",
+   "Chưa đo: req/giờ 24h, CPU từng container, dung lượng từng bảng, dung lượng CFS, tuổi bản sao lưu hiện tại — cần chạy từ Mac (khung 'Lượng request').",
+   "Chưa soát: clinicai-traffic-report (ngoài git), cấu hình ufw THẬT trên VPS (chỉ đọc script dựng máy), hạn chứng chỉ, phiên bản image đang chạy thật.",
+   "Bảo mật chỉ soát theo code/cấu hình, KHÔNG thử tấn công.",
+   "Khối lịch + hành trình (#528) chỉ đưa vào qua việc 6; chưa có trang riêng."
+  ],
+  "bao_cao": {
+   "526": {
+    "tieu_de": "Soát hệ thống 22/10 · Khối 2 — Tiền",
+    "ngay": "22/10/2026",
+    "o_so": [
+     {
+      "nhan": "Khách trả cho một buổi khám (A1)",
+      "gia_tri": "430.000đ (đáng lẽ 280.000đ)",
+      "mau": "do"
+     },
+     {
+      "nhan": "Két chi ra cho lần thu 500.000đ (A2)",
+      "gia_tri": "1.000.000đ",
+      "mau": "do"
+     },
+     {
+      "nhan": "Báo cáo ngày lệch bản chụp ca (C2)",
+      "gia_tri": "800.000đ",
+      "mau": "do"
+     },
+     {
+      "nhan": "Việc cần Tuyền chốt",
+      "gia_tri": "A1, A2/C3, C1, C2, D4",
+      "mau": "vang"
+     }
+    ],
+    "muc": [
+     {
+      "mau": "xanh",
+      "chu": "Sổ tiền lõi vững: máy chủ tự tính hoá đơn, Postgres chặn thu một dòng hai lần và chặn hoàn vượt số đã thu.",
+      "noi": "Tóm tắt, mục 1"
+     },
+     {
+      "mau": "do",
+      "chu": "Đã thu phí khám mặc định rồi tick thêm dịch vụ khám thì khách trả tiền khám hai lần.",
+      "noi": "bill_service.py:880-926, tien_thua_service.py:72-83"
+     },
+     {
+      "mau": "do",
+      "chu": "Phiếu đã huỷ vẫn hoàn tiền được, tiền ra khỏi két hai lần, báo cáo bị âm.",
+      "noi": "hoan_tien_service.py:323-338"
+     },
+     {
+      "mau": "do",
+      "chu": "Thu chia tiền mặt + chuyển khoản: phần tiền mặt tính sai ca, mất dấu nếu huỷ lần chờ.",
+      "noi": "payment_service.py:413-415, 1343-1354"
+     },
+     {
+      "mau": "do",
+      "chu": "Đánh dấu 'đã xuất MISA' dựng lại danh sách lúc bấm nên có thể sót hoá đơn GTGT.",
+      "noi": "hoa_don_misa_service.py:79-117"
+     },
+     {
+      "mau": "vang",
+      "chu": "Khoản ghi nợ có thể treo 'chưa thu' mãi khi nợ hết mà không qua lần thu nào.",
+      "noi": "events/consumers/cong_no.py:28-66"
+     },
+     {
+      "mau": "vang",
+      "chu": "Hai màn báo cáo tính phiếu huỷ và khoản hoàn theo hai mốc ngày khác nhau, cùng ngày ra hai số.",
+      "noi": "bao_cao_cuoi_ngay_service.py:943-1006, danh_sach_hoa_don_service.py:63-96"
+     },
+     {
+      "mau": "vang",
+      "chu": "Hộp Hoàn tác hiện số tiền trước giảm giá, thu ngân có thể trả khách thừa.",
+      "noi": "QuayThuNgan.tsx:377"
+     },
+     {
+      "mau": "vang",
+      "chu": "Nhập ngày 9999-12-31 làm máy chủ lỗi 500 thay vì trả rỗng.",
+      "noi": "danh_sach_hoa_don_service.py:271, bao_cao_cuoi_ngay_service.py:1274, 1299"
+     },
+     {
+      "mau": "xanh",
+      "chu": "Múi giờ Việt Nam đúng ở mọi chỗ đã soát; máy chủ không tin số tiền màn hình gửi lên.",
+      "noi": "Tóm tắt mục 9; Nhóm D"
+     }
+    ],
+    "de_xuat": [
+     "Tuyền chốt A1 và A2/C3, rồi chặn hoàn tiền trên phiếu đã huỷ ngay trong Postgres (trigger payment_refund_guard).",
+     "Tách phần tiền mặt của lần thu chia TM + CK thành một lần thu riêng ngay lúc thu.",
+     "Thêm các bất biến còn thiếu T1–T6 vào bài mô phỏng dòng tiền để bắt lỗi kiểu A1, A2, A3."
+    ]
+   },
+   "527": {
+    "tieu_de": "Soát 22/10 · Khối 4 — Lego + Quyền",
+    "ngay": "22/10/2026",
+    "o_so": [
+     {
+      "nhan": "Endpoint FastAPI đã quét",
+      "gia_tri": "619",
+      "mau": "xanh"
+     },
+     {
+      "nhan": "Bảng đọc thẳng qua /rest/v1",
+      "gia_tri": "~40 bảng",
+      "mau": "do"
+     },
+     {
+      "nhan": "Chỗ ghi chéo giữa các khối",
+      "gia_tri": "97",
+      "mau": "vang"
+     },
+     {
+      "nhan": "Route Next chạm thẳng DB",
+      "gia_tri": "1",
+      "mau": "vang"
+     }
+    ],
+    "muc": [],
+    "de_xuat": []
+   },
+   "529": {
+    "tieu_de": "Pha 1 — Soát kho thuốc, quầy thuốc và kho vật tư",
+    "ngay": "22/10/2026",
+    "o_so": [
+     {
+      "nhan": "Test mô phỏng kho/quầy/tiền/vật tư",
+      "gia_tri": "295 đạt",
+      "mau": "xanh"
+     },
+     {
+      "nhan": "Test chờ sẵn (lỗi đã ghim)",
+      "gia_tri": "2 xfail",
+      "mau": "do"
+     },
+     {
+      "nhan": "Thuốc đang bán thiếu lô (mốc nền)",
+      "gia_tri": "55/107",
+      "mau": "do"
+     },
+     {
+      "nhan": "Lô lệch đơn vị hộp/gói (16/10)",
+      "gia_tri": "110/160",
+      "mau": "do"
+     }
+    ],
+    "muc": [
+     {
+      "mau": "do",
+      "chu": "Lô nhập theo hộp, thuốc bán theo gói → giao thuốc ghi tiền mà không trừ kho.",
+      "noi": "pharmacy_service.py:1092"
+     },
+     {
+      "mau": "do",
+      "chu": "Nhập lô thuốc trực tiếp chưa ghi sự kiện nghiệp vụ, chỉ ghi log ứng dụng.",
+      "noi": "pharmacy_service.py:542"
+     },
+     {
+      "mau": "do",
+      "chu": "Ba bảng lõi kho thuốc chưa có trigger báo thay đổi, màn khác không tự cập nhật.",
+      "noi": "RealtimeRefresher.tsx:88-145"
+     },
+     {
+      "mau": "vang",
+      "chu": "Migration mở full lego cấp rộng quyền cho nhân viên nội bộ, chưa đúng ý quản lý bật từng người.",
+      "noi": "supabase/migrations/20260930900000_mo_full_lego.sql:1-52"
+     },
+     {
+      "mau": "vang",
+      "chu": "Đơn thiếu số lượng bác sĩ nhập nên tổng 0đ, nút tạo bill ở thu ngân bị tắt.",
+      "noi": "Mục D, điểm nền 4"
+     },
+     {
+      "mau": "vang",
+      "chu": "Ở màn 375px, bảng tồn kho tràn ngang.",
+      "noi": "Mục D, quan sát mới"
+     },
+     {
+      "mau": "vang",
+      "chu": "Không có nút hoàn tác ngay trên dòng thuốc đã giao.",
+      "noi": "Mục D, điểm nền 7"
+     },
+     {
+      "mau": "xanh",
+      "chu": "Bảy tệp mô phỏng gọi service thật đều xanh; luật hoàn không vượt số đã thu được giữ đúng.",
+      "noi": "B. Test và bất biến"
+     }
+    ],
+    "de_xuat": [
+     "Tuyền duyệt kế hoạch quy đổi #498 (1 hộp = N gói lúc nhập) rồi làm.",
+     "Ghi sự kiện khi nhập lô + trigger cho drug_batch, inventory_txn, phieu_kho (2 test chờ ở #529 sẽ chuyển xanh).",
+     "Đối soát mã thuốc, đơn vị, lô trước khi nạp tồn thật."
+    ]
+   },
+   "531": {
+    "tieu_de": "Soát 22/10 · Khối 5 — Sự kiện, nhiều phòng khám, vận hành",
+    "ngay": "22/10/2026",
+    "o_so": [
+     {
+      "nhan": "Lần giao sự kiện 30 ngày",
+      "gia_tri": "51.683 · 0 kẹt",
+      "mau": "xanh"
+     },
+     {
+      "nhan": "Trễ tối đa khi khởi động lại su-kien",
+      "gia_tri": "≤ 2 phút",
+      "mau": "xanh"
+     },
+     {
+      "nhan": "Gọi AI nằm trong vòng giao tin",
+      "gia_tri": "tới 600 giây/lần",
+      "mau": "do"
+     },
+     {
+      "nhan": "Loại sự kiện không ai nghe",
+      "gia_tri": "11",
+      "mau": "vang"
+     }
+    ],
+    "muc": [
+     {
+      "mau": "do",
+      "chu": "Gọi AI tóm tắt cuối ngày nằm ngay trong vòng giao tin, làm chuông và hàng chờ đứng chờ.",
+      "noi": "worker.py:290-329, agent_tom_tat.py:236-255"
+     },
+     {
+      "mau": "do",
+      "chu": "Khoá sao lưu kẹt lại sau khi tiến trình bị giết, sao lưu dừng hẳn mà không báo ai.",
+      "noi": "scripts/backup-db.sh:127-134"
+     },
+     {
+      "mau": "do",
+      "chu": "Docker bật lại trước khi ổ CFS gắn xong nên api và day-tep nằm im — ứng viên sự cố 14/10.",
+      "noi": "docker-compose.yml:216-222"
+     },
+     {
+      "mau": "vang",
+      "chu": "Trình duyệt tự nối lại dòng tin nhưng không tải bù, màn trễ tới 60 giây.",
+      "noi": "RealtimeRefresher.tsx:248-259"
+     },
+     {
+      "mau": "vang",
+      "chu": "Bộ nghe LISTEN của API rớt rồi nối lại thì tin trong quãng rớt mất hẳn.",
+      "noi": "core/change_broker.py:91-114"
+     },
+     {
+      "mau": "vang",
+      "chu": "Hàng chờ 8 tin mỗi màn đầy thì bỏ tin.",
+      "noi": "core/change_broker.py:45,131-135"
+     },
+     {
+      "mau": "vang",
+      "chu": "Bảng event_delivery không bao giờ được dọn, câu kiểm thứ tự không dùng chỉ mục — chậm dần theo tháng.",
+      "noi": "events/worker.py:104-112"
+     },
+     {
+      "mau": "vang",
+      "chu": "Giao diện không gửi X-Clinic-ID: tài khoản thuộc hai phòng khám sẽ bị 403 ở mọi API.",
+      "noi": "api/identity.py:494-509"
+     },
+     {
+      "mau": "xanh",
+      "chu": "Sự kiện ghi cùng giao dịch với dữ liệu; khởi động lại su-kien không mất sự kiện, chỉ trễ.",
+      "noi": "emit.py:181-226"
+     }
+    ],
+    "de_xuat": [
+     "Cho màn tải bù sau khi nối lại dòng tin, ở cả trình duyệt và API (gửi tin 'không rõ bảng').",
+     "Tách gọi AI tóm tắt cuối ngày ra task riêng có giới hạn giờ.",
+     "Dọn event_delivery theo tuổi + chỉ mục cho câu kiểm thứ tự."
+    ]
+   },
+   "534": {
+    "tieu_de": "Rà soát tốc độ toàn hệ thống",
+    "ngay": "23/10/2026",
+    "o_so": [
+     {
+      "nhan": "Tải lại bảng quầy thu p95",
+      "gia_tri": "~3,4 giây",
+      "mau": "do"
+     },
+     {
+      "nhan": "Câu WITH v AS quầy thu (14/10)",
+      "gia_tri": "TB 4,3 giây",
+      "mau": "do"
+     },
+     {
+      "nhan": "Thu ngân chờ nút Thu nhả",
+      "gia_tri": "~7 giây",
+      "mau": "do"
+     },
+     {
+      "nhan": "Máy chủ ghi tiền",
+      "gia_tri": "~0,13 giây",
+      "mau": "xanh"
+     }
+    ],
+    "muc": [
+     {
+      "mau": "do",
+      "chu": "Mỗi lần thu tiền sinh khoảng 3 đợt tin; mọi tab đang mở bị dựng lại trang khoảng 3 lần.",
+      "noi": "src/clinicai/worker.py:329-333"
+     },
+     {
+      "mau": "do",
+      "chu": "Bác sĩ gõ phiếu tự lưu cũng làm mọi màn thường của cả hai cơ sở dựng lại liên tục.",
+      "noi": "RealtimeRefresher.tsx:88-147"
+     },
+     {
+      "mau": "do",
+      "chu": "Mỗi lần dựng trang, kiểm quyền chạy một câu SQL cho từng ngày trực từ trước tới nay: ~200–500 câu.",
+      "noi": "cashier_scope_service.py:243-312"
+     },
+     {
+      "mau": "do",
+      "chu": "Bảng quầy thu tính hoá đơn từng khách nối đuôi: ~300–2.000 câu SQL mỗi lần tải.",
+      "noi": "cashier_board_service.py:708-737"
+     },
+     {
+      "mau": "do",
+      "chu": "Nút Thu chờ ít nhất 2 lượt tải bảng mới nhả, ~7 giây.",
+      "noi": "thu-ngan/QuayThuNgan.tsx:338-399"
+     },
+     {
+      "mau": "do",
+      "chu": "Màn check-out ~20–25 câu mỗi lượt khách; mỗi tin tải ba lần.",
+      "noi": "checkout_service.py:1051-1098"
+     },
+     {
+      "mau": "vang",
+      "chu": "Đối chiếu sổ nợ mỗi 10 phút chạy ≈5–9 nghìn câu, xét lại cả lượt không đổi.",
+      "noi": "so_no_service.py:595-613"
+     },
+     {
+      "mau": "vang",
+      "chu": "Báo cáo cuối ngày đọc mọi lượt từ trước tới nay rồi mới lọc.",
+      "noi": "bao_cao_viec_tien_service.py:78-122"
+     },
+     {
+      "mau": "xanh",
+      "chu": "Chưa thấy logic tiền nào sai do tốc độ; lệnh thu tính lại hoá đơn trong giao dịch có khoá.",
+      "noi": "mục 5 'Đã kiểm và ổn'"
+     }
+    ],
+    "de_xuat": [
+     "Cắt làm mới dây chuyền trước (PR A–D): worker thức theo NOTIFY, bảng theo từng màn, nhịp dự phòng chỉ khi SSE chết.",
+     "Duyệt sớm PR-I: tính ngày trực bằng một câu SQL (~400 câu → ≤ 6).",
+     "Tách hoá đơn thành đọc gộp + hàm dựng dùng chung (PR-J), rồi áp cho quầy thu và check-out."
+    ]
+   }
+  }
+ },
+ "viec_tu_tep": [
+  {
+   "so": 1,
+   "ten": "Đông khách thì màn tự nháy, bấm gì cũng phải chờ",
+   "muc": 2
+  },
+  {
+   "so": 2,
+   "ten": "Mở trang nào cũng chậm, và chậm thêm mỗi ngày",
+   "muc": 3
+  },
+  {
+   "so": 3,
+   "ten": "Quầy thu và check-out chậm; bấm Thu chờ ~7 giây",
+   "muc": 3
+  },
+  {
+   "so": 4,
+   "ten": "Tiền khách trả có thể sai",
+   "muc": 3
+  },
+  {
+   "so": 5,
+   "ten": "Giao thuốc mà kho không trừ; màn kho không tự cập nhật",
+   "muc": 3
+  },
+  {
+   "so": 6,
+   "ten": "Bấm nhầm thì không gỡ được, hoặc gỡ xong màn kẹt",
+   "muc": 2
+  },
+  {
+   "so": 7,
+   "ten": "Người ngoài đọc được dữ liệu khách; tự xếp ca để vượt quyền",
+   "muc": 3
+  },
+  {
+   "so": 8,
+   "ten": "Sao lưu có thể dừng mà không ai biết; ảnh/video chỉ có một bản",
+   "muc": 2
+  },
+  {
+   "so": 9,
+   "ten": "Người khác đã làm mà màn mình không đổi",
+   "muc": 2
+  },
+  {
+   "so": 10,
+   "ten": "Đang làm thì bị văng ra trang đăng nhập",
+   "muc": 2
+  }
+ ],
+ "so_do": {
+  "do_luc": "2026-10-23T15:33+07:00",
+  "ghi_chu": "Đo chỉ đọc từ Mac (scripts/do-so-do.py): 24 giờ log Caddy qua docker logs, pg_stat_activity/pg_stat_statements, df. Giờ VN. Không có IP/thông tin khách. p95_ms = /api/*; chi tiết api/trang ở *_chi_tiet; bỏ tệp tĩnh và SSE. cau_cham cộng dồn từ thong_ke_cau_tu.",
+  "prod": {
+   "tong_req_24h": 60366,
+   "req_moi_gio": [
+    37,
+    134,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    855,
+    3491,
+    3305,
+    1617,
+    281,
+    400,
+    619,
+    1446,
+    2412,
+    3507,
+    8666,
+    10389,
+    15790,
+    6077,
+    1307,
+    31
+   ],
+   "gio_dinh": {
+    "gio": 20,
+    "so_req": 15790,
+    "req_moi_giay_tb": 4.4
+   },
+   "req_moi_giay_dinh": 63,
+   "p95_ms": 539,
+   "p50_ms_chi_tiet": {
+    "api": 63,
+    "trang": 42
+   },
+   "p95_ms_chi_tiet": {
+    "api": 539,
+    "trang": 738
+   },
+   "p99_ms_chi_tiet": {
+    "api": 2639,
+    "trang": 1078
+   },
+   "so_req_tren_3_giay": 156,
+   "trang_thai": {
+    "2xx": 57222,
+    "4xx": 277,
+    "3xx": 2857,
+    "0xx": 10
+   },
+   "tep_tinh": 487,
+   "mo_ket_noi_sse": 1851,
+   "so_may_khac_nhau": 35,
+   "top_duong": [
+    {
+     "duong": "GET /api/luot-kham",
+     "so": 9485,
+     "p95_ms": null,
+     "tb_ms": 197,
+     "tong_giay": 1866
+    },
+    {
+     "duong": "GET /home",
+     "so": 5236,
+     "p95_ms": null,
+     "tb_ms": 313,
+     "tong_giay": 1638
+    },
+    {
+     "duong": "GET /api/cashier",
+     "so": 1435,
+     "p95_ms": null,
+     "tb_ms": 1097,
+     "tong_giay": 1575
+    },
+    {
+     "duong": "GET /customers",
+     "so": 3294,
+     "p95_ms": null,
+     "tb_ms": 189,
+     "tong_giay": 622
+    },
+    {
+     "duong": "GET /reception/queue",
+     "so": 3335,
+     "p95_ms": null,
+     "tb_ms": 157,
+     "tong_giay": 524
+    },
+    {
+     "duong": "GET /api/thong-bao",
+     "so": 2359,
+     "p95_ms": null,
+     "tb_ms": 114,
+     "tong_giay": 270
+    },
+    {
+     "duong": "GET /api/phieu-kham",
+     "so": 3814,
+     "p95_ms": null,
+     "tb_ms": 70,
+     "tong_giay": 269
+    },
+    {
+     "duong": "GET /schedule",
+     "so": 1854,
+     "p95_ms": null,
+     "tb_ms": 135,
+     "tong_giay": 250
+    },
+    {
+     "duong": "GET /do-sinh-hieu",
+     "so": 762,
+     "p95_ms": null,
+     "tb_ms": 189,
+     "tong_giay": 144
+    },
+    {
+     "duong": "GET /api/roster",
+     "so": 2672,
+     "p95_ms": null,
+     "tb_ms": 50,
+     "tong_giay": 134
+    },
+    {
+     "duong": "GET /patients/new",
+     "so": 2379,
+     "p95_ms": null,
+     "tb_ms": 49,
+     "tong_giay": 116
+    },
+    {
+     "duong": "GET /reports",
+     "so": 1719,
+     "p95_ms": null,
+     "tb_ms": 61,
+     "tong_giay": 106
+    },
+    {
+     "duong": "GET /api/cskh/ket-qua/:id/noi-dung",
+     "so": 462,
+     "p95_ms": null,
+     "tb_ms": 203,
+     "tong_giay": 94
+    },
+    {
+     "duong": "GET /phong/:id",
+     "so": 1417,
+     "p95_ms": null,
+     "tb_ms": 56,
+     "tong_giay": 80
+    },
+    {
+     "duong": "GET /api/cskh/khach/:id",
+     "so": 1279,
+     "p95_ms": null,
+     "tb_ms": 62,
+     "tong_giay": 79
+    }
+   ]
+  },
+  "staging": {
+   "tong_req_24h": 970,
+   "req_moi_gio": [
+    0,
+    165,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    8,
+    0,
+    0,
+    0,
+    0,
+    26,
+    153,
+    0,
+    0,
+    0,
+    278,
+    0,
+    0,
+    62,
+    278
+   ],
+   "gio_dinh": {
+    "gio": 19,
+    "so_req": 278,
+    "req_moi_giay_tb": 0.1
+   },
+   "req_moi_giay_dinh": 29,
+   "p95_ms": 143,
+   "p50_ms_chi_tiet": {
+    "api": 59,
+    "trang": 4
+   },
+   "p95_ms_chi_tiet": {
+    "api": 143,
+    "trang": 47
+   },
+   "p99_ms_chi_tiet": {
+    "api": 201,
+    "trang": 220
+   },
+   "so_req_tren_3_giay": 0,
+   "trang_thai": {
+    "2xx": 317,
+    "3xx": 627,
+    "4xx": 26
+   },
+   "tep_tinh": 45,
+   "mo_ket_noi_sse": 10,
+   "so_may_khac_nhau": 1,
+   "top_duong": [
+    {
+     "duong": "GET /home",
+     "so": 18,
+     "p95_ms": null,
+     "tb_ms": 258,
+     "tong_giay": 5
+    },
+    {
+     "duong": "GET /api/luot-kham",
+     "so": 37,
+     "p95_ms": null,
+     "tb_ms": 78,
+     "tong_giay": 3
+    },
+    {
+     "duong": "GET /api/thong-bao",
+     "so": 14,
+     "p95_ms": null,
+     "tb_ms": 115,
+     "tong_giay": 2
+    },
+    {
+     "duong": "POST /login",
+     "so": 14,
+     "p95_ms": null,
+     "tb_ms": 84,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /login",
+     "so": 85,
+     "p95_ms": null,
+     "tb_ms": 11,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /forgot-password",
+     "so": 36,
+     "p95_ms": null,
+     "tb_ms": 21,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /reception/queue",
+     "so": 6,
+     "p95_ms": null,
+     "tb_ms": 96,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /api/phan-quyen",
+     "so": 10,
+     "p95_ms": null,
+     "tb_ms": 56,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /api/roster",
+     "so": 14,
+     "p95_ms": null,
+     "tb_ms": 40,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /customers",
+     "so": 6,
+     "p95_ms": null,
+     "tb_ms": 90,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /phan-quyen",
+     "so": 6,
+     "p95_ms": null,
+     "tb_ms": 88,
+     "tong_giay": 1
+    },
+    {
+     "duong": "GET /nhan-su",
+     "so": 2,
+     "p95_ms": null,
+     "tb_ms": 205,
+     "tong_giay": 0
+    },
+    {
+     "duong": "GET /ban-kham",
+     "so": 1,
+     "p95_ms": null,
+     "tb_ms": 265,
+     "tong_giay": 0
+    },
+    {
+     "duong": "GET /reports",
+     "so": 3,
+     "p95_ms": null,
+     "tb_ms": 62,
+     "tong_giay": 0
+    },
+    {
+     "duong": "GET /settings/clinic-config",
+     "so": 4,
+     "p95_ms": null,
+     "tb_ms": 43,
+     "tong_giay": 0
+    }
+   ]
+  },
+  "db": {
+   "ket_noi": 21,
+   "max_ket_noi": 100,
+   "dung_luong_gb": 0.48,
+   "ket_noi_theo_trang_thai": "",
+   "bang_to_mb": "ket_qua:47.0,ban_ghi_that:31.1,form_instance:29.5,domain_event:25.8,ke_thuoc:24.1,dich_vu:23.0,prescription:22.4,service_order:22.4",
+   "cau_cham": [
+    {
+     "so_lan": 97449,
+     "tb_ms": 175,
+     "tong_giay": 17052,
+     "cau": "WITH dong AS ( SELECT bl.id::text AS line_id, bl.visit_id::text AS line_visit_id, "
+    },
+    {
+     "so_lan": 19936,
+     "tb_ms": 261,
+     "tong_giay": 5208,
+     "cau": "WITH tuan AS ( SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id, "
+    },
+    {
+     "so_lan": 48889,
+     "tb_ms": 78,
+     "tong_giay": 3830,
+     "cau": "WITH o AS MATERIALIZED ( SELECT o.id, o.clinic_id, o.visit_id, o.node_code, o.service_"
+    },
+    {
+     "so_lan": 285759,
+     "tb_ms": 13,
+     "tong_giay": 3661,
+     "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+    },
+    {
+     "so_lan": 12224,
+     "tb_ms": 277,
+     "tong_giay": 3387,
+     "cau": "WITH tuan AS ( SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id, "
+    },
+    {
+     "so_lan": 21528,
+     "tb_ms": 157,
+     "tong_giay": 3384,
+     "cau": "SELECT count(DISTINCT x.pid) FROM ( SELECT v.clinic_patient_id AS pid "
+    },
+    {
+     "so_lan": 48881,
+     "tb_ms": 56,
+     "tong_giay": 2744,
+     "cau": "WITH o AS MATERIALIZED ( SELECT o.id, o.clinic_id, o.visit_id, o.node_code, o.service_"
+    },
+    {
+     "so_lan": 481087,
+     "tb_ms": 6,
+     "tong_giay": 2652,
+     "cau": "SELECT r.id::text AS room_id, r.code, r.sort, -- Phòng chuyên ★ (07/10/2026): chỉ đ"
+    }
+   ],
+   "thong_ke_cau_tu": "2026-09-16 13:11:31.364364+07"
+  },
+  "db_staging": {
+   "ket_noi": 8,
+   "max_ket_noi": 60,
+   "dung_luong_gb": 0.4,
+   "ket_noi_theo_trang_thai": "",
+   "bang_to_mb": "form_instance:50.0,domain_event:44.4,event_log:35.2,service_order:30.4,prescription:23.5,luot_dong_thoi_gian:21.3,form_instance_lich_su:20.5,phieu_kham_luot:17.1",
+   "cau_cham": [
+    {
+     "so_lan": 5,
+     "tb_ms": 998562,
+     "tong_giay": 4993,
+     "cau": "DO $$ DECLARE r record; set_ds text; where_ds text; BEGIN FOR r IN SELECT "
+    },
+    {
+     "so_lan": 39806,
+     "tb_ms": 13,
+     "tong_giay": 534,
+     "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+    },
+    {
+     "so_lan": 42287,
+     "tb_ms": 12,
+     "tong_giay": 522,
+     "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+    },
+    {
+     "so_lan": 41000,
+     "tb_ms": 12,
+     "tong_giay": 503,
+     "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+    },
+    {
+     "so_lan": 39108,
+     "tb_ms": 12,
+     "tong_giay": 485,
+     "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+    },
+    {
+     "so_lan": 21038,
+     "tb_ms": 11,
+     "tong_giay": 241,
+     "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+    },
+    {
+     "so_lan": 17570,
+     "tb_ms": 12,
+     "tong_giay": 210,
+     "cau": "WITH dong AS ( SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten, "
+    },
+    {
+     "so_lan": 1413,
+     "tb_ms": 103,
+     "tong_giay": 145,
+     "cau": "SELECT (SELECT count(*) FROM loi_nhom WHERE trang_thai = $4 AND lan_"
+    }
+   ],
+   "thong_ke_cau_tu": "2026-10-18 16:05:34.148837+07"
+  },
+  "o_dia": {
+   "vps_goc_pct": 80,
+   "vps_goc_con_gb": 10,
+   "cfs_pct": 7,
+   "cfs_con_gb": 986
+  },
+  "may_vps": {
+   "nhan": 4,
+   "tai_1_5_15": "1.56 1.15 0.92",
+   "ram_mb": 7952,
+   "ram_con_mb": 3789
+  },
+  "sao_luu": {
+   "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_153006.sql.gz",
+   "tuoi_gio": 0.1,
+   "hang_dem": {
+    "thu_muc": "/home/clinicai/backups/clinicai",
+    "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_021536.sql.gz",
+    "tuoi_gio": 13.3,
+    "co_mb": 32,
+    "so_tep": 50
+   },
+   "moi_15_phut": {
+    "thu_muc": "/home/clinicai/backups/clinicai-15p",
+    "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_153006.sql.gz",
+    "tuoi_gio": 0.1,
+    "co_mb": 33,
+    "so_tep": 556
+   },
+   "cfs": {
+    "thu_muc": "/mnt/viettel-cfs/db-backups",
+    "ban_moi_nhat": "clinicai_production_clinicai-db_20261023_153006.sql.gz",
+    "tuoi_gio": 0.1,
+    "co_mb": 33,
+    "so_tep": 4362
+   },
+   "mac": {
+    "tep": "clinicai_production_clinicai-db_20261023_021536.sql.gz",
+    "tuoi_gio": 13.3,
+    "co_mb": 32
+   }
+  }
+ }
+}
+</script>
+<script>
+(function () {
+  "use strict";
+  var D = {};
+  try { D = JSON.parse(document.getElementById("du-lieu").textContent); } catch (e) { D = {}; }
+  var V = D.viet_tay || {};
+  var C = D.theo_code || {};
+  var REPO = V.repo || "https://github.com/Avalook/Clinic-AI-MacMini";
+  var NHAN_MAU = { do: "Rủi ro", vang: "Để ý", xanh: "Ổn" };
+  var DAU_MAU = { do: "!", vang: "▲", xanh: "✓" };
+
+  function e(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function cham(mau, chu) {
+    mau = NHAN_MAU[mau] ? mau : "vang";
+    return '<span class="cham ' + mau + '"><i aria-hidden="true">' + DAU_MAU[mau] + "</i>" + e(chu || NHAN_MAU[mau]) + "</span>";
+  }
+  function so(x) { return typeof x === "number" ? x.toLocaleString("vi-VN") : e(x); }
+  function pr(n) { return '<a href="' + e(REPO) + "/pull/" + e(n) + '">#' + e(n) + "</a>"; }
+  function ngay(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+    return m ? m[3] + "/" + m[2] + "/" + m[1] : (iso || "không rõ ngày");
+  }
+  function noi(x) {
+    if (!x || !x.noi) return "";
+    return '<span class="noi' + (x.neo_lech ? " lech" : "") + '"><code>' + e(x.noi) + "</code>" + (x.neo_lech ? " — chỗ này đã đổi, cần soát lại" : "") + "</span>";
+  }
+  function dsMau(items) {
+    if (!items || !items.length) return "";
+    return '<ul class="ds">' + items.map(function (x) {
+      return "<li>" + cham(x.mau) + "<span>" + e(x.chu) + "</span>" + noi(x) + "</li>";
+    }).join("") + "</ul>";
+  }
+  function oSo(items) {
+    return '<div class="luoi-o">' + (items || []).map(function (x) {
+      return '<div class="o-so ' + e(x.mau) + '"><div class="nhan">' + e(x.nhan) + '</div><div class="so">' + e(x.gia_tri) + "</div>" +
+        (x.ghi ? '<div class="nhan">' + e(x.ghi) + "</div>" : "") + cham(x.mau) + (x.nguon ? ' <span class="the-nguon' + (x.da_do ? " da-do" : "") + '">' + e(x.nguon) + "</span>" : "") + "</div>";
+    }).join("") + "</div>";
+  }
+  function bl(tieu, html) { return '<aside class="bl" aria-label="Đề xuất"><b class="tieu">' + e(tieu) + "</b>" + html + "</aside>"; }
+  function deXuat(list) {
+    return (list || []).map(function (x) {
+      if (typeof x === "string") return "<p>" + e(x) + "</p>";
+      return "<p>" + (x.muc != null ? '<span class="muc">Mức ' + e(x.muc) + "</span>" : "") + e(x.chu) + "</p>";
+    }).join("");
+  }
+
+  /* ------------------------------------------------ đầu trang + chân ---- */
+  document.getElementById("dong-sinh").innerHTML =
+    "Ảnh chụp ngày <b>" + e(ngay(D.sinh_luc)) + "</b> · code <code>main @ " + e((D.git || {}).sha || "?") + "</code> (commit " + e(ngay((D.git || {}).ngay_commit)) +
+    ") · số đo: " + (D.so_do ? '<span class="the-nguon da-do">đã đo ' + e(ngay(D.so_do.do_luc)) + "</span>" : '<span class="the-nguon">chưa đo — dùng số đo cũ có ghi ngày</span>');
+  document.getElementById("lk-lego").href = V.lego || "../lego/index.html";
+
+  /* ------------------------------------------------ TAB 1 ------------- */
+  function dichVuChip(nhom, ten, ghiDe, tatO) {
+    var dv = ((C.compose || {})[nhom] || {}).dich_vu || {};
+    var g = dv[ten] || {};
+    var o = ghiDe ? (((C.compose || {})[ghiDe] || {}).dich_vu || {})[ten] || {} : {};
+    var tat = (g.profiles && g.profiles.length) || (o.profiles && o.profiles.length);
+    var ram = o.mem_limit || g.mem_limit;
+    var cong = (g.ports || []).join(" ");
+    return '<span class="chip-dv' + (tat ? " tat" : "") + '" title="' + e(tat ? "chỉ chạy khi bật profile — đang tắt" : "") + '"><b>' + e(ten) + "</b><small>" +
+      e([ram ? "RAM ≤ " + ram : "", cong ? "cổng " + cong : "", tat ? "tắt" : ""].filter(Boolean).join(" · ")) + "</small></span>";
+  }
+  function lanVps() {
+    var ud = ((C.compose || {}).ung_dung || {}).dich_vu || {};
+    var sb = ((C.compose || {}).supabase || {}).dich_vu || {};
+    function ds(nhom, src, ghiDe) { return Object.keys(src).map(function (k) { return dichVuChip(nhom, k, ghiDe); }).join(""); }
+    return '<div class="lan"><div><b>Prod</b> <span class="the-nguon">theo code</span><p class="phu">clinicai_prod (ứng dụng)</p>' + ds("ung_dung", ud) +
+      '<p class="phu">clinicai_db (Supabase tự dựng)</p>' + ds("supabase", sb) +
+      '</div><div><b>Staging</b> <span class="the-nguon">theo code</span><p class="phu">clinicai_staging — trần RAM riêng, bị giết trước khi máy hết RAM</p>' + ds("ung_dung", ud, "ung_dung_staging") +
+      '<p class="phu">clinicai_stg_db</p>' + ds("supabase", sb, "supabase_staging") + "</div></div>" +
+      '<p class="phu">Gạch ngang = có trong compose nhưng không chạy (profile chưa bật, hoặc tắt riêng ở staging). Số RAM là trần đặt trong compose, không phải số đo.</p>';
+  }
+  function tab1() {
+    var h = "<h2>Bốn nơi, và chúng nối với nhau thế nào</h2>";
+    h += '<div class="luoi">' + (V.may || []).map(function (m) {
+      return '<div class="the may"><h3>' + e(m.ten) + "</h3><p class=\"phu\">" + e(m.phu) + "</p>" +
+        (m.vai_tro || []).map(function (v) {
+          return '<div class="vt"><b>' + e(v.ten) + "</b><p>" + e(v.chu) + "</p>" + (v.nguon ? '<span class="ma">' + e(v.nguon) + "</span>" : "") + "</div>";
+        }).join("") + "</div>";
+    }).join("") + "</div>";
+    h += '<div class="noi-may">' +
+      "<div><b>Mac → VPS</b>: ssh để chạy lệnh deploy (Tuyền tự gõ); kéo bản sao lưu về 0:30 và 6:30.</div>" +
+      "<div><b>Mac → GitHub</b>: đẩy nhánh, mở PR; ci-may.sh gửi trạng thái ci-may/&lt;job&gt; lên PR.</div>" +
+      "<div><b>GitHub → VPS</b>: VPS lấy code bằng git theo đúng SHA đã thử trên staging. Không có CD tự động.</div>" +
+      "<div><b>VPS → CFS</b>: ảnh/video/PDF kết quả và bản sao lưu, qua SMB có mã hoá đường truyền.</div></div>";
+    h += "<h2>Trong VPS: các container của prod và staging</h2>" + lanVps();
+
+    h += "<h2>Đường đi của một request</h2><p class=\"phu\">Chọn một tình huống để xem request đi qua những đâu.</p>";
+    h += '<div class="hang-nut" role="group" aria-label="Chọn đường đi">' + (V.duong_di || []).map(function (d, i) {
+      return '<button type="button" class="chon-duong" data-i="' + i + '" aria-pressed="' + (i === 0) + '">' + e(d.ten) + "</button>";
+    }).join("") + '</div><div id="ve-duong"></div>';
+
+    h += "<h2>Caddy chia đường thế nào <span class=\"the-nguon\">theo code</span></h2>" +
+      "<p class=\"phu\">Đọc thẳng từ <code>caddy/Caddyfile</code>, theo thứ tự Caddy xét. Chỉ Caddy nghe cổng 80/443 ra Internet; api và dashboard chỉ nằm trong mạng nội bộ của Docker.</p>" +
+      bangCaddy(C.caddy) +
+      "<details><summary>Caddy của staging (<code>caddy/Caddyfile.staging</code>)</summary>" + bangCaddy(C.caddy_staging) + "</details>";
+
+    h += "<h2>Từng thành phần làm gì</h2>" +
+      '<div class="bang-cuon"><table class="xep"><thead><tr><th>Thành phần</th><th>Làm gì</th><th>Tiến trình</th><th>Kết nối database</th><th>Trần RAM (theo code)</th></tr></thead><tbody>' +
+      (V.thanh_phan || []).map(function (t) {
+        var g = t.compose ? ((((C.compose || {})[t.compose[0]] || {}).dich_vu || {})[t.compose[1]] || {}) : {};
+        return "<tr><td data-nhan=\"Thành phần\"><b>" + e(t.ten) + "</b>" + (g.image ? '<br><span class="ma">' + e(g.image) + "</span>" : "") + "</td><td data-nhan=\"Làm gì\">" + e(t.lam_gi) +
+          "</td><td data-nhan=\"Tiến trình\">" + e(t.tien_trinh) + "</td><td data-nhan=\"Kết nối\">" + e(t.ket_noi) + "</td><td data-nhan=\"RAM\">" + e(g.mem_limit || "—") + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+
+    var tong = (V.ngan_sach_ket_noi || []).reduce(function (a, x) { return a + x.so; }, 0);
+    h += '<h2>Ngân sách kết nối Postgres</h2><div class="co-bl"><div class="the">' +
+      '<p>Postgres prod cho tối đa <b>100</b> kết nối. Các bên được phép mở tới (trần theo cấu hình) <span class="the-nguon">theo code</span>:</p>' +
+      '<ul class="ds ngan-sach">' + (V.ngan_sach_ket_noi || []).map(function (x) {
+        return "<li><span>" + e(x.ai) + (x.ghi ? ' <span class="phu">— ' + e(x.ghi) + "</span>" : "") + "</span><b>" + e(x.so) + '</b><div class="thanh-nen"><div class="thanh" style="width:' + x.so + '%" title="' + e(x.ai + ": " + x.so + "/100") + '"></div></div></li>';
+      }).join("") + "</ul><p>Cộng trần: <b>" + tong + " / 100</b>. Đo 14–17/10 thực dùng ~30 <span class=\"the-nguon da-do\">đã đo 14–17/10</span>.</p>" +
+      '<p class="ma">' + e(V.ngan_sach_nguon) + "</p></div>" +
+      bl("Đề xuất", "<p><span class=\"muc\">Mức 3</span>Tắt Realtime ở prod (không ai dùng) — trả lại ~10 kết nối và đóng một cửa ra Internet.</p><p>Nâng bể API lên nữa chỉ khi đo thấy chờ kết nối &gt; 2 giây (đã có log <code>quan_sat.py</code>).</p>") + "</div>";
+
+    h += "<h2>Lịch chạy tự động trên VPS <span class=\"the-nguon\">theo code</span></h2><ul class=\"ds\">" + (C.systemd || []).map(function (t) {
+      return "<li>" + cham("xanh", "hẹn giờ") + "<span><b>" + e(t.ten) + "</b> — " + e(t.mo_ta) + "<br><code>" + e((t.lich || []).join(" · ")) + "</code></span>" + noi(t) + "</li>";
+    }).join("") + "<li>" + cham("vang") + "<span><b>clinicai-traffic-report</b> (nuôi /traffic) nằm NGOÀI git — không đọc được ở đây, chờ chốt.</span></li></ul>";
+    return h;
+  }
+  function bangCaddy(rows) {
+    return '<div class="bang-cuon"><table class="xep"><thead><tr><th>Tên miền / khối</th><th>Đường</th><th>Chuyển tới</th><th>Nguồn</th></tr></thead><tbody>' +
+      (rows || []).map(function (r) {
+        var site = String(r.site || "").replace("‹SITE_ADDRESS›", "tên miền chính (biến SITE_ADDRESS; prod: dr4women.io.vn)");
+        return "<tr><td data-nhan=\"Khối\">" + e(site) + "</td><td data-nhan=\"Đường\"><code>" + e(r.duong) + "</code></td><td data-nhan=\"Tới\"><code>" + e(r.dich) + "</code></td><td data-nhan=\"Nguồn\" class=\"ma\">" + e(r.noi) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  function veDuong(i) {
+    var d = (V.duong_di || [])[i];
+    if (!d) return;
+    document.querySelectorAll(".chon-duong").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-i") === String(i))); });
+    document.getElementById("ve-duong").innerHTML =
+      '<div class="co-bl"><div><p><b>Khi nào:</b> ' + e(d.khi_nao) + '</p><div class="chuoi">' + (d.buoc || []).map(function (b) {
+        return '<div class="buoc"><b>' + e(b.ten) + "</b><span>" + e(b.chu) + "</span>" + (b.nguon ? '<br><span class="ma">' + e(b.nguon) + "</span>" : "") + "</div>";
+      }).join("") + "</div></div>" + (d.ghi_chu ? bl("Ghi chú", "<p>" + cham(d.mau) + "</p><p>" + e(d.ghi_chu) + "</p>") : "") + "</div>";
+  }
+
+  /* ------------------------------------------------ TAB 2 ------------- */
+  function cu(nhan) { return (V.so_do_cu || []).filter(function (x) { return x.nhan === nhan; })[0]; }
+  function tab2() {
+    var S = D.so_do;
+    var h = S
+      ? '<div class="bao">Số đo nạp lúc <b>' + e(S.do_luc || "không rõ") + "</b> bằng <code>--so-do</code>. Bên dưới vẫn giữ các số đo cũ để so.</div>"
+      : '<div class="bao vang"><b>Chưa đo.</b> Trang này sinh trên máy cloud — không vào được VPS. Các ô dưới dùng số đo cũ, mỗi số có ghi ngày. Đo từ Mac rồi chạy <code>python3 scripts/he-thong-data.py --so-do so-do.json</code>.</div>';
+    function o(nhan, giaTriMoi, mauMoi, cuNhan) {
+      if (giaTriMoi != null) return { nhan: nhan, gia_tri: giaTriMoi, mau: mauMoi, nguon: "đã đo " + ngay(S.do_luc), da_do: true };
+      var c = cu(cuNhan) || {};
+      return { nhan: nhan, gia_tri: c.gia_tri || "chưa đo", mau: c.mau || "vang", nguon: c.ngay ? "đo cũ " + c.ngay : "chưa đo", da_do: !!c.ngay };
+    }
+    var P = (S || {}).prod || {}, DB = (S || {}).db || {}, OD = (S || {}).o_dia || {}, SL = (S || {}).sao_luu || {};
+    var dinh = P.req_moi_gio ? Math.max.apply(null, P.req_moi_gio) : null;
+    h += "<h2>Số chính</h2>" + oSo([
+      o("Request cao điểm (prod)", dinh != null ? so(Math.round(dinh / 3600 * 10) / 10) + " req/giây (" + so(dinh) + "/giờ)" : null, dinh > 30 * 3600 ? "do" : "vang", "Cao điểm tối 18–21h"),
+      o("p95 thời gian trả lời", P.p95_ms != null ? (P.p95_ms / 1000).toFixed(2).replace(".", ",") + " giây" : null, P.p95_ms > 800 ? "do" : "xanh", "p95 thời gian trả lời"),
+      o("Kết nối Postgres", DB.ket_noi != null ? DB.ket_noi + " / " + (DB.max_ket_noi || 100) : null, DB.ket_noi > 70 ? "do" : DB.ket_noi > 50 ? "vang" : "xanh", "Kết nối Postgres đang dùng"),
+      o("Ổ gốc VPS", OD.vps_goc_pct != null ? so(OD.vps_goc_pct) + "%" : null, OD.vps_goc_pct > 80 ? "do" : OD.vps_goc_pct > 70 ? "vang" : "xanh", "Ổ gốc VPS"),
+      SL.tuoi_gio != null ? o("Tuổi bản sao lưu mới nhất", so(SL.tuoi_gio) + " giờ", SL.tuoi_gio > 1 ? "do" : "xanh")
+        : { nhan: "Tuổi bản sao lưu mới nhất", gia_tri: "chưa đo", mau: "vang", ghi: "Từng ngừng 21 giờ vì ổ đầy (trước 11/10)", nguon: "chưa đo" }
+    ]);
+
+    h += '<h2>Request mỗi giờ (prod, 0h → 23h)</h2><div class="co-bl"><div>';
+    if (P.req_moi_gio) {
+      h += '<div class="bieu-do" id="bd">' + bieuDo(P.req_moi_gio) + '<div class="tip" id="tip"></div></div>' +
+        '<details><summary>Xem dạng bảng</summary><div class="bang-cuon"><table><thead><tr><th>Giờ</th><th>Request</th></tr></thead><tbody>' +
+        P.req_moi_gio.map(function (v, i) { return "<tr><td>" + i + "h</td><td>" + so(v) + "</td></tr>"; }).join("") + "</tbody></table></div></details>";
+    } else {
+      h += '<div class="chua-do"><b>Chưa đo.</b> Khung chờ 24 số <code>prod.req_moi_gio</code>. Đã biết (đo 14 và 17/10/2026): cao điểm tối <b>18–21h ~14–18 req/giây</b>, trong đó ~28% là tệp tĩnh (nay đã được trình duyệt giữ lại 1 ngày).</div>';
+    }
+    h += "</div>" + bl("Đọc số này thế nào", "<p>SO-LUAT Phần 1 ghi tải ~1 lượt gọi/giây — đó là số trung bình cả ngày lúc viết sổ. Cao điểm tối đo được gấp ~15 lần, phần lớn do mỗi lần ghi kéo màn dựng lại (việc 1).</p>") + "</div>";
+
+    if (S) {
+      if ((P.top_duong || []).length) h += "<h3>Đường nhiều request nhất</h3>" + bangDon(["Đường", "Số request", "p95 (ms)"], P.top_duong.map(function (x) { return ["<code>" + e(x.duong) + "</code>", so(x.so), so(x.p95_ms)]; }));
+      if ((DB.cau_cham || []).length) h += "<h3>Câu SQL chậm</h3>" + bangDon(["Câu", "Trung bình (ms)", "Số lần"], DB.cau_cham.map(function (x) { return ["<code>" + e(x.cau) + "</code>", so(x.tb_ms), so(x.so_lan)]; }));
+      if (S.staging && S.staging.p95_ms != null) h += "<p>Staging: p95 " + e(S.staging.p95_ms) + " ms.</p>";
+      if (DB.dung_luong_gb != null) h += "<p>Dung lượng database: <b>" + so(DB.dung_luong_gb) + " GB</b>" + (OD.cfs_pct != null ? " · CFS dùng " + so(OD.cfs_pct) + "%" : "") + (SL.ban_moi_nhat ? " · bản sao mới nhất " + e(SL.ban_moi_nhat) : "") + ".</p>";
+    }
+
+    var nhom = { prod: "Prod — lưu lượng", db: "Database", o_dia: "Ổ đĩa", sao_luu: "Sao lưu" };
+    h += "<h2>Mọi số đo đã có (kèm ngày)</h2>" + Object.keys(nhom).map(function (k) {
+      return "<h3>" + e(nhom[k]) + '</h3><ul class="ds">' + (V.so_do_cu || []).filter(function (x) { return x.nhom === k; }).map(function (x) {
+        return "<li>" + cham(x.mau) + "<span>" + e(x.nhan) + ": <b>" + e(x.gia_tri) + '</b> <span class="the-nguon da-do">đo ' + e(x.ngay) + '</span></span><span class="noi">' + e(x.nguon) + "</span></li>";
+      }).join("") + "</ul>";
+    }).join("");
+    h += '<h2>Cách đo từ Mac (chỉ đọc)</h2><ol>' + (V.cach_do || []).map(function (x) { return "<li>" + e(x) + "</li>"; }).join("") + "</ol>" +
+      "<details><summary>Khuôn tệp <code>so-do.json</code> (số 0 là chỗ điền)</summary><pre>" + e(JSON.stringify(V.khuon_so_do, null, 1)) + "</pre></details>";
+    return h;
+  }
+  function bangDon(dau, rows) {
+    return '<div class="bang-cuon"><table><thead><tr>' + dau.map(function (x) { return "<th>" + e(x) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      rows.map(function (r) { return "<tr>" + r.map(function (c) { return "<td>" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div>";
+  }
+  function bieuDo(v) {
+    var hep = window.innerWidth < 600, W = hep ? 360 : 720, H = hep ? 200 : 220, L = 58, B = 28, T = 10, nhip = hep ? 6 : 3, max = Math.max.apply(null, v.concat([1]));
+    var buoc = Math.pow(10, Math.floor(Math.log10(max))), tran = Math.ceil(max / buoc) * buoc;
+    var cot = (W - L - 8) / 24, s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Request mỗi giờ, prod">';
+    for (var g = 0; g <= 2; g++) {
+      var y = T + (H - T - B) * (1 - g / 2), gt = Math.round(tran * g / 2);
+      s += '<line x1="' + L + '" x2="' + (W - 4) + '" y1="' + y + '" y2="' + y + '" stroke="var(--vien)" stroke-width="1"/>' +
+        '<text x="' + (L - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="14" fill="var(--chu2)">' + so(gt) + "</text>";
+    }
+    v.forEach(function (x, i) {
+      var h = (H - T - B) * x / tran, xx = L + i * cot + 2;
+      s += '<rect class="cot" data-i="' + i + '" x="' + xx + '" y="' + (H - B - h) + '" width="' + (cot - 4) + '" height="' + Math.max(h, 0) + '" rx="3" fill="var(--nhan)"/>' +
+        '<rect class="cham-cot" data-i="' + i + '" x="' + (L + i * cot) + '" y="' + T + '" width="' + cot + '" height="' + (H - T - B) + '" fill="transparent"/>';
+      if (i % nhip === 0) s += '<text x="' + (xx + (cot - 4) / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="14" fill="var(--chu2)">' + i + "h</text>";
+    });
+    return s + "</svg>";
+  }
+  function moTip(v) {
+    var bd = document.getElementById("bd"), tip = document.getElementById("tip");
+    if (!bd) return;
+    bd.addEventListener("mousemove", function (ev) {
+      var t = ev.target;
+      if (!t.getAttribute || t.getAttribute("data-i") == null) { tip.style.display = "none"; return; }
+      var i = +t.getAttribute("data-i"), r = bd.getBoundingClientRect();
+      tip.textContent = i + "h–" + (i + 1) + "h: " + v[i].toLocaleString("vi-VN") + " request";
+      tip.style.left = Math.min(Math.max(ev.clientX - r.left, 60), r.width - 60) + "px";
+      tip.style.top = (ev.clientY - r.top) + "px";
+      tip.style.display = "block";
+    });
+    bd.addEventListener("mouseleave", function () { tip.style.display = "none"; });
+  }
+
+  /* ------------------------------------------------ TAB 3 ------------- */
+  function demMau() {
+    var d = { do: 0, vang: 0, xanh: 0 };
+    (V.bao_mat || []).forEach(function (l) { (l.rui_ro || []).forEach(function (r) { d[r.mau] = (d[r.mau] || 0) + 1; }); });
+    return d;
+  }
+  function xauNhat(list) {
+    var m = (list || []).map(function (x) { return x.mau; });
+    return m.indexOf("do") >= 0 ? "do" : m.indexOf("vang") >= 0 ? "vang" : "xanh";
+  }
+  function tab3() {
+    var d = demMau();
+    var h = '<p class="phu">Soát theo code và cấu hình trong repo (main @ ' + e((D.git || {}).sha) + "). Không thử tấn công, không vào VPS. Mỗi lớp: đang làm gì · rủi ro (tệp:dòng) · đề xuất kèm mức · việc số mấy trong <code>docs/VIEC-CAN-LAM.md</code> (" + pr(536) + ").</p>";
+    h += oSo([
+      { nhan: "Rủi ro", gia_tri: d.do, mau: "do" }, { nhan: "Cần để ý", gia_tri: d.vang, mau: "vang" }, { nhan: "Đã ổn", gia_tri: d.xanh, mau: "xanh" }
+    ]);
+    h += (V.bao_mat || []).map(function (l) {
+      var viec = (l.viec || []).length ? "<p>Việc số: " + l.viec.map(function (n) { return "<b>" + e(n) + "</b>"; }).join(", ") + " trong VIEC-CAN-LAM</p>" : '<p class="phu">Chưa có trong 10 việc.</p>';
+      var prs = (l.pr || []).length ? "<p>PR: " + l.pr.map(pr).join(" · ") + "</p>" : "";
+      return '<h2 id="bm-' + e(l.id) + '">' + e(l.ten) + " " + cham(xauNhat(l.rui_ro)) + '</h2><div class="co-bl"><div class="the">' +
+        "<h3>Đang làm gì</h3><ul>" + (l.dang_lam || []).map(function (x) { return "<li>" + e(x) + "</li>"; }).join("") + "</ul>" +
+        "<h3>Rủi ro</h3>" + dsMau(l.rui_ro) + "</div>" + bl("Đề xuất", deXuat(l.de_xuat) + viec + prs) + "</div>";
+    }).join("");
+    return h;
+  }
+
+  /* ------------------------------------------------ TAB 4 ------------- */
+  var trangBang = 0;
+  function tab4() {
+    var h = '<div class="bao vang"><b>Ảnh chụp tĩnh ngày ' + e(ngay(D.sinh_luc)) + "</b>, ghép từ các báo cáo soát — không phải giám sát thời gian thực. Muốn số tự cập nhật: làm tính năng trong <code>/ops</code> của app (<span class=\"muc\">Mức 2–3</span>), không làm ở trang tài liệu này.</div>";
+    h += '<div class="hang-nut" role="group" aria-label="Trang của bảng điều khiển">' + (V.bang || []).map(function (b, i) {
+      return '<button type="button" class="chon-bang" data-i="' + i + '" aria-pressed="' + (i === trangBang) + '">' + e(b.ten) + "</button>";
+    }).join("") + '</div><div id="ve-bang"></div>';
+    return h;
+  }
+  function veBang(i) {
+    trangBang = i;
+    var b = (V.bang || [])[i];
+    if (!b) return;
+    document.querySelectorAll(".chon-bang").forEach(function (x) { x.setAttribute("aria-pressed", String(x.getAttribute("data-i") === String(i))); });
+    var o = b.o_so, muc = b.muc, dx = b.de_xuat || [], tieu = b.ten, phu = "";
+    if (b.tu_bao_cao) {
+      var r = (V.bao_cao || {})[b.tu_bao_cao] || {};
+      o = r.o_so; muc = r.muc; dx = r.de_xuat || []; phu = e(r.tieu_de) + " · " + e(r.ngay);
+    }
+    if (b.tu_bao_mat) {
+      var d = demMau(), rr = [];
+      (V.bao_mat || []).forEach(function (l) { (l.rui_ro || []).forEach(function (x) { if (x.mau === "do") rr.push({ mau: "do", chu: l.ten + ": " + x.chu, noi: x.noi, neo_lech: x.neo_lech }); }); });
+      o = [{ nhan: "Rủi ro", gia_tri: d.do, mau: "do" }, { nhan: "Cần để ý", gia_tri: d.vang, mau: "vang" }, { nhan: "Ổn", gia_tri: d.xanh, mau: "xanh" }, { nhan: "Lớp đã soát", gia_tri: (V.bao_mat || []).length, mau: "xanh" }];
+      muc = rr; dx = ["Chi tiết từng lớp ở tab 3 · Bảo mật."];
+    }
+    var them = "";
+    if (b.tu_viec) {
+      var P = V.pr_mo || {}, viec = mergeViec();
+      o = [{ nhan: "Việc quan trọng", gia_tri: viec.length, mau: "do" }, { nhan: "PR đang mở (" + (P.dem_luc || "") + ")", gia_tri: P.tong, mau: "vang" },
+        { nhan: "Nên merge · nên đóng", gia_tri: P.merge + " · " + P.dong, mau: "xanh" }, { nhan: "Cần Tuyền quyết", gia_tri: P.quyet, mau: "vang" }];
+      muc = null;
+      them = '<ul class="ds">' + viec.map(function (v) {
+        var co = (v.pr_co || []).length;
+        return "<li>" + cham(co ? "vang" : "do", co ? "đã có PR" : "chưa có PR") + "<span><b>" + e(v.so) + ". " + e(v.ten) + '</b> <span class="muc">Mức ' + e(v.muc) + "</span>" + (v.nhom ? '<span class="phu">' + e(v.nhom) + "</span>" : "") +
+          (co ? "<br>PR: " + v.pr_co.map(pr).join(" · ") : "") + "</span></li>";
+      }).join("") + "</ul><h3>PR trùng nhau</h3><ul>" + (P.nhom_trung || []).map(function (x) { return "<li>" + e(x) + "</li>"; }).join("") + "</ul>";
+      dx = (P.tuyen_lam_ngay || []).map(function (x) { return "Tuyền làm ngay: " + x; });
+    }
+    document.getElementById("ve-bang").innerHTML = "<h2>" + e(tieu) + "</h2>" + (phu ? '<p class="phu">Nguồn: ' + phu + "</p>" : "") + oSo(o) +
+      '<div class="co-bl"><div class="the">' + (muc ? dsMau(muc) : "") + them +
+      "<p>Chi tiết: " + (b.lien_ket || []).map(function (l) { return e(l.chu) + " " + pr(l.pr); }).join(" · ") + "</p></div>" +
+      (dx.length ? bl("Đề xuất", deXuat(dx)) : "") + "</div>";
+  }
+  function mergeViec() {
+    var tay = V.viec || [], tep = D.viec_tu_tep;
+    if (!tep) return tay;
+    return tep.map(function (t) {
+      var g = tay.filter(function (x) { return x.so === t.so; })[0] || {};
+      return { so: t.so, ten: t.ten, muc: t.muc != null ? t.muc : g.muc, pr_co: g.pr_co || [], nhom: g.nhom };
+    });
+  }
+
+  /* ------------------------------------------------ TAB 5 ------------- */
+  function tab5() {
+    var H = V.hang_cho || {};
+    var h = '<h2>Hiện giờ hệ thống truyền tin thế nào</h2><div class="co-bl"><div class="the"><ul>' + (H.hien_trang || []).map(function (x) { return "<li>" + e(x) + "</li>"; }).join("") + "</ul></div>" +
+      bl("Kết luận ngắn", "<p>" + cham("xanh", "Chưa cần") + "</p><p>Chỗ chậm đo được nằm trong code (dựng lại trang thừa, N+1, worker nghỉ cứng 1 giây) — thêm Redis/RabbitMQ không chữa những thứ đó, chỉ thêm một dịch vụ phải sao lưu, canh, vá. Sửa việc 1–3 rồi đo lại.</p>") + "</div>";
+    h += '<h2>Số đo đặt cạnh ngưỡng mở lại (SO-LUAT Phần 7)</h2><div class="bang-cuon"><table class="xep"><thead><tr><th>Đề xuất thường gặp</th><th>Ngưỡng để bàn lại</th><th>Số đo hiện có</th><th>Kết luận</th></tr></thead><tbody>' +
+      (H.so_sanh || []).map(function (x) {
+        return "<tr><td data-nhan=\"Đề xuất\"><b>" + e(x.luat) + "</b></td><td data-nhan=\"Ngưỡng\">" + e(x.nguong) + "</td><td data-nhan=\"Số đo\">" + e(x.so_do) + "</td><td data-nhan=\"Kết luận\">" + cham(x.mau, x.ket_luan) + "</td></tr>";
+      }).join("") + '</tbody></table></div><p class="ma">' + e(H.nguon) + "</p>";
+    return h;
+  }
+
+  /* ------------------------------------------------ chân trang -------- */
+  document.getElementById("chan").innerHTML = "<h3>Chưa phủ</h3><ul>" + (V.chua_phu || []).map(function (x) { return "<li>" + e(x) + "</li>"; }).join("") + "</ul>" +
+    "<p>Sinh lại: <code>python3 scripts/he-thong-data.py [--so-do so-do.json]</code> · lời giải thích: <code>docs/he-thong/viet-tay.json</code> · " +
+    '<a href="' + e(REPO) + '">kho code</a> · <a href="' + e(V.lego || "../lego/index.html") + '">bản đồ lego</a></p>';
+
+  /* ------------------------------------------------ tab + nút --------- */
+  var ve = { "moi-truong": tab1, "luong": tab2, "bao-mat": tab3, "bang": tab4, "hang-cho": tab5 };
+  var daVe = {};
+  function moTab(id) {
+    if (!ve[id]) id = "moi-truong";
+    document.querySelectorAll('[role="tab"]').forEach(function (b) { b.setAttribute("aria-selected", String(b.getAttribute("data-tab") === id)); });
+    document.querySelectorAll('[role="tabpanel"]').forEach(function (p) { p.hidden = p.id !== id; });
+    if (!daVe[id]) {
+      var p = document.getElementById(id);
+      try { p.innerHTML = ve[id](); } catch (loi) { p.innerHTML = '<div class="bao vang">Không dựng được tab này: ' + e(loi && loi.message) + "</div>"; }
+      daVe[id] = true;
+      if (id === "moi-truong") veDuong(0);
+      if (id === "bang") veBang(trangBang);
+      if (id === "luong" && D.so_do && D.so_do.prod && D.so_do.prod.req_moi_gio) moTip(D.so_do.prod.req_moi_gio);
+    }
+  }
+  document.addEventListener("click", function (ev) {
+    var t = ev.target.closest && ev.target.closest("button");
+    if (!t) return;
+    if (t.getAttribute("role") === "tab") { var id = t.getAttribute("data-tab"); if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id); moTab(id); }
+    else if (t.classList.contains("chon-duong")) veDuong(+t.getAttribute("data-i"));
+    else if (t.classList.contains("chon-bang")) veBang(+t.getAttribute("data-i"));
+  });
+  function luu(k, v) { try { localStorage.setItem(k, v); } catch (x) { /* trình duyệt chặn lưu: bỏ qua */ } }
+  function doc(k) { try { return localStorage.getItem(k); } catch (x) { return null; } }
+  var nutBl = document.getElementById("nut-bl");
+  function datBl(bat) {
+    document.body.classList.toggle("an-bl", !bat);
+    nutBl.setAttribute("aria-pressed", String(bat));
+    nutBl.textContent = "Đề xuất bên lề: " + (bat ? "bật" : "tắt");
+  }
+  nutBl.addEventListener("click", function () { var bat = nutBl.getAttribute("aria-pressed") !== "true"; datBl(bat); luu("ht-bl", bat ? "1" : "0"); });
+  datBl(doc("ht-bl") !== "0");
+  var goc = document.documentElement;
+  var daLuu = doc("ht-mau");
+  if (daLuu === "dark" || daLuu === "light") goc.setAttribute("data-theme", daLuu);
+  document.getElementById("nut-mau").addEventListener("click", function () {
+    var toi = goc.getAttribute("data-theme") ? goc.getAttribute("data-theme") === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var moi = toi ? "light" : "dark";
+    goc.setAttribute("data-theme", moi); luu("ht-mau", moi);
+  });
+  window.addEventListener("hashchange", function () { moTab(location.hash.slice(1)); });
+  moTab(location.hash.slice(1));
+})();
+</script>
+</body>
+</html>
