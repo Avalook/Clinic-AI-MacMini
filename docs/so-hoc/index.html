@@ -67,7 +67,10 @@ body {
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--the); }
 a { color: var(--nhan); }
 a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--nhan); outline-offset: 2px; }
-code, .ma { font-family: var(--mono); font-size: var(--co-nho); }
+code, .ma { font-family: var(--mono); font-size: var(--co-nho); overflow-wrap: anywhere; }
+/* Ô lưới chứa chữ dài / bảng cuộn: không được đẩy trang rộng ra. */
+.thao-tac, .toc-do, .mo-dau, .chu-thich { grid-template-columns: minmax(0, 1fr); }
+.thao-tac > *, .toc-do > *, .mo-dau > *, .chu-thich > * { min-width: 0; }
 h1, h2, h3 { text-wrap: balance; line-height: 1.25; margin: 0; }
 h1 { font-size: var(--co-dau); letter-spacing: -0.01em; }
 h2 { font-size: var(--co-lon); letter-spacing: -0.01em; }
@@ -94,7 +97,7 @@ p { margin: 0; }
   .tab a { white-space: nowrap; }
 }
 
-main { padding-block: 20px 64px; }
+main { padding-block: 20px 64px; overflow-wrap: anywhere; } /* đường dẫn tệp dài trong chữ thường */
 .duong-ve { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: var(--co-nho); color: var(--chu-mo); margin-bottom: 14px; }
 .duong-ve a { text-decoration: none; font-weight: 600; }
 .mo-dau { display: grid; gap: 8px; margin-bottom: 22px; max-width: 72ch; }
