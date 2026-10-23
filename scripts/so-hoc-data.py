@@ -437,7 +437,8 @@ def kiem_viet_tay(routes: set[str]) -> list[str]:
             loi.append(f"tệp không có: {m.group(0)}")
         elif dong > so_dong[tep]:
             loi.append(f"dòng vượt cuối tệp ({so_dong[tep]}): {m.group(0)}")
-    for m in re.finditer(r'"route":\s*"([^"]+)"', txt):
+    # Chỉ giá trị bắt đầu bằng "/" — khoá "route" của bảng mảnh tên là chữ thường.
+    for m in re.finditer(r'"route":\s*"(/[^"]*)"', txt):
         if m.group(1) not in routes:
             loi.append(f"route không có màn: {m.group(1)}")
     return loi
