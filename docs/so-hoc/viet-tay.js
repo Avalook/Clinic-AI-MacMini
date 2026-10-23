@@ -2808,6 +2808,278 @@ window.SO_HOC_VIET_TAY = {
     "/hoa-don",
     "/xuat-hoa-don",
     "/ke-toan"
+   ],
+   "mo_ta": "Khối hậu trường tiền: gom mọi lần thu, huỷ, hoàn của quầy thành báo cáo cuối ngày/cuối ca, danh sách hoá đơn, file hoá đơn GTGT cho MISA và sổ nợ hai chiều theo lượt. Khách không thấy khối này; quản lý và kế toán dùng sau khi khách đã về.",
+   "dieu_phai_nho": [
+    {
+     "chu": "Tiền chỉ có một sổ: payment_cycle (lần thu) + payment_bill_line (ảnh chụp hoá đơn) + payment_refund (hoàn).",
+     "vi_sao": "Báo cáo đọc cùng sổ và cùng luật cộng trừ với tab Lịch sử của quầy thu, nên hai màn không bao giờ lệch nhau.",
+     "nguon": "src/clinicai/services/bao_cao_cuoi_ngay_service.py:3"
+    },
+    {
+     "chu": "Thực thu = thu gốc − huỷ phiếu − hoàn đã xong; phiếu huỷ tính vào NGÀY THU của nó.",
+     "vi_sao": "Khoản hoàn còn CHỜ chỉ hiện ra danh sách, không trừ — trừ sớm là báo cáo nói sai số tiền trong két.",
+     "nguon": "src/clinicai/services/bao_cao_cuoi_ngay_service.py:13"
+    },
+    {
+     "chu": "Ca đã CHỐT giữ đúng số lúc chốt; huỷ/hoàn sau giờ chốt tính vào ca đang làm.",
+     "vi_sao": "Trước 14/10 huỷ phiếu hôm sau trừ lùi vào ngày cũ: báo cáo in ra 10tr, mở lại còn 9,2tr. Mở khoá chỉ Quản lý, bắt lý do, không sửa số.",
+     "nguon": "supabase/migrations/20261014149000_chot_so_ca.sql:4"
+    },
+    {
+     "chu": "Sổ nợ CHỈ THÊM dòng chênh lệch, không sửa dòng cũ; số dư tính từ trạng thái hiện tại.",
+     "vi_sao": "Sự kiện tới trễ hay tới hai lần vẫn ra một kết quả; số của ngày đã qua không bao giờ đổi. Postgres ép số dư sau = trước + chênh.",
+     "nguon": "src/clinicai/services/so_no_service.py:17"
+    },
+    {
+     "chu": "Ai được xem tiền là việc của máy chủ — route Next chỉ kiểm đã đăng nhập.",
+     "vi_sao": "ReportAccessService.authorize quyết quyền tài chính/bán hàng; không có quyền tài chính thì danh sách hoá đơn trả lỗi chặn, dù màn có mở được.",
+     "nguon": "src/clinicai/services/danh_sach_hoa_don_service.py:266"
+    }
+   ],
+   "man": [
+    {
+     "route": "/reports",
+     "ten": "Báo cáo (vận hành · cuối ngày · hàng hoá)",
+     "ai_dung": "Quản lý (lego Báo cáo, quyền report.view); người chỉ có quyền bán hàng thì chỉ thấy tab Hàng hoá",
+     "lam_duoc": [
+      "Tab Vận hành: số lịch hẹn hôm nay/ngày mai, theo bác sĩ, 30 ngày, nguồn đặt lịch, KPI đặt lịch theo nhân viên",
+      "Tab Cuối ngày: thu gốc/huỷ/hoàn/thực thu theo hình thức, người thu, loại tiền (dịch vụ/thuốc), theo cơ sở, theo ca",
+      "Chốt ca và (Quản lý) mở khoá ca có lý do",
+      "Xuất CSV/XLSX báo cáo cuối ngày",
+      "Tab Hàng hoá: bán hàng, thuốc kê vs thực bán"
+     ],
+     "bang_doc": [
+      "payment_cycle",
+      "payment_bill_line",
+      "payment_refund",
+      "so_no",
+      "chot_so_ca",
+      "appointment"
+     ],
+     "bang_ghi": [
+      "chot_so_ca"
+     ],
+     "toc_do_ghi_chu": "Tab Vận hành gọi 3 API nối đuôi nhau, không song song (xem src/dashboard/app/(dashboard)/reports/page.tsx:104, :157, :165) sau 2 lời gọi access + cơ sở (xem src/dashboard/app/(dashboard)/reports/page.tsx:70, :76). Tab Cuối ngày: 1 request, nhưng BaoCaoCuoiNgayService.bao_cao chạy ~15 truy vấn tuần tự trên một kết nối (xem src/clinicai/services/bao_cao_cuoi_ngay_service.py:1205–1303). Mỗi lần tải lại xoá trắng báo cáo trước (xem src/dashboard/app/(dashboard)/reports/CuoiNgay.tsx:194 setBc(null)) — tin chot_so_ca từ máy khác làm màn chớp trắng.",
+     "ghi_chu": "Màn nghe bảng chot_so_ca qua useNgheBang (xem src/dashboard/app/(dashboard)/reports/CuoiNgay.tsx:218), không nghe so_no."
+    },
+    {
+     "route": "/hoa-don",
+     "ten": "Danh sách hoá đơn (phiếu thu)",
+     "ai_dung": "Quản lý, kế toán có quyền tài chính (lego Báo cáo)",
+     "lam_duoc": [
+      "Lọc phiếu theo ngày, ca, cơ sở, loại tiền, trạng thái, hình thức, tìm tên/SĐT",
+      "Xem chi tiết phiếu: dòng hàng, hoàn, đổi hình thức, tiền thừa, việc tồn",
+      "Ghi/bỏ thông tin công ty xuất hoá đơn cho một phiếu",
+      "Tải Excel danh sách hoá đơn"
+     ],
+     "bang_doc": [
+      "payment_cycle",
+      "payment_bill_line",
+      "payment_refund",
+      "payment_cycle_doi_hinh_thuc",
+      "visit",
+      "patient"
+     ],
+     "bang_ghi": [
+      "hoa_don_cong_ty",
+      "khach_cong_ty"
+     ],
+     "toc_do_ghi_chu": "Mở màn: 2 request (access src/dashboard/app/(dashboard)/hoa-don/DanhSachHoaDon.tsx:137 + danh sách :150, chờ 250ms). Service gom theo lô bằng ANY(...) — không N+1 (xem src/clinicai/services/danh_sach_hoa_don_service.py:291–305). Tải Excel chạy lại toàn bộ truy vấn qua Depends (xem src/clinicai/api/v1/routers/hoa_don.py:59).",
+     "ghi_chu": ""
+    },
+    {
+     "route": "/xuat-hoa-don",
+     "ten": "Xuất hoá đơn GTGT (file nhập MISA)",
+     "ai_dung": "Kế toán, quản lý (lego Báo cáo)",
+     "lam_duoc": [
+      "Chọn khoảng ngày, cơ sở, loại tiền",
+      "Chọn cách tách khi một phiếu có nhiều thuế suất; ghi dòng giảm giá riêng",
+      "Sửa tay thuế suất từng dòng trước khi xuất",
+      "Tải file Excel đúng mẫu MISA meInvoice"
+     ],
+     "bang_doc": [
+      "payment_cycle",
+      "payment_bill_line",
+      "payment_refund",
+      "thue_suat_nhom",
+      "hoa_don_cong_ty",
+      "hoa_don_misa_xuat_dong"
+     ],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "Mỗi lần đổi một ô (kể cả sửa thuế một dòng) gọi lại cả danh sách sau 250ms (xem src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx:108–122). Phía máy chủ, xem() chạy lại nguyên DanhSachHoaDonService.xem — gồm cả phần việc tồn mà màn này không dùng (xem src/clinicai/services/xuat_hoa_don_service.py:383). Tải xlsx tính lại lần nữa (xem src/clinicai/api/v1/routers/hoa_don.py:116).",
+     "ghi_chu": "Backend có sẵn lệnh \"đánh dấu đã xuất MISA\" (POST /api/v1/hoa-don/misa-xuat — src/clinicai/api/v1/routers/hoa_don_misa.py:42) nhưng dashboard CHƯA có nút cũng chưa có route proxy: không thấy chữ misa-xuat trong src/dashboard/app/api."
+    },
+    {
+     "route": "/ke-toan",
+     "ten": "Kế toán (theo hàng hoá · thuế suất)",
+     "ai_dung": "Kế toán (lego Kế toán, quyền accounting.finance.full); đặt thuế cần accounting.tax.manage",
+     "lam_duoc": [
+      "Thống kê bán theo từng mặt hàng trong khoảng ngày, tải Excel",
+      "Đặt thuế suất GTGT theo nhóm (Dịch vụ/Thuốc/Vật tư)",
+      "Đặt thuế suất riêng cho từng mặt hàng"
+     ],
+     "bang_doc": [
+      "payment_cycle",
+      "payment_bill_line",
+      "payment_refund",
+      "thue_suat_nhom",
+      "service_price",
+      "drug_catalog"
+     ],
+     "bang_ghi": [
+      "thue_suat_nhom",
+      "service_price",
+      "drug_catalog"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Thuế không chạm vận hành: quầy, hoá đơn, báo cáo ngày không đọc các cột thuế (xem src/clinicai/services/thue_suat_service.py:8). \"Theo hàng hoá\" đọc chung hoá đơn gốc với màn xuất MISA (xem src/clinicai/services/xuat_hoa_don_service.py:381)."
+    }
+   ],
+   "thao_tac": [
+    {
+     "man": "/reports",
+     "nut": "Tab Cuối ngày → bấm [Chốt ca]",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "KhoiChotCa.tsx gửi POST /api/reports/chot-ca {hanh_dong: \"chot\", ngay, ca, co_so}",
+       "nguon": "src/dashboard/app/(dashboard)/reports/KhoiChotCa.tsx:64"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next chỉ chuyển tiếp → POST /api/v1/reports/chot-ca",
+       "nguon": "src/dashboard/app/api/reports/chot-ca/route.ts:18"
+      },
+      {
+       "loai": "ham",
+       "chu": "ChotSoCaService.chot (chụp lại báo cáo cuối ca; ai xem được tài chính ca thì chốt được)",
+       "nguon": "src/clinicai/services/chot_so_ca_service.py:150"
+      },
+      {
+       "loai": "bang",
+       "chu": "INSERT chot_so_ca (so_lieu = bản chụp); trùng ca → lỗi trùng nhờ chỉ mục duy nhất uq_chot_so_ca_con_hieu_luc",
+       "nguon": "src/clinicai/services/chot_so_ca_service.py:192"
+      },
+      {
+       "loai": "su_kien",
+       "chu": "Trigger trg_notify_chot_so_ca → pg_notify (tên bảng chot_so_ca)",
+       "nguon": "supabase/migrations/20261014149000_chot_so_ca.sql:74"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Mọi máy đang mở tab Cuối ngày tự tải lại báo cáo (useNgheBang chot_so_ca)",
+       "nguon": "src/dashboard/app/(dashboard)/reports/CuoiNgay.tsx:218"
+      }
+     ],
+     "ghi_chu": "Không khoá cứng: Quản lý mở khoá bằng POST /reports/chot-ca/mo-khoa kèm lý do (xem src/clinicai/api/v1/routers/reports.py:242); sổ chốt không xoá, chỉ được mở khoá một lần (trigger chot_so_ca_guard, supabase/migrations/20261014149000_chot_so_ca.sql:48). Xem đúng một ca đã chốt thì báo cáo trả bản chụp, không tính lại."
+    },
+    {
+     "man": "/xuat-hoa-don",
+     "nut": "Bấm [Tải file Excel] (hoá đơn GTGT cho MISA)",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "XuatHoaDon.tsx là một link /api/xuat-hoa-don?…&xuat=xlsx",
+       "nguon": "src/dashboard/app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx:157"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next fetch thẳng GET /api/v1/hoa-don/xuat/xlsx rồi trả nguyên luồng file",
+       "nguon": "src/dashboard/app/api/xuat-hoa-don/route.ts:18"
+      },
+      {
+       "loai": "ham",
+       "chu": "XuatHoaDonService.xem → doc_goc gọi DanhSachHoaDonService.xem (cùng cổng quyền/phạm vi), áp thuế từng hoá đơn",
+       "nguon": "src/clinicai/services/xuat_hoa_don_service.py:406"
+      },
+      {
+       "loai": "bang",
+       "chu": "Chỉ ĐỌC: payment_cycle (+ payment_refund, payment_bill_line) trong khoảng ngày",
+       "nguon": "src/clinicai/services/danh_sach_hoa_don_service.py:282"
+      },
+      {
+       "loai": "ham",
+       "chu": "xlsx_misa dựng file từ tệp mẫu kế toán gửi (mau/hoa_don_gtgt_1_thue_suat.xlsx)",
+       "nguon": "src/clinicai/services/xuat_hoa_don_service.py:294"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Không ghi gì nên không có tin; nhãn \"đã xuất MISA\" chỉ hiện khi đã có lần đánh dấu (gan_trang_thai)",
+       "nguon": "src/clinicai/api/v1/routers/hoa_don.py:111"
+      }
+     ],
+     "ghi_chu": "Một phiếu thu = một hoá đơn; tiền lấy từ dòng phiếu đã thu sau giảm giá, trừ phần hoàn xong — hệ thống không tự tạo con số (xem src/clinicai/services/xuat_hoa_don_service.py:9). Ô chưa có dữ liệu (mã số thuế…) để trống."
+    },
+    {
+     "man": "/reports",
+     "nut": "(Không có nút) Sổ nợ tự ghi khi quầy thu / cho khách về / hoàn / đổi chỉ định; xem ở khối Dòng tiền của Báo cáo cuối ngày",
+     "buoc": [
+      {
+       "loai": "su_kien",
+       "chu": "Sự kiện nghiệp vụ, vd visit.checked_out — danh mục khai bên nghe SO_NO",
+       "nguon": "src/clinicai/events/catalogue.py:1990"
+      },
+      {
+       "loai": "ham",
+       "chu": "Bên nghe so_no.ghi_so trong worker su-kien (bỏ qua khi phát lại lịch sử)",
+       "nguon": "src/clinicai/events/consumers/so_no.py:93"
+      },
+      {
+       "loai": "ham",
+       "chu": "ghi_chenh_lech: khoá theo lượt, tính số dư HIỆN TẠI hai chiều (khách nợ / phòng khám nợ)",
+       "nguon": "src/clinicai/services/so_no_service.py:270"
+      },
+      {
+       "loai": "bang",
+       "chu": "INSERT so_no … ON CONFLICT (clinic_id, su_kien_id, chieu) DO NOTHING; trigger kiểm số dư sau = trước + chênh",
+       "nguon": "src/clinicai/services/so_no_service.py:176"
+      },
+      {
+       "loai": "ham",
+       "chu": "Vòng ĐỐI CHIẾU mỗi 600 giây trong worker bắt thay đổi không phát sự kiện (hoàn xong/thất bại)",
+       "nguon": "src/clinicai/worker.py:318"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "trg_notify_so_no có bắn tin nhưng không màn nào nghe bảng so_no — khối Dòng tiền chỉ đổi khi tải lại báo cáo",
+       "nguon": "supabase/migrations/20261014140000_so_no_hai_chieu.sql:108"
+      }
+     ],
+     "ghi_chu": "Lượt đang ở phòng khám hôm nay có số dư 0 — chỉ lượt ĐÃ VỀ mới sinh nợ (xem src/clinicai/services/so_no_service.py:13). Chuyển khoản chờ xác minh vẫn tính là nợ tới khi xác minh."
+    }
+   ],
+   "the": [
+    {
+     "hoi": "Báo cáo cuối ngày lấy tiền từ những bảng nào?",
+     "dap": "payment_cycle (mỗi lần thu), payment_bill_line (ảnh chụp dòng hoá đơn), payment_refund (hoàn).",
+     "nguon": "src/clinicai/services/bao_cao_cuoi_ngay_service.py:3"
+    },
+    {
+     "hoi": "Hai người cùng bấm Chốt ca một lúc thì sao?",
+     "dap": "Chỉ mục duy nhất một phần uq_chot_so_ca_con_hieu_luc cho mỗi (phòng khám, cơ sở, ngày, ca) — người sau nhận lỗi trùng, không có hai bản số.",
+     "nguon": "supabase/migrations/20261014149000_chot_so_ca.sql:36"
+    },
+    {
+     "hoi": "Sửa một dòng trong sổ nợ được không?",
+     "dap": "Không. Trigger so_no_chi_them chặn UPDATE/DELETE; muốn sửa thì thêm một dòng chênh lệch mới.",
+     "nguon": "supabase/migrations/20261014140000_so_no_hai_chieu.sql:96"
+    },
+    {
+     "hoi": "Bao lâu worker đối chiếu sổ nợ một vòng?",
+     "dap": "NHIP_GIAY = 600 giây; mỗi vòng xét tối đa 300 lượt, lượt đã về trong 48 giờ.",
+     "nguon": "src/clinicai/services/so_no_service.py:79"
+    },
+    {
+     "hoi": "File Excel MISA dựng từ đâu?",
+     "dap": "Từ chính tệp mẫu kế toán gửi: services/mau/hoa_don_gtgt_1_thue_suat.xlsx (giữ tiêu đề cột, bỏ 8 dòng hướng dẫn).",
+     "nguon": "src/clinicai/services/xuat_hoa_don_service.py:41"
+    },
+    {
+     "hoi": "Thuế suất GTGT lưu ở đâu?",
+     "dap": "Hai tầng: nhóm ở thue_suat_nhom; từng mặt hàng ở service_price.thue_suat_ma và drug_catalog.thue_suat_ma. Sửa tay từng dòng lúc xuất thì không lưu.",
+     "nguon": "src/clinicai/services/thue_suat_service.py:3"
+    }
    ]
   },
   {
@@ -2825,8 +3097,408 @@ window.SO_HOC_VIET_TAY = {
     "/chon-co-so",
     "/login",
     "/forgot-password",
-    "/reset-password",
-    "/"
+    "/reset-password"
+   ],
+   "mo_ta": "Khối quyết ai vào được hệ thống, vào được màn nào, làm ở cơ sở nào và trực ca nào: đăng nhập, chọn cơ sở, hồ sơ nhân sự, tài khoản, 22 lego quyền và lịch làm việc. Mọi bước sau trong hành trình khách đều đi qua cửa quyền và lịch trực của khối này.",
+   "dieu_phai_nho": [
+    {
+     "chu": "Vào được màn ≠ làm được việc.",
+     "vi_sao": "NAV_QUYEN chỉ quyết màn có hiện/mở hay không; mọi lệnh vẫn hỏi capability ở backend.",
+     "nguon": "src/dashboard/lib/roles.ts:630"
+    },
+    {
+     "chu": "Màn thuộc lego chỉ hỏi lego của TÀI KHOẢN — không có ngoại lệ \"Quản lý luôn vào\".",
+     "vi_sao": "Cửa cũ \"vai HOẶC quyền\" để lễ tân bật lego Đo sinh hiệu gõ URL vào được Phòng dịch vụ dù lego ấy tắt (16 ô lệch khi quét 27/09).",
+     "nguon": "src/dashboard/lib/roles.ts:731"
+    },
+    {
+     "chu": "Cấp và thu quyền không bao giờ sửa đè: thu = đóng dòng, mỗi lần cấp/thu thành sự kiện.",
+     "vi_sao": "Luôn trả lời được \"ai cho ai quyền gì, lúc nào\" — kể cả khi quản lý tự cấp cho mình.",
+     "nguon": "src/clinicai/services/permission_service.py:9"
+    },
+    {
+     "chu": "Header X-Location-ID chỉ là BỘ CHỌN cơ sở; cơ sở lạ/đã tắt → 403, không rơi về mặc định.",
+     "vi_sao": "Rơi về mặc định là lặng lẽ ghi việc vào sai cơ sở; máy chủ kiểm ở MỌI request.",
+     "nguon": "src/clinicai/api/identity.py:533"
+    },
+    {
+     "chu": "Không áp dụng được một tuần chưa xếp ca nào; áp dụng lại tuần đã áp dụng thì không lỗi.",
+     "vi_sao": "Lịch trực là luật cao nhất: áp dụng tuần trống = tuyên bố \"không ai đi làm\" và từ chối mọi lượt đặt của cả tuần.",
+     "nguon": "src/clinicai/services/config_service.py:1049"
+    }
+   ],
+   "man": [
+    {
+     "route": "/nhan-su",
+     "ten": "Quản lý nhân sự",
+     "ai_dung": "Quản lý (lego Nhân sự & phân quyền, quyền staff.manage)",
+     "lam_duoc": [
+      "Xem danh sách nhân viên theo vai, cơ sở",
+      "Thêm nhân viên mới",
+      "Sửa vai, cơ sở mặc định, trạng thái hoạt động"
+     ],
+     "bang_doc": [
+      "staff",
+      "clinic_membership",
+      "clinic_location"
+     ],
+     "bang_ghi": [
+      "staff",
+      "clinic_membership",
+      "event_log"
+     ],
+     "toc_do_ghi_chu": "Mở màn: 2 lời gọi song song (xem src/dashboard/app/(dashboard)/nhan-su/page.tsx:32). Sau mỗi lần lưu gọi router.refresh() dựng lại cả trang (xem src/dashboard/app/(dashboard)/nhan-su/NhanSuBoard.tsx:152).",
+     "ghi_chu": "Đổi vai/trạng thái xoá ngay bộ nhớ danh tính 30 giây (xem src/clinicai/services/staff_service.py:368)."
+    },
+    {
+     "route": "/schedule",
+     "ten": "Lịch làm việc (xếp ca, áp dụng tuần)",
+     "ai_dung": "Mọi người (lego Lịch làm việc); người xếp lịch = trưởng ca (roster.manage) hoặc lego Cài đặt (config.clinic.manage)",
+     "lam_duoc": [
+      "Xem ma trận ca cả tuần theo vị trí",
+      "Tự đăng ký ca của mình (chờ duyệt)",
+      "Người xếp lịch: xếp người vào ô, duyệt/từ chối, đổi người trong ca",
+      "Áp dụng (chốt) cả tuần",
+      "Xem phiên bản lịch trực; quản lý ngoại lệ ca trực lâm sàng"
+     ],
+     "bang_doc": [
+      "work_roster",
+      "roster_week",
+      "vi_tri_lam_viec",
+      "staff",
+      "lich_truc_anh",
+      "lich_truc_thay_doi"
+     ],
+     "bang_ghi": [
+      "work_roster",
+      "roster_week",
+      "work_roster_thay_nguoi",
+      "ngoai_le_ca_truc",
+      "event_log"
+     ],
+     "toc_do_ghi_chu": "Mở màn: hỏi quyền trước (xem src/dashboard/app/(dashboard)/schedule/page.tsx:71), rồi 3 lời gọi song song (:87), rồi thêm 1 lời gọi nối đuôi cho người có permission.manage (:145). work_roster nằm trong LIVE_TABLES nên mỗi ô xếp ở bất kỳ máy nào làm mọi máy đang mở /schedule dựng lại cả trang (xem src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:118).",
+     "ghi_chu": "Bảng roster_week (đã áp dụng tuần) KHÔNG có trigger notify (đã grep supabase/migrations) — máy khác thấy \"đã áp dụng\" khi trang dựng lại vì lý do khác (nhịp 60s, tin work_roster)."
+    },
+    {
+     "route": "/phan-quyen",
+     "ten": "Phân quyền (22 lego theo thanh bên)",
+     "ai_dung": "Quản lý (quyền permission.manage)",
+     "lam_duoc": [
+      "Bật/tắt từng lego cho từng người; lego Phòng dịch vụ chọn được phòng",
+      "Thêm/sửa/xoá nhóm quyền mẫu, áp nhóm mẫu cho người",
+      "Tick kỹ năng / chép kỹ năng từ người khác",
+      "Xem quyền theo màn"
+     ],
+     "bang_doc": [
+      "capability_grant",
+      "quyen_preset",
+      "staff",
+      "clinic_room"
+     ],
+     "bang_ghi": [
+      "capability_grant",
+      "quyen_preset",
+      "domain_event"
+     ],
+     "toc_do_ghi_chu": "Sau mỗi lần bật/tắt lego chờ đọc lại toàn bộ lego của người đó (xem src/dashboard/app/(dashboard)/phan-quyen/LegoCuaNguoi.tsx:88). doi_lego đọc lego_cua_nguoi trước (xem src/clinicai/services/permission_service.py:381) rồi gọi cap_khoi/thu_khoi cho TỪNG khối, mỗi khối một giao dịch riêng (:395, :405).",
+     "ghi_chu": "Suy từ code: vì mỗi khối một giao dịch, bật một lego nhiều khối không nguyên khối — lỗi giữa chừng có thể để lại lego \"một phần\". Bảng capability_grant không có trigger notify; người được cấp thấy mục mới khi trang của họ dựng lại và đọc /phan-quyen/toi (xem src/dashboard/lib/quyen-cua-toi.ts:30)."
+    },
+    {
+     "route": "/settings/tai-khoan",
+     "ten": "Tài khoản đăng nhập của nhân viên",
+     "ai_dung": "Quản lý (quyền account.manage)",
+     "lam_duoc": [
+      "Xem ai đã có tài khoản, tên đăng nhập",
+      "Đặt lại mật khẩu, đổi tên đăng nhập",
+      "Khoá nghỉ việc (tuỳ chọn gỡ ca tương lai) / mở lại",
+      "Gỡ tài khoản (thu hồi + xoá người dùng GoTrue)"
+     ],
+     "bang_doc": [
+      "staff",
+      "app_credential"
+     ],
+     "bang_ghi": [
+      "staff",
+      "app_credential",
+      "event_log",
+      "work_roster"
+     ],
+     "toc_do_ghi_chu": "GET /api/admin/users gọi GoTrue listUsers perPage 1000 mỗi lần mở màn (xem src/dashboard/app/api/admin/users/route.ts:144). Sau thao tác gọi router.refresh() (xem src/dashboard/app/(dashboard)/settings/AccountActions.tsx:161).",
+     "ghi_chu": "admin/users là route Next duy nhất còn cầm khoá service-role, chỉ để gọi GoTrue; phần dữ liệu ở FastAPI TaiKhoanService (xem docs/SO-LUAT.md:107)."
+    },
+    {
+     "route": "/settings/new-user",
+     "ten": "Tạo tài khoản đăng nhập cho nhân viên",
+     "ai_dung": "Quản lý (quyền account.manage)",
+     "lam_duoc": [
+      "Chọn nhân viên chưa có tài khoản",
+      "Đặt tên đăng nhập (có thể không đuôi mail) và mật khẩu",
+      "Tạo người dùng GoTrue rồi nối vào nhân viên"
+     ],
+     "bang_doc": [
+      "staff"
+     ],
+     "bang_ghi": [
+      "staff",
+      "app_credential",
+      "event_log"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Thứ tự: tạo GoTrue trước (xem src/dashboard/app/api/admin/users/route.ts:204), nối ở backend sau (:219); nối hỏng thì xoá lại người dùng GoTrue vừa tạo (:225)."
+    },
+    {
+     "route": "/chon-co-so",
+     "ten": "Chọn cơ sở làm việc hôm nay",
+     "ai_dung": "Mọi nhân viên, ngay sau đăng nhập hoặc khi bấm chip 📍 trên thanh trên",
+     "lam_duoc": [
+      "Chọn một cơ sở đang bật (gợi ý theo ca trực hôm nay)",
+      "Đổi cơ sở giữa ngày"
+     ],
+     "bang_doc": [
+      "clinic_location",
+      "work_roster"
+     ],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Không ghi bảng nào — chỉ đặt cookie clinicai_location. Một cơ sở, hoặc công tắc \"hỏi chọn cơ sở\" tắt → đi thẳng (xem src/dashboard/app/(auth)/chon-co-so/page.tsx:33). bang_doc work_roster là suy từ chữ \"gợi ý theo lịch trực\", chưa mở service /me/co-so."
+    },
+    {
+     "route": "/login",
+     "ten": "Đăng nhập",
+     "ai_dung": "Mọi người",
+     "lam_duoc": [
+      "Đăng nhập bằng tên đăng nhập (tên trần tự gắn đuôi mail) + mật khẩu",
+      "Đặt cookie vai và nhân viên 12 giờ; xoá cookie cơ sở cũ",
+      "Chuyển sang /chon-co-so rồi về trang theo vai"
+     ],
+     "bang_doc": [
+      "staff",
+      "clinic_membership"
+     ],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Server action đọc thẳng staff và clinic_membership qua Supabase (xem src/dashboard/app/(auth)/login/actions.ts:42) — ngoại lệ được phép vì frontend chỉ nói chuyện thẳng với Supabase cho đăng nhập."
+    },
+    {
+     "route": "/forgot-password",
+     "ten": "Quên mật khẩu",
+     "ai_dung": "Mọi người",
+     "lam_duoc": [
+      "Gửi mail đặt lại mật khẩu (GoTrue resetPasswordForEmail), link về /reset-password"
+     ],
+     "bang_doc": [],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Không qua FastAPI (xem src/dashboard/app/(auth)/forgot-password/ForgotPasswordForm.tsx:29)."
+    },
+    {
+     "route": "/reset-password",
+     "ten": "Đặt lại mật khẩu",
+     "ai_dung": "Người vừa bấm link trong mail",
+     "lam_duoc": [
+      "Nhập mật khẩu mới (GoTrue updateUser)"
+     ],
+     "bang_doc": [],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "src/dashboard/app/(auth)/reset-password/ResetPasswordForm.tsx:59"
+    }
+   ],
+   "chuyen_huong": [
+    {
+     "route": "/",
+     "toi": "Trang theo vai (roleLanding): Đối tác /doi-tac · Kế toán /ke-toan · BS siêu âm /phong · BS, thư ký /ban-kham · Trưởng ca /truong-ca · còn lại /home. Lệch: comment src/dashboard/app/page.tsx:5 còn ghi \"bác sĩ → /tasks\"."
+    },
+    {
+     "route": "/work-sessions",
+     "toi": "/schedule"
+    },
+    {
+     "route": "/tasks",
+     "toi": "Theo vai: thu ngân /thu-ngan/dich-vu · BS siêu âm /phong · bác sĩ /ban-kham · điều dưỡng /do-sinh-hieu · lễ tân /reception/queue · quản lý, CSKH /customers · còn lại /home"
+    }
+   ],
+   "thao_tac": [
+    {
+     "man": "/phan-quyen",
+     "nut": "Bật/tắt công tắc một lego của một người",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "LegoCuaNguoi.tsx gửi POST /api/phan-quyen {thao_tac: \"doi-lego\", staff_id, du_lieu: {ma, bat, phong_ids}}",
+       "nguon": "src/dashboard/app/(dashboard)/phan-quyen/LegoCuaNguoi.tsx:73"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next ánh xạ thao tác → POST /api/v1/phan-quyen/nhan-su/{id}/lego",
+       "nguon": "src/dashboard/app/api/phan-quyen/route.ts:31"
+      },
+      {
+       "loai": "ham",
+       "chu": "PermissionService.doi_lego: tắt chỉ gỡ khối không còn lego nào khác cần; bật gọi cap_khoi từng khối",
+       "nguon": "src/clinicai/services/permission_service.py:363"
+      },
+      {
+       "loai": "bang",
+       "chu": "INSERT capability_grant … ON CONFLICT DO NOTHING (tắt = UPDATE revoked_at, không xoá)",
+       "nguon": "src/clinicai/services/permission_service.py:195"
+      },
+      {
+       "loai": "su_kien",
+       "chu": "emit capability.granted (sổ sự kiện) + cache.quen quên quyền đang nhớ; không có pg_notify cho capability_grant",
+       "nguon": "src/clinicai/services/permission_service.py:219"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Màn phân quyền tự đọc lại; thanh bên của người được cấp đổi ở lần dựng trang kế tiếp (đọc /phan-quyen/toi)",
+       "nguon": "src/dashboard/lib/quyen-cua-toi.ts:30"
+      }
+     ],
+     "ghi_chu": "Không có nút nào cấp khối nội bộ (KHOI_NOI_BO) qua màn này. Tự cấp cho chính mình không bị chặn — có chủ ý, để phòng khám còn một quản lý không tự khoá chết."
+    },
+    {
+     "man": "/schedule",
+     "nut": "Xếp một người vào ô ca, rồi bấm [Áp dụng tuần (N ca)]",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "Xếp ô: RosterRegisterTable.tsx POST /api/roster {week_start, work_date, station, shift, staff_id}; Áp dụng: ApDungTuan.tsx POST /api/roster {apply_week}",
+       "nguon": "src/dashboard/app/(dashboard)/schedule/ApDungTuan.tsx:54"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next tách nhánh: apply_week → POST /api/v1/roster/weeks/apply; còn lại → POST /api/v1/roster/shifts",
+       "nguon": "src/dashboard/app/api/roster/route.ts:174"
+      },
+      {
+       "loai": "ham",
+       "chu": "RosterService.add_shift (người không xếp lịch được thì staff_id bị bỏ qua) / RosterService.apply_week",
+       "nguon": "src/clinicai/services/config_service.py:1027"
+      },
+      {
+       "loai": "bang",
+       "chu": "INSERT work_roster (xếp ô); UPSERT roster_week + INSERT event_log roster.week_applied (áp dụng)",
+       "nguon": "src/clinicai/services/config_service.py:1061"
+      },
+      {
+       "loai": "su_kien",
+       "chu": "trg_notify_work_roster → pg_notify; roster_week không có trigger",
+       "nguon": "supabase/migrations/20260806000001_notify_change_for_live_screens.sql:64"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "RealtimeRefresher dựng lại các màn đang mở + rung \"chuông ca trực\" cho lưới đặt lịch tự fetch",
+       "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:299"
+      }
+     ],
+     "ghi_chu": "Áp dụng tuần còn báo CSKH nếu có lịch chờ xếp bác sĩ trong tuần, và báo lịch mất bác sĩ vì bác sĩ không có ca (xem src/clinicai/services/config_service.py:1101). Nút đổi ngay sang \"Đã áp dụng\" không chờ trang dựng lại (xem src/dashboard/app/(dashboard)/schedule/ApDungTuan.tsx:68)."
+    },
+    {
+     "man": "/chon-co-so",
+     "nut": "Bấm chip 📍 trên thanh trên → chọn cơ sở khác",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "Chip mở /chon-co-so?doi=1&next=<trang đang đứng>",
+       "nguon": "src/dashboard/app/(dashboard)/GlobalHeader.tsx:604"
+      },
+      {
+       "loai": "ham",
+       "chu": "Server action chonCoSo ghi cookie clinicai_location (httpOnly, 12 giờ) rồi redirect(next)",
+       "nguon": "src/dashboard/app/(auth)/chon-co-so/actions.ts:16"
+      },
+      {
+       "loai": "api",
+       "chu": "Mọi lời gọi FastAPI sau đó: proxy gắn header X-Location-ID từ cookie",
+       "nguon": "src/dashboard/lib/co-so.ts:22"
+      },
+      {
+       "loai": "ham",
+       "chu": "identity.py đọc header; cơ sở lạ/tắt → 403; bộ nhớ danh tính khoá theo (login, phòng khám, cơ sở)",
+       "nguon": "src/clinicai/api/identity.py:352"
+      },
+      {
+       "loai": "bang",
+       "chu": "Không ghi bảng nào; chỉ đọc clinic_location (is_active) để kiểm",
+       "nguon": "src/clinicai/api/identity.py:472"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Trang đích dựng lại theo cơ sở mới; tab khác cùng trình duyệt dùng cookie mới ở lượt gọi kế tiếp",
+       "nguon": "src/dashboard/app/(auth)/chon-co-so/actions.ts:24"
+      }
+     ],
+     "ghi_chu": "Đăng nhập lại luôn xoá cookie cơ sở để người sau không thừa hưởng cơ sở của người trước (xem src/dashboard/app/(auth)/login/actions.ts:86)."
+    },
+    {
+     "man": "/settings/tai-khoan",
+     "nut": "Bấm [Gỡ tài khoản] của một nhân viên",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "AccountActions.tsx gửi PATCH /api/admin/users {staffId, action: \"unlink\"}",
+       "nguon": "src/dashboard/app/(dashboard)/settings/AccountActions.tsx:157"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next gọi backend TRƯỚC: POST /api/v1/staff/{id}/tai-khoan/thu-hoi",
+       "nguon": "src/dashboard/app/api/admin/users/route.ts:416"
+      },
+      {
+       "loai": "ham",
+       "chu": "TaiKhoanService.thu_hoi — một giao dịch, 409 nếu tài khoản đã đổi từ lúc đọc",
+       "nguon": "src/clinicai/services/tai_khoan_service.py:132"
+      },
+      {
+       "loai": "bang",
+       "chu": "UPDATE staff SET auth_user_id = NULL; UPDATE app_credential thu_hoi_luc; event staff.account_thu_hoi",
+       "nguon": "src/clinicai/services/tai_khoan_service.py:161"
+      },
+      {
+       "loai": "ham",
+       "chu": "SAU đó mới xoá người dùng GoTrue (admin.auth.admin.deleteUser); xoá hỏng chỉ báo cảnh báo",
+       "nguon": "src/dashboard/app/api/admin/users/route.ts:422"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Chỉ màn đang thao tác router.refresh(); staff không có trigger notify",
+       "nguon": "src/dashboard/app/(dashboard)/settings/AccountActions.tsx:161"
+      }
+     ],
+     "ghi_chu": "Gỡ = xoá hẳn người dùng GoTrue, muốn dùng lại phải tạo tài khoản mới; việc tạm thời nên dùng [Khoá nghỉ việc] (ban 876000h, mở lại được — src/dashboard/app/api/admin/users/route.ts:305). Chưa rõ: thu_hoi không gọi invalidate_identity_cache như staff_service (xem src/clinicai/services/staff_service.py:368), nên phiên đang mở có thể còn được nhận diện tới 30 giây (TTL src/clinicai/api/identity.py:386)."
+    }
+   ],
+   "the": [
+    {
+     "hoi": "Có bao nhiêu lego, khai ở đâu?",
+     "dap": "22 lego trong MAN (permissions/catalogue.py), mỗi lego = một node thanh bên. Comment ở roles.ts còn ghi \"21 LEGO\" — lệch (thêm Kế toán 14/10).",
+     "nguon": "src/clinicai/permissions/catalogue.py:959"
+    },
+    {
+     "hoi": "Bật lego ghi vào bảng nào?",
+     "dap": "capability_grant — mỗi quyền con của khối một dòng (tu_khoi = mã khối, scope CLINIC/ROOM/SHIFT).",
+     "nguon": "src/clinicai/services/permission_service.py:195"
+    },
+    {
+     "hoi": "Thu quyền xong bao lâu thì có hiệu lực?",
+     "dap": "Ngay ở tiến trình API vừa thu (cache.quen); nơi khác tối đa 5 giây (QUYEN_CACHE_GIAY). Lời từ chối không bao giờ được nhớ.",
+     "nguon": "src/clinicai/permissions/cache.py:32"
+    },
+    {
+     "hoi": "Cookie cơ sở tên gì, sống bao lâu?",
+     "dap": "clinicai_location, httpOnly, 12 giờ; đăng nhập/đăng xuất đều xoá.",
+     "nguon": "src/dashboard/app/(auth)/chon-co-so/actions.ts:22"
+    },
+    {
+     "hoi": "Áp dụng tuần ghi gì vào database?",
+     "dap": "UPSERT roster_week (applied_at, applied_by) + một dòng event_log roster.week_applied; trigger chụp ảnh tuần vào lich_truc_anh.",
+     "nguon": "src/clinicai/services/config_service.py:1061"
+    },
+    {
+     "hoi": "Màn nào luôn bật, không tắt được bằng lego?",
+     "dap": "/home và /hanh-trinh (LUON_BAT) — mọi nhân viên nội bộ, trừ đối tác và TV.",
+     "nguon": "src/dashboard/lib/roles.ts:754"
+    }
    ]
   },
   {
@@ -2850,10 +3522,586 @@ window.SO_HOC_VIET_TAY = {
     "/traffic",
     "/console",
     "/design-system"
+   ],
+   "mo_ta": "Khối cấu hình và vận hành: bảng giá, cơ sở/tầng/phòng, dây nối nghiệp vụ, luật đặt lịch, mẫu kết quả, và các màn trông hệ thống (lỗi, cảnh báo, nhật ký, giám sát). Đổi ở đây là đổi cách mọi khối khác chạy cho các lượt khách sau.",
+   "dieu_phai_nho": [
+    {
+     "chu": "Dây NGHIỆP VỤ chỉnh trên màn; dây LÕI (dòng thời gian, trách nhiệm tiền, thứ tự khoá) khoá trong code.",
+     "vi_sao": "Mọi lệnh chỉnh dây hỏi quyền config.wiring.manage trong chính giao dịch và ghi nhật ký từ → thành.",
+     "nguon": "src/clinicai/services/day_noi_service.py:12"
+    },
+    {
+     "chu": "Phòng tắt chứ không xoá; còn khách đang chờ/đang làm thì không tắt được.",
+     "vi_sao": "Lịch sử khám còn trỏ vào phòng; tắt ngang lúc có khách là bỏ rơi khách trong hàng chờ.",
+     "nguon": "src/clinicai/services/clinic_config_service.py:621"
+    },
+    {
+     "chu": "Giá thuốc chỉ sửa một chỗ: Kho thuốc. Lego Bảng giá chỉ còn bảng giá dịch vụ.",
+     "vi_sao": "Một nguồn giá (25/09) — /cashier/thuoc đã tắt khỏi thanh bên, route còn giữ.",
+     "nguon": "src/clinicai/permissions/catalogue.py:1088"
+    },
+    {
+     "chu": "Bảng giá, phòng, dây nối, lỗi, cảnh báo KHÔNG phát tin tức thời.",
+     "vi_sao": "service_price, clinic_room, day_nghiep_vu, loi_nhom, canh_bao không có trigger trg_notify_* và không nằm trong LIVE_TABLES — màn khác chỉ thấy khi tải lại hoặc tới nhịp.",
+     "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:85"
+    },
+    {
+     "chu": "Ghi lỗi không được làm hỏng thêm, không chứa dữ liệu khách, dấu vân không có số dòng.",
+     "vi_sao": "Trần 0,5 giây và nuốt mọi lỗi của chính nó; thông điệp qua bộ che SĐT/email/token.",
+     "nguon": "src/clinicai/services/kho_loi.py:8"
+    }
+   ],
+   "man": [
+    {
+     "route": "/settings",
+     "ten": "Cài đặt phòng khám",
+     "ai_dung": "Quản lý (lego Cài đặt phòng khám, quyền config.clinic.manage)",
+     "lam_duoc": [
+      "Bật/tắt chế độ tính năng",
+      "Luật đặt lịch chung",
+      "Phạm vi vị trí: vai nào được đứng trạm nào",
+      "Cài đặt báo cáo (ai xem tài chính, theo ca)"
+     ],
+     "bang_doc": [
+      "clinic",
+      "vai_duoc_vao_tram",
+      "vi_tri_lam_viec"
+     ],
+     "bang_ghi": [
+      "clinic",
+      "vai_duoc_vao_tram",
+      "event_log"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Phần lớn cài đặt nằm trong cột JSON clinic.settings (xem src/clinicai/services/clinic_settings_service.py:69)."
+    },
+    {
+     "route": "/settings/booking-policy",
+     "ten": "Luật đặt lịch",
+     "ai_dung": "Quản lý (config.clinic.manage)",
+     "lam_duoc": [
+      "Luật đặt lịch, giờ các ca làm việc",
+      "Luật bác sĩ bắt buộc theo loại khám",
+      "Thời lượng đo thực tế",
+      "Ngoại lệ sức chứa theo bác sĩ / theo khung giờ"
+     ],
+     "bang_doc": [
+      "clinic",
+      "luat_bac_si_bat_buoc",
+      "doctor_booking_override",
+      "slot_booking_override",
+      "staff",
+      "service_type"
+     ],
+     "bang_ghi": [
+      "clinic",
+      "luat_bac_si_bat_buoc",
+      "doctor_booking_override",
+      "slot_booking_override",
+      "event_log"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": ""
+    },
+    {
+     "route": "/settings/clinic-config",
+     "ten": "Cấu trúc phòng khám (cơ sở · tầng · phòng)",
+     "ai_dung": "Quản lý (config.clinic.manage)",
+     "lam_duoc": [
+      "Thêm/đổi tên/tắt cơ sở, tầng, phòng; sắp thứ tự tầng",
+      "Gắn bước phục vụ (node) cho phòng; đánh dấu phòng đối tác / tạm ngừng nhận khách",
+      "Thư ký đi cùng bác sĩ; nhân sự theo node",
+      "Công tắc hỏi chọn cơ sở khi đăng nhập + cơ sở mặc định"
+     ],
+     "bang_doc": [
+      "clinic_location",
+      "clinic_floor",
+      "clinic_room",
+      "clinic_room_node",
+      "node_definition",
+      "staff"
+     ],
+     "bang_ghi": [
+      "clinic_location",
+      "clinic_floor",
+      "clinic_room",
+      "clinic_room_node",
+      "clinic",
+      "event_log"
+     ],
+     "toc_do_ghi_chu": "Mỗi thao tác chờ đọc lại toàn bộ cấu hình (xem src/dashboard/app/(dashboard)/settings/clinic-config/CoSoPhong.tsx:148).",
+     "ghi_chu": "clinic_floor có trigger notify (LIVE_TABLES src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:121); clinic_room thì không."
+    },
+    {
+     "route": "/settings/day-noi",
+     "ten": "Dây nối nghiệp vụ",
+     "ai_dung": "Quản lý (quyền config.wiring.manage)",
+     "lam_duoc": [
+      "Bật/tắt hoặc đặt số cho từng dây H1–H8 (qua tư vấn, đi thẳng phòng, nhắc check-out…)",
+      "Loại khám nào qua tư vấn / đi thẳng phòng",
+      "Ai nhận chuông cho sự kiện nào",
+      "Thêm/sửa vị trí trực, gắn phòng",
+      "Cấu hình làm thêm tại quầy"
+     ],
+     "bang_doc": [
+      "day_nghiep_vu",
+      "day_nhan_thong_bao",
+      "service_type",
+      "vi_tri_lam_viec",
+      "clinic_room"
+     ],
+     "bang_ghi": [
+      "day_nghiep_vu",
+      "day_nhan_thong_bao",
+      "service_type",
+      "vi_tri_lam_viec",
+      "vai_duoc_vao_tram",
+      "event_log"
+     ],
+     "toc_do_ghi_chu": "N+1: DayNoiService.doc chạy một truy vấn cho TỪNG dây (await doc_day trong vòng lặp, src/clinicai/services/day_noi_service.py:81) và một truy vấn cho từng sự kiện chuông (:100). Sau mỗi lần lưu chờ đọc lại cả màn (xem src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx:125).",
+     "ghi_chu": "Nơi dùng dây đọc lại giá trị mỗi lệnh (doc_day, không nhớ tạm) nên đổi dây có hiệu lực ngay ở lệnh kế tiếp (xem src/clinicai/services/day_noi.py:149)."
+    },
+    {
+     "route": "/settings/mau-ket-qua",
+     "ten": "Mẫu kết quả (gắn mẫu cho dịch vụ, sửa mẫu)",
+     "ai_dung": "Quản lý (catalogue.result_template.manage; sửa/xuất bản mẫu: catalogue.form_template.edit/publish)",
+     "lam_duoc": [
+      "Gắn/gỡ mẫu kết quả cho từng dịch vụ (máy chỉ đề xuất, người xác nhận)",
+      "Tạo mẫu mới, sửa và xuất bản mẫu"
+     ],
+     "bang_doc": [
+      "service_price",
+      "ket_qua_mau",
+      "dich_vu_mau_ket_qua",
+      "form_definition"
+     ],
+     "bang_ghi": [
+      "dich_vu_mau_ket_qua",
+      "ket_qua_mau",
+      "form_definition"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Không gắn bằng tên: đoán mã từ tên là gắn nhầm mẫu cho bệnh nhân (xem src/clinicai/services/mau_ket_qua_service.py:7)."
+    },
+    {
+     "route": "/settings/don-du-lieu-thu",
+     "ten": "Dọn dữ liệu khách thử",
+     "ai_dung": "Quản trị cao nhất (quyền permission.manage — thuộc lego Nhân sự & phân quyền)",
+     "lam_duoc": [
+      "Liệt kê khách theo ngày",
+      "Tick khách thử, xem trước số dòng sẽ xoá",
+      "Gõ \"XOA\" để xoá thật"
+     ],
+     "bang_doc": [
+      "appointment",
+      "visit",
+      "patient",
+      "service_order",
+      "tep_ket_qua"
+     ],
+     "bang_ghi": [
+      "du_lieu_da_xoa",
+      "lan_don_du_lieu_thu"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Xoá đi qua hàm SQL don_khach_thu, lưu nguyên văn mọi dòng vào du_lieu_da_xoa; tệp kết quả chuyển sang thư mục lưu trữ, không xoá hẳn (xem src/clinicai/services/don_du_lieu_thu_service.py:13)."
+    },
+    {
+     "route": "/cashier/dich-vu",
+     "ten": "Bảng giá dịch vụ & phòng",
+     "ai_dung": "Thu ngân, quản lý (lego Bảng giá, quyền price.service.manage)",
+     "lam_duoc": [
+      "Thêm/sửa/tắt dịch vụ: tên, đơn giá, mã KiotViet, nhóm hàng, bên thu",
+      "Gán phòng làm được cho dịch vụ; lọc \"chưa có phòng\"",
+      "Bỏ chip \"giá tạm\" bằng cách lưu lại đơn giá"
+     ],
+     "bang_doc": [
+      "service_price",
+      "node_definition",
+      "clinic_room",
+      "clinic_room_node"
+     ],
+     "bang_ghi": [
+      "service_price",
+      "clinic_room_node"
+     ],
+     "toc_do_ghi_chu": "Sau mỗi lần lưu chờ tải lại cả danh mục (xem src/dashboard/app/(dashboard)/cashier/DanhMucDichVuPhong.tsx:153).",
+     "ghi_chu": "Không thấy ghi nhật ký ai đổi giá: PriceListService.update không gọi record_event và service_price không có trigger nhật ký (đã grep). Phiếu đã thu giữ giá cũ vì payment_bill_line là ảnh chụp."
+    },
+    {
+     "route": "/cashier/thuoc",
+     "ten": "Bảng giá thuốc (cũ)",
+     "ai_dung": "Theo vai (không có dòng NAV_QUYEN); đã tắt khỏi thanh bên",
+     "lam_duoc": [
+      "Xem/sửa mã thuốc, đơn giá, trạng thái (group = thuoc)"
+     ],
+     "bang_doc": [
+      "service_price"
+     ],
+     "bang_ghi": [
+      "service_price",
+      "drug_catalog"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Tắt khỏi thanh bên cho mọi người, route còn mở thẳng được (xem src/dashboard/lib/roles.ts:692). Sửa giá dòng thuốc tự đồng bộ sang drug_catalog (xem src/clinicai/services/config_service.py:1911)."
+    },
+    {
+     "route": "/ops",
+     "ten": "Vận hành hệ thống",
+     "ai_dung": "Quản lý (lego Vận hành hệ thống, quyền ops.view)",
+     "lam_duoc": [
+      "Tab Hệ thống, Sức khoẻ API, Toàn cảnh",
+      "Tab Lỗi & cảnh báo: xem kiểu lỗi đã gom, cảnh báo canh gác, đổi trạng thái lỗi",
+      "Tab Nhật ký vận hành: ai làm gì, mỗi khâu bao lâu",
+      "Tab Lưu lượng & Thiết bị"
+     ],
+     "bang_doc": [
+      "loi_nhom",
+      "canh_bao",
+      "luot_dong_thoi_gian",
+      "visit",
+      "appointment"
+     ],
+     "bang_ghi": [
+      "loi_nhom"
+     ],
+     "toc_do_ghi_chu": "Tab Lỗi & cảnh báo: 2 request song song mỗi 30 giây khi tab hiện (xem src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx:112), cộng một lượt đọc lại sau mỗi lần đổi trạng thái (:128).",
+     "ghi_chu": "Thay chỗ /portal (Toàn cảnh) và /ops/telemetry (Sức khoẻ API)."
+    },
+    {
+     "route": "/giam-sat",
+     "ten": "Trung tâm giám sát AI",
+     "ai_dung": "Đội vận hành ClinicAI (quyền nội bộ giamsat.view — quản lý phòng khám không tự cấp được); tên miền giamsat.dr4women.io.vn",
+     "lam_duoc": [
+      "Tổng quan giám sát",
+      "Xem nhận định của agent, đánh giá đúng/sai",
+      "Đổi chế độ agent",
+      "Xem chi phí LLM, tóm tắt cuối ngày"
+     ],
+     "bang_doc": [
+      "agent_nhan_dinh",
+      "loi_nhom",
+      "canh_bao",
+      "visit",
+      "appointment"
+     ],
+     "bang_ghi": [
+      "agent_nhan_dinh",
+      "agent_cau_hinh",
+      "loi_nhom"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Nằm ngoài nhóm (dashboard): không thanh bên, trang tự gác — thiếu quyền trả 404 (xem src/dashboard/app/giam-sat/page.tsx:25)."
+    },
+    {
+     "route": "/audit-log",
+     "ten": "Lịch sử thao tác",
+     "ai_dung": "Quản lý (quyền audit.view, lego Vận hành)",
+     "lam_duoc": [
+      "Xem ai làm gì theo ngày (nhật ký + quy trình việc)"
+     ],
+     "bang_doc": [
+      "v_audit_log",
+      "work_item_event",
+      "staff",
+      "patient"
+     ],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": ""
+    },
+    {
+     "route": "/traffic",
+     "ten": "Lưu lượng truy cập",
+     "ai_dung": "Quản trị có PIN/mật khẩu trong biến môi trường OPS_TRAFFIC_*",
+     "lam_duoc": [
+      "Xem tổng hợp lưu lượng, thiết bị"
+     ],
+     "bang_doc": [],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Không đọc database: đọc tệp JSON /run/clinicai-ops/traffic-summary.json (xem src/clinicai/services/traffic_service.py:39), do công cụ clinicai-traffic-report nằm ngoài git nuôi (CLAUDE.md)."
+    },
+    {
+     "route": "/console",
+     "ten": "Bảng điều khiển của chủ sản phẩm",
+     "ai_dung": "Chủ sản phẩm, chỉ trên máy dev/staging",
+     "lam_duoc": [
+      "Xem tổng quan hệ thống thử",
+      "Gửi góp ý"
+     ],
+     "bang_doc": [
+      "work_item",
+      "service_price",
+      "staff",
+      "visit",
+      "patient"
+     ],
+     "bang_ghi": [
+      "owner_feedback"
+     ],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Không tồn tại ở production: notFound() khi APP_ENV=production (xem src/dashboard/app/console/page.tsx:84) và API cũng tự trả 404."
+    },
+    {
+     "route": "/design-system",
+     "ten": "Hệ thiết kế (mẫu giao diện)",
+     "ai_dung": "Dev",
+     "lam_duoc": [
+      "Xem mọi token và thành phần giao diện trên một trang"
+     ],
+     "bang_doc": [],
+     "bang_ghi": [],
+     "toc_do_ghi_chu": "",
+     "ghi_chu": "Chỉ mở khi NODE_ENV = development (xem src/dashboard/app/design-system/page.tsx:29)."
+    }
+   ],
+   "chuyen_huong": [
+    {
+     "route": "/portal",
+     "toi": "/ops?tab=toan-canh"
+    },
+    {
+     "route": "/ops/telemetry",
+     "toi": "/ops?tab=api"
+    }
+   ],
+   "thao_tac": [
+    {
+     "man": "/cashier/dich-vu",
+     "nut": "Sửa ô đơn giá của một dịch vụ → Lưu",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "DanhMucDichVuPhong.tsx: sua() → gui PATCH /api/service-price {id, unit_price…}",
+       "nguon": "src/dashboard/app/(dashboard)/cashier/DanhMucDichVuPhong.tsx:165"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next chuyển tiếp → PATCH /api/v1/service-prices/{id}; cửa price.service.manage",
+       "nguon": "src/dashboard/app/api/service-price/route.ts:215"
+      },
+      {
+       "loai": "ham",
+       "chu": "PriceListService.update (sửa giá = bỏ cờ giá tạm; đổi phòng không lật bên thu đã chọn tay)",
+       "nguon": "src/clinicai/services/config_service.py:1792"
+      },
+      {
+       "loai": "bang",
+       "chu": "UPDATE service_price SET …; dòng thuốc thì đồng bộ giá sang drug_catalog",
+       "nguon": "src/clinicai/services/config_service.py:1892"
+      },
+      {
+       "loai": "su_kien",
+       "chu": "Không có: service_price không có trigger notify, không ghi nhật ký",
+       "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:88"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Chỉ màn đang sửa tự tải lại danh mục; quầy thu đang mở thấy giá mới khi tải lại",
+       "nguon": "src/dashboard/app/(dashboard)/cashier/DanhMucDichVuPhong.tsx:153"
+      }
+     ],
+     "ghi_chu": "Phiếu đã thu không đổi theo giá mới (payment_bill_line là ảnh chụp — src/clinicai/services/bao_cao_cuoi_ngay_service.py:4). Trùng mã KiotViet → 409."
+    },
+    {
+     "man": "/settings/clinic-config",
+     "nut": "Bấm [Ngừng sử dụng phòng] (hoặc [+ Thêm phòng])",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "CoSoPhong.tsx gọi goi(\"PUT\", \"room-active\", {room_id, is_active}); thêm phòng: goi(\"POST\", \"room-create\")",
+       "nguon": "src/dashboard/app/(dashboard)/settings/clinic-config/CoSoPhong.tsx:476"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next tra bảng WRITE_PATHS → PUT /api/v1/clinic-config/room-active; cửa config.clinic.manage",
+       "nguon": "src/dashboard/app/api/clinic-config/route.ts:95"
+      },
+      {
+       "loai": "ham",
+       "chu": "ClinicConfigService.set_room_active: khoá cơ sở FOR UPDATE; còn khách waiting/called/serving trong queue_entry thì từ chối",
+       "nguon": "src/clinicai/services/clinic_config_service.py:618"
+      },
+      {
+       "loai": "bang",
+       "chu": "UPDATE clinic_room SET is_active (thêm phòng: INSERT clinic_room + clinic_room_node)",
+       "nguon": "src/clinicai/services/clinic_config_service.py:673"
+      },
+      {
+       "loai": "su_kien",
+       "chu": "Nhật ký clinic_config.room_active ghi SAU giao dịch; quên quyền đang nhớ (cache.quen); không có pg_notify cho clinic_room",
+       "nguon": "src/clinicai/services/clinic_config_service.py:679"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Màn cấu hình chờ đọc lại toàn bộ (onDocLai); màn khác thấy khi tải lại",
+       "nguon": "src/dashboard/app/(dashboard)/settings/clinic-config/CoSoPhong.tsx:148"
+      }
+     ],
+     "ghi_chu": "Hoàn tác được: bấm [Dùng lại phòng]; nhưng tầng đang ngừng thì phải bật tầng trước (xem src/clinicai/services/clinic_config_service.py:654)."
+    },
+    {
+     "man": "/settings/day-noi",
+     "nut": "Bật/tắt (hoặc đổi số) một dây nối → Lưu",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "DayNoiBoard.tsx gửi POST /api/day-noi {thao_tac: \"day\", du_lieu: {ma, gia_tri}}",
+       "nguon": "src/dashboard/app/(dashboard)/settings/day-noi/DayNoiBoard.tsx:117"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next ánh xạ → PATCH /api/v1/day-noi/day",
+       "nguon": "src/dashboard/app/api/day-noi/route.ts:35"
+      },
+      {
+       "loai": "ham",
+       "chu": "DayNoiService.dat_day: kiểm kiểu (bật/tắt hay số trong khoảng), hỏi quyền config.wiring.manage trong giao dịch",
+       "nguon": "src/clinicai/services/day_noi_service.py:154"
+      },
+      {
+       "loai": "bang",
+       "chu": "UPSERT day_nghiep_vu (gia_tri, sua_boi, sua_luc)",
+       "nguon": "src/clinicai/services/day_noi_service.py:177"
+      },
+      {
+       "loai": "su_kien",
+       "chu": "Ghi nhật ký config.wiring_changed {day, tu, thanh}; không có pg_notify",
+       "nguon": "src/clinicai/services/day_noi_service.py:188"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Màn dây nối đọc lại; các luồng dùng dây đọc doc_day ở mỗi lệnh nên có hiệu lực ngay lệnh kế tiếp",
+       "nguon": "src/clinicai/services/day_noi.py:149"
+      }
+     ],
+     "ghi_chu": "Dây chưa ai chỉnh dùng giá trị mặc định khai trong code (DAY)."
+    },
+    {
+     "man": "/ops",
+     "nut": "Tab Lỗi & cảnh báo → bấm [Đã biết] / [Đã sửa] / [Bỏ qua] một lỗi",
+     "buoc": [
+      {
+       "loai": "giao_dien",
+       "chu": "LoiCanhBao.tsx gửi POST /api/ops/theo-doi {loi_id, trang_thai}",
+       "nguon": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx:121"
+      },
+      {
+       "loai": "api",
+       "chu": "Route Next → POST /api/v1/ops/loi/{id}/trang-thai; cửa ops.view",
+       "nguon": "src/dashboard/app/api/ops/theo-doi/route.ts:39"
+      },
+      {
+       "loai": "ham",
+       "chu": "kho_loi.doi_trang_thai (đã sửa mà tái diễn thì tự mở lại)",
+       "nguon": "src/clinicai/services/kho_loi.py:186"
+      },
+      {
+       "loai": "bang",
+       "chu": "UPDATE loi_nhom SET trang_thai, doi_luc, doi_boi",
+       "nguon": "src/clinicai/services/kho_loi.py:192"
+      },
+      {
+       "loai": "su_kien",
+       "chu": "Cảnh báo canh_bao do worker su-kien mở/đóng mỗi 60 giây, gửi Telegram ops lần đầu nếu có cấu hình",
+       "nguon": "src/clinicai/worker.py:308"
+      },
+      {
+       "loai": "man_cap_nhat",
+       "chu": "Chỉ màn này đọc lại ngay; ngoài ra nhịp 30 giây khi tab hiện",
+       "nguon": "src/dashboard/app/(dashboard)/ops/LoiCanhBao.tsx:128"
+      }
+     ],
+     "ghi_chu": "loi_nhom gom theo KIỂU (nguồn + dấu vân), cộng dồn so_lan, không đẻ dòng mới (xem src/clinicai/services/kho_loi.py:78)."
+    }
+   ],
+   "the": [
+    {
+     "hoi": "Ai sửa được giá dịch vụ?",
+     "dap": "Người có quyền price.service.manage (lego Bảng giá); lễ tân kiêm thu ngân chỉ TRA giá.",
+     "nguon": "src/clinicai/api/v1/routers/config.py:63"
+    },
+    {
+     "hoi": "Tắt phòng khi trong phòng còn khách thì sao?",
+     "dap": "Bị từ chối: \"Phòng còn N khách đang chờ/đang làm — chuyển khách sang phòng khác trước khi tắt\".",
+     "nguon": "src/clinicai/services/clinic_config_service.py:669"
+    },
+    {
+     "hoi": "Giá trị một dây nối lưu ở đâu?",
+     "dap": "Bảng day_nghiep_vu (clinic_id, ma, gia_tri); chưa có dòng thì dùng mặc định của dây.",
+     "nguon": "src/clinicai/services/day_noi.py:152"
+    },
+    {
+     "hoi": "Ai mở và đóng cảnh báo canh_bao?",
+     "dap": "Bộ canh gác chạy trong worker su-kien, NHIP_GIAY = 60 giây: có chuyện thì mở, ổn thì đóng.",
+     "nguon": "src/clinicai/services/canh_gac.py:38"
+    },
+    {
+     "hoi": "/console và /design-system có chạy trên prod không?",
+     "dap": "Không. /console notFound() khi APP_ENV=production; /design-system chỉ mở khi NODE_ENV=development.",
+     "nguon": "src/dashboard/app/console/page.tsx:84"
+    },
+    {
+     "hoi": "Vì sao màn quầy thu không tự đổi khi vừa sửa giá?",
+     "dap": "service_price không có trigger notify, không nằm trong LIVE_TABLES — không có tin SSE nào được phát.",
+     "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:88"
+    }
    ]
   }
  ],
- "the_chung": [],
+ "the_chung": [
+  {
+   "hoi": "Tin \"có gì vừa đổi\" đi từ database tới màn hình theo đường nào?",
+   "dap": "Trigger trg_notify_<bảng> gọi notify_row_change → pg_notify kênh clinicai_changes lúc COMMIT → FastAPI (change_broker) LISTEN → SSE /api/v1/events/stream → route Next /api/events/stream → RealtimeRefresher (một EventSource cho cả app).",
+   "nguon": "supabase/migrations/20260806000001_notify_change_for_live_screens.sql:18"
+  },
+  {
+   "hoi": "Tin pg_notify chứa gì?",
+   "dap": "Chỉ tên bảng và clinic_id — cố ý không kèm dữ liệu hàng (trần 8000 byte làm hỏng cả giao dịch ghi; và không mở lối đọc ngoài API). Máy chủ lọc theo phòng khám của token.",
+   "nguon": "supabase/migrations/20260806000001_notify_change_for_live_screens.sql:42"
+  },
+  {
+   "hoi": "LIVE_TABLES nằm ở đâu, thêm bảng mới cần gì?",
+   "dap": "Trong RealtimeRefresher.tsx. Thêm bảng phải có CẢ migration tạo trigger trg_notify_<bảng> gọi notify_row_change VÀ tên bảng trong LIVE_TABLES — thiếu trigger thì nghe mãi cũng im.",
+   "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:88"
+  },
+  {
+   "hoi": "Màn nào KHÔNG bị router.refresh() dựng lại khi có tin?",
+   "dap": "MAN_TU_TAI trong lib/man-tu-tai.ts: /ban-kham(/phòng), /tu-van, /phong/<id>, /hanh-trinh, /thu-ngan/dich-vu|thuoc(+/lich-su). Chúng chỉ dựng lại cho bảng layout appointment, work_roster; dữ liệu tự tải qua useNgheBang.",
+   "nguon": "src/dashboard/lib/man-tu-tai.ts:23"
+  },
+  {
+   "hoi": "useNgheBang làm gì?",
+   "dap": "Nghe tin bảng mà RealtimeRefresher phát lại trên window (SU_KIEN_BANG) — không mở thêm kết nối; gộp nhịp, mỗi lúc một lượt tải; tin null (quay lại tab, nối lại) = tải lại.",
+   "nguon": "src/dashboard/app/(dashboard)/dung-nghe-bang.ts:45"
+  },
+  {
+   "hoi": "Route app/api/**/route.ts được làm gì?",
+   "dap": "Chỉ chuyển tiếp sang FastAPI (Luật 3.2): proxyJsonToBackend gắn Bearer token, X-API-Key, Idempotency-Key (nếu có), X-Location-ID, X-Request-ID. Không tự truy vấn database.",
+   "nguon": "docs/SO-LUAT.md:103"
+  },
+  {
+   "hoi": "Hàm nhận ngày/giờ từ người dùng gặp chuỗi rác thì sao?",
+   "dap": "Trả rỗng (None) thay vì ném, và phải có test đầu vào rác — đã có ba lần 500 vì luật này. Vd doc_ngay: rác/rỗng → None; báo cáo: ngày rác → hôm nay.",
+   "nguon": "src/clinicai/services/nhat_ky_van_hanh.py:45"
+  },
+  {
+   "hoi": "Áp migration bằng gì?",
+   "dap": "scripts/apply-pending-migrations.sh (mặc định thử khô, --apply để áp thật); so thư mục với sổ ghi, áp mỗi migration cùng dòng ghi sổ trong một giao dịch. Không dùng supabase db push, không áp trong lúc deploy.",
+   "nguon": "scripts/apply-pending-migrations.sh:33"
+  },
+  {
+   "hoi": "Cơ sở đang đứng đi từ trình duyệt tới máy chủ thế nào?",
+   "dap": "Cookie clinicai_location → ganCoSo gắn header X-Location-ID ở mọi lời gọi proxy → identity.py kiểm cơ sở thuộc phòng khám và đang bật (lạ → 403). Không có cookie → cơ sở mặc định.",
+   "nguon": "src/dashboard/lib/co-so.ts:9"
+  },
+  {
+   "hoi": "Idempotency-Key chống gì, giữ bao lâu?",
+   "dap": "Chống bấm hai lần tạo hai bản ghi: cùng khoá + cùng endpoint thì lần sau trả lại kết quả đã lưu. Header TUỲ CHỌN, khoá sống 24 giờ; proxy chỉ gửi khi route truyền vào (sinh ra sau vụ một khách có ba lịch cùng khung 04/08).",
+   "nguon": "src/clinicai/api/idempotency.py:46"
+  }
+ ],
  "toc_do": {
   "/thu-ngan/dich-vu": {
    "den": "do",
@@ -2994,6 +4242,16 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/clinicai/api/v1/routers/booking.py:439"
   },
   {
+   "ma": "/api/v1/events/stream",
+   "loai": "route",
+   "ten": "Dòng sự kiện SSE cho màn hình",
+   "manh": "events = sự kiện · stream = dòng chảy",
+   "dong_nghia": [
+    "/api/events/stream (route Next)"
+   ],
+   "nguon": "src/clinicai/api/v1/routers/events.py:33"
+  },
+  {
    "ma": "_gan_doi_tac_tu_thu",
    "loai": "hàm",
    "ten": "Gắn trạng thái còn nợ / tiền thừa cho từng lượt check-out",
@@ -3027,6 +4285,22 @@ window.SO_HOC_VIET_TAY = {
    "manh": "thu = thu tiền · dich_vu = dịch vụ · ghi_lan_thu = ghi lần thu",
    "dong_nghia": [],
    "nguon": "src/clinicai/services/payment_service.py:708"
+  },
+  {
+   "ma": "app_credential",
+   "loai": "bảng",
+   "ten": "Thông tin đăng nhập ứng dụng của nhân viên (khoá khi thu hồi)",
+   "manh": "app = ứng dụng · credential = thông tin đăng nhập",
+   "dong_nghia": [],
+   "nguon": "supabase/migrations/20260806000002_app_credential.sql:22"
+  },
+  {
+   "ma": "apply-pending-migrations.sh",
+   "loai": "tệp",
+   "ten": "Script áp migration còn thiếu",
+   "manh": "apply = áp · pending = đang chờ · migration = bản đổi lược đồ",
+   "dong_nghia": [],
+   "nguon": "scripts/apply-pending-migrations.sh:33"
   },
   {
    "ma": "appointment",
@@ -3093,6 +4367,17 @@ window.SO_HOC_VIET_TAY = {
     "doctor board (cũ)"
    ],
    "nguon": "src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx:226"
+  },
+  {
+   "ma": "BaoCaoCuoiNgayService",
+   "loai": "hàm",
+   "ten": "Dịch vụ báo cáo cuối ngày/cuối ca (chỉ đọc)",
+   "manh": "báo cáo cuối ngày · service = tầng luật",
+   "dong_nghia": [
+    "bao_cao_cuoi_ngay_service.py",
+    "/api/v1/reports/cuoi-ngay"
+   ],
+   "nguon": "src/clinicai/services/bao_cao_cuoi_ngay_service.py:1157"
   },
   {
    "ma": "BILL_CHANGED (BillChangedError)",
@@ -3190,6 +4475,39 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/dashboard/lib/man-tu-tai.ts:46"
   },
   {
+   "ma": "canh_bao",
+   "loai": "bảng",
+   "ten": "Cảnh báo của bộ canh gác",
+   "manh": "cảnh báo",
+   "dong_nghia": [
+    "canh_gac.py"
+   ],
+   "nguon": "supabase/migrations/20260927000004_loi_va_canh_bao.sql:38"
+  },
+  {
+   "ma": "capability (quyền con)",
+   "loai": "khái niệm",
+   "ten": "Một quyền làm một việc, vd report.view, price.service.manage, config.wiring.manage",
+   "manh": "capability = năng lực",
+   "dong_nghia": [
+    "cua_quyen",
+    "doi_quyen",
+    "can()"
+   ],
+   "nguon": "src/clinicai/api/v1/routers/config.py:63"
+  },
+  {
+   "ma": "capability_grant",
+   "loai": "bảng",
+   "ten": "Sổ cấp quyền (mỗi quyền con một dòng, thu = đóng)",
+   "manh": "capability = năng lực / quyền · grant = cấp",
+   "dong_nghia": [
+    "v_quyen_hieu_luc",
+    "capability.granted"
+   ],
+   "nguon": "supabase/migrations/20260923000003_capability.sql:46"
+  },
+  {
    "ma": "cashier_board_service.py · CashierBoardService.board",
    "loai": "hàm",
    "ten": "Dựng bảng quầy thu (ai chờ thu, hoá đơn từng khách)",
@@ -3232,6 +4550,71 @@ window.SO_HOC_VIET_TAY = {
     "chi-dinh"
    ],
    "nguon": "src/clinicai/services/chi_dinh_service.py:135"
+  },
+  {
+   "ma": "chonCoSo",
+   "loai": "hàm",
+   "ten": "Server action ghi cơ sở đã chọn vào cookie",
+   "manh": "chọn cơ sở",
+   "dong_nghia": [
+    "/chon-co-so"
+   ],
+   "nguon": "src/dashboard/app/(auth)/chon-co-so/actions.ts:12"
+  },
+  {
+   "ma": "chot_so_ca",
+   "loai": "bảng",
+   "ten": "Sổ chốt ca (bản chụp số liệu ca)",
+   "manh": "chốt sổ ca",
+   "dong_nghia": [
+    "ChotSoCaService",
+    "khoá sổ theo ca",
+    "G4c"
+   ],
+   "nguon": "supabase/migrations/20261014149000_chot_so_ca.sql:13"
+  },
+  {
+   "ma": "clinic_room",
+   "loai": "bảng",
+   "ten": "Phòng (thuộc cơ sở, tầng)",
+   "manh": "clinic room = phòng của phòng khám",
+   "dong_nghia": [
+    "clinic_room_node",
+    "room_id"
+   ],
+   "nguon": "supabase/migrations/20260804000001_dispatch_rooms.sql:15"
+  },
+  {
+   "ma": "clinicai_changes",
+   "loai": "khái niệm",
+   "ten": "Kênh LISTEN/NOTIFY chở tin đổi bảng",
+   "manh": "changes = các thay đổi",
+   "dong_nghia": [
+    "pg_notify",
+    "CHANNEL"
+   ],
+   "nguon": "src/clinicai/core/change_broker.py:39"
+  },
+  {
+   "ma": "clinicai_location",
+   "loai": "khái niệm",
+   "ten": "Cookie cơ sở đang đứng",
+   "manh": "location = cơ sở / chi nhánh",
+   "dong_nghia": [
+    "LOCATION_COOKIE",
+    "X-Location-ID"
+   ],
+   "nguon": "src/dashboard/lib/co-so.ts:9"
+  },
+  {
+   "ma": "ClinicConfigService",
+   "loai": "hàm",
+   "ten": "Dịch vụ cấu trúc phòng khám (cơ sở, tầng, phòng)",
+   "manh": "clinic config = cấu hình phòng khám",
+   "dong_nghia": [
+    "/api/v1/clinic-config"
+   ],
+   "nguon": "src/clinicai/services/clinic_config_service.py:242"
   },
   {
    "ma": "command_receipt",
@@ -3318,6 +4701,40 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "supabase/migrations/20260714000001_baseline_schema.sql:483"
   },
   {
+   "ma": "DanhSachHoaDonService",
+   "loai": "hàm",
+   "ten": "Dịch vụ danh sách hoá đơn (phiếu đã thu, hoàn, việc tồn)",
+   "manh": "danh sách hoá đơn",
+   "dong_nghia": [
+    "/api/v1/hoa-don",
+    "xlsx_hoa_don"
+   ],
+   "nguon": "src/clinicai/services/danh_sach_hoa_don_service.py:241"
+  },
+  {
+   "ma": "day_nghiep_vu",
+   "loai": "bảng",
+   "ten": "Giá trị các dây nối nghiệp vụ",
+   "manh": "dây nghiệp vụ",
+   "dong_nghia": [
+    "DayNoiService",
+    "doc_day",
+    "DAY"
+   ],
+   "nguon": "supabase/migrations/20260924000005_day_nghiep_vu_nhac_viec.sql:15"
+  },
+  {
+   "ma": "DayNoiService",
+   "loai": "hàm",
+   "ten": "Dịch vụ chỉnh dây nối",
+   "manh": "dây nối",
+   "dong_nghia": [
+    "config.wiring.manage",
+    "/api/v1/day-noi"
+   ],
+   "nguon": "src/clinicai/services/day_noi_service.py:66"
+  },
+  {
    "ma": "dieu_chinh_theo_kiem_ke",
    "loai": "hàm",
    "ten": "Điều chỉnh tồn theo số đếm đã chốt (ghi ADJUST)",
@@ -3358,6 +4775,16 @@ window.SO_HOC_VIET_TAY = {
     "gopDoc (gộp lượt đọc trùng)"
    ],
    "nguon": "src/dashboard/app/(dashboard)/_lam-viec/api.ts:189"
+  },
+  {
+   "ma": "doi_chieu_mot_vong",
+   "loai": "hàm",
+   "ten": "Một vòng đối chiếu sổ nợ định kỳ (worker)",
+   "manh": "đối chiếu một vòng",
+   "dong_nghia": [
+    "NHIP_GIAY = 600"
+   ],
+   "nguon": "src/clinicai/services/so_no_service.py:580"
   },
   {
    "ma": "doi_quyen",
@@ -3490,6 +4917,14 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/clinicai/services/lieu_trinh_service.py:957"
   },
   {
+   "ma": "fetchFromBackend",
+   "loai": "hàm",
+   "ten": "Đọc FastAPI từ server component (lỗi → null)",
+   "manh": "fetch = lấy · from backend = từ máy chủ",
+   "dong_nghia": [],
+   "nguon": "src/dashboard/lib/backend-proxy.ts:244"
+  },
+  {
    "ma": "form_instance",
    "loai": "bảng",
    "ten": "Phiếu kết quả của một chỉ định (form engine)",
@@ -3521,6 +4956,25 @@ window.SO_HOC_VIET_TAY = {
     "/api/cashier?modes="
    ],
    "nguon": "src/clinicai/api/v1/routers/cashier.py:45"
+  },
+  {
+   "ma": "ghi_chenh_lech",
+   "loai": "hàm",
+   "ten": "Tính lại số dư lượt và ghi phần chênh vào sổ nợ",
+   "manh": "ghi chênh lệch",
+   "dong_nghia": [],
+   "nguon": "src/clinicai/services/so_no_service.py:270"
+  },
+  {
+   "ma": "GoTrue",
+   "loai": "khái niệm",
+   "ten": "Dịch vụ đăng nhập của bộ Supabase tự dựng (/auth/v1)",
+   "manh": "tên riêng của phần mềm",
+   "dong_nghia": [
+    "Supabase Auth",
+    "auth.users"
+   ],
+   "nguon": "src/dashboard/app/api/admin/users/route.ts:10"
   },
   {
    "ma": "guiThaoTac",
@@ -3562,6 +5016,28 @@ window.SO_HOC_VIET_TAY = {
     "outstanding bill"
    ],
    "nguon": "src/clinicai/services/bill_service.py:853"
+  },
+  {
+   "ma": "hoa_don_cong_ty",
+   "loai": "bảng",
+   "ten": "Thông tin công ty xuất hoá đơn cho một phiếu",
+   "manh": "hoá đơn công ty",
+   "dong_nghia": [
+    "khach_cong_ty",
+    "HoaDonCongTyService"
+   ],
+   "nguon": "supabase/migrations/20261014156000_hoa_don_cong_ty.sql:50"
+  },
+  {
+   "ma": "hoa_don_misa_xuat",
+   "loai": "bảng",
+   "ten": "Lần đánh dấu \"đã xuất sang MISA\" (kèm dấu vân tay từng hoá đơn)",
+   "manh": "hoá đơn MISA xuất",
+   "dong_nghia": [
+    "HoaDonMisaService",
+    "hoa_don_misa_xuat_dong"
+   ],
+   "nguon": "supabase/migrations/20261014157000_hoa_don_misa_xuat.sql:9"
   },
   {
    "ma": "HoaDonMot.tsx",
@@ -3728,6 +5204,19 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/clinicai/services/payment_service.py:120"
   },
   {
+   "ma": "lego",
+   "loai": "khái niệm",
+   "ten": "Một gói quyền = một mục thanh bên (bật/tắt cho từng người)",
+   "manh": "lego = khối ghép",
+   "dong_nghia": [
+    "MAN",
+    "Man",
+    "khối công việc (KHOI)",
+    "work_pack"
+   ],
+   "nguon": "src/clinicai/permissions/catalogue.py:960"
+  },
+  {
    "ma": "lenhHoanTac",
    "loai": "hàm",
    "ten": "Tạo lệnh hoàn tác cho thông báo “… · Hoàn tác”",
@@ -3809,6 +5298,17 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/dashboard/app/(dashboard)/LiveBoardSync.tsx:45"
   },
   {
+   "ma": "loi_nhom",
+   "loai": "bảng",
+   "ten": "Kho lỗi gom theo kiểu",
+   "manh": "lỗi nhóm",
+   "dong_nghia": [
+    "kho_loi.py",
+    "dau_van"
+   ],
+   "nguon": "supabase/migrations/20260927000004_loi_va_canh_bao.sql:16"
+  },
+  {
    "ma": "luot_kham.py",
    "loai": "tệp",
    "ten": "Router FastAPI lượt khám (hàng chờ, phiên khám, chỉ định, thực hiện, xếp phòng)",
@@ -3885,6 +5385,18 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/clinicai/services/hoan_tac_check_in.py:43"
   },
   {
+   "ma": "man-tu-tai.ts",
+   "loai": "tệp",
+   "ten": "Danh sách màn tự tải (không dựng lại cả trang)",
+   "manh": "màn tự tải",
+   "dong_nghia": [
+    "MAN_TU_TAI",
+    "laManTuTai",
+    "canDungLaiTrang"
+   ],
+   "nguon": "src/dashboard/lib/man-tu-tai.ts:23"
+  },
+  {
    "ma": "MAN_TU_TAI",
    "loai": "khái niệm",
    "ten": "Danh sách màn tự tải (RealtimeRefresher không dựng lại trang server)",
@@ -3924,6 +5436,17 @@ window.SO_HOC_VIET_TAY = {
     "check-duplicate"
    ],
    "nguon": "src/clinicai/services/mpi_service.py:85"
+  },
+  {
+   "ma": "NAV_QUYEN",
+   "loai": "khái niệm",
+   "ten": "Bảng màn → quyền mở màn (frontend)",
+   "manh": "nav = điều hướng · quyền",
+   "dong_nghia": [
+    "quyenMoDuocMan",
+    "laManLego"
+   ],
+   "nguon": "src/dashboard/lib/roles.ts:632"
   },
   {
    "ma": "nhac_tai_kham",
@@ -4167,6 +5690,39 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/clinicai/services/payment_service.py:144"
   },
   {
+   "ma": "permissions/cache.py",
+   "loai": "tệp",
+   "ten": "Bộ nhớ tạm quyền 5 giây",
+   "manh": "cache = nhớ tạm",
+   "dong_nghia": [
+    "cache.quen",
+    "QUYEN_CACHE_GIAY"
+   ],
+   "nguon": "src/clinicai/permissions/cache.py:32"
+  },
+  {
+   "ma": "PermissionService",
+   "loai": "hàm",
+   "ten": "Dịch vụ cấp/thu quyền và lego",
+   "manh": "permission = quyền",
+   "dong_nghia": [
+    "doi_lego",
+    "cap_khoi",
+    "thu_khoi"
+   ],
+   "nguon": "src/clinicai/services/permission_service.py:110"
+  },
+  {
+   "ma": "PHAI_THU / PHAI_TRA",
+   "loai": "khái niệm",
+   "ten": "Hai chiều nợ: khách nợ phòng khám / phòng khám nợ khách",
+   "manh": "phải thu · phải trả",
+   "dong_nghia": [
+    "chieu"
+   ],
+   "nguon": "src/clinicai/services/so_no_service.py:46"
+  },
+  {
    "ma": "PharmacyService.cap_phat",
    "loai": "hàm",
    "ten": "Giao thuốc một dòng đơn",
@@ -4322,6 +5878,26 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql:47"
   },
   {
+   "ma": "PriceListService",
+   "loai": "hàm",
+   "ten": "Dịch vụ sửa bảng giá",
+   "manh": "price list = bảng giá",
+   "dong_nghia": [
+    "/api/v1/service-prices"
+   ],
+   "nguon": "src/clinicai/services/config_service.py:1605"
+  },
+  {
+   "ma": "proxyJsonToBackend",
+   "loai": "hàm",
+   "ten": "Chuyển tiếp một lời gọi từ route Next sang FastAPI",
+   "manh": "proxy = chuyển tiếp · backend = máy chủ nghiệp vụ",
+   "dong_nghia": [
+    "backend-proxy.ts"
+   ],
+   "nguon": "src/dashboard/lib/backend-proxy.ts:66"
+  },
+  {
    "ma": "QuayThuNgan.tsx",
    "loai": "tệp",
    "ten": "Thân quầy thu ngân (dùng chung hai quầy)",
@@ -4353,6 +5929,16 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql:248"
   },
   {
+   "ma": "RealtimeRefresher.tsx",
+   "loai": "tệp",
+   "ten": "Bộ làm mới thời gian thực toàn app",
+   "manh": "realtime = tức thời · refresher = cái làm mới",
+   "dong_nghia": [
+    "EventSource duy nhất"
+   ],
+   "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:156"
+  },
+  {
    "ma": "RecallJobService",
    "loai": "hàm",
    "ten": "Dịch vụ việc gọi nhắc tái khám (sinh, liệt kê, đóng)",
@@ -4371,6 +5957,26 @@ window.SO_HOC_VIET_TAY = {
    "manh": "release = thả · on booking = lúc đặt",
    "dong_nghia": [],
    "nguon": "src/clinicai/services/slot_hold_service.py:221"
+  },
+  {
+   "ma": "ReportAccessService",
+   "loai": "hàm",
+   "ten": "Cửa quyền xem báo cáo (tài chính / bán hàng)",
+   "manh": "report = báo cáo · access = quyền vào",
+   "dong_nghia": [
+    "/api/v1/reports/access"
+   ],
+   "nguon": "src/clinicai/services/report_access_service.py:86"
+  },
+  {
+   "ma": "requireNavAccess",
+   "loai": "hàm",
+   "ten": "Cửa trang: không mở được màn thì đẩy về",
+   "manh": "require = đòi · nav access = quyền vào màn",
+   "dong_nghia": [
+    "vaoDuocMan"
+   ],
+   "nguon": "src/dashboard/lib/clinic-session.ts:118"
   },
   {
    "ma": "result.ready",
@@ -4392,6 +5998,47 @@ window.SO_HOC_VIET_TAY = {
     "dấu hoá đơn"
    ],
    "nguon": "src/clinicai/services/bill_service.py:24"
+  },
+  {
+   "ma": "roleLanding",
+   "loai": "hàm",
+   "ten": "Trang mở đầu theo vai",
+   "manh": "role = vai · landing = chỗ đáp",
+   "dong_nghia": [],
+   "nguon": "src/dashboard/lib/roles.ts:215"
+  },
+  {
+   "ma": "roster_week",
+   "loai": "bảng",
+   "ten": "Tuần lịch trực đã áp dụng (chốt)",
+   "manh": "roster week = tuần lịch",
+   "dong_nghia": [
+    "apply_week",
+    "da_ap_dung"
+   ],
+   "nguon": "supabase/migrations/20260808000001_tuan_lich_truc_da_ap_dung.sql:26"
+  },
+  {
+   "ma": "RosterService",
+   "loai": "hàm",
+   "ten": "Dịch vụ lịch trực (xếp ô, áp dụng tuần, đổi người)",
+   "manh": "roster = phân ca",
+   "dong_nghia": [
+    "config_service.py",
+    "add_shift",
+    "apply_week"
+   ],
+   "nguon": "src/clinicai/services/config_service.py:143"
+  },
+  {
+   "ma": "router.refresh()",
+   "loai": "khái niệm",
+   "ten": "Dựng lại phần máy chủ của trang Next",
+   "manh": "router = bộ định tuyến · refresh = làm mới",
+   "dong_nghia": [
+    "dựng lại trang"
+   ],
+   "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx:182"
   },
   {
    "ma": "service.completed",
@@ -4460,6 +6107,17 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "supabase/migrations/20260915000008_service_order_draft.sql:16"
   },
   {
+   "ma": "service_price",
+   "loai": "bảng",
+   "ten": "Bảng giá (dịch vụ, thuốc, vật tư)",
+   "manh": "service = dịch vụ · price = giá",
+   "dong_nghia": [
+    "bảng giá",
+    "group = dich_vu/thuoc/vat_tu"
+   ],
+   "nguon": "supabase/migrations/20260714000001_baseline_schema.sql:854"
+  },
+  {
    "ma": "ServiceExecutionService",
    "loai": "hàm",
    "ten": "Dịch vụ thực hiện ở phòng (bat_dau, xong, khong_lam, gian_doan, huy_bat_dau)",
@@ -4526,6 +6184,17 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/clinicai/services/slot_hold_service.py:56"
   },
   {
+   "ma": "so_no",
+   "loai": "bảng",
+   "ten": "Sổ nợ hai chiều theo lượt (chỉ thêm)",
+   "manh": "sổ nợ",
+   "dong_nghia": [
+    "so_no_service.py",
+    "consumer SO_NO"
+   ],
+   "nguon": "supabase/migrations/20261014140000_so_no_hai_chieu.sql:21"
+  },
+  {
    "ma": "so_tiep_don",
    "loai": "cột",
    "ten": "Số tiếp đón chung của quầy trong ngày",
@@ -4547,6 +6216,17 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/dashboard/app/api/luot-kham/route.ts:19"
   },
   {
+   "ma": "StaffIdentity",
+   "loai": "khái niệm",
+   "ten": "Danh tính người gọi (nhân viên, phòng khám, cơ sở, vai)",
+   "manh": "staff = nhân viên · identity = danh tính",
+   "dong_nghia": [
+    "identity.py",
+    "get_current_identity"
+   ],
+   "nguon": "src/clinicai/api/identity.py:161"
+  },
+  {
    "ma": "start_consultation",
    "loai": "hàm",
    "ten": "Nhận khách vào phiên khám (nút Bắt đầu khám / Bắt đầu tư vấn)",
@@ -4566,6 +6246,18 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "src/dashboard/app/(dashboard)/thu-ngan/TabThuNgan.tsx:15"
   },
   {
+   "ma": "TaiKhoanService",
+   "loai": "hàm",
+   "ten": "Dịch vụ tài khoản đăng nhập (nối, thu hồi, nhật ký)",
+   "manh": "tài khoản",
+   "dong_nghia": [
+    "thu_hoi",
+    "noi",
+    "/api/admin/users"
+   ],
+   "nguon": "src/clinicai/services/tai_khoan_service.py:52"
+  },
+  {
    "ma": "tep_ket_qua",
    "loai": "bảng",
    "ten": "Tệp kết quả (ảnh/video/PDF) gửi khách",
@@ -4583,6 +6275,17 @@ window.SO_HOC_VIET_TAY = {
     "cho_xac_nhan"
    ],
    "nguon": "src/clinicai/services/tep_ket_qua_service.py:680"
+  },
+  {
+   "ma": "thue_suat_nhom",
+   "loai": "bảng",
+   "ten": "Thuế suất GTGT theo nhóm hàng",
+   "manh": "thuế suất nhóm",
+   "dong_nghia": [
+    "ThueSuatService",
+    "thue_suat_ma"
+   ],
+   "nguon": "supabase/migrations/20261014155000_thue_gtgt.sql:46"
   },
   {
    "ma": "tien_thua_giu_lai",
@@ -4706,6 +6409,17 @@ window.SO_HOC_VIET_TAY = {
     "trạng thái CSKH"
    ],
    "nguon": "supabase/migrations/20261015110000_goi_xac_nhan_moi_lich_dat_ho.sql:30"
+  },
+  {
+   "ma": "vaoDuocMan",
+   "loai": "hàm",
+   "ten": "Người này mở được màn này không",
+   "manh": "vào được màn",
+   "dong_nghia": [
+    "canSeeNavGoc",
+    "canSeeNav"
+   ],
+   "nguon": "src/dashboard/lib/roles.ts:797"
   },
   {
    "ma": "vat_tu_kho_service.tao_phieu",
@@ -4854,6 +6568,28 @@ window.SO_HOC_VIET_TAY = {
    "nguon": "supabase/migrations/20260730000005_workflow_kernel.sql:219"
   },
   {
+   "ma": "work_roster",
+   "loai": "bảng",
+   "ten": "Ô lịch trực (ai, ngày, ca, vị trí)",
+   "manh": "work = làm việc · roster = bảng phân ca",
+   "dong_nghia": [
+    "ca trực",
+    "lịch làm việc"
+   ],
+   "nguon": "supabase/migrations/20260714000001_baseline_schema.sql:975"
+  },
+  {
+   "ma": "worker.py (su-kien)",
+   "loai": "tệp",
+   "ten": "Tiến trình nền giao sự kiện, canh gác, đối chiếu sổ nợ",
+   "manh": "worker = thợ chạy nền · sự kiện",
+   "dong_nghia": [
+    "su-kien",
+    "lam_mot_dong"
+   ],
+   "nguon": "src/clinicai/worker.py:295"
+  },
+  {
    "ma": "WorkItemService.issue",
    "loai": "hàm",
    "ten": "Ra lệnh trên đầu việc (start, complete, skip, cancel) có kiểm version",
@@ -4884,6 +6620,17 @@ window.SO_HOC_VIET_TAY = {
     "HANH_TRINH"
    ],
    "nguon": "src/clinicai/events/consumers/hanh_trinh.py:73"
+  },
+  {
+   "ma": "XuatHoaDonService",
+   "loai": "hàm",
+   "ten": "Dựng hoá đơn GTGT theo mẫu MISA",
+   "manh": "xuất hoá đơn",
+   "dong_nghia": [
+    "xlsx_misa",
+    "/api/v1/hoa-don/xuat"
+   ],
+   "nguon": "src/clinicai/services/xuat_hoa_don_service.py:366"
   }
  ],
  "manh": {

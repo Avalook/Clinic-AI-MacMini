@@ -295,6 +295,10 @@ def sinh() -> dict:
     dung_chung = {f for f, c in dem.items() if c > bd.NGUONG_DUNG_CHUNG * len(pages)}
 
     man_ra: list[dict] = []
+    # Hàm router dùng chung giữa nhiều màn (Bàn khám, Tư vấn… cùng ~120 hàm) —
+    # lưu MỘT lần, màn chỉ giữ chỉ số, để tệp sinh gọn.
+    dau_cuoi_chung: list[dict] = []
+    chi_so: dict[str, int] = {}
     for p in pages:
         route = bd.route_cua_page(p)
         txt = bd.doc(p)
@@ -333,19 +337,24 @@ def sinh() -> dict:
                     if t not in goi_next:
                         goi_next.append(t)
         # endpoint backend + service
-        dau_cuoi: list[dict] = []
+        dau_cuoi: list[int] = []
         sv: list[str] = []
 
         def them_ham(h: bd.HamRouter) -> None:
-            moi = {
-                "m": h.method,
-                "duong": h.duong,
-                "ham": h.ten,
-                "tep": f"{tuong_doi(h.tep)}:{h.dong}",
-                "sv": h.service[:6],
-            }
-            if moi not in dau_cuoi:
-                dau_cuoi.append(moi)
+            khoa = f"{h.method} {h.duong} {tuong_doi(h.tep)}:{h.dong}"
+            if khoa not in chi_so:
+                chi_so[khoa] = len(dau_cuoi_chung)
+                dau_cuoi_chung.append(
+                    {
+                        "m": h.method,
+                        "duong": h.duong,
+                        "ham": h.ten,
+                        "tep": f"{tuong_doi(h.tep)}:{h.dong}",
+                        "sv": h.service[:6],
+                    }
+                )
+            if chi_so[khoa] not in dau_cuoi:
+                dau_cuoi.append(chi_so[khoa])
             sv.extend(x for x in h.service if x not in sv)
 
         for t in goi_next:
@@ -353,11 +362,13 @@ def sinh() -> dict:
                 if khoa is not None and khoa not in chu:
                     continue
                 them_ham(h)
-        ssr: list[dict] = []
+        ssr: list[int] = []  # chỉ số trong dau_cuoi_chung, gọi lúc dựng trang
         for s in goi_be:
             for h in tim_backend(None, s):
                 them_ham(h)
-                ssr.append({"duong": h.duong, "tep": f"{tuong_doi(h.tep)}:{h.dong}"})
+                i = chi_so[f"{h.method} {h.duong} {tuong_doi(h.tep)}:{h.dong}"]
+                if i not in ssr:
+                    ssr.append(i)
         doc_b: Counter[str] = Counter()
         ghi_b: Counter[str] = Counter()
         n1: list[dict] = []
@@ -378,9 +389,7 @@ def sinh() -> dict:
                 "chuyen_huong": chuyen,
                 "api_next": goi_next,
                 "ssr": ssr,
-                "dau_cuoi": dau_cuoi[:40],
-                "so_dau_cuoi": len(dau_cuoi),
-                "service": sv[:40],
+                "dau_cuoi": dau_cuoi,
                 "so_service": len(sv),
                 "bang_doc": [b for b, _ in doc_b.most_common(10)],
                 "bang_ghi": [b for b, _ in ghi_b.most_common(10)],
@@ -407,9 +416,10 @@ def sinh() -> dict:
         "sinh_luc": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "commit": sha,
         "man": man_ra,
+        "dau_cuoi": dau_cuoi_chung,
         "live_tables": live,
         "bang_trigger": bang_co_trigger(),
-        "bang": [{"ten": b, "tao": t, "sua": s} for b, t, s in bang_tat_ca],
+        "bang": [{"ten": b, "tao": t} for b, t, _ in bang_tat_ca],
         "so_route_api_next": len(api_next),
         "so_ham_router": len(ham_router),
     }

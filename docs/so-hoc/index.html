@@ -166,6 +166,7 @@ section > h2 { margin-bottom: 12px; }
 .dieu b { display: block; }
 .nguon { font-family: var(--mono); font-size: 0.8125rem; color: var(--chu-mo); overflow-wrap: anywhere; }
 .nguon::before { content: "↳ "; }
+.ma-lien { color: inherit; text-decoration: underline dotted var(--chu-mo); text-underline-offset: 3px; font-family: var(--mono); font-size: 0.92em; }
 
 /* Tầng 3: chuỗi thao tác */
 .thao-tac { background: var(--the); border: 1px solid var(--vien); border-radius: var(--bo); padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
@@ -314,6 +315,18 @@ details[open] > summary { margin-bottom: 8px; }
     return `<a class="chip ${cls || ""}" href="#tu-dien" data-tim="${esc(ma)}" title="${esc(chuManh(ma))}">${ten ? esc(ten) + " " : ""}<code>${esc(ma)}</code></a>`;
   }
 
+  // Tên code nằm giữa câu chữ (vd "ghi payment_cycle"): gạch chân chấm, rê chuột
+  // ra tên dễ hiểu, bấm mở từ điển. Chỉ bắt tên có trong từ điển hoặc là bảng thật.
+  const TEN_BIET = new Set([...tuTay.keys(), ...(SINH.bang || []).map((b) => b.ten)]);
+  function chuCo(chu, laLink = true) {
+    return esc(chu).replace(/[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?:\.(?:py|tsx?))?/g, (tu) => {
+      if (!TEN_BIET.has(tu) || !/[_.]|[a-z][A-Z]/.test(tu)) return tu;
+      const ten = tenDe(tu);
+      if (!laLink) return `<span class="ma-lien" title="${esc(ten)}">${tu}</span>`; // trong nút lật thẻ: không lồng link
+      return `<a class="ma-lien" href="#tu-dien" data-tim="${tu}" title="${esc(ten)}">${tu}</a>`;
+    });
+  }
+
   // Đèn tốc độ: số đo / báo cáo rà soát (viết tay) thắng; còn lại tự xếp theo code.
   const DEN_TAY = VT.toc_do || {};
   function denCua(route) {
@@ -385,13 +398,13 @@ details[open] > summary { margin-bottom: 8px; }
       <h3><span>${esc(tt.nut)}</span> <a class="o-man" href="${routeLink(tt.man)}">${esc(tt.man)}</a></h3>
       <div class="chuoi-cuon"><div class="chuoi">${(tt.buoc || []).map((b) => `<div class="buoc">
         <span class="loai loai-${esc(b.loai)}">${esc(TEN_LOAI[b.loai] || b.loai)}</span>
-        <span class="chu">${esc(b.chu)}</span>${nguon(b.nguon)}</div>`).join("")}</div></div>
-      ${tt.ghi_chu ? `<p class="ghi-chu-tt">${esc(tt.ghi_chu)}</p>` : ""}
+        <span class="chu">${chuCo(b.chu)}</span>${nguon(b.nguon)}</div>`).join("")}</div></div>
+      ${tt.ghi_chu ? `<p class="ghi-chu-tt">${chuCo(tt.ghi_chu)}</p>` : ""}
     </article>`;
   }
   const TEN_LOAI = { giao_dien: "Màn bấm", api: "API", ham: "Hàm dịch vụ", bang: "Bảng ghi", su_kien: "Tin bắn ra", man_cap_nhat: "Màn tự cập nhật" };
   function dieuNho(k) {
-    return `<ol class="dieu" style="--mau:${mau(k.id)}">${(k.dieu_phai_nho || []).map((d) => `<li><div><b>${esc(d.chu)}</b><span class="nho">${esc(d.vi_sao || "")}</span>${nguon(d.nguon)}</div></li>`).join("")}</ol>`;
+    return `<ol class="dieu" style="--mau:${mau(k.id)}">${(k.dieu_phai_nho || []).map((d) => `<li><div><b>${chuCo(d.chu)}</b><span class="nho">${chuCo(d.vi_sao || "")}</span>${nguon(d.nguon)}</div></li>`).join("")}</ol>`;
   }
   function tang2(id) {
     const k = khoiTheoId.get(id);
@@ -430,14 +443,14 @@ details[open] > summary { margin-bottom: 8px; }
       ${t.ai_dung ? `<p><b>Ai dùng:</b> ${esc(t.ai_dung)}</p>` : ""}
       ${s.lego ? `<p class="nho"><b>Quyền vào:</b> ${esc(s.lego)}</p>` : ""}
       ${t.lam_duoc && t.lam_duoc.length ? `<ul>${t.lam_duoc.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-      ${t.ghi_chu ? `<p class="ghi-chu-tt">${esc(t.ghi_chu)}</p>` : ""}</div>
+      ${t.ghi_chu ? `<p class="ghi-chu-tt">${chuCo(t.ghi_chu)}</p>` : ""}</div>
       ${s.chuyen_huong ? "" : `<section><h2>Tốc độ</h2><div class="toc-do">
         <div>${denHtml(d)}</div>${d && d.chu ? `<p>${esc(d.chu)}</p>` : ""}${d && d.link ? `<p class="nho"><a href="${esc(d.link)}">${esc(d.link)}</a></p>` : ""}
-        ${t.toc_do_ghi_chu ? `<p class="nho"><b>Đọc code:</b> ${esc(t.toc_do_ghi_chu)}</p>` : ""}
+        ${t.toc_do_ghi_chu ? `<p class="nho"><b>Đọc code:</b> ${chuCo(t.toc_do_ghi_chu)}</p>` : ""}
         <div class="chi-so">
           <div><b>${s.ssr.length}</b><span>lời gọi FastAPI lúc dựng trang trên máy chủ</span></div>
           <div><b>${s.api_next.length}</b><span>đường API Next màn có thể gọi (cả lúc bấm)</span></div>
-          <div><b>${s.so_dau_cuoi}</b><span>hàm router phía sau</span></div>
+          <div><b>${s.dau_cuoi.length}</b><span>hàm router phía sau</span></div>
           <div><b>${s.so_nghi_n1}</b><span>vòng lặp await truy vấn (nghi N+1)</span></div>
           <div><b>${s.router_refresh}</b><span>chỗ gọi router.refresh()</span></div>
           <div><b>${nghe.length}</b><span>bảng nghe qua useNgheBang</span></div>
@@ -451,11 +464,11 @@ details[open] > summary { margin-bottom: 8px; }
         <p class="nho" style="margin-bottom:8px">Theo phân tích tĩnh chuỗi SQL trong các hàm service màn này gọi (không tính <code>event_log</code> nhật ký chung).</p>
         <div class="chip-hang"><span class="nhan-chip">Đọc</span>${(s.bang_doc || []).map((b) => maChip(b)).join("") || '<span class="trong">không suy được</span>'}</div>
         <div class="chip-hang" style="margin-top:6px"><span class="nhan-chip">Ghi</span>${(s.bang_ghi || []).filter((b) => b !== "event_log").map((b) => maChip(b, "ghi")).join("") || '<span class="trong">không ghi</span>'}</div></section>
-      <section><h2>Toàn bộ API phía sau (${s.so_dau_cuoi})</h2>
+      <section><h2>Toàn bộ API phía sau (${s.dau_cuoi.length})</h2>
         <details><summary>Mở danh sách: phương thức · đường · hàm router · hàm dịch vụ</summary><div class="bang-cuon"><table>
         <thead><tr><th>API</th><th>Hàm router</th><th>Hàm dịch vụ</th></tr></thead><tbody>
-        ${s.dau_cuoi.map((e) => `<tr><td><span class="ma">${esc(e.m)} ${esc(e.duong)}</span></td><td><span class="ma">${esc(e.ham)}</span><div class="nguon">${esc(e.tep)}</div></td><td>${e.sv.map((x) => `<div>${esc(tenDe(x.split(".")[0]))} <span class="ma">${esc(x)}</span></div>`).join("")}</td></tr>`).join("")}
-        </tbody></table></div>${s.so_dau_cuoi > s.dau_cuoi.length ? `<p class="nho">… và ${s.so_dau_cuoi - s.dau_cuoi.length} hàm nữa (xem <code>docs/BAN-DO-CODE.md</code>).</p>` : ""}</details></section>`}`;
+        ${s.dau_cuoi.map((i) => [i, SINH.dau_cuoi[i]]).sort((x, y) => (s.ssr.includes(y[0]) - s.ssr.includes(x[0]))).map(([i, e]) => `<tr><td><span class="ma">${esc(e.m)} ${esc(e.duong)}</span>${s.ssr.includes(i) ? '<div class="nho">gọi lúc dựng trang</div>' : ""}</td><td><span class="ma">${esc(e.ham)}</span><div class="nguon">${esc(e.tep)}</div></td><td>${e.sv.map((x) => `<div>${esc(tenDe(x.split(".")[0]))} <span class="ma">${esc(x)}</span></div>`).join("")}</td></tr>`).join("")}
+        </tbody></table></div></details></section>`}`;
   }
 
   // ── Thẻ tự kiểm ──────────────────────────────────────────────────
@@ -467,7 +480,7 @@ details[open] > summary { margin-bottom: 8px; }
     return `<div class="the-hoc ${daThuoc[khoa] ? "da-thuoc" : ""}" data-khoa="${esc(khoa)}" style="--mau:${mau(kid)}">
       <button type="button" class="lat" aria-label="Lật thẻ">
         <span class="mat truoc"><span class="khoi-nho">${esc(k ? k.ten : "Kiến trúc chung")}</span><span class="hoi">${esc(t.hoi)}</span><span class="goi-y">Bấm để lật</span></span>
-        <span class="mat sau"><span class="hoi">${esc(t.dap)}</span>${nguon(t.nguon)}</span>
+        <span class="mat sau"><span class="hoi">${chuCo(t.dap, false)}</span>${nguon(t.nguon)}</span>
       </button>
       <div class="thuoc"><button type="button" class="nut" data-thuoc="${esc(khoa)}">${daThuoc[khoa] ? "✓ Đã thuộc" : "Đánh dấu đã thuộc"}</button></div>
     </div>`;
@@ -501,7 +514,7 @@ details[open] > summary { margin-bottom: 8px; }
     const co = new Set(ra.map((t) => t.ma));
     const them = (ma, loai) => { if (!ma || co.has(ma)) return; co.add(ma); ra.push({ ma, loai, ten: tenTam(ma), tay: false }); };
     (SINH.bang || []).forEach((b) => them(b.ten, "bảng"));
-    SINH.man.forEach((m) => { (m.service || []).forEach((x) => them(x, "hàm")); });
+    (SINH.dau_cuoi || []).forEach((e) => (e.sv || []).forEach((x) => them(x, "hàm")));
     return ra;
   }
   let TU_DIEN = null;
