@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ học ClinicAI</title>
+<meta name="description" content="Sổ học hệ thống ClinicAI: hành trình bệnh nhân, từng màn, đường đi thao tác, từ điển tên code, thẻ tự kiểm và đèn tốc độ.">
+<style>
+/* Tông lấy theo DESIGN.md (nền dịu, viền mảnh, teal thương hiệu). Chữ ≥ 14px. */
+:root {
+  --nen: #f5f8fb; --the: #ffffff; --vien: #e5e9f0; --vien-dam: #bcccdc;
+  --chu: #102a43; --chu-phu: #486581; --chu-mo: #627d98;
+  --thuong-hieu: #0c7476; --thuong-hieu-nen: #e6f4f4;
+  --xanh: #1f8a4c; --vang: #b7791f; --do: #c53030; --xam: #829ab1;
+  --ma-nen: #eef2f6;
+  --L: 40%; --Lnen: 96%; --S: 62%;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --nen: #0f1720; --the: #17212b; --vien: #26323f; --vien-dam: #3a4a5c;
+    --chu: #e6edf3; --chu-phu: #a9b8c7; --chu-mo: #8496a8;
+    --thuong-hieu: #4fc3c5; --thuong-hieu-nen: #133638;
+    --xanh: #48bb78; --vang: #ecc94b; --do: #fc8181; --xam: #718096;
+    --ma-nen: #1e2a36;
+    --L: 70%; --Lnen: 17%; --S: 55%;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --nen: #0f1720; --the: #17212b; --vien: #26323f; --vien-dam: #3a4a5c;
+  --chu: #e6edf3; --chu-phu: #a9b8c7; --chu-mo: #8496a8;
+  --thuong-hieu: #4fc3c5; --thuong-hieu-nen: #133638;
+  --xanh: #48bb78; --vang: #ecc94b; --do: #fc8181; --xam: #718096;
+  --ma-nen: #1e2a36;
+  --L: 70%; --Lnen: 17%; --S: 55%;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--nen); color: var(--chu);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+a { color: var(--thuong-hieu); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+h1, h2, h3, h4 { line-height: 1.3; margin: 0 0 8px; }
+h1 { font-size: 24px; } h2 { font-size: 20px; } h3 { font-size: 17px; } h4 { font-size: 15px; }
+p { margin: 0 0 10px; }
+button { font: inherit; cursor: pointer; }
+.khung { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+main, .vet { overflow-wrap: anywhere; min-width: 0; }
+.luoi-man > *, .luoi-the > *, .hanh-trinh > *, .luoi-ht > *, .o { min-width: 0; }
+
+/* ── Đầu trang ── */
+header.dau { background: var(--the); border-bottom: 1px solid var(--vien); position: sticky; top: 0; z-index: 5; }
+.dau .khung { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-top: 10px; padding-bottom: 10px; }
+.dau .ten-so { font-weight: 700; font-size: 17px; color: var(--chu); margin-right: auto; }
+nav.tab { display: flex; flex-wrap: wrap; gap: 4px; }
+nav.tab a { padding: 6px 10px; border-radius: 8px; color: var(--chu-phu); font-weight: 600; font-size: 14px; }
+nav.tab a.dang { background: var(--thuong-hieu-nen); color: var(--thuong-hieu); }
+.nut { border: 1px solid var(--vien-dam); background: var(--the); color: var(--chu); border-radius: 8px; padding: 6px 12px; font-size: 14px; }
+.nut:hover { border-color: var(--thuong-hieu); }
+.nut.chinh { background: var(--thuong-hieu); border-color: var(--thuong-hieu); color: var(--the); }
+.vet { padding: 10px 0 4px; color: var(--chu-mo); font-size: 14px; }
+.vet a { font-weight: 600; }
+.vet span.sep { margin: 0 6px; }
+main { padding-bottom: 64px; }
+.dong-sinh { color: var(--chu-mo); font-size: 14px; margin: 24px 0 0; border-top: 1px solid var(--vien); padding-top: 12px; }
+
+/* ── Thẻ & khối ── */
+.the { background: var(--the); border: 1px solid var(--vien); border-radius: 12px; padding: 16px; }
+.mau { --c: hsl(var(--h) var(--S) var(--L)); --cn: hsl(var(--h) 60% var(--Lnen)); }
+.luoi { display: grid; gap: 12px; }
+.phu { color: var(--chu-phu); }
+.mo { color: var(--chu-mo); font-size: 14px; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--ma-nen); color: var(--chu-phu); font-size: 14px; margin: 2px 4px 2px 0; }
+
+/* Tầng 1: hành trình */
+.hanh-trinh { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 22px 22px; margin: 12px 0 8px; counter-reset: buoc; }
+.buoc { position: relative; display: block; background: var(--the); border: 1px solid var(--vien); border-top: 6px solid var(--c); border-radius: 12px; padding: 12px; color: var(--chu); min-height: 150px; }
+.buoc:hover { text-decoration: none; border-color: var(--c); box-shadow: 0 0 0 2px var(--cn); }
+.buoc .so { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: var(--cn); color: var(--c); font-weight: 700; align-items: center; justify-content: center; font-size: 14px; }
+.buoc .ten { font-weight: 700; font-size: 16px; margin: 6px 0 2px; }
+.buoc .mt { color: var(--chu-phu); font-size: 14px; }
+.hanh-trinh > .buoc:not(:last-child)::after {
+  content: "→"; position: absolute; right: -19px; top: 50%; transform: translateY(-50%);
+  color: var(--chu-mo); font-size: 18px; font-weight: 700;
+}
+.hau-truong { border: 2px dashed var(--vien-dam); border-radius: 14px; padding: 14px; margin-top: 18px; }
+.hau-truong .luoi-ht { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.hau-truong .buoc { min-height: 0; }
+.den-dem { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 14px; color: var(--chu-phu); }
+
+/* Đèn */
+.den { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; flex-wrap: wrap; }
+.den .nguon-do { flex-basis: auto; }
+.den::before { flex: none; content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--dc); box-shadow: 0 0 0 2px var(--the), 0 0 0 3px var(--dc); }
+.den.xanh { --dc: var(--xanh); } .den.vang { --dc: var(--vang); } .den.do { --dc: var(--do); } .den.xam { --dc: var(--xam); }
+.nguon-do { font-weight: 400; color: var(--chu-mo); }
+
+/* Tầng 2: màn */
+.dau-khoi { border-left: 8px solid var(--c); background: var(--the); border-radius: 12px; padding: 16px; border-top: 1px solid var(--vien); border-right: 1px solid var(--vien); border-bottom: 1px solid var(--vien); }
+.dau-khoi .nhom { color: var(--c); font-weight: 700; font-size: 14px; }
+ol.nho { margin: 0; padding-left: 22px; }
+ol.nho li { margin: 0 0 10px; }
+ol.nho .vs { color: var(--chu-phu); font-size: 14px; display: block; }
+.luoi-man { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.the-man { border-left: 4px solid var(--c); display: flex; flex-direction: column; gap: 6px; }
+.the-man .tm-dau { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.the-man ul { margin: 0; padding-left: 20px; }
+.the-man .cuoi { margin-top: auto; padding-top: 6px; }
+details { margin-top: 4px; }
+details summary { cursor: pointer; color: var(--chu-phu); font-size: 14px; font-weight: 600; }
+details[open] summary { margin-bottom: 6px; }
+
+/* Tên code: dễ hiểu trước, code nhỏ sau */
+.ma { display: inline; color: var(--chu); }
+.ma b { font-weight: 600; }
+.ma code { color: var(--chu-mo); background: var(--ma-nen); padding: 0 5px; border-radius: 5px; margin-left: 4px; word-break: break-all; }
+.ma.tu b { font-style: italic; font-weight: 500; }
+a.ma:hover b { text-decoration: underline; color: var(--thuong-hieu); }
+.dong { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; color: var(--chu-mo); word-break: break-all; }
+
+/* Tầng 3: chuỗi thao tác */
+.chuoi { display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; margin: 10px 0 4px; }
+.o { flex: 1 1 160px; min-width: 150px; background: var(--the); border: 1px solid var(--vien); border-radius: 10px; padding: 10px; position: relative; margin: 0 22px 12px 0; }
+.o:last-child { margin-right: 0; }
+.o:not(:last-child)::after { content: "→"; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: var(--chu-mo); font-weight: 700; }
+.o .nhan { font-size: 14px; color: var(--chu-mo); font-weight: 600; letter-spacing: .02em; display: block; margin-bottom: 4px; }
+.o.nut-o { border-color: var(--c); background: var(--cn); }
+.o ul { margin: 0; padding-left: 18px; }
+.ky-hieu { display: inline-block; font-size: 14px; color: var(--chu-mo); border: 1px solid var(--vien); border-radius: 6px; padding: 0 6px; margin-left: 4px; }
+.lech { border-left: 4px solid var(--vang); }
+
+/* Từ điển */
+.tim { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--vien-dam); background: var(--the); color: var(--chu); }
+.muc-td { border-bottom: 1px solid var(--vien); padding: 10px 0; }
+.muc-td .td-ten { font-weight: 700; font-size: 16px; }
+.muc-td .td-ma { margin-left: 6px; }
+.loai { font-size: 14px; color: var(--chu-mo); border: 1px solid var(--vien); border-radius: 6px; padding: 0 6px; margin-left: 6px; }
+.manh { color: var(--chu-phu); font-size: 14px; }
+.loc { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.loc button { border: 1px solid var(--vien-dam); background: var(--the); color: var(--chu-phu); border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+.loc button.dang { background: var(--thuong-hieu); border-color: var(--thuong-hieu); color: var(--the); }
+
+/* Thẻ tự kiểm */
+.luoi-the { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.the-hoc { border-top: 5px solid var(--c); min-height: 170px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; }
+.the-hoc .hoi { font-weight: 700; font-size: 16px; }
+.the-hoc .dap { display: none; }
+.the-hoc.lat .dap { display: block; }
+.the-hoc.lat .goi-y { display: none; }
+.the-hoc.thuoc { opacity: .62; }
+.the-hoc .hang-nut { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+.bang { width: 100%; border-collapse: collapse; font-size: 14px; }
+.bang th, .bang td { text-align: left; border-bottom: 1px solid var(--vien); padding: 6px 8px 6px 0; vertical-align: top; }
+.bang th { color: var(--chu-mo); font-weight: 600; }
+.cuon { overflow-x: auto; }
+.hop { margin: 16px 0; }
+.ghi-chu { background: var(--thuong-hieu-nen); border-radius: 10px; padding: 10px 12px; font-size: 14px; color: var(--chu); }
+
+@media (max-width: 640px) {
+  h1 { font-size: 21px; }
+  .luoi-man, .luoi-the { grid-template-columns: 1fr; }
+  .hanh-trinh { grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+  .hanh-trinh > .buoc:nth-child(2n)::after { content: "↙"; right: auto; left: -20px; top: auto; bottom: -18px; transform: none; }
+  .hanh-trinh > .buoc:last-child::after { content: none; }
+  .buoc { min-height: 0; }
+  .chuoi { flex-direction: column; }
+  .o { margin: 0 0 22px 0; min-width: 0; }
+  .o:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -21px; transform: translateX(-50%); }
+}
+</style>
+</head>
+<body>
+<header class="dau">
+  <div class="khung">
+    <a class="ten-so" href="#/">📘 Sổ học ClinicAI</a>
+    <nav class="tab" aria-label="Mục chính">
+      <a href="#/" data-tab="">Hành trình</a>
+      <a href="#/tu-dien" data-tab="tu-dien">Từ điển tên</a>
+      <a href="#/the" data-tab="the">Thẻ tự kiểm</a>
+      <a href="#/toc-do" data-tab="toc-do">Tốc độ</a>
+      <a href="#/cach-doc" data-tab="cach-doc">Cách đọc</a>
+    </nav>
+    <button type="button" class="nut" id="doi-nen" aria-label="Đổi nền sáng/tối">◐ Sáng/tối</button>
+  </div>
+</header>
+<div class="khung"><div class="vet" id="vet"></div></div>
+<main class="khung" id="noi-dung"><p>Đang nạp…</p></main>
+<noscript><p class="khung">Trang cần JavaScript để vẽ (không tải gì từ mạng).</p></noscript>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+(function () {
+const D = window.SO_HOC;
+const goc = document.getElementById("noi-dung");
+if (!D) { goc.innerHTML = "<p>Không thấy <code>data.js</code>. Chạy <code>python3 scripts/so-hoc-data.py</code> rồi mở lại.</p>"; return; }
+// Mở gọn: router/hàm dịch vụ là mảng, màn trỏ bằng chỉ số (xem so-hoc-data.py).
+D.ham_dv = Object.fromEntries(D.ham_dv.map(([ten, tep, dong, ghi, doc, n1]) => [ten, { tep, dong, ghi, doc, n1 }]));
+const TEN_HAM = Object.keys(D.ham_dv);
+const DS_R = D.router.map(([k, ham, tep, dv, sql]) => ({ k, ham, tep, dv: dv.map(i => TEN_HAM[i]), sql_tai_cho: !!sql }));
+D.router = Object.fromEntries(DS_R.map(r => [r.k, r]));
+for (const m of D.man) m.be = m.be.map(i => DS_R[i].k);
+const VT = D.viet_tay || {};
+const KHOI = (VT.khoi || []).slice().sort((a, b) => (a.thu_tu || 0) - (b.thu_tu || 0));
+const KHOI_ID = Object.fromEntries(KHOI.map(k => [k.id, k]));
+const MAN_CODE = Object.fromEntries(D.man.map(m => [m.route, m]));
+const BANG = Object.fromEntries(D.bang.map(b => [b.ten, b]));
+const DEN_CHU = { xanh: "Nhanh", vang: "Cần để ý", do: "Chậm", xam: "Chưa đo" };
+
+// ── Nhỏ ──
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const boDau = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+const mauK = k => k ? `style="--h:${Number(k.mau) || 200}"` : "";
+const luu = {
+  doc(k, md) { try { const v = localStorage.getItem(k); return v == null ? md : JSON.parse(v); } catch (e) { return md; } },
+  ghi(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* trình duyệt chặn lưu — bỏ qua */ } },
+};
+
+// ── Từ điển: viết tay trước, tự dịch theo mảnh sau ──
+const TD = new Map();
+for (const e of VT.tu_dien || []) {
+  const k = e.code;
+  if (!TD.has(k)) TD.set(k, Object.assign({ tay: true }, e));
+  else { const c = TD.get(k); c.dong_nghia = [...new Set([...(c.dong_nghia || []), ...(e.dong_nghia || [])])]; }
+}
+const MANH = VT.tu_manh || {};
+const DA_THAY = new Map(); // tên code đã xuất hiện trên trang → loại (để từ điển phủ đủ)
+function tachManh(code) {
+  const raw = String(code).replace(/^\/api\/v1/, "").replace(/\{[^}]*\}|\[[^\]]*\]/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const ra = []; let i = 0;
+  while (i < raw.length) {
+    let khop = null;
+    for (let n = Math.min(4, raw.length - i); n >= 1; n--) {
+      const k = raw.slice(i, i + n).join("_");
+      if (MANH[k] != null) { khop = [k, MANH[k], n]; break; }
+    }
+    if (khop) { ra.push([khop[0], khop[1]]); i += khop[2]; } else { ra.push([raw[i], null]); i++; }
+  }
+  return ra;
+}
+function tuDich(code) {
+  const m = tachManh(code).filter(([k]) => !["py", "tsx", "ts", "service", "services", "src", "clinicai", "app", "dashboard", "api", "v1"].includes(k) || tachManh(code).length === 1);
+  if (!m.length) return null;
+  const ten = m.map(([k, v]) => v || k).join(" ").replace(/\s+/g, " ").trim();
+  const da = m.filter(([, v]) => v).length;
+  return { ten: ten.charAt(0).toUpperCase() + ten.slice(1), manh: m.map(([k, v]) => `${k} = ${v || "?"}`).join(" · "), du: da === m.length, ty: da / m.length };
+}
+function traTen(code) {
+  const e = TD.get(code) || TD.get(String(code).split(".").pop()) || (String(code).includes("/") ? TD.get(String(code).split("/").pop().replace(/\.(py|tsx?|sql)$/, "")) : null);
+  if (e) return { ten: e.ten, tay: true, e };
+  const t = tuDich(code);
+  return t ? { ten: t.ten, tay: false, manh: t.manh } : { ten: code, tay: false };
+}
+/** Một tên code trên trang: tên dễ hiểu đậm, code nhỏ, bấm → từ điển. */
+/** "Lop.ham (ghi chú…)" → ["Lop.ham", "(ghi chú…)"]; chuỗi không phải tên code → [null, chuỗi]. */
+function tachMa(s) {
+  s = String(s || "").trim();
+  const m = s.match(/^([A-Za-z_\/][\w.\/{}\[\]:*-]*)(.*)$/s);
+  if (!m || /[^\x00-\x7f]/.test(m[1]) || !/[a-z_]/.test(m[1])) return [null, s];
+  return [m[1].replace(/[.,;:]+$/, ""), m[2].trim()];
+}
+function ma(raw, loai) {
+  const [code, them] = tachMa(raw);
+  if (!code) return esc(raw);
+  return maGon(code, loai) + (them ? ` <span class="mo">${esc(them)}</span>` : "");
+}
+function maGon(code, loai) {
+  if (!code) return "";
+  DA_THAY.set(code, DA_THAY.get(code) || loai || "");
+  const t = traTen(code);
+  return `<a class="ma${t.tay ? "" : " tu"}" href="#/tu-dien?q=${encodeURIComponent(code)}" title="${t.tay ? "Mở từ điển" : "Tự dịch theo mảnh — chưa soát tay"}"><b>${esc(t.ten)}</b><code>${esc(code)}</code></a>`;
+}
+/** Chữ viết tay: thoát HTML, `x` → <code>x</code>. */
+const chu = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
+const dong = s => s ? `<span class="dong">${esc(s)}</span>` : "";
+const den = (d, nho) => d ? `<span class="den ${esc(d.mau)}">${DEN_CHU[d.mau] || ""}${nho ? "" : ` <span class="nguon-do">· ${esc(d.nguon)}</span>`}</span>` : "";
+
+// ── Gộp màn: viết tay + sinh từ code ──
+function manCuaKhoi(k) {
+  const tay = Object.fromEntries((k.man || []).map(m => [m.route, m]));
+  const ds = [];
+  for (const r of k.routes || []) {
+    const c = MAN_CODE[r];
+    if (!c) continue;
+    ds.push(Object.assign({ route: r, code: c }, tay[r] || {}));
+  }
+  return ds;
+}
+const RIENG = new Map(); // route → khối
+for (const k of KHOI) for (const r of k.routes || []) RIENG.set(r, k);
+
+/** Bảng ghi → màn tự cập nhật. Màn tự tải nghe bảng qua useNgheBang;
+ *  màn thường dựng lại cả trang khi bảng nằm trong LIVE_TABLES. */
+function manTuCapNhat(bangGhi, tru) {
+  const nghe = new Set(), toanTrang = new Set();
+  for (const b of bangGhi) {
+    const x = BANG[b];
+    if (!x) continue;
+    for (const r of x.man_nghe || []) if (r !== tru) nghe.add(r);
+    if (x.live) toanTrang.add(b);
+  }
+  return { nghe: [...nghe], toanTrang: [...toanTrang] };
+}
+function tenMan(route) {
+  const k = RIENG.get(route);
+  const m = k && (k.man || []).find(x => x.route === route);
+  return (m && m.ten) || (MAN_CODE[route] && MAN_CODE[route].tieu_de) || route;
+}
+function linkMan(raw) {
+  const [r, them] = tachMa(raw);
+  if (!r || !r.startsWith("/")) return esc(raw);
+  const goc = MAN_CODE[r] ? r : (D.man.find(m => m.route.replace(/\[[^\]]+\]/g, "*") === r.replace(/\{[^}]+\}|\[[^\]]+\]|\*/g, "*")) || {}).route;
+  return (goc ? `<a href="#/man${esc(goc)}">${esc(tenMan(goc))}</a> <code class="mo">${esc(r)}</code>` : `<code>${esc(r)}</code>`) + (them ? ` <span class="mo">${esc(them)}</span>` : "");
+}
+
+// ── Vết đường (luôn có lối quay lên) ──
+function vet(ds) {
+  document.getElementById("vet").innerHTML = ds.map((x, i) => i < ds.length - 1 ? `<a href="${x[1]}">${esc(x[0])}</a><span class="sep">›</span>` : `<span>${esc(x[0])}</span>`).join("");
+}
+function danhTab(t) { document.querySelectorAll("nav.tab a").forEach(a => a.classList.toggle("dang", a.dataset.tab === t)); }
+const dongSinh = () => `<p class="dong-sinh">Dữ liệu sinh lúc ${esc(D.sinh_luc)} từ commit <code>${esc(D.commit)}</code> (${esc(D.commit_ngay)}) bằng <code>scripts/so-hoc-data.py</code>; phần chữ viết tay ở <code>docs/so-hoc/viet-tay.json</code> (cập nhật ${esc(VT.cap_nhat || "?")}). Nguồn sự thật là code — chỗ tài liệu lệch code có ghi “lệch”.</p>`;
+
+function demDen(k) {
+  const c = { xanh: 0, vang: 0, do: 0, xam: 0 };
+  for (const m of manCuaKhoi(k)) if (!m.code.chuyen_huong) c[denMan(m).mau]++;
+  return Object.entries(c).filter(([, n]) => n).map(([mau, n]) => `<span class="den ${mau}">${n}</span>`).join("");
+}
+function denMan(m) { return (m.code && m.code.den) || { mau: "xam", nguon: "chưa đo", ly_do: [] }; }
+
+// ── Tầng 1: một hình duy nhất ──
+function veTrangChu() {
+  vet([["Hành trình", "#/"]]); danhTab("");
+  const ht = KHOI.filter(k => k.nhom === "hanh-trinh"), sau = KHOI.filter(k => k.nhom !== "hanh-trinh");
+  const the = (k, i) => `<a class="buoc mau" ${mauK(k)} href="#/khoi/${esc(k.id)}">
+      ${i != null ? `<span class="so">${i + 1}</span>` : ""}
+      <div class="ten">${esc(k.ten)}</div><div class="mt">${esc(k.mo_ta || "")}</div>
+      <div class="den-dem">${manCuaKhoi(k).filter(m => !m.code.chuyen_huong).length} màn · ${demDen(k)}</div></a>`;
+  const g = VT.gioi_thieu || {};
+  goc.innerHTML = `
+    <h1>Hành trình một bệnh nhân</h1>
+    <p class="phu">${esc(g.mot_cau || "Đi từ trái sang phải theo đúng đường khách đi. Bấm một khối để xem các màn của nó.")}</p>
+    <div class="hanh-trinh">${ht.map((k, i) => the(k, i)).join("")}</div>
+    <div class="hau-truong"><h3>Hậu trường — không có khách đứng trước mặt, nhưng mọi bước trên dựa vào</h3>
+      <div class="luoi-ht">${sau.map(k => the(k)).join("")}</div></div>
+    <div class="hop the"><h3>Một lần bấm đi qua hệ thống thế nào</h3>
+      <div class="chuoi" style="--h:180">${(g.mot_lan_bam || []).map(o => `<div class="o mau" style="--h:180"><span class="nhan">${esc(o.nhan)}</span>${chu(o.y)}${o.code ? `<div>${ma(o.code, o.loai)}</div>` : ""}</div>`).join("")}</div>
+      ${(g.luu_y || []).map(x => `<p class="mo">${esc(x)}</p>`).join("")}
+    </div>
+    <div class="hop the"><h3>Đèn tốc độ đọc thế nào</h3>
+      <p><span class="den xanh">Nhanh</span> · <span class="den vang">Cần để ý</span> · <span class="den do">Chậm</span> · <span class="den xam">Chưa đo / chuyển hướng</span></p>
+      <p class="mo">“đã đo” = số đo thật trên prod (14–17/10). “theo code” = suy từ code (vòng lặp truy vấn, dựng lại trang, tải lại sau ghi) — <a href="#/toc-do">xem luật xếp đèn</a>. ${esc(VT.toc_do_ghi_chu || "")}</p>
+    </div>
+    ${dongSinh()}`;
+}
+
+// ── Tầng 2: khối → các màn ──
+function veKhoi(id) {
+  const k = KHOI_ID[id];
+  if (!k) return veLoi("Không có khối " + id);
+  vet([["Hành trình", "#/"], [k.ten, "#/khoi/" + id]]); danhTab("");
+  const ds = manCuaKhoi(k);
+  const chinh = ds.filter(m => !m.code.chuyen_huong), cu = ds.filter(m => m.code.chuyen_huong);
+  const vi = KHOI.indexOf(k);
+  const truoc = KHOI[vi - 1], sau = KHOI[vi + 1];
+  goc.innerHTML = `
+    <div class="dau-khoi mau" ${mauK(k)}>
+      <div class="nhom">${k.nhom === "hanh-trinh" ? `Bước ${KHOI.filter(x => x.nhom === "hanh-trinh").indexOf(k) + 1} của hành trình` : "Hậu trường"}</div>
+      <h1>${esc(k.ten)}</h1><p class="phu">${chu(k.mo_ta_dai || k.mo_ta || "")}</p>
+      <p class="mo">${chinh.length} màn · ${demDen(k)} · <a href="#/the?khoi=${esc(id)}">${(k.the || []).length} thẻ tự kiểm của khối này →</a></p>
+    </div>
+    ${(k.nho5 || []).length ? `<div class="hop the"><h2>5 điều phải nhớ</h2><ol class="nho">${k.nho5.map(n => `<li><b>${chu(n.luat)}</b><span class="vs">${chu(n.vi_sao || "")} ${dong(n.nguon)}</span></li>`).join("")}</ol></div>` : ""}
+    <h2 class="hop">Các màn</h2>
+    <div class="luoi-man">${chinh.map(m => theMan(m, k)).join("")}</div>
+    ${cu.length ? `<details class="hop"><summary>${cu.length} đường cũ đã chuyển hướng trong khối này (đừng sửa ở đây)</summary><p class="mo">${cu.map(m => `<code>${esc(m.route)}</code>`).join(" · ")}</p></details>` : ""}
+    ${(k.lech || []).length ? `<div class="hop the lech"><h3>Tài liệu lệch code</h3><ul>${k.lech.map(l => `<li>${chu(l.y)} ${dong(l.nguon)}</li>`).join("")}</ul></div>` : ""}
+    <p class="hop">${truoc ? `<a href="#/khoi/${esc(truoc.id)}">← ${esc(truoc.ten)}</a>` : ""} ${sau ? ` · <a href="#/khoi/${esc(sau.id)}">${esc(sau.ten)} →</a>` : ""}</p>
+    ${dongSinh()}`;
+}
+function theMan(m, k) {
+  const d = denMan(m);
+  const tt = (m.thao_tac || []).length;
+  return `<div class="the the-man mau" ${mauK(k)}>
+    <div class="tm-dau"><h3><a href="#/man${esc(m.route)}">${esc(m.ten || m.code.tieu_de || m.route)}</a></h3>${den(d, true)}</div>
+    <div><code class="mo">${esc(m.route)}</code></div>
+    ${m.ai_dung ? `<div class="mo">👤 ${esc(m.ai_dung)}</div>` : ""}
+    ${(m.lam_duoc || []).length ? `<ul>${m.lam_duoc.map(x => `<li>${chu(x)}</li>`).join("")}</ul>` : `<p class="mo">Chưa viết phần “làm được gì” cho màn này.</p>`}
+    ${bangChip("Đọc", m.bang_doc)}${bangChip("Ghi", m.bang_ghi)}
+    <details><summary>Vì sao đèn ${esc(DEN_CHU[d.mau])} (${esc(d.nguon)})</summary>${lyDoDen(m)}</details>
+    <div class="cuoi"><a class="nut" href="#/man${esc(m.route)}">${tt ? `Xem ${tt} đường đi thao tác →` : "Xem chi tiết màn →"}</a></div>
+  </div>`;
+}
+function bangChip(nhan, ds) {
+  if (!ds || !ds.length) return "";
+  return `<div><span class="mo">${nhan}: </span>${ds.map(b => ma(b, "bảng")).join(", ")}</div>`;
+}
+function lyDoDen(m) {
+  const d = denMan(m);
+  const tay = (m.toc_do || []).map(x => `<li>${chu(x.y)} ${dong(x.nguon)}</li>`).join("");
+  return `<ul>${(d.ly_do || []).map(x => `<li>${chu(x)}</li>`).join("")}${tay}${!(d.ly_do || []).length && !tay ? "<li>Không thấy dấu hiệu chậm trong code.</li>" : ""}</ul>`;
+}
+
+// ── Tầng 3: màn → đường đi từng thao tác ──
+function veMan(route) {
+  const c = MAN_CODE[route];
+  if (!c) return veLoi("Không có màn " + route);
+  const k = RIENG.get(route);
+  const m = Object.assign({ route, code: c }, (k && (k.man || []).find(x => x.route === route)) || {});
+  vet([["Hành trình", "#/"], ...(k ? [[k.ten, "#/khoi/" + k.id]] : []), [m.ten || c.tieu_de || route, "#/man" + route]]); danhTab("");
+  const d = denMan(m);
+  const tt = m.thao_tac || [];
+  goc.innerHTML = `
+    <div class="dau-khoi mau" ${mauK(k)}>
+      <div class="nhom">${k ? esc(k.ten) : "Chưa xếp khối"}</div>
+      <h1>${esc(m.ten || c.tieu_de || route)}</h1>
+      <p><code>${esc(route)}</code> ${c.tieu_de && c.tieu_de !== m.ten ? `<span class="mo">· tiêu đề trên app: “${esc(c.tieu_de)}”</span>` : ""}</p>
+      ${m.ai_dung ? `<p class="phu">👤 ${esc(m.ai_dung)}</p>` : ""}
+      <p>${den(d)}</p>
+    </div>
+    ${(m.lam_duoc || []).length ? `<div class="hop the"><h3>Làm được gì</h3><ul>${m.lam_duoc.map(x => `<li>${chu(x)}</li>`).join("")}</ul>${bangChip("Bảng đọc chính", m.bang_doc)}${bangChip("Bảng ghi chính", m.bang_ghi)}</div>` : ""}
+    <h2 class="hop">Đường đi của từng thao tác</h2>
+    ${tt.length ? tt.map(t => veThaoTac(t, route, k)).join("") : `<p class="mo">Chưa viết tay thao tác cho màn này — xem phần sinh từ code bên dưới (API nào, hàm nào, bảng nào).</p>`}
+    <h2 class="hop">Tốc độ (${esc(d.nguon)})</h2>
+    <div class="the">${lyDoDen(m)}${veTocDoCode(c)}</div>
+    <h2 class="hop">Sinh từ code — màn này nối vào đâu</h2>
+    <div class="the">${veKyThuat(c)}</div>
+    ${dongSinh()}`;
+}
+function veThaoTac(t, route, k) {
+  const be = t._be != null ? DS_R[t._be] : null;
+  const dvCode = be ? be.dv : [];
+  const ghiCode = [...new Set(dvCode.flatMap(s => (D.ham_dv[s] || {}).ghi || []))];
+  const bangGhi = [...new Set([...(t.bang_ghi || []), ...ghiCode.filter(b => !["domain_event", "event_delivery", "event_log", "audit_log", "idempotency_key"].includes(b))])];
+  const tayBang = new Set((t.bang_ghi || []).map(b => tachMa(b)[0] || b));
+  const chiCode = bangGhi.filter(b => !tayBang.has(b) && !(t.bang_ghi || []).includes(b));
+  const cn = manTuCapNhat([...new Set([...bangGhi.map(b => tachMa(b)[0] || b)])], route);
+  const tayMan = t.man_tu_cap_nhat || [];
+  const daCo = new Set(tayMan.map(x => tachMa(x)[0]));
+  const dsMan = [...tayMan, ...cn.nghe.filter(r => !daCo.has(r))];
+  const dv = (t.dich_vu || []).length ? t.dich_vu : dvCode.map(s => ({ ten: s, nguon: D.ham_dv[s] ? `${D.ham_dv[s].tep}:${D.ham_dv[s].dong}` : "" }));
+  return `<div class="the hop">
+    <h3>${esc(t.nut)}</h3>
+    <div class="chuoi mau" ${mauK(k)}>
+      <div class="o nut-o mau" ${mauK(k)}><span class="nhan">1 · BẤM</span>${esc(t.nut)}<div>${dong(t.nut_nguon)}</div></div>
+      <div class="o"><span class="nhan">2 · GỌI API</span><code>${esc(t.api || "?")}</code>${be ? `<div>${ma(be.ham, "hàm router")}</div><div>${dong(be.tep)}</div>` : (t.router ? `<div>${dong(t.router)}</div>` : "")}</div>
+      <div class="o"><span class="nhan">3 · HÀM DỊCH VỤ</span>${dv.length ? `<ul>${dv.slice(0, 3).map(x => `<li>${ma(x.ten, "hàm")} ${dong(x.nguon)}</li>`).join("")}</ul>${dv.length > 3 ? `<details><summary>+${dv.length - 3} hàm</summary><ul>${dv.slice(3).map(x => `<li>${ma(x.ten, "hàm")} ${dong(x.nguon)}</li>`).join("")}</ul></details>` : ""}` : `<span class="mo">${be && be.sql_tai_cho ? "SQL ngay trong router" : "?"}</span>`}</div>
+      <div class="o"><span class="nhan">4 · GHI BẢNG</span>${(t.bang_ghi || []).length ? t.bang_ghi.map(b => `<div>${ma(b, "bảng")}</div>`).join("") : (chiCode.length ? "" : `<span class="mo">không ghi (chỉ đọc)</span>`)}${chiCode.length ? `<details><summary>${(t.bang_ghi || []).length ? "+" : ""}${chiCode.length} bảng theo code</summary>${chiCode.map(b => `<div>${ma(b, "bảng")}</div>`).join("")}<span class="mo">Hàm dịch vụ (và hàm nó gọi) có câu ghi vào bảng này — phân tích tĩnh, chưa soát tay.</span></details>` : ""}</div>
+      <div class="o"><span class="nhan">5 · SỰ KIỆN</span>${(t.su_kien || []).length ? t.su_kien.map(s => `<div>${ma(s, "sự kiện")}</div>`).join("") : `<span class="mo">không có sự kiện nghiệp vụ riêng</span>`}${cn.toanTrang.length ? `<div class="mo">+ tin đổi bảng (pg_notify) cho: ${cn.toanTrang.map(esc).join(", ")}</div>` : ""}</div>
+      <div class="o"><span class="nhan">6 · MÀN KHÁC TỰ CẬP NHẬT</span>${dsMan.length ? `<ul>${dsMan.slice(0, 5).map(r => `<li>${linkMan(r)}</li>`).join("")}</ul>${dsMan.length > 5 ? `<details><summary>+${dsMan.length - 5} màn nữa</summary><ul>${dsMan.slice(5).map(r => `<li>${linkMan(r)}</li>`).join("")}</ul></details>` : ""}` : ""}${cn.toanTrang.length ? `<div class="mo">Mọi màn “thường” đang mở cũng dựng lại cả trang (RealtimeRefresher).</div>` : ""}${!dsMan.length && !cn.toanTrang.length ? `<span class="mo">không màn nào nghe bảng này</span>` : ""}</div>
+    </div>
+    ${t.sau_khi_ghi ? `<p class="mo">Sau khi ghi: ${chu(t.sau_khi_ghi)}</p>` : ""}
+  </div>`;
+}
+function veTocDoCode(c) {
+  const n1 = c.n1 || [];
+  return `<table class="bang"><tbody>
+    <tr><th>Lời gọi máy chủ lúc dựng trang</th><td>${c.ssr_goi} lời gọi trong <code>page.tsx</code>${c.tu_tai ? " · màn TỰ TẢI (tin tới không dựng lại cả trang)" : " · màn thường (tin bảng → dựng lại cả trang)"}${c.live_board_sync ? " · có LiveBoardSync" : ""}</td></tr>
+    <tr><th>Đường API trong cây tệp</th><td>${c.be.length} đường backend (kể cả popup, không phải số request đo)</td></tr>
+    <tr><th>Nghi N+1</th><td>${n1.length ? `<ul>${n1.map(x => `<li>${ma(x.goi, "hàm")} trong vòng lặp ở ${ma(x.trong, "hàm")} ${dong(x.dong)} <span class="mo">(qua <code>${esc(x.api)}</code>)</span></li>`).join("")}</ul>` : "không thấy"}</td></tr>
+    <tr><th>Tải lại sau thao tác</th><td>${c.so_tai_lai ? `${c.so_tai_lai} chỗ <code>await tải lại</code>: ${c.tai_lai_sau_ghi.map(dong).join(", ")}` : "không thấy"}</td></tr>
+    <tr><th>Nghe bảng (useNgheBang)</th><td>${(c.nghe || []).length ? c.nghe.map(n => `<div>${n.bang.map(b => ma(b, "bảng")).join(", ") || "?"} ${dong(n.o)}</div>`).join("") : "không"}</td></tr>
+  </tbody></table>`;
+}
+function veKyThuat(c) {
+  return `<p class="mo">Tệp trang: <code>${esc(c.page)}</code> · quyền: ${esc(c.quyen)}</p>
+    <details><summary>${c.be.length} đường API backend → hàm router → hàm dịch vụ</summary><div class="cuon"><table class="bang"><thead><tr><th>API</th><th>Hàm router</th><th>Hàm dịch vụ · bảng ghi</th></tr></thead><tbody>
+    ${c.be.map(k => { const r = D.router[k] || {}; return `<tr><td><code>${esc(k)}</code></td><td>${ma(r.ham, "hàm router")}<div>${dong(r.tep)}</div></td><td>${(r.dv || []).map(s => `<div>${ma(s, "hàm")}${(D.ham_dv[s] || {}).ghi && D.ham_dv[s].ghi.length ? ` → ghi ${D.ham_dv[s].ghi.map(b => `<code>${esc(b)}</code>`).join(", ")}` : ""}</div>`).join("") || (r.sql_tai_cho ? "SQL ngay trong router" : "?")}</td></tr>`; }).join("")}
+    </tbody></table></div></details>`;
+}
+
+// ── Tầng 4: từ điển ──
+function veTuDien(q) {
+  vet([["Hành trình", "#/"], ["Từ điển tên", "#/tu-dien"]]); danhTab("tu-dien");
+  // Gom mọi tên code đã hiện trên trang (kể cả chưa viết tay) để tra được hết.
+  quetTenCode();
+  goc.innerHTML = `<h1>Từ điển tên</h1>
+    <p class="phu">Mỗi tên code có “tên dễ hiểu” đi trước. Gõ tiếng Việt (có dấu hay không) hoặc tên code — tìm cả hai chiều. Mục chữ nghiêng là <b>tự dịch theo mảnh</b>, chưa soát tay.</p>
+    <input class="tim" id="o-tim" type="search" placeholder="vd: thu tiền · payment_cycle · lượt khám · tinh_hoa_don" value="${esc(q || "")}" autocomplete="off">
+    <div class="loc" id="loc-loai"></div>
+    <div id="kq-td"></div>
+    ${(VT.dong_nghia || []).length ? `<div class="hop the"><h3>Cùng một khái niệm, nhiều tên</h3><table class="bang"><thead><tr><th>Khái niệm</th><th>Các tên trong code</th><th>Ghi chú</th></tr></thead><tbody>${VT.dong_nghia.map(g => `<tr><td><b>${esc(g.khai_niem)}</b></td><td>${g.ten.map(t => `<code>${esc(t)}</code>`).join(" · ")}</td><td class="mo">${esc(g.ghi_chu || "")}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${dongSinh()}`;
+  const o = document.getElementById("o-tim");
+  let loai = "";
+  const tatCa = () => {
+    const ds = [];
+    for (const [code, e] of TD) ds.push(Object.assign({ code }, e));
+    for (const [code, l] of DA_THAY) if (!TD.has(code)) { const t = tuDich(code); ds.push({ code, loai: l || "tên", ten: t ? t.ten : code, manh: t ? t.manh : "", tay: false }); }
+    return ds;
+  };
+  const DS = tatCa();
+  const cacLoai = [...new Set(DS.map(x => x.loai || "tên"))].sort();
+  const loc = document.getElementById("loc-loai");
+  const veLoc = () => { loc.innerHTML = ["", ...cacLoai].map(l => `<button type="button" data-l="${esc(l)}" class="${l === loai ? "dang" : ""}">${esc(l || "tất cả")}</button>`).join(""); };
+  loc.addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return; loai = b.dataset.l; veLoc(); ve(); });
+  const ve = () => {
+    const tu = boDau(o.value.trim());
+    const kq = DS.filter(x => (!loai || (x.loai || "tên") === loai) && (!tu || [x.code, x.ten, x.manh, ...(x.dong_nghia || [])].some(s => boDau(s).includes(tu))))
+      .sort((a, b) => (b.tay - a.tay) || (boDau(a.code) === tu ? -1 : boDau(b.code) === tu ? 1 : 0) || a.ten.localeCompare(b.ten, "vi"));
+    document.getElementById("kq-td").innerHTML = `<p class="mo">${kq.length} mục${kq.length > 300 ? " — hiện 300 đầu, gõ thêm để lọc" : ""}</p>` + kq.slice(0, 300).map(x => `<div class="muc-td">
+      <span class="td-ten" ${x.tay ? "" : 'style="font-style:italic;font-weight:500"'}>${esc(x.ten)}</span><code class="td-ma ma">${esc(x.code)}</code><span class="loai">${esc(x.loai || "tên")}</span>${x.tay ? "" : `<span class="loai">tự dịch</span>`}
+      ${x.manh ? `<div class="manh">Từng mảnh: ${esc(x.manh)}</div>` : ""}
+      ${x.y ? `<div>${chu(x.y)}</div>` : ""}
+      ${(x.dong_nghia || []).length ? `<div class="mo">Cùng nghĩa: ${x.dong_nghia.map(t => `<code>${esc(t)}</code>`).join(" · ")}</div>` : ""}
+      ${x.nguon ? `<div>${dong(x.nguon)}</div>` : ""}</div>`).join("");
+  };
+  o.addEventListener("input", () => { ve(); history.replaceState(null, "", "#/tu-dien" + (o.value ? "?q=" + encodeURIComponent(o.value) : "")); });
+  veLoc(); ve(); o.focus();
+}
+/** Chạy vẽ ngầm mọi khối + màn một lần để biết mọi tên code xuất hiện trên trang. */
+let daQuet = false;
+function quetTenCode() {
+  if (daQuet) return; daQuet = true;
+  for (const k of KHOI) for (const m of manCuaKhoi(k)) {
+    (m.bang_doc || []).concat(m.bang_ghi || []).forEach(b => ma(b, "bảng"));
+    for (const t of m.thao_tac || []) veThaoTac(t, m.route, k);
+    veTocDoCode(m.code); veKyThuat(m.code);
+  }
+  for (const k of KHOI) for (const r of k.routes || []) DA_THAY.set(r, DA_THAY.get(r) || "route");
+}
+
+// ── Thẻ tự kiểm ──
+function veThe(khoiLoc) {
+  vet([["Hành trình", "#/"], ["Thẻ tự kiểm", "#/the"]]); danhTab("the");
+  const thuoc = new Set(luu.doc("so-hoc-the-thuoc", []));
+  let ds = KHOI.flatMap(k => (k.the || []).map((t, i) => Object.assign({ id: k.id + ":" + i, k }, t)));
+  const tong = ds.length;
+  let chiChuaThuoc = false, xao = false;
+  goc.innerHTML = `<h1>Thẻ tự kiểm</h1>
+    <p class="phu">Đọc câu hỏi, tự trả lời trong đầu, rồi bấm thẻ để lật. Đánh dấu “Đã thuộc” (lưu trên máy này). Đáp án có tệp:dòng để mở code kiểm.</p>
+    <div class="loc" id="loc-khoi"></div>
+    <div class="loc"><button type="button" id="b-xao">🔀 Xáo thẻ</button><button type="button" id="b-chua">Chỉ thẻ chưa thuộc</button><button type="button" id="b-lat">Lật hết</button><span class="mo" id="dem-the"></span></div>
+    <div class="luoi-the" id="luoi-the"></div>${dongSinh()}`;
+  const loc = document.getElementById("loc-khoi");
+  const veLoc = () => { loc.innerHTML = [["", "Mọi khối"], ...KHOI.map(k => [k.id, k.ten])].map(([id, ten]) => `<button type="button" data-k="${esc(id)}" class="${(khoiLoc || "") === id ? "dang" : ""}">${esc(ten)}</button>`).join(""); };
+  const ve = () => {
+    let x = ds.filter(t => (!khoiLoc || t.k.id === khoiLoc) && (!chiChuaThuoc || !thuoc.has(t.id)));
+    if (xao) x = x.map(t => [Math.random(), t]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
+    document.getElementById("dem-the").textContent = `${x.length} thẻ đang hiện · đã thuộc ${[...thuoc].filter(i => ds.some(t => t.id === i)).length}/${tong}`;
+    document.getElementById("luoi-the").innerHTML = x.map(t => `<div class="the the-hoc mau${thuoc.has(t.id) ? " thuoc" : ""}" ${mauK(t.k)} data-id="${esc(t.id)}" tabindex="0" role="button" aria-label="Lật thẻ">
+      <span class="mo">${esc(t.k.ten)}</span><div class="hoi">${chu(t.hoi)}</div>
+      <div class="goi-y mo">Bấm để lật…</div>
+      <div class="dap"><p>${chu(t.dap)}</p>${(t.nguon || []).map(dong).join("<br>")}</div>
+      <div class="hang-nut"><button type="button" class="nut" data-thuoc="1">${thuoc.has(t.id) ? "✓ Đã thuộc" : "Đánh dấu đã thuộc"}</button></div></div>`).join("") || `<p class="mo">Không còn thẻ nào.</p>`;
+  };
+  loc.addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return; khoiLoc = b.dataset.k; veLoc(); ve(); });
+  document.getElementById("b-xao").onclick = e => { xao = !xao; e.target.classList.toggle("dang", xao); ve(); };
+  document.getElementById("b-chua").onclick = e => { chiChuaThuoc = !chiChuaThuoc; e.target.classList.toggle("dang", chiChuaThuoc); ve(); };
+  document.getElementById("b-lat").onclick = () => document.querySelectorAll(".the-hoc").forEach(x => x.classList.add("lat"));
+  const luoi = document.getElementById("luoi-the");
+  const lat = ev => {
+    const c = ev.target.closest(".the-hoc"); if (!c) return;
+    if (ev.target.closest("[data-thuoc]")) {
+      const id = c.dataset.id; thuoc.has(id) ? thuoc.delete(id) : thuoc.add(id);
+      luu.ghi("so-hoc-the-thuoc", [...thuoc]); ve(); return;
+    }
+    if (ev.target.closest("a, .dong")) return;
+    c.classList.toggle("lat");
+  };
+  luoi.addEventListener("click", lat);
+  luoi.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); lat(ev); } });
+  veLoc(); ve();
+}
+
+// ── Tốc độ: một bảng mọi màn ──
+function veTocDo() {
+  vet([["Hành trình", "#/"], ["Tốc độ", "#/toc-do"]]); danhTab("toc-do");
+  const t = VT.toc_do || {};
+  const hang = [];
+  for (const k of KHOI) for (const m of manCuaKhoi(k)) if (!m.code.chuyen_huong) hang.push([k, m]);
+  const thu = { do: 0, vang: 1, xanh: 2, xam: 3 };
+  hang.sort((a, b) => thu[denMan(a[1]).mau] - thu[denMan(b[1]).mau] || (denMan(a[1]).nguon === "đã đo" ? -1 : 1));
+  goc.innerHTML = `<h1>Tốc độ từng màn</h1>
+    <div class="the ghi-chu">${esc(t.tinh_trang || "")} ${t.link_ra_soat ? `<a href="${esc(t.link_ra_soat)}">Mở báo cáo soát tốc độ #530 →</a>` : "<b>Chờ khớp với báo cáo rà soát tốc độ</b> (PR “docs: rà soát tốc độ toàn hệ thống” chưa có lúc sinh trang)."}</div>
+    ${(t.bao_cao_chung || []).length ? `<div class="hop the"><h3>Phát hiện chung của báo cáo #530 (đúng với mọi màn)</h3><ul>${t.bao_cao_chung.map(x => `<li><b>${esc(x.ma)}</b> <span class="chip">${esc(x.muc)}</span> ${chu(x.y)} ${dong(x.nguon)}</li>`).join("")}</ul></div>` : ""}
+    ${(t.da_do || []).length ? `<div class="hop the"><h3>Số đã đo trên prod</h3><ul>${t.da_do.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+    <div class="hop the"><h3>Luật xếp đèn “theo code”</h3><ul>${(t.luat || []).map(x => `<li>${chu(x)}</li>`).join("")}</ul></div>
+    <div class="hop the cuon"><table class="bang"><thead><tr><th>Màn</th><th>Đèn</th><th>Máy chủ / API / N+1 / tải lại</th><th>Vì sao</th></tr></thead><tbody>
+    ${hang.map(([k, m]) => { const d = denMan(m), c = m.code; return `<tr><td><span class="chip mau" ${mauK(k)} style="--h:${Number(k.mau) || 200};border-left:4px solid hsl(${Number(k.mau) || 200} 62% 45%)">${esc(k.ten)}</span><br>${linkMan(m.route)}</td><td>${den(d)}</td><td class="mono">${c.ssr_goi} / ${c.be.length} / ${(c.n1 || []).length} / ${c.so_tai_lai}</td><td><ul>${(d.ly_do || []).slice(0, 3).map(x => `<li>${chu(x)}</li>`).join("")}</ul></td></tr>`; }).join("")}
+    </tbody></table></div>${dongSinh()}`;
+}
+
+function veCachDoc() {
+  vet([["Hành trình", "#/"], ["Cách đọc", "#/cach-doc"]]); danhTab("cach-doc");
+  const c = VT.cach_doc || [];
+  goc.innerHTML = `<h1>Cách đọc sổ này</h1>${c.map(x => `<div class="the hop"><h3>${esc(x.tieu_de)}</h3>${x.doan.map(p => `<p>${chu(p)}</p>`).join("")}</div>`).join("")}${dongSinh()}`;
+}
+function veLoi(s) { vet([["Hành trình", "#/"]]); goc.innerHTML = `<p>${esc(s)}. <a href="#/">Về hành trình</a></p>`; }
+
+// ── Điều hướng bằng #hash (mở được bằng file://) ──
+function dieuHuong() {
+  const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
+  const [duong, chuoi] = h.split("?");
+  const p = new URLSearchParams(chuoi || "");
+  if (duong.startsWith("/khoi/")) veKhoi(duong.slice(6));
+  else if (duong.startsWith("/man/") || duong === "/man") veMan(duong.slice(4) || "/");
+  else if (duong === "/tu-dien") veTuDien(p.get("q"));
+  else if (duong === "/the") veThe(p.get("khoi") || "");
+  else if (duong === "/toc-do") veTocDo();
+  else if (duong === "/cach-doc") veCachDoc();
+  else veTrangChu();
+  if (!h.startsWith("/tu-dien")) window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", dieuHuong);
+
+// Sáng/tối: theo máy, bấm để ghim (nhớ trên máy này).
+const nen = luu.doc("so-hoc-nen", null);
+if (nen) document.documentElement.dataset.theme = nen;
+document.getElementById("doi-nen").onclick = () => {
+  const toi = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const moi = toi ? "light" : "dark";
+  document.documentElement.dataset.theme = moi; luu.ghi("so-hoc-nen", moi);
+};
+dieuHuong();
+})();
+</script>
+</body>
+</html>
