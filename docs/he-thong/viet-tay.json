@@ -1,0 +1,1765 @@
+{
+ "_doc": "Phần VIẾT TAY của docs/he-thong/index.html. Sửa tệp này rồi chạy: python3 scripts/he-thong-data.py [--so-do so-do.json]. 'neo' = {tep, tim}: script tự tìm số dòng. mau: do (rủi ro/chậm) · vang (cần để ý) · xanh (ổn). muc: 0–3 theo CLAUDE.md.",
+ "repo": "https://github.com/Avalook/Clinic-AI-MacMini",
+ "lego": "../lego/index.html",
+ "may": [
+  {
+   "id": "mac",
+   "ten": "Máy Mac của Tuyền",
+   "phu": "máy làm việc — không chạy prod · Docker (Colima) 8 CPU / 16 GB / 100 GB",
+   "vai_tro": [
+    {
+     "ten": "Bản chạy thử để code",
+     "chu": "Cả hệ thống chạy trên máy với khách giả DEMO-* và tài khoản @dr4women.local.",
+     "nguon": "scripts/dev-up.sh"
+    },
+    {
+     "ten": "CI chạy trên máy",
+     "chu": "Chạy lần lượt 5 nhóm kiểm (lint, kiểu, test, migration, giao diện), có khoá xếp hàng; xanh mới được merge.",
+     "nguon": "scripts/ci-may.sh --bao-github"
+    },
+    {
+     "ten": "Test nhanh",
+     "chu": "Mỗi lần chạy nhân bản một database sạch tạm thời, áp migration của nhánh, chạy xong tự xoá.",
+     "nguon": "scripts/test-nhanh.sh · chung_test_db :55600"
+    },
+    {
+     "ten": "Staging trên Mac",
+     "chu": "Nạp bản sao lưu đêm của prod (CHƯA che thông tin khách) để đăng nhập bằng tài khoản thật. Cấm mở đường hầm ra ngoài.",
+     "nguon": "scripts/staging-tu-ban-sao.sh"
+    },
+    {
+     "ten": "Nhận bản sao lưu",
+     "chu": "Kéo bản sao lưu từ VPS về lúc 0:30 và 6:30 — bản sao phải nằm ở máy khác với thứ nó sao lưu.",
+     "nguon": "~/Projects/ClinicAI-Backups/keo-ve.sh · TRANG-THAI.txt"
+    }
+   ]
+  },
+  {
+   "id": "vps",
+   "ten": "VPS clinic-vps-moi",
+   "phu": "222.255.214.133 · 4 lõi · 8 GB RAM · 48 GB đĩa · prod và staging CHUNG một máy",
+   "vai_tro": [
+    {
+     "ten": "Prod — đang đón bệnh nhân",
+     "chu": "https://dr4women.io.vn · thư mục /home/clinicai/clinicai · nhánh main · hai nhóm container: ứng dụng (clinicai_prod) và Supabase tự dựng (clinicai_db).",
+     "nguon": "docker-compose.yml · docker-compose.supabase.yml"
+    },
+    {
+     "ten": "Staging — bản thử",
+     "chu": "https://staging.dr4women.io.vn · /home/clinicai/clinicai-staging · database, Supabase, khoá, mạng RIÊNG; dữ liệu là bản sao prod đã che, nạp lại mỗi đêm 03:30. Bị giới hạn RAM/CPU và bị hệ điều hành giết trước nếu máy hết RAM.",
+     "nguon": "docs/STAGING.md · docker-compose.staging.yml"
+    },
+    {
+     "ten": "Lịch chạy tự động",
+     "chu": "Đều là systemd timer (không crontab): sao lưu 15 phút/lần 7–22h, sao lưu đêm 02:15, chụp tình trạng máy cho /ops mỗi phút, nạp staging 03:30. Riêng clinicai-traffic-report (nuôi /traffic) nằm NGOÀI git.",
+     "nguon": "scripts/systemd/"
+    },
+    {
+     "ten": "Theo dõi",
+     "chu": "Uptime Kuma (canh trang sống/chết) và Dozzle (xem log) chỉ nghe 127.0.0.1 — vào bằng ssh -L. Lỗi ứng dụng gom ở /ops (kho lỗi + canh gác mỗi phút trong su-kien).",
+     "nguon": "docs/VAN-HANH-MAY-CHU.md"
+    }
+   ]
+  },
+  {
+   "id": "cfs",
+   "ten": "Ổ mạng Viettel CFS",
+   "phu": "/mnt/viettel-cfs · gắn vào VPS qua SMB 3.1.1 có mã hoá đường truyền (seal)",
+   "vai_tro": [
+    {
+     "ten": "Kho ảnh / video / PDF kết quả",
+     "chu": "Tải lên ghi vào ổ VPS trước (nhanh), container day-tep đẩy sang CFS khi ổ ổn, kiểm sha256 rồi mới dọn bản trên VPS.",
+     "nguon": "docker-compose.yml (day-tep)"
+    },
+    {
+     "ten": "Bản sao lưu ngoài máy",
+     "chu": "Sau mỗi lần sao lưu, script đẩy bản mới nhất lên CFS.",
+     "nguon": "scripts/day-sao-luu-len-viettel-storage.sh"
+    }
+   ]
+  },
+  {
+   "id": "github",
+   "ten": "GitHub",
+   "phu": "kho code Avalook/Clinic-AI-MacMini",
+   "vai_tro": [
+    {
+     "ten": "Chỉ giữ code và PR",
+     "chu": "Không có CD, GitHub Actions không còn chạy. Kết quả CI máy gửi lên dạng trạng thái ci-may/<job>. Deploy prod làm tay trên VPS, ghim đúng SHA đã thử.",
+     "nguon": "CLAUDE.md · skill len-prod"
+    }
+   ]
+  }
+ ],
+ "thanh_phan": [
+  {
+   "ten": "Caddy (cổng ngoài)",
+   "compose": [
+    "ung_dung",
+    "caddy"
+   ],
+   "lam_gi": "Cửa duy nhất mở ra Internet (80/443). Tự xin và gia hạn chứng chỉ Let's Encrypt, nén, gắn header bảo mật, ghi log truy cập (đã cắt ?… để không lưu SĐT/tên), rồi chia request theo đường.",
+   "tien_trinh": "1 tiến trình",
+   "ket_noi": "không chạm database"
+  },
+  {
+   "ten": "Next.js (dashboard)",
+   "compose": [
+    "ung_dung",
+    "dashboard"
+   ],
+   "lam_gi": "Chỉ là giao diện: dựng trang ở máy chủ (SSR) và có 61 nhóm route /api/* chỉ để chuyển tiếp sang FastAPI kèm phiên đăng nhập. Luồng SSE cũng chỉ đi xuyên qua.",
+   "tien_trinh": "cluster: số nhân CPU, trần 4 (prod); 1 ở staging",
+   "ket_noi": "không giữ kết nối Postgres (gọi http://api:8000)"
+  },
+  {
+   "ten": "FastAPI (api)",
+   "compose": [
+    "ung_dung",
+    "api"
+   ],
+   "lam_gi": "Mọi luật nghiệp vụ: quyền, tiền, kho, lịch… Kiểm JWT của GoTrue, đọc/ghi Postgres, phát dòng tin SSE /api/events/stream.",
+   "tien_trinh": "1 tiến trình uvicorn (async) — chưa chạy được 2 vì bộ đếm giới hạn nằm trong RAM",
+   "ket_noi": "bể asyncpg: tối thiểu 2, trần mặc định 20 (biến POOL_MAX_SIZE; staging 10) + 1 kết nối LISTEN + checkpointer 10; mỗi câu SQL tối đa 15 giây"
+  },
+  {
+   "ten": "su-kien (người đưa tin)",
+   "compose": [
+    "ung_dung",
+    "su-kien"
+   ],
+   "lam_gi": "Đọc event_delivery trên Postgres và gọi các bên nhận: xếp khách vào hàng sau check-in, dòng thời gian, chuông, canh gác lỗi mỗi phút, AI tóm tắt cuối ngày. Thiếu nó thì khách check-in xong không vào hàng nào.",
+   "tien_trinh": "1 vòng lặp; nghỉ cứng 1 giây giữa các vòng (việc 1 sẽ đổi)",
+   "ket_noi": "bể trần 10, thường dùng 1–3"
+  },
+  {
+   "ten": "day-tep (đẩy tệp)",
+   "compose": [
+    "ung_dung",
+    "day-tep"
+   ],
+   "lam_gi": "Đẩy ảnh/video/PDF từ ổ VPS sang CFS, kiểm sha256, dọn bản VPS sau 7 ngày hoặc khi quá 8 GB. Mọi thao tác ổ có hạn giờ — CFS treo thì bỏ lượt chứ không chết.",
+   "tien_trinh": "1 vòng lặp ~30 giây",
+   "ket_noi": "bể trần 10, dùng ít"
+  },
+  {
+   "ten": "media-quyen",
+   "compose": [
+    "ung_dung",
+    "media-quyen"
+   ],
+   "lam_gi": "Chạy một lần bằng root để trao thư mục tệp cho uid 1000 rồi thoát (Docker tự tạo thư mục bind với chủ root).",
+   "tien_trinh": "chạy rồi thoát",
+   "ket_noi": "không mạng"
+  },
+  {
+   "ten": "Postgres 17 (db)",
+   "compose": [
+    "supabase",
+    "db"
+   ],
+   "lam_gi": "Nơi DUY NHẤT giữ trạng thái. Trigger notify_row_change bắn pg_notify khi bảng đổi. Cổng 5432 chỉ mở ra 127.0.0.1 cho psql/pg_dump.",
+   "tien_trinh": "1 máy chủ Postgres",
+   "ket_noi": "max_connections 100 (staging 60)"
+  },
+  {
+   "ten": "GoTrue (auth)",
+   "compose": [
+    "supabase",
+    "auth"
+   ],
+   "lam_gi": "Đăng nhập: kiểm mật khẩu, cấp JWT hạn 1 giờ + khoá làm mới xoay vòng (cho dùng lại 10 giây để hai máy không đá nhau). Tắt tự đăng ký.",
+   "tien_trinh": "1",
+   "ket_noi": "bể trần 10"
+  },
+  {
+   "ten": "PostgREST (rest)",
+   "compose": [
+    "supabase",
+    "rest"
+   ],
+   "lam_gi": "Cổng đọc bảng thẳng từ trình duyệt qua /rest/v1, quyền theo RLS. Giao diện gần như không còn dùng; đang mở ra Internet — #532 khoá lại.",
+   "tien_trinh": "1",
+   "ket_noi": "bể 10"
+  },
+  {
+   "ten": "Realtime (realtime)",
+   "compose": [
+    "supabase",
+    "realtime"
+   ],
+   "lam_gi": "Websocket kiểu cũ của Supabase. Đã thay bằng LISTEN/NOTIFY + SSE và giao diện không còn gọi; prod VẪN chạy, /realtime/v1 vẫn mở (staging đã tắt).",
+   "tien_trinh": "1 (Erlang)",
+   "ket_noi": "~10"
+  },
+  {
+   "ten": "Gateway Supabase",
+   "compose": [
+    "supabase",
+    "gateway"
+   ],
+   "lam_gi": "Một Caddy nội bộ gom ba dịch vụ trên vào một địa chỉ :8000, cắt tiền tố /auth/v1 /rest/v1 /realtime/v1.",
+   "tien_trinh": "1",
+   "ket_noi": "không"
+  },
+  {
+   "ten": "auth-guard (nginx)",
+   "compose": [
+    "supabase",
+    "auth-guard"
+   ],
+   "lam_gi": "Chặn dò mật khẩu: chỉ đứng trước /auth/v1/token, 20 lần/phút mỗi địa chỉ, dồn 10, quá thì trả 429.",
+   "tien_trinh": "1",
+   "ket_noi": "không"
+  },
+  {
+   "ten": "Uptime Kuma",
+   "compose": [
+    "ung_dung",
+    "uptime-kuma"
+   ],
+   "lam_gi": "Canh các trang sống/chết, danh sách canh giữ trong git (monitoring/).",
+   "tien_trinh": "1",
+   "ket_noi": "không"
+  },
+  {
+   "ten": "Dozzle",
+   "compose": [
+    "ung_dung",
+    "dozzle"
+   ],
+   "lam_gi": "Xem log container qua trình duyệt. Gắn docker.sock (chỉ đọc).",
+   "tien_trinh": "1",
+   "ket_noi": "không"
+  }
+ ],
+ "duong_di": [
+  {
+   "id": "trang",
+   "ten": "Mở một trang",
+   "khi_nao": "Nhân viên bấm sang /reception, /thu-ngan… hoặc F5.",
+   "buoc": [
+    {
+     "ten": "Trình duyệt",
+     "chu": "Gửi HTTPS tới dr4women.io.vn."
+    },
+    {
+     "ten": "Caddy :443",
+     "chu": "Giải mã TLS, nén, gắn header bảo mật, ghi 1 dòng log. Không khớp /auth /rest /realtime hay tệp tĩnh → chuyển sang dashboard:3000.",
+     "nguon": "caddy/Caddyfile"
+    },
+    {
+     "ten": "Next.js :3000",
+     "chu": "Dựng trang ở máy chủ: hỏi đăng nhập 2 lần + 6–8 lần gọi API (layout gọi /phan-quyen/toi mỗi lần).",
+     "nguon": "src/dashboard/app/(dashboard)/layout.tsx"
+    },
+    {
+     "ten": "FastAPI :8000",
+     "chu": "Kiểm JWT, tính quyền theo lego/ca trực, gọi hàm dịch vụ.",
+     "nguon": "src/clinicai/api/identity.py"
+    },
+    {
+     "ten": "Postgres",
+     "chu": "Mượn kết nối từ bể, chạy câu SQL, trả kết nối."
+    }
+   ],
+   "mau": "vang",
+   "ghi_chu": "Chậm thêm mỗi ngày: kiểm quyền chạy một câu SQL cho từng ngày trực từ trước tới nay (việc 2)."
+  },
+  {
+   "id": "bam",
+   "ten": "Bấm một nút (ghi dữ liệu)",
+   "khi_nao": "Check-in, thu tiền, lưu phiếu khám…",
+   "buoc": [
+    {
+     "ten": "Trình duyệt",
+     "chu": "Gọi /api/... (cùng tên miền)."
+    },
+    {
+     "ten": "Caddy",
+     "chu": "Chuyển sang dashboard."
+    },
+    {
+     "ten": "Next route /api/*",
+     "chu": "Đọc phiên từ cookie, chuyển tiếp nguyên request sang FastAPI. Không quyết định gì.",
+     "nguon": "src/dashboard/app/api/"
+    },
+    {
+     "ten": "FastAPI → service",
+     "chu": "Router mỏng gọi hàm dịch vụ; ghi dữ liệu + nhật ký + sự kiện trong CÙNG một giao dịch."
+    },
+    {
+     "ten": "Postgres",
+     "chu": "COMMIT → trigger notify_row_change bắn pg_notify(tên bảng) → các màn khác sẽ tự cập nhật (xem đường SSE)."
+    }
+   ],
+   "mau": "do",
+   "ghi_chu": "Nút Thu ở quầy chờ ~7 giây dù máy chủ ghi chỉ 0,13 giây — chờ 2 lượt tải bảng (việc 3)."
+  },
+  {
+   "id": "sse",
+   "ten": "Màn tự cập nhật (SSE)",
+   "khi_nao": "Người khác vừa ghi; màn của mình tự đổi không cần F5.",
+   "buoc": [
+    {
+     "ten": "Postgres NOTIFY",
+     "chu": "Bắn đúng lúc COMMIT, mang tên bảng vừa đổi."
+    },
+    {
+     "ten": "FastAPI change_broker",
+     "chu": "Một kết nối LISTEN cho cả tiến trình, chia tin cho từng màn đang nối; mỗi màn có hàng chờ 8 tin, đầy thì bỏ tin.",
+     "nguon": "src/clinicai/core/change_broker.py"
+    },
+    {
+     "ten": "/api/events/stream",
+     "chu": "Dòng SSE mở mãi; Next chỉ chuyển tiếp.",
+     "nguon": "src/dashboard/app/api/events/stream/"
+    },
+    {
+     "ten": "Trình duyệt",
+     "chu": "RealtimeRefresher bầu MỘT tab chủ giữ dòng tin; thấy bảng mình nghe đổi thì dựng lại trang (hiện nghe chung 41 bảng).",
+     "nguon": "src/dashboard/app/(dashboard)/RealtimeRefresher.tsx"
+    }
+   ],
+   "mau": "do",
+   "ghi_chu": "Đo prod 14/10: 1 lần ghi = 9,8 lần dựng lại trang (việc 1). Nối lại thì mất tin trong quãng rớt (việc 9)."
+  },
+  {
+   "id": "dangnhap",
+   "ten": "Đăng nhập",
+   "khi_nao": "Trang /login, và mỗi giờ thư viện tự làm mới khoá.",
+   "buoc": [
+    {
+     "ten": "Trình duyệt / server action",
+     "chu": "Gửi email + mật khẩu tới /auth/v1/token."
+    },
+    {
+     "ten": "Caddy",
+     "chu": "Riêng /auth/v1/token* rẽ sang auth-guard.",
+     "nguon": "caddy/Caddyfile"
+    },
+    {
+     "ten": "auth-guard (nginx)",
+     "chu": "Đếm 20 lần/phút mỗi địa chỉ, dồn 10; quá thì 429.",
+     "nguon": "docker/auth-guard.conf"
+    },
+    {
+     "ten": "Gateway :8000",
+     "chu": "Cắt tiền tố /auth/v1."
+    },
+    {
+     "ten": "GoTrue :9999",
+     "chu": "Kiểm mật khẩu (bcrypt) trong schema auth, trả JWT hạn 1 giờ + khoá làm mới."
+    }
+   ],
+   "mau": "vang",
+   "ghi_chu": "Cả phòng khám chung một IP nên ngưỡng đặt rộng có chủ ý. Đăng xuất hiện đá mọi máy cùng tài khoản (việc 10, #490)."
+  },
+  {
+   "id": "rest",
+   "ten": "/rest/v1 và /realtime/v1",
+   "khi_nao": "Thư viện supabase-js gọi thẳng từ trình duyệt. Giao diện gần như đã thôi dùng.",
+   "buoc": [
+    {
+     "ten": "Trình duyệt (bất kỳ ai có JWT)",
+     "chu": "Gọi /rest/v1/<bảng> kèm token trong cookie."
+    },
+    {
+     "ten": "Caddy",
+     "chu": "Chuyển nguyên sang gateway Supabase."
+    },
+    {
+     "ten": "Gateway",
+     "chu": "/rest/v1 → PostgREST :3000; /realtime/v1 → Realtime :4000."
+    },
+    {
+     "ten": "PostgREST / Realtime",
+     "chu": "Chạy với vai authenticated; chỉ RLS đứng giữa người dùng và bảng."
+    }
+   ],
+   "mau": "do",
+   "ghi_chu": "Tài khoản đối tác, tivi phòng chờ đọc được ~40 bảng gồm khách, tiền, xét nghiệm (#527). #532 khoá lại (việc 7)."
+  },
+  {
+   "id": "tinh",
+   "ten": "Tệp tĩnh (icon, manifest)",
+   "khi_nao": "Mỗi lần chuyển trang.",
+   "buoc": [
+    {
+     "ten": "Trình duyệt",
+     "chu": "Hỏi manifest.webmanifest, icon, favicon."
+    },
+    {
+     "ten": "Caddy",
+     "chu": "Lấy từ dashboard, nếu 2xx thì gắn Cache-Control 1 ngày để lần sau trình duyệt khỏi hỏi lại.",
+     "nguon": "caddy/Caddyfile (tai_nguyen_tinh)"
+    }
+   ],
+   "mau": "xanh",
+   "ghi_chu": "Đo 14/10: ~28% request chỉ là tệp tĩnh bị hỏi lại — đã sửa bằng khối này."
+  },
+  {
+   "id": "staging",
+   "ten": "Vào staging",
+   "khi_nao": "Người thật bấm thử theo kịch bản.",
+   "buoc": [
+    {
+     "ten": "Trình duyệt",
+     "chu": "HTTPS tới staging.dr4women.io.vn."
+    },
+    {
+     "ten": "Caddy PROD",
+     "chu": "Giữ TLS cho cả hai tên miền; chuyển MỌI request staging qua mạng cầu clinicai_staging_edge.",
+     "nguon": "caddy/staging-tren-prod.caddy.mau"
+    },
+    {
+     "ten": "Caddy staging :80",
+     "chu": "Chia đường y như prod nhưng trỏ tới Supabase/DB của staging; gắn noindex.",
+     "nguon": "caddy/Caddyfile.staging"
+    },
+    {
+     "ten": "dashboard → api → Postgres staging",
+     "chu": "Database, khoá JWT riêng; token staging không dùng được ở prod."
+    }
+   ],
+   "mau": "vang",
+   "ghi_chu": "Chung đĩa, chung mạng với prod. Database staging chứa băm mật khẩu prod (bcrypt)."
+  },
+  {
+   "id": "giamsat",
+   "ten": "giamsat.dr4women.io.vn",
+   "khi_nao": "Đội vận hành mở Trung tâm giám sát AI.",
+   "buoc": [
+    {
+     "ten": "Caddy",
+     "chu": "Khối riêng, tự xin chứng chỉ, noindex; không có đường /auth /rest /realtime."
+    },
+    {
+     "ten": "Next.js",
+     "chu": "proxy.ts thấy Host giám sát → chỉ mở /giam-sat + đăng nhập; quyền giamsat.view vẫn gác ở trang và API.",
+     "nguon": "src/dashboard/lib/cong-giam-sat.ts"
+    }
+   ],
+   "mau": "xanh"
+  }
+ ],
+ "ngan_sach_ket_noi": [
+  {
+   "ai": "FastAPI (bể chính)",
+   "so": 20,
+   "ghi": "mặc định code; đo 14/10 còn là 10"
+  },
+  {
+   "ai": "FastAPI checkpointer + LISTEN",
+   "so": 11
+  },
+  {
+   "ai": "GoTrue",
+   "so": 10
+  },
+  {
+   "ai": "PostgREST",
+   "so": 10
+  },
+  {
+   "ai": "Realtime",
+   "so": 10,
+   "ghi": "không ai dùng"
+  },
+  {
+   "ai": "su-kien + day-tep",
+   "so": 6,
+   "ghi": "trần 10 mỗi bên, thường 1–3"
+  },
+  {
+   "ai": "sao lưu, psql, quản trị",
+   "so": 5
+  }
+ ],
+ "ngan_sach_nguon": "src/clinicai/core/database.py:17-24 · docker-compose.supabase.yml",
+ "so_do_cu": [
+  {
+   "nhom": "prod",
+   "nhan": "Cao điểm tối 18–21h",
+   "gia_tri": "~14–18 req/giây",
+   "ngay": "14 và 17/10/2026",
+   "mau": "vang",
+   "nguon": "#494 · log Caddy"
+  },
+  {
+   "nhom": "prod",
+   "nhan": "p95 thời gian trả lời",
+   "gia_tri": "1,3–1,5 giây",
+   "ngay": "14 và 17/10/2026",
+   "mau": "do",
+   "nguon": "#494"
+  },
+  {
+   "nhom": "prod",
+   "nhan": "p99",
+   "gia_tri": "3,1 giây",
+   "ngay": "14/10/2026",
+   "mau": "do",
+   "nguon": "#536 phần 3"
+  },
+  {
+   "nhom": "prod",
+   "nhan": "Một lần ghi kéo theo",
+   "gia_tri": "9,8 lần dựng lại trang",
+   "ngay": "14/10/2026",
+   "mau": "do",
+   "nguon": "#494 G1"
+  },
+  {
+   "nhom": "prod",
+   "nhan": "Tệp tĩnh trong tổng request",
+   "gia_tri": "~28%",
+   "ngay": "14/10/2026",
+   "mau": "xanh",
+   "nguon": "caddy/Caddyfile — đã sửa"
+  },
+  {
+   "nhom": "prod",
+   "nhan": "CPU dashboard lúc cao điểm",
+   "gia_tri": "130%",
+   "ngay": "14/10/2026",
+   "mau": "vang",
+   "nguon": "caddy/Caddyfile"
+  },
+  {
+   "nhom": "db",
+   "nhan": "Kết nối Postgres đang dùng",
+   "gia_tri": "~30 / 100",
+   "ngay": "14–17/10/2026",
+   "mau": "xanh",
+   "nguon": "#494"
+  },
+  {
+   "nhom": "db",
+   "nhan": "Bể API · số tiến trình uvicorn",
+   "gia_tri": "10 · 1",
+   "ngay": "14–17/10/2026",
+   "mau": "vang",
+   "nguon": "#494 (code nay mặc định 20)"
+  },
+  {
+   "nhom": "db",
+   "nhan": "Câu quầy thu WITH v AS",
+   "gia_tri": "TB 4,3 giây (tối đa 14 giây)",
+   "ngay": "14/10/2026",
+   "mau": "do",
+   "nguon": "pg_stat_statements · #534"
+  },
+  {
+   "nhom": "db",
+   "nhan": "Lần giao sự kiện 30 ngày",
+   "gia_tri": "51.683 lần, 0 kẹt",
+   "ngay": "21/10/2026",
+   "mau": "xanh",
+   "nguon": "#531"
+  },
+  {
+   "nhom": "o_dia",
+   "nhan": "Ổ gốc VPS",
+   "gia_tri": "~80%",
+   "ngay": "11/10/2026",
+   "mau": "do",
+   "nguon": "báo cáo phiên trước"
+  },
+  {
+   "nhom": "o_dia",
+   "nhan": "Ổ gốc VPS (mốc cũ)",
+   "gia_tri": "61%",
+   "ngay": "01/10/2026",
+   "mau": "vang",
+   "nguon": "docs/SO-LUAT.md Phần 1"
+  },
+  {
+   "nhom": "sao_luu",
+   "nhan": "Sao lưu từng ngừng",
+   "gia_tri": "21 giờ vì ổ đầy",
+   "ngay": "trước 11/10/2026",
+   "mau": "do",
+   "nguon": "báo cáo phiên trước"
+  },
+  {
+   "nhom": "sao_luu",
+   "nhan": "Bản sao về Mac từng ngừng",
+   "gia_tri": "12 → 27/09 (trỏ VPS cũ)",
+   "ngay": "09/2026",
+   "mau": "do",
+   "nguon": "skill len-prod"
+  }
+ ],
+ "khuon_so_do": {
+  "do_luc": "YYYY-MM-DDTHH:MM+07:00",
+  "prod": {
+   "req_moi_gio": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "p95_ms": 0,
+   "top_duong": [
+    {
+     "duong": "/duong/dan",
+     "so": 0,
+     "p95_ms": 0
+    }
+   ]
+  },
+  "staging": {
+   "req_moi_gio": null,
+   "p95_ms": null,
+   "top_duong": []
+  },
+  "db": {
+   "ket_noi": 0,
+   "max_ket_noi": 100,
+   "dung_luong_gb": 0,
+   "cau_cham": [
+    {
+     "cau": "WITH v AS (…)",
+     "tb_ms": 0,
+     "so_lan": 0
+    }
+   ]
+  },
+  "o_dia": {
+   "vps_goc_pct": 0,
+   "cfs_pct": null
+  },
+  "sao_luu": {
+   "ban_moi_nhat": "YYYY-MM-DDTHH:MM+07:00",
+   "tuoi_gio": 0
+  }
+ },
+ "cach_do": [
+  "Số request/giờ và p95: đọc log truy cập Caddy (JSON có duration) của 24 giờ, đếm theo giờ — từ Mac: ssh vào VPS chạy docker logs caddy, chỉ ĐỌC.",
+  "Kết nối DB: SELECT count(*) FROM pg_stat_activity; và SHOW max_connections;",
+  "Câu chậm: pg_stat_statements sắp theo mean_exec_time (đã bật sẵn).",
+  "Ổ đĩa: df -h / và df -h /mnt/viettel-cfs. Dung lượng DB: SELECT pg_database_size('postgres').",
+  "Sao lưu: tên + giờ tệp mới nhất trong ~/backups/clinicai-15p.",
+  "Ghi kết quả theo khuôn ở trên vào so-do.json rồi: python3 scripts/he-thong-data.py --so-do so-do.json"
+ ],
+ "bao_mat": [
+  {
+   "id": "tls",
+   "ten": "TLS và header ở Caddy",
+   "dang_lam": [
+    "Chứng chỉ Let's Encrypt tự xin, tự gia hạn cho dr4women.io.vn, giamsat.… và staging.…",
+    "HSTS 1 năm, chặn đoán kiểu tệp, cấm nhúng iframe, giới hạn Referrer, tắt camera/micro/định vị, giấu tên máy chủ.",
+    "Log truy cập cắt nguyên chuỗi ?… khỏi đường dẫn và Referer — ô tìm khách gửi SĐT/tên qua đó (Nghị định 13/2023)."
+   ],
+   "rui_ro": [
+    {
+     "mau": "vang",
+     "chu": "Chưa có Content-Security-Policy — nếu lọt một lỗi chèn script thì trình duyệt không có lớp chặn thứ hai.",
+     "neo": {
+      "tep": "caddy/Caddyfile",
+      "tim": "Permissions-Policy"
+     }
+    },
+    {
+     "mau": "xanh",
+     "chu": "Caddy chạy admin off; healthcheck tách riêng localhost nên không có đèn đỏ giả.",
+     "neo": {
+      "tep": "caddy/Caddyfile",
+      "tim": "admin off"
+     }
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Thêm CSP ở chế độ chỉ báo (Report-Only) một tuần, đọc log, rồi mới bật chặn.",
+     "muc": 2
+    }
+   ],
+   "viec": []
+  },
+  {
+   "id": "cong",
+   "ten": "Cổng mạng và công cụ theo dõi",
+   "dang_lam": [
+    "Tường lửa ufw chỉ mở SSH, 80, 443.",
+    "Postgres (54322), gateway Supabase (54321), Uptime Kuma (3001), Dozzle (8888) chỉ nghe 127.0.0.1 — vào bằng ssh -L.",
+    "Dozzle nằm mạng riêng, không chung mạng với dịch vụ khám."
+   ],
+   "rui_ro": [
+    {
+     "mau": "vang",
+     "chu": "Docker tự mở cổng bằng iptables, đi vòng qua ufw. Hiện an toàn chỉ vì mọi dòng ports đều ghi 127.0.0.1 — chưa có bài kiểm nào canh điều này.",
+     "neo": {
+      "tep": "docker-compose.yml",
+      "tim": "127.0.0.1:${KUMA_PORT"
+     }
+    },
+    {
+     "mau": "vang",
+     "chu": "Dozzle gắn docker.sock (tương đương quyền root trên máy) và mặc định không đòi đăng nhập; chỉ đường ssh -L đứng chắn.",
+     "neo": {
+      "tep": "docker-compose.yml",
+      "tim": "DOZZLE_AUTH_PROVIDER"
+     }
+    },
+    {
+     "mau": "xanh",
+     "chu": "ufw mặc định chặn mọi chiều vào.",
+     "neo": {
+      "tep": "scripts/vps-chuan-bi.sh",
+      "tim": "ufw default deny incoming"
+     }
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Thêm vào scripts/tests/test-infra-safety.sh: mọi ports ngoài Caddy phải bắt đầu bằng 127.0.0.1.",
+     "muc": 1
+    },
+    {
+     "chu": "Bật đăng nhập cho Dozzle (DOZZLE_AUTH_PROVIDER=simple) trong .env.prod.",
+     "muc": 3
+    }
+   ],
+   "viec": []
+  },
+  {
+   "id": "dangnhap",
+   "ten": "Đăng nhập, JWT và đăng xuất",
+   "dang_lam": [
+    "GoTrue v2.177.0 tự dựng; tắt tự đăng ký — nhân sự do quản lý tạo.",
+    "JWT ký HS256, hạn 3600 giây; khoá làm mới xoay vòng, cho dùng lại 10 giây để hai máy cùng tài khoản không đá nhau.",
+    "auth-guard: 20 lần đăng nhập/phút mỗi địa chỉ, dồn 10, quá thì 429 và ghi log.",
+    "FastAPI tự kiểm chữ ký JWT ở mọi request."
+   ],
+   "rui_ro": [
+    {
+     "mau": "do",
+     "chu": "Đăng xuất dùng signOut() mặc định = thu hồi phiên ở MỌI máy. Log 14–17/10: 113 lần đăng xuất, 96 lần máy khác bị đá ra.",
+     "neo": {
+      "tep": "src/dashboard/app/(auth)/login/actions.ts",
+      "tim": "supabase.auth.signOut()"
+     }
+    },
+    {
+     "mau": "vang",
+     "chu": "GOTRUE_URI_ALLOW_LIST là \"*\": đường quay về sau đặt lại mật khẩu nhận địa chỉ bất kỳ.",
+     "neo": {
+      "tep": "docker-compose.supabase.yml",
+      "tim": "GOTRUE_URI_ALLOW_LIST"
+     }
+    },
+    {
+     "mau": "vang",
+     "chu": "Realtime dùng khoá mã hoá mặc định công khai 'supabaserealtime' và dùng chung khoá JWT làm SECRET_KEY_BASE.",
+     "neo": {
+      "tep": "docker-compose.supabase.yml",
+      "tim": "DB_ENC_KEY:"
+     }
+    },
+    {
+     "mau": "vang",
+     "chu": "Staging chứa băm mật khẩu prod — lộ staging là lộ băm (bcrypt chậm bẻ, mật khẩu yếu vẫn rơi).",
+     "neo": {
+      "tep": "docs/STAGING.md",
+      "tim": "Lộ staging = lộ BĂM"
+     }
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Merge #490: signOut({ scope: \"local\" }) — chỉ đăng xuất máy này.",
+     "muc": 2
+    },
+    {
+     "chu": "Đặt GOTRUE_URI_ALLOW_LIST đúng hai tên miền; tắt hẳn Realtime ở prod (đã không ai dùng).",
+     "muc": 3
+    }
+   ],
+   "viec": [
+    10
+   ],
+   "pr": [
+    490
+   ]
+  },
+  {
+   "id": "quyen",
+   "ten": "Quyền theo lego và ca trực (FastAPI)",
+   "dang_lam": [
+    "Mọi quyết định quyền nằm ở FastAPI: lego bật cho từng người + ca trực của hôm nay.",
+    "Đã quét 619 endpoint: không lệnh ghi nào quên kiểm quyền; giao diện không tự quyết tiền (#527).",
+    "Công tắc MO_QUYEN_TAM_THOI thiếu biến thì TẮT — hỏng thì đóng."
+   ],
+   "rui_ro": [
+    {
+     "mau": "do",
+     "chu": "Ai có quyền xếp lịch tự đứng ca Điều phối được, rồi thu, hoàn tiền, xem hoá đơn — vượt mọi lego.",
+     "noi": "cashier_scope_service.py:386 · payment_service.py:342 · config_service.py:163"
+    },
+    {
+     "mau": "vang",
+     "chu": "Tắt hết lego của một người thì vai cũ quay lại (vd bác sĩ vẫn tải được tệp kết quả).",
+     "noi": "api/identity.py:897"
+    },
+    {
+     "mau": "vang",
+     "chu": "Người giữ lego Tài khoản đặt lại được mật khẩu của Quản lý — leo thang lên toàn quyền.",
+     "noi": "app/api/admin/users/route.ts:350-410"
+    },
+    {
+     "mau": "vang",
+     "chu": "Có lego Thu tiền là giảm giá được tới 100%, không cần quyền riêng.",
+     "noi": "payment_service.py:240-268"
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Cấm tự xếp mình vào ca Điều phối hoặc vào ngày đã qua; tiền theo ca vẫn đòi lego Thu tiền.",
+     "muc": 3
+    },
+    {
+     "chu": "Chỉ Quản lý đặt lại mật khẩu Quản lý.",
+     "muc": 3
+    }
+   ],
+   "viec": [
+    7
+   ]
+  },
+  {
+   "id": "rest",
+   "ten": "PostgREST /rest/v1 và RLS",
+   "dang_lam": [
+    "Khoá anon công khai không đọc/ghi được bảng nào; người đăng nhập không ghi được qua PostgREST (#527).",
+    "RLS lọc theo phòng khám."
+   ],
+   "rui_ro": [
+    {
+     "mau": "do",
+     "chu": "Mọi tài khoản đã đăng nhập — kể cả đối tác, tivi phòng chờ — đọc được ~40 bảng: khách, lịch hẹn, tiền, xét nghiệm.",
+     "neo": {
+      "tep": "supabase/migrations/20260730000004_tenant_scoped_rls.sql"
+     },
+     "noi_ghi": ":149-171"
+    },
+    {
+     "mau": "do",
+     "chu": "Bảng staff cho mọi người đọc CCCD, SĐT đồng nghiệp; API che CCCD khách nhưng PostgREST trả nguyên số.",
+     "neo": {
+      "tep": "supabase/migrations/20260730000008_table_grants.sql"
+     },
+     "noi_ghi": ":48-59"
+    },
+    {
+     "mau": "do",
+     "chu": "Người chưa đăng nhập ghi được ảnh 8 MB mỗi lần lên đĩa VPS qua route góp ý.",
+     "neo": {
+      "tep": "src/dashboard/app/api/console/feedback/route.ts"
+     },
+     "noi_ghi": ":17-41"
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "#532: thu mọi quyền đọc của anon/authenticated, chỉ cấp lại vài cột staff và clinic_membership cần cho đăng nhập. Tuyền chạy trước lệnh ACL chỉ đọc ở #527.",
+     "muc": 3
+    },
+    {
+     "chu": "Route góp ý kiểm phiên trước khi ghi đĩa.",
+     "muc": 2
+    }
+   ],
+   "viec": [
+    7
+   ],
+   "pr": [
+    532,
+    527
+   ]
+  },
+  {
+   "id": "bimat",
+   "ten": "Bí mật và khoá",
+   "dang_lam": [
+    "Bí mật chỉ nằm trong .env.prod / .env.staging trên VPS; .gitignore chặn mọi .env.* trừ tệp mẫu.",
+    "Mỗi container nhận đúng tệp env của môi trường mình (CLINIC_ENV_FILE bắt buộc) — lệnh staging không nạp nhầm khoá prod.",
+    "Khoá LLM của agent giám sát là tệp secret, không phải biến môi trường — không hiện ở docker inspect.",
+    "Trình duyệt chỉ nhận khoá anon (công khai theo thiết kế)."
+   ],
+   "rui_ro": [
+    {
+     "mau": "vang",
+     "chu": "Khoá service-role (vượt RLS) nằm trong container dashboard vì route quản trị tài khoản cần nó — lỗi ở Next là lộ khoá mạnh nhất.",
+     "neo": {
+      "tep": "src/dashboard/lib/supabase-service.ts"
+     }
+    },
+    {
+     "mau": "xanh",
+     "chu": ".env và .env.* bị gitignore.",
+     "neo": {
+      "tep": ".gitignore",
+      "tim": ".env.*"
+     }
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Chuyển nốt quản trị tài khoản sang FastAPI để dashboard không cần khoá service-role (nằm trong việc lớn 'đưa luật ra khỏi src/dashboard').",
+     "muc": 3
+    }
+   ],
+   "viec": []
+  },
+  {
+   "id": "nhatky",
+   "ten": "Nhật ký có lộ SĐT / CCCD không",
+   "dang_lam": [
+    "Log Caddy cắt chuỗi ?… nên không lưu SĐT/tên gõ vào ô tìm.",
+    "Log ứng dụng (structlog) khi tạo bệnh nhân chỉ ghi mã, không ghi SĐT.",
+    "Staging che cột payload của event_log khi nạp."
+   ],
+   "rui_ro": [
+    {
+     "mau": "do",
+     "chu": "ĐÃ XÁC NHẬN: sự kiện patient.created ghi NGUYÊN họ tên, ngày sinh, SĐT chính, SĐT phụ, số CCCD vào event_log. Bảng nhật ký có chốt cấm xoá → nằm vĩnh viễn và đi theo mọi bản sao lưu.",
+     "neo": {
+      "tep": "src/clinicai/services/patient_service.py",
+      "tim": "\"national_id_number\": data.national_id_number"
+     }
+    },
+    {
+     "mau": "xanh",
+     "chu": "Log truy cập cắt chuỗi truy vấn.",
+     "neo": {
+      "tep": "caddy/Caddyfile",
+      "tim": "request>uri regexp"
+     }
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Sự kiện mới chỉ ghi mã khách + cờ 'có SĐT/có CCCD'. Bản cũ đã ghi: cần kế hoạch riêng (bảng chỉ-thêm) — Tuyền quyết có che hay giữ.",
+     "muc": 3
+    }
+   ],
+   "viec": []
+  },
+  {
+   "id": "saoluu",
+   "ten": "Sao lưu: có mã hoá, có kiểm không",
+   "dang_lam": [
+    "pg_dump 15 phút/lần 7–22h (giữ 2 ngày) + đêm 02:15 (giữ 7 ngày), tệp chmod 600, kèm sha256 từng phần.",
+    "Đẩy lên CFS qua SMB có seal (mã hoá đường truyền) — script từ chối nếu ổ mất seal.",
+    "Mac kéo về 0:30 và 6:30; có script diễn tập khôi phục (restore-drill.sh) và kiểm bản sao (verify-backup.sh)."
+   ],
+   "rui_ro": [
+    {
+     "mau": "vang",
+     "chu": "Tệp sao lưu KHÔNG mã hoá khi nằm trên VPS, CFS và Mac — ai cầm được tệp là đọc được toàn bộ khách.",
+     "neo": {
+      "tep": "scripts/backup-db.sh",
+      "tim": "chmod 600 \"$BACKUP_FILE\""
+     }
+    },
+    {
+     "mau": "do",
+     "chu": "Khoá sao lưu là một thư mục: tiến trình bị giết giữa chừng thì khoá kẹt, mọi lần sau tự từ chối, không ai được báo.",
+     "neo": {
+      "tep": "scripts/backup-db.sh",
+      "tim": "if mkdir \"$LOCK_DIR\""
+     }
+    },
+    {
+     "mau": "do",
+     "chu": "Unit sao lưu không giới hạn giờ, không OnFailure; /ops hiện 'không rõ' chứ không đỏ. Từng ngừng 21 giờ vì ổ đầy.",
+     "neo": {
+      "tep": "scripts/systemd/clinicai-backup.service"
+     }
+    },
+    {
+     "mau": "do",
+     "chu": "Ảnh/video chỉ có một bản trên CFS; hợp đồng CFS ghi hết hạn 16/10 — cần Tuyền kiểm.",
+     "noi": "scripts/backup-db.sh:349-357 (#531)"
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Một PR script: khoá bằng flock có hạn, TimeoutStartSec + OnFailure, /ops tô đỏ, canh gác kiểm tuổi bản sao.",
+     "muc": 2
+    },
+    {
+     "chu": "Mã hoá tệp sao lưu trước khi rời VPS (khoá giải nằm ở Mac, không ở VPS).",
+     "muc": 3
+    },
+    {
+     "chu": "Tuyền chốt nơi đặt bản thứ hai cho ảnh/video + gia hạn CFS.",
+     "muc": 3
+    }
+   ],
+   "viec": [
+    8
+   ]
+  },
+  {
+   "id": "ssh",
+   "ten": "SSH và quyền container",
+   "dang_lam": [
+    "SSH chỉ bằng khoá: tắt mật khẩu, cấm root.",
+    "Mọi container: no-new-privileges, giới hạn RAM và số tiến trình, log có trần (10 MB × 5).",
+    "api/su-kien/day-tep chạy uid 1000, dashboard chạy user node."
+   ],
+   "rui_ro": [
+    {
+     "mau": "vang",
+     "chu": "Tài khoản clinicai có sudo không mật khẩu + nhóm docker (tương đương root). Một khoá SSH lộ là mất cả máy — prod lẫn staging.",
+     "neo": {
+      "tep": "scripts/vps-chuan-bi.sh",
+      "tim": "NOPASSWD:ALL"
+     }
+    },
+    {
+     "mau": "vang",
+     "chu": "Thư mục bind do Docker tự tạo có chủ root; media-quyen phải chạy root một lần để chown.",
+     "neo": {
+      "tep": "docker-compose.yml",
+      "tim": "user: \"0:0\""
+     }
+    },
+    {
+     "mau": "xanh",
+     "chu": "PasswordAuthentication no, PermitRootLogin no.",
+     "neo": {
+      "tep": "scripts/vps-chuan-bi.sh",
+      "tim": "PasswordAuthentication no"
+     }
+    }
+   ],
+   "de_xuat": [
+    {
+     "chu": "Khoá SSH có mật khẩu (passphrase), ghi rõ máy nào giữ khoá; cân nhắc chỉ cho SSH từ IP cố định.",
+     "muc": 3
+    }
+   ],
+   "viec": []
+  }
+ ],
+ "bang": [
+  {
+   "id": "tong",
+   "ten": "Tổng quan",
+   "o_so": [
+    {
+     "nhan": "Việc quan trọng",
+     "gia_tri": "10",
+     "mau": "do",
+     "ghi": "#536"
+    },
+    {
+     "nhan": "PR đang mở",
+     "gia_tri": "56",
+     "mau": "vang",
+     "ghi": "24 merge · 20 đóng · 12 chờ quyết"
+    },
+    {
+     "nhan": "p95 prod (14–17/10)",
+     "gia_tri": "1,3–1,5s",
+     "mau": "do"
+    },
+    {
+     "nhan": "Sự kiện 30 ngày",
+     "gia_tri": "51.683 · 0 kẹt",
+     "mau": "xanh"
+    }
+   ],
+   "muc": [
+    {
+     "mau": "do",
+     "chu": "Chậm: một lần ghi dựng lại ~10 lần trang; quầy thu N+1 hàng trăm câu SQL (việc 1–3)."
+    },
+    {
+     "mau": "do",
+     "chu": "Tiền có thể sai: thu phí khám hai lần, hoàn tiền trên phiếu đã huỷ (việc 4)."
+    },
+    {
+     "mau": "do",
+     "chu": "Người ngoài đọc dữ liệu khách qua /rest/v1 (việc 7)."
+    },
+    {
+     "mau": "do",
+     "chu": "Sao lưu có thể dừng im lặng; ảnh/video một bản (việc 8)."
+    },
+    {
+     "mau": "vang",
+     "chu": "Kho không trừ khi đơn vị hộp/gói lệch (việc 5)."
+    },
+    {
+     "mau": "xanh",
+     "chu": "Sổ tiền lõi vững: Postgres chặn thu trùng và hoàn vượt."
+    }
+   ],
+   "lien_ket": [
+    {
+     "chu": "Việc cần làm (#536)",
+     "pr": 536
+    }
+   ]
+  },
+  {
+   "id": "tocdo",
+   "ten": "Tốc độ",
+   "tu_bao_cao": "534",
+   "lien_ket": [
+    {
+     "chu": "Báo cáo #534",
+     "pr": 534
+    },
+    {
+     "chu": "Số đo 14–17/10 (#494)",
+     "pr": 494
+    }
+   ]
+  },
+  {
+   "id": "sukien",
+   "ten": "Sự kiện & vận hành",
+   "tu_bao_cao": "531",
+   "lien_ket": [
+    {
+     "chu": "Báo cáo #531",
+     "pr": 531
+    }
+   ]
+  },
+  {
+   "id": "tien",
+   "ten": "Tiền",
+   "tu_bao_cao": "526",
+   "lien_ket": [
+    {
+     "chu": "Báo cáo #526",
+     "pr": 526
+    },
+    {
+     "chu": "#508 chặn hoàn sau huỷ",
+     "pr": 508
+    }
+   ]
+  },
+  {
+   "id": "kho",
+   "ten": "Kho",
+   "tu_bao_cao": "529",
+   "lien_ket": [
+    {
+     "chu": "Báo cáo #529",
+     "pr": 529
+    },
+    {
+     "chu": "Kế hoạch quy đổi #498",
+     "pr": 498
+    }
+   ]
+  },
+  {
+   "id": "baomat",
+   "ten": "Bảo mật",
+   "tu_bao_mat": true,
+   "lien_ket": [
+    {
+     "chu": "Lego + quyền #527",
+     "pr": 527
+    },
+    {
+     "chu": "Khoá /rest/v1 #532",
+     "pr": 532
+    }
+   ]
+  },
+  {
+   "id": "saoluu",
+   "ten": "Sao lưu & ổ đĩa",
+   "o_so": [
+    {
+     "nhan": "Ổ gốc VPS (11/10)",
+     "gia_tri": "~80%",
+     "mau": "do"
+    },
+    {
+     "nhan": "Sao lưu từng ngừng",
+     "gia_tri": "21 giờ",
+     "mau": "do"
+    },
+    {
+     "nhan": "Nhịp sao lưu",
+     "gia_tri": "15 phút · đêm 02:15",
+     "mau": "xanh"
+    },
+    {
+     "nhan": "Bản ảnh/video",
+     "gia_tri": "1 (chỉ CFS)",
+     "mau": "do"
+    }
+   ],
+   "muc": [
+    {
+     "mau": "do",
+     "chu": "Khoá sao lưu kẹt → sao lưu dừng hẳn không báo.",
+     "noi": "scripts/backup-db.sh:127-134"
+    },
+    {
+     "mau": "do",
+     "chu": "Docker có thể bật API trước khi CFS gắn xong — ứng viên sự cố 14/10.",
+     "noi": "docker-compose.yml:216-222"
+    },
+    {
+     "mau": "vang",
+     "chu": "event_delivery không bao giờ dọn, CFS giữ nhiều bản 15 phút — chưa có số đo dung lượng."
+    },
+    {
+     "mau": "vang",
+     "chu": "Tệp sao lưu không mã hoá khi nằm yên."
+    },
+    {
+     "mau": "xanh",
+     "chu": "Đường lên CFS mã hoá (SMB seal); Mac kéo về 2 lần/ngày; có script diễn tập khôi phục."
+    }
+   ],
+   "lien_ket": [
+    {
+     "chu": "Báo cáo #531 mục C",
+     "pr": 531
+    },
+    {
+     "chu": "Staging nạp chết 2 đêm — #518",
+     "pr": 518
+    }
+   ]
+  },
+  {
+   "id": "viec",
+   "ten": "Việc cần làm + 56 PR",
+   "tu_viec": true,
+   "lien_ket": [
+    {
+     "chu": "docs/VIEC-CAN-LAM.md (#536)",
+     "pr": 536
+    }
+   ]
+  }
+ ],
+ "viec": [
+  {
+   "so": 1,
+   "ten": "Đông khách thì màn tự nháy, bấm gì cũng phải chờ",
+   "muc": 2,
+   "pr_co": [
+    491,
+    492
+   ],
+   "nhom": "Tốc độ"
+  },
+  {
+   "so": 2,
+   "ten": "Mở trang nào cũng chậm, và chậm thêm mỗi ngày",
+   "muc": 3,
+   "pr_co": [],
+   "nhom": "Tốc độ"
+  },
+  {
+   "so": 3,
+   "ten": "Quầy thu và check-out chậm; bấm Thu chờ ~7 giây",
+   "muc": 3,
+   "pr_co": [],
+   "nhom": "Tốc độ"
+  },
+  {
+   "so": 4,
+   "ten": "Tiền khách trả có thể sai",
+   "muc": 3,
+   "pr_co": [
+    508
+   ],
+   "nhom": "Tiền"
+  },
+  {
+   "so": 5,
+   "ten": "Giao thuốc mà kho không trừ; màn kho không tự cập nhật",
+   "muc": 3,
+   "pr_co": [
+    497,
+    498,
+    529
+   ],
+   "nhom": "Kho"
+  },
+  {
+   "so": 6,
+   "ten": "Bấm nhầm thì không gỡ được, hoặc gỡ xong màn kẹt",
+   "muc": 2,
+   "pr_co": [],
+   "nhom": "Hoàn tác"
+  },
+  {
+   "so": 7,
+   "ten": "Người ngoài đọc được dữ liệu khách; tự xếp ca để vượt quyền",
+   "muc": 3,
+   "pr_co": [
+    532
+   ],
+   "nhom": "Bảo mật"
+  },
+  {
+   "so": 8,
+   "ten": "Sao lưu có thể dừng mà không ai biết; ảnh/video chỉ có một bản",
+   "muc": 3,
+   "pr_co": [
+    518
+   ],
+   "nhom": "Sao lưu"
+  },
+  {
+   "so": 9,
+   "ten": "Người khác đã làm mà màn mình không đổi",
+   "muc": 2,
+   "pr_co": [],
+   "nhom": "Sự kiện"
+  },
+  {
+   "so": 10,
+   "ten": "Đang làm thì bị văng ra trang đăng nhập",
+   "muc": 2,
+   "pr_co": [
+    490
+   ],
+   "nhom": "Đăng nhập"
+  }
+ ],
+ "pr_mo": {
+  "dem_luc": "23/10/2026",
+  "tong": 56,
+  "merge": 24,
+  "dong": 20,
+  "quyet": 12,
+  "nhom_trung": [
+   "Bản đồ (5 bản lồng nhau): #513 ⊂ #514 ⊂ #516 ⊂ #517 ⊂ #521 — merge riêng #513, đóng #514/#516/#517, #521 để Tuyền chọn.",
+   "Sổ học: #533 và #535 · Soát tốc độ: #530 và #534 · Đợt 17/10: #493 = #490 + #491 + #492.",
+   "SĐT: chuỗi #501 → #505 · Đơn vị kho: #497, #498, #529 · Test cô lập: #488, #511 · Dọn code: #411–#414."
+  ],
+  "tuyen_lam_ngay": [
+   "Dọn PR theo #536 phần 2: đóng 20 PR, merge các PR chỉ .md.",
+   "Chốt 6 câu tiền (#526) + phí tái khám + quy đổi đơn vị (#498) + khoá cứng.",
+   "Chạy lệnh ACL chỉ đọc ở #527 và 4 lệnh chỉ đọc cuối #531; trả lời câu gia hạn CFS."
+  ]
+ },
+ "hang_cho": {
+  "hien_trang": [
+   "Tin 'bảng X vừa đổi': Postgres NOTIFY → một kết nối LISTEN trong FastAPI → SSE tới trình duyệt. Không broker ở giữa; nhiều bản API vẫn đúng vì NOTIFY phát tới mọi kết nối đang nghe.",
+   "Việc chạy sau (xếp hàng khám, chuông, dòng thời gian): ghi vào event_delivery cùng giao dịch với dữ liệu → worker su-kien đọc và gọi bên nhận. Khởi động lại không mất tin, chỉ trễ ≤ 2 phút.",
+   "RabbitMQ có sẵn trong compose nhưng nằm trong profile 'workers' — prod KHÔNG bật. Redis không có."
+  ],
+  "so_sanh": [
+   {
+    "luat": "Cài Redis làm cache/hàng chờ",
+    "nguong": "p95 một màn > 800 ms VÀ đã chứng minh nguyên nhân là số vòng đi về, không phải thiếu index",
+    "so_do": "p95 1,3–1,5 s (14–17/10) — vượt vế đầu. Nhưng nguyên nhân đã đo là dựng lại trang thừa và N+1 (hàng trăm câu SQL/lần tải) — lỗi trong code, cache chỉ che đi.",
+    "ket_luan": "Chưa mở lại. Sửa việc 1–3 trước rồi đo lại.",
+    "mau": "vang"
+   },
+   {
+    "luat": "Chạy 3–4 bản sao ứng dụng",
+    "nguong": "CPU backend > 70% kéo dài; trước đó phải chuyển bộ đếm giới hạn sang Postgres",
+    "so_do": "Chưa đo CPU api. Đã đo CPU dashboard 130% lúc cao điểm (Next đã chạy tới 4 tiến trình).",
+    "ket_luan": "Cần đo CPU api trước khi bàn.",
+    "mau": "vang"
+   },
+   {
+    "luat": "Hàng chờ (RabbitMQ) cho sự kiện",
+    "nguong": "Không bao giờ cho ghi vết. Chỉ đáng cân nhắc cho gửi thông báo ra ngoài.",
+    "so_do": "51.683 lần giao / 30 ngày ≈ 1 lần mỗi 50 giây, 0 kẹt. Chỗ nghẽn thật là worker nghỉ cứng 1 giây và gọi AI nằm trong vòng giao tin — sửa vài chục dòng.",
+    "ket_luan": "Không cần.",
+    "mau": "xanh"
+   },
+   {
+    "luat": "Elasticsearch/ClickHouse cho log",
+    "nguong": "nhật ký vượt ~50 triệu dòng",
+    "so_do": "~2.400 dòng/ngày (SO-LUAT Phần 1) — xa ngưỡng.",
+    "ket_luan": "Không cần.",
+    "mau": "xanh"
+   }
+  ],
+  "nguon": "docs/SO-LUAT.md Phần 7 · src/clinicai/core/change_broker.py · docker-compose.yml (profile workers)"
+ },
+ "chua_phu": [
+  "Số đo sống: trang là ẢNH CHỤP. Muốn số tự cập nhật thì làm trong /ops của app (mức 2–3), không làm ở trang tài liệu.",
+  "Chưa đo: req/giờ 24h, CPU từng container, dung lượng từng bảng, dung lượng CFS, tuổi bản sao lưu hiện tại — cần chạy từ Mac (khung 'Lượng request').",
+  "Chưa soát: clinicai-traffic-report (ngoài git), cấu hình ufw THẬT trên VPS (chỉ đọc script dựng máy), hạn chứng chỉ, phiên bản image đang chạy thật.",
+  "Bảo mật chỉ soát theo code/cấu hình, KHÔNG thử tấn công.",
+  "Khối lịch + hành trình (#528) chỉ đưa vào qua việc 6; chưa có trang riêng."
+ ],
+ "bao_cao": {
+  "526": {
+   "tieu_de": "Soát hệ thống 22/10 · Khối 2 — Tiền",
+   "ngay": "22/10/2026",
+   "o_so": [
+    {
+     "nhan": "Khách trả cho một buổi khám (A1)",
+     "gia_tri": "430.000đ (đáng lẽ 280.000đ)",
+     "mau": "do"
+    },
+    {
+     "nhan": "Két chi ra cho lần thu 500.000đ (A2)",
+     "gia_tri": "1.000.000đ",
+     "mau": "do"
+    },
+    {
+     "nhan": "Báo cáo ngày lệch bản chụp ca (C2)",
+     "gia_tri": "800.000đ",
+     "mau": "do"
+    },
+    {
+     "nhan": "Việc cần Tuyền chốt",
+     "gia_tri": "A1, A2/C3, C1, C2, D4",
+     "mau": "vang"
+    }
+   ],
+   "muc": [
+    {
+     "mau": "xanh",
+     "chu": "Sổ tiền lõi vững: máy chủ tự tính hoá đơn, Postgres chặn thu một dòng hai lần và chặn hoàn vượt số đã thu.",
+     "noi": "Tóm tắt, mục 1"
+    },
+    {
+     "mau": "do",
+     "chu": "Đã thu phí khám mặc định rồi tick thêm dịch vụ khám thì khách trả tiền khám hai lần.",
+     "noi": "bill_service.py:880-926, tien_thua_service.py:72-83"
+    },
+    {
+     "mau": "do",
+     "chu": "Phiếu đã huỷ vẫn hoàn tiền được, tiền ra khỏi két hai lần, báo cáo bị âm.",
+     "noi": "hoan_tien_service.py:323-338"
+    },
+    {
+     "mau": "do",
+     "chu": "Thu chia tiền mặt + chuyển khoản: phần tiền mặt tính sai ca, mất dấu nếu huỷ lần chờ.",
+     "noi": "payment_service.py:413-415, 1343-1354"
+    },
+    {
+     "mau": "do",
+     "chu": "Đánh dấu 'đã xuất MISA' dựng lại danh sách lúc bấm nên có thể sót hoá đơn GTGT.",
+     "noi": "hoa_don_misa_service.py:79-117"
+    },
+    {
+     "mau": "vang",
+     "chu": "Khoản ghi nợ có thể treo 'chưa thu' mãi khi nợ hết mà không qua lần thu nào.",
+     "noi": "events/consumers/cong_no.py:28-66"
+    },
+    {
+     "mau": "vang",
+     "chu": "Hai màn báo cáo tính phiếu huỷ và khoản hoàn theo hai mốc ngày khác nhau, cùng ngày ra hai số.",
+     "noi": "bao_cao_cuoi_ngay_service.py:943-1006, danh_sach_hoa_don_service.py:63-96"
+    },
+    {
+     "mau": "vang",
+     "chu": "Hộp Hoàn tác hiện số tiền trước giảm giá, thu ngân có thể trả khách thừa.",
+     "noi": "QuayThuNgan.tsx:377"
+    },
+    {
+     "mau": "vang",
+     "chu": "Nhập ngày 9999-12-31 làm máy chủ lỗi 500 thay vì trả rỗng.",
+     "noi": "danh_sach_hoa_don_service.py:271, bao_cao_cuoi_ngay_service.py:1274, 1299"
+    },
+    {
+     "mau": "xanh",
+     "chu": "Múi giờ Việt Nam đúng ở mọi chỗ đã soát; máy chủ không tin số tiền màn hình gửi lên.",
+     "noi": "Tóm tắt mục 9; Nhóm D"
+    }
+   ],
+   "de_xuat": [
+    "Tuyền chốt A1 và A2/C3, rồi chặn hoàn tiền trên phiếu đã huỷ ngay trong Postgres (trigger payment_refund_guard).",
+    "Tách phần tiền mặt của lần thu chia TM + CK thành một lần thu riêng ngay lúc thu.",
+    "Thêm các bất biến còn thiếu T1–T6 vào bài mô phỏng dòng tiền để bắt lỗi kiểu A1, A2, A3."
+   ]
+  },
+  "527": {
+   "tieu_de": "Soát 22/10 · Khối 4 — Lego + Quyền",
+   "ngay": "22/10/2026",
+   "o_so": [
+    {
+     "nhan": "Endpoint FastAPI đã quét",
+     "gia_tri": "619",
+     "mau": "xanh"
+    },
+    {
+     "nhan": "Bảng đọc thẳng qua /rest/v1",
+     "gia_tri": "~40 bảng",
+     "mau": "do"
+    },
+    {
+     "nhan": "Chỗ ghi chéo giữa các khối",
+     "gia_tri": "97",
+     "mau": "vang"
+    },
+    {
+     "nhan": "Route Next chạm thẳng DB",
+     "gia_tri": "1",
+     "mau": "vang"
+    }
+   ],
+   "muc": [],
+   "de_xuat": []
+  },
+  "529": {
+   "tieu_de": "Pha 1 — Soát kho thuốc, quầy thuốc và kho vật tư",
+   "ngay": "22/10/2026",
+   "o_so": [
+    {
+     "nhan": "Test mô phỏng kho/quầy/tiền/vật tư",
+     "gia_tri": "295 đạt",
+     "mau": "xanh"
+    },
+    {
+     "nhan": "Test chờ sẵn (lỗi đã ghim)",
+     "gia_tri": "2 xfail",
+     "mau": "do"
+    },
+    {
+     "nhan": "Thuốc đang bán thiếu lô (mốc nền)",
+     "gia_tri": "55/107",
+     "mau": "do"
+    },
+    {
+     "nhan": "Lô lệch đơn vị hộp/gói (16/10)",
+     "gia_tri": "110/160",
+     "mau": "do"
+    }
+   ],
+   "muc": [
+    {
+     "mau": "do",
+     "chu": "Lô nhập theo hộp, thuốc bán theo gói → giao thuốc ghi tiền mà không trừ kho.",
+     "noi": "pharmacy_service.py:1092"
+    },
+    {
+     "mau": "do",
+     "chu": "Nhập lô thuốc trực tiếp chưa ghi sự kiện nghiệp vụ, chỉ ghi log ứng dụng.",
+     "noi": "pharmacy_service.py:542"
+    },
+    {
+     "mau": "do",
+     "chu": "Ba bảng lõi kho thuốc chưa có trigger báo thay đổi, màn khác không tự cập nhật.",
+     "noi": "RealtimeRefresher.tsx:88-145"
+    },
+    {
+     "mau": "vang",
+     "chu": "Migration mở full lego cấp rộng quyền cho nhân viên nội bộ, chưa đúng ý quản lý bật từng người.",
+     "noi": "supabase/migrations/20260930900000_mo_full_lego.sql:1-52"
+    },
+    {
+     "mau": "vang",
+     "chu": "Đơn thiếu số lượng bác sĩ nhập nên tổng 0đ, nút tạo bill ở thu ngân bị tắt.",
+     "noi": "Mục D, điểm nền 4"
+    },
+    {
+     "mau": "vang",
+     "chu": "Ở màn 375px, bảng tồn kho tràn ngang.",
+     "noi": "Mục D, quan sát mới"
+    },
+    {
+     "mau": "vang",
+     "chu": "Không có nút hoàn tác ngay trên dòng thuốc đã giao.",
+     "noi": "Mục D, điểm nền 7"
+    },
+    {
+     "mau": "xanh",
+     "chu": "Bảy tệp mô phỏng gọi service thật đều xanh; luật hoàn không vượt số đã thu được giữ đúng.",
+     "noi": "B. Test và bất biến"
+    }
+   ],
+   "de_xuat": [
+    "Tuyền duyệt kế hoạch quy đổi #498 (1 hộp = N gói lúc nhập) rồi làm.",
+    "Ghi sự kiện khi nhập lô + trigger cho drug_batch, inventory_txn, phieu_kho (2 test chờ ở #529 sẽ chuyển xanh).",
+    "Đối soát mã thuốc, đơn vị, lô trước khi nạp tồn thật."
+   ]
+  },
+  "531": {
+   "tieu_de": "Soát 22/10 · Khối 5 — Sự kiện, nhiều phòng khám, vận hành",
+   "ngay": "22/10/2026",
+   "o_so": [
+    {
+     "nhan": "Lần giao sự kiện 30 ngày",
+     "gia_tri": "51.683 · 0 kẹt",
+     "mau": "xanh"
+    },
+    {
+     "nhan": "Trễ tối đa khi khởi động lại su-kien",
+     "gia_tri": "≤ 2 phút",
+     "mau": "xanh"
+    },
+    {
+     "nhan": "Gọi AI nằm trong vòng giao tin",
+     "gia_tri": "tới 600 giây/lần",
+     "mau": "do"
+    },
+    {
+     "nhan": "Loại sự kiện không ai nghe",
+     "gia_tri": "11",
+     "mau": "vang"
+    }
+   ],
+   "muc": [
+    {
+     "mau": "do",
+     "chu": "Gọi AI tóm tắt cuối ngày nằm ngay trong vòng giao tin, làm chuông và hàng chờ đứng chờ.",
+     "noi": "worker.py:290-329, agent_tom_tat.py:236-255"
+    },
+    {
+     "mau": "do",
+     "chu": "Khoá sao lưu kẹt lại sau khi tiến trình bị giết, sao lưu dừng hẳn mà không báo ai.",
+     "noi": "scripts/backup-db.sh:127-134"
+    },
+    {
+     "mau": "do",
+     "chu": "Docker bật lại trước khi ổ CFS gắn xong nên api và day-tep nằm im — ứng viên sự cố 14/10.",
+     "noi": "docker-compose.yml:216-222"
+    },
+    {
+     "mau": "vang",
+     "chu": "Trình duyệt tự nối lại dòng tin nhưng không tải bù, màn trễ tới 60 giây.",
+     "noi": "RealtimeRefresher.tsx:248-259"
+    },
+    {
+     "mau": "vang",
+     "chu": "Bộ nghe LISTEN của API rớt rồi nối lại thì tin trong quãng rớt mất hẳn.",
+     "noi": "core/change_broker.py:91-114"
+    },
+    {
+     "mau": "vang",
+     "chu": "Hàng chờ 8 tin mỗi màn đầy thì bỏ tin.",
+     "noi": "core/change_broker.py:45,131-135"
+    },
+    {
+     "mau": "vang",
+     "chu": "Bảng event_delivery không bao giờ được dọn, câu kiểm thứ tự không dùng chỉ mục — chậm dần theo tháng.",
+     "noi": "events/worker.py:104-112"
+    },
+    {
+     "mau": "vang",
+     "chu": "Giao diện không gửi X-Clinic-ID: tài khoản thuộc hai phòng khám sẽ bị 403 ở mọi API.",
+     "noi": "api/identity.py:494-509"
+    },
+    {
+     "mau": "xanh",
+     "chu": "Sự kiện ghi cùng giao dịch với dữ liệu; khởi động lại su-kien không mất sự kiện, chỉ trễ.",
+     "noi": "emit.py:181-226"
+    }
+   ],
+   "de_xuat": [
+    "Cho màn tải bù sau khi nối lại dòng tin, ở cả trình duyệt và API (gửi tin 'không rõ bảng').",
+    "Tách gọi AI tóm tắt cuối ngày ra task riêng có giới hạn giờ.",
+    "Dọn event_delivery theo tuổi + chỉ mục cho câu kiểm thứ tự."
+   ]
+  },
+  "534": {
+   "tieu_de": "Rà soát tốc độ toàn hệ thống",
+   "ngay": "23/10/2026",
+   "o_so": [
+    {
+     "nhan": "Tải lại bảng quầy thu p95",
+     "gia_tri": "~3,4 giây",
+     "mau": "do"
+    },
+    {
+     "nhan": "Câu WITH v AS quầy thu (14/10)",
+     "gia_tri": "TB 4,3 giây",
+     "mau": "do"
+    },
+    {
+     "nhan": "Thu ngân chờ nút Thu nhả",
+     "gia_tri": "~7 giây",
+     "mau": "do"
+    },
+    {
+     "nhan": "Máy chủ ghi tiền",
+     "gia_tri": "~0,13 giây",
+     "mau": "xanh"
+    }
+   ],
+   "muc": [
+    {
+     "mau": "do",
+     "chu": "Mỗi lần thu tiền sinh khoảng 3 đợt tin; mọi tab đang mở bị dựng lại trang khoảng 3 lần.",
+     "noi": "src/clinicai/worker.py:329-333"
+    },
+    {
+     "mau": "do",
+     "chu": "Bác sĩ gõ phiếu tự lưu cũng làm mọi màn thường của cả hai cơ sở dựng lại liên tục.",
+     "noi": "RealtimeRefresher.tsx:88-147"
+    },
+    {
+     "mau": "do",
+     "chu": "Mỗi lần dựng trang, kiểm quyền chạy một câu SQL cho từng ngày trực từ trước tới nay: ~200–500 câu.",
+     "noi": "cashier_scope_service.py:243-312"
+    },
+    {
+     "mau": "do",
+     "chu": "Bảng quầy thu tính hoá đơn từng khách nối đuôi: ~300–2.000 câu SQL mỗi lần tải.",
+     "noi": "cashier_board_service.py:708-737"
+    },
+    {
+     "mau": "do",
+     "chu": "Nút Thu chờ ít nhất 2 lượt tải bảng mới nhả, ~7 giây.",
+     "noi": "thu-ngan/QuayThuNgan.tsx:338-399"
+    },
+    {
+     "mau": "do",
+     "chu": "Màn check-out ~20–25 câu mỗi lượt khách; mỗi tin tải ba lần.",
+     "noi": "checkout_service.py:1051-1098"
+    },
+    {
+     "mau": "vang",
+     "chu": "Đối chiếu sổ nợ mỗi 10 phút chạy ≈5–9 nghìn câu, xét lại cả lượt không đổi.",
+     "noi": "so_no_service.py:595-613"
+    },
+    {
+     "mau": "vang",
+     "chu": "Báo cáo cuối ngày đọc mọi lượt từ trước tới nay rồi mới lọc.",
+     "noi": "bao_cao_viec_tien_service.py:78-122"
+    },
+    {
+     "mau": "xanh",
+     "chu": "Chưa thấy logic tiền nào sai do tốc độ; lệnh thu tính lại hoá đơn trong giao dịch có khoá.",
+     "noi": "mục 5 'Đã kiểm và ổn'"
+    }
+   ],
+   "de_xuat": [
+    "Cắt làm mới dây chuyền trước (PR A–D): worker thức theo NOTIFY, bảng theo từng màn, nhịp dự phòng chỉ khi SSE chết.",
+    "Duyệt sớm PR-I: tính ngày trực bằng một câu SQL (~400 câu → ≤ 6).",
+    "Tách hoá đơn thành đọc gộp + hàm dựng dùng chung (PR-J), rồi áp cho quầy thu và check-out."
+   ]
+  }
+ }
+}
