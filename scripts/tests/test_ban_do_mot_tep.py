@@ -85,6 +85,38 @@ class BanDoMotTepTest(unittest.TestCase):
         self.assertEqual(output, MAP.build())
         self.assertLess(len(output.encode()), 15 * 1024 * 1024)
 
+    def test_cach_doc_moi_giu_du_du_lieu_va_khong_can_tep_kem(self) -> None:
+        """Bản đọc và bản gốc phải cùng tập thao tác, nguồn nhúng phải đủ."""
+        import json
+        import re
+
+        output = MAP.build()
+        reader, _ = json.JSONDecoder().raw_decode(
+            output.split("window.MAP_DATA=", 1)[1]
+        )
+        match = re.search(
+            r"window.LEGO=(.*?);/\*<</DU-LIEU",
+            MAP.frame_source("lego"),
+            re.DOTALL,
+        )
+        source = json.loads(match[1])
+        self.assertEqual(reader["lego"], source)
+        self.assertEqual(len(reader["tasks"]), 10)
+        self.assertEqual(
+            [task["number"] for task in reader["tasks"]], list(range(1, 11))
+        )
+        for placeholder in (
+            "__CSS__",
+            "__DATA__",
+            "__SHELL_JS__",
+            "__OVERVIEW_JS__",
+            "__LEGO_JS__",
+        ):
+            self.assertNotIn(placeholder, output)
+        # Các tệp giao diện là nguồn lúc sinh, không thành tài nguyên lúc mở.
+        self.assertNotIn('<script src="', output)
+        self.assertNotIn('<link rel="stylesheet"', output)
+
 
 if __name__ == "__main__":
     unittest.main()
