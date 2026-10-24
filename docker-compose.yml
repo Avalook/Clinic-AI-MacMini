@@ -301,6 +301,17 @@ services:
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     command: ["python", "-m", "clinicai.worker", "--su-kien"]
     secrets: [agent_llm_api_key]
+    environment:
+      # Bộ canh gác ổ gốc + sao lưu (14/10/2026, services/canh_gac_may_chu.py)
+      # đọc status.json / backup-status.json do collector và backup-db.sh ghi.
+      # Cùng ổ bind CHỈ ĐỌC với `api` — sự cố 11–12/10: sao lưu hỏng 21 giờ vì ổ
+      # gốc đầy, không ai biết. Canh gác chỉ chạy khi APP_ENV=production.
+      OPS_STATUS_FILE: /run/clinicai-ops/status.json
+    volumes:
+      - type: bind
+        source: ${OPS_STATUS_DIR:-./.ops-status}/${APP_ENV:-production}
+        target: /run/clinicai-ops
+        read_only: true
     depends_on:
       api:
         condition: service_healthy
