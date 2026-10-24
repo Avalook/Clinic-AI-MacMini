@@ -42,6 +42,8 @@ BAN_SAO_DIR="${BAN_SAO_DIR:-$HOME/backups/clinicai}"
 BAN_SAO_SSH="${BAN_SAO_SSH:-}"
 BAN_SAO_SSH_DIR="${BAN_SAO_SSH_DIR:-/home/clinicai/backups/clinicai}"
 CHE_SQL="$STAGING_DIR/scripts/staging-che-du-lieu.sql"
+ACL_FUNCTION_SQL="$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql"
+ACL_STOCK_SQL="$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
 
 # Bản MỚI NHẤT theo mốc giờ trong tên (…_YYYYMMDD_HHMMSS.sql.gz), KHÔNG theo
 # thứ tự chữ cái: tên còn mang mã nguồn (clinicai-db, atfm… của thời cloud) nên
@@ -57,18 +59,25 @@ kiem_ten_staging
 kiem_env_staging
 kiem_db_la_staging "$STG_DB"
 [ -f "$CHE_SQL" ] || dung "thiếu $CHE_SQL"
+[ -f "$ACL_FUNCTION_SQL" ] || dung "thiếu $ACL_FUNCTION_SQL"
+[ -f "$ACL_STOCK_SQL" ] || dung "thiếu $ACL_STOCK_SQL"
 
 # Không chạy chồng lên một lần deploy staging (cùng khoá).
 if ! mkdir "$STAGING_DEPLOY_LOCK" 2>/dev/null; then
     dung "staging đang deploy/nạp ($STAGING_DEPLOY_LOCK)."
 fi
 DA_DUNG=""
+DU_LIEU_DA_COMMIT=0
 don_dep() {
-    # Lỗi giữa chừng mà dịch vụ đã dừng → bật lại (dữ liệu cũ vẫn nguyên vì giao
-    # dịch đã huỷ). Đừng để staging tắt hẳn chỉ vì một đêm nạp hỏng.
+    # Trước COMMIT, dữ liệu hôm qua vẫn nguyên nên có thể bật lại. Sau COMMIT,
+    # ACL chưa chắc đã được phục hồi: giữ dịch vụ dừng để không mở staging lỗi.
     if [ -n "$DA_DUNG" ]; then
-        # shellcheck disable=SC2086
-        docker start $DA_DUNG >/dev/null 2>&1 || true
+        if [ "$DU_LIEU_DA_COMMIT" = 0 ]; then
+            # shellcheck disable=SC2086
+            docker start $DA_DUNG >/dev/null 2>&1 || true
+        else
+            canh "nạp đã commit nhưng bước sau thất bại — giữ staging dừng để cần khôi phục ACL trước khi mở lại."
+        fi
     fi
     rmdir "$STAGING_DEPLOY_LOCK" 2>/dev/null || true
 }
@@ -238,13 +247,14 @@ SQL
     echo "SET LOCAL clinicai.che_cho_phep = 'staging';"
     cat "$CHE_SQL"
 } | psql_stg --single-transaction >/dev/null
+DU_LIEU_DA_COMMIT=1
 # The dump omits ACLs and the migration ledger may already contain prior
 # GRANTs, so restore the explicit function and stock-read ACLs on every restore.
 # Đưa tệp qua stdin, KHÔNG `-f`: psql chạy trong container DB, đường dẫn trên
 # VPS không tồn tại trong đó — 20 và 21/10 chết ở đây, hàm mất quyền EXECUTE,
 # đăng nhập staging bị tự đăng xuất.
-psql_stg < "$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql"
-psql_stg < "$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
+psql_stg < "$ACL_FUNCTION_SQL"
+psql_stg < "$ACL_STOCK_SQL"
 xong "đã nạp + che (giao dịch đã commit)"
 xong "giữ lại $(psql_stg -tAc 'SELECT count(*) FROM auth.sessions' | tr -d ' \r') phiên đăng nhập"
 

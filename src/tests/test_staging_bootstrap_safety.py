@@ -318,6 +318,27 @@ class TestScriptDungTruocDocker:
         assert "nice -n 19" in sh and "ionice -c3" in sh
         assert "label=com.docker.compose.project=$STG_APP_PROJECT" in sh
 
+    def test_restore_staging_khong_ap_acl_tu_duong_dan_host_bang_psql_f(self) -> None:
+        script = (REPO / "scripts" / "staging-nap-ban-sao.sh").read_text(
+            encoding="utf-8"
+        )
+        assert "psql_stg -f \"$STAGING_DIR/supabase/migrations/" not in script
+        assert 'psql_stg < "$ACL_FUNCTION_SQL"' in script
+        assert 'psql_stg < "$ACL_STOCK_SQL"' in script
+        assert (
+            "ACL_FUNCTION_SQL=\"$STAGING_DIR/supabase/migrations/"
+            "20261019100000_harden_public_function_acl.sql\""
+        ) in script
+        assert (
+            "ACL_STOCK_SQL=\"$STAGING_DIR/supabase/migrations/"
+            "20261019120000_restrict_stock_postgrest_reads.sql\""
+        ) in script
+        assert "[ -f \"$ACL_FUNCTION_SQL\" ]" in script
+        assert "[ -f \"$ACL_STOCK_SQL\" ]" in script
+        assert "DU_LIEU_DA_COMMIT=1" in script
+        assert 'if [ "$DU_LIEU_DA_COMMIT" = 0 ]; then' in script
+        assert "giữ staging dừng để cần khôi phục ACL" in script
+
     def test_restore_staging_khong_mo_execute_tat_ca_function(self) -> None:
         for ten in ("staging-tu-ban-sao.sh", "staging-nap-ban-sao.sh"):
             script = (REPO / "scripts" / ten).read_text(encoding="utf-8")
