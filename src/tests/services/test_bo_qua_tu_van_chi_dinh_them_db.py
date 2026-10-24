@@ -17,6 +17,7 @@ from clinicai.phieu_kham.ket_qua_chi_dinh import doc_ket_qua_theo_chi_dinh
 from clinicai.services.booking_service import BookingService
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.lenh_kham_core import LuotKhamConflictError
+from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.sinh_hieu_service import SinhHieuService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
@@ -200,6 +201,35 @@ async def test_chi_dinh_them_mang_lan_theo_vong(
     assert lan[lan_2] == 2, "chỉ định thêm ở vòng sau là lần 2 của CÙNG lượt"
     assert all(d["chi_dinh_luc"] for d in ds)
     assert not any(d["mang_sang"] for d in ds)
+
+
+async def test_loai_khong_qua_tu_van_van_hien_o_da_tick_va_tick_lai_em(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """16/10/2026: loại dịch vụ không qua tư vấn (Thủ thuật…) trước đây KHÔNG hiện
+    ô → điều dưỡng tưởng không bỏ qua được. Nay ô hiện, đã tick sẵn + khoá; bấm
+    tick lại qua API cũ thì êm, không 409."""
+    ca = await _dung(pool)
+    await pool.execute(
+        "UPDATE service_type SET qua_tu_van = false WHERE id = $1::uuid", ca.loai_kham
+    )
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+
+    [luot] = [
+        x
+        for x in (await BangLuotKham(pool).bang(identity=ca.dd))["luot"]
+        if x["visit_id"] == visit
+    ]
+    assert luot["tu_van"] == {
+        "bo_qua": True,
+        "doi_duoc": False,
+        "khong_qua_tu_van": True,
+    }
+    svc = LuotKhamService(pool)
+    await svc.doi_duong_tu_van(visit_id=visit, bo_qua=True, identity=ca.dd)
+    with pytest.raises(LuotKhamConflictError):
+        await svc.doi_duong_tu_van(visit_id=visit, bo_qua=False, identity=ca.dd)
 
 
 async def test_o_tick_ap_ngay_va_bo_tick_la_ve_tu_van(

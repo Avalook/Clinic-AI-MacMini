@@ -437,12 +437,22 @@ class BangLuotKham:
             )
         # Ô tick "Bỏ qua bác sĩ tư vấn" ở màn đo sinh hiệu đọc TRẠNG THÁI THẬT
         # (25/09/2026): phiên tư vấn huỷ = đang bỏ qua; đổi được khi bên nhận chưa
-        # bắt đầu. Lượt không qua tư vấn → None (không hiện ô).
+        # bắt đầu. Lượt không qua tư vấn (Thủ thuật, đi thẳng phòng, khách quen…)
+        # vẫn HIỆN ô, ở trạng thái đã tick + khoá (Tuyền 16/10/2026: "luôn hiện
+        # ô, dù loại dịch vụ nào") — trước đây ô biến mất nên điều dưỡng tưởng
+        # hệ thống không cho bỏ qua. Ngày cũ → None.
         for item in by_visit.values():
             tv = next((p for p in item["phien"] if p["loai"] == "TU_VAN"), None)
             chinh = next((p for p in item["phien"] if p["loai"] == "PRIMARY"), None)
-            if tv is None or not la_hom_nay:
+            if not la_hom_nay:
                 item["tu_van"] = None
+                continue
+            if tv is None:
+                item["tu_van"] = {
+                    "bo_qua": True,
+                    "doi_duoc": False,
+                    "khong_qua_tu_van": True,
+                }
                 continue
             bo_qua = tv["trang_thai"] == "cancelled"
             item["tu_van"] = {

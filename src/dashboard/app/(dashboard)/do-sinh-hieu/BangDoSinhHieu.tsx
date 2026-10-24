@@ -85,8 +85,9 @@ interface Luot {
   cho_phut?: number | null;
   cho_lau?: boolean;
   sinh_hieu: SinhHieu | null;
-  /** Lượt qua tư vấn: đang bỏ qua chưa, đổi được không. null = không qua tư vấn. */
-  tu_van?: { bo_qua: boolean; doi_duoc: boolean } | null;
+  /** Đang bỏ qua tư vấn chưa, đổi được không. `khong_qua_tu_van` = loại dịch vụ
+   *  không có phiên tư vấn (đã tick sẵn, khoá). null = ngày cũ, không hiện ô. */
+  tu_van?: { bo_qua: boolean; doi_duoc: boolean; khong_qua_tu_van?: boolean } | null;
 }
 
 /** Máy chủ nhắc chỉ số bất thường sau khi lưu (`canh_bao_sinh_hieu`). */
@@ -757,7 +758,8 @@ export default function BangDoSinhHieu() {
               ) : null}
               {/* Tick = khách không qua bác sĩ tư vấn, vào thẳng hàng bác sĩ chính;
                   bỏ tick = về lại hàng tư vấn. ÁP NGAY, không đợi [Đo xong]
-                  (Tuyền 25/09/2026). Lượt không qua tư vấn thì không hiện ô. */}
+                  (Tuyền 25/09/2026). Lượt không qua tư vấn (Thủ thuật…) vẫn hiện
+                  ô, đã tick sẵn + khoá + ghi chú lý do (16/10/2026). */}
               {dangChon.tu_van ? (
                 <label className="flex min-h-10 w-full items-center gap-2 text-sm text-ink sm:w-auto">
                   <input
@@ -770,7 +772,13 @@ export default function BangDoSinhHieu() {
                   Bỏ qua bác sĩ tư vấn — vào thẳng bác sĩ chính
                   {!dangChon.tu_van.doi_duoc ? (
                     <span className="text-meta text-ink-muted">
-                      ({dangChon.tu_van.bo_qua ? "bác sĩ chính đã khám" : "tư vấn đã nhận khách"})
+                      (
+                      {dangChon.tu_van.khong_qua_tu_van
+                        ? "loại dịch vụ này không qua tư vấn — đã vào thẳng"
+                        : dangChon.tu_van.bo_qua
+                          ? "bác sĩ chính đã khám"
+                          : "tư vấn đã nhận khách"}
+                      )
                     </span>
                   ) : null}
                 </label>

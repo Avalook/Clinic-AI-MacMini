@@ -567,8 +567,14 @@ class LuotKhamService:
                     identity.clinic_id,
                     vid,
                 )
-                # Đã đúng như tick rồi (bấm hai lần) → không phải lỗi.
-                da_dung = (trang_thai == "cancelled") == bo_qua and trang_thai
+                # Đã đúng như tick rồi (bấm hai lần) → không phải lỗi. Lượt không
+                # có phiên tư vấn nào (loại dịch vụ không qua tư vấn) đã là "bỏ
+                # qua" sẵn — tick lại thì êm; bỏ tick thì vẫn báo không đưa về được.
+                da_dung = (
+                    bo_qua
+                    if trang_thai is None
+                    else (trang_thai == "cancelled") == bo_qua
+                )
                 if not da_dung:
                     raise LuotKhamConflictError("TU_VAN_KHONG_DOI_DUOC", loi)
         return {"ok": True, "visit_id": vid, "bo_qua_tu_van": bo_qua}
