@@ -19,7 +19,6 @@ import asyncpg
 import structlog
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.services.audit import record_event
 
@@ -30,14 +29,21 @@ _MST_RE = re.compile(r"^[0-9]{10}(-[0-9]{3})?$")
 
 def kiem_mst(mst: str) -> bool:
     """Trả True nếu MST có vẻ hợp lệ (10 số hoặc 10 số + '-' + 3 số)."""
-    return bool(_MST_RE.match(mst.strip())) if mst else True  # rỗng = chưa điền → ok
+    s = (mst or "").strip()
+    if not s:
+        return True  # rỗng = chưa điền → ok
+    return bool(_MST_RE.match(s))
 
 
 def _canh_bao_mst(mst: str) -> str | None:
     """Trả chuỗi cảnh báo nếu MST sai định dạng; None nếu ổn."""
-    mst = mst.strip()
-    if mst and not kiem_mst(mst):
-        return "Mã số thuế không đúng định dạng (cần 10 số hoặc 10 số + '-' + 3 số) — đã lưu nhưng nên kiểm lại"
+    s = (mst or "").strip()
+    if s and not kiem_mst(s):
+        return (
+            "Mã số thuế không đúng định dạng"
+            " (cần 10 số hoặc 10 số + '-' + 3 số)"
+            " — đã lưu nhưng nên kiểm lại"
+        )
     return None
 
 
@@ -100,7 +106,7 @@ INSERT INTO public.hoa_don_cong_ty
     (id, clinic_id, payment_cycle_id, ten_cong_ty, dia_chi_cong_ty,
      ma_so_thue, email_nhan_hd, khach_cong_ty_id, ghi_boi, ghi_luc)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
-ON CONFLICT ON CONSTRAINT uq_hoa_don_cong_ty_cycle DO UPDATE SET
+ON CONFLICT (clinic_id, payment_cycle_id) DO UPDATE SET
     ten_cong_ty        = EXCLUDED.ten_cong_ty,
     dia_chi_cong_ty    = EXCLUDED.dia_chi_cong_ty,
     ma_so_thue         = EXCLUDED.ma_so_thue,
@@ -215,23 +221,20 @@ class HoaDonCongTyService:
                     ghi_chu.strip(),
                     identity.staff_id,
                 )
-        await record_event(
-            self.pool,
-            source="api:hoa-don-cong-ty",
-            clinic_id=identity.clinic_id,
-            staff_id=identity.staff_id,
-            action="luu_cong_ty_khach",
-            meta={"id": str(rec_id), "ten": ten},
-        )
+                await record_event(
+                    conn,
+                    event_type="hoa_don_cong_ty.khach_luu",
+                    aggregate_type="khach_cong_ty",
+                    aggregate_id=str(rec_id),
+                    identity=identity,
+                    origin="api:hoa-don-cong-ty",
+                    payload={"ten": ten, "clinic_patient_id": clinic_patient_id},
+                )
         return {"id": row["id"], "canh_bao_mst": canh_bao}
 
-    async def xoa_cong_ty_khach(
-        self, *, identity: StaffIdentity, id: str
-    ) -> None:
+    async def xoa_cong_ty_khach(self, *, identity: StaffIdentity, id: str) -> None:
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                _XOA_CONG_TY_KHACH, identity.clinic_id, UUID(id)
-            )
+            row = await conn.fetchrow(_XOA_CONG_TY_KHACH, identity.clinic_id, UUID(id))
         if not row:
             raise ResourceNotFoundError("Không tìm thấy công ty")
         await record_event(
@@ -318,14 +321,18 @@ class HoaDonCongTyService:
                         email_nhan_hd.strip(),
                         identity.staff_id,
                     )
-        await record_event(
-            self.pool,
-            source="api:hoa-don-cong-ty",
-            clinic_id=identity.clinic_id,
-            staff_id=identity.staff_id,
-            action="ghi_hoa_don_cong_ty",
-            meta={"payment_cycle_id": payment_cycle_id, "ten": ten},
-        )
+                await record_event(
+                    conn,
+                    event_type="hoa_don_cong_ty.ghi",
+                    aggregate_type="hoa_don_cong_ty",
+                    aggregate_id=row["id"],
+                    identity=identity,
+                    origin="api:hoa-don-cong-ty",
+                    payload={
+                        "payment_cycle_id": payment_cycle_id,
+                        "ten": ten,
+                    },
+                )
         return {"id": row["id"], "canh_bao_mst": canh_bao}
 
     async def doc_lich_su(
@@ -350,15 +357,10 @@ class HoaDonCongTyService:
 
     # ── Đánh dấu xuất MISA ─────────────────────────────────────────────────
 
-    async def doc_misa_xuat(
-        self, *, identity: StaffIdentity
-    ) -> list[dict[str, Any]]:
+    async def doc_misa_xuat(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(_DOC_MISA_XUAT, identity.clinic_id)
-        return [
-            {**dict(r), "ban_chup": r["ban_chup"] or []}
-            for r in rows
-        ]
+        return [{**dict(r), "ban_chup": r["ban_chup"] or []} for r in rows]
 
     async def danh_dau_xuat_misa(
         self,
@@ -394,27 +396,33 @@ class HoaDonCongTyService:
             raise ValidationError("Ngày không đúng định dạng — nhập dd/mm/yyyy")
 
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                _THEM_MISA_XUAT,
-                rec_id,
-                identity.clinic_id,
-                tu,
-                den,
-                co_so,
-                so,
-                tong,
-                identity.staff_id,
-                ghi_chu.strip(),
-                json.dumps(ban_chup, ensure_ascii=False),
-            )
-        await record_event(
-            self.pool,
-            source="api:hoa-don-cong-ty",
-            clinic_id=identity.clinic_id,
-            staff_id=identity.staff_id,
-            action="danh_dau_xuat_misa",
-            meta={"tu": tu_ngay, "den": den_ngay, "so_hoa_don": so},
-        )
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    _THEM_MISA_XUAT,
+                    rec_id,
+                    identity.clinic_id,
+                    tu,
+                    den,
+                    co_so,
+                    so,
+                    tong,
+                    identity.staff_id,
+                    ghi_chu.strip(),
+                    json.dumps(ban_chup, ensure_ascii=False),
+                )
+                await record_event(
+                    conn,
+                    event_type="misa.xuat",
+                    aggregate_type="hoa_don_misa_xuat",
+                    aggregate_id=str(rec_id),
+                    identity=identity,
+                    origin="api:misa-xuat",
+                    payload={
+                        "tu_ngay": tu_ngay,
+                        "den_ngay": den_ngay,
+                        "so_hoa_don": so,
+                    },
+                )
         return {"id": row["id"], "so_hoa_don": so, "tong_tien": tong}
 
 

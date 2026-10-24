@@ -225,7 +225,10 @@ async def ghi_hoa_don_cong_ty(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Ghi/cập nhật snapshot công ty cho payment_cycle (snapshot không đổi sau khi xuất MISA)."""
+    """Ghi/cập nhật snapshot công ty cho payment_cycle.
+
+    Snapshot không đổi sau khi xuất MISA — sửa thì ghi lịch sử.
+    """
     return await HoaDonCongTyService(pool).ghi_hoa_don_cong_ty(
         identity=identity,
         payment_cycle_id=payment_cycle_id,
@@ -250,9 +253,7 @@ async def doc_lich_su_cong_ty(
     )
     if not hdc:
         return {"lich_su": []}
-    rows = await svc.doc_lich_su(
-        identity=identity, hoa_don_cong_ty_id=hdc["id"]
-    )
+    rows = await svc.doc_lich_su(identity=identity, hoa_don_cong_ty_id=hdc["id"])
     return {"lich_su": rows}
 
 
@@ -275,7 +276,10 @@ async def danh_dau_xuat_misa(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Đánh dấu đã xuất kỳ này sang MISA. Gửi `hoa_don` = mảng hoá đơn từ /hoa-don/xuat."""
+    """Đánh dấu đã xuất kỳ này sang MISA.
+
+    Gửi `hoa_don` = mảng hoá đơn từ /hoa-don/xuat.
+    """
     return await HoaDonCongTyService(pool).danh_dau_xuat_misa(
         identity=identity,
         tu_ngay=str(body.get("tu_ngay") or ""),

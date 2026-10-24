@@ -266,7 +266,9 @@ def dung_hoa_don(
                 "ten_cong_ty": ct.get("ten_cong_ty") or "",
                 "dia_chi_cong_ty": ct.get("dia_chi_cong_ty") or "",
                 "la_hd_cong_ty": la_hd_cong_ty,
-                "so_dien_thoai": "" if la_hd_cong_ty else (k.get("so_dien_thoai") or ""),
+                "so_dien_thoai": ""
+                if la_hd_cong_ty
+                else (k.get("so_dien_thoai") or ""),
                 "cccd": "" if la_hd_cong_ty else (kh.get("cccd") or ""),
                 "hinh_thuc": HINH_THUC.get(str(p.get("hinh_thuc") or ""), ""),
                 "dong": dong,
@@ -308,7 +310,7 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
     for hd in hoa_don:
         for i, d in enumerate(hd["dong"]):
             dau = i == 0
-            # HĐ công ty: C=tên cty, D=địa chỉ cty, E=MST; H/I để trống (không ghi SĐT/CCCD).
+            # HĐ công ty: C=tên cty, D=địa chỉ cty, E=MST; H/I trống.
             la_ct = hd.get("la_hd_cong_ty")
             van_ban = {
                 1: str(hd["stt"]),

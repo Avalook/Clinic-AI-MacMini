@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS public.khach_cong_ty (
     sua_boi          uuid        REFERENCES public.staff (id) ON DELETE SET NULL,
     sua_luc          timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT khach_cong_ty_fk_patient
-        FOREIGN KEY (clinic_patient_id, clinic_id)
-        REFERENCES public.patient (clinic_patient_id, clinic_id) ON DELETE CASCADE
+        FOREIGN KEY (clinic_patient_id)
+        REFERENCES public.patient (clinic_patient_id) ON DELETE CASCADE
 );
 
 -- Chỉ một công ty mặc định mỗi khách/phòng khám.
