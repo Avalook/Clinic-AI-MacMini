@@ -82,6 +82,7 @@ const POLL_MS = 60_000;
 // `notify_row_change` (pg_notify → FastAPI SSE; mẫu 20260806000001) — thêm bảng
 // ở đây mà thiếu trigger thì danh sách im lặng vô dụng.
 const LIVE_TABLES = [
+  "giam_gia",
   "appointment",
   "visit",
   "work_item",

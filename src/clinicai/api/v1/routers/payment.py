@@ -473,3 +473,57 @@ async def go_anh_chuyen_khoan(
     from clinicai.services.anh_chuyen_khoan_service import AnhChuyenKhoanService
 
     return await AnhChuyenKhoanService(pool).go(identity=identity, anh_id=str(anh_id))
+
+
+class GiamGiaRequest(BaseModel):
+    visit_id: Any = None
+    kind: Any = None
+    pham_vi: Any = None
+    kieu: Any = None
+    gia_tri: Any = None
+    ly_do: Any = None
+    bill_revision: Any = None
+    source_type: Any = None
+    source_id: Any = None
+
+
+class HuyGiamGiaRequest(BaseModel):
+    bill_revision: Any = None
+    ly_do: Any = None
+
+
+@router.post("/payments/giam-gia")
+async def them_giam_gia(
+    body: GiamGiaRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> Any:
+    from clinicai.services.giam_gia_service import them
+
+    idem = await idem.acquire(pool, actor_id=identity.staff_id)
+    if idem.is_replay:
+        return idem.cached_response
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        result = await them(pool, identity, **body.model_dump())
+        await idem.save(pool, result)
+        return result
+
+
+@router.post("/payments/giam-gia/{giam_gia_id}/huy")
+async def huy_giam_gia(
+    giam_gia_id: str,
+    body: HuyGiamGiaRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> Any:
+    from clinicai.services.giam_gia_service import huy
+
+    idem = await idem.acquire(pool, actor_id=identity.staff_id)
+    if idem.is_replay:
+        return idem.cached_response
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        result = await huy(pool, identity, giam_gia_id=giam_gia_id, **body.model_dump())
+        await idem.save(pool, result)
+        return result

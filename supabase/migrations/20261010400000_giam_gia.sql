@@ -105,10 +105,36 @@ CREATE TRIGGER trg_giam_gia_chi_them
     BEFORE UPDATE OR DELETE ON public.giam_gia
     FOR EACH ROW EXECUTE FUNCTION public.giam_gia_chi_them();
 
+-- Khoá cycle để việc gắn không đua với huỷ lần thu. FK id đơn lẻ không
+-- bảo vệ tenant/lượt/loại khi service_role bypass RLS.
+CREATE OR REPLACE FUNCTION public.giam_gia_gan_dung_lan_thu()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+DECLARE c record;
+BEGIN
+    IF NEW.payment_cycle_id IS NOT NULL THEN
+        SELECT clinic_id, visit_id, kind, status INTO c
+          FROM public.payment_cycle WHERE payment_cycle_id = NEW.payment_cycle_id
+          FOR UPDATE;
+        IF c.clinic_id IS DISTINCT FROM NEW.clinic_id
+           OR c.visit_id IS DISTINCT FROM NEW.visit_id
+           OR c.kind IS DISTINCT FROM NEW.kind
+           OR c.status NOT IN ('PENDING_VERIFICATION', 'PAID') THEN
+            RAISE EXCEPTION 'Giảm giá phải gắn lần thu cùng lượt, cơ sở, loại và còn hiệu lực'
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_giam_gia_gan_dung_lan_thu ON public.giam_gia;
+CREATE TRIGGER trg_giam_gia_gan_dung_lan_thu
+    BEFORE INSERT OR UPDATE ON public.giam_gia
+    FOR EACH ROW EXECUTE FUNCTION public.giam_gia_gan_dung_lan_thu();
+
 ALTER TABLE public.giam_gia ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS giam_gia_select_own_clinic ON public.giam_gia;
 CREATE POLICY giam_gia_select_own_clinic ON public.giam_gia
-    FOR SELECT TO service_role USING (clinic_id IN (SELECT current_clinic_ids()));
+    FOR SELECT TO authenticated USING (clinic_id IN (SELECT current_clinic_ids()));
+GRANT SELECT ON public.giam_gia TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.giam_gia TO service_role;
 
 -- Quầy kia / màn lịch sử thấy ngay (LIVE_TABLES trong RealtimeRefresher.tsx).
