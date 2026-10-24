@@ -2,6 +2,15 @@
 
 Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
 
+## 22/10/2026 — KHOÁ `/rest/v1` (Mức 3, Tuyền duyệt khoá hẳn): BƯỚC 1 XONG Ở PR, CHƯA ĐỤNG STAGING/PROD
+
+Nhánh `claude/khoa-rest-v1`: migration `20261022900000_khoa_rest_v1.sql` (anon/authenticated chỉ còn đọc
+`staff` + `clinic_membership` của chính mình, giữ EXECUTE 5 hàm policy), bài canh `test_khoa_rest_v1_db.py`,
+`scripts/chup-acl-rest.sh` (chụp + sinh rollback), `scripts/kiem-khoa-rest.sql` + `kiem-khoa-rest-http.sh`.
+Hai script nạp bản sao (staging đêm, Mac) nay áp lại khoá sau `GRANT ALL` — không thì staging tự mở lại mỗi đêm.
+Việc tiếp: bước 2 (diễn tập Mac) → 3 (staging) → 4 (prod), lệnh ở `docs/ke-hoach/khoa-rest-v1-2210.md` mục 9.
+Chưa làm (việc sau): tắt `/realtime/v1`; đưa hai chỗ đọc staff/membership sang FastAPI rồi chặn hẳn `/rest/v1` ở Caddy.
+
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
 
 **Cập nhật 16/10 sáng (sau CI xanh — CẦN CI MÁY LẠI trước khi lên prod):** (a) thêm PR "đặt cờ vật tư hàng loạt theo loại"

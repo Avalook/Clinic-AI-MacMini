@@ -91,6 +91,11 @@ INSERT INTO public.clinical_form_response
 VALUES ('c1000000-0000-4000-8000-000000000001',
         'e1000000-0000-4000-8000-000000000001', 'PK', '{"a":1}'::jsonb);
 
+-- /rest/v1 đã khoá (20261022900000): authenticated không còn SELECT bảng nào
+-- ngoài staff/clinic_membership. Mở tạm trong giao dịch sẽ ROLLBACK để kiểm
+-- lớp thứ hai — policy vẫn phải lọc đúng nếu một ngày ai đó lỡ GRANT lại.
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
+
 SET LOCAL ROLE authenticated;
 
 -- ---------------------------------------------------------------------------

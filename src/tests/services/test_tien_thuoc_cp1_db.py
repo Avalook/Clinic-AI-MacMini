@@ -692,8 +692,18 @@ async def test_quyen_that_tren_payment_bill_line(q: Quay) -> None:
         q.thu_ngan.staff_id,
         uid,
     )
+    # /rest/v1 đã khoá (20261022900000): bình thường authenticated không đọc
+    # được bảng này chút nào.
+    async with q.pool.acquire() as conn:
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            async with conn.transaction():
+                await conn.execute("SET LOCAL ROLE authenticated")
+                await conn.fetchval("SELECT count(*) FROM payment_bill_line")
+    # Lớp thứ hai: lỡ ai GRANT lại thì policy vẫn lọc theo phòng khám. Mở tạm
+    # trong giao dịch, thu lại trước khi commit.
     async with q.pool.acquire() as conn:
         async with conn.transaction():
+            await conn.execute("GRANT SELECT ON payment_bill_line TO authenticated")
             await conn.execute("SET LOCAL ROLE authenticated")
             await conn.execute(
                 "SELECT set_config('request.jwt.claim.sub', $1, true)", uid
@@ -717,6 +727,8 @@ async def test_quyen_that_tren_payment_bill_line(q: Quay) -> None:
                 )
                 == 0
             )
+            await conn.execute("RESET ROLE")
+            await conn.execute("REVOKE SELECT ON payment_bill_line FROM authenticated")
     async with q.pool.acquire() as conn:
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             async with conn.transaction():

@@ -242,6 +242,10 @@ SQL
 # GRANTs, so restore the explicit function and stock-read ACLs on every restore.
 psql_stg -f "$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql"
 psql_stg -f "$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
+# Khoá /rest/v1 phải đứng SAU câu GRANT ALL ở trên — thiếu dòng này thì mỗi đêm
+# nạp lại là PostgREST mở toang trở lại. Code staging cũ hơn tệp thì bỏ qua.
+KHOA_REST="$STAGING_DIR/supabase/migrations/20261022900000_khoa_rest_v1.sql"
+if [ -f "$KHOA_REST" ]; then psql_stg -f "$KHOA_REST"; fi
 xong "đã nạp + che (giao dịch đã commit)"
 xong "giữ lại $(psql_stg -tAc 'SELECT count(*) FROM auth.sessions' | tr -d ' \r') phiên đăng nhập"
 

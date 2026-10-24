@@ -216,8 +216,10 @@ BEGIN
     -- 126 → 127 (17/10/2026): thuoc_quy_doi (20261017100000).
     -- 127 → 116 (19/10/2026): thu hồi 11 policy đọc trực tiếp sổ kho
     -- (20261019120000); các màn đọc qua FastAPI có kiểm capability.
-    IF scoped_count <> 116 THEN
-        RAISE EXCEPTION 'expected 116 tenant-scoped read policies, found %', scoped_count;
+    -- 116 → 115 (22/10/2026): staff_select_own_clinic thay bằng
+    -- staff_select_chinh_minh — chỉ hàng của mình (20261022900000, khoá /rest/v1).
+    IF scoped_count <> 115 THEN
+        RAISE EXCEPTION 'expected 115 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
@@ -297,43 +299,35 @@ BEGIN
 END
 $membership_is_automatic$;
 
-DO $policies_need_grants$
+DO $rest_v1_khoa$
 DECLARE
-    ungranted text;
+    doc_duoc text;
 BEGIN
-    -- A read policy only narrows a privilege the role already holds. The frozen
-    -- baseline was dumped without ACLs, so on a fresh project every policy
-    -- written in W1-W4 was unreachable and the app died on permission denied —
-    -- invisible in production, fatal in a new environment. 20260730000008
-    -- restores them; this makes sure they stay.
-    SELECT string_agg(DISTINCT c.relname, ', ')
-      INTO ungranted
+    -- ĐẢO NGƯỢC 22/10/2026 (20261022900000, khoá /rest/v1). Trước đây khối này
+    -- canh "bảng có policy đọc thì authenticated phải SELECT được" — vì app
+    -- từng đọc thẳng PostgREST. Nay giao diện chỉ còn đọc staff +
+    -- clinic_membership của chính mình; mọi bảng khác đi qua FastAPI. Policy
+    -- vẫn giữ làm lớp thứ hai (kiểm ở phần Behaviour bên dưới).
+    SELECT string_agg(DISTINCT c.relname, ', ' ORDER BY c.relname)
+      INTO doc_duoc
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
-      JOIN pg_policy p ON p.polrelid = c.oid
      WHERE n.nspname = 'public'
-       AND c.relkind = 'r'
-       AND p.polcmd IN ('r', '*')
-       -- HỎI "ĐỌC ĐƯỢC THỨ GÌ ĐÓ", KHÔNG PHẢI "CẦM SELECT CẢ BẢNG".
-       --
-       -- 20260805000002 rút SELECT mức bảng khỏi `clinic` rồi cấp lại theo
-       -- CỘT, để `clinic.settings` (nơi tài liệu đang dạy đặt credential POS)
-       -- không đọc được bằng anon key. Bảng vẫn có policy đọc và ứng dụng vẫn
-       -- chạy — nhưng `has_table_privilege(..., 'SELECT')` trả false, nên câu
-       -- hỏi cũ báo `clinic` là "có policy mà không đọc nổi", một kết luận sai.
-       AND NOT EXISTS (
+       AND c.relkind IN ('r', 'v', 'm', 'p', 'f')
+       AND EXISTS (
            SELECT 1 FROM pg_attribute a
             WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
-              AND has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')
+              AND (has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')
+                OR has_column_privilege('anon', c.oid, a.attnum, 'SELECT'))
        );
 
-    IF ungranted IS NOT NULL THEN
+    IF doc_duoc IS DISTINCT FROM 'clinic_membership, staff' THEN
         RAISE EXCEPTION
-            'these tables have a read policy but authenticated cannot SELECT them: %',
-            ungranted;
+            '/rest/v1 phải chỉ đọc được clinic_membership, staff — đang đọc được: %',
+            doc_duoc;
     END IF;
 END
-$policies_need_grants$;
+$rest_v1_khoa$;
 
 -- --------------------------------------------------------------------------
 -- Behaviour. Two clinics, one staff member each, one patient each.
@@ -384,6 +378,10 @@ VALUES
 -- if somebody accidentally restores the grant later, SECURITY INVOKER still
 -- makes the patient table's tenant RLS apply through the view.
 GRANT SELECT ON public.patient_summary TO authenticated;
+-- Cùng lý do cho MỌI bảng sau khi khoá /rest/v1 (20261022900000): mở tạm trong
+-- giao dịch sẽ ROLLBACK, để chứng minh policy theo phòng khám vẫn đúng nếu một
+-- ngày ai đó lỡ GRANT lại.
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
 
 SET LOCAL ROLE authenticated;
 
