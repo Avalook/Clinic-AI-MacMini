@@ -19,13 +19,17 @@
 #   * portability: không khởi động thử ảnh (Docker Desktop trên Mac không có
 #     `--network host` như Linux). Deploy lên VPS dựng + khởi động ảnh amd64 thật
 #     và có health check — đó là bước chứng minh ảnh chạy được.
-#   * DB thử dùng container riêng (ci_may_test :55530, ci_may_db :55531), không
-#     đụng DB test hằng ngày (:55500) và KHÔNG BAO GIỜ đụng :55433. Cổng đổi được:
-#     CI_MAY_CONG_TEST / CI_MAY_CONG_DB (30/09: container test của phiên Codex
-#     chiếm :55531 → job migration hỏng).
-#   * MỘT phiên một lúc trên cả máy: hai phiên cùng xoá/dựng `ci_may_test` thì
-#     giẫm nhau. Khoá nằm ở thư mục git CHUNG của mọi worktree; phiên thứ hai
-#     thoát 3 và nói ai đang giữ.
+#   * DB thử là container RIÊNG CỦA CÂY: ci_may_test_<băm>, ci_may_db_<băm> (<băm>
+#     = 6 ký tự đầu sha1 đường dẫn worktree), cổng tự tìm chỗ trống trong
+#     55532–55599 (bỏ 55530/55531 cho nhánh còn bản script cũ; 30/09 container
+#     Codex chiếm :55531 → job migration hỏng — giờ cổng bận thì nhảy cổng khác).
+#     Ép cổng: CI_MAY_CONG_TEST / CI_MAY_CONG_DB. Xong lượt (hay bị ngắt) thì xoá
+#     đúng container của lượt mình; KHÔNG đụng container lượt khác, chung_test_db,
+#     test_nhanh_ram, và KHÔNG BAO GIỜ đụng :55433.
+#   * Nhiều lượt cùng lúc (nhiều worktree): tối đa CI_MAY_SONG_SONG lượt (mặc định
+#     2, số đo ở docs/CHAY-TEST.md), lượt dư TỰ CHỜ tới khi có chỗ — không thoát.
+#     Cùng một cây thì chờ lượt trước của cây đó (chung .ci-may/, .next, container).
+#     Sổ lượt ở thư mục git CHUNG: <git-common-dir>/ci-may.luot/<pid>/.
 
 set -uo pipefail
 
