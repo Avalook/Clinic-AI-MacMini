@@ -5,7 +5,7 @@
 // và /api/clinic-config (service-rooms). Bảng giá thuốc vẫn ở CashierView.
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
-import { requireNavAccess } from "../../../../lib/clinic-session";
+import { laQuanLyDuyetVatTu, requireNavAccess } from "../../../../lib/clinic-session";
 import DanhMucDichVuPhong, { type DanhMucGoi } from "../DanhMucDichVuPhong";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,7 @@ export default async function PriceDichVuPage({
 }) {
   await requireNavAccess("/cashier/dich-vu");
   const { loc } = await searchParams;
+  const laQuanLy = await laQuanLyDuyetVatTu();
   // null = backend không trả lời — "không đọc được" khác "chưa có dịch vụ".
   const data = await fetchFromBackend<DanhMucGoi>("/api/v1/service-prices/danh-muc");
 
@@ -25,7 +26,11 @@ export default async function PriceDichVuPage({
       <header>
         <h1 className="text-title font-semibold text-ink">Bảng giá dịch vụ &amp; phòng</h1>
       </header>
-      <DanhMucDichVuPhong banDau={data} chiChuaPhong={loc === "chua-phong"} />
+      <DanhMucDichVuPhong
+        banDau={data}
+        chiChuaPhong={loc === "chua-phong"}
+        laQuanLy={laQuanLy}
+      />
     </main>
   );
 }

@@ -7,17 +7,31 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.api.identity import StaffIdentity
 from clinicai.api.v1.routers.config import PriceUpdateRequest
+from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.config_service import PriceListService
 from clinicai.services.danh_muc_dich_vu_service import doc_vat_tu
+from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_vat_tu_kho_db import _bo, _ghi
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
+async def _quan_ly(pool: asyncpg.Pool) -> StaffIdentity:
+    async with pool.acquire() as conn:
+        loc = await conn.fetchval(
+            "SELECT id::text FROM clinic_location WHERE clinic_id=$1::uuid"
+            " AND is_active ORDER BY id LIMIT 1",
+            CLINIC,
+        )
+        return await _nguoi(conn, loc, "MANAGEMENT")
+
+
 async def test_sua_va_doc_du_cot(pool: asyncpg.Pool) -> None:
-    identity, vt, _ = await _bo(pool)
+    _, vt, _ = await _bo(pool)
+    identity = await _quan_ly(pool)
     patch: dict[str, Any] = {
         "loai_vat_tu": "VPP",
         "gia_nhap": "2500",
@@ -92,12 +106,154 @@ async def test_khong_kinh_doanh_khong_duoc_ban(pool: asyncpg.Pool) -> None:
     q = await tao_quay(pool)
     vt = await _vt(q, "Vật tư phân loại", 300000)
     await PriceListService(pool).update(
-        price_id=vt, identity=q.thu_ngan, vat_tu={"kinh_doanh": False}
+        price_id=vt, identity=await _quan_ly(pool), vat_tu={"kinh_doanh": False}
     )
     with pytest.raises(ValidationError):
         await VatTuService(pool).them(
             visit_id=q.visit_id, service_price_id=vt, identity=q.thu_ngan, so_luong=1
         )
+
+
+async def test_chi_quan_ly_duoc_cau_hinh_phan_loai_va_duyet(
+    pool: asyncpg.Pool,
+) -> None:
+    non_manager, vt, _ = await _bo(pool)
+    svc = PriceListService(pool)
+    for patch in (
+        {"loai_vat_tu": "VPP"},
+        {"kinh_doanh": True},
+        {"can_ql_duyet": True},
+        {"can_duyet_nhap": True},
+    ):
+        with pytest.raises(SafetyGateError, match="Chỉ Quản lý"):
+            await svc.update(price_id=vt, identity=non_manager, vat_tu=patch)
+    with pytest.raises(SafetyGateError, match="Chỉ Quản lý"):
+        await svc.add(
+            identity=non_manager,
+            service_code="VT_POLICY_TEST",
+            name="Mặt hàng cần duyệt",
+            group="vat_tu",
+            unit_price=None,
+            vat_tu={"can_ql_duyet": True},
+        )
+    row = await pool.fetchrow(
+        "SELECT kinh_doanh_vat_tu, can_ql_duyet, can_duyet_nhap_vat_tu"
+        " FROM service_price WHERE id=$1::uuid",
+        vt,
+    )
+    assert tuple(row.values()) == (False, False, False)
+
+
+async def test_quan_ly_thieu_quyen_duyet_khong_duoc_doi_cac_co_chinh_sach(
+    pool: asyncpg.Pool,
+) -> None:
+    _, vt, _ = await _bo(pool)
+    ql_thieu_quyen = await _quan_ly(pool)
+    await pool.execute(
+        "UPDATE capability_grant SET revoked_at=now(), revoked_by=staff_id,"
+        " ly_do='Test thu quyền duyệt'"
+        " WHERE clinic_id=$1::uuid AND staff_id=$2::uuid"
+        " AND capability='vat_tu.approve' AND revoked_at IS NULL",
+        ql_thieu_quyen.clinic_id,
+        ql_thieu_quyen.staff_id,
+    )
+    service = PriceListService(pool)
+    for patch in (
+        {"can_ql_duyet": False},
+        {"can_duyet_nhap": True},
+        {"kinh_doanh": True},
+    ):
+        with pytest.raises(SafetyGateError, match="có quyền Duyệt vật tư"):
+            await service.update(price_id=vt, identity=ql_thieu_quyen, vat_tu=patch)
+    with pytest.raises(SafetyGateError, match="có quyền Duyệt vật tư"):
+        await service.add(
+            identity=ql_thieu_quyen,
+            service_code="VT_MANAGER_NO_APPROVAL",
+            name="Không được mở cờ duyệt",
+            group="vat_tu",
+            unit_price=None,
+            vat_tu={"can_ql_duyet": True},
+        )
+    assert (
+        await pool.fetchval(
+            "SELECT can_ql_duyet FROM service_price WHERE id=$1::uuid", vt
+        )
+        is False
+    )
+
+
+async def test_nhan_vien_khong_sua_gia_trang_thai_hoac_xoa_mat_hang_can_duyet(
+    pool: asyncpg.Pool,
+) -> None:
+    """Quyền bảng giá không cho nhân viên sửa mặt hàng được Quản lý bảo vệ."""
+    from clinicai.permissions.can import can
+
+    _, vt, _ = await _bo(pool)
+    quan_ly = await _quan_ly(pool)
+    service = PriceListService(pool)
+    await service.update(
+        price_id=vt,
+        identity=quan_ly,
+        name="Đầu dò cần quản lý",
+        unit_price=120000,
+        unit_price_provided=True,
+        active=True,
+        vat_tu={"can_ql_duyet": True},
+    )
+
+    async with pool.acquire() as conn:
+        loc = await conn.fetchval(
+            "SELECT id::text FROM clinic_location WHERE clinic_id=$1::uuid"
+            " AND is_active ORDER BY id LIMIT 1",
+            CLINIC,
+        )
+        nhan_vien = await _nguoi(conn, loc, "CASHIER_DV")
+        assert await can(conn, nhan_vien, "price.service.manage")
+
+    for patch in (
+        {"name": "Tên bị sửa"},
+        {"unit_price": 1, "unit_price_provided": True},
+        {"active": False},
+        {"vat_tu": {"ma_vach": "12345678"}},
+    ):
+        with pytest.raises(SafetyGateError, match="Chỉ Quản lý"):
+            await service.update(price_id=vt, identity=nhan_vien, **patch)
+
+    with pytest.raises(SafetyGateError, match="Chỉ Quản lý"):
+        await service.remove(price_id=vt, identity=nhan_vien)
+
+    await service.update(
+        price_id=vt,
+        identity=quan_ly,
+        unit_price=125000,
+        unit_price_provided=True,
+    )
+    row = await pool.fetchrow(
+        "SELECT name, unit_price, active, can_ql_duyet, ma_vach_vat_tu"
+        " FROM service_price WHERE id=$1::uuid",
+        vt,
+    )
+    assert tuple(row.values()) == ("Đầu dò cần quản lý", 125000, True, True, None)
+
+
+async def test_danh_muc_giau_mat_hang_can_duyet_khoi_nhan_vien(
+    pool: asyncpg.Pool,
+) -> None:
+    """Nhân viên không thấy mặt hàng có cờ duyệt trong danh mục thao tác."""
+    from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
+
+    nhan_vien, vt, _ = await _bo(pool)
+    quan_ly = await _quan_ly(pool)
+    await PriceListService(pool).update(
+        price_id=vt,
+        identity=quan_ly,
+        vat_tu={"can_duyet_nhap": True},
+    )
+
+    nhan_vien_data = await DanhMucDichVuService(pool).doc(identity=nhan_vien)
+    quan_ly_data = await DanhMucDichVuService(pool).doc(identity=quan_ly)
+    assert vt not in {m["id"] for m in nhan_vien_data["vat_tu"]}
+    assert vt in {m["id"] for m in quan_ly_data["vat_tu"]}
 
 
 async def test_khong_doi_don_vi_sau_khi_da_ghi_so(pool: asyncpg.Pool) -> None:
@@ -130,7 +286,7 @@ async def test_khong_doi_don_vi_khi_phieu_nhap_dang_cho_duyet(
 
     with pytest.raises(ValidationError, match="đơn vị"):
         await PriceListService(pool).update(
-            price_id=vt, identity=identity, vat_tu={"don_vi": "hộp"}
+            price_id=vt, identity=await _quan_ly(pool), vat_tu={"don_vi": "hộp"}
         )
     with pytest.raises(asyncpg.CheckViolationError):
         await pool.execute(

@@ -14,8 +14,8 @@ const CO = [
 ] as const;
 const O = "h-10 w-full rounded-control border border-line bg-surface px-2 text-body text-ink lg:h-8";
 
-export default function VatTuThuocTinh({ d, ban, onSua }: {
-  d: DongVatTu; ban: boolean;
+export default function VatTuThuocTinh({ d, ban, laQuanLy = false, onSua }: {
+  d: DongVatTu; ban: boolean; laQuanLy?: boolean;
   onSua: (id: string, patch: Record<string, unknown>, xong: string) => Promise<boolean>;
 }) {
   const [patch, setPatch] = useState<Record<string, string | boolean>>({});
@@ -24,16 +24,18 @@ export default function VatTuThuocTinh({ d, ban, onSua }: {
     <details className="w-full basis-full text-body">
       <summary className="cursor-pointer py-2 text-brand-700">Sửa thuộc tính vật tư</summary>
       <div className="grid gap-3 py-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1">
-          <span>Loại vật tư</span>
-          <select aria-label={`Loại vật tư ${d.name}`} disabled={ban} className={O}
-            value={String(patch.loai_vat_tu ?? d.loai_vat_tu ?? "")}
-            onChange={(e) => doi("loai_vat_tu", e.target.value)}>
-            <option value="">Chưa phân loại</option>
-            <option value="VPP">Văn phòng phẩm</option>
-            <option value="VTYT">Vật tư y tế</option>
-          </select>
-        </label>
+        {laQuanLy ? (
+          <label className="space-y-1">
+            <span>Loại vật tư</span>
+            <select aria-label={`Loại vật tư ${d.name}`} disabled={ban} className={O}
+              value={String(patch.loai_vat_tu ?? d.loai_vat_tu ?? "")}
+              onChange={(e) => doi("loai_vat_tu", e.target.value)}>
+              <option value="">Chưa phân loại</option>
+              <option value="VPP">Văn phòng phẩm</option>
+              <option value="VTYT">Vật tư y tế</option>
+            </select>
+          </label>
+        ) : null}
         {CHU.map(([key, label]) => (
           <label key={key} className="space-y-1">
             <span>{label}</span>
@@ -43,7 +45,7 @@ export default function VatTuThuocTinh({ d, ban, onSua }: {
               onChange={(e) => doi(key, e.target.value)} />
           </label>
         ))}
-        {CO.map(([key, label]) => (
+        {CO.filter(([key]) => laQuanLy || key === "chon_nhanh").map(([key, label]) => (
           <label key={key} className="flex min-h-10 items-center gap-2">
             <input type="checkbox" aria-label={`${label} ${d.name}`} disabled={ban}
               checked={Boolean(patch[key] ?? d[key])} className="size-4 accent-brand-600"
@@ -52,7 +54,9 @@ export default function VatTuThuocTinh({ d, ban, onSua }: {
           </label>
         ))}
       </div>
-      <p className="mb-2 text-meta text-ink-muted">Cờ kinh doanh dùng để phân loại.</p>
+      {laQuanLy ? (
+        <p className="mb-2 text-meta text-ink-muted">Quản lý quyết định phân loại và mặt hàng cần duyệt.</p>
+      ) : null}
       <Button type="button" size="sm" disabled={ban || Object.keys(patch).length === 0}
         onClick={async () => {
           if (await onSua(d.id, patch, `Đã lưu thuộc tính “${d.name}”.`)) setPatch({});

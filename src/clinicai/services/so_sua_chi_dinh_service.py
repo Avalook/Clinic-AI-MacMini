@@ -902,7 +902,9 @@ class SoSuaChiDinhService:
         # (dòng đã thu ở lại với lần thu của nó — hoàn tiền như mọi khoản đã thu).
         from clinicai.services.bio_chi_dinh_service import chuyen_bio_chua_thu
 
-        await chuyen_bio_chua_thu(conn, cid, oid, moi["id"])
+        await chuyen_bio_chua_thu(
+            conn, cid, oid, moi["id"], actor_staff_id=identity.staff_id
+        )
         await conn.execute(
             """
             INSERT INTO so_sua_chi_dinh

@@ -35,6 +35,7 @@ export interface VatTuDong {
   so_luong: number;
   thanh_tien: number;
   da_thu: boolean;
+  can_ql_duyet: boolean;
   nguoi_duyet: string | null;
   ly_do_duyet: string | null;
   /** Nguyên nhân bán thêm (G8b); null = chưa ghi. */
@@ -74,6 +75,8 @@ export interface DauDoChiDinhGoi {
     chon_lam: boolean;
     goi_y: DauDoGoiY[];
     da_chon: DauDoDaChon | null;
+    /** Có đầu dò cần duyệt bị khóa với người không phải Quản lý. */
+    khoa_quan_ly: boolean;
   }[];
 }
 
@@ -82,10 +85,8 @@ export interface VatTuGoi {
   dong: VatTuDong[];
   tong: number;
   duoc_sua: boolean;
-  /** Người xem CÓ lego "Duyệt vật tư" (tự duyệt được) — tên khoá giữ từ bản cũ. */
+  /** Quản lý gốc có lego "Duyệt vật tư" (tự duyệt được) — tên khoá giữ từ bản cũ. */
   la_quan_ly: boolean;
-  /** Người chọn được làm người duyệt (có lego "Duyệt vật tư"). */
-  quan_ly: { id: string; ten: string }[];
   /** Dây `vat_tu_bat_ly_do_ban`: BẬT thì dòng mới ở quầy phải có nguyên nhân. */
   bat_ly_do_ban: boolean;
 }

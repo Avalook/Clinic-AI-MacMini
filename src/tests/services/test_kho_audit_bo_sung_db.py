@@ -11,6 +11,7 @@ from clinicai.services.config_service import PriceListService
 from clinicai.services.danh_muc_dich_vu_service import doc_vat_tu
 from clinicai.services.vat_tu_kho_man_service import doc_phieu
 from clinicai.services.vat_tu_kho_service import doc_ton, hoan_phieu, tao_phieu
+from tests.services.test_luot_kham_service_db import _nguoi
 from tests.services.test_vat_tu_kho_db import _bo, _ghi
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
@@ -19,6 +20,8 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 async def test_tao_danh_muc_du_metadata_va_tam_ngung_giu_so(pool: asyncpg.Pool) -> None:
     ai, _, rooms = await _bo(pool)
+    async with pool.acquire() as conn:
+        ai = await _nguoi(conn, ai.location_id, "MANAGEMENT")
     vt = await PriceListService(pool).add(
         identity=ai,
         service_code="",

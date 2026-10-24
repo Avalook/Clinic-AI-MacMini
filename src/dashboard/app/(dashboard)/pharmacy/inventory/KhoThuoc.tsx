@@ -8,6 +8,7 @@ import { useState } from "react";
 import ThanhTab from "@/components/ui/ThanhTab";
 import XuatBangTrongVung from "@/components/ui/XuatBangTrongVung";
 import ChoGanLo, { type DongChoGanLo } from "./ChoGanLo";
+import ChuyenKho from "./ChuyenKho";
 import DanhMucKho, { type ThuocKho } from "./DanhMucKho";
 import InventoryBoard, { type CauHinhHan, type InvBatch } from "./InventoryBoard";
 import KiemKeCa from "./KiemKeCa";
@@ -20,9 +21,9 @@ import XuatNhapTon from "./XuatNhapTon";
 type Khu = "kho" | "quay";
 type Tab =
   | "bao_cao_kho" | "ton" | "nhap" | "lich_su" | "danh_muc" | "kiem_kho"
-  | "kiem_dau" | "kiem_cuoi" | "cho_gan_lo" | "tra_cho_kiem";
+  | "kiem_dau" | "kiem_cuoi" | "cho_gan_lo" | "tra_cho_kiem" | "chuyen_kho";
 
-const TAB_KHO: readonly Tab[] = ["ton", "nhap", "bao_cao_kho", "lich_su", "danh_muc", "kiem_kho"];
+const TAB_KHO: readonly Tab[] = ["ton", "nhap", "chuyen_kho", "bao_cao_kho", "lich_su", "danh_muc", "kiem_kho"];
 const TAB_QUAY: readonly Tab[] = ["kiem_dau", "kiem_cuoi", "cho_gan_lo", "tra_cho_kiem"];
 const TAB_HOP_LE: readonly Tab[] = [...TAB_KHO, ...TAB_QUAY];
 
@@ -51,6 +52,7 @@ export default function KhoThuoc({
   ghiDuoc = false,
   cauHinhHan,
   tachKhoQuay = false,
+  suaTachDuoc = false,
   tabDau,
   ngayKiemKe,
   caKiemKe,
@@ -87,6 +89,7 @@ export default function KhoThuoc({
   const mucKho = [
     { ma: "ton" as const, nhan: `Thuốc trong kho (${batches.length} lô)` },
     { ma: "nhap" as const, nhan: "Nhập thuốc" },
+    { ma: "chuyen_kho" as const, nhan: "Chuyển kho ↔ quầy" },
     { ma: "bao_cao_kho" as const, nhan: "Báo cáo kho" },
     { ma: "lich_su" as const, nhan: "Lịch sử nhập / xuất" },
     {
@@ -148,7 +151,7 @@ export default function KhoThuoc({
         tenTep={`kho-thuoc-${tab}`}
         thanhCongCu={khu === "kho"
           ? <ThanhTab nhan="Kho thuốc" chon={tab} onChon={setTab} muc={mucKho} />
-          : <ThanhTab nhan="Quầy thuốc" chon={tab} onChon={setTab} muc={mucQuay} />}
+      : <ThanhTab nhan="Quầy thuốc" chon={tab} onChon={setTab} muc={mucQuay} />}
       >
       {tab === "danh_muc" ? (
         <DanhMucKho thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} />
@@ -169,6 +172,13 @@ export default function KhoThuoc({
         <TheKho thuoc={thuoc} chonId={theKhoId} onChon={setTheKhoId} />
       ) : tab === "bao_cao_kho" ? (
         <XuatNhapTon onXemThe={xemThe} />
+      ) : tab === "chuyen_kho" ? (
+        <ChuyenKho
+          batches={batches}
+          tachKhoQuay={tachKhoQuay}
+          suaTachDuoc={suaTachDuoc}
+          ghiDuoc={ghiDuoc}
+        />
       ) : (
         <InventoryBoard batches={batches} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} tachKhoQuay={tachKhoQuay} />
       )}

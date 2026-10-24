@@ -310,54 +310,32 @@ async def test_mirena_can_quan_ly_duyet(pool: asyncpg.Pool) -> None:
     mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
     ql = await _nguoi_vai(q, "MANAGEMENT")
 
-    # Không duyệt → từ chối, không ghi gì.
-    with pytest.raises(ValidationError):
-        await svc.them(
-            visit_id=q.visit_id, service_price_id=mirena, identity=q.thu_ngan
-        )
-    # Có người duyệt nhưng thiếu lý do → từ chối.
-    with pytest.raises(ValidationError):
+    # Nhân viên không nhìn thấy hàng cần duyệt và không thể tự gắn mã Quản lý.
+    danh_muc = await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan)
+    assert all(item["id"] != mirena for item in danh_muc["danh_muc"])
+    with pytest.raises(SafetyGateError, match="Chỉ Quản lý"):
         await svc.them(
             visit_id=q.visit_id,
             service_price_id=mirena,
+            identity=q.thu_ngan,
             duyet_boi=ql.staff_id,
-            ly_do_duyet="",
-            identity=q.thu_ngan,
-        )
-    # Người "duyệt" không phải quản lý → từ chối.
-    with pytest.raises(ValidationError):
-        await svc.them(
-            visit_id=q.visit_id,
-            service_price_id=mirena,
-            duyet_boi=q.bac_si.staff_id,
             ly_do_duyet="Vòng thứ hai do tụt vòng",
-            identity=q.thu_ngan,
         )
     assert await _dong_vat_tu(q) == []
 
-    # Thu ngân + quản lý đã duyệt + lý do → bán được; ghi ai duyệt.
-    kq = await svc.them(
-        visit_id=q.visit_id,
-        service_price_id=mirena,
-        duyet_boi=ql.staff_id,
-        ly_do_duyet="Vòng thứ hai: vòng đầu tụt khi đặt",
-        identity=q.thu_ngan,
-    )
-    (dong,) = kq["dong"]
-    assert dong["thanh_tien"] == 4_000_000 and dong["nguoi_duyet"] == ql.full_name
-    assert "tụt" in dong["ly_do_duyet"]
-    await svc.bo(dong_id=dong["id"], identity=q.thu_ngan)
-
-    # Quản lý tự thêm: chính họ là người duyệt, vẫn phải ghi lý do.
+    # Chỉ Quản lý đang đăng nhập có thể thêm và tự duyệt; lý do vẫn bắt buộc.
     with pytest.raises(ValidationError):
         await svc.them(visit_id=q.visit_id, service_price_id=mirena, identity=ql)
     kq = await svc.them(
         visit_id=q.visit_id,
         service_price_id=mirena,
-        ly_do_duyet="Sự cố vòng thứ hai",
+        ly_do_duyet="Vòng thứ hai: vòng đầu tụt khi đặt",
         identity=ql,
     )
-    assert kq["dong"][0]["nguoi_duyet"] == ql.full_name
+    (dong,) = kq["dong"]
+    assert dong["thanh_tien"] == 4_000_000 and dong["nguoi_duyet"] == ql.full_name
+    assert "tụt" in dong["ly_do_duyet"]
+    await svc.bo(dong_id=dong["id"], identity=ql)
 
     # Lưới cuối ở Postgres: ghi thẳng KHÔNG người duyệt bị chặn.
     with pytest.raises(asyncpg.CheckViolationError):
@@ -444,9 +422,13 @@ async def test_thu_roi_khoa_hoan_tac_lan_thu_tra_ve_cho_thu(pool: asyncpg.Pool) 
     with pytest.raises(ConflictError):
         await svc.them(visit_id=q.visit_id, service_price_id=probe, identity=q.thu_ngan)
     with pytest.raises(asyncpg.CheckViolationError):
-        await pool.execute(
-            "UPDATE luot_vat_tu SET so_luong = 5 WHERE id = $1::uuid", dong_id
-        )
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT set_config('app.staff_id', $1, true)", q.thu_ngan.staff_id
+            )
+            await conn.execute(
+                "UPDATE luot_vat_tu SET so_luong = 5 WHERE id = $1::uuid", dong_id
+            )
 
     # Báo cáo cuối ngày: tiền vật tư nằm ở bên DỊCH VỤ (cùng tiền khám), thuốc
     # đứng im.

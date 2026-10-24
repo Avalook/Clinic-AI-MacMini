@@ -16,7 +16,15 @@ import ONhap from "@/components/ui/ONhap";
 import VatTuBangGia, { type DongVatTu } from "../cashier/VatTuBangGia";
 import DatCoTheoLoai from "./DatCoTheoLoai";
 
-export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc: boolean }) {
+export default function DanhMucVatTu({
+  ds,
+  suaDuoc,
+  laQuanLy,
+}: {
+  ds: DongVatTu[];
+  suaDuoc: boolean;
+  laQuanLy: boolean;
+}) {
   const router = useRouter();
   const [ban, setBan] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
@@ -66,17 +74,21 @@ export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc
       const r = await fetch("/api/service-price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      body: JSON.stringify({
           name: tenMoi.trim(),
           group: "vat_tu",
-          loai_vat_tu: loaiMoi,
           don_vi: donViMoi.trim() || null,
           ma_vach: maVachMoi.trim() || null,
           gia_nhap: giaNhapMoi.trim() || null,
           unit_price: giaBanMoi.trim() || null,
-          kinh_doanh: kinhDoanhMoi,
-          can_ql_duyet: duyetBanMoi,
-          can_duyet_nhap: duyetNhapMoi,
+          ...(laQuanLy
+            ? {
+                loai_vat_tu: loaiMoi,
+                kinh_doanh: kinhDoanhMoi,
+                can_ql_duyet: duyetBanMoi,
+                can_duyet_nhap: duyetNhapMoi,
+              }
+            : {}),
         }),
       });
       if (!r.ok) {
@@ -106,7 +118,7 @@ export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc
           Bạn xem được danh mục; muốn sửa cần bật khối “Bảng giá dịch vụ” ở màn Phân quyền.
         </p>
       )}
-      {suaDuoc ? <DatCoTheoLoai ds={ds} /> : null}
+      {suaDuoc && laQuanLy ? <DatCoTheoLoai ds={ds} /> : null}
       {suaDuoc ? (
         <section className="rounded-card border border-line bg-surface p-3 shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -124,13 +136,15 @@ export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc
                 <span className="mb-1 block text-meta text-ink-soft">Tên vật tư</span>
                 <ONhap value={tenMoi} maxLength={300} onChange={(e) => setTenMoi(e.target.value)} placeholder="Ví dụ: Găng tay khám size M" className="w-full" />
               </label>
-              <label className="block">
-                <span className="mb-1 block text-meta text-ink-soft">Nhóm</span>
-                <OChon value={loaiMoi} onChange={(e) => setLoaiMoi(e.target.value as "VPP" | "VTYT")} className="w-full">
-                  <option value="VTYT">Vật tư y tế</option>
-                  <option value="VPP">Văn phòng phẩm</option>
-                </OChon>
-              </label>
+              {laQuanLy ? (
+                <label className="block">
+                  <span className="mb-1 block text-meta text-ink-soft">Nhóm</span>
+                  <OChon value={loaiMoi} onChange={(e) => setLoaiMoi(e.target.value as "VPP" | "VTYT")} className="w-full">
+                    <option value="VTYT">Vật tư y tế</option>
+                    <option value="VPP">Văn phòng phẩm</option>
+                  </OChon>
+                </label>
+              ) : null}
               <label className="block">
                 <span className="mb-1 block text-meta text-ink-soft">Đơn vị tính</span>
                 <ONhap value={donViMoi} maxLength={40} onChange={(e) => setDonViMoi(e.target.value)} placeholder="hộp, cái, đôi…" className="w-full" />
@@ -147,12 +161,14 @@ export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc
                 <span className="mb-1 block text-meta text-ink-soft">Giá bán thêm (₫)</span>
                 <ONhap inputMode="numeric" value={giaBanMoi} onChange={(e) => setGiaBanMoi(e.target.value)} placeholder="Để trống nếu không bán" className="w-full" />
               </label>
-              <fieldset className="flex flex-wrap gap-x-4 gap-y-2 text-meta text-ink-soft sm:col-span-2 xl:col-span-4">
-                <legend className="mb-1">Nhãn và phê duyệt</legend>
-                <label className="flex items-center gap-2"><input type="checkbox" checked={kinhDoanhMoi} onChange={(e) => setKinhDoanhMoi(e.target.checked)} /> Được phép kinh doanh</label>
-                <label className="flex items-center gap-2"><input type="checkbox" checked={duyetBanMoi} onChange={(e) => setDuyetBanMoi(e.target.checked)} /> Cần quản lý duyệt bán</label>
-                <label className="flex items-center gap-2"><input type="checkbox" checked={duyetNhapMoi} onChange={(e) => setDuyetNhapMoi(e.target.checked)} /> Cần duyệt nhập</label>
-              </fieldset>
+              {laQuanLy ? (
+                <fieldset className="flex flex-wrap gap-x-4 gap-y-2 text-meta text-ink-soft sm:col-span-2 xl:col-span-4">
+                  <legend className="mb-1">Phân loại và phê duyệt</legend>
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={kinhDoanhMoi} onChange={(e) => setKinhDoanhMoi(e.target.checked)} /> Được phép kinh doanh</label>
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={duyetBanMoi} onChange={(e) => setDuyetBanMoi(e.target.checked)} /> Cần quản lý duyệt bán</label>
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={duyetNhapMoi} onChange={(e) => setDuyetNhapMoi(e.target.checked)} /> Cần quản lý duyệt nhập</label>
+                </fieldset>
+              ) : null}
               <div className="flex flex-wrap items-center gap-2 sm:col-span-2 xl:col-span-4">
                 <Button type="button" variant="primary" disabled={ban || !tenMoi.trim()} onClick={() => void themVatTu()}>
                   {ban ? "Đang lưu…" : "Thêm vào danh mục"}
@@ -163,7 +179,7 @@ export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc
           ) : null}
         </section>
       ) : null}
-      <VatTuBangGia ds={ds} ban={ban || !suaDuoc} onSua={sua} />
+      <VatTuBangGia ds={ds} ban={ban || !suaDuoc} laQuanLy={laQuanLy} onSua={sua} />
       {loi ? (
         <p role="alert" className="text-body text-danger">
           {loi}

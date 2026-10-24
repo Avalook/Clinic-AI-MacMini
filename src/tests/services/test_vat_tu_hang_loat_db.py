@@ -20,6 +20,7 @@ from httpx import ASGITransport, AsyncClient
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
+from clinicai.core.exceptions import SafetyGateError
 from clinicai.main import app
 from clinicai.services.vat_tu_danh_muc_service import dat_co_hang_loat
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
@@ -176,6 +177,48 @@ async def test_loai_rong_la_chua_phan_loai(pool: asyncpg.Pool) -> None:
     )
     assert kq["so_doi"] == 1
     assert await _co(pool, [chua, vpp], "can_ql_duyet") == {chua: True, vpp: False}
+
+
+async def test_chi_quan_ly_duoc_dat_co_hang_loat(pool: asyncpg.Pool) -> None:
+    truong_ca = await _quan_ly(pool, "TRUONG_CA")
+    vt = await _tao(pool, "Không cho Trưởng ca cấu hình", "VTYT")
+    with pytest.raises(SafetyGateError, match="Chỉ Quản lý"):
+        await dat_co_hang_loat(
+            pool,
+            identity=truong_ca,
+            loai="VTYT",
+            co="can_ql_duyet",
+            bat=True,
+            ap_dung=True,
+            ids=[vt],
+        )
+    assert await _co(pool, [vt], "can_ql_duyet") == {vt: False}
+
+
+async def test_quan_ly_thieu_quyen_duyet_khong_duoc_dat_hang_loat(
+    pool: asyncpg.Pool,
+) -> None:
+    ql = await _quan_ly(pool)
+    vt = await _tao(pool, "Thiếu quyền duyệt", "VTYT")
+    await pool.execute(
+        "UPDATE capability_grant SET revoked_at=now(), revoked_by=staff_id,"
+        " ly_do='Test thu quyền duyệt'"
+        " WHERE clinic_id=$1::uuid AND staff_id=$2::uuid"
+        " AND capability='vat_tu.approve' AND revoked_at IS NULL",
+        ql.clinic_id,
+        ql.staff_id,
+    )
+    with pytest.raises(SafetyGateError, match="có quyền Duyệt vật tư"):
+        await dat_co_hang_loat(
+            pool,
+            identity=ql,
+            loai="VTYT",
+            co="can_ql_duyet",
+            bat=True,
+            ap_dung=True,
+            ids=[vt],
+        )
+    assert await _co(pool, [vt], "can_ql_duyet") == {vt: False}
 
 
 async def test_vat_tu_tam_ngung_giu_nguyen(pool: asyncpg.Pool) -> None:

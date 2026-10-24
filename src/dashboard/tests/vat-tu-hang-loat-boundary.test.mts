@@ -88,8 +88,8 @@ test("nút luôn có type, không màu cảnh báo cho việc bình thường, l
   }
 });
 
-test("chỉ hiện cho người sửa được danh mục; người chỉ xem không thấy khối", () => {
-  assert.match(danhMuc, /suaDuoc \? <DatCoTheoLoai ds=\{ds\} \/> : null/);
+test("chỉ Quản lý được sửa cờ duyệt hàng loạt", () => {
+  assert.match(danhMuc, /suaDuoc && laQuanLy \? <DatCoTheoLoai ds=\{ds\} \/> : null/);
   // Khối nằm TRÊN bảng vật tư (đầu tab).
   assert.ok(danhMuc.indexOf("<DatCoTheoLoai") < danhMuc.indexOf("<VatTuBangGia"));
 });

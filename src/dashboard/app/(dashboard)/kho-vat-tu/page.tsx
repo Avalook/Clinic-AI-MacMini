@@ -3,7 +3,7 @@
 // "Kho vật tư" (`vat_tu.manage`); ghi qua proxy `/api/vat-tu-kho/[action]`.
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { requireNavAccess } from "../../../lib/clinic-session";
+import { laQuanLyDuyetVatTu, requireNavAccess } from "../../../lib/clinic-session";
 import { quyenCuaToi } from "../../../lib/quyen-cua-toi";
 import type { DongVatTu } from "../cashier/VatTuBangGia";
 import type { GoiChoDuyet } from "./ChoDuyetVatTu";
@@ -21,13 +21,14 @@ interface GoiTon {
 
 export default async function KhoVatTuPage() {
   await requireNavAccess("/kho-vat-tu");
-  const [goi, phieu, choDuyet, quyen] = await Promise.all([
+  const [goi, phieu, quyen, choDuyet, laQuanLy] = await Promise.all([
     fetchFromBackend<GoiTon>("/api/v1/vat-tu-kho/ton"),
     // Đọc hỏng thì tab Phiếu hiện rỗng, không chặn cả màn.
     fetchFromBackend<{ items: PhieuVatTu[] }>("/api/v1/vat-tu-kho/phieu"),
-    // G8b: yêu cầu nhập chờ duyệt. Đọc hỏng → tab Chờ duyệt tự báo, không chặn cả màn.
-    fetchFromBackend<GoiChoDuyet>("/api/v1/vat-tu-kho/cho-duyet"),
     quyenCuaToi(),
+    // Nhân viên chỉ nhận các yêu cầu do mình lập; quản lý thấy toàn bộ.
+    fetchFromBackend<GoiChoDuyet>("/api/v1/vat-tu-kho/cho-duyet"),
+    laQuanLyDuyetVatTu(),
   ]);
   if (!goi) {
     return (
@@ -57,6 +58,7 @@ export default async function KhoVatTuPage() {
       }))}
       choDuyet={choDuyet}
       suaGiaDuoc={quyen.has("price.service.manage")}
+      laQuanLy={laQuanLy}
     />
   );
 }

@@ -8,6 +8,8 @@ import asyncpg
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 
 COT_VAT_TU = {
@@ -128,8 +130,8 @@ async def dat_co_hang_loat(
       tick = tắt), nên "sẽ đổi N" khớp những gì người dùng sẽ thấy đổi.
     - `ids` (tuỳ chọn) khoanh vào đúng những dòng đó — dùng cho HOÀN TÁC: màn gửi lại
       các id vừa đổi với giá trị ngược lại.
-    - Cùng quyền với sửa thuộc tính từng món (router giữ `price.service.manage`); ghi
-      một dòng event_log (ai / lúc / loại / cờ / số dòng) cùng giao dịch với UPDATE.
+    - Chỉ Quản lý được dùng; ghi một dòng event_log (ai / lúc / loại / cờ / số dòng)
+      cùng giao dịch với UPDATE.
     """
     gia_tri_loai, cot, dich, ds_id = kiem_hang_loat(loai, co, bat, ids)
     loc_id = " AND id = ANY($4::uuid[])" if ds_id is not None else ""
@@ -142,6 +144,13 @@ async def dat_co_hang_loat(
     doi = f"active AND coalesce({cot}, false) <> $3::bool{loc_id}"
 
     async with pool.acquire() as conn, conn.transaction():
+        if identity.vai_goc.value != "MANAGEMENT" or not await can(
+            conn, identity, "vat_tu.approve"
+        ):
+            raise SafetyGateError(
+                "Chỉ Quản lý có quyền Duyệt vật tư được phân loại hoặc "
+                "đặt quy tắc duyệt."
+            )
         tong, ngung = await conn.fetchrow(
             f"SELECT count(*), count(*) FILTER (WHERE NOT active)"
             f" FROM service_price WHERE clinic_id = $1::uuid AND {khung}",

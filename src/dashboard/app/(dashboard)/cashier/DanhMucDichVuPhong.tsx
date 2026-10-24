@@ -92,10 +92,13 @@ function boDau(s: string): string {
 export default function DanhMucDichVuPhong({
   banDau,
   chiChuaPhong = false,
+  laQuanLy = false,
 }: {
   banDau: DanhMucGoi | null;
   /** Mở từ cảnh báo trang chủ (`?loc=chua-phong`). */
   chiChuaPhong?: boolean;
+  /** Chỉ vai Quản lý được cấu hình phân loại/duyệt mặt hàng vật tư. */
+  laQuanLy?: boolean;
 }) {
   const [goi, setGoi] = useState<DanhMucGoi | null>(banDau);
   const [nhomViec, setNhomViec] = useState<NhomViec[]>([]);
@@ -336,6 +339,7 @@ export default function DanhMucDichVuPhong({
       <VatTuBangGia
         ds={goi.vat_tu ?? []}
         ban={ban}
+        laQuanLy={laQuanLy}
         onSua={(id, patch, xong) => gui("/api/service-price", "PATCH", { id, ...patch }, xong)}
       />
 

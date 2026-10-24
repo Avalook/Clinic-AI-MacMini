@@ -46,27 +46,41 @@ const O_GIA =
 export default function VatTuBangGia({
   ds,
   ban,
+  laQuanLy,
   onSua,
 }: {
   ds: DongVatTu[];
   ban: boolean;
+  /** Chỉ Quản lý được phân loại mặt hàng và đặt yêu cầu duyệt. */
+  laQuanLy?: boolean;
   onSua: (id: string, patch: Record<string, unknown>, xong: string) => Promise<boolean>;
 }) {
   const [tim, setTim] = useState("");
   const [nhapGia, setNhapGia] = useState<Record<string, string>>({});
 
+  // API cũng lọc danh mục; giữ lớp trình bày này để không vẽ dòng có quy tắc
+  // duyệt nếu một nơi gọi khác vô tình chuyển danh sách đầy đủ vào component.
+  const danhMuc = useMemo(
+    () =>
+      laQuanLy
+        ? ds
+        : ds.filter((d) => !d.can_ql_duyet && !d.can_duyet_nhap),
+    [ds, laQuanLy],
+  );
   const hien = useMemo(() => {
     const khoa = boDauVatTu(tim.trim());
-    return khoa ? ds.filter((d) => boDauVatTu(d.name).includes(khoa)) : ds;
-  }, [ds, tim]);
-  const banDuoc = ds.filter((d) => d.ban_duoc).length;
+    return khoa
+      ? danhMuc.filter((d) => boDauVatTu(d.name).includes(khoa))
+      : danhMuc;
+  }, [danhMuc, tim]);
+  const banDuoc = danhMuc.filter((d) => d.ban_duoc).length;
 
   return (
     <section className="rounded-card border border-hairline bg-surface px-4 py-2 shadow-card">
       <NganGap
         tieuDe="Vật tư bán thêm ở quầy thu"
         co="the"
-        chip={<Chip tone="brand">{`${banDuoc}/${ds.length} bán được`}</Chip>}
+        chip={<Chip tone="brand">{`${banDuoc}/${danhMuc.length} bán được`}</Chip>}
         phu="Giá 0 / chưa có giá = không bán"
       >
         <div className="space-y-3 p-4">
@@ -152,7 +166,7 @@ export default function VatTuBangGia({
                       />
                       <span>{d.active ? "Đang bán" : "Tạm ngưng"}</span>
                     </label>
-                    <VatTuThuocTinh d={d} ban={ban} onSua={onSua} />
+                    <VatTuThuocTinh d={d} ban={ban} laQuanLy={laQuanLy} onSua={onSua} />
                   </li>
                 );
               })}

@@ -14,10 +14,11 @@ import { docBaoCaoVatTu, khoangTuanHienTai, type GoiTieuHao } from "./bao-cao-va
 import ChoDuyetVatTu, { type GoiChoDuyet } from "./ChoDuyetVatTu";
 import DanhMucVatTu from "./DanhMucVatTu";
 import DanhSachPhieuVatTu, { type PhieuVatTu } from "./DanhSachPhieuVatTu";
+import KiemKeCaVatTu from "./KiemKeCaVatTu";
 import TieuHaoVatTu from "./TieuHaoVatTu";
 import TonVatTu, { type DongTon, type NoiChua } from "./TonVatTu";
 
-type Tab = "ton" | "bao_cao" | "cho_duyet" | "danh_muc";
+type Tab = "ton" | "kiem_ke_ca" | "bao_cao" | "cho_duyet" | "danh_muc";
 
 export default function KhoVatTu({
   ton,
@@ -26,6 +27,7 @@ export default function KhoVatTu({
   phieu,
   choDuyet,
   suaGiaDuoc,
+  laQuanLy,
 }: {
   ton: DongTon[];
   noiChua: NoiChua[];
@@ -35,6 +37,8 @@ export default function KhoVatTu({
   choDuyet: GoiChoDuyet | null;
   /** Có quyền Bảng giá (`price.service.manage`) — chỉ để khoá ô sửa danh mục. */
   suaGiaDuoc: boolean;
+  /** Vai membership gốc là Quản lý — gác giao diện phê duyệt và quy tắc mặt hàng. */
+  laQuanLy: boolean;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("ton");
@@ -99,8 +103,13 @@ export default function KhoVatTu({
         onChon={setTab}
         muc={[
           { ma: "ton", nhan: "Tồn kho" },
+          { ma: "kiem_ke_ca", nhan: "Kiểm kê ca" },
           { ma: "bao_cao", nhan: "Lịch sử & báo cáo" },
-          { ma: "cho_duyet", nhan: "Chờ duyệt", dem: dangCho > 0 ? dangCho : undefined },
+          {
+            ma: "cho_duyet",
+            nhan: laQuanLy ? "Chờ duyệt" : "Yêu cầu của tôi",
+            dem: laQuanLy && dangCho > 0 ? dangCho : undefined,
+          },
           { ma: "danh_muc", nhan: "Danh mục" },
         ]}
       />
@@ -116,6 +125,8 @@ export default function KhoVatTu({
             dangBaoCao={dangBaoCao}
             loiBaoCao={loiBaoCao}
           />
+        ) : tab === "kiem_ke_ca" ? (
+          <KiemKeCaVatTu noiChua={noiChua} />
         ) : tab === "bao_cao" ? (
           <section className="space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -169,7 +180,7 @@ export default function KhoVatTu({
         ) : tab === "cho_duyet" ? (
           <ChoDuyetVatTu goi={choDuyet} noiChua={noiChua} />
         ) : (
-          <DanhMucVatTu ds={vatTu} suaDuoc={suaGiaDuoc} />
+          <DanhMucVatTu ds={vatTu} suaDuoc={suaGiaDuoc} laQuanLy={laQuanLy} />
         )}
       </XuatBangTrongVung>
     </main>

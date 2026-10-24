@@ -2,14 +2,16 @@
 
 Mặt hàng có cờ "cần duyệt nhập" (`service_price.can_duyet_nhap_vat_tu`, Quản lý đặt ở
 danh mục): phiếu NHẬP có ít nhất một dòng như vậy KHÔNG ghi sổ ngay mà thành YÊU CẦU
-(`vat_tu_nhap_cho_duyet`). Nội dung yêu cầu bất biến (giá nhập chụp lúc xin). Người có
-lego **Duyệt vật tư** (`vat_tu.approve`) duyệt thì hệ thống lập phiếu NHẬP thật đúng số
-đã xin (sổ chỉ thêm); từ chối (bắt lý do) hoặc người lập rút lại thì không có gì vào
-sổ. Người có lego tự lập = tự duyệt (cùng luật với bán thêm vật tư). Yêu cầu chỉ quyết
-MỘT lần; hoàn tác một lần nhập đã duyệt = phiếu đảo như mọi phiếu.
+(`vat_tu_nhap_cho_duyet`). Nội dung yêu cầu bất biến (giá nhập chụp lúc xin). Quản lý
+có lego **Duyệt vật tư** (`vat_tu.approve`) duyệt thì hệ thống lập phiếu NHẬP thật đúng
+số đã xin (sổ chỉ thêm); từ chối (bắt lý do) hoặc người lập rút lại thì không có gì
+vào sổ. Quản lý có lego tự lập = tự duyệt. Yêu cầu chỉ quyết MỘT lần; hoàn tác một
+lần nhập đã duyệt = phiếu đảo như mọi phiếu.
 
 Phiếu hỗn hợp (một dòng cần duyệt, một dòng thường): CẢ phiếu chờ — không ghi nửa phiếu.
-Quyền = lego, không theo vai; Postgres ép lại (trigger `vat_tu_nhap_cho_duyet_gac`).
+Quản lý membership gốc và capability đều bắt buộc; Postgres ép lại (trigger
+`vat_tu_nhap_cho_duyet_gac`). Danh sách của nhân viên chỉ gồm yêu cầu do họ lập;
+Quản lý xem toàn bộ.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import VatTuNhapChoDuyet, VatTuNhapDaQuyet
 from clinicai.events.emit import emit_event, nguoi
@@ -197,8 +199,10 @@ async def xu_ly_nhap_can_duyet(
         payload={"ma_yeu_cau": yc["ma_yeu_cau"], "so_dong": len(dong)},
         correlation_id=str(yc["id"]),
     )
-    # Người có lego Duyệt vật tư tự lập = tự duyệt, ghi sổ luôn.
-    if await can(conn, identity, QUYEN_DUYET):
+    # Quản lý có lego Duyệt vật tư tự lập = tự duyệt, ghi sổ luôn.
+    if identity.vai_goc == ClinicRole.MANAGEMENT and await can(
+        conn, identity, QUYEN_DUYET
+    ):
         return await _duyet_tren_conn(conn, identity, yc, tu_dong=True)
     return _ra(yc, cho_duyet=True, gui_lai=False, loai="NHAP")
 
@@ -225,6 +229,7 @@ async def _duyet_tren_conn(
     phieu = await _ghi_phieu(
         conn, identity, f"duyet-{yc['id']}", "NHAP", ds, ghi_chu[:1000]
     )
+    await conn.execute("SELECT set_config('app.staff_id', $1, true)", identity.staff_id)
     cap_nhat = await conn.fetchrow(
         "UPDATE public.vat_tu_nhap_cho_duyet SET trang_thai = 'DA_DUYET',"
         " quyet_boi = $2::uuid, quyet_luc = now(), phieu_id = $3::uuid"
@@ -286,6 +291,8 @@ async def duyet(
 ) -> dict[str, Any]:
     """Duyệt → lập phiếu NHẬP thật. Gọi lại / hai máy cùng bấm: không nhân đôi."""
     yid = _uuid(yeu_cau_id)
+    if identity.vai_goc != ClinicRole.MANAGEMENT:
+        raise SafetyGateError("Chỉ Quản lý được duyệt nhập vật tư.")
     async with pool.acquire() as conn, conn.transaction():
         await doi_quyen(
             conn, identity, QUYEN_DUYET, cau="Bạn không có quyền Duyệt vật tư."
@@ -307,6 +314,8 @@ async def tu_choi(
 ) -> dict[str, Any]:
     """Từ chối (bắt lý do) — không có gì vào sổ."""
     yid = _uuid(yeu_cau_id)
+    if identity.vai_goc != ClinicRole.MANAGEMENT:
+        raise SafetyGateError("Chỉ Quản lý được từ chối nhập vật tư.")
     async with pool.acquire() as conn, conn.transaction():
         await doi_quyen(
             conn, identity, QUYEN_DUYET, cau="Bạn không có quyền Duyệt vật tư."
@@ -321,6 +330,9 @@ async def tu_choi(
                 f"Yêu cầu {yc['ma_yeu_cau']} đã {NHAN[yc['trang_thai']].lower()}"
                 " — không từ chối được."
             )
+        await conn.execute(
+            "SELECT set_config('app.staff_id', $1, true)", identity.staff_id
+        )
         cap_nhat = await conn.fetchrow(
             "UPDATE public.vat_tu_nhap_cho_duyet SET trang_thai = 'TU_CHOI',"
             " quyet_boi = $2::uuid, quyet_luc = now(), quyet_ly_do = $3"
@@ -341,17 +353,18 @@ async def rut_lai(
     yeu_cau_id: Any,
     ly_do: Any = None,
 ) -> dict[str, Any]:
-    """Rút lại khi còn chờ — người lập hoặc người có lego Duyệt vật tư."""
+    """Rút lại khi còn chờ — người lập hoặc Quản lý có quyền duyệt."""
     yid = _uuid(yeu_cau_id)
     ly = _ly_do(ly_do, bat_buoc=False)
     async with pool.acquire() as conn, conn.transaction():
         await _khoa_co_so(conn, identity)
         yc = await _lay(conn, identity, yid)
-        if str(yc["tao_boi"]) != identity.staff_id and not await can(
-            conn, identity, QUYEN_DUYET
+        if str(yc["tao_boi"]) != identity.staff_id and not (
+            identity.vai_goc == ClinicRole.MANAGEMENT
+            and await can(conn, identity, QUYEN_DUYET)
         ):
             raise SafetyGateError(
-                "Chỉ người lập hoặc người có quyền Duyệt vật tư mới rút lại được."
+                "Chỉ người lập hoặc Quản lý có quyền duyệt mới rút lại được."
             )
         if yc["trang_thai"] == "RUT_LAI":
             return _ra(yc, already=True)
@@ -360,6 +373,9 @@ async def rut_lai(
                 f"Yêu cầu {yc['ma_yeu_cau']} đã {NHAN[yc['trang_thai']].lower()}"
                 " — không rút lại được."
             )
+        await conn.execute(
+            "SELECT set_config('app.staff_id', $1, true)", identity.staff_id
+        )
         cap_nhat = await conn.fetchrow(
             "UPDATE public.vat_tu_nhap_cho_duyet SET trang_thai = 'RUT_LAI',"
             " quyet_boi = $2::uuid, quyet_luc = now(), quyet_ly_do = $3"
@@ -376,28 +392,35 @@ async def rut_lai(
 async def doc_cho_duyet(
     pool: asyncpg.Pool, *, identity: StaffIdentity, gioi_han: int = 100
 ) -> list[dict[str, Any]]:
-    """Yêu cầu nhập của CƠ SỞ đang làm — chờ duyệt lên đầu, rồi mới nhất."""
+    """Quản lý có quyền duyệt xem toàn bộ; người khác chỉ xem yêu cầu của mình."""
     gioi_han = max(1, min(int(gioi_han), 200))
-    rows = await pool.fetch(
-        "SELECT y.*, s.full_name AS ten_lap, q.full_name AS ten_quyet"
-        " FROM public.vat_tu_nhap_cho_duyet y"
-        " JOIN public.staff s ON s.id = y.tao_boi"
-        " LEFT JOIN public.staff q ON q.id = y.quyet_boi"
-        " WHERE y.clinic_id = $1::uuid AND y.location_id = $2::uuid"
-        " ORDER BY (y.trang_thai = 'CHO_DUYET') DESC, y.tao_luc DESC, y.id"
-        " LIMIT $3",
-        identity.clinic_id,
-        identity.location_id,
-        gioi_han,
-    )
-    ten_vt = {
-        r["id"]: r
-        for r in await pool.fetch(
-            "SELECT id::text, name, don_vi FROM public.service_price"
-            " WHERE clinic_id = $1::uuid AND \"group\" = 'vat_tu'",
-            identity.clinic_id,
+    async with pool.acquire() as conn:
+        duoc_duyet = identity.vai_goc == ClinicRole.MANAGEMENT and await can(
+            conn, identity, QUYEN_DUYET
         )
-    }
+        staff_filter = None if duoc_duyet else identity.staff_id
+        rows = await conn.fetch(
+            "SELECT y.*, s.full_name AS ten_lap, q.full_name AS ten_quyet"
+            " FROM public.vat_tu_nhap_cho_duyet y"
+            " JOIN public.staff s ON s.id = y.tao_boi"
+            " LEFT JOIN public.staff q ON q.id = y.quyet_boi"
+            " WHERE y.clinic_id = $1::uuid AND y.location_id = $2::uuid"
+            " AND ($3::uuid IS NULL OR y.tao_boi = $3::uuid)"
+            " ORDER BY (y.trang_thai = 'CHO_DUYET') DESC, y.tao_luc DESC, y.id"
+            " LIMIT $4",
+            identity.clinic_id,
+            identity.location_id,
+            staff_filter,
+            gioi_han,
+        )
+        ten_vt = {
+            r["id"]: r
+            for r in await conn.fetch(
+                "SELECT id::text, name, don_vi FROM public.service_price"
+                " WHERE clinic_id = $1::uuid AND \"group\" = 'vat_tu'",
+                identity.clinic_id,
+            )
+        }
     out = []
     for r in rows:
         dong = []

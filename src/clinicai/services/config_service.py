@@ -105,6 +105,50 @@ PRICE_ROLES: frozenset[ClinicRole] = frozenset(
     }
 )
 
+_VAT_TU_CHINH_SACH = frozenset(
+    {"loai_vat_tu", "kinh_doanh_vat_tu", "can_ql_duyet", "can_duyet_nhap_vat_tu"}
+)
+
+
+async def _guard_vat_tu_chinh_sach(
+    conn: asyncpg.Connection, identity: StaffIdentity, patch: dict[str, Any]
+) -> None:
+    """Chỉ Quản lý có quyền duyệt mới đặt phân loại và quy tắc duyệt vật tư."""
+    if _VAT_TU_CHINH_SACH.intersection(patch) and (
+        identity.vai_goc != ClinicRole.MANAGEMENT
+        or not await can(conn, identity, "vat_tu.approve")
+    ):
+        raise SafetyGateError(
+            "Chỉ Quản lý có quyền Duyệt vật tư được phân loại hoặc đặt quy tắc duyệt."
+        )
+
+
+async def _guard_mat_hang_can_duyet(
+    conn: asyncpg.Connection, identity: StaffIdentity, price_id: str
+) -> None:
+    """Giữ mọi thao tác trên mặt hàng có quy tắc duyệt cho Quản lý có quyền."""
+    row = await conn.fetchrow(
+        'SELECT "group", can_ql_duyet, can_duyet_nhap_vat_tu'
+        " FROM public.service_price"
+        " WHERE id=$1::uuid AND clinic_id=$2::uuid FOR UPDATE",
+        price_id,
+        identity.clinic_id,
+    )
+    if row is None:
+        raise NotFoundError("Không tìm thấy dòng giá")
+    if row["group"] == "vat_tu" and (
+        row["can_ql_duyet"] or row["can_duyet_nhap_vat_tu"]
+    ):
+        can_quan_ly = getattr(
+            identity, "vai_goc", None
+        ) == ClinicRole.MANAGEMENT and await can(conn, identity, "vat_tu.approve")
+        if not can_quan_ly:
+            raise SafetyGateError(
+                "Chỉ Quản lý có quyền Duyệt vật tư được sửa hoặc xoá"
+                " mặt hàng cần duyệt."
+            )
+
+
 #: Bốn nhãn ca. Giờ của từng ca do phòng khám khai — xem `core/shifts.py`.
 Shift = Literal["SANG", "CHIEU", "TOI", "FULL"]
 RosterDecision = Literal["approve", "reject"]
@@ -1709,6 +1753,7 @@ class PriceListService:
 
         price = parse_price(unit_price)
         async with self._pool.acquire() as conn, conn.transaction():
+            await _guard_vat_tu_chinh_sach(conn, identity, vt_patch)
             node = await self._phong_hop_le(conn, identity.clinic_id, node_code)
             # Chọn tay khi tạo → giữ và đánh dấu; không chọn → suy theo phòng làm.
             ben_thu = ben_chon or await self._ben_thu_theo_phong(
@@ -1835,6 +1880,8 @@ class PriceListService:
             raise ValidationError("Không có gì để sửa")
 
         async with self._pool.acquire() as conn, conn.transaction():
+            await _guard_mat_hang_can_duyet(conn, identity, price_id)
+            await _guard_vat_tu_chinh_sach(conn, identity, vt_patch)
             if vt_patch:
                 vat_tu = await conn.fetchrow(
                     'SELECT "group", don_vi FROM service_price'
@@ -1943,7 +1990,8 @@ class PriceListService:
         return ma
 
     async def remove(self, *, price_id: str, identity: StaffIdentity) -> None:
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn, conn.transaction():
+            await _guard_mat_hang_can_duyet(conn, identity, price_id)
             deleted = await conn.fetchval(
                 "DELETE FROM service_price "
                 "WHERE id = $1::uuid AND clinic_id = $2::uuid RETURNING id",

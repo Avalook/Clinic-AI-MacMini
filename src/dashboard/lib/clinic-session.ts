@@ -5,7 +5,7 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { fetchFromBackend } from "./backend-proxy";
-import { docDuocYKhoa, inDuocPhieu } from "./quyen-cua-toi";
+import { docDuocYKhoa, inDuocPhieu, quyenCuaToi } from "./quyen-cua-toi";
 import { getCurrentStaff } from "./current-staff";
 import {
   departmentToRole,
@@ -24,6 +24,17 @@ export const STAFF_COOKIE = "clinic_staff_id";
 export async function getClinicRole(): Promise<ClinicRole | null> {
   const staff = await getCurrentStaff();
   return staff ? departmentToRole(staff.clinic_role) : null;
+}
+
+/** Quyền cấu hình vật tư thuộc vai Quản lý gốc, không theo vai được xếp ca hôm nay. */
+export async function laQuanLyGoc(): Promise<boolean> {
+  return (await getClinicRole()) === "MANAGEMENT";
+}
+
+/** Cờ phân loại/duyệt vật tư chỉ hiện cho Quản lý đang có lego duyệt. */
+export async function laQuanLyDuyetVatTu(): Promise<boolean> {
+  const [laQuanLy, quyen] = await Promise.all([laQuanLyGoc(), quyenCuaToi()]);
+  return laQuanLy && quyen.has("vat_tu.approve");
 }
 
 /** VAI LÀM VIỆC HÔM NAY: vai tài khoản + vai vận hành mà vị trí trong lịch hôm

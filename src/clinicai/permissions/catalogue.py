@@ -247,15 +247,14 @@ KHOI: dict[str, KhoiCongViec] = {
             "Phiếu kho, kiểm đếm, mức tối thiểu, báo cáo tiêu hao vật tư",
         ),
         # 14/10/2026 (G8b) — người DUYỆT vật tư cần duyệt (vòng Mirena…, phiếu
-        # nhập chờ duyệt). Trước: vai Quản lý viết cứng ở Python + trigger. Nay là
-        # lego: mặc định chỉ Quản lý (như cũ), Quản lý cấp thêm cho Trưởng ca ở màn
-        # Phân quyền. KHÔNG nằm trong "mở full" — mở cho mọi người thì "duyệt" vô nghĩa.
+        # nhập chờ duyệt). Chỉ tài khoản Quản lý được duyệt; capability là lớp
+        # quyền bổ sung và không thể cấp cho Trưởng ca hay vai khác. KHÔNG nằm
+        # trong "mở full" — mở cho mọi người thì "duyệt" vô nghĩa.
         KhoiCongViec(
             "duyet_vat_tu",
             "Duyệt vật tư",
             "supplies",
-            "Duyệt bán thêm / nhập vật tư thuộc loại cần duyệt — mặc định Quản lý,"
-            " Quản lý cấp thêm cho Trưởng ca",
+            "Duyệt bán thêm / nhập vật tư thuộc loại cần duyệt — chỉ Quản lý",
         ),
         KhoiCongViec("bao_cao", "Báo cáo", "report", "Báo cáo, lịch đổ về"),
         KhoiCongViec(

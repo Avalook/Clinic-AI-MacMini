@@ -24,6 +24,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services import vat_tu_kho_man_service as man
 from clinicai.services import vat_tu_kho_service as kho
+from clinicai.services import vat_tu_kiem_ke_ca_service as kiem_ke_ca
 from clinicai.services import vat_tu_tieu_hao_service as tieu_hao
 
 router = APIRouter()
@@ -85,6 +86,96 @@ async def bao_cao_tieu_hao(
     """Tiêu hao theo phòng × kỳ (tuần / tháng / tự chọn), tính từ số đếm thật."""
     kq: dict[str, Any] = jsonable_encoder(
         await tieu_hao.doc_tieu_hao(pool, identity=identity, ky=ky, tu=tu, den=den)
+    )
+    return kq
+
+
+@router.get("/vat-tu-kho/kiem-ke-ca")
+async def doc_kiem_ke_ca_vat_tu(
+    ngay: str | None = None,
+    room_id: UUID | None = None,
+    phieu_id: UUID | None = None,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh sách phiếu trong ngày/phòng hoặc chi tiết một phiếu ca."""
+    if phieu_id:
+        kq: dict[str, Any] = jsonable_encoder(
+            await kiem_ke_ca.doc_phieu(pool, identity=identity, phieu_id=phieu_id)
+        )
+        return kq
+    if not ngay or not room_id:
+        return {"items": []}
+    return {
+        "items": jsonable_encoder(
+            await kiem_ke_ca.danh_sach(
+                pool, identity=identity, ngay=ngay, room_id=room_id
+            )
+        )
+    }
+
+
+class MoKiemKeCaVatTuRequest(BaseModel):
+    room_id: UUID
+    ngay: str
+    ca: str = Field(max_length=10)
+    loai: str = Field(max_length=10)
+
+
+@router.post("/vat-tu-kho/kiem-ke-ca/mo", status_code=201)
+async def mo_kiem_ke_ca_vat_tu(
+    body: MoKiemKeCaVatTuRequest,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca.mo_phieu(
+            pool,
+            identity=identity,
+            room_id=body.room_id,
+            ngay=body.ngay,
+            ca=body.ca,
+            loai=body.loai,
+        )
+    )
+    return kq
+
+
+class DongDemVatTu(BaseModel):
+    vat_tu_id: UUID
+    dem: Any = None
+
+
+class LuuDemVatTuRequest(BaseModel):
+    dong: list[DongDemVatTu] = Field(max_length=500)
+
+
+@router.post("/vat-tu-kho/kiem-ke-ca/{phieu_id}/dem")
+async def luu_dem_kiem_ke_ca_vat_tu(
+    phieu_id: UUID,
+    body: LuuDemVatTuRequest,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca.luu_dem(
+            pool,
+            identity=identity,
+            phieu_id=phieu_id,
+            dong=[item.model_dump(mode="json") for item in body.dong],
+        )
+    )
+    return kq
+
+
+@router.post("/vat-tu-kho/kiem-ke-ca/{phieu_id}/chot")
+async def chot_kiem_ke_ca_vat_tu(
+    phieu_id: UUID,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca.chot(pool, identity=identity, phieu_id=phieu_id)
     )
     return kq
 

@@ -482,21 +482,30 @@ Test: `T/services/test_bio_chi_dinh_db.py` (bất biến B1–B5 + bấm ngẫu 
 FT `dau-do-chi-dinh-boundary.test.mts`. Luật duyệt trigger `luot_vat_tu_gac` KHÔNG đổi ở G9.
 
 **Ai duyệt vật tư cần duyệt + nguyên nhân bán thêm (14/10/2026, G8b — Notion recap 12/10 mục 3.3, Tuyền Q11)** — người duyệt là
-LEGO, không phải vai: khối `duyet_vat_tu` / quyền `vat_tu.approve` (`P/catalogue.py`, nằm trong `KHOI_CHI_QUAN_LY` — KHÔNG "mở full";
-migration 20261014200000 cấp bù cho tài khoản Quản lý + Trưởng ca đang có; tài khoản Trưởng ca MỚI do Quản lý cấp ở `/phan-quyen`).
-`S/vat_tu_service.py` (`_NGUOI_DUYET_SQL`, `_nguoi_duyet`, `doc` → `quan_ly` / `la_quan_ly` giữ tên khoá cũ cho màn) và trigger
-`luot_vat_tu_gac` (CHỈ đổi điều kiện người duyệt: có `vat_tu.approve` trong `v_quyen_thuc_te`, đang làm việc). Nguyên nhân bán thêm:
+Quản lý membership gốc và capability cùng bắt buộc: khối `duyet_vat_tu` / quyền `vat_tu.approve` (`P/catalogue.py`, nằm trong
+`KHOI_CHI_QUAN_LY` — KHÔNG "mở full"); migration `20261019160000` thu hồi quyền khỏi vai khác và DB chặn cấp lại. Màn `/phan-quyen` không thể cấp quyền này cho Trưởng ca.
+`S/vat_tu_service.py` (`_nguoi_duyet`, `doc` → `la_quan_ly`): chỉ Quản lý đang đăng nhập
+có capability mới được thêm, sửa số lượng hoặc bỏ hàng cần duyệt; API không nhận mã Quản lý
+để nhân viên ghi nhận hộ. Danh mục mặt hàng cần duyệt được ẩn khỏi API bán thêm và giao diện của nhân viên;
+dòng đã được duyệt trên hoá đơn vẫn hiện để thu ngân thu tiền. Các nút duyệt/cấu hình chỉ hiện cho Quản lý.
+API bán thêm đặt `app.staff_id` bằng identity đã xác thực trong giao dịch; trigger
+`luot_vat_tu_gac` dùng giá trị SET LOCAL này để xác minh các dòng cần duyệt với membership
+gốc + capability. Trang kho và bảng giá lấy vai gốc từ membership để hiện cấu hình chỉ
+cho Quản lý; duyệt bán/nhập còn cần capability `vat_tu.approve`. Dòng Bio trong chỉ định
+được bật cờ duyệt sau khi chọn sẽ bị ẩn với người không có quyền duyệt; các lệnh Bio
+đặt `app.staff_id` để trigger xác minh dòng gắn cờ và giữ luồng thường hoạt động.
+Đường bán thêm Bio tại quầy vẫn giữ; cờ cần duyệt do Quản lý cấu hình. Nguyên nhân bán thêm:
 cột `luot_vat_tu.ly_do_ban`, `VatTuService.them(ly_do_ban=)`, luôn ghi khi có gửi (5–500 ký tự, rác → 422); dây nối
 `vat_tu_bat_ly_do_ban` (`S/day_noi.py`, mặc định TẮT) BẬT thì dòng MỚI ở quầy phải có. Màn: `D/thu-ngan/VatTuQuay.tsx`.
 Test: `T/services/test_vat_tu_duyet_db.py` (D1–D4 + bấm ngẫu nhiên cấp/thu lego, bật/tắt dây, bán, bỏ), FT `duyet-vat-tu-boundary.test.mts`.
 
-**Phiếu NHẬP vật tư chờ duyệt (14/10/2026, G8b-2)** — mặt hàng có cờ "cần duyệt nhập" (`can_duyet_nhap_vat_tu`, đặt ở danh mục vật tư):
+**Phiếu NHẬP vật tư chờ duyệt (14/10/2026, G8b-2)** — mặt hàng có cờ "cần duyệt nhập" (`can_duyet_nhap_vat_tu`, chỉ Quản lý đặt ở danh mục vật tư):
 `S/vat_tu_kho_service.py` `tao_phieu` (NHẬP) gọi `S/vat_tu_nhap_duyet_service.py` `xu_ly_nhap_can_duyet` — phiếu có ít nhất một dòng như vậy
 KHÔNG ghi sổ mà thành YÊU CẦU ở bảng `vat_tu_nhap_cho_duyet` (migration 20261014200100; nội dung bất biến, giá nhập chụp lúc xin; cả phiếu chờ,
-không ghi nửa phiếu). Người có lego Duyệt vật tư `duyet` → lập phiếu NHẬP thật đúng số; `tu_choi` (bắt lý do); người lập / người có lego `rut_lai`;
-người có lego tự lập = tự duyệt; quyết MỘT lần; hoàn tác nhập đã duyệt = `hoan_phieu` như mọi phiếu. Route `R/vat_tu_nhap_duyet.py`:
-`GET /vat-tu-kho/cho-duyet`, `POST …/{id}/duyet|tu-choi|rut-lai`. Sự kiện `vat_tu.nhap_cho_duyet`, `vat_tu.nhap_da_quyet`. CHƯA có màn: nút
-Duyệt / Từ chối / Rút lại + danh sách chờ gắn vào `/kho-vat-tu` khi phiên màn G8a gộp (không sửa màn đó ở G8b). Test: `T/services/test_vat_tu_nhap_duyet_db.py`.
+không ghi nửa phiếu). Quản lý có lego Duyệt vật tư `duyet` → lập phiếu NHẬP thật đúng số; `tu_choi` (bắt lý do); người lập chỉ xem yêu cầu của mình / `rut_lai`;
+Quản lý có quyền tự lập = tự duyệt; quyết MỘT lần; hoàn tác nhập đã duyệt = `hoan_phieu` như mọi phiếu. Route `R/vat_tu_nhap_duyet.py`:
+`GET /vat-tu-kho/cho-duyet` (người lập xem yêu cầu của mình, Quản lý xem toàn bộ), `POST …/{id}/duyet|tu-choi|rut-lai`. Sự kiện `vat_tu.nhap_cho_duyet`, `vat_tu.nhap_da_quyet`. Màn
+`D/kho-vat-tu/ChoDuyetVatTu.tsx`: Duyệt / Từ chối chỉ hiện với cờ máy chủ Quản lý có quyền; người lập chỉ rút yêu cầu của mình. Test: `T/services/test_vat_tu_nhap_duyet_db.py` + `T/services/test_vat_tu_nhap_duyet_http_db.py`.
 
 **Đặt cờ vật tư HÀNG LOẠT theo loại (16/10/2026)** — Kho vật tư → tab Danh mục, khối "Đặt cho cả loại":
 `D/kho-vat-tu/DatCoTheoLoai.tsx` (Loại VPP/VTYT/Chưa phân loại + Cờ Được kinh doanh/Cần QL duyệt bán/Cần duyệt nhập
@@ -505,6 +514,13 @@ Duyệt / Từ chối / Rút lại + danh sách chờ gắn vào `/kho-vat-tu` k
 `S/vat_tu_danh_muc_service.py` `dat_co_hang_loat` + `kiem_hang_loat` (bảng `LOAI_HANG_LOAT` / `CO_HANG_LOAT` — thêm cờ
 mới thì thêm ở đây và ở `DatCoTheoLoai.tsx`, FT canh lệch). Chỉ vật tư đang bán, chỉ đúng cột cờ; ghi `event_log`
 `vat_tu.co_hang_loat`. Test: `T/services/test_vat_tu_hang_loat_db.py`, FT `vat-tu-hang-loat-boundary.test.mts`.
+
+**Kiểm kê vật tư đầu/cuối ca theo phòng (19/10/2026)** — tab **Kiểm kê ca** ở `/kho-vat-tu` dùng
+`D/kho-vat-tu/KiemKeCaVatTu.tsx` → proxy `api/vat-tu-kho/[action]` → `R/vat_tu_kho.py` →
+`S/vat_tu_kiem_ke_ca_service.py`; phiếu và dòng có migration `20261019170000_vat_tu_kiem_ke_ca.sql`.
+Phiếu gắn cơ sở, phòng, ngày, ca và loại ĐẦU/CUỐI; lưu nháp số đếm, khi chốt chụp tồn sổ và tính
+chênh lệch. Không tự sửa tồn; sai số sửa bằng phiếu kho riêng. Realtime đăng ký hai bảng phiếu/dòng.
+Test thuần: `T/unit/test_vat_tu_kiem_ke_ca.py`; DB: `T/services/test_vat_tu_kiem_ke_ca_db.py`.
 
 **Liệu trình ở quầy thu dịch vụ — trả trước k buổi (08/10/2026, C1)** — khối "Liệu trình" của
 khách đang thu `D/thu-ngan/LieuTrinhQuay.tsx` ([Trả trước … buổi] / [Trả hết]) → `/api/lieu-trinh`

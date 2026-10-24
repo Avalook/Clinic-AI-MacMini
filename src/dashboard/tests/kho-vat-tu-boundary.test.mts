@@ -20,7 +20,7 @@ const tsx = readdirSync(thuMuc).filter((f) => f.endsWith(".tsx") || f.endsWith("
 const route = doc(new URL("../app/api/vat-tu-kho/[action]/route.ts", import.meta.url));
 
 test("màn Kho vật tư có đủ các tệp (chống xanh giả)", () => {
-  for (const f of ["page.tsx", "KhoVatTu.tsx", "TonVatTu.tsx", "LapPhieuVatTu.tsx", "DanhSachPhieuVatTu.tsx", "TieuHaoVatTu.tsx", "ChoDuyetVatTu.tsx"]) {
+  for (const f of ["page.tsx", "KhoVatTu.tsx", "TonVatTu.tsx", "LapPhieuVatTu.tsx", "DanhSachPhieuVatTu.tsx", "TieuHaoVatTu.tsx", "KiemKeCaVatTu.tsx", "ChoDuyetVatTu.tsx"]) {
     assert.ok(tsx.includes(f), `thiếu ${f}`);
   }
 });
@@ -57,6 +57,13 @@ test("proxy danh sách trắng + chuyển Idempotency-Key cho lập phiếu / đ
   assert.match(route, /Idempotency-Key/);
   // Không có đường mở trần: mọi thao tác đi qua bảng DOC hoặc so khớp chữ cố định.
   assert.match(route, /Thao tác không hợp lệ/);
+});
+
+test("proxy từ chối phieu_id kiểm kê sai định dạng thay vì trả danh sách", () => {
+  assert.match(
+    route,
+    /action === "kiem-ke-ca" && query\.has\("phieu_id"\) && !UUID_RE\.test\(query\.get\("phieu_id"\) \?\? ""\)[\s\S]*?Mã phiếu không hợp lệ\./,
+  );
 });
 
 test("giao diện lập phiếu gửi qua proxy, không gọi thẳng FastAPI", () => {
@@ -116,8 +123,20 @@ test("điều hướng tách tồn, báo cáo, duyệt và danh mục; thao tác
   assert.match(khung, /nhan: "Tồn kho"/);
   assert.match(khung, /nhan: "Lịch sử & báo cáo"/);
   assert.match(khung, /nhan: "Danh mục"/);
-  assert.match(khung, /nhan: "Chờ duyệt"/);
+  assert.match(khung, /nhan: laQuanLy \? "Chờ duyệt" : "Yêu cầu của tôi"/);
   assert.doesNotMatch(khung, /nhan: "Phiếu"/);
+});
+
+test("nút cấu hình phân loại và yêu cầu duyệt chỉ hiện trong giao diện Quản lý", () => {
+  const danhMuc = doc(new URL("DanhMucVatTu.tsx", thuMuc));
+  const thuocTinh = doc(new URL("../cashier/VatTuThuocTinh.tsx", thuMuc));
+  const page = doc(new URL("page.tsx", thuMuc));
+  assert.match(danhMuc, /suaDuoc && laQuanLy \? <DatCoTheoLoai/);
+  assert.match(danhMuc, /\{laQuanLy \? \([\s\S]*Phân loại và phê duyệt/);
+  assert.match(thuocTinh, /CO\.filter\(\(\[key\]\) => laQuanLy \|\| key === "chon_nhanh"\)/);
+  assert.match(danhMuc, /\? \{[\s\S]*can_ql_duyet: duyetBanMoi/);
+  assert.match(page, /laQuanLyDuyetVatTu/);
+  assert.match(page, /laQuanLy=\{laQuanLy\}/);
 });
 
 test("màn tồn bỏ khối giải thích thừa, giữ lối tắt và không đưa cài đặt ngưỡng vào bảng rỗng", () => {
@@ -275,7 +294,7 @@ test("điều hướng chính không lặp từng kiểu phiếu thành tab riê
   const khung = doc(new URL("KhoVatTu.tsx", thuMuc));
   assert.match(khung, /ma: "ton", nhan: "Tồn kho"/);
   assert.match(khung, /ma: "bao_cao", nhan: "Lịch sử & báo cáo"/);
-  assert.match(khung, /ma: "cho_duyet", nhan: "Chờ duyệt"/);
+  assert.match(khung, /ma: "cho_duyet",[\s\S]*nhan: laQuanLy \? "Chờ duyệt" : "Yêu cầu của tôi"/);
   assert.match(khung, /ma: "danh_muc", nhan: "Danh mục"/);
   assert.doesNotMatch(khung, /nhan: "Cấp từ kho cho phòng"/);
   assert.doesNotMatch(khung, /nhan: "Phòng trả về kho"/);
@@ -357,8 +376,24 @@ test("tab Chờ duyệt: xác nhận tại chỗ, nút theo cờ máy chủ tr�
 
 test("tab Chờ duyệt có số đếm khi có yêu cầu đang chờ", () => {
   const khung = doc(new URL("KhoVatTu.tsx", thuMuc));
-  assert.match(khung, /ma: "cho_duyet", nhan: "Chờ duyệt", dem: dangCho > 0 \? dangCho : undefined/);
+  assert.match(khung, /laQuanLy && dangCho > 0 \? dangCho : undefined/);
   assert.match(khung, /<ChoDuyetVatTu goi=\{choDuyet\}/);
+});
+
+test("kiểm kê vật tư gắn phòng/ca; chốt lưu số đếm và lệch, không tự sửa tồn", () => {
+  const khung = doc(new URL("KhoVatTu.tsx", thuMuc));
+  const kiemKe = doc(new URL("KiemKeCaVatTu.tsx", thuMuc));
+  const api = doc(new URL("../../../../clinicai/api/v1/routers/vat_tu_kho.py", thuMuc));
+  assert.match(khung, /ma: "kiem_ke_ca", nhan: "Kiểm kê ca"/);
+  assert.match(khung, /<KiemKeCaVatTu noiChua=\{noiChua\}/);
+  assert.match(kiemKe, /room_id: roomId,[\s\S]*ngay,[\s\S]*ca,[\s\S]*loai/);
+  assert.match(kiemKe, /Số tồn không tự điều chỉnh/);
+  assert.match(kiemKe, /Tồn sổ lúc chốt/);
+  assert.ok(kiemKe.includes("/api/vat-tu-kho/kiem-ke-ca-chot"));
+  assert.match(route, /"kiem-ke-ca-mo"/);
+  assert.match(route, /"kiem-ke-ca-dem"/);
+  assert.match(route, /"kiem-ke-ca-chot"/);
+  assert.match(api, /@router\.post\("\/vat-tu-kho\/kiem-ke-ca\/\{phieu_id\}\/chot"\)/);
 });
 
 test("lập phiếu NHẬP: báo 'gửi xin duyệt, chưa vào kho' / 'tự duyệt và nhập kho' theo kết quả máy chủ", () => {

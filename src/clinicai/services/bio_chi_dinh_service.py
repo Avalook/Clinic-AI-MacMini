@@ -18,7 +18,8 @@ GẮN `order_id`:
     chọn kiểu radio: Không / 1 lần / nhiều lần). Đổi mặt hàng = bỏ dòng cũ (chưa
     thu) + thêm dòng mới.
   * Hàng `can_ql_duyet` (Mirena) KHÔNG chọn được ở đây — luật duyệt của quầy
-    giữ nguyên (việc của G8b).
+    giữ nguyên (việc của G8b). Dòng được bật cờ sau khi đã chọn chỉ Quản lý có
+    quyền duyệt mới thấy / sửa được.
 
 Quyền = lego `clinical.order.place` (ai chỉ định được thì chọn đầu dò được),
 không gác theo vai.
@@ -33,6 +34,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.bill_service import _DA_PHU
 from clinicai.services.lenh_kham_core import khoa_luot, luot_cua
@@ -80,8 +82,10 @@ SELECT dv.service_code, sp.id::text AS id, sp.name, sp.don_vi, sp.unit_price,
 _DONG_SQL = f"""
 SELECT v.id::text AS id, v.order_id::text AS order_id,
        v.service_price_id::text AS service_price_id, v.ten, v.don_vi, v.don_gia,
-       v.so_luong, {_DA_THU} AS da_thu
+       v.so_luong, sp.can_ql_duyet, {_DA_THU} AS da_thu
   FROM public.luot_vat_tu v
+  JOIN public.service_price sp
+    ON sp.id = v.service_price_id AND sp.clinic_id = v.clinic_id
  WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid AND v.bo_luc IS NULL
    AND v.order_id IS NOT NULL
  ORDER BY v.chon_luc, v.id
@@ -121,10 +125,17 @@ async def bio_da_thu_cua_chi_dinh(
 
 
 async def chuyen_bio_chua_thu(
-    conn: asyncpg.Connection, clinic_id: str, tu_order: str, sang_order: str
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    tu_order: str,
+    sang_order: str,
+    actor_staff_id: str,
 ) -> int:
     """Chỉ định được ĐẶT LẠI thành chỉ định MỚI (hoàn tác bỏ sau khi đã hoàn
     tiền): Bio còn sống mà chưa thu đi theo sang chỉ định mới. Trả số dòng."""
+    if not conn.is_in_transaction():
+        raise RuntimeError("Phải chuyển Bio trong giao dịch đổi chỉ định.")
+    await conn.execute("SELECT set_config('app.staff_id', $1, true)", actor_staff_id)
     kq = await conn.execute(
         "UPDATE public.luot_vat_tu v SET order_id = $3::uuid"
         " WHERE v.clinic_id = $1::uuid AND v.order_id = $2::uuid"
@@ -137,7 +148,11 @@ async def chuyen_bio_chua_thu(
 
 
 async def _doc(
-    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    visit_id: str,
+    *,
+    cho_hien_hang_can_duyet: bool = False,
 ) -> dict[str, Any]:
     chi_dinh = await conn.fetch(_CHI_DINH_SQL, clinic_id, visit_id)
     ma = sorted({r["service_code"] for r in chi_dinh})
@@ -162,7 +177,11 @@ async def _doc(
             }
         )
     dong_theo_don: dict[str, dict[str, Any]] = {}
+    don_bi_khoa: set[str] = set()
     for r in await conn.fetch(_DONG_SQL, clinic_id, visit_id):
+        if r["can_ql_duyet"] and not cho_hien_hang_can_duyet:
+            don_bi_khoa.add(r["order_id"])
+            continue
         dong_theo_don[r["order_id"]] = {
             "dong_id": r["id"],
             "service_price_id": r["service_price_id"],
@@ -176,7 +195,8 @@ async def _doc(
     for r in chi_dinh:
         goi_y = goi_y_theo_ma.get(r["service_code"], [])
         da_chon = dong_theo_don.get(r["id"])
-        if not goi_y and da_chon is None:
+        khoa_quan_ly = r["id"] in don_bi_khoa
+        if not goi_y and da_chon is None and not khoa_quan_ly:
             continue  # chỉ định này không đi kèm đầu dò — không vẽ gì
         out.append(
             {
@@ -185,6 +205,7 @@ async def _doc(
                 "chon_lam": r["selection_status"] != "NOT_SELECTED",
                 "goi_y": goi_y,
                 "da_chon": da_chon,
+                "khoa_quan_ly": khoa_quan_ly,
             }
         )
     return {"visit_id": visit_id, "chi_dinh": out}
@@ -205,7 +226,16 @@ class BioChiDinhService:
                 vid,
             ):
                 raise NotFoundError("Không tìm thấy lượt khám này.")
-            kq = await _doc(conn, identity.clinic_id, vid)
+            cho_hien_hang_can_duyet = (
+                identity.vai_goc.value == "MANAGEMENT"
+                and await can(conn, identity, "vat_tu.approve")
+            )
+            kq = await _doc(
+                conn,
+                identity.clinic_id,
+                vid,
+                cho_hien_hang_can_duyet=cho_hien_hang_can_duyet,
+            )
             kq["duoc_sua"] = await can(conn, identity, QUYEN_CHI_DINH)
             return kq
 
@@ -237,6 +267,9 @@ class BioChiDinhService:
                 QUYEN_CHI_DINH,
                 cau="Bạn không có quyền chỉ định dịch vụ nên không chọn được đầu dò.",
             )
+            await conn.execute(
+                "SELECT set_config('app.staff_id', $1, true)", identity.staff_id
+            )
             vid = await luot_cua(conn, "service_order", cid, oid)
             await khoa_luot(conn, cid, vid, cho_phep_da_ky=True)
             o = await conn.fetchrow(
@@ -250,16 +283,26 @@ class BioChiDinhService:
             hien = list(
                 await conn.fetch(
                     "SELECT v.id::text AS id, v.service_price_id::text AS spid,"
-                    " v.ten, v.don_gia, v.so_luong,"
+                    " v.ten, v.don_gia, v.so_luong, sp.can_ql_duyet,"
                     " v.duyet_boi IS NOT NULL AS co_duyet,"
                     f" {_DA_THU} AS da_thu"
                     " FROM public.luot_vat_tu v"
+                    " JOIN public.service_price sp"
+                    "   ON sp.id = v.service_price_id AND sp.clinic_id = v.clinic_id"
                     " WHERE v.clinic_id = $1::uuid AND v.order_id = $2::uuid"
                     "   AND v.bo_luc IS NULL ORDER BY v.chon_luc FOR UPDATE OF v",
                     cid,
                     oid,
                 )
             )
+            cho_hien_hang_can_duyet = (
+                identity.vai_goc.value == "MANAGEMENT"
+                and await can(conn, identity, "vat_tu.approve")
+            )
+            if any(d["can_ql_duyet"] for d in hien) and not cho_hien_hang_can_duyet:
+                raise SafetyGateError(
+                    "Mặt hàng này cần Quản lý xử lý. Vui lòng liên hệ Quản lý."
+                )
             moi = None
             if spid is not None:
                 if not o["song"]:
@@ -384,7 +427,16 @@ class BioChiDinhService:
                         False,
                         order_id=oid,
                     )
-            return await _doc(conn, cid, vid)
+            cho_hien_hang_can_duyet = (
+                identity.vai_goc.value == "MANAGEMENT"
+                and await can(conn, identity, "vat_tu.approve")
+            )
+            return await _doc(
+                conn,
+                cid,
+                vid,
+                cho_hien_hang_can_duyet=cho_hien_hang_can_duyet,
+            )
 
 
 __all__ = ["BioChiDinhService", "bio_da_thu_cua_chi_dinh", "chuyen_bio_chua_thu"]

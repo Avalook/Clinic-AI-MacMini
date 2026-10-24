@@ -2,18 +2,17 @@
 
     scripts/test-nhanh.sh src/tests/services/test_vat_tu_nhap_duyet_db.py
 
-Mặt hàng có cờ `can_duyet_nhap_vat_tu` (Quản lý đặt ở danh mục): phiếu NHẬP có ít
-nhất một dòng như vậy thành YÊU CẦU "chờ duyệt" — KHÔNG chạm sổ / tồn. Người có
-lego Duyệt vật tư (`vat_tu.approve`: Quản lý, Trưởng ca được cấp) duyệt thì hệ
-thống lập phiếu NHẬP thật (sổ chỉ thêm) đúng số đã xin; từ chối (bắt lý do) hoặc
-người lập rút lại thì không có gì vào sổ. Người có lego tự lập = tự duyệt. Hoàn
-tác một lần nhập đã duyệt = phiếu đảo như mọi phiếu.
+Mặt hàng có cờ `can_duyet_nhap_vat_tu` (chỉ Quản lý đặt ở danh mục): phiếu NHẬP
+có ít nhất một dòng như vậy thành YÊU CẦU "chờ duyệt" — KHÔNG chạm sổ / tồn.
+Chỉ Quản lý có capability `vat_tu.approve` được duyệt hoặc từ chối; người lập có
+thể rút lại yêu cầu của mình. Quản lý có quyền tự lập = tự duyệt. Hoàn tác một
+lần nhập đã duyệt = phiếu đảo như mọi phiếu.
 
 BẤT BIẾN:
   N1  Yêu cầu CHỜ / TỪ CHỐI / RÚT LẠI không có phiếu, không đổi tồn dù một đồng;
       yêu cầu ĐÃ DUYỆT có đúng MỘT phiếu NHẬP, đúng số.
   N2  Tồn mỗi nơi chứa = cộng dồn sổ (như G8a) — kể cả sau duyệt / hoàn tác.
-  N3  Chỉ người CÓ lego duyệt / từ chối được (Python + Postgres); một yêu cầu chỉ
+  N3  Chỉ Quản lý CÓ lego duyệt / từ chối được (Python + Postgres); một yêu cầu chỉ
       quyết MỘT lần; gửi lại không nhân đôi.
   N4  Hàng không cờ nhập → như cũ (ghi sổ ngay) — không làm vỡ G8a.
 """
@@ -31,7 +30,13 @@ import pytest
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.exceptions import ClinicAIBaseException, SafetyGateError
+from clinicai.core.exceptions import (
+    ClinicAIBaseException,
+    SafetyGateError,
+)
+from clinicai.core.exceptions import (
+    ValidationError as CoreValidationError,
+)
 from clinicai.services.permission_service import PermissionService
 from clinicai.services.vat_tu_kho_service import hoan_phieu, tao_phieu
 from clinicai.services.vat_tu_nhap_duyet_service import (
@@ -150,6 +155,28 @@ async def test_hang_khong_co_co_nhap_ghi_so_ngay_nhu_cu(
         )
         == 0
     )
+
+
+async def test_quan_ly_thieu_quyen_duyet_chi_xem_yeu_cau_cua_minh(
+    pool: asyncpg.Pool,
+) -> None:
+    b = await _bo(pool)
+    async with pool.acquire() as conn:
+        ql_thieu_quyen = await _nguoi(conn, b.lap.location_id, "MANAGEMENT")
+    await pool.execute(
+        "UPDATE capability_grant SET revoked_at=now(), revoked_by=staff_id,"
+        " ly_do='Test thu quyền duyệt'"
+        " WHERE clinic_id=$1::uuid AND staff_id=$2::uuid"
+        " AND capability='vat_tu.approve' AND revoked_at IS NULL",
+        ql_thieu_quyen.clinic_id,
+        ql_thieu_quyen.staff_id,
+    )
+    # Tạo yêu cầu của nhân viên khác và của chính quản lý đã bị thu quyền.
+    await _nhap(pool, b.lap, [_dong(b.vt_can, 2)])
+    await _nhap(pool, ql_thieu_quyen, [_dong(b.vt_can, 3)])
+    ds = await doc_cho_duyet(pool, identity=ql_thieu_quyen)
+    assert ds
+    assert all(row["cua_toi"] for row in ds)
 
 
 # ── Chờ duyệt: không chạm sổ ─────────────────────────────────────────────────
@@ -334,7 +361,7 @@ async def test_nguoi_co_lego_tu_lap_la_tu_duyet_ghi_so_ngay(
     assert str(yc["phieu_id"]) == kq["id"]
 
 
-async def test_truong_ca_duoc_cap_lego_duyet_nhap_duoc(
+async def test_truong_ca_khong_duoc_cap_quyen_duyet_nhap(
     pool: asyncpg.Pool,  # noqa: F811
     quan_ly: StaffIdentity,  # noqa: F811
 ) -> None:
@@ -350,14 +377,20 @@ async def test_truong_ca_duoc_cap_lego_duyet_nhap_duoc(
     with pytest.raises(SafetyGateError):  # chưa có lego
         await duyet(pool, identity=tc, yeu_cau_id=kq["yeu_cau_id"])
     svc = PermissionService(pool)
-    await svc.cap_khoi(staff_id=tc.staff_id, khoi="duyet_vat_tu", identity=quan_ly)
-    await duyet(pool, identity=tc, yeu_cau_id=kq["yeu_cau_id"])
-    assert await _ton(pool, b.vt_can) == 2
-    # Thu lego → không duyệt thêm được nữa.
-    kq2 = await _nhap(pool, b.lap, [_dong(b.vt_can, 2)])
-    await svc.thu_khoi(staff_id=tc.staff_id, khoi="duyet_vat_tu", identity=quan_ly)
+    with pytest.raises(
+        CoreValidationError, match="Quyền duyệt vật tư chỉ cấp cho tài khoản Quản lý"
+    ):
+        await svc.cap_khoi(staff_id=tc.staff_id, khoi="duyet_vat_tu", identity=quan_ly)
     with pytest.raises(SafetyGateError):
-        await duyet(pool, identity=tc, yeu_cau_id=kq2["yeu_cau_id"])
+        await duyet(pool, identity=tc, yeu_cau_id=kq["yeu_cau_id"])
+    assert await _ton(pool, b.vt_can) == 0
+    await duyet(pool, identity=b.ql, yeu_cau_id=kq["yeu_cau_id"])
+    assert await _ton(pool, b.vt_can) == 2
+    # Quản lý có thể thu hồi quyền; từ đó không còn tự duyệt.
+    kq2 = await _nhap(pool, b.lap, [_dong(b.vt_can, 2)])
+    await svc.thu_khoi(staff_id=b.ql.staff_id, khoi="duyet_vat_tu", identity=quan_ly)
+    with pytest.raises(SafetyGateError):
+        await duyet(pool, identity=b.ql, yeu_cau_id=kq2["yeu_cau_id"])
 
 
 async def test_postgres_gac_yeu_cau_da_quyet_va_nguoi_quyet(
@@ -375,6 +408,19 @@ async def test_postgres_gac_yeu_cau_da_quyet_va_nguoi_quyet(
             yc_id,
             b.lap.staff_id,
         )
+    # Không giả danh Quản lý bằng cách ghi mã người duyệt khác actor DB.
+    with pytest.raises(asyncpg.CheckViolationError):
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT set_config('app.staff_id', $1, true)", b.lap.staff_id
+            )
+            await conn.execute(
+                "UPDATE vat_tu_nhap_cho_duyet SET trang_thai = 'TU_CHOI',"
+                " quyet_boi = $2::uuid, quyet_luc = now(),"
+                " quyet_ly_do = 'Giả mạo người duyệt' WHERE id = $1::uuid",
+                yc_id,
+                b.ql.staff_id,
+            )
     # Không xoá, không sửa dòng đã xin.
     with pytest.raises(asyncpg.PostgresError):
         await pool.execute(

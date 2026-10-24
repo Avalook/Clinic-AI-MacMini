@@ -2,7 +2,7 @@
 
     scripts/test-nhanh.sh src/tests/services/test_vat_tu_nhap_duyet_http_db.py
 
-Kiểm cửa quyền (xem theo `vat_tu.manage`, duyệt / từ chối theo `vat_tu.approve`),
+Kiểm cửa quyền (người lập xem yêu cầu của mình; chỉ Quản lý duyệt / từ chối),
 mã trạng thái (422 rác, 409 đã quyết, 404 la) và cả chuỗi lập → xem → duyệt → hoàn tác
 đi qua FastAPI thật.
 """
@@ -22,7 +22,7 @@ from clinicai.api.v1.routers import vat_tu_kho as kho_rt
 from clinicai.api.v1.routers import vat_tu_nhap_duyet as rt
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
-from tests.services.test_vat_tu_nhap_duyet_db import _bo
+from tests.services.test_vat_tu_nhap_duyet_db import _bo, _nguoi_la
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -65,10 +65,21 @@ async def test_http_lap_xem_duyet_tu_choi_rut_lai(pool: asyncpg.Pool) -> None:
             assert gui.status_code == 201
             yc = gui.json()["yeu_cau_id"]
             assert gui.json()["cho_duyet"] is True
+            nguoi_la = await _nguoi_la(pool)
+            _dat_nguoi(pool, nguoi_la)
+            gui_la = await c.post(
+                f"{V1}/phieu",
+                json={"loai": "NHAP", "dong": [dong("3")]},
+                headers={"Idempotency-Key": uuid.uuid4().hex},
+            )
+            yc_la = gui_la.json()["yeu_cau_id"]
+            _dat_nguoi(pool, b.lap)
             ds = (await c.get(f"{V1}/cho-duyet")).json()
             assert ds["duoc_duyet"] is False
             mine = [x for x in ds["items"] if x["id"] == yc]
             assert mine[0]["trang_thai"] == "CHO_DUYET"
+            assert all(x["id"] != yc_la for x in ds["items"])
+            assert (await c.post(f"{V1}/cho-duyet/{yc}/duyet")).status_code == 403
             assert mine[0]["dong"][0]["ten"] == "Găng cần duyệt nhập"
             # Màn vẽ "của bạn" + nút Rút lại từ cờ này; thành tiền do máy chủ tính.
             assert mine[0]["cua_toi"] is True
@@ -81,13 +92,16 @@ async def test_http_lap_xem_duyet_tu_choi_rut_lai(pool: asyncpg.Pool) -> None:
             # Người lập rút lai được; số rác ở lý do → 422.
             rac = await c.post(f"{V1}/cho-duyet/{yc}/rut-lai", json={"ly_do": "ab"})
             assert rac.status_code == 422
-            # Không phải UUID → 422 của FastAPI.
-            assert (await c.post(f"{V1}/cho-duyet/abc/duyet")).status_code == 422
+            # Nhân viên thường không dò trạng thái qua mã phiếu rác.
+            assert (await c.post(f"{V1}/cho-duyet/abc/duyet")).status_code == 403
 
             # Người có lego: thấy nút (duoc_duyet), từ chối thiếu lý do → 422.
             _dat_nguoi(pool, b.ql)
             ds = (await c.get(f"{V1}/cho-duyet")).json()
             assert ds["duoc_duyet"] is True
+            assert {x["id"] for x in ds["items"]} >= {yc, yc_la}
+            sai_ma = await c.post(f"{V1}/cho-duyet/abc/duyet")
+            assert sai_ma.status_code == 422
             assert [x["cua_toi"] for x in ds["items"] if x["id"] == yc] == [False]
             thieu = await c.post(f"{V1}/cho-duyet/{yc}/tu-choi", json={})
             assert thieu.status_code == 422
@@ -97,8 +111,8 @@ async def test_http_lap_xem_duyet_tu_choi_rut_lai(pool: asyncpg.Pool) -> None:
             assert ok.status_code == 200 and ok.json()["trang_thai"] == "TU_CHOI"
             # Đã quyết → duyệt = 409; yêu cầu la → 404.
             assert (await c.post(f"{V1}/cho-duyet/{yc}/duyet")).status_code == 409
-            la = await c.post(f"{V1}/cho-duyet/{uuid.uuid4()}/duyet")
-            assert la.status_code == 404
+            khong_tim_thay = await c.post(f"{V1}/cho-duyet/{uuid.uuid4()}/duyet")
+            assert khong_tim_thay.status_code == 404
 
             # Gửi mới → duyệt → có phiếu NHẬP thật, tồn tăng.
             _dat_nguoi(pool, b.lap)

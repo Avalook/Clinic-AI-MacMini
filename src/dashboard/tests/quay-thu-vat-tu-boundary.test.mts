@@ -71,10 +71,16 @@ test("khối vật tư dùng thành phần chung, không tự vẽ nút / màu /
   }
   assert.match(vatTu, /import Button from "@\/components\/ui\/Button"/);
   // Hai đầu dò là nút chọn nhanh, máy chủ quyết nút nào nổi lên đầu (`goi_y`).
-  assert.match(vatTu, /filter\(\(m\) => m\.chon_nhanh\)/);
+  assert.match(vatTu, /const nhanh = goi\.danh_muc\.filter\([\s\S]*m\.chon_nhanh && \(!m\.can_ql_duyet \|\| goi\.la_quan_ly\)/);
+  assert.match(vatTu, /timVatTu\(goi\.danh_muc, tim\)\.filter\([\s\S]*!m\.can_ql_duyet \|\| goi\.la_quan_ly/);
+  assert.match(vatTu, /timVatTu\(goi\.danh_muc, tim\)\.filter\([\s\S]*!m\.can_ql_duyet \|\| goi\.la_quan_ly/);
   assert.match(vatTu, /m\.goi_y \? "soft" : "secondary"/);
-  // Hàng cần quản lý duyệt không thêm thẳng: mở ô duyệt.
+  // Hàng cần duyệt chỉ hiện thao tác cho Quản lý đang đăng nhập.
   assert.match(vatTu, /if \(m\.can_ql_duyet\)/);
+  assert.match(vatTu, /if \(!goi\?\.la_quan_ly\) return/);
+  assert.match(vatTu, /m\.ban_duoc && \(!m\.can_ql_duyet \|\| goi\.la_quan_ly\)/);
+  assert.match(vatTu, /const khoaTheoQuanLy = d\.can_ql_duyet && !goi\.la_quan_ly/);
+  assert.doesNotMatch(vatTu, /duyet\.quanLy|goi\.quan_ly|Người đã duyệt/);
   assert.match(vatTu, /ly_do_duyet: duyet\.lyDo/);
 });
 

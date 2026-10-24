@@ -5,12 +5,10 @@
 -- có quy trình nào, lúc nào, ai thu cũng được… open hết ra, nhân sự có các node
 -- gần full để thao tác cho lẹ".
 --
--- 1. Cấp (phạm vi TOÀN PHÒNG KHÁM) MỌI capability của MỌI khối cho mọi tài khoản
---    nội bộ đang hoạt động (vai khác PARTNER / DISPLAY), TRỪ bốn khối chỉ Quản lý
---    giữ để khỏi loạn — đúng hai lego "Cài đặt phòng khám" và "Nhân sự & phân
---    quyền":
---      quan_tri_quyen · nhan_su · cai_dat · danh_muc (mẫu kết quả, dây nối —
---      nằm trong lego Cài đặt).
+-- 1. Cấp (phạm vi TOÀN PHÒNG KHÁM) capability của các khối vận hành cho mọi tài
+--    khoản nội bộ đang hoạt động (vai khác PARTNER / DISPLAY), trừ các khối chỉ
+--    Quản lý giữ: quan_tri_quyen · nhan_su · cai_dat · danh_muc · ke_toan ·
+--    duyet_vat_tu. Hai khối cuối được bổ sung sau ngày mở full.
 -- 2. Gói mẫu (`quyen_preset`, nhóm dựng sẵn) của mọi vai thêm cùng các khối để
 --    tài khoản tạo sau cũng có. Khớp `PRESET` ở `permissions/catalogue.py`
 --    (`test_permission_db` so hai bên).
@@ -30,7 +28,7 @@ SELECT DISTINCT m.clinic_id, m.staff_id, c.ma, 'CLINIC', NULL::uuid,
   JOIN public.staff s ON s.id = m.staff_id AND s.is_active
   JOIN public.capability c
     ON c.work_pack <> ALL (ARRAY['quan_tri_quyen', 'nhan_su', 'cai_dat',
-                                 'danh_muc'])
+                                 'danh_muc', 'ke_toan', 'duyet_vat_tu'])
  WHERE m.is_active
    AND m.role NOT IN ('PARTNER', 'DISPLAY')
 ON CONFLICT DO NOTHING;
@@ -41,7 +39,8 @@ UPDATE quyen_preset p
          FROM unnest(p.khoi || ARRAY(
                   SELECT w.ma FROM public.work_pack w
                    WHERE w.ma <> ALL (ARRAY['quan_tri_quyen', 'nhan_su',
-                                            'cai_dat', 'danh_muc'])
+                                             'cai_dat', 'danh_muc', 'ke_toan',
+                                             'duyet_vat_tu'])
               )) AS k)
  WHERE p.he_thong
    AND p.ma NOT IN ('PARTNER', 'DISPLAY');

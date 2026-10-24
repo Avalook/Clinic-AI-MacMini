@@ -1,17 +1,14 @@
-"""G8b — Ai duyệt vật tư cần duyệt (Trưởng ca / Quản lý) + ghi NGUYÊN NHÂN bán thêm.
+"""G8b — Chỉ Quản lý duyệt vật tư cần duyệt + ghi NGUYÊN NHÂN bán thêm.
 
     scripts/test-nhanh.sh src/tests/services/test_vat_tu_duyet_db.py
 
-Trước: hàng `can_ql_duyet` (vòng Mirena…) chỉ vai MANAGEMENT duyệt được — viết cứng
-ở Python (`_la_quan_ly`, `_QUAN_LY_SQL`) và ở trigger `luot_vat_tu_gac`. Nay
-người duyệt là người có lego **Duyệt vật tư** (`vat_tu.approve`): mặc định Quản lý
-(khối chỉ Quản lý giữ), Quản lý cấp thêm cho Trưởng ca ở màn Phân quyền, tài khoản
-Trưởng ca đang có được cấp sẵn lúc áp migration. KHÔNG có đường vòng "vai Quản lý
-thì được" — quyền đi theo lego.
+Hàng `can_ql_duyet` (vòng Mirena…) chỉ Quản lý membership gốc có capability
+`vat_tu.approve` mới duyệt được. Trưởng ca không được cấp capability này, kể cả
+qua API cấp khối hoặc ghi thẳng vào Postgres.
 
 BẤT BIẾN:
-  D1  Hàng cần duyệt bán được ⇔ có người duyệt đang CÓ lego (lúc bán); không lego
-      → từ chối ở Python VÀ ở Postgres (ghi thẳng cũng bị chặn).
+  D1  Hàng cần duyệt chỉ được thêm khi chính Quản lý đang đăng nhập có lego;
+      ghi nhận hộ người khác bị từ chối ở Python VÀ ở Postgres.
   D2  Mất lego sau khi đã duyệt: dòng cũ giữ nguyên, nhưng không duyệt thêm được.
   D3  Người có lego tự bán thì chính họ là người duyệt (vẫn phải ghi lý do duyệt).
   D4  "Nguyên nhân bán thêm" luôn được GHI khi có gửi (5–500 ký tự, rác → 422);
@@ -43,6 +40,7 @@ from clinicai.permissions.catalogue import (
     PRESET,
     QUYEN,
 )
+from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
 from clinicai.services.day_noi import DAY, doc_day
 from clinicai.services.permission_service import PermissionService
 from clinicai.services.vat_tu_service import VatTuService
@@ -75,6 +73,21 @@ async def _vt(q: Quay, ten: str, gia: int | None, *, can_duyet: bool = False) ->
             can_duyet,
         )
     )
+
+
+async def test_danh_muc_hang_can_duyet_chi_hien_cho_quan_ly(
+    pool: asyncpg.Pool,
+) -> None:
+    q = await tao_quay(pool)
+    mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
+    ql = await _nguoi_vai(q, "MANAGEMENT")
+    svc = DanhMucDichVuService(pool)
+
+    danh_muc_quay = await svc.doc(identity=q.thu_ngan)
+    danh_muc_quan_ly = await svc.doc(identity=ql)
+
+    assert all(m["id"] != mirena for m in danh_muc_quay["vat_tu"])
+    assert any(m["id"] == mirena for m in danh_muc_quan_ly["vat_tu"])
 
 
 @asynccontextmanager
@@ -154,7 +167,7 @@ def test_duyet_vat_tu_la_lego_chi_quan_ly_giu_mac_dinh() -> None:
 
 
 @pytest.mark.asyncio
-async def test_quan_ly_co_san_truong_ca_duoc_cap_thi_co(
+async def test_chi_quan_ly_duoc_cap_quyen_duyet_vat_tu(
     pool: asyncpg.Pool,
     quan_ly: StaffIdentity,  # noqa: F811
 ) -> None:
@@ -166,58 +179,51 @@ async def test_quan_ly_co_san_truong_ca_duoc_cap_thi_co(
         # Tài khoản Trưởng ca MỚI chưa có (mở full không đụng khối này) …
         assert not await can(conn, truong_ca, QUYEN_DUYET)
         assert not await can(conn, q.thu_ngan, QUYEN_DUYET)
-    # … Quản lý cấp thì có ngay, thu thì hết ngay.
-    await _cap(pool, quan_ly, truong_ca)
-    async with pool.acquire() as conn:
-        assert await can(conn, truong_ca, QUYEN_DUYET)
-    await _thu_hoi(pool, quan_ly, truong_ca)
+    # Không thể cấp cho Trưởng ca dù người thao tác là Quản lý.
+    with pytest.raises(ClinicAIBaseException, match="chỉ cấp cho tài khoản Quản lý"):
+        await _cap(pool, quan_ly, truong_ca)
     async with pool.acquire() as conn:
         assert not await can(conn, truong_ca, QUYEN_DUYET)
 
 
-# ── Duyệt bán: theo lego, không theo vai ─────────────────────────────────────
+# ── Duyệt bán: membership Quản lý và capability ──────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_truong_ca_co_lego_duyet_duoc_mirena_nguoi_khac_thi_khong(
+async def test_chi_quan_ly_duyet_duoc_mirena_nguoi_khac_thi_khong(
     pool: asyncpg.Pool,
     quan_ly: StaffIdentity,  # noqa: F811
 ) -> None:
     q = await tao_quay(pool)
     svc = VatTuService(pool)
     mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
-    truong_ca = await _nguoi_vai(q, "TRUONG_CA")
-    ky_thuat = await _nguoi_vai(q, "TKYK")
-    await _cap(pool, quan_ly, truong_ca)
-
-    # Người "duyệt" không có lego (dù là TKYK / bác sĩ) → từ chối, không ghi gì.
-    for ai in (ky_thuat.staff_id, q.bac_si.staff_id, q.thu_ngan.staff_id):
-        with pytest.raises(ValidationError):
-            await svc.them(
-                visit_id=q.visit_id,
-                service_price_id=mirena,
-                duyet_boi=ai,
-                ly_do_duyet="Vòng thứ hai do tụt vòng",
-                identity=q.thu_ngan,
-            )
+    ql = await _nguoi_vai(q, "MANAGEMENT")
+    # Nhân viên không thể ghi nhận hộ dù nhập mã Quản lý có quyền.
+    with pytest.raises(ClinicAIBaseException, match="Chỉ Quản lý"):
+        await svc.them(
+            visit_id=q.visit_id,
+            service_price_id=mirena,
+            duyet_boi=ql.staff_id,
+            ly_do_duyet="Vòng thứ hai do tụt vòng",
+            identity=q.thu_ngan,
+        )
     d = await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan)
     assert d["dong"] == []
-    # Danh sách chọn người duyệt = những ai CÓ lego, kể cả Trưởng ca được cấp.
-    ds = {x["id"] for x in d["quan_ly"]}
-    assert truong_ca.staff_id in ds
-    assert ky_thuat.staff_id not in ds and q.thu_ngan.staff_id not in ds
+    assert all(m["id"] != mirena for m in d["danh_muc"])
+    assert "quan_ly" not in d
     assert d["la_quan_ly"] is False
 
-    # Trưởng ca có lego duyệt → thu ngân bán được, ghi đúng người duyệt.
+    # Chỉ Quản lý đang đăng nhập có capability mới bán và duyệt được.
     kq = await svc.them(
         visit_id=q.visit_id,
         service_price_id=mirena,
-        duyet_boi=truong_ca.staff_id,
         ly_do_duyet="Vòng thứ hai: vòng đầu tụt khi đặt",
-        identity=q.thu_ngan,
+        identity=ql,
     )
     (dong,) = kq["dong"]
-    assert dong["nguoi_duyet"] == truong_ca.full_name
+    assert dong["nguoi_duyet"] == ql.full_name
+    assert dong["can_ql_duyet"] is True
+    assert any(m["id"] == mirena for m in kq["danh_muc"])
 
 
 @pytest.mark.asyncio
@@ -228,42 +234,43 @@ async def test_nguoi_co_lego_tu_ban_la_tu_duyet_het_lego_thi_khong(
     q = await tao_quay(pool)
     svc = VatTuService(pool)
     mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
-    truong_ca = await _nguoi_vai(q, "TRUONG_CA")
-    await _cap(pool, quan_ly, truong_ca)
+    ql = await _nguoi_vai(q, "MANAGEMENT")
 
     # Có lego: tự thêm = tự duyệt, vẫn phải ghi lý do.
     with pytest.raises(ValidationError):
-        await svc.them(visit_id=q.visit_id, service_price_id=mirena, identity=truong_ca)
+        await svc.them(visit_id=q.visit_id, service_price_id=mirena, identity=ql)
     kq = await svc.them(
         visit_id=q.visit_id,
         service_price_id=mirena,
         ly_do_duyet="Sự cố vòng thứ hai",
-        identity=truong_ca,
+        identity=ql,
     )
-    assert kq["dong"][0]["nguoi_duyet"] == truong_ca.full_name
-    assert (await svc.doc(visit_id=q.visit_id, identity=truong_ca))["la_quan_ly"]
+    assert kq["dong"][0]["nguoi_duyet"] == ql.full_name
+    assert (await svc.doc(visit_id=q.visit_id, identity=ql))["la_quan_ly"]
 
     # Thu lego: dòng cũ GIỮ NGUYÊN, nhưng không còn tự duyệt / làm người duyệt.
-    await _thu_hoi(pool, quan_ly, truong_ca)
+    await _thu_hoi(pool, quan_ly, ql)
     d = await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan)
-    assert [x["nguoi_duyet"] for x in d["dong"]] == [truong_ca.full_name]
-    assert truong_ca.staff_id not in {x["id"] for x in d["quan_ly"]}
+    assert [x["nguoi_duyet"] for x in d["dong"]] == [ql.full_name]
+    assert d["dong"][0]["can_ql_duyet"] is True
+    assert all(m["id"] != mirena for m in d["danh_muc"])
+    assert "quan_ly" not in d
     cho_khac = await _nguoi_vai(q, "RECEPTION")
     mirena2 = await _vt(q, "Vòng Mirena 2", 4_000_000, can_duyet=True)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ClinicAIBaseException):
         await svc.them(
             visit_id=q.visit_id,
             service_price_id=mirena2,
-            duyet_boi=truong_ca.staff_id,
+            duyet_boi=ql.staff_id,
             ly_do_duyet="Đã hết quyền duyệt",
             identity=cho_khac,
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(ClinicAIBaseException):
         await svc.them(
             visit_id=q.visit_id,
             service_price_id=mirena2,
             ly_do_duyet="Hết quyền thì không tự duyệt",
-            identity=truong_ca,
+            identity=ql,
         )
 
 
@@ -273,13 +280,13 @@ async def test_quan_ly_bi_thu_khoi_thi_khong_con_duyet_khong_duong_vong_theo_vai
     quan_ly: StaffIdentity,  # noqa: F811
 ) -> None:
     """Không có "vai Quản lý thì được tất": thu khối của một tài khoản Quản lý là
-    họ không duyệt được nữa (quyền đi theo lego)."""
+    họ không duyệt được nữa (vai Quản lý không thay cho capability)."""
     q = await tao_quay(pool)
     svc = VatTuService(pool)
     mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
     ql = await _nguoi_vai(q, "MANAGEMENT")
     await _thu_hoi(pool, quan_ly, ql)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ClinicAIBaseException):
         await svc.them(
             visit_id=q.visit_id,
             service_price_id=mirena,
@@ -287,7 +294,7 @@ async def test_quan_ly_bi_thu_khoi_thi_khong_con_duyet_khong_duong_vong_theo_vai
             ly_do_duyet="Không còn lego duyệt",
             identity=q.thu_ngan,
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(ClinicAIBaseException):
         await svc.them(
             visit_id=q.visit_id,
             service_price_id=mirena,
@@ -297,24 +304,70 @@ async def test_quan_ly_bi_thu_khoi_thi_khong_con_duyet_khong_duong_vong_theo_vai
 
 
 @pytest.mark.asyncio
-async def test_postgres_gac_nguoi_duyet_theo_lego(
+async def test_postgres_gac_nguoi_duyet_theo_vai_quan_ly_va_lego(
     pool: asyncpg.Pool,
     quan_ly: StaffIdentity,  # noqa: F811
 ) -> None:
     q = await tao_quay(pool)
     mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
     truong_ca = await _nguoi_vai(q, "TRUONG_CA")
+    ql = await _nguoi_vai(q, "MANAGEMENT")
     sql = (
         "INSERT INTO luot_vat_tu (clinic_id, visit_id, service_price_id, ten,"
-        " don_gia, so_luong, duyet_boi, duyet_ly_do)"
+        " don_gia, so_luong, chon_boi, duyet_boi, duyet_ly_do)"
         " VALUES ($1::uuid, $2::uuid, $3::uuid, 'x', 4000000, 1, $4::uuid,"
-        " 'Duyệt thử ở Postgres')"
+        " $5::uuid, 'Duyệt thử ở Postgres')"
     )
-    # Ghi thẳng với người "duyệt" không có lego → Postgres chặn.
+    # Nhân viên không thể ghi nhận hộ Quản lý; Postgres kiểm người tạo lẫn duyệt.
     with pytest.raises(asyncpg.CheckViolationError):
-        await pool.execute(sql, CLINIC, q.visit_id, mirena, truong_ca.staff_id)
-    await _cap(pool, quan_ly, truong_ca)
-    await pool.execute(sql, CLINIC, q.visit_id, mirena, truong_ca.staff_id)
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT set_config('app.staff_id', $1, true)", q.thu_ngan.staff_id
+            )
+            await conn.execute(
+                sql, CLINIC, q.visit_id, mirena, q.thu_ngan.staff_id, ql.staff_id
+            )
+    with pytest.raises(ClinicAIBaseException, match="chỉ cấp cho tài khoản Quản lý"):
+        await _cap(pool, quan_ly, truong_ca)
+    with pytest.raises(asyncpg.CheckViolationError):
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT set_config('app.staff_id', $1, true)", truong_ca.staff_id
+            )
+            await conn.execute(
+                sql, CLINIC, q.visit_id, mirena, truong_ca.staff_id, truong_ca.staff_id
+            )
+    with pytest.raises(asyncpg.CheckViolationError):
+        await pool.execute(
+            "INSERT INTO capability_grant"
+            " (clinic_id, staff_id, capability, tu_khoi, granted_by)"
+            " VALUES ($1::uuid, $2::uuid, 'vat_tu.approve', 'duyet_vat_tu',"
+            " $3::uuid)",
+            CLINIC,
+            truong_ca.staff_id,
+            quan_ly.staff_id,
+        )
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute("SELECT set_config('app.staff_id', $1, true)", ql.staff_id)
+        await conn.execute(sql, CLINIC, q.visit_id, mirena, ql.staff_id, ql.staff_id)
+
+    # UPDATE trực tiếp không thể thay người duyệt bằng cách chỉ gửi mã Quản lý.
+    dong_id = await pool.fetchval(
+        "SELECT id FROM luot_vat_tu"
+        " WHERE visit_id = $1::uuid AND service_price_id = $2::uuid",
+        q.visit_id,
+        mirena,
+    )
+    with pytest.raises(asyncpg.CheckViolationError):
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT set_config('app.staff_id', $1, true)", q.thu_ngan.staff_id
+            )
+            await conn.execute(
+                "UPDATE luot_vat_tu SET duyet_ly_do = 'Nhân viên sửa dấu vết'"
+                " WHERE id = $1::uuid",
+                dong_id,
+            )
 
 
 # ── Nguyên nhân bán thêm ─────────────────────────────────────────────────────
@@ -398,28 +451,32 @@ async def test_hang_can_duyet_bat_day_can_ca_ly_do_duyet_lan_ly_do_ban(
     q = await tao_quay(pool)
     svc = VatTuService(pool)
     mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
-    truong_ca = await _nguoi_vai(q, "TRUONG_CA")
-    await _cap(pool, quan_ly, truong_ca)
+    ql = await _nguoi_vai(q, "MANAGEMENT")
     async with _day(pool, True):
         with pytest.raises(ValidationError):  # có duyệt, thiếu nguyên nhân bán
             await svc.them(
                 visit_id=q.visit_id,
                 service_price_id=mirena,
-                duyet_boi=truong_ca.staff_id,
                 ly_do_duyet="Vòng đầu tụt khi đặt",
-                identity=q.thu_ngan,
+                identity=ql,
             )
         kq = await svc.them(
             visit_id=q.visit_id,
             service_price_id=mirena,
-            duyet_boi=truong_ca.staff_id,
             ly_do_duyet="Vòng đầu tụt khi đặt",
             ly_do_ban="Tụt vòng khi đặt, cần vòng thứ hai",
-            identity=q.thu_ngan,
+            identity=ql,
         )
     d = kq["dong"][0]
     assert d["ly_do_duyet"] == "Vòng đầu tụt khi đặt"
     assert d["ly_do_ban"] == "Tụt vòng khi đặt, cần vòng thứ hai"
+    with pytest.raises(ClinicAIBaseException):
+        await svc.dat_so_luong(dong_id=d["id"], so_luong=2, identity=q.thu_ngan)
+    with pytest.raises(ClinicAIBaseException):
+        await svc.bo(dong_id=d["id"], identity=q.thu_ngan)
+    # Quản lý có quyền vẫn có thể sửa và bỏ mặt hàng đã duyệt.
+    await svc.dat_so_luong(dong_id=d["id"], so_luong=2, identity=ql)
+    await svc.bo(dong_id=d["id"], identity=ql)
 
 
 # ── Bấm lộn xộn: cấp / thu lego, bật / tắt dây, bán, bỏ ─────────────────────
@@ -442,8 +499,8 @@ async def test_bam_lon_xon_duyet_va_ly_do_khong_lech(
         svc = VatTuService(pool)
         mirena = await _vt(q, "Vòng Mirena", 4_000_000, can_duyet=True)
         gac = await _vt(q, "Gạc thử", 20_000)
-        tc = await _nguoi_vai(q, "TRUONG_CA")
-        co_lego = False
+        ql = await _nguoi_vai(q, "MANAGEMENT")
+        co_lego = True
         dang_bat = False
         da_lam: list[str] = []
         luc_tao: dict[str, bool] = {}
@@ -457,8 +514,8 @@ async def test_bam_lon_xon_duyet_va_ly_do_khong_lech(
                         "thu_lego",
                         "bat_day",
                         "tat_day",
-                        "ban_mirena_qua_tc",
-                        "tc_tu_ban_mirena",
+                        "ban_mirena_qua_ql",
+                        "ql_tu_ban_mirena",
                         "ban_gac_co_ly_do",
                         "ban_gac_khong_ly_do",
                         "bo_dong",
@@ -466,21 +523,22 @@ async def test_bam_lon_xon_duyet_va_ly_do_khong_lech(
                 )
                 try:
                     if viec == "cap_lego":
-                        await _cap(pool, quan_ly, tc)
+                        await _cap(pool, quan_ly, ql)
                         co_lego = True
                     elif viec == "thu_lego":
-                        await _thu_hoi(pool, quan_ly, tc)
+                        await _thu_hoi(pool, quan_ly, ql)
                         co_lego = False
                     elif viec in ("bat_day", "tat_day"):
                         await cm.__aexit__(None, None, None)
                         dang_bat = viec == "bat_day"
                         cm = _day(pool, dang_bat)
                         await cm.__aenter__()
-                    elif viec == "ban_mirena_qua_tc":
+                    elif viec == "ban_mirena_qua_ql":
+                        # Thu ngân không được ghi nhận hộ dù chọn đúng mã Quản lý.
                         await svc.them(
                             visit_id=q.visit_id,
                             service_price_id=mirena,
-                            duyet_boi=tc.staff_id,
+                            duyet_boi=ql.staff_id,
                             ly_do_duyet="Vòng đầu tụt khi đặt",
                             ly_do_ban="Cần vòng thứ hai",
                             identity=q.thu_ngan,
@@ -489,13 +547,13 @@ async def test_bam_lon_xon_duyet_va_ly_do_khong_lech(
                             lech.append(
                                 f"hạt {hat}: {da_lam + [viec]} duyệt khi không lego"
                             )
-                    elif viec == "tc_tu_ban_mirena":
+                    elif viec == "ql_tu_ban_mirena":
                         await svc.them(
                             visit_id=q.visit_id,
                             service_price_id=mirena,
                             ly_do_duyet="Sự cố vòng thứ hai",
                             ly_do_ban="Cần vòng thứ hai",
-                            identity=tc,
+                            identity=ql,
                         )
                         if not co_lego:
                             lech.append(
@@ -523,8 +581,8 @@ async def test_bam_lon_xon_duyet_va_ly_do_khong_lech(
                     continue
                 chay[viec] += 1
                 da_lam.append(viec)
-                # Bất biến: dòng gạc TẠO LÚC dây BẬT phải có lý do; Mirena luôn có
-                # người + lý do duyệt.
+                # Bất biến: dòng gạc TẠO LÚC dây BẬT phải có lý do; Mirena chỉ do
+                # Quản lý trực tiếp tạo và luôn có người + lý do duyệt.
                 d = await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan)
                 for x in d["dong"]:
                     if x["service_price_id"] == gac:
@@ -541,5 +599,5 @@ async def test_bam_lon_xon_duyet_va_ly_do_khong_lech(
             await cm.__aexit__(None, None, None)
     print(f"\nCHẠY: {dict(chay)}\nBỊ CHẶN: {dict(chan)}\nLỆCH: {lech or '(không)'}")
     assert lech == []
-    assert chay["ban_mirena_qua_tc"] + chay["tc_tu_ban_mirena"] >= 5
-    assert chan["ban_mirena_qua_tc"] + chan["tc_tu_ban_mirena"] >= 5
+    assert chay["ql_tu_ban_mirena"] >= 5
+    assert chan["ban_mirena_qua_ql"] + chan["ql_tu_ban_mirena"] >= 5

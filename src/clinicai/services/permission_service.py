@@ -183,10 +183,20 @@ class PermissionService:
         ds_quyen = quyen_cua_khoi(khoi)
         if not ds_quyen:
             raise ValidationError(f"Khối “{KHOI[khoi].ten}” chưa có quyền nào.")
-
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "permission.manage")
             await self._phai_cung_phong_kham(conn, identity, staff_id)
+            if "vat_tu.approve" in ds_quyen:
+                target_role = await conn.fetchval(
+                    "SELECT role FROM clinic_membership WHERE clinic_id=$1::uuid"
+                    " AND staff_id=$2::uuid AND is_active FOR UPDATE",
+                    identity.clinic_id,
+                    staff_id,
+                )
+                if target_role != "MANAGEMENT":
+                    raise ValidationError(
+                        "Quyền duyệt vật tư chỉ cấp cho tài khoản Quản lý."
+                    )
 
             da_cap: list[str] = []
             for ma in ds_quyen:

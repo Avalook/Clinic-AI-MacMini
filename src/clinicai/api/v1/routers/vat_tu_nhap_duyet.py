@@ -1,10 +1,9 @@
-"""Phiếu NHẬP vật tư chờ duyệt (G8b, 14/10/2026) — Quản lý / Trưởng ca có lego
-"Duyệt vật tư" duyệt hoặc từ chối; người lập rút lại được khi còn chờ.
+"""Phiếu NHẬP vật tư chờ duyệt (G8b, 14/10/2026) — chỉ Quản lý duyệt hoặc từ chối;
+người lập rút lại được khi còn chờ.
 
-Quyền = lego, không theo vai: xem danh sách theo lego "Kho vật tư"
-(`vat_tu.manage`), duyệt / từ chối theo `vat_tu.approve`. Mọi luật nằm ở
-`vat_tu_nhap_duyet_service`; lệnh tự là máy trạng thái (gọi lại không nhân đôi) nên
-không cần khoá gửi lại.
+Máy chủ kiểm tra cả vai Quản lý gốc và capability `vat_tu.approve`; ẩn nút ở giao diện
+chỉ là bổ sung, không phải hàng rào bảo mật. Người lập vẫn có thể rút lại yêu cầu của
+mình khi còn chờ.
 """
 
 from __future__ import annotations
@@ -13,11 +12,15 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
@@ -28,15 +31,28 @@ _QL = cua_quyen("vat_tu.manage")
 _DUYET = cua_quyen("vat_tu.approve")
 
 
+async def _quan_ly_goc(
+    identity: StaffIdentity = Depends(get_current_identity),
+) -> StaffIdentity:
+    """Chỉ membership MANAGEMENT gốc; vai theo ca/lego không được nâng quyền."""
+    if identity.vai_goc != ClinicRole.MANAGEMENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ Quản lý được duyệt phiếu vật tư.",
+        )
+    return identity
+
+
 @router.get("/vat-tu-kho/cho-duyet")
 async def danh_sach(
     identity: StaffIdentity = Depends(_QL),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Yêu cầu nhập chờ duyệt + đã quyết gần đây của cơ sở; `duoc_duyet` = người xem
-    có lego Duyệt vật tư (màn chỉ hiện nút khi true — lệnh vẫn kiểm lại)."""
+    """Quản lý xem toàn bộ; nhân viên xem yêu cầu do chính mình lập để rút lại."""
     async with pool.acquire() as conn:
-        duoc_duyet = await can(conn, identity, "vat_tu.approve")
+        duoc_duyet = identity.vai_goc == ClinicRole.MANAGEMENT and await can(
+            conn, identity, "vat_tu.approve"
+        )
     kq: dict[str, Any] = jsonable_encoder(
         {
             "items": await nhap.doc_cho_duyet(pool, identity=identity),
@@ -50,6 +66,7 @@ async def danh_sach(
 async def duyet(
     yeu_cau_id: UUID,
     identity: StaffIdentity = Depends(_DUYET),
+    _quan_ly: StaffIdentity = Depends(_quan_ly_goc),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     kq: dict[str, Any] = jsonable_encoder(
@@ -68,6 +85,7 @@ async def tu_choi(
     yeu_cau_id: UUID,
     body: TuChoiRequest,
     identity: StaffIdentity = Depends(_DUYET),
+    _quan_ly: StaffIdentity = Depends(_quan_ly_goc),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     kq: dict[str, Any] = jsonable_encoder(

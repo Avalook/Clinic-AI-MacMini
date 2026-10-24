@@ -88,39 +88,45 @@ export default function DauDoChiDinh({
       <ul className="space-y-3">
         {hang.map((c) => {
           const daChon = c.da_chon;
-          const khoa = !sua || dangGui !== null || Boolean(daChon?.da_thu);
+          const khoa = c.khoa_quan_ly || !sua || dangGui !== null || Boolean(daChon?.da_thu);
           const trongGoiY = daChon ? c.goi_y.some((g) => g.service_price_id === daChon.service_price_id) : true;
           return (
             <li key={c.order_id} className="space-y-1.5">
               <p className="text-body text-ink">{c.ten}</p>
-              <div role="radiogroup" aria-label={`Đầu dò — ${c.ten}`} className="flex flex-wrap gap-2">
-                <ChipChon
-                  kieu="mot"
-                  ten={`dau-do-${c.order_id}`}
-                  chon={!daChon}
-                  disabled={khoa}
-                  onDoi={() => void chon(c.order_id, null)}
-                >
-                  Không dùng đầu dò
-                </ChipChon>
-                {c.goi_y.map((g) => (
+              {c.khoa_quan_ly ? (
+                <p role="status" className="text-meta text-ink-muted">
+                  Đầu dò của chỉ định này cần Quản lý xử lý. Vui lòng liên hệ Quản lý.
+                </p>
+              ) : (
+                <div role="radiogroup" aria-label={`Đầu dò — ${c.ten}`} className="flex flex-wrap gap-2">
                   <ChipChon
-                    key={g.service_price_id}
                     kieu="mot"
                     ten={`dau-do-${c.order_id}`}
-                    chon={daChon?.service_price_id === g.service_price_id}
+                    chon={!daChon}
                     disabled={khoa}
-                    onDoi={() => void chon(c.order_id, g.service_price_id)}
+                    onDoi={() => void chon(c.order_id, null)}
                   >
-                    {g.ten} · {tien(g.don_gia)}
+                    Không dùng đầu dò
                   </ChipChon>
-                ))}
-                {daChon && !trongGoiY ? (
-                  <ChipChon kieu="mot" ten={`dau-do-${c.order_id}`} chon disabled onDoi={() => undefined}>
-                    {daChon.ten} · {tien(daChon.don_gia)}
-                  </ChipChon>
-                ) : null}
-              </div>
+                  {c.goi_y.map((g) => (
+                    <ChipChon
+                      key={g.service_price_id}
+                      kieu="mot"
+                      ten={`dau-do-${c.order_id}`}
+                      chon={daChon?.service_price_id === g.service_price_id}
+                      disabled={khoa}
+                      onDoi={() => void chon(c.order_id, g.service_price_id)}
+                    >
+                      {g.ten} · {tien(g.don_gia)}
+                    </ChipChon>
+                  ))}
+                  {daChon && !trongGoiY ? (
+                    <ChipChon kieu="mot" ten={`dau-do-${c.order_id}`} chon disabled onDoi={() => undefined}>
+                      {daChon.ten} · {tien(daChon.don_gia)}
+                    </ChipChon>
+                  ) : null}
+                </div>
+              )}
               {daChon?.da_thu ? (
                 <p className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
                   <Chip tone="success">Đã thu</Chip>

@@ -195,6 +195,16 @@ class DanhMucDichVuService:
                 cid,
             )
             vat_tu = await doc_vat_tu(conn, cid)
+            cho_hien_hang_can_duyet = (
+                identity.vai_goc.value == "MANAGEMENT"
+                and await can(conn, identity, "vat_tu.approve")
+            )
+            if not cho_hien_hang_can_duyet:
+                vat_tu = [
+                    m
+                    for m in vat_tu
+                    if not m["can_ql_duyet"] and not m["can_duyet_nhap"]
+                ]
             phong = await conn.fetch(
                 """
                 SELECT r.id, coalesce(r.name, r.code) AS ten, r.la_doi_tac,

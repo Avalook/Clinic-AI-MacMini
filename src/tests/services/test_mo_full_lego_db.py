@@ -1,8 +1,8 @@
 """MỞ FULL LEGO cho mọi nhân sự nội bộ, trên Postgres thật (Tuyền 30/09/2026).
 
 "Ai ở chỗ nào cũng thanh toán được, không có trong lịch cũng thao tác được" —
-mọi vai nội bộ có mọi khối, trừ bốn khối chỉ Quản lý giữ (Phân quyền, Nhân sự,
-Cài đặt, Danh mục & biểu mẫu). Migration 20260930900000.
+mọi vai nội bộ có khối vận hành, trừ các khối chỉ Quản lý giữ (Phân quyền, Nhân
+sự, Cài đặt, Danh mục, Kế toán, Duyệt vật tư). Migration 20260930900000.
 
 Điều PHẢI GIỮ dù mở: ai đủ lego Bàn khám được suy ra vai DOCTOR ở cửa cũ, nhưng
 tên KÝ trên bản in và "bác sĩ của phiên" chỉ là tài khoản có
@@ -22,7 +22,12 @@ import pytest
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, doc_vai_theo_lego
 from clinicai.permissions.can import can
-from clinicai.permissions.catalogue import KHOI_CHI_QUAN_LY, KHOI_NOI_BO, QUYEN
+from clinicai.permissions.catalogue import (
+    KHOI_CHI_QUAN_LY,
+    KHOI_MO_FULL,
+    KHOI_NOI_BO,
+    QUYEN,
+)
 from clinicai.services.form_engine_service import FormEngineService
 from clinicai.services.xem_luot_service import XemLuotService
 from tests.services.test_form_engine_db import _don_tron
@@ -76,8 +81,6 @@ PHAI_CO = (
     "report.view",
     "booking.manage",
 )
-#: Bốn khối chỉ Quản lý giữ TẠI THỜI ĐIỂM migration mở full (30/09/2026).
-BON_KHOI_0930 = frozenset({"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc"})
 CHI_QUAN_LY = tuple(q.ma for q in QUYEN.values() if q.khoi in KHOI_CHI_QUAN_LY)
 
 
@@ -173,17 +176,15 @@ async def test_migration_cap_bu_nguoi_cu_va_tat_quyen_theo_lich(kb: KichBan) -> 
                 ai.staff_id,
             )
             raise _RollbackError
-    # Khối NỘI BỘ đội vận hành (09/10/2026): trigger DB bỏ qua, không lọt.
-    # Migration 30/09 loại ĐÚNG bốn khối ấy (đông cứng); khối chỉ-Quản-lý thêm SAU
-    # đó (vd Duyệt vật tư, G8b) nó không biết — chạy lại nó thì được cấp bù, nên
-    # phép so tính theo bốn khối của thời điểm migration, không theo KHOI_CHI_QUAN_LY.
-    so_khoi_mo = {q.khoi for q in QUYEN.values()} - BON_KHOI_0930 - KHOI_NOI_BO
+    # Chạy lại migration cũ không được cấp lại các khối chỉ dành cho Quản lý,
+    # gồm những khối được thêm sau 30/09 (kế toán, duyệt vật tư).
+    so_khoi_mo = set(KHOI_MO_FULL) - KHOI_NOI_BO
     assert ket_qua["khoi"] == so_khoi_mo
     assert ket_qua["day"] in (False, "false")
     assert ket_qua["so_dong"] == sum(
         1
         for q in QUYEN.values()
-        if q.khoi not in BON_KHOI_0930 and q.khoi not in KHOI_NOI_BO
+        if q.khoi in KHOI_MO_FULL and q.khoi not in KHOI_NOI_BO
     )
 
 

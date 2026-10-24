@@ -23,6 +23,16 @@ const DOC: Record<string, (q: URLSearchParams) => string> = {
     })}`,
   // G8b: yêu cầu nhập chờ duyệt (+ đã quyết gần đây, `duoc_duyet`, `cua_toi`).
   "cho-duyet": () => "/api/v1/vat-tu-kho/cho-duyet",
+  "kiem-ke-ca": (q) => {
+    const phieu = q.get("phieu_id");
+    if (phieu) {
+      return `/api/v1/vat-tu-kho/kiem-ke-ca?phieu_id=${encodeURIComponent(phieu)}`;
+    }
+    return `/api/v1/vat-tu-kho/kiem-ke-ca?${new URLSearchParams({
+      ngay: q.get("ngay") ?? "",
+      room_id: q.get("room_id") ?? "",
+    })}`;
+  },
   phieu: (q) => `/api/v1/vat-tu-kho/phieu?${new URLSearchParams({ gioi_han: q.get("gioi_han") ?? "", bo_qua: q.get("bo_qua") ?? "" })}`,
 };
 
@@ -48,7 +58,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ acti
   const { action } = await params;
   const tao = DOC[action];
   if (!tao) return NextResponse.json({ error: `Không đọc được: ${action}` }, { status: 400 });
-  return proxyJsonToBackend("GET", tao(new URL(request.url).searchParams), undefined);
+  const query = new URL(request.url).searchParams;
+  if (action === "kiem-ke-ca" && query.has("phieu_id") && !UUID_RE.test(query.get("phieu_id") ?? "")) {
+    return NextResponse.json({ error: "Mã phiếu không hợp lệ." }, { status: 400 });
+  }
+  return proxyJsonToBackend("GET", tao(query), undefined);
 }
 
 /** Lệnh quyết yêu cầu nhập chờ duyệt (G8b) → đuôi đường backend. Quyền (Duyệt vật tư /
@@ -63,11 +77,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
   const chan = await daDangNhap();
   if (chan) return chan;
   const { action } = await params;
-  if (action !== "phieu" && action !== "hoan" && !(action in QUYET_NHAP)) {
+  const actionKiemKe = new Set(["kiem-ke-ca-mo", "kiem-ke-ca-dem", "kiem-ke-ca-chot"]);
+  if (action !== "phieu" && action !== "hoan" && !(action in QUYET_NHAP) && !actionKiemKe.has(action)) {
     return NextResponse.json({ error: `Thao tác không hợp lệ: ${action}` }, { status: 400 });
   }
   const goi = await docBody(request);
   if (goi instanceof NextResponse) return goi;
+  if (action === "kiem-ke-ca-mo") {
+    return proxyJsonToBackend("POST", "/api/v1/vat-tu-kho/kiem-ke-ca/mo", goi.body);
+  }
+  if (action === "kiem-ke-ca-dem" || action === "kiem-ke-ca-chot") {
+    const b = (goi.body ?? {}) as { phieu_id?: unknown; dong?: unknown };
+    if (typeof b.phieu_id !== "string" || !UUID_RE.test(b.phieu_id)) {
+      return NextResponse.json({ error: "Mã phiếu không hợp lệ." }, { status: 400 });
+    }
+    const buoc = action === "kiem-ke-ca-dem" ? "dem" : "chot";
+    return proxyJsonToBackend(
+      "POST",
+      `/api/v1/vat-tu-kho/kiem-ke-ca/${b.phieu_id}/${buoc}`,
+      buoc === "dem" ? { dong: b.dong } : {},
+    );
+  }
   if (action in QUYET_NHAP) {
     const q = (goi.body ?? {}) as { yeu_cau_id?: unknown; ly_do?: unknown };
     if (typeof q.yeu_cau_id !== "string" || !UUID_RE.test(q.yeu_cau_id)) {

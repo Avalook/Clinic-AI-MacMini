@@ -89,6 +89,8 @@ const LIVE_TABLES = [
   "vat_tu_phieu",
   "vat_tu_ton",
   "vat_tu_txn",
+  "vat_tu_kiem_ke_ca",
+  "vat_tu_kiem_ke_ca_dong",
   "appointment",
   "visit",
   "work_item",

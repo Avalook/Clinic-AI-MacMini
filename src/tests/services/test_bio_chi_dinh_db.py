@@ -649,6 +649,33 @@ async def test_doc_goi_y_theo_chi_dinh(pool: asyncpg.Pool) -> None:  # noqa: F81
     assert theo[lt.b]["da_chon"] is None
 
 
+async def test_dong_bio_can_duyet_chi_quan_ly_co_quyen_moi_nhin_thay(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca = await _dung(pool)
+    lt = await _luot(pool, ca)
+    await _bio(pool, lt, lt.a, lt.bio1)
+    await pool.execute(
+        "UPDATE service_price SET can_ql_duyet = true"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        CLINIC,
+        lt.bio1,
+    )
+
+    doc_bac_si = await BioChiDinhService(pool).doc(
+        visit_id=lt.visit, identity=ca.bac_si
+    )
+    a_cua_bac_si = next(d for d in doc_bac_si["chi_dinh"] if d["order_id"] == lt.a)
+    assert a_cua_bac_si["da_chon"] is None
+    assert a_cua_bac_si["khoa_quan_ly"] is True
+
+    quan_ly = await _nguoi_khoi(pool, "MANAGEMENT", ["duyet_vat_tu"])
+    doc_quan_ly = await BioChiDinhService(pool).doc(visit_id=lt.visit, identity=quan_ly)
+    a_cua_quan_ly = next(d for d in doc_quan_ly["chi_dinh"] if d["order_id"] == lt.a)
+    assert a_cua_quan_ly["da_chon"]["service_price_id"] == lt.bio1
+    assert a_cua_quan_ly["khoa_quan_ly"] is False
+
+
 # ── 5. Bấm lộn xộn như người thật · bên nhận sự kiện chạy XEN GIỮA ──────────
 
 Viec = Callable[[asyncpg.Pool, Luot, random.Random], Awaitable[object]]

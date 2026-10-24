@@ -42,6 +42,27 @@ BEGIN
 END
 $patient_summary_is_private_and_invoker_scoped$;
 
+DO $approval_data_is_backend_only$
+BEGIN
+    IF has_table_privilege('authenticated', 'public.service_price', 'SELECT')
+       OR has_table_privilege('anon', 'public.service_price', 'SELECT') THEN
+        RAISE EXCEPTION
+            'service_price must be read through the authorized backend, not PostgREST';
+    END IF;
+
+    IF has_table_privilege('authenticated', 'public.vat_tu_nhap_cho_duyet', 'SELECT')
+       OR has_table_privilege('anon', 'public.vat_tu_nhap_cho_duyet', 'SELECT') THEN
+        RAISE EXCEPTION
+            'approval requests must be read through the authorized backend, not PostgREST';
+    END IF;
+
+    IF NOT has_table_privilege('service_role', 'public.service_price', 'SELECT')
+       OR NOT has_table_privilege('service_role', 'public.vat_tu_nhap_cho_duyet', 'SELECT') THEN
+        RAISE EXCEPTION 'service_role must retain backend access to approval data';
+    END IF;
+END
+$approval_data_is_backend_only$;
+
 DO $no_blanket_reads$
 DECLARE
     offenders text;
@@ -216,8 +237,12 @@ BEGIN
     -- 126 → 127 (17/10/2026): thuoc_quy_doi (20261017100000).
     -- 127 → 116 (19/10/2026): thu hồi 11 policy đọc trực tiếp sổ kho
     -- (20261019120000); các màn đọc qua FastAPI có kiểm capability.
-    IF scoped_count <> 116 THEN
-        RAISE EXCEPTION 'expected 116 tenant-scoped read policies, found %', scoped_count;
+    -- 116 (19/10/2026): bảng kiểm kê ca vật tư đọc qua FastAPI; không có policy
+    -- SELECT cho authenticated (20261019170000).
+    -- 116 → 115 (19/10/2026): service_price chỉ đọc qua FastAPI để giới hạn
+    -- mặt hàng cần duyệt (20261019160000). Yêu cầu nhập đã bỏ policy từ 19120000.
+    IF scoped_count <> 115 THEN
+        RAISE EXCEPTION 'expected 115 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

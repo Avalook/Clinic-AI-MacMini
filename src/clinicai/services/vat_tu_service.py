@@ -17,10 +17,10 @@ tiền theo chỉ định (huỷ / khách không làm thì không tính).
 
 Hàng ``can_ql_duyet`` (vòng Mirena — đã nằm trong giá dịch vụ đặt vòng, chỉ bán
 khi sự cố cần vòng thứ 2): mỗi lần thêm phải có NGƯỜI DUYỆT + lý do. Người duyệt
-là người có lego "Duyệt vật tư" (`vat_tu.approve`, G8b 14/10/2026): mặc định Quản
-lý, Quản lý cấp thêm cho Trưởng ca — KHÔNG theo vai. Người có lego tự thêm thì
-chính họ là người duyệt; nhân sự khác chọn người đã duyệt (đang làm việc, đang có
-lego). Postgres ép lại (trigger `luot_vat_tu_gac`).
+phải là thành viên Quản lý gốc có lego "Duyệt vật tư" (`vat_tu.approve`, G8b
+14/10/2026); không thể cấp quyền này cho Trưởng ca. Quản lý có quyền tự thêm thì
+chính họ là người duyệt. Nhân viên không thể chọn hoặc khai tên Quản lý để duyệt
+hộ. Postgres ép lại (trigger `luot_vat_tu_gac`).
 
 NGUYÊN NHÂN BÁN THÊM (`ly_do_ban`, G8b): luôn ghi khi có gửi (5–500 ký tự, rác →
 422); dây `vat_tu_bat_ly_do_ban` BẬT thì dòng MỚI thêm ở quầy phải có (TẮT = tuỳ
@@ -37,7 +37,11 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
+from clinicai.api.exceptions import (
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import VatTuDaDoi
@@ -93,6 +97,7 @@ SELECT sp.id::text AS id, sp.name, sp.don_vi, sp.unit_price, sp.active,
 _DONG_SQL = """
 SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
        v.don_vi, v.don_gia, v.so_luong, v.duyet_ly_do,
+       sp.can_ql_duyet,
        v.order_id::text AS order_id, o.service_name AS ten_chi_dinh,
        v.ly_do_ban,
        sd.full_name AS nguoi_duyet,
@@ -101,6 +106,8 @@ SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
        (v.order_id IS NULL
         OR o.selection_status IS DISTINCT FROM 'NOT_SELECTED') AS chon_lam
   FROM public.luot_vat_tu v
+  JOIN public.service_price sp
+    ON sp.id = v.service_price_id AND sp.clinic_id = v.clinic_id
   LEFT JOIN public.service_order o
     ON o.id = v.order_id AND o.clinic_id = v.clinic_id
   LEFT JOIN public.staff sd ON sd.id = v.duyet_boi
@@ -112,21 +119,6 @@ SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
             AND coalesce(o.execution_status, 'PENDING')
                 NOT IN ('CANCELLED', 'NOT_PERFORMED')))
  ORDER BY v.chon_luc, v.id
-"""
-
-#: Người duyệt hợp lệ = đang làm việc + CÓ lego Duyệt vật tư (phạm vi toàn phòng
-#: khám). Hai câu hỏi dùng cùng điều kiện: danh sách chọn ($2 rỗng) và kiểm một
-#: người ($2 = mã người). Cùng điều kiện với trigger `luot_vat_tu_gac`.
-_NGUOI_DUYET_SQL = """
-SELECT DISTINCT s.id::text AS id, s.full_name AS ten
-  FROM public.v_quyen_thuc_te q
-  JOIN public.clinic_membership m
-    ON m.clinic_id = q.clinic_id AND m.staff_id = q.staff_id AND m.is_active
-  JOIN public.staff s ON s.id = q.staff_id AND s.is_active
- WHERE q.clinic_id = $1::uuid AND q.capability = 'vat_tu.approve'
-   AND q.scope_type = 'CLINIC'
-   AND ($2::uuid IS NULL OR q.staff_id = $2::uuid)
- ORDER BY ten
 """
 
 
@@ -197,7 +189,20 @@ def _so_luong(raw: Any) -> int:
 
 
 async def _duoc_duyet(conn: asyncpg.Connection, identity: StaffIdentity) -> bool:
-    return await can(conn, identity, QUYEN_DUYET)
+    # Vai lấy từ clinic_membership gốc, không từ vai tạm theo lịch làm việc.
+    # Duyệt vật tư là thẩm quyền riêng của Quản lý.
+    return identity.vai_goc.value == "MANAGEMENT" and await can(
+        conn, identity, QUYEN_DUYET
+    )
+
+
+async def _dat_nguoi_thao_tac(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> None:
+    """Đưa người đã xác thực vào SET LOCAL để trigger DB xác minh người bấm."""
+    if not conn.is_in_transaction():
+        raise RuntimeError("Phải đặt người thao tác trong giao dịch vật tư.")
+    await conn.execute("SELECT set_config('app.staff_id', $1, true)", identity.staff_id)
 
 
 async def _duoc(conn: asyncpg.Connection, identity: StaffIdentity) -> bool:
@@ -208,10 +213,16 @@ async def _duoc(conn: asyncpg.Connection, identity: StaffIdentity) -> bool:
 
 
 async def _doc(
-    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    visit_id: str,
+    *,
+    cho_hien_hang_can_duyet: bool = False,
 ) -> dict[str, Any]:
     danh_muc = []
     for r in await conn.fetch(_DANH_MUC_SQL, clinic_id, visit_id):
+        if r["can_ql_duyet"] and not cho_hien_hang_can_duyet:
+            continue
         khong_ban = ly_do_khong_ban(
             active=r["active"],
             don_gia=r["unit_price"],
@@ -260,6 +271,7 @@ async def _doc(
                 "so_luong": int(r["so_luong"]),
                 "thanh_tien": int(r["don_gia"]) * int(r["so_luong"]),
                 "da_thu": da_thu,
+                "can_ql_duyet": bool(r["can_ql_duyet"]),
                 "nguoi_duyet": r["nguoi_duyet"],
                 "ly_do_duyet": r["duyet_ly_do"],
                 # Nguyên nhân bán thêm (G8b): vì sao quầy thêm vật tư này.
@@ -293,16 +305,16 @@ class VatTuService:
                 vid,
             ):
                 raise NotFoundError("Không tìm thấy lượt khám này.")
-            kq = await _doc(conn, identity.clinic_id, vid)
+            la_quan_ly = await _duoc_duyet(conn, identity)
+            kq = await _doc(
+                conn,
+                identity.clinic_id,
+                vid,
+                cho_hien_hang_can_duyet=la_quan_ly,
+            )
             kq["duoc_sua"] = await _duoc(conn, identity)
-            # Tên khoá giữ nguyên cho màn quầy: `la_quan_ly` = người xem CÓ quyền
-            # duyệt (tự duyệt được), `quan_ly` = những người có thể chọn làm
-            # người duyệt (có lego Duyệt vật tư) — không còn nghĩa "vai Quản lý".
-            kq["la_quan_ly"] = await _duoc_duyet(conn, identity)
-            kq["quan_ly"] = [
-                {"id": r["id"], "ten": r["ten"]}
-                for r in await conn.fetch(_NGUOI_DUYET_SQL, identity.clinic_id, None)
-            ]
+            # Quản lý gốc có capability mới được thêm mặt hàng cần duyệt.
+            kq["la_quan_ly"] = la_quan_ly
             kq["bat_ly_do_ban"] = bool(
                 await doc_day(conn, identity.clinic_id, DAY_BAT_LY_DO_BAN)
             )
@@ -322,22 +334,18 @@ class VatTuService:
         duyet_boi: Any,
         ly_do: Any,
     ) -> tuple[str, str]:
-        """(người duyệt, lý do) cho hàng cần duyệt. Người có lego Duyệt vật tư tự
-        thêm = tự duyệt."""
-        ly = _ly_do_duyet(ly_do)
-        if await _duoc_duyet(conn, identity):
-            return identity.staff_id, ly
-        if not duyet_boi:
-            raise ValidationError(
-                "Hàng này cần người có quyền duyệt bán — chọn người đã duyệt và"
-                " ghi lý do."
+        """Trả người duyệt đang đăng nhập; không chấp nhận ghi nhận hộ người khác."""
+        if not await _duoc_duyet(conn, identity):
+            raise SafetyGateError(
+                "Chỉ Quản lý có quyền Duyệt vật tư mới được bán mặt hàng này."
             )
-        qid = _uuid(duyet_boi, "Mã người duyệt không hợp lệ.")
-        if not await conn.fetchrow(_NGUOI_DUYET_SQL, identity.clinic_id, qid):
-            raise ValidationError(
-                "Người duyệt phải đang làm việc và có quyền Duyệt vật tư."
-            )
-        return qid, ly
+        if duyet_boi:
+            ma_nguoi_duyet = _uuid(duyet_boi, "Mã người duyệt không hợp lệ.")
+            if ma_nguoi_duyet != identity.staff_id:
+                raise SafetyGateError(
+                    "Người duyệt phải là Quản lý đang đăng nhập, không thể ghi nhận hộ."
+                )
+        return identity.staff_id, _ly_do_duyet(ly_do)
 
     async def them(
         self,
@@ -364,6 +372,7 @@ class VatTuService:
         _ly_do_ban(ly_do_ban, bat_buoc=False)  # rác thì 422 trước khi chạm DB
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
+            await _dat_nguoi_thao_tac(conn, identity)
             await self._cong(conn, identity)
             await khoa_luot(conn, cid, vid, cho_phep_da_ky=True)
             sp = await conn.fetchrow(
@@ -439,6 +448,7 @@ class VatTuService:
                 )
                 await conn.execute(
                     "UPDATE public.luot_vat_tu SET so_luong = $2, don_gia = $3,"
+                    " chon_boi = coalesce($4::uuid, chon_boi),"
                     " duyet_boi = coalesce($4::uuid, duyet_boi),"
                     " duyet_ly_do = coalesce($5, duyet_ly_do),"
                     " ly_do_ban = coalesce($6, ly_do_ban)"
@@ -464,7 +474,12 @@ class VatTuService:
                 bool(sp["can_ql_duyet"]),
                 ly_do=ly_ban,
             )
-            return await _doc(conn, cid, vid)
+            return await _doc(
+                conn,
+                cid,
+                vid,
+                cho_hien_hang_can_duyet=await _duoc_duyet(conn, identity),
+            )
 
     async def _dong_song(
         self, conn: asyncpg.Connection, identity: StaffIdentity, dong_id: str
@@ -472,10 +487,12 @@ class VatTuService:
         r = await conn.fetchrow(
             "SELECT v.id::text AS id, v.visit_id::text AS visit_id,"
             " v.service_price_id::text AS spid, v.ten, v.don_gia, v.so_luong,"
-            " (v.duyet_boi IS NOT NULL) AS co_duyet,"
+            " (v.duyet_boi IS NOT NULL) AS co_duyet, sp.can_ql_duyet,"
             " v.order_id::text AS order_id,"
             f" {_DA_THU} AS da_thu"
             " FROM public.luot_vat_tu v"
+            " JOIN public.service_price sp"
+            "   ON sp.id = v.service_price_id AND sp.clinic_id = v.clinic_id"
             " WHERE v.clinic_id = $1::uuid AND v.id = $2::uuid AND v.bo_luc IS NULL"
             " FOR UPDATE OF v",
             identity.clinic_id,
@@ -492,6 +509,7 @@ class VatTuService:
         did = _uuid(dong_id, "Mã dòng vật tư không hợp lệ.")
         sl = _so_luong(so_luong)
         async with self._pool.acquire() as conn, conn.transaction():
+            await _dat_nguoi_thao_tac(conn, identity)
             await self._cong(conn, identity)
             r = await self._dong_song(conn, identity, did)
             await khoa_luot(
@@ -500,6 +518,11 @@ class VatTuService:
             if r["da_thu"]:
                 raise ConflictError(
                     f"“{r['ten']}” đã thu tiền — hoàn tác lần thu trước khi đổi."
+                )
+            la_quan_ly = await _duoc_duyet(conn, identity)
+            if r["can_ql_duyet"] and not la_quan_ly:
+                raise SafetyGateError(
+                    "Chỉ Quản lý có quyền Duyệt vật tư mới được sửa mặt hàng này."
                 )
             if sl > int(r["so_luong"]):
                 duoc_ban = await conn.fetchval(
@@ -529,7 +552,12 @@ class VatTuService:
                     bool(r["co_duyet"]),
                     order_id=r["order_id"],
                 )
-            return await _doc(conn, identity.clinic_id, r["visit_id"])
+            return await _doc(
+                conn,
+                identity.clinic_id,
+                r["visit_id"],
+                cho_hien_hang_can_duyet=la_quan_ly,
+            )
 
     async def bo(
         self, *, dong_id: str, ly_do: Any = None, identity: StaffIdentity
@@ -542,6 +570,7 @@ class VatTuService:
         """
         did = _uuid(dong_id, "Mã dòng vật tư không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
+            await _dat_nguoi_thao_tac(conn, identity)
             await self._cong(conn, identity)
             r = await self._dong_song(conn, identity, did)
             ly = _ly_do_bo(ly_do, bat_buoc=r["order_id"] is not None)
@@ -551,6 +580,11 @@ class VatTuService:
             if r["da_thu"]:
                 raise ConflictError(
                     f"“{r['ten']}” đã thu tiền — hoàn tác lần thu trước khi bỏ."
+                )
+            la_quan_ly = await _duoc_duyet(conn, identity)
+            if r["can_ql_duyet"] and not la_quan_ly:
+                raise SafetyGateError(
+                    "Chỉ Quản lý có quyền Duyệt vật tư mới được bỏ mặt hàng này."
                 )
             await conn.execute(
                 "UPDATE public.luot_vat_tu SET bo_luc = now(), bo_boi = $2::uuid,"
@@ -573,7 +607,12 @@ class VatTuService:
                 order_id=r["order_id"],
                 ly_do=ly,
             )
-            return await _doc(conn, identity.clinic_id, r["visit_id"])
+            return await _doc(
+                conn,
+                identity.clinic_id,
+                r["visit_id"],
+                cho_hien_hang_can_duyet=la_quan_ly,
+            )
 
 
 async def ghi_su_kien_vat_tu(

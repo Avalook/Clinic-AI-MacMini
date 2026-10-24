@@ -9,6 +9,8 @@ const phieuLuot = read("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.ts
 const phieu = read("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx");
 const vatTuQuay = read("../app/(dashboard)/thu-ngan/VatTuQuay.tsx");
 const proxy = read("../app/api/luot-kham/route.ts");
+const bioService = read("../../clinicai/services/bio_chi_dinh_service.py");
+const suaChiDinh = read("../../clinicai/services/so_sua_chi_dinh_service.py");
 
 test("đầu dò theo chỉ định: chọn MỘT (radio), dùng thành phần chung, không tự chế giao diện", () => {
   assert.doesNotMatch(dauDo, /<button/);
@@ -43,6 +45,18 @@ test("proxy: thao tác dau-do-chon và bảng đọc dau-do đều đi qua danh 
   assert.match(proxy, /"dau-do-chon": \(id\) => `\/api\/v1\/luot-kham\/orders\/\$\{id\}\/dau-do`/);
   assert.match(proxy, /xem === "dau-do"/);
   assert.match(proxy, /\/api\/v1\/luot-kham\/visits\/\$\{luot\}\/dau-do/);
+});
+
+test("dòng Bio đã gắn cờ duyệt chỉ Quản lý thấy và Bio ghi người thao tác cho DB", () => {
+  assert.match(bioService, /sp\.can_ql_duyet, \{_DA_THU\} AS da_thu/);
+  assert.match(bioService, /if r\["can_ql_duyet"\] and not cho_hien_hang_can_duyet:/);
+  assert.match(bioService, /don_bi_khoa\.add\(r\["order_id"\]\)/);
+  assert.match(bioService, /Mặt hàng này cần Quản lý xử lý/);
+  assert.match(dauDo, /c\.khoa_quan_ly \?/);
+  assert.match(dauDo, /Đầu dò của chỉ định này cần Quản lý xử lý/);
+  assert.match(bioService, /identity\.vai_goc\.value == "MANAGEMENT"/);
+  assert.match(bioService, /set_config\('app\.staff_id', \$1, true\)/);
+  assert.match(suaChiDinh, /chuyen_bio_chua_thu\([\s\S]*actor_staff_id=identity\.staff_id/);
 });
 
 test("quầy thu: dòng đầu dò của chỉ định hiện nguồn, bỏ thì BẮT ghi lý do", () => {
