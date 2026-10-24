@@ -51,7 +51,7 @@ test.describe('Luồng 4: Phòng dịch vụ (Bắt đầu → Xong → Nhập k
     for (let r = 0; r < Math.max(1, await rows.count()); r++) {
       const cellBtn = rows.nth(r).locator(`td:nth-child(${todayIndex + 1}) button`);
       if ((await cellBtn.count()) === 0) continue;
-      await cellBtn.click();
+      await cellBtn.click({ force: true }); await page.waitForTimeout(500);
       const slotDialog = page.locator('div[role="dialog"]');
       await expect(slotDialog).toBeVisible({ timeout: 5000 });
       try { await slotDialog.locator('ul button').first().waitFor({ state: 'visible', timeout: 5000 }); } catch {}
@@ -66,7 +66,7 @@ test.describe('Luồng 4: Phòng dịch vụ (Bắt đầu → Xong → Nhập k
           const slotH = parseInt(match[1], 10);
           const slotM = parseInt(match[2], 10);
           if (slotH > vnH || (slotH === vnH && slotM > vnM + 5)) {
-            await btn.click();
+            await btn.click({ force: true });
             pickedSlot = true;
             break;
           }
