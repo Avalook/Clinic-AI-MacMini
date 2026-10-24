@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Tính năng AI cho ClinicAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Bố cục: một cột đọc; kết luận và lý do ở đầu, từng tính năng là một thẻ có đủ nỗi đau, việc của AI, nền cần sửa, cách đo. */
+:root {
+  --bg: #f4f7f8; --surface: #ffffff; --ink: #12222b; --muted: #526771; --line: #d3dde2;
+  --accent: #0d6a6a; --accent-soft: #dff1f0;
+  --ok: #1d6b3b; --ok-soft: #e1f2e6; --warn: #8a5600; --warn-soft: #fbefd3;
+  --bad: #a5271f; --bad-soft: #f9e2df; --idle: #4b5b63; --idle-soft: #e6ecef;
+  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1a1f; --surface: #17262d; --ink: #e6eef1; --muted: #9db0b8; --line: #2b3f48;
+    --accent: #5cc4c0; --accent-soft: #14393a; --ok: #7fd49a; --ok-soft: #153324;
+    --warn: #f0c26a; --warn-soft: #3a2c0e; --bad: #ff9d94; --bad-soft: #3d1a17; --idle: #aebdc4; --idle-soft: #23343c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1a1f; --surface: #17262d; --ink: #e6eef1; --muted: #9db0b8; --line: #2b3f48;
+  --accent: #5cc4c0; --accent-soft: #14393a; --ok: #7fd49a; --ok-soft: #153324;
+  --warn: #f0c26a; --warn-soft: #3a2c0e; --bad: #ff9d94; --bad-soft: #3d1a17; --idle: #aebdc4; --idle-soft: #23343c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.65; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 72px; }
+.wrap { max-width: 50rem; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1, h2, h3, h4 { text-wrap: balance; line-height: 1.25; margin: 0; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.4rem; font-weight: 700; scroll-margin-top: 16px; }
+h3 { font-size: 1.12rem; font-weight: 600; }
+h4 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0; }
+p { margin: 0; } p + p { margin-top: 10px; }
+.eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.meta, .muted { color: var(--muted); } .meta { font-size: 0.9rem; } .small { font-size: 0.9rem; }
+.sec { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.id { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
+.box, .verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.verdict .big { font-size: 1.22rem; font-weight: 700; }
+ul.l, ol.l { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 8px; }
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; }
+.warnbox { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; }
+.pill { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; max-width: 100%; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.idle { background: var(--idle-soft); color: var(--idle); }
+nav.toc { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+nav.toc ol { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 4px 20px; counter-reset: t; }
+nav.toc li { counter-increment: t; display: flex; gap: 8px; align-items: baseline; }
+nav.toc li::before { content: counter(t); font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); min-width: 1.4rem; text-align: right; }
+nav.toc a { text-decoration: none; padding: 4px 0; display: inline-block; } nav.toc a:hover { text-decoration: underline; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+th { background: var(--idle-soft); border-top: 0; font-weight: 600; }
+.feat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.feat header { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.feat .rank { font-family: var(--font-mono); background: var(--accent); color: var(--bg); width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center; font-weight: 600; flex: none; }
+.feat .why { background: var(--ok-soft); border-radius: 8px; padding: 10px 14px; }
+.feat .why h4 { color: var(--ok); margin-bottom: 4px; }
+.feat section { display: flex; flex-direction: column; gap: 6px; }
+.feat ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: 6px; font-size: 0.93rem; }
+dl.gloss { margin: 0; display: grid; grid-template-columns: minmax(8rem, 11rem) 1fr; gap: 10px 16px; font-size: 0.93rem; }
+dl.gloss dt { font-weight: 600; } dl.gloss dd { margin: 0; color: var(--muted); }
+a { color: var(--accent); } :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a.totop { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); background: var(--accent); color: var(--bg); text-decoration: none; font-weight: 600; font-size: 0.85rem; padding: 8px 14px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 3; }
+@media (max-width: 520px) { dl.gloss { grid-template-columns: 1fr; gap: 2px; } dl.gloss dd { margin-bottom: 8px; } }
+</style>
+
+</head>
+<body>
+<main class="wrap" id="top">
+
+<header class="sec">
+  <div class="eyebrow">Đề xuất cho anh Quang · dựa trên kiểm toán prod</div>
+  <h1>Tính năng AI nên làm cho ClinicAI, và vì sao làm theo thứ tự này</h1>
+  <p class="meta">20/10/2026 · căn cứ: kiểm toán bản prod <span class="id">956ba4f2</span> (554 vấn đề, đã đo thực tế VPS), ma trận 40 ý tưởng AI của Tuyền, và nghiên cứu thị trường. Mã trong ngoặc (ví dụ <span class="id">SEC-011</span>) là mã vấn đề trong báo cáo kiểm toán BAO-CAO-DAY-DU.html.</p>
+</header>
+
+<nav class="toc" aria-label="Mục lục">
+  <h2 style="font-size:1rem">Mục lục (bấm để nhảy tới)</h2>
+  <ol>
+    <li><a href="#kl">Kết luận</a></li>
+    <li><a href="#vi-sao">Vì sao chọn hướng này</a></li>
+    <li><a href="#nen">Nền hiện tại của prod</a></li>
+    <li><a href="#nam">5 tính năng ưu tiên</a></li>
+    <li><a href="#phu">Hai việc nhỏ đi kèm</a></li>
+    <li><a href="#sau">Để sau và lý do</a></li>
+    <li><a href="#voice">AI voice: giới hạn đang ở đâu</a></li>
+    <li><a href="#an-toan">Quy tắc an toàn cho AI</a></li>
+    <li><a href="#do">Cách thử và cách đo</a></li>
+    <li><a href="#quyet">Cần sếp quyết</a></li>
+    <li><a href="#gh">Giới hạn của tài liệu này</a></li>
+  </ol>
+</nav>
+
+<section class="sec" aria-labelledby="kl">
+  <h2 id="kl">Kết luận</h2>
+  <div class="verdict">
+    <p class="big">Làm 5 tính năng AI xoay quanh một ý: theo từng việc chăm sóc cho đến khi xong. Sửa 4 việc nền song song, vì AI chạy trên nền đang báo thiếu sẽ nói sai.</p>
+    <ol class="l">
+      <li><b>Kết quả đối tác không bị rơi:</b> AI đọc PDF kết quả, nhận ra bản thiếu hoặc bản sửa; hệ thống giao đúng người và nhắc khi quá hạn.</li>
+      <li><b>Bàn giao ca không mất việc:</b> đổi ca thì tự gom việc dở và bối cảnh cho người nhận.</li>
+      <li><b>Tóm tắt 30 giây trước khi khám, có nguồn:</b> xây mới, bản cũ đã gỡ ngày 24/09 theo yêu cầu lúc đó.</li>
+      <li><b>CSKH: hôm nay gọi ai trước, soạn sẵn tin Zalo:</b> AI xếp thứ tự và soạn nháp, nhân viên duyệt.</li>
+      <li><b>Đọc ảnh chuyển khoản, tự khớp số tiền:</b> lấp một chỗ hở thật ở quầy thu.</li>
+    </ol>
+    <p>AI chỉ gợi ý và soạn nháp. Người quyết định, và mọi nháp đều ghi rõ là nháp.</p>
+  </div>
+  <p class="muted">Đây là đề xuất để thử nghiệm và đo, chưa phải cam kết lịch. Chưa có số liệu về chi phí và công xây từng tính năng, sẽ ước sau bước thử.</p>
+</section>
+
+<section class="sec" aria-labelledby="vi-sao">
+  <h2 id="vi-sao">Vì sao chọn hướng này, không chọn chatbot hay ghi âm</h2>
+  <p><b>1. Chatbot, ghi âm và nhắc lịch không tạo khác biệt.</b> Các phần mềm phòng khám trong và ngoài nước đã công bố những thứ này. APIS công bố giao việc theo vai trò, trợ lý AI và theo dõi thai kỳ; Abridge đã có tóm tắt trước khám và tự ghi chép. Đó là công bố của chính họ, chúng ta chưa dùng thử nên chưa biết chất lượng thật, nhưng đủ để không coi các tính năng này là độc quyền.</p>
+  <p><b>2. Khác biệt đáng thử là theo việc chăm sóc đến khi hoàn tất.</b> Phòng khám đa dịch vụ có nhiều chỗ việc rơi giữa các bước: kết quả về muộn, đổi ca, khách chưa quay lại. Hệ thống cần trả lời bốn câu: khách còn cần gì, đang vướng ở đâu, ai chịu trách nhiệm, căn cứ nào cho biết đã xong. AI giúp đọc, tóm tắt và soạn, còn việc theo dõi thuộc về hệ thống.</p>
+  <p><b>3. Kiểm toán prod cho thấy đúng những chỗ này đang hở.</b> Những việc AI cần nối lại là những việc hiện đang rơi: việc không có người nhận, danh sách bị cắt, kết quả chờ không ai nhắc. Làm AI ở đúng những chỗ này vừa có giá trị, vừa buộc phải sửa nền, và nền được sửa cũng giúp cả khi không có AI.</p>
+  <div class="note"><p><b>Thứ tự chọn dựa trên năm câu hỏi:</b> nỗi đau có thật và đã đo chưa; dữ liệu đã có chưa; AI chỉ soạn còn người duyệt được không; nền có sửa được song song không; có tạo khác biệt không. Mỗi tính năng dưới đây trả lời đủ năm câu này.</p></div>
+</section>
+
+<section class="sec" aria-labelledby="nen">
+  <h2 id="nen">Nền hiện tại của prod (đo ngày 20/10/2026)</h2>
+  <p>Prod đang phục vụ phòng khám Dr4Women. Các số dưới đây là ước tính từ thống kê của database, lấy bằng lệnh chỉ đọc, không đọc nội dung bệnh nhân.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Dữ liệu</th><th>Số lượng ước tính</th><th>Ý nghĩa cho AI</th></tr></thead>
+    <tbody>
+      <tr><td>Hồ sơ bệnh nhân</td><td>khoảng 8.900</td><td>Đủ để tóm tắt trước khám có chỗ dựa, nhưng mỗi hồ sơ phải được đọc đúng quyền</td></tr>
+      <tr><td>Lượt khám</td><td>khoảng 14.600</td><td>Có dữ liệu thời gian để đo công và độ trễ trước và sau</td></tr>
+      <tr><td>Tệp kết quả đối tác</td><td>khoảng 8.400</td><td>Khối lượng thật cho tính năng đọc PDF và theo kết quả</td></tr>
+      <tr><td>Việc (work item) và sự kiện việc</td><td>khoảng 3.200 và 3.300</td><td>Đã có bảng việc, nhưng nhiều việc chưa có người nhận (xem bên dưới)</td></tr>
+      <tr><td>Thông báo</td><td>khoảng 10.700</td><td>Có kênh thông báo trong app để AI nhắc đúng người</td></tr>
+      <tr><td>Cảnh báo canh gác và nhóm lỗi</td><td>52 và 11</td><td>Kho lỗi còn nhỏ, chưa đủ để AI học từ lỗi lặp</td></tr>
+    </tbody></table></div>
+  <h3>Những điều đo được và ảnh hưởng tới AI</h3>
+  <ul class="l">
+    <li><b>Khoá AI đã có trên prod.</b> Tệp cấu hình prod có <span class="id">ANTHROPIC_API_KEY</span> (chỉ kiểm tên biến, không đọc giá trị). Kiểm toán ghi lại rằng việc gửi nội dung kết quả xét nghiệm ra LLM bên ngoài được bật ngầm chỉ bằng sự có mặt của khoá này, không có cờ rõ ràng theo phòng khám (<span class="id">AI-005</span>). Chưa kiểm tính năng đó có đang chạy trên prod hay không. Cần chốt trước khi mở rộng AI.</li>
+    <li><b>Đã có một phần AI chạy.</b> Có tóm tắt cuối ngày bằng LLM chạy trong vòng lặp của worker sự kiện, không có hạn giờ riêng (<span class="id">AI-006</span>). Có agent giám sát chạy ở chế độ chỉ quan sát, nhưng nó có thể đóng nhận định còn đúng khi truy vấn bị giới hạn dòng (<span class="id">AI-001</span>, Codex xác minh đúng một phần). Agent từng xác nhận đã đặt lịch dù luồng của nó chỉ tìm bác sĩ, không ghi lịch (<span class="id">AI-003</span>).</li>
+    <li><b>Máy chủ chạy chung nhiều thứ.</b> 8 GB RAM, không có bộ nhớ dự phòng, staging và công cụ dựng phần mềm cùng máy. Không nên chạy mô hình nặng trên máy này.</li>
+    <li><b>Zalo và Telegram dùng chung token giữa prod và staging.</b> Khi làm tính năng nhắn tin tự động, cần tách trước để tin thử không lọt vào kênh thật.</li>
+    <li><b>Log lỗi API có khoảng 434 cảnh báo nghiệp vụ mỗi 24 giờ</b> chưa được phân loại. Đây là cảnh báo cho lỗi đã xử lý (ví dụ thao tác bị từ chối), không phải sập.</li>
+  </ul>
+</section>
+
+<section class="sec" aria-labelledby="nam">
+  <h2 id="nam">5 tính năng ưu tiên</h2>
+  <p>Mỗi thẻ gồm: vì sao làm trước, nỗi đau thật (kèm mã vấn đề), việc của AI và của người, nền phải sửa trước, và cách đo. “Codex” chỉ kết quả xác minh độc lập cho mục mức cao.</p>
+
+  <article class="feat">
+    <header><span class="rank">1</span><h3>Kết quả đối tác không bị rơi</h3><span class="pill warn">Cần sửa nền trước</span></header>
+    <div class="why"><h4>Vì sao làm trước</h4><p>Đây là chỗ dính tới sức khoẻ bệnh nhân nhất: kết quả về muộn, về thiếu hoặc bị sửa mà không ai nhận. Dữ liệu đã có (khoảng 8.400 tệp), nỗi đau đã được đo, và AI giúp được đúng phần tốn công nhất là đọc tài liệu.</p></div>
+    <section><h4>Nỗi đau thật hôm nay</h4><ul>
+      <li>Hành trình suy ra “đã đọc kết quả” từ thứ tự thời gian, không kiểm kết quả đã về hay bác sĩ đã xem chưa (<span class="id">CLIN-001</span>, Codex: đúng một phần, mức vừa).</li>
+      <li>Mẫu gửi đối tác có thể chờ mà không có hẹn giờ nhắc CSKH (<span class="id">CLIN-012</span>); thu hồi tệp không mở lại hạn theo dõi (<span class="id">CLIN-019</span>) và không tạo luồng đính chính có người phụ trách (<span class="id">CLIN-036</span>).</li>
+      <li>Quyền tải tệp kết quả mở được toàn bộ hồ sơ khám (<span class="id">SEC-020</span>). Codex ghi đây phần lớn là quyết định sản phẩm có chủ ý.</li>
+      <li>TKYK có thể chốt kết quả xét nghiệm ngoài phạm vi bác sĩ được phân (<span class="id">SEC-036</span>, Codex: đúng một phần, mức cao).</li>
+    </ul></section>
+    <section><h4>AI làm gì, người làm gì</h4><ul>
+      <li>AI đọc PDF, nhận ra thiếu trang hoặc bản thay thế, tóm tắt chỉ số chính, soạn nháp lời liên hệ.</li>
+      <li>Hệ thống theo trạng thái: về, đã đọc, bác sĩ đã đánh giá, đã báo khách, bước tiếp theo; nhắc theo hạn bằng quy tắc, không bằng AI.</li>
+      <li>Bác sĩ xem và xác nhận. AI không tự phát hành, không tự đóng việc, không tự gửi tin.</li>
+    </ul></section>
+    <section><h4>Phải sửa nền trước</h4><ul>
+      <li>Việc nhắc và việc có chủ cho kết quả (<span class="id">CLIN-012</span>, <span class="id">CLIN-019</span>, <span class="id">CLIN-036</span>).</li>
+      <li>Quyền theo bệnh nhân khi xem và chốt kết quả (<span class="id">SEC-036</span>, <span class="id">SEC-020</span>).</li>
+    </ul></section>
+    <section><h4>Đo bằng gì</h4><ul><li>Số kết quả treo, thời gian tới khi có người xử lý, số lần sai người hoặc sai bản, công duyệt của bác sĩ.</li></ul></section>
+  </article>
+
+  <article class="feat">
+    <header><span class="rank">2</span><h3>Bàn giao ca không mất việc</h3><span class="pill warn">Cần sửa nền trước</span></header>
+    <div class="why"><h4>Vì sao làm trước</h4><p>Mục tiêu cốt lõi của anh là bớt phụ thuộc trí nhớ cá nhân, gọi hỏi nhau và vài người gánh team. Bàn giao là chỗ phát sinh đúng những thứ đó. Bảng việc đã có sẵn (khoảng 3.200 việc), nên AI chỉ cần gom và tóm tắt.</p></div>
+    <section><h4>Nỗi đau thật hôm nay</h4><ul>
+      <li>Danh sách việc chung chưa tách “nhận việc” và “bàn giao” khỏi thao tác đổi trạng thái (<span class="id">CLIN-004</span>).</li>
+      <li>Việc gọi tái khám chưa có người nhận hay xác nhận trước khi xử lý (<span class="id">OPS-002</span>), và chỉ được tạo khi có người mở màn CSKH (<span class="id">OPS-001</span>).</li>
+      <li>Việc tồn trả khoản có thể hiện ngoài ngày hoặc ca được phân (<span class="id">FIN-019</span>).</li>
+    </ul></section>
+    <section><h4>AI làm gì, người làm gì</h4><ul>
+      <li>AI soạn bản bàn giao: việc còn dở, phần đã thay đổi, việc quá hạn, nguồn từng việc.</li>
+      <li>Người nhận ca bấm nhận từng việc. Chỉ khi bấm nhận thì việc mới có chủ.</li>
+    </ul></section>
+    <section><h4>Phải sửa nền trước</h4><ul><li>Cho việc có người nhận, hạn và đường leo thang (<span class="id">CLIN-004</span>, <span class="id">OPS-001</span>, <span class="id">OPS-002</span>). Thiếu cái này, bản tóm tắt AI chỉ đẹp hơn một danh sách vô chủ.</li></ul></section>
+    <section><h4>Đo bằng gì</h4><ul><li>Số việc vô chủ sau đổi ca, số lần phải hỏi lại người ca trước, thời gian giao và nhận.</li></ul></section>
+  </article>
+
+  <article class="feat">
+    <header><span class="rank">3</span><h3>Tóm tắt 30 giây trước khi khám, có nguồn</h3><span class="pill bad">Xây mới, cần quyền chặt</span></header>
+    <div class="why"><h4>Vì sao làm trước</h4><p>Bác sĩ dùng hằng ngày, sai thì tự phát hiện được ngay vì có nguồn để mở. Lịch sử khách đã có (khoảng 8.900 hồ sơ, 9.400 bản lịch sử biểu mẫu).</p></div>
+    <section><h4>Hiện trạng cần nói rõ</h4><ul>
+      <li>Tóm tắt trước khám bằng AI <b>đã bị gỡ</b> ngày 24/09 theo ghi chú “giờ chưa cần” trong code; hiện chỉ còn chỗ giữ chỗ. Đây là xây mới, và cần xác nhận lại nhu cầu với bác sĩ.</li>
+    </ul></section>
+    <section><h4>Nỗi đau thật hôm nay</h4><ul>
+      <li>Thư ký có thể đọc nhầm hồ sơ khách ngoài phạm vi được phân (<span class="id">SEC-039</span>, Codex: đúng một phần); API đọc lâm sàng chưa kiểm phạm vi phân công đầy đủ (<span class="id">SEC-011</span>, Codex: đúng, mức cao).</li>
+      <li>Đổi bệnh nhân vẫn có thể giữ lịch sử và phản hồi thuốc của người trước (<span class="id">FE-007</span>); lưu bệnh án có thể bỏ qua thay đổi riêng mã thuốc (<span class="id">CLIN-056</span>).</li>
+    </ul></section>
+    <section><h4>AI làm gì, người làm gì</h4><ul>
+      <li>AI tóm tắt lần trước, điều mới, kết quả còn chờ, thông tin mâu thuẫn; mỗi ý có đường dẫn mở tài liệu gốc.</li>
+      <li>Thiếu nguồn thì ghi “chưa có thông tin”, không tự điền “không dị ứng”. Thuốc đã ngừng không được ghi thành thuốc đang dùng.</li>
+    </ul></section>
+    <section><h4>Phải sửa nền trước</h4><ul><li>Quyền theo bệnh nhân (<span class="id">SEC-011</span>, <span class="id">SEC-039</span>): AI không được tóm tắt hồ sơ mà người xem không có quyền xem. Cần chốt cả quy tắc gửi dữ liệu ra LLM bên ngoài (<span class="id">AI-005</span>).</li></ul></section>
+    <section><h4>Đo bằng gì</h4><ul><li>Phút ròng bác sĩ chuẩn bị (gồm cả sửa), số ý sai sự thật, số ý quan trọng bị bỏ sót, số lần mở nguồn.</li></ul></section>
+  </article>
+
+  <article class="feat">
+    <header><span class="rank">4</span><h3>CSKH: hôm nay gọi ai trước, soạn sẵn tin Zalo</h3><span class="pill warn">Cần sửa nền trước</span></header>
+    <div class="why"><h4>Vì sao làm trước</h4><p>Dùng mỗi ngày, rủi ro thấp vì nhân viên duyệt từng tin. Giá trị trực tiếp: đỡ nhớ ai cần gọi, đỡ bỏ sót khách giữa các lần khám.</p></div>
+    <section><h4>Nỗi đau thật hôm nay</h4><ul>
+      <li>Bốn ô đếm “quá hạn”, “cần xử lý hôm nay” chỉ tính trên 50 khách của trang đang xem; khách quá hạn ở trang sau không hiện (<span class="id">FE-029</span>, Codex: đúng một phần).</li>
+      <li>Hàng gọi tái khám chạm trần 500 mà màn hình vẫn báo hết việc (<span class="id">CLIN-032</span>); đóng lời hẹn không bắt buộc ghi kết quả cuộc gọi (<span class="id">CLIN-033</span>); việc chỉ được tạo khi có người mở màn (<span class="id">OPS-001</span>).</li>
+      <li>Khi gọi Zalo bị hết giờ, hệ thống không lưu trạng thái “chưa rõ đã gửi” để nhân viên đối soát (<span class="id">INF-024</span>).</li>
+    </ul></section>
+    <section><h4>AI làm gì, người làm gì</h4><ul>
+      <li>AI xếp khách theo độ cần (lỡ hẹn, sắp tới mốc, vừa có kết quả) và soạn nháp tin đúng giọng phòng khám.</li>
+      <li>Nhân viên duyệt rồi gửi. Nội dung sức khoẻ phụ nữ nên trung tính, và tôn trọng kênh khách chọn.</li>
+    </ul></section>
+    <section><h4>Phải sửa nền trước</h4><ul><li>Danh sách đủ dữ liệu (<span class="id">FE-029</span>, <span class="id">CLIN-032</span>), việc được tạo bằng sự kiện (<span class="id">OPS-001</span>), chống gửi tin trùng và lưu trạng thái chưa rõ (<span class="id">INF-024</span>), và tách token Zalo giữa prod và staging.</li></ul></section>
+    <section><h4>Đo bằng gì</h4><ul><li>Số việc hoàn tất thay vì số tin đã gửi, công nhân viên sửa nháp, số khách bỏ sót, số tin gửi trùng.</li></ul></section>
+  </article>
+
+  <article class="feat">
+    <header><span class="rank">5</span><h3>Đọc ảnh chuyển khoản, tự khớp số tiền</h3><span class="pill ok">Làm được sớm</span></header>
+    <div class="why"><h4>Vì sao làm trước</h4><p>Lấp một chỗ hở có thật mà không cần chờ nền lớn: hiện thu ngân tự khai số tiền ngân hàng đã nhận, còn lần thu vẫn được tính đã thu đủ. AI đọc số tiền, giờ, nội dung trong ảnh để so với lần thu. Ảnh chuyển khoản đã được lưu theo từng lần thu.</p></div>
+    <section><h4>Nỗi đau thật hôm nay</h4><ul>
+      <li>Cờ “cần đối soát” của lần thu là dấu vĩnh viễn, không có chủ, hạn hay lệnh đóng (<span class="id">FIN-021</span>, Codex: đúng một phần, mức vừa).</li>
+      <li>Ảnh chuyển khoản đã gỡ khỏi danh sách vẫn đọc được qua đường dẫn cũ (<span class="id">SEC-035</span>); ảnh kẹt trên VPS không hiện trên màn theo dõi sức khoẻ (<span class="id">INF-013</span>).</li>
+    </ul></section>
+    <section><h4>AI làm gì, người làm gì</h4><ul>
+      <li>AI đọc ảnh và đề xuất khớp; thu ngân xác nhận. Ảnh chứng minh người ta đã chuyển, chưa chứng minh tiền đã vào tài khoản; kết luận cuối vẫn theo sao kê.</li>
+    </ul></section>
+    <section><h4>Phải sửa nền trước</h4><ul><li>Việc đóng cờ đối soát có người nhận (<span class="id">FIN-021</span>) và chặn đọc ảnh đã gỡ (<span class="id">SEC-035</span>).</li></ul></section>
+    <section><h4>Đo bằng gì</h4><ul><li>Số lần thu bị lệch phát hiện sớm, thời gian đóng một ca đối soát, số khớp sai.</li></ul></section>
+  </article>
+</section>
+
+<section class="sec" aria-labelledby="phu">
+  <h2 id="phu">Hai việc nhỏ đi kèm</h2>
+  <ul class="l">
+    <li><b>Gom lỗi trong log, tóm tắt cho dev.</b> Prod có khoảng 434 cảnh báo nghiệp vụ mỗi ngày và kho nhóm lỗi mới 11 dòng. AI gom theo mã lỗi để biết nhân viên hay vấp ở đâu. Làm sớm được, không đụng bệnh nhân.</li>
+    <li><b>Bản tin cuối ngày.</b> Đã có một bản tóm tắt cuối ngày bằng LLM (<span class="id">AI-006</span>), nhưng chạy trong vòng lặp chung của worker, không có hạn giờ riêng. Sửa chỗ đó trước. Chỉ mở rộng khi báo cáo tiền không còn bị cắt dòng (<span class="id">FIN-005</span>, <span class="id">FIN-013</span>, <span class="id">FIN-017</span>), vì AI không được tóm tắt trên con số thiếu.</li>
+  </ul>
+</section>
+
+<section class="sec" aria-labelledby="sau">
+  <h2 id="sau">Để sau, và lý do</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Tính năng</th><th>Vì sao chưa</th></tr></thead>
+    <tbody>
+      <tr><td>Chatbot tư vấn cho khách</td><td>Nhiều bên đã có nên không tạo khác biệt; rủi ro cao; trái quyết định D012 của dự án. Nếu làm, chỉ trả lời việc hành chính và chuyển người</td></tr>
+      <tr><td>Ghi âm bác sĩ thành phiếu khám</td><td>Xem mục “AI voice” bên dưới</td></tr>
+      <tr><td>Dự báo giờ xong, thời gian chờ</td><td>Thời gian chờ đang tính bằng đồng hồ máy khách (<span class="id">FE-030</span>) và nhiều danh sách bị cắt; dữ liệu chưa sạch để dự báo</td></tr>
+      <tr><td>Điều phối viên AI tự xếp phòng</td><td>Cần dữ liệu hành trình sạch trong vài tháng; nên chạy ngầm so với quyết định của trưởng ca trước</td></tr>
+      <tr><td>AI xem ảnh siêu âm</td><td>Dùng lâm sàng cần chứng nhận thiết bị y tế; dài hạn</td></tr>
+      <tr><td>Chấm điểm rủi ro bệnh nhân</td><td>Trái quyết định D013; chỉ cân nhắc chấm điểm vận hành như khả năng bỏ hẹn</td></tr>
+      <tr><td>Hỏi hồ sơ bằng câu hỏi tự do</td><td>Đợi sau tóm tắt trước khám, dùng chung nền quyền theo bệnh nhân</td></tr>
+    </tbody></table></div>
+</section>
+
+<section class="sec" aria-labelledby="voice">
+  <h2 id="voice">AI voice: giới hạn đang ở đâu</h2>
+  <ul class="l">
+    <li><b>Đã có:</b> đường chép giọng nói thành chữ tiếng Việt bằng mô hình chạy tại phòng khám, chỉ trả bản nháp để bác sĩ sửa. Có sẵn cột lưu nháp trong database.</li>
+    <li><b>Chưa có giao diện:</b> không có màn nào gọi tính năng này hoặc ghi âm. Nút micro duy nhất trong code là quét mã vạch ở kho.</li>
+    <li><b>Chưa chắc cài trên prod:</b> thư viện chép giọng nói và ffmpeg không có trong cấu hình dựng phần mềm, và biến cấu hình mô hình không có trong tệp mẫu. Nhiều khả năng đang trả lỗi 503. Chưa kiểm trên VPS.</li>
+    <li><b>Quyết định của dự án:</b> âm thanh không được rời phòng khám (D011), nên không dùng dịch vụ chép giọng nói bên ngoài.</li>
+    <li><b>Máy chủ không đủ sức:</b> 8 GB RAM, chạy chung staging, chưa kiểm GPU. Chép cả buổi khám sẽ cạnh tranh tài nguyên với bản thật; cần máy riêng.</li>
+    <li><b>Chưa đo chất lượng</b> với thuật ngữ y khoa, tên thuốc, giọng vùng miền. Ghi âm còn cần khách đồng ý và chuyên gia pháp chế xem; tài liệu này không kết luận phần đó.</li>
+    <li><b>Nền chưa đỡ:</b> khi bấm Hoàn tất, hệ thống đổi câu mẫu thành “người dùng đã xác nhận” (<span class="id">CLIN-061</span>, Codex: đúng một phần). Nháp AI sẽ bị coi như bác sĩ tự viết nếu chưa sửa.</li>
+  </ul>
+  <div class="note"><p><b>Đề xuất:</b> chưa đưa voice vào nhóm đầu. Nếu sếp muốn thử, làm một thử nghiệm hẹp: bác sĩ đọc 1 đến 2 phút ghi chú sau khám, chép trên máy riêng, đo lỗi trên 20 đến 30 ca, sau khi sửa lỗi <span class="id">CLIN-061</span>.</p></div>
+</section>
+
+<section class="sec" aria-labelledby="an-toan">
+  <h2 id="an-toan">Quy tắc an toàn cho AI, áp cho cả 5 tính năng</h2>
+  <ol class="l">
+    <li><b>AI chỉ gợi ý và soạn nháp.</b> Không tự ghi vào dữ liệu, không tự gửi tin, không tự phát hành kết quả.</li>
+    <li><b>Mọi nháp có nhãn nguồn.</b> Phân biệt “AI soạn”, “mẫu điền sẵn” và “người xác nhận”. Hiện hệ thống đang xoá sự phân biệt này khi Hoàn tất (<span class="id">CLIN-061</span>), phải sửa trước.</li>
+    <li><b>Mỗi ý có nguồn mở được.</b> Thiếu nguồn thì nói thiếu, không đoán.</li>
+    <li><b>Kiểm quyền trước khi AI đọc.</b> AI chỉ thấy những gì người dùng được thấy, theo từng bệnh nhân và cơ sở.</li>
+    <li><b>Dữ liệu bệnh nhân gửi ra ngoài phải có cờ rõ ràng theo phòng khám</b>, không bật ngầm bằng sự có mặt của khoá (<span class="id">AI-005</span>). Một vấn đề kiểm toán cũng ghi việc LLM không bị chặn trần chi phí (<span class="id">AI-004</span>).</li>
+    <li><b>Có đường quay về cách cũ.</b> Tắt AI thì quy trình vẫn chạy bằng tay.</li>
+  </ol>
+</section>
+
+<section class="sec" aria-labelledby="do">
+  <h2 id="do">Cách thử và cách đo</h2>
+  <p><b>Một tình huống chung cho cả hai bước thử:</b> kết quả đối tác về sau khi đổi ca, có một bản thiếu trang và một bản sửa, một việc chưa ai nhận, và khách cần biết bước tiếp theo. Dữ liệu giả. Cho bác sĩ, lễ tân, CSKH làm cùng tình huống theo hai cách: checklist thủ công và có AI. Ghi công thực hiện, chỗ sai và bằng chứng hoàn tất.</p>
+  <ul class="l">
+    <li><b>Thắng cách đơn giản trước.</b> Mỗi tính năng so với quy tắc hoặc mẫu không AI. Nếu AI không hơn, giữ cách đơn giản.</li>
+    <li><b>Chạy ngầm trước khi bật.</b> Gợi ý được ghi lại nhưng chưa tự đổi gì; đối chiếu đủ mẫu mới mở cho người dùng.</li>
+    <li><b>Quy mô thăm dò:</b> khoảng 20 đến 30 ca mỗi tình huống để tìm lỗi rõ và ước công. Đây không đủ để chứng minh độ an toàn với lỗi hiếm. Trước khi thử, thống nhất mức sai nào thì dừng (sai người, thiếu nguồn, bỏ sót quan trọng).</li>
+    <li><b>Đo bằng kết quả công việc:</b> việc bị bỏ sót, thời gian có người xử lý, công nhân viên, số lần hỏi lại. Tỷ lệ bấm chấp nhận cao chưa chứng minh AI tốt.</li>
+    <li><b>So với đối thủ:</b> mang cùng tình huống đó hỏi APIS và vài phòng khám khác; hỏi thêm khi đổi ca, mất mạng, kết quả bị sửa thì cần thao tác tay bao nhiêu.</li>
+  </ul>
+</section>
+
+<section class="sec" aria-labelledby="quyet">
+  <h2 id="quyet">Cần sếp quyết</h2>
+  <ol class="l">
+    <li>Chốt 5 tính năng và thứ tự này không? Nên bắt đầu từ “kết quả đối tác”.</li>
+    <li>Có đồng ý sửa 4 việc nền song song (quyền theo bệnh nhân, danh sách đủ dữ liệu, việc có chủ, chống thao tác trùng) và coi đó là điều kiện của AI không?</li>
+    <li>Quy tắc dữ liệu bệnh nhân đi ra nhà cung cấp AI bên ngoài: cho phép những loại dữ liệu nào, có cần khách đồng ý, có cờ riêng theo phòng khám không? (<span class="id">AI-005</span>)</li>
+    <li>Tóm tắt trước khám đã gỡ ngày 24/09: bác sĩ có thật sự cần bây giờ không?</li>
+    <li>Phòng khám hoặc nhóm nhân viên nào làm thử trước?</li>
+    <li>Có cho thử voice theo thử nghiệm hẹp ở trên không, hay để sau?</li>
+  </ol>
+</section>
+
+<section class="sec" aria-labelledby="gh">
+  <h2 id="gh">Giới hạn của tài liệu này</h2>
+  <ul class="l">
+    <li>Điểm ưu tiên là đánh giá chủ quan của Tuyền và Claude, <b>chưa hỏi người dùng thật</b>. Bước rẻ nhất tiếp theo: nhờ 1 bác sĩ, 1 lễ tân, 1 CSKH chấm riêng độ hữu ích của từng tính năng, mỗi người khoảng 5 phút.</li>
+    <li>Thông tin về APIS, Abridge và các bên khác lấy từ trang giới thiệu của họ. Chưa dùng thử, chưa kiểm chất lượng tiếng Việt, chưa có báo giá.</li>
+    <li>Chưa ước chi phí và công xây từng tính năng. Cần đo số trang PDF, số lượt gọi mô hình, độ dài hồ sơ và công duyệt trong bước thử.</li>
+    <li>Các số lượng bản ghi trên prod là ước tính từ thống kê database, lấy ngày 20/10/2026.</li>
+    <li>Mã vấn đề lấy từ báo cáo kiểm toán; mục mức cao đã được Codex xác minh độc lập, mục mức vừa và thấp thì chưa. Tài liệu này không đánh giá pháp lý.</li>
+  </ul>
+</section>
+
+</main>
+<a class="totop" href="#top" aria-label="Lên đầu trang">Lên đầu</a>
+
+</body>
+</html>

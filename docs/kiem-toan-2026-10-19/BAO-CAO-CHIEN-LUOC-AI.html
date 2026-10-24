@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Chiến lược AI Avalix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Bố cục: một cột đọc; câu trả lời trước, ma trận chấm điểm có thanh trọng số ở giữa, dẫn chứng và nguồn ở cuối. */
+:root {
+  --bg: #f4f7f8; --surface: #ffffff; --ink: #12222b; --muted: #526771; --line: #d3dde2;
+  --accent: #0d6a6a; --accent-soft: #dff1f0;
+  --ok: #1d6b3b; --ok-soft: #e1f2e6; --warn: #8a5600; --warn-soft: #fbefd3;
+  --bad: #a5271f; --bad-soft: #f9e2df; --idle: #4b5b63; --idle-soft: #e6ecef;
+  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1a1f; --surface: #17262d; --ink: #e6eef1; --muted: #9db0b8; --line: #2b3f48;
+    --accent: #5cc4c0; --accent-soft: #14393a; --ok: #7fd49a; --ok-soft: #153324;
+    --warn: #f0c26a; --warn-soft: #3a2c0e; --bad: #ff9d94; --bad-soft: #3d1a17; --idle: #aebdc4; --idle-soft: #23343c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1a1f; --surface: #17262d; --ink: #e6eef1; --muted: #9db0b8; --line: #2b3f48;
+  --accent: #5cc4c0; --accent-soft: #14393a; --ok: #7fd49a; --ok-soft: #153324;
+  --warn: #f0c26a; --warn-soft: #3a2c0e; --bad: #ff9d94; --bad-soft: #3d1a17; --idle: #aebdc4; --idle-soft: #23343c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.65; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 72px; }
+.wrap { max-width: 52rem; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+h1, h2, h3, h4 { text-wrap: balance; line-height: 1.25; margin: 0; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.4rem; font-weight: 700; scroll-margin-top: 16px; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+p { margin: 0; } p + p { margin-top: 10px; }
+.eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.meta, .muted { color: var(--muted); } .meta { font-size: 0.9rem; } .small { font-size: 0.9rem; }
+.sec { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.id { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+sup.s { font-size: 0.7rem; color: var(--accent); font-family: var(--font-mono); }
+sup.s a { text-decoration: none; }
+.box, .verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.verdict .big { font-size: 1.22rem; font-weight: 700; }
+ul.l, ol.l { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 8px; }
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; }
+.warnbox { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; }
+.pill { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; max-width: 100%; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.idle { background: var(--idle-soft); color: var(--idle); }
+nav.toc { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+nav.toc ol { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 4px 20px; counter-reset: t; }
+nav.toc li { counter-increment: t; display: flex; gap: 8px; align-items: baseline; }
+nav.toc li::before { content: counter(t); font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); min-width: 1.4rem; text-align: right; }
+nav.toc a { text-decoration: none; padding: 4px 0; display: inline-block; } nav.toc a:hover { text-decoration: underline; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+th { background: var(--idle-soft); border-top: 0; font-weight: 600; }
+td.n, th.n { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--surface); }
+.stat b { display: block; font-size: 1.35rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 0.85rem; color: var(--muted); }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 10px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.controls label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.controls label span { display: flex; justify-content: space-between; gap: 8px; }
+.controls output { font-family: var(--font-mono); color: var(--ink); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.presets button { font: inherit; font-size: 0.85rem; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.presets button[aria-pressed=true] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.bar { display: inline-block; height: 8px; border-radius: 4px; background: var(--accent); vertical-align: middle; margin-right: 6px; }
+.sc { display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 6px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sc.s1 { background: var(--bad-soft); color: var(--bad); } .sc.s2 { background: var(--warn-soft); color: var(--warn); }
+.sc.s3 { background: var(--idle-soft); color: var(--idle); } .sc.s4 { background: var(--ok-soft); color: var(--ok); } .sc.s5 { background: var(--ok); color: var(--bg); }
+details.why { margin-top: 4px; } details.why summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
+details.why p { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+ol.src { margin: 0; padding-left: 1.6rem; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; overflow-wrap: anywhere; }
+dl.gloss { margin: 0; display: grid; grid-template-columns: minmax(8rem, 11rem) 1fr; gap: 10px 16px; font-size: 0.93rem; }
+dl.gloss dt { font-weight: 600; } dl.gloss dd { margin: 0; color: var(--muted); }
+a { color: var(--accent); } :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a.totop { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); background: var(--accent); color: var(--bg); text-decoration: none; font-weight: 600; font-size: 0.85rem; padding: 8px 14px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 3; }
+@media (max-width: 520px) { dl.gloss { grid-template-columns: 1fr; gap: 2px; } dl.gloss dd { margin-bottom: 8px; } }
+</style>
+
+<main class="wrap" id="top">
+
+<header class="sec">
+  <div class="eyebrow">Nghiên cứu để quyết định · trình anh Quang</div>
+  <h1>AI phổ thông hay AI riêng: Avalix nên đặt cược vào đâu</h1>
+  <p class="meta">20/10/2026 · 4 nhóm nghiên cứu song song, khoảng 180 nguồn có ngày (thị trường và pháp lý Việt Nam, đối thủ trong nước, AI y tế quốc tế, công nghệ và chi phí), cộng kiểm toán bản prod <span class="id">956ba4f2</span> và dữ kiện đo trên VPS. Số nhỏ màu xanh như <sup class="s">[3]</sup> trỏ tới danh sách nguồn ở cuối trang.</p>
+</header>
+
+<nav class="toc" aria-label="Mục lục">
+  <h2 style="font-size:1rem">Mục lục (bấm để nhảy tới)</h2>
+  <ol>
+    <li><a href="#tl">Trả lời ngắn</a></li>
+    <li><a href="#xu-huong">AI tiến nhanh thì điều gì xảy ra</a></li>
+    <li><a href="#thi-truong">Thị trường và kinh tế Việt Nam</a></li>
+    <li><a href="#doi-thu">Đối thủ đang làm gì</a></li>
+    <li><a href="#phap-ly">Pháp lý ảnh hưởng thế nào</a></li>
+    <li><a href="#chi-phi">Chi phí AI thật sự bao nhiêu</a></li>
+    <li><a href="#ma-tran">Ma trận chấm điểm (kéo trọng số)</a></li>
+    <li><a href="#xay-mua">Tự xây hay mua</a></li>
+    <li><a href="#lo-trinh">Lộ trình đề xuất</a></li>
+    <li><a href="#rui-ro">Rủi ro và cách giảm</a></li>
+    <li><a href="#quyet">Cần sếp quyết</a></li>
+    <li><a href="#gh">Giới hạn của nghiên cứu</a></li>
+    <li><a href="#nguon">Nguồn</a></li>
+  </ol>
+</nav>
+
+<section class="sec" aria-labelledby="tl">
+  <h2 id="tl">Trả lời ngắn</h2>
+  <div class="verdict">
+    <p class="big">Không chọn một trong hai. Mua AI phổ thông như mua điện nước. Tự xây phần AI không ai bán được cho mình: luồng việc chăm sóc của phòng khám phụ nữ, đi tới khi xong.</p>
+    <ul class="l">
+      <li><b>AI phổ thông đang rẻ đi rất nhanh và bị gộp miễn phí.</b> Ở cùng một mức năng lực, giá giảm khoảng 13 lần mỗi năm<sup class="s"><a href="#s1">[1]</a></sup>. Ghi âm bác sĩ đã được Doximity cho miễn phí, athenahealth gộp vào phí, Epic gắn sẵn<sup class="s"><a href="#s5">[5]</a><a href="#s6">[6]</a><a href="#s7">[7]</a></sup>. Tự xây những thứ này là đua với các hãng lớn trong cuộc đua giá về 0.</li>
+      <li><b>Lợi ích thật của AI phổ thông nhỏ hơn quảng cáo.</b> Nghiên cứu lớn trên JAMA năm 2026: ghi âm bác sĩ giảm khoảng 16 phút ghi chép mỗi ngày (khoảng 10%), giờ làm ngoài giờ không đổi<sup class="s"><a href="#s2">[2]</a></sup>. Ghi chú do AI viết sai khoảng 26%, chủ yếu là bỏ sót<sup class="s"><a href="#s4">[4]</a></sup>. Tiếng Việt y khoa còn sai khoảng 27–30% số từ<sup class="s"><a href="#s20">[20]</a></sup>.</li>
+      <li><b>Chỗ trống có thật nằm ở luồng việc.</b> Ở Việt Nam, chưa thấy bên nào công bố theo dõi kết quả xét nghiệm đối tác đến khi xử lý xong, bàn giao ca, chăm sóc theo việc, đối soát tiền–dịch vụ–kho, hay hành trình phụ nữ ngoài thai kỳ<sup class="s"><a href="#s14">[14]</a></sup>. Trên thế giới, việc "kết quả bị bỏ sót theo dõi" là nỗi đau được đo nhiều lần, từ 7% đến 62%<sup class="s"><a href="#s9">[9]</a></sup>, nhưng người làm chủ yếu phục vụ bệnh viện lớn và mảng hình ảnh<sup class="s"><a href="#s12">[12]</a></sup>.</li>
+      <li><b>Pháp lý Việt Nam nghiêng về hướng này.</b> AI nội bộ, có người duyệt, chỉ gợi ý thì không bị xếp rủi ro cao<sup class="s"><a href="#s27">[27]</a></sup>. Còn gửi dữ liệu bệnh nhân cho AI ở nước ngoài thì bị tính là chuyển dữ liệu ra nước ngoài, phải lập hồ sơ trong 60 ngày<sup class="s"><a href="#s26">[26]</a></sup>. Ghi âm và chatbot cho bệnh nhân chịu nhiều nghĩa vụ hơn.</li>
+      <li><b>"Hệ mình thiếu thì mình xây":</b> đúng, nhưng xây đúng tầng. Tự xây luồng việc, dữ liệu, quyền, bộ đo, lớp đổi nhà cung cấp. Thuê mô hình, chép lời, đọc tài liệu qua API.</li>
+    </ul>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>~13 lần/năm</b><span>tốc độ rẻ đi của AI ở cùng năng lực (Epoch AI, 09/2026)</span></div>
+    <div class="stat"><b>−10%</b><span>thời gian ghi chép nhờ ghi âm bác sĩ (JAMA, 2026)</span></div>
+    <div class="stat"><b>39,5%</b><span>ca Pap bất thường không có ghi nhận soi tiếp (Mỹ, 2024)</span></div>
+    <div class="stat"><b>0</b><span>đối thủ Việt Nam công bố theo kết quả đối tác đến khi xong</span></div>
+  </div>
+</section>
+
+<section class="sec" aria-labelledby="xu-huong">
+  <h2 id="xu-huong">AI tiến nhanh thì điều gì xảy ra</h2>
+  <p>Anh lo đúng chỗ: AI phát triển rất nhanh. Nhưng chính tốc độ đó quyết định nên làm gì.</p>
+  <ul class="l">
+    <li><b>Năng lực cũ rẻ đi rất nhanh.</b> Epoch AI đo trên 5 bộ bài kiểm tra: chi phí để đạt cùng một mức năng lực giảm khoảng 47% mỗi quý, tức khoảng 13 lần mỗi năm<sup class="s"><a href="#s1">[1]</a></sup>. Thứ hôm nay cần mô hình đắt, 1–2 năm nữa chạy được bằng mô hình rẻ hơn hàng chục lần.</li>
+    <li><b>Nhưng gói mạnh nhất không rẻ đi, và có gói đang tăng giá.</b> Mô hình đầu bảng của Anthropic và OpenAI vẫn ở 10 USD vào, 50 USD ra cho mỗi triệu token. Gemini Flash sẽ tăng gấp đôi giá từ 01/01/2027<sup class="s"><a href="#s22">[22]</a></sup>. Card RTX 5090 ở Việt Nam đang bán 154–200 triệu đồng, gấp 3–4 lần giá ra mắt<sup class="s"><a href="#s24">[24]</a></sup>.</li>
+    <li><b>Các hãng lớn đang gộp AI phổ thông vào sản phẩm sẵn có.</b> Epic phát hành AI Charting (nghe khám, soạn ghi chú và chỉ định) đầu 02/2026<sup class="s"><a href="#s7">[7]</a></sup>. athenahealth không tính thêm phí cho ghi âm<sup class="s"><a href="#s6">[6]</a></sup>. Doximity cho miễn phí<sup class="s"><a href="#s5">[5]</a></sup>. Menlo Ventures ghi nhận khách hàng coi ghi chép là thứ đang thành hàng phổ thông<sup class="s"><a href="#s8">[8]</a></sup>.</li>
+    <li><b>Tiền đầu tư đang chạy về "luồng việc ăn tiền".</b> Abridge, Nabla, Oracle đang lấn từ ghi chú sang xin phép bảo hiểm, mã hoá phí, rà hồ sơ<sup class="s"><a href="#s8">[8]</a></sup>. Bessemer gọi hướng này là "hệ thống hành động" và cho rằng lợi thế nằm ở dữ liệu độc quyền cộng tích hợp luồng việc<sup class="s"><a href="#s11">[11]</a></sup>.</li>
+  </ul>
+  <div class="note"><p><b>Hệ quả cho Avalix:</b> cái gì gắn với mô hình thì mất giá theo năm. Cái gì gắn với luồng việc và dữ liệu của phòng khám thì tăng giá theo năm, vì mô hình càng rẻ thì càng dùng được nhiều trên nền đó. Đầu tư vào nền, thuê mô hình.</p></div>
+</section>
+
+<section class="sec" aria-labelledby="thi-truong">
+  <h2 id="thi-truong">Thị trường và kinh tế Việt Nam</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Chỉ số</th><th>Số liệu</th><th>Ý nghĩa</th></tr></thead>
+    <tbody>
+      <tr><td>Số phòng khám tư</td><td>37.350 (Bộ Y tế báo cáo Quốc hội, dẫn lại 2024) đến khoảng 50.000 (nguồn 2025, chưa có số chính thức mới)<sup class="s"><a href="#s15">[15]</a></sup></td><td>Thị trường đủ lớn. Không tìm được số phòng khám sản phụ khoa</td></tr>
+      <tr><td>Tăng trưởng GDP</td><td>8,02% năm 2025; 9,01% chín tháng 2026<sup class="s"><a href="#s16">[16]</a></sup></td><td>Kinh tế tăng mạnh, tầng lớp trung lưu dùng y tế tư nhiều hơn</td></tr>
+      <tr><td>Chi y tế bình quân</td><td>197 USD/người (2023); tiền túi 39,2% tổng chi<sup class="s"><a href="#s17">[17]</a></sup></td><td>Người dân tự trả nhiều nên phòng khám tư có dòng tiền</td></tr>
+      <tr><td>Giá phần mềm phòng khám</td><td>Phổ biến 0,2–1,5 triệu đồng/tháng; vClinic từ 150 nghìn; Doctor Workspace 0–250 nghìn (không gồm AI)<sup class="s"><a href="#s18">[18]</a><a href="#s14">[14]</a></sup></td><td><b>Phòng khám trả ít cho phần mềm.</b> Chi phí AI phải nhỏ hơn giá bán nhiều lần</td></tr>
+      <tr><td>Gói AI có giá công khai</td><td>MyHospital: ghi âm bệnh án và gợi ý chẩn đoán 5 triệu đồng/tháng, không nêu khách hàng<sup class="s"><a href="#s14">[14]</a></sup></td><td>Chưa thấy ai chứng minh phòng khám nhỏ chịu trả mức này</td></tr>
+      <tr><td>Vốn đầu tư healthtech</td><td>Năm 2024 giảm 75%, còn 46 triệu USD; vài startup đóng cửa 2025<sup class="s"><a href="#s19">[19]</a></sup></td><td>Thị trường thận trọng. Sản phẩm phải tự nuôi được bằng doanh thu</td></tr>
+      <tr><td>Hạn bắt buộc</td><td>Bệnh án điện tử cho cơ sở ngoài bệnh viện: chậm nhất 31/12/2026<sup class="s"><a href="#s28">[28]</a></sup>; đơn thuốc điện tử: hạn 01/01/2026 đã qua</td><td><b>Động lực mua phần mềm mạnh nhất năm nay.</b> Cần kiểm Avalix đáp ứng đủ yêu cầu chưa</td></tr>
+    </tbody></table></div>
+  <div class="note"><p><b>Ý chính về kinh tế:</b> phòng khám Việt Nam mua phần mềm vì luật bắt buộc và vì vận hành, không mua vì AI "kêu". Giá trần thấp, nên AI phải dùng mô hình rẻ, chỉ gọi khi cần, và giá trị phải thấy được bằng việc bớt sót, bớt công.</p></div>
+</section>
+
+<section class="sec" aria-labelledby="doi-thu">
+  <h2 id="doi-thu">Đối thủ đang làm gì</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Bên</th><th>Phân khúc</th><th>AI đã công bố</th><th>Có bằng chứng dùng thật?</th></tr></thead>
+    <tbody>
+      <tr><td>APIS</td><td>Phòng khám chuyên khoa, có giải pháp sản phụ khoa</td><td>Gợi ý chẩn đoán, đơn; tự giao việc theo bước; cảnh báo xét nghiệm bất thường</td><td>Chưa thấy. Đối thủ gần nhất với hướng luồng việc</td></tr>
+      <tr><td>MyHospital</td><td>Phòng khám chuyên khoa đến bệnh viện</td><td>Ghi âm thành bệnh án, gợi ý chẩn đoán, tóm tắt, chatbot</td><td>Không nêu khách hàng</td></tr>
+      <tr><td>FPT (eHospital, MediSight)</td><td>Bệnh viện, chuỗi</td><td>Hỗ trợ quyết định lâm sàng, chép lời, chatbot, AI Agent</td><td>Kế hoạch và thử nghiệm, chủ yếu bệnh viện</td></tr>
+      <tr><td>VNPT</td><td>Phòng khám nhỏ và bệnh viện</td><td>Chatbot; AI đọc X-quang (EIRL)</td><td>Có, nhưng là đọc X-quang ở hơn 10 bệnh viện</td></tr>
+      <tr><td>vClinic, Doctor Workspace, KiotViet</td><td>Phòng khám nhỏ, giá rẻ</td><td>Gần như không có</td><td>Cạnh tranh bằng giá</td></tr>
+      <tr><td>QAS HeraGYN, Ehis, TCSOFT</td><td>Phòng khám sản</td><td>Không gọi là AI; xoay quanh thai kỳ</td><td>Không</td></tr>
+    </tbody></table></div>
+  <p class="muted small">Nguồn: tổng hợp từ trang chính thức của từng bên, truy cập 20/10/2026<sup class="s"><a href="#s14">[14]</a></sup>. "Không thấy công bố" không có nghĩa là họ không có.</p>
+  <div class="note"><p><b>Kết luận đối thủ:</b> chatbot, nhắc lịch và gợi ý chẩn đoán đã có trên giấy ở nhiều bên. Ghi âm bác sĩ đang chuyển từ "sẽ có" sang "có giá", nên trong 12–18 tháng nhiều khả năng thành tính năng "phải có". Đây là dự đoán của người nghiên cứu. Năm khoảng trống luồng việc thì chưa ai công bố, kể cả APIS.</p></div>
+</section>
+
+<section class="sec" aria-labelledby="phap-ly">
+  <h2 id="phap-ly">Pháp lý ảnh hưởng thế nào</h2>
+  <p class="warnbox">Đây là tổng hợp văn bản, không phải ý kiến pháp lý. Cần luật sư về dữ liệu và y tế xác nhận trước khi quyết định.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Quy định</th><th>Nội dung chính</th><th>Tác động</th></tr></thead>
+    <tbody>
+      <tr><td>Luật Bảo vệ dữ liệu cá nhân 91/2025, hiệu lực 01/01/2026</td><td>Dữ liệu sức khoẻ là dữ liệu nhạy cảm. Dùng nền tảng ở nước ngoài để xử lý dữ liệu thu tại Việt Nam được tính là chuyển dữ liệu ra nước ngoài; phải lập hồ sơ đánh giá tác động, nộp trong 60 ngày<sup class="s"><a href="#s26">[26]</a></sup>. Phạt tối đa 5% doanh thu năm trước</td><td>Gọi AI nước ngoài với dữ liệu bệnh nhân làm được, nhưng tốn thủ tục. <b>Bất lợi cho ghi âm, chatbot dùng dữ liệu bệnh nhân.</b> Nên giảm dữ liệu gửi đi, che thông tin định danh</td></tr>
+      <tr><td>Luật Trí tuệ nhân tạo 134/2025 và Nghị định 142/2026</td><td>Không xếp rủi ro cao nếu hệ thống chỉ xử lý dữ liệu, có người duyệt trước khi có hiệu lực, chỉ dùng nội bộ, hoặc chỉ khuyến nghị tham khảo<sup class="s"><a href="#s27">[27]</a></sup>. Danh mục rủi ro cao ở y tế chỉ nêu AI phẫu thuật<sup class="s"><a href="#s29">[29]</a></sup>. AI giao tiếp với người dân phải cho biết là AI</td><td><b>Thuận lợi cho AI theo luồng việc nội bộ có người duyệt.</b> Chatbot hay tổng đài AI cho bệnh nhân phải minh bạch và có thể phải thông báo trước khi dùng</td></tr>
+      <tr><td>Nghị định 356/2025 về dịch vụ xử lý dữ liệu cá nhân</td><td>Một số dịch vụ xử lý dữ liệu là ngành nghề có điều kiện: giấy chứng nhận của Bộ Công an, tối thiểu 3 nhân sự đủ chuẩn, người phụ trách là công dân Việt Nam<sup class="s"><a href="#s30">[30]</a></sup></td><td><b>Rủi ro lớn khi bán phần mềm cho phòng khám khác.</b> Chưa rõ Avalix có thuộc diện không. Cần luật sư trước khi bán cho khách thứ hai, dù làm AI hay không</td></tr>
+      <tr><td>Thông tư 13/2025 bệnh án điện tử</td><td>Cơ sở ngoài bệnh viện hoàn thành chậm nhất 31/12/2026<sup class="s"><a href="#s28">[28]</a></sup>; cần ký điện tử, gắn số định danh, sao lưu và phục hồi</td><td>Động lực bán hàng. Phần mềm đáp ứng sẵn là lợi thế</td></tr>
+      <tr><td>Nghị định 98/2021 thiết bị y tế</td><td>Phần mềm có mục đích chẩn đoán, điều trị có thể là thiết bị y tế</td><td>AI gợi ý chẩn đoán, đọc ảnh siêu âm thì phải phân loại, đăng ký. AI hành chính, nhắc việc thì nhiều khả năng không</td></tr>
+    </tbody></table></div>
+</section>
+
+<section class="sec" aria-labelledby="chi-phi">
+  <h2 id="chi-phi">Chi phí AI thật sự bao nhiêu</h2>
+  <p>Theo giá công bố ngày 20/10/2026, tỷ giá giả định 26.400 đồng/USD<sup class="s"><a href="#s21">[21]</a></sup>. Số token mỗi tác vụ là giả định, cần đo trên tệp thật.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Tác vụ</th><th class="n">Mô hình rẻ (Haiku 5.5)</th><th class="n">Mô hình vừa (Sonnet 5.5)</th></tr></thead>
+    <tbody>
+      <tr><td>Đọc 1 PDF kết quả 3–4 trang</td><td class="n">≈ 67 đ</td><td class="n">≈ 1.350 đ</td></tr>
+      <tr><td>Tóm tắt 1 hồ sơ</td><td class="n">≈ 48 đ</td><td class="n">≈ 950 đ</td></tr>
+      <tr><td>Soạn 1 tin nhắn</td><td class="n">≈ 8 đ</td><td class="n">≈ 158 đ</td></tr>
+      <tr><td>3.000 lượt/tháng, mỗi lượt 1 PDF + 1 tóm tắt + 2 tin</td><td class="n">≈ 0,4 triệu đ/tháng</td><td class="n">≈ 7,8 triệu đ/tháng</td></tr>
+      <tr><td>Chép lời ghi âm 10 phút mỗi lượt, 3.000 lượt/tháng</td><td class="n" colspan="2">OpenAI ≈ 2,4 triệu; FPT.AI ≈ 16,2 triệu đ/tháng<sup class="s"><a href="#s21">[21]</a><a href="#s23">[23]</a></sup></td></tr>
+      <tr><td>Một cuộc gọi đặt lịch bằng AI 3 phút</td><td class="n" colspan="2">≈ 11.900 đ (nền tảng quốc tế; chưa đo chất lượng tiếng Việt)<sup class="s"><a href="#s25">[25]</a></sup></td></tr>
+    </tbody></table></div>
+  <div class="note"><p><b>Ý chính:</b> tiền gọi AI rất nhỏ nếu chọn đúng mô hình, nhưng có thể vượt giá phần mềm (0,2–1,5 triệu/tháng) nếu dùng mô hình vừa cho mọi việc hoặc ghi âm mọi lượt khám. Thiết kế phải dùng mô hình rẻ mặc định, chỉ nâng lên khi cần. Tự mua máy GPU để chạy mô hình gần như không hoàn vốn so với thuê API<sup class="s"><a href="#s24">[24]</a></sup>. Thứ khan hiếm là độ đúng trên dữ liệu y khoa tiếng Việt và khả năng gắn vào luồng việc, không phải tiền.</p></div>
+</section>
+
+<section class="sec" aria-labelledby="ma-tran">
+  <h2 id="ma-tran">Ma trận chấm điểm: 12 hướng AI × 7 tiêu chí</h2>
+  <p>Mỗi hướng được chấm 1 đến 5 (5 là tốt nhất cho Avalix) theo 7 tiêu chí, có bằng chứng ở nút “Vì sao”. Kéo thanh trọng số để xem thứ hạng đổi ra sao. Ví dụ, đẩy “Hấp dẫn khi bán” lên cao để xem danh sách cho việc trình diễn.</p>
+  <p class="note"><b>Điều đáng chú ý:</b> “theo kết quả đối tác đến khi xong” đứng đầu ở 3 trên 4 bộ trọng số có sẵn (86/100 khi cân bằng, 94 khi ưu tiên bền lâu, 78 khi ưu tiên bán hàng, đồng hạng với hành trình phụ nữ). Khi ưu tiên an toàn thì bàn giao ca và đối soát lên đầu, đều là việc của đợt 1. Chatbot và AI chẩn đoán luôn nằm trong 3 hạng cuối; ghi âm bác sĩ cũng vậy, trừ khi ưu tiên bán hàng.</p>
+  <div class="presets" role="group" aria-label="Bộ trọng số có sẵn">
+    <button type="button" data-p="deu" aria-pressed="true">Cân bằng</button>
+    <button type="button" data-p="ban">Ưu tiên bán hàng</button>
+    <button type="button" data-p="ben">Ưu tiên bền lâu</button>
+    <button type="button" data-p="an">Ưu tiên an toàn, pháp lý</button>
+  </div>
+  <div class="controls" id="weights"></div>
+  <div class="tablewrap"><table id="rank"></table></div>
+  <dl class="gloss small">
+    <dt>Nỗi đau có thật</dt><dd>Có bằng chứng đo (nghiên cứu, kiểm toán prod) là người dùng đang khổ vì việc này.</dd>
+    <dt>Khoảng trống thị trường</dt><dd>Đối thủ Việt Nam chưa công bố, quốc tế chưa làm cho phòng khám nhỏ.</dd>
+    <dt>Bền trước AI rẻ đi</dt><dd>Giá trị nằm ở luồng việc, dữ liệu của mình, không bị mô hình rẻ hơn thay thế.</dd>
+    <dt>An toàn, pháp lý</dt><dd>5 là ít rủi ro: nội bộ, có người duyệt, không chẩn đoán, ít gửi dữ liệu ra ngoài.</dd>
+    <dt>Nền Avalix sẵn sàng</dt><dd>Theo kiểm toán prod: dữ liệu đã có, ít lỗi chặn.</dd>
+    <dt>Chi phí vận hành</dt><dd>5 là rẻ so với giá phần mềm phòng khám.</dd>
+    <dt>Hấp dẫn khi bán</dt><dd>Mức gây ấn tượng khi giới thiệu. Tiêu chí này cố ý tách riêng để thấy cái giá của “kêu”.</dd>
+  </dl>
+</section>
+
+<section class="sec" aria-labelledby="xay-mua">
+  <h2 id="xay-mua">Tự xây hay mua: theo từng tầng</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Tầng</th><th>Quyết định</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr><td>Luồng việc: việc có chủ, hạn, nhắc, đóng vòng đến khi xong</td><td><span class="pill ok">Tự xây</span></td><td>Không ai bán sẵn cho phòng khám phụ nữ Việt Nam. Không rẻ đi theo giá mô hình</td></tr>
+      <tr><td>Dữ liệu và nguồn gốc: mỗi ý có nguồn, nhãn nháp hay xác nhận</td><td><span class="pill ok">Tự xây</span></td><td>Là thứ làm AI đáng tin. Kiểm toán thấy nền này đang thiếu (CLIN-061)</td></tr>
+      <tr><td>Quyền theo bệnh nhân, đồng ý, tuân thủ dữ liệu</td><td><span class="pill ok">Tự xây</span></td><td>Bắt buộc theo luật, và AI chỉ được thấy những gì người dùng được thấy</td></tr>
+      <tr><td>Bộ đo tiếng Việt y khoa của riêng mình</td><td><span class="pill ok">Tự xây</span></td><td>Chưa ai công bố số đo của API thương mại trên dữ liệu kiểu này<sup class="s"><a href="#s20">[20]</a></sup>. Có bộ đo mới đổi nhà cung cấp mà không sợ</td></tr>
+      <tr><td>Lớp đổi nhà cung cấp</td><td><span class="pill ok">Tự xây</span></td><td>Giá và tên mô hình đổi theo lịch của hãng<sup class="s"><a href="#s22">[22]</a></sup>; đổi mô hình chỉ nên là sửa cấu hình</td></tr>
+      <tr><td>Mô hình ngôn ngữ, tóm tắt, soạn nháp</td><td><span class="pill warn">Thuê qua API</span></td><td>Rẻ đi 13 lần/năm. Tự huấn luyện hay tự chạy không hoàn vốn</td></tr>
+      <tr><td>Chép lời giọng nói, đọc PDF và ảnh</td><td><span class="pill warn">Thuê qua API</span></td><td>Nhiều nhà cung cấp, giá thấp. Ưu tiên bên trong nước nếu không muốn chuyển dữ liệu ra nước ngoài</td></tr>
+      <tr><td>Tổng đài gọi điện bằng AI</td><td><span class="pill warn">Thuê sau</span></td><td>Có sẵn trên thị trường; chưa có số đo chất lượng tiếng Việt; có nghĩa vụ minh bạch AI</td></tr>
+      <tr><td>Mô hình riêng, AI chẩn đoán, AI đọc ảnh siêu âm</td><td><span class="pill bad">Không làm</span></td><td>Tốn kém, có thể là thiết bị y tế cần đăng ký, và các hãng lớn đang làm</td></tr>
+    </tbody></table></div>
+</section>
+
+<section class="sec" aria-labelledby="lo-trinh">
+  <h2 id="lo-trinh">Lộ trình đề xuất (theo điều kiện, không theo ngày hứa)</h2>
+  <ol class="l">
+    <li><b>Nền trước, song song:</b> việc có chủ và hạn, quyền theo bệnh nhân, danh sách đủ dữ liệu, chống thao tác trùng, nhãn nguồn cho nháp AI. Hỏi luật sư về Nghị định 356 và chuyển dữ liệu ra nước ngoài.</li>
+    <li><b>Đợt 1, khác biệt chính:</b> theo kết quả xét nghiệm đối tác đến khi xử lý xong, cộng bàn giao ca. Hai việc dùng chung một nền "việc có chủ". AI đọc PDF qua API rẻ, quy tắc lo việc nhắc.</li>
+    <li><b>Đợt 1b, rẻ và thấy ngay:</b> đối soát tiền–dịch vụ–kho, có đọc ảnh chuyển khoản. Phần lớn là quy tắc, AI phụ.</li>
+    <li><b>Đợt 2, chiều sâu chuyên khoa:</b> chăm sóc khách theo việc (gọi ai, soạn tin để nhân viên duyệt), rồi hành trình phụ nữ ngoài thai kỳ (tầm soát, phụ khoa định kỳ, mãn kinh).</li>
+    <li><b>Đợt 3, khi bác sĩ cần và quyền đã chặt:</b> tóm tắt trước khám có nguồn.</li>
+    <li><b>Mua và gắn, không tự xây:</b> ghi âm bác sĩ khi đo được chất lượng tiếng Việt y khoa trên dữ liệu của mình. Thử hẹp trước: bác sĩ đọc 1–2 phút ghi chú sau khám.</li>
+    <li><b>Dài hạn:</b> điều phối viên AI, khi dữ liệu hành trình đã sạch vài tháng.</li>
+  </ol>
+  <div class="note"><p><b>Cách chứng minh trước khi làm rộng:</b> một tình huống mẫu bằng dữ liệu giả. Kết quả đối tác về sau khi đổi ca, có một bản thiếu trang và một bản sửa. Cho nhân viên làm thủ công và làm có AI, đo việc bị sót, thời gian có người xử lý, công duyệt. Mang đúng tình huống đó hỏi APIS và 3–5 phòng khám khác, và hỏi họ có trả tiền cho việc này không.</p></div>
+</section>
+
+<section class="sec" aria-labelledby="rui-ro">
+  <h2 id="rui-ro">Rủi ro của hướng này và cách giảm</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Rủi ro</th><th>Cách giảm</th></tr></thead>
+    <tbody>
+      <tr><td>APIS hoặc hãng lớn làm luồng việc nhanh hơn</td><td>Đi sâu chuyên khoa phụ nữ và đối tác xét nghiệm; demo so sánh trực tiếp; đo kết quả bằng số</td></tr>
+      <tr><td>Phòng khám không trả thêm tiền cho "theo việc"</td><td>Bán bằng kết quả thấy được (không sót kết quả, khách quay lại), gộp với bệnh án điện tử bắt buộc thay vì bán riêng</td></tr>
+      <tr><td>Sếp hoặc khách vẫn muốn thấy AI "kêu" như voice</td><td>Làm demo voice bằng API thuê trên dữ liệu giả, chi phí thấp, không đưa vào lõi cho tới khi đo được chất lượng</td></tr>
+      <tr><td>Pháp lý dữ liệu khi bán cho khách thứ hai</td><td>Hỏi luật sư trước; giảm dữ liệu gửi ra ngoài; ưu tiên nhà cung cấp trong nước khi có thể</td></tr>
+      <tr><td>Nền hệ thống chưa sẵn (theo kiểm toán)</td><td>Sửa nền trước như lộ trình bước 1; AI chỉ bật khi nền đạt</td></tr>
+      <tr><td>Giá AI tăng hoặc mô hình bị đổi</td><td>Lớp đổi nhà cung cấp và bộ đo riêng</td></tr>
+    </tbody></table></div>
+</section>
+
+<section class="sec" aria-labelledby="quyet">
+  <h2 id="quyet">Cần sếp quyết</h2>
+  <ol class="l">
+    <li>Chấp nhận nguyên tắc "thuê AI phổ thông, tự xây luồng việc" không?</li>
+    <li>Chốt đợt 1 là theo kết quả đối tác cộng bàn giao ca không?</li>
+    <li>Có thuê luật sư xem Nghị định 356 và quy tắc chuyển dữ liệu ra nước ngoài trước khi bán cho phòng khám khác không?</li>
+    <li>Có cho dữ liệu bệnh nhân (đã giảm thiểu) đi qua nhà cung cấp AI nước ngoài, hay ưu tiên trong nước?</li>
+    <li>Có muốn một demo voice rẻ để trình diễn song song, tách khỏi lõi không?</li>
+    <li>Phòng khám nào để phỏng vấn và thử, ngoài Dr4Women?</li>
+  </ol>
+</section>
+
+<section class="sec" aria-labelledby="gh">
+  <h2 id="gh">Giới hạn của nghiên cứu</h2>
+  <ul class="l">
+    <li>Điểm trong ma trận là đánh giá có căn cứ, nhưng vẫn là đánh giá. Chưa phỏng vấn bác sĩ, chủ phòng khám hay người mua.</li>
+    <li>Thông tin đối thủ lấy từ trang giới thiệu của họ. Chưa dùng thử, chưa có báo giá của APIS, FPT, Viettel.</li>
+    <li>Không tìm được số phòng khám sản phụ khoa, khảo sát độc lập về mức sẵn sàng trả tiền, hay số đo độ chính xác của dịch vụ thương mại trên tiếng Việt y khoa.</li>
+    <li>Phần pháp lý là tổng hợp văn bản qua trang tra cứu và bài của công ty luật, cần luật sư xác nhận. Hai nguồn mâu thuẫn về thủ tục chuyển dữ liệu ra nước ngoài (nộp sau hay duyệt trước).</li>
+    <li>Chi phí AI dựa trên giá công bố ngày 20/10/2026 và giả định số token; cần đo trên tệp thật.</li>
+    <li>Nhiều số liệu quốc tế là do chính công ty công bố. Các khẳng định quan trọng nhất (Epoch, JAMA, Epic, Điều 20 Luật 91/2025, Điều 8 Nghị định 142, hạn bệnh án điện tử) đã được kiểm lại từ nguồn.</li>
+    <li>Bản đầy đủ của 4 nhóm nghiên cứu nằm ở thư mục <span class="id">docs/kiem-toan-2026-10-19/nghien-cuu-ai-2010/</span>.</li>
+  </ul>
+</section>
+
+<section class="sec" aria-labelledby="nguon">
+  <h2 id="nguon">Nguồn chính</h2>
+  <ol class="src">
+    <li id="s1">Epoch AI, “The plunging price of thought”, 22/09/2026. https://epoch.ai/publications/the-plunging-price-of-thought</li>
+    <li id="s2">Rotenstein và cs., JAMA 2026, qua Mass General Brigham. https://news.massgeneralbrigham.org/en/ai-scribes-linked-to-modest-reductions-in-ehr-documentation-time</li>
+    <li id="s3">Lukac và cs., NEJM AI 11/2025, qua UCLA Health. https://www.uclahealth.org/news/release/ucla-study-finds-ai-scribes-may-reduce-documentation-time</li>
+    <li id="s4">Mayo Clinic Proceedings: Digital Health, 09/10/2025 (đánh giá chất lượng 5 nền tảng ghi âm). https://pmc.ncbi.nlm.nih.gov/articles/PMC12605248/</li>
+    <li id="s5">HLTH, Doximity ra mắt scribe miễn phí, 29/07/2025. https://hlth.com/insights/news/doximity-jumps-into-ai-scribe-market-offering-a-free-tool-for-doctors-2025-07-29</li>
+    <li id="s6">athenahealth, athenaAmbient không tính thêm phí, Business Wire 04/11/2025. https://www.businesswire.com/news/home/20251104083540/en</li>
+    <li id="s7">HLTH, Epic phát hành AI Charting, 06/02/2026. https://hlth.com/insights/news/epic-releases-native-ai-charting-for-integrated-clinical-documentation-2026-02-06</li>
+    <li id="s8">Menlo Ventures, “2025: The State of AI in Healthcare”, 21/10/2025. https://menlovc.com/perspective/2025-the-state-of-ai-in-healthcare/</li>
+    <li id="s9">Callen và cs., J Gen Intern Med 2012, tổng quan hệ thống về bỏ sót theo dõi kết quả ngoại trú. https://psnet.ahrq.gov/issue/failure-follow-test-results-ambulatory-patients-systematic-review</li>
+    <li id="s10">Cancer Causes &amp; Control, 17/08/2024, theo dõi soi cổ tử cung sau sàng lọc bất thường (Mississippi). https://pmc.ncbi.nlm.nih.gov/articles/PMC11561063/</li>
+    <li id="s11">Bessemer Venture Partners, “State of Health AI 2026”, 22/01/2026. https://www.bvp.com/atlas/state-of-health-ai-2026</li>
+    <li id="s12">Eon (theo dõi phát hiện tình cờ trên phim chụp), thông cáo 17/12/2025. https://www.eonhealth.com/news/eon-launches-5-0-platform-to-address-healthcares-growing-validation-burden</li>
+    <li id="s13">BMJ Open Quality, 07/2024, kiểm tra 57 phòng khám Anh về báo kết quả máu. https://bmjopenquality.bmj.com/content/13/3/e002632</li>
+    <li id="s14">Tổng hợp đối thủ Việt Nam (APIS, MyHospital, FPT, VNPT, vClinic, Doctor Workspace, KiotViet, QAS, Ehis, TCSOFT), trang chính thức truy cập 20/10/2026. Chi tiết và đường dẫn: tệp B-doi-thu-VN.md. Ví dụ: https://apishealth.vn/ · https://myhospital.vn/ · https://vclinic.com.vn/ · https://doctorworkspace.com/</li>
+    <li id="s15">Tạp chí Quản lý Nhà nước, 13/06/2024 (dẫn báo cáo Bộ Y tế); Tạp chí Kinh tế Tài chính, 22/11/2025. https://www.quanlynhanuoc.vn/?p=39572</li>
+    <li id="s16">Tạp chí Công Thương, GDP 2025 tăng 8,02%; Việt Nam News, 03/10/2026, GDP 9 tháng 2026 tăng 9,01%. https://vietnamnews.vn/economy/1801156/nine-month-gdp-growth-hits-9-01-per-cent-closer-to-double-digit-target.html</li>
+    <li id="s17">World Bank WDI, chi y tế bình quân và tỷ lệ tiền túi, Việt Nam, cập nhật 08/10/2026. https://api.worldbank.org/v2/country/VNM/indicator/SH.XPD.OOPC.CH.ZS?format=json</li>
+    <li id="s18">QAS bảng giá; MediCRM tổng hợp giá phần mềm phòng khám (nhà cung cấp tự công bố). https://qasvn.com/bang-gia · https://medicrm.vn/tin-tuc/gia-phan-mem-quan-ly-phong-kham/</li>
+    <li id="s19">VnEconomy, “Nhiều startup Healthtech dừng hoạt động tại Việt Nam”, 03/11/2025. https://vneconomy.vn/nhieu-startup-healthtech-dung-hoat-dong-tai-viet-nam.htm</li>
+    <li id="s20">VietMed (arXiv 2404.05659) và MultiMed (ACL 2025, arXiv 2409.14074): nhận dạng giọng nói tiếng Việt y khoa. https://arxiv.org/abs/2404.05659</li>
+    <li id="s21">Bảng giá API: Anthropic, OpenAI, truy cập 20/10/2026. https://claude.com/pricing · https://developers.openai.com/api/docs/pricing</li>
+    <li id="s22">Google, bảng giá Gemini API, cập nhật 19/10/2026. https://ai.google.dev/gemini-api/docs/pricing</li>
+    <li id="s23">FPT.AI, bảng giá chép lời. https://docs.fpt.ai/docs/en/speech/documentation/stt-pricing/</li>
+    <li id="s24">Phong Vũ, giá RTX 5090 truy cập 20/10/2026; TrendForce 05/01/2026 về tăng giá GPU. https://phongvu.vn/c/vga-rtx-5090</li>
+    <li id="s25">Tổng hợp giá nền tảng gọi điện AI (Retell, Vapi), bài của bên thứ ba 2026. https://cloudtalk.io/blog/vapi-ai-pricing</li>
+    <li id="s26">Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15, Điều 20, qua trang tra cứu. https://hethongphapluat.com/luat-bao-ve-du-lieu-ca-nhan-2025/dieu-20</li>
+    <li id="s27">Nghị định 142/2026/NĐ-CP hướng dẫn Luật Trí tuệ nhân tạo, Điều 8, qua trang tra cứu. https://hethongphapluat.com/nghi-dinh-142-2026-nd-cp-huong-dan-luat-tri-tue-nhan-tao/dieu-8</li>
+    <li id="s28">Thông tư 13/2025/TT-BYT về bệnh án điện tử, Điều 4. https://luatvietnam.vn/y-te/thong-tu-13-2025-tt-byt-huong-dan-trien-khai-ho-so-benh-an-dien-tu-tu-bo-y-te-402396-d1.html</li>
+    <li id="s29">Bộ Tư pháp, “Ban hành Danh mục hệ thống trí tuệ nhân tạo có rủi ro cao”, 02/07/2026. https://moj.gov.vn/portal/tin-tuc/chi-tiet/ban-hanh-danh-muc-he-thong-tri-tue-nhan-tao-co-rui-ro-cao-ti1fq907ea.html</li>
+    <li id="s30">Tạp chí Luật sư Việt Nam, “Điều kiện của tổ chức kinh doanh dịch vụ xử lý dữ liệu cá nhân”, 2026. https://lsvn.vn/dieu-kien-cua-to-chuc-kinh-doanh-dich-vu-xu-ly-du-lieu-ca-nhan-a167918.html</li>
+  </ol>
+</section>
+
+</main>
+<a class="totop" href="#top" aria-label="Lên đầu trang">Lên đầu</a>
+
+<script>
+(function () {
+  var CRIT = [
+    ["dau", "Nỗi đau có thật"], ["trong", "Khoảng trống thị trường"], ["ben", "Bền trước AI rẻ đi"],
+    ["an", "An toàn, pháp lý"], ["nen", "Nền Avalix sẵn sàng"], ["re", "Chi phí vận hành"], ["ban", "Hấp dẫn khi bán"]
+  ];
+  // [tên, điểm theo thứ tự CRIT, quyết định, lý do chấm]
+  var ROWS = [
+    ["Theo kết quả xét nghiệm đối tác đến khi xử lý xong", [5,5,5,4,3,5,3], "Tự xây lõi, thuê đọc PDF",
+     "Bỏ sót theo dõi kết quả 7–62% ngoại trú; 39,5% Pap bất thường không soi tiếp; kiểm toán prod thấy CLIN-001, CLIN-012, CLIN-019. Chưa đối thủ VN nào công bố. Nội bộ, có người duyệt. Có khoảng 8.400 tệp kết quả trên prod nhưng cần sửa nền việc có chủ."],
+    ["Bàn giao ca, việc có chủ", [4,5,5,5,3,5,2], "Tự xây",
+     "Đúng mục tiêu bớt phụ thuộc trí nhớ và gọi hỏi nhau. Kiểm toán thấy việc chưa có người nhận (OPS-001, OPS-002, CLIN-004). Không thấy đối thủ công bố. Gần như không có rủi ro pháp lý. Ít ấn tượng khi trình diễn."],
+    ["Đối soát tiền–dịch vụ–kho, đọc ảnh chuyển khoản", [4,5,4,5,3,5,2], "Tự xây quy tắc, thuê đọc ảnh",
+     "Kiểm toán thấy thu ngân tự khai tiền chuyển khoản, cờ đối soát không có người đóng (FIN-021), thêm thuốc bị trùng (FIN-003). Đối thủ chỉ có báo cáo rời. Phần lớn là quy tắc nên rẻ và an toàn."],
+    ["Chăm sóc khách theo việc (gọi ai, soạn tin để duyệt)", [4,4,4,4,3,5,3], "Tự xây luồng, thuê soạn nháp",
+     "Kiểm toán thấy ô đếm quá hạn chỉ tính trang đang xem (FE-029), việc chỉ sinh khi mở màn (OPS-001). APIS có chiến dịch gửi tin theo nhóm nhưng không theo từng việc. Nhân viên duyệt trước khi gửi nên ít rủi ro."],
+    ["Hành trình phụ nữ ngoài thai kỳ (tầm soát, phụ khoa, mãn kinh)", [3,5,4,4,2,5,4], "Tự xây",
+     "Mọi phần mềm sản ở VN xoay quanh thai kỳ. Quốc tế, sức khoẻ phụ nữ là mảng được định giá cao nhưng theo mô hình bảo hiểm. Nền Avalix mới có thai kỳ. Nhu cầu ở VN chưa đo."],
+    ["Điều phối viên AI (dự báo chờ, gợi ý xếp phòng)", [3,4,5,4,1,4,5], "Tự xây, dài hạn",
+     "Khó sao chép vì cần dữ liệu hành trình. Nhưng dữ liệu chưa sạch: thời gian chờ tính theo đồng hồ máy khách (FE-030), nhiều danh sách bị cắt. Rất ấn tượng khi trình diễn."],
+    ["Đọc PDF, ảnh tài liệu (năng lực dùng chung)", [4,3,2,3,3,5,3], "Thuê qua API",
+     "Là năng lực hàng phổ thông, nhiều nhà cung cấp, rất rẻ. Giá trị đến khi gắn vào luồng việc. Gửi ra nước ngoài thì vướng Điều 20 Luật 91/2025."],
+    ["Tóm tắt trước khám có nguồn", [3,3,3,3,2,4,4], "Tự xây lớp nguồn và quyền, thuê mô hình",
+     "Một số bên đã công bố tóm tắt (MyHospital, Epic). Bản cũ của Avalix đã gỡ 24/09 vì chưa cần. Đọc dữ liệu bệnh nhân nên cần quyền chặt (SEC-011 đúng, mức cao)."],
+    ["Tổng đài AI gọi điện đặt lịch, nhắc lịch", [3,3,2,2,2,3,4], "Thuê sau",
+     "FPT, Viettel đã có callbot; quốc tế khoảng 0,07–0,30 USD/phút. Chưa có số đo tiếng Việt. Giao tiếp với người dân phải nói rõ là AI, có thể phải thông báo."],
+    ["Ghi âm bác sĩ thành bệnh án (voice scribe)", [3,2,1,2,1,3,5], "Mua, gắn khi đo được chất lượng",
+     "Lợi ích độc lập khiêm tốn (JAMA −10%), lỗi khoảng 26%, tiếng Việt y khoa sai 27–30% từ. Quốc tế đang miễn phí hoá, trong nước MyHospital đã bán. Ghi âm là dữ liệu nhạy cảm cần đồng ý. Prod chưa có giao diện, chưa chắc cài."],
+    ["Chatbot trả lời khách", [2,1,1,2,2,4,4], "Không ưu tiên",
+     "Gần như mọi đối thủ đều công bố. Có nghĩa vụ minh bạch AI. Chatbot tư vấn lâm sàng trái quyết định D012 của dự án."],
+    ["AI gợi ý chẩn đoán, đọc ảnh siêu âm", [3,2,2,1,1,2,5], "Không làm",
+     "Có thể là thiết bị y tế cần đăng ký. Các hãng lớn và bệnh viện đang làm. Rất ấn tượng khi trình diễn nhưng rủi ro và chi phí cao."]
+  ];
+  var PRESET = { deu: [1,1,1,1,1,1,1], ban: [1,1,0,1,1,1,3], ben: [2,2,3,1,1,1,0], an: [1,1,1,3,2,1,0] };
+  var W = PRESET.deu.slice();
+  var wb = document.getElementById("weights"), tb = document.getElementById("rank");
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+  wb.innerHTML = CRIT.map(function (c, i) {
+    return '<label for="w' + i + '"><span>' + c[1] + '<output id="o' + i + '">' + W[i] + '</output></span><input type="range" id="w' + i + '" min="0" max="3" step="1" value="' + W[i] + '"></label>';
+  }).join("");
+  function score(r) { var s = 0, t = 0; for (var i = 0; i < W.length; i++) { s += W[i] * r[1][i]; t += W[i] * 5; } return t ? Math.round(s / t * 100) : 0; }
+  function draw() {
+    var rows = ROWS.map(function (r) { return { r: r, s: score(r) }; }).sort(function (a, b) { return b.s - a.s; });
+    tb.innerHTML = '<thead><tr><th class="n">Hạng</th><th>Hướng AI</th>' + CRIT.map(function (c) { return '<th class="n">' + c[1] + '</th>'; }).join("") + '<th class="n">Điểm</th><th>Quyết định</th></tr></thead><tbody>' +
+      rows.map(function (o, k) {
+        var r = o.r;
+        return '<tr><td class="n">' + (k + 1) + '</td><td><b>' + esc(r[0]) + '</b><details class="why"><summary>Vì sao</summary><p>' + esc(r[3]) + '</p></details></td>' +
+          r[1].map(function (v) { return '<td class="n"><span class="sc s' + v + '">' + v + '</span></td>'; }).join("") +
+          '<td class="n"><span class="bar" style="width:' + (o.s * 0.5) + 'px"></span>' + o.s + '</td><td class="small">' + esc(r[2]) + '</td></tr>';
+      }).join("") + '</tbody>';
+  }
+  wb.addEventListener("input", function (e) { var i = +e.target.id.slice(1); if (isNaN(i)) return; W[i] = +e.target.value; document.getElementById("o" + i).textContent = W[i]; clearPreset(); draw(); });
+  var pb = document.querySelectorAll(".presets button");
+  function clearPreset() { pb.forEach(function (b) { b.setAttribute("aria-pressed", "false"); }); }
+  pb.forEach(function (b) { b.addEventListener("click", function () {
+    W = PRESET[b.dataset.p].slice(); W.forEach(function (v, i) { document.getElementById("w" + i).value = v; document.getElementById("o" + i).textContent = v; });
+    clearPreset(); b.setAttribute("aria-pressed", "true"); draw(); }); });
+  draw();
+})();
+</script>
+
+</body></html>
