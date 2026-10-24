@@ -35,12 +35,25 @@ _LICH_CHET = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"]
 #: Kênh đặt · người giới thiệu · lần ĐỔI / HUỶ lịch gần nhất kèm lý do (Tuyền
 #: 24/09/2026: "cần đồng bộ hiện ở những chỗ này CSKH mới biết được"). Dùng
 #: chung cho danh sách khách CSKH và danh sách bệnh nhân. Alias `p` = patient.
+#: Kênh: của lịch hẹn gần nhất; khách CHƯA có kênh nào trên hệ thống thì lấy nguồn
+#: khách ghi trong hồ sơ trước 10/2026 (`lich_su_notion.nguoi.kenh`, nạp 06/10/2026)
+#: — không bao giờ đè kênh hệ thống.
 COT_KENH_DOI_HUY = """
     p.nguoi_gioi_thieu,
-    (SELECT a.booking_channel FROM appointment a
-      WHERE a.clinic_id = p.clinic_id
-        AND a.clinic_patient_id = p.clinic_patient_id
-      ORDER BY a.created_at DESC LIMIT 1) AS kenh_dat,
+    coalesce(
+        (SELECT a.booking_channel FROM appointment a
+          WHERE a.clinic_id = p.clinic_id
+            AND a.clinic_patient_id = p.clinic_patient_id
+          ORDER BY a.created_at DESC LIMIT 1),
+        (SELECT n.kenh FROM lich_su_notion.nguoi n
+          WHERE n.clinic_patient_id = p.clinic_patient_id
+            AND n.clinic_id = p.clinic_id AND n.kenh IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM appointment a
+                             WHERE a.clinic_id = p.clinic_id
+                               AND a.clinic_patient_id = p.clinic_patient_id
+                               AND a.booking_channel IS NOT NULL)
+          ORDER BY n.nguoi_key LIMIT 1)
+    ) AS kenh_dat,
     (SELECT json_build_object('loai', x.loai, 'ly_do', x.ly_do, 'ma', x.ma,
                               'luc', x.luc)
        FROM (

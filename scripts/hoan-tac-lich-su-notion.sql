@@ -7,6 +7,8 @@
 --   (khoá chặn xoá). Hồ sơ chưa có hoạt động nào trên hệ thống → ẨN (is_active =
 --   false). Hồ sơ đã có lịch hẹn / lượt khám trên hệ thống → GIỮ (đã là khách thật).
 -- * Nạp lại sau đó: bộ nạp nhận lại đúng hồ sơ ẩn theo mã Notion và bật lại.
+-- * Phần BỔ SUNG (06/10: lịch sử chăm sóc, nguồn khách, người nhà, dự kiến sinh) gỡ
+--   bằng scripts/hoan-tac-bo-sung-notion.sql — chạy tệp ấy TRƯỚC tệp này.
 -- Một giao dịch; in số dòng trước khi COMMIT.
 BEGIN;
 
@@ -20,7 +22,7 @@ UPDATE public.patient p SET is_active = false, updated_at = now()
    AND NOT EXISTS (SELECT 1 FROM public.appointment a WHERE a.clinic_patient_id = p.clinic_patient_id)
    AND NOT EXISTS (SELECT 1 FROM public.visit v WHERE v.clinic_patient_id = p.clinic_patient_id);
 
-TRUNCATE lich_su_notion.bat_thuong, lich_su_notion.lich_hen, lich_su_notion.ke_thuoc,
+TRUNCATE lich_su_notion.cham_soc, lich_su_notion.bat_thuong, lich_su_notion.lich_hen, lich_su_notion.ke_thuoc,
          lich_su_notion.xet_nghiem, lich_su_notion.ket_qua, lich_su_notion.dich_vu,
          lich_su_notion.luot_kham, lich_su_notion.nguoi;
 UPDATE lich_su_notion.lan_nhap SET hoan_tac_luc = now() WHERE hoan_tac_luc IS NULL;

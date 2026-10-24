@@ -374,6 +374,26 @@ async def lich_su_notion_cua_khach(
     return kq
 
 
+# Lịch sử chăm sóc khách trước 10/2026 (06/10/2026): thông tin VẬN HÀNH, không phải
+# bệnh án → hai màn có khối này (Danh sách bệnh nhân, Quản lý khách hàng) đều vào được.
+_CHAM_SOC_CU_GUARD = cua_quyen("patient.list.view", "crm.manage")
+
+
+@router.get("/patients/{id:uuid}/lich-su-cham-soc")
+async def lich_su_cham_soc_cua_khach(
+    id: UUID,
+    identity: StaffIdentity = Depends(_CHAM_SOC_CU_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch sử chăm sóc khách trước 10/2026 của một khách (chỉ đọc)."""
+    from clinicai.services.lich_su_notion_service import lich_su_cham_soc
+
+    kq: dict[str, Any] = jsonable_encoder(
+        await lich_su_cham_soc(pool, identity=identity, clinic_patient_id=str(id))
+    )
+    return kq
+
+
 @router.get("/lich-su-notion/luot/{luot_id:uuid}")
 async def lich_su_notion_mot_luot(
     luot_id: UUID,

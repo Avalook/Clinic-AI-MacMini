@@ -48,6 +48,7 @@ import { todayVn } from "@/lib/roster";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { khoangTuKy, type Khoang } from "@/lib/thanh-ngay";
 import KhungKhach from "../_lam-viec/KhungKhach";
+import LichSuChamSoc from "../patient-list/LichSuChamSoc";
 import LichSuNotion from "../patient-list/LichSuNotion";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
@@ -2043,6 +2044,11 @@ export default function CustomersView({
                     tìm được ở đây (tìm phía máy chủ); khối tự ẩn khi không có. */}
                 <LichSuNotion
                   key={`cu-${selected.clinic_patient_id}`}
+                  clinicPatientId={selected.clinic_patient_id}
+                />
+                {/* LỊCH SỬ CHĂM SÓC TRƯỚC 10/2026 (06/10/2026) — chỉ đọc, thu gọn sẵn. */}
+                <LichSuChamSoc
+                  key={`cs-${selected.clinic_patient_id}`}
                   clinicPatientId={selected.clinic_patient_id}
                 />
 

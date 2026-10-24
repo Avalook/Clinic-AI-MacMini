@@ -264,6 +264,66 @@ async def chi_tiet_luot(
     }
 
 
+#: Trần số dòng chăm sóc trả về một lần (khách nhiều nhất trên Notion ~ vài trăm).
+CHAM_SOC_TOI_DA = 500
+
+NHAN_BUOC = {
+    "yeu_cau": "Yêu cầu",
+    "thuc_hien": "Thực hiện",
+    "chuyen_tiep": "Chuyển tiếp",
+    "ghi_chu": "Ghi chú",
+}
+
+
+async def lich_su_cham_soc(
+    pool: asyncpg.Pool, *, identity: StaffIdentity, clinic_patient_id: str
+) -> dict[str, Any]:
+    """Lịch sử chăm sóc khách trước 10/2026 (bảng CSKH cũ, nạp 06/10/2026) — CHỈ ĐỌC.
+
+    Là thông tin VẬN HÀNH (gọi nhắc lịch, trả kết quả, chăm sóc sau khám), không phải
+    bệnh án → cửa = màn Danh sách bệnh nhân HOẶC Quản lý khách hàng (router gác).
+    Không sinh việc CSKH: bảng này không nằm trong luồng việc nào.
+    Mới nhất trước; giờ hiển thị theo giờ VN (máy chủ trả ISO có múi giờ)."""
+    async with pool.acquire() as conn:
+        tong = await conn.fetchval(
+            "SELECT count(*) FROM lich_su_notion.cham_soc"
+            " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid",
+            identity.clinic_id,
+            clinic_patient_id,
+        )
+        if not tong:
+            return {"tong": 0, "dong": []}
+        rows = await conn.fetch(
+            """
+            SELECT c.notion_id::text AS id, c.ma, c.luc, c.buoc, c.phan_loai,
+                   c.kich_ban, c.tinh_trang, c.noi_dung, c.doi_tuong, c.nguoi_lam,
+                   c.cha_id::text AS cha_id, h.ngay_hen, h.gio_hen,
+                   h.loai_kham_goc AS hen_loai_kham
+              FROM lich_su_notion.cham_soc c
+              LEFT JOIN lich_su_notion.lich_hen h ON h.notion_id = c.lich_hen_id
+             WHERE c.clinic_id = $1::uuid AND c.clinic_patient_id = $2::uuid
+             ORDER BY c.luc DESC, c.ma DESC
+             LIMIT $3
+            """,
+            identity.clinic_id,
+            clinic_patient_id,
+            CHAM_SOC_TOI_DA,
+        )
+    return {
+        "tong": tong,
+        "dong": [
+            {
+                **{k: v for k, v in dict(r).items() if k not in ("luc", "gio_hen")},
+                "luc": r["luc"].isoformat(),
+                "buoc_nhan": NHAN_BUOC.get(r["buoc"], r["buoc"]),
+                "ngay_hen": r["ngay_hen"].isoformat() if r["ngay_hen"] else None,
+                "gio_hen": r["gio_hen"].strftime("%H:%M") if r["gio_hen"] else None,
+            }
+            for r in rows
+        ],
+    }
+
+
 async def khoa_tep_xet_nghiem(
     pool: asyncpg.Pool, *, identity: StaffIdentity, xn_id: str, i: int
 ) -> tuple[str, str]:

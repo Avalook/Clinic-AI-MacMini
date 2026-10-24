@@ -2,6 +2,7 @@
 //
 //   GET ?khach=<clinic_patient_id> → các lượt + lịch hẹn cũ của một khách
 //   GET ?luot=<id lượt cũ>         → toàn bộ một lượt (khám, dịch vụ, kết quả, XN, thuốc)
+//   GET ?cham_soc=<clinic_patient_id> → lịch sử chăm sóc khách trước 10/2026 (06/10/2026)
 //
 // Chỉ là ống dẫn: ai được xem gì do FastAPI quyết (`lich_su_notion_service.py`).
 
@@ -15,14 +16,18 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   const khach = q.get("khach");
   const luot = q.get("luot");
+  const chamSoc = q.get("cham_soc");
   if (khach && UUID_RE.test(khach)) {
     return proxyJsonToBackend("GET", `/api/v1/patients/${khach}/lich-su-notion`, undefined);
+  }
+  if (chamSoc && UUID_RE.test(chamSoc)) {
+    return proxyJsonToBackend("GET", `/api/v1/patients/${chamSoc}/lich-su-cham-soc`, undefined);
   }
   if (luot && UUID_RE.test(luot)) {
     return proxyJsonToBackend("GET", `/api/v1/lich-su-notion/luot/${luot}`, undefined);
   }
   return NextResponse.json(
-    { error: "BAD_REQUEST", message: "Thiếu ?khach= hoặc ?luot= hợp lệ." },
+    { error: "BAD_REQUEST", message: "Thiếu ?khach=, ?luot= hoặc ?cham_soc= hợp lệ." },
     { status: 400 },
   );
 }

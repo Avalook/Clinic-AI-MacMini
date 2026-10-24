@@ -24,6 +24,7 @@ import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 import KenhDoiHuy, { type CoKenhDoiHuy } from "../customers/KenhDoiHuy";
 import SplitPane from "../SplitPane";
+import LichSuChamSoc from "./LichSuChamSoc";
 import LichSuNotion from "./LichSuNotion";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { khoangDong } from "../../../lib/so-trang";
@@ -659,6 +660,8 @@ export default function PatientListView({
           {/* LỊCH SỬ KHÁM CŨ TỪ NOTION (05/10/2026) — chỉ đọc; khách không có
               lịch sử Notion thì khối tự ẩn. */}
           <LichSuNotion key={selected.clinic_patient_id} clinicPatientId={selected.clinic_patient_id} />
+          {/* LỊCH SỬ CHĂM SÓC TRƯỚC 10/2026 (06/10/2026) — chỉ đọc, thu gọn sẵn. */}
+          <LichSuChamSoc key={`cs-${selected.clinic_patient_id}`} clinicPatientId={selected.clinic_patient_id} />
 
           {/* Nút mở phiếu khám CHỈ cho vai lâm sàng.
               
