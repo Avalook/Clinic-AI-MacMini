@@ -11,7 +11,8 @@ thao tác đủ loại, rồi sau mỗi bước:
   R3  Tồn theo ca (chỉ quầy) = đáp án độc lập (có tính CHUYỂN vào/ra);
   R4  Thẻ kho: tồn sau của dòng mới nhất = tồn hiện tại; tồn theo đơn vị khớp;
   R5  "Giao chưa gắn lô" của báo cáo = cộng các lần giao chưa gắn lô;
-  R6  Giao không lô KHÔNG ghi dòng sổ nào (tồn không đổi).
+  R6  Giao không chỉ định lô: máy tự chọn lô, chỉ được ghi DISPENSE âm của đơn đó;
+  R7  Số đã giao của đơn = số trừ ở lô + số chờ gán lô (không mất, không đếm hai lần).
 
 Cuối mỗi hạt: kiểm kê ca đủ vòng (mở → đếm → chốt → điều chỉnh → hoàn tác):
 lệch = đếm − tồn máy, điều chỉnh đưa tồn QUẦY về số đếm, hoàn tác trả đúng tồn cũ.
@@ -299,6 +300,49 @@ async def quay_con_han(co: Co, drug: str) -> list[str]:
     ]
 
 
+async def ids_so(co: Co) -> set[str]:
+    return {
+        r["id"]
+        for r in await co.q.pool.fetch(
+            "SELECT t.id::text AS id FROM inventory_txn t JOIN drug_batch b ON"
+            " b.id = t.drug_batch_id WHERE b.location_id = $1::uuid",
+            co.loc,
+        )
+    }
+
+
+async def kiem_giao_cua_don(co: Co, rx: str, trace: tuple[str, ...]) -> None:
+    """R7: số đã giao của đơn = số đã trừ ở lô (DISPENSE) + số còn chờ gán lô.
+    Không mất, không đếm hai lần — dù máy tự chọn lô, giao tay hay gán lô sau."""
+    pool = co.q.pool
+    da_giao = D(
+        str(
+            await pool.fetchval(
+                "SELECT dispensed_qty FROM prescription WHERE id = $1::uuid", rx
+            )
+        )
+    )
+    da_tru = D(
+        str(
+            await pool.fetchval(
+                "SELECT coalesce(-sum(quantity), 0) FROM inventory_txn"
+                " WHERE ref_id = $1::uuid AND txn_type = 'DISPENSE'",
+                rx,
+            )
+        )
+    )
+    cho = D(
+        str(
+            await pool.fetchval(
+                "SELECT coalesce(sum(so_luong), 0) FROM thuoc_giao_chua_gan_lo"
+                " WHERE prescription_id = $1::uuid AND drug_batch_id IS NULL",
+                rx,
+            )
+        )
+    )
+    assert da_giao == da_tru + cho, f"R7 đã giao {da_giao} ≠ {da_tru} + {cho}: {trace}"
+
+
 _LENH = (
     "nhap",
     "nhap_het_han",
@@ -350,11 +394,8 @@ async def test_bam_ngau_nhien_du_thao_tac_moi_man_bang_so_goc(
     for buoc in range(12):
         lenh = rng.choice(_LENH)
         trace = (*trace, f"seed={seed} buoc={buoc} {lenh}")
-        sổ_trước = await pool.fetchval(
-            "SELECT count(*) FROM inventory_txn t JOIN drug_batch b ON"
-            " b.id = t.drug_batch_id WHERE b.location_id = $1::uuid",
-            co.loc,
-        )
+        id_so_truoc = await ids_so(co)
+        sổ_trước = len(id_so_truoc)
         try:
             if lenh == "nhap":
                 await _nhap_kho(co, rng.choice(thuoc), rng.randint(1, 5))
@@ -456,13 +497,20 @@ async def test_bam_ngau_nhien_du_thao_tac_moi_man_bang_so_goc(
                 )
         except (ConflictError, ValidationError, NotFoundError):
             bi_tu_choi[lenh] += 1  # luật từ chối: sổ không được đổi, kiểm ngay dưới
-        sổ_sau = await pool.fetchval(
-            "SELECT count(*) FROM inventory_txn t JOIN drug_batch b ON"
-            " b.id = t.drug_batch_id WHERE b.location_id = $1::uuid",
-            co.loc,
-        )
+        id_so_sau = await ids_so(co)
+        sổ_sau = len(id_so_sau)
         if lenh == "giao_khong_lo":  # R6
-            assert sổ_sau == sổ_trước, f"giao không lô ghi dòng sổ: {trace}"
+            # Máy TỰ CHỌN lô (27/10/2026): chỉ được ghi DISPENSE âm của đơn này.
+            moi = await pool.fetch(
+                "SELECT txn_type, quantity, ref_id::text AS ref_id FROM inventory_txn"
+                " WHERE id = ANY($1::uuid[])",
+                list(id_so_sau - id_so_truoc),
+            )
+            assert all(
+                r["txn_type"] == "DISPENSE" and r["quantity"] < 0 and r["ref_id"] == rx
+                for r in moi
+            ), f"giao không lô ghi dòng sổ lạ: {trace}"
+        await kiem_giao_cua_don(co, rx, trace)  # R7
         if sổ_sau > sổ_trước:
             da_ghi_so[lenh] += 1
         await kiem_tat_ca(co, thuoc, trace)

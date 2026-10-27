@@ -395,12 +395,13 @@ async def test_giao_khong_lo_duoc_doi_chieu_vao_lo_kho_hay_quay(co: Co) -> None:
     rx, drug = await _don(co, 2)
     await _bat(co)
     kho_lo = await _nhap_kho(co, drug, 10)
-    quay = _id_dich(await _chuyen(co, kho_lo, 5))
     await _thu(co.q)
     svc = PharmacyService(co.q.pool)
+    # Quầy chưa có lô nào (hàng còn ở KHO) → máy không tự chọn được → chờ gán lô.
     await svc.cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=2
     )
+    quay = _id_dich(await _chuyen(co, kho_lo, 5))
     dong = await co.q.pool.fetchval(
         "SELECT id::text FROM thuoc_giao_chua_gan_lo WHERE prescription_id=$1::uuid",
         rx,

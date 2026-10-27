@@ -20,6 +20,7 @@ from typing import Any
 
 import asyncpg
 import pytest
+import pytest_asyncio
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
@@ -225,10 +226,11 @@ async def test_postgres_cam_sua_so_chup_va_xoa(pool: asyncpg.Pool) -> None:  # n
         await pool.execute("DELETE FROM chot_so_ca WHERE id = $1::uuid", k["id"])
 
 
-async def _lui_gio_thu(pool: asyncpg.Pool, visit: str, so_ngay: int) -> None:  # noqa: F811
-    """Lùi GIỜ THU của lượt về `so_ngay` ngày trước — dựng "thu hôm qua, huỷ hôm
-    nay" mà không đổi giờ ca của phòng khám (DB test dùng chung giữa các bài
-    chạy song song). Postgres cấm sửa phiếu đã PAID, nên chỉ phiên này bỏ trigger."""
+async def _doi_gio_thu(pool: asyncpg.Pool, visit: str, so_ngay: int) -> None:  # noqa: F811
+    """Lùi GIỜ THU của lượt về `so_ngay` ngày trước (âm = tiến lại) — dựng "thu
+    hôm qua, huỷ hôm nay" mà không đổi giờ ca của phòng khám (DB test dùng chung
+    giữa các bài chạy song song). Postgres cấm sửa phiếu đã PAID, nên chỉ phiên
+    này bỏ trigger."""
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute("SET LOCAL session_replication_role = replica")
@@ -239,6 +241,24 @@ async def _lui_gio_thu(pool: asyncpg.Pool, visit: str, so_ngay: int) -> None:  #
                     visit,
                     so_ngay,
                 )
+
+
+@pytest_asyncio.fixture
+async def lui_gio_thu(pool: asyncpg.Pool):  # type: ignore[no-untyped-def]  # noqa: F811
+    """Lùi giờ thu của một lượt về hôm qua và TRẢ LẠI khi bài xong. Chốt ca và
+    cơ sở riêng của bài thì để lại được (không ai đọc ngoài cơ sở ấy), nhưng
+    phiếu "thu hôm qua, huỷ hôm nay" thì không: bài đối chiếu hoá đơn đọc cả
+    phòng khám và sổ gốc của nó không mô hình hoá ca đã chốt → lệch 300k huỷ
+    (CI máy 27/10/2026, cùng worker chạy bài này trước)."""
+    da_lui: list[tuple[str, int]] = []
+
+    async def lui(visit: str, so_ngay: int) -> None:
+        await _doi_gio_thu(pool, visit, so_ngay)
+        da_lui.append((visit, so_ngay))
+
+    yield lui
+    for visit, so_ngay in da_lui:
+        await _doi_gio_thu(pool, visit, -so_ngay)
 
 
 async def _bc_ngay(
@@ -256,6 +276,7 @@ async def _bc_ngay(
 
 async def test_mo_khoa_ca_cu_khong_keo_khoan_huy_ve_lai_ca_cu(
     pool: asyncpg.Pool,  # noqa: F811
+    lui_gio_thu: Any,
 ) -> None:
     """Soát #431 (phiên điều phối): khoản huỷ đã chuyển sang ca đang làm thì ở
     YÊN đó, dù sau này ca cũ được mở khoá. Nếu không: hai bản chụp cùng trừ
@@ -270,7 +291,7 @@ async def test_mo_khoa_ca_cu_khong_keo_khoan_huy_ve_lai_ca_cu(
     hom_nay = now_vn().date()
     hom_qua = hom_nay - timedelta(days=1)
     v = await _luot_o(pool, ca, cs)
-    await _lui_gio_thu(pool, v, 1)
+    await lui_gio_thu(v, 1)
     svc = ChotSoCaService(pool)
     chot_qua = await svc.chot(identity=ql, ngay=hom_qua.isoformat(), ca=ma, co_so=cs)
     await _huy_phieu(pool, ca, v)
@@ -298,7 +319,10 @@ async def test_mo_khoa_ca_cu_khong_keo_khoan_huy_ve_lai_ca_cu(
     assert qua2["sau_chot"]["huy"] == 0
 
 
-async def test_huy_trong_luc_ca_dang_mo_khoa_ve_ca_goc(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_huy_trong_luc_ca_dang_mo_khoa_ve_ca_goc(
+    pool: asyncpg.Pool,  # noqa: F811
+    lui_gio_thu: Any,
+) -> None:
     """Huỷ xảy ra LÚC ca đang mở khoá thì thuộc ca gốc (như chưa từng chốt)."""
     ca = await _dung(pool)
     ql = _ql(ca)
@@ -307,7 +331,7 @@ async def test_huy_trong_luc_ca_dang_mo_khoa_ve_ca_goc(pool: asyncpg.Pool) -> No
     hom_nay = now_vn().date()
     hom_qua = hom_nay - timedelta(days=1)
     v = await _luot_o(pool, ca, cs)
-    await _lui_gio_thu(pool, v, 1)
+    await lui_gio_thu(v, 1)
     svc = ChotSoCaService(pool)
     chot = await svc.chot(identity=ql, ngay=hom_qua.isoformat(), ca=ma, co_so=cs)
     await svc.mo_khoa(identity=ql, chot_id=chot["id"], ly_do="Cần sửa sổ hôm qua")

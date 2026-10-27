@@ -209,12 +209,12 @@ async def test_lo_het_han_khong_giao_hoac_gan_lo(q: Quay) -> None:
 
 async def test_bat_bien_giao_chua_gan_lo_va_gan_sau(q: Quay) -> None:
     rx, drug = await _dong_da_xac_dinh(q, 3)
-    lo = await _nhap_lo(q, drug, 20)
-    lo_khac = await _nhap_lo(q, drug, 10)
     await _thu(q)
     await PharmacyService(q.pool).cap_phat(
         identity=q.duoc_si, prescription_id=rx, drug_batch_id=None, so_luong=3
-    )
+    )  # kho chưa có lô → chờ gán lô
+    lo = await _nhap_lo(q, drug, 20)
+    lo_khac = await _nhap_lo(q, drug, 10)
     await _bat_bien(q, drug, rx, ("nhap20", "thu3", "giao3 khong lo"))
     dong = await q.pool.fetchrow(
         "SELECT id::text, so_luong FROM thuoc_giao_chua_gan_lo "

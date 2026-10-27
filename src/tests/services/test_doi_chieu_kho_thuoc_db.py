@@ -346,13 +346,8 @@ async def test_giao_khi_lo_nhap_hop_da_doi_ve_vien_thi_kho_phan_anh(q: Quay) -> 
     )
     lo_hop = str(nhap["drug_batch_id"])
     assert await _ton(q, lo_hop) == 300
+    # Lô nhập hộp đã về viên nên máy tự chọn được cho dòng bán theo viên.
     await svc.cap_phat(
         identity=q.duoc_si, prescription_id=rx, drug_batch_id=None, so_luong=8
-    )
-    cho = await svc.cho_gan_lo(identity=q.duoc_si)
-    dong = next(d for d in cho["dong"] if d["prescription_id"] == rx)
-    # Lô nhập hộp đã về viên nên gắn được cho dòng bán theo viên.
-    await svc.gan_lo_da_giao(
-        identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo_hop
     )
     assert await _ton(q, lo_hop) == 292, "300 viên − 8 viên đã giao"

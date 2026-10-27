@@ -321,11 +321,11 @@ async def test_kiem_mot_phan_va_day_du(co: Co) -> None:
 
 async def test_giao_chua_gan_lo_hien_rieng_khong_tinh_lech(co: Co) -> None:
     rx, drug = await _dong_da_xac_dinh(co.q, 10)
-    await _nhap_kho(co, drug, 10)
     await _thu(co.q)
     await PharmacyService(co.q.pool).cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=4
-    )  # giao không lô: sổ chưa trừ
+    )  # kho chưa có lô: giao không lô, sổ chưa trừ
+    await _nhap_kho(co, drug, 10)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 6})  # kệ thật còn 6
     d = (await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"]))["dong"][0]
@@ -876,6 +876,12 @@ async def test_pending_moi_sau_chot_chan_dieu_chinh(co: Co) -> None:
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 9})
     await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    # Lô còn thuốc nhưng đã hết hạn → máy không tự chọn được → giao chờ gán lô.
+    await co.q.pool.execute(
+        "UPDATE drug_batch SET expiry_date = $2 WHERE drug_catalog_id = $1::uuid",
+        drug,
+        hom_nay_vn() - timedelta(days=1),
+    )
     await PharmacyService(co.q.pool).cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=2
     )
@@ -904,12 +910,12 @@ async def test_sua_so_dem_dong_thoi_chi_mot_ban(co: Co) -> None:
 
 async def test_snapshot_pending_van_chan_sau_gan_lo(co: Co) -> None:
     rx, drug = await _dong_da_xac_dinh(co.q, 10)
-    lo = await _nhap_kho(co, drug, 10)
     await _thu(co.q)
     svc = PharmacyService(co.q.pool)
     giao = await svc.cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=2
-    )
+    )  # kho chưa có lô → chờ gán lô
+    lo = await _nhap_kho(co, drug, 10)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 8})
     await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])

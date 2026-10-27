@@ -88,6 +88,15 @@ khách: `S/hanh_trinh_khach_service.py` `dong_dich_vu_kham`. Test: `T/services/t
 (`luu_thuoc`, `nhap_lo`), `S/kho_thuoc_service.py` (`tao_phieu_nhap`, `kiem_kho`,
 `xuat_nhap_ton`). Test: `T/services/test_kho_thuoc_danh_muc_db.py`, `T/services/test_kho_kiotviet_db.py`.
 
+**Giao thuốc: máy tự chọn lô, trừ kho ngay lúc giao (Tuyền 27/10/2026)** — bấm "Giao thuốc" không chỉ định lô thì
+`S/pharmacy_service.py` `cap_phat` → `_giao_tu_chon_lo`: lô QUẦY đúng thuốc, đúng cơ sở của lượt, CÙNG đơn vị, còn hạn, xếp hạn
+sớm nhất trước (không hạn xếp cuối), trừ theo `drug_batch_kha_dung` và trừ thêm các lần giao đang chờ gán lô; một lần giao có thể trừ
+hai lô. Thiếu lô / thiếu tồn → phần còn lại VẪN giao, ghi `thuoc_giao_chua_gan_lo` (màn "Đã giao, chưa trừ kho" = hàng đợi
+ngoại lệ, `gan_lo_da_giao`). Kết quả trả `lo_da_tru`, `chua_tru_kho`, `tom_tat` — màn `D/pharmacy/DongThuoc.tsx` chỉ hiện câu ấy.
+Giao kèm `drug_batch_id` (quét lô, lô đã bán theo phân lô) vẫn đi đường cũ. Test: `T/services/test_giao_tu_chon_lo_db.py`
+(FEFO, tách hai lô, thiếu tồn, hai lần giao cùng lúc), bài bấm ngẫu nhiên R6/R7 ở `test_mo_phong_kho_day_du_db.py`,
+FT `giao-tu-chon-lo-boundary.test.mts`.
+
 **Mã vạch thuốc: quét hộp / tem lô, gắn mã, in tem (G3b)** — ô quét `D/pharmacy/inventory/OQuetMa.tsx`
 (máy quét USB = gõ nhanh + Enter; camera `CameraQuet.tsx` chỉ HTTPS) ở Phiếu nhập, Nhập lô, Kiểm kho
 và quầy `/pharmacy` (`PharmacyBoard.tsx` điền sẵn lô cho `DongThuoc.tsx`). Máy chủ: `S/ma_vach_service.py`

@@ -180,9 +180,9 @@ async def test_gan_lo_dong_thoi_chi_ghi_mot_lan(q: Quay) -> None:
     import asyncio
 
     rx, drug = await _dong_da_xac_dinh(q, 8)
-    lo = await _nhap_lo(q, drug, 30)
     await _thu(q)
-    await _giao_khong_lo(q, rx, 8)
+    await _giao_khong_lo(q, rx, 8)  # kho chưa có lô → chờ gán lô
+    lo = await _nhap_lo(q, drug, 30)
     dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
     svc = PharmacyService(q.pool)
     results = await asyncio.gather(
@@ -229,7 +229,9 @@ async def test_kha_dung_khong_cong_lan_don_vi_va_cho_phep_lo_thieu_nhap(
     hop = await _nhap_lo(q, drug, 20, don_vi="hộp")
     await _thu(q)
     await _giao_khong_lo(q, rx, 8)
-    assert await _kha_dung(q, vien) == (-5, 8)
+    # Máy tự trừ 3 viên có thật; 5 viên thiếu chờ gán lô và đã được trừ khỏi
+    # "có thể gán" (−5). Lô hộp KHÔNG bị cộng vào.
+    assert await _kha_dung(q, vien) == (-5, 5)
     assert await _kha_dung(q, hop) == (20, 0)
 
 
@@ -237,9 +239,9 @@ async def test_doi_chieu_khong_dung_hang_khach_tra_cho_kiem(q: Quay) -> None:
     from tests.services.test_tien_thuoc_cp5_db import _tra, _xuat
 
     rx, drug = await _dong_da_xac_dinh(q, 10)
-    lo = await _nhap_lo(q, drug, 8)
     await _thu(q)
-    await _giao_khong_lo(q, rx, 8)
+    await _giao_khong_lo(q, rx, 8)  # kho chưa có lô → chờ gán lô
+    lo = await _nhap_lo(q, drug, 8)
     svc = PharmacyService(q.pool)
     dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
     await svc.gan_lo_da_giao(identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo)
