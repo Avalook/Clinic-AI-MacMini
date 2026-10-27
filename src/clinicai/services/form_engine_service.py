@@ -36,6 +36,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 import asyncpg
+import structlog
 
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
@@ -90,6 +91,8 @@ NGUON = frozenset(
         "AI_SUGGESTION",  # AI gợi ý — luôn là nháp
     }
 )
+
+logger = structlog.get_logger()
 
 
 def chon_phieu_de_in(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -689,10 +692,10 @@ class FormEngineService:
         `visit_amendment.reason` — nơi duy nhất giữ lý do, không chép sang chỗ
         thứ hai.
 
-        PHIẾU ĐIỀU TRỊ (mẫu không có bước Hoàn tất, 07/10/2026): ở phòng, nút
-        [Xong] của phiếu đi lệnh này để ĐÓNG DỊCH VỤ. Phiếu đã chốt từ trước
-        (Xong → hoàn tác Xong → Xong lại) thì không chốt lần hai nhưng vẫn đóng
-        dịch vụ đang làm dở.
+        PHIẾU ĐÃ CHỐT mà dịch vụ còn đang làm (lần đầu đóng không được, hay
+        Xong → hoàn tác Xong → Xong lại): không chốt lần hai nhưng vẫn ĐÓNG
+        DỊCH VỤ — mọi mẫu, không riêng phiếu điều trị (27/10/2026: phiếu siêu
+        âm 2D chốt rồi, dịch vụ kẹt "đang làm", khách không sang bàn khám được).
         """
         async with self._pool.acquire() as conn:
             truoc = await conn.fetchrow(
@@ -704,7 +707,6 @@ class FormEngineService:
             )
             if (
                 truoc is not None
-                and truoc["form_id"] in MAU_KHONG_HOAN_TAT
                 and truoc["trang_thai"] == "READY"
                 and not truoc["dang_sua"]
             ):
@@ -1233,7 +1235,11 @@ class FormEngineService:
                 self._pool, order_id=service_order_id, identity=identity
             )
         if lan is None:
-            return {"da_dong": False, "vi_sao": "khong_co_lan_lam_dang_chay"}
+            return {
+                "da_dong": False,
+                "vi_sao": "khong_co_lan_lam_dang_chay",
+                "cau": "Dịch vụ không có lần làm nào đang mở ở phòng.",
+            }
 
         try:
             await ServiceExecutionService(self._pool).xong(
@@ -1243,12 +1249,31 @@ class FormEngineService:
                 identity=identity,
                 idempotency_key=f"form-{service_order_id}-{lan}",
             )
-        except SafetyGateError:
+        except SafetyGateError as loi:
             # Điều dưỡng nhập hộ nhưng không có quyền đóng dịch vụ: phiếu vẫn
             # xong, và màn nói "nhờ người có quyền bấm Xong ở phòng".
-            return {"da_dong": False, "vi_sao": "khong_du_quyen"}
+            logger.warning(
+                "phieu_xong_khong_dong_duoc_dich_vu",
+                service_order_id=service_order_id,
+                vi_sao="khong_du_quyen",
+                loi=str(loi)[:200],
+            )
+            return {
+                "da_dong": False,
+                "vi_sao": "khong_du_quyen",
+                "cau": f"{loi.message} Nhờ người có quyền bấm [Xong] ở phòng.",
+            }
         except Exception as loi:  # noqa: BLE001 — không làm hỏng việc đã xong
-            return {"da_dong": False, "vi_sao": "loi", "chi_tiet": str(loi)[:200]}
+            # Câu của lệnh Xong (lệch phiên bản, đang làm ở bàn khám…) là câu
+            # tiếng Việt cho người — trả nguyên, đừng thay bằng mã thô.
+            cau = str(getattr(loi, "message", "") or loi)[:200]
+            logger.warning(
+                "phieu_xong_khong_dong_duoc_dich_vu",
+                service_order_id=service_order_id,
+                vi_sao="loi",
+                loi=cau,
+            )
+            return {"da_dong": False, "vi_sao": "loi", "chi_tiet": cau, "cau": cau}
         return {"da_dong": True}
 
     # ------------------------------------------------------------------
