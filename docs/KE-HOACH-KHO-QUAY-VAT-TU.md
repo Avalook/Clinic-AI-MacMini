@@ -62,6 +62,19 @@ trước hạn (số ngày)" → nhập **90** → Lưu (mặc định đang 60)
 | 7 | Bác sĩ kê đơn vị nào | **Tự do** trong các đơn vị bán được; quầy đổi được lúc bán |
 | 8 | Đơn vị gốc của thuốc lệch | **Đơn vị bán hiện tại** làm gốc; **không khoá chặt** (sửa sau được, có vết) |
 
+### 3b. Gom thêm từ bấm staging 27/10 (Tuyền chốt cùng ngày)
+
+| # | Lỗi | Sửa trong đợt kho |
+|---|---|---|
+| L10 | Bác sĩ đính chính dòng thuốc **sau khi đã thu**: dòng thay thế không giữ thuốc kho → giao xong rơi vào "Đã giao, chưa trừ kho"; màn quầy ghi sai lý do "Đơn cũ nhập từ hồ sơ giấy"; lượt ngày cũ rời bảng Cấp thuốc nên phần chưa giao chỉ còn "Bán theo đơn này" (= bán mới). Prod 19–21/10: 4 dòng | Đính chính mà **cùng thuốc** thì dòng mới giữ `drug_catalog_id`; câu lý do theo nguồn thật; có lối giao phần đã thu của lượt cũ (không mở lần bán mới) |
+| L12 | Giao **đủ** rồi khách vẫn ở "Đang xử lý", chỉ sang "Xong" khi bấm "Chốt" từng dòng (luật `xongHet` nằm trong TSX) | **Giao đủ = tự sang Xong**, không bắt bấm Chốt; máy chủ trả cờ xong, TSX chỉ vẽ |
+| L13 | "Vượt số kê" báo sai tràn lan vì số kê lưu "1" không đơn vị (Usartestos kê 1, mua 10 viên) | So số kê với số mua **cùng đơn vị**; số kê không rõ đơn vị thì không cảnh báo |
+
+Kèm theo (việc dữ liệu, làm trên màn trước khi nạp tồn thật): Femoston 1/10 và
+Meclon chưa có đơn vị bán; King Seal có đơn vị gõ rác "Uống1 hộp"; Tadalafin kê
+"viên" mà danh mục bán "hộp". Chạy lại 30 ngày bán thật: 97% trừ đúng lô, phần lệch
+còn lại đều do mấy dòng trên.
+
 ## 4. Không đổi
 
 - Luồng THU / HOÀN tiền thuốc và vật tư (đợt 6 chỉ thêm hệ số trên dòng, công thức hoàn
