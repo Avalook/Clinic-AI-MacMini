@@ -72,6 +72,12 @@ async def _cho_gan(q: Quay, rx: str) -> list[str]:
     ]
 
 
+async def _giao_khong_lo(q: Quay, rx: str, so: int) -> None:
+    await PharmacyService(q.pool).cap_phat(
+        identity=q.duoc_si, prescription_id=rx, drug_batch_id=None, so_luong=so
+    )
+
+
 async def _so_phieu_kiem(q: Quay) -> int:
     return int(
         await q.pool.fetchval(
@@ -97,11 +103,10 @@ async def test_kiem_kho_chan_khi_con_giao_chua_gan_lo_roi_gan_xong_thi_kiem_duoc
 ) -> None:
     svc = PharmacyService(q.pool)
     rx, drug = await _dong_da_xac_dinh(q, 3)
-    lo = await _nhap_lo(q, drug, 10)
     await _thu(q)
-    await svc.cap_phat(
-        identity=q.duoc_si, prescription_id=rx, drug_batch_id=None, so_luong=3
-    )
+    # Quầy giao 3 từ hộp chưa nhập máy, rồi mới nhập lô 10 (hộp ấy).
+    await _giao_khong_lo(q, rx, 3)
+    lo = await _nhap_lo(q, drug, 10)
     # Kệ thật còn 7, sổ còn 10 (chưa gắn lô). Đếm 7 → phải chặn, không ghi gì.
     truoc = await _so_phieu_kiem(q)
     with pytest.raises(ConflictError, match="chưa gắn lô"):
@@ -126,13 +131,11 @@ async def test_kiem_kho_chan_khi_con_giao_chua_gan_lo_roi_gan_xong_thi_kiem_duoc
 async def test_kiem_kho_khong_chan_thuoc_khac(q: Quay) -> None:
     # Giao chưa gắn lô của thuốc A không khoá kiểm kho thuốc B.
     rx, drug_a = await _dong_da_xac_dinh(q, 2)
+    await _thu(q)
+    await _giao_khong_lo(q, rx, 2)
     await _nhap_lo(q, drug_a, 10)
     drug_b = await _thuoc(q, ten=f"Thuốc B {uuid.uuid4().hex[:8]}")
     lo_b = await _nhap_lo(q, drug_b, 10)
-    await _thu(q)
-    await PharmacyService(q.pool).cap_phat(
-        identity=q.duoc_si, prescription_id=rx, drug_batch_id=None, so_luong=2
-    )
     assert await _cho_gan(q, rx)
     kq = await _kiem(q, lo_b, 8)
     assert kq["dong"][0]["lech"] == -2
@@ -143,14 +146,20 @@ async def test_kiem_kho_khong_chan_thuoc_khac(q: Quay) -> None:
 @pytest.mark.parametrize("seed", range(20))
 async def test_gia_lap_kiem_kho_va_gan_lo_so_luon_khop_ke(q: Quay, seed: int) -> None:
     """Kệ thật = sổ − phần đã giao chưa gắn lô, sau MỌI bước. Trước bản sửa,
-    chuỗi "giao không lô → kiểm theo kệ → gắn lô" làm sổ thấp hơn kệ."""
+    chuỗi "giao không lô → kiểm theo kệ → gắn lô" làm sổ thấp hơn kệ.
+
+    Giao TRƯỚC khi có lô (quầy bán từ hộp chưa nhập máy) mới chắc có hàng chờ:
+    có lô bán được thì giao tự chọn lô, trừ kho ngay. Giao sau khi có lô thì
+    chạy được cả hai kiểu — mô hình chỉ cần kệ −1."""
     rng = random.Random(seed)
     svc = PharmacyService(q.pool)
-    rx, drug = await _dong_da_xac_dinh(q, 8)
-    lo = await _nhap_lo(q, drug, 20)
+    rx, drug = await _dong_da_xac_dinh(q, 10)
     await _thu(q)
-    ke = Decimal(20)
-    da_giao = 0
+    da_giao = rng.randint(1, 4)
+    for _ in range(da_giao):
+        await _giao_khong_lo(q, rx, 1)
+    lo = await _nhap_lo(q, drug, 20)
+    ke = Decimal(20 - da_giao)
     trace: tuple[str, ...] = ()
     for buoc in range(12):
         lenh = rng.choice(("giao", "giao", "gan", "kiem", "kiem", "huy", "nhap_le"))
@@ -158,7 +167,7 @@ async def test_gia_lap_kiem_kho_va_gan_lo_so_luon_khop_ke(q: Quay, seed: int) ->
         cho = await _cho_gan(q, rx)
         so = await _ton(q, lo)
         try:
-            if lenh == "giao" and da_giao < 8:
+            if lenh == "giao" and da_giao < 10:
                 await svc.cap_phat(
                     identity=q.duoc_si,
                     prescription_id=rx,
