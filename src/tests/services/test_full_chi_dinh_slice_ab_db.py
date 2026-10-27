@@ -216,14 +216,19 @@ async def kban(pool: asyncpg.Pool) -> BoKichBan:
             "SELECT r.id::text FROM clinic_room r "
             "JOIN clinic_room_node rn ON rn.room_id = r.id "
             "WHERE r.clinic_id = $1::uuid AND rn.node_code = 'DICHVU-SIEUAM' "
-            "  AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
+            "  AND r.is_active AND r.accepting AND NOT r.la_doi_tac"
+            " ORDER BY r.sort LIMIT 1",
             CLINIC,
         )
+        # Chỉ phòng THƯỜNG: tệp khác (test_phong_doi_tac_luong_chung_db) để lại
+        # phòng đối tác bật, sort=3, gắn cùng node — nhặt nhầm nó thì không còn
+        # phòng thường nào làm được việc, cổng "đối tác không tự lấy mẫu" không ném.
         phong_mau = await conn.fetchval(
             "SELECT r.id::text FROM clinic_room r "
             "JOIN clinic_room_node rn ON rn.room_id = r.id "
             "WHERE r.clinic_id = $1::uuid AND rn.node_code = 'DICHVU-LAYMAU-MAU' "
-            "  AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
+            "  AND r.is_active AND r.accepting AND NOT r.la_doi_tac"
+            " ORDER BY r.sort LIMIT 1",
             CLINIC,
         )
         ma_sa = await conn.fetchval(
