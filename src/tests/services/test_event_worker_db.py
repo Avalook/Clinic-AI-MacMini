@@ -23,6 +23,7 @@ import pytest
 import pytest_asyncio
 
 import clinicai.events.consumers  # noqa: F401 — đăng ký bên nhận
+from clinicai.events import worker
 from clinicai.events.catalogue import DONG_THOI_GIAN_LUOT, ChiDinhDaDat
 from clinicai.events.emit import HE_THONG, emit_event
 from clinicai.events.worker import (
@@ -271,3 +272,46 @@ async def test_cung_mot_doi_tuong_thi_dung_thu_tu(pool: asyncpg.Pool) -> None:
     await _lam_het(pool, ten_gia)
 
     assert da_xu_ly == [1, 2]
+
+
+async def test_qua_han_thue_khi_dang_lam_thi_khong_ai_lam_lai(
+    pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bên nhận chạy lâu hơn hạn thuê: bộ thu hồi + worker thứ hai chạy xen giữa
+    không được giật việc làm lại (tác dụng phụ chạy hai lần)."""
+    monkeypatch.setattr(worker, "HAN_THUE_GIAY", 0.001)
+    ten_gia = f"lam_lau_{uuid.uuid4().hex[:6]}"
+    so_lan: list[str] = []
+
+    async def lam_lau(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
+        so_lan.append(su_kien.event_id)
+        if len(so_lan) == 1:
+            # Hạn thuê đã qua mà việc còn đang làm — worker khác ghé vào lúc này.
+            await thu_hoi_thue(pool)
+            await lam_mot_dong(pool, ten_gia, ten_worker="w2")
+
+    dang_ky(ten_gia, lam_lau)
+
+    visit_id, order_id = str(uuid.uuid4()), str(uuid.uuid4())
+    event_id = await _chi_dinh(pool, visit_id=visit_id, order_id=order_id)
+    await pool.execute(
+        "INSERT INTO event_delivery (event_id, consumer, clinic_id, aggregate_id,"
+        " aggregate_version) VALUES ($1::uuid, $2, $3::uuid, $4::uuid, 1)",
+        event_id,
+        ten_gia,
+        CLINIC,
+        order_id,
+    )
+
+    await lam_mot_dong(pool, ten_gia, ten_worker="w1")
+
+    assert so_lan == [event_id]
+    dong = await pool.fetchrow(
+        "SELECT status, attempts FROM event_delivery"
+        " WHERE event_id = $1::uuid AND consumer = $2",
+        event_id,
+        ten_gia,
+    )
+    assert dong is not None
+    assert dong["status"] == "DONE"
+    assert dong["attempts"] == 1
