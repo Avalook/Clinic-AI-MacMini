@@ -1069,6 +1069,8 @@ class PharmacyService:
                         "SELECT coalesce(sum(g.so_luong), 0)"
                         "  FROM public.thuoc_giao_chua_gan_lo g"
                         "  JOIN public.prescription p ON p.id = g.prescription_id"
+                        " /* rx:gom-ca-lich-su: thuốc đã rời kệ vẫn trừ khỏi số có"
+                        " thể trừ dù dòng đơn sau đó bị bác sĩ đính chính */"
                         " WHERE g.clinic_id = $1::uuid"
                         "   AND g.drug_catalog_id = $2::uuid"
                         "   AND g.drug_batch_id IS NULL"
