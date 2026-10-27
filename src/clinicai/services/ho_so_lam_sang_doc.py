@@ -109,10 +109,15 @@ async def doc_ho_so(
                 cid,
             )
         elif appt:
+            # Lượt phải là của ĐÚNG khách đang mở: thiếu điều kiện khách thì
+            # `patient_id=A` + lịch của B trả bệnh án/đơn của B, và phạm vi thư
+            # ký ở trên (chỉ soát A) bị vòng qua.
             luot = await conn.fetchval(
                 "SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid"
-                " AND clinic_id = $2::uuid ORDER BY created_at DESC LIMIT 1",
+                " AND clinic_patient_id = $2::uuid AND clinic_id = $3::uuid"
+                " ORDER BY created_at DESC LIMIT 1",
                 appt,
+                pid,
                 cid,
             )
         return await ghep_ho_so(
@@ -162,6 +167,10 @@ async def phieu_in_theo_lich(
         if lich is None:
             return None
         pid = lich["clinic_patient_id"]
+        # Cùng phạm vi thư ký như `doc_ho_so`: phiếu in chứa hồ sơ khám.
+        from clinicai.services.thu_ky_bac_si import kiem_khach
+
+        await kiem_khach(conn, identity, pid)
         luot = await conn.fetchrow(
             """
             SELECT v.visit_id::text, v.status, v.created_at,
