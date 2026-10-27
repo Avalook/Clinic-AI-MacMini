@@ -239,12 +239,18 @@ class TestHinhDangLuotKham:
                 status="OPEN",
                 ten_khach="Chị Mai",
                 patient_code="BN001",
+                phone_primary="0912345678",
                 ten_bac_si="BS Thành",
                 ten_dich_vu="Khám phụ khoa",
                 trang_thai_lich="CHECKED_IN",
             )
         )
-        assert d["patient"] == {"full_name": "Chị Mai", "patient_code": "BN001"}
+        assert d["patient"] == {
+            "full_name": "Chị Mai",
+            "patient_code": "BN001",
+            "phone_primary": "0912345678",
+        }
+        assert "phone_primary" not in {k for k in d if k != "patient"}
         assert d["doctor"] == {"full_name": "BS Thành"}
         assert d["service"] == {"name": "Khám phụ khoa"}
         assert d["appointment"] == {"status": "CHECKED_IN"}

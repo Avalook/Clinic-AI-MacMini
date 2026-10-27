@@ -170,6 +170,7 @@ function tomTatTuongTac(ds: DongLichSu[] | undefined): string | undefined {
 }
 import KenhDoiHuy, { cauDoiHuy, nhanKenh, type DoiHuyGanNhat } from "./KenhDoiHuy";
 import AppointmentEditModal, { type EditableAppt } from "./AppointmentEditModal";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 export interface CustomerRow {
   clinic_patient_id: string;
@@ -1557,12 +1558,12 @@ export default function CustomersView({
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
                         <div className="min-w-0">
-                          <span className="block truncate text-sm font-bold text-ink">
-                            {row.full_name}
-                          </span>
-                          <span className="mt-0.5 block truncate font-mono text-xs text-ink-muted">
-                            {row.patient_code}
-                          </span>
+                          <TenKhachSdt
+                            ten={row.full_name}
+                            sdt={row.phone_primary}
+                            ma={row.patient_code}
+                            tenClassName="text-sm font-bold text-ink"
+                          />
                           <KenhDoiHuy k={row} gon />
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
@@ -1859,8 +1860,14 @@ export default function CustomersView({
               {/* Bỏ vòng tròn chữ tắt cạnh tên (Tuyền 27/09/2026). */}
               <div className="flex items-start gap-3 border-b border-line pb-4">
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-base font-semibold text-ink">{selected.full_name}</h2>
-                  <p className="mt-0.5 font-mono text-xs text-ink-muted">{selected.patient_code}</p>
+                  <h2 className="text-base font-semibold text-ink">
+                    <TenKhachSdt
+                      ten={selected.full_name}
+                      sdt={selected.phone_primary}
+                      ma={selected.patient_code}
+                      tenClassName="text-base font-semibold text-ink"
+                    />
+                  </h2>
                   <DauUuTien
                     key={selected.clinic_patient_id}
                     clinicPatientId={selected.clinic_patient_id}

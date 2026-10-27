@@ -25,6 +25,7 @@ import KhungTep from "./KhungTep";
 import TuNhac from "./TuNhac";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import SoLuot from "@/components/ui/SoLuot";
+import { sdtDoc } from "@/lib/sdt";
 
 interface Moc {
   viec: string;
@@ -67,6 +68,7 @@ interface DuLieuXem {
     id: string;
     ten: string;
     ma: string | null;
+    sdt?: string | null;
     so_booking?: number | null;
     so_tiep_don?: number | null;
   };
@@ -254,6 +256,7 @@ export default function XemLuot({
           <div className="min-w-0">
             <h2 id="xem-luot-tieu-de" className="text-base font-semibold text-ink">
               Xem lại lượt khám{dl ? ` — ${dl.khach.ten}` : ""}
+              {sdtDoc(dl?.khach.sdt) ? ` · ${sdtDoc(dl?.khach.sdt)}` : ""}
             </h2>
             <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
               <SoLuot booking={dl?.khach.so_booking} checkin={dl?.khach.so_tiep_don} />

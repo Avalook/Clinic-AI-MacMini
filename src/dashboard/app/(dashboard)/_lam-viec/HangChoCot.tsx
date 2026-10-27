@@ -8,6 +8,7 @@
 import { Star } from "lucide-react";
 import { type DongHangCho, gioVn, soPhutTu } from "./api";
 import SoLuot from "@/components/ui/SoLuot";
+import { sdtDoc } from "@/lib/sdt";
 
 const NHOM: { ten: string; co: (d: DongHangCho) => boolean }[] = [
   { ten: "Đang khám", co: (d) => d.trang_thai === "serving" },
@@ -94,6 +95,9 @@ export default function HangChoCot({
                           >
                             {d.ten}
                           </span>
+                          {sdtDoc(d.sdt) ? (
+                            <span className="shrink-0 text-label tabular-nums text-ink-muted">{sdtDoc(d.sdt)}</span>
+                          ) : null}
                           <SoLuot booking={d.so_booking} className="shrink-0" />
                         </span>
                         <span className="block truncate text-label text-ink-muted">

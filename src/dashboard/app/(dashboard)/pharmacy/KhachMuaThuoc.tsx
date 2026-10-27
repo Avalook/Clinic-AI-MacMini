@@ -25,6 +25,7 @@ import Button from "@/components/ui/Button";
 import { INPUT } from "../form-ui";
 import LichSuDonThuoc from "./LichSuDonThuoc";
 import { CHAM } from "./DongThuoc";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 interface KhachTim {
   clinic_patient_id: string;
@@ -213,12 +214,12 @@ export default function KhachMuaThuoc({
                     onClick={() => chonKhach(k.clinic_patient_id)}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body font-medium text-ink">
-                        {k.full_name}
-                      </span>
-                      <span className="block truncate text-meta text-ink-muted">
-                        {[k.patient_code, k.phone_primary, k.birth_year].filter(Boolean).join(" · ")}
-                      </span>
+                      <TenKhachSdt
+                        ten={k.full_name}
+                        sdt={k.phone_primary}
+                        ma={[k.patient_code, k.birth_year].filter(Boolean).join(" · ") || null}
+                        tenClassName="text-body font-medium text-ink"
+                      />
                     </span>
                     <span className="shrink-0 text-meta text-brand-700">
                       {chon === k.clinic_patient_id ? "Đang xem đơn thuốc" : "Xem đơn thuốc"}

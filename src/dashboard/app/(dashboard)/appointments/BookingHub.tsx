@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   X,
   Search,
-  Phone,
   ChevronLeft,
   ChevronRight,
   UserPlus,
@@ -48,6 +47,7 @@ import NewPatientForm, {
 } from "../patients/new/NewPatientForm";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 import ChonDichVuDatLich, { GoiYGhiChu } from "../_lam-viec/ChonDichVuDatLich";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 export interface PatientLite {
   clinic_patient_id: string;
@@ -1195,20 +1195,14 @@ export default function BookingHub({
                         .map((w) => w[0])
                         .join("")}
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-ink truncate">
-                        {activePatient.full_name}
-                      </h3>
-                      <p className="text-xs text-brand-700 font-mono font-semibold">
-                        {activePatient.patient_code}
-                      </p>
-                    </div>
+                    <TenKhachSdt
+                      ten={activePatient.full_name}
+                      sdt={activePatient.phone_primary}
+                      ma={activePatient.patient_code}
+                      tenClassName="text-sm font-bold text-ink"
+                    />
                   </div>
                   <div className="space-y-1.5 pt-2 text-xs text-ink-soft border-t border-brand-200/60">
-                    <div className="flex items-center gap-2">
-                      <Phone size={13} className="text-brand-600 shrink-0" />
-                      <span>{activePatient.phone_primary ?? "Chưa có SĐT"}</span>
-                    </div>
                     <div className="flex items-center gap-2">
                       <MapPin size={13} className="text-brand-600 shrink-0" />
                       <span className="truncate">
@@ -1267,12 +1261,11 @@ export default function BookingHub({
                             : "hover:bg-surface-sunken"
                         }`}
                       >
-                        <div className="truncate font-semibold text-ink">
-                          {p.full_name}
-                        </div>
-                        <div className="text-label text-ink-muted">
-                          {p.patient_code} · {p.phone_primary ?? "Chưa có SĐT"}
-                        </div>
+                        <TenKhachSdt
+                          ten={p.full_name}
+                          sdt={p.phone_primary}
+                          ma={p.patient_code}
+                        />
                       </button>
                     );
                   })}
@@ -1462,31 +1455,23 @@ export default function BookingHub({
                   <div>
                     <div className="flex items-start gap-2">
                       <User size={15} className="mt-0.5 text-ink-muted shrink-0" />
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="font-bold text-ink">
-                            {activePatient.full_name}
-                          </span>
-                          {/* KHÁM LẦN MẤY — cùng nhãn, cùng luật với màn Quản
-                              lý khách hàng. Người đang đặt lịch cần biết đây là
-                              lần đầu hay khách đang theo một chuỗi tái khám,
-                              TRƯỚC khi chọn dịch vụ. */}
-                          {nhanLanKham(lanKhamGop[activePatient.clinic_patient_id]) && (
+                      {/* KHÁM LẦN MẤY — cùng nhãn, cùng luật với màn Quản lý
+                          khách hàng. Người đang đặt lịch cần biết đây là lần
+                          đầu hay khách đang theo một chuỗi tái khám, TRƯỚC khi
+                          chọn dịch vụ. */}
+                      <TenKhachSdt
+                        ten={activePatient.full_name}
+                        sdt={activePatient.phone_primary}
+                        ma={activePatient.patient_code}
+                        tenClassName="font-bold text-ink"
+                        cuoiDong={
+                          nhanLanKham(lanKhamGop[activePatient.clinic_patient_id]) ? (
                             <span className="rounded-chip bg-brand-100 px-1.5 py-0.5 text-label font-semibold text-brand-800">
-                              {nhanLanKham(
-                                lanKhamGop[activePatient.clinic_patient_id],
-                              )}
+                              {nhanLanKham(lanKhamGop[activePatient.clinic_patient_id])}
                             </span>
-                          )}
-                        </div>
-                        <div className="text-label text-ink-muted font-mono">
-                          {activePatient.patient_code}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-1 text-ink-muted font-mono">
-                          <Phone size={12} className="shrink-0" />
-                          <span>{activePatient.phone_primary ?? "—"}</span>
-                        </div>
-                      </div>
+                          ) : null
+                        }
+                      />
                     </div>
                   </div>
                   {/* Nút "Đổi khách hàng" đã bỏ (Quang chốt 09/08/2026): nó chỉ

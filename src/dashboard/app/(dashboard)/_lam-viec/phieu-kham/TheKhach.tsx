@@ -23,19 +23,13 @@ import {
 import type { DauPhieu } from "@/lib/phieu-kham";
 import SoLuot from "@/components/ui/SoLuot";
 import { useTomTatLuot } from "./TomTatLuot";
+import { sdtDoc } from "@/lib/sdt";
 
 /** "2026-09-25" → "25/09/2026". */
 function ngayVn(iso: string | number | null | undefined): string | null {
   if (typeof iso !== "string") return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
-
-/** "0914378212" → "0914 378 212" (đọc qua điện thoại dễ hơn). */
-function sdtDoc(sdt: string | number | null | undefined): string | null {
-  if (sdt === null || sdt === undefined || sdt === "") return null;
-  const s = String(sdt).replace(/\s+/g, "");
-  return /^\d{10}$/.test(s) ? `${s.slice(0, 4)} ${s.slice(4, 7)} ${s.slice(7)}` : String(sdt);
 }
 
 /** Hai chữ cái: chữ đầu của HỌ + chữ đầu của TÊN ("Nguyễn Thị Mẫu" → "NM"). */
@@ -126,6 +120,13 @@ export function TheKhach({ dau, loaiKham, giaoDienBanKham = false }: {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-title font-semibold uppercase text-ink sm:text-hero">{ten || "—"}</h2>
+            {/* SĐT ĐI THEO TÊN (Tuyền 27/10/2026), mã khách xuống hàng dưới. */}
+            {sdt ? (
+              <Vien icon={<Phone className={icon} />} noiBat={giaoDienBanKham}>
+                {giaoDienBanKham ? <span className="font-semibold">SĐT</span> : null}
+                <b className={giaoDienBanKham ? "text-emph font-bold tabular-nums" : "font-semibold tabular-nums"}>{sdt}</b>
+              </Vien>
+            ) : null}
             {loai ? (
               <span className="inline-flex items-center rounded-chip bg-brand-50 px-2 py-0.5 text-meta font-medium text-brand-700">
                 {loai}
@@ -143,12 +144,6 @@ export function TheKhach({ dau, loaiKham, giaoDienBanKham = false }: {
               <span className="text-ink-muted">Mã khách</span>
               <b className="font-semibold">{hc["patient.code"] ?? "—"}</b>
             </Vien>
-            {sdt ? (
-              <Vien icon={<Phone className={icon} />} noiBat={giaoDienBanKham}>
-                {giaoDienBanKham ? <span className="font-semibold">SĐT</span> : null}
-                <b className={giaoDienBanKham ? "text-emph font-bold tabular-nums" : "font-semibold tabular-nums"}>{sdt}</b>
-              </Vien>
-            ) : null}
             {ngayVn(ngayKham) ? (
               <Vien icon={<CalendarDays className={icon} />}>
                 <span className="text-ink-muted">Khám</span>

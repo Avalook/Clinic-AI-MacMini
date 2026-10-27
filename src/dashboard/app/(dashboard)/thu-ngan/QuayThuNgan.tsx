@@ -44,6 +44,7 @@ import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
 import CongTyKhiThu, { type CongTyThu } from "./CongTyKhiThu";
 import GiamGia, { type GiamGiaResult } from "./GiamGia";
 import NutHoanTac from "./NutHoanTac";
+import { sdtDoc } from "@/lib/sdt";
 
 interface Dong {
   id: string;
@@ -737,7 +738,9 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                   >
                     <SoLuot dang="tron" checkin={l.so_tiep_don} booking={l.so_booking} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-emph font-semibold text-ink">{l.full_name ?? "—"}</span>
+                      <span className="block truncate text-emph font-semibold text-ink">
+                        {l.full_name ?? "—"} {sdtDoc(l.phone) ? <span className="text-body font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
+                      </span>
                       <span className="block truncate text-meta text-ink-muted">
                         {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || (l.patient_code ?? "")}
                       </span>
@@ -767,6 +770,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
                   {l.full_name ?? "—"}
+                  {sdtDoc(l.phone) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
                   <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                 </p>
                 <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
@@ -933,6 +937,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
                     {l.full_name ?? "—"}
+                    {sdtDoc(l.phone) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
                     <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                   </p>
                   <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
@@ -966,6 +971,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
                     {l.full_name ?? "—"}
+                    {sdtDoc(l.phone) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
                     <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                   </p>
                   <p className="text-meta text-ink-muted">

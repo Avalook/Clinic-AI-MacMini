@@ -23,13 +23,14 @@ import { thongKeTheoKhungGio, tongKet, khungGioVN, type LichDeDem } from "../../
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { chipClass } from "../../../components/ui/Chip";
 import { VN_TZ } from "../../../lib/datetime";
+import { sdtDoc } from "@/lib/sdt";
 
 export const dynamic = "force-dynamic";
 
 interface Dong extends LichDeDem {
   id: string;
   doctor: { full_name: string } | null;
-  patient: { full_name: string; patient_code: string } | null;
+  patient: { full_name: string; patient_code: string; phone_primary?: string | null } | null;
 }
 
 // DESIGN.md §6: chỉ kẻ ngang bằng hairline — cùng khuôn với bảng lịch tuần.
@@ -226,6 +227,11 @@ export default async function LichDoVePage({
                           <td className={TD}>
                             <span className="block font-medium text-ink">
                               {a.patient?.full_name ?? "—"}
+                              {sdtDoc(a.patient?.phone_primary) ? (
+                                <span className="ml-2 font-normal tabular-nums text-ink-muted">
+                                  {sdtDoc(a.patient?.phone_primary)}
+                                </span>
+                              ) : null}
                             </span>
                             <span className="block font-mono text-label text-ink-muted">
                               {a.patient?.patient_code}

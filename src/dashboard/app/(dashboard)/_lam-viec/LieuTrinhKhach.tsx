@@ -45,6 +45,7 @@ import { tienVn } from "@/lib/phieu-kham";
 
 import { useNgheBang } from "../dung-nghe-bang";
 import { KET_QUA_GOI } from "./ThaoTacLichTaiCho";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 const TONE: Record<TrangThaiLieuTrinh, ChipTone> = {
   DE_XUAT: "warning",
@@ -248,11 +249,12 @@ export function DongLieuTrinh({
     <li className="space-y-1.5 rounded-control border border-line bg-surface px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {hienKhach ? (
-          <span className="min-w-0 text-body font-semibold text-ink">
-            {lt.ten_khach ?? "—"}
-            {lt.ma_khach ? <span className="font-normal text-ink-muted"> · {lt.ma_khach}</span> : null}
-            {lt.sdt ? <span className="font-normal text-ink-muted"> · {lt.sdt}</span> : null}
-          </span>
+          <TenKhachSdt
+            ten={lt.ten_khach ?? "—"}
+            sdt={lt.sdt}
+            ma={lt.ma_khach}
+            tenClassName="text-body font-semibold text-ink"
+          />
         ) : null}
         <span className={`min-w-0 flex-1 text-body ${hienKhach ? "text-ink-soft" : "font-semibold text-ink"}`}>
           {lt.service_name}

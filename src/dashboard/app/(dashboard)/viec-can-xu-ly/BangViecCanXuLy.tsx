@@ -14,6 +14,7 @@ import { nhanLoi } from "@/lib/loi-api";
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import { useNgheBang } from "../dung-nghe-bang";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+import { sdtDoc } from "@/lib/sdt";
 
 interface Viec {
   id: string;
@@ -26,7 +27,11 @@ interface Viec {
   actionable_by_me: boolean;
   /** Khớp `WorklistPatient` ở routers/work_items.py (27/09 đợt 3: trước đây
    *  màn đọc `ten`/`ma_bn` — không có trong API — nên tên khách luôn trống). */
-  patient: { full_name?: string | null; patient_code?: string | null } | null;
+  patient: {
+    full_name?: string | null;
+    patient_code?: string | null;
+    phone_primary?: string | null;
+  } | null;
 }
 
 /** Nhãn của ba node khu vận hành — mã THẬT ở migration 20260923000007 (đợt 3
@@ -185,6 +190,8 @@ export default function BangViecCanXuLy() {
                   <p className="mt-0.5 text-meta text-ink-muted">
                     {[
                       v.patient?.full_name,
+                      // SĐT đi ngay sau tên (27/10/2026).
+                      sdtDoc(v.patient?.phone_primary),
                       v.patient?.patient_code,
                       v.created_at ? `mở lúc ${gio(v.created_at)}` : null,
                     ]

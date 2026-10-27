@@ -42,6 +42,8 @@ export interface DongHangCho {
   so_tiep_don?: number | null;
   ten: string;
   ma_bn: string;
+  /** SĐT — hiện cạnh tên (27/10/2026). */
+  sdt?: string | null;
   uu_tien: boolean;
   uu_tien_ly_do: string | null;
   viec: string | null;

@@ -81,6 +81,7 @@ SELECT
     r.name                         AS room_name,
     p.full_name                    AS patient_name,
     p.patient_code,
+    p.phone_primary,
     -- Đã hoàn tất bước đóng lượt chưa.
     EXISTS (SELECT 1 FROM public.work_item w
              WHERE w.visit_id = v.visit_id AND w.node_code = $2
@@ -436,6 +437,7 @@ class CheckoutService:
                     "visit_id": str(r["visit_id"]),
                     "patient_name": r["patient_name"],
                     "patient_code": r["patient_code"],
+                    "phone_primary": r.get("phone_primary"),
                     "room_name": r["room_name"],
                     "already_closed": r["already_closed"],
                     "checked_in_at": (
@@ -584,6 +586,7 @@ class CheckoutService:
             "visit_id": str(chung["visit_id"]),
             "patient_name": chung["patient_name"],
             "patient_code": chung["patient_code"],
+            "phone_primary": chung.get("phone_primary"),
             "visit_status": chung["visit_status"],
             "checked_in_at": (
                 chung["checked_in_at"].isoformat() if chung["checked_in_at"] else None
@@ -710,6 +713,7 @@ class CheckoutService:
                 "visit_id": str(r["visit_id"]),
                 "patient_name": r["patient_name"],
                 "patient_code": r["patient_code"],
+                "phone_primary": r.get("phone_primary"),
                 "room_name": r["room_name"],
                 "checked_in_at": (
                     r["checked_in_at"].isoformat() if r["checked_in_at"] else None

@@ -8,6 +8,7 @@ import {
   TEN_SU_KIEN, TRANG_THAI, daTon, gio, ngayGio, tien,
   type DongHoaDon, type KhachHoaDon, type PhieuThu, type SuKien,
 } from "./types";
+import { sdtDoc } from "@/lib/sdt";
 
 function DongChiTiet({ dong }: { dong: DongHoaDon[] }) {
   return <ul className="divide-y divide-hairline">
@@ -117,8 +118,10 @@ export default function ChiTietHoaDon({ khach, onDong }: { khach: KhachHoaDon; o
   const moc = (p: PhieuThu) => p.thu_luc ?? p.huy_luc ?? "";
   const phieu = [...khach.phieu].sort((a, b) => moc(a).localeCompare(moc(b)));
   const ton = khach.viec_ton ?? [];
-  return <HopChiTiet tieuDe={`Hoá đơn · ${khach.ten}`} onDong={onDong}>
-    <p className="mb-4 text-meta text-ink-muted">{khach.ma_bn || "—"} · {khach.so_dien_thoai || "—"} · {khach.so_phieu} phiếu</p>
+  // SĐT đi theo tên (27/10/2026); mã khách ở dòng dưới.
+  const sdt = sdtDoc(khach.so_dien_thoai);
+  return <HopChiTiet tieuDe={`Hoá đơn · ${khach.ten}${sdt ? ` · ${sdt}` : ""}`} onDong={onDong}>
+    <p className="mb-4 text-meta text-ink-muted">{khach.ma_bn || "—"} · {khach.so_phieu} phiếu</p>
     <dl className="mb-4 grid grid-cols-2 gap-3 rounded-control bg-surface-muted p-3 sm:grid-cols-4">
       {([["Tổng tiền hàng", khach.tong_truoc_giam], ["Giảm giá", khach.giam_gia], ["Tiền đã thu", khach.da_thu], ["Thực thu", khach.thu_rong]] as const).map(([ten, so]) => <div key={ten}><dt className="text-meta text-ink-muted">{ten}</dt><dd className="tabular-nums font-semibold">{tien(so)}</dd></div>)}
       {(khach.chua_tra_lai ?? 0) > 0 ? <div><dt className="text-meta text-ink-muted">Chưa trả lại khách</dt><dd className="tabular-nums font-semibold">{tien(khach.chua_tra_lai ?? 0)}</dd></div> : null}

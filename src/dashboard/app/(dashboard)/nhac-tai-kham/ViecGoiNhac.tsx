@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { PhoneCall, PhoneOff, Stethoscope, XCircle } from "lucide-react";
 
 import ViecTaiKham, { type ChiTietHen } from "../_lam-viec/ViecTaiKham";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 export interface ViecGoi {
   id: string;
@@ -143,17 +144,15 @@ export default function ViecGoiNhac({
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <div className="min-w-0">
-                      <span className="font-medium text-ink">
-                        {v.full_name ?? "(không rõ tên)"}
-                      </span>
-                      {v.patient_code && (
-                        <span className="ml-2 font-mono text-xs text-ink-muted">
-                          {v.patient_code}
-                        </span>
-                      )}
+                      {/* SĐT đi theo tên, mã xuống dòng dưới (27/10/2026) —
+                          màn gọi nhắc càng cần số ngay cạnh tên. */}
+                      <TenKhachSdt
+                        ten={v.full_name ?? "(không rõ tên)"}
+                        sdt={v.phone_primary ?? "chưa có số điện thoại"}
+                        ma={v.patient_code}
+                        tenClassName="font-medium text-ink"
+                      />
                       <div className="mt-0.5 text-xs text-ink-muted">
-                        {v.phone_primary ?? "chưa có số điện thoại"}
-                        <span className="mx-1.5 text-line-strong">·</span>
                         hẹn {ngayVn(v.ngay_hen)}
                         {v.luot_goi === 1 && <> · nên gọi {ngayVn(v.han_goi)}</>}
                       </div>
