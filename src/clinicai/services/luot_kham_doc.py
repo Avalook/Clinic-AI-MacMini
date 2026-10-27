@@ -33,6 +33,7 @@ from clinicai.services.bac_si_phu_trach import (
 )
 from clinicai.services.doi_tac_service import chu_trang_thai_doi_tac, trang_thai_doi_tac
 from clinicai.services.lan_bac_si import (
+    bac_si_cua_lan,
     can_chon_bac_si,
     la_khach_lan_toi,
     lan_cua_toi_trong_phong,
@@ -1234,6 +1235,14 @@ class BangLuotKham:
             "nhan_tai_phong": tai_phong,
             "sap_den_phong": sap_den,
             "bac_si_phong": bac_si_phong if can_chon_bac_si(bac_si_phong) else [],
+            # Bác sĩ ô chọn để sẵn (27/10): người xem đứng làn có đúng một bác
+            # sĩ → bác sĩ ấy; lệnh Nhận không kèm bác sĩ cũng tự gán đúng người.
+            "bac_si_mac_dinh": (
+                str(mac_dinh["staff_id"])
+                if can_chon_bac_si(bac_si_phong)
+                and (mac_dinh := bac_si_cua_lan(bac_si_phong, lan_toi)) is not None
+                else None
+            ),
             "dem": dem_phong,
             "chi_dinh_khach": chi_dinh_khach,
             "sap_toi": [

@@ -117,6 +117,20 @@ def bac_si_tu_gan(lua_chon: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | 
     return next(iter(ds.values())) if len(ds) == 1 else None
 
 
+def bac_si_cua_lan(
+    lua_chon: Sequence[Mapping[str, Any]], lan_toi: Mapping[str, Any]
+) -> Mapping[str, Any] | None:
+    """Thuần: phòng NHIỀU bác sĩ, người bấm đứng làn có ĐÚNG MỘT bác sĩ đang
+    trực → bác sĩ ấy (Tuyền 27/10/2026: "điều dưỡng 1 theo bác sĩ 1 cùng phòng
+    — tự phân luôn, không bắt người dùng chọn"). Không làn / làn nhiều bác sĩ
+    → None (không đoán)."""
+    if not lan_toi.get("co"):
+        return None
+    ids = {str(x) for x in lan_toi.get("bac_si_ids") or []}
+    ds = {str(x.get("staff_id")): x for x in lua_chon if str(x.get("staff_id")) in ids}
+    return next(iter(ds.values())) if len(ds) == 1 else None
+
+
 def lan_cua_nguoi(
     dong_cua_toi: Sequence[DongLich],
     lua_chon: Sequence[Mapping[str, Any]],
@@ -298,6 +312,7 @@ async def lan_cua_toi_trong_phong(
 __all__ = [
     "SO_BAC_SI_DE_CHON",
     "DongLich",
+    "bac_si_cua_lan",
     "bac_si_cua_phong",
     "bac_si_tu_gan",
     "can_chon_bac_si",

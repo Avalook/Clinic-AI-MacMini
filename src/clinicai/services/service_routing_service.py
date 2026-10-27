@@ -49,8 +49,10 @@ from clinicai.services.hang_cho import (
     mo_cho_bi_chan,
 )
 from clinicai.services.lan_bac_si import (
+    bac_si_cua_lan,
     bac_si_tu_gan,
     can_chon_bac_si,
+    lan_cua_toi_trong_phong,
     lua_chon_bac_si,
     ten_bac_si,
 )
@@ -1529,9 +1531,11 @@ class ServiceRoutingService:
         """Ghi BÁC SĨ làm cho chỉ định trong phòng ``rid`` (phòng đã xếp, hoặc
         phòng dự kiến khi ``du_kien``). Người gọi đã kiểm quyền + khoá lượt.
 
-        ``KHONG_DOI`` → giữ; chưa có mà phòng có đúng MỘT bác sĩ trực → tự gán.
-        ``None`` → bỏ chọn. Mã → phải nằm trong lựa chọn của phòng hôm nay
-        (`lan_bac_si.lua_chon_bac_si`), sai thì từ chối câu tiếng Việt.
+        ``KHONG_DOI`` → giữ; chưa có mà phòng có đúng MỘT bác sĩ trực → tự gán;
+        phòng nhiều bác sĩ mà người bấm đứng làn có đúng một bác sĩ → bác sĩ
+        của làn ấy (27/10). ``None`` → bỏ chọn. Mã → phải nằm trong lựa chọn
+        của phòng hôm nay (`lan_bac_si.lua_chon_bac_si`), sai thì từ chối câu
+        tiếng Việt.
         Đổi thì phát ``service.doctor_chosen`` (ai chọn = người gây ra lệnh)."""
         cid = identity.clinic_id
         hien = await conn.fetchval(
@@ -1542,11 +1546,18 @@ class ServiceRoutingService:
         )
         lua_chon = (await lua_chon_bac_si(conn, cid, [rid], tru_luot=vid))[rid]
         tu_gan = False
+        theo_lan = False
         chon: Any = None
         if bac_si is KHONG_DOI:
             if hien is not None:
                 return {"changed": False, "bac_si_lam_id": hien}
             chon = bac_si_tu_gan(lua_chon)
+            if chon is None and lua_chon:
+                chon = bac_si_cua_lan(
+                    lua_chon,
+                    await lan_cua_toi_trong_phong(conn, cid, rid, identity.staff_id),
+                )
+                theo_lan = chon is not None
             if chon is None:
                 return {"changed": False, "bac_si_lam_id": None}
             tu_gan = True
@@ -1595,6 +1606,7 @@ class ServiceRoutingService:
                 tu_dong=tu_dong or tu_gan,
                 du_kien=du_kien,
                 nguon=nguon_ghi,
+                theo_lan=theo_lan,
             ),
             boi=nguoi(identity),
             correlation_id=vid,
@@ -1615,6 +1627,7 @@ class ServiceRoutingService:
                 "tu_dong": tu_dong or tu_gan,
                 "du_kien": du_kien,
                 "nguon": nguon_ghi,
+                "theo_lan": theo_lan,
             },
         )
         return {"changed": True, "bac_si_lam_id": moi}

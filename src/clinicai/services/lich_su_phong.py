@@ -133,7 +133,11 @@ def _dong_chon_bac_si(
     if phong:
         cau += f" · {phong}"
     if nguon == "tu_dong":
-        cau += ": phòng chỉ có một bác sĩ trực"
+        if p.get("theo_lan"):
+            so_lan = f" {p['lan']}" if p.get("lan") else ""
+            cau += f": cùng làn{so_lan} với người nhận"
+        else:
+            cau += ": phòng chỉ có một bác sĩ trực"
     return {
         "luc": luc,
         "loai": "service.doctor_chosen",

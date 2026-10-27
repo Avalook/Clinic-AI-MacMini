@@ -1080,9 +1080,10 @@ class DaChonBacSiLam(PayloadSuKien):
     bác sĩ (Tuyền chốt 30/09/2026: "phòng siêu âm 2 máy … thêm cả lựa chọn các
     bác sĩ ở ngày đó"). Chỉ là lựa chọn — không khoá ai bắt đầu làm.
 
-    `bac_si_id` None = bỏ chọn ("bác sĩ nào rảnh cũng được"). `tu_dong` = phòng
-    chỉ có một bác sĩ trực nên máy tự gán. `du_kien` = phòng còn là phòng dự
-    kiến (khách chưa chốt), chưa xếp chính thức."""
+    `bac_si_id` None = bỏ chọn ("bác sĩ nào rảnh cũng được"). `tu_dong` = máy
+    tự gán: phòng chỉ có một bác sĩ trực, hoặc (`theo_lan`, 27/10) phòng nhiều
+    bác sĩ mà người bấm đứng làn có đúng một bác sĩ. `du_kien` = phòng còn là
+    phòng dự kiến (khách chưa chốt), chưa xếp chính thức."""
 
     visit_id: str
     service_order_id: str
@@ -1093,6 +1094,7 @@ class DaChonBacSiLam(PayloadSuKien):
     tu_dong: bool = False
     du_kien: bool = False
     nguon: str | None = None
+    theo_lan: bool = False
 
 
 class XepPhongDaHuy(PayloadSuKien):

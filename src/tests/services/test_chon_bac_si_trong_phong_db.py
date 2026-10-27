@@ -24,6 +24,7 @@ from clinicai.services.lich_su_phong import lich_su_phong_cua_luot
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.quay_thu_service import PhongQuay
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
+from tests.services.test_nhan_tai_phong_db import _cd_o, _nhan, bat  # noqa: F401
 from tests.services.test_service_routing_db import (  # noqa: F401
     RB,
     _assign,
@@ -280,6 +281,52 @@ async def test_mot_bac_si_tu_gan_khi_xep(lan: Lan) -> None:
     kq2 = await _assign(b, oid2, b.sa1, 0)
     assert "bac_si_lam_id" not in kq2
     assert (await _bs(b, oid2))["id"] is None
+
+
+async def test_phong_hai_bac_si_tu_gan_bac_si_cung_lan_nguoi_bam(lan: Lan) -> None:
+    """Tuyền 27/10: "điều dưỡng 1 theo bác sĩ 1 cùng phòng — tự phân luôn, không
+    bắt người dùng chọn". Người bấm đứng ĐD làn 2 → BS làn 2; người không đứng
+    làn nào → vẫn để trống như cũ."""
+    b = lan.rb
+    await _truc(b, lan.vt["dd2"], b.truong_ca)
+    oid = await _cd(b)
+    kq = await _assign(b, oid, b.sa1, 0, who=b.truong_ca)
+    assert kq["bac_si_lam_id"] == lan.bs_b.staff_id
+    o = await _bs(b, oid)
+    assert (o["id"], o["lan_lam"]) == (lan.bs_b.staff_id, 2)
+    [ev] = await _su_kien_bs(b, oid)
+    assert ev["tu_dong"] is True and ev["theo_lan"] is True and ev["lan"] == 2
+    async with b.pool.acquire() as conn:
+        ls = await lich_su_phong_cua_luot(conn, clinic_id=CLINIC, visit_id=b.visit_id)
+    [cau] = [d["cau"] for d in ls[oid] if d["loai"] == "service.doctor_chosen"]
+    assert cau.endswith("cùng làn 2 với người nhận")
+
+    # Lễ tân không đứng làn nào của phòng → không đoán.
+    oid2 = await _cd(b)
+    kq2 = await _assign(b, oid2, b.sa1, 0, who=b.le_tan)
+    assert "bac_si_lam_id" not in kq2
+    assert (await _bs(b, oid2))["id"] is None
+
+
+async def test_nhan_tai_phong_dieu_duong_lan_2_tu_gan_bac_si_lan_2(
+    lan: Lan,
+    bat: RB,  # noqa: F811
+) -> None:
+    """Đường bấm thật: màn phòng để sẵn BS làn của người xem ở ô chọn; bấm
+    Nhận không kèm bác sĩ thì máy chủ gán đúng BS ấy."""
+    b = lan.rb
+    await _truc(b, lan.vt["dd2"], b.truong_ca)
+    oid = await _cd_o(b, b.sa1)
+    hc = await LuotKhamService(b.pool).hang_cho(identity=b.truong_ca, room_id=b.sa1)
+    assert hc["bac_si_phong"], "phòng hai bác sĩ phải có ô chọn"
+    assert hc["bac_si_mac_dinh"] == lan.bs_b.staff_id
+    # Người không đứng làn nào: ô chọn để trống như cũ.
+    hc2 = await LuotKhamService(b.pool).hang_cho(identity=b.le_tan, room_id=b.sa1)
+    assert hc2["bac_si_mac_dinh"] is None
+
+    await _nhan(b, b.sa1, oid)
+    o = await _bs(b, oid)
+    assert (o["id"], o["lan_lam"]) == (lan.bs_b.staff_id, 2)
 
 
 async def test_phong_du_kien_giu_bac_si_khi_h4_xep_dung_phong(lan: Lan) -> None:

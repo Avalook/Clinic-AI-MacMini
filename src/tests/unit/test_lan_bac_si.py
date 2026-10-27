@@ -7,6 +7,7 @@ import pytest
 from clinicai.core.shifts import CA_MAC_DINH
 from clinicai.services.lan_bac_si import (
     DongLich,
+    bac_si_cua_lan,
     bac_si_cua_phong,
     bac_si_tu_gan,
     can_chon_bac_si,
@@ -185,6 +186,9 @@ def test_lich_su_chon_bac_si() -> None:
     )
     assert cau(tu_bac_si_id="a", nguon="quay_thu").startswith("Quầy thu bỏ chọn bác sĩ")
     assert cau(bac_si_id="a", tu_dong=True).endswith("phòng chỉ có một bác sĩ trực")
+    assert cau(bac_si_id="a", tu_dong=True, theo_lan=True, lan=1).endswith(
+        "cùng làn 1 với người nhận"
+    )
     # Payload rác vẫn ra một dòng.
     assert dong_lich_su(
         loai="service.doctor_chosen",
@@ -193,3 +197,17 @@ def test_lich_su_chon_bac_si() -> None:
         luc=None,
         ai=None,
     )["cau"]
+
+
+def test_bac_si_cua_lan_chi_khi_lan_co_dung_mot_bac_si() -> None:
+    ds = [
+        {"staff_id": "a", "lan": 1},
+        {"staff_id": "b", "lan": 2},
+    ]
+    lan2 = {"co": True, "lan": [2], "bac_si_ids": ["b"]}
+    assert bac_si_cua_lan(ds, lan2) == ds[1]
+    # Không đứng làn nào / làn có hai bác sĩ / bác sĩ làn không trực → không đoán.
+    assert bac_si_cua_lan(ds, {"co": False, "bac_si_ids": ["b"]}) is None
+    assert bac_si_cua_lan(ds, {"co": True, "bac_si_ids": ["a", "b"]}) is None
+    assert bac_si_cua_lan(ds, {"co": True, "bac_si_ids": ["z"]}) is None
+    assert bac_si_cua_lan([], lan2) is None
