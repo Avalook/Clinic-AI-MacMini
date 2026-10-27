@@ -26,6 +26,7 @@ from clinicai.permissions import cache
 from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.booking_service import BookingService
 from clinicai.services.cashier_board_service import CashierBoardService
+from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.payment_service import PaymentService
@@ -522,11 +523,15 @@ async def test_h2_lich_thu_thuat_mang_chi_dinh_chua_tra_di_thang_dich_vu(
         )
         == "SERVICES"
     )
-    assert not await pool.fetchval(
-        "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
-        " AND lane IN ('DOCTOR', 'TU_VAN')",
-        moi,
-    )
+    # Đi thẳng phòng VẪN có chỗ ở bàn khám bác sĩ chính (27/10), không tư vấn.
+    assert [
+        r["lane"]
+        for r in await pool.fetch(
+            "SELECT lane FROM queue_entry WHERE visit_id = $1::uuid"
+            " AND lane IN ('DOCTOR', 'TU_VAN')",
+            moi,
+        )
+    ] == ["DOCTOR"]
     # Không có tiền khám: khách không khám, chỉ làm thủ thuật.
     await _chon(pool, ca, moi, [order])
     async with pool.acquire() as conn:
@@ -538,6 +543,61 @@ async def test_h2_lich_thu_thuat_mang_chi_dinh_chua_tra_di_thang_dich_vu(
     await _thu(pool, moi, ca.le_tan)
     await chay_hanh_trinh(pool)
     assert (await _don(pool, order))["routing_status"] == "ASSIGNED"
+
+
+async def test_di_thang_phong_lam_xong_khach_ve_ban_kham_bac_si_chinh(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Ca Trần Thị Trâm 26/10: lịch Thủ thuật mang chỉ định HPV từ lượt trước,
+    làm xong ở phòng thì KHÔNG bàn nào thấy khách. Nay khách có chỗ ở bàn khám
+    suốt lượt: phòng đang làm → chỗ bàn khám khoá (khách ở phòng); làm xong →
+    mở ra "chờ khám" (khách ở bàn khám). Không khoá cứng check-out."""
+    ca = await _dung(pool)
+    pid = await _benh_nhan(pool, ca)
+    cu = await _check_in(pool, ca, pid, ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, cu)
+    await _dong_luot(pool, cu)
+
+    moi = await _check_in(pool, ca, pid, ca.loai_thu_thuat)
+    await _chon(pool, ca, moi, [order])
+    await _thu(pool, moi, ca.le_tan)
+    await chay_hanh_trinh(pool)
+    assert (await _don(pool, order))["routing_status"] == "ASSIGNED"
+
+    async def ban_kham() -> str:
+        return str(
+            await pool.fetchval(
+                "SELECT status FROM queue_entry WHERE visit_id = $1::uuid"
+                " AND lane = 'DOCTOR' AND status NOT IN ('left', 'cancelled')",
+                moi,
+            )
+        )
+
+    assert await ban_kham() == "waiting"  # có tên ở bàn khám từ đầu
+    d = await _don(pool, order)
+    mo = await ServiceExecutionService(pool).bat_dau(
+        order_id=order,
+        expected_execution_revision=int(d["execution_revision"]),
+        expected_routing_revision=int(d["routing_revision"]),
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    assert await ban_kham() == "blocked"  # đang ở phòng dịch vụ
+    await ServiceExecutionService(pool).xong(
+        order_id=order,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    assert await ban_kham() == "waiting"  # làm xong → về bàn khám
+
+    # Bác sĩ chưa khám: check-out NHẮC (ghi lý do là qua), không chặn cứng.
+    vuong = (await CheckoutService(pool).readiness(identity=ca.le_tan, visit_id=moi))[
+        "blockers"
+    ]
+    kham = [b for b in vuong if b["type"] == "exam_open"]
+    assert kham and not kham[0].get("chan")
 
 
 async def test_h2_lich_thu_thuat_khong_co_gi_mang_sang_ve_bac_si_chinh(
