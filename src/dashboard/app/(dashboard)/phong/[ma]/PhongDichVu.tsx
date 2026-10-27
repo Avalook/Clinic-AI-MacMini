@@ -161,6 +161,9 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const [tim, setTim] = useState("");
   const [yeuCau, setYeuCau] = useState<{ id: string; hanh: HanhDong; lan: number } | null>(null);
   const [chonBs, setChonBs] = useState("");
+  // Bác sĩ làn của người xem (máy chủ chọn, 27/10): để sẵn ở ô chọn một lần;
+  // người dùng tự đổi thì nạp lại không ghi đè.
+  const daChonBsTay = useRef(false);
   // Chuông nhận chéo mở `/phong/<id>?chi_dinh=<chỉ định>` → chọn sẵn đúng chỉ định.
   const chiDinhUrl = useSearchParams().get("chi_dinh");
   const [daMoUrl, setDaMoUrl] = useState(false);
@@ -209,6 +212,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         sap_den_phong?: KhachSapDen[];
         chi_dinh_khach?: Record<string, ChiDinhPhong[]>;
         bac_si_phong?: LuaChonBacSi[];
+        bac_si_mac_dinh?: string | null;
         dem?: DemPhong | null;
         hom_nay?: boolean;
         lan_cua_toi?: LanCuaToi;
@@ -225,6 +229,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         setSapDen(kq.data.sap_den_phong ?? []);
         setChiDinhKhach(kq.data.chi_dinh_khach ?? {});
         setBacSiPhong(kq.data.bac_si_phong ?? []);
+        if (!daChonBsTay.current) setChonBs(kq.data.bac_si_mac_dinh ?? "");
         setDem(kq.data.dem ?? null);
         setLaHomNay(kq.data.hom_nay ?? true);
         setLanToi(kq.data.lan_cua_toi?.co ? kq.data.lan_cua_toi : null);
@@ -453,7 +458,10 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               choNhan={laHomNay}
               bacSi={bacSiPhong}
               bacSiLamId={chonBs}
-              onChonBacSi={setChonBs}
+              onChonBacSi={(id) => {
+                daChonBsTay.current = true;
+                setChonBs(id);
+              }}
               onChonDong={(id) => {
                 setChonId(id);
                 setYeuCau(null);
