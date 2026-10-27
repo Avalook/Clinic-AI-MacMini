@@ -251,6 +251,25 @@ def phieu_chua_hoan_tat(
     return all(t != "READY" for t in trang_thai_phieu)
 
 
+def phieu_da_chot_cho_dong(
+    execution_status: str | None,
+    co_lan_dang_chay: bool,
+    trang_thai_phieu: list[str | None],
+) -> bool:
+    """Phiếu kết quả ĐÃ CHỐT mà dịch vụ còn đang làm ở phòng (27/10/2026).
+
+    Hoàn tất phiếu đóng hộ dịch vụ trong giao dịch riêng; bước đóng hỏng (thiếu
+    quyền / ca, lệch phiên bản…) thì phiếu READY, dịch vụ IN_PROGRESS — phiếu
+    chỉ còn nút Sửa lại, khách kẹt "đang làm". Đúng khi đó: màn hiện [Xong].
+    Lần làm do bàn khám mở (`co_lan_dang_chay` False ở màn phòng) → False.
+    """
+    return (
+        execution_status == "IN_PROGRESS"
+        and co_lan_dang_chay
+        and any(t == "READY" for t in trang_thai_phieu)
+    )
+
+
 async def _doi_quyen_lam(
     conn: asyncpg.Connection, identity: StaffIdentity, quyen: str
 ) -> None:
@@ -1934,6 +1953,14 @@ class ServiceExecutionService:
             "mau_ket_qua": mau,
             "mau_goi_y": mau_goi_y,
             "phieu": [dict(d) for d in phieu],
+            # PHIẾU ĐÃ CHỐT mà dịch vụ còn đang làm ở phòng (27/10/2026: Hoàn
+            # tất phiếu 2D nhưng bước đóng dịch vụ hỏng → khách kẹt "đang làm",
+            # phiếu chỉ còn nút Sửa lại): màn hiện [Xong] đóng thẳng dịch vụ.
+            "phieu_da_chot_cho_dong": phieu_da_chot_cho_dong(
+                don["execution_status"],
+                dang_chay is not None,
+                [d["trang_thai"] for d in phieu],
+            ),
             # Dịch vụ đã đóng mà phiếu kết quả chưa ai Hoàn tất (chỉ có nháp):
             # màn phòng hiện chip nhắc — bản in lúc này vẫn ghi BẢN NHÁP.
             "phieu_chua_hoan_tat": phieu_chua_hoan_tat(

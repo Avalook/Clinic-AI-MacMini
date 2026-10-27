@@ -257,6 +257,32 @@ async def test_khong_du_quyen_dong_thi_phieu_van_xong_va_noi_ro(
         )
         == "IN_PROGRESS"
     )
+    # Màn nói bằng câu người đọc được, không mã thô.
+    assert kq["dich_vu"]["cau"] and "khong_du_quyen" not in kq["dich_vu"]["cau"]
+
+    # 27/10/2026 (phiếu 2D kẹt): phiếu đã chốt, dịch vụ còn đang làm → máy chủ
+    # báo để màn phòng hiện [Xong]; bấm Hoàn tất lại (người có quyền) thì ĐÓNG.
+    xem = await ServiceExecutionService(pool).xem(order_id=kb.order_id, identity=bs)
+    assert xem["phieu_da_chot_cho_dong"] is True
+    lai = await svc.hoan_tat(
+        phieu_id=phieu["id"], expected_revision=phieu["revision"], identity=bs
+    )
+    assert lai["da_hoan_tat"] is True and lai["dich_vu"]["da_dong"] is True
+    assert (
+        await pool.fetchval(
+            "SELECT execution_status FROM service_order WHERE id = $1::uuid",
+            kb.order_id,
+        )
+        == "COMPLETED"
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT status FROM queue_entry WHERE ref_id = $1::uuid", kb.order_id
+        )
+        == "done"
+    )
+    xem = await ServiceExecutionService(pool).xem(order_id=kb.order_id, identity=bs)
+    assert xem["phieu_da_chot_cho_dong"] is False
 
 
 async def test_dich_vu_khong_dang_lam_thi_khong_dong_gi(pool: asyncpg.Pool) -> None:

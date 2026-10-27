@@ -712,7 +712,7 @@ function KhachTrongPhong({
       if (hanh === "bat-dau" && chuaLam) {
         batDau(false);
       } else if (hanh === "xong" && dangLam && lan) {
-        if (coPhieuChinh) {
+        if (coPhieuChinh && !th.phieu_da_chot_cho_dong) {
           setBao("Dịch vụ này có phiếu kết quả — bấm [Xong] trong phiếu bên dưới.");
         } else {
           xongThang();
@@ -993,7 +993,7 @@ function KhachTrongPhong({
           mau={th.mau_ket_qua}
           mauMacDinh={th.phieu?.[0]?.form_id?.replace(/^KQ_/, "") ?? th.mau_goi_y ?? null}
           onCacBen={setCacBen}
-          onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
+          onHoanTat={({ daDongDichVu, viSao, laLanSua, dichVuCau }) => {
             // 06/10/2026 (Tuyền: dải vàng "xấu và AI quá"): hoàn tất êm thì
             // không báo gì — phiếu đã hiện "Phiếu đã hoàn tất". Chỉ nói khi
             // dịch vụ CHƯA đóng được, vì đó là việc người bấm phải biết. Riêng
@@ -1005,7 +1005,7 @@ function KhachTrongPhong({
                 ? `Đã xong ${dong.viec?.trim() || "dịch vụ"}.`
                 : laLanSua || daDongDichVu
                   ? null
-                  : `Dịch vụ chưa đóng: ${viSao ?? "không rõ lý do"}.`,
+                  : `Dịch vụ chưa đóng: ${dichVuCau ?? `${viSao ?? "không rõ lý do"}.`}`,
             );
             docLai();
             onDaBam();
@@ -1022,9 +1022,10 @@ function KhachTrongPhong({
           [Bắt đầu] trên đầu và [Hoàn tất] trong phiếu. */}
       {th && (chuaLam || dangLam) ? (
         <div className="space-y-3 border-t border-line pt-3">
-          {dangLam && th.lan_dang_chay && !coPhieuChinh ? (
+          {dangLam && th.lan_dang_chay && (!coPhieuChinh || th.phieu_da_chot_cho_dong) ? (
             // Dịch vụ không có phiếu kết quả (lấy mẫu gửi đi, thủ thuật không
-            // mẫu): nút này gọi thẳng lệnh đóng dịch vụ. Vẫn đúng một nút kết thúc.
+            // mẫu) — hoặc phiếu ĐÃ CHỐT mà dịch vụ còn đang làm (máy chủ báo,
+            // 27/10/2026): nút này gọi thẳng lệnh đóng dịch vụ.
             // GHI CHÚ (Tuyền 24/09/2026: "không để chỉ cho ấn đã lấy mẫu là xong,
             // phải có ghi chú lại chứ") — lưu vào chính lần làm.
             <div className="space-y-2">
