@@ -86,10 +86,13 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
   const [lyDoGiu, setLyDoGiu] = useState<Record<string, string>>({});
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  // Câu máy chủ nói sau khi giao không chỉ định lô: lô nào đã trừ, phần nào chờ gán lô.
+  const [tin, setTin] = useState<string | null>(null);
 
   async function goi(action: string, body: Record<string, unknown>) {
     setDangGui(true);
     setLoi(null);
+    setTin(null);
     // Một THAO TÁC một khoá (không phải một lần bấm): bấm lại hay gửi lại sau
     // khi mất mạng đều mang khoá cũ → máy chủ không giao / trả / huỷ hai lần.
     const thaoTac = dinhDanhThaoTac(action, JSON.stringify(body));
@@ -111,6 +114,8 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
         setLoi(d?.message ?? d?.detail ?? d?.error ?? "Không lưu được. Thử lại giúp em.");
         return;
       }
+      const ketQua = (await res.json().catch(() => null)) as { tom_tat?: string | null } | null;
+      setTin(ketQua?.tom_tat ?? null);
       setLyDo("");
       setSoCu("");
       setSoGiao({});
@@ -445,7 +450,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
           <span className="text-meta text-ink-muted">
             {loGiaoQuet
               ? `Giao từ lô ${loGiaoQuet.batch_code} (đã quét) — kho trừ ngay.`
-              : "Chưa cần lô — gán lô sau ở Kho thuốc."}
+              : "Máy tự chọn lô hết hạn sớm nhất và trừ kho ngay."}
           </span>
         </div>
       ) : null}
@@ -663,6 +668,8 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
       {khongCoNutNao && !dong.closed && !chiXem ? (
         <p className="text-meta text-ink-faint">Chưa có thao tác nào ở giai đoạn này.</p>
       ) : null}
+
+      {tin ? <p className="text-meta text-ink-muted">{tin}</p> : null}
 
       {loi ? (
         <p className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">

@@ -1001,8 +1001,9 @@ async def xem_quy_doi_nhap(
 
 class CapPhatRequest(BaseModel):
     prescription_id: UUID
-    # Bỏ trống = giao KHÔNG cần lô, gán lô sau (28/09/2026) — chỉ khi lần thu
-    # tiền thuốc không gắn lô nào (máy chủ quyết, xem PharmacyService.cap_phat).
+    # Bỏ trống = máy TỰ CHỌN lô hết hạn sớm nhất và trừ kho ngay (27/10/2026);
+    # kho chưa đủ lô thì phần thiếu vẫn giao, ghi chờ gán lô (28/09/2026). Chỉ khi
+    # lần thu tiền thuốc không gắn lô nào (máy chủ quyết, xem PharmacyService.cap_phat).
     drug_batch_id: UUID | None = None
     so_luong: float = Field(gt=0)
 

@@ -156,7 +156,7 @@ export const GIAI_DOAN: Record<GiaiDoan, { nhan: string; tone: StatusTone; giai_
     nhan: "Chờ thu tiền",
     tone: "ready",
     giai_thich:
-      "Xác định thuốc trong kho và số khách mua. Kho đã có lô thì chọn lô; chưa có lô vẫn thu tiền và giao được — gán lô sau ở Kho thuốc.",
+      "Xác định thuốc trong kho và số khách mua. Khi giao, máy tự chọn lô hết hạn sớm nhất và trừ kho; kho chưa có lô thì vẫn thu tiền và giao được — gán lô sau ở Kho thuốc.",
   },
   CHO_XAC_MINH: {
     nhan: "Chờ xác minh chuyển khoản",
