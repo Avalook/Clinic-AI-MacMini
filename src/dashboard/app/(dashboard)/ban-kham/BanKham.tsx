@@ -87,6 +87,7 @@ import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
 import { useChipLieuTrinh } from "../_lam-viec/dung-chip-lieu-trinh";
 import { nhanLieuTrinhLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+import { sdtDoc } from "@/lib/sdt";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -218,6 +219,7 @@ interface SapToi {
   visit_id: string;
   ten: string;
   ma_bn: string | null;
+  sdt?: string | null;
   so_tiep_don: number | null;
   so_booking?: number | null;
   dang_o: string;
@@ -337,7 +339,7 @@ export default function BanKham({
     const ds = hang ?? [];
     if (!kim) return ds;
     return ds.filter((d) =>
-      [d.ten, d.ma_bn, String(d.so_thu_tu)].some((v) =>
+      [d.ten, d.ma_bn, d.sdt, String(d.so_thu_tu)].some((v) =>
         v?.toLocaleLowerCase("vi").includes(kim),
       ),
     );
@@ -346,7 +348,7 @@ export default function BanKham({
     const kim = query.trim().toLocaleLowerCase("vi");
     if (!kim) return hangDon;
     return hangDon.filter((d) =>
-      [d.ten, d.ma_bn, String(d.so_thu_tu)].some((v) => v?.toLocaleLowerCase("vi").includes(kim)),
+      [d.ten, d.ma_bn, d.sdt, String(d.so_thu_tu)].some((v) => v?.toLocaleLowerCase("vi").includes(kim)),
     );
   }, [hangDon, query]);
   const donChuaXong = donHienRa.filter((d) => !d.ke_don_tu_van_xong);
@@ -718,7 +720,12 @@ function NhomSapToi({ ds }: { ds: SapToi[] }) {
           <li key={d.visit_id} className="flex items-center gap-2.5 px-2.5 py-2.5 text-xs">
             <SoLuot dang="tron" checkin={d.so_tiep_don} booking={d.so_booking} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-emph font-semibold text-ink">{d.ten}</span>
+              <span className="block truncate text-emph font-semibold text-ink">
+                {d.ten}
+                {sdtDoc(d.sdt) ? (
+                  <span className="ml-2 text-body font-normal tabular-nums text-ink-muted">{sdtDoc(d.sdt)}</span>
+                ) : null}
+              </span>
               <span className="block truncate text-ink-muted">
                 {d.ma_bn ?? ""} · {d.dang_o}
               </span>
@@ -1281,7 +1288,12 @@ function HoSo({
           <div className="min-w-44 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               {gon ? null : (
-                <h2 className="text-base font-semibold text-ink">{dong.ten}</h2>
+                <h2 className="text-base font-semibold text-ink">
+                  {dong.ten}
+                  {sdtDoc(dong.sdt) ? (
+                    <span className="ml-2 font-normal tabular-nums text-ink-muted">{sdtDoc(dong.sdt)}</span>
+                  ) : null}
+                </h2>
               )}
               <StatusChip tone={t.tone} label={t.nhan} size="md" />
               {dong.vong === "REVIEW" && dong.trang_thai !== "done" ? (
@@ -1503,7 +1515,7 @@ function HoSo({
                     patient_code: dong.ma_bn,
                     full_name: dong.ten,
                     date_of_birth: null,
-                    phone_primary: null,
+                    phone_primary: dong.sdt ?? null,
                     phone_secondary: null,
                     gender: null,
                     ethnicity: null,

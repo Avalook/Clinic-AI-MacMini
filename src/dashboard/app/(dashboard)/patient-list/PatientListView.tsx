@@ -31,6 +31,7 @@ import { chuNhanLuot, type NhanLuot } from "../../../lib/nhan-luot";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { khoangDong } from "../../../lib/so-trang";
 import ThanhSoTrang from "../../../components/ui/ThanhSoTrang";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 /** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
 type PatientFull = NonNullable<DoctorApptRow["patient"]> & {
@@ -499,15 +500,17 @@ export default function PatientListView({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-start justify-between gap-2">
-                      <span className="truncate text-sm font-semibold text-ink">{row.full_name}</span>
+                      <TenKhachSdt
+                        ten={row.full_name}
+                        sdt={row.phone_primary}
+                        ma={row.patient_code}
+                        tenClassName="text-sm font-semibold text-ink"
+                      />
                       <PatientKind value={row.phan_loai} />
-                    </span>
-                    <span className="mt-1 block truncate font-mono text-label text-ink-muted">
-                      {row.patient_code}
                     </span>
                     <KenhDoiHuy k={row.hoso} gon />
                     <span className="mt-1 flex items-center justify-between gap-2 text-label text-ink-muted">
-                      <span className="truncate">{row.phone_primary ?? "Chưa có SĐT"}</span>
+                      <span className="truncate">{row.phone_primary ? null : "Chưa có SĐT"}</span>
                       <span className="shrink-0 tabular-nums">
                         {row.latest
                           ? `${row.visit_count} lượt · ${fmtDate(row.latest)}`
@@ -549,8 +552,14 @@ export default function PatientListView({
                   {initials(selected.full_name)}
                 </span>
                 <div className="min-w-0">
-                  <h2 className="truncate text-lg font-semibold text-ink">{selected.full_name}</h2>
-                  <p className="mt-0.5 truncate font-mono text-xs text-ink-muted">{selected.patient_code}</p>
+                  <h2 className="text-lg font-semibold text-ink">
+                    <TenKhachSdt
+                      ten={selected.full_name}
+                      sdt={selected.phone_primary}
+                      ma={selected.patient_code}
+                      tenClassName="text-lg font-semibold text-ink"
+                    />
+                  </h2>
                   <KenhDoiHuy k={selected.hoso} />
                 </div>
               </div>
@@ -937,12 +946,12 @@ export default function PatientListView({
                     className="flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors hover:bg-surface-sunken md:grid md:items-center md:gap-2 md:grid-cols-[1.5fr_1fr_0.8fr_0.5fr_0.8fr_1fr]"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold text-ink">
-                        {row.full_name}
-                      </span>
-                      <span className="mt-0.5 block truncate font-mono text-xs text-ink-muted">
-                        {row.patient_code}
-                      </span>
+                      <TenKhachSdt
+                        ten={row.full_name}
+                        sdt={row.phone_primary}
+                        ma={row.patient_code}
+                        tenClassName="text-sm font-bold text-ink"
+                      />
                       <KenhDoiHuy k={row.hoso} gon />
                     </span>
                     <span className="truncate text-xs text-ink-soft">

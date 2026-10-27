@@ -42,3 +42,14 @@ test("thiếu tên / mã không làm vỡ", () => {
   assert.equal(khopTimKhach("abc", { ten: null, ma: undefined, so: [] }), false);
   assert.equal(khopTimKhach("5", { ten: null, ma: null, so: [5] }), true);
 });
+
+test("gõ SĐT (≥ 4 số) ra khách — 27/10/2026", () => {
+  const k = { ten: "Trần Thị Trâm", ma: "BN-2026-440629", sdt: "0900 007 126", so: [9] };
+  assert.equal(khopTimKhach("0900007126", k), true);
+  assert.equal(khopTimKhach("7126", k), true);
+  assert.equal(khopTimKhach("0900 007", k), true);
+  assert.equal(khopTimKhach("8888", k), false);
+  // Số ngắn vẫn chỉ khớp số tiếp đón / booking, không kéo theo SĐT.
+  assert.equal(khopTimKhach("12", k), false);
+  assert.equal(khopTimKhach("9", k), true);
+});

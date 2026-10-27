@@ -16,6 +16,7 @@ import CongTac from "@/components/ui/CongTac";
 import OChon from "@/components/ui/OChon";
 import { MUC_THUE, tenThueSuat, TEN_NGUON_THUE } from "../ke-toan/thue-suat";
 import { tien } from "../hoa-don/types";
+import { sdtDoc } from "@/lib/sdt";
 
 type DongHang = {
   id: string; ten: string; dvt: string; so_luong: number; don_gia: number; thanh_tien: number;
@@ -73,7 +74,8 @@ function KhachHang({ h }: { h: HoaDon }) {
   if (h.la_hd_cong_ty) {
     return <>{h.ten_cong_ty}<span className="block text-meta text-ink-muted">Công ty · MST {h.ma_so_thue || "—"} · Người mua: {h.nguoi_mua || "—"}</span></>;
   }
-  return <>{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></>;
+  // SĐT đi theo tên, mã xuống dòng dưới (27/10/2026).
+  return <>{h.ten_khach || "—"} {sdtDoc(h.so_dien_thoai) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(h.so_dien_thoai)}</span> : null}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"}</span></>;
 }
 
 function GhiChu({ h }: { h: HoaDon }) {

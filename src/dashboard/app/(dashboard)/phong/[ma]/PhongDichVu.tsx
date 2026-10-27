@@ -317,6 +317,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         khopTimKhach(tim, {
           ten: d.ten,
           ma: d.ma_bn,
+          sdt: d.sdt,
           so: [d.so_tiep_don, d.so_booking, d.so_thu_tu],
         }),
       )

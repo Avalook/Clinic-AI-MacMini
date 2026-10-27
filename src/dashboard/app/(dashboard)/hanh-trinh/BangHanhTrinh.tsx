@@ -19,11 +19,13 @@ import SoLuot from "@/components/ui/SoLuot";
 import { doctorName } from "@/lib/doctor-name";
 import { useNgheBang } from "../dung-nghe-bang";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 interface Luot {
   visit_id: string;
   ten: string;
   ma: string | null;
+  sdt?: string | null;
   so_booking: number | null;
   so_quay: number | null;
   loai_kham: string | null;
@@ -154,11 +156,13 @@ export default function BangHanhTrinh() {
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-emph font-semibold text-ink">
-                  {l.ten}
-                  {l.ma ? <span className="text-meta font-normal text-ink-muted">{l.ma}</span> : null}
-                  <SoLuot booking={l.so_booking} checkin={l.so_quay} />
-                </p>
+                <TenKhachSdt
+                  ten={l.ten}
+                  sdt={l.sdt}
+                  ma={l.ma}
+                  tenClassName="text-emph font-semibold text-ink"
+                  cuoiDong={<SoLuot booking={l.so_booking} checkin={l.so_quay} />}
+                />
                 <p className="text-meta text-ink-muted">
                   {[
                     l.loai_kham,

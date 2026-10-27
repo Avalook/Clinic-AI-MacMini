@@ -24,6 +24,7 @@ import {
   useBayGio,
 } from "../_lam-viec/HanhTrinhKhach";
 import { WaitClock } from "./VisitProgress";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 // NHÃN TRẠNG THÁI DO MÁY CHỦ QUYẾT (30/09/2026 — Tuyền: "đã checkout rồi
 // nhưng trang chủ vẫn ghi đang khám"). Bản trước tự suy ở đây từ visit.status
@@ -41,7 +42,11 @@ export interface VisitStatusRow {
   status: string;
   checked_in_at: string | null;
   created_at: string;
-  patient: { full_name: string | null; patient_code: string | null } | null;
+  patient: {
+    full_name: string | null;
+    patient_code: string | null;
+    phone_primary?: string | null;
+  } | null;
   doctor: { full_name: string | null } | null;
   service: { name: string | null } | null;
   /** appointment.status (join) — nguồn THẬT cho mốc "Khám xong" (COMPLETED). */
@@ -123,16 +128,11 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                       (live badge) + đồng hồ chờ (đếm liên tục từ check-in). */}
                   <td className={TD}>
                     <div className="space-y-1">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-ink">
-                          {r.patient?.full_name ?? "—"}
-                        </span>
-                        {r.patient?.patient_code && (
-                          <span className="font-mono text-xs text-ink-muted">
-                            {r.patient.patient_code}
-                          </span>
-                        )}
-                      </div>
+                      <TenKhachSdt
+                        ten={r.patient?.full_name ?? "—"}
+                        sdt={r.patient?.phone_primary}
+                        ma={r.patient?.patient_code}
+                      />
                       <div className="text-xs text-ink-muted">
                         <span className="text-ink-faint">BS:</span>{" "}
                         {r.doctor?.full_name ?? "—"}

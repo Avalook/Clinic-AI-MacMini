@@ -99,7 +99,8 @@ class BangLuotKham:
                 """
                 SELECT v.visit_id::text AS visit_id, v.checked_in_at,
                        v.attending_doctor_id::text AS doctor_id,
-                       p.full_name, p.patient_code, d.full_name AS doctor_name,
+                       p.full_name, p.patient_code, p.phone_primary,
+                       d.full_name AS doctor_name,
                        f.vitals_status, f.route_decision, f.finished_at,
                        f.goi_do_luc, g.full_name AS goi_do_boi,
                        f.vitals_started_at, bd.full_name AS vitals_started_by,
@@ -335,7 +336,8 @@ class BangLuotKham:
                 lich = await conn.fetch(
                     """
                     SELECT a.id::text AS id, a.slot_start, a.status,
-                           p.full_name, p.patient_code, d.full_name AS doctor_name
+                           p.full_name, p.patient_code, p.phone_primary,
+                           d.full_name AS doctor_name
                       FROM appointment a
                       JOIN patient p
                         ON p.clinic_patient_id = a.clinic_patient_id
@@ -360,6 +362,7 @@ class BangLuotKham:
             by_visit[v["visit_id"]] = {
                 "visit_id": v["visit_id"],
                 "ma_bn": v["patient_code"],
+                "sdt": v.get("phone_primary"),
                 "ten": v["full_name"],
                 "bac_si_id": v["doctor_id"],
                 "bac_si": v["doctor_name"],
@@ -609,6 +612,7 @@ class BangLuotKham:
                     "gio": _iso(a["slot_start"]),
                     "ten": a["full_name"],
                     "ma_bn": a["patient_code"],
+                    "sdt": a.get("phone_primary"),
                     "bac_si": a["doctor_name"],
                 }
                 for a in lich
@@ -900,7 +904,8 @@ class BangLuotKham:
                        stt.so AS so_thu_tu,
                        ap.so_booking, ap.so_tiep_don,
                        p.clinic_patient_id::text AS clinic_patient_id,
-                       p.full_name, p.patient_code, p.uu_tien, p.uu_tien_ly_do,
+                       p.full_name, p.patient_code, p.phone_primary,
+                       p.uu_tien, p.uu_tien_ly_do,
                        v.appointment_id::text AS appointment_id,
                        v.checked_in_at,
                        st.name AS dich_vu_kham, st.form_code,
@@ -1056,7 +1061,7 @@ class BangLuotKham:
                 else await conn.fetch(
                     """
                     SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
-                           a.so_tiep_don, a.so_booking,
+                           p.phone_primary, a.so_tiep_don, a.so_booking,
                            q.status AS tu_van_status, f.vitals_status
                       FROM consultation c
                       JOIN visit v
@@ -1159,6 +1164,7 @@ class BangLuotKham:
                 "so_tiep_don": r["so_tiep_don"],
                 "ten": r["full_name"],
                 "ma_bn": r["patient_code"],
+                "sdt": r.get("phone_primary"),
                 "uu_tien": bool(r["uu_tien"]),
                 "uu_tien_ly_do": r["uu_tien_ly_do"],
                 "viec": r["viec"],
@@ -1250,6 +1256,7 @@ class BangLuotKham:
                     "visit_id": r["visit_id"],
                     "ten": r["full_name"],
                     "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
                     "so_tiep_don": r["so_tiep_don"],
                     "so_booking": r["so_booking"],
                     "dang_o": (
@@ -1292,7 +1299,7 @@ class BangLuotKham:
                    o.service_name, o.exec_status, o.created_at, o.authorized_at,
                    o.assigned_at, o.started_at, o.finished_at, o.ket_qua_luc,
                    rm.name AS phong, pb.full_name AS nguoi_lam,
-                   p.full_name, p.patient_code,
+                   p.full_name, p.patient_code, p.phone_primary,
                    (SELECT r.status FROM round_requirement q
                       JOIN review_round r
                         ON r.id = q.round_id AND r.clinic_id = q.clinic_id
@@ -1381,6 +1388,7 @@ class BangLuotKham:
                     "visit_id": r["visit_id"],
                     "ten": r["full_name"],
                     "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
                     "dich_vu": r["service_name"],
                     "trang_thai": r["exec_status"],
                     "nhom": nhom.get(r["exec_status"], "can_dieu_phoi"),
@@ -1420,7 +1428,7 @@ class BangLuotKham:
                        o.visit_id::text AS visit_id,
                        v.appointment_id::text AS appointment_id,
                        p.clinic_patient_id::text AS clinic_patient_id,
-                       p.full_name, p.patient_code,
+                       p.full_name, p.patient_code, p.phone_primary,
                        d.full_name AS bac_si, v.attending_doctor_id::text AS bac_si_id,
                        pf.full_name AS nguoi_lam, o.duyet_luc
                   FROM service_order o
@@ -1508,6 +1516,7 @@ class BangLuotKham:
                     "clinic_patient_id": r["clinic_patient_id"],
                     "ten": r["full_name"],
                     "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
                     "bac_si": r["bac_si"],
                     "cua_toi": r["bac_si_id"] == identity.staff_id,
                     "nguoi_lam": r["nguoi_lam"],

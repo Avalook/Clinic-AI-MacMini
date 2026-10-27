@@ -46,6 +46,7 @@ import ThanhNgay from "@/components/ui/ThanhNgay";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgheBang } from "../dung-nghe-bang";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+import { sdtDoc } from "@/lib/sdt";
 
 interface SinhHieu {
   tam_thu: number | null;
@@ -68,6 +69,7 @@ interface Luot {
   visit_id: string;
   ma_bn: string;
   ten: string;
+  sdt?: string | null;
   bac_si: string | null;
   check_in_luc: string | null;
   /** `pending` · `in_progress` · `recorded` — trạng thái THẬT, máy chủ giữ. */
@@ -539,7 +541,12 @@ export default function BangDoSinhHieu() {
           {/* Tên + số LUÔN đủ ở mọi cỡ màn (Tuyền 27/09 tối): tên xuống dòng chứ
               không cắt; trạng thái (chờ bao lâu / ai đang đo) nằm ở dòng phụ. */}
           <span className="min-w-0 flex-1">
-            <span className="block break-words font-semibold text-ink">{l.ten}</span>
+            <span className="block break-words font-semibold text-ink">
+              {l.ten}
+              {sdtDoc(l.sdt) ? (
+                <span className="ml-2 text-meta font-normal tabular-nums text-ink-muted">{sdtDoc(l.sdt)}</span>
+              ) : null}
+            </span>
             <span className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-muted">
               <span>{[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || l.ma_bn}</span>
               {phai}
@@ -648,6 +655,9 @@ export default function BangDoSinhHieu() {
               <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-ink">
                 {dangChon.ten}
+                {sdtDoc(dangChon.sdt) ? (
+                  <span className="text-body font-normal tabular-nums text-ink-muted">{sdtDoc(dangChon.sdt)}</span>
+                ) : null}
                 <SoLuot booking={dangChon.so_booking} checkin={dangChon.so_tiep_don} />
               </p>
               <p className="text-meta text-ink-muted">

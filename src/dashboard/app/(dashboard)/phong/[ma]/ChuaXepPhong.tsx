@@ -15,6 +15,7 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 
 import { guiThaoTac } from "../../_lam-viec/api";
+import { sdtDoc } from "@/lib/sdt";
 
 export interface KhachChuaXep {
   id: string;
@@ -22,6 +23,7 @@ export interface KhachChuaXep {
   ten: string;
   khach: string | null;
   ma_khach: string | null;
+  sdt?: string | null;
   routing_revision: number;
 }
 
@@ -64,9 +66,11 @@ export default function ChuaXepPhong({
         {ds.map((k) => (
           <li key={k.id} className="flex flex-wrap items-center gap-2">
             <span className="min-w-0 flex-1 text-body text-ink">
-              <span className="font-semibold">{k.khach ?? "—"}</span>
-              {k.ma_khach ? <span className="text-ink-muted"> · {k.ma_khach}</span> : null}
-              <span className="block text-meta text-ink-muted">{k.ten}</span>
+              <span className="font-semibold">{k.khach ?? "—"}</span>{" "}
+              {sdtDoc(k.sdt) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(k.sdt)}</span> : null}
+              <span className="block text-meta text-ink-muted">
+                {[k.ma_khach, k.ten].filter(Boolean).join(" · ")}
+              </span>
             </span>
             <Button
               type="button"

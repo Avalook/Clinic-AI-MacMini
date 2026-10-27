@@ -708,7 +708,7 @@ async def cho_nhan_vao_phong(
     rows = await conn.fetch(
         f"""
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
-               o.routing_revision, p.full_name, p.patient_code,
+               o.routing_revision, p.full_name, p.patient_code, p.phone_primary,
                v.checked_in_at
           FROM clinic_room pr
           JOIN service_order o
@@ -741,6 +741,7 @@ async def cho_nhan_vao_phong(
             "ten": r["service_name"],
             "khach": r["full_name"],
             "ma_khach": r["patient_code"],
+            "sdt": r.get("phone_primary"),
             "routing_revision": int(r["routing_revision"]),
         }
         for r in await _loc_da_tra(conn, clinic_id, rows)

@@ -1851,6 +1851,7 @@ class TepKetQuaService:
                    t.clinic_patient_id::text,
                    p.full_name AS ten_khach,
                    p.patient_code,
+                   p.phone_primary,
                    t.service_order_id::text,
                    o.service_name AS ten_dich_vu,
                    t.tai_len_luc,

@@ -3100,7 +3100,8 @@ class LuotKhamService:
                 + """ AS co_ket_qua,
                        o.service_name, o.not_performed_reason,
                        r.round_no, r.status AS vong_status,
-                       v.visit_id::text AS visit_id, p.full_name, p.patient_code
+                       v.visit_id::text AS visit_id, p.full_name, p.patient_code,
+                       p.phone_primary
                   FROM round_requirement q
                   JOIN review_round r
                     ON r.id = q.round_id AND r.clinic_id = q.clinic_id
@@ -3160,6 +3161,7 @@ class LuotKhamService:
                     "visit_id": q["visit_id"],
                     "ten": q["full_name"],
                     "ma_bn": q["patient_code"],
+                    "sdt": q.get("phone_primary"),
                     "dich_vu": q["service_name"],
                     "can": q["need"],
                     "trang_thai": (

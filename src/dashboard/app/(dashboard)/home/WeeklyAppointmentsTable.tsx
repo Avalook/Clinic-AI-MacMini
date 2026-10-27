@@ -46,6 +46,7 @@ import type { MaXacMinh } from "@/lib/xac-minh";
 import { MA_DA_ROI, type TrangThaiHienThi } from "@/lib/trang-thai-lich";
 import { dangLoc, locLichHen, type LocTiepDon } from "@/lib/tiep-don";
 import { useLocTiepDon } from "@/lib/loc-tiep-don-context";
+import { sdtDoc } from "@/lib/sdt";
 
 export interface WeekApptRow {
   id: string;
@@ -924,14 +925,25 @@ export default function WeeklyAppointmentsTable({
                                             </span>
                                           )}
                                         {a.patient?.full_name ?? "—"}
+                                        {sdtDoc(a.patient?.phone_primary) ? (
+                                          <span className="font-normal tabular-nums text-ink-muted">
+                                            {sdtDoc(a.patient?.phone_primary)}
+                                          </span>
+                                        ) : null}
                                       </button>
                                     ) : (
                                       <span className="block font-medium">
                                         {a.patient?.full_name ?? "—"}
+                                        {sdtDoc(a.patient?.phone_primary) ? (
+                                          <span className="ml-2 font-normal tabular-nums text-ink-muted">
+                                            {sdtDoc(a.patient?.phone_primary)}
+                                          </span>
+                                        ) : null}
                                       </span>
                                     )}
+                                    {/* SĐT đi theo tên, mã khách xuống dòng này (27/10/2026). */}
                                     <span className="block text-meta text-ink-muted">
-                                      {a.patient?.phone_primary ?? a.patient?.patient_code}
+                                      {a.patient?.patient_code}
                                       {a.so_tiep_don != null ? ` · Quầy ${a.so_tiep_don}` : ""}
                                       {isWalkinChannel(a.booking_channel) ? " · vãng lai" : ""}
                                     </span>

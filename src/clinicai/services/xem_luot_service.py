@@ -241,7 +241,7 @@ class XemLuotService:
                        bsky.full_name AS nguoi_ky,
                        CASE WHEN fb.id IS DISTINCT FROM bsky.id
                             THEN fb.full_name END AS nguoi_bam_ky,
-                       p.full_name, p.patient_code,
+                       p.full_name, p.patient_code, p.phone_primary,
                        st.name AS dich_vu_kham, st.form_code,
                        d.full_name AS bac_si,
                        n.name AS dang_o_buoc, r.name AS dang_o_phong,
@@ -282,6 +282,7 @@ class XemLuotService:
                     "id": v["patient_id"],
                     "ten": v["full_name"],
                     "ma": v["patient_code"],
+                    "sdt": v.get("phone_primary"),
                     "so_booking": v["so_booking"],
                     "so_tiep_don": v["so_tiep_don"],
                 },

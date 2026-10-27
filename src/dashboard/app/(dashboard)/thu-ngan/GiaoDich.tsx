@@ -20,12 +20,14 @@ import AnhChuyenKhoan, { type AnhCk } from "./AnhChuyenKhoan";
 import DoiHinhThuc, { type TrangThaiDoi } from "./DoiHinhThuc";
 import HoanTien, { type HoanCuaLanThu } from "./HoanTien";
 import NutHoanTac from "./NutHoanTac";
+import { sdtDoc } from "@/lib/sdt";
 
 interface GiaoDichDong {
   id: string;
   visit_id: string | null;
   ten: string | null;
   ma_bn: string | null;
+  sdt?: string | null;
   loai: string;
   trang_thai: string;
   so_tien: number | null;
@@ -185,7 +187,7 @@ export default function GiaoDich({
               <li key={g.id} className="rounded-card border border-line bg-surface p-3 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium text-ink">
-                    {g.ten ?? "—"} <span className="text-xs font-normal text-ink-muted">{g.ma_bn ?? ""}</span>
+                    {g.ten ?? "—"} {sdtDoc(g.sdt) ? <span className="text-sm font-normal tabular-nums text-ink-muted">{sdtDoc(g.sdt)}</span> : null} <span className="text-xs font-normal text-ink-muted">{g.ma_bn ?? ""}</span>
                   </p>
                   <p className={`text-sm font-semibold ${g.trang_thai === "PAID" ? "text-ink" : "text-ink-faint line-through"}`}>
                     {(g.so_tien ?? 0).toLocaleString("vi-VN")} đ · {TRANG_THAI[g.trang_thai] ?? g.trang_thai}
