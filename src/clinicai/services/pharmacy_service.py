@@ -2765,6 +2765,31 @@ class PharmacyService:
                     raise ValidationError(
                         f"Lô này chỉ còn {ton} — không bớt được {-quantity}."
                     )
+                if txn_type == HUY:
+                    # Huỷ là QUYẾT ĐỊNH bỏ thuốc: không được bỏ vào phần đã bán chưa
+                    # giao / đang giữ cho đơn / thuốc trả chờ kiểm — khách quay lại
+                    # lấy sẽ không còn thuốc. Điều chỉnh thì KHÔNG chặn: nó ghi số
+                    # đếm thật (kệ đã thiếu thì chặn chỉ làm sổ sai; CP3 giữ phần đã
+                    # phân lô dù khả dụng âm). Đọc SAU khoá lô ở trên — luồng bán
+                    # cũng khoá lô (`phan_lo_service.khoa_lo`) trước khi so.
+                    kha_dung = Decimal(
+                        str(
+                            await conn.fetchval(
+                                "SELECT public.drug_batch_kha_dung($1::uuid, $2::uuid)",
+                                identity.clinic_id,
+                                drug_batch_id,
+                            )
+                            or 0
+                        )
+                    )
+                    if kha_dung < -quantity:
+                        raise ValidationError(
+                            f"Lô này còn {_so_chuan(ton)} trên kệ nhưng "
+                            f"{_so_chuan(ton - max(kha_dung, Decimal(0)))} đã bán/"
+                            "giữ cho khách hoặc là thuốc trả chờ kiểm — chỉ huỷ "
+                            f"được tối đa {_so_chuan(max(kha_dung, Decimal(0)))}. "
+                            "Nếu kệ thật thiếu, dùng Điều chỉnh theo số đếm."
+                        )
 
                 txn_id = await self._ghi_so_trong(
                     conn,

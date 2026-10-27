@@ -35,10 +35,12 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.phieu_kham.khung import doc_ngay
+from clinicai.services.kiem_ke_ca_service import giao_chua_gan_lo_theo_thuoc
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
     PharmacyService,
     _so,
+    _so_chuan,
     ghi_nhat_ky,
     kiem_dong_nhap,
     nhap_vao_lo,
@@ -709,6 +711,13 @@ async def kiem_kho(
                     identity.location_id,
                 )
                 theo_id = {r["id"]: r for r in los}
+                # Đã giao mà chưa gắn lô: kệ đã thiếu nhưng sổ chưa trừ. Ghi lệch
+                # lúc này rồi gắn lô sau = trừ hai lần (cùng luật chốt kiểm ca).
+                cho_gan = await giao_chua_gan_lo_theo_thuoc(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    location_id=identity.location_id,
+                )
                 for stt, (lo_id, thuc_te) in enumerate(sach.items(), start=1):
                     ban_ghi = theo_id.get(lo_id)
                     if ban_ghi is None:
@@ -718,6 +727,13 @@ async def kiem_kho(
                         )
                     ton_may = Decimal(str(ban_ghi["quantity_on_hand"]))
                     lech = thuc_te - ton_may
+                    dang_cho = cho_gan.get(ban_ghi["drug_catalog_id"], Decimal(0))
+                    if lech != 0 and dang_cho:
+                        raise ConflictError(
+                            f"Dòng {stt}: thuốc này còn {_so_chuan(dang_cho)} đã "
+                            "giao cho khách mà chưa gắn lô. Gắn lô ở quầy thuốc "
+                            "trước rồi kiểm lại, để không trừ kho hai lần."
+                        )
                     txn_id = None
                     if lech != 0:
                         txn_id = await PharmacyService._ghi_so_trong(
