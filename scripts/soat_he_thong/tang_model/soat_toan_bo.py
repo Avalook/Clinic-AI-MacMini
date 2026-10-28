@@ -165,7 +165,7 @@ def doc_tat_ca(
             dung = str(e)
             return None
         except Exception:  # noqa: BLE001 — một khúc lỗi không giết cả đợt
-            return []
+            return None
 
     hoan_tat: dict[tuple[str, str, str], int] = defaultdict(int)
     tong_khuc: dict[tuple[str, str, str], int] = defaultdict(int)
@@ -372,3 +372,80 @@ def thanh_phat_hien(
         trich_dan=[TrichDan(u.tep, dong, u.trich_dan[:200])],
         muc_viec=3 if rui_ro_tien_kho else 2,
     )
+
+
+def doc_xuyen_tep(
+    nguon: Nguon,
+    paths: list[Path],
+    models: list[str],
+    so: SoChiPhi,
+    folder: Path,
+    offline: bool = False,
+) -> tuple[list[soat_model.UngVien], str, int]:
+    """One bounded bundle per root; failures never become completed reads."""
+    from .doc_xuyen_tep import _read
+    from .xuyen_tep import BanDo
+
+    graph = BanDo(nguon)
+    ledger = folder / "da-doc-xuyen-tep.jsonl"
+    raw = folder / "ung-vien-xuyen-tep.jsonl"
+    done = doc_da_lam(ledger)
+    result: list[soat_model.UngVien] = []
+    completed = 0
+    stop = ""
+    refused = False
+    manifests = []
+    for path in paths:
+        rel = nguon.tuong_doi(path)
+        bundle = graph.goi(rel)
+        manifests.append(
+            {
+                "goc": rel,
+                "bam": bundle.bam,
+                "tep": bundle.tep,
+                "bo_qua": bundle.bo_qua,
+                "chua_biet": bundle.chua_biet,
+                "ky_tu": len(bundle.van_ban),
+            }
+        )
+        for model in models:
+            key = (rel, bundle.bam, model)
+            model_hash = hashlib.sha256(model.encode()).hexdigest()[:12]
+            cache = folder / f"xuyen-{bundle.bam}-{model_hash}.json"
+            if not offline and key in done and cache.is_file():
+                result.extend(
+                    soat_model.UngVien(**d) for d in json.loads(cache.read_text())
+                )
+                completed += 1
+                continue
+            if offline:
+                continue
+            try:
+                candidates = _read(model, rel, bundle, so)
+            except TuChoiError as exc:
+                stop = str(exc)
+                refused = True
+                break
+            except Exception as exc:  # noqa: BLE001 — report failure, never mark complete
+                stop = f"{rel}: lỗi đọc {type(exc).__name__}"
+                continue
+            result.extend(candidates)
+            cache.write_text(
+                json.dumps([u.__dict__ for u in candidates], ensure_ascii=False),
+                encoding="utf8",
+            )
+            with ledger.open("a", encoding="utf8") as stream:
+                stream.write(
+                    json.dumps({"tep": rel, "bam": bundle.bam, "mo_hinh": model}) + "\n"
+                )
+            completed += 1
+        if refused:
+            break
+    (folder / "pham-vi-xuyen-tep.json").write_text(
+        json.dumps(manifests, ensure_ascii=False, indent=2), encoding="utf8"
+    )
+    raw.write_text(
+        "".join(json.dumps(u.__dict__, ensure_ascii=False) + "\n" for u in result),
+        encoding="utf8",
+    )
+    return result, stop, completed

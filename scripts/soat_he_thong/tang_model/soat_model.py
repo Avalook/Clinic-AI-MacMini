@@ -74,6 +74,7 @@ class UngVien:
     trich_dan: str
     do_chac: float
     mo_hinh: str
+    goc_xuyen_tep: str = ""
 
 
 def cat_khuc(noi_dung: str) -> list[tuple[int, str]]:

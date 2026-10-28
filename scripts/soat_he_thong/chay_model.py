@@ -26,7 +26,7 @@ if __package__ in (None, ""):
 from soat_he_thong.chay import KET_QUA, chay  # noqa: E402
 from soat_he_thong.khuon import DoPhu  # noqa: E402
 from soat_he_thong.nguon import GOC, Nguon  # noqa: E402
-from soat_he_thong.tang_model import soat_toan_bo, thuoc_do  # noqa: E402
+from soat_he_thong.tang_model import doc_xuyen_tep, soat_toan_bo, thuoc_do  # noqa: E402
 from soat_he_thong.tang_model.chi_phi import SoChiPhi, TuChoiError  # noqa: E402
 from soat_he_thong.tang_model.khach import goi, liet_ke_mo_hinh_avis  # noqa: E402
 
@@ -109,10 +109,24 @@ def soat(a: argparse.Namespace) -> int:
         f"Đọc {len(cac_tep)} tệp × {len(models)} model · trần ${a.tran} "
         f"· {thu_muc.name}"
     )
-    _, dung = soat_toan_bo.doc_tat_ca(nguon, cac_tep, models, so, thu_muc, a.song_song)
+    completed = 0
+    if a.xuyen_tep:
+        _, dung, completed = soat_toan_bo.doc_xuyen_tep(
+            nguon, cac_tep, models, so, thu_muc, a.chi_lap_goi
+        )
+        if a.chi_lap_goi:
+            print(f"Gói offline: {thu_muc}")
+            return 0
+    else:
+        _, dung = soat_toan_bo.doc_tat_ca(
+            nguon, cac_tep, models, so, thu_muc, a.song_song
+        )
+        completed = len(soat_toan_bo.doc_da_lam(thu_muc / "da-doc.jsonl"))
     if dung:
         print(f"  ⚠ dừng khi đọc: {dung}")
-    ung = soat_toan_bo.doc_lai_tho(thu_muc / "ung-vien-tho.jsonl")
+    ung = soat_toan_bo.doc_lai_tho(
+        thu_muc / ("ung-vien-xuyen-tep.jsonl" if a.xuyen_tep else "ung-vien-tho.jsonl")
+    )
     nhoms, bia = soat_toan_bo.gom(nguon, ung)
     nhoms.sort(
         key=lambda n: -max(x[0].do_chac for x in n)
@@ -123,7 +137,11 @@ def soat(a: argparse.Namespace) -> int:
         f"  {len(ung)} ứng viên → {len(nhoms)} nhóm giữ lại "
         f"· {bia} bị loại (trích dẫn bịa)"
     )
-    kl = soat_toan_bo.bac_bo_tat_ca(nguon, nhoms, a.xac_nhan, so, a.song_song)
+    kl = (
+        doc_xuyen_tep.bac_bo(nguon, nhoms, a.xac_nhan, so)
+        if a.xuyen_tep
+        else soat_toan_bo.bac_bo_tat_ca(nguon, nhoms, a.xac_nhan, so, a.song_song)
+    )
     giu, loai_sai = [], 0
     with (thu_muc / "bi-bac-bo.jsonl").open("w", encoding="utf8") as f:
         for n, k in zip(nhoms, kl, strict=True):
@@ -151,7 +169,8 @@ def soat(a: argparse.Namespace) -> int:
     do = DoPhu(
         "model",
         da_nhin={
-            "tệp đã đọc": len(cac_tep),
+            "tệp đã chọn": len(cac_tep),
+            "lượt tệp-model hoàn tất": completed,
             "model đọc": len(models),
             "ứng viên thô": len(ung),
             "bị loại vì trích dẫn bịa": bia,
@@ -179,6 +198,16 @@ def main(argv: list[str]) -> int:
     t.add_argument("--tran", type=float, default=6.0, help="trần USD cả lượt đo")
     t.add_argument("--song-song", type=int, default=4)
     q = sp.add_parser("soat")
+    q.add_argument(
+        "--xuyen-tep",
+        action="store_true",
+        help="đọc gói liên kết xuyên tệp có giới hạn",
+    )
+    q.add_argument(
+        "--chi-lap-goi",
+        action="store_true",
+        help="chỉ lập manifest offline; cần --xuyen-tep",
+    )
     q.add_argument("--models", required=True, help="model đọc, cách nhau dấu phẩy")
     q.add_argument("--xac-nhan", required=True, help="model bác bỏ (mạnh hơn)")
     q.add_argument("--tran", type=float, default=4.0)
@@ -193,6 +222,8 @@ def main(argv: list[str]) -> int:
     q.add_argument("--thu-muc", help="thư mục đợt cũ để chạy tiếp (bỏ qua tệp đã đọc)")
     q.add_argument("--docker", help="kèm bất biến dữ liệu trong container DB local")
     a = ap.parse_args(argv)
+    if getattr(a, "chi_lap_goi", False) and not a.xuyen_tep:
+        ap.error("--chi-lap-goi cần --xuyen-tep")
     try:
         return {
             "avis-models": avis_models,
