@@ -37,8 +37,13 @@ SHA đã thử trên staging. Staging chỉ chạy một bản — deploy PR l�
 4. `git checkout -B main <sha-đã-soát>` — **không** fetch lại, **không**
    `origin/main` (30/09: phiên khác merge #291 kèm migration chen vào 5 phút
    giữa soát và deploy → prod lên bản chưa soát).
-5. `./scripts/deploy-backend.sh prod` (đòi đứng trên nhánh `main`, không detached).
-6. Kiểm: container api được tạo lại, log api 0 lỗi, `/health/su-kien` ok, 0 sự kiện kẹt.
+5. `DEPLOY_EXPECTED_SHA=<sha-đã-soát> ./scripts/deploy-backend.sh prod` (đứng
+   trên nhánh `main`, không detached). **Bắt buộc có biến này**: thiếu nó script
+   tự `git pull --ff-only` lên `origin/main` → ghim ở bước 4 thành vô nghĩa (01/10
+   và LẶP 29/10: lên `75b68a93` thay `34995a0d` — may cùng cây). Có biến thì
+   HEAD khác SHA là script dừng, và không pull.
+6. Kiểm: dòng `deployment verified at <sha>` **đúng SHA đã soát**; container api
+   được tạo lại, log api 0 lỗi, `/health/su-kien` ok, 0 sự kiện kẹt.
 
 - Khuôn chạy cả chuỗi: `~/Projects/ClinicAI-Backups/ban-giao-2909/deploy_3009_chung.sh`
   (trên Mac, chép lên VPS rồi chạy) — **thay `origin/main` trong đó bằng SHA đã soát**.
@@ -61,7 +66,7 @@ CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh --apply  #
 docker exec clinicai_db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
 
 git checkout -B main <sha-đã-soát>                   # KHÔNG origin/main
-./scripts/deploy-backend.sh prod
+DEPLOY_EXPECTED_SHA=<sha-đã-soát> ./scripts/deploy-backend.sh prod   # thiếu biến = tự pull
 CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod ps
 ```
 
