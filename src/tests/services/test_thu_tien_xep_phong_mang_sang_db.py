@@ -23,6 +23,7 @@ import pytest
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
 from clinicai.permissions import cache
+from clinicai.services import chi_dinh_cu_service
 from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.booking_service import BookingService
 from clinicai.services.cashier_board_service import CashierBoardService
@@ -473,9 +474,22 @@ async def test_quay_thu_ngan_hien_khach_truoc_kham_xong_va_thu_nhieu_lan(
 # ── H2 ──────────────────────────────────────────────────────────────────────
 
 
-async def test_h2_da_tra_chua_lam_mang_sang_luot_moi_khong_thu_lai(
+async def _lui_ngay(pool: asyncpg.Pool, visit_id: str) -> None:  # noqa: F811
+    """Lượt cũ thành lượt HÔM QUA — "hôm nào xong hôm đó" chỉ để bác sĩ quyết
+    chỉ định từ hôm trước (cùng ngày vẫn tự mang sang)."""
+    await pool.execute(
+        "UPDATE visit SET created_at = created_at - interval '1 day',"
+        " checked_in_at = checked_in_at - interval '1 day' WHERE visit_id = $1::uuid",
+        visit_id,
+    )
+
+
+async def test_da_tra_chua_lam_hom_truoc_bac_si_bam_lam_hom_nay_khong_thu_lai(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
+    """Chỉ định đã trả hôm trước: check-in KHÔNG tự kéo sang (29/10/2026); bàn
+    khám thấy "Đã đóng tiền"; [Làm hôm nay] dời sang, quầy không thu lại, không
+    tự xếp phòng; [Trả về] hoàn tác."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
@@ -485,15 +499,24 @@ async def test_h2_da_tra_chua_lam_mang_sang_luot_moi_khong_thu_lai(
     await _thu(pool, cu, ca.thu_ngan)  # người thu không có Điều phối: không tự xếp
     await chay_hanh_trinh(pool)
     await _dong_luot(pool, cu)  # khách về, chưa làm siêu âm
+    await _lui_ngay(pool, cu)
 
     moi = await _check_in(pool, ca, pid, ca.loai_kham)
+    assert (await _don(pool, order))["visit_id"] == cu  # không tự kéo
+    assert await _su_kien(pool, "service_order.carried_over", order) == []
+    async with pool.acquire() as conn:
+        [cd] = await chi_dinh_cu_service.danh_sach(conn, clinic_id=CLINIC, visit_id=moi)
+    assert cd["order_id"] == order and cd["da_dong_tien"] is True
+    assert cd["nhan_tien"] == "Đã đóng tiền"
+
+    await chi_dinh_cu_service.lam_hom_nay(
+        pool, visit_id=moi, order_id=order, identity=ca.bac_si
+    )
     d = await _don(pool, order)
     assert d["visit_id"] == moi and d["mang_tu"] == cu
     [mang] = await _su_kien(pool, "service_order.carried_over", order)
     assert json.loads(mang["payload"])["da_thu_tien"] is True
-    # Đã trả → vào thẳng hàng phòng, thay người check-in (lễ tân).
-    assert d["routing_status"] == "ASSIGNED"
-    assert d["assigned_by"] == ca.le_tan.staff_id
+    assert d["routing_status"] != "ASSIGNED"  # không tự xếp phòng
     async with pool.acquire() as conn:
         hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=moi)
     assert order not in [x.source_id for x in hd.dong]  # không thu lại
@@ -505,25 +528,48 @@ async def test_h2_da_tra_chua_lam_mang_sang_luot_moi_khong_thu_lai(
         is None
     )
 
+    # Hoàn tác: về lại lượt cũ, lại hiện trong "chỉ định cũ".
+    await chi_dinh_cu_service.tra_ve(
+        pool, visit_id=moi, order_id=order, identity=ca.bac_si
+    )
+    d = await _don(pool, order)
+    assert d["visit_id"] == cu and d["mang_tu"] is None
+    async with pool.acquire() as conn:
+        assert [
+            x["order_id"]
+            for x in await chi_dinh_cu_service.danh_sach(
+                conn, clinic_id=CLINIC, visit_id=moi
+            )
+        ] == [order]
+    # Mã rác: rỗng, không ném.
+    async with pool.acquire() as conn:
+        assert (
+            await chi_dinh_cu_service.danh_sach(conn, clinic_id=CLINIC, visit_id="rác")
+            == []
+        )
 
-async def test_h2_lich_thu_thuat_mang_chi_dinh_chua_tra_di_thang_dich_vu(
+
+async def test_lich_thu_thuat_co_chi_dinh_cu_chua_tra_van_vao_bac_si_chinh(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
+    """Ca Lê Thu Trang 28/10: lịch Thủ thuật, còn "Đo mật độ xương" hôm trước
+    chưa thu. Trước: máy kéo sang → đi đường dịch vụ, không hàng chờ nào. Nay:
+    lượt trống, vào hàng bác sĩ chính; bác sĩ thấy "Chưa đóng tiền" và tự quyết."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, cu)
     await _dong_luot(pool, cu)  # hẹn hôm khác làm, chưa trả
+    await _lui_ngay(pool, cu)
 
     moi = await _check_in(pool, ca, pid, ca.loai_thu_thuat)
-    assert (await _don(pool, order))["visit_id"] == moi
+    assert (await _don(pool, order))["visit_id"] == cu
     assert (
         await pool.fetchval(
             "SELECT route_decision FROM encounter_flow WHERE visit_id = $1::uuid", moi
         )
-        == "SERVICES"
+        == "PRIMARY"
     )
-    # Đi thẳng phòng VẪN có chỗ ở bàn khám bác sĩ chính (27/10), không tư vấn.
     assert [
         r["lane"]
         for r in await pool.fetch(
@@ -532,11 +578,21 @@ async def test_h2_lich_thu_thuat_mang_chi_dinh_chua_tra_di_thang_dich_vu(
             moi,
         )
     ] == ["DOCTOR"]
-    # Không có tiền khám: khách không khám, chỉ làm thủ thuật.
+    async with pool.acquire() as conn:
+        [cd] = await chi_dinh_cu_service.danh_sach(conn, clinic_id=CLINIC, visit_id=moi)
+    assert cd["da_dong_tien"] is False and cd["nhan_tien"] == "Chưa đóng tiền"
+
+    # Bác sĩ quyết làm hôm nay → vào hoá đơn hôm nay như chỉ định mới.
+    await chi_dinh_cu_service.lam_hom_nay(
+        pool, visit_id=moi, order_id=order, identity=ca.bac_si
+    )
+    assert (await _don(pool, order))["visit_id"] == moi
     await _chon(pool, ca, moi, [order])
     async with pool.acquire() as conn:
         hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=moi)
-    assert [x.source_id for x in hd.dong] == [order]
+    # Chỉ định cũ có trong hoá đơn hôm nay; phí khám theo loại Thủ thuật như mọi
+    # lượt thủ thuật vào bác sĩ chính (không còn đường "đi thẳng dịch vụ").
+    assert order in [x.source_id for x in hd.dong]
     b = await CashierBoardService(pool).board(identity=ca.le_tan, modes=["dich_vu"])
     assert any(i["visit_id"] == moi for i in b["items"])
 
@@ -551,14 +607,19 @@ async def test_di_thang_phong_lam_xong_khach_ve_ban_kham_bac_si_chinh(
     """Ca Trần Thị Trâm 26/10: lịch Thủ thuật mang chỉ định HPV từ lượt trước,
     làm xong ở phòng thì KHÔNG bàn nào thấy khách. Nay khách có chỗ ở bàn khám
     suốt lượt: phòng đang làm → chỗ bàn khám khoá (khách ở phòng); làm xong →
-    mở ra "chờ khám" (khách ở bàn khám). Không khoá cứng check-out."""
+    mở ra "chờ khám" (khách ở bàn khám). Không khoá cứng check-out.
+    29/10: chỉ định hôm trước do bác sĩ bấm [Làm hôm nay] mới vào lượt."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, cu)
     await _dong_luot(pool, cu)
+    await _lui_ngay(pool, cu)
 
     moi = await _check_in(pool, ca, pid, ca.loai_thu_thuat)
+    await chi_dinh_cu_service.lam_hom_nay(
+        pool, visit_id=moi, order_id=order, identity=ca.bac_si
+    )
     await _chon(pool, ca, moi, [order])
     await _thu(pool, moi, ca.le_tan)
     await chay_hanh_trinh(pool)
@@ -630,11 +691,12 @@ async def test_kham_thuong_khong_mang_chi_dinh_chua_tra(
     assert (await _don(pool, order))["visit_id"] == cu
 
 
-async def test_lich_thu_thuat_hoi_lai_ca_chi_dinh_hom_truoc_khach_khong_lam(
+async def test_chi_dinh_cu_khach_da_bo_khong_hien_chua_quyet_thi_hien(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
-    """Ngoài đời "hẹn hôm khác làm" là một cú bỏ tick ở quầy (NOT_SELECTED).
-    Hôm khách quay lại theo lịch thủ thuật, chỉ định ấy phải hiện lại để hỏi."""
+    """29/10/2026: chỉ định hôm trước KHÔNG tự kéo sang (kể cả lịch thủ thuật).
+    "Chỉ định cũ chưa làm" ở bàn khám hiện cái khách CHƯA quyết; cái khách đã
+    bỏ ở quầy (NOT_SELECTED) là khách đã quyết — không hiện lại."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
@@ -652,19 +714,20 @@ async def test_lich_thu_thuat_hoi_lai_ca_chi_dinh_hom_truoc_khach_khong_lam(
         chua_quyet,
     )
     await _dong_luot(pool, cu)
+    await _lui_ngay(pool, cu)
 
     moi = await _check_in(pool, ca, pid, ca.loai_thu_thuat)
     for o in (bo, chua_quyet):
-        d = await _don(pool, o)
-        assert d["visit_id"] == moi and d["selection_status"] == "PENDING"
-
-    # Chạy lại lệnh: không mang lần hai, không sự kiện thứ hai.
-    async with pool.acquire() as conn, conn.transaction():
-        again = await ChiDinhService.mang_sang_luot_moi(
-            conn, clinic_id=CLINIC, visit_id=moi
+        assert (await _don(pool, o))["visit_id"] == cu
+    async with pool.acquire() as conn:
+        ds = await chi_dinh_cu_service.danh_sach(conn, clinic_id=CLINIC, visit_id=moi)
+    assert [x["order_id"] for x in ds] == [chua_quyet]
+    # Bấm [Làm hôm nay] cái khách đã bỏ: từ chối, không dời.
+    with pytest.raises(ConflictError):
+        await chi_dinh_cu_service.lam_hom_nay(
+            pool, visit_id=moi, order_id=bo, identity=ca.bac_si
         )
-    assert again == []
-    assert len(await _su_kien(pool, "service_order.carried_over", bo)) == 1
+    assert (await _don(pool, bo))["visit_id"] == cu
 
 
 # ── Đợi quay lại ────────────────────────────────────────────────────────────

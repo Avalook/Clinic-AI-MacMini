@@ -3,12 +3,11 @@
 Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi LỆNH của khối Khám
 (không ghi bảng của ai). Dây nối (docs/BAN-DO-DAY-NOI-LEGO.md, "Bản chốt 24/09"):
 
-    H2  visit.checked_in          → mang chỉ định chưa làm của lượt trước sang
-                                    rồi xếp phòng luôn (qua cửa làm như H4;
-                                    lịch đi thẳng phòng: mang cả chỉ định chưa
-                                    trả)
-    H1  visit.checked_in          → xếp đường đi: qua tư vấn / thẳng bác sĩ chính /
-                                    thẳng dịch vụ (lịch đi thẳng phòng)
+    H2  visit.checked_in          → CHỈ lượt CÙNG NGÀY: mang chỉ định chưa làm
+                                    sang rồi xếp phòng (29/10/2026 "hôm nào xong
+                                    hôm đó"); từ hôm trước → bác sĩ bấm [Làm hôm
+                                    nay] ở bàn khám
+    H1  visit.checked_in          → xếp đường đi: qua tư vấn / thẳng bác sĩ chính
         vitals.recorded           → hàng tư vấn: "chờ đo sinh hiệu" → "chờ tư vấn"
                                     (lượt chưa có đường đi thì xếp luôn — tự chữa);
                                     điều dưỡng tick "bỏ qua tư vấn" → thẳng bác sĩ
@@ -86,12 +85,19 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
             su_kien.clinic_id,
             visit_id,
         )
+        # HÔM NÀO XONG HÔM ĐÓ (chốt 29/10/2026): chỉ mang chỉ định của lượt
+        # CÙNG NGÀY (khách khám xong, ra ngoài rồi quay lại làm). Chỉ định từ
+        # HÔM TRƯỚC không tự kéo sang — bàn khám hiện "chỉ định cũ chưa làm" để
+        # bác sĩ bấm [Làm hôm nay] (`chi_dinh_cu_service`). Ca 28/10: kéo "Đo mật
+        # độ xương" 24/10 chưa thu sang lịch thủ thuật → khách không nằm ở hàng
+        # chờ nào.
         mang = (
             await ChiDinhService.mang_sang_luot_moi(
                 conn,
                 clinic_id=su_kien.clinic_id,
                 visit_id=visit_id,
                 causation_id=su_kien.event_id,
+                chi_cung_ngay=True,
             )
             # Lượt vừa bị hoàn tác / khách bỏ về (INCOMPLETE) / đã đóng:
             # không kéo chỉ định cũ sang một lượt không còn ai ở đó.
@@ -105,9 +111,8 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
             causation_id=su_kien.event_id,
         )
         if mang and await _tu_xep_bat(conn, su_kien.clinic_id):
-            # Mang từ lượt trước: vào thẳng hàng phòng, thay người check-in —
-            # lệnh tự bỏ chỉ định không qua cửa làm (khách chưa chốt / tiền đang
-            # hoàn / dây thu trước bật mà chưa thu, lượt chưa tick).
+            # Mang từ lượt CÙNG NGÀY: vào thẳng hàng phòng, thay người check-in —
+            # lệnh tự bỏ chỉ định không qua cửa làm.
             await ServiceRoutingService(pool=None).tu_xep_da_thu(
                 conn,
                 clinic_id=su_kien.clinic_id,
