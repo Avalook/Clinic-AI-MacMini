@@ -30,8 +30,12 @@ export default function TenKhachSdt({
     <div className={`min-w-0 ${className}`}>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <span className={`min-w-0 break-words ${tenClassName}`}>{ten}</span>
+        {/* SĐT đậm trên nền nhạt — mắt bắt ngay khi dò khách (Tuyền 29/10/2026:
+            xám mảnh khó thấy). Cùng tông chip SĐT ở đầu thẻ khách Bàn khám. */}
         {so ? (
-          <span className="whitespace-nowrap text-body font-medium tabular-nums text-ink-muted">{so}</span>
+          <span className="whitespace-nowrap rounded-chip bg-brand-50 px-1.5 text-body font-semibold tabular-nums text-brand-700">
+            {so}
+          </span>
         ) : null}
         {cuoiDong}
       </div>
