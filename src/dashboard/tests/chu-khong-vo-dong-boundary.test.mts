@@ -13,6 +13,16 @@ test("thẻ chỉ định: tên trọn một dòng ở màn hẹp, nút xếp d�
   assert.match(the, /col-start-2 row-start-2 flex flex-col items-stretch gap-1 sm:row-span-2/);
 });
 
+test("Bàn khám: list khách luôn hiện từ 1280px, dưới 1280 nhớ lựa chọn mở/ẩn", () => {
+  const bk = doc("../app/(dashboard)/ban-kham/BanKham.tsx");
+  assert.match(bk, /xl:block xl:w-56 2xl:w-auto \$\{\s*gapHang \? "hidden" : ""/);
+  assert.match(bk, /className="grid items-start gap-4 xl:grid-cols-\[auto_minmax\(0,1fr\)\]/);
+  // Chọn khách khác không tự gập lại list (bản 27/09 setMoHang(false) mỗi lần chọn).
+  const mo = bk.slice(bk.indexOf("const moKhach = useCallback"), bk.indexOf("const moKhach = useCallback") + 200);
+  assert.doesNotMatch(mo, /setMoHang\(false\)/);
+  assert.equal(bk.match(/className="xl:hidden" aria-expanded=\{hangMo\}/g)?.length, 2);
+});
+
 test("cột bước phiếu khám: chip 'mới' nằm dưới tên, không chiếm cột thứ ba", () => {
   const pk = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx");
   assert.doesNotMatch(pk, /grid-cols-\[2rem_minmax\(0,1fr\)_auto\]/);

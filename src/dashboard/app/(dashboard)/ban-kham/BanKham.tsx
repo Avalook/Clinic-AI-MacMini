@@ -432,13 +432,12 @@ export default function BanKham({
   const khungMacDinh: Khung =
     chon?.vong === "REVIEW" && chon.trang_thai !== "done" ? "chi-dinh" : "benh-an";
   const khung = khungChon && khungChon.id === chon?.id ? khungChon.khung : khungMacDinh;
-  // HÀNG CHỜ GẬP khi đang mở phiếu v5 của bác sĩ chính (Tuyền 27/09/2026 — "y hệt
-  // bản giao diện mẫu"): bản mẫu không có cột danh sách, phiếu chiếm trọn chiều
-  // rộng. Dưới 1536px cột ~250px của danh sách bóp phiếu còn ~350px (tên khách vỡ
-  // từng chữ). Mở lại bằng nút "Hàng chờ" ở thanh công việc; chọn khách là gập.
+  // HÀNG CHỜ: từ 1280px LUÔN HIỆN (cột hẹp) — Tuyền 29/10/2026, bản 27/09 gập
+  // dưới 1536px khi mở phiếu nên trên laptop "thỉnh thoảng mất list khách". Dưới
+  // 1280 (xếp chồng) vẫn gập khi mở phiếu; nút "Hàng chờ" mở lại và màn NHỚ lựa
+  // chọn — chọn khách khác không tự gập lại.
   const [moHang, setMoHang] = useState(false);
   const moKhach = useCallback((id: string) => {
-    setMoHang(false);
     setChonId(id);
     // Màn xếp chồng (< 1280): danh sách ở TRÊN vùng làm việc — tự cuộn tới.
     if (window.innerWidth < 1280) {
@@ -609,13 +608,11 @@ export default function BanKham({
           (23/09 khuya). Bật lại đường cũ (PHIEU_V5 = false) thì trả cột thứ ba:
           minmax 320px, 1fr. */}
       <div
-        className={`grid items-start gap-4 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(0,2.9fr)] ${
-          gapHang ? "" : "xl:grid-cols-[auto_minmax(0,1fr)]"
-        }`}
+        className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(0,2.9fr)]"
       >
         <aside
           aria-label="Hàng chờ khám"
-          className={`min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:w-64 2xl:block 2xl:w-auto ${
+          className={`min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:block xl:w-56 2xl:w-auto ${
             gapHang ? "hidden" : ""
           }`}
         >
@@ -1367,7 +1364,7 @@ function HoSo({
         </span>
         <span className="ml-auto flex flex-wrap gap-1">
           {onHangCho ? (
-            <Button size="sm" variant="ghost" aria-expanded={hangMo} onClick={onHangCho}>
+            <Button size="sm" variant="ghost" className="xl:hidden" aria-expanded={hangMo} onClick={onHangCho}>
               ☰ {hangMo ? "Ẩn hàng chờ" : `Hàng chờ (${soCho})`}
             </Button>
           ) : null}
@@ -1424,7 +1421,7 @@ function HoSo({
             </p>
             <div className="mt-1 -ml-3 flex flex-wrap gap-1">
               {onHangCho ? (
-                <Button size="sm" variant="ghost" aria-expanded={hangMo} onClick={onHangCho}>
+                <Button size="sm" variant="ghost" className="xl:hidden" aria-expanded={hangMo} onClick={onHangCho}>
                   ☰ {hangMo ? "Ẩn hàng chờ" : `Hàng chờ (${soCho})`}
                 </Button>
               ) : null}
