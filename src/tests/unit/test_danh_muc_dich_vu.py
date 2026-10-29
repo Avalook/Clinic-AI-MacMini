@@ -30,10 +30,19 @@ def test_nhom_hang_hien_doi_dang_kiotviet_bo_ghi_chu_nhap_lieu() -> None:
 
 
 def test_thu_tu_nhom_theo_file_phong_kham() -> None:
-    ds = ["Thủ thuật", "Zeta", "XN thu hộ", "Siêu âm › Siêu âm thai", "Siêu âm"]
+    ds = [
+        "Thủ thuật",
+        "Zeta",
+        "XN thu hộ",
+        "Siêu âm › Siêu âm thai",
+        "Chẩn đoán hình ảnh",
+        "Siêu âm",
+    ]
     assert sorted(ds, key=thu_tu_nhom_hang) == [
         "Siêu âm",
         "Siêu âm › Siêu âm thai",
+        # Siêu âm tim mạch (28/10/2026) — chọn được ở ô Nhóm hàng khi thêm dịch vụ.
+        "Chẩn đoán hình ảnh",
         "XN thu hộ",
         "Thủ thuật",
         "Zeta",
