@@ -20,6 +20,7 @@ import pytest_asyncio
 from clinicai.core.exceptions import ClinicAIBaseException
 from clinicai.events.catalogue import CONG_NO, DANH_MUC, SO_NO
 from clinicai.modules import MODULE
+from clinicai.services import so_no_service
 from clinicai.services.cong_no_service import CongNoService
 from clinicai.services.hoan_tac_service import HoanTacService
 from clinicai.services.hoan_tien_service import HoanTienService
@@ -276,7 +277,14 @@ async def _chay_dau_ky_het(pool: asyncpg.Pool) -> dict[str, Any]:  # noqa: F811
 
 async def test_dau_ky_cho_luot_cu_roi_doi_chieu_bat_thay_doi_khong_su_kien(
     pool: asyncpg.Pool,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Một vòng đối chiếu chỉ xét DOI_CHIEU_MOI_VONG (300) lượt BẤT KỲ trong số "còn
+    # số dư + về trong 48 giờ" của cả clinic seed. Các tệp chạy trước trong cùng
+    # worker để lại hàng trăm lượt vừa về → lượt của bài rơi ngoài 300 thì vòng đối
+    # chiếu không chạm tới nó. Nới trần để bài kiểm việc bắt thay đổi, không kiểm
+    # may rủi của lô.
+    monkeypatch.setattr(so_no_service, "DOI_CHIEU_MOI_VONG", 1_000_000)
     ca = await _dung(pool)
     v, o = await _luot(pool, ca)
     await _lam_xong(pool, ca, o)
