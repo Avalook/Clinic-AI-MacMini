@@ -651,17 +651,23 @@ class CashierBoardService:
         ngay_xem, start, end = khoang_ngay_xem(ngay)
         la_hom_nay = ngay_xem == hom_nay_vn()
 
-        row = await self._pool.fetchval(
-            _SQL,
-            identity.clinic_id,
-            start,
-            end,
-            la_hom_nay,
-            identity.location_id or None,
-            # Lượt cũ chỉ còn ĐƠN THUỐC chưa mua là việc của quầy thuốc — quầy
-            # dịch vụ kéo chúng vào thì ~290 lượt thừa (staging 29/10).
-            want_rx,
-        )
+        # JIT TẮT cho riêng câu này (29/10/2026): ước lượng chi phí ~4,6 triệu
+        # (vế lượt cũ quét bảng visit) nên Postgres tự biên dịch — EXPLAIN
+        # staging: biên dịch 5,3s, chạy thật 0,3s. Memory 09/10 đã ghi; nay chặn
+        # ở code (SET LOCAL chỉ sống trong giao dịch chỉ đọc này).
+        async with self._pool.acquire() as c, c.transaction(readonly=True):
+            await c.execute("SET LOCAL jit = off")
+            row = await c.fetchval(
+                _SQL,
+                identity.clinic_id,
+                start,
+                end,
+                la_hom_nay,
+                identity.location_id or None,
+                # Lượt cũ chỉ còn ĐƠN THUỐC chưa mua là việc của quầy thuốc —
+                # quầy dịch vụ kéo chúng vào thì ~290 lượt thừa (staging 29/10).
+                want_rx,
+            )
         raw = json.loads(row) if isinstance(row, str) else row
         if len(raw.get("visits") or []) > CU_TRAN_CANH_BAO:
             logger.warning("cashier_board_tap_ung_vien_lon", so_luot=len(raw["visits"]))
@@ -680,7 +686,10 @@ class CashierBoardService:
         # dấu hoá đơn mà thu ngân thấy phải là đúng thứ `PaymentService` sẽ tính
         # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
         # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
-        from clinicai.services.bill_service import tinh_hoa_don
+        from clinicai.services.bill_service import (
+            hoa_don_con_no_lo,
+            hoa_don_thuoc_lo,
+        )
         from clinicai.services.quay_thu_service import PhongQuay
         from clinicai.services.service_routing_service import (
             KHOA_NOI_BO,
@@ -769,6 +778,40 @@ class CashierBoardService:
                 phong = await da_tra_cho_vao_phong(
                     conn, identity.clinic_id, vids_trong_ngay
                 )
+            # HOÁ ĐƠN CỦA CẢ BẢNG theo lô (29/10/2026): trước đây tính từng lượt
+            # (~10 câu SQL mỗi lượt × ~300 lượt = 3.953 câu, 11s, giữ một kết
+            # nối suốt — vài tab quầy là hết pool). Cùng hàm, cùng luật — chỉ đọc
+            # cho cả danh sách một lần.
+            can_dv = [
+                i["visit_id"]
+                for i in out["items"]
+                if want_svc and (i["visit_id"], "dich_vu") not in cho
+            ]
+            can_thuoc = [
+                i["visit_id"]
+                for i in out["items"]
+                if want_rx
+                and (i["visit_id"], "thuoc") not in cho
+                and (i["visit_id"], "thuoc") not in da_thu
+            ]
+            hd_dv = await hoa_don_con_no_lo(
+                conn, clinic_id=identity.clinic_id, visit_ids=can_dv
+            )
+            hd_thuoc = await hoa_don_thuoc_lo(
+                conn, clinic_id=identity.clinic_id, visit_ids=can_thuoc
+            )
+            # Hoá đơn DỰ KIẾN của quầy (chỉ định chờ khách quyết tính như chọn).
+            cho_quyet = {v: ids for v in can_dv if (ids := _cho_quyet(chon.get(v)))}
+            hd_quay = (
+                await hoa_don_con_no_lo(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    visit_ids=list(cho_quyet),
+                    coi_nhu_chon=cho_quyet,
+                )
+                if cho_quyet
+                else {}
+            )
             for item in out["items"]:
                 hd: dict[str, Any] = {}
                 tinh_dv: HoaDon | None = None
@@ -777,12 +820,7 @@ class CashierBoardService:
                         continue
                     if k == "thuoc" and (item["visit_id"], k) in da_thu:
                         continue
-                    tinh = await tinh_hoa_don(
-                        conn,
-                        clinic_id=identity.clinic_id,
-                        visit_id=item["visit_id"],
-                        kind=k,
-                    )
+                    tinh = (hd_dv if k == "dich_vu" else hd_thuoc)[item["visit_id"]]
                     if k == "dich_vu":
                         tinh_dv = tinh
                         no_theo_chi_dinh[item["visit_id"]] = _no_theo_chi_dinh(tinh)
@@ -815,11 +853,8 @@ class CashierBoardService:
                         for x in phong.get(item["visit_id"], [])
                     ]
                     if (item["visit_id"], "dich_vu") not in cho:
-                        item["quay_thu"] = await _quay_thu(
-                            conn,
-                            identity.clinic_id,
-                            item["visit_id"],
-                            tinh_dv,
+                        item["quay_thu"] = _quay_thu(
+                            hd_quay.get(item["visit_id"]) or tinh_dv,
                             chon.get(item["visit_id"]),
                         )
                         # Lượt đang GHI NỢ: màn hiện nhãn, thu ở đây là thu nợ.
@@ -953,30 +988,27 @@ async def _lam_truoc_dich_vu(
     )
 
 
-async def _quay_thu(
-    conn: asyncpg.Connection,
-    clinic_id: str,
-    visit_id: str,
-    tinh_dv: Any,
-    chon: dict[str, Any] | None,
-) -> dict[str, Any]:
-    """Hoá đơn MỘT khách của quầy (27/09/2026): hoá đơn còn nợ DỰ KIẾN — chỉ
-    định còn chờ khách quyết tính như khách làm (mặc định của quầy) — ghép với
-    danh sách chỉ định chờ quyết. Lệnh thu gộp chốt đúng lựa chọn ấy rồi dựng
-    lại hoá đơn thật: cùng dòng, cùng ``revision``."""
-    from clinicai.services.bill_service import hoa_don_con_no
-    from clinicai.services.quay_thu_service import dung_hoa_don_quay
-
-    cho_quyet = [
+def _cho_quyet(chon: dict[str, Any] | None) -> list[str]:
+    """Chỉ định còn chờ khách quyết của một lượt (ô chọn dịch vụ quầy). Thuần."""
+    return [
         c["id"]
         for c in (chon or {}).get("chi_dinh", [])
         if c.get("selection_status") == "PENDING"
     ]
-    if cho_quyet or tinh_dv is None:
-        tinh_dv = await hoa_don_con_no(
-            conn, clinic_id=clinic_id, visit_id=visit_id, coi_nhu_chon=cho_quyet
-        )
-    return dung_hoa_don_quay(tinh_dv.cho_api(), chon)
+
+
+def _quay_thu(tinh: Any, chon: dict[str, Any] | None) -> dict[str, Any]:
+    """Hoá đơn MỘT khách của quầy (27/09/2026): hoá đơn còn nợ DỰ KIẾN — chỉ
+    định còn chờ khách quyết tính như khách làm (mặc định của quầy) — ghép với
+    danh sách chỉ định chờ quyết. Lệnh thu gộp chốt đúng lựa chọn ấy rồi dựng
+    lại hoá đơn thật: cùng dòng, cùng ``revision``.
+
+    ``tinh`` = hoá đơn dự kiến (``hoa_don_con_no_lo`` với ``coi_nhu_chon``) khi
+    còn chỉ định chờ quyết, không thì hoá đơn thật của lượt — bảng tính sẵn theo
+    lô."""
+    from clinicai.services.quay_thu_service import dung_hoa_don_quay
+
+    return dung_hoa_don_quay(tinh.cho_api(), chon)
 
 
 def con_khoan_quay(qt: dict[str, Any], da_chot_0d: Any = False) -> bool:

@@ -247,15 +247,21 @@ async def test_partner_exam_source_is_not_a_service_order_uuid(
     )
     selected = str(uuid.uuid4())
 
-    async def partner_exam(*_args: Any) -> dict[str, Any]:
+    async def partner_exam(
+        _conn: Any, _cid: str, vids: Any
+    ) -> dict[str, dict[str, Any]]:
         return {
-            "ten": "Khám đối tác",
-            "gia": [150_000],
-            "ben_thu": "EXTERNAL_PARTNER",
-            "source_id": f"selected-{selected}",
+            v: {
+                "ten": "Khám đối tác",
+                "gia": [150_000],
+                "ben_thu": "EXTERNAL_PARTNER",
+                "source_id": f"selected-{selected}",
+            }
+            for v in vids
         }
 
-    monkeypatch.setattr(bill_service, "_kham", partner_exam)
+    # Hoá đơn còn nợ đọc tiền khám theo LÔ (`_kham_lo`, 29/10/2026).
+    monkeypatch.setattr(bill_service, "_kham_lo", partner_exam)
     async with pool.acquire() as conn:
         hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=q.visit_id)
     assert hd.tong == 0
