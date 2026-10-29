@@ -139,7 +139,8 @@ function DauPhieuIn({ dl, p }: { dl: DuLieuIn; p: Phieu | null }) {
     <>
       <DauTrangIn
         phongKham={dl.phong_kham.ten}
-        trai={[dl.phong_kham.co_so, dl.phong_kham.dia_chi]}
+        coSo={dl.phong_kham.co_so}
+        diaChi={dl.phong_kham.dia_chi}
         tieuDe="Phiếu kết quả"
         phai={[
           dl.ma_dich_vu ? `Mã dịch vụ ${dl.ma_dich_vu}` : null,
