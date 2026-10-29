@@ -27,7 +27,9 @@ export type LenhHoanTac =
   /** id = LƯỢT (+ room_id, chi_dinh_ids): hoàn tác Nhận — các chỉ định vừa nhận về "Sắp đến". */
   | "hoan-tac-nhan"
   /** id = CHỈ ĐỊNH (+ visit_id): trả chỉ định cũ vừa [Làm hôm nay] về lượt cũ. */
-  | "tra-ve-luot-cu";
+  | "tra-ve-luot-cu"
+  /** id = LƯỢT: trả khách vừa nhận của bác sĩ khác về bác sĩ trên lịch hẹn. */
+  | "tra-khach-ve-lich";
 
 export function lenhHoanTac(
   lenh: LenhHoanTac,

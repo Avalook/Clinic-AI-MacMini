@@ -23,6 +23,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services import chi_dinh_cu_service
 from clinicai.services.chi_dinh_service import ChiDinhService
+from clinicai.services.doi_bac_si_service import DoiBacSiService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.nhan_tai_phong import NhanTaiPhongService
@@ -974,6 +975,30 @@ class NhanTaiPhongBody(BaseModel):
     #: gửi = các chỉ định máy chủ tick sẵn (Nhận) / mọi chỉ định đang chờ ở
     #: phòng (hoàn tác Nhận).
     chi_dinh_ids: list[Any] | None = None
+
+
+# Bác sĩ khác NHẬN khách / TRẢ LẠI (29/10/2026) — id là LƯỢT KHÁM. Quyền, khoá
+# lượt, "ai nhận trước giữ" ở DoiBacSiService.
+@router.post("/luot-kham/visits/{visit_id}/nhan-khach")
+async def nhan_khach_bac_si_khac(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await DoiBacSiService(pool).nhan_khach(
+        identity=identity, visit_id=str(visit_id)
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/tra-khach-ve-lich")
+async def tra_khach_ve_bac_si_lich(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await DoiBacSiService(pool).tra_lai(
+        identity=identity, visit_id=str(visit_id)
+    )
 
 
 # Nhận khách tại phòng (dây `nhan_tai_phong`, 07/10/2026) — id là LƯỢT KHÁM.

@@ -17,10 +17,11 @@ from typing import Any
 import asyncpg
 import structlog
 
-from clinicai.api.exceptions import NotFoundError, ValidationError
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
 
@@ -219,3 +220,153 @@ class DoiBacSiService:
             )
         logger.info("visit_doctor_reassigned", visit_id=visit_id, by=identity.staff_id)
         return {"ok": True, "visit_id": visit_id, "bac_si_moi_id": bac_si_moi_id}
+
+    # ── Bác sĩ khác NHẬN khách (chốt 29/10/2026) ────────────────────────────
+    # Lịch BS A quá tải, BS B khám: B thấy khách ở "Khách của bác sĩ khác" và bấm
+    # Nhận — không cần trưởng ca, không lý do (B tự nhận khách chưa ai khám).
+    # KHÁC `doi`: GIỮ lịch hẹn (appointment.doctor_id) để hồ sơ ghi "Lịch BS A ·
+    # Khám BS B"; chỉ đổi người khám của lượt. Ai nhận trước giữ: phiên phải còn
+    # "chờ" (chưa ai bắt đầu), khoá dòng lượt. [Trả lại] là hoàn tác.
+
+    async def _bac_si_nhan(
+        self, conn: asyncpg.Connection, identity: StaffIdentity
+    ) -> str:
+        """Nhận cho ai: chính người bấm nếu là bác sĩ (Khám bệnh + Hoàn tất
+        khám); thư ký đã phân theo ĐÚNG MỘT bác sĩ → bác sĩ ấy."""
+        if await conn.fetchval(
+            "SELECT count(DISTINCT capability) = 2 FROM v_quyen_hieu_luc"
+            " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
+            "   AND capability IN ('clinical.consult.perform',"
+            "                      'clinical.consult.finalize')",
+            identity.clinic_id,
+            identity.staff_id,
+        ):
+            return identity.staff_id
+        ds = await bac_si_cua_thu_ky(conn, identity)
+        if ds is not None and len(ds) == 1:
+            return ds[0]
+        raise ValidationError(
+            "Chưa biết nhận khách cho bác sĩ nào — bác sĩ bấm Nhận, hoặc trưởng ca"
+            " chuyển ở Điều phối."
+        )
+
+    async def _khoa_luot_cho(
+        self, conn: asyncpg.Connection, cid: str, visit_id: str
+    ) -> asyncpg.Record:
+        """Khoá lượt; phiên khám chính phải còn CHỜ (chưa ai bắt đầu)."""
+        r = await conn.fetchrow(
+            """
+            SELECT v.status, v.attending_doctor_id::text AS bac_si,
+                   a.doctor_id::text AS lich, c.status AS phien
+              FROM visit v
+              LEFT JOIN appointment a
+                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+              LEFT JOIN consultation c
+                ON c.visit_id = v.visit_id AND c.clinic_id = v.clinic_id
+               AND c.kind = 'PRIMARY' AND c.status <> 'cancelled'
+             WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+               FOR UPDATE OF v
+            """,
+            cid,
+            visit_id,
+        )
+        if r is None:
+            raise NotFoundError("Không tìm thấy lượt khám này.")
+        if r["status"] not in _LUOT_CON_MO:
+            raise ValidationError("Lượt khám đã đóng — không đổi bác sĩ được.")
+        if r["phien"] != "queued":
+            raise ConflictError("Bác sĩ khác đã bắt đầu khám khách này — tải lại.")
+        return r
+
+    async def _doi_nguoi_kham(
+        self,
+        conn: asyncpg.Connection,
+        cid: str,
+        visit_id: str,
+        bac_si_id: str,
+    ) -> None:
+        await conn.execute(
+            "UPDATE visit SET attending_doctor_id = $3::uuid, updated_at = now()"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+            cid,
+            visit_id,
+            bac_si_id,
+        )
+        await conn.execute(
+            "UPDATE consultation SET doctor_staff_id = $3::uuid,"
+            "       version = version + 1, updated_at = now()"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            "   AND kind = 'PRIMARY' AND status = 'queued'",
+            cid,
+            visit_id,
+            bac_si_id,
+        )
+        await conn.execute(
+            "UPDATE queue_entry SET doctor_staff_id = $3::uuid,"
+            "       version = version + 1, updated_at = now()"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND lane = 'DOCTOR'"
+            "   AND status IN ('blocked', 'waiting', 'called')",
+            cid,
+            visit_id,
+            bac_si_id,
+        )
+
+    async def nhan_khach(
+        self, *, identity: StaffIdentity, visit_id: str
+    ) -> dict[str, Any]:
+        """[Nhận] — khách của bác sĩ khác (chưa ai khám) thành khách của mình."""
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.perform",
+                cau="Bạn không có quyền khám bệnh nên không nhận khách được.",
+            )
+            moi = await self._bac_si_nhan(conn, identity)
+            r = await self._khoa_luot_cho(conn, cid, visit_id)
+            if r["bac_si"] == moi:
+                return {"ok": True, "visit_id": visit_id, "da_la_cua_ban": True}
+            await self._doi_nguoi_kham(conn, cid, visit_id, moi)
+            await record_event(
+                conn,
+                event_type="visit.doctor_taken",
+                aggregate_type="visit",
+                aggregate_id=visit_id,
+                identity=identity,
+                origin="ban_kham",
+                payload={
+                    "tu_bac_si_id": r["bac_si"],
+                    "sang_bac_si_id": moi,
+                    "lich_bac_si_id": r["lich"],
+                },
+            )
+        return {"ok": True, "visit_id": visit_id, "bac_si_moi_id": moi}
+
+    async def tra_lai(
+        self, *, identity: StaffIdentity, visit_id: str
+    ) -> dict[str, Any]:
+        """[Trả lại] — hoàn tác Nhận: khách về bác sĩ trên lịch hẹn, khi chưa
+        ai bắt đầu khám."""
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.perform",
+                cau="Bạn không có quyền khám bệnh nên không trả khách được.",
+            )
+            r = await self._khoa_luot_cho(conn, cid, visit_id)
+            if r["lich"] is None or r["lich"] == r["bac_si"]:
+                raise ValidationError("Khách đang ở đúng bác sĩ trên lịch hẹn.")
+            await self._doi_nguoi_kham(conn, cid, visit_id, r["lich"])
+            await record_event(
+                conn,
+                event_type="visit.doctor_returned",
+                aggregate_type="visit",
+                aggregate_id=visit_id,
+                identity=identity,
+                origin="ban_kham",
+                payload={"tu_bac_si_id": r["bac_si"], "ve_bac_si_id": r["lich"]},
+            )
+        return {"ok": True, "visit_id": visit_id, "bac_si_moi_id": r["lich"]}

@@ -116,6 +116,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // thân { visit_id } = lượt hôm nay. [Trả về] là hoàn tác của [Làm hôm nay].
   "lam-hom-nay": (id) => `/api/v1/luot-kham/orders/${id}/lam-hom-nay`,
   "tra-ve-luot-cu": (id) => `/api/v1/luot-kham/orders/${id}/tra-ve-luot-cu`,
+  // BÁC SĨ KHÁC NHẬN KHÁCH (29/10/2026) — id là LƯỢT KHÁM. [Trả lại] là hoàn tác.
+  "nhan-khach": (id) => `/api/v1/luot-kham/visits/${id}/nhan-khach`,
+  "tra-khach-ve-lich": (id) => `/api/v1/luot-kham/visits/${id}/tra-khach-ve-lich`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
