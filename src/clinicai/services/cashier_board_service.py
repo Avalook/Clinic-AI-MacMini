@@ -747,7 +747,9 @@ class CashierBoardService:
             no_mo = await doc_no_dang_mo(conn, identity.clinic_id, vids)
             if want_svc:
                 chon = await cho_khach_quyet(conn, identity.clinic_id, vids)
-                # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
+            if want_svc and not await pq.nhan_tai_phong():
+                # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09) —
+                # chỉ khi dây Nhận tại phòng TẮT (bật: phòng tự Nhận ở Sắp đến).
                 # CHỈ lượt của chính ngày đang xem ("hôm nào xong hôm đó",
                 # 29/10/2026): chỉ định ngày cũ chưa làm nằm ở khung "chỉ định
                 # cũ" bàn khám ([Làm hôm nay]) — ở quầy chúng là 78 dòng "chờ vào

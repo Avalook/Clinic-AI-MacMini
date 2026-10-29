@@ -14,6 +14,7 @@ import uuid
 import asyncpg
 import pytest
 
+from clinicai.services import nhan_tai_phong as ntp
 from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.service_routing_service import (
     ServiceRoutingService,
@@ -26,6 +27,7 @@ from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     pool,
 )
 from tests.services.test_ngay_kham_lo_hong_db import _co_so_khac
+from tests.services.test_nhan_tai_phong_db import _dat_day, _tra_day
 from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
     _benh_nhan,
     _check_in,
@@ -176,3 +178,42 @@ async def test_luot_ngay_cu_khong_hien_cho_vao_phong_o_quay(
         visit,
     )
     assert not await xep_phong(), "ngày cũ: không còn ô xếp phòng ở quầy"
+
+
+async def test_day_nhan_tai_phong_bat_quay_khong_con_o_chon_phong(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 29/10/2026: "khách tự đến, tự hiện ở Sắp đến tất cả các phòng rồi
+    mà sao lại cho cái chọn phòng ra đây" — dây Nhận tại phòng BẬT thì quầy thu
+    không còn ô chọn / hướng dẫn phòng (trước và sau khi thu); phòng vẫn thấy
+    khách ở Sắp đến và tự Nhận."""
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    svc = CashierBoardService(pool)
+
+    async def dong() -> dict[str, object]:
+        b = await svc.board(identity=ca.le_tan, modes=["dich_vu"])
+        [i] = [i for i in b["items"] if i["visit_id"] == visit]
+        return i
+
+    truoc = await dong()
+    assert any(
+        c.get("phong_chon_duoc") for c in (truoc["chon_dich_vu"] or {})["chi_dinh"]
+    ), "dây TẮT: quầy còn ô chọn phòng"
+    cu = await _dat_day(pool, "nhan_tai_phong", True)
+    try:
+        moi = await dong()
+        assert not any(
+            c.get("phong_chon_duoc") for c in (moi["chon_dich_vu"] or {})["chi_dinh"]
+        ), "trước thu: hết ô hướng dẫn phòng"
+        await _chon(pool, ca, visit, [order])
+        await _thu(pool, visit, ca.le_tan)
+        await chay_hanh_trinh(pool)
+        assert (await _don(pool, order))["routing_status"] == "UNASSIGNED"
+        assert not (await dong())["xep_phong"], "sau thu: hết khối chờ vào phòng"
+        async with pool.acquire() as conn:
+            ds = await ntp.sap_den(conn, CLINIC, ca.phong)
+        assert visit in {k["visit_id"] for k in ds}, "phòng vẫn thấy ở Sắp đến"
+    finally:
+        await _tra_day(pool, "nhan_tai_phong", cu)

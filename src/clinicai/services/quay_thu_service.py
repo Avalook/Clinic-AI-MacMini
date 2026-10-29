@@ -92,14 +92,30 @@ class PhongQuay:
         self._conn = conn
         self._clinic_id = clinic_id
         self._ten: dict[str, str] | None = None
+        self._tai_phong: bool | None = None
         self._nho: dict[
             tuple[str, str | None, str | None, str], list[dict[str, Any]]
         ] = {}
 
+    async def nhan_tai_phong(self) -> bool:
+        """Dây Nhận tại phòng BẬT → quầy KHÔNG có ô chọn / hướng dẫn phòng.
+
+        Tuyền 29/10/2026: "khách tự đến, tự hiện ở Sắp đến tất cả các phòng
+        rồi" — phòng bấm Nhận; chọn phòng ở quầy chỉ là nhãn hướng dẫn, thừa,
+        và mỗi ô tốn một lần dò phòng mỗi lần tải bảng. Dây TẮT (quầy phải xếp
+        phòng) thì giữ nguyên ô."""
+        if self._tai_phong is None:
+            from clinicai.services.service_routing_service import DAY_NHAN_TAI_PHONG
+
+            self._tai_phong = bool(
+                await doc_day(self._conn, self._clinic_id, DAY_NHAN_TAI_PHONG)
+            )
+        return self._tai_phong
+
     async def cua(
         self, node: str | None, visit_id: str, service_code: str | None = None
     ) -> list[dict[str, Any]]:
-        if not node:
+        if not node or await self.nhan_tai_phong():
             return []
         from clinicai.services.lan_bac_si import can_chon_bac_si, lua_chon_bac_si
         from clinicai.services.service_routing_service import (
@@ -1395,8 +1411,12 @@ class QuayThuService:
         hoan = await hoan_cua_cac_lan_thu(
             conn, identity, [p["id"] for g in khach for p in g["phieu"]]
         )
-        phong = await da_tra_cho_vao_phong(conn, cid, vids) if la_dv else {}
         pq = PhongQuay(conn, cid)
+        phong = (
+            await da_tra_cho_vao_phong(conn, cid, vids)
+            if la_dv and not await pq.nhan_tai_phong()
+            else {}
+        )
         for g in khach:
             g["doi_tac"] = dt.get(g["visit_id"], [])
             xep = {x["id"]: x for x in phong.get(g["visit_id"], [])}
