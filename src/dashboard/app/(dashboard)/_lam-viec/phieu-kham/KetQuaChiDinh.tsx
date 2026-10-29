@@ -311,16 +311,20 @@ export default function KetQuaChiDinh({
     const thanDieuTri = dieuTri?.than(d) ?? null;
     return (
       <li key={d.service_order_id} className="rounded-card border border-hairline bg-surface">
-        {/* Màn hẹp: nút xuống dưới tên — cạnh nhau thì ba nút chiếm nửa thẻ,
-            tên dịch vụ bẻ từng chữ một (bấm staging 375, 29/10/2026). */}
-        <div className="grid items-center gap-2 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="min-w-0">
+        {/* Màn hẹp (Tuyền 29/10/2026, bấm staging 375): tên dịch vụ trọn MỘT
+            dòng trên cùng; dưới là chip/giá bên trái, nút xếp dọc mỗi nút một
+            dòng bên phải — cạnh tên thì nút chiếm nửa thẻ, tên bẻ từng chữ.
+            Màn rộng: tên + chip bên trái, hàng nút bên phải như cũ. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1.5 px-3 py-2.5 sm:items-center">
+          <div className="col-span-2 min-w-0 sm:col-span-1">
             <span className="font-semibold text-ink">{d.ten_hien_thi}</span>{" "}
             {d.ma_kiotviet ? <span className="text-meta text-ink-muted">{d.ma_kiotviet}</span> : null}
             {giay && giay !== d.ten_hien_thi ? (
               <div className="text-meta text-ink-muted">Trên phiếu giấy: {giay}</div>
             ) : null}
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          </div>
+          <div className="col-start-1 row-start-2 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
               {chipDieuTri ?? <Chip tone={tt.tone}>{tt.nhan}</Chip>}
               {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
               {mau ? <Chip tone={mau.tone}>{mau.nhan}</Chip> : null}
@@ -350,11 +354,12 @@ export default function KetQuaChiDinh({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-1 sm:justify-end">
+          <div className="col-start-2 row-start-2 flex flex-col items-stretch gap-1 sm:row-span-2 sm:row-start-1 sm:flex-row sm:flex-wrap sm:justify-end">
             {onBoChiDinh && !chiXem ? (
               <NutHoanTac
                 nhan="Hoàn tác chỉ định"
                 variant="danger"
+                className="max-sm:items-stretch"
                 tieuDe={`Bỏ chỉ định “${d.ten_hien_thi}”?`}
                 moTa="Bỏ chỉ định này (chỉ định sai chỗ) — quầy thu cập nhật ngay"
                 goi={onBoChiDinh(d.service_order_id)}

@@ -507,7 +507,7 @@ export default function PhieuKham({
   const mucGoDau = mucKhoi.find((m) => m.lien_ket?.loai !== "mang_sang" && m.block.length > 0)?.ma;
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12.5rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_14rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
       {/* CỘT PHẢI — bốn nút khối + In + Hoàn tất, dính khi cuộn (bản mẫu `ray`).
           Màn hẹp: thanh cuộn ngang dính dưới thanh đầu trang; dòng trạng thái
           lưu nằm NGAY DƯỚI thanh ấy (cùng khối dính) — 375 vẫn thấy (đợt 3). */}
@@ -523,7 +523,7 @@ export default function PhieuKham({
                   type="button"
                   aria-pressed={dang}
                   onClick={() => setKhoi(k.so)}
-                  className={`grid min-h-12 shrink-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-control p-2 text-left ring-1 ring-inset lg:min-h-14 lg:w-full ${
+                  className={`grid min-h-12 shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-2 rounded-control p-2 text-left ring-1 ring-inset lg:min-h-14 lg:w-full ${
                     dang ? "bg-surface-selected ring-brand-100" : "bg-surface ring-line hover:bg-surface-sunken"
                   }`}
                 >
@@ -539,8 +539,14 @@ export default function PhieuKham({
                       {k.ten}
                     </b>
                     <small className="block whitespace-pre-line text-meta text-ink-muted">{tomTat[k.so]}</small>
+                    {/* Chip "mới" nằm DƯỚI tên, không thành cột thứ ba — cột bước
+                        chỉ ~200px, thêm cột chip là tên khối vỡ 3 dòng (29/10). */}
+                    {moi > 0 ? (
+                      <span className="mt-0.5 block">
+                        <Chip tone="success">{moi} mới</Chip>
+                      </span>
+                    ) : null}
                   </span>
-                  {moi > 0 ? <Chip tone="success">{moi} mới</Chip> : <span />}
                 </button>
               );
             })}
