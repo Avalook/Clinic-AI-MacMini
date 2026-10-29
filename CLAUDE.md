@@ -151,6 +151,18 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
   Sửa xong thì làm thêm ít nhất một bước (Read lại file) trước khi báo xong; có lỗi
   thì sửa trước khi đi tiếp. Tìm định nghĩa/chỗ gọi bằng tool `LSP` thay vì grep chữ.
   Cấu hình pyright: `pyrightconfig.json` (nhìn thư viện không kiểu giống mypy).
+- **Đọc code thật trước khi khẳng định nó làm gì** — không trả lời theo trí nhớ hay
+  memory cũ. Chọn công cụ (29/10/2026):
+  - định nghĩa / chỗ gọi / đổi tên / sửa thân hàm: **Serena** (`find_symbol`,
+    `find_referencing_symbols`, `rename_symbol`) hoặc `LSP`;
+  - hỏi theo hành vi, chưa biết file: `jg "<câu hỏi tiếng Anh>" src` (chỉ khi
+    `jg doctor` ổn; root **luôn là `src`** hoặc `supabase/migrations`, không bao giờ gốc
+    repo — `scratch/`, `tmp/`, `docs/`, `reports/` có thể chứa dữ liệu thật và `jg` gửi
+    nội dung lên provider); chuỗi / tên file: grep;
+  - API thư viện (FastAPI, Supabase, Next.js…): **context7**, không đoán theo trí nhớ;
+  - lỗi giao diện / console / network: chrome-devtools hoặc playwright, chỉ local/staging;
+  - đọc log dài, nhiều file: subagent (`tim-cho-sua`), chỉ mang kết luận về.
+  Công cụ lỗi (MCP rớt, `jg` chưa có key) thì nói rõ rồi dùng cái kế tiếp, không lách im.
 - **Hook sau khi sửa** (`.claude/hooks/kiem-sau-sua.sh`): chạy đúng bản ruff của CI
   trên file `.py` vừa sửa; báo lỗi thì sửa ngay.
 - **Comment:** giữ comment nói *vì sao* / *bẫy đã cắn*; comment chỉ kể *đổi lúc nào*

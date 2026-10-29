@@ -1,7 +1,7 @@
 ---
 name: tim-cho-sua
 description: Tìm ĐÚNG chỗ phải sửa trong ClinicAI cho một yêu cầu (màn, mọi lối vào, file + hàm + dòng, service, test, migration, sự kiện) bằng bản đồ của repo, rồi trả danh sách điểm sửa ngắn. Dùng trước khi sửa bất kỳ việc code nào chạm nhiều tầng (giao diện ↔ API ↔ service ↔ DB), hoặc khi xoá/đổi một logic và cần biết mọi màn bị ảnh hưởng. Chỉ đọc, không sửa.
-tools: Read, Grep, Glob, Bash, LSP
+tools: Read, Grep, Glob, Bash, LSP, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview
 model: sonnet
 ---
 
@@ -16,9 +16,11 @@ Thứ tự tra (dừng sớm khi đã đủ chắc):
    Ô ghi `?` = máy không suy được — mở file mà xem, đừng coi là "không có".
 3. `docs/SITEMAP.md` mục B — mọi lối vào của cùng chức năng; màn GỘP / ĐÃ CHUYỂN
    HƯỚNG thì chỉ ra màn chuẩn.
-4. Xuống tới hàm: dùng tool `LSP` (go to definition / find references) nếu có,
-   không thì grep theo tên hàm/component/endpoint (không grep theo tên màn). Đọc
-   đúng khoảng dòng cần, không đọc cả file lớn.
+4. Xuống tới hàm: Serena (`find_symbol`, `find_referencing_symbols`) hoặc tool `LSP`
+   (go to definition / find references), không thì grep theo tên hàm/component/endpoint
+   (không grep theo tên màn). Bản đồ không có mục mà chỉ biết hành vi: thử
+   `jg "<câu hỏi tiếng Anh>" src` nếu `jg doctor` ổn (root luôn là `src`). Đọc đúng
+   khoảng dòng cần, không đọc cả file lớn.
 
 Lưu ý repo:
 - Consumer sự kiện đăng ký bằng tên chuỗi trong `src/clinicai/events/catalogue.py`.
