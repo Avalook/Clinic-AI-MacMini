@@ -490,7 +490,7 @@ export default function PhieuKhamLuot({
           return r;
         }
       : undefined,
-    // Chỉ định mang sang từ lượt cũ: [Trả về lượt cũ] thay cho huỷ (29/10/2026).
+    // Chỉ định mang sang từ lượt cũ: [Để lần sau] thay cho huỷ (29/10/2026).
     onTraVeLuotCu: choGhi
       ? (id) => async (duLieu) => {
           const r = await lenhHoanTac("tra-ve-luot-cu", id, { visit_id: visitId })(duLieu);
