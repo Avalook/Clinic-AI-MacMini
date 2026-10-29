@@ -502,7 +502,8 @@ export default function PhieuKhamLuot({
   const theDieuTri = <KhoiDieuTri visitId={visitId} choGhi={choGhi} chiDinh={dsDieuTri} ketQua={propsKetQua} goiYTrong={giaoDienBanKham ? null : undefined} />;
   // Phần riêng khối 1: lượt Điều trị = thẻ điều trị (phiếu cảm nhận, liệu trình,
   // làm tại bàn khám); lượt Thủ thuật = "＋ Thủ thuật đã làm" + thẻ đã chọn. Ô
-  // "Làm trước – thu sau" ở đầu thẻ, chỉ khi máy chủ mời (`oTick`).
+  // "Làm trước – thu sau" ở cột phải như mọi lượt (Tuyền 29/10/2026: ô ở khối 1
+  // chỉ hiện khi máy chủ mời nên lượt Thủ thuật gần như không thấy ô).
   const oKhoi1 =
     khoi1 && !chiMuc ? (
       <div className="space-y-3">
@@ -523,7 +524,6 @@ export default function PhieuKhamLuot({
           choGhi={choGhi}
           chiDinh={dsBanKham}
           ketQua={propsKetQua}
-          oTick
           goiYTrong={giaoDienBanKham || khoi1 === "THU_THUAT" ? null : undefined}
         />
       </div>
@@ -722,9 +722,7 @@ export default function PhieuKhamLuot({
               ẩn khi dây tắt; cờ bấm được do máy chủ trả. Màn hẹp: cột phải là
               thanh cuộn ngang — khoá bề rộng để chữ xuống dòng (bấm thật 375
               ngày 30/09: câu dài kéo ô ra ~1000px, nút In trôi khỏi màn). */}
-          {/* Lượt Điều trị / Thủ thuật: ô ở khối 1, chỉ khi máy chủ mời — không
-              vẽ hai lần (09/10/2026). */}
-          {choGhi && !khoi1 ? (
+          {choGhi ? (
             <div className="w-72 shrink-0 lg:w-full">
               <OLamTruocThuSau visitId={visitId} />
             </div>

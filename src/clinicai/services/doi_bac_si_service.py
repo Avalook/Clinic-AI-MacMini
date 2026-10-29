@@ -219,7 +219,14 @@ class DoiBacSiService:
                 },
             )
         logger.info("visit_doctor_reassigned", visit_id=visit_id, by=identity.staff_id)
-        return {"ok": True, "visit_id": visit_id, "bac_si_moi_id": bac_si_moi_id}
+        # `bac_si_cu_id`: màn Điều phối ca dùng cho [Hoàn tác] (chuyển ngược lại
+        # bằng chính lệnh này) — mọi thao tác phải hoàn tác được.
+        return {
+            "ok": True,
+            "visit_id": visit_id,
+            "bac_si_moi_id": bac_si_moi_id,
+            "bac_si_cu_id": visit["bac_si_cu"],
+        }
 
     # ── Bác sĩ khác NHẬN khách (chốt 29/10/2026) ────────────────────────────
     # Lịch BS A quá tải, BS B khám: B thấy khách ở "Khách của bác sĩ khác" và bấm

@@ -20,12 +20,14 @@ test("PhieuKetQua đọc ma_loi và vẽ CHUA_THU_TIEN thành lời nhắc", () 
   assert.match(src, /<BaoLoiCanhNut muc=\{nhacNut \? "nhac" : "loi"\}>/);
 });
 
-test("câu nhắc chưa thu tiền kèm ngay ô Làm trước – thu sau (khối 2 Bàn khám)", () => {
-  // Nhắc "bấm Làm trước – thu sau" mà không có nút ở đó (Tuyền 29/10/2026).
-  const src = doc("../app/(dashboard)/_lam-viec/PhieuKetQua.tsx");
-  assert.match(src, /\{nhacNut && luotId \? \(\s*<OLamTruocThuSau\s+visitId=\{luotId\}/);
-  const the = doc("../app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx");
-  assert.match(the, /luotId=\{dauDoLuot\}/);
+test("câu nhắc bảo bấm Làm trước – thu sau thì ô ấy phải có sẵn ở cột phải, MỌI lượt", () => {
+  // Lượt Thủ thuật / Điều trị từng ẩn ô cột phải, ô khối 1 chỉ hiện khi máy chủ
+  // mời → nhắc bấm mà không thấy nút đâu (Tuyền 29/10/2026).
+  const luot = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx");
+  assert.match(luot, /\{choGhi \? \(\s*<div className="w-72 shrink-0 lg:w-full">\s*<OLamTruocThuSau visitId=\{visitId\} \/>/);
+  assert.doesNotMatch(luot, /choGhi && !khoi1 \?/);
+  const khoi = doc("../app/(dashboard)/_lam-viec/phieu-kham/KhoiDieuTri.tsx");
+  assert.doesNotMatch(khoi, /OTickTaiCho/, "không vẽ ô thứ hai ở khối 1");
 });
 
 test("máy chủ dùng mã CHUA_THU_TIEN cho câu nhắc thu tiền", () => {

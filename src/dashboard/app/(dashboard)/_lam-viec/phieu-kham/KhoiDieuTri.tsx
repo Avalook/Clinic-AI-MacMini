@@ -31,7 +31,6 @@ import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
 import type { ChiDinhVaKetQua } from "@/lib/phieu-kham";
 import { MAU_PHIEU_DIEU_TRI } from "@/lib/phieu-ket-qua";
 import { useNgheBang } from "../../dung-nghe-bang";
-import { OTickTaiCho } from "../OLamTruocThuSau";
 import PhieuDieuTri, { type BanDieuTri } from "../PhieuDieuTri";
 import PhieuKetQua, { type MauKetQua } from "../PhieuKetQua";
 import KetQuaChiDinh, { type PhanKetQua } from "./KetQuaChiDinh";
@@ -82,7 +81,6 @@ export default function KhoiDieuTri({
   choGhi,
   chiDinh,
   ketQua,
-  oTick = false,
   goiYTrong = "Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới.",
 }: {
   visitId: string;
@@ -92,15 +90,11 @@ export default function KhoiDieuTri({
   chiDinh: ChiDinhVaKetQua[];
   /** Thuộc tính khung thẻ chỉ định (Hoàn tác, bắt buộc, tệp…) — shell dựng. */
   ketQua: PhanKetQua;
-  /** Khối 1 (09/10/2026): ô "Làm trước – thu sau" ĐẦU khối, chỉ khi máy chủ mời
-   *  (`nhac_tick` — chưa thu + chưa tick). Lượt khám thường: ô ở cột phải. */
-  oTick?: boolean;
   /** Câu khi chưa có thẻ nào (null = không vẽ). */
   goiYTrong?: string | null;
 }) {
   const [the, setThe] = useState<TheDieuTri[] | null>(null);
   const [chiDoc, setChiDoc] = useState(false);
-  const [nhacTick, setNhacTick] = useState(false);
   const [dang, setDang] = useState<string | null>(null);
   const [loi, setLoi] = useState<Record<string, string>>({});
 
@@ -113,7 +107,6 @@ export default function KhoiDieuTri({
   const dat = useCallback((d: GoiThe) => {
     setThe(d.the);
     setChiDoc(Boolean(d.chi_doc));
-    setNhacTick(Boolean(d.nhac_tick));
   }, []);
   const nap = useCallback(() => {
     void doc().then((d) => {
@@ -298,7 +291,6 @@ export default function KhoiDieuTri({
   return (
     <section aria-label="Chỉ định điều trị đã kê" className="space-y-2">
       {/* Câu "chưa thu" của thẻ đi kèm ô tick NGAY ĐÂY — tick xong bấm làm. */}
-      {oTick && choGhi && !chiDoc ? <OTickTaiCho visitId={visitId} moi={nhacTick} onDoi={nap} /> : null}
       <KetQuaChiDinh ds={chiDinh} {...ketQua} dieuTri={{ chip, than }} />
       {phanLT}
     </section>

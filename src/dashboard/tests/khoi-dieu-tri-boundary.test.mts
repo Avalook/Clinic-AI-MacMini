@@ -188,11 +188,9 @@ test("khối 1: oKhoi1 đầu khối 1, thẻ điều trị không vẽ hai lầ
   assert.ok(tg.indexOf("{theDieuTri}") < tg.indexOf("<GhiChuLuot"), "thẻ điều trị trước ghi chú");
 });
 
-test("ô Làm trước – thu sau ở khối 1: chỉ khi máy chủ mời, cột phải chỉ lượt khám thường", () => {
-  assert.match(KHOI, /oTick && choGhi && !chiDoc \? <OTickTaiCho visitId=\{visitId\} moi=\{nhacTick\} onDoi=\{nap\} \/>/);
-  assert.match(KHOI, /setNhacTick\(Boolean\(d\.nhac_tick\)\)/);
-  assert.match(LUOT, /\{choGhi && !khoi1 \? \(\s*<div className="w-72 shrink-0 lg:w-full">\s*<OLamTruocThuSau visitId=\{visitId\} \/>/);
-  assert.match(LUOT, /oTick\s*\n\s*goiYTrong=/);
+test("ô Làm trước – thu sau: một ô ở cột phải cho MỌI lượt, không ô thứ hai ở khối 1 (29/10)", () => {
+  assert.doesNotMatch(KHOI, /OTickTaiCho|oTick/);
+  assert.match(LUOT, /\{choGhi \? \(\s*<div className="w-72 shrink-0 lg:w-full">\s*<OLamTruocThuSau visitId=\{visitId\} \/>/);
 });
 
 test("bản in lượt Điều trị: tiêu đề theo khung trung tính 'Hồ sơ điều trị', không 'Phiếu thủ thuật'", () => {

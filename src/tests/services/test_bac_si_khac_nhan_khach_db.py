@@ -95,3 +95,53 @@ async def test_da_co_nguoi_bat_dau_kham_thi_khong_nhan_duoc(
     with pytest.raises(ConflictError):
         await DoiBacSiService(pool).nhan_khach(identity=bs_b, visit_id=visit)
     assert (await _luot(pool, visit))["bac_si"] == ca.bac_si.staff_id
+
+
+async def test_dang_kham_truong_ca_chuyen_bac_si_roi_hoan_tac(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 29/10/2026: khách ĐANG KHÁM thì bác sĩ khác không tự nhận được —
+    trưởng ca chuyển ở Điều phối ca (ghi lý do), và chuyển ngược lại được."""
+    ca = await _dung(pool)
+    async with pool.acquire() as conn:
+        bs_b = await _nguoi(conn, ca.loc, "DOCTOR")
+        tc = await _nguoi(conn, ca.loc, "TRUONG_CA")
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con = str(
+        await pool.fetchval(
+            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
+            " AND kind = 'PRIMARY'",
+            visit,
+        )
+    )
+    await LuotKhamService(pool).start_consultation(
+        consultation_id=con, identity=ca.bac_si
+    )
+    svc = DoiBacSiService(pool)
+    kq = await svc.doi(
+        identity=tc,
+        visit_id=visit,
+        bac_si_moi_id=bs_b.staff_id,
+        ly_do="khám nhầm người",
+    )
+    assert kq["bac_si_cu_id"] == ca.bac_si.staff_id
+    sau = await _luot(pool, visit)
+    assert sau["bac_si"] == sau["phien"] == sau["hang"] == bs_b.staff_id
+    assert (
+        await pool.fetchval("SELECT status FROM consultation WHERE id = $1::uuid", con)
+        == "in_progress"
+    ), "chuyển giữa chừng không được làm mất phiên đang khám"
+    hang_b = await BangLuotKham(pool).hang_cho(identity=bs_b, room_id=None)
+    assert visit in [x["visit_id"] for x in hang_b["hang_cho"]]
+    hang_a = await BangLuotKham(pool).hang_cho(identity=ca.bac_si, room_id=None)
+    assert visit not in [x["visit_id"] for x in hang_a["hang_cho"]]
+
+    # [Hoàn tác] trên màn = chuyển ngược về bác sĩ cũ bằng chính lệnh này.
+    await svc.doi(
+        identity=tc,
+        visit_id=visit,
+        bac_si_moi_id=kq["bac_si_cu_id"],
+        ly_do="Hoàn tác chuyển bác sĩ",
+    )
+    ve = await _luot(pool, visit)
+    assert ve["bac_si"] == ve["phien"] == ve["hang"] == ca.bac_si.staff_id

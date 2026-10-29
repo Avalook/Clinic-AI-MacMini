@@ -207,8 +207,7 @@ export default function KetQuaChiDinh({
 }: {
   ds: ChiDinhVaKetQua[];
   /** Mã lượt — có thì vẽ khối "Đầu dò kèm chỉ định" (Bio chọn ở chỉ định CLS,
-   *  G9 14/10/2026) trên danh sách thẻ, và phiếu kết quả kèm ô Làm trước – thu
-   *  sau dưới câu nhắc chưa thu tiền. Thẻ điều trị không có đầu dò. */
+   *  G9 14/10/2026) trên danh sách thẻ. Thẻ điều trị không có đầu dò. */
   dauDoLuot?: string;
   /** Thẻ CHỈ ĐỊNH ĐIỀU TRỊ (khối 3): một thẻ mỗi chỉ định, phần điều trị do
    *  `KhoiDieuTri` vẽ — `chip` thay chip trạng thái một trục (null = giữ chip
@@ -455,7 +454,6 @@ export default function KetQuaChiDinh({
                 (d.mau_chon_san || d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
               }
               onHoanTat={() => onDoi?.()}
-              luotId={dauDoLuot}
             />
           </div>
         ) : null}
