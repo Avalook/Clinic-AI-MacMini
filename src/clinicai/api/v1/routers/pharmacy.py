@@ -37,6 +37,7 @@ from clinicai.services import (
     ma_vach_service,
 )
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
+from clinicai.services.lich_su_gia import LichSuGiaService
 from clinicai.services.pharmacy_service import (
     GIU_NGUYEN,
     PharmacyService,
@@ -452,6 +453,20 @@ async def danh_muc_thuoc(
     return {
         "items": jsonable_encoder(
             await PharmacyService(pool).danh_muc(identity=identity)
+        )
+    }
+
+
+@router.get("/pharmacy/danh-muc/{drug_id}/lich-su-gia")
+async def lich_su_gia_thuoc(
+    drug_id: UUID,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mọi lần đổi giá bán của một thuốc kho, mới nhất trước (21/10/2026)."""
+    return {
+        "items": await LichSuGiaService(pool).doc(
+            identity=identity, loai="thuoc", id=str(drug_id)
         )
     }
 

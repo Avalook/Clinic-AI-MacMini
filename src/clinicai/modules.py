@@ -300,6 +300,8 @@ MODULE: dict[str, Module] = {
                 "PublishFormVersion",
             ],
             bang=["ket_qua_mau", "dich_vu_mau_ket_qua", "form_definition"],
+            # Vết đổi giá (21/10/2026): bảng giá + danh mục thuốc kho.
+            phat=["gia_dich_vu.da_doi", "gia_thuoc.da_doi"],
             quyen=[
                 "catalogue.result_template.manage",
                 "catalogue.form_template.edit",

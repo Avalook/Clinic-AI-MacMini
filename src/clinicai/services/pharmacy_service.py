@@ -47,6 +47,7 @@ from clinicai.core.clock import hom_nay_vn, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import ThuocDaGiao, ThuocKhachTra
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.services.lich_su_gia import ghi_doi_gia, sua_cuoi
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 
@@ -434,8 +435,18 @@ class PharmacyService:
                 nguong_han,
                 identity.location_id,
             )
+            doi_gia = await sua_cuoi(
+                conn,
+                clinic_id=identity.clinic_id,
+                loai="thuoc",
+                ids=[r["id"] for r in rows],
+            )
         return [
-            {**dict(r), "ton_theo_don_vi": json.loads(r["ton_theo_don_vi"])}
+            {
+                **dict(r),
+                "ton_theo_don_vi": json.loads(r["ton_theo_don_vi"]),
+                "gia_sua_cuoi": doi_gia.get(r["id"]),
+            }
             for r in rows
         ]
 
@@ -515,7 +526,14 @@ class PharmacyService:
                     *gia_tri,
                     nguong,
                 )
+                gia_cu = None
             else:
+                gia_cu = await conn.fetchval(
+                    "SELECT unit_price FROM public.drug_catalog"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                    identity.clinic_id,
+                    drug_catalog_id,
+                )
                 ma = await conn.fetchval(
                     """
                     UPDATE public.drug_catalog
@@ -535,6 +553,17 @@ class PharmacyService:
                 )
                 if ma is None:
                     raise NotFoundError("Không tìm thấy thuốc này trong danh mục.")
+            await ghi_doi_gia(
+                conn,
+                identity=identity,
+                loai="thuoc",
+                id=ma,
+                ten=ten_sach,
+                ma=_chu(ma_hang),
+                gia_cu=gia_cu,
+                gia_moi=gia_so,
+                hanh_dong="THEM" if drug_catalog_id is None else "SUA",
+            )
         return {"ok": True, "id": ma}
 
     # ── Ghi ────────────────────────────────────────────────────────────────
