@@ -154,6 +154,19 @@ class HoaDonCongTyService:
                 return
         await doi_quyen(conn, identity, QUYEN_CONG_TY[0])
 
+    async def duoc_xem(self, *, identity: StaffIdentity) -> bool:
+        """Có xem khối công ty trong hồ sơ khách không — HỎI, không chặn.
+
+        Khối nằm trong hồ sơ khách mở ở mọi màn (bàn khám, danh sách khách…),
+        nên người không có quyền mở hồ sơ là một lần 403: 1.029 dòng lỗi giả /
+        7 ngày prod (28/10/2026). Đọc trả "không được xem" + rỗng; ghi vẫn chặn.
+        """
+        async with self.pool.acquire() as conn:
+            for q in QUYEN_CONG_TY:
+                if await can(conn, identity, q):
+                    return True
+        return False
+
     # ── Công ty trong hồ sơ khách ──────────────────────────────────────────
 
     async def doc_cong_ty_khach(

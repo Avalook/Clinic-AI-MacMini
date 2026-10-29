@@ -10,7 +10,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.hoa_don_cong_ty_service import (
@@ -50,13 +50,17 @@ class AnRequest(BaseModel):
 async def doc_cong_ty_khach(
     clinic_patient_id: str,
     ca_da_an: bool = Query(False),
-    identity: StaffIdentity = Depends(_CUA),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    rows = await HoaDonCongTyService(pool).doc_cong_ty_khach(
+    """Không có quyền → ``duoc_xem: false`` + rỗng (màn ẩn khối), không 403."""
+    svc = HoaDonCongTyService(pool)
+    if not await svc.duoc_xem(identity=identity):
+        return {"cong_ty": [], "duoc_xem": False}
+    rows = await svc.doc_cong_ty_khach(
         identity=identity, clinic_patient_id=clinic_patient_id, ca_da_an=ca_da_an
     )
-    return {"cong_ty": rows}
+    return {"cong_ty": rows, "duoc_xem": True}
 
 
 @router.put("/hoa-don/cong-ty/khach/{clinic_patient_id}")

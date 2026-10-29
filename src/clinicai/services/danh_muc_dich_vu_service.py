@@ -28,8 +28,12 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.permissions.can import can
 
 #: Thứ tự nhóm hàng như file phòng khám (Excel 01/10) — nhóm lạ xếp sau, theo tên.
+#: Đây cũng là danh sách ô "Nhóm hàng" khi thêm dịch vụ mới (cùng các nhóm đã
+#: có dịch vụ) — nhóm chưa có dịch vụ nào phải nằm đây mới chọn được.
+#: "Chẩn đoán hình ảnh": Siêu âm tim mạch (BS Thành, 28/10/2026).
 THU_TU_NHOM = (
     "Siêu âm",
+    "Chẩn đoán hình ảnh",
     "Xét nghiệm",
     "XN thu hộ",
     "Thủ thuật",
