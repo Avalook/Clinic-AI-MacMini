@@ -112,6 +112,10 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Nhả: chỉ ghi sự kiện thật người bấm (Tuyền 07/10).
   "nhan-vao-phong": (id) => `/api/v1/luot-kham/visits/${id}/nhan-vao-phong`,
   "hoan-tac-nhan": (id) => `/api/v1/luot-kham/visits/${id}/hoan-tac-nhan`,
+  // CHỈ ĐỊNH CŨ CHƯA LÀM (29/10/2026, "hôm nào xong hôm đó") — id là CHỈ ĐỊNH,
+  // thân { visit_id } = lượt hôm nay. [Trả về] là hoàn tác của [Làm hôm nay].
+  "lam-hom-nay": (id) => `/api/v1/luot-kham/orders/${id}/lam-hom-nay`,
+  "tra-ve-luot-cu": (id) => `/api/v1/luot-kham/orders/${id}/tra-ve-luot-cu`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
@@ -148,6 +152,11 @@ function duongDoc(url: URL): string | null {
   if (xem === "lam-truoc-thu-sau") {
     const luot = url.searchParams.get("luot") ?? "";
     return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/lam-truoc-thu-sau` : null;
+  }
+  // Chỉ định cũ chưa làm của khách (29/10/2026) — bàn khám hiện để bác sĩ quyết.
+  if (xem === "chi-dinh-cu") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/chi-dinh-cu` : null;
   }
   // Sổ thêm / bỏ / hoàn tác chỉ định của một lượt (Khối 2, 06/10/2026).
   if (xem === "so-sua-chi-dinh") {

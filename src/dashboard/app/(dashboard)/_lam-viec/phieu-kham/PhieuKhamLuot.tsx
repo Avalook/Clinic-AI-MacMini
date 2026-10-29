@@ -51,6 +51,7 @@ import {
   type ONhap,
 } from "@/lib/phieu-kham";
 import { guiThaoTac } from "../api";
+import ChiDinhCuChuaLam from "./ChiDinhCuChuaLam";
 import DanhMucChiDinh from "./DanhMucChiDinh";
 import OLamTruocThuSau from "../OLamTruocThuSau";
 import HanhTrinhLuot from "./HanhTrinhLuot";
@@ -558,6 +559,15 @@ export default function PhieuKhamLuot({
             onDaDat={() => undefined}
           />
         )}
+      />
+      {/* Chỉ định cũ chưa làm (29/10/2026): bác sĩ quyết [Làm hôm nay]. */}
+      <ChiDinhCuChuaLam
+        visitId={visitId}
+        choGhi={choGhi}
+        onDaDoi={() => {
+          void napKetQua();
+          onDaDat();
+        }}
       />
       </div>
     );
