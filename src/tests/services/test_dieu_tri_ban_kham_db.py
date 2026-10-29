@@ -851,6 +851,13 @@ async def test_phieu_dieu_tri_ban_kham_ghi_phong_doc_luu_sau_xong_in_khong_nhap(
     )
 
     # Phòng bấm [Xong] (engine hoàn tất) → vẫn lưu tiếp được, không cần [Sửa lại].
+    # Hoàn tất = dịch vụ xong (29/10/2026): chưa thu thì phải tick "Làm trước –
+    # thu sau" — bài này canh phiếu, không canh tiền.
+    await pool.execute(
+        "UPDATE visit SET lam_truoc_thu_sau_luc = now() WHERE visit_id = $1::uuid",
+        visit,
+    )
+    await _lich_ban_kham(pool, ca)
     ht = await fe.hoan_tat(
         phieu_id=ph["id"], expected_revision=int(luu["revision"]), identity=ca.dd
     )

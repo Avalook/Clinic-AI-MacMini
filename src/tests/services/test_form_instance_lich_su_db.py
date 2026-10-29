@@ -14,6 +14,7 @@ from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
 )
+from tests.services.test_dieu_tri_ban_kham_db import _lich_ban_kham
 from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
     _benh_nhan,
     _check_in,
@@ -45,6 +46,13 @@ async def test_moi_lan_doi_giu_ban_cu_va_lich_su_chi_them(
         expected_revision=l1["revision"],
         identity=ca.bac_si,
     )
+    # Hoàn tất = dịch vụ xong (29/10/2026): chưa thu thì phải tick "Làm trước –
+    # thu sau" — bài này chỉ canh lịch sử phiếu, không canh tiền.
+    await pool.execute(
+        "UPDATE visit SET lam_truoc_thu_sau_luc = now() WHERE visit_id = $1::uuid",
+        visit,
+    )
+    await _lich_ban_kham(pool, ca)
     await fe.hoan_tat(
         phieu_id=ph["id"], expected_revision=l2["revision"], identity=ca.bac_si
     )
