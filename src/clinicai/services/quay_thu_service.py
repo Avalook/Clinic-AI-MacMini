@@ -1308,7 +1308,26 @@ class QuayThuService:
             for r in await conn.fetch(_DONG_SQL, cid, [r["id"] for r in lan_thu]):
                 dong.setdefault(r["cycle_id"], []).append(dict(r))
             tat_ca = gom_theo_khach(lan_thu, hoan, khach, dong)
-            ds_nguoi = sorted({n for g in tat_ca for n in g["nguoi_thu"]})
+            ds_nguoi = {n for g in tat_ca for n in g["nguoi_thu"]}
+            # Ô lọc "Người thu" liệt kê MỌI người đã thu loại tiền này 90 ngày qua,
+            # không chỉ người có lần thu trong khoảng đang xem (Tuyền 29/10/2026:
+            # "thêm lọc theo từng nhân viên thu" — ngày chưa ai thu thì ô trống
+            # trơn). Người chỉ xem sổ của chính mình (`scope_actor`) thì thôi.
+            if not scope_actor:
+                ds_nguoi |= {
+                    r["ten"]
+                    for r in await conn.fetch(
+                        "SELECT DISTINCT s.full_name AS ten FROM payment_cycle pc"
+                        " JOIN staff s ON s.id = coalesce(pc.confirmed_by,"
+                        " pc.created_by)"
+                        " WHERE pc.clinic_id = $1::uuid AND pc.kind = $2"
+                        "   AND pc.paid_at >= now() - interval '90 days'",
+                        cid,
+                        loai,
+                    )
+                    if r["ten"]
+                }
+            ds_nguoi_sap = sorted(ds_nguoi)
             nt = nguoi_thu.strip() if isinstance(nguoi_thu, str) else ""
             loc = loc_khach(
                 tat_ca,
@@ -1372,7 +1391,7 @@ class QuayThuService:
             "tu": a.isoformat(),
             "den": b.isoformat(),
             "tong": tong_lich_su(loc),
-            "nguoi_thu": ds_nguoi,
+            "nguoi_thu": ds_nguoi_sap,
             "khach": loc,
             "co_quyen_hoan": quyen_hoan,
             "co_quyen_huy": co_huy,

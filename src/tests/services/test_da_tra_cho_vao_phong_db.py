@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import asyncpg
 import pytest
@@ -165,7 +166,7 @@ async def test_luot_ngay_cu_khong_hien_cho_vao_phong_o_quay(
     await chay_hanh_trinh(pool)
     svc = CashierBoardService(pool)
 
-    async def xep_phong() -> list[dict[str, object]] | None:
+    async def xep_phong() -> list[dict[str, Any]] | None:
         b = await svc.board(identity=ca.le_tan, modes=["dich_vu"])
         dong = [i for i in b["items"] if i["visit_id"] == visit]
         return dong[0]["xep_phong"] if dong else None
@@ -192,10 +193,10 @@ async def test_day_nhan_tai_phong_bat_quay_khong_con_o_chon_phong(
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     svc = CashierBoardService(pool)
 
-    async def dong() -> dict[str, object]:
+    async def dong() -> dict[str, Any]:
         b = await svc.board(identity=ca.le_tan, modes=["dich_vu"])
         [i] = [i for i in b["items"] if i["visit_id"] == visit]
-        return i
+        return dict(i)
 
     truoc = await dong()
     assert any(
