@@ -1,12 +1,8 @@
 "use client";
 
-// Các lượt khám TRƯỚC của bệnh nhân đang mở.
-//
-// "Lượt khám 3 · ngày…", "Buổi 2/10 · ngày…" — nhãn MÁY CHỦ đếm trên mọi lượt
-// của khách (`nhan_luot`, 08/10/2026; trước đó "Lần n" theo số phiếu nạp về —
-// thiếu phiếu là đánh số sai). Rê chuột vào một ngày thì hiện tóm tắt ngay
-// bên cạnh; bấm vào thì phiếu bên dưới quay về đúng hôm đó, kèm một nút để
-// quay lại khám tiếp.
+// Các lượt khám TRƯỚC của bệnh nhân đang mở — nay chỉ còn dải "đang xem lại"
+// và khối phản hồi sau dùng thuốc. Danh sách lượt cũ (+ tóm tắt khi rê chuột)
+// đã gộp vào nút [Lịch sử khám] (`_lam-viec/LichSuKham.tsx`, 29/10/2026).
 //
 // RANH GIỚI QUAN TRỌNG NHẤT: phiếu cũ mở ở chế độ CHỈ XEM.
 // Không có ranh giới đó thì bác sĩ gõ vào một phiếu tưởng là hôm nay và ghi
@@ -24,8 +20,7 @@
 import { useEffect, useState } from "react";
 import { History, RotateCcw } from "lucide-react";
 
-import { doctorName } from "../../../../lib/doctor-name";
-import { chuNhanLuot, type NhanLuot } from "../../../../lib/nhan-luot";
+import { type NhanLuot } from "../../../../lib/nhan-luot";
 import { DongPhanHoiThuoc, type PhanHoiThuoc } from "../../_lam-viec/PhanHoiThuocKhach";
 import { useNgheBang } from "../../dung-nghe-bang";
 
@@ -45,17 +40,6 @@ export interface LuotTruoc {
   nhan_luot?: NhanLuot | null;
 }
 
-/** Vài dòng đầu của phiếu, đủ để nhớ ra hôm đó khám gì. */
-function tomTat(form: Record<string, unknown>): string[] {
-  const ra: string[] = [];
-  for (const [, v] of Object.entries(form)) {
-    if (ra.length >= 4) break;
-    if (typeof v === "string" && v.trim().length > 2) ra.push(v.trim());
-    else if (Array.isArray(v) && v.length) ra.push(v.join(", "));
-  }
-  return ra;
-}
-
 function ngay(iso: string | null): string {
   if (!iso) return "—";
   const t = Date.parse(iso);
@@ -64,33 +48,27 @@ function ngay(iso: string | null): string {
 
 export default function LuotKhamTruoc({
   clinicPatientId,
-  visitIdHienTai,
   dangXem,
   onXem,
 }: {
   clinicPatientId: string | null;
-  visitIdHienTai: string | null;
+  /** Giữ chữ ký cũ cho màn gọi; danh sách lượt đã sang [Lịch sử khám]. */
+  visitIdHienTai?: string | null;
   /** Lượt đang xem lại, hoặc null khi đang khám hôm nay. */
   dangXem: LuotTruoc | null;
   onXem: (luot: LuotTruoc | null) => void;
 }) {
-  const [items, setItems] = useState<LuotTruoc[]>([]);
   const [phanHoiKhach, setPhanHoiKhach] = useState<PhanHoiThuoc[]>([]);
-  const [hien, setHien] = useState<string | null>(null);
   const [lan, setLan] = useState(0);
   useNgheBang(["tuong_tac_cskh"], () => setLan((n) => n + 1));
 
   useEffect(() => {
-    // `setItems([])` đồng bộ ngay trong thân effect bị React compiler chặn —
-    // nó kéo theo một lượt render thừa. Dọn danh sách trong nhánh async bên
-    // dưới, cùng chỗ với lúc nạp xong.
+    // Dọn trong nhánh async (setState đồng bộ trong thân effect bị React
+    // compiler chặn — kéo theo một lượt render thừa).
     let bo = false;
     if (!clinicPatientId) {
       const t = setTimeout(() => {
-        if (!bo) {
-          setItems([]);
-          setPhanHoiKhach([]);
-        }
+        if (!bo) setPhanHoiKhach([]);
       }, 0);
       return () => {
         bo = true;
@@ -99,20 +77,18 @@ export default function LuotKhamTruoc({
     }
     fetch(`/api/clinical-forms/history?clinic_patient_id=${clinicPatientId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { items?: LuotTruoc[]; phan_hoi_thuoc?: PhanHoiThuoc[] } | null) => {
+      .then((d: { phan_hoi_thuoc?: PhanHoiThuoc[] } | null) => {
         if (bo || !d) return;
-        // Lượt ĐANG khám không phải "lượt trước".
-        setItems((d.items ?? []).filter((x) => x.visit_id !== visitIdHienTai));
         setPhanHoiKhach(d.phan_hoi_thuoc ?? []);
       })
       .catch(() => {});
     return () => {
       bo = true;
     };
-  }, [clinicPatientId, visitIdHienTai, lan]);
+  }, [clinicPatientId, lan]);
 
-  // Chưa khám lần nào (và không có phản hồi thuốc nào) thì thôi.
-  if (items.length === 0 && !dangXem && phanHoiKhach.length === 0) return null;
+  // Không đang xem lại và không có phản hồi thuốc nào thì thôi.
+  if (!dangXem && phanHoiKhach.length === 0) return null;
 
   // Đang xem lại một lượt → chỉ phản hồi của lượt ấy; còn lại → mọi phản hồi.
   const phanHoi = dangXem
@@ -139,60 +115,9 @@ export default function LuotKhamTruoc({
             Quay lại khám tiếp
           </button>
         </div>
-      ) : items.length === 0 ? null : (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-ink-muted">Lượt khám trước:</span>
-          {items.map((l) => (
-            <button
-              key={l.visit_id}
-              type="button"
-              onMouseEnter={() => setHien(l.visit_id)}
-              onMouseLeave={() => setHien(null)}
-              onFocus={() => setHien(l.visit_id)}
-              onBlur={() => setHien(null)}
-              onClick={() => onXem(l)}
-              className="rounded-control bg-surface-muted px-2 py-1 text-ink-soft transition-colors hover:bg-brand-50 hover:text-brand-700"
-            >
-              {chuNhanLuot(l.nhan_luot)} · {ngay(l.kham_luc)}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Tóm tắt hiện BÊN CẠNH khi rê chuột — không phải một hộp thoại phải
-          đóng lại, vì bác sĩ chỉ muốn liếc rồi đi tiếp. */}
-      {hien && !dangXem
-        ? (() => {
-            const l = items.find((x) => x.visit_id === hien);
-            if (!l) return null;
-            const dong = tomTat(l.form_data);
-            return (
-              <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-card bg-surface p-3 text-xs shadow-panel">
-                <p className="font-semibold text-ink">
-                  {ngay(l.kham_luc)}
-                  {l.ten_dich_vu ? ` · ${l.ten_dich_vu}` : ""}
-                </p>
-                {l.bac_si && (
-                  <p className="mt-0.5 text-ink-muted">{doctorName(l.bac_si)}</p>
-                )}
-                {dong.length ? (
-                  <ul className="mt-1.5 grid gap-1 text-ink-soft">
-                    {dong.map((d, i) => (
-                      <li key={i} className="line-clamp-2">
-                        {d}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1.5 text-ink-muted">
-                    Phiếu hôm đó chưa ghi nội dung nào.
-                  </p>
-                )}
-                <p className="mt-2 text-brand-600">Bấm để xem lại nguyên phiếu</p>
-              </div>
-            );
-          })()
-        : null}
+      ) : null}
+      {/* Dòng chip "Lượt khám trước" (+ tóm tắt khi rê chuột) đã gộp vào nút
+          [Lịch sử khám] ở đầu phiếu — bấm là bung danh sách (Tuyền 29/10/2026). */}
 
       {phanHoi.length ? (
         <div className="mt-2 rounded-control bg-surface-muted px-3 py-2">

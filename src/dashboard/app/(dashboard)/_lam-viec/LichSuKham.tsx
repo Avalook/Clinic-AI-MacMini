@@ -10,9 +10,14 @@
 // ngày khách có khám. Bấm một lượt → mở hồ sơ lượt ấy CHỈ ĐỌC: khung đọc do
 // MÁY CHỦ nói (`loai_du_lieu`) — v5 → hồ sơ kiểu Bàn khám; còn lại → khung xem
 // lượt (`XemLuot`), hoặc màn gọi tự mở khung của nó (`onChonLuot`).
+//
+// 29/10/2026 (Tuyền): bấm nút là BUNG DANH SÁCH các lượt ngay dưới nút (thay
+// dòng chip "Lượt khám trước" riêng ở Bàn khám); rê chuột vào một lượt hiện tóm
+// tắt phiếu bên cạnh; bấm lượt → mở hồ sơ lượt ấy chỉ đọc; "Tìm theo ngày · xem
+// mọi lượt" → hộp lớn như cũ.
 
 import { History, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -66,6 +71,27 @@ function ngayVN(iso: string): string {
   return `${d}/${mo}/${y}`;
 }
 
+/** Tóm tắt phiếu của một lượt — cùng nguồn dòng chip "Lượt khám trước" cũ
+ *  (`/api/clinical-forms/history`). */
+interface TomTatLuot {
+  visit_id: string;
+  form_data: Record<string, unknown>;
+}
+
+/** Vài dòng đầu của phiếu, đủ để nhớ ra hôm đó khám gì. */
+function tomTat(form: Record<string, unknown> | undefined): string[] {
+  const ra: string[] = [];
+  for (const [, v] of Object.entries(form ?? {})) {
+    if (ra.length >= 4) break;
+    if (typeof v === "string" && v.trim().length > 2) ra.push(v.trim());
+    else if (Array.isArray(v) && v.length) ra.push(v.join(", "));
+  }
+  return ra;
+}
+
+/** Số lượt hiện trong danh sách bung — còn lại tìm ở hộp lớn. */
+const SO_NHANH = 8;
+
 export default function LichSuKham({
   clinicPatientId,
   visitIdHienTai,
@@ -89,6 +115,10 @@ export default function LichSuKham({
   const [dichVu, setDichVu] = useState("");
   const [tim, setTim] = useState("");
   const [xem, setXem] = useState<LuotLichSu | null>(null);
+  const [menu, setMenu] = useState(false);
+  const [hien, setHien] = useState<string | null>(null);
+  const [tomTatTheoLuot, setTomTatTheoLuot] = useState<Map<string, string[]> | null>(null);
+  const vungRef = useRef<HTMLDivElement>(null);
 
   const ngayTim = tim ? ngayGo(tim, homNay) : null;
   const q = new URLSearchParams({ clinic_patient_id: clinicPatientId, xem: "lich-su" });
@@ -100,7 +130,7 @@ export default function LichSuKham({
   const url = `/api/ho-so-kham?${q.toString()}`;
 
   useEffect(() => {
-    if (!mo) return;
+    if (!mo && !menu) return;
     let huy = false;
     void fetch(url, { cache: "no-store" })
       .then(async (r) => ({ ok: r.ok, d: (await r.json().catch(() => null)) as GoiLichSu | null }))
@@ -115,20 +145,131 @@ export default function LichSuKham({
     return () => {
       huy = true;
     };
-  }, [mo, url]);
+  }, [mo, menu, url]);
+
+  // Tóm tắt phiếu cho ô rê chuột — nạp một lần khi bung danh sách. Không đọc
+  // được (quyền / mất mạng) thì ô vẫn hiện ngày · dịch vụ · bác sĩ.
+  useEffect(() => {
+    if (!menu || tomTatTheoLuot) return;
+    let huy = false;
+    void fetch(`/api/clinical-forms/history?clinic_patient_id=${clinicPatientId}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { items?: TomTatLuot[] } | null) => {
+        if (huy) return;
+        setTomTatTheoLuot(new Map((d?.items ?? []).map((x) => [x.visit_id, tomTat(x.form_data)])));
+      })
+      .catch(() => {
+        if (!huy) setTomTatTheoLuot(new Map());
+      });
+    return () => {
+      huy = true;
+    };
+  }, [menu, tomTatTheoLuot, clinicPatientId]);
+
+  // Bấm ra ngoài / Esc → gập danh sách.
+  useEffect(() => {
+    if (!menu) return;
+    const ngoai = (e: MouseEvent) => {
+      if (vungRef.current && !vungRef.current.contains(e.target as Node)) setMenu(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(false);
+    };
+    document.addEventListener("mousedown", ngoai);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", ngoai);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [menu]);
 
   const ngayCham = useMemo(() => new Set(goi?.ngay_co_kham ?? []), [goi]);
   const dong = () => {
     setMo(false);
     setXem(null);
   };
+  const chon = (l: LuotLichSu) => {
+    setMenu(false);
+    setHien(null);
+    if (onChonLuot?.(l)) return;
+    setXem(l);
+    setMo(true);
+  };
+  const nhanh = (goi?.luot ?? []).filter((l) => l.visit_id !== visitIdHienTai).slice(0, SO_NHANH);
+  const luotHien = hien ? nhanh.find((l) => l.visit_id === hien) : null;
+  const dongHien = luotHien ? tomTatTheoLuot?.get(luotHien.visit_id) : undefined;
 
   return (
     <>
-      <Button size="sm" variant="secondary" onClick={() => setMo(true)}>
-        <History className="size-4" aria-hidden="true" />
-        {nhanNut}
-      </Button>
+      <div ref={vungRef} className="relative inline-block">
+        <Button size="sm" variant="secondary" aria-expanded={menu} onClick={() => setMenu((x) => !x)}>
+          <History className="size-4" aria-hidden="true" />
+          {nhanNut}
+        </Button>
+        {menu ? (
+          <div className="absolute right-0 top-full z-30 mt-1 w-72 rounded-card border border-hairline bg-surface p-1.5 shadow-panel">
+            {!goi && !loi ? <p className="px-2 py-2 text-meta text-ink-muted">Đang tải…</p> : null}
+            {loi ? <p className="px-2 py-2 text-meta text-danger">{loi}</p> : null}
+            {goi && nhanh.length === 0 ? (
+              <p className="px-2 py-2 text-meta text-ink-muted">Chưa có lượt khám trước.</p>
+            ) : null}
+            <ul>
+              {nhanh.map((l) => (
+                <li key={l.visit_id}>
+                  <button
+                    type="button"
+                    onMouseEnter={() => setHien(l.visit_id)}
+                    onMouseLeave={() => setHien(null)}
+                    onFocus={() => setHien(l.visit_id)}
+                    onBlur={() => setHien(null)}
+                    onClick={() => chon(l)}
+                    className="flex w-full flex-wrap items-baseline gap-x-2 rounded-control px-2 py-1.5 text-left text-meta hover:bg-brand-50"
+                  >
+                    <b className="tabular-nums text-ink">{ngayVN(l.ngay)}</b>
+                    <span className="text-brand-700">{chuNhanLuot(l.nhan_luot)}</span>
+                    <span className="min-w-0 truncate text-ink-muted">{l.dich_vu ?? ""}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => {
+                setMenu(false);
+                setMo(true);
+              }}
+              className="mt-1 w-full rounded-control border-t border-hairline px-2 pt-2 pb-1 text-left text-meta font-medium text-brand-700 hover:bg-surface-muted"
+            >
+              Tìm theo ngày · xem mọi lượt{goi ? ` (${goi.tong})` : ""}
+            </button>
+            {/* Tóm tắt BÊN CẠNH khi rê chuột — liếc rồi đi tiếp, không phải hộp
+                thoại phải đóng. Màn hẹp không có rê chuột → không vẽ. */}
+            {luotHien ? (
+              <div className="absolute right-full top-0 mr-2 hidden w-72 rounded-card bg-surface p-3 text-xs shadow-panel sm:block">
+                <p className="font-semibold text-ink">
+                  {ngayVN(luotHien.ngay)}
+                  {luotHien.dich_vu ? ` · ${luotHien.dich_vu}` : ""}
+                </p>
+                {luotHien.bac_si ? <p className="mt-0.5 text-ink-muted">{luotHien.bac_si}</p> : null}
+                {dongHien?.length ? (
+                  <ul className="mt-1.5 grid gap-1 text-ink-soft">
+                    {dongHien.map((d, i) => (
+                      <li key={i} className="line-clamp-2">
+                        {d}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1.5 text-ink-muted">
+                    {tomTatTheoLuot ? "Phiếu hôm đó chưa ghi nội dung nào." : "Đang tải tóm tắt…"}
+                  </p>
+                )}
+                <p className="mt-2 text-brand-600">Bấm để xem lại nguyên phiếu</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
       {mo ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 p-4" role="presentation" onClick={dong}>
           <div
