@@ -748,7 +748,25 @@ class CashierBoardService:
             if want_svc:
                 chon = await cho_khach_quyet(conn, identity.clinic_id, vids)
                 # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
-                phong = await da_tra_cho_vao_phong(conn, identity.clinic_id, vids)
+                # CHỈ lượt của chính ngày đang xem ("hôm nào xong hôm đó",
+                # 29/10/2026): chỉ định ngày cũ chưa làm nằm ở khung "chỉ định
+                # cũ" bàn khám ([Làm hôm nay]) — ở quầy chúng là 78 dòng "chờ vào
+                # phòng" của khách đã về, và mỗi dòng tốn một lần dò phòng.
+                vids_trong_ngay = [
+                    r["visit_id"]
+                    for r in await conn.fetch(
+                        "SELECT visit_id::text AS visit_id FROM public.visit"
+                        " WHERE clinic_id = $1::uuid AND visit_id = ANY($2::uuid[])"
+                        "   AND created_at >= $3 AND created_at < $4",
+                        identity.clinic_id,
+                        vids,
+                        start,
+                        end,
+                    )
+                ]
+                phong = await da_tra_cho_vao_phong(
+                    conn, identity.clinic_id, vids_trong_ngay
+                )
             for item in out["items"]:
                 hd: dict[str, Any] = {}
                 tinh_dv: HoaDon | None = None

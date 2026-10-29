@@ -146,3 +146,33 @@ async def test_quay_thu_con_xep_doi_phong_sau_khi_thu(
     )
     async with pool.acquire() as conn:
         assert visit not in await da_tra_cho_vao_phong(conn, CLINIC, [visit])
+
+
+async def test_luot_ngay_cu_khong_hien_cho_vao_phong_o_quay(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """ "Hôm nào xong hôm đó" (Tuyền 29/10/2026, "ẩn luôn"): chỉ định ngày cũ đã
+    thu mà chưa làm không còn ở khối "Đã thu — chờ vào phòng" của quầy — nó ở
+    khung chỉ định cũ của bàn khám. Staging 29/10: khối ấy có 78 lượt khách đã
+    về từ những ngày trước."""
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.le_tan)
+    await chay_hanh_trinh(pool)
+    svc = CashierBoardService(pool)
+
+    async def xep_phong() -> list[dict[str, object]] | None:
+        b = await svc.board(identity=ca.le_tan, modes=["dich_vu"])
+        dong = [i for i in b["items"] if i["visit_id"] == visit]
+        return dong[0]["xep_phong"] if dong else None
+
+    assert [x["id"] for x in (await xep_phong() or [])] == [order], "hôm nay: còn"
+    # Lùi lượt về hôm qua (khách chưa về — vẫn là ứng viên của bảng hôm nay).
+    await pool.execute(
+        "UPDATE visit SET created_at = created_at - interval '1 day'"
+        " WHERE visit_id = $1::uuid",
+        visit,
+    )
+    assert not await xep_phong(), "ngày cũ: không còn ô xếp phòng ở quầy"
