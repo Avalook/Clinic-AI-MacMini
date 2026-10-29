@@ -38,3 +38,13 @@ client → Caddy (TLS) → dashboard (Next.js, UI only) → api (FastAPI, all lo
 - Schema only via `supabase/migrations/*.sql`; migrations are a separate, watched
   step — never inside the deploy.
 - UI changes: follow `DESIGN.md` and the "Sửa giao diện" procedure in `CLAUDE.md`.
+
+## Reading code — read the real source, not memory
+- Definitions, callers, renames: **Serena** (`find_symbol`, `find_referencing_symbols`).
+- Behavior questions when you don't know the file: `jg "<question>" src` (only if
+  `jg doctor` passes). Root is always `src` or `supabase/migrations`, never the repo
+  root: `scratch/`, `tmp/`, `docs/`, `reports/` may hold real clinic data and `jg`
+  uploads what it reads. Exact strings / filenames: grep.
+- Library APIs (FastAPI, Supabase, Next.js…): **context7**, don't recall from memory.
+- UI / console / network: chrome-devtools or playwright, local/staging only.
+- If a tool fails (MCP down, no `jg` key), say so and use the next one.
