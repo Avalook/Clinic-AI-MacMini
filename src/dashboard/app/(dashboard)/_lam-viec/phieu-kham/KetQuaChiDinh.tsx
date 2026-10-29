@@ -83,6 +83,12 @@ function trangThai(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } {
     // Đối tác: làm xong phần phòng khám (lấy mẫu) nhưng kết quả chưa về.
     return d.doi_tac ? { nhan: NHAN_DOI_TAC[d.doi_tac], tone: "run" } : { nhan: "Đã làm", tone: "success" };
   }
+  // Phiếu NHÁP chưa phải "đang làm" khi tiền chưa thu: Hoàn tất bị chặn vì chưa
+  // thu thì dịch vụ vẫn chưa bắt đầu (bấm staging 29/10/2026: thẻ báo "Đang
+  // làm" mà máy chủ nói "Chưa thu tiền").
+  const nhapChuaThu =
+    d.ket_qua_trang_thai === "DANG_NHAP" && th !== "IN_PROGRESS" && !d.da_thu && !d.doi_tac_thu;
+  if (nhapChuaThu) return { nhan: "Chờ thu tiền · phiếu nháp", tone: "warning" };
   if (d.ket_qua_trang_thai === "DANG_NHAP" || th === "IN_PROGRESS") {
     return { nhan: d.doi_tac ? "Đã gửi đối tác" : "Đang làm", tone: "run" };
   }

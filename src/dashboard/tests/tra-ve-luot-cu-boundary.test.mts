@@ -7,6 +7,12 @@ import test from "node:test";
 
 const doc = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 
+test("thẻ chỉ định: phiếu nháp mà chưa thu tiền không gọi là 'Đang làm'", () => {
+  const the = doc("../app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx");
+  assert.match(the, /if \(nhapChuaThu\) return \{ nhan: "Chờ thu tiền · phiếu nháp", tone: "warning" \};/);
+  assert.ok(the.indexOf("if (nhapChuaThu)") < the.indexOf('"Đã gửi đối tác" : "Đang làm"'));
+});
+
 test("thẻ chỉ định mang sang: nút Trả về lượt cũ thay cho Hoàn tác chỉ định", () => {
   const the = doc("../app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx");
   assert.match(the, /\{d\.mang_sang && onTraVeLuotCu && !chiXem \? \(\s*<NutHoanTac\s+nhan="Trả về lượt cũ"/);
