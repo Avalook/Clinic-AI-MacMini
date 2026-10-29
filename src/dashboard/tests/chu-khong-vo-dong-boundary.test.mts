@@ -23,6 +23,11 @@ test("Bàn khám: list khách luôn hiện từ 1280px, dưới 1280 nhớ lựa
   assert.equal(bk.match(/className="xl:hidden" aria-expanded=\{hangMo\}/g)?.length, 2);
 });
 
+test("tiêu đề ngăn gập có nút cùng hàng: giữ tối thiểu 12rem, nút xuống dòng", () => {
+  const ng = doc("../components/ui/NganGap.tsx");
+  assert.match(ng, /hanhDong \? "min-w-48" : "min-w-0"/);
+});
+
 test("cột bước phiếu khám: chip 'mới' nằm dưới tên, không chiếm cột thứ ba", () => {
   const pk = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx");
   assert.doesNotMatch(pk, /grid-cols-\[2rem_minmax\(0,1fr\)_auto\]/);

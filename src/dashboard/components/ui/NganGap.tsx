@@ -81,7 +81,12 @@ export default function NganGap({
         aria-expanded={mo}
         aria-controls={id}
         onClick={doi}
-        className={`flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 rounded-control text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+        // Có nút hành động cùng hàng: tiêu đề giữ tối thiểu 12rem, thiếu chỗ thì
+        // NÚT xuống dòng — không bóp tiêu đề vỡ từng chữ ("Danh / mục chỉ /
+        // định" ở 375, Tuyền 29/10/2026).
+        className={`flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 rounded-control text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+          hanhDong ? "min-w-48" : "min-w-0"
+        } ${
           the ? "min-h-10 sm:min-h-8" : "min-h-10 text-meta text-ink-muted hover:text-ink sm:min-h-8"
         }`}
       >

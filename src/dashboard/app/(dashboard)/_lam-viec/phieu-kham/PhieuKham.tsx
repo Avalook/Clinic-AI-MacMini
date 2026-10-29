@@ -538,7 +538,9 @@ export default function PhieuKham({
                     <b className={`block text-emph font-semibold leading-tight ${dang ? "text-brand-700" : "text-ink"}`}>
                       {k.ten}
                     </b>
-                    <small className="block whitespace-pre-line text-meta text-ink-muted">{tomTat[k.so]}</small>
+                    {/* Màn hẹp thanh bước DÍNH đầu màn: bỏ dòng tóm tắt cho thanh
+                        thấp, khỏi che nội dung khi cuộn (bấm staging 375, 29/10). */}
+                    <small className="hidden whitespace-pre-line text-meta text-ink-muted lg:block">{tomTat[k.so]}</small>
                     {/* Chip "mới" nằm DƯỚI tên, không thành cột thứ ba — cột bước
                         chỉ ~200px, thêm cột chip là tên khối vỡ 3 dòng (29/10). */}
                     {moi > 0 ? (
