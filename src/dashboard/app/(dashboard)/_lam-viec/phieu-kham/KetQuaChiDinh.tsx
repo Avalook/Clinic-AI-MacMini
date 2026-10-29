@@ -352,7 +352,7 @@ export default function KetQuaChiDinh({
             {onBoChiDinh && !chiXem ? (
               <NutHoanTac
                 nhan="Hoàn tác chỉ định"
-                variant="ghost"
+                variant="danger"
                 tieuDe={`Bỏ chỉ định “${d.ten_hien_thi}”?`}
                 moTa="Bỏ chỉ định này (chỉ định sai chỗ) — quầy thu cập nhật ngay"
                 goi={onBoChiDinh(d.service_order_id)}
@@ -375,7 +375,7 @@ export default function KetQuaChiDinh({
                 href={`/print/ket-qua/${d.service_order_id}`}
                 target="_blank"
                 rel="noopener"
-                className={buttonClass("ghost", "sm")}
+                className={buttonClass("secondary", "sm")}
               >
                 In
               </a>
@@ -384,7 +384,7 @@ export default function KetQuaChiDinh({
               <Button
                 type="button"
                 size="sm"
-                variant="ghost"
+                variant="soft"
                 aria-expanded={tep === d.service_order_id}
                 onClick={() => setTep(tep === d.service_order_id ? null : d.service_order_id)}
               >

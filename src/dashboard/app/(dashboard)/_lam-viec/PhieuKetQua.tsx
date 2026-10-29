@@ -551,10 +551,6 @@ export default function PhieuKetQua({
           >
             In phiếu
           </a>
-          <p className="text-label text-ink-muted">
-            Sửa được, và mỗi lần sửa đều được ghi lại — ai sửa, lúc nào, bản thứ
-            mấy.
-          </p>
         </div>
       ) : (
         <div className="space-y-4">

@@ -63,7 +63,10 @@ test("thẻ KPI: 2×2 trên điện thoại, 4 hàng ngang từ md", () => {
   // Bốn thẻ ép một hàng ở màn hẹp là nhãn xuống dòng từng-chữ-một — lỗi tự
   // khai khi kiểm 3 cỡ màn ngày 15/08.
   const ma = doc("../components/ui/StatCard.tsx");
-  assert.match(ma, /grid-cols-2[^"`]*md:grid-cols-4/, "StatRow phải là lưới đáp ứng");
+  assert.match(ma, /COT_HEP\[n\] \?\? "grid-cols-2"/, "StatRow phải là lưới đáp ứng (hẹp)");
+  assert.match(ma, /COT_RONG\[n\] \?\? "md:grid-cols-4"/, "StatRow phải là lưới đáp ứng (rộng)");
+  // Số cột theo số ô thật — 6 ô trong lưới 4 cột để thừa 2 ô xám (29/10/2026).
+  assert.match(ma, /6: "md:grid-cols-6"/);
   assert.doesNotMatch(
     ma,
     /flex divide-x/,

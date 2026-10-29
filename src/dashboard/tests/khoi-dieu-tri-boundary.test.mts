@@ -50,7 +50,10 @@ test("mục D cuối khối 2: sửa được như mọi mục, mở sẵn, tóm
   // Mục gõ đầu của khối mở sẵn (khối 2: danh mục C không có ô → D mở).
   assert.match(PHIEU, /m\.lien_ket\?\.loai !== "mang_sang" && m\.block\.length > 0/);
   assert.match(PHIEU, /m\.ma === mucDau\(mucKhoi\) \|\| m\.ma === mucGoDau/);
-  assert.match(PHIEU, /coChanDoan \? " · có chẩn đoán" : ""/);
+  assert.match(PHIEU, /coChanDoan \? "\\ncó chẩn đoán" : ""/);
+  // Mỗi ý một dòng, "kết quả" viết đủ chữ (29/10/2026).
+  assert.match(PHIEU, /chỉ định\\n\$\{coKq\} kết quả/);
+  assert.match(PHIEU, /whitespace-pre-line text-meta text-ink-muted">\{tomTat\[k\.so\]\}/);
 });
 
 test("khối 3 xếp: thẻ điều trị → (D cũ) → thủ thuật đã chỉ định → lưới Dịch vụ khác → Hẹn khám", () => {

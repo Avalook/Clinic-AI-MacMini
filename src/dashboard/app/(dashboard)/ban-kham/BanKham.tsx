@@ -1354,12 +1354,16 @@ function HoSo({
             size="md"
           />
         ) : null}
-        <span className="text-meta text-ink-muted">
-          {dong.trang_thai === "serving" ? "Đã khám" : "Đã chờ"}{" "}
-          <b className="text-ink">
-            {(dong.trang_thai === "serving" ? soPhutTu(dong.bat_dau_luc) : soPhutTu(dong.vao_hang_luc)) || "—"}
-          </b>
-          {" · "}Từ lúc check-in <b className="text-ink">{soPhutTu(dong.checkin_luc) || "—"}</b>
+        <span className="flex flex-col text-meta text-ink-muted">
+          <span>
+            {dong.trang_thai === "serving" ? "Đã khám" : "Đã chờ"}{" "}
+            <b className="text-ink">
+              {(dong.trang_thai === "serving" ? soPhutTu(dong.bat_dau_luc) : soPhutTu(dong.vao_hang_luc)) || "—"}
+            </b>
+          </span>
+          <span>
+            Từ lúc check-in <b className="text-ink">{soPhutTu(dong.checkin_luc) || "—"}</b>
+          </span>
         </span>
         <span className="ml-auto flex flex-wrap gap-1">
           {onHangCho ? (

@@ -342,9 +342,11 @@ export default function PhieuKham({
     // tick từ khối 3) — đếm ở đây, không thì khối 3 báo "chưa có gì" mà thẻ
     // đã nằm trên khối 1 (bấm staging 29/10).
     1: `${soDien} ô đã điền` + (ketQuaBanKham.length ? ` · ${ketQuaBanKham.length} thủ thuật` : ""),
+    // Mỗi ý một dòng (`whitespace-pre-line` ở chỗ vẽ) — chữ "KQ" người dùng
+    // không đọc ra (Tuyền 29/10/2026).
     2:
-      (ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định") +
-      (coChanDoan ? " · có chẩn đoán" : ""),
+      (ketQuaCls.length ? `${ketQuaCls.length} chỉ định\n${coKq} kết quả` : "chưa chỉ định") +
+      (coChanDoan ? "\ncó chẩn đoán" : ""),
     3:
       [
         ketQuaDT.length ? `${ketQuaDT.length} điều trị` : "",
@@ -390,7 +392,7 @@ export default function PhieuKham({
   const tieuDeMuc: Record<string, { ten: string; phu?: ReactNode }> = {
     A: {
       ten: "Bác sĩ tư vấn ghi",
-      phu: ghi ? "mang sang từ Bàn tư vấn · bác sĩ chính sửa tiếp được" : "mang sang từ Bàn tư vấn",
+      // Không dòng phụ "mang sang từ Bàn tư vấn…" (Tuyền 29/10/2026: xoá).
     },
     B: { ten: `Khai thác & khám — ${dinhNghia.ten.replace(/^Phiếu\s+/i, "")}`, phu: "theo phiếu khám của phòng khám" },
     // Không có dòng phụ "xếp như phiếu giấy · giá KiotViet" (Tuyền 29/10/2026:
@@ -536,7 +538,7 @@ export default function PhieuKham({
                     <b className={`block text-emph font-semibold leading-tight ${dang ? "text-brand-700" : "text-ink"}`}>
                       {k.ten}
                     </b>
-                    <small className="block text-meta text-ink-muted">{tomTat[k.so]}</small>
+                    <small className="block whitespace-pre-line text-meta text-ink-muted">{tomTat[k.so]}</small>
                   </span>
                   {moi > 0 ? <Chip tone="success">{moi} mới</Chip> : <span />}
                 </button>
