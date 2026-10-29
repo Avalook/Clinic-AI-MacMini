@@ -132,6 +132,42 @@ class ChiDinhService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def _mo_phien_de_chi_dinh(self, con_id: str, identity: StaffIdentity) -> None:
+        """Chỉ định được khi lượt còn mở (chốt 29/10/2026) — máy tự mở phiên.
+
+        Log prod 22–28/10: 46 lần "Phiên khám chưa bắt đầu hoặc đã kết thúc" khi
+        chỉ định, 28/30 phiên là phiên đã bấm "Khám xong" (bác sĩ khám xong mới
+        nhớ chỉ định thêm). Phiên khám chính:
+          * đã khám xong, khách CHƯA check-out → lệnh Mở lại khám sẵn có (khách
+            về "đang khám", bấm Khám xong lại như thường);
+          * chưa bắt đầu → lệnh Bắt đầu khám (bác sĩ chỉ định = đang khám).
+        Đã check-out thì không tự mở cả lượt — lệnh dưới vẫn chặn, câu nói rõ.
+        Lỗi của lệnh mở (quyền, phiên sau đã bắt đầu…) trả nguyên cho người bấm.
+        """
+        from clinicai.services.hoan_tac_service import HoanTacService
+
+        async with self._pool.acquire() as conn:
+            c = await conn.fetchrow(
+                "SELECT c.kind, c.status, v.closed_at FROM consultation c"
+                "  JOIN visit v"
+                "    ON v.clinic_id = c.clinic_id AND v.visit_id = c.visit_id"
+                " WHERE c.clinic_id = $1::uuid AND c.id = $2::uuid",
+                identity.clinic_id,
+                con_id,
+            )
+        if c is None or c["kind"] != "PRIMARY":
+            return
+        if c["status"] == "completed" and c["closed_at"] is None:
+            await HoanTacService(self._pool).mo_lai_kham(
+                consultation_id=con_id,
+                identity=identity,
+                ly_do="Chỉ định thêm sau khi khám xong",
+            )
+        elif c["status"] == "queued":
+            await LuotKhamService(self._pool).start_consultation(
+                consultation_id=con_id, identity=identity
+            )
+
     async def dat_chi_dinh(
         self,
         *,
@@ -173,6 +209,7 @@ class ChiDinhService:
         if lan_moi:
             payload_bien_nhan["lan_moi"] = thay
         luot_kham = LuotKhamService(self._pool)
+        await self._mo_phien_de_chi_dinh(con_id, identity)
 
         async with self._pool.acquire() as conn, conn.transaction():
             # Kiểm quyền TRƯỚC mọi thứ khác, và kiểm trong chính giao dịch này.
