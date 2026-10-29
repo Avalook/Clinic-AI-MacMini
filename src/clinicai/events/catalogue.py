@@ -1762,7 +1762,8 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_routing",
             payload=DichVuDaChuyenPhong,
             nhan="Trưởng ca chuyển phòng khi đang làm",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            # Lệnh này đóng lần làm cũ → chuông nhận chéo của lần ấy tự đóng.
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -2055,8 +2056,15 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="doi_tac",
             payload=DoiTacDaLayMau,
             nhan="Đối tác đã lấy mẫu",
-            # Bàn đối tác nhận việc nếu lúc chốt chưa nhận (16/10/2026).
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC, DOI_TAC_NHAN_VIEC],
+            # Bàn đối tác nhận việc nếu lúc chốt chưa nhận (16/10/2026). Sổ nợ:
+            # đường này thay cho Xong (không có service.completed) nên phải nghe.
+            consumers=[
+                DONG_THOI_GIAN_LUOT,
+                HANH_TRINH,
+                VONG_DOC,
+                DOI_TAC_NHAN_VIEC,
+                SO_NO,
+            ],
             theo_thu_tu=True,
         ),
         SuKien(

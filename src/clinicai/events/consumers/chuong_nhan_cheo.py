@@ -8,7 +8,9 @@ cho A tự đóng:
         → chuông đích danh: người bấm Bắt đầu lần làm ấy + nhân sự trực phòng A
           hôm nay (không trùng). Bấm mở đúng phòng A, đúng chỉ định.
     service.completed / service.interrupted / service.start_cancelled
-        → lần làm ấy đã Xong / Gián đoạn / huỷ Bắt đầu: chuông của nó tự đóng.
+    / service.room_transferred
+        → lần làm ấy đã Xong / Gián đoạn / huỷ Bắt đầu / trưởng ca chuyển phòng
+          lúc đang làm (lệnh ấy tự đóng lần làm): chuông của nó tự đóng.
 
 A chỉ đang CHỜ (chưa Bắt đầu) thì không réo — khách rời hàng là đủ. Giao tin
 lặp không nhân đôi (khoá "một việc đang mở một lần" của `thong_bao`); lần làm
@@ -35,6 +37,9 @@ _DONG: dict[str, str] = {
     "service.completed": "Phòng đã bấm Xong",
     "service.interrupted": "Phòng đã bấm Gián đoạn",
     "service.start_cancelled": "Phòng đã huỷ Bắt đầu",
+    # Lệnh chuyển phòng đang làm đóng lần làm (INTERRUPTED) mà không phát
+    # service.interrupted — thiếu dòng này thì chuông treo mãi.
+    "service.room_transferred": "Trưởng ca đã chuyển phòng",
     # Phòng mới hoàn tác lần nhận chéo → khách về lại phòng cũ (07/10/2026).
     "service.room_release_undone": "Hoàn tác nhận chéo — khách về lại phòng này",
 }

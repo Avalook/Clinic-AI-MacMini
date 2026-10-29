@@ -68,6 +68,8 @@ LOAI_THEO_SU_KIEN: dict[str, str] = {
     "service.not_performed": "DOI_CHI_DINH",
     "service.start_cancelled": "DOI_CHI_DINH",
     "service.completion_undone": "DOI_CHI_DINH",
+    # Đối tác làm trọn, phòng chưa Bắt đầu: "Nhận mẫu" = dịch vụ đã làm, như Xong.
+    "partner.sample_collected": "DOI_CHI_DINH",
     "visit.supply_changed": "DOI_CHI_DINH",
     "visit.exam_service_changed": "DOI_CHI_DINH",
     "medicine.dispensed": "DOI_CHI_DINH",

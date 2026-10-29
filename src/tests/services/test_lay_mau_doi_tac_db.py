@@ -23,6 +23,7 @@ import pytest
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn
+from clinicai.events.catalogue import SO_NO
 from clinicai.services.config_service import PriceListService
 from clinicai.services.doi_tac_service import DoiTacService
 from clinicai.services.luot_kham_doc import BangLuotKham
@@ -247,6 +248,49 @@ async def test_da_lay_mau_idempotent_tren_luot_da_hoan_tat(pool: asyncpg.Pool) -
         )
         == "FINALIZED"
     )
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_da_lay_mau_chua_bat_dau_ghi_nhu_xong_va_bao_so_no(
+    pool: asyncpg.Pool,
+) -> None:
+    """Đối tác bấm "Đã lấy mẫu" khi phòng chưa ai Bắt đầu (`_ghi_da_lay_mau`):
+    dịch vụ phải ở đúng trạng thái như mọi đường Xong khác (cột mới
+    `execution_status` = COMPLETED, không chỉ cột cũ), và sổ nợ phải được báo
+    để tính lại số dư của lượt — như khi phòng bấm Xong (`service.completed`)."""
+    q = await tao_quay(pool)
+    ma = f"PHIM2-{q.duoi}"
+    node = "DICHVU-HINHANH-NGOAI"
+    await _gia(q, ma, 1_500_000, node, ben="EXTERNAL_PARTNER", tu_lay=True)
+    oid = await _cd(q, ma, node)
+    await pool.execute(
+        "INSERT INTO doi_tac_nhan_viec (clinic_id, service_order_id, ly_do)"
+        " VALUES ($1::uuid, $2::uuid, 'KHACH_DA_CHON')",
+        CLINIC,
+        oid,
+    )
+    nv = await _nhan_su_doi_tac(q)
+    truoc = await pool.fetchval("SELECT coalesce(max(seq), 0) FROM domain_event")
+
+    await DoiTacService(pool).doi_tac_da_lay_mau(order_id=oid, identity=nv)
+
+    don = await pool.fetchrow(
+        "SELECT exec_status, execution_status FROM service_order WHERE id = $1::uuid",
+        oid,
+    )
+    assert don["exec_status"] == "performed"
+    assert don["execution_status"] == "COMPLETED", (
+        f"Đã lấy mẫu mà cột trạng thái mới vẫn là {don['execution_status']!r}"
+    )
+    bao_so_no = await pool.fetchval(
+        "SELECT count(*) FROM event_delivery d JOIN domain_event e USING (event_id)"
+        " WHERE d.consumer = $1 AND e.aggregate_id = $2::uuid AND e.seq > $3",
+        SO_NO,
+        oid,
+        truoc,
+    )
+    assert bao_so_no >= 1, "Dịch vụ đã làm mà sổ nợ không được báo"
 
 
 # ---------------------------------------------------------------------------

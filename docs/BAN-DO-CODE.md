@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-19 12:17. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-21 11:42. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1867,7 +1867,7 @@ Danh mục sự kiện: `src/clinicai/events/catalogue.py` (mỗi sự kiện kh
 | Consumer | Tên | Nghe | Cách |
 |---|---|---|---|
 | `src/clinicai/events/consumers/chuong.py` | `chuong_thong_bao` | `lab_result.arrived`, `partner.order_received`, `partner.result_returned`, `pharmacy.expiry_checked`, `pharmacy.stocktake_mismatch`, `result.corrected`, `result.ready`, `result_file.confirmed`, `result_file.uploaded` | sự kiện → `bao_chuong` |
-| `src/clinicai/events/consumers/chuong_nhan_cheo.py` | `chuong_nhan_cheo` | `service.completed`, `service.interrupted`, `service.room_release_undone`, `service.room_released`, `service.start_cancelled` | sự kiện → `chuong_nhan_cheo` |
+| `src/clinicai/events/consumers/chuong_nhan_cheo.py` | `chuong_nhan_cheo` | `service.completed`, `service.interrupted`, `service.room_release_undone`, `service.room_released`, `service.room_transferred`, `service.start_cancelled` | sự kiện → `chuong_nhan_cheo` |
 | `src/clinicai/events/consumers/cong_no.py` | `cong_no` | `payment.medicine_collected`, `payment.service_collected` | sự kiện → `xet_da_thu` |
 | `src/clinicai/events/consumers/dieu_tri.py` | `dieu_tri_sinh_chi_dinh` | `visit.routed` | sự kiện → `sinh_chi_dinh` |
 | `src/clinicai/events/consumers/doi_tac.py` | `doi_tac_nhan_viec` | `partner.sample_collected`, `payment.service_collected`, `service.completed`, `service_selection.confirmed`, `visit.defer_payment_set` | sự kiện → `nhan_viec_doi_tac` |
@@ -1878,7 +1878,7 @@ Danh mục sự kiện: `src/clinicai/events/catalogue.py` (mỗi sự kiện kh
 | `src/clinicai/events/consumers/lieu_trinh_sap_het.py` | `lieu_trinh_sap_het` | `service.completed` | sự kiện → `bao_sap_het` |
 | `src/clinicai/events/consumers/nhac_tai_kham.py` | `nhac_tai_kham.den_han` | — | hẹn giờ → `bao_den_han` |
 | `src/clinicai/events/consumers/nhac_viec.py` | `nhac_viec.ca_nhan` | — | hẹn giờ → `nhac_ca_nhan` |
-| `src/clinicai/events/consumers/so_no.py` | `so_no` | `cong_no.ghi`, `cong_no.huy`, `medicine.dispensed`, `medicine.returned`, `payment.collection_undone`, `payment.medicine_collected`, `payment.refunded`, `payment.service_collected`, `prescription.saved`, `service.completed`, `service.completion_undone`, `service.not_performed`, `service.start_cancelled`, `service.started`, `service_order.cancelled` (+7) | sự kiện → `ghi_so` |
+| `src/clinicai/events/consumers/so_no.py` | `so_no` | `cong_no.ghi`, `cong_no.huy`, `medicine.dispensed`, `medicine.returned`, `partner.sample_collected`, `payment.collection_undone`, `payment.medicine_collected`, `payment.refunded`, `payment.service_collected`, `prescription.saved`, `service.completed`, `service.completion_undone`, `service.not_performed`, `service.start_cancelled`, `service.started` (+8) | sự kiện → `ghi_so` |
 | `src/clinicai/events/consumers/trach_nhiem.py` | `trach_nhiem_dich_vu` | `service.interrupted`, `service.not_performed`, `service.routing_invalidated` | sự kiện → `mo_viec_khi_can` |
 | `src/clinicai/events/consumers/trach_nhiem.py` | `trach_nhiem.kiem_lai` | — | hẹn giờ → `kiem_lai_viec_con_mo` |
 | `src/clinicai/events/consumers/vong_doc.py` | `vong_doc_luot_kham` | `partner.sample_collected`, `partner.sample_received`, `result.corrected`, `result.ready`, `result_file.confirmed`, `result_file.deleted`, `result_file.restored`, `result_file.revoked`, `result_file.uploaded`, `service.completed`, `service.not_performed`, `service_selection.confirmed` | sự kiện → `xu_ly_vong_doc` |

@@ -193,6 +193,47 @@ async def test_lan_lam_da_dong_truoc_khi_tin_toi_thi_khong_chuong(bat: RB) -> No
     assert await _chuong(bat, o1) == []
 
 
+async def _quen_xong_hai_phong(b: RB) -> tuple[str, dict[str, Any], str]:
+    """Như `_quen_xong`, nhưng o1 làm được ở CẢ hai phòng — để chuyển được o1."""
+    o1 = await _cd_o(b, b.sa1, b.sa2)
+    o2 = await _cd_o(b, b.sa2)
+    await _nhan(b, b.sa1, o1)
+    lam = await _bat_dau(b, o1)
+    await _nhan(b, b.sa2, o2, xac_nhan=True)
+    return o1, lam, o2
+
+
+async def _trang_thai_lan_lam(b: RB, attempt_id: str) -> str:
+    return str(
+        await b.pool.fetchval(
+            "SELECT status FROM service_execution_attempt WHERE id = $1::uuid",
+            attempt_id,
+        )
+    )
+
+
+async def test_truong_ca_chuyen_phong_dang_lam_dong_chuong(bat: RB) -> None:  # noqa: F811
+    """Trưởng ca chuyển lần làm đang chạy ở A sang phòng khác → lần làm ở A
+    đóng (INTERRUPTED); chuông nhận chéo của nó phải tự đóng, không treo mãi."""
+    o1, lam, _ = await _quen_xong_hai_phong(bat)
+    [r] = await _chuong(bat, o1)
+    assert r["da_xu_ly_luc"] is None
+    rev = await bat.pool.fetchval(
+        "SELECT routing_revision FROM service_order WHERE id = $1::uuid", o1
+    )
+    await bat.svc.chuyen_phong_dang_lam(
+        order_id=o1,
+        room_id=bat.sa2,
+        expected_routing_revision=int(rev),
+        ly_do="Máy siêu âm hỏng đầu dò",
+        identity=bat.truong_ca,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    assert await _trang_thai_lan_lam(bat, lam["attempt_id"]) == "INTERRUPTED"
+    [r] = await _chuong(bat, o1)
+    assert r["da_xu_ly_luc"] is not None, "Lần làm đã đóng mà chuông vẫn treo"
+
+
 async def test_nguoi_nhan_khong_trung() -> None:
     assert cnc.nguoi_nhan("a", ["b", "a", "c", "b"]) == ["a", "b", "c"]
     assert cnc.nguoi_nhan(None, ["b"]) == ["b"]
