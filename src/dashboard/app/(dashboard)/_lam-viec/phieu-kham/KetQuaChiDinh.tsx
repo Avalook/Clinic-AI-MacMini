@@ -207,7 +207,8 @@ export default function KetQuaChiDinh({
 }: {
   ds: ChiDinhVaKetQua[];
   /** Mã lượt — có thì vẽ khối "Đầu dò kèm chỉ định" (Bio chọn ở chỉ định CLS,
-   *  G9 14/10/2026) trên danh sách thẻ. Thẻ điều trị không có đầu dò. */
+   *  G9 14/10/2026) trên danh sách thẻ, và phiếu kết quả kèm ô Làm trước – thu
+   *  sau dưới câu nhắc chưa thu tiền. Thẻ điều trị không có đầu dò. */
   dauDoLuot?: string;
   /** Thẻ CHỈ ĐỊNH ĐIỀU TRỊ (khối 3): một thẻ mỗi chỉ định, phần điều trị do
    *  `KhoiDieuTri` vẽ — `chip` thay chip trạng thái một trục (null = giữ chip
@@ -311,7 +312,9 @@ export default function KetQuaChiDinh({
     const thanDieuTri = dieuTri?.than(d) ?? null;
     return (
       <li key={d.service_order_id} className="rounded-card border border-hairline bg-surface">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
+        {/* Màn hẹp: nút xuống dưới tên — cạnh nhau thì ba nút chiếm nửa thẻ,
+            tên dịch vụ bẻ từng chữ một (bấm staging 375, 29/10/2026). */}
+        <div className="grid items-center gap-2 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <span className="font-semibold text-ink">{d.ten_hien_thi}</span>{" "}
             {d.ma_kiotviet ? <span className="text-meta text-ink-muted">{d.ma_kiotviet}</span> : null}
@@ -348,7 +351,7 @@ export default function KetQuaChiDinh({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap justify-end gap-1">
+          <div className="flex flex-wrap gap-1 sm:justify-end">
             {onBoChiDinh && !chiXem ? (
               <NutHoanTac
                 nhan="Hoàn tác chỉ định"
@@ -452,6 +455,7 @@ export default function KetQuaChiDinh({
                 (d.mau_chon_san || d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
               }
               onHoanTat={() => onDoi?.()}
+              luotId={dauDoLuot}
             />
           </div>
         ) : null}

@@ -59,6 +59,7 @@ import Button, { buttonClass } from "@/components/ui/Button";
 import ChipChon from "@/components/ui/ChipChon";
 import OSo from "@/components/ui/OSo";
 import TrangThaiLuu from "@/components/ui/TrangThaiLuu";
+import OLamTruocThuSau from "./OLamTruocThuSau";
 import PhieuDieuTri from "./PhieuDieuTri";
 
 export interface MauKetQua {
@@ -168,7 +169,12 @@ export default function PhieuKetQua({
   onHoanTat,
   onCacBen,
   duong = DUONG_PHIEU,
+  luotId,
 }: {
+  /** Mã lượt — có thì câu nhắc "chưa thu tiền" kèm ngay ô Làm trước – thu sau
+   *  (Tuyền 29/10/2026: nhắc bấm mà không thấy nút đâu). Màn đã có ô ở khung
+   *  khác (phòng dịch vụ) thì không truyền. */
+  luotId?: string;
   /** Cửa lệnh phiếu — `/api/doi-tac/phieu` ở màn đối tác (16/10/2026): cùng
    *  phiếu, cùng engine, qua cửa đối tác (máy chủ chỉ cho việc đối tác). */
   duong?: string;
@@ -619,6 +625,15 @@ export default function PhieuKetQua({
             phu="nháp, chưa phải kết quả"
           />
           <BaoLoiCanhNut muc={nhacNut ? "nhac" : "loi"}>{loiNut}</BaoLoiCanhNut>
+          {nhacNut && luotId ? (
+            <OLamTruocThuSau
+              visitId={luotId}
+              onDoi={() => {
+                setLoiNut(null);
+                setNhacNut(false);
+              }}
+            />
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             {dangSuaLai ? (
               <label className="w-full">
