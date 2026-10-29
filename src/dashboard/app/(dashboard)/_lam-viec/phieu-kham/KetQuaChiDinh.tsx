@@ -202,6 +202,7 @@ export default function KetQuaChiDinh({
   nhanGiay = {},
   onDoiBatBuoc,
   onBoChiDinh,
+  onTraVeLuotCu,
   dieuTri,
   dauDoLuot,
 }: {
@@ -222,6 +223,11 @@ export default function KetQuaChiDinh({
    *  không (đang làm / đã xong → hoàn tác ở phòng trước) và hỏi xác nhận khi
    *  đã thu tiền (khoản ấy thành tiền thừa ở quầy). */
   onBoChiDinh?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
+  /** Chỉ định MANG SANG từ lượt cũ ([Làm hôm nay], `mang_sang`): nút hoàn tác
+   *  là [Trả về lượt cũ] (lệnh `tra-ve-luot-cu`), KHÔNG phải huỷ — huỷ một chỉ
+   *  định khách đã trả hôm trước biến tiền ấy thành tiền thừa (bấm staging
+   *  29/10/2026: [Hoàn tác] chỉ nằm trên thông báo tự tắt, tắt là hết đường). */
+  onTraVeLuotCu?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
   /** Bật / tắt "Bắt buộc" của chỉ định CHƯA thu tiền (25/09/2026; 27/09 chuyển
    *  từ hộp tóm tắt ở đầu danh mục vào đây). Không truyền = chỉ xem chip. */
   onDoiBatBuoc?: (
@@ -355,7 +361,17 @@ export default function KetQuaChiDinh({
             ) : null}
           </div>
           <div className="col-start-2 row-start-2 flex flex-col items-stretch gap-1 sm:row-span-2 sm:row-start-1 sm:flex-row sm:flex-wrap sm:justify-end">
-            {onBoChiDinh && !chiXem ? (
+            {d.mang_sang && onTraVeLuotCu && !chiXem ? (
+              <NutHoanTac
+                nhan="Trả về lượt cũ"
+                variant="secondary"
+                className="max-sm:items-stretch"
+                tieuDe={`Trả “${d.ten_hien_thi}” về lượt cũ?`}
+                moTa="Không làm hôm nay — chỉ định về lại lượt cũ, tiền đã thu giữ nguyên"
+                goi={onTraVeLuotCu(d.service_order_id)}
+                onXong={onDoi}
+              />
+            ) : onBoChiDinh && !chiXem ? (
               <NutHoanTac
                 nhan="Hoàn tác chỉ định"
                 variant="danger"
