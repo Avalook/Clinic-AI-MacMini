@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { dinhDangSdt as sdtDoc } from "@/lib/sdt";
 import type { DauPhieu } from "@/lib/phieu-kham";
 import SoLuot from "@/components/ui/SoLuot";
 import { useTomTatLuot } from "./TomTatLuot";
@@ -29,13 +30,6 @@ function ngayVn(iso: string | number | null | undefined): string | null {
   if (typeof iso !== "string") return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
-
-/** "0914378212" → "0914 378 212" (đọc qua điện thoại dễ hơn). */
-function sdtDoc(sdt: string | number | null | undefined): string | null {
-  if (sdt === null || sdt === undefined || sdt === "") return null;
-  const s = String(sdt).replace(/\s+/g, "");
-  return /^\d{10}$/.test(s) ? `${s.slice(0, 4)} ${s.slice(4, 7)} ${s.slice(7)}` : String(sdt);
 }
 
 /** Hai chữ cái: chữ đầu của HỌ + chữ đầu của TÊN ("Nguyễn Thị Mẫu" → "NM"). */
