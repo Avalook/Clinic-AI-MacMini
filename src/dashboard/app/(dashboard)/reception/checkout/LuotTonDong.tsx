@@ -23,11 +23,13 @@ import { fmtDayTime } from "@/lib/datetime";
 import { useNgheBang } from "../../dung-nghe-bang";
 import type { Blocker } from "./CheckoutBoard";
 import KhoanNoKhiVe, { coNo, type NoKhiVe } from "../../_lam-viec/KhoanNoKhiVe";
+import { sdtDoc } from "@/lib/sdt";
 
 interface LuotTon {
   visit_id: string;
   patient_name: string | null;
   patient_code: string | null;
+  phone_primary?: string | null;
   room_name: string | null;
   checked_in_at: string | null;
   blockers: Blocker[];
@@ -195,11 +197,6 @@ export default function LuotTonDong({
           Lượt tồn đọng từ hôm trước
           <Chip>{hang.length}</Chip>
         </h2>
-        <p className="mt-1 text-meta text-ink-muted">
-          Check-in từ những ngày trước, còn mở, chưa check-out. Khách đã về thì
-          đóng lượt và ghi lý do — hết lượt ở đây là hết cảnh báo &ldquo;lượt
-          treo&rdquo;.
-        </p>
         {bao ? <p className="mt-1 text-meta text-ink-muted">{bao}</p> : null}
         {dongNeutral ? <p className="mt-1 text-meta text-ink-muted">{dongNeutral}</p> : null}
       </div>
@@ -222,10 +219,10 @@ export default function LuotTonDong({
               <div className="min-w-0">
                 <p className="truncate text-body font-semibold text-ink">
                   {l.patient_name ?? "Chưa rõ tên"}
-                  <span className="font-normal text-ink-muted">
-                    {" "}
-                    · {l.patient_code ?? "—"}
-                  </span>
+                  {sdtDoc(l.phone_primary) ? (
+                    <span className="font-normal tabular-nums text-ink-muted"> · {sdtDoc(l.phone_primary)}</span>
+                  ) : null}
+                  <span className="block text-meta font-normal text-ink-muted">{l.patient_code ?? "—"}</span>
                 </p>
                 <p className="text-meta text-ink-muted">
                   Check-in {l.checked_in_at ? fmtDayTime(l.checked_in_at) : "—"}

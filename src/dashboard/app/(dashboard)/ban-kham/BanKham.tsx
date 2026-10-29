@@ -87,6 +87,7 @@ import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
 import { useChipLieuTrinh } from "../_lam-viec/dung-chip-lieu-trinh";
 import { nhanLieuTrinhLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+import { sdtDoc } from "@/lib/sdt";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -218,8 +219,22 @@ interface SapToi {
   visit_id: string;
   ten: string;
   ma_bn: string | null;
+  sdt?: string | null;
   so_tiep_don: number | null;
   so_booking?: number | null;
+  dang_o: string;
+}
+
+/** Khách của bác sĩ khác chưa ai bắt đầu khám (29/10/2026) — máy chủ trả. */
+interface KhachBacSiKhac {
+  visit_id: string;
+  ten: string;
+  ma_bn: string | null;
+  sdt?: string | null;
+  so_tiep_don: number | null;
+  so_booking?: number | null;
+  lich_bac_si: string | null;
+  bac_si_hien_tai: string | null;
   dang_o: string;
 }
 
@@ -246,6 +261,7 @@ export default function BanKham({
   const laThuKy = nut.kham && !nut.hoanTat;
   const choBam = tuVan ? nut.tuVan : nut.kham;
   const [sapToi, setSapToi] = useState<SapToi[]>([]);
+  const [bacSiKhac, setBacSiKhac] = useState<KhachBacSiKhac[]>([]);
 
   const router = useRouter();
   const [phongs, setPhongs] = useState<PhongHomNay | null>(null);
@@ -289,7 +305,11 @@ export default function BanKham({
     let huy = false;
     const nap = async () => {
       const [h, b] = await Promise.all([
-        docBang<{ hang_cho: DongHangCho[]; sap_toi?: SapToi[] }>("hang-cho", {
+        docBang<{
+          hang_cho: DongHangCho[];
+          sap_toi?: SapToi[];
+          khach_bac_si_khac?: KhachBacSiKhac[];
+        }>("hang-cho", {
           ...(tuVan ? { tu_van: "true" } : phong ? { phong: phong.id } : {}),
           ngay,
         }),
@@ -310,6 +330,7 @@ export default function BanKham({
         }
         setHangDon(Object.values(donCuoi));
         setSapToi(tuVan ? [] : (h.data.sap_toi ?? []));
+        setBacSiKhac(tuVan ? [] : (h.data.khach_bac_si_khac ?? []));
       }
       if (b.ok) setBang(b.data);
     };
@@ -337,7 +358,7 @@ export default function BanKham({
     const ds = hang ?? [];
     if (!kim) return ds;
     return ds.filter((d) =>
-      [d.ten, d.ma_bn, String(d.so_thu_tu)].some((v) =>
+      [d.ten, d.ma_bn, d.sdt, String(d.so_thu_tu)].some((v) =>
         v?.toLocaleLowerCase("vi").includes(kim),
       ),
     );
@@ -346,7 +367,7 @@ export default function BanKham({
     const kim = query.trim().toLocaleLowerCase("vi");
     if (!kim) return hangDon;
     return hangDon.filter((d) =>
-      [d.ten, d.ma_bn, String(d.so_thu_tu)].some((v) => v?.toLocaleLowerCase("vi").includes(kim)),
+      [d.ten, d.ma_bn, d.sdt, String(d.so_thu_tu)].some((v) => v?.toLocaleLowerCase("vi").includes(kim)),
     );
   }, [hangDon, query]);
   const donChuaXong = donHienRa.filter((d) => !d.ke_don_tu_van_xong);
@@ -411,13 +432,12 @@ export default function BanKham({
   const khungMacDinh: Khung =
     chon?.vong === "REVIEW" && chon.trang_thai !== "done" ? "chi-dinh" : "benh-an";
   const khung = khungChon && khungChon.id === chon?.id ? khungChon.khung : khungMacDinh;
-  // HÀNG CHỜ GẬP khi đang mở phiếu v5 của bác sĩ chính (Tuyền 27/09/2026 — "y hệt
-  // bản giao diện mẫu"): bản mẫu không có cột danh sách, phiếu chiếm trọn chiều
-  // rộng. Dưới 1536px cột ~250px của danh sách bóp phiếu còn ~350px (tên khách vỡ
-  // từng chữ). Mở lại bằng nút "Hàng chờ" ở thanh công việc; chọn khách là gập.
+  // HÀNG CHỜ: từ 1280px LUÔN HIỆN (cột hẹp) — Tuyền 29/10/2026, bản 27/09 gập
+  // dưới 1536px khi mở phiếu nên trên laptop "thỉnh thoảng mất list khách". Dưới
+  // 1280 (xếp chồng) vẫn gập khi mở phiếu; nút "Hàng chờ" mở lại và màn NHỚ lựa
+  // chọn — chọn khách khác không tự gập lại.
   const [moHang, setMoHang] = useState(false);
   const moKhach = useCallback((id: string) => {
-    setMoHang(false);
     setChonId(id);
     // Màn xếp chồng (< 1280): danh sách ở TRÊN vùng làm việc — tự cuộn tới.
     if (window.innerWidth < 1280) {
@@ -588,13 +608,11 @@ export default function BanKham({
           (23/09 khuya). Bật lại đường cũ (PHIEU_V5 = false) thì trả cột thứ ba:
           minmax 320px, 1fr. */}
       <div
-        className={`grid items-start gap-4 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(0,2.9fr)] ${
-          gapHang ? "" : "xl:grid-cols-[auto_minmax(0,1fr)]"
-        }`}
+        className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(0,2.9fr)]"
       >
         <aside
           aria-label="Hàng chờ khám"
-          className={`min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:w-64 2xl:block 2xl:w-auto ${
+          className={`min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:block xl:w-56 2xl:w-auto ${
             gapHang ? "hidden" : ""
           }`}
         >
@@ -630,6 +648,7 @@ export default function BanKham({
               <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} daKhamLuc={daKhamLuc} />
               <Nhom ten="Chờ khám" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Không có khách đang chờ." batDau={nutBatDau} />
               {laHomNay ? <NhomSapToi ds={sapToi} /> : null}
+              {laHomNay ? <NhomBacSiKhac ds={bacSiKhac} choBam={choBam} onDaDoi={napLai} /> : null}
               <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
               {laThuKy ? (
                 <>
@@ -718,7 +737,12 @@ function NhomSapToi({ ds }: { ds: SapToi[] }) {
           <li key={d.visit_id} className="flex items-center gap-2.5 px-2.5 py-2.5 text-xs">
             <SoLuot dang="tron" checkin={d.so_tiep_don} booking={d.so_booking} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-emph font-semibold text-ink">{d.ten}</span>
+              <span className="block truncate text-emph font-semibold text-ink">
+                {d.ten}
+                {sdtDoc(d.sdt) ? (
+                  <span className="ml-2 text-body font-normal tabular-nums text-ink-muted">{sdtDoc(d.sdt)}</span>
+                ) : null}
+              </span>
               <span className="block truncate text-ink-muted">
                 {d.ma_bn ?? ""} · {d.dang_o}
               </span>
@@ -727,6 +751,94 @@ function NhomSapToi({ ds }: { ds: SapToi[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** "Khách của bác sĩ khác" (chốt 29/10/2026): lịch BS A quá tải, BS B nhận khám.
+ *  Gập sẵn — bấm tiêu đề để mở. [Nhận] = khách thành của mình (lịch hẹn vẫn
+ *  ghi BS A); thông báo có [Hoàn tác] trả về bác sĩ trên lịch. Ai nhận trước
+ *  giữ — máy chủ quyết (phiên phải còn chờ). */
+function NhomBacSiKhac({
+  ds,
+  choBam,
+  onDaDoi,
+}: {
+  ds: KhachBacSiKhac[];
+  choBam: boolean;
+  onDaDoi: () => void;
+}) {
+  const [mo, setMo] = useState(false);
+  const [dangGui, setDangGui] = useState<string | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const [thongBao, setThongBao] = useState<ThongBao | null>(null);
+  const nhan = async (d: KhachBacSiKhac) => {
+    setDangGui(d.visit_id);
+    setLoi(null);
+    const kq = await guiThaoTac("nhan-khach", d.visit_id);
+    setDangGui(null);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    setThongBao({
+      cau: `Đã nhận ${d.ten} (lịch ${d.lich_bac_si ?? "bác sĩ khác"})`,
+      goi: lenhHoanTac("tra-khach-ve-lich", d.visit_id),
+    });
+    onDaDoi();
+  };
+  return (
+    <>
+      {ds.length > 0 ? (
+        <section>
+          <button
+            type="button"
+            aria-expanded={mo}
+            onClick={() => setMo((m) => !m)}
+            className="flex w-full items-center justify-between gap-2 border-y border-line bg-surface-muted px-3 py-2 text-left text-xs font-semibold text-ink-soft"
+          >
+            <span>Khách của bác sĩ khác ({ds.length})</span>
+            <span aria-hidden="true">{mo ? "▾" : "▸"}</span>
+          </button>
+          {mo ? (
+            <ul>
+              {ds.map((d) => (
+                <li key={d.visit_id} className="flex items-center gap-2.5 px-2.5 py-2.5 text-xs">
+                  <SoLuot dang="tron" checkin={d.so_tiep_don} booking={d.so_booking} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-emph font-semibold text-ink">
+                      {d.ten}
+                      {sdtDoc(d.sdt) ? (
+                        <span className="ml-2 text-body font-normal tabular-nums text-ink-muted">{sdtDoc(d.sdt)}</span>
+                      ) : null}
+                    </span>
+                    <span className="block truncate text-ink-muted">
+                      Lịch: {d.lich_bac_si ?? "—"} · {d.dang_o}
+                    </span>
+                  </span>
+                  {choBam ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={dangGui !== null}
+                      onClick={() => void nhan(d)}
+                    >
+                      {dangGui === d.visit_id ? "Đang nhận…" : "Nhận"}
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {loi ? <p className="px-3 pb-2 text-label text-danger">{loi}</p> : null}
+        </section>
+      ) : null}
+      <ThongBaoHoanTac
+        thongBao={thongBao}
+        onDong={() => setThongBao(null)}
+        onHoanTacXong={onDaDoi}
+      />
+    </>
   );
 }
 
@@ -849,6 +961,9 @@ function Nhom({
                       </span>
                     ) : null}
                     {lt ? <span className="font-medium text-brand-700">{lt}</span> : null}
+                    {d.lich_bac_si ? (
+                      <span className="font-medium text-warning">Lịch: {d.lich_bac_si}</span>
+                    ) : null}
                   </span>
                 </span>
               </button>
@@ -1236,16 +1351,20 @@ function HoSo({
             size="md"
           />
         ) : null}
-        <span className="text-meta text-ink-muted">
-          {dong.trang_thai === "serving" ? "Đã khám" : "Đã chờ"}{" "}
-          <b className="text-ink">
-            {(dong.trang_thai === "serving" ? soPhutTu(dong.bat_dau_luc) : soPhutTu(dong.vao_hang_luc)) || "—"}
-          </b>
-          {" · "}Từ lúc check-in <b className="text-ink">{soPhutTu(dong.checkin_luc) || "—"}</b>
+        <span className="flex flex-col text-meta text-ink-muted">
+          <span>
+            {dong.trang_thai === "serving" ? "Đã khám" : "Đã chờ"}{" "}
+            <b className="text-ink">
+              {(dong.trang_thai === "serving" ? soPhutTu(dong.bat_dau_luc) : soPhutTu(dong.vao_hang_luc)) || "—"}
+            </b>
+          </span>
+          <span>
+            Từ lúc check-in <b className="text-ink">{soPhutTu(dong.checkin_luc) || "—"}</b>
+          </span>
         </span>
         <span className="ml-auto flex flex-wrap gap-1">
           {onHangCho ? (
-            <Button size="sm" variant="ghost" aria-expanded={hangMo} onClick={onHangCho}>
+            <Button size="sm" variant="ghost" className="xl:hidden" aria-expanded={hangMo} onClick={onHangCho}>
               ☰ {hangMo ? "Ẩn hàng chờ" : `Hàng chờ (${soCho})`}
             </Button>
           ) : null}
@@ -1281,7 +1400,12 @@ function HoSo({
           <div className="min-w-44 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               {gon ? null : (
-                <h2 className="text-base font-semibold text-ink">{dong.ten}</h2>
+                <h2 className="text-base font-semibold text-ink">
+                  {dong.ten}
+                  {sdtDoc(dong.sdt) ? (
+                    <span className="ml-2 font-normal tabular-nums text-ink-muted">{sdtDoc(dong.sdt)}</span>
+                  ) : null}
+                </h2>
               )}
               <StatusChip tone={t.tone} label={t.nhan} size="md" />
               {dong.vong === "REVIEW" && dong.trang_thai !== "done" ? (
@@ -1297,7 +1421,7 @@ function HoSo({
             </p>
             <div className="mt-1 -ml-3 flex flex-wrap gap-1">
               {onHangCho ? (
-                <Button size="sm" variant="ghost" aria-expanded={hangMo} onClick={onHangCho}>
+                <Button size="sm" variant="ghost" className="xl:hidden" aria-expanded={hangMo} onClick={onHangCho}>
                   ☰ {hangMo ? "Ẩn hàng chờ" : `Hàng chờ (${soCho})`}
                 </Button>
               ) : null}
@@ -1503,7 +1627,7 @@ function HoSo({
                     patient_code: dong.ma_bn,
                     full_name: dong.ten,
                     date_of_birth: null,
-                    phone_primary: null,
+                    phone_primary: dong.sdt ?? null,
                     phone_secondary: null,
                     gender: null,
                     ethnicity: null,

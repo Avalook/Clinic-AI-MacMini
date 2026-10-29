@@ -21,7 +21,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import Chip from "@/components/ui/Chip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import ChiDinhCuaBacSi from "./ChiDinhCuaBacSi";
+import ChuyenBacSiKham from "./ChuyenBacSiKham";
 import { ChipTrangThai } from "./nhan-trang-thai";
 import { nodeLabel, type DispatchHistoryRow, type DispatchPatient, type DispatchRoom } from "./types";
 import { EVENT_LABEL } from "./HistoryClient";
@@ -75,17 +77,43 @@ export default function QueuesClient({
     keoId.current = null;
     setKeo(null);
   }
+  // Thả một dịch vụ ĐANG LÀM: chưa gửi — hỏi lý do tại chỗ trước (29/10/2026).
+  const [hoiLyDo, setHoiLyDo] = useState<{
+    p: DispatchPatient;
+    dich: DichDen;
+    roomId: string;
+    ten: string;
+  } | null>(null);
+  const [lyDo, setLyDo] = useState("");
+  const [dangGui, setDangGui] = useState(false);
+
+  async function gui(p: DispatchPatient, dich: DichDen, roomId: string, tenPhongDen: string, ly?: string) {
+    const kq = await dich.gui(roomId, ly);
+    setBao(
+      kq.ok
+        ? { ok: true, text: `Đã chuyển ${p.patient_name ?? "khách"} (${dich.tenDichVu}) sang ${tenPhongDen}.` }
+        : { ok: false, text: kq.loi },
+    );
+    if (kq.ok) void live.lamMoi();
+    return kq.ok;
+  }
   async function tha(roomId: string, tenPhongDen: string) {
     const k = keo;
     huyKeo();
     if (!k || k.dich === "dang-doc" || !k.dich.phong.has(roomId)) return;
-    const kq = await k.dich.gui(roomId);
-    setBao(
-      kq.ok
-        ? { ok: true, text: `Đã chuyển ${k.p.patient_name ?? "khách"} (${k.dich.tenDichVu}) sang ${tenPhongDen}.` }
-        : { ok: false, text: kq.loi },
-    );
-    if (kq.ok) void live.lamMoi();
+    if (k.dich.canLyDo) {
+      setLyDo("");
+      setHoiLyDo({ p: k.p, dich: k.dich, roomId, ten: tenPhongDen });
+      return;
+    }
+    await gui(k.p, k.dich, roomId, tenPhongDen);
+  }
+  async function chuyenDangLam() {
+    if (!hoiLyDo) return;
+    setDangGui(true);
+    const ok = await gui(hoiLyDo.p, hoiLyDo.dich, hoiLyDo.roomId, hoiLyDo.ten, lyDo.trim());
+    setDangGui(false);
+    if (ok) setHoiLyDo(null);
   }
 
   // Esc đóng hộp điều phối.
@@ -135,6 +163,29 @@ export default function QueuesClient({
         >
           {bao.text}
         </p>
+      ) : null}
+      {hoiLyDo ? (
+        <XacNhanTaiCho
+          cau={`${hoiLyDo.p.patient_name ?? "Khách"} đang làm ${hoiLyDo.dich.tenDichVu}${
+            hoiLyDo.dich.canLyDo?.phongHienTai ? ` ở ${hoiLyDo.dich.canLyDo.phongHienTai}` : ""
+          } — chuyển sang ${hoiLyDo.ten}?`}
+          nhanDongY="Chuyển phòng"
+          onDongY={() => void chuyenDangLam()}
+          onThoi={() => setHoiLyDo(null)}
+          dangGui={dangGui}
+          choDongY={lyDo.trim().length >= 3}
+        >
+          <input
+            type="text"
+            aria-label="Lý do chuyển phòng"
+            placeholder="Lý do (bắt buộc) — vd máy hỏng, phòng quá tải"
+            value={lyDo}
+            maxLength={300}
+            autoFocus
+            onChange={(e) => setLyDo(e.target.value)}
+            className="min-h-8 w-full rounded-control border border-line bg-surface px-2 text-body text-ink"
+          />
+        </XacNhanTaiCho>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {live.rooms.map((r) => (
@@ -197,6 +248,13 @@ export default function QueuesClient({
                 <ChipTrangThai t={khach.trang_thai} />
               </p>
             ) : null}
+            <p className="mt-3 text-label font-semibold uppercase text-ink-muted">Bác sĩ khám</p>
+            <ChuyenBacSiKham
+              key={`bs-${khach.visit_id}`}
+              visitId={khach.visit_id}
+              bacSiHienTai={khach.doctor_name}
+              onDoi={() => void live.lamMoi()}
+            />
             <p className="mt-3 text-label font-semibold uppercase text-ink-muted">
               Chuyển sang phòng làm được việc này
             </p>

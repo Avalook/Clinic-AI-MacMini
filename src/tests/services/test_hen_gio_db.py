@@ -20,6 +20,7 @@ import pytest
 import pytest_asyncio
 
 import clinicai.events.consumers  # noqa: F401 — đăng ký bên nhận + loại hẹn
+from clinicai.events import hen_gio
 from clinicai.events.catalogue import TRACH_NHIEM_DICH_VU, DichVuKhongLam
 from clinicai.events.consumers.trach_nhiem import HEN_KIEM_LAI
 from clinicai.events.emit import HE_THONG, emit_event
@@ -257,3 +258,44 @@ async def test_viec_qua_han_thi_noi_len_dau_bang(pool: asyncpg.Pool) -> None:
         )
         == "P0"
     )
+
+
+async def test_qua_han_thue_khi_dang_lam_thi_khong_ai_lam_lai(
+    pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bên xử lý chạy lâu hơn hạn thuê: thu hồi + vòng hẹn thứ hai chạy xen giữa
+    không được nhắc lần hai."""
+    monkeypatch.setattr(hen_gio, "HAN_THUE_GIAY", 0.001)
+    loai = f"test.lam_lau.{uuid.uuid4().hex[:6]}"
+    so_lan: list[str] = []
+
+    async def lam_lau(conn: asyncpg.Connection, cai_hen: HenDenHan) -> bool:
+        so_lan.append(cai_hen.id)
+        if len(so_lan) == 1:
+            await thu_hoi_hen_treo(pool)
+            for _ in range(200):
+                if not await lam_mot_hen(pool):
+                    break
+        return True
+
+    dang_ky_loai(loai, lam_lau)
+    async with pool.acquire() as conn, conn.transaction():
+        ma = await hen(
+            conn,
+            clinic_id=CLINIC,
+            loai=loai,
+            sau=timedelta(seconds=-1),
+            ve_cai_gi=str(uuid.uuid4()),
+        )
+    assert ma is not None
+    for _ in range(200):
+        if ma in so_lan or not await lam_mot_hen(pool):
+            break
+
+    assert so_lan == [ma]
+    dong = await pool.fetchrow(
+        "SELECT trang_thai, so_lan_thu FROM hen_gio WHERE id = $1::uuid", ma
+    )
+    assert dong is not None
+    assert dong["trang_thai"] == "XONG"
+    assert dong["so_lan_thu"] == 1

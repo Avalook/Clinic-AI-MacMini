@@ -18,7 +18,8 @@ const boChuThich = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 const LOI = {
   thanh: read("../app/(dashboard)/customers/ThanhLuotKham.tsx"),
   lichSuCacLan: read("../app/(dashboard)/customers/LichSuCacLanKham.tsx"),
-  banKham: read("../app/(dashboard)/doctor/board/LuotKhamTruoc.tsx"),
+  // Bàn khám: danh sách lượt cũ nay là [Lịch sử khám] (`popup`, 29/10/2026) —
+  // LuotKhamTruoc chỉ còn dải "đang xem lại" + phản hồi thuốc.
   popup: read("../app/(dashboard)/_lam-viec/LichSuKham.tsx"),
   patientList: read("../app/(dashboard)/patient-list/PatientListView.tsx"),
   benhAn: read("../app/(dashboard)/tasks/ClinicalRecordForm.tsx"),

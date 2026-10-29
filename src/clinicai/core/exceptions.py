@@ -26,6 +26,13 @@ class ValidationError(ClinicAIBaseException):
     error_code: str = "VALIDATION_ERROR"
 
 
+class ChuaThuTienError(ValidationError):
+    """Chưa thu tiền nên chưa làm / chưa hoàn tất được (HTTP 422) — mã riêng để
+    màn vẽ thành LỜI NHẮC (màu vàng), không phải lỗi đỏ (Tuyền 29/10/2026)."""
+
+    error_code: str = "CHUA_THU_TIEN"
+
+
 class SafetyGateError(ClinicAIBaseException):
     """Raised when a business/safety gate condition is violated (HTTP 403)."""
 

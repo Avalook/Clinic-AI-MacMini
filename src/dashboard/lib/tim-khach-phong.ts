@@ -7,6 +7,8 @@ import { chuanHoa } from "./tiep-don.ts";
 export interface KhachTim {
   ten: string | null | undefined;
   ma: string | null | undefined;
+  /** SĐT (27/10/2026: "tìm cho dễ") — gõ đủ hay một đoạn số dài ≥ 4 là ra. */
+  sdt?: string | null | undefined;
   /** Số tiếp đón, số booking, số thứ tự — gõ "10" hay "#10" là ra khách số 10. */
   so: ReadonlyArray<number | null | undefined>;
 }
@@ -23,6 +25,9 @@ export function khopTimKhach(kim: string, k: KhachTim): boolean {
   const tim = chuanHoa(kim).replace(/^#/, "");
   if (!tim) return true;
   const chu = chuanHoa([k.ten, k.ma].filter(Boolean).join(" "));
+  const so = String(k.sdt ?? "").replace(/\D/g, "");
+  const timSo = tim.replace(/\s+/g, "");
+  if (/^\d{4,}$/.test(timSo) && so.includes(timSo)) return true;
   if (/^\d{1,3}$/.test(tim)) {
     const n = Number(tim);
     if (k.so.some((s) => s === n)) return true;

@@ -106,25 +106,3 @@ test("thanh bên ngày có ca: Hành trình cạnh Trang chủ, nhóm lego mở 
   assert.match(navTsx, /const mo = isCollapsed \|\| !gap\.includes\(g\.ma\)/);
 });
 
-test("Việc cần xử lý: lỗi hiện rõ, tên khách đúng trường, mã node thật, có Xem lượt", () => {
-  const bang = doc("../app/(dashboard)/viec-can-xu-ly/BangViecCanXuLy.tsx");
-  const ma = boChuThich(bang);
-  // Lần nạp đầu lỗi → không đứng "Đang tải…" mãi.
-  assert.match(ma, /if \(ds === null\) \{\s*return loi \? \(/);
-  // Trường khớp `WorklistPatient` ở routers/work_items.py.
-  assert.match(ma, /v\.patient\?\.full_name/);
-  assert.match(ma, /v\.patient\?\.patient_code/);
-  assert.doesNotMatch(ma, /patient\?\.ten\b|patient\?\.ma_bn/);
-  // Mã node THẬT (migration 20260923000007), không mã tự đặt.
-  for (const m of ["OPS-FINANCIAL-RESOLUTION", "OPS-SERVICE-INTERRUPTED", "OPS-ROUTING-REASSIGN"]) {
-    assert.match(ma, new RegExp(`"${m}"`), m);
-  }
-  assert.doesNotMatch(ma, /OPS-DOI-SOAT-TIEN|OPS-QUYET-LAM-LAI/);
-  assert.match(ma, /<NutXemLuot visitId=\{v\.visit_id\}/);
-  // "Đã xử lý" từ PENDING: start trước, rồi complete.
-  assert.match(ma, /v\.status === "PENDING"[\s\S]*?lenh\(v\.id, "start"[\s\S]*?lenh\(v\.id, "complete"/);
-  // Trống → câu "không có việc".
-  assert.match(ma, /Không có việc nào đang chờ/);
-  const trang = boChuThich(doc("../app/(dashboard)/viec-can-xu-ly/page.tsx"));
-  assert.doesNotMatch(trang, /<main|<h1/);
-});

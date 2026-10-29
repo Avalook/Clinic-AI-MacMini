@@ -15,12 +15,14 @@ import Button from "@/components/ui/Button";
 import StatusChip from "@/components/ui/StatusChip";
 
 import { docBang, guiThaoTac } from "../_lam-viec/api";
+import { sdtDoc } from "@/lib/sdt";
 
 interface ViecChoQuyet {
   id: string;
   visit_id: string;
   ten: string;
   ma_bn: string | null;
+  sdt?: string | null;
   dich_vu: string;
   can: "PERFORMED" | "VALID_RESULT";
   trang_thai: "cho_ket_qua" | "can_quyet";
@@ -107,6 +109,7 @@ export default function ChoBacSiQuyet({
             <li key={v.id} className="rounded-control bg-surface-muted px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-ink">{v.ten}</span>
+                {sdtDoc(v.sdt) ? <span className="text-sm tabular-nums text-ink-muted">{sdtDoc(v.sdt)}</span> : null}
                 {v.ma_bn ? <span className="text-xs text-ink-muted">{v.ma_bn}</span> : null}
                 <span className="text-sm text-ink">· {v.dich_vu}</span>
                 {v.trang_thai === "can_quyet" ? (

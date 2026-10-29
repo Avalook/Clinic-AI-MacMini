@@ -21,11 +21,13 @@ import SoLuot from "@/components/ui/SoLuot";
 import { nhanBuoiCuaLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 
 import { type ChiDinhPhong } from "../../_lam-viec/api";
+import { sdtDoc } from "@/lib/sdt";
 
 export interface KhachSapDen {
   visit_id: string;
   khach: string | null;
   ma_khach: string | null;
+  sdt?: string | null;
   so_tiep_don: number | null;
   so_booking: number | null;
   duoc_huong_dan: boolean;
@@ -92,6 +94,7 @@ export default function SapDenPhong({
                     >
                       {k.khach ?? "—"}
                     </span>
+                    {sdtDoc(k.sdt) ? <span className="shrink-0 text-label tabular-nums text-ink-muted">{sdtDoc(k.sdt)}</span> : null}
                     <SoLuot booking={k.so_booking} className="shrink-0" />
                   </span>
                   <span className="block truncate text-label text-ink-muted">

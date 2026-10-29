@@ -42,6 +42,8 @@ export interface DongHangCho {
   so_tiep_don?: number | null;
   ten: string;
   ma_bn: string;
+  /** SĐT — hiện cạnh tên (27/10/2026). */
+  sdt?: string | null;
   uu_tien: boolean;
   uu_tien_ly_do: string | null;
   viec: string | null;
@@ -52,6 +54,8 @@ export interface DongHangCho {
   exec_status: string | null;
   phien_status: string | null;
   bac_si: string | null;
+  /** Lịch hẹn là bác sĩ KHÁC, bác sĩ này nhận khám (29/10/2026) — tên trên lịch. */
+  lich_bac_si?: string | null;
   phong: string | null;
   vao_hang_luc: string | null;
   /** Mốc check-in của cả lượt — đồng hồ tổng không đếm lại khi quay về bác sĩ. */
@@ -319,6 +323,8 @@ export interface ThucHien {
   }[];
   /** Dịch vụ đã xong mà phiếu kết quả chỉ còn nháp (27/09/2026, đợt 3). */
   phieu_chua_hoan_tat?: boolean;
+  /** Phiếu đã chốt mà dịch vụ còn đang làm ở phòng — hiện [Xong] (27/10/2026). */
+  phieu_da_chot_cho_dong?: boolean;
   /** Hiện nút "Huỷ bắt đầu nhầm" (V4, 30/09/2026) — máy chủ quyết. */
   huy_bat_dau_duoc?: boolean;
   /** Lần làm đang chạy do BÀN KHÁM mở — `lan_dang_chay` khi ấy là null. */

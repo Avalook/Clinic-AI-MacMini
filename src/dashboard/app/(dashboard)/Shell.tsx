@@ -10,7 +10,7 @@
 //   * Đầu thanh bên: dấu logo + tên phòng khám + cơ sở; đáy: người dùng + Thoát.
 //   * Điện thoại: ngăn kéo trượt từ "Menu" của thanh dưới như trước.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { X, LogOut, Pin, PinOff } from "lucide-react";
 import Nav from "./Nav";
@@ -92,6 +92,19 @@ export default function Shell({
   const [ghim, setGhim] = useState(false);
   const [bung, setBung] = useState(false);
   const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // GIỮ MỤC ĐANG MỞ ĐỨNG YÊN khi thanh bên bung / thu (Tuyền 29/10/2026: "di
+  // chuột vào thì nó không cố định ở cái node đang chọn, lại phải lướt tìm").
+  // Bung ra thì hiện tên nhóm + mục con, danh sách dài thêm mà vị trí cuộn giữ
+  // nguyên → mục đang mở trôi khỏi chỗ chuột. Đo chỗ của nó ngay trước khi đổi,
+  // vẽ xong thì cuộn bù đúng phần lệch.
+  const cuon = useRef<HTMLDivElement>(null);
+  const choTruoc = useRef<number | null>(null);
+  const doCho = useCallback(() => {
+    const c = cuon.current;
+    const a = c?.querySelector<HTMLElement>('[aria-current="page"]');
+    choTruoc.current =
+      c && a ? a.getBoundingClientRect().top - c.getBoundingClientRect().top : null;
+  }, []);
   useEffect(() => {
     try {
       // Đọc sau khi gắn: máy chủ và trình duyệt vẽ giống nhau lúc đầu.
@@ -101,7 +114,8 @@ export default function Shell({
       /* không đọc được thì mặc định thanh icon */
     }
   }, []);
-  const doiGhim = () =>
+  const doiGhim = useCallback(() => {
+    doCho();
     setGhim((g) => {
       try {
         localStorage.setItem(KHOA_GHIM, g ? "0" : "1");
@@ -111,6 +125,7 @@ export default function Shell({
       setBung(false);
       return !g;
     });
+  }, [doCho]);
   // Phím `[` ghim / bỏ ghim — trừ khi đang gõ trong ô nhập.
   useEffect(() => {
     const phim = (e: KeyboardEvent) => {
@@ -121,15 +136,21 @@ export default function Shell({
     };
     window.addEventListener("keydown", phim);
     return () => window.removeEventListener("keydown", phim);
-  }, []);
+  }, [doiGhim]);
   const vao = () => {
     if (ghim) return;
     if (hen.current) clearTimeout(hen.current);
-    hen.current = setTimeout(() => setBung(true), TRE_MO);
+    hen.current = setTimeout(() => {
+      doCho();
+      setBung(true);
+    }, TRE_MO);
   };
   const ra = () => {
     if (hen.current) clearTimeout(hen.current);
-    hen.current = setTimeout(() => setBung(false), TRE_DONG);
+    hen.current = setTimeout(() => {
+      doCho();
+      setBung(false);
+    }, TRE_DONG);
   };
   // Chuyển trang thì thu lại (bấm một mục xong không để thanh bung đè nội dung).
   useEffect(() => {
@@ -137,6 +158,18 @@ export default function Shell({
     setBung(false);
   }, [pathname]);
   const mo = ghim || bung;
+  useLayoutEffect(() => {
+    const c = cuon.current;
+    const a = c?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!c || !a) return;
+    if (choTruoc.current == null) {
+      // Mới vào trang: chỉ kéo mục đang mở vào tầm nhìn nếu nó đang khuất.
+      a.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    c.scrollTop += a.getBoundingClientRect().top - c.getBoundingClientRect().top - choTruoc.current;
+    choTruoc.current = null;
+  }, [mo, pathname]);
 
   // Lock body scroll + move focus into the drawer while it's open.
   useEffect(() => {
@@ -219,7 +252,7 @@ export default function Shell({
             </button>
           )}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div ref={isMobile ? undefined : cuon} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <Nav
             role={role}
             onNavigate={isMobile ? closeDrawer : undefined}

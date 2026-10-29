@@ -83,6 +83,12 @@ function trangThai(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } {
     // Đối tác: làm xong phần phòng khám (lấy mẫu) nhưng kết quả chưa về.
     return d.doi_tac ? { nhan: NHAN_DOI_TAC[d.doi_tac], tone: "run" } : { nhan: "Đã làm", tone: "success" };
   }
+  // Phiếu NHÁP chưa phải "đang làm" khi tiền chưa thu: Hoàn tất bị chặn vì chưa
+  // thu thì dịch vụ vẫn chưa bắt đầu (bấm staging 29/10/2026: thẻ báo "Đang
+  // làm" mà máy chủ nói "Chưa thu tiền").
+  const nhapChuaThu =
+    d.ket_qua_trang_thai === "DANG_NHAP" && th !== "IN_PROGRESS" && !d.da_thu && !d.doi_tac_thu;
+  if (nhapChuaThu) return { nhan: "Chờ thu tiền · phiếu nháp", tone: "warning" };
   if (d.ket_qua_trang_thai === "DANG_NHAP" || th === "IN_PROGRESS") {
     return { nhan: d.doi_tac ? "Đã gửi đối tác" : "Đang làm", tone: "run" };
   }
@@ -202,6 +208,7 @@ export default function KetQuaChiDinh({
   nhanGiay = {},
   onDoiBatBuoc,
   onBoChiDinh,
+  onTraVeLuotCu,
   dieuTri,
   dauDoLuot,
 }: {
@@ -222,6 +229,11 @@ export default function KetQuaChiDinh({
    *  không (đang làm / đã xong → hoàn tác ở phòng trước) và hỏi xác nhận khi
    *  đã thu tiền (khoản ấy thành tiền thừa ở quầy). */
   onBoChiDinh?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
+  /** Chỉ định MANG SANG từ lượt cũ ([Làm hôm nay], `mang_sang`): nút hoàn tác
+   *  là [Để lần sau] (lệnh `tra-ve-luot-cu`), KHÔNG phải huỷ — huỷ một chỉ
+   *  định khách đã trả hôm trước biến tiền ấy thành tiền thừa (bấm staging
+   *  29/10/2026: [Hoàn tác] chỉ nằm trên thông báo tự tắt, tắt là hết đường). */
+  onTraVeLuotCu?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
   /** Bật / tắt "Bắt buộc" của chỉ định CHƯA thu tiền (25/09/2026; 27/09 chuyển
    *  từ hộp tóm tắt ở đầu danh mục vào đây). Không truyền = chỉ xem chip. */
   onDoiBatBuoc?: (
@@ -311,14 +323,20 @@ export default function KetQuaChiDinh({
     const thanDieuTri = dieuTri?.than(d) ?? null;
     return (
       <li key={d.service_order_id} className="rounded-card border border-hairline bg-surface">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
-          <div className="min-w-0">
+        {/* Màn hẹp (Tuyền 29/10/2026, bấm staging 375): tên dịch vụ trọn MỘT
+            dòng trên cùng; dưới là chip/giá bên trái, nút xếp dọc mỗi nút một
+            dòng bên phải — cạnh tên thì nút chiếm nửa thẻ, tên bẻ từng chữ.
+            Màn rộng: tên + chip bên trái, hàng nút bên phải như cũ. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1.5 px-3 py-2.5 sm:items-center">
+          <div className="col-span-2 min-w-0 sm:col-span-1">
             <span className="font-semibold text-ink">{d.ten_hien_thi}</span>{" "}
             {d.ma_kiotviet ? <span className="text-meta text-ink-muted">{d.ma_kiotviet}</span> : null}
             {giay && giay !== d.ten_hien_thi ? (
               <div className="text-meta text-ink-muted">Trên phiếu giấy: {giay}</div>
             ) : null}
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          </div>
+          <div className="col-start-1 row-start-2 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
               {chipDieuTri ?? <Chip tone={tt.tone}>{tt.nhan}</Chip>}
               {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
               {mau ? <Chip tone={mau.tone}>{mau.nhan}</Chip> : null}
@@ -348,11 +366,22 @@ export default function KetQuaChiDinh({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap justify-end gap-1">
-            {onBoChiDinh && !chiXem ? (
+          <div className="col-start-2 row-start-2 flex flex-col items-stretch gap-1 sm:row-span-2 sm:row-start-1 sm:flex-row sm:flex-wrap sm:justify-end">
+            {d.mang_sang && onTraVeLuotCu && !chiXem ? (
+              <NutHoanTac
+                nhan="Để lần sau"
+                variant="secondary"
+                className="max-sm:items-stretch"
+                tieuDe={`Để “${d.ten_hien_thi}” lần sau?`}
+                moTa="Không làm hôm nay — chỉ định về lại khung chỉ định cũ, tiền đã thu giữ nguyên"
+                goi={onTraVeLuotCu(d.service_order_id)}
+                onXong={onDoi}
+              />
+            ) : onBoChiDinh && !chiXem ? (
               <NutHoanTac
                 nhan="Hoàn tác chỉ định"
-                variant="ghost"
+                variant="danger"
+                className="max-sm:items-stretch"
                 tieuDe={`Bỏ chỉ định “${d.ten_hien_thi}”?`}
                 moTa="Bỏ chỉ định này (chỉ định sai chỗ) — quầy thu cập nhật ngay"
                 goi={onBoChiDinh(d.service_order_id)}
@@ -375,7 +404,7 @@ export default function KetQuaChiDinh({
                 href={`/print/ket-qua/${d.service_order_id}`}
                 target="_blank"
                 rel="noopener"
-                className={buttonClass("ghost", "sm")}
+                className={buttonClass("secondary", "sm")}
               >
                 In
               </a>
@@ -384,7 +413,7 @@ export default function KetQuaChiDinh({
               <Button
                 type="button"
                 size="sm"
-                variant="ghost"
+                variant="soft"
                 aria-expanded={tep === d.service_order_id}
                 onClick={() => setTep(tep === d.service_order_id ? null : d.service_order_id)}
               >

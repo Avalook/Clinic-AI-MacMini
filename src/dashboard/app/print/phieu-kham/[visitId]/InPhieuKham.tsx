@@ -538,7 +538,8 @@ export default function InPhieuKham({
           không lặp dải hành chính dài của màn khám; sinh hiệu một dòng. */}
       <DauTrangIn
         phongKham={tk?.phong_kham}
-        trai={[tk?.co_so, tk?.dia_chi_co_so]}
+        coSo={tk?.co_so}
+        diaChi={tk?.dia_chi_co_so}
         tieuDe={TIEU_DE_PHAN[phan] ?? phieu?.ten ?? "Hồ sơ lượt khám"}
         phai={[
           hc?.["patient.code"] ? `Mã khách ${hc["patient.code"]}` : null,

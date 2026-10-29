@@ -105,15 +105,8 @@ export default function ChonDichVuKham({
         <h3 className="text-body font-semibold text-ink">
           Dịch vụ khám{pk.loai_kham ? ` — ${pk.loai_kham}` : ""}
         </h3>
-        <span className="text-meta text-ink-muted">
-          {dangGui
-            ? "Đang lưu…"
-            : pk.da_chon.length === 0
-              ? pk.tu_cong_mac_dinh === false
-                ? "Chưa chọn — không tính tiền khám (bác sĩ có khám thì tick)"
-                : "Chưa chọn — đang tính giá mặc định"
-              : "Tiền khám tính theo dịch vụ đã chọn"}
-        </span>
+        {/* Không câu giải thích cách tính tiền khám (Tuyền 29/10/2026: thừa). */}
+        {dangGui ? <span className="text-meta text-ink-muted">Đang lưu…</span> : null}
       </div>
       <ul className="space-y-1">
         {pk.lua_chon.map((c) => {

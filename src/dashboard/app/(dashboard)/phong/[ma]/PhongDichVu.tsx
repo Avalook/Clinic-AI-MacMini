@@ -161,6 +161,9 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const [tim, setTim] = useState("");
   const [yeuCau, setYeuCau] = useState<{ id: string; hanh: HanhDong; lan: number } | null>(null);
   const [chonBs, setChonBs] = useState("");
+  // Bác sĩ làn của người xem (máy chủ chọn, 27/10): để sẵn ở ô chọn một lần;
+  // người dùng tự đổi thì nạp lại không ghi đè.
+  const daChonBsTay = useRef(false);
   // Chuông nhận chéo mở `/phong/<id>?chi_dinh=<chỉ định>` → chọn sẵn đúng chỉ định.
   const chiDinhUrl = useSearchParams().get("chi_dinh");
   const [daMoUrl, setDaMoUrl] = useState(false);
@@ -209,6 +212,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         sap_den_phong?: KhachSapDen[];
         chi_dinh_khach?: Record<string, ChiDinhPhong[]>;
         bac_si_phong?: LuaChonBacSi[];
+        bac_si_mac_dinh?: string | null;
         dem?: DemPhong | null;
         hom_nay?: boolean;
         lan_cua_toi?: LanCuaToi;
@@ -225,6 +229,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         setSapDen(kq.data.sap_den_phong ?? []);
         setChiDinhKhach(kq.data.chi_dinh_khach ?? {});
         setBacSiPhong(kq.data.bac_si_phong ?? []);
+        if (!daChonBsTay.current) setChonBs(kq.data.bac_si_mac_dinh ?? "");
         setDem(kq.data.dem ?? null);
         setLaHomNay(kq.data.hom_nay ?? true);
         setLanToi(kq.data.lan_cua_toi?.co ? kq.data.lan_cua_toi : null);
@@ -312,6 +317,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         khopTimKhach(tim, {
           ten: d.ten,
           ma: d.ma_bn,
+          sdt: d.sdt,
           so: [d.so_tiep_don, d.so_booking, d.so_thu_tu],
         }),
       )
@@ -453,7 +459,10 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               choNhan={laHomNay}
               bacSi={bacSiPhong}
               bacSiLamId={chonBs}
-              onChonBacSi={setChonBs}
+              onChonBacSi={(id) => {
+                daChonBsTay.current = true;
+                setChonBs(id);
+              }}
               onChonDong={(id) => {
                 setChonId(id);
                 setYeuCau(null);
@@ -712,7 +721,7 @@ function KhachTrongPhong({
       if (hanh === "bat-dau" && chuaLam) {
         batDau(false);
       } else if (hanh === "xong" && dangLam && lan) {
-        if (coPhieuChinh) {
+        if (coPhieuChinh && !th.phieu_da_chot_cho_dong) {
           setBao("Dịch vụ này có phiếu kết quả — bấm [Xong] trong phiếu bên dưới.");
         } else {
           xongThang();
@@ -993,7 +1002,7 @@ function KhachTrongPhong({
           mau={th.mau_ket_qua}
           mauMacDinh={th.phieu?.[0]?.form_id?.replace(/^KQ_/, "") ?? th.mau_goi_y ?? null}
           onCacBen={setCacBen}
-          onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
+          onHoanTat={({ daDongDichVu, viSao, laLanSua, dichVuCau }) => {
             // 06/10/2026 (Tuyền: dải vàng "xấu và AI quá"): hoàn tất êm thì
             // không báo gì — phiếu đã hiện "Phiếu đã hoàn tất". Chỉ nói khi
             // dịch vụ CHƯA đóng được, vì đó là việc người bấm phải biết. Riêng
@@ -1005,7 +1014,7 @@ function KhachTrongPhong({
                 ? `Đã xong ${dong.viec?.trim() || "dịch vụ"}.`
                 : laLanSua || daDongDichVu
                   ? null
-                  : `Dịch vụ chưa đóng: ${viSao ?? "không rõ lý do"}.`,
+                  : `Dịch vụ chưa đóng: ${dichVuCau ?? `${viSao ?? "không rõ lý do"}.`}`,
             );
             docLai();
             onDaBam();
@@ -1022,9 +1031,10 @@ function KhachTrongPhong({
           [Bắt đầu] trên đầu và [Hoàn tất] trong phiếu. */}
       {th && (chuaLam || dangLam) ? (
         <div className="space-y-3 border-t border-line pt-3">
-          {dangLam && th.lan_dang_chay && !coPhieuChinh ? (
+          {dangLam && th.lan_dang_chay && (!coPhieuChinh || th.phieu_da_chot_cho_dong) ? (
             // Dịch vụ không có phiếu kết quả (lấy mẫu gửi đi, thủ thuật không
-            // mẫu): nút này gọi thẳng lệnh đóng dịch vụ. Vẫn đúng một nút kết thúc.
+            // mẫu) — hoặc phiếu ĐÃ CHỐT mà dịch vụ còn đang làm (máy chủ báo,
+            // 27/10/2026): nút này gọi thẳng lệnh đóng dịch vụ.
             // GHI CHÚ (Tuyền 24/09/2026: "không để chỉ cho ấn đã lấy mẫu là xong,
             // phải có ghi chú lại chứ") — lưu vào chính lần làm.
             <div className="space-y-2">

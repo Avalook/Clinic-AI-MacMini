@@ -117,6 +117,7 @@ export default function HangChoKhachPhong({
                     key={k.visitId}
                     so={dau.so_tiep_don ?? dau.so_thu_tu}
                     ten={dau.ten}
+                    sdt={dau.sdt}
                     uuTien={Boolean(dau.uu_tien)}
                     soBooking={dau.so_booking}
                     phu={[`${soChiDinh} chỉ định`, nhanBuoiCuaLuot(lieuTrinh, k.visitId, k.dong), nhan]

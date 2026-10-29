@@ -170,6 +170,8 @@ export default function Nav({
           <Link
             key={href}
             href={href}
+            // Shell dò mục này để giữ nó đứng yên khi thanh bên bung / thu.
+            aria-current={active ? "page" : undefined}
             prefetch={false}
             // prefetch TẮT. Mặc định (auto) dừng ở ranh giới loading.tsx nên mỗi
             // lượt nhẹ, nhưng Next tải trước LẠI mọi link trong khung nhìn sau

@@ -356,7 +356,7 @@ class ManTrangChuService:
                     SELECT v.visit_id, v.status, v.checked_in_at, v.created_at,
                            v.finalized_at, v.closed_at AS ve_luc,
                            (v.exam_completed_at IS NOT NULL) AS kham_xong,
-                           p.full_name AS ten_khach, p.patient_code,
+                           p.full_name AS ten_khach, p.patient_code, p.phone_primary,
                            bs.full_name AS ten_bac_si,
                            st.name AS ten_dich_vu,
                            a.status AS trang_thai_lich
@@ -548,11 +548,12 @@ def _luot_kham(r: asyncpg.Record) -> dict[str, Any]:
     d = dict(r)
     ten_khach = d.pop("ten_khach", None)
     ma_khach = d.pop("patient_code", None)
+    sdt = d.pop("phone_primary", None)
     ten_bs = d.pop("ten_bac_si", None)
     ten_dv = d.pop("ten_dich_vu", None)
     trang_thai_lich = d.pop("trang_thai_lich", None)
     d["patient"] = (
-        {"full_name": ten_khach, "patient_code": ma_khach}
+        {"full_name": ten_khach, "patient_code": ma_khach, "phone_primary": sdt}
         if (ten_khach or ma_khach)
         else None
     )

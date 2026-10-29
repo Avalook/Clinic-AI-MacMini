@@ -347,6 +347,9 @@ async def test_cong_quyen_theo_lego_khong_theo_vai(pool: asyncpg.Pool) -> None:
     ):
         with pytest.raises(SafetyGateError):
             await goi
+    # Khối trong hồ sơ khách HỎI trước (không 403 mỗi lần mở hồ sơ — 28/10/2026).
+    assert await svc.duoc_xem(identity=khong) is False
+    assert await svc.duoc_xem(identity=manager) is True
     # Từ 16/10: Thu ngân / Lễ tân / CSKH KHÔNG ghi được; chỉ Kế toán và Quản lý.
     with pytest.raises(SafetyGateError):
         await svc.ghi_hoa_don(identity=q.thu_ngan, payment_cycle_id=c, **CT_A)

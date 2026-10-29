@@ -83,7 +83,7 @@ export default async function ReceptionQueuePage({
       <section aria-label="Lịch hẹn" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 className="text-emph font-semibold text-ink">
-            Lịch hẹn — check-in khi khách đến
+            Lịch hẹn khám
           </h2>
           <WeekNav gon week={tuan} basePath="/reception/queue" param="weekAppt" />
         </div>

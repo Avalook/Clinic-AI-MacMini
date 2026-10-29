@@ -27,6 +27,8 @@ export default function CongTyKhach({ clinicPatientId }: { clinicPatientId: stri
       if (r.status === 403) { setKhongQuyen(true); return; }
       const d = await r.json();
       if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : "Không đọc được công ty của khách.");
+      // Máy chủ trả "không được xem" thay vì 403 (khỏi một dòng lỗi mỗi lần mở hồ sơ).
+      if (d.duoc_xem === false) { setKhongQuyen(true); return; }
       setDs(d.cong_ty);
     } catch (e) { setLoi(e instanceof Error ? e.message : "Mất kết nối tới máy chủ."); }
   }, [goc]);

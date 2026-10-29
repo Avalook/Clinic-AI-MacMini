@@ -92,9 +92,9 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
               </Button>
             </div>
             {/* Câu do máy chủ viết sẵn ("Đang ở …", "Chờ …", "Đã về") —
-                cùng hàm với Bảng hành trình chung. */}
+                cùng hàm với Bảng hành trình chung. Không chip "Đang ở" đứng
+                trước (Tuyền 29/10/2026: lặp chữ; sai khi câu là "Chờ …"). */}
             <p className="flex flex-wrap items-center gap-2 text-body">
-              <Chip tone="brand">Đang ở</Chip>
               <span className="font-semibold text-ink">{ht.dang_o}</span>
               {ht.ngoai_cho > 0 ? (
                 <span className="text-meta text-ink-muted">

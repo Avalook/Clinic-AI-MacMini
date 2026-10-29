@@ -87,6 +87,17 @@ khách: `S/hanh_trinh_khach_service.py` `dong_dich_vu_kham`. Test: `T/services/t
 `PhieuNhap.tsx`, `KiemKho.tsx` → `/api/pharmacy/[action]` → `S/pharmacy_service.py`
 (`luu_thuoc`, `nhap_lo`), `S/kho_thuoc_service.py` (`tao_phieu_nhap`, `kiem_kho`,
 `xuat_nhap_ton`). Test: `T/services/test_kho_thuoc_danh_muc_db.py`, `T/services/test_kho_kiotviet_db.py`.
+Chặn trừ sai tồn: kiểm kho lệch khi thuốc còn "đã giao chưa gắn lô" (`kiem_kho`), huỷ lấn phần đã bán chưa giao
+(`pharmacy_service._ghi_kho_don_gian`, `lo_thuoc_service.huy_lo`) — test `T/services/test_kho_chan_tru_sai_ton_db.py`.
+
+**Giao thuốc: máy tự chọn lô, trừ kho ngay lúc giao (Tuyền 27/10/2026)** — bấm "Giao thuốc" không chỉ định lô thì
+`S/pharmacy_service.py` `cap_phat` → `_giao_tu_chon_lo`: lô QUẦY đúng thuốc, đúng cơ sở của lượt, CÙNG đơn vị, còn hạn, xếp hạn
+sớm nhất trước (không hạn xếp cuối), trừ theo `drug_batch_kha_dung` và trừ thêm các lần giao đang chờ gán lô; một lần giao có thể trừ
+hai lô. Thiếu lô / thiếu tồn → phần còn lại VẪN giao, ghi `thuoc_giao_chua_gan_lo` (màn "Đã giao, chưa trừ kho" = hàng đợi
+ngoại lệ, `gan_lo_da_giao`). Kết quả trả `lo_da_tru`, `chua_tru_kho`, `tom_tat` — màn `D/pharmacy/DongThuoc.tsx` chỉ hiện câu ấy.
+Giao kèm `drug_batch_id` (quét lô, lô đã bán theo phân lô) vẫn đi đường cũ. Test: `T/services/test_giao_tu_chon_lo_db.py`
+(FEFO, tách hai lô, thiếu tồn, hai lần giao cùng lúc), bài bấm ngẫu nhiên R6/R7 ở `test_mo_phong_kho_day_du_db.py`,
+FT `giao-tu-chon-lo-boundary.test.mts`.
 
 **Mã vạch thuốc: quét hộp / tem lô, gắn mã, in tem (G3b)** — ô quét `D/pharmacy/inventory/OQuetMa.tsx`
 (máy quét USB = gõ nhanh + Enter; camera `CameraQuet.tsx` chỉ HTTPS) ở Phiếu nhập, Nhập lô, Kiểm kho
@@ -101,8 +112,9 @@ bán / giao / nhận trả CHỈ ở QUẦY (trigger `gac_ban_tu_quay` + kiểm 
 `gan_lo_da_giao`, `_cap_phat_cu`), phiếu chuyển `S/kho_thuoc_service.py` (`chuyen_kho`, `hoan_tac_chuyen`,
 `dat_tach_kho_quay`) — migration `20261014160000`. Quầy hết mà kho còn: `ban_thuoc_service` trả `kho_con` cho từng
 dòng đơn. Test: `T/services/test_kho_quay_db.py` (bấm ngẫu nhiên 40×10).
-Giao diện (G7-2): tab "Chuyển kho" + công tắc tách `D/pharmacy/inventory/ChuyenKho.tsx` (trong `KhoThuoc.tsx`),
-chip KHO/QUẦY ở `InventoryBoard.tsx` (prop `tachKhoQuay`), nút "Kho còn N — chuyển sang quầy?" ở dòng đơn
+Giao diện (G7-2): tab "Chuyển kho" + công tắc tách **đã gỡ khỏi màn** (18/10, `e9d45784`) — tệp
+`D/pharmacy/inventory/ChuyenKho.tsx` còn nhưng không ai import; bật công tắc lúc này thì hàng kẹt ở KHO, mọi lần
+giao rơi vào chờ gán lô. Còn gắn: chip KHO/QUẦY ở `InventoryBoard.tsx` (prop `tachKhoQuay`), nút "Kho còn N — chuyển sang quầy?" ở dòng đơn
 `D/pharmacy/KhoConChuyenQuay.tsx` (gắn trong `DongThuoc.tsx`); proxy `chuyen-kho` / `hoan-tac-chuyen-kho` /
 `tach-kho-quay` ở `D/app/api/pharmacy/[action]/route.ts`. Test: `D/tests/kho-quay-giao-dien-boundary.test.mts`.
 

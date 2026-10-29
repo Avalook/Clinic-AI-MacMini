@@ -446,8 +446,6 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
   // quyết định chuyên môn; thư ký không có nút Duyệt — Notion v1.0.0).
   "/duyet-ket-qua": ["DOCTOR", "ULTRASOUND_DOCTOR", "MANAGEMENT"],
-  // Khớp actor_roles của hai node OPS-* trong danh mục (migration 20260923000007).
-  "/viec-can-xu-ly": ["MANAGEMENT", "CASHIER", "TRUONG_CA", "DOCTOR"],
   // Vào được màn không có nghĩa là cấp được quyền: backend đòi capability
   // `permission.manage`, nên người không có nó chỉ xem chứ bấm là bị từ chối.
   "/phan-quyen": ["MANAGEMENT"],
@@ -644,7 +642,6 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/thu-ngan/thuoc": ["payment.medicine.collect"],
   "/thu-ngan/dich-vu/lich-su": ["payment.service.history"],
   "/thu-ngan/thuoc/lich-su": ["payment.medicine.history"], //  7 Thu tiền thuốc
-  "/viec-can-xu-ly": ["worklist.handle"], //  8 Việc cần xử lý
   "/truong-ca": ["dispatch.manage"], //  9 Điều phối khách
   "/truong-ca/lich-su": ["dispatch.manage"],
   "/truong-ca/tv": ["dispatch.manage"],

@@ -69,11 +69,11 @@ async def test_lo_hop_giao_theo_vien_khong_gan_duoc_nhung_man_noi_ro_lo_hop(
 async def test_co_lo_cung_don_vi_thi_gan_duoc_va_van_liet_ke_lo_khac(co: Co) -> None:
     rx, drug = await _don(co, 3)
     await _thu(co.q)
-    await _nhap(co, drug, 5, "hộp")
-    lo_vien = await _nhap(co, drug, 10, "viên")
     await PharmacyService(co.q.pool).cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=1
-    )
+    )  # kho chưa có lô → chờ gán lô
+    await _nhap(co, drug, 5, "hộp")
+    lo_vien = await _nhap(co, drug, 10, "viên")
     d = await _dong_cho(co, rx)
     assert [x["drug_batch_id"] for x in d["lo_gan_duoc"]] == [lo_vien]
     assert [x["unit"] for x in d["lo_khac_don_vi"]] == ["hộp"]
@@ -82,9 +82,9 @@ async def test_co_lo_cung_don_vi_thi_gan_duoc_va_van_liet_ke_lo_khac(co: Co) -> 
 async def test_khong_co_lo_khac_don_vi_thi_danh_sach_rong(co: Co) -> None:
     rx, drug = await _don(co, 3)
     await _thu(co.q)
-    await _nhap(co, drug, 10, "viên")
     await PharmacyService(co.q.pool).cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=1
-    )
+    )  # kho chưa có lô → chờ gán lô
+    await _nhap(co, drug, 10, "viên")
     d = await _dong_cho(co, rx)
     assert d["lo_khac_don_vi"] == []

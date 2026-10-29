@@ -270,9 +270,9 @@ class LuotKhamService:
         causation_id: str | None = None,
     ) -> str | None:
         """`RouteAfterCheckIn` — dây H1/H2: loại khám qua tư vấn → hàng TƯ VẤN;
-        lịch "đi thẳng phòng" có chỉ định mang sang → thẳng DỊCH VỤ (không vào
-        hàng bác sĩ nào — phòng nhận khách khi chỉ định được xếp, H4); còn lại →
-        hàng bác sĩ chính. Đã có đường đi thì thôi (chạy lại được).
+        lịch "đi thẳng phòng" có chỉ định mang sang → thẳng DỊCH VỤ (phòng nhận
+        khách khi chỉ định được xếp, H4) VÀ có chỗ ở hàng bác sĩ chính (27/10);
+        còn lại → hàng bác sĩ chính. Đã có đường đi thì thôi (chạy lại được).
 
         Hàng tư vấn: chưa có sinh hiệu thì "chờ đo sinh hiệu" (blocked) — đo
         trước rồi mới tư vấn (Tuyền 24/09) — nhưng KHÔNG khoá: tư vấn vẫn nhận
@@ -285,8 +285,8 @@ class LuotKhamService:
         CÙNG BUỔI (27/09/2026, dây ``h1_cung_buoi_thang_dich_vu``): lượt thứ hai
         cùng ngày của cùng khách nhận lần đo sinh hiệu của buổi (không đo lại,
         chỗ chờ tư vấn là "chờ tư vấn" chứ không "chờ đo"); khách đã được bác sĩ
-        chính khám ở lượt trước + có chỉ định mang sang → thẳng DỊCH VỤ như lịch
-        đi thẳng phòng. Luật đường đi: ``rules.duong_sau_check_in``.
+        chính khám ở lượt trước + có chỉ định mang sang → thẳng DỊCH VỤ, KHÔNG
+        vào hàng bác sĩ. Luật đường đi: ``rules.duong_sau_check_in``.
         """
         v = await conn.fetchrow(
             """
@@ -377,9 +377,15 @@ class LuotKhamService:
             quen_vao_thang=quen_vao_thang,
         )
         if dich == rules.SERVICES:
-            # Không vào hàng bác sĩ nào — phòng nhận khách khi chỉ định được
-            # xếp (H4: đã trả thì xếp ngay trong cùng lần giao tin).
-            pass
+            # Phòng nhận khách khi chỉ định được xếp (H4: đã trả thì xếp ngay
+            # trong cùng lần giao tin). LỊCH ĐI THẲNG PHÒNG vẫn có chỗ ở BÀN KHÁM
+            # của bác sĩ chính (Tuyền 27/10/2026, ca Trần Thị Trâm 26/10: làm
+            # xong HPV rồi không bàn nào thấy khách — mất dấu). Hai chỗ chờ cùng
+            # sống; khách ở đâu theo chỗ đang làm (I9 `chan_cho_khac`), chỗ kia
+            # khoá rồi mở lại khi rời. "Cùng buổi đã khám" thì không: bác sĩ
+            # chính đã khám ở lượt trước.
+            if v["di_thang_phong"]:
+                await self._mo_hang_bac_si_chinh(conn, clinic_id, visit_id)
         elif dich == rules.TU_VAN:
             con_id = await conn.fetchval(
                 """
@@ -3094,7 +3100,8 @@ class LuotKhamService:
                 + """ AS co_ket_qua,
                        o.service_name, o.not_performed_reason,
                        r.round_no, r.status AS vong_status,
-                       v.visit_id::text AS visit_id, p.full_name, p.patient_code
+                       v.visit_id::text AS visit_id, p.full_name, p.patient_code,
+                       p.phone_primary
                   FROM round_requirement q
                   JOIN review_round r
                     ON r.id = q.round_id AND r.clinic_id = q.clinic_id
@@ -3154,6 +3161,7 @@ class LuotKhamService:
                     "visit_id": q["visit_id"],
                     "ten": q["full_name"],
                     "ma_bn": q["patient_code"],
+                    "sdt": q.get("phone_primary"),
                     "dich_vu": q["service_name"],
                     "can": q["need"],
                     "trang_thai": (

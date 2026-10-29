@@ -36,11 +36,19 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 PHUT_18 = 18 * 60
 
 
+_TUAN_DA_BOC: set[int] = set()
+
+
 def _thu_hai_xa() -> dt.date:
     """Một thứ Hai xa trong tương lai, khác nhau mỗi lần chạy — không đụng tuần
-    mà bài kiểm khác đã công bố."""
+    mà bài kiểm khác đã công bố. KHÔNG trùng giữa các bài của tệp này: bốc ngẫu
+    nhiên thuần thì hai bài rơi cùng tuần (đã thấy ở CI máy 27/10/2026) và bài
+    "tuần chưa công bố" gặp tuần bài kia công bố."""
     hom_nay = dt.datetime.now(CLINIC_TZ).date()
     tuan = 60 + uuid.uuid4().int % 800
+    while tuan in _TUAN_DA_BOC:
+        tuan = 60 + uuid.uuid4().int % 800
+    _TUAN_DA_BOC.add(tuan)
     return hom_nay + dt.timedelta(days=7 * tuan - hom_nay.weekday())
 
 

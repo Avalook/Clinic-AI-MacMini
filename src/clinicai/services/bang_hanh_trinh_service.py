@@ -152,7 +152,8 @@ class BangHanhTrinhService:
                     """
                     SELECT v.visit_id::text AS visit_id, v.status, v.closed_at,
                            v.checked_in_at, p.full_name, p.patient_code,
-                           a.so_booking, a.so_tiep_don, st.name AS loai_kham,
+                           p.phone_primary, a.so_booking, a.so_tiep_don,
+                           st.name AS loai_kham,
                            a.created_at AS dat_luc,
                            d.full_name AS bac_si
                       FROM visit v
@@ -318,6 +319,7 @@ class BangHanhTrinhService:
                     "visit_id": x["visit_id"],
                     "ten": x["full_name"],
                     "ma": x["patient_code"],
+                    "sdt": x.get("phone_primary"),
                     "so_booking": x["so_booking"],
                     "so_quay": x["so_tiep_don"],
                     "loai_kham": x["loai_kham"],

@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
 
 export type StatTone = "neutral" | "brand" | "warning" | "danger" | "success";
 
@@ -104,16 +104,32 @@ export default function StatCard({
   );
 }
 
+// Số cột theo SỐ Ô THẬT (ô null không tính): lưới cứng 4 cột mà có 6 ô thì
+// hàng hai thừa hai ô xám trống (Bàn khám, Tuyền 29/10/2026). Chuỗi viết
+// nguyên văn để Tailwind quét được.
+const COT_HEP: Record<number, string> = { 1: "grid-cols-1", 3: "grid-cols-3", 5: "grid-cols-3", 6: "grid-cols-3" };
+const COT_RONG: Record<number, string> = {
+  1: "md:grid-cols-1",
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+  4: "md:grid-cols-4",
+  5: "md:grid-cols-5",
+  6: "md:grid-cols-6",
+};
+
 /** The row itself: cells separated by hairlines, on one card. */
 export function StatRow({ children }: { children: ReactNode }) {
   // LƯỚI, KHÔNG PHẢI FLEX MỘT HÀNG. Bốn thẻ ép vào một hàng thì ở màn hẹp mỗi
   // thẻ còn ~90px và nhãn "Cần xử lý hôm nay" xuống dòng TỪNG CHỮ MỘT — lỗi
-  // tự khai khi kiểm 3 cỡ màn ngày 15/08/2026. Dưới md xếp 2×2.
+  // tự khai khi kiểm 3 cỡ màn ngày 15/08/2026. Dưới md xếp 2 (hoặc 3) cột.
   //
   // `gap-px` + nền hairline = đường ngăn mảnh cả hai chiều mà không cần
   // divide-x (divide đặt viền sai chỗ khi xuống hàng thứ hai của lưới).
+  const n = Children.toArray(children).length;
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-hairline bg-hairline shadow-card md:grid-cols-4">
+    <div
+      className={`grid gap-px overflow-hidden rounded-card border border-hairline bg-hairline shadow-card ${COT_HEP[n] ?? "grid-cols-2"} ${COT_RONG[n] ?? "md:grid-cols-4"}`}
+    >
       {children}
     </div>
   );

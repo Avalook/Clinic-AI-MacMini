@@ -89,9 +89,6 @@ export const NAV: NavItem[] = [
   // "Duyệt kết quả" OFF (Tuyền 23/09/2026 tối: "không cần cái duyệt kết quả nữa,
   // duyệt làm gì khi ta có thể tự điền vào đây") — bác sĩ đọc/điền kết quả ngay
   // trong phiếu khám (mục C). Route /duyet-ket-qua còn giữ, chỉ gỡ khỏi thanh bên.
-  // Việc sinh ra từ sự kiện: khách đã trả tiền mà không làm được dịch vụ, và
-  // dịch vụ bị dừng giữa chừng. Mở việc mà không màn nào hiện thì vẫn là rơi.
-  { href: "/viec-can-xu-ly", label: "Việc cần xử lý", icon: ClipboardCheck },
   // Quản lý tự bật/tắt khối công việc cho từng người — không cần ai sửa code.
   { href: "/phan-quyen", label: "Phân quyền", icon: KeyRound },
   // PHÒNG DỊCH VỤ — PHÒNG LÀ TÀI NGUYÊN (CORE-C, 23/09/2026). Trước đây chín
@@ -787,7 +784,7 @@ export function xepNodeCon<T extends { href: string; cha?: string }>(ds: T[][]):
 // khách thay vì một danh sách phẳng 17 mục. Chỉ là TRÌNH BÀY: mục nào hiện vẫn
 // do `mucHienRa` / lego quyết; mục không thuộc nhóm nào rơi vào "Khác".
 export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly string[] }[] = [
-  { ma: "hom-nay", ten: "Hôm nay", hrefs: ["/home", "/viec-can-xu-ly", "/hanh-trinh"] },
+  { ma: "hom-nay", ten: "Hôm nay", hrefs: ["/home", "/hanh-trinh"] },
   {
     ma: "tiep-don",
     ten: "Tiếp đón & thu",

@@ -140,7 +140,7 @@ async def huy_lo(
     ly_do: str,
     khoa_gui: str,
 ) -> dict[str, Any]:
-    from clinicai.services.pharmacy_service import ghi_nhat_ky
+    from clinicai.services.pharmacy_service import _so_chuan, ghi_nhat_ky
 
     ly = ly_do.strip()
     if not ly:
@@ -161,6 +161,21 @@ async def huy_lo(
             raise ValidationError("Lô chưa hết hạn — dùng thao tác Huỷ thuốc nếu cần.")
         if lo["quantity_on_hand"] <= 0:
             raise ValidationError("Lô không còn tồn để huỷ.")
+        # Huỷ cả lô = bớt cả phần đã bán chưa giao / thuốc trả chờ kiểm. Phải gỡ
+        # phần đó trước, kẻo khách quay lại lấy thì không còn thuốc (lô đã khoá
+        # ở `_lo`, luồng bán cũng khoá lô trước khi so khả dụng).
+        kha_dung = await conn.fetchval(
+            "SELECT public.drug_batch_kha_dung($1::uuid, $2::uuid)",
+            identity.clinic_id,
+            drug_batch_id,
+        )
+        giu = lo["quantity_on_hand"] - max(kha_dung or 0, 0)
+        if giu > 0:
+            raise ConflictError(
+                f"Lô này còn {_so_chuan(giu)} đã bán/giữ cho khách chưa giao hoặc "
+                "là thuốc trả chờ kiểm. Xử lý phần đó trước (giao lô khác, huỷ phần "
+                "chưa giao, hoặc quyết định thuốc trả) rồi mới huỷ cả lô."
+            )
         txn = await conn.fetchval(
             "INSERT INTO inventory_txn "
             "(clinic_id,drug_batch_id,txn_type,quantity,"

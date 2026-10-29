@@ -448,7 +448,8 @@ export function PopupHanhTrinhKhach({
       >
         <div className="mb-3 flex items-start justify-between gap-2">
           <h2 id="hanh-trinh-khach-tieu-de" className="text-title font-semibold text-ink">
-            Hành trình khách{ten ? ` — ${ten}` : ""}
+            {/* Chỉ tên khách (Tuyền 29/10/2026) — chữ "Hành trình khách" thừa. */}
+            {ten || "Hành trình khách"}
           </h2>
           <button
             ref={dongRef}

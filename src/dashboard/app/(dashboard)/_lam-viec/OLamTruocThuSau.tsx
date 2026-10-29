@@ -50,11 +50,12 @@ export function gio(iso: string | null): string {
     : d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
 }
 
-/** Nhãn trạng thái "Làm trước – thu sau · <ai tick> · <giờ>" (quầy giữ khách,
- *  còn nợ, còn thu được). Không tick → null. */
-export function nhanLamTruocThuSau(lt: Pick<LamTruoc, "lam_truoc_thu_sau" | "bat_boi" | "bat_luc"> | null | undefined): string | null {
+/** Nhãn trạng thái "Làm trước – thu sau · <giờ>" (quầy giữ khách, còn nợ, còn
+ *  thu được). Không ghi người tick — Tuyền 29/10/2026: thừa, dài chờm khỏi cột
+ *  (ai tick vẫn ở nhật ký). Không tick → null. */
+export function nhanLamTruocThuSau(lt: Pick<LamTruoc, "lam_truoc_thu_sau" | "bat_luc"> | null | undefined): string | null {
   if (!lt?.lam_truoc_thu_sau) return null;
-  return ["Làm trước – thu sau", lt.bat_boi, gio(lt.bat_luc)].filter(Boolean).join(" · ");
+  return ["Làm trước – thu sau", gio(lt.bat_luc)].filter(Boolean).join(" · ");
 }
 
 /** Ô tick TẠI CHỖ — khung phải phòng dịch vụ, khối 1 Bàn khám (Tuyền 09/10/2026).
@@ -170,7 +171,11 @@ export default function OLamTruocThuSau({
         <span className="text-meta text-ink-muted">Không tick: thu tiền xong mới xếp phòng, bắt đầu làm.</span>
       ) : tuDoc ? (
         // Quầy thu đã có nhãn này ở đầu khối khách — chỉ Bàn khám cần vẽ ở đây.
-        <Chip tone="info">{nhanLamTruocThuSau(tt)}</Chip>
+        // Cột phải hẹp: giờ tick xuống dòng dưới chip, không chờm ra ngoài.
+        <span className="flex w-full flex-col items-start gap-0.5">
+          <Chip tone="info">Làm trước – thu sau</Chip>
+          {gio(tt.bat_luc) ? <span className="text-meta text-ink-muted">lúc {gio(tt.bat_luc)}</span> : null}
+        </span>
       ) : null}
       {/* Đã tick: in giấy đi phòng cho khách cầm (chưa thu tiền — 30/09/2026).
           Chỉ ở Bàn khám (ô tự đọc) — quầy thu đã có nút này ở khối "Phòng làm
@@ -181,9 +186,8 @@ export default function OLamTruocThuSau({
         </NutInPhieu>
       ) : null}
       {tt.ly_do_khong_bo ? <span className="w-full text-meta text-ink-muted">{tt.ly_do_khong_bo}</span> : null}
-      {tt.lam_truoc_thu_sau && tt.luu_y_bo ? (
-        <span className="w-full text-meta text-ink-muted">{tt.luu_y_bo}</span>
-      ) : null}
+      {/* Không vẽ `luu_y_bo` ("Đã có dịch vụ bắt đầu làm — bỏ tick vẫn được…")
+          — Tuyền 29/10/2026: câu dài, người quầy không cần đọc. */}
       {ghiChu ? (
         <p role="status" className="w-full text-meta text-ink-soft">
           {ghiChu}

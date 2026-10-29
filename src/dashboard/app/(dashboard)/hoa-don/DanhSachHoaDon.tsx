@@ -19,6 +19,7 @@ import { useQuyen } from "../QuyenContext";
 import NgayTrucBaoCao, { type ReportCalendar } from "../reports/NgayTrucBaoCao";
 import ChiTietHoaDon from "./ChiTietHoaDon";
 import { NHOM_HOA_DON, TEN_LECH, TRANG_THAI, daTon, ngayGio, tien, type DanhSachData, type KhachHoaDon, type ViecTon } from "./types";
+import { sdtDoc } from "@/lib/sdt";
 
 type Tab = "khach" | "ton";
 
@@ -290,8 +291,9 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                       {ds.map(k => (
                         <tr key={k.id} className="border-t border-hairline align-top hover:bg-surface-muted">
                           <td className="px-3 py-3">
-                            <button type="button" onClick={() => setKhach(k)} className="text-left font-semibold text-brand-700 hover:underline focus-visible:underline">{k.ten}</button>
-                            <span className="block text-meta text-ink-muted">{k.ma_bn || "—"} · {k.so_dien_thoai || "—"}</span>
+                            <button type="button" onClick={() => setKhach(k)} className="text-left font-semibold text-brand-700 hover:underline focus-visible:underline">{k.ten}</button>{" "}
+                            {sdtDoc(k.so_dien_thoai) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(k.so_dien_thoai)}</span> : null}
+                            <span className="block text-meta text-ink-muted">{k.ma_bn || "—"}</span>
                           </td>
                           <td className="px-3 py-3 text-right tabular-nums">{k.so_phieu}</td>
                           <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(k.giam_gia)}</td>
@@ -325,7 +327,9 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                 {ds.map(k => (
                   <button type="button" key={k.id} onClick={() => setKhach(k)} className="block w-full rounded-card bg-surface p-4 text-left ring-1 ring-hairline">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <span className="text-emph font-semibold text-brand-700">{k.ten}</span>
+                      <span className="text-emph font-semibold text-brand-700">
+                        {k.ten} {sdtDoc(k.so_dien_thoai) ? <span className="text-body font-normal tabular-nums text-ink-muted">{sdtDoc(k.so_dien_thoai)}</span> : null}
+                      </span>
                       <TrangThai k={k} />
                     </div>
                     <p className="mt-1 text-meta text-ink-muted">{k.ma_bn || "—"} · {k.so_phieu} phiếu</p>

@@ -24,12 +24,14 @@ import {
   ShieldAlert,
   CheckCircle2,
 } from "lucide-react";
+import { sdtDoc } from "@/lib/sdt";
 
 export interface TepChoXacNhanRow {
   tep_id: string;
   clinic_patient_id: string;
   ten_khach: string;
   patient_code: string;
+  phone_primary?: string | null;
   service_order_id: string;
   ten_dich_vu: string;
   tai_len_luc: string;
@@ -291,9 +293,10 @@ export default function HangChoXacNhanKetQua() {
                   <div className="min-w-0">
                     <p className="text-base font-semibold text-ink">
                       {t.ten_khach}{" "}
-                      <span className="font-mono text-sm font-normal text-ink-muted">
-                        · {t.patient_code}
-                      </span>
+                      {sdtDoc(t.phone_primary) ? (
+                        <span className="text-sm font-normal tabular-nums text-ink-muted">{sdtDoc(t.phone_primary)}</span>
+                      ) : null}
+                      <span className="block font-mono text-sm font-normal text-ink-muted">{t.patient_code}</span>
                     </p>
                     <p className="mt-0.5 text-sm font-medium text-brand-700">
                       Chỉ định: {t.ten_dich_vu}

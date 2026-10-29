@@ -20,7 +20,6 @@ import { lenhHoanTac } from "./_lam-viec/hoan-tac";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
 import { NAV, navLabelFor } from "./nav-items";
 import { NHOM_CONG_VIEC } from "./nav-items";
-import TimNhanh from "./TimNhanh";
 import { useNotifications } from "./NotificationContext";
 import { DoiMatKhauModal } from "./DoiMatKhauModal";
 
@@ -42,8 +41,6 @@ export default function GlobalHeader({
   identity,
   tenNguoi,
   role,
-  quyen = null,
-  featureMode = "FULL_CLINIC",
   leaveAction,
   coSo,
 }: GlobalHeaderProps) {
@@ -353,7 +350,6 @@ export default function GlobalHeader({
 
       {/* Right Section: Widgets */}
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        <TimNhanh role={role} quyen={quyen} featureMode={featureMode} />
         {/* Ngày · giờ — MỘT dòng chữ nhạt (bấm vẫn mở lịch nhỏ). */}
         <div className="relative">
           <button

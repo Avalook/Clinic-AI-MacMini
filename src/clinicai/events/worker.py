@@ -104,6 +104,7 @@ WITH ung_vien AS (
       AND NOT EXISTS (
           SELECT 1 FROM event_delivery truoc
           WHERE truoc.consumer = d.consumer
+            AND truoc.clinic_id = d.clinic_id
             AND truoc.aggregate_id = d.aggregate_id
             AND truoc.status <> 'DONE'
             AND truoc.aggregate_version IS NOT NULL
@@ -127,6 +128,19 @@ RETURNING d.event_id::text, e.event_type, d.clinic_id::text,
           d.aggregate_id::text, d.aggregate_version, e.occurred_at, e.seq,
           e.actor_type, e.actor_staff_id::text, e.payload, e.replay_id::text,
           d.attempts, e.event_version
+"""
+
+
+#: GIỮ VIỆC TRONG LÚC LÀM: dòng giao bị khoá trong chính giao dịch của bên nhận.
+#: Hạn thuê qua khi bên nhận còn chạy thì `thu_hoi_thue` (SKIP LOCKED) không lấy
+#: được dòng này — không worker thứ hai nào làm lại việc đang dở. Không khớp
+#: (đã bị thu hồi rồi nhận lại trước khi kịp bắt đầu) = mất việc: bỏ, không chạy.
+#: `attempts` tăng mỗi lần nhận nên là dấu lần nhận, kể cả khi trùng tên worker.
+_CON_GIU_VIEC = """
+SELECT 1 FROM event_delivery
+ WHERE event_id = $1::uuid AND consumer = $2
+   AND status = 'IN_PROGRESS' AND locked_by = $3 AND attempts = $4
+   FOR UPDATE
 """
 
 
@@ -171,27 +185,54 @@ async def lam_mot_dong(
         # (thiếu hàm, sổ mới hơn code) đi đúng đường RETRY → DEAD như lỗi khác.
         su_kien = nang_len_hien_hanh(su_kien)
         async with pool.acquire() as conn, conn.transaction():
+            if not await conn.fetchval(
+                _CON_GIU_VIEC, su_kien.event_id, consumer, ten_worker, su_kien.attempts
+            ):
+                logger.warning(
+                    "event_delivery_mat_viec",
+                    consumer=consumer,
+                    event_id=su_kien.event_id,
+                    lan_thu=su_kien.attempts,
+                )
+                return True
             await xu_ly(conn, su_kien)
             await conn.execute(
                 "UPDATE event_delivery SET status = 'DONE', processed_at = now(),"
                 " lease_expires_at = NULL, locked_by = NULL, last_error = NULL"
-                " WHERE event_id = $1::uuid AND consumer = $2",
+                " WHERE event_id = $1::uuid AND consumer = $2"
+                "   AND locked_by = $3 AND attempts = $4",
                 su_kien.event_id,
                 consumer,
+                ten_worker,
+                su_kien.attempts,
             )
     except Exception as loi:  # noqa: BLE001 — mọi lỗi đều phải thành RETRY/DEAD
         het_luot = su_kien.attempts >= SO_LAN_THU_TOI_DA
-        await pool.execute(
+        # Chỉ lần nhận còn giữ việc mới được ghi kết cục: dòng đã bị thu hồi và
+        # người khác nhận lại thì ghi đè ở đây sẽ xoá việc của họ.
+        ket_qua = await pool.execute(
             "UPDATE event_delivery"
             " SET status = $3, next_attempt_at = now() + make_interval(secs => $4),"
             "     lease_expires_at = NULL, locked_by = NULL, last_error = $5"
-            " WHERE event_id = $1::uuid AND consumer = $2",
+            " WHERE event_id = $1::uuid AND consumer = $2"
+            "   AND status = 'IN_PROGRESS' AND locked_by = $6 AND attempts = $7",
             su_kien.event_id,
             consumer,
             "DEAD" if het_luot else "RETRY",
             0.0 if het_luot else _gian_cach(su_kien.attempts),
             str(loi)[:2000],
+            ten_worker,
+            su_kien.attempts,
         )
+        if ket_qua == "UPDATE 0":
+            logger.warning(
+                "event_delivery_mat_viec",
+                consumer=consumer,
+                event_id=su_kien.event_id,
+                lan_thu=su_kien.attempts,
+                loi=str(loi)[:200],
+            )
+            return True
         logger.warning(
             "event_delivery_hong",
             consumer=consumer,
@@ -282,13 +323,20 @@ def nang_len_hien_hanh(su_kien: SuKienDaNhan) -> SuKienDaNhan:
 
 async def thu_hoi_thue(pool: asyncpg.Pool) -> int:
     """Trả về hàng đợi những dòng bị worker chết bỏ dở. Trả về số dòng thu hồi."""
+    # SKIP LOCKED: dòng đang bị bên nhận khoá (`_CON_GIU_VIEC`) là việc CÒN chạy,
+    # chỉ là quá hạn thuê — bỏ qua chứ không chờ nó, càng không giật lại.
     thu_hoi = await pool.fetchval(
         "WITH qua_han AS ("
-        "  UPDATE event_delivery SET status = 'RETRY', next_attempt_at = now(),"
+        "  SELECT event_id, consumer FROM event_delivery"
+        "   WHERE status = 'IN_PROGRESS' AND lease_expires_at < now()"
+        "   FOR UPDATE SKIP LOCKED"
+        "), thu AS ("
+        "  UPDATE event_delivery d SET status = 'RETRY', next_attempt_at = now(),"
         "         lease_expires_at = NULL, locked_by = NULL,"
         "         last_error = 'worker bo do, thu hoi thue'"
-        "  WHERE status = 'IN_PROGRESS' AND lease_expires_at < now()"
-        "  RETURNING 1) SELECT count(*) FROM qua_han"
+        "    FROM qua_han q"
+        "   WHERE d.event_id = q.event_id AND d.consumer = q.consumer"
+        "  RETURNING 1) SELECT count(*) FROM thu"
     )
     return int(thu_hoi or 0)
 

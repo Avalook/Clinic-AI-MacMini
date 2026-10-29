@@ -62,6 +62,7 @@ import {
   type CanhBaoO,
 } from "@/lib/phieu-kham";
 import ChiDinhThuThuat from "./ChiDinhThuThuat";
+import { ChoNutMuc } from "./cho-nut-muc";
 import DonThuocPhieu from "./DonThuocPhieu";
 import KetQuaChiDinh, { TepChuaGan } from "./KetQuaChiDinh";
 import { KhoiTuVan } from "./KhoiDauPhieu";
@@ -326,6 +327,7 @@ export default function PhieuKham({
     dieuTri: ketQuaDT,
     thuThuat: ketQuaTT,
     cls: ketQuaCls,
+    banKham: ketQuaBanKham,
   } = useMemo(() => phanChiDinh(ketQuaChiDinh, maThuThuat, khoi1), [ketQuaChiDinh, maThuThuat, khoi1]);
   const coKq = ketQuaCls.filter((c) => c.ket_qua_trang_thai === "CO_KET_QUA").length;
   // Chip "N mới" trên nút khối 2: kết quả đã về mà chưa ai xem.
@@ -336,10 +338,15 @@ export default function PhieuKham({
   const coChanDoan = oTheoMuc(["D"]).some((ma) => coGiaTriO(gia[ma]));
   const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTriO(gia[ma]));
   const tomTat: Record<SoKhoi, string> = {
-    1: `${soDien} ô đã điền`,
+    // Lượt Thủ thuật / Điều trị: chỉ định làm tại bàn khám vẽ ở khối 1 (kể cả
+    // tick từ khối 3) — đếm ở đây, không thì khối 3 báo "chưa có gì" mà thẻ
+    // đã nằm trên khối 1 (bấm staging 29/10).
+    1: `${soDien} ô đã điền` + (ketQuaBanKham.length ? ` · ${ketQuaBanKham.length} thủ thuật` : ""),
+    // Mỗi ý một dòng (`whitespace-pre-line` ở chỗ vẽ) — chữ "KQ" người dùng
+    // không đọc ra (Tuyền 29/10/2026).
     2:
-      (ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định") +
-      (coChanDoan ? " · có chẩn đoán" : ""),
+      (ketQuaCls.length ? `${ketQuaCls.length} chỉ định\n${coKq} kết quả` : "chưa chỉ định") +
+      (coChanDoan ? "\ncó chẩn đoán" : ""),
     3:
       [
         ketQuaDT.length ? `${ketQuaDT.length} điều trị` : "",
@@ -385,12 +392,14 @@ export default function PhieuKham({
   const tieuDeMuc: Record<string, { ten: string; phu?: ReactNode }> = {
     A: {
       ten: "Bác sĩ tư vấn ghi",
-      phu: ghi ? "mang sang từ Bàn tư vấn · bác sĩ chính sửa tiếp được" : "mang sang từ Bàn tư vấn",
+      // Không dòng phụ "mang sang từ Bàn tư vấn…" (Tuyền 29/10/2026: xoá).
     },
     B: { ten: `Khai thác & khám — ${dinhNghia.ten.replace(/^Phiếu\s+/i, "")}`, phu: "theo phiếu khám của phòng khám" },
-    C: { ten: "Danh mục chỉ định", phu: "xếp như phiếu chỉ định giấy · giá KiotViet" },
+    // Không có dòng phụ "xếp như phiếu giấy · giá KiotViet" (Tuyền 29/10/2026:
+    // chữ người dùng không cần đọc).
+    C: { ten: "Danh mục chỉ định" },
     D: { ten: "Chẩn đoán và xử lý", phu: "sau khi xem kết quả cận lâm sàng" },
-    E: { ten: "Đơn thuốc", phu: "xếp như phiếu giấy · giá KiotViet" },
+    E: { ten: "Đơn thuốc" },
     F: { ten: "Dịch vụ khác (thủ thuật · điều trị)" },
     G: { ten: "Hẹn khám" },
   };
@@ -498,7 +507,7 @@ export default function PhieuKham({
   const mucGoDau = mucKhoi.find((m) => m.lien_ket?.loai !== "mang_sang" && m.block.length > 0)?.ma;
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12.5rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_14rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
       {/* CỘT PHẢI — bốn nút khối + In + Hoàn tất, dính khi cuộn (bản mẫu `ray`).
           Màn hẹp: thanh cuộn ngang dính dưới thanh đầu trang; dòng trạng thái
           lưu nằm NGAY DƯỚI thanh ấy (cùng khối dính) — 375 vẫn thấy (đợt 3). */}
@@ -514,7 +523,7 @@ export default function PhieuKham({
                   type="button"
                   aria-pressed={dang}
                   onClick={() => setKhoi(k.so)}
-                  className={`grid min-h-12 shrink-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-control p-2 text-left ring-1 ring-inset lg:min-h-14 lg:w-full ${
+                  className={`grid min-h-12 shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-2 rounded-control p-2 text-left ring-1 ring-inset lg:min-h-14 lg:w-full ${
                     dang ? "bg-surface-selected ring-brand-100" : "bg-surface ring-line hover:bg-surface-sunken"
                   }`}
                 >
@@ -529,9 +538,17 @@ export default function PhieuKham({
                     <b className={`block text-emph font-semibold leading-tight ${dang ? "text-brand-700" : "text-ink"}`}>
                       {k.ten}
                     </b>
-                    <small className="block text-meta text-ink-muted">{tomTat[k.so]}</small>
+                    {/* Màn hẹp thanh bước DÍNH đầu màn: bỏ dòng tóm tắt cho thanh
+                        thấp, khỏi che nội dung khi cuộn (bấm staging 375, 29/10). */}
+                    <small className="hidden whitespace-pre-line text-meta text-ink-muted lg:block">{tomTat[k.so]}</small>
+                    {/* Chip "mới" nằm DƯỚI tên, không thành cột thứ ba — cột bước
+                        chỉ ~200px, thêm cột chip là tên khối vỡ 3 dòng (29/10). */}
+                    {moi > 0 ? (
+                      <span className="mt-0.5 block">
+                        <Chip tone="success">{moi} mới</Chip>
+                      </span>
+                    ) : null}
                   </span>
-                  {moi > 0 ? <Chip tone="success">{moi} mới</Chip> : <span />}
                 </button>
               );
             })}
@@ -624,10 +641,21 @@ function TheCon({
   nhoKhoa: string;
   children: ReactNode;
 }) {
+  // Chỗ đầu thẻ cho nút thao tác của nội dung bên trong (DanhMucChiDinh đưa nút
+  // "Chỉ định N mục" lên đây qua portal — `ChoNutMuc`).
+  const [cho, setCho] = useState<HTMLElement | null>(null);
   return (
     <section className="rounded-card border border-hairline bg-surface p-4">
-      <NganGap co="the" tieuDe={ten} phu={phu} chip={chip} moSan={moSan} nhoKhoa={nhoKhoa}>
-        {children}
+      <NganGap
+        co="the"
+        tieuDe={ten}
+        phu={phu}
+        chip={chip}
+        moSan={moSan}
+        nhoKhoa={nhoKhoa}
+        hanhDong={<span ref={setCho} className="flex shrink-0 items-center gap-2 empty:hidden" />}
+      >
+        <ChoNutMuc.Provider value={cho}>{children}</ChoNutMuc.Provider>
       </NganGap>
     </section>
   );

@@ -40,7 +40,11 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
-from clinicai.core.exceptions import SafetyGateError, ValidationError
+from clinicai.core.exceptions import (
+    ChuaThuTienError,
+    SafetyGateError,
+    ValidationError,
+)
 from clinicai.events.catalogue import (
     KetQuaDaSua,
     KetQuaSanSang,
@@ -689,10 +693,10 @@ class FormEngineService:
         `visit_amendment.reason` — nơi duy nhất giữ lý do, không chép sang chỗ
         thứ hai.
 
-        PHIẾU ĐIỀU TRỊ (mẫu không có bước Hoàn tất, 07/10/2026): ở phòng, nút
-        [Xong] của phiếu đi lệnh này để ĐÓNG DỊCH VỤ. Phiếu đã chốt từ trước
-        (Xong → hoàn tác Xong → Xong lại) thì không chốt lần hai nhưng vẫn đóng
-        dịch vụ đang làm dở.
+        PHIẾU ĐÃ CHỐT mà dịch vụ còn đang làm (lần đầu đóng không được, hay
+        Xong → hoàn tác Xong → Xong lại): không chốt lần hai nhưng vẫn ĐÓNG
+        DỊCH VỤ — mọi mẫu, không riêng phiếu điều trị (27/10/2026: phiếu siêu
+        âm 2D chốt rồi, dịch vụ kẹt "đang làm", khách không sang bàn khám được).
         """
         async with self._pool.acquire() as conn:
             truoc = await conn.fetchrow(
@@ -704,7 +708,6 @@ class FormEngineService:
             )
             if (
                 truoc is not None
-                and truoc["form_id"] in MAU_KHONG_HOAN_TAT
                 and truoc["trang_thai"] == "READY"
                 and not truoc["dang_sua"]
             ):
@@ -759,6 +762,25 @@ class FormEngineService:
                 raise ValidationError(
                     "Phiếu vừa được người khác lưu — tải lại rồi hoàn tất."
                 )
+            if not sua_lai:
+                # Hoàn tất = dịch vụ xong (29/10/2026): đóng không được thì KHÔNG
+                # chốt — nháp đã lưu trước khi bấm, nói rõ vì sao.
+                from clinicai.services.hoan_tat_dong_dich_vu import (
+                    CAU_CHUA_THU_HOAN_TAT,
+                    chan_hoan_tat,
+                )
+
+                cau = await chan_hoan_tat(
+                    conn,
+                    identity,
+                    str(dong["service_order_id"])
+                    if dong["service_order_id"] is not None
+                    else None,
+                )
+                if cau == CAU_CHUA_THU_HOAN_TAT:
+                    raise ChuaThuTienError(cau)
+                if cau is not None:
+                    raise ValidationError(cau)
 
             # ĐANG SỬA: nội dung mới nằm ở bản NHÁP, bản chính thức vẫn là bản
             # người bệnh đang cầm trên tay.
@@ -1176,7 +1198,8 @@ class FormEngineService:
     async def _dong_dich_vu_neu_dang_lam(
         self, *, service_order_id: str, identity: StaffIdentity
     ) -> dict[str, Any]:
-        """Phiếu xong rồi thì dịch vụ coi như xong — nếu nó còn đang làm dở.
+        """Phiếu xong rồi thì dịch vụ xong — chưa bắt đầu thì bắt đầu + xong,
+        đang làm thì xong (luật: `hoan_tat_dong_dich_vu`).
 
         BA LÝ DO ĐỂ LÀM Ở ĐÂY CHỨ KHÔNG PHẢI TRONG CÙNG GIAO DỊCH:
 
@@ -1187,69 +1210,14 @@ class FormEngineService:
         3. Nếu không đóng được, người làm PHẢI biết ngay — nên kết quả trả về
            nói rõ, thay vì im lặng để khách còn tên trong hàng chờ.
 
-        Không có gì ép buộc ở đây: dịch vụ đã xong, đã huỷ, hay người bấm không
-        có quyền đóng thì phiếu vẫn hoàn tất bình thường.
+        Cửa biết trước (tiền, quyền, khách bỏ) đã chặn TRƯỚC khi chốt
+        (`chan_hoan_tat`); lỗi còn lại ở đây chỉ là tranh chấp lúc ghi.
         """
-        from clinicai.services.service_execution_service import (
-            ServiceExecutionService,
+        from clinicai.services.hoan_tat_dong_dich_vu import dong_sau_hoan_tat
+
+        return await dong_sau_hoan_tat(
+            self._pool, order_id=service_order_id, identity=identity
         )
-
-        dong_o_quay = False
-        lan = None
-        async with self._pool.acquire() as conn:
-            don = await conn.fetchrow(
-                "SELECT execution_status, execution_revision, nguon_lam_them"
-                "  FROM service_order"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
-                identity.clinic_id,
-                service_order_id,
-            )
-            # LÀM THÊM TẠI QUẦY (Tuyền 01/10/2026, phương án A): Hoàn tất kết quả
-            # ở quầy = dịch vụ xong. Chỉ định chưa ai bắt đầu → bắt đầu + xong
-            # bằng lệnh có sẵn của module Thực hiện, tôn trọng cửa tiền; không
-            # đóng được thì nói rõ vì sao (không im lặng).
-            if (
-                don is not None
-                and don["nguon_lam_them"]
-                and (don["execution_status"] or "PENDING") == "PENDING"
-            ):
-                dong_o_quay = True
-            elif don is None or don["execution_status"] != "IN_PROGRESS":
-                return {"da_dong": False, "vi_sao": "khong_dang_lam"}
-            else:
-                lan = await conn.fetchval(
-                    "SELECT id::text FROM service_execution_attempt"
-                    " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
-                    "   AND status = 'IN_PROGRESS'",
-                    identity.clinic_id,
-                    service_order_id,
-                )
-        if dong_o_quay:
-            # SAU khi trả kết nối: `dong_tai_quay` tự mượn kết nối — gọi lồng là
-            # giữ một + chờ một, bể kín thì treo (14/10/2026).
-            from clinicai.services.lam_them_dong_dich_vu import dong_tai_quay
-
-            return await dong_tai_quay(
-                self._pool, order_id=service_order_id, identity=identity
-            )
-        if lan is None:
-            return {"da_dong": False, "vi_sao": "khong_co_lan_lam_dang_chay"}
-
-        try:
-            await ServiceExecutionService(self._pool).xong(
-                order_id=service_order_id,
-                attempt_id=lan,
-                expected_execution_revision=int(don["execution_revision"] or 0),
-                identity=identity,
-                idempotency_key=f"form-{service_order_id}-{lan}",
-            )
-        except SafetyGateError:
-            # Điều dưỡng nhập hộ nhưng không có quyền đóng dịch vụ: phiếu vẫn
-            # xong, và màn nói "nhờ người có quyền bấm Xong ở phòng".
-            return {"da_dong": False, "vi_sao": "khong_du_quyen"}
-        except Exception as loi:  # noqa: BLE001 — không làm hỏng việc đã xong
-            return {"da_dong": False, "vi_sao": "loi", "chi_tiet": str(loi)[:200]}
-        return {"da_dong": True}
 
     # ------------------------------------------------------------------
     # Sửa và xuất bản bản mẫu

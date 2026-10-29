@@ -26,6 +26,8 @@ test("hồ sơ khách: gỡ = ẩn + khôi phục (hoàn tác), không có quy�
   assert.match(ui, /Khôi phục/);
   assert.match(ui, /cong-ty\/an\//);
   assert.match(ui, /r\.status === 403/);
+  // Máy chủ trả `duoc_xem: false` thay vì 403 khi đọc (28/10/2026) — vẫn ẩn khối.
+  assert.match(ui, /d\.duoc_xem === false/);
   assert.match(ui, /canh_bao_mst/);
   assert.match(ui, /không đổi công ty đã ghi trên các hoá đơn cũ/);
   assert.doesNotMatch(ui, /\[0-9\]\{10\}|\\d\{10\}|window\.confirm|\.reduce\(/);

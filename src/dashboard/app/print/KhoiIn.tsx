@@ -1,8 +1,9 @@
 // HAI KHỐI ĐẦU TRANG dùng chung cho bản in phiếu khám và phiếu kết quả
 // (27/09/2026 — Y HỆT bản giao diện mẫu, `in-dau` + `in-bn` của M/style.css).
 //
-//   DauTrangIn   — đầu trang HAI BÊN: trái tên phòng khám + cơ sở / địa chỉ;
-//                  phải tên phiếu + mã, số booking / check-in, ngày. Kẻ đậm dưới.
+//   DauTrangIn   — đầu trang: tên phòng khám, cơ sở, địa chỉ (nghiêng) và tên
+//                  phiếu căn giữa; mã, số booking / check-in, ngày bên trái
+//                  dưới đó (29/10/2026). Kẻ đậm dưới.
 //   KhoiBenhNhanIn — khối BỆNH NHÂN gọn: nhãn | giá trị, hai cặp một hàng (một
 //                  cặp ở màn hẹp); dòng không có giá trị thì BỎ, không in "—".
 //
@@ -12,37 +13,38 @@ import type { ReactNode } from "react";
 
 export function DauTrangIn({
   phongKham,
-  trai,
+  coSo,
+  diaChi,
   tieuDe,
   phai,
 }: {
   phongKham: string | null | undefined;
-  /** Dòng phụ bên trái (cơ sở, địa chỉ) — dòng rỗng tự bỏ. */
-  trai: (string | null | undefined)[];
+  coSo?: string | null;
+  diaChi?: string | null;
   tieuDe: string;
-  /** Dòng phụ bên phải (mã, booking / check-in, ngày) — dòng rỗng tự bỏ. */
+  /** Mã, booking / check-in, ngày — dòng rỗng tự bỏ. */
   phai: (ReactNode | null | undefined)[];
 }) {
-  const dongTrai = trai.filter((x): x is string => Boolean(x && x.trim()));
   const dongPhai = phai.filter((x) => x !== null && x !== undefined && x !== "");
+  // Tuyền 29/10/2026: tên phòng khám + tên phiếu CĂN GIỮA; địa chỉ in nghiêng,
+  // ghi rõ "Địa chỉ:"; mã khách / booking / ngày khám dồn bên trái cho gọn.
   return (
-    <header className="flex flex-wrap justify-between gap-x-4 gap-y-2 border-b-2 border-ink pb-3">
-      <div className="min-w-0">
+    <header className="border-b-2 border-ink pb-3">
+      <div className="text-center">
         <p className="font-semibold uppercase text-ink">{phongKham || "Phòng khám"}</p>
-        {dongTrai.map((d) => (
-          <p key={d} className="text-meta text-ink-muted">
-            {d}
-          </p>
-        ))}
+        {coSo?.trim() ? <p className="text-meta text-ink-muted">{coSo}</p> : null}
+        {diaChi?.trim() ? <p className="text-meta italic text-ink-muted">Địa chỉ: {diaChi}</p> : null}
+        <h1 className="mt-3 font-semibold uppercase text-ink">{tieuDe}</h1>
       </div>
-      <div className="min-w-0 text-right">
-        <h1 className="font-semibold uppercase text-ink">{tieuDe}</h1>
-        {dongPhai.map((d, i) => (
-          <p key={i} className="text-meta text-ink-muted">
-            {d}
-          </p>
-        ))}
-      </div>
+      {dongPhai.length > 0 ? (
+        <div className="mt-2 space-y-0.5">
+          {dongPhai.map((d, i) => (
+            <p key={i} className="text-meta text-ink-muted">
+              {d}
+            </p>
+          ))}
+        </div>
+      ) : null}
     </header>
   );
 }

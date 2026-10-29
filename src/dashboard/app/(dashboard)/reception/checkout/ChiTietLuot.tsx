@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 
 import { fmtDateTimeOrDate } from "../../../../lib/datetime";
+import { sdtDoc } from "@/lib/sdt";
 
 export interface Blocker {
   type: string;
@@ -68,6 +69,7 @@ export interface ChiTiet {
   visit_id: string;
   patient_name: string | null;
   patient_code: string | null;
+  phone_primary?: string | null;
   visit_status: string | null;
   checked_in_at: string | null;
   room_name: string | null;
@@ -386,6 +388,7 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
           <h3 className="text-sm font-semibold text-ink">Thông tin lượt khám</h3>
           <dl className="mt-3 space-y-1.5 text-sm">
             <Hang nhan="Bệnh nhân" giaTri={d.patient_name} />
+            <Hang nhan="Điện thoại" giaTri={sdtDoc(d.phone_primary)} />
             <Hang nhan="Mã bệnh nhân" giaTri={d.patient_code} />
             <Hang nhan="Giờ check-in" giaTri={gio(d.checked_in_at)} />
             <Hang nhan="Đang ở" giaTri={d.dang_o ?? d.room_name} />

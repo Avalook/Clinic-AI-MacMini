@@ -121,10 +121,12 @@ test("phòng dịch vụ chỉ có MỘT nút kết thúc", () => {
   );
   // 23/09 khuya: phòng luôn có 18 mẫu dự phòng, nên "không có phiếu" nay là
   // "không có phiếu CHÍNH" (mẫu gắn / gợi ý v5) — hoặc phòng lấy mẫu.
+  // 27/10/2026: hoặc phiếu chính ĐÃ CHỐT mà dịch vụ còn đang làm (máy chủ báo
+  // `phieu_da_chot_cho_dong`) — lúc ấy phiếu chỉ còn "Sửa lại", vẫn một nút.
   assert.match(
     ma,
-    /dangLam && th\.lan_dang_chay && !coPhieuChinh/,
-    "nút đóng thẳng chỉ dành cho dịch vụ không có phiếu chính",
+    /dangLam && th\.lan_dang_chay && \(!coPhieuChinh \|\| th\.phieu_da_chot_cho_dong\)/,
+    "nút đóng thẳng chỉ dành cho dịch vụ không có phiếu chính, hoặc phiếu đã chốt",
   );
   assert.match(ma, /const coPhieuChinh =/);
   // Ba ngoại lệ không được là nút chính.

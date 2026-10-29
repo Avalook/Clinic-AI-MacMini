@@ -156,18 +156,31 @@ async def lam_mot_hen(pool: asyncpg.Pool) -> bool:
 
     try:
         async with pool.acquire() as conn, conn.transaction():
+            # GIỮ VIỆC TRONG LÚC LÀM — như `worker._CON_GIU_VIEC`: khoá dòng hẹn
+            # trong giao dịch của bên xử lý, `thu_hoi_hen_treo` (SKIP LOCKED) không
+            # giật được. `so_lan_thu` tăng mỗi lần nhận = dấu của đúng lần nhận này.
+            if not await conn.fetchval(
+                "SELECT 1 FROM hen_gio WHERE id = $1::uuid"
+                "   AND trang_thai = 'DANG_LAM' AND so_lan_thu = $2 FOR UPDATE",
+                cai_hen.id,
+                cai_hen.so_lan_thu,
+            ):
+                logger.warning("hen_gio_mat_viec", hen_id=cai_hen.id, loai=cai_hen.loai)
+                return True
             da_lam = await xu_ly(conn, cai_hen)
             await conn.execute(
                 "UPDATE hen_gio SET trang_thai = $2, lam_luc = now(),"
                 "       thue_den = NULL, ket_qua = $3"
-                " WHERE id = $1::uuid",
+                " WHERE id = $1::uuid AND so_lan_thu = $4",
                 cai_hen.id,
                 "XONG" if da_lam else "BO_QUA",
                 "da_lam" if da_lam else "het_can",
+                cai_hen.so_lan_thu,
             )
     except Exception as loi:  # noqa: BLE001 — mọi lỗi thành thử lại hoặc chết
         het_luot = cai_hen.so_lan_thu >= SO_LAN_THU_TOI_DA
-        await pool.execute(
+        # Đã bị thu hồi và nhận lại thì kết cục là của lần nhận sau — không ghi đè.
+        ket_qua = await pool.execute(
             "UPDATE hen_gio"
             "   SET trang_thai = $2,"
             "       den_gio = CASE WHEN $2 = 'CHO'"
@@ -176,12 +189,16 @@ async def lam_mot_hen(pool: asyncpg.Pool) -> bool:
             # CHET không mang lam_luc — ràng buộc hen_gio_xong_co_gio chỉ
             # cho XONG/BO_QUA có giờ làm.
             "       thue_den = NULL, loi_gan_nhat = $4"
-            " WHERE id = $1::uuid",
+            " WHERE id = $1::uuid AND trang_thai = 'DANG_LAM' AND so_lan_thu = $5",
             cai_hen.id,
             "CHET" if het_luot else "CHO",
             60.0 * cai_hen.so_lan_thu,
             str(loi)[:2000],
+            cai_hen.so_lan_thu,
         )
+        if ket_qua == "UPDATE 0":
+            logger.warning("hen_gio_mat_viec", hen_id=cai_hen.id, loi=str(loi)[:200])
+            return True
         logger.warning(
             "hen_gio_hong", loai=cai_hen.loai, chet=het_luot, loi=str(loi)[:200]
         )
@@ -228,11 +245,16 @@ async def thu_hoi_hen_treo(pool: asyncpg.Pool) -> int:
     """Worker chết giữa chừng thì trả cái hẹn về hàng."""
     return int(
         await pool.fetchval(
+            # SKIP LOCKED: hẹn đang bị bên xử lý khoá là việc còn chạy, bỏ qua.
             "WITH qua_han AS ("
-            "  UPDATE hen_gio SET trang_thai = 'CHO', thue_den = NULL,"
-            "         loi_gan_nhat = 'worker bo do, thu hoi'"
+            "  SELECT id FROM hen_gio"
             "   WHERE trang_thai = 'DANG_LAM' AND thue_den < now()"
-            "  RETURNING 1) SELECT count(*) FROM qua_han"
+            "   FOR UPDATE SKIP LOCKED"
+            "), thu AS ("
+            "  UPDATE hen_gio h SET trang_thai = 'CHO', thue_den = NULL,"
+            "         loi_gan_nhat = 'worker bo do, thu hoi'"
+            "    FROM qua_han q WHERE h.id = q.id"
+            "  RETURNING 1) SELECT count(*) FROM thu"
         )
         or 0
     )

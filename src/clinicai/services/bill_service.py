@@ -661,7 +661,8 @@ _CON_TINH_TIEN = """
 #: không phải bảng giá hiện hành; buổi dùng tiền trả trước (``lb.tra_truoc``)
 #: không vào hoá đơn còn nợ (điều kiện ở ``hoa_don_con_no``).
 _GIA_CHI_DINH = """
-SELECT o.id::text AS id, o.service_name, o.service_code,
+SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
+       o.service_code,
        CASE WHEN lt.id IS NOT NULL THEN ARRAY[lt.don_gia]
             ELSE coalesce(array_agg(pr.unit_price)
                           FILTER (WHERE pr.unit_price IS NOT NULL), '{{}}')
@@ -679,9 +680,10 @@ SELECT o.id::text AS id, o.service_name, o.service_code,
   LEFT JOIN public.service_price pr
     ON pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
    AND pr.active AND pr."group" = 'dich_vu'
- WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+ WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
    AND {dieu_kien}
- GROUP BY o.id, o.service_name, o.service_code, o.created_at, lt.id, lt.don_gia
+ GROUP BY o.id, o.visit_id, o.service_name, o.service_code, o.created_at, lt.id,
+          lt.don_gia
  ORDER BY o.created_at, o.id
 """
 
@@ -689,11 +691,12 @@ SELECT o.id::text AS id, o.service_name, o.service_code,
 #: Phụ thu còn phải thu: đang tick, chỉ định chủ còn sống (khách không bỏ, chưa
 #: huỷ / không làm), chưa nằm trong lần thu đang giữ phủ.
 _PHU_THU_SQL = """
-SELECT p.id::text AS id, p.service_order_id::text AS order_id, p.ten, p.don_gia
+SELECT p.id::text AS id, p.visit_id::text AS visit_id,
+       p.service_order_id::text AS order_id, p.ten, p.don_gia
   FROM public.luot_phu_thu p
   JOIN public.service_order o
     ON o.id = p.service_order_id AND o.clinic_id = p.clinic_id
- WHERE p.clinic_id = $1::uuid AND p.visit_id = $2::uuid AND p.bo_luc IS NULL
+ WHERE p.clinic_id = $1::uuid AND p.visit_id = ANY($2::uuid[]) AND p.bo_luc IS NULL
    AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')
    AND coalesce(o.execution_status, 'PENDING')
        NOT IN ('CANCELLED', 'NOT_PERFORMED')
@@ -705,12 +708,13 @@ SELECT p.id::text AS id, p.service_order_id::text AS order_id, p.ten, p.don_gia
 #: Vật tư còn phải thu: dòng chưa bỏ (C13, 01/10/2026), chưa nằm trong lần thu
 #: đang giữ phủ. Khác phụ thu: theo LƯỢT, không phụ thuộc chỉ định nào.
 _VAT_TU_SQL = """
-SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
+SELECT v.id::text AS id, v.visit_id::text AS visit_id,
+       v.service_price_id::text AS service_price_id, v.ten,
        v.don_vi, v.don_gia, v.so_luong, v.order_id::text AS order_id
   FROM public.luot_vat_tu v
   LEFT JOIN public.service_order o
     ON o.id = v.order_id AND o.clinic_id = v.clinic_id
- WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid AND v.bo_luc IS NULL
+ WHERE v.clinic_id = $1::uuid AND v.visit_id = ANY($2::uuid[]) AND v.bo_luc IS NULL
    AND {dieu_kien}
  ORDER BY v.chon_luc, v.id
 """
@@ -734,11 +738,11 @@ _VAT_TU_THEO_CHI_DINH = f"""
 #: Trả trước k buổi liệu trình (08/10/2026): dòng chưa bỏ của lượt, chưa nằm
 #: trong lần thu đang giữ phủ. Đơn giá = đơn giá CHỐT của liệu trình.
 _LIEU_TRINH_SQL = """
-SELECT t.id::text AS id, t.lieu_trinh_id::text AS lieu_trinh_id, t.so_buoi,
-       t.don_gia, lt.service_name
+SELECT t.id::text AS id, t.visit_id::text AS visit_id,
+       t.lieu_trinh_id::text AS lieu_trinh_id, t.so_buoi, t.don_gia, lt.service_name
   FROM public.lieu_trinh_tra_truoc t
   JOIN public.lieu_trinh lt ON lt.clinic_id = t.clinic_id AND lt.id = t.lieu_trinh_id
- WHERE t.clinic_id = $1::uuid AND t.visit_id = $2::uuid AND t.bo_luc IS NULL
+ WHERE t.clinic_id = $1::uuid AND t.visit_id = ANY($2::uuid[]) AND t.bo_luc IS NULL
    AND {dieu_kien}
  ORDER BY t.chon_luc, t.id
 """
@@ -766,60 +770,59 @@ def khong_tu_cong_phi_kham(
     return code == "THU_THUAT" and route_decision != "TU_VAN"
 
 
-async def _kham(
-    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+_KHAM_LO_SQL = """
+SELECT vi.visit_id::text AS visit_id,
+       st.id::text AS st_id, st.name, st.nhom, st.code,
+       ef.route_decision,
+       coalesce(st.gia_mac_dinh, 0) AS gia_mac_dinh,
+       (vi.appointment_id IS NULL) AS khong_hen,
+       -- Tái khám: khách đã có lượt HOÀN TẤT cùng loại khám trước lượt này.
+       EXISTS (
+           SELECT 1 FROM public.appointment a0
+            WHERE a0.clinic_id = vi.clinic_id
+              AND a0.clinic_patient_id = vi.clinic_patient_id
+              AND a0.service_type_id = st.id
+              AND a0.status = 'COMPLETED'
+              AND a0.id IS DISTINCT FROM vi.appointment_id
+              AND a0.slot_start < coalesce(a.slot_start, vi.created_at)
+       ) AS tai_kham,
+       -- Dây H2 (24/09/2026): lịch "đi thẳng phòng" mà khách đi thẳng
+       -- phòng thật (không qua bác sĩ) thì KHÔNG có buổi khám nào để
+       -- tính tiền khám — tiền là của chính chỉ định. Rơi về bác sĩ
+       -- chính (không có chỉ định mang sang) thì vẫn tính như lượt khám.
+       (coalesce(st.di_thang_phong, false)
+        AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES')
+           AS khong_kham
+  FROM public.visit vi
+  LEFT JOIN public.appointment a
+    ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
+  LEFT JOIN public.service_type st
+    ON st.id = coalesce(vi.service_type_id, a.service_type_id)
+  LEFT JOIN public.encounter_flow ef
+    ON ef.clinic_id = vi.clinic_id AND ef.visit_id = vi.visit_id
+ WHERE vi.clinic_id = $1::uuid AND vi.visit_id = ANY($2::uuid[])
+"""
+
+# 28/09/2026: tiền khám = dịch vụ khám ĐÃ TICK (luot_phi_kham).
+_PHI_KHAM_CHON_LO_SQL = """
+SELECT l.visit_id::text AS visit_id,
+       sp.id::text AS id, sp.name, sp.unit_price, sp.billing_owner
+  FROM public.luot_phi_kham l
+  JOIN public.service_price sp
+    ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
+ WHERE l.clinic_id = $1::uuid AND l.visit_id = ANY($2::uuid[])
+   AND l.bo_luc IS NULL
+ ORDER BY l.chon_luc, l.id
+"""
+
+
+def kham_tu_du_lieu(
+    kham_row: Mapping[str, Any] | None, chon: Sequence[Mapping[str, Any]]
 ) -> dict[str, Any] | None:
-    kham_row = await conn.fetchrow(
-        """
-        SELECT st.id::text AS st_id, st.name, st.nhom, st.code,
-               ef.route_decision,
-               coalesce(st.gia_mac_dinh, 0) AS gia_mac_dinh,
-               (vi.appointment_id IS NULL) AS khong_hen,
-               -- Tái khám: khách đã có lượt HOÀN TẤT cùng loại khám trước lượt này.
-               EXISTS (
-                   SELECT 1 FROM public.appointment a0
-                    WHERE a0.clinic_id = vi.clinic_id
-                      AND a0.clinic_patient_id = vi.clinic_patient_id
-                      AND a0.service_type_id = st.id
-                      AND a0.status = 'COMPLETED'
-                      AND a0.id IS DISTINCT FROM vi.appointment_id
-                      AND a0.slot_start < coalesce(a.slot_start, vi.created_at)
-               ) AS tai_kham,
-               -- Dây H2 (24/09/2026): lịch "đi thẳng phòng" mà khách đi thẳng
-               -- phòng thật (không qua bác sĩ) thì KHÔNG có buổi khám nào để
-               -- tính tiền khám — tiền là của chính chỉ định. Rơi về bác sĩ
-               -- chính (không có chỉ định mang sang) thì vẫn tính như lượt khám.
-               (coalesce(st.di_thang_phong, false)
-                AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES')
-                   AS khong_kham
-          FROM public.visit vi
-          LEFT JOIN public.appointment a
-            ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
-          LEFT JOIN public.service_type st
-            ON st.id = coalesce(vi.service_type_id, a.service_type_id)
-          LEFT JOIN public.encounter_flow ef
-            ON ef.clinic_id = vi.clinic_id AND ef.visit_id = vi.visit_id
-         WHERE vi.clinic_id = $1::uuid AND vi.visit_id = $2::uuid
-        """,
-        clinic_id,
-        visit_id,
-    )
+    """Tiền khám của MỘT lượt từ dữ liệu đã đọc (`_KHAM_LO_SQL` +
+    `_PHI_KHAM_CHON_LO_SQL`). Thuần."""
     if kham_row is not None and kham_row["khong_kham"]:
         return None
-    # 28/09/2026: tiền khám = dịch vụ khám ĐÃ TICK (luot_phi_kham).
-    chon = await conn.fetch(
-        """
-        SELECT sp.id::text AS id, sp.name, sp.unit_price, sp.billing_owner
-          FROM public.luot_phi_kham l
-          JOIN public.service_price sp
-            ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
-         WHERE l.clinic_id = $1::uuid AND l.visit_id = $2::uuid
-           AND l.bo_luc IS NULL
-         ORDER BY l.chon_luc, l.id
-        """,
-        clinic_id,
-        visit_id,
-    )
     # Lượt ĐIỀU TRỊ / THỦ THUẬT: tiền là của chính chỉ định, KHÔNG tự thu phí
     # khám. Bác sĩ có khám thật thì tick dịch vụ khám con.
     if (
@@ -831,6 +834,28 @@ async def _kham(
     ):
         return None
     return dong_kham_theo_chon(kham_row, chon)
+
+
+async def _kham_lo(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: Sequence[str]
+) -> dict[str, dict[str, Any] | None]:
+    """Tiền khám của NHIỀU lượt — hai câu SQL cho cả danh sách."""
+    if not visit_ids:
+        return {}
+    hang = {
+        r["visit_id"]: r
+        for r in await conn.fetch(_KHAM_LO_SQL, clinic_id, list(visit_ids))
+    }
+    chon: dict[str, list[Mapping[str, Any]]] = {}
+    for r in await conn.fetch(_PHI_KHAM_CHON_LO_SQL, clinic_id, list(visit_ids)):
+        chon.setdefault(r["visit_id"], []).append(r)
+    return {v: kham_tu_du_lieu(hang.get(v), chon.get(v, [])) for v in visit_ids}
+
+
+async def _kham(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+) -> dict[str, Any] | None:
+    return (await _kham_lo(conn, clinic_id, [visit_id])).get(visit_id)
 
 
 def _chi_dinh(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -872,11 +897,72 @@ async def hoa_don_con_no(
     mặc định của quầy. Cùng một câu SQL, cùng luật giá, nên sau khi lệnh thu
     gộp chốt đúng lựa chọn ấy, hoá đơn thật có đúng ``revision`` này. Chỉ đọc —
     không ghi gì. Rỗng = hoá đơn thật (mọi nơi khác gọi như cũ).
+
+    MỘT luật cho một lượt và cho bảng quầy (nhiều lượt): đây chỉ gọi
+    ``hoa_don_con_no_lo`` với đúng một lượt.
     """
-    unknown = bool(await conn.fetchval(THU_CU_KHONG_TRUY_DUOC_SQL, clinic_id, visit_id))
-    kham = await _kham(conn, clinic_id, visit_id)
-    hd_kham = ghep_dich_vu(visit_id, kham, [])
-    nguon_hien_tai = [d.source_id for d in hd_kham.dong if d.source_type == "exam"]
+    return (
+        await hoa_don_con_no_lo(
+            conn,
+            clinic_id=clinic_id,
+            visit_ids=[visit_id],
+            coi_nhu_chon={visit_id: coi_nhu_chon},
+        )
+    )[visit_id]
+
+
+#: Bản nhiều lượt của ``THU_CU_KHONG_TRUY_DUOC_SQL`` (cùng điều kiện) — trả các
+#: lượt có tiền dịch vụ cũ không truy được.
+_THU_CU_KHONG_TRUY_DUOC_LO_SQL = """
+SELECT c.visit_id::text AS visit_id FROM public.payment_cycle c
+ WHERE c.clinic_id = $1::uuid AND c.visit_id = ANY($2::uuid[])
+   AND c.kind = 'dich_vu'
+   AND c.status IN ('PENDING_VERIFICATION', 'PAID')
+   AND NOT EXISTS (
+       SELECT 1 FROM public.payment_bill_line bl
+        WHERE bl.clinic_id = c.clinic_id
+          AND bl.payment_cycle_id = c.payment_cycle_id)
+UNION
+SELECT p.visit_id::text FROM public.payment p
+ WHERE p.clinic_id = $1::uuid AND p.visit_id = ANY($2::uuid[])
+   AND p.kind = 'dich_vu'
+   AND NOT EXISTS (
+       SELECT 1 FROM public.payment_bill_line bl
+        WHERE bl.clinic_id = p.clinic_id
+          AND bl.payment_cycle_id = p.payment_cycle_id)
+"""
+
+
+async def hoa_don_con_no_lo(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_ids: Sequence[str],
+    coi_nhu_chon: Mapping[str, Sequence[str]] | None = None,
+) -> dict[str, HoaDon]:
+    """``hoa_don_con_no`` cho NHIỀU lượt — mỗi bước một câu SQL cho cả danh sách.
+
+    Bảng quầy thu 29/10/2026: tính từng lượt là ~10 câu × 307 lượt = 3.953 câu,
+    11s, giữ một kết nối suốt — vài tab quầy là hết pool (tối 28/10: 161 lượt
+    chờ kết nối). Luật giữ NGUYÊN: cùng câu SQL (nay lọc ``visit_id = ANY``),
+    cùng hàm thuần ghép dòng; nguồn khám ``exam-{lượt}…`` và id chỉ định / phụ
+    thu / vật tư / liệu trình là duy nhất theo lượt nên gộp tập không lẫn lượt.
+    """
+    vids = list(dict.fromkeys(str(v) for v in visit_ids))
+    if not vids:
+        return {}
+    chon_them = sorted({str(i) for ds in (coi_nhu_chon or {}).values() for i in ds})
+    unknown = {
+        r["visit_id"]
+        for r in await conn.fetch(_THU_CU_KHONG_TRUY_DUOC_LO_SQL, clinic_id, vids)
+    }
+    kham = await _kham_lo(conn, clinic_id, vids)
+    nguon_hien_tai = [
+        d.source_id
+        for v in vids
+        for d in ghep_dich_vu(v, kham.get(v), []).dong
+        if d.source_type == "exam"
+    ]
     nguon_da_phu = {
         str(r["source_id"])
         for r in await conn.fetch(
@@ -908,77 +994,120 @@ async def hoa_don_con_no(
     }
     # Trước V2, mọi tập dịch vụ khám con được chụp chung dưới ``exam-{visit}``.
     # Nhận diện chính xác tên+tổng để deploy không biến khoản cũ thành khoản nợ.
-    legacy = await conn.fetch(
+    legacy: dict[str, list[Mapping[str, Any]]] = {}
+    for r in await conn.fetch(
         """
-        SELECT bl.name_snapshot, bl.line_total
+        SELECT bl.source_id, bl.name_snapshot, bl.line_total
           FROM public.payment_bill_line bl
           JOIN public.payment_cycle c
             ON c.clinic_id = bl.clinic_id
            AND c.payment_cycle_id = bl.payment_cycle_id
          WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'exam'
-           AND bl.source_id = $2 AND bl.billing_owner = 'CLINIC'
+           AND bl.source_id = ANY($2::text[]) AND bl.billing_owner = 'CLINIC'
            AND c.status IN ('PENDING_VERIFICATION', 'PAID')
         """,
         clinic_id,
-        f"exam-{visit_id}",
-    )
-    legacy_suffixes = _nguon_con_duoc_legacy_phu(kham, legacy)
-    nguon_da_phu.update(f"exam-{visit_id}-{s}" for s in legacy_suffixes)
-    rows = await conn.fetch(
-        _GIA_CHI_DINH.format(
-            dieu_kien=f"""
-            (o.selection_status = 'SELECTED'
-             OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
-            AND {_CON_TINH_TIEN}
-            AND {_KHONG_PHU_LIEU_TRINH}
-            AND NOT {_DA_PHU.format(loai="'service_order'", nguon="o.id::text")}
-            """
-        ),
-        clinic_id,
-        visit_id,
-        sorted({str(i) for i in coi_nhu_chon}),
-    )
-    phu_thu = await conn.fetch(
-        _PHU_THU_SQL.format(
-            dieu_kien=f"""
-            (o.selection_status = 'SELECTED'
-             OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
-            AND NOT {_DA_PHU.format(loai="'phu_thu'", nguon="p.id::text")}
-            """
-        ),
-        clinic_id,
-        visit_id,
-        sorted({str(i) for i in coi_nhu_chon}),
-    )
-    vat_tu = await conn.fetch(
-        _VAT_TU_SQL.format(dieu_kien=f"{_VAT_TU_CHUA_THU} AND {_VAT_TU_THEO_CHI_DINH}"),
-        clinic_id,
-        visit_id,
-        sorted({str(i) for i in coi_nhu_chon}),
-    )
-    lieu_trinh = await conn.fetch(
-        _LIEU_TRINH_SQL.format(dieu_kien=_LIEU_TRINH_CHUA_THU),
-        clinic_id,
-        visit_id,
-    )
-    hd = ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu, vat_tu, lieu_trinh)
-    hd.dong = [
-        d for d in hd.dong if d.source_type != "exam" or d.source_id not in nguon_da_phu
-    ]
-    if not any(d.source_type == "exam" for d in hd.dong):
-        hd.canh_bao = []
-    # Đối tác tự thu không phải khoản của phòng khám — không vào hoá đơn thu,
-    # nhưng vẫn HIỆN ở quầy (27/09/2026).
-    tach_doi_tac(hd)
-    if hd.dong_doi_tac:
-        hd.doi_tac_da_thu = await doi_tac_da_thu(
-            conn,
-            clinic_id,
-            [d.source_id for d in hd.dong_doi_tac if d.source_type == "service_order"],
+        [f"exam-{v}" for v in vids],
+    ):
+        legacy.setdefault(str(r["source_id"]), []).append(r)
+    for v in vids:
+        legacy_suffixes = _nguon_con_duoc_legacy_phu(
+            kham.get(v), legacy.get(f"exam-{v}", [])
         )
-    if unknown:
-        hd.van_de_luot.append(THU_CU_KHONG_TRUY_DUOC)
-    return hd
+        nguon_da_phu.update(f"exam-{v}-{s}" for s in legacy_suffixes)
+
+    def theo_luot(rows: Sequence[Mapping[str, Any]]) -> dict[str, list[Any]]:
+        out: dict[str, list[Any]] = {}
+        for r in rows:
+            out.setdefault(str(r["visit_id"]), []).append(r)
+        return out
+
+    rows = theo_luot(
+        await conn.fetch(
+            _GIA_CHI_DINH.format(
+                dieu_kien=f"""
+                (o.selection_status = 'SELECTED'
+                 OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
+                AND {_CON_TINH_TIEN}
+                AND {_KHONG_PHU_LIEU_TRINH}
+                AND NOT {_DA_PHU.format(loai="'service_order'", nguon="o.id::text")}
+                """
+            ),
+            clinic_id,
+            vids,
+            chon_them,
+        )
+    )
+    phu_thu = theo_luot(
+        await conn.fetch(
+            _PHU_THU_SQL.format(
+                dieu_kien=f"""
+                (o.selection_status = 'SELECTED'
+                 OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
+                AND NOT {_DA_PHU.format(loai="'phu_thu'", nguon="p.id::text")}
+                """
+            ),
+            clinic_id,
+            vids,
+            chon_them,
+        )
+    )
+    vat_tu = theo_luot(
+        await conn.fetch(
+            _VAT_TU_SQL.format(
+                dieu_kien=f"{_VAT_TU_CHUA_THU} AND {_VAT_TU_THEO_CHI_DINH}"
+            ),
+            clinic_id,
+            vids,
+            chon_them,
+        )
+    )
+    lieu_trinh = theo_luot(
+        await conn.fetch(
+            _LIEU_TRINH_SQL.format(dieu_kien=_LIEU_TRINH_CHUA_THU),
+            clinic_id,
+            vids,
+        )
+    )
+    ket_qua: dict[str, HoaDon] = {}
+    for v in vids:
+        hd = ghep_dich_vu(
+            v,
+            kham.get(v),
+            _chi_dinh(rows.get(v, [])),
+            phu_thu.get(v, []),
+            vat_tu.get(v, []),
+            lieu_trinh.get(v, []),
+        )
+        hd.dong = [
+            d
+            for d in hd.dong
+            if d.source_type != "exam" or d.source_id not in nguon_da_phu
+        ]
+        if not any(d.source_type == "exam" for d in hd.dong):
+            hd.canh_bao = []
+        # Đối tác tự thu không phải khoản của phòng khám — không vào hoá đơn
+        # thu, nhưng vẫn HIỆN ở quầy (27/09/2026).
+        tach_doi_tac(hd)
+        if v in unknown:
+            hd.van_de_luot.append(THU_CU_KHONG_TRUY_DUOC)
+        ket_qua[v] = hd
+    ids_doi_tac = [
+        d.source_id
+        for hd in ket_qua.values()
+        for d in hd.dong_doi_tac
+        if d.source_type == "service_order"
+    ]
+    if ids_doi_tac:
+        da_thu = await doi_tac_da_thu(conn, clinic_id, ids_doi_tac)
+        for hd in ket_qua.values():
+            if hd.dong_doi_tac:
+                hd.doi_tac_da_thu = {
+                    d.source_id: da_thu[d.source_id]
+                    for d in hd.dong_doi_tac
+                    if d.source_type == "service_order" and d.source_id in da_thu
+                }
+    return ket_qua
 
 
 async def doi_tac_da_thu(
@@ -1071,7 +1200,7 @@ async def hoa_don_theo_anh_chup(
             """
         ),
         clinic_id,
-        visit_id,
+        [visit_id],
         ids,
     )
     ids_pt = sorted(r["source_id"] for r in nguon if r["source_type"] == "phu_thu")
@@ -1079,7 +1208,7 @@ async def hoa_don_theo_anh_chup(
         await conn.fetch(
             _PHU_THU_SQL.format(dieu_kien="p.id::text = ANY($3::text[])"),
             clinic_id,
-            visit_id,
+            [visit_id],
             ids_pt,
         )
         if ids_pt
@@ -1090,7 +1219,7 @@ async def hoa_don_theo_anh_chup(
         await conn.fetch(
             _VAT_TU_SQL.format(dieu_kien="v.id::text = ANY($3::text[])"),
             clinic_id,
-            visit_id,
+            [visit_id],
             ids_vt,
         )
         if ids_vt
@@ -1101,7 +1230,7 @@ async def hoa_don_theo_anh_chup(
         await conn.fetch(
             _LIEU_TRINH_SQL.format(dieu_kien="t.id::text = ANY($3::text[])"),
             clinic_id,
-            visit_id,
+            [visit_id],
             ids_lt,
         )
         if ids_lt
@@ -1134,23 +1263,36 @@ async def tinh_hoa_don(
         raise ValueError(f"kind không hợp lệ: {kind!r}")
     if kind == "dich_vu":
         return await hoa_don_con_no(conn, clinic_id=clinic_id, visit_id=visit_id)
+    return (await hoa_don_thuoc_lo(conn, clinic_id=clinic_id, visit_ids=[visit_id]))[
+        visit_id
+    ]
 
+
+async def hoa_don_thuoc_lo(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_ids: Sequence[str]
+) -> dict[str, HoaDon]:
+    """Hoá đơn THUỐC của nhiều lượt — hai câu SQL cho cả danh sách (bảng quầy
+    thuốc, 29/10/2026). Một lượt (lần thu) gọi lại đúng hàm này."""
+    vids = list(dict.fromkeys(str(v) for v in visit_ids))
+    if not vids:
+        return {}
     don = await conn.fetch(
         """
-        SELECT r.id::text AS id, r.drug_name_raw, r.quantity_num, r.purchased_qty,
+        SELECT r.visit_id::text AS visit_id,
+               r.id::text AS id, r.drug_name_raw, r.quantity_num, r.purchased_qty,
                r.unit, r.refusal_reason, r.drug_catalog_id::text AS drug_catalog_id,
                c.name_base, c.name_raw, c.unit_price AS gia_danh_muc
           FROM public.prescription r
           LEFT JOIN public.drug_catalog c
             ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
-         WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
+         WHERE r.clinic_id = $1::uuid AND r.visit_id = ANY($2::uuid[])
            -- CP6: hoá đơn MỚI chỉ gồm đơn hiện hành. Ảnh chụp của lần thu cũ
            -- (payment_bill_line) vẫn trỏ dòng lịch sử — không mất.
            AND r.removed_at IS NULL
          ORDER BY r.created_at, r.id
         """,
         clinic_id,
-        visit_id,
+        vids,
     )
     gia_thuoc = await conn.fetch(
         """
@@ -1163,7 +1305,7 @@ async def tinh_hoa_don(
     theo_ten: dict[str, list[Any]] = {}
     for g in gia_thuoc:
         theo_ten.setdefault(norm_name(g["name"]), []).append(g["unit_price"])
-    dong: list[dict[str, Any]] = []
+    dong: dict[str, list[dict[str, Any]]] = {v: [] for v in vids}
     for d in don:
         gia: list[Any] = []
         if d["drug_catalog_id"]:
@@ -1173,7 +1315,7 @@ async def tinh_hoa_don(
             for ten in {norm_name(d["name_base"]), norm_name(d["name_raw"])}:
                 if ten:
                     gia.extend(theo_ten.get(ten, []))
-        dong.append(
+        dong[d["visit_id"]].append(
             {
                 "id": d["id"],
                 "ten": d["drug_name_raw"],
@@ -1185,7 +1327,7 @@ async def tinh_hoa_don(
                 "gia": gia,
             }
         )
-    return ghep_thuoc(visit_id, dong)
+    return {v: ghep_thuoc(v, dong[v]) for v in vids}
 
 
 # ── Giảm giá theo TỔNG hoá đơn (Tuyền chốt 09/10 + 13/10/2026) ──────────────

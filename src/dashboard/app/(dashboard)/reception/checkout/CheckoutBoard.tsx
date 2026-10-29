@@ -21,6 +21,7 @@ import ChiTietLuot from "./ChiTietLuot";
 import LuotTonDong from "./LuotTonDong";
 import KhoanNoKhiVe, { coNo, type NoKhiVe } from "../../_lam-viec/KhoanNoKhiVe";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 export interface Blocker {
   type: string;
@@ -33,6 +34,7 @@ export interface CheckoutRow {
   visit_id: string;
   patient_name: string | null;
   patient_code: string | null;
+  phone_primary?: string | null;
   room_name: string | null;
   already_closed: boolean;
   checked_in_at: string | null;
@@ -177,7 +179,7 @@ export default function CheckoutBoard({
       if (tab === "san_sang" && !r.can_close) return false;
       if (tab === "bi_chan" && r.can_close) return false;
       if (!needle) return true;
-      return [r.patient_name, r.patient_code]
+      return [r.patient_name, r.patient_code, r.phone_primary]
         .filter(Boolean)
         .join(" ")
         .toLocaleLowerCase("vi-VN")
@@ -297,12 +299,12 @@ export default function CheckoutBoard({
                       >
                         <span className="flex items-start justify-between gap-2">
                           <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-ink">
-                              {r.patient_name ?? "Chưa rõ tên"}
-                            </span>
-                            <span className="block truncate text-label text-ink-muted">
-                              {r.patient_code ?? "—"}
-                            </span>
+                            <TenKhachSdt
+                              ten={r.patient_name ?? "Chưa rõ tên"}
+                              sdt={r.phone_primary}
+                              ma={r.patient_code ?? "—"}
+                              tenClassName="text-sm font-semibold text-ink"
+                            />
                           </span>
                           <span className="shrink-0 text-label tabular-nums text-ink-muted">
                             {r.checked_in_at

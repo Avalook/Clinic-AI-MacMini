@@ -132,6 +132,42 @@ class ChiDinhService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def _mo_phien_de_chi_dinh(self, con_id: str, identity: StaffIdentity) -> None:
+        """Chỉ định được khi lượt còn mở (chốt 29/10/2026) — máy tự mở phiên.
+
+        Log prod 22–28/10: 46 lần "Phiên khám chưa bắt đầu hoặc đã kết thúc" khi
+        chỉ định, 28/30 phiên là phiên đã bấm "Khám xong" (bác sĩ khám xong mới
+        nhớ chỉ định thêm). Phiên khám chính:
+          * đã khám xong, khách CHƯA check-out → lệnh Mở lại khám sẵn có (khách
+            về "đang khám", bấm Khám xong lại như thường);
+          * chưa bắt đầu → lệnh Bắt đầu khám (bác sĩ chỉ định = đang khám).
+        Đã check-out thì không tự mở cả lượt — lệnh dưới vẫn chặn, câu nói rõ.
+        Lỗi của lệnh mở (quyền, phiên sau đã bắt đầu…) trả nguyên cho người bấm.
+        """
+        from clinicai.services.hoan_tac_service import HoanTacService
+
+        async with self._pool.acquire() as conn:
+            c = await conn.fetchrow(
+                "SELECT c.kind, c.status, v.closed_at FROM consultation c"
+                "  JOIN visit v"
+                "    ON v.clinic_id = c.clinic_id AND v.visit_id = c.visit_id"
+                " WHERE c.clinic_id = $1::uuid AND c.id = $2::uuid",
+                identity.clinic_id,
+                con_id,
+            )
+        if c is None or c["kind"] != "PRIMARY":
+            return
+        if c["status"] == "completed" and c["closed_at"] is None:
+            await HoanTacService(self._pool).mo_lai_kham(
+                consultation_id=con_id,
+                identity=identity,
+                ly_do="Chỉ định thêm sau khi khám xong",
+            )
+        elif c["status"] == "queued":
+            await LuotKhamService(self._pool).start_consultation(
+                consultation_id=con_id, identity=identity
+            )
+
     async def dat_chi_dinh(
         self,
         *,
@@ -173,6 +209,7 @@ class ChiDinhService:
         if lan_moi:
             payload_bien_nhan["lan_moi"] = thay
         luot_kham = LuotKhamService(self._pool)
+        await self._mo_phien_de_chi_dinh(con_id, identity)
 
         async with self._pool.acquire() as conn, conn.transaction():
             # Kiểm quyền TRƯỚC mọi thứ khác, và kiểm trong chính giao dịch này.
@@ -375,8 +412,13 @@ class ChiDinhService:
         clinic_id: str,
         visit_id: str,
         causation_id: str | None = None,
+        chi_cung_ngay: bool = False,
     ) -> list[dict[str, Any]]:
         """Lệnh `CarryOverUnfinishedOrders` — dây H2 (Tuyền chốt 24/09/2026).
+
+        ``chi_cung_ngay`` (29/10/2026, "hôm nào xong hôm đó"): check-in chỉ tự
+        mang chỉ định của lượt CÙNG NGÀY; từ hôm trước để bác sĩ bấm [Làm hôm
+        nay] (`chi_dinh_cu_service`).
 
         Khách check-in một lượt mới; chỉ định của các lượt TRƯỚC mà chưa làm:
           * ĐÃ TRẢ TIỀN → mang sang, không thu lại (mọi loại lịch);
@@ -429,6 +471,10 @@ class ChiDinhService:
                                                   'Asia/Ho_Chi_Minh')
                                       AT TIME ZONE 'Asia/Ho_Chi_Minh')
                AND o.created_at >= $4 - interval '180 days'
+               AND (NOT $5::boolean
+                    OR v.created_at >= date_trunc('day', $4 AT TIME ZONE
+                                                  'Asia/Ho_Chi_Minh')
+                                      AT TIME ZONE 'Asia/Ho_Chi_Minh')
                AND o.exec_status IN ('authorized', 'assigned')
                AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
                AND o.selection_status IS NOT NULL
@@ -444,6 +490,7 @@ class ChiDinhService:
             visit_id,
             moi["pid"],
             moi["created_at"],
+            chi_cung_ngay,
         )
         if not cu:
             return []
@@ -461,46 +508,74 @@ class ChiDinhService:
             )
             if not (da_thu or chua_thu_duoc_mang):
                 continue
-            await conn.execute(
-                """
-                UPDATE service_order
-                   SET mang_tu_visit_id = visit_id, visit_id = $3::uuid,
-                       mang_sang_luc = now(), hold_until_round = NULL,
-                       routing_status = CASE WHEN routing_status IS NULL
-                                             THEN NULL ELSE 'UNASSIGNED' END,
-                       routing_revision = routing_revision + 1,
-                       room_id = NULL, assigned_by = NULL, assigned_at = NULL,
-                       exec_status = 'authorized',
-                       -- Hôm trước khách không làm → hỏi lại hôm nay.
-                       selection_status = CASE
-                           WHEN selection_status = 'NOT_SELECTED' THEN 'PENDING'
-                           ELSE selection_status END,
-                       version = version + 1, updated_at = now()
-                 WHERE clinic_id = $1::uuid AND id = $2::uuid
-                """,
-                clinic_id,
-                o["id"],
-                visit_id,
-            )
-            await emit_event(
+            await ChiDinhService.chuyen_sang_luot(
                 conn,
-                ten="service_order.carried_over",
                 clinic_id=clinic_id,
-                aggregate_id=o["id"],
-                so_ke_tiep=True,
-                payload=ChiDinhMangSang(
-                    visit_id=visit_id,
-                    service_order_id=o["id"],
-                    tu_visit_id=o["tu_visit_id"],
-                    service_code=o["service_code"],
-                    da_thu_tien=da_thu,
-                ),
+                order_id=o["id"],
+                tu_visit_id=o["tu_visit_id"],
+                visit_id=visit_id,
+                service_code=o["service_code"],
+                da_thu=da_thu,
                 boi=HE_THONG,
-                correlation_id=visit_id,
                 causation_id=causation_id,
             )
             mang.append({"id": o["id"], "da_thu_tien": da_thu})
         return mang
+
+    @staticmethod
+    async def chuyen_sang_luot(
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        order_id: str,
+        tu_visit_id: str,
+        visit_id: str,
+        service_code: str,
+        da_thu: bool,
+        boi: Any,
+        causation_id: str | None = None,
+    ) -> None:
+        """Dời MỘT chỉ định cũ chưa làm sang lượt đang mở — giữ nguyên mã nên
+        dấu vết tiền đi theo (đã trả thì không thu lại). Người gọi đã khoá lượt
+        + chỉ định. Dùng chung cho dây H2 cũ và nút [Làm hôm nay] (29/10/2026)."""
+        await conn.execute(
+            """
+            UPDATE service_order
+               SET mang_tu_visit_id = visit_id, visit_id = $3::uuid,
+                   mang_sang_luc = now(), hold_until_round = NULL,
+                   routing_status = CASE WHEN routing_status IS NULL
+                                         THEN NULL ELSE 'UNASSIGNED' END,
+                   routing_revision = routing_revision + 1,
+                   room_id = NULL, assigned_by = NULL, assigned_at = NULL,
+                   exec_status = 'authorized',
+                   -- Hôm trước khách không làm → hỏi lại hôm nay.
+                   selection_status = CASE
+                       WHEN selection_status = 'NOT_SELECTED' THEN 'PENDING'
+                       ELSE selection_status END,
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND id = $2::uuid
+            """,
+            clinic_id,
+            order_id,
+            visit_id,
+        )
+        await emit_event(
+            conn,
+            ten="service_order.carried_over",
+            clinic_id=clinic_id,
+            aggregate_id=order_id,
+            so_ke_tiep=True,
+            payload=ChiDinhMangSang(
+                visit_id=visit_id,
+                service_order_id=order_id,
+                tu_visit_id=tu_visit_id,
+                service_code=service_code,
+                da_thu_tien=da_thu,
+            ),
+            boi=boi,
+            correlation_id=visit_id,
+            causation_id=causation_id,
+        )
 
 
 __all__ = ["ACTION", "QUYEN_CHI_DINH", "ChiDinhService", "LuotKhamConflictError"]

@@ -54,6 +54,7 @@ import NutCheckOut from "../../_lam-viec/NutCheckOut";
 import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
 import NutHoanTac, { type KetQuaHoanTac } from "@/components/ui/NutHoanTac";
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
+import { sdtDoc } from "@/lib/sdt";
 
 /** HOÀN TÁC CHECK-IN (09/10/2026) — cùng lệnh nút "Hoàn tác" của bảng Lịch hẹn
  *  (`PATCH /api/appointments` action=undo_checkin). Máy chủ từ chối khi khách đã
@@ -123,7 +124,6 @@ function DongKhach({
     d.gio_hen,
     d.loai_kham,
     d.bac_si ? doctorName(d.bac_si) : null,
-    d.sdt,
   ]);
 
   return (
@@ -134,6 +134,10 @@ function DongKhach({
             Anh") — lễ tân đọc tên để gọi khách. */}
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 break-words text-title font-semibold text-ink">
           <span>{d.ten ?? "Chưa rõ tên"}</span>
+          {/* SĐT đi theo tên (Tuyền 27/10/2026). */}
+          {sdtDoc(d.sdt) ? (
+            <span className="text-body font-medium tabular-nums text-ink-muted">{sdtDoc(d.sdt)}</span>
+          ) : null}
           {d.loai_khach ? <Chip tone="info">{d.loai_khach}</Chip> : null}
           {d.uu_tien ? (
             <span title={d.uu_tien_ly_do ?? "Khách ưu tiên"}>

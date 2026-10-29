@@ -21,7 +21,9 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services import chi_dinh_cu_service
 from clinicai.services.chi_dinh_service import ChiDinhService
+from clinicai.services.doi_bac_si_service import DoiBacSiService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.nhan_tai_phong import NhanTaiPhongService
@@ -693,6 +695,50 @@ async def dat_chi_dinh(
     )
 
 
+@router.get("/luot-kham/visits/{visit_id}/chi-dinh-cu")
+async def chi_dinh_cu(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_CHI_DINH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chỉ định cũ chưa làm của khách — bàn khám hiện để bác sĩ quyết (29/10/2026)."""
+    async with pool.acquire() as conn:
+        ds = await chi_dinh_cu_service.danh_sach(
+            conn, clinic_id=identity.clinic_id, visit_id=str(visit_id)
+        )
+    return {"chi_dinh_cu": ds}
+
+
+class LuotBody(BaseModel):
+    visit_id: UUID
+
+
+@router.post("/luot-kham/orders/{order_id}/lam-hom-nay")
+async def lam_chi_dinh_cu_hom_nay(
+    order_id: UUID,
+    body: LuotBody,
+    identity: StaffIdentity = Depends(_CHI_DINH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """[Làm hôm nay] — dời chỉ định cũ sang lượt ``visit_id``, tiền đi theo."""
+    return await chi_dinh_cu_service.lam_hom_nay(
+        pool, visit_id=str(body.visit_id), order_id=str(order_id), identity=identity
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/tra-ve-luot-cu")
+async def tra_chi_dinh_cu_ve(
+    order_id: UUID,
+    body: LuotBody,
+    identity: StaffIdentity = Depends(_CHI_DINH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """[Trả về] — hoàn tác [Làm hôm nay] khi chưa làm, chưa thu ở lượt này."""
+    return await chi_dinh_cu_service.tra_ve(
+        pool, visit_id=str(body.visit_id), order_id=str(order_id), identity=identity
+    )
+
+
 @router.post("/luot-kham/orders/{order_id}/bat-buoc")
 async def doi_bat_buoc(
     order_id: UUID,
@@ -929,6 +975,30 @@ class NhanTaiPhongBody(BaseModel):
     #: gửi = các chỉ định máy chủ tick sẵn (Nhận) / mọi chỉ định đang chờ ở
     #: phòng (hoàn tác Nhận).
     chi_dinh_ids: list[Any] | None = None
+
+
+# Bác sĩ khác NHẬN khách / TRẢ LẠI (29/10/2026) — id là LƯỢT KHÁM. Quyền, khoá
+# lượt, "ai nhận trước giữ" ở DoiBacSiService.
+@router.post("/luot-kham/visits/{visit_id}/nhan-khach")
+async def nhan_khach_bac_si_khac(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await DoiBacSiService(pool).nhan_khach(
+        identity=identity, visit_id=str(visit_id)
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/tra-khach-ve-lich")
+async def tra_khach_ve_bac_si_lich(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await DoiBacSiService(pool).tra_lai(
+        identity=identity, visit_id=str(visit_id)
+    )
 
 
 # Nhận khách tại phòng (dây `nhan_tai_phong`, 07/10/2026) — id là LƯỢT KHÁM.

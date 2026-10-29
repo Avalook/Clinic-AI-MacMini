@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarClock, UserPlus, TriangleAlert } from "lucide-react";
 import { fmtDateTimeOrDate, VN_OFFSET } from "../../../../lib/datetime";
+import { sdtDoc } from "@/lib/sdt";
 
 export interface DongCho {
   id: string;
@@ -172,8 +173,8 @@ export default function HangChoView({
               <p className="truncate text-sm font-semibold text-ink">
                 {r.benh_nhan ?? "Chưa có tên"}
                 {r.phone_primary && (
-                  <span className="ml-2 font-mono text-xs font-normal text-ink-muted">
-                    {r.phone_primary}
+                  <span className="ml-2 text-xs font-normal tabular-nums text-ink-muted">
+                    {sdtDoc(r.phone_primary)}
                   </span>
                 )}
               </p>

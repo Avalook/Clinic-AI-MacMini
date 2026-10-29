@@ -33,6 +33,7 @@ from clinicai.services.bac_si_phu_trach import (
 )
 from clinicai.services.doi_tac_service import chu_trang_thai_doi_tac, trang_thai_doi_tac
 from clinicai.services.lan_bac_si import (
+    bac_si_cua_lan,
     can_chon_bac_si,
     la_khach_lan_toi,
     lan_cua_toi_trong_phong,
@@ -98,7 +99,8 @@ class BangLuotKham:
                 """
                 SELECT v.visit_id::text AS visit_id, v.checked_in_at,
                        v.attending_doctor_id::text AS doctor_id,
-                       p.full_name, p.patient_code, d.full_name AS doctor_name,
+                       p.full_name, p.patient_code, p.phone_primary,
+                       d.full_name AS doctor_name,
                        f.vitals_status, f.route_decision, f.finished_at,
                        f.goi_do_luc, g.full_name AS goi_do_boi,
                        f.vitals_started_at, bd.full_name AS vitals_started_by,
@@ -334,7 +336,8 @@ class BangLuotKham:
                 lich = await conn.fetch(
                     """
                     SELECT a.id::text AS id, a.slot_start, a.status,
-                           p.full_name, p.patient_code, d.full_name AS doctor_name
+                           p.full_name, p.patient_code, p.phone_primary,
+                           d.full_name AS doctor_name
                       FROM appointment a
                       JOIN patient p
                         ON p.clinic_patient_id = a.clinic_patient_id
@@ -359,6 +362,7 @@ class BangLuotKham:
             by_visit[v["visit_id"]] = {
                 "visit_id": v["visit_id"],
                 "ma_bn": v["patient_code"],
+                "sdt": v.get("phone_primary"),
                 "ten": v["full_name"],
                 "bac_si_id": v["doctor_id"],
                 "bac_si": v["doctor_name"],
@@ -608,6 +612,7 @@ class BangLuotKham:
                     "gio": _iso(a["slot_start"]),
                     "ten": a["full_name"],
                     "ma_bn": a["patient_code"],
+                    "sdt": a.get("phone_primary"),
                     "bac_si": a["doctor_name"],
                 }
                 for a in lich
@@ -899,7 +904,8 @@ class BangLuotKham:
                        stt.so AS so_thu_tu,
                        ap.so_booking, ap.so_tiep_don,
                        p.clinic_patient_id::text AS clinic_patient_id,
-                       p.full_name, p.patient_code, p.uu_tien, p.uu_tien_ly_do,
+                       p.full_name, p.patient_code, p.phone_primary,
+                       p.uu_tien, p.uu_tien_ly_do,
                        v.appointment_id::text AS appointment_id,
                        v.checked_in_at,
                        st.name AS dich_vu_kham, st.form_code,
@@ -1055,7 +1061,7 @@ class BangLuotKham:
                 else await conn.fetch(
                     """
                     SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
-                           a.so_tiep_don, a.so_booking,
+                           p.phone_primary, a.so_tiep_don, a.so_booking,
                            q.status AS tu_van_status, f.vitals_status
                       FROM consultation c
                       JOIN visit v
@@ -1090,6 +1096,70 @@ class BangLuotKham:
                     identity.location_id or None,
                 )
             )
+            # KHÁCH CỦA BÁC SĨ KHÁC (chốt 29/10/2026): bác sĩ A quá tải, điều phối
+            # cho bác sĩ B khám — trước đây B không thấy khách nên không nhận
+            # được. Bàn khám của B thấy khách CHƯA ai bắt đầu khám của bác sĩ
+            # khác (ghi "Lịch: BS A"), bấm Nhận là thành khách của mình. Chỉ hôm
+            # nay, cùng cơ sở, khi người xem có danh sách bác sĩ của riêng mình.
+            khac = (
+                await conn.fetch(
+                    """
+                    SELECT v.visit_id::text AS visit_id, p.full_name,
+                           p.patient_code, p.phone_primary, a.so_tiep_don,
+                           a.so_booking, q.status AS cho,
+                           coalesce(sl.full_name, sv.full_name) AS lich_bac_si,
+                           sv.full_name AS bac_si_hien_tai
+                      FROM queue_entry q
+                      JOIN consultation c
+                        ON c.id = q.ref_id AND c.clinic_id = q.clinic_id
+                       AND c.kind = 'PRIMARY' AND c.status = 'queued'
+                      JOIN visit v
+                        ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
+                      JOIN patient p
+                        ON p.clinic_patient_id = v.clinic_patient_id
+                       AND p.clinic_id = v.clinic_id
+                      LEFT JOIN appointment a
+                        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                      LEFT JOIN staff sl ON sl.id = a.doctor_id
+                      LEFT JOIN staff sv ON sv.id = v.attending_doctor_id
+                     WHERE q.clinic_id = $1::uuid AND q.lane = 'DOCTOR'
+                       AND q.status IN ('blocked', 'waiting', 'called')
+                       AND v.status IN ('OPEN', 'IN_PROGRESS')
+                       AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                           = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       AND v.attending_doctor_id IS NOT NULL
+                       AND NOT (v.attending_doctor_id::text = ANY($2::text[]))
+                       AND coalesce(v.location_id, a.location_id, $3::uuid)
+                           IS NOT DISTINCT FROM
+                           coalesce($3::uuid, v.location_id, a.location_id)
+                     ORDER BY v.checked_in_at, v.visit_id
+                    """,
+                    cid,
+                    ds_bac_si,
+                    identity.location_id or None,
+                )
+                if la_hom_nay
+                and rid is None
+                and not tu_van
+                and ds_bac_si
+                and not tat_ca_bac_si
+                else []
+            )
+            # Khách MÌNH đang khám mà lịch hẹn là bác sĩ khác: "Lịch: BS A".
+            lich_khac = {
+                str(r["visit_id"]): r["ten"]
+                for r in await conn.fetch(
+                    "SELECT v.visit_id::text AS visit_id, s.full_name AS ten"
+                    "  FROM visit v"
+                    "  JOIN appointment a"
+                    "    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+                    "  JOIN staff s ON s.id = a.doctor_id"
+                    " WHERE v.clinic_id = $1::uuid AND v.visit_id = ANY($2::uuid[])"
+                    "   AND a.doctor_id IS DISTINCT FROM v.attending_doctor_id",
+                    cid,
+                    list({r["visit_id"] for r in rows if r["reason"] != "SERVICE"}),
+                )
+            }
             # Khách đang ở phòng nào khác (nhãn "đang chờ / đang làm ở phòng X"
             # ở phòng dịch vụ và bàn khám) + thẻ của phòng bị nhận chéo.
             o_dau = await ntp.dang_o_phong(
@@ -1158,6 +1228,7 @@ class BangLuotKham:
                 "so_tiep_don": r["so_tiep_don"],
                 "ten": r["full_name"],
                 "ma_bn": r["patient_code"],
+                "sdt": r.get("phone_primary"),
                 "uu_tien": bool(r["uu_tien"]),
                 "uu_tien_ly_do": r["uu_tien_ly_do"],
                 "viec": r["viec"],
@@ -1168,6 +1239,8 @@ class BangLuotKham:
                 "exec_status": r["exec_status"],
                 "phien_status": r["phien_status"],
                 "bac_si": r["bac_si"],
+                # Lịch hẹn bác sĩ khác, bác sĩ này khám (29/10/2026).
+                "lich_bac_si": lich_khac.get(r["visit_id"]),
                 "phong": r["phong"],
                 "vao_hang_luc": _iso(r["eligible_at"] or r["created_at"]),
                 # Mốc check-in của CẢ lượt: khách quay lại bác sĩ chính đọc kết
@@ -1234,6 +1307,14 @@ class BangLuotKham:
             "nhan_tai_phong": tai_phong,
             "sap_den_phong": sap_den,
             "bac_si_phong": bac_si_phong if can_chon_bac_si(bac_si_phong) else [],
+            # Bác sĩ ô chọn để sẵn (27/10): người xem đứng làn có đúng một bác
+            # sĩ → bác sĩ ấy; lệnh Nhận không kèm bác sĩ cũng tự gán đúng người.
+            "bac_si_mac_dinh": (
+                str(mac_dinh["staff_id"])
+                if can_chon_bac_si(bac_si_phong)
+                and (mac_dinh := bac_si_cua_lan(bac_si_phong, lan_toi)) is not None
+                else None
+            ),
             "dem": dem_phong,
             "chi_dinh_khach": chi_dinh_khach,
             "sap_toi": [
@@ -1241,6 +1322,7 @@ class BangLuotKham:
                     "visit_id": r["visit_id"],
                     "ten": r["full_name"],
                     "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
                     "so_tiep_don": r["so_tiep_don"],
                     "so_booking": r["so_booking"],
                     "dang_o": (
@@ -1252,6 +1334,23 @@ class BangLuotKham:
                     ),
                 }
                 for r in sap_toi
+            ],
+            # Khách của bác sĩ khác chưa ai bắt đầu khám — bấm Nhận (29/10/2026).
+            "khach_bac_si_khac": [
+                {
+                    "visit_id": r["visit_id"],
+                    "ten": r["full_name"],
+                    "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
+                    "so_tiep_don": r["so_tiep_don"],
+                    "so_booking": r["so_booking"],
+                    "lich_bac_si": r["lich_bac_si"],
+                    "bac_si_hien_tai": r["bac_si_hien_tai"],
+                    "dang_o": "chờ khám"
+                    if r["cho"] != "blocked"
+                    else "đang ở bước khác",
+                }
+                for r in khac
             ],
             # Phòng khám mà hôm nay chưa có bác sĩ nào trong lịch: màn nói rõ
             # vì sao hàng chờ khám trống, thay vì trông như "hết khách".
@@ -1283,7 +1382,7 @@ class BangLuotKham:
                    o.service_name, o.exec_status, o.created_at, o.authorized_at,
                    o.assigned_at, o.started_at, o.finished_at, o.ket_qua_luc,
                    rm.name AS phong, pb.full_name AS nguoi_lam,
-                   p.full_name, p.patient_code,
+                   p.full_name, p.patient_code, p.phone_primary,
                    (SELECT r.status FROM round_requirement q
                       JOIN review_round r
                         ON r.id = q.round_id AND r.clinic_id = q.clinic_id
@@ -1372,6 +1471,7 @@ class BangLuotKham:
                     "visit_id": r["visit_id"],
                     "ten": r["full_name"],
                     "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
                     "dich_vu": r["service_name"],
                     "trang_thai": r["exec_status"],
                     "nhom": nhom.get(r["exec_status"], "can_dieu_phoi"),
@@ -1411,7 +1511,7 @@ class BangLuotKham:
                        o.visit_id::text AS visit_id,
                        v.appointment_id::text AS appointment_id,
                        p.clinic_patient_id::text AS clinic_patient_id,
-                       p.full_name, p.patient_code,
+                       p.full_name, p.patient_code, p.phone_primary,
                        d.full_name AS bac_si, v.attending_doctor_id::text AS bac_si_id,
                        pf.full_name AS nguoi_lam, o.duyet_luc
                   FROM service_order o
@@ -1499,6 +1599,7 @@ class BangLuotKham:
                     "clinic_patient_id": r["clinic_patient_id"],
                     "ten": r["full_name"],
                     "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
                     "bac_si": r["bac_si"],
                     "cua_toi": r["bac_si_id"] == identity.staff_id,
                     "nguoi_lam": r["nguoi_lam"],

@@ -44,6 +44,7 @@ import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
 import CongTyKhiThu, { type CongTyThu } from "./CongTyKhiThu";
 import GiamGia, { type GiamGiaResult } from "./GiamGia";
 import NutHoanTac from "./NutHoanTac";
+import { sdtDoc } from "@/lib/sdt";
 
 interface Dong {
   id: string;
@@ -737,7 +738,9 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                   >
                     <SoLuot dang="tron" checkin={l.so_tiep_don} booking={l.so_booking} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-emph font-semibold text-ink">{l.full_name ?? "—"}</span>
+                      <span className="block truncate text-emph font-semibold text-ink">
+                        {l.full_name ?? "—"} {sdtDoc(l.phone) ? <span className="text-body font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
+                      </span>
                       <span className="block truncate text-meta text-ink-muted">
                         {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || (l.patient_code ?? "")}
                       </span>
@@ -767,6 +770,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
                   {l.full_name ?? "—"}
+                  {sdtDoc(l.phone) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
                   <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                 </p>
                 <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
@@ -776,9 +780,8 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                   </p>
                 ) : null}
               </div>
-              {/* Thu xong, máy chủ xếp theo phòng quầy đã chọn (dây H4): lễ tân mở đây để
-                  báo khách phòng nào, hoặc đổi sang phòng vắng hơn. */}
-              <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình · đổi phòng" />
+              {/* Không đặt nút "Xem hành trình · đổi phòng" ở đây (Tuyền 29/10: thừa,
+                  khó hiểu) — đổi phòng nằm ngay trong khung "Phòng làm dịch vụ". */}
             </header>
 
             {/* Tick dịch vụ khám ngay tại quầy khi người khám chưa tick (28/09/2026)
@@ -933,6 +936,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
                     {l.full_name ?? "—"}
+                    {sdtDoc(l.phone) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
                     <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                   </p>
                   <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
@@ -966,6 +970,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
                     {l.full_name ?? "—"}
+                    {sdtDoc(l.phone) ? <span className="font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
                     <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                   </p>
                   <p className="text-meta text-ink-muted">

@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { Star } from "lucide-react";
 
 import SoLuot from "@/components/ui/SoLuot";
+import { sdtDoc } from "@/lib/sdt";
 
 /** Một nhóm của cột hàng chờ: "ĐANG CHỜ (3)" + danh sách thẻ. */
 export function NhomHangCho({ ten, so, children }: { ten: string; so: number; children: ReactNode }) {
@@ -28,6 +29,7 @@ export function NhomHangCho({ ten, so, children }: { ten: string; so: number; ch
 export default function TheKhachHangCho({
   so,
   ten,
+  sdt = null,
   uuTien = false,
   soBooking = null,
   phu,
@@ -40,6 +42,8 @@ export default function TheKhachHangCho({
   /** Số check-in (hoặc số thứ tự) trong vòng tròn. */
   so: string | number | null;
   ten: string;
+  /** SĐT hiện ngay cạnh tên (27/10/2026). */
+  sdt?: string | null;
   uuTien?: boolean;
   soBooking?: number | null;
   /** Dòng phụ đã ghép sẵn ("2 chỉ định · …"). */
@@ -77,6 +81,9 @@ export default function TheKhachHangCho({
             <span className={`truncate text-sm font-semibold ${uuTien ? "text-danger" : "text-ink"}`}>
               {ten}
             </span>
+            {sdtDoc(sdt) ? (
+              <span className="shrink-0 text-label tabular-nums text-ink-muted">{sdtDoc(sdt)}</span>
+            ) : null}
             <SoLuot booking={soBooking} className="shrink-0" />
           </span>
           <span className={`block truncate text-label ${phuDo ? "text-danger" : "text-ink-muted"}`}>{phu}</span>

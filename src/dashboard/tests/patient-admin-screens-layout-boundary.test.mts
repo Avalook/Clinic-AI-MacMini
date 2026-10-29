@@ -69,17 +69,8 @@ test("permission screen omits the highlighted instruction line", () => {
   assert.match(source, /<KyNangCuaNguoi/);
 });
 
-test("settings keeps clinic-mode control but removes its long onboarding copy", () => {
+test("settings không còn khung Chế độ phòng khám (29/10/2026: chỉ chạy đầy đủ)", () => {
   const source = readDashboardFile("app/(dashboard)/settings/page.tsx");
-  const card = readDashboardFile("app/(dashboard)/settings/FeatureModeCard.tsx");
-
-  assert.match(source, /getFeatureMode/);
-  assert.match(source, /<FeatureModeCard currentMode=\{featureMode\} \/>/);
-  assert.match(card, /Chỉ CSKH & Đặt lịch/);
-  assert.match(card, /Đầy đủ phòng khám/);
-  assert.doesNotMatch(
-    card,
-    /Chọn tính năng muốn bật\. Khi phòng khám mới bắt đầu, hãy dùng/,
-  );
+  assert.doesNotMatch(source, /<FeatureModeCard/);
   assert.match(source, /<BookingPolicyCard/);
 });

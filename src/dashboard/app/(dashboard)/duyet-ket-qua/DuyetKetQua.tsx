@@ -15,6 +15,7 @@ import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac"
 import { docBang, guiThaoTac, gioVn } from "../_lam-viec/api";
 import { lenhHoanTac } from "../_lam-viec/hoan-tac";
 import KhungTep from "../_lam-viec/KhungTep";
+import { sdtDoc } from "@/lib/sdt";
 
 interface KetQua {
   id: string;
@@ -24,6 +25,7 @@ interface KetQua {
   clinic_patient_id: string;
   ten: string;
   ma_bn: string;
+  sdt?: string | null;
   bac_si: string | null;
   cua_toi: boolean;
   nguoi_lam: string | null;
@@ -120,8 +122,10 @@ function TheKetQua({ k, onXong }: { k: KetQua; onXong: () => void }) {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-ink">{k.dich_vu}</h2>
           <p className="text-sm text-ink-muted">
-            {k.ten} · {k.ma_bn}
+            {k.ten}
+            {sdtDoc(k.sdt) ? ` · ${sdtDoc(k.sdt)}` : ""}
             {k.bac_si ? ` · BS ${k.bac_si}` : ""}
+            <span className="block text-meta">{k.ma_bn}</span>
           </p>
         </div>
         <p className="text-label text-ink-muted">

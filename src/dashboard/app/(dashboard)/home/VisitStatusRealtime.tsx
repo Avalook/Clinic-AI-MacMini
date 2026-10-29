@@ -46,14 +46,7 @@ export default function VisitStatusRealtime() {
     );
   }
 
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
-      <span
-        className={`inline-flex h-1.5 w-1.5 rounded-full motion-reduce:animate-none ${
-          health === "live" ? "animate-pulse bg-green-500" : "bg-ink-faint"
-        }`}
-      />
-      {health === "live" ? "Cập nhật liên tục" : "Đang kết nối…"}
-    </span>
-  );
+  // Kênh sống / đang nối: không vẽ gì (Tuyền 29/10/2026: chữ "Cập nhật liên
+  // tục" thừa). Chỉ báo khi mất kết nối — lúc ấy bảng có thể đang cũ thật.
+  return null;
 }

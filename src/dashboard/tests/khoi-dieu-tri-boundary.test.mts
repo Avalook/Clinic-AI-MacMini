@@ -50,7 +50,11 @@ test("mục D cuối khối 2: sửa được như mọi mục, mở sẵn, tóm
   // Mục gõ đầu của khối mở sẵn (khối 2: danh mục C không có ô → D mở).
   assert.match(PHIEU, /m\.lien_ket\?\.loai !== "mang_sang" && m\.block\.length > 0/);
   assert.match(PHIEU, /m\.ma === mucDau\(mucKhoi\) \|\| m\.ma === mucGoDau/);
-  assert.match(PHIEU, /coChanDoan \? " · có chẩn đoán" : ""/);
+  assert.match(PHIEU, /coChanDoan \? "\\ncó chẩn đoán" : ""/);
+  // Mỗi ý một dòng, "kết quả" viết đủ chữ (29/10/2026).
+  assert.match(PHIEU, /chỉ định\\n\$\{coKq\} kết quả/);
+  // Tóm tắt chỉ hiện từ lg — màn hẹp thanh bước dính đầu màn phải thấp (29/10).
+  assert.match(PHIEU, /hidden whitespace-pre-line text-meta text-ink-muted lg:block">\{tomTat\[k\.so\]\}/);
 });
 
 test("khối 3 xếp: thẻ điều trị → (D cũ) → thủ thuật đã chỉ định → lưới Dịch vụ khác → Hẹn khám", () => {
@@ -185,11 +189,9 @@ test("khối 1: oKhoi1 đầu khối 1, thẻ điều trị không vẽ hai lầ
   assert.ok(tg.indexOf("{theDieuTri}") < tg.indexOf("<GhiChuLuot"), "thẻ điều trị trước ghi chú");
 });
 
-test("ô Làm trước – thu sau ở khối 1: chỉ khi máy chủ mời, cột phải chỉ lượt khám thường", () => {
-  assert.match(KHOI, /oTick && choGhi && !chiDoc \? <OTickTaiCho visitId=\{visitId\} moi=\{nhacTick\} onDoi=\{nap\} \/>/);
-  assert.match(KHOI, /setNhacTick\(Boolean\(d\.nhac_tick\)\)/);
-  assert.match(LUOT, /\{choGhi && !khoi1 \? \(\s*<div className="w-72 shrink-0 lg:w-full">\s*<OLamTruocThuSau visitId=\{visitId\} \/>/);
-  assert.match(LUOT, /oTick\s*\n\s*goiYTrong=/);
+test("ô Làm trước – thu sau: một ô ở cột phải cho MỌI lượt, không ô thứ hai ở khối 1 (29/10)", () => {
+  assert.doesNotMatch(KHOI, /OTickTaiCho|oTick/);
+  assert.match(LUOT, /\{choGhi \? \(\s*<div className="w-72 shrink-0 lg:w-full">\s*<OLamTruocThuSau visitId=\{visitId\} \/>/);
 });
 
 test("bản in lượt Điều trị: tiêu đề theo khung trung tính 'Hồ sơ điều trị', không 'Phiếu thủ thuật'", () => {

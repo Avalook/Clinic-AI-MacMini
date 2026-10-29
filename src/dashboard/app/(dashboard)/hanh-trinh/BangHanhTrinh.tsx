@@ -19,11 +19,13 @@ import SoLuot from "@/components/ui/SoLuot";
 import { doctorName } from "@/lib/doctor-name";
 import { useNgheBang } from "../dung-nghe-bang";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+import TenKhachSdt from "@/components/ui/TenKhachSdt";
 
 interface Luot {
   visit_id: string;
   ten: string;
   ma: string | null;
+  sdt?: string | null;
   so_booking: number | null;
   so_quay: number | null;
   loai_kham: string | null;
@@ -101,12 +103,19 @@ export default function BangHanhTrinh() {
   if (!bang) return <p className="text-body text-ink-muted">Đang tải…</p>;
 
   const q = tim.trim().toLowerCase();
+  // Gõ số (≥ 4) thì so cả SĐT, bỏ khoảng trắng: "0900 007" hay "7126" đều ra.
+  const qSo = q.replace(/\s+/g, "");
+  const theoSdt = (l: Luot) =>
+    /^\d{4,}$/.test(qSo) && (l.sdt ?? "").replace(/\D/g, "").includes(qSo);
   // Ngày cũ: ai cũng đã về — hiện hết, không ẩn.
   const anThat = laHomNay && anDaVe;
   const ds = bang.luot.filter(
     (l) =>
       (!anThat || !l.da_ve) &&
-      (!q || l.ten.toLowerCase().includes(q) || (l.ma ?? "").toLowerCase().includes(q)),
+      (!q ||
+        l.ten.toLowerCase().includes(q) ||
+        (l.ma ?? "").toLowerCase().includes(q) ||
+        theoSdt(l)),
   );
 
   return (
@@ -128,7 +137,7 @@ export default function BangHanhTrinh() {
         <input
           value={tim}
           onChange={(e) => setTim(e.target.value)}
-          placeholder="Tìm tên / mã khách"
+          placeholder="Tìm tên / mã / SĐT"
           aria-label="Tìm khách"
           className="min-h-10 flex-1 rounded-control border border-line bg-surface px-3 text-body text-ink"
         />
@@ -154,11 +163,13 @@ export default function BangHanhTrinh() {
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-emph font-semibold text-ink">
-                  {l.ten}
-                  {l.ma ? <span className="text-meta font-normal text-ink-muted">{l.ma}</span> : null}
-                  <SoLuot booking={l.so_booking} checkin={l.so_quay} />
-                </p>
+                <TenKhachSdt
+                  ten={l.ten}
+                  sdt={l.sdt}
+                  ma={l.ma}
+                  tenClassName="text-emph font-semibold text-ink"
+                  cuoiDong={<SoLuot booking={l.so_booking} checkin={l.so_quay} />}
+                />
                 <p className="text-meta text-ink-muted">
                   {[
                     l.loai_kham,

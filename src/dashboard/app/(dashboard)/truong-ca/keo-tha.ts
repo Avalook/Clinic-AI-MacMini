@@ -16,7 +16,10 @@ export interface DichDen {
   tenDichVu: string;
   /** Mã phòng (uuid) nhận được chỉ định này — trừ phòng đang đứng. */
   phong: Set<string>;
-  gui: (roomId: string) => Promise<{ ok: true } | { ok: false; loi: string }>;
+  /** Dịch vụ ĐANG LÀM (29/10/2026): thả xuống phải hỏi lý do trước khi gửi —
+   *  cùng lệnh `chuyen-phong-dang-lam` với nút [Chuyển phòng] trong hộp. */
+  canLyDo?: { phongHienTai: string | null; tu: string | null };
+  gui: (roomId: string, lyDo?: string) => Promise<{ ok: true } | { ok: false; loi: string }>;
 }
 
 export async function timDichDen(
@@ -34,12 +37,33 @@ export async function timDichDen(
   if (!x) return { loi: "Khách không có chỉ định nào đổi phòng được ở phòng này." };
 
   if (x.selection_status !== null) {
-    if (!x.doi_phong_duoc) return { loi: `${x.service_name}: lúc này không đổi phòng được.` };
     const g = await docBang<{
       recommendation_ref: string;
       candidates: { room_id: string }[];
+      che_do?: string;
+      phong_hien_tai?: string | null;
+      dang_lam_tu?: string | null;
     }>("goi-y-phong", { chi_dinh: x.id });
     if (!g.ok) return { loi: g.loi };
+    // Đang làm: máy chủ mời chuyển-khi-đang-làm (chỉ người điều phối) → thả
+    // xuống hỏi lý do. Máy chủ vẫn kiểm quyền / revision / dịch vụ đã xong.
+    if (g.data.che_do === "CHUYEN_DANG_LAM") {
+      return {
+        visitId: p.visit_id,
+        tenDichVu: x.service_name,
+        phong: new Set(g.data.candidates.map((c) => c.room_id).filter((id) => id !== x.room_id)),
+        canLyDo: { phongHienTai: g.data.phong_hien_tai ?? null, tu: g.data.dang_lam_tu ?? null },
+        gui: async (roomId, lyDo) => {
+          const kq = await guiThaoTac("chuyen-phong-dang-lam", x.id, {
+            room_id: roomId,
+            expected_routing_revision: x.routing_revision,
+            ly_do: lyDo ?? "",
+          });
+          return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
+        },
+      };
+    }
+    if (!x.doi_phong_duoc) return { loi: `${x.service_name}: lúc này không đổi phòng được.` };
     return {
       visitId: p.visit_id,
       tenDichVu: x.service_name,

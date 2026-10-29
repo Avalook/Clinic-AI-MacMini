@@ -33,6 +33,7 @@ export default function NganGap({
   moSan = false,
   nhoKhoa,
   co = "dong",
+  hanhDong,
   children,
 }: {
   tieuDe: ReactNode;
@@ -43,6 +44,10 @@ export default function NganGap({
   moSan?: boolean;
   nhoKhoa?: string;
   co?: "the" | "dong";
+  /** Nút thao tác đứng CÙNG DÒNG tiêu đề, NGOÀI nút gập (không lồng nút trong
+   *  nút) — vd nút "Chỉ định N mục" (Tuyền 29/10/2026: "đưa lên đầu ô cho tiện
+   *  bấm"). */
+  hanhDong?: ReactNode;
   children: ReactNode;
 }) {
   const id = useId();
@@ -70,12 +75,18 @@ export default function NganGap({
   const the = co === "the";
   return (
     <div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
       <button
         type="button"
         aria-expanded={mo}
         aria-controls={id}
         onClick={doi}
-        className={`flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-control text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+        // Có nút hành động cùng hàng: tiêu đề giữ tối thiểu 12rem, thiếu chỗ thì
+        // NÚT xuống dòng — không bóp tiêu đề vỡ từng chữ ("Danh / mục chỉ /
+        // định" ở 375, Tuyền 29/10/2026).
+        className={`flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 rounded-control text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+          hanhDong ? "min-w-48" : "min-w-0"
+        } ${
           the ? "min-h-10 sm:min-h-8" : "min-h-10 text-meta text-ink-muted hover:text-ink sm:min-h-8"
         }`}
       >
@@ -89,6 +100,8 @@ export default function NganGap({
         {chip}
         {phu ? <span className="ml-auto text-meta text-ink-muted">{phu}</span> : null}
       </button>
+      {hanhDong}
+      </div>
       <div id={id} hidden={!mo} className={the ? "mt-3 space-y-3" : "mt-2"}>
         {children}
       </div>

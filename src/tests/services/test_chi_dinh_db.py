@@ -230,10 +230,15 @@ async def test_g3_thu_ky_y_khoa_chi_dinh_duoc_khong_can_ai_duyet(kb: KB) -> None
 
 
 async def test_g4_luot_da_dong_thi_bi_tu_choi_va_khong_de_lai_gi(kb: KB) -> None:
+    # Khám xong VÀ khách đã check-out. Chỉ khám xong mà khách chưa về thì chỉ
+    # định được — máy tự mở lại phiên (chốt 29/10/2026, test_chi_dinh_luot_con_mo).
     await kb.pool.execute(
         "UPDATE consultation SET status = 'completed', completed_at = now(),"
         " completed_by = doctor_staff_id, outcome = 'NO_SERVICES' WHERE id = $1::uuid",
         kb.consultation_id,
+    )
+    await kb.pool.execute(
+        "UPDATE visit SET closed_at = now() WHERE visit_id = $1::uuid", kb.visit_id
     )
     with pytest.raises(Exception):  # noqa: B017 — chỉ cần: bị chặn
         await kb.svc.dat_chi_dinh(

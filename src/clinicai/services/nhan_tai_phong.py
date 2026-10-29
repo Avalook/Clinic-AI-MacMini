@@ -115,8 +115,8 @@ WITH o AS MATERIALIZED (
            -- `la_doi_tac`; phòng thường không bao giờ thấy nó.
            ({DOI_TAC_LAM_TRON_SQL}) AS doi_tac_lam,
            coalesce(v.location_id, a.location_id) AS co_so, v.checked_in_at,
-           p.full_name, p.patient_code, a.so_tiep_don, a.so_booking,
-           q.id AS q_id, q.status AS q_status, q.room_id AS q_room_id
+           p.full_name, p.patient_code, p.phone_primary, a.so_tiep_don,
+           a.so_booking, q.id AS q_id, q.status AS q_status, q.room_id AS q_room_id
       FROM service_order o
       JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
       JOIN patient p
@@ -149,7 +149,7 @@ SELECT pr.id::text AS room_id, pr.accepting,
        o.chua_vao,
        o.q_id, o.q_status, o.q_room_id::text AS q_room_id,
        qr.name AS q_phong,
-       o.full_name, o.patient_code, o.so_tiep_don, o.so_booking
+       o.full_name, o.patient_code, o.phone_primary, o.so_tiep_don, o.so_booking
   FROM o
   -- Phòng ỨNG VIÊN đi theo chỉ mục (bước / dịch vụ gắn riêng) rồi mới hỏi luật
   -- `phong_lam_duoc` — tránh tích chéo mọi phòng × mọi chỉ định.
@@ -386,7 +386,7 @@ async def _chi_dinh(
 #: sống "cao nhất" của khách (đang làm trước, phòng dịch vụ trước) — một câu
 #: cho cả danh sách Sắp đến (không N+1).
 _KHACH_HOM_NAY_SQL = """
-SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
+SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code, p.phone_primary,
        a.so_tiep_don, a.so_booking, pr.la_doi_tac AS phong_doi_tac,
        q.lane AS q_lane, q.status AS q_status, q.room_id::text AS q_room_id,
        qr.name AS q_phong, st.nhom AS nhom_kham, st.form_code AS phieu_kham,
@@ -548,6 +548,7 @@ def gom_sap_den(
                 "visit_id": vid,
                 "khach": k["full_name"],
                 "ma_khach": k["patient_code"],
+                "sdt": k.get("phone_primary"),
                 "so_tiep_don": k["so_tiep_don"],
                 "so_booking": k["so_booking"],
                 "chi_dinh": cua,

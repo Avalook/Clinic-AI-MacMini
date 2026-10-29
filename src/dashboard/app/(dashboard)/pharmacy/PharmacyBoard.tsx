@@ -27,6 +27,7 @@ import OQuetMa, { NHAN_TRANG_THAI_LO, type KetQuaQuet } from "./inventory/OQuetM
 import { cauLoKhongDungDuoc } from "@/lib/lo-bi-loai";
 import { GIAI_DOAN, type LuotThuoc, type ManNhaThuoc } from "./ban-thuoc";
 import { anNoiDon } from "./thong-bao-noi-don";
+import { sdtDoc } from "@/lib/sdt";
 
 type Tab = "dang_lam" | "xong";
 
@@ -191,6 +192,7 @@ export default function PharmacyBoard({
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-emph font-medium text-ink">
                         {l.ten_khach ?? "Chưa có tên"}
+                        {sdtDoc(l.phone) ? <span className="text-body font-normal tabular-nums text-ink-muted">{sdtDoc(l.phone)}</span> : null}
                         <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                         {l.ban_le ? <Chip tone="brand">Bán lẻ</Chip> : null}
                       </span>
@@ -223,12 +225,13 @@ export default function PharmacyBoard({
                 <div>
                   <h3 className="flex flex-wrap items-center gap-2 text-title font-semibold text-ink">
                     {luot.ten_khach ?? "Chưa có tên"}
+                    {sdtDoc(luot.phone) ? <span className="text-emph font-medium tabular-nums text-ink-muted">{sdtDoc(luot.phone)}</span> : null}
                     <SoLuot booking={luot.so_booking} checkin={luot.so_tiep_don} />
                     {luot.ban_le ? <Chip tone="brand">Bán lẻ — khách chỉ mua thuốc</Chip> : null}
                     {vuaMo === luot.visit_id ? <Chip tone="brand">Vừa mở</Chip> : null}
                   </h3>
                   <p className="text-meta text-ink-muted">
-                    {luot.patient_code ?? "—"} · {luot.phone ?? "—"}
+                    {luot.patient_code ?? "—"}
                   </p>
                 </div>
                 <StatusChip
