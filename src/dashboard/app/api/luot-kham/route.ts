@@ -112,6 +112,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Nhả: chỉ ghi sự kiện thật người bấm (Tuyền 07/10).
   "nhan-vao-phong": (id) => `/api/v1/luot-kham/visits/${id}/nhan-vao-phong`,
   "hoan-tac-nhan": (id) => `/api/v1/luot-kham/visits/${id}/hoan-tac-nhan`,
+  // BÁC SĨ KHÁC NHẬN KHÁCH (29/10/2026) — id là LƯỢT KHÁM. [Trả lại] là hoàn tác.
+  "nhan-khach": (id) => `/api/v1/luot-kham/visits/${id}/nhan-khach`,
+  "tra-khach-ve-lich": (id) => `/api/v1/luot-kham/visits/${id}/tra-khach-ve-lich`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */

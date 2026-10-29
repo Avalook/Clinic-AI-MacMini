@@ -1096,6 +1096,70 @@ class BangLuotKham:
                     identity.location_id or None,
                 )
             )
+            # KHÁCH CỦA BÁC SĨ KHÁC (chốt 29/10/2026): bác sĩ A quá tải, điều phối
+            # cho bác sĩ B khám — trước đây B không thấy khách nên không nhận
+            # được. Bàn khám của B thấy khách CHƯA ai bắt đầu khám của bác sĩ
+            # khác (ghi "Lịch: BS A"), bấm Nhận là thành khách của mình. Chỉ hôm
+            # nay, cùng cơ sở, khi người xem có danh sách bác sĩ của riêng mình.
+            khac = (
+                await conn.fetch(
+                    """
+                    SELECT v.visit_id::text AS visit_id, p.full_name,
+                           p.patient_code, p.phone_primary, a.so_tiep_don,
+                           a.so_booking, q.status AS cho,
+                           coalesce(sl.full_name, sv.full_name) AS lich_bac_si,
+                           sv.full_name AS bac_si_hien_tai
+                      FROM queue_entry q
+                      JOIN consultation c
+                        ON c.id = q.ref_id AND c.clinic_id = q.clinic_id
+                       AND c.kind = 'PRIMARY' AND c.status = 'queued'
+                      JOIN visit v
+                        ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
+                      JOIN patient p
+                        ON p.clinic_patient_id = v.clinic_patient_id
+                       AND p.clinic_id = v.clinic_id
+                      LEFT JOIN appointment a
+                        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                      LEFT JOIN staff sl ON sl.id = a.doctor_id
+                      LEFT JOIN staff sv ON sv.id = v.attending_doctor_id
+                     WHERE q.clinic_id = $1::uuid AND q.lane = 'DOCTOR'
+                       AND q.status IN ('blocked', 'waiting', 'called')
+                       AND v.status IN ('OPEN', 'IN_PROGRESS')
+                       AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                           = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       AND v.attending_doctor_id IS NOT NULL
+                       AND NOT (v.attending_doctor_id::text = ANY($2::text[]))
+                       AND coalesce(v.location_id, a.location_id, $3::uuid)
+                           IS NOT DISTINCT FROM
+                           coalesce($3::uuid, v.location_id, a.location_id)
+                     ORDER BY v.checked_in_at, v.visit_id
+                    """,
+                    cid,
+                    ds_bac_si,
+                    identity.location_id or None,
+                )
+                if la_hom_nay
+                and rid is None
+                and not tu_van
+                and ds_bac_si
+                and not tat_ca_bac_si
+                else []
+            )
+            # Khách MÌNH đang khám mà lịch hẹn là bác sĩ khác: "Lịch: BS A".
+            lich_khac = {
+                str(r["visit_id"]): r["ten"]
+                for r in await conn.fetch(
+                    "SELECT v.visit_id::text AS visit_id, s.full_name AS ten"
+                    "  FROM visit v"
+                    "  JOIN appointment a"
+                    "    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+                    "  JOIN staff s ON s.id = a.doctor_id"
+                    " WHERE v.clinic_id = $1::uuid AND v.visit_id = ANY($2::uuid[])"
+                    "   AND a.doctor_id IS DISTINCT FROM v.attending_doctor_id",
+                    cid,
+                    list({r["visit_id"] for r in rows if r["reason"] != "SERVICE"}),
+                )
+            }
             # Khách đang ở phòng nào khác (nhãn "đang chờ / đang làm ở phòng X"
             # ở phòng dịch vụ và bàn khám) + thẻ của phòng bị nhận chéo.
             o_dau = await ntp.dang_o_phong(
@@ -1175,6 +1239,8 @@ class BangLuotKham:
                 "exec_status": r["exec_status"],
                 "phien_status": r["phien_status"],
                 "bac_si": r["bac_si"],
+                # Lịch hẹn bác sĩ khác, bác sĩ này khám (29/10/2026).
+                "lich_bac_si": lich_khac.get(r["visit_id"]),
                 "phong": r["phong"],
                 "vao_hang_luc": _iso(r["eligible_at"] or r["created_at"]),
                 # Mốc check-in của CẢ lượt: khách quay lại bác sĩ chính đọc kết
@@ -1268,6 +1334,23 @@ class BangLuotKham:
                     ),
                 }
                 for r in sap_toi
+            ],
+            # Khách của bác sĩ khác chưa ai bắt đầu khám — bấm Nhận (29/10/2026).
+            "khach_bac_si_khac": [
+                {
+                    "visit_id": r["visit_id"],
+                    "ten": r["full_name"],
+                    "ma_bn": r["patient_code"],
+                    "sdt": r.get("phone_primary"),
+                    "so_tiep_don": r["so_tiep_don"],
+                    "so_booking": r["so_booking"],
+                    "lich_bac_si": r["lich_bac_si"],
+                    "bac_si_hien_tai": r["bac_si_hien_tai"],
+                    "dang_o": "chờ khám"
+                    if r["cho"] != "blocked"
+                    else "đang ở bước khác",
+                }
+                for r in khac
             ],
             # Phòng khám mà hôm nay chưa có bác sĩ nào trong lịch: màn nói rõ
             # vì sao hàng chờ khám trống, thay vì trông như "hết khách".

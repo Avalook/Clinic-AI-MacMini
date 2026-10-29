@@ -225,6 +225,19 @@ interface SapToi {
   dang_o: string;
 }
 
+/** Khách của bác sĩ khác chưa ai bắt đầu khám (29/10/2026) — máy chủ trả. */
+interface KhachBacSiKhac {
+  visit_id: string;
+  ten: string;
+  ma_bn: string | null;
+  sdt?: string | null;
+  so_tiep_don: number | null;
+  so_booking?: number | null;
+  lich_bac_si: string | null;
+  bac_si_hien_tai: string | null;
+  dang_o: string;
+}
+
 export default function BanKham({
   phongMa,
   nut,
@@ -248,6 +261,7 @@ export default function BanKham({
   const laThuKy = nut.kham && !nut.hoanTat;
   const choBam = tuVan ? nut.tuVan : nut.kham;
   const [sapToi, setSapToi] = useState<SapToi[]>([]);
+  const [bacSiKhac, setBacSiKhac] = useState<KhachBacSiKhac[]>([]);
 
   const router = useRouter();
   const [phongs, setPhongs] = useState<PhongHomNay | null>(null);
@@ -291,7 +305,11 @@ export default function BanKham({
     let huy = false;
     const nap = async () => {
       const [h, b] = await Promise.all([
-        docBang<{ hang_cho: DongHangCho[]; sap_toi?: SapToi[] }>("hang-cho", {
+        docBang<{
+          hang_cho: DongHangCho[];
+          sap_toi?: SapToi[];
+          khach_bac_si_khac?: KhachBacSiKhac[];
+        }>("hang-cho", {
           ...(tuVan ? { tu_van: "true" } : phong ? { phong: phong.id } : {}),
           ngay,
         }),
@@ -312,6 +330,7 @@ export default function BanKham({
         }
         setHangDon(Object.values(donCuoi));
         setSapToi(tuVan ? [] : (h.data.sap_toi ?? []));
+        setBacSiKhac(tuVan ? [] : (h.data.khach_bac_si_khac ?? []));
       }
       if (b.ok) setBang(b.data);
     };
@@ -632,6 +651,7 @@ export default function BanKham({
               <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} daKhamLuc={daKhamLuc} />
               <Nhom ten="Chờ khám" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Không có khách đang chờ." batDau={nutBatDau} />
               {laHomNay ? <NhomSapToi ds={sapToi} /> : null}
+              {laHomNay ? <NhomBacSiKhac ds={bacSiKhac} choBam={choBam} onDaDoi={napLai} /> : null}
               <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
               {laThuKy ? (
                 <>
@@ -734,6 +754,94 @@ function NhomSapToi({ ds }: { ds: SapToi[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** "Khách của bác sĩ khác" (chốt 29/10/2026): lịch BS A quá tải, BS B nhận khám.
+ *  Gập sẵn — bấm tiêu đề để mở. [Nhận] = khách thành của mình (lịch hẹn vẫn
+ *  ghi BS A); thông báo có [Hoàn tác] trả về bác sĩ trên lịch. Ai nhận trước
+ *  giữ — máy chủ quyết (phiên phải còn chờ). */
+function NhomBacSiKhac({
+  ds,
+  choBam,
+  onDaDoi,
+}: {
+  ds: KhachBacSiKhac[];
+  choBam: boolean;
+  onDaDoi: () => void;
+}) {
+  const [mo, setMo] = useState(false);
+  const [dangGui, setDangGui] = useState<string | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const [thongBao, setThongBao] = useState<ThongBao | null>(null);
+  const nhan = async (d: KhachBacSiKhac) => {
+    setDangGui(d.visit_id);
+    setLoi(null);
+    const kq = await guiThaoTac("nhan-khach", d.visit_id);
+    setDangGui(null);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    setThongBao({
+      cau: `Đã nhận ${d.ten} (lịch ${d.lich_bac_si ?? "bác sĩ khác"})`,
+      goi: lenhHoanTac("tra-khach-ve-lich", d.visit_id),
+    });
+    onDaDoi();
+  };
+  return (
+    <>
+      {ds.length > 0 ? (
+        <section>
+          <button
+            type="button"
+            aria-expanded={mo}
+            onClick={() => setMo((m) => !m)}
+            className="flex w-full items-center justify-between gap-2 border-y border-line bg-surface-muted px-3 py-2 text-left text-xs font-semibold text-ink-soft"
+          >
+            <span>Khách của bác sĩ khác ({ds.length})</span>
+            <span aria-hidden="true">{mo ? "▾" : "▸"}</span>
+          </button>
+          {mo ? (
+            <ul>
+              {ds.map((d) => (
+                <li key={d.visit_id} className="flex items-center gap-2.5 px-2.5 py-2.5 text-xs">
+                  <SoLuot dang="tron" checkin={d.so_tiep_don} booking={d.so_booking} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-emph font-semibold text-ink">
+                      {d.ten}
+                      {sdtDoc(d.sdt) ? (
+                        <span className="ml-2 text-body font-normal tabular-nums text-ink-muted">{sdtDoc(d.sdt)}</span>
+                      ) : null}
+                    </span>
+                    <span className="block truncate text-ink-muted">
+                      Lịch: {d.lich_bac_si ?? "—"} · {d.dang_o}
+                    </span>
+                  </span>
+                  {choBam ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={dangGui !== null}
+                      onClick={() => void nhan(d)}
+                    >
+                      {dangGui === d.visit_id ? "Đang nhận…" : "Nhận"}
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {loi ? <p className="px-3 pb-2 text-label text-danger">{loi}</p> : null}
+        </section>
+      ) : null}
+      <ThongBaoHoanTac
+        thongBao={thongBao}
+        onDong={() => setThongBao(null)}
+        onHoanTacXong={onDaDoi}
+      />
+    </>
   );
 }
 
@@ -856,6 +964,9 @@ function Nhom({
                       </span>
                     ) : null}
                     {lt ? <span className="font-medium text-brand-700">{lt}</span> : null}
+                    {d.lich_bac_si ? (
+                      <span className="font-medium text-warning">Lịch: {d.lich_bac_si}</span>
+                    ) : null}
                   </span>
                 </span>
               </button>

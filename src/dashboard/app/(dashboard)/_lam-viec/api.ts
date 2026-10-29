@@ -54,6 +54,8 @@ export interface DongHangCho {
   exec_status: string | null;
   phien_status: string | null;
   bac_si: string | null;
+  /** Lịch hẹn là bác sĩ KHÁC, bác sĩ này nhận khám (29/10/2026) — tên trên lịch. */
+  lich_bac_si?: string | null;
   phong: string | null;
   vao_hang_luc: string | null;
   /** Mốc check-in của cả lượt — đồng hồ tổng không đếm lại khi quay về bác sĩ. */
