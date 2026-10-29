@@ -29,7 +29,7 @@ import {
   Search,
   Stethoscope,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
@@ -80,6 +80,7 @@ import NutHoanTac from "@/components/ui/NutHoanTac";
 import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 import { lenhHoanTac } from "../_lam-viec/hoan-tac";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
+import LuotChuaHoanTat from "./LuotChuaHoanTat";
 import ThaiKy from "./ThaiKy";
 import SoLuot from "@/components/ui/SoLuot";
 import { useNgheBang } from "../dung-nghe-bang";
@@ -259,6 +260,14 @@ export default function BanKham({
   const [chonId, setChonId] = useState<string | null>(null);
   const [lanNap, setLanNap] = useState(0);
   const { ngay, homNay, laHomNay, chonNgay } = useNgayXem();
+  // `?luot=<visit_id>` (link "Mở lượt" của khối Lượt chưa Hoàn tất, 22/10/2026):
+  // chọn sẵn khách ấy khi hàng chờ nạp xong; link mới thì bỏ ghim khách cũ.
+  const luotLink = useSearchParams().get("luot");
+  const [luotDaXet, setLuotDaXet] = useState(luotLink);
+  if (luotLink !== luotDaXet) {
+    setLuotDaXet(luotLink);
+    if (luotLink) setChonId(null);
+  }
   /** Nhãn ngày cho tiêu đề nhóm: "hôm nay" / "ngày 27/09". */
   const nhanNgay = laHomNay ? "hôm nay" : `ngày ${ngayNgan(ngay)}`;
 
@@ -394,7 +403,17 @@ export default function BanKham({
   const choKy = daXong.filter((d) => !d.da_ky);
   const daKy = daXong.filter((d) => d.da_ky);
   const macDinh = dangKham[0] ?? canDoc[0] ?? choKham[0] ?? buocKhac[0] ?? null;
-  const chon = hienRa.find((d) => d.id === chonId) ?? donHienRa.find((d) => d.id === chonId) ?? macDinh;
+  // Lượt có nhiều dòng (phiên đầu đã xong + phiên đọc kết quả): ưu tiên dòng còn mở.
+  const theoLink = luotLink
+    ? (hienRa.find((d) => d.visit_id === luotLink && d.trang_thai !== "done") ??
+      hienRa.find((d) => d.visit_id === luotLink) ??
+      null)
+    : null;
+  const chon =
+    hienRa.find((d) => d.id === chonId) ??
+    donHienRa.find((d) => d.id === chonId) ??
+    theoLink ??
+    macDinh;
   // GHIM KHÁCH ĐANG HIỆN (Tuyền 02/10/2026, cùng luật phòng dịch vụ): Khám xong
   // thì khách sang "Đã khám xong" ở cột trái nhưng vùng làm việc VẪN là khách
   // ấy — sửa / in tiếp được ngay. Sang người mới = bấm dòng ở cột trái.
@@ -561,6 +580,8 @@ export default function BanKham({
           Mở phiếu khám để xem và sửa như hôm nay.
         </p>
       ) : null}
+
+      {!tuVan && nut.kham ? <LuotChuaHoanTat lanNap={lanNap} /> : null}
 
       {!tuVan && nut.kham ? (
         <ChoBacSiQuyet lanNap={lanNap} onDaQuyet={napLai} />
