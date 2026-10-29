@@ -121,7 +121,27 @@ _CU_CHI_DINH = """EXISTS(SELECT 1 FROM public.service_order so
                        WHERE bl.clinic_id=so.clinic_id
                          AND bl.source_type='service_order'
                          AND bl.source_id=so.id::text
-                         AND pc.status IN ('PAID','PENDING_VERIFICATION')))"""
+                         AND pc.status IN ('PAID','PENDING_VERIFICATION'))
+                     -- ĐỐI TÁC TỰ THU không bao giờ có phiếu thu của phòng khám
+                     -- (FinanceGate: mọi dòng giá EXTERNAL_PARTNER → PARTNER_COLLECTS,
+                     -- không phải thu). Không loại thì mọi lượt có HPV/xét nghiệm
+                     -- ngoài là "còn nợ" suốt 30 ngày: staging 29/10 kéo 567 lượt,
+                     -- 2 MB, 5s mỗi lần tải bảng — trong khi chỉ 15 lượt chờ thu.
+                     AND NOT (
+                       NOT EXISTS(SELECT 1 FROM public.lieu_trinh_buoi lb
+                                   WHERE lb.clinic_id=so.clinic_id
+                                     AND lb.service_order_id=so.id
+                                     AND lb.go_luc IS NULL)
+                       AND EXISTS(SELECT 1 FROM public.service_price pr
+                                   WHERE pr.clinic_id=so.clinic_id
+                                     AND pr.service_code=so.service_code
+                                     AND pr.active AND pr."group"='dich_vu')
+                       AND NOT EXISTS(SELECT 1 FROM public.service_price pr
+                                   WHERE pr.clinic_id=so.clinic_id
+                                     AND pr.service_code=so.service_code
+                                     AND pr.active AND pr."group"='dich_vu'
+                                     AND pr.billing_owner IS DISTINCT FROM
+                                         'EXTERNAL_PARTNER')))"""
 _CU_DON_THUOC = """EXISTS(SELECT 1 FROM public.prescription rx
                    WHERE rx.clinic_id=old.clinic_id AND rx.visit_id=old.visit_id
                      AND rx.removed_at IS NULL
@@ -129,6 +149,22 @@ _CU_DON_THUOC = """EXISTS(SELECT 1 FROM public.prescription rx
                        WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
                          AND pc.kind='thuoc'
                          AND pc.status IN ('PAID','PENDING_VERIFICATION')))"""
+#: Lượt cũ CÓ THỂ còn nợ PHÍ KHÁM: phí khám mặc định tự tính (không cần tick),
+#: nên lượt chưa có lần thu dịch vụ nào là còn khoản. Trước đây những lượt này
+#: chỉ lọt vào bảng nhờ vế đơn thuốc — quầy dịch vụ bỏ vế đơn thuốc ($6) thì
+#: phải giữ chúng bằng vế này (staging 29/10: 2 khách đang chờ thu phí khám).
+_CU_CO_THE_NO_KHAM = """(NOT EXISTS(SELECT 1 FROM public.payment_cycle pc
+                   WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
+                     AND pc.kind='dich_vu'
+                     AND pc.status IN ('PAID','PENDING_VERIFICATION'))
+                 OR EXISTS(SELECT 1 FROM public.luot_phi_kham l
+                   WHERE l.clinic_id=old.clinic_id AND l.visit_id=old.visit_id
+                     AND l.bo_luc IS NULL
+                     AND l.chon_luc > (SELECT max(pc.created_at)
+                       FROM public.payment_cycle pc
+                      WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
+                        AND pc.kind='dich_vu'
+                        AND pc.status IN ('PAID','PENDING_VERIFICATION'))))"""
 _CU_CK_CHUA_VE = """EXISTS(SELECT 1 FROM public.payment_cycle pc
                    WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
                      AND pc.status='PENDING_VERIFICATION')"""
@@ -253,9 +289,11 @@ WITH v AS (
     + """
                AND ("""
     + _CU_CHI_DINH
-    + """ OR """
+    + """ OR (($6::boolean OR """
+    + _CU_CO_THE_NO_KHAM
+    + """) AND """
     + _CU_DON_THUOC
-    + """
+    + """)
                  OR """
     + _CU_CK_CHUA_VE
     + """)
@@ -276,7 +314,9 @@ WITH v AS (
     + """ OR """
     + _CU_CK_CHUA_VE
     + """
-                 OR ("""
+                 OR (($6::boolean OR """
+    + _CU_CO_THE_NO_KHAM
+    + """) AND """
     + _CU_DON_THUOC
     + """
                      AND old.created_at >= $2
@@ -618,6 +658,9 @@ class CashierBoardService:
             end,
             la_hom_nay,
             identity.location_id or None,
+            # Lượt cũ chỉ còn ĐƠN THUỐC chưa mua là việc của quầy thuốc — quầy
+            # dịch vụ kéo chúng vào thì ~290 lượt thừa (staging 29/10).
+            want_rx,
         )
         raw = json.loads(row) if isinstance(row, str) else row
         if len(raw.get("visits") or []) > CU_TRAN_CANH_BAO:

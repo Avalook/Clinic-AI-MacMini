@@ -72,6 +72,7 @@ export default function XepPhongDaThu({
               choDoi
               onDaDoi={onDoi}
               nguon="quay_thu"
+              moKhiBam
             />
           </li>
         ))}

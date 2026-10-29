@@ -326,6 +326,7 @@ export default function PhieuKham({
     dieuTri: ketQuaDT,
     thuThuat: ketQuaTT,
     cls: ketQuaCls,
+    banKham: ketQuaBanKham,
   } = useMemo(() => phanChiDinh(ketQuaChiDinh, maThuThuat, khoi1), [ketQuaChiDinh, maThuThuat, khoi1]);
   const coKq = ketQuaCls.filter((c) => c.ket_qua_trang_thai === "CO_KET_QUA").length;
   // Chip "N mới" trên nút khối 2: kết quả đã về mà chưa ai xem.
@@ -336,7 +337,10 @@ export default function PhieuKham({
   const coChanDoan = oTheoMuc(["D"]).some((ma) => coGiaTriO(gia[ma]));
   const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTriO(gia[ma]));
   const tomTat: Record<SoKhoi, string> = {
-    1: `${soDien} ô đã điền`,
+    // Lượt Thủ thuật / Điều trị: chỉ định làm tại bàn khám vẽ ở khối 1 (kể cả
+    // tick từ khối 3) — đếm ở đây, không thì khối 3 báo "chưa có gì" mà thẻ
+    // đã nằm trên khối 1 (bấm staging 29/10).
+    1: `${soDien} ô đã điền` + (ketQuaBanKham.length ? ` · ${ketQuaBanKham.length} thủ thuật` : ""),
     2:
       (ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định") +
       (coChanDoan ? " · có chẩn đoán" : ""),

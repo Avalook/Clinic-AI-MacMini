@@ -75,6 +75,7 @@ export default function DoiPhong({
   choDoi,
   onDaDoi,
   nguon = "khac",
+  moKhiBam = false,
 }: {
   orderId: string;
   /** Phòng đang xếp (nếu có). */
@@ -86,7 +87,13 @@ export default function DoiPhong({
   /** Màn gọi (P3, 25/09/2026): quầy thu · trưởng ca · khác. Trưởng ca đã xếp thì
    *  nguồn khác không đổi được — máy chủ chặn, câu báo hiện ngay dưới ô. */
   nguon?: "quay_thu" | "truong_ca" | "khac";
+  /** Chỉ hỏi gợi ý phòng khi người dùng bấm. Màn liệt kê NHIỀU chỉ định (Quầy
+   *  thu: "đã thu — chờ vào phòng") mà mỗi ô tự hỏi lúc hiện thì mở màn là bắn
+   *  cả trăm lượt `goi-y-phong` cùng lúc — 151 lượt/lần mở trên staging 29/10,
+   *  6.099 lượt/giờ prod tối 28/10, chiếm hết kết nối DB, mọi màn chậm theo. */
+  moKhiBam?: boolean;
 }) {
+  const [mo, setMo] = useState(!moKhiBam);
   const [goiY, setGoiY] = useState<GoiY | null>(null);
   const [ten, setTen] = useState<Record<string, string>>({});
   const [chon, setChon] = useState<string>("");
@@ -99,6 +106,7 @@ export default function DoiPhong({
   const [lan, setLan] = useState(0);
 
   useEffect(() => {
+    if (!mo) return;
     let huy = false;
     void Promise.all([
       docBang<GoiY>("goi-y-phong", { chi_dinh: orderId }),
@@ -114,8 +122,15 @@ export default function DoiPhong({
     return () => {
       huy = true;
     };
-  }, [orderId, lan]);
+  }, [orderId, lan, mo]);
 
+  if (!mo) {
+    return (
+      <Button type="button" size="sm" variant="soft" onClick={() => setMo(true)}>
+        {phongHienTaiId ? "Đổi phòng…" : "Chọn phòng…"}
+      </Button>
+    );
+  }
   if (loi && !goiY) {
     return <p className="text-label text-ink-muted">Phòng làm được: {loi}</p>;
   }

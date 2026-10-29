@@ -780,9 +780,8 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                   </p>
                 ) : null}
               </div>
-              {/* Thu xong, máy chủ xếp theo phòng quầy đã chọn (dây H4): lễ tân mở đây để
-                  báo khách phòng nào, hoặc đổi sang phòng vắng hơn. */}
-              <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình · đổi phòng" />
+              {/* Không đặt nút "Xem hành trình · đổi phòng" ở đây (Tuyền 29/10: thừa,
+                  khó hiểu) — đổi phòng nằm ngay trong khung "Phòng làm dịch vụ". */}
             </header>
 
             {/* Tick dịch vụ khám ngay tại quầy khi người khám chưa tick (28/09/2026)

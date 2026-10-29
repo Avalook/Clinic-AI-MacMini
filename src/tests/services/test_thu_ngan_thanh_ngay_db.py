@@ -189,6 +189,7 @@ async def test_more_than_300_candidates_keep_old_unpaid_and_day_candidates(
                 end,
                 True,
                 q.thu_ngan.location_id or None,
+                True,
             )
             raw = json.loads(value) if isinstance(value, str) else value
             visits = {v["visit_id"] for v in raw["visits"]}
@@ -201,6 +202,7 @@ async def test_more_than_300_candidates_keep_old_unpaid_and_day_candidates(
                 end,
                 False,
                 q.thu_ngan.location_id or None,
+                True,
             )
             selected_day = json.loads(value) if isinstance(value, str) else value
             assert q.visit_id not in {v["visit_id"] for v in selected_day["visits"]}
@@ -208,7 +210,9 @@ async def test_more_than_300_candidates_keep_old_unpaid_and_day_candidates(
             await transaction.rollback()
 
 
-async def _tap_hom_nay(conn: asyncpg.Connection, q: Any) -> set[str]:
+async def _tap_hom_nay(
+    conn: asyncpg.Connection, q: Any, *, want_rx: bool = True
+) -> set[str]:
     _today, start, end = khoang_ngay_xem(None)
     value = await conn.fetchval(
         _SQL,
@@ -217,6 +221,7 @@ async def _tap_hom_nay(conn: asyncpg.Connection, q: Any) -> set[str]:
         end,
         True,
         q.thu_ngan.location_id or None,
+        want_rx,
     )
     raw = json.loads(value) if isinstance(value, str) else value
     return {v["visit_id"] for v in raw["visits"]}
@@ -292,3 +297,109 @@ async def test_luot_cu_da_ve_chi_con_khi_ton_that_trong_han(
             assert tap - tap_truoc == {rx_ve_3, rx_mo_90}
         finally:
             await tx.rollback()
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_luot_cu_da_ve_doi_tac_tu_thu_va_don_thuoc_khong_keo_quay_dich_vu(
+    pool: asyncpg.Pool,
+) -> None:
+    """Staging 29/10: bảng thu "hôm nay" kéo 567 lượt cũ (2 MB, 5s mỗi lần tải),
+    chỉ 15 lượt chờ thu thật. Hai vế thừa: chỉ định ĐỐI TÁC TỰ THU (không bao
+    giờ có phiếu thu phòng khám) và lượt chỉ còn ĐƠN THUỐC chưa mua (việc quầy
+    thuốc). Nhưng lượt cũ chưa có lần thu dịch vụ nào thì vẫn kéo — còn phí khám.
+    """
+    q, _sa, _soi, _hpv = await _kich_ban(pool)
+    _today, start, _end = khoang_ngay_xem(None)
+    hom_qua = start - timedelta(hours=10)
+    gia = await pool.fetchrow(
+        "SELECT (SELECT service_code FROM service_price s WHERE s.clinic_id=$1::uuid"
+        "   AND s.active AND s.\"group\"='dich_vu' AND s.node_code IS NOT NULL"
+        "   GROUP BY service_code"
+        "   HAVING bool_and(billing_owner='EXTERNAL_PARTNER') LIMIT 1) AS ngoai,"
+        " (SELECT service_code FROM service_price s WHERE s.clinic_id=$1::uuid"
+        "   AND s.active AND s.\"group\"='dich_vu' AND s.node_code IS NOT NULL"
+        "   GROUP BY service_code"
+        "   HAVING bool_and(billing_owner='CLINIC' AND unit_price>0) LIMIT 1) AS nha",
+        q.thu_ngan.clinic_id,
+    )
+    assert gia["ngoai"] and gia["nha"], "danh mục test phải có cả hai loại giá"
+
+    async with pool.acquire() as conn:
+        tx = conn.transaction()
+        await tx.start()
+        try:
+
+            async def luot() -> str:
+                return str(
+                    await conn.fetchval(
+                        "INSERT INTO visit(clinic_id,clinic_patient_id,location_id,"
+                        " created_at,exam_completed_at,closed_at)"
+                        " SELECT clinic_id,clinic_patient_id,location_id,$2,$2,$2"
+                        " FROM visit WHERE visit_id=$1::uuid RETURNING visit_id::text",
+                        q.visit_id,
+                        hom_qua,
+                    )
+                )
+
+            async def chi_dinh(visit: str, code: str) -> None:
+                con = await conn.fetchval(
+                    "INSERT INTO consultation (clinic_id, visit_id, round_no, kind)"
+                    " VALUES ($1::uuid, $2::uuid, 1, 'PRIMARY') RETURNING id::text",
+                    q.thu_ngan.clinic_id,
+                    visit,
+                )
+                await conn.execute(
+                    "INSERT INTO service_order (clinic_id, visit_id, consultation_id,"
+                    " service_code,"
+                    " service_name, node_code, exec_status, recorded_by,"
+                    " authorized_by, authorized_at, selection_status,"
+                    " execution_status)"
+                    " SELECT $1::uuid, $2::uuid, $5::uuid, $3, $3, s.node_code,"
+                    " 'authorized',"
+                    " $4::uuid, $4::uuid, now(), 'SELECTED', 'PENDING'"
+                    " FROM service_price s"
+                    " WHERE s.clinic_id = $1::uuid AND s.service_code = $3"
+                    " AND s.active ORDER BY s.node_code NULLS LAST LIMIT 1",
+                    q.thu_ngan.clinic_id,
+                    visit,
+                    code,
+                    q.thu_ngan.staff_id,
+                    con,
+                )
+
+            async def don(visit: str) -> None:
+                await conn.execute(
+                    "INSERT INTO prescription (clinic_id, source_ref, visit_id,"
+                    " clinic_patient_id, drug_name_raw) SELECT clinic_id, $2,"
+                    " visit_id, clinic_patient_id, 'Thuốc thử' FROM visit"
+                    " WHERE visit_id = $1::uuid",
+                    visit,
+                    f"test-{uuid.uuid4()}",
+                )
+
+            ngoai, nha, chi_don, don_da_thu = [await luot() for _ in range(4)]
+            await chi_dinh(ngoai, gia["ngoai"])
+            await chi_dinh(nha, gia["nha"])
+            await don(chi_don)
+            await don(don_da_thu)
+            await conn.execute(
+                "INSERT INTO payment_cycle (payment_cycle_id, clinic_id, visit_id,"
+                " kind, amount, bill_revision, method, status, legacy, created_by,"
+                " paid_at, confirmed_by) VALUES (gen_random_uuid(), $1::uuid,"
+                " $2::uuid, 'dich_vu', 100000, 'rev-t', 'CASH', 'PAID', false,"
+                " $3::uuid, $4, $3::uuid)",
+                q.thu_ngan.clinic_id,
+                don_da_thu,
+                q.thu_ngan.staff_id,
+                hom_qua,
+            )
+            dich_vu = await _tap_hom_nay(conn, q, want_rx=False)
+            thuoc = await _tap_hom_nay(conn, q, want_rx=True)
+        finally:
+            await tx.rollback()
+    assert ngoai not in dich_vu, "đối tác tự thu: phòng khám không thu → không kéo"
+    assert nha in dich_vu, "chỉ định phòng khám chưa thu → vẫn ở quầy"
+    assert chi_don in dich_vu, "chưa có lần thu dịch vụ nào → còn phí khám, vẫn kéo"
+    assert don_da_thu not in dich_vu, "đã thu dịch vụ, chỉ còn đơn thuốc → quầy thuốc"
+    assert don_da_thu in thuoc, "quầy thuốc vẫn thấy đơn chưa mua"
