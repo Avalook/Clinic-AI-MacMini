@@ -10,7 +10,7 @@
 //   * Đầu thanh bên: dấu logo + tên phòng khám + cơ sở; đáy: người dùng + Thoát.
 //   * Điện thoại: ngăn kéo trượt từ "Menu" của thanh dưới như trước.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { X, LogOut, Pin, PinOff } from "lucide-react";
 import Nav from "./Nav";
@@ -99,12 +99,12 @@ export default function Shell({
   // vẽ xong thì cuộn bù đúng phần lệch.
   const cuon = useRef<HTMLDivElement>(null);
   const choTruoc = useRef<number | null>(null);
-  const doCho = () => {
+  const doCho = useCallback(() => {
     const c = cuon.current;
     const a = c?.querySelector<HTMLElement>('[aria-current="page"]');
     choTruoc.current =
       c && a ? a.getBoundingClientRect().top - c.getBoundingClientRect().top : null;
-  };
+  }, []);
   useEffect(() => {
     try {
       // Đọc sau khi gắn: máy chủ và trình duyệt vẽ giống nhau lúc đầu.
@@ -114,7 +114,7 @@ export default function Shell({
       /* không đọc được thì mặc định thanh icon */
     }
   }, []);
-  const doiGhim = () => {
+  const doiGhim = useCallback(() => {
     doCho();
     setGhim((g) => {
       try {
@@ -125,7 +125,7 @@ export default function Shell({
       setBung(false);
       return !g;
     });
-  };
+  }, [doCho]);
   // Phím `[` ghim / bỏ ghim — trừ khi đang gõ trong ô nhập.
   useEffect(() => {
     const phim = (e: KeyboardEvent) => {
@@ -136,7 +136,7 @@ export default function Shell({
     };
     window.addEventListener("keydown", phim);
     return () => window.removeEventListener("keydown", phim);
-  }, []);
+  }, [doiGhim]);
   const vao = () => {
     if (ghim) return;
     if (hen.current) clearTimeout(hen.current);
