@@ -30,6 +30,13 @@ test("câu nhắc bảo bấm Làm trước – thu sau thì ô ấy phải có 
   assert.doesNotMatch(khoi, /OTickTaiCho/, "không vẽ ô thứ hai ở khối 1");
 });
 
+test("nhãn Làm trước – thu sau: không tên người tick, giờ xuống dòng ở cột phải", () => {
+  const o = doc("../app/(dashboard)/_lam-viec/OLamTruocThuSau.tsx");
+  assert.match(o, /return \["Làm trước – thu sau", gio\(lt\.bat_luc\)\]/);
+  assert.doesNotMatch(o, /lt\.bat_boi/);
+  assert.match(o, /<Chip tone="info">Làm trước – thu sau<\/Chip>\s*\{gio\(tt\.bat_luc\) \?/);
+});
+
 test("máy chủ dùng mã CHUA_THU_TIEN cho câu nhắc thu tiền", () => {
   const ex = doc("../../clinicai/core/exceptions.py");
   assert.match(ex, /class ChuaThuTienError\(ValidationError\)/);
