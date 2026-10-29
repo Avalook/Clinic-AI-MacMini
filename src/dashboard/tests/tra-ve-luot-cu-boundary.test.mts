@@ -13,6 +13,11 @@ test("thẻ chỉ định: phiếu nháp mà chưa thu tiền không gọi là '
   assert.ok(the.indexOf("if (nhapChuaThu)") < the.indexOf('"Đã gửi đối tác" : "Đang làm"'));
 });
 
+test("khung chỉ định cũ tự nạp lại khi chỉ định đổi ở chỗ khác (Để lần sau trên thẻ)", () => {
+  const k = doc("../app/(dashboard)/_lam-viec/phieu-kham/ChiDinhCuChuaLam.tsx");
+  assert.match(k, /useNgheBang\(\["service_order"\], nap\)/);
+});
+
 test("thẻ chỉ định mang sang: nút Để lần sau (về lượt cũ) thay cho Hoàn tác chỉ định", () => {
   const the = doc("../app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx");
   assert.match(the, /\{d\.mang_sang && onTraVeLuotCu && !chiXem \? \(\s*<NutHoanTac\s+nhan="Để lần sau"/);

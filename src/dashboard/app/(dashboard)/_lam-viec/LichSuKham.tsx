@@ -147,19 +147,27 @@ export default function LichSuKham({
     };
   }, [mo, menu, url]);
 
-  // Tóm tắt phiếu cho ô rê chuột — nạp một lần khi bung danh sách. Không đọc
-  // được (quyền / mất mạng) thì ô vẫn hiện ngày · dịch vụ · bác sĩ.
+  // Tóm tắt phiếu cho ô rê chuột — nạp khi bung danh sách, giữ lại khi ĐỌC
+  // ĐƯỢC. Lỗi (502 lúc máy chủ khởi động, mất mạng) KHÔNG được nhớ thành "rỗng"
+  // — bấm staging 29/10/2026: nhớ rỗng thì mọi lượt báo "chưa ghi nội dung"
+  // tới khi F5; lần bung sau đọc lại.
+  const [tomTatLoi, setTomTatLoi] = useState(false);
   useEffect(() => {
     if (!menu || tomTatTheoLuot) return;
     let huy = false;
     void fetch(`/api/clinical-forms/history?clinic_patient_id=${clinicPatientId}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { items?: TomTatLuot[] } | null) => {
+      .then(async (r) => (r.ok ? ((await r.json()) as { items?: TomTatLuot[] }) : null))
+      .then((d) => {
         if (huy) return;
-        setTomTatTheoLuot(new Map((d?.items ?? []).map((x) => [x.visit_id, tomTat(x.form_data)])));
+        if (!d) {
+          setTomTatLoi(true);
+          return;
+        }
+        setTomTatLoi(false);
+        setTomTatTheoLuot(new Map((d.items ?? []).map((x) => [x.visit_id, tomTat(x.form_data)])));
       })
       .catch(() => {
-        if (!huy) setTomTatTheoLuot(new Map());
+        if (!huy) setTomTatLoi(true);
       });
     return () => {
       huy = true;
@@ -261,7 +269,11 @@ export default function LichSuKham({
                   </ul>
                 ) : (
                   <p className="mt-1.5 text-ink-muted">
-                    {tomTatTheoLuot ? "Phiếu hôm đó chưa ghi nội dung nào." : "Đang tải tóm tắt…"}
+                    {tomTatTheoLuot
+                      ? "Phiếu hôm đó chưa ghi nội dung nào."
+                      : tomTatLoi
+                        ? "Chưa đọc được tóm tắt — mở lại danh sách để thử lại."
+                        : "Đang tải tóm tắt…"}
                   </p>
                 )}
                 <p className="mt-2 text-brand-600">Bấm để xem lại nguyên phiếu</p>

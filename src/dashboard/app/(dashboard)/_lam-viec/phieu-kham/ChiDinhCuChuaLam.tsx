@@ -15,6 +15,7 @@ import Chip from "@/components/ui/Chip";
 import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 import { fmtDate } from "@/lib/datetime";
 
+import { useNgheBang } from "../../dung-nghe-bang";
 import { docBang, guiThaoTac } from "../api";
 import { lenhHoanTac } from "../hoan-tac";
 
@@ -50,6 +51,10 @@ export default function ChiDinhCuChuaLam({
     const t = setTimeout(() => void nap(), 0);
     return () => clearTimeout(t);
   }, [nap]);
+  // Chỉ định đổi ở chỗ KHÁC (nút [Để lần sau] trên thẻ chỉ định, lần khác của
+  // người khác) → khung tự nạp lại; không thì phải F5 mới thấy chỉ định quay về
+  // (bấm staging 29/10/2026).
+  useNgheBang(["service_order"], nap);
 
   const lamHomNay = async (c: ChiDinhCu) => {
     setDangGui(c.order_id);
