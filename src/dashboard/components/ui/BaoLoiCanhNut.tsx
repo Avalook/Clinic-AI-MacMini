@@ -7,8 +7,9 @@
  * họ tưởng nút không ăn. Luật: lỗi của hành động nằm cạnh hành động.
  *
  *   muc="loi"   (mặc định) role=alert, token danger — hành động KHÔNG thành.
- *   muc="nhac"  role=status, token warning — hành động ĐÃ thành, chỉ nhắc
- *               (vd "Còn 3 mục trống…" sau Hoàn tất phiếu — nhắc, không chặn).
+ *   muc="nhac"  role=status, token warning — lời NHẮC việc cần làm, không
+ *               phải hỏng (vd "Còn 3 mục trống…" sau Hoàn tất phiếu; "Vui lòng
+ *               thu tiền hoặc bấm Làm trước – thu sau" khi chưa thu).
  *
  * Không có nội dung thì không vẽ gì.
  */

@@ -416,7 +416,8 @@ async def test_chua_thu_tien_thi_khong_chot_phieu(pool: asyncpg.Pool) -> None:
         await svc.hoan_tat(
             phieu_id=phieu["id"], expected_revision=phieu["revision"], identity=bs
         )
-    assert "Nội dung phiếu vẫn giữ" in loi.value.message
+    assert loi.value.message == "Vui lòng thu tiền hoặc bấm Làm trước – thu sau."
+    assert loi.value.error_code == "CHUA_THU_TIEN"
     assert (
         await pool.fetchval(
             "SELECT trang_thai FROM form_instance WHERE id = $1::uuid", phieu["id"]

@@ -40,7 +40,11 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
-from clinicai.core.exceptions import SafetyGateError, ValidationError
+from clinicai.core.exceptions import (
+    ChuaThuTienError,
+    SafetyGateError,
+    ValidationError,
+)
 from clinicai.events.catalogue import (
     KetQuaDaSua,
     KetQuaSanSang,
@@ -761,7 +765,10 @@ class FormEngineService:
             if not sua_lai:
                 # Hoàn tất = dịch vụ xong (29/10/2026): đóng không được thì KHÔNG
                 # chốt — nháp đã lưu trước khi bấm, nói rõ vì sao.
-                from clinicai.services.hoan_tat_dong_dich_vu import chan_hoan_tat
+                from clinicai.services.hoan_tat_dong_dich_vu import (
+                    CAU_CHUA_THU_HOAN_TAT,
+                    chan_hoan_tat,
+                )
 
                 cau = await chan_hoan_tat(
                     conn,
@@ -770,6 +777,8 @@ class FormEngineService:
                     if dong["service_order_id"] is not None
                     else None,
                 )
+                if cau == CAU_CHUA_THU_HOAN_TAT:
+                    raise ChuaThuTienError(cau)
                 if cau is not None:
                     raise ValidationError(cau)
 

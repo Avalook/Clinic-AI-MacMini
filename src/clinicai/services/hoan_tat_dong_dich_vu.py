@@ -51,6 +51,10 @@ CAU_KHACH_DA_BO = (
     "Khách đã bỏ dịch vụ này ở quầy thu — chọn lại dịch vụ rồi mới Hoàn tất."
     " Nội dung phiếu vẫn giữ."
 )
+#: Chưa thu tiền mà bấm Hoàn tất (Tuyền 29/10/2026: "đừng đỏ, báo là vui lòng
+#: thu tiền hoặc bấm làm trước thu sau") — lời nhắc, không phải lỗi. Lệnh từ
+#: chối bằng ``ChuaThuTienError`` (mã ``CHUA_THU_TIEN``) để màn vẽ màu nhắc.
+CAU_CHUA_THU_HOAN_TAT = "Vui lòng thu tiền hoặc bấm Làm trước – thu sau."
 CAU_THIEU_QUYEN = (
     "Bạn chưa có quyền làm dịch vụ này nên phiếu CHƯA hoàn tất — nhờ bác sĩ hoặc"
     " người có quyền bấm Hoàn tất. Nội dung phiếu vẫn giữ."
@@ -140,7 +144,9 @@ async def chan_hoan_tat(
         neu_chot, selection_status=don["selection_status"]
     )
     if not duoc:
-        return f"{cau_tien or finance_gate.CAU_CHUA_THU} Nội dung phiếu vẫn giữ."
+        if not cau_tien or cau_tien == finance_gate.CAU_CHUA_THU:
+            return CAU_CHUA_THU_HOAN_TAT
+        return f"{cau_tien} Nội dung phiếu vẫn giữ."
     co_phong = (
         don["routing_status"] == "ASSIGNED"
         and await can_o_phong_nao_do(conn, identity, QUYEN_BAT_DAU)

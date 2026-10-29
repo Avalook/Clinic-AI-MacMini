@@ -134,7 +134,9 @@ async function goi<T>(
   keepalive = false,
   /** Cửa phiếu: `/api/phieu` (nhân sự) hoặc `/api/doi-tac/phieu` (việc đối tác). */
   duong: string = DUONG_PHIEU,
-): Promise<{ ok: true; data: T } | { ok: false; loi: string; status: number }> {
+): Promise<
+  { ok: true; data: T } | { ok: false; loi: string; status: number; ma?: string }
+> {
   try {
     const r = await fetch(duong, {
       method: "POST",
@@ -143,7 +145,13 @@ async function goi<T>(
       keepalive,
     });
     const d = await r.json().catch(() => null);
-    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Không lưu được phiếu."), status: r.status };
+    if (!r.ok)
+      return {
+        ok: false,
+        loi: nhanLoi(d, "Không lưu được phiếu."),
+        status: r.status,
+        ma: typeof d?.error === "string" ? d.error : undefined,
+      };
     return { ok: true, data: d as T };
   } catch {
     return { ok: false, loi: LOI_MAT_KET_NOI, status: 0 };
@@ -201,6 +209,9 @@ export default function PhieuKetQua({
   const [loi, setLoi] = useState<string | null>(null);
   /** Lỗi của [Hoàn tất] / [Sửa lại] / [Huỷ sửa] — NGAY TRÊN hàng nút (B8). */
   const [loiNut, setLoiNut] = useState<string | null>(null);
+  // "Chưa thu tiền" khi Hoàn tất là LỜI NHẮC (vàng), không phải lỗi đỏ — máy
+  // chủ đánh mã CHUA_THU_TIEN (Tuyền 29/10/2026).
+  const [nhacNut, setNhacNut] = useState(false);
   /** Ô còn trống sau Hoàn tất — nhắc cạnh nút, không chặn. */
   // Chọn mẫu của dịch vụ KHÁC (Tuyền 24/09/2026): không chuyển phiếu, báo khách
   // chưa thanh toán dịch vụ ấy — muốn làm thì bác sĩ chỉ định + khách trả tiền.
@@ -298,6 +309,7 @@ export default function PhieuKetQua({
     if (!phieu) return;
     setDangHoanTat(true);
     setLoiNut(null);
+    setNhacNut(false);
     // LƯU NỐT trước khi chốt, qua CHÍNH hàng đợi tự lưu: đợi lần đang bay, gửi
     // phần còn lại, revision lấy từ lần vừa xong. Lưu không được thì KHÔNG chốt
     // — chốt thiếu đúng câu vừa viết là tệ hơn chưa chốt.
@@ -325,6 +337,7 @@ export default function PhieuKetQua({
     }, false, duong);
     setDangHoanTat(false);
     if (!kq.ok) {
+      setNhacNut(kq.ma === "CHUA_THU_TIEN");
       setLoiNut(kq.loi);
       return;
     }
@@ -358,6 +371,7 @@ export default function PhieuKetQua({
     if (!phieu) return;
     setDangHoanTat(true);
     setLoiNut(null);
+    setNhacNut(false);
     const kq = await goi<Phieu>({ thao_tac: "mo-sua", phieu_id: phieu.id }, false, duong);
     setDangHoanTat(false);
     if (!kq.ok) {
@@ -371,6 +385,7 @@ export default function PhieuKetQua({
     if (!phieu) return;
     setDangHoanTat(true);
     setLoiNut(null);
+    setNhacNut(false);
     // Đợi lần lưu đang bay (nếu có) để revision là số mới nhất — huỷ bằng số
     // cũ là máy chủ từ chối oan.
     await tuLuu.luuNgay();
@@ -517,7 +532,7 @@ export default function PhieuKetQua({
               )),
             )}
           </dl>
-          <BaoLoiCanhNut>{loiNut}</BaoLoiCanhNut>
+          <BaoLoiCanhNut muc={nhacNut ? "nhac" : "loi"}>{loiNut}</BaoLoiCanhNut>
           <Button
             size="md"
             variant="secondary"
@@ -605,7 +620,7 @@ export default function PhieuKetQua({
             onLuuNgay={() => void tuLuu.luuNgay()}
             phu="nháp, chưa phải kết quả"
           />
-          <BaoLoiCanhNut>{loiNut}</BaoLoiCanhNut>
+          <BaoLoiCanhNut muc={nhacNut ? "nhac" : "loi"}>{loiNut}</BaoLoiCanhNut>
           <div className="flex flex-wrap items-center gap-3">
             {dangSuaLai ? (
               <label className="w-full">
