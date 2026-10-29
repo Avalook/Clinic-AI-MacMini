@@ -24,7 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import { doctorName } from "@/lib/doctor-name";
+import { bsTen } from "@/lib/doctor-name";
 import {
   chipGon,
   demThe,
@@ -227,7 +227,7 @@ function TheDv({
 
 function tenAi(b: BuocHanhTrinh): string | null {
   if (!b.ai) return null;
-  return b.ma === "KHAM" || b.ma === "DOC_KQ" ? `BS ${doctorName(b.ai)}` : b.ai;
+  return b.ma === "KHAM" || b.ma === "DOC_KQ" ? bsTen(b.ai) : b.ai;
 }
 
 function Buoc({

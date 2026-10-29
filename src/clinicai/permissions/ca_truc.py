@@ -18,6 +18,7 @@ from clinicai.core.clock import CLINIC_TZ, hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.emit import pham_vi_lam_thay
 from clinicai.services.day_noi import giai_gia_tri
+from clinicai.services.lan_bac_si import ten_bac_si
 
 
 @dataclass(frozen=True)
@@ -187,8 +188,9 @@ async def kiem_dung_ca(
     ten = await conn.fetchval(
         "SELECT full_name FROM staff WHERE id=$1::uuid", bac_si_id
     )
+    bs = ten_bac_si(ten) if ten else "BS phụ trách"
     raise SafetyGateError(
-        f"Bạn không được phân công đi kèm BS {ten or 'phụ trách'} hôm nay. "
+        f"Bạn không được phân công đi kèm {bs} hôm nay. "
         "Nhờ trưởng ca đổi người trong ca (Lịch làm việc → Đổi người trong ca → "
         "Thay người) rồi bấm lại."
     )

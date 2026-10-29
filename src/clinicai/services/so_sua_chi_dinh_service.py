@@ -40,6 +40,7 @@ from clinicai.events.catalogue import ChiDinhDaDat, ChiDinhDatLai, DichVuKhamDaD
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.lan_bac_si import ten_bac_si
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
     LuotKhamValidationError,
@@ -568,7 +569,7 @@ def cau_xoa(r: dict[str, Any]) -> str:
         and r.get("bac_si_chinh_id")
         and str(r.get("bac_si_chinh_id")) != str(r.get("boi_staff_id"))
     ):
-        ai += f" (thay BS {bs})"
+        ai += f" (thay {ten_bac_si(bs)})"
     return f"{ai} đã xoá chỉ định này"
 
 

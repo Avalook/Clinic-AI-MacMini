@@ -51,6 +51,7 @@ from clinicai.services.hang_cho import (
     mo_cho_bi_chan,
     ve_lai_hang_phong,
 )
+from clinicai.services.lan_bac_si import ten_bac_si
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
     bien_nhan_doc,
@@ -224,7 +225,7 @@ KHONG_LAM_BAN_KHAM_SQL = """NOT EXISTS (
 
 def cau_ban_kham(bac_si: str | None) -> str:
     """Nơi đang làm khi bác sĩ làm chỉ định ngay tại bàn khám — HÀM THUẦN."""
-    return f"bàn khám BS {bac_si}" if bac_si else "bàn khám"
+    return f"bàn khám {ten_bac_si(bac_si)}" if bac_si else "bàn khám"
 
 
 async def ban_kham_dang_lam(

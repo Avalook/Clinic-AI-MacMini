@@ -137,3 +137,19 @@ export function vaiKemTen(
   if (!vai || coChucDanh(tenGoc)) return "";
   return vai;
 }
+
+/** Chữ "BS" / "Bác sĩ" đứng đầu tên đã hiển thị (nguyên từ, không ăn vào "BSCK…"
+ *  — chuỗi đó đã qua `doctorName` nên không còn tới đây). */
+const DA_CO_BS = /^(?:BS|Bác sĩ)(?:\s|$)/i;
+
+/** "BS <tên>" cho chỗ viết GỌN ("· BS Thành", "BS Thành — bàn khám"). Tên đã
+ *  nói chức danh thì giữ nguyên, không lặp: prod đổi tên bác sĩ thành "Bác sĩ
+ *  Phan Chí Thành" nên nối `BS ${tên}` ra "BS Bác sĩ Phan Chí Thành". Cùng
+ *  luật với `ten_bac_si` ở `services/lan_bac_si.py`. Rỗng → "". */
+export function bsTen(raw: string | null | undefined): string {
+  const ten = doctorName(raw);
+  if (!ten) return "";
+  // Đã là "Bác sĩ …" hoặc chức danh khác ("Điều dưỡng Thuý") → tin nó.
+  if (DA_CO_BS.test(ten) || coChucDanh(raw)) return ten;
+  return `BS ${ten}`;
+}

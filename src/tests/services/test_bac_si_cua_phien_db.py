@@ -203,6 +203,23 @@ async def test_check_out_hien_ten_bac_si(kb: KichBan) -> None:
     assert kham and kham[0]["nguoi_lam"] == f"BS {kb.bac_si.full_name} (dự kiến)"
     assert truoc["trang_thai_kham"] == "Chờ khám"
 
+    # Tên đã mang chức danh ("Bác sĩ Phan Chí Thành" — kiểu tên duy nhất trên
+    # prod) thì không ghép thêm "BS " thành "BS Bác sĩ …".
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE staff SET full_name = 'Bác sĩ ' || full_name WHERE id = $1::uuid",
+            kb.bac_si.staff_id,
+        )
+    co_chuc = await ct.chi_tiet(identity=kb.le_tan, visit_id=kb.visit_id)
+    kham2 = [x for x in co_chuc["dich_vu"] if x["ten"] == "Khám với bác sĩ"]
+    assert kham2[0]["nguoi_lam"] == f"Bác sĩ {kb.bac_si.full_name} (dự kiến)"
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE staff SET full_name = $2 WHERE id = $1::uuid",
+            kb.bac_si.staff_id,
+            kb.bac_si.full_name,
+        )
+
     await kb.svc.start_consultation(consultation_id=phien, identity=kb.dieu_duong)
     sau = await ct.chi_tiet(identity=kb.le_tan, visit_id=kb.visit_id)
     kham = [x for x in sau["dich_vu"] if x["ten"] == "Khám với bác sĩ"]
