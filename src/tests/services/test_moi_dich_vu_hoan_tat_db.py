@@ -159,6 +159,18 @@ async def test_moi_dich_vu_dang_ban_hoan_tat_o_ban_kham_la_xong(
                 else:
                     da_thu_ho += 1
         except Exception as e:  # noqa: BLE001 — gom đủ danh sách rồi mới đỏ
-            loi.append(f"{code} {ten}: {type(e).__name__}: {str(e)[:160]}")
+            # CI chạy song song trên cùng DB: test khác tạo dịch vụ tạm (mã đuôi
+            # ngẫu nhiên) rồi dọn nút của nó giữa chừng → bỏ qua dịch vụ đã biến
+            # mất, không tính là lỗi (CI đỏ giả 29/10/2026, 7/417).
+            con_ton_tai = await pool.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM service_price p"
+                "  JOIN node_definition n ON n.clinic_id = p.clinic_id"
+                "   AND n.code = p.node_code"
+                " WHERE p.clinic_id = $1::uuid AND p.service_code = $2 AND p.active)",
+                CLINIC,
+                code,
+            )
+            if con_ton_tai:
+                loi.append(f"{code} {ten}: {type(e).__name__}: {str(e)[:160]}")
     print(f"\n{len(dich_vu)} dịch vụ, {da_thu_ho} thu hộ đã lên bàn đối tác")
     assert not loi, f"{len(loi)}/{len(dich_vu)} dịch vụ lỗi:\n" + "\n".join(loi)
