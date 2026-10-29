@@ -63,10 +63,16 @@ export default function CotTongQuan({
   return (
     <aside aria-label="Tổng quan hôm nay" className="space-y-3">
       <section className={O}>
-        <h2 className="text-emph font-semibold text-ink">Tải bác sĩ hôm nay</h2>
-        <p className="mt-0.5 text-meta text-ink-muted">
-          {tong > 0 ? `${tong} lịch · ${daDen} đã đến` : "Chưa có lịch hẹn hôm nay"}
-        </p>
+        <h2 className="text-emph font-semibold text-ink">Số bệnh nhân khám hôm nay</h2>
+        {/* Hai dòng to, đậm (Tuyền 29/10/2026: "cho to chữ ra, in đậm"). */}
+        {tong > 0 ? (
+          <div className="mt-1 text-body font-semibold text-ink">
+            <p>{tong} lịch hẹn</p>
+            <p>{daDen} khách đã đến</p>
+          </div>
+        ) : (
+          <p className="mt-1 text-body font-semibold text-ink">Chưa có lịch hẹn hôm nay</p>
+        )}
         <ul className="mt-3 space-y-3">
           {taiBacSi.map((r) => {
             const ten = r.doctor_id ? doctorName(r.ten ?? "") || "Bác sĩ" : "Chưa xếp bác sĩ";

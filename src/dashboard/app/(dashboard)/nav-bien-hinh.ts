@@ -79,7 +79,6 @@ const b = (tinh: IconNode, re: IconNode, lo: LoXo = "smooth"): BienHinh => ({ ti
 
 export const BIEN_HINH: Record<string, BienHinh> = {
   "/home": b(House, DoorOpen, "bouncy"),
-  "/viec-can-xu-ly": b(ClipboardCheck, ListChecks, "snappy"),
   "/reception/queue": b(Users, UserCheck, "smooth"),
   "/thu-ngan/dich-vu": b(Receipt, Banknote, "bouncy"),
   "/thu-ngan/thuoc": b(ReceiptText, Pill, "snappy"),

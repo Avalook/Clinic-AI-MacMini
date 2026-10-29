@@ -1020,13 +1020,8 @@ MAN: dict[str, Man] = {
             ["thu_tien_thuoc"],
             "Lễ tân, thu ngân, dược sĩ",
         ),
-        _lego(
-            "viec_can_xu_ly",
-            "Việc cần xử lý",
-            ["/viec-can-xu-ly"],
-            ["viec_can_xu_ly"],
-            "Quản lý, trưởng ca",
-        ),
+        # (Màn "Việc cần xử lý" /viec-can-xu-ly đã gỡ — Tuyền 29/10/2026. Khối
+        # `viec_can_xu_ly` + quyền `worklist.handle` vẫn còn: API /work-items.)
         _lego(
             "dieu_phoi",
             "Điều phối khách",

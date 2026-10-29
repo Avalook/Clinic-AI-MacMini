@@ -49,11 +49,6 @@ export default function CongTyKhiThu({
         Xuất hoá đơn về công ty
       </label>
 
-      {ds.length === 0 ? (
-        <p className="text-meta text-ink-faint">
-          Khách chưa có công ty trong hồ sơ — Kế toán hoặc Quản lý thêm ở hồ sơ khách.
-        </p>
-      ) : null}
 
       {dangChon ? (
         <div className="space-y-2 rounded-control border border-line bg-surface-raised px-3 py-2">

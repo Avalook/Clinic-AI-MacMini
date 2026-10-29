@@ -181,9 +181,8 @@ export default function OLamTruocThuSau({
         </NutInPhieu>
       ) : null}
       {tt.ly_do_khong_bo ? <span className="w-full text-meta text-ink-muted">{tt.ly_do_khong_bo}</span> : null}
-      {tt.lam_truoc_thu_sau && tt.luu_y_bo ? (
-        <span className="w-full text-meta text-ink-muted">{tt.luu_y_bo}</span>
-      ) : null}
+      {/* Không vẽ `luu_y_bo` ("Đã có dịch vụ bắt đầu làm — bỏ tick vẫn được…")
+          — Tuyền 29/10/2026: câu dài, người quầy không cần đọc. */}
       {ghiChu ? (
         <p role="status" className="w-full text-meta text-ink-soft">
           {ghiChu}

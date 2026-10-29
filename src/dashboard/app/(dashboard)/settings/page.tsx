@@ -10,9 +10,7 @@
 import { getViTriHomNay, requireNavAccess } from "../../../lib/clinic-session";
 import { viTriTuDb } from "../../../lib/roster";
 import { getBookingPolicy } from "../../../lib/booking-policy";
-import { getFeatureMode } from "../../../lib/feature-mode";
 import BookingPolicyCard from "./BookingPolicyCard";
-import FeatureModeCard from "./FeatureModeCard";
 import PhamViViTriCard, { type OViTri } from "./PhamViViTriCard";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import ReportSettingsCard, { type ReportSettings } from "./ReportSettingsCard";
@@ -25,7 +23,6 @@ export default async function SettingsPage() {
 
   const reportSettings = await fetchFromBackend<ReportSettings>("/api/v1/reports/settings");
   const bookingPolicy = await getBookingPolicy();
-  const featureMode = await getFeatureMode();
   // Đọc SERVER-SIDE rồi truyền xuống làm prop. Nạp trong useEffect thì trình
   // biên dịch React chặn setState đồng bộ trong effect — đã vấp ba lần.
   const [phamVi, viTri] = await Promise.all([
@@ -38,7 +35,8 @@ export default async function SettingsPage() {
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       {/* Tiêu đề nằm ở thanh trên cùng (GlobalHeader) — không lặp lại ở đây. */}
       {reportSettings ? <ReportSettingsCard initial={reportSettings} /> : null}
-      <FeatureModeCard currentMode={featureMode} />
+      {/* Không có khung "Chế độ phòng khám" (Tuyền 29/10/2026: hệ thống chạy
+          đầy đủ phòng khám, bỏ lựa chọn "Chỉ CSKH & Đặt lịch"). */}
       <BookingPolicyCard policy={bookingPolicy} />
       {phamVi && (
         <PhamViViTriCard

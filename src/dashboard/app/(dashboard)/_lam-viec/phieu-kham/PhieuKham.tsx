@@ -62,6 +62,7 @@ import {
   type CanhBaoO,
 } from "@/lib/phieu-kham";
 import ChiDinhThuThuat from "./ChiDinhThuThuat";
+import { ChoNutMuc } from "./cho-nut-muc";
 import DonThuocPhieu from "./DonThuocPhieu";
 import KetQuaChiDinh, { TepChuaGan } from "./KetQuaChiDinh";
 import { KhoiTuVan } from "./KhoiDauPhieu";
@@ -392,9 +393,11 @@ export default function PhieuKham({
       phu: ghi ? "mang sang từ Bàn tư vấn · bác sĩ chính sửa tiếp được" : "mang sang từ Bàn tư vấn",
     },
     B: { ten: `Khai thác & khám — ${dinhNghia.ten.replace(/^Phiếu\s+/i, "")}`, phu: "theo phiếu khám của phòng khám" },
-    C: { ten: "Danh mục chỉ định", phu: "xếp như phiếu chỉ định giấy · giá KiotViet" },
+    // Không có dòng phụ "xếp như phiếu giấy · giá KiotViet" (Tuyền 29/10/2026:
+    // chữ người dùng không cần đọc).
+    C: { ten: "Danh mục chỉ định" },
     D: { ten: "Chẩn đoán và xử lý", phu: "sau khi xem kết quả cận lâm sàng" },
-    E: { ten: "Đơn thuốc", phu: "xếp như phiếu giấy · giá KiotViet" },
+    E: { ten: "Đơn thuốc" },
     F: { ten: "Dịch vụ khác (thủ thuật · điều trị)" },
     G: { ten: "Hẹn khám" },
   };
@@ -628,10 +631,21 @@ function TheCon({
   nhoKhoa: string;
   children: ReactNode;
 }) {
+  // Chỗ đầu thẻ cho nút thao tác của nội dung bên trong (DanhMucChiDinh đưa nút
+  // "Chỉ định N mục" lên đây qua portal — `ChoNutMuc`).
+  const [cho, setCho] = useState<HTMLElement | null>(null);
   return (
     <section className="rounded-card border border-hairline bg-surface p-4">
-      <NganGap co="the" tieuDe={ten} phu={phu} chip={chip} moSan={moSan} nhoKhoa={nhoKhoa}>
-        {children}
+      <NganGap
+        co="the"
+        tieuDe={ten}
+        phu={phu}
+        chip={chip}
+        moSan={moSan}
+        nhoKhoa={nhoKhoa}
+        hanhDong={<span ref={setCho} className="flex shrink-0 items-center gap-2 empty:hidden" />}
+      >
+        <ChoNutMuc.Provider value={cho}>{children}</ChoNutMuc.Provider>
       </NganGap>
     </section>
   );

@@ -23,8 +23,7 @@ export default function LoginForm() {
         action={formAction}
         className="animate-in fade-in slide-in-from-bottom-4 relative w-full max-w-sm space-y-5 rounded-2xl bg-white/90 p-7 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm duration-500"
       >
-        {/* Logo + Context */}
-        <div className="flex flex-col items-center space-y-2">
+        <div className="flex flex-col items-center">
           <Image
             src="/clinicai-logo.svg"
             alt="ClinicAI"
@@ -33,9 +32,6 @@ export default function LoginForm() {
             priority
             className="object-contain"
           />
-          <p className="text-sm text-ink-muted">
-            Đăng nhập bằng tài khoản cá nhân
-          </p>
         </div>
 
         <div className="space-y-1">
@@ -111,10 +107,6 @@ export default function LoginForm() {
         >
           {pending ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
-
-        <p className="text-center text-xs text-ink-muted">
-          Chưa có tài khoản? Liên hệ quản lý.
-        </p>
       </form>
     </div>
   );

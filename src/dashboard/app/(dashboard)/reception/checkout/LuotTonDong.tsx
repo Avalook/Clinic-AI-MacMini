@@ -197,11 +197,6 @@ export default function LuotTonDong({
           Lượt tồn đọng từ hôm trước
           <Chip>{hang.length}</Chip>
         </h2>
-        <p className="mt-1 text-meta text-ink-muted">
-          Check-in từ những ngày trước, còn mở, chưa check-out. Khách đã về thì
-          đóng lượt và ghi lý do — hết lượt ở đây là hết cảnh báo &ldquo;lượt
-          treo&rdquo;.
-        </p>
         {bao ? <p className="mt-1 text-meta text-ink-muted">{bao}</p> : null}
         {dongNeutral ? <p className="mt-1 text-meta text-ink-muted">{dongNeutral}</p> : null}
       </div>

@@ -41,7 +41,6 @@ import {
 import Link from "next/link";
 import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
 import type { ActiveStaff } from "../../../lib/clinic-session";
-import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { QUYEN_DOI_DICH_VU_KHAM, QUYEN_GHI_CHAM_SOC, coMotQuyen } from "../../../lib/quyen-cua-toi";
 import { doctorName } from "../../../lib/doctor-name";
@@ -204,11 +203,8 @@ export default async function HomePage({
     (rawWeekRoster ? weekStartOf(rawWeekRoster) : null) ?? currentWeekStartVn();
 
   const homeTitle = isReception ? "Tổng quan tiếp nhận" : greet(role, staff);
-  // Phụ đề của Lễ tân từng là một câu mô tả màn hình ("Theo dõi lịch hẹn, tình
-  // trạng buổi khám và lịch trực trong cùng một không gian") — Tuyền bỏ
-  // 16/09/2026. Nó tả lại thứ người ta đang nhìn thấy, trong khi NGÀY HÔM NAY
-  // mới là thứ quầy cần đọc ngay.
-  const homeSubtitle = `Hôm nay · ${fmtDate(new Date())}`;
+  // Không có dòng phụ đề "Hôm nay · ngày" (Tuyền bỏ 29/10/2026) — thanh trên
+  // đã ghi ngày giờ.
 
   return (
     <div className="mx-auto max-w-[1540px] space-y-5">
@@ -230,8 +226,7 @@ export default async function HomePage({
           qua, đường 7 ngày. Lời chào ngoài Suspense (chỉ cần phiên, hiện tức
           thì); ô số thuộc phần dữ liệu nên rót vào sau. */}
       <header>
-        <p className="text-meta text-ink-muted">{homeSubtitle}</p>
-        <h1 className="mt-0.5 text-hero font-semibold text-ink">{homeTitle}</h1>
+        <h1 className="text-hero font-semibold text-ink">{homeTitle}</h1>
       </header>
 
       <Suspense
@@ -595,13 +590,16 @@ async function KhoiDuLieu({
         taiBacSi={goi?.tai_bac_si ?? []}
         // "Dịch vụ đang bán chưa có phòng" (01/10/2026): chỉ người giữ lego Cài
         // đặt phòng khám (gán phòng được) mới thấy dòng này — số do máy chủ đếm.
+        // "Việc quá hạn" không hiện: màn Việc cần xử lý đã gỡ (Tuyền 29/10/2026),
+        // một con số không có chỗ bấm vào xử lý chỉ là chữ thừa.
         canXuLy={(goi?.can_xu_ly ?? []).filter(
-          (r) => r.ma !== "dich_vu_chua_phong" || coMotQuyen(quyen, ["config.clinic.manage"]),
+          (r) =>
+            r.ma !== "viec_qua_han" &&
+            (r.ma !== "dich_vu_chua_phong" || coMotQuyen(quyen, ["config.clinic.manage"])),
         )}
         hrefCanXuLy={{
           khach_tre: toi("/reception/queue"),
           chua_xep_bac_si: toi("/appointments/cho-xep-bac-si"),
-          viec_qua_han: toi("/viec-can-xu-ly"),
           khach_con_no: toi("/reports"),
           dich_vu_chua_phong: toi("/cashier/dich-vu") ? "/cashier/dich-vu?loc=chua-phong" : undefined,
         }}

@@ -31,11 +31,14 @@
 // định ở lần n" (bản mẫu `.da-truoc`). Số lần do máy chủ gán.
 
 import { Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import NganGap from "@/components/ui/NganGap";
+
+import { ChoNutMuc } from "./cho-nut-muc";
 import type { ChiDinhChuaGui } from "@/lib/chi-dinh-chua-gui";
 import {
   chipMauDanhMuc,
@@ -179,6 +182,22 @@ export default function DanhMucChiDinh({
     });
     return () => onChuaGui(null);
   }, [soChon, onChuaGui]);
+
+  const choNut = useContext(ChoNutMuc);
+  const nutGui = (
+    <Button
+      type="button"
+      variant="primary"
+      disabled={dang || chon.length === 0}
+      onClick={() => void dat()}
+    >
+      {dang
+        ? "Đang ghi…"
+        : chon.length > 0
+          ? `${nhanNut} ${chon.length} mục${lanGui ? ` · lần ${lanGui}` : ""} · ${tienVn(tong)}`
+          : `Tick mục cần ${nhanNut.toLowerCase()}${lanGui ? ` (lần ${lanGui})` : ""}`}
+    </Button>
+  );
 
   /** Một dòng kiểu phiếu giấy: ô tick (20px) · tên · giá + chip mẫu. */
   const dong = (m: MucCls, phu?: string) => {
@@ -365,18 +384,9 @@ export default function DanhMucChiDinh({
       ) : null}
       {!chiDoc && hienDanhMuc ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="primary"
-            disabled={dang || chon.length === 0}
-            onClick={() => void dat()}
-          >
-            {dang
-              ? "Đang ghi…"
-              : chon.length > 0
-                ? `${nhanNut} ${chon.length} mục${lanGui ? ` · lần ${lanGui}` : ""} · ${tienVn(tong)}`
-                : `Tick mục cần ${nhanNut.toLowerCase()}${lanGui ? ` (lần ${lanGui})` : ""}`}
-          </Button>
+          {/* Nút gửi đứng CÙNG DÒNG tiêu đề mục khi có chỗ (Tuyền 29/10/2026:
+              "đưa lên đầu ô cho tiện bấm" — danh mục dài, phải cuộn xuống đáy). */}
+          {choNut ? createPortal(nutGui, choNut) : nutGui}
           {coTruoc && chon.length === 0 ? (
             <Button type="button" variant="ghost" onClick={() => setMoThem(false)}>
               Thu gọn

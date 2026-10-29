@@ -71,8 +71,11 @@ async def http(pool: asyncpg.Pool) -> AsyncIterator[httpx.AsyncClient]:
 
 
 async def _nguoi(pool: asyncpg.Pool, vai: str, legos: list[str]) -> StaffIdentity:
-    """Tài khoản vai `vai` có ĐÚNG các khối của `legos` (toàn phòng khám)."""
-    khoi = sorted({k for m in legos for k in MAN[m].khoi})
+    """Tài khoản vai `vai` có ĐÚNG các khối của `legos` (toàn phòng khám).
+
+    Tên không phải màn lego thì coi là tên KHỐI — `viec_can_xu_ly` còn là khối
+    (API /work-items) dù màn của nó đã gỡ 29/10/2026."""
+    khoi = sorted({k for m in legos for k in (MAN[m].khoi if m in MAN else [m])})
     async with pool.acquire() as conn:
         loc = await conn.fetchval(
             "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid"

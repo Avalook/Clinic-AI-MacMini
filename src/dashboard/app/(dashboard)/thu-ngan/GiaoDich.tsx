@@ -175,7 +175,7 @@ export default function GiaoDich({
       ) : !ds ? (
         <p className="text-sm text-ink-muted">Đang tải…</p>
       ) : ds.length === 0 ? (
-        <p className="text-sm text-ink-muted">Chưa có giao dịch nào trong khoảng này.</p>
+        <p className="py-16 text-center text-sm text-ink-muted">Chưa có giao dịch nào trong khoảng này.</p>
       ) : (
         <>
           <p className="text-sm text-ink-soft">

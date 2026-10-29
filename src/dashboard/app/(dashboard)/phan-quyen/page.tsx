@@ -28,22 +28,8 @@ export default async function TrangPhanQuyen({
   return (
     <main className="page-in flex flex-col gap-4 p-4 lg:p-5">
       <header>
+        {/* Không câu hướng dẫn, không khung "Đang mở toàn bộ…" (Tuyền 29/10/2026). */}
         <h1 className="text-2xl font-semibold text-ink">Phân quyền</h1>
-        <p className="text-sm text-ink-muted">
-          Chọn một người rồi tick những kỹ năng họ làm — đúng như danh sách nhân
-          sự của phòng khám. Cấp quyền theo màn (Báo cáo, Kế toán…) ở mục Quyền theo màn bên dưới.
-        </p>
-        {/* Mở full lego (Tuyền 30/09/2026) — migration 20260930900000. */}
-        <p
-          role="note"
-          className="mt-2 rounded-control bg-info-bg px-3 py-2 text-sm text-info"
-        >
-          Đang mở toàn bộ cho mọi nhân sự: ai cũng có đủ các lego thao tác (thu
-          tiền dịch vụ và thuốc, khám, phòng dịch vụ, kho, điều phối, báo cáo…) và
-          không cần có lịch. Chỉ Quản lý giữ Phân quyền, Nhân sự &amp; tài khoản,
-          Cài đặt phòng khám (gồm mẫu kết quả, dây nối). Muốn siết một người: tắt
-          lego của người ấy ở đây.
-        </p>
       </header>
       <BangPhanQuyen
         nhanSu={nhanSu

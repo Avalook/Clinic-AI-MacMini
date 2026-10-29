@@ -554,7 +554,9 @@ async def test_lich_thu_thuat_co_chi_dinh_cu_chua_tra_van_vao_bac_si_chinh(
 ) -> None:
     """Ca Lê Thu Trang 28/10: lịch Thủ thuật, còn "Đo mật độ xương" hôm trước
     chưa thu. Trước: máy kéo sang → đi đường dịch vụ, không hàng chờ nào. Nay:
-    lượt trống, vào hàng bác sĩ chính; bác sĩ thấy "Chưa đóng tiền" và tự quyết."""
+    lượt trống, vào hàng bác sĩ chính. Khung chỉ định cũ ở bàn khám chỉ nhắc cái
+    ĐÃ đóng tiền (Tuyền 29/10/2026) — chỉ định chưa trả không hiện ở đó; nếu bác
+    sĩ vẫn cho làm hôm nay thì lệnh [Làm hôm nay] vẫn nhận."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
@@ -579,8 +581,10 @@ async def test_lich_thu_thuat_co_chi_dinh_cu_chua_tra_van_vao_bac_si_chinh(
         )
     ] == ["DOCTOR"]
     async with pool.acquire() as conn:
-        [cd] = await chi_dinh_cu_service.danh_sach(conn, clinic_id=CLINIC, visit_id=moi)
-    assert cd["da_dong_tien"] is False and cd["nhan_tien"] == "Chưa đóng tiền"
+        assert (
+            await chi_dinh_cu_service.danh_sach(conn, clinic_id=CLINIC, visit_id=moi)
+            == []
+        ), "chưa đóng tiền → không hiện ở khung nhắc"
 
     # Bác sĩ quyết làm hôm nay → vào hoá đơn hôm nay như chỉ định mới.
     await chi_dinh_cu_service.lam_hom_nay(
@@ -695,8 +699,9 @@ async def test_chi_dinh_cu_khach_da_bo_khong_hien_chua_quyet_thi_hien(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
     """29/10/2026: chỉ định hôm trước KHÔNG tự kéo sang (kể cả lịch thủ thuật).
-    "Chỉ định cũ chưa làm" ở bàn khám hiện cái khách CHƯA quyết; cái khách đã
-    bỏ ở quầy (NOT_SELECTED) là khách đã quyết — không hiện lại."""
+    "Chỉ định cũ chưa làm" ở bàn khám chỉ nhắc cái ĐÃ ĐÓNG TIỀN (Tuyền 29/10
+    chiều) — cái chưa quyết, chưa trả không hiện; cái khách đã bỏ ở quầy
+    (NOT_SELECTED) bấm [Làm hôm nay] bị từ chối."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
@@ -721,7 +726,7 @@ async def test_chi_dinh_cu_khach_da_bo_khong_hien_chua_quyet_thi_hien(
         assert (await _don(pool, o))["visit_id"] == cu
     async with pool.acquire() as conn:
         ds = await chi_dinh_cu_service.danh_sach(conn, clinic_id=CLINIC, visit_id=moi)
-    assert [x["order_id"] for x in ds] == [chua_quyet]
+    assert ds == [], "chưa đóng tiền → không hiện ở khung nhắc"
     # Bấm [Làm hôm nay] cái khách đã bỏ: từ chối, không dời.
     with pytest.raises(ConflictError):
         await chi_dinh_cu_service.lam_hom_nay(

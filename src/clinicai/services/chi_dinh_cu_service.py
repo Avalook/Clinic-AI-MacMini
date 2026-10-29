@@ -89,7 +89,13 @@ def nhan_tien(finance_state: str | None) -> str:
 async def danh_sach(
     conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
 ) -> list[dict[str, Any]]:
-    """Chỉ định cũ chưa làm của khách ở lượt này, cũ trước. Mã rác → rỗng."""
+    """Chỉ định cũ chưa làm ĐÃ ĐÓNG TIỀN của khách ở lượt này, cũ trước. Mã rác
+    → rỗng.
+
+    Chỉ chỉ định đã đóng tiền (Tuyền 29/10/2026: "chỉ hiện loại đã đóng tiền để
+    nhắc làm; chưa đóng tiền thì lịch sử vẫn ghi, không cần hiện ở đây") — khách
+    đã trả mà chưa được làm là nợ dịch vụ của phòng khám; chưa trả thì chỉ là
+    lần bác sĩ chỉ định cũ, xem ở Lịch sử khám."""
     vid = _uuid(visit_id)
     if vid is None:
         return []
@@ -105,6 +111,8 @@ async def danh_sach(
     for r in rows:
         q = tien.get(r["order_id"])
         tt = q.finance_state if q is not None else None
+        if tt != finance_gate.PAID:
+            continue
         ra.append(
             {
                 "order_id": r["order_id"],
