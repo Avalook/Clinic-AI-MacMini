@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-27 16:37. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-29 10:09. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -982,7 +982,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [hoan-tat] POST `/api/v1/doi-tac/phieu/{phieu_id}/hoan-tat` → `src/clinicai/api/v1/routers/doi_tac.py:hoan_tat_phieu_doi_tac` → FormEngineService.hoan_tat
 - [mo-sua] POST `/api/v1/doi-tac/phieu/{phieu_id}/mo-sua` → `src/clinicai/api/v1/routers/doi_tac.py:mo_sua_phieu_doi_tac` → FormEngineService.mo_sua
 - [huy-sua] POST `/api/v1/doi-tac/phieu/{phieu_id}/huy-sua` → `src/clinicai/api/v1/routers/doi_tac.py:huy_sua_phieu_doi_tac` → FormEngineService.huy_sua
-- test: src/tests/services/test_sua_ket_qua_db.py, src/tests/services/test_form_engine_db.py, src/tests/services/test_ket_qua_chung_lam_them_db.py
+- test: src/tests/services/test_sua_ket_qua_db.py, src/tests/services/test_form_engine_db.py, src/tests/services/test_ket_qua_chung_lam_them_db.py (+1)
 - màn dùng: /doi-tac, /phong/[ma]
 
 #### `/api/doi-tac/viec` · `src/dashboard/app/api/doi-tac/viec/route.ts`
@@ -1381,7 +1381,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/phieu/xem/{service_order_id}` → `src/clinicai/api/v1/routers/phieu.py:xem_ket_qua` → FormEngineService.xem_ket_qua
 - GET `/api/v1/bieu-mau` → `src/clinicai/api/v1/routers/phieu.py:danh_sach` → (SQL ngay trong router, không qua service)
 - POST `/api/v1/phieu/mo` → `src/clinicai/api/v1/routers/phieu.py:mo_phieu` → FormEngineService.mo_phieu
-- test: src/tests/services/test_sua_ket_qua_db.py, src/tests/services/test_form_engine_db.py, src/tests/services/test_ket_qua_chung_lam_them_db.py (+3)
+- test: src/tests/services/test_sua_ket_qua_db.py, src/tests/services/test_ket_qua_chung_lam_them_db.py, src/tests/services/test_form_engine_db.py (+4)
 - màn dùng: /ban-kham, /ban-kham/[phong], /doi-tac, /patient-list, /phong/[ma], /print/ket-qua/[orderId] (+2)
 
 #### `/api/phieu-kham` · `src/dashboard/app/api/phieu-kham/route.ts`
