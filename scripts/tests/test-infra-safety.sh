@@ -505,6 +505,12 @@ test_deploy_is_pinned_and_serialized() {
   if grep -Eq 'cp +"?\$ENV_FILE"? +\.env|git pull --ff-only *\|\|' "$ROOT/scripts/deploy-backend.sh"; then
     fail "deploy script still copies shared env or swallows pull failure"
   fi
+  # Ghim SHA chỉ có nghĩa khi KHÔNG còn đường nào kéo thêm commit giữa lúc soát
+  # và lúc deploy (01/10: thiếu biến thì script tự `git pull` → prod lên bản chưa
+  # soát). Bỏ qua dòng chú thích — chúng được phép kể lại chuyện đó.
+  if grep -v '^[[:space:]]*#' "$ROOT/scripts/deploy-backend.sh" | grep -Eq 'git +(pull|fetch)'; then
+    fail "deploy script can still pull/fetch new commits, which defeats SHA pinning"
+  fi
   # Kiểm CÓ XẾP HÀNG hay không. Thứ nó bảo vệ là: hai lần deploy chạy chung một
   # máy Docker thì không được chồng lên nhau. Trước 01/10/2026 bài này dò nhóm
   # `concurrency` trong .github/workflows/cd.yml; CD tự động đã chết (runner VPS
@@ -715,12 +721,47 @@ DOCKER
   [ "$(file_mode "$active_env")" = "600" ] || \
     fail "active env revision is not mode 600"
 
+  # Nguồn bản phát hành là bản CHỤP bất biến theo SHA, không phải chính checkout:
+  # checkout trên VPS đổi SHA sau mỗi lần deploy, nên rollback ở lần sau sẽ chạy
+  # compose của bản MỚI với ảnh của bản cũ.
+  local active_src
+  active_src="$(grep -E '^source=' "$deploy_secrets/.active-state-prod" | cut -d= -f2-)"
+  [ "$active_src" = "$deploy_secrets/.release-source-prod/$sha" ] && [ -d "$active_src" ] || \
+    fail "pinned deploy did not snapshot the release source (source=$active_src)"
+
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA=0000000000000000000000000000000000000000 \
     DEPLOY_SOURCE_REF=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
     fail "deploy accepted the wrong commit SHA"
   fi
+
+  # prod KHÔNG có đường không-ghim. Khẳng định theo thông điệp (mọi cổng sau đó
+  # cũng thoát khác 0, nên "thất bại" đơn thuần không chứng minh được gì).
+  deploy_prod() {
+    env HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
+      CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
+      CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" "$@" \
+      "$deploy_repo/scripts/deploy-backend.sh" prod
+  }
+  local pin_out="$deploy_tmp/pin.log" pin_rc=0
+  deploy_prod >"$pin_out" 2>&1 || pin_rc=$?
+  [ "$pin_rc" = "2" ] || fail "prod without DEPLOY_EXPECTED_SHA exited $pin_rc, expected 2"
+  grep -q 'phải ghim commit' "$pin_out" || \
+    fail "prod without DEPLOY_EXPECTED_SHA was refused, but not because of the pin: $(cat "$pin_out")"
+  deploy_prod DEPLOY_EXPECTED_SHA="${sha:0:12}" DEPLOY_SOURCE_REF=main >"$pin_out" 2>&1 && \
+    fail "prod accepted an abbreviated SHA"
+  grep -q '40 ký tự' "$pin_out" || \
+    fail "abbreviated SHA was refused, but not because of its length: $(cat "$pin_out")"
+  # Đã ghim SHA vẫn phải đứng đúng nhánh: SHA đúng trên nhánh lạ là bản chưa qua `main`.
+  git -C "$deploy_repo" checkout -q -B nhanh-la
+  deploy_prod DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 && \
+    fail "prod accepted a pinned SHA while on a non-main branch"
+  grep -q "must deploy from" "$pin_out" || \
+    fail "non-main branch was refused, but not because of the ref: $(cat "$pin_out")"
+  git -C "$deploy_repo" checkout -q -B main
+  deploy_prod DEPLOY_EXPECTED_SHA="$sha" >/dev/null 2>&1 || \
+    fail "prod refused a pinned SHA on branch main (no DEPLOY_SOURCE_REF)"
 
   # Trunk-based moved this check from an equality test on a branch name to a
   # pattern test on a ref, and a pattern is much easier to get subtly wrong.

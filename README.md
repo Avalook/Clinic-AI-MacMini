@@ -108,9 +108,11 @@ migration áp cùng dòng ghi sổ trong một giao dịch). **Không** dùng
 ## Vận hành
 
 Prod: VPS `clinic-vps-moi`, thư mục `/home/clinicai/clinicai`, nhánh `main`.
-**Không có staging.** Deploy làm tay trên VPS: sao lưu → (có migration thì diễn
-tập trên bản sao rồi áp) → `git checkout -B main origin/main` →
-`./scripts/deploy-backend.sh prod`. Lệnh đầy đủ: `CLAUDE.md` mục "Lệnh hay dùng".
+Staging online riêng: https://staging.dr4women.io.vn (`docs/STAGING.md`). Deploy
+prod làm tay trên VPS, ghim đúng SHA đã soát (đã thử trên staging): sao lưu → (có
+migration thì diễn tập trên bản sao rồi áp) → `git checkout -B main <SHA 40 ký tự>`
+(không phải `origin/main`) → `DEPLOY_EXPECTED_SHA=<cùng SHA> ./scripts/deploy-backend.sh prod`
+— script từ chối nếu thiếu SHA và không tự `git pull`. Lệnh đầy đủ: skill `len-prod`.
 
 Bí mật chỉ nằm trong `.env.prod` trên VPS (đã gitignore). **Không bao giờ trong
 code.** Mẫu: `.env.prod.example`.

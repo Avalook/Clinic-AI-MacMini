@@ -29,7 +29,9 @@ client → Caddy (TLS) → dashboard (Next.js, UI only) → api (FastAPI, all lo
   Actions is down — billing). Green before merge, green before deploy.
 - No automatic CD. Deploy by hand on the VPS: backup → (migrations: rehearse on a
   copy, then `scripts/apply-pending-migrations.sh --apply`) →
-  `git checkout -B main origin/main` → `./scripts/deploy-backend.sh prod`.
+  `git checkout -B main <reviewed 40-char SHA>` (never `origin/main`) →
+  `DEPLOY_EXPECTED_SHA=<same SHA> ./scripts/deploy-backend.sh prod`. The script
+  refuses prod without the SHA and never pulls (see skill `len-prod`).
 - Only `main` is long-lived; work branches live ≤ 2 days.
 
 ## Rules
