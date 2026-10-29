@@ -150,7 +150,9 @@ async function goi<T>(
         ok: false,
         loi: nhanLoi(d, "Không lưu được phiếu."),
         status: r.status,
-        ma: typeof d?.error === "string" ? d.error : undefined,
+        // Mã lỗi máy chủ đi ở `ma_loi` (lib/backend-proxy: `error` là CÂU cho
+        // người) — đọc nhầm `error` thì không bao giờ khớp mã (staging 29/10).
+        ma: typeof d?.ma_loi === "string" ? d.ma_loi : undefined,
       };
     return { ok: true, data: d as T };
   } catch {
