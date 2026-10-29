@@ -103,12 +103,19 @@ export default function BangHanhTrinh() {
   if (!bang) return <p className="text-body text-ink-muted">Đang tải…</p>;
 
   const q = tim.trim().toLowerCase();
+  // Gõ số (≥ 4) thì so cả SĐT, bỏ khoảng trắng: "0900 007" hay "7126" đều ra.
+  const qSo = q.replace(/\s+/g, "");
+  const theoSdt = (l: Luot) =>
+    /^\d{4,}$/.test(qSo) && (l.sdt ?? "").replace(/\D/g, "").includes(qSo);
   // Ngày cũ: ai cũng đã về — hiện hết, không ẩn.
   const anThat = laHomNay && anDaVe;
   const ds = bang.luot.filter(
     (l) =>
       (!anThat || !l.da_ve) &&
-      (!q || l.ten.toLowerCase().includes(q) || (l.ma ?? "").toLowerCase().includes(q)),
+      (!q ||
+        l.ten.toLowerCase().includes(q) ||
+        (l.ma ?? "").toLowerCase().includes(q) ||
+        theoSdt(l)),
   );
 
   return (
@@ -130,7 +137,7 @@ export default function BangHanhTrinh() {
         <input
           value={tim}
           onChange={(e) => setTim(e.target.value)}
-          placeholder="Tìm tên / mã khách"
+          placeholder="Tìm tên / mã / SĐT"
           aria-label="Tìm khách"
           className="min-h-10 flex-1 rounded-control border border-line bg-surface px-3 text-body text-ink"
         />
