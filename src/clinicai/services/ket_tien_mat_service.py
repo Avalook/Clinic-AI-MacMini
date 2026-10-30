@@ -32,6 +32,7 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.shifts import CAC_CA, NHAN_CA
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.audit import record_event
 from clinicai.services.chot_so_ca_service import kiem_ca
 
@@ -200,6 +201,7 @@ async def doc_ket_trong_khoang(
     """Khối "Tiền mặt két" của báo cáo cuối ngày: quỹ đầu / dự kiến / đếm / lệch
     từng ca đã nhập (dự kiến + lệch là số CHỤP lúc đếm cuối)."""
     rows = await conn.fetch(_NGAY_SQL, clinic_id, tu, den, co_so, ca)
+    canh_bao_neu_day("bao_cao_cuoi_ngay.ket_tien_mat", len(rows), 500, tu=tu, den=den)
     return [r for r in (_ra(x) for x in rows) if r is not None]
 
 
