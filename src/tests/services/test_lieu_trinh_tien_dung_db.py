@@ -10,7 +10,7 @@ khối liệu trình ``LieuTrinhTienService.quay``), assert đúng số nghiệp
   b2  buổi phủ chưa bắt đầu: hoàn được cả nó, kèm câu "buổi đang kê vào hoá đơn"
   c   trả theo buổi, buổi 2 thu rồi huỷ → giữ trong gói, buổi 3 được phủ
   d   buổi thu có giảm giá rồi huỷ → giữ 1 buổi, hoàn đúng số đã thu
-  e   dừng khi đã trả trước + buổi đang kê → hết đòi tiền, buổi rời gói, mở lại về
+  e   dừng khi đã trả trước + buổi đang kê → hết đòi tiền, buổi đang kê vẫn của gói
   e2  dừng (trả theo buổi) rồi huỷ buổi đã thu → giữ trong gói, hoàn ở quầy
   e3  dừng khi trả trước chưa thu → hoá đơn không đòi, mở lại là về
 
@@ -518,9 +518,10 @@ async def test_d_buoi_thu_giam_gia_roi_huy_hoan_dung_so_da_thu(
 @pytest.mark.asyncio
 async def test_e_dung_khi_da_tra_truoc_va_buoi_dang_ke(pool: asyncpg.Pool) -> None:
     """e: 10 buổi, trả trước 5, làm 1, buổi 2 đang kê (phủ). Trước dừng: còn trả
-    trước 4, hoàn quá 3 thì buổi đang kê vào hoá đơn. Dừng → hết "chưa trả",
-    tắt ô trả trước, buổi 2 rời gói (bỏ phủ), hoàn được đủ 4. Mở lại → buổi 2
-    về gói + phủ lại; hoàn tác mở lại → dừng lại y như trên."""
+    trước 4, hoàn quá 3 thì buổi đang kê vào hoá đơn. Dừng (Tuyền chốt 30/10:
+    có hiệu lực SAU buổi đang kê) → hết "chưa trả", tắt ô trả trước; buổi 2 VẪN
+    của gói, phủ 0đ. Mở lại / hoàn tác qua lại không đổi tiền. Khách không làm
+    → huỷ buổi 2 → hoàn đủ 4 buổi theo giá gói."""
     ca = await dung_ca(pool)
     lt, _ = await lt_da_tra_truoc(ca, 10, 5)
     v1 = await luot(ca, dieu_tri=True)
@@ -530,10 +531,11 @@ async def test_e_dung_khi_da_tra_truoc_va_buoi_dang_ke(pool: asyncpg.Pool) -> No
     k = await khoi(ca, v2, lt["id"])
     assert so(k, "con_tra_truoc", "hoan_duoc_toi_da", "chua_tra") == (4, 4, 5)
     assert k["cau_hoan"] == "Hoàn quá 3 buổi thì buổi đang kê sẽ vào hoá đơn."
-    truoc = so(k, "con_tra_truoc", "chua_tra", "tra_truoc_toi_da", "cau_hoan")
 
     async def da_dung() -> None:
-        assert await buoi_song(ca, o2) is None
+        b = await buoi_song(ca, o2)
+        assert b is not None and b["lt"] == lt["id"] and b["tra_truoc"]
+        assert (await hoa_don(ca, v2)).dong == []
         k = await khoi(ca, v2, lt["id"])
         assert so(k, "trang_thai", "chua_tra", "tien_con_lai") == ("DUNG", 0, 0)
         assert so(k, "con_tra_truoc", "hoan_duoc_toi_da", "tra_truoc_toi_da") == (
@@ -544,7 +546,7 @@ async def test_e_dung_khi_da_tra_truoc_va_buoi_dang_ke(pool: asyncpg.Pool) -> No
         assert k["goi_y_tra_them"] is False
         assert k["cau_hoan"] == (
             "Đã dừng, còn 4 buổi đã trả chưa dùng — hoàn bằng [Hoàn tiền] ở tab"
-            " “Đã thanh toán”."
+            " “Đã thanh toán”. Hoàn quá 3 buổi thì buổi đang kê sẽ vào hoá đơn."
         )
         await khong_tien_thua(ca, v2)
         await bat_bien(ca, lt["id"])
@@ -552,22 +554,16 @@ async def test_e_dung_khi_da_tra_truoc_va_buoi_dang_ke(pool: asyncpg.Pool) -> No
     sau = await dung_lt(ca, lt["id"])
     assert so(sau, "con_tra_truoc", "chua_tra", "tien_con_lai") == (4, 0, 0)
     await da_dung()
-    go = await pool.fetchrow(
-        "SELECT go_cach, tra_truoc FROM lieu_trinh_buoi"
-        " WHERE service_order_id = $1::uuid ORDER BY gan_luc DESC LIMIT 1",
-        o2,
-    )
-    assert (go["go_cach"], go["tra_truoc"]) == ("DUNG", False)
-
     await mo_lai(ca, lt["id"])
-    b = await buoi_song(ca, o2)
-    assert b is not None and b["lt"] == lt["id"] and b["tra_truoc"]
     k = await khoi(ca, v2, lt["id"])
-    assert so(k, "con_tra_truoc", "chua_tra", "tra_truoc_toi_da", "cau_hoan") == truoc
-
+    assert so(k, "trang_thai", "con_tra_truoc", "chua_tra") == ("DANG_LAM", 4, 5)
     await hoan_tac_lt(ca, lt["id"])
     await da_dung()
-    (dong,) = (await khoi(ca, v2, lt["id"]))["dong_hoan_duoc"]
+
+    await huy(ca, o2)
+    k = await khoi(ca, v2, lt["id"])
+    assert so(k, "con_tra_truoc", "hoan_duoc_toi_da", "phu_chua_lam") == (4, 4, 0)
+    (dong,) = k["dong_hoan_duoc"]
     await hoan(ca, dong, 4)
     d = await doc(ca, lt["id"])
     assert so(d, "da_tra", "con_tra_truoc") == (1, 0)
@@ -615,9 +611,9 @@ async def test_e2_dung_tra_theo_buoi_roi_huy_buoi_da_thu(pool: asyncpg.Pool) -> 
 async def test_e3_dung_khi_tra_truoc_chua_thu_hoa_don_khong_doi(
     pool: asyncpg.Pool,
 ) -> None:
-    """e3: buổi 1 đang kê + đang chọn trả trước 3 (chưa thu); dừng → hoá đơn
-    không đòi trả trước của gói đã dừng, buổi 1 rời gói (thành chỉ định lẻ),
-    khối liệu trình ẩn ở quầy. Mở lại → trả trước 3 + buổi 1 về như cũ."""
+    """e3: buổi 1 đang kê (chưa thu) + đang chọn trả trước 3; dừng → hoá đơn
+    không đòi trả trước của gói đã dừng; buổi 1 vẫn của gói, tính ĐƠN GIÁ GÓI
+    (bảng giá đổi không ảnh hưởng). Mở lại → trả trước 3 về như cũ."""
     ca = await dung_ca(pool)
     v = await luot(ca, dieu_tri=True)
     o = await chi_dinh(ca, v)
@@ -627,17 +623,22 @@ async def test_e3_dung_khi_tra_truoc_chua_thu_hoa_don_khong_doi(
         (d.source_type, int(d.so_luong)) for d in (await hoa_don(ca, v)).dong
     )
     assert truoc == [("lieu_trinh", 3), ("service_order", 1)]
+    await pool.execute(
+        "UPDATE service_price SET unit_price = 999000 WHERE id = $1::uuid", ca.sp
+    )
     await dung_lt(ca, lt["id"])
-    assert await buoi_song(ca, o) is None
-    assert [d.source_type for d in (await hoa_don(ca, v)).dong] == ["service_order"]
+    b = await buoi_song(ca, o)
+    assert b is not None and b["lt"] == lt["id"]
+    hd = await hoa_don(ca, v)
+    assert [(d.source_type, int(d.thanh_tien or 0)) for d in hd.dong] == [
+        ("service_order", GIA)
+    ]
     q = await LieuTrinhTienService(ca.pool).quay(identity=ca.thu_ngan, visit_id=v)
     assert q["lieu_trinh"] == []
     with pytest.raises(LuotKhamConflictError) as e:
         await tra_truoc(ca, v, lt["id"], 1)
     assert e.value.error_code == "LIEU_TRINH_DA_DUNG"
     await mo_lai(ca, lt["id"])
-    b = await buoi_song(ca, o)
-    assert b is not None and b["lt"] == lt["id"]
     sau = sorted((d.source_type, int(d.so_luong)) for d in (await hoa_don(ca, v)).dong)
     assert sau == truoc
     k = await khoi(ca, v, lt["id"])

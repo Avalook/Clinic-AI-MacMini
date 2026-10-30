@@ -11,20 +11,14 @@
 --   (5) [Trả hết] chốt số cứng lúc bấm: huỷ buổi hôm nay trước khi thu → hoá đơn
 --       thiếu 1 buổi. Nay lưu CỜ `tra_het`; hoá đơn tính lại số buổi mỗi lần dựng
 --       (`lieu_trinh_tra_truoc_so_buoi`), lúc ghi dòng hoá đơn thì chốt vào dòng.
---   (2) Dừng liệu trình: buổi đã kê CHƯA BẮT ĐẦU, chưa thu lẻ rời gói (go_cach
---       'DUNG', bỏ phủ) — quầy không còn tính buổi nào là "buổi của liệu trình
---       đã dừng"; mở lại / hoàn tác dừng gắn lại đúng các buổi ấy (phủ lại nếu
---       còn tiền). Trả trước chưa thu của liệu trình đã dừng không vào hoá đơn.
+--   (2) Dừng liệu trình: buổi đã kê CHƯA bắt đầu vẫn là buổi của gói (đơn giá
+--       gói, phủ bằng tiền trả trước nếu còn — Tuyền chốt 30/10: dừng có hiệu
+--       lực SAU buổi đang kê; khách không làm thì huỷ chỉ định như thường). Chỉ
+--       trả trước CHƯA THU của liệu trình đã dừng không vào hoá đơn (mở lại là về).
 --
 -- Không sửa dữ liệu cũ (trigger chỉ chạy khi có lệnh mới). Chạy lại được.
 
 -- ── 1. Cột / giá trị mới ────────────────────────────────────────────────────
-ALTER TABLE public.lieu_trinh_buoi
-    DROP CONSTRAINT IF EXISTS lieu_trinh_buoi_go_cach_check;
-ALTER TABLE public.lieu_trinh_buoi
-    ADD CONSTRAINT lieu_trinh_buoi_go_cach_check
-    CHECK (go_cach IN ('TU_DONG', 'TAY', 'CHUYEN', 'DUNG'));
-
 ALTER TABLE public.lieu_trinh_tra_truoc
     ADD COLUMN IF NOT EXISTS tra_het boolean NOT NULL DEFAULT false;
 COMMENT ON COLUMN public.lieu_trinh_tra_truoc.tra_het IS
@@ -33,7 +27,7 @@ COMMENT ON COLUMN public.lieu_trinh_tra_truoc.tra_het IS
 -- ── 2. Tiền buổi lẻ đã thu GIỮ LẠI trong gói ────────────────────────────────
 -- Liệu trình đang giữ tiền của MỘT chỉ định: chỉ định không còn sống (huỷ /
 -- không làm / khách bỏ) và lần gắn MỚI NHẤT của nó bị gỡ TỰ ĐỘNG (tức là do
--- chính việc huỷ) — gỡ tay / chuyển / dừng liệu trình thì không giữ. NULL = không.
+-- chính việc huỷ) — gỡ tay / chuyển sang liệu trình khác thì không giữ. NULL = không.
 CREATE OR REPLACE FUNCTION public.lieu_trinh_giu_tien_cua_chi_dinh(p_clinic uuid, p_order uuid)
 RETURNS uuid
 LANGUAGE sql STABLE
@@ -232,66 +226,10 @@ CREATE TRIGGER trg_lieu_trinh_tra_het_chot_so
     FOR EACH ROW WHEN (NEW.source_type = 'lieu_trinh')
     EXECUTE FUNCTION public.lieu_trinh_tra_het_chot_so();
 
--- ── 4. Dừng / mở lại: buổi chưa bắt đầu rời gói / về lại gói ──────────────────
--- Dừng: buổi còn gắn, CHƯA bắt đầu (chưa làm, chưa vào phòng) và CHƯA THU LẺ →
--- gỡ (go_cach 'DUNG', bỏ phủ — tiền trả trước về lại gói, hoàn được). Buổi đã
--- thu lẻ ở lại: tiền của nó là tiền của gói. Mở lại (kể cả hoàn tác dừng) →
--- gắn lại đúng các buổi ấy nếu chỉ định còn sống và chưa đi đâu khác.
-CREATE OR REPLACE FUNCTION public.lieu_trinh_sau_doi_dung()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    r record;
-BEGIN
-    IF NEW.dung_luc IS NOT NULL AND OLD.dung_luc IS NULL THEN
-        UPDATE public.lieu_trinh_buoi b
-           SET go_luc = now(), go_boi = NEW.dung_boi, go_cach = 'DUNG', tra_truoc = false
-          FROM public.service_order o
-         WHERE b.clinic_id = NEW.clinic_id AND b.lieu_trinh_id = NEW.id
-           AND b.go_luc IS NULL
-           AND o.clinic_id = b.clinic_id AND o.id = b.service_order_id
-           AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
-           AND o.exec_status IN ('authorized', 'assigned')
-           AND NOT public.lieu_trinh_buoi_da_thu_le(b.clinic_id, b.service_order_id);
-        PERFORM public.lieu_trinh_phu_lai(NEW.clinic_id, NEW.id);
-    ELSIF NEW.dung_luc IS NULL AND OLD.dung_luc IS NOT NULL THEN
-        FOR r IN
-            SELECT b.service_order_id
-              FROM public.lieu_trinh_buoi b
-              JOIN public.service_order o
-                ON o.clinic_id = b.clinic_id AND o.id = b.service_order_id
-             WHERE b.clinic_id = NEW.clinic_id AND b.lieu_trinh_id = NEW.id
-               AND b.go_cach = 'DUNG'
-               AND public.lieu_trinh_chi_dinh_song(
-                       o.exec_status, o.execution_status, o.selection_status)
-               AND NOT EXISTS (
-                   SELECT 1 FROM public.lieu_trinh_buoi x
-                    WHERE x.clinic_id = b.clinic_id
-                      AND x.service_order_id = b.service_order_id
-                      AND (x.go_luc IS NULL OR x.gan_luc > b.gan_luc))
-             ORDER BY b.buoi_so, b.gan_luc
-        LOOP
-            PERFORM public.lieu_trinh_gan_buoi(
-                NEW.clinic_id, NEW.id, r.service_order_id, 'TU_DONG', NULL);
-        END LOOP;
-    END IF;
-    RETURN NULL;
-END $$;
-
-DROP TRIGGER IF EXISTS trg_lieu_trinh_sau_doi_dung ON public.lieu_trinh;
-CREATE TRIGGER trg_lieu_trinh_sau_doi_dung
-    AFTER UPDATE OF dung_luc ON public.lieu_trinh
-    FOR EACH ROW WHEN (OLD.dung_luc IS DISTINCT FROM NEW.dung_luc)
-    EXECUTE FUNCTION public.lieu_trinh_sau_doi_dung();
-
--- ── 5. Quyền: chỉ backend gọi ───────────────────────────────────────────────
+-- ── 4. Quyền: chỉ backend gọi ───────────────────────────────────────────────
 REVOKE EXECUTE ON FUNCTION
     public.lieu_trinh_giu_tien_cua_chi_dinh(uuid, uuid),
     public.lieu_trinh_dong_giu(uuid, uuid),
     public.lieu_trinh_tra_truoc_so_buoi(uuid, uuid),
-    public.lieu_trinh_tra_het_chot_so(),
-    public.lieu_trinh_sau_doi_dung()
+    public.lieu_trinh_tra_het_chot_so()
 FROM PUBLIC, anon;

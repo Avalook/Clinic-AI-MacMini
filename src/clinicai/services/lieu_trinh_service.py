@@ -1389,9 +1389,9 @@ class LieuTrinhService:
         """Dừng liệu trình (Q5: mở lại được, không hạn dùng). Còn buổi đã trả
         chưa dùng → ``con_tra_truoc`` > 0: màn chỉ đường hoàn tiền ở quầy.
 
-        Buổi đã kê chưa bắt đầu, chưa thu lẻ rời gói (bỏ phủ) — trigger
-        ``lieu_trinh_sau_doi_dung`` (migration 20261031110000); mở lại / hoàn
-        tác dừng gắn lại đúng các buổi ấy."""
+        Buổi đã kê chưa bắt đầu VẪN là buổi của gói (đơn giá gói, phủ bằng
+        tiền trả trước nếu còn — Tuyền chốt 30/10/2026: dừng có hiệu lực sau
+        buổi đang kê); khách không làm thì huỷ chỉ định như thường."""
         lt = _uuid(lieu_trinh_id, "Mã liệu trình không hợp lệ.")
         ly = (str(ly_do).strip() or None) if ly_do is not None else None
         if ly is not None and len(ly) > LY_DO_TOI_DA:
