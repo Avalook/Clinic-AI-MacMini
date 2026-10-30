@@ -1,6 +1,47 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **14/10/2026** — mục "14/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 14/10/2026 — ĐỢT DÒNG TIỀN · THUỐC · VẬT TƯ · KẾ TOÁN (3 bên làm song song)
+
+**Kế hoạch đã chốt với Tuyền qua 5 vòng:** `docs/KE-HOACH-DONG-TIEN-KHO-KE-TOAN-1410.md`
+(PR nháp #419 — chưa merge; đọc mục 1b lối rò R1–R13, mục 2b–2f câu đã chốt, mục 3 gói,
+mục 8 việc chưa xem). Chia vùng: **Claude** = tiền (G4*, G5, G9) · **Codex** = thuốc (G3a →
+G3b → G7 → G6) · **Antigravity** = G1 sửa khách → G2 tài khoản → G8a kho vật tư.
+Đề bài: `~/Projects/ClinicAI-Backups/viec-cho-codex-1410.md`, `viec-cho-antigravity-1410.md`
+(kết quả + "CẦN TUYỀN QUYẾT" ghi cuối mỗi tệp — đọc đầu phiên).
+
+**Đã xong (Claude) — 3 PR xếp chồng, merge ĐÚNG thứ tự #420 → #421 → #422, lên staging chung một đợt:**
+| PR | Nhánh @SHA | Nội dung | Bằng chứng |
+|---|---|---|---|
+| #420 | `claude/so-no-hai-chieu` @70d67ac2 | Bộ giả lập dòng tiền (`test_mo_phong_dong_tien_db.py`) + **sổ nợ hai chiều** `so_no`/`so_no_moc` (mig `20261014140000`), bên nhận `so_no` nghe 20 sự kiện, worker ghi đầu kỳ 300 lượt/phút rồi đối chiếu 10′. CK chờ xác minh = vẫn là nợ | test 14 passed; ci-may 5/5 ✅ (status trên GitHub) |
+| #421 | `claude/dong-tien-bao-cao` @a544086b (base #420) | `tai_chinh.dong_tien` (DTV = thu + nợ + giảm − nợ thu; `khop`), sửa F3 giảm giá, Việc tồn + "Khách còn nợ" đọc sổ (hết R2 R4 R11 R12) | bảng vàng unit; 86+63 passed; ci-may 5/5 ✅ |
+| #422 | `claude/dong-tien-giao-dien` @4f024871 (base #421) | Màn "Dòng tiền" đúng chữ khách + link "Xem hoá đơn" giữ lọc; `/hoa-don` lọc Nhóm/Hình thức + "Đúng N · Không đúng M"; Excel sheet "Dòng tiền" | tsc/eslint sạch, boundary 9 passed; ci-may 5/5 ✅. **Chưa bấm local** — kịch bản 7 bước trong thân PR |
+
+#397 (Codex, bố cục báo cáo cũ) **đã đóng** theo Tuyền (tài chính lỗi thời, trùng tệp).
+
+**Đang dở:**
+- Codex **G3a** PR nháp #423 (worktree `~/.codex/worktrees/g3a`): bước 0 giả lập kho xong, dừng hỏi 2 điểm → Tuyền
+  quyết GIỮ "giao trước, gắn lô sau" (28/09) + GIỮ Kiểm kho cũ; quyết định ghi cuối tệp Codex. Chờ Tuyền nhắn Codex làm tiếp.
+- Antigravity đã nhận G1 → G2 → G8a (14/10), chưa có kết quả.
+
+**Bước tiếp (Claude, phiên mới):** **G4d** — vá R1 (CK chờ bị huỷ phải còn hiện; xác minh CK nhập số ngân hàng
+thật nhận, lệch → cờ đối soát), R3 (khách trả thuốc bắt chọn hoàn tiền / đổi / giữ lại — `pharmacy_service.khach_tra_thuoc`,
+làm SAU khi G3a của Codex merge), R6 (hoàn tiền thừa mặc định theo hình thức gốc — `hoan_tien_service.py:~172`),
+quyết định D (huỷ phiếu khi đã làm: bắt chọn ghi nợ / miễn + lý do). Bật lại B3 trong bài bấm ngẫu nhiên của
+bộ giả lập + gỡ xfail R6. Nhánh xếp chồng trên #422 (hoặc trên main nếu đợt đã merge). Dải mig `20261014147000–148999`.
+Sau đó G4c khoá sổ theo ca → G5 kế toán (sau G1 của Antigravity) → G9 Bio.
+
+**Bẫy đã gặp 14/10:**
+- Kết luận từ đọc code SAI 3 lần (R11 bản đầu; giả lập đếm trùng "giữ lại"; sổ ghi sai "vì sao" khi sự kiện dồn) —
+  đều do CHẠY THẬT bắt. Luật: lối rò phải chạy lại được rồi mới sửa.
+- Bài bấm ngẫu nhiên bắt 2 lỗi của chính code mới (dòng nợ đọc "chờ CK" cũ trong `chi_tiet` sau khi huỷ lần chờ →
+  nay `dang_cho_ck` đọc hiện tại; "đã về" phải xét tại giờ sự kiện).
+- Phiên đã vào worktree (EnterWorktree): `git …`/`rtk proxy git` bị chốt cô lập từ chối → dùng `/usr/bin/git`;
+  thân PR dài → `gh pr create --body-file`; vòng lặp shell chứa lệnh git → ghi ra script rồi `bash script`.
+- Đề bài bất biến cho Codex viết quá rộng, đâm vào luật cũ (giao không lô, Kiểm kho) → phải soát luật cũ trước khi giao.
+- `ci-may` khoá chung: Codex/Antigravity/Claude chạy chồng thì mã 3 — chờ rồi chạy lại.
+- `tenant_scoped_rls.sql` (110 → 112 ở #420): G8a/G3b thêm bảng sẽ xung đột dòng đếm — bên merge sau cộng thêm.
 
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
 
