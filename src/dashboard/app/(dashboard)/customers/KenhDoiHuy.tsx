@@ -9,7 +9,8 @@ import { chuLyDoHuy } from "@/lib/ly-do-huy";
 import { CHANNELS } from "../form-ui";
 
 export interface DoiHuyGanNhat {
-  loai: "DOI" | "HUY";
+  /** KHONG_DEN = đánh "Không đến" có lý do (30/10/2026). */
+  loai: "DOI" | "HUY" | "KHONG_DEN";
   ly_do: string | null;
   ma: string | null;
   luc: string | null;
@@ -40,8 +41,8 @@ export function nhanKenh(ma: string | null | undefined): string | null {
 /** Câu "Đổi lịch 24/09 10:30: chị bận đột xuất" — null khi chưa đổi/huỷ lần nào. */
 export function cauDoiHuy(d: DoiHuyGanNhat | null | undefined): string | null {
   if (!d) return null;
-  const lyDo = d.loai === "HUY" ? chuLyDoHuy(d.ma, d.ly_do) : d.ly_do;
-  const dau = d.loai === "HUY" ? "Huỷ lịch" : "Đổi lịch";
+  const lyDo = d.loai === "DOI" ? d.ly_do : chuLyDoHuy(d.ma, d.ly_do);
+  const dau = d.loai === "HUY" ? "Huỷ lịch" : d.loai === "KHONG_DEN" ? "Không đến" : "Đổi lịch";
   return `${dau}${d.luc ? ` ${ngayGio(d.luc)}` : ""}: ${lyDo || "chưa ghi lý do"}`;
 }
 

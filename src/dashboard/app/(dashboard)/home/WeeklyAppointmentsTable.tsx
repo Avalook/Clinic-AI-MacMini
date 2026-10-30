@@ -26,8 +26,11 @@ import {
   DoiDichVuKhamTaiCho,
   GhiChamSocTaiCho,
   HuyLichTaiCho,
+  KhongDenTaiCho,
   type LichTaiCho,
 } from "../_lam-viec/ThaoTacLichTaiCho";
+import { moLaiLich } from "../_lam-viec/mo-lai-lich";
+import ThongBaoHoanTac, { type ThongBao as ThongBaoCoHoanTac } from "@/components/ui/ThongBaoHoanTac";
 import { PopupHanhTrinhKhach } from "../_lam-viec/HanhTrinhKhach";
 import { hrefDatLich, hrefHoSoKhach, hrefThemKhach } from "../../../lib/lien-ket-lich";
 import { dayLabel, fmtDayMonth, todayVn } from "../../../lib/roster";
@@ -370,8 +373,9 @@ function dongMenu(el: HTMLElement) {
   el.closest("details")?.removeAttribute("open");
 }
 
-/** Thao tác tại chỗ đang mở từ menu ⋯ (29/09/2026; "dichVu" = V5 30/09). */
-type LoaiTaiCho = "huy" | "goi" | "dichVu";
+/** Thao tác tại chỗ đang mở từ menu ⋯ (29/09/2026; "dichVu" = V5 30/09;
+ *  "khongDen" = nút Không đến, 30/10). */
+type LoaiTaiCho = "huy" | "goi" | "dichVu" | "khongDen";
 
 /** Dòng lịch → dữ liệu vẽ đầu hộp của thao tác tại chỗ. */
 function lichTaiCho(a: WeekApptRow): LichTaiCho | null {
@@ -595,6 +599,7 @@ export default function WeeklyAppointmentsTable({
     neo: HTMLElement;
   } | null>(null);
   const [thongBao, setThongBao] = useState<string | null>(null);
+  const [hoanTac, setHoanTac] = useState<ThongBaoCoHoanTac | null>(null);
   // Bảng này gom lịch theo KHUNG — độ dài khung và số chỗ vãng lai là cấu hình
   // của phòng khám, nên không có bản mặc định ở đây.
   const policy = useBookingPolicy();
@@ -641,7 +646,7 @@ export default function WeeklyAppointmentsTable({
 
   async function act(
     id: string,
-    action: "checkin" | "undo_checkin" | "no_show",
+    action: "checkin" | "undo_checkin",
     xacMinhCach?: MaXacMinh,
   ) {
     if (busyId) return;
@@ -664,6 +669,14 @@ export default function WeeklyAppointmentsTable({
     setThongBao(cau);
     router.refresh();
   }
+
+  /** Huỷ / Không đến xong → toast "Hoàn tác" mở lại đúng lịch ấy (30/10/2026):
+   *  dòng rời bảng ngay (lịch chết không giữ chỗ), bấm nhầm thì còn đường về. */
+  const xongCoHoanTac = (id: string) => (cau: string) => {
+    setThongBao(null);
+    setHoanTac({ cau, goi: () => moLaiLich(id) });
+    router.refresh();
+  };
 
   // Gom nhầm khung thì hai lịch khác giờ nằm chung một dòng "Khung giờ" — sai
   // im lặng, tệ hơn không hiện.
@@ -1046,10 +1059,16 @@ export default function WeeklyAppointmentsTable({
                                         {busyId === a.id ? "..." : "Check-in"}
                                       </NutCheckIn>
                                       {/* Viền bo quanh "Không đến" — chữ trần cạnh
-                                          một nút có nền trông như chú thích. */}
+                                          một nút có nền trông như chú thích.
+                                          Bấm → hộp nhỏ chọn lý do, chạm là ghi
+                                          (30/10/2026); xong có toast Hoàn tác. */}
                                       <button
                                         type="button"
-                                        onClick={() => act(a.id, "no_show")}
+                                        onClick={(e) => {
+                                          const tr = e.currentTarget.closest("tr");
+                                          const lich = lichTaiCho(a);
+                                          if (tr && lich) setTaiCho({ loai: "khongDen", lich, neo: tr });
+                                        }}
                                         disabled={busyId === a.id}
                                         className="rounded-chip border border-line px-2 py-0.5 text-label font-medium text-ink-muted hover:border-danger hover:text-danger disabled:opacity-50"
                                       >
@@ -1141,7 +1160,15 @@ export default function WeeklyAppointmentsTable({
           lich={taiCho.lich}
           neo={taiCho.neo}
           onDong={() => setTaiCho(null)}
-          onXong={daDoiLich}
+          onXong={xongCoHoanTac(taiCho.lich.id)}
+        />
+      ) : taiCho?.loai === "khongDen" ? (
+        <KhongDenTaiCho
+          key={`khong-den-${taiCho.lich.id}`}
+          lich={taiCho.lich}
+          neo={taiCho.neo}
+          onDong={() => setTaiCho(null)}
+          onXong={xongCoHoanTac(taiCho.lich.id)}
         />
       ) : taiCho?.loai === "dichVu" ? (
         <DoiDichVuKhamTaiCho
@@ -1160,6 +1187,11 @@ export default function WeeklyAppointmentsTable({
           onXong={daDoiLich}
         />
       ) : null}
+      <ThongBaoHoanTac
+        thongBao={hoanTac}
+        onDong={() => setHoanTac(null)}
+        onHoanTacXong={() => router.refresh()}
+      />
       {hanhTrinh ? (
         <PopupHanhTrinhKhach
           visitId={hanhTrinh.id}

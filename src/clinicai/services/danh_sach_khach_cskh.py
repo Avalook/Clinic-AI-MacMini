@@ -56,6 +56,17 @@ COT_KENH_DOI_HUY = """
              WHERE a.clinic_id = p.clinic_id
                AND a.clinic_patient_id = p.clinic_patient_id
                AND a.status = 'CANCELLED'
+            UNION ALL
+            -- KHÔNG ĐẾN có lý do (30/10/2026, cùng cột với huỷ). Mốc = lần ghi
+            -- cuối của lịch (không đến không có cột giờ riêng; lịch chết rồi
+            -- thì không ai ghi nữa). Không đến kiểu cũ (không mã) không hiện —
+            -- giữ nguyên màn của khách cũ.
+            SELECT 'KHONG_DEN', a.cancellation_reason, a.ly_do_huy_ma, a.updated_at
+              FROM appointment a
+             WHERE a.clinic_id = p.clinic_id
+               AND a.clinic_patient_id = p.clinic_patient_id
+               AND a.status = 'NO_SHOW'
+               AND a.ly_do_huy_ma IS NOT NULL
        ) x
       ORDER BY x.luc DESC NULLS LAST LIMIT 1) AS doi_huy_gan_nhat
 """

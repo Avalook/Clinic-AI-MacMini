@@ -416,6 +416,7 @@ MODULE: dict[str, Module] = {
                 "appointment.service_switched",
                 "appointment.cancelled",
                 "appointment.no_show",
+                "appointment.reopened",
                 "appointment.confirmed_by_call",
                 "visit.checked_out",
                 "visit.left_early",
@@ -712,9 +713,11 @@ MODULE: dict[str, Module] = {
                 "appointment.service_switched",
                 "appointment.cancelled",
                 "appointment.no_show",
+                # Hoàn tác huỷ / không đến (30/10/2026).
+                "appointment.reopened",
                 "appointment.confirmed_by_call",
             ],
-            bang=["appointment", "appointment_doi_lich"],
+            bang=["appointment", "appointment_doi_lich", "appointment_hoan_tac_huy"],
             quyen=["booking.create", "booking.manage"],
         ),
         Module(

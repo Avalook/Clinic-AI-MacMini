@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:44. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:45. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -31,7 +31,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/cskh/tuong-tac`, `/api/appointments`
 - gọi thẳng backend (server): `/api/v1/appointments/cho-xep-bac-si`, `/api/v1/staff/bac-si-dat-duoc`
 - service: TuongTacCskhService.{lich_su, ghi} · lich_hen_doc.{lich_sap_toi, lich_trong_ngay} · BookingService.{create, apply_action} · lich_truc_co_so
-- test: test_so_tuong_tac_cskh.py, test_lich_hen_doc_db.py, test_booking_service.py, test_chan_dat_ngoai_khung_ca.py, test_huy_lich_tai_cho_db.py (+2)
+- test: test_so_tuong_tac_cskh.py, test_lich_hen_doc_db.py, test_booking_service.py, test_chan_dat_ngoai_khung_ca.py, test_khong_den_va_hoan_tac_huy_db.py (+2)
 
 ### `/audit-log` — Lịch sử thao tác
 - page: `src/dashboard/app/(dashboard)/audit-log/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
@@ -175,7 +175,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/home` — Trang chủ
 - page: `src/dashboard/app/(dashboard)/home/page.tsx` · quyền: ?
-- thành phần: app/(dashboard)/WeekNav.tsx, CotTongQuan.tsx, VisitStatusBoard.tsx, VisitStatusRealtime.tsx, WeeklyAppointmentsTable.tsx, WorkRosterTable.tsx, lich-hen-ngay.ts, app/(dashboard)/nav-items.ts (+8)
+- thành phần: app/(dashboard)/WeekNav.tsx, CotTongQuan.tsx, VisitStatusBoard.tsx, VisitStatusRealtime.tsx, WeeklyAppointmentsTable.tsx, WorkRosterTable.tsx, lich-hen-ngay.ts, app/(dashboard)/nav-items.ts (+9)
 - gọi API Next: `/api/appointments/doi-lich-nhanh`, `/api/appointments/doi-dich-vu-kham`, `/api/catalog/dich-vu-dat-lich`, `/api/cskh/tuong-tac`, `/api/appointments/luoi-ngay`, `/api/appointments`, `/api/luot-kham`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/home/bang-dieu-khien`
 - service: doi_lich_nhanh.o_doi_lich · BookingService.{doi_lich_nhanh, doi_dich_vu_kham, create, apply_action} · doi_dich_vu_kham.o_doi_dich_vu · dich_vu_dat_lich.doc · TuongTacCskhService.{lich_su, ghi} · capacity_service (+19 service)
@@ -395,7 +395,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/reception/queue` — Tiếp đón khách
 - page: `src/dashboard/app/(dashboard)/reception/queue/page.tsx` · quyền: lego `tiep_don` (Tiếp đón khách · mặc định: Lễ tân)
-- thành phần: app/(dashboard)/LiveBoardSync.tsx, app/(dashboard)/WeekNav.tsx, app/(dashboard)/home/WeeklyAppointmentsTable.tsx, app/(dashboard)/home/lich-hen-ngay.ts, ManTiepDon.tsx, QueueBoard.tsx, app/(dashboard)/BookingPolicyContext.tsx, app/(dashboard)/_lam-viec/DoiLichTaiCho.tsx (+9)
+- thành phần: app/(dashboard)/LiveBoardSync.tsx, app/(dashboard)/WeekNav.tsx, app/(dashboard)/home/WeeklyAppointmentsTable.tsx, app/(dashboard)/home/lich-hen-ngay.ts, ManTiepDon.tsx, QueueBoard.tsx, app/(dashboard)/BookingPolicyContext.tsx, app/(dashboard)/_lam-viec/DoiLichTaiCho.tsx (+10)
 - gọi API Next: `/api/appointments/doi-lich-nhanh`, `/api/lam-them`, `/api/appointments/doi-dich-vu-kham`, `/api/catalog/dich-vu-dat-lich`, `/api/cskh/tuong-tac`, `/api/lieu-trinh/chip`, `/api/appointments/luoi-ngay`, `/api/reception/checkout`, `/api/appointments`, `/api/luot-kham`
 - gọi thẳng backend (server): `/api/v1/reception/danh-sach`, `/api/v1/home/lich-hen-tuan`
 - service: doi_lich_nhanh.o_doi_lich · BookingService.{doi_lich_nhanh, doi_dich_vu_kham, create, apply_action} · LamThemTaiQuayService.{cau_hinh, nut_cho_luot, dat, dong_dich_vu, +1} · doi_dich_vu_kham.o_doi_dich_vu · dich_vu_dat_lich.doc · TuongTacCskhService.{lich_su, ghi} (+26 service)
@@ -611,7 +611,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/appointments/lich-ngay` → `src/clinicai/api/v1/routers/booking.py:lich_ngay` → lich_hen_doc.lich_trong_ngay
 - POST `/api/v1/appointments/bookings` → `src/clinicai/api/v1/routers/booking.py:create_booking` → BookingService.create
 - PATCH `/api/v1/appointments/{appointment_id}` → `src/clinicai/api/v1/routers/booking.py:apply_appointment_action` → BookingService.apply_action
-- test: src/tests/services/test_lich_hen_doc_db.py, src/tests/services/test_huy_lich_tai_cho_db.py, src/tests/test_booking_service.py (+2)
+- test: src/tests/services/test_lich_hen_doc_db.py, src/tests/services/test_khong_den_va_hoan_tac_huy_db.py, src/tests/test_booking_service.py (+2)
 - màn dùng: /appointments, /appointments/cho-xep-bac-si, /ban-kham, /ban-kham/[phong], /customers, /home (+5)
 
 #### `/api/appointments/cho-trong-tuan` · `src/dashboard/app/api/appointments/cho-trong-tuan/route.ts`
@@ -1870,7 +1870,7 @@ Danh mục sự kiện: `src/clinicai/events/catalogue.py` (mỗi sự kiện kh
 | `src/clinicai/events/consumers/cong_no.py` | `cong_no` | `payment.medicine_collected`, `payment.service_collected` | sự kiện → `xet_da_thu` |
 | `src/clinicai/events/consumers/dieu_tri.py` | `dieu_tri_sinh_chi_dinh` | `visit.routed` | sự kiện → `sinh_chi_dinh` |
 | `src/clinicai/events/consumers/doi_tac.py` | `doi_tac_nhan_viec` | `partner.sample_collected`, `payment.service_collected`, `service.completed`, `service_selection.confirmed`, `visit.defer_payment_set` | sự kiện → `nhan_viec_doi_tac` |
-| `src/clinicai/events/consumers/dong_thoi_gian.py` | `dong_thoi_gian_luot` | `appointment.booked`, `appointment.cancelled`, `appointment.confirmed_by_call`, `appointment.no_show`, `appointment.rescheduled`, `appointment.service_switched`, `cong_no.da_thu`, `cong_no.ghi`, `cong_no.huy`, `consultation.completed`, `consultation.handed_over`, `consultation.reopened`, `consultation.resumed`, `consultation.started`, `followup.scheduled` (+69) | sự kiện → `ghi_dong_thoi_gian` |
+| `src/clinicai/events/consumers/dong_thoi_gian.py` | `dong_thoi_gian_luot` | `appointment.booked`, `appointment.cancelled`, `appointment.confirmed_by_call`, `appointment.no_show`, `appointment.reopened`, `appointment.rescheduled`, `appointment.service_switched`, `cong_no.da_thu`, `cong_no.ghi`, `cong_no.huy`, `consultation.completed`, `consultation.handed_over`, `consultation.reopened`, `consultation.resumed`, `consultation.started` (+70) | sự kiện → `ghi_dong_thoi_gian` |
 | `src/clinicai/events/consumers/hanh_trinh.py` | `hanh_trinh_luot_kham` | `appointment.service_switched`, `consultation.handed_over`, `partner.sample_collected`, `payment.medicine_collected`, `payment.service_collected`, `service.completed`, `service_order.desk_added`, `service_order.restored`, `service_selection.confirmed`, `visit.checked_in`, `visit.checked_out`, `visit.defer_payment_set`, `visit.left_early`, `vitals.recorded` | sự kiện → `xu_ly_hanh_trinh` |
 | `src/clinicai/events/consumers/hanh_trinh.py` | `hanh_trinh.nhac_check_out` | — | hẹn giờ → `nhac_check_out` |
 | `src/clinicai/events/consumers/hanh_trinh.py` | `hanh_trinh.ket_qua_doi_tac_qua_han` | — | hẹn giờ → `ket_qua_doi_tac_qua_han` |
@@ -1893,8 +1893,9 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `agent_tom_tat` | `20261009870000_llm_chi_phi.sql` | 0 |
 | `anh_chuyen_khoan` | `20261002300000_thu_nhieu_hinh_thuc.sql` | 0 |
 | `app_credential` | `20260806000002_app_credential.sql` | 1 |
-| `appointment` | `20260714000001_baseline_schema.sql` | 9 |
+| `appointment` | `20260714000001_baseline_schema.sql` | 10 |
 | `appointment_doi_lich` | `20260924000004_ket_qua_chuong_doi_lich.sql` | 0 |
+| `appointment_hoan_tac_huy` | `20261031100000_khong_den_co_ly_do_va_hoan_tac_huy.sql` | 0 |
 | `block_budget` | `20260714000001_baseline_schema.sql` | 0 |
 | `booking_channel` | `20260714000001_baseline_schema.sql` | 1 |
 | `canh_bao` | `20260927000004_loi_va_canh_bao.sql` | 0 |

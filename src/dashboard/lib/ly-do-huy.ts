@@ -1,4 +1,5 @@
-// Lý do huỷ lịch — danh mục dùng chung cho MỌI màn có nút huỷ.
+// Lý do huỷ lịch / khách không đến — danh mục dùng chung cho MỌI màn có nút
+// huỷ hoặc nút "Không đến" (cùng cột `ly_do_huy_ma`, phân biệt bằng trạng thái).
 //
 // Ba mã đầu là BA THỜI ĐIỂM trong vòng đời lịch hẹn, không phải ba cách nói của
 // "khách bận" — và mỗi thời điểm tốn của phòng khám một khoản khác nhau: báo
@@ -19,16 +20,29 @@ export const LY_DO_HUY: Record<string, string> = {
   // Máy ghi khi xoá ca trực (RosterService.remove); người cũng chọn được khi
   // huỷ tay vì đúng lý do ấy. Khách không làm gì cả — đừng đếm vào BAO_*.
   BAC_SI_DOI_LICH: "Bác sĩ đổi lịch làm việc — phòng khám huỷ để đặt lại",
+  // KHÔNG ĐẾN (30/10/2026) — cùng cột, khâu khác: tới giờ mà khách không tới.
+  KHONG_LIEN_LAC_DUOC: "Gọi không liên lạc được",
+  KHACH_BAO_BAN: "Khách báo bận, không đến được",
+  QUEN_LICH: "Khách quên lịch hẹn",
   KHAC: "Lý do khác (tự viết)",
 };
 
-/** Thứ tự vẽ trên ô chọn — theo thời điểm xảy ra, sớm trước. */
+/** Thứ tự vẽ trên ô chọn lý do HUỶ — theo thời điểm xảy ra, sớm trước.
+ *  Khớp `MA_HUY` của máy chủ (bài chống lệch). */
 export const LY_DO_HUY_THU_TU: string[] = [
   "BAO_KHI_XAC_NHAN",
   "BAO_KHI_NHAC_HEN",
   "BAO_VAO_GIO_KHAM",
   "DAT_TRUNG",
   "BAC_SI_DOI_LICH",
+  "KHAC",
+];
+
+/** Thứ tự vẽ chip lý do KHÔNG ĐẾN (nút "Không đến"). Khớp `MA_KHONG_DEN`. */
+export const LY_DO_KHONG_DEN_THU_TU: string[] = [
+  "KHONG_LIEN_LAC_DUOC",
+  "KHACH_BAO_BAN",
+  "QUEN_LICH",
   "KHAC",
 ];
 

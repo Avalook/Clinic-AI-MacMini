@@ -28,8 +28,10 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.core.trang_thai_lich import mo_lai_duoc
 from clinicai.permissions.can import can
 from clinicai.services.cskh_service import clinic_today
 from clinicai.services.hen_tai_kham_service import chi_tiet_viec, tinh_trang
@@ -220,7 +222,9 @@ class GhiChuKhachService:
                        st.name AS dich_vu, d.full_name AS bac_si,
                        -- MÃ + chữ: chọn mã mà không gõ chữ (đường thường gặp
                        -- nhất) thì chỉ có mã — đọc riêng chữ là mất lý do.
-                       a.ly_do_huy_ma, a.cancellation_reason AS ly_do_huy
+                       a.ly_do_huy_ma, a.cancellation_reason AS ly_do_huy,
+                       EXISTS (SELECT 1 FROM visit v WHERE v.appointment_id = a.id
+                                  AND v.clinic_id = a.clinic_id) AS co_luot
                   FROM appointment a
                   LEFT JOIN service_type st ON st.id = a.service_type_id
                   LEFT JOIN staff d ON d.id = a.doctor_id
@@ -368,6 +372,10 @@ class GhiChuKhachService:
                     **_lich(r),
                     "ly_do_huy_ma": r["ly_do_huy_ma"],
                     "ly_do_huy": r["ly_do_huy"],
+                    # Huỷ / không đến nhầm → nút Hoàn tác (lệnh tự kiểm lại đủ).
+                    "mo_lai_duoc": mo_lai_duoc(
+                        r["status"], r["co_luot"], r["slot_start"], now_vn()
+                    ),
                 }
                 for r in da_qua
             ],
