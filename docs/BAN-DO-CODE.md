@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:40. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 11:29. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1965,7 +1965,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `lich_truc_anh` | `20261006300000_lich_truc_phien_ban.sql` | 0 |
 | `lich_truc_thay_doi` | `20261006300000_lich_truc_phien_ban.sql` | 0 |
 | `lieu_trinh` | `20261008100000_lieu_trinh.sql` | 0 |
-| `lieu_trinh_buoi` | `20261008100000_lieu_trinh.sql` | 1 |
+| `lieu_trinh_buoi` | `20261008100000_lieu_trinh.sql` | 0 |
 | `lieu_trinh_lich_su` | `20261008100000_lieu_trinh.sql` | 0 |
 | `lieu_trinh_tra_truoc` | `20261008110000_lieu_trinh_tien.sql` | 1 |
 | `llm_lan_goi` | `20261009870000_llm_chi_phi.sql` | 0 |
