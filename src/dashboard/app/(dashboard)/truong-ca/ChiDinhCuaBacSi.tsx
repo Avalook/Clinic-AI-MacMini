@@ -274,6 +274,8 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                 <div className="mt-1.5">
                   <NutHoanTac
                     nhan="Bỏ chỉ định"
+                    nhanXacNhan="Bỏ chỉ định"
+                    nhanLyDo="Lý do bỏ chỉ định"
                     variant="danger"
                     tieuDe={`Bỏ chỉ định “${x.service_name}”?`}
                     moTa="Bỏ chỉ định này (chỉ định sai chỗ) — quầy thu cập nhật ngay"
