@@ -37,6 +37,8 @@ interface DuLieuTomTat {
  tai_chinh?: TaiChinh;
   tong: Tien & { so_phieu_thu: number; so_phieu_huy: number; so_phieu_hoan: number };
   theo_hinh_thuc: (Tien & { ma: string; ten: string })[];
+  /** Chuyển khoản tách theo tài khoản nhận (31/10/2026); cộng lại = dòng Chuyển khoản. */
+  theo_tai_khoan?: (Tien & { id: string | null; ten: string })[];
   theo_loai: (Tien & { ma: string; ten: string })[];
   khach: { so_luot_kham: number; so_luot_da_thu: number; so_khach_da_thu: number };
   can_xu_ly?: {
@@ -129,7 +131,21 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
         })}
       </Nhom>
       <Nhom ten="Phương thức thanh toán">
-        {hinhThuc.map(o => <Dong key={o.ma} nhan={o.ten} giaTri={tien("thuc_thu" in o ? o.thuc_thu : undefined)} />)}
+        {hinhThuc.map(o => (
+          <div key={o.ma}>
+            <Dong nhan={o.ten} giaTri={tien("thuc_thu" in o ? o.thuc_thu : undefined)} />
+            {o.ma === "TRANSFER" && (data?.theo_tai_khoan?.length ?? 0) > 0 ? (
+              <ul aria-label="Chuyển khoản theo tài khoản" className="border-b border-hairline pb-2">
+                {data?.theo_tai_khoan?.map(t => (
+                  <li key={t.id ?? "chua"} className="flex items-center justify-between gap-4 px-3 py-1 pl-6 text-meta text-ink-muted">
+                    <span className="min-w-0">{t.ten}</span>
+                    <span className="shrink-0 tabular-nums">{tien(t.thuc_thu)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ))}
       </Nhom>
       {dayDu ? <Nhom ten="Dòng tiền">
         {/* Thực thu = Dòng tiền vào − Trả lại − Nợ − Giảm giá + Nợ thu được (máy chủ tính). */}

@@ -32,6 +32,7 @@ import {
   Calculator,
   Trash2,
   Boxes,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -259,6 +260,13 @@ export const NAV: NavItem[] = [
     href: "/settings/mau-ket-qua",
     label: "Mẫu kết quả",
     icon: FileSpreadsheet,
+  },
+  // Tài khoản ngân hàng nhận chuyển khoản (31/10/2026): quầy thu chọn khi khách
+  // chuyển khoản; báo cáo tách tiền theo từng tài khoản.
+  {
+    href: "/settings/tai-khoan-nhan",
+    label: "Tài khoản nhận chuyển khoản",
+    icon: Landmark,
   },
   // Hồ sơ CON NGƯỜI, tách khỏi "Cấu trúc phòng khám" ở trên — màn kia gán nhân
   // viên vào trạm công việc, màn này là tên/vai/cơ sở/hợp đồng của từng người.
@@ -811,6 +819,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
       "/settings/day-noi",
       "/settings/booking-policy",
       "/settings/mau-ket-qua",
+      "/settings/tai-khoan-nhan",
       "/cashier/dich-vu",
       "/cashier/thuoc",
       "/reports",
