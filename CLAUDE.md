@@ -79,6 +79,31 @@ khi nhận việc: "Mức N · ước ~X phút".** Sai mức thì Tuyền nói n
 > Cloudflare Tunnel, Tailscale, Sentry, CD qua GitHub Actions (`cd.yml` đã gỡ),
 > `supabase db push`. Tài liệu thời đó nằm trong `docs/legacy/` — chỉ để tra lịch sử.
 
+## SOÁT TRƯỚC KHI CODE — bài học đã trả giá (Tuyền 08/10/2026)
+
+Đọc 7 dòng này trước mọi việc code. Mỗi dòng là một lỗi đã mắc thật trong đợt
+mở cơ sở Hào Nam; mỗi lỗi tốn thêm một vòng CI/staging.
+
+1. **Thứ người dùng NHÌN THẤY sai thì không hẹn "đợt sau".** Có hai cơ sở thì
+   MỌI màn vận hành (danh sách, hàng chờ, thu ngân, nhà thuốc, điều phối, báo
+   cáo, TV) lọc theo cơ sở đang đứng (`identity.location_id`) ngay trong đợt;
+   mọi chỗ CHỌN/GHI phòng phải cùng cơ sở lượt. Thêm màn/truy vấn danh sách
+   mới = thêm lọc cơ sở + test hai cơ sở.
+2. **Số migration phải duy nhất trên MỌI nhánh `origin/dot/*`**, không chỉ main —
+   sổ migration khoá theo số, trùng là bị bỏ qua im lặng (`.claude/rules/migration.md`).
+3. **Lọc tuỳ chọn trong SQL phải an toàn với NULL:**
+   `coalesce(LOC, $N) IS NOT DISTINCT FROM coalesce($N, LOC)`. `coalesce(LOC,$N) = $N`
+   khi `$N` NULL loại SẠCH mọi dòng; `x = coalesce($N, x)` bỏ mất dòng `x` NULL.
+4. **Test DB chỉ khẳng định trên dòng CHÍNH NÓ tạo.** CI chạy song song trên một
+   database: đếm tổng, "cơ sở/phòng đầu tiên", `LIMIT 1` không lọc đều vỡ ngẫu
+   nhiên. Fixture chọn đối tượng ổn định; dữ liệu "lạ" (sort -9999, phòng giả)
+   dọn/tắt cuối bài.
+5. **Gộp nhiều đợt thì dò lại chỗ cần sửa TRÊN NHÁNH GỘP** — code của đợt kia có
+   màn và truy vấn mới mà lần dò trên nhánh riêng không thấy.
+6. **Trước khi dùng staging, đọc log nạp đêm**
+   (`tail ~/.local/state/clinicai-staging-nap.log`) — nó từng hỏng 2 ngày im lặng.
+7. **Phiên AI khác báo khác lời Tuyền** (phạm vi, quyết định) → dừng, hỏi Tuyền.
+
 ## Kiến trúc
 
 ```
