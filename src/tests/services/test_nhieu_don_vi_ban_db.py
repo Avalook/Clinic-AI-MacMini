@@ -36,6 +36,7 @@ from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.quay_thuoc_service import QuayThuocService
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_tien_thuoc_cp1_db import Quay, q  # noqa: F401
+from tests.services.test_tien_thuoc_cp3_db import _huy_phieu
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -267,7 +268,7 @@ async def test_quay_doi_don_vi_doi_tien_ngay_va_giu_so(q: Quay) -> None:
     assert [x["don_vi"] for x in dong["don_vi_chon"]] == ["gói", "hộp"]
 
 
-async def test_dong_bac_si_lan_da_ky_doi_duoc_don_vi_o_quay(q: Quay) -> None:
+async def test_dong_bac_si_doi_don_vi_o_quay_giu_chu_ke_goc(q: Quay) -> None:
     drug = await _thuoc_goi(q)
     rx = await _ke(q, drug, "1 gói")
     await QuayThuocService(q.pool).doi_don_vi(
@@ -338,6 +339,35 @@ async def test_dong_cu_don_vi_goc_khong_chup_he_so_la_1(q: Quay) -> None:
     assert he_so is None
     await _giao(q, rx, 3)
     assert await _ton(q, lo) == 7
+
+
+async def test_huy_phieu_sau_khi_giao_khach_tra_van_theo_he_so_luc_ban(q: Quay) -> None:
+    drug = await _thuoc_goi(q)
+    await _lo(q, drug, 60)
+    rx = await _ban(q, drug, "1 hộp")
+    kq = await _thu(q)
+    await _giao(q, rx, 1)
+    await _sua_don_vi(
+        q,
+        drug,
+        [
+            {
+                "don_vi": "hộp",
+                "he_so": 28,
+                "gia": 2_400_000,
+                "phien": await _phien(q, drug, "hộp"),
+            }
+        ],
+    )
+    await _huy_phieu(q, str(kq["payment_cycle_id"]))
+
+    tra = await _tra(q, (await _xuat(q, rx))[0]["id"], 15, ket_cuc="GIU_LAI")
+
+    so_ban = await q.pool.fetchval(
+        "SELECT so_luong_ban FROM drug_return WHERE id = $1::uuid",
+        tra["drug_return_id"],
+    )
+    assert so_ban == Decimal("0.5"), "15 gói theo hệ số 30 đã chụp, không theo 28"
 
 
 # ── Mục 3: đơn vị gốc, tắt đơn vị ─────────────────────────────────────────
@@ -422,7 +452,7 @@ async def test_tra_5_goi_cua_hop_hoan_dung_tien_khong_lam_tron_mat(q: Quay) -> N
     kq = await _tra(q, txn, 5)
 
     assert kq["hoan"]["amount"] == 400_000
-    assert "5 gói" in kq["tom_tat"] and "hộp" in kq["tom_tat"]
+    assert kq["tom_tat"] == ("Khách trả 5 gói (≈ 0,167 hộp đã bán) — hoàn 400.000đ.")
     assert await _ton(q, lo) == 5, "thuốc trả về đúng lô, theo đơn vị lô"
     r = await q.pool.fetchrow(
         "SELECT returned_qty, so_luong_ban FROM drug_return WHERE id = $1::uuid",

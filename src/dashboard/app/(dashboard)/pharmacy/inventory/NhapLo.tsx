@@ -10,7 +10,8 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { INPUT, LABEL } from "../../form-ui";
-import type { ThuocKho } from "./DanhMucKho";
+import ODonVi from "../../ODonVi";
+import { donViCuaThuoc, type ThuocKho } from "./DanhMucKho";
 import { guiKho } from "./gui-kho";
 import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
 import QuyDoiNhap from "./QuyDoiNhap";
@@ -141,7 +142,19 @@ export default function NhapLo({
         {o("so_lo", "Số lô")}
         {o("han", "Hạn dùng (có thể nhập sau)", "date")}
         {o("so_luong", "Số lượng nhập")}
-        {o("don_vi", "Đơn vị")}
+        <div className="block">
+          <span className={LABEL}>Đơn vị</span>
+          <ODonVi
+            value={f.don_vi}
+            onChange={(v) => setF((cu) => ({ ...cu, don_vi: v }))}
+            cuaThuoc={donViCuaThuoc(chon)}
+          />
+          {chon?.chua_khai_don_vi ? (
+            <span role="status" className="mt-1 block text-meta text-warning">
+              Thuốc này chưa khai đơn vị — khai ở tab Danh mục thuốc để bán và trừ kho đúng.
+            </span>
+          ) : null}
+        </div>
         {o("gia_nhap", "Giá nhập (đ / đơn vị)")}
         {o("ghi_chu", "Ghi chú (nhà cung cấp, số hoá đơn…)")}
       </div>

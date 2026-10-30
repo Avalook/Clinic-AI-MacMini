@@ -90,8 +90,18 @@ khách: `S/hanh_trinh_khach_service.py` `dong_dich_vu_kham`. Test: `T/services/t
 Chặn trừ sai tồn: kiểm kho lệch khi thuốc còn "đã giao chưa gắn lô" (`kiem_kho`), huỷ lấn phần đã bán chưa giao
 (`pharmacy_service._ghi_kho_don_gian`, `lo_thuoc_service.huy_lo`) — test `T/services/test_kho_chan_tru_sai_ton_db.py`.
 
+**Nhiều đơn vị bán + giá theo đơn vị (Tuyền 31/10/2026)** — trên màn `/pharmacy/inventory` tab Danh mục → Sửa →
+"Đơn vị bán thêm" (đơn vị, hệ số về đơn vị gốc, giá; giá trống máy lưu rõ hệ số × giá gốc; "Tắt bán" thay cho xoá).
+Đơn vị gốc = `drug_catalog.don_vi_ban`, giá gốc = `unit_price`, không đổi nghĩa; đơn vị thêm ở `thuoc_quy_doi` (`gia`,
+`dang_ban`, migration `20261101200000`). Số trên dòng đơn / hoá đơn / hoàn tiền theo ĐƠN VỊ ĐÃ BÁN, số ở lô theo ĐƠN VỊ
+LÔ; chỉ chỗ chạm tới cả hai mới đổi. Luật ở MỘT tệp `S/don_vi_thuoc.py` (`BangDonVi` nhận diện đơn vị + giá,
+`QuyDoiDong` đổi dòng ↔ lô, `cau_thieu_quy_doi` câu báo). Hệ số lúc thu nằm ở `payment_bill_line.he_so` (đã thu thì sửa
+danh mục không đổi gì), khách trả ghi thêm `drug_return.so_luong_ban`. Quầy đổi đơn vị: `QuayThuocService.doi_don_vi`,
+`D/thu-ngan/ChinhDonQuay.tsx`. Ô đơn vị mọi màn: `D/ODonVi.tsx` (SearchSelect `choGoTu`). Form: `D/pharmacy/inventory/SuaDonViBan.tsx`,
+`S/pharmacy_service.py` `luu_thuoc`. Test: `T/services/test_nhieu_don_vi_ban_db.py`, FT `nhieu-don-vi-ban-boundary.test.mts`.
+
 **Giao thuốc: máy tự chọn lô, trừ kho ngay lúc giao (Tuyền 27/10/2026)** — bấm "Giao thuốc" không chỉ định lô thì
-`S/pharmacy_service.py` `cap_phat` → `_giao_tu_chon_lo`: lô QUẦY đúng thuốc, đúng cơ sở của lượt, CÙNG đơn vị, còn hạn, xếp hạn
+`S/pharmacy_service.py` `cap_phat` → `_giao_tu_chon_lo`: lô QUẦY đúng thuốc, đúng cơ sở của lượt, cùng đơn vị hoặc đổi được qua hệ số, còn hạn, xếp hạn
 sớm nhất trước (không hạn xếp cuối), trừ theo `drug_batch_kha_dung` và trừ thêm các lần giao đang chờ gán lô; một lần giao có thể trừ
 hai lô. Thiếu lô / thiếu tồn → phần còn lại VẪN giao, ghi `thuoc_giao_chua_gan_lo` (màn "Đã giao, chưa trừ kho" = hàng đợi
 ngoại lệ, `gan_lo_da_giao`). Kết quả trả `lo_da_tru`, `chua_tru_kho`, `tom_tat` — màn `D/pharmacy/DongThuoc.tsx` chỉ hiện câu ấy.

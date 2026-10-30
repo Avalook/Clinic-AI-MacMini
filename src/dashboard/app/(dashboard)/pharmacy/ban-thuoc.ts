@@ -58,6 +58,8 @@ export interface PhanLo {
 export interface LanGiao {
   dispense_txn_id: string;
   batch_code: string;
+  /** Đơn vị của lô: bán 1 hộp thì lần giao ghi 30 gói. */
+  don_vi?: string | null;
   so_luong: number;
   luc: string;
   da_tra: number;
@@ -85,6 +87,12 @@ export interface DongDon {
   lo_goi_y: LoGoiY[];
   /** Lô bị loại khỏi gợi ý + lý do (khác đơn vị / khác cơ sở) — chỉ để giải thích. */
   lo_bi_loai?: LoBiLoai[];
+  /** "1 hộp = 30 gói" — dòng bán khác đơn vị gốc; máy chủ soạn sẵn. */
+  quy_doi?: string | null;
+  /** Đã giao đọc theo đơn vị gốc: "15 gói". */
+  da_giao_goc?: string | null;
+  /** Đơn vị gõ được ở ô Giao: đơn vị đã bán, đơn vị gốc. */
+  don_vi_giao?: string[];
   /** Lô thuốc này còn ở kho (tách kho / quầy) — để hiện "chuyển sang quầy?". */
   kho_con?: LoKhoCon[];
   xuat: LanGiao[];

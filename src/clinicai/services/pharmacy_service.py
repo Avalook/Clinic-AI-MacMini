@@ -120,8 +120,8 @@ def _kiem_khong_giao_qua_so_mua(don: Any, luong: Decimal) -> None:
         so_mua = Decimal(str(mua))
         dv = f" {don['unit']}" if don.get("unit") else ""
         raise ValidationError(
-            f"Khách mua {so(so_mua)}{dv}, đã giao {so(da_cap.normalize())}{dv}, còn "
-            f"{so((so_mua - da_cap).normalize())}{dv} — không giao quá số đã bán."
+            f"Khách mua {_so_gon(so_mua)}{dv}, đã giao {_so_gon(da_cap)}{dv}, còn "
+            f"{_so_gon(so_mua - da_cap)}{dv} — không giao quá số đã bán."
         )
 
 
@@ -2397,8 +2397,8 @@ class PharmacyService:
         }
         if so_ban is not None:
             ket_qua["tom_tat"] = (
-                f"Khách trả {so(luong)} {don_vi_lo} = {so(so_ban.normalize())} "
-                f"{don['unit']} đã bán"
+                f"Khách trả {so(luong)} {don_vi_lo} (≈ {_so_gon(so_ban)} "
+                f"{don['unit']} đã bán)"
                 + (f" — hoàn {_tien_viet(hoan['amount'])}." if hoan else ".")
             )
         return ket_qua
@@ -3649,6 +3649,11 @@ def _dong_danh_muc(r: dict[str, Any], bang: BangDonVi) -> dict[str, Any]:
 
 def _tien_viet(v: Any) -> str:
     return f"{int(v):,}đ".replace(",", ".")
+
+
+def _so_gon(x: Decimal) -> str:
+    """Số lẻ cho người đọc: 0,166666667 hộp đọc là 0,167."""
+    return so(x.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)).replace(".", ",")
 
 
 async def _viec_de_tru_duoc(

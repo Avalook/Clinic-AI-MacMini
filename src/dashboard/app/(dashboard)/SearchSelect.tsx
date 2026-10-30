@@ -3,6 +3,8 @@
 // Combobox "gõ-để-tìm" dùng chung (Tỉnh, Phường/xã, …). Lọc KHÔNG dấu
 // (unaccentVi) nên gõ "ninh" ra "Ninh Bình", gõ "n" lọc dần. Có bàn phím
 // (↑/↓/Enter/Esc) + nút xoá. Giao diện khớp INPUT chung của dashboard.
+// `choGoTu`: ngoài danh sách vẫn gõ được chữ khác (ô đơn vị) — rời ô là nhận, gõ
+// "HOP" trùng "hộp" thì nhận thành "hộp".
 
 import { useId, useMemo, useRef, useState } from "react";
 import { unaccentVi } from "../../lib/validation";
@@ -22,6 +24,7 @@ export default function SearchSelect({
   invalid = false,
   emptyText = "Không tìm thấy",
   ariaLabel,
+  choGoTu = false,
 }: {
   options: SearchOption[];
   value: string;
@@ -31,8 +34,11 @@ export default function SearchSelect({
   invalid?: boolean;
   emptyText?: string;
   ariaLabel?: string;
+  choGoTu?: boolean;
 }) {
-  const selected = options.find((o) => o.value === value) ?? null;
+  const selected =
+    options.find((o) => o.value === value) ??
+    (choGoTu && value ? { value, label: value } : null);
   // query === null → hiển thị nhãn đã chọn; chuỗi → đang gõ để tìm.
   const [query, setQuery] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -42,9 +48,15 @@ export default function SearchSelect({
 
   const filtered = useMemo(() => {
     if (query == null || query.trim() === "") return options;
-    const t = unaccentVi(query.trim());
-    return options.filter((o) => unaccentVi(o.label).includes(t));
-  }, [query, options]);
+    const go = query.trim();
+    const t = unaccentVi(go);
+    const khop = options.filter((o) => unaccentVi(o.label).includes(t));
+    // Đứng CUỐI: Enter vẫn chọn gợi ý gần nhất, chữ tự do chỉ là lối cuối.
+    if (choGoTu && !khop.some((o) => unaccentVi(o.label) === t)) {
+      return [...khop, { value: go, label: `Dùng “${go}”` }];
+    }
+    return khop;
+  }, [query, options, choGoTu]);
 
   const inputValue = query == null ? (selected?.label ?? "") : query;
 
@@ -57,6 +69,14 @@ export default function SearchSelect({
     onChange("");
     setQuery(null);
     setHi(0);
+  }
+  /** Rời ô khi đang gõ tự do: gõ trùng gợi ý thì lấy gợi ý, không thì lấy chữ gõ. */
+  function nhanChuGo(go: string) {
+    const chu = go.trim();
+    if (!chu) return;
+    const t = unaccentVi(chu);
+    const khop = options.find((o) => unaccentVi(o.label) === t);
+    onChange(khop ? khop.value : chu);
   }
 
   return (
@@ -95,7 +115,9 @@ export default function SearchSelect({
           setHi(0);
         }}
         onBlur={() => {
+          const go = query;
           blurT.current = setTimeout(() => {
+            if (choGoTu && go != null) nhanChuGo(go);
             setOpen(false);
             setQuery(null);
           }, 150);
