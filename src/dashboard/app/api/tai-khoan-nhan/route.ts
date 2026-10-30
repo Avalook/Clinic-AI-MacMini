@@ -21,8 +21,9 @@ function sai(message: string) {
 export async function GET(request: Request) {
   const v = new URL(request.url).searchParams.get("visit_id") ?? "";
   if (v && !UUID_RE.test(v)) return sai("Lượt khám không hợp lệ.");
-  const q = v ? `?visit_id=${encodeURIComponent(v)}` : "";
-  return proxyJsonToBackend("GET", `/api/v1/tai-khoan-nhan${q}`, undefined);
+  return v
+    ? proxyJsonToBackend("GET", `/api/v1/tai-khoan-nhan?visit_id=${encodeURIComponent(v)}`, undefined)
+    : proxyJsonToBackend("GET", "/api/v1/tai-khoan-nhan", undefined);
 }
 
 export async function POST(request: Request) {
