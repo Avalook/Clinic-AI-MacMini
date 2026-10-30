@@ -86,9 +86,12 @@ async def _vong_doi(co: Co) -> Vong:
         phieu_id=phieu["id"],
         dong=[{"drug_catalog_id": drug, "don_vi": "viên", "dem": 11}],
     )
-    await kk.chot(pool, identity=co.ds, phieu_id=phieu["id"])
-    await kk.dieu_chinh_theo_kiem_ke(
-        pool, identity=co.ds, phieu_id=phieu["id"], ly_do="Đếm lại cuối ca"
+    xem = await kk.xem_lech(pool, identity=co.ds, phieu_id=phieu["id"])
+    await kk.chot(
+        pool,
+        identity=co.ds,
+        phieu_id=phieu["id"],
+        ly_do_dong=[{**d, "ly_do": "Đếm lại cuối ca"} for d in xem["dong"]],
     )
     await kk.hoan_tac_dieu_chinh(pool, identity=co.ds, phieu_id=phieu["id"])
 

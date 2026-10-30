@@ -1144,6 +1144,13 @@ async def _chuyen_cac_dong(
         )
     }
     ra: list[dict[str, Any]] = []
+    cho_gan = (
+        await giao_chua_gan_lo_theo_don_vi(
+            conn, clinic_id=identity.clinic_id, location_id=str(identity.location_id)
+        )
+        if noi_nguon == "QUAY"
+        else {}
+    )
     for stt, (nguon_id, luong, dich_id) in enumerate(dong, start=1):
         nguon = hang.get(nguon_id)
         if nguon is None:
@@ -1175,6 +1182,32 @@ async def _chuyen_cac_dong(
                     else ""
                 )
             )
+        # Thuốc đã giao chưa gắn lô đã rời kệ nhưng sổ chưa trừ: rút hết về kho thì
+        # không còn gì để gán, sổ sẽ không bao giờ khớp kệ.
+        khoa = (nguon["drug_catalog_id"], (nguon["unit"] or "").strip().lower())
+        dang_cho = cho_gan.get(khoa, Decimal(0))
+        if dang_cho > 0:
+            tong = Decimal(
+                str(
+                    await conn.fetchval(
+                        "SELECT coalesce(sum("
+                        "public.drug_batch_kha_dung(clinic_id, id)), 0)"
+                        " FROM public.drug_batch WHERE clinic_id = $1::uuid"
+                        " AND location_id = $2::uuid AND drug_catalog_id = $3::uuid"
+                        " AND noi_chua = 'QUAY' AND lower(btrim(unit)) = $4",
+                        identity.clinic_id,
+                        identity.location_id,
+                        nguon["drug_catalog_id"],
+                        khoa[1],
+                    )
+                )
+            )
+            if luong > tong - dang_cho:
+                raise ConflictError(
+                    f"Dòng {stt}: quầy còn {_so_chu_so(dang_cho)} {nguon['unit']} đã "
+                    "giao chưa gắn lô, chỉ rút được "
+                    f"{_so_chu_so(max(tong - dang_cho, Decimal(0)))} — gắn lô trước."
+                )
         dich = hang.get(dich_id) if dich_id else None
         if dich is None:
             dich = next(

@@ -1083,3 +1083,16 @@ def test_chu_ton_quy_doi() -> None:
         "= 65 gói · 2 hộp 5 gói"
     )
     assert b.chu_ton([{"don_vi": "lạ", "ton": 5}]) is None
+
+
+async def test_doi_30_goi_sang_hop_giu_luong_thuoc_khong_nhay_30_hop(q: Quay) -> None:
+    drug = await _thuoc_goi(q)
+    rx = await _ban(q, drug, "30 gói")
+
+    await QuayThuocService(q.pool).doi_don_vi(
+        prescription_id=rx, don_vi="hộp", identity=q.thu_ngan
+    )
+
+    dong = await _dong_rx(q, rx)
+    assert dong["quantity_num"] == 1 and dong["unit"] == "hộp"
+    assert (await _hd(q)).tong == 2_400_000

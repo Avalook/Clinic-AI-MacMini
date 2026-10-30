@@ -1676,6 +1676,12 @@ class PaymentService:
                             WHERE h.clinic_id = c.clinic_id
                               AND h.payment_cycle_id = c.payment_cycle_id
                               AND h.bo_luc IS NULL) AS co_hoa_don_cong_ty,
+                   EXISTS (SELECT 1 FROM hoa_don_misa_xuat_dong d
+                             JOIN hoa_don_misa_xuat x
+                               ON x.id = d.xuat_id AND x.clinic_id = d.clinic_id
+                            WHERE d.clinic_id = c.clinic_id
+                              AND d.payment_cycle_id = c.payment_cycle_id
+                              AND x.huy_luc IS NULL) AS da_xuat_misa,
                    coalesce((SELECT sum(g.so_luong)
                                FROM thuoc_giao_chua_gan_lo g
                                JOIN prescription p
@@ -1720,6 +1726,7 @@ class PaymentService:
             "phai_tra": max(da_thu - da_hoan, 0),
             "co_hoan_cho": bool(lan["co_hoan_cho"]),
             "co_hoa_don_cong_ty": bool(lan["co_hoa_don_cong_ty"]),
+            "da_xuat_misa": bool(lan["da_xuat_misa"]),
             "thuoc_ve_quay": Decimal(str(lan["thuoc_ve_quay"])),
         }
 

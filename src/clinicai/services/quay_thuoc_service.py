@@ -360,9 +360,10 @@ class QuayThuocService:
         """Đổi đơn vị bán của dòng trước khi thu; tiền đổi theo giá đơn vị đó (hoá đơn
         tính lại, `revision` đổi nên lần thu đang mở màn cũ bị từ chối).
 
-        Giữ nguyên SỐ: 1 gói đổi thành 1 hộp, số gõ lại ở ô Số lượng — tự chia hệ số
-        là đoán ý khách. Gõ tay đơn vị chưa khai vẫn được (chữ giữ nguyên, tính giá
-        gốc, quầy thấy cảnh báo). Đơn vị đã tắt bán thì không chọn mới được."""
+        Đổi lên đơn vị lớn mà chia hết thì giữ đúng lượng thuốc: 30 gói → 1 hộp, không
+        thành 30 hộp. Còn lại giữ nguyên SỐ: 1 gói → 1 hộp, số gõ lại ở ô Số lượng —
+        tự làm tròn là đoán ý khách. Gõ tay đơn vị chưa khai vẫn được (chữ giữ nguyên,
+        tính giá gốc, quầy thấy cảnh báo). Đơn vị đã tắt bán thì không chọn mới được."""
         chu = _chu(don_vi, 50)
         if not chu:
             raise ValidationError("Chọn đơn vị bán.")
@@ -396,8 +397,14 @@ class QuayThuocService:
                     f"Đơn vị “{moi}” đã tắt bán — bật lại ở Danh mục kho hoặc chọn "
                     "đơn vị khác."
                 )
-            so_dec = Decimal(str(so))
+            so_cu = Decimal(str(so))
             cu = (don["unit"] or "").strip()
+            so_dec = so_cu
+            hs_cu, hs_moi = b.he_so(cu), b.he_so(moi)
+            if hs_cu and hs_moi and hs_moi > hs_cu:
+                chia = so_cu * hs_cu / hs_moi
+                if chia == chia.to_integral_value():
+                    so_dec = chia
             if don["nguon"] == BAC_SI:
                 await self._dien_so_luong(
                     conn, identity, prescription_id, {**don, "unit": moi}, so_dec
@@ -406,6 +413,7 @@ class QuayThuocService:
                 chu_sl = f"{_chuoi_so(so_dec)} {moi}"
                 await conn.execute(
                     "UPDATE prescription SET quantity = $3, unit = $4,"
+                    " quantity_num = $5,"
                     " purchased_qty = CASE WHEN purchased_qty = 0 THEN 0 ELSE NULL END,"
                     " updated_at = now()"
                     " WHERE id = $1::uuid AND clinic_id = $2::uuid",
@@ -413,6 +421,7 @@ class QuayThuocService:
                     identity.clinic_id,
                     chu_sl,
                     moi,
+                    so_dec,
                 )
             await self._ghi_su_kien(
                 conn,
@@ -422,7 +431,7 @@ class QuayThuocService:
                 hanh_dong="DOI_DON_VI",
                 nguon=don["nguon"],
                 so_luong=f"{_chuoi_so(so_dec)} {moi}",
-                so_luong_cu=f"{_chuoi_so(so_dec)} {cu}".strip(),
+                so_luong_cu=f"{_chuoi_so(so_cu)} {cu}".strip(),
                 ten_thuoc=don["drug_name_raw"],
             )
         return {"ok": True, "prescription_id": prescription_id, "don_vi": moi}

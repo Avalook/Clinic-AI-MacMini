@@ -1382,3 +1382,21 @@ async def test_bam_ngau_nhien_thu_giao_tra_hoan_tac_giu_bat_bien(
         if not await lan_song():
             assert (await _rx(co.q, rx))["dispensed_qty"] == 0, trace
     assert (await _so(co, drug))["QUAY"] <= 4 + 6, trace
+
+
+async def test_quay_ve_kho_khong_rut_vao_phan_da_giao_cho_gan(co: Co) -> None:
+    """Thuốc chờ gán đã rời kệ: rút hết về kho thì không còn gì để gán."""
+    await _bat(co)
+    rx, drug = await _dong_da_xac_dinh(co.q, 5)
+    lo_kho = await _nhap_kho(co, drug, 10)
+    await _chuyen(co, lo_kho, 4, ly_do=None)
+    await _thu(co.q)
+    kq = await _giao_tu_chon(co.q, co.ds, rx, 5)
+    assert kq["chua_tru_kho"] == 1
+    hang = await _chuyen(co, lo_kho, 3, ly_do=None)
+    quay = str(hang["dong"][0]["drug_batch_dich_id"])
+
+    with pytest.raises(ConflictError, match="chưa gắn lô"):
+        await _chuyen(co, quay, 3, "QUAY_KHO", ly_do="Dư ở quầy")
+    await _chuyen(co, quay, 2, "QUAY_KHO", ly_do="Dư ở quầy")
+    assert (await _so(co, drug))["QUAY"] == 1

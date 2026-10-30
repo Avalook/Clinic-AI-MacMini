@@ -25,6 +25,7 @@ interface XemTruoc {
   thuoc_ve_quay: number | string;
   co_hoan_cho: boolean;
   co_hoa_don_cong_ty: boolean;
+  da_xuat_misa: boolean;
 }
 
 function cauHoi(x: XemTruoc | null): string {
@@ -40,6 +41,7 @@ function cauHoi(x: XemTruoc | null): string {
         : "Chưa nhận tiền, không phải trả khách.",
     ve > 0 ? "Thuốc đã giao tự về quầy — khách đã mang đi thì nhận lại thuốc." : "",
     x.co_hoa_don_cong_ty ? "Phiếu này có hoá đơn công ty — báo kế toán xử lý hoá đơn." : "",
+    x.da_xuat_misa ? "Phiếu này đã xuất sang MISA — báo kế toán điều chỉnh bên MISA." : "",
   ];
   return `Hoàn tác lần thu? Lượt về chưa thu. ${phan.filter(Boolean).join(" ")}`;
 }
