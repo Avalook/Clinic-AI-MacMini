@@ -89,6 +89,8 @@ export default function DongThuoc({
   // Giao không lô: mặc định phần bán chưa giao (máy chủ vẫn chặn quá số bán).
   const conGiao = Math.max((dong.purchased_qty ?? dong.quantity_num ?? 0) - dong.dispensed_qty, 0);
   const [soKhongLo, setSoKhongLo] = useState(conGiao > 0 ? String(conGiao) : "");
+  // Khách mua 1 hộp, giao trước 15 gói: gõ theo đơn vị nào, máy chủ đổi.
+  const [donViGiao, setDonViGiao] = useState(dong.unit ?? "");
   const [lyDo, setLyDo] = useState("");
   const [soTra, setSoTra] = useState<Record<string, string>>({});
   // Lần giao đang hỏi "Hoàn tác giao?" (xác nhận tại chỗ).
@@ -163,7 +165,9 @@ export default function DongThuoc({
         </div>
         <span className="text-meta text-ink-soft">
           {NHAN_CAP[dong.dispense_status ?? ""] ?? dong.dispense_status}
-          {dong.dispensed_qty > 0 && ` · đã giao ${fmtSo(dong.dispensed_qty)}`}
+          {dong.dispensed_qty > 0 &&
+            ` · đã giao ${fmtSo(dong.dispensed_qty)} ${dong.unit ?? ""}`}
+          {dong.da_giao_goc ? ` (${dong.da_giao_goc})` : ""}
         </span>
       </div>
 
@@ -240,6 +244,9 @@ export default function DongThuoc({
           ) : (
             <div className="text-body text-ink">
               {fmtSo(dong.purchased_qty ?? dong.quantity_num)} {dong.unit ?? ""}
+              {dong.quy_doi ? (
+                <span className="ml-2 text-meta text-ink-muted">{dong.quy_doi}</span>
+              ) : null}
               {/* C14: bác sĩ quên số lượng — thu ngân thuốc điền ở quầy, không chờ bác sĩ. */}
               {dong.quantity_num === null ? (
                 <span className="ml-2 text-meta text-warning">
@@ -380,7 +387,12 @@ export default function DongThuoc({
       {/* ── Chọn lô ── */}
       {tt.chon_lo ? (
         dong.lo_goi_y.length === 0 ? (
-          cauKhoKhacDonVi ? (
+          dong.quy_doi ? (
+            <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-muted">
+              Dòng này bán theo {dong.unit} ({dong.quy_doi}) — không cần chọn lô: thu tiền rồi bấm
+              Giao, máy tự đổi và trừ kho.
+            </p>
+          ) : cauKhoKhacDonVi ? (
             <p role="status" className="rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
               {cauKhoKhacDonVi}
             </p>
@@ -451,6 +463,23 @@ export default function DongThuoc({
               className={O_NHAP}
             />
           </label>
+          {(dong.don_vi_giao ?? []).length > 1 ? (
+            <label className={`${NHAN} w-28`}>
+              Đơn vị
+              <OChon
+                value={donViGiao}
+                onChange={(e) => setDonViGiao(e.target.value)}
+                aria-label="Đơn vị giao"
+                className="mt-1 w-full"
+              >
+                {dong.don_vi_giao?.map((dv) => (
+                  <option key={dv} value={dv}>
+                    {dv}
+                  </option>
+                ))}
+              </OChon>
+            </label>
+          ) : null}
           <Button
             className={CHAM}
             variant="primary"
@@ -459,6 +488,7 @@ export default function DongThuoc({
               goi("dispense", {
                 prescription_id: dong.id,
                 so_luong: Number(soKhongLo),
+                ...(donViGiao && donViGiao !== dong.unit ? { don_vi: donViGiao } : {}),
                 ...(loGiaoQuet ? { drug_batch_id: loGiaoQuet.drug_batch_id } : {}),
               })
             }
@@ -551,13 +581,13 @@ export default function DongThuoc({
             {dong.xuat.map((x) => (
               <li key={x.dispense_txn_id} className="flex flex-wrap items-end gap-2 px-3 py-2">
                 <span className="min-w-0 flex-1 text-body text-ink">
-                  Lô {x.batch_code} · giao {fmtSo(x.so_luong)}
+                  Lô {x.batch_code} · giao {fmtSo(x.so_luong)} {x.don_vi ?? ""}
                   {x.da_tra > 0 ? ` · khách đã trả ${fmtSo(x.da_tra)}` : ""}
                 </span>
                 {x.thao_tac.tra ? (
                   <>
                     <label className={`${NHAN} w-24`}>
-                      Khách trả
+                      Khách trả{x.don_vi ? ` (${x.don_vi})` : ""}
                       <input
                         type="number"
                         min="0"

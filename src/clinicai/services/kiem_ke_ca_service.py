@@ -42,6 +42,7 @@ from clinicai.core.shifts import CAC_CA, ca_cua_phut, ca_tu_settings, khung_chot
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import KiemKeLech
+from clinicai.services.don_vi_thuoc import chuan
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
     PharmacyService,
@@ -241,8 +242,12 @@ def ghep_ton_ca(
     dong = thuoc.get("dong", [])
     co = {d.get("khoa") for d in dong}
     for d in dong:
+        ds_lo = theo_thuoc.get(str(d.get("khoa")), [])
+        for x in ds_lo:
+            # Lô cũ tính hộp, thuốc bán viên: cột tồn phải nói số đó là hộp.
+            x["khac_don_vi_dong"] = chuan(x.get("don_vi")) != chuan(d.get("don_vi"))
         d["kho"] = {
-            "theo_don_vi": theo_thuoc.get(str(d.get("khoa")), []),
+            "theo_don_vi": ds_lo,
             "giao_chua_gan_lo": _f(giao_chua_gan_lo.get(str(d.get("khoa")))),
         }
     for drug, ds in theo_thuoc.items():
@@ -444,10 +449,14 @@ async def giao_chua_gan_lo_theo_thuoc(
     conn: asyncpg.Connection, *, clinic_id: str, location_id: str | None
 ) -> dict[str, Decimal]:
     """Thuốc đã GIAO mà chưa gắn lô (giao không lô, 28/09): sổ kho chưa trừ nên tồn
-    máy cao hơn kệ thật. Báo riêng — KHÔNG tính là lệch đếm."""
+    máy cao hơn kệ thật. Báo riêng — KHÔNG tính là lệch đếm. Quy về đơn vị gốc:
+    0,5 hộp + 3 gói = 18 gói; đơn vị chưa khai giữ nguyên số."""
     rows = await conn.fetch(
         """
-        SELECT g.drug_catalog_id::text AS drug_catalog_id, sum(g.so_luong) AS so
+        SELECT g.drug_catalog_id::text AS drug_catalog_id,
+               sum(g.so_luong * coalesce(
+                   public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit), 1))
+                   AS so
           FROM public.thuoc_giao_chua_gan_lo g
           /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải tính dù dòng đơn sau đó bị bác sĩ
              đính chính — kệ đã thiếu thuốc ấy */

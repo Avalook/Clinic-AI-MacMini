@@ -28,10 +28,15 @@ export interface DongChoGanLo {
     expiry_date: string | null;
     noi_chua?: string;
     ton: number;
+    unit?: string | null;
+    /** Gán thì trừ ở lô này bao nhiêu, theo đơn vị lô. */
+    so_tru?: number | null;
   }[];
   /** Lô của thuốc ở kho/quầy nhưng tính theo đơn vị KHÁC dòng này — để giải thích vì
    *  sao không có lô gán được (máy chủ trả, không đổi luật gán). */
   lo_khac_don_vi?: { drug_batch_id: string; batch_code: string; unit: string | null; ton: number }[];
+  /** Việc phải làm để dòng này trừ được kho — máy chủ soạn sẵn. */
+  can_lam?: string | null;
 }
 
 /** "6 hộp · 20 viên" — cộng theo từng đơn vị, không cộng lẫn. */
@@ -105,11 +110,11 @@ function Dong({ d, ghiDuoc }: { d: DongChoGanLo; ghiDuoc: boolean }) {
           d.lo_khac_don_vi && d.lo_khac_don_vi.length > 0 ? (
             <span role="status" className="text-meta text-warning">
               Kho/quầy có {tonLoKhacDonVi(d.lo_khac_don_vi)} nhưng dòng này giao theo “{d.unit ?? "?"}”
-              — khác đơn vị nên không gắn được. Nhập lô theo “{d.unit ?? "?"}” hoặc báo quản lý.
+              — khác đơn vị nên không gắn được. {d.can_lam ?? "Nhập lô cùng đơn vị hoặc báo quản lý."}
             </span>
           ) : (
             <span className="text-meta text-ink-muted">
-              Chưa có lô gán được — nhập lô ở tab Nhập thuốc.
+              {d.can_lam ?? "Chưa có lô gán được — nhập lô ở tab Nhập thuốc."}
             </span>
           )
         ) : (
@@ -122,7 +127,8 @@ function Dong({ d, ghiDuoc }: { d: DongChoGanLo; ghiDuoc: boolean }) {
             >
               {d.lo_gan_duoc.map((b) => (
                 <option key={b.drug_batch_id} value={b.drug_batch_id}>
-                  {b.noi_chua === "KHO" ? "Kho" : "Quầy"} · {b.batch_code} · HSD {fmtNgay(b.expiry_date)} · còn {b.ton}
+                  {b.noi_chua === "KHO" ? "Kho" : "Quầy"} · {b.batch_code} · HSD {fmtNgay(b.expiry_date)} · còn {b.ton} {b.unit ?? ""}
+                  {b.so_tru != null ? ` · trừ ${b.so_tru} ${b.unit ?? ""}` : ""}
                 </option>
               ))}
             </select>

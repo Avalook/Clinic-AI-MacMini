@@ -22,6 +22,7 @@ import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT } from "../../form-ui";
+import ODonVi from "../../ODonVi";
 import {
   dongNgoaiDanhMuc,
   dongTuMau,
@@ -196,7 +197,16 @@ export default function DonThuocPhieu({
             // ĐVT là CHỮ khi kho có ĐVT và dòng đang dùng đúng ĐVT ấy; đơn cũ
             // ghi ĐVT khác thì vẫn cho sửa (để bác sĩ chữa cho khớp kho).
             const dvtChu = !!d.dvt_kho && (!d.don_vi.trim() || bo(d.don_vi) === bo(d.dvt_kho));
-            const tien = thanhTienDong(d);
+            // Thuốc nhiều đơn vị bán: chọn đơn vị ngay ở dòng, giá theo đơn vị đó (máy
+            // chủ trả sẵn trong danh mục; tiền thật vẫn do quầy thu tính). Quầy luôn
+            // được chọn: khách đòi mua hộp thì gõ được.
+            const cacDv = coKho
+              ? (mauThuoc.find((m) => m.drug_catalog_id === d.drug_catalog_id)?.cac_don_vi ?? [])
+              : [];
+            const chonDv = !chiDoc && coKho && (cacDv.length > 1 || !ngoaiDanhMuc);
+            const dv = cacDv.find((x) => bo(x.don_vi) === bo(d.don_vi));
+            const giaDv = dv ? dv.gia : d.don_gia;
+            const tien = thanhTienDong(dv ? { ...d, don_gia: dv.gia, dvt_kho: dv.don_vi } : d);
             return (
               <li
                 key={`${d.mau_ma ?? "tu-do"}-${i}`}
@@ -271,7 +281,17 @@ export default function DonThuocPhieu({
                   )}
                   {oNhap(i, d, "duong_dung", "Đường dùng", "sm:col-span-2")}
                   {oNhap(i, d, "so_luong", "Số lượng", "sm:col-span-2")}
-                  {dvtChu ? (
+                  {chonDv ? (
+                    <div className={`${NHAN} sm:col-span-2`}>
+                      ĐVT
+                      <ODonVi
+                        value={d.don_vi}
+                        onChange={(v) => sua(i, "don_vi", v)}
+                        cuaThuoc={cacDv.map((x) => x.don_vi)}
+                        ariaLabel={`Đơn vị ${d.ten_thuoc}`}
+                      />
+                    </div>
+                  ) : dvtChu ? (
                     <div className={`${NHAN} sm:col-span-2`}>
                       ĐVT
                       <p className={O_CHU}>{d.dvt_kho}</p>
@@ -282,9 +302,9 @@ export default function DonThuocPhieu({
                   <div className={`${NHAN} sm:col-span-2 sm:text-right`}>
                     Đơn giá
                     <p className="flex min-h-9 flex-col justify-center tabular-nums">
-                      {d.don_gia != null ? (
+                      {giaDv != null ? (
                         <>
-                          <span className="text-body text-ink">{tienVn(d.don_gia)}</span>
+                          <span className="text-body text-ink">{tienVn(giaDv)}</span>
                           {tien != null ? (
                             <span className="text-meta text-ink-muted">= {tienVn(tien)}</span>
                           ) : null}

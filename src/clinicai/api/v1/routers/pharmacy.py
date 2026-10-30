@@ -465,6 +465,9 @@ class ThuocRequest(BaseModel):
     gia: Any = None
     ma_hang: str | None = Field(default=None, max_length=100)
     don_vi_ban: str | None = Field(default=None, max_length=50)
+    # Đơn vị bán thêm (31/10): {don_vi, he_so, gia, dang_ban, phien}. Không gửi =
+    # giữ nguyên. Any: luật đọc nằm ở service, trả câu tiếng Việt.
+    cac_don_vi: Any = None
     duong_dung: str | None = Field(default=None, max_length=100)
     cach_dung: str | None = Field(default=None, max_length=4000)
     luu_y: str | None = Field(default=None, max_length=4000)
@@ -493,6 +496,7 @@ async def luu_thuoc(
         luu_y=body.luu_y,
         biet_duoc=body.biet_duoc,
         dang_dung=body.dang_dung,
+        cac_don_vi=body.cac_don_vi,
         ton_toi_thieu=(
             body.ton_toi_thieu
             if "ton_toi_thieu" in body.model_fields_set
@@ -1136,6 +1140,8 @@ class CapPhatRequest(BaseModel):
     # lần thu tiền thuốc không gắn lô nào (máy chủ quyết, xem PharmacyService.cap_phat).
     drug_batch_id: UUID | None = None
     so_luong: float = Field(gt=0)
+    # Gõ theo đơn vị khác đơn vị đã bán: khách mua 1 hộp, giao trước 15 gói.
+    don_vi: str | None = Field(default=None, max_length=50)
 
 
 @router.post("/pharmacy/dispense", status_code=201)
@@ -1178,6 +1184,7 @@ async def cap_phat(
                 prescription_id=str(body.prescription_id),
                 drug_batch_id=(str(body.drug_batch_id) if body.drug_batch_id else None),
                 so_luong=body.so_luong,
+                don_vi_giao=body.don_vi,
             )
         )
         # Ghi TRONG khối trả-khoá, giống `/payments`: đặt ngoài thì một lỗi

@@ -373,24 +373,24 @@ async def _tao_trong(
                 f"{so(da_hoan_sl)} — chỉ còn hoàn được "
                 f"{so(con_hoan_sl)}."
             )
-        if int(r["discount_allocated"] or 0) == 0:
+        con_hoan_tien = max(0, int(r["line_total"]) - int(r["da_hoan_tien"] or 0))
+        # Hoàn nốt số lượng cuối thì lấy hết phần còn lại — không để dư vài đồng do
+        # làm tròn (dòng có giảm giá; thuốc bán hộp trả lẻ từng gói).
+        if sl == con_hoan_sl:
+            tien = con_hoan_tien
+        elif int(r["discount_allocated"] or 0) == 0:
             tien = int((sl * r["don_gia"]).quantize(Decimal(1), rounding=ROUND_HALF_UP))
         else:
             # Dòng có giảm giá: ``line_total`` đã là số SAU giảm = số thật đã
-            # thu. Hoàn theo tỉ lệ số lượng; hoàn nốt số lượng cuối thì lấy hết
-            # phần còn lại (không để dư vài đồng do làm tròn).
-            con_hoan_tien = max(0, int(r["line_total"]) - int(r["da_hoan_tien"] or 0))
-            if sl == con_hoan_sl:
-                tien = con_hoan_tien
-            else:
-                tien = min(
-                    con_hoan_tien,
-                    int(
-                        (sl * Decimal(int(r["line_total"])) / so_luong_tong).quantize(
-                            Decimal(1), rounding=ROUND_HALF_UP
-                        )
-                    ),
-                )
+            # thu. Hoàn theo tỉ lệ số lượng.
+            tien = min(
+                con_hoan_tien,
+                int(
+                    (sl * Decimal(int(r["line_total"])) / so_luong_tong).quantize(
+                        Decimal(1), rounding=ROUND_HALF_UP
+                    )
+                ),
+            )
 
         if tien <= 0:
             raise ValidationError(f"“{r['ten']}” thu 0đ — không có tiền để hoàn.")

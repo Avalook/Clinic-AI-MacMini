@@ -75,6 +75,26 @@ async def doi_so_luong(
     )
 
 
+class DonViBody(BaseModel):
+    prescription_id: UUID
+    don_vi: str = Field(min_length=1, max_length=50)
+
+
+@router.post("/quay-thuoc/don-vi")
+async def doi_don_vi(
+    body: DonViBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi đơn vị bán của dòng trước khi thu; tiền lấy theo giá đơn vị đó."""
+    identity = await authorize_drug_line(pool, identity, str(body.prescription_id))
+    return await QuayThuocService(pool).doi_don_vi(
+        prescription_id=str(body.prescription_id),
+        don_vi=body.don_vi,
+        identity=identity,
+    )
+
+
 class DongThemBody(BaseModel):
     id: UUID | None = None
     drug_catalog_id: UUID | None = None

@@ -36,6 +36,13 @@ from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
 from clinicai.services.ban_le_service import QUYEN_THU_THUOC, co_quyen_mo
+from clinicai.services.don_vi_thuoc import (
+    BangDonVi,
+    QuyDoiDong,
+    doc_bang,
+    he_so_da_chup,
+    so_dep,
+)
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
 
@@ -66,16 +73,19 @@ LY_DO_LO_KHAC_CO_SO = "KHAC_CO_SO"
 LY_DO_LO_KHAC_DON_VI = "KHAC_DON_VI"
 
 
-def ly_do_lo_bi_loai(lo: Any, *, co_so: str, don_vi_ke: str) -> str | None:
+def ly_do_lo_bi_loai(
+    lo: Any, *, co_so: str, don_vi_ke: str, doi: QuyDoiDong | None = None
+) -> str | None:
     """Lô `lo` có bị loại khỏi gợi ý của dòng đơn không; có thì vì sao.
 
-    Đúng hai luật của `_dong` (kho riêng từng cơ sở; luồng mới chỉ lô cùng đơn vị
-    kê — đơn thiếu đơn vị thì không lọc), tách ra để dùng chung cho cả việc LỌC
-    lẫn việc GIẢI THÍCH, hai nơi không lệch nhau."""
+    Đúng hai luật của `_dong` (kho riêng từng cơ sở; lô cùng đơn vị kê, hoặc đổi
+    được qua `doi` khi đã thu — đơn thiếu đơn vị thì không lọc), tách ra để dùng
+    chung cho cả việc LỌC lẫn việc GIẢI THÍCH, hai nơi không lệch nhau."""
     if lo["co_so_id"] != co_so:
         return LY_DO_LO_KHAC_CO_SO
     if don_vi_ke and _don_vi(lo["unit"]) != don_vi_ke:
-        return LY_DO_LO_KHAC_DON_VI
+        if doi is None or doi.ty_le(lo["unit"]) is None:
+            return LY_DO_LO_KHAC_DON_VI
     return None
 
 
@@ -345,6 +355,8 @@ async def man_nha_thuoc(
             hom_nay,
             co_so_ids,
         )
+        bang_dv = await doc_bang(conn, identity.clinic_id, thuoc_ids)
+        chup_dv = await he_so_da_chup(conn, identity.clinic_id, rx_ids)
         # G7: hàng còn ở KHO (chưa ra quầy) — quầy hết mà kho còn thì nói ra để
         # người có quyền chuyển ngay tại màn (luật open), không bán từ kho.
         kho_rows = await conn.fetch(
@@ -394,7 +406,7 @@ async def man_nha_thuoc(
         xuat_rows = await conn.fetch(
             """
             SELECT t.id::text, t.ref_id::text AS prescription_id, b.batch_code,
-                   -t.quantity AS so_luong, t.performed_at,
+                   b.unit AS don_vi, -t.quantity AS so_luong, t.performed_at,
                    coalesce((SELECT sum(r.returned_qty) FROM public.drug_return r
                               WHERE r.clinic_id = t.clinic_id
                                 AND r.original_dispense_txn_id = t.id), 0) AS da_tra,
@@ -496,6 +508,7 @@ async def man_nha_thuoc(
             {
                 "dispense_txn_id": x["id"],
                 "batch_code": x["batch_code"],
+                "don_vi": x["don_vi"],
                 "so_luong": _so(x["so_luong"]),
                 "luc": x["performed_at"],
                 "da_tra": _so(x["da_tra"]),
@@ -579,7 +592,13 @@ async def man_nha_thuoc(
         g["giai_doan"] = gd
         for r in g.pop("_rows"):
             cg = chua_giao.get(r["id"], {})
+            b_dv = bang_dv.get(r["drug_catalog_id"] or "", BangDonVi())
             them = {
+                "doi": QuyDoiDong(
+                    don_vi=(r["unit"] or "").strip() or b_dv.goc,
+                    he_so_dong=chup_dv.get(r["id"]) or b_dv.he_so(r["unit"]),
+                    bang=b_dv,
+                ),
                 "xuat": xuat_theo_dong.get(r["id"], []),
                 "cho_gan": cho_gan_theo_dong.get(r["id"], []),
                 "chua_giao": cg.get("chua_giao", Decimal(0)),
@@ -643,6 +662,20 @@ async def man_nha_thuoc(
         "duoc_thu_thuoc": duoc_thu_thuoc,
         "bi_cat": don_bi_cat,
         "tran": 300,
+    }
+
+
+def _chu_don_vi(r: Any, doi: QuyDoiDong, da_giao: Decimal) -> dict[str, Any]:
+    """Chữ đơn vị của dòng cho màn Nhà thuốc: "1 hộp = 30 gói", "0,5 hộp (15 gói)",
+    và đơn vị gõ được ở ô Giao. Bán đúng đơn vị gốc thì rỗng."""
+    b = doi.bang
+    if not r["unit"] or not doi.he_so_dong or b.la_goc(r["unit"]):
+        return {"quy_doi": None, "da_giao_goc": None, "don_vi_giao": []}
+    hs = doi.he_so_dong
+    return {
+        "quy_doi": f"1 {r['unit']} = {so_dep(hs)} {b.goc}",
+        "da_giao_goc": f"{so_dep(da_giao * hs)} {b.goc}" if da_giao > 0 else None,
+        "don_vi_giao": [r["unit"], b.goc],
     }
 
 
@@ -718,14 +751,18 @@ def _dong(
             and any(x and (x in ten or ten in x) for x in (b["ten_a"], b["ten_b"]))
         ]
     lo_bi_loai: list[dict[str, Any]] = []
+    doi: QuyDoiDong = them["doi"]
     if ung_vien and not lich_su:
         dv = _don_vi(r["unit"])
+        # Chưa thu thì chọn lô trước chỉ nhận lô cùng đơn vị (`_kiem_lo`); đã thu thì
+        # giao từ lô khác đơn vị đổi được qua hệ số.
+        doi_lo = doi if gd in (DA_THU, DA_THU_CU) else None
         for b in ung_vien:
             # Kho riêng từng cơ sở: chỉ lô của cơ sở của lượt. Luồng mới: chỉ lô
             # cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ: đơn thiếu đơn vị
             # thì hiểu theo đơn vị lô. Lô bị loại vẫn được GHI LẠI kèm lý do để
             # màn quét tem nói đúng ("tính theo hộp, đơn kê theo gói").
-            ly_do = ly_do_lo_bi_loai(b, co_so=co_so, don_vi_ke=dv)
+            ly_do = ly_do_lo_bi_loai(b, co_so=co_so, don_vi_ke=dv, doi=doi_lo)
             if ly_do:
                 lo_bi_loai.append(
                     {
@@ -768,6 +805,7 @@ def _dong(
         "lo_goi_y": lo_goi_y,
         # Lô của thuốc này bị loại khỏi gợi ý + lý do — chỉ để giải thích.
         "lo_bi_loai": lo_bi_loai,
+        **_chu_don_vi(r, doi, da_giao),
         # Dòng lịch sử (bác sĩ đã đính chính): không giao lại được → không có nút
         # hoàn tác giao; thuốc về quầy qua hoàn tác lần thu.
         "xuat": [

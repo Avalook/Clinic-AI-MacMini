@@ -11,7 +11,9 @@ import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
+import ODonVi from "../../ODonVi";
 import { guiKho, soKho, tienVnd, tonTheoDonVi } from "./gui-kho";
+import SuaDonViBan, { type DongDonVi } from "./SuaDonViBan";
 
 export interface ThuocKho {
   id: string;
@@ -35,6 +37,23 @@ export interface ThuocKho {
   don_vi_lo: string[];
   /** Tồn tách theo đơn vị lô — không cộng hộp với viên (29/09/2026). */
   ton_theo_don_vi: { don_vi: string | null; ton: number }[];
+  /** Đơn vị bán khai thêm (31/10/2026), cả đơn vị đang tắt. */
+  cac_don_vi?: DongDonVi[];
+  /** Máy chủ soạn sẵn: "gói 85.000 đ", "hộp (30 gói) 2.400.000 đ". */
+  gia_theo_don_vi?: { nhan: string; gia: number | null }[];
+  /** Máy chủ soạn sẵn: "= 280 viên · 9 hộp 10 viên". */
+  ton_quy_doi?: string | null;
+  chua_khai_don_vi?: boolean;
+  /** Đơn vị lô chưa có hệ số về đơn vị gốc. */
+  lo_chua_quy_doi?: string[];
+}
+
+/** Đơn vị của một thuốc cho ô gợi ý: gốc, đơn vị đang bán, đơn vị lô đang có. */
+export function donViCuaThuoc(t: ThuocKho | null | undefined): string[] {
+  if (!t) return [];
+  const ra = [t.don_vi_ban ?? ""];
+  for (const d of t.cac_don_vi ?? []) if (d.dang_ban) ra.push(d.don_vi);
+  return [...ra, ...(t.don_vi_lo ?? [])].filter(Boolean);
 }
 
 type Loc = "dang_dung" | "sap_het" | "can_soat" | "da_tat" | "tat_ca";
@@ -94,6 +113,7 @@ export default function DanhMucKho({
   // null = không sửa gì · "" = đang thêm thuốc mới · id = đang sửa thuốc ấy.
   const [sua, setSua] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(TRONG);
+  const [donVi, setDonVi] = useState<DongDonVi[]>([]);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
@@ -124,6 +144,7 @@ export default function DanhMucKho({
   const mo = (t: ThuocKho | null) => {
     setSua(t ? t.id : "");
     setForm(t ? tuThuoc(t) : TRONG);
+    setDonVi(t?.cac_don_vi ?? []);
     setLoi(null);
     setBao(null);
   };
@@ -144,6 +165,8 @@ export default function DanhMucKho({
       // Rỗng = bỏ canh; máy chủ đọc số, từ chối số âm.
       ton_toi_thieu: form.ton_toi_thieu.trim() === "" ? null : form.ton_toi_thieu.trim(),
       dang_dung: form.dang_dung,
+      // Máy chủ đọc số, tự lưu giá gợi ý khi để trống, chặn trùng / rác.
+      cac_don_vi: donVi,
     });
     setDang(false);
     if (!kq.ok) {
@@ -221,14 +244,22 @@ export default function DanhMucKho({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {o("ten", "Tên thuốc")}
             {o("ma_hang", "Mã hàng (KiotViet)")}
-            {o("gia", "Giá bán (đ / một đơn vị)")}
-            {o("don_vi_ban", "Đơn vị bán (hộp, viên, ống…)")}
+            {o("gia", "Giá bán đơn vị gốc (đ)")}
+            <div className="block">
+              <span className={LABEL}>Đơn vị gốc (kho tính theo đơn vị này)</span>
+              <ODonVi
+                value={form.don_vi_ban}
+                onChange={(v) => setForm({ ...form, don_vi_ban: v })}
+                ariaLabel="Đơn vị gốc"
+              />
+            </div>
             {o("ton_toi_thieu", "Tồn tối thiểu (để trống = không cảnh báo)")}
             {o("duong_dung", "Đường dùng")}
             {o("biet_duoc", "Biệt dược / hoạt chất")}
             {o("cach_dung", "Cách dùng (điền sẵn vào đơn)", true)}
             {o("luu_y", "Lưu ý", true)}
           </div>
+          <SuaDonViBan donViGoc={form.don_vi_ban} dong={donVi} onDoi={setDonVi} />
           <label className="flex min-h-10 items-center gap-2 text-body text-ink">
             <input
               type="checkbox"
@@ -301,10 +332,34 @@ export default function DanhMucKho({
                     {t.can_soat && t.dang_dung ? <Chip tone="warning">Thông tin thuốc cần kiểm tra</Chip> : null}
                     {!t.dang_dung ? <Chip tone="neutral">Đã tắt</Chip> : null}
                   </td>
-                  <td className="px-3 py-2 text-ink-muted">{t.don_vi_ban ?? "—"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-ink">{tienVnd(t.gia)}</td>
+                  <td className="px-3 py-2 text-ink-muted">
+                    {t.don_vi_ban ?? null}
+                    {t.chua_khai_don_vi ? <Chip tone="warning">Chưa khai đơn vị</Chip> : null}
+                    {(t.lo_chua_quy_doi ?? []).length > 0 ? (
+                      <span className="block text-meta text-warning">
+                        Lô theo {t.lo_chua_quy_doi?.join(", ")} chưa có hệ số
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-ink">
+                    {(t.gia_theo_don_vi ?? []).length > 1 ? (
+                      <ul className="space-y-1">
+                        {t.gia_theo_don_vi?.map((g) => (
+                          <li key={g.nhan}>
+                            <span className="text-meta text-ink-muted">{g.nhan}</span>{" "}
+                            {tienVnd(g.gia)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      tienVnd(t.gia)
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums text-ink">
                     {tonTheoDonVi(t.ton_theo_don_vi)}
+                    {t.ton_quy_doi ? (
+                      <span className="block text-meta text-ink-muted">{t.ton_quy_doi}</span>
+                    ) : null}
                     {t.so_lo > 0 ? <span className="block text-meta text-ink-muted">{t.so_lo} lô</span> : null}
                     {t.ton_toi_thieu != null ? (
                       <span className="block text-meta text-ink-muted">tối thiểu {soKho(t.ton_toi_thieu)}</span>

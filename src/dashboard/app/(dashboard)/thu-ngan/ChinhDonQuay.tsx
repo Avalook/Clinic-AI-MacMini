@@ -32,6 +32,7 @@ import {
 
 import DonThuocPhieu from "../_lam-viec/phieu-kham/DonThuocPhieu";
 import { INPUT } from "../form-ui";
+import ODonVi from "../ODonVi";
 
 interface DongBan {
   id: string;
@@ -55,6 +56,11 @@ interface DongBan {
   nguoi_dien: string | null;
   /** ĐVT của kho — gợi ý khi bác sĩ cũng không ghi đơn vị. */
   don_vi_goi_y: string | null;
+  /** Đơn vị chọn được, gốc trước — máy chủ trả (31/10/2026). */
+  don_vi_chon?: { don_vi: string; he_so: string; gia: number | null; goc: boolean }[];
+  /** Vì sao đơn vị đang chọn chưa ổn: chưa khai, chưa có giá. */
+  van_de_don_vi?: string | null;
+  chua_khai_don_vi?: boolean;
 }
 
 /** Số kê của đơn cũ đang được bán theo (`BanLeThu` lấy từ lịch sử đơn thuốc —
@@ -176,6 +182,17 @@ export default function ChinhDonQuay({
     await xong(loi, `Đã đổi số lượng “${d.ten}”.`);
   };
 
+  const doiDonVi = async (d: DongBan, donVi: string) => {
+    if (!donVi.trim() || donVi === (d.don_vi ?? d.don_vi_goi_y)) return;
+    setDang(true);
+    const loi = await gui({
+      thao_tac: "don-vi",
+      du_lieu: { prescription_id: d.id, don_vi: donVi },
+    });
+    setDang(false);
+    await xong(loi, `Đã đổi đơn vị “${d.ten}”.`);
+  };
+
   const suaDongQuay = async (d: DongBan, cachDung: string, luuY: string) => {
     if (cachDung === (d.cach_dung ?? "") && luuY === (d.luu_y ?? "")) return;
     setDang(true);
@@ -277,8 +294,16 @@ export default function ChinhDonQuay({
                     className={`${INPUT} w-24`}
                     aria-label={`Số lượng ${d.ten}`}
                   />
-                  <span>{d.don_vi ?? d.don_vi_goi_y ?? ""}</span>
                 </label>
+                <div className="w-36">
+                  <ODonVi
+                    value={d.don_vi ?? d.don_vi_goi_y ?? ""}
+                    onChange={(v) => void doiDonVi(d, v)}
+                    cuaThuoc={(d.don_vi_chon ?? []).map((x) => x.don_vi)}
+                    disabled={dang || !d.mua || d.da_chot || !d.drug_catalog_id}
+                    ariaLabel={`Đơn vị ${d.ten}`}
+                  />
+                </div>
                 {d.nguon === "BAC_SI" && d.so_ke && !d.so_luong_do_thu_ngan ? (
                   <span className="text-meta text-ink-faint">bác sĩ kê {d.so_ke}</span>
                 ) : null}
@@ -288,6 +313,24 @@ export default function ChinhDonQuay({
                   </Chip>
                 ) : null}
               </div>
+              {(d.don_vi_chon ?? []).length > 1 ? (
+                <p className="pl-6 text-meta text-ink-muted">
+                  {(d.don_vi_chon ?? [])
+                    .map((x) => `${x.don_vi}${x.goc ? "" : ` (${x.he_so})`} ${tienVn(x.gia)}`)
+                    .join(" · ")}
+                </p>
+              ) : null}
+              {d.chua_khai_don_vi ? (
+                <p role="status" className="pl-6 text-meta text-warning">
+                  Thuốc này chưa khai đơn vị — khai ở Kho thuốc › Danh mục thuốc. Vẫn thu và giao
+                  được, kho trừ sau khi khai.
+                </p>
+              ) : null}
+              {d.van_de_don_vi ? (
+                <p role="status" className="pl-6 text-meta text-warning">
+                  {d.van_de_don_vi}
+                </p>
+              ) : null}
               {td?.vuot ? (
                 <p className="pl-6">
                   <Chip tone="warning">
