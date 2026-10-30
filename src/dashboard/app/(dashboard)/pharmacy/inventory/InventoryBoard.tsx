@@ -87,7 +87,7 @@ export default function InventoryBoard({
   ghiDuoc?: boolean;
   /** G7: cơ sở bật tách kho / quầy → mỗi dòng lô có chip KHO / QUẦY. */
   tachKhoQuay?: boolean;
-  /** Bấm tên thuốc → tab Thẻ kho. */
+  /** Bấm tên thuốc → tab Theo dõi thuốc. */
   onXemThe?: (id: string) => void;
   cauHinhHan?: CauHinhHan;
 }) {
@@ -252,7 +252,7 @@ export default function InventoryBoard({
                         <button
                           type="button"
                           onClick={() => b.drug_catalog_id && onXemThe(b.drug_catalog_id)}
-                          title="Xem thẻ kho"
+                          title="Theo dõi thuốc"
                           className="text-left font-medium text-brand-700 hover:underline"
                         >
                           {b.drug?.name_base ?? b.drug?.name_raw ?? "—"}

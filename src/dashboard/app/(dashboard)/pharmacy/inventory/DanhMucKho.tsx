@@ -85,7 +85,7 @@ export default function DanhMucKho({
   thuoc: ThuocKho[];
   /** Có quyền ghi kho — chỉ ẩn/hiện nút, máy chủ tự kiểm. */
   ghiDuoc?: boolean;
-  /** Bấm tên thuốc → tab Thẻ kho. */
+  /** Bấm tên thuốc → tab Theo dõi thuốc. */
   onXemThe?: (id: string) => void;
 }) {
   const router = useRouter();
@@ -286,7 +286,7 @@ export default function DanhMucKho({
                       <button
                         type="button"
                         onClick={() => onXemThe(t.id)}
-                        title="Xem thẻ kho"
+                        title="Theo dõi thuốc"
                         className="text-left font-medium text-brand-700 hover:underline"
                       >
                         {t.ten}

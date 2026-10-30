@@ -113,3 +113,82 @@ def xlsx_inventory(report: Mapping[str, Any]) -> bytes:
         for row in report["dong"]
     ]
     return excel_table([("Xuất nhập tồn", headers, rows)])
+
+
+def xlsx_theo_doi_thuoc(report: Mapping[str, Any]) -> bytes:
+    """Export where a drug is now and its full movement timeline."""
+    lo = report["dang_o_dau"]["lo"]
+    sheets: list[Sheet] = [
+        (
+            "Dòng thời gian",
+            [
+                "Thời gian",
+                "Người làm",
+                "Hành động",
+                "Từ",
+                "Đến",
+                "Số lô",
+                "Hạn dùng",
+                "Số lượng",
+                "Đơn vị",
+                "Tồn lô trước",
+                "Tồn lô sau",
+                "Tồn nơi đến trước",
+                "Tồn nơi đến sau",
+                "Khách",
+                "Mã BN",
+                "Mã phiếu",
+                "Lý do",
+            ],
+            [
+                [
+                    d["luc"],
+                    d["nguoi_lam"],
+                    d["hanh_dong"],
+                    d["tu"],
+                    d["den"],
+                    d["so_lo"],
+                    d["han_dung"],
+                    d["so_luong"],
+                    d["don_vi"],
+                    d["ton_truoc"],
+                    d["ton_sau"],
+                    d["ton_den_truoc"],
+                    d["ton_den_sau"],
+                    d["khach"],
+                    d["ma_bn"],
+                    d["ma_phieu"],
+                    d["ly_do"],
+                ]
+                for d in report["dong"]
+            ],
+        )
+    ]
+    if lo:
+        sheets.append(
+            (
+                "Đang ở đâu",
+                [
+                    "Số lô",
+                    "Hạn dùng",
+                    "Đơn vị",
+                    "Ở kho",
+                    "Ở quầy",
+                    "Khách trả chờ kiểm",
+                    "Đã huỷ",
+                ],
+                [
+                    [
+                        d["so_lo"],
+                        d["han_dung"],
+                        d["don_vi"],
+                        d["o_kho"],
+                        d["o_quay"],
+                        d["cho_kiem"],
+                        d["da_huy"],
+                    ]
+                    for d in lo
+                ],
+            )
+        )
+    return excel_table(sheets)
