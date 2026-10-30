@@ -91,11 +91,7 @@ COMMENT ON TABLE public.appointment_hoan_tac_huy IS
 'Mỗi lần mở lại một lịch đã huỷ / không đến (hoàn tác): từ trạng thái nào về '
 'trạng thái nào, lý do cũ, ai hoàn tác, lúc nào (30/10/2026). Chỉ thêm.';
 
+-- Chỉ FastAPI đọc/ghi (kiểm quyền ở đó) — KHÔNG mở policy đọc thẳng qua
+-- PostgREST (cùng hướng 20261019120000; bài `tenant_scoped_rls.sql` đếm policy).
 ALTER TABLE public.appointment_hoan_tac_huy ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS appointment_hoan_tac_huy_select_own_clinic
-    ON public.appointment_hoan_tac_huy;
-CREATE POLICY appointment_hoan_tac_huy_select_own_clinic
-    ON public.appointment_hoan_tac_huy
-    FOR SELECT TO service_role
-    USING (clinic_id IN (SELECT current_clinic_ids()));
 GRANT SELECT, INSERT ON public.appointment_hoan_tac_huy TO service_role;
