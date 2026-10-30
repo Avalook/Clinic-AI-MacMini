@@ -96,6 +96,8 @@ const LIVE_TABLES = [
   "payment",
   // Hoàn thuốc / đổi hẹn: cập nhật khung lịch sử đơn (20261010100001).
   "payment_refund",
+  // Tài khoản nhận chuyển khoản (31/10/2026): quầy thấy ngay tài khoản mới / vừa tắt.
+  "tai_khoan_nhan",
   "payment_refund_line",
   "phieu_kham_luot",
   "lab_result",

@@ -8,6 +8,10 @@
 // thị — sổ ghi đúng số thu). Chuyển khoản có ô chụp / chọn ảnh màn hình chuyển
 // khoản (không bắt buộc) — cha tải ảnh lên SAU khi máy chủ ghi lần thu.
 //
+// TÀI KHOẢN NHẬN (31/10/2026): có phần chuyển khoản thì chọn tài khoản nhận
+// (`ChonTaiKhoan`); máy chủ chọn sẵn mặc định của cơ sở / tài khoản duy nhất.
+// Có ≥ 2 tài khoản mà không mặc định → phải chọn mới tạo bill được.
+//
 // Màn chỉ cộng để HIỂN THỊ; máy chủ kiểm lại tổng (`phan_thu.ap_phan`) và
 // Postgres ép lần cuối. Dùng ở mọi khối thu: HoaDonMot, NhomThu, NoKhac (quầy
 // dịch vụ / thuốc) và BanLeThu (Nhà thuốc).
@@ -16,6 +20,8 @@ import { useEffect, useId, useState } from "react";
 
 import ChipChon from "@/components/ui/ChipChon";
 import { docSoTien, tien, type PhanGui } from "@/lib/hinh-thuc-thu";
+
+import { ChonTaiKhoan, useTaiKhoanNhan } from "./TaiKhoanNhan";
 
 export interface KetQuaChia {
   /** Các phần sẽ gửi (đã đúng tổng khi `hopLe`). */
@@ -82,9 +88,12 @@ export function tinhChia(
 
 export default function ChiaHinhThuc({
   tong,
+  visitId,
   onDoi,
 }: {
   tong: number;
+  /** Lượt đang thu — để máy chủ trả tài khoản nhận của đúng cơ sở. */
+  visitId?: string | null;
   onDoi: (kq: KetQuaChia) => void;
 }) {
   const id = useId();
@@ -94,9 +103,21 @@ export default function ChiaHinhThuc({
   const [khachDuaChu, setKhachDuaChu] = useState("");
   const [anh, setAnh] = useState<File | null>(null);
 
+  const [tkChon, setTkChon] = useState<string | null>(null);
+  const tkNhan = useTaiKhoanNhan(visitId);
+  // Tài khoản thu ngân bấm > tài khoản máy chủ chọn sẵn.
+  const tk = tkChon && tkNhan.dung.some((t) => t.id === tkChon) ? tkChon : tkNhan.macDinh;
+
   const soCk = docSoTien(soCkChu);
   const khachDua = docSoTien(khachDuaChu);
-  const kq = tinhChia(tong, tm, ck, soCk, khachDua);
+  const kq0 = tinhChia(tong, tm, ck, soCk, khachDua);
+  const thieuTk = kq0.hopLe && kq0.coChuyenKhoan && tkNhan.dung.length >= 2 && !tk;
+  const kq = {
+    ...kq0,
+    hopLe: kq0.hopLe && !thieuTk,
+    nhac: thieuTk ? "Chọn tài khoản nhận chuyển khoản." : kq0.nhac,
+    phan: kq0.phan.map((p) => (p.hinh_thuc === "TRANSFER" && tk ? { ...p, tai_khoan_id: tk } : p)),
+  };
   const phanTm = kq.phan.find((p) => p.hinh_thuc === "CASH")?.so_tien ?? (tm && !ck ? tong : null);
   const traLai = tm && khachDua != null && phanTm != null && khachDua > phanTm ? khachDua - phanTm : null;
 
@@ -170,6 +191,8 @@ export default function ChiaHinhThuc({
           ) : null}
         </div>
       ) : null}
+
+      {ck ? <ChonTaiKhoan dung={tkNhan.dung} chon={tk} onChon={setTkChon} /> : null}
 
       {ck ? (
         <label className="flex flex-wrap items-center gap-2 text-meta text-ink-soft">

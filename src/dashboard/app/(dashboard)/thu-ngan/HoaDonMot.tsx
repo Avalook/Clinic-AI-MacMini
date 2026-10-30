@@ -396,7 +396,7 @@ export default function HoaDonMot({
 
       {!chiChot && !mienPhi ? (
         <div className="border-t border-line pt-3">
-          <ChiaHinhThuc tong={tongSauGiam} onDoi={setChia} />
+          <ChiaHinhThuc tong={tongSauGiam} visitId={visitId} onDoi={setChia} />
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-3">

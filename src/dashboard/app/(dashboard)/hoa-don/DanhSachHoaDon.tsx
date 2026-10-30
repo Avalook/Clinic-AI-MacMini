@@ -259,6 +259,22 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
             <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} />
             <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} />
           </dl>
+          {data.theo_tai_khoan?.length ? (
+            <section aria-label="Chuyển khoản theo tài khoản" className="rounded-card bg-surface p-4 ring-1 ring-hairline">
+              <h3 className="text-meta font-semibold uppercase tracking-wide text-ink-muted">Chuyển khoản trong kỳ theo tài khoản</h3>
+              <ul className="mt-2 divide-y divide-hairline">
+                {data.theo_tai_khoan.map(t => (
+                  <li key={t.id ?? "chua"} className="flex flex-wrap items-center justify-between gap-x-4 py-2 text-body">
+                    <span className="min-w-0 text-ink">{t.ten}</span>
+                    <span className="tabular-nums text-ink">
+                      {tien(t.thuc_thu)}
+                      {t.huy || t.hoan ? <span className="text-meta text-ink-muted"> (thu {tien(t.thu)} − huỷ {tien(t.huy)} − trả lại {tien(t.hoan)})</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           {data.co_so_ngung?.length ? (
             <p className="text-meta text-ink-muted" data-testid="co-so-ngung">
               Không tính cơ sở đã ngừng: {data.co_so_ngung.map(c => c.ten).join(", ")} (chọn đúng cơ sở ấy ở ô Cơ sở để xem lại khoản cũ).

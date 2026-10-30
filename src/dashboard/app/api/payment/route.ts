@@ -10,6 +10,8 @@
 //   POST   { action: "doi-hinh-thuc", paymentCycleId, hinhThuc?, hinhThucCu?, reference?, lyDo?,
 //            tienMat?, chuyenKhoan? }
 //          → đổi hình thức phiếu ĐÃ THU (V7; 01/10 thêm CHIA TM + CK) — sổ chỉ thêm.
+//   POST   { action: "doi-tai-khoan", paymentCycleId, taiKhoanId, taiKhoanCu?, lyDo? }
+//          → sửa TÀI KHOẢN NHẬN chuyển khoản của phiếu (31/10/2026) — có vết.
 //   POST   { action: "hoan-tac", paymentCycleId, lyDo? } → HOÀN TÁC lần thu (01/10/2026):
 //          đã thu → huỷ phiếu; chuyển khoản chờ → huỷ lần chờ. Lý do tuỳ chọn.
 //   POST   (thu) thêm `phan: [{hinh_thuc, so_tien, khach_dua?}]` — chia Tiền mặt +
@@ -60,8 +62,15 @@ export async function POST(request: Request) {
     lyDo?: string | null;
     tienMat?: number | null;
     chuyenKhoan?: number | null;
-    /** Chia lần thu theo hình thức (01/10/2026). */
-    phan?: { hinh_thuc: string; so_tien: number; khach_dua?: number | null }[];
+    /** Chia lần thu theo hình thức (01/10/2026); tài khoản nhận CK (31/10/2026). */
+    phan?: {
+      hinh_thuc: string;
+      so_tien: number;
+      khach_dua?: number | null;
+      tai_khoan_id?: string | null;
+    }[];
+    taiKhoanId?: string | null;
+    taiKhoanCu?: string | null;
     dong?: { payment_bill_line_id: string; so_luong: number }[];
     /** Quầy một hoá đơn (27/09): lựa chọn dịch vụ khách đang nhìn lúc bấm Thu. */
     chon?: {
@@ -93,6 +102,7 @@ export async function POST(request: Request) {
         method: p.method,
         reason: p.reason,
         dong: p.dong,
+        tai_khoan_id: p.taiKhoanId ?? null,
       },
       request.headers.get("Idempotency-Key") ?? undefined,
     );
@@ -119,6 +129,14 @@ export async function POST(request: Request) {
       ly_do: p.lyDo ?? null,
       tien_mat: p.tienMat ?? null,
       chuyen_khoan: p.chuyenKhoan ?? null,
+    });
+  }
+  if (p.action === "doi-tai-khoan") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/doi-tai-khoan", {
+      payment_cycle_id: p.paymentCycleId,
+      tai_khoan_id: p.taiKhoanId,
+      tai_khoan_cu: p.taiKhoanCu ?? null,
+      ly_do: p.lyDo ?? null,
     });
   }
   if (p.action === "hoan-tac") {

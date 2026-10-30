@@ -86,7 +86,8 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
     <dl className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
       <div><dt className="text-meta text-ink-muted">{p.trang_thai === "CK_DA_HUY" ? "Số tiền lần chờ" : "Tiền đã thu"}</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
       <div><dt className="text-meta text-ink-muted">Thực thu</dt><dd className="tabular-nums">{tien(p.thu_rong)}</dd></div>
-      <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu"}</dd></div>
+      <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu"}</dd>
+        {(p.chuyen_khoan ?? 0) > 0 ? <dd className="text-meta text-ink-muted">Chuyển khoản {tien(p.chuyen_khoan ?? 0)} vào {p.ten_tai_khoan ?? "Chưa phân loại"}</dd> : null}</div>
       <div><dt className="text-meta text-ink-muted">Người thu</dt><dd>{p.nguoi_thu || "Không có dữ liệu"}</dd></div>
     </dl>
     {p.giam_gia > 0 ? <p className="mt-3 rounded-control bg-surface-muted p-3">
