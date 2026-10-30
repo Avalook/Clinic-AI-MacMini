@@ -36,6 +36,7 @@ from clinicai.permissions.can import can
 from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
 from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.phan_lo_service import so
+from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu, doc_id
 
 #: AI ĐƯỢC HOÀN TIỀN (Tuyền chốt 06/10/2026 — "ai có node cũng được"): QUYỀN,
 #: không vai. Hoàn tiền DỊCH VỤ = ai có lego Thu tiền dịch vụ; hoàn tiền THUỐC =
@@ -98,10 +99,15 @@ class HoanTienService:
         dong: list[dict[str, Any]],
         method: str,
         reason: object,
+        tai_khoan_id: object = None,
     ) -> dict[str, Any]:
-        """Một khoản hoàn cho các dòng của ảnh chụp hoá đơn lần thu gốc."""
+        """Một khoản hoàn cho các dòng của ảnh chụp hoá đơn lần thu gốc.
+
+        ``tai_khoan_id`` (31/10/2026): hoàn chuyển khoản từ tài khoản nào; bỏ
+        trống = tài khoản đã nhận lần thu gốc, không có thì mặc định cơ sở."""
         if method not in PHUONG_THUC:
             raise ValidationError(f"Phương thức hoàn không hợp lệ: {method!r}")
+        tk = doc_id(tai_khoan_id)
         ly_do = _ly_do(reason)
         yeu_cau: dict[str, Decimal] = {}
         for d in dong:
@@ -128,6 +134,7 @@ class HoanTienService:
                     yeu_cau=yeu_cau,
                     method=method,
                     ly_do=ly_do,
+                    tai_khoan_id=tk,
                 )
 
     async def hoan_tien_thua(
@@ -317,12 +324,14 @@ async def _tao_trong(
     yeu_cau: dict[str, Decimal],
     method: str,
     ly_do: str,
+    tai_khoan_id: str | None = None,
 ) -> dict[str, Any]:
     """Thân lệnh hoàn tiền, TRONG giao dịch của người gọi (đã kiểm quyền)."""
     await _khoa_luot(conn, identity, visit_id)
     lan = await conn.fetchrow(
         """
-        SELECT payment_cycle_id, paid_at FROM public.payment_cycle
+        SELECT payment_cycle_id, paid_at, tai_khoan_nhan_id::text AS tk
+          FROM public.payment_cycle
          WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
            AND visit_id = $3::uuid AND kind = $4
          FOR UPDATE
@@ -383,16 +392,27 @@ async def _tao_trong(
         tong += tien
     refund_id = str(uuid.uuid4())
     tien_mat = method == "CASH"
+    # Hoàn chuyển khoản ghi tài khoản chuyển trả (31/10/2026): chọn > tài khoản
+    # đã nhận lần thu gốc > mặc định của cơ sở.
+    tk_hoan: str | None = None
+    if not tien_mat:
+        tk_hoan = (
+            await chon_cho_lan_thu(
+                conn, clinic_id=identity.clinic_id, visit_id=visit_id, chon=tai_khoan_id
+            )
+            if tai_khoan_id is not None or lan["tk"] is None
+            else str(lan["tk"])
+        )
     await conn.execute(
         """
         INSERT INTO public.payment_refund (
             refund_id, clinic_id, visit_id, kind, payment_cycle_id,
             amount, status, method, reason, created_by,
-            completed_by, completed_at)
+            completed_by, completed_at, tai_khoan_nhan_id)
         VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8,
                 $9, $10::uuid,
                 CASE WHEN $7 = 'COMPLETED' THEN $10::uuid END,
-                CASE WHEN $7 = 'COMPLETED' THEN now() END)
+                CASE WHEN $7 = 'COMPLETED' THEN now() END, $11::uuid)
         """,
         refund_id,
         identity.clinic_id,
@@ -404,6 +424,7 @@ async def _tao_trong(
         method,
         ly_do,
         identity.staff_id,
+        tk_hoan,
     )
     try:
         await conn.executemany(
@@ -435,6 +456,7 @@ async def _tao_trong(
             "kind": kind,
             "amount": tong,
             "method": method,
+            "tai_khoan_nhan_id": tk_hoan,
             "lines": [
                 {"payment_bill_line_id": ma, "quantity": str(sl)} for ma, sl, _ in ghi
             ],

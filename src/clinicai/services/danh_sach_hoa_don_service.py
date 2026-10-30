@@ -59,6 +59,9 @@ SELECT pc.payment_cycle_id::text id, pc.visit_id::text visit_id, pc.kind,
  p.patient_code ma_bn, p.phone_primary so_dien_thoai,
  creator.full_name nguoi_lap, confirmer.full_name nguoi_thu, closer.full_name nguoi_huy,
  hinh_thuc_hieu_luc(pc.clinic_id,pc.payment_cycle_id,pc.method) method,
+ phan_thu_hieu_luc(pc.clinic_id,pc.payment_cycle_id,pc.method,pc.amount) phan,
+ pc.tai_khoan_nhan_id::text tai_khoan_id,
+ tk.ten_goi || ' · ' || tk.so_tai_khoan ten_tai_khoan,
  (pc.paid_at >= $2 AND pc.paid_at < $3) trong_ky,
  (pc.status='VOIDED' AND pc.closed_at >= $2 AND pc.closed_at < $3) huy_trong_ky
 FROM payment_cycle pc
@@ -70,6 +73,7 @@ LEFT JOIN staff creator ON creator.id=pc.created_by
 LEFT JOIN staff confirmer ON confirmer.id=pc.confirmed_by
 LEFT JOIN staff closer ON closer.id=pc.closed_by
 LEFT JOIN staff discount_staff ON discount_staff.id=pc.discount_by
+LEFT JOIN tai_khoan_nhan tk ON tk.id=pc.tai_khoan_nhan_id AND tk.clinic_id=pc.clinic_id
 -- Lần chờ chuyển khoản bị HUỶ (chưa từng thu) vẫn hiện (G4d, R1): huỷ nhầm
 -- khi tiền đã về thì sổ không còn dấu nào khác — kế toán đối chiếu sao kê ở đây.
 WHERE pc.clinic_id=$1::uuid
@@ -89,6 +93,8 @@ ORDER BY coalesce(pc.paid_at,pc.closed_at) DESC,pc.payment_cycle_id
 _REFUNDS = """
 SELECT r.refund_id::text id,r.payment_cycle_id::text cycle_id,r.amount,r.status,
  r.method,r.reason,r.created_at,r.completed_at,r.closed_at,r.closed_reason,
+ r.tai_khoan_nhan_id::text tai_khoan_id,
+ tk.ten_goi || ' · ' || tk.so_tai_khoan ten_tai_khoan,
  c.full_name nguoi_lap,s.full_name nguoi_hoan,x.full_name nguoi_huy,
  (CASE WHEN r.status='COMPLETED' THEN r.completed_at
  WHEN r.status IN ('FAILED','CANCELLED') THEN r.closed_at ELSE r.created_at END >= $3
@@ -99,6 +105,7 @@ FROM payment_refund r
 LEFT JOIN staff c ON c.id=r.created_by
 LEFT JOIN staff s ON s.id=r.completed_by
 LEFT JOIN staff x ON x.id=r.closed_by
+LEFT JOIN tai_khoan_nhan tk ON tk.id=r.tai_khoan_nhan_id AND tk.clinic_id=r.clinic_id
 WHERE r.clinic_id=$1::uuid AND r.payment_cycle_id=ANY($2::uuid[])
 ORDER BY r.created_at,r.refund_id
 """

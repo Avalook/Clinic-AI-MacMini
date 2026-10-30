@@ -77,6 +77,7 @@ from clinicai.services.phan_lo_service import (
     van_de_phan_lo,
 )
 from clinicai.services.phan_thu import (
+    CHUYEN_KHOAN,
     PhanThu,
     ap_phan,
     chuan_hinh_thuc,
@@ -84,6 +85,7 @@ from clinicai.services.phan_thu import (
     doc_phan_db,
     hinh_thuc_chinh,
     so_tien_chuyen_khoan,
+    tai_khoan_chon,
 )
 from clinicai.services.service_selection_service import (
     QUYEN_CHON_DICH_VU,
@@ -91,6 +93,7 @@ from clinicai.services.service_selection_service import (
     ap_lua_chon,
     validate_input,
 )
+from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu
 
 logger = structlog.get_logger()
 
@@ -601,6 +604,7 @@ class PaymentService:
                 if mien_phi:
                     method = "CASH"
                 phan_ghi = [] if mien_phi else ap_phan(ds_phan, method, normalized)
+                tk_nhan = await _tai_khoan_nhan(conn, identity, visit_id, phan_ghi)
                 cycle_id = str(uuid.uuid4())
                 dien_tu = method in DIEN_TU and not mien_phi
                 await conn.execute(
@@ -610,13 +614,14 @@ class PaymentService:
                         bill_revision, method, status, created_by,
                         paid_at, confirmed_by,
                         discount_type, discount_value, discount_amount,
-                        discount_reason, discount_by, original_amount
+                        discount_reason, discount_by, original_amount,
+                        tai_khoan_nhan_id
                     )
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8,
                             $9::uuid,
                             CASE WHEN $8 = 'PAID' THEN now() END,
                             CASE WHEN $8 = 'PAID' THEN $9::uuid END,
-                            $10, $11, $12, $13, $14::uuid, $15)
+                            $10, $11, $12, $13, $14::uuid, $15, $16::uuid)
                     """,
                     cycle_id,
                     identity.clinic_id,
@@ -633,6 +638,7 @@ class PaymentService:
                     giam_input["reason"] if giam_input else None,
                     identity.staff_id if giam_input else None,
                     original_amount if giam_input else None,
+                    tk_nhan,
                 )
                 await _ghi_phan(conn, identity.clinic_id, cycle_id, phan_ghi)
                 payment_id: str | None = None
@@ -916,6 +922,7 @@ class PaymentService:
         if mien_phi:
             method = "CASH"
         phan_ghi = [] if mien_phi else ap_phan(phan, method, amount_after)
+        tk_nhan = await _tai_khoan_nhan(conn, identity, visit_id, phan_ghi)
         cycle_id = str(uuid.uuid4())
         dien_tu = method in DIEN_TU and not mien_phi
         await conn.execute(
@@ -924,13 +931,13 @@ class PaymentService:
                 payment_cycle_id, clinic_id, visit_id, kind, amount,
                 bill_revision, method, status, created_by, paid_at, confirmed_by,
                 discount_type, discount_value, discount_amount,
-                discount_reason, discount_by, original_amount
+                discount_reason, discount_by, original_amount, tai_khoan_nhan_id
             )
             VALUES ($1::uuid, $2::uuid, $3::uuid, 'dich_vu', $4, $5, $6, $7,
                     $8::uuid,
                     CASE WHEN $7 = 'PAID' THEN now() END,
                     CASE WHEN $7 = 'PAID' THEN $8::uuid END,
-                    $9, $10, $11, $12, $13::uuid, $14)
+                    $9, $10, $11, $12, $13::uuid, $14, $15::uuid)
             """,
             cycle_id,
             identity.clinic_id,
@@ -946,6 +953,7 @@ class PaymentService:
             giam["reason"] if giam else None,
             identity.staff_id if giam else None,
             original_amount if giam else None,
+            tk_nhan,
         )
         await _ghi_phan(conn, identity.clinic_id, cycle_id, phan_ghi)
         payment_id: str | None = None
@@ -2228,6 +2236,24 @@ async def _can_theo_anh_chup(
             (str(r["source_id"]), r["name_snapshot"], Decimal(str(r["quantity"])))
             for r in dong
         ],
+    )
+
+
+async def _tai_khoan_nhan(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    visit_id: str,
+    phan_ghi: Sequence[PhanThu],
+) -> str | None:
+    """Tài khoản nhận phần chuyển khoản của lần thu sắp ghi (31/10/2026); không có
+    phần chuyển khoản → None. Chọn / kiểm ở ``tai_khoan_nhan_service``."""
+    if not any(p.hinh_thuc == CHUYEN_KHOAN for p in phan_ghi):
+        return None
+    return await chon_cho_lan_thu(
+        conn,
+        clinic_id=identity.clinic_id,
+        visit_id=visit_id,
+        chon=tai_khoan_chon(phan_ghi),
     )
 
 
