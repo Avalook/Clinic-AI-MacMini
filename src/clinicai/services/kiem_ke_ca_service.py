@@ -33,6 +33,7 @@ from clinicai.core.shifts import CAC_CA, ca_cua_phut, ca_tu_settings, khung_chot
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import KiemKeLech
+from clinicai.services.don_vi_thuoc import chuan
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
     PharmacyService,
@@ -202,8 +203,12 @@ def ghep_ton_ca(
     dong = thuoc.get("dong", [])
     co = {d.get("khoa") for d in dong}
     for d in dong:
+        ds_lo = theo_thuoc.get(str(d.get("khoa")), [])
+        for x in ds_lo:
+            # Lô cũ tính hộp, thuốc bán viên: cột tồn phải nói số đó là hộp.
+            x["khac_don_vi_dong"] = chuan(x.get("don_vi")) != chuan(d.get("don_vi"))
         d["kho"] = {
-            "theo_don_vi": theo_thuoc.get(str(d.get("khoa")), []),
+            "theo_don_vi": ds_lo,
             "giao_chua_gan_lo": _f(giao_chua_gan_lo.get(str(d.get("khoa")))),
         }
     for drug, ds in theo_thuoc.items():

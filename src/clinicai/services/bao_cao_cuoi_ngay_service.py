@@ -827,7 +827,8 @@ def dong_co_ton(hh: Mapping[str, Any]) -> list[list[Any]]:
             )
             continue
         for i, t in enumerate(ds):
-            ten_dong = ten if len(ds) == 1 else f"{m['ten']} — {t['don_vi']}"
+            mot_don_vi = len(ds) == 1 and not t.get("khac_don_vi_dong")
+            ten_dong = ten if mot_don_vi else f"{m['ten']} — {t['don_vi']}"
             rows.append(
                 [m.get("ma") if i == 0 else None, ten_dong]
                 + [t["ton_dau"], t["nhap"], t["sl_ban"], t["sl_tra"], t["ton_cuoi"]]

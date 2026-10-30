@@ -234,9 +234,10 @@ class BangDonVi:
             d = max(lon, key=lambda x: x.he_so)
             nguyen = (tong / d.he_so).to_integral_value(rounding=ROUND_FLOOR)
             du = tong - nguyen * d.he_so
-            if nguyen > 0:
-                chu = f"{so_dep(nguyen)} {d.don_vi}"
-                phan.append(f"{chu} {so_dep(du)} {self.goc}" if du > 0 else chu)
+            if nguyen > 0 and du > 0:
+                phan.append(f"{so_dep(nguyen)} {d.don_vi} {so_dep(du)} {self.goc}")
+            elif nguyen > 0 and not co_lo_khac_goc:
+                phan.append(f"{so_dep(nguyen)} {d.don_vi}")
         return " · ".join(phan) or None
 
 
