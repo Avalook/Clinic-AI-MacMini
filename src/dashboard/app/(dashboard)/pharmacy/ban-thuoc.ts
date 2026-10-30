@@ -89,6 +89,8 @@ export interface DongDon {
   dosage_instructions: string | null;
   drug_catalog_id: string | null;
   ten_thuoc_kho: string | null;
+  /** Hàng trùng mã vật tư: tồn ở Kho vật tư, không có lô thuốc. */
+  la_vat_tu?: boolean;
   can_lo: number;
   da_chon: number;
   phan_lo: PhanLo[];

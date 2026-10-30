@@ -26,6 +26,15 @@ from clinicai.services.ultrasound_service import UltrasoundService
 
 
 @pytest.fixture(autouse=True)
+def _khong_moc_ban_vat_tu(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Các bài ở đây xếp sẵn từng câu trả lời của connection giả cho đúng phần
+    # lõi lần thu; đồng bộ kho vật tư có test DB riêng (test_vat_tu_ban_kho_db).
+    monkeypatch.setattr(
+        "clinicai.services.payment_service.dong_bo_ban_vat_tu", AsyncMock()
+    )
+
+
+@pytest.fixture(autouse=True)
 def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
     """Kết nối giả không chạy được `v_quyen_hieu_luc` — cửa quyền trả lời theo
     nhóm mẫu của vai (tests/quyen_gia.py). 24/09: kéo thứ tự / đặt lịch hỏi quyền."""

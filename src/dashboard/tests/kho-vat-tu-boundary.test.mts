@@ -25,6 +25,25 @@ test("màn Kho vật tư có đủ các tệp (chống xanh giả)", () => {
   }
 });
 
+test("tab Bán cho khách: nút do máy chủ quyết, lệnh ghi có khoá chống gửi trùng", () => {
+  const ban = doc(new URL("BanChoKhachVatTu.tsx", thuMuc));
+  for (const co of ["gan_duoc", "hoan_tac_duoc", "nhan_lai_duoc", "khong_nhan_duoc"]) {
+    assert.match(ban, new RegExp(`d\\.${co} \\?`), `${co} phải là cờ máy chủ`);
+  }
+  assert.match(ban, /data-excel-source/);
+  for (const lenh of ["ban-gan-phong", "ban-nhan-lai", "ban-khong-nhan-lai", "ban-hoan-tac"]) {
+    assert.ok(route.includes(`"${lenh}"`), `proxy thiếu ${lenh}`);
+  }
+  assert.match(route, /ban-nhap-bu[\s\S]*Idempotency-Key/);
+});
+
+test("phiếu bán không có nút hoàn tác ở Lịch sử thao tác; lọc mặt hàng gửi về máy chủ", () => {
+  const ls = doc(new URL("DanhSachPhieuVatTu.tsx", thuMuc));
+  assert.match(ls, /!p\.da_dao && !p\.ban_id/);
+  assert.match(ls, /vat_tu_id: hang/);
+  assert.match(route, /vat_tu_id: q\.get\("vat_tu_id"\)/);
+});
+
 test("thao tác từ dòng tồn gửi đúng đơn vị của mặt hàng", () => {
   // Bấm thật 31/10: thiếu đơn vị ở đây thì mọi nút Cấp / Kiểm kê / Báo hỏng của dòng
   // tồn đều bị từ chối "Đơn vị vật tư đã thay đổi".
@@ -401,6 +420,7 @@ test("lịch sử gồm mọi nơi trong phiếu và công khai giới hạn t�
   const ma = doc(new URL("DanhSachPhieuVatTu.tsx", thuMuc));
   assert.match(ma, /diem.tu.includes\(tuNoi\)/);
   assert.match(ma, /diem.den.includes\(denNoi\)/);
-  assert.match(ma, /gioi_han=50&bo_qua=\$\{tatCa.length\}/);
-  assert.match(ma, /Bộ lọc áp dụng trong danh sách đã tải/);
+  assert.match(ma, /gioi_han: "50", bo_qua: String\(boQua\)/);
+  assert.match(ma, /taiTrang\(matHang, tatCa\.length\)/);
+  assert.match(ma, /các bộ lọc khác áp dụng trong danh sách đã tải/);
 });

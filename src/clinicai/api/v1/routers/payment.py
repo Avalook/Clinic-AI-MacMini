@@ -398,6 +398,9 @@ async def doi_tai_khoan(
 class DongHoanRequest(BaseModel):
     payment_bill_line_id: UUID
     so_luong: float = Field(gt=0)
+    #: Vật tư: khách trả lại hàng, số về đúng nơi đã lấy. Không tick = chỉ hoàn tiền,
+    #: người kho xử lý ở tab Bán cho khách.
+    tra_hang: bool = False
 
 
 class HoanTienRequest(BaseModel):
@@ -454,6 +457,7 @@ async def _tao_hoan(
             {
                 "payment_bill_line_id": str(d.payment_bill_line_id),
                 "so_luong": d.so_luong,
+                "tra_hang": d.tra_hang,
             }
             for d in body.dong
         ],

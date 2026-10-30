@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal, DecimalException, InvalidOperation
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 import asyncpg
@@ -12,6 +13,24 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.kho_thuoc_service import _khoa
 
+
+class NguoiKho(Protocol):
+    """Sổ vật tư chỉ cần ba thông tin này. Tách khỏi `StaffIdentity` vì bán vật tư
+    có khi ghi ở bên nhận sự kiện (không có phiên đăng nhập) và ghi vào CƠ SỞ CỦA
+    LƯỢT, không phải cơ sở người bấm đang đứng."""
+
+    @property
+    def clinic_id(self) -> str: ...
+
+    @property
+    def location_id(self) -> str: ...
+
+    @property
+    def staff_id(self) -> str: ...
+
+
+#: Phiếu lập tay được. BAN không nằm đây: chỉ `vat_tu_ban_service` ghi, để sổ và
+#: danh sách đối soát không lệch nhau.
 LOAI = frozenset(
     {
         "NHAP",
@@ -134,7 +153,7 @@ async def _khoa_va_kiem_don_vi(
             d["don_vi"] = hien_tai
 
 
-async def _khoa_co_so(conn: asyncpg.Connection, identity: StaffIdentity) -> None:
+async def _khoa_co_so(conn: asyncpg.Connection, identity: NguoiKho) -> None:
     # Cả phiếu, kiểm và đảo lấy cùng khoá: không đọc tồn cũ giữa hai lần ghi.
     await conn.execute(
         "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
@@ -157,12 +176,13 @@ async def _phieu_da_co(
 
 async def _mo_phieu(
     conn: asyncpg.Connection,
-    identity: StaffIdentity,
+    identity: NguoiKho,
     loai: str,
     khoa: str,
     ghi_chu: str | None,
     dao: str | None = None,
     nha_cung_cap: str | None = None,
+    ban: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     code = await conn.fetchval(
         "SELECT upper(btrim(code)) FROM clinic_location WHERE"
@@ -181,8 +201,10 @@ async def _mo_phieu(
     ma = f"VT-{code}-{int(so) + 1:04d}"
     row = await conn.fetchrow(
         "INSERT INTO vat_tu_phieu (clinic_id, location_id, ma_phieu, loai,"
-        " khoa_gui, tao_boi, ghi_chu, dao_phieu_id, nha_cung_cap)"
-        " VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,$8::uuid,$9)"
+        " khoa_gui, tao_boi, ghi_chu, dao_phieu_id, nha_cung_cap,"
+        " ban_id, clinic_patient_id, payment_cycle_id)"
+        " VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,$8::uuid,$9,"
+        " $10::uuid,$11::uuid,$12::uuid)"
         " RETURNING id::text, ma_phieu, loai, nha_cung_cap",
         identity.clinic_id,
         identity.location_id,
@@ -193,12 +215,15 @@ async def _mo_phieu(
         ghi_chu,
         dao,
         nha_cung_cap,
+        ban["ban_id"] if ban else None,
+        ban["clinic_patient_id"] if ban else None,
+        ban["payment_cycle_id"] if ban else None,
     )
     return {**dict(row), "ok": True, "gui_lai": False}
 
 
 async def _ton(
-    conn: asyncpg.Connection, identity: StaffIdentity, vt: str, room: str | None
+    conn: asyncpg.Connection, identity: NguoiKho, vt: str, room: str | None
 ) -> Any:
     if not await conn.fetchval(
         "SELECT EXISTS(SELECT 1 FROM service_price WHERE id=$1::uuid AND"
@@ -237,7 +262,7 @@ async def _ton(
 
 async def _ghi(
     conn: asyncpg.Connection,
-    identity: StaffIdentity,
+    identity: NguoiKho,
     phieu: str,
     vt: str,
     ton: Any,
@@ -264,7 +289,7 @@ async def _ghi(
 
 
 async def _gia_chua_khai(
-    conn: asyncpg.Connection, identity: StaffIdentity, vt: str, loai: str
+    conn: asyncpg.Connection, identity: NguoiKho, vt: str, loai: str
 ) -> Decimal:
     """Giá cho dòng không gõ giá: giá danh mục, thiếu thì giá nhập gần nhất.
 
@@ -278,6 +303,13 @@ async def _gia_chua_khai(
     )
     if gia or loai == "NHAP":
         return Decimal(gia or 0)
+    return await gia_nhap_gan_nhat(conn, identity, vt)
+
+
+async def gia_nhap_gan_nhat(
+    conn: asyncpg.Connection, identity: NguoiKho, vt: str
+) -> Decimal:
+    """Giá của lần nhập gần nhất chưa bị đảo tại cơ sở; chưa nhập lần nào → 0."""
     gan_nhat = await conn.fetchval(
         "SELECT x.gia_nhap FROM vat_tu_txn x JOIN vat_tu_phieu p ON p.id=x.phieu_id"
         " AND p.clinic_id=x.clinic_id WHERE p.clinic_id=$1::uuid"
@@ -375,6 +407,40 @@ async def tao_phieu(
         return await _ghi_phieu(conn, identity, khoa, loai, ds, ghi_chu, nha_cung_cap)
 
 
+async def _dao_phieu(
+    conn: asyncpg.Connection,
+    identity: NguoiKho,
+    pid: str,
+    khoa: str,
+    ghi_chu: str | None,
+    ban: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Phiếu đảo đủ dòng của phiếu `pid`, trong giao dịch + khoá cơ sở của người gọi."""
+    dao = await _mo_phieu(conn, identity, "HOAN", khoa, ghi_chu, pid, ban=ban)
+    rows = await conn.fetch(
+        "SELECT x.id::text AS"
+        " txn_id,x.vat_tu_id::text,x.so_luong,x.gia_nhap,t.id::text,t.s"
+        "o_luong AS ton"
+        " FROM vat_tu_txn x JOIN vat_tu_ton t ON t.id=x.ton_id AND"
+        " t.clinic_id=x.clinic_id"
+        " WHERE x.clinic_id=$1::uuid AND x.phieu_id=$2::uuid ORDER BY x.id",
+        identity.clinic_id,
+        pid,
+    )
+    for r in rows:
+        await _ghi(
+            conn,
+            identity,
+            dao["id"],
+            r["vat_tu_id"],
+            {"id": r["id"], "so_luong": r["ton"]},
+            -r["so_luong"],
+            r["gia_nhap"],
+            dao=r["txn_id"],
+        )
+    return dao
+
+
 async def hoan_phieu(
     pool: asyncpg.Pool,
     *,
@@ -391,7 +457,7 @@ async def hoan_phieu(
         if cu:
             return cu
         p = await conn.fetchrow(
-            "SELECT id,loai FROM vat_tu_phieu WHERE clinic_id=$1::uuid AND"
+            "SELECT id,loai,ban_id FROM vat_tu_phieu WHERE clinic_id=$1::uuid AND"
             " location_id=$2::uuid AND id=$3::uuid",
             identity.clinic_id,
             identity.location_id,
@@ -399,6 +465,12 @@ async def hoan_phieu(
         )
         if not p:
             raise NotFoundError("Không tìm thấy phiếu vật tư của cơ sở.")
+        if p["ban_id"] is not None:
+            # Đảo tay ở đây thì danh sách đối soát vẫn nói "đã trừ": lệch hai sổ.
+            raise ConflictError(
+                "Phiếu này do bán cho khách — hoàn tác lần thu ở quầy, hoặc đổi nơi"
+                " lấy ở tab Bán cho khách."
+            )
         if p["loai"] == "HOAN" or await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM vat_tu_phieu WHERE"
             " clinic_id=$1::uuid AND dao_phieu_id=$2::uuid)",
@@ -406,29 +478,7 @@ async def hoan_phieu(
             pid,
         ):
             raise ConflictError("Phiếu đã đảo hoặc là phiếu đảo.")
-        dao = await _mo_phieu(conn, identity, "HOAN", khoa, ghi_chu, pid)
-        rows = await conn.fetch(
-            "SELECT x.id::text AS"
-            " txn_id,x.vat_tu_id::text,x.so_luong,x.gia_nhap,t.id::text,t.s"
-            "o_luong AS ton"
-            " FROM vat_tu_txn x JOIN vat_tu_ton t ON t.id=x.ton_id AND"
-            " t.clinic_id=x.clinic_id"
-            " WHERE x.clinic_id=$1::uuid AND x.phieu_id=$2::uuid ORDER BY x.id",
-            identity.clinic_id,
-            pid,
-        )
-        for r in rows:
-            await _ghi(
-                conn,
-                identity,
-                dao["id"],
-                r["vat_tu_id"],
-                {"id": r["id"], "so_luong": r["ton"]},
-                -r["so_luong"],
-                r["gia_nhap"],
-                dao=r["txn_id"],
-            )
-        return dao
+        return await _dao_phieu(conn, identity, pid, khoa, ghi_chu)
 
 
 async def doc_ton(

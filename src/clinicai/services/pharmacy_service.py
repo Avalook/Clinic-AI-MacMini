@@ -71,8 +71,12 @@ from clinicai.services.hoan_tac_giao_service import (
 )
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
+from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
 
 logger = structlog.get_logger()
+
+#: Câu trả về màn sau khi giao hàng trùng mã vật tư.
+GIAO_VAT_TU_XONG = "Đã giao cho khách. Hàng này tính ở Kho vật tư — không cần gán lô."
 
 # Loại giao dịch kho, đúng bốn giá trị mà `inventory_txn_type_check` canh.
 # Khai lại ở đây để một lỗi gõ bị bắt ở Python, trước khi nó thành một lỗi
@@ -872,7 +876,20 @@ class PharmacyService:
                 lo_da_tru: list[dict[str, Any]] = []
                 chua_tru = Decimal(0)
                 can_lam: str | None = None
-                if drug_batch_id is None:
+                la_vat_tu = drug_batch_id is None and bool(
+                    await thuoc_la_vat_tu(
+                        conn, identity.clinic_id, [don.get("drug_catalog_id")]
+                    )
+                )
+                if la_vat_tu:
+                    moi = await self._giao_vat_tu(
+                        conn,
+                        identity=identity,
+                        don=don,
+                        prescription_id=prescription_id,
+                        luong=luong,
+                    )
+                elif drug_batch_id is None:
                     tu_chon_lo = True
                     moi, lo_da_tru, chua_tru = await self._giao_tu_chon_lo(
                         conn,
@@ -932,6 +949,8 @@ class PharmacyService:
             "dispensed_qty": moi["dispensed_qty"],
             "dispense_status": moi["dispense_status"],
         }
+        if la_vat_tu:
+            ket_qua["tom_tat"] = GIAO_VAT_TU_XONG
         if tu_chon_lo:
             # Giao không chỉ định lô: máy tự chọn — màn đọc các khoá này để nói
             # lô nào đã trừ và phần nào còn chờ gán lô (không tự suy ở TSX).
@@ -941,6 +960,50 @@ class PharmacyService:
                 lo_da_tru, chua_tru, don.get("unit"), can_lam
             )
         return ket_qua
+
+    async def _giao_vat_tu(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        don: asyncpg.Record,
+        prescription_id: str,
+        luong: Decimal,
+    ) -> asyncpg.Record:
+        """Giao hàng trùng mã vật tư (đầu dò Bio bán ở quầy thuốc, 31/10/2026): chỉ
+        tăng số đã giao. Không lô thuốc, không vào hàng chờ gán lô — tồn đã trừ ở
+        Kho vật tư lúc thu tiền (`vat_tu_ban_service`)."""
+        _kiem_khong_giao_qua_so_mua(don, luong)
+        moi = await conn.fetchrow(
+            """
+            UPDATE public.prescription
+               SET dispensed_qty = dispensed_qty + $3,
+                   dispensed_at = now(),
+                   dispensed_by_staff_id = $4::uuid,
+                   updated_at = now()
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+            RETURNING dispensed_qty, dispense_status
+            """,
+            prescription_id,
+            identity.clinic_id,
+            luong,
+            identity.staff_id,
+        )
+        await _log(
+            conn,
+            identity=identity,
+            event_type="pharmacy.dispensed",
+            aggregate_type="prescription",
+            aggregate_id=prescription_id,
+            payload={
+                "drug_batch_id": None,
+                "vat_tu": True,
+                "quantity": str(luong),
+                "dispensed_qty": str(moi["dispensed_qty"]),
+                "dispense_status": moi["dispense_status"],
+            },
+        )
+        return moi
 
     async def _giao_theo_phan_lo(
         self,

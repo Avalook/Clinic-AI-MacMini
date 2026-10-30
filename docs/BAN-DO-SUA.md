@@ -534,6 +534,18 @@ MỚI) → Bio chưa thu đi theo (`so_sua_chi_dinh_service._chi_dinh_moi_thay` 
 Test: `T/services/test_bio_chi_dinh_db.py` (bất biến B1–B5 + bấm ngẫu nhiên 40×10 có bên nhận sự kiện xen giữa),
 FT `dau-do-chi-dinh-boundary.test.mts`. Luật duyệt trigger `luot_vat_tu_gac` KHÔNG đổi ở G9.
 
+**Bán vật tư trừ kho đúng phòng + danh sách đối soát (31/10/2026)** — mọi đường bán đi qua MỘT hàm `S/vat_tu_ban_service.py`
+`dong_bo_ban_vat_tu` (so số phải trừ với số đang trừ, gọi lại không đổi gì; bảng `vat_tu_ban`, phiếu `BAN`/`HOAN`, migration 20261101300000).
+Luật: trừ khi có lần thu giữ phủ (đã thu HOẶC chuyển khoản chờ xác minh, thu 0đ vẫn trừ) hoặc dịch vụ đã bắt đầu làm mà chưa thu; hoàn tác lần
+thu / huỷ lần chờ → số về, TRỪ dịch vụ đã làm (hàng đã dùng, khách thành nợ); bỏ chỉ định / không làm → số về; khôi phục → trừ lại. HOÀN TIỀN
+KHÔNG tự cộng kho: dòng ghi `so_hoan_tien`, người kho "Nhận lại hàng" / "Không nhận lại", hoặc quầy tick "Khách trả lại hàng" ở `D/thu-ngan/HoanTien.tsx`
+(cả hai quầy). Nơi lấy: phòng chỉ định → phòng bác sĩ theo lịch → "Chờ gán phòng" (không đoán: phòng tắt, cơ sở khác, phòng đối tác, nhiều bác sĩ,
+bác sĩ hai phòng); người kho gán rồi thì máy không đổi. Móc: `S/payment_service.py` (tạo lần thu, huỷ lần chờ, `void_payment`),
+`S/hoan_tien_service.py`, `S/vat_tu_service.py` (`dat_so_luong`, `bo`), `S/bio_chi_dinh_service.py` `chon`; trạng thái chỉ định: bên nhận
+`events/consumers/vat_tu_ban.py`. Hàng ở `drug_catalog` trùng mã vật tư: `S/vat_tu_trung_ma.py` (mã rỗng / không có bên vật tư = thuốc thường), giao ở
+`S/pharmacy_service.py` `_giao_vat_tu`. Màn: `D/kho-vat-tu/BanChoKhachVatTu.tsx`, `NhapBuVatTu.tsx`. Dữ liệu cũ không trừ ngược: dòng chỉ sinh từ lần
+thu mới hoặc `luot_vat_tu.tru_kho`. Test: `T/services/test_vat_tu_ban_kho_db.py`, FT `kho-vat-tu-boundary.test.mts`.
+
 **Ai duyệt vật tư cần duyệt + nguyên nhân bán thêm (14/10/2026, G8b — Notion recap 12/10 mục 3.3, Tuyền Q11)** — người duyệt là
 LEGO, không phải vai: khối `duyet_vat_tu` / quyền `vat_tu.approve` (`P/catalogue.py`, nằm trong `KHOI_CHI_QUAN_LY` — KHÔNG "mở full";
 migration 20261014200000 cấp bù cho tài khoản Quản lý + Trưởng ca đang có; tài khoản Trưởng ca MỚI do Quản lý cấp ở `/phan-quyen`).

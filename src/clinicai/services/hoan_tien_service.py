@@ -37,6 +37,11 @@ from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
 from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.phan_lo_service import so
 from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu, doc_id
+from clinicai.services.vat_tu_ban_service import (
+    dong_bo_ban_vat_tu,
+    dong_la_vat_tu,
+    tra_hang_tai_quay,
+)
 
 #: AI ĐƯỢC HOÀN TIỀN (Tuyền chốt 06/10/2026 — "ai có node cũng được"): QUYỀN,
 #: không vai. Hoàn tiền DỊCH VỤ = ai có lego Thu tiền dịch vụ; hoàn tiền THUỐC =
@@ -110,6 +115,8 @@ class HoanTienService:
         tk = doc_id(tai_khoan_id)
         ly_do = _ly_do(reason)
         yeu_cau: dict[str, Decimal] = {}
+        # "Khách trả lại hàng" (vật tư, 31/10/2026): hoàn tiền không tự đưa hàng về.
+        tra_hang: dict[str, Decimal] = {}
         for d in dong:
             try:
                 sl = Decimal(str(d.get("so_luong")))
@@ -119,13 +126,15 @@ class HoanTienService:
                 raise ValidationError("Số lượng hoàn phải lớn hơn 0.")
             ma = str(d.get("payment_bill_line_id") or "")
             yeu_cau[ma] = yeu_cau.get(ma, Decimal(0)) + sl
+            if d.get("tra_hang"):
+                tra_hang[ma] = tra_hang.get(ma, Decimal(0)) + sl
         if not yeu_cau:
             raise ValidationError("Chọn ít nhất một dòng để hoàn.")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 await _doi_quyen_hoan(conn, identity, kind, visit_id)
-                return await _tao_trong(
+                kq = await _tao_trong(
                     conn,
                     identity=identity,
                     payment_cycle_id=payment_cycle_id,
@@ -136,6 +145,9 @@ class HoanTienService:
                     ly_do=ly_do,
                     tai_khoan_id=tk,
                 )
+                for ma, sl in tra_hang.items():
+                    await tra_hang_tai_quay(conn, identity, ma, sl, ly_do)
+                return kq
 
     async def hoan_tien_thua(
         self,
@@ -242,6 +254,9 @@ class HoanTienService:
                 )
                 await _phat_da_hoan(
                     conn, identity, str(vid_hoan), refund_id, int(hoan["amount"])
+                )
+                await dong_bo_ban_vat_tu(
+                    conn, identity, str(vid_hoan), ly_do=f"Hoàn tiền: {hoan['reason']}"
                 )
                 await _log(
                     conn,
@@ -450,6 +465,7 @@ async def _tao_trong(
         raise loi_tien_lieu_trinh(e) from None
     if tien_mat:
         await _phat_da_hoan(conn, identity, visit_id, refund_id, int(tong))
+        await dong_bo_ban_vat_tu(conn, identity, visit_id, ly_do=f"Hoàn tiền: {ly_do}")
     await _log(
         conn,
         identity,
@@ -528,7 +544,7 @@ async def _khoa_hoan(
     hoan = await conn.fetchrow(
         """
         SELECT refund_id, payment_cycle_id, visit_id, status, method, amount, reference,
-               kind
+               kind, reason
           FROM public.payment_refund
          WHERE refund_id = $1::uuid AND clinic_id = $2::uuid
          FOR UPDATE
@@ -612,6 +628,8 @@ async def hoan_cua_cac_lan_thu(
             cycle_ids,
         )
     }
+    # Dòng vật tư: màn hỏi thêm "Khách trả lại hàng" — hoàn tiền không tự về kho.
+    vat_tu = await dong_la_vat_tu(conn, identity.clinic_id, cycle_ids)
     for c in cycle_ids:
         if c in da_huy:
             continue
@@ -634,6 +652,7 @@ async def hoan_cua_cac_lan_thu(
                         "discount_allocated": giam,
                         "da_hoan": d["da_hoan"],
                         "con_hoan": d["con_hoan"],
+                        "la_vat_tu": d["id"] in vat_tu,
                     }
                 )
     return ket_qua
