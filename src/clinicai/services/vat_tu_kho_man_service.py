@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 
@@ -90,13 +91,17 @@ async def doc_phieu(
     identity: StaffIdentity,
     gioi_han: Any = None,
     bo_qua: Any = None,
+    vat_tu_id: Any = None,
 ) -> list[dict[str, Any]]:
-    """Phiếu gần nhất của cơ sở đang làm, kèm dòng, người lập, đã đảo hay chưa."""
+    """Phiếu gần nhất của cơ sở đang làm, kèm dòng, người lập, đã đảo hay chưa.
+    `vat_tu_id`: chỉ phiếu có mặt hàng ấy; rác = không lọc, không ném."""
     rows = await pool.fetch(
         "SELECT p.id::text, p.ma_phieu, p.loai, p.tao_luc, p.ghi_chu,"
         " p.nha_cung_cap,"
         " p.tao_boi::text AS nguoi_tao_id, s.full_name AS nguoi_tao,"
-        " p.dao_phieu_id::text AS dao_phieu_id,"
+        " p.dao_phieu_id::text AS dao_phieu_id, p.ban_id::text AS ban_id,"
+        " p.payment_cycle_id::text AS payment_cycle_id,"
+        " k.full_name AS khach, k.patient_code AS ma_khach,"
         " EXISTS (SELECT 1 FROM vat_tu_phieu d WHERE d.dao_phieu_id=p.id"
         "   AND d.clinic_id=p.clinic_id) AS da_dao,"
         " (SELECT coalesce(jsonb_agg(jsonb_build_object("
@@ -109,14 +114,26 @@ async def doc_phieu(
         "   LEFT JOIN clinic_room r ON r.id=t.room_id"
         "   WHERE x.phieu_id=p.id AND x.clinic_id=p.clinic_id) AS dong"
         " FROM vat_tu_phieu p LEFT JOIN staff s ON s.id=p.tao_boi"
+        " LEFT JOIN patient k ON k.clinic_patient_id=p.clinic_patient_id"
+        "   AND k.clinic_id=p.clinic_id"
         " WHERE p.clinic_id=$1::uuid AND p.location_id=$2::uuid"
+        " AND ($5::uuid IS NULL OR EXISTS (SELECT 1 FROM vat_tu_txn m WHERE"
+        "   m.clinic_id=p.clinic_id AND m.phieu_id=p.id AND m.vat_tu_id=$5::uuid))"
         " ORDER BY p.tao_luc DESC, p.ma_phieu DESC LIMIT $3 OFFSET $4",
         identity.clinic_id,
         identity.location_id,
         _gioi_han(gioi_han),
         _bo_qua(bo_qua),
+        _ma_hoac_rong(vat_tu_id),
     )
     return [{**dict(r), "dong": _json(r["dong"])} for r in rows]
+
+
+def _ma_hoac_rong(v: Any) -> str | None:
+    try:
+        return str(UUID(str(v))) if v else None
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 def _bo_qua(v: Any) -> int:

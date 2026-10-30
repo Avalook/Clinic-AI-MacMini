@@ -459,14 +459,21 @@ export default function DongThuoc({
               })
             }
           >
-            Giao thuốc
+            {dong.la_vat_tu ? "Giao cho khách" : "Giao thuốc"}
           </Button>
           <span className="text-meta text-ink-muted">
-            {loGiaoQuet
-              ? `Giao từ lô ${loGiaoQuet.batch_code} (đã quét) — kho trừ ngay.`
-              : "Máy tự chọn lô hết hạn sớm nhất và trừ kho ngay."}
+            {dong.la_vat_tu
+              ? "Hàng này tính ở Kho vật tư — không cần chọn lô."
+              : loGiaoQuet
+                ? `Giao từ lô ${loGiaoQuet.batch_code} (đã quét) — kho trừ ngay.`
+                : "Máy tự chọn lô hết hạn sớm nhất và trừ kho ngay."}
           </span>
         </div>
+      ) : null}
+      {dong.la_vat_tu && Number(dong.dispensed_qty) > 0 ? (
+        <p className="text-meta text-ink-muted">
+          Khách trả hàng này: vào Giao dịch của quầy, Hoàn tiền rồi tick “Khách trả lại hàng”.
+        </p>
       ) : null}
 
       {tt.giao_luong_cu ? (

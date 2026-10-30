@@ -94,6 +94,7 @@ from clinicai.services.service_selection_service import (
     validate_input,
 )
 from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu
+from clinicai.services.vat_tu_ban_service import dong_bo_ban_vat_tu
 
 logger = structlog.get_logger()
 
@@ -664,6 +665,7 @@ class PaymentService:
                     hoa_don=hoa_don,
                     discount_amount=discount_amount,
                 )
+                await dong_bo_ban_vat_tu(conn, identity, visit_id, lan_thu=cycle_id)
                 if kind == "thuoc" and payment_id is not None:
                     # Tiền mặt: đã nhận VÀ ảnh chụp hoá đơn đã ghi → so bản
                     # thanh toán cuối với đơn (Tuyền 24/09/2026).
@@ -979,6 +981,7 @@ class PaymentService:
             hoa_don=hoa_don,
             discount_amount=discount_amount,
         )
+        await dong_bo_ban_vat_tu(conn, identity, visit_id, lan_thu=cycle_id)
         if not dien_tu:
             await _phat_da_thu_dich_vu(
                 conn,
@@ -1391,6 +1394,9 @@ class PaymentService:
                     truoc=CHO_XAC_MINH,
                     ly_do=ly_do,
                 )
+                await dong_bo_ban_vat_tu(
+                    conn, identity, visit_id, ly_do=f"Huỷ lần chờ xác minh: {ly_do}"
+                )
         return {"payment_cycle_id": payment_cycle_id, "status": "CANCELLED"}
 
     async def void_payment(
@@ -1602,6 +1608,9 @@ class PaymentService:
                     so_tien=int(payment["amount"]),
                     truoc="PAID",
                     ly_do=normalized_reason,
+                )
+                await dong_bo_ban_vat_tu(
+                    conn, identity, visit_id, ly_do=normalized_reason
                 )
                 tu_ghi_no = (
                     await _tu_ghi_no_sau_ve(

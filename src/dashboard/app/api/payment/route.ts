@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     }[];
     taiKhoanId?: string | null;
     taiKhoanCu?: string | null;
-    dong?: { payment_bill_line_id: string; so_luong: number }[];
+    dong?: { payment_bill_line_id: string; so_luong: number; tra_hang?: boolean }[];
     /** Quầy một hoá đơn (27/09): lựa chọn dịch vụ khách đang nhìn lúc bấm Thu. */
     chon?: {
       order_ids_seen: string[];

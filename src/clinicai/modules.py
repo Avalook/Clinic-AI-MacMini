@@ -151,6 +151,31 @@ MODULE: dict[str, Module] = {
             ],
         ),
         Module(
+            ma="vat_tu_ban",
+            ten="Bán vật tư trừ kho đúng phòng",
+            # 31/10/2026: tiền gọi thẳng `dong_bo_ban_vat_tu` trong giao dịch thu;
+            # trạng thái chỉ định đi qua sự kiện vì có nhiều đường ghi.
+            lenh=[
+                "AssignSupplySource",
+                "ReceiveSupplyReturn",
+                "DeclineSupplyReturn",
+                "AddForgottenSupplySale",
+                "UndoForgottenSupplySale",
+            ],
+            nghe=[
+                "service.started",
+                "service.completed",
+                "service.not_performed",
+                "service.start_cancelled",
+                "service.routed",
+                "service.room_transferred",
+                "service_order.cancelled",
+                "service_order.restored",
+            ],
+            ben_nhan=["vat_tu_ban"],
+            bang=["vat_tu_ban"],
+        ),
+        Module(
             ma="phi_kham",
             ten="Dịch vụ khám (tiền khám)",
             # Tick dịch vụ khám con theo mã KiotViet (28/09/2026); từ C18

@@ -38,6 +38,7 @@ from clinicai.permissions.can import can
 from clinicai.services.ban_le_service import QUYEN_THU_THUOC, co_quyen_mo
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
+from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
 
 CHUA_SAN_SANG = "CHUA_SAN_SANG"
 SAN_SANG = "SAN_SANG"
@@ -324,6 +325,8 @@ async def man_nha_thuoc(
             rx_ids,
         )
         thuoc_ids = sorted({r["drug_catalog_id"] for r in dong if r["drug_catalog_id"]})
+        # Hàng trùng mã vật tư: tồn ở Kho vật tư, không hỏi lô thuốc.
+        la_vat_tu = await thuoc_la_vat_tu(conn, identity.clinic_id, thuoc_ids)
         # Kho riêng từng cơ sở (08/10/2026): lô gợi ý của một dòng = lô thuộc
         # cơ sở của LƯỢT (`_co_so`). Đọc lô của mọi cơ sở có trên màn, lọc
         # theo dòng ở `_dong`.
@@ -560,6 +563,7 @@ async def man_nha_thuoc(
                 co_quyen_ghi,
                 them,
                 co_so=_co_so(r, identity),
+                la_vat_tu=r["drug_catalog_id"] in la_vat_tu,
             )
             dv = _don_vi(r["unit"])
             d["kho_con"] = [
@@ -622,6 +626,7 @@ def _dong(
     them: dict[str, Any],
     *,
     co_so: str,
+    la_vat_tu: bool = False,
 ) -> dict[str, Any]:
     ke = r["quantity_num"]
     ban = r["purchased_qty"] if r["purchased_qty"] is not None else ke
@@ -667,7 +672,9 @@ def _dong(
         )
     lo_goi_y = []
     ung_vien: list[asyncpg.Record] = []
-    if r["drug_catalog_id"]:
+    if la_vat_tu:
+        pass
+    elif r["drug_catalog_id"]:
         ung_vien = lo_theo_thuoc.get(r["drug_catalog_id"], [])
     elif gd == DA_THU_CU:
         ten = (r["drug_name_raw"] or "").strip().lower()
@@ -722,6 +729,7 @@ def _dong(
         "dosage_instructions": r["dosage_instructions"],
         "drug_catalog_id": r["drug_catalog_id"],
         "ten_thuoc_kho": r["ten_thuoc_kho"],
+        "la_vat_tu": la_vat_tu,
         "can_lo": can_lo,
         "da_chon": da_chon,
         "phan_lo": ds_pl,
@@ -740,7 +748,7 @@ def _dong(
             gd=gd,
             dong_da_chot=da_chot,
             da_giao=da_giao,
-            co_thuoc_kho=r["drug_catalog_id"] is not None,
+            co_thuoc_kho=r["drug_catalog_id"] is not None and not la_vat_tu,
             co_don_vi=bool(_don_vi(r["unit"])),
             co_so_ke=ke is not None,
             can_lo=can_lo,
