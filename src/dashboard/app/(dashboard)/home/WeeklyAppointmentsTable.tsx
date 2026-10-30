@@ -1066,7 +1066,10 @@ export default function WeeklyAppointmentsTable({
                               {coMenu && (
                                 // Nút "…" chỉ hiện khi rê chuột / đang mở / đang
                                 // chọn bằng bàn phím — dòng lặng khi chỉ đọc.
-                                <td className={`${CELL} opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 has-[[open]]:opacity-100 max-md:opacity-100`}>
+                                // Máy cảm ứng (iPad ≥768px) không rê chuột được
+                                // → luôn hiện (`pointer-coarse`), không thì nút
+                                // vô hình và không ai biết có menu.
+                                <td className={`${CELL} opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 has-[[open]]:opacity-100 max-md:opacity-100 pointer-coarse:opacity-100`}>
                                   <MenuLich
                                     a={a}
                                     laHomNay={day.date === homNay}

@@ -37,3 +37,18 @@ export function nhanLyDoHuy(ma: string | null | undefined): string | null {
   if (!ma) return null;
   return LY_DO_HUY[ma] ?? ma;
 }
+
+/** Lý do ĐẦY ĐỦ của một lần huỷ để in một dòng: nhãn mã — chữ ghi thêm.
+ *
+ *  Một chỗ cho mọi màn (khung khách, Kênh đổi/huỷ…): chọn mã mà không gõ chữ là
+ *  đường thường gặp nhất, đọc riêng chữ thì lý do biến mất. "Khác" có chữ thì
+ *  chỉ in chữ (nhãn "Lý do khác (tự viết)" không nói thêm gì). Dữ liệu cũ không
+ *  có mã → in chữ. Không có gì → null. */
+export function chuLyDoHuy(
+  ma: string | null | undefined,
+  chu: string | null | undefined,
+): string | null {
+  const viet = (chu ?? "").trim() || null;
+  const nhan = ma === "KHAC" && viet ? null : nhanLyDoHuy(ma);
+  return [nhan, viet].filter(Boolean).join(" — ") || null;
+}

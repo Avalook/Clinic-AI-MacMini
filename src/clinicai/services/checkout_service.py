@@ -75,6 +75,7 @@ _READINESS_SQL = (
 SELECT
     v.visit_id,
     v.status                       AS visit_status,
+    v.incomplete_reason,
     v.current_node_code,
     v.checked_in_at,
     r.code                         AS room_code,
@@ -588,6 +589,12 @@ class CheckoutService:
             "patient_code": chung["patient_code"],
             "phone_primary": chung.get("phone_primary"),
             "visit_status": chung["visit_status"],
+            # Khám dở / về giữa chừng: vì sao (ghi lúc đóng lượt dở — `close`).
+            "ly_do_ve": (
+                chung.get("incomplete_reason")
+                if chung["visit_status"] == "INCOMPLETE"
+                else None
+            ),
             "checked_in_at": (
                 chung["checked_in_at"].isoformat() if chung["checked_in_at"] else None
             ),

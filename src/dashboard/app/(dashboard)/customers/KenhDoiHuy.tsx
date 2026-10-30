@@ -4,7 +4,7 @@
 // hay cả chỗ quản lý này cũng phải hiện … lần đổi hẹn hay huỷ hẹn này lý do là
 // gì"). Dữ liệu do máy chủ trả (`COT_KENH_DOI_HUY`) — màn chỉ đặt nhãn.
 
-import { nhanLyDoHuy } from "@/lib/ly-do-huy";
+import { chuLyDoHuy } from "@/lib/ly-do-huy";
 
 import { CHANNELS } from "../form-ui";
 
@@ -40,10 +40,7 @@ export function nhanKenh(ma: string | null | undefined): string | null {
 /** Câu "Đổi lịch 24/09 10:30: chị bận đột xuất" — null khi chưa đổi/huỷ lần nào. */
 export function cauDoiHuy(d: DoiHuyGanNhat | null | undefined): string | null {
   if (!d) return null;
-  const lyDo =
-    d.loai === "HUY"
-      ? [nhanLyDoHuy(d.ma), d.ly_do].filter(Boolean).join(" — ")
-      : d.ly_do;
+  const lyDo = d.loai === "HUY" ? chuLyDoHuy(d.ma, d.ly_do) : d.ly_do;
   const dau = d.loai === "HUY" ? "Huỷ lịch" : "Đổi lịch";
   return `${dau}${d.luc ? ` ${ngayGio(d.luc)}` : ""}: ${lyDo || "chưa ghi lý do"}`;
 }
