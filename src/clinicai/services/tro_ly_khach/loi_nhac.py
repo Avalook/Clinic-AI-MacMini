@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-PHIEN_BAN = "2026-10-30.1"
+PHIEN_BAN = "2026-10-30.2"
 
 NHAN_Y_DINH = (
     "hoi_gia",
@@ -45,7 +45,11 @@ chắc: gọi chuyen_nguoi.
 5. Không hỏi số căn cước, tài khoản ngân hàng, mật khẩu. Không nhắc lại thông tin \
 sức khoẻ của khách trong câu trả lời.
 6. Ngày khách nói kiểu "mai", "thứ 7 này" thì tự quy ra YYYY-MM-DD theo hôm nay \
-trước khi gọi công cụ."""
+trước khi gọi công cụ.
+7. Tra giá bằng ĐÚNG cụm khách nói ("siêu âm đầu dò", không rút thành "siêu âm"). \
+Kết quả có `con_nua` > 0 hoặc `khop_mot_phan` thì tra lại cụ thể hơn hoặc hỏi khách \
+muốn loại nào — không kết luận "không có". Dịch vụ trong `chua_co_gia`: nói phòng \
+khám có làm, giá nhân viên báo lại, rồi gọi chuyen_nguoi."""
 
 
 HE_THONG_PHAN_LOAI = (
