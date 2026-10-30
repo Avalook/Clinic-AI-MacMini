@@ -214,3 +214,21 @@ def test_tao_mo_hinh(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert tao_mo_hinh("ollama:qwen3").ten == "ollama:qwen3"
     (tmp_path / "tro_ly_khoa_anthropic").write_text("sk-ant-gia\n")
     assert tao_mo_hinh("anthropic:claude-haiku-5-5").ten == "anthropic:claude-haiku-5-5"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "kich_ban",
+    [
+        [MoHinhError("HTTP 500")],
+        [KetQuaMoHinh("", (_goi("thong_tin_phong_kham"),))] * bo_nao.SO_VONG_TOI_DA,
+        [KetQuaMoHinh("   ")],
+    ],
+    ids=["model_loi", "het_vong", "tra_rong"],
+)
+async def test_tin_cuoi_luon_la_nhap(kich_ban: list[Any]) -> None:
+    """Nơi lưu lấy tin cuối làm dòng nháp để duyệt — mọi nhánh phải để lại nó."""
+    kq = await _chay(MoHinhGia(kich_ban), "o dau vay")
+    cuoi = kq.tin_moi[-1]
+    assert cuoi.vai == "tro_ly" and not cuoi.goi_cong_cu
+    assert cuoi.noi_dung == kq.nhap != ""

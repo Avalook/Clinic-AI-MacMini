@@ -13,6 +13,7 @@ Mọi lỗi trả về `{"loi": "…"}` cho model đọc, không ném — một 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
@@ -29,13 +30,18 @@ logger = structlog.get_logger()
 
 CHUYEN_NGUOI = "chuyen_nguoi"
 SO_NGAY_XEM_TRUOC = 60
+#: Số dịch vụ trả một lần — đủ cho câu hỏi cụ thể; hỏi rộng thì `con_nua` > 0
+#: và lời nhắc bảo model tra lại cụ thể hơn.
+TOI_DA_GIA = 15
 _THU_DOW = ("Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy")
 
 DANH_SACH: tuple[CongCu, ...] = (
     CongCu(
         ten="tra_gia_dich_vu",
-        mo_ta="Tra giá niêm yết dịch vụ theo từ khoá (vd 'khám phụ khoa', 'siêu âm'). "
-        "Giá đã gồm thuế. Để trống từ khoá để lấy danh sách dịch vụ.",
+        mo_ta="Tra giá niêm yết dịch vụ theo từ khoá — dùng ĐÚNG cụm khách nói "
+        "(vd 'siêu âm đầu dò', 'xét nghiệm HPV'). Giá đã gồm thuế. `chua_co_gia` = "
+        "phòng khám có làm nhưng chưa niêm yết giá. `con_nua` > 0 = còn kết quả, "
+        "tra cụ thể hơn.",
         tham_so={
             "type": "object",
             "properties": {"tu_khoa": {"type": "string"}},
@@ -89,12 +95,59 @@ def doc_ngay(s: Any) -> date | None:
         return None
 
 
-def loc_dich_vu(dong: list[dict[str, Any]], tu_khoa: str) -> list[dict[str, Any]]:
-    """Mọi từ của từ khoá (bỏ dấu) phải có trong tên. Không khớp thì trả rỗng."""
-    tu = [t for t in bo_dau(tu_khoa).split() if t]
-    if not tu:
-        return dong
-    return [d for d in dong if all(t in bo_dau(str(d["ten"])) for t in tu)]
+def _tu(s: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", bo_dau(s))
+
+
+def ket_qua_gia(
+    dong: list[dict[str, Any]], tu_khoa: str, toi_da: int = TOI_DA_GIA
+) -> dict[str, Any]:
+    """Kết quả tra giá cho model. `dong`: {"ten", "gia_vnd", "gia_tam"};
+    `gia_vnd` rỗng / 0 = có trong bảng giá nhưng CHƯA có giá.
+
+    Khớp theo TỪ (bỏ dấu), không theo chuỗi con: "am" của "siêu âm" không được
+    dính "tâm", "nam". Có tên chứa ĐỦ mọi từ thì chỉ trả những tên đó (tên ngắn
+    trước — ít chữ thừa nhất là gần nhất). Không có thì trả MỌI tên khớp ít nhất
+    một từ, nhiều từ khớp trước, kèm `khop_mot_phan` — KHÔNG chấm điểm để chọn hộ:
+    trên bảng giá staging 30/10, "xét nghiệm HPV" theo số từ khớp ra "Xét nghiệm
+    máu", theo độ hiếm cũng vậy ("xét" có 2 tên, "hpv" 3). Đưa cả hai nhóm để
+    model chọn hoặc hỏi lại khách.
+
+    Dịch vụ chưa có giá đi vào `chua_co_gia` chứ không bị coi là "không có":
+    staging 30/10 — HPV ba dịch vụ đều 0đ, công cụ cũ báo "không thấy", khách sẽ
+    hiểu là phòng khám không làm HPV.
+    """
+    tu = set(_tu(tu_khoa))
+    so_khop = [len(tu & set(_tu(str(d["ten"])))) for d in dong]
+    if tu and max(so_khop, default=0) == 0:
+        return {
+            "khong_thay": True,
+            "mot_so_dich_vu": [d["ten"] for d in dong if d.get("gia_vnd")][:15],
+        }
+    cap = [(n, d) for n, d in zip(so_khop, dong) if not tu or n == len(tu)]
+    mot_phan = not cap
+    if mot_phan:
+        cap = [(n, d) for n, d in zip(so_khop, dong) if n > 0]
+    cap.sort(key=lambda nd: (-nd[0], len(_tu(str(nd[1]["ten"]))), str(nd[1]["ten"])))
+    khop = [d for _, d in cap]
+    co_gia = [d for d in khop if d.get("gia_vnd")]
+    chua = [str(d["ten"]) for d in khop if not d.get("gia_vnd")]
+    ra: dict[str, Any] = {
+        "dich_vu": [
+            {
+                "ten": d["ten"],
+                "gia_vnd": d["gia_vnd"],
+                "gia_tam": d.get("gia_tam", False),
+            }
+            for d in co_gia[:toi_da]
+        ],
+        "con_nua": max(len(co_gia) - toi_da, 0),
+    }
+    if chua:
+        ra["chua_co_gia"] = chua[:toi_da]
+    if mot_phan:
+        ra["khop_mot_phan"] = True
+    return ra
 
 
 def kiem_ngay_xem(ngay: Any, luc: datetime) -> date | dict[str, Any]:
@@ -172,19 +225,19 @@ class CongCuPhongKham:
             SELECT name, unit_price, coalesce(gia_tam, false) AS gia_tam
               FROM public.service_price
              WHERE clinic_id = $1::uuid AND "group" = 'dich_vu' AND active
-               AND unit_price IS NOT NULL AND unit_price > 0
              ORDER BY name
             """,
             self._clinic_id,
         )
         dong = [
-            {"ten": r["name"], "gia_vnd": int(r["unit_price"]), "gia_tam": r["gia_tam"]}
+            {
+                "ten": r["name"],
+                "gia_vnd": int(r["unit_price"]) if r["unit_price"] else None,
+                "gia_tam": r["gia_tam"],
+            }
             for r in rows
         ]
-        khop = loc_dich_vu(dong, tu_khoa)
-        if not khop:
-            return {"khong_thay": True, "mot_so_dich_vu": [d["ten"] for d in dong[:15]]}
-        return {"dich_vu": khop[:12], "con_nua": max(len(khop) - 12, 0)}
+        return ket_qua_gia(dong, tu_khoa)
 
     async def _thong_tin(self) -> dict[str, Any]:
         co_so = await self._pool.fetch(
@@ -242,6 +295,7 @@ class CongCuMau:
         {"ten": "Xét nghiệm Pap smear", "gia_vnd": 450000, "gia_tam": False},
         {"ten": "Xét nghiệm HPV", "gia_vnd": 650000, "gia_tam": False},
         {"ten": "Trị liệu sàn chậu Bio (1 buổi)", "gia_vnd": 600000, "gia_tam": False},
+        {"ten": "Soi cổ tử cung", "gia_vnd": None, "gia_tam": False},
     )
 
     def __init__(self, dong_ho: Callable[[], datetime] = now_vn) -> None:
@@ -252,13 +306,7 @@ class CongCuMau:
 
     async def chay(self, ten: str, tham_so: dict[str, Any]) -> dict[str, Any]:
         if ten == "tra_gia_dich_vu":
-            khop = loc_dich_vu(list(self.GIA), str(tham_so.get("tu_khoa") or ""))
-            if not khop:
-                return {
-                    "khong_thay": True,
-                    "mot_so_dich_vu": [g["ten"] for g in self.GIA],
-                }
-            return {"dich_vu": khop, "con_nua": 0}
+            return ket_qua_gia(list(self.GIA), str(tham_so.get("tu_khoa") or ""))
         if ten == "thong_tin_phong_kham":
             return {
                 "co_so": [
@@ -307,6 +355,6 @@ __all__ = [
     "doc_ngay",
     "ket_qua_chu",
     "khung_con_cho",
+    "ket_qua_gia",
     "kiem_ngay_xem",
-    "loc_dich_vu",
 ]

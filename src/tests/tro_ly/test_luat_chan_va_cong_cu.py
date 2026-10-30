@@ -18,9 +18,9 @@ from clinicai.services.tro_ly_khach import luat_chan
 from clinicai.services.tro_ly_khach.cong_cu import (
     CongCuMau,
     doc_ngay,
+    ket_qua_gia,
     khung_con_cho,
     kiem_ngay_xem,
-    loc_dich_vu,
 )
 
 CAU_VANG: list[dict[str, Any]] = json.loads(
@@ -107,11 +107,60 @@ def test_khung_con_cho_dong_cua() -> None:
     assert khung_con_cho({"closed": True, "slots": []}, LUC.date(), LUC)["dong_cua"]
 
 
-def test_loc_dich_vu_khong_dau_va_moi_tu() -> None:
-    dong = [{"ten": "Siêu âm đầu dò"}, {"ten": "Siêu âm tuyến vú"}, {"ten": "Khám"}]
-    assert [d["ten"] for d in loc_dich_vu(dong, "sieu am vu")] == ["Siêu âm tuyến vú"]
-    assert loc_dich_vu(dong, "") == dong
-    assert loc_dich_vu(dong, "laser") == []
+# Tên lấy theo bảng giá staging 30/10 — đúng ba chỗ công cụ cũ trả sai.
+BANG_GIA: list[dict[str, Any]] = [
+    {"ten": "Siêu âm 2D tử cung buồng trứng", "gia_vnd": 250000},
+    {"ten": "Siêu âm 4D tử cung buồng trứng", "gia_vnd": 350000},
+    {"ten": "Siêu âm đầu dò độ dài CTC", "gia_vnd": 50000},
+    {"ten": "Siêu âm tuyến vú", "gia_vnd": 300000},
+    {"ten": "HPV định type PCR 16 type", "gia_vnd": 0},
+    {"ten": "HPV định type PCR (40 type)", "gia_vnd": None},
+    {"ten": "Tư vấn tâm lý", "gia_vnd": 200000},
+    {"ten": "Khám nam khoa", "gia_vnd": 300000},
+    {"ten": "Xét nghiệm máu", "gia_vnd": 300000},
+    {"ten": "Xét nghiệm nội tiết nam", "gia_vnd": 600000},
+]
+
+
+def _ten(kq: dict[str, Any]) -> list[str]:
+    return [d["ten"] for d in kq["dich_vu"]]
+
+
+def test_gia_chua_niem_yet_khong_bi_coi_la_khong_co() -> None:
+    kq = ket_qua_gia(BANG_GIA, "xét nghiệm hpv")
+    assert "khong_thay" not in kq
+    assert set(kq["chua_co_gia"]) == {
+        "HPV định type PCR 16 type",
+        "HPV định type PCR (40 type)",
+    }
+    assert kq["khop_mot_phan"] is True  # "xét nghiệm" không có trong tên
+    # Không ai khớp đủ ba từ → trả CẢ nhóm "xét nghiệm" lẫn nhóm "hpv", model chọn.
+    assert _ten(kq)[:2] == ["Xét nghiệm máu", "Xét nghiệm nội tiết nam"]
+
+
+def test_cum_cu_the_dung_dau_va_khop_theo_tu() -> None:
+    assert _ten(ket_qua_gia(BANG_GIA, "siêu âm đầu dò")) == [
+        "Siêu âm đầu dò độ dài CTC"
+    ]
+    assert _ten(ket_qua_gia(BANG_GIA, "sieu am vu")) == ["Siêu âm tuyến vú"]
+    # "am" là MỘT TỪ: không dính "tâm" của "Tư vấn tâm lý", "nam" của "Khám nam khoa".
+    assert all("Siêu âm" in t for t in _ten(ket_qua_gia(BANG_GIA, "siêu âm")))
+    # Cùng số từ khớp: tên ngắn trước.
+    assert _ten(ket_qua_gia(BANG_GIA, "siêu âm"))[0] == "Siêu âm tuyến vú"
+
+
+def test_tran_va_con_nua() -> None:
+    kq = ket_qua_gia(BANG_GIA, "siêu âm", toi_da=2)
+    assert len(kq["dich_vu"]) == 2 and kq["con_nua"] == 2
+    assert "khop_mot_phan" not in kq
+
+
+def test_khong_khop_gi_va_tu_khoa_rong() -> None:
+    kq = ket_qua_gia(BANG_GIA, "laser")
+    assert kq["khong_thay"] is True
+    # Gợi ý chỉ gồm dịch vụ có giá.
+    assert all("HPV" not in t for t in kq["mot_so_dich_vu"])
+    assert len(ket_qua_gia(BANG_GIA, "")["dich_vu"]) == 8
 
 
 @pytest.mark.asyncio

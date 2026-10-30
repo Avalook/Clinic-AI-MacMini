@@ -453,6 +453,7 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Không giới hạn role ở đây; backend API và page fail-closed bằng capability.
   "/xac-nhan-ket-qua": ALL_ROLES.filter((r) => r !== "PARTNER" && r !== "DISPLAY"),
   "/ops": ["MANAGEMENT"],
+  "/tro-ly-thu": ["MANAGEMENT"],
   // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
   // Trang riêng vì /settings (tạo user) vẫn chỉ MANAGEMENT.
   // GIỮ CHO TRƯỞNG CA — ngoại lệ có chủ ý giữa đợt dọn thanh bên.
@@ -592,6 +593,7 @@ const MO_QUYEN_TAM_THOI = ["1", "true", "yes"].includes(
 const KHONG_MO_THEO_CONG_TAC = [
   "/console",
   "/ops",
+  "/tro-ly-thu",
   "/settings",
   "/reports",
   "/hoa-don",
@@ -677,6 +679,8 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/phan-quyen": ["permission.manage"],
   "/settings/don-du-lieu-thu": ["permission.manage"],
   "/ops": ["ops.view"], // 20 Vận hành hệ thống
+  // Màn thử trợ lý AI — chưa vào lego/thanh bên, vào bằng đường dẫn.
+  "/tro-ly-thu": ["ops.view"],
   "/audit-log": ["audit.view"],
   "/doi-tac": ["partner.work"], // 21 Đối tác
   // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
