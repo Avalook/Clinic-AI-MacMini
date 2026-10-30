@@ -829,6 +829,19 @@ class SoSuaChiDinhService:
                 f"Dịch vụ “{o['service_name']}” đã được tick lại ở quầy — không đặt"
                 " lại lần nữa.",
             ) from None
+        except asyncpg.CheckViolationError as e:
+            # Buổi lẻ đã thu rồi bỏ: tiền giữ trong liệu trình và đã phủ một buổi
+            # ĐÃ LÀM — đặt lại thì buổi ấy mất tiền (31/10/2026).
+            from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
+
+            raise loi_tien_lieu_trinh(
+                e,
+                cau_phu_vuot=(
+                    f"Tiền đã thu của “{o['service_name']}” đang giữ trong liệu trình"
+                    " và đã dùng cho một buổi khách đã làm — không đặt lại được."
+                    " Khách làm thêm thì kê chỉ định mới."
+                ),
+            ) from None
         await emit_event(
             conn,
             ten="service_order.restored",

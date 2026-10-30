@@ -239,7 +239,9 @@ export function KhungLieuTrinh({
     }
     // Dừng khi còn buổi đã trả chưa dùng → chỉ đường hoàn tiền (Q5).
     const sau = kq.data.lieu_trinh;
-    if (thaoTac === "dung" && sau && sau.con_tra_truoc > 0) {
+    if (thaoTac === "dung" && sau?.quyet_toan) {
+      setBao(`${sau.quyet_toan.cau} Hoàn tiền ở quầy thu dịch vụ (tab “Đã thanh toán”).`);
+    } else if (thaoTac === "dung" && sau && sau.con_tra_truoc > 0) {
       setBao(`Còn ${sau.con_tra_truoc} buổi đã trả chưa dùng — hoàn tiền ở quầy thu dịch vụ (tab “Đã thanh toán”).`);
     }
     onDoi();
@@ -287,7 +289,12 @@ export function KhungLieuTrinh({
             const c = nhanDaTra(lt.da_tra, lt.tra_le ?? 0);
             return c.charAt(0).toUpperCase() + c.slice(1);
           })()}
-          {lt.chua_tra > 0 ? ` · còn nợ ${lt.chua_tra} buổi (${tienLT(lt.tien_con_lai)})` : " · đã trả đủ"}
+          {/* Đã dừng: máy chủ không đòi buổi nào nữa (chua_tra = 0) — không phải "đã trả đủ". */}
+          {lt.chua_tra > 0
+            ? ` · còn nợ ${lt.chua_tra} buổi (${tienLT(lt.tien_con_lai)})`
+            : lt.trang_thai === "DUNG"
+              ? ""
+              : " · đã trả đủ"}
         </p>
       ) : null}
       {lt.trang_thai === "DUNG" && lt.ly_do_dung ? (
@@ -324,7 +331,7 @@ export function KhungLieuTrinh({
       ) : null}
       {choGhi && hoiDung ? (
         <XacNhanTaiCho
-          cau={`Dừng liệu trình ${lt.service_name}? Mở lại được bất cứ lúc nào.`}
+          cau={`Dừng liệu trình ${lt.service_name}?${lt.quyet_toan ? ` ${lt.quyet_toan.cau}` : ""} Mở lại được bất cứ lúc nào.`}
           nhanDongY="Dừng"
           dangGui={dang}
           onDongY={() => void gui("dung", {}).then(() => setHoiDung(false))}

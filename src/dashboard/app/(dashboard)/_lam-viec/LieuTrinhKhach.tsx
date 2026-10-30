@@ -471,7 +471,8 @@ export function DongLieuTrinh({
           cau={
             lt.trang_thai === "DE_XUAT"
               ? "Khách không đăng ký liệu trình này? (mở lại được)"
-              : `Dừng liệu trình?${lt.con_tra_truoc > 0 ? ` Khách còn ${lt.con_tra_truoc} buổi đã trả — hoàn tiền ở quầy.` : ""} (mở lại được)`
+              : // Số tiền nếu dừng bây giờ do máy chủ tính theo chính sách dây nối.
+                `Dừng liệu trình?${lt.quyet_toan ? ` ${lt.quyet_toan.cau} Hoàn tiền ở quầy.` : lt.con_tra_truoc > 0 ? ` Khách còn ${lt.con_tra_truoc} buổi đã trả — hoàn tiền ở quầy.` : ""} (mở lại được)`
           }
           nhanDongY={lt.trang_thai === "DE_XUAT" ? "Không đăng ký" : "Dừng"}
           dangGui={dang}
