@@ -49,7 +49,13 @@ async def _chot_lech(co: Co, ca: str, dem_that: int = 3) -> str:
     await kk.chot(co.q.pool, identity=co.ds, phieu_id=dau["id"])
     cuoi = await _mo(co, "CUOI", ca)
     await _dem(co, cuoi["id"], **{drug: dem_that})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=cuoi["id"])
+    xem = await kk.xem_lech(co.q.pool, identity=co.ds, phieu_id=cuoi["id"])
+    await kk.chot(
+        co.q.pool,
+        identity=co.ds,
+        phieu_id=cuoi["id"],
+        ly_do_dong=[{**d, "ly_do": "Đếm lệch thật"} for d in xem["dong"]],
+    )
     await chay_ben_nhan(co.q.pool, CHUONG)
     return str(cuoi["id"])
 
@@ -94,7 +100,7 @@ async def test_nhieu_vai_van_chi_thay_mot_chuong_moi_lan_chot(co: Co) -> None:
     )
     thay = await _cua_toi(co, nhieu_vai, phieu)
     assert len(thay) == 1, "ba vai, một lần chốt → đúng MỘT chuông"
-    assert "1 thuốc lệch" in thay[0]["noi_dung"]
+    assert "1 dòng lệch" in thay[0]["noi_dung"]
     assert "rn" not in thay[0]
 
     # Người một vai cũng đúng một.

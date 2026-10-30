@@ -36,6 +36,19 @@ async function body(request: Request): Promise<unknown | undefined> {
   }
 }
 
+/** Câu xác nhận nút Hoàn tác: số phải trả khách do máy chủ tính (31/10/2026). */
+export async function GET(request: Request) {
+  const id = new URL(request.url).searchParams.get("hoanTac") ?? "";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return NextResponse.json({ error: "Mã lần thu không hợp lệ" }, { status: 400 });
+  }
+  return proxyJsonToBackend(
+    "GET",
+    `/api/v1/payments/hoan-tac/xem-truoc?payment_cycle_id=${id}`,
+    undefined,
+  );
+}
+
 export async function POST(request: Request) {
   const raw = await body(request);
   if (raw === undefined) {

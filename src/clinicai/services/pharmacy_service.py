@@ -47,6 +47,13 @@ from clinicai.core.clock import hom_nay_vn, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import ThuocDaGiao, ThuocKhachTra
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.services.hoan_tac_giao_service import (
+    cac_lan_giao,
+    ghi_dong_dao,
+    giam_da_giao,
+    huy_cho_gan_lo,
+    phat_hoan_tac_giao,
+)
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 
@@ -125,8 +132,8 @@ def _tom_tat_giao(
     ]
     if chua_tru > 0:
         phan.append(
-            f"{so(chua_tru)}{dv} chưa có lô để trừ — đã ghi vào danh sách "
-            "“Đã giao, chưa trừ kho”, nhập lô rồi gán sau"
+            f"{so(chua_tru)}{dv} quầy không đủ để trừ — đã ghi vào danh sách "
+            "“Đã giao, chưa trừ kho”, gán lô ở kho hoặc quầy sau"
         )
     return "Đã giao: " + "; ".join(phan) + "."
 
@@ -155,6 +162,12 @@ def _dau_van_tay(payload: dict[str, Any]) -> str:
 
 def _so_chu(v: Any) -> str | None:
     return None if v is None else str(v)
+
+
+def _ly_do_hoan_tac_giao(raw: object) -> str:
+    """Lý do TUỲ CHỌN của hoàn tác giao → câu ghi sổ, không bao giờ rỗng."""
+    chu = " ".join(raw.split())[:300] if isinstance(raw, str) else ""
+    return f"Hoàn tác giao: {chu}" if chu else "Hoàn tác giao"
 
 
 #: Không gửi ô ấy = giữ giá trị cũ (khác với gửi rỗng = xoá).
@@ -332,12 +345,21 @@ class PharmacyService:
                            tồn kho dù bác sĩ đã đính chính dòng đơn */
                         WHERE g.clinic_id = b.clinic_id
                           AND g.drug_catalog_id = b.drug_catalog_id
-                          AND g.drug_batch_id IS NULL
+                          AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
                           AND lower(trim(coalesce(p.unit, ''))) =
                               lower(trim(coalesce(b.unit, '')))
                           AND coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id),
                                        $4::uuid) = b.location_id), 0)
                          AS da_giao_chua_doi_chieu,
+                       coalesce((SELECT sum(x.quantity_on_hand)
+                         FROM public.drug_batch x
+                        WHERE x.clinic_id = b.clinic_id
+                          AND x.location_id = b.location_id
+                          AND x.drug_catalog_id = b.drug_catalog_id
+                          AND x.noi_chua = 'QUAY'
+                          AND lower(trim(coalesce(x.unit, ''))) =
+                              lower(trim(coalesce(b.unit, '')))), 0)
+                         AS ton_quay_thuoc,
                        coalesce((SELECT sum(
                            public.drug_batch_kha_dung(x.clinic_id, x.id))
                          FROM public.drug_batch x
@@ -389,6 +411,13 @@ class PharmacyService:
                     str(d.get("kha_dung_truoc_doi_chieu") or 0)
                 )
                 - Decimal(str(d.get("da_giao_chua_doi_chieu") or 0)),
+                # Số thật trên kệ quầy khi còn phần đã giao chờ gán lô: sổ chưa trừ
+                # phần ấy nên đếm kệ sẽ thấp hơn sổ đúng bằng phần chờ gán.
+                "so_tren_ke_quay": max(
+                    Decimal(str(d.get("ton_quay_thuoc") or 0))
+                    - Decimal(str(d.get("da_giao_chua_doi_chieu") or 0)),
+                    Decimal(0),
+                ),
                 "canh_bao_han": d.get("trang_thai_han") in ("het_han", "sap_het_han")
                 and (d.get("quantity_on_hand") or 0) > 0,
             }
@@ -1075,7 +1104,7 @@ class PharmacyService:
                         " thể trừ dù dòng đơn sau đó bị bác sĩ đính chính */"
                         " WHERE g.clinic_id = $1::uuid"
                         "   AND g.drug_catalog_id = $2::uuid"
-                        "   AND g.drug_batch_id IS NULL"
+                        "   AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL"
                         "   AND lower(trim(coalesce(p.unit, ''))) = $3"
                         "   AND coalesce(public.co_so_cua_luot(g.clinic_id,"
                         "                p.visit_id), $4::uuid) = $4::uuid",
@@ -1247,6 +1276,7 @@ class PharmacyService:
                     ON pt.clinic_patient_id = v.clinic_patient_id
                    AND pt.clinic_id = v.clinic_id
                  WHERE g.clinic_id = $1::uuid AND g.drug_batch_id IS NULL
+                   AND g.huy_luc IS NULL
                    -- Chỉ dòng của cơ sở đang đứng ($2 NULL = không lọc).
                    AND coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id),
                                 $2::uuid)
@@ -1338,7 +1368,7 @@ class PharmacyService:
                 """
                 SELECT g.id::text AS id, g.so_luong, g.prescription_id::text AS rx,
                        g.drug_catalog_id::text AS drug_catalog_id,
-                       g.drug_batch_id, p.unit, p.visit_id
+                       g.drug_batch_id, g.huy_luc, p.unit, p.visit_id
                   FROM thuoc_giao_chua_gan_lo g
                   JOIN prescription p ON p.id = g.prescription_id
                   /* rx:gom-ca-lich-su: gán lô cho thuốc đã giao, kể cả dòng
@@ -1353,6 +1383,8 @@ class PharmacyService:
                 raise NotFoundError("Không tìm thấy lần giao này.")
             if g["drug_batch_id"] is not None:
                 raise ConflictError("Lần giao này đã gán lô rồi — tải lại.")
+            if g["huy_luc"] is not None:
+                raise ConflictError("Lần giao này đã hoàn tác — không gán lô được.")
             lo = await conn.fetchrow(
                 """
                 SELECT id::text AS id, drug_catalog_id::text AS drug_catalog_id,
@@ -2012,7 +2044,8 @@ class PharmacyService:
                            a.id::text AS allocation_id, a.drug_batch_id::text,
                            -s.quantity AS da_ban,
                            coalesce((SELECT -sum(d.quantity) FROM public.inventory_txn d
-                                      WHERE d.txn_type = 'DISPENSE'
+                                      WHERE d.txn_type IN
+                                            ('DISPENSE', 'DISPENSE_REVERSAL')
                                         AND d.allocation_id = a.id
                                         AND d.clinic_id = a.clinic_id), 0) AS da_xuat
                       FROM public.prescription_allocation a
@@ -2148,6 +2181,17 @@ class PharmacyService:
                 await khoa_lo(
                     conn, clinic_id=identity.clinic_id, lo_ids=[xuat["drug_batch_id"]]
                 )
+                if await conn.fetchval(
+                    "SELECT 1 FROM public.inventory_txn WHERE clinic_id = $1::uuid"
+                    " AND txn_type = 'DISPENSE_REVERSAL'"
+                    " AND reverses_txn_id = $2::uuid",
+                    identity.clinic_id,
+                    dispense_txn_id,
+                ):
+                    raise ConflictError(
+                        "Lần giao này đã hoàn tác — thuốc đã về quầy, không ghi "
+                        "khách trả được."
+                    )
                 da_tra = Decimal(
                     str(
                         await conn.fetchval(
@@ -2254,6 +2298,180 @@ class PharmacyService:
             "drug_return_id": tra_id,
             "ket_cuc_tien": ket_cuc_tien,
             "hoan": hoan,
+        }
+
+    async def hoan_tac_giao(
+        self, *, identity: StaffIdentity, dispense_txn_id: str, ly_do: object = None
+    ) -> dict[str, Any]:
+        """Hoàn tác MỘT lần giao: thuốc về đúng lô, tiền giữ nguyên, giao lại được.
+        Phần khách đã trả không đảo lại. Dòng bác sĩ đã đính chính không giao lại
+        được nên không hoàn tác ở đây (thuốc về quầy qua hoàn tác lần thu)."""
+        ly = _ly_do_hoan_tac_giao(ly_do)
+        async with self._pool.acquire() as conn, conn.transaction():
+            goc = await conn.fetchrow(
+                "SELECT ref_id::text AS rx, allocation_id::text, drug_batch_id::text"
+                " FROM public.inventory_txn WHERE id = $1::uuid"
+                " AND clinic_id = $2::uuid AND txn_type = 'DISPENSE'"
+                " AND ref_type = 'prescription'",
+                dispense_txn_id,
+                identity.clinic_id,
+            )
+            if goc is None:
+                raise NotFoundError("Không tìm thấy lần giao thuốc này.")
+            don = await self._khoa_theo_luot(conn, identity, goc["rx"])
+            if goc["allocation_id"]:
+                await conn.execute(
+                    "SELECT 1 FROM public.prescription_allocation"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                    goc["allocation_id"],
+                    identity.clinic_id,
+                )
+            await khoa_lo(
+                conn, clinic_id=identity.clinic_id, lo_ids=[goc["drug_batch_id"]]
+            )
+            lan = next(
+                (
+                    x
+                    for x in await cac_lan_giao(conn, identity.clinic_id, [goc["rx"]])
+                    if x.id == dispense_txn_id
+                ),
+                None,
+            )
+            if lan is None:
+                raise ConflictError("Lần giao này đã hoàn tác rồi — tải lại.")
+            if lan.con <= 0:
+                raise ConflictError(
+                    "Khách đã trả hết thuốc của lần giao này — không còn gì để "
+                    "hoàn tác."
+                )
+            if goc["allocation_id"] and await conn.fetchval(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM public.inventory_txn s
+                      JOIN public.payment_cycle c
+                        ON c.payment_cycle_id = s.payment_cycle_id
+                       AND c.clinic_id = s.clinic_id AND c.status = 'PAID'
+                     WHERE s.clinic_id = $1::uuid AND s.allocation_id = $2::uuid
+                       AND s.txn_type = 'SALE_REVERSAL')
+                """,
+                identity.clinic_id,
+                goc["allocation_id"],
+            ):
+                raise ConflictError(
+                    "Lô này đã “Huỷ phần chưa giao” nên không giao lại được — khách "
+                    "mang thuốc trả thì dùng “Khách trả thuốc”."
+                )
+            await ghi_dong_dao(
+                conn,
+                clinic_id=identity.clinic_id,
+                staff_id=identity.staff_id,
+                lan=lan,
+                ly_do=ly,
+            )
+            if goc["allocation_id"]:
+                await conn.execute(
+                    "UPDATE public.prescription_allocation"
+                    " SET handed_over_qty = handed_over_qty - $3"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    goc["allocation_id"],
+                    identity.clinic_id,
+                    lan.con,
+                )
+            moi = await giam_da_giao(
+                conn,
+                clinic_id=identity.clinic_id,
+                prescription_id=goc["rx"],
+                so=lan.con,
+            )
+            await _log(
+                conn,
+                identity=identity,
+                event_type="pharmacy.dispense_undone",
+                aggregate_type="prescription",
+                aggregate_id=goc["rx"],
+                payload={
+                    "dispense_txn_id": dispense_txn_id,
+                    "drug_batch_id": goc["drug_batch_id"],
+                    "quantity": str(lan.con),
+                    "dispensed_qty": str(moi["dispensed_qty"]),
+                    "reason": ly,
+                },
+            )
+            await phat_hoan_tac_giao(
+                conn,
+                identity=identity,
+                visit_id=str(don["visit_id"]),
+                prescription_id=goc["rx"],
+                so_luong=lan.con,
+                so_da_giao=so(Decimal(str(moi["dispensed_qty"]))),
+                ly_do=ly,
+            )
+        return {
+            "ok": True,
+            "so_luong": lan.con,
+            "dispensed_qty": moi["dispensed_qty"],
+            "dispense_status": moi["dispense_status"],
+        }
+
+    async def huy_dong_cho_gan_lo(
+        self, *, identity: StaffIdentity, dong_id: str, ly_do: object = None
+    ) -> dict[str, Any]:
+        """Hoàn tác một lần giao CHƯA gán lô: dòng chờ huỷ có vết, số đã giao giảm,
+        giao lại được. Sổ kho không đổi — lần giao ấy chưa từng trừ kho."""
+        ly = _ly_do_hoan_tac_giao(ly_do)
+        async with self._pool.acquire() as conn, conn.transaction():
+            rx = await conn.fetchval(
+                "SELECT prescription_id::text FROM public.thuoc_giao_chua_gan_lo"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                dong_id,
+                identity.clinic_id,
+            )
+            if rx is None:
+                raise NotFoundError("Không tìm thấy lần giao này.")
+            don = await self._khoa_theo_luot(conn, identity, rx)
+            huy = await huy_cho_gan_lo(
+                conn,
+                clinic_id=identity.clinic_id,
+                staff_id=identity.staff_id,
+                ly_do=ly,
+                dong_id=dong_id,
+            )
+            so_huy = huy.get(rx)
+            if so_huy is None:
+                raise ConflictError(
+                    "Lần giao này đã gán lô hoặc đã hoàn tác rồi — tải lại."
+                )
+            moi = await giam_da_giao(
+                conn, clinic_id=identity.clinic_id, prescription_id=rx, so=so_huy
+            )
+            await _log(
+                conn,
+                identity=identity,
+                event_type="pharmacy.dispense_undone",
+                aggregate_type="prescription",
+                aggregate_id=rx,
+                payload={
+                    "dong_id": dong_id,
+                    "chua_gan_lo": True,
+                    "quantity": str(so_huy),
+                    "dispensed_qty": str(moi["dispensed_qty"]),
+                    "reason": ly,
+                },
+            )
+            await phat_hoan_tac_giao(
+                conn,
+                identity=identity,
+                visit_id=str(don["visit_id"]),
+                prescription_id=rx,
+                so_luong=so_huy,
+                so_da_giao=so(Decimal(str(moi["dispensed_qty"]))),
+                ly_do=ly,
+            )
+        return {
+            "ok": True,
+            "so_luong": so_huy,
+            "dispensed_qty": moi["dispensed_qty"],
+            "dispense_status": moi["dispense_status"],
         }
 
     async def thuoc_tra_cho_kiem(

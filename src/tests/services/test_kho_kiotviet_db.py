@@ -143,7 +143,7 @@ async def test_kiem_kho_lech_am_hai(q: Quay) -> None:
         q.pool,
         identity=q.duoc_si,
         khoa_gui=uuid.uuid4().hex,
-        dong=[{"drug_batch_id": lo, "thuc_te": 18}],
+        dong=[{"drug_batch_id": lo, "thuc_te": 18, "ly_do": "Vỡ hai viên"}],
     )
     assert kq["ma_phieu"].startswith("KK")
     assert float(kq["dong"][0]["lech"]) == -2
@@ -309,7 +309,7 @@ async def test_sap_het_hang_so_tung_don_vi_va_an_don_vi_het(q: Quay) -> None:
         q.pool,
         identity=q.duoc_si,
         khoa_gui=uuid.uuid4().hex,
-        dong=[{"drug_batch_id": lo_vien, "thuc_te": 0}],
+        dong=[{"drug_batch_id": lo_vien, "thuc_te": 0, "ly_do": "Hết thật"}],
     )
     assert [
         (x["don_vi"], float(x["ton"])) for x in (await dm(a))["ton_theo_don_vi"]

@@ -251,7 +251,8 @@ async def man_nha_thuoc(
                                     AND -s.quantity > coalesce((
                                         SELECT -sum(d.quantity)
                                           FROM public.inventory_txn d
-                                         WHERE d.txn_type = 'DISPENSE'
+                                         WHERE d.txn_type IN
+                                               ('DISPENSE', 'DISPENSE_REVERSAL')
                                            AND d.allocation_id = a.id), 0))
                              OR EXISTS (
                                  SELECT 1 FROM public.prescription_allocation a
@@ -396,13 +397,36 @@ async def man_nha_thuoc(
                    -t.quantity AS so_luong, t.performed_at,
                    coalesce((SELECT sum(r.returned_qty) FROM public.drug_return r
                               WHERE r.clinic_id = t.clinic_id
-                                AND r.original_dispense_txn_id = t.id), 0) AS da_tra
+                                AND r.original_dispense_txn_id = t.id), 0) AS da_tra,
+                   -- Lô đã "Huỷ phần chưa giao": không giao lại được → không hoàn tác.
+                   EXISTS (SELECT 1 FROM public.inventory_txn s
+                             JOIN public.payment_cycle c
+                               ON c.payment_cycle_id = s.payment_cycle_id
+                              AND c.clinic_id = s.clinic_id AND c.status = 'PAID'
+                            WHERE s.clinic_id = t.clinic_id
+                              AND s.allocation_id = t.allocation_id
+                              AND s.txn_type = 'SALE_REVERSAL') AS lo_da_huy_ban
               FROM public.inventory_txn t
               JOIN public.drug_batch b
                 ON b.id = t.drug_batch_id AND b.clinic_id = t.clinic_id
              WHERE t.clinic_id = $1::uuid AND t.txn_type = 'DISPENSE'
                AND t.ref_type = 'prescription' AND t.ref_id = ANY($2::uuid[])
+               -- Lần giao đã hoàn tác: thuốc đã về quầy, không còn việc gì ở dòng này.
+               AND NOT EXISTS (SELECT 1 FROM public.inventory_txn x
+                                WHERE x.txn_type = 'DISPENSE_REVERSAL'
+                                  AND x.reverses_txn_id = t.id)
              ORDER BY t.performed_at, t.id
+            """,
+            identity.clinic_id,
+            rx_ids,
+        )
+        cho_gan_rows = await conn.fetch(
+            """
+            SELECT g.id::text, g.prescription_id::text, g.so_luong, g.giao_luc
+              FROM public.thuoc_giao_chua_gan_lo g
+             WHERE g.clinic_id = $1::uuid AND g.prescription_id = ANY($2::uuid[])
+               AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
+             ORDER BY g.giao_luc, g.id
             """,
             identity.clinic_id,
             rx_ids,
@@ -477,7 +501,22 @@ async def man_nha_thuoc(
                 "da_tra": _so(x["da_tra"]),
                 "con_tra": con_tra,
                 # Chỉ là "thuốc đã quay lại quầy" — không quyết xử lý (HOLD J1/J2).
-                "thao_tac": {"tra": co_quyen_ghi and con_tra > 0},
+                "thao_tac": {
+                    "tra": co_quyen_ghi and con_tra > 0,
+                    "hoan_tac_giao": co_quyen_ghi
+                    and con_tra > 0
+                    and not x["lo_da_huy_ban"],
+                },
+            }
+        )
+    cho_gan_theo_dong: dict[str, list[dict[str, Any]]] = {}
+    for x in cho_gan_rows:
+        cho_gan_theo_dong.setdefault(x["prescription_id"], []).append(
+            {
+                "dong_id": x["id"],
+                "so_luong": _so(x["so_luong"]),
+                "luc": x["giao_luc"],
+                "thao_tac": {"hoan_tac_giao": co_quyen_ghi},
             }
         )
     dao: dict[tuple[str, str], Decimal] = {
@@ -542,6 +581,7 @@ async def man_nha_thuoc(
             cg = chua_giao.get(r["id"], {})
             them = {
                 "xuat": xuat_theo_dong.get(r["id"], []),
+                "cho_gan": cho_gan_theo_dong.get(r["id"], []),
                 "chua_giao": cg.get("chua_giao", Decimal(0)),
                 "can_hoan": cg.get("can_hoan", Decimal(0)),
                 "da_dao_song": (
@@ -728,7 +768,19 @@ def _dong(
         "lo_goi_y": lo_goi_y,
         # Lô của thuốc này bị loại khỏi gợi ý + lý do — chỉ để giải thích.
         "lo_bi_loai": lo_bi_loai,
-        "xuat": them["xuat"],
+        # Dòng lịch sử (bác sĩ đã đính chính): không giao lại được → không có nút
+        # hoàn tác giao; thuốc về quầy qua hoàn tác lần thu.
+        "xuat": [
+            {**x, "thao_tac": {**x["thao_tac"], "hoan_tac_giao": False}}
+            for x in them["xuat"]
+        ]
+        if lich_su
+        else them["xuat"],
+        "cho_gan": [
+            {**x, "thao_tac": {"hoan_tac_giao": False}} for x in them["cho_gan"]
+        ]
+        if lich_su
+        else them["cho_gan"],
         "chua_giao": them["chua_giao"],
         "can_hoan": them["can_hoan"],
         # CP6: dòng đã được bác sĩ đính chính (lịch sử) — chỉ còn đối soát.

@@ -235,7 +235,6 @@ cycleId={g.id}
                   <div className="mt-1">
                     <NutHoanTac
                       cycleId={g.id}
-                      soTien={g.so_tien}
                       quay={quay}
                       onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
                     />

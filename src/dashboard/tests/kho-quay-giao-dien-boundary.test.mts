@@ -74,8 +74,10 @@ test("proxy cho đi ba đường G7 và gui-kho khai đủ", () => {
   }
 });
 
-test("không cần tab chuyển kho; chip KHO/QUẦY chỉ hiện khi bật tách", () => {
-  assert.doesNotMatch(khoThuoc, /ma: "chuyen_kho"/);
+test("tab chuyển kho có khi đã tách hoặc người được bật tách; chip KHO/QUẦY chỉ hiện khi bật tách", () => {
+  assert.match(khoThuoc, /coChuyenKho = tachKhoQuay \|\| suaTachDuoc/);
+  assert.match(khoThuoc, /ma: "chuyen_kho"/);
+  assert.match(khoThuoc, /<ChuyenKho /);
   assert.match(khoThuoc, /tachKhoQuay=\{tachKhoQuay\}/);
   const Board = nap("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx", MOCK);
   const batches = [lo("a", "KHO", 10), lo("b", "QUAY", 5)];

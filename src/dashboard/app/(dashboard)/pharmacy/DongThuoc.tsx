@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import { cauKhoCoLoKhacDonVi } from "@/lib/lo-bi-loai";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { INPUT } from "../form-ui";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import KhoConChuyenQuay from "./KhoConChuyenQuay";
@@ -90,6 +91,8 @@ export default function DongThuoc({
   const [soKhongLo, setSoKhongLo] = useState(conGiao > 0 ? String(conGiao) : "");
   const [lyDo, setLyDo] = useState("");
   const [soTra, setSoTra] = useState<Record<string, string>>({});
+  // Lần giao đang hỏi "Hoàn tác giao?" (xác nhận tại chỗ).
+  const [hoiHoanTac, setHoiHoanTac] = useState<string | null>(null);
   // Tiền phần khách trả (G4d · R3, Tuyền chốt E): BẮT chọn — máy chủ quyết số tiền.
   const [ketCuc, setKetCuc] = useState<Record<string, string>>({});
   const [hinhThucHoan, setHinhThucHoan] = useState<Record<string, string>>({});
@@ -143,7 +146,8 @@ export default function DongThuoc({
 
   const khongCoNutNao =
     !Object.values(tt).some(Boolean) &&
-    !dong.xuat.some((x) => x.thao_tac.tra) &&
+    !dong.xuat.some((x) => x.thao_tac.tra || x.thao_tac.hoan_tac_giao) &&
+    !dong.cho_gan.some((x) => x.thao_tac.hoan_tac_giao) &&
     !dong.phan_lo.some((p) => p.thao_tac.bo || p.thao_tac.doi || p.thao_tac.giao);
 
   return (
@@ -509,10 +513,41 @@ export default function DongThuoc({
       ) : null}
 
       {/* ── CP5: đã giao → khách trả thuốc (thuốc chưa quyết xử lý; tiền bắt chọn — R3) ── */}
-      {dong.xuat.length > 0 ? (
+      {dong.xuat.length > 0 || dong.cho_gan.length > 0 ? (
         <div>
           <span className={NHAN}>Đã giao</span>
           <ul className="mt-1 divide-y divide-line rounded-control border border-line">
+            {dong.cho_gan.map((x) => (
+              <li key={x.dong_id} className="flex flex-wrap items-end gap-2 px-3 py-2">
+                <span className="min-w-0 flex-1 text-body text-ink">
+                  Giao {fmtSo(x.so_luong)} · chưa trừ kho, chờ gán lô
+                </span>
+                {x.thao_tac.hoan_tac_giao ? (
+                  hoiHoanTac === x.dong_id ? (
+                    <XacNhanTaiCho
+                      cau="Hoàn tác lần giao này? Tiền giữ nguyên, giao lại được."
+                      nhanDongY="Hoàn tác giao"
+                      dangGui={dangGui}
+                      onDongY={() => {
+                        setHoiHoanTac(null);
+                        void goi("huy-cho-gan-lo", { dong_id: x.dong_id });
+                      }}
+                      onThoi={() => setHoiHoanTac(null)}
+                    />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={CHAM}
+                      disabled={dangGui}
+                      onClick={() => setHoiHoanTac(x.dong_id)}
+                    >
+                      Hoàn tác giao
+                    </Button>
+                  )
+                ) : null}
+              </li>
+            ))}
             {dong.xuat.map((x) => (
               <li key={x.dispense_txn_id} className="flex flex-wrap items-end gap-2 px-3 py-2">
                 <span className="min-w-0 flex-1 text-body text-ink">
@@ -604,6 +639,30 @@ export default function DongThuoc({
                     </Button>
                   </>
                 ) : null}
+                {x.thao_tac.hoan_tac_giao ? (
+                  hoiHoanTac === x.dispense_txn_id ? (
+                    <XacNhanTaiCho
+                      cau={`Hoàn tác lần giao này? ${fmtSo(x.con_tra)} về lại quầy, tiền giữ nguyên, giao lại được.`}
+                      nhanDongY="Hoàn tác giao"
+                      dangGui={dangGui}
+                      onDongY={() => {
+                        setHoiHoanTac(null);
+                        void goi("hoan-tac-giao", { dispense_txn_id: x.dispense_txn_id });
+                      }}
+                      onThoi={() => setHoiHoanTac(null)}
+                    />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={CHAM}
+                      disabled={dangGui}
+                      onClick={() => setHoiHoanTac(x.dispense_txn_id)}
+                    >
+                      Hoàn tác giao
+                    </Button>
+                  )
+                ) : null}
               </li>
             ))}
           </ul>
@@ -683,7 +742,8 @@ export default function DongThuoc({
         <p className="text-meta text-ink-faint">Chưa có thao tác nào ở giai đoạn này.</p>
       ) : null}
 
-      {tin ? <p role="status" className="text-body text-ink">{tin}</p> : null}
+      {/* Đã hoàn tác hết phần giao thì câu báo lần giao cũ không còn đúng. */}
+      {tin && dong.dispensed_qty > 0 ? <p role="status" className="text-body text-ink">{tin}</p> : null}
 
       {loi ? (
         <p className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">

@@ -330,7 +330,8 @@ async def _tao_trong(
     await _khoa_luot(conn, identity, visit_id)
     lan = await conn.fetchrow(
         """
-        SELECT payment_cycle_id, paid_at, tai_khoan_nhan_id::text AS tk
+        SELECT payment_cycle_id, paid_at, status,
+               tai_khoan_nhan_id::text AS tk
           FROM public.payment_cycle
          WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
            AND visit_id = $3::uuid AND kind = $4
@@ -345,6 +346,11 @@ async def _tao_trong(
         raise NotFoundError("Không tìm thấy lần thu này của lượt khám.")
     if lan["paid_at"] is None:
         raise ConflictError("Lần thu này chưa từng thu tiền — không có gì để hoàn.")
+    if lan["status"] == "VOIDED":
+        # Hoàn tác lần thu đã trả khách phần còn lại; hoàn thêm là trả hai lần.
+        raise ConflictError(
+            "Lần thu này đã hoàn tác — tiền đã trả khách lúc hoàn tác, không hoàn thêm."
+        )
     con = {r["id"]: r for r in await _con_hoan(conn, identity, payment_cycle_id)}
     tong = 0
     ghi: list[tuple[str, Decimal, int]] = []
@@ -596,7 +602,19 @@ async def hoan_cua_cac_lan_thu(
     }
     for r in hoan:
         ket_qua[r["payment_cycle_id"]]["khoan_hoan"].append(dict(r))
+    da_huy = {
+        str(r["payment_cycle_id"])
+        for r in await conn.fetch(
+            "SELECT payment_cycle_id FROM public.payment_cycle"
+            " WHERE clinic_id = $1::uuid AND payment_cycle_id = ANY($2::uuid[])"
+            " AND status = 'VOIDED'",
+            identity.clinic_id,
+            cycle_ids,
+        )
+    }
     for c in cycle_ids:
+        if c in da_huy:
+            continue
         for d in await _con_hoan(conn, identity, c):
             if d["billing_owner"] == "CLINIC" and d["don_gia"] is not None:
                 giam = int(d["discount_allocated"] or 0)

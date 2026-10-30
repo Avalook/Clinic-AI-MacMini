@@ -316,7 +316,7 @@ cycleId={s.id}
                             ) : null}
                             {thaoTac && s.loai === "thu" && s.hoan_tac?.duoc ? (
                               <div className="basis-full">
-                                <NutHoanTac cycleId={s.id} soTien={s.so_tien} quay={quay} onXong={() => void tai()} />
+                                <NutHoanTac cycleId={s.id} quay={quay} onXong={() => void tai()} />
                               </div>
                             ) : null}
                           </li>

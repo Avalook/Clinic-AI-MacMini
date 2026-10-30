@@ -347,6 +347,18 @@ class ThuocDaGiao(PayloadSuKien):
     so_da_giao: str
 
 
+class ThuocHoanTacGiao(PayloadSuKien):
+    """`medicine.dispense_undone` — thuốc đã giao về lại quầy (nút Hoàn tác giao,
+    hoặc hoàn tác lần thu). ``so_da_giao`` là số đã giao SAU khi hoàn tác: về 0 thì
+    hành trình không còn báo khách đã nhận thuốc."""
+
+    visit_id: str
+    prescription_id: str
+    so_luong: str
+    so_da_giao: str
+    ly_do: str | None = None
+
+
 class ThuocKhachTra(PayloadSuKien):
     """`medicine.returned` — khách mang thuốc đã nhận trả lại quầy (G4d · R3).
 
@@ -2174,6 +2186,16 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="pharmacy",
             payload=ThuocDaGiao,
             nhan="Đã giao thuốc",
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
+            is_public=False,
+        ),
+        SuKien(
+            ten="medicine.dispense_undone",
+            version=1,
+            aggregate_type="prescription",
+            source_module="pharmacy",
+            payload=ThuocHoanTacGiao,
+            nhan="Hoàn tác giao thuốc",
             consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             is_public=False,
         ),

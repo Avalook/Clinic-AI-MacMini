@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import { guiKho, soKho } from "./gui-kho";
 
@@ -46,11 +47,25 @@ const fmtNgay = (iso: string | null) =>
 const fmtLuc = (iso: string) =>
   new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 
-function Dong({ d }: { d: DongChoGanLo }) {
+function Dong({ d, ghiDuoc }: { d: DongChoGanLo; ghiDuoc: boolean }) {
   const router = useRouter();
   const [lo, setLo] = useState(d.lo_gan_duoc[0]?.drug_batch_id ?? "");
   const [dangGui, setDangGui] = useState(false);
+  const [hoi, setHoi] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+
+  async function hoanTac() {
+    setDangGui(true);
+    setLoi(null);
+    const kq = await guiKho("huy-cho-gan-lo", { dong_id: d.id });
+    setDangGui(false);
+    setHoi(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    router.refresh();
+  }
 
   async function gan() {
     setDangGui(true);
@@ -116,18 +131,35 @@ function Dong({ d }: { d: DongChoGanLo }) {
             </Button>
           </div>
         )}
+        {ghiDuoc ? (
+          hoi ? (
+            <div className="mt-2">
+              <XacNhanTaiCho
+                cau="Hoàn tác lần giao này? Dòng thuốc về chưa giao, tiền giữ nguyên, giao lại được."
+                nhanDongY="Hoàn tác giao"
+                dangGui={dangGui}
+                onDongY={() => void hoanTac()}
+                onThoi={() => setHoi(false)}
+              />
+            </div>
+          ) : (
+            <Button type="button" size="sm" variant="ghost" className="mt-1" onClick={() => setHoi(true)}>
+              Hoàn tác giao
+            </Button>
+          )
+        ) : null}
         {loi ? <p className="mt-1 text-meta text-danger">{loi}</p> : null}
       </td>
     </tr>
   );
 }
 
-export default function ChoGanLo({ dong }: { dong: DongChoGanLo[] }) {
+export default function ChoGanLo({ dong, ghiDuoc = false }: { dong: DongChoGanLo[]; ghiDuoc?: boolean }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-meta text-ink-muted">
         Thuốc đã giao khách, đang chờ xác nhận lô thực tế lấy từ kho hoặc quầy.
-        Tồn khả dụng đã trừ phần chờ này; xác nhận lô không trừ tồn khả dụng lần nữa.
+        Số bán được đã trừ phần chờ này; gán lô xong sổ mới trừ, không trừ hai lần.
       </p>
       <div className={`${TBL_WRAP} overflow-x-auto`}>
         <table className="w-full text-left text-body sm:min-w-2xl">
@@ -148,7 +180,7 @@ export default function ChoGanLo({ dong }: { dong: DongChoGanLo[] }) {
                 </td>
               </tr>
             ) : (
-              dong.map((d) => <Dong key={d.id} d={d} />)
+              dong.map((d) => <Dong key={d.id} d={d} ghiDuoc={ghiDuoc} />)
             )}
           </tbody>
         </table>

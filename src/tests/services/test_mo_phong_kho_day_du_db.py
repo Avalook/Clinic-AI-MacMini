@@ -232,7 +232,7 @@ async def _ton_quay(co: Co, drug: str) -> Decimal:
 
 
 async def vong_kiem_ke(co: Co, thuoc: list[str], rng: random.Random, dau: str) -> None:
-    """Mở → đếm → chốt (lệch = đếm − tồn máy) → điều chỉnh → hoàn tác."""
+    """Mở → đếm → chốt (tồn cập nhật theo lệch) → hoàn tác."""
     pool = co.q.pool
     p = await kk.mo_phieu(
         pool, identity=co.ds, ngay=_hom_nay_iso(), ca="TOI", loai="CUOI"
@@ -247,32 +247,23 @@ async def vong_kiem_ke(co: Co, thuoc: list[str], rng: random.Random, dau: str) -
         ],
     )
     truoc = {d: await _ton_quay(co, d) for d in thuoc}
-    kq = await kk.chot(pool, identity=co.ds, phieu_id=p["id"])
+    xem = await kk.xem_lech(pool, identity=co.ds, phieu_id=p["id"])
+    kq = await kk.chot(
+        pool,
+        identity=co.ds,
+        phieu_id=p["id"],
+        ly_do_dong=[{**x, "ly_do": "Mô phỏng"} for x in xem["dong"]],
+    )
+    sau = {d: await _ton_quay(co, d) for d in thuoc}
     for r in kq["dong"]:
         d = r["drug_catalog_id"]
-        assert D(str(r["ton_may"])) == truoc[d], f"{dau}: tồn máy chốt sai"
-        assert D(str(r["lech"])) == dem[d] - truoc[d], f"{dau}: lệch sai"
-    assert {d: await _ton_quay(co, d) for d in thuoc} == truoc, (
-        "chốt không được sửa tồn"
-    )
-    if not any(dem[d] != truoc[d] for d in thuoc):
+        n = D(str(r["giao_chua_gan_lo"] or 0))
+        assert D(str(r["ton_may"])) == truoc[d], f"{dau}: sổ tại lúc đếm sai"
+        assert D(str(r["lech"])) == dem[d] + n - truoc[d], f"{dau}: lệch sai"
+        ap = D(str(r["lech"])) - D(str(r["chua_ap"] or 0))
+        assert sau[d] == truoc[d] + ap, f"{dau}: chốt không ghi đúng phần lệch"
+    if kq["dieu_chinh_luc"] is None:
         return
-    try:
-        dc = await kk.dieu_chinh_theo_kiem_ke(
-            pool, identity=co.ds, phieu_id=p["id"], ly_do="Mô phỏng"
-        )
-    except ConflictError:
-        return  # không còn lệch áp được: luật từ chối đúng
-    bo_qua = {
-        str(x.get("drug_catalog_id") or x.get("thuoc")) for x in dc.get("bo_qua", [])
-    }
-    sau = {d: await _ton_quay(co, d) for d in thuoc}
-    for d in thuoc:
-        if d in bo_qua:
-            continue
-        assert sau[d] == dem[d], (
-            f"{dau}: sau điều chỉnh tồn quầy {sau[d]} ≠ đếm {dem[d]}"
-        )
     try:
         await kk.hoan_tac_dieu_chinh(pool, identity=co.ds, phieu_id=p["id"])
     except ConflictError:
@@ -476,6 +467,7 @@ async def test_bam_ngau_nhien_du_thao_tac_moi_man_bang_so_goc(
                             {
                                 "drug_batch_id": lo,
                                 "thuc_te": max(D(0), ton + rng.randint(-1, 2)),
+                                "ly_do": "Mô phỏng",
                             }
                         ],
                     )

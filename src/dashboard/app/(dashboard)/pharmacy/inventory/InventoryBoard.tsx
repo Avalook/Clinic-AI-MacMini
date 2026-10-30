@@ -37,6 +37,8 @@ export interface InvBatch {
   /** Tổng theo thuốc + đơn vị tại cơ sở; lặp lại trên các lô, không cộng theo lô. */
   da_giao_chua_doi_chieu?: number;
   ton_kha_dung_thuoc?: number;
+  /** Tồn quầy trừ phần đã giao chưa gắn lô — số người đếm thấy trên kệ. */
+  so_tren_ke_quay?: number;
   /** Máy chủ tính theo ngày VN (29/09/2026) — TSX không tự đếm ngày. */
   trang_thai_han: ExpiryState;
   /** Còn thuốc trên kệ VÀ sắp hết hạn / hết hạn (máy chủ tính). */
@@ -266,8 +268,9 @@ export default function InventoryBoard({
                       )}
                       {Number(b.da_giao_chua_doi_chieu ?? 0) > 0 ? (
                         <span className="block text-meta font-normal text-warning">
-                          Thuốc này: đã giao chờ đối chiếu {soKho(b.da_giao_chua_doi_chieu)} {b.unit};
-                          còn bán được tại cơ sở {soKho(b.ton_kha_dung_thuoc)} {b.unit}.
+                          Thuốc này: đã giao chưa gắn lô {soKho(b.da_giao_chua_doi_chieu)} {b.unit};
+                          trên kệ quầy thật còn {soKho(b.so_tren_ke_quay)} {b.unit}; bán được tại cơ sở{" "}
+                          {soKho(b.ton_kha_dung_thuoc)} {b.unit}.
                           Số tồn trong dòng là tồn sổ của lô, chưa trừ phần chờ.
                         </span>
                       ) : null}

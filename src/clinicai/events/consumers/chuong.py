@@ -172,10 +172,11 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
                 conn,
                 clinic_id=su_kien.clinic_id,
                 vai=vai,
-                tieu_de="Kiểm kê quầy thuốc có lệch",
+                tieu_de="Kiểm kê thuốc có lệch",
                 noi_dung=f"Phiếu kiểm {su_kien.payload['loai']} ca "
                 f"{su_kien.payload['ca']} ({su_kien.payload['ngay']}): "
-                f"{su_kien.payload['so_dong_lech']} thuốc lệch giữa số đếm và tồn máy.",
+                f"{su_kien.payload['so_dong_lech']} dòng lệch, tồn đã cập nhật theo "
+                "số đếm.",
                 nguon="kiem_ke_ca",
                 nguon_id=str(su_kien.aggregate_id),
                 duong_dan="/pharmacy/inventory",
