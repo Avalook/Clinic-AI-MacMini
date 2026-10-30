@@ -400,10 +400,14 @@ async def giao_chua_gan_lo_theo_thuoc(
     conn: asyncpg.Connection, *, clinic_id: str, location_id: str | None
 ) -> dict[str, Decimal]:
     """Thuốc đã GIAO mà chưa gắn lô (giao không lô, 28/09): sổ kho chưa trừ nên tồn
-    máy cao hơn kệ thật. Báo riêng — KHÔNG tính là lệch đếm."""
+    máy cao hơn kệ thật. Báo riêng — KHÔNG tính là lệch đếm. Quy về đơn vị gốc:
+    0,5 hộp + 3 gói = 18 gói; đơn vị chưa khai giữ nguyên số."""
     rows = await conn.fetch(
         """
-        SELECT g.drug_catalog_id::text AS drug_catalog_id, sum(g.so_luong) AS so
+        SELECT g.drug_catalog_id::text AS drug_catalog_id,
+               sum(g.so_luong * coalesce(
+                   public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit), 1))
+                   AS so
           FROM public.thuoc_giao_chua_gan_lo g
           /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải tính dù dòng đơn sau đó bị bác sĩ
              đính chính — kệ đã thiếu thuốc ấy */

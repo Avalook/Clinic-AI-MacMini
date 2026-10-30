@@ -153,7 +153,8 @@ WITH dong AS (
 )
 SELECT d.ten, d.don_gia,
        d.da_thu - d.da_hoan - p.dispensed_qty
-         + coalesce((SELECT sum(t.returned_qty) FROM public.drug_return t
+         + coalesce((SELECT sum(coalesce(t.so_luong_ban, t.returned_qty))
+                       FROM public.drug_return t
                       WHERE t.clinic_id = $1::uuid
                         AND t.prescription_id = p.id), 0) AS con
   FROM dong d

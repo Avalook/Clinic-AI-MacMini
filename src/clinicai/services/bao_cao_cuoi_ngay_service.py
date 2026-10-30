@@ -1060,16 +1060,26 @@ SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
 """
 
 #: Cột ``hh_*`` cho "Báo cáo cuối ngày về hàng hoá" (khuôn KiotViet): thuốc theo
-#: thuốc KHO (mã hàng = mã KiotViet), dịch vụ theo mã chỉ định nếu có.
+#: thuốc KHO (mã hàng = mã KiotViet), dịch vụ theo mã chỉ định nếu có. Thuốc bán
+#: theo đơn vị khác đơn vị gốc là một dòng riêng: 1 hộp + 3 gói không cộng thành 4.
+#: Dòng đơn vị gốc giữ khoá = mã thuốc, khối tồn kho gắn theo khoá đó.
 _HANG_HOA_COT = """
        CASE WHEN bl.source_type = 'prescription' THEN c.ma_hang
             WHEN bl.source_type = 'service_order' THEN so.service_code
             ELSE kh.service_code END AS hh_ma,
        coalesce(c.name_raw, bl.name_snapshot) AS hh_ten,
-       coalesce(c.don_vi_ban, bl.unit) AS hh_don_vi,
-       coalesce(bl.drug_catalog_id::text, so.service_code, kh.service_code,
-                bl.name_snapshot) AS hh_khoa
-"""
+       CASE WHEN _khac_goc THEN bl.unit ELSE coalesce(c.don_vi_ban, bl.unit) END
+           AS hh_don_vi,
+       coalesce(bl.drug_catalog_id::text
+                    || CASE WHEN _khac_goc THEN ':' || public.chuan_don_vi(bl.unit)
+                            ELSE '' END,
+                so.service_code, kh.service_code, bl.name_snapshot) AS hh_khoa
+""".replace(
+    "_khac_goc",
+    "(public.chuan_don_vi(bl.unit) <> ''"
+    " AND public.chuan_don_vi(c.don_vi_ban) <> ''"
+    " AND public.chuan_don_vi(bl.unit) <> public.chuan_don_vi(c.don_vi_ban))",
+)
 _HANG_HOA_JOIN = """
   LEFT JOIN drug_catalog c ON c.id = bl.drug_catalog_id AND c.clinic_id = bl.clinic_id
   LEFT JOIN service_order so

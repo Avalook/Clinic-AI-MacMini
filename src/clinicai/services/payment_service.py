@@ -2292,10 +2292,10 @@ async def _ghi_anh_hoa_don(
             clinic_id, payment_id, payment_cycle_id, visit_id, kind,
             source_type, source_id, name_snapshot, quantity, unit,
             unit_price, line_total, billing_owner, drug_catalog_id,
-            discount_allocated
+            discount_allocated, he_so
         )
         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, $14::uuid, $15)
+                $11, $12, $13, $14::uuid, $15, $16)
         """,
         [
             (
@@ -2316,6 +2316,7 @@ async def _ghi_anh_hoa_don(
                 d.ben_thu,
                 d.drug_catalog_id,
                 phan_giam[i],
+                d.he_so,
             )
             for i, d in enumerate(hoa_don.dong)
         ],
