@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-29 17:23. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:38. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1652,7 +1652,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_doi_chieu_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py (+1)
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (202)
+## 3. Service → màn (204)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1793,6 +1793,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `PhanHoiThuocService` | `src/clinicai/services/phan_hoi_thuoc_service.py` | /ban-kham, /ban-kham/[phong], /customers, /patient-list, /tu-van |
 | `pharmacy_service` | `src/clinicai/services/pharmacy_service.py` | /pharmacy, /pharmacy/inventory, /print/tem-lo |
 | `PharmacyService` | `src/clinicai/services/pharmacy_service.py` | /pharmacy, /pharmacy/consult, /pharmacy/history, /pharmacy/inventory, /print/tem-lo |
+| `phieu_kham_service` | `src/clinicai/services/phieu_kham_service.py` | — (chỉ API/worker) |
 | `PhieuKhamService` | `src/clinicai/services/phieu_kham_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /pharmacy, /phong (+9) |
 | `PhiKhamService` | `src/clinicai/services/phi_kham_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `PRESET` | `src/clinicai/permissions/catalogue.py` | /phan-quyen |
@@ -1837,6 +1838,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ThuTuKhamService` | `src/clinicai/services/thu_tu_kham_service.py` | /customers |
 | `TienThuaService` | `src/clinicai/services/tien_thua_service.py` | /hanh-trinh, /reception/checkout, /reception/queue |
 | `TiepDonService` | `src/clinicai/services/tiep_don_service.py` | /reception/queue |
+| `tom_tat_kham` | `src/clinicai/services/tom_tat_kham.py` | — (chỉ API/worker) |
 | `tong_quan_giam_sat` | `src/clinicai/services/tong_quan_giam_sat.py` | /doi-tac, /giam-sat, /login |
 | `traffic_service` | `src/clinicai/services/traffic_service.py` | /ops, /traffic |
 | `TuongTacCskhService` | `src/clinicai/services/tuong_tac_cskh_service.py` | /appointments/cho-xep-bac-si, /customers, /home, /nhac-tai-kham, /reception/queue |

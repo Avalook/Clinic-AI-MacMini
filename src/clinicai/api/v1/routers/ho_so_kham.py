@@ -16,14 +16,16 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.doc_bang import doi_mot_quyen
-from clinicai.permissions.y_khoa import doc_duoc_in_phieu
+from clinicai.permissions.y_khoa import doc_duoc_in_phieu, ghi_mo_ho_so
 from clinicai.services import (
     dieu_tri_ban_kham,
     ghi_chu_luot,
     ho_so_dich_vu,
     lich_su_luot,
+    tom_tat_kham,
 )
 from clinicai.services.doi_dich_vu_kham import QUYEN_DOI_TRONG_HO_SO
+from clinicai.services.phieu_kham_service import kiem_quyen_core
 
 router = APIRouter(tags=["ho-so-kham"])
 
@@ -57,6 +59,31 @@ async def lich_su(
             den=den,
             dich_vu_id=str(dich_vu_id) if dich_vu_id else None,
         )
+
+
+@router.get("/ho-so-kham/tom-tat-kham")
+async def tom_tat_kham_doc(
+    clinic_patient_id: UUID,
+    so_lan: str | None = Query(default=None, max_length=8),
+    bo: str | None = Query(default=None, max_length=2000),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Phiếu in "Tóm tắt bệnh án — N lần khám gần nhất" (30/10/2026).
+
+    Cùng cửa đọc-để-in của phiếu khám (`QUYEN_DOC_DE_IN`: khối khám / kết quả +
+    các khâu quầy in cho khách). `so_lan` / `bo` rác → mặc định, không 500."""
+    async with pool.acquire() as conn:
+        await kiem_quyen_core(conn, identity, "doc_phieu")
+        data = await tom_tat_kham.doc(
+            conn,
+            clinic_id=identity.clinic_id,
+            clinic_patient_id=str(clinic_patient_id),
+            so_lan=so_lan,
+            bo=bo,
+        )
+    await ghi_mo_ho_so(pool, identity, noi="tom-tat-kham", khach=str(clinic_patient_id))
+    return data
 
 
 class DoiDichVuBody(BaseModel):
