@@ -1,0 +1,1068 @@
+[
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/page.tsx",
+  "dong": 15,
+  "noi_dung": "redirect(roleLanding(role));",
+  "ly_do": "Chọn trang mở đầu theo vai; trang đích tự gác bằng lego (requireNavAccess)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/chon-nhan-vien.ts",
+  "dong": 33,
+  "noi_dung": "const THU_TU_DAU: ClinicRole[] = [\"DOCTOR\", \"NURSE_ULTRASOUND\", \"TRUONG_CA\", \"CSKH\"];",
+  "ly_do": "Chỉ là thứ tự nhóm trong ô chọn nhân viên."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/clinic-session.ts",
+  "dong": 83,
+  "noi_dung": "vaiLamViec((r) => r === \"DOCTOR\" || r === \"TKYK\"),",
+  "ly_do": "Lấy vai chỉ để làm đường rơi cho nutBanKham khi máy chủ chưa trả quyền."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/clinic-session.ts",
+  "dong": 85,
+  "noi_dung": "return nutBanKham(quyen, vai);",
+  "ly_do": "nutBanKham: có quyền thì xét lego, quyen=null mới xét vai."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/clinic-session.ts",
+  "dong": 127,
+  "noi_dung": "return vaoDuocMan(href, vai, quyen) || luonBatChoVaiGoc(href, await getClinicRole());",
+  "ly_do": "vaoDuocMan: màn thuộc lego chỉ hỏi lego; luonBatChoVaiGoc chỉ cho Trang chủ/Hành trình."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-client.ts",
+  "dong": 14,
+  "noi_dung": "export const QUYEN_CHECK_OUT = \"reception.checkin.perform\";",
+  "ly_do": "Hằng capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-client.ts",
+  "dong": 18,
+  "noi_dung": "export function coQuyen(",
+  "ly_do": "Hàm hỏi capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-client.ts",
+  "dong": 27,
+  "noi_dung": "return coQuyen(quyen, QUYEN_CHECK_OUT);",
+  "ly_do": "Hỏi capability check-out."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 12,
+  "noi_dung": "export const QUYEN_Y_KHOA = [",
+  "ly_do": "Mảng capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 23,
+  "noi_dung": "export const QUYEN_BAN_LE = [",
+  "ly_do": "Mảng capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 36,
+  "noi_dung": "const q = await quyenCuaToi();",
+  "ly_do": "Đọc quyền của tôi."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 37,
+  "noi_dung": "return QUYEN_Y_KHOA.some((x) => q.has(x));",
+  "ly_do": "Hỏi capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 42,
+  "noi_dung": "export const QUYEN_IN_PHIEU = [",
+  "ly_do": "Mảng capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 52,
+  "noi_dung": "const q = await quyenCuaToi();",
+  "ly_do": "Đọc quyền của tôi."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 53,
+  "noi_dung": "return [...QUYEN_Y_KHOA, ...QUYEN_IN_PHIEU].some((x) => q.has(x));",
+  "ly_do": "Hỏi capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 59,
+  "noi_dung": "export const QUYEN_GHI_CHAM_SOC = [",
+  "ly_do": "Mảng capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/quyen-cua-toi.ts",
+  "dong": 68,
+  "noi_dung": "export const QUYEN_DOI_DICH_VU_KHAM = [\"booking.manage\", \"reception.checkin.perform\"] as const;",
+  "ly_do": "Mảng capability."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "lib/identity-authority.ts",
+  "dong": 44,
+  "noi_dung": "return membership?.role === \"MANAGEMENT\" ? membership.clinic_id : null;",
+  "ly_do": "Không nơi nào gọi resolveSingleManagementClinic — code chết, xoá hoặc đổi sang account.manage nếu dùng lại."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/doctors-server.ts",
+  "dong": 46,
+  "noi_dung": "export const BOOKABLE_DOCTOR_ROLES = [\"DOCTOR\", \"ULTRASOUND_DOCTOR\"] as const;",
+  "ly_do": "Không nơi nào gọi; là vai của người ĐƯỢC đặt lịch (dữ liệu), không phải quyền người đăng nhập."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/Nav.tsx",
+  "dong": 76,
+  "noi_dung": "(r, href) => hienTrenThanhBen(r, href, quyen),",
+  "ly_do": "hienTrenThanhBen có truyền quyen: biết quyền thì xét lego, chưa biết mới xét vai."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 293,
+  "noi_dung": "if (item.href === \"/patients/new\" && role === \"CSKH\") {",
+  "ly_do": "Chỉ đổi nhãn mục /patients/new cho CSKH."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 298,
+  "noi_dung": "if (item.href === \"/patients/new\" && role === \"RECEPTION\") {",
+  "ly_do": "Chỉ đổi nhãn mục /patients/new cho Lễ tân."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 512,
+  "noi_dung": "if (viTri === \"T1_HOIBENH\" && role === \"DOCTOR\") return \"BAC_SI\";",
+  "ly_do": "Chỉ xếp nhóm thanh bên theo vị trí (BS ở T1_HOIBENH vào nhóm Bác sĩ)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 612,
+  "noi_dung": "const theoViTri = role !== \"MANAGEMENT\" ? hrefTheoViTri(viTriHomNay, phong) : [];",
+  "ly_do": "Quản lý không dựng thanh bên theo vị trí — chỉ đổi bố cục menu, mục vẫn qua lego."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 619,
+  "noi_dung": ".filter((h) => legoChoHien(quyen, h))",
+  "ly_do": "legoChoHien lọc mục theo lego."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 624,
+  "noi_dung": "return NAV.filter((item) => hienTrenThanhBen(role, item.href) && conLai(item));",
+  "ly_do": "Hàm lọc được truyền vào là hienTrenThanhBen kèm quyen (lai)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 654,
+  "noi_dung": "const coCa = role !== \"MANAGEMENT\" && hrefTheoViTri(viTriHomNay).length > 0;",
+  "ly_do": "Như dòng 612: chỉ đổi bố cục nhóm thanh bên cho Quản lý."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 676,
+  "noi_dung": "if (!conLai.some((i) => i.href === \"/schedule\") && legoChoHien(quyen, \"/schedule\")) {",
+  "ly_do": "legoChoHien cho /schedule."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 681,
+  "noi_dung": "quyen !== null && laManLego(i.href) && quyenMoDuocMan(quyen, i.href);",
+  "ly_do": "Lọc lego đang bật."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/nav-items.ts",
+  "dong": 701,
+  "noi_dung": "export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {",
+  "ly_do": "THANH_DUOI: thứ tự 4 nút thanh dưới theo vai, luôn là tập con mục đã qua lego."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/BottomNav.tsx",
+  "dong": 51,
+  "noi_dung": "(r, href) => hienTrenThanhBen(r, href, quyen),",
+  "ly_do": "hienTrenThanhBen kèm quyen."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/BottomNav.tsx",
+  "dong": 66,
+  "noi_dung": "viTriHomNay.length > 0 && role !== \"MANAGEMENT\"",
+  "ly_do": "Chỉ chọn cách xếp thanh dưới (theo vị trí hay theo vai)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/BottomNav.tsx",
+  "dong": 68,
+  "noi_dung": ": mucThanhDuoi(role, visible, MAX_TABS);",
+  "ly_do": "mucThanhDuoi: thứ tự nút theo vai, không thêm mục nào."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/TimNhanh.tsx",
+  "dong": 43,
+  "noi_dung": "const t = nhomThanhBen(role, (r, href) => hienTrenThanhBen(r, href, quyen), featureMode, CLINICAL_HREFS, [], {}, quyen);",
+  "ly_do": "hienTrenThanhBen kèm quyen."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/layout.tsx",
+  "dong": 60,
+  "noi_dung": "if (vaiTaiKhoan === \"DISPLAY\") redirect(\"/display\");",
+  "ly_do": "Tài khoản TV ra thẳng /display (máy chủ đã chặn vai này)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/layout.tsx",
+  "dong": 65,
+  "noi_dung": "if (vaiTaiKhoan === \"PARTNER\") redirect(\"/doi-tac\");",
+  "ly_do": "Đối tác ra thẳng /doi-tac."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "app/(dashboard)/layout.tsx",
+  "dong": 105,
+  "noi_dung": "vaiHomNay.some(canWriteIntake) ? loadDeclined() : Promise.resolve([]),",
+  "ly_do": "Khung báo 'lịch bác sĩ từ chối' (để xếp lại BS) chỉ tải/hiện cho vai canWriteIntake, không theo lego.",
+  "quyen_nen_dung": "booking.manage",
+  "hau_qua": "Quản lý bật lego Quản lý lịch hẹn cho thu ngân/điều dưỡng thì họ vẫn không thấy khung báo bác sĩ từ chối lịch; người đã bị tắt lego vẫn thấy (và tốn một lời gọi ở MỌI trang)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/layout.tsx",
+  "dong": 110,
+  "noi_dung": "vaiTaiKhoan === \"TKYK\"",
+  "ly_do": "Chỉ tải phạm vi thư ký để báo 'chưa được phân bác sĩ'."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/layout.tsx",
+  "dong": 128,
+  "noi_dung": "vaiTaiKhoan === \"TKYK\" && role === \"TKYK\" && (phamViThuKy === null || phamViThuKy.bac_si.length === 0);",
+  "ly_do": "Chỉ bật dòng nhắc thư ký chưa được phân bác sĩ."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/QuyenContext.tsx",
+  "dong": 36,
+  "noi_dung": "? canCheckin(role ?? null)",
+  "ly_do": "Nhánh vai chỉ chạy khi quyen=null."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/QuyenContext.tsx",
+  "dong": 37,
+  "noi_dung": ": coQuyen(quyen, \"reception.checkin.perform\");",
+  "ly_do": "Hỏi reception.checkin.perform."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/lab-result/route.ts",
+  "dong": 34,
+  "noi_dung": "const role = await vaiLamViec((r) => isPhysicianRole(r));",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/lab-result/route.ts",
+  "dong": 37,
+  "noi_dung": "if (!isPhysicianRole(role)) {",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/lab-result/route.ts",
+  "dong": 74,
+  "noi_dung": "const role = await vaiLamViec((r) => canWriteClinical(r));",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/lab-result/route.ts",
+  "dong": 77,
+  "noi_dung": "if (!canWriteClinical(role)) {",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/service-log/route.ts",
+  "dong": 34,
+  "noi_dung": "const role = await vaiLamViec((r) => canWriteClinical(r));",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/service-log/route.ts",
+  "dong": 37,
+  "noi_dung": "if (!canWriteClinical(role)) {",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/sono/route.ts",
+  "dong": 23,
+  "noi_dung": "const role = await vaiLamViec((r) => r === \"NURSE_ULTRASOUND\" || r === \"MANAGEMENT\");",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/sono/route.ts",
+  "dong": 24,
+  "noi_dung": "if (role !== \"NURSE_ULTRASOUND\" && role !== \"MANAGEMENT\") {",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(auth)/login/actions.ts",
+  "dong": 89,
+  "noi_dung": "const dich = laHostGiamSat((await headers()).get(\"host\")) ? \"/giam-sat\" : roleLanding(role);",
+  "ly_do": "Trang mở đầu sau đăng nhập theo vai (roleLanding)."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/customers/page.tsx",
+  "dong": 100,
+  "noi_dung": "? vaiHomNay.some(canWriteIntake)",
+  "ly_do": "Nhánh vai chỉ khi quyen=null."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/customers/page.tsx",
+  "dong": 114,
+  "noi_dung": "? vaiHomNay.some(canOperateCustomerCare)",
+  "ly_do": "Nhánh vai chỉ khi quyen=null."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/customers/page.tsx",
+  "dong": 115,
+  "noi_dung": ": coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC);",
+  "ly_do": "coMotQuyen(QUYEN_GHI_CHAM_SOC)."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/customers/page.tsx",
+  "dong": 118,
+  "noi_dung": "quyen === null ? canManageAppt(role) : quyen.includes(\"booking.manage\");",
+  "ly_do": "quyen=null mới xét vai, còn lại booking.manage."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+  "dong": 606,
+  "noi_dung": "const showActions = choCheckIn && (duocCheckIn ?? canCheckin(role));",
+  "ly_do": "duocCheckIn (lego) được truyền thì dùng; vai chỉ khi undefined (quyen=null)."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+  "dong": 609,
+  "noi_dung": "const doiLichDuoc = duocDoiLich ?? canManageAppt(role);",
+  "ly_do": "duocDoiLich (lego) hoặc vai khi quyen=null."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+  "dong": 637,
+  "noi_dung": "const isNurse = choDoSinhHieu ?? isNurseRole(role);",
+  "ly_do": "Hai nơi gọi đều truyền choDoSinhHieu nên nhánh vai không bao giờ chạy; gốc vấn đề ở home/page.tsx:176."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
+  "dong": 805,
+  "noi_dung": "choThemKhach && (duocDatLich ?? canWriteIntake(role)),",
+  "ly_do": "duocDatLich (lego) hoặc vai khi quyen=null."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 176,
+  "noi_dung": ": isNurseRole(role);",
+  "ly_do": "Ngày không có ca, cột 'Điền sinh hiệu' trên lịch hẹn trang chủ bật theo vai Điều dưỡng, không theo lego.",
+  "quyen_nen_dung": "vitals.measure",
+  "hau_qua": "Quản lý bật lego Đo sinh hiệu cho lễ tân/bác sĩ thì trang chủ vẫn không mời họ điền sinh hiệu; điều dưỡng đã bị tắt lego vẫn thấy cột, bấm thì máy chủ từ chối."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 183,
+  "noi_dung": ".filter((h) => legoChoHien(quyenHomNay, h))",
+  "ly_do": "legoChoHien."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 192,
+  "noi_dung": "const isReception = role === \"RECEPTION\"; // bảng trạng thái buổi khám: chỉ Lễ tân",
+  "ly_do": "Bố cục trang chủ Lễ tân (ô số + bảng trạng thái CHỈ ĐỌC); vai lấy theo vị trí hôm nay."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 330,
+  "noi_dung": "vaoDuocMan(href, vaiHomNay, quyen) ? href : undefined;",
+  "ly_do": "vaoDuocMan — cùng luật cửa trang (lego)."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 455,
+  "noi_dung": "vaoDuocMan(href, vaiHomNay, quyen) ? href : undefined;",
+  "ly_do": "vaoDuocMan — cùng luật cửa trang; riêng đích /appointments/cho-xep-bac-si rơi về vai (xem dòng 603)."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 561,
+  "noi_dung": "{(quyen === null ? canCheckin(role) : quyen.includes(\"reception.checkin.perform\")) && (",
+  "ly_do": "quyen=null mới xét vai."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 581,
+  "noi_dung": "duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}",
+  "ly_do": "coMotQuyen."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 583,
+  "noi_dung": "duocDoiDichVu={coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)}",
+  "ly_do": "coMotQuyen."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 584,
+  "noi_dung": "duocXemHoSo={vaoDuocMan(\"/patient-list\", vaiHomNay, quyen)}",
+  "ly_do": "vaoDuocMan (lego)."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 585,
+  "noi_dung": "moHoSoKhach={vaoDuocMan(\"/customers\", vaiHomNay, quyen)}",
+  "ly_do": "vaoDuocMan (lego)."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 603,
+  "noi_dung": "chua_xep_bac_si: toi(\"/appointments/cho-xep-bac-si\"),",
+  "ly_do": "Link ô 'Chưa xếp bác sĩ' đi qua vaoDuocMan, nhưng /appointments/cho-xep-bac-si không có dòng NAV_QUYEN nên xét vai NAV_ROLES (MANAGEMENT, CSKH) — trong khi chính trang hỏi booking.manage.",
+  "quyen_nen_dung": "booking.manage",
+  "hau_qua": "Trưởng ca/lễ tân được bật lego Quản lý lịch hẹn thấy số 'chưa xếp bác sĩ' mà không bấm được; CSKH bị tắt lego bấm vào thì bị đá về /home."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/(dashboard)/home/page.tsx",
+  "dong": 634,
+  "noi_dung": "const actions = NAV.filter(n => n.href !== \"/home\" && canSeeNav(role, n.href));",
+  "ly_do": "Nằm trong khối chú thích (đoạn 'Lối tắt' tạm ẩn) — không chạy."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/kho-vat-tu/page.tsx",
+  "dong": 30,
+  "noi_dung": "quyenCuaToi(),",
+  "ly_do": "quyenCuaToi()."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/kho-vat-tu/page.tsx",
+  "dong": 59,
+  "noi_dung": "suaGiaDuoc={quyen.has(\"price.service.manage\")}",
+  "ly_do": "price.service.manage."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/schedule/NgoaiLeCaTruc.tsx",
+  "dong": 43,
+  "noi_dung": "() => nhanSu.filter((n) => n.vai === \"DOCTOR\" || n.vai === \"ULTRASOUND_DOCTOR\"),",
+  "ly_do": "Lọc danh sách nhân sự là bác sĩ (dữ liệu), không phải quyền người xem."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/schedule/page.tsx",
+  "dong": 72,
+  "noi_dung": "const laNguoiXep = (r: ClinicRole | null) => r === \"TRUONG_CA\" || isAdminRole(r);",
+  "ly_do": "Biết quyền thì roster.manage/config.clinic.manage; quyen=null mới xét vai."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/schedule/page.tsx",
+  "dong": 120,
+  "noi_dung": "s.primary_department !== \"DISPLAY\",",
+  "ly_do": "Bỏ tài khoản TV khỏi ô chọn người (dữ liệu)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/schedule/page.tsx",
+  "dong": 266,
+  "noi_dung": ".filter((s) => s.vai !== \"PARTNER\")",
+  "ly_do": "Bỏ đối tác khỏi ô đổi người (dữ liệu)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/tasks/page.tsx",
+  "dong": 29,
+  "noi_dung": "if (isCashierRole(role)) redirect(\"/thu-ngan/dich-vu\");",
+  "ly_do": "Màn cũ đã gộp, chỉ chuyển hướng; trang đích tự gác lego."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/tasks/page.tsx",
+  "dong": 30,
+  "noi_dung": "if (isUltrasoundDoctorRole(role)) redirect(\"/phong\");",
+  "ly_do": "Như trên."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/tasks/page.tsx",
+  "dong": 31,
+  "noi_dung": "if (isDoctorRole(role)) redirect(\"/ban-kham\");",
+  "ly_do": "Như trên."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/tasks/page.tsx",
+  "dong": 32,
+  "noi_dung": "if (isNurseRole(role)) redirect(\"/do-sinh-hieu\");",
+  "ly_do": "Như trên."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/tasks/page.tsx",
+  "dong": 33,
+  "noi_dung": "if (role === \"RECEPTION\") redirect(\"/reception/queue\");",
+  "ly_do": "Như trên."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/tasks/page.tsx",
+  "dong": 35,
+  "noi_dung": "if (role === \"MANAGEMENT\" || role === \"CSKH\") redirect(\"/customers\");",
+  "ly_do": "Như trên."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/patient-list/page.tsx",
+  "dong": 148,
+  "noi_dung": "enablePopup && theoQuyen([\"booking.create\"], vaiHomNay.some(canWriteIntake));",
+  "ly_do": "theoQuyen: lego, vai chỉ khi quyen=null."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/patient-list/page.tsx",
+  "dong": 151,
+  "noi_dung": "vaiHomNay.some(isDoctorRole),",
+  "ly_do": "theoQuyen: lego, vai chỉ khi quyen=null."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/patient-list/page.tsx",
+  "dong": 156,
+  "noi_dung": "canEditPatient(role),",
+  "ly_do": "theoQuyen: lego, vai chỉ khi quyen=null."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/patient-list/page.tsx",
+  "dong": 160,
+  "noi_dung": "canManageAppt(role) || canWriteIntake(role),",
+  "ly_do": "theoQuyen: lego, vai chỉ khi quyen=null."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/appointments/BangBacSiTuan.tsx",
+  "dong": 343,
+  "noi_dung": ": b.role === \"ULTRASOUND_DOCTOR\"",
+  "ly_do": "Nhãn 'Bác sĩ siêu âm' của một bác sĩ trong bảng."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/appointments/page.tsx",
+  "dong": 87,
+  "noi_dung": "vai={await vaiLamViec(canWriteIntake)}",
+  "ly_do": "Vai truyền xuống chỉ để useCheckInDuoc rơi về khi quyen=null."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/hoa-don/DanhSachHoaDon.tsx",
+  "dong": 63,
+  "noi_dung": "if (x.lego && !coQuyen(quyen, x.lego)) {",
+  "ly_do": "coQuyen."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx",
+  "dong": 101,
+  "noi_dung": "loai.has(\"dich_vu\") && no.thu_ngay?.dich_vu && coQuyen(quyen, \"payment.service.collect\")",
+  "ly_do": "payment.service.collect."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx",
+  "dong": 104,
+  "noi_dung": "loai.has(\"thuoc\") && no.thu_ngay?.thuoc && coQuyen(quyen, \"payment.medicine.collect\")",
+  "ly_do": "payment.medicine.collect."
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/ops/ToanCanh.tsx",
+  "dong": 50,
+  "noi_dung": "? isOpsAdmin(await vaiLamViec(isOpsAdmin))",
+  "ly_do": "ops.view; quyen=null mới xét vai."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/ops/PortalBoard.tsx",
+  "dong": 440,
+  "noi_dung": "return canSeeNav(r, item.href); // Kiểm tra quyền xem",
+  "ly_do": "Bảng thông tin 'màn của từng vai' dựng từ NAV_ROLES — không chặn gì, nhưng nay nói sai vì cửa thật là lego; nên đổi nội dung hoặc bỏ."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/pharmacy/inventory/page.tsx",
+  "dong": 59,
+  "noi_dung": "quyenCuaToi(),",
+  "ly_do": "quyenCuaToi()."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/pharmacy/inventory/page.tsx",
+  "dong": 102,
+  "noi_dung": "ghiDuoc={quyen.has(\"pharmacy.dispense\")}",
+  "ly_do": "pharmacy.dispense."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/xac-nhan-ket-qua/HangChoXacNhanKetQua.tsx",
+  "dong": 331,
+  "noi_dung": "{t.tai_len_boi_vai === \"PARTNER\" ? (",
+  "ly_do": "Nhãn người tải là đối tác."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/patients/check-phone/route.ts",
+  "dong": 35,
+  "noi_dung": "const role = await vaiLamViec(canWriteIntake);",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/patients/check-phone/route.ts",
+  "dong": 36,
+  "noi_dung": "if (!canWriteIntake(role)) {",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "lai",
+  "tep": "app/api/ops/summary/route.ts",
+  "dong": 33,
+  "noi_dung": ": isAdminRole(await vaiLamViec((r) => isAdminRole(r)));",
+  "ly_do": "ops.view; máy chủ im mới xét vai."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/patients/new/NewPatientForm.tsx",
+  "dong": 891,
+  "noi_dung": "if (role === \"CSKH\" && !walkin && !wantsAppointment) {",
+  "ly_do": "Chọn trang đến sau khi lưu (CSKH → /customers); không chặn việc. Lưu ý: không xét veQuanLyKhach nên CSKH thiếu lego crm.manage bị đá về /home."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/patients/new/NewPatientForm.tsx",
+  "dong": 908,
+  "noi_dung": "if (role === \"RECEPTION\") {",
+  "ly_do": "Chọn trang đến sau khi lưu cho Lễ tân."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/patients/new/NewPatientForm.tsx",
+  "dong": 1847,
+  "noi_dung": "? role === \"CSKH\" || role === \"TRUONG_CA\" || role === \"MANAGEMENT\"",
+  "ly_do": "Chỉ đổi chữ trên nút lưu."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/patients/new/NewPatientForm.tsx",
+  "dong": 1850,
+  "noi_dung": ": role === \"CSKH\" || role === \"TRUONG_CA\" || role === \"MANAGEMENT\"",
+  "ly_do": "Chỉ đổi chữ trên nút lưu."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/patients/new/page.tsx",
+  "dong": 36,
+  "noi_dung": "const role = await vaiLamViec(canWriteIntake);",
+  "ly_do": "Lấy vai làm việc chỉ để chọn luồng biểu mẫu (cửa trang đã là lego)."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "app/(dashboard)/patients/new/page.tsx",
+  "dong": 37,
+  "noi_dung": "const nurse = isNurseRole(role);",
+  "ly_do": "Điều dưỡng bị ép vào luồng vãng lai cũ VÌ 'không có quyền check-in' — đó là câu hỏi lego, đang hỏi bằng vai.",
+  "quyen_nen_dung": "reception.checkin.perform",
+  "hau_qua": "Quản lý bật lego Tiếp đón cho điều dưỡng thì họ vẫn bị ép biểu mẫu vãng lai cũ; lễ tân bị tắt lego Tiếp đón vẫn được biểu mẫu 'Trực tiếp hôm nay ⇒ tự check-in' rồi máy chủ từ chối."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/patients/new/page.tsx",
+  "dong": 41,
+  "noi_dung": "const canBothFlows = role === \"TRUONG_CA\" || role === \"MANAGEMENT\";",
+  "ly_do": "Chỉ Trưởng ca/Quản lý thấy nút chuyển giữa hai bố cục biểu mẫu; lệnh vẫn qua máy chủ."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/settings/clinic-config/ClinicConfigBoard.tsx",
+  "dong": 196,
+  "noi_dung": "const thuKy = staff.filter((s) => s.role === \"TKYK\");",
+  "ly_do": "Lọc nhân sự là thư ký (dữ liệu để gán)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "app/(dashboard)/settings/clinic-config/ClinicConfigBoard.tsx",
+  "dong": 198,
+  "noi_dung": "(s) => s.role === \"DOCTOR\" || s.role === \"ULTRASOUND_DOCTOR\",",
+  "ly_do": "Lọc nhân sự là bác sĩ (dữ liệu để gán)."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/dispatch/alerts-call/route.ts",
+  "dong": 20,
+  "noi_dung": "const role = await vaiLamViec((r) => r === \"TRUONG_CA\" || r === \"MANAGEMENT\");",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "app/api/dispatch/alerts-call/route.ts",
+  "dong": 21,
+  "noi_dung": "if (role !== \"TRUONG_CA\" && role !== \"MANAGEMENT\") {",
+  "ly_do": "route /api đã tắt (lib/route-da-tat.ts trả 410, máy chủ cũng 410), không màn nào gọi — xoá file, không cần đổi quyền"
+ },
+ {
+  "loai": "lai",
+  "tep": "app/(dashboard)/appointments/cho-xep-bac-si/page.tsx",
+  "dong": 29,
+  "noi_dung": "? canManageAppt(await vaiLamViec(canManageAppt))",
+  "ly_do": "Trang hỏi booking.manage; quyen=null mới xét vai."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/reception/queue/page.tsx",
+  "dong": 107,
+  "noi_dung": "duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}",
+  "ly_do": "coMotQuyen."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "app/(dashboard)/reception/queue/page.tsx",
+  "dong": 109,
+  "noi_dung": "duocDoiDichVu={coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)}",
+  "ly_do": "coMotQuyen."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 86,
+  "noi_dung": "export function isDoctorRole(role) — DOCTOR_DESK_ROLES (DOCTOR, ULTRASOUND_DOCTOR, TKYK)",
+  "ly_do": "isDoctorRole: còn dùng ở đường rơi patient-list và chuyển hướng /tasks, roleLanding — không còn gác cửa nào khi biết quyền."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "lib/roles.ts",
+  "dong": 95,
+  "noi_dung": "export function isPhysicianRole(role) — PHYSICIAN_ROLES",
+  "ly_do": "isPhysicianRole: chỉ route đã tắt /api/lab-result dùng — xoá cùng route."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 100,
+  "noi_dung": "export function isAdminRole(role) { return role === \"MANAGEMENT\"; }",
+  "ly_do": "isAdminRole: chỉ dùng ở đường rơi (schedule, ops/summary)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 105,
+  "noi_dung": "export function isUltrasoundDoctorRole(role) { return role === \"ULTRASOUND_DOCTOR\"; }",
+  "ly_do": "isUltrasoundDoctorRole: chỉ chọn trang mở đầu/chuyển hướng."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "lib/roles.ts",
+  "dong": 110,
+  "noi_dung": "export function isNurseRole(role) { return role === \"NURSE_ULTRASOUND\"; }",
+  "ly_do": "isNurseRole: còn gác hai chỗ thật (home/page.tsx:176, patients/new/page.tsx:37).",
+  "quyen_nen_dung": "vitals.measure / reception.checkin.perform",
+  "hau_qua": "Như hai chỗ gọi: lego Đo sinh hiệu / Tiếp đón bật-tắt không đổi được giao diện của điều dưỡng."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "lib/roles.ts",
+  "dong": 115,
+  "noi_dung": "export function isThuKyRole(role) { return role === \"TKYK\"; }",
+  "ly_do": "isThuKyRole: chỉ phục vụ canWriteClinical đã tắt."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "lib/roles.ts",
+  "dong": 127,
+  "noi_dung": "export function canWriteClinical(role)",
+  "ly_do": "canWriteClinical: đã OFF, chỉ route đã tắt gọi — xoá cùng route."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "lib/roles.ts",
+  "dong": 132,
+  "noi_dung": "export function canReadClinical(role)",
+  "ly_do": "canReadClinical: đã OFF, không còn ai gọi."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "lib/roles.ts",
+  "dong": 140,
+  "noi_dung": "export function canWriteIntake(role) — CSKH, RECEPTION, MANAGEMENT, TRUONG_CA",
+  "ly_do": "canWriteIntake: phần lớn chỉ là đường rơi, nhưng layout.tsx:105 vẫn dùng làm cửa thật.",
+  "quyen_nen_dung": "booking.manage",
+  "hau_qua": "Như layout.tsx:105."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 155,
+  "noi_dung": "export function canOperateCustomerCare(role)",
+  "ly_do": "canOperateCustomerCare: chỉ đường rơi ở customers/page.tsx."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 162,
+  "noi_dung": "export function isTruongCaRole(role) { return role === \"TRUONG_CA\"; }",
+  "ly_do": "isTruongCaRole: roleLanding + isOpsAdmin."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 170,
+  "noi_dung": "export function isOpsAdmin(role)",
+  "ly_do": "isOpsAdmin: chỉ đường rơi ở ops/ToanCanh."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 176,
+  "noi_dung": "export function canCheckin(role) — RECEPTION, MANAGEMENT",
+  "ly_do": "canCheckin: chỉ đường rơi (QuyenContext, home, WeeklyAppointmentsTable)."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 182,
+  "noi_dung": "export function canManageAppt(role) — CSKH, MANAGEMENT, TRUONG_CA, RECEPTION",
+  "ly_do": "canManageAppt: chỉ đường rơi."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 195,
+  "noi_dung": "export function canEditPatient(role)",
+  "ly_do": "canEditPatient: chỉ đường rơi ở patient-list."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 210,
+  "noi_dung": "export function isCashierRole(role)",
+  "ly_do": "isCashierRole: chỉ chuyển hướng /tasks."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 215,
+  "noi_dung": "export function roleLanding(role)",
+  "ly_do": "roleLanding: trang mở đầu theo vai (PARTNER→/doi-tac, ACCOUNTANT→/ke-toan, BS→/ban-kham…); trang đích tự gác lego."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 231,
+  "noi_dung": "export const ROLE_LABEL: Record<ClinicRole, string>",
+  "ly_do": "ROLE_LABEL: nhãn vai."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 279,
+  "noi_dung": "const NAV_ROLES: Record<string, \"all\" | ClinicRole[]> = {",
+  "ly_do": "NAV_ROLES: với màn có NAV_QUYEN chỉ là đường rơi khi quyen=null; còn gác thật ở các màn ngoài lego (xem các dòng 399, 415)."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 308,
+  "noi_dung": "\"/hanh-trinh\": ALL_ROLES.filter((r) => r !== \"PARTNER\" && r !== \"DISPLAY\"),",
+  "ly_do": "/hanh-trinh: màn luôn bật, vai chỉ loại đối tác/TV."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "lib/roles.ts",
+  "dong": 399,
+  "noi_dung": "\"/appointments/cho-xep-bac-si\": [\"MANAGEMENT\", \"CSKH\"],",
+  "ly_do": "/appointments/cho-xep-bac-si không có dòng NAV_QUYEN nên vaoDuocMan xét vai (MANAGEMENT, CSKH) — lệch với trang (booking.manage).",
+  "quyen_nen_dung": "booking.manage",
+  "hau_qua": "Như home/page.tsx:603: link 'chưa xếp bác sĩ' theo vai, không theo lego."
+ },
+ {
+  "loai": "vai_chan_cua",
+  "tep": "lib/roles.ts",
+  "dong": 415,
+  "noi_dung": "\"/cashier/thuoc\": [\"RECEPTION\", \"CASHIER_THUOC\", \"CASHIER\", \"MANAGEMENT\"],",
+  "ly_do": "/cashier/thuoc (Bảng giá thuốc) không có dòng NAV_QUYEN; requireNavAccess gác theo vai.",
+  "quyen_nen_dung": "pharmacy.dispense (giá thuốc sửa ở Kho thuốc) — hoặc chuyển hướng hẳn sang Kho thuốc",
+  "hau_qua": "Dược sĩ hay người được bật lego Kho thuốc gõ URL vẫn bị đá về /home; lễ tân/thu ngân bị tắt hết lego vẫn vào được."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 456,
+  "noi_dung": "\"/xac-nhan-ket-qua\": ALL_ROLES.filter((r) => r !== \"PARTNER\" && r !== \"DISPLAY\"),",
+  "ly_do": "/xac-nhan-ket-qua: vai chỉ loại đối tác/TV; cửa thật là capability trong trang và máy chủ."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 506,
+  "noi_dung": "const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {",
+  "ly_do": "AN_KHOI_THANH_BEN: chỉ áp khi quyen=null hoặc màn ngoài lego (hienTrenThanhBen trả sớm theo lego)."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 526,
+  "noi_dung": "export function hienTrenThanhBen(role, href, quyen = null)",
+  "ly_do": "hienTrenThanhBen: có quyền + màn thuộc lego → lego; chưa biết → vai."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 538,
+  "noi_dung": "if (role === \"PARTNER\") return CHI_DOI_TAC.includes(href);",
+  "ly_do": "Đối tác chỉ một mục thanh bên (danh sách cho phép)."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 586,
+  "noi_dung": "const MO_QUYEN_TAM_THOI = [...]",
+  "ly_do": "Công tắc MO_QUYEN_TAM_THOI chỉ nới nhánh vai của canSeeNav; prod tắt."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/roles.ts",
+  "dong": 632,
+  "noi_dung": "const NAV_QUYEN: Record<string, string[]> = {",
+  "ly_do": "NAV_QUYEN: màn → capability."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/roles.ts",
+  "dong": 704,
+  "noi_dung": "export function quyenMoDuocMan(quyen, href)",
+  "ly_do": "quyenMoDuocMan / laManLego."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/roles.ts",
+  "dong": 717,
+  "noi_dung": "export function legoChoHien(quyen, href)",
+  "ly_do": "legoChoHien."
+ },
+ {
+  "loai": "chua_chac",
+  "tep": "lib/roles.ts",
+  "dong": 747,
+  "noi_dung": "export const GIU_LOI_VAO_CU = {};",
+  "ly_do": "GIU_LOI_VAO_CU: bảng ngoại lệ vai đã rỗng, chỉ giữ tên — xoá được."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 756,
+  "noi_dung": "export function luonBatChoVaiGoc(href, vaiGoc)",
+  "ly_do": "luonBatChoVaiGoc: Trang chủ/Hành trình cho mọi nội bộ trừ đối tác/TV."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 779,
+  "noi_dung": "export function nutBanKham(quyen, vai)",
+  "ly_do": "nutBanKham: quyen=null mới xét vai."
+ },
+ {
+  "loai": "theo_lego",
+  "tep": "lib/roles.ts",
+  "dong": 797,
+  "noi_dung": "export function vaoDuocMan(href, vai, quyen)",
+  "ly_do": "vaoDuocMan: màn thuộc lego chỉ hỏi lego khi biết quyền; màn NGOÀI lego vẫn xét vai (gốc của 399/415)."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 826,
+  "noi_dung": "export function canSeeNavGoc(role, href)",
+  "ly_do": "canSeeNavGoc: luật vai gốc, chỉ dùng cho đường rơi/menu."
+ },
+ {
+  "loai": "vai_hien_thi",
+  "tep": "lib/roles.ts",
+  "dong": 834,
+  "noi_dung": "export const CHI_DOI_TAC: readonly string[] = [\"/doi-tac\"];",
+  "ly_do": "CHI_DOI_TAC: màn duy nhất của đối tác."
+ },
+ {
+  "loai": "lai",
+  "tep": "lib/roles.ts",
+  "dong": 836,
+  "noi_dung": "export function canSeeNav(role, href)",
+  "ly_do": "canSeeNav: dùng cho màn ngoài lego, đường rơi và bảng PortalBoard."
+ }
+]

@@ -1,0 +1,533 @@
+[
+ {
+  "ham": "staff_location_matches_clinic",
+  "loai": "canh_bat_bien",
+  "tep_dinh_nghia": "supabase/migrations/20260803000007_staff_identity_completeness.sql",
+  "goi_tu": "trigger trg_staff_location_matches_clinic BEFORE INSERT/UPDATE primary_location_id ON staff",
+  "bang_that_su_ghi": [],
+  "ly_do": "Chỉ chặn gán nhân sự vào cơ sở của phòng khám mà người đó không là thành viên; không ghi bảng nào (cột 'sau' là chữ rác)."
+ },
+ {
+  "ham": "enforce_append_only",
+  "loai": "canh_bat_bien",
+  "tep_dinh_nghia": "supabase/migrations/20260714000001_baseline_schema.sql",
+  "goi_tu": "trigger trg_event_log_no_delete/no_update/no_truncate ON event_log (scripts/xoa-du-lieu-test.sh tắt nó khi dọn test)",
+  "bang_that_su_ghi": [],
+  "ly_do": "Chặn sửa/xoá/làm rỗng event_log, chỉ cho lật event_published false→true; không ghi bảng."
+ },
+ {
+  "ham": "visit_finalized_block_update",
+  "loai": "canh_bat_bien",
+  "tep_dinh_nghia": "supabase/migrations/20260920000004_cho_phep_ghi_exam_completed_at_khi_da_ky.sql",
+  "goi_tu": "trigger trg_visit_finalized_block BEFORE UPDATE ON visit",
+  "bang_that_su_ghi": [],
+  "ly_do": "Lượt đã ký (FINALIZED) không sửa được nữa, trừ chuyển sang AMENDED hoặc ghi mốc exam_completed_at lần đầu (TT13)."
+ },
+ {
+  "ham": "vat_tu_nhap_cho_duyet_gac",
+  "loai": "canh_bat_bien",
+  "tep_dinh_nghia": "supabase/migrations/20261014200100_vat_tu_nhap_cho_duyet.sql",
+  "goi_tu": "trigger vat_tu_nhap_cho_duyet_gac BEFORE INSERT/UPDATE/DELETE ON vat_tu_nhap_cho_duyet (vat_tu_nhap_duyet_service.py dựa vào)",
+  "bang_that_su_ghi": [],
+  "ly_do": "Chặn xoá, chặn sửa nội dung đã gửi, chỉ người có lego vat_tu.approve mới duyệt/từ chối; không ghi bảng (chữ 'if' là rác)."
+ },
+ {
+  "ham": "ghi_lich_su_phieu_kham",
+  "loai": "ghi_lich_su",
+  "tep_dinh_nghia": "supabase/migrations/20260925000018_phieu_kham_lich_su.sql",
+  "goi_tu": "trigger trg_phieu_kham_lich_su AFTER INSERT/UPDATE du_lieu ON phieu_kham_luot (phieu_kham_service.py chỉ đọc)",
+  "bang_that_su_ghi": [
+   "phieu_kham_lich_su"
+  ],
+  "ly_do": "Ghi ô nào của phiếu khám đổi, ai đổi; lưu ý: gộp các lần sửa của cùng người trong 10 phút nên có UPDATE/DELETE trên chính bảng lịch sử (không thuần chỉ-thêm)."
+ },
+ {
+  "ham": "lich_truc_ghi_thay_doi",
+  "loai": "ghi_lich_su",
+  "tep_dinh_nghia": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+  "goi_tu": "trigger lich_truc_ghi_thay_doi AFTER INSERT/UPDATE/DELETE ON work_roster",
+  "bang_that_su_ghi": [
+   "lich_truc_thay_doi"
+  ],
+  "ly_do": "Ghi sổ từng ô lịch trực thêm/xoá/đổi người/sửa."
+ },
+ {
+  "ham": "lich_truc_chup_anh",
+  "loai": "ghi_lich_su",
+  "tep_dinh_nghia": "supabase/migrations/20261006300000_lich_truc_phien_ban.sql",
+  "goi_tu": "trigger lich_truc_chup_anh AFTER INSERT/UPDATE applied_at ON roster_week",
+  "bang_that_su_ghi": [
+   "lich_truc_anh"
+  ],
+  "ly_do": "Chụp ảnh cả tuần lịch trực mỗi lần áp dụng tuần."
+ },
+ {
+  "ham": "ghi_so_sua_chi_dinh",
+  "loai": "ghi_lich_su",
+  "tep_dinh_nghia": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+  "goi_tu": "trigger trg_so_sua_chi_dinh AFTER INSERT/UPDATE exec_status ON service_order",
+  "bang_that_su_ghi": [
+   "so_sua_chi_dinh"
+  ],
+  "ly_do": "Ghi sổ thêm/bỏ/hoàn tác chỉ định kèm ai làm, tiền đã thu; dòng HOÀN TÁC cập nhật cột hoan_tac_* của dòng BỎ cũ."
+ },
+ {
+  "ham": "ghi_so_sua_phi_kham",
+  "loai": "ghi_lich_su",
+  "tep_dinh_nghia": "supabase/migrations/20261006200000_so_sua_chi_dinh.sql",
+  "goi_tu": "trigger trg_so_sua_phi_kham AFTER INSERT/UPDATE bo_luc ON luot_phi_kham",
+  "bang_that_su_ghi": [
+   "so_sua_chi_dinh"
+  ],
+  "ly_do": "Ghi sổ thêm/bỏ/hoàn tác dịch vụ khám (phí khám) vào cùng sổ sửa chỉ định."
+ },
+ {
+  "ham": "ghi_lich_su_form_instance",
+  "loai": "ghi_lich_su",
+  "tep_dinh_nghia": "supabase/migrations/20261007630000_form_instance_lich_su.sql",
+  "goi_tu": "trigger trg_form_instance_lich_su BEFORE UPDATE ON form_instance",
+  "bang_that_su_ghi": [
+   "form_instance_lich_su"
+  ],
+  "ly_do": "Lưu bản cũ của phiếu kết quả mỗi lần dữ liệu/trạng thái đổi."
+ },
+ {
+  "ham": "lieu_trinh_sau_khi_tao",
+  "loai": "ghi_lich_su",
+  "tep_dinh_nghia": "supabase/migrations/20261008100000_lieu_trinh.sql",
+  "goi_tu": "trigger trg_lieu_trinh_sau_khi_tao AFTER INSERT ON lieu_trinh",
+  "bang_that_su_ghi": [
+   "lieu_trinh_lich_su"
+  ],
+  "ly_do": "Ghi dòng lịch sử 'TAO' khi có liệu trình mới."
+ },
+ {
+  "ham": "sync_clinic_room_floor",
+  "loai": "dong_bo_phu",
+  "tep_dinh_nghia": "supabase/migrations/20261019150000_clinic_floor.sql",
+  "goi_tu": "trigger trg_sync_clinic_room_floor BEFORE INSERT/UPDATE floor,floor_id,clinic_id,location_id ON clinic_room",
+  "bang_that_su_ghi": [
+   "clinic_room (NEW)",
+   "clinic_floor"
+  ],
+  "ly_do": "Giữ nhãn tầng (floor) và floor_id của phòng khớp nhau; ghi chú: nhánh tương thích cũ tự TẠO hoặc BẬT LẠI tầng trong danh mục clinic_floor khi ai đó gõ nhãn tầng lạ."
+ },
+ {
+  "ham": "sync_clinic_floor_name_to_rooms",
+  "loai": "dong_bo_phu",
+  "tep_dinh_nghia": "supabase/migrations/20261019150000_clinic_floor.sql",
+  "goi_tu": "trigger trg_sync_clinic_floor_name AFTER UPDATE name ON clinic_floor",
+  "bang_that_su_ghi": [
+   "clinic_room"
+  ],
+  "ly_do": "Đổi tên tầng thì chép tên mới vào cột floor của mọi phòng thuộc tầng đó."
+ },
+ {
+  "ham": "vat_tu_txn_cong_ton",
+  "loai": "dong_bo_phu",
+  "tep_dinh_nghia": "supabase/migrations/20261018140000_vat_tu_tra_nha_san_xuat.sql",
+  "goi_tu": "trigger vat_tu_txn_cong_ton BEFORE INSERT ON vat_tu_txn",
+  "bang_that_su_ghi": [
+   "vat_tu_txn (NEW.ton_may)",
+   "vat_tu_ton"
+  ],
+  "ly_do": "Dòng sổ vật tư vào thì cộng/trừ tồn vat_tu_ton, kèm kiểm đúng loại phiếu/đối ứng dòng đảo (vừa canh vừa đồng bộ)."
+ },
+ {
+  "ham": "inventory_txn_apply",
+  "loai": "dong_bo_phu",
+  "tep_dinh_nghia": "supabase/migrations/20260919000003_tien_thuoc_cp3_phan_lo_ban.sql",
+  "goi_tu": "trigger inventory_txn_apply_trigger AFTER INSERT ON inventory_txn (pharmacy_service.py dựa vào)",
+  "bang_that_su_ghi": [
+   "drug_batch"
+  ],
+  "ly_do": "Dòng sổ kho thuốc (trừ SALE/SALE_REVERSAL) thì cộng vào quantity_on_hand của lô; lô sai phòng khám thì ném lỗi."
+ },
+ {
+  "ham": "sdt_them_lam_tuoi_patient",
+  "loai": "dong_bo_phu",
+  "tep_dinh_nghia": "supabase/migrations/20260815000002_nhieu_so_dien_thoai.sql",
+  "goi_tu": "trigger trg_sdt_them_lam_tuoi AFTER INSERT/UPDATE/DELETE ON patient_sdt_them",
+  "bang_that_su_ghi": [
+   "patient (UPDATE rỗng)"
+  ],
+  "ly_do": "Chạm dòng patient (UPDATE không đổi gì) để trigger của patient làm tươi cột tìm kiếm theo số điện thoại phụ."
+ },
+ {
+  "ham": "staff_ensure_default_membership",
+  "loai": "dong_bo_phu",
+  "tep_dinh_nghia": "supabase/migrations/20260730000004_tenant_scoped_rls.sql",
+  "goi_tu": "trigger staff_ensure_default_membership AFTER INSERT ON staff (identity.py dựa vào khi đăng nhập)",
+  "bang_that_su_ghi": [
+   "clinic_membership"
+  ],
+  "ly_do": "Nhân sự mới tự được làm thành viên phòng khám mặc định với vai = primary_department; ghi chú: đổi state khối QUYỀN, và tự thành no-op khi có hơn một phòng khám."
+ },
+ {
+  "ham": "so_sua_chi_dinh_dong_bao_khi_them",
+  "loai": "dong_bo_phu",
+  "tep_dinh_nghia": "supabase/migrations/20261006200002_bo_chi_dinh_thong_bao_dong_khi_chi_dinh_lai.sql",
+  "goi_tu": "trigger trg_so_sua_chi_dinh_dong_bao AFTER INSERT ON so_sua_chi_dinh",
+  "bang_that_su_ghi": [
+   "thong_bao"
+  ],
+  "ly_do": "Chỉ định lại đúng mục vừa bỏ thì tự đánh dấu 'đã xử lý' thông báo bỏ chỉ định; ghi chú: đổi state khối THÔNG BÁO, không phát sự kiện."
+ },
+ {
+  "ham": "cancel_visit_workflow",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20260731000003_visit_workflow_instantiation.sql",
+  "goi_tu": "Python booking_service.py _cancel_visit_workflow (huỷ/không đến/... lịch hẹn)",
+  "bang_that_su_ghi": [
+   "work_item",
+   "work_item_event"
+  ],
+  "ly_do": "Huỷ hàng loạt mọi việc đang mở của lượt; chỉ ghi work_item_event (sổ riêng), không domain_event cho từng việc.",
+  "vi_du": "Lễ tân huỷ lịch → mọi việc chờ của khách trong các phòng biến mất; Python chỉ phát appointment.cancelled, các khối khác không thấy 'việc X bị huỷ'."
+ },
+ {
+  "ham": "sinh_viec_nhac_tai_kham",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20261006100000_luot_that_ho_so_cu.sql",
+  "goi_tu": "Python recall_job_service.py (màn Khách hàng gọi qua API)",
+  "bang_that_su_ghi": [
+   "nhac_tai_kham"
+  ],
+  "ly_do": "Tự quyết ai cần gọi nhắc tái khám (ngày hẹn trong 0–7 ngày, chưa đặt lịch) và ai cần gọi sáng ngày hẹn, sinh việc CSKH.",
+  "vi_du": "Bác sĩ dặn tái khám ngày 25 → hàm sinh việc 'gọi nhắc' cho CSKH, không có sự kiện 'đã sinh việc nhắc' trên dòng thời gian khách."
+ },
+ {
+  "ham": "update_visit_current_node",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20260807000003_luot_da_dong_thi_dung_yen.sql",
+  "goi_tu": "trigger trg_work_item_update_visit_node AFTER INSERT/UPDATE status ON work_item",
+  "bang_that_su_ghi": [
+   "visit"
+  ],
+  "ly_do": "Tự suy và ghi 'khách đang ở trạm nào' (current_node_code) của lượt từ việc đang làm mới nhất; lượt đã đóng thì đứng yên.",
+  "vi_du": "Kỹ thuật viên bấm bắt đầu siêu âm → lượt tự chuyển trạm sang siêu âm, không có sự kiện chuyển trạm nào."
+ },
+ {
+  "ham": "nhac_tai_kham_dong_khi_co_lich",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20261003720000_lich_hen_tu_phieu_kham.sql",
+  "goi_tu": "trigger trg_nhac_tai_kham_dong_khi_co_lich AFTER INSERT/UPDATE status,slot_start ON appointment",
+  "bang_that_su_ghi": [
+   "nhac_tai_kham",
+   "hen_gio"
+  ],
+  "ly_do": "Khách có lịch hẹn thì tự đóng việc gọi nhắc tái khám (KHONG_CAN) và bỏ hẹn giờ nhắc.",
+  "vi_du": "CSKH đặt lịch cho khách → việc 'gọi nhắc' của người khác tự đóng và đồng hồ nhắc tự tắt, không ai được báo bằng sự kiện."
+ },
+ {
+  "ham": "lieu_trinh_truoc_khi_ghi",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20261008100000_lieu_trinh.sql",
+  "goi_tu": "trigger trg_lieu_trinh_truoc_khi_ghi BEFORE INSERT/UPDATE ON lieu_trinh",
+  "bang_that_su_ghi": [
+   "lieu_trinh (NEW)",
+   "lieu_trinh_lich_su"
+  ],
+  "ly_do": "Vừa canh (không đổi đơn giá khi đã trả, không giảm buổi dưới số đã gắn) vừa TỰ suy trạng thái liệu trình và TỰ tăng số buổi khi làm quá kế hoạch, ghi lịch sử.",
+  "vi_du": "Khách làm xong buổi cuối → liệu trình tự chuyển DANG_LAM→XONG; làm buổi thứ 11 của gói 10 → gói tự thành 11 buổi, không sự kiện."
+ },
+ {
+  "ham": "lieu_trinh_phu_lai",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20261008100000_lieu_trinh.sql",
+  "goi_tu": "hàm khác: lieu_trinh_tinh_lai (do trigger trên service_order/payment_cycle/payment_bill_line/payment_refund gọi); không Python",
+  "bang_that_su_ghi": [
+   "lieu_trinh_buoi"
+  ],
+  "ly_do": "Tự phân bổ lại buổi nào được trừ bằng tiền trả trước theo số buổi đã trả.",
+  "vi_du": "Hoàn tiền 2 buổi trả trước → 2 buổi chưa làm cuối cùng tự mất cờ 'đã trả trước' và sẽ bị thu lẻ, không sự kiện."
+ },
+ {
+  "ham": "lieu_trinh_tinh_lai",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20261009900000_lieu_trinh_tinh_lai_bao_tin.sql",
+  "goi_tu": "hàm khác: lieu_trinh_gan_buoi, lieu_trinh_go_buoi, lieu_trinh_sau_sua_chi_dinh (trigger service_order), lieu_trinh_tinh_lai_theo_lan_thu / lieu_trinh_sau_ghi_dong_* (trigger thanh toán)",
+  "bang_that_su_ghi": [
+   "lieu_trinh",
+   "lieu_trinh_buoi"
+  ],
+  "ly_do": "Gọi phân bổ trả trước rồi chạm dòng liệu trình (hanh_dong=TU_DONG) để trigger suy lại trạng thái; chỉ pg_notify làm mới màn, không domain_event.",
+  "vi_du": "Thu ngân thu tiền gói → liệu trình tự đổi trạng thái/phủ buổi, màn tự làm mới nhưng dòng thời gian không có gì."
+ },
+ {
+  "ham": "lieu_trinh_gan_buoi",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20261008100000_lieu_trinh.sql",
+  "goi_tu": "trigger trg_lieu_trinh_sau_them_chi_dinh / trg_lieu_trinh_sau_sua_chi_dinh ON service_order (TU_DONG) + Python lieu_trinh_service.py (TAY)",
+  "bang_that_su_ghi": [
+   "lieu_trinh_buoi",
+   "lieu_trinh"
+  ],
+  "ly_do": "Tự gắn chỉ định mới vào liệu trình đang chạy của khách, đánh số buổi và quyết định buổi đó có được trả trước không.",
+  "vi_du": "Bác sĩ chỉ định một buổi điều trị → nó tự thành 'Buổi 4/10' của gói; đường tay có lieu_trinh.session_relinked, đường tự động thì không."
+ },
+ {
+  "ham": "lieu_trinh_go_buoi",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20261008100000_lieu_trinh.sql",
+  "goi_tu": "trigger trg_lieu_trinh_sau_sua_chi_dinh ON service_order (TU_DONG) + Python lieu_trinh_service.py (TAY/CHUYEN)",
+  "bang_that_su_ghi": [
+   "lieu_trinh_buoi",
+   "lieu_trinh"
+  ],
+  "ly_do": "Tự gỡ buổi khỏi liệu trình khi chỉ định bị huỷ, bỏ cờ trả trước và tính lại gói.",
+  "vi_du": "Bỏ chỉ định buổi điều trị → buổi tự rời gói, tiền trả trước tự dồn sang buổi khác, không sự kiện ở đường tự động."
+ },
+ {
+  "ham": "move_visit_to_station",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20260920000003_tien_thuoc_cp6_doc_don_hien_hanh.sql",
+  "goi_tu": "Python dispatch_service.py (POST /dispatch/move — chỉ lượt luồng cũ, luồng mới bị chặn)",
+  "bang_that_su_ghi": [
+   "work_item",
+   "visit",
+   "event_log"
+  ],
+  "ly_do": "Chuyển khách sang trạm/phòng: đóng bước ga cũ, mở/gắn phòng bước mới, đổi trạng thái lượt; chỉ ghi event_log kiểu cũ, không domain_event.",
+  "vi_du": "Trưởng ca chuyển khách sang nhà thuốc → việc trạm cũ tự COMPLETED, lượt OPEN→IN_PROGRESS; chỉ có dòng dispatch.moved ở event_log cũ."
+ },
+ {
+  "ham": "instantiate_visit_workflow",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20260915000022_dich_vu_lam_lai_la_lan_moi.sql",
+  "goi_tu": "Python booking_service.py _open_visit (check-in, booking_service.py:2680)",
+  "bang_that_su_ghi": [
+   "work_item",
+   "work_item_dependency",
+   "work_item_event"
+  ],
+  "ly_do": "Sinh toàn bộ chuỗi việc của lượt theo danh mục node + cạnh phụ thuộc, bước tiếp đón tự COMPLETED.",
+  "vi_du": "Lễ tân check-in → hàm đẻ ra các việc khám/chờ ở mọi trạm; Python chỉ phát visit.checked_in, không sự kiện 'đã sinh việc'."
+ },
+ {
+  "ham": "check_in_appointment",
+  "loai": "logic_nghiep_vu_trong_sql",
+  "tep_dinh_nghia": "supabase/migrations/20260812000001_ket_qua_nhac_gui_va_so_kham_theo_bac_si.sql",
+  "goi_tu": "Python booking_service.py _check_in (booking_service.py:2142)",
+  "bang_that_su_ghi": [
+   "appointment"
+  ],
+  "ly_do": "Đổi lịch hẹn sang CHECKED_IN và cấp số thứ tự theo (ngày, bác sĩ) dưới khoá tư vấn — khoá đúng Phần 6, chỉ thiếu sự kiện riêng.",
+  "vi_du": "Khách tới quầy → lịch thành CHECKED_IN số 7; Python phát visit.checked_in khi mở lượt, không có sự kiện 'lịch đã check-in/số mấy'."
+ },
+ {
+  "ham": "chuan_hoa_danh_muc_thuoc_kiotviet",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260925000014_danh_muc_thuoc_kiotviet.sql",
+  "goi_tu": "migration 20260925000014 (PERFORM) + supabase/seed.sql",
+  "bang_that_su_ghi": [
+   "drug_catalog",
+   "service_price"
+  ],
+  "ly_do": "Nạp/chuẩn hoá danh mục thuốc theo file KiotViet, chạy một lần."
+ },
+ {
+  "ham": "chuan_hoa_danh_muc_dich_vu_kiotviet",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260926000001_danh_muc_dich_vu_kiotviet.sql",
+  "goi_tu": "migration 20260926000001 + supabase/seed.sql (scripts/phieu-kham/dung-mau-ket-qua-v3.py chỉ nhắc trong chú thích)",
+  "bang_that_su_ghi": [
+   "service_price"
+  ],
+  "ly_do": "Gắn mã KiotViet và thêm dịch vụ thiếu, chạy một lần."
+ },
+ {
+  "ham": "them_dau_do_bio",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260928000095_dau_do_bio_vat_tu.sql",
+  "goi_tu": "migration 20260928000095 + supabase/seed.sql",
+  "bang_that_su_ghi": [
+   "drug_catalog"
+  ],
+  "ly_do": "Thêm 2 mặt hàng đầu dò Bio vào danh mục, chạy một lần."
+ },
+ {
+  "ham": "dxa_ket_luan_nhanh",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260929000010_dxa_ket_luan_nhanh.sql",
+  "goi_tu": "migration 20260929000010 (SELECT) + supabase/seed.sql + test",
+  "bang_that_su_ghi": [
+   "form_definition",
+   "ket_qua_mau",
+   "dich_vu_mau_ket_qua"
+  ],
+  "ly_do": "Thêm ô 'kết luận nhanh' vào mẫu kết quả đo mật độ xương, chạy một lần (chữ 'loop' là rác)."
+ },
+ {
+  "ham": "dong_bo_vat_tu",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261003000000_vat_tu_ban_them.sql",
+  "goi_tu": "migration 20261003000000 + supabase/seed.sql + test",
+  "bang_that_su_ghi": [
+   "_vat_tu_nguon (bảng tạm)",
+   "service_price",
+   "vat_tu_goi_y"
+  ],
+  "ly_do": "Nạp danh sách vật tư bán thêm từ bảng giá, chạy lại được nhưng chỉ dùng lúc nạp."
+ },
+ {
+  "ham": "sa_tc_chi_con_phan_phu",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261009700000_mau_mo_ta_nuoc_tieu_monitor.sql",
+  "goi_tu": "migration 20261009700000 (SELECT) + supabase/seed.sql",
+  "bang_that_su_ghi": [
+   "dich_vu_mau_ket_qua"
+  ],
+  "ly_do": "Đổi mẫu kết quả siêu âm tử cung sang mẫu phần phụ, chạy một lần."
+ },
+ {
+  "ham": "map_services_to_nodes",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260804000017_biofeedback_services.sql",
+  "goi_tu": "migration 20260801000001 + 20260804000017 (SELECT) + supabase/seed.sql",
+  "bang_that_su_ghi": [
+   "service_price"
+  ],
+  "ly_do": "Gắn dịch vụ vào bước thực hiện (node_code) theo danh sách cứng, chạy lúc nạp."
+ },
+ {
+  "ham": "activate_clinical_form",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260804000019_andrology_catalogue.sql",
+  "goi_tu": "migration 20260916000002 (bật phiếu Nam khoa); không trigger, không Python (nk.ts chỉ nhắc trong chú thích)",
+  "bang_that_su_ghi": [
+   "clinical_form_catalogue"
+  ],
+  "ly_do": "Cổng bật một form khám sau khi có bản ghi duyệt — công cụ quản trị gọi tay, chỉ dùng một lần cho NK."
+ },
+ {
+  "ham": "payment_cycle_backfill_legacy",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260922000003_thu_dich_vu_nhieu_lan.sql",
+  "goi_tu": "migration 20260919000002 (SELECT) + test",
+  "bang_that_su_ghi": [
+   "payment_cycle"
+  ],
+  "ly_do": "Dựng lại các lần thu cũ từ bảng payment và event_log (chỉ đọc event_log), chạy một lần."
+ },
+ {
+  "ham": "payment_cycle_dung_lai_ly_do_doi_soat",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20260920000001_tien_thuoc_cp6_nen.sql",
+  "goi_tu": "migration 20260920000001 + test",
+  "bang_that_su_ghi": [
+   "payment_cycle"
+  ],
+  "ly_do": "Điền lý do cần đối soát cho lần thu cũ từ event_log, chạy một lần."
+ },
+ {
+  "ham": "gan_mau_ket_qua_theo_kiotviet",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261009700000_mau_mo_ta_nuoc_tieu_monitor.sql",
+  "goi_tu": "migration 20260926000004 (SELECT) + supabase/seed.sql (scripts/phieu-kham/dung-mau-ket-qua-v3.py sinh ra SQL này)",
+  "bang_that_su_ghi": [
+   "dich_vu_mau_ket_qua"
+  ],
+  "ly_do": "Gắn mẫu kết quả vào dịch vụ theo mã KiotViet, chạy lúc nạp."
+ },
+ {
+  "ham": "nap_phong_lam_theo_dich_vu",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261001210000_phong_lam_theo_dich_vu.sql",
+  "goi_tu": "migration 20261001210000 (PERFORM) + supabase/seed.sql + test",
+  "bang_that_su_ghi": [
+   "service_price",
+   "loai_kham_phi",
+   "clinic_room_service"
+  ],
+  "ly_do": "Nạp dịch vụ mới và gắn phòng làm theo dịch vụ, chạy một lần."
+ },
+ {
+  "ham": "dong_bo_danh_muc_dich_vu",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261002100000_danh_muc_dich_vu_chuan_0110.sql",
+  "goi_tu": "migration 20261002100000 + supabase/seed.sql + test",
+  "bang_that_su_ghi": [
+   "service_price",
+   "loai_kham_phi"
+  ],
+  "ly_do": "Đồng bộ danh mục dịch vụ theo file KiotViet 01/10, chạy một lần."
+ },
+ {
+  "ham": "mau_ket_qua_tuy_chon_don_vi",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261009300000_o_tuy_chon_don_vi.sql",
+  "goi_tu": "migration 20261009300000 (SELECT) + test",
+  "bang_that_su_ghi": [
+   "form_definition"
+  ],
+  "ly_do": "Sửa khung mẫu kết quả để ô có tuỳ chọn đơn vị, chạy một lần."
+ },
+ {
+  "ham": "gan_mau_sa_thai_quy_3",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261009310000_mau_sa_thai_quy_3.sql",
+  "goi_tu": "migration 20261009310000 (SELECT) + supabase/seed.sql",
+  "bang_that_su_ghi": [
+   "dich_vu_mau_ket_qua"
+  ],
+  "ly_do": "Gắn mẫu siêu âm thai quý 3 vào dịch vụ đang có mẫu quý 2–3, chạy một lần."
+ },
+ {
+  "ham": "mau_mo_ta_nuoc_tieu_monitor",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261009700000_mau_mo_ta_nuoc_tieu_monitor.sql",
+  "goi_tu": "migration 20261009700000 (SELECT) + supabase/seed.sql",
+  "bang_that_su_ghi": [
+   "form_definition",
+   "ket_qua_mau",
+   "dich_vu_mau_ket_qua",
+   "lam_them_tai_quay"
+  ],
+  "ly_do": "Thêm mẫu mô tả nước tiểu/monitor, chạy một lần."
+ },
+ {
+  "ham": "truong_ca_quan_ly_ca_kham",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261009700000_mau_mo_ta_nuoc_tieu_monitor.sql",
+  "goi_tu": "migration 20261009700000 (SELECT) + test",
+  "bang_that_su_ghi": [
+   "vi_tri_lam_viec"
+  ],
+  "ly_do": "Đổi tên phòng/tầng của vị trí Điều phối thành 'Quản lý ca khám', chạy một lần."
+ },
+ {
+  "ham": "don_khach_thu",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261008200000_don_khach_thu_lieu_trinh.sql",
+  "goi_tu": "Python don_du_lieu_thu_service.py (router don_du_lieu_thu.py) + scripts/don-truoc-moc.sql, scripts/staging-che-du-lieu.sql",
+  "bang_that_su_ghi": [
+   "du_lieu_da_xoa",
+   "lan_don_du_lieu_thu",
+   "(xoá) dữ liệu khách thử ở nhiều bảng",
+   "_dt_dem/_dt_song (bảng tạm)"
+  ],
+  "ly_do": "Công cụ dọn dữ liệu khách thử (DEMO) trước mốc; vẫn còn nối vào API nên muốn bỏ phải gỡ cả router (chữ 'public' là rác)."
+ },
+ {
+  "ham": "_don_thu_lap",
+  "loai": "mot_lan",
+  "tep_dinh_nghia": "supabase/migrations/20261001240000_don_du_lieu_thu.sql",
+  "goi_tu": "hàm khác: don_khach_thu (và 20261002300000)",
+  "bang_that_su_ghi": [
+   "_dt_d/_dt_kh (bảng tạm)"
+  ],
+  "ly_do": "Hàm phụ lập danh sách dòng cần xoá cho don_khach_thu, chỉ ghi bảng tạm."
+ },
+ {
+  "ham": "order_services",
+  "loai": "co_the_chet",
+  "tep_dinh_nghia": "supabase/migrations/20260915000022_dich_vu_lam_lai_la_lan_moi.sql",
+  "goi_tu": "không ai trên đường chạy thật: chỉ ServiceOrderService.create/approve_draft gọi, mà grep src/clinicai không có chỗ nào gọi 2 hàm đó; POST /visits/{id}/service-orders đã nghỉ (trả 410, nghi_huu.py); chỉ test còn gọi",
+  "bang_that_su_ghi": [
+   "work_item",
+   "work_item_event"
+  ],
+  "ly_do": "Rail chỉ định cũ (tạo/gộp việc theo dịch vụ) đã nghỉ 18/09; nếu sống lại thì nó cũng là logic nghiệp vụ trong SQL không phát sự kiện."
+ }
+]

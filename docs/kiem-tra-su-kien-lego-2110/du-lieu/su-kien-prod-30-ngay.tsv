@@ -1,0 +1,72 @@
+SK30	appointment.booked	789	1	dong_thoi_gian_luot
+SK30	appointment.cancelled	65	1	dong_thoi_gian_luot
+SK30	appointment.no_show	32	1	dong_thoi_gian_luot
+SK30	appointment.rescheduled	64	1	dong_thoi_gian_luot
+SK30	appointment.service_switched	6	2	dong_thoi_gian_luot,hanh_trinh_luot_kham
+SK30	capability.granted	564	0	
+SK30	capability.revoked	418	0	
+SK30	cong_no.da_thu	1	1	dong_thoi_gian_luot
+SK30	cong_no.ghi	1	1	dong_thoi_gian_luot
+SK30	consultation.completed	742	1	dong_thoi_gian_luot
+SK30	consultation.handed_over	336	2	dong_thoi_gian_luot,hanh_trinh_luot_kham
+SK30	consultation.reopened	157	1	dong_thoi_gian_luot
+SK30	consultation.resumed	234	1	dong_thoi_gian_luot
+SK30	consultation.started	783	1	dong_thoi_gian_luot
+SK30	followup.scheduled	203	1	dong_thoi_gian_luot
+SK30	lieu_trinh.created	13	0	
+SK30	lieu_trinh.revised	13	0	
+SK30	lieu_trinh.session_relinked	2	0	
+SK30	medicine.counter_changed	1218	1	dong_thoi_gian_luot
+SK30	medicine.declined	301	1	dong_thoi_gian_luot
+SK30	partner.order_received	232	2	chuong_thong_bao,dong_thoi_gian_luot
+SK30	partner.payment_recorded	28	1	dong_thoi_gian_luot
+SK30	partner.sample_receipt_undone	1	1	dong_thoi_gian_luot
+SK30	partner.sample_received	30	2	dong_thoi_gian_luot,vong_doc_luot_kham
+SK30	patient.contacted	238	0	
+SK30	payment.collection_undone	98	2	dong_thoi_gian_luot,so_no
+SK30	payment.medicine_collected	856	4	cong_no,dong_thoi_gian_luot,hanh_trinh_luot_kham,so_no
+SK30	payment.method_changed	34	1	dong_thoi_gian_luot
+SK30	payment.refunded	10	2	dong_thoi_gian_luot,so_no
+SK30	payment.service_collected	2185	5	cong_no,doi_tac_nhan_viec,dong_thoi_gian_luot,hanh_trinh_luot_kham,so_no
+SK30	prescription.consultant_marked	1	1	dong_thoi_gian_luot
+SK30	prescription.saved	6632	2	dong_thoi_gian_luot,so_no
+SK30	result.corrected	432	3	chuong_thong_bao,dong_thoi_gian_luot,vong_doc_luot_kham
+SK30	result_file.deleted	50	2	dong_thoi_gian_luot,vong_doc_luot_kham
+SK30	result_file.restored	6	2	dong_thoi_gian_luot,vong_doc_luot_kham
+SK30	result_file.sent_to_patient	1	1	dong_thoi_gian_luot
+SK30	result_file.uploaded	5508	3	chuong_thong_bao,dong_thoi_gian_luot,vong_doc_luot_kham
+SK30	result_file.viewed	698	1	dong_thoi_gian_luot
+SK30	result_form.completed	1164	1	dong_thoi_gian_luot
+SK30	result.ready	3492	3	chuong_thong_bao,dong_thoi_gian_luot,vong_doc_luot_kham
+SK30	result.viewed	342	1	dong_thoi_gian_luot
+SK30	service.completed	7862	7	chuong_nhan_cheo,doi_tac_nhan_viec,dong_thoi_gian_luot,hanh_trinh_luot_kham,lieu_trinh_sap_het,so_no,vong_doc_luot_kham
+SK30	service.completion_undone	31	2	dong_thoi_gian_luot,so_no
+SK30	service.doctor_chosen	1267	1	dong_thoi_gian_luot
+SK30	service_order.cancelled	129	2	dong_thoi_gian_luot,so_no
+SK30	service_order.carried_over	6	2	dong_thoi_gian_luot,so_no
+SK30	service_order.desk_added	88	2	dong_thoi_gian_luot,hanh_trinh_luot_kham
+SK30	service_order.desk_removed	9	1	dong_thoi_gian_luot
+SK30	service_order.placed	1447	1	dong_thoi_gian_luot
+SK30	service_order.required_changed	35	1	dong_thoi_gian_luot
+SK30	service.patient_moved	3	1	dong_thoi_gian_luot
+SK30	service.retry_prepared	1	1	dong_thoi_gian_luot
+SK30	service.room_guided	555	1	dong_thoi_gian_luot
+SK30	service.room_receive_undone	6	1	dong_thoi_gian_luot
+SK30	service.room_released	30	2	chuong_nhan_cheo,dong_thoi_gian_luot
+SK30	service.routed	1604	1	dong_thoi_gian_luot
+SK30	service.routing_invalidated	14	2	dong_thoi_gian_luot,trach_nhiem_dich_vu
+SK30	service_selection.confirmed	2469	4	doi_tac_nhan_viec,dong_thoi_gian_luot,hanh_trinh_luot_kham,vong_doc_luot_kham
+SK30	service.start_cancelled	20	3	chuong_nhan_cheo,dong_thoi_gian_luot,so_no
+SK30	service.started	1887	2	dong_thoi_gian_luot,so_no
+SK30	visit.checked_in	928	2	dong_thoi_gian_luot,hanh_trinh_luot_kham
+SK30	visit.checked_out	1091	3	dong_thoi_gian_luot,hanh_trinh_luot_kham,so_no
+SK30	visit.defer_payment_cleared	75	1	dong_thoi_gian_luot
+SK30	visit.defer_payment_set	999	3	doi_tac_nhan_viec,dong_thoi_gian_luot,hanh_trinh_luot_kham
+SK30	visit.exam_completed	426	1	dong_thoi_gian_luot
+SK30	visit.exam_service_changed	685	2	dong_thoi_gian_luot,so_no
+SK30	visit.left_early	2	2	dong_thoi_gian_luot,hanh_trinh_luot_kham
+SK30	visit.reopened	13	2	dong_thoi_gian_luot,so_no
+SK30	visit.routed	1650	2	dieu_tri_sinh_chi_dinh,dong_thoi_gian_luot
+SK30	visit.supply_changed	65	2	dong_thoi_gian_luot,so_no
+SK30	vitals.recorded	1116	2	dong_thoi_gian_luot,hanh_trinh_luot_kham
+SK30	vitals.started	453	1	dong_thoi_gian_luot

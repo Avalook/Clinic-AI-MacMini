@@ -1,0 +1,7025 @@
+{
+ "so_khoi": 34,
+ "so_bang_co_chu": 51,
+ "so_ham_ghi": 436,
+ "so_ham_ghi_state": 415,
+ "ghi_cheo": [
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "ham": "_tick_lai_kham",
+   "dong": 956,
+   "bang": [
+    "luot_phi_kham"
+   ],
+   "su_kien": [
+    "visit.exam_service_changed"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "luot_phi_kham",
+   "khoi_chu_bang": "phi_kham",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/doi_bac_si_service.py",
+   "ham": "doi",
+   "dong": 101,
+   "bang": [
+    "appointment",
+    "consultation",
+    "queue_entry",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "visit.doctor_reassigned"
+   ],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "booking"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "ham": "_ghi_chu_doi_tac",
+   "dong": 150,
+   "bang": [
+    "doi_tac_nhan_viec"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "doi_tac_nhan_viec",
+   "khoi_chu_bang": "doi_tac",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "ham": "_ghi_da_lay_mau",
+   "dong": 999,
+   "bang": [
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [
+    "partner.sample_collected"
+   ],
+   "so_cu": [
+    "service.performed"
+   ],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "ham": "ghi_nhan_da_thu",
+   "dong": 1082,
+   "bang": [
+    "doi_tac_thanh_toan"
+   ],
+   "su_kien": [
+    "partner.payment_recorded"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "doi_tac_thanh_toan",
+   "khoi_chu_bang": "doi_tac",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "ham": "huy_da_thu",
+   "dong": 1187,
+   "bang": [
+    "doi_tac_thanh_toan"
+   ],
+   "su_kien": [
+    "partner.payment_voided"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "doi_tac_thanh_toan",
+   "khoi_chu_bang": "doi_tac",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "xem_ket_qua",
+   "dong": 259,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [
+    "result.viewed"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "result"
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "xuat_ban",
+   "dong": 1300,
+   "bang": [
+    "form_definition",
+    "ket_qua_mau"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "form_definition",
+   "khoi_chu_bang": "catalogue",
+   "khoi_cua_tep": "result"
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "xuat_ban",
+   "dong": 1300,
+   "bang": [
+    "form_definition",
+    "ket_qua_mau"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "ket_qua_mau",
+   "khoi_chu_bang": "catalogue",
+   "khoi_cua_tep": "result"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "mo_lai_moc_kham_xong",
+   "dong": 155,
+   "bang": [
+    "appointment",
+    "encounter_flow",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "appointment",
+   "khoi_chu_bang": "booking",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "_mo_lai_luot_trong",
+   "dong": 204,
+   "bang": [
+    "appointment",
+    "queue_entry",
+    "visit",
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "appointment",
+   "khoi_chu_bang": "booking",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "mo_lai_kham",
+   "dong": 418,
+   "bang": [
+    "consultation",
+    "encounter_flow",
+    "follow_up_case",
+    "queue_entry",
+    "review_round"
+   ],
+   "su_kien": [
+    "consultation.reopened",
+    "visit.reopened"
+   ],
+   "so_cu": [
+    "consult.reopened"
+   ],
+   "bang_bi_ghi": "review_round",
+   "khoi_chu_bang": "vong_doc",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "huy_chi_dinh",
+   "dong": 694,
+   "bang": [
+    "follow_up_case",
+    "queue_entry",
+    "round_requirement",
+    "service_order"
+   ],
+   "su_kien": [
+    "service_order.cancelled"
+   ],
+   "so_cu": [
+    "service_order.cancelled"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "hoan_tac_xong_dich_vu",
+   "dong": 895,
+   "bang": [
+    "queue_entry",
+    "service_execution_attempt"
+   ],
+   "su_kien": [
+    "service.completion_undone"
+   ],
+   "so_cu": [
+    "service.completion_undone"
+   ],
+   "bang_bi_ghi": "service_execution_attempt",
+   "khoi_chu_bang": "execution",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "thu_hoi_duyet_ket_qua",
+   "dong": 1067,
+   "bang": [
+    "follow_up_case",
+    "service_order"
+   ],
+   "su_kien": [
+    "result.approval_revoked"
+   ],
+   "so_cu": [
+    "result.approval_revoked"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/checkout_service.py",
+   "ham": "close",
+   "dong": 723,
+   "bang": [
+    "appointment",
+    "event_log",
+    "queue_entry",
+    "visit",
+    "work_item"
+   ],
+   "su_kien": [
+    "visit.checked_out",
+    "visit.left_early"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "booking"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "bat_dau",
+   "dong": 372,
+   "bang": [
+    "queue_entry",
+    "service_execution_attempt"
+   ],
+   "su_kien": [
+    "service.started"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "huy_bat_dau",
+   "dong": 947,
+   "bang": [
+    "form_instance",
+    "service_execution_attempt"
+   ],
+   "su_kien": [
+    "service.start_cancelled"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "form_instance",
+   "khoi_chu_bang": "result",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "bat_dau_tai_ban_kham",
+   "dong": 1216,
+   "bang": [
+    "queue_entry",
+    "service_execution_attempt",
+    "service_order"
+   ],
+   "su_kien": [
+    "service.routed",
+    "service.started"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "bat_dau_tai_ban_kham",
+   "dong": 1216,
+   "bang": [
+    "queue_entry",
+    "service_execution_attempt",
+    "service_order"
+   ],
+   "su_kien": [
+    "service.routed",
+    "service.started"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "huy_bat_dau_tai_ban_kham",
+   "dong": 1485,
+   "bang": [
+    "service_execution_attempt",
+    "service_order"
+   ],
+   "su_kien": [
+    "service.routed",
+    "service.routing_invalidated",
+    "service.start_cancelled"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "hoan_tac_xong_tai_ban_kham",
+   "dong": 1630,
+   "bang": [
+    "queue_entry",
+    "service_execution_attempt"
+   ],
+   "su_kien": [
+    "service.completion_undone"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "_doi_trang_thai",
+   "dong": 2314,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "_dong_hang_cho",
+   "dong": 2351,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "_vao_hang_tai_phong",
+   "dong": 1039,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "chuyen_phong_dang_lam",
+   "dong": 2008,
+   "bang": [
+    "queue_entry",
+    "service_execution_attempt",
+    "service_order"
+   ],
+   "su_kien": [
+    "service.room_transferred"
+   ],
+   "so_cu": [
+    "?"
+   ],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "chuyen_phong_dang_lam",
+   "dong": 2008,
+   "bang": [
+    "queue_entry",
+    "service_execution_attempt",
+    "service_order"
+   ],
+   "su_kien": [
+    "service.room_transferred"
+   ],
+   "so_cu": [
+    "?"
+   ],
+   "bang_bi_ghi": "service_execution_attempt",
+   "khoi_chu_bang": "execution",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "invalidate",
+   "dong": 2214,
+   "bang": [
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [
+    "service.routing_invalidated"
+   ],
+   "so_cu": [
+    "?"
+   ],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "_xep_hang",
+   "dong": 2408,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/dinh_chinh_don.py",
+   "ham": "ap_dung_don_da_ky",
+   "dong": 413,
+   "bang": [
+    "prescription",
+    "prescription_allocation",
+    "prescription_correction"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "prescription.corrected"
+   ],
+   "bang_bi_ghi": "prescription_allocation",
+   "khoi_chu_bang": "pharmacy",
+   "khoi_cua_tep": "consultation"
+  },
+  {
+   "tep": "src/clinicai/services/dinh_chinh_don.py",
+   "ham": "luu_don_chua_ky",
+   "dong": 581,
+   "bang": [
+    "prescription",
+    "prescription_allocation",
+    "prescription_correction"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "prescription.corrected"
+   ],
+   "bang_bi_ghi": "prescription_allocation",
+   "khoi_chu_bang": "pharmacy",
+   "khoi_cua_tep": "consultation"
+  },
+  {
+   "tep": "src/clinicai/services/booking_service.py",
+   "ham": "_cancel_visit_workflow",
+   "dong": 2765,
+   "bang": [
+    "encounter_flow",
+    "queue_entry",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "booking"
+  },
+  {
+   "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+   "ham": "_bo",
+   "dong": 842,
+   "bang": [
+    "luot_phu_thu",
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [
+    "service_order.desk_removed"
+   ],
+   "so_cu": [
+    "service_order.desk_removed"
+   ],
+   "bang_bi_ghi": "queue_entry",
+   "khoi_chu_bang": "service_routing",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_evaluate_rounds",
+   "dong": 913,
+   "bang": [
+    "consultation",
+    "queue_entry",
+    "review_round",
+    "round_requirement"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "review.not_ready",
+    "review.ready",
+    "review.skipped"
+   ],
+   "bang_bi_ghi": "review_round",
+   "khoi_chu_bang": "vong_doc",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_ket_thuc_neu_xong",
+   "dong": 1105,
+   "bang": [
+    "appointment",
+    "encounter_flow",
+    "visit"
+   ],
+   "su_kien": [
+    "visit.exam_completed"
+   ],
+   "so_cu": [
+    "appointment.completed"
+   ],
+   "bang_bi_ghi": "appointment",
+   "khoi_chu_bang": "booking",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "start_consultation",
+   "dong": 1709,
+   "bang": [
+    "consultation",
+    "queue_entry",
+    "review_round"
+   ],
+   "su_kien": [
+    "consultation.resumed",
+    "consultation.started"
+   ],
+   "so_cu": [
+    "consult.started"
+   ],
+   "bang_bi_ghi": "review_round",
+   "khoi_chu_bang": "vong_doc",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "propose_orders",
+   "dong": 2177,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "orders.drafted"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "authorize_orders",
+   "dong": 2245,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "orders.authorized"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "complete_consultation",
+   "dong": 2446,
+   "bang": [
+    "consultation",
+    "queue_entry",
+    "review_round",
+    "round_requirement",
+    "service_order"
+   ],
+   "su_kien": [
+    "consultation.completed",
+    "followup.scheduled",
+    "service_order.cancelled"
+   ],
+   "so_cu": [
+    "consult.completed"
+   ],
+   "bang_bi_ghi": "review_round",
+   "khoi_chu_bang": "vong_doc",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "complete_consultation",
+   "dong": 2446,
+   "bang": [
+    "consultation",
+    "queue_entry",
+    "review_round",
+    "round_requirement",
+    "service_order"
+   ],
+   "su_kien": [
+    "consultation.completed",
+    "followup.scheduled",
+    "service_order.cancelled"
+   ],
+   "so_cu": [
+    "consult.completed"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_gan_phong",
+   "dong": 3290,
+   "bang": [
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "dispatch.assigned"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "duyet_ket_qua",
+   "dong": 3514,
+   "bang": [
+    "follow_up_case",
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "result.approved"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "duyet_ket_qua",
+   "dong": 3514,
+   "bang": [
+    "follow_up_case",
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "result.approved"
+   ],
+   "bang_bi_ghi": "tep_ket_qua",
+   "khoi_chu_bang": "result_file",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_phat_da_duyet",
+   "dong": 3683,
+   "bang": [
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [
+    "result.reviewed"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_phat_da_duyet",
+   "dong": 3683,
+   "bang": [
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [
+    "result.reviewed"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "tep_ket_qua",
+   "khoi_chu_bang": "result_file",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "start_service",
+   "dong": 3762,
+   "bang": [
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service.started"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "complete_service",
+   "dong": 3835,
+   "bang": [
+    "follow_up_case",
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service.not_performed",
+    "service.performed"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/lam_truoc_thu_sau.py",
+   "ham": "_ghi_mot_lua_chon",
+   "dong": 349,
+   "bang": [
+    "service_order",
+    "service_selection_state"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "service_selection_state",
+   "khoi_chu_bang": "service_selection",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/service_selection_service.py",
+   "ham": "ap_lua_chon",
+   "dong": 452,
+   "bang": [
+    "luot_phu_thu",
+    "service_order",
+    "service_selection_state"
+   ],
+   "su_kien": [
+    "service_selection.confirmed"
+   ],
+   "so_cu": [
+    "?"
+   ],
+   "bang_bi_ghi": "service_selection_state",
+   "khoi_chu_bang": "service_selection",
+   "khoi_cua_tep": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_giao_theo_phan_lo",
+   "dong": 807,
+   "bang": [
+    "prescription",
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "prescription",
+   "khoi_chu_bang": "consultation",
+   "khoi_cua_tep": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_giao_khong_lo",
+   "dong": 943,
+   "bang": [
+    "prescription",
+    "thuoc_giao_chua_gan_lo"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "prescription",
+   "khoi_chu_bang": "consultation",
+   "khoi_cua_tep": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_cap_phat_cu",
+   "dong": 1222,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "prescription",
+   "khoi_chu_bang": "consultation",
+   "khoi_cua_tep": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "xac_dinh_thuoc",
+   "dong": 1342,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "prescription",
+   "khoi_chu_bang": "consultation",
+   "khoi_cua_tep": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "khai_so_luong_mua",
+   "dong": 1412,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "prescription",
+   "khoi_chu_bang": "consultation",
+   "khoi_cua_tep": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_chot_dong",
+   "dong": 2537,
+   "bang": [
+    "prescription",
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "prescription",
+   "khoi_chu_bang": "consultation",
+   "khoi_cua_tep": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/clinical_record_service.py",
+   "ham": "_ghi_sinh_hieu",
+   "dong": 680,
+   "bang": [
+    "vital_measurement"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "vital_measurement",
+   "khoi_chu_bang": "vitals",
+   "khoi_cua_tep": "consultation"
+  },
+  {
+   "tep": "src/clinicai/services/nhan_tai_phong.py",
+   "ham": "_ve_chua_xep",
+   "dong": 762,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/nhan_tai_phong.py",
+   "ham": "_ve_lai_phong_cu",
+   "dong": 1290,
+   "bang": [
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [
+    "service.room_receive_undone",
+    "service.room_release_undone"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/tep_ket_qua_service.py",
+   "ham": "_tinh_lai_ket_qua_luc",
+   "dong": 541,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "result_file"
+  },
+  {
+   "tep": "src/clinicai/services/tep_ket_qua_service.py",
+   "ham": "tai_len",
+   "dong": 684,
+   "bang": [
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [
+    "result_file.uploaded"
+   ],
+   "so_cu": [],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "result_file"
+  },
+  {
+   "tep": "src/clinicai/services/tep_ket_qua_service.py",
+   "ham": "xac_nhan_tep",
+   "dong": 1002,
+   "bang": [
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [
+    "result_file.confirmed"
+   ],
+   "so_cu": [
+    "tep_ket_qua.xac_nhan"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "result_file"
+  },
+  {
+   "tep": "src/clinicai/services/tep_ket_qua_service.py",
+   "ham": "khoi_phuc_tep",
+   "dong": 1438,
+   "bang": [
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [
+    "result_file.restored"
+   ],
+   "so_cu": [
+    "tep_ket_qua.khoi_phuc"
+   ],
+   "bang_bi_ghi": "service_order",
+   "khoi_chu_bang": "service_order",
+   "khoi_cua_tep": "result_file"
+  }
+ ],
+ "bang_mo_coi": [
+  [
+   "visit",
+   21
+  ],
+  [
+   "encounter_flow",
+   15
+  ],
+  [
+   "consultation",
+   12
+  ],
+  [
+   "thong_bao",
+   11
+  ],
+  [
+   "work_item",
+   9
+  ],
+  [
+   "clinic",
+   7
+  ],
+  [
+   "staff",
+   7
+  ],
+  [
+   "kiem_ke_ca",
+   6
+  ],
+  [
+   "service_price",
+   6
+  ],
+  [
+   "patient",
+   6
+  ],
+  [
+   "follow_up_case",
+   6
+  ],
+  [
+   "work_roster",
+   6
+  ],
+  [
+   "pos_outbox",
+   5
+  ],
+  [
+   "nhac_tai_kham",
+   5
+  ],
+  [
+   "clinic_floor",
+   5
+  ],
+  [
+   "service_type",
+   5
+  ],
+  [
+   "khach_cong_ty",
+   5
+  ],
+  [
+   "clinic_room",
+   5
+  ],
+  [
+   "hen_gio",
+   4
+  ],
+  [
+   "so_sua_chi_dinh",
+   4
+  ],
+  [
+   "kiem_ke_ca_dong",
+   4
+  ],
+  [
+   "drug_catalog",
+   4
+  ],
+  [
+   "round_requirement",
+   4
+  ],
+  [
+   "ultrasound_record",
+   4
+  ],
+  [
+   "clinic_membership",
+   4
+  ],
+  [
+   "idempotency_key",
+   3
+  ],
+  [
+   "hoa_don_misa_xuat",
+   3
+  ],
+  [
+   "app_credential",
+   3
+  ],
+  [
+   "service_order_draft",
+   3
+  ],
+  [
+   "phieu_kho_dong",
+   3
+  ],
+  [
+   "clinic_location",
+   3
+  ],
+  [
+   "drug_batch",
+   3
+  ],
+  [
+   "payment",
+   3
+  ],
+  [
+   "hen_goi_lai",
+   3
+  ],
+  [
+   "payment_refund",
+   3
+  ],
+  [
+   "slot_hold",
+   3
+  ],
+  [
+   "agent_nhan_dinh",
+   3
+  ],
+  [
+   "hoa_don_cong_ty",
+   3
+  ],
+  [
+   "clinic_room_node",
+   3
+  ],
+  [
+   "canh_bao",
+   3
+  ],
+  [
+   "service_log",
+   3
+  ],
+  [
+   "doctor_booking_override",
+   3
+  ],
+  [
+   "visit_amendment",
+   2
+  ],
+  [
+   "patient_sdt_them",
+   2
+  ],
+  [
+   "visit_route",
+   2
+  ],
+  [
+   "nhac_viec_ca_nhan",
+   2
+  ],
+  [
+   "cskh_log",
+   2
+  ],
+  [
+   "chot_so_ca",
+   2
+  ],
+  [
+   "tien_thua_giu_lai",
+   2
+  ],
+  [
+   "prescription_correction",
+   2
+  ],
+  [
+   "vai_duoc_vao_tram",
+   2
+  ],
+  [
+   "vi_tri_lam_viec",
+   2
+  ],
+  [
+   "care_episode",
+   2
+  ],
+  [
+   "lich_su_notion",
+   2
+  ],
+  [
+   "luot_phu_thu",
+   2
+  ],
+  [
+   "consultation_note",
+   2
+  ],
+  [
+   "thuoc_giao_chua_gan_lo",
+   2
+  ],
+  [
+   "drug_return",
+   2
+  ],
+  [
+   "clinic_room_service",
+   2
+  ],
+  [
+   "luat_bac_si_bat_buoc",
+   2
+  ],
+  [
+   "drug_ma_vach",
+   2
+  ],
+  [
+   "phan_hoi_khach",
+   2
+  ],
+  [
+   "cskh_action",
+   2
+  ],
+  [
+   "clinical_release",
+   2
+  ],
+  [
+   "clinical_data_consent",
+   2
+  ],
+  [
+   "slot_booking_override",
+   2
+  ],
+  [
+   "llm_lan_goi",
+   1
+  ],
+  [
+   "public",
+   1
+  ],
+  [
+   "agent_tom_tat",
+   1
+  ],
+  [
+   "hoa_don_misa_xuat_dong",
+   1
+  ],
+  [
+   "visit_gate_override",
+   1
+  ],
+  [
+   "owner_feedback",
+   1
+  ],
+  [
+   "result_correction",
+   1
+  ],
+  [
+   "thue_suat_nhom",
+   1
+  ],
+  [
+   "clinical_form_response",
+   1
+  ],
+  [
+   "mpi_merge_queue",
+   1
+  ],
+  [
+   "command_receipt",
+   1
+  ],
+  [
+   "work_session",
+   1
+  ],
+  [
+   "work_session_staff",
+   1
+  ],
+  [
+   "phieu_kho",
+   1
+  ],
+  [
+   "payment_refund_line",
+   1
+  ],
+  [
+   "phieu_kham_luot",
+   1
+  ],
+  [
+   "day_nghiep_vu",
+   1
+  ],
+  [
+   "work_item_event",
+   1
+  ],
+  [
+   "agent_cau_hinh",
+   1
+  ],
+  [
+   "lam_them_tai_quay_revision",
+   1
+  ],
+  [
+   "thu_ky_bac_si",
+   1
+  ],
+  [
+   "lan_don_du_lieu_thu",
+   1
+  ],
+  [
+   "hoa_don_cong_ty_lich_su",
+   1
+  ],
+  [
+   "thong_bao_an_cua_toi",
+   1
+  ],
+  [
+   "thuoc_quy_doi",
+   1
+  ],
+  [
+   "app_private",
+   1
+  ],
+  [
+   "dispatch_threshold",
+   1
+  ],
+  [
+   "staff_node",
+   1
+  ],
+  [
+   "work_roster_thay_nguoi",
+   1
+  ],
+  [
+   "roster_week",
+   1
+  ],
+  [
+   "_ghep",
+   1
+  ],
+  [
+   "patient_link",
+   1
+  ],
+  [
+   "staff_task",
+   1
+  ],
+  [
+   "luot_dong_thoi_gian",
+   1
+  ]
+ ],
+ "ghi_khong_su_kien": [
+  {
+   "tep": "src/clinicai/llm/chi_phi.py",
+   "ham": "ghi_lan_goi",
+   "dong": 130,
+   "bang": [
+    "llm_lan_goi"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/phieu_kham/nap.py",
+   "ham": "nap_ban_dau",
+   "dong": 25,
+   "bang": [
+    "form_definition"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "catalogue",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/api/idempotency.py",
+   "ham": "acquire",
+   "dong": 72,
+   "bang": [
+    "idempotency_key"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/api/idempotency.py",
+   "ham": "save",
+   "dong": 182,
+   "bang": [
+    "idempotency_key"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/api/idempotency.py",
+   "ham": "release",
+   "dong": 212,
+   "bang": [
+    "idempotency_key"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/worker.py",
+   "ham": "_bao_nguoi_truc_khi_chet",
+   "dong": 226,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/hen_gio.py",
+   "ham": "hen",
+   "dong": 63,
+   "bang": [
+    "hen_gio"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/hen_gio.py",
+   "ham": "huy_hen",
+   "dong": 96,
+   "bang": [
+    "hen_gio"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/hen_gio.py",
+   "ham": "lam_mot_hen",
+   "dong": 129,
+   "bang": [
+    "hen_gio"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/hen_gio.py",
+   "ham": "_bao_nguoi_truc_khi_chet",
+   "dong": 193,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/hen_gio.py",
+   "ham": "thu_hoi_hen_treo",
+   "dong": 227,
+   "bang": [
+    "hen_gio"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/phat_lai.py",
+   "ham": "dung_lai",
+   "dong": 51,
+   "bang": [
+    "public"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/agent_tom_tat.py",
+   "ham": "tao",
+   "dong": 212,
+   "bang": [
+    "agent_tom_tat"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ghi_chu_khach_service.py",
+   "ham": "ghi",
+   "dong": 95,
+   "bang": [
+    "ghi_chu_khach"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "cskh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ghi_chu_khach_service.py",
+   "ham": "go",
+   "dong": 153,
+   "bang": [
+    "ghi_chu_khach"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "cskh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_kho_service.py",
+   "ham": "_mo_phieu",
+   "dong": 158,
+   "bang": [
+    "vat_tu_phieu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "kho_vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_kho_service.py",
+   "ham": "_ton",
+   "dong": 200,
+   "bang": [
+    "vat_tu_ton"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "kho_vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_kho_service.py",
+   "ham": "_ghi",
+   "dong": 238,
+   "bang": [
+    "vat_tu_txn"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "kho_vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "ham": "bao_bac_si_chinh",
+   "dong": 338,
+   "bang": [
+    "so_sua_chi_dinh"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "ham": "ghi_so_thuoc",
+   "dong": 400,
+   "bang": [
+    "so_sua_chi_dinh"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "ham": "hoan_tac",
+   "dong": 653,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service_order.restored"
+   ],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/doi_bac_si_service.py",
+   "ham": "doi",
+   "dong": 101,
+   "bang": [
+    "appointment",
+    "consultation",
+    "queue_entry",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "visit.doctor_reassigned"
+   ],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_misa_service.py",
+   "ham": "danh_dau",
+   "dong": 57,
+   "bang": [
+    "hoa_don_misa_xuat",
+    "hoa_don_misa_xuat_dong"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_misa.danh_dau"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_misa_service.py",
+   "ham": "huy_danh_dau",
+   "dong": 139,
+   "bang": [
+    "hoa_don_misa_xuat"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_misa.huy"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_misa_service.py",
+   "ham": "khoi_phuc",
+   "dong": 175,
+   "bang": [
+    "hoa_don_misa_xuat"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_misa.khoi_phuc"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/gate_rule_service.py",
+   "ham": "enforce",
+   "dong": 218,
+   "bang": [
+    "visit_gate_override"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ghi_chu_luot.py",
+   "ham": "luu",
+   "dong": 104,
+   "bang": [
+    "luot_ghi_chu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "dieu_tri",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/don_tep_ket_qua.py",
+   "ham": "_don_mot_tep",
+   "dong": 129,
+   "bang": [
+    "tep_ket_qua"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result_file",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/auth_service.py",
+   "ham": "login",
+   "dong": 69,
+   "bang": [
+    "app_credential"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/console_service.py",
+   "ham": "add_feedback",
+   "dong": 115,
+   "bang": [
+    "owner_feedback"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_settings_service.py",
+   "ham": "update_booking_policy",
+   "dong": 38,
+   "bang": [
+    "clinic",
+    "event_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_settings_service.py",
+   "ham": "update_feature_mode",
+   "dong": 154,
+   "bang": [
+    "clinic",
+    "event_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/bio_chi_dinh_service.py",
+   "ham": "chuyen_bio_chua_thu",
+   "dong": 123,
+   "bang": [
+    "luot_vat_tu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/bio_chi_dinh_service.py",
+   "ham": "chon",
+   "dong": 212,
+   "bang": [
+    "luot_vat_tu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/anh_chuyen_khoan_service.py",
+   "ham": "tai_len",
+   "dong": 117,
+   "bang": [
+    "anh_chuyen_khoan"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/anh_chuyen_khoan_service.py",
+   "ham": "go",
+   "dong": 207,
+   "bang": [
+    "anh_chuyen_khoan"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/mau_ket_qua_service.py",
+   "ham": "tao_mau",
+   "dong": 148,
+   "bang": [
+    "form_definition",
+    "ket_qua_mau"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "catalogue",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/mau_ket_qua_service.py",
+   "ham": "gan",
+   "dong": 241,
+   "bang": [
+    "dich_vu_mau_ket_qua"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "catalogue",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/mau_ket_qua_service.py",
+   "ham": "go",
+   "dong": 273,
+   "bang": [
+    "dich_vu_mau_ket_qua"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "catalogue",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "ham": "_ghi_chu_doi_tac",
+   "dong": 150,
+   "bang": [
+    "doi_tac_nhan_viec"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/phan_lo_service.py",
+   "ham": "gan_lan_thu",
+   "dong": 201,
+   "bang": [
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/phan_lo_service.py",
+   "ham": "ghi_ban",
+   "dong": 215,
+   "bang": [
+    "inventory_txn"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/phan_lo_service.py",
+   "ham": "go_va_giu_ke_hoach",
+   "dong": 243,
+   "bang": [
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/phan_lo_service.py",
+   "ham": "dao_ban",
+   "dong": 290,
+   "bang": [
+    "inventory_txn"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kiem_ke_ca_service.py",
+   "ham": "mo_phieu",
+   "dong": 645,
+   "bang": [
+    "kiem_ke_ca"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kiem_ke_ca_service.py",
+   "ham": "luu_dem",
+   "dong": 765,
+   "bang": [
+    "kiem_ke_ca_dong"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kiem_ke_ca_service.py",
+   "ham": "dung_so_cuoi_ca_truoc",
+   "dong": 837,
+   "bang": [
+    "kiem_ke_ca",
+    "kiem_ke_ca_dong"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kiem_ke_ca_service.py",
+   "ham": "dieu_chinh_theo_kiem_ke",
+   "dong": 1023,
+   "bang": [
+    "kiem_ke_ca"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kiem_ke_ca_service.py",
+   "ham": "hoan_tac_dieu_chinh",
+   "dong": 1194,
+   "bang": [
+    "kiem_ke_ca"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kiem_ke_ca_service.py",
+   "ham": "sua_so_dem",
+   "dong": 1271,
+   "bang": [
+    "kiem_ke_ca",
+    "kiem_ke_ca_dong"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pos_relay.py",
+   "ham": "_deliver",
+   "dong": 104,
+   "bang": [
+    "pos_outbox"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pos_relay.py",
+   "ham": "_schedule_retry",
+   "dong": 161,
+   "bang": [
+    "pos_outbox"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pos_relay.py",
+   "ham": "_dead_letter",
+   "dong": 192,
+   "bang": [
+    "pos_outbox"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "mo_phieu",
+   "dong": 176,
+   "bang": [
+    "form_instance"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "luu_nhap",
+   "dong": 555,
+   "bang": [
+    "form_instance"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "mo_sua",
+   "dong": 952,
+   "bang": [
+    "form_instance"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "_ghi_lan_sua",
+   "dong": 1021,
+   "bang": [
+    "result_correction",
+    "visit_amendment"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "huy_sua",
+   "dong": 1097,
+   "bang": [
+    "form_instance"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "ham": "xuat_ban",
+   "dong": 1300,
+   "bang": [
+    "form_definition",
+    "ket_qua_mau"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/thue_suat_service.py",
+   "ham": "dat_nhom",
+   "dong": 105,
+   "bang": [
+    "thue_suat_nhom"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "accounting.tax_group_set"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/thue_suat_service.py",
+   "ham": "dat_mat_hang",
+   "dong": 142,
+   "bang": [
+    "drug_catalog",
+    "service_price"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "accounting.tax_item_set"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/patient_service.py",
+   "ham": "_insert_patient",
+   "dong": 256,
+   "bang": [
+    "patient"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/patient_service.py",
+   "ham": "update_patient",
+   "dong": 445,
+   "bang": [
+    "patient"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "patient.updated"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/patient_service.py",
+   "ham": "them_so_dien_thoai",
+   "dong": 561,
+   "bang": [
+    "event_log",
+    "patient_sdt_them"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/patient_service.py",
+   "ham": "xoa_so_dien_thoai",
+   "dong": 654,
+   "bang": [
+    "event_log",
+    "patient_sdt_them"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ky_nang_service.py",
+   "ham": "doi",
+   "dong": 205,
+   "bang": [
+    "nhan_su_ky_nang"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "permission",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/so_no_service.py",
+   "ham": "_dau_ky",
+   "dong": 616,
+   "bang": [
+    "so_no_moc"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "so_no",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "mo_lai_moc_kham_xong",
+   "dong": 155,
+   "bang": [
+    "appointment",
+    "encounter_flow",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "ham": "_mo_lai_luot_trong",
+   "dong": 204,
+   "bang": [
+    "appointment",
+    "queue_entry",
+    "visit",
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/thu_tu_kham_service.py",
+   "ham": "keo",
+   "dong": 86,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "queue.reordered"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/thu_tu_kham_service.py",
+   "ham": "dat_uu_tien",
+   "dong": 153,
+   "bang": [
+    "patient"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "patient.uu_tien_changed"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/clinical_form_service.py",
+   "ham": "save_form",
+   "dong": 230,
+   "bang": [
+    "clinical_form_response"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinical_form.saved"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/mpi_service.py",
+   "ham": "auto_queue_if_needed",
+   "dong": 172,
+   "bang": [
+    "mpi_merge_queue"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lenh_kham_core.py",
+   "ham": "khoa_flow",
+   "dong": 112,
+   "bang": [
+    "encounter_flow"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lenh_kham_core.py",
+   "ham": "bien_nhan_ghi",
+   "dong": 204,
+   "bang": [
+    "command_receipt"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_order_service.py",
+   "ham": "_sync_route",
+   "dong": 788,
+   "bang": [
+    "visit_route"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_order_service.py",
+   "ham": "save_draft",
+   "dong": 323,
+   "bang": [
+    "service_order_draft"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "?"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/service_order_service.py",
+   "ham": "approve_draft",
+   "dong": 414,
+   "bang": [
+    "service_order_draft"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service_order.draft_approved"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/service_order_service.py",
+   "ham": "discard_draft",
+   "dong": 502,
+   "bang": [
+    "service_order_draft"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service_order.draft_discarded"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/service_order_service.py",
+   "ham": "bo_chi_dinh",
+   "dong": 576,
+   "bang": [
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service_order.removed"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/lieu_trinh_tien.py",
+   "ham": "dat_tra_truoc",
+   "dong": 291,
+   "bang": [
+    "lieu_trinh_tra_truoc"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "lieu_trinh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lieu_trinh_tien.py",
+   "ham": "bo_tra_truoc",
+   "dong": 413,
+   "bang": [
+    "lieu_trinh_tra_truoc"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "lieu_trinh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/nhac_viec_service.py",
+   "ham": "tao",
+   "dong": 44,
+   "bang": [
+    "nhac_viec_ca_nhan"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/nhac_viec_service.py",
+   "ham": "xong",
+   "dong": 118,
+   "bang": [
+    "nhac_viec_ca_nhan"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/scheduling_service.py",
+   "ham": "create_work_session",
+   "dong": 59,
+   "bang": [
+    "work_session"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/scheduling_service.py",
+   "ham": "assign_staff_to_session",
+   "dong": 101,
+   "bang": [
+    "work_session_staff"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/scheduling_service.py",
+   "ham": "create_appointment",
+   "dong": 244,
+   "bang": [
+    "appointment"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/scheduling_service.py",
+   "ham": "confirm_appointment",
+   "dong": 337,
+   "bang": [
+    "appointment"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/scheduling_service.py",
+   "ham": "cancel_appointment",
+   "dong": 374,
+   "bang": [
+    "appointment"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kho_thuoc_service.py",
+   "ham": "_mo_phieu",
+   "dong": 416,
+   "bang": [
+    "phieu_kho"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kho_thuoc_service.py",
+   "ham": "tao_phieu_nhap",
+   "dong": 488,
+   "bang": [
+    "phieu_kho_dong"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kho_thuoc_service.py",
+   "ham": "kiem_kho",
+   "dong": 658,
+   "bang": [
+    "phieu_kho_dong"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kho_thuoc_service.py",
+   "ham": "dat_tach_kho_quay",
+   "dong": 798,
+   "bang": [
+    "clinic_location"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/kho_thuoc_service.py",
+   "ham": "_chuyen_cac_dong",
+   "dong": 852,
+   "bang": [
+    "drug_batch",
+    "phieu_kho_dong"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "_huy_hinh_chieu_dich_vu",
+   "dong": 1959,
+   "bang": [
+    "payment"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "_ghi_phan",
+   "dong": 2234,
+   "bang": [
+    "payment_cycle_phan"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "_ghi_anh_hoa_don",
+   "dong": 2252,
+   "bang": [
+    "payment_bill_line"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "record_payment",
+   "dong": 353,
+   "bang": [
+    "payment_cycle"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "_ghi_lan_thu_dich_vu",
+   "dong": 829,
+   "bang": [
+    "payment_cycle"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "xac_minh_dien_tu",
+   "dong": 1059,
+   "bang": [
+    "payment_cycle"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "huy_cho_xac_minh",
+   "dong": 1306,
+   "bang": [
+    "payment_cycle"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "ham": "void_payment",
+   "dong": 1388,
+   "bang": [
+    "payment",
+    "payment_cycle"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "payment",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hen_tai_kham_service.py",
+   "ham": "_dong",
+   "dong": 285,
+   "bang": [
+    "nhac_tai_kham"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hen_tai_kham_service.py",
+   "ham": "_dong_chuong",
+   "dong": 305,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hen_tai_kham_service.py",
+   "ham": "dong_bo",
+   "dong": 356,
+   "bang": [
+    "nhac_tai_kham"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+   "ham": "hoan_tac",
+   "dong": 299,
+   "bang": [
+    "event_log",
+    "tuong_tac_cskh"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "cskh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+   "ham": "tao",
+   "dong": 675,
+   "bang": [
+    "hen_goi_lai"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "cskh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+   "ham": "dong",
+   "dong": 793,
+   "bang": [
+    "hen_goi_lai"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "cskh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/report_access_service.py",
+   "ham": "save",
+   "dong": 102,
+   "bang": [
+    "clinic"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinic_settings.report_access_updated"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/permission_service.py",
+   "ham": "luu_nhom",
+   "dong": 447,
+   "bang": [
+    "quyen_preset"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "permission",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/permission_service.py",
+   "ham": "xoa_nhom",
+   "dong": 556,
+   "bang": [
+    "quyen_preset"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "permission",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/recall_job_service.py",
+   "ham": "tao_thu_cong",
+   "dong": 158,
+   "bang": [
+    "nhac_tai_kham"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/recall_job_service.py",
+   "ham": "ghi_ket_qua",
+   "dong": 238,
+   "bang": [
+    "cskh_log",
+    "nhac_tai_kham"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/recall_job_service.py",
+   "ham": "bo_qua",
+   "dong": 333,
+   "bang": [
+    "nhac_tai_kham"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "_doi_trang_thai",
+   "dong": 2314,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "execution",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "ham": "_dong_hang_cho",
+   "dong": 2351,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "execution",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "_vao_hang_tai_phong",
+   "dong": 1039,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "dat_phong_du_kien",
+   "dong": 1786,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "ham": "_xep_hang",
+   "dong": 2408,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/chot_so_ca_service.py",
+   "ham": "chot",
+   "dong": 150,
+   "bang": [
+    "chot_so_ca"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "report.shift_closed"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/chot_so_ca_service.py",
+   "ham": "mo_khoa",
+   "dong": 231,
+   "bang": [
+    "chot_so_ca"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "report.shift_reopened"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/quay_thuoc_service.py",
+   "ham": "chon",
+   "dong": 223,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/quay_thuoc_service.py",
+   "ham": "doi_so_luong",
+   "dong": 265,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/quay_thuoc_service.py",
+   "ham": "_dien_so_luong",
+   "dong": 340,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/quay_thuoc_service.py",
+   "ham": "luu_dong_them",
+   "dong": 398,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tien_service.py",
+   "ham": "_tao_trong",
+   "dong": 310,
+   "bang": [
+    "payment_refund",
+    "payment_refund_line"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tien_service.py",
+   "ham": "xac_nhan",
+   "dong": 199,
+   "bang": [
+    "payment_refund"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tien_service.py",
+   "ham": "dong",
+   "dong": 254,
+   "bang": [
+    "payment_refund"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/tien_thua_service.py",
+   "ham": "giu_lai",
+   "dong": 343,
+   "bang": [
+    "tien_thua_giu_lai"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/tien_thua_service.py",
+   "ham": "huy_giu_lai",
+   "dong": 375,
+   "bang": [
+    "tien_thua_giu_lai"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ban_le_service.py",
+   "ham": "_mo_hoac_lay",
+   "dong": 281,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "visit.ban_le_opened"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/ban_le_service.py",
+   "ham": "dong_luot_ban_le",
+   "dong": 344,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "visit.ban_le_closed"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/ban_le_service.py",
+   "ham": "mo_lai_luot_ban_le",
+   "dong": 384,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "visit.ban_le_reopened"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/lab_order_service.py",
+   "ham": "order_test",
+   "dong": 65,
+   "bang": [
+    "lab_result"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "lab",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_floor_service.py",
+   "ham": "resolve_floor",
+   "dong": 15,
+   "bang": [
+    "clinic_floor"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_floor_service.py",
+   "ham": "create",
+   "dong": 116,
+   "bang": [
+    "clinic_floor"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_floor_service.py",
+   "ham": "rename",
+   "dong": 159,
+   "bang": [
+    "clinic_floor"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_floor_service.py",
+   "ham": "set_active",
+   "dong": 187,
+   "bang": [
+    "clinic_floor"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_floor_service.py",
+   "ham": "reorder",
+   "dong": 261,
+   "bang": [
+    "clinic_floor"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lieu_trinh_service.py",
+   "ham": "_sua",
+   "dong": 993,
+   "bang": [
+    "lieu_trinh"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "lieu_trinh",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/dinh_chinh_don.py",
+   "ham": "ap_dung_don_da_ky",
+   "dong": 413,
+   "bang": [
+    "prescription",
+    "prescription_allocation",
+    "prescription_correction"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "prescription.corrected"
+   ],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/dinh_chinh_don.py",
+   "ham": "luu_don_chua_ky",
+   "dong": 581,
+   "bang": [
+    "prescription",
+    "prescription_allocation",
+    "prescription_correction"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "prescription.corrected"
+   ],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/dinh_chinh_don.py",
+   "ham": "_ma_kho",
+   "dong": 840,
+   "bang": [
+    "drug_catalog"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/dinh_chinh_don.py",
+   "ham": "_chen",
+   "dong": 912,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/phieu_kham_service.py",
+   "ham": "luu_luot",
+   "dong": 374,
+   "bang": [
+    "phieu_kham_luot"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ultrasound_board_service.py",
+   "ham": "ghi_bac_si_thuc_hien",
+   "dong": 217,
+   "bang": [
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ultrasound_board_service.py",
+   "ham": "nhan_ca",
+   "dong": 263,
+   "bang": [
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "ultrasound.assigned"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/ultrasound_board_service.py",
+   "ham": "save_draft",
+   "dong": 343,
+   "bang": [
+    "ultrasound_record"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+   "ham": "_duyet_tren_conn",
+   "dong": 206,
+   "bang": [
+    "vat_tu_nhap_cho_duyet"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "kho_vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+   "ham": "tu_choi",
+   "dong": 305,
+   "bang": [
+    "vat_tu_nhap_cho_duyet"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "kho_vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_nhap_duyet_service.py",
+   "ham": "rut_lai",
+   "dong": 337,
+   "bang": [
+    "vat_tu_nhap_cho_duyet"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "kho_vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_danh_muc_service.py",
+   "ham": "dat_co_hang_loat",
+   "dong": 113,
+   "bang": [
+    "service_price"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "vat_tu.co_hang_loat"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/day_noi_service.py",
+   "ham": "dat_day",
+   "dong": 154,
+   "bang": [
+    "day_nghiep_vu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "chuong",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/day_noi_service.py",
+   "ham": "dat_loai_kham",
+   "dong": 191,
+   "bang": [
+    "service_type"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "chuong",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/day_noi_service.py",
+   "ham": "dat_chuong",
+   "dong": 237,
+   "bang": [
+    "day_nhan_thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "chuong",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/day_noi_service.py",
+   "ham": "tao_vi_tri",
+   "dong": 284,
+   "bang": [
+    "vai_duoc_vao_tram",
+    "vi_tri_lam_viec"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "chuong",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/day_noi_service.py",
+   "ham": "sua_vi_tri",
+   "dong": 348,
+   "bang": [
+    "vi_tri_lam_viec"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "chuong",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lo_thuoc_service.py",
+   "ham": "doi_canh_bao",
+   "dong": 30,
+   "bang": [
+    "clinic"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lo_thuoc_service.py",
+   "ham": "sua_lo",
+   "dong": 72,
+   "bang": [
+    "drug_batch"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lo_thuoc_service.py",
+   "ham": "huy_lo",
+   "dong": 135,
+   "bang": [
+    "inventory_txn"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lo_thuoc_service.py",
+   "ham": "hoan_huy_lo",
+   "dong": 193,
+   "bang": [
+    "inventory_txn"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_service.py",
+   "ham": "them",
+   "dong": 342,
+   "bang": [
+    "luot_vat_tu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_service.py",
+   "ham": "dat_so_luong",
+   "dong": 488,
+   "bang": [
+    "luot_vat_tu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_service.py",
+   "ham": "bo",
+   "dong": 534,
+   "bang": [
+    "luot_vat_tu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/slot_hold_service.py",
+   "ham": "release_on_booking",
+   "dong": 221,
+   "bang": [
+    "slot_hold"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/slot_hold_service.py",
+   "ham": "hold",
+   "dong": 60,
+   "bang": [
+    "slot_hold"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/slot_hold_service.py",
+   "ham": "_release_mine",
+   "dong": 185,
+   "bang": [
+    "slot_hold"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/staff_service.py",
+   "ham": "create_staff",
+   "dong": 103,
+   "bang": [
+    "clinic_membership",
+    "staff"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/staff_service.py",
+   "ham": "update_staff",
+   "dong": 239,
+   "bang": [
+    "clinic_membership",
+    "staff"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/staff_service.py",
+   "ham": "deactivate",
+   "dong": 409,
+   "bang": [
+    "clinic_membership",
+    "event_log",
+    "work_roster"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/staff_service.py",
+   "ham": "activate",
+   "dong": 533,
+   "bang": [
+    "clinic_membership",
+    "staff"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/staff_service.py",
+   "ham": "_deactivate_global_if_orphaned",
+   "dong": 580,
+   "bang": [
+    "staff"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/work_item_service.py",
+   "ham": "issue",
+   "dong": 121,
+   "bang": [
+    "work_item",
+    "work_item_event"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_service.py",
+   "ham": "_ghi_xac_minh",
+   "dong": 1500,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_service.py",
+   "ham": "_xep_vao_lich_truc",
+   "dong": 1532,
+   "bang": [
+    "work_roster"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_service.py",
+   "ham": "_update",
+   "dong": 2102,
+   "bang": [
+    "appointment"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_service.py",
+   "ham": "_attach_episode",
+   "dong": 2512,
+   "bang": [
+    "appointment",
+    "care_episode"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_service.py",
+   "ham": "_open_visit",
+   "dong": 2587,
+   "bang": [
+    "visit",
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_service.py",
+   "ham": "_cancel_visit_workflow",
+   "dong": 2765,
+   "bang": [
+    "encounter_flow",
+    "queue_entry",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lam_them_tai_quay_config.py",
+   "ham": "luu_muc",
+   "dong": 54,
+   "bang": [
+    "lam_them_tai_quay"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "config.desk_service_saved"
+   ],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/lam_them_tai_quay_config.py",
+   "ham": "bo_muc",
+   "dong": 154,
+   "bang": [
+    "lam_them_tai_quay"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "config.desk_service_removed"
+   ],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/lam_them_tai_quay_config.py",
+   "ham": "doi_thu_tu",
+   "dong": 184,
+   "bang": [
+    "lam_them_tai_quay"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "config.desk_services_reordered"
+   ],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/chuyen_luot_that.py",
+   "ham": "_chuyen",
+   "dong": 67,
+   "bang": [
+    "lich_su_notion",
+    "service_type",
+    "staff"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hang_cho.py",
+   "ham": "chan_cho_khac",
+   "dong": 37,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hang_cho.py",
+   "ham": "mo_cho_bi_chan",
+   "dong": 54,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hang_cho.py",
+   "ham": "ve_lai_hang_phong",
+   "dong": 79,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hang_cho.py",
+   "ham": "vao_hang",
+   "dong": 163,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hang_cho.py",
+   "ham": "cap_nhat_vi_tri",
+   "dong": 199,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ban_theo_don_service.py",
+   "ham": "_doi_noi",
+   "dong": 397,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/agent_giam_sat.py",
+   "ham": "ap_dung",
+   "dong": 407,
+   "bang": [
+    "agent_nhan_dinh"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/agent_giam_sat.py",
+   "ham": "danh_gia",
+   "dong": 613,
+   "bang": [
+    "agent_nhan_dinh"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/agent_giam_sat.py",
+   "ham": "dat_che_do",
+   "dong": 649,
+   "bang": [
+    "agent_cau_hinh",
+    "agent_nhan_dinh"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+   "ham": "dat",
+   "dong": 527,
+   "bang": [
+    "lam_them_tai_quay_revision"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_mo_hang_bac_si_chinh",
+   "dong": 205,
+   "bang": [
+    "consultation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "xep_sau_check_in",
+   "dong": 264,
+   "bang": [
+    "consultation",
+    "encounter_flow",
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_nhan_sinh_hieu_cua_buoi",
+   "dong": 457,
+   "bang": [
+    "encounter_flow"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "mo_hang_tu_van",
+   "dong": 509,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "xep_lai_sau_doi_dich_vu",
+   "dong": 576,
+   "bang": [
+    "consultation",
+    "encounter_flow",
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "tra_ve_tu_van",
+   "dong": 648,
+   "bang": [
+    "consultation",
+    "encounter_flow",
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "bo_qua_tu_van",
+   "dong": 742,
+   "bang": [
+    "consultation",
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "chuyen_bac_si_chinh",
+   "dong": 803,
+   "bang": [
+    "encounter_flow"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_evaluate_rounds",
+   "dong": 913,
+   "bang": [
+    "consultation",
+    "queue_entry",
+    "review_round",
+    "round_requirement"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "review.not_ready",
+    "review.ready",
+    "review.skipped"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_mo_theo_doi",
+   "dong": 1212,
+   "bang": [
+    "follow_up_case"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "follow_up.opened"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_gan_bac_si_phien",
+   "dong": 1384,
+   "bang": [
+    "consultation",
+    "queue_entry",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "goi_khach",
+   "dong": 1492,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "queue.called"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "luu_noi_dung_tu_van",
+   "dong": 1942,
+   "bang": [
+    "consultation_note"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "consult.note_saved"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "save_note",
+   "dong": 2124,
+   "bang": [
+    "consultation_note",
+    "encounter_flow"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "consult.note_saved"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "propose_orders",
+   "dong": 2177,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "orders.drafted"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "authorize_orders",
+   "dong": 2245,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "orders.authorized"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "quyet_yeu_cau",
+   "dong": 2842,
+   "bang": [
+    "round_requirement"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "requirement."
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "_gan_phong",
+   "dong": 3290,
+   "bang": [
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "dispatch.assigned"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "duyet_ket_qua",
+   "dong": 3514,
+   "bang": [
+    "follow_up_case",
+    "service_order",
+    "tep_ket_qua"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "result.approved"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "start_service",
+   "dong": 3762,
+   "bang": [
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service.started"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "ham": "complete_service",
+   "dong": 3835,
+   "bang": [
+    "follow_up_case",
+    "queue_entry",
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "service.not_performed",
+    "service.performed"
+   ],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/thu_ky_bac_si.py",
+   "ham": "dat_bac_si_cho_thu_ky",
+   "dong": 178,
+   "bang": [
+    "thu_ky_bac_si"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinic_config.thu_ky_bac_si"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/don_du_lieu_thu_service.py",
+   "ham": "xoa",
+   "dong": 277,
+   "bang": [
+    "lan_don_du_lieu_thu"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pos_outbox.py",
+   "ham": "cancel_pending_invoice",
+   "dong": 33,
+   "bang": [
+    "pos_outbox"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pos_outbox.py",
+   "ham": "enqueue",
+   "dong": 56,
+   "bang": [
+    "pos_outbox"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/vat_tu_kho_man_service.py",
+   "ham": "dat_muc_toi_thieu",
+   "dong": 32,
+   "bang": [
+    "vat_tu_ton"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "kho_vat_tu",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+   "ham": "luu_cong_ty_khach",
+   "dong": 182,
+   "bang": [
+    "khach_cong_ty"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_cong_ty.khach_luu"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+   "ham": "an_cong_ty_khach",
+   "dong": 270,
+   "bang": [
+    "khach_cong_ty"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_cong_ty.khach_an"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+   "ham": "ghi_hoa_don",
+   "dong": 340,
+   "bang": [
+    "hoa_don_cong_ty",
+    "khach_cong_ty"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_cong_ty.ghi"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+   "ham": "_khach_cong_ty_id",
+   "dong": 460,
+   "bang": [
+    "khach_cong_ty"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+   "ham": "gan_khi_thu",
+   "dong": 537,
+   "bang": [
+    "hoa_don_cong_ty",
+    "khach_cong_ty"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_cong_ty.ghi"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+   "ham": "bo_hoa_don",
+   "dong": 632,
+   "bang": [
+    "hoa_don_cong_ty"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "hoa_don_cong_ty.bo"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/hoa_don_cong_ty_service.py",
+   "ham": "_them_lich_su",
+   "dong": 670,
+   "bang": [
+    "hoa_don_cong_ty_lich_su"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lam_truoc_thu_sau.py",
+   "ham": "_ghi_mot_lua_chon",
+   "dong": 349,
+   "bang": [
+    "service_order",
+    "service_selection_state"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_order",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/media_service.py",
+   "ham": "attach_ultrasound_image",
+   "dong": 328,
+   "bang": [
+    "ultrasound_record"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/thong_bao_service.py",
+   "ham": "ghi_thong_bao_nguoi",
+   "dong": 79,
+   "bang": [
+    "event_log",
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/thong_bao_service.py",
+   "ham": "goi",
+   "dong": 156,
+   "bang": [
+    "event_log",
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/thong_bao_service.py",
+   "ham": "danh_dau_da_doc",
+   "dong": 376,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/thong_bao_service.py",
+   "ham": "an_tat_ca_cua_toi",
+   "dong": 410,
+   "bang": [
+    "thong_bao_an_cua_toi"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/thong_bao_service.py",
+   "ham": "da_xu_ly",
+   "dong": 441,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "quy_doi_dong_nhap",
+   "dong": 3027,
+   "bang": [
+    "thuoc_quy_doi"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "nhap_vao_lo",
+   "dong": 3100,
+   "bang": [
+    "drug_batch"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "luu_thuoc",
+   "dong": 442,
+   "bang": [
+    "drug_catalog"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_giao_theo_phan_lo",
+   "dong": 807,
+   "bang": [
+    "prescription",
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_giao_khong_lo",
+   "dong": 943,
+   "bang": [
+    "prescription",
+    "thuoc_giao_chua_gan_lo"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "gan_lo_da_giao",
+   "dong": 1115,
+   "bang": [
+    "inventory_txn",
+    "thuoc_giao_chua_gan_lo"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_cap_phat_cu",
+   "dong": 1222,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "xac_dinh_thuoc",
+   "dong": 1342,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "khai_so_luong_mua",
+   "dong": 1412,
+   "bang": [
+    "prescription"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "huy_phan_chua_giao",
+   "dong": 1777,
+   "bang": [
+    "inventory_txn"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "xu_ly_thuoc_tra",
+   "dong": 2098,
+   "bang": [
+    "drug_return"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "phan_lo",
+   "dong": 2211,
+   "bang": [
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "bo_phan_lo",
+   "dong": 2301,
+   "bang": [
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "doi_lo_khi_cho",
+   "dong": 2338,
+   "bang": [
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_chot_dong",
+   "dong": 2537,
+   "bang": [
+    "prescription",
+    "prescription_allocation"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/pharmacy_service.py",
+   "ham": "_luu_yeu_cau_gui_lai",
+   "dong": 2682,
+   "bang": [
+    "app_private"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "pharmacy",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/dispatch_service.py",
+   "ham": "apply_route",
+   "dong": 531,
+   "bang": [
+    "event_log",
+    "visit_route"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/dispatch_service.py",
+   "ham": "set_threshold",
+   "dong": 788,
+   "bang": [
+    "dispatch_threshold"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_record_service.py",
+   "ham": "save",
+   "dong": 238,
+   "bang": [
+    "clinical_record"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinical_record.saved",
+    "clinical_record.vitals_saved",
+    "prescription.draft_approved"
+   ],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/clinical_record_service.py",
+   "ham": "_writable_visit",
+   "dong": 566,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_record_service.py",
+   "ham": "_ghi_sinh_hieu",
+   "dong": 680,
+   "bang": [
+    "vital_measurement"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_record_service.py",
+   "ham": "_save_vitals",
+   "dong": 746,
+   "bang": [
+    "clinical_record"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_record_service.py",
+   "ham": "_save_profile",
+   "dong": 781,
+   "bang": [
+    "patient_medical_profile"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_service_form",
+   "dong": 391,
+   "bang": [
+    "service_type"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_room_floor",
+   "dong": 459,
+   "bang": [
+    "clinic_room"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "create_room",
+   "dong": 514,
+   "bang": [
+    "clinic_room",
+    "clinic_room_node"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "rename_room",
+   "dong": 587,
+   "bang": [
+    "clinic_room"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_room_active",
+   "dong": 618,
+   "bang": [
+    "clinic_room"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_room_flags",
+   "dong": 689,
+   "bang": [
+    "clinic_room"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_chon_co_so",
+   "dong": 736,
+   "bang": [
+    "clinic"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "create_location",
+   "dong": 770,
+   "bang": [
+    "clinic_location"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "update_location",
+   "dong": 800,
+   "bang": [
+    "clinic_location"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "create_service_type",
+   "dong": 859,
+   "bang": [
+    "service_type"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "update_service_type",
+   "dong": 892,
+   "bang": [
+    "service_type"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinic_config.service_type_updated"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_room_nodes",
+   "dong": 965,
+   "bang": [
+    "clinic_room_node"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_room_node_chuyen",
+   "dong": 1036,
+   "bang": [
+    "clinic_room_node"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinic_config.room_node_chuyen"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_room_services",
+   "dong": 1100,
+   "bang": [
+    "clinic_room_service"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_service_rooms",
+   "dong": 1163,
+   "bang": [
+    "clinic_room_service",
+    "service_price"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinic_config_service.py",
+   "ham": "set_staff_nodes",
+   "dong": 1268,
+   "bang": [
+    "staff_node"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "add_shift",
+   "dong": 163,
+   "bang": [
+    "work_roster"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "dat_vi_tri_cho_vai",
+   "dong": 484,
+   "bang": [
+    "vai_duoc_vao_tram"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "decide",
+   "dong": 524,
+   "bang": [
+    "work_roster"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "remove",
+   "dong": 560,
+   "bang": [
+    "event_log",
+    "work_roster"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "_go_lich_ngoai_ca",
+   "dong": 669,
+   "bang": [
+    "appointment",
+    "event_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "thay_nguoi",
+   "dong": 833,
+   "bang": [
+    "event_log",
+    "work_roster",
+    "work_roster_thay_nguoi"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "apply_week",
+   "dong": 1027,
+   "bang": [
+    "event_log",
+    "roster_week"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "_dong_bo_gia_danh_muc_thuoc",
+   "dong": 1641,
+   "bang": [
+    "drug_catalog"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "add",
+   "dong": 1676,
+   "bang": [
+    "service_price"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "update",
+   "dong": 1792,
+   "bang": [
+    "service_price"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/config_service.py",
+   "ham": "remove",
+   "dong": 1945,
+   "bang": [
+    "service_price"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "booking",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/nhan_tai_phong.py",
+   "ham": "_ve_chua_xep",
+   "dong": 762,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/nhan_tai_phong.py",
+   "ham": "_huy_cho",
+   "dong": 1241,
+   "bang": [
+    "queue_entry"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "service_routing",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luat_bac_si_service.py",
+   "ham": "luu",
+   "dong": 60,
+   "bang": [
+    "event_log",
+    "luat_bac_si_bat_buoc"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/luat_bac_si_service.py",
+   "ham": "xoa",
+   "dong": 177,
+   "bang": [
+    "luat_bac_si_bat_buoc"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ma_vach_service.py",
+   "ham": "gan_ma",
+   "dong": 235,
+   "bang": [
+    "drug_ma_vach"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ma_vach_service.py",
+   "ham": "go_ma",
+   "dong": 320,
+   "bang": [
+    "drug_ma_vach"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/tep_ket_qua_service.py",
+   "ham": "_tinh_lai_ket_qua_luc",
+   "dong": 541,
+   "bang": [
+    "service_order"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "result_file",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/tep_ket_qua_service.py",
+   "ham": "cho_phep_gui",
+   "dong": 1743,
+   "bang": [
+    "tep_ket_qua"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "tep_ket_qua.cho_phep_gui"
+   ],
+   "khoi_cua_tep": "result_file",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/phan_hoi_khach_service.py",
+   "ham": "ghi",
+   "dong": 30,
+   "bang": [
+    "event_log",
+    "phan_hoi_khach"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/phan_hoi_khach_service.py",
+   "ham": "cap_nhat",
+   "dong": 88,
+   "bang": [
+    "event_log",
+    "phan_hoi_khach"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/canh_gac.py",
+   "ham": "_mo",
+   "dong": 249,
+   "bang": [
+    "canh_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/canh_gac.py",
+   "ham": "_dong",
+   "dong": 266,
+   "bang": [
+    "canh_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/canh_gac.py",
+   "ham": "ap_dung",
+   "dong": 291,
+   "bang": [
+    "canh_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/episode_service.py",
+   "ham": "set_status",
+   "dong": 64,
+   "bang": [
+    "care_episode",
+    "event_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/sinh_hieu_service.py",
+   "ham": "goi_do_sinh_hieu",
+   "dong": 70,
+   "bang": [
+    "encounter_flow"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "vitals.called"
+   ],
+   "khoi_cua_tep": "vitals",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/cskh_service.py",
+   "ham": "record_action",
+   "dong": 86,
+   "bang": [
+    "cskh_action"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/cskh_service.py",
+   "ham": "record_followup_call",
+   "dong": 163,
+   "bang": [
+    "cskh_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_sign_service.py",
+   "ham": "_create_renotify_task",
+   "dong": 832,
+   "bang": [
+    "cskh_action",
+    "hen_goi_lai"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_sign_service.py",
+   "ham": "release",
+   "dong": 230,
+   "bang": [
+    "clinical_release"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_sign_service.py",
+   "ham": "amend",
+   "dong": 372,
+   "bang": [
+    "clinical_record",
+    "clinical_release",
+    "visit",
+    "visit_amendment"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/clinical_sign_service.py",
+   "ham": "sign_ultrasound",
+   "dong": 639,
+   "bang": [
+    "ultrasound_record"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "consultation",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/theo_doi_thu_thuat_service.py",
+   "ham": "dat",
+   "dong": 97,
+   "bang": [
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "visit.theo_doi_thu_thuat"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/nhap_lich_su_notion.py",
+   "ham": "_nap",
+   "dong": 90,
+   "bang": [
+    "_ghep",
+    "lich_su_notion",
+    "patient"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/ultrasound_service.py",
+   "ham": "save_measurements",
+   "dong": 106,
+   "bang": [
+    "ultrasound_record",
+    "visit"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "ultrasound.measurements_created",
+    "ultrasound.measurements_updated"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/consent_service.py",
+   "ham": "link",
+   "dong": 263,
+   "bang": [
+    "patient_link"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "patient_link.created"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/consent_service.py",
+   "ham": "grant",
+   "dong": 324,
+   "bang": [
+    "clinical_data_consent"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinical_data_consent.granted"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/consent_service.py",
+   "ham": "revoke",
+   "dong": 393,
+   "bang": [
+    "clinical_data_consent"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "clinical_data_consent.revoked"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/tai_khoan_service.py",
+   "ham": "noi",
+   "dong": 73,
+   "bang": [
+    "app_credential",
+    "staff"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "staff.account_tao"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/tai_khoan_service.py",
+   "ham": "thu_hoi",
+   "dong": 132,
+   "bang": [
+    "app_credential",
+    "staff"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "staff.account_thu_hoi"
+   ],
+   "khoi_cua_tep": null,
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/thai_ky_service.py",
+   "ham": "dong_bo_tu_phieu",
+   "dong": 155,
+   "bang": [
+    "pregnancy"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "pregnancy.created",
+    "pregnancy.updated"
+   ],
+   "khoi_cua_tep": "thai_ky",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/thai_ky_service.py",
+   "ham": "tao",
+   "dong": 392,
+   "bang": [
+    "pregnancy"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "pregnancy.created"
+   ],
+   "khoi_cua_tep": "thai_ky",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/thai_ky_service.py",
+   "ham": "cap_nhat",
+   "dong": 469,
+   "bang": [
+    "pregnancy"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "pregnancy.outcome_set",
+    "pregnancy.updated"
+   ],
+   "khoi_cua_tep": "thai_ky",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/phan_hoi_thuoc_service.py",
+   "ham": "go",
+   "dong": 224,
+   "bang": [
+    "tuong_tac_cskh"
+   ],
+   "su_kien": [],
+   "so_cu": [
+    "cskh.tuong_tac_hoan_tac"
+   ],
+   "khoi_cua_tep": "cskh",
+   "chi_so_cu": true
+  },
+  {
+   "tep": "src/clinicai/services/service_log_service.py",
+   "ham": "create",
+   "dong": 102,
+   "bang": [
+    "service_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_log_service.py",
+   "ham": "apply_patch",
+   "dong": 167,
+   "bang": [
+    "service_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/service_log_service.py",
+   "ham": "remove",
+   "dong": 215,
+   "bang": [
+    "service_log"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lab_safety_service.py",
+   "ham": "persist_classification",
+   "dong": 64,
+   "bang": [
+    "lab_result"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "lab",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/lab_safety_service.py",
+   "ham": "finalize_review",
+   "dong": 178,
+   "bang": [
+    "lab_result",
+    "staff_task"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": "lab",
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_override_service.py",
+   "ham": "_write_standing",
+   "dong": 335,
+   "bang": [
+    "doctor_booking_override"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_override_service.py",
+   "ham": "_write_temp",
+   "dong": 446,
+   "bang": [
+    "slot_booking_override"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_override_service.py",
+   "ham": "delete_doctor_override",
+   "dong": 549,
+   "bang": [
+    "doctor_booking_override"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_override_service.py",
+   "ham": "delete_slot_override",
+   "dong": 586,
+   "bang": [
+    "slot_booking_override"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/services/booking_override_service.py",
+   "ham": "_clear_minute_window",
+   "dong": 624,
+   "bang": [
+    "doctor_booking_override"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/api/v1/routers/config.py",
+   "ham": "update_display_settings",
+   "dong": 785,
+   "bang": [
+    "clinic"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/api/v1/routers/config.py",
+   "ham": "sua_ca_lam_viec",
+   "dong": 921,
+   "bang": [
+    "clinic"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/consumers/dong_thoi_gian.py",
+   "ham": "ghi_dong_thoi_gian",
+   "dong": 209,
+   "bang": [
+    "luot_dong_thoi_gian"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/consumers/chuong.py",
+   "ham": "ghi_chuong_vai",
+   "dong": 294,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/consumers/chuong.py",
+   "ham": "ghi_chuong_nguoi",
+   "dong": 331,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/consumers/chuong_nhan_cheo.py",
+   "ham": "_dong",
+   "dong": 127,
+   "bang": [
+    "thong_bao"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/consumers/trach_nhiem.py",
+   "ham": "mo_viec_khi_can",
+   "dong": 80,
+   "bang": [
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  },
+  {
+   "tep": "src/clinicai/events/consumers/trach_nhiem.py",
+   "ham": "kiem_lai_viec_con_mo",
+   "dong": 143,
+   "bang": [
+    "work_item"
+   ],
+   "su_kien": [],
+   "so_cu": [],
+   "khoi_cua_tep": null,
+   "chi_so_cu": false
+  }
+ ],
+ "goi_cheo": [
+  {
+   "tep": "src/clinicai/services/chi_dinh_service.py",
+   "goi_toi": "src/clinicai/services/luot_kham_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "goi_toi": "src/clinicai/services/hoan_tac_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "goi_toi": "src/clinicai/services/phi_kham_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "phi_kham"
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "goi_toi": "src/clinicai/services/bio_chi_dinh_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "vat_tu"
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "goi_toi": "src/clinicai/services/hang_cho.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "goi_toi": "src/clinicai/services/luot_kham_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/ho_so_dich_vu.py",
+   "goi_toi": "src/clinicai/services/booking_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "booking"
+  },
+  {
+   "tep": "src/clinicai/services/phi_kham_service.py",
+   "goi_toi": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "khoi_goi": "phi_kham",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/anh_chuyen_khoan_service.py",
+   "goi_toi": "src/clinicai/services/tep_ket_qua_service.py",
+   "khoi_goi": "payment",
+   "khoi_bi_goi": "result_file"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "goi_toi": "src/clinicai/services/hoan_tac_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "goi_toi": "src/clinicai/services/tep_ket_qua_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "result_file"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "goi_toi": "src/clinicai/services/service_execution_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/doi_tac_service.py",
+   "goi_toi": "src/clinicai/services/hang_cho.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "goi_toi": "src/clinicai/services/doi_tac_service.py",
+   "khoi_goi": "result",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/form_engine_service.py",
+   "goi_toi": "src/clinicai/services/service_execution_service.py",
+   "khoi_goi": "result",
+   "khoi_bi_goi": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/so_no_service.py",
+   "goi_toi": "src/clinicai/services/cong_no_service.py",
+   "khoi_goi": "so_no",
+   "khoi_bi_goi": "cong_no"
+  },
+  {
+   "tep": "src/clinicai/services/so_no_service.py",
+   "goi_toi": "src/clinicai/services/hoan_tac_service.py",
+   "khoi_goi": "so_no",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "goi_toi": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "goi_toi": "src/clinicai/services/bio_chi_dinh_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "vat_tu"
+  },
+  {
+   "tep": "src/clinicai/services/hoan_tac_service.py",
+   "goi_toi": "src/clinicai/services/service_execution_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "goi_toi": "src/clinicai/services/lieu_trinh_tien.py",
+   "khoi_goi": "payment",
+   "khoi_bi_goi": "lieu_trinh"
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "goi_toi": "src/clinicai/services/service_selection_service.py",
+   "khoi_goi": "payment",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "goi_toi": "src/clinicai/services/cong_no_service.py",
+   "khoi_goi": "payment",
+   "khoi_bi_goi": "cong_no"
+  },
+  {
+   "tep": "src/clinicai/services/payment_service.py",
+   "goi_toi": "src/clinicai/services/phan_lo_service.py",
+   "khoi_goi": "payment",
+   "khoi_bi_goi": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+   "goi_toi": "src/clinicai/services/booking_service.py",
+   "khoi_goi": "cskh",
+   "khoi_bi_goi": "booking"
+  },
+  {
+   "tep": "src/clinicai/services/tuong_tac_cskh_service.py",
+   "goi_toi": "src/clinicai/services/checkout_service.py",
+   "khoi_goi": "cskh",
+   "khoi_bi_goi": "booking"
+  },
+  {
+   "tep": "src/clinicai/services/checkout_service.py",
+   "goi_toi": "src/clinicai/services/cong_no_service.py",
+   "khoi_goi": "booking",
+   "khoi_bi_goi": "cong_no"
+  },
+  {
+   "tep": "src/clinicai/services/cong_no_service.py",
+   "goi_toi": "src/clinicai/services/so_no_service.py",
+   "khoi_goi": "cong_no",
+   "khoi_bi_goi": "so_no"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "goi_toi": "src/clinicai/services/hoan_tac_service.py",
+   "khoi_goi": "execution",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "goi_toi": "src/clinicai/services/lam_truoc_thu_sau.py",
+   "khoi_goi": "execution",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "goi_toi": "src/clinicai/services/nhan_tai_phong.py",
+   "khoi_goi": "execution",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "goi_toi": "src/clinicai/services/hang_cho.py",
+   "khoi_goi": "execution",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/service_execution_service.py",
+   "goi_toi": "src/clinicai/services/luot_kham_service.py",
+   "khoi_goi": "execution",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/service_routing_service.py",
+   "goi_toi": "src/clinicai/services/hang_cho.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/quay_thuoc_service.py",
+   "goi_toi": "src/clinicai/services/pharmacy_service.py",
+   "khoi_goi": "consultation",
+   "khoi_bi_goi": "pharmacy"
+  },
+  {
+   "tep": "src/clinicai/services/lieu_trinh_service.py",
+   "goi_toi": "src/clinicai/services/tuong_tac_cskh_service.py",
+   "khoi_goi": "lieu_trinh",
+   "khoi_bi_goi": "cskh"
+  },
+  {
+   "tep": "src/clinicai/services/lieu_trinh_service.py",
+   "goi_toi": "src/clinicai/services/service_execution_service.py",
+   "khoi_goi": "lieu_trinh",
+   "khoi_bi_goi": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/dinh_chinh_don.py",
+   "goi_toi": "src/clinicai/services/so_sua_chi_dinh_service.py",
+   "khoi_goi": "consultation",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+   "goi_toi": "src/clinicai/services/hang_cho.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/lam_them_tai_quay_service.py",
+   "goi_toi": "src/clinicai/services/service_execution_service.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "goi_toi": "src/clinicai/services/sinh_hieu_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "vitals"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "goi_toi": "src/clinicai/services/service_routing_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "goi_toi": "src/clinicai/services/doi_tac_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "goi_toi": "src/clinicai/services/phi_kham_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "phi_kham"
+  },
+  {
+   "tep": "src/clinicai/services/luot_kham_service.py",
+   "goi_toi": "src/clinicai/services/booking_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "booking"
+  },
+  {
+   "tep": "src/clinicai/services/service_selection_service.py",
+   "goi_toi": "src/clinicai/services/nhan_tai_phong.py",
+   "khoi_goi": "service_order",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/services/clinical_record_service.py",
+   "goi_toi": "src/clinicai/services/sinh_hieu_service.py",
+   "khoi_goi": "consultation",
+   "khoi_bi_goi": "vitals"
+  },
+  {
+   "tep": "src/clinicai/services/nhan_tai_phong.py",
+   "goi_toi": "src/clinicai/services/service_routing_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "service_order"
+  },
+  {
+   "tep": "src/clinicai/services/nhan_tai_phong.py",
+   "goi_toi": "src/clinicai/services/service_execution_service.py",
+   "khoi_goi": "service_routing",
+   "khoi_bi_goi": "execution"
+  },
+  {
+   "tep": "src/clinicai/services/sinh_hieu_service.py",
+   "goi_toi": "src/clinicai/services/hang_cho.py",
+   "khoi_goi": "vitals",
+   "khoi_bi_goi": "service_routing"
+  },
+  {
+   "tep": "src/clinicai/events/consumers/doi_tac.py",
+   "goi_toi": "src/clinicai/services/service_routing_service.py",
+   "khoi_goi": "doi_tac",
+   "khoi_bi_goi": "service_order"
+  }
+ ],
+ "tep_khong_ro_khoi": [
+  "src/clinicai/api/idempotency.py",
+  "src/clinicai/api/v1/routers/config.py",
+  "src/clinicai/events/consumers/chuong.py",
+  "src/clinicai/events/consumers/chuong_nhan_cheo.py",
+  "src/clinicai/events/consumers/dong_thoi_gian.py",
+  "src/clinicai/events/consumers/trach_nhiem.py",
+  "src/clinicai/events/emit.py",
+  "src/clinicai/events/hen_gio.py",
+  "src/clinicai/events/phat_lai.py",
+  "src/clinicai/events/worker.py",
+  "src/clinicai/llm/chi_phi.py",
+  "src/clinicai/services/agent_giam_sat.py",
+  "src/clinicai/services/agent_tom_tat.py",
+  "src/clinicai/services/audit.py",
+  "src/clinicai/services/auth_service.py",
+  "src/clinicai/services/ban_le_service.py",
+  "src/clinicai/services/ban_theo_don_service.py",
+  "src/clinicai/services/booking_override_service.py",
+  "src/clinicai/services/canh_gac.py",
+  "src/clinicai/services/chot_so_ca_service.py",
+  "src/clinicai/services/chuyen_luot_that.py",
+  "src/clinicai/services/clinic_config_service.py",
+  "src/clinicai/services/clinic_floor_service.py",
+  "src/clinicai/services/clinic_settings_service.py",
+  "src/clinicai/services/clinical_form_service.py",
+  "src/clinicai/services/consent_service.py",
+  "src/clinicai/services/console_service.py",
+  "src/clinicai/services/cskh_service.py",
+  "src/clinicai/services/dispatch_service.py",
+  "src/clinicai/services/don_du_lieu_thu_service.py",
+  "src/clinicai/services/episode_service.py",
+  "src/clinicai/services/event_service.py",
+  "src/clinicai/services/gate_rule_service.py",
+  "src/clinicai/services/hen_tai_kham_service.py",
+  "src/clinicai/services/hoa_don_cong_ty_service.py",
+  "src/clinicai/services/hoa_don_misa_service.py",
+  "src/clinicai/services/hoan_tien_service.py",
+  "src/clinicai/services/kho_loi.py",
+  "src/clinicai/services/kho_thuoc_service.py",
+  "src/clinicai/services/kiem_ke_ca_service.py",
+  "src/clinicai/services/lenh_kham_core.py",
+  "src/clinicai/services/luat_bac_si_service.py",
+  "src/clinicai/services/ma_vach_service.py",
+  "src/clinicai/services/media_service.py",
+  "src/clinicai/services/mpi_service.py",
+  "src/clinicai/services/nhac_viec_service.py",
+  "src/clinicai/services/nhap_lich_su_notion.py",
+  "src/clinicai/services/notification_relay.py",
+  "src/clinicai/services/patient_service.py",
+  "src/clinicai/services/phan_hoi_khach_service.py",
+  "src/clinicai/services/phieu_kham_service.py",
+  "src/clinicai/services/pos_outbox.py",
+  "src/clinicai/services/pos_relay.py",
+  "src/clinicai/services/recall_job_service.py",
+  "src/clinicai/services/report_access_service.py",
+  "src/clinicai/services/service_log_service.py",
+  "src/clinicai/services/service_order_service.py",
+  "src/clinicai/services/slot_hold_service.py",
+  "src/clinicai/services/staff_service.py",
+  "src/clinicai/services/tai_khoan_service.py",
+  "src/clinicai/services/theo_doi_thu_thuat_service.py",
+  "src/clinicai/services/thong_bao_service.py",
+  "src/clinicai/services/thu_ky_bac_si.py",
+  "src/clinicai/services/thu_tu_kham_service.py",
+  "src/clinicai/services/thue_suat_service.py",
+  "src/clinicai/services/tien_thua_service.py",
+  "src/clinicai/services/ultrasound_board_service.py",
+  "src/clinicai/services/ultrasound_service.py",
+  "src/clinicai/services/vat_tu_danh_muc_service.py",
+  "src/clinicai/services/work_item_service.py"
+ ],
+ "su_kien_khai_ma_code_khong_phat": [],
+ "su_kien_code_phat_ma_khong_khai": [],
+ "so_su_kien_khai": 97,
+ "nha_cua_tep": {
+  "src/clinicai/phieu_kham/nap.py": "catalogue",
+  "src/clinicai/services/ghi_chu_khach_service.py": "cskh",
+  "src/clinicai/services/vat_tu_kho_service.py": "kho_vat_tu",
+  "src/clinicai/services/chi_dinh_service.py": "service_order",
+  "src/clinicai/services/so_sua_chi_dinh_service.py": "service_order",
+  "src/clinicai/services/doi_bac_si_service.py": "booking",
+  "src/clinicai/services/ghi_chu_luot.py": "dieu_tri",
+  "src/clinicai/services/don_tep_ket_qua.py": "result_file",
+  "src/clinicai/services/ho_so_dich_vu.py": "service_order",
+  "src/clinicai/services/phi_kham_service.py": "phi_kham",
+  "src/clinicai/services/bio_chi_dinh_service.py": "vat_tu",
+  "src/clinicai/services/anh_chuyen_khoan_service.py": "payment",
+  "src/clinicai/services/mau_ket_qua_service.py": "catalogue",
+  "src/clinicai/services/doi_tac_service.py": "service_order",
+  "src/clinicai/services/phan_lo_service.py": "pharmacy",
+  "src/clinicai/services/form_engine_service.py": "result",
+  "src/clinicai/services/ky_nang_service.py": "permission",
+  "src/clinicai/services/so_no_service.py": "so_no",
+  "src/clinicai/services/hoan_tac_service.py": "service_routing",
+  "src/clinicai/services/lieu_trinh_tien.py": "lieu_trinh",
+  "src/clinicai/services/scheduling_service.py": "booking",
+  "src/clinicai/services/payment_service.py": "payment",
+  "src/clinicai/services/tuong_tac_cskh_service.py": "cskh",
+  "src/clinicai/services/checkout_service.py": "booking",
+  "src/clinicai/services/cong_no_service.py": "cong_no",
+  "src/clinicai/services/permission_service.py": "permission",
+  "src/clinicai/services/service_execution_service.py": "execution",
+  "src/clinicai/services/service_routing_service.py": "service_order",
+  "src/clinicai/services/quay_thuoc_service.py": "consultation",
+  "src/clinicai/services/lab_order_service.py": "lab",
+  "src/clinicai/services/lieu_trinh_service.py": "lieu_trinh",
+  "src/clinicai/services/dinh_chinh_don.py": "consultation",
+  "src/clinicai/services/vat_tu_nhap_duyet_service.py": "kho_vat_tu",
+  "src/clinicai/services/day_noi_service.py": "chuong",
+  "src/clinicai/services/lo_thuoc_service.py": "pharmacy",
+  "src/clinicai/services/vat_tu_service.py": "vat_tu",
+  "src/clinicai/services/booking_service.py": "booking",
+  "src/clinicai/services/lam_them_tai_quay_config.py": "service_order",
+  "src/clinicai/services/hang_cho.py": "service_routing",
+  "src/clinicai/services/lam_them_tai_quay_service.py": "service_order",
+  "src/clinicai/services/luot_kham_service.py": "service_routing",
+  "src/clinicai/services/vat_tu_kho_man_service.py": "kho_vat_tu",
+  "src/clinicai/services/lam_truoc_thu_sau.py": "service_order",
+  "src/clinicai/services/service_selection_service.py": "service_order",
+  "src/clinicai/services/doi_hinh_thuc_service.py": "payment",
+  "src/clinicai/services/pharmacy_service.py": "pharmacy",
+  "src/clinicai/services/clinical_record_service.py": "consultation",
+  "src/clinicai/services/config_service.py": "booking",
+  "src/clinicai/services/nhan_tai_phong.py": "service_routing",
+  "src/clinicai/services/tep_ket_qua_service.py": "result_file",
+  "src/clinicai/services/sinh_hieu_service.py": "vitals",
+  "src/clinicai/services/clinical_sign_service.py": "consultation",
+  "src/clinicai/services/thai_ky_service.py": "thai_ky",
+  "src/clinicai/services/phan_hoi_thuoc_service.py": "cskh",
+  "src/clinicai/services/ngoai_le_ca_truc_service.py": "permission",
+  "src/clinicai/services/lab_safety_service.py": "lab",
+  "src/clinicai/events/consumers/cong_no.py": "cong_no",
+  "src/clinicai/events/consumers/doi_tac.py": "doi_tac"
+ },
+ "ban_khai": {
+  "service_order": {
+   "bang": [
+    "service_order",
+    "lam_them_tai_quay"
+   ],
+   "phat": [
+    "service_order.placed",
+    "service_order.carried_over",
+    "service_order.required_changed",
+    "service_order.required_changed",
+    "service_order.desk_added",
+    "service_order.desk_removed",
+    "service_order.cancelled",
+    "service_order.restored"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "PlaceServiceOrders",
+    "CarryOverUnfinishedOrders",
+    "SetServiceOrderRequired",
+    "AddDeskService",
+    "RemoveDeskService",
+    "ConfigureDeskServices",
+    "CancelServiceOrder"
+   ],
+   "quyen": [
+    "clinical.order.place"
+   ]
+  },
+  "vat_tu": {
+   "bang": [
+    "luot_vat_tu",
+    "vat_tu_goi_y"
+   ],
+   "phat": [
+    "visit.supply_changed"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "AddSupplyToBill",
+    "SetSupplyQuantity",
+    "RemoveSupply"
+   ],
+   "quyen": [
+    "vat_tu.approve"
+   ]
+  },
+  "lieu_trinh": {
+   "bang": [
+    "lieu_trinh",
+    "lieu_trinh_lich_su",
+    "lieu_trinh_buoi",
+    "lieu_trinh_tra_truoc"
+   ],
+   "phat": [
+    "lieu_trinh.created",
+    "lieu_trinh.revised",
+    "lieu_trinh.session_relinked",
+    "lieu_trinh.prepay_set"
+   ],
+   "nghe": [
+    "service.completed"
+   ],
+   "ben_nhan": [
+    "lieu_trinh_sap_het"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [
+    "ProposeTreatmentPlan",
+    "AdjustTreatmentPlan",
+    "RegisterTreatmentPlan",
+    "StopTreatmentPlan",
+    "ReopenTreatmentPlan",
+    "UndoTreatmentPlanChange",
+    "LinkPlanSession",
+    "UnlinkPlanSession",
+    "SetPlanPrepayment",
+    "RemovePlanPrepayment"
+   ],
+   "quyen": []
+  },
+  "phi_kham": {
+   "bang": [
+    "luot_phi_kham"
+   ],
+   "phat": [
+    "visit.exam_service_changed"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "ChonDichVuKham"
+   ],
+   "quyen": []
+  },
+  "service_selection": {
+   "bang": [
+    "service_selection_state"
+   ],
+   "phat": [
+    "service_selection.confirmed",
+    "visit.defer_payment_set",
+    "visit.defer_payment_cleared"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "ConfirmServiceSelection",
+    "SetDeferPayment"
+   ],
+   "quyen": [
+    "service_selection.confirm"
+   ]
+  },
+  "service_routing": {
+   "bang": [
+    "queue_entry"
+   ],
+   "phat": [
+    "service.routed",
+    "service.routing_invalidated",
+    "service.room_transferred",
+    "service.doctor_chosen",
+    "service.room_released",
+    "service.room_receive_undone",
+    "service.room_release_undone",
+    "service.room_guided"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "AssignServiceRoom",
+    "InvalidateServiceRouting",
+    "AutoAssignPaidOrders",
+    "PlanServiceRoom",
+    "TransferInProgressService",
+    "ReceiveAtRoom",
+    "UndoReceiveAtRoom"
+   ],
+   "quyen": [
+    "service.routing.view",
+    "service.routing.assign",
+    "service.routing.invalidate",
+    "dispatch.manage"
+   ]
+  },
+  "execution": {
+   "bang": [
+    "service_execution_attempt"
+   ],
+   "phat": [
+    "service.started",
+    "service.completed",
+    "service.not_performed",
+    "service.interrupted",
+    "service.retry_prepared",
+    "service.patient_moved",
+    "service.start_cancelled",
+    "service.completion_undone"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "StartService",
+    "CompleteService",
+    "MarkServiceNotPerformed",
+    "InterruptService",
+    "PrepareServiceRetry",
+    "CancelMistakenStart",
+    "UndoServiceCompletion",
+    "StartServiceAtDesk",
+    "CompleteServiceAtDesk",
+    "CancelDeskStart",
+    "UndoDeskCompletion"
+   ],
+   "quyen": [
+    "service.execute.start",
+    "service.execute.complete",
+    "service.execute.not_performed",
+    "service.execute.interrupt",
+    "service.execute.retry"
+   ]
+  },
+  "result": {
+   "bang": [
+    "form_instance"
+   ],
+   "phat": [
+    "result_form.completed",
+    "result.ready",
+    "result.corrected",
+    "result.reviewed",
+    "result.viewed",
+    "result.approval_revoked"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [
+    "execution.CompleteService"
+   ],
+   "lenh": [
+    "OpenForm",
+    "SaveFormDraft",
+    "CompleteForm",
+    "ReopenForm",
+    "RevokeResultApproval"
+   ],
+   "quyen": [
+    "result.form.fill",
+    "result.file.confirm",
+    "result.review.approve",
+    "result.file.delete"
+   ]
+  },
+  "catalogue": {
+   "bang": [
+    "ket_qua_mau",
+    "dich_vu_mau_ket_qua",
+    "form_definition"
+   ],
+   "phat": [],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "BindResultTemplate",
+    "UnbindResultTemplate",
+    "PublishFormVersion"
+   ],
+   "quyen": [
+    "catalogue.result_template.manage",
+    "catalogue.form_template.edit",
+    "catalogue.form_template.publish",
+    "config.wiring.manage",
+    "price.service.manage",
+    "config.clinic.manage"
+   ]
+  },
+  "permission": {
+   "bang": [
+    "capability_grant",
+    "quyen_preset",
+    "ky_nang",
+    "nhan_su_ky_nang",
+    "ngoai_le_ca_truc"
+   ],
+   "phat": [
+    "capability.granted",
+    "capability.revoked",
+    "clinical_shift.exception_opened",
+    "clinical_shift.exception_cancelled"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "GrantWorkPack",
+    "RevokeWorkPack",
+    "ApplyRolePreset",
+    "SaveRolePreset",
+    "RemoveRolePreset",
+    "SetStaffSkill",
+    "OpenClinicalShiftException",
+    "CancelClinicalShiftException"
+   ],
+   "quyen": [
+    "permission.manage",
+    "staff.manage",
+    "account.manage"
+   ]
+  },
+  "journey": {
+   "bang": [],
+   "phat": [],
+   "nghe": [
+    "partner.order_received",
+    "partner.payment_recorded",
+    "partner.payment_voided",
+    "visit.checked_in",
+    "vitals.started",
+    "vitals.recorded",
+    "prescription.saved",
+    "prescription.consultant_marked",
+    "medicine.counter_changed",
+    "medicine.declined",
+    "service_selection.confirmed",
+    "service_order.placed",
+    "service_order.desk_added",
+    "service_order.desk_removed",
+    "service.started",
+    "service.completed",
+    "service.not_performed",
+    "service.interrupted",
+    "service.retry_prepared",
+    "service.patient_moved",
+    "service.start_cancelled",
+    "service.completion_undone",
+    "service_order.cancelled",
+    "service_order.restored",
+    "consultation.reopened",
+    "visit.reopened",
+    "result.approval_revoked",
+    "service.routing_invalidated",
+    "result_form.completed",
+    "result.ready",
+    "result.corrected",
+    "visit.routed",
+    "visit.exam_completed",
+    "consultation.started",
+    "consultation.handed_over",
+    "consultation.completed",
+    "service.routed",
+    "service.room_transferred",
+    "service.doctor_chosen",
+    "service.room_released",
+    "service.room_receive_undone",
+    "service.room_release_undone",
+    "service.room_guided",
+    "consultation.resumed",
+    "service_order.carried_over",
+    "service_order.required_changed",
+    "payment.service_collected",
+    "payment.medicine_collected",
+    "cong_no.ghi",
+    "cong_no.huy",
+    "cong_no.da_thu",
+    "medicine.dispensed",
+    "medicine.returned",
+    "result_file.uploaded",
+    "result_file.confirmed",
+    "result_file.revoked",
+    "result_file.deleted",
+    "result_file.restored",
+    "result_file.viewed",
+    "result_file.sent_to_patient",
+    "result.reviewed",
+    "result.viewed",
+    "lab_result.arrived",
+    "appointment.booked",
+    "appointment.rescheduled",
+    "appointment.service_switched",
+    "appointment.cancelled",
+    "appointment.no_show",
+    "appointment.confirmed_by_call",
+    "visit.checked_out",
+    "visit.left_early",
+    "payment.refunded",
+    "payment.method_changed",
+    "payment.collection_undone",
+    "followup.scheduled",
+    "partner.sample_collected",
+    "partner.sample_received",
+    "partner.sample_receipt_undone",
+    "partner.result_returned",
+    "partner.result_return_undone",
+    "visit.defer_payment_set",
+    "visit.defer_payment_cleared",
+    "visit.supply_changed",
+    "visit.exam_service_changed"
+   ],
+   "ben_nhan": [
+    "dong_thoi_gian_luot"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": []
+  },
+  "trach_nhiem": {
+   "bang": [],
+   "phat": [],
+   "nghe": [
+    "service.not_performed",
+    "service.interrupted",
+    "service.routing_invalidated"
+   ],
+   "ben_nhan": [
+    "trach_nhiem_dich_vu"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": [
+    "worklist.handle"
+   ]
+  },
+  "reception": {
+   "bang": [],
+   "phat": [
+    "visit.checked_in",
+    "visit.checked_out",
+    "visit.left_early",
+    "visit.reopened"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "CheckInPatient",
+    "CheckOutPatient",
+    "ReopenVisit"
+   ],
+   "quyen": [
+    "reception.checkin.perform"
+   ]
+  },
+  "vitals": {
+   "bang": [
+    "vital_measurement"
+   ],
+   "phat": [
+    "vitals.started",
+    "vitals.recorded"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "StartVitals",
+    "RecordVitals"
+   ],
+   "quyen": [
+    "vitals.measure"
+   ]
+  },
+  "hanh_trinh": {
+   "bang": [],
+   "phat": [
+    "visit.routed"
+   ],
+   "nghe": [
+    "visit.checked_in",
+    "vitals.recorded",
+    "consultation.handed_over",
+    "payment.service_collected",
+    "payment.medicine_collected",
+    "service_selection.confirmed",
+    "service_order.desk_added",
+    "service_order.restored",
+    "visit.defer_payment_set",
+    "visit.checked_out",
+    "visit.left_early",
+    "service.completed",
+    "partner.sample_collected",
+    "appointment.service_switched"
+   ],
+   "ben_nhan": [
+    "hanh_trinh_luot_kham"
+   ],
+   "goi_dong_bo": [
+    "consultation.RouteAfterCheckIn",
+    "consultation.RerouteAfterServiceSwitch",
+    "consultation.OpenIntakeQueue",
+    "consultation.HandToPrimaryDoctor",
+    "service_order.CarryOverUnfinishedOrders",
+    "service_routing.AutoAssignPaidOrders"
+   ],
+   "lenh": [],
+   "quyen": []
+  },
+  "consultation": {
+   "bang": [
+    "clinical_record",
+    "patient_medical_profile",
+    "prescription"
+   ],
+   "phat": [
+    "consultation.started",
+    "consultation.resumed",
+    "consultation.handed_over",
+    "consultation.completed",
+    "consultation.reopened",
+    "followup.scheduled",
+    "prescription.saved",
+    "prescription.consultant_marked"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "StartConsultation",
+    "CompleteConsultation",
+    "SaveConsultationNote",
+    "SaveClinicalRecord",
+    "ReleaseRecord",
+    "StartIntake",
+    "CompleteIntake",
+    "RecordIntakeNote",
+    "RouteAfterCheckIn",
+    "RerouteAfterServiceSwitch",
+    "OpenIntakeQueue",
+    "HandToPrimaryDoctor",
+    "ReopenConsultation"
+   ],
+   "quyen": [
+    "clinical.intake.perform",
+    "clinical.consult.perform",
+    "clinical.record.write",
+    "clinical.consult.finalize"
+   ]
+  },
+  "payment": {
+   "bang": [
+    "payment_cycle",
+    "payment_bill_line",
+    "payment_cycle_doi_hinh_thuc",
+    "payment_cycle_phan",
+    "anh_chuyen_khoan"
+   ],
+   "phat": [
+    "payment.service_collected",
+    "payment.medicine_collected",
+    "payment.refunded",
+    "payment.method_changed",
+    "payment.collection_undone",
+    "medicine.declined"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "CollectServicePayment"
+   ],
+   "quyen": [
+    "payment.service.collect",
+    "payment.medicine.collect"
+   ]
+  },
+  "result_file": {
+   "bang": [
+    "tep_ket_qua"
+   ],
+   "phat": [
+    "result_file.uploaded",
+    "result_file.confirmed",
+    "result_file.revoked",
+    "result_file.deleted",
+    "result_file.restored",
+    "result_file.viewed",
+    "result_file.sent_to_patient"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "UploadResultFile",
+    "ConfirmResultFile",
+    "OpenResultFile",
+    "MarkSent",
+    "RevokeResultFile",
+    "DeleteResultFile",
+    "RestoreResultFile"
+   ],
+   "quyen": []
+  },
+  "vong_doc": {
+   "bang": [
+    "review_round"
+   ],
+   "phat": [
+    "visit.exam_completed"
+   ],
+   "nghe": [
+    "service_selection.confirmed",
+    "service.completed",
+    "service.not_performed",
+    "partner.sample_collected",
+    "partner.sample_received",
+    "result.ready",
+    "result.corrected",
+    "result_file.uploaded",
+    "result_file.confirmed",
+    "result_file.revoked",
+    "result_file.deleted",
+    "result_file.restored"
+   ],
+   "ben_nhan": [
+    "vong_doc_luot_kham"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": []
+  },
+  "chuong": {
+   "bang": [
+    "day_nhan_thong_bao"
+   ],
+   "phat": [],
+   "nghe": [
+    "result_file.uploaded",
+    "result_file.confirmed",
+    "result.ready",
+    "result.corrected",
+    "lab_result.arrived",
+    "partner.order_received",
+    "partner.result_returned",
+    "pharmacy.expiry_checked",
+    "pharmacy.stocktake_mismatch"
+   ],
+   "ben_nhan": [
+    "chuong_thong_bao"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": []
+  },
+  "chuong_nhan_cheo": {
+   "bang": [],
+   "phat": [],
+   "nghe": [
+    "service.room_released",
+    "service.completed",
+    "service.interrupted",
+    "service.start_cancelled",
+    "service.room_release_undone"
+   ],
+   "ben_nhan": [
+    "chuong_nhan_cheo"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": []
+  },
+  "booking": {
+   "bang": [
+    "appointment",
+    "appointment_doi_lich"
+   ],
+   "phat": [
+    "appointment.booked",
+    "appointment.rescheduled",
+    "appointment.service_switched",
+    "appointment.cancelled",
+    "appointment.no_show",
+    "appointment.confirmed_by_call"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "BookAppointment",
+    "RescheduleAppointment",
+    "CancelAppointment",
+    "MarkNoShow",
+    "ConfirmByCall",
+    "SwitchExamService"
+   ],
+   "quyen": [
+    "booking.create",
+    "booking.manage"
+   ]
+  },
+  "doi_tac": {
+   "bang": [
+    "doi_tac_nhan_viec",
+    "doi_tac_thanh_toan"
+   ],
+   "phat": [
+    "partner.sample_collected",
+    "partner.sample_received",
+    "partner.sample_receipt_undone",
+    "partner.result_returned",
+    "partner.result_return_undone",
+    "partner.order_received",
+    "partner.payment_recorded",
+    "partner.payment_voided"
+   ],
+   "nghe": [
+    "service_selection.confirmed",
+    "visit.defer_payment_set",
+    "payment.service_collected",
+    "service.completed",
+    "partner.sample_collected"
+   ],
+   "ben_nhan": [
+    "doi_tac_nhan_viec"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [
+    "MarkSampleCollected",
+    "MarkAwaitingDocuments",
+    "RecordPartnerPayment",
+    "VoidPartnerPayment",
+    "ReturnPartnerResult",
+    "UndoPartnerResult",
+    "UndoSampleReceipt"
+   ],
+   "quyen": [
+    "partner.work"
+   ]
+  },
+  "cskh": {
+   "bang": [
+    "tuong_tac_cskh",
+    "ghi_chu_khach"
+   ],
+   "phat": [
+    "patient.contacted"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "LogContact"
+   ],
+   "quyen": [
+    "crm.manage",
+    "patient.create",
+    "patient.list.view"
+   ]
+  },
+  "lab": {
+   "bang": [
+    "lab_result"
+   ],
+   "phat": [
+    "lab_result.arrived"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "EnterLabResult"
+   ],
+   "quyen": []
+  },
+  "thai_ky": {
+   "bang": [
+    "pregnancy"
+   ],
+   "phat": [],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": []
+  },
+  "pharmacy": {
+   "bang": [
+    "prescription_allocation",
+    "inventory_txn"
+   ],
+   "phat": [
+    "medicine.dispensed",
+    "medicine.counter_changed",
+    "pharmacy.expiry_checked",
+    "medicine.returned",
+    "pharmacy.stocktake_mismatch"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "MapDrug",
+    "SetPurchasedQty",
+    "AdjustSaleAtCounter",
+    "AllocateLots",
+    "DispenseMedicine",
+    "RefuseLine",
+    "CloseLine"
+   ],
+   "quyen": [
+    "pharmacy.dispense",
+    "pharmacy.view"
+   ]
+  },
+  "cong_no": {
+   "bang": [
+    "cong_no"
+   ],
+   "phat": [
+    "cong_no.ghi",
+    "cong_no.huy",
+    "cong_no.da_thu"
+   ],
+   "nghe": [
+    "payment.service_collected",
+    "payment.medicine_collected"
+   ],
+   "ben_nhan": [
+    "cong_no"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [
+    "GhiNo",
+    "HuyGhiNo"
+   ],
+   "quyen": []
+  },
+  "so_no": {
+   "bang": [
+    "so_no",
+    "so_no_moc"
+   ],
+   "phat": [],
+   "nghe": [
+    "visit.checked_out",
+    "visit.left_early",
+    "visit.reopened",
+    "cong_no.ghi",
+    "cong_no.huy",
+    "payment.service_collected",
+    "payment.medicine_collected",
+    "payment.collection_undone",
+    "payment.refunded",
+    "service_order.cancelled",
+    "service_order.restored",
+    "service_order.carried_over",
+    "service.started",
+    "service.completed",
+    "service.not_performed",
+    "service.start_cancelled",
+    "service.completion_undone",
+    "visit.supply_changed",
+    "visit.exam_service_changed",
+    "medicine.dispensed",
+    "medicine.returned",
+    "prescription.saved"
+   ],
+   "ben_nhan": [
+    "so_no"
+   ],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": []
+  },
+  "kho_vat_tu": {
+   "bang": [
+    "vat_tu_phieu",
+    "vat_tu_ton",
+    "vat_tu_txn",
+    "vat_tu_nhap_cho_duyet"
+   ],
+   "phat": [
+    "vat_tu.nhap_cho_duyet",
+    "vat_tu.nhap_da_quyet"
+   ],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [
+    "LapPhieuVatTu",
+    "HoanPhieuVatTu",
+    "DatMucToiThieuVatTu",
+    "DuyetPhieuNhapVatTu",
+    "TuChoiPhieuNhapVatTu",
+    "RutLaiPhieuNhapVatTu"
+   ],
+   "quyen": [
+    "vat_tu.manage"
+   ]
+  },
+  "dieu_tri": {
+   "bang": [
+    "luot_ghi_chu"
+   ],
+   "phat": [],
+   "nghe": [
+    "visit.routed"
+   ],
+   "ben_nhan": [
+    "dieu_tri_sinh_chi_dinh"
+   ],
+   "goi_dong_bo": [
+    "execution.StartServiceAtDesk",
+    "execution.CompleteServiceAtDesk",
+    "execution.CancelDeskStart",
+    "execution.UndoDeskCompletion"
+   ],
+   "lenh": [
+    "DoiDichVuTrongHoSo"
+   ],
+   "quyen": []
+  },
+  "van_hanh": {
+   "bang": [],
+   "phat": [],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": [
+    "report.view",
+    "ops.view",
+    "audit.view",
+    "giamsat.view"
+   ]
+  },
+  "ke_toan": {
+   "bang": [],
+   "phat": [],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": [
+    "accounting.finance.full",
+    "accounting.tax.manage"
+   ]
+  },
+  "lich_truc": {
+   "bang": [],
+   "phat": [],
+   "nghe": [],
+   "ben_nhan": [],
+   "goi_dong_bo": [],
+   "lenh": [],
+   "quyen": [
+    "roster.view",
+    "roster.shift.swap",
+    "roster.manage"
+   ]
+  }
+ }
+}
