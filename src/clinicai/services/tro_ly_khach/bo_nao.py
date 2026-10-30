@@ -115,7 +115,7 @@ async def tra_loi(
             kq.loi = str(e)
             kq.nhap, kq.chuyen_nguoi = CAU_MO_HINH_LOI, True
             kq.ly_do_chuyen = kq.ly_do_chuyen or "mo_hinh_loi"
-            return kq
+            return _chot(kq)
         kq.token_vao += r.token_vao
         kq.token_ra += r.token_ra
         kq.thoi_gian_ms += r.thoi_gian_ms
@@ -133,6 +133,19 @@ async def tra_loi(
         kq.nhap = CAU_CHUYEN_NGUOI
         kq.chuyen_nguoi = True
         kq.ly_do_chuyen = kq.ly_do_chuyen or "het_vong"
+    return _chot(kq)
+
+
+def _chot(kq: KetQuaTroLy) -> KetQuaTroLy:
+    """Tin CUỐI của `tin_moi` luôn là nháp: một lượt `tro_ly` không gọi công cụ,
+    chữ = `nhap`. Lỗi model / hết vòng / model trả rỗng thì nháp là câu chuyển
+    người chưa có trong `tin_moi` — thiếu nó thì nơi lưu không biết dòng nào để
+    nhân viên duyệt, và lịch sử lượt sau kết thúc bằng tool_result trơ trọi."""
+    cuoi = kq.tin_moi[-1] if kq.tin_moi else None
+    if cuoi is not None and cuoi.vai == "tro_ly" and not cuoi.goi_cong_cu:
+        kq.tin_moi[-1] = Tin("tro_ly", kq.nhap)
+    else:
+        kq.tin_moi.append(Tin("tro_ly", kq.nhap))
     return kq
 
 

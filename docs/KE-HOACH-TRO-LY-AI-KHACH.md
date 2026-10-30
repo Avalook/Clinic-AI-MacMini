@@ -3,7 +3,9 @@
 Mức 3 (hạ tầng gọi AI bên ngoài + bảng mới). Soạn 30/10/2026.
 
 **Trạng thái:** Tuyền chốt dữ liệu thử = **(a) staging đã che** (30/10). PR1 (bộ não,
-chạy bằng script) đã làm; PR2 (bảng + màn) chưa. Các câu 2–4 dưới chưa chốt —
+chạy bằng script) #571; PR2 (bảng `tro_ly_hoi_thoai`/`tro_ly_tin` + API + màn
+`/tro-ly-thu`) xếp chồng lên PR1. Bật: `TRO_LY_BAT=true`, `TRO_LY_MO_HINH`, khoá
+`TRO_LY_KHOA_ANTHROPIC` (xem `.env.staging.example`). Các câu 2–4 dưới chưa chốt —
 PR1 tạm dùng: Claude + adapter OpenAI-compatible, xưng "em"/gọi "chị", trần 2 USD.
 
 Chạy chấm (cần khoá, xem `adapters/mo_hinh/__init__.py`):
