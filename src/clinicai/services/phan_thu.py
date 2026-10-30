@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import math
+import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -45,13 +46,19 @@ class PhanThu:
     hinh_thuc: str
     so_tien: int
     khach_dua: int | None = None
+    #: Tài khoản nhận thu ngân chọn cho phần chuyển khoản (31/10/2026).
+    tai_khoan_id: str | None = None
 
     def ra_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "hinh_thuc": self.hinh_thuc,
             "so_tien": self.so_tien,
             "khach_dua": self.khach_dua,
         }
+        if self.tai_khoan_id is not None:
+            # Chỉ thêm khi có: lần thu không chọn tài khoản giữ nguyên dấu băm cũ.
+            d["tai_khoan_id"] = self.tai_khoan_id
+        return d
 
 
 def chuan_hinh_thuc(v: object) -> str | None:
@@ -116,7 +123,14 @@ def doc_phan(raw: object) -> list[PhanThu] | None:
                 )
             if dua == so:
                 dua = None
-        ra.append(PhanThu(ht, so, dua))
+        tk: str | None = None
+        tk_raw = p.get("tai_khoan_id")
+        if ht == CHUYEN_KHOAN and tk_raw not in (None, ""):
+            try:
+                tk = str(uuid.UUID(str(tk_raw).strip()))
+            except ValueError:
+                raise ValidationError("Tài khoản nhận không hợp lệ.") from None
+        ra.append(PhanThu(ht, so, dua, tk))
     ra.sort(key=lambda x: HINH_THUC_THU.index(x.hinh_thuc))
     return ra
 
@@ -139,6 +153,14 @@ def ap_phan(phan: Sequence[PhanThu] | None, method: str, tong: int) -> list[Phan
             "sửa số tiền từng hình thức cho khớp."
         )
     return list(phan)
+
+
+def tai_khoan_chon(phan: Iterable[PhanThu] | None) -> str | None:
+    """Tài khoản nhận thu ngân chọn cho phần chuyển khoản (nếu có)."""
+    for p in phan or ():
+        if p.hinh_thuc == CHUYEN_KHOAN:
+            return p.tai_khoan_id
+    return None
 
 
 def hinh_thuc_chinh(phan: Iterable[PhanThu]) -> str:
