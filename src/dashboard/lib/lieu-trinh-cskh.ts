@@ -3,6 +3,8 @@
 // tiền, ai được làm gì) nằm ở FastAPI `lieu_trinh_service.py` + Postgres; tệp này
 // chỉ ghép chữ từ số máy chủ đã tính — hàm thuần, có test.
 
+import type { QuyetToanDung } from "./lieu-trinh";
+
 export type TrangThaiLieuTrinh = "DE_XUAT" | "DANG_LAM" | "XONG" | "DUNG";
 
 /** Một liệu trình (GET /lieu-trinh/theo-khach, /lieu-trinh/cskh). */
@@ -43,6 +45,8 @@ export interface LieuTrinh {
   /** "Sắp hết lộ trình" — lý do máy chủ tính ("còn 1 buổi" / "đã dùng hết N
    *  buổi trả trước, còn M buổi chưa trả"); null = không sắp hết. */
   sap_het_ly_do?: string | null;
+  /** Tiền nếu dừng bây giờ / khi đã dừng — máy chủ tính (`QuyetToanDung`). */
+  quyet_toan?: QuyetToanDung | null;
   /** Khung khách: CSKH đã [Đã xử lý] đúng mốc hiện tại. */
   sap_het_da_xu_ly?: boolean;
 }

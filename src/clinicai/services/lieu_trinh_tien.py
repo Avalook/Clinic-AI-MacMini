@@ -67,10 +67,44 @@ def loi_tien_lieu_trinh(
 
 
 def toi_da_tra_truoc(
-    *, so_buoi: int, da_tra: int, tra_le: int, cho_noi_khac: int, buoi_hom_nay: int
+    *,
+    so_buoi: int,
+    da_tra: int,
+    tra_le: int,
+    cho_noi_khac: int,
+    buoi_hom_nay: int,
+    dung: bool = False,
+    con_lai: int | None = None,
 ) -> int:
-    """Số buổi còn trả trước được ở lượt này. Thuần."""
+    """Số buổi còn trả trước được ở lượt này. Thuần. Liệu trình đã dừng / đã
+    làm đủ buổi → 0. CÙNG luật [Trả hết] của Postgres
+    (``lieu_trinh_tra_truoc_so_buoi``) — đổi một chỗ thì đổi cả hai."""
+    if dung or con_lai == 0:
+        return 0
     return max(so_buoi - da_tra - tra_le - cho_noi_khac - buoi_hom_nay, 0)
+
+
+def cau_hoan(*, dung: bool, hoan_duoc: int, phu_chua_lam: int) -> str | None:
+    """Câu cho thu ngân về phần hoàn được. Thuần.
+
+    Hoàn quá số buổi chưa kê thì Postgres bỏ phủ buổi đang kê (chưa bắt đầu) —
+    buổi ấy vào hoá đơn; nói trước để thu ngân không bất ngờ."""
+    if hoan_duoc <= 0:
+        return None
+    phan: list[str] = []
+    if dung:
+        phan.append(
+            f"Đã dừng, còn {hoan_duoc} buổi đã trả chưa dùng — hoàn bằng [Hoàn tiền]"
+            " ở tab “Đã thanh toán”."
+        )
+    if phu_chua_lam > 0:
+        an_toan = max(hoan_duoc - phu_chua_lam, 0)
+        phan.append(
+            "Hoàn tiền thì buổi đang kê sẽ vào hoá đơn."
+            if an_toan == 0
+            else f"Hoàn quá {an_toan} buổi thì buổi đang kê sẽ vào hoá đơn."
+        )
+    return " ".join(phan) or None
 
 
 def doc_so_buoi_tra(raw: Any, toi_da: int) -> int | None:
@@ -84,6 +118,196 @@ def doc_so_buoi_tra(raw: Any, toi_da: int) -> int | None:
     except (TypeError, ValueError):
         return None
     return n if 1 <= n <= toi_da else None
+
+
+#: Chính sách tiền khi DỪNG (Tuyền chốt 30/10/2026) — dây nối chọn, lệnh dừng
+#: chụp vào ``lieu_trinh.chinh_sach_dung`` (đổi dây chỉ áp cho lần dừng sau).
+DAY_DUNG_GIA_LE = "lieu_trinh_dung_tinh_gia_le"
+GIA_GOI = "GIA_GOI"
+GIA_LE = "GIA_LE"
+
+
+def _dong(n: int) -> str:
+    return f"{n:,}".replace(",", ".") + "đ"
+
+
+def _cach_dung(lam: int, ke: int) -> str:
+    return f"{lam} đã làm" + (f", {ke} đang kê" if ke else "")
+
+
+def quyet_toan_dung(
+    *,
+    chinh_sach: str | None,
+    don_gia: int,
+    gia_le: int | None,
+    phu: int,
+    phu_chua_lam: int,
+    le_dung: int,
+    le_chua_lam: int,
+    tien_tra_truoc: int,
+    tien_le: int,
+) -> dict[str, Any]:
+    """Tiền khi dừng liệu trình — số + câu cho thu ngân đọc cho khách. Thuần.
+
+    ``phu`` buổi còn gắn dùng tiền trả trước (``phu_chua_lam`` trong đó chưa bắt
+    đầu = đang kê); ``le_dung`` buổi còn gắn đã thu lẻ (``le_chua_lam`` chưa bắt
+    đầu). ``tien_tra_truoc`` = tiền trả trước + buổi lẻ đã huỷ gói đang giữ (đã
+    trừ hoàn); ``tien_le`` = tiền đã thu lẻ của các buổi còn gắn.
+
+    * GIA_GOI (mặc định, NULL): buổi phủ (đã làm + đang kê) × đơn giá gói; hoàn
+      = tiền trả trước − phần ấy. Buổi thu lẻ đã tự trả, không vào phép tính.
+    * GIA_LE: phá gói — mọi buổi đã dùng (phủ + thu lẻ) × giá lẻ; hoàn = đã trả
+      − tổng giá lẻ; âm thì ``thieu`` (chỉ hiện, máy không tự đòi). Giá lẻ =
+      giá bảng HIỆN TẠI (chưa có vết giá lúc làm từng buổi); không có giá bảng
+      → tính theo giá gói, câu nói rõ.
+    """
+    ke = phu_chua_lam + le_chua_lam
+    if chinh_sach == GIA_LE and gia_le:
+        n = phu + le_dung
+        gia_tri = n * gia_le
+        da_tra = tien_tra_truoc + tien_le
+        hoan, thieu = max(da_tra - gia_tri, 0), max(gia_tri - da_tra, 0)
+        tach = (
+            f" (trả trước {_dong(tien_tra_truoc)} + thu lẻ {_dong(tien_le)})"
+            if tien_tra_truoc and tien_le
+            else ""
+        )
+        cau = (
+            f"Phá gói, tính lại giá lẻ: {n} buổi ({_cach_dung(n - ke, ke)})"
+            f" × {_dong(gia_le)} giá lẻ = {_dong(gia_tri)}; đã trả {_dong(da_tra)}"
+            f"{tach}; "
+            + (
+                f"hoàn {_dong(hoan)}."
+                if not thieu
+                else f"khách còn thiếu {_dong(thieu)} — máy không tự đòi, thu ngân"
+                " quyết."
+            )
+            + " Giá lẻ = giá trên bảng giá hiện tại."
+        )
+        if hoan and don_gia and hoan % don_gia:
+            so_buoi = f"{hoan / don_gia:.4f}".rstrip("0").rstrip(".")
+            so_buoi = so_buoi.replace(".", ",")
+            cau += f" Bấm [Hoàn tiền] dòng trả trước: {so_buoi} buổi."
+    else:
+        gia_tri = phu * don_gia
+        da_tra = tien_tra_truoc
+        hoan, thieu = max(da_tra - gia_tri, 0), 0
+        dung_goi = (
+            f"đã dùng {phu} buổi ({_cach_dung(phu - phu_chua_lam, phu_chua_lam)})"
+            f" × {_dong(don_gia)} = {_dong(gia_tri)}"
+            if phu
+            else "chưa dùng buổi nào"
+        )
+        cau = (
+            f"Tính theo giá gói: đã trả trước {_dong(da_tra)}; {dung_goi};"
+            f" hoàn {_dong(hoan)}."
+        )
+        if chinh_sach == GIA_LE:
+            cau = "Không có giá lẻ trên bảng giá — " + cau[0].lower() + cau[1:]
+    if ke:
+        cau += " Khách không làm buổi đang kê thì huỷ chỉ định — số hoàn tự tính lại."
+    return {
+        "chinh_sach": GIA_LE if chinh_sach == GIA_LE and gia_le else GIA_GOI,
+        "don_gia": don_gia,
+        "gia_le": gia_le,
+        "gia_tri_da_dung": gia_tri,
+        "da_tra": da_tra,
+        "hoan": hoan,
+        "thieu": thieu,
+        "cau": cau,
+    }
+
+
+#: Số tiền cho ``quyet_toan_dung`` của nhiều liệu trình một lượt. Tiền = dòng
+#: đã thu (PAID) trừ phần hoàn đang làm / đã xong.
+_QUYET_TOAN_SQL = """
+WITH l AS (
+    SELECT lt.clinic_id, lt.id, lt.service_code FROM public.lieu_trinh lt
+     WHERE lt.clinic_id = $1::uuid AND lt.id = ANY($2::uuid[])
+), dong AS (
+    SELECT bl.id, bl.line_total - coalesce((
+               SELECT sum(rl.amount) FROM public.payment_refund_line rl
+                 JOIN public.payment_refund r
+                   ON r.refund_id = rl.refund_id AND r.clinic_id = rl.clinic_id
+                WHERE rl.clinic_id = bl.clinic_id AND rl.payment_bill_line_id = bl.id
+                  AND r.status IN ('PENDING', 'COMPLETED')), 0) AS con
+      FROM public.payment_bill_line bl
+      JOIN public.payment_cycle c
+        ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
+       AND c.status = 'PAID'
+     WHERE bl.clinic_id = $1::uuid AND bl.billing_owner = 'CLINIC'
+)
+SELECT l.id::text AS id,
+       coalesce((SELECT sum(d.con) FROM public.lieu_trinh_tra_truoc t
+                   JOIN public.payment_bill_line bl
+                     ON bl.clinic_id = t.clinic_id AND bl.source_type = 'lieu_trinh'
+                    AND bl.source_id = t.id::text
+                   JOIN dong d ON d.id = bl.id
+                  WHERE t.clinic_id = l.clinic_id AND t.lieu_trinh_id = l.id), 0)
+     + coalesce((SELECT sum(d.con) FROM public.lieu_trinh_dong_giu(l.clinic_id, l.id) g
+                   JOIN dong d ON d.id = g.giu_line_id), 0) AS tien_tra_truoc,
+       coalesce((SELECT sum(d.con) FROM public.lieu_trinh_buoi b
+                   JOIN public.payment_bill_line bl
+                     ON bl.clinic_id = b.clinic_id AND bl.source_type = 'service_order'
+                    AND bl.source_id = b.service_order_id::text
+                   JOIN dong d ON d.id = bl.id
+                  WHERE b.clinic_id = l.clinic_id AND b.lieu_trinh_id = l.id
+                    AND b.go_luc IS NULL AND NOT b.tra_truoc), 0) AS tien_le,
+       le.le_dung, le.le_chua_lam,
+       (SELECT pr.unit_price FROM public.service_price pr
+         WHERE pr.clinic_id = l.clinic_id AND pr.service_code = l.service_code
+           AND pr.active AND pr."group" = 'dich_vu' AND pr.billing_owner = 'CLINIC'
+         ORDER BY pr.unit_price DESC LIMIT 1) AS gia_le
+  FROM l
+  -- Buổi còn gắn đã thu lẻ (và số chưa bắt đầu trong đó).
+  LEFT JOIN LATERAL (
+      SELECT count(*) AS le_dung,
+             count(*) FILTER (
+                 WHERE coalesce(o.execution_status, 'PENDING') = 'PENDING'
+                   AND o.exec_status IN ('authorized', 'assigned')) AS le_chua_lam
+        FROM public.lieu_trinh_buoi b
+        JOIN public.service_order o
+          ON o.clinic_id = b.clinic_id AND o.id = b.service_order_id
+       WHERE b.clinic_id = l.clinic_id AND b.lieu_trinh_id = l.id
+         AND b.go_luc IS NULL AND NOT b.tra_truoc
+         AND public.lieu_trinh_buoi_da_thu_le(b.clinic_id, b.service_order_id)
+  ) le ON true
+"""
+
+
+async def gan_quyet_toan(
+    conn: asyncpg.Connection, cid: str, ds: list[dict[str, Any]]
+) -> None:
+    """``quyet_toan`` cho mỗi liệu trình đã có tiền: đã dừng → theo chính sách
+    đã chụp lúc dừng; chưa dừng → XEM TRƯỚC "nếu dừng bây giờ" theo dây hiện
+    hành (hộp xác nhận dừng). Không có tiền nào → None."""
+    from clinicai.services.day_noi import doc_day
+
+    if not ds:
+        return
+    hien = GIA_LE if await doc_day(conn, cid, DAY_DUNG_GIA_LE) else GIA_GOI
+    so: dict[str, asyncpg.Record] = {
+        r["id"]: r
+        for r in await conn.fetch(_QUYET_TOAN_SQL, cid, [d["id"] for d in ds])
+    }
+    for d in ds:
+        r = so.get(d["id"])
+        tien_tt = int(r["tien_tra_truoc"]) if r else 0
+        tien_le = int(r["tien_le"]) if r else 0
+        if r is None or not (tien_tt or tien_le) or d["trang_thai"] == "XONG":
+            d["quyet_toan"] = None
+            continue
+        d["quyet_toan"] = quyet_toan_dung(
+            chinh_sach=d.get("chinh_sach_dung") if d["trang_thai"] == "DUNG" else hien,
+            don_gia=int(d["don_gia"]),
+            gia_le=int(r["gia_le"]) if r["gia_le"] is not None else None,
+            phu=int(d["dung_tra_truoc"]),
+            phu_chua_lam=int(d["phu_chua_lam"]),
+            le_dung=int(r["le_dung"] or 0),
+            le_chua_lam=int(r["le_chua_lam"] or 0),
+            tien_tra_truoc=tien_tt,
+            tien_le=tien_le,
+        )
 
 
 #: Mỗi liệu trình của khách + các con số quầy cần, so với MỘT lượt đang thu.
@@ -116,8 +340,11 @@ SELECT lt.id::text AS id,
            AND NOT public.lieu_trinh_buoi_da_thu_le(b.clinic_id, b.service_order_id))
            AS buoi_hom_nay,
        -- Dòng ĐANG CHỌN của lượt: chưa bỏ, chưa nằm trong lần thu giữ phủ.
-       (SELECT jsonb_build_object('id', t.id, 'so_buoi', t.so_buoi,
-                                  'don_gia', t.don_gia)
+       -- Số buổi = số hoá đơn đang đòi ([Trả hết] tính lại; đã dừng → 0).
+       (SELECT jsonb_build_object(
+                   'id', t.id,
+                   'so_buoi', public.lieu_trinh_tra_truoc_so_buoi(t.clinic_id, t.id),
+                   'tra_het', t.tra_het, 'don_gia', t.don_gia)
           FROM public.lieu_trinh_tra_truoc t
          WHERE t.clinic_id = lt.clinic_id AND t.lieu_trinh_id = lt.id
            AND t.visit_id = $3::uuid AND t.bo_luc IS NULL
@@ -134,12 +361,14 @@ SELECT lt.id::text AS id,
  WHERE lt.clinic_id = $1::uuid AND lt.id = ANY($2::uuid[])
 """
 
-#: Dòng trả trước đã thu còn hoàn được (Q5 — dừng giữa chừng hoàn buổi dư):
-#: nút hoàn của quầy gọi đúng lệnh hoàn tiền sẵn có với các mã này.
+#: Dòng đã thu còn hoàn được (Q5 — dừng giữa chừng hoàn buổi dư): dòng trả
+#: trước + dòng thu lẻ của buổi đã huỷ mà gói đang giữ (``lieu_trinh_dong_giu``).
+#: Nút hoàn của quầy gọi đúng lệnh hoàn tiền sẵn có với các mã này.
 _HOAN_DUOC_SQL = """
+SELECT * FROM (
 SELECT t.lieu_trinh_id::text AS lieu_trinh_id, bl.id::text AS payment_bill_line_id,
        bl.payment_cycle_id::text AS payment_cycle_id, bl.visit_id::text AS visit_id,
-       bl.quantity, bl.unit_price, c.paid_at,
+       bl.unit_price, c.paid_at, 'tra_truoc' AS loai,
        bl.quantity - coalesce((
            SELECT sum(rl.quantity) FROM public.payment_refund_line rl
              JOIN public.payment_refund r
@@ -154,7 +383,13 @@ SELECT t.lieu_trinh_id::text AS lieu_trinh_id, bl.id::text AS payment_bill_line_
     ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
    AND c.status = 'PAID'
  WHERE t.clinic_id = $1::uuid AND t.lieu_trinh_id = ANY($2::uuid[])
- ORDER BY c.paid_at DESC
+UNION ALL
+SELECT l.id::text, g.giu_line_id::text, g.giu_cycle_id::text, g.giu_visit_id::text,
+       g.giu_don_gia, g.giu_paid_at, 'buoi_giu', g.giu_con
+  FROM unnest($2::uuid[]) AS l(id),
+       LATERAL public.lieu_trinh_dong_giu($1::uuid, l.id) g
+) x
+ ORDER BY x.paid_at DESC
 """
 
 
@@ -177,12 +412,16 @@ class LieuTrinhTienService:
             dang = d.pop("dang_chon")
             if isinstance(dang, str):
                 dang = json.loads(dang)
+            # Dòng còn đó mà hoá đơn không đòi buổi nào (đã dừng / [Trả hết]
+            # hết chỗ) → màn không thấy; lệnh đặt lại dùng chính dòng ấy.
+            d["dang_id"] = None if dang is None else str(dang["id"])
             d["dang_chon"] = (
                 None
-                if dang is None
+                if dang is None or int(dang["so_buoi"] or 0) <= 0
                 else {
                     "id": str(dang["id"]),
                     "so_buoi": int(dang["so_buoi"]),
+                    "tra_het": bool(dang.get("tra_het")),
                     "don_gia": int(dang["don_gia"]),
                 }
             )
@@ -209,6 +448,9 @@ class LieuTrinhTienService:
                 conn, cid, "lt.clinic_patient_id = $2::uuid", pid, kem_buoi=False
             )
             ids = [d["id"] for d in ds]
+            await gan_quyet_toan(
+                conn, cid, [d for d in ds if d["trang_thai"] == "DUNG"]
+            )
             so = await self._so_lieu(conn, cid, vid, ids) if ids else {}
             hoan = (
                 [dict(r) for r in await conn.fetch(_HOAN_DUOC_SQL, cid, ids)]
@@ -220,18 +462,25 @@ class LieuTrinhTienService:
             s = so.get(lt["id"], {})
             dang = s.get("dang_chon")
             # Dòng đang chọn (chưa thu) của chính lượt này không chiếm chỗ của nó.
+            dung = lt["trang_thai"] == "DUNG"
+            qt = lt.get("quyet_toan") if dung else None
             toi_da = toi_da_tra_truoc(
                 so_buoi=lt["so_buoi"],
                 da_tra=int(s.get("da_tra") or 0),
                 tra_le=int(s.get("tra_le") or 0),
                 cho_noi_khac=int(s.get("cho_noi_khac") or 0),
                 buoi_hom_nay=int(s.get("buoi_hom_nay") or 0),
+                dung=dung,
+                con_lai=lt["con_lai"],
             )
             dong_hoan = [
                 {
                     "payment_cycle_id": h["payment_cycle_id"],
                     "payment_bill_line_id": h["payment_bill_line_id"],
                     "visit_id": h["visit_id"],
+                    # tra_truoc: dòng trả trước · buoi_giu: buổi lẻ đã thu rồi
+                    # huỷ, tiền giữ trong gói.
+                    "loai": h["loai"],
                     "con_hoan_duoc": int(h["con_lai"]),
                     "don_gia": int(h["unit_price"] or 0),
                     "luc_thu": h["paid_at"].isoformat() if h["paid_at"] else None,
@@ -243,6 +492,7 @@ class LieuTrinhTienService:
                 lt["trang_thai"] in ("DE_XUAT", "DANG_LAM")
                 or lt["con_tra_truoc"] > 0
                 or dang is not None
+                or bool(qt and qt["thieu"])
             )
             if not hien:
                 continue
@@ -281,8 +531,26 @@ class LieuTrinhTienService:
                         if int(lt["da_tra"] or 0) > 0
                         else "Khách chưa trả trước buổi nào — có thể gợi ý trả trước."
                     ),
-                    # Q5: buổi đã trả chưa dùng còn hoàn được (min với từng dòng).
+                    # Q5: buổi đã trả chưa dùng = đúng số máy chủ cho hoàn
+                    # (từng dòng còn bị chặn bởi ``con_hoan_duoc`` của nó).
                     "hoan_duoc_toi_da": lt["con_tra_truoc"],
+                    "phu_chua_lam": lt["phu_chua_lam"],
+                    # Đã dừng: câu quyết toán theo chính sách chụp lúc dừng (số
+                    # máy chủ tính, đọc được cho khách); chưa dừng: cảnh báo
+                    # "hoàn quá N buổi thì buổi đang kê vào hoá đơn".
+                    "quyet_toan": qt,
+                    "cau_hoan": qt["cau"]
+                    + (
+                        " Hoàn bằng [Hoàn tiền] ở tab “Đã thanh toán”."
+                        if qt["hoan"]
+                        else ""
+                    )
+                    if qt
+                    else cau_hoan(
+                        dung=dung,
+                        hoan_duoc=lt["con_tra_truoc"],
+                        phu_chua_lam=lt["phu_chua_lam"],
+                    ),
                     "dong_hoan_duoc": dong_hoan,
                 }
             )
@@ -334,6 +602,11 @@ class LieuTrinhTienService:
                     raise LuotKhamConflictError(
                         "DON_GIA_0", "Liệu trình 0đ — không có gì để trả trước."
                     )
+                if row["trang_thai"] == "DUNG":
+                    raise LuotKhamConflictError(
+                        "LIEU_TRINH_DA_DUNG",
+                        "Liệu trình đã dừng — mở lại trước khi trả trước.",
+                    )
                 s = (await self._so_lieu(conn, cid, vid, [lt]))[lt]
                 dang = s["dang_chon"]
                 hien = None if dang is None else dang["so_buoi"]
@@ -349,8 +622,13 @@ class LieuTrinhTienService:
                     tra_le=int(s["tra_le"]),
                     cho_noi_khac=int(s["cho_noi_khac"]),
                     buoi_hom_nay=int(s["buoi_hom_nay"]),
+                    dung=row["trang_thai"] == "DUNG",
+                    con_lai=0 if row["trang_thai"] == "XONG" else None,
                 )
                 n = doc_so_buoi_tra(so_buoi, toi_da)
+                # [Trả hết] lưu CỜ: hoá đơn tính lại số buổi mỗi lần dựng (huỷ
+                # buổi hôm nay trước khi thu → vẫn đủ gói).
+                het = isinstance(so_buoi, str) and so_buoi.strip().lower() == HET
                 if n is None:
                     raise LuotKhamConflictError(
                         "TRA_VUOT",
@@ -361,24 +639,26 @@ class LieuTrinhTienService:
                         else "Liệu trình không còn buổi nào để trả trước.",
                         {"toi_da": toi_da},
                     )
-                if dang is not None:
-                    tid = dang["id"]
+                if s["dang_id"] is not None:
+                    tid = s["dang_id"]
                     await conn.execute(
-                        "UPDATE lieu_trinh_tra_truoc SET so_buoi = $3,"
+                        "UPDATE lieu_trinh_tra_truoc SET so_buoi = $3, tra_het = $5,"
                         " chon_boi = $4::uuid, chon_luc = now()"
                         " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                         cid,
                         tid,
                         n,
                         identity.staff_id,
+                        het,
                     )
                 else:
                     tid = str(
                         await conn.fetchval(
                             "INSERT INTO lieu_trinh_tra_truoc"
                             " (clinic_id, visit_id, lieu_trinh_id, so_buoi, don_gia,"
-                            "  chon_boi)"
-                            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::uuid)"
+                            "  chon_boi, tra_het)"
+                            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::uuid,"
+                            "         $7)"
                             " RETURNING id",
                             cid,
                             vid,
@@ -386,6 +666,7 @@ class LieuTrinhTienService:
                             n,
                             row["don_gia"],
                             identity.staff_id,
+                            het,
                         )
                     )
                 await self._phat(conn, identity, vid, lt, tid, n, row["don_gia"], "dat")
@@ -517,7 +798,10 @@ __all__ = [
     "CAU_HUY_TRA_TRUOC_DA_DUNG",
     "HET",
     "LieuTrinhTienService",
+    "cau_hoan",
     "doc_so_buoi_tra",
+    "gan_quyet_toan",
+    "quyet_toan_dung",
     "loi_tien_lieu_trinh",
     "toi_da_tra_truoc",
 ]

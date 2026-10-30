@@ -736,16 +736,26 @@ _VAT_TU_THEO_CHI_DINH = f"""
 
 
 #: Trả trước k buổi liệu trình (08/10/2026): dòng chưa bỏ của lượt, chưa nằm
-#: trong lần thu đang giữ phủ. Đơn giá = đơn giá CHỐT của liệu trình.
+#: trong lần thu đang giữ phủ. Đơn giá = đơn giá CHỐT của liệu trình. Ảnh chụp
+#: (đối chiếu lần chờ) đọc số đã chốt ``t.so_buoi``; hoá đơn còn nợ đọc số đang
+#: đòi (``_SO_BUOI_DANG_DOI``).
 _LIEU_TRINH_SQL = """
-SELECT t.id::text AS id, t.visit_id::text AS visit_id,
-       t.lieu_trinh_id::text AS lieu_trinh_id, t.so_buoi, t.don_gia, lt.service_name
+SELECT * FROM (
+SELECT t.id::text AS id, t.visit_id::text AS visit_id, t.chon_luc,
+       t.lieu_trinh_id::text AS lieu_trinh_id, {so_buoi} AS so_buoi, t.don_gia,
+       lt.service_name
   FROM public.lieu_trinh_tra_truoc t
   JOIN public.lieu_trinh lt ON lt.clinic_id = t.clinic_id AND lt.id = t.lieu_trinh_id
  WHERE t.clinic_id = $1::uuid AND t.visit_id = ANY($2::uuid[]) AND t.bo_luc IS NULL
    AND {dieu_kien}
- ORDER BY t.chon_luc, t.id
+) x
+ WHERE x.so_buoi > 0
+ ORDER BY x.chon_luc, x.id
 """
+
+#: [Trả hết] tính lại mỗi lần dựng; liệu trình đã dừng → 0 (không đòi trả trước
+#: cho gói đã dừng; mở lại là về). Luật ở Postgres ``lieu_trinh_tra_truoc_so_buoi``.
+_SO_BUOI_DANG_DOI = "public.lieu_trinh_tra_truoc_so_buoi(t.clinic_id, t.id)"
 
 _LIEU_TRINH_CHUA_THU = "NOT " + _DA_PHU.format(loai="'lieu_trinh'", nguon="t.id::text")
 
@@ -1064,7 +1074,9 @@ async def hoa_don_con_no_lo(
     )
     lieu_trinh = theo_luot(
         await conn.fetch(
-            _LIEU_TRINH_SQL.format(dieu_kien=_LIEU_TRINH_CHUA_THU),
+            _LIEU_TRINH_SQL.format(
+                dieu_kien=_LIEU_TRINH_CHUA_THU, so_buoi=_SO_BUOI_DANG_DOI
+            ),
             clinic_id,
             vids,
         )
@@ -1228,7 +1240,9 @@ async def hoa_don_theo_anh_chup(
     ids_lt = sorted(r["source_id"] for r in nguon if r["source_type"] == "lieu_trinh")
     lieu_trinh = (
         await conn.fetch(
-            _LIEU_TRINH_SQL.format(dieu_kien="t.id::text = ANY($3::text[])"),
+            _LIEU_TRINH_SQL.format(
+                dieu_kien="t.id::text = ANY($3::text[])", so_buoi="t.so_buoi"
+            ),
             clinic_id,
             [visit_id],
             ids_lt,

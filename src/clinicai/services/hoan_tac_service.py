@@ -33,6 +33,7 @@ tiền — huỷ phiếu / hoàn tiền). Khoản ấy hiện ở quầy thu th�
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import asyncpg
@@ -268,12 +269,18 @@ async def _mo_lai_luot_trong(
 
 
 async def tien_da_thu_cua_chi_dinh(
-    conn: asyncpg.Connection, clinic_id: str, order_ids: list[str]
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    order_ids: list[str],
+    *,
+    chi_mon_kem: Sequence[str] = (),
 ) -> dict[str, dict[str, int]]:
     """Chỉ định → {da_thu, da_hoan, cho_xac_minh} (phòng khám thu, kể cả món kèm).
 
     `da_thu` = lần thu ĐÃ THU (PAID), `cho_xac_minh` = chuyển khoản đang chờ,
     `da_hoan` = khoản hoàn đang làm / đã xong trên đúng các dòng ấy.
+    `chi_mon_kem`: các chỉ định chỉ tính MÓN KÈM (phụ thu) — dòng của chính
+    chỉ định đang được liệu trình giữ (buổi lẻ đã thu rồi huỷ, 31/10/2026).
     """
     if not order_ids:
         return {}
@@ -296,6 +303,8 @@ async def tien_da_thu_cua_chi_dinh(
                AND c.payment_cycle_id = bl.payment_cycle_id
              WHERE o.clinic_id = $1::uuid AND o.id::text = ANY($2::text[])
                AND c.status IN ('PAID', 'PENDING_VERIFICATION')
+               AND NOT (bl.source_type = 'service_order'
+                        AND o.id::text = ANY($3::text[]))
         )
         SELECT d.order_id,
                coalesce(sum(d.line_total) FILTER (WHERE d.status = 'PAID'), 0)
@@ -316,6 +325,7 @@ async def tien_da_thu_cua_chi_dinh(
         """,
         clinic_id,
         order_ids,
+        list(chi_mon_kem),
     )
     return {
         r["order_id"]: {
@@ -368,7 +378,9 @@ async def _tien_thua_chi_dinh(
     don = await conn.fetch(
         """
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
-               o.exec_status, o.cancel_reason, o.not_performed_reason
+               o.exec_status, o.cancel_reason, o.not_performed_reason,
+               lieu_trinh_giu_tien_cua_chi_dinh(o.clinic_id, o.id) IS NOT NULL
+                   AS lieu_trinh_giu
           FROM service_order o
          WHERE o.clinic_id = $1::uuid AND o.visit_id::text = ANY($2::text[])
            AND o.exec_status IN ('cancelled', 'not_performed')
@@ -379,7 +391,14 @@ async def _tien_thua_chi_dinh(
     )
     if not don:
         return {}
-    tien = await tien_da_thu_cua_chi_dinh(conn, clinic_id, [r["id"] for r in don])
+    # Buổi lẻ đã thu của liệu trình rồi huỷ: tiền GIỮ TRONG GÓI (Tuyền chốt
+    # 31/10/2026) — không phải tiền thừa; món kèm (phụ thu) vẫn là tiền thừa.
+    tien = await tien_da_thu_cua_chi_dinh(
+        conn,
+        clinic_id,
+        [r["id"] for r in don],
+        chi_mon_kem=[r["id"] for r in don if r["lieu_trinh_giu"]],
+    )
     out: dict[str, dict[str, Any]] = {}
     for r in don:
         t = tien.get(r["id"])
@@ -763,8 +782,23 @@ class HoanTacService:
                 "cho_xac_minh": 0,
             }
             thua = max(tien["da_thu"] - tien["da_hoan"], 0)
+            # Buổi của liệu trình đã thu lẻ: bỏ thì tiền GIỮ TRONG GÓI (thành 1
+            # buổi đã trả — Postgres `lieu_trinh_dong_giu`), không thành tiền thừa.
+            buoi_lt = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM lieu_trinh_buoi"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                "   AND go_luc IS NULL)",
+                cid,
+                oid,
+            )
             hau_qua: list[str] = []
-            if thua > 0:
+            if thua > 0 and buoi_lt:
+                hau_qua.append(
+                    f"“{o['service_name']}” đã thu {_tien(thua)} — bỏ chỉ định thì"
+                    " khoản này GIỮ LẠI trong liệu trình (thành 1 buổi đã trả"
+                    " trước), không thành tiền thừa."
+                )
+            elif thua > 0:
                 hau_qua.append(
                     f"“{o['service_name']}” đã thu {_tien(thua)} — bỏ chỉ định thì"
                     " khoản này thành TIỀN THỪA ở quầy thu (hoàn cho khách hoặc trừ"
@@ -809,6 +843,18 @@ class HoanTacService:
                 identity.staff_id,
                 ly,
             )
+            giu = 0
+            if thua > 0 and await conn.fetchval(
+                "SELECT lieu_trinh_giu_tien_cua_chi_dinh($1::uuid, $2::uuid)"
+                " IS NOT NULL",
+                cid,
+                oid,
+            ):
+                con = (
+                    await tien_da_thu_cua_chi_dinh(conn, cid, [oid], chi_mon_kem=[oid])
+                ).get(oid)
+                moi = max(con["da_thu"] - con["da_hoan"], 0) if con else 0
+                giu, thua = thua - moi, moi
             # Chỗ chờ ở phòng (đã xếp) → đóng; khách không còn ở hàng phòng ấy.
             await conn.execute(
                 "UPDATE queue_entry SET status = 'cancelled', version = version + 1,"
@@ -860,7 +906,7 @@ class HoanTacService:
                     service_order_id=oid,
                     service_code=o["service_code"],
                     service_name=o["service_name"],
-                    da_thu_tien=thua > 0,
+                    da_thu_tien=thua + giu > 0,
                     tien_thua=thua or None,
                     ly_do=ly,
                 ),
@@ -879,14 +925,16 @@ class HoanTacService:
                     "order_id": oid,
                     "service_code": o["service_code"],
                     "tien_thua": thua,
+                    "giu_trong_lieu_trinh": giu,
                 },
             )
         return {
             "ok": True,
             "order_id": oid,
             "visit_id": vid,
-            "da_thu_tien": thua > 0,
+            "da_thu_tien": thua + giu > 0,
             "tien_thua": thua,
+            "giu_trong_lieu_trinh": giu,
             "so_sua_id": so_id,
             "da_bao_bac_si_chinh": da_bao,
         }

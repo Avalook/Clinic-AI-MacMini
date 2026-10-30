@@ -119,6 +119,16 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "lieu_trinh_dung_tinh_gia_le",
+            # Tuyền chốt 30/10/2026. Chỉ áp cho lần dừng SAU khi đổi (lệnh dừng
+            # chụp vào `lieu_trinh.chinh_sach_dung`). Tính ở `lieu_trinh_tien`.
+            "Dừng liệu trình = PHÁ GÓI: tính lại giá lẻ (giá bảng) mọi buổi đã"
+            " làm, hoàn phần đã trả còn dư. TẮT = tính theo giá gói: buổi đã làm"
+            " và buổi đang kê theo đơn giá gói, hoàn phần trả trước chưa dùng",
+            False,
+            "bat_tat",
+        ),
+        Day(
             "h6_bao_cskh_khi_ve_con_viec",
             "Khách về mà còn việc dở (kết quả chưa về / chưa ai xem) → báo CSKH",
             True,
