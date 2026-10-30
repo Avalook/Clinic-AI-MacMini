@@ -89,6 +89,11 @@ def xlsx_tom_tat(bc: Mapping[str, Any], day_du: bool = False) -> bytes:
             next((r["thuc_thu"] for r in bc["theo_loai"] if r["ma"] == "thuoc"), 0),
         ],
         *[[r["ten"], r["thuc_thu"]] for r in bc["theo_hinh_thuc"]],
+        # Chuyển khoản theo tài khoản nhận (31/10/2026) — như dòng phụ trên màn.
+        *[
+            [f"  Chuyển khoản · {r['ten']}", r["thuc_thu"]]
+            for r in bc.get("theo_tai_khoan") or []
+        ],
     ]
     if day_du and bc.get("tai_chinh"):
         rows.extend(dong_tien_rows(bc["tai_chinh"].get("dong_tien") or {}))
@@ -132,6 +137,7 @@ def xlsx_bao_cao(bc: Mapping[str, Any]) -> bytes:
     keys = ("thu", "huy", "hoan", "thuc_thu")
     for title, key in (
         ("Hình thức", "theo_hinh_thuc"),
+        ("Theo tài khoản", "theo_tai_khoan"),
         ("Loại", "theo_loai"),
         ("Người thu", "theo_nguoi_thu"),
     ):
@@ -139,7 +145,7 @@ def xlsx_bao_cao(bc: Mapping[str, Any]) -> bytes:
             (
                 title,
                 [title, "Thu gốc", "Hủy phiếu", "Hoàn", "Thực thu"],
-                [[r["ten"], *[r[k] for k in keys]] for r in bc[key]],
+                [[r["ten"], *[r[k] for k in keys]] for r in bc.get(key) or []],
             )
         )
     sheets.append(

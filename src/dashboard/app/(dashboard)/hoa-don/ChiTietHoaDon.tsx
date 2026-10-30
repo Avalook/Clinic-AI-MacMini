@@ -14,7 +14,8 @@ function DongChiTiet({ dong }: { dong: DongHoaDon[] }) {
   return <ul className="divide-y divide-hairline">
     {dong.map(d => <li key={d.id} className="flex flex-wrap justify-between gap-2 py-2">
       <span className="min-w-0 break-words">{d.ten} <span className="text-ink-muted">× {d.so_luong}</span>
-        {d.da_bo ? <span className="ml-2 rounded-chip bg-surface-muted px-2 py-0.5 text-meta text-ink-soft">đã bỏ sau thu</span> : null}</span>
+        {d.da_bo ? <span className="ml-2 rounded-chip bg-surface-muted px-2 py-0.5 text-meta text-ink-soft">đã bỏ sau thu</span> : null}
+        {d.phong ? <span className="block text-meta text-ink-muted">{d.phong}</span> : null}</span>
       <span className="text-right tabular-nums">{tien(d.thanh_tien)}
         {(d.giam_gia ?? 0) > 0 ? <span className="block text-meta text-ink-muted">Trước giảm: {tien(d.thanh_tien_truoc_giam ?? d.thanh_tien)} · Giảm: {tien(d.giam_gia ?? 0)}</span> : null}</span>
     </li>)}
@@ -86,7 +87,8 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
     <dl className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
       <div><dt className="text-meta text-ink-muted">{p.trang_thai === "CK_DA_HUY" ? "Số tiền lần chờ" : "Tiền đã thu"}</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
       <div><dt className="text-meta text-ink-muted">Thực thu</dt><dd className="tabular-nums">{tien(p.thu_rong)}</dd></div>
-      <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu"}</dd></div>
+      <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu"}</dd>
+        {(p.chuyen_khoan ?? 0) > 0 ? <dd className="text-meta text-ink-muted">Chuyển khoản {tien(p.chuyen_khoan ?? 0)} vào {p.ten_tai_khoan ?? "Chưa phân loại"}</dd> : null}</div>
       <div><dt className="text-meta text-ink-muted">Người thu</dt><dd>{p.nguoi_thu || "Không có dữ liệu"}</dd></div>
     </dl>
     {p.giam_gia > 0 ? <p className="mt-3 rounded-control bg-surface-muted p-3">

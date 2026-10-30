@@ -102,17 +102,13 @@ function DongLieuTrinh({ x, visitId, onDoi }: { x: LTQ; visitId: string; onDoi: 
       </p>
       {dangChon ? (
         <p className="text-meta text-brand-700">
-          Đang trong hoá đơn: trả trước {dangChon.so_buoi} buổi — bỏ bằng [Bỏ] ở dòng hoá đơn.
+          Đang trong hoá đơn: trả trước {dangChon.so_buoi} buổi{dangChon.tra_het ? " (trả hết)" : ""} — bỏ bằng [Bỏ] ở dòng hoá đơn.
         </p>
       ) : null}
       {x.goi_y_tra_them ? (
         <p className="text-meta text-warning">{x.cau_goi_y ?? "Hết buổi đã trả trước — gợi ý khách trả thêm."}</p>
       ) : null}
-      {x.trang_thai === "DUNG" && x.hoan_duoc_toi_da > 0 ? (
-        <p className="text-meta text-warning">
-          Đã dừng, còn {x.hoan_duoc_toi_da} buổi đã trả chưa dùng — hoàn bằng [Hoàn tiền] ở tab “Đã thanh toán”.
-        </p>
-      ) : null}
+      {x.cau_hoan ? <p className="text-meta text-warning">{x.cau_hoan}</p> : null}
       {x.tra_truoc_toi_da > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 text-meta text-ink-soft">

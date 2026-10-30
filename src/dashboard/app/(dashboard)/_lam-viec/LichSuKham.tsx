@@ -16,12 +16,13 @@
 // tắt phiếu bên cạnh; bấm lượt → mở hồ sơ lượt ấy chỉ đọc; "Tìm theo ngày · xem
 // mọi lượt" → hộp lớn như cũ.
 
-import { History, X } from "lucide-react";
+import { History, Printer, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
+import NutInPhieu from "@/components/ui/NutInPhieu";
 import { chuNhanLuot, type NhanLuot } from "@/lib/nhan-luot";
 import { todayVn } from "@/lib/roster";
 import type { Khoang } from "@/lib/thanh-ngay";
@@ -91,6 +92,9 @@ function tomTat(form: Record<string, unknown> | undefined): string[] {
 
 /** Số lượt hiện trong danh sách bung — còn lại tìm ở hộp lớn. */
 const SO_NHANH = 8;
+
+/** Trang in "Tóm tắt bệnh án — 3 lần khám gần nhất" của khách. */
+export const duongTomTat = (clinicPatientId: string) => `/print/tom-tat-kham/${clinicPatientId}`;
 
 export default function LichSuKham({
   clinicPatientId,
@@ -240,6 +244,18 @@ export default function LichSuKham({
                 </li>
               ))}
             </ul>
+            {/* In tóm tắt 3 lần khám gần nhất (30/10/2026) — một chỗ sửa ăn mọi
+                màn dùng nút này. Máy chủ chọn lượt (`services/tom_tat_kham.py`). */}
+            <a
+              href={duongTomTat(clinicPatientId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMenu(false)}
+              className="mt-1 flex w-full items-center gap-1.5 rounded-control border-t border-hairline px-2 pt-2 pb-1 text-left text-meta font-medium text-brand-700 hover:bg-surface-muted"
+            >
+              <Printer className="size-4" aria-hidden="true" />
+              In tóm tắt 3 lần khám
+            </a>
             <button
               type="button"
               onClick={() => {
@@ -295,9 +311,14 @@ export default function LichSuKham({
               <h2 className="text-title font-semibold text-ink">
                 Lịch sử khám{goi ? ` (${goi.tong} lượt)` : ""}
               </h2>
-              <button type="button" aria-label="Đóng" onClick={dong} className="rounded-control p-1 text-ink-muted hover:bg-surface-sunken">
-                <X className="size-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <NutInPhieu href={duongTomTat(clinicPatientId)} size="md">
+                  In tóm tắt 3 lần khám
+                </NutInPhieu>
+                <button type="button" aria-label="Đóng" onClick={dong} className="rounded-control p-1 text-ink-muted hover:bg-surface-sunken">
+                  <X className="size-5" />
+                </button>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <input

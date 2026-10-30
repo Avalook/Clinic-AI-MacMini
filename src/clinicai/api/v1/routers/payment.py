@@ -34,6 +34,7 @@ from clinicai.services.hoa_don_cong_ty_service import HoaDonCongTyService
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_access_service import authorize_payment
 from clinicai.services.payment_service import PaymentService
+from clinicai.services.tai_khoan_nhan_service import TaiKhoanNhanService
 
 router = APIRouter()
 
@@ -58,6 +59,8 @@ class PhanThuRequest(BaseModel):
     hinh_thuc: Any = None
     so_tien: Any = None
     khach_dua: Any = None
+    #: Tài khoản nhận của phần chuyển khoản (31/10/2026) — bỏ trống = mặc định.
+    tai_khoan_id: Any = None
 
 
 class LuaChonKhiThu(BaseModel):
@@ -331,6 +334,8 @@ class DoiHinhThucRequest(BaseModel):
     #: Đổi sang CHIA (01/10/2026): cả hai số, tổng = số tiền phiếu.
     tien_mat: float | None = None
     chuyen_khoan: float | None = None
+    #: Có chuyển khoản → tài khoản nhận (31/10/2026); bỏ trống = mặc định.
+    tai_khoan_id: UUID | None = None
 
 
 @router.post("/payments/doi-hinh-thuc")
@@ -352,8 +357,36 @@ async def doi_hinh_thuc(
         ly_do=body.ly_do,
         tien_mat=body.tien_mat,
         chuyen_khoan=body.chuyen_khoan,
+        tai_khoan_id=body.tai_khoan_id,
     )
     return {"ok": True, **kq}
+
+
+class DoiTaiKhoanRequest(BaseModel):
+    payment_cycle_id: UUID
+    tai_khoan_id: UUID
+    #: Tài khoản màn đang thấy — người khác vừa sửa thì 409, không đè.
+    tai_khoan_cu: UUID | None = None
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/payments/doi-tai-khoan")
+async def doi_tai_khoan(
+    body: DoiTaiKhoanRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Sửa tài khoản nhận chuyển khoản của một phiếu (chọn nhầm) — có vết."""
+    identity = await authorize_payment(
+        pool, identity, cycle_id=str(body.payment_cycle_id)
+    )
+    return await TaiKhoanNhanService(pool).doi_cho_lan_thu(
+        identity=identity,
+        payment_cycle_id=str(body.payment_cycle_id),
+        tai_khoan_id=body.tai_khoan_id,
+        tai_khoan_cu=body.tai_khoan_cu,
+        ly_do=body.ly_do,
+    )
 
 
 # ── Hoàn tiền (contract tiền–thuốc CP5) ────────────────────────────────────
@@ -373,6 +406,9 @@ class HoanTienRequest(BaseModel):
     method: PaymentMethod
     reason: str = Field(min_length=5, max_length=500)
     dong: list[DongHoanRequest] = Field(min_length=1)
+    #: Hoàn chuyển khoản từ tài khoản nào (31/10/2026); bỏ trống = tài khoản đã
+    #: nhận lần thu gốc.
+    tai_khoan_id: UUID | None = None
 
 
 @router.post("/payments/hoan-tien")
@@ -422,6 +458,7 @@ async def _tao_hoan(
         ],
         method=body.method,
         reason=body.reason,
+        tai_khoan_id=body.tai_khoan_id,
     )
     return {"ok": True, **kq}
 

@@ -468,3 +468,57 @@ def test_phut_cho_va_cho_lau() -> None:
     assert rules.phut_cho(ci + timedelta(minutes=5), ci) is None
     assert rules.phut_cho(datetime(2026, 9, 27, 8, 0), ci) is None
     assert rules.cho_do_lau(None) is False
+
+
+# --- [Không đo] sinh hiệu (30/10/2026): lý do + câu hiển thị -----------------
+def test_doc_ly_do_khong_do_va_nhan() -> None:
+    assert rules.doc_ly_do_khong_do("TRE_NHO", None) == ("TRE_NHO", None)
+    # Mã khác "Khác" bỏ chữ — chip đã nói đủ.
+    assert rules.doc_ly_do_khong_do("TU_CHOI", "abc") == ("TU_CHOI", None)
+    assert rules.doc_ly_do_khong_do("KHAC", "  sốt   cao ") == ("KHAC", "sốt cao")
+    assert rules.doc_ly_do_khong_do("KHAC", "x" * 900) == ("KHAC", "x" * 500)
+    # Rác → None, không ném.
+    for ma, chu in (
+        (None, None),
+        ("", None),
+        ("tre_nho", None),
+        (1, None),
+        (["TRE_NHO"], None),
+        ("KHAC", None),
+        ("KHAC", "   "),
+        ("KHAC", 5),
+    ):
+        assert rules.doc_ly_do_khong_do(ma, chu) is None
+    assert rules.nhan_khong_do("TRE_NHO", None) == "Không đo · Trẻ nhỏ"
+    assert rules.nhan_khong_do("DO_NOI_KHAC", None) == "Không đo · Đã đo nơi khác"
+    assert rules.nhan_khong_do("KHAC", "Khách say") == "Không đo · Khách say"
+    assert rules.nhan_khong_do("KHAC", None) == "Không đo · Khác"
+    assert rules.nhan_khong_do(None, None) == "Không đo"
+    assert rules.nhan_khong_do("rác", 3) == "Không đo"
+
+
+# --- Bỏ chỉ định (30/10/2026): một luật cho lệnh + nút ở màn trưởng ca --------
+@pytest.mark.parametrize(
+    ("exec_status", "execution_status", "ma"),
+    [
+        ("authorized", None, None),
+        ("assigned", "READY", None),
+        ("draft", None, None),
+        ("not_performed", "NOT_PERFORMED", None),
+        ("cancelled", "CANCELLED", "ORDER_CANCELLED"),
+        ("in_progress", None, "ORDER_IN_PROGRESS"),
+        ("assigned", "IN_PROGRESS", "ORDER_IN_PROGRESS"),
+        ("performed", None, "ORDER_PERFORMED"),
+        ("assigned", "COMPLETED", "ORDER_PERFORMED"),
+        # Rác / thiếu → không ném.
+        (None, None, None),
+        ("", "", None),
+    ],
+)
+def test_chan_bo_chi_dinh(
+    exec_status: str | None, execution_status: str | None, ma: str | None
+) -> None:
+    kq = rules.chan_bo_chi_dinh(
+        exec_status=exec_status, execution_status=execution_status
+    )
+    assert (kq[0] if kq else None) == ma

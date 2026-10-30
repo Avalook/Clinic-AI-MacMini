@@ -117,9 +117,48 @@ def chi_so_do(
     return {k: do.get(k) for k in (*COT_SO_DO, *kem)}
 
 
+#: "Không đo" mới nhất của từng lượt (30/10/2026) — bảng `sinh_hieu_khong_do`.
+_KHONG_DO_SQL = """
+SELECT DISTINCT ON (k.visit_id)
+       k.visit_id::text AS visit_id, k.ly_do, k.ghi_chu, k.ghi_luc,
+       coalesce(s.full_name, k.ghi_boi_ten) AS ghi_boi
+  FROM sinh_hieu_khong_do k
+  LEFT JOIN staff s ON s.id = k.ghi_boi
+ WHERE k.clinic_id = $1::uuid AND k.visit_id = ANY($2::uuid[])
+ ORDER BY k.visit_id, k.ghi_luc DESC, k.id DESC
+"""
+
+
+async def khong_do_cua_luot(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: Sequence[str]
+) -> dict[str, dict[str, Any]]:
+    """{visit_id: lần bấm [Không đo] mới nhất} — ``ma``, ``ghi_chu``, ``nhan``
+    ("Không đo · Trẻ nhỏ"), ``luc``, ``boi``. Lượt chưa bấm thì vắng.
+
+    CHỈ là sự thật đã ghi; "lần đo thật thắng" do nơi đọc quyết (có số đo của
+    buổi thì không hiện "Không đo").
+    """
+    from clinicai.services.luot_kham_rules import nhan_khong_do
+
+    ids = [str(v) for v in visit_ids if v]
+    if not ids:
+        return {}
+    return {
+        r["visit_id"]: {
+            "ma": r["ly_do"],
+            "ghi_chu": r["ghi_chu"],
+            "nhan": nhan_khong_do(r["ly_do"], r["ghi_chu"]),
+            "luc": r["ghi_luc"].isoformat() if r["ghi_luc"] else None,
+            "boi": r["ghi_boi"],
+        }
+        for r in await conn.fetch(_KHONG_DO_SQL, clinic_id, ids)
+    }
+
+
 __all__ = [
     "COT_SO_DO",
     "chi_so_do",
+    "khong_do_cua_luot",
     "sinh_hieu_cua_buoi",
     "sinh_hieu_cua_buoi_nhieu",
 ]

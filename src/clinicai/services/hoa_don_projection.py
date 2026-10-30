@@ -5,7 +5,13 @@ from datetime import datetime
 from typing import Any
 
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.phan_thu import (
+    chuan_hinh_thuc,
+    doc_phan_db,
+    so_tien_chuyen_khoan,
+)
 from clinicai.services.quay_thu_service import ma_phieu
+from clinicai.services.tai_khoan_nhan_service import CHUA_PHAN_LOAI
 
 
 def _iso(value: Any) -> str | None:
@@ -119,6 +125,33 @@ def _state(status: Any, amount: int, returned: int, pending: int) -> str:
     return "HOAN_MOT_PHAN" if returned else "DA_THU"
 
 
+def nhan_phong(phong: Mapping[str, Any] | None) -> str | None:
+    """ "Phòng siêu âm 2 · BS X (dự kiến)" — đúng chữ phiếu thu in (tên phòng,
+    bác sĩ của phòng nhiều bác sĩ, chưa xếp thì phòng dự kiến). Không tầng."""
+    if not phong or not phong.get("ten"):
+        return None
+    chu = str(phong["ten"])
+    if phong.get("bac_si"):
+        chu += f" · {phong['bac_si']}"
+    return chu + (" (dự kiến)" if phong.get("du_kien") else "")
+
+
+def gan_phong(
+    lines: list[dict[str, Any]],
+    refund_lines: list[dict[str, Any]],
+    phong_cua_dong: Mapping[str, Mapping[str, Any] | None],
+) -> None:
+    """Gắn nhãn phòng (``phong``) vào từng dòng dịch vụ + dòng hoàn của dòng ấy.
+    ``phong_cua_dong``: id dòng hoá đơn → phòng như phiếu thu (``_phong_cua_dong``).
+    Dòng đã bỏ sau thu không in phòng (như bản in lại phiếu)."""
+    nhan: dict[str, str | None] = {}
+    for d in lines:
+        p = None if d.get("da_bo") else nhan_phong(phong_cua_dong.get(str(d["id"])))
+        d["phong"] = nhan[str(d["id"])] = p
+    for d in refund_lines:
+        d["phong"] = nhan.get(str(d["id"]))
+
+
 def _line(row: dict[str, Any]) -> dict[str, Any]:
     actual = int(row["thanh_tien"])
     discount = int(row.get("discount_allocated") or 0)
@@ -163,6 +196,9 @@ def _refund(row: dict[str, Any], lines: list[dict[str, Any]]) -> dict[str, Any]:
         "ly_do_huy": row.get("closed_reason"),
         "ly_do": row.get("reason"),
         "hinh_thuc": row.get("method"),
+        # Hoàn chuyển khoản đi từ tài khoản nào (31/10/2026).
+        "tai_khoan_id": row.get("tai_khoan_id"),
+        "ten_tai_khoan": row.get("ten_tai_khoan"),
         "trong_ky": bool(row.get("trong_ky")),
         "dong": [_line(d) for d in lines if d["refund_id"] == row["id"]],
     }
@@ -204,6 +240,12 @@ def _bill(
         if row["status"] in ("VOIDED", "CANCELLED")
         else amount - completed,
         "hinh_thuc": row.get("method"),
+        # Phần chuyển khoản + tài khoản nhận (31/10/2026); null = chưa phân loại.
+        "chuyen_khoan": so_tien_chuyen_khoan(
+            doc_phan_db(row.get("phan")), row.get("method"), amount
+        ),
+        "tai_khoan_id": row.get("tai_khoan_id"),
+        "ten_tai_khoan": row.get("ten_tai_khoan"),
         "lap_luc": _iso(row.get("created_at")),
         "thu_luc": _iso(row.get("paid_at")),
         "huy_luc": _iso(row.get("closed_at")),
@@ -379,6 +421,46 @@ def hop_nhom(bill: Mapping[str, Any], nhom: str | None) -> bool:
     }.get(nhom, True)
 
 
+def tach_tai_khoan(bills: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Chuyển khoản TRONG KỲ của các phiếu đang hiện, tách theo tài khoản nhận
+    (31/10/2026). Cùng luật dòng tiền của báo cáo: thu (phiếu thu trong kỳ, trừ
+    lần chờ đã huỷ) − huỷ (phiếu huỷ trong kỳ) − hoàn chuyển khoản đã xong trong
+    kỳ (theo tài khoản chuyển trả). Thuần."""
+    o: dict[str | None, dict[str, Any]] = {}
+
+    def muc(k: Any, ten: Any) -> dict[str, Any]:
+        key = str(k) if k else None
+        ten_ = ten if key else CHUA_PHAN_LOAI
+        return o.setdefault(
+            key, {"id": key, "ten": ten_, "thu": 0, "huy": 0, "hoan": 0}
+        )
+
+    for p in bills:
+        ck = int(p.get("chuyen_khoan") or 0)
+        if ck > 0 and p.get("trang_thai_goc") != "CANCELLED":
+            m = muc(p.get("tai_khoan_id"), p.get("ten_tai_khoan"))
+            if p.get("thu_trong_ky"):
+                m["thu"] += ck
+            if p.get("huy_trong_ky"):
+                m["huy"] += ck
+        for r in p.get("hoan") or []:
+            if (
+                r.get("trong_ky")
+                and r.get("trang_thai") == "COMPLETED"
+                and chuan_hinh_thuc(r.get("hinh_thuc")) == "TRANSFER"
+            ):
+                muc(r.get("tai_khoan_id"), r.get("ten_tai_khoan"))["hoan"] += int(
+                    r["so_tien"]
+                )
+    ra = [
+        {**m, "thuc_thu": m["thu"] - m["huy"] - m["hoan"]}
+        for m in o.values()
+        if m["thu"] or m["huy"] or m["hoan"]
+    ]
+    ra.sort(key=lambda m: (m["id"] is None, str(m["ten"] or "")))
+    return ra
+
+
 def hop_hinh_thuc(bill: Mapping[str, Any], hinh_thuc: str | None) -> bool:
     if hinh_thuc not in ("CASH", "TRANSFER"):
         return True
@@ -467,6 +549,7 @@ def gom_hoa_don(
     tong_khach["thu_rong"] = sum(int(g["thu_rong"]) for g in selected)
     tong_khach["so_khach_con_ton"] = sum(bool(g["viec_ton"]) for g in selected)
     return {
+        "theo_tai_khoan": tach_tai_khoan([p for g in selected for p in g["phieu"]]),
         "tong": {
             **_period(selected),
             "so_viec_ton": len(viec_ton),

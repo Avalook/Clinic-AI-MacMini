@@ -77,6 +77,7 @@ from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.api.v1.routers.service_log import router as service_log_router
 from clinicai.api.v1.routers.staff import router as staff_router
+from clinicai.api.v1.routers.tai_khoan_nhan import router as tai_khoan_nhan_router
 from clinicai.api.v1.routers.thai_ky import router as thai_ky_router
 from clinicai.api.v1.routers.theo_doi_thu_thuat import (
     router as theo_doi_thu_thuat_router,
@@ -315,6 +316,12 @@ app.include_router(
 )
 app.include_router(
     hoa_don_misa_router, prefix="/api/v1", tags=["hoa-don"], dependencies=_GUARDED
+)
+app.include_router(
+    tai_khoan_nhan_router,
+    prefix="/api/v1",
+    tags=["tai-khoan-nhan"],
+    dependencies=_GUARDED,
 )
 app.include_router(
     ke_toan_router, prefix="/api/v1", tags=["ke-toan"], dependencies=_GUARDED

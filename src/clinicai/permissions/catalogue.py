@@ -1118,6 +1118,8 @@ MAN: dict[str, Man] = {
                 "/settings/day-noi",
                 # Mẫu kết quả (27/09/2026): gắn mẫu cho dịch vụ, sửa / tạo mẫu.
                 "/settings/mau-ket-qua",
+                # Tài khoản ngân hàng nhận chuyển khoản (31/10/2026).
+                "/settings/tai-khoan-nhan",
             ],
             ["cai_dat", "danh_muc"],
             "Quản lý",

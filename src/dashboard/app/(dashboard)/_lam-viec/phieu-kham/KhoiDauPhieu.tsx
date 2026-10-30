@@ -55,7 +55,7 @@ export function KhoiHanhChinh({
         <span className="text-meta text-ink-faint">
           {dau.sinh_hieu_luc
             ? `đồng bộ từ Điều dưỡng · ${gioVn(dau.sinh_hieu_luc)}${dau.sinh_hieu_nguon ? ` (${dau.sinh_hieu_nguon})` : ""}`
-            : "chưa đo sinh hiệu"}
+            : (dau.sinh_hieu_khong_do ?? "chưa đo sinh hiệu")}
         </span>
       </dl>
     </div>

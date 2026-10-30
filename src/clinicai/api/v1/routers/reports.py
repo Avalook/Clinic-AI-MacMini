@@ -10,7 +10,7 @@ gì, nó không ngăn được ai gõ thẳng đường dẫn.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
@@ -202,6 +202,76 @@ class ChotCaRequest(BaseModel):
 class MoKhoaCaRequest(BaseModel):
     id: str = Field(max_length=40)
     ly_do: str = Field(max_length=500)
+
+
+class KetTienMatRequest(BaseModel):
+    """Kiểu lỏng: luật (mệnh giá, số tờ, lý do) ở ``ket_tien_mat_service``."""
+
+    hanh_dong: Literal["quy_dau", "dem_cuoi", "mo_lai"]
+    ngay: str = Field(max_length=40)
+    ca: str = Field(max_length=10)
+    co_so: str = Field(max_length=40)
+    tong: Any = None
+    dem: dict[str, Any] | None = None
+    ly_do: str | None = Field(default=None, max_length=500)
+    ly_do_lech: str | None = Field(default=None, max_length=500)
+    nguoi_nhan: str | None = Field(default=None, max_length=200)
+
+
+@router.get("/reports/ket-tien-mat")
+async def xem_ket_tien_mat(
+    ngay: str | None = Query(None, max_length=40),
+    ca: str | None = Query(None, max_length=10),
+    co_so: str | None = _CO_SO,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Két tiền mặt của đúng một ca: quỹ đầu, tiền mặt trong ca, dự kiến, đếm."""
+    from clinicai.services.ket_tien_mat_service import KetTienMatService
+
+    return await KetTienMatService(pool).xem(
+        identity=identity, ngay=ngay, ca=ca, co_so=co_so
+    )
+
+
+@router.post("/reports/ket-tien-mat")
+async def ghi_ket_tien_mat(
+    body: KetTienMatRequest,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Quỹ đầu ca / kiểm kê cuối ca / mở lại (bắt lý do) — có vết."""
+    from clinicai.services.ket_tien_mat_service import KetTienMatService
+
+    svc = KetTienMatService(pool)
+    if body.hanh_dong == "quy_dau":
+        return await svc.quy_dau(
+            identity=identity,
+            ngay=body.ngay,
+            ca=body.ca,
+            co_so=body.co_so,
+            tong=body.tong,
+            dem=body.dem,
+            ly_do=body.ly_do,
+        )
+    if body.hanh_dong == "dem_cuoi":
+        return await svc.dem_cuoi(
+            identity=identity,
+            ngay=body.ngay,
+            ca=body.ca,
+            co_so=body.co_so,
+            tong=body.tong,
+            dem=body.dem,
+            ly_do_lech=body.ly_do_lech,
+            nguoi_nhan=body.nguoi_nhan,
+        )
+    return await svc.mo_lai(
+        identity=identity,
+        ngay=body.ngay,
+        ca=body.ca,
+        co_so=body.co_so,
+        ly_do=body.ly_do,
+    )
 
 
 @router.get("/reports/chot-ca")

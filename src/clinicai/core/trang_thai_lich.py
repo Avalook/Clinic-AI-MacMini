@@ -15,7 +15,7 @@ màn (30/09/2026).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from clinicai.core.clock import CLINIC_TZ
@@ -27,6 +27,48 @@ DEAD_STATUSES: frozenset[str] = frozenset({"CANCELLED", "NO_SHOW", "DOCTOR_DECLI
 def giu_cho(status: str | None) -> bool:
     """Lịch ở trạng thái này có còn chiếm một ghế trong khung không."""
     return (status or "").strip() not in DEAD_STATUSES
+
+
+# ---------------------------------------------------------------------------
+# HOÀN TÁC HUỶ / KHÔNG ĐẾN (30/10/2026) — luật thuần, dùng chung cho lệnh mở
+# lại (`BookingService.mo_lai`) và cờ hiện nút ở các màn.
+# ---------------------------------------------------------------------------
+
+#: Hoàn tác chỉ nhận hai trạng thái này (bác sĩ từ chối đi đường `reassign`).
+MO_LAI_DUOC_TU: frozenset[str] = frozenset({"CANCELLED", "NO_SHOW"})
+
+_TRUOC_KHI_DEN: frozenset[str] = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"})
+
+
+def ngay_cua_lich(moc: Any) -> date | None:
+    """Ngày (giờ Việt Nam) của một mốc giờ; rác / giờ trần → None, không ném."""
+    if not isinstance(moc, datetime) or moc.tzinfo is None:
+        return None
+    return moc.astimezone(CLINIC_TZ).date()
+
+
+def trang_thai_mo_lai(truoc: Any) -> str:
+    """Mở lại về đúng trạng thái trước khi huỷ, nếu đó là trạng thái TRƯỚC KHI
+    ĐẾN. Không biết (huỷ trước khi có cột) / rác / CHECKED_IN (đã có lượt — lệnh
+    chặn trước khi tới đây) → CONFIRMED, trạng thái mọi lịch mới đặt."""
+    return truoc if isinstance(truoc, str) and truoc in _TRUOC_KHI_DEN else "CONFIRMED"
+
+
+def mo_lai_duoc(status: Any, co_luot: bool, slot_start: Any, bay_gio: Any) -> bool:
+    """Màn có hiện nút "Hoàn tác" cho lịch đã huỷ / không đến không.
+
+    Huỷ / không đến · chưa có lượt khám · ngày của lịch chưa qua. Lệnh mở lại
+    vẫn tự kiểm lại đủ (quyền, sức chứa, lịch trùng) — cờ này chỉ để không mời
+    bấm một việc chắc chắn bị từ chối. Mốc rác → False.
+    """
+    ngay, hom_nay = ngay_cua_lich(slot_start), ngay_cua_lich(bay_gio)
+    return (
+        status in MO_LAI_DUOC_TU
+        and not co_luot
+        and ngay is not None
+        and hom_nay is not None
+        and ngay >= hom_nay
+    )
 
 
 # ---------------------------------------------------------------------------

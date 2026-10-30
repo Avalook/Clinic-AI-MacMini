@@ -414,6 +414,116 @@ class SinhHieuService:
             )
         return result
 
+    async def khong_do(
+        self,
+        *,
+        visit_id: str,
+        ly_do: Any,
+        ghi_chu: Any = None,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """[Không đo] — khách không đo sinh hiệu được (trẻ nhỏ, từ chối, đã đo
+        nơi khác, khác + chữ). 30/10/2026.
+
+        KHÔNG ghi số giả. Ghi một dòng `sinh_hieu_khong_do` (lý do, ai, lúc
+        nào), luồng sang `recorded` và phát `vitals.recorded` CÓ CỜ `khong_do`
+        — khối Hành trình xếp khách đi tiếp y như đã đo (khách không kẹt hàng
+        chờ đo). Hoàn tác = đo thật sau đó (`record_vitals` vẫn nhận lượt đã
+        `recorded`); lần đo thật thắng ở mọi màn.
+
+        Đã có số đo (của lượt hay của buổi) → từ chối. Bấm lại với lý do khác
+        → thêm dòng (dòng mới nhất là hiện hành), không phát sự kiện thứ hai;
+        bấm trùng y hệt → `already`.
+        """
+        from clinicai.services.sinh_hieu_buoi import (
+            khong_do_cua_luot,
+            sinh_hieu_cua_buoi,
+        )
+
+        cid = identity.clinic_id
+        vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
+        doc = rules.doc_ly_do_khong_do(ly_do, ghi_chu)
+        if doc is None:
+            o_loi = "ghi_chu" if ly_do == rules.KHONG_DO_CAN_CHU else "ly_do"
+            raise LoiSinhHieuError(
+                "Chọn lý do không đo — “Khác” thì ghi rõ lý do.", tuple([o_loi])
+            )
+        ma, chu = doc
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, "vitals.measure")
+            await khoa_luot(conn, cid, vid, cho_phep_ve_giua_chung=True)
+            flow = await khoa_flow(conn, cid, vid)
+            if await sinh_hieu_cua_buoi(conn, cid, vid) is not None:
+                raise LuotKhamConflictError(
+                    "VITALS_DONE",
+                    "Khách đã có số đo sinh hiệu — không ghi “Không đo”.",
+                )
+            cu = (await khong_do_cua_luot(conn, cid, [vid])).get(vid)
+            if (
+                cu is not None
+                and flow["vitals_status"] == "recorded"
+                and (cu["ma"], cu["ghi_chu"]) == (ma, chu)
+            ):
+                return {"ok": True, "already": True, "visit_id": vid, **cu}
+            if flow["vitals_status"] == "recorded" and cu is None:
+                # Luồng đã "đo" mà không có số lẫn "không đo" — không đoán.
+                raise LuotKhamConflictError(
+                    "VITALS_DONE", "Khách này đã qua bước đo sinh hiệu."
+                )
+            await conn.execute(
+                """
+                INSERT INTO sinh_hieu_khong_do
+                    (clinic_id, visit_id, ly_do, ghi_chu, ghi_boi, ghi_boi_ten)
+                VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6)
+                """,
+                cid,
+                vid,
+                ma,
+                chu,
+                identity.staff_id,
+                identity.full_name,
+            )
+            await record_event(
+                conn,
+                event_type="vitals.skipped",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": vid, "ly_do": ma, "doi_ly_do": cu is not None},
+            )
+            if flow["vitals_status"] != "recorded":
+                await conn.execute(
+                    """
+                    UPDATE encounter_flow
+                       SET vitals_status = 'recorded',
+                           content_revision = content_revision + 1,
+                           version = version + 1, updated_at = now()
+                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                    """,
+                    cid,
+                    vid,
+                )
+                # CÙNG sự kiện với đo xong — bên nghe (Hành trình) xếp khách đi
+                # tiếp như thường; cờ cho dòng thời gian / báo cáo.
+                await emit_event(
+                    conn,
+                    ten="vitals.recorded",
+                    clinic_id=cid,
+                    aggregate_id=vid,
+                    payload=SinhHieuDaDo(
+                        visit_id=vid,
+                        qua_duong="khong_do",
+                        khong_do=True,
+                        ly_do_khong_do=ma,
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=vid,
+                )
+                await cap_nhat_vi_tri(conn, cid, vid)
+            moi = (await khong_do_cua_luot(conn, cid, [vid]))[vid]
+        return {"ok": True, "already": False, "visit_id": vid, **moi}
+
 
 # ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
 

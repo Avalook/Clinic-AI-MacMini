@@ -150,7 +150,12 @@ FT: `D/tests/kiem-ke-ca-boundary.test.mts`.
 **Thu trước khi làm · tự xếp phòng · chỉ xếp theo phòng lễ tân chọn · khách quen
 vào thẳng BS · cùng buổi thẳng dịch vụ · quyền theo lịch · báo CSKH khi về còn
 việc · số ngày kết quả đối tác quá hạn · phút nhắc check-out · loại khám qua tư
-vấn / đi thẳng phòng · chuông sự kiện báo ai**
+vấn / đi thẳng phòng · chuông sự kiện báo ai · dừng liệu trình tính giá gói hay
+phá gói tính giá lẻ**
+- Dừng liệu trình (`lieu_trinh_dung_tinh_gia_le`, 30/10/2026): lệnh dừng chụp
+  chính sách vào `lieu_trinh.chinh_sach_dung` — đổi dây chỉ áp cho lần dừng sau.
+  Tính + câu cho thu ngân: `S/lieu_trinh_tien.py` `quyet_toan_dung`,
+  `gan_quyet_toan`. Test: `T/services/test_lieu_trinh_chinh_sach_dung_db.py`.
 - Trên màn: `/settings/day-noi` (Quản lý). Bật/tắt là có hiệu lực ngay.
 - Code (khi cần DÂY MỚI hoặc đổi nghĩa dây): danh sách + mặc định ở
   `S/day_noi.py` (`DAY`); đọc/ghi `S/day_noi_service.py` `DayNoiService` (`dat_day`,
@@ -223,6 +228,14 @@ Code: `S/luot_kham_service.py` `LuotKhamService.check_in` + `xep_sau_check_in`
 Code: `S/sinh_hieu_service.py` `SinhHieuService` (`record_vitals`,
 `bat_dau_do_sinh_hieu`); dùng lại số đo cùng buổi `S/sinh_hieu_buoi.py`. Test:
 `T/services/test_sinh_hieu_cung_buoi_db.py`, `T/services/test_sinh_hieu_khong_chan_db.py`.
+**[Không đo] + lý do (30/10/2026)** — nút cạnh [Đo xong] → chip lý do (danh sách
+`S/luot_kham_rules.py::LY_DO_KHONG_DO`, trả ở `ly_do_khong_do` của bảng) →
+`SinhHieuService.khong_do` (`POST /luot-kham/visits/{id}/vitals/khong-do`): ghi bảng
+`sinh_hieu_khong_do` (migration 20261031130000; không số giả), luồng `recorded`, phát
+`vitals.recorded` có cờ `khong_do` (Hành trình xếp đi tiếp). Câu "Không đo · <lý do>":
+`rules.nhan_khong_do`, đọc ở `S/sinh_hieu_buoi.py::khong_do_cua_luot` → `luot_kham_doc`
+(`khong_do`) và `phieu_kham/mang_sang.py` (`sinh_hieu_khong_do`) — chỉ khi chưa có số đo
+(lần đo thật thắng). Test `T/services/test_sinh_hieu_khong_do_db.py`.
 
 **Nút "+ Nước tiểu"… — làm thêm tại quầy (lễ tân / người đo tick, không cần bác
 sĩ)** — Trên màn: danh sách nút (thêm "Xét nghiệm máu", tắt, chỗ hiện, chữ trên
@@ -413,6 +426,9 @@ Giảm giá: số trước giảm / đã giảm / sau giảm, lý do / người 
 dòng hiển thị phần giảm được phân bổ từ máy chủ. Miễn phí 100% có số thực thu 0 vẫn là phiếu đã thu,
 không suy ra hoàn tiền từ số 0. Test FT `hoa-don-giam-gia-boundary.test.mts` + E2E fixture giảm 100%.
 Số tổng giao dịch trong kỳ khác số toàn bộ phiếu liên quan của khách nếu hoàn khác ngày thu.
+Tên phòng từng dòng dịch vụ (màn + cột "Phòng" sheet "Dòng phiếu" của Excel, 30/10/2026): đúng nguồn phiếu
+thu in (`S/quay_thu_service.py` `_PHONG_CHI_DINH_SQL` + `_phong_cua_dong`), chữ do `S/hoa_don_projection.py::nhan_phong`
+/ `gan_phong`; test `T/services/test_hoa_don_ten_phong_db.py`. Bản xuất MISA không có cột này (mẫu cố định).
 Test `T/services/test_danh_sach_hoa_don_db.py`, `T/unit/test_danh_sach_hoa_don.py`,
 FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API giả lập, auth DEMO thật).
 
@@ -582,6 +598,18 @@ hàm SQL `phan_thu_hieu_luc`; hoàn tác `PaymentService.hoan_tac`; ảnh
 phần một dòng (`InPhieuThu.tsx`). Test: `T/unit/test_phan_thu.py`,
 `T/services/test_thu_nhieu_hinh_thuc_db.py`.
 
+**Tài khoản ngân hàng nhận chuyển khoản (31/10/2026)** — danh mục là việc DỮ LIỆU: Quản lý làm trên
+`/settings/tai-khoan-nhan` (thêm / sửa / đặt mặc định / tắt — không xoá). Code: `S/tai_khoan_nhan_service.py`
+(`chon_mac_dinh` thuần: chọn > mặc định cơ sở > mặc định dùng chung > tài khoản duy nhất > "Chưa phân loại";
+`chon_cho_lan_thu` gọi trong giao dịch thu từ `S/payment_service.py::_tai_khoan_nhan`, hoàn `S/hoan_tien_service.py::_tao_trong`,
+đổi hình thức `S/doi_hinh_thuc_service.py`; sửa tài khoản phiếu đã thu `doi_cho_lan_thu` ← `R/payment.py` `/payments/doi-tai-khoan`,
+vết event_log `payment.receiving_account_changed`) ← `R/tai_khoan_nhan.py`. Cột `payment_cycle.tai_khoan_nhan_id`,
+`payment_refund.tai_khoan_nhan_id`, bảng `tai_khoan_nhan`, guard lần thu cho đổi đúng cột này (mig 20261031120000).
+Báo cáo: `S/bao_cao_cuoi_ngay_service.py::gom_bao_cao` → `theo_tai_khoan` (cộng = dòng Chuyển khoản), CSV + `S/excel_report_export.py`;
+`/hoa-don`: `S/hoa_don_projection.py::tach_tai_khoan`. Màn: `D/thu-ngan/TaiKhoanNhan.tsx` (`ChonTaiKhoan` trong `ChiaHinhThuc`,
+`DoiTaiKhoan` ở `LichSuThu`), `D/reports/TomTatCuoiNgay.tsx`, `D/hoa-don/DanhSachHoaDon.tsx` + `ChiTietHoaDon.tsx`.
+Test: `T/unit/test_tai_khoan_nhan.py` (bất biến bấm ngẫu nhiên), `T/services/test_tai_khoan_nhan_db.py`.
+
 **Mua thêm vật tư / đầu dò** (khối "Món kèm" cũ đã gỡ 02/10, C17; dòng `luot_phu_thu` cũ
 vẫn đọc ở `bill_service._PHU_THU_SQL`) — `D/thu-ngan/VatTuQuay.tsx`. **Thanh ngày quầy thu
 (xem lại ngày cũ)** — `D/thu-ngan/TabThuNgan.tsx` + `S/cashier_board_service.py::khoang_ngay_xem`;
@@ -589,6 +617,17 @@ test `T/services/test_thu_ngan_thanh_ngay_db.py`, `D/tests/quay-thu-thanh-ngay-b
 **Hoàn tiền, đổi hình thức TM/CK (chia được), huỷ phiếu** — `D/thu-ngan/HoanTien.tsx` → `S/hoan_tien_service.py`;
 `D/thu-ngan/DoiHinhThuc.tsx` → `S/doi_hinh_thuc_service.py`; huỷ →
 `PaymentService.void_payment`. Test: `T/services/test_doi_hinh_thuc_db.py`.
+
+**Kiểm kê tiền mặt két đầu ca – cuối ca (31/10/2026)** — KHÁC kiểm kê HÀNG (`S/kiem_ke_ca_service.py`). Màn: `/reports` tab
+Cuối ngày → xem MỘT ngày + một ca + một cơ sở → khối "Tiền mặt két" ngay dưới Chốt ca (`D/reports/KhoiKetTienMat.tsx`:
+quỹ đầu gõ tổng / đếm mệnh giá, gợi ý = đếm cuối ca trước; đếm cuối; lệch ≠ 0 bắt lý do; người nhận bàn giao; [Mở lại]
+bắt lý do; "Lịch sử két"); cả ngày → `KetTienMatNgay` liệt kê từng ca. → `/api/reports/ket-tien-mat` →
+`R/reports.py` (`GET/POST /reports/ket-tien-mat`) → `S/ket_tien_mat_service.py` (`doc_dem`, `tinh_cuoi`, `tien_mat_trong_ca`
+thuần; dự kiến = quỹ đầu + dòng Tiền mặt `thuc_thu` của báo cáo cuối ca; cửa quyền dùng chung `S/chot_so_ca_service.py::kiem_ca`).
+Bảng `ket_tien_mat_ca` (một dòng mỗi cơ sở/ngày/ca; Postgres ép tổng = bảng đếm qua `tong_to_tien`, dự kiến / lệch đúng công
+thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_ca_lich_su` (mig 20261031125000). Báo cáo cuối ngày gắn
+`ket_tien_mat` (`doc_ket_trong_khoang`, cả khi trả bản chụp chốt ca) + CSV. Test: `T/unit/test_ket_tien_mat.py`,
+`T/services/test_ket_tien_mat_db.py`.
 
 ## 8. Xếp phòng · đổi phòng · chọn bác sĩ trong phòng
 
@@ -598,6 +637,9 @@ test `T/services/test_thu_ngan_thanh_ngay_db.py`, `D/tests/quay-thu-thanh-ngay-b
 - Chọn bác sĩ trong phòng ≥2 bác sĩ: `S/lan_bac_si.py`, `D/_lam-viec/ChonBacSiLam.tsx`;
   test `T/services/test_chon_bac_si_trong_phong_db.py`.
 - Chuyển phòng từng chỉ định (trưởng ca): `D/truong-ca/ChiDinhCuaBacSi.tsx`.
+  Cùng khối: [Bỏ chỉ định] / [Hoàn tác] — cờ `bo_duoc`, `hoan_tac_bo_id` ở
+  `S/dispatch_service.py::chi_dinh` (luật `S/luot_kham_rules.py::chan_bo_chi_dinh`,
+  dùng chung với `HoanTacService.huy_chi_dinh`); test `T/services/test_truong_ca_dieu_phoi_db.py`.
 - Test chung: `T/services/test_service_routing_db.py`, `T/services/test_nguon_xep_phong_db.py`.
 
 ## 9. Phòng dịch vụ · thực hiện · kết quả · tệp

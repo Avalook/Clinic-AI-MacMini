@@ -71,6 +71,23 @@ def test_cau_so() -> None:
             "chi_tiet": {"truoc": {"so_luong": "1"}, "sau": {"so_luong": "2"}},
         }
     ).endswith("Số lượng: 1 → 2")
+    # Buổi lẻ liệu trình: tiền đã thu GIỮ trong gói, không đọc thành tiền thừa.
+    bo = {
+        "hanh_dong": "BO",
+        "nhom": "DIEU_TRI",
+        "ten_muc": "Ghế điện",
+        "da_thu": 300000,
+    }
+    assert cau_so({**bo, "tien_thua": 0, "giu_lt": True}).endswith(
+        "đã thu 300.000đ → giữ lại trong liệu trình (thành buổi đã trả trước)"
+    )
+    assert cau_so({**bo, "tien_thua": 100000, "giu_lt": True}).endswith(
+        "(thành buổi đã trả trước), tiền thừa 100.000đ"
+    )
+    # Có buổi gỡ tự động nhưng sổ ghi thừa đủ (dòng trước #561) → vẫn là tiền thừa.
+    assert cau_so({**bo, "tien_thua": 300000, "giu_lt": True}).endswith(
+        "→ tiền thừa 300.000đ"
+    )
     # Rác: không ném.
     assert cau_so({})
     assert cau_so({"hanh_dong": "XYZ", "nhom": None, "da_thu": None, "chi_tiet": None})

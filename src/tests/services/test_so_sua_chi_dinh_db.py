@@ -594,3 +594,60 @@ async def test_quan_ly_thay_bac_si_xoa_quay_thay_dong_da_xoa_va_thong_bao_doi_th
         )
         == "Đã chỉ định lại"
     )
+
+
+async def test_hoan_tac_bo_chi_dinh_giu_tuoi_cho_cua_buoc(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bấm thử 30/10/2026: khách chờ phòng 257′, trưởng ca bỏ rồi hoàn tác →
+    vẫn STT cũ nhưng "chờ" của bước về 0′ và rơi khỏi "Khách chờ quá lâu".
+    Hoàn tác + xếp phòng lại phải giữ mốc bắt đầu chờ của bước."""
+    ca, visit, order = await _da_thu_xep_phong(pool)
+    # Khám xong, khách ĐANG CHỜ ở phòng dịch vụ đã 60 phút (như ca bấm thử):
+    # đóng chỗ khám, chỗ phòng chuyển waiting với mốc 60′ trước.
+    await pool.execute(
+        "UPDATE queue_entry SET status = 'done', done_at = now()"
+        " WHERE visit_id = $1::uuid AND reason <> 'SERVICE'"
+        "   AND status IN ('waiting', 'called', 'serving')",
+        visit,
+    )
+    phong = await pool.fetchval(
+        "UPDATE queue_entry SET status = 'waiting',"
+        "       eligible_at = now() - interval '60 minutes'"
+        " WHERE visit_id = $1::uuid AND reason = 'SERVICE' AND ref_id = $2::uuid"
+        "   AND status NOT IN ('done', 'left', 'cancelled')"
+        " RETURNING room_id",
+        visit,
+        order,
+    )
+    assert phong is not None
+    await pool.execute(
+        "UPDATE visit SET current_room_id = $2::uuid,"
+        "       current_node_since = now() - interval '60 minutes'"
+        " WHERE visit_id = $1::uuid",
+        visit,
+        phong,
+    )
+    async with pool.acquire() as conn:
+        tc = await _nguoi(conn, ca.loc, "TRUONG_CA")
+    kq = await HoanTacService(pool).huy_chi_dinh(
+        order_id=order, identity=tc, xac_nhan=True, ly_do="Thử giữ tuổi chờ"
+    )
+    await SoSuaChiDinhService(pool).hoan_tac(so_id=kq["so_sua_id"], identity=tc)
+    await chay_hanh_trinh(pool)
+    assert (await _don(pool, order))["routing_status"] == "ASSIGNED"
+    phut = await pool.fetchval(
+        "SELECT EXTRACT(EPOCH FROM now() - current_node_since) / 60"
+        "  FROM visit WHERE visit_id = $1::uuid",
+        visit,
+    )
+    assert phut is not None and float(phut) >= 59
+    # Hàng chờ mới cũng giữ mốc cũ (luật xếp lại phòng có sẵn).
+    vao = await pool.fetchval(
+        "SELECT EXTRACT(EPOCH FROM now() - eligible_at) / 60 FROM queue_entry"
+        " WHERE visit_id = $1::uuid AND reason = 'SERVICE' AND ref_id = $2::uuid"
+        "   AND status = 'waiting'",
+        visit,
+        order,
+    )
+    assert vao is not None and float(vao) >= 59

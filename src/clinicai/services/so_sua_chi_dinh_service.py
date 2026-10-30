@@ -223,9 +223,26 @@ def cau_so(d: dict[str, Any]) -> str:
         cau += " · tiền đã hoàn trước đó → chỉ định MỚI, quầy thu lại"
     da_thu = int(d.get("da_thu") or 0)
     if d.get("hanh_dong") == "BO" and da_thu > 0:
-        thua = _tien(int(d.get("tien_thua") or 0))
-        cau += f" · đã thu {_tien(da_thu)} → tiền thừa {thua}"
+        cau += f" · đã thu {_tien(da_thu)} → {_ve_tien_bo(d)}"
     return cau
+
+
+#: Chỉ định là buổi lẻ liệu trình bị gỡ tự động khi bỏ → tiền đã thu GIỮ trong
+#: gói (#561), không phải tiền thừa. Lệnh bỏ đã hạ `tien_thua` của dòng sổ xuống
+#: phần thật sự thừa; cờ này để câu không đọc phần chênh thành "tiền thừa".
+_GIU_LT = """EXISTS (SELECT 1 FROM lieu_trinh_buoi b
+                     WHERE b.clinic_id = s.clinic_id
+                       AND b.service_order_id = s.service_order_id
+                       AND b.go_cach = 'TU_DONG')"""
+
+
+def _ve_tien_bo(d: dict[str, Any]) -> str:
+    """Vế tiền của dòng BỎ đã thu: tiền thừa, hay giữ lại trong liệu trình."""
+    thua = int(d.get("tien_thua") or 0)
+    if d.get("giu_lt") and int(d.get("da_thu") or 0) > thua:
+        ve = "giữ lại trong liệu trình (thành buổi đã trả trước)"
+        return ve + (f", tiền thừa {_tien(thua)}" if thua > 0 else "")
+    return f"tiền thừa {_tien(thua)}"
 
 
 def _iso(v: Any) -> str | None:
@@ -343,11 +360,12 @@ async def bao_bac_si_chinh(
     if not so_id:
         return False
     so = await conn.fetchrow(
-        """
+        f"""
         SELECT s.id::text, s.visit_id::text, s.nhom, s.ten_muc, s.boi_staff_id::text,
                s.boi_ten, s.boi_vai, s.bac_si_chinh_id::text, s.da_thu, s.tien_thua,
                s.ly_do, p.full_name AS ten_khach, o.lan_chi_dinh,
-               to_char(s.luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS gio
+               to_char(s.luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS gio,
+               {_GIU_LT} AS giu_lt
           FROM so_sua_chi_dinh s
           LEFT JOIN visit v ON v.visit_id = s.visit_id AND v.clinic_id = s.clinic_id
           LEFT JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id
@@ -371,10 +389,7 @@ async def bao_bac_si_chinh(
     if so["gio"]:
         noi += f" lúc {so['gio']}"
     if int(so["da_thu"] or 0) > 0:
-        noi += (
-            f" — đã thu {_tien(int(so['da_thu']))}, thành tiền thừa"
-            f" {_tien(int(so['tien_thua'] or 0))} ở quầy"
-        )
+        noi += f" — đã thu {_tien(int(so['da_thu']))}, {_ve_tien_bo(dict(so))}"
     if so["ly_do"]:
         noi += f". Lý do: {so['ly_do']}"
     tb_id = await ghi_thong_bao_nguoi(
@@ -522,13 +537,17 @@ async def doc_don_de_so(
     ]
 
 
-_SQL_SO = """
+_SQL_SO = (
+    """
     SELECT s.*,
            CASE WHEN s.service_order_id IS NOT NULL
                 THEN o.exec_status = 'cancelled'
                 WHEN s.luot_phi_kham_id IS NOT NULL
                 THEN k.bo_luc IS NOT NULL
-                ELSE false END AS con_bo
+                ELSE false END AS con_bo,
+           """
+    + _GIU_LT
+    + """ AS giu_lt
       FROM so_sua_chi_dinh s
       LEFT JOIN service_order o ON o.id = s.service_order_id
       LEFT JOIN luot_phi_kham k ON k.id = s.luot_phi_kham_id
@@ -536,6 +555,7 @@ _SQL_SO = """
      ORDER BY s.stt DESC
      LIMIT 300
 """
+)
 
 #: Trần số dòng sổ một lượt trả về (một lượt thật vài chục dòng). Chạm trần thì
 #: log kêu (`canh_bao_neu_day`) và màn nhận `bi_cat` — không cắt im lặng.
@@ -828,6 +848,19 @@ class SoSuaChiDinhService:
                 "DA_CO_CHI_DINH_MOI",
                 f"Dịch vụ “{o['service_name']}” đã được tick lại ở quầy — không đặt"
                 " lại lần nữa.",
+            ) from None
+        except asyncpg.CheckViolationError as e:
+            # Buổi lẻ đã thu rồi bỏ: tiền giữ trong liệu trình và đã phủ một buổi
+            # ĐÃ LÀM — đặt lại thì buổi ấy mất tiền (31/10/2026).
+            from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
+
+            raise loi_tien_lieu_trinh(
+                e,
+                cau_phu_vuot=(
+                    f"Tiền đã thu của “{o['service_name']}” đang giữ trong liệu trình"
+                    " và đã dùng cho một buổi khách đã làm — không đặt lại được."
+                    " Khách làm thêm thì kê chỉ định mới."
+                ),
             ) from None
         await emit_event(
             conn,

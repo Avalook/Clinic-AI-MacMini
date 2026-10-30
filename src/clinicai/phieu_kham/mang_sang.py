@@ -26,7 +26,7 @@ import asyncpg
 
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.luot_kham_rules import nhan_nguon_sinh_hieu
-from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
+from clinicai.services.sinh_hieu_buoi import khong_do_cua_luot, sinh_hieu_cua_buoi
 
 #: Thứ tự y như dải sinh hiệu trên phiếu nguồn.
 TRUONG_SINH_HIEU: tuple[tuple[str, str], ...] = (
@@ -323,6 +323,13 @@ async def doc_dau_phieu(
     # Sinh hiệu theo BUỔI (27/09/2026, đợt 3): lượt check-in thêm trong ngày
     # đọc lần đo của lượt trước — không chép số, chỉ đọc (một con số một chỗ).
     do = await sinh_hieu_cua_buoi(conn, clinic_id, visit_id)
+    # [Không đo] + lý do (30/10/2026): chỉ khi buổi KHÔNG có số đo nào — lần đo
+    # thật thắng. Màn / bản in ghi câu này thay cho ô sinh hiệu trống.
+    khong_do = (
+        None
+        if do is not None
+        else (await khong_do_cua_luot(conn, clinic_id, [visit_id])).get(str(visit_id))
+    )
     # "A. Khám của bác sĩ tư vấn". Hai nguồn:
     #  · phiên TƯ VẤN (24/09/2026 — ô chữ tự do của bác sĩ tư vấn): mỗi lần lưu
     #    thêm một dòng, nên chỉ lấy BẢN MỚI NHẤT của mỗi phiên;
@@ -389,6 +396,7 @@ async def doc_dau_phieu(
         "ho_so": [k for k, _ in TRUONG_HO_SO],
         "sinh_hieu": dung_sinh_hieu(dict(do) if do else None),
         "sinh_hieu_luc": do["created_at"].isoformat() if do else None,
+        "sinh_hieu_khong_do": khong_do["nhan"] if khong_do else None,
         # "lượt trước" = số đo của lượt khác cùng buổi; None = của lượt này.
         "sinh_hieu_nguon": (
             nhan_nguon_sinh_hieu(nguon_visit_id=do["nguon_visit_id"], visit_id=visit_id)

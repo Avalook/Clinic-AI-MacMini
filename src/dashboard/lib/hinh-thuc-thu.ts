@@ -20,6 +20,8 @@ export interface PhanGui {
   hinh_thuc: HinhThucThu;
   so_tien: number;
   khach_dua?: number | null;
+  /** Tài khoản nhận của phần chuyển khoản (31/10/2026); bỏ trống = máy chủ chọn. */
+  tai_khoan_id?: string | null;
 }
 
 /** Tên hiển thị — QR cũ đọc là Chuyển khoản. */

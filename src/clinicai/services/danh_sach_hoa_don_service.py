@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 
@@ -14,13 +15,17 @@ from clinicai.services.bao_cao_cuoi_ngay_service import khung_ca
 from clinicai.services.cashier_board_service import doc_khoang_ngay
 from clinicai.services.co_so_bao_cao import doc_co_so, doc_co_so_ngung, sql_loc_ton
 from clinicai.services.hoa_don_excel import xlsx_hoa_don as xlsx_hoa_don
+from clinicai.services.hoa_don_projection import gan_phong, gom_viec_ton
 from clinicai.services.hoa_don_projection import gom_hoa_don as gom_hoa_don
-from clinicai.services.hoa_don_projection import gom_viec_ton
 from clinicai.services.hoan_tac_service import (
     tien_da_thu_cua_chi_dinh,
     tien_thua_cua_luot,
 )
-from clinicai.services.quay_thu_service import _DONG_SQL
+from clinicai.services.quay_thu_service import (
+    _DONG_SQL,
+    _PHONG_CHI_DINH_SQL,
+    _phong_cua_dong,
+)
 from clinicai.services.report_access_service import ReportAccessService
 
 
@@ -59,6 +64,9 @@ SELECT pc.payment_cycle_id::text id, pc.visit_id::text visit_id, pc.kind,
  p.patient_code ma_bn, p.phone_primary so_dien_thoai,
  creator.full_name nguoi_lap, confirmer.full_name nguoi_thu, closer.full_name nguoi_huy,
  hinh_thuc_hieu_luc(pc.clinic_id,pc.payment_cycle_id,pc.method) method,
+ phan_thu_hieu_luc(pc.clinic_id,pc.payment_cycle_id,pc.method,pc.amount) phan,
+ pc.tai_khoan_nhan_id::text tai_khoan_id,
+ tk.ten_goi || ' · ' || tk.so_tai_khoan ten_tai_khoan,
  (pc.paid_at >= $2 AND pc.paid_at < $3) trong_ky,
  (pc.status='VOIDED' AND pc.closed_at >= $2 AND pc.closed_at < $3) huy_trong_ky
 FROM payment_cycle pc
@@ -70,6 +78,7 @@ LEFT JOIN staff creator ON creator.id=pc.created_by
 LEFT JOIN staff confirmer ON confirmer.id=pc.confirmed_by
 LEFT JOIN staff closer ON closer.id=pc.closed_by
 LEFT JOIN staff discount_staff ON discount_staff.id=pc.discount_by
+LEFT JOIN tai_khoan_nhan tk ON tk.id=pc.tai_khoan_nhan_id AND tk.clinic_id=pc.clinic_id
 -- Lần chờ chuyển khoản bị HUỶ (chưa từng thu) vẫn hiện (G4d, R1): huỷ nhầm
 -- khi tiền đã về thì sổ không còn dấu nào khác — kế toán đối chiếu sao kê ở đây.
 WHERE pc.clinic_id=$1::uuid
@@ -89,6 +98,8 @@ ORDER BY coalesce(pc.paid_at,pc.closed_at) DESC,pc.payment_cycle_id
 _REFUNDS = """
 SELECT r.refund_id::text id,r.payment_cycle_id::text cycle_id,r.amount,r.status,
  r.method,r.reason,r.created_at,r.completed_at,r.closed_at,r.closed_reason,
+ r.tai_khoan_nhan_id::text tai_khoan_id,
+ tk.ten_goi || ' · ' || tk.so_tai_khoan ten_tai_khoan,
  c.full_name nguoi_lap,s.full_name nguoi_hoan,x.full_name nguoi_huy,
  (CASE WHEN r.status='COMPLETED' THEN r.completed_at
  WHEN r.status IN ('FAILED','CANCELLED') THEN r.closed_at ELSE r.created_at END >= $3
@@ -99,6 +110,7 @@ FROM payment_refund r
 LEFT JOIN staff c ON c.id=r.created_by
 LEFT JOIN staff s ON s.id=r.completed_by
 LEFT JOIN staff x ON x.id=r.closed_by
+LEFT JOIN tai_khoan_nhan tk ON tk.id=r.tai_khoan_nhan_id AND tk.clinic_id=r.clinic_id
 WHERE r.clinic_id=$1::uuid AND r.payment_cycle_id=ANY($2::uuid[])
 ORDER BY r.created_at,r.refund_id
 """
@@ -110,6 +122,42 @@ _LINES = _DONG_SQL.replace(
     " THEN o.updated_at END AS bo_luc",
 )
 assert "bo_luc" in _LINES, "_DONG_SQL đổi dạng — sửa lại chỗ chèn bo_luc"
+
+# Phòng của chỉ định — ĐÚNG nguồn phiếu thu in (`_PHONG_CHI_DINH_SQL`), chỉ đổi
+# lọc theo lượt thành theo danh sách chỉ định của các phiếu đang xem.
+_PHONG_THEO_CHI_DINH = _PHONG_CHI_DINH_SQL.replace(
+    "WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid",
+    "WHERE o.clinic_id = $1::uuid AND o.id = ANY($2::uuid[])",
+)
+assert "ANY($2::uuid[])" in _PHONG_THEO_CHI_DINH, "_PHONG_CHI_DINH_SQL đổi dạng"
+
+
+def _la_uuid(v: Any) -> bool:
+    try:
+        UUID(str(v))
+    except ValueError:
+        return False
+    return True
+
+
+async def _phong_cac_dong(
+    conn: asyncpg.Connection, clinic_id: str, lines: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """id dòng hoá đơn → phòng (như phiếu thu) của chỉ định dòng ấy."""
+    oids = sorted(
+        {
+            str(d["source_id"])
+            for d in lines
+            if d.get("source_type") == "service_order" and _la_uuid(d.get("source_id"))
+        }
+    )
+    if not oids:
+        return {}
+    phong = {
+        str(r["id"]): r for r in await conn.fetch(_PHONG_THEO_CHI_DINH, clinic_id, oids)
+    }
+    return {str(d["id"]): _phong_cua_dong(d, phong).get("phong") for d in lines}
+
 
 _DOI_HINH_THUC = """
 SELECT d.cycle_id::text cycle_id, d.method_cu, d.method_moi, d.ly_do, d.luc,
@@ -299,6 +347,12 @@ class DanhSachHoaDonService:
                     _REFUND_LINES, identity.clinic_id, [r["id"] for r in refunds]
                 )
             ]
+            # Tên phòng dịch vụ trên từng dòng (30/10/2026) — như phiếu thu in.
+            gan_phong(
+                lines,
+                refund_lines,
+                await _phong_cac_dong(conn, identity.clinic_id, lines),
+            )
             doi_ht = [
                 dict(r)
                 for r in await conn.fetch(_DOI_HINH_THUC, identity.clinic_id, ids)

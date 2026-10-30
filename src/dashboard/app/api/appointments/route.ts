@@ -218,13 +218,15 @@ type PatchAction =
   | "no_show"
   | "reassign"
   | "assign_doctor"
-  | "reschedule";
+  | "reschedule"
+  // Hoàn tác huỷ / không đến (30/10/2026) — máy chủ quyết về đâu, ai được.
+  | "reopen";
 
 interface PatchBody {
   id?: string;
   action?: PatchAction;
-  cancellation_reason?: string; // cho action "cancel"
-  ly_do_huy_ma?: string; // mã lý do huỷ — BẮT BUỘC khi action = "cancel"
+  cancellation_reason?: string; // cho action "cancel" / "no_show"
+  ly_do_huy_ma?: string; // mã lý do — BẮT BUỘC khi action = "cancel" / "no_show"
   doctor_id?: string; // "reassign"/"assign_doctor"/"reschedule"; rỗng = bỏ phân
   slot_start?: string; // cho action "reschedule" (ISO UTC)
   slot_end?: string; // cho action "reschedule" (ISO UTC)
@@ -262,6 +264,7 @@ const ALL_ACTIONS = new Set<PatchAction>([
   ...CHECKIN_ACTIONS,
   ...MANAGE_ACTIONS,
   "no_show",
+  "reopen",
 ]);
 
 export async function PATCH(request: Request) {

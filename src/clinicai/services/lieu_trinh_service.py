@@ -35,6 +35,7 @@ from clinicai.permissions.can import can
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA
 from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
 from clinicai.services.bill_service import CLINIC, giai_gia
+from clinicai.services.day_noi import doc_day
 from clinicai.services.dieu_tri_ban_kham import o_phieu
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
@@ -42,6 +43,12 @@ from clinicai.services.lenh_kham_core import (
     bien_nhan_ghi,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.lieu_trinh_tien import (
+    DAY_DUNG_GIA_LE,
+    GIA_GOI,
+    GIA_LE,
+    gan_quyet_toan,
+)
 from clinicai.services.nhan_luot import chu_buoi
 from clinicai.services.service_execution_service import NOI_BAN_KHAM
 
@@ -181,15 +188,23 @@ def loi_db(e: asyncpg.PostgresError) -> LuotKhamConflictError:
 
 
 def con_lai(lt: dict[str, Any]) -> dict[str, int]:
-    """Đếm của một liệu trình cho thẻ / quầy. Thuần."""
+    """Đếm của một liệu trình cho thẻ / quầy. Thuần.
+
+    ``con_tra_truoc`` = buổi đã trả CHƯA DÙNG = đúng số máy chủ cho hoàn: buổi
+    phủ chưa bắt đầu (``phu_chua_lam``) chưa tiêu tiền — hoàn quá thì Postgres
+    bỏ phủ nó (``lieu_trinh_phu_lai``), buổi ấy vào hoá đơn. Liệu trình đã DỪNG
+    không còn đòi buổi nào: ``chua_tra`` = 0."""
     so_buoi = int(lt["so_buoi"])
     da_lam = int(lt["da_lam"])
     da_tra = int(lt["da_tra"])
-    dung_tra = int(lt["dung_tra_truoc"])
+    da_dung = int(lt["dung_tra_truoc"]) - int(lt.get("phu_chua_lam") or 0)
+    dung = lt.get("trang_thai") == "DUNG"
     return {
         "con_lai": max(so_buoi - da_lam, 0),
-        "con_tra_truoc": max(da_tra - dung_tra, 0),
-        "chua_tra": max(so_buoi - da_tra - int(lt.get("tra_le") or 0), 0),
+        "con_tra_truoc": max(da_tra - da_dung, 0),
+        "chua_tra": 0
+        if dung
+        else max(so_buoi - da_tra - int(lt.get("tra_le") or 0), 0),
     }
 
 
@@ -252,11 +267,12 @@ SELECT lt.id::text AS id, lt.clinic_patient_id::text AS khach_id,
        lt.nguon_order_id::text AS nguon_order_id,
        lt.tao_luc, sd.full_name AS de_xuat_boi,
        lt.dang_ky_luc, sk.full_name AS dang_ky_boi,
-       lt.dung_luc, sg.full_name AS dung_boi, lt.ly_do_dung,
+       lt.dung_luc, sg.full_name AS dung_boi, lt.ly_do_dung, lt.chinh_sach_dung,
        lt.revision, lt.hanh_dong, lt.sua_luc,
        public.lieu_trinh_so_buoi_da_tra(lt.clinic_id, lt.id) AS da_tra,
        coalesce(b.so_gan, 0) AS so_gan, coalesce(b.da_lam, 0) AS da_lam,
        coalesce(b.dung_tra_truoc, 0) AS dung_tra_truoc,
+       coalesce(b.phu_chua_lam, 0) AS phu_chua_lam,
        coalesce(b.tra_le, 0) AS tra_le, b.lan_cuoi, b.dang_cho,
        -- Loại khám nhóm Điều trị của đúng dịch vụ: CSKH [Đặt lịch buổi kế] mở bộ
        -- đặt lịch sẵn có khoá vào loại khám này (rỗng = chưa có, nút tắt).
@@ -279,6 +295,12 @@ SELECT lt.id::text AS id, lt.clinic_patient_id::text AS khach_id,
                             AND o.exec_status = 'performed')))
                  AS da_lam,
              count(*) FILTER (WHERE b.tra_truoc) AS dung_tra_truoc,
+             -- Phủ mà CHƯA bắt đầu — đúng điều kiện bỏ phủ của lieu_trinh_phu_lai.
+             count(*) FILTER (
+                 WHERE b.tra_truoc
+                   AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
+                   AND o.exec_status IN ('authorized', 'assigned'))
+                 AS phu_chua_lam,
              count(*) FILTER (
                  WHERE NOT b.tra_truoc
                    AND public.lieu_trinh_buoi_da_thu_le(b.clinic_id,
@@ -361,7 +383,15 @@ SELECT o.id::text AS order_id, o.service_code, o.service_name,
 
 def _lt(r: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
     d = {k: _iso(v) for k, v in dict(r).items()}
-    for k in ("so_buoi", "da_tra", "so_gan", "da_lam", "dung_tra_truoc", "tra_le"):
+    for k in (
+        "so_buoi",
+        "da_tra",
+        "so_gan",
+        "da_lam",
+        "dung_tra_truoc",
+        "phu_chua_lam",
+        "tra_le",
+    ):
         d[k] = int(d.get(k) or 0)
     d["don_gia"] = int(Decimal(str(d["don_gia"])))
     d["dang_cho"] = bool(d.get("dang_cho"))
@@ -465,6 +495,7 @@ class LieuTrinhService:
         *args: Any,
         thu_tu: str = "lt.tao_luc DESC, lt.id",
         kem_buoi: bool = True,
+        kem_quyet_toan: bool = False,
     ) -> list[dict[str, Any]]:
         rows = await conn.fetch(
             _LT_SQL.format(dieu_kien=dieu_kien, thu_tu=thu_tu), cid, *args
@@ -477,12 +508,17 @@ class LieuTrinhService:
                 theo.setdefault(b["lieu_trinh_id"], []).append(_buoi(b))
             for d in ds:
                 d["buoi"] = theo.get(d["id"], [])
+        if kem_quyet_toan:
+            # Tiền khi dừng (đã dừng: chính sách lúc dừng; chưa: xem trước).
+            await gan_quyet_toan(conn, cid, ds)
         return ds
 
     async def _mot(
         self, conn: asyncpg.Connection, cid: str, lt_id: str
     ) -> dict[str, Any]:
-        ds = await self.doc_nhieu(conn, cid, "lt.id = $2::uuid", lt_id)
+        ds = await self.doc_nhieu(
+            conn, cid, "lt.id = $2::uuid", lt_id, kem_quyet_toan=True
+        )
         if not ds:
             raise NotFoundError("Không tìm thấy liệu trình này.")
         return ds[0]
@@ -505,7 +541,11 @@ class LieuTrinhService:
         async with self._pool.acquire() as conn:
             await self._doi_doc(conn, identity)
             ds = await self.doc_nhieu(
-                conn, identity.clinic_id, "lt.clinic_patient_id = $2::uuid", pid
+                conn,
+                identity.clinic_id,
+                "lt.clinic_patient_id = $2::uuid",
+                pid,
+                kem_quyet_toan=True,
             )
             # Màn (khung khách) hiện nút Đăng ký / Dừng / Mở lại / Hoàn tác theo
             # cờ này — chính lệnh vẫn tự gác quyền.
@@ -575,6 +615,7 @@ class LieuTrinhService:
                            ON o.clinic_id = b.clinic_id AND o.id = b.service_order_id
                         WHERE b.clinic_id = $1::uuid AND o.visit_id = $2::uuid))""",
                 vid,
+                kem_quyet_toan=True,
             )
             ma = sorted({c["service_code"] for c in chi_dinh})
             ung_vien = (
@@ -1364,7 +1405,11 @@ class LieuTrinhService:
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Dừng liệu trình (Q5: mở lại được, không hạn dùng). Còn buổi đã trả
-        chưa dùng → ``con_tra_truoc`` > 0: màn chỉ đường hoàn tiền ở quầy."""
+        chưa dùng → ``con_tra_truoc`` > 0: màn chỉ đường hoàn tiền ở quầy.
+
+        Buổi đã kê chưa bắt đầu VẪN là buổi của gói (đơn giá gói, phủ bằng
+        tiền trả trước nếu còn — Tuyền chốt 30/10/2026: dừng có hiệu lực sau
+        buổi đang kê); khách không làm thì huỷ chỉ định như thường."""
         lt = _uuid(lieu_trinh_id, "Mã liệu trình không hợp lệ.")
         ly = (str(ly_do).strip() or None) if ly_do is not None else None
         if ly is not None and len(ly) > LY_DO_TOI_DA:
@@ -1375,15 +1420,21 @@ class LieuTrinhService:
             cid = identity.clinic_id
             row = await self._khoa(conn, cid, lt)
             self._dung_ban(row, expected_revision)
+            # Chụp chính sách tiền LÚC DỪNG (dây nối): đổi dây sau không tính
+            # lại lần dừng này. Đang dừng sẵn (bấm lại) → giữ chính sách cũ.
+            gia_le = await doc_day(conn, cid, DAY_DUNG_GIA_LE)
             kq = await self._sua(
                 conn,
                 identity,
                 lt,
                 "DUNG",
-                "dung_luc = coalesce(dung_luc, now()),"
+                "chinh_sach_dung = CASE WHEN dung_luc IS NULL THEN $6"
+                "                       ELSE chinh_sach_dung END,"
+                " dung_luc = coalesce(dung_luc, now()),"
                 " dung_boi = coalesce(dung_boi, $4::uuid),"
                 " ly_do_dung = coalesce(ly_do_dung, $5)",
                 ly,
+                GIA_LE if gia_le else GIA_GOI,
             )
             return kq, lt
 

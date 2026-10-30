@@ -848,6 +848,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
             {quay !== "thuoc" && l.services.length > 0 ? (
               <NhomThu
                 quay="dich_vu"
+                visitId={l.visit_id}
                 tieu_de="Tiền dịch vụ"
                 hd={l.hoa_don?.dich_vu}
                 congTy={l.cong_ty}
@@ -901,6 +902,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
             {quay !== "dich_vu" && l.drugs.length > 0 ? (
               <NhomThu
                 quay="thuoc"
+                visitId={l.visit_id}
                 tieu_de="Thuốc đã kê"
                 hd={l.hoa_don?.thuoc}
                 congTy={l.cong_ty}
@@ -1118,6 +1120,7 @@ function DichVuLamTruocKhoi({ ds }: { ds: DichVuLamTruoc[] }) {
 // Khối thu MỘT khoản — dùng lại ở Nhà thuốc cho lượt Bán lẻ (V8, `pharmacy/BanLeThu`).
 export function NhomThu({
   quay,
+  visitId,
   tieu_de,
   hd,
   congTy,
@@ -1130,6 +1133,8 @@ export function NhomThu({
 }: {
   /** Loại tiền của khối — gửi kèm lệnh hoàn tác để máy chủ gác quầy (01/10/2026). */
   quay?: "dich_vu" | "thuoc";
+  /** Lượt đang thu — tài khoản nhận chuyển khoản theo cơ sở của lượt (31/10/2026). */
+  visitId?: string;
   tieu_de: string;
   hd: HoaDon | undefined;
   /** Công ty trong hồ sơ khách — ô tick "xuất hoá đơn về công ty" (theo lượt thu). */
@@ -1284,7 +1289,7 @@ export function NhomThu({
 
       {hd && hd.thu_duoc && !daThu && !hd.chi_doi_tac_thu && !mienPhi ? (
         <div className="mt-3 border-t border-line pt-3">
-          <ChiaHinhThuc key={`${hd.revision}:${tongSauGiam}`} tong={tongSauGiam} onDoi={setChia} />
+          <ChiaHinhThuc key={`${hd.revision}:${tongSauGiam}`} tong={tongSauGiam} visitId={visitId} onDoi={setChia} />
         </div>
       ) : null}
 

@@ -3,9 +3,13 @@ import type { ReportAccess } from "../reports/access";
 export interface DongHoaDon {
   id: string; ten: string; so_luong: number; thanh_tien: number; da_bo: boolean;
   thanh_tien_truoc_giam?: number; giam_gia?: number;
+  /** Phòng làm dịch vụ — máy chủ viết sẵn như phiếu thu in ("Phòng X · BS Y"). */
+  phong?: string | null;
 }
 export interface PhieuHoan {
   id: string; ma: string; so_tien: number; trang_thai: string; hinh_thuc?: string | null;
+  /** Hoàn chuyển khoản từ tài khoản nào (31/10/2026). */
+  ten_tai_khoan?: string | null;
   lap_luc: string | null; hoan_luc: string | null;
   nguoi_lap: string | null; nguoi_hoan: string | null; ly_do: string | null;
   huy_luc?: string | null; nguoi_huy?: string | null; ly_do_huy?: string | null;
@@ -40,6 +44,8 @@ export interface PhieuThu {
   tong_truoc_giam: number; giam_gia: number; kieu_giam: "AMOUNT" | "PERCENT" | null;
   gia_tri_giam: number | null; ly_do_giam: string | null; nguoi_giam: string | null; giam_luc: string | null;
   hinh_thuc: string; lap_luc: string | null; thu_luc: string | null; huy_luc: string | null;
+  /** Phần chuyển khoản + tài khoản nhận (31/10/2026); tên null = chưa phân loại. */
+  chuyen_khoan?: number; tai_khoan_id?: string | null; ten_tai_khoan?: string | null;
   nguoi_lap: string | null; nguoi_thu: string | null; nguoi_huy: string | null;
   ly_do_huy: string | null; dong: DongHoaDon[]; hoan: PhieuHoan[];
   su_kien?: SuKien[];
@@ -72,6 +78,8 @@ export interface DanhSachData {
   tong_khach?: { so_phieu: number; giam_gia: number; da_thu: number; da_hoan: number; chua_tra_lai: number; thu_rong: number; so_khach_con_ton: number };
   khach: KhachHoaDon[];
   viec_ton?: ViecTon[];
+  /** Chuyển khoản trong kỳ tách theo tài khoản nhận (máy chủ cộng, 31/10/2026). */
+  theo_tai_khoan?: { id: string | null; ten: string; thu: number; huy: number; hoan: number; thuc_thu: number }[];
 }
 /** Nhóm lọc phiếu — khớp `hoa_don_projection.NHOM_LOC` (máy chủ quyết thuộc nhóm nào). */
 export const NHOM_HOA_DON: Record<string, string> = {

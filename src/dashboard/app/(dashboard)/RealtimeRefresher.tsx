@@ -96,6 +96,10 @@ const LIVE_TABLES = [
   "payment",
   // Hoàn thuốc / đổi hẹn: cập nhật khung lịch sử đơn (20261010100001).
   "payment_refund",
+  // Tài khoản nhận chuyển khoản (31/10/2026): quầy thấy ngay tài khoản mới / vừa tắt.
+  "tai_khoan_nhan",
+  // Kiểm kê tiền mặt két theo ca (31/10/2026).
+  "ket_tien_mat_ca",
   "payment_refund_line",
   "phieu_kham_luot",
   "lab_result",
@@ -134,6 +138,8 @@ const LIVE_TABLES = [
   "luot_dong_thoi_gian",
   // Sổ sửa / bỏ chỉ định (Khối 2, 06/10/2026) — trigger ở 20261006200000.
   "so_sua_chi_dinh",
+  // [Không đo] sinh hiệu + lý do (30/10/2026) — trigger ở 20261031130000.
+  "sinh_hieu_khong_do",
   // Liệu trình điều trị nhiều buổi (08/10/2026) — trigger ở 20261008100000.
   "lieu_trinh",
   "lieu_trinh_lich_su",

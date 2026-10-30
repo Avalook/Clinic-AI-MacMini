@@ -656,6 +656,35 @@ def doi_phong_duoc(
     return (exec_status or "") not in _DA_LAM_HOAC_XONG
 
 
+def chan_bo_chi_dinh(
+    *, exec_status: str | None, execution_status: str | None
+) -> tuple[str, str] | None:
+    """Vì sao chưa BỎ được chỉ định này (mã, câu) — None = bỏ được.
+
+    Một luật cho lệnh `HoanTacService.huy_chi_dinh` và cho nút [Bỏ chỉ định] ở
+    màn trưởng ca: đang làm / đã làm xong thì phòng hoàn tác trước — bỏ chỉ
+    định không được xoá ngầm việc người khác đang làm. Đã huỷ → không còn gì để
+    bỏ (lệnh trả `already`, màn không bày nút).
+    """
+    ex = (exec_status or "").lower()
+    th = (execution_status or "").upper()
+    if ex == "cancelled":
+        return ("ORDER_CANCELLED", "Chỉ định đã bỏ.")
+    if "IN_PROGRESS" in (th, ex.upper()):
+        return (
+            "ORDER_IN_PROGRESS",
+            "Dịch vụ đang làm ở phòng — phòng bấm “Huỷ bắt đầu nhầm” trước,"
+            " rồi bỏ chỉ định.",
+        )
+    if th == "COMPLETED" or ex == "performed":
+        return (
+            "ORDER_PERFORMED",
+            "Dịch vụ đã làm xong — phòng bấm “Hoàn tác” ở dòng “Đã xong”"
+            " trước, rồi bỏ chỉ định.",
+        )
+    return None
+
+
 # ---------------------------------------------------------------------------
 # H1 — đường đi sau check-in, và "BUỔI KHÁM" (27/09/2026, đợt 3)
 # ---------------------------------------------------------------------------
@@ -729,6 +758,44 @@ def hien_so_do_buoi(*, vitals_status: str | None, co_so_do_luot_nay: bool) -> bo
     check-in) → vẫn "Chờ đo", khớp với hàng tư vấn còn chờ đo.
     """
     return vitals_status == "recorded" or co_so_do_luot_nay
+
+
+#: Lý do "Không đo" sinh hiệu (30/10/2026) — mã → chữ trên chip. Thứ tự = thứ
+#: tự chip. "KHAC" bắt gõ chữ. Danh sách cùng ràng buộc Postgres
+#: `sinh_hieu_khong_do_ly_do_ck`.
+LY_DO_KHONG_DO: dict[str, str] = {
+    "TRE_NHO": "Trẻ nhỏ",
+    "TU_CHOI": "Khách từ chối",
+    "DO_NOI_KHAC": "Đã đo nơi khác",
+    "KHAC": "Khác",
+}
+KHONG_DO_CAN_CHU = "KHAC"
+GHI_CHU_KHONG_DO_TOI_DA = 500
+
+
+def doc_ly_do_khong_do(ma: Any, chu: Any) -> tuple[str, str | None] | None:
+    """HÀM THUẦN: (mã, chữ) hợp lệ của lần bấm [Không đo], hoặc None (rác).
+
+    Mã ngoài danh sách → None. Chữ: gộp khoảng trắng, cắt độ dài; "Khác" mà
+    không có chữ → None. Mã khác "Khác" thì bỏ chữ (chip đã nói đủ).
+    """
+    if not isinstance(ma, str) or ma not in LY_DO_KHONG_DO:
+        return None
+    ghi = (
+        " ".join(chu.split())[:GHI_CHU_KHONG_DO_TOI_DA] if isinstance(chu, str) else ""
+    )
+    if ma == KHONG_DO_CAN_CHU:
+        return (ma, ghi) if ghi else None
+    return (ma, None)
+
+
+def nhan_khong_do(ma: Any, chu: Any) -> str:
+    """ "Không đo · Trẻ nhỏ" / "Không đo · <chữ đã gõ>" (Khác) — một câu cho
+    mọi màn (đo sinh hiệu, bàn khám, phiếu khám, phiếu in)."""
+    if ma == KHONG_DO_CAN_CHU and isinstance(chu, str) and chu.strip():
+        return f"Không đo · {chu.strip()}"
+    ten = LY_DO_KHONG_DO.get(str(ma)) if ma else None
+    return f"Không đo · {ten}" if ten else "Không đo"
 
 
 def nhan_nguon_sinh_hieu(*, nguon_visit_id: Any, visit_id: Any) -> str | None:

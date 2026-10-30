@@ -8,6 +8,8 @@
 //
 //   · HuyLichTaiCho     → PATCH /api/appointments {action:"cancel", ly_do_huy_ma}
 //                          (booking_service: bắt buộc mã lý do, "Khác" phải viết).
+//   · KhongDenTaiCho    → PATCH {action:"no_show", ly_do_huy_ma} — chạm một lý do
+//                          là ghi (30/10/2026). Hoàn tác: `mo-lai-lich.ts`.
 //   · GhiChamSocTaiCho  → POST /api/cskh/tuong-tac — CÙNG đường + khoá chống ghi
 //                          trùng với nút gọi ở Quản lý khách hàng (HanhDongTrangThai).
 //   · DoiDichVuKhamTaiCho → GET/POST /api/appointments/doi-dich-vu-kham (V5,
@@ -26,7 +28,7 @@ import PopoverNeo from "@/components/ui/PopoverNeo";
 import { fmtTime, ngayVN } from "@/lib/datetime";
 import { doctorName } from "@/lib/doctor-name";
 import { nhanLoi } from "@/lib/loi-api";
-import { LY_DO_HUY, LY_DO_HUY_THU_TU } from "@/lib/ly-do-huy";
+import { LY_DO_HUY, LY_DO_HUY_THU_TU, LY_DO_KHONG_DEN_THU_TU } from "@/lib/ly-do-huy";
 import { dayShort, fmtDayMonth } from "@/lib/roster";
 
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
@@ -165,6 +167,119 @@ export function HuyLichTaiCho({
           className={O_CHU}
         />
       </fieldset>
+    </PopoverNeo>
+  );
+}
+
+/* ───────────────────────────── Không đến ───────────────────────────── */
+
+/** Nút "Không đến" → hộp nhỏ: chạm MỘT lý do là ghi xong (một chạm thêm so với
+ *  trước); "Khác" thì phải viết. Danh mục chung `lib/ly-do-huy.ts`. */
+export function KhongDenTaiCho({
+  lich,
+  neo,
+  onDong,
+  onXong,
+}: {
+  lich: LichTaiCho;
+  neo: HTMLElement | null;
+  onDong: () => void;
+  onXong: (cau: string) => void;
+}) {
+  const [khac, setKhac] = useState(false);
+  const [ghi, setGhi] = useState("");
+  const [dang, setDang] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+
+  async function danhDau(ma: string) {
+    if (dang) return;
+    setDang(true);
+    setLoi(null);
+    const res = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: lich.id,
+        action: "no_show",
+        ly_do_huy_ma: ma,
+        cancellation_reason: ghi.trim() || null,
+      }),
+    }).catch(() => null);
+    setDang(false);
+    if (!res) {
+      setLoi("Mất kết nối — CHƯA ghi không đến. Thử lại.");
+      return;
+    }
+    if (!res.ok) {
+      setLoi(nhanLoi(await res.json().catch(() => null), "Không ghi được."));
+      return;
+    }
+    onDong();
+    onXong(`Đã ghi ${lich.ten} không đến.`);
+  }
+
+  const chan = (
+    <div className="flex flex-col gap-2">
+      <Loi chu={loi} />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="ghost" size="md" onClick={onDong}>
+          Thôi
+        </Button>
+        {khac ? (
+          <Button
+            variant="danger"
+            size="md"
+            disabled={dang || ghi.trim() === ""}
+            onClick={() => void danhDau("KHAC")}
+          >
+            {dang ? "Đang ghi…" : "Ghi không đến"}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  return (
+    <PopoverNeo neo={neo} onDong={onDong} dau={<DauLich tieuDe="Không đến" lich={lich} />} chan={chan}>
+      <div className="flex flex-col gap-2">
+        <p className="text-body font-semibold text-ink">Vì sao khách không đến?</p>
+        <p className="text-meta text-ink-muted">Chạm một lý do là ghi luôn.</p>
+        <div className="flex flex-col gap-1.5">
+          {LY_DO_KHONG_DEN_THU_TU.map((m) =>
+            m === "KHAC" ? (
+              <ChipChon key={m} kieu="mot" ten={`khong-den-${lich.id}`} chon={khac} onDoi={() => setKhac(true)}>
+                {LY_DO_HUY[m]}
+              </ChipChon>
+            ) : (
+              <button
+                key={m}
+                type="button"
+                disabled={dang}
+                onClick={() => void danhDau(m)}
+                className={`${buttonClass("secondary", "md")} justify-start`}
+              >
+                {LY_DO_HUY[m]}
+              </button>
+            ),
+          )}
+        </div>
+        {khac ? (
+          <>
+            <label className="mt-1 block text-meta text-ink-muted" htmlFor={`khong-den-ghi-${lich.id}`}>
+              Viết rõ lý do (bắt buộc)
+            </label>
+            <textarea
+              id={`khong-den-ghi-${lich.id}`}
+              rows={2}
+              maxLength={1000}
+              value={ghi}
+              onChange={(e) => setGhi(e.target.value)}
+              placeholder="vd: khách đi viện khác"
+              className={O_CHU}
+            />
+          </>
+        ) : null}
+      </div>
     </PopoverNeo>
   );
 }
