@@ -316,10 +316,12 @@ async def ap_dung(pool: asyncpg.Pool, ket_qua: list[KetQuaKiem]) -> None:
 
 async def mot_vong(pool: asyncpg.Pool) -> list[KetQuaKiem]:
     """Một lượt canh gác. Không bao giờ ném."""
+    from clinicai.services.canh_gac_may_chu import kiem_may_chu
+
     try:
         async with pool.acquire() as conn:
             so = await do_so(conn)
-            ket_qua = danh_gia(so)
+            ket_qua = danh_gia(so) + kiem_may_chu()
             async with conn.transaction():
                 await bao_han_hang_ngay(conn, so["han_lo"])
         await ap_dung(pool, ket_qua)
