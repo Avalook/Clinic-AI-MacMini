@@ -106,7 +106,7 @@ test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi l
   assert.doesNotMatch(kiem, /Chưa có phiếu nào/);
   assert.match(kiem, /aria-label="Phiếu kiểm trong ca này"/);
   assert.match(kiem, /aria-label="Ca và phiếu kiểm kê"/);
-  assert.match(kiem, /w-fit min-w-\[24rem\] max-w-full/);
+  assert.match(kiem, /w-full min-w-0 max-w-full flex-none sm:w-fit sm:min-w-\[24rem\]/);
   assert.doesNotMatch(kiem, /min-w-\[24rem\] flex-1/);
   assert.match(kiem, /loi: loiKyThuat \? null : thongDiep/);
   assert.match(kiem, /loiKyThuat = \/mã lỗi/);
