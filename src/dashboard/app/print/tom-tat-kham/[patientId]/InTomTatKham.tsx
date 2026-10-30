@@ -461,8 +461,7 @@ export default function InTomTatKham({ clinicPatientId }: { clinicPatientId: str
       {/* Chân ký: bác sĩ của lượt MỚI NHẤT — LUÔN Ở CUỐI CÙNG (Tuyền 30/09). */}
       <footer className="in-giu mt-6 flex flex-col gap-4 text-meta sm:flex-row sm:justify-between print:flex-row print:justify-between">
         <p className="max-w-md text-label text-ink-muted">
-          Số tô đỏ là số nằm ngoài ngưỡng do máy chủ đánh giá, giống ô bất thường ở màn đo sinh
-          hiệu. Muốn xem chi tiết từng lượt thì mở hồ sơ trên hệ thống.
+          Số tô đỏ là số ngoài ngưỡng bình thường.
         </p>
         <div className="min-w-48 self-end text-center">
           <p className="text-ink-muted">
