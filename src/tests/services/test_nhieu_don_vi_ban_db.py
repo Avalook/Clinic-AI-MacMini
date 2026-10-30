@@ -341,9 +341,10 @@ async def test_dong_cu_don_vi_goc_khong_chup_he_so_la_1(q: Quay) -> None:
     assert await _ton(q, lo) == 7
 
 
-async def test_huy_phieu_sau_khi_giao_khach_tra_van_theo_he_so_luc_ban(q: Quay) -> None:
+async def test_huy_phieu_sau_khi_doi_he_so_thuoc_ve_du_so_da_tru(q: Quay) -> None:
+    """Hoàn tác lần thu đưa thuốc về quầy theo dòng sổ, không theo hệ số vừa đổi."""
     drug = await _thuoc_goi(q)
-    await _lo(q, drug, 60)
+    lo = await _lo(q, drug, 60)
     rx = await _ban(q, drug, "1 hộp")
     kq = await _thu(q)
     await _giao(q, rx, 1)
@@ -361,16 +362,10 @@ async def test_huy_phieu_sau_khi_giao_khach_tra_van_theo_he_so_luc_ban(q: Quay) 
     )
     await _huy_phieu(q, str(kq["payment_cycle_id"]))
 
-    tra = await _tra(q, (await _xuat(q, rx))[0]["id"], 15, ket_cuc="GIU_LAI")
-
-    so_ban = await q.pool.fetchval(
-        "SELECT so_luong_ban FROM drug_return WHERE id = $1::uuid",
-        tra["drug_return_id"],
-    )
-    assert so_ban == Decimal("0.5"), "15 gói theo hệ số 30 đã chụp, không theo 28"
-
-
-# ── Mục 3: đơn vị gốc, tắt đơn vị ─────────────────────────────────────────
+    assert await _ton(q, lo) == 60, "trừ 30 thì về đủ 30, không phải 28"
+    assert (await _dong_rx(q, rx))["dispensed_qty"] == 0
+    with pytest.raises(ConflictError, match="đã hoàn tác"):
+        await _tra(q, (await _xuat(q, rx))[0]["id"], 15, ket_cuc="GIU_LAI")
 
 
 async def test_doi_don_vi_goc_khi_con_ton_bi_chan_khong_doi_nghia_so_ton(

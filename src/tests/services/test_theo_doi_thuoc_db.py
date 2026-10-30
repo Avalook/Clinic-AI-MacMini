@@ -72,7 +72,7 @@ async def _vong_doi(co: Co) -> Vong:
         pool,
         identity=co.ds,
         khoa_gui=uuid.uuid4().hex,
-        dong=[{"drug_batch_id": kho_lo, "thuc_te": 29}],
+        dong=[{"drug_batch_id": kho_lo, "thuc_te": 29, "ly_do": "Vỡ lúc xếp kệ"}],
     )
     quay = _id_dich(await _chuyen(co, kho_lo, 12))
 
