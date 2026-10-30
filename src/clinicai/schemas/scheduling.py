@@ -17,23 +17,6 @@ class SessionType(str, Enum):
     WEEKEND_AFTERNOON = "WEEKEND_AFTERNOON"
 
 
-class AppointmentStatus(str, Enum):
-    """Status machine for appointments.
-
-    Valid transitions:
-      SCHEDULED → CONFIRMED → CHECKED_IN → COMPLETED
-      SCHEDULED → CANCELLED
-      SCHEDULED → NO_SHOW
-    """
-
-    SCHEDULED = "SCHEDULED"
-    CONFIRMED = "CONFIRMED"
-    CHECKED_IN = "CHECKED_IN"
-    COMPLETED = "COMPLETED"
-    NO_SHOW = "NO_SHOW"
-    CANCELLED = "CANCELLED"
-
-
 # ---------------------------------------------------------------------------
 # Work Session
 # ---------------------------------------------------------------------------
@@ -129,16 +112,6 @@ class AppointmentCreateDTO(BaseModel):
             msg = "slot_end must be after slot_start"
             raise ValueError(msg)
         return self
-
-
-class AppointmentUpdateDTO(BaseModel):
-    """Input schema for partial-updating an appointment."""
-
-    assigned_station: str | None = None
-    queue_number: str | None = None
-    is_priority_slot: bool | None = None
-    doctor_id: UUID | None = None
-    work_session_id: UUID | None = None
 
 
 class AppointmentDTO(BaseModel):

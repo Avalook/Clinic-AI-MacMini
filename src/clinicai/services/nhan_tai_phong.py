@@ -1543,20 +1543,6 @@ async def _dung_lai_cho_lam(
         )
 
 
-async def _su_kien_cuoi(
-    conn: asyncpg.Connection, cid: str, oid: str, ten: str
-) -> str | None:
-    v = await conn.fetchval(
-        "SELECT event_id::text FROM domain_event WHERE clinic_id = $1::uuid"
-        " AND aggregate_type = 'service_order' AND aggregate_id = $2::uuid"
-        " AND event_type = $3 ORDER BY seq DESC LIMIT 1",
-        cid,
-        oid,
-        ten,
-    )
-    return str(v) if v else None
-
-
 __all__ = [
     "CAU_CHUA_CO_CHI_DINH",
     "CHUA_VAO_PHONG_SQL",
