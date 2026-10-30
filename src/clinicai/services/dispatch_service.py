@@ -24,10 +24,11 @@ import structlog
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.permissions.can import can
 from clinicai.services import finance_gate
 from clinicai.services.audit_labels import action_label_theo_nguon
 from clinicai.services.gate_rule_service import enforce as gate_enforce
-from clinicai.services.luot_kham_rules import doi_phong_duoc
+from clinicai.services.luot_kham_rules import chan_bo_chi_dinh, doi_phong_duoc
 from clinicai.services.nhan_trang_thai_dieu_phoi import (
     trang_thai_dich_vu,
     trang_thai_khach,
@@ -334,7 +335,13 @@ class DispatchService:
         canh_bao_neu_day("dieu_phoi.tong_quan", len(rows), 400, clinic_id=clinic_id)
         return [_overview_row(r) for r in rows]
 
-    async def chi_dinh(self, *, clinic_id: str, visit_id: str) -> list[dict[str, Any]]:
+    async def chi_dinh(
+        self,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        identity: StaffIdentity | None = None,
+    ) -> list[dict[str, Any]]:
         """BÁC SĨ ĐÃ CHỈ ĐỊNH GÌ cho lượt khám này — Tuyền chốt 16/09/2026.
 
         Thay khối "tuyến điều phối" (áp một quy trình mẫu lên cả lượt khám):
@@ -352,6 +359,11 @@ class DispatchService:
             )
             tai_chinh = await finance_gate.states_for_orders(
                 conn, clinic_id, [r["id"] for r in rows]
+            )
+            # [Bỏ chỉ định] + [Hoàn tác] (30/10/2026): cùng quyền lệnh gốc
+            # `huy_chi_dinh` / sổ hoàn tác hỏi — ẩn nút không phải bảo mật.
+            bo_quyen = identity is not None and await can(
+                conn, identity, "clinical.order.place"
             )
         return [
             {
@@ -390,6 +402,16 @@ class DispatchService:
                     # Phòng đối tác nhận việc này → đổi phòng được (16/10/2026).
                     doi_tac=bool(r["doi_tac"]) and not r["vao_phong_doi_tac"],
                 ),
+                "bo_duoc": bo_quyen
+                and chan_bo_chi_dinh(
+                    exec_status=r["exec_status"],
+                    execution_status=r["execution_status"],
+                )
+                is None,
+                # Dòng sổ của lần BỎ còn hiệu lực → nút [Hoàn tác] (đặt lại).
+                "hoan_tac_bo_id": r["so_bo_id"]
+                if bo_quyen and r["exec_status"] == "cancelled"
+                else None,
             }
             for r in rows
         ]
@@ -1078,6 +1100,12 @@ SELECT o.id::text,
        (SELECT a.started_at FROM public.service_execution_attempt a
          WHERE a.clinic_id = o.clinic_id AND a.service_order_id = o.id
            AND a.status = 'IN_PROGRESS') AS lan_lam_tu,
+       -- Lần BỎ mới nhất chưa hoàn tác (sổ sửa chỉ định) — nút [Hoàn tác].
+       (SELECT s.id::text FROM public.so_sua_chi_dinh s
+         WHERE s.clinic_id = o.clinic_id AND s.service_order_id = o.id
+           AND s.hanh_dong = 'BO' AND s.nhom <> 'THUOC'
+           AND s.hoan_tac_luc IS NULL
+         ORDER BY s.stt DESC LIMIT 1) AS so_bo_id,
        -- SỐ NGƯỜI ĐANG CHỜ Ở PHÒNG ĐANG XẾP — câu trưởng ca thật sự hỏi khi
        -- nhìn một chỉ định: "chỗ ấy có tắc không?". Đếm theo hàng chờ thật.
        (SELECT count(*) FROM public.queue_entry q2

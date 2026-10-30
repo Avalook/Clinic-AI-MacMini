@@ -14,7 +14,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import NutHoanTac from "@/components/ui/NutHoanTac";
+
 import DoiPhong from "../_lam-viec/DoiPhong";
+import { lenhHoanTac } from "../_lam-viec/hoan-tac";
 import { ChipTrangThai, type NhanTrangThai } from "./nhan-trang-thai";
 
 
@@ -53,6 +56,10 @@ export interface ChiDinh {
   doi_phong_duoc: boolean;
   /** Nhãn trạng thái rõ (Tuyền 29/09/2026) — máy chủ quyết, màn chỉ vẽ. */
   trang_thai?: NhanTrangThai;
+  /** Máy chủ nói bỏ được chỉ định này (quyền chỉ định + chưa làm). */
+  bo_duoc?: boolean;
+  /** Dòng sổ của lần bỏ còn hiệu lực — có thì bày [Hoàn tác] (đặt lại). */
+  hoan_tac_bo_id?: string | null;
 }
 
 /** Chuyển phòng được khi chỉ định đang chờ xếp/đang chờ ở phòng — phòng cũ đã
@@ -260,6 +267,29 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                   </button>
                 </div>
               )}
+              {/* Bỏ chỉ định ngay tại đây (30/10/2026) — cùng lệnh, cùng hộp hỏi
+                  với phiếu khám: đã thu thì máy chủ hỏi xác nhận + lý do, khoản
+                  ấy thành tiền thừa ở quầy. Bỏ rồi vẫn [Hoàn tác] được. */}
+              {x.bo_duoc ? (
+                <div className="mt-1.5">
+                  <NutHoanTac
+                    nhan="Bỏ chỉ định"
+                    variant="danger"
+                    tieuDe={`Bỏ chỉ định “${x.service_name}”?`}
+                    moTa="Bỏ chỉ định này (chỉ định sai chỗ) — quầy thu cập nhật ngay"
+                    goi={lenhHoanTac("huy-chi-dinh", x.id)}
+                    onXong={() => setLan((n) => n + 1)}
+                  />
+                </div>
+              ) : x.hoan_tac_bo_id ? (
+                <div className="mt-1.5">
+                  <NutHoanTac
+                    moTa={`Đặt lại: ${x.service_name}`}
+                    goi={lenhHoanTac("hoan-tac-bo-chi-dinh", x.hoan_tac_bo_id)}
+                    onXong={() => setLan((n) => n + 1)}
+                  />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

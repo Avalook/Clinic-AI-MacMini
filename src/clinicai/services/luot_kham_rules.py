@@ -656,6 +656,35 @@ def doi_phong_duoc(
     return (exec_status or "") not in _DA_LAM_HOAC_XONG
 
 
+def chan_bo_chi_dinh(
+    *, exec_status: str | None, execution_status: str | None
+) -> tuple[str, str] | None:
+    """Vì sao chưa BỎ được chỉ định này (mã, câu) — None = bỏ được.
+
+    Một luật cho lệnh `HoanTacService.huy_chi_dinh` và cho nút [Bỏ chỉ định] ở
+    màn trưởng ca: đang làm / đã làm xong thì phòng hoàn tác trước — bỏ chỉ
+    định không được xoá ngầm việc người khác đang làm. Đã huỷ → không còn gì để
+    bỏ (lệnh trả `already`, màn không bày nút).
+    """
+    ex = (exec_status or "").lower()
+    th = (execution_status or "").upper()
+    if ex == "cancelled":
+        return ("ORDER_CANCELLED", "Chỉ định đã bỏ.")
+    if "IN_PROGRESS" in (th, ex.upper()):
+        return (
+            "ORDER_IN_PROGRESS",
+            "Dịch vụ đang làm ở phòng — phòng bấm “Huỷ bắt đầu nhầm” trước,"
+            " rồi bỏ chỉ định.",
+        )
+    if th == "COMPLETED" or ex == "performed":
+        return (
+            "ORDER_PERFORMED",
+            "Dịch vụ đã làm xong — phòng bấm “Hoàn tác” ở dòng “Đã xong”"
+            " trước, rồi bỏ chỉ định.",
+        )
+    return None
+
+
 # ---------------------------------------------------------------------------
 # H1 — đường đi sau check-in, và "BUỔI KHÁM" (27/09/2026, đợt 3)
 # ---------------------------------------------------------------------------

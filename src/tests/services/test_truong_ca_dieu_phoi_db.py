@@ -346,3 +346,67 @@ async def test_chua_bat_dau_thi_lenh_chuyen_dang_lam_tu_choi(
             idempotency_key=_khoa(),
         )
     assert loi.value.error_code == "SERVICE_NOT_IN_PROGRESS"
+
+
+async def test_truong_ca_bo_chi_dinh_ngay_tren_man_va_hoan_tac(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Màn trưởng ca: cờ [Bỏ chỉ định] / [Hoàn tác] do máy chủ trả theo quyền
+    `clinical.order.place` + trạng thái — cùng luật lệnh `huy_chi_dinh`."""
+    from clinicai.services.hoan_tac_service import HoanTacService
+    from clinicai.services.so_sua_chi_dinh_service import SoSuaChiDinhService
+
+    ca = await _dung(pool)
+    async with pool.acquire() as conn:
+        truong_ca = await _nguoi(conn, ca.loc, "TRUONG_CA")
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+
+    async def mot(ai: StaffIdentity | None) -> dict[str, Any]:
+        [d] = [
+            x
+            for x in await DispatchService(pool).chi_dinh(
+                clinic_id=CLINIC, visit_id=visit, identity=ai
+            )
+            if x["id"] == order
+        ]
+        return d
+
+    # Chưa thu: trưởng ca thấy nút bỏ; không truyền người xem → không nút.
+    d = await mot(truong_ca)
+    assert d["bo_duoc"] is True and d["hoan_tac_bo_id"] is None
+    assert (await mot(None))["bo_duoc"] is False
+
+    # Bỏ ngay (chưa thu → không hỏi), dòng hiện "đã huỷ" + nút Hoàn tác.
+    kq = await HoanTacService(pool).huy_chi_dinh(order_id=order, identity=truong_ca)
+    assert kq["ok"] is True and kq["tien_thua"] == 0
+    d = await mot(truong_ca)
+    assert d["exec_status"] == "cancelled" and d["xong"] is True
+    assert d["bo_duoc"] is False and d["hoan_tac_bo_id"] == kq["so_sua_id"]
+    assert (await mot(None))["hoan_tac_bo_id"] is None
+
+    # Hoàn tác → chỉ định quay lại, bỏ được lần nữa; nút Hoàn tác tắt.
+    await SoSuaChiDinhService(pool).hoan_tac(
+        so_id=d["hoan_tac_bo_id"], identity=truong_ca
+    )
+    d = await mot(truong_ca)
+    assert d["exec_status"] != "cancelled"
+    assert d["bo_duoc"] is True and d["hoan_tac_bo_id"] is None
+
+    # Đã thu + đang làm ở phòng → máy chủ không bày nút (lệnh cũng chặn).
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.le_tan)
+    await chay_hanh_trinh(pool)
+    assert (await mot(truong_ca))["bo_duoc"] is True
+    d2 = await _don(pool, order)
+    await ServiceExecutionService(pool).bat_dau(
+        order_id=order,
+        expected_execution_revision=int(d2["execution_revision"]),
+        expected_routing_revision=int(d2["routing_revision"]),
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    assert (await mot(truong_ca))["bo_duoc"] is False
+    with pytest.raises(LuotKhamConflictError) as loi:
+        await HoanTacService(pool).huy_chi_dinh(order_id=order, identity=truong_ca)
+    assert loi.value.error_code == "ORDER_IN_PROGRESS"

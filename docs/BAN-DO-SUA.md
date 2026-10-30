@@ -637,6 +637,9 @@ thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_
 - Chọn bác sĩ trong phòng ≥2 bác sĩ: `S/lan_bac_si.py`, `D/_lam-viec/ChonBacSiLam.tsx`;
   test `T/services/test_chon_bac_si_trong_phong_db.py`.
 - Chuyển phòng từng chỉ định (trưởng ca): `D/truong-ca/ChiDinhCuaBacSi.tsx`.
+  Cùng khối: [Bỏ chỉ định] / [Hoàn tác] — cờ `bo_duoc`, `hoan_tac_bo_id` ở
+  `S/dispatch_service.py::chi_dinh` (luật `S/luot_kham_rules.py::chan_bo_chi_dinh`,
+  dùng chung với `HoanTacService.huy_chi_dinh`); test `T/services/test_truong_ca_dieu_phoi_db.py`.
 - Test chung: `T/services/test_service_routing_db.py`, `T/services/test_nguon_xep_phong_db.py`.
 
 ## 9. Phòng dịch vụ · thực hiện · kết quả · tệp

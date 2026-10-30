@@ -495,3 +495,30 @@ def test_doc_ly_do_khong_do_va_nhan() -> None:
     assert rules.nhan_khong_do("KHAC", None) == "Không đo · Khác"
     assert rules.nhan_khong_do(None, None) == "Không đo"
     assert rules.nhan_khong_do("rác", 3) == "Không đo"
+
+
+# --- Bỏ chỉ định (30/10/2026): một luật cho lệnh + nút ở màn trưởng ca --------
+@pytest.mark.parametrize(
+    ("exec_status", "execution_status", "ma"),
+    [
+        ("authorized", None, None),
+        ("assigned", "READY", None),
+        ("draft", None, None),
+        ("not_performed", "NOT_PERFORMED", None),
+        ("cancelled", "CANCELLED", "ORDER_CANCELLED"),
+        ("in_progress", None, "ORDER_IN_PROGRESS"),
+        ("assigned", "IN_PROGRESS", "ORDER_IN_PROGRESS"),
+        ("performed", None, "ORDER_PERFORMED"),
+        ("assigned", "COMPLETED", "ORDER_PERFORMED"),
+        # Rác / thiếu → không ném.
+        (None, None, None),
+        ("", "", None),
+    ],
+)
+def test_chan_bo_chi_dinh(
+    exec_status: str | None, execution_status: str | None, ma: str | None
+) -> None:
+    kq = rules.chan_bo_chi_dinh(
+        exec_status=exec_status, execution_status=execution_status
+    )
+    assert (kq[0] if kq else None) == ma
