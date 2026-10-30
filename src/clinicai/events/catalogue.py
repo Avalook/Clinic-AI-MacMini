@@ -501,9 +501,19 @@ class LichDaDoiDichVu(PayloadSuKien):
 
 
 class KhachKhongDen(PayloadSuKien):
-    """`appointment.no_show` — tới giờ mà khách không đến."""
+    """`appointment.no_show` — tới giờ mà khách không đến (mã lý do, 30/10/2026)."""
 
     appointment_id: str
+    ly_do_ma: str | None = None
+
+
+class LichDaMoLai(PayloadSuKien):
+    """`appointment.reopened` — hoàn tác huỷ / không đến: lịch mở lại về trạng
+    thái trước đó. Lý do cũ + ai mở lại ở `appointment_hoan_tac_huy`."""
+
+    appointment_id: str
+    tu_trang_thai: str
+    ve_trang_thai: str
 
 
 class CskhDaGoiXacNhan(PayloadSuKien):
@@ -1971,6 +1981,15 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="booking",
             payload=KhachKhongDen,
             nhan="Khách không đến",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="appointment.reopened",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=LichDaMoLai,
+            nhan="Mở lại lịch (hoàn tác huỷ / không đến)",
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(

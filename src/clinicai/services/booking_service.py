@@ -68,6 +68,11 @@ from clinicai.core.shifts import (
     shift_windows,
 )
 from clinicai.core.trang_thai_lich import DEAD_STATUSES as DEAD_STATUSES
+from clinicai.core.trang_thai_lich import (
+    MO_LAI_DUOC_TU,
+    ngay_cua_lich,
+    trang_thai_mo_lai,
+)
 from clinicai.events.catalogue import (
     CskhDaGoiXacNhan,
     KhachDaToi,
@@ -76,6 +81,7 @@ from clinicai.events.catalogue import (
     LichDaDoi,
     LichDaDoiDichVu,
     LichDaHuy,
+    LichDaMoLai,
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
@@ -122,8 +128,50 @@ LY_DO_HUY: dict[str, str] = {
     # chọn được khi huỷ tay vì đúng lý do ấy. Tách riêng vì đếm chung với
     # BAO_* là đổ lỗi cho khách một chuyện của phòng khám.
     "BAC_SI_DOI_LICH": "Bác sĩ đổi lịch làm việc — phòng khám huỷ để đặt lại",
+    # KHÔNG ĐẾN (30/10/2026) — cùng cột, khâu khác: tới giờ mà khách không tới,
+    # lễ tân ghi vì sao ngay ở nút "Không đến".
+    "KHONG_LIEN_LAC_DUOC": "Gọi không liên lạc được",
+    "KHACH_BAO_BAN": "Khách báo bận, không đến được",
+    "QUEN_LICH": "Khách quên lịch hẹn",
     "KHAC": "Lý do khác (tự viết)",
 }
+
+#: Mã chọn được khi HUỶ lịch / khi đánh KHÔNG ĐẾN — hai tập con của `LY_DO_HUY`
+#: (thứ tự vẽ ở `lib/ly-do-huy.ts`). "Khác" thuộc cả hai.
+MA_HUY: frozenset[str] = frozenset(
+    {
+        "BAO_KHI_XAC_NHAN",
+        "BAO_KHI_NHAC_HEN",
+        "BAO_VAO_GIO_KHAM",
+        "DAT_TRUNG",
+        "BAC_SI_DOI_LICH",
+        "KHAC",
+    }
+)
+MA_KHONG_DEN: frozenset[str] = frozenset(
+    {"KHONG_LIEN_LAC_DUOC", "KHACH_BAO_BAN", "QUEN_LICH", "KHAC"}
+)
+
+
+def ly_do_hop_le(
+    ma: str | None, chu: str | None, *, cho_phep: frozenset[str], viec: str
+) -> tuple[str, str | None]:
+    """(mã, chữ) đã kiểm của một lần huỷ / không đến. Thuần — test không cần DB.
+
+    KHÔNG tự điền 'KHAC' cho im chuyện. Mặc định âm thầm là cách cột này thành
+    100% "khác" trong ba tháng, và lúc đó nó vô dụng đúng bằng ô chữ tự do mà
+    nó thay thế.
+    """
+    ma_sach = (ma or "").strip() or None
+    chu_sach = (chu or "").strip() or None
+    if ma_sach is None:
+        raise ValidationError(f"Chọn lý do {viec}.")
+    if ma_sach not in cho_phep:
+        raise ValidationError(f"Lý do {viec} không hợp lệ: {ma_sach!r}.")
+    if ma_sach == "KHAC" and not chu_sach:
+        raise ValidationError("Chọn 'lý do khác' thì phải viết rõ lý do.")
+    return ma_sach, chu_sach
+
 
 # Múi giờ khai báo ở core.clock — xem lý do ở đó (một hằng số ở nhiều bản
 # sao là hằng số sẽ sai ở một trong các bản).
@@ -157,6 +205,9 @@ Action = Literal[
     "reassign",
     "assign_doctor",
     "reschedule",
+    # HOÀN TÁC huỷ / không đến (30/10/2026) — không phải một Transition: trạng
+    # thái đích và quyền tuỳ lần huỷ trước (`BookingService.mo_lai`).
+    "reopen",
 ]
 
 # Who may issue which action. Mirrors roles.ts: isDoctorRole / canManageAppt /
@@ -859,6 +910,8 @@ class BookingService:
 
         `xac_minh_cach` tuỳ chọn với `checkin` (xem `cach_xac_minh_bat_buoc`).
         """
+        if action == "reopen":
+            return await self.mo_lai(appointment_id=appointment_id, identity=identity)
         transition = resolve_action(action)
         cach_xac_minh = (
             cach_xac_minh_bat_buoc(xac_minh_cach) if action == "checkin" else None
@@ -913,6 +966,162 @@ class BookingService:
             if visit_vua_mo
             else {"status": new_status}
         )
+
+    async def mo_lai(
+        self, *, appointment_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """HOÀN TÁC huỷ / không đến: mở lại lịch về trạng thái trước đó.
+
+        Luật "mọi thao tác nhân viên bấm phải hoàn tác được" (Tuyền 01/10/2026).
+        Mở lại = ĐẶT LẠI chính khung ấy, nên đi qua đúng luật đặt lịch:
+          * ngày của lịch đã qua → không (đặt lịch mới). Cùng ngày thì được, kể
+            cả khi khung đã qua: "Không đến" đánh sau giờ hẹn, khách tới muộn
+            là đúng lúc cần hoàn tác;
+          * khách đã có lượt khám (đã check-in) → không — lượt ấy có chủ;
+          * khách đã có lịch khác đúng giờ ấy / khung đã đầy / bác sĩ không còn
+            ca → không (cùng chốt của `_guard_slot`, trigger sức chứa là lưới).
+        Quyền: ai được huỷ thì hoàn tác được huỷ, ai được đánh không đến thì
+        hoàn tác được không đến. Lý do cũ rời lịch, nằm lại ở vết
+        `appointment_hoan_tac_huy` cùng ai mở lại, lúc nào.
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                # Khoá dòng: hai người cùng bấm → người sau thấy trạng thái mới.
+                appt = await conn.fetchrow(
+                    """
+                    SELECT id, status, doctor_id, slot_start, slot_end,
+                           booking_channel, clinic_patient_id, trang_thai_truoc_huy,
+                           ly_do_huy_ma, cancellation_reason, cancelled_at,
+                           cancelled_by_staff_id
+                      FROM appointment
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                       FOR UPDATE
+                    """,
+                    appointment_id,
+                    identity.clinic_id,
+                )
+                if appt is None:
+                    raise NotFoundError("Không tìm thấy lịch hẹn")
+                cu = appt["status"]
+                if cu not in MO_LAI_DUOC_TU:
+                    raise ConflictError(
+                        "Lịch này không còn ở trạng thái Đã huỷ / Không đến (có thể "
+                        "người khác vừa hoàn tác) — tải lại trang."
+                    )
+                goc = TRANSITIONS["cancel" if cu == "CANCELLED" else "no_show"]
+                if goc.quyen:
+                    await doi_quyen(conn, identity, goc.quyen)
+                identity = dung_vai(identity, goc.allowed_roles)
+
+                if await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM visit WHERE appointment_id = $1::uuid"
+                    " AND clinic_id = $2::uuid)",
+                    appointment_id,
+                    identity.clinic_id,
+                ):
+                    raise ConflictError(
+                        "Khách đã có lượt khám từ lịch này (đã check-in) — không mở "
+                        "lại được. Đặt lịch mới nếu khách vẫn muốn khám."
+                    )
+                ngay = ngay_cua_lich(appt["slot_start"])
+                hom_nay = datetime.now(CLINIC_TZ).date()
+                if ngay is None or ngay < hom_nay:
+                    raise ValidationError(
+                        "Lịch của ngày đã qua — không mở lại được. Đặt lịch mới nếu "
+                        "khách vẫn muốn khám."
+                    )
+                if await self._patient_double_booked(
+                    conn,
+                    clinic_patient_id=str(appt["clinic_patient_id"]),
+                    slot_start=appt["slot_start"],
+                    identity=identity,
+                ):
+                    raise ConflictError(
+                        f"Khách đã có một lịch khác lúc {_hhmm(appt['slot_start'])} "
+                        "cùng ngày — mở lại sẽ thành hai lịch trùng."
+                    )
+                doctor = str(appt["doctor_id"]) if appt["doctor_id"] else None
+                await self._guard_slot(
+                    conn,
+                    doctor_id=doctor,
+                    slot_start=appt["slot_start"],
+                    slot_end=appt["slot_end"],
+                    channel=appt["booking_channel"],
+                    exclude_id=appointment_id,
+                    identity=identity,
+                )
+                ve = trang_thai_mo_lai(appt["trang_thai_truoc_huy"])
+                if not await self._update(
+                    conn,
+                    appointment_id,
+                    {
+                        "status": ve,
+                        "ly_do_huy_ma": None,
+                        "cancellation_reason": None,
+                        "cancelled_at": None,
+                        "cancelled_by_staff_id": None,
+                        "trang_thai_truoc_huy": None,
+                    },
+                    frozenset({cu}),
+                    identity.clinic_id,
+                ):
+                    raise ConflictError(
+                        "Lịch hẹn vừa được người khác cập nhật, hãy tải lại."
+                    )
+                await conn.execute(
+                    """
+                    INSERT INTO appointment_hoan_tac_huy
+                        (clinic_id, appointment_id, tu_trang_thai, ve_trang_thai,
+                         ly_do_huy_ma, ly_do_chu, huy_luc, huy_boi_staff_id,
+                         hoan_tac_boi_staff_id)
+                    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8::uuid,
+                            $9::uuid)
+                    """,
+                    identity.clinic_id,
+                    appointment_id,
+                    cu,
+                    ve,
+                    appt["ly_do_huy_ma"],
+                    appt["cancellation_reason"],
+                    appt["cancelled_at"],
+                    appt["cancelled_by_staff_id"],
+                    identity.staff_id,
+                )
+                await _log(
+                    conn,
+                    event_type="appointment.reopened",
+                    aggregate_id=appointment_id,
+                    payload={
+                        "appointment_id": appointment_id,
+                        "status": ve,
+                        "tu_trang_thai": cu,
+                        "ly_do_huy_ma_cu": appt["ly_do_huy_ma"],
+                        "doctor_id": doctor,
+                        "clinic_patient_id": str(appt["clinic_patient_id"]),
+                    },
+                    identity=identity,
+                    origin="api:appointment-reopen",
+                )
+                await emit_event(
+                    conn,
+                    ten="appointment.reopened",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=appointment_id,
+                    payload=LichDaMoLai(
+                        appointment_id=appointment_id,
+                        tu_trang_thai=cu,
+                        ve_trang_thai=ve,
+                    ),
+                    boi=nguoi(identity),
+                )
+        logger.info(
+            "appointment_reopened",
+            appointment_id=appointment_id,
+            tu=cu,
+            ve=ve,
+            by_staff_id=identity.staff_id,
+        )
+        return {"status": ve}
 
     async def _hanh_dong_trong_gd(
         self,
@@ -1765,23 +1974,31 @@ class BookingService:
         patch: dict[str, Any] = {"status": new_status}
 
         if action == "cancel":
-            ma = (ly_do_huy_ma or "").strip() or None
-            chu = (cancellation_reason or "").strip() or None
-            if ma is None:
-                # KHÔNG tự điền 'KHAC' cho im chuyện. Mặc định âm thầm là cách
-                # cột này thành 100% "khác" trong ba tháng, và lúc đó nó vô
-                # dụng đúng bằng ô chữ tự do mà nó thay thế.
-                raise ValidationError("Chọn lý do huỷ.")
-            if ma not in LY_DO_HUY:
-                raise ValidationError(f"Lý do huỷ không hợp lệ: {ma!r}.")
-            if ma == "KHAC" and not chu:
-                raise ValidationError("Chọn 'lý do khác' thì phải viết rõ lý do.")
+            ma, chu = ly_do_hop_le(
+                ly_do_huy_ma, cancellation_reason, cho_phep=MA_HUY, viec="huỷ"
+            )
             patch["cancelled_at"] = datetime.now(timezone.utc)
             patch["cancellation_reason"] = chu
             patch["ly_do_huy_ma"] = ma
             # AI huỷ — trước đây không lưu, nên một lịch huỷ nhầm không truy
             # được về ai. Lấy từ phiên, không nhận từ client.
             patch["cancelled_by_staff_id"] = identity.staff_id
+            # Hoàn tác trả lịch về đúng trạng thái này (`mo_lai`).
+            patch["trang_thai_truoc_huy"] = appt["status"]
+
+        elif action == "no_show":
+            # Lý do KHÔNG ĐẾN cùng cột với lý do huỷ, mã riêng (30/10/2026). Ai
+            # đánh, lúc nào: nhật ký sự kiện. `cancelled_*` để riêng cho huỷ —
+            # các màn đọc chúng là "huỷ lúc …".
+            ma, chu = ly_do_hop_le(
+                ly_do_huy_ma,
+                cancellation_reason,
+                cho_phep=MA_KHONG_DEN,
+                viec="không đến",
+            )
+            patch["cancellation_reason"] = chu
+            patch["ly_do_huy_ma"] = ma
+            patch["trang_thai_truoc_huy"] = appt["status"]
 
         elif action == "reassign":
             new_doctor = (doctor_id or "").strip() or None
@@ -2936,7 +3153,9 @@ async def _phat_su_kien_lich(
             ten="appointment.no_show",
             clinic_id=identity.clinic_id,
             aggregate_id=aid,
-            payload=KhachKhongDen(appointment_id=aid),
+            payload=KhachKhongDen(
+                appointment_id=aid, ly_do_ma=patch.get("ly_do_huy_ma")
+            ),
             boi=boi,
         )
     elif action == "cskh_confirm":

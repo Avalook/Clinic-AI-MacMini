@@ -55,6 +55,7 @@ EVENT_LABELS: dict[str, str] = {
     "booking.doctor_rule_saved": "Đặt luật bắt buộc bác sĩ",
     "appointment.declined": "Từ chối lịch hẹn",
     "appointment.no_show": "Khách không đến",
+    "appointment.reopened": "Mở lại lịch (hoàn tác huỷ / không đến)",
     "appointment.reassigned": "Đổi bác sĩ phụ trách",
     "appointment.reminder": "Nhắc lịch hẹn",
     "appointment.checked_in": "Tiếp nhận (check-in)",

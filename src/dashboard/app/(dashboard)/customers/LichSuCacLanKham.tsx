@@ -188,7 +188,10 @@ function MotLuot({
             tự viết từ lâu; màn này chỉ chưa từng đọc chúng. */}
         {chet && (luot.ly_do_huy_ma || luot.cancellation_reason) && (
           <p className="mt-0.5 text-label leading-snug text-ink-soft">
-            <span className="font-semibold text-ink-muted">Lý do huỷ: </span>
+            {/* Không đến dùng chung cột lý do (30/10/2026) — chữ đầu theo trạng thái. */}
+            <span className="font-semibold text-ink-muted">
+              {luot.status === "NO_SHOW" ? "Lý do không đến: " : "Lý do huỷ: "}
+            </span>
             {nhanLyDoHuy(luot.ly_do_huy_ma)}
             {luot.cancellation_reason && (
               <span className="block italic">“{luot.cancellation_reason}”</span>
