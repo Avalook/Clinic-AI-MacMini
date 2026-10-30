@@ -78,6 +78,52 @@ def excel_date(value: Any) -> date | None:
         return None
 
 
+def xlsx_lech_kiem_ke(report: Mapping[str, Any]) -> bytes:
+    """Khối "Lệch kiểm kê" của Báo cáo kho — cột số để lọc, cộng được."""
+    headers = [
+        "Ngày",
+        "Ca",
+        "Loại kiểm",
+        "Thuốc",
+        "Nơi",
+        "Lô",
+        "Đơn vị",
+        "Số sổ",
+        "Đã giao chưa gắn lô",
+        "Số đếm",
+        "Lệch",
+        "Lý do",
+        "Số sau cùng",
+        "Chưa áp được",
+        "Trạng thái",
+        "Người",
+        "Lúc",
+    ]
+    rows = [
+        [
+            str(r.get("ngay") or ""),
+            r.get("ca"),
+            r.get("loai"),
+            r.get("ten"),
+            "Kho" if r.get("noi_chua") == "KHO" else "Quầy",
+            r.get("so_lo"),
+            r.get("don_vi"),
+            r.get("so_so"),
+            r.get("giao_chua_gan_lo"),
+            r.get("so_dem"),
+            r.get("lech"),
+            r.get("ly_do"),
+            r.get("so_sau_cung"),
+            r.get("chua_ap"),
+            "Đã hoàn tác" if r.get("da_hoan_tac") else "",
+            r.get("nguoi"),
+            str(r.get("luc") or ""),
+        ]
+        for r in report["dong"]
+    ]
+    return excel_table([("Lệch kiểm kê", headers, rows)])
+
+
 def xlsx_inventory(report: Mapping[str, Any]) -> bytes:
     """Export stock quantities and values as sortable numeric columns."""
     keys = (

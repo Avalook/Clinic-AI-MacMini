@@ -651,6 +651,7 @@ async def test_bam_ngau_nhien_kho_quay_40_luot_10_buoc(co: Co, seed: int) -> Non
                                 {
                                     "drug_batch_id": lo,
                                     "thuc_te": ton + rng.randint(-1, 2),
+                                    "ly_do": "Mô phỏng",
                                 }
                             ],
                         )

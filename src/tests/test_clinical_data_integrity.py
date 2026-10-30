@@ -726,6 +726,8 @@ async def test_void_is_auditable_soft_reversal_not_a_delete() -> None:
     pool, conn, _ = _pool_and_conn()
     payment_id = "a9000000-0000-4000-8000-000000000001"
     cycle_id = "aa000000-0000-4000-8000-000000000001"
+    # Quyền thu còn; không có khoản hoàn đang chờ.
+    conn.fetchval.side_effect = lambda sql, *_a: "payment_refund" not in sql
     # Khoá lượt → khoá ĐÚNG lần thu được nhắm (review CP2 #1) → UPDATE payment.
     conn.fetchrow.side_effect = [
         {"clinic_patient_id": PATIENT_ID},
@@ -790,7 +792,8 @@ async def _huy_phieu_thuoc_nguoi_khac_thu() -> list[object]:
         {"status": "PAID", "amount": 100_000},
         None,
     ]
-    conn.fetchval.return_value = True
+    # Không có khoản hoàn chờ; phiếu thu vẫn còn nhưng là của người khác.
+    conn.fetchval.side_effect = lambda sql, *_a: "payment_refund" not in sql
     with pytest.raises(SafetyGateError, match="thu ngân đã thu"):
         await PaymentService(pool).void_payment(
             payment_cycle_id="aa000000-0000-4000-8000-000000000001",

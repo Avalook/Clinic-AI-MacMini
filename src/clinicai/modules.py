@@ -400,6 +400,7 @@ MODULE: dict[str, Module] = {
                 "cong_no.huy",
                 "cong_no.da_thu",
                 "medicine.dispensed",
+                "medicine.dispense_undone",
                 "medicine.returned",
                 "result_file.uploaded",
                 "result_file.confirmed",
@@ -810,6 +811,7 @@ MODULE: dict[str, Module] = {
             ],
             phat=[
                 "medicine.dispensed",
+                "medicine.dispense_undone",
                 "medicine.counter_changed",
                 "pharmacy.expiry_checked",
                 "medicine.returned",
@@ -860,6 +862,7 @@ MODULE: dict[str, Module] = {
                 "visit.supply_changed",
                 "visit.exam_service_changed",
                 "medicine.dispensed",
+                "medicine.dispense_undone",
                 # G4d · R3: khách trả thuốc (thường SAU check-out) + đính chính
                 # dòng đơn đã thu.
                 "medicine.returned",

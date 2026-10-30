@@ -82,13 +82,13 @@ test("KiemKeCa: tự mở phiếu ca hiện tại; người không có quyền c
 test("Chốt kiểm kê phải qua xác nhận TẠI CHỖ (XacNhanTaiCho), nút Chốt không gọi chốt ngay", () => {
   const nguon = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
   assert.match(nguon, /import XacNhanTaiCho from "@\/components\/ui\/XacNhanTaiCho"/);
-  assert.match(nguon, /Chốt kiểm kê\? Hệ thống lưu số đếm và chênh lệch\./);
+  assert.match(nguon, /Ghi lý do từng dòng rồi chốt: tồn cập nhật theo số đếm ngay/);
   assert.match(nguon, /nhanDongY="Chốt"/);
-  // Nút "Chốt kiểm kê" chỉ mở câu hỏi; chỉ [Chốt] trong dải mới gọi chot().
-  assert.match(nguon, /onClick=\{\(\) => setHoiChot\(phieu\.id\)\}/);
+  // Nút "Chốt kiểm kê" chỉ mở câu hỏi (kèm dòng lệch); chỉ [Chốt] trong dải mới gọi chot().
+  assert.match(nguon, /onClick=\{\(\) => void batDauChot\(\)\}/);
   assert.doesNotMatch(nguon, /onClick=\{\(\) => void chot\(\)\}/);
   assert.match(nguon, /onDongY=\{\(\) => \{\s*setHoiChot\(null\);\s*void chot\(\);\s*\}\}/);
-  assert.match(nguon, /onThoi=\{\(\) => setHoiChot\(null\)\}/);
+  assert.match(nguon, /onThoi=\{\(\) => \{\s*setHoiChot\(null\);/);
   assert.doesNotMatch(nguon, /window\.confirm/);
 });
 
@@ -194,4 +194,13 @@ test("Báo cáo hàng hoá: chưa kiểm cuối ca thì Kiểm kê / Lệch là 
   assert.match(html, /Đã giao chưa gắn lô: 3/);
   assert.match(html, /gồm ±điều chỉnh\/huỷ/);
   assert.equal([...html.matchAll(/<span class="block whitespace-nowrap">—<\/span>/g)].length >= 2, true);
+});
+
+test("Chốt: dòng lệch bắt lý do từng dòng, giờ gõ gửi kèm số đếm", () => {
+  const nguon = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
+  assert.match(nguon, /xem-lech/);
+  assert.match(nguon, /ly_do_dong/);
+  assert.match(nguon, /choDongY=\{\(lechCho \?\? \[\]\)\.every/);
+  assert.match(nguon, /dem_luc: gioGo\.current/);
+  assert.match(nguon, /Còn dòng chưa khớp/);
 });

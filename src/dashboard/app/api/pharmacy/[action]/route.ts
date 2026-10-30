@@ -49,6 +49,11 @@ const ACTIONS: Record<string, string> = {
   // bật / tắt tách theo cơ sở (máy chủ kiểm `config.clinic.manage`).
   "chuyen-kho": "/api/v1/pharmacy/chuyen-kho",
   "hoan-tac-chuyen-kho": "/api/v1/pharmacy/hoan-tac-chuyen-kho",
+  // 31/10: hoàn tác giao (thuốc về quầy, tiền giữ) · hoàn tác phiếu kiểm kho · quản lý sửa số.
+  "hoan-tac-giao": "/api/v1/pharmacy/hoan-tac-giao",
+  "huy-cho-gan-lo": "/api/v1/pharmacy/huy-cho-gan-lo",
+  "hoan-tac-kiem-kho": "/api/v1/pharmacy/hoan-tac-kiem-kho",
+  "sua-so-kiem-ke": "/api/v1/pharmacy/sua-so-kiem-ke",
   "tach-kho-quay": "/api/v1/pharmacy/tach-kho-quay",
   // 17/10 (việc B): quyết định thuốc khách trả chờ kiểm — nhập lại bán được / huỷ (một lần).
   "xu-ly-thuoc-tra": "/api/v1/pharmacy/xu-ly-thuoc-tra",
@@ -71,6 +76,11 @@ const DOC: Record<string, (q: URLSearchParams) => string | null> = {
   },
   "xuat-nhap-ton": (q) =>
     `/api/v1/pharmacy/xuat-nhap-ton?${new URLSearchParams({
+      tu: q.get("tu") ?? "",
+      den: q.get("den") ?? "",
+    })}`,
+  "lech-kiem-ke": (q) =>
+    `/api/v1/pharmacy/lech-kiem-ke?${new URLSearchParams({
       tu: q.get("tu") ?? "",
       den: q.get("den") ?? "",
     })}`,
@@ -124,16 +134,17 @@ export async function GET(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const { action } = await params;
-  if (action === "xuat-nhap-ton-xlsx") {
+  if (action === "xuat-nhap-ton-xlsx" || action === "lech-kiem-ke-xlsx") {
+    const ten = action === "xuat-nhap-ton-xlsx" ? "xuat-nhap-ton" : "lech-kiem-ke";
     const query = new URL(request.url).searchParams;
     const q = new URLSearchParams({ tu: query.get("tu") ?? "", den: query.get("den") ?? "" });
     const headers = await getCallerAuthHeaders();
     const base = process.env.CLINIC_API_URL;
     if (!headers || !base) return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
-    const res = await fetch(`${base}/api/v1/pharmacy/xuat-nhap-ton.xlsx?${q}`, { headers, cache: "no-store" });
+    const res = await fetch(`${base}/api/v1/pharmacy/${ten}.xlsx?${q}`, { headers, cache: "no-store" });
     return new NextResponse(res.body, { status: res.status, headers: {
       "Content-Type": res.headers.get("Content-Type") ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": res.headers.get("Content-Disposition") ?? 'attachment; filename="xuat-nhap-ton.xlsx"',
+      "Content-Disposition": res.headers.get("Content-Disposition") ?? `attachment; filename="${ten}.xlsx"`,
       "Cache-Control": "private, no-store",
     } });
   }

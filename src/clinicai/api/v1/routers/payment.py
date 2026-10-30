@@ -12,6 +12,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Header, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
@@ -514,6 +515,23 @@ class HoanTacRequest(BaseModel):
     payment_cycle_id: UUID
     ly_do: str | None = Field(default=None, max_length=500)
     quay: QuayThu | None = None
+
+
+@router.get("/payments/hoan-tac/xem-truoc")
+async def xem_truoc_hoan_tac(
+    payment_cycle_id: UUID,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Câu xác nhận của nút Hoàn tác: số phải trả khách (đã thu − đã hoàn), số thuốc
+    sẽ về quầy — máy chủ tính, chỉ đọc."""
+    identity = await authorize_payment(pool, identity, cycle_id=str(payment_cycle_id))
+    kq: dict[str, Any] = jsonable_encoder(
+        await PaymentService(pool).xem_truoc_hoan_tac(
+            payment_cycle_id=str(payment_cycle_id), identity=identity
+        )
+    )
+    return kq
 
 
 @router.post("/payments/hoan-tac")

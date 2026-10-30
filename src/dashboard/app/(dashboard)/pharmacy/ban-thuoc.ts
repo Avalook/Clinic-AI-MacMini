@@ -62,7 +62,15 @@ export interface LanGiao {
   luc: string;
   da_tra: number;
   con_tra: number;
-  thao_tac: { tra: boolean };
+  thao_tac: { tra: boolean; hoan_tac_giao: boolean };
+}
+
+/** Lần giao chưa gán lô (chưa trừ kho) của dòng đơn. */
+export interface LanChoGan {
+  dong_id: string;
+  so_luong: number;
+  luc: string;
+  thao_tac: { hoan_tac_giao: boolean };
 }
 
 export interface DongDon {
@@ -88,6 +96,7 @@ export interface DongDon {
   /** Lô thuốc này còn ở kho (tách kho / quầy) — để hiện "chuyển sang quầy?". */
   kho_con?: LoKhoCon[];
   xuat: LanGiao[];
+  cho_gan: LanChoGan[];
   /** Đã bán mà chưa giao (mọi lần thu). */
   chua_giao: number;
   /** Phần chưa giao còn thiếu căn cứ (chưa huỷ phiếu, chưa hoàn xong đủ). */

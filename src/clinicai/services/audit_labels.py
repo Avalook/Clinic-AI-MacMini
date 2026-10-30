@@ -238,6 +238,9 @@ EVENT_LABELS: dict[str, str] = {
     "payment.service_zero_confirmed": "Quầy chốt dịch vụ 0đ (không có khoản thu)",
     "payment.reconciliation_needed": "Đã nhận tiền nhưng hoá đơn đổi — cần đối soát",
     "payment.sale_not_applied": "Đã nhận tiền nhưng chưa ghi bán thuốc — cần đối soát",
+    "pharmacy.dispense_undone": "Hoàn tác giao thuốc",
+    "pharmacy.kiem_ke_sua_so": "Quản lý sửa số kiểm kê sau cùng",
+    "pharmacy.kiem_kho_hoan_tac": "Hoàn tác phiếu kiểm kho",
     "payment.drug_return_needed": (
         "Huỷ phiếu sau khi đã giao thuốc — cần xử lý trả thuốc"
     ),
@@ -500,6 +503,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "drug_catalog": "Thuốc trong danh mục",
     "clinic_location": "Cơ sở",
     "phieu_kho": "Phiếu kho",
+    "kiem_ke_sua_so": "Sửa số kiểm kê",
     "kiem_ke_ca": "Phiếu kiểm kê ca",
     "prescription": "Đơn thuốc",
     "ultrasound_record": "Phiếu siêu âm",

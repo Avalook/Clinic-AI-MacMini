@@ -71,6 +71,7 @@ LOAI_THEO_SU_KIEN: dict[str, str] = {
     "visit.supply_changed": "DOI_CHI_DINH",
     "visit.exam_service_changed": "DOI_CHI_DINH",
     "medicine.dispensed": "DOI_CHI_DINH",
+    "medicine.dispense_undone": "DOI_CHI_DINH",
     "medicine.returned": "TRA_THUOC",
     "prescription.saved": "DOI_CHI_DINH",
 }
@@ -129,7 +130,8 @@ _THUOC_PHAI_TRA_SQL = """
 WITH dong AS (
     SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten,
            sum(bl.quantity) AS da_thu, max(bl.unit_price) AS don_gia,
-           coalesce(sum(h.sl), 0) AS da_hoan
+           coalesce(sum(h.sl), 0) AS da_hoan,
+           max(coalesce(c.paid_at, c.created_at)) AS luc_thu
       FROM public.payment_bill_line bl
       JOIN public.payment_cycle c
         ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
@@ -155,7 +157,9 @@ SELECT d.ten, d.don_gia,
        d.da_thu - d.da_hoan - p.dispensed_qty
          + coalesce((SELECT sum(t.returned_qty) FROM public.drug_return t
                       WHERE t.clinic_id = $1::uuid
-                        AND t.prescription_id = p.id), 0) AS con
+                        AND t.prescription_id = p.id
+                        -- Lần trả của lần thu đã hoàn tác không thuộc lần thu này.
+                        AND t.returned_at >= d.luc_thu), 0) AS con
   FROM dong d
   JOIN public.prescription p
        /* rx:gom-ca-lich-su: tiền thu ở dòng đã đính chính vẫn là nợ khách */

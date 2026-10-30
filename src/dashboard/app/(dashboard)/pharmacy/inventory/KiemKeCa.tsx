@@ -1,10 +1,11 @@
 "use client";
 
 // Kiểm kê đầu / cuối ca ở QUẦY (G6, 14/10/2026). Đếm tồn THẬT trên kệ quầy — kể cả
-// thuốc đã thu tiền mà chưa giao (vẫn nằm trên kệ). Phiếu NHÁP → CHỐT; chốt ghi tồn
-// máy tại giờ chốt và lệch = đếm − tồn máy, KHÔNG tự sửa tồn: "Điều chỉnh theo kiểm
-// kê" là bước riêng (có lý do, hoàn tác được). Mọi luật ở máy chủ — màn chỉ gửi lệnh
-// và hiện câu trả lời; số đếm KHÔNG hiện tồn máy trước khi chốt (đếm mù cho khách quan).
+// thuốc đã thu tiền mà chưa giao (vẫn nằm trên kệ). Phiếu NHÁP → CHỐT; từ 31/10 CHỐT
+// là tồn cập nhật theo số đếm ngay, dòng lệch bắt lý do riêng, hoàn tác được. Mọi luật
+// ở máy chủ — màn chỉ gửi lệnh và hiện câu trả lời; KHÔNG hiện sổ trước khi đếm xong
+// (đếm mù cho khách quan), bấm Chốt mới hiện dòng lệch để ghi lý do. Giờ gõ từng ô
+// gửi kèm số: giao thuốc sau lúc đếm không bị tính là lệch.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -36,6 +37,22 @@ interface DongKiem {
   ton_may: number | null;
   lech: number | null;
   giao_chua_gan_lo: number | null;
+  ly_do: string | null;
+  chua_ap: number | null;
+  chua_ap_ly_do: string | null;
+  /** Có giá trị = phiếu từ 31/10: chốt đã ghi sổ, không còn bước điều chỉnh riêng. */
+  giao_da_tach: number | null;
+}
+
+/** Dòng lệch máy chủ tính trước khi chốt. */
+interface DongLech {
+  drug_catalog_id: string;
+  don_vi: string;
+  ten: string;
+  dem: number;
+  ton_may: number;
+  giao_chua_gan_lo: number;
+  lech: number;
 }
 
 interface Phieu {
@@ -70,6 +87,7 @@ interface TomTat {
   phieu_sau_id: string | null;
   ly_do_sua: string | null;
   so_lech: number;
+  so_chua_ap: number;
   dieu_chinh_luc: string | null;
   hoan_tac_luc: string | null;
 }
@@ -140,6 +158,10 @@ export default function KiemKeCa({
   const [ds, setDs] = useState<TomTat[] | null>(null);
   const [phieu, setPhieu] = useState<Phieu | null>(null);
   const [nhap, setNhap] = useState<Record<string, string>>({});
+  // Lúc gõ từng ô: số đếm đúng tại lúc ấy, có thể bấm lưu sau một lúc.
+  const gioGo = useRef<Record<string, string>>({});
+  const [lechCho, setLechCho] = useState<DongLech[] | null>(null);
+  const [lyDoDong, setLyDoDong] = useState<Record<string, string>>({});
   const [timThuoc, setTimThuoc] = useState("");
   const [lyDo, setLyDo] = useState("");
   const [lyDoSua, setLyDoSua] = useState("");
@@ -266,6 +288,7 @@ export default function KiemKeCa({
         drug_catalog_id: d.thuoc,
         don_vi: d.dv,
         dem: (nhap[d.khoa] ?? "").trim() || null,
+        dem_luc: gioGo.current[d.khoa] ?? null,
       }));
     if (gui.length === 0) {
       setLoi("Chưa đếm thuốc nào — nhập số đếm rồi mới lưu.");
@@ -290,12 +313,32 @@ export default function KiemKeCa({
     return r.data;
   };
 
+  /** Bấm Chốt: lưu rồi xem dòng lệch; không lệch thì hỏi xác nhận như thường. */
+  const batDauChot = () =>
+    chay(async () => {
+      if (!phieu || !(await luu())) return;
+      const r = await goi<{ dong: DongLech[] }>("GET", `${URL_GOC}/${phieu.id}/xem-lech`);
+      if (!r.ok) {
+        setLoi(r.loi);
+        return;
+      }
+      setLechCho(r.data.dong);
+      setHoiChot(phieu.id);
+    });
+
   const chot = () =>
     chay(async () => {
-      if (!(await luu())) return;
-      const p = await buocPhieu("chot");
+      const p = await buocPhieu("chot", {
+        ly_do_dong: (lechCho ?? []).map((d) => ({
+          drug_catalog_id: d.drug_catalog_id,
+          don_vi: d.don_vi,
+          ly_do: (lyDoDong[khoaDong(d.drug_catalog_id, d.don_vi)] ?? "").trim() || null,
+        })),
+      });
       if (p) {
         nap(p);
+        setLechCho(null);
+        setLyDoDong({});
         void taiDs(ngay);
       }
     });
@@ -351,7 +394,9 @@ export default function KiemKeCa({
     });
 
   const daChot = phieu?.trang_thai === "CHOT";
-  const coLech = (phieu?.dong ?? []).some((d) => d.lech !== null && d.lech !== 0);
+  const coLech = (phieu?.dong ?? []).some(
+    (d) => d.lech !== null && d.lech !== 0 && d.giao_da_tach === null,
+  );
   const hang = daChot
     ? (phieu?.dong ?? []).map((d) => ({
         khoa: khoaDong(d.drug_catalog_id, d.don_vi),
@@ -437,7 +482,8 @@ export default function KiemKeCa({
                         {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "đang nhập — chưa chốt"}
                         {p.phien_ban > 1 ? ` · bản sửa ${p.phien_ban}` : ""}
                         {p.phieu_sau_id ? " · có bản sửa" : ""}
-                        {p.dieu_chinh_luc && !p.hoan_tac_luc ? " · đã điều chỉnh" : ""}
+                        {p.so_chua_ap > 0 ? " · còn dòng chưa khớp" : ""}
+                        {p.hoan_tac_luc ? " · đã hoàn tác" : ""}
                       </Button>
                     </li>
                   ))}
@@ -495,9 +541,10 @@ export default function KiemKeCa({
             <Chip tone={daChot ? "success" : "warning"}>{daChot ? "Đã chốt" : "Nháp"}</Chip>
             {daChot && phieu.mot_phan ? <Chip tone="neutral">Kiểm một phần</Chip> : null}
             {phieu.dung_so_ca_truoc ? <Chip tone="neutral">Dùng số cuối ca trước</Chip> : null}
+            {phieu.dong.some((d) => d.chua_ap) ? <Chip tone="danger">Còn dòng chưa khớp</Chip> : null}
             {phieu.dieu_chinh_luc ? (
               <Chip tone={phieu.hoan_tac_luc ? "neutral" : "success"}>
-                {phieu.hoan_tac_luc ? "Điều chỉnh đã hoàn tác" : "Đã điều chỉnh"}
+                {phieu.hoan_tac_luc ? "Đã hoàn tác" : "Tồn đã cập nhật theo số đếm"}
               </Chip>
             ) : null}
           </div>
@@ -529,7 +576,7 @@ export default function KiemKeCa({
                 size="sm"
                 variant="primary"
                 disabled={dang || hoiChot === phieu.id}
-                onClick={() => setHoiChot(phieu.id)}
+                onClick={() => void batDauChot()}
               >
                 Chốt kiểm kê
               </Button>
@@ -537,15 +584,54 @@ export default function KiemKeCa({
           ) : null}
           {!daChot && ghiDuoc && hoiChot === phieu.id ? (
             <XacNhanTaiCho
-              cau="Chốt kiểm kê? Hệ thống lưu số đếm và chênh lệch. Nếu nhập nhầm, bạn có thể tạo bản sửa có lưu lịch sử; chốt không tự đổi tồn."
+              cau={
+                lechCho && lechCho.length > 0
+                  ? `Có ${lechCho.length} dòng lệch. Ghi lý do từng dòng rồi chốt: tồn cập nhật theo số đếm ngay, hoàn tác được.`
+                  : "Chốt kiểm kê? Khớp sổ, tồn không đổi."
+              }
               nhanDongY="Chốt"
               dangGui={dang}
+              choDongY={(lechCho ?? []).every(
+                (d) => (lyDoDong[khoaDong(d.drug_catalog_id, d.don_vi)] ?? "").trim() !== "",
+              )}
               onDongY={() => {
                 setHoiChot(null);
                 void chot();
               }}
-              onThoi={() => setHoiChot(null)}
-            />
+              onThoi={() => {
+                setHoiChot(null);
+                setLechCho(null);
+              }}
+            >
+              {(lechCho ?? []).length > 0 ? (
+                <ul className="space-y-2">
+                  {(lechCho ?? []).map((d) => {
+                    const k = khoaDong(d.drug_catalog_id, d.don_vi);
+                    return (
+                      <li key={k} className="space-y-1">
+                        <p className="text-meta text-ink">
+                          <span className="font-medium">{d.ten}</span> · đếm {soKho(d.dem)} {d.don_vi}, sổ{" "}
+                          {soKho(d.ton_may)}
+                          {d.giao_chua_gan_lo ? `, đã giao chưa gắn lô ${soKho(d.giao_chua_gan_lo)}` : ""} · lệch{" "}
+                          <span className="font-semibold text-danger">
+                            {d.lech > 0 ? "+" : ""}
+                            {soKho(d.lech)}
+                          </span>
+                        </p>
+                        <input
+                          value={lyDoDong[k] ?? ""}
+                          maxLength={500}
+                          aria-label={`Lý do lệch — ${d.ten}`}
+                          placeholder="Vỡ, thất lạc, đếm nhầm…"
+                          onChange={(e) => setLyDoDong({ ...lyDoDong, [k]: e.target.value })}
+                          className={INPUT}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </XacNhanTaiCho>
           ) : null}
 
           <div className={`${TBL_WRAP} overflow-x-auto`}>
@@ -571,9 +657,10 @@ export default function KiemKeCa({
                   <th className="px-3 py-2 text-right">Số lượng</th>
                   {daChot ? (
                     <>
-                      <th className="px-3 py-2 text-right">Tồn trên hệ thống lúc chốt</th>
+                      <th className="px-3 py-2 text-right">Sổ lúc đếm</th>
                       <th className="px-3 py-2 text-right">Lệch</th>
                       <th className="px-3 py-2 text-right">Đã giao chưa gắn lô</th>
+                      <th className="px-3 py-2">Lý do</th>
                     </>
                   ) : null}
                 </tr>
@@ -581,7 +668,7 @@ export default function KiemKeCa({
               <tbody className={TBL_DIV}>
                 {hangHien.length === 0 ? (
                   <tr>
-                    <td colSpan={daChot ? 6 : 3} className="px-3 py-6 text-center text-ink-muted">
+                    <td colSpan={daChot ? 7 : 3} className="px-3 py-6 text-center text-ink-muted">
                       Không tìm thấy thuốc phù hợp.
                     </td>
                   </tr>
@@ -602,7 +689,10 @@ export default function KiemKeCa({
                             inputMode="decimal"
                             aria-label={`Số đếm — ${d.ten}`}
                             disabled={!ghiDuoc}
-                            onChange={(e) => setNhap({ ...nhap, [d.khoa]: e.target.value })}
+                            onChange={(e) => {
+                              gioGo.current[d.khoa] = new Date().toISOString();
+                              setNhap({ ...nhap, [d.khoa]: e.target.value });
+                            }}
                             className={`${INPUT} w-24 text-right`}
                           />
                         )}
@@ -622,6 +712,14 @@ export default function KiemKeCa({
                           <td className="px-3 py-2 text-right tabular-nums text-ink-muted">
                             {k?.giao_chua_gan_lo ? soKho(k.giao_chua_gan_lo) : "—"}
                           </td>
+                          <td className="px-3 py-2 text-ink-muted">
+                            {k?.ly_do ?? "—"}
+                            {k?.chua_ap ? (
+                              <span className="block text-meta text-danger">
+                                Chưa khớp {soKho(k.chua_ap)}: {k.chua_ap_ly_do}
+                              </span>
+                            ) : null}
+                          </td>
                         </>
                       ) : null}
                     </tr>
@@ -634,12 +732,13 @@ export default function KiemKeCa({
           {daChot ? (
             <div className="space-y-2">
               <p className="text-meta text-ink-muted">
-                Tồn trên hệ thống là số ghi trong sổ kho tại giờ chốt (
+                Sổ lúc đếm là số trong sổ kho tại lúc đếm từng dòng; thuốc giao sau đó không tính là lệch.
+                Chốt lúc{" "}
                 {phieu.moc_ton_luc
                   ? new Date(phieu.moc_ton_luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
                   : "—"}
-                {phieu.nguoi_chot ? `, ${phieu.nguoi_chot}` : ""}). Thuốc đã giao mà chưa gắn lô làm tồn
-                trên hệ thống cao hơn kệ thật — cột riêng bên cạnh, không phải lệch đếm.
+                {phieu.nguoi_chot ? `, ${phieu.nguoi_chot}` : ""}. Thuốc đã giao mà chưa gắn lô sổ chưa trừ
+                nên đã tính riêng: lệch = đếm + đã giao chưa gắn lô − sổ.
               </p>
               {ketQuaDC ? (
                 <p role="status" className="text-meta text-ink">
@@ -654,7 +753,7 @@ export default function KiemKeCa({
               ) : null}
               {phieu.ly_do_sua ? (
                 <p className="text-meta text-ink-muted">
-                  Bản sửa {phieu.phien_ban}: {phieu.ly_do_sua}. So với tồn tại lần chốt gốc; không đổi tồn khi lưu hoặc chốt lại.
+                  Bản sửa {phieu.phien_ban}: {phieu.ly_do_sua}. So với sổ của lần chốt gốc.
                 </p>
               ) : null}
               {phieu.phieu_sau_id ? (
@@ -673,7 +772,7 @@ export default function KiemKeCa({
                     onClick={() => void suaSoDem()}>Sửa số đếm</Button>
                 </div>
               ) : ghiDuoc ? (
-                <p className="text-meta text-ink-muted">Muốn sửa số đếm, hoàn tác điều chỉnh tồn trước.</p>
+                <p className="text-meta text-ink-muted">Muốn sửa số đếm, hoàn tác phiếu trước.</p>
               ) : null}
               {ghiDuoc && coLech && !phieu.dieu_chinh_luc && !phieu.phieu_sau_id ? (
                 <div className="flex flex-wrap items-end gap-2">
@@ -700,7 +799,7 @@ export default function KiemKeCa({
               ) : null}
               {ghiDuoc && phieu.dieu_chinh_luc && !phieu.hoan_tac_luc ? (
                 <Button type="button" variant="secondary" disabled={dang} onClick={() => void hoanTac()}>
-                  Hoàn tác điều chỉnh
+                  Hoàn tác phiếu kiểm
                 </Button>
               ) : null}
             </div>

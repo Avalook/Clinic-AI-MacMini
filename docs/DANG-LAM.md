@@ -32,7 +32,7 @@ tự làm mới nên khung phải/ nút Tạo bill nhích chỗ giữa lúc bấ
    làm; khi chưa có thì mặc định như hiện nay (hạn theo ngày đặt, việc cũ hiện quá hạn).
 3. `danh_sach_khach` tính "hoạt động gần nhất" cho mọi khách trước khi sắp xếp (cần cột/keyset); gom N+1 quầy thu.
 4. Màn **xử lý thuốc khách trả** (thuốc về quầy nhưng chưa bán lại được — chờ quyết định phòng khám: nhập lại bán được hay huỷ).
-5. Nút "Bật tách kho / quầy": bấm lần đầu không đổi trạng thái (nghi gửi 2 lần) — kiểm.
+5. ~~Nút "Bật tách kho / quầy": bấm lần đầu không đổi trạng thái~~ — xong 31/10: `router.refresh()` về chậm nên nhãn cũ còn đứng; màn lấy trạng thái máy chủ vừa trả.
 6. Chip trạng thái "Đã ghi phản hồi thuốc" tô đỏ khi khách còn việc quá hạn — xem có nên luôn trung tính.
 7. Nhãn "Quầy thêm" trên dòng thuốc lấy từ đơn bác sĩ ("Bán theo đơn") — đổi nhãn.
 8. Nhận khách tại phòng: cho nhận khi bác sĩ vừa chỉ định (hiện chỉ sau Hoàn tất) — Tuyền: giữ như hiện nay.
