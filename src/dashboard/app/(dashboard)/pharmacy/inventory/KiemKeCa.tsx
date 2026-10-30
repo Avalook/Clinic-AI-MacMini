@@ -440,7 +440,7 @@ export default function KiemKeCa({
         <div
           role="group"
           aria-label="Ca và phiếu kiểm kê"
-          className="w-fit min-w-[24rem] max-w-full flex-none"
+          className="w-full min-w-0 max-w-full flex-none sm:w-fit sm:min-w-[24rem]"
         >
           <span className="mb-1 block text-meta text-ink-soft">Ca</span>
           <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-line bg-surface px-1.5 py-1 shadow-card">
