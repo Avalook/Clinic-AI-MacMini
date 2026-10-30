@@ -5,6 +5,7 @@
 //   GET  ?visit_id=…&xem=dich-vu | dieu-tri | ghi-chu   (dieu-tri = thẻ chỉ định
 //        điều trị; ghi-chu = ô chữ tự do lượt "Khác")
 //   GET  ?clinic_patient_id=…&xem=lich-su[&tu&den&dich_vu_id]  (popup Lịch sử khám)
+//   GET  ?clinic_patient_id=…&xem=tom-tat-kham[&so_lan&bo]  (in tóm tắt N lần khám)
 //   PUT  { visit_id, noi_dung, phien_ban }   (ô chữ tự do — thêm một phiên bản)
 //   POST { thao_tac: "doi-dich-vu", visit_id, service_type_id }
 //   POST { thao_tac: "ban-kham", visit_id, order_id, lenh, expected_execution_revision,
@@ -38,6 +39,16 @@ export async function GET(request: Request) {
       if (v) q.set(k, v.slice(0, 40));
     }
     return proxyJsonToBackend("GET", `/api/v1/ho-so-kham/lich-su?${q.toString()}`, undefined);
+  }
+  if (sp.get("xem") === "tom-tat-kham") {
+    const khach = sp.get("clinic_patient_id") ?? "";
+    if (!UUID.test(khach)) return NextResponse.json({ error: "Thiếu mã khách." }, { status: 400 });
+    const q = new URLSearchParams({ clinic_patient_id: khach });
+    const soLan = sp.get("so_lan");
+    const bo = sp.get("bo");
+    if (soLan) q.set("so_lan", soLan.slice(0, 8));
+    if (bo) q.set("bo", bo.slice(0, 2000));
+    return proxyJsonToBackend("GET", `/api/v1/ho-so-kham/tom-tat-kham?${q.toString()}`, undefined);
   }
   const vid = sp.get("visit_id") ?? "";
   const xemHoi = sp.get("xem");

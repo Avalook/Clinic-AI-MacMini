@@ -13,7 +13,7 @@
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import HoSoKhamModal from "../_lam-viec/HoSoKham";
-import LichSuKham from "../_lam-viec/LichSuKham";
+import LichSuKham, { duongTomTat } from "../_lam-viec/LichSuKham";
 import { chipBuoiPhu, chuNhanLuot } from "@/lib/nhan-luot";
 
 import type { ChuoiKham, LuotKham } from "./CustomersView";
@@ -172,6 +172,19 @@ export default function ThanhLuotKham({
               {nhan}
             </button>
           ))}
+          {/* Theo KHÁCH, không theo lượt đang chọn: 3 lượt khám gần nhất đã
+              hoàn tất (máy chủ chọn, 30/10/2026). */}
+          {clinicPatientId ? (
+            <a
+              href={duongTomTat(clinicPatientId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-surface px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
+            >
+              <FileText className="size-4" aria-hidden="true" />
+              Tóm tắt 3 lần khám
+            </a>
+          ) : null}
           {loiIn ? <span className="text-label text-danger">{loiIn}</span> : null}
         </div>
       )}
