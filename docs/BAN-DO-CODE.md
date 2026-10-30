@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 14:12. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 14:42. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -410,11 +410,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/reports` — Báo cáo
 - page: `src/dashboard/app/(dashboard)/reports/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, access.ts, app/(dashboard)/dung-nghe-bang.ts, app/(dashboard)/form-ui.ts, BangHangHoa.tsx (+4)
-- gọi API Next: `/api/reports/cuoi-ngay`, `/api/reports/chot-ca`, `/api/reports/access`, `/api/cashier`
+- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, access.ts, app/(dashboard)/dung-nghe-bang.ts, app/(dashboard)/form-ui.ts, BangHangHoa.tsx (+5)
+- gọi API Next: `/api/reports/cuoi-ngay`, `/api/reports/chot-ca`, `/api/reports/ket-tien-mat`, `/api/reports/access`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/reports/access${ngay`, `/api/v1/reports/tong-quan${locCoSo`, `/api/v1/reports/booking-channels`, `/api/v1/reports/kpi-dat-lich${locCoSo`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
-- service: ReportAccessService.{authorize, access} · BaoCaoCuoiNgayService.bao_cao · report_access_service · ChotSoCaService.{chot, mo_khoa} · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} (+3 service)
-- test: test_cashier_scope_db.py, test_report_access_db.py, test_bao_cao_theo_co_so_db.py, test_payment_access.py, test_report_access.py (+12)
+- service: ReportAccessService.{authorize, access} · BaoCaoCuoiNgayService.bao_cao · report_access_service · ChotSoCaService.{chot, mo_khoa} · KetTienMatService.{xem, mo_lai, quy_dau, dem_cuoi} · CashierBoardService.{board, giao_dich} (+4 service)
+- test: test_cashier_scope_db.py, test_ket_tien_mat_db.py, test_report_access_db.py, test_bao_cao_theo_co_so_db.py, test_payment_access.py (+13)
 
 ### `/reset-password`
 - page: `src/dashboard/app/(auth)/reset-password/page.tsx` · quyền: ?
@@ -611,7 +611,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_doi_chieu_hoa_don_db.py, test_hoa_don_misa_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (142)
+## 2. API Next → backend (143)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1480,6 +1480,12 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_report_access_db.py, src/tests/unit/test_report_access.py, src/tests/services/test_bao_cao_cuoi_ca_db.py (+1)
 - màn dùng: /reports
 
+#### `/api/reports/ket-tien-mat` · `src/dashboard/app/api/reports/ket-tien-mat/route.ts`
+- GET `/api/v1/reports/ket-tien-mat` → `src/clinicai/api/v1/routers/reports.py:xem_ket_tien_mat` → KetTienMatService.xem
+- POST `/api/v1/reports/ket-tien-mat` → `src/clinicai/api/v1/routers/reports.py:ghi_ket_tien_mat` → KetTienMatService.mo_lai, KetTienMatService.quy_dau, KetTienMatService.dem_cuoi
+- test: src/tests/services/test_ket_tien_mat_db.py
+- màn dùng: /reports
+
 #### `/api/reports/settings` · `src/dashboard/app/api/reports/settings/route.ts`
 - GET `/api/v1/reports/settings` → `src/clinicai/api/v1/routers/reports.py:report_settings` → ReportAccessService.settings
 - PATCH `/api/v1/reports/settings` → `src/clinicai/api/v1/routers/reports.py:save_report_settings` → ReportAccessService.save
@@ -1694,7 +1700,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_doi_chieu_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py (+1)
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (208)
+## 3. Service → màn (209)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1789,6 +1795,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `HoanTienService` | `src/clinicai/services/hoan_tien_service.py` | /pharmacy, /reception/checkout, /settings/tai-khoan-nhan, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `hoi_thoai` | `src/clinicai/services/tro_ly_khach/hoi_thoai.py` | /tro-ly-thu |
 | `HoSoKhamService` | `src/clinicai/services/ho_so_kham_service.py` | /customers |
+| `KetTienMatService` | `src/clinicai/services/ket_tien_mat_service.py` | /reports |
 | `kho_loi` | `src/clinicai/services/kho_loi.py` | /doi-tac, /giam-sat, /login, /ops |
 | `kho_thuoc_service` | `src/clinicai/services/kho_thuoc_service.py` | /pharmacy, /pharmacy/inventory, /print/tem-lo |
 | `KHOI` | `src/clinicai/permissions/catalogue.py` | /phan-quyen |
@@ -2003,6 +2010,8 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `idempotency_key` | `20260714000003_idempotency_key.sql` | 3 |
 | `inventory_txn` | `20260802000001_pharmacy_inventory.sql` | 5 |
 | `ket_qua_mau` | `20260923000004_mau_ket_qua.sql` | 0 |
+| `ket_tien_mat_ca` | `20261031125000_ket_tien_mat_ca.sql` | 0 |
+| `ket_tien_mat_ca_lich_su` | `20261031125000_ket_tien_mat_ca.sql` | 0 |
 | `khach_cong_ty` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
 | `kiem_ke_ca` | `20261014170000_kiem_ke_ca.sql` | 1 |
 | `kiem_ke_ca_dong` | `20261014170000_kiem_ke_ca.sql` | 0 |
