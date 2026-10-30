@@ -25,6 +25,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // danh sách trắng cho tới khi chắc không màn nào gọi, nhưng màn Đo sinh hiệu
   // đã thôi dùng.
   "bat-dau-do": (id) => `/api/v1/luot-kham/visits/${id}/vitals/start`,
+  // [Không đo] + lý do (30/10/2026) — khách đi tiếp, không số giả.
+  "khong-do": (id) => `/api/v1/luot-kham/visits/${id}/vitals/khong-do`,
   "goi-do": (id) => `/api/v1/luot-kham/visits/${id}/goi-do`,
   "nhan-kham": (id) => `/api/v1/luot-kham/consultations/${id}/start`,
   // Bác sĩ tư vấn bấm Xong → khối Hành trình chuyển khách sang bác sĩ chính (H3).

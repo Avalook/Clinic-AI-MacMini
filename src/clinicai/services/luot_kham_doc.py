@@ -47,7 +47,10 @@ from clinicai.services.luot_kham_chung import (
     _num,
     _theo_luat_xep_hang,
 )
-from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi_nhieu
+from clinicai.services.sinh_hieu_buoi import (
+    khong_do_cua_luot,
+    sinh_hieu_cua_buoi_nhieu,
+)
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
@@ -149,6 +152,7 @@ class BangLuotKham:
             # Sinh hiệu theo BUỔI (27/09/2026, đợt 3): lượt check-in thêm trong
             # ngày thấy lần đo của lượt trước — không hiện "Chờ đo" lần nữa.
             vitals: dict[str, dict[str, Any]] = {}
+            khong_do: dict[str, dict[str, Any]] = {}
             phien: list[asyncpg.Record] = []
             ghi_chu: list[asyncpg.Record] = []
             chi_dinh: list[asyncpg.Record] = []
@@ -157,6 +161,7 @@ class BangLuotKham:
             yeu_cau: list[asyncpg.Record] = []
             if ids:
                 vitals = await sinh_hieu_cua_buoi_nhieu(conn, cid, ids)
+                khong_do = await khong_do_cua_luot(conn, cid, ids)
                 phien = await conn.fetch(
                     """
                     SELECT c.id::text AS id, c.visit_id::text AS visit_id, c.round_no,
@@ -390,6 +395,9 @@ class BangLuotKham:
                 "dich": v["route_decision"],
                 "ket_thuc_luc": _iso(v["finished_at"]),
                 "sinh_hieu": None,
+                # [Không đo] + lý do (30/10/2026) — chỉ khi lượt KHÔNG có số
+                # đo nào hiện ra (lần đo thật thắng; gán ở dưới).
+                "khong_do": None,
                 "phien": [],
                 "chi_dinh": [],
                 "hang_cho": [],
@@ -422,6 +430,10 @@ class BangLuotKham:
                     nguon_visit_id=m["nguon_visit_id"], visit_id=vid_
                 ),
             }
+        for vid_, k in khong_do.items():
+            item = by_visit[vid_]
+            if item["sinh_hieu"] is None and item["sinh_hieu_trang_thai"] == "recorded":
+                item["khong_do"] = k
         notes_by: dict[str, list[dict[str, Any]]] = {}
         for n in ghi_chu:
             notes_by.setdefault(n["consultation_id"], []).append(
@@ -588,6 +600,11 @@ class BangLuotKham:
             "ngay": ngay_xem.isoformat(),
             "hom_nay": la_hom_nay,
             "luot": list(by_visit.values()),
+            # Chip lý do [Không đo] (30/10/2026) — danh sách ở máy chủ.
+            "ly_do_khong_do": [
+                {"ma": ma, "nhan": nhan, "can_chu": ma == rules.KHONG_DO_CAN_CHU}
+                for ma, nhan in rules.LY_DO_KHONG_DO.items()
+            ],
             "phong": [
                 {
                     "id": p["id"],

@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-29 17:23. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:42. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -117,8 +117,8 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/do-sinh-hieu/page.tsx` · quyền: lego `do_sinh_hieu` (Đo sinh hiệu · mặc định: Điều dưỡng)
 - thành phần: BangDoSinhHieu.tsx, app/(dashboard)/_lam-viec/LamThemTaiQuay.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/dung-ngay-xem.ts, app/(dashboard)/dung-nghe-bang.ts
 - gọi API Next: `/api/lam-them`, `/api/nhac-viec`, `/api/doi-tac`, `/api/cskh/ket-qua`, `/api/luot-kham`, `/api/cashier`
-- service: LamThemTaiQuayService.{cau_hinh, nut_cho_luot, dat, dong_dich_vu, +1} · NhacViecService.{cua_toi, tao, xong} · DoiTacService.viec_doi_tac · nhan_tep_luong · TepKetQuaService.{tai_len, danh_sach, da_xoa_gan_day, danh_dau_da_gui} · SinhHieuService.{record_vitals, bat_dau_do_sinh_hieu} (+16 service)
-- test: test_cashier_scope_db.py, test_tep_ket_qua.py, test_bio_chi_dinh_db.py, test_bo_qua_tu_van_chi_dinh_them_db.py, test_day_noi_nhac_db.py (+44)
+- service: LamThemTaiQuayService.{cau_hinh, nut_cho_luot, dat, dong_dich_vu, +1} · NhacViecService.{cua_toi, tao, xong} · DoiTacService.viec_doi_tac · nhan_tep_luong · TepKetQuaService.{tai_len, danh_sach, da_xoa_gan_day, danh_dau_da_gui} · SinhHieuService.{record_vitals, bat_dau_do_sinh_hieu, khong_do} (+16 service)
+- test: test_cashier_scope_db.py, test_tep_ket_qua.py, test_bio_chi_dinh_db.py, test_bo_qua_tu_van_chi_dinh_them_db.py, test_day_noi_nhac_db.py (+45)
 
 ### `/doctor/board`
 - page: `src/dashboard/app/(dashboard)/doctor/board/page.tsx` · quyền: ?
@@ -1109,6 +1109,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [sinh-hieu] POST `/api/v1/luot-kham/visits/{visit_id}/vitals` → `src/clinicai/api/v1/routers/luot_kham.py:record_vitals` → SinhHieuService.record_vitals
 - [bo-qua-tu-van] POST `/api/v1/luot-kham/visits/{visit_id}/bo-qua-tu-van` → `src/clinicai/api/v1/routers/luot_kham.py:doi_duong_tu_van` → LuotKhamService.doi_duong_tu_van
 - [bat-dau-do] POST `/api/v1/luot-kham/visits/{visit_id}/vitals/start` → `src/clinicai/api/v1/routers/luot_kham.py:bat_dau_do_sinh_hieu` → SinhHieuService.bat_dau_do_sinh_hieu
+- [khong-do] POST `/api/v1/luot-kham/visits/{visit_id}/vitals/khong-do` → `src/clinicai/api/v1/routers/luot_kham.py:khong_do_sinh_hieu` → SinhHieuService.khong_do
 - [goi-do] POST `/api/v1/luot-kham/visits/{visit_id}/goi-do` → `src/clinicai/api/v1/routers/luot_kham.py:goi_do_sinh_hieu` → SinhHieuService.goi_do_sinh_hieu
 - [nhan-kham] POST `/api/v1/luot-kham/consultations/{consultation_id}/start` → `src/clinicai/api/v1/routers/luot_kham.py:start_consultation` → LuotKhamService.start_consultation
 - [xong-tu-van] POST `/api/v1/luot-kham/consultations/{consultation_id}/xong-tu-van` → `src/clinicai/api/v1/routers/luot_kham.py:xong_tu_van` → LuotKhamService.xong_tu_van
@@ -1178,7 +1179,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/luot-kham/orders/{order_id}/routing/recommendation` → `src/clinicai/api/v1/routers/luot_kham.py:recommend_service_room` → ServiceRoutingService.recommend
 - GET `/api/v1/luot-kham/orders/{order_id}/execution` → `src/clinicai/api/v1/routers/luot_kham.py:execution_xem` → ServiceExecutionService.xem
 - GET `/api/v1/luot-kham/hang-cho` → `src/clinicai/api/v1/routers/luot_kham.py:hang_cho` → BangLuotKham.hang_cho
-- test: src/tests/services/test_luot_kham_service_db.py, src/tests/services/test_hoan_tac_moi_thao_tac_db.py, src/tests/services/test_bio_chi_dinh_db.py (+43)
+- test: src/tests/services/test_luot_kham_service_db.py, src/tests/services/test_hoan_tac_moi_thao_tac_db.py, src/tests/services/test_bio_chi_dinh_db.py (+44)
 - màn dùng: /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh (+13)
 
 #### `/api/mau-ket-qua` · `src/dashboard/app/api/mau-ket-qua/route.ts`
@@ -2028,6 +2029,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `service_price` | `20260714000001_baseline_schema.sql` | 10 |
 | `service_selection_state` | `20260922000001_service_lifecycle_v1_schema.sql` | 0 |
 | `service_type` | `20260714000001_baseline_schema.sql` | 6 |
+| `sinh_hieu_khong_do` | `20261031130000_sinh_hieu_khong_do.sql` | 0 |
 | `slot_booking_override` | `20260803000002_booking_override.sql` | 1 |
 | `slot_hold` | `20260804000008_slot_hold.sql` | 0 |
 | `so_no` | `20261014140000_so_no_hai_chieu.sql` | 1 |

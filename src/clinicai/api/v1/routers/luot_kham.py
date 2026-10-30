@@ -213,6 +213,28 @@ async def record_vitals(
     )
 
 
+class KhongDoBody(BaseModel):
+    # Mã/chữ rác do hàm dịch vụ đọc (`doc_ly_do_khong_do`) → 422 có tên ô.
+    ly_do: str | None = Field(default=None, max_length=40)
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/luot-kham/visits/{visit_id}/vitals/khong-do")
+async def khong_do_sinh_hieu(
+    visit_id: UUID,
+    body: KhongDoBody,
+    identity: StaffIdentity = Depends(_VITALS_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """[Không đo] + lý do (30/10/2026) — khách đi tiếp như đã đo, không số giả."""
+    return await SinhHieuService(pool).khong_do(
+        visit_id=str(visit_id),
+        ly_do=body.ly_do,
+        ghi_chu=body.ghi_chu,
+        identity=identity,
+    )
+
+
 class BoQuaTuVanBody(BaseModel):
     bo_qua: bool
 

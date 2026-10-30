@@ -274,6 +274,7 @@ EVENT_LABELS: dict[str, str] = {
     "staff.capability_revoked": "Thu hồi quyền năng lực nhân sự",
     # ── Luồng khám lát 1 (20260911000001) ────────────────────────────────
     "vitals.recorded": "Đo sinh hiệu trước khám",
+    "vitals.skipped": "Không đo sinh hiệu (có lý do)",
     "visit.routed": "Xác định bước tiếp theo của lượt khám",
     "consult.started": "Bác sĩ nhận khách vào phiên khám",
     "consult.note_saved": "Ghi chú phiên khám",

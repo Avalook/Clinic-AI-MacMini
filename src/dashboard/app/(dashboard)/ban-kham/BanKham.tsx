@@ -136,6 +136,8 @@ interface ChiDinh {
 interface Luot {
   visit_id: string;
   sinh_hieu: SinhHieu | null;
+  /** [Không đo] + lý do — chỉ khi chưa có số đo (máy chủ viết `nhan`). */
+  khong_do?: { nhan: string } | null;
   chi_dinh: ChiDinh[];
 }
 interface DichVu {
@@ -1484,7 +1486,7 @@ function HoSo({
               </span>
             </>
           ) : (
-            <span>Chưa có sinh hiệu.</span>
+            <span>{luot?.khong_do?.nhan ?? "Chưa có sinh hiệu."}</span>
           )}
         </div>
         )}

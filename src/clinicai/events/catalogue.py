@@ -817,6 +817,11 @@ class SinhHieuDaDo(PayloadSuKien):
     # → Hành trình xếp khách thẳng hàng bác sĩ chính. Mặc định False: sự kiện
     # cũ (không có trường này) đọc lại vẫn đúng nghĩa.
     bo_qua_tu_van: bool = False
+    # [Không đo] (30/10/2026): khách đi tiếp NHƯ đã đo, không có số. Chỉ MÃ lý
+    # do (TRE_NHO…) — chữ tự do của "Khác" nằm ở bảng `sinh_hieu_khong_do`,
+    # không vào sổ sự kiện (không xoá được).
+    khong_do: bool = False
+    ly_do_khong_do: str | None = None
 
 
 # ── execution (thực hiện dịch vụ) ───────────────────────────────────────────
