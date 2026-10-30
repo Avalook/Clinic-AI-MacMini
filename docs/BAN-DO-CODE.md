@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-29 17:23. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:25. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -542,8 +542,8 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(dashboard)/LiveBoardSync.tsx, QueuesClient.tsx, load.ts, ChiDinhCuaBacSi.tsx, ChuyenBacSiKham.tsx, HistoryClient.tsx, keo-tha.ts, nhan-trang-thai.tsx (+2)
 - gọi API Next: `/api/dispatch-read`, `/api/dispatch/[action]`, `/api/luot-kham`
 - gọi thẳng backend (server): `/api/v1/dispatch/overview`, `/api/v1/dispatch/alerts`, `/api/v1/dispatch/routes`, `/api/v1/dispatch/history`, `/api/v1/dispatch/*`
-- service: DispatchService.{overview, stations, alerts, history, +5} · DoiBacSiService.{doi, bac_si_trong_phong_kham} · LuotKhamService.{dispatch_order, cho_quyet} · ServiceRoutingService.{assign, invalidate, dat_phong_du_kien, chuyen_phong_dang_lam, +1} · BangLuotKham.{bang, phong_hom_nay, ket_qua_cho_duyet, chi_dinh_hom_nay, +1} · XemLuotService.doc (+9 service)
-- test: test_dieu_phoi_api_1509.py, test_loc_co_so_nhom_a_db.py, test_bio_chi_dinh_db.py, test_loc_co_so_nhom_c_db.py, test_thu_tien_xep_phong_mang_sang_db.py (+32)
+- service: DispatchService.{overview, stations, alerts, history, +5} · DoiBacSiService.{doi, tra_lai, bac_si_trong_phong_kham} · LuotKhamService.{dispatch_order, cho_quyet} · ServiceRoutingService.{assign, invalidate, dat_phong_du_kien, chuyen_phong_dang_lam, +1} · HoanTacService.{mo_lai_kham, huy_chi_dinh, hoan_tac_xong_dich_vu, mo_lai_luot, +1} · SoSuaChiDinhService.{hoan_tac, doc} (+11 service)
+- test: test_hoan_tac_moi_thao_tac_db.py, test_dieu_phoi_api_1509.py, test_loc_co_so_nhom_a_db.py, test_bio_chi_dinh_db.py, test_so_sua_chi_dinh_db.py (+34)
 
 ### `/truong-ca/hang-doi`
 - page: `src/dashboard/app/(dashboard)/truong-ca/hang-doi/page.tsx` · quyền: lego `dieu_phoi` (Điều phối khách · mặc định: Trưởng ca)
@@ -1742,7 +1742,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ho_so_lam_sang_doc` | `src/clinicai/services/ho_so_lam_sang_doc.py` | /ban-kham, /ban-kham/[phong], /patient-list, /print/[appointmentId], /tu-van |
 | `HoaDonCongTyService` | `src/clinicai/services/hoa_don_cong_ty_service.py` | /customers, /hoa-don, /pharmacy, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `HoaDonMisaService` | `src/clinicai/services/hoa_don_misa_service.py` | /xuat-hoa-don |
-| `HoanTacService` | `src/clinicai/services/hoan_tac_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+6) |
+| `HoanTacService` | `src/clinicai/services/hoan_tac_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+7) |
 | `HoanTienService` | `src/clinicai/services/hoan_tien_service.py` | /pharmacy, /reception/checkout, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `HoSoKhamService` | `src/clinicai/services/ho_so_kham_service.py` | /customers |
 | `kho_loi` | `src/clinicai/services/kho_loi.py` | /doi-tac, /giam-sat, /login, /ops |
@@ -1780,7 +1780,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `NgoaiLeCaTrucService` | `src/clinicai/services/ngoai_le_ca_truc_service.py` | /schedule |
 | `NhacViecService` | `src/clinicai/services/nhac_viec_service.py` | /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /pharmacy, /phong/[ma], /tu-van |
 | `nhan_tep_luong` | `src/clinicai/services/nhan_tep_luong.py` | /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /patient-list, /pharmacy (+6) |
-| `NhanTaiPhongService` | `src/clinicai/services/nhan_tai_phong.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+2) |
+| `NhanTaiPhongService` | `src/clinicai/services/nhan_tai_phong.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+3) |
 | `nhat_ky_van_hanh` | `src/clinicai/services/nhat_ky_van_hanh.py` | /ops |
 | `OpsStatusService` | `src/clinicai/services/ops_status.py` | /ops |
 | `OrchestratorService` | `src/clinicai/orchestrator/service.py` | — (chỉ API/worker) |

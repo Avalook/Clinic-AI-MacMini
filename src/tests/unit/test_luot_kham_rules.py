@@ -468,3 +468,30 @@ def test_phut_cho_va_cho_lau() -> None:
     assert rules.phut_cho(ci + timedelta(minutes=5), ci) is None
     assert rules.phut_cho(datetime(2026, 9, 27, 8, 0), ci) is None
     assert rules.cho_do_lau(None) is False
+
+
+# --- Bỏ chỉ định (30/10/2026): một luật cho lệnh + nút ở màn trưởng ca --------
+@pytest.mark.parametrize(
+    ("exec_status", "execution_status", "ma"),
+    [
+        ("authorized", None, None),
+        ("assigned", "READY", None),
+        ("draft", None, None),
+        ("not_performed", "NOT_PERFORMED", None),
+        ("cancelled", "CANCELLED", "ORDER_CANCELLED"),
+        ("in_progress", None, "ORDER_IN_PROGRESS"),
+        ("assigned", "IN_PROGRESS", "ORDER_IN_PROGRESS"),
+        ("performed", None, "ORDER_PERFORMED"),
+        ("assigned", "COMPLETED", "ORDER_PERFORMED"),
+        # Rác / thiếu → không ném.
+        (None, None, None),
+        ("", "", None),
+    ],
+)
+def test_chan_bo_chi_dinh(
+    exec_status: str | None, execution_status: str | None, ma: str | None
+) -> None:
+    kq = rules.chan_bo_chi_dinh(
+        exec_status=exec_status, execution_status=execution_status
+    )
+    assert (kq[0] if kq else None) == ma

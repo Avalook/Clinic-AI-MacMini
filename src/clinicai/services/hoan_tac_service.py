@@ -61,6 +61,7 @@ from clinicai.services.lenh_kham_core import (
     luot_cua,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.luot_kham_rules import chan_bo_chi_dinh
 
 ORIGIN = "api:hoan-tac"
 
@@ -745,18 +746,11 @@ class HoanTacService:
             assert o is not None
             if o["exec_status"] == "cancelled":
                 return {"ok": True, "order_id": oid, "already": True}
-            if "IN_PROGRESS" in (o["execution_status"], str(o["exec_status"]).upper()):
-                raise LuotKhamConflictError(
-                    "ORDER_IN_PROGRESS",
-                    "Dịch vụ đang làm ở phòng — phòng bấm “Huỷ bắt đầu nhầm” trước,"
-                    " rồi bỏ chỉ định.",
-                )
-            if o["execution_status"] == "COMPLETED" or o["exec_status"] == "performed":
-                raise LuotKhamConflictError(
-                    "ORDER_PERFORMED",
-                    "Dịch vụ đã làm xong — phòng bấm “Hoàn tác” ở dòng “Đã xong”"
-                    " trước, rồi bỏ chỉ định.",
-                )
+            chan = chan_bo_chi_dinh(
+                exec_status=o["exec_status"], execution_status=o["execution_status"]
+            )
+            if chan is not None:
+                raise LuotKhamConflictError(*chan)
             tien = (await tien_da_thu_cua_chi_dinh(conn, cid, [oid])).get(oid) or {
                 "da_thu": 0,
                 "da_hoan": 0,

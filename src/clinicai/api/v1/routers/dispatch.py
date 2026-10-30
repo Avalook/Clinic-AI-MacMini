@@ -584,7 +584,7 @@ async def chi_dinh_cua_luot(
     return {
         "ok": True,
         "items": await DispatchService(pool).chi_dinh(
-            clinic_id=identity.clinic_id, visit_id=str(visit_id)
+            clinic_id=identity.clinic_id, visit_id=str(visit_id), identity=identity
         ),
     }
 
