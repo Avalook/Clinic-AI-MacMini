@@ -67,10 +67,44 @@ def loi_tien_lieu_trinh(
 
 
 def toi_da_tra_truoc(
-    *, so_buoi: int, da_tra: int, tra_le: int, cho_noi_khac: int, buoi_hom_nay: int
+    *,
+    so_buoi: int,
+    da_tra: int,
+    tra_le: int,
+    cho_noi_khac: int,
+    buoi_hom_nay: int,
+    dung: bool = False,
+    con_lai: int | None = None,
 ) -> int:
-    """Số buổi còn trả trước được ở lượt này. Thuần."""
+    """Số buổi còn trả trước được ở lượt này. Thuần. Liệu trình đã dừng / đã
+    làm đủ buổi → 0. CÙNG luật [Trả hết] của Postgres
+    (``lieu_trinh_tra_truoc_so_buoi``) — đổi một chỗ thì đổi cả hai."""
+    if dung or con_lai == 0:
+        return 0
     return max(so_buoi - da_tra - tra_le - cho_noi_khac - buoi_hom_nay, 0)
+
+
+def cau_hoan(*, dung: bool, hoan_duoc: int, phu_chua_lam: int) -> str | None:
+    """Câu cho thu ngân về phần hoàn được. Thuần.
+
+    Hoàn quá số buổi chưa kê thì Postgres bỏ phủ buổi đang kê (chưa bắt đầu) —
+    buổi ấy vào hoá đơn; nói trước để thu ngân không bất ngờ."""
+    if hoan_duoc <= 0:
+        return None
+    phan: list[str] = []
+    if dung:
+        phan.append(
+            f"Đã dừng, còn {hoan_duoc} buổi đã trả chưa dùng — hoàn bằng [Hoàn tiền]"
+            " ở tab “Đã thanh toán”."
+        )
+    if phu_chua_lam > 0:
+        an_toan = max(hoan_duoc - phu_chua_lam, 0)
+        phan.append(
+            "Hoàn tiền thì buổi đang kê sẽ vào hoá đơn."
+            if an_toan == 0
+            else f"Hoàn quá {an_toan} buổi thì buổi đang kê sẽ vào hoá đơn."
+        )
+    return " ".join(phan) or None
 
 
 def doc_so_buoi_tra(raw: Any, toi_da: int) -> int | None:
@@ -116,8 +150,11 @@ SELECT lt.id::text AS id,
            AND NOT public.lieu_trinh_buoi_da_thu_le(b.clinic_id, b.service_order_id))
            AS buoi_hom_nay,
        -- Dòng ĐANG CHỌN của lượt: chưa bỏ, chưa nằm trong lần thu giữ phủ.
-       (SELECT jsonb_build_object('id', t.id, 'so_buoi', t.so_buoi,
-                                  'don_gia', t.don_gia)
+       -- Số buổi = số hoá đơn đang đòi ([Trả hết] tính lại; đã dừng → 0).
+       (SELECT jsonb_build_object(
+                   'id', t.id,
+                   'so_buoi', public.lieu_trinh_tra_truoc_so_buoi(t.clinic_id, t.id),
+                   'tra_het', t.tra_het, 'don_gia', t.don_gia)
           FROM public.lieu_trinh_tra_truoc t
          WHERE t.clinic_id = lt.clinic_id AND t.lieu_trinh_id = lt.id
            AND t.visit_id = $3::uuid AND t.bo_luc IS NULL
@@ -134,12 +171,14 @@ SELECT lt.id::text AS id,
  WHERE lt.clinic_id = $1::uuid AND lt.id = ANY($2::uuid[])
 """
 
-#: Dòng trả trước đã thu còn hoàn được (Q5 — dừng giữa chừng hoàn buổi dư):
-#: nút hoàn của quầy gọi đúng lệnh hoàn tiền sẵn có với các mã này.
+#: Dòng đã thu còn hoàn được (Q5 — dừng giữa chừng hoàn buổi dư): dòng trả
+#: trước + dòng thu lẻ của buổi đã huỷ mà gói đang giữ (``lieu_trinh_dong_giu``).
+#: Nút hoàn của quầy gọi đúng lệnh hoàn tiền sẵn có với các mã này.
 _HOAN_DUOC_SQL = """
+SELECT * FROM (
 SELECT t.lieu_trinh_id::text AS lieu_trinh_id, bl.id::text AS payment_bill_line_id,
        bl.payment_cycle_id::text AS payment_cycle_id, bl.visit_id::text AS visit_id,
-       bl.quantity, bl.unit_price, c.paid_at,
+       bl.unit_price, c.paid_at, 'tra_truoc' AS loai,
        bl.quantity - coalesce((
            SELECT sum(rl.quantity) FROM public.payment_refund_line rl
              JOIN public.payment_refund r
@@ -154,7 +193,13 @@ SELECT t.lieu_trinh_id::text AS lieu_trinh_id, bl.id::text AS payment_bill_line_
     ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
    AND c.status = 'PAID'
  WHERE t.clinic_id = $1::uuid AND t.lieu_trinh_id = ANY($2::uuid[])
- ORDER BY c.paid_at DESC
+UNION ALL
+SELECT l.id::text, g.giu_line_id::text, g.giu_cycle_id::text, g.giu_visit_id::text,
+       g.giu_don_gia, g.giu_paid_at, 'buoi_giu', g.giu_con
+  FROM unnest($2::uuid[]) AS l(id),
+       LATERAL public.lieu_trinh_dong_giu($1::uuid, l.id) g
+) x
+ ORDER BY x.paid_at DESC
 """
 
 
@@ -177,12 +222,16 @@ class LieuTrinhTienService:
             dang = d.pop("dang_chon")
             if isinstance(dang, str):
                 dang = json.loads(dang)
+            # Dòng còn đó mà hoá đơn không đòi buổi nào (đã dừng / [Trả hết]
+            # hết chỗ) → màn không thấy; lệnh đặt lại dùng chính dòng ấy.
+            d["dang_id"] = None if dang is None else str(dang["id"])
             d["dang_chon"] = (
                 None
-                if dang is None
+                if dang is None or int(dang["so_buoi"] or 0) <= 0
                 else {
                     "id": str(dang["id"]),
                     "so_buoi": int(dang["so_buoi"]),
+                    "tra_het": bool(dang.get("tra_het")),
                     "don_gia": int(dang["don_gia"]),
                 }
             )
@@ -220,18 +269,24 @@ class LieuTrinhTienService:
             s = so.get(lt["id"], {})
             dang = s.get("dang_chon")
             # Dòng đang chọn (chưa thu) của chính lượt này không chiếm chỗ của nó.
+            dung = lt["trang_thai"] == "DUNG"
             toi_da = toi_da_tra_truoc(
                 so_buoi=lt["so_buoi"],
                 da_tra=int(s.get("da_tra") or 0),
                 tra_le=int(s.get("tra_le") or 0),
                 cho_noi_khac=int(s.get("cho_noi_khac") or 0),
                 buoi_hom_nay=int(s.get("buoi_hom_nay") or 0),
+                dung=dung,
+                con_lai=lt["con_lai"],
             )
             dong_hoan = [
                 {
                     "payment_cycle_id": h["payment_cycle_id"],
                     "payment_bill_line_id": h["payment_bill_line_id"],
                     "visit_id": h["visit_id"],
+                    # tra_truoc: dòng trả trước · buoi_giu: buổi lẻ đã thu rồi
+                    # huỷ, tiền giữ trong gói.
+                    "loai": h["loai"],
                     "con_hoan_duoc": int(h["con_lai"]),
                     "don_gia": int(h["unit_price"] or 0),
                     "luc_thu": h["paid_at"].isoformat() if h["paid_at"] else None,
@@ -281,8 +336,15 @@ class LieuTrinhTienService:
                         if int(lt["da_tra"] or 0) > 0
                         else "Khách chưa trả trước buổi nào — có thể gợi ý trả trước."
                     ),
-                    # Q5: buổi đã trả chưa dùng còn hoàn được (min với từng dòng).
+                    # Q5: buổi đã trả chưa dùng = đúng số máy chủ cho hoàn
+                    # (từng dòng còn bị chặn bởi ``con_hoan_duoc`` của nó).
                     "hoan_duoc_toi_da": lt["con_tra_truoc"],
+                    "phu_chua_lam": lt["phu_chua_lam"],
+                    "cau_hoan": cau_hoan(
+                        dung=dung,
+                        hoan_duoc=lt["con_tra_truoc"],
+                        phu_chua_lam=lt["phu_chua_lam"],
+                    ),
                     "dong_hoan_duoc": dong_hoan,
                 }
             )
@@ -334,6 +396,11 @@ class LieuTrinhTienService:
                     raise LuotKhamConflictError(
                         "DON_GIA_0", "Liệu trình 0đ — không có gì để trả trước."
                     )
+                if row["trang_thai"] == "DUNG":
+                    raise LuotKhamConflictError(
+                        "LIEU_TRINH_DA_DUNG",
+                        "Liệu trình đã dừng — mở lại trước khi trả trước.",
+                    )
                 s = (await self._so_lieu(conn, cid, vid, [lt]))[lt]
                 dang = s["dang_chon"]
                 hien = None if dang is None else dang["so_buoi"]
@@ -349,8 +416,13 @@ class LieuTrinhTienService:
                     tra_le=int(s["tra_le"]),
                     cho_noi_khac=int(s["cho_noi_khac"]),
                     buoi_hom_nay=int(s["buoi_hom_nay"]),
+                    dung=row["trang_thai"] == "DUNG",
+                    con_lai=0 if row["trang_thai"] == "XONG" else None,
                 )
                 n = doc_so_buoi_tra(so_buoi, toi_da)
+                # [Trả hết] lưu CỜ: hoá đơn tính lại số buổi mỗi lần dựng (huỷ
+                # buổi hôm nay trước khi thu → vẫn đủ gói).
+                het = isinstance(so_buoi, str) and so_buoi.strip().lower() == HET
                 if n is None:
                     raise LuotKhamConflictError(
                         "TRA_VUOT",
@@ -361,24 +433,26 @@ class LieuTrinhTienService:
                         else "Liệu trình không còn buổi nào để trả trước.",
                         {"toi_da": toi_da},
                     )
-                if dang is not None:
-                    tid = dang["id"]
+                if s["dang_id"] is not None:
+                    tid = s["dang_id"]
                     await conn.execute(
-                        "UPDATE lieu_trinh_tra_truoc SET so_buoi = $3,"
+                        "UPDATE lieu_trinh_tra_truoc SET so_buoi = $3, tra_het = $5,"
                         " chon_boi = $4::uuid, chon_luc = now()"
                         " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                         cid,
                         tid,
                         n,
                         identity.staff_id,
+                        het,
                     )
                 else:
                     tid = str(
                         await conn.fetchval(
                             "INSERT INTO lieu_trinh_tra_truoc"
                             " (clinic_id, visit_id, lieu_trinh_id, so_buoi, don_gia,"
-                            "  chon_boi)"
-                            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::uuid)"
+                            "  chon_boi, tra_het)"
+                            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::uuid,"
+                            "         $7)"
                             " RETURNING id",
                             cid,
                             vid,
@@ -386,6 +460,7 @@ class LieuTrinhTienService:
                             n,
                             row["don_gia"],
                             identity.staff_id,
+                            het,
                         )
                     )
                 await self._phat(conn, identity, vid, lt, tid, n, row["don_gia"], "dat")
@@ -517,6 +592,7 @@ __all__ = [
     "CAU_HUY_TRA_TRUOC_DA_DUNG",
     "HET",
     "LieuTrinhTienService",
+    "cau_hoan",
     "doc_so_buoi_tra",
     "loi_tien_lieu_trinh",
     "toi_da_tra_truoc",

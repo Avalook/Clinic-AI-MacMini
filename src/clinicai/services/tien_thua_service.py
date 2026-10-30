@@ -56,6 +56,8 @@ WITH nguon AS (
        AND bl.source_id = o.id::text
      WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
        AND o.exec_status IN ('cancelled', 'not_performed')
+       -- Buổi lẻ đã thu của liệu trình rồi huỷ: tiền GIỮ TRONG GÓI (31/10/2026).
+       AND public.lieu_trinh_giu_tien_cua_chi_dinh(o.clinic_id, o.id) IS NULL
     UNION ALL
     -- (2) như (1) nhưng dòng là PHỤ THU gắn vào chỉ định
     SELECT bl.id, o.id::text, o.visit_id::text,
@@ -278,7 +280,10 @@ SELECT coalesce(sum(rl.amount), 0)
     ON op.clinic_id = p.clinic_id AND op.id = p.service_order_id
  WHERE rl.clinic_id = $1::uuid AND r.status IN ('PENDING', 'COMPLETED')
    AND bl.visit_id::text = ANY($2::text[])
-   AND (o.exec_status IN ('cancelled', 'not_performed')
+   AND ((o.exec_status IN ('cancelled', 'not_performed')
+         -- Hoàn dòng buổi lẻ mà gói đang giữ = hoàn tiền liệu trình, không
+         -- phải hoàn tiền thừa.
+         AND public.lieu_trinh_giu_tien_cua_chi_dinh(o.clinic_id, o.id) IS NULL)
         OR op.exec_status IN ('cancelled', 'not_performed')
         OR (bl.source_type = 'exam' AND bl.source_id LIKE 'exam-%-selected-%'
             AND NOT EXISTS (

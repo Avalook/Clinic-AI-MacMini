@@ -287,7 +287,12 @@ export function KhungLieuTrinh({
             const c = nhanDaTra(lt.da_tra, lt.tra_le ?? 0);
             return c.charAt(0).toUpperCase() + c.slice(1);
           })()}
-          {lt.chua_tra > 0 ? ` · còn nợ ${lt.chua_tra} buổi (${tienLT(lt.tien_con_lai)})` : " · đã trả đủ"}
+          {/* Đã dừng: máy chủ không đòi buổi nào nữa (chua_tra = 0) — không phải "đã trả đủ". */}
+          {lt.chua_tra > 0
+            ? ` · còn nợ ${lt.chua_tra} buổi (${tienLT(lt.tien_con_lai)})`
+            : lt.trang_thai === "DUNG"
+              ? ""
+              : " · đã trả đủ"}
         </p>
       ) : null}
       {lt.trang_thai === "DUNG" && lt.ly_do_dung ? (

@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-29 17:23. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:40. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -284,7 +284,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/pharmacy/[action]`, `/api/payment`, `/api/payment/anh-ck`, `/api/quay-thuoc`, `/api/nhac-viec`, `/api/doi-tac`, `/api/cskh/ket-qua`, `/api/phieu-kham`, `/api/luot-kham`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/pharmacy/ban-thuoc`
 - service: lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, cap_phat, tu_choi, chot, +13} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, chuyen_kho, hoan_tac_chuyen, +4} · BanLeService.{mo_luot, mo_theo_don, tim_khach, doc, +1} · ma_vach_service.{gan_ma, go_ma, tra_ma, du_lieu_tem} (+36 service)
-- test: test_cashier_scope_db.py, test_kho_quay_db.py, test_ban_theo_don_db.py, test_payment_access.py, test_phieu_kham_db.py (+98)
+- test: test_cashier_scope_db.py, test_kho_quay_db.py, test_ban_theo_don_db.py, test_payment_access.py, test_phieu_kham_db.py (+99)
 
 ### `/pharmacy/consult` — Tư vấn dùng thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/consult/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
@@ -508,28 +508,28 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(dashboard)/thu-ngan/TabThuNgan.tsx, app/(dashboard)/_lam-viec/dung-ngay-xem.ts, app/(dashboard)/thu-ngan/GiaoDich.tsx, app/(dashboard)/thu-ngan/LichSuThu.tsx, app/(dashboard)/thu-ngan/NgayTruc.tsx, app/(dashboard)/thu-ngan/QuayThuNgan.tsx
 - gọi API Next: `/api/payment/anh-ck`, `/api/quay-thuoc`, `/api/payment`, `/api/reception/checkout`, `/api/phieu-kham`, `/api/luot-kham`, `/api/cashier`
 - service: payment_access_service · AnhChuyenKhoanService.{doc, tai_len, go} · CashierScopeService.{authorize_any_active, authorize_active, days, authorize, +2} · nhan_tep_luong · QuayThuocService.{doc, chon, doi_so_luong, luu_dong_them} · HoanTienService.{tao, xac_nhan, dong, hoan_tien_thua} (+26 service)
-- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+71)
+- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+72)
 
 ### `/thu-ngan/dich-vu/lich-su` — Lịch sử thu dịch vụ
 - page: `src/dashboard/app/(dashboard)/thu-ngan/dich-vu/lich-su/page.tsx` · quyền: lego `thu_tien_dv` (Thanh toán dịch vụ · mặc định: Lễ tân, thu ngân)
 - thành phần: app/(dashboard)/thu-ngan/TabThuNgan.tsx, app/(dashboard)/_lam-viec/dung-ngay-xem.ts, app/(dashboard)/thu-ngan/GiaoDich.tsx, app/(dashboard)/thu-ngan/LichSuThu.tsx, app/(dashboard)/thu-ngan/NgayTruc.tsx, app/(dashboard)/thu-ngan/QuayThuNgan.tsx
 - gọi API Next: `/api/payment/anh-ck`, `/api/quay-thuoc`, `/api/payment`, `/api/reception/checkout`, `/api/phieu-kham`, `/api/luot-kham`, `/api/cashier`
 - service: payment_access_service · AnhChuyenKhoanService.{doc, tai_len, go} · CashierScopeService.{authorize_any_active, authorize_active, days, authorize, +2} · nhan_tep_luong · QuayThuocService.{doc, chon, doi_so_luong, luu_dong_them} · HoanTienService.{tao, xac_nhan, dong, hoan_tien_thua} (+26 service)
-- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+71)
+- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+72)
 
 ### `/thu-ngan/thuoc` — Thu ngân thuốc
 - page: `src/dashboard/app/(dashboard)/thu-ngan/thuoc/page.tsx` · quyền: lego `thu_tien_thuoc` (Thu tiền thuốc · mặc định: Lễ tân, thu ngân, dược sĩ)
 - thành phần: app/(dashboard)/thu-ngan/TabThuNgan.tsx, app/(dashboard)/_lam-viec/dung-ngay-xem.ts, app/(dashboard)/thu-ngan/GiaoDich.tsx, app/(dashboard)/thu-ngan/LichSuThu.tsx, app/(dashboard)/thu-ngan/NgayTruc.tsx, app/(dashboard)/thu-ngan/QuayThuNgan.tsx
 - gọi API Next: `/api/payment/anh-ck`, `/api/quay-thuoc`, `/api/payment`, `/api/reception/checkout`, `/api/phieu-kham`, `/api/luot-kham`, `/api/cashier`
 - service: payment_access_service · AnhChuyenKhoanService.{doc, tai_len, go} · CashierScopeService.{authorize_any_active, authorize_active, days, authorize, +2} · nhan_tep_luong · QuayThuocService.{doc, chon, doi_so_luong, luu_dong_them} · HoanTienService.{tao, xac_nhan, dong, hoan_tien_thua} (+26 service)
-- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+71)
+- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+72)
 
 ### `/thu-ngan/thuoc/lich-su` — Lịch sử thu thuốc
 - page: `src/dashboard/app/(dashboard)/thu-ngan/thuoc/lich-su/page.tsx` · quyền: lego `thu_tien_thuoc` (Thu tiền thuốc · mặc định: Lễ tân, thu ngân, dược sĩ)
 - thành phần: app/(dashboard)/thu-ngan/TabThuNgan.tsx, app/(dashboard)/_lam-viec/dung-ngay-xem.ts, app/(dashboard)/thu-ngan/GiaoDich.tsx, app/(dashboard)/thu-ngan/LichSuThu.tsx, app/(dashboard)/thu-ngan/NgayTruc.tsx, app/(dashboard)/thu-ngan/QuayThuNgan.tsx
 - gọi API Next: `/api/payment/anh-ck`, `/api/quay-thuoc`, `/api/payment`, `/api/reception/checkout`, `/api/phieu-kham`, `/api/luot-kham`, `/api/cashier`
 - service: payment_access_service · AnhChuyenKhoanService.{doc, tai_len, go} · CashierScopeService.{authorize_any_active, authorize_active, days, authorize, +2} · nhan_tep_luong · QuayThuocService.{doc, chon, doi_so_luong, luu_dong_them} · HoanTienService.{tao, xac_nhan, dong, hoan_tien_thua} (+26 service)
-- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+71)
+- test: test_cashier_scope_db.py, test_payment_access.py, test_phieu_kham_db.py, test_bio_chi_dinh_db.py, test_phieu_kham_luot_db.py (+72)
 
 ### `/traffic`
 - page: `src/dashboard/app/traffic/page.tsx` · quyền: ?
@@ -1965,9 +1965,9 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `lich_truc_anh` | `20261006300000_lich_truc_phien_ban.sql` | 0 |
 | `lich_truc_thay_doi` | `20261006300000_lich_truc_phien_ban.sql` | 0 |
 | `lieu_trinh` | `20261008100000_lieu_trinh.sql` | 0 |
-| `lieu_trinh_buoi` | `20261008100000_lieu_trinh.sql` | 0 |
+| `lieu_trinh_buoi` | `20261008100000_lieu_trinh.sql` | 1 |
 | `lieu_trinh_lich_su` | `20261008100000_lieu_trinh.sql` | 0 |
-| `lieu_trinh_tra_truoc` | `20261008110000_lieu_trinh_tien.sql` | 0 |
+| `lieu_trinh_tra_truoc` | `20261008110000_lieu_trinh_tien.sql` | 1 |
 | `llm_lan_goi` | `20261009870000_llm_chi_phi.sql` | 0 |
 | `loai_kham_phi` | `20260928000100_phi_kham_theo_kiotviet.sql` | 0 |
 | `loi_nhom` | `20260927000004_loi_va_canh_bao.sql` | 0 |
