@@ -564,6 +564,10 @@ export default function InPhieuKham({
         <p className="in-giu mt-2 border-y border-hairline py-2 text-meta tabular-nums text-ink">
           {sinhHieu.map((x) => `${x.nhan} ${x.gia_tri}`).join(" · ")}
         </p>
+      ) : dau?.sinh_hieu_khong_do ? (
+        <p className="in-giu mt-2 border-y border-hairline py-2 text-meta text-ink">
+          Sinh hiệu: {dau.sinh_hieu_khong_do}
+        </p>
       ) : null}
       </div>
 

@@ -217,8 +217,9 @@ BEGIN
     -- 127 → 116 (19/10/2026): thu hồi 11 policy đọc trực tiếp sổ kho
     -- (20261019120000); các màn đọc qua FastAPI có kiểm capability.
     -- 116 → 117 (31/10/2026): tai_khoan_nhan (20261031120000, tài khoản nhận CK).
-    IF scoped_count <> 117 THEN
-        RAISE EXCEPTION 'expected 117 tenant-scoped read policies, found %', scoped_count;
+    -- 117 → 118 (30/10/2026): sinh_hieu_khong_do (20261031130000, CHỈ SELECT).
+    IF scoped_count <> 118 THEN
+        RAISE EXCEPTION 'expected 118 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

@@ -309,6 +309,8 @@ export interface DauPhieu {
   /** Chín ô thẻ sinh hiệu: nhãn đầy đủ + giá trị đã kèm đơn vị. */
   the_sinh_hieu?: { khoa: string; nhan: string; gia_tri: string | null }[];
   sinh_hieu_nguoi?: string | null;
+  /** "Không đo · <lý do>" — chỉ khi buổi chưa có số đo nào (máy chủ viết câu). */
+  sinh_hieu_khong_do?: string | null;
 }
 
 /** Khung của MỘT phiên bản — phiếu đã điền ghim phiên bản của nó. */
