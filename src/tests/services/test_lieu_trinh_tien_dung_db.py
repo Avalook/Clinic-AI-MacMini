@@ -34,7 +34,7 @@ from clinicai.services.lieu_trinh_tien import (
     toi_da_tra_truoc,
 )
 from clinicai.services.payment_service import PaymentService
-from clinicai.services.so_sua_chi_dinh_service import SoSuaChiDinhService
+from clinicai.services.so_sua_chi_dinh_service import SoSuaChiDinhService, doc_so
 from clinicai.services.tien_thua_service import tien_thua_khi_ve
 from tests.services.test_lieu_trinh_db import (
     GIA,
@@ -456,6 +456,13 @@ async def test_c_tra_theo_buoi_buoi_2_thu_roi_huy(pool: asyncpg.Pool) -> None:
     await thu(ca, v2)
     kq = await huy(ca, o2)
     assert (kq["tien_thua"], kq["giu_trong_lieu_trinh"]) == (0, GIA)
+    # Sổ sửa chỉ định cũng không ghi "tiền thừa" (bấm thử staging 31/10).
+    async with ca.pool.acquire() as c:
+        dong = (await doc_so(c, CLINIC, v2))["dong"]
+    bo = next(d for d in dong if d["hanh_dong"] == "BO")
+    assert bo["tien_thua"] == 0
+    assert "giữ lại trong liệu trình" in bo["cau"]
+    assert "tiền thừa" not in bo["cau"]
     k = await khoi(ca, v2, lt["id"])
     assert so(k, "da_tra", "tra_le", "chua_tra", "con_tra_truoc") == (1, 1, 3, 1)
     await khong_tien_thua(ca, v2)

@@ -30,6 +30,10 @@ test("hộp hỏi lại của Bỏ chỉ định xác nhận bằng chữ 'Bỏ 
   const nut = read("../components/ui/NutHoanTac.tsx");
   assert.match(nut, /nhanXacNhan=\{nhanXacNhan\}/);
   assert.doesNotMatch(nut, /nhanXacNhan="Hoàn tác"\n/);
+  // Bấm thử staging 31/10: Bàn khám cùng lỗi — hộp "Bỏ chỉ định …?" mà nút "Hoàn tác".
+  const banKham = read("../app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx");
+  assert.match(banKham, /tieuDe=\{`Bỏ chỉ định[^`]*`\}\s*nhanXacNhan="Bỏ chỉ định"/);
+  assert.match(banKham, /tieuDe=\{`Để[^`]*lần sau\?`\}\s*nhanXacNhan="Để lần sau"/);
 });
 
 test("màn không tự suy luật bỏ được từ trạng thái", () => {

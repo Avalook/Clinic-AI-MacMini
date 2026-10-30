@@ -373,6 +373,8 @@ export default function KetQuaChiDinh({
                 variant="secondary"
                 className="max-sm:items-stretch"
                 tieuDe={`Để “${d.ten_hien_thi}” lần sau?`}
+                nhanXacNhan="Để lần sau"
+                nhanLyDo="Lý do để lần sau"
                 moTa="Không làm hôm nay — chỉ định về lại khung chỉ định cũ, tiền đã thu giữ nguyên"
                 goi={onTraVeLuotCu(d.service_order_id)}
                 onXong={onDoi}
@@ -383,6 +385,8 @@ export default function KetQuaChiDinh({
                 variant="danger"
                 className="max-sm:items-stretch"
                 tieuDe={`Bỏ chỉ định “${d.ten_hien_thi}”?`}
+                nhanXacNhan="Bỏ chỉ định"
+                nhanLyDo="Lý do bỏ chỉ định"
                 moTa="Bỏ chỉ định này (chỉ định sai chỗ) — quầy thu cập nhật ngay"
                 goi={onBoChiDinh(d.service_order_id)}
                 onXong={onDoi}

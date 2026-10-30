@@ -881,6 +881,14 @@ class HoanTacService:
                 oid,
             )
             so_id = await dong_bo_moi_nhat(conn, service_order_id=oid)
+            if giu > 0 and so_id:
+                # Trigger sổ ghi cả số đã thu thành "tiền thừa" — phần liệu trình
+                # giữ không phải tiền thừa (bấm thử staging 31/10).
+                await conn.execute(
+                    "UPDATE so_sua_chi_dinh SET tien_thua = $2 WHERE id = $1::uuid",
+                    so_id,
+                    thua,
+                )
             da_bao = await bao_bac_si_chinh(conn, identity, so_id)
             luot = LuotKhamService(pool=None)
             await mo_cho_bi_chan(conn, cid, vid)
