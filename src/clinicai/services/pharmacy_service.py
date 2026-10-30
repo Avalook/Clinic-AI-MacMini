@@ -62,6 +62,7 @@ from clinicai.services.don_vi_thuoc import (
     quy_doi_cua_dong,
 )
 from clinicai.services.hoan_tac_giao_service import (
+    LanGiao,
     cac_lan_giao,
     ghi_dong_dao,
     giam_da_giao,
@@ -2524,11 +2525,12 @@ class PharmacyService:
                     identity.clinic_id,
                     lan.con,
                 )
+            # Sổ tính theo đơn vị lô, `dispensed_qty` theo đơn vị đã bán.
             moi = await giam_da_giao(
                 conn,
                 clinic_id=identity.clinic_id,
                 prescription_id=goc["rx"],
-                so=lan.con,
+                so=await _so_dong_cua_lan_giao(conn, identity, don, lan),
             )
             await _log(
                 conn,
@@ -3987,6 +3989,36 @@ async def _phan_tra_theo_don_vi_ban(
     if con is not None and abs(Decimal(str(con)) - so_ban) * ty_le < Decimal("0.001"):
         return Decimal(str(con))
     return so_ban
+
+
+async def _so_dong_cua_lan_giao(
+    conn: asyncpg.Connection, identity: StaffIdentity, don: Any, lan: LanGiao
+) -> Decimal:
+    """Phần còn lại của một lần giao, đổi từ đơn vị lô về đơn vị đã bán của dòng.
+
+    Bán 1 hộp (30 gói) giao 15 gói thì hoàn tác giảm 0,5 hộp, không phải 15. Lô tính
+    hộp bán lẻ viên: sổ làm tròn 3 số lẻ nên đổi ngược ra 8,01 viên; lệch dưới
+    0,05 là do làm tròn, lấy số nguyên để dòng đơn về đúng."""
+    don_vi_lo = await conn.fetchval(
+        "SELECT unit FROM public.drug_batch"
+        " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+        lan.drug_batch_id,
+        identity.clinic_id,
+    )
+    qd = await quy_doi_cua_dong(
+        conn,
+        identity.clinic_id,
+        thuoc=don.get("drug_catalog_id"),
+        don_vi=don.get("unit"),
+        prescription_id=lan.prescription_id,
+    )
+    so_dong = qd.so_dong(lan.con, don_vi_lo)
+    if so_dong is None:
+        return lan.con
+    nguyen = so_dong.to_integral_value()
+    if abs(so_dong - nguyen) <= Decimal("0.05"):
+        return nguyen
+    return so_dong.quantize(Decimal("0.001"))
 
 
 async def _hoan_phan_tra(

@@ -24,6 +24,7 @@ from clinicai.api.idempotency import (
     tra_khoa_neu_bi_tu_choi,
 )
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
@@ -36,6 +37,7 @@ from clinicai.services import (
     lech_kiem_ke_service,
     lo_thuoc_service,
     ma_vach_service,
+    theo_doi_thuoc_service,
 )
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
 from clinicai.services.pharmacy_service import (
@@ -521,6 +523,88 @@ async def the_kho(
         )
     )
     return kq
+
+
+@router.get("/pharmacy/theo-doi-thuoc/tim")
+async def tim_theo_doi_thuoc(
+    q: str = "",
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gợi ý thuốc theo tên hoặc số lô cho màn Theo dõi thuốc."""
+    return {
+        "items": await theo_doi_thuoc_service.tim_thuoc(pool, identity=identity, q=q)
+    }
+
+
+@router.get("/pharmacy/theo-doi-thuoc")
+async def theo_doi_thuoc(
+    thuoc: str = "",
+    tu: str | None = None,
+    den: str | None = None,
+    hanh_dong: str | None = None,
+    noi: str | None = None,
+    lo: str | None = None,
+    nguoi: str | None = None,
+    trang: str | None = None,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thuốc đang ở đâu + dòng thời gian. Chỉ đọc; đầu vào rác → rỗng (không 422)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await theo_doi_thuoc_service.theo_doi_thuoc(
+            pool,
+            identity=identity,
+            thuoc=thuoc,
+            tu=tu,
+            den=den,
+            hanh_dong=hanh_dong,
+            noi=noi,
+            lo=lo,
+            nguoi=nguoi,
+            trang=trang,
+        )
+    )
+    return kq
+
+
+@router.get("/pharmacy/theo-doi-thuoc.xlsx")
+async def theo_doi_thuoc_xlsx(
+    thuoc: str = "",
+    tu: str | None = None,
+    den: str | None = None,
+    hanh_dong: str | None = None,
+    noi: str | None = None,
+    lo: str | None = None,
+    nguoi: str | None = None,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Tải dòng thời gian theo đúng bộ lọc đang xem, cùng quyền với màn."""
+    from clinicai.services.excel_export import XLSX_MEDIA_TYPE, xlsx_theo_doi_thuoc
+
+    report = await theo_doi_thuoc_service.xuat_theo_doi(
+        pool,
+        identity=identity,
+        thuoc=thuoc,
+        tu=tu,
+        den=den,
+        hanh_dong=hanh_dong,
+        noi=noi,
+        lo=lo,
+        nguoi=nguoi,
+    )
+    return Response(
+        content=xlsx_theo_doi_thuoc(report),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="theo-doi-thuoc_{hom_nay_vn().isoformat()}.xlsx"'
+            ),
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/pharmacy/xuat-nhap-ton")

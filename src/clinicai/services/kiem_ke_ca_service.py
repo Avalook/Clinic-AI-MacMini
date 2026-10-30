@@ -483,10 +483,18 @@ async def giao_chua_gan_lo_theo_don_vi(
     rows = await conn.fetch(
         """
         SELECT g.drug_catalog_id::text AS thuoc,
-               lower(btrim(coalesce(p.unit, ''))) AS don_vi, sum(g.so_luong) AS so
+               -- Lô giữ đơn vị gốc, đơn bán có thể theo hộp: quy về gốc.
+               CASE WHEN public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit)
+                         IS NOT NULL
+                    THEN lower(btrim(c.don_vi_ban))
+                    ELSE lower(btrim(coalesce(p.unit, ''))) END AS don_vi,
+               sum(g.so_luong * coalesce(public.he_so_don_vi(
+                   g.clinic_id, g.drug_catalog_id, p.unit), 1)) AS so
           FROM public.thuoc_giao_chua_gan_lo g
           /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải tính dù dòng đơn đã đính chính */
           JOIN public.prescription p ON p.id = g.prescription_id
+          JOIN public.drug_catalog c
+            ON c.id = g.drug_catalog_id AND c.clinic_id = g.clinic_id
          WHERE g.clinic_id = $1::uuid AND g.drug_batch_id IS NULL
            AND g.huy_luc IS NULL AND g.drug_catalog_id IS NOT NULL
            AND coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id), $2::uuid)
@@ -1033,17 +1041,25 @@ async def phat_sinh_sau_dem(
         """
         WITH d AS (SELECT * FROM unnest($3::uuid[], $4::text[], $5::timestamptz[])
                      AS d(thuoc, don_vi, moc))
-        SELECT d.thuoc::text AS thuoc, d.don_vi, sum(g.so_luong) AS so
+        SELECT d.thuoc::text AS thuoc, d.don_vi,
+               sum(g.so_luong * coalesce(public.he_so_don_vi(
+                   g.clinic_id, g.drug_catalog_id, p.unit), 1)) AS so
           FROM d
           JOIN public.thuoc_giao_chua_gan_lo g
             ON g.clinic_id = $1::uuid AND g.drug_catalog_id = d.thuoc
            AND g.giao_luc <= d.moc
            AND (g.gan_luc IS NULL OR g.gan_luc > d.moc)
            AND (g.huy_luc IS NULL OR g.huy_luc > d.moc)
+          JOIN public.drug_catalog c
+            ON c.id = g.drug_catalog_id AND c.clinic_id = g.clinic_id
           /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải tính dù dòng đơn đã đính chính */
           JOIN public.prescription p
             ON p.id = g.prescription_id
-           AND lower(btrim(coalesce(p.unit, ''))) = d.don_vi
+           AND d.don_vi = CASE
+               WHEN public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit)
+                    IS NOT NULL
+               THEN lower(btrim(c.don_vi_ban))
+               ELSE lower(btrim(coalesce(p.unit, ''))) END
          WHERE coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id), $2::uuid)
                = $2::uuid
          GROUP BY 1, 2

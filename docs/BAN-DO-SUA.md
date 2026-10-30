@@ -100,6 +100,13 @@ danh mục không đổi gì), khách trả ghi thêm `drug_return.so_luong_ban`
 `D/thu-ngan/ChinhDonQuay.tsx`. Ô đơn vị mọi màn: `D/ODonVi.tsx` (SearchSelect `choGoTu`). Form: `D/pharmacy/inventory/SuaDonViBan.tsx`,
 `S/pharmacy_service.py` `luu_thuoc`. Test: `T/services/test_nhieu_don_vi_ban_db.py`, FT `nhieu-don-vi-ban-boundary.test.mts`.
 
+**Theo dõi thuốc: đang ở đâu + dòng thời gian (Tuyền 31/10/2026)** — tab "Theo dõi thuốc" ở `/pharmacy/inventory`,
+`D/pharmacy/inventory/TheoDoiThuoc.tsx` → `/api/pharmacy/theo-doi-thuoc` (+ `tim-theo-doi`, `theo-doi-thuoc-xlsx`) →
+`S/theo_doi_thuoc_service.py`. Chỉ đọc, chỉ cơ sở đang làm. **Tên hành động + từ đâu → đến đâu: chỉ sửa bảng `HANH_DONG` /
+`_TU_DEN` đầu tệp** (loại dòng sổ mới tự hiện, chưa khai thì ra "Thay đổi kho khác"). Hai loại việc không có dòng sổ
+(giao chưa gán lô, nhập lại bán được) và gộp hai dòng chuyển kho nằm trong câu `_SU_KIEN`. Excel: `excel_export.xlsx_theo_doi_thuoc`.
+Test: `T/services/test_theo_doi_thuoc_db.py`, `D/tests/theo-doi-thuoc-boundary.test.mts`.
+
 **Giao thuốc: máy tự chọn lô, trừ kho ngay lúc giao (Tuyền 27/10/2026)** — bấm "Giao thuốc" không chỉ định lô thì
 `S/pharmacy_service.py` `cap_phat` → `_giao_tu_chon_lo`: lô QUẦY đúng thuốc, đúng cơ sở của lượt, cùng đơn vị hoặc đổi được qua hệ số, còn hạn, xếp hạn
 sớm nhất trước (không hạn xếp cuối), trừ theo `drug_batch_kha_dung` và trừ thêm các lần giao đang chờ gán lô; một lần giao có thể trừ

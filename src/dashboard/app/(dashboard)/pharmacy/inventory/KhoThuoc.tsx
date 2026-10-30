@@ -14,16 +14,16 @@ import InventoryBoard, { type CauHinhHan, type InvBatch } from "./InventoryBoard
 import KiemKeCa from "./KiemKeCa";
 import KiemKho from "./KiemKho";
 import PhieuNhap from "./PhieuNhap";
-import TheKho from "./TheKho";
+import TheoDoiThuoc, { type ChonThuoc } from "./TheoDoiThuoc";
 import ThuocTraChoKiem, { type DongTraChoKiem } from "./ThuocTraChoKiem";
 import XuatNhapTon from "./XuatNhapTon";
 
 type Khu = "kho" | "quay";
 type Tab =
-  | "bao_cao_kho" | "ton" | "nhap" | "chuyen_kho" | "lich_su" | "danh_muc" | "kiem_kho"
+  | "bao_cao_kho" | "ton" | "nhap" | "chuyen_kho" | "theo_doi" | "danh_muc" | "kiem_kho"
   | "kiem_dau" | "kiem_cuoi" | "cho_gan_lo" | "tra_cho_kiem";
 
-const TAB_KHO: readonly Tab[] = ["ton", "nhap", "chuyen_kho", "bao_cao_kho", "lich_su", "danh_muc", "kiem_kho"];
+const TAB_KHO: readonly Tab[] = ["ton", "nhap", "chuyen_kho", "bao_cao_kho", "theo_doi", "danh_muc", "kiem_kho"];
 const TAB_QUAY: readonly Tab[] = ["kiem_dau", "kiem_cuoi", "cho_gan_lo", "tra_cho_kiem"];
 const TAB_HOP_LE: readonly Tab[] = [...TAB_KHO, ...TAB_QUAY];
 
@@ -31,7 +31,8 @@ const TAB_HOP_LE: readonly Tab[] = [...TAB_KHO, ...TAB_QUAY];
 const TAB_CU: Record<string, Tab> = {
   "kiem_ke_ca": "kiem_cuoi",
   "phieu_nhap": "nhap",
-  "the_kho": "lich_su",
+  "the_kho": "theo_doi",
+  "lich_su": "theo_doi",
   "bao_cao": "bao_cao_kho",
   "xnt": "bao_cao_kho",
 };
@@ -80,10 +81,10 @@ export default function KhoThuoc({
   const coChuyenKho = tachKhoQuay || suaTachDuoc;
   const [chonTab, setTab] = useState<Tab>(() => tabTuUrl(tabDau));
   const tab: Tab = chonTab === "chuyen_kho" && !coChuyenKho ? "ton" : chonTab;
-  const [theKhoId, setTheKhoId] = useState<string | null>(null);
+  const [theoDoi, setTheoDoi] = useState<ChonThuoc | null>(null);
   const xemThe = (id: string) => {
-    setTheKhoId(id);
-    setTab("lich_su");
+    setTheoDoi({ id });
+    setTab("theo_doi");
   };
   const khu = khuCua(tab);
   const canSoat = thuoc.some((t) => t.dang_dung && t.can_soat);
@@ -94,7 +95,7 @@ export default function KhoThuoc({
     { ma: "nhap" as const, nhan: "Nhập thuốc" },
     ...(coChuyenKho ? [{ ma: "chuyen_kho" as const, nhan: "Chuyển kho ↔ quầy" }] : []),
     { ma: "bao_cao_kho" as const, nhan: "Báo cáo kho" },
-    { ma: "lich_su" as const, nhan: "Lịch sử nhập / xuất" },
+    { ma: "theo_doi" as const, nhan: "Theo dõi thuốc" },
     {
       ma: "danh_muc" as const,
       nhan: `Danh mục & giá (${thuoc.filter((t) => t.dang_dung).length})`,
@@ -173,8 +174,8 @@ export default function KhoThuoc({
         <KiemKeCa key={tab} batches={batches} ghiDuoc={ghiDuoc} ngayDau={ngayKiemKe} caDau={caKiemKe} loaiCoDinh="CUOI" />
       ) : tab === "kiem_kho" ? (
         <KiemKho batches={batches} ghiDuoc={ghiDuoc} thuoc={thuoc} tachKhoQuay={tachKhoQuay} />
-      ) : tab === "lich_su" ? (
-        <TheKho thuoc={thuoc} chonId={theKhoId} onChon={setTheKhoId} />
+      ) : tab === "theo_doi" ? (
+        <TheoDoiThuoc chon={theoDoi} onChon={setTheoDoi} />
       ) : tab === "bao_cao_kho" ? (
         <XuatNhapTon onXemThe={xemThe} />
       ) : (
