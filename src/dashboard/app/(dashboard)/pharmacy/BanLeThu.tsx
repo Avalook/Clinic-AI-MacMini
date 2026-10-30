@@ -235,6 +235,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
       ) : null}
       <NhomThu
         quay="thuoc"
+        visitId={doc.visit_id}
         tieu_de="Tiền thuốc (bán lẻ)"
         hd={doc.da_thu ? undefined : doc.hoa_don}
         daThu={doc.da_thu}

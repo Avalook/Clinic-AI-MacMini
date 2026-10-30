@@ -62,6 +62,10 @@ from clinicai.services.phan_thu import (
     nhan_phan,
     phan_mot_hinh_thuc,
 )
+from clinicai.services.tai_khoan_nhan_service import (
+    CHUA_PHAN_LOAI,
+    ten_cac_tai_khoan,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -161,8 +165,13 @@ def gom_bao_cao(
     so_luot_kham: int,
     doi_hinh_thuc: Iterable[Mapping[str, Any]] = (),
     so_luot_khong_chon_dich_vu_kham: int = 0,
+    ten_tai_khoan: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Gom mọi con số của báo cáo. Thuần — chỉ cộng những gì DB trả.
+
+    ``theo_tai_khoan`` (31/10/2026): phần CHUYỂN KHOẢN tách theo tài khoản nhận
+    (``tai_khoan_id`` của lần thu / khoản hoàn; không có → "Chưa phân loại").
+    Cộng các dòng = đúng dòng Chuyển khoản của ``theo_hinh_thuc``.
 
     ``lan_thu``: lần thu PAID/VOIDED có paid_at trong khoảng. ``hoan``: khoản
     hoàn PENDING/COMPLETED tạo trong khoảng. ``dong``: dòng hoá đơn (CLINIC) của
@@ -177,6 +186,7 @@ def gom_bao_cao(
         {"hoan_cho": 0, "so_phieu_thu": 0, "so_phieu_huy": 0, "so_phieu_hoan": 0}
     )
     theo_ht: dict[str, dict[str, int]] = {m: _o_tien() for m in (*HINH_THUC, "KHAC")}
+    theo_tk: dict[str | None, dict[str, int]] = {}
     theo_loai: dict[str, dict[str, int]] = {k: _o_tien() for k in TEN_LOAI}
     theo_nguoi: dict[str, dict[str, Any]] = {}
     theo_ngay: dict[str, dict[str, int]] = {}
@@ -216,11 +226,15 @@ def gom_bao_cao(
                 o["huy"] += so
         # Theo hình thức: cộng TỪNG PHẦN (200k CK + 500k TM → hai dòng).
         for p in phan:
-            o = theo_ht[chuan_hinh_thuc(p.get("hinh_thuc")) or "KHAC"]
-            if not chi_huy:
-                o["thu"] += _tien(p.get("so_tien"))
-            if huy:
-                o["huy"] += _tien(p.get("so_tien"))
+            ht = chuan_hinh_thuc(p.get("hinh_thuc")) or "KHAC"
+            ds_o = [theo_ht[ht]]
+            if ht == "TRANSFER":
+                ds_o.append(theo_tk.setdefault(c.get("tai_khoan_id"), _o_tien()))
+            for o in ds_o:
+                if not chi_huy:
+                    o["thu"] += _tien(p.get("so_tien"))
+                if huy:
+                    o["huy"] += _tien(p.get("so_tien"))
         if not chi_huy:
             tong["so_phieu_thu"] += 1
             n["so_phieu"] += 1
@@ -272,6 +286,8 @@ def gom_bao_cao(
             tong["hoan"] += so
             tong["so_phieu_hoan"] += 1
             theo_ht[ht]["hoan"] += so
+            if ht == "TRANSFER":
+                theo_tk.setdefault(r.get("tai_khoan_id"), _o_tien())["hoan"] += so
             if loai:
                 theo_loai[loai]["hoan"] += so
             d = ngay_o(_ngay_vn(r.get("created_at")))
@@ -394,6 +410,22 @@ def gom_bao_cao(
             {"ma": m, "ten": TEN_HINH_THUC.get(m, "Khác (dữ liệu cũ)"), **_chot(o)}
             for m, o in theo_ht.items()
             if m != "KHAC" or any(o.values())
+        ],
+        "theo_tai_khoan": [
+            {
+                "id": k,
+                "ten": (ten_tai_khoan or {}).get(k, "Tài khoản khác")
+                if k is not None
+                else CHUA_PHAN_LOAI,
+                **_chot(o),
+            }
+            for k, o in sorted(
+                theo_tk.items(),
+                key=lambda kv: (
+                    kv[0] is None,
+                    (ten_tai_khoan or {}).get(kv[0] or "", ""),
+                ),
+            )
         ],
         "theo_loai": [
             {"ma": k, "ten": TEN_LOAI[k], **_chot(o)} for k, o in theo_loai.items()
@@ -520,6 +552,7 @@ def tach_theo_co_so(
     doi_hinh_thuc: Iterable[Mapping[str, Any]],
     luot: Mapping[str | None, int],
     luot_khong_chon: Mapping[str | None, int],
+    ten_tai_khoan: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Báo cáo của TỪNG cơ sở — cùng khuôn ``gom_bao_cao``, cùng tập dòng DB.
 
@@ -561,6 +594,7 @@ def tach_theo_co_so(
             so_luot_kham=int(luot.get(k, 0)),
             doi_hinh_thuc=cua(doi_hinh_thuc),
             so_luot_khong_chon_dich_vu_kham=int(luot_khong_chon.get(k, 0)),
+            ten_tai_khoan=ten_tai_khoan,
         )
         bc.pop("tu", None)
         bc.pop("den", None)
@@ -651,6 +685,7 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
     )
     for tieu_de, khoi in (
         ("Hình thức", bc["theo_hinh_thuc"]),
+        ("Chuyển khoản theo tài khoản", bc.get("theo_tai_khoan") or []),
         ("Loại", bc["theo_loai"]),
         ("Người thu", bc["theo_nguoi_thu"]),
     ):
@@ -922,6 +957,7 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method) AS method,
        phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method, pc.amount)
            AS phan,
+       pc.tai_khoan_nhan_id::text AS tai_khoan_id,
        pc.paid_at, pc.closed_at, pc.close_reason,
        coalesce(xn.full_name, cb.full_name) AS nguoi_thu, dg.full_name AS nguoi_huy,
        v.clinic_patient_id::text AS khach_id, p.full_name AS ten_khach,
@@ -989,6 +1025,7 @@ SELECT pc.kind, count(*) AS so_lan, coalesce(sum(pc.amount), 0) AS tong
 _HOAN_SQL = """
 SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
        r.amount, r.status, r.method, r.reason, r.created_at,
+       r.tai_khoan_nhan_id::text AS tai_khoan_id,
        coalesce(xn.full_name, tao.full_name) AS nguoi,
        p.full_name AS ten_khach, p.patient_code AS ma_bn,
        coalesce(v.location_id, ah.location_id)::text AS co_so
@@ -1261,6 +1298,7 @@ class BaoCaoCuoiNgayService:
                 conn, cid, co_so=cs, loai=loai_loc, con_no=con_no
             )
             ds_co_so = await doc_ds_co_so(conn, cid)
+            ten_tk = await ten_cac_tai_khoan(conn, cid)
             # Sổ nợ hai chiều của CÙNG khoảng (14/10/2026) cho khối Dòng tiền —
             # tính chung dịch vụ + thuốc nên báo cáo lọc một loại thì bỏ.
             from clinicai.services.so_no_service import doc_so_no_ky
@@ -1324,6 +1362,7 @@ class BaoCaoCuoiNgayService:
             so_luot_kham=sum(luot.values()),
             doi_hinh_thuc=doi_ht_ds,
             so_luot_khong_chon_dich_vu_kham=sum(luot_khong_chon.values()),
+            ten_tai_khoan=ten_tk,
         )
         bc["khach_con_no"] = con_no
         bc["so_no_ky"] = so_no_ky
@@ -1401,6 +1440,7 @@ class BaoCaoCuoiNgayService:
                 doi_hinh_thuc=doi_ht_ds,
                 luot=luot,
                 luot_khong_chon=luot_khong_chon,
+                ten_tai_khoan=ten_tk,
             )
         # KHOÁ SỔ THEO CA (G4c): ca đã chốt → đúng số lúc chốt + phần phát sinh
         # sau chốt (để không gì bị giấu). Ca chưa chốt: số sống như cũ.

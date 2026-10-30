@@ -587,6 +587,18 @@ hàm SQL `phan_thu_hieu_luc`; hoàn tác `PaymentService.hoan_tac`; ảnh
 phần một dòng (`InPhieuThu.tsx`). Test: `T/unit/test_phan_thu.py`,
 `T/services/test_thu_nhieu_hinh_thuc_db.py`.
 
+**Tài khoản ngân hàng nhận chuyển khoản (31/10/2026)** — danh mục là việc DỮ LIỆU: Quản lý làm trên
+`/settings/tai-khoan-nhan` (thêm / sửa / đặt mặc định / tắt — không xoá). Code: `S/tai_khoan_nhan_service.py`
+(`chon_mac_dinh` thuần: chọn > mặc định cơ sở > mặc định dùng chung > tài khoản duy nhất > "Chưa phân loại";
+`chon_cho_lan_thu` gọi trong giao dịch thu từ `S/payment_service.py::_tai_khoan_nhan`, hoàn `S/hoan_tien_service.py::_tao_trong`,
+đổi hình thức `S/doi_hinh_thuc_service.py`; sửa tài khoản phiếu đã thu `doi_cho_lan_thu` ← `R/payment.py` `/payments/doi-tai-khoan`,
+vết event_log `payment.receiving_account_changed`) ← `R/tai_khoan_nhan.py`. Cột `payment_cycle.tai_khoan_nhan_id`,
+`payment_refund.tai_khoan_nhan_id`, bảng `tai_khoan_nhan`, guard lần thu cho đổi đúng cột này (mig 20261031120000).
+Báo cáo: `S/bao_cao_cuoi_ngay_service.py::gom_bao_cao` → `theo_tai_khoan` (cộng = dòng Chuyển khoản), CSV + `S/excel_report_export.py`;
+`/hoa-don`: `S/hoa_don_projection.py::tach_tai_khoan`. Màn: `D/thu-ngan/TaiKhoanNhan.tsx` (`ChonTaiKhoan` trong `ChiaHinhThuc`,
+`DoiTaiKhoan` ở `LichSuThu`), `D/reports/TomTatCuoiNgay.tsx`, `D/hoa-don/DanhSachHoaDon.tsx` + `ChiTietHoaDon.tsx`.
+Test: `T/unit/test_tai_khoan_nhan.py` (bất biến bấm ngẫu nhiên), `T/services/test_tai_khoan_nhan_db.py`.
+
 **Mua thêm vật tư / đầu dò** (khối "Món kèm" cũ đã gỡ 02/10, C17; dòng `luot_phu_thu` cũ
 vẫn đọc ở `bill_service._PHU_THU_SQL`) — `D/thu-ngan/VatTuQuay.tsx`. **Thanh ngày quầy thu
 (xem lại ngày cũ)** — `D/thu-ngan/TabThuNgan.tsx` + `S/cashier_board_service.py::khoang_ngay_xem`;

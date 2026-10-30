@@ -614,6 +614,8 @@ def gom_theo_khach(
                 "hinh_thuc": ht,
                 "phan": phan,
                 "nhan_hinh_thuc": nhan_phan(phan),
+                "tai_khoan_id": c.get("tai_khoan_id"),
+                "ten_tai_khoan": c.get("ten_tai_khoan"),
                 "nguoi": c.get("nguoi_thu"),
                 "dich_vu": dv,
                 "ly_do": None,
@@ -1178,10 +1180,15 @@ class QuayThuService:
                        -- Chia TM + CK hiệu lực (01/10/2026).
                        phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                          pc.method, pc.amount) AS phan,
+                       -- Tài khoản nhận phần chuyển khoản (31/10/2026).
+                       pc.tai_khoan_nhan_id::text AS tai_khoan_id,
+                       tk.ten_goi || ' · ' || tk.so_tai_khoan AS ten_tai_khoan,
                        pc.created_at, pc.paid_at, pc.closed_at, pc.close_reason,
                        coalesce(xn.full_name, cb.full_name) AS nguoi_thu,
                        dg.full_name AS nguoi_huy
                   FROM payment_cycle pc
+                  LEFT JOIN tai_khoan_nhan tk
+                    ON tk.id = pc.tai_khoan_nhan_id AND tk.clinic_id = pc.clinic_id
                   LEFT JOIN staff cb ON cb.id = pc.created_by
                   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
                   LEFT JOIN staff dg ON dg.id = pc.closed_by

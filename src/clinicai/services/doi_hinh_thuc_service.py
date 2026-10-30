@@ -45,6 +45,7 @@ from clinicai.services.phan_thu import (
     chuan_hinh_thuc,
     doc_phan_db,
 )
+from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu, doc_id
 
 logger = structlog.get_logger()
 
@@ -244,8 +245,12 @@ class DoiHinhThucService:
         ly_do: object = None,
         tien_mat: object = None,
         chuyen_khoan: object = None,
+        tai_khoan_id: object = None,
     ) -> dict[str, Any]:
         """Ghi hình thức mới cho một phiếu đã thu. Một dòng sổ + sự kiện.
+
+        ``tai_khoan_id`` (31/10/2026): đổi sang có chuyển khoản thì ghi tài khoản
+        nhận — chọn, hoặc (phiếu chưa có tài khoản) mặc định của cơ sở.
 
         ``hinh_thuc_cu``: hình thức màn đang thấy — khác hình thức hiệu lực (người
         khác vừa đổi) → 409, không đè. Bỏ trống = không đối chiếu.
@@ -262,6 +267,7 @@ class DoiHinhThucService:
             raise ValidationError(f"Hình thức cũ không hợp lệ: {hinh_thuc_cu!r}")
         ma = doc_ma_gd(reference) if ht_moi != TIEN_MAT else None
         ly = doc_ly_do(ly_do)
+        tk_chon = doc_id(tai_khoan_id)
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
             if not identity.cashier_head_scope and not any(
@@ -276,6 +282,7 @@ class DoiHinhThucService:
                     SELECT pc.payment_cycle_id::text AS id,
                            pc.visit_id::text AS visit_id, pc.kind, pc.status,
                            pc.amount, pc.method,
+                           pc.tai_khoan_nhan_id::text AS tk,
                            hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                               pc.method) AS hieu_luc,
                            phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
@@ -344,6 +351,20 @@ class DoiHinhThucService:
                 except asyncpg.CheckViolationError as exc:
                     # Lưới cuối ở DB (tranh chấp lọt qua kiểm trên) — câu của trigger.
                     raise ConflictError(str(exc).split("\n")[0]) from exc
+                gan_tk = tk_chon is not None or lan["tk"] is None
+                if ht_moi == CHUYEN_KHOAN and gan_tk:
+                    tk = await chon_cho_lan_thu(
+                        conn, clinic_id=cid, visit_id=str(lan["visit_id"]), chon=tk_chon
+                    )
+                    if tk is not None and tk != lan["tk"]:
+                        await conn.execute(
+                            "UPDATE payment_cycle SET tai_khoan_nhan_id = $3::uuid"
+                            " WHERE clinic_id = $1::uuid"
+                            " AND payment_cycle_id = $2::uuid",
+                            cid,
+                            payment_cycle_id,
+                            tk,
+                        )
                 await emit_event(
                     conn,
                     ten="payment.method_changed",

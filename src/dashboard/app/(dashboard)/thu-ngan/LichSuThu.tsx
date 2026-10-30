@@ -23,6 +23,7 @@ import { useNgheBang } from "../dung-nghe-bang";
 import AnhChuyenKhoan, { type AnhCk } from "./AnhChuyenKhoan";
 import DoiHinhThuc, { type HinhThuc, type TrangThaiDoi } from "./DoiHinhThuc";
 import NutHoanTac from "./NutHoanTac";
+import { DoiTaiKhoan } from "./TaiKhoanNhan";
 
 /** Hoàn tác / đổi hình thức / ảnh CK ở nơi khác → lịch sử tự mới (01/10/2026). */
 const BANG_LICH_SU = [
@@ -30,6 +31,7 @@ const BANG_LICH_SU = [
   "payment_cycle_doi_hinh_thuc",
   "anh_chuyen_khoan",
   "payment",
+  "tai_khoan_nhan",
 ] as const;
 
 interface SuKien {
@@ -56,6 +58,9 @@ interface SuKien {
   nhan_hinh_thuc?: string;
   anh_ck?: AnhCk[];
   hoan_tac?: { duoc: boolean; ly_do_khong: string | null } | null;
+  /** Tài khoản nhận phần chuyển khoản (31/10/2026); null = chưa phân loại. */
+  tai_khoan_id?: string | null;
+  ten_tai_khoan?: string | null;
 }
 
 interface KhachLichSu {
@@ -272,6 +277,18 @@ export default function LichSuThu({ quay = "dich_vu", ngay, ca, coSo, restricted
                               >
                                 In
                               </a>
+                            ) : null}
+                            {s.loai === "thu" && (s.phan ?? []).some((p) => p.hinh_thuc === "TRANSFER") ? (
+                              <div className="basis-full">
+                                <DoiTaiKhoan
+                                  paymentCycleId={s.id}
+                                  visitId={k.visit_id}
+                                  taiKhoanId={s.tai_khoan_id ?? null}
+                                  tenHienTai={s.ten_tai_khoan ?? null}
+                                  choSua={thaoTac && !k.su_kien.some((x) => x.loai === "huy" && x.id === s.id)}
+                                  onXong={() => void tai()}
+                                />
+                              </div>
                             ) : null}
                             {thaoTac && s.loai === "thu" && s.doi_hinh_thuc ? (
                               <div className="basis-full">
