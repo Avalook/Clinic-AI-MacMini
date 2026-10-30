@@ -35,6 +35,7 @@ import {
 } from "react";
 
 import Button from "@/components/ui/Button";
+import ONhap from "@/components/ui/ONhap";
 import OSo from "@/components/ui/OSo";
 
 import { NutLamThem, useLamThem } from "../_lam-viec/LamThemTaiQuay";
@@ -65,6 +66,22 @@ interface SinhHieu {
   nguon?: string | null;
 }
 
+/** [Không đo] + lý do (30/10/2026) — máy chủ viết `nhan` ("Không đo · Trẻ nhỏ"). */
+interface KhongDo {
+  ma: string;
+  ghi_chu: string | null;
+  nhan: string;
+  luc: string | null;
+  boi: string | null;
+}
+
+/** Chip lý do — danh sách ở máy chủ; `can_chu` = phải gõ chữ (Khác). */
+interface LyDoKhongDo {
+  ma: string;
+  nhan: string;
+  can_chu: boolean;
+}
+
 interface Luot {
   visit_id: string;
   ma_bn: string;
@@ -87,6 +104,8 @@ interface Luot {
   cho_phut?: number | null;
   cho_lau?: boolean;
   sinh_hieu: SinhHieu | null;
+  /** Đã bấm [Không đo] và CHƯA có số đo nào (lần đo thật thắng). */
+  khong_do?: KhongDo | null;
   /** Lượt qua tư vấn: đang bỏ qua chưa, đổi được không. null = không qua tư vấn. */
   tu_van?: { bo_qua: boolean; doi_duoc: boolean } | null;
 }
@@ -138,7 +157,7 @@ function keTiep(ds: readonly Luot[]): Luot | null {
   return (
     [...ds]
       .sort((a, b) => (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""))
-      .find((l) => !l.sinh_hieu) ?? null
+      .find((l) => !l.sinh_hieu && !l.khong_do) ?? null
   );
 }
 
@@ -158,12 +177,18 @@ function gio(iso: string | null): string {
   }
 }
 
-async function docBang(ngay: string): Promise<{ luot: Luot[] } | { loi: string }> {
+type KetQuaBang = { luot: Luot[]; lyDo: LyDoKhongDo[] } | { loi: string };
+
+async function docBang(ngay: string): Promise<KetQuaBang> {
   try {
     const r = await fetch(`/api/luot-kham?ngay=${encodeURIComponent(ngay)}`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as { luot?: Luot[]; message?: string } | null;
+    const d = (await r.json().catch(() => null)) as {
+      luot?: Luot[];
+      ly_do_khong_do?: LyDoKhongDo[];
+      message?: string;
+    } | null;
     if (!r.ok) return { loi: d?.message ?? "Không đọc được danh sách khách." };
-    return { luot: d?.luot ?? [] };
+    return { luot: d?.luot ?? [], lyDo: d?.ly_do_khong_do ?? [] };
   } catch {
     return { loi: "Mất kết nối tới máy chủ." };
   }
@@ -180,6 +205,11 @@ export default function BangDoSinhHieu() {
   const [dangLuu, setDangLuu] = useState(false);
   const [dangBatDau, setDangBatDau] = useState(false);
   const [dangDoiTuVan, setDangDoiTuVan] = useState(false);
+  // [Không đo] (30/10/2026): mở hàng chip lý do; "Khác" thì mở ô chữ.
+  const [lyDo, setLyDo] = useState<readonly LyDoKhongDo[]>([]);
+  const [moKhongDo, setMoKhongDo] = useState(false);
+  const [chuKhac, setChuKhac] = useState<string | null>(null);
+  const [dangKhongDo, setDangKhongDo] = useState(false);
   // Ô máy chủ báo lỗi (`truong`) — tô đỏ; gõ lại ô ấy thì bỏ tô.
   const [oLoi, setOLoi] = useState<readonly string[]>([]);
   // Chỉ số máy chủ NHẮC sau khi lưu — tô vàng, không chặn.
@@ -198,18 +228,19 @@ export default function BangDoSinhHieu() {
   // lưu hỏng → tin realtime nạp lại bảng → bảng đọc được thì `setLoi(null)` xoá
   // mất câu "Huyết áp tâm thu phải lớn hơn tâm trương" trước khi người đo kịp đọc.
   const [loiBang, setLoiBang] = useState<string | null>(null);
-  const nhan = useCallback((kq: { luot: Luot[] } | { loi: string }) => {
+  const nhan = useCallback((kq: KetQuaBang) => {
     if ("loi" in kq) {
       setLoiBang(kq.loi);
       return;
     }
     setLoiBang(null);
     setLuot(kq.luot);
+    setLyDo(kq.lyDo);
   }, []);
   // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
   // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
   const [lanNghe, setLanNghe] = useState(0);
-  useNgheBang(["visit", "encounter_flow", "vital_measurement", "queue_entry"], () =>
+  useNgheBang(["visit", "encounter_flow", "vital_measurement", "queue_entry", "sinh_hieu_khong_do"], () =>
     setLanNghe((n) => n + 1),
   );
 
@@ -251,11 +282,13 @@ export default function BangDoSinhHieu() {
     // Bản trước lấy `goi_do_luc` làm "đang đo" — tức "đã gọi" bị đọc thành
     // "đã bắt đầu đo", hai chuyện khác nhau. Giờ máy chủ giữ `in_progress`.
     const dangDoThat = (l: Luot) =>
-      !l.sinh_hieu && l.sinh_hieu_trang_thai === "in_progress";
+      !l.sinh_hieu && !l.khong_do && l.sinh_hieu_trang_thai === "in_progress";
+    // [Không đo] xuống nhóm "Đã đo" (khách đã đi tiếp) — mở ra đo sau được.
+    const xongBuoc = (l: Luot) => Boolean(l.sinh_hieu || l.khong_do);
     return {
-      choDo: ds.filter((l) => !l.sinh_hieu && !dangDoThat(l)),
+      choDo: ds.filter((l) => !xongBuoc(l) && !dangDoThat(l)),
       dangDo: ds.filter(dangDoThat),
-      daDo: ds.filter((l) => l.sinh_hieu),
+      daDo: ds.filter(xongBuoc),
     };
   }, [luot, xepTheo]);
 
@@ -284,6 +317,8 @@ export default function BangDoSinhHieu() {
     if (!giuBao) setXong(null);
     setLoi(null);
     setOLoi([]);
+    setMoKhongDo(false);
+    setChuKhac(null);
     setCanhBao([]);
     const cu: Record<string, string> = {};
     for (const o of O) {
@@ -426,6 +461,48 @@ export default function BangDoSinhHieu() {
     }
   };
 
+  // [Không đo] + lý do (30/10/2026): chạm chip là ghi — khách đi tiếp như đã
+  // đo, không số giả. Đo thật sau đó vẫn được (lần đo thật thắng).
+  const ghiKhongDo = async (ma: string, ghiChu?: string) => {
+    if (!dangChon) return;
+    const ten = dangChon.ten;
+    setDangKhongDo(true);
+    setLoi(null);
+    setXong(null);
+    try {
+      const r = await fetch("/api/luot-kham", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": khoaGuiLai() },
+        body: JSON.stringify({
+          thao_tac: "khong-do",
+          id: dangChon.visit_id,
+          du_lieu: { ly_do: ma, ...(ghiChu !== undefined ? { ghi_chu: ghiChu } : {}) },
+        }),
+      });
+      const d = (await r.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+        nhan?: string;
+      } | null;
+      if (!r.ok) {
+        setLoi(d?.message ?? d?.error ?? "Không ghi được.");
+        return;
+      }
+      const kq = await docBang(ngay);
+      nhan(kq);
+      if ("luot" in kq) {
+        const ke = keTiep(kq.luot.filter((l) => l.visit_id !== dangChon.visit_id));
+        if (ke) moKhach(ke, true);
+        else setChon(null);
+      }
+      setXong(`${ten}: ${d?.nhan ?? "Không đo"}.`);
+    } catch {
+      setLoi("Mất kết nối — CHƯA ghi.");
+    } finally {
+      setDangKhongDo(false);
+    }
+  };
+
   // Ô "Bỏ qua bác sĩ tư vấn" — ÁP NGAY vào vị trí khách (Tuyền 25/09/2026: "là
   // lựa chọn và áp luôn cho vị trí của khách"): tick → hàng bác sĩ chính, bỏ
   // tick → về hàng tư vấn. Ô đọc trạng thái THẬT từ máy chủ, nên lỡ tay thì bỏ
@@ -519,6 +596,8 @@ export default function BangDoSinhHieu() {
         đo {gio(l.sinh_hieu.luc)}
         {l.sinh_hieu.nguon ? ` (${l.sinh_hieu.nguon})` : ""}
       </span>
+    ) : l.khong_do ? (
+      <span className="text-meta text-ink-muted">{l.khong_do.nhan}</span>
     ) : l.sinh_hieu_trang_thai === "in_progress" ? (
       <span className="text-meta text-brand-700">
         {chon === l.visit_id ? "đang mở" : `${l.bat_dau_do_boi ?? "Có người"} đang đo`}
@@ -665,7 +744,10 @@ export default function BangDoSinhHieu() {
                 {dangChon.sinh_hieu?.nguoi_do
                   ? ` · lần đo trước: ${dangChon.sinh_hieu.nguoi_do} lúc ${gio(dangChon.sinh_hieu.luc)}${dangChon.sinh_hieu.nguon ? ` (${dangChon.sinh_hieu.nguon})` : ""}`
                   : ""}
-                {dangChon.bat_dau_do_luc && !dangChon.sinh_hieu
+                {dangChon.khong_do
+                  ? ` · ${dangChon.khong_do.nhan}${dangChon.khong_do.boi ? ` (${dangChon.khong_do.boi} ${gio(dangChon.khong_do.luc)})` : ""}`
+                  : ""}
+                {dangChon.bat_dau_do_luc && !dangChon.sinh_hieu && !dangChon.khong_do
                   ? ` · bắt đầu đo lúc ${gio(dangChon.bat_dau_do_luc)}${dangChon.bat_dau_do_boi ? ` (${dangChon.bat_dau_do_boi})` : ""}`
                   : ""}
               </p>
@@ -784,6 +866,71 @@ export default function BangDoSinhHieu() {
                     </span>
                   ) : null}
                 </label>
+              ) : null}
+              {/* [Không đo]: hàng chip lý do — chạm là ghi; "Khác" mở ô chữ. */}
+              {moKhongDo && !dangChon.sinh_hieu ? (
+                <div className="flex w-full flex-wrap items-center gap-2" role="group" aria-label="Lý do không đo">
+                  {lyDo.map((x) =>
+                    x.can_chu ? (
+                      <Button
+                        key={x.ma}
+                        size="sm"
+                        variant={chuKhac !== null ? "soft" : "secondary"}
+                        aria-expanded={chuKhac !== null}
+                        disabled={dangKhongDo}
+                        onClick={() => setChuKhac((c) => (c === null ? "" : null))}
+                      >
+                        {x.nhan}
+                      </Button>
+                    ) : (
+                      <Button
+                        key={x.ma}
+                        size="sm"
+                        variant="secondary"
+                        disabled={dangKhongDo}
+                        onClick={() => void ghiKhongDo(x.ma)}
+                      >
+                        {x.nhan}
+                      </Button>
+                    ),
+                  )}
+                  {chuKhac !== null ? (
+                    <form
+                      className="flex w-full gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const khac = lyDo.find((x) => x.can_chu);
+                        if (khac) void ghiKhongDo(khac.ma, chuKhac);
+                      }}
+                    >
+                      <ONhap
+                        aria-label="Lý do không đo"
+                        placeholder="Ghi lý do"
+                        maxLength={500}
+                        value={chuKhac}
+                        onChange={(e) => setChuKhac(e.target.value)}
+                        className="min-w-0 flex-1"
+                      />
+                      <Button type="submit" size="md" variant="secondary" disabled={dangKhongDo || !chuKhac.trim()}>
+                        Ghi
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
+              ) : null}
+              {!dangChon.sinh_hieu && lyDo.length > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  aria-expanded={moKhongDo}
+                  disabled={dangKhongDo || dangLuu}
+                  onClick={() => {
+                    setMoKhongDo((m) => !m);
+                    setChuKhac(null);
+                  }}
+                >
+                  Không đo
+                </Button>
               ) : null}
               {canhBao.length > 0 && khachKe ? (
                 <Button

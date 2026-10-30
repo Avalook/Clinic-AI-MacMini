@@ -228,6 +228,14 @@ Code: `S/luot_kham_service.py` `LuotKhamService.check_in` + `xep_sau_check_in`
 Code: `S/sinh_hieu_service.py` `SinhHieuService` (`record_vitals`,
 `bat_dau_do_sinh_hieu`); dùng lại số đo cùng buổi `S/sinh_hieu_buoi.py`. Test:
 `T/services/test_sinh_hieu_cung_buoi_db.py`, `T/services/test_sinh_hieu_khong_chan_db.py`.
+**[Không đo] + lý do (30/10/2026)** — nút cạnh [Đo xong] → chip lý do (danh sách
+`S/luot_kham_rules.py::LY_DO_KHONG_DO`, trả ở `ly_do_khong_do` của bảng) →
+`SinhHieuService.khong_do` (`POST /luot-kham/visits/{id}/vitals/khong-do`): ghi bảng
+`sinh_hieu_khong_do` (migration 20261031130000; không số giả), luồng `recorded`, phát
+`vitals.recorded` có cờ `khong_do` (Hành trình xếp đi tiếp). Câu "Không đo · <lý do>":
+`rules.nhan_khong_do`, đọc ở `S/sinh_hieu_buoi.py::khong_do_cua_luot` → `luot_kham_doc`
+(`khong_do`) và `phieu_kham/mang_sang.py` (`sinh_hieu_khong_do`) — chỉ khi chưa có số đo
+(lần đo thật thắng). Test `T/services/test_sinh_hieu_khong_do_db.py`.
 
 **Nút "+ Nước tiểu"… — làm thêm tại quầy (lễ tân / người đo tick, không cần bác
 sĩ)** — Trên màn: danh sách nút (thêm "Xét nghiệm máu", tắt, chỗ hiện, chữ trên
