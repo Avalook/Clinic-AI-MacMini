@@ -21,6 +21,7 @@ import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import { INPUT } from "../form-ui";
 import TomTatCuoiNgay from "./TomTatCuoiNgay";
 import KhoiChotCa, { type ChotCa } from "./KhoiChotCa";
+import KhoiKetTienMat, { KetTienMatNgay, type KetCa } from "./KhoiKetTienMat";
 import { useNgheBang } from "../dung-nghe-bang";
 import { todayVn } from "@/lib/roster";
 import NgayTrucBaoCao, { type ReportCalendar } from "./NgayTrucBaoCao";
@@ -40,6 +41,8 @@ interface BaoCao {
   /** Khoá sổ theo ca (G4c) — máy chủ quyết: đang xem đúng một ca? đã chốt? */
   xem_mot_ca?: boolean;
   chot?: ChotCa | null;
+  /** Kiểm kê tiền mặt két từng ca trong khoảng (31/10/2026). */
+  ket_tien_mat?: KetCa[];
   sau_chot?: OTien | null;
   dieu_chinh_ca_truoc?: { so_phieu: number; tong: number };
   tu: string;
@@ -215,7 +218,7 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
   }, [chuoi]);
 
   // Người khác chốt / mở khoá ca → tải lại (bảng có trigger notify).
-  useNgheBang(["chot_so_ca"], () => void tai());
+  useNgheBang(["chot_so_ca", "ket_tien_mat_ca"], () => void tai());
 
   useEffect(() => {
     const compteur = lanTai;
@@ -363,6 +366,12 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
           quanLy={!!access?.quan_ly}
           onDoi={() => void tai()}
         />
+      ) : null}
+
+      {pret && bc?.xem_mot_ca && coSoChon && ca ? (
+        <KhoiKetTienMat key={chuoi} ngay={khoang.tu} ca={ca} coSo={coSoChon} />
+      ) : pret && bc ? (
+        <KetTienMatNgay ds={bc.ket_tien_mat ?? []} />
       ) : null}
 
       <TomTatCuoiNgay dayDu={dayDu} data={dangTai || loi || chuoiDaTai !== chuoi ? null : bc} dangTai={dangTai || (!loi && chuoiDaTai !== chuoi)}
