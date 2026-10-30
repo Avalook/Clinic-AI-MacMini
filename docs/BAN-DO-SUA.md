@@ -150,7 +150,12 @@ FT: `D/tests/kiem-ke-ca-boundary.test.mts`.
 **Thu trước khi làm · tự xếp phòng · chỉ xếp theo phòng lễ tân chọn · khách quen
 vào thẳng BS · cùng buổi thẳng dịch vụ · quyền theo lịch · báo CSKH khi về còn
 việc · số ngày kết quả đối tác quá hạn · phút nhắc check-out · loại khám qua tư
-vấn / đi thẳng phòng · chuông sự kiện báo ai**
+vấn / đi thẳng phòng · chuông sự kiện báo ai · dừng liệu trình tính giá gói hay
+phá gói tính giá lẻ**
+- Dừng liệu trình (`lieu_trinh_dung_tinh_gia_le`, 30/10/2026): lệnh dừng chụp
+  chính sách vào `lieu_trinh.chinh_sach_dung` — đổi dây chỉ áp cho lần dừng sau.
+  Tính + câu cho thu ngân: `S/lieu_trinh_tien.py` `quyet_toan_dung`,
+  `gan_quyet_toan`. Test: `T/services/test_lieu_trinh_chinh_sach_dung_db.py`.
 - Trên màn: `/settings/day-noi` (Quản lý). Bật/tắt là có hiệu lực ngay.
 - Code (khi cần DÂY MỚI hoặc đổi nghĩa dây): danh sách + mặc định ở
   `S/day_noi.py` (`DAY`); đọc/ghi `S/day_noi_service.py` `DayNoiService` (`dat_day`,

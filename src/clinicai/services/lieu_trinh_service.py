@@ -35,6 +35,7 @@ from clinicai.permissions.can import can
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA
 from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
 from clinicai.services.bill_service import CLINIC, giai_gia
+from clinicai.services.day_noi import doc_day
 from clinicai.services.dieu_tri_ban_kham import o_phieu
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
@@ -42,6 +43,12 @@ from clinicai.services.lenh_kham_core import (
     bien_nhan_ghi,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.lieu_trinh_tien import (
+    DAY_DUNG_GIA_LE,
+    GIA_GOI,
+    GIA_LE,
+    gan_quyet_toan,
+)
 from clinicai.services.nhan_luot import chu_buoi
 from clinicai.services.service_execution_service import NOI_BAN_KHAM
 
@@ -260,7 +267,7 @@ SELECT lt.id::text AS id, lt.clinic_patient_id::text AS khach_id,
        lt.nguon_order_id::text AS nguon_order_id,
        lt.tao_luc, sd.full_name AS de_xuat_boi,
        lt.dang_ky_luc, sk.full_name AS dang_ky_boi,
-       lt.dung_luc, sg.full_name AS dung_boi, lt.ly_do_dung,
+       lt.dung_luc, sg.full_name AS dung_boi, lt.ly_do_dung, lt.chinh_sach_dung,
        lt.revision, lt.hanh_dong, lt.sua_luc,
        public.lieu_trinh_so_buoi_da_tra(lt.clinic_id, lt.id) AS da_tra,
        coalesce(b.so_gan, 0) AS so_gan, coalesce(b.da_lam, 0) AS da_lam,
@@ -488,6 +495,7 @@ class LieuTrinhService:
         *args: Any,
         thu_tu: str = "lt.tao_luc DESC, lt.id",
         kem_buoi: bool = True,
+        kem_quyet_toan: bool = False,
     ) -> list[dict[str, Any]]:
         rows = await conn.fetch(
             _LT_SQL.format(dieu_kien=dieu_kien, thu_tu=thu_tu), cid, *args
@@ -500,12 +508,17 @@ class LieuTrinhService:
                 theo.setdefault(b["lieu_trinh_id"], []).append(_buoi(b))
             for d in ds:
                 d["buoi"] = theo.get(d["id"], [])
+        if kem_quyet_toan:
+            # Tiền khi dừng (đã dừng: chính sách lúc dừng; chưa: xem trước).
+            await gan_quyet_toan(conn, cid, ds)
         return ds
 
     async def _mot(
         self, conn: asyncpg.Connection, cid: str, lt_id: str
     ) -> dict[str, Any]:
-        ds = await self.doc_nhieu(conn, cid, "lt.id = $2::uuid", lt_id)
+        ds = await self.doc_nhieu(
+            conn, cid, "lt.id = $2::uuid", lt_id, kem_quyet_toan=True
+        )
         if not ds:
             raise NotFoundError("Không tìm thấy liệu trình này.")
         return ds[0]
@@ -528,7 +541,11 @@ class LieuTrinhService:
         async with self._pool.acquire() as conn:
             await self._doi_doc(conn, identity)
             ds = await self.doc_nhieu(
-                conn, identity.clinic_id, "lt.clinic_patient_id = $2::uuid", pid
+                conn,
+                identity.clinic_id,
+                "lt.clinic_patient_id = $2::uuid",
+                pid,
+                kem_quyet_toan=True,
             )
             # Màn (khung khách) hiện nút Đăng ký / Dừng / Mở lại / Hoàn tác theo
             # cờ này — chính lệnh vẫn tự gác quyền.
@@ -598,6 +615,7 @@ class LieuTrinhService:
                            ON o.clinic_id = b.clinic_id AND o.id = b.service_order_id
                         WHERE b.clinic_id = $1::uuid AND o.visit_id = $2::uuid))""",
                 vid,
+                kem_quyet_toan=True,
             )
             ma = sorted({c["service_code"] for c in chi_dinh})
             ung_vien = (
@@ -1402,15 +1420,21 @@ class LieuTrinhService:
             cid = identity.clinic_id
             row = await self._khoa(conn, cid, lt)
             self._dung_ban(row, expected_revision)
+            # Chụp chính sách tiền LÚC DỪNG (dây nối): đổi dây sau không tính
+            # lại lần dừng này. Đang dừng sẵn (bấm lại) → giữ chính sách cũ.
+            gia_le = await doc_day(conn, cid, DAY_DUNG_GIA_LE)
             kq = await self._sua(
                 conn,
                 identity,
                 lt,
                 "DUNG",
-                "dung_luc = coalesce(dung_luc, now()),"
+                "chinh_sach_dung = CASE WHEN dung_luc IS NULL THEN $6"
+                "                       ELSE chinh_sach_dung END,"
+                " dung_luc = coalesce(dung_luc, now()),"
                 " dung_boi = coalesce(dung_boi, $4::uuid),"
                 " ly_do_dung = coalesce(ly_do_dung, $5)",
                 ly,
+                GIA_LE if gia_le else GIA_GOI,
             )
             return kq, lt
 

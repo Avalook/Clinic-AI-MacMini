@@ -544,9 +544,11 @@ async def test_e_dung_khi_da_tra_truoc_va_buoi_dang_ke(pool: asyncpg.Pool) -> No
             0,
         )
         assert k["goi_y_tra_them"] is False
-        assert k["cau_hoan"] == (
-            "Đã dừng, còn 4 buổi đã trả chưa dùng — hoàn bằng [Hoàn tiền] ở tab"
-            " “Đã thanh toán”. Hoàn quá 3 buổi thì buổi đang kê sẽ vào hoá đơn."
+        # Đã dừng: câu quyết toán theo giá gói (mặc định) — buổi đang kê tính
+        # vào gói (chi tiết ở test_lieu_trinh_chinh_sach_dung_db.py).
+        assert k["cau_hoan"].startswith(
+            "Tính theo giá gói: đã trả trước 5.000đ; đã dùng 2 buổi (1 đã làm, 1"
+            " đang kê) × 1.000đ = 2.000đ; hoàn 3.000đ."
         )
         await khong_tien_thua(ca, v2)
         await bat_bien(ca, lt["id"])
@@ -602,7 +604,9 @@ async def test_e2_dung_tra_theo_buoi_roi_huy_buoi_da_thu(pool: asyncpg.Pool) -> 
     assert so(k, "da_tra", "tra_le", "con_tra_truoc", "chua_tra") == (1, 1, 1, 0)
     assert so(k, "hoan_duoc_toi_da", "tra_truoc_toi_da") == (1, 0)
     assert [d["loai"] for d in k["dong_hoan_duoc"]] == ["buoi_giu"]
-    assert k["cau_hoan"].startswith("Đã dừng, còn 1 buổi đã trả chưa dùng")
+    assert k["cau_hoan"].startswith(
+        "Tính theo giá gói: đã trả trước 1.000đ; chưa dùng buổi nào; hoàn 1.000đ."
+    )
     await bat_bien(ca, lt["id"])
 
 

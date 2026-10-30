@@ -40,6 +40,15 @@ export interface BuoiLieuTrinh {
   ket_qua?: OKetQuaBuoi[];
 }
 
+/** Tiền khi dừng (`quyet_toan_dung`, máy chủ tính): đã dừng → theo chính sách
+ *  chụp lúc dừng; chưa dừng → xem trước "nếu dừng bây giờ". `cau` đọc cho khách. */
+export interface QuyetToanDung {
+  chinh_sach: "GIA_GOI" | "GIA_LE";
+  hoan: number;
+  thieu: number;
+  cau: string;
+}
+
 export interface LieuTrinh {
   id: string;
   service_code: string;
@@ -60,6 +69,7 @@ export interface LieuTrinh {
   tien_con_lai: number;
   /** Buổi của kế hoạch chưa có chỉ định nào (máy chủ tính). */
   chua_gan?: number;
+  quyet_toan?: QuyetToanDung | null;
   de_xuat_boi: string | null;
   ly_do_dung: string | null;
   nguon_visit_id: string | null;
@@ -150,6 +160,7 @@ export interface LieuTrinhQuay {
   hoan_duoc_toi_da: number;
   /** Câu về phần hoàn được (đã dừng; hoàn quá thì buổi đang kê vào hoá đơn). */
   cau_hoan?: string | null;
+  quyet_toan?: QuyetToanDung | null;
   dong_hoan_duoc: { payment_cycle_id: string; con_hoan_duoc: number; luc_thu: string | null }[];
 }
 
