@@ -3,6 +3,8 @@ import type { ReportAccess } from "../reports/access";
 export interface DongHoaDon {
   id: string; ten: string; so_luong: number; thanh_tien: number; da_bo: boolean;
   thanh_tien_truoc_giam?: number; giam_gia?: number;
+  /** Phòng làm dịch vụ — máy chủ viết sẵn như phiếu thu in ("Phòng X · BS Y"). */
+  phong?: string | null;
 }
 export interface PhieuHoan {
   id: string; ma: string; so_tien: number; trang_thai: string; hinh_thuc?: string | null;

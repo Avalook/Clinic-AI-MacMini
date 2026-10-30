@@ -125,6 +125,33 @@ def _state(status: Any, amount: int, returned: int, pending: int) -> str:
     return "HOAN_MOT_PHAN" if returned else "DA_THU"
 
 
+def nhan_phong(phong: Mapping[str, Any] | None) -> str | None:
+    """ "Phòng siêu âm 2 · BS X (dự kiến)" — đúng chữ phiếu thu in (tên phòng,
+    bác sĩ của phòng nhiều bác sĩ, chưa xếp thì phòng dự kiến). Không tầng."""
+    if not phong or not phong.get("ten"):
+        return None
+    chu = str(phong["ten"])
+    if phong.get("bac_si"):
+        chu += f" · {phong['bac_si']}"
+    return chu + (" (dự kiến)" if phong.get("du_kien") else "")
+
+
+def gan_phong(
+    lines: list[dict[str, Any]],
+    refund_lines: list[dict[str, Any]],
+    phong_cua_dong: Mapping[str, Mapping[str, Any] | None],
+) -> None:
+    """Gắn nhãn phòng (``phong``) vào từng dòng dịch vụ + dòng hoàn của dòng ấy.
+    ``phong_cua_dong``: id dòng hoá đơn → phòng như phiếu thu (``_phong_cua_dong``).
+    Dòng đã bỏ sau thu không in phòng (như bản in lại phiếu)."""
+    nhan: dict[str, str | None] = {}
+    for d in lines:
+        p = None if d.get("da_bo") else nhan_phong(phong_cua_dong.get(str(d["id"])))
+        d["phong"] = nhan[str(d["id"])] = p
+    for d in refund_lines:
+        d["phong"] = nhan.get(str(d["id"]))
+
+
 def _line(row: dict[str, Any]) -> dict[str, Any]:
     actual = int(row["thanh_tien"])
     discount = int(row.get("discount_allocated") or 0)
