@@ -151,7 +151,8 @@ SELECT k.id::text AS id, k.location_id::text AS location_id, l.name AS ten_co_so
        k.dem_cuoi, k.dem_cuoi_dem, k.thu_tien_mat, k.du_kien, k.lech, k.ly_do_lech,
        k.nguoi_nhan, k.dem_luc, dm.full_name AS dem_boi_ten
   FROM public.ket_tien_mat_ca k
-  LEFT JOIN public.clinic_location l ON l.id = k.location_id
+  LEFT JOIN public.clinic_location l
+    ON l.id = k.location_id AND l.clinic_id = k.clinic_id
   LEFT JOIN public.staff qd ON qd.id = k.quy_dau_boi
   LEFT JOIN public.staff dm ON dm.id = k.dem_boi
 """

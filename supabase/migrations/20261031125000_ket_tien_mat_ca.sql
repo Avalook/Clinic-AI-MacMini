@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS public.ket_tien_mat_ca_lich_su (
         OR length(btrim(coalesce(ly_do, ''))) >= 3)
 );
 CREATE INDEX IF NOT EXISTS ix_ket_tien_mat_ca_lich_su_ket
-    ON public.ket_tien_mat_ca_lich_su (ket_id, id);
+    ON public.ket_tien_mat_ca_lich_su (clinic_id, ket_id, id);
 
 DROP TRIGGER IF EXISTS trg_ket_tien_mat_ca_lich_su_chi_them
     ON public.ket_tien_mat_ca_lich_su;
