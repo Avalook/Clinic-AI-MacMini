@@ -19,5 +19,11 @@ Kết quả mong đợi: node làm bên ngoài = 1 (chụp phim ngoài), dịch 
 docker exec -i clinicai_db psql -U postgres -d postgres -v ON_ERROR_STOP=1 < scripts/go-dich-vu-thua-phong-doi-tac-1610.sql
 ```
 Gỡ dịch vụ thường khỏi phòng đối tác, chỉ giữ dịch vụ đối tác; tự dừng nếu có dịch vụ mồ côi.
+```bash
+docker exec -i clinicai_db psql -U postgres -d postgres -v ON_ERROR_STOP=1 < scripts/go-dich-vu-doi-tac-khoi-phong-thuong-1610.sql
+```
+Chiều ngược lại: gỡ dịch vụ đối tác làm trọn (chụp phim ngoài, HPV/Thinprep) khỏi PHÒNG THƯỜNG — "mở hết
+phòng" 01/10 gắn chúng vào mọi phòng, làm MRI vú không vào Phòng đối tác (bấm staging 16/10 bắt được).
+Tự dừng nếu một dịch vụ không còn phòng đối tác nào làm được.
 
 Các bước sao lưu → ghim SHA → deploy như `RUNBOOK-LEN-PROD-DOT-1610.md` (bỏ bước migration).
