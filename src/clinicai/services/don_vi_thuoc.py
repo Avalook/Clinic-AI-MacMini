@@ -292,6 +292,18 @@ class QuyDoiDong:
         return so_goc_don_vi * hs / self.he_so_dong
 
 
+def so_de_doc(
+    so: Decimal, he_so: Decimal | None, goc: str | None, don_vi: str | None
+) -> str:
+    """Số đã giao cho người đọc: quy về đơn vị gốc khi dòng bán đơn vị khác.
+
+    Quầy thiếu 1 gói của hộp 30 gói: "1 gói", không phải "0.033333 hộp"."""
+    if he_so and he_so != 1 and goc:
+        ra = (so * he_so).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+        return f"{format(ra.normalize(), 'f')} {goc}"
+    return f"{format(so.normalize(), 'f')} {don_vi or ''}".strip()
+
+
 def cau_thieu_quy_doi(q: QuyDoiDong, don_vi_lo: Iterable[str | None]) -> str | None:
     """Vì sao phần giao chưa trừ được kho, nói rõ việc phải làm. None = không vì
     đơn vị (chỉ là hết hàng)."""

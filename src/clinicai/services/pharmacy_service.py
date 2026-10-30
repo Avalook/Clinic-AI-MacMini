@@ -60,6 +60,7 @@ from clinicai.services.don_vi_thuoc import (
     kiem_doi_don_vi_goc,
     luu_cac_don_vi,
     quy_doi_cua_dong,
+    so_de_doc,
 )
 from clinicai.services.hoan_tac_giao_service import (
     LanGiao,
@@ -142,6 +143,7 @@ def _tom_tat_giao(
     chua_tru: Decimal,
     don_vi: str | None,
     can_lam: str | None = None,
+    chu_chua_tru: str | None = None,
 ) -> str | None:
     """Câu cho màn nhà thuốc sau khi giao tự chọn lô: lô nào đã trừ, phần nào
     chưa trừ được. Rỗng khi giao có chỉ định lô (màn đã tự nói)."""
@@ -158,7 +160,8 @@ def _tom_tat_giao(
     ]
     if chua_tru > 0:
         phan.append(
-            f"{so(chua_tru)}{dv} quầy không đủ để trừ — đã ghi vào danh sách "
+            f"{chu_chua_tru or so(chua_tru) + dv} quầy không đủ để trừ — đã ghi vào "
+            "danh sách "
             "“Đã giao, chưa trừ kho”, gán lô ở kho hoặc quầy sau"
         )
     return "Đã giao: " + "; ".join(phan) + "." + (f" {can_lam}" if can_lam else "")
@@ -369,11 +372,11 @@ class PharmacyService:
                               THEN g.so_luong
                               -- Dòng bán đơn vị khác đơn vị lô: đổi qua hệ số;
                               -- không đổi được thì không cộng (NULL).
-                              ELSE g.so_luong
+                              ELSE round(g.so_luong
                                    * public.he_so_don_vi(g.clinic_id,
                                                          g.drug_catalog_id, p.unit)
                                    / public.he_so_don_vi(g.clinic_id,
-                                                         g.drug_catalog_id, b.unit)
+                                                         g.drug_catalog_id, b.unit), 3)
                               END)
                          FROM public.thuoc_giao_chua_gan_lo g
                          JOIN public.prescription p ON p.id = g.prescription_id
@@ -876,6 +879,7 @@ class PharmacyService:
                 lo_da_tru: list[dict[str, Any]] = []
                 chua_tru = Decimal(0)
                 can_lam: str | None = None
+                chu_chua_tru: str | None = None
                 la_vat_tu = drug_batch_id is None and bool(
                     await thuoc_la_vat_tu(
                         conn, identity.clinic_id, [don.get("drug_catalog_id")]
@@ -901,6 +905,16 @@ class PharmacyService:
                     if chua_tru > 0:
                         can_lam = await _viec_de_tru_duoc(
                             conn, identity, don, prescription_id
+                        )
+                        doi = await quy_doi_cua_dong(
+                            conn,
+                            identity.clinic_id,
+                            thuoc=don.get("drug_catalog_id"),
+                            don_vi=don.get("unit"),
+                            prescription_id=prescription_id,
+                        )
+                        chu_chua_tru = so_de_doc(
+                            chua_tru, doi.he_so_dong, doi.bang.goc, don.get("unit")
                         )
                 elif giao_thang:
                     moi = await self._cap_phat_cu(
@@ -957,7 +971,7 @@ class PharmacyService:
             ket_qua["lo_da_tru"] = lo_da_tru
             ket_qua["chua_tru_kho"] = chua_tru
             ket_qua["tom_tat"] = _tom_tat_giao(
-                lo_da_tru, chua_tru, don.get("unit"), can_lam
+                lo_da_tru, chua_tru, don.get("unit"), can_lam, chu_chua_tru
             )
         return ket_qua
 
@@ -1486,6 +1500,7 @@ class PharmacyService:
                     "giao_luc": r["giao_luc"],
                     "thuoc": r["ten_thuoc_kho"] or r["drug_name_raw"],
                     "unit": r["unit"],
+                    "hien": so_de_doc(giao, doi.he_so_dong, doi.bang.goc, don_vi),
                     "nguoi_giao": r["nguoi_giao"],
                     "khach": r["ten_khach"],
                     "ma_bn": r["patient_code"],

@@ -41,6 +41,7 @@ from clinicai.services.don_vi_thuoc import (
     QuyDoiDong,
     doc_bang,
     he_so_da_chup,
+    so_de_doc,
     so_dep,
 )
 from clinicai.services.moc_kham_xong import kham_xong_sql
@@ -437,8 +438,15 @@ async def man_nha_thuoc(
         )
         cho_gan_rows = await conn.fetch(
             """
-            SELECT g.id::text, g.prescription_id::text, g.so_luong, g.giao_luc
+            SELECT g.id::text, g.prescription_id::text, g.so_luong, g.giao_luc,
+                   p.unit, c.don_vi_ban,
+                   public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit) AS he_so
               FROM public.thuoc_giao_chua_gan_lo g
+              JOIN public.prescription p
+                ON p.id = g.prescription_id AND p.clinic_id = g.clinic_id
+              /* rx:gom-ca-lich-su: thuốc đã giao vẫn hiện dù dòng đơn đã đính chính */
+              LEFT JOIN public.drug_catalog c
+                ON c.id = g.drug_catalog_id AND c.clinic_id = g.clinic_id
              WHERE g.clinic_id = $1::uuid AND g.prescription_id = ANY($2::uuid[])
                AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
              ORDER BY g.giao_luc, g.id
@@ -531,6 +539,9 @@ async def man_nha_thuoc(
             {
                 "dong_id": x["id"],
                 "so_luong": _so(x["so_luong"]),
+                "hien": so_de_doc(
+                    _so(x["so_luong"]), x["he_so"], x["don_vi_ban"], x["unit"]
+                ),
                 "luc": x["giao_luc"],
                 "thao_tac": {"hoan_tac_giao": co_quyen_ghi},
             }

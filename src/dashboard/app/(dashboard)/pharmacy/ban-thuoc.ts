@@ -71,6 +71,8 @@ export interface LanGiao {
 export interface LanChoGan {
   dong_id: string;
   so_luong: number;
+  /** Máy chủ viết sẵn: "1 gói", không phải "0,033 hộp". */
+  hien: string;
   luc: string;
   thao_tac: { hoan_tac_giao: boolean };
 }

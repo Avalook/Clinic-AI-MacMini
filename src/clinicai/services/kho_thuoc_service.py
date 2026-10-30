@@ -1107,6 +1107,7 @@ async def _chuyen_cac_dong(
     phieu_id: str,
     ma: str,
     ly_do: str,
+    hoan_tac: bool = False,
 ) -> list[dict[str, Any]]:
     """Ghi các dòng chuyển (nguồn, số lượng, đích hoặc None = hàng cùng lô ở nơi
     kia, tạo nếu chưa có) vào phiếu `phieu_id` — trong giao dịch của người gọi."""
@@ -1148,7 +1149,7 @@ async def _chuyen_cac_dong(
         await giao_chua_gan_lo_theo_don_vi(
             conn, clinic_id=identity.clinic_id, location_id=str(identity.location_id)
         )
-        if noi_nguon == "QUAY"
+        if noi_nguon == "QUAY" and not hoan_tac
         else {}
     )
     for stt, (nguon_id, luong, dich_id) in enumerate(dong, start=1):
@@ -1448,6 +1449,7 @@ async def hoan_tac_chuyen(
                     phieu_id=hoan_id,
                     ma=ma,
                     ly_do=f"Hoàn tác phiếu {goc['ma_phieu']}",
+                    hoan_tac=True,
                 )
             except ConflictError as exc:
                 raise ConflictError(f"Không hoàn tác được: {exc.message}") from exc

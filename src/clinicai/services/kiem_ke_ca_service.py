@@ -454,8 +454,8 @@ async def giao_chua_gan_lo_theo_thuoc(
     rows = await conn.fetch(
         """
         SELECT g.drug_catalog_id::text AS drug_catalog_id,
-               sum(g.so_luong * coalesce(
-                   public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit), 1))
+               sum(round(g.so_luong * coalesce(public.he_so_don_vi(
+                   g.clinic_id, g.drug_catalog_id, p.unit), 1), 3))
                    AS so
           FROM public.thuoc_giao_chua_gan_lo g
           /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải tính dù dòng đơn sau đó bị bác sĩ
@@ -488,8 +488,8 @@ async def giao_chua_gan_lo_theo_don_vi(
                          IS NOT NULL
                     THEN lower(btrim(c.don_vi_ban))
                     ELSE lower(btrim(coalesce(p.unit, ''))) END AS don_vi,
-               sum(g.so_luong * coalesce(public.he_so_don_vi(
-                   g.clinic_id, g.drug_catalog_id, p.unit), 1)) AS so
+               sum(round(g.so_luong * coalesce(public.he_so_don_vi(
+                   g.clinic_id, g.drug_catalog_id, p.unit), 1), 3)) AS so
           FROM public.thuoc_giao_chua_gan_lo g
           /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải tính dù dòng đơn đã đính chính */
           JOIN public.prescription p ON p.id = g.prescription_id
@@ -1042,8 +1042,8 @@ async def phat_sinh_sau_dem(
         WITH d AS (SELECT * FROM unnest($3::uuid[], $4::text[], $5::timestamptz[])
                      AS d(thuoc, don_vi, moc))
         SELECT d.thuoc::text AS thuoc, d.don_vi,
-               sum(g.so_luong * coalesce(public.he_so_don_vi(
-                   g.clinic_id, g.drug_catalog_id, p.unit), 1)) AS so
+               sum(round(g.so_luong * coalesce(public.he_so_don_vi(
+                   g.clinic_id, g.drug_catalog_id, p.unit), 1), 3)) AS so
           FROM d
           JOIN public.thuoc_giao_chua_gan_lo g
             ON g.clinic_id = $1::uuid AND g.drug_catalog_id = d.thuoc

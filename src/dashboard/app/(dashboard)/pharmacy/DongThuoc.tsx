@@ -557,7 +557,7 @@ export default function DongThuoc({
             {dong.cho_gan.map((x) => (
               <li key={x.dong_id} className="flex flex-wrap items-end gap-2 px-3 py-2">
                 <span className="min-w-0 flex-1 text-body text-ink">
-                  Giao {fmtSo(x.so_luong)} · chưa trừ kho, chờ gán lô
+                  Giao {x.hien} · chưa trừ kho, chờ gán lô
                 </span>
                 {x.thao_tac.hoan_tac_giao ? (
                   hoiHoanTac === x.dong_id ? (

@@ -16,6 +16,8 @@ import { guiKho, soKho } from "./gui-kho";
 export interface DongChoGanLo {
   id: string;
   so_luong: number;
+  /** Máy chủ viết sẵn, đã quy về đơn vị gốc. */
+  hien: string;
   giao_luc: string;
   thuoc: string | null;
   unit: string | null;
@@ -99,7 +101,7 @@ function Dong({ d, ghiDuoc }: { d: DongChoGanLo; ghiDuoc: boolean }) {
         {d.ma_bn ? <span className="text-meta text-ink-muted"> · {d.ma_bn}</span> : null}
       </td>
       <td className="px-3 py-2 text-right">
-        {d.so_luong} {d.unit ?? ""}
+        {d.hien}
       </td>
       <td className="hidden px-3 py-2 text-meta text-ink-muted sm:table-cell">
         {fmtLuc(d.giao_luc)}
@@ -128,7 +130,7 @@ function Dong({ d, ghiDuoc }: { d: DongChoGanLo; ghiDuoc: boolean }) {
               {d.lo_gan_duoc.map((b) => (
                 <option key={b.drug_batch_id} value={b.drug_batch_id}>
                   {b.noi_chua === "KHO" ? "Kho" : "Quầy"} · {b.batch_code} · HSD {fmtNgay(b.expiry_date)} · còn {b.ton} {b.unit ?? ""}
-                  {b.so_tru != null ? ` · trừ ${b.so_tru} ${b.unit ?? ""}` : ""}
+                  {b.so_tru != null ? ` · trừ ${soKho(Number(b.so_tru))} ${b.unit ?? ""}` : ""}
                 </option>
               ))}
             </select>

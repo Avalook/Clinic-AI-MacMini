@@ -344,10 +344,14 @@ WITH hang AS (
     -- Đã giao mà chưa gán lô: thuốc đã rời quầy, sổ kho chưa có gì. Gán xong thì
     -- dòng này nhường chỗ cho dòng sổ GAN_LO (giờ giao ghi trong lý do của dòng ấy).
     SELECT 'gan-' || g.id::text, g.giao_luc, 'DISPENSE', 'QUAY', NULL, 'prescription',
-           NULL, NULL, NULL, -g.so_luong,
-           coalesce(nullif(btrim(p.unit), ''),
-                    (SELECT c.don_vi_ban FROM public.drug_catalog c
-                      WHERE c.id = g.drug_catalog_id)),
+           NULL, NULL, NULL,
+           round(-g.so_luong * coalesce(public.he_so_don_vi(
+               g.clinic_id, g.drug_catalog_id, p.unit), 1), 3),
+           (SELECT CASE WHEN public.he_so_don_vi(
+                             g.clinic_id, g.drug_catalog_id, p.unit) IS NOT NULL
+                        THEN c.don_vi_ban
+                        ELSE coalesce(nullif(btrim(p.unit), ''), c.don_vi_ban) END
+              FROM public.drug_catalog c WHERE c.id = g.drug_catalog_id),
            NULL, NULL, NULL, NULL, g.giao_boi, 'Chưa trừ kho, chờ gán lô',
            NULL, NULL, NULL, NULL, NULL, p.visit_id, p.clinic_patient_id,
            NULL, NULL, true
@@ -355,7 +359,7 @@ WITH hang AS (
       JOIN public.prescription p
         ON p.id = g.prescription_id AND p.clinic_id = g.clinic_id
      WHERE g.clinic_id = $1::uuid AND g.drug_catalog_id = $3::uuid
-       AND g.drug_batch_id IS NULL
+       AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
        AND coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id), $2::uuid) = $2::uuid
 )
 """
@@ -457,8 +461,13 @@ async def _dang_o_dau(
     )
     cho_gan = await conn.fetch(
         """
-        SELECT coalesce(nullif(btrim(p.unit), ''), c.don_vi_ban) AS don_vi,
-               sum(g.so_luong) AS so_luong
+        SELECT CASE WHEN public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit)
+                         IS NOT NULL
+                    THEN c.don_vi_ban
+                    ELSE coalesce(nullif(btrim(p.unit), ''), c.don_vi_ban) END
+                   AS don_vi,
+               sum(round(g.so_luong * coalesce(public.he_so_don_vi(
+                   g.clinic_id, g.drug_catalog_id, p.unit), 1), 3)) AS so_luong
           FROM public.thuoc_giao_chua_gan_lo g
           /* rx:gom-ca-lich-su: thuốc ĐÃ giao vẫn phải tính dù dòng đơn sau đó bị
              bác sĩ đính chính — kệ đã thiếu thuốc ấy */
@@ -466,7 +475,7 @@ async def _dang_o_dau(
             ON p.id = g.prescription_id AND p.clinic_id = g.clinic_id
           JOIN public.drug_catalog c ON c.id = g.drug_catalog_id
          WHERE g.clinic_id = $1::uuid AND g.drug_catalog_id = $3::uuid
-           AND g.drug_batch_id IS NULL
+           AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
            AND coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id), $2::uuid)
                = $2::uuid
          GROUP BY 1
