@@ -45,6 +45,8 @@ export default function NutHoanTac({
   disabled = false,
   className = "",
   onDangHoi,
+  nhanXacNhan = "Hoàn tác",
+  nhanLyDo = "Lý do hoàn tác",
 }: {
   /** Gửi lệnh hoàn tác của máy chủ. */
   goi: (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
@@ -61,6 +63,10 @@ export default function NutHoanTac({
   className?: string;
   /** Hộp xác nhận mở / đóng — vd thông báo tự tắt thì dừng đồng hồ khi đang hỏi. */
   onDangHoi?: (dang: boolean) => void;
+  /** Chữ nút xác nhận trong hộp hỏi lại — nút ngoài là "Bỏ chỉ định" thì nút
+   *  trong cũng phải là "Bỏ chỉ định", không phải "Hoàn tác" (bấm thử 30/10). */
+  nhanXacNhan?: string;
+  nhanLyDo?: string;
 }) {
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
@@ -111,8 +117,8 @@ export default function NutHoanTac({
       <HopXacNhan
         mo={hoi !== null}
         tieuDe={tieuDe}
-        nhanXacNhan="Hoàn tác"
-        nhanDangChay="Đang hoàn tác…"
+        nhanXacNhan={nhanXacNhan}
+        nhanDangChay={nhanXacNhan === "Hoàn tác" ? "Đang hoàn tác…" : "Đang gửi…"}
         dangChay={dangGui}
         khoa={!duLyDo}
         loi={loi}
@@ -125,7 +131,7 @@ export default function NutHoanTac({
       >
         <p>{hoi}</p>
         <label htmlFor={idLyDo} className="mt-3 block text-body text-ink-muted">
-          Lý do hoàn tác (ít nhất {LY_DO_TOI_THIEU} ký tự — ghi vào lịch sử lượt khám)
+          {nhanLyDo} (ít nhất {LY_DO_TOI_THIEU} ký tự — ghi vào lịch sử lượt khám)
           <textarea
             id={idLyDo}
             value={lyDo}

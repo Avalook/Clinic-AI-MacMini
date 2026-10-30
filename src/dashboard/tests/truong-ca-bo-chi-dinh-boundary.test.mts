@@ -23,6 +23,15 @@ test("bỏ rồi có Hoàn tác bằng dòng sổ máy chủ trả", () => {
   assert.match(chiDinh, /lenhHoanTac\("hoan-tac-bo-chi-dinh", x\.hoan_tac_bo_id\)/);
 });
 
+test("hộp hỏi lại của Bỏ chỉ định xác nhận bằng chữ 'Bỏ chỉ định', không 'Hoàn tác'", () => {
+  // Bấm thử 30/10: nút ngoài "Bỏ chỉ định" mà nút trong hộp ghi "Hoàn tác" —
+  // người bấm tưởng là nút huỷ thao tác.
+  assert.match(chiDinh, /nhanXacNhan="Bỏ chỉ định"/);
+  const nut = read("../components/ui/NutHoanTac.tsx");
+  assert.match(nut, /nhanXacNhan=\{nhanXacNhan\}/);
+  assert.doesNotMatch(nut, /nhanXacNhan="Hoàn tác"\n/);
+});
+
 test("màn không tự suy luật bỏ được từ trạng thái", () => {
   assert.doesNotMatch(chiDinh, /bo_duoc\s*=\s*.*exec_status/);
 });

@@ -249,7 +249,15 @@ async def cap_nhat_vi_tri(conn: asyncpg.Connection, cid: str, vid: str) -> None:
                            WHEN 'HMVS' THEN 'KHAM-HIEMMUON-VOSINH'
                        END
                    END
-               ) AS node_code
+               ) AS node_code,
+               -- Chỗ chờ phòng KẾ THỪA tuổi chờ (xếp lại phòng sau khi hoàn
+               -- tác bỏ chỉ định — service_routing_service giữ eligible_at của
+               -- chỗ cũ đã huỷ): bước hiện tại tính từ lúc ấy, không từ now().
+               -- Không thì trưởng ca thấy khách chờ 257′ thành 0′ và rơi khỏi
+               -- "Khách chờ quá lâu" (bấm thử 30/10/2026).
+               CASE WHEN q.status = 'waiting' AND q.reason = 'SERVICE'
+                         AND q.eligible_at < q.created_at
+                    THEN q.eligible_at END AS giu_tuoi_cho
           FROM queue_entry q
           JOIN visit v ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
           LEFT JOIN service_type st ON st.id = v.service_type_id
@@ -269,8 +277,10 @@ async def cap_nhat_vi_tri(conn: asyncpg.Connection, cid: str, vid: str) -> None:
         cid,
         vid,
     )
+    giu_tuoi_cho = None
     if r is not None:
         room_id = r["room_id"]
+        giu_tuoi_cho = r["giu_tuoi_cho"]
         node = r["node_code"] or (
             await conn.fetchval(
                 "SELECT node_code FROM clinic_room WHERE id = $1::uuid",
@@ -314,7 +324,7 @@ async def cap_nhat_vi_tri(conn: asyncpg.Connection, cid: str, vid: str) -> None:
                current_node_since = CASE
                    WHEN current_node_code IS DISTINCT FROM $3
                      OR current_room_id IS DISTINCT FROM $4::uuid
-                   THEN now() ELSE current_node_since END,
+                   THEN coalesce($5::timestamptz, now()) ELSE current_node_since END,
                current_node_code = $3,
                current_room_id = $4::uuid,
                updated_at = now()
@@ -325,6 +335,7 @@ async def cap_nhat_vi_tri(conn: asyncpg.Connection, cid: str, vid: str) -> None:
         vid,
         node,
         room_id,
+        giu_tuoi_cho,
     )
 
 
