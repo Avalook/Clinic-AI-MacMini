@@ -1931,6 +1931,12 @@ async def _khoa_luot_thu(
                 SELECT 1 FROM lieu_trinh_tra_truoc t
                  WHERE t.clinic_id = v.clinic_id AND t.visit_id = v.visit_id
                    AND t.bo_luc IS NULL
+            )
+            -- Khách mua vật tư ở quầy (kể cả lượt bán lẻ không có bác sĩ).
+            OR EXISTS (
+                SELECT 1 FROM luot_vat_tu l
+                 WHERE l.clinic_id = v.clinic_id AND l.visit_id = v.visit_id
+                   AND l.bo_luc IS NULL
             ) AS co_chi_dinh,
             EXISTS (
                 SELECT 1 FROM prescription rx
