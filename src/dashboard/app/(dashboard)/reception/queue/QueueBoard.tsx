@@ -52,6 +52,8 @@ import { useChipLieuTrinh } from "../../_lam-viec/dung-chip-lieu-trinh";
 import { NutLamThem, useLamThem, type GoiLamThem } from "../../_lam-viec/LamThemTaiQuay";
 import NutCheckOut from "../../_lam-viec/NutCheckOut";
 import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
+import { moLaiLich } from "../../_lam-viec/mo-lai-lich";
+import { chuLyDoHuy } from "@/lib/ly-do-huy";
 import NutHoanTac, { type KetQuaHoanTac } from "@/components/ui/NutHoanTac";
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
 import { sdtDoc } from "@/lib/sdt";
@@ -120,6 +122,7 @@ function DongKhach({
   }
 
   const ban = gui || dang;
+  const lyDo = chuLyDoHuy(d.ly_do_ma, d.ly_do_chu);
   const phu = dongPhu([
     d.gio_hen,
     d.loai_kham,
@@ -152,6 +155,7 @@ function DongKhach({
         {d.ghi_chu ? (
           <p className="mt-0.5 break-words text-meta text-ink-soft">Ghi chú: {d.ghi_chu}</p>
         ) : null}
+        {lyDo ? <p className="mt-0.5 break-words text-meta text-ink-muted">Lý do: {lyDo}</p> : null}
       </div>
       {/* Điện thoại (dưới sm): trạng thái + nút xuống dòng dưới tên, Check-in
           kéo rộng hết dòng. */}
@@ -200,6 +204,15 @@ function DongKhach({
           >
             Hoàn tác
           </button>
+        ) : null}
+        {/* HOÀN TÁC "Không đến" (30/10/2026): đánh nhầm / khách tới muộn →
+            mở lại lịch về như trước. Máy chủ kiểm lại khung còn chỗ. */}
+        {d.mo_lai_lich_duoc ? (
+          <NutHoanTac
+            goi={() => moLaiLich(d.appointment_id)}
+            moTa="Đánh nhầm Không đến — mở lại lịch"
+            onXong={() => startTransition(() => router.refresh())}
+          />
         ) : null}
         {/* HOÀN TÁC check-out (01/10/2026): "Đã về" nhầm → mở lại lượt. */}
         {d.mo_lai_duoc && d.visit_id ? (

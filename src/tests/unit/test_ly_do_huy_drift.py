@@ -15,7 +15,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from clinicai.services.booking_service import LY_DO_HUY
+import pytest
+
+from clinicai.services.booking_service import LY_DO_HUY, MA_HUY, MA_KHONG_DEN
 
 _TS = Path(__file__).resolve().parents[3] / "src" / "dashboard" / "lib" / "ly-do-huy.ts"
 _MIGRATIONS = Path(__file__).resolve().parents[3] / "supabase" / "migrations"
@@ -90,15 +92,32 @@ def test_rang_buoc_database_nhan_dung_bo_ma_ay() -> None:
     )
 
 
-def test_thu_tu_ve_du_ma_khong_thua() -> None:
-    """Ô chọn phải vẽ đủ bốn mã — thiếu một là mã đó không ai chọn được."""
+def _doc_thu_tu(ten: str) -> list[str]:
     noi_dung = _TS.read_text(encoding="utf-8")
-    than = re.search(r"LY_DO_HUY_THU_TU: string\[\] = \[(.*?)\];", noi_dung, re.S)
-    assert than
-    thu_tu = re.findall(r"\"(\w+)\"", than.group(1))
-    assert set(thu_tu) == set(LY_DO_HUY)
+    than = re.search(rf"{ten}: string\[\] = \[(.*?)\];", noi_dung, re.S)
+    assert than, f"không tìm thấy {ten} trong ly-do-huy.ts"
+    return re.findall(r"\"(\w+)\"", than.group(1))
+
+
+@pytest.mark.parametrize(
+    ("ten", "ma_may_chu"),
+    [("LY_DO_HUY_THU_TU", MA_HUY), ("LY_DO_KHONG_DEN_THU_TU", MA_KHONG_DEN)],
+)
+def test_thu_tu_ve_du_ma_khong_thua(ten: str, ma_may_chu: frozenset[str]) -> None:
+    """Ô chọn phải vẽ đủ mã máy chủ nhận — thiếu một là mã đó không ai chọn
+    được; thừa một là bấm vào bị từ chối."""
+    thu_tu = _doc_thu_tu(ten)
+    assert set(thu_tu) == ma_may_chu
     assert len(thu_tu) == len(set(thu_tu)), "có mã bị lặp trong thứ tự hiển thị"
     # "Khác" đứng cuối: ba mã kia là ba thời điểm theo trình tự, còn "khác" là
     # chỗ rơi. Để nó lên đầu thì người dùng chọn nó cho nhanh, và cột này thành
     # 100% "khác" — đúng thứ nó sinh ra để chống.
     assert thu_tu[-1] == "KHAC"
+
+
+def test_hai_tap_ma_phu_kin_danh_muc() -> None:
+    """Huỷ + không đến chung một cột (30/10/2026): mỗi mã của danh mục thuộc ít
+    nhất một nút, và chỉ "Khác" thuộc cả hai — một mã khác thuộc cả hai là
+    không còn đếm riêng được "huỷ vì sao" với "không đến vì sao"."""
+    assert MA_HUY | MA_KHONG_DEN == set(LY_DO_HUY)
+    assert MA_HUY & MA_KHONG_DEN == {"KHAC"}

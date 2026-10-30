@@ -1137,8 +1137,9 @@ export default function CustomersView({
           }
         : NHAN_LUOT_CHON[luotDangXem.status];
       if (nhan) {
+        // Không đến dùng chung cột lý do với huỷ (30/10/2026).
         const ly =
-          luotDangXem.status === "CANCELLED"
+          luotDangXem.status === "CANCELLED" || luotDangXem.status === "NO_SHOW"
             ? nhanLyDoHuy(luotDangXem.ly_do_huy_ma)
             : null;
         return ly ? { ...nhan, label: `${nhan.label} · ${ly}` } : nhan;
@@ -1984,12 +1985,14 @@ export default function CustomersView({
                     chữ tự viết, giờ huỷ) từ lâu; thiếu đúng đường đọc.
                     Đặt NGAY DƯỚI ô lịch vì người sắp gọi khách cần biết lý do
                     đã ghi TRƯỚC khi hỏi lại lý do thật. */}
-                {luotDangXem?.status === "CANCELLED" &&
+                {(luotDangXem?.status === "CANCELLED" || luotDangXem?.status === "NO_SHOW") &&
                   (luotDangXem.ly_do_huy_ma ||
                     luotDangXem.cancellation_reason) && (
                     <div className="rounded-control border border-danger/30 bg-danger-bg/40 p-3">
                       <p className="text-label font-semibold uppercase tracking-wide text-danger">
-                        Lý do huỷ đã ghi
+                        {luotDangXem.status === "NO_SHOW"
+                          ? "Lý do không đến đã ghi"
+                          : "Lý do huỷ đã ghi"}
                       </p>
                       {luotDangXem.ly_do_huy_ma && (
                         <p className="mt-1 text-xs font-medium text-ink">

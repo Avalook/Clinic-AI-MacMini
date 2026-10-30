@@ -38,6 +38,11 @@ export interface DongTiepDon {
   hoan_tac_duoc?: boolean;
   /** Vì sao không hoàn tác check-in được ("Khách đã được đo sinh hiệu — …"). */
   ly_do_khong_hoan_tac?: string | null;
+  /** Dòng "Không đến": mã lý do + chữ ghi thêm (30/10/2026) — in qua `chuLyDoHuy`. */
+  ly_do_ma?: string | null;
+  ly_do_chu?: string | null;
+  /** Dòng "Không đến" mở lại được (chưa có lượt, ngày chưa qua) — máy chủ. */
+  mo_lai_lich_duoc?: boolean;
 }
 
 export interface BuoiTiepDon {

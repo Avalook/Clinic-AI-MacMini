@@ -26,6 +26,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.shifts import CAC_CA, NHAN_CA, Window, ca_tu_settings
+from clinicai.core.trang_thai_lich import mo_lai_duoc
 from clinicai.services.bang_hanh_trinh_service import noi_hang
 from clinicai.services.hoan_tac_check_in import doc_viec_da_lam, ly_do_khong_hoan_tac
 from clinicai.services.queue_order import VISIT_DA_RA_VE, moc_vao_hang_ms
@@ -199,7 +200,8 @@ _SQL_LICH = """
 WITH hom_nay AS (
     SELECT a.id, a.clinic_id, a.clinic_patient_id, a.doctor_id,
            a.service_type_id, a.status, a.booking_channel, a.slot_start,
-           a.so_booking, a.so_tiep_don, a.created_at, a.notes
+           a.so_booking, a.so_tiep_don, a.created_at, a.notes,
+           a.ly_do_huy_ma, a.cancellation_reason
       FROM appointment a
      WHERE a.clinic_id = $1::uuid
        AND a.slot_start >= $2
@@ -223,6 +225,7 @@ som_nhat AS (
 )
 SELECT h.id::text AS appointment_id, h.status, h.booking_channel, h.slot_start,
        h.so_booking, h.so_tiep_don, h.notes,
+       h.ly_do_huy_ma, h.cancellation_reason,
        p.clinic_patient_id::text AS clinic_patient_id, p.full_name,
        p.patient_code, p.phone_primary, p.uu_tien, p.uu_tien_ly_do,
        st.name AS loai_kham, d.full_name AS bac_si,
@@ -311,6 +314,7 @@ def dung_dong(
         bay_gio=bay_gio,
     )
     da_check_in = r.get("status") == "CHECKED_IN" and bool(r.get("visit_id"))
+    khong_den = tt["loai"] == "khong_den"
     ly_do_hoan_tac = ly_do_khong_hoan_tac(viec) if da_check_in else None
     return {
         "appointment_id": r.get("appointment_id"),
@@ -353,6 +357,14 @@ def dung_dong(
         # sau check-in; không được thì màn hiện câu này thay cho nút.
         "hoan_tac_duoc": da_check_in and tt["loai"] != "ve" and ly_do_hoan_tac is None,
         "ly_do_khong_hoan_tac": ly_do_hoan_tac if tt["loai"] != "ve" else None,
+        # KHÔNG ĐẾN (30/10/2026): vì sao (mã + chữ, màn ghép nhãn bằng danh mục
+        # chung) + nút Hoàn tác mở lại lịch. Lệnh mở lại tự kiểm lại đủ.
+        "ly_do_ma": r.get("ly_do_huy_ma") if khong_den else None,
+        "ly_do_chu": r.get("cancellation_reason") if khong_den else None,
+        "mo_lai_lich_duoc": khong_den
+        and mo_lai_duoc(
+            r.get("status"), bool(r.get("visit_id")), r.get("slot_start"), bay_gio
+        ),
     }
 
 

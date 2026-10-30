@@ -20,12 +20,15 @@ import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { fmtDate, fmtDayTime } from "@/lib/datetime";
+import NutHoanTac from "@/components/ui/NutHoanTac";
+import { chuLyDoHuy } from "@/lib/ly-do-huy";
 
 import type { LieuTrinh } from "@/lib/lieu-trinh-cskh";
 
 import { LieuTrinhCuaKhach } from "./LieuTrinhKhach";
 import NutXemLuot from "./NutXemLuot";
 import PhanHoiThuocKhach, { NHAN_KENH, type PhanHoiThuoc } from "./PhanHoiThuocKhach";
+import { moLaiLich } from "./mo-lai-lich";
 import TuNhac from "./TuNhac";
 import ViecTaiKham, { type ChiTietHen } from "./ViecTaiKham";
 
@@ -43,7 +46,11 @@ interface Lich {
   trang_thai: string;
   dich_vu: string | null;
   bac_si: string | null;
+  /** Mã lý do (danh mục chung) + chữ ghi thêm — in qua `chuLyDoHuy`. */
+  ly_do_huy_ma?: string | null;
   ly_do_huy?: string | null;
+  /** Huỷ / không đến mở lại được (máy chủ: chưa có lượt, ngày chưa qua). */
+  mo_lai_duoc?: boolean;
 }
 
 interface TomTat {
@@ -58,6 +65,8 @@ interface TomTat {
     dich_vu: string | null;
     bac_si: string | null;
     dang_o: string | null;
+    /** Khách về giữa chừng: vì sao (máy chủ chỉ trả khi lượt INCOMPLETE). */
+    ly_do_ve?: string | null;
   }[];
   chi_dinh_chua_lam: {
     id: string;
@@ -248,6 +257,13 @@ export default function KhungKhach({
     }
   };
 
+  /** Đọc lại phần tóm tắt (sau khi hoàn tác huỷ / không đến ở đây). */
+  const napTomTat = useCallback(() => {
+    void docTomTat().then((t) => {
+      if (typeof t !== "string") setTomTat(t);
+    });
+  }, [docTomTat]);
+
   if (khongQuyen) return null;
 
   return (
@@ -358,15 +374,16 @@ export default function KhungKhach({
         ) : !tomTat ? (
           <Trong>Đang tải…</Trong>
         ) : (
-          <TomTatKhach t={tomTat} />
+          <TomTatKhach t={tomTat} napLai={napTomTat} />
         )}
       </Khoi>
     </div>
   );
 }
 
-function DongLich({ l }: { l: Lich }) {
+function DongLich({ l, napLai }: { l: Lich; napLai?: () => void }) {
   const [nhan, tone] = NHAN_LICH[l.trang_thai] ?? [l.trang_thai, "neutral" as ChipTone];
+  const lyDo = chuLyDoHuy(l.ly_do_huy_ma, l.ly_do_huy);
   return (
     <li className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-ink">
       <span className="tabular-nums font-medium">{l.luc ? fmtDayTime(l.luc) : "—"}</span>
@@ -375,14 +392,20 @@ function DongLich({ l }: { l: Lich }) {
         {l.bac_si ? ` · ${l.bac_si}` : ""}
       </span>
       <Chip tone={tone}>{nhan}</Chip>
-      {l.ly_do_huy ? (
-        <span className="w-full text-ink-muted">Lý do: {l.ly_do_huy}</span>
+      {/* Huỷ / không đến nhầm → mở lại lịch về như trước (30/10/2026). */}
+      {l.mo_lai_duoc ? (
+        <NutHoanTac
+          goi={() => moLaiLich(l.id)}
+          moTa={l.trang_thai === "NO_SHOW" ? "Đánh nhầm Không đến — mở lại lịch" : "Huỷ nhầm — mở lại lịch"}
+          onXong={napLai}
+        />
       ) : null}
+      {lyDo ? <span className="w-full text-ink-muted">Lý do: {lyDo}</span> : null}
     </li>
   );
 }
 
-function TomTatKhach({ t }: { t: TomTat }) {
+function TomTatKhach({ t, napLai }: { t: TomTat; napLai: () => void }) {
   return (
     <div className="space-y-3 text-meta">
       <div>
@@ -392,7 +415,7 @@ function TomTatKhach({ t }: { t: TomTat }) {
         ) : (
           <ul className="mt-1 space-y-1">
             {t.lich_sap_toi.map((l) => (
-              <DongLich key={l.id} l={l} />
+              <DongLich key={l.id} l={l} napLai={napLai} />
             ))}
           </ul>
         )}
@@ -417,6 +440,9 @@ function TomTatKhach({ t }: { t: TomTat }) {
                   </span>
                   <Chip tone={tone}>{nhan}</Chip>
                   <NutXemLuot visitId={l.visit_id} nhan="Xem lượt" />
+                  {l.ly_do_ve ? (
+                    <span className="w-full text-meta text-ink-muted">Lý do về: {l.ly_do_ve}</span>
+                  ) : null}
                 </li>
               );
             })}
@@ -489,7 +515,7 @@ function TomTatKhach({ t }: { t: TomTat }) {
         ) : (
           <ul className="mt-1 space-y-1">
             {t.lich_da_qua.map((l) => (
-              <DongLich key={l.id} l={l} />
+              <DongLich key={l.id} l={l} napLai={napLai} />
             ))}
           </ul>
         )}

@@ -71,6 +71,8 @@ export interface ChiTiet {
   patient_code: string | null;
   phone_primary?: string | null;
   visit_status: string | null;
+  /** Khám dở: vì sao khách về giữa chừng (máy chủ chỉ trả khi INCOMPLETE). */
+  ly_do_ve?: string | null;
   checked_in_at: string | null;
   room_name: string | null;
   /** "nơi · việc" từ hành trình khách (29/09) — thay room_name. */
@@ -401,6 +403,7 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
                   : null)
               }
             />
+            {d.ly_do_ve ? <Hang nhan="Lý do về" giaTri={d.ly_do_ve} /> : null}
           </dl>
         </section>
 
