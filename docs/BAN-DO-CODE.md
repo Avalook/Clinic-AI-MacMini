@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 10:47. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-30 14:01. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1668,7 +1668,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_doi_chieu_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py (+1)
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (203)
+## 3. Service → màn (204)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1761,6 +1761,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `HoanTacService` | `src/clinicai/services/hoan_tac_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+6) |
 | `HoanTienService` | `src/clinicai/services/hoan_tien_service.py` | /pharmacy, /reception/checkout, /settings/tai-khoan-nhan, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `HoSoKhamService` | `src/clinicai/services/ho_so_kham_service.py` | /customers |
+| `KetTienMatService` | `src/clinicai/services/ket_tien_mat_service.py` | — (chỉ API/worker) |
 | `kho_loi` | `src/clinicai/services/kho_loi.py` | /doi-tac, /giam-sat, /login, /ops |
 | `kho_thuoc_service` | `src/clinicai/services/kho_thuoc_service.py` | /pharmacy, /pharmacy/inventory, /print/tem-lo |
 | `KHOI` | `src/clinicai/permissions/catalogue.py` | /phan-quyen |
@@ -1971,6 +1972,8 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `idempotency_key` | `20260714000003_idempotency_key.sql` | 3 |
 | `inventory_txn` | `20260802000001_pharmacy_inventory.sql` | 5 |
 | `ket_qua_mau` | `20260923000004_mau_ket_qua.sql` | 0 |
+| `ket_tien_mat_ca` | `20261031125000_ket_tien_mat_ca.sql` | 0 |
+| `ket_tien_mat_ca_lich_su` | `20261031125000_ket_tien_mat_ca.sql` | 0 |
 | `khach_cong_ty` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
 | `kiem_ke_ca` | `20261014170000_kiem_ke_ca.sql` | 1 |
 | `kiem_ke_ca_dong` | `20261014170000_kiem_ke_ca.sql` | 0 |
