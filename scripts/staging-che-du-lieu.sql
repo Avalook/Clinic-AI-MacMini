@@ -211,6 +211,12 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('hoa_don_cong_ty_lich_su', 'moi_ma_so_thue', 'xoa'),
     ('hoa_don_cong_ty_lich_su', 'moi_email', 'xoa'),
     ('hoa_don_cong_ty_lich_su', 'moi_nguoi_mua', 'xoa'),
+    -- trợ lý AI: chữ nhân viên gõ đóng vai khách — có thể lỡ là tin thật
+    ('tro_ly_hoi_thoai', 'tieu_de', 'xoa'),
+    ('tro_ly_tin', 'noi_dung', 'xoa'),
+    ('tro_ly_tin', 'noi_dung_gui', 'xoa'),
+    ('tro_ly_tin', 'goi_cong_cu', 'json_manh'),
+    ('tro_ly_tin', 'meta', 'json_manh'),
     -- đã xét, GIỮ: nhân sự / tài khoản / cơ sở (không phải khách)
     ('staff', 'full_name', 'giu'),
     ('staff', 'phone', 'giu'),

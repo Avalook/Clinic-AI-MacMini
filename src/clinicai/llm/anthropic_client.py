@@ -65,6 +65,9 @@ class LLMResponse:
     cache_creation_input_tokens: int = 0
     #: Dòng `llm_lan_goi` của lần gọi này (chỉ có khi client mang `pool`).
     lan_goi_id: Optional[str] = None
+    #: Khối `tool_use` model trả về: ({"id", "name", "input"}, …).
+    #: Rỗng khi không gửi `tools`.
+    tool_calls: tuple[dict[str, Any], ...] = ()
 
 
 class AnthropicClient:
@@ -95,6 +98,7 @@ class AnthropicClient:
         tinh_nang: str = "khac",
         extra_headers: Optional[dict[str, str]] = None,
         extra_body: Optional[dict[str, Any]] = None,
+        tools: Optional[list[dict[str, Any]]] = None,
     ) -> LLMResponse:
         """`temperature=None` = KHÔNG gửi: Opus 5.5 / Sonnet 5.5 trả 400 khi có
         tham số lấy mẫu. `model` đè `tier`. `extra_*` chuyển nguyên cho SDK (tham
@@ -113,6 +117,8 @@ class AnthropicClient:
             kwargs["extra_headers"] = extra_headers
         if extra_body:
             kwargs["extra_body"] = extra_body
+        if tools:
+            kwargs["tools"] = tools
 
         if self._pool is not None:
             await chi_phi.chan_neu_vuot_tran(self._pool)
@@ -177,6 +183,7 @@ class AnthropicClient:
             cache_read_input_tokens=cache_read,
             cache_creation_input_tokens=cache_creation,
             lan_goi_id=lan_goi_id,
+            tool_calls=self._extract_tool_calls(resp),
         )
 
     async def _invoke_with_retry(self, kwargs: dict[str, Any]) -> Any:
@@ -214,6 +221,21 @@ class AnthropicClient:
             if getattr(block, "type", None) == "text":
                 parts.append(getattr(block, "text", ""))
         return "".join(parts)
+
+    @staticmethod
+    def _extract_tool_calls(resp: Any) -> tuple[dict[str, Any], ...]:
+        calls: list[dict[str, Any]] = []
+        for block in getattr(resp, "content", []) or []:
+            if getattr(block, "type", None) == "tool_use":
+                inp = getattr(block, "input", None)
+                calls.append(
+                    {
+                        "id": str(getattr(block, "id", "")),
+                        "name": str(getattr(block, "name", "")),
+                        "input": inp if isinstance(inp, dict) else {},
+                    }
+                )
+        return tuple(calls)
 
     async def close(self) -> None:
         close = getattr(self._client, "close", None)
