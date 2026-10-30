@@ -217,6 +217,8 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('staff', 'email', 'giu'),
     ('staff', 'date_of_birth', 'giu'),
     ('staff', 'national_id_number', 'giu'),
+    -- Người nhận bàn giao két tiền mặt (31/10/2026): tên NHÂN VIÊN, không phải khách.
+    ('ket_tien_mat_ca', 'nguoi_nhan', 'giu'),
     ('app_credential', 'email', 'giu'),
     ('clinic', 'address', 'giu'),
     ('clinic_location', 'address', 'giu'),
