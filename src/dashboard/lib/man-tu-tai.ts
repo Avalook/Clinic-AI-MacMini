@@ -26,6 +26,11 @@ const MAN_TU_TAI: readonly RegExp[] = [
   /^\/phong\/[^/]+\/?$/,
   /^\/hanh-trinh\/?$/,
   /^\/thu-ngan\/(dich-vu|thuoc)(\/lich-su)?\/?$/,
+  // Biểu mẫu nhập khách: phần server chỉ nạp danh mục (cơ sở, bác sĩ đặt được, tỉnh)
+  // và cửa lego — không có dòng dữ liệu sống nào. Đo prod 16/10 18–21h: 4.346 lần
+  // dựng lại (hạng 3 về số lần) cho một form không đổi gì khi tin tới. Danh sách bác
+  // sĩ đặt được vẫn tươi nhờ `BANG_LAYOUT` (`appointment`, `work_roster`).
+  /^\/patients\/new\/?$/,
 ];
 
 /** Bảng mà phần layout (không phải trang) đọc sống: lịch bác sĩ từ chối
