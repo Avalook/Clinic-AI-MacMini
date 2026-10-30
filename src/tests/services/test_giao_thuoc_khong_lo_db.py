@@ -24,6 +24,7 @@ from tests.services.test_tien_thuoc_cp1_db import Quay, _nhap_lo, q  # noqa: F40
 from tests.services.test_tien_thuoc_cp3_db import (
     _chon,
     _dong_da_xac_dinh,
+    _huy_phieu,
     _thu,
     _ton,
 )
@@ -67,6 +68,20 @@ async def test_kho_chua_co_lo_van_thu_va_giao_duoc(q: Quay) -> None:
     assert (await _dong(q, rx))["thao_tac"]["giao_khong_lo"] is False
     cho = [d for d in await _cho(q) if d["prescription_id"] == rx]
     assert sorted(float(d["so_luong"]) for d in cho) == [4.0, 6.0]
+
+
+async def test_da_giao_roi_khong_ghi_duoc_khach_khong_lay(q: Quay) -> None:
+    """Bấm thật 31/10: hoàn tác lần thu sau khi đã giao đưa dòng về "chờ thu", nút
+    Khách không lấy hiện lại và ghi được trên dòng đã giao đủ."""
+    rx, _drug = await _dong_da_xac_dinh(q, 3)
+    lan = await _thu(q)
+    await _giao_khong_lo(q, rx, 3)
+    await _huy_phieu(q, lan["payment_cycle_id"])
+    assert (await _dong(q, rx))["thao_tac"]["tu_choi"] is False
+    with pytest.raises(ConflictError, match="đã giao 3"):
+        await PharmacyService(q.pool).tu_choi(
+            identity=q.duoc_si, prescription_id=rx, ly_do="thử nhầm"
+        )
 
 
 async def test_khong_giao_qua_so_ke(q: Quay) -> None:

@@ -731,8 +731,8 @@ async def kiem_kho(
                     if lech != 0 and dang_cho:
                         raise ConflictError(
                             f"Dòng {stt}: thuốc này còn {_so_chuan(dang_cho)} đã "
-                            "giao cho khách mà chưa gắn lô. Gắn lô ở quầy thuốc "
-                            "trước rồi kiểm lại, để không trừ kho hai lần."
+                            "giao cho khách mà chưa gắn lô. Gắn lô ở QUẦY → Đã giao, "
+                            "chưa trừ kho trước rồi kiểm lại, để không trừ kho hai lần."
                         )
                     txn_id = None
                     if lech != 0:
@@ -928,7 +928,7 @@ async def _chuyen_cac_dong(
         ):
             raise ConflictError(
                 f"Dòng {stt}: lô {nguon['batch_code']} đã hết hạn — không chuyển ra "
-                "quầy. Huỷ lô hết hạn ở Tồn theo lô."
+                "quầy. Huỷ lô hết hạn ở tab Thuốc trong kho."
             )
         kha = Decimal(str(nguon["kha_dung"] or 0))
         if luong > kha:

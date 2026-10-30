@@ -168,7 +168,7 @@ export default function InventoryBoard({
           <Button type="button" variant="secondary" disabled={dang || !ngay.trim()} onClick={() => void guiThem("so-ngay-canh-bao", { so_ngay: ngay })}>Lưu cảnh báo</Button>
         </div>
       ) : null}
-      {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
+      {loi && !lo ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
       <div
         className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5"
         aria-label="Lọc lô theo tình trạng hạn dùng"
@@ -395,6 +395,8 @@ export default function InventoryBoard({
                           Thôi
                         </Button>
                       </div>
+                      {/* Bảng dài: câu từ chối phải nằm ngay ô đang nhập, không ở đầu trang. */}
+                      {loi ? <p role="alert" className="mt-2 text-meta text-danger">{loi}</p> : null}
                     </td>
                   </tr>,
                 ];

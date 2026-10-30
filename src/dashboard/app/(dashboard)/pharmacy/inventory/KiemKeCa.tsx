@@ -490,7 +490,7 @@ export default function KiemKeCa({
         >
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-title text-ink">
-              {NHAN_CA[phieu.ca]} · {NHAN_LOAI[phieu.loai]} · {phieu.ngay}
+              {NHAN_CA[phieu.ca]} · {NHAN_LOAI[phieu.loai]} · {phieu.ngay.split("-").reverse().join("/")}
             </h3>
             <Chip tone={daChot ? "success" : "warning"}>{daChot ? "Đã chốt" : "Nháp"}</Chip>
             {daChot && phieu.mot_phan ? <Chip tone="neutral">Kiểm một phần</Chip> : null}

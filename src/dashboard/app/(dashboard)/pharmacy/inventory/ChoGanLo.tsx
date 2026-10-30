@@ -94,7 +94,7 @@ function Dong({ d }: { d: DongChoGanLo }) {
             </span>
           ) : (
             <span className="text-meta text-ink-muted">
-              Chưa có lô gán được — nhập lô ở tab Tồn theo lô.
+              Chưa có lô gán được — nhập lô ở tab Nhập thuốc.
             </span>
           )
         ) : (

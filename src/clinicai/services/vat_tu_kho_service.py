@@ -263,6 +263,35 @@ async def _ghi(
     )
 
 
+async def _gia_chua_khai(
+    conn: asyncpg.Connection, identity: StaffIdentity, vt: str, loai: str
+) -> Decimal:
+    """Giá cho dòng không gõ giá: giá danh mục, thiếu thì giá nhập gần nhất.
+
+    Danh mục chưa khai giá nhập là chuyện thường; ghi 0 thì Mức dùng theo phòng ra
+    "0 đ" dù lô hàng vừa nhập có giá."""
+    gia = await conn.fetchval(
+        "SELECT coalesce(gia_nhap_vat_tu,0) FROM service_price"
+        " WHERE id=$1::uuid AND clinic_id=$2::uuid",
+        vt,
+        identity.clinic_id,
+    )
+    if gia or loai == "NHAP":
+        return Decimal(gia or 0)
+    gan_nhat = await conn.fetchval(
+        "SELECT x.gia_nhap FROM vat_tu_txn x JOIN vat_tu_phieu p ON p.id=x.phieu_id"
+        " AND p.clinic_id=x.clinic_id WHERE p.clinic_id=$1::uuid"
+        " AND p.location_id=$2::uuid AND x.vat_tu_id=$3::uuid AND p.loai='NHAP'"
+        " AND x.gia_nhap>0 AND NOT EXISTS (SELECT 1 FROM vat_tu_phieu h WHERE"
+        " h.clinic_id=p.clinic_id AND h.dao_phieu_id=p.id)"
+        " ORDER BY p.giao_dich DESC LIMIT 1",
+        identity.clinic_id,
+        identity.location_id,
+        vt,
+    )
+    return Decimal(gan_nhat or 0)
+
+
 async def _ghi_phieu(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
@@ -278,15 +307,7 @@ async def _ghi_phieu(
         vt, so = d["vat_tu_id"], d["so"]
         gia = d["gia"]
         if gia is None:
-            gia = Decimal(
-                await conn.fetchval(
-                    "SELECT coalesce(gia_nhap_vat_tu,0) FROM service_price"
-                    " WHERE id=$1::uuid AND clinic_id=$2::uuid",
-                    vt,
-                    identity.clinic_id,
-                )
-                or 0
-            )
+            gia = await _gia_chua_khai(conn, identity, vt, loai)
         if loai in {"XUAT_PHONG", "TRA_KHO", "CHUYEN_PHONG"}:
             tu = await _ton(conn, identity, vt, d["tu"])
             den = await _ton(conn, identity, vt, d["den"])

@@ -68,7 +68,7 @@ export default function HistoryBoard({ records }: Props) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm tên BN / thuốc / mã đơn…"
+          placeholder="Tìm tên BN / thuốc…"
           className="w-64 rounded-control border border-line bg-surface-muted px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-500"
         />
       </div>
@@ -83,14 +83,13 @@ export default function HistoryBoard({ records }: Props) {
               <th className="px-3 py-2 text-right">Bác sĩ kê</th>
               <th className="px-3 py-2 text-right">Khách mua</th>
               <th className="px-3 py-2 text-right">Đã giao</th>
-              <th className="px-3 py-2">Mã đơn</th>
               <th className="px-3 py-2">Thời điểm</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-ink-muted">
+                <td colSpan={7} className="px-3 py-6 text-center text-ink-muted">
                   Không có bản ghi nào.
                 </td>
               </tr>
@@ -135,7 +134,6 @@ export default function HistoryBoard({ records }: Props) {
                   <td className="px-3 py-2 text-right text-ink">
                     {so(r.dispensed_qty)} {r.unit ?? ""}
                   </td>
-                  <td className="px-3 py-2 text-ink-muted">{r.source_ref ?? "—"}</td>
                   <td className="px-3 py-2 text-ink-muted">
                     {fmtDate(r.dispensed_at ?? r.created_at)}
                   </td>

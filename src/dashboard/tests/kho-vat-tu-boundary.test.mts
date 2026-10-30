@@ -25,6 +25,13 @@ test("màn Kho vật tư có đủ các tệp (chống xanh giả)", () => {
   }
 });
 
+test("thao tác từ dòng tồn gửi đúng đơn vị của mặt hàng", () => {
+  // Bấm thật 31/10: thiếu đơn vị ở đây thì mọi nút Cấp / Kiểm kê / Báo hỏng của dòng
+  // tồn đều bị từ chối "Đơn vị vật tư đã thay đổi".
+  const ton = doc(new URL("TonVatTu.tsx", thuMuc));
+  assert.match(ton, /name: vatTuDangMo\.ten, unit: vatTuDangMo\.don_vi/);
+});
+
 test("không hộp / chip vàng-đỏ cho việc bình thường", () => {
   for (const f of tsx) {
     const ma = doc(new URL(f, thuMuc));

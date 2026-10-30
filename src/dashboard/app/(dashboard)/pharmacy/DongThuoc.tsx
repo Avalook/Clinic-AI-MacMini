@@ -34,6 +34,9 @@ interface Props {
   chiXem?: boolean;
   /** Lô chọn sẵn do quét hộp / tem (G3b) — chỉ ĐIỀN SẴN ô chọn, dược sĩ bấm Chọn lô. */
   loQuet?: string | null;
+  /** Câu báo của lần giao vừa rồi — thẻ dựng lại sau khi giao nên cha giữ hộ. */
+  tinDau?: string | null;
+  onTin?: (tin: string | null) => void;
 }
 
 const O_NHAP = `${INPUT} mt-1`;
@@ -44,11 +47,18 @@ export const CHAM = "max-sm:h-10 max-sm:px-4";
 function nhanLo(b: LoGoiY): string {
   return (
     `${b.batch_code} · HSD ${fmtNgay(b.expiry_date)} · ` +
-    `Tồn vật lý ${fmtSo(b.ton_vat_ly)} · Có thể phân lô lúc này ${fmtSo(b.co_the_phan_lo)} ${b.unit}`
+    `Trên kệ ${fmtSo(b.ton_vat_ly)} · Còn bán được ${fmtSo(b.co_the_phan_lo)} ${b.unit}`
   );
 }
 
-export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null }: Props) {
+export default function DongThuoc({
+  dong,
+  danhMuc,
+  chiXem = false,
+  loQuet = null,
+  tinDau = null,
+  onTin,
+}: Props) {
   const router = useRouter();
   const tt = dong.thao_tac;
   const [thuocId, setThuocId] = useState(dong.drug_catalog_id ?? "");
@@ -87,7 +97,11 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   // Câu máy chủ nói sau khi giao không chỉ định lô: lô nào đã trừ, phần nào chờ gán lô.
-  const [tin, setTin] = useState<string | null>(null);
+  const [tin, datTin] = useState<string | null>(tinDau);
+  const setTin = (cau: string | null) => {
+    datTin(cau);
+    onTin?.(cau);
+  };
 
   async function goi(action: string, body: Record<string, unknown>) {
     setDangGui(true);
@@ -413,8 +427,8 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
       ) : null}
       {tt.chon_lo || dong.phan_lo.some((p) => p.thao_tac.doi) ? (
         <p className="text-meta text-ink-faint">
-          “Có thể phân lô lúc này” là số hệ thống dùng để chống bán trùng: tồn vật lý trừ phần
-          đang giữ cho lần chuyển khoản và phần đã bán chưa giao.
+          “Còn bán được” = số trên kệ trừ phần đang giữ cho chuyển khoản chờ xác nhận và phần
+          đã bán chưa giao.
         </p>
       ) : null}
 
@@ -669,7 +683,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
         <p className="text-meta text-ink-faint">Chưa có thao tác nào ở giai đoạn này.</p>
       ) : null}
 
-      {tin ? <p className="text-meta text-ink-muted">{tin}</p> : null}
+      {tin ? <p role="status" className="text-body text-ink">{tin}</p> : null}
 
       {loi ? (
         <p className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">

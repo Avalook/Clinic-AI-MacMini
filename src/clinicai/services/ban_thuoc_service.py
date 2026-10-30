@@ -148,9 +148,9 @@ def thao_tac_dong(
         and so_ban is not None
         and da_giao < so_ban,
         # Khách không lấy: sau Khám xong, trước khi có lần thu (sau đó phải
-        # huỷ phiếu). Chốt / từ chối trước Khám xong cũng khoá dòng khỏi nút
-        # Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
-        "tu_choi": san_sang and chua_giao == 0,
+        # huỷ phiếu), và chưa giao gì. Chốt / từ chối trước Khám xong cũng khoá dòng
+        # khỏi nút Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
+        "tu_choi": san_sang and chua_giao == 0 and da_giao == 0,
         # Chờ xác minh / cần đối soát: không bao giờ. Đã thu (luồng mới): chỉ
         # khi đã giao đủ số bán — trước CP5 không có đường xử lý phần còn lại.
         "chot": mo

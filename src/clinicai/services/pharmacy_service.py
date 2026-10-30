@@ -103,8 +103,9 @@ def _kiem_khong_giao_qua_so_mua(don: Any, luong: Decimal) -> None:
     if mua is None:
         mua = don["quantity_num"]
     if mua is not None and da_cap + luong > Decimal(str(mua)):
+        so_mua = Decimal(str(mua))
         raise ValidationError(
-            f"Khách mua {mua}, đã giao {da_cap}, còn {Decimal(str(mua)) - da_cap} "
+            f"Khách mua {so(so_mua)}, đã giao {so(da_cap)}, còn {so(so_mua - da_cap)} "
             "— không giao quá số đã bán."
         )
 
@@ -902,7 +903,8 @@ class PharmacyService:
             )
         if Decimal(str(lo["quantity_on_hand"] or 0)) < luong:
             raise ConflictError(
-                f"Trên kệ lô này chỉ còn {lo['quantity_on_hand']} — không khớp số "
+                f"Trên kệ lô này chỉ còn "
+                f"{so(Decimal(str(lo['quantity_on_hand'] or 0)))} — không khớp số "
                 "đã bán. Cần kiểm kê trước khi giao."
             )
         da_ban = await conn.fetchval(
@@ -1386,7 +1388,8 @@ class PharmacyService:
             luong = Decimal(str(g["so_luong"]))
             if Decimal(str(lo["co_the_gan"] or 0)) < luong:
                 raise ValidationError(
-                    f"Lô này chỉ còn {lo['co_the_gan']} được dùng — không đủ {luong}."
+                    f"Lô này chỉ còn {so(Decimal(str(lo['co_the_gan'] or 0)))} "
+                    f"được dùng — không đủ {so(luong)}."
                 )
             # Cùng dòng sổ như `_ghi_so` (DISPENSE, dấu âm, trỏ về dòng đơn),
             # cần id để gắn vào sổ chờ gán lô.
@@ -2776,6 +2779,13 @@ class PharmacyService:
                         )
                     if refusal_reason is None:
                         await self._chot_duoc_khong(conn, identity, don)
+                    elif (da_giao := Decimal(str(don.get("dispensed_qty") or 0))) > 0:
+                        # Xảy ra sau khi hoàn tác lần thu của dòng đã giao: thuốc đã
+                        # rời quầy thì không thể ghi là khách không lấy.
+                        raise ConflictError(
+                            f"Dòng này đã giao {so(da_giao)} — thuốc đã rời quầy, "
+                            "không ghi được là khách không lấy."
+                        )
                 if (
                     refusal_reason is not None
                     and don["closed_at"] is None
@@ -2974,7 +2984,7 @@ class PharmacyService:
                 ton = Decimal(str(lo["quantity_on_hand"] or 0))
                 if quantity < 0 and ton < -quantity:
                     raise ValidationError(
-                        f"Lô này chỉ còn {ton} — không bớt được {-quantity}."
+                        f"Lô này chỉ còn {so(ton)} — không bớt được {so(-quantity)}."
                     )
                 if txn_type == HUY:
                     # Huỷ là QUYẾT ĐỊNH bỏ thuốc: không được bỏ vào phần đã bán chưa
