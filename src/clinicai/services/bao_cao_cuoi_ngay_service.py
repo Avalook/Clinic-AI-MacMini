@@ -774,6 +774,19 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
                 TEN_HINH_THUC.get(str(o["hinh_thuc"]), ""),
             ]
         )
+    if bc.get("ket_tien_mat"):
+        w.writerow([])
+        w.writerow(
+            ["Tiền mặt két", "Ca", "Cơ sở", "Quỹ đầu", "Thực thu TM", "Dự kiến"]
+            + ["Đếm thực", "Lệch", "Lý do lệch", "Người nhận bàn giao"]
+        )
+        for k in bc["ket_tien_mat"]:
+            w.writerow(
+                [_o(k.get("ngay")), _o(k.get("ten_ca")), _o(k.get("ten_co_so"))]
+                + [k.get("quy_dau"), k.get("thu_tien_mat"), k.get("du_kien")]
+                + [k.get("dem_cuoi"), k.get("lech"), _o(k.get("ly_do_lech"))]
+                + [_o(k.get("nguoi_nhan"))]
+            )
     _csv_thuoc(w, bc.get("thuoc_theo_khach"))
     return "﻿" + buf.getvalue()
 
@@ -1299,6 +1312,16 @@ class BaoCaoCuoiNgayService:
             )
             ds_co_so = await doc_ds_co_so(conn, cid)
             ten_tk = await ten_cac_tai_khoan(conn, cid)
+            # Kiểm kê tiền mặt két theo ca (31/10/2026) — chỉ khi xem cả hai loại.
+            from clinicai.services.ket_tien_mat_service import doc_ket_trong_khoang
+
+            ket = (
+                await doc_ket_trong_khoang(
+                    conn, cid, a, b, co_so=cs, ca=khung[2]["ma"] if khung else None
+                )
+                if loai_loc is None
+                else []
+            )
             # Sổ nợ hai chiều của CÙNG khoảng (14/10/2026) cho khối Dòng tiền —
             # tính chung dịch vụ + thuốc nên báo cáo lọc một loại thì bỏ.
             from clinicai.services.so_no_service import doc_so_no_ky
@@ -1445,12 +1468,15 @@ class BaoCaoCuoiNgayService:
         # KHOÁ SỔ THEO CA (G4c): ca đã chốt → đúng số lúc chốt + phần phát sinh
         # sau chốt (để không gì bị giấu). Ca chưa chốt: số sống như cũ.
         bc["xem_mot_ca"] = xem_mot_ca
+        bc["ket_tien_mat"] = ket
         if khoa is None:
             bc["chot"] = None
             return bc
         v = khoa["so_lieu"]
         chup: dict[str, Any] = json.loads(v) if isinstance(v, str) else dict(v)
         chup["xem_mot_ca"] = True
+        # Két đếm sau giờ chốt vẫn phải thấy: luôn số sống.
+        chup["ket_tien_mat"] = ket
         chup["chot"] = thong_tin_khoa(khoa)
         chup["sau_chot"] = chenh_sau_chot(chup, bc)
         return chup

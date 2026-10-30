@@ -618,6 +618,17 @@ test `T/services/test_thu_ngan_thanh_ngay_db.py`, `D/tests/quay-thu-thanh-ngay-b
 `D/thu-ngan/DoiHinhThuc.tsx` → `S/doi_hinh_thuc_service.py`; huỷ →
 `PaymentService.void_payment`. Test: `T/services/test_doi_hinh_thuc_db.py`.
 
+**Kiểm kê tiền mặt két đầu ca – cuối ca (31/10/2026)** — KHÁC kiểm kê HÀNG (`S/kiem_ke_ca_service.py`). Màn: `/reports` tab
+Cuối ngày → xem MỘT ngày + một ca + một cơ sở → khối "Tiền mặt két" ngay dưới Chốt ca (`D/reports/KhoiKetTienMat.tsx`:
+quỹ đầu gõ tổng / đếm mệnh giá, gợi ý = đếm cuối ca trước; đếm cuối; lệch ≠ 0 bắt lý do; người nhận bàn giao; [Mở lại]
+bắt lý do; "Lịch sử két"); cả ngày → `KetTienMatNgay` liệt kê từng ca. → `/api/reports/ket-tien-mat` →
+`R/reports.py` (`GET/POST /reports/ket-tien-mat`) → `S/ket_tien_mat_service.py` (`doc_dem`, `tinh_cuoi`, `tien_mat_trong_ca`
+thuần; dự kiến = quỹ đầu + dòng Tiền mặt `thuc_thu` của báo cáo cuối ca; cửa quyền dùng chung `S/chot_so_ca_service.py::kiem_ca`).
+Bảng `ket_tien_mat_ca` (một dòng mỗi cơ sở/ngày/ca; Postgres ép tổng = bảng đếm qua `tong_to_tien`, dự kiến / lệch đúng công
+thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_ca_lich_su` (mig 20261031125000). Báo cáo cuối ngày gắn
+`ket_tien_mat` (`doc_ket_trong_khoang`, cả khi trả bản chụp chốt ca) + CSV. Test: `T/unit/test_ket_tien_mat.py`,
+`T/services/test_ket_tien_mat_db.py`.
+
 ## 8. Xếp phòng · đổi phòng · chọn bác sĩ trong phòng
 
 - Tự xếp (dây H4) + gợi ý + xếp tay: `S/service_routing_service.py`

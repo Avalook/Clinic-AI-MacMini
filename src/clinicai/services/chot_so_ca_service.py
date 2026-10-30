@@ -111,6 +111,35 @@ def chenh_sau_chot(chup: dict[str, Any], song: dict[str, Any]) -> dict[str, int]
     }
 
 
+async def kiem_ca(
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    ngay: object,
+    ca: object,
+    co_so: object,
+) -> tuple[date, str, str, dict[str, Any]]:
+    """Một ngày + một ca + một cơ sở hợp lệ, và người gọi xem được tài chính
+    của đúng ca ấy. Rác → 422; không có quyền → 403. Dùng chung cho chốt ca và
+    kiểm kê tiền mặt két (``ket_tien_mat_service``)."""
+    d = ngay_hop_le(ngay if isinstance(ngay, str) else None)
+    if d is None:
+        raise ValidationError("Chọn đúng ngày của ca (YYYY-MM-DD).")
+    ma = str(ca or "").strip().upper()
+    if ma not in ("SANG", "CHIEU", "TOI"):
+        raise ValidationError("Chọn ca: sáng, chiều hoặc tối.")
+    cs = doc_co_so(co_so)
+    if cs is None or cs == KHONG_KHOP:
+        raise ValidationError("Chọn một cơ sở — mỗi cơ sở chốt / kiểm két riêng.")
+    access, chon = await ReportAccessService(pool).authorize(
+        identity, tu=d.isoformat(), den=d.isoformat(), ca=ma, co_so=cs
+    )
+    if not access["tai_chinh"] or chon != cs:
+        raise SafetyGateError(
+            "Bạn chưa được xem tài chính của ca này nên không chốt / kiểm két được."
+        )
+    return d, ma, cs, access
+
+
 class ChotSoCaService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -118,23 +147,7 @@ class ChotSoCaService:
     async def _kiem(
         self, identity: StaffIdentity, ngay: object, ca: object, co_so: object
     ) -> tuple[date, str, str, dict[str, Any]]:
-        d = ngay_hop_le(ngay if isinstance(ngay, str) else None)
-        if d is None:
-            raise ValidationError("Chọn đúng ngày của ca cần chốt (YYYY-MM-DD).")
-        ma = str(ca or "").strip().upper()
-        if ma not in ("SANG", "CHIEU", "TOI"):
-            raise ValidationError("Chọn ca cần chốt: sáng, chiều hoặc tối.")
-        cs = doc_co_so(co_so)
-        if cs is None or cs == KHONG_KHOP:
-            raise ValidationError("Chọn một cơ sở để chốt ca — mỗi cơ sở chốt riêng.")
-        access, chon = await ReportAccessService(self._pool).authorize(
-            identity, tu=d.isoformat(), den=d.isoformat(), ca=ma, co_so=cs
-        )
-        if not access["tai_chinh"] or chon != cs:
-            raise SafetyGateError(
-                "Bạn chưa được xem tài chính của ca này nên không chốt / mở khoá được."
-            )
-        return d, ma, cs, access
+        return await kiem_ca(self._pool, identity, ngay, ca, co_so)
 
     async def trang_thai(
         self, *, identity: StaffIdentity, ngay: object, ca: object, co_so: object
@@ -280,5 +293,6 @@ __all__ = [
     "ChotSoCaService",
     "chenh_sau_chot",
     "khoa_dang_co",
+    "kiem_ca",
     "thong_tin_khoa",
 ]
