@@ -19,6 +19,7 @@ from clinicai.services import ban_thuoc_service
 from clinicai.services.ban_le_service import BanLeService
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.bao_cao_cuoi_ngay_service import BaoCaoCuoiNgayService
+from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.dispatch_service import DispatchService
 from clinicai.services.payment_service import PaymentService
@@ -252,3 +253,12 @@ async def test_khach_moi_tao_ho_so_va_trung_sdt(q: Quay) -> None:
     tim = await svc.tim_khach(q=sdt[-6:], identity=q.duoc_si)
     assert kq["clinic_patient_id"] in {x["clinic_patient_id"] for x in tim["items"]}
     assert (await svc.tim_khach(q=" a ", identity=q.duoc_si))["items"] == []
+
+
+async def test_luot_ban_le_khong_co_tien_kham_o_hoa_don_dich_vu(q: Quay) -> None:
+    """Khách chỉ mua đầu dò ở quầy dịch vụ: dòng tiền khám trống giá từng chặn thu."""
+    vid = await _mo(q, await _khach(q))
+    async with q.pool.acquire() as conn:
+        hd = await tinh_hoa_don(conn, clinic_id=CLINIC, visit_id=vid, kind="dich_vu")
+    assert not [d for d in hd.dong if "khám" in (d.ten or "").lower()]
+    assert hd.thu_duoc or not hd.dong

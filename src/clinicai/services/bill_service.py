@@ -815,8 +815,10 @@ SELECT vi.visit_id::text AS visit_id,
        -- phòng thật (không qua bác sĩ) thì KHÔNG có buổi khám nào để
        -- tính tiền khám — tiền là của chính chỉ định. Rơi về bác sĩ
        -- chính (không có chỉ định mang sang) thì vẫn tính như lượt khám.
-       (coalesce(st.di_thang_phong, false)
-        AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES')
+       -- Lượt bán lẻ không có buổi khám: khách chỉ mua đầu dò ở quầy dịch vụ
+       -- từng bị chặn "có dịch vụ chưa có giá" vì dòng tiền khám trống giá.
+       (vi.ban_le OR (coalesce(st.di_thang_phong, false)
+        AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES'))
            AS khong_kham
   FROM public.visit vi
   LEFT JOIN public.appointment a
