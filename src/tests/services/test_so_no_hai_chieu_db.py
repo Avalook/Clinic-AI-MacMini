@@ -276,7 +276,14 @@ async def _chay_dau_ky_het(pool: asyncpg.Pool) -> dict[str, Any]:  # noqa: F811
 
 async def test_dau_ky_cho_luot_cu_roi_doi_chieu_bat_thay_doi_khong_su_kien(
     pool: asyncpg.Pool,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Lô đối chiếu lấy tối đa DOI_CHIEU_MOI_VONG lượt gần đây (UNION không thứ
+    # tự): DB của worker có > 300 lượt do tệp test khác để lại thì lượt của bài
+    # này có thể rơi ngoài lô → đỏ chập chờn theo cách chia tệp. Nới lô cho bài.
+    import clinicai.services.so_no_service as so_no_service
+
+    monkeypatch.setattr(so_no_service, "DOI_CHIEU_MOI_VONG", 1_000_000)
     ca = await _dung(pool)
     v, o = await _luot(pool, ca)
     await _lam_xong(pool, ca, o)
