@@ -886,6 +886,11 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   sổ tay `docs/VAN-HANH-MAY-CHU.md`. CI: `scripts/ci-may.sh`; chạy test: `docs/CHAY-TEST.md`.
 - Lỗi & cảnh báo: màn `/ops` (tab Lỗi & cảnh báo, Nhật ký vận hành) → kho lỗi
   `S/kho_loi.py`, canh gác `S/canh_gac.py`, nhật ký `S/nhat_ky_van_hanh.py`.
+- **Ổ gốc VPS, sao lưu cũ (31/10/2026):** cảnh báo `O_DIA_GAN_DAY`, `O_DIA_RAT_DAY`,
+  `SAO_LUU_CU`, `MAY_CHU_KHONG_DO` ở `S/canh_gac_may_chu.py` (hàm thuần
+  `danh_gia_may_chu`, đọc `status.json` của `clinicai-ops-status.timer`, `su-kien` gắn
+  chỉ-đọc). Ngưỡng và khung giờ là hằng đầu tệp. Test `T/unit/test_canh_gac_may_chu.py`.
+  Dọn bộ đệm build: `scripts/may-chu/don-o-vps.sh`.
 - **API chậm / nghi cạn bể kết nối (14/10/2026):** log container `api` có dòng
   `request_cham` (mỗi request ≥ 500ms), `api_nhip_phut` (mỗi phút), `pool_cho_lau`/
   `pool_day`/`pool_ban_keo_dai`; `/ops/pool` (số tức thời) + cảnh báo `POOL_API_DAY` ở

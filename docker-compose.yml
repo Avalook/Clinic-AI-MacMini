@@ -301,6 +301,13 @@ services:
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     command: ["python", "-m", "clinicai.worker", "--su-kien"]
     secrets: [agent_llm_api_key]
+    volumes:
+      # Canh gác máy chủ đọc status.json (ổ gốc, sao lưu). Ổ cục bộ, chỉ đọc —
+      # khác media: không có ổ mạng nào để làm treo người đưa tin.
+      - type: bind
+        source: ${OPS_STATUS_DIR:-./.ops-status}/${APP_ENV:-production}
+        target: /run/clinicai-ops
+        read_only: true
     depends_on:
       api:
         condition: service_healthy
