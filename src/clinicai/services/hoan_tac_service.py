@@ -24,6 +24,10 @@ LUẬT CHUNG (mọi lệnh dưới đây):
   * Ràng buộc nghiệp vụ THẬT (đã thu tiền, khách đã về, kết quả đã duyệt) KHÔNG
     khoá: máy chủ trả 409 `CAN_XAC_NHAN` kèm câu nói rõ hệ quả; màn mở hộp xác
     nhận, người bấm ghi lý do rồi gửi lại với `xac_nhan=True`.
+    "Khách đã về" là hệ quả khi hoàn tác việc KHÁC sau check-out (mở lại phiên
+    khám…). Riêng ReopenVisit — chính là hoàn tác cái check-out — KHÔNG hỏi:
+    check-out nhầm là việc hay gặp nhất, mở lại phải một chạm; tiền và việc đã
+    làm giữ nguyên nên không có hệ quả nào cần xác nhận (Tuyền chốt 21/10/2026).
   * Không xoá lịch sử: lần làm, phiếu thu, kết quả đã gõ đều giữ nguyên.
 
 Phần TIỀN: bỏ một chỉ định ĐÃ THU không động vào phiếu thu (việc của nhóm thu
@@ -1240,6 +1244,10 @@ class HoanTacService:
 
         Cùng quyền với check-out (lego Tiếp đón). Lượt mở lại, khách về lại các
         hàng chờ còn dở; tiền đã thu, việc đã làm giữ nguyên.
+
+        KHÔNG đòi xác nhận / lý do (Tuyền chốt 21/10/2026): check-out nhầm thì mở
+        lại một chạm. `ly_do` / `xac_nhan` vẫn nhận để màn gửi kèm thì ghi vào sự
+        kiện. Đổi ý thì gọi `doi_xac_nhan` ở đây — `NutHoanTac` đã tự mở hộp hỏi.
         """
         cid = identity.clinic_id
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
