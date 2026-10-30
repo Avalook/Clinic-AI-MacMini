@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 
@@ -14,13 +15,17 @@ from clinicai.services.bao_cao_cuoi_ngay_service import khung_ca
 from clinicai.services.cashier_board_service import doc_khoang_ngay
 from clinicai.services.co_so_bao_cao import doc_co_so, doc_co_so_ngung, sql_loc_ton
 from clinicai.services.hoa_don_excel import xlsx_hoa_don as xlsx_hoa_don
+from clinicai.services.hoa_don_projection import gan_phong, gom_viec_ton
 from clinicai.services.hoa_don_projection import gom_hoa_don as gom_hoa_don
-from clinicai.services.hoa_don_projection import gom_viec_ton
 from clinicai.services.hoan_tac_service import (
     tien_da_thu_cua_chi_dinh,
     tien_thua_cua_luot,
 )
-from clinicai.services.quay_thu_service import _DONG_SQL
+from clinicai.services.quay_thu_service import (
+    _DONG_SQL,
+    _PHONG_CHI_DINH_SQL,
+    _phong_cua_dong,
+)
 from clinicai.services.report_access_service import ReportAccessService
 
 
@@ -110,6 +115,42 @@ _LINES = _DONG_SQL.replace(
     " THEN o.updated_at END AS bo_luc",
 )
 assert "bo_luc" in _LINES, "_DONG_SQL đổi dạng — sửa lại chỗ chèn bo_luc"
+
+# Phòng của chỉ định — ĐÚNG nguồn phiếu thu in (`_PHONG_CHI_DINH_SQL`), chỉ đổi
+# lọc theo lượt thành theo danh sách chỉ định của các phiếu đang xem.
+_PHONG_THEO_CHI_DINH = _PHONG_CHI_DINH_SQL.replace(
+    "WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid",
+    "WHERE o.clinic_id = $1::uuid AND o.id = ANY($2::uuid[])",
+)
+assert "ANY($2::uuid[])" in _PHONG_THEO_CHI_DINH, "_PHONG_CHI_DINH_SQL đổi dạng"
+
+
+def _la_uuid(v: Any) -> bool:
+    try:
+        UUID(str(v))
+    except ValueError:
+        return False
+    return True
+
+
+async def _phong_cac_dong(
+    conn: asyncpg.Connection, clinic_id: str, lines: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """id dòng hoá đơn → phòng (như phiếu thu) của chỉ định dòng ấy."""
+    oids = sorted(
+        {
+            str(d["source_id"])
+            for d in lines
+            if d.get("source_type") == "service_order" and _la_uuid(d.get("source_id"))
+        }
+    )
+    if not oids:
+        return {}
+    phong = {
+        str(r["id"]): r for r in await conn.fetch(_PHONG_THEO_CHI_DINH, clinic_id, oids)
+    }
+    return {str(d["id"]): _phong_cua_dong(d, phong).get("phong") for d in lines}
+
 
 _DOI_HINH_THUC = """
 SELECT d.cycle_id::text cycle_id, d.method_cu, d.method_moi, d.ly_do, d.luc,
@@ -299,6 +340,12 @@ class DanhSachHoaDonService:
                     _REFUND_LINES, identity.clinic_id, [r["id"] for r in refunds]
                 )
             ]
+            # Tên phòng dịch vụ trên từng dòng (30/10/2026) — như phiếu thu in.
+            gan_phong(
+                lines,
+                refund_lines,
+                await _phong_cac_dong(conn, identity.clinic_id, lines),
+            )
             doi_ht = [
                 dict(r)
                 for r in await conn.fetch(_DOI_HINH_THUC, identity.clinic_id, ids)

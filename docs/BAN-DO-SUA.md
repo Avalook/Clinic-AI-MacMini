@@ -413,6 +413,9 @@ Giảm giá: số trước giảm / đã giảm / sau giảm, lý do / người 
 dòng hiển thị phần giảm được phân bổ từ máy chủ. Miễn phí 100% có số thực thu 0 vẫn là phiếu đã thu,
 không suy ra hoàn tiền từ số 0. Test FT `hoa-don-giam-gia-boundary.test.mts` + E2E fixture giảm 100%.
 Số tổng giao dịch trong kỳ khác số toàn bộ phiếu liên quan của khách nếu hoàn khác ngày thu.
+Tên phòng từng dòng dịch vụ (màn + cột "Phòng" sheet "Dòng phiếu" của Excel, 30/10/2026): đúng nguồn phiếu
+thu in (`S/quay_thu_service.py` `_PHONG_CHI_DINH_SQL` + `_phong_cua_dong`), chữ do `S/hoa_don_projection.py::nhan_phong`
+/ `gan_phong`; test `T/services/test_hoa_don_ten_phong_db.py`. Bản xuất MISA không có cột này (mẫu cố định).
 Test `T/services/test_danh_sach_hoa_don_db.py`, `T/unit/test_danh_sach_hoa_don.py`,
 FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API giả lập, auth DEMO thật).
 

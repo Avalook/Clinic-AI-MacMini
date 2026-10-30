@@ -707,3 +707,64 @@ def test_hoan_chua_xong_co_nut_xu_ly_ve_dung_quay_va_ngay_thu() -> None:
     )
     assert dv[0]["loai"] == "HOAN_THAT_BAI"
     assert dv[0]["xu_ly"]["href"] == "/thu-ngan/dich-vu?ngay=2026-10-14"
+
+
+def test_nhan_phong_va_gan_phong_nhu_phieu_thu() -> None:
+    """Tên phòng trên dòng hoá đơn = chữ phiếu thu in; dòng hoàn theo dòng gốc;
+    dòng bỏ sau thu / không có phòng thì trống; rác không ném."""
+    from clinicai.services.hoa_don_projection import gan_phong, nhan_phong
+
+    assert nhan_phong({"ten": "Siêu âm 2", "du_kien": False}) == "Siêu âm 2"
+    assert (
+        nhan_phong({"ten": "Siêu âm 2", "bac_si": "BS Hùng", "du_kien": True})
+        == "Siêu âm 2 · BS Hùng (dự kiến)"
+    )
+    assert nhan_phong(None) is None and nhan_phong({"ten": ""}) is None
+    lines: list[dict[str, Any]] = [
+        {"id": "a", "da_bo": False},
+        {"id": "b", "da_bo": True},
+        {"id": "c", "da_bo": False},
+    ]
+    hoan: list[dict[str, Any]] = [{"id": "a"}, {"id": "z"}]
+    gan_phong(lines, hoan, {"a": {"ten": "P1"}, "b": {"ten": "P2"}})
+    assert [d["phong"] for d in lines] == ["P1", None, None]
+    assert [d["phong"] for d in hoan] == ["P1", None]
+
+
+def test_excel_dong_phieu_co_cot_phong() -> None:
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from clinicai.services.danh_sach_hoa_don_service import xlsx_hoa_don
+    from clinicai.services.hoa_don_projection import gom_hoa_don
+
+    now = datetime(2026, 10, 30, tzinfo=timezone.utc)
+    row = dict(
+        id="c1",
+        patient_id="p",
+        ten="Khách A",
+        ma_bn="BN1",
+        visit_id="v",
+        kind="dich_vu",
+        amount=100,
+        status="PAID",
+        paid_at=now,
+        trong_ky=True,
+        huy_trong_ky=False,
+    )
+    line = dict(
+        id="l",
+        cycle_id="c1",
+        ten="Siêu âm",
+        so_luong=1,
+        thanh_tien=100,
+        da_bo=False,
+        phong="Siêu âm 2 · BS Hùng",
+    )
+    data = gom_hoa_don([row], [], [line], [], tim=None, trang_thai=None)
+    data.update(tu="2026-10-30", den="2026-10-30")
+    book = load_workbook(BytesIO(xlsx_hoa_don(data)))
+    dau = [c.value for c in book["Dòng phiếu"][1]]
+    assert dau[4:6] == ["Dịch vụ / thuốc", "Phòng"]
+    assert _o(book["Dòng phiếu"], "Phòng") == "Siêu âm 2 · BS Hùng"
