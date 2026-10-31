@@ -37,6 +37,8 @@ export interface InvBatch {
   /** Tổng theo thuốc + đơn vị tại cơ sở; lặp lại trên các lô, không cộng theo lô. */
   da_giao_chua_doi_chieu?: number;
   ton_kha_dung_thuoc?: number;
+  /** Tồn quầy trừ phần đã giao chưa gắn lô — số người đếm thấy trên kệ. */
+  so_tren_ke_quay?: number;
   /** Máy chủ tính theo ngày VN (29/09/2026) — TSX không tự đếm ngày. */
   trang_thai_han: ExpiryState;
   /** Còn thuốc trên kệ VÀ sắp hết hạn / hết hạn (máy chủ tính). */
@@ -87,7 +89,7 @@ export default function InventoryBoard({
   ghiDuoc?: boolean;
   /** G7: cơ sở bật tách kho / quầy → mỗi dòng lô có chip KHO / QUẦY. */
   tachKhoQuay?: boolean;
-  /** Bấm tên thuốc → tab Thẻ kho. */
+  /** Bấm tên thuốc → tab Theo dõi thuốc. */
   onXemThe?: (id: string) => void;
   cauHinhHan?: CauHinhHan;
 }) {
@@ -168,7 +170,7 @@ export default function InventoryBoard({
           <Button type="button" variant="secondary" disabled={dang || !ngay.trim()} onClick={() => void guiThem("so-ngay-canh-bao", { so_ngay: ngay })}>Lưu cảnh báo</Button>
         </div>
       ) : null}
-      {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
+      {loi && !lo ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
       <div
         className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5"
         aria-label="Lọc lô theo tình trạng hạn dùng"
@@ -252,7 +254,7 @@ export default function InventoryBoard({
                         <button
                           type="button"
                           onClick={() => b.drug_catalog_id && onXemThe(b.drug_catalog_id)}
-                          title="Xem thẻ kho"
+                          title="Theo dõi thuốc"
                           className="text-left font-medium text-brand-700 hover:underline"
                         >
                           {b.drug?.name_base ?? b.drug?.name_raw ?? "—"}
@@ -266,8 +268,9 @@ export default function InventoryBoard({
                       )}
                       {Number(b.da_giao_chua_doi_chieu ?? 0) > 0 ? (
                         <span className="block text-meta font-normal text-warning">
-                          Thuốc này: đã giao chờ đối chiếu {soKho(b.da_giao_chua_doi_chieu)} {b.unit};
-                          còn bán được tại cơ sở {soKho(b.ton_kha_dung_thuoc)} {b.unit}.
+                          Thuốc này: đã giao chưa gắn lô {soKho(b.da_giao_chua_doi_chieu)} {b.unit};
+                          trên kệ quầy thật còn {soKho(b.so_tren_ke_quay)} {b.unit}; bán được tại cơ sở{" "}
+                          {soKho(b.ton_kha_dung_thuoc)} {b.unit}.
                           Số tồn trong dòng là tồn sổ của lô, chưa trừ phần chờ.
                         </span>
                       ) : null}
@@ -395,6 +398,8 @@ export default function InventoryBoard({
                           Thôi
                         </Button>
                       </div>
+                      {/* Bảng dài: câu từ chối phải nằm ngay ô đang nhập, không ở đầu trang. */}
+                      {loi ? <p role="alert" className="mt-2 text-meta text-danger">{loi}</p> : null}
                     </td>
                   </tr>,
                 ];

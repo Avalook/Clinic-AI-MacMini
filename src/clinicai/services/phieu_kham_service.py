@@ -68,6 +68,7 @@ from clinicai.services.danh_muc_dich_vu_service import (
 from clinicai.services.danh_muc_dich_vu_service import (
     thu_tu_nhom_hang as _thu_tu_nhom_hang,
 )
+from clinicai.services.don_vi_thuoc import BangDonVi, doc_bang
 from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
 
 logger = structlog.get_logger()
@@ -645,6 +646,9 @@ class PhieuKhamService:
                 cid,
             )
             kho = {r["name_raw"]: r for r in dong_kho}
+            bang_dv = await doc_bang(
+                conn, identity.clinic_id, [str(r["id"]) for r in dong_kho]
+            )
             # Gắn theo TÊN (bỏ qua hoa/thường, dấu cách) khi bảng ghép viết tay
             # thiếu (24/09/2026: "thuốc quy chuẩn về, đừng đẻ cái kiểu chưa gắn kho").
             theo_ten: dict[str, asyncpg.Record] = {}
@@ -746,6 +750,7 @@ class PhieuKhamService:
                 "unit": r["don_vi_ban"] or m.get("unit") or "",
                 "drug_catalog_id": str(r["id"]),
                 "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,
+                "cac_don_vi": bang_dv.get(str(r["id"]), BangDonVi()).lua_chon(),
             }
 
         mau = []
@@ -782,7 +787,7 @@ class PhieuKhamService:
             # giá quầy thu dùng (`quay_thuoc_service`); dòng ngoài danh mục → null.
             rows = await conn.fetch(
                 "SELECT p.id::text, p.drug_catalog_id::text, p.drug_name_raw,"
-                "       p.quantity, p.dosage_instructions, p.caution,"
+                "       p.quantity, p.unit, p.dosage_instructions, p.caution,"
                 "       c.unit_price AS don_gia, c.don_vi_ban AS dvt_kho,"
                 "       p.so_luong_dien_luc, p.so_luong_ke_goc,"
                 "       sd.full_name AS so_luong_dien_boi,"
@@ -803,11 +808,25 @@ class PhieuKhamService:
             la_bac_si = await bac_si_trong(
                 conn, identity.clinic_id, [r["nguoi_ke_id"] for r in rows]
             )
+            bang_dv = await doc_bang(
+                conn, identity.clinic_id, [r["drug_catalog_id"] for r in rows]
+            )
+
+        def gia_dong(r: asyncpg.Record) -> int | None:
+            """Đơn giá theo ĐƠN VỊ của dòng, cùng luật quầy thu — chỉ để hiện."""
+            b = bang_dv.get(r["drug_catalog_id"] or "", BangDonVi())
+            d = b.gia_dong(r["unit"])
+            if d.gia is not None:
+                return int(d.gia)
+            if d.he_so is not None or r["don_gia"] is None:
+                return None
+            return int(r["don_gia"])
+
         return [
             {
                 **dict(r),
                 "nguoi_ke_la_bac_si": r["nguoi_ke_id"] in la_bac_si,
-                "don_gia": int(r["don_gia"]) if r["don_gia"] is not None else None,
+                "don_gia": gia_dong(r),
                 "dvt_kho": (r["dvt_kho"] or "").strip() or None,
                 # C14: quầy thu thuốc điền số lượng bác sĩ để trống — màn kê đơn
                 # hiện "SL do thu ngân điền" (người + lúc).

@@ -90,8 +90,25 @@ khách: `S/hanh_trinh_khach_service.py` `dong_dich_vu_kham`. Test: `T/services/t
 Chặn trừ sai tồn: kiểm kho lệch khi thuốc còn "đã giao chưa gắn lô" (`kiem_kho`), huỷ lấn phần đã bán chưa giao
 (`pharmacy_service._ghi_kho_don_gian`, `lo_thuoc_service.huy_lo`) — test `T/services/test_kho_chan_tru_sai_ton_db.py`.
 
+**Nhiều đơn vị bán + giá theo đơn vị (Tuyền 31/10/2026)** — trên màn `/pharmacy/inventory` tab Danh mục → Sửa →
+"Đơn vị bán thêm" (đơn vị, hệ số về đơn vị gốc, giá; giá trống máy lưu rõ hệ số × giá gốc; "Tắt bán" thay cho xoá).
+Đơn vị gốc = `drug_catalog.don_vi_ban`, giá gốc = `unit_price`, không đổi nghĩa; đơn vị thêm ở `thuoc_quy_doi` (`gia`,
+`dang_ban`, migration `20261101200000`). Số trên dòng đơn / hoá đơn / hoàn tiền theo ĐƠN VỊ ĐÃ BÁN, số ở lô theo ĐƠN VỊ
+LÔ; chỉ chỗ chạm tới cả hai mới đổi. Luật ở MỘT tệp `S/don_vi_thuoc.py` (`BangDonVi` nhận diện đơn vị + giá,
+`QuyDoiDong` đổi dòng ↔ lô, `cau_thieu_quy_doi` câu báo). Hệ số lúc thu nằm ở `payment_bill_line.he_so` (đã thu thì sửa
+danh mục không đổi gì), khách trả ghi thêm `drug_return.so_luong_ban`. Quầy đổi đơn vị: `QuayThuocService.doi_don_vi`,
+`D/thu-ngan/ChinhDonQuay.tsx`. Ô đơn vị mọi màn: `D/ODonVi.tsx` (SearchSelect `choGoTu`). Form: `D/pharmacy/inventory/SuaDonViBan.tsx`,
+`S/pharmacy_service.py` `luu_thuoc`. Test: `T/services/test_nhieu_don_vi_ban_db.py`, FT `nhieu-don-vi-ban-boundary.test.mts`.
+
+**Theo dõi thuốc: đang ở đâu + dòng thời gian (Tuyền 31/10/2026)** — tab "Theo dõi thuốc" ở `/pharmacy/inventory`,
+`D/pharmacy/inventory/TheoDoiThuoc.tsx` → `/api/pharmacy/theo-doi-thuoc` (+ `tim-theo-doi`, `theo-doi-thuoc-xlsx`) →
+`S/theo_doi_thuoc_service.py`. Chỉ đọc, chỉ cơ sở đang làm. **Tên hành động + từ đâu → đến đâu: chỉ sửa bảng `HANH_DONG` /
+`_TU_DEN` đầu tệp** (loại dòng sổ mới tự hiện, chưa khai thì ra "Thay đổi kho khác"). Hai loại việc không có dòng sổ
+(giao chưa gán lô, nhập lại bán được) và gộp hai dòng chuyển kho nằm trong câu `_SU_KIEN`. Excel: `excel_export.xlsx_theo_doi_thuoc`.
+Test: `T/services/test_theo_doi_thuoc_db.py`, `D/tests/theo-doi-thuoc-boundary.test.mts`.
+
 **Giao thuốc: máy tự chọn lô, trừ kho ngay lúc giao (Tuyền 27/10/2026)** — bấm "Giao thuốc" không chỉ định lô thì
-`S/pharmacy_service.py` `cap_phat` → `_giao_tu_chon_lo`: lô QUẦY đúng thuốc, đúng cơ sở của lượt, CÙNG đơn vị, còn hạn, xếp hạn
+`S/pharmacy_service.py` `cap_phat` → `_giao_tu_chon_lo`: lô QUẦY đúng thuốc, đúng cơ sở của lượt, cùng đơn vị hoặc đổi được qua hệ số, còn hạn, xếp hạn
 sớm nhất trước (không hạn xếp cuối), trừ theo `drug_batch_kha_dung` và trừ thêm các lần giao đang chờ gán lô; một lần giao có thể trừ
 hai lô. Thiếu lô / thiếu tồn → phần còn lại VẪN giao, ghi `thuoc_giao_chua_gan_lo` (màn "Đã giao, chưa trừ kho" = hàng đợi
 ngoại lệ, `gan_lo_da_giao`). Kết quả trả `lo_da_tru`, `chua_tru_kho`, `tom_tat` — màn `D/pharmacy/DongThuoc.tsx` chỉ hiện câu ấy.
@@ -112,16 +129,18 @@ bán / giao / nhận trả CHỈ ở QUẦY (trigger `gac_ban_tu_quay` + kiểm 
 `gan_lo_da_giao`, `_cap_phat_cu`), phiếu chuyển `S/kho_thuoc_service.py` (`chuyen_kho`, `hoan_tac_chuyen`,
 `dat_tach_kho_quay`) — migration `20261014160000`. Quầy hết mà kho còn: `ban_thuoc_service` trả `kho_con` cho từng
 dòng đơn. Test: `T/services/test_kho_quay_db.py` (bấm ngẫu nhiên 40×10).
-Giao diện (G7-2): tab "Chuyển kho" + công tắc tách **đã gỡ khỏi màn** (18/10, `e9d45784`) — tệp
-`D/pharmacy/inventory/ChuyenKho.tsx` còn nhưng không ai import; bật công tắc lúc này thì hàng kẹt ở KHO, mọi lần
-giao rơi vào chờ gán lô. Còn gắn: chip KHO/QUẦY ở `InventoryBoard.tsx` (prop `tachKhoQuay`), nút "Kho còn N — chuyển sang quầy?" ở dòng đơn
+Giao diện: tab "Chuyển kho ↔ quầy" trong khu KHO `D/pharmacy/inventory/ChuyenKho.tsx` (31/10 gắn lại; hiện khi cơ sở đã
+tách hoặc người có `config.clinic.manage` — công tắc nằm trong tab; Quầy → Kho bắt lý do). Quầy hết mà kho còn: VẪN giao, phần thiếu vào
+"Đã giao, chưa trừ kho", gán lô từ KHO hoặc QUẦY. Chip KHO/QUẦY ở `InventoryBoard.tsx` (prop `tachKhoQuay`), nút "Kho còn N — chuyển sang quầy?" ở dòng đơn
 `D/pharmacy/KhoConChuyenQuay.tsx` (gắn trong `DongThuoc.tsx`); proxy `chuyen-kho` / `hoan-tac-chuyen-kho` /
 `tach-kho-quay` ở `D/app/api/pharmacy/[action]/route.ts`. Test: `D/tests/kho-quay-giao-dien-boundary.test.mts`.
 
 **Kiểm kê đầu / cuối ca ở QUẦY + cột tồn của "Báo cáo hàng hoá" (G6)** — phiếu `kiem_ke_ca` (+ `_dong`),
-migration `20261014170000`: NHÁP → CHỐT (chốt ghi tồn máy ở quầy TẠI GIỜ CHỐT + lệch = đếm − tồn máy, KHÔNG tự sửa
-tồn), đầu/cuối ca một phiếu mỗi ca (UNIQUE từng phần ở Postgres), đột xuất nhiều phiếu, kiểm một phần tự nhận ra.
-"Điều chỉnh theo kiểm kê" là bước riêng ghi `ADJUST` (`ref_type 'kiem_ke_ca'`, có lý do), hoàn tác bằng ADJUST ngược.
+migration `20261014170000`, `20261101100000`: NHÁP → CHỐT, đầu/cuối ca một phiếu mỗi ca (UNIQUE từng phần ở Postgres), đột
+xuất nhiều phiếu, kiểm một phần tự nhận ra. Từ 31/10 CHỐT là số thật: dòng lệch bắt lý do riêng, ghi `ADJUST` ngay
+(`ref_type 'kiem_ke_ca'`), hoàn tác bằng ADJUST ngược. Lệch tính TẠI LÚC ĐẾM (`dem_luc` từng dòng, `phat_sinh_sau_dem`):
+lệch = đếm + N (đã giao chưa gắn lô) − sổ lúc đếm; phiếu ngày trước so với sổ cuối ca ấy (`moc_dem`). Phần không áp được
+nằm ở `chua_ap` + `chua_ap_ly_do`, không báo đã khớp. "Điều chỉnh theo kiểm kê" chỉ còn cho phiếu cũ chưa ghi sổ.
 Service `S/kiem_ke_ca_service.py` (`mo_phieu`, `luu_dem`, `dung_so_cuoi_ca_truoc`, `chot`, `dieu_chinh_theo_kiem_ke`,
 `hoan_tac_dieu_chinh`, `nhac_thieu_kiem`; thuần: `khung_moc`, `tinh_xnt_dong`, `ghep_ton_ca`), 9 route `/pharmacy/kiem-ke-ca…`
 ở `S/../routers/pharmacy.py`. Báo cáo: MỘT chỗ gắn ở `bao_cao_cuoi_ngay_service.py` (`ghep_vao_bao_cao` sau
@@ -129,10 +148,16 @@ Service `S/kiem_ke_ca_service.py` (`mo_phieu`, `luu_dem`, `dung_so_cuoi_ca_truoc
 = Tồn đầu · Nhập · SL bán (= số GIAO) · SL trả · khác · Tồn cuối · Kiểm kê · Lệch · đã thu chưa giao. Chuông lệch:
 sự kiện `pharmacy.stocktake_mismatch` → `chuong.py` (người nhận ở `day_nhan_thong_bao`, quản lý chỉnh).
 Test: `T/services/test_kiem_ke_ca_db.py` (bấm ngẫu nhiên 40×10), `T/unit/test_xnt_theo_ca.py`.
-Giao diện: tab "Kiểm kê ca" ở Kho thuốc `D/pharmacy/inventory/KiemKeCa.tsx` (đếm mù → [Chốt kiểm kê] có xác nhận tại chỗ `XacNhanTaiCho` → lệch → điều chỉnh / hoàn tác,
+Giao diện: tab "Kiểm đầu/cuối ca" ở Kho thuốc `D/pharmacy/inventory/KiemKeCa.tsx` (đếm mù → [Chốt kiểm kê] hiện dòng lệch + ô lý do trong `XacNhanTaiCho` → hoàn tác,
 nhắc thiếu kiểm); proxy `D/app/api/pharmacy/kiem-ke-ca/**` (danh sách trắng bước ghi); cột tồn ở `/reports?tab=hang-hoa`
 → `D/reports/BangHangHoa.tsx` (`BangCoTon`, chỉ khi máy chủ trả `co_ton`; bản in = `window.print()`, Excel/CSV chưa có cột tồn).
 FT: `D/tests/kiem-ke-ca-boundary.test.mts`.
+
+**Lệch kiểm kê ở Báo cáo kho + quản lý sửa số sau cùng (31/10)** — khối dưới bảng XNT `D/pharmacy/inventory/LechKiemKe.tsx` →
+`/pharmacy/lech-kiem-ke`, `.xlsx`, `/pharmacy/sua-so-kiem-ke` (`report.view` hoặc `config.clinic.manage`) → `S/lech_kiem_ke_service.py`
+(`ds_lech`, `sua_so_sau_cung`); bảng chỉ thêm `kiem_ke_sua_so`, ADJUST `ref_type 'kiem_ke_sua'`. Kiểm đếm kho: `kho_thuoc_service.kiem_kho`
+(lý do từng dòng, N chỉ tách ở hàng QUẦY — `tach_cho_gan_lo`), `hoan_tac_kiem_kho`, tab `KiemKho.tsx` + `DanhSachPhieu.tsx`.
+Test: `T/services/test_kho_quay_that_db.py`, FT `D/tests/kho-quay-that-boundary.test.mts`.
 
 **Mẫu kết quả · biểu mẫu phiếu kết quả · gán mẫu cho dịch vụ**
 - Trên màn: `/settings/mau-ket-qua` (tab Gán mẫu · Sửa mẫu; xuất bản là dùng).
@@ -509,6 +534,18 @@ MỚI) → Bio chưa thu đi theo (`so_sua_chi_dinh_service._chi_dinh_moi_thay` 
 Test: `T/services/test_bio_chi_dinh_db.py` (bất biến B1–B5 + bấm ngẫu nhiên 40×10 có bên nhận sự kiện xen giữa),
 FT `dau-do-chi-dinh-boundary.test.mts`. Luật duyệt trigger `luot_vat_tu_gac` KHÔNG đổi ở G9.
 
+**Bán vật tư trừ kho đúng phòng + danh sách đối soát (31/10/2026)** — mọi đường bán đi qua MỘT hàm `S/vat_tu_ban_service.py`
+`dong_bo_ban_vat_tu` (so số phải trừ với số đang trừ, gọi lại không đổi gì; bảng `vat_tu_ban`, phiếu `BAN`/`HOAN`, migration 20261101300000).
+Luật: trừ khi có lần thu giữ phủ (đã thu HOẶC chuyển khoản chờ xác minh, thu 0đ vẫn trừ) hoặc dịch vụ đã bắt đầu làm mà chưa thu; hoàn tác lần
+thu / huỷ lần chờ → số về, TRỪ dịch vụ đã làm (hàng đã dùng, khách thành nợ); bỏ chỉ định / không làm → số về; khôi phục → trừ lại. HOÀN TIỀN
+KHÔNG tự cộng kho: dòng ghi `so_hoan_tien`, người kho "Nhận lại hàng" / "Không nhận lại", hoặc quầy tick "Khách trả lại hàng" ở `D/thu-ngan/HoanTien.tsx`
+(cả hai quầy). Nơi lấy: phòng chỉ định → phòng bác sĩ theo lịch → "Chờ gán phòng" (không đoán: phòng tắt, cơ sở khác, phòng đối tác, nhiều bác sĩ,
+bác sĩ hai phòng); người kho gán rồi thì máy không đổi. Móc: `S/payment_service.py` (tạo lần thu, huỷ lần chờ, `void_payment`),
+`S/hoan_tien_service.py`, `S/vat_tu_service.py` (`dat_so_luong`, `bo`), `S/bio_chi_dinh_service.py` `chon`; trạng thái chỉ định: bên nhận
+`events/consumers/vat_tu_ban.py`. Hàng ở `drug_catalog` trùng mã vật tư: `S/vat_tu_trung_ma.py` (mã rỗng / không có bên vật tư = thuốc thường), giao ở
+`S/pharmacy_service.py` `_giao_vat_tu`. Màn: `D/kho-vat-tu/BanChoKhachVatTu.tsx`, `NhapBuVatTu.tsx`. Dữ liệu cũ không trừ ngược: dòng chỉ sinh từ lần
+thu mới hoặc `luot_vat_tu.tru_kho`. Test: `T/services/test_vat_tu_ban_kho_db.py`, FT `kho-vat-tu-boundary.test.mts`.
+
 **Ai duyệt vật tư cần duyệt + nguyên nhân bán thêm (14/10/2026, G8b — Notion recap 12/10 mục 3.3, Tuyền Q11)** — người duyệt là
 LEGO, không phải vai: khối `duyet_vat_tu` / quyền `vat_tu.approve` (`P/catalogue.py`, nằm trong `KHOI_CHI_QUAN_LY` — KHÔNG "mở full";
 migration 20261014200000 cấp bù cho tài khoản Quản lý + Trưởng ca đang có; tài khoản Trưởng ca MỚI do Quản lý cấp ở `/phan-quyen`).
@@ -662,6 +699,23 @@ thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_
   `S/ban_thuoc_service.py` `man_nha_thuoc`. Đơn bán ở quầy: `S/quay_thuoc_service.py`
   `QuayThuocService`. Test: `T/services/test_quay_thuoc_db.py`,
   `T/services/test_giao_thuoc_khong_lo_db.py`, FT `nha-thuoc-phan-lo-boundary.test.mts`.
+
+- **Hoàn tác giao / hoàn tác lần thu thuốc (31/10)** — `S/hoan_tac_giao_service.py`: sổ kho dòng `DISPENSE_REVERSAL` (đảo đúng
+  một lần giao, phần khách đã trả không đảo; ép ở trigger `inventory_txn_ban_hop_le`, `uq_inventory_txn_dao_giao_mot_lan`).
+  Nút ở từng lần giao `D/pharmacy/DongThuoc.tsx` (`xuat[].thao_tac.hoan_tac_giao`, `cho_gan[]`) và `ChoGanLo.tsx` →
+  `PharmacyService.hoan_tac_giao` / `huy_dong_cho_gan_lo`: tiền giữ, giao lại được. Hoàn tác lần thu: `void_payment` gọi
+  `dao_giao_khi_huy_phieu` — mọi thuốc đã giao về quầy, dòng về chưa giao, mở lại dòng đã chốt; câu xác nhận
+  `D/thu-ngan/NutHoanTac.tsx` đọc `GET /payments/hoan-tac/xem-truoc` (phải trả = đã thu − đã hoàn). Sự kiện
+  `medicine.dispense_undone` (hành trình, sổ nợ). Phiếu đã hoàn tác không hoàn tiền thêm (`payment_refund_guard`).
+
+- **Quyền Sửa giá thuốc (31/10)** — quyền `price.medicine.manage`, khối `gia_thuoc` (mặc định Quản lý, cấp thêm ở `/phan-quyen`). Chốt ở
+  `S/don_vi_thuoc.py` `doi_quyen_sua_gia`, gọi khi giá THẬT SỰ đổi: `PharmacyService.luu_thuoc`, `luu_cac_don_vi` (giá gợi ý hệ số × giá gốc không tính),
+  `PriceListService.add` / `update` nhóm thuốc. Vết: sự kiện `pharmacy.price_changed`. Ô giá khoá: `D/pharmacy/inventory/DanhMucKho.tsx`, `SuaDonViBan.tsx`.
+  Test: `T/services/test_quyen_gia_thuoc_db.py`; các test khác bỏ qua chốt này qua fixture `_cho_qua_chot_gia_thuoc` trong `T/conftest.py`.
+
+- **Giao nhầm hàng vật tư ở quầy thuốc (31/10)** — `PharmacyService.hoan_tac_giao_vat_tu`, nút ở `D/pharmacy/DongThuoc.tsx`: dòng về chưa giao, tiền và
+  số Kho vật tư giữ nguyên. Kiểm ca / kiểm kho: có lần kiểm sau trên lô thì hoàn tác hay sửa số cũ bị chặn (`kiem_ke_ca_service.lo_co_kiem_sau`).
+  Hàm SQL `he_so_don_vi` (mig `20261101400000`) phải giữ cùng luật `BangDonVi._khop`. Test: `T/services/test_soat_kho_3110_db.py`, `test_soat_kho_3110_b_db.py`.
 
 - **Bác sĩ quên số lượng thuốc → quầy thu thuốc điền (C14, 01/10)** — màn `/thu-ngan/thuoc`,
   khối `D/thu-ngan/ChinhDonQuay.tsx` (dòng tô nổi + ô Số lượng) → `S/quay_thuoc_service.py`

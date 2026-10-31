@@ -45,6 +45,7 @@ from clinicai.events.catalogue import ThuocQuayDaChinh
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.don_vi_thuoc import BangDonVi, chuan, doc_bang
 from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.pharmacy_service import PharmacyService
 
@@ -107,9 +108,20 @@ class QuayThuocService:
                 visit_id,
             )
             da_thu = await PharmacyService._da_thu_tien_thuoc(conn, identity, visit_id)
+            bang = await doc_bang(
+                conn, identity.clinic_id, [r["drug_catalog_id"] for r in rows]
+            )
         dong = []
         for r in rows:
             mua = r["purchased_qty"]
+            b = bang.get(r["drug_catalog_id"] or "", BangDonVi())
+            theo_dv = b.gia_dong(r["unit"])
+            # Cùng luật giá với hoá đơn (`bill_service.hoa_don_thuoc_lo`).
+            gia = (
+                theo_dv.gia
+                if theo_dv.gia is not None
+                else (None if theo_dv.he_so is not None else r["gia"])
+            )
             dong.append(
                 {
                     "id": r["id"],
@@ -128,7 +140,12 @@ class QuayThuocService:
                     "mua": r["refusal_reason"] is None and (mua is None or mua > 0),
                     "da_chot": bool(r["da_chot"]),
                     "da_giao": _chuoi_so(r["dispensed_qty"] or Decimal(0)),
-                    "gia": int(r["gia"]) if r["gia"] is not None else None,
+                    "gia": int(gia) if gia is not None else None,
+                    # Đơn vị chọn được của thuốc (gốc trước) + vì sao đơn vị đang
+                    # chọn chưa ổn. Máy chủ quyết, màn chỉ vẽ.
+                    "don_vi_chon": b.lua_chon(),
+                    "van_de_don_vi": theo_dv.van_de or theo_dv.canh_bao,
+                    "chua_khai_don_vi": bool(r["drug_catalog_id"]) and not b.co_goc,
                     # Bác sĩ để trống số lượng → quầy PHẢI điền mới thu được.
                     "thieu_so_luong": r["quantity_num"] is None,
                     "so_luong_do_thu_ngan": r["so_luong_dien_luc"] is not None,
@@ -311,14 +328,18 @@ class QuayThuocService:
                 don_vi = (don["unit"] or "").strip()
                 chu = f"{_chuoi_so(so)} {don_vi}".strip()
                 await conn.execute(
+                    # Dấu `so_luong_dien_*` đi cổng "quầy đặt số": dòng từng thu rồi
+                    # hoàn tác vẫn sửa được, trigger không còn chặn thành lỗi 500.
                     "UPDATE prescription SET quantity = $3,"
                     " quantity_num = public.so_luong_tu_van_ban($3),"
                     " unit = public.don_vi_tu_van_ban($3),"
+                    " so_luong_dien_boi = $4::uuid, so_luong_dien_luc = now(),"
                     " purchased_qty = NULL, updated_at = now()"
                     " WHERE id = $1::uuid AND clinic_id = $2::uuid",
                     prescription_id,
                     identity.clinic_id,
                     chu,
+                    identity.staff_id,
                 )
             await self._ghi_su_kien(
                 conn,
@@ -336,6 +357,90 @@ class QuayThuocService:
             "prescription_id": prescription_id,
             "so_luong": _chuoi_so(so),
         }
+
+    async def doi_don_vi(
+        self, *, prescription_id: str, don_vi: Any, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Đổi đơn vị bán của dòng trước khi thu; tiền đổi theo giá đơn vị đó (hoá đơn
+        tính lại, `revision` đổi nên lần thu đang mở màn cũ bị từ chối).
+
+        Đổi lên đơn vị lớn mà chia hết thì giữ đúng lượng thuốc: 30 gói → 1 hộp, không
+        thành 30 hộp. Còn lại giữ nguyên SỐ: 1 gói → 1 hộp, số gõ lại ở ô Số lượng —
+        tự làm tròn là đoán ý khách. Gõ tay đơn vị chưa khai vẫn được (chữ giữ nguyên,
+        tính giá gốc, quầy thấy cảnh báo). Đơn vị đã tắt bán thì không chọn mới được."""
+        chu = _chu(don_vi, 50)
+        if not chu:
+            raise ValidationError("Chọn đơn vị bán.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            don = await self._khoa_dong(conn, identity, prescription_id)
+            thuoc = don["drug_catalog_id"]
+            if not thuoc:
+                raise ValidationError("Xác định thuốc kho trước khi đổi đơn vị.")
+            if don["refusal_reason"] is not None:
+                raise ConflictError(
+                    "Dòng này đã ghi 'khách không lấy' — không đổi được."
+                )
+            if Decimal(str(don["dispensed_qty"] or 0)) > 0:
+                raise ConflictError("Dòng đã giao thuốc — không đổi đơn vị được.")
+            if await PharmacyService._da_phan_lo(conn, identity, prescription_id):
+                raise ConflictError("Dòng đã chọn lô — nhờ kho bỏ lô rồi đổi đơn vị.")
+            so = don["quantity_num"]
+            if so is None:
+                raise ValidationError(
+                    "Nhập số lượng của dòng trước, rồi mới đổi đơn vị."
+                )
+            b = (await doc_bang(conn, identity.clinic_id, [str(thuoc)])).get(
+                str(thuoc), BangDonVi()
+            )
+            moi = b.nhan_ra(chu) or chu
+            if chuan(moi) == chuan(don["unit"]):
+                return {"ok": True, "prescription_id": prescription_id, "don_vi": moi}
+            d = b.dong.get(chuan(moi))
+            if d is not None and not d.dang_ban:
+                raise ValidationError(
+                    f"Đơn vị “{moi}” đã tắt bán — bật lại ở Danh mục kho hoặc chọn "
+                    "đơn vị khác."
+                )
+            so_cu = Decimal(str(so))
+            cu = (don["unit"] or "").strip()
+            so_dec = so_cu
+            hs_cu, hs_moi = b.he_so(cu), b.he_so(moi)
+            if hs_cu and hs_moi and hs_moi > hs_cu:
+                chia = so_cu * hs_cu / hs_moi
+                if chia == chia.to_integral_value():
+                    so_dec = chia
+            if don["nguon"] == BAC_SI:
+                await self._dien_so_luong(
+                    conn, identity, prescription_id, {**don, "unit": moi}, so_dec
+                )
+            else:
+                chu_sl = f"{_chuoi_so(so_dec)} {moi}"
+                await conn.execute(
+                    "UPDATE prescription SET quantity = $3, unit = $4,"
+                    " quantity_num = $5,"
+                    " so_luong_dien_boi = $6::uuid, so_luong_dien_luc = now(),"
+                    " purchased_qty = CASE WHEN purchased_qty = 0 THEN 0 ELSE NULL END,"
+                    " updated_at = now()"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    prescription_id,
+                    identity.clinic_id,
+                    chu_sl,
+                    moi,
+                    so_dec,
+                    identity.staff_id,
+                )
+            await self._ghi_su_kien(
+                conn,
+                identity,
+                visit_id=str(don["visit_id"]),
+                prescription_id=prescription_id,
+                hanh_dong="DOI_DON_VI",
+                nguon=don["nguon"],
+                so_luong=f"{_chuoi_so(so_dec)} {moi}",
+                so_luong_cu=f"{_chuoi_so(so_cu)} {cu}".strip(),
+                ten_thuoc=don["drug_name_raw"],
+            )
+        return {"ok": True, "prescription_id": prescription_id, "don_vi": moi}
 
     async def _dien_so_luong(
         self,

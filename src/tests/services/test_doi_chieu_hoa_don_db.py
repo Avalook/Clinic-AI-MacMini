@@ -97,13 +97,18 @@ async def doc_so(pool: asyncpg.Pool, clinic: str, tu: datetime, den: datetime) -
         return isinstance(t, datetime) and tu <= t < den
 
     thu = sum(int(b["amount"]) for b in bills if trong(b["paid_at"]))
+    hoan_xong = [r for r in refunds if r["status"] == "COMPLETED"]
+    hoan = sum(int(r["amount"]) for r in hoan_xong if trong(r["completed_at"]))
+    # Huỷ phiếu đã hoàn một phần chỉ trả lại phần còn trong két (đã hoàn nằm ở `hoan`).
     huy = sum(
-        int(b["amount"])
+        max(
+            int(b["amount"])
+            - sum(int(r["amount"]) for r in hoan_xong if r["cycle_id"] == b["id"]),
+            0,
+        )
         for b in bills
         if b["status"] == "VOIDED" and trong(b["closed_at"])
     )
-    hoan_xong = [r for r in refunds if r["status"] == "COMPLETED"]
-    hoan = sum(int(r["amount"]) for r in hoan_xong if trong(r["completed_at"]))
 
     co_dong = {x["refund_id"] for x in rlines}
     hoan_dong: dict[str, int] = {}  # dòng hàng → tiền đã hoàn xong

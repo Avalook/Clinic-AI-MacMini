@@ -58,11 +58,23 @@ export interface PhanLo {
 export interface LanGiao {
   dispense_txn_id: string;
   batch_code: string;
+  /** Đơn vị của lô: bán 1 hộp thì lần giao ghi 30 gói. */
+  don_vi?: string | null;
   so_luong: number;
   luc: string;
   da_tra: number;
   con_tra: number;
-  thao_tac: { tra: boolean };
+  thao_tac: { tra: boolean; hoan_tac_giao: boolean };
+}
+
+/** Lần giao chưa gán lô (chưa trừ kho) của dòng đơn. */
+export interface LanChoGan {
+  dong_id: string;
+  so_luong: number;
+  /** Máy chủ viết sẵn: "1 gói", không phải "0,033 hộp". */
+  hien: string;
+  luc: string;
+  thao_tac: { hoan_tac_giao: boolean };
 }
 
 export interface DongDon {
@@ -79,15 +91,25 @@ export interface DongDon {
   dosage_instructions: string | null;
   drug_catalog_id: string | null;
   ten_thuoc_kho: string | null;
+  /** Hàng trùng mã vật tư: tồn ở Kho vật tư, không có lô thuốc. */
+  la_vat_tu?: boolean;
+  hoan_tac_giao_vat_tu?: boolean;
   can_lo: number;
   da_chon: number;
   phan_lo: PhanLo[];
   lo_goi_y: LoGoiY[];
   /** Lô bị loại khỏi gợi ý + lý do (khác đơn vị / khác cơ sở) — chỉ để giải thích. */
   lo_bi_loai?: LoBiLoai[];
+  /** "1 hộp = 30 gói" — dòng bán khác đơn vị gốc; máy chủ soạn sẵn. */
+  quy_doi?: string | null;
+  /** Đã giao đọc theo đơn vị gốc: "15 gói". */
+  da_giao_goc?: string | null;
+  /** Đơn vị gõ được ở ô Giao: đơn vị đã bán, đơn vị gốc. */
+  don_vi_giao?: string[];
   /** Lô thuốc này còn ở kho (tách kho / quầy) — để hiện "chuyển sang quầy?". */
   kho_con?: LoKhoCon[];
   xuat: LanGiao[];
+  cho_gan: LanChoGan[];
   /** Đã bán mà chưa giao (mọi lần thu). */
   chua_giao: number;
   /** Phần chưa giao còn thiếu căn cứ (chưa huỷ phiếu, chưa hoàn xong đủ). */

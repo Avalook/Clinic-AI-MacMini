@@ -13,7 +13,10 @@ của phiếu KIEM / DIEU_CHINH), không phải tồn trên sổ:
 * lần đếm đã bị phiếu đảo thì không còn là mốc;
 * giá = ``gia_nhap`` bản chụp trên dòng sổ gần nhất tới lần đếm cuối: đổi giá
   danh mục sau đó không làm đổi lịch sử;
-* huỷ hỏng nằm TRONG tiêu hao, hiện thêm "trong đó huỷ".
+* huỷ hỏng nằm TRONG tiêu hao, hiện thêm "trong đó huỷ";
+* bán cho khách (phiếu BAN, 31/10/2026) cũng nằm TRONG tiêu hao. Công thức hai lần
+  đếm giữ nguyên, chỉ TÁCH RA: hao hụt theo số đếm = đã bán + dùng (không bán) +
+  huỷ. Không ai ghi sổ "đã dùng" nên số ấy là PHẦN CÒN LẠI; âm = đếm dư so với sổ.
 
 Phiếu đảo lấy loại và chiều của dòng gốc (qua ``dao_txn_id``) nên nhận / trả / huỷ
 là số RÒNG sau hoàn tác. Chỉ tính các phòng; kho cơ sở không có "tiêu hao".
@@ -84,6 +87,7 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
         AND c.giao_dich > d.giao_dich) AS du_moc,
        coalesce(f.nhan, 0) AS nhan, coalesce(f.tra, 0) AS tra,
        coalesce(f.huy, 0) AS huy, coalesce(f.tra_ncc, 0) AS tra_ncc,
+       coalesce(f.da_ban, 0) AS da_ban,
        coalesce(cp.cap_trong_ky, 0) AS cap_trong_ky,
        dm.thuc_te AS thuc_te_gan_nhat, dm.tao_luc AS thuc_te_gan_nhat_luc,
        coalesce((SELECT g.gia_nhap FROM dong g
@@ -114,15 +118,18 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
       SELECT sum(f.so_luong)
                  FILTER (WHERE f.so_goc > 0 AND f.loai_goc <> 'HUY') AS nhan,
              -sum(f.so_luong)
-                 FILTER (WHERE f.so_goc < 0 AND f.loai_goc <> 'HUY') AS tra,
+                 FILTER (WHERE f.so_goc < 0 AND f.loai_goc NOT IN ('HUY', 'BAN'))
+                 AS tra,
              -sum(f.so_luong) FILTER (WHERE f.loai_goc = 'HUY') AS huy,
-             -sum(f.so_luong) FILTER (WHERE f.loai_goc = 'TRA_NCC') AS tra_ncc
+             -sum(f.so_luong) FILTER (WHERE f.loai_goc = 'TRA_NCC') AS tra_ncc,
+             -sum(f.so_luong) FILTER (WHERE f.loai_goc = 'BAN') AS da_ban
         FROM dong f
        WHERE f.ton_id = t.id
          AND d.giao_dich IS NOT NULL AND c.giao_dich IS NOT NULL
          AND f.giao_dich > d.giao_dich AND f.giao_dich <= c.giao_dich
          AND f.loai_goc IN (
-             'NHAP', 'XUAT_PHONG', 'TRA_KHO', 'CHUYEN_PHONG', 'HUY', 'TRA_NCC'
+             'NHAP', 'XUAT_PHONG', 'TRA_KHO', 'CHUYEN_PHONG', 'HUY', 'TRA_NCC',
+             'BAN'
          )
   ) f ON true
  WHERE t.clinic_id = $1::uuid AND t.location_id = $2::uuid AND t.room_id IS NOT NULL
@@ -189,6 +196,12 @@ async def tinh_theo_moc(
                 "tieu_hao": kq["so_luong"] if kq else None,
                 "da_dung": kq["so_luong"] - Decimal(r["huy"]) if kq else None,
                 "trong_do_huy": r["huy"] if kq else None,
+                "da_ban": r["da_ban"] if kq else None,
+                "dung_khong_ban": (
+                    kq["so_luong"] - Decimal(r["huy"]) - Decimal(r["da_ban"])
+                    if kq
+                    else None
+                ),
                 "tra_nha_san_xuat": r["tra_ncc"] if kq else None,
                 "cap_trong_ky": Decimal(r["cap_trong_ky"]),
                 "thuc_te_gan_nhat": r["thuc_te_gan_nhat"],

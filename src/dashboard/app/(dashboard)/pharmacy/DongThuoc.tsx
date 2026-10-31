@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import { cauKhoCoLoKhacDonVi } from "@/lib/lo-bi-loai";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { INPUT } from "../form-ui";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import KhoConChuyenQuay from "./KhoConChuyenQuay";
@@ -34,6 +35,9 @@ interface Props {
   chiXem?: boolean;
   /** Lô chọn sẵn do quét hộp / tem (G3b) — chỉ ĐIỀN SẴN ô chọn, dược sĩ bấm Chọn lô. */
   loQuet?: string | null;
+  /** Câu báo của lần giao vừa rồi — thẻ dựng lại sau khi giao nên cha giữ hộ. */
+  tinDau?: string | null;
+  onTin?: (tin: string | null) => void;
 }
 
 const O_NHAP = `${INPUT} mt-1`;
@@ -44,11 +48,18 @@ export const CHAM = "max-sm:h-10 max-sm:px-4";
 function nhanLo(b: LoGoiY): string {
   return (
     `${b.batch_code} · HSD ${fmtNgay(b.expiry_date)} · ` +
-    `Tồn vật lý ${fmtSo(b.ton_vat_ly)} · Có thể phân lô lúc này ${fmtSo(b.co_the_phan_lo)} ${b.unit}`
+    `Trên kệ ${fmtSo(b.ton_vat_ly)} · Còn bán được ${fmtSo(b.co_the_phan_lo)} ${b.unit}`
   );
 }
 
-export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null }: Props) {
+export default function DongThuoc({
+  dong,
+  danhMuc,
+  chiXem = false,
+  loQuet = null,
+  tinDau = null,
+  onTin,
+}: Props) {
   const router = useRouter();
   const tt = dong.thao_tac;
   const [thuocId, setThuocId] = useState(dong.drug_catalog_id ?? "");
@@ -78,8 +89,12 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
   // Giao không lô: mặc định phần bán chưa giao (máy chủ vẫn chặn quá số bán).
   const conGiao = Math.max((dong.purchased_qty ?? dong.quantity_num ?? 0) - dong.dispensed_qty, 0);
   const [soKhongLo, setSoKhongLo] = useState(conGiao > 0 ? String(conGiao) : "");
+  // Khách mua 1 hộp, giao trước 15 gói: gõ theo đơn vị nào, máy chủ đổi.
+  const [donViGiao, setDonViGiao] = useState(dong.unit ?? "");
   const [lyDo, setLyDo] = useState("");
   const [soTra, setSoTra] = useState<Record<string, string>>({});
+  // Lần giao đang hỏi "Hoàn tác giao?" (xác nhận tại chỗ).
+  const [hoiHoanTac, setHoiHoanTac] = useState<string | null>(null);
   // Tiền phần khách trả (G4d · R3, Tuyền chốt E): BẮT chọn — máy chủ quyết số tiền.
   const [ketCuc, setKetCuc] = useState<Record<string, string>>({});
   const [hinhThucHoan, setHinhThucHoan] = useState<Record<string, string>>({});
@@ -87,7 +102,11 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   // Câu máy chủ nói sau khi giao không chỉ định lô: lô nào đã trừ, phần nào chờ gán lô.
-  const [tin, setTin] = useState<string | null>(null);
+  const [tin, datTin] = useState<string | null>(tinDau);
+  const setTin = (cau: string | null) => {
+    datTin(cau);
+    onTin?.(cau);
+  };
 
   async function goi(action: string, body: Record<string, unknown>) {
     setDangGui(true);
@@ -129,7 +148,8 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
 
   const khongCoNutNao =
     !Object.values(tt).some(Boolean) &&
-    !dong.xuat.some((x) => x.thao_tac.tra) &&
+    !dong.xuat.some((x) => x.thao_tac.tra || x.thao_tac.hoan_tac_giao) &&
+    !dong.cho_gan.some((x) => x.thao_tac.hoan_tac_giao) &&
     !dong.phan_lo.some((p) => p.thao_tac.bo || p.thao_tac.doi || p.thao_tac.giao);
 
   return (
@@ -145,7 +165,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
         </div>
         <span className="text-meta text-ink-soft">
           {NHAN_CAP[dong.dispense_status ?? ""] ?? dong.dispense_status}
-          {dong.dispensed_qty > 0 && ` · đã giao ${fmtSo(dong.dispensed_qty)}`}
+          {dong.dispensed_qty > 0 &&
+            ` · đã giao ${fmtSo(dong.dispensed_qty)} ${dong.unit ?? ""}`}
+          {dong.da_giao_goc ? ` (${dong.da_giao_goc})` : ""}
         </span>
       </div>
 
@@ -222,6 +244,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
           ) : (
             <div className="text-body text-ink">
               {fmtSo(dong.purchased_qty ?? dong.quantity_num)} {dong.unit ?? ""}
+              {dong.quy_doi ? (
+                <span className="ml-2 text-meta text-ink-muted">{dong.quy_doi}</span>
+              ) : null}
               {/* C14: bác sĩ quên số lượng — thu ngân thuốc điền ở quầy, không chờ bác sĩ. */}
               {dong.quantity_num === null ? (
                 <span className="ml-2 text-meta text-warning">
@@ -362,7 +387,12 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
       {/* ── Chọn lô ── */}
       {tt.chon_lo ? (
         dong.lo_goi_y.length === 0 ? (
-          cauKhoKhacDonVi ? (
+          dong.quy_doi ? (
+            <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-muted">
+              Dòng này bán theo {dong.unit} ({dong.quy_doi}) — không cần chọn lô: thu tiền rồi bấm
+              Giao, máy tự đổi và trừ kho.
+            </p>
+          ) : cauKhoKhacDonVi ? (
             <p role="status" className="rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
               {cauKhoKhacDonVi}
             </p>
@@ -413,8 +443,8 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
       ) : null}
       {tt.chon_lo || dong.phan_lo.some((p) => p.thao_tac.doi) ? (
         <p className="text-meta text-ink-faint">
-          “Có thể phân lô lúc này” là số hệ thống dùng để chống bán trùng: tồn vật lý trừ phần
-          đang giữ cho lần chuyển khoản và phần đã bán chưa giao.
+          “Còn bán được” = số trên kệ trừ phần đang giữ cho chuyển khoản chờ xác nhận và phần
+          đã bán chưa giao.
         </p>
       ) : null}
 
@@ -433,6 +463,23 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
               className={O_NHAP}
             />
           </label>
+          {(dong.don_vi_giao ?? []).length > 1 ? (
+            <label className={`${NHAN} w-28`}>
+              Đơn vị
+              <OChon
+                value={donViGiao}
+                onChange={(e) => setDonViGiao(e.target.value)}
+                aria-label="Đơn vị giao"
+                className="mt-1 w-full"
+              >
+                {dong.don_vi_giao?.map((dv) => (
+                  <option key={dv} value={dv}>
+                    {dv}
+                  </option>
+                ))}
+              </OChon>
+            </label>
+          ) : null}
           <Button
             className={CHAM}
             variant="primary"
@@ -441,17 +488,49 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
               goi("dispense", {
                 prescription_id: dong.id,
                 so_luong: Number(soKhongLo),
+                ...(donViGiao && donViGiao !== dong.unit ? { don_vi: donViGiao } : {}),
                 ...(loGiaoQuet ? { drug_batch_id: loGiaoQuet.drug_batch_id } : {}),
               })
             }
           >
-            Giao thuốc
+            {dong.la_vat_tu ? "Giao cho khách" : "Giao thuốc"}
           </Button>
           <span className="text-meta text-ink-muted">
-            {loGiaoQuet
-              ? `Giao từ lô ${loGiaoQuet.batch_code} (đã quét) — kho trừ ngay.`
-              : "Máy tự chọn lô hết hạn sớm nhất và trừ kho ngay."}
+            {dong.la_vat_tu
+              ? "Hàng này tính ở Kho vật tư — không cần chọn lô."
+              : loGiaoQuet
+                ? `Giao từ lô ${loGiaoQuet.batch_code} (đã quét) — kho trừ ngay.`
+                : "Máy tự chọn lô hết hạn sớm nhất và trừ kho ngay."}
           </span>
+        </div>
+      ) : null}
+      {dong.la_vat_tu && Number(dong.dispensed_qty) > 0 ? (
+        <div className="text-meta text-ink-muted">
+          {dong.hoan_tac_giao_vat_tu ? (
+            hoiHoanTac === dong.id ? (
+              <XacNhanTaiCho
+                cau="Hoàn tác giao? Dòng về chưa giao, tiền và số ở Kho vật tư giữ nguyên."
+                nhanDongY="Hoàn tác giao"
+                dangGui={dangGui}
+                onDongY={() => {
+                  setHoiHoanTac(null);
+                  void goi("hoan-tac-giao-vat-tu", { prescription_id: dong.id });
+                }}
+                onThoi={() => setHoiHoanTac(null)}
+              />
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className={`${CHAM} mr-2`}
+                disabled={dangGui}
+                onClick={() => setHoiHoanTac(dong.id)}
+              >
+                Hoàn tác giao
+              </Button>
+            )
+          ) : null}
+          Khách trả hàng này: vào Giao dịch của quầy, Hoàn tiền rồi tick “Khách trả lại hàng”.
         </div>
       ) : null}
 
@@ -495,20 +574,51 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
       ) : null}
 
       {/* ── CP5: đã giao → khách trả thuốc (thuốc chưa quyết xử lý; tiền bắt chọn — R3) ── */}
-      {dong.xuat.length > 0 ? (
+      {dong.xuat.length > 0 || dong.cho_gan.length > 0 ? (
         <div>
           <span className={NHAN}>Đã giao</span>
           <ul className="mt-1 divide-y divide-line rounded-control border border-line">
+            {dong.cho_gan.map((x) => (
+              <li key={x.dong_id} className="flex flex-wrap items-end gap-2 px-3 py-2">
+                <span className="min-w-0 flex-1 text-body text-ink">
+                  Giao {x.hien} · chưa trừ kho, chờ gán lô
+                </span>
+                {x.thao_tac.hoan_tac_giao ? (
+                  hoiHoanTac === x.dong_id ? (
+                    <XacNhanTaiCho
+                      cau="Hoàn tác lần giao này? Tiền giữ nguyên, giao lại được."
+                      nhanDongY="Hoàn tác giao"
+                      dangGui={dangGui}
+                      onDongY={() => {
+                        setHoiHoanTac(null);
+                        void goi("huy-cho-gan-lo", { dong_id: x.dong_id });
+                      }}
+                      onThoi={() => setHoiHoanTac(null)}
+                    />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={CHAM}
+                      disabled={dangGui}
+                      onClick={() => setHoiHoanTac(x.dong_id)}
+                    >
+                      Hoàn tác giao
+                    </Button>
+                  )
+                ) : null}
+              </li>
+            ))}
             {dong.xuat.map((x) => (
               <li key={x.dispense_txn_id} className="flex flex-wrap items-end gap-2 px-3 py-2">
                 <span className="min-w-0 flex-1 text-body text-ink">
-                  Lô {x.batch_code} · giao {fmtSo(x.so_luong)}
+                  Lô {x.batch_code} · giao {fmtSo(x.so_luong)} {x.don_vi ?? ""}
                   {x.da_tra > 0 ? ` · khách đã trả ${fmtSo(x.da_tra)}` : ""}
                 </span>
                 {x.thao_tac.tra ? (
                   <>
                     <label className={`${NHAN} w-24`}>
-                      Khách trả
+                      Khách trả{x.don_vi ? ` (${x.don_vi})` : ""}
                       <input
                         type="number"
                         min="0"
@@ -590,6 +700,30 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
                     </Button>
                   </>
                 ) : null}
+                {x.thao_tac.hoan_tac_giao ? (
+                  hoiHoanTac === x.dispense_txn_id ? (
+                    <XacNhanTaiCho
+                      cau={`Hoàn tác lần giao này? ${fmtSo(x.con_tra)} về lại quầy, tiền giữ nguyên, giao lại được.`}
+                      nhanDongY="Hoàn tác giao"
+                      dangGui={dangGui}
+                      onDongY={() => {
+                        setHoiHoanTac(null);
+                        void goi("hoan-tac-giao", { dispense_txn_id: x.dispense_txn_id });
+                      }}
+                      onThoi={() => setHoiHoanTac(null)}
+                    />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={CHAM}
+                      disabled={dangGui}
+                      onClick={() => setHoiHoanTac(x.dispense_txn_id)}
+                    >
+                      Hoàn tác giao
+                    </Button>
+                  )
+                ) : null}
               </li>
             ))}
           </ul>
@@ -669,7 +803,8 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
         <p className="text-meta text-ink-faint">Chưa có thao tác nào ở giai đoạn này.</p>
       ) : null}
 
-      {tin ? <p className="text-meta text-ink-muted">{tin}</p> : null}
+      {/* Đã hoàn tác hết phần giao thì câu báo lần giao cũ không còn đúng. */}
+      {tin && dong.dispensed_qty > 0 ? <p role="status" className="text-body text-ink">{tin}</p> : null}
 
       {loi ? (
         <p className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">

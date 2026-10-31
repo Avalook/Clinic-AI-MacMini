@@ -22,6 +22,7 @@ from clinicai.api.idempotency import (
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services import vat_tu_ban_service as ban
 from clinicai.services import vat_tu_kho_man_service as man
 from clinicai.services import vat_tu_kho_service as kho
 from clinicai.services import vat_tu_tieu_hao_service as tieu_hao
@@ -61,16 +62,175 @@ async def canh_bao(
 async def danh_sach_phieu(
     gioi_han: str | None = None,
     bo_qua: str | None = None,
+    vat_tu_id: str | None = None,
     identity: StaffIdentity = Depends(_QL),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     kq: dict[str, Any] = jsonable_encoder(
         {
             "items": await man.doc_phieu(
-                pool, identity=identity, gioi_han=gioi_han, bo_qua=bo_qua
+                pool,
+                identity=identity,
+                gioi_han=gioi_han,
+                bo_qua=bo_qua,
+                vat_tu_id=vat_tu_id,
             )
         }
     )
+    return kq
+
+
+@router.get("/vat-tu-kho/ban")
+async def ban_cho_khach(
+    tu: str | None = None,
+    den: str | None = None,
+    noi: str | None = None,
+    trang_thai: str | None = None,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh sách đối soát vật tư bán cho khách."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await ban.doc_ban(
+            pool, identity=identity, tu=tu, den=den, noi=noi, trang_thai=trang_thai
+        )
+    )
+    return kq
+
+
+@router.get("/vat-tu-kho/ban/tim-khach")
+async def ban_tim_khach(
+    q: str | None = None,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tìm khách để nhập bù."""
+    return await ban.tim_khach(pool, identity=identity, q=q)
+
+
+class GanNoiRequest(BaseModel):
+    # Rỗng = Kho cơ sở.
+    room_id: UUID | None = None
+    ly_do: Any = None
+
+
+@router.post("/vat-tu-kho/ban/{ban_id}/gan-phong")
+async def ban_gan_phong(
+    ban_id: UUID,
+    body: GanNoiRequest,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Gán / đổi nơi lấy: trừ ngay ở nơi đó. Đổi = đảo chỗ cũ + trừ chỗ mới."""
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        kq: dict[str, Any] = await ban.gan_noi_lay(
+            pool,
+            identity=identity,
+            ban_id=str(ban_id),
+            room_id=str(body.room_id) if body.room_id else None,
+            ly_do=body.ly_do,
+        )
+        await idem.save(pool, kq, status_code=200)
+    return kq
+
+
+class NhanLaiRequest(BaseModel):
+    # Any: số rác phải tới service để trả 422 có lời.
+    so_luong: Any = None
+    ly_do: Any = None
+
+
+@router.post("/vat-tu-kho/ban/{ban_id}/nhan-lai")
+async def ban_nhan_lai(
+    ban_id: UUID,
+    body: NhanLaiRequest,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Nhận lại hàng khách trả: số về đúng nơi đã lấy."""
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        kq: dict[str, Any] = await ban.nhan_lai_hang(
+            pool,
+            identity=identity,
+            ban_id=str(ban_id),
+            so_luong=body.so_luong,
+            ly_do=body.ly_do,
+        )
+        await idem.save(pool, kq, status_code=200)
+    return kq
+
+
+class LyDoRequest(BaseModel):
+    ly_do: Any = None
+
+
+@router.post("/vat-tu-kho/ban/{ban_id}/khong-nhan-lai")
+async def ban_khong_nhan_lai(
+    ban_id: UUID,
+    body: LyDoRequest,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đã hoàn tiền nhưng hàng không về: đóng phần chờ xử lý, tồn giữ nguyên."""
+    return await ban.khong_nhan_lai(
+        pool, identity=identity, ban_id=str(ban_id), ly_do=body.ly_do
+    )
+
+
+@router.post("/vat-tu-kho/ban/{ban_id}/hoan-tac")
+async def ban_hoan_tac(
+    ban_id: UUID,
+    body: LyDoRequest,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác dòng nhập bù. Gửi lại thì không đảo lần hai."""
+    return await ban.hoan_tac_nhap_bu(
+        pool, identity=identity, ban_id=str(ban_id), ly_do=body.ly_do
+    )
+
+
+class NhapBuRequest(BaseModel):
+    clinic_patient_id: UUID
+    vat_tu_id: UUID
+    # Rỗng = Kho cơ sở.
+    room_id: UUID | None = None
+    so_luong: Any = None
+    ly_do: Any = None
+
+
+@router.post("/vat-tu-kho/ban/nhap-bu", status_code=201)
+async def ban_nhap_bu(
+    body: NhapBuRequest,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Nhập bù dòng quầy quên ghi: chỉ trừ kho, không phát sinh tiền."""
+    khoa = idem.key
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        kq: dict[str, Any] = await ban.nhap_bu(
+            pool,
+            identity=identity,
+            khoa_gui=khoa,
+            clinic_patient_id=str(body.clinic_patient_id),
+            vat_tu_id=str(body.vat_tu_id),
+            so_luong=body.so_luong,
+            room_id=str(body.room_id) if body.room_id else None,
+            ly_do=body.ly_do,
+        )
+        await idem.save(pool, kq, status_code=201)
     return kq
 
 

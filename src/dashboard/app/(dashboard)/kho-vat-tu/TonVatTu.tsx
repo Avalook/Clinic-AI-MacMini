@@ -433,7 +433,7 @@ export default function TonVatTu({
             {thaoTacMo ? <LapPhieuVatTu
               key={`${vatTuDangMo.id}-${thaoTacMo}-${phongId}`}
               noiChua={noiChua}
-              vatTu={[{ id: vatTuDangMo.vat_tu_id, name: vatTuDangMo.ten }]}
+              vatTu={[{ id: vatTuDangMo.vat_tu_id, name: vatTuDangMo.ten, unit: vatTuDangMo.don_vi }]}
               ton={ton}
               loaiBanDau={thaoTacMo}
               initialRoomId={phamVi === "phong" ? phongId || null : null}

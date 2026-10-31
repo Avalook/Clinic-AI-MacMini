@@ -11,13 +11,14 @@ import XuatBangTrongVung from "@/components/ui/XuatBangTrongVung";
 import type { DongVatTu } from "../cashier/VatTuBangGia";
 import { useNgheBang } from "../dung-nghe-bang";
 import { docBaoCaoVatTu, khoangTuanHienTai, type GoiTieuHao } from "./bao-cao-vat-tu";
+import BanChoKhachVatTu from "./BanChoKhachVatTu";
 import ChoDuyetVatTu, { type GoiChoDuyet } from "./ChoDuyetVatTu";
 import DanhMucVatTu from "./DanhMucVatTu";
 import DanhSachPhieuVatTu, { type PhieuVatTu } from "./DanhSachPhieuVatTu";
 import TieuHaoVatTu from "./TieuHaoVatTu";
 import TonVatTu, { type DongTon, type NoiChua } from "./TonVatTu";
 
-type Tab = "ton" | "bao_cao" | "cho_duyet" | "danh_muc";
+type Tab = "ton" | "ban" | "bao_cao" | "cho_duyet" | "danh_muc";
 
 export default function KhoVatTu({
   ton,
@@ -26,6 +27,7 @@ export default function KhoVatTu({
   phieu,
   choDuyet,
   suaGiaDuoc,
+  banCanXuLy,
 }: {
   ton: DongTon[];
   noiChua: NoiChua[];
@@ -35,9 +37,12 @@ export default function KhoVatTu({
   choDuyet: GoiChoDuyet | null;
   /** Có quyền Bảng giá (`price.service.manage`) — chỉ để khoá ô sửa danh mục. */
   suaGiaDuoc: boolean;
+  /** Số dòng bán chờ gán phòng / chờ người kho xử lý — chip trên tab. */
+  banCanXuLy: number;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("ton");
+  const [soCanXuLy, setSoCanXuLy] = useState(banCanXuLy);
   const [mucBaoCao, setMucBaoCao] = useState<"lich_su" | "tieu_hao">("lich_su");
   const [khoang, setKhoang] = useState(khoangTuanHienTai);
   const [baoCao, setBaoCao] = useState<GoiTieuHao | null>(null);
@@ -69,7 +74,7 @@ export default function KhoVatTu({
     setLanLamMoi((n) => n + 1);
     router.refresh();
   }, [router]);
-  useNgheBang(["vat_tu_txn"], taiLaiKho);
+  useNgheBang(["vat_tu_txn", "vat_tu_ban"], taiLaiKho);
 
   function doiTuNgay(tu: string) {
     setBaoCao(null);
@@ -99,6 +104,7 @@ export default function KhoVatTu({
         onChon={setTab}
         muc={[
           { ma: "ton", nhan: "Tồn kho" },
+          { ma: "ban", nhan: "Bán cho khách", dem: soCanXuLy > 0 ? soCanXuLy : undefined },
           { ma: "bao_cao", nhan: "Lịch sử & báo cáo" },
           { ma: "cho_duyet", nhan: "Chờ duyệt", dem: dangCho > 0 ? dangCho : undefined },
           { ma: "danh_muc", nhan: "Danh mục" },
@@ -116,6 +122,8 @@ export default function KhoVatTu({
             dangBaoCao={dangBaoCao}
             loiBaoCao={loiBaoCao}
           />
+        ) : tab === "ban" ? (
+          <BanChoKhachVatTu noiChua={noiChua} vatTu={vatTu} lanLamMoi={lanLamMoi} onDem={setSoCanXuLy} />
         ) : tab === "bao_cao" ? (
           <section className="space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -155,7 +163,7 @@ export default function KhoVatTu({
               ) : null}
             </div>
             {mucBaoCao === "lich_su" ? (
-              <DanhSachPhieuVatTu ds={phieu} />
+              <DanhSachPhieuVatTu ds={phieu} vatTu={vatTu} />
             ) : (
               <TieuHaoVatTu
                 baoCao={baoCao}

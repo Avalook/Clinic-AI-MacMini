@@ -237,6 +237,14 @@ KHOI: dict[str, KhoiCongViec] = {
             "lich_lam_viec", "Lịch làm việc", "roster", "Xem lịch làm việc, ca trực"
         ),
         KhoiCongViec("bang_gia", "Bảng giá dịch vụ", "catalogue", "Sửa giá dịch vụ"),
+        # 31/10/2026 — giá thuốc tách khỏi quyền giao thuốc: nhân viên giao được thuốc
+        # mà không đổi được giá. KHÔNG nằm trong "mở full".
+        KhoiCongViec(
+            "gia_thuoc",
+            "Sửa giá thuốc",
+            "catalogue",
+            "Đổi giá bán thuốc và giá theo từng đơn vị bán — mặc định Quản lý",
+        ),
         # 14/10/2026 — Kho vật tư là màn RIÊNG, không suy từ Kho thuốc: sổ, tồn,
         # mức tối thiểu, báo cáo tiêu hao nằm ở bảng vat_tu_* (migration
         # 20261014181100).
@@ -619,6 +627,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.TIEN,
         ),
         Quyen(
+            "price.medicine.manage",
+            "Sửa giá bán thuốc",
+            "gia_thuoc",
+            "catalogue",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
             "vat_tu.manage",
             "Kho vật tư: phiếu kho, kiểm đếm, mức tối thiểu, báo cáo tiêu hao",
             "kho_vat_tu",
@@ -891,7 +906,15 @@ PRESET_TRUOC_MO_FULL: dict[str, tuple[str, ...]] = {
 
 #: Khối CHỈ Quản lý có (không mở cho mọi người).
 KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
-    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc", "ke_toan", "duyet_vat_tu"}
+    {
+        "quan_tri_quyen",
+        "nhan_su",
+        "cai_dat",
+        "danh_muc",
+        "ke_toan",
+        "duyet_vat_tu",
+        "gia_thuoc",
+    }
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.
@@ -1091,6 +1114,18 @@ MAN: dict[str, Man] = {
             ["/kho-vat-tu"],
             ["kho_vat_tu"],
             "Mọi người (QL chỉnh mức tối thiểu)",
+        ),
+        # Hai quyền con của Kho, không phải màn riêng: có dòng ở đây thì màn Phân quyền
+        # mới bật/tắt được cho từng người.
+        _lego(
+            "duyet_vat_tu", "Duyệt vật tư", ["/kho-vat-tu"], ["duyet_vat_tu"], "Quản lý"
+        ),
+        _lego(
+            "gia_thuoc",
+            "Sửa giá thuốc",
+            ["/pharmacy/inventory"],
+            ["gia_thuoc"],
+            "Quản lý",
         ),
         _lego(
             "bao_cao",

@@ -75,6 +75,38 @@ def nam_sinh(v: Any) -> int | None:
     return n if 1900 <= n <= 2100 else None
 
 
+async def tim_khach_conn(
+    conn: asyncpg.Connection, clinic_id: str, q: Any
+) -> list[dict[str, Any]]:
+    """Câu tìm khách dùng chung (quầy bán lẻ, nhập bù ở Kho vật tư). Người gọi tự
+    kiểm quyền. < 2 ký tự → rỗng."""
+    tu = chuan_tu_khoa(q)
+    if len(tu) < 2:
+        return []
+    rows = await conn.fetch(
+        """
+        SELECT p.clinic_patient_id::text AS clinic_patient_id, p.full_name,
+               p.patient_code, p.phone_primary, p.birth_year, p.gender
+          FROM patient p
+         WHERE p.clinic_id = $1::uuid AND p.is_active
+           AND ((length($3) >= 3
+                 AND (p.phone_primary LIKE '%' || $3 || '%'
+                      OR p.phone_secondary LIKE '%' || $3 || '%'))
+                OR upper(p.patient_code) = upper($2)
+                OR p.full_name_unaccent LIKE '%' || lower(replace(replace(
+                       public.f_unaccent($2), 'đ', 'd'), 'Đ', 'D')) || '%')
+         ORDER BY (upper(p.patient_code) = upper($2)) DESC, p.full_name,
+                  p.clinic_patient_id
+         LIMIT $4
+        """,
+        clinic_id,
+        tu,
+        re.sub(r"\D", "", tu),
+        _TRAN_TIM,
+    )
+    return [dict(r) for r in rows]
+
+
 class BanLeService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -82,34 +114,9 @@ class BanLeService:
     # ── Tìm khách ─────────────────────────────────────────────────────────
     async def tim_khach(self, *, q: Any, identity: StaffIdentity) -> dict[str, Any]:
         """Tìm theo SĐT (chữ số), mã khách, hoặc tên (không dấu). < 2 ký tự → rỗng."""
-        tu = chuan_tu_khoa(q)
-        if len(tu) < 2:
-            return {"items": []}
-        so = re.sub(r"\D", "", tu)
         async with self._pool.acquire() as conn:
             await _doi_quyen_mo(conn, identity)
-            rows = await conn.fetch(
-                """
-                SELECT p.clinic_patient_id::text AS clinic_patient_id, p.full_name,
-                       p.patient_code, p.phone_primary, p.birth_year, p.gender
-                  FROM patient p
-                 WHERE p.clinic_id = $1::uuid AND p.is_active
-                   AND ((length($3) >= 3
-                         AND (p.phone_primary LIKE '%' || $3 || '%'
-                              OR p.phone_secondary LIKE '%' || $3 || '%'))
-                        OR upper(p.patient_code) = upper($2)
-                        OR p.full_name_unaccent LIKE '%' || lower(replace(replace(
-                               public.f_unaccent($2), 'đ', 'd'), 'Đ', 'D')) || '%')
-                 ORDER BY (upper(p.patient_code) = upper($2)) DESC, p.full_name,
-                          p.clinic_patient_id
-                 LIMIT $4
-                """,
-                identity.clinic_id,
-                tu,
-                so,
-                _TRAN_TIM,
-            )
-        return {"items": [dict(r) for r in rows]}
+            return {"items": await tim_khach_conn(conn, identity.clinic_id, q)}
 
     # ── Mở lượt ───────────────────────────────────────────────────────────
     async def mo_luot(

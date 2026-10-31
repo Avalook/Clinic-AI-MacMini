@@ -19,12 +19,15 @@ from clinicai.services import ban_thuoc_service
 from clinicai.services.ban_le_service import BanLeService
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.bao_cao_cuoi_ngay_service import BaoCaoCuoiNgayService
+from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.dispatch_service import DispatchService
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.quay_thuoc_service import QuayThuocService
+from clinicai.services.vat_tu_service import VatTuService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _thuoc, q  # noqa: F401
+from tests.services.test_vat_tu_ban_them_db import _vt
 from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
@@ -252,3 +255,30 @@ async def test_khach_moi_tao_ho_so_va_trung_sdt(q: Quay) -> None:
     tim = await svc.tim_khach(q=sdt[-6:], identity=q.duoc_si)
     assert kq["clinic_patient_id"] in {x["clinic_patient_id"] for x in tim["items"]}
     assert (await svc.tim_khach(q=" a ", identity=q.duoc_si))["items"] == []
+
+
+async def test_luot_ban_le_khong_co_tien_kham_o_hoa_don_dich_vu(q: Quay) -> None:
+    """Khách chỉ mua đầu dò ở quầy dịch vụ: dòng tiền khám trống giá từng chặn thu."""
+    vid = await _mo(q, await _khach(q))
+    async with q.pool.acquire() as conn:
+        hd = await tinh_hoa_don(conn, clinic_id=CLINIC, visit_id=vid, kind="dich_vu")
+    assert not [d for d in hd.dong if "khám" in (d.ten or "").lower()]
+    assert hd.thu_duoc or not hd.dong
+
+    vt = await _vt(q, "Đầu dò thử bán lẻ", 300_000, nhanh=True)
+    await VatTuService(q.pool).them(
+        visit_id=vid, service_price_id=vt, identity=q.thu_ngan
+    )
+    async with q.pool.acquire() as conn:
+        hd = await tinh_hoa_don(conn, clinic_id=CLINIC, visit_id=vid, kind="dich_vu")
+    assert hd.tong == 300_000 and hd.thu_duoc
+    await PaymentService(q.pool).record_payment(
+        visit_id=vid,
+        kind="dich_vu",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
+        amount=None,
+        clinic_patient_id=None,
+        identity=q.thu_ngan,
+        bill_revision=hd.revision,
+        method="CASH",
+    )

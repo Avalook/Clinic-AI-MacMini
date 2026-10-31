@@ -37,6 +37,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.services.cashier_board_service import clean_name, norm_name
+from clinicai.services.don_vi_thuoc import BangDonVi, GiaDonVi, doc_bang
 
 CLINIC = "CLINIC"
 EXTERNAL = "EXTERNAL_PARTNER"
@@ -66,6 +67,10 @@ class DongHoaDon:
     # quầy nối tick với lựa chọn của cha và cho luật nợ; source_id vẫn là ID
     # dòng để ghi sổ.
     order_id: str | None = None
+    # Thuốc bán theo đơn vị khác đơn vị gốc: hệ số về đơn vị gốc lúc này. Ảnh chụp
+    # giữ lại để giao / khách trả không đọc nhầm hệ số đã sửa ở danh mục. Không vào
+    # `revision`: đơn vị + đơn giá đã có ở đó, hệ số không đổi tiền.
+    he_so: Decimal | None = None
 
 
 @dataclass
@@ -163,6 +168,7 @@ def _dong_api(d: DongHoaDon) -> dict[str, Any]:
         "so_luong": float(d.so_luong),
         "don_gia": float(d.don_gia) if d.don_gia is not None else None,
         "thanh_tien": (float(d.thanh_tien) if d.thanh_tien is not None else None),
+        "he_so": float(d.he_so) if d.he_so is not None else None,
     }
 
 
@@ -194,6 +200,7 @@ def _dong_gia(
     ma: str | None = None,
     van_de: str | None = None,
     order_id: str | None = None,
+    he_so: Decimal | None = None,
 ) -> DongHoaDon:
     """Một dòng, với luật giá "không mâu thuẫn" (xem đầu file)."""
     khac_nhau = sorted(set(gia))
@@ -218,6 +225,7 @@ def _dong_gia(
         ma=ma,
         van_de=van_de,
         order_id=order_id,
+        he_so=he_so,
     )
 
 
@@ -578,6 +586,12 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
                 continue
         if d.get("drug_catalog_id") is None:
             van_de = "thuốc chưa có trong danh mục giá"
+        elif d.get("van_de_don_vi"):
+            van_de = d["van_de_don_vi"]
+        if d.get("canh_bao_don_vi"):
+            hd.canh_bao.append(
+                f"{(d.get('ten') or '').strip()}: {d['canh_bao_don_vi']}"
+            )
         dong = _dong_gia(
             source_type="prescription",
             source_id=str(d["id"]),
@@ -590,6 +604,7 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
                 str(d["drug_catalog_id"]) if d.get("drug_catalog_id") else None
             ),
             van_de=van_de,
+            he_so=d.get("he_so"),
         )
         if so is None:
             dong = replace(dong, thanh_tien=None)
@@ -800,8 +815,10 @@ SELECT vi.visit_id::text AS visit_id,
        -- phòng thật (không qua bác sĩ) thì KHÔNG có buổi khám nào để
        -- tính tiền khám — tiền là của chính chỉ định. Rơi về bác sĩ
        -- chính (không có chỉ định mang sang) thì vẫn tính như lượt khám.
-       (coalesce(st.di_thang_phong, false)
-        AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES')
+       -- Lượt bán lẻ không có buổi khám: khách chỉ mua đầu dò ở quầy dịch vụ
+       -- từng bị chặn "có dịch vụ chưa có giá" vì dòng tiền khám trống giá.
+       (vi.ban_le OR (coalesce(st.di_thang_phong, false)
+        AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES'))
            AS khong_kham
   FROM public.visit vi
   LEFT JOIN public.appointment a
@@ -1319,10 +1336,18 @@ async def hoa_don_thuoc_lo(
     theo_ten: dict[str, list[Any]] = {}
     for g in gia_thuoc:
         theo_ten.setdefault(norm_name(g["name"]), []).append(g["unit_price"])
+    bang = await doc_bang(conn, clinic_id, [d["drug_catalog_id"] for d in don])
     dong: dict[str, list[dict[str, Any]]] = {v: [] for v in vids}
     for d in don:
         gia: list[Any] = []
+        theo_dv = GiaDonVi()
         if d["drug_catalog_id"]:
+            theo_dv = bang.get(d["drug_catalog_id"], BangDonVi()).gia_dong(d["unit"])
+        if theo_dv.gia is not None:
+            # Đơn vị khai thêm có giá RIÊNG; hai nguồn giá thuốc bên dưới là giá
+            # của đơn vị gốc, không đem so.
+            gia.append(theo_dv.gia)
+        elif d["drug_catalog_id"] and theo_dv.he_so is None:
             if d["gia_danh_muc"] is not None:
                 gia.append(d["gia_danh_muc"])
             # Tên CHUẨN của chính thuốc trong danh mục — không phải tên bác sĩ gõ.
@@ -1339,6 +1364,9 @@ async def hoa_don_thuoc_lo(
                 "refusal_reason": d["refusal_reason"],
                 "drug_catalog_id": d["drug_catalog_id"],
                 "gia": gia,
+                "he_so": theo_dv.he_so,
+                "van_de_don_vi": theo_dv.van_de,
+                "canh_bao_don_vi": theo_dv.canh_bao,
             }
         )
     return {v: ghep_thuoc(v, dong[v]) for v in vids}

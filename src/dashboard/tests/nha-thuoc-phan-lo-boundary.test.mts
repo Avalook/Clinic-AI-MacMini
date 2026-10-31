@@ -111,8 +111,8 @@ test("không gọi số hệ thống là 'tồn khả dụng' (HOLD J6)", () => 
   for (const src of [board, dong, kieu]) {
     assert.doesNotMatch(src, /tồn khả dụng/i);
   }
-  assert.match(dong, /Tồn vật lý/);
-  assert.match(dong, /Có thể phân lô lúc này/);
+  assert.match(dong, /Trên kệ/);
+  assert.match(dong, /Còn bán được/);
 });
 
 test("proxy mở đủ và chỉ đúng các thao tác phân lô của máy chủ", () => {

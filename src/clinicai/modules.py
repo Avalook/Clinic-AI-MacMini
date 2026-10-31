@@ -151,6 +151,31 @@ MODULE: dict[str, Module] = {
             ],
         ),
         Module(
+            ma="vat_tu_ban",
+            ten="Bán vật tư trừ kho đúng phòng",
+            # 31/10/2026: tiền gọi thẳng `dong_bo_ban_vat_tu` trong giao dịch thu;
+            # trạng thái chỉ định đi qua sự kiện vì có nhiều đường ghi.
+            lenh=[
+                "AssignSupplySource",
+                "ReceiveSupplyReturn",
+                "DeclineSupplyReturn",
+                "AddForgottenSupplySale",
+                "UndoForgottenSupplySale",
+            ],
+            nghe=[
+                "service.started",
+                "service.completed",
+                "service.not_performed",
+                "service.start_cancelled",
+                "service.routed",
+                "service.room_transferred",
+                "service_order.cancelled",
+                "service_order.restored",
+            ],
+            ben_nhan=["vat_tu_ban"],
+            bang=["vat_tu_ban"],
+        ),
+        Module(
             ma="phi_kham",
             ten="Dịch vụ khám (tiền khám)",
             # Tick dịch vụ khám con theo mã KiotViet (28/09/2026); từ C18
@@ -400,6 +425,7 @@ MODULE: dict[str, Module] = {
                 "cong_no.huy",
                 "cong_no.da_thu",
                 "medicine.dispensed",
+                "medicine.dispense_undone",
                 "medicine.returned",
                 "result_file.uploaded",
                 "result_file.confirmed",
@@ -810,13 +836,14 @@ MODULE: dict[str, Module] = {
             ],
             phat=[
                 "medicine.dispensed",
+                "medicine.dispense_undone",
                 "medicine.counter_changed",
                 "pharmacy.expiry_checked",
                 "medicine.returned",
                 "pharmacy.stocktake_mismatch",
             ],
             bang=["prescription_allocation", "inventory_txn"],
-            quyen=["pharmacy.dispense", "pharmacy.view"],
+            quyen=["pharmacy.dispense", "pharmacy.view", "price.medicine.manage"],
         ),
         # 21 lego (Tuyền 25/09/2026): hai module chỉ-đọc cho lego Báo cáo /
         # Vận hành hệ thống và lego Lịch làm việc.
@@ -860,6 +887,7 @@ MODULE: dict[str, Module] = {
                 "visit.supply_changed",
                 "visit.exam_service_changed",
                 "medicine.dispensed",
+                "medicine.dispense_undone",
                 # G4d · R3: khách trả thuốc (thường SAU check-out) + đính chính
                 # dòng đơn đã thu.
                 "medicine.returned",

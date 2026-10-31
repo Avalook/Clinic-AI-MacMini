@@ -66,6 +66,28 @@ def _dong_cua(ds: list[dict[str, Any]], vt: str, phong: str) -> dict[str, Any]:
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_danh_muc_chua_co_gia_thi_tinh_theo_lan_nhap_gan_nhat(
+    pool: asyncpg.Pool,
+) -> None:
+    """Bấm thật 31/10: nhập 150.000đ/cái, danh mục để trống giá → Mức dùng ra 0 đ."""
+    identity, vt, rooms = await _bo(pool)
+    p = rooms[0]
+    await pool.execute(
+        "UPDATE service_price SET gia_nhap_vat_tu=NULL WHERE id=$1::uuid", vt
+    )
+    await _ghi(pool, identity, vt, "NHAP", so=10, gia_nhap="150000")
+    await _ghi(pool, identity, vt, "XUAT_PHONG", den=p, so=5)
+    await _ghi(pool, identity, vt, "DIEU_CHINH", tu=p, so=5)
+    tu = await _moc(pool)
+    await _ghi(pool, identity, vt, "DIEU_CHINH", tu=p, so=3)
+    den = await _moc(pool)
+    ds = await tinh_theo_moc(pool, identity=identity, tu_luc=tu, den_luc=den)
+    d = _dong_cua(ds, vt, p)
+    assert d["gia_nhap"] == 150000 and d["gia_tri"] == 300000
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_tieu_hao_dau_nhan_tra_cuoi_huy_va_gia_chot(pool: asyncpg.Pool) -> None:
     identity, vt, rooms = await _bo(pool)
     p = rooms[0]

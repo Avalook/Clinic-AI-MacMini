@@ -50,6 +50,7 @@ _SU_KIEN = (
     "prescription.consultant_marked",
     "payment.medicine_collected",
     "medicine.dispensed",
+    "medicine.dispense_undone",
 )
 
 SuKien = tuple[str, datetime, dict[str, Any]]
@@ -359,6 +360,11 @@ def dung_moc(
     if luc("prescription.saved"):
         bat = _dau(luc("payment.medicine_collected"))
         ket = _cuoi(luc("medicine.dispensed"))
+        # Hoàn tác giao / hoàn tác lần thu về 0: khách chưa nhận thuốc, kể cả khi
+        # sổ còn dòng "đã giao" cũ. Giao lại sau đó thì mốc lại đi tiếp.
+        hoan = _cuoi(luc("medicine.dispense_undone", so_da_giao="0"))
+        if ket is not None and hoan is not None and hoan >= ket:
+            ket = None
         moc.append(_moc("THUOC", "Nhận thuốc", "Quầy thuốc", bat, ket, _tt(bat, ket)))
 
     moc.append(_moc("VE", "Về", "Check-out", ve_luc, ve_luc, XONG if ve_luc else CHUA))

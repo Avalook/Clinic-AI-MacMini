@@ -35,6 +35,8 @@ export interface DongHoanDuoc {
   don_vi: string | null;
   da_hoan: number;
   con_hoan: number;
+  /** Dòng vật tư đang trừ kho: hỏi thêm "Khách trả lại hàng". */
+  la_vat_tu?: boolean;
 }
 
 export interface HoanCuaLanThu {
@@ -87,6 +89,7 @@ export default function HoanTien({
 }) {
   const [mo, setMo] = useState(false);
   const [so, setSo] = useState<Record<string, string>>({});
+  const [traHang, setTraHang] = useState<Record<string, boolean>>({});
   const [pt, setPt] = useState<"CASH" | "TRANSFER">("CASH");
   const [lyDo, setLyDo] = useState("");
   const [ma, setMa] = useState<Record<string, string>>({});
@@ -96,7 +99,11 @@ export default function HoanTien({
 
   const conHoan = hoan.dong_hoan_duoc.filter((d) => d.con_hoan > 0);
   const chon = conHoan
-    .map((d) => ({ payment_bill_line_id: d.payment_bill_line_id, so_luong: Number(so[d.payment_bill_line_id] || 0) }))
+    .map((d) => ({
+      payment_bill_line_id: d.payment_bill_line_id,
+      so_luong: Number(so[d.payment_bill_line_id] || 0),
+      tra_hang: Boolean(d.la_vat_tu && traHang[d.payment_bill_line_id]),
+    }))
     .filter((d) => d.so_luong > 0);
 
   async function lam(body: Record<string, unknown>) {
@@ -182,7 +189,7 @@ export default function HoanTien({
         mo ? (
           <div className="space-y-2 rounded-control bg-surface-muted p-2">
             {conHoan.map((d) => (
-              <label key={d.payment_bill_line_id} className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
+              <div key={d.payment_bill_line_id} className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
                 <span className="min-w-0 flex-1">
                   {d.ten} — đã thu {fmtSl(d.so_luong)} {d.don_vi ?? ""}, còn hoàn được {fmtSl(d.con_hoan)}
                 </span>
@@ -196,7 +203,18 @@ export default function HoanTien({
                   onChange={(e) => setSo((s) => ({ ...s, [d.payment_bill_line_id]: e.target.value }))}
                   className={`${O} w-24`}
                 />
-              </label>
+                {d.la_vat_tu ? (
+                  <label className="flex min-h-10 w-full items-center gap-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`Khách trả lại hàng ${d.ten}`}
+                      checked={Boolean(traHang[d.payment_bill_line_id])}
+                      onChange={(e) => setTraHang((s) => ({ ...s, [d.payment_bill_line_id]: e.target.checked }))}
+                    />
+                    Khách trả lại hàng (số về đúng nơi đã lấy). Không tick = chỉ hoàn tiền, người kho xử lý sau.
+                  </label>
+                ) : null}
+              </div>
             ))}
             <div className="flex flex-wrap items-end gap-2">
               <select

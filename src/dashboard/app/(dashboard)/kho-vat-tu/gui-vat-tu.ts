@@ -30,7 +30,18 @@ export function giaNhapPhieuHopLe(giaTri: string): boolean {
 /** `khoa` = Idempotency-Key (bắt buộc cho `phieu` và `hoan`): gửi lại cùng khoá =
  *  cùng phiếu, máy chủ không ghi sổ lần hai. */
 export async function guiVatTu(
-  thaoTac: "phieu" | "hoan" | "muc-toi-thieu" | "nhap-duyet" | "nhap-tu-choi" | "nhap-rut-lai",
+  thaoTac:
+    | "phieu"
+    | "hoan"
+    | "muc-toi-thieu"
+    | "nhap-duyet"
+    | "nhap-tu-choi"
+    | "nhap-rut-lai"
+    | "ban-gan-phong"
+    | "ban-nhan-lai"
+    | "ban-khong-nhan-lai"
+    | "ban-hoan-tac"
+    | "ban-nhap-bu",
   duLieu: Record<string, unknown>,
   khoa?: string,
 ): Promise<KetQuaVatTu> {
