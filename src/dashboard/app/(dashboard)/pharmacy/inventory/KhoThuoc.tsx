@@ -51,6 +51,7 @@ export default function KhoThuoc({
   choGanLo = [],
   thuocTraChoKiem = [],
   ghiDuoc = false,
+  suaGiaDuoc = false,
   cauHinhHan,
   tachKhoQuay = false,
   suaTachDuoc = false,
@@ -66,6 +67,8 @@ export default function KhoThuoc({
   thuocTraChoKiem?: DongTraChoKiem[];
   /** Có quyền ghi kho (`pharmacy.dispense`) — chỉ ẩn/hiện nút. */
   ghiDuoc?: boolean;
+  /** `price.medicine.manage`: chỉ để khoá ô giá, máy chủ tự kiểm quyền. */
+  suaGiaDuoc?: boolean;
   cauHinhHan?: CauHinhHan;
   /** G7: cơ sở bật tách kho / quầy (mặc định tắt = một kho như cũ). */
   tachKhoQuay?: boolean;
@@ -158,7 +161,7 @@ export default function KhoThuoc({
           : <ThanhTab nhan="Quầy thuốc" chon={tab} onChon={setTab} muc={mucQuay} />}
       >
       {tab === "danh_muc" ? (
-        <DanhMucKho thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} />
+        <DanhMucKho thuoc={thuoc} ghiDuoc={ghiDuoc} suaGiaDuoc={suaGiaDuoc} onXemThe={xemThe} />
       ) : tab === "chuyen_kho" ? (
         <ChuyenKho batches={batches} tachKhoQuay={tachKhoQuay} suaTachDuoc={suaTachDuoc} ghiDuoc={ghiDuoc} />
       ) : tab === "cho_gan_lo" ? (

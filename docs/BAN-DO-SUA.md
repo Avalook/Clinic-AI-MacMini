@@ -708,6 +708,11 @@ thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_
   `D/thu-ngan/NutHoanTac.tsx` đọc `GET /payments/hoan-tac/xem-truoc` (phải trả = đã thu − đã hoàn). Sự kiện
   `medicine.dispense_undone` (hành trình, sổ nợ). Phiếu đã hoàn tác không hoàn tiền thêm (`payment_refund_guard`).
 
+- **Quyền Sửa giá thuốc (31/10)** — quyền `price.medicine.manage`, khối `gia_thuoc` (mặc định Quản lý, cấp thêm ở `/phan-quyen`). Chốt ở
+  `S/don_vi_thuoc.py` `doi_quyen_sua_gia`, gọi khi giá THẬT SỰ đổi: `PharmacyService.luu_thuoc`, `luu_cac_don_vi` (giá gợi ý hệ số × giá gốc không tính),
+  `PriceListService.add` / `update` nhóm thuốc. Vết: sự kiện `pharmacy.price_changed`. Ô giá khoá: `D/pharmacy/inventory/DanhMucKho.tsx`, `SuaDonViBan.tsx`.
+  Test: `T/services/test_quyen_gia_thuoc_db.py`; các test khác bỏ qua chốt này qua fixture `_cho_qua_chot_gia_thuoc` trong `T/conftest.py`.
+
 - **Giao nhầm hàng vật tư ở quầy thuốc (31/10)** — `PharmacyService.hoan_tac_giao_vat_tu`, nút ở `D/pharmacy/DongThuoc.tsx`: dòng về chưa giao, tiền và
   số Kho vật tư giữ nguyên. Kiểm ca / kiểm kho: có lần kiểm sau trên lô thì hoàn tác hay sửa số cũ bị chặn (`kiem_ke_ca_service.lo_co_kiem_sau`).
   Hàm SQL `he_so_don_vi` (mig `20261101400000`) phải giữ cùng luật `BangDonVi._khop`. Test: `T/services/test_soat_kho_3110_db.py`, `test_soat_kho_3110_b_db.py`.

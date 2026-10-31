@@ -56,6 +56,7 @@ from clinicai.services.don_vi_thuoc import (
     chuan,
     doc_bang,
     doc_don_vi_gui_len,
+    doi_quyen_sua_gia,
     he_so_da_chup,
     kiem_doi_don_vi_goc,
     luu_cac_don_vi,
@@ -595,10 +596,21 @@ class PharmacyService:
             )
             if trung is not None:
                 raise ConflictError(f"Đã có thuốc tên “{ten_sach}” trong danh mục.")
+            gia_cu: Decimal | None = None
             if drug_catalog_id is not None:
                 await kiem_doi_don_vi_goc(
                     conn, identity, thuoc=drug_catalog_id, goc_moi=don_vi_ban
                 )
+                cu = await conn.fetchval(
+                    "SELECT unit_price FROM public.drug_catalog"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    identity.clinic_id,
+                    drug_catalog_id,
+                )
+                gia_cu = None if cu is None else Decimal(str(cu))
+            doi_gia = gia_so != gia_cu
+            if doi_gia:
+                await doi_quyen_sua_gia(conn, identity)
             gia_tri = (
                 identity.clinic_id,
                 ten_sach,
@@ -645,7 +657,22 @@ class PharmacyService:
                 )
                 if ma is None:
                     raise NotFoundError("Không tìm thấy thuốc này trong danh mục.")
-            doi = await luu_cac_don_vi(conn, identity, thuoc=ma, ds=don_vi_them)
+            if doi_gia:
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.price_changed",
+                    aggregate_type="drug_catalog",
+                    aggregate_id=ma,
+                    payload={
+                        "gia_cu": None if gia_cu is None else str(gia_cu),
+                        "gia_moi": None if gia_so is None else str(gia_so),
+                        "don_vi": _chu(don_vi_ban),
+                    },
+                )
+            doi = await luu_cac_don_vi(
+                conn, identity, thuoc=ma, ds=don_vi_them, gia_goc=gia_so
+            )
             if doi:
                 await _log(
                     conn,

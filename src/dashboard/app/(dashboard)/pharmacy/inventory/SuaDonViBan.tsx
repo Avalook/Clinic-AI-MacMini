@@ -26,10 +26,12 @@ export default function SuaDonViBan({
   donViGoc,
   dong,
   onDoi,
+  suaGiaDuoc = true,
 }: {
   donViGoc: string;
   dong: DongDonVi[];
   onDoi: (dong: DongDonVi[]) => void;
+  suaGiaDuoc?: boolean;
 }) {
   const goc = donViGoc.trim();
   const sua = (i: number, doi: Partial<DongDonVi>) =>
@@ -99,6 +101,7 @@ export default function SuaDonViBan({
                   value={d.gia == null ? "" : String(d.gia)}
                   inputMode="numeric"
                   placeholder="Trống = hệ số × giá gốc"
+                  disabled={!suaGiaDuoc}
                   onChange={(e) => sua(i, { gia: e.target.value })}
                   className={INPUT}
                 />

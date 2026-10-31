@@ -32,6 +32,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.permissions.can import doi_quyen
 
 #: Hệ số tối đa — khớp CHECK `thuoc_quy_doi.he_so`.
 HE_SO_TOI_DA = Decimal(10_000)
@@ -419,6 +420,12 @@ async def he_so_da_chup(
     return {r["source_id"]: Decimal(str(r["he_so"])) for r in rows if r["he_so"]}
 
 
+def gia_goi_y(he_so: Decimal, gia_goc: Decimal | None) -> Decimal | None:
+    if gia_goc is None:
+        return None
+    return (he_so * gia_goc).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+
+
 def doc_don_vi_gui_len(
     ds: Any, *, goc: str | None, gia_goc: Decimal | None
 ) -> list[DonViBan]:
@@ -458,7 +465,7 @@ def doc_don_vi_gui_len(
                 raise ValidationError(
                     f"Nhập giá cho “{chu}” — thuốc chưa có giá gốc để gợi ý."
                 )
-            gia = (hs * gia_goc).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+            gia = gia_goi_y(hs, gia_goc)
         phien = d.get("phien")
         ra.append(
             DonViBan(
@@ -507,12 +514,27 @@ def _gia(v: Any, chu: str) -> Decimal | None:
     return gia.quantize(Decimal(1), rounding=ROUND_HALF_UP)
 
 
+QUYEN_SUA_GIA = "price.medicine.manage"
+
+
+async def doi_quyen_sua_gia(conn: asyncpg.Connection, identity: StaffIdentity) -> None:
+    """Chặn lệnh đổi giá thuốc khi không có quyền. Chỉ gọi khi giá thật sự đổi: người
+    giao thuốc vẫn sửa được tên, cách dùng, tồn tối thiểu mà form gửi kèm giá cũ."""
+    await doi_quyen(
+        conn,
+        identity,
+        QUYEN_SUA_GIA,
+        cau="Bạn không có quyền đổi giá thuốc — nhờ người có quyền Sửa giá thuốc.",
+    )
+
+
 async def luu_cac_don_vi(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
     *,
     thuoc: str,
     ds: Sequence[DonViBan],
+    gia_goc: Decimal | None = None,
 ) -> list[dict[str, Any]]:
     """Ghi các đơn vị vừa gửi, trong giao dịch của người gọi. Đơn vị KHÔNG gửi thì
     giữ nguyên: "bỏ" một đơn vị là tắt bán, hệ số còn đó cho lô và dòng cũ. Trả các
@@ -535,6 +557,10 @@ async def luu_cac_don_vi(
     doi: list[dict[str, Any]] = []
     for d in ds:
         c = cu.get(d.don_vi)
+        # Giá gợi ý (hệ số × giá gốc) không phải quyết định giá: ai cũng thêm được.
+        goi_y = gia_goi_y(d.he_so, gia_goc)
+        if d.gia != (None if c is None else c["gia"]) and d.gia != goi_y:
+            await doi_quyen_sua_gia(conn, identity)
         if c is not None and (
             (d.phien is not None and d.phien != c["phien"])
             or (d.phien is None and (c["dang_ban"] or c["gia"] is not None))

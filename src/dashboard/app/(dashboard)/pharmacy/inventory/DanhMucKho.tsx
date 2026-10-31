@@ -99,11 +99,13 @@ function tuThuoc(t: ThuocKho): Form {
 export default function DanhMucKho({
   thuoc,
   ghiDuoc = false,
+  suaGiaDuoc = false,
   onXemThe,
 }: {
   thuoc: ThuocKho[];
   /** Có quyền ghi kho — chỉ ẩn/hiện nút, máy chủ tự kiểm. */
   ghiDuoc?: boolean;
+  suaGiaDuoc?: boolean;
   /** Bấm tên thuốc → tab Theo dõi thuốc. */
   onXemThe?: (id: string) => void;
 }) {
@@ -192,10 +194,16 @@ export default function DanhMucKho({
         <input
           value={form[ma]}
           inputMode={ma === "gia" ? "numeric" : ma === "ton_toi_thieu" ? "decimal" : undefined}
+          disabled={ma === "gia" && !suaGiaDuoc}
           onChange={(e) => setForm({ ...form, [ma]: e.target.value })}
           className={INPUT}
         />
       )}
+      {ma === "gia" && !suaGiaDuoc ? (
+        <span className="mt-1 block text-meta text-ink-muted">
+          Chỉ người có quyền Sửa giá thuốc đổi được giá.
+        </span>
+      ) : null}
     </label>
   );
 
@@ -259,7 +267,7 @@ export default function DanhMucKho({
             {o("cach_dung", "Cách dùng (điền sẵn vào đơn)", true)}
             {o("luu_y", "Lưu ý", true)}
           </div>
-          <SuaDonViBan donViGoc={form.don_vi_ban} dong={donVi} onDoi={setDonVi} />
+          <SuaDonViBan donViGoc={form.don_vi_ban} dong={donVi} onDoi={setDonVi} suaGiaDuoc={suaGiaDuoc} />
           <label className="flex min-h-10 items-center gap-2 text-body text-ink">
             <input
               type="checkbox"

@@ -14,6 +14,7 @@ from typing import Any
 import asyncpg
 import pytest
 
+from clinicai.api.identity import ClinicRole
 from clinicai.services.config_service import PriceListService
 from tests.services.test_xac_nhan_tep_ket_qua_db import CLINIC_A, pool  # noqa: F401
 
@@ -21,7 +22,13 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
 def _ai() -> Any:
-    return SimpleNamespace(clinic_id=CLINIC_A)
+    return SimpleNamespace(
+        clinic_id=CLINIC_A,
+        role=ClinicRole.MANAGEMENT,
+        vai_tai_khoan=None,
+        staff_id=None,
+        auth_user_id=None,
+    )
 
 
 async def _thuoc(pool: asyncpg.Pool, ten: str, gia: int | None) -> str:  # noqa: F811

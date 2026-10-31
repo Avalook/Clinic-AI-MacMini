@@ -100,6 +100,7 @@ export default async function PharmacyInventoryPage({
       choGanLo={choGanLo}
       thuocTraChoKiem={thuocTraChoKiem}
       ghiDuoc={quyen.has("pharmacy.dispense")}
+      suaGiaDuoc={quyen.has("price.medicine.manage")}
       cauHinhHan={cauHinhHan ?? undefined}
       tachKhoQuay={data.tach_kho_quay === true}
       suaTachDuoc={tach?.sua_duoc === true}

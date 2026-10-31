@@ -9,6 +9,7 @@ từng đơn vị; truy vết thuốc; vật tư trừ đúng phòng, tab Bán c
 Đã bấm thật local 1280 + 375, test soát ở `src/tests/services/test_soat_kho_3110*_db.py`.
 Việc còn lại trước khi phòng khám dùng: bật tách kho quầy cơ sở Hào Nam; đưa lô `DEMO1709-*` về 0 (`scripts/dua-lo-demo-ve-0.sql`, staging trước);
 26 thuốc lệch đơn vị + 4 thuốc thiếu đơn vị cần phòng khám điền. Thuốc khách trả chờ kiểm **nằm trong sổ quầy**, nên kiểm ca đếm cả khay ấy.
+Thêm migration `20261101500000`: quyền Sửa giá thuốc tách khỏi quyền giao thuốc, cấp sẵn cho người đang có quyền Duyệt vật tư; hai công tắc mới ở `/phan-quyen`.
 **Không lên prod cùng đợt:** Trợ lý AI (#571, #573, `gop-staging-3010`, mig `20261030170000`).
 
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
