@@ -42,8 +42,9 @@ async def _co(
 
 def test_21_lego_theo_thu_tu_thanh_ben() -> None:
     # 21 lego của 25/09 + "Kế toán" (G5a) + "Kho vật tư" (G8a) − màn "Việc cần
-    # xử lý" (gỡ 29/10/2026; khối + quyền worklist.handle còn) = 22.
-    assert len(MAN) == 22
+    # xử lý" (gỡ 29/10/2026; khối + quyền worklist.handle còn) + hai công tắc
+    # "Duyệt vật tư", "Sửa giá thuốc" (31/10/2026) = 24.
+    assert len(MAN) == 24
     assert list(MAN)[:3] == ["tiep_don", "do_sinh_hieu", "tu_van"]
     assert list(MAN)[-1] == "doi_tac"
     # Lego 19 chỉ nằm trong gói mẫu Quản lý.
