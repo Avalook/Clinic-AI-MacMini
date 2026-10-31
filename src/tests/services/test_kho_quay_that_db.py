@@ -53,12 +53,11 @@ from tests.services.test_kho_quay_db import (
     co,  # noqa: F401
 )
 from tests.services.test_luot_kham_service_db import CLINIC
-from tests.services.test_tien_thuoc_cp1_db import Quay, q  # noqa: F401
+from tests.services.test_tien_thuoc_cp1_db import Quay, _nhap_lo, q  # noqa: F401
 from tests.services.test_tien_thuoc_cp3_db import (
     _chon,
     _dong_da_xac_dinh,
     _kd,
-    _nhap_lo,
     _san_sang,
     _thu,
     _ton,
@@ -1007,9 +1006,17 @@ def test_hanh_trinh_khong_bao_da_nhan_thuoc_sau_hoan_tac() -> None:
         )
         return next(x for x in ds if x["ma"] == "THUOC")
 
-    giao = ("medicine.dispensed", t + timedelta(minutes=5), {})
+    giao: tuple[str, datetime, dict[str, Any]] = (
+        "medicine.dispensed",
+        t + timedelta(minutes=5),
+        {},
+    )
     hoan = ("medicine.dispense_undone", t + timedelta(minutes=6), {"so_da_giao": "0"})
-    giao_lai = ("medicine.dispensed", t + timedelta(minutes=7), {})
+    giao_lai: tuple[str, datetime, dict[str, Any]] = (
+        "medicine.dispensed",
+        t + timedelta(minutes=7),
+        {},
+    )
     assert moc([giao])["ket"] is not None
     assert moc([giao, hoan])["ket"] is None
     assert moc([giao, hoan, giao_lai])["ket"] is not None
