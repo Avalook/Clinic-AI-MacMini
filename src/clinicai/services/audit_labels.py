@@ -149,6 +149,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.chuyen_kho": "Chuyển thuốc giữa kho và quầy",
     "pharmacy.chuyen_kho_hoan_tac": "Hoàn tác phiếu chuyển kho",
     "pharmacy.tach_kho_quay_doi": "Bật / tắt tách kho và quầy",
+    "pharmacy.sale_units_changed": "Đổi đơn vị bán của thuốc",
     "pharmacy.kiem_ke_ca_sua_so_dem": "Sửa số đếm kiểm kê ca (giữ bản đã chốt)",
     "pharmacy.kiem_ke_ca_mo": "Mở phiếu kiểm kê ca ở quầy thuốc",
     "pharmacy.kiem_ke_ca_chot": "Chốt phiếu kiểm kê ca ở quầy thuốc",

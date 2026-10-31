@@ -143,9 +143,13 @@ export async function GET(
   const { action } = await params;
   if (action === "xuat-nhap-ton-xlsx" || action === "lech-kiem-ke-xlsx" || action === "theo-doi-thuoc-xlsx") {
     const query = new URL(request.url).searchParams;
-    const tep = action === "theo-doi-thuoc-xlsx"
-      ? `/api/v1/pharmacy/theo-doi-thuoc.xlsx?${locTheoDoi(query)}`
-      : `/api/v1/pharmacy/${action.replace("-xlsx", "")}.xlsx?${new URLSearchParams({ tu: query.get("tu") ?? "", den: query.get("den") ?? "" })}`;
+    const khoang = new URLSearchParams({ tu: query.get("tu") ?? "", den: query.get("den") ?? "" });
+    const tep =
+      action === "theo-doi-thuoc-xlsx"
+        ? `/api/v1/pharmacy/theo-doi-thuoc.xlsx?${locTheoDoi(query)}`
+        : action === "lech-kiem-ke-xlsx"
+          ? `/api/v1/pharmacy/lech-kiem-ke.xlsx?${khoang}`
+          : `/api/v1/pharmacy/xuat-nhap-ton.xlsx?${khoang}`;
     const headers = await getCallerAuthHeaders();
     const base = process.env.CLINIC_API_URL;
     if (!headers || !base) return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
