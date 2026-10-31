@@ -198,9 +198,18 @@ export default function KiemKeCa({
   // Dòng cần đếm: mọi (thuốc, đơn vị) có lô ở QUẦY + dòng đã nằm trong phiếu.
   const dong = useMemo(() => {
     const m = new Map<string, { khoa: string; thuoc: string; ten: string; dv: string }>();
+    // Đơn vị chỉ còn lô về 0 mà thuốc đang có tồn ở đơn vị khác: dòng ấy không có gì để đếm.
+    const donViCoTon = new Set<string>();
+    const thuocCoTon = new Set<string>();
+    for (const b of batches) {
+      if (b.noi_chua === "KHO" || !b.drug_catalog_id || Number(b.quantity_on_hand) === 0) continue;
+      donViCoTon.add(khoaDong(b.drug_catalog_id, b.unit));
+      thuocCoTon.add(b.drug_catalog_id);
+    }
     for (const b of batches) {
       if (b.noi_chua === "KHO" || !b.drug_catalog_id) continue;
       const k = khoaDong(b.drug_catalog_id, b.unit);
+      if (thuocCoTon.has(b.drug_catalog_id) && !donViCoTon.has(k)) continue;
       if (!m.has(k)) {
         const bien = b.drug?.variant ? ` (${b.drug.variant})` : "";
         m.set(k, {
