@@ -1186,8 +1186,10 @@ async def xem_lech(
             "SELECT d.drug_catalog_id::text AS thuoc, d.don_vi, d.dem, d.dem_luc,"
             " c.name_raw AS ten FROM public.kiem_ke_ca_dong d"
             " JOIN public.drug_catalog c ON c.id = d.drug_catalog_id"
-            " WHERE d.kiem_ke_ca_id = $1::uuid ORDER BY lower(c.name_raw), d.don_vi",
+            " WHERE d.kiem_ke_ca_id = $1::uuid AND d.clinic_id = $2::uuid"
+            " ORDER BY lower(c.name_raw), d.don_vi",
             pid,
+            identity.clinic_id,
         )
         tinh = await _tinh_lech(conn, identity, p, list(dong))
     ten = {(r["thuoc"], r["don_vi"]): r["ten"] for r in dong}
