@@ -569,7 +569,8 @@ async def test_du_lieu_nap_tu_excel_va_bang_gia(pool: asyncpg.Pool) -> None:
     assert (
         await pool.fetchval(
             "SELECT count(*) FROM danh_muc_dich_vu($1::uuid)"
-            " WHERE service_code LIKE 'VT\\_%'",
+            " WHERE service_code LIKE 'VT\\_%'"
+            " AND service_code NOT LIKE 'VT\\_TEST\\_%'",  # bài khác đang chạy song song
             CLINIC,
         )
         == 0
