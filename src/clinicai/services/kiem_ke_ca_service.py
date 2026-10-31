@@ -1208,6 +1208,51 @@ async def xem_lech(
     }
 
 
+#: Đã có lần kiểm sau: số của nó mới là thực tế, đảo hay sửa phiếu cũ là làm sai sổ.
+KIEM_SAU = (
+    "Thuốc này đã có lần kiểm sau phiếu này — số mới nhất là của lần kiểm đó. "
+    "Sai thì sửa ở lần kiểm mới nhất hoặc kiểm lại."
+)
+
+
+async def lo_co_kiem_sau(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    pid: str,
+    lo: str,
+    moc: datetime,
+) -> bool:
+    """Như `_co_kiem_sau` nhưng theo một hàng lô: hàng KHO không qua kiểm ca."""
+    b = await conn.fetchrow(
+        "SELECT noi_chua, drug_catalog_id::text AS thuoc,"
+        " lower(btrim(unit)) AS don_vi FROM public.drug_batch"
+        " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+        lo,
+        identity.clinic_id,
+    )
+    if b is None:
+        return False
+    if b["noi_chua"] == "QUAY":
+        return await _co_kiem_sau(conn, identity, pid, b["thuoc"], b["don_vi"], moc)
+    return bool(
+        await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM public.phieu_kho_dong d
+                  JOIN public.phieu_kho pk ON pk.id = d.phieu_kho_id
+                 WHERE pk.clinic_id = $1::uuid AND d.drug_batch_id = $2::uuid
+                   AND pk.loai = 'KIEM' AND pk.hoan_tac_cua IS NULL
+                   AND pk.tao_luc > $3
+                   AND NOT EXISTS (SELECT 1 FROM public.phieu_kho h
+                                    WHERE h.hoan_tac_cua = pk.id))
+            """,
+            identity.clinic_id,
+            lo,
+            moc,
+        )
+    )
+
+
 async def _co_kiem_sau(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
@@ -1700,6 +1745,18 @@ async def hoan_tac_dieu_chinh(
             raise ConflictError(
                 "Quản lý đã sửa số sau cùng của phiếu này — sửa tiếp ở Báo cáo kho."
             )
+        for d in await conn.fetch(
+            "SELECT d.drug_catalog_id::text AS thuoc, d.don_vi,"
+            " coalesce(d.dem_luc, k.chot_luc) AS moc"
+            " FROM public.kiem_ke_ca_dong d JOIN public.kiem_ke_ca k"
+            " ON k.id = d.kiem_ke_ca_id WHERE d.kiem_ke_ca_id = $1::uuid"
+            " AND d.lech <> 0",
+            pid,
+        ):
+            if await _co_kiem_sau(
+                conn, identity, pid, d["thuoc"], d["don_vi"], d["moc"]
+            ):
+                raise ConflictError(KIEM_SAU)
         txn = await conn.fetch(
             "SELECT drug_batch_id::text AS lo, quantity FROM public.inventory_txn"
             " WHERE clinic_id = $1::uuid AND ref_type = 'kiem_ke_ca' AND ref_id ="

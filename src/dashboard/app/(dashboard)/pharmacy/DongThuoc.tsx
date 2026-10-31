@@ -505,9 +505,33 @@ export default function DongThuoc({
         </div>
       ) : null}
       {dong.la_vat_tu && Number(dong.dispensed_qty) > 0 ? (
-        <p className="text-meta text-ink-muted">
+        <div className="text-meta text-ink-muted">
+          {dong.hoan_tac_giao_vat_tu ? (
+            hoiHoanTac === dong.id ? (
+              <XacNhanTaiCho
+                cau="Hoàn tác giao? Dòng về chưa giao, tiền và số ở Kho vật tư giữ nguyên."
+                nhanDongY="Hoàn tác giao"
+                dangGui={dangGui}
+                onDongY={() => {
+                  setHoiHoanTac(null);
+                  void goi("hoan-tac-giao-vat-tu", { prescription_id: dong.id });
+                }}
+                onThoi={() => setHoiHoanTac(null)}
+              />
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className={`${CHAM} mr-2`}
+                disabled={dangGui}
+                onClick={() => setHoiHoanTac(dong.id)}
+              >
+                Hoàn tác giao
+              </Button>
+            )
+          ) : null}
           Khách trả hàng này: vào Giao dịch của quầy, Hoàn tiền rồi tick “Khách trả lại hàng”.
-        </p>
+        </div>
       ) : null}
 
       {tt.giao_luong_cu ? (

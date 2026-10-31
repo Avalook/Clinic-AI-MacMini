@@ -328,14 +328,18 @@ class QuayThuocService:
                 don_vi = (don["unit"] or "").strip()
                 chu = f"{_chuoi_so(so)} {don_vi}".strip()
                 await conn.execute(
+                    # Dấu `so_luong_dien_*` đi cổng "quầy đặt số": dòng từng thu rồi
+                    # hoàn tác vẫn sửa được, trigger không còn chặn thành lỗi 500.
                     "UPDATE prescription SET quantity = $3,"
                     " quantity_num = public.so_luong_tu_van_ban($3),"
                     " unit = public.don_vi_tu_van_ban($3),"
+                    " so_luong_dien_boi = $4::uuid, so_luong_dien_luc = now(),"
                     " purchased_qty = NULL, updated_at = now()"
                     " WHERE id = $1::uuid AND clinic_id = $2::uuid",
                     prescription_id,
                     identity.clinic_id,
                     chu,
+                    identity.staff_id,
                 )
             await self._ghi_su_kien(
                 conn,
@@ -414,6 +418,7 @@ class QuayThuocService:
                 await conn.execute(
                     "UPDATE prescription SET quantity = $3, unit = $4,"
                     " quantity_num = $5,"
+                    " so_luong_dien_boi = $6::uuid, so_luong_dien_luc = now(),"
                     " purchased_qty = CASE WHEN purchased_qty = 0 THEN 0 ELSE NULL END,"
                     " updated_at = now()"
                     " WHERE id = $1::uuid AND clinic_id = $2::uuid",
@@ -422,6 +427,7 @@ class QuayThuocService:
                     chu_sl,
                     moi,
                     so_dec,
+                    identity.staff_id,
                 )
             await self._ghi_su_kien(
                 conn,

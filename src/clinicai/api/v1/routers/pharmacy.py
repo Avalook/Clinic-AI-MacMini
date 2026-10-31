@@ -1573,6 +1573,28 @@ async def hoan_tac_giao(
     return kq
 
 
+class HoanTacGiaoVatTuRequest(BaseModel):
+    prescription_id: UUID
+    ly_do: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/pharmacy/hoan-tac-giao-vat-tu")
+async def hoan_tac_giao_vat_tu(
+    body: HoanTacGiaoVatTuRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Giao nhầm hàng vật tư ở quầy thuốc: dòng về chưa giao, tiền và kho giữ nguyên."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).hoan_tac_giao_vat_tu(
+            identity=identity,
+            prescription_id=str(body.prescription_id),
+            ly_do=body.ly_do,
+        )
+    )
+    return kq
+
+
 class HuyChoGanLoRequest(BaseModel):
     dong_id: UUID
     ly_do: str | None = Field(default=None, max_length=300)

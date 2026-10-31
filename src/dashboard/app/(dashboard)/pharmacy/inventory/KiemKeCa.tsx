@@ -463,14 +463,15 @@ export default function KiemKeCa({
                 </option>
               ))}
             </select>
-            <ul aria-label="Phiếu kiểm trong ca này" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <ul aria-label="Phiếu kiểm trong ca này" className="flex min-w-0 max-w-full flex-1 basis-full flex-wrap items-center gap-1.5 sm:basis-0">
               {ds === null
                 ? null
                 : ds.filter((p) => !loaiCoDinh || p.loai === loaiCoDinh).map((p) => (
-                    <li key={p.id}>
+                    <li key={p.id} className="min-w-0 max-w-full">
                       <Button
                         type="button"
                         size="sm"
+                        className="h-auto! py-1 text-left whitespace-normal!"
                         variant={phieu?.id === p.id ? "primary" : "secondary"}
                         onClick={() => {
                           daTuMoPhieu.current = `${ngay}:${p.ca}:${p.loai}`;
@@ -511,10 +512,11 @@ export default function KiemKeCa({
           </summary>
           <ul className="mt-2 flex flex-wrap gap-2">
             {ds.filter((p) => p.loai === "DOT_XUAT").map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className="min-w-0 max-w-full">
                 <Button
                   type="button"
                   size="sm"
+                  className="h-auto! py-1 text-left whitespace-normal!"
                   variant={phieu?.id === p.id ? "primary" : "secondary"}
                   onClick={() => void moCu(p.id)}
                 >

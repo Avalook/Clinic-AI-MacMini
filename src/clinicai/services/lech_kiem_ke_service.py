@@ -22,10 +22,13 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
 from clinicai.services.kho_thuoc_service import dau_ngay_vn, khoang_xnt
 from clinicai.services.kiem_ke_ca_service import (
+    KIEM_SAU,
     _ap_lech,
+    _co_kiem_sau,
     _ghi_adjust,
     _khoa_lo_quay,
     ca_cua_gio,
+    lo_co_kiem_sau,
     so_hoac_none,
 )
 from clinicai.services.pharmacy_service import ghi_nhat_ky
@@ -180,7 +183,8 @@ async def sua_so_sau_cung(
         if nguon == "CA":
             g = await conn.fetchrow(
                 "SELECT d.id, d.dem AS so_goc, d.drug_catalog_id::text AS thuoc,"
-                " d.don_vi, k.hoan_tac_luc, k.trang_thai, k.id::text AS phieu"
+                " d.don_vi, k.hoan_tac_luc, k.trang_thai, k.id::text AS phieu,"
+                " coalesce(d.dem_luc, k.chot_luc) AS moc"
                 " FROM public.kiem_ke_ca_dong d JOIN public.kiem_ke_ca k"
                 " ON k.id = d.kiem_ke_ca_id WHERE d.id = $1::uuid"
                 " AND d.clinic_id = $2::uuid AND k.location_id = $3::uuid"
@@ -195,7 +199,8 @@ async def sua_so_sau_cung(
         else:
             g = await conn.fetchrow(
                 "SELECT d.id, d.thuc_te AS so_goc, d.drug_batch_id::text AS lo,"
-                " pk.id::text AS phieu, EXISTS (SELECT 1 FROM public.phieu_kho h"
+                " pk.id::text AS phieu, pk.tao_luc AS moc,"
+                " EXISTS (SELECT 1 FROM public.phieu_kho h"
                 " WHERE h.hoan_tac_cua = pk.id) AS da_hoan_tac"
                 " FROM public.phieu_kho_dong d JOIN public.phieu_kho pk"
                 " ON pk.id = d.phieu_kho_id WHERE d.id = $1::uuid"
@@ -210,6 +215,15 @@ async def sua_so_sau_cung(
             da_hoan_tac = bool(g["da_hoan_tac"])
         if da_hoan_tac:
             raise ConflictError("Phiếu này đã hoàn tác — không sửa số được.")
+        co_sau = (
+            await _co_kiem_sau(
+                conn, identity, g["phieu"], g["thuoc"], g["don_vi"], g["moc"]
+            )
+            if nguon == "CA"
+            else await lo_co_kiem_sau(conn, identity, g["phieu"], g["lo"], g["moc"])
+        )
+        if co_sau:
+            raise ConflictError(KIEM_SAU)
         cu = await conn.fetchval(
             "SELECT so_moi FROM public.kiem_ke_sua_so WHERE clinic_id = $1::uuid"
             " AND nguon = $2 AND dong_id = $3::uuid"

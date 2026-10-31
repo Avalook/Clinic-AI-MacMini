@@ -154,6 +154,29 @@ def _chot(o: dict[str, int]) -> dict[str, int]:
     return o
 
 
+def _huy_rong(
+    so: int, phan: list[dict[str, Any]], c: Mapping[str, Any]
+) -> tuple[int, list[int]]:
+    """Phần thật sự huỷ của một phiếu: đã thu − đã hoàn xong; và số ấy theo từng
+    phần thu. Phiếu 850.000 đã hoàn 255.000 rồi hoàn tác: két chỉ giảm thêm 595.000,
+    tính đủ 850.000 thì trừ hai lần. Hoàn cùng hình thức trừ trước, dư trừ phần còn."""
+    tong = min(_tien(c.get("da_hoan")), so)
+    tien_mat = min(_tien(c.get("da_hoan_tm")), tong)
+    con = {"CASH": tien_mat, "KHAC": tong - tien_mat}
+    ra = [_tien(p.get("so_tien")) for p in phan]
+    for i, p in enumerate(phan):
+        k = "CASH" if chuan_hinh_thuc(p.get("hinh_thuc")) == "CASH" else "KHAC"
+        lay = min(ra[i], con[k])
+        ra[i] -= lay
+        con[k] -= lay
+    du = con["CASH"] + con["KHAC"]
+    for i in range(len(ra)):
+        lay = min(ra[i], du)
+        ra[i] -= lay
+        du -= lay
+    return so - tong, ra
+
+
 def gom_bao_cao(
     *,
     tu: date,
@@ -213,19 +236,20 @@ def gom_bao_cao(
         # vẫn là đã thu (`huy_sau_chot`), phần huỷ là một dòng `chi_huy` riêng
         # theo GIỜ HUỶ ("điều chỉnh ca trước") — không trừ lùi số đã chốt.
         chi_huy = bool(c.get("chi_huy"))
+        huy = chi_huy or (c.get("status") == "VOIDED" and not c.get("huy_sau_chot"))
+        so_huy, huy_phan = _huy_rong(so, phan, c) if huy else (0, [])
         if chi_huy:
             dieu_chinh["so_phieu"] += 1
-            dieu_chinh["tong"] += so
-        huy = chi_huy or (c.get("status") == "VOIDED" and not c.get("huy_sau_chot"))
+            dieu_chinh["tong"] += so_huy
         n = theo_nguoi.setdefault(nguoi, {"ten": nguoi, "so_phieu": 0, **_o_tien()})
         d = ngay_o(_ngay_vn(c.get("closed_at" if chi_huy else "paid_at")))
         for o in (tong, n, *([theo_loai[loai]] if loai else [])):
             if not chi_huy:
                 o["thu"] += so
             if huy:
-                o["huy"] += so
+                o["huy"] += so_huy
         # Theo hình thức: cộng TỪNG PHẦN (200k CK + 500k TM → hai dòng).
-        for p in phan:
+        for i, p in enumerate(phan):
             ht = chuan_hinh_thuc(p.get("hinh_thuc")) or "KHAC"
             ds_o = [theo_ht[ht]]
             if ht == "TRANSFER":
@@ -234,7 +258,7 @@ def gom_bao_cao(
                 if not chi_huy:
                     o["thu"] += _tien(p.get("so_tien"))
                 if huy:
-                    o["huy"] += _tien(p.get("so_tien"))
+                    o["huy"] += huy_phan[i]
         if not chi_huy:
             tong["so_phieu_thu"] += 1
             n["so_phieu"] += 1
@@ -243,7 +267,7 @@ def gom_bao_cao(
                 d["thu"] += so
                 d["so_phieu"] += 1
             if huy:
-                d["huy"] += so
+                d["huy"] += so_huy
         if huy:
             tong["so_phieu_huy"] += 1
             ds_hoan_huy.append(
@@ -256,7 +280,7 @@ def gom_bao_cao(
                     "loai_tien": loai,
                     "hinh_thuc": chuan_hinh_thuc(c.get("method")),
                     "nhan_hinh_thuc": nhan_phan(phan),
-                    "so_tien": so,
+                    "so_tien": so_huy,
                     "nguoi": c.get("nguoi_huy"),
                     "ly_do": c.get("close_reason"),
                     "cho": False,
@@ -979,7 +1003,15 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        coalesce(v.location_id, ah.location_id)::text AS co_so,
        -- G4c: huỷ SAU khi ca của lần thu đã chốt → tiền thu ở lại ca cũ, phần
        -- huỷ tính ở ca đang làm (_HUY_SAU_CHOT_SQL), không trừ lùi.
-       (pc.status = 'VOIDED' AND {_KHOA_LAN_THU}) AS huy_sau_chot
+       (pc.status = 'VOIDED' AND {_KHOA_LAN_THU}) AS huy_sau_chot,
+       (SELECT coalesce(sum(r.amount), 0) FROM payment_refund r
+         WHERE r.clinic_id = pc.clinic_id
+           AND r.payment_cycle_id = pc.payment_cycle_id
+           AND r.status = 'COMPLETED') AS da_hoan,
+       (SELECT coalesce(sum(r.amount), 0) FROM payment_refund r
+         WHERE r.clinic_id = pc.clinic_id
+           AND r.payment_cycle_id = pc.payment_cycle_id
+           AND r.status = 'COMPLETED' AND r.method = 'CASH') AS da_hoan_tm
   FROM payment_cycle pc
   LEFT JOIN staff cb ON cb.id = pc.created_by
   LEFT JOIN staff xn ON xn.id = pc.confirmed_by

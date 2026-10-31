@@ -72,3 +72,60 @@ BEGIN
     RETURN NEW;
 END
 $$;
+
+-- Dòng kê "10 v" với thuốc bán viên: Python nhận ra, SQL thì không, nên phần chờ gán không
+-- được tách khi kiểm ca và kho trừ hai lần. Hai bên dùng chung một luật, từ chắc tới yếu,
+-- mỗi bước phải ra đúng một đơn vị (xem `BangDonVi._khop`).
+CREATE OR REPLACE FUNCTION public.bo_dau_don_vi(p_don_vi text)
+RETURNS text
+LANGUAGE sql STABLE
+AS $$
+    SELECT translate(public.chuan_don_vi(p_don_vi),
+        'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ',
+        'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd')
+$$;
+
+CREATE OR REPLACE FUNCTION public.he_so_don_vi(p_clinic uuid, p_thuoc uuid, p_don_vi text)
+RETURNS numeric
+LANGUAGE plpgsql STABLE
+AS $$
+DECLARE
+    c text := public.chuan_don_vi(p_don_vi);
+    kd text := public.bo_dau_don_vi(p_don_vi);
+    goc text;
+    n integer;
+    hs numeric;
+BEGIN
+    IF c = '' THEN
+        RETURN NULL;
+    END IF;
+    SELECT public.chuan_don_vi(d.don_vi_ban) INTO goc
+      FROM public.drug_catalog d
+     WHERE d.id = p_thuoc AND d.clinic_id = p_clinic;
+    IF c = goc THEN
+        RETURN 1;
+    END IF;
+    SELECT q.he_so INTO hs FROM public.thuoc_quy_doi q
+     WHERE q.clinic_id = p_clinic AND q.drug_catalog_id = p_thuoc AND q.don_vi = c;
+    IF FOUND THEN
+        RETURN hs;
+    END IF;
+    FOR buoc IN 1..3 LOOP
+        SELECT count(*), max(k.he_so) INTO n, hs
+          FROM (SELECT goc AS don_vi, 1::numeric AS he_so WHERE coalesce(goc, '') <> ''
+                UNION ALL
+                SELECT q.don_vi, q.he_so FROM public.thuoc_quy_doi q
+                 WHERE q.clinic_id = p_clinic AND q.drug_catalog_id = p_thuoc) k
+         WHERE CASE buoc
+                   WHEN 1 THEN public.bo_dau_don_vi(k.don_vi) = kd
+                   WHEN 2 THEN public.bo_dau_don_vi(k.don_vi) = split_part(kd, ' ', 1)
+                   ELSE length(kd) <= 2 AND public.bo_dau_don_vi(k.don_vi) LIKE kd || '%'
+               END;
+        IF n = 1 THEN
+            RETURN hs;
+        ELSIF n > 1 THEN
+            RETURN NULL;
+        END IF;
+    END LOOP;
+    RETURN NULL;
+END $$;

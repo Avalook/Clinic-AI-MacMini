@@ -818,6 +818,10 @@ def _dong(
         "drug_catalog_id": r["drug_catalog_id"],
         "ten_thuoc_kho": r["ten_thuoc_kho"],
         "la_vat_tu": la_vat_tu,
+        "hoan_tac_giao_vat_tu": la_vat_tu
+        and co_quyen_ghi
+        and da_giao > 0
+        and not lich_su,
         "can_lo": can_lo,
         "da_chon": da_chon,
         "phan_lo": ds_pl,

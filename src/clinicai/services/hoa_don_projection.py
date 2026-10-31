@@ -339,7 +339,16 @@ def _period(customers: list[dict[str, Any]]) -> dict[str, int]:
     refunds = [r for p in bills for r in p["hoan"] if r["trong_ky"]]
     paid = sum(p["so_tien"] for p in bills if p["thu_trong_ky"])
     completed = sum(r["so_tien"] for r in refunds if r["trang_thai"] == "COMPLETED")
-    voided = sum(p["so_tien"] for p in bills if p["huy_trong_ky"])
+    # Phiếu huỷ sau khi đã hoàn một phần: chỉ phần còn lại mới là tiền huỷ.
+    voided = sum(
+        max(
+            p["so_tien"]
+            - sum(r["so_tien"] for r in p["hoan"] if r["trang_thai"] == "COMPLETED"),
+            0,
+        )
+        for p in bills
+        if p["huy_trong_ky"]
+    )
     return dict(
         da_thu=paid,
         tong_truoc_giam=sum(p["tong_truoc_giam"] for p in bills if p["thu_trong_ky"]),
@@ -442,7 +451,13 @@ def tach_tai_khoan(bills: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
             if p.get("thu_trong_ky"):
                 m["thu"] += ck
             if p.get("huy_trong_ky"):
-                m["huy"] += ck
+                da_hoan_ck = sum(
+                    int(r["so_tien"])
+                    for r in p.get("hoan") or []
+                    if r.get("trang_thai") == "COMPLETED"
+                    and chuan_hinh_thuc(r.get("hinh_thuc")) == "TRANSFER"
+                )
+                m["huy"] += max(ck - da_hoan_ck, 0)
         for r in p.get("hoan") or []:
             if (
                 r.get("trong_ky")

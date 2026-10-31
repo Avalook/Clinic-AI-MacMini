@@ -618,7 +618,8 @@ async def kiem_doi_don_vi_goc(
                           AND public.chuan_don_vi(b.unit) = $3) AS co_ton,
                EXISTS (SELECT 1 FROM public.thuoc_giao_chua_gan_lo g
                         WHERE g.clinic_id = $1::uuid AND g.drug_catalog_id = $2::uuid
-                          AND g.drug_batch_id IS NULL) AS co_cho_gan
+                          AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL)
+                   AS co_cho_gan
         """,
         identity.clinic_id,
         thuoc,

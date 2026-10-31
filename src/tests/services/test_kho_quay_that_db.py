@@ -217,7 +217,9 @@ async def test_dem_50_giao_5_chot_khong_lech_gio_dem_tu_trinh_duyet(co: Co) -> N
     await _thu(co.q)
     pid = await _mo(co)
     # Người đếm gõ số TRƯỚC khi giao, chỉ bấm lưu lúc chốt (sau khi giao).
-    gio_go = datetime.now(CLINIC_TZ).isoformat()
+    # Giờ của DB: đồng hồ container có thể lệch vài ms so với máy chạy test, giờ gõ
+    # rơi trước lúc mở phiếu thì máy chủ coi là rác.
+    gio_go = (await co.q.pool.fetchval("SELECT clock_timestamp()")).isoformat()
     await asyncio.sleep(0.01)
     await _giao_tu_chon(co.q, co.ds, rx, 5)
     assert (await _so(co, drug))["QUAY"] == 45

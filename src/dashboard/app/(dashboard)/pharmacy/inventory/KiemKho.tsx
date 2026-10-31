@@ -43,6 +43,8 @@ export default function KiemKho({
   const [caLoRong, setCaLoRong] = useState(false);
   // drug_batch_id → số đếm thực tế (chuỗi người gõ).
   const [dem, setDem] = useState<Record<string, string>>({});
+  // Giờ gõ từng số: thuốc giao sau lúc đếm không được tính là lệch.
+  const demLuc = useRef<Record<string, string>>({});
   // drug_batch_id → lý do của dòng lệch (máy chủ bắt buộc theo lệch nó tính).
   const [lyDo, setLyDo] = useState<Record<string, string>>({});
   const [ghiChu, setGhiChu] = useState("");
@@ -122,6 +124,7 @@ export default function KiemKho({
         dong: daDem.map(([id, v]) => ({
           drug_batch_id: id,
           thuc_te: v.trim(),
+          dem_luc: demLuc.current[id] ?? null,
           ly_do: (lyDo[id] ?? "").trim() || null,
         })),
       },
@@ -226,7 +229,10 @@ export default function KiemKho({
                             value={v}
                             inputMode="decimal"
                             aria-label={`Số đếm thực tế ${tenLo(b)} lô ${b.batch_code}`}
-                            onChange={(e) => setDem((m) => ({ ...m, [b.id]: e.target.value }))}
+                            onChange={(e) => {
+                              demLuc.current[b.id] = new Date().toISOString();
+                              setDem((m) => ({ ...m, [b.id]: e.target.value }));
+                            }}
                             className={`${INPUT} sm:w-28`}
                           />
                         </td>
@@ -242,7 +248,8 @@ export default function KiemKho({
                           {lech == null ? "—" : `${lech > 0 ? "+" : ""}${soKho(lech)}`}
                         </td>
                         <td className="px-3 py-2">
-                          {lech ? (
+                          {/* Có phần chờ gán thì máy chủ mới biết lệch thật của từng lô. */}
+                          {lech || (v.trim() !== "" && choGan > 0) ? (
                             <input
                               value={lyDo[b.id] ?? ""}
                               maxLength={500}

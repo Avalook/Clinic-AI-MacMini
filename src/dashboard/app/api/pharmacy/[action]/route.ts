@@ -51,6 +51,7 @@ const ACTIONS: Record<string, string> = {
   "hoan-tac-chuyen-kho": "/api/v1/pharmacy/hoan-tac-chuyen-kho",
   // 31/10: hoàn tác giao (thuốc về quầy, tiền giữ) · hoàn tác phiếu kiểm kho · quản lý sửa số.
   "hoan-tac-giao": "/api/v1/pharmacy/hoan-tac-giao",
+  "hoan-tac-giao-vat-tu": "/api/v1/pharmacy/hoan-tac-giao-vat-tu",
   "huy-cho-gan-lo": "/api/v1/pharmacy/huy-cho-gan-lo",
   "hoan-tac-kiem-kho": "/api/v1/pharmacy/hoan-tac-kiem-kho",
   "sua-so-kiem-ke": "/api/v1/pharmacy/sua-so-kiem-ke",

@@ -880,11 +880,15 @@ class PharmacyService:
                 chua_tru = Decimal(0)
                 can_lam: str | None = None
                 chu_chua_tru: str | None = None
-                la_vat_tu = drug_batch_id is None and bool(
+                la_vat_tu = bool(
                     await thuoc_la_vat_tu(
                         conn, identity.clinic_id, [don.get("drug_catalog_id")]
                     )
                 )
+                if la_vat_tu and drug_batch_id is not None:
+                    raise ValidationError(
+                        "Hàng này theo dõi ở Kho vật tư — bấm Giao, không chọn lô."
+                    )
                 if la_vat_tu:
                     moi = await self._giao_vat_tu(
                         conn,
@@ -2640,6 +2644,46 @@ class PharmacyService:
             "dispense_status": moi["dispense_status"],
         }
 
+    async def hoan_tac_giao_vat_tu(
+        self, *, identity: StaffIdentity, prescription_id: str, ly_do: object = None
+    ) -> dict[str, Any]:
+        """Hoàn tác giao hàng trùng mã vật tư: chỉ đưa số đã giao về 0, tiền và số
+        trừ ở Kho vật tư giữ nguyên (tồn theo lần thu, không theo lần giao)."""
+        ly = _ly_do_hoan_tac_giao(ly_do)
+        async with self._pool.acquire() as conn, conn.transaction():
+            don = await self._khoa_theo_luot(conn, identity, prescription_id)
+            if not await thuoc_la_vat_tu(
+                conn, identity.clinic_id, [don.get("drug_catalog_id")]
+            ):
+                raise ValidationError("Dòng này không phải hàng vật tư.")
+            da_giao = Decimal(str(don.get("dispensed_qty") or 0))
+            if da_giao <= 0:
+                raise ConflictError("Dòng này chưa giao — không có gì để hoàn tác.")
+            moi = await giam_da_giao(
+                conn,
+                clinic_id=identity.clinic_id,
+                prescription_id=prescription_id,
+                so=da_giao,
+            )
+            await _log(
+                conn,
+                identity=identity,
+                event_type="pharmacy.dispense_undone",
+                aggregate_type="prescription",
+                aggregate_id=prescription_id,
+                payload={"quantity": str(da_giao), "vat_tu": True, "reason": ly},
+            )
+            await phat_hoan_tac_giao(
+                conn,
+                identity=identity,
+                visit_id=str(don["visit_id"]),
+                prescription_id=prescription_id,
+                so_luong=da_giao,
+                so_da_giao=moi["dispensed_qty"],
+                ly_do=ly,
+            )
+        return {"ok": True, "dispensed_qty": moi["dispensed_qty"]}
+
     async def huy_dong_cho_gan_lo(
         self, *, identity: StaffIdentity, dong_id: str, ly_do: object = None
     ) -> dict[str, Any]:
@@ -2655,7 +2699,7 @@ class PharmacyService:
             )
             if rx is None:
                 raise NotFoundError("Không tìm thấy lần giao này.")
-            don = await self._khoa_theo_luot(conn, identity, rx)
+            don = await self._khoa_theo_luot(conn, identity, rx, cho_lich_su=True)
             huy = await huy_cho_gan_lo(
                 conn,
                 clinic_id=identity.clinic_id,
@@ -4074,8 +4118,8 @@ async def _so_dong_cua_lan_giao(
 ) -> Decimal:
     """Phần còn lại của một lần giao, đổi từ đơn vị lô về đơn vị đã bán của dòng.
 
-    Bán 1 hộp (30 gói) giao 15 gói thì hoàn tác giảm 0,5 hộp, không phải 15. Lô tính
-    hộp bán lẻ viên: sổ làm tròn 3 số lẻ nên đổi ngược ra 8,01 viên; lệch dưới
+    Bán 1 hộp (30 gói) giao 1 gói thì hoàn tác giảm 1/30 hộp, không phải 1 hộp. Lô
+    tính hộp bán lẻ viên: sổ làm tròn 3 số lẻ nên đổi ngược ra 8,01 viên; lệch dưới
     0,05 là do làm tròn, lấy số nguyên để dòng đơn về đúng."""
     don_vi_lo = await conn.fetchval(
         "SELECT unit FROM public.drug_batch"
@@ -4090,13 +4134,16 @@ async def _so_dong_cua_lan_giao(
         don_vi=don.get("unit"),
         prescription_id=lan.prescription_id,
     )
-    so_dong = qd.so_dong(lan.con, don_vi_lo)
-    if so_dong is None:
+    ty_le = qd.ty_le(don_vi_lo)
+    if not ty_le:
         return lan.con
-    nguyen = so_dong.to_integral_value()
-    if abs(so_dong - nguyen) <= Decimal("0.05"):
-        return nguyen
-    return so_dong.quantize(Decimal("0.001"))
+    so_dong = lan.con / ty_le
+    # Chỉ lô đơn vị LỚN hơn dòng mới có sai số làm tròn của sổ.
+    if ty_le < 1:
+        nguyen = so_dong.to_integral_value()
+        if abs(so_dong - nguyen) <= Decimal("0.05"):
+            return nguyen
+    return so_dong.quantize(SAU_SO_LE)
 
 
 async def _hoan_phan_tra(

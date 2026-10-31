@@ -174,7 +174,7 @@ SELECT b.id::text AS id, b.nguon, b.location_id::text AS location_id,
 #: Các dòng hoá đơn của MỘT lần thu mà là vật tư — cả dòng thuốc trùng mã vật tư.
 _NGUON_LAN_THU_SQL = f"""
 SELECT bl.source_type, bl.source_id, bl.name_snapshot AS ten, bl.unit AS don_vi,
-       bl.unit_price, bl.quantity, bl.line_total,
+       bl.unit_price, bl.quantity, bl.line_total, bl.he_so,
        lv.order_id::text AS order_id,
        coalesce(lv.service_price_id,
                 {VAT_TU_CUA_THUOC.format(thuoc="bl.drug_catalog_id")})::text
@@ -195,7 +195,9 @@ SELECT coalesce(sum(x.so), 0) AS so, coalesce(sum(x.hoan), 0) AS hoan,
        coalesce(sum(x.tien), 0) AS tien,
        (array_agg(x.lan ORDER BY x.luc DESC))[1] AS lan
   FROM (
-      SELECT bl.quantity AS so, coalesce(h.so, 0) AS hoan,
+      -- Bán hộp mà kho vật tư tính cái: quy về đơn vị kho theo hệ số lúc thu.
+      SELECT bl.quantity * coalesce(bl.he_so, 1) AS so,
+             coalesce(h.so, 0) * coalesce(bl.he_so, 1) AS hoan,
              coalesce(bl.line_total, 0) - coalesce(h.tien, 0) AS tien,
              c.payment_cycle_id::text AS lan, c.created_at AS luc
         FROM public.payment_bill_line bl
@@ -604,6 +606,8 @@ async def _tao_dong_moi(
     bac_si = await bac_si_cua_phien(conn, clinic_id=cid, visit_id=visit_id)
     for r in nguon:
         la_quay = r["source_type"] == "vat_tu"
+        # Dòng bán theo hộp: sổ vật tư ghi theo cái, nên đơn giá cũng quy về cái.
+        he_so = Decimal(str(r["he_so"] or 1))
         await _them_dong(
             conn,
             cid,
@@ -618,8 +622,8 @@ async def _tao_dong_moi(
             vat_tu_id=r["vat_tu_id"],
             ten=r["ten"],
             don_vi=r["don_vi"],
-            so_luong=r["quantity"],
-            don_gia=r["unit_price"],
+            so_luong=r["quantity"] * he_so,
+            don_gia=r["unit_price"] / he_so if r["unit_price"] is not None else None,
             thanh_tien=r["line_total"] or 0,
             lan_thu=lan_thu,
             ban_boi=nguoi.staff_id,

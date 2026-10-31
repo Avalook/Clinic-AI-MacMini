@@ -39,8 +39,11 @@ from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import KiemKeLech
 from clinicai.phieu_kham.khung import doc_ngay
 from clinicai.services.kiem_ke_ca_service import (
+    KIEM_SAU,
     ca_cua_gio,
+    doc_gio,
     giao_chua_gan_lo_theo_don_vi,
+    lo_co_kiem_sau,
 )
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
@@ -86,8 +89,10 @@ def khoang_xnt(tu: Any, den: Any, hom_nay: date) -> tuple[date, date]:
 
     Đảo ngược thì đổi chỗ; dài quá `XNT_TOI_DA_NGAY` thì cắt từ ngày cuối lùi lại.
     """
-    a = doc_ngay_xem(tu) or hom_nay
-    b = doc_ngay_xem(den) or hom_nay
+    # Trần năm: ngày 9999 cộng thêm một ngày là tràn lịch, thành lỗi 500.
+    tran = date(hom_nay.year + 10, 12, 31)
+    a = min(doc_ngay_xem(tu) or hom_nay, tran)
+    b = min(doc_ngay_xem(den) or hom_nay, tran)
     if a > b:
         a, b = b, a
     if (b - a).days >= XNT_TOI_DA_NGAY:
@@ -692,6 +697,30 @@ async def tao_phieu_nhap(
     }
 
 
+async def _phat_sinh_lo_sau_dem(
+    conn: asyncpg.Connection, identity: StaffIdentity, moc: dict[str, datetime]
+) -> dict[str, Decimal]:
+    """Số sổ thật phát sinh SAU giờ đếm của từng lô (không tính ADJUST: đó là sửa
+    sổ, không phải thuốc rời kệ — cùng luật `phat_sinh_sau_dem` của kiểm ca)."""
+    if not moc:
+        return {}
+    rows = await conn.fetch(
+        """
+        SELECT t.drug_batch_id::text AS lo, sum(t.quantity) AS so
+          FROM unnest($2::uuid[], $3::timestamptz[]) AS d(lo, moc)
+          JOIN public.inventory_txn t
+            ON t.drug_batch_id = d.lo AND t.clinic_id = $1::uuid
+           AND t.performed_at > d.moc AND t.txn_type = ANY($4::text[])
+         GROUP BY 1
+        """,
+        identity.clinic_id,
+        list(moc),
+        list(moc.values()),
+        [x for x in LOAI_VAT_LY if x != "ADJUST"],
+    )
+    return {r["lo"]: Decimal(str(r["so"])) for r in rows}
+
+
 async def kiem_kho(
     pool: asyncpg.Pool,
     *,
@@ -713,12 +742,16 @@ async def kiem_kho(
         raise ValidationError(f"Một phiếu tối đa {PHIEU_TOI_DA_DONG} dòng.")
     sach: dict[str, Decimal] = {}
     ly_do: dict[str, str | None] = {}
+    moc_dem: dict[str, datetime] = {}
     for i, d in enumerate(dong, start=1):
         lo = str(d.get("drug_batch_id") or "").strip()
         if not lo:
             raise ValidationError(f"Dòng {i}: chưa chọn lô.")
         if lo in sach:
             raise ValidationError(f"Dòng {i}: lô này đã có trong phiếu.")
+        gio = doc_gio(d.get("dem_luc"))
+        if gio is not None:
+            moc_dem[lo] = gio
         sach[lo] = _so(d.get("thuc_te"), ten=f"Dòng {i}: số đếm thực tế", cho_0=True)
         ly_do[lo] = _chu(d.get("ly_do"), 500)
 
@@ -756,6 +789,8 @@ async def kiem_kho(
                 # Đã giao mà chưa gắn lô: kệ đã thiếu nhưng sổ chưa trừ. Tách khỏi
                 # lệch, gắn lô sau mới không trừ hai lần (cùng luật chốt kiểm ca).
                 n_lo = await _tach_n_cac_lo(conn, identity, sach, los)
+                # Đếm 50, giao 5, rồi mới lưu: sổ lúc đếm là 50, không có lệch.
+                sau_dem = await _phat_sinh_lo_sau_dem(conn, identity, moc_dem)
                 for stt, (lo_id, thuc_te) in enumerate(sach.items(), start=1):
                     ban_ghi = theo_id.get(lo_id)
                     if ban_ghi is None:
@@ -763,7 +798,9 @@ async def kiem_kho(
                             f"Dòng {stt}: không tìm thấy lô này trong kho cơ sở "
                             "đang làm."
                         )
-                    ton_may = Decimal(str(ban_ghi["quantity_on_hand"]))
+                    ton_may = Decimal(str(ban_ghi["quantity_on_hand"])) - sau_dem.get(
+                        lo_id, Decimal(0)
+                    )
                     tach = n_lo.get(lo_id, Decimal(0))
                     lech = thuc_te + tach - ton_may
                     if lech != 0 and not ly_do[lo_id]:
@@ -924,7 +961,7 @@ async def hoan_tac_kiem_kho(
             return cu
         async with pool.acquire() as conn, conn.transaction():
             goc = await conn.fetchrow(
-                "SELECT id::text, ma_phieu, hoan_tac_cua FROM public.phieu_kho"
+                "SELECT id::text, ma_phieu, hoan_tac_cua, tao_luc FROM public.phieu_kho"
                 " WHERE id = $1::uuid AND clinic_id = $2::uuid"
                 " AND location_id = $3::uuid AND loai = 'KIEM' FOR UPDATE",
                 phieu_id,
@@ -955,6 +992,11 @@ async def hoan_tac_kiem_kho(
                 " AND lech <> 0 ORDER BY drug_batch_id",
                 phieu_id,
             )
+            for r in dong:
+                if await lo_co_kiem_sau(
+                    conn, identity, phieu_id, r["lo"], goc["tao_luc"]
+                ):
+                    raise ConflictError(KIEM_SAU)
             if not dong:
                 raise ConflictError(
                     "Phiếu này không lệch dòng nào — không có gì để hoàn tác."
