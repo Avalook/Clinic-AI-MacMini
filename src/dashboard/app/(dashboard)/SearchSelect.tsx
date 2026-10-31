@@ -50,7 +50,10 @@ export default function SearchSelect({
     if (query == null || query.trim() === "") return options;
     const go = query.trim();
     const t = unaccentVi(go);
-    const khop = options.filter((o) => unaccentVi(o.label).includes(t));
+    // Trùng khít lên đầu: gõ "vỉ" rồi Enter phải ra "vỉ", không phải "viên" đứng trước nó.
+    const khop = options
+      .filter((o) => unaccentVi(o.label).includes(t))
+      .sort((a, b) => Number(unaccentVi(b.label) === t) - Number(unaccentVi(a.label) === t));
     // Đứng CUỐI: Enter vẫn chọn gợi ý gần nhất, chữ tự do chỉ là lối cuối.
     if (choGoTu && !khop.some((o) => unaccentVi(o.label) === t)) {
       return [...khop, { value: go, label: `Dùng “${go}”` }];
