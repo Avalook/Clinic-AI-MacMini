@@ -3,6 +3,7 @@
 //   GET  ?visit_id=…                       → /api/v1/quay-thuoc/luot/{visit}
 //   POST { thao_tac: "chon",     du_lieu: { prescription_id, mua } }
 //   POST { thao_tac: "so-luong", du_lieu: { prescription_id, so_luong } }
+//   POST { thao_tac: "don-vi",   du_lieu: { prescription_id, don_vi } }
 //   POST { thao_tac: "them", id: visit, du_lieu: { dong: [...] } }
 //
 // Quyền (Thu tiền thuốc) và mọi luật nằm ở FastAPI; proxy giữ nguyên mã lỗi.
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
   }
   if (than.thao_tac === "so-luong") {
     return proxyJsonToBackend("POST", "/api/v1/quay-thuoc/so-luong", duLieu);
+  }
+  if (than.thao_tac === "don-vi") {
+    return proxyJsonToBackend("POST", "/api/v1/quay-thuoc/don-vi", duLieu);
   }
   if (than.thao_tac === "them") {
     const id = typeof than.id === "string" ? than.id : "";

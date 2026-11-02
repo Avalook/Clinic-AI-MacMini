@@ -18,8 +18,9 @@ import {
   parsePositiveQuantity,
 } from "@/lib/validation";
 import { INPUT, LABEL } from "../../form-ui";
+import ODonVi from "../../ODonVi";
 import DanhSachPhieu from "./DanhSachPhieu";
-import type { ThuocKho } from "./DanhMucKho";
+import { donViCuaThuoc, type ThuocKho } from "./DanhMucKho";
 import { guiKho, tienVnd } from "./gui-kho";
 import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
 import QuyDoiNhap from "./QuyDoiNhap";
@@ -296,20 +297,26 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     </span>
                   ) : null}
                 </label>
-                <label className="block">
+                <div className="block">
                   <span className={LABEL}>Đơn vị</span>
-                  <input
+                  <ODonVi
                     value={d.don_vi}
-                    onChange={(e) => suaDong(d.k, { don_vi: e.target.value })}
-                    className={INPUT}
+                    onChange={(v) => suaDong(d.k, { don_vi: v })}
+                    cuaThuoc={donViCuaThuoc(dangDung.find((t) => t.ten === d.ten))}
+                    ariaLabel={`Đơn vị dòng ${i + 1}`}
                   />
+                  {dangDung.find((t) => t.ten === d.ten)?.chua_khai_don_vi ? (
+                    <span role="status" className="mt-1 block text-meta text-warning">
+                      Thuốc này chưa khai đơn vị — khai ở tab Danh mục thuốc.
+                    </span>
+                  ) : null}
                   {d.so_lo.trim() && khacDonViLo(d) ? (
                     <span role="status" className="mt-1 block text-meta text-warning">
                       Đơn vị lô đang có: {khacDonViLo(d)}. Nếu nhập trùng mã lô, đơn vị khác sẽ bị
                       từ chối.
                     </span>
                   ) : null}
-                </label>
+                </div>
                 <div className="flex items-end gap-2">
                   <label className="block min-w-0 flex-1">
                     <span className={LABEL}>Giá nhập (đ)</span>

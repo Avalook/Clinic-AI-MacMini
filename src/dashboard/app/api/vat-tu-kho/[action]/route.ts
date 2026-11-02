@@ -23,7 +23,28 @@ const DOC: Record<string, (q: URLSearchParams) => string> = {
     })}`,
   // G8b: yêu cầu nhập chờ duyệt (+ đã quyết gần đây, `duoc_duyet`, `cua_toi`).
   "cho-duyet": () => "/api/v1/vat-tu-kho/cho-duyet",
-  phieu: (q) => `/api/v1/vat-tu-kho/phieu?${new URLSearchParams({ gioi_han: q.get("gioi_han") ?? "", bo_qua: q.get("bo_qua") ?? "" })}`,
+  phieu: (q) =>
+    `/api/v1/vat-tu-kho/phieu?${new URLSearchParams({
+      gioi_han: q.get("gioi_han") ?? "",
+      bo_qua: q.get("bo_qua") ?? "",
+      vat_tu_id: q.get("vat_tu_id") ?? "",
+    })}`,
+  ban: (q) =>
+    `/api/v1/vat-tu-kho/ban?${new URLSearchParams({
+      tu: q.get("tu") ?? "",
+      den: q.get("den") ?? "",
+      noi: q.get("noi") ?? "",
+      trang_thai: q.get("trang_thai") ?? "",
+    })}`,
+  "ban-tim-khach": (q) => `/api/v1/vat-tu-kho/ban/tim-khach?${new URLSearchParams({ q: q.get("q") ?? "" })}`,
+};
+
+/** Lệnh trên một dòng bán → đuôi đường backend. Mọi luật ở máy chủ. */
+const LENH_BAN: Record<string, string> = {
+  "ban-gan-phong": "gan-phong",
+  "ban-nhan-lai": "nhan-lai",
+  "ban-khong-nhan-lai": "khong-nhan-lai",
+  "ban-hoan-tac": "hoan-tac",
 };
 
 async function daDangNhap(): Promise<NextResponse | null> {
@@ -63,11 +84,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
   const chan = await daDangNhap();
   if (chan) return chan;
   const { action } = await params;
-  if (action !== "phieu" && action !== "hoan" && !(action in QUYET_NHAP)) {
+  if (action !== "phieu" && action !== "hoan" && action !== "ban-nhap-bu" && !(action in QUYET_NHAP) && !(action in LENH_BAN)) {
     return NextResponse.json({ error: `Thao tác không hợp lệ: ${action}` }, { status: 400 });
   }
   const goi = await docBody(request);
   if (goi instanceof NextResponse) return goi;
+  if (action === "ban-nhap-bu") {
+    return proxyJsonToBackend("POST", "/api/v1/vat-tu-kho/ban/nhap-bu", goi.body, request.headers.get("Idempotency-Key") ?? undefined);
+  }
+  if (action in LENH_BAN) {
+    const { ban_id: banId, ...conLai } = (goi.body ?? {}) as { ban_id?: unknown } & Record<string, unknown>;
+    if (typeof banId !== "string" || !UUID_RE.test(banId)) {
+      return NextResponse.json({ error: "Mã dòng bán không hợp lệ." }, { status: 400 });
+    }
+    return proxyJsonToBackend(
+      "POST",
+      `/api/v1/vat-tu-kho/ban/${banId}/${LENH_BAN[action]}`,
+      conLai,
+      request.headers.get("Idempotency-Key") ?? undefined,
+    );
+  }
   if (action in QUYET_NHAP) {
     const q = (goi.body ?? {}) as { yeu_cau_id?: unknown; ly_do?: unknown };
     if (typeof q.yeu_cau_id !== "string" || !UUID_RE.test(q.yeu_cau_id)) {

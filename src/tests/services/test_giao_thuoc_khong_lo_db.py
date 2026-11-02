@@ -24,6 +24,7 @@ from tests.services.test_tien_thuoc_cp1_db import Quay, _nhap_lo, q  # noqa: F40
 from tests.services.test_tien_thuoc_cp3_db import (
     _chon,
     _dong_da_xac_dinh,
+    _huy_phieu,
     _thu,
     _ton,
 )
@@ -67,6 +68,30 @@ async def test_kho_chua_co_lo_van_thu_va_giao_duoc(q: Quay) -> None:
     assert (await _dong(q, rx))["thao_tac"]["giao_khong_lo"] is False
     cho = [d for d in await _cho(q) if d["prescription_id"] == rx]
     assert sorted(float(d["so_luong"]) for d in cho) == [4.0, 6.0]
+
+
+async def test_hoan_tac_lan_thu_dong_chua_gan_lo_ve_chua_giao(q: Quay) -> None:
+    """Hoàn tác lần thu: dòng chờ gán lô huỷ có vết, dòng đơn về chưa giao nên ghi
+    "Khách không lấy" được đúng sự thật (trước đây dòng vẫn báo đã giao)."""
+    rx, _drug = await _dong_da_xac_dinh(q, 3)
+    lan = await _thu(q)
+    await _giao_khong_lo(q, rx, 3)
+    await _huy_phieu(q, lan["payment_cycle_id"])
+    d = await _dong(q, rx)
+    assert d["dispensed_qty"] == 0 and d["thao_tac"]["tu_choi"] is True
+    huy = await q.pool.fetchrow(
+        "SELECT huy_luc, huy_boi, huy_ly_do, drug_batch_id"
+        " FROM thuoc_giao_chua_gan_lo WHERE prescription_id = $1::uuid",
+        rx,
+    )
+    assert huy["huy_luc"] is not None and huy["huy_boi"] is not None
+    assert huy["drug_batch_id"] is None and "Hoàn tác lần thu" in huy["huy_ly_do"]
+    assert (await PharmacyService(q.pool).cho_gan_lo(identity=q.duoc_si))[
+        "so_dong"
+    ] >= 0
+    await PharmacyService(q.pool).tu_choi(
+        identity=q.duoc_si, prescription_id=rx, ly_do="Khách đổi ý"
+    )
 
 
 async def test_khong_giao_qua_so_ke(q: Quay) -> None:

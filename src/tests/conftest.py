@@ -199,3 +199,21 @@ def _clear_identity_cache() -> Iterator[None]:
     invalidate_identity_cache()
     yield
     invalidate_identity_cache()
+
+
+@pytest.fixture(autouse=True)
+def _cho_qua_chot_gia_thuoc(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Quyền sửa giá thuốc có bộ bài riêng; các bài còn lại không nói về quyền này,
+    dựng thuốc bằng tài khoản dược sĩ như trước."""
+    if "test_quyen_gia_thuoc" in request.node.nodeid:
+        return
+
+    async def cho_qua(*_a: object, **_k: object) -> None:
+        return None
+
+    for mo_dun in ("don_vi_thuoc", "pharmacy_service", "config_service"):
+        monkeypatch.setattr(
+            f"clinicai.services.{mo_dun}.doi_quyen_sua_gia", cho_qua, raising=True
+        )

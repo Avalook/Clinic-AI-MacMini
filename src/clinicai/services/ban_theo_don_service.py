@@ -209,26 +209,42 @@ SELECT (coalesce(v.checked_in_at, v.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')
 _DONG_KE = """
 SELECT r.id::text AS id, r.drug_catalog_id::text AS drug_catalog_id,
        coalesce(c.name_base, c.name_raw) AS ten_kho, r.drug_name_raw,
-       coalesce(nullif(btrim(r.unit), ''), nullif(btrim(c.don_vi_ban), '')) AS don_vi,
-       CASE WHEN r.so_luong_dien_boi IS NULL THEN r.quantity_num
-            ELSE public.so_luong_tu_van_ban(r.so_luong_ke_goc) END AS so_ke,
+       -- Quy về đơn vị gốc khi đổi được: kê 1 hộp, mua 30 gói là đủ.
+       CASE WHEN hs.he_so IS NOT NULL THEN nullif(btrim(c.don_vi_ban), '')
+            ELSE coalesce(nullif(btrim(r.unit), ''), nullif(btrim(c.don_vi_ban), ''))
+       END AS don_vi,
+       (CASE WHEN r.so_luong_dien_boi IS NULL THEN r.quantity_num
+             ELSE public.so_luong_tu_van_ban(r.so_luong_ke_goc) END)
+           * coalesce(hs.he_so, 1) AS so_ke,
        r.dosage_instructions, r.caution
   FROM prescription r
   LEFT JOIN drug_catalog c ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
+  LEFT JOIN LATERAL (
+       -- Quầy đổi đơn vị sau khi kê: số kê gốc mang đơn vị trong chữ kê gốc.
+       SELECT public.he_so_don_vi(
+                  r.clinic_id, r.drug_catalog_id,
+                  CASE WHEN r.so_luong_dien_boi IS NULL THEN r.unit
+                       ELSE public.don_vi_tu_van_ban(r.so_luong_ke_goc) END) AS he_so
+       ) hs ON true
  WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
    AND r.nguon = 'BAC_SI' AND r.removed_at IS NULL
  ORDER BY r.created_at, r.id
 """
 
-#: Đã mua theo thuốc kho: lần thu PAID ở lượt gốc + lượt bán lẻ nối về nó − hoàn.
+#: Đã mua theo thuốc kho, quy về đơn vị gốc (hệ số LÚC THU, không có thì bảng hiện
+#: tại, đơn vị chưa khai giữ nguyên số): lần thu PAID ở lượt gốc + lượt bán lẻ nối
+#: về nó − hoàn.
 _DA_MUA = """
 SELECT bl.drug_catalog_id::text AS thuoc,
-       sum(bl.quantity - coalesce((
+       sum((bl.quantity - coalesce((
            SELECT sum(rl.quantity) FROM payment_refund_line rl
              JOIN payment_refund rf
                ON rf.refund_id = rl.refund_id AND rf.clinic_id = rl.clinic_id
             WHERE rl.clinic_id = bl.clinic_id AND rl.payment_bill_line_id = bl.id
-              AND rf.status = 'COMPLETED'), 0)) AS so
+              AND rf.status = 'COMPLETED'), 0))
+           * coalesce(bl.he_so,
+                      public.he_so_don_vi(bl.clinic_id, bl.drug_catalog_id, bl.unit),
+                      1)) AS so
   FROM payment_bill_line bl
   JOIN payment_cycle pc
     ON pc.payment_cycle_id = bl.payment_cycle_id AND pc.clinic_id = bl.clinic_id
@@ -243,7 +259,9 @@ SELECT bl.drug_catalog_id::text AS thuoc,
 #: Đang định bán: dòng của lượt bán lẻ khi CHƯA thu (đã thu thì nằm ở "đã mua").
 _DANG_BAN = """
 SELECT r.drug_catalog_id::text AS thuoc,
-       sum(coalesce(r.purchased_qty, r.quantity_num)) AS so
+       sum(coalesce(r.purchased_qty, r.quantity_num)
+           * coalesce(public.he_so_don_vi(r.clinic_id, r.drug_catalog_id, r.unit), 1))
+           AS so
   FROM prescription r
  WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid AND r.removed_at IS NULL
    AND r.refusal_reason IS NULL AND r.drug_catalog_id IS NOT NULL

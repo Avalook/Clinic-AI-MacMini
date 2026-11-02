@@ -13,6 +13,10 @@ export interface DongTieuHao {
   tieu_hao: number | null;
   da_dung: number | null;
   trong_do_huy: number | null;
+  /** Bán cho khách giữa hai lần đếm (ròng sau hoàn tác). */
+  da_ban: number | null;
+  /** Phần còn lại của hao hụt theo số đếm sau khi trừ bán và huỷ. */
+  dung_khong_ban: number | null;
   tra_nha_san_xuat: number | null;
   cap_trong_ky: number;
   thuc_te_gan_nhat: number | null;

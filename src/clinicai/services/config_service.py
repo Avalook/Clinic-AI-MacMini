@@ -51,6 +51,8 @@ from clinicai.core.shifts import (
 )
 from clinicai.permissions import cache
 from clinicai.permissions.can import can
+from clinicai.services.audit import record_event
+from clinicai.services.don_vi_thuoc import doi_quyen_sua_gia
 from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.lich_truc_phien_ban_service import (
     dat_nguoi_bam,
@@ -1767,6 +1769,7 @@ class PriceListService:
                     f"Mã {ma_kv or code} đã có trong bảng giá — tìm dòng ấy mà sửa."
                 ) from exc
             if group == "thuoc" and price is not None:
+                await doi_quyen_sua_gia(conn, identity)
                 await self._dong_bo_gia_danh_muc_thuoc(
                     conn, identity.clinic_id, label, price
                 )
@@ -1835,6 +1838,23 @@ class PriceListService:
             raise ValidationError("Không có gì để sửa")
 
         async with self._pool.acquire() as conn, conn.transaction():
+            gia_thuoc_cu: Any = None
+            doi_gia_thuoc = False
+            if "unit_price" in patch:
+                dong_gia = await conn.fetchrow(
+                    'SELECT "group", unit_price FROM service_price'
+                    " WHERE id=$1::uuid AND clinic_id=$2::uuid FOR UPDATE",
+                    price_id,
+                    identity.clinic_id,
+                )
+                if (
+                    dong_gia is not None
+                    and dong_gia["group"] == "thuoc"
+                    and dong_gia["unit_price"] != patch["unit_price"]
+                ):
+                    await doi_quyen_sua_gia(conn, identity)
+                    gia_thuoc_cu = dong_gia["unit_price"]
+                    doi_gia_thuoc = True
             if vt_patch:
                 vat_tu = await conn.fetchrow(
                     'SELECT "group", don_vi FROM service_price'
@@ -1910,6 +1930,20 @@ class PriceListService:
             ):
                 await self._dong_bo_gia_danh_muc_thuoc(
                     conn, identity.clinic_id, updated["name"], updated["unit_price"]
+                )
+            if doi_gia_thuoc:
+                await record_event(
+                    conn,
+                    event_type="pharmacy.price_changed",
+                    aggregate_type="service_price",
+                    aggregate_id=price_id,
+                    identity=identity,
+                    origin="api:config",
+                    payload={
+                        "gia_cu": None if gia_thuoc_cu is None else str(gia_thuoc_cu),
+                        "gia_moi": str(updated["unit_price"]),
+                        "ten": updated["name"],
+                    },
                 )
 
     async def phong_lam(

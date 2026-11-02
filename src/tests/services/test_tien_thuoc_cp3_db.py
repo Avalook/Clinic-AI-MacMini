@@ -508,22 +508,16 @@ async def test_huy_phieu_truoc_khi_giao_dao_ban_dung_mot_lan(q: Quay) -> None:
     assert await _kd(q, lo) == 90
 
 
-async def test_huy_phieu_sau_khi_giao_khong_tu_nhap_lai_kho(q: Quay) -> None:
+async def test_huy_phieu_sau_khi_giao_thuoc_tu_ve_quay(q: Quay) -> None:
     rx, _, lo = await _san_sang(q, 10, 100)
     lan = await _thu(q)
     await _giao(q, rx, lo, 4)
-    await _huy_phieu(q, lan["payment_cycle_id"])
-    assert await _so_dong(q, "SALE_REVERSAL") == 0
-    # Vật lý: 4 đã rời quầy. Khả dụng: 6 chưa giao vẫn bị giữ tới khi CP5 xử lý.
     assert (await _ton(q, lo), await _kd(q, lo)) == (96, 90)
-    assert (
-        await q.pool.fetchval(
-            "SELECT count(*) FROM event_log WHERE event_type ="
-            " 'payment.drug_return_needed' AND payload->>'payment_cycle_id' = $1",
-            lan["payment_cycle_id"],
-        )
-        == 1
-    )
+    await _huy_phieu(q, lan["payment_cycle_id"])
+    # Thuốc đã giao về quầy, phần bán đảo hết: như chưa từng thu.
+    assert await _so_dong(q, "DISPENSE_REVERSAL") == 1
+    assert await _so_dong(q, "SALE_REVERSAL") == 1
+    assert (await _ton(q, lo), await _kd(q, lo)) == (100, 100)
 
 
 async def test_lan_thu_cu_legacy_giao_theo_luong_cu(q: Quay) -> None:
@@ -732,4 +726,4 @@ async def test_db_chan_xuat_sau_khi_huy_phieu(q: Quay) -> None:
     await _huy_phieu(q, lan["payment_cycle_id"])
     with pytest.raises(asyncpg.CheckViolationError, match="chưa PAID"):
         await _xuat_thang(q, lo, 1)
-    assert await _ton(q, lo) == 96
+    assert await _ton(q, lo) == 100

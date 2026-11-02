@@ -37,6 +37,7 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.bill_service import _DA_PHU
 from clinicai.services.lenh_kham_core import khoa_luot, luot_cua
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.vat_tu_ban_service import dong_bo_ban_vat_tu
 from clinicai.services.vat_tu_service import (
     SO_LUONG_TOI_DA,
     ghi_su_kien_vat_tu,
@@ -384,6 +385,11 @@ class BioChiDinhService:
                         False,
                         order_id=oid,
                     )
+            # Chỉ định đã làm thì đầu dò đã trừ dù chưa thu: đổi loại / số phải về
+            # đúng chỗ ngay. Đã thu thì các nhánh trên đã khoá, lệnh này không đổi gì.
+            await dong_bo_ban_vat_tu(
+                conn, identity, vid, ly_do="Bác sĩ đổi đầu dò ở chỉ định."
+            )
             return await _doc(conn, cid, vid)
 
 

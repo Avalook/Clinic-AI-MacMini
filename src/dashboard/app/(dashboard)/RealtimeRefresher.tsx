@@ -89,6 +89,8 @@ const LIVE_TABLES = [
   "vat_tu_phieu",
   "vat_tu_ton",
   "vat_tu_txn",
+  // Dòng chờ gán phòng không ghi sổ nên `vat_tu_txn` không báo được.
+  "vat_tu_ban",
   "appointment",
   "visit",
   "work_item",

@@ -12,6 +12,7 @@ import { congNgay, ngayNgan, type Khoang } from "@/lib/thanh-ngay";
 import { homNayVn } from "@/lib/validation";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import { soKho, tienVnd } from "./gui-kho";
+import LechKiemKe from "./LechKiemKe";
 
 interface DongXnt {
   drug_catalog_id: string;
@@ -39,7 +40,7 @@ interface KetQua {
 const COT: { ma: keyof DongXnt; nhan: string }[] = [
   { ma: "ton_dau", nhan: "Tồn đầu" },
   { ma: "nhap", nhan: "Nhập" },
-  { ma: "xuat", nhan: "Xuất bán" },
+  { ma: "xuat", nhan: "Xuất bán (ròng)" },
   { ma: "dieu_chinh", nhan: "Điều chỉnh" },
   { ma: "huy", nhan: "Huỷ" },
   { ma: "tra_lai", nhan: "Khách trả" },
@@ -217,6 +218,8 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
           </tbody>
         </table>
       </div>
+      {/* Cùng khoảng ngày với bảng trên — Tuyền 31/10: lệch kiểm kê nằm ở Báo cáo kho. */}
+      <LechKiemKe tu={k.tu} den={k.den} />
     </div>
   );
 }

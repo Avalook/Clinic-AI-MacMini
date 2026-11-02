@@ -11,6 +11,7 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import NutHoanTac from "@/components/ui/NutHoanTac";
+import type { DongVatTu } from "../cashier/VatTuBangGia";
 import { guiVatTu, soVatTu, tienVatTu } from "./gui-vat-tu";
 import { KIEU_PHIEU } from "./LapPhieuVatTu";
 
@@ -36,6 +37,10 @@ export interface PhieuVatTu {
   nguoi_tao_id: string | null;
   dao_phieu_id: string | null;
   da_dao: boolean;
+  /** Có = phiếu của một dòng bán cho khách: hoàn tác ở quầy hoặc tab Bán cho khách. */
+  ban_id: string | null;
+  khach: string | null;
+  ma_khach: string | null;
   dong: DongPhieu[];
 }
 
@@ -49,7 +54,8 @@ const gio = (iso: string) =>
     minute: "2-digit",
   });
 
-const tenLoai = (loai: string) => (loai === "HOAN" ? "Đảo thao tác (hoàn tác)" : (KIEU_PHIEU[loai]?.nhan ?? loai));
+const tenLoai = (loai: string) =>
+  loai === "HOAN" ? "Đảo thao tác (hoàn tác)" : loai === "BAN" ? "Bán cho khách" : (KIEU_PHIEU[loai]?.nhan ?? loai);
 
 /** Một dòng sổ: số đếm (kiểm) hoặc số có dấu (+ vào / − ra) tại nơi chứa. */
 function chuDong(d: DongPhieu): string {
@@ -71,40 +77,49 @@ function diemPhieu(p: PhieuVatTu): { tu: string[]; den: string[] } {
   if (p.loai === "XUAT_PHONG") return { tu: ["kho"], den: vao.filter((n) => n !== "kho") };
   if (p.loai === "TRA_KHO") return { tu: ra.filter((n) => n !== "kho"), den: ["kho"] };
   if (p.loai === "CHUYEN_PHONG" || p.loai === "HOAN") return { tu: ra, den: vao };
+  if (p.loai === "BAN") return { tu: ra, den: ["khach"] };
   if (p.loai === "HUY") return { tu: ra, den: ["huy"] };
   if (p.loai === "TRA_NCC") return { tu: ra, den: ["ncc"] };
   return { tu: tatCa, den: tatCa };
 }
 function huongPhieu(p: PhieuVatTu): string {
   const diem = diemPhieu(p);
-  const tenNoi = (ma: string) => ma === "kho" ? "Kho" : ma === "ncc" ? "Nhà cung cấp" : ma === "huy" ? "Hỏng / huỷ" : p.dong.find((d) => d.room_id === ma)?.noi_chua ?? "Phòng";
+  const tenNoi = (ma: string) => ma === "kho" ? "Kho" : ma === "ncc" ? "Nhà cung cấp" : ma === "huy" ? "Hỏng / huỷ" : ma === "khach" ? "Khách" : p.dong.find((d) => d.room_id === ma)?.noi_chua ?? "Phòng";
   return `${diem.tu.map(tenNoi).join(", ") || "—"} → ${diem.den.map(tenNoi).join(", ") || "—"}`;
 }
 
-export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
+export default function DanhSachPhieuVatTu({ ds, vatTu }: { ds: PhieuVatTu[]; vatTu: DongVatTu[] }) {
   const router = useRouter();
   const [tatCa, setTatCa] = useState(ds);
   const [nguon, setNguon] = useState(ds);
   const [conTrang, setConTrang] = useState(ds.length >= 50);
   const [dangTai, setDangTai] = useState(false);
   const [loiTai, setLoiTai] = useState<string | null>(null);
+  const [matHang, setMatHang] = useState("");
   if (nguon !== ds) {
     setNguon(ds);
-    setTatCa(ds);
-    setConTrang(ds.length >= 50);
+    if (!matHang) {
+      setTatCa(ds);
+      setConTrang(ds.length >= 50);
+    }
   }
-  const taiThem = async () => {
+  const taiTrang = async (hang: string, boQua: number) => {
     setDangTai(true);
     setLoiTai(null);
     try {
-      const res = await fetch(`/api/vat-tu-kho/phieu?gioi_han=50&bo_qua=${tatCa.length}`);
+      const res = await fetch(`/api/vat-tu-kho/phieu?${new URLSearchParams({ gioi_han: "50", bo_qua: String(boQua), vat_tu_id: hang })}`);
       if (!res.ok) throw new Error("Không tải được lịch sử. Vui lòng thử lại.");
       const data = await res.json() as { items: PhieuVatTu[] };
       if (!Array.isArray(data.items)) throw new Error("Không tải được lịch sử. Vui lòng thử lại.");
-      setTatCa((cu) => [...new Map([...cu, ...data.items].map((p) => [p.id, p])).values()]);
+      setTatCa((cu) => boQua === 0 ? data.items : [...new Map([...cu, ...data.items].map((p) => [p.id, p])).values()]);
       setConTrang(data.items.length >= 50);
     } catch (e) { setLoiTai(e instanceof Error ? e.message : "Không tải được lịch sử."); }
     finally { setDangTai(false); }
+  };
+  // Lọc mặt hàng ở máy chủ: danh sách đã tải chỉ có 50 phiếu gần nhất.
+  const doiMatHang = (hang: string) => {
+    setMatHang(hang);
+    void taiTrang(hang, 0);
   };
   const [mo, setMo] = useState<string | null>(null);
   const [loai, setLoai] = useState("tat_ca");
@@ -159,7 +174,15 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
             <option value="KIEM">Kiểm kê (chỉ lưu số đếm)</option>
             <option value="HUY">Hỏng / huỷ</option>
             <option value="TRA_NCC">Trả nhà sản xuất</option>
+            <option value="BAN">Bán cho khách</option>
             <option value="HOAN">Hoàn tác</option>
+          </select>
+        </label>
+        <label className="text-meta text-ink-soft">
+          <span className="mb-1 block">Lọc mặt hàng</span>
+          <select aria-label="Lọc mặt hàng" className="min-h-10 max-w-64 rounded-control border border-line bg-surface px-3 text-body text-ink" value={matHang} onChange={(e) => doiMatHang(e.target.value)}>
+            <option value="">Tất cả mặt hàng</option>
+            {vatTu.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
         </label>
         <label className="text-meta text-ink-soft">
@@ -211,6 +234,7 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
                       {p.ma_phieu} · {gio(p.tao_luc)} · {p.nguoi_tao ?? "—"}
                       {p.dao_phieu_id ? ` · đảo phiếu ${maPhieu.get(p.dao_phieu_id) ?? ""}` : ""}
                       {p.nha_cung_cap ? ` · Nhà sản xuất: ${p.nha_cung_cap}` : ""}
+                      {p.khach ? ` · Khách: ${p.khach}${p.ma_khach ? ` (${p.ma_khach})` : ""}` : ""}
                       {p.ghi_chu ? ` · ${p.ghi_chu}` : ""}
                     </p>
                     <p className="text-meta text-ink-muted">{huongPhieu(p)}</p>
@@ -222,7 +246,7 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
                   <Button type="button" size="sm" variant="ghost" onClick={() => setMo(dangMo ? null : p.id)}>
                     {dangMo ? "Thu gọn" : "Xem mặt hàng"}
                   </Button>
-                  {p.loai !== "HOAN" && !p.da_dao ? (
+                  {p.loai !== "HOAN" && !p.da_dao && !p.ban_id ? (
                     <NutHoanTac
                       tieuDe="Hoàn tác thao tác này?"
                       moTa="Đảo số lượng của phiếu này; các giao dịch sau vẫn được giữ."
@@ -250,8 +274,8 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
       )}
       <div className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
         <span>Đang xem {tatCa.length} phiếu gần nhất</span>
-        {conTrang ? <Button type="button" size="sm" variant="secondary" disabled={dangTai} onClick={() => void taiThem()}>{dangTai ? "Đang tải…" : "Tải thêm lịch sử"}</Button> : null}
-        <span>Bộ lọc áp dụng trong danh sách đã tải.</span>
+        {conTrang ? <Button type="button" size="sm" variant="secondary" disabled={dangTai} onClick={() => void taiTrang(matHang, tatCa.length)}>{dangTai ? "Đang tải…" : "Tải thêm lịch sử"}</Button> : null}
+        <span>Lọc mặt hàng tìm trên toàn bộ lịch sử; các bộ lọc khác áp dụng trong danh sách đã tải.</span>
       </div>
       {loiTai ? <p role="alert" className="text-body text-danger">{loiTai}</p> : null}
     </section>

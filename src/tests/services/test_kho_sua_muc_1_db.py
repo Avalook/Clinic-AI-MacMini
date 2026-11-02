@@ -194,8 +194,15 @@ async def test_dieu_chinh_khong_ap_duoc_dong_nao_thi_phieu_khong_bi_danh_dau(
     await _bat(co)  # nhập sau khi bật → vào KHO
     await _nhap_kho(co, drug, 10)
     p = await _mo_va_dem(co, drug, "viên", 5)
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    with pytest.raises(ConflictError, match="Không áp được dòng lệch nào"):
+    xem = await kk.xem_lech(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    kq = await kk.chot(
+        co.q.pool,
+        identity=co.ds,
+        phieu_id=p["id"],
+        ly_do_dong=[{**d, "ly_do": "Đếm thừa"} for d in xem["dong"]],
+    )
+    assert kq["dong"][0]["chua_ap"] == 5  # chốt được, nhưng không báo đã khớp
+    with pytest.raises(ConflictError, match="đã ghi sổ lúc chốt"):
         await kk.dieu_chinh_theo_kiem_ke(
             co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Thử"
         )

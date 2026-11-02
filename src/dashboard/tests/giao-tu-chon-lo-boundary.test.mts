@@ -11,11 +11,13 @@ const dongThuoc = doc("app/(dashboard)/pharmacy/DongThuoc.tsx");
 test("giao không chỉ định lô: màn hiện câu máy chủ trả, không tự tính lô", () => {
   assert.match(dongThuoc, /tom_tat\?: string \| null/);
   assert.match(dongThuoc, /setTin\(ketQua\?\.tom_tat \?\? null\)/);
-  assert.match(dongThuoc, /\{tin \? <p className="text-meta text-ink-muted">\{tin\}<\/p> : null\}/);
+  assert.match(dongThuoc, /\{tin && dong\.dispensed_qty > 0 \? <p role="status" className="text-body text-ink">\{tin\}<\/p> : null\}/);
+  // Thẻ dựng lại theo key sau khi giao: câu báo phải do cha giữ, không thì mất ngay.
+  assert.match(dongThuoc, /useState<string \| null>\(tinDau\)/);
 });
 
 test("câu 'chờ gán lô' là việc thường: trung tính, không tô đỏ/vàng", () => {
-  const khoi = dongThuoc.slice(dongThuoc.indexOf("{tin ?"), dongThuoc.indexOf("{loi ?"));
+  const khoi = dongThuoc.slice(dongThuoc.indexOf("{tin &&"), dongThuoc.indexOf("{loi ?"));
   assert.doesNotMatch(khoi, /danger|warning|amber|yellow/);
 });
 

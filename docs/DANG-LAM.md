@@ -1,6 +1,16 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **31/10/2026** — mục "31/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 31/10/2026 — ĐỢT KHO `dot/3110-kho` (nền `dot/3010`): CHỜ STAGING RỒI LÊN PROD TỐI 31/10
+
+Nghiệp vụ Tuyền chốt: nhập KHO → chuyển QUẦY; kiểm ca ghi số thật + lý do, lệch vào báo cáo, quản lý sửa số sau cùng; thuốc nhiều đơn vị bán, giá riêng
+từng đơn vị; truy vết thuốc; vật tư trừ đúng phòng, tab Bán cho khách để đối soát. 4 migration `20261101100000` → `20261101400000`.
+Đã bấm thật local 1280 + 375, test soát ở `src/tests/services/test_soat_kho_3110*_db.py`.
+Việc còn lại trước khi phòng khám dùng: bật tách kho quầy cơ sở Hào Nam; đưa lô `DEMO1709-*` về 0 (`scripts/dua-lo-demo-ve-0.sql`, staging trước);
+26 thuốc lệch đơn vị + 4 thuốc thiếu đơn vị cần phòng khám điền. Thuốc khách trả chờ kiểm **nằm trong sổ quầy**, nên kiểm ca đếm cả khay ấy.
+Thêm migration `20261101500000`: quyền Sửa giá thuốc tách khỏi quyền giao thuốc, cấp sẵn cho người đang có quyền Duyệt vật tư; hai công tắc mới ở `/phan-quyen`.
+**Không lên prod cùng đợt:** Trợ lý AI (#571, #573, `gop-staging-3010`, mig `20261030170000`).
 
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
 
@@ -32,7 +42,7 @@ tự làm mới nên khung phải/ nút Tạo bill nhích chỗ giữa lúc bấ
    làm; khi chưa có thì mặc định như hiện nay (hạn theo ngày đặt, việc cũ hiện quá hạn).
 3. `danh_sach_khach` tính "hoạt động gần nhất" cho mọi khách trước khi sắp xếp (cần cột/keyset); gom N+1 quầy thu.
 4. Màn **xử lý thuốc khách trả** (thuốc về quầy nhưng chưa bán lại được — chờ quyết định phòng khám: nhập lại bán được hay huỷ).
-5. Nút "Bật tách kho / quầy": bấm lần đầu không đổi trạng thái (nghi gửi 2 lần) — kiểm.
+5. ~~Nút "Bật tách kho / quầy": bấm lần đầu không đổi trạng thái~~ — xong 31/10: `router.refresh()` về chậm nên nhãn cũ còn đứng; màn lấy trạng thái máy chủ vừa trả.
 6. Chip trạng thái "Đã ghi phản hồi thuốc" tô đỏ khi khách còn việc quá hạn — xem có nên luôn trung tính.
 7. Nhãn "Quầy thêm" trên dòng thuốc lấy từ đơn bác sĩ ("Bán theo đơn") — đổi nhãn.
 8. Nhận khách tại phòng: cho nhận khi bác sĩ vừa chỉ định (hiện chỉ sau Hoàn tất) — Tuyền: giữ như hiện nay.

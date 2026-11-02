@@ -36,8 +36,17 @@ from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
 from clinicai.services.ban_le_service import QUYEN_THU_THUOC, co_quyen_mo
+from clinicai.services.don_vi_thuoc import (
+    BangDonVi,
+    QuyDoiDong,
+    doc_bang,
+    he_so_da_chup,
+    so_de_doc,
+    so_dep,
+)
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
+from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
 
 CHUA_SAN_SANG = "CHUA_SAN_SANG"
 SAN_SANG = "SAN_SANG"
@@ -66,16 +75,19 @@ LY_DO_LO_KHAC_CO_SO = "KHAC_CO_SO"
 LY_DO_LO_KHAC_DON_VI = "KHAC_DON_VI"
 
 
-def ly_do_lo_bi_loai(lo: Any, *, co_so: str, don_vi_ke: str) -> str | None:
+def ly_do_lo_bi_loai(
+    lo: Any, *, co_so: str, don_vi_ke: str, doi: QuyDoiDong | None = None
+) -> str | None:
     """Lô `lo` có bị loại khỏi gợi ý của dòng đơn không; có thì vì sao.
 
-    Đúng hai luật của `_dong` (kho riêng từng cơ sở; luồng mới chỉ lô cùng đơn vị
-    kê — đơn thiếu đơn vị thì không lọc), tách ra để dùng chung cho cả việc LỌC
-    lẫn việc GIẢI THÍCH, hai nơi không lệch nhau."""
+    Đúng hai luật của `_dong` (kho riêng từng cơ sở; lô cùng đơn vị kê, hoặc đổi
+    được qua `doi` khi đã thu — đơn thiếu đơn vị thì không lọc), tách ra để dùng
+    chung cho cả việc LỌC lẫn việc GIẢI THÍCH, hai nơi không lệch nhau."""
     if lo["co_so_id"] != co_so:
         return LY_DO_LO_KHAC_CO_SO
     if don_vi_ke and _don_vi(lo["unit"]) != don_vi_ke:
-        return LY_DO_LO_KHAC_DON_VI
+        if doi is None or doi.ty_le(lo["unit"]) is None:
+            return LY_DO_LO_KHAC_DON_VI
     return None
 
 
@@ -148,9 +160,9 @@ def thao_tac_dong(
         and so_ban is not None
         and da_giao < so_ban,
         # Khách không lấy: sau Khám xong, trước khi có lần thu (sau đó phải
-        # huỷ phiếu). Chốt / từ chối trước Khám xong cũng khoá dòng khỏi nút
-        # Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
-        "tu_choi": san_sang and chua_giao == 0,
+        # huỷ phiếu), và chưa giao gì. Chốt / từ chối trước Khám xong cũng khoá dòng
+        # khỏi nút Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
+        "tu_choi": san_sang and chua_giao == 0 and da_giao == 0,
         # Chờ xác minh / cần đối soát: không bao giờ. Đã thu (luồng mới): chỉ
         # khi đã giao đủ số bán — trước CP5 không có đường xử lý phần còn lại.
         "chot": mo
@@ -251,7 +263,8 @@ async def man_nha_thuoc(
                                     AND -s.quantity > coalesce((
                                         SELECT -sum(d.quantity)
                                           FROM public.inventory_txn d
-                                         WHERE d.txn_type = 'DISPENSE'
+                                         WHERE d.txn_type IN
+                                               ('DISPENSE', 'DISPENSE_REVERSAL')
                                            AND d.allocation_id = a.id), 0))
                              OR EXISTS (
                                  SELECT 1 FROM public.prescription_allocation a
@@ -324,6 +337,8 @@ async def man_nha_thuoc(
             rx_ids,
         )
         thuoc_ids = sorted({r["drug_catalog_id"] for r in dong if r["drug_catalog_id"]})
+        # Hàng trùng mã vật tư: tồn ở Kho vật tư, không hỏi lô thuốc.
+        la_vat_tu = await thuoc_la_vat_tu(conn, identity.clinic_id, thuoc_ids)
         # Kho riêng từng cơ sở (08/10/2026): lô gợi ý của một dòng = lô thuộc
         # cơ sở của LƯỢT (`_co_so`). Đọc lô của mọi cơ sở có trên màn, lọc
         # theo dòng ở `_dong`.
@@ -344,6 +359,8 @@ async def man_nha_thuoc(
             hom_nay,
             co_so_ids,
         )
+        bang_dv = await doc_bang(conn, identity.clinic_id, thuoc_ids)
+        chup_dv = await he_so_da_chup(conn, identity.clinic_id, rx_ids)
         # G7: hàng còn ở KHO (chưa ra quầy) — quầy hết mà kho còn thì nói ra để
         # người có quyền chuyển ngay tại màn (luật open), không bán từ kho.
         kho_rows = await conn.fetch(
@@ -393,16 +410,46 @@ async def man_nha_thuoc(
         xuat_rows = await conn.fetch(
             """
             SELECT t.id::text, t.ref_id::text AS prescription_id, b.batch_code,
-                   -t.quantity AS so_luong, t.performed_at,
+                   b.unit AS don_vi, -t.quantity AS so_luong, t.performed_at,
                    coalesce((SELECT sum(r.returned_qty) FROM public.drug_return r
                               WHERE r.clinic_id = t.clinic_id
-                                AND r.original_dispense_txn_id = t.id), 0) AS da_tra
+                                AND r.original_dispense_txn_id = t.id), 0) AS da_tra,
+                   -- Lô đã "Huỷ phần chưa giao": không giao lại được → không hoàn tác.
+                   EXISTS (SELECT 1 FROM public.inventory_txn s
+                             JOIN public.payment_cycle c
+                               ON c.payment_cycle_id = s.payment_cycle_id
+                              AND c.clinic_id = s.clinic_id AND c.status = 'PAID'
+                            WHERE s.clinic_id = t.clinic_id
+                              AND s.allocation_id = t.allocation_id
+                              AND s.txn_type = 'SALE_REVERSAL') AS lo_da_huy_ban
               FROM public.inventory_txn t
               JOIN public.drug_batch b
                 ON b.id = t.drug_batch_id AND b.clinic_id = t.clinic_id
              WHERE t.clinic_id = $1::uuid AND t.txn_type = 'DISPENSE'
                AND t.ref_type = 'prescription' AND t.ref_id = ANY($2::uuid[])
+               -- Lần giao đã hoàn tác: thuốc đã về quầy, không còn việc gì ở dòng này.
+               AND NOT EXISTS (SELECT 1 FROM public.inventory_txn x
+                                WHERE x.txn_type = 'DISPENSE_REVERSAL'
+                                  AND x.reverses_txn_id = t.id)
              ORDER BY t.performed_at, t.id
+            """,
+            identity.clinic_id,
+            rx_ids,
+        )
+        cho_gan_rows = await conn.fetch(
+            """
+            SELECT g.id::text, g.prescription_id::text, g.so_luong, g.giao_luc,
+                   p.unit, c.don_vi_ban,
+                   public.he_so_don_vi(g.clinic_id, g.drug_catalog_id, p.unit) AS he_so
+              FROM public.thuoc_giao_chua_gan_lo g
+              JOIN public.prescription p
+                ON p.id = g.prescription_id AND p.clinic_id = g.clinic_id
+              /* rx:gom-ca-lich-su: thuốc đã giao vẫn hiện dù dòng đơn đã đính chính */
+              LEFT JOIN public.drug_catalog c
+                ON c.id = g.drug_catalog_id AND c.clinic_id = g.clinic_id
+             WHERE g.clinic_id = $1::uuid AND g.prescription_id = ANY($2::uuid[])
+               AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
+             ORDER BY g.giao_luc, g.id
             """,
             identity.clinic_id,
             rx_ids,
@@ -472,12 +519,31 @@ async def man_nha_thuoc(
             {
                 "dispense_txn_id": x["id"],
                 "batch_code": x["batch_code"],
+                "don_vi": x["don_vi"],
                 "so_luong": _so(x["so_luong"]),
                 "luc": x["performed_at"],
                 "da_tra": _so(x["da_tra"]),
                 "con_tra": con_tra,
                 # Chỉ là "thuốc đã quay lại quầy" — không quyết xử lý (HOLD J1/J2).
-                "thao_tac": {"tra": co_quyen_ghi and con_tra > 0},
+                "thao_tac": {
+                    "tra": co_quyen_ghi and con_tra > 0,
+                    "hoan_tac_giao": co_quyen_ghi
+                    and con_tra > 0
+                    and not x["lo_da_huy_ban"],
+                },
+            }
+        )
+    cho_gan_theo_dong: dict[str, list[dict[str, Any]]] = {}
+    for x in cho_gan_rows:
+        cho_gan_theo_dong.setdefault(x["prescription_id"], []).append(
+            {
+                "dong_id": x["id"],
+                "so_luong": _so(x["so_luong"]),
+                "hien": so_de_doc(
+                    _so(x["so_luong"]), x["he_so"], x["don_vi_ban"], x["unit"]
+                ),
+                "luc": x["giao_luc"],
+                "thao_tac": {"hoan_tac_giao": co_quyen_ghi},
             }
         )
     dao: dict[tuple[str, str], Decimal] = {
@@ -540,8 +606,15 @@ async def man_nha_thuoc(
         g["giai_doan"] = gd
         for r in g.pop("_rows"):
             cg = chua_giao.get(r["id"], {})
+            b_dv = bang_dv.get(r["drug_catalog_id"] or "", BangDonVi())
             them = {
+                "doi": QuyDoiDong(
+                    don_vi=(r["unit"] or "").strip() or b_dv.goc,
+                    he_so_dong=chup_dv.get(r["id"]) or b_dv.he_so(r["unit"]),
+                    bang=b_dv,
+                ),
                 "xuat": xuat_theo_dong.get(r["id"], []),
+                "cho_gan": cho_gan_theo_dong.get(r["id"], []),
                 "chua_giao": cg.get("chua_giao", Decimal(0)),
                 "can_hoan": cg.get("can_hoan", Decimal(0)),
                 "da_dao_song": (
@@ -560,6 +633,7 @@ async def man_nha_thuoc(
                 co_quyen_ghi,
                 them,
                 co_so=_co_so(r, identity),
+                la_vat_tu=r["drug_catalog_id"] in la_vat_tu,
             )
             dv = _don_vi(r["unit"])
             d["kho_con"] = [
@@ -606,6 +680,20 @@ async def man_nha_thuoc(
     }
 
 
+def _chu_don_vi(r: Any, doi: QuyDoiDong, da_giao: Decimal) -> dict[str, Any]:
+    """Chữ đơn vị của dòng cho màn Nhà thuốc: "1 hộp = 30 gói", "0,5 hộp (15 gói)",
+    và đơn vị gõ được ở ô Giao. Bán đúng đơn vị gốc thì rỗng."""
+    b = doi.bang
+    if not r["unit"] or not doi.he_so_dong or b.la_goc(r["unit"]):
+        return {"quy_doi": None, "da_giao_goc": None, "don_vi_giao": []}
+    hs = doi.he_so_dong
+    return {
+        "quy_doi": f"1 {r['unit']} = {so_dep(hs)} {b.goc}",
+        "da_giao_goc": f"{so_dep(da_giao * hs)} {b.goc}" if da_giao > 0 else None,
+        "don_vi_giao": [r["unit"], b.goc],
+    }
+
+
 def _co_so(r: Any, identity: StaffIdentity) -> str:
     """Cơ sở của lượt chứa dòng đơn; lượt không rõ cơ sở → cơ sở đang làm."""
     return str(r["co_so_id"] or identity.location_id)
@@ -622,6 +710,7 @@ def _dong(
     them: dict[str, Any],
     *,
     co_so: str,
+    la_vat_tu: bool = False,
 ) -> dict[str, Any]:
     ke = r["quantity_num"]
     ban = r["purchased_qty"] if r["purchased_qty"] is not None else ke
@@ -667,7 +756,9 @@ def _dong(
         )
     lo_goi_y = []
     ung_vien: list[asyncpg.Record] = []
-    if r["drug_catalog_id"]:
+    if la_vat_tu:
+        pass
+    elif r["drug_catalog_id"]:
         ung_vien = lo_theo_thuoc.get(r["drug_catalog_id"], [])
     elif gd == DA_THU_CU:
         ten = (r["drug_name_raw"] or "").strip().lower()
@@ -678,14 +769,18 @@ def _dong(
             and any(x and (x in ten or ten in x) for x in (b["ten_a"], b["ten_b"]))
         ]
     lo_bi_loai: list[dict[str, Any]] = []
+    doi: QuyDoiDong = them["doi"]
     if ung_vien and not lich_su:
         dv = _don_vi(r["unit"])
+        # Chưa thu thì chọn lô trước chỉ nhận lô cùng đơn vị (`_kiem_lo`); đã thu thì
+        # giao từ lô khác đơn vị đổi được qua hệ số.
+        doi_lo = doi if gd in (DA_THU, DA_THU_CU) else None
         for b in ung_vien:
             # Kho riêng từng cơ sở: chỉ lô của cơ sở của lượt. Luồng mới: chỉ lô
             # cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ: đơn thiếu đơn vị
             # thì hiểu theo đơn vị lô. Lô bị loại vẫn được GHI LẠI kèm lý do để
             # màn quét tem nói đúng ("tính theo hộp, đơn kê theo gói").
-            ly_do = ly_do_lo_bi_loai(b, co_so=co_so, don_vi_ke=dv)
+            ly_do = ly_do_lo_bi_loai(b, co_so=co_so, don_vi_ke=dv, doi=doi_lo)
             if ly_do:
                 lo_bi_loai.append(
                     {
@@ -722,13 +817,31 @@ def _dong(
         "dosage_instructions": r["dosage_instructions"],
         "drug_catalog_id": r["drug_catalog_id"],
         "ten_thuoc_kho": r["ten_thuoc_kho"],
+        "la_vat_tu": la_vat_tu,
+        "hoan_tac_giao_vat_tu": la_vat_tu
+        and co_quyen_ghi
+        and da_giao > 0
+        and not lich_su,
         "can_lo": can_lo,
         "da_chon": da_chon,
         "phan_lo": ds_pl,
         "lo_goi_y": lo_goi_y,
         # Lô của thuốc này bị loại khỏi gợi ý + lý do — chỉ để giải thích.
         "lo_bi_loai": lo_bi_loai,
-        "xuat": them["xuat"],
+        **_chu_don_vi(r, doi, da_giao),
+        # Dòng lịch sử (bác sĩ đã đính chính): không giao lại được → không có nút
+        # hoàn tác giao; thuốc về quầy qua hoàn tác lần thu.
+        "xuat": [
+            {**x, "thao_tac": {**x["thao_tac"], "hoan_tac_giao": False}}
+            for x in them["xuat"]
+        ]
+        if lich_su
+        else them["xuat"],
+        "cho_gan": [
+            {**x, "thao_tac": {"hoan_tac_giao": False}} for x in them["cho_gan"]
+        ]
+        if lich_su
+        else them["cho_gan"],
         "chua_giao": them["chua_giao"],
         "can_hoan": them["can_hoan"],
         # CP6: dòng đã được bác sĩ đính chính (lịch sử) — chỉ còn đối soát.
@@ -740,7 +853,7 @@ def _dong(
             gd=gd,
             dong_da_chot=da_chot,
             da_giao=da_giao,
-            co_thuoc_kho=r["drug_catalog_id"] is not None,
+            co_thuoc_kho=r["drug_catalog_id"] is not None and not la_vat_tu,
             co_don_vi=bool(_don_vi(r["unit"])),
             co_so_ke=ke is not None,
             can_lo=can_lo,

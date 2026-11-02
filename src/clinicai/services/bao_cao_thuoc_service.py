@@ -73,6 +73,20 @@ def so_ke(don: Mapping[str, Any]) -> Decimal | None:
     return _so(don.get("quantity_num"))
 
 
+def _ke_theo_don_vi_ban(
+    ke: Decimal | None, d: Mapping[str, Any], bls: list[Mapping[str, Any]]
+) -> Decimal | None:
+    """Số kê đổi sang đơn vị đã bán để so được: kê 30 viên, bán 1 hộp (30 viên) là
+    đủ, không lệch. Thiếu hệ số thì giữ số như cũ. Thuần."""
+    he_so_ke = _so(d.get("he_so_ke"))
+    he_so_ban = next(
+        (hs for b in bls if (hs := _so(b.get("he_so"))) is not None), None
+    ) or _so(d.get("he_so_dong"))
+    if ke is None or not he_so_ke or not he_so_ban or he_so_ke == he_so_ban:
+        return ke
+    return ke * he_so_ke / he_so_ban
+
+
 def gom_thuoc_theo_khach(
     *,
     khach: Iterable[Mapping[str, Any]],
@@ -131,7 +145,7 @@ def gom_thuoc_theo_khach(
                 (tra.get(str(b.get("id")), (_0, _0))[1] for b in bls), Decimal(0)
             )
             thuc = ban - sl_tra
-            ke = so_ke(d)
+            ke = _ke_theo_don_vi_ban(so_ke(d), d, bls)
             ten_kho = next((b.get("ten_kho") for b in bls if b.get("ten_kho")), None)
             ten_kho = ten_kho or d.get("ten_kho")
             ten = str(ten_kho or d.get("drug_name_raw") or "Không tên")
@@ -174,8 +188,9 @@ def gom_thuoc_theo_khach(
                     "lech": lech,
                 }
             )
+            # Mỗi đơn vị một dòng: 1 hộp + 3 gói không cộng thành 4.
             t = theo_thuoc.setdefault(
-                ten,
+                f"{ten}|{_chuan(dong_ra[-1]['don_vi'])}",
                 {"ten": ten, "don_vi": dong_ra[-1]["don_vi"], "so_ke": Decimal(0)}
                 | {"thuc_ban": Decimal(0), "so_tra": Decimal(0), "tien": 0},
             )
@@ -277,6 +292,11 @@ SELECT r.id::text AS id, r.visit_id::text AS visit_id, r.nguon, r.drug_name_raw,
        r.unit, r.quantity_num,
        public.so_luong_tu_van_ban(r.so_luong_ke_goc) AS ke_goc_num,
        r.so_luong_dien_boi IS NOT NULL AS quay_sua,
+       public.he_so_don_vi(r.clinic_id, r.drug_catalog_id, r.unit) AS he_so_dong,
+       public.he_so_don_vi(
+           r.clinic_id, r.drug_catalog_id,
+           CASE WHEN r.so_luong_dien_boi IS NULL THEN r.unit
+                ELSE public.don_vi_tu_van_ban(r.so_luong_ke_goc) END) AS he_so_ke,
        r.purchased_qty, r.dispensed_qty, r.refusal_reason, r.removed_at, r.created_at,
        c.name_raw AS ten_kho, c.unit_price AS gia_kho, c.don_vi_ban
   FROM prescription r
@@ -289,7 +309,7 @@ SELECT r.id::text AS id, r.visit_id::text AS visit_id, r.nguon, r.drug_name_raw,
 #: Dòng hoá đơn thuốc của lần thu PAID tới hết khung ($3) — ảnh chụp lúc thu.
 _BILL_SQL = """
 SELECT bl.id::text AS id, bl.source_id, bl.quantity, bl.unit, bl.unit_price,
-       bl.line_total, c.name_raw AS ten_kho, pc.paid_at,
+       bl.he_so, bl.line_total, c.name_raw AS ten_kho, pc.paid_at,
        coalesce(xn.full_name, cb.full_name) AS nguoi_thu
   FROM payment_bill_line bl
   JOIN payment_cycle pc

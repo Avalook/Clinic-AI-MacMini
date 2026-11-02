@@ -57,7 +57,7 @@ async def _kiem(q: Quay, lo: str, thuc_te: Decimal | int) -> dict[str, Any]:
         q.pool,
         identity=q.duoc_si,
         khoa_gui=uuid.uuid4().hex,
-        dong=[{"drug_batch_id": lo, "thuc_te": thuc_te}],
+        dong=[{"drug_batch_id": lo, "thuc_te": thuc_te, "ly_do": "Đếm lại kệ"}],
     )
 
 
@@ -98,7 +98,7 @@ def _thu_khong_cho_kho(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.usefixtures("_thu_khong_cho_kho")
-async def test_kiem_kho_chan_khi_con_giao_chua_gan_lo_roi_gan_xong_thi_kiem_duoc(
+async def test_kiem_kho_tach_phan_chua_gan_lo_roi_gan_xong_khong_tru_hai_lan(
     q: Quay,
 ) -> None:
     svc = PharmacyService(q.pool)
@@ -107,24 +107,22 @@ async def test_kiem_kho_chan_khi_con_giao_chua_gan_lo_roi_gan_xong_thi_kiem_duoc
     # Quầy giao 3 từ hộp chưa nhập máy, rồi mới nhập lô 10 (hộp ấy).
     await _giao_khong_lo(q, rx, 3)
     lo = await _nhap_lo(q, drug, 10)
-    # Kệ thật còn 7, sổ còn 10 (chưa gắn lô). Đếm 7 → phải chặn, không ghi gì.
-    truoc = await _so_phieu_kiem(q)
-    with pytest.raises(ConflictError, match="chưa gắn lô"):
-        await _kiem(q, lo, 7)
-    assert await _ton(q, lo) == 10
-    assert await _so_phieu_kiem(q) == truoc, "bị chặn thì không để lại phiếu"
-
-    # Đếm khớp sổ (lệch 0) không ghi điều chỉnh nào → không cần chặn.
-    kq = await _kiem(q, lo, 10)
+    # Kệ thật còn 7, sổ còn 10 (chưa gắn lô): không lệch thật, không kẹt.
+    kq = await _kiem(q, lo, 7)
     assert kq["dong"][0]["lech"] == 0
+    assert kq["dong"][0]["giao_chua_gan_lo"] == 3
+    assert await _ton(q, lo) == 10
+
+    # Kệ thiếu thêm 1: lệch thật −1, sổ về đếm + N.
+    kq = await _kiem(q, lo, 6)
+    assert kq["dong"][0]["lech"] == -1
+    assert await _ton(q, lo) == 9
 
     [dong] = await _cho_gan(q, rx)
     await svc.gan_lo_da_giao(identity=q.duoc_si, dong_id=dong, drug_batch_id=lo)
-    assert await _ton(q, lo) == 7
-    # Gắn xong: kiểm lại theo kệ thật — lệch 0, sổ = kệ.
-    kq = await _kiem(q, lo, 7)
+    assert await _ton(q, lo) == 6  # sổ = kệ
+    kq = await _kiem(q, lo, 6)
     assert kq["dong"][0]["lech"] == 0
-    assert await _ton(q, lo) == 7
 
 
 @pytest.mark.usefixtures("_thu_khong_cho_kho")
@@ -165,7 +163,6 @@ async def test_gia_lap_kiem_kho_va_gan_lo_so_luon_khop_ke(q: Quay, seed: int) ->
         lenh = rng.choice(("giao", "giao", "gan", "kiem", "kiem", "huy", "nhap_le"))
         trace = (*trace, f"seed={seed} buoc={buoc} {lenh}")
         cho = await _cho_gan(q, rx)
-        so = await _ton(q, lo)
         try:
             if lenh == "giao" and da_giao < 10:
                 await svc.cap_phat(
@@ -181,12 +178,7 @@ async def test_gia_lap_kiem_kho_va_gan_lo_so_luon_khop_ke(q: Quay, seed: int) ->
                     identity=q.duoc_si, dong_id=cho[0], drug_batch_id=lo
                 )
             elif lenh == "kiem":
-                if cho and ke != so:
-                    with pytest.raises(ConflictError, match="chưa gắn lô"):
-                        await _kiem(q, lo, ke)
-                    assert await _ton(q, lo) == so, trace
-                else:
-                    await _kiem(q, lo, ke)
+                await _kiem(q, lo, ke)
             elif lenh == "huy" and ke > 0:
                 await svc.huy(
                     identity=q.duoc_si, drug_batch_id=lo, so_luong=1, ly_do="Vỡ"

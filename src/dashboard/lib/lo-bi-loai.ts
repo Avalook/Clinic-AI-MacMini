@@ -27,7 +27,7 @@ export function cauKhoCoLoKhacDonVi(
     [...new Set(khac.map((b) => b.don_vi_lo?.trim()).filter((x): x is string => !!x))].join(", ") ||
     "đơn vị khác";
   const theoKe = khac[0]?.don_vi_ke?.trim() || "đơn vị khác";
-  return `Kho có ${tenThuoc} nhưng tính theo ${theoLo}, còn đơn này theo ${theoKe} — thu tiền và giao vẫn được, nhưng kho KHÔNG tự trừ (khác đơn vị). Nhập lô theo ${theoKe} hoặc báo quản lý.`;
+  return `Kho có ${tenThuoc} nhưng tính theo ${theoLo}, còn đơn này theo ${theoKe} — thu tiền và giao vẫn được, kho tự đổi và trừ khi đơn vị đã khai hệ số ở Danh mục kho; chưa khai thì KHÔNG tự trừ (khác đơn vị). Nhập lô theo ${theoKe} hoặc báo quản lý.`;
 }
 
 /** Lúc NHẬP: đơn vị nhập khác đơn vị BÁN của thuốc → cảnh báo (không chặn). Lô

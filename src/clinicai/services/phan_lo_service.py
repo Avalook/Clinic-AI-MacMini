@@ -106,7 +106,35 @@ async def khoa_ban_thuoc(
         payment_cycle_id,
     )
     phan_lo = [_pl(r) for r in rows]
-    await khoa_lo(conn, clinic_id=clinic_id, lo_ids=[p.drug_batch_id for p in phan_lo])
+    lo_ids = [p.drug_batch_id for p in phan_lo]
+    if payment_cycle_id is not None:
+        # Hoàn tác lần thu đưa thuốc đã giao về lô, kể cả phần giao không qua phân
+        # lô: khoá dòng chờ gán lô (trước lô, như `gan_lo_da_giao`) và MỌI lô đã
+        # giao của lượt trong CÙNG một lần theo id, không khoá thêm lô về sau.
+        await conn.execute(
+            "SELECT 1 FROM public.thuoc_giao_chua_gan_lo g"
+            " JOIN public.prescription r"
+            "   ON r.id = g.prescription_id AND r.clinic_id = g.clinic_id"
+            " /* rx:gom-ca-lich-su: dòng đã đính chính vẫn có lần giao phải đảo */"
+            " WHERE g.clinic_id = $1::uuid AND r.visit_id = $2::uuid"
+            " ORDER BY g.id FOR UPDATE OF g",
+            clinic_id,
+            visit_id,
+        )
+        lo_ids += [
+            str(r["drug_batch_id"])
+            for r in await conn.fetch(
+                "SELECT DISTINCT t.drug_batch_id FROM public.inventory_txn t"
+                " JOIN public.prescription r"
+                "   ON r.id = t.ref_id AND r.clinic_id = t.clinic_id"
+                " /* rx:gom-ca-lich-su: thuốc đã giao của dòng đã đính chính */"
+                " WHERE t.clinic_id = $1::uuid AND r.visit_id = $2::uuid"
+                " AND t.txn_type = 'DISPENSE' AND t.ref_type = 'prescription'",
+                clinic_id,
+                visit_id,
+            )
+        ]
+    await khoa_lo(conn, clinic_id=clinic_id, lo_ids=lo_ids)
     return phan_lo
 
 
@@ -298,8 +326,9 @@ async def dao_ban(
 ) -> list[str]:
     """Huỷ phiếu thu thuốc: đảo bán những dòng đơn CHƯA giao gì.
 
-    Dòng đã giao một phần/toàn bộ: KHÔNG cộng lại kho, không gỡ phân lô — trả
-    về prescription_id để ghi "cần xử lý trả thuốc" (CP5). Trả danh sách ấy.
+    Từ 31/10/2026 người gọi đưa thuốc đã giao về quầy TRƯỚC khi gọi hàm này
+    (`hoan_tac_giao_service.dao_giao_khi_huy_phieu`), nên `handed_over_qty` về 0
+    và mọi dòng đều đảo bán. Danh sách trả về (dòng còn phần giao) chỉ còn là lưới.
     """
     da_giao = {p.prescription_id for p in phan_lo if p.handed_over_qty > 0}
     dao = [p for p in phan_lo if p.prescription_id not in da_giao]
@@ -366,7 +395,8 @@ async def ban_chua_giao(
             SELECT a.prescription_id, s.payment_cycle_id,
                    -s.quantity - coalesce((
                        SELECT -sum(d.quantity) FROM public.inventory_txn d
-                        WHERE d.txn_type = 'DISPENSE' AND d.allocation_id = a.id
+                        WHERE d.txn_type IN ('DISPENSE', 'DISPENSE_REVERSAL')
+                          AND d.allocation_id = a.id
                           AND d.clinic_id = a.clinic_id), 0) AS chua_giao
               FROM public.prescription_allocation a
               JOIN public.inventory_txn s

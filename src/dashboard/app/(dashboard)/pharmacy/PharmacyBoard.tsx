@@ -55,6 +55,9 @@ export default function PharmacyBoard({
   const [vuaMo, setVuaMo] = useState<string | null>(chonDau);
   const canCuon = useRef<string | null>(chonDau);
   const khungLuot = useRef<HTMLDivElement>(null);
+  // Câu báo sau khi giao nằm ở đây: giao xong `DongThuoc` dựng lại theo key, câu
+  // giữ trong thẻ sẽ mất trước khi người giao kịp đọc.
+  const [tinGiao, setTinGiao] = useState<Record<string, string | null>>({});
 
   const dem = useMemo(
     () => ({
@@ -184,6 +187,15 @@ export default function PharmacyBoard({
                         setVuaMo(null);
                       }
                       setChon(l.visit_id);
+                      // Dưới `lg` khung chi tiết nằm sau cả danh sách: không cuộn thì
+                      // bấm khách trông như không có gì xảy ra.
+                      if (window.matchMedia("(max-width: 1023px)").matches) {
+                        if (l.visit_id === chon) {
+                          khungLuot.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        } else {
+                          canCuon.current = l.visit_id;
+                        }
+                      }
                     }}
                     className={`block min-h-10 w-full border-b border-line px-3 py-2 text-left transition-colors hover:bg-surface-muted ${
                       chon === l.visit_id ? "bg-surface-selected" : ""
@@ -290,6 +302,8 @@ export default function PharmacyBoard({
                     loQuet?.dongId === d.id ? loQuet.loId : "",
                   ].join("|")}
                   loQuet={loQuet?.dongId === d.id ? loQuet.loId : null}
+                  tinDau={tinGiao[d.id] ?? null}
+                  onTin={(tin) => setTinGiao((cu) => ({ ...cu, [d.id]: tin }))}
                   dong={d}
                   danhMuc={man.danh_muc}
                   chiXem={!man.co_quyen_ghi}

@@ -4,11 +4,14 @@
 // Chỉ đọc: `GET /api/pharmacy/phieu-kho?loai=` → `GET /api/v1/pharmacy/phieu-kho`.
 // Phiếu chỉ thêm — không có nút sửa / xoá (máy chủ chặn bằng trigger).
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
-import { soKho, tienVnd } from "./gui-kho";
+import { guiKho, soKho, tienVnd } from "./gui-kho";
 
 interface DongPhieu {
   stt: number;
@@ -21,6 +24,9 @@ interface DongPhieu {
   ton_may: number | null;
   thuc_te: number | null;
   lech: number | null;
+  ly_do?: string | null;
+  noi_chua?: "KHO" | "QUAY";
+  giao_chua_gan_lo?: number | null;
 }
 
 interface Phieu {
@@ -32,6 +38,9 @@ interface Phieu {
   ghi_chu: string | null;
   tao_luc: string;
   nguoi_tao: string | null;
+  ly_do?: string | null;
+  hoan_tac_cua?: string | null;
+  da_hoan_tac?: boolean;
   dong: DongPhieu[];
 }
 
@@ -51,14 +60,35 @@ const ngay = (iso: string | null) =>
 export default function DanhSachPhieu({
   loai,
   lanTai,
+  ghiDuoc = false,
 }: {
   loai: "NHAP" | "KIEM";
   /** Đổi số này = đọc lại (vừa lưu phiếu mới). */
   lanTai: number;
+  /** Có quyền ghi kho — chỉ ẩn / hiện nút Hoàn tác của phiếu kiểm. */
+  ghiDuoc?: boolean;
 }) {
+  const router = useRouter();
   const [ds, setDs] = useState<Phieu[] | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [mo, setMo] = useState<string | null>(null);
+  const [hoi, setHoi] = useState<string | null>(null);
+  const [dang, setDang] = useState(false);
+  const [lanDoc, setLanDoc] = useState(0);
+
+  const hoanTac = async (id: string) => {
+    setDang(true);
+    setLoi(null);
+    const kq = await guiKho("hoan-tac-kiem-kho", { phieu_id: id }, crypto.randomUUID());
+    setDang(false);
+    setHoi(null);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    setLanDoc((n) => n + 1);
+    router.refresh();
+  };
 
   useEffect(() => {
     let bo = false;
@@ -78,7 +108,7 @@ export default function DanhSachPhieu({
     return () => {
       bo = true;
     };
-  }, [loai, lanTai]);
+  }, [loai, lanTai, lanDoc]);
 
   const nhap = loai === "NHAP";
 
@@ -157,6 +187,24 @@ export default function DanhSachPhieu({
                       >
                         {mo === p.id ? "Thu gọn" : "Xem dòng"}
                       </Button>
+                      {!nhap && ghiDuoc && !p.hoan_tac_cua && !p.da_hoan_tac
+                        && p.dong.some((d) => Number(d.lech) !== 0) ? (
+                        hoi === p.id ? (
+                          <XacNhanTaiCho
+                            cau="Hoàn tác phiếu kiểm này? Tồn các lô lệch về lại số trước khi kiểm."
+                            nhanDongY="Hoàn tác"
+                            dangGui={dang}
+                            onDongY={() => void hoanTac(p.id)}
+                            onThoi={() => setHoi(null)}
+                          />
+                        ) : (
+                          <Button type="button" size="sm" variant="ghost" onClick={() => setHoi(p.id)}>
+                            Hoàn tác
+                          </Button>
+                        )
+                      ) : null}
+                      {p.hoan_tac_cua ? <Chip tone="warning">Phiếu hoàn tác</Chip> : null}
+                      {p.da_hoan_tac ? <Chip tone="neutral">Đã hoàn tác</Chip> : null}
                     </td>
                   </tr>
                 );
@@ -169,15 +217,18 @@ export default function DanhSachPhieu({
                       <ul className="space-y-1 text-meta text-ink">
                         {p.dong.map((d) => (
                           <li key={d.stt}>
-                            {d.stt}. <span className="font-medium">{d.ten}</span> · lô {d.so_lo}
+                            {d.stt}. <span className="font-medium">{d.ten}</span> ·{" "}
+                            {d.noi_chua === "KHO" ? "kho · " : ""}lô {d.so_lo}
                             {d.han_dung ? ` · HSD ${ngay(d.han_dung)}` : ""} ·{" "}
                             {nhap
                               ? `${soKho(d.so_luong)} ${d.don_vi ?? ""} × ${tienVnd(
                                   d.gia_nhap == null ? null : Number(d.gia_nhap),
                                 )}`
-                              : `máy ${soKho(d.ton_may)} → thực tế ${soKho(d.thuc_te)} (lệch ${
-                                  Number(d.lech) > 0 ? "+" : ""
-                                }${soKho(d.lech)})`}
+                              : `sổ ${soKho(d.ton_may)} → thực tế ${soKho(d.thuc_te)}${
+                                  d.giao_chua_gan_lo ? ` + chờ gán lô ${soKho(d.giao_chua_gan_lo)}` : ""
+                                } (lệch ${Number(d.lech) > 0 ? "+" : ""}${soKho(d.lech)})${
+                                  d.ly_do ? ` — ${d.ly_do}` : ""
+                                }`}
                           </li>
                         ))}
                       </ul>

@@ -96,12 +96,13 @@ export default function TieuHaoVatTu({
                   {d.du_du_lieu ? (
                     <div className="text-right">
                       <p className="text-emph font-semibold tabular-nums text-ink">
-                        Đã dùng {soVatTu(d.da_dung)} {d.don_vi ?? ""}
+                        Hao hụt theo số đếm {soVatTu(d.tieu_hao)} {d.don_vi ?? ""}
                       </p>
                       <p className="text-meta tabular-nums text-ink-muted">
-                        {tienVatTu(d.gia_tri_da_dung)}
-                        {d.trong_do_huy ? ` · trong đó huỷ ${soVatTu(d.trong_do_huy)}` : ""}
+                        Đã bán cho khách {soVatTu(d.da_ban)} · Đã dùng (không bán) {soVatTu(d.dung_khong_ban)}
+                        {d.trong_do_huy ? ` · Huỷ ${soVatTu(d.trong_do_huy)}` : ""}
                       </p>
+                      <p className="text-meta tabular-nums text-ink-muted">{tienVatTu(d.gia_tri_da_dung)}</p>
                     </div>
                   ) : (
                     <Chip tone="neutral">Chưa đủ dữ liệu</Chip>

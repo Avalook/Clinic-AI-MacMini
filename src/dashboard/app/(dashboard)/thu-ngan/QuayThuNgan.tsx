@@ -251,7 +251,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
   const [vuaChot, setVuaChot] = useState<{ visitId: string; cau: string } | null>(null);
   // Lần thu vừa ghi (đã thu HOẶC chờ xác minh) — nút "Hoàn tác lần thu" ngay dưới
   // câu báo (Tuyền 01/10/2026: làm lại thao tác sai ngay tại chỗ).
-  const [lanVuaGhi, setLanVuaGhi] = useState<{ cycleId: string; soTien: number } | null>(null);
+  const [lanVuaGhi, setLanVuaGhi] = useState<{ cycleId: string } | null>(null);
 
   const doc = useCallback(async () => {
     try {
@@ -375,8 +375,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
           daThuThat = d?.status !== "PENDING_VERIFICATION";
           if (daThuThat && d?.payment_cycle_id) setPhieuVuaThu(d.payment_cycle_id);
           if (d?.payment_cycle_id && (d.status === "PAID" || d.status === "PENDING_VERIFICATION")) {
-            const tien0 = Number((noiDung as { amount?: number }).amount ?? 0);
-            setLanVuaGhi({ cycleId: d.payment_cycle_id, soTien: tien0 });
+            setLanVuaGhi({ cycleId: d.payment_cycle_id });
             // Ảnh chuyển khoản chọn lúc thu: tải lên NGAY khi có mã lần thu.
             if (anh) {
               const loiAnh = await taiAnhChuyenKhoan(d.payment_cycle_id, anh);
@@ -665,7 +664,6 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
               key={lanVuaGhi.cycleId}
               cycleId={lanVuaGhi.cycleId}
               quay={quayThu}
-              soTien={lanVuaGhi.soTien || null}
               onXong={(c) => {
                 setXong(c);
                 setVuaThu(null);
@@ -1215,7 +1213,7 @@ export function NhomThu({
         {/* Khách không chuyển / chuyển sai / ghi nhầm hình thức → HOÀN TÁC (lý do
             không bắt buộc), rồi thu lại. Thay "Huỷ lần chờ" bắt gõ lý do. */}
         <div className="mt-2">
-          <NutHoanTac cycleId={cho.payment_cycle_id} soTien={cho.so_tien} quay={quay} onXong={onDoi} />
+          <NutHoanTac cycleId={cho.payment_cycle_id} quay={quay} onXong={onDoi} />
         </div>
       </div>
     );

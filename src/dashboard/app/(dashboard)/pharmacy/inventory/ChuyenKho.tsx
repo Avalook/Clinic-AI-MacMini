@@ -3,8 +3,9 @@
 // Chuyển kho ↔ quầy (G7, 14/10/2026). Khi cơ sở bật tách kho / quầy: nhập đi vào
 // KHO, bán / giao chỉ lấy ở QUẦY; màn này lập phiếu chuyển (hai chiều) và hoàn
 // tác phiếu cũ. Công tắc tách nằm ở đây cho người có `config.clinic.manage`.
-// Mọi luật (quá tồn → 409, lô hết hạn không ra quầy, số rác → 422, hoàn tác mỗi
-// phiếu một lần) ở máy chủ — màn chỉ gửi lệnh và hiện câu trả lời nguyên văn.
+// Mọi luật (quá tồn → 409, lô hết hạn không ra quầy, Quầy → Kho bắt lý do, số rác
+// → 422, hoàn tác mỗi phiếu một lần) ở máy chủ — màn chỉ gửi lệnh và hiện câu trả
+// lời nguyên văn.
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -55,7 +56,7 @@ const gio = (iso: string) =>
 
 export default function ChuyenKho({
   batches,
-  tachKhoQuay,
+  tachKhoQuay: tachTuMayChu,
   suaTachDuoc = false,
   ghiDuoc = false,
 }: {
@@ -68,6 +69,10 @@ export default function ChuyenKho({
   ghiDuoc?: boolean;
 }) {
   const router = useRouter();
+  // Nút từng "bấm lần đầu không đổi": `router.refresh()` về chậm, màn còn hiện nhãn cũ
+  // nên người dùng bấm lại. Lấy trạng thái máy chủ vừa trả, không đợi tải lại trang.
+  const [tachVuaDoi, setTachVuaDoi] = useState<boolean | null>(null);
+  const tachKhoQuay = tachVuaDoi ?? tachTuMayChu;
   const [huong, setHuong] = useState<Huong>("KHO_QUAY");
   const [so, setSo] = useState<Record<string, string>>({});
   const [lyDo, setLyDo] = useState("");
@@ -112,6 +117,7 @@ export default function ChuyenKho({
       setLoi(kq.loi);
       return;
     }
+    setTachVuaDoi((kq.data as { tach_kho_quay?: boolean } | null)?.tach_kho_quay ?? bat);
     router.refresh();
   };
 
@@ -200,25 +206,27 @@ export default function ChuyenKho({
                   </select>
                 </label>
                 <label className="block min-w-0 flex-1">
-                  <span className="mb-1 block text-meta text-ink-soft">Lý do (không bắt buộc)</span>
+                  <span className="mb-1 block text-meta text-ink-soft">
+                    {huong === "QUAY_KHO" ? "Lý do trả về kho" : "Lý do (không bắt buộc)"}
+                  </span>
                   <input
                     value={lyDo}
                     onChange={(e) => setLyDo(e.target.value)}
-                    placeholder="Bổ sung quầy đầu ngày…"
+                    placeholder={huong === "QUAY_KHO" ? "Hết hạn, gần hết hạn, dư…" : "Bổ sung quầy đầu ngày…"}
                     className={INPUT}
                   />
                 </label>
                 <Button
                   type="button"
                   variant="primary"
-                  disabled={dang || dongGui.length === 0}
+                  disabled={dang || dongGui.length === 0 || (huong === "QUAY_KHO" && !lyDo.trim())}
                   onClick={() => void lapPhieu()}
                 >
                   {dang ? "Đang lưu…" : `Tạo phiếu chuyển (${dongGui.length} dòng)`}
                 </Button>
               </div>
               <div className={`${TBL_WRAP} overflow-x-auto`}>
-                <table className="w-full min-w-xl text-left text-body">
+                <table className="w-full text-left text-body sm:min-w-xl">
                   <thead className={TBL_HEAD}>
                     <tr>
                       <th className="px-3 py-2">Thuốc</th>
@@ -241,7 +249,12 @@ export default function ChuyenKho({
                             {b.drug?.name_base ?? b.drug?.name_raw ?? "—"}
                             {b.drug?.variant ? ` (${b.drug.variant})` : ""}
                           </td>
-                          <td className="px-3 py-2 text-ink-muted">{b.batch_code}</td>
+                          <td className="px-3 py-2 text-ink-muted">
+                            {b.batch_code}
+                            {b.trang_thai_han === "het_han" ? (
+                              <span className="block text-meta text-danger">Đã hết hạn</span>
+                            ) : null}
+                          </td>
                           <td className="px-3 py-2 text-right tabular-nums text-ink">
                             {soKho(b.quantity_on_hand)} {b.unit}
                           </td>
@@ -251,7 +264,7 @@ export default function ChuyenKho({
                               inputMode="decimal"
                               aria-label={`Số chuyển — ${b.batch_code}`}
                               onChange={(e) => setSo({ ...so, [b.id]: e.target.value })}
-                              className={`${INPUT} w-28`}
+                              className={`${INPUT} w-full max-w-28`}
                             />
                           </td>
                         </tr>

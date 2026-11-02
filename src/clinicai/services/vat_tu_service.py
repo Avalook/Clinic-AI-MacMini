@@ -48,6 +48,7 @@ from clinicai.services.bill_service import _DA_PHU
 from clinicai.services.day_noi import doc_day
 from clinicai.services.lenh_kham_core import khoa_luot
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.vat_tu_ban_service import dong_bo_ban_vat_tu
 
 #: Quầy thu dịch vụ / chọn dịch vụ cho khách — KHÔNG gồm quyền thu thuốc.
 QUYEN_VAT_TU = ("payment.service.collect", "service_selection.confirm")
@@ -529,6 +530,10 @@ class VatTuService:
                     bool(r["co_duyet"]),
                     order_id=r["order_id"],
                 )
+                # Dịch vụ đã làm thì đầu dò đã trừ dù chưa thu: số đổi theo dòng.
+                await dong_bo_ban_vat_tu(
+                    conn, identity, r["visit_id"], ly_do="Quầy đổi số lượng."
+                )
             return await _doc(conn, identity.clinic_id, r["visit_id"])
 
     async def bo(
@@ -572,6 +577,9 @@ class VatTuService:
                 bool(r["co_duyet"]),
                 order_id=r["order_id"],
                 ly_do=ly,
+            )
+            await dong_bo_ban_vat_tu(
+                conn, identity, r["visit_id"], ly_do=ly or "Quầy bỏ dòng vật tư."
             )
             return await _doc(conn, identity.clinic_id, r["visit_id"])
 

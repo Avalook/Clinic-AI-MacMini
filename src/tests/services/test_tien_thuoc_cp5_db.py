@@ -92,6 +92,12 @@ async def _da_thu_giao(q: Quay, giao: int = 3) -> tuple[str, str, str]:
     return rx, lo, lan
 
 
+async def _dg(q: Quay, rx: str) -> Any:
+    return await q.pool.fetchval(
+        "SELECT dispensed_qty FROM prescription WHERE id = $1::uuid", rx
+    )
+
+
 async def _huy_cg(q: Quay, rx: str) -> dict[str, Any]:
     return await PharmacyService(q.pool).huy_phan_chua_giao(
         identity=q.duoc_si, prescription_id=rx, ly_do="Khách không lấy phần còn lại"
@@ -263,12 +269,25 @@ async def test_r5_huy_yeu_cau_tra_lai_so_luong_that_bai_la_trang_thai_rieng(
     assert (await _hoan(q, lan, 10))["status"] == "COMPLETED"
 
 
-async def test_r6_hoan_duoc_lan_thu_da_huy_phieu_khong_hoan_lan_chua_tung_thu(
+async def test_r6_khong_hoan_them_tren_phieu_da_huy_khong_hoan_lan_chua_tung_thu(
     q: Quay,
 ) -> None:
     _, _, lan = await _da_thu_giao(q, 0)
     await _huy_phieu(q, lan)
-    assert (await _hoan(q, lan, 10))["status"] == "COMPLETED"
+    # Hoàn tác đã trả khách phần còn lại — hoàn thêm là trả hai lần, ép cả ở DB.
+    with pytest.raises(ConflictError, match="đã hoàn tác"):
+        await _hoan(q, lan, 10)
+    with pytest.raises(asyncpg.CheckViolationError, match="đã hoàn tác"):
+        await q.pool.execute(
+            "INSERT INTO payment_refund (refund_id, clinic_id, visit_id, kind,"
+            " payment_cycle_id, amount, status, method, reason, created_by)"
+            " VALUES (gen_random_uuid(), $1::uuid, $2::uuid, 'thuoc', $3::uuid, 1000,"
+            " 'PENDING', 'CASH', 'Thử hoàn lậu', $4::uuid)",
+            q.duoc_si.clinic_id,
+            q.visit_id,
+            lan,
+            q.duoc_si.staff_id,
+        )
     # Lần chuyển khoản chờ rồi huỷ chờ — chưa từng thu.
     cho = await _thu(q, "QR")
     await PaymentService(q.pool).huy_cho_xac_minh(
@@ -386,21 +405,15 @@ async def test_u2_hoan_thieu_thi_van_chua_huy_duoc(q: Quay) -> None:
         await _huy_cg(q, rx)
 
 
-async def test_u3_huy_phieu_sau_khi_giao_mot_phan_la_can_cu(q: Quay) -> None:
+async def test_u3_huy_phieu_sau_khi_giao_mot_phan_tra_het_ve_quay(q: Quay) -> None:
     rx, lo, lan = await _da_thu_giao(q, 3)
     await _huy_phieu(q, lan)
-    assert await _so_dong(q, "SALE_REVERSAL") == 0  # huỷ phiếu không tự nhả
-    # Lượt quay về "Chọn lô" — nhưng không được đóng dòng để bỏ lại 7 viên.
-    for lenh in (
-        PharmacyService(q.pool).chot(identity=q.duoc_si, prescription_id=rx),
-        PharmacyService(q.pool).tu_choi(
-            identity=q.duoc_si, prescription_id=rx, ly_do="khách đổi ý"
-        ),
-    ):
-        with pytest.raises(ConflictError, match="chưa giao"):
-            await lenh
-    await _huy_cg(q, rx)
-    assert (await _ton(q, lo), await _kd(q, lo)) == (97, 97)
+    assert await _so_dong(q, "SALE_REVERSAL") == 1
+    assert (await _ton(q, lo), await _kd(q, lo)) == (100, 100)
+    # Lượt quay về "Chọn lô": dòng về chưa giao, không còn gì bỏ lại.
+    assert await _dg(q, rx) == 0
+    with pytest.raises(ConflictError, match="không còn phần"):
+        await _huy_cg(q, rx)
 
 
 async def test_u4_man_nha_thuoc_bao_con_can_hoan_roi_mo_nut(q: Quay) -> None:

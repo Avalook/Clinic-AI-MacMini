@@ -5,9 +5,9 @@ khác trong DB dùng chung.
 
 Bất biến (bấm ngẫu nhiên 40 hạt × 10 bước, lệnh thật):
   (1) tồn MỖI lô = cộng dồn sổ vật lý của nó, ≥ 0;
-  (2) mở / lưu số đếm / chốt kiểm kê KHÔNG đổi tồn (chỉ "điều chỉnh" mới đổi);
-  (3) lệch của dòng đã chốt = đếm − tồn máy, và tồn máy = tồn quầy đúng lúc chốt;
-  (4) điều chỉnh xong thì tồn quầy của dòng ấy = số đếm; hoàn tác trả đúng tồn cũ;
+  (2) mở / lưu số đếm KHÔNG đổi tồn; CHỐT đổi tồn đúng bằng phần lệch đã áp;
+  (3) lệch của dòng đã chốt = đếm + phần chờ gán lô − sổ tại lúc đếm;
+  (4) hoàn tác trả đúng các dòng sổ của phiếu;
   (5) XNT theo ca: tồn cuối = đầu + nhập − bán + trả + khác và = tồn hiện tại.
 """
 
@@ -70,6 +70,21 @@ async def _dem(co: Co, pid: str, **theo_thuoc: Any) -> dict[str, Any]:
             for d, v in theo_thuoc.items()
         ],
     )
+
+
+async def _chot_pool(pool: Any, ds: Any, pid: str) -> dict[str, Any]:
+    """Chốt như màn: xem dòng lệch, ghi lý do từng dòng rồi chốt."""
+    xem = await kk.xem_lech(pool, identity=ds, phieu_id=pid)
+    return await kk.chot(
+        pool,
+        identity=ds,
+        phieu_id=pid,
+        ly_do_dong=[{**d, "ly_do": "Đếm lệch thật"} for d in xem["dong"]],
+    )
+
+
+async def _chot(co: Co, pid: str) -> dict[str, Any]:
+    return await _chot_pool(co.q.pool, co.ds, pid)
 
 
 async def _ton(co: Co, drug: str) -> Decimal:
@@ -194,16 +209,20 @@ async def test_dem_ghi_de_va_bo_dong(co: Co) -> None:
 # ── Chốt ─────────────────────────────────────────────────────────────────
 
 
-async def test_chot_ghi_ton_may_va_lech_nhung_khong_doi_ton(co: Co) -> None:
+async def test_chot_bat_ly_do_dong_lech_va_ton_ve_so_dem_ngay(co: Co) -> None:
     drug, _ = await _thuoc_co_ton(co, 10)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 8})
-    truoc = await _ton(co, drug)
-    kq = await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    with pytest.raises(ValidationError, match="lý do"):
+        await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    assert await _ton(co, drug) == D(10)  # thiếu lý do thì chưa ghi gì
+    kq = await _chot(co, p["id"])
     d = kq["dong"][0]
     assert d["ton_may"] == D(10) and d["dem"] == D(8) and d["lech"] == D(-2)
+    assert d["ly_do"] == "Đếm lệch thật" and d["chua_ap"] is None
     assert kq["trang_thai"] == "CHOT" and kq["mot_phan"] is False
-    assert await _ton(co, drug) == truoc == D(10)  # (2) chưa tự sửa tồn
+    assert kq["dieu_chinh_luc"] is not None
+    assert await _ton(co, drug) == D(8)  # chốt là số thật
     assert (
         await co.q.pool.fetchval(
             "SELECT count(*) FROM inventory_txn t JOIN drug_batch b ON b.id ="
@@ -211,7 +230,7 @@ async def test_chot_ghi_ton_may_va_lech_nhung_khong_doi_ton(co: Co) -> None:
             " 'ADJUST'",
             drug,
         )
-        == 0
+        == 1
     )
 
 
@@ -219,10 +238,10 @@ async def test_chot_lech_phat_su_kien_chuong_va_khong_lech_thi_khong(co: Co) -> 
     drug, _ = await _thuoc_co_ton(co, 5)
     ok = await _mo(co, "DAU", "SANG")
     await _dem(co, ok["id"], **{drug: 5})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=ok["id"])
+    await _chot(co, ok["id"])
     sai = await _mo(co, "CUOI", "SANG")
     await _dem(co, sai["id"], **{drug: 4})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=sai["id"])
+    await _chot(co, sai["id"])
     ev = {
         str(r["aggregate_id"])
         for r in await co.q.pool.fetch(
@@ -238,10 +257,10 @@ async def test_lech_rung_chuong_cho_vai_da_chon_khong_lech_thi_im(co: Co) -> Non
     drug, _ = await _thuoc_co_ton(co, 5)
     ok = await _mo(co, "DAU", "CHIEU")
     await _dem(co, ok["id"], **{drug: 5})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=ok["id"])
+    await _chot(co, ok["id"])
     sai = await _mo(co, "CUOI", "CHIEU")
     await _dem(co, sai["id"], **{drug: 3})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=sai["id"])
+    await _chot(co, sai["id"])
     await chay_ben_nhan(co.q.pool, CHUONG)
     chuong = await co.q.pool.fetch(
         "SELECT vai_nhan, nguoi_goi_staff_id::text AS nguoi, duong_dan, noi_dung,"
@@ -252,17 +271,17 @@ async def test_lech_rung_chuong_cho_vai_da_chon_khong_lech_thi_im(co: Co) -> Non
     assert {c["vai_nhan"] for c in chuong} >= {"MANAGEMENT"}
     assert all(c["nguoi"] == str(co.ds.staff_id) for c in chuong)
     assert all(c["duong_dan"] == "/pharmacy/inventory" for c in chuong)
-    assert "1 thuốc lệch" in chuong[0]["noi_dung"]
+    assert "1 dòng lệch" in chuong[0]["noi_dung"]
 
 
 async def test_chot_roi_khong_sua_duoc_va_chot_lan_hai_tra_lai(co: Co) -> None:
     drug, _ = await _thuoc_co_ton(co)
     p = await _mo(co)
     with pytest.raises(ValidationError):  # chưa đếm gì
-        await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+        await _chot(co, p["id"])
     await _dem(co, p["id"], **{drug: 10})
-    a = await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    b = await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    a = await _chot(co, p["id"])
+    b = await _chot(co, p["id"])
     assert a["gui_lai"] is False and b["gui_lai"] is True
     assert a["chot_luc"] == b["chot_luc"]
     with pytest.raises(ConflictError):
@@ -288,12 +307,12 @@ async def test_chot_o_co_so_khac_khong_thay_phieu(co: Co) -> None:
         await kk.doc_phieu(co.q.pool, identity=nguoi_khac, phieu_id=p["id"])
 
 
-async def test_ban_giua_luc_dem_ton_may_la_tai_gio_chot(co: Co) -> None:
+async def test_ban_giua_luc_dem_va_chot_khong_phai_lech(co: Co) -> None:
     rx, drug = await _dong_da_xac_dinh(co.q, 10)
     await _nhap_kho(co, drug, 10)
     await _thu(co.q)
     p = await _mo(co)
-    await _dem(co, p["id"], **{drug: 9})  # đếm lúc còn 10
+    await _dem(co, p["id"], **{drug: 9})  # đếm lúc còn 10: thiếu thật 1
     lo = await co.q.pool.fetchval(
         "SELECT id::text FROM drug_batch WHERE drug_catalog_id = $1::uuid"
         " AND location_id = $2::uuid AND noi_chua = 'QUAY'",
@@ -303,9 +322,10 @@ async def test_ban_giua_luc_dem_ton_may_la_tai_gio_chot(co: Co) -> None:
     await PharmacyService(co.q.pool).cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=lo, so_luong=3
     )  # bán 3 giữa lúc đếm và chốt
-    kq = await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    assert kq["dong"][0]["ton_may"] == D(7)  # tồn máy ĐÚNG GIỜ CHỐT
-    assert kq["dong"][0]["lech"] == D(2)
+    kq = await _chot(co, p["id"])
+    assert kq["dong"][0]["ton_may"] == D(10)  # sổ TẠI LÚC ĐẾM
+    assert kq["dong"][0]["lech"] == D(-1)
+    assert await _ton(co, drug) == D(6)  # 10 − 3 giao − 1 lệch
 
 
 async def test_kiem_mot_phan_va_day_du(co: Co) -> None:
@@ -313,42 +333,33 @@ async def test_kiem_mot_phan_va_day_du(co: Co) -> None:
     b, _ = await _thuoc_co_ton(co)
     p1 = await _mo(co, "DOT_XUAT")
     await _dem(co, p1["id"], **{a: 10})
-    assert (await kk.chot(co.q.pool, identity=co.ds, phieu_id=p1["id"]))["mot_phan"]
+    assert (await _chot(co, p1["id"]))["mot_phan"]
     p2 = await _mo(co, "DOT_XUAT")
     await _dem(co, p2["id"], **{a: 10, b: 10})
-    assert not (await kk.chot(co.q.pool, identity=co.ds, phieu_id=p2["id"]))["mot_phan"]
+    assert not (await _chot(co, p2["id"]))["mot_phan"]
 
 
-async def test_giao_chua_gan_lo_hien_rieng_khong_tinh_lech(co: Co) -> None:
+async def test_giao_chua_gan_lo_tach_khoi_lech_gan_sau_khong_tru_hai_lan(
+    co: Co,
+) -> None:
     rx, drug = await _dong_da_xac_dinh(co.q, 10)
     await _thu(co.q)
-    await PharmacyService(co.q.pool).cap_phat(
+    svc = PharmacyService(co.q.pool)
+    await svc.cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=4
     )  # kho chưa có lô: giao không lô, sổ chưa trừ
-    await _nhap_kho(co, drug, 10)
+    lo = await _nhap_kho(co, drug, 10)
     p = await _mo(co)
-    await _dem(co, p["id"], **{drug: 6})  # kệ thật còn 6
-    d = (await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"]))["dong"][0]
-    ton_truoc = await co.q.pool.fetchval(
-        "SELECT sum(quantity_on_hand) FROM drug_batch WHERE drug_catalog_id=$1::uuid",
-        drug,
-    )
-    with pytest.raises(ConflictError, match="tránh trừ kho hai lần"):
-        await kk.dieu_chinh_theo_kiem_ke(
-            co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Đếm thử"
-        )
-    assert (
-        await co.q.pool.fetchval(
-            "SELECT sum(quantity_on_hand) FROM drug_batch "
-            "WHERE drug_catalog_id=$1::uuid",
-            drug,
-        )
-        == ton_truoc
-    )
+    await _dem(co, p["id"], **{drug: 6})  # kệ thật còn 6 = sổ 10 − 4 chờ gán
+    d = (await _chot(co, p["id"]))["dong"][0]
     assert d["giao_chua_gan_lo"] == D(4)
-    assert d["ton_may"] == D(10) and d["lech"] == D(
-        -4
-    )  # lệch số học; cột riêng giải thích
+    assert d["ton_may"] == D(10) and d["lech"] == D(0)  # không lệch thật
+    assert await _ton(co, drug) == D(10)  # sổ giữ đếm + N
+    dong = await co.q.pool.fetchval(
+        "SELECT id::text FROM thuoc_giao_chua_gan_lo WHERE prescription_id=$1::uuid", rx
+    )
+    await svc.gan_lo_da_giao(identity=co.ds, dong_id=dong, drug_batch_id=lo)
+    assert await _ton(co, drug) == D(6)  # gán xong sổ = kệ, không trừ hai lần
 
 
 # ── Dùng số cuối ca trước làm đầu ca ─────────────────────────────────────
@@ -358,7 +369,7 @@ async def test_dung_so_cuoi_ca_truoc(co: Co) -> None:
     drug, _ = await _thuoc_co_ton(co, 10)
     cuoi = await _mo(co, "CUOI", "SANG")
     await _dem(co, cuoi["id"], **{drug: 10})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=cuoi["id"])
+    await _chot(co, cuoi["id"])
     dau = await _mo(co, "DAU", "CHIEU")
     kq = await kk.dung_so_cuoi_ca_truoc(co.q.pool, identity=co.ds, phieu_id=dau["id"])
     assert kq["dung_so_ca_truoc"] is True
@@ -370,30 +381,22 @@ async def test_dung_so_cuoi_ca_truoc(co: Co) -> None:
         await kk.dung_so_cuoi_ca_truoc(co.q.pool, identity=co.ds, phieu_id=sang["id"])
 
 
-# ── Điều chỉnh theo kiểm kê (bước riêng, hoàn tác được) ───────────────────
+# ── Chốt ghi sổ ngay, hoàn tác được ───────────────────────────────────────
 
 
-async def test_dieu_chinh_dua_ton_ve_so_dem_va_hoan_tac(co: Co) -> None:
+async def test_chot_dua_ton_ve_so_dem_va_hoan_tac(co: Co) -> None:
     thieu, _ = await _thuoc_co_ton(co, 10)
     thua, _ = await _thuoc_co_ton(co, 10)
     p = await _mo(co)
     await _dem(co, p["id"], **{thieu: 7, thua: 12})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    with pytest.raises(ValidationError):
-        await kk.dieu_chinh_theo_kiem_ke(
-            co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="  "
-        )
-    kq = await kk.dieu_chinh_theo_kiem_ke(
-        co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Đếm lại cuối ca"
-    )
-    assert kq["bo_qua"] == []
+    await _chot(co, p["id"])
     assert await _ton(co, thieu) == D(7) and await _ton(co, thua) == D(12)
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError):  # không có bước điều chỉnh thứ hai
         await kk.dieu_chinh_theo_kiem_ke(
             co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Lần hai"
         )
     ph = await kk.doc_phieu(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    assert ph["dieu_chinh_ly_do"] == "Đếm lại cuối ca" and ph["nguoi_dieu_chinh"]
+    assert ph["dieu_chinh_luc"] and ph["nguoi_dieu_chinh"]
     await kk.hoan_tac_dieu_chinh(co.q.pool, identity=co.ds, phieu_id=p["id"])
     assert await _ton(co, thieu) == D(10) and await _ton(co, thua) == D(10)
     with pytest.raises(ConflictError):
@@ -416,40 +419,36 @@ async def test_dieu_chinh_truoc_chot_va_khong_lech_bi_tu_choi(co: Co) -> None:
         await kk.dieu_chinh_theo_kiem_ke(
             co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="x"
         )
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    await _chot(co, p["id"])
     with pytest.raises(ConflictError, match="lệch"):
         await kk.dieu_chinh_theo_kiem_ke(
             co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="x"
         )
 
 
-async def test_dieu_chinh_tru_het_ton_thi_bao_phan_bo_qua(co: Co) -> None:
+async def test_lech_khong_tru_het_thi_noi_ro_khong_bao_da_khop(co: Co) -> None:
     rx, drug = await _dong_da_xac_dinh(co.q, 10)
     lo = await _nhap_kho(co, drug, 10)
     await _thu(co.q)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 4})  # lệch −6 theo tồn 10
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
     await PharmacyService(co.q.pool).cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=lo, so_luong=8
-    )  # bán 8 → quầy còn 2, ít hơn phần cần trừ 6
-    kq = await kk.dieu_chinh_theo_kiem_ke(
-        co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Thiếu thật"
-    )
-    assert await _ton(co, drug) == D(0)
-    assert (
-        kq["bo_qua"] and kq["bo_qua"][0]["con_thieu"] == 4.0
-    )  # nói rõ, không cắt lặng
+    )  # bán 8 sau lúc đếm → quầy còn 2, ít hơn phần cần trừ 6
+    kq = await _chot(co, p["id"])
+    d = kq["dong"][0]
+    assert await _ton(co, drug) == D(0)  # không xuống dưới 0
+    assert d["lech"] == D(-6) and d["chua_ap"] == D(-4)
+    assert "Quầy không còn đủ" in d["chua_ap_ly_do"]  # nói rõ, không cắt lặng
+    ds = await kk.danh_sach(co.q.pool, identity=co.ds, ngay=_hom_nay())
+    assert next(x for x in ds if x["id"] == p["id"])["so_chua_ap"] == 1
 
 
 async def test_hoan_tac_khong_duoc_khi_phan_da_cong_them_bi_xuat_het(co: Co) -> None:
     drug, lo = await _thuoc_co_ton(co, 10)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 13})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    await kk.dieu_chinh_theo_kiem_ke(
-        co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Thừa thật"
-    )  # quầy 13
+    await _chot(co, p["id"])  # quầy 13
     await PharmacyService(co.q.pool).huy(
         identity=co.ds, drug_batch_id=lo, so_luong=12, ly_do="Vỡ"
     )  # còn 1 < 3 đã cộng
@@ -470,7 +469,7 @@ async def test_nhac_thieu_kiem_khong_chan_ban(co: Co) -> None:
     for loai, ca in (("DAU", "CHIEU"), ("CUOI", "SANG")):
         p = await _mo(co, loai, ca)
         await _dem(co, p["id"], **{drug: 10})
-        await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+        await _chot(co, p["id"])
     n = await kk.nhac_thieu_kiem(co.q.pool, identity=co.ds, ngay=_hom_nay(), ca="CHIEU")
     assert n["thieu_dau_ca"] is False and n["thieu_cuoi_ca_truoc"] is False
 
@@ -479,7 +478,7 @@ async def test_danh_sach_dem_dong_va_lech(co: Co) -> None:
     drug, _ = await _thuoc_co_ton(co)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 9})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    await _chot(co, p["id"])
     ds = await kk.danh_sach(co.q.pool, identity=co.ds, ngay=_hom_nay())
     assert ds[0]["so_dong"] == 1 and ds[0]["so_lech"] == 1
     assert await kk.danh_sach(co.q.pool, identity=co.ds, ngay="rác")  # rác = không lọc
@@ -549,7 +548,7 @@ async def test_bao_cao_hang_hoa_them_khoi_kho_khong_doi_so_tien(
         phieu_id=p["id"],
         dong=[{"drug_catalog_id": drug, "don_vi": "viên", "dem": 15}],
     )
-    await kk.chot(q.pool, identity=ds, phieu_id=p["id"])
+    await _chot_pool(q.pool, ds, p["id"])
     bc = await BaoCaoCuoiNgayService(q.pool).bao_cao(
         identity=ds, tu=_hom_nay(), den=_hom_nay(), loai="thuoc"
     )
@@ -557,8 +556,9 @@ async def test_bao_cao_hang_hoa_them_khoi_kho_khong_doi_so_tien(
     d = next(x for x in thuoc["dong"] if x["khoa"] == drug)
     assert d["sl_ban"] == 10.0 and d["doanh_thu"] > 0  # số THU cũ nguyên vẹn
     k = d["kho"]["theo_don_vi"][0]
-    assert (k["nhap"], k["sl_ban"], k["ton_cuoi"]) == (20.0, 4.0, 16.0)
-    assert k["kiem_ke"] == 15.0 and k["lech"] == -1.0
+    # Chốt ghi sổ ngay: tồn cuối = số đếm, lệch lấy từ phiếu (không so lại ra 0).
+    assert (k["nhap"], k["sl_ban"], k["ton_cuoi"]) == (20.0, 4.0, 15.0)
+    assert k["khac"] == -1.0 and k["kiem_ke"] == 15.0 and k["lech"] == -1.0
     assert k["da_thu_chua_giao"] == 6.0  # đã thu 10, giao 4 → còn 6 chưa giao
     assert thuoc["co_ton"] is True
 
@@ -598,6 +598,7 @@ async def _bat_bien(co: Co, thuoc: list[str], trace: tuple[str, ...]) -> None:
         [
             "RECEIVE",
             "DISPENSE",
+            "DISPENSE_REVERSAL",
             "ADJUST",
             "DISCARD",
             "RETURN_RECEIVED",
@@ -624,8 +625,7 @@ async def test_bam_ngau_nhien_kiem_ke_ca_40_luot_10_buoc(co: Co, seed: int) -> N
     await _thu(co.q)
     for d in thuoc:
         await _nhap_kho(co, d, 30)
-    da_chot: list[str] = []  # phiếu đã chốt, chưa điều chỉnh
-    da_dieu_chinh: list[tuple[str, dict[str, Decimal]]] = []
+    da_dieu_chinh: list[str] = []
     phieu_nhap: str | None = None
     trace: tuple[str, ...] = ()
 
@@ -642,14 +642,14 @@ async def test_bam_ngau_nhien_kiem_ke_ca_40_luot_10_buoc(co: Co, seed: int) -> N
                 "dieu_chinh_thuong",
                 "mo_dem",
                 "chot",
-                "dieu_chinh_kk",
+                "chot",
                 "hoan_tac_kk",
                 "mo_dem",
             )
         )
         trace = (*trace, f"seed={seed} buoc={buoc} {lenh}")
         truoc = await ton_ca()
-        chi_kiem = lenh in ("mo_dem", "chot")
+        chi_kiem = lenh == "mo_dem"
         try:
             try:
                 if lenh == "nhap":
@@ -726,32 +726,23 @@ async def test_bam_ngau_nhien_kiem_ke_ca_40_luot_10_buoc(co: Co, seed: int) -> N
                             ],
                         )
                 elif lenh == "chot" and phieu_nhap:
-                    ton_luc_chot = await ton_ca()
-                    kq = await kk.chot(pool, identity=co.ds, phieu_id=phieu_nhap)
-                    for x in kq["dong"]:  # (3)
-                        assert x["ton_may"] == ton_luc_chot[x["drug_catalog_id"]], trace
-                        assert x["lech"] == x["dem"] - x["ton_may"], trace
-                    if not kq["gui_lai"] and kq["dieu_chinh_luc"] is None:
-                        da_chot.append(phieu_nhap)
-                    phieu_nhap = None
-                elif lenh == "dieu_chinh_kk" and da_chot:
-                    pid = da_chot.pop(rng.randrange(len(da_chot)))
-                    ph = await kk.doc_phieu(pool, identity=co.ds, phieu_id=pid)
                     cu = await ton_ca()
-                    kq = await kk.dieu_chinh_theo_kiem_ke(
-                        pool, identity=co.ds, phieu_id=pid, ly_do="Mô phỏng"
-                    )
+                    kq = await _chot_pool(pool, co.ds, phieu_nhap)
                     sau = await ton_ca()
-                    bo = {(b["drug_catalog_id"]) for b in kq["bo_qua"]}
-                    for x in ph["dong"]:  # (4)
-                        if x["lech"] and x["drug_catalog_id"] not in bo:
+                    for x in kq["dong"]:  # (3)
+                        n = x["giao_chua_gan_lo"] or D(0)
+                        assert x["lech"] == x["dem"] + n - x["ton_may"], trace
+                        if not kq["gui_lai"]:
+                            ap = x["lech"] - (x["chua_ap"] or D(0))
                             assert (
                                 sau[x["drug_catalog_id"]]
-                                == cu[x["drug_catalog_id"]] + x["lech"]
+                                == cu[x["drug_catalog_id"]] + ap
                             ), (x, cu, sau, trace)
-                    da_dieu_chinh.append((pid, cu))
+                    if not kq["gui_lai"] and kq["dieu_chinh_luc"] is not None:
+                        da_dieu_chinh.append(phieu_nhap)
+                    phieu_nhap = None
                 elif lenh == "hoan_tac_kk" and da_dieu_chinh:
-                    pid, cu = da_dieu_chinh.pop()
+                    pid = da_dieu_chinh.pop()
                     await kk.hoan_tac_dieu_chinh(pool, identity=co.ds, phieu_id=pid)
             except (ConflictError, ValidationError):
                 pass  # luật từ chối bằng tiếng Việt là kết quả đúng, không phải lỗi
@@ -773,7 +764,9 @@ async def test_sua_so_dem_giu_snapshot_va_bao_cao_chi_ban_da_chot(co: Co) -> Non
     drug, _lo = await _thuoc_co_ton(co)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 9})
-    goc = await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    await _chot(co, p["id"])
+    await kk.hoan_tac_dieu_chinh(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    goc = await kk.doc_phieu(co.q.pool, identity=co.ds, phieu_id=p["id"])
     with pytest.raises(ValidationError, match="lý do"):
         await kk.sua_so_dem(co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do=" ")
     ban_sua = await kk.sua_so_dem(
@@ -798,10 +791,10 @@ async def test_sua_so_dem_giu_snapshot_va_bao_cao_chi_ban_da_chot(co: Co) -> Non
     # Hàng về sau chốt không đổi nền tồn của lần đếm đã đính chính.
     await _nhap_kho(co, drug, 3)
     await _dem(co, ban_sua["id"], **{drug: 8})
-    moi = await kk.chot(co.q.pool, identity=co.ds, phieu_id=ban_sua["id"])
+    moi = await _chot(co, ban_sua["id"])
     assert moi["dong"][0]["ton_may"] == D(10)
     assert moi["dong"][0]["lech"] == D(-2)
-    assert await _ton(co, drug) == D(13)
+    assert await _ton(co, drug) == D(11)  # 10 + 3 về − 2 lệch của bản sửa
     assert (await kk.doc_phieu(co.q.pool, identity=co.ds, phieu_id=p["id"]))[
         "dong"
     ] == goc["dong"]
@@ -824,10 +817,7 @@ async def test_sua_so_dem_bat_hoan_tac_va_khong_tru_hai_lan(co: Co) -> None:
     drug, _lo = await _thuoc_co_ton(co)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 8})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    await kk.dieu_chinh_theo_kiem_ke(
-        co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Thiếu"
-    )
+    await _chot(co, p["id"])
     assert await _ton(co, drug) == D(8)
     with pytest.raises(ConflictError, match="Hoàn tác"):
         await kk.sua_so_dem(
@@ -838,10 +828,7 @@ async def test_sua_so_dem_bat_hoan_tac_va_khong_tru_hai_lan(co: Co) -> None:
         co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Đếm lại"
     )
     await _dem(co, ban_sua["id"], **{drug: 9})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=ban_sua["id"])
-    await kk.dieu_chinh_theo_kiem_ke(
-        co.q.pool, identity=co.ds, phieu_id=ban_sua["id"], ly_do="Đúng 9"
-    )
+    await _chot(co, ban_sua["id"])
     assert await _ton(co, drug) == D(9)
     await kk.hoan_tac_dieu_chinh(co.q.pool, identity=co.ds, phieu_id=ban_sua["id"])
     assert await _ton(co, drug) == D(10)
@@ -851,7 +838,8 @@ async def test_sua_so_dem_chan_thuoc_moi_va_khac_co_so(co: Co) -> None:
     drug, _lo = await _thuoc_co_ton(co)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 9})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    await _chot(co, p["id"])
+    await kk.hoan_tac_dieu_chinh(co.q.pool, identity=co.ds, phieu_id=p["id"])
     from dataclasses import replace
 
     with pytest.raises(NotFoundError):
@@ -869,34 +857,12 @@ async def test_sua_so_dem_chan_thuoc_moi_va_khac_co_so(co: Co) -> None:
         await _dem(co, sua["id"], **{drug2: 3})
 
 
-async def test_pending_moi_sau_chot_chan_dieu_chinh(co: Co) -> None:
-    rx, drug = await _dong_da_xac_dinh(co.q, 10)
-    await _nhap_kho(co, drug, 10)
-    await _thu(co.q)
-    p = await _mo(co)
-    await _dem(co, p["id"], **{drug: 9})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    # Lô còn thuốc nhưng đã hết hạn → máy không tự chọn được → giao chờ gán lô.
-    await co.q.pool.execute(
-        "UPDATE drug_batch SET expiry_date = $2 WHERE drug_catalog_id = $1::uuid",
-        drug,
-        hom_nay_vn() - timedelta(days=1),
-    )
-    await PharmacyService(co.q.pool).cap_phat(
-        identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=2
-    )
-    with pytest.raises(ConflictError, match="tránh trừ kho hai lần"):
-        await kk.dieu_chinh_theo_kiem_ke(
-            co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Chưa rõ nguồn"
-        )
-    assert await _ton(co, drug) == D(10)
-
-
 async def test_sua_so_dem_dong_thoi_chi_mot_ban(co: Co) -> None:
     drug, _ = await _thuoc_co_ton(co)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 9})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    await _chot(co, p["id"])
+    await kk.hoan_tac_dieu_chinh(co.q.pool, identity=co.ds, phieu_id=p["id"])
     a, b = await asyncio.gather(
         *(
             kk.sua_so_dem(
@@ -908,34 +874,11 @@ async def test_sua_so_dem_dong_thoi_chi_mot_ban(co: Co) -> None:
     assert a["id"] == b["id"]
 
 
-async def test_snapshot_pending_van_chan_sau_gan_lo(co: Co) -> None:
-    rx, drug = await _dong_da_xac_dinh(co.q, 10)
-    await _thu(co.q)
-    svc = PharmacyService(co.q.pool)
-    giao = await svc.cap_phat(
-        identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=2
-    )  # kho chưa có lô → chờ gán lô
-    lo = await _nhap_kho(co, drug, 10)
-    p = await _mo(co)
-    await _dem(co, p["id"], **{drug: 8})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
-    dong = await co.q.pool.fetchval(
-        "SELECT id::text FROM thuoc_giao_chua_gan_lo WHERE prescription_id=$1::uuid", rx
-    )
-    await svc.gan_lo_da_giao(identity=co.ds, dong_id=dong, drug_batch_id=lo)
-    with pytest.raises(ConflictError, match="tránh trừ kho hai lần"):
-        await kk.dieu_chinh_theo_kiem_ke(
-            co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Không trừ lại"
-        )
-    assert giao
-    assert await _ton(co, drug) == D(8)
-
-
 async def test_migration_dinh_chinh_chay_lai_khong_mat_du_lieu(co: Co) -> None:
     drug, _ = await _thuoc_co_ton(co)
     p = await _mo(co)
     await _dem(co, p["id"], **{drug: 10})
-    await kk.chot(co.q.pool, identity=co.ds, phieu_id=p["id"])
+    await _chot(co, p["id"])
     sua = await kk.sua_so_dem(
         co.q.pool, identity=co.ds, phieu_id=p["id"], ly_do="Thử migration"
     )

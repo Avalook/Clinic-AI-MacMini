@@ -2,7 +2,7 @@
 // `GET /api/v1/pharmacy/danh-muc` và `GET /api/v1/pharmacy/inventory`
 // (24/09/2026; trước đọc thẳng `drug_batch` bằng Supabase). 25/09: thêm tab
 // Danh mục (sửa tên/giá/hướng dẫn) và nhập lô / điều chỉnh / huỷ. 29/09: thêm
-// phiếu nhập, kiểm kho, thẻ kho, xuất nhập tồn (đọc qua `/api/pharmacy/[action]`).
+// phiếu nhập, kiểm kho, theo dõi thuốc, xuất nhập tồn (đọc qua `/api/pharmacy/[action]`).
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
@@ -100,6 +100,7 @@ export default async function PharmacyInventoryPage({
       choGanLo={choGanLo}
       thuocTraChoKiem={thuocTraChoKiem}
       ghiDuoc={quyen.has("pharmacy.dispense")}
+      suaGiaDuoc={quyen.has("price.medicine.manage")}
       cauHinhHan={cauHinhHan ?? undefined}
       tachKhoQuay={data.tach_kho_quay === true}
       suaTachDuoc={tach?.sua_duoc === true}

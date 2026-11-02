@@ -138,7 +138,13 @@ async def test_bam_ngau_nhien_40_luot_10_buoc(q: Quay, seed: int) -> None:
                     q.pool,
                     identity=q.duoc_si,
                     khoa_gui=uuid.uuid4().hex,
-                    dong=[{"drug_batch_id": chon, "thuc_te": truoc - luong}],
+                    dong=[
+                        {
+                            "drug_batch_id": chon,
+                            "thuc_te": truoc - luong,
+                            "ly_do": "Mô phỏng",
+                        }
+                    ],
                 )
                 assert kq["dong"][0]["lech"] == -luong, trace
                 assert kq["dong"][0]["ton_may"] == truoc, trace
@@ -258,7 +264,7 @@ async def test_bat_bien_kiem_kho_cu_dieu_chinh_ngay(q: Quay) -> None:
         q.pool,
         identity=q.duoc_si,
         khoa_gui=uuid.uuid4().hex,
-        dong=[{"drug_batch_id": lo, "thuc_te": 30}],
+        dong=[{"drug_batch_id": lo, "thuc_te": 30, "ly_do": "Tìm thấy"}],
     )
     assert kq["dong"][0]["lech"] == 10
     assert kq["dong"][0]["ton_may"] == 20

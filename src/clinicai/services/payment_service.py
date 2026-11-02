@@ -24,6 +24,7 @@ import math
 import os
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -59,6 +60,7 @@ from clinicai.services.bill_service import (
     tinh_hoa_don,
 )
 from clinicai.services.chot_0d import ghi_chot_0d
+from clinicai.services.hoan_tac_giao_service import dao_giao_khi_huy_phieu
 from clinicai.services.lenh_kham_core import bien_nhan_doc, bien_nhan_ghi, khoa_luot
 from clinicai.services.lieu_trinh_tien import (
     CAU_HUY_TRA_TRUOC_DA_DUNG,
@@ -94,6 +96,7 @@ from clinicai.services.service_selection_service import (
     validate_input,
 )
 from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu
+from clinicai.services.vat_tu_ban_service import dong_bo_ban_vat_tu
 
 logger = structlog.get_logger()
 
@@ -664,6 +667,7 @@ class PaymentService:
                     hoa_don=hoa_don,
                     discount_amount=discount_amount,
                 )
+                await dong_bo_ban_vat_tu(conn, identity, visit_id, lan_thu=cycle_id)
                 if kind == "thuoc" and payment_id is not None:
                     # Tiền mặt: đã nhận VÀ ảnh chụp hoá đơn đã ghi → so bản
                     # thanh toán cuối với đơn (Tuyền 24/09/2026).
@@ -979,6 +983,7 @@ class PaymentService:
             hoa_don=hoa_don,
             discount_amount=discount_amount,
         )
+        await dong_bo_ban_vat_tu(conn, identity, visit_id, lan_thu=cycle_id)
         if not dien_tu:
             await _phat_da_thu_dich_vu(
                 conn,
@@ -1391,6 +1396,9 @@ class PaymentService:
                     truoc=CHO_XAC_MINH,
                     ly_do=ly_do,
                 )
+                await dong_bo_ban_vat_tu(
+                    conn, identity, visit_id, ly_do=f"Huỷ lần chờ xác minh: {ly_do}"
+                )
         return {"payment_cycle_id": payment_cycle_id, "status": "CANCELLED"}
 
     async def void_payment(
@@ -1433,6 +1441,19 @@ class PaymentService:
                 if lan["status"] != "PAID":
                     raise ConflictError(
                         "Lần thu này chưa phải phiếu đã thu — không huỷ phiếu được."
+                    )
+                # Khoản hoàn chuyển khoản còn chờ: số phải trả khách chưa chốt được
+                # (khoản ấy có thể thành công hoặc bị huỷ) — xử lý xong mới hoàn tác.
+                if kind == "thuoc" and await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM payment_refund"
+                    " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+                    " AND status = 'PENDING')",
+                    identity.clinic_id,
+                    payment_cycle_id,
+                ):
+                    raise ConflictError(
+                        "Phiếu này còn khoản hoàn chuyển khoản đang chờ — xác nhận "
+                        "hoặc huỷ khoản hoàn đó trước khi hoàn tác."
                     )
                 # Phiếu DỊCH VỤ huỷ không còn giữ phủ (thu lại được — 24/09/2026),
                 # nên phiếu đã có khoản hoàn (đang chờ hoặc đã xong) không được
@@ -1521,10 +1542,20 @@ class PaymentService:
                     raise loi_tien_lieu_trinh(
                         e, cau_phu_vuot=CAU_HUY_TRA_TRUOC_DA_DUNG
                     ) from None
+                thuoc_ve_quay: dict[str, Any] | None = None
+                if kind == "thuoc":
+                    # Thuốc đã giao tự về quầy (Tuyền 31/10/2026): sổ ghi dòng đảo,
+                    # dòng đơn về chưa giao, thu lại rồi giao lại được.
+                    thuoc_ve_quay = await dao_giao_khi_huy_phieu(
+                        conn,
+                        identity=identity,
+                        visit_id=visit_id,
+                        payment_cycle_id=payment_cycle_id,
+                        ly_do=normalized_reason,
+                    )
+                    phan_lo = [replace(p, handed_over_qty=Decimal(0)) for p in phan_lo]
                 if phan_lo:
-                    # CP3: dòng chưa giao gì → đảo bán đúng một lần; dòng đã
-                    # giao → không tự nhập lại kho, ghi cần xử lý trả thuốc (CP5).
-                    can_tra = await dao_ban(
+                    await dao_ban(
                         conn,
                         clinic_id=identity.clinic_id,
                         cycle_id=payment_cycle_id,
@@ -1532,18 +1563,6 @@ class PaymentService:
                         ly_do=f"Huỷ phiếu thu: {normalized_reason}",
                         phan_lo=phan_lo,
                     )
-                    if can_tra:
-                        await _log_payment_event(
-                            conn,
-                            event_type="payment.drug_return_needed",
-                            payment_id=payment_cycle_id,
-                            payment_cycle_id=payment_cycle_id,
-                            visit_id=visit_id,
-                            kind=kind,
-                            amount=None,
-                            identity=identity,
-                            note=",".join(can_tra),
-                        )
                 # Serialize this void with any relay currently delivering the
                 # invoice for the same payment cycle. If void wins, the pending
                 # invoice becomes DEAD before a stale relay can send it; if relay
@@ -1603,6 +1622,9 @@ class PaymentService:
                     truoc="PAID",
                     ly_do=normalized_reason,
                 )
+                await dong_bo_ban_vat_tu(
+                    conn, identity, visit_id, ly_do=normalized_reason
+                )
                 tu_ghi_no = (
                     await _tu_ghi_no_sau_ve(
                         conn,
@@ -1628,6 +1650,84 @@ class PaymentService:
             "payment_cycle_id": payment_cycle_id,
             "status": "VOIDED",
             "tu_ghi_no": tu_ghi_no,
+            "thuoc_ve_quay": thuoc_ve_quay,
+        }
+
+    async def xem_truoc_hoan_tac(
+        self,
+        *,
+        payment_cycle_id: str,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """Câu xác nhận của nút Hoàn tác — MÁY CHỦ tính số phải trả khách = đã thu
+        − đã hoàn xong, không phải nguyên tổng phiếu. Chỉ đọc."""
+        lan = await self._pool.fetchrow(
+            """
+            SELECT c.status, c.kind, c.amount,
+                   coalesce((SELECT sum(r.amount) FROM payment_refund r
+                              WHERE r.clinic_id = c.clinic_id
+                                AND r.payment_cycle_id = c.payment_cycle_id
+                                AND r.status = 'COMPLETED'), 0) AS da_hoan,
+                   EXISTS (SELECT 1 FROM payment_refund r
+                            WHERE r.clinic_id = c.clinic_id
+                              AND r.payment_cycle_id = c.payment_cycle_id
+                              AND r.status = 'PENDING') AS co_hoan_cho,
+                   EXISTS (SELECT 1 FROM hoa_don_cong_ty h
+                            WHERE h.clinic_id = c.clinic_id
+                              AND h.payment_cycle_id = c.payment_cycle_id
+                              AND h.bo_luc IS NULL) AS co_hoa_don_cong_ty,
+                   EXISTS (SELECT 1 FROM hoa_don_misa_xuat_dong d
+                             JOIN hoa_don_misa_xuat x
+                               ON x.id = d.xuat_id AND x.clinic_id = d.clinic_id
+                            WHERE d.clinic_id = c.clinic_id
+                              AND d.payment_cycle_id = c.payment_cycle_id
+                              AND x.huy_luc IS NULL) AS da_xuat_misa,
+                   coalesce((SELECT sum(g.so_luong)
+                               FROM thuoc_giao_chua_gan_lo g
+                               JOIN prescription p
+                                 ON p.id = g.prescription_id
+                                AND p.clinic_id = g.clinic_id
+                               /* rx:gom-ca-lich-su: đơn đã giao, kể cả đã đính chính */
+                              WHERE g.clinic_id = c.clinic_id
+                                AND p.visit_id = c.visit_id AND c.kind = 'thuoc'
+                                AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL), 0)
+                   + coalesce((SELECT sum(-t.quantity - coalesce((
+                                   SELECT sum(x.returned_qty) FROM drug_return x
+                                    WHERE x.clinic_id = t.clinic_id
+                                      AND x.original_dispense_txn_id = t.id), 0))
+                                 FROM inventory_txn t
+                                 JOIN prescription p
+                                   ON p.id = t.ref_id AND p.clinic_id = t.clinic_id
+                                 /* rx:gom-ca-lich-su: đã giao, kể cả đã đính chính */
+                                WHERE t.clinic_id = c.clinic_id
+                                  AND p.visit_id = c.visit_id AND c.kind = 'thuoc'
+                                  AND t.txn_type = 'DISPENSE'
+                                  AND t.ref_type = 'prescription'
+                                  AND NOT EXISTS (
+                                      SELECT 1 FROM inventory_txn r
+                                       WHERE r.txn_type = 'DISPENSE_REVERSAL'
+                                         AND r.reverses_txn_id = t.id)), 0)
+                       AS thuoc_ve_quay
+              FROM payment_cycle c
+             WHERE c.clinic_id = $1::uuid AND c.payment_cycle_id = $2::uuid
+            """,
+            identity.clinic_id,
+            payment_cycle_id,
+        )
+        if lan is None:
+            raise NotFoundError("Không tìm thấy lần thu này.")
+        da_thu = int(lan["amount"] or 0) if lan["status"] == "PAID" else 0
+        da_hoan = int(lan["da_hoan"])
+        return {
+            "status": lan["status"],
+            "kind": lan["kind"],
+            "da_thu": da_thu,
+            "da_hoan": da_hoan,
+            "phai_tra": max(da_thu - da_hoan, 0),
+            "co_hoan_cho": bool(lan["co_hoan_cho"]),
+            "co_hoa_don_cong_ty": bool(lan["co_hoa_don_cong_ty"]),
+            "da_xuat_misa": bool(lan["da_xuat_misa"]),
+            "thuoc_ve_quay": Decimal(str(lan["thuoc_ve_quay"])),
         }
 
     async def hoan_tac(
@@ -1831,6 +1931,12 @@ async def _khoa_luot_thu(
                 SELECT 1 FROM lieu_trinh_tra_truoc t
                  WHERE t.clinic_id = v.clinic_id AND t.visit_id = v.visit_id
                    AND t.bo_luc IS NULL
+            )
+            -- Khách mua vật tư ở quầy (kể cả lượt bán lẻ không có bác sĩ).
+            OR EXISTS (
+                SELECT 1 FROM luot_vat_tu l
+                 WHERE l.clinic_id = v.clinic_id AND l.visit_id = v.visit_id
+                   AND l.bo_luc IS NULL
             ) AS co_chi_dinh,
             EXISTS (
                 SELECT 1 FROM prescription rx
@@ -2292,10 +2398,10 @@ async def _ghi_anh_hoa_don(
             clinic_id, payment_id, payment_cycle_id, visit_id, kind,
             source_type, source_id, name_snapshot, quantity, unit,
             unit_price, line_total, billing_owner, drug_catalog_id,
-            discount_allocated
+            discount_allocated, he_so
         )
         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, $14::uuid, $15)
+                $11, $12, $13, $14::uuid, $15, $16)
         """,
         [
             (
@@ -2316,6 +2422,7 @@ async def _ghi_anh_hoa_don(
                 d.ben_thu,
                 d.drug_catalog_id,
                 phan_giam[i],
+                d.he_so,
             )
             for i, d in enumerate(hoa_don.dong)
         ],

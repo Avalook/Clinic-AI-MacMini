@@ -14,6 +14,7 @@ from clinicai.events.consumers import (
     nhac_viec,
     so_no,
     trach_nhiem,
+    vat_tu_ban,
     vong_doc,
 )
 
@@ -30,5 +31,6 @@ __all__ = [
     "nhac_viec",
     "so_no",
     "trach_nhiem",
+    "vat_tu_ban",
     "vong_doc",
 ]

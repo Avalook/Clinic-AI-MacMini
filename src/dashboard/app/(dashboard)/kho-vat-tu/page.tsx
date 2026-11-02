@@ -21,13 +21,15 @@ interface GoiTon {
 
 export default async function KhoVatTuPage() {
   await requireNavAccess("/kho-vat-tu");
-  const [goi, phieu, choDuyet, quyen] = await Promise.all([
+  const [goi, phieu, choDuyet, quyen, ban] = await Promise.all([
     fetchFromBackend<GoiTon>("/api/v1/vat-tu-kho/ton"),
     // Đọc hỏng thì tab Phiếu hiện rỗng, không chặn cả màn.
     fetchFromBackend<{ items: PhieuVatTu[] }>("/api/v1/vat-tu-kho/phieu"),
     // G8b: yêu cầu nhập chờ duyệt. Đọc hỏng → tab Chờ duyệt tự báo, không chặn cả màn.
     fetchFromBackend<GoiChoDuyet>("/api/v1/vat-tu-kho/cho-duyet"),
     quyenCuaToi(),
+    // Chỉ lấy số trên chip; danh sách đầy đủ do tab tự đọc. Đọc hỏng → chip trống.
+    fetchFromBackend<{ cho_gan: number; cho_xu_ly: number }>("/api/v1/vat-tu-kho/ban"),
   ]);
   if (!goi) {
     return (
@@ -57,6 +59,7 @@ export default async function KhoVatTuPage() {
       }))}
       choDuyet={choDuyet}
       suaGiaDuoc={quyen.has("price.service.manage")}
+      banCanXuLy={(ban?.cho_gan ?? 0) + (ban?.cho_xu_ly ?? 0)}
     />
   );
 }

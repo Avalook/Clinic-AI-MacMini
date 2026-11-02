@@ -13,6 +13,8 @@
 /** Một (thuốc, đơn vị lô) của khối tồn kho — số lượng theo SỔ KHO, máy chủ tính. */
 export interface TonDonVi {
   don_vi: string;
+  /** Lô tính theo đơn vị khác nhãn của dòng (lô cũ "hộp", thuốc "viên"). */
+  khac_don_vi_dong?: boolean;
   ton_dau: number;
   nhap: number;
   sl_ban: number;
@@ -67,7 +69,9 @@ function OTon({ ds, lay, dau }: { ds: TonDonVi[]; lay: (t: TonDonVi) => number |
         return (
           <span key={t.don_vi} className="block whitespace-nowrap">
             {v === null ? "—" : `${dau && v > 0 ? "+" : ""}${sk(v)}`}
-            {ds.length > 1 ? <span className="text-meta text-ink-soft"> {t.don_vi}</span> : null}
+            {ds.length > 1 || t.khac_don_vi_dong ? (
+              <span className="text-meta text-ink-soft"> {t.don_vi}</span>
+            ) : null}
           </span>
         );
       })}

@@ -9,12 +9,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import { guiKho, soKho } from "./gui-kho";
 
 export interface DongChoGanLo {
   id: string;
   so_luong: number;
+  /** Máy chủ viết sẵn, đã quy về đơn vị gốc. */
+  hien: string;
   giao_luc: string;
   thuoc: string | null;
   unit: string | null;
@@ -27,10 +30,15 @@ export interface DongChoGanLo {
     expiry_date: string | null;
     noi_chua?: string;
     ton: number;
+    unit?: string | null;
+    /** Gán thì trừ ở lô này bao nhiêu, theo đơn vị lô. */
+    so_tru?: number | null;
   }[];
   /** Lô của thuốc ở kho/quầy nhưng tính theo đơn vị KHÁC dòng này — để giải thích vì
    *  sao không có lô gán được (máy chủ trả, không đổi luật gán). */
   lo_khac_don_vi?: { drug_batch_id: string; batch_code: string; unit: string | null; ton: number }[];
+  /** Việc phải làm để dòng này trừ được kho — máy chủ soạn sẵn. */
+  can_lam?: string | null;
 }
 
 /** "6 hộp · 20 viên" — cộng theo từng đơn vị, không cộng lẫn. */
@@ -46,11 +54,25 @@ const fmtNgay = (iso: string | null) =>
 const fmtLuc = (iso: string) =>
   new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 
-function Dong({ d }: { d: DongChoGanLo }) {
+function Dong({ d, ghiDuoc }: { d: DongChoGanLo; ghiDuoc: boolean }) {
   const router = useRouter();
   const [lo, setLo] = useState(d.lo_gan_duoc[0]?.drug_batch_id ?? "");
   const [dangGui, setDangGui] = useState(false);
+  const [hoi, setHoi] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+
+  async function hoanTac() {
+    setDangGui(true);
+    setLoi(null);
+    const kq = await guiKho("huy-cho-gan-lo", { dong_id: d.id });
+    setDangGui(false);
+    setHoi(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    router.refresh();
+  }
 
   async function gan() {
     setDangGui(true);
@@ -79,7 +101,7 @@ function Dong({ d }: { d: DongChoGanLo }) {
         {d.ma_bn ? <span className="text-meta text-ink-muted"> · {d.ma_bn}</span> : null}
       </td>
       <td className="px-3 py-2 text-right">
-        {d.so_luong} {d.unit ?? ""}
+        {d.hien}
       </td>
       <td className="hidden px-3 py-2 text-meta text-ink-muted sm:table-cell">
         {fmtLuc(d.giao_luc)}
@@ -90,11 +112,11 @@ function Dong({ d }: { d: DongChoGanLo }) {
           d.lo_khac_don_vi && d.lo_khac_don_vi.length > 0 ? (
             <span role="status" className="text-meta text-warning">
               Kho/quầy có {tonLoKhacDonVi(d.lo_khac_don_vi)} nhưng dòng này giao theo “{d.unit ?? "?"}”
-              — khác đơn vị nên không gắn được. Nhập lô theo “{d.unit ?? "?"}” hoặc báo quản lý.
+              — khác đơn vị nên không gắn được. {d.can_lam ?? "Nhập lô cùng đơn vị hoặc báo quản lý."}
             </span>
           ) : (
             <span className="text-meta text-ink-muted">
-              Chưa có lô gán được — nhập lô ở tab Tồn theo lô.
+              {d.can_lam ?? "Chưa có lô gán được — nhập lô ở tab Nhập thuốc."}
             </span>
           )
         ) : (
@@ -107,7 +129,8 @@ function Dong({ d }: { d: DongChoGanLo }) {
             >
               {d.lo_gan_duoc.map((b) => (
                 <option key={b.drug_batch_id} value={b.drug_batch_id}>
-                  {b.noi_chua === "KHO" ? "Kho" : "Quầy"} · {b.batch_code} · HSD {fmtNgay(b.expiry_date)} · còn {b.ton}
+                  {b.noi_chua === "KHO" ? "Kho" : "Quầy"} · {b.batch_code} · HSD {fmtNgay(b.expiry_date)} · còn {b.ton} {b.unit ?? ""}
+                  {b.so_tru != null ? ` · trừ ${soKho(Number(b.so_tru))} ${b.unit ?? ""}` : ""}
                 </option>
               ))}
             </select>
@@ -116,18 +139,35 @@ function Dong({ d }: { d: DongChoGanLo }) {
             </Button>
           </div>
         )}
+        {ghiDuoc ? (
+          hoi ? (
+            <div className="mt-2">
+              <XacNhanTaiCho
+                cau="Hoàn tác lần giao này? Dòng thuốc về chưa giao, tiền giữ nguyên, giao lại được."
+                nhanDongY="Hoàn tác giao"
+                dangGui={dangGui}
+                onDongY={() => void hoanTac()}
+                onThoi={() => setHoi(false)}
+              />
+            </div>
+          ) : (
+            <Button type="button" size="sm" variant="ghost" className="mt-1" onClick={() => setHoi(true)}>
+              Hoàn tác giao
+            </Button>
+          )
+        ) : null}
         {loi ? <p className="mt-1 text-meta text-danger">{loi}</p> : null}
       </td>
     </tr>
   );
 }
 
-export default function ChoGanLo({ dong }: { dong: DongChoGanLo[] }) {
+export default function ChoGanLo({ dong, ghiDuoc = false }: { dong: DongChoGanLo[]; ghiDuoc?: boolean }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-meta text-ink-muted">
         Thuốc đã giao khách, đang chờ xác nhận lô thực tế lấy từ kho hoặc quầy.
-        Tồn khả dụng đã trừ phần chờ này; xác nhận lô không trừ tồn khả dụng lần nữa.
+        Số bán được đã trừ phần chờ này; gán lô xong sổ mới trừ, không trừ hai lần.
       </p>
       <div className={`${TBL_WRAP} overflow-x-auto`}>
         <table className="w-full text-left text-body sm:min-w-2xl">
@@ -148,7 +188,7 @@ export default function ChoGanLo({ dong }: { dong: DongChoGanLo[] }) {
                 </td>
               </tr>
             ) : (
-              dong.map((d) => <Dong key={d.id} d={d} />)
+              dong.map((d) => <Dong key={d.id} d={d} ghiDuoc={ghiDuoc} />)
             )}
           </tbody>
         </table>

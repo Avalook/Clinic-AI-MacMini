@@ -49,6 +49,12 @@ const ACTIONS: Record<string, string> = {
   // bật / tắt tách theo cơ sở (máy chủ kiểm `config.clinic.manage`).
   "chuyen-kho": "/api/v1/pharmacy/chuyen-kho",
   "hoan-tac-chuyen-kho": "/api/v1/pharmacy/hoan-tac-chuyen-kho",
+  // 31/10: hoàn tác giao (thuốc về quầy, tiền giữ) · hoàn tác phiếu kiểm kho · quản lý sửa số.
+  "hoan-tac-giao": "/api/v1/pharmacy/hoan-tac-giao",
+  "hoan-tac-giao-vat-tu": "/api/v1/pharmacy/hoan-tac-giao-vat-tu",
+  "huy-cho-gan-lo": "/api/v1/pharmacy/huy-cho-gan-lo",
+  "hoan-tac-kiem-kho": "/api/v1/pharmacy/hoan-tac-kiem-kho",
+  "sua-so-kiem-ke": "/api/v1/pharmacy/sua-so-kiem-ke",
   "tach-kho-quay": "/api/v1/pharmacy/tach-kho-quay",
   // 17/10 (việc B): quyết định thuốc khách trả chờ kiểm — nhập lại bán được / huỷ (một lần).
   "xu-ly-thuoc-tra": "/api/v1/pharmacy/xu-ly-thuoc-tra",
@@ -61,16 +67,27 @@ const ACTIONS: Record<string, string> = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Bộ lọc Theo dõi thuốc: chuyển nguyên văn, máy chủ đọc lại (rác → rỗng, không ném). */
+const locTheoDoi = (q: URLSearchParams, them: string[] = []) =>
+  new URLSearchParams(
+    ["thuoc", "tu", "den", "hanh_dong", "noi", "lo", "nguoi", ...them].map((k) => [k, q.get(k) ?? ""]),
+  );
+
 /** Đường ĐỌC cho phép (29/09/2026 — kho kiểu KiotViet) → đường backend. Tham
  *  số chỉ chuyển nguyên văn; máy chủ đọc lại (ngày rác → hôm nay). */
 const DOC: Record<string, (q: URLSearchParams) => string | null> = {
   "so-ngay-canh-bao": () => "/api/v1/pharmacy/so-ngay-canh-bao",
-  "the-kho": (q) => {
-    const id = q.get("id") ?? "";
-    return UUID_RE.test(id) ? `/api/v1/pharmacy/the-kho/${id}` : null;
-  },
+  // 31/10: Theo dõi thuốc — gợi ý thuốc / số lô, rồi "đang ở đâu" + dòng thời gian.
+  "tim-theo-doi": (q) =>
+    `/api/v1/pharmacy/theo-doi-thuoc/tim?${new URLSearchParams({ q: q.get("q") ?? "" })}`,
+  "theo-doi-thuoc": (q) => `/api/v1/pharmacy/theo-doi-thuoc?${locTheoDoi(q, ["trang"])}`,
   "xuat-nhap-ton": (q) =>
     `/api/v1/pharmacy/xuat-nhap-ton?${new URLSearchParams({
+      tu: q.get("tu") ?? "",
+      den: q.get("den") ?? "",
+    })}`,
+  "lech-kiem-ke": (q) =>
+    `/api/v1/pharmacy/lech-kiem-ke?${new URLSearchParams({
       tu: q.get("tu") ?? "",
       den: q.get("den") ?? "",
     })}`,
@@ -124,16 +141,22 @@ export async function GET(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const { action } = await params;
-  if (action === "xuat-nhap-ton-xlsx") {
+  if (action === "xuat-nhap-ton-xlsx" || action === "lech-kiem-ke-xlsx" || action === "theo-doi-thuoc-xlsx") {
     const query = new URL(request.url).searchParams;
-    const q = new URLSearchParams({ tu: query.get("tu") ?? "", den: query.get("den") ?? "" });
+    const khoang = new URLSearchParams({ tu: query.get("tu") ?? "", den: query.get("den") ?? "" });
+    const tep =
+      action === "theo-doi-thuoc-xlsx"
+        ? `/api/v1/pharmacy/theo-doi-thuoc.xlsx?${locTheoDoi(query)}`
+        : action === "lech-kiem-ke-xlsx"
+          ? `/api/v1/pharmacy/lech-kiem-ke.xlsx?${khoang}`
+          : `/api/v1/pharmacy/xuat-nhap-ton.xlsx?${khoang}`;
     const headers = await getCallerAuthHeaders();
     const base = process.env.CLINIC_API_URL;
     if (!headers || !base) return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
-    const res = await fetch(`${base}/api/v1/pharmacy/xuat-nhap-ton.xlsx?${q}`, { headers, cache: "no-store" });
+    const res = await fetch(`${base}${tep}`, { headers, cache: "no-store" });
     return new NextResponse(res.body, { status: res.status, headers: {
       "Content-Type": res.headers.get("Content-Type") ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": res.headers.get("Content-Disposition") ?? 'attachment; filename="xuat-nhap-ton.xlsx"',
+      "Content-Disposition": res.headers.get("Content-Disposition") ?? `attachment; filename="${action.replace("-xlsx", "")}.xlsx"`,
       "Cache-Control": "private, no-store",
     } });
   }
