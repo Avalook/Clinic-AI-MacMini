@@ -23,6 +23,8 @@ import { fmtTime, ngayVN } from "@/lib/datetime";
 import { doctorName } from "@/lib/doctor-name";
 import { dayShort, fmtDayMonth } from "@/lib/roster";
 
+import HopTrungLuot, { laTrungLuot } from "./HopTrungLuot";
+
 type TrangThaiO = "TRONG" | "IT" | "DAY";
 
 interface OGio {
@@ -129,6 +131,7 @@ export default function DoiLichTaiCho({
   const [lyDoKhac, setLyDoKhac] = useState("");
   const [dangGui, setDangGui] = useState(false);
   const [loiGui, setLoiGui] = useState<string | null>(null);
+  const [cauTrungLuot, setCauTrungLuot] = useState<string | null>(null);
   // Khoá chống bấm đúp: cùng popover + cùng lựa chọn = cùng khoá.
   const [phien] = useState(() => crypto.randomUUID());
 
@@ -165,7 +168,7 @@ export default function DoiLichTaiCho({
     setNgay(n);
   }
 
-  async function gui(checkIn: boolean) {
+  async function gui(checkIn: boolean, dongYTrungLuot = false) {
     if (!chon || dangGui) return;
     if (!lyDoCuoi) {
       setLoiGui("Ghi lý do đổi lịch.");
@@ -183,7 +186,8 @@ export default function DoiLichTaiCho({
         doctor_id: chon.bacSiId,
         ly_do: lyDoCuoi,
         check_in: checkIn,
-        idempotency_key: `${phien}:${chon.bacSiId}:${chon.slot_start}:${checkIn ? 1 : 0}`,
+        dong_y_trung_luot: dongYTrungLuot,
+        idempotency_key: `${phien}:${chon.bacSiId}:${chon.slot_start}:${checkIn ? 1 : 0}:${dongYTrungLuot ? 1 : 0}`,
       }),
     }).catch(() => null);
     setDangGui(false);
@@ -193,9 +197,15 @@ export default function DoiLichTaiCho({
     }
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
+      if (!dongYTrungLuot && laTrungLuot(body)) {
+        setCauTrungLuot(body?.error ?? "");
+        return;
+      }
+      setCauTrungLuot(null);
       setLoiGui(body?.error ?? "Không đổi được lịch.");
       return;
     }
+    setCauTrungLuot(null);
     const khi = `${doctorName(chon.bacSiTen)} · ${chon.gio} ${nhanNgay(data?.ngay ?? "", data)}`;
     const cau = checkIn
       ? `Đã đổi lịch sang ${khi} và check-in${body?.queue_number ? ` — số ${body.queue_number}` : ""}.`
@@ -276,6 +286,12 @@ export default function DoiLichTaiCho({
           {loiGui}
         </p>
       ) : null}
+      <HopTrungLuot
+        cau={cauTrungLuot}
+        dangChay={dangGui}
+        onXacNhan={() => void gui(true, true)}
+        onDong={() => setCauTrungLuot(null)}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <label className="sr-only" htmlFor={`ly-do-${lichId}`}>
           Lý do đổi lịch

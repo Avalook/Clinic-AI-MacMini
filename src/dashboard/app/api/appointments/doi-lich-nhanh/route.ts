@@ -31,6 +31,7 @@ interface Body {
   doctor_id?: string;
   ly_do?: string;
   check_in?: boolean;
+  dong_y_trung_luot?: boolean;
   idempotency_key?: string;
 }
 
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       doctor_id: body.doctor_id ?? null,
       ly_do: body.ly_do ?? "",
       check_in: body.check_in === true,
+      dong_y_trung_luot: body.dong_y_trung_luot === true,
     },
     khoa,
   );
