@@ -43,6 +43,7 @@ import { chipClass, type ChipTone } from "@/components/ui/Chip";
 import { buttonClass } from "@/components/ui/Button";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import type { BookingPolicy } from "../../../lib/booking-policy";
+import HopTrungLuot, { laTrungLuot, type LoiCheckIn } from "../_lam-viec/HopTrungLuot";
 import NutCheckIn from "@/components/ui/NutCheckIn";
 import { CA_TUAN, locTheoNgay, ngayDangChon, tabNgay } from "./loc-ngay";
 import type { MaXacMinh } from "@/lib/xac-minh";
@@ -600,6 +601,7 @@ export default function WeeklyAppointmentsTable({
   } | null>(null);
   const [thongBao, setThongBao] = useState<string | null>(null);
   const [hoanTac, setHoanTac] = useState<ThongBaoCoHoanTac | null>(null);
+  const [trungLuot, setTrungLuot] = useState<{ id: string; cau: string } | null>(null);
   // Bảng này gom lịch theo KHUNG — độ dài khung và số chỗ vãng lai là cấu hình
   // của phòng khám, nên không có bản mặc định ở đây.
   const policy = useBookingPolicy();
@@ -648,6 +650,7 @@ export default function WeeklyAppointmentsTable({
     id: string,
     action: "checkin" | "undo_checkin",
     xacMinhCach?: MaXacMinh,
+    dongYTrungLuot = false,
   ) {
     if (busyId) return;
     setBusyId(id);
@@ -655,13 +658,25 @@ export default function WeeklyAppointmentsTable({
     const res = await fetch("/api/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action, xac_minh_cach: xacMinhCach }),
+      body: JSON.stringify({
+        id,
+        action,
+        xac_minh_cach: xacMinhCach,
+        dong_y_trung_luot: dongYTrungLuot,
+      }),
     });
     setBusyId(null);
     if (!res.ok) {
-      setError((await res.json()).error ?? "Có lỗi xảy ra.");
+      const b = (await res.json().catch(() => null)) as LoiCheckIn | null;
+      if (!dongYTrungLuot && laTrungLuot(b)) {
+        setTrungLuot({ id, cau: b?.error ?? "" });
+        return;
+      }
+      setTrungLuot(null);
+      setError(b?.error ?? "Có lỗi xảy ra.");
       return;
     }
+    setTrungLuot(null);
     router.refresh();
   }
 
@@ -1187,6 +1202,14 @@ export default function WeeklyAppointmentsTable({
           onXong={daDoiLich}
         />
       ) : null}
+      <HopTrungLuot
+        cau={trungLuot?.cau ?? null}
+        dangChay={busyId !== null}
+        onXacNhan={() => {
+          if (trungLuot) void act(trungLuot.id, "checkin", undefined, true);
+        }}
+        onDong={() => setTrungLuot(null)}
+      />
       <ThongBaoHoanTac
         thongBao={hoanTac}
         onDong={() => setHoanTac(null)}
