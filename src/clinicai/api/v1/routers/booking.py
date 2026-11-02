@@ -123,6 +123,8 @@ class ActionRequest(BaseModel):
     nguoi_gioi_thieu: str | None = Field(default=None, max_length=200)
     #: Ghi chú của lịch (đổi lịch). Vắng mặt = giữ nguyên; chuỗi rỗng = xoá.
     notes: str | None = Field(default=None, max_length=2000)
+    #: Check-in: Lễ tân đã đọc cảnh báo KHACH_DANG_CO_LUOT mà vẫn check-in.
+    dong_y_trung_luot: bool = False
 
 
 # ── ĐỌC lịch hẹn cho màn đặt lịch (24/09/2026) ─────────────────────────────
@@ -740,6 +742,7 @@ async def apply_appointment_action(
         nguoi_gioi_thieu=body.nguoi_gioi_thieu,
         ghi_chu=body.notes,
         ghi_chu_provided="notes" in body.model_fields_set,
+        dong_y_trung_luot=body.dong_y_trung_luot,
     )
     return {"ok": True, **result}
 
@@ -752,6 +755,8 @@ class DoiLichNhanhRequest(BaseModel):
     doctor_id: UUID
     ly_do: str = Field(min_length=1, max_length=300)
     check_in: bool = False
+    #: Xem `ActionRequest.dong_y_trung_luot`.
+    dong_y_trung_luot: bool = False
     #: Khoá chống bấm đúp khi trình duyệt không gửi được header Idempotency-Key.
     idempotency_key: str | None = Field(default=None, max_length=200)
 
@@ -796,6 +801,7 @@ async def doi_lich_nhanh_post(
             doctor_id=str(body.doctor_id),
             ly_do=body.ly_do,
             check_in=body.check_in,
+            dong_y_trung_luot=body.dong_y_trung_luot,
         )
         payload = {"ok": True, **result}
         await idem.save(pool, payload)

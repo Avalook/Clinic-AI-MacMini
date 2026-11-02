@@ -218,6 +218,9 @@ MỘT hàm `src/dashboard/lib/khung-da-qua.ts` (`khungDaQua`, `khungDaQuaTheoPhu
 `src/dashboard/lib/tiep-don.ts`; nút `src/dashboard/components/ui/NutCheckIn.tsx`).
 Code: `S/luot_kham_service.py` `LuotKhamService.check_in` + `xep_sau_check_in`
 (khách đi đâu sau check-in), `S/tiep_don_service.py` `TiepDonService`.
+**Hỏi lại khi khách còn lượt mở hôm nay** (02/11/2026, ca hai record 01/11): `S/booking_service.py`
+`_hoi_neu_trung_luot` → 409 `KHACH_DANG_CO_LUOT` → `D/_lam-viec/HopTrungLuot.tsx` (3 lối: Tiếp đón,
+bảng lịch tuần, Đổi lịch + check-in) → gửi lại `dong_y_trung_luot`, sự kiện check-in ghi vết.
 **Hoàn tác check-in chỉ khi chưa làm gì** (09/10/2026): luật + câu từ chối ở
 `S/hoan_tac_check_in.py` (`ly_do_khong_hoan_tac`, `VIEC_DA_LAM_SQL`), gọi từ
 `S/booking_service.py` `_hanh_dong_trong_gd` (khoá lịch → lượt → luồng). Test:
@@ -684,6 +687,8 @@ thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_
 nút dùng chung `D/_lam-viec/NutCheckOut.tsx` → `S/checkout_service.py`
 `CheckoutService` (`readiness`, `close`; việc còn dở chặn/nhắc ở hàm `build_blockers`). Test:
 `T/services/test_checkout_blockers.py`, `T/unit/test_checkout_trang_thai_kham.py`.
+"Đã đóng" (`already_closed`) đọc `visit.closed_at`, vì huỷ lịch / hoàn tác check-in huỷ luôn
+bước đóng lượt: `T/services/test_check_in_trung_luot_db.py`.
 
 **Nhãn trạng thái lịch/lượt trên mọi màn ("Đã về", "Đang khám"…)** — MỘT hàm
 `src/clinicai/core/trang_thai_lich.py` `trang_thai_hien_thi`; trạng thái khám suy từ

@@ -96,7 +96,7 @@ from clinicai.services.doi_dich_vu_kham import (
     doc_trang_thai,
 )
 from clinicai.services.hoan_tac_check_in import chan_hoan_tac_neu_da_lam
-from clinicai.services.lenh_kham_core import ma_uuid
+from clinicai.services.lenh_kham_core import LuotKhamConflictError, ma_uuid
 from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.lich_truc_phien_ban_service import giao_dich_lich_truc
 from clinicai.services.slot_hold_service import release_on_booking
@@ -905,10 +905,13 @@ class BookingService:
         nguoi_gioi_thieu: str | None = None,
         ghi_chu: str | None = None,
         ghi_chu_provided: bool = False,
+        dong_y_trung_luot: bool = False,
     ) -> dict[str, Any]:
         """Run one lifecycle action. Returns the resulting status.
 
         `xac_minh_cach` tuỳ chọn với `checkin` (xem `cach_xac_minh_bat_buoc`).
+        `dong_y_trung_luot`: Lễ tân đã đọc cảnh báo khách đang có lượt mở mà vẫn
+        check-in (xem `_hoi_neu_trung_luot`).
         """
         if action == "reopen":
             return await self.mo_lai(appointment_id=appointment_id, identity=identity)
@@ -934,6 +937,7 @@ class BookingService:
                     transition=transition,
                     identity=identity,
                     cach_xac_minh=cach_xac_minh,
+                    dong_y_trung_luot=dong_y_trung_luot,
                     cancellation_reason=cancellation_reason,
                     ly_do_huy_ma=ly_do_huy_ma,
                     doctor_id=doctor_id,
@@ -1147,6 +1151,7 @@ class BookingService:
         cho_ngoai_ca: bool = False,
         xoa_so_thu_tu: bool = False,
         quyen_da_kiem: bool = False,
+        dong_y_trung_luot: bool = False,
     ) -> _KetQuaHanhDong:
         """Một hành động lịch hẹn TRONG giao dịch của người gọi.
 
@@ -1263,6 +1268,13 @@ class BookingService:
 
         patch: dict[str, Any] = {}
         if action == "checkin":
+            if not dong_y_trung_luot:
+                await _hoi_neu_trung_luot(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    clinic_patient_id=str(appt["clinic_patient_id"]),
+                    appointment_id=appointment_id,
+                )
             updated = await self._check_in(conn, appointment_id, transition)
         else:
             patch = await self._build_patch(
@@ -1332,6 +1344,7 @@ class BookingService:
                 "doctor_id": effective_doctor_id,
                 "clinic_patient_id": str(appt["clinic_patient_id"]),
                 **({"xac_minh_cach": cach_xac_minh} if cach_xac_minh else {}),
+                **({"dong_y_trung_luot": True} if dong_y_trung_luot else {}),
                 **(
                     {"ghi_chu_cu": appt["notes"], "ghi_chu_moi": patch["notes"]}
                     if "notes" in patch
@@ -1425,6 +1438,7 @@ class BookingService:
         doctor_id: str,
         ly_do: str,
         check_in: bool,
+        dong_y_trung_luot: bool = False,
     ) -> dict[str, Any]:
         """ĐỔI LỊCH TẠI CHỖ (Tuyền chốt 29/09/2026) — đổi lịch rồi check-in luôn.
 
@@ -1507,6 +1521,7 @@ class BookingService:
                         action="checkin",
                         transition=t_vao,
                         identity=dung_vai(identity, t_vao.allowed_roles),
+                        dong_y_trung_luot=dong_y_trung_luot,
                     )
                     visit_id = kq_vao.visit_id
                     status = kq_vao.new_status
@@ -3167,6 +3182,56 @@ async def _phat_su_kien_lich(
             payload=CskhDaGoiXacNhan(appointment_id=aid),
             boi=boi,
         )
+
+
+async def _hoi_neu_trung_luot(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    clinic_patient_id: str,
+    appointment_id: str,
+) -> None:
+    """Khách còn lượt MỞ hôm nay mà check-in thêm một lịch khác → hỏi lại.
+
+    Ca 01/11/2026: lịch đặt dư bị check-in khi khách đang khám ở lượt trước, thành
+    hai record cho một lần đến. Chỉ HỎI, không chặn: bấm "Vẫn check-in" là qua —
+    không khoá cứng thao tác nhân viên, và việc khách làm hai lượt song song có
+    thật hay không chỉ người đứng quầy biết. Lượt đã đóng thì không hỏi: khách
+    quay lại trong ngày là lượt mới hợp lệ. Lượt bán lẻ không tính (tự đóng khi
+    thu tiền thuốc, không phải một lần khám).
+    """
+    dau_ngay = datetime.now(_CLINIC_TZ).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    luot = await conn.fetchrow(
+        """
+        SELECT v.checked_in_at, s.full_name AS bac_si
+          FROM public.visit v
+          LEFT JOIN public.staff s ON s.id = v.attending_doctor_id
+         WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid
+           AND v.appointment_id IS DISTINCT FROM $3::uuid
+           AND v.status IN ('OPEN', 'IN_PROGRESS')
+           AND v.closed_at IS NULL
+           AND NOT v.ban_le
+           AND v.checked_in_at >= $4
+         ORDER BY v.checked_in_at DESC
+         LIMIT 1
+        """,
+        clinic_id,
+        clinic_patient_id,
+        appointment_id,
+        dau_ngay,
+    )
+    if luot is None:
+        return
+    gio = luot["checked_in_at"].astimezone(_CLINIC_TZ).strftime("%H:%M")
+    voi = f" với {luot['bac_si']}" if luot["bac_si"] else ""
+    raise LuotKhamConflictError(
+        "KHACH_DANG_CO_LUOT",
+        f"Khách đang có lượt khám mở từ {gio}{voi}."
+        " Check-in lịch này sẽ tạo thêm một lượt thứ hai trong hôm nay.",
+        {"ma": "KHACH_DANG_CO_LUOT"},
+    )
 
 
 async def _log(

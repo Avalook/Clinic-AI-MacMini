@@ -51,6 +51,7 @@ import { nhanLieuTrinhLuot } from "@/lib/lieu-trinh-cskh";
 import { useChipLieuTrinh } from "../../_lam-viec/dung-chip-lieu-trinh";
 import { NutLamThem, useLamThem, type GoiLamThem } from "../../_lam-viec/LamThemTaiQuay";
 import NutCheckOut from "../../_lam-viec/NutCheckOut";
+import HopTrungLuot, { laTrungLuot, type LoiCheckIn } from "../../_lam-viec/HopTrungLuot";
 import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
 import { moLaiLich } from "../../_lam-viec/mo-lai-lich";
 import { chuLyDoHuy } from "@/lib/ly-do-huy";
@@ -97,8 +98,9 @@ function DongKhach({
   const [gui, setGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [xemLyDo, setXemLyDo] = useState(false);
+  const [cauTrungLuot, setCauTrungLuot] = useState<string | null>(null);
 
-  async function checkIn() {
+  async function checkIn(dongYTrungLuot = false) {
     if (gui) return;
     setLoi(null);
     setGui(true);
@@ -106,13 +108,23 @@ function DongKhach({
       const res = await fetch("/api/appointments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: d.appointment_id, action: "checkin" }),
+        body: JSON.stringify({
+          id: d.appointment_id,
+          action: "checkin",
+          dong_y_trung_luot: dongYTrungLuot,
+        }),
       });
       if (!res.ok) {
-        const b = (await res.json().catch(() => null)) as { error?: string } | null;
+        const b = (await res.json().catch(() => null)) as LoiCheckIn | null;
+        if (!dongYTrungLuot && laTrungLuot(b)) {
+          setCauTrungLuot(b?.error ?? "");
+          return;
+        }
+        setCauTrungLuot(null);
         setLoi(b?.error ?? `Không check-in được (HTTP ${res.status})`);
         return;
       }
+      setCauTrungLuot(null);
       startTransition(() => router.refresh());
     } catch {
       setLoi("Mất kết nối — chưa check-in được, bấm lại.");
@@ -244,6 +256,12 @@ function DongKhach({
           {d.ly_do_khong_hoan_tac}
         </p>
       ) : null}
+      <HopTrungLuot
+        cau={cauTrungLuot}
+        dangChay={gui}
+        onXacNhan={() => void checkIn(true)}
+        onDong={() => setCauTrungLuot(null)}
+      />
     </li>
   );
 }

@@ -83,10 +83,13 @@ SELECT
     p.full_name                    AS patient_name,
     p.patient_code,
     p.phone_primary,
-    -- Đã hoàn tất bước đóng lượt chưa.
-    EXISTS (SELECT 1 FROM public.work_item w
-             WHERE w.visit_id = v.visit_id AND w.node_code = $2
-               AND w.status = 'COMPLETED')                     AS already_closed,
+    -- Đã đóng lượt chưa. `closed_at` là nguồn thật: huỷ lịch / hoàn tác check-in
+    -- HUỶ luôn bước đóng lượt, nên chỉ đọc work_item thì lượt ấy không bao giờ
+    -- "đã đóng" — dòng ở lì quầy Check-out, Lễ tân bấm mãi (14 lần ca 01/11/2026).
+    (v.closed_at IS NOT NULL
+     OR EXISTS (SELECT 1 FROM public.work_item w
+                 WHERE w.visit_id = v.visit_id AND w.node_code = $2
+                   AND w.status = 'COMPLETED'))                AS already_closed,
     -- ①–② ĐỌC RAIL MỚI (Slice 1, 18/09/2026). Bản trước đếm `service_log` và
     --    `lab_result` — hai bảng mà luồng khám mới không ghi nữa, nên quầy
     --    không bao giờ thấy chỉ định còn dở hay kết quả bác sĩ còn chờ đọc.
