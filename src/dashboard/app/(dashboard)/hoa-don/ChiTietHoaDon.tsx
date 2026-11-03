@@ -84,10 +84,11 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
     {p.so_tien_thuc_nhan != null ? <p className="mt-2 text-meta text-ink">Ngân hàng báo nhận <span className="tabular-nums">{tien(p.so_tien_thuc_nhan)}</span>{p.doi_soat_ly_do?.includes("SO_TIEN_LECH") ? " — khác số chuyển khoản của phiếu" : ""}.</p> : null}
     {p.trang_thai === "CK_DA_HUY" ? <p className="mt-2 text-meta text-ink-muted">Lần chờ chuyển khoản {tien(p.so_tien)} đã huỷ{p.nguoi_huy ? ` bởi ${p.nguoi_huy}` : ""}{p.ly_do_huy ? ` — “${p.ly_do_huy}”` : ""}; chưa ghi là đã thu.</p> : null}
     {p.thu_trong_ky === false ? <p className="mt-2 text-meta text-ink-muted">Phiếu thu ngoài kỳ đang xem, có xử lý sau thanh toán trong kỳ.</p> : null}
+    {p.phan_ca_phieu ? <p className="mt-2 text-meta text-ink-muted">Đang lọc theo hình thức nên chỉ tính phần của hình thức đó. Cả phiếu là {tien(p.phan_ca_phieu.so_tien)}.</p> : null}
     <dl className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
       <div><dt className="text-meta text-ink-muted">{p.trang_thai === "CK_DA_HUY" ? "Số tiền lần chờ" : "Tiền đã thu"}</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
       <div><dt className="text-meta text-ink-muted">Thực thu</dt><dd className="tabular-nums">{tien(p.thu_rong)}</dd></div>
-      <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu"}</dd>
+      <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.nhan_hinh_thuc || (p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu")}</dd>
         {(p.chuyen_khoan ?? 0) > 0 ? <dd className="text-meta text-ink-muted">Chuyển khoản {tien(p.chuyen_khoan ?? 0)} vào {p.ten_tai_khoan ?? "Chưa phân loại"}</dd> : null}</div>
       <div><dt className="text-meta text-ink-muted">Người thu</dt><dd>{p.nguoi_thu || "Không có dữ liệu"}</dd></div>
     </dl>

@@ -6,8 +6,12 @@ from typing import Any
 
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.phan_thu import (
+    CHUYEN_KHOAN,
+    TIEN_MAT,
     chuan_hinh_thuc,
     doc_phan_db,
+    huy_rong_theo_phan,
+    nhan_phan,
     so_tien_chuyen_khoan,
 )
 from clinicai.services.quay_thu_service import ma_phieu
@@ -214,6 +218,7 @@ def _bill(
     rs = [_refund(r, refund_lines) for r in refunds if r["cycle_id"] == row["id"]]
     my_lines = [d for d in lines if d["cycle_id"] == row["id"]]
     amount = int(row["amount"])
+    phan = doc_phan_db(row.get("phan"))
     completed = sum(r["so_tien"] for r in rs if r["trang_thai"] == "COMPLETED")
     pending = sum(r["so_tien"] for r in rs if r["trang_thai"] == "PENDING")
     # Lần chờ CK đã huỷ (G4d, R1): hiện để đối chiếu sao kê, KHÔNG phải tiền
@@ -240,10 +245,10 @@ def _bill(
         if row["status"] in ("VOIDED", "CANCELLED")
         else amount - completed,
         "hinh_thuc": row.get("method"),
+        "phan": phan,
+        "nhan_hinh_thuc": nhan_phan(phan),
         # Phần chuyển khoản + tài khoản nhận (31/10/2026); null = chưa phân loại.
-        "chuyen_khoan": so_tien_chuyen_khoan(
-            doc_phan_db(row.get("phan")), row.get("method"), amount
-        ),
+        "chuyen_khoan": so_tien_chuyen_khoan(phan, row.get("method"), amount),
         "tai_khoan_id": row.get("tai_khoan_id"),
         "ten_tai_khoan": row.get("ten_tai_khoan"),
         "lap_luc": _iso(row.get("created_at")),
@@ -341,7 +346,9 @@ def _period(customers: list[dict[str, Any]]) -> dict[str, int]:
     completed = sum(r["so_tien"] for r in refunds if r["trang_thai"] == "COMPLETED")
     # Phiếu huỷ sau khi đã hoàn một phần: chỉ phần còn lại mới là tiền huỷ.
     voided = sum(
-        max(
+        p["huy_rong"]
+        if "huy_rong" in p
+        else max(
             p["so_tien"]
             - sum(r["so_tien"] for r in p["hoan"] if r["trang_thai"] == "COMPLETED"),
             0,
@@ -476,11 +483,86 @@ def tach_tai_khoan(bills: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return ra
 
 
+def _ten_ht(v: object) -> str:
+    """Hai nhóm của bộ lọc; không rõ hình thức xếp Tiền mặt như lâu nay."""
+    return CHUYEN_KHOAN if chuan_hinh_thuc(v) == CHUYEN_KHOAN else TIEN_MAT
+
+
+def _phan_theo_ht(bill: Mapping[str, Any]) -> dict[str, int]:
+    """Hình thức → số tiền của phiếu. Không có phần thì cả phiếu theo hình thức
+    chung, kể cả phiếu 0đ (miễn phí) vẫn thuộc một bộ lọc."""
+    co = [p for p in bill.get("phan") or [] if p.get("hinh_thuc")]
+    if not co:
+        return {_ten_ht(bill.get("hinh_thuc")): int(bill.get("so_tien") or 0)}
+    ra: dict[str, int] = {}
+    for p in co:
+        k = _ten_ht(p["hinh_thuc"])
+        ra[k] = ra.get(k, 0) + int(p.get("so_tien") or 0)
+    return ra
+
+
 def hop_hinh_thuc(bill: Mapping[str, Any], hinh_thuc: str | None) -> bool:
-    if hinh_thuc not in ("CASH", "TRANSFER"):
+    """Phiếu có tiền thuộc hình thức này: phần thu của nó, hoặc khoản hoàn. Báo cáo
+    trừ hoàn theo hình thức của KHOẢN HOÀN, nên phiếu chuyển khoản hoàn tiền mặt
+    vẫn phải hiện khi lọc Tiền mặt, không thì hai màn lệch."""
+    if hinh_thuc not in (TIEN_MAT, CHUYEN_KHOAN):
         return True
-    ht = "TRANSFER" if bill.get("hinh_thuc") in ("TRANSFER", "QR") else "CASH"
-    return ht == hinh_thuc
+    return hinh_thuc in _phan_theo_ht(bill) or any(
+        _ten_ht(r.get("hinh_thuc")) == hinh_thuc for r in bill.get("hoan") or []
+    )
+
+
+def _giam_theo_ht(bill: Mapping[str, Any], phan: Mapping[str, int], ht: str) -> int:
+    """Giảm giá của phiếu chia theo tỷ lệ tiền; phần còn lại vào Chuyển khoản để
+    hai bộ lọc cộng lại đúng bằng cả phiếu."""
+    giam, tong = int(bill["giam_gia"]), sum(phan.values())
+    if not giam or len(phan) < 2 or not tong:
+        return giam if ht in phan else 0
+    tm = giam * phan[TIEN_MAT] // tong
+    return tm if ht == TIEN_MAT else giam - tm
+
+
+def gon_theo_hinh_thuc(bill: dict[str, Any], hinh_thuc: str | None) -> dict[str, Any]:
+    """Đang lọc một hình thức: phiếu chỉ còn phần tiền của hình thức đó.
+
+    Trả phiếu mới, không sửa phiếu gốc. ``lech`` đã tính trên cả phiếu từ trước.
+    Hoá đơn trả cả hai hình thức từng bị xếp nguyên vào Chuyển khoản, nên ô Thực
+    thu lệch Báo cáo cuối ngày."""
+    if hinh_thuc not in (TIEN_MAT, CHUYEN_KHOAN):
+        return bill
+    phan = _phan_theo_ht(bill)
+    hoan = [r for r in bill["hoan"] if _ten_ht(r.get("hinh_thuc")) == hinh_thuc]
+    if set(phan) == {hinh_thuc} and len(hoan) == len(bill["hoan"]):
+        return bill
+    so_tien = phan.get(hinh_thuc, 0)
+    xong = [r for r in bill["hoan"] if r["trang_thai"] == "COMPLETED"]
+    da_hoan = sum(r["so_tien"] for r in xong if r in hoan)
+    cho_hoan = sum(r["so_tien"] for r in hoan if r["trang_thai"] == "PENDING")
+    goc = bill["trang_thai_goc"]
+    giam = _giam_theo_ht(bill, phan, hinh_thuc)
+    # Tách phần huỷ bằng đúng hàm của Báo cáo: hoàn cùng hình thức trừ trước.
+    cac_phan = [{"hinh_thuc": k, "so_tien": v} for k, v in phan.items()]
+    _, huy = huy_rong_theo_phan(
+        sum(phan.values()),
+        cac_phan,
+        sum(r["so_tien"] for r in xong),
+        sum(r["so_tien"] for r in xong if _ten_ht(r.get("hinh_thuc")) == TIEN_MAT),
+    )
+    huy_rong = dict(zip(phan, huy, strict=True)).get(hinh_thuc, 0)
+    return {
+        **bill,
+        "so_tien": so_tien,
+        "da_thu": 0 if goc == "CANCELLED" else so_tien,
+        "da_hoan": da_hoan,
+        "cho_hoan": cho_hoan,
+        "thu_rong": 0 if goc in ("VOIDED", "CANCELLED") else so_tien - da_hoan,
+        "huy_rong": huy_rong,
+        "tong_truoc_giam": so_tien + giam,
+        "giam_gia": giam,
+        "chuyen_khoan": so_tien if hinh_thuc == CHUYEN_KHOAN else 0,
+        "hoan": hoan,
+        "phan_ca_phieu": {"so_tien": sum(phan.values())},
+    }
 
 
 def gom_hoa_don(
@@ -532,6 +614,7 @@ def gom_hoa_don(
             ly_do[ma] += 1
         if not hop_nhom(bill, nhom):
             continue
+        bill = gon_theo_hinh_thuc(bill, hinh_thuc)
         key = row.get("patient_id") or row["id"]
         if key not in groups:
             groups[key] = dict(

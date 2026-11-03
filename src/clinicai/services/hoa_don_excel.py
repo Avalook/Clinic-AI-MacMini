@@ -92,7 +92,7 @@ def xlsx_hoa_don(data: dict[str, Any], *, bay_gio: datetime | None = None) -> by
                     _ten(TRANG_THAI, p["trang_thai"]),
                     excel_datetime(p["thu_luc"]),
                     p["nguoi_thu"],
-                    _ten(HINH_THUC, p["hinh_thuc"]),
+                    p.get("nhan_hinh_thuc") or _ten(HINH_THUC, p["hinh_thuc"]),
                     p["tong_truoc_giam"],
                     p["giam_gia"],
                     _ten(KIEU_GIAM, p["kieu_giam"]),
