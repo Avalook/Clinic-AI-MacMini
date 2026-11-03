@@ -94,9 +94,8 @@ async def test_old_paid_bill_refunded_today_and_scope(pool: asyncpg.Pool) -> Non
     )["khach"]
     with pytest.raises(SafetyGateError):
         await svc.xem(identity=q.thu_ngan, tu=day, den=day)
-    assert (await svc.xem(identity=manager, tu="rác", den="rác", tim=f"TT-{q.duoi}"))[
-        "tong"
-    ]["da_hoan"] == 30000
+    rac = await svc.xem(identity=manager, tu="rác", den="rác", tim=f"TT-{q.duoi}")
+    assert rac["dang_xem"]["da_hoan"] == 30000
 
 
 async def test_head_scope_and_xlsx_endpoint_share_guard(pool: asyncpg.Pool) -> None:

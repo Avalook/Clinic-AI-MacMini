@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button, { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
+import NutDoRong, { useDoRong } from "@/components/ui/NutDoRong";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import { todayVn } from "@/lib/roster";
 import NgayTrucBaoCao, { type ReportCalendar } from "./NgayTrucBaoCao";
@@ -67,6 +68,8 @@ export default function BaoCaoHangHoa({
   /** Người xem mở được `/pharmacy/inventory` (máy chủ hỏi `moDuocMan`) — không thì ẩn link. */
   moKiemKe?: boolean;
 }) {
+  // Bảng nhiều cột → mặc định MỞ RỘNG theo màn, màn to thấy hết cột (Tuyền 03/11).
+  const [doRong, setDoRong] = useDoRong("bao-cao-hang-hoa", "rong");
   const lanTai = useRef(0);
   const lanNgay = useRef(0);
   const [chuoiDaTai, setChuoiDaTai] = useState("");
@@ -220,7 +223,8 @@ export default function BaoCaoHangHoa({
       ) : null}
 
       {dl && hh ? (
-        <article className="mx-auto max-w-5xl space-y-4 rounded-card border border-line bg-surface px-4 py-6 shadow-card sm:px-8 print:max-w-none print:border-0 print:p-0 print:shadow-none">
+        <>
+        <article className={`mx-auto ${doRong === "gon" ? "max-w-5xl" : "max-w-none"} space-y-4 rounded-card border border-line bg-surface px-4 py-6 shadow-card sm:px-8 print:max-w-none print:border-0 print:p-0 print:shadow-none`}>
           <p className="text-meta text-ink-soft">Ngày lập:{lapLuc}</p>
           <header className="space-y-1 text-center">
             <h2 className="text-title font-semibold text-ink">Báo cáo cuối ngày về hàng hóa</h2>
@@ -244,6 +248,8 @@ export default function BaoCaoHangHoa({
               ))}
           </footer>
         </article>
+        <NutDoRong doRong={doRong} onDoi={setDoRong} />
+        </>
       ) : null}
       <p className="text-meta text-ink-muted print:hidden">
         Thuốc: mã hàng là mã KiotViet; dịch vụ: mã của hệ thống. Cột tồn kho (Tồn đầu, Nhập, Tồn cuối…) chỉ có ở

@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import NutDoRong, { useDoRong } from "@/components/ui/NutDoRong";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 
 import { INPUT } from "../form-ui";
@@ -150,6 +151,9 @@ interface BaoCao {
 }
 
 export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { ngay?: string; coSo?: CoSo[]; dayDu?: boolean; access?: import("./access").ReportAccess }) {
+  // Bảng tóm tắt mặc định THU GỌN: nhãn và số tiền gần nhau, không phải đưa mắt
+  // sang tận mép phải (Tuyền 03/11).
+  const [doRong, setDoRong] = useDoRong("bao-cao-cuoi-ngay", "gon");
   const [phamVi, setPhamVi] = useState<ReportCalendar | undefined>(access);
   const restricted = !!phamVi && !phamVi.legacy && !phamVi.quan_ly;
   const lanNgay = useRef(0);
@@ -374,8 +378,11 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
         <KetTienMatNgay ds={bc.ket_tien_mat ?? []} />
       ) : null}
 
+      <div className={doRong === "gon" ? "max-w-3xl space-y-3 print:max-w-none" : "space-y-3"}>
       <TomTatCuoiNgay dayDu={dayDu} data={dangTai || loi || chuoiDaTai !== chuoi ? null : bc} dangTai={dangTai || (!loi && chuoiDaTai !== chuoi)}
         loc={{ tu: khoang.tu, den: khoang.den, ...(ca && motNgay ? { ca } : {}), ...(coSoChon ? { co_so: coSoChon } : {}), ...(loai ? { loai } : {}) }} />
+      <NutDoRong doRong={doRong} onDoi={setDoRong} />
+      </div>
 
 
     </section>
