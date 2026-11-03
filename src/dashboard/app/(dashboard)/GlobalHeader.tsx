@@ -349,7 +349,9 @@ export default function GlobalHeader({
         <h1 className="truncate font-semibold text-ink">{title}</h1>
       </div>
 
-      {/* Right Section: Widgets */}
+      {/* Phải: các món bấm mở bảng. Màn hẹp: bảng bám hai mép màn hình (neo
+          theo nút thì bảng 288–320px tràn mép trái ở 375, cắt ~94px chữ); từ
+          sm trở lên mới neo phải theo nút. */}
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {/* Ngày · giờ — MỘT dòng chữ nhạt (bấm vẫn mở lịch nhỏ). */}
         <div className="relative">
@@ -365,7 +367,7 @@ export default function GlobalHeader({
 
           {/* Mini Calendar Popover */}
           {calOpen && (
-            <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-line bg-surface p-4 shadow-panel animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="fixed inset-x-3 top-14 z-50 mx-auto max-w-72 rounded-2xl border border-line bg-surface p-4 shadow-panel animate-in fade-in slide-in-from-top-2 duration-150 sm:absolute sm:inset-x-auto sm:right-0 sm:top-10 sm:mx-0 sm:w-72 sm:max-w-none">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-ink">
                   {monthNames[viewMonth]} {viewYear}
@@ -448,7 +450,7 @@ export default function GlobalHeader({
 
           {/* Notifications Popover */}
           {notifOpen && (
-            <div className="absolute right-0 top-10 z-50 w-80 rounded-2xl border border-line bg-surface p-4 shadow-panel space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="fixed inset-x-3 top-14 z-50 rounded-2xl border border-line bg-surface p-4 shadow-panel space-y-3 animate-in fade-in slide-in-from-top-2 duration-150 sm:absolute sm:inset-x-auto sm:right-0 sm:top-10 sm:w-80">
               <div className="flex items-center justify-between gap-3 border-b border-line pb-2">
                 <span className="text-xs font-bold text-ink">Thông báo mới</span>
                 <div className="flex items-center gap-3">
