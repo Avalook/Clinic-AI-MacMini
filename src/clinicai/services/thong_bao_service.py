@@ -307,42 +307,31 @@ class ThongBaoService:
         hàng (`ghi_chuong_vai` — trạng thái đọc/xử lý chung cả vai). Người có
         nhiều vai (quản lý + dược sĩ + trưởng ca) khớp cả ba hàng cùng nội dung
         → thấy ba chuông giống hệt sau một lần chốt kiểm kê. Gộp các hàng cùng
-        (nguồn, mã nguồn, tiêu đề, nội dung) về một; `da_xu_ly` đóng cả nhóm."""
+        (nguồn, mã nguồn, tiêu đề, nội dung) về một; `da_xu_ly` đóng cả nhóm.
+
+        NHANH (03/11/2026, đo trên prod): ~30k thông báo "kết quả về" mở mãi,
+        câu cũ xếp cả 28k hàng theo chuỗi gộp dài + join hai bảng TRƯỚC khi gộp
+        → xếp tràn ra đĩa (work_mem 4MB), ~400ms × 85k lượt, câu tốn nhất prod.
+        Giờ: lọc + gộp trên cột của chính `thong_bao`, khoá gộp là md5 (32 ký
+        tự), chỉ join cho 50 hàng cuối. Kết quả đã so khớp từng byte với câu cũ."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT * FROM (
-                SELECT t.id::text,
-                       t.muc_do,
-                       t.tieu_de,
-                       t.noi_dung,
-                       t.duong_dan,
-                       t.tao_luc,
-                       t.da_doc_luc,
-                       t.nguon,
-                       s.full_name AS nguoi_goi,
-                       CASE WHEN t.nguon = 'lo_thuoc_han'
-                            THEN 'Hệ thống — hạn lô' END AS nhan_nguon,
-                       -- Thông báo "chỉ định bị bỏ": nút DUY NHẤT là Hoàn tác
-                       -- dòng sổ ấy (máy chủ nói có hoàn tác được không).
-                       CASE WHEN t.nguon = 'bo_chi_dinh'
-                                 AND so.hanh_dong = 'BO'
-                                 AND so.hoan_tac_luc IS NULL
-                            THEN so.id::text END AS hoan_tac_so_id,
+                WITH cua_toi AS (
+                SELECT t.id, t.clinic_id, t.muc_do, t.tieu_de, t.noi_dung,
+                       t.duong_dan, t.tao_luc, t.da_doc_luc, t.nguon, t.nguon_id,
+                       t.nguoi_goi_staff_id,
                        -- Cùng sự việc (nguồn + mã nguồn + chữ) ghi cho nhiều vai
                        -- của tôi → chỉ giữ MỘT hàng. Không có mã nguồn thì không
-                       -- gộp (mỗi hàng là một việc riêng).
+                       -- gộp (mỗi hàng là một việc riêng; md5 không bao giờ
+                       -- trùng dạng uuid có gạch nên hai nhánh không lẫn nhau).
                        row_number() OVER (
                            PARTITION BY CASE WHEN t.nguon_id IS NOT NULL
-                                THEN concat_ws('|', t.nguon, t.nguon_id,
-                                               t.tieu_de, coalesce(t.noi_dung, ''))
+                                THEN md5(concat_ws('|', t.nguon, t.nguon_id,
+                                                   t.tieu_de, coalesce(t.noi_dung, '')))
                                 ELSE t.id::text END
                            ORDER BY t.tao_luc, t.id) AS rn
                   FROM public.thong_bao t
-                  LEFT JOIN public.staff s ON s.id = t.nguoi_goi_staff_id
-                  LEFT JOIN public.so_sua_chi_dinh so
-                    ON t.nguon = 'bo_chi_dinh' AND so.clinic_id = t.clinic_id
-                   AND so.id::text = t.nguon_id
                  WHERE t.clinic_id = $1::uuid
                    AND t.da_xu_ly_luc IS NULL
                    AND (t.vai_nhan = ANY($2::text[])
@@ -359,10 +348,35 @@ class ThongBaoService:
                             AND t.tao_luc < (date_trunc(
                                     'day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'))
-                ) goc
-                 WHERE goc.rn = 1
-                 ORDER BY (goc.muc_do = 'KHAN') DESC, goc.tao_luc DESC
+                ), dau AS (
+                SELECT * FROM cua_toi
+                 WHERE rn = 1
+                 ORDER BY (muc_do = 'KHAN') DESC, tao_luc DESC
                  LIMIT 50
+                )
+                SELECT d.id::text,
+                       d.muc_do,
+                       d.tieu_de,
+                       d.noi_dung,
+                       d.duong_dan,
+                       d.tao_luc,
+                       d.da_doc_luc,
+                       d.nguon,
+                       s.full_name AS nguoi_goi,
+                       CASE WHEN d.nguon = 'lo_thuoc_han'
+                            THEN 'Hệ thống — hạn lô' END AS nhan_nguon,
+                       -- Thông báo "chỉ định bị bỏ": nút DUY NHẤT là Hoàn tác
+                       -- dòng sổ ấy (máy chủ nói có hoàn tác được không).
+                       CASE WHEN d.nguon = 'bo_chi_dinh'
+                                 AND so.hanh_dong = 'BO'
+                                 AND so.hoan_tac_luc IS NULL
+                            THEN so.id::text END AS hoan_tac_so_id
+                  FROM dau d
+                  LEFT JOIN public.staff s ON s.id = d.nguoi_goi_staff_id
+                  LEFT JOIN public.so_sua_chi_dinh so
+                    ON d.nguon = 'bo_chi_dinh' AND so.clinic_id = d.clinic_id
+                   AND so.id::text = d.nguon_id
+                 ORDER BY (d.muc_do = 'KHAN') DESC, d.tao_luc DESC
                 """,
                 identity.clinic_id,
                 identity.ds_vai(),
@@ -370,7 +384,7 @@ class ThongBaoService:
             )
         # `chi_hoan_tac`: máy chủ nói thông báo nào KHÔNG có nút "Xong" (chỉ
         # Hoàn tác) — giao diện không tự suy từ `nguon`.
-        ra = [{k: v for k, v in dict(r).items() if k != "rn"} for r in rows]
+        ra = [dict(r) for r in rows]
         return [{**d, "chi_hoan_tac": d.get("nguon") in NGUON_CHI_HOAN_TAC} for d in ra]
 
     async def danh_dau_da_doc(self, *, identity: StaffIdentity) -> dict[str, Any]:
