@@ -106,10 +106,10 @@ def test_report_summary_matches_filtered_net_not_original_receipts() -> None:
     rows = dict(list(ws.values)[1:])
     assert rows["Tổng thu"] == 250000
     assert rows["Dịch vụ"] == 250000
-    assert "Dòng tiền vào" not in rows
+    assert "Tổng thu về" not in rows
     assert "hidden" not in str(rows)
     detailed = load_workbook(BytesIO(xlsx_tom_tat(report, day_du=True))).active
-    assert dict(list(detailed.values)[1:])["Dòng tiền vào"] == 990000
+    assert dict(list(detailed.values)[1:])["Tổng thu về"] == 990000
 
 
 def test_report_detail_and_inventory_keep_tables_and_numeric_data() -> None:
@@ -301,7 +301,7 @@ async def test_report_xlsx_endpoint_uses_authorized_scope(
     report.return_value = data
     params["mau"] = "tom_tat_day_du"
     response = await reports.bao_cao_cuoi_ngay_xlsx(**params)
-    assert "Dòng tiền vào" not in dict(
+    assert "Tổng thu về" not in dict(
         list(load_workbook(BytesIO(response.body)).active.values)[1:]
     )
     authorize.return_value = (
@@ -311,7 +311,7 @@ async def test_report_xlsx_endpoint_uses_authorized_scope(
     response = await reports.bao_cao_cuoi_ngay_xlsx(**params)
     assert (
         dict(list(load_workbook(BytesIO(response.body)).active.values)[1:])[
-            "Dòng tiền vào"
+            "Tổng thu về"
         ]
         == 990000
     )

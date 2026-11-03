@@ -340,32 +340,39 @@ def _matches(group: dict[str, Any], tim: str | None) -> bool:
 
 
 def _period(customers: list[dict[str, Any]]) -> dict[str, int]:
+    """Tiền của KỲ, mỗi khoản theo ngày nó xảy ra — cùng luật màn Báo cáo (thu:
+    giờ thu; huỷ: giờ huỷ; hoàn: giờ hoàn xong). Phiếu huỷ trong kỳ trừ ra khỏi
+    Tổng tiền hàng / Giảm giá / Tiền đã thu (huỷ cùng ngày thì triệt tiêu), nên
+    chuỗi Tổng tiền hàng − Giảm giá = Tiền đã thu; Tiền đã thu − Đã trả lại =
+    Thực thu. ``gia_tri_huy`` chỉ để biết (đã trừ)."""
     bills = [p for g in customers for p in g["phieu"]]
     refunds = [r for p in bills for r in p["hoan"] if r["trong_ky"]]
-    paid = sum(p["so_tien"] for p in bills if p["thu_trong_ky"])
+    thu = [p for p in bills if p["thu_trong_ky"]]
+    huy = [p for p in bills if p["huy_trong_ky"]]
     completed = sum(r["so_tien"] for r in refunds if r["trang_thai"] == "COMPLETED")
-    # Phiếu huỷ sau khi đã hoàn một phần: chỉ phần còn lại mới là tiền huỷ.
-    voided = sum(
-        p["huy_rong"]
-        if "huy_rong" in p
-        else max(
-            p["so_tien"]
-            - sum(r["so_tien"] for r in p["hoan"] if r["trang_thai"] == "COMPLETED"),
-            0,
+
+    def huy_rong(p: Mapping[str, Any]) -> int:
+        # Phiếu huỷ sau khi đã hoàn một phần: chỉ phần còn lại mới là tiền huỷ.
+        if "huy_rong" in p:
+            return int(p["huy_rong"])
+        xong = sum(
+            int(r["so_tien"]) for r in p["hoan"] if r["trang_thai"] == "COMPLETED"
         )
-        for p in bills
-        if p["huy_trong_ky"]
-    )
+        return max(int(p["so_tien"]) - xong, 0)
+
+    voided = sum(huy_rong(p) for p in huy)
+    giam_huy = sum(int(p["giam_gia"]) for p in huy)
+    paid = sum(p["so_tien"] for p in thu) - voided
     return dict(
         da_thu=paid,
-        tong_truoc_giam=sum(p["tong_truoc_giam"] for p in bills if p["thu_trong_ky"]),
-        giam_gia=sum(p["giam_gia"] for p in bills if p["thu_trong_ky"]),
+        tong_truoc_giam=sum(p["tong_truoc_giam"] for p in thu) - voided - giam_huy,
+        giam_gia=sum(p["giam_gia"] for p in thu) - giam_huy,
         da_hoan=completed,
-        thu_rong=paid - completed - voided,
+        thu_rong=paid - completed,
         cho_hoan=sum(r["so_tien"] for r in refunds if r["trang_thai"] == "PENDING"),
         so_phieu=len(bills),
         so_khach=len(customers),
-        so_huy=sum(bool(p["huy_trong_ky"]) for p in bills),
+        so_huy=len(huy),
         gia_tri_huy=voided,
         chua_tra_lai=sum(int(g["chua_tra_lai"]) for g in customers),
     )
@@ -388,16 +395,24 @@ _VIEC_NO_PHONG_KHAM = frozenset(
     {"CHUA_TRA_LAI", "CHUA_LAM", "HOAN_CHUA_XONG", "HOAN_THAT_BAI"}
 )
 #: Nhóm lọc của màn (``nhom``); rác = không lọc.
+#: Hai tầng (Tuyền 03/11/2026, đúng chữ recap 13/10): KHÔNG ĐÚNG = đã bấm Đã thu
+#: rồi phải làm lại (thao tác nhầm / khách đổi ý); CÒN DANG DỞ = tiền thu đủ
+#: nhưng việc chưa xong (nợ, chưa làm, cần đối soát). ĐÚNG = không dính cả hai.
+LECH_KHONG_DUNG = frozenset({"HUY", "HOAN", "DOI_HINH_THUC", "HUY_CHO_CK"})
+LECH_DANG_DO = frozenset({"NO_KHACH", "NO_PHONG_KHAM", "CAN_DOI_SOAT"})
 NHOM_LOC = frozenset(
     {
         "dung",
         "khong_dung",
+        "dang_do",
         "tra_lai",
         "giam_gia",
         "doi_hinh_thuc",
         "no_khach",
         "no_phong_kham",
         "ck_da_huy",
+        "phieu_huy",
+        "hoan_tien",
     }
 )
 
@@ -427,13 +442,16 @@ def hop_nhom(bill: Mapping[str, Any], nhom: str | None) -> bool:
     return {
         None: True,
         "dung": not lech,
-        "khong_dung": bool(lech),
+        "khong_dung": bool(LECH_KHONG_DUNG.intersection(lech)),
+        "dang_do": bool(LECH_DANG_DO.intersection(lech)),
         "tra_lai": "HUY" in lech or "HOAN" in lech,
         "giam_gia": int(bill.get("giam_gia") or 0) > 0,
         "doi_hinh_thuc": "DOI_HINH_THUC" in lech,
         "no_khach": "NO_KHACH" in lech,
         "no_phong_kham": "NO_PHONG_KHAM" in lech,
         "ck_da_huy": "HUY_CHO_CK" in lech,
+        "phieu_huy": "HUY" in lech,
+        "hoan_tien": "HOAN" in lech,
     }.get(nhom, True)
 
 
@@ -595,36 +613,49 @@ def gom_hoa_don(
     for v in viec_ton:
         if v.get("visit_id"):
             viec_luot.setdefault(str(v["visit_id"]), set()).add(str(v["loai"]))
-    so_dung = so_khong_dung = 0
+    so_dung = so_khong_dung = so_dang_do = 0
     ly_do: dict[str, int] = {ma: 0 for ma in TEN_LECH}
+    # Hai tập (Tuyền 03/11/2026): PHẠM VI TIỀN (ngày, ca, cơ sở, loại, hình thức)
+    # quyết khối số tiền — đổi nhóm / trạng thái / ô tìm không làm số nhảy, luôn
+    # khớp màn Báo cáo. Nhóm / trạng thái / ô tìm chỉ lọc DANH SÁCH bên dưới.
+    pham_vi: dict[str, dict[str, Any]] = {}
     groups: dict[str, dict[str, Any]] = {}
-    for row in receipts:
-        bill = _bill(row, refunds, lines, refund_lines, doi_hinh_thuc)
-        if loc_phieu and loc_phieu != bill["trang_thai"]:
-            continue
-        if not hop_hinh_thuc(bill, hinh_thuc):
-            continue
-        bill["lech"] = lech_cua_phieu(bill, viec_luot)
-        bill["ten_lech"] = [TEN_LECH[ma] for ma in bill["lech"]]
-        if bill["lech"]:
-            so_khong_dung += 1
-        else:
-            so_dung += 1
-        for ma in bill["lech"]:
-            ly_do[ma] += 1
-        if not hop_nhom(bill, nhom):
-            continue
-        bill = gon_theo_hinh_thuc(bill, hinh_thuc)
+
+    def nhom_khach(kho: dict[str, dict[str, Any]], row: Mapping[str, Any]) -> list[Any]:
         key = row.get("patient_id") or row["id"]
-        if key not in groups:
-            groups[key] = dict(
+        if key not in kho:
+            kho[key] = dict(
                 id=key,
                 ten=row.get("ten"),
                 ma_bn=row.get("ma_bn"),
                 so_dien_thoai=row.get("so_dien_thoai"),
                 phieu=[],
             )
-        groups[key]["phieu"].append(bill)
+        phieu: list[Any] = kho[key]["phieu"]
+        return phieu
+
+    for row in receipts:
+        bill = _bill(row, refunds, lines, refund_lines, doi_hinh_thuc)
+        if not hop_hinh_thuc(bill, hinh_thuc):
+            continue
+        bill["lech"] = lech_cua_phieu(bill, viec_luot)
+        bill["ten_lech"] = [TEN_LECH[ma] for ma in bill["lech"]]
+        if not bill["lech"]:
+            so_dung += 1
+        if LECH_KHONG_DUNG.intersection(bill["lech"]):
+            so_khong_dung += 1
+        if LECH_DANG_DO.intersection(bill["lech"]):
+            so_dang_do += 1
+        for ma in bill["lech"]:
+            ly_do[ma] += 1
+        bill = gon_theo_hinh_thuc(bill, hinh_thuc)
+        nhom_khach(pham_vi, row).append(bill)
+        if loc_phieu and loc_phieu != bill["trang_thai"]:
+            continue
+        if not hop_nhom(bill, nhom):
+            continue
+        nhom_khach(groups, row).append(bill)
+    ca_pham_vi = [_customer(g, tien_thua or {}, viec_ton) for g in pham_vi.values()]
     customers = [
         _customer(group, tien_thua or {}, viec_ton)
         for group in groups.values()
@@ -646,17 +677,32 @@ def gom_hoa_don(
     }
     tong_khach["thu_rong"] = sum(int(g["thu_rong"]) for g in selected)
     tong_khach["so_khach_con_ton"] = sum(bool(g["viec_ton"]) for g in selected)
+    dang_loc = bool(
+        loc_phieu
+        or nhom
+        or (tim or "").strip()
+        or can_kiem_tra
+        or trang_thai == "CON_VIEC_TON"
+    )
     return {
-        "theo_tai_khoan": tach_tai_khoan([p for g in selected for p in g["phieu"]]),
+        "theo_tai_khoan": tach_tai_khoan([p for g in ca_pham_vi for p in g["phieu"]]),
         "tong": {
-            **_period(selected),
+            **_period(ca_pham_vi),
             "so_viec_ton": len(viec_ton),
             "dung_khong_dung": {
                 "dung": so_dung,
                 "khong_dung": so_khong_dung,
+                "dang_do": so_dang_do,
                 "ly_do": ly_do,
             },
         },
+        # Đang lọc nhóm / trạng thái / tìm: tiền của RIÊNG các phiếu đang hiện.
+        "dang_xem": {
+            **_period(selected),
+            "so_phieu": sum(len(g["phieu"]) for g in selected),
+        }
+        if dang_loc
+        else None,
         "tong_khach": tong_khach,
         "khach": selected,
         "viec_ton": list(viec_ton),

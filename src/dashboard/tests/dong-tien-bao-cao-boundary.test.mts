@@ -6,7 +6,7 @@ const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 
 test("khối Dòng tiền dùng đúng chữ khách đưa, không còn nhãn cũ (14/10/2026)", () => {
   const ui = read("../app/(dashboard)/reports/TomTatCuoiNgay.tsx");
-  for (const nhan of ["Dòng tiền", "Dòng tiền vào", "Trả lại tiền khách hàng", "Nợ thu được", "Thực thu", "Doanh thu thuần"]) {
+  for (const nhan of ["Dòng tiền", "Tổng thu về", "Trả lại tiền khách hàng", "Nợ thu được", "Thực thu", "Doanh thu thuần"]) {
     assert.match(ui, new RegExp(`"${nhan}"`));
   }
   assert.doesNotMatch(ui, /"Tài chính"|"Hoàn tiền mặt"|"Hoàn chuyển khoản"|Chưa có dữ liệu/);
@@ -18,7 +18,7 @@ test("khối Dòng tiền dùng đúng chữ khách đưa, không còn nhãn cũ
 test("mỗi mục có link sang danh sách hoá đơn giữ ngày / ca / cơ sở / nhóm", () => {
   const ui = read("../app/(dashboard)/reports/TomTatCuoiNgay.tsx");
   assert.match(ui, /\/hoa-don\?/);
-  for (const nhom of ["tra_lai", "no_khach", "giam_gia", "khong_dung"]) assert.match(ui, new RegExp(`"${nhom}"`));
+  for (const nhom of ["hoan_tien", "phieu_huy", "no_khach", "giam_gia", "khong_dung", "dang_do"]) assert.match(ui, new RegExp(`"${nhom}"`));
   const cuoiNgay = read("../app/(dashboard)/reports/CuoiNgay.tsx");
   assert.match(cuoiNgay, /loc=\{\{ tu: khoang\.tu, den: khoang\.den/);
   // Trang danh sách hoá đơn đọc bộ lọc từ link; route chuyển tiếp nhom + hinh_thuc.

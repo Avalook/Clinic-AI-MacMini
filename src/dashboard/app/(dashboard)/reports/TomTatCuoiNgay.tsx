@@ -13,6 +13,8 @@ export interface DongTien {
   dong_tien_vao: number;
   tien_thu: TmCk;
   tra_lai: TmCk;
+  /** Phiếu huỷ trong kỳ — thao tác, không phải tiền trả khách; đã trừ ở Tiền thu. */
+  phieu_huy?: TmCk & { so_phieu: number };
   hoan_cho: number;
   /** Lần chờ CK đã huỷ trong kỳ (G4d, R1) — ghi chú, không cộng vào số nào. */
   ck_cho_da_huy?: { so_lan: number; tong: number };
@@ -32,7 +34,7 @@ export interface TaiChinh {
 }
 
 /** Bộ lọc đang xem — để link sang danh sách hoá đơn giữ đúng ngày / ca / cơ sở. */
-export interface LocBaoCao { tu: string; den: string; ca?: string; co_so?: string }
+export interface LocBaoCao { tu: string; den: string; ca?: string; co_so?: string; loai?: string }
 interface DuLieuTomTat {
  tai_chinh?: TaiChinh;
   tong: Tien & { so_phieu_thu: number; so_phieu_huy: number; so_phieu_hoan: number };
@@ -48,12 +50,23 @@ interface DuLieuTomTat {
   };
 }
 
-function Dong({ nhan, giaTri, noiBat = false }: {
-  nhan: string; giaTri: string; noiBat?: boolean;
+/** Nhãn + chữ nhỏ giải thích ngay dưới (Tuyền 03/11: chữ đã chốt giữ nguyên, khó
+ *  hiểu thì giải thích bằng chữ nhỏ thay vì đổi tên). */
+function Nhan({ nhan, giaiThich }: { nhan: string; giaiThich?: string }) {
+  return (
+    <dt className="min-w-0 text-emph text-ink">
+      {nhan}
+      {giaiThich ? <span className="block text-meta font-normal text-ink-muted">{giaiThich}</span> : null}
+    </dt>
+  );
+}
+
+function Dong({ nhan, giaTri, noiBat = false, giaiThich }: {
+  nhan: string; giaTri: string; noiBat?: boolean; giaiThich?: string;
 }) {
   return (
     <div className="flex min-h-11 items-center justify-between gap-4 border-b border-hairline px-3 py-3 last:border-b-0">
-      <dt className="min-w-0 text-emph text-ink">{nhan}</dt>
+      <Nhan nhan={nhan} giaiThich={giaiThich} />
       <dd className={`shrink-0 text-right text-emph tabular-nums ${noiBat ? "font-semibold text-brand-700" : "text-ink"}`}>
         {giaTri}
       </dd>
@@ -62,21 +75,24 @@ function Dong({ nhan, giaTri, noiBat = false }: {
 }
 
 /** Một mục Dòng tiền: số tổng, dòng phụ TM / CK (nếu có), link danh sách hoá đơn. */
-function MucDongTien({ nhan, tong, tmCk, href, tien, noiBat = false }: {
+function MucDongTien({ nhan, tong, tmCk, href, tien, noiBat = false, giaiThich, tienTo, giaTri }: {
   nhan: string; tong?: number; tmCk?: TmCk; href?: string;
-  tien: (n?: number) => string; noiBat?: boolean;
+  tien: (n?: number) => string; noiBat?: boolean; giaiThich?: string;
+  /** Chữ trước dòng TM / CK khi dòng đó không cộng ra đúng số tổng (vd "Tiền thu:"). */
+  tienTo?: string;
+  giaTri?: string;
 }) {
   return (
     <div className="border-b border-hairline px-3 py-3 last:border-b-0">
-      <div className="flex min-h-5 items-center justify-between gap-4">
-        <dt className="min-w-0 text-emph text-ink">{nhan}</dt>
+      <div className="flex min-h-5 items-start justify-between gap-4">
+        <Nhan nhan={nhan} giaiThich={giaiThich} />
         <dd className={`shrink-0 text-right text-emph tabular-nums ${noiBat ? "font-semibold text-brand-700" : "text-ink"}`}>
-          {tien(tong)}
+          {giaTri ?? tien(tong)}
         </dd>
       </div>
       {tmCk || href ? (
         <div className="mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-meta text-ink-muted">
-          {tmCk ? <span className="tabular-nums">Tiền mặt {tien(tmCk.tien_mat)} · Chuyển khoản {tien(tmCk.chuyen_khoan)}</span> : <span />}
+          {tmCk ? <span className="tabular-nums">{tienTo ? `${tienTo} ` : ""}Tiền mặt {tien(tmCk.tien_mat)} · Chuyển khoản {tien(tmCk.chuyen_khoan)}</span> : <span />}
           {href ? <a href={href} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Xem hoá đơn</a> : null}
         </div>
       ) : null}
@@ -89,6 +105,7 @@ function linkHoaDon(loc: LocBaoCao | undefined, nhom?: string): string | undefin
   const q = new URLSearchParams({ tu: loc.tu, den: loc.den });
   if (loc.ca) q.set("ca", loc.ca);
   if (loc.co_so) q.set("co_so", loc.co_so);
+  if (loc.loai) q.set("loai", loc.loai);
   if (nhom) q.set("nhom", nhom);
   return `/hoa-don?${q}`;
 }
@@ -124,7 +141,7 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
     <section aria-label="Tóm tắt báo cáo cuối ngày" aria-busy={dangTai} className="bg-surface">
       {dangTai ? <p role="status" className="px-3 py-2 text-meta text-ink-muted">Đang tải báo cáo…</p> : null}
       <Nhom ten="Tổng kết thu">
-        <Dong nhan="Tổng thu" giaTri={tien(data?.tong.thuc_thu)} noiBat />
+        <Dong nhan="Tổng thu" giaTri={tien(data?.tong.thuc_thu)} noiBat giaiThich="Tiền đã cầm được, bằng ô Thực thu" />
         {(["dich_vu", "thuoc"] as const).map(ma => {
           const nhom = data?.theo_loai.find(o => o.ma === ma);
           return <Dong key={ma} nhan={ma === "dich_vu" ? "Dịch vụ" : "Thuốc / vật tư"} giaTri={tien(nhom?.thuc_thu)} />;
@@ -148,14 +165,27 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
         ))}
       </Nhom>
       {dayDu ? <Nhom ten="Dòng tiền">
-        {/* Thực thu = Dòng tiền vào − Trả lại − Nợ − Giảm giá + Nợ thu được (máy chủ tính). */}
-        <MucDongTien nhan="Dòng tiền vào" tong={dt?.dong_tien_vao} tmCk={dt?.tien_thu} href={linkHoaDon(loc)} tien={tien} />
-        <MucDongTien nhan="Trả lại tiền khách hàng" tong={dt?.tra_lai.tong} tmCk={dt?.tra_lai} href={linkHoaDon(loc, "tra_lai")} tien={tien} />
-        <MucDongTien nhan="Nợ" tong={dt?.no} href={linkViecTon(loc, "no_khach")} tien={tien} />
-        <MucDongTien nhan="Giảm giá" tong={dt?.giam_gia} href={linkHoaDon(loc, "giam_gia")} tien={tien} />
-        <MucDongTien nhan="Nợ thu được" tong={dt?.no_thu_duoc.tong} tmCk={dt?.no_thu_duoc} tien={tien} />
-        <MucDongTien nhan="Thực thu" tong={dt?.thuc_thu.tong} tmCk={dt?.thuc_thu} href={linkHoaDon(loc)} tien={tien} noiBat />
-        <MucDongTien nhan="Doanh thu thuần" tong={dt?.doanh_thu_thuan} tien={tien} />
+        {/* Thực thu = Tổng thu về − Trả lại − Nợ − Giảm giá + Nợ thu được (máy chủ tính). */}
+        <MucDongTien nhan="Tổng thu về" tong={dt?.dong_tien_vao} tmCk={dt?.tien_thu} tienTo="Tiền thu:" href={linkHoaDon(loc)} tien={tien}
+          giaiThich="Giá trị dịch vụ, thuốc dùng trong ngày, giá trước giảm, kể cả phần khách còn nợ" />
+        <MucDongTien nhan="Trả lại tiền khách hàng" tong={dt?.tra_lai.tong} tmCk={dt?.tra_lai} href={linkHoaDon(loc, "hoan_tien")} tien={tien}
+          giaiThich="Tiền hoàn thật cho khách" />
+        <MucDongTien nhan="Nợ" tong={dt?.no} href={linkViecTon(loc, "no_khach")} tien={tien}
+          giaiThich="Phần khách chưa trả khi ra về" />
+        <MucDongTien nhan="Giảm giá" tong={dt?.giam_gia} href={linkHoaDon(loc, "giam_gia")} tien={tien}
+          giaiThich="Số tiền bớt cho khách" />
+        <MucDongTien nhan="Nợ thu được" tong={dt?.no_thu_duoc.tong} tmCk={dt?.no_thu_duoc} tien={tien}
+          giaiThich="Nợ của ngày trước, khách trả trong ngày đang xem" />
+        <MucDongTien nhan="Thực thu" tong={dt?.thuc_thu.tong} tmCk={dt?.thuc_thu} href={linkHoaDon(loc)} tien={tien} noiBat
+          giaiThich="Tiền phòng khám đã cầm được. Dùng số này để đối chiếu tiền" />
+        <MucDongTien nhan="Doanh thu thuần" tong={dt?.doanh_thu_thuan} tien={tien}
+          giaiThich="Giá trị đã bán sau giảm giá và trả lại, kể cả phần khách còn nợ" />
+        {dt?.phieu_huy ? (
+          <MucDongTien nhan="Phiếu huỷ" tong={dt.phieu_huy.tong}
+            giaTri={`${dt.phieu_huy.so_phieu.toLocaleString("vi-VN")} phiếu · ${tien(dt.phieu_huy.tong)}`}
+            href={dt.phieu_huy.so_phieu > 0 ? linkHoaDon(loc, "phieu_huy") : undefined} tien={tien}
+            giaiThich="Lần thu bấm nhầm đã gạch đi. Không phải tiền trả khách, đã trừ ở Tiền thu" />
+        ) : null}
         {dt && dt.hoan_cho > 0 ? (
           <p className="px-3 py-2 text-meta text-ink-muted">Còn {tien(dt.hoan_cho)} hoàn tiền đang chờ — chưa trừ vào Trả lại.</p>
         ) : null}
@@ -167,7 +197,9 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
         ) : null}
         {dt ? (
           <p className="px-3 py-2 text-meta text-ink-muted">
-            <a href={linkHoaDon(loc, "khong_dung")} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Xem hoá đơn không đúng (huỷ, trả lại, đổi hình thức, còn nợ…)</a>
+            <a href={linkHoaDon(loc, "khong_dung")} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Xem hoá đơn không đúng (huỷ, hoàn, đổi hình thức)</a>
+            {" · "}
+            <a href={linkHoaDon(loc, "dang_do")} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Còn dang dở (nợ, chưa làm, cần kiểm tra)</a>
           </p>
         ) : null}
       </Nhom> : null}

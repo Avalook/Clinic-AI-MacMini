@@ -61,7 +61,11 @@ def test_bang_vang_doi_soat_hai_ngay() -> None:
 
     Ngày 1 — A: hoá đơn 1.000k, giảm 100k, trả 500k TM, nợ 400k · B: thu 300k CK,
     huỷ (nhầm), thu lại 300k TM · C: thu 200k CK, khách đổi ý, hoàn 200k CK.
-    Ngày 2 — A trả nợ 400k CK."""
+    Ngày 2 — A trả nợ 400k CK.
+
+    Tuyền 03/11: phiếu huỷ là thao tác, không phải tiền trả khách → dòng riêng,
+    không cộng vào Tổng thu về / Trả lại (trước: 1.800k / 500k). Thực thu và
+    Doanh thu thuần không đổi."""
     d1 = tom_tat_tai_chinh(
         _ngay(
             tm={"thu": 800_000, "huy": 0, "hoan": 0},
@@ -71,8 +75,19 @@ def test_bang_vang_doi_soat_hai_ngay() -> None:
             no_thu=0,
         )
     )["dong_tien"]
-    assert d1["dong_tien_vao"] == 1_800_000
-    assert d1["tra_lai"] == {"tong": 500_000, "tien_mat": 0, "chuyen_khoan": 500_000}
+    assert d1["dong_tien_vao"] == 1_500_000
+    assert d1["tra_lai"] == {"tong": 200_000, "tien_mat": 0, "chuyen_khoan": 200_000}
+    assert d1["phieu_huy"] == {
+        "tong": 300_000,
+        "tien_mat": 0,
+        "chuyen_khoan": 300_000,
+        "so_phieu": 0,
+    }
+    assert d1["tien_thu"] == {
+        "tong": 1_000_000,
+        "tien_mat": 800_000,
+        "chuyen_khoan": 200_000,
+    }
     assert d1["no"] == 400_000
     assert (d1["giam_gia"], d1["no_thu_duoc"]["tong"]) == (100_000, 0)
     assert d1["thuc_thu"] == {"tong": 800_000, "tien_mat": 800_000, "chuyen_khoan": 0}

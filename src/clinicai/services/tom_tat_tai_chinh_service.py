@@ -4,21 +4,29 @@ Chỉ cộng những gì ĐÃ GHI: lần thu / huỷ / hoàn của tập báo c�
 ngày, ca, cơ sở) + sổ nợ hai chiều (`so_no`) của cùng khoảng. Không có số trôi:
 nợ của kỳ là dòng sổ ghi trong kỳ, mở lại kỳ cũ không đổi.
 
-Công thức khách đưa, đúng theo từng số:
+Công thức khách đưa (recap 13/10/2026), đúng theo từng số:
 
-    Thực thu        = Dòng tiền vào − Trả lại − Nợ − Giảm giá + Nợ thu được
-    Doanh thu thuần = Dòng tiền vào − Giảm giá − Trả lại
+    Thực thu        = Tổng thu về − Trả lại − Nợ − Giảm giá + Nợ thu được
+    Doanh thu thuần = Tổng thu về − Giảm giá − Trả lại
 
-  * Tiền thu        = mọi lần thu có ngày thu trong kỳ (kể cả phiếu sau đó bị huỷ)
-                      — số SAU giảm, đúng tiền khách đưa.
-  * Trả lại khách   = phiếu huỷ + khoản hoàn ĐÃ XONG (hoàn đang chờ chỉ ghi chú).
+  Mỗi khoản tính vào NGÀY NÓ XẢY RA (thu: giờ thu; huỷ: giờ huỷ; hoàn: giờ hoàn
+  xong) — cùng luật màn Danh sách hoá đơn, nên hai màn ra cùng một số.
+
+  * Tiền thu        = lần thu trong khoảng − phiếu huỷ trong khoảng (số SAU giảm).
+  * Phiếu huỷ       = dòng RIÊNG: thao tác gạch lần thu bấm nhầm, không phải tiền
+                      trả khách. Đã trừ ở Tiền thu; huỷ cùng ngày thì triệt tiêu.
+  * Trả lại khách   = khoản hoàn ĐÃ XONG (hoàn đang chờ chỉ ghi chú).
   * Nợ              = nợ phát sinh trong kỳ trừ điều chỉnh (bỏ chỉ định sau khi
                       về, huỷ ghi nợ…) — từ sổ, không tính số dư đầu kỳ bật sổ.
   * Nợ thu được     = nợ giảm do lần thu trong kỳ (gồm cả phần giảm giá khi thu nợ).
-  * Giảm giá        = giảm của lần thu còn hiệu lực trong kỳ.
-  * Dòng tiền vào   = Tiền thu + Nợ + Giảm giá − Nợ thu được (giá trị hoá đơn
+  * Giảm giá        = giảm của lần thu còn hiệu lực (phiếu huỷ trừ ra).
+  * Tổng thu về     = Tiền thu + Nợ + Giảm giá − Nợ thu được (giá trị hoá đơn
                       TRƯỚC giảm phát sinh trong kỳ; tiền thu nợ đã tính lúc ghi nợ).
-  * Thực thu        = Tiền thu − Trả lại (tiền thật về két / tài khoản).
+  * Thực thu        = Tiền thu − Trả lại (tiền phòng khám đã cầm được).
+
+"Tổng thu về" là chữ của recap 13/10 (bản 09:29 ghi "Dòng tiền vào" — đổi 03/11
+vì kế toán hiểu "dòng tiền vào" là tiền thật, trong khi ô này là doanh thu gộp,
+có cả nợ). Khoá JSON vẫn là ``dong_tien_vao``.
 
 Nợ và Giảm giá không có tiền đi qua → không tách TM / CK. Sổ nợ tính chung dịch
 vụ + thuốc: báo cáo lọc một loại thì không cộng sổ (Nợ = Nợ thu được = 0).
@@ -43,12 +51,16 @@ def dong_tien(bao_cao: Mapping[str, Any]) -> dict[str, Any]:
     def ck(k: str) -> int:
         return cot("TRANSFER", k) + cot("QR", k)
 
-    tien_thu = _o(int(tong.get("thu") or 0), cot("CASH", "thu"), ck("thu"))
-    tra_lai = _o(
-        int(tong.get("huy") or 0) + int(tong.get("hoan") or 0),
-        cot("CASH", "huy") + cot("CASH", "hoan"),
-        ck("huy") + ck("hoan"),
+    phieu_huy = {
+        **_o(int(tong.get("huy") or 0), cot("CASH", "huy"), ck("huy")),
+        "so_phieu": int(tong.get("so_phieu_huy") or 0),
+    }
+    tien_thu = _o(
+        int(tong.get("thu") or 0) - phieu_huy["tong"],
+        cot("CASH", "thu") - phieu_huy["tien_mat"],
+        ck("thu") - phieu_huy["chuyen_khoan"],
     )
+    tra_lai = _o(int(tong.get("hoan") or 0), cot("CASH", "hoan"), ck("hoan"))
     giam_gia = int((bao_cao.get("giam_gia") or {}).get("giam") or 0)
     so_no = bao_cao.get("so_no_ky")
     if so_no:
@@ -72,6 +84,7 @@ def dong_tien(bao_cao: Mapping[str, Any]) -> dict[str, Any]:
         "dong_tien_vao": dong_tien_vao,
         "tien_thu": tien_thu,
         "tra_lai": tra_lai,
+        "phieu_huy": phieu_huy,
         "hoan_cho": int(tong.get("hoan_cho") or 0),
         # Lần chờ CK đã huỷ (G4d, R1): ghi chú như hoàn đang chờ — không cộng.
         "ck_cho_da_huy": dict(bao_cao.get("ck_cho_da_huy") or {"so_lan": 0, "tong": 0}),

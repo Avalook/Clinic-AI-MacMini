@@ -40,7 +40,8 @@ def test_void_does_not_invent_refund_and_groups_by_patient() -> None:
     ]
     data = gom_hoa_don(receipts, [], [], [], tim=None, trang_thai=None)
     assert len(data["khach"]) == 1
-    assert data["tong"]["da_thu"] == 150
+    # Tiền đã thu đã trừ phiếu huỷ trong kỳ (03/11): 150 thu − 100 huỷ.
+    assert data["tong"]["da_thu"] == 50
     assert data["tong"]["da_hoan"] == 0
     # Huỷ không phải hoàn (không bịa khoản hoàn) nhưng cũng không còn là tiền
     # của phòng khám: thu ròng = thu − hoàn − huỷ, đúng định nghĩa "thực thu"
@@ -48,7 +49,10 @@ def test_void_does_not_invent_refund_and_groups_by_patient() -> None:
     assert data["tong"]["gia_tri_huy"] == 100
     assert data["tong"]["thu_rong"] == 50
     t = data["tong"]
-    assert t["thu_rong"] == t["da_thu"] - t["da_hoan"] - t["gia_tri_huy"]
+    # Chuỗi trên màn: Tổng tiền hàng − Giảm giá = Tiền đã thu (đã trừ huỷ);
+    # Tiền đã thu − Đã trả lại = Thực thu.
+    assert t["thu_rong"] == t["da_thu"] - t["da_hoan"]
+    assert t["da_thu"] == t["tong_truoc_giam"] - t["giam_gia"]
     huy = next(p for p in data["khach"][0]["phieu"] if p["trang_thai"] == "DA_HUY")
     assert huy["thu_rong"] == 0 and huy["so_tien"] == 100
 
@@ -166,7 +170,9 @@ def test_needs_review_filter_and_xlsx_lifetime_period_parity() -> None:
     assert data["khach"][0]["canh_bao"] == ["Phiếu huỷ cần xác minh tiền trả lại"]
     data.update(tu="2026-10-13", den="2026-10-13")
     book = load_workbook(BytesIO(xlsx_hoa_don(data)))
-    assert _o(book["Tổng hợp"], "Tiền đã thu") == data["tong"]["da_thu"] == 0
+    # Khối tiền theo PHẠM VI (03/11), không theo bộ lọc "cần kiểm tra": ngày có
+    # phiếu thu 50 và huỷ một phiếu của ngày trước 100 → Tiền đã thu −50.
+    assert _o(book["Tổng hợp"], "Tiền đã thu") == data["tong"]["da_thu"] == -50
     assert _o(book["Phiếu thu"], "Tiền đã thu") == 100
     # Khách chỉ có một phiếu đã huỷ: thu ròng 0 (tiền không còn ở phòng khám).
     assert _o(book["Theo khách"], "Thực thu") == 0
@@ -768,3 +774,50 @@ def test_excel_dong_phieu_co_cot_phong() -> None:
     dau = [c.value for c in book["Dòng phiếu"][1]]
     assert dau[4:6] == ["Dịch vụ / thuốc", "Phòng"]
     assert _o(book["Dòng phiếu"], "Phòng") == "Siêu âm 2 · BS Hùng"
+
+
+def test_loc_nhom_chi_loc_danh_sach_khoi_tien_giu_nguyen() -> None:
+    """Tuyền 03/11: nhóm / ô tìm chỉ lọc bảng; khối tiền theo phạm vi, khớp Báo cáo.
+
+    Hai tầng: KHÔNG ĐÚNG = phải làm lại sau khi thu; CÒN DANG DỞ = thu đủ tiền
+    nhưng việc chưa xong."""
+    now = datetime.now(timezone.utc)
+
+    def r(id_: str, pid: str, so: int, **kw: Any) -> dict[str, Any]:
+        base = dict(
+            id=id_,
+            patient_id=pid,
+            ten=pid,
+            ma_bn=pid,
+            amount=so,
+            status="PAID",
+            paid_at=now,
+            trong_ky=True,
+            huy_trong_ky=False,
+            visit_id=f"v-{id_}",
+        )
+        return {**base, **kw}
+
+    receipts = [
+        r("dung", "p1", 300),
+        r("dang-do", "p2", 1_150),
+        r("huy", "p3", 500, **{"status": "VOIDED", "huy_trong_ky": True}),
+    ]
+    ton = [{"visit_id": "v-dang-do", "loai": "CHUA_LAM", "so_tien": 200}]
+    tat_ca = gom_hoa_don(receipts, [], [], [], tim=None, trang_thai=None, viec_ton=ton)
+    assert tat_ca["dang_xem"] is None
+    assert tat_ca["tong"]["thu_rong"] == 1_450
+    dk = tat_ca["tong"]["dung_khong_dung"]
+    assert (dk["dung"], dk["khong_dung"], dk["dang_do"]) == (1, 1, 1)
+    for nhom, so_phieu in (("dung", 1), ("dang_do", 1), ("khong_dung", 1)):
+        loc = gom_hoa_don(
+            receipts, [], [], [], tim=None, trang_thai=None, viec_ton=ton, nhom=nhom
+        )
+        assert loc["tong"] == tat_ca["tong"], nhom
+        assert loc["dang_xem"]["so_phieu"] == so_phieu
+    dung = gom_hoa_don(
+        receipts, [], [], [], tim=None, trang_thai=None, viec_ton=ton, nhom="dung"
+    )
+    assert dung["dang_xem"]["thu_rong"] == 300
+    tim = gom_hoa_don(receipts, [], [], [], tim="p2", trang_thai=None, viec_ton=ton)
+    assert tim["tong"] == tat_ca["tong"] and tim["dang_xem"]["thu_rong"] == 1_150
