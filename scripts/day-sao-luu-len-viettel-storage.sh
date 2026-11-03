@@ -22,7 +22,8 @@ umask 077
 
 DICH="${VIETTEL_CFS_DIR:-/mnt/viettel-cfs}/db-backups"
 BACKUP_DIR="${CLINIC_BACKUP_DIR:-$HOME/backups/clinicai}"
-GIU_LAI="${VIETTEL_CFS_GIU_LAI:-30}"          # số ĐÊM giữ lại
+GIU_LAI="${VIETTEL_CFS_GIU_LAI:-30}"          # số ĐÊM giữ lại (bản 02:xx)
+GIU_15P_NGAY="${VIETTEL_CFS_GIU_15P_NGAY:-2}" # bản 15 phút chỉ giữ chừng này ngày
 
 ts() { date "+%Y-%m-%d %H:%M:%S"; }
 noi() { printf '[%s] %s\n' "$(ts)" "$*"; }
@@ -102,25 +103,32 @@ MEDIA="${MOI_NHAT%.sql.gz}_media.tar.gz"
 TEP_CHUA_DAY="${MOI_NHAT%.sql.gz}_tep-chua-day.tar"
 [ -f "$TEP_CHUA_DAY" ] && day_len "$TEP_CHUA_DAY" || noi "  (không có tệp chờ đẩy CFS)"
 
-# ── 4 · Dọn bản cũ, đếm theo NGÀY ──────────────────────────────────────────
-# Đếm theo ngày chứ không nhân một hằng số: mỗi đêm sinh 2, 3 hay 4 tệp tuỳ có
-# media và manifest hay không, nên nhân lên là xoá nhầm bản của đêm trước.
-mapfile -t NGAY_CU < <(
-    find "$DICH" -maxdepth 1 -name '*.gz' -printf '%TY-%Tm-%Td\n' 2>/dev/null \
-        | sort -u | head -n -"$GIU_LAI"
-)
+# ── 4 · Dọn bản cũ, theo NGÀY GHI TRONG TÊN TỆP ────────────────────────────
+# Bản đêm (02:xx, timer clinicai-backup) và bản 15 phút (7h–22h, timer
+# clinicai-backup-15p) đổ chung thư mục này. Trước 03/11/2026 cả hai cùng giữ 30
+# đêm → 5.343 tệp, 86 GB (≈60 bản 15 phút mỗi ngày, bản nào cũng to dần theo
+# DB). Bản 15 phút chỉ để lùi trong ngày; lùi xa hơn thì bản đêm đủ.
+# Đọc ngày giờ trong TÊN (…_YYYYMMDD_HHMMSS…), không theo mtime: chép lại kho
+# thì mtime đổi, tên thì không. Mọi tệp đi kèm (_auth, .manifest, _media…) mang
+# cùng dấu thời gian nên bị dọn cùng bản chính.
+HAN_DEM=$(date -d "-${GIU_LAI} days" +%Y%m%d)
+HAN_15P=$(date -d "-${GIU_15P_NGAY} days" +%Y%m%d)
 SO_XOA=0
-for ngay in "${NGAY_CU[@]:-}"; do
-    [ -n "$ngay" ] || continue
-    while IFS= read -r f; do
-        rm -f "$f"; SO_XOA=$((SO_XOA + 1))
-    done < <(find "$DICH" -maxdepth 1 -newermt "$ngay 00:00" ! -newermt "$ngay 23:59:59" -type f)
+for f in "$DICH"/clinicai_*; do
+    [ -f "$f" ] || continue
+    [[ "$(basename "$f")" =~ _([0-9]{8})_([0-9]{2})[0-9]{4} ]] || continue
+    ngay=${BASH_REMATCH[1]}; gio=${BASH_REMATCH[2]}
+    if [ "$gio" = 02 ]; then han=$HAN_DEM; else han=$HAN_15P; fi
+    if [[ "$ngay" < "$han" ]]; then rm -f "$f"; SO_XOA=$((SO_XOA + 1)); fi
 done
-noi "Đã dọn $SO_XOA tệp cũ (giữ $GIU_LAI đêm)."
+noi "Đã dọn $SO_XOA tệp cũ (bản đêm giữ $GIU_LAI đêm, bản 15 phút giữ $GIU_15P_NGAY ngày)."
 
 # ── 5 · Báo cáo ────────────────────────────────────────────────────────────
+# Cộng cỡ từ một lần liệt kê — `du` trên ổ mạng (SMB) với nghìn tệp từng chạy
+# quá 2 phút, mà script này chạy mỗi 15 phút.
 SO_TEP=$(find "$DICH" -maxdepth 1 -type f | wc -l | tr -d ' ')
-DUNG_LUONG=$(du -sh "$DICH" 2>/dev/null | awk '{print $1}')
+DUNG_LUONG=$(find "$DICH" -maxdepth 1 -type f -printf '%s\n' \
+    | awk '{s+=$1} END {printf "%.1fG", s/1e9}')
 CON_TRONG=$(df -h "$DICH" | tail -1 | awk '{print $4}')
 noi "Trên Viettel Storage: $SO_TEP tệp, $DUNG_LUONG đã dùng, $CON_TRONG còn trống."
 
