@@ -62,7 +62,7 @@ def dong_tien_rows(dt: Mapping[str, Any]) -> list[list[Any]]:
         ]
 
     return [
-        ["Dòng tiền vào", dt.get("dong_tien_vao")],
+        ["Tổng thu về", dt.get("dong_tien_vao")],
         ["  Tiền thu — tiền mặt", (dt.get("tien_thu") or {}).get("tien_mat")],
         ["  Tiền thu — chuyển khoản", (dt.get("tien_thu") or {}).get("chuyen_khoan")],
         *tm_ck("Trả lại tiền khách hàng", dt.get("tra_lai") or {}),

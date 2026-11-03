@@ -6,8 +6,8 @@ nợ của kỳ là dòng sổ ghi trong kỳ, mở lại kỳ cũ không đổi
 
 Công thức khách đưa (recap 13/10/2026), đúng theo từng số:
 
-    Thực thu        = Dòng tiền vào − Trả lại − Nợ − Giảm giá + Nợ thu được
-    Doanh thu thuần = Dòng tiền vào − Giảm giá − Trả lại
+    Thực thu        = Tổng thu về − Trả lại − Nợ − Giảm giá + Nợ thu được
+    Doanh thu thuần = Tổng thu về − Giảm giá − Trả lại
 
   Mỗi khoản tính vào NGÀY NÓ XẢY RA (thu: giờ thu; huỷ: giờ huỷ; hoàn: giờ hoàn
   xong) — cùng luật màn Danh sách hoá đơn, nên hai màn ra cùng một số.
@@ -20,9 +20,13 @@ Công thức khách đưa (recap 13/10/2026), đúng theo từng số:
                       về, huỷ ghi nợ…) — từ sổ, không tính số dư đầu kỳ bật sổ.
   * Nợ thu được     = nợ giảm do lần thu trong kỳ (gồm cả phần giảm giá khi thu nợ).
   * Giảm giá        = giảm của lần thu còn hiệu lực (phiếu huỷ trừ ra).
-  * Dòng tiền vào   = Tiền thu + Nợ + Giảm giá − Nợ thu được (giá trị hoá đơn
+  * Tổng thu về     = Tiền thu + Nợ + Giảm giá − Nợ thu được (giá trị hoá đơn
                       TRƯỚC giảm phát sinh trong kỳ; tiền thu nợ đã tính lúc ghi nợ).
   * Thực thu        = Tiền thu − Trả lại (tiền phòng khám đã cầm được).
+
+"Tổng thu về" là chữ của recap 13/10 (bản 09:29 ghi "Dòng tiền vào" — đổi 03/11
+vì kế toán hiểu "dòng tiền vào" là tiền thật, trong khi ô này là doanh thu gộp,
+có cả nợ). Khoá JSON vẫn là ``dong_tien_vao``.
 
 Nợ và Giảm giá không có tiền đi qua → không tách TM / CK. Sổ nợ tính chung dịch
 vụ + thuốc: báo cáo lọc một loại thì không cộng sổ (Nợ = Nợ thu được = 0).
