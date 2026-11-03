@@ -44,6 +44,10 @@ export interface PhieuThu {
   tong_truoc_giam: number; giam_gia: number; kieu_giam: "AMOUNT" | "PERCENT" | null;
   gia_tri_giam: number | null; ly_do_giam: string | null; nguoi_giam: string | null; giam_luc: string | null;
   hinh_thuc: string; lap_luc: string | null; thu_luc: string | null; huy_luc: string | null;
+  /** Chữ máy chủ dựng: một hình thức, hoặc "Tiền mặt 300.000đ + Chuyển khoản 1.450.000đ". */
+  nhan_hinh_thuc?: string;
+  /** Có khi đang lọc một hình thức: số trên phiếu chỉ là phần đó, đây là tổng cả phiếu. */
+  phan_ca_phieu?: { so_tien: number };
   /** Phần chuyển khoản + tài khoản nhận (31/10/2026); tên null = chưa phân loại. */
   chuyen_khoan?: number; tai_khoan_id?: string | null; ten_tai_khoan?: string | null;
   nguoi_lap: string | null; nguoi_thu: string | null; nguoi_huy: string | null;

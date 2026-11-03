@@ -214,6 +214,30 @@ def so_tien_chuyen_khoan(
     return sum(int(p.get("so_tien") or 0) for p in co if p["hinh_thuc"] == CHUYEN_KHOAN)
 
 
+def huy_rong_theo_phan(
+    so: int, phan: Sequence[Mapping[str, Any]], da_hoan: int, da_hoan_tm: int
+) -> tuple[int, list[int]]:
+    """Phần thật sự huỷ của một phiếu: đã thu − đã hoàn xong; và số ấy theo từng
+    phần thu. Phiếu 850.000 đã hoàn 255.000 rồi hoàn tác: két chỉ giảm thêm 595.000,
+    tính đủ 850.000 thì trừ hai lần. Hoàn cùng hình thức trừ trước, dư trừ phần còn.
+    Báo cáo cuối ngày và Danh sách hoá đơn dùng chung, để hai màn không lệch."""
+    tong = min(da_hoan, so)
+    tien_mat = min(da_hoan_tm, tong)
+    con = {TIEN_MAT: tien_mat, "KHAC": tong - tien_mat}
+    ra = [int(p.get("so_tien") or 0) for p in phan]
+    for i, p in enumerate(phan):
+        k = TIEN_MAT if chuan_hinh_thuc(p.get("hinh_thuc")) == TIEN_MAT else "KHAC"
+        lay = min(ra[i], con[k])
+        ra[i] -= lay
+        con[k] -= lay
+    du = con[TIEN_MAT] + con["KHAC"]
+    for i in range(len(ra)):
+        lay = min(ra[i], du)
+        ra[i] -= lay
+        du -= lay
+    return so - tong, ra
+
+
 def nhan_phan(phan: Sequence[Mapping[str, Any]]) -> str:
     """ "Tiền mặt" · "Tiền mặt 500.000đ + Chuyển khoản 200.000đ" · "" (không rõ)."""
     co = [p for p in phan if p.get("hinh_thuc")]

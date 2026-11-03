@@ -12,17 +12,21 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.api.identity import ClinicRole
 from clinicai.services import media_service
 from clinicai.services.anh_chuyen_khoan_service import (
     AnhChuyenKhoanService,
     anh_cua_cac_lan_thu,
 )
+from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
 from clinicai.services.doi_hinh_thuc_service import DoiHinhThucService
 from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.payment_service import CHO_XAC_MINH, PaymentService
@@ -99,6 +103,29 @@ async def test_thu_chia_tong_dung_va_phieu_in_hai_dong(pool: asyncpg.Pool) -> No
         ("TRANSFER", 50_000),
     ]
     assert phieu["tra_lai"] == 100_000
+
+
+async def test_loc_hinh_thuc_o_danh_sach_hoa_don_tach_dung_tung_phan(
+    pool: asyncpg.Pool,
+) -> None:
+    """Phiếu chia hai hình thức từng bị xếp nguyên vào Chuyển khoản."""
+    q = await tao_quay(pool)
+    kq = await _thu_chia(q)
+    cid = str(kq["payment_cycle_id"])
+    await _xm(q, cid, "")
+    ql = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    svc = DanhSachHoaDonService(pool)
+
+    async def phieu(ht: str | None) -> dict[str, Any]:
+        data = await svc.xem(identity=ql, hinh_thuc=ht)
+        return next(p for g in data["khach"] for p in g["phieu"] if p["id"] == cid)
+
+    tm, ck, ca = await phieu("CASH"), await phieu("TRANSFER"), await phieu(None)
+    assert (tm["so_tien"], tm["thu_rong"]) == (100_000, 100_000)
+    assert (ck["so_tien"], ck["thu_rong"]) == (50_000, 50_000)
+    assert ca["so_tien"] == 150_000 and "phan_ca_phieu" not in ca
+    assert tm["phan_ca_phieu"]["so_tien"] == 150_000
+    assert tm["nhan_hinh_thuc"] == "Tiền mặt 100.000đ + Chuyển khoản 50.000đ"
 
 
 async def test_tong_lech_bi_chan_o_dich_vu_va_postgres(pool: asyncpg.Pool) -> None:

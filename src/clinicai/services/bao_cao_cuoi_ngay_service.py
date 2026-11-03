@@ -59,6 +59,7 @@ from clinicai.services.phan_thu import (
     HINH_THUC_THU,
     chuan_hinh_thuc,
     doc_phan_db,
+    huy_rong_theo_phan,
     nhan_phan,
     phan_mot_hinh_thuc,
 )
@@ -157,24 +158,12 @@ def _chot(o: dict[str, int]) -> dict[str, int]:
 def _huy_rong(
     so: int, phan: list[dict[str, Any]], c: Mapping[str, Any]
 ) -> tuple[int, list[int]]:
-    """Phần thật sự huỷ của một phiếu: đã thu − đã hoàn xong; và số ấy theo từng
-    phần thu. Phiếu 850.000 đã hoàn 255.000 rồi hoàn tác: két chỉ giảm thêm 595.000,
-    tính đủ 850.000 thì trừ hai lần. Hoàn cùng hình thức trừ trước, dư trừ phần còn."""
-    tong = min(_tien(c.get("da_hoan")), so)
-    tien_mat = min(_tien(c.get("da_hoan_tm")), tong)
-    con = {"CASH": tien_mat, "KHAC": tong - tien_mat}
-    ra = [_tien(p.get("so_tien")) for p in phan]
-    for i, p in enumerate(phan):
-        k = "CASH" if chuan_hinh_thuc(p.get("hinh_thuc")) == "CASH" else "KHAC"
-        lay = min(ra[i], con[k])
-        ra[i] -= lay
-        con[k] -= lay
-    du = con["CASH"] + con["KHAC"]
-    for i in range(len(ra)):
-        lay = min(ra[i], du)
-        ra[i] -= lay
-        du -= lay
-    return so - tong, ra
+    return huy_rong_theo_phan(
+        so,
+        [{**p, "so_tien": _tien(p.get("so_tien"))} for p in phan],
+        _tien(c.get("da_hoan")),
+        _tien(c.get("da_hoan_tm")),
+    )
 
 
 def gom_bao_cao(
