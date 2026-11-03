@@ -988,3 +988,41 @@ async def test_sap_den_hien_ca_khach_dang_o_phong_khac_khong_dem(bat: RB) -> Non
     assert k1 is not None and k1["so_nhan_duoc"] == 0
     assert k1["chi_dinh"][0]["o_trang_thai"] == "lam"
     assert await so_sap_den(bat.sa1) == truoc - 1
+
+
+# ── Một lần đọc cho màn hàng chờ phòng (03/11/2026) ──────────────────────────
+
+
+async def test_mot_lan_doc_y_het_hai_lan_doc(bat: RB) -> None:
+    """``sap_den_va_o_khach`` = ``sap_den`` + ``chi_dinh_cua_khach`` (hai lần đọc
+    cũ); ★ tính theo tổ hợp = ``phong_chuyen`` từng dòng; số của MỘT phòng =
+    số của phòng ấy trong bảng mọi phòng."""
+    await _sao(bat, bat.sa1)
+    o1 = await _cd_o(bat, bat.sa1, bat.sa2)
+    await _cd_o(bat, bat.sa2)
+    await _cd_o(bat, bat.sa1, selection="PENDING")
+    await _nhan(bat, bat.sa1, o1)  # khách vào hàng chờ phòng một
+    co_sao = 0
+    async with bat.pool.acquire() as conn:
+        for room in (bat.sa1, bat.sa2):
+            hang = [bat.visit_id]
+            sap, o_khach = await ntp.sap_den_va_o_khach(conn, CLINIC, room, hang)
+            assert sap == await ntp.sap_den(conn, CLINIC, room)
+            assert o_khach == await ntp.chi_dinh_cua_khach(conn, CLINIC, room, hang)
+            assert await ntp.sap_den_va_o_khach(conn, CLINIC, room, []) == (
+                sap,
+                {},
+            )
+            for r, c in await ntp._chi_dinh(conn, CLINIC, room, [bat.visit_id]):
+                mot = await conn.fetchval(
+                    "SELECT phong_chuyen(o.clinic_id, $2::uuid, o.node_code,"
+                    " o.service_code) FROM service_order o WHERE o.id = $1::uuid",
+                    r["id"],
+                    room,
+                )
+                assert c["chuyen"] is bool(mot)
+                co_sao += bool(mot)
+            tat_ca = await ntp.dem_theo_phong(conn, CLINIC, bat=True)
+            mot_phong = await ntp.dem_theo_phong(conn, CLINIC, bat=True, room_id=room)
+            assert mot_phong.get(room) == tat_ca.get(room)
+    assert co_sao > 0, "không có dòng ★ nào — phép so ★ vô nghĩa"
