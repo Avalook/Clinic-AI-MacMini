@@ -50,7 +50,9 @@ services:
   # ---- Postgres ------------------------------------------------------------
   db:
     <<: *supabase-defaults
-    image: postgres:17
+    # Máy chủ đặt SUPABASE_DB_IMAGE=clinicai-db:17-pgbackrest (docker/db/) để
+    # sao lưu nối tiếp; local/CI giữ postgres:17 trần.
+    image: ${SUPABASE_DB_IMAGE:-postgres:17}
     container_name: ${SUPABASE_PREFIX:-clinicai}_db
     environment:
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD:?can mat khau}
@@ -70,8 +72,23 @@ services:
       - max_wal_senders=8
       - -c
       - shared_preload_libraries=pg_stat_statements
+      # Sao lưu nối tiếp (docs/KE-HOACH-SAO-LUU-NOI-TIEP.md): tắt mặc định —
+      # chỉ máy chủ có ảnh pgBackRest mới đặt SUPABASE_DB_ARCHIVE_MODE=on. Đổi
+      # archive_mode cần khởi động lại DB.
+      - -c
+      - archive_mode=${SUPABASE_DB_ARCHIVE_MODE:-off}
+      - -c
+      - archive_command=pgbackrest --stanza=clinicai archive-push %p
+      - -c
+      - archive_timeout=300
+      - -c
+      - shared_buffers=${SUPABASE_DB_SHARED_BUFFERS:-128MB}
     volumes:
       - db_data:/var/lib/postgresql/data
+      # Kho pgBackRest trên ổ máy chủ — thư mục phải thuộc uid 999 (postgres
+      # trong ảnh), scripts/may-chu/bat-sao-luu-noi-tiep.sh tạo sẵn. Để Docker
+      # tự tạo thì chủ là root và mọi lần chép WAL hỏng.
+      - ${SUPABASE_DB_PGBACKREST_DIR:-./.pgbackrest}:/var/lib/pgbackrest
       # Chỉ chạy khi volume còn TRỐNG. Dựng lại nền sau khi đã có dữ liệu thì
       # phải xoá volume — đó là hành vi của image postgres, không phải của ta.
       - ./docker/supabase/init:/docker-entrypoint-initdb.d:ro

@@ -167,3 +167,6 @@ scripts/staff-emails.csv
 
 # CI chạy trên máy (scripts/ci-may.sh) — log từng job
 .ci-may/
+
+# Kho pgBackRest khi chạy DB bằng docker-compose.supabase.yml ở máy này
+.pgbackrest/
