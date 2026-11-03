@@ -136,16 +136,14 @@ WITH o AS MATERIALIZED (
            = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
        AND o.exec_status NOT IN ('draft', 'cancelled')
        AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
-)
-SELECT pr.id::text AS room_id, pr.accepting,
-       o.id::text AS id, o.visit_id::text AS visit_id,
+),
+g AS MATERIALIZED (
+SELECT pr.id AS pr_id, pr.clinic_id AS pr_clinic_id, pr.accepting,
+       o.id AS o_id, o.node_code, o.service_code, o.checked_in_at, o.created_at,
+       o.visit_id::text AS visit_id,
        o.service_name, o.selection_status, o.routing_revision,
        o.execution_status, o.room_id::text AS o_room_id, orr.name AS o_phong,
        o.phong_du_kien_id::text AS huong_dan_id, hd.name AS huong_dan,
-       -- ★ chỉ cần khi vẽ ô (đếm toàn phòng khám thì bỏ cho nhẹ).
-       CASE WHEN $4::boolean THEN false
-            ELSE phong_chuyen(pr.clinic_id, pr.id, o.node_code, o.service_code)
-       END AS chuyen,
        o.chua_vao,
        o.q_id, o.q_status, o.q_room_id::text AS q_room_id,
        qr.name AS q_phong,
@@ -176,7 +174,34 @@ SELECT pr.id::text AS room_id, pr.accepting,
  WHERE o.clinic_id = $1::uuid
    AND (NOT $4::boolean
         OR o.chua_vao OR o.q_id IS NOT NULL OR o.execution_status = 'IN_PROGRESS')
- ORDER BY o.checked_in_at, o.created_at, o.id
+),
+-- ★ một lần cho mỗi (phòng, bước, dịch vụ), không phải mỗi dòng: hàm chỉ phụ
+-- thuộc bốn tham số ấy. Prod 31/10 (121 khách): 567 dòng của một phòng chỉ có
+-- 28 tổ hợp — gọi từng dòng là 234 ms trên 240 ms của câu (03/11/2026).
+-- Chỉ cần khi vẽ ô; đếm toàn phòng khám ($4) thì bỏ.
+ch AS MATERIALIZED (
+    SELECT k.pr_id, k.node_code, k.service_code,
+           phong_chuyen(k.pr_clinic_id, k.pr_id, k.node_code, k.service_code)
+               AS chuyen
+      FROM (SELECT DISTINCT pr_id, pr_clinic_id, node_code, service_code
+              FROM g WHERE NOT $4::boolean) k
+)
+SELECT g.pr_id::text AS room_id, g.accepting,
+       g.o_id::text AS id, g.visit_id,
+       g.service_name, g.selection_status, g.routing_revision,
+       g.execution_status, g.o_room_id, g.o_phong,
+       g.huong_dan_id, g.huong_dan,
+       CASE WHEN $4::boolean THEN false ELSE ch.chuyen END AS chuyen,
+       g.chua_vao,
+       g.q_id, g.q_status, g.q_room_id,
+       g.q_phong,
+       g.full_name, g.patient_code, g.phone_primary, g.so_tiep_don, g.so_booking
+  FROM g
+  LEFT JOIN ch
+    ON ch.pr_id = g.pr_id
+   AND ch.node_code IS NOT DISTINCT FROM g.node_code
+   AND ch.service_code IS NOT DISTINCT FROM g.service_code
+ ORDER BY g.checked_in_at, g.created_at, g.o_id
 """
 
 #: Chỗ chờ SỐNG của khách ở các phòng dịch vụ (đang chờ / đang làm).
@@ -620,21 +645,50 @@ async def chi_dinh_cua_khach(
 ) -> dict[str, list[dict[str, Any]]]:
     """Ô KHÁCH ở hàng chờ phòng (đang chờ · đang làm · đã xong): mỗi khách các
     chỉ định phòng làm được kèm trạng thái — dòng ``nhan_duoc`` có nút Nhận."""
-    out: dict[str, list[dict[str, Any]]] = {}
     if not visit_ids:
-        return out
-    for r, c in await _chi_dinh(conn, cid, room_id, list(set(visit_ids))):
-        out.setdefault(r["visit_id"], []).append(c)
+        return {}
+    return _theo_khach(await _chi_dinh(conn, cid, room_id, list(set(visit_ids))))
+
+
+def _theo_khach(
+    dong: Iterable[tuple[Any, dict[str, Any]]], chi: set[str] | None = None
+) -> dict[str, list[dict[str, Any]]]:
+    out: dict[str, list[dict[str, Any]]] = {}
+    for r, c in dong:
+        if chi is None or r["visit_id"] in chi:
+            out.setdefault(r["visit_id"], []).append(c)
     return out
 
 
+async def sap_den_va_o_khach(
+    conn: asyncpg.Connection, cid: str, room_id: str, visit_ids_hang: Sequence[str]
+) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+    """``sap_den`` + ``chi_dinh_cua_khach`` của CÙNG một phòng trong MỘT lần đọc
+    chỉ định (màn hàng chờ phòng cần cả hai mỗi lần tải — 03/11/2026).
+
+    Trạng thái một dòng chỉ phụ thuộc chính chỉ định ấy (tiền, bàn khám, chỗ
+    chờ), nên đọc một lần cho HỢP hai tập lượt rồi tách theo lượt cho kết quả
+    y hệt hai lần đọc riêng."""
+    khach = await conn.fetch(_KHACH_HOM_NAY_SQL, cid, room_id)
+    hang = set(visit_ids_hang)
+    tap = {k["visit_id"] for k in khach} | hang
+    if not tap:
+        return [], {}
+    dong = await _chi_dinh(conn, cid, room_id, list(tap))
+    sap = gom_sap_den(khach, dong, room_id) if khach else []
+    return sap, _theo_khach(dong, hang)
+
+
 async def dem_theo_phong(
-    conn: asyncpg.Connection, cid: str, *, bat: bool
+    conn: asyncpg.Connection, cid: str, *, bat: bool, room_id: str | None = None
 ) -> dict[str, dict[str, int | None]]:
     """Ba số của mỗi phòng: sắp đến (chỉ khi dây bật) · đang chờ · đang làm —
     số KHÁCH, lượt check-in hôm nay. Mỗi khách đúng một nhóm của phòng: có
     chỉ định đang làm → "đang làm"; không thì có chỉ định chờ → "đang chờ";
-    khách đã ở phòng không tính "sắp đến" (cùng luật ``gom_sap_den``)."""
+    khách đã ở phòng không tính "sắp đến" (cùng luật ``gom_sap_den``).
+
+    ``room_id``: chỉ cần số của MỘT phòng (màn hàng chờ phòng) — số "sắp đến"
+    chỉ đọc chỉ định của phòng ấy (số mỗi phòng vốn tính riêng theo phòng)."""
     out: dict[str, dict[str, int | None]] = {}
 
     def o(rid: str) -> dict[str, int | None]:
@@ -644,7 +698,7 @@ async def dem_theo_phong(
 
     if bat:
         theo_phong: dict[str, list[tuple[asyncpg.Record, dict[str, Any]]]] = {}
-        for r, c in await _chi_dinh(conn, cid, chi_sap_den=True):
+        for r, c in await _chi_dinh(conn, cid, room_id, chi_sap_den=True):
             theo_phong.setdefault(r["room_id"], []).append((r, c))
         for rid, dong in theo_phong.items():
             o(rid)["sap_den"] = dem_sap_den(dong, rid)
@@ -1574,5 +1628,6 @@ __all__ = [
     "nha_khi_bo_chon",
     "roi_phong",
     "sap_den",
+    "sap_den_va_o_khach",
     "trang_thai_chi_dinh",
 ]
