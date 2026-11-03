@@ -64,7 +64,7 @@ def test_bang_vang_doi_soat_hai_ngay() -> None:
     Ngày 2 — A trả nợ 400k CK.
 
     Tuyền 03/11: phiếu huỷ là thao tác, không phải tiền trả khách → dòng riêng,
-    không cộng vào Dòng tiền vào / Trả lại (trước: 1.800k / 500k). Thực thu và
+    không cộng vào Tổng thu về / Trả lại (trước: 1.800k / 500k). Thực thu và
     Doanh thu thuần không đổi."""
     d1 = tom_tat_tai_chinh(
         _ngay(

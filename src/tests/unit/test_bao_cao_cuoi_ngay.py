@@ -328,7 +328,7 @@ def test_huy_qua_dem_tinh_vao_ngay_huy_so_ngay_thu_khong_doi() -> None:
 
 
 def test_huy_cung_ngay_trieu_tieu_khong_phong_dong_tien_vao() -> None:
-    """Bấm nhầm rồi huỷ, thu lại trong ngày: Dòng tiền vào / Trả lại không phồng."""
+    """Bấm nhầm rồi huỷ, thu lại trong ngày: Tổng thu về / Trả lại không phồng."""
     from clinicai.services.tom_tat_tai_chinh_service import dong_tien
 
     giam = {"original_amount": 600_000, "discount_amount": 100_000}

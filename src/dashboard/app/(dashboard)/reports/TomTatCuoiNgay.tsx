@@ -165,8 +165,8 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
         ))}
       </Nhom>
       {dayDu ? <Nhom ten="Dòng tiền">
-        {/* Thực thu = Dòng tiền vào − Trả lại − Nợ − Giảm giá + Nợ thu được (máy chủ tính). */}
-        <MucDongTien nhan="Dòng tiền vào" tong={dt?.dong_tien_vao} tmCk={dt?.tien_thu} tienTo="Tiền thu:" href={linkHoaDon(loc)} tien={tien}
+        {/* Thực thu = Tổng thu về − Trả lại − Nợ − Giảm giá + Nợ thu được (máy chủ tính). */}
+        <MucDongTien nhan="Tổng thu về" tong={dt?.dong_tien_vao} tmCk={dt?.tien_thu} tienTo="Tiền thu:" href={linkHoaDon(loc)} tien={tien}
           giaiThich="Giá trị dịch vụ, thuốc dùng trong ngày, giá trước giảm, kể cả phần khách còn nợ" />
         <MucDongTien nhan="Trả lại tiền khách hàng" tong={dt?.tra_lai.tong} tmCk={dt?.tra_lai} href={linkHoaDon(loc, "hoan_tien")} tien={tien}
           giaiThich="Tiền hoàn thật cho khách" />

@@ -6,7 +6,7 @@ const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 
 test("khối Dòng tiền dùng đúng chữ khách đưa, không còn nhãn cũ (14/10/2026)", () => {
   const ui = read("../app/(dashboard)/reports/TomTatCuoiNgay.tsx");
-  for (const nhan of ["Dòng tiền", "Dòng tiền vào", "Trả lại tiền khách hàng", "Nợ thu được", "Thực thu", "Doanh thu thuần"]) {
+  for (const nhan of ["Dòng tiền", "Tổng thu về", "Trả lại tiền khách hàng", "Nợ thu được", "Thực thu", "Doanh thu thuần"]) {
     assert.match(ui, new RegExp(`"${nhan}"`));
   }
   assert.doesNotMatch(ui, /"Tài chính"|"Hoàn tiền mặt"|"Hoàn chuyển khoản"|Chưa có dữ liệu/);
