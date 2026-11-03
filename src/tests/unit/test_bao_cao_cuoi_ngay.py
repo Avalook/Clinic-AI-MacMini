@@ -285,3 +285,77 @@ def test_rong_khong_nem_va_csv_co_bom_chong_cong_thuc() -> None:
     out = csv_bao_cao(bc)
     assert out.startswith("﻿")
     assert "'=HACK()" in out and "Huỷ phiếu" in out
+
+
+def test_huy_qua_dem_tinh_vao_ngay_huy_so_ngay_thu_khong_doi() -> None:
+    """Tuyền 03/11: mỗi khoản tính vào ngày nó xảy ra. Thu 500k (giảm 100k) ngày 29,
+    huỷ ngày 30: ngày 29 giữ nguyên số đã đếm; ngày 30 trừ cả tiền lẫn giảm giá."""
+    from clinicai.services.tom_tat_tai_chinh_service import dong_tien
+
+    giam = {"original_amount": 600_000, "discount_amount": 100_000}
+    thu = {
+        **_thu("a", "dich_vu", 500_000, "CASH", huy=True),
+        **giam,
+        "closed_at": LUC2,
+    }
+    # Ngày 29: SQL gắn huy_sau_chot (giờ huỷ ngoài khoảng) → còn là tiền đã thu.
+    d29 = _bc(lan_thu=[{**thu, "huy_sau_chot": True}])
+    assert (d29["tong"]["thu"], d29["tong"]["huy"], d29["tong"]["thuc_thu"]) == (
+        500_000,
+        0,
+        500_000,
+    )
+    assert d29["giam_gia"]["giam"] == 100_000
+    t29 = dong_tien(d29)
+    assert (t29["dong_tien_vao"], t29["thuc_thu"]["tien_mat"]) == (600_000, 500_000)
+    # Ngày 30: dòng "chi_huy" (_HUY_SAU_CHOT_SQL) — chỉ phần huỷ.
+    ngay30 = date(2026, 9, 30)
+    d30 = _bc(
+        tu=ngay30, den=ngay30, lan_thu=[{**thu, "huy_sau_chot": True, "chi_huy": True}]
+    )
+    assert (d30["tong"]["thu"], d30["tong"]["huy"], d30["tong"]["thuc_thu"]) == (
+        0,
+        500_000,
+        -500_000,
+    )
+    assert d30["giam_gia"]["giam"] == -100_000
+    t30 = dong_tien(d30)
+    assert t30["phieu_huy"]["tong"] == 500_000 and t30["tra_lai"]["tong"] == 0
+    assert (t30["dong_tien_vao"], t30["thuc_thu"]["tien_mat"]) == (-600_000, -500_000)
+    assert t30["doanh_thu_thuan"] == -500_000 and t30["khop"] is True
+    # Cộng hai ngày = như chưa từng thu.
+    assert t29["thuc_thu"]["tong"] + t30["thuc_thu"]["tong"] == 0
+
+
+def test_huy_cung_ngay_trieu_tieu_khong_phong_dong_tien_vao() -> None:
+    """Bấm nhầm rồi huỷ, thu lại trong ngày: Dòng tiền vào / Trả lại không phồng."""
+    from clinicai.services.tom_tat_tai_chinh_service import dong_tien
+
+    giam = {"original_amount": 600_000, "discount_amount": 100_000}
+    bc = _bc(
+        lan_thu=[
+            {**_thu("a", "dich_vu", 500_000, "CASH", huy=True), **giam},
+            {**_thu("b", "dich_vu", 500_000, "TRANSFER"), **giam},
+        ]
+    )
+    t = dong_tien(bc)
+    assert t["dong_tien_vao"] == 600_000
+    assert t["tra_lai"]["tong"] == 0
+    assert (t["phieu_huy"]["tong"], t["phieu_huy"]["so_phieu"]) == (500_000, 1)
+    assert t["thuc_thu"] == {"tong": 500_000, "tien_mat": 0, "chuyen_khoan": 500_000}
+    assert t["doanh_thu_thuan"] == 500_000 and t["khop"] is True
+
+
+def test_hoan_tinh_vao_ngay_hoan_xong() -> None:
+    hoan = {
+        "refund_id": "r",
+        "kind": "dich_vu",
+        "amount": 200_000,
+        "status": "COMPLETED",
+        "method": "TRANSFER",
+        "created_at": LUC,
+        "completed_at": LUC2,
+    }
+    bc = _bc(tu=date(2026, 9, 29), den=date(2026, 9, 30), hoan=[hoan])
+    ngay = {o["ngay"]: o["hoan"] for o in bc["theo_ngay"]}
+    assert ngay == {"2026-09-29": 0, "2026-09-30": 200_000}

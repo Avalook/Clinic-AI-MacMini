@@ -303,7 +303,7 @@ def gom_bao_cao(
                 theo_tk.setdefault(r.get("tai_khoan_id"), _o_tien())["hoan"] += so
             if loai:
                 theo_loai[loai]["hoan"] += so
-            d = ngay_o(_ngay_vn(r.get("created_at")))
+            d = ngay_o(_ngay_vn(r.get("completed_at") or r.get("created_at")))
             if d is not None:
                 d["hoan"] += so
         else:
@@ -312,7 +312,9 @@ def gom_bao_cao(
             {
                 "loai": "hoan",
                 "id": str(r.get("refund_id")),
-                "luc": _iso(r.get("created_at")),
+                "luc": _iso(
+                    (r.get("completed_at") if xong else None) or r.get("created_at")
+                ),
                 "khach": r.get("ten_khach"),
                 "ma_bn": r.get("ma_bn"),
                 "loai_tien": loai,
@@ -413,6 +415,11 @@ def gom_bao_cao(
         and not c.get("chi_huy")
         and _tien(c.get("discount_amount")) > 0
     ]
+    # Phiếu thu ở ngày khác, huỷ trong khoảng này: giảm giá của nó trừ ở đây, để
+    # Giảm giá + Tiền thu (đã trừ huỷ) vẫn là giá trước giảm của phiếu còn hiệu lực.
+    giam_tru = [
+        c for c in lan_thu if c.get("chi_huy") and _tien(c.get("discount_amount")) > 0
+    ]
     return {
         "tu": tu.isoformat(),
         "den": den.isoformat(),
@@ -452,8 +459,12 @@ def gom_bao_cao(
         # số thật sau giảm — khối này chỉ để thấy giảm bao nhiêu, vì sao, ai giảm.
         "giam_gia": {
             "so_phieu": len(giam_ds),
-            "tong_goc": sum(g["tong_goc"] for g in giam_ds),
-            "giam": sum(g["giam"] for g in giam_ds),
+            "tong_goc": sum(int(g["tong_goc"] or 0) for g in giam_ds)
+            - sum(_tien(c.get("original_amount")) for c in giam_tru),
+            "giam": sum(int(g["giam"] or 0) for g in giam_ds)
+            - sum(_tien(c.get("discount_amount")) for c in giam_tru),
+            # Giảm của phiếu ngày trước bị huỷ trong khoảng này (đã trừ ở "giam").
+            "tru_phieu_huy": sum(_tien(c.get("discount_amount")) for c in giam_tru),
             "dong": giam_ds,
         },
         # Audit metadata only: amount and financial totals remain after discount.
@@ -975,6 +986,13 @@ _KHOA_LAN_THU = KHOA_TRUOC_SQL.format(
     moc="pc.closed_at",
 )
 
+#: Giờ huỷ / giờ thu nằm trong khoảng đang xem (ngày VN + khung ca nếu có).
+_HUY_TRONG_KHOANG = """(pc.closed_at IS NOT NULL
+        AND (pc.closed_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+        AND ($5::timestamptz IS NULL OR pc.closed_at >= $5)
+        AND ($6::timestamptz IS NULL OR pc.closed_at < $6))"""
+_THU_TRONG_KHOANG = _HUY_TRONG_KHOANG.replace("pc.closed_at", "pc.paid_at")
+
 _LAN_THU_SQL = f"""
 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.status, pc.amount,
@@ -990,9 +1008,12 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        v.clinic_patient_id::text AS khach_id, p.full_name AS ten_khach,
        p.patient_code AS ma_bn, coalesce(v.ban_le, false) AS ban_le,
        coalesce(v.location_id, ah.location_id)::text AS co_so,
-       -- G4c: huỷ SAU khi ca của lần thu đã chốt → tiền thu ở lại ca cũ, phần
-       -- huỷ tính ở ca đang làm (_HUY_SAU_CHOT_SQL), không trừ lùi.
-       (pc.status = 'VOIDED' AND {_KHOA_LAN_THU}) AS huy_sau_chot,
+       -- Huỷ tính vào NGÀY HUỶ, như màn Danh sách hoá đơn: huỷ ngoài khoảng đang
+       -- xem (hoặc sau khi ca của lần thu đã chốt, G4c) → tiền thu ở lại ngày thu,
+       -- phần huỷ là dòng riêng ở khoảng có giờ huỷ (_HUY_SAU_CHOT_SQL). Số của
+       -- ngày đã qua không đổi khi hôm sau mới huỷ.
+       (pc.status = 'VOIDED' AND (NOT {_HUY_TRONG_KHOANG} OR {_KHOA_LAN_THU}))
+           AS huy_sau_chot,
        (SELECT coalesce(sum(r.amount), 0) FROM payment_refund r
          WHERE r.clinic_id = pc.clinic_id
            AND r.payment_cycle_id = pc.payment_cycle_id
@@ -1027,9 +1048,9 @@ _WHERE_THU = """ WHERE pc.clinic_id = $1::uuid AND pc.status IN ('PAID', 'VOIDED
    AND ($5::timestamptz IS NULL OR pc.paid_at >= $5)
    AND ($6::timestamptz IS NULL OR pc.paid_at < $6)"""
 assert _WHERE_THU in _LAN_THU_SQL, "_LAN_THU_SQL đổi dạng — sửa lại _HUY_SAU_CHOT_SQL"
-#: G4c: phiếu HUỶ trong khoảng (theo giờ huỷ) mà ca của lần thu đã CHỐT trước giờ
-#: huỷ → phần huỷ tính ở đây (ca đang làm, "điều chỉnh ca trước"); tiền thu ở
-#: lại ca cũ (``huy_sau_chot`` của _LAN_THU_SQL).
+#: Phiếu HUỶ trong khoảng (theo giờ huỷ) mà tiền thu nằm ở khoảng khác (hoặc ca
+#: của lần thu đã CHỐT trước giờ huỷ, G4c) → phần huỷ tính ở đây ("huỷ phiếu
+#: của ngày / ca trước"); tiền thu ở lại ngày thu (``huy_sau_chot``).
 _HUY_SAU_CHOT_SQL = _LAN_THU_SQL.replace(
     _WHERE_THU,
     f""" WHERE pc.clinic_id = $1::uuid AND pc.status = 'VOIDED'
@@ -1037,7 +1058,7 @@ _HUY_SAU_CHOT_SQL = _LAN_THU_SQL.replace(
    AND (pc.closed_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
    AND ($5::timestamptz IS NULL OR pc.closed_at >= $5)
    AND ($6::timestamptz IS NULL OR pc.closed_at < $6)
-   AND {_KHOA_LAN_THU}""",
+   AND (NOT {_THU_TRONG_KHOANG} OR {_KHOA_LAN_THU})""",
 ).replace(" ORDER BY pc.paid_at", " ORDER BY pc.closed_at")
 
 #: Lần chờ chuyển khoản bị HUỶ trong khoảng (G4d, R1) — không phải tiền đã
@@ -1059,7 +1080,7 @@ SELECT pc.kind, count(*) AS so_lan, coalesce(sum(pc.amount), 0) AS tong
 
 _HOAN_SQL = """
 SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
-       r.amount, r.status, r.method, r.reason, r.created_at,
+       r.amount, r.status, r.method, r.reason, r.created_at, r.completed_at,
        r.tai_khoan_nhan_id::text AS tai_khoan_id,
        coalesce(xn.full_name, tao.full_name) AS nguoi,
        p.full_name AS ten_khach, p.patient_code AS ma_bn,
@@ -1072,12 +1093,16 @@ SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
     ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
   LEFT JOIN patient p
     ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
+ -- Hoàn XONG tính vào giờ hoàn xong (tiền rời quầy / tài khoản lúc đó), hoàn
+ -- đang chờ theo giờ lập — như màn Danh sách hoá đơn.
+ CROSS JOIN LATERAL (SELECT CASE WHEN r.status = 'COMPLETED' THEN r.completed_at
+                                 ELSE r.created_at END AS luc) m
  WHERE r.clinic_id = $1::uuid AND r.status IN ('PENDING', 'COMPLETED')
-   AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
-   AND ($5::timestamptz IS NULL OR r.created_at >= $5)
-   AND ($6::timestamptz IS NULL OR r.created_at < $6)
+   AND (m.luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR m.luc >= $5)
+   AND ($6::timestamptz IS NULL OR m.luc < $6)
    AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
- ORDER BY r.created_at
+ ORDER BY m.luc
  LIMIT 5000
 """
 

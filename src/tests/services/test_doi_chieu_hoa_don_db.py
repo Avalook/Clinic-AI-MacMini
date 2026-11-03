@@ -203,8 +203,9 @@ async def test_t1_tong_bang_bao_cao_va_so_goc_khop_nhau(pool: asyncpg.Pool) -> N
     t = ds["tong"]
     bang = {
         "sổ gốc": (so.thu, so.huy, so.hoan, so.thuc_thu),
+        # Tiền đã thu trên màn đã trừ phiếu huỷ (03/11) → cộng lại để so sổ gốc.
         "danh sách hoá đơn": (
-            t["da_thu"],
+            t["da_thu"] + t["gia_tri_huy"],
             t["gia_tri_huy"],
             t["da_hoan"],
             t["thu_rong"],

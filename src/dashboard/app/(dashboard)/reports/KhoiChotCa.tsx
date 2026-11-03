@@ -86,8 +86,8 @@ export default function KhoiChotCa({
     <section aria-label="Chốt sổ ca" className="space-y-2 print:hidden">
       {dieuChinh && dieuChinh.so_phieu > 0 ? (
         <p className="text-meta text-ink-muted">
-          Điều chỉnh ca trước: {dieuChinh.so_phieu} phiếu của ca ĐÃ CHỐT bị huỷ trong khoảng này (
-          {tien(dieuChinh.tong)}) — đã tính vào “Trả lại”, số của ca cũ giữ nguyên.
+          Huỷ phiếu của ngày / ca trước: {dieuChinh.so_phieu} phiếu thu ở ngày / ca khác bị huỷ trong khoảng này (
+          {tien(dieuChinh.tong)}) — đã trừ ở đây, số của ngày / ca thu giữ nguyên.
         </p>
       ) : null}
       {!xemMotCa ? null : chot ? (

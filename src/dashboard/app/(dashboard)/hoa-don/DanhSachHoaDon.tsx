@@ -32,11 +32,13 @@ function OLoc({ ten, children, className = "" }: { ten: string; children: ReactN
   );
 }
 
-function SoTien({ ten, so }: { ten: string; so: ReactNode }) {
+/** Một ô tiền + chữ nhỏ giải thích ngay dưới (Tuyền 03/11: giữ tên đã chốt). */
+function SoTien({ ten, so, giaiThich }: { ten: string; so: ReactNode; giaiThich?: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-meta text-ink-muted">{ten}</dt>
       <dd className="tabular-nums text-emph font-semibold text-ink">{so}</dd>
+      {giaiThich ? <dd className="text-meta text-ink-muted">{giaiThich}</dd> : null}
     </div>
   );
 }
@@ -109,7 +111,6 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
   const [khoang, setKhoang] = useState<Khoang>({ tu: banDau.tu ?? homNay, den: banDau.den ?? banDau.tu ?? homNay });
   const [tim, setTim] = useState("");
   const [loai, setLoai] = useState(banDau.loai ?? "");
-  const [trangThai, setTrangThai] = useState("");
   const [ca, setCa] = useState(banDau.ca || "FULL");
   const [coSoChon, setCoSoChon] = useState(banDau.co_so ?? "");
   const [nhom, setNhom] = useState(banDau.nhom && banDau.nhom in NHOM_HOA_DON ? banDau.nhom : "");
@@ -124,12 +125,10 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
   const [khach, setKhach] = useState<KhachHoaDon | null>(null);
   const restricted = !!access && !access.legacy && !access.quan_ly;
   const { tu, den } = khoang;
-  // "Cần kiểm tra" là bộ lọc riêng của máy chủ, gửi bằng can_kiem_tra.
-  const canKiemTra = trangThai === "CAN_KIEM_TRA";
+  // Ca chỉ có nghĩa khi xem MỘT ngày (máy chủ bỏ qua ca khi xem nhiều ngày).
+  const motNgay = tu === den;
   const query = new URLSearchParams({
-    tu, den, tim, loai, ca, co_so: coSoChon,
-    trang_thai: canKiemTra ? "" : trangThai,
-    can_kiem_tra: String(canKiemTra),
+    tu, den, tim, loai, ca: motNgay ? ca : "FULL", co_so: coSoChon,
     nhom, hinh_thuc: hinhThuc,
   });
 
@@ -171,6 +170,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
 
   return (
     <div className="min-w-0 space-y-4">
+      {/* Ô PHẠM VI TIỀN: đổi các ô này thì khối số tiền đổi theo (khớp màn Báo cáo). */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
         {!restricted ? (
           <OLoc ten="Ngày">
@@ -185,32 +185,22 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
             </div>
           </OLoc>
         ) : null}
-        <OLoc ten="Ca">
-          <select aria-label="Ca" className={`${INPUT} w-full`} value={ca} onChange={e => setCa(e.target.value)}>
-            <option value="FULL">Cả ngày</option>
-            {["SANG", "CHIEU", "TOI"].map((v, i) => <option key={v} value={v}>{["Sáng", "Chiều", "Tối"][i]}</option>)}
-          </select>
-        </OLoc>
+        {motNgay ? (
+          <OLoc ten="Ca">
+            <select aria-label="Ca" className={`${INPUT} w-full`} value={ca} onChange={e => setCa(e.target.value)}>
+              <option value="FULL">Cả ngày</option>
+              {["SANG", "CHIEU", "TOI"].map((v, i) => <option key={v} value={v}>{["Sáng", "Chiều", "Tối"][i]}</option>)}
+            </select>
+          </OLoc>
+        ) : null}
         <OLoc ten="Cơ sở">
           <ChonCoSoO coSo={restricted ? coSo.filter(c => access.co_so_ids.includes(c.id)) : coSo} dangChon={coSoChon} onChon={setCoSoChon} className="w-full" />
-        </OLoc>
-        <div className="flex items-end">
-          <a href={`/api/hoa-don?${chuoi}&xuat=xlsx`} className={`${buttonClass("secondary", "md")} w-full justify-center`}>Xuất Excel (.xlsx)</a>
-        </div>
-        <OLoc ten="Tìm khách / mã phiếu" className="lg:col-span-2">
-          <input aria-label="Tìm khách hoặc mã phiếu" className={`${INPUT} w-full`} value={tim} onChange={e => setTim(e.target.value)} placeholder="Tên, mã khách, SĐT, mã phiếu" />
         </OLoc>
         <OLoc ten="Loại hoá đơn">
           <select aria-label="Loại hoá đơn" className={`${INPUT} w-full`} value={loai} onChange={e => setLoai(e.target.value)}>
             <option value="">Dịch vụ và thuốc</option>
             <option value="dich_vu">Dịch vụ</option>
             <option value="thuoc">Thuốc</option>
-          </select>
-        </OLoc>
-        <OLoc ten="Nhóm hoá đơn">
-          <select aria-label="Nhóm hoá đơn" className={`${INPUT} w-full`} value={nhom} onChange={e => setNhom(e.target.value)}>
-            <option value="">Mọi hoá đơn</option>
-            {Object.entries(NHOM_HOA_DON).map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
           </select>
         </OLoc>
         <OLoc ten="Hình thức">
@@ -220,14 +210,9 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
             <option value="TRANSFER">Chuyển khoản</option>
           </select>
         </OLoc>
-        <OLoc ten="Trạng thái">
-          <select aria-label="Trạng thái" className={`${INPUT} w-full`} value={trangThai} onChange={e => setTrangThai(e.target.value)}>
-            <option value="">Tất cả trạng thái</option>
-            {Object.entries(TRANG_THAI).filter(([ma]) => ma !== "HON_HOP").map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
-            <option value="CON_VIEC_TON">Còn việc tồn</option>
-            <option value="CAN_KIEM_TRA">Cần kiểm tra</option>
-          </select>
-        </OLoc>
+        <div className="flex items-end">
+          <a href={`/api/hoa-don?${chuoi}&xuat=xlsx`} className={`${buttonClass("secondary", "md")} w-full justify-center`}>Xuất Excel (.xlsx)</a>
+        </div>
       </div>
       {restricted ? <NgayTrucBaoCao access={access} ngay={tu} onChon={v => setKhoang({ tu: v, den: v })} /> : null}
       {loi ? <p role="alert" className="rounded-control bg-danger-bg p-3 text-body text-danger">{loi}</p> : null}
@@ -235,29 +220,15 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
 
       {data ? (
         <>
-          {data.tong.dung_khong_dung ? (
-            <div className="flex flex-wrap items-center gap-2 text-body">
-              <button type="button" onClick={() => setNhom("dung")} className={`${CHIP} bg-success-bg text-success`}>
-                Đúng {data.tong.dung_khong_dung.dung} hoá đơn
-              </button>
-              <button type="button" onClick={() => setNhom("khong_dung")} className={`${CHIP} bg-surface-muted text-ink-soft`}>
-                Không đúng {data.tong.dung_khong_dung.khong_dung} hoá đơn
-              </button>
-              {Object.entries(data.tong.dung_khong_dung.ly_do).filter(([, n]) => n > 0).map(([ma, n]) => (
-                <span key={ma} className="text-meta text-ink-muted">{TEN_LECH[ma] ?? ma} {n}</span>
-              ))}
-              {nhom ? <button type="button" onClick={() => setNhom("")} className="text-meta text-brand-700 underline-offset-2 hover:underline">Bỏ lọc nhóm</button> : null}
-            </div>
-          ) : null}
           <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-4">
-            <SoTien ten="Tổng tiền hàng" so={tien(data.tong.tong_truoc_giam)} />
-            <SoTien ten="Giảm giá" so={tien(data.tong.giam_gia)} />
-            <SoTien ten="Tiền đã thu" so={tien(data.tong.da_thu)} />
-            <SoTien ten="Phiếu huỷ" so={tien(data.tong.gia_tri_huy ?? 0)} />
-            <SoTien ten="Đã trả lại khách" so={tien(data.tong.da_hoan)} />
-            <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} />
-            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} />
-            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} />
+            <SoTien ten="Tổng tiền hàng" so={tien(data.tong.tong_truoc_giam)} giaiThich="Giá trước giảm của hoá đơn còn hiệu lực" />
+            <SoTien ten="Giảm giá" so={tien(data.tong.giam_gia)} giaiThich="Số tiền bớt cho khách" />
+            <SoTien ten="Tiền đã thu" so={tien(data.tong.da_thu)} giaiThich="Đã trừ phiếu huỷ" />
+            <SoTien ten="Phiếu huỷ" so={`${(data.tong.so_huy ?? 0).toLocaleString("vi-VN")} phiếu · ${tien(data.tong.gia_tri_huy ?? 0)}`} giaiThich="Lần thu bấm nhầm đã gạch đi, đã trừ ở Tiền đã thu" />
+            <SoTien ten="Đã trả lại khách" so={tien(data.tong.da_hoan)} giaiThich="Tiền hoàn thật cho khách" />
+            <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} giaiThich="Tiền đã cầm được, khớp màn Báo cáo" />
+            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} giaiThich="Khách đã trả cho phần chưa làm, chưa giao (mọi ngày)" />
+            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} giaiThich="Việc chưa xử lý của mọi ngày" />
           </dl>
           {data.theo_tai_khoan?.length ? (
             <section aria-label="Chuyển khoản theo tài khoản" className="rounded-card bg-surface p-4 ring-1 ring-hairline">
@@ -280,6 +251,47 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
               Không tính cơ sở đã ngừng: {data.co_so_ngung.map(c => c.ten).join(", ")} (chọn đúng cơ sở ấy ở ô Cơ sở để xem lại khoản cũ).
             </p>
           ) : null}
+
+          {/* Ô LỌC DANH SÁCH: chỉ thu hẹp bảng bên dưới, khối số tiền giữ nguyên. */}
+          <section aria-label="Lọc danh sách hoá đơn" className="space-y-3 rounded-card bg-surface p-4 ring-1 ring-hairline">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <OLoc ten="Tìm khách / mã phiếu">
+                <input aria-label="Tìm khách hoặc mã phiếu" className={`${INPUT} w-full`} value={tim} onChange={e => setTim(e.target.value)} placeholder="Tên, mã khách, SĐT, mã phiếu" />
+              </OLoc>
+              <OLoc ten="Lọc hoá đơn">
+                <select aria-label="Lọc hoá đơn" className={`${INPUT} w-full`} value={nhom} onChange={e => setNhom(e.target.value)}>
+                  <option value="">Mọi hoá đơn</option>
+                  {Object.entries(NHOM_HOA_DON).map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                </select>
+              </OLoc>
+            </div>
+            {data.tong.dung_khong_dung ? (
+              <div className="flex flex-wrap items-center gap-2 text-body">
+                <button type="button" onClick={() => setNhom("dung")} className={`${CHIP} bg-success-bg text-success`}>
+                  Đúng {data.tong.dung_khong_dung.dung} hoá đơn
+                </button>
+                <button type="button" onClick={() => setNhom("khong_dung")} className={`${CHIP} bg-surface-muted text-ink-soft`}>
+                  Không đúng {data.tong.dung_khong_dung.khong_dung} hoá đơn
+                </button>
+                <button type="button" onClick={() => setNhom("dang_do")} className={`${CHIP} bg-surface-muted text-ink-soft`}>
+                  Còn dang dở {data.tong.dung_khong_dung.dang_do ?? 0} hoá đơn
+                </button>
+                {Object.entries(data.tong.dung_khong_dung.ly_do).filter(([, n]) => n > 0).map(([ma, n]) => (
+                  <span key={ma} className="text-meta text-ink-muted">{TEN_LECH[ma] ?? ma} {n}</span>
+                ))}
+              </div>
+            ) : null}
+            {data.dang_xem ? (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body text-ink">
+                <span>
+                  Đang xem {data.dang_xem.so_phieu.toLocaleString("vi-VN")} / {data.tong.so_phieu.toLocaleString("vi-VN")} hoá đơn
+                  {nhom ? `: ${NHOM_HOA_DON[nhom]}` : ""}. Thực thu của riêng các hoá đơn này:{" "}
+                  <span className="tabular-nums font-semibold">{tien(data.dang_xem.thu_rong)}</span>
+                </span>
+                <button type="button" onClick={() => { setNhom(""); setTim(""); }} className="text-meta text-brand-700 underline-offset-2 hover:underline">Xem tất cả</button>
+              </p>
+            ) : null}
+          </section>
 
           <div className="flex justify-end">
             <ThanhTab<Tab>

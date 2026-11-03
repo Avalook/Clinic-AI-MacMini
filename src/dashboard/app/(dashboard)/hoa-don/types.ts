@@ -76,8 +76,10 @@ export interface DanhSachData {
     thu_rong: number; so_phieu: number; so_khach: number;
     chua_tra_lai?: number; so_viec_ton?: number; gia_tri_huy?: number; so_huy?: number;
     /** Phiếu đúng / không đúng (tính trước khi lọc nhóm) + số phiếu từng lý do. */
-    dung_khong_dung?: { dung: number; khong_dung: number; ly_do: Record<string, number> };
+    dung_khong_dung?: { dung: number; khong_dung: number; dang_do?: number; ly_do: Record<string, number> };
   };
+  /** Có khi đang lọc nhóm / tìm: tiền của RIÊNG các phiếu đang hiện trong bảng. */
+  dang_xem?: { so_phieu: number; thu_rong: number } | null;
   /** Tổng các dòng khách đang hiện (máy chủ cộng) — dòng TỔNG cuối bảng. */
   tong_khach?: { so_phieu: number; giam_gia: number; da_thu: number; da_hoan: number; chua_tra_lai: number; thu_rong: number; so_khach_con_ton: number };
   khach: KhachHoaDon[];
@@ -85,16 +87,19 @@ export interface DanhSachData {
   /** Chuyển khoản trong kỳ tách theo tài khoản nhận (máy chủ cộng, 31/10/2026). */
   theo_tai_khoan?: { id: string | null; ten: string; thu: number; huy: number; hoan: number; thuc_thu: number }[];
 }
-/** Nhóm lọc phiếu — khớp `hoa_don_projection.NHOM_LOC` (máy chủ quyết thuộc nhóm nào). */
+/** Ô "Lọc hoá đơn" — khớp `hoa_don_projection.NHOM_LOC` (máy chủ quyết thuộc nhóm
+ *  nào). Chỉ lọc bảng danh sách, không đổi khối số tiền. */
 export const NHOM_HOA_DON: Record<string, string> = {
   dung: "Hoá đơn đúng",
-  khong_dung: "Hoá đơn không đúng",
-  tra_lai: "Có trả lại tiền / huỷ",
+  khong_dung: "Không đúng: huỷ, hoàn, đổi hình thức",
+  dang_do: "Còn dang dở: nợ, chưa làm, cần kiểm tra",
   giam_gia: "Có giảm giá",
+  phieu_huy: "Có phiếu huỷ",
+  hoan_tien: "Có hoàn tiền",
   doi_hinh_thuc: "Đổi hình thức thu",
+  ck_da_huy: "Huỷ lần chờ chuyển khoản",
   no_khach: "Khách còn nợ",
   no_phong_kham: "Phòng khám còn nợ khách",
-  ck_da_huy: "Huỷ lần chờ chuyển khoản",
 };
 export const TEN_LECH: Record<string, string> = {
   HUY: "huỷ", HOAN: "trả lại", DOI_HINH_THUC: "đổi hình thức", CAN_DOI_SOAT: "cần đối soát",
