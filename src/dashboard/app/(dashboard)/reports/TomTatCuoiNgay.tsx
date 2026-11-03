@@ -52,9 +52,9 @@ interface DuLieuTomTat {
 
 /** Nhãn + chữ nhỏ giải thích ngay dưới (Tuyền 03/11: chữ đã chốt giữ nguyên, khó
  *  hiểu thì giải thích bằng chữ nhỏ thay vì đổi tên). */
-function Nhan({ nhan, giaiThich }: { nhan: string; giaiThich?: string }) {
+function Nhan({ nhan, giaiThich, noiBat = false }: { nhan: string; giaiThich?: string; noiBat?: boolean }) {
   return (
-    <dt className="min-w-0 text-emph text-ink">
+    <dt className={`min-w-0 text-ink ${noiBat ? "text-title font-semibold" : "text-emph"}`}>
       {nhan}
       {giaiThich ? <span className="block text-meta font-normal text-ink-muted">{giaiThich}</span> : null}
     </dt>
@@ -66,8 +66,8 @@ function Dong({ nhan, giaTri, noiBat = false, giaiThich }: {
 }) {
   return (
     <div className="flex min-h-11 items-center justify-between gap-4 border-b border-hairline px-3 py-3 last:border-b-0">
-      <Nhan nhan={nhan} giaiThich={giaiThich} />
-      <dd className={`shrink-0 text-right text-emph tabular-nums ${noiBat ? "font-semibold text-brand-700" : "text-ink"}`}>
+      <Nhan nhan={nhan} giaiThich={giaiThich} noiBat={noiBat} />
+      <dd className={`shrink-0 text-right tabular-nums ${noiBat ? "text-title font-semibold text-brand-700" : "text-emph text-ink"}`}>
         {giaTri}
       </dd>
     </div>
@@ -85,8 +85,8 @@ function MucDongTien({ nhan, tong, tmCk, href, tien, noiBat = false, giaiThich, 
   return (
     <div className="border-b border-hairline px-3 py-3 last:border-b-0">
       <div className="flex min-h-5 items-start justify-between gap-4">
-        <Nhan nhan={nhan} giaiThich={giaiThich} />
-        <dd className={`shrink-0 text-right text-emph tabular-nums ${noiBat ? "font-semibold text-brand-700" : "text-ink"}`}>
+        <Nhan nhan={nhan} giaiThich={giaiThich} noiBat={noiBat} />
+        <dd className={`shrink-0 text-right tabular-nums ${noiBat ? "text-title font-semibold text-brand-700" : "text-emph text-ink"}`}>
           {giaTri ?? tien(tong)}
         </dd>
       </div>
@@ -141,7 +141,7 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
     <section aria-label="Tóm tắt báo cáo cuối ngày" aria-busy={dangTai} className="bg-surface">
       {dangTai ? <p role="status" className="px-3 py-2 text-meta text-ink-muted">Đang tải báo cáo…</p> : null}
       <Nhom ten="Tổng kết thu">
-        <Dong nhan="Tổng thu" giaTri={tien(data?.tong.thuc_thu)} noiBat giaiThich="Tiền đã cầm được, bằng ô Thực thu" />
+        <Dong nhan="Tổng thu" giaTri={tien(data?.tong.thuc_thu)} noiBat />
         {(["dich_vu", "thuoc"] as const).map(ma => {
           const nhom = data?.theo_loai.find(o => o.ma === ma);
           return <Dong key={ma} nhan={ma === "dich_vu" ? "Dịch vụ" : "Thuốc / vật tư"} giaTri={tien(nhom?.thuc_thu)} />;
@@ -176,8 +176,7 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
           giaiThich="Số tiền bớt cho khách" />
         <MucDongTien nhan="Nợ thu được" tong={dt?.no_thu_duoc.tong} tmCk={dt?.no_thu_duoc} tien={tien}
           giaiThich="Nợ của ngày trước, khách trả trong ngày đang xem" />
-        <MucDongTien nhan="Thực thu" tong={dt?.thuc_thu.tong} tmCk={dt?.thuc_thu} href={linkHoaDon(loc)} tien={tien} noiBat
-          giaiThich="Tiền phòng khám đã cầm được. Dùng số này để đối chiếu tiền" />
+        <MucDongTien nhan="Thực thu" tong={dt?.thuc_thu.tong} tmCk={dt?.thuc_thu} href={linkHoaDon(loc)} tien={tien} noiBat />
         <MucDongTien nhan="Doanh thu thuần" tong={dt?.doanh_thu_thuan} tien={tien}
           giaiThich="Giá trị đã bán sau giảm giá và trả lại, kể cả phần khách còn nợ" />
         {dt?.phieu_huy ? (

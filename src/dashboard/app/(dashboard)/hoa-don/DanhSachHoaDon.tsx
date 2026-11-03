@@ -40,11 +40,11 @@ function OLoc({ ten, children, className = "" }: { ten: string; children: ReactN
 }
 
 /** Một ô tiền + chữ nhỏ giải thích ngay dưới (Tuyền 03/11: giữ tên đã chốt). */
-function SoTien({ ten, so, giaiThich }: { ten: string; so: ReactNode; giaiThich?: string }) {
+function SoTien({ ten, so, giaiThich, noiBat = false }: { ten: string; so: ReactNode; giaiThich?: string; noiBat?: boolean }) {
   return (
     <div className="min-w-0">
-      <dt className="text-meta text-ink-muted">{ten}</dt>
-      <dd className="tabular-nums text-emph font-semibold text-ink">{so}</dd>
+      <dt className="text-body text-ink-soft">{ten}</dt>
+      <dd className={`tabular-nums text-title font-semibold ${noiBat ? "text-brand-700" : "text-ink"}`}>{so}</dd>
       {giaiThich ? <dd className="text-meta text-ink-muted">{giaiThich}</dd> : null}
     </div>
   );
@@ -236,13 +236,13 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
 
       {data ? (
         <>
-          <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-5 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-4">
             <SoTien ten="Tổng tiền hàng" so={tien(data.tong.tong_truoc_giam)} giaiThich="Giá trước giảm của hoá đơn còn hiệu lực" />
             <SoTien ten="Giảm giá" so={tien(data.tong.giam_gia)} giaiThich="Số tiền bớt cho khách" />
             <SoTien ten="Tiền đã thu" so={tien(data.tong.da_thu)} giaiThich="Đã trừ phiếu huỷ" />
             <SoTien ten="Phiếu huỷ" so={`${(data.tong.so_huy ?? 0).toLocaleString("vi-VN")} phiếu · ${tien(data.tong.gia_tri_huy ?? 0)}`} giaiThich="Lần thu bấm nhầm đã gạch đi, đã trừ ở Tiền đã thu" />
             <SoTien ten="Đã trả lại khách" so={tien(data.tong.da_hoan)} giaiThich="Tiền hoàn thật cho khách" />
-            <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} giaiThich="Tiền đã cầm được, khớp màn Báo cáo" />
+            <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} giaiThich="Tiền đã cầm được, khớp màn Báo cáo" noiBat />
             <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} giaiThich="Khách đã trả cho phần chưa làm, chưa giao (mọi ngày)" />
             <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} giaiThich="Việc chưa xử lý của mọi ngày" />
           </dl>
