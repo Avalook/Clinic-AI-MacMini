@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-03 10:35. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-03 12:51. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -244,7 +244,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/ops/theo-doi`, `/api/ops/summary`, `/api/ops/traffic`
 - gọi thẳng backend (server): `/api/v1/reports/toan-canh`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`, `/api/v1/ops/telemetry`
 - service: day_tep.so_lieu · canh_gac.danh_sach · nhat_ky_van_hanh.doc_nhat_ky · kho_loi.doi_trang_thai · can · cashier_navigation_service (+3 service)
-- test: test_theo_doi_pha_1_db.py, test_traffic_service.py, test_cashier_navigation.py, test_cua_quyen_lego.py, test_bao_cao_theo_co_so_db.py (+7)
+- test: test_theo_doi_pha_1_db.py, test_traffic_service.py, test_cashier_navigation.py, test_cua_quyen_lego.py, test_theo_doi_pha_1.py (+6)
 
 ### `/ops/telemetry`
 - page: `src/dashboard/app/(dashboard)/ops/telemetry/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
@@ -1247,7 +1247,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/ops/canh-bao` → `src/clinicai/api/v1/routers/ops.py:ds_canh_bao` → day_tep.so_lieu, canh_gac.danh_sach
 - GET `/api/v1/ops/nhat-ky` → `src/clinicai/api/v1/routers/ops.py:nhat_ky` → nhat_ky_van_hanh.doc_nhat_ky
 - POST `/api/v1/ops/loi/{loi_id}/trang-thai` → `src/clinicai/api/v1/routers/ops.py:doi_trang_thai_loi` → kho_loi.doi_trang_thai
-- test: src/tests/services/test_theo_doi_pha_1_db.py, src/tests/unit/test_theo_doi_pha_1.py, src/tests/services/test_canh_bao_han_lo_db.py (+1)
+- test: src/tests/services/test_theo_doi_pha_1_db.py, src/tests/unit/test_theo_doi_pha_1.py, src/tests/services/test_day_tep_db.py
 - màn dùng: /ops
 
 #### `/api/ops/traffic` · `src/dashboard/app/api/ops/traffic/route.ts`

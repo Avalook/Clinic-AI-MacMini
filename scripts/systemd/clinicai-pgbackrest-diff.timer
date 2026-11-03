@@ -1,0 +1,10 @@
+[Unit]
+Description=pgBackRest bản chênh lệch thứ Hai–thứ Bảy 02:45
+
+[Timer]
+OnCalendar=Mon..Sat *-*-* 02:45:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
