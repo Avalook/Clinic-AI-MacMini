@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-03 08:00. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-03 10:35. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -8,11 +8,11 @@ Tra theo việc trước ở `docs/BAN-DO-SUA.md`; tệp này là chuỗi file c
 Tìm nhanh: tìm chuỗi route (vd `/thu-ngan/dich-vu`), tên route.ts hay tên
 service. **`?`** = phân tích tĩnh không suy được — mở file mà xem, đừng tin là
 không có. Thành phần đi tối đa 3 tầng import (liệt kê 2 tầng); bỏ `components/ui` và
-tệp mà hơn 25% số màn cùng import (dùng chung): `app/(dashboard)/dung-nghe-bang.ts`, `lib/backend-proxy.ts`, `lib/booking-policy.ts`, `lib/clinic-session.ts`, `lib/co-so.ts`, `lib/current-staff.ts`, `lib/datetime.ts`, `lib/kiem-phien-tai-cho.ts`, `lib/quyen-cua-toi.ts`, `lib/roles.ts`, `lib/roster.ts`, `lib/supabase-cookie.ts`, `lib/supabase-server.ts`.
+tệp mà hơn 25% số màn cùng import (dùng chung): `lib/backend-proxy.ts`, `lib/booking-policy.ts`, `lib/clinic-session.ts`, `lib/co-so.ts`, `lib/current-staff.ts`, `lib/datetime.ts`, `lib/kiem-phien-tai-cho.ts`, `lib/quyen-cua-toi.ts`, `lib/roles.ts`, `lib/roster.ts`, `lib/supabase-cookie.ts`, `lib/supabase-server.ts`.
 
 Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. Sự kiện (consumer) · 5. Bảng → migration
 
-## 1. Màn (91)
+## 1. Màn (92)
 ### `/`
 - page: `src/dashboard/app/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
@@ -42,14 +42,14 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/ban-kham` — Bàn khám
 - page: `src/dashboard/app/(dashboard)/ban-kham/page.tsx` · quyền: lego `ban_kham` (Bàn khám · mặc định: Bác sĩ chính + Thư ký y khoa)
-- thành phần: BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-chip-lieu-trinh.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+11)
+- thành phần: BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-chip-lieu-trinh.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+12)
 - gọi API Next: `/api/thai-ky`, `/api/clinical-form/andrology-review`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/clinical-forms/history`, `/api/cskh/khach/[id]` (+16)
 - service: ThaiKyService.{doc, cap_nhat, tao} · AndrologyReviewService.review · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save · ClinicalSignService.{status, amend, release} (+47 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_cashier_scope_db.py, test_hanh_trinh_tu_van_db.py (+106)
 
 ### `/ban-kham/[phong]` — Bàn khám
 - page: `src/dashboard/app/(dashboard)/ban-kham/[phong]/page.tsx` · quyền: lego `ban_kham` (Bàn khám · mặc định: Bác sĩ chính + Thư ký y khoa)
-- thành phần: app/(dashboard)/ban-kham/BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-chip-lieu-trinh.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+11)
+- thành phần: app/(dashboard)/ban-kham/BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-chip-lieu-trinh.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+12)
 - gọi API Next: `/api/thai-ky`, `/api/clinical-form/andrology-review`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/clinical-forms/history`, `/api/cskh/khach/[id]` (+16)
 - service: ThaiKyService.{doc, cap_nhat, tao} · AndrologyReviewService.review · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save · ClinicalSignService.{status, amend, release} (+47 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_cashier_scope_db.py, test_hanh_trinh_tu_van_db.py (+106)
@@ -115,7 +115,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/do-sinh-hieu` — Đo sinh hiệu
 - page: `src/dashboard/app/(dashboard)/do-sinh-hieu/page.tsx` · quyền: lego `do_sinh_hieu` (Đo sinh hiệu · mặc định: Điều dưỡng)
-- thành phần: BangDoSinhHieu.tsx, app/(dashboard)/_lam-viec/LamThemTaiQuay.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/dung-ngay-xem.ts
+- thành phần: BangDoSinhHieu.tsx, app/(dashboard)/_lam-viec/LamThemTaiQuay.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/dung-ngay-xem.ts, app/(dashboard)/dung-nghe-bang.ts
 - gọi API Next: `/api/lam-them`, `/api/nhac-viec`, `/api/doi-tac`, `/api/cskh/ket-qua`, `/api/luot-kham`, `/api/cashier`
 - service: LamThemTaiQuayService.{cau_hinh, nut_cho_luot, dat, dong_dich_vu, +1} · NhacViecService.{cua_toi, tao, xong} · DoiTacService.viec_doi_tac · nhan_tep_luong · TepKetQuaService.{tai_len, danh_sach, da_xoa_gan_day, danh_dau_da_gui} · SinhHieuService.{record_vitals, bat_dau_do_sinh_hieu, khong_do} (+16 service)
 - test: test_cashier_scope_db.py, test_tep_ket_qua.py, test_bio_chi_dinh_db.py, test_bo_qua_tu_van_chi_dinh_them_db.py, test_day_noi_nhac_db.py (+48)
@@ -130,7 +130,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/doi-tac` — Việc của đối tác
 - page: `src/dashboard/app/doi-tac/page.tsx` · quyền: lego `doi_tac` (Đối tác · mặc định: Đối tác)
-- thành phần: app/(auth)/login/actions.ts, app/(dashboard)/NotificationContext.tsx, app/(dashboard)/Shell.tsx, BangDoiTac.tsx, app/(dashboard)/BottomNav.tsx, app/(dashboard)/GlobalHeader.tsx, app/(dashboard)/Nav.tsx, app/(dashboard)/QuyenContext.tsx (+8)
+- thành phần: app/(auth)/login/actions.ts, app/(dashboard)/NotificationContext.tsx, app/(dashboard)/Shell.tsx, BangDoiTac.tsx, app/(dashboard)/BottomNav.tsx, app/(dashboard)/GlobalHeader.tsx, app/(dashboard)/Nav.tsx, app/(dashboard)/QuyenContext.tsx (+9)
 - gọi API Next: `/api/auth/nhat-ky-doi-mat-khau`, `/api/thong-bao`, `/api/thong-bao/[id]/da-xu-ly`, `/api/doi-tac/cho-tai-lieu`, `/api/doi-tac/da-lay-mau`, `/api/doi-tac/da-thu-tien`, `/api/doi-tac/huy-da-thu`, `/api/doi-tac/lenh`, `/api/doi-tac/phieu`, `/api/doi-tac/viec` (+12)
 - service: audit · ThongBaoService.{cua_toi, danh_dau_da_doc, an_tat_ca_cua_toi, da_xu_ly} · DoiTacService.{doi_tac_cho_tai_lieu, doi_tac_da_lay_mau, ghi_nhan_da_thu, huy_da_thu, +5} · FormEngineService.{mo_phieu, luu_nhap, hoan_tat, mo_sua, +3} · agent_tom_tat.{doc, tao} · tong_quan_giam_sat.doc (+32 service)
 - test: test_so_sua_chi_dinh_db.py, test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_cashier_scope_db.py (+82)
@@ -160,7 +160,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/hanh-trinh` — Hành trình khách hôm nay
 - page: `src/dashboard/app/(dashboard)/hanh-trinh/page.tsx` · quyền: ?
-- thành phần: BangHanhTrinh.tsx, app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx, app/(dashboard)/_lam-viec/NutCheckOut.tsx, app/(dashboard)/_lam-viec/NutXemLuot.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts
+- thành phần: BangHanhTrinh.tsx, app/(dashboard)/_lam-viec/HanhTrinhKhach.tsx, app/(dashboard)/_lam-viec/NutCheckOut.tsx, app/(dashboard)/_lam-viec/NutXemLuot.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts, app/(dashboard)/dung-nghe-bang.ts
 - gọi API Next: `/api/reception/checkout`, `/api/phieu-kham`, `/api/luot-kham`, `/api/cashier`
 - service: CheckoutService.{pending_list, stale_list, chi_tiet, readiness, +1} · payment_access_service · TienThuaService.{giu_lai, huy_giu_lai} · CongNoService.{ghi, huy} · khung · PhieuKhamService.{tham_chieu_that, khung_theo_ban, doc_luot, lich_su, +10} (+21 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_cashier_scope_db.py, test_phieu_kham_luot_db.py, test_bio_chi_dinh_db.py (+60)
@@ -175,7 +175,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/home` — Trang chủ
 - page: `src/dashboard/app/(dashboard)/home/page.tsx` · quyền: ?
-- thành phần: app/(dashboard)/WeekNav.tsx, CotTongQuan.tsx, VisitStatusBoard.tsx, VisitStatusRealtime.tsx, WeeklyAppointmentsTable.tsx, WorkRosterTable.tsx, lich-hen-ngay.ts, app/(dashboard)/nav-items.ts (+8)
+- thành phần: app/(dashboard)/WeekNav.tsx, CotTongQuan.tsx, VisitStatusBoard.tsx, VisitStatusRealtime.tsx, WeeklyAppointmentsTable.tsx, WorkRosterTable.tsx, lich-hen-ngay.ts, app/(dashboard)/nav-items.ts (+9)
 - gọi API Next: `/api/appointments/doi-lich-nhanh`, `/api/appointments/doi-dich-vu-kham`, `/api/catalog/dich-vu-dat-lich`, `/api/cskh/tuong-tac`, `/api/appointments/luoi-ngay`, `/api/appointments`, `/api/luot-kham`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/home/bang-dieu-khien`
 - service: doi_lich_nhanh.o_doi_lich · BookingService.{doi_lich_nhanh, doi_dich_vu_kham, create, apply_action} · doi_dich_vu_kham.o_doi_dich_vu · dich_vu_dat_lich.doc · TuongTacCskhService.{lich_su, ghi} · capacity_service (+19 service)
@@ -195,7 +195,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/kho-vat-tu` — Kho vật tư
 - page: `src/dashboard/app/(dashboard)/kho-vat-tu/page.tsx` · quyền: lego `kho_vat_tu` (Kho vật tư · mặc định: Mọi người (QL chỉnh mức tối thiểu))
-- thành phần: app/(dashboard)/cashier/VatTuBangGia.tsx, ChoDuyetVatTu.tsx, DanhSachPhieuVatTu.tsx, KhoVatTu.tsx, TonVatTu.tsx, app/(dashboard)/cashier/VatTuThuocTinh.tsx, BanChoKhachVatTu.tsx, DanhMucVatTu.tsx (+4)
+- thành phần: app/(dashboard)/cashier/VatTuBangGia.tsx, ChoDuyetVatTu.tsx, DanhSachPhieuVatTu.tsx, KhoVatTu.tsx, TonVatTu.tsx, app/(dashboard)/cashier/VatTuThuocTinh.tsx, app/(dashboard)/dung-nghe-bang.ts, BanChoKhachVatTu.tsx (+5)
 - gọi API Next: `/api/vat-tu-kho/[action]`, `/api/service-price/vat-tu-hang-loat`, `/api/service-price`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/vat-tu-kho/ton`, `/api/v1/vat-tu-kho/phieu`, `/api/v1/vat-tu-kho/cho-duyet`, `/api/v1/vat-tu-kho/ban`
 - service: vat_tu_kho_service.{doc_ton, tao_phieu, hoan_phieu} · vat_tu_kho_man_service.{doc_noi_chua, doc_vat_tu_chon, doc_phieu, dat_muc_toi_thieu} · vat_tu_tieu_hao_service.doc_tieu_hao · can · vat_tu_nhap_duyet_service.{doc_cho_duyet, duyet, rut_lai, tu_choi} · vat_tu_ban_service.{doc_ban, tim_khach, nhap_bu, gan_noi_lay, +3} (+6 service)
@@ -224,7 +224,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/nhac-tai-kham` — Nhắc tái khám
 - page: `src/dashboard/app/(dashboard)/nhac-tai-kham/page.tsx` · quyền: lego `cham_soc_khach` (Chăm sóc khách hàng · mặc định: CSKH)
-- thành phần: LieuTrinhCskh.tsx, TabNhacTaiKham.tsx, ViecGoiNhac.tsx, app/(dashboard)/_lam-viec/DatLichBuoiKe.tsx, app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx, app/(dashboard)/_lam-viec/ViecTaiKham.tsx
+- thành phần: LieuTrinhCskh.tsx, TabNhacTaiKham.tsx, ViecGoiNhac.tsx, app/(dashboard)/_lam-viec/DatLichBuoiKe.tsx, app/(dashboard)/_lam-viec/LieuTrinhKhach.tsx, app/(dashboard)/_lam-viec/ViecTaiKham.tsx, app/(dashboard)/dung-nghe-bang.ts
 - gọi API Next: `/api/cskh/lieu-trinh/[id]`, `/api/cskh/tuong-tac/[id]/hoan-tac`, `/api/cskh/lieu-trinh`, `/api/recall-jobs/[id]/ket-qua`, `/api/appointments/doi-dich-vu-kham`, `/api/cskh/tuong-tac`, `/api/lieu-trinh`, `/api/appointments`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/cskh/recall-jobs`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`, `/api/v1/staff/bac-si-dat-duoc`
 - service: LieuTrinhService.{lich_su, da_xu_ly_sap_het, dang_ky, dieu_chinh, +6} · TuongTacCskhService.{hoan_tac, lich_su, ghi} · RecallJobService.{ghi_ket_qua, danh_sach} · doi_dich_vu_kham.o_doi_dich_vu · BookingService.{doi_dich_vu_kham, create, apply_action} · lich_hen_doc.{lich_sap_toi, lich_trong_ngay} (+3 service)
@@ -318,7 +318,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/phong/[ma]`
 - page: `src/dashboard/app/(dashboard)/phong/[ma]/page.tsx` · quyền: lego `phong` (Phòng dịch vụ · mặc định: BS siêu âm / thủ thuật + Điều dưỡng)
-- thành phần: PhongDichVu.tsx, app/(dashboard)/_lam-viec/ChonBacSiLam.tsx, app/(dashboard)/_lam-viec/HangChoCot.tsx, app/(dashboard)/_lam-viec/KhoiDoiTac.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/PhieuKetQua.tsx, app/(dashboard)/_lam-viec/TheDichVu.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx (+9)
+- thành phần: PhongDichVu.tsx, app/(dashboard)/_lam-viec/ChonBacSiLam.tsx, app/(dashboard)/_lam-viec/HangChoCot.tsx, app/(dashboard)/_lam-viec/KhoiDoiTac.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/PhieuKetQua.tsx, app/(dashboard)/_lam-viec/TheDichVu.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx (+10)
 - gọi API Next: `/api/doi-tac/cho-tai-lieu`, `/api/doi-tac/da-lay-mau`, `/api/doi-tac/da-thu-tien`, `/api/doi-tac/huy-da-thu`, `/api/doi-tac/lenh`, `/api/doi-tac/phieu`, `/api/doi-tac/viec`, `/api/lieu-trinh/chip`, `/api/nhac-viec`, `/api/cskh/ket-qua/[tepId]/khoi-phuc` (+9)
 - service: DoiTacService.{doi_tac_cho_tai_lieu, doi_tac_da_lay_mau, ghi_nhan_da_thu, huy_da_thu, +5} · FormEngineService.{mo_phieu, luu_nhap, hoan_tat, mo_sua, +3} · LieuTrinhService.{chip, tao, gan, go} · NhacViecService.{cua_toi, tao, xong} · TepKetQuaService.{khoi_phuc_tep, xoa_tep, tai_len, mo_de_doc, +3} · nhan_tep_luong (+25 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_cashier_scope_db.py, test_phieu_kham_luot_db.py (+74)
@@ -394,7 +394,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/reception/checkout` — Check-out lượt khám
 - page: `src/dashboard/app/(dashboard)/reception/checkout/page.tsx` · quyền: lego `tiep_don` (Tiếp đón khách · mặc định: Lễ tân)
-- thành phần: app/(dashboard)/LiveBoardSync.tsx, CheckoutBoard.tsx, app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx, ChiTietLuot.tsx, LuotTonDong.tsx
+- thành phần: app/(dashboard)/LiveBoardSync.tsx, CheckoutBoard.tsx, app/(dashboard)/_lam-viec/KhoanNoKhiVe.tsx, app/(dashboard)/dung-nghe-bang.ts, ChiTietLuot.tsx, LuotTonDong.tsx
 - gọi API Next: `/api/reception/checkout`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/reception/checkout`
 - service: CheckoutService.{pending_list, stale_list, chi_tiet, readiness, +1} · payment_access_service · HoanTienService.hoan_tien_thua · TienThuaService.{giu_lai, huy_giu_lai} · CongNoService.{ghi, huy} · CashierBoardService.{board, giao_dich} (+2 service)
@@ -410,7 +410,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/reports` — Báo cáo
 - page: `src/dashboard/app/(dashboard)/reports/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, access.ts, app/(dashboard)/form-ui.ts, BangHangHoa.tsx, KhoiChotCa.tsx (+4)
+- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, access.ts, app/(dashboard)/dung-nghe-bang.ts, app/(dashboard)/form-ui.ts, BangHangHoa.tsx (+5)
 - gọi API Next: `/api/reports/cuoi-ngay`, `/api/reports/chot-ca`, `/api/reports/ket-tien-mat`, `/api/reports/access`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/reports/access${ngay`, `/api/v1/reports/tong-quan${locCoSo`, `/api/v1/reports/booking-channels`, `/api/v1/reports/kpi-dat-lich${locCoSo`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: ReportAccessService.{authorize, access} · BaoCaoCuoiNgayService.bao_cao · report_access_service · ChotSoCaService.{chot, mo_khoa} · KetTienMatService.{xem, mo_lai, quy_dau, dem_cuoi} · CashierBoardService.{board, giao_dich} (+4 service)
@@ -463,7 +463,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/settings/day-noi` — Dây nối nghiệp vụ
 - page: `src/dashboard/app/(dashboard)/settings/day-noi/page.tsx` · quyền: lego `cai_dat` (Cài đặt phòng khám · mặc định: Quản lý)
-- thành phần: DayNoiBoard.tsx, LamThemTaiQuayCauHinh.tsx
+- thành phần: DayNoiBoard.tsx, LamThemTaiQuayCauHinh.tsx, app/(dashboard)/dung-nghe-bang.ts
 - gọi API Next: `/api/day-noi`, `/api/lam-them`, `/api/cashier`
 - service: DayNoiService.{doc, dat_day, dat_chuong, tao_vi_tri, +2} · LamThemTaiQuayService.{cau_hinh, nut_cho_luot, luu_muc, bo_muc, +1} · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot}
 - test: test_cashier_scope_db.py, test_lam_them_tai_quay_db.py, test_day_noi_nhac_db.py, test_payment_access.py, test_vi_tri_chu_phong_db.py (+11)
@@ -552,6 +552,13 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: traffic_service.{doc_du_lieu_traffic, xac_thuc_admin, xac_thuc_ma_pin}
 - test: test_traffic_service.py
 
+### `/tro-ly-thu`
+- page: `src/dashboard/app/(dashboard)/tro-ly-thu/page.tsx` · quyền: ?
+- thành phần: TroLyThu.tsx
+- gọi API Next: `/api/tro-ly`
+- service: hoi_thoai.{danh_sach, doc, tao, gui_tin, +1} · mo_hinh · CongCuPhongKham
+- test: test_tro_ly_hoi_thoai_db.py, test_bo_nao.py, test_doi_chieu_doi_tac_db.py
+
 ### `/truong-ca` — Điều phối ca
 - page: `src/dashboard/app/(dashboard)/truong-ca/page.tsx` · quyền: lego `dieu_phoi` (Điều phối khách · mặc định: Trưởng ca)
 - thành phần: app/(dashboard)/LiveBoardSync.tsx, QueuesClient.tsx, load.ts, ChiDinhCuaBacSi.tsx, ChuyenBacSiKham.tsx, HistoryClient.tsx, keo-tha.ts, nhan-trang-thai.tsx (+2)
@@ -580,7 +587,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/tu-van` — Bàn khám tư vấn
 - page: `src/dashboard/app/(dashboard)/tu-van/page.tsx` · quyền: lego `tu_van` (Khám tư vấn · mặc định: Bác sĩ tư vấn)
-- thành phần: app/(dashboard)/ban-kham/BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-chip-lieu-trinh.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+11)
+- thành phần: app/(dashboard)/ban-kham/BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-chip-lieu-trinh.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+12)
 - gọi API Next: `/api/thai-ky`, `/api/clinical-form/andrology-review`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/clinical-forms/history`, `/api/cskh/khach/[id]` (+16)
 - service: ThaiKyService.{doc, cap_nhat, tao} · AndrologyReviewService.review · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save · ClinicalSignService.{status, amend, release} (+47 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_cashier_scope_db.py, test_hanh_trinh_tu_van_db.py (+106)
@@ -604,7 +611,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_doi_chieu_hoa_don_db.py, test_hoa_don_misa_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (142)
+## 2. API Next → backend (143)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1592,6 +1599,16 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_so_sua_chi_dinh_db.py, src/tests/unit/test_cua_ngo_ghi_moi.py
 - màn dùng: /doi-tac
 
+#### `/api/tro-ly` · `src/dashboard/app/api/tro-ly/route.ts`
+- GET `/api/v1/tro-ly/trang-thai` → `src/clinicai/api/v1/routers/tro_ly.py:trang_thai` → ?
+- GET `/api/v1/tro-ly/hoi-thoai` → `src/clinicai/api/v1/routers/tro_ly.py:danh_sach_hoi_thoai` → hoi_thoai.danh_sach
+- GET `/api/v1/tro-ly/hoi-thoai/{hoi_thoai_id}` → `src/clinicai/api/v1/routers/tro_ly.py:doc_hoi_thoai` → hoi_thoai.doc
+- POST `/api/v1/tro-ly/hoi-thoai` → `src/clinicai/api/v1/routers/tro_ly.py:tao_hoi_thoai` → hoi_thoai.tao
+- POST `/api/v1/tro-ly/hoi-thoai/{hoi_thoai_id}/tin` → `src/clinicai/api/v1/routers/tro_ly.py:gui_tin` → tao_mo_hinh, hoi_thoai.gui_tin, tao_mo_hinh.dong, CongCuPhongKham
+- POST `/api/v1/tro-ly/tin/{tin_id}/duyet` → `src/clinicai/api/v1/routers/tro_ly.py:duyet_nhap` → hoi_thoai.duyet
+- test: src/tests/services/test_tro_ly_hoi_thoai_db.py, src/tests/services/test_doi_chieu_doi_tac_db.py, src/tests/tro_ly/test_bo_nao.py
+- màn dùng: /tro-ly-thu
+
 #### `/api/ultrasound` · `src/dashboard/app/api/ultrasound/route.ts`
 - [rooms] GET `/api/v1/ultrasound/rooms` → `src/clinicai/api/v1/routers/ultrasound.py:sono_rooms` → UltrasoundBoardService.rooms
 - [records] GET `/api/v1/ultrasound/records` → `src/clinicai/api/v1/routers/ultrasound.py:sono_records` → UltrasoundBoardService.records, group_by_patient
@@ -1702,7 +1719,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_doi_chieu_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py (+1)
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (209)
+## 3. Service → màn (212)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1747,6 +1764,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ClinicConfigService` | `src/clinicai/services/clinic_config_service.py` | /cashier/dich-vu, /nhan-su, /settings/clinic-config |
 | `ClinicFloorService` | `src/clinicai/services/clinic_floor_service.py` | /settings/clinic-config |
 | `ClinicSettingsService` | `src/clinicai/services/clinic_settings_service.py` | /settings, /settings/booking-policy |
+| `CongCuPhongKham` | `src/clinicai/services/tro_ly_khach/cong_cu.py` | /tro-ly-thu |
 | `CongNoService` | `src/clinicai/services/cong_no_service.py` | /hanh-trinh, /reception/checkout, /reception/queue, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `ConsentService` | `src/clinicai/services/consent_service.py` | — (chỉ API/worker) |
 | `ConsoleService` | `src/clinicai/services/console_service.py` | /console |
@@ -1794,6 +1812,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `HoaDonMisaService` | `src/clinicai/services/hoa_don_misa_service.py` | /xuat-hoa-don |
 | `HoanTacService` | `src/clinicai/services/hoan_tac_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+7) |
 | `HoanTienService` | `src/clinicai/services/hoan_tien_service.py` | /pharmacy, /reception/checkout, /settings/tai-khoan-nhan, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
+| `hoi_thoai` | `src/clinicai/services/tro_ly_khach/hoi_thoai.py` | /tro-ly-thu |
 | `HoSoKhamService` | `src/clinicai/services/ho_so_kham_service.py` | /customers |
 | `KetTienMatService` | `src/clinicai/services/ket_tien_mat_service.py` | /reports |
 | `kho_loi` | `src/clinicai/services/kho_loi.py` | /doi-tac, /giam-sat, /login, /ops |
@@ -1828,6 +1847,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `MauKetQuaService` | `src/clinicai/services/mau_ket_qua_service.py` | /settings/mau-ket-qua |
 | `media_service` | `src/clinicai/services/media_service.py` | /ban-kham, /ban-kham/[phong], /customers, /doi-tac, /duyet-ket-qua, /phong/[ma], /print/ket-qua/[orderId], /print/phieu-kham/[visitId] (+2) |
 | `MediaService` | `src/clinicai/services/media_service.py` | — (chỉ API/worker) |
+| `mo_hinh` | `src/clinicai/adapters/mo_hinh/__init__.py` | /tro-ly-thu |
 | `MPIService` | `src/clinicai/services/mpi_service.py` | /appointments, /patients/new |
 | `NgoaiLeCaTrucService` | `src/clinicai/services/ngoai_le_ca_truc_service.py` | /schedule |
 | `NhacViecService` | `src/clinicai/services/nhac_viec_service.py` | /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /pharmacy, /phong/[ma], /tu-van |
@@ -2110,6 +2130,8 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `thuoc_giao_chua_gan_lo` | `20260928000096_thuoc_giao_chua_gan_lo.sql` | 1 |
 | `thuoc_quy_doi` | `20261017100000_thuoc_quy_doi.sql` | 1 |
 | `tien_thua_giu_lai` | `20261006200003_tien_thua_xu_ly_va_chan_thu_dong_huy.sql` | 0 |
+| `tro_ly_hoi_thoai` | `20261030170000_tro_ly_hoi_thoai.sql` | 0 |
+| `tro_ly_tin` | `20261030170000_tro_ly_hoi_thoai.sql` | 0 |
 | `tuong_tac_cskh` | `20260809000003_so_tuong_tac_cskh.sql` | 6 |
 | `ultrasound_record` | `20260714000001_baseline_schema.sql` | 3 |
 | `vai_duoc_vao_tram` | `20260809000002_vai_duoc_vao_tram.sql` | 0 |
