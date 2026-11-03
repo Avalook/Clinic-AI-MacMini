@@ -83,7 +83,11 @@ def test_bang_vang_doi_soat_hai_ngay() -> None:
         "chuyen_khoan": 300_000,
         "so_phieu": 0,
     }
-    assert d1["tien_thu"] == {"tong": 1_000_000, "tien_mat": 800_000, "chuyen_khoan": 200_000}
+    assert d1["tien_thu"] == {
+        "tong": 1_000_000,
+        "tien_mat": 800_000,
+        "chuyen_khoan": 200_000,
+    }
     assert d1["no"] == 400_000
     assert (d1["giam_gia"], d1["no_thu_duoc"]["tong"]) == (100_000, 0)
     assert d1["thuc_thu"] == {"tong": 800_000, "tien_mat": 800_000, "chuyen_khoan": 0}
