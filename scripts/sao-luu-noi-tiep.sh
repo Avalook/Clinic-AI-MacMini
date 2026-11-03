@@ -80,12 +80,18 @@ case "${1:-}" in
         -v "$REPO_DIR:/var/lib/pgbackrest:ro" -v "$TAM_DATA:/var/lib/postgresql/data" \
         "$ANH" pgbackrest --stanza="$STANZA" $RIENG \
         "--recovery-option=restore_command=$LAY" ${LOAI[@]+"${LOAI[@]}"} restore
-    # wal_level/slot giống DB thật: bản sao lưu từ máy wal_level=logical có slot
-    # logical thì Postgres từ chối mở với wal_level thấp hơn.
+    # Phát lại WAL đòi các tham số này KHÔNG THẤP HƠN bản gốc (thử staging 03/11:
+    # max_wal_senders 8 < 10 → "recovery aborted because of insufficient parameter
+    # settings"), wal_level=logical vì slot logical. Đọc thẳng từ DB thật, không
+    # viết cứng — prod và staging đặt khác nhau.
+    GIONG=()
+    for t in wal_level max_connections max_worker_processes max_wal_senders \
+             max_prepared_transactions max_locks_per_transaction max_replication_slots; do
+        GIONG+=(-c "$t=$(docker exec -u postgres "$DB" psql -tAc "SHOW $t")")
+    done
     docker run -d --name "$TAM" -u postgres \
         -v "$REPO_DIR:/var/lib/pgbackrest:ro" -v "$TAM_DATA:/var/lib/postgresql/data" \
-        "$ANH" postgres -c archive_mode=off -c shared_buffers=64MB \
-        -c wal_level=logical -c max_replication_slots=8 -c max_wal_senders=8 \
+        "$ANH" postgres -c archive_mode=off -c shared_buffers=64MB "${GIONG[@]}" \
         -c shared_preload_libraries=pg_stat_statements >/dev/null
     for _ in $(seq 1 120); do
         docker exec -u postgres "$TAM" psql -tAc 'SELECT NOT pg_is_in_recovery()' 2>/dev/null \
