@@ -1,6 +1,6 @@
 # Kế hoạch: sao lưu nối tiếp (bản đầy đủ + nhật ký thay đổi)
 
-Mức 3 — Tuyền duyệt 03/11/2026; code ở nhánh `claude/sao-luu-noi-tiep`, đã thử local, chưa lên staging. Soạn từ số đo prod cùng ngày.
+Mức 3 — Tuyền duyệt 03/11/2026; code ở nhánh `claude/sao-luu-noi-tiep`, đã thử local; **staging bật 03/11 12:53** (chạy thử 2–3 ngày rồi mới prod). Soạn từ số đo prod cùng ngày.
 
 ## Vì sao
 
@@ -70,6 +70,15 @@ log-path không tự tạo · `--archive-async` không hợp lệ cho `restore` 
 `--spool-path` không hợp lệ cho `archive-get` đồng bộ · restore đòi thư mục thuộc
 postgres (dùng volume) · **giờ không ghi múi giờ bị hiểu là UTC — lệch 7 tiếng**
 (script tự gắn `+07`).
+
+**Staging 03/11 12:53** (`clinicai_stg_db`, bản sao prod đã che): bản đầy đủ DB 660 MB →
+**113,9 MB trong kho, 4,9 giây**; `dien-tap` khớp tuyệt đối (15.239 lượt khám, 1.364 lần thu,
+12.234 tệp, 97 tài khoản, mốc sự kiện mới nhất trùng tới micro giây); `pg_stat_archiver`
+5 đoạn / 0 lỗi; không cảnh báo `CHEP_NHAT_KY_*`. Lỗi thứ sáu lộ ra ở đây: tham số hot
+standby phải lấy từ DB thật (staging `max_wal_senders`=10).
+
+Còn theo dõi trên staging: đêm nạp lại 03:30 (DROP + tạo lại ~300 bảng) sinh bao nhiêu
+WAL, kho có phình không; chạy `diff` tay hôm sau.
 
 ## Lệnh chạy
 
