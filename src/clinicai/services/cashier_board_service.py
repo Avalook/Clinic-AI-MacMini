@@ -379,6 +379,15 @@ WITH v AS (
      -- Không cắt ứng viên trước khi dựng hoá đơn: lượt mới đã thu có thể
      -- đẩy khách cũ chưa trả ra khỏi quầy. Tập đã giới hạn theo ngày đang
      -- xem và các khoản tồn chưa xử lý; không lấy toàn bộ lịch sử đã thu.
+),
+-- Giá MỘT lần mỗi mã dịch vụ (bảng giá không có chỉ mục theo mã): tra từng chỉ
+-- định là quét cả bảng giá ~1.400 lần mỗi lần tải quầy (03/11/2026). Cùng thứ
+-- tự ưu tiên nhóm "dich_vu"; `id` chỉ để hoà không đổi giữa các lần chạy.
+gia AS MATERIALIZED (
+    SELECT DISTINCT ON (pr.service_code) pr.service_code, pr.unit_price
+      FROM public.service_price pr
+     WHERE pr.clinic_id = $1::uuid AND pr.active
+     ORDER BY pr.service_code, (pr."group" = 'dich_vu') DESC, pr.id
 )
 SELECT json_build_object(
   'visits', (SELECT coalesce(json_agg(row_to_json(v)), '[]'::json) FROM v),
@@ -396,12 +405,7 @@ SELECT json_build_object(
               'unit_price', gia.unit_price)
               ORDER BY o.created_at, o.id), '[]'::json)
        FROM public.service_order o
-       LEFT JOIN LATERAL (
-            SELECT pr.unit_price FROM public.service_price pr
-             WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
-               AND pr.active
-             ORDER BY (pr."group" = 'dich_vu') DESC
-             LIMIT 1) gia ON true
+       LEFT JOIN gia ON gia.service_code = o.service_code
       WHERE o.clinic_id = $1::uuid
         AND o.visit_id IN (SELECT visit_id FROM v)
         AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')),

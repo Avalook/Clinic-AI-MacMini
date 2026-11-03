@@ -363,6 +363,11 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
     + sql_join_bac_si_chi_dinh("o", "bscd")
     + """
  WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+   -- ĐIỀU KIỆN CẦN của `decision_ids` (cả hai vị trí dây Nhận tại phòng): duyệt
+   -- rồi mà chưa bắt đầu. Python vẫn lọc nốt theo đúng luật; ở đây chỉ để không
+   -- dựng 6 câu con cho việc đã xong — bảng quầy 03/11: đọc 1.913, giữ 103.
+   AND o.exec_status IN ('authorized', 'assigned')
+   AND (o.execution_status IS NULL OR o.execution_status = 'PENDING')
  ORDER BY o.created_at, o.id
 """
 )
