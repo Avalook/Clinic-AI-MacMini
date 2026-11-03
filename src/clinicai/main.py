@@ -84,6 +84,7 @@ from clinicai.api.v1.routers.theo_doi_thu_thuat import (
 )
 from clinicai.api.v1.routers.thu_ky import router as thu_ky_router
 from clinicai.api.v1.routers.tools import router as tools_router
+from clinicai.api.v1.routers.tro_ly import router as tro_ly_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
 from clinicai.api.v1.routers.vat_tu_kho import router as vat_tu_kho_router
 from clinicai.api.v1.routers.vat_tu_nhap_duyet import (
@@ -378,6 +379,7 @@ app.include_router(
 )
 app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(tro_ly_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
