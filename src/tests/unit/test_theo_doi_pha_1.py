@@ -77,6 +77,12 @@ def test_canh_gac_on_het_thi_khong_co_chuyen() -> None:
         # 01/10/2026: tệp chờ đẩy ổ VPS → CFS quá 6 giờ / đẩy hỏng từ 5 lần.
         ({"tep_cho_lau": 1}, "DAY_TEP_CHO_LAU"),
         ({"tep_loi_day": 2}, "DAY_TEP_LOI"),
+        # Sao lưu nối tiếp: chép WAL hỏng / lâu không chép được.
+        ({"chep_nhat_ky_hong": 1}, "CHEP_NHAT_KY_HONG"),
+        (
+            {"chep_nhat_ky_cham_phut": canh_gac.CHEP_NHAT_KY_CHAM_PHUT + 1},
+            "CHEP_NHAT_KY_CHAM",
+        ),
     ],
 )
 def test_moi_chuyen_mo_dung_ma(kw: dict[str, int], ma: str) -> None:

@@ -45,6 +45,10 @@ CHO_DAY_LAU_GIO = 6
 NGUONG_LOI_DAY = 5
 #: Bất biến tiền chỉ định soát các lần thu trong chừng này giờ gần nhất.
 BAT_BIEN_TIEN_GIO = 24
+#: Nhật ký thay đổi (WAL) chưa chép sang kho pgBackRest quá chừng này phút →
+#: cảnh báo. `archive_timeout`=300 nên lúc bình thường ≤ 5 phút một lần; để rộng
+#: vì đêm DB gần như không ghi gì.
+CHEP_NHAT_KY_CHAM_PHUT = 120
 
 
 @dataclass(frozen=True)
@@ -139,6 +143,24 @@ def danh_gia(so: dict[str, Any]) -> list[KetQuaKiem]:
             "tiền thừa; hoặc tiền trả trước liệu trình lệch) — chạy `SELECT * FROM"
             " bat_bien_tien_chi_dinh(...)` / `bat_bien_lieu_trinh(...)` để xem.",
         ),
+        # Sao lưu nối tiếp (pgBackRest). `archive_command` hỏng thì Postgres giữ
+        # WAL trên ổ VPS (tới `archive-push-queue-max` thì pgBackRest BỎ nó để ổ
+        # không đầy) — tức là mất khả năng khôi phục tới từng giây mà không ai
+        # thấy. Cả hai số = 0 khi `archive_mode` tắt (local, CI).
+        KetQuaKiem(
+            "CHEP_NHAT_KY_HONG",
+            "critical",
+            so.get("chep_nhat_ky_hong", 0) > 0,
+            "Chép nhật ký thay đổi (WAL) sang kho sao lưu đang HỎNG — kiểm "
+            "`pg_stat_archiver` và `pgbackrest --stanza=clinicai check`.",
+        ),
+        KetQuaKiem(
+            "CHEP_NHAT_KY_CHAM",
+            "warning",
+            so.get("chep_nhat_ky_cham_phut", 0) > CHEP_NHAT_KY_CHAM_PHUT,
+            f"{so.get('chep_nhat_ky_cham_phut', 0)} phút chưa chép được nhật ký "
+            "thay đổi (WAL) nào sang kho sao lưu.",
+        ),
     ]
     return ra
 
@@ -176,7 +198,19 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
                   bat_bien_tien_chi_dinh(c.id, now() - make_interval(hours => $3)))
           -- Liệu trình (08/10/2026): buổi trả trước vượt số đã trả, âm, thu trùng.
           + (SELECT count(*) FROM clinic c, bat_bien_lieu_trinh(c.id))
-            AS tien_chi_dinh_lech
+            AS tien_chi_dinh_lech,
+          -- Hỏng = lần hỏng cuối mới hơn lần chép được cuối, trong 30 phút.
+          (SELECT CASE WHEN current_setting('archive_mode') = 'off' THEN 0
+                       WHEN a.last_failed_time > coalesce(a.last_archived_time,
+                                                          '-infinity')
+                        AND a.last_failed_time > now() - interval '30 minutes'
+                       THEN 1 ELSE 0 END
+             FROM pg_stat_archiver a) AS chep_nhat_ky_hong,
+          (SELECT CASE WHEN current_setting('archive_mode') = 'off'
+                         OR a.last_archived_time IS NULL THEN 0
+                       ELSE (extract(epoch FROM now() - a.last_archived_time)
+                             / 60)::int END
+             FROM pg_stat_archiver a) AS chep_nhat_ky_cham_phut
         """,
         CHO_DAY_LAU_GIO,
         NGUONG_LOI_DAY,
@@ -215,6 +249,8 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
         "tep_cho_lau": int(r["tep_cho_lau"]),
         "tep_loi_day": int(r["tep_loi_day"]),
         "tien_chi_dinh_lech": int(r["tien_chi_dinh_lech"]),
+        "chep_nhat_ky_hong": int(r["chep_nhat_ky_hong"]),
+        "chep_nhat_ky_cham_phut": int(r["chep_nhat_ky_cham_phut"]),
     }
 
 

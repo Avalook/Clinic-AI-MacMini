@@ -37,6 +37,14 @@ services:
       # memory". 256 tốn thêm vài MB bộ nhớ chung, vẫn dư trong mem_limit.
       - -c
       - max_locks_per_transaction=256
+      # Sao lưu nối tiếp — cùng cờ với file gốc (command ở đây THAY hẳn
+      # command gốc, không cộng thêm). Staging thử trước prod.
+      - -c
+      - archive_mode=${SUPABASE_DB_ARCHIVE_MODE:-off}
+      - -c
+      - archive_command=pgbackrest --stanza=clinicai archive-push %p
+      - -c
+      - archive_timeout=300
 
   auth:
     <<: *staging-bao-ve

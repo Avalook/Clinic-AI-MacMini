@@ -1,0 +1,15 @@
+[Unit]
+Description=ClinicAI — chép kho pgBackRest sang Viettel CFS
+Documentation=file:///home/clinicai/clinicai/docs/KE-HOACH-SAO-LUU-NOI-TIEP.md
+# CFS là ổ mạng: chưa gắn thì script tự dừng (không chép vào ổ VPS).
+After=network-online.target
+
+[Service]
+Type=oneshot
+# root: tệp kho thuộc uid 999 (postgres trong container), chế độ 640.
+User=root
+Nice=19
+IOSchedulingClass=idle
+ExecStart=/usr/bin/python3 -I /home/clinicai/clinicai/scripts/may-chu/chep-kho-sao-luu.py
+StandardOutput=journal
+StandardError=journal

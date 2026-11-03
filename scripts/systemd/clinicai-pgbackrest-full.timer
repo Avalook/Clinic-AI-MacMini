@@ -1,0 +1,11 @@
+[Unit]
+Description=pgBackRest bản đầy đủ mỗi Chủ nhật 02:45
+
+[Timer]
+# Sau dump đêm 02:15 (vẫn giữ) để hai việc đọc toàn bộ DB không chồng nhau.
+OnCalendar=Sun *-*-* 02:45:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

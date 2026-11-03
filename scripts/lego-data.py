@@ -445,7 +445,7 @@ def doc_cau_hinh() -> dict[str, dict]:
     dat(
         "pg_image",
         "Phiên bản Postgres",
-        tim(GOC / "docker-compose.supabase.yml", r"image: (postgres:\d+)"),
+        tim(GOC / "docker-compose.supabase.yml", r"image: \S*?(postgres:\d+)"),
     )
     dat(
         "max_conn",

@@ -1,6 +1,6 @@
 # Kế hoạch: sao lưu nối tiếp (bản đầy đủ + nhật ký thay đổi)
 
-Mức 3 — chờ Tuyền duyệt. Soạn 03/11/2026 từ số đo prod cùng ngày.
+Mức 3 — Tuyền duyệt 03/11/2026; code ở nhánh `claude/sao-luu-noi-tiep`, đã thử local, chưa lên staging. Soạn từ số đo prod cùng ngày.
 
 ## Vì sao
 
@@ -60,6 +60,35 @@ Làm chung lần khởi động lại đó (việc 5 của báo cáo hạ tầng
    khôi phục bản vừa có vào DB tạm.
 5. **Một tuần sau, khi đã có bản đầy đủ thứ hai và diễn tập đạt:** tắt timer 15 phút, đổi dump đêm
    giữ 30 ngày, dọn `db-backups/` cũ trên CFS (giữ 7 ngày cuối) và `backups/clinicai-15p/` trên VPS.
+
+## Đã thử (03/11, Mac, ảnh `clinicai-db:17-pgbackrest`, pgBackRest 2.60.0)
+
+`bat` → `full` (22,6 MB, 1,5 s) → ghi 50 dòng → mốc T → ghi 30 dòng →
+`dien-tap "T"` ra **150** dòng, `dien-tap` (mới nhất) ra **180** = khớp DB thật;
+container/volume tạm tự dọn. Năm lỗi chỉ lộ ra khi chạy thật, đã sửa trong script:
+log-path không tự tạo · `--archive-async` không hợp lệ cho `restore` ·
+`--spool-path` không hợp lệ cho `archive-get` đồng bộ · restore đòi thư mục thuộc
+postgres (dùng volume) · **giờ không ghi múi giờ bị hiểu là UTC — lệch 7 tiếng**
+(script tự gắn `+07`).
+
+## Lệnh chạy
+
+DB prod dựng bằng `--env-file .env.supabase-local`; DB staging bằng `.env.staging` +
+`docker-compose.supabase.staging.yml` (nhãn compose trên container, đọc 03/11).
+
+Staging (thử trước, ngoài giờ khám hoặc trước 17h ngày thường):
+```bash
+ssh clinic-vps-moi 'cd /home/clinicai/clinicai-staging && git fetch -q origin && git checkout -q claude/sao-luu-noi-tiep && git pull -q --ff-only origin claude/sao-luu-noi-tiep && sudo ./scripts/may-chu/bat-sao-luu-noi-tiep.sh staging'
+```
+rồi thêm vào `.env.staging`: `SUPABASE_DB_IMAGE=clinicai-db:17-pgbackrest`,
+`SUPABASE_DB_ARCHIVE_MODE=on`, `SUPABASE_DB_PGBACKREST_DIR=/home/clinicai/pgbackrest-staging`,
+dựng lại DB staging và:
+```bash
+ssh clinic-vps-moi 'cd /home/clinicai/clinicai-staging && docker compose --env-file .env.staging -f docker-compose.supabase.yml -f docker-compose.supabase.staging.yml -p clinicai_stg_db up -d db && export CLINIC_DB_CONTAINER=clinicai_stg_db SUPABASE_DB_PGBACKREST_DIR=/home/clinicai/pgbackrest-staging && ./scripts/sao-luu-noi-tiep.sh bat && ./scripts/sao-luu-noi-tiep.sh full && ./scripts/sao-luu-noi-tiep.sh dien-tap'
+```
+Prod: y như trên với `.env.supabase-local`, `-p clinicai_db`, không có tệp staging,
+thư mục `/home/clinicai/pgbackrest`, thêm `SUPABASE_DB_SHARED_BUFFERS=1536MB`; bước
+`bat-sao-luu-noi-tiep.sh prod` cài luôn timer.
 
 ## Lùi
 
