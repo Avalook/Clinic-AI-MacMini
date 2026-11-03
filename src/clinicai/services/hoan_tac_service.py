@@ -287,25 +287,45 @@ async def tien_da_thu_cua_chi_dinh(
         return {}
     rows = await conn.fetch(
         """
-        WITH dong AS (
+        -- ĐI TỪ CHỈ ĐỊNH theo chỉ mục (03/11/2026): bản trước so `o.id::text`
+        -- (ép kiểu → quét cả bảng chỉ định) và nối dòng hoá đơn bằng `OR` hai
+        -- nguồn (không dùng được `idx_payment_bill_line_nguon`) — quầy thuốc
+        -- 40 ms trên bản sao. Chỉ giữ chuỗi uuid DẠNG CHUẨN = đúng tập phép so
+        -- chữ cũ khớp được; hai nhánh loại trừ nhau theo `source_type`.
+        WITH ma AS (
+            SELECT o.id, o.clinic_id
+              FROM service_order o
+             WHERE o.clinic_id = $1::uuid
+               AND o.id = ANY(ARRAY(
+                   SELECT x::uuid FROM unnest($2::text[]) x
+                    WHERE x ~ ('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-'
+                               || '[0-9a-f]{4}-[0-9a-f]{12}$')))
+        ), dong AS (
             SELECT o.id::text AS order_id, bl.id AS line_id, bl.line_total,
                    c.status
-              FROM service_order o
+              FROM ma o
               JOIN payment_bill_line bl
                 ON bl.clinic_id = o.clinic_id
                AND bl.billing_owner = 'CLINIC'
-               AND ((bl.source_type = 'service_order' AND bl.source_id = o.id::text)
-                    OR (bl.source_type = 'phu_thu' AND bl.source_id IN (
-                        SELECT p.id::text FROM luot_phu_thu p
-                         WHERE p.clinic_id = o.clinic_id
-                           AND p.service_order_id = o.id)))
+               AND bl.source_type = 'service_order' AND bl.source_id = o.id::text
               JOIN payment_cycle c
                 ON c.clinic_id = bl.clinic_id
                AND c.payment_cycle_id = bl.payment_cycle_id
-             WHERE o.clinic_id = $1::uuid AND o.id::text = ANY($2::text[])
-               AND c.status IN ('PAID', 'PENDING_VERIFICATION')
-               AND NOT (bl.source_type = 'service_order'
-                        AND o.id::text = ANY($3::text[]))
+             WHERE c.status IN ('PAID', 'PENDING_VERIFICATION')
+               AND NOT (o.id::text = ANY($3::text[]))
+            UNION ALL
+            SELECT o.id::text, bl.id, bl.line_total, c.status
+              FROM ma o
+              JOIN luot_phu_thu p
+                ON p.clinic_id = o.clinic_id AND p.service_order_id = o.id
+              JOIN payment_bill_line bl
+                ON bl.clinic_id = o.clinic_id
+               AND bl.billing_owner = 'CLINIC'
+               AND bl.source_type = 'phu_thu' AND bl.source_id = p.id::text
+              JOIN payment_cycle c
+                ON c.clinic_id = bl.clinic_id
+               AND c.payment_cycle_id = bl.payment_cycle_id
+             WHERE c.status IN ('PAID', 'PENDING_VERIFICATION')
         )
         SELECT d.order_id,
                coalesce(sum(d.line_total) FILTER (WHERE d.status = 'PAID'), 0)
