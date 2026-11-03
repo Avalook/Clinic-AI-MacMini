@@ -91,14 +91,15 @@ def _ngay_mau() -> list[dict[str, Any]]:
 def test_mot_ngay_loc_tien_mat_ra_dung_so_bao_cao() -> None:
     t = _tong(_ngay_mau(), [], "CASH")["tong"]
     assert t["thu_rong"] == 1_115_000
-    assert t["da_thu"] == 1_335_000
+    # Tiền đã thu đã trừ phiếu huỷ (03/11), giống "Tiền thu" của màn Báo cáo.
+    assert t["da_thu"] == 1_115_000
     assert t["gia_tri_huy"] == 220_000
 
 
 def test_mot_ngay_loc_chuyen_khoan_ra_dung_so_bao_cao() -> None:
     t = _tong(_ngay_mau(), [], "TRANSFER")["tong"]
     assert t["thu_rong"] == 3_132_000
-    assert t["da_thu"] == 3_659_000
+    assert t["da_thu"] == 3_132_000
     assert t["gia_tri_huy"] == 527_000
 
 

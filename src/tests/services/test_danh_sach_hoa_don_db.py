@@ -68,8 +68,9 @@ async def test_old_paid_bill_refunded_today_and_scope(pool: asyncpg.Pool) -> Non
     svc = DanhSachHoaDonService(pool)
     day = now_vn().date().isoformat()
     data = await svc.xem(identity=manager, tu=day, den=day, tim=f"TT-{q.duoi}")
-    assert data["tong"]["da_thu"] == 0
-    assert data["tong"]["da_hoan"] == 30000
+    # Ô tìm chỉ lọc danh sách (03/11): tiền của riêng khách đang tìm ở dang_xem.
+    assert data["dang_xem"]["da_thu"] == 0
+    assert data["dang_xem"]["da_hoan"] == 30000
     [customer] = data["khach"]
     assert customer["thu_rong"] == 70000
     assert customer["phieu"][0]["nguoi_thu"] == manager.full_name

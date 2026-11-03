@@ -319,11 +319,12 @@ async def test_mo_khoa_ca_cu_khong_keo_khoan_huy_ve_lai_ca_cu(
     assert qua2["sau_chot"]["huy"] == 0
 
 
-async def test_huy_trong_luc_ca_dang_mo_khoa_ve_ca_goc(
+async def test_huy_luc_ca_cu_mo_khoa_tinh_vao_ngay_huy(
     pool: asyncpg.Pool,  # noqa: F811
     lui_gio_thu: Any,
 ) -> None:
-    """Huỷ xảy ra LÚC ca đang mở khoá thì thuộc ca gốc (như chưa từng chốt)."""
+    """Huỷ tính vào NGÀY HUỶ (Tuyền 03/11, cùng luật Danh sách hoá đơn) — kể cả
+    khi ca cũ đang mở khoá: ca cũ giữ tiền thu, hôm nay trừ phần huỷ."""
     ca = await _dung(pool)
     ql = _ql(ca)
     cs = await _co_so_rieng(pool)
@@ -337,6 +338,37 @@ async def test_huy_trong_luc_ca_dang_mo_khoa_ve_ca_goc(
     await svc.mo_khoa(identity=ql, chot_id=chot["id"], ly_do="Cần sửa sổ hôm qua")
     await _huy_phieu(pool, ca, v)  # huỷ khi ca hôm qua ĐANG MỞ KHOÁ
     qua = await _bc_ngay(pool, ql, cs, hom_qua, hom_qua, ca=ma)
-    assert (qua["tong"]["thu"], qua["tong"]["huy"]) == (300_000, 300_000)
+    assert (qua["tong"]["thu"], qua["tong"]["huy"]) == (300_000, 0)
     nay = await _bc_ngay(pool, ql, cs, hom_nay, hom_nay, ca=ma)
-    assert nay["tong"]["huy"] == 0 and nay["dieu_chinh_ca_truoc"]["so_phieu"] == 0
+    assert nay["tong"]["huy"] == 300_000
+    assert nay["dieu_chinh_ca_truoc"]["so_phieu"] == 1
+
+
+async def test_huy_qua_dem_bao_cao_bang_danh_sach_hoa_don(
+    pool: asyncpg.Pool,  # noqa: F811
+    lui_gio_thu: Any,
+) -> None:
+    """Tuyền 03/11 — MỘT luật ngày cho hai màn: thu hôm qua, huỷ hôm nay (không
+    chốt ca). Hôm qua giữ số đã đếm, hôm nay trừ phần huỷ; Báo cáo và Danh sách
+    hoá đơn ra cùng Thực thu cả hai ngày."""
+    from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
+
+    ca = await _dung(pool)
+    ql = _ql(ca)
+    cs = await _co_so_rieng(pool)
+    v = await _luot_o(pool, ca, cs)
+    await lui_gio_thu(v, 1)
+    await _huy_phieu(pool, ca, v)
+    hom_nay = now_vn().date()
+    for ngay, thu, huy in (
+        (hom_nay - timedelta(days=1), 300_000, 0),
+        (hom_nay, 0, 300_000),
+    ):
+        bc = await _bc_ngay(pool, ql, cs, ngay, ngay)
+        hd = await DanhSachHoaDonService(pool).xem(
+            identity=ql, tu=ngay.isoformat(), den=ngay.isoformat(), co_so=cs
+        )
+        assert (bc["tong"]["thu"], bc["tong"]["huy"]) == (thu, huy), ngay
+        assert bc["tong"]["thuc_thu"] == hd["tong"]["thu_rong"] == thu - huy, ngay
+        assert bc["tai_chinh"]["dong_tien"]["tien_thu"]["tong"] == hd["tong"]["da_thu"]
+        assert bc["tai_chinh"]["dong_tien"]["khop"] is True

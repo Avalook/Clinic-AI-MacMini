@@ -71,6 +71,10 @@ def dong_tien_rows(dt: Mapping[str, Any]) -> list[list[Any]]:
         *tm_ck("Nợ thu được", dt.get("no_thu_duoc") or {}),
         *tm_ck("Thực thu", dt.get("thuc_thu") or {}),
         ["Doanh thu thuần", dt.get("doanh_thu_thuan")],
+        [
+            "Phiếu huỷ (thao tác bấm nhầm, đã trừ ở Tiền thu)",
+            (dt.get("phieu_huy") or {}).get("tong"),
+        ],
     ]
 
 
