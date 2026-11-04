@@ -169,11 +169,12 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const { ngay, homNay, chonNgay } = useNgayXem();
   /** Máy chủ nói ngày đang xem có phải hôm nay không (ngày rác → hôm nay). */
   const [laHomNay, setLaHomNay] = useState(true);
-  // PHÒNG NHIỀU BÁC SĨ (30/09/2026): người đang trực một làn của phòng thì mặc
-  // định chỉ thấy khách của làn mình (+ khách chưa chọn bác sĩ); tắt được để
-  // xem cả phòng. Máy chủ quyết ai thuộc làn nào (`lan_toi`), màn chỉ lọc.
+  // PHÒNG NHIỀU BÁC SĨ: chip "Khách của BS …" lọc khách của bác sĩ người xem
+  // làm cùng theo lịch (+ khách chưa có bác sĩ). MẶC ĐỊNH XEM CẢ PHÒNG (Tuyền
+  // 04/11/2026: "hiện đủ chứ, vẫn đang quen kiểu vậy") — bấm chip mới lọc.
+  // Máy chủ quyết khách thuộc ai (`lan_toi`), màn chỉ lọc.
   const [lanToi, setLanToi] = useState<LanCuaToi | null>(null);
-  const [cheDoLan, setCheDoLan] = useState<"lan" | "ca_phong">("lan");
+  const [cheDoLan, setCheDoLan] = useState<"lan" | "ca_phong">("ca_phong");
   // "Đã xong … · Hoàn tác" vài giây sau khi bấm Xong (Tuyền 01/10/2026). Ở
   // cấp màn để còn hiện khi người làm bấm sang khách kế tiếp.
   const [thongBao, setThongBao] = useState<ThongBao | null>(null);
