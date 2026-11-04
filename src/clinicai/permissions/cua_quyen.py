@@ -15,13 +15,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 import asyncpg
-from fastapi import Depends
+from fastapi import Depends, Request
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can, can_o_phong_nao_do
 from clinicai.permissions.catalogue import tra_quyen
+from clinicai.permissions.chay_bong import ghi_bong
 
 
 def cua_quyen(
@@ -38,13 +39,25 @@ def cua_quyen(
     async def _cua(
         identity: StaffIdentity = Depends(get_current_identity),
         pool: asyncpg.Pool = Depends(get_db_pool),
+        # FastAPI luôn bơm Request theo kiểu; mặc định None cho bài kiểm gọi tay.
+        request: Request = None,  # type: ignore[assignment]
     ) -> StaffIdentity:
+        # Lệnh GHI qua cửa này ghi một dòng chạy bóng (chỉ đo, không đổi kết quả).
+        ghi = request is not None and request.method not in ("GET", "HEAD", "OPTIONS")
         async with pool.acquire() as conn:
             for q in quyen:
                 if await can(conn, identity, q) or (
                     moi_phong and await can_o_phong_nao_do(conn, identity, q)
                 ):
+                    if ghi:
+                        await ghi_bong(
+                            conn, identity, q, phong_id=None, cho_cu=True, cong="cua"
+                        )
                     return identity
+            if ghi:
+                await ghi_bong(
+                    conn, identity, quyen[0], phong_id=None, cho_cu=False, cong="cua"
+                )
         ten = " hoặc ".join(f"“{tra_quyen(q).ten}”" for q in quyen)
         raise SafetyGateError(cau or f"Bạn không có quyền {ten}.")
 

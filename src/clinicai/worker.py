@@ -270,6 +270,7 @@ async def _run_su_kien() -> None:
     # BỘ CANH GÁC (27/09/2026) ghép vào vòng này, mỗi phút một lượt — xem
     # services/canh_gac.py. Chỉ tiến trình giao MỌI bên nhận mới canh (chạy tay
     # một bên nhận để gỡ lỗi thì không mở cảnh báo trùng).
+    from clinicai.permissions import chay_bong
     from clinicai.services import agent_giam_sat, agent_tom_tat, canh_gac, so_no_service
 
     canh = not chi_dinh
@@ -284,6 +285,8 @@ async def _run_su_kien() -> None:
     # gác — canh gác trông HẠ TẦNG, agent trông VẬN HÀNH. Xem
     # services/agent_giam_sat.py; tắt bằng dữ liệu (`agent_cau_hinh`).
     lan_agent = 0.0
+    # SỔ CHẠY BÓNG quyền (04/11/2026): dọn dòng > 45 ngày, mỗi giờ một lượt.
+    lan_don_bong = 0.0
     # Job dọn ổ tệp kết quả (V9) đã chuyển sang container `day-tep` (01/10/2026)
     # — service này không gắn ổ nào.
 
@@ -323,6 +326,9 @@ async def _run_su_kien() -> None:
                     await agent_giam_sat.mot_vong(pool)
                     # Tóm tắt cuối ngày bằng LLM (chỉ khi có khoá; tự bỏ qua).
                     await agent_tom_tat.tu_dong(pool)
+                if canh and time.monotonic() - lan_don_bong >= 3600:
+                    lan_don_bong = time.monotonic()
+                    await chay_bong.don_cu(pool)
                 _beat()
             except Exception:
                 # Một bên nhận hỏng không được làm chết vòng giao tin.
