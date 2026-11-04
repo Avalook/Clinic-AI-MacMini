@@ -653,8 +653,7 @@ class ClinicConfigService:
                 raise ValidationError("Không tìm thấy phòng này.")
             if is_active and room["floor_id"] is not None and not room["floor_active"]:
                 raise ValidationError(
-                    "Tầng của phòng đã xoá —"
-                    " khôi phục tầng trước khi khôi phục phòng."
+                    "Tầng của phòng đã xoá — khôi phục tầng trước khi khôi phục phòng."
                 )
             if not is_active:
                 con_khach = await conn.fetchval(
