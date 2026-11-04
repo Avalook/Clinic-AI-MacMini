@@ -221,8 +221,9 @@ BEGIN
     -- (20261031125000, kiểm kê tiền mặt két theo ca — CHỈ SELECT).
     -- 119 → 120 (30/10/2026): sinh_hieu_khong_do (20261031130000, CHỈ SELECT).
     -- 120 → 121 (31/10/2026): vat_tu_ban (20261101300000, CHỈ SELECT).
-    IF scoped_count <> 121 THEN
-        RAISE EXCEPTION 'expected 121 tenant-scoped read policies, found %', scoped_count;
+    -- 121 → 122 (04/11/2026): phong_chuc_nang (20261104800000, CHỈ SELECT).
+    IF scoped_count <> 122 THEN
+        RAISE EXCEPTION 'expected 122 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

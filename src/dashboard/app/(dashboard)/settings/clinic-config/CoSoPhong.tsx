@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { todayVn } from "@/lib/roster";
+import ChucNangPhong from "./ChucNangPhong";
 import type {
   ConfigFloor,
   ConfigLocation,
@@ -544,6 +545,7 @@ function DongPhong({
             dangLam={dangLam}
             lam={lam}
           />
+          <ChucNangPhong roomId={r.room_id} />
         </div>
       ) : null}
     </li>

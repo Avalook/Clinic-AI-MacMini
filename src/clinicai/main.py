@@ -34,6 +34,7 @@ from clinicai.api.v1.routers.auth import router as auth_router
 from clinicai.api.v1.routers.booking import router as booking_router
 from clinicai.api.v1.routers.cashier import router as cashier_router
 from clinicai.api.v1.routers.catalog import router as catalog_router
+from clinicai.api.v1.routers.chuc_nang_phong import router as chuc_nang_phong_router
 from clinicai.api.v1.routers.clinic_config import router as clinic_config_router
 from clinicai.api.v1.routers.clinical_forms import router as clinical_forms_router
 from clinicai.api.v1.routers.clinical_records import (
@@ -380,6 +381,9 @@ app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
+app.include_router(
+    chuc_nang_phong_router, prefix="/api/v1", tags=["config"], dependencies=_GUARDED
+)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thai_ky_router, prefix="/api/v1", dependencies=_GUARDED)
