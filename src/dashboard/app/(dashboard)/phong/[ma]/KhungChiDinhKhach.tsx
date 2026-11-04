@@ -63,11 +63,14 @@ export default function KhungChiDinhKhach({
   onBao,
   lieuTrinh = null,
   moBanKham = null,
+  lamCho = null,
   nhanXong = "Xong",
 }: {
   /** Chữ nút kết thúc của dòng đang làm. Phòng đối tác: "Đã nhận mẫu" (cùng
    *  lệnh nhận mẫu, 16/10/2026) — không để "Xong" đóng lần làm mà thiếu mốc. */
   nhanXong?: string;
+  /** "BS X" — người đang đăng nhập làm cho bác sĩ nào ở phòng này (máy chủ ghép). */
+  lamCho?: string | null;
   /** Link "Mở bàn khám" (máy chủ trả ở Sắp đến): lượt Thủ thuật chưa có chỉ định. */
   moBanKham?: string | null;
   /** Chip liệu trình của cả lô (08/10/2026): "Buổi k/N · đã trả trước" trên dòng
@@ -94,7 +97,9 @@ export default function KhungChiDinhKhach({
   onBao: (tb: ThongBao) => void;
 }) {
   const theoRef = new Map(dong.map((d) => [d.ref_id, d]));
-  const tenBacSi = bacSi.find((b) => b.staff_id === bacSiLamId)?.ten ?? null;
+  // Tên lấy từ ghép theo lịch (`lan_cua_toi.nhan`) — có cả khi khách đã ở hàng
+  // chờ; ô chọn cũ chỉ có danh sách bác sĩ lúc khách còn "Sắp đến" (staging 04/11).
+  const tenBacSi = lamCho ?? bacSi.find((b) => b.staff_id === bacSiLamId)?.ten ?? null;
   // Không có danh sách máy chủ (ngày cũ): vẽ theo dòng hàng chờ.
   const hang: Dong[] =
     chiDinh.length > 0

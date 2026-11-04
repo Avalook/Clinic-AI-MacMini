@@ -457,6 +457,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               choNhan={laHomNay}
               bacSi={bacSiPhong}
               bacSiLamId={chonBs}
+              lamCho={lanToi?.nhan ?? null}
               onChonDong={(id) => {
                 setChonId(id);
                 setYeuCau(null);
