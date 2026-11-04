@@ -31,6 +31,7 @@ import type {
 import { FormCoSo, FormThemPhong } from "./PhongForms";
 import { FormThemTang, TangEditor } from "./TangEditor";
 import { ViTriEditor } from "./ViTriEditor";
+import { XacNhanXoa } from "./XacNhanXoa";
 
 interface CaLich {
   id: string;
@@ -195,7 +196,14 @@ export default function CoSoPhong({
       ) : null}
 
       {locations.map((loc) => {
-        const soPhong = loc.floors.reduce((s, f) => s + f.rooms.length, 0);
+        // Đã xoá (is_active = false) = ẩn khỏi danh sách, chỉ còn ở mục "Đã xoá"
+        // (Tuyền 04/11/2026). Dòng cũ trỏ vào phòng vẫn giữ cho báo cáo.
+        const tangDung = loc.floors.filter((f) => !f.floor_id || f.is_active);
+        const tangXoa = loc.floors.filter((f) => f.floor_id && !f.is_active);
+        const phongXoa = loc.floors.flatMap((f) =>
+          f.rooms.filter((r) => !r.is_active || !tangDung.includes(f)).map((r) => ({ r, f })),
+        );
+        const soPhong = tangDung.reduce((s, f) => s + f.rooms.filter((r) => r.is_active).length, 0);
         const floorIds = loc.floors.flatMap((f) =>
           f.floor_id && f.is_active ? [f.floor_id] : [],
         );
@@ -291,12 +299,12 @@ export default function CoSoPhong({
               />
             ) : null}
 
-            {loc.floors.length === 0 ? (
+            {tangDung.length === 0 ? (
               <p className="px-4 py-3 text-meta text-ink-faint">
                 Chưa có tầng nào. Thêm tầng trước rồi thêm phòng vào tầng đó.
               </p>
             ) : (
-              loc.floors.map((f) => (
+              tangDung.map((f) => (
                 <div key={f.floor_id ?? "legacy-unassigned"}>
                   <TangEditor
                     floor={f}
@@ -343,7 +351,7 @@ export default function CoSoPhong({
                     }}
                   />
                   <ul>
-                    {f.rooms.map((r) => (
+                    {f.rooms.filter((r) => r.is_active).map((r) => (
                       <DongPhong
                         key={r.room_id}
                         phong={r}
@@ -364,6 +372,55 @@ export default function CoSoPhong({
                 </div>
               ))
             )}
+            {tangXoa.length + phongXoa.length > 0 ? (
+              <div className="border-t border-line px-4 py-2.5">
+                <p className="text-label font-semibold uppercase text-ink-muted">Đã xoá</p>
+                <p className="mb-1 text-label text-ink-muted">
+                  Không còn hiện ở màn nào. Việc đã ghi vẫn tính trong báo cáo dưới tên cũ.
+                </p>
+                <ul className="divide-y divide-line">
+                  {tangXoa.map((f) => (
+                    <li key={f.floor_id} className="flex flex-wrap items-center gap-2 py-1 text-meta">
+                      <span className="text-ink-soft">{f.floor}</span>
+                      <span className="text-label text-ink-muted">tầng</span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={dangLam}
+                        className="ml-auto"
+                        onClick={() =>
+                          void lam(() => goi("PUT", "floor-active", { floor_id: f.floor_id, is_active: true }))
+                        }
+                      >
+                        Khôi phục
+                      </Button>
+                    </li>
+                  ))}
+                  {phongXoa.map(({ r, f }) => (
+                    <li key={r.room_id} className="flex flex-wrap items-center gap-2 py-1 text-meta">
+                      <span className="text-ink-soft">{r.name ?? r.code}</span>
+                      <span className="text-label text-ink-muted">phòng · {f.floor ?? "chưa gắn tầng"}</span>
+                      {r.is_active ? (
+                        <span className="ml-auto text-label text-ink-muted">khôi phục tầng trước</span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={dangLam || (f.floor_id !== null && !f.is_active)}
+                          title={f.floor_id !== null && !f.is_active ? "Khôi phục tầng của phòng trước." : undefined}
+                          className="ml-auto"
+                          onClick={() =>
+                            void lam(() => goi("PUT", "room-active", { room_id: r.room_id, is_active: true }))
+                          }
+                        >
+                          Khôi phục
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
         );
       })}
@@ -418,14 +475,13 @@ function DongPhong({
         ) : (
           <ChevronRight className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
         )}
-        <span className={`min-w-0 truncate text-body font-medium ${r.is_active ? "text-ink" : "text-ink-faint line-through"}`}>
+        <span className="min-w-0 truncate text-body font-medium text-ink">
           {r.name ?? r.code}
         </span>
         {r.primary_node ? <span className="truncate text-meta text-ink-muted">· {tenBuoc(r.primary_node)}</span> : null}
         <span className="ml-auto shrink-0 text-label text-ink-muted">
           {r.serves.length + (r.dich_vu?.length ?? 0)} việc · {nguoiHomNay} người hôm nay
         </span>
-        {!r.is_active ? <Chip tone="neutral">Tắt</Chip> : null}
       </button>
 
       {mo ? (
@@ -471,14 +527,12 @@ function DongPhong({
             >
               Lưu
             </Button>
-            <Button
-              size="sm"
-              variant={r.is_active ? "danger" : "secondary"}
-              disabled={dangLam}
-              onClick={() => void lam(() => goi("PUT", "room-active", { room_id: r.room_id, is_active: !r.is_active }))}
-            >
-              {r.is_active ? "Ngừng sử dụng phòng" : "Dùng lại phòng"}
-            </Button>
+            <XacNhanXoa
+              nhan="Xoá phòng"
+              cau={`Xoá ${r.name ?? r.code}? Phòng biến mất khỏi Lịch làm việc, Quầy thu và Phòng dịch vụ. Việc đã ghi vẫn giữ trong báo cáo; khôi phục được ở mục "Đã xoá".`}
+              dangLam={dangLam}
+              onXoa={() => void lam(() => goi("PUT", "room-active", { room_id: r.room_id, is_active: false }))}
+            />
           </div>
 
           <LichPhong
@@ -547,7 +601,7 @@ function LichPhong({
         <span className="text-label text-ink-muted">cùng dữ liệu màn Lịch làm việc</span>
       </div>
 
-      {viTri.length === 0 ? (
+      {viTriDangDung.length === 0 ? (
         <p className="text-meta text-ink-faint">Phòng chưa có vị trí làm việc — thêm vị trí để xếp lịch.</p>
       ) : (
         <div className="overflow-x-auto rounded-control border border-line bg-surface">
@@ -563,13 +617,8 @@ function LichPhong({
               </tr>
             </thead>
             <tbody>
-              {viTri.map((v) => (
-                <tr
-                  key={v.id}
-                  className={`border-t border-line align-top ${
-                    v.is_active ? "" : "bg-surface-muted text-ink-faint"
-                  }`}
-                >
+              {viTriDangDung.map((v) => (
+                <tr key={v.id} className="border-t border-line align-top">
                   <td className="min-w-64 px-2 py-1.5">
                     <ViTriEditor
                       viTri={v}
@@ -623,6 +672,31 @@ function LichPhong({
           </table>
         </div>
       )}
+
+      {viTri.some((v) => !v.is_active) ? (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-meta">
+          <span className="text-label font-semibold uppercase text-ink-muted">Vị trí đã xoá</span>
+          {viTri
+            .filter((v) => !v.is_active)
+            .map((v) => (
+              <span key={v.id} className="inline-flex items-center gap-1 rounded-control bg-surface-muted px-2 py-0.5">
+                <span className="text-ink-soft">{v.ten}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={dangLam}
+                  onClick={() =>
+                    void lam(() =>
+                      goiUrl("/api/day-noi", "POST", { thao_tac: "vi-tri", id: v.id, du_lieu: { is_active: true } }),
+                    )
+                  }
+                >
+                  Khôi phục
+                </Button>
+              </span>
+            ))}
+        </div>
+      ) : null}
 
       {viTriDangDung.length > 0 ? (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

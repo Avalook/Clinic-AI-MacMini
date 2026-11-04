@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 
 import type { ConfigFloor } from "./types";
+import { XacNhanXoa } from "./XacNhanXoa";
 
 const O_NHAP =
   "h-8 rounded-control border border-line bg-surface px-2 text-meta text-ink";
@@ -115,19 +116,14 @@ export function TangEditor({
         <Button size="sm" variant="ghost" onClick={() => setDangSua(true)}>
           Đổi tên tầng
         </Button>
-        <Button
-          size="sm"
-          variant={floor.is_active ? "danger" : "secondary"}
-          disabled={dangLam || (floor.is_active && soPhongDangBat > 0)}
-          title={
-            floor.is_active && soPhongDangBat > 0
-              ? "Chuyển hết phòng sang tầng khác trước khi ngừng sử dụng tầng."
-              : undefined
-          }
-          onClick={onBatTat}
-        >
-          {floor.is_active ? "Ngừng sử dụng tầng" : "Dùng lại tầng"}
-        </Button>
+        <XacNhanXoa
+          nhan="Xoá tầng"
+          cau={`Xoá ${floor.floor}? Tầng biến mất khỏi mọi màn, khôi phục được ở mục "Đã xoá".`}
+          dangLam={dangLam}
+          khoa={soPhongDangBat > 0}
+          lyDoKhoa="Chuyển hoặc xoá hết phòng của tầng trước khi xoá tầng."
+          onXoa={onBatTat}
+        />
       </div>
     </div>
   );
