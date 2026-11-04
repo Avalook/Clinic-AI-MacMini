@@ -45,6 +45,8 @@ interface ViTri {
   code: string;
   ten: string;
   nhom_nghe: string;
+  /** Ô phụ tá: id ô bác sĩ cùng phòng mà ô này hỗ trợ (04/11/2026). */
+  ho_tro_id?: string | null;
   room_id: string | null;
   is_active: boolean;
   ca: CaLich[];
@@ -571,6 +573,9 @@ function LichPhong({
                   <td className="min-w-64 px-2 py-1.5">
                     <ViTriEditor
                       viTri={v}
+                      oBacSi={viTri
+                        .filter((b) => b.id !== v.id && b.is_active && b.nhom_nghe === "BAC_SI")
+                        .map((b) => ({ id: b.id, ten: b.ten }))}
                       dangLam={dangLam}
                       onDoi={(duLieu) =>
                         void lam(() =>

@@ -27,6 +27,8 @@ class CaLam:
     ca: str
     lan: int | None
     bac_si: bool
+    vi_tri: str | None = None
+    ho_tro: str | None = None
 
 
 def _trung_ca(a: str, b: str) -> bool:
@@ -46,12 +48,22 @@ def duoc_lam_thay(
     vai_goc: ClinicRole,
     lich: Sequence[CaLam],
 ) -> bool:
-    """Luật thuần: bác sĩ tự làm trong ngày, hoặc TKYK/ĐD cùng ca/phòng/làn."""
+    """Luật thuần: bác sĩ tự làm trong ngày; AI đứng ô phụ tá của ô bác sĩ ấy
+    cùng ca (Tuyền 04/11/2026: "điền ai vào vị trí phụ tá thì được chức năng
+    phụ tá" — kể cả bác sĩ khác, trưởng ca); hoặc TKYK/ĐD cùng ca/phòng/làn."""
     cua_bs = [d for d in lich if d.staff_id == bac_si_id and d.bac_si]
     if not cua_bs:
         return False
     if nguoi_bam == bac_si_id:
         return True
+    for toi in (d for d in lich if d.staff_id == nguoi_bam and d.ho_tro):
+        if any(
+            bs.vi_tri == toi.ho_tro
+            and bs.room_id == toi.room_id
+            and _trung_ca(toi.ca, bs.ca)
+            for bs in cua_bs
+        ):
+            return True
     if vai_goc not in {ClinicRole.TKYK, ClinicRole.NURSE_ULTRASOUND}:
         return False
     cua_toi = [d for d in lich if d.staff_id == nguoi_bam]
@@ -76,7 +88,8 @@ async def _lich_hom_nay(
     rows = await conn.fetch(
         """
         SELECT w.staff_id::text AS staff_id, v.room_id::text AS room_id,
-               w.shift, v.lan, (v.nhom_nghe = 'BAC_SI') AS bac_si
+               w.shift, v.lan, (v.nhom_nghe = 'BAC_SI') AS bac_si,
+               v.code AS vi_tri, v.ho_tro_code
           FROM work_roster w
           JOIN vi_tri_lam_viec v
             ON v.clinic_id=w.clinic_id AND v.code=w.station AND v.is_active
@@ -94,6 +107,8 @@ async def _lich_hom_nay(
             ca=str(r["shift"]),
             lan=int(r["lan"]) if r["lan"] is not None else None,
             bac_si=bool(r["bac_si"]),
+            vi_tri=r["vi_tri"],
+            ho_tro=r["ho_tro_code"],
         )
         for r in rows
     ]

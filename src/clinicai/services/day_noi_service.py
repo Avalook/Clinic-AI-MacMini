@@ -63,6 +63,19 @@ NHAN_CHUONG: dict[str, str] = {
 }
 
 
+async def _ghi_vi_tri(
+    conn: asyncpg.Connection, sql: str, *args: Any
+) -> asyncpg.Record | None:
+    """Ghi vị trí; trigger `vi_tri_kiem_ho_tro` từ chối ô hỗ trợ sai phòng /
+    không phải ô bác sĩ → câu tiếng Việt thay vì 500."""
+    try:
+        return await conn.fetchrow(sql, *args)
+    except asyncpg.CheckViolationError as e:
+        raise ValidationError(
+            "Ô phụ tá chỉ hỗ trợ được một ô bác sĩ đang dùng, cùng phòng."
+        ) from e
+
+
 class DayNoiService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -111,8 +124,11 @@ class DayNoiService:
                 dict(r)
                 for r in await conn.fetch(
                     "SELECT id::text AS id, code, ten, ten_ngan, tang, phong,"
-                    "       nhom_nghe, room_id::text AS room_id, is_active"
-                    "  FROM vi_tri_lam_viec WHERE clinic_id = $1::uuid"
+                    "       nhom_nghe, room_id::text AS room_id, is_active,"
+                    "       (SELECT b.id::text FROM vi_tri_lam_viec b"
+                    "         WHERE b.clinic_id = v.clinic_id"
+                    "           AND b.code = v.ho_tro_code) AS ho_tro_id"
+                    "  FROM vi_tri_lam_viec v WHERE clinic_id = $1::uuid"
                     " ORDER BY is_active DESC, sort, ten",
                     cid,
                 )
@@ -290,6 +306,7 @@ class DayNoiService:
         ten_ngan: str | None = None,
         tang: str | None = None,
         room_id: str | None = None,
+        ho_tro_id: str | None = None,
     ) -> dict[str, Any]:
         ten = (ten or "").strip()
         if not 1 <= len(ten) <= 120:
@@ -299,14 +316,17 @@ class DayNoiService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN)
             await self._kiem_phong(conn, identity.clinic_id, room_id)
-            vi_tri = await conn.fetchrow(
+            vi_tri = await _ghi_vi_tri(
+                conn,
                 """
                 INSERT INTO vi_tri_lam_viec
                     (clinic_id, code, ten, ten_ngan, tang, nhom_nghe, room_id, sort,
-                     is_active)
+                     is_active, ho_tro_code)
                 VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::uuid,
                         coalesce((SELECT max(sort) + 1 FROM vi_tri_lam_viec
-                                   WHERE clinic_id = $1::uuid), 1), true)
+                                   WHERE clinic_id = $1::uuid), 1), true,
+                        (SELECT code FROM vi_tri_lam_viec
+                          WHERE clinic_id = $1::uuid AND id = $8::uuid))
                 RETURNING id::text, code
                 """,
                 identity.clinic_id,
@@ -317,6 +337,7 @@ class DayNoiService:
                 (tang or "").strip() or None,
                 nhom_nghe,
                 room_id,
+                ho_tro_id,
             )
             if vi_tri is None:
                 raise ValidationError("Không tạo được vị trí làm việc.")
@@ -357,7 +378,16 @@ class DayNoiService:
         room_id: str | None = None,
         bo_phong: bool = False,
         is_active: bool | None = None,
+        nhom_nghe: str | None = None,
+        ho_tro_id: str | None = None,
+        bo_ho_tro: bool = False,
     ) -> dict[str, Any]:
+        # `nhom_nghe` đổi được sau khi tạo (04/11/2026: "Bs siêu âm 3" tạo nhầm
+        # nhóm Điều dưỡng, không sửa được, BS Tiến không vào được ô chọn).
+        # `ho_tro_id` = ô BÁC SĨ cùng phòng mà ô phụ tá này hỗ trợ; `bo_ho_tro`
+        # = thành ô nhân viên. Đúng/sai cùng phòng do trigger Postgres ép.
+        if nhom_nghe is not None and nhom_nghe not in NHOM_NGHE:
+            raise ValidationError("Nhóm nghề không hợp lệ.")
         if ten is not None and not 1 <= len(ten.strip()) <= 120:
             raise ValidationError("Tên vị trí phải từ 1 đến 120 ký tự.")
         # `tang` / `phong` = CHỮ hiện ở cột Tầng / Phòng của bảng lịch khi vị trí
@@ -391,7 +421,8 @@ class DayNoiService:
                         f"Vị trí còn {ca_chua_qua} ca hôm nay hoặc tương lai —"
                         " gỡ/chuyển ca trước khi ngừng sử dụng."
                     )
-            row = await conn.fetchrow(
+            row = await _ghi_vi_tri(
+                conn,
                 """
                 UPDATE vi_tri_lam_viec
                    SET ten = coalesce($3, ten),
@@ -403,9 +434,17 @@ class DayNoiService:
                                       ELSE coalesce($6::uuid, room_id) END,
                        is_active = coalesce($8, is_active),
                        phong = CASE WHEN $9::text IS NULL THEN phong
-                                    ELSE nullif(btrim($9), '') END
+                                    ELSE nullif(btrim($9), '') END,
+                       nhom_nghe = coalesce($10, nhom_nghe),
+                       ho_tro_code = CASE
+                           WHEN $12 THEN NULL
+                           WHEN $11::uuid IS NULL THEN ho_tro_code
+                           ELSE (SELECT b.code FROM vi_tri_lam_viec b
+                                  WHERE b.clinic_id = $1::uuid AND b.id = $11::uuid)
+                       END
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
-                RETURNING id::text, ten, is_active, tang, phong
+                RETURNING id::text, ten, is_active, tang, phong, nhom_nghe,
+                          ho_tro_code
                 """,
                 identity.clinic_id,
                 vi_tri_id,
@@ -416,6 +455,9 @@ class DayNoiService:
                 bo_phong,
                 is_active,
                 phong,
+                nhom_nghe,
+                ho_tro_id,
+                bo_ho_tro,
             )
             if row is None:  # phòng trường hợp dòng bị xoá giữa các lớp bảo vệ
                 raise NotFoundError("Không tìm thấy vị trí này.")
@@ -428,6 +470,8 @@ class DayNoiService:
                     "bat": row["is_active"],
                     "tang": row["tang"],
                     "phong": row["phong"],
+                    "nhom_nghe": row["nhom_nghe"],
+                    "ho_tro": row["ho_tro_code"],
                 },
             )
         # Quyền theo lịch đọc vị trí → phòng — đổi thì quên quyền đang nhớ.

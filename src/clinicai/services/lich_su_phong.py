@@ -134,8 +134,7 @@ def _dong_chon_bac_si(
         cau += f" · {phong}"
     if nguon == "tu_dong":
         if p.get("theo_lan"):
-            so_lan = f" {p['lan']}" if p.get("lan") else ""
-            cau += f": cùng làn{so_lan} với người nhận"
+            cau += ": theo lịch làm việc của người bấm"
         else:
             cau += ": phòng chỉ có một bác sĩ trực"
     return {

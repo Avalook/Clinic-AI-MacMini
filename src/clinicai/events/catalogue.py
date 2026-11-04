@@ -1112,8 +1112,9 @@ class DaChonBacSiLam(PayloadSuKien):
     bác sĩ ở ngày đó"). Chỉ là lựa chọn — không khoá ai bắt đầu làm.
 
     `bac_si_id` None = bỏ chọn ("bác sĩ nào rảnh cũng được"). `tu_dong` = máy
-    tự gán: phòng chỉ có một bác sĩ trực, hoặc (`theo_lan`, 27/10) phòng nhiều
-    bác sĩ mà người bấm đứng làn có đúng một bác sĩ. `du_kien` = phòng còn là
+    tự gán: phòng chỉ có một bác sĩ trực, hoặc (`theo_lan` — tên khoá giữ từ
+    27/10) theo lịch người bấm: họ đứng ô bác sĩ, hoặc ô phụ tá hỗ trợ ô bác sĩ
+    có người trực cùng ca (04/11/2026). `du_kien` = phòng còn là
     phòng dự kiến (khách chưa chốt), chưa xếp chính thức."""
 
     visit_id: str
