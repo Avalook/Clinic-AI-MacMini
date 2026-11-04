@@ -23,6 +23,7 @@ from clinicai.services import (
     agent_tom_tat,
     canh_gac,
     canh_gac_kho_tep,
+    chay_bong_doc,
     day_tep,
     kho_loi,
     nhat_ky_van_hanh,
@@ -199,6 +200,23 @@ async def nhat_ky(
     response.headers["Cache-Control"] = "no-store"
     return await nhat_ky_van_hanh.doc_nhat_ky(
         pool, clinic_id=identity.clinic_id, ngay=ngay, tim=tim
+    )
+
+
+@router.get("/ops/chay-bong")
+async def chay_bong(
+    response: Response,
+    tu: str | None = None,
+    den: str | None = None,
+    theo: str | None = None,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Thử luật "đứng đâu làm việc đó": gom sổ chạy bóng theo người / việc /
+    phòng, số lệnh sẽ bị chặn. Ngày rác → hôm nay."""
+    response.headers["Cache-Control"] = "no-store"
+    return await chay_bong_doc.tong_hop(
+        pool, clinic_id=identity.clinic_id, tu=tu, den=den, theo=theo
     )
 
 
