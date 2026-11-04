@@ -419,7 +419,7 @@ class DayNoiService:
                 if ca_chua_qua:
                     raise ValidationError(
                         f"Vị trí còn {ca_chua_qua} ca hôm nay hoặc tương lai —"
-                        " gỡ/chuyển ca trước khi ngừng sử dụng."
+                        " gỡ/chuyển ca trước khi xoá vị trí."
                     )
             row = await _ghi_vi_tri(
                 conn,
