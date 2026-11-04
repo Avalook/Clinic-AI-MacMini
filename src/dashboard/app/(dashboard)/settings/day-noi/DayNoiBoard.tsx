@@ -217,7 +217,7 @@ export default function DayNoiBoard() {
         </ul>
       </Khung>
 
-      <Khung tieuDe="Vị trí trực" ghiChu="Vị trí dùng để xếp lịch trực và mở màn theo vị trí. Tắt thì không xếp lịch mới vào được.">
+      <Khung tieuDe="Vị trí trực" ghiChu="Vị trí dùng để xếp lịch trực và mở màn theo vị trí. Xoá thì vị trí biến khỏi Lịch làm việc; lịch đã qua giữ nguyên.">
         <ViTriMoi dl={dl} dang={dang} gui={gui} />
         <ul className="mt-3 divide-y divide-line">
           {dl.vi_tri.map((v) => (
@@ -446,7 +446,7 @@ function DongViTri({
         aria-label={`Tên vị trí ${v.ten}`}
         className={`${O_NHAP} min-w-0 flex-1`}
       />
-      <Chip tone={v.is_active ? "success" : "neutral"}>{v.is_active ? "đang dùng" : "đã tắt"}</Chip>
+      <Chip tone={v.is_active ? "success" : "neutral"}>{v.is_active ? "đang dùng" : "đã xoá"}</Chip>
       <select
         value={v.room_id ?? ""}
         disabled={dang}
@@ -483,12 +483,12 @@ function DongViTri({
           void gui(
             "vi-tri",
             { is_active: !v.is_active },
-            v.is_active ? "Đã tắt vị trí." : "Đã bật lại vị trí.",
+            v.is_active ? "Đã xoá vị trí — khôi phục được ở đây." : "Đã khôi phục vị trí.",
             v.id,
           )
         }
       >
-        {v.is_active ? "Tắt" : "Bật lại"}
+        {v.is_active ? "Xoá" : "Khôi phục"}
       </Button>
       {/* Chữ cột Phòng / Tầng trên bảng lịch (09/10/2026 — Trưởng ca: "Quản lý
           ca khám"). Máy chủ chỉ dùng chữ này khi vị trí không gắn phòng thật;

@@ -4,9 +4,11 @@
 thanh toán, chọn phòng siêu âm 2 máy rồi thì thêm cả lựa chọn các bác sĩ ở ngày
 đó nữa, rất open, để không tách nhỏ phòng ra nữa."
 
-LÀN (migration 20261001250000): mỗi vị trí BAC_SI của phòng là một lựa chọn;
-`vi_tri_lam_viec.lan` ghép vị trí bác sĩ với điều dưỡng / thư ký cùng số (một
-cặp làm việc). Ghép bằng DỮ LIỆU — không đoán theo tên hay hậu tố mã vị trí.
+Mỗi vị trí BAC_SI của phòng là một lựa chọn. Ô PHỤ TÁ (`vi_tri_lam_viec.ho_tro_code`,
+migration 20261104700000, đặt ở Cấu trúc phòng khám) ghép người đứng ô ấy với bác
+sĩ đứng ô bác sĩ nó hỗ trợ, cùng ca — Tuyền chốt 04/11/2026: "điều dưỡng 3 đăng
+nhập thì là làm cho bác sĩ 3, không làm hộ cho người khác được". Thay `lan` cũ:
+làn chỉ ghi được bằng migration nên tầng 4 Hào Nam chưa từng ghép được.
 
 Lớp này lọc TIẾP trên tập phòng `eligible_rooms` (luật "phòng làm được" ở hàm
 Postgres `phong_lam_duoc`) — không tự tính lại phòng nào làm được.
@@ -50,6 +52,7 @@ class DongLich:
     ca: str
     trang_thai: str
     bac_si: bool = True
+    ho_tro: str | None = None
 
 
 def ten_bac_si(ten: Any) -> str:
@@ -120,10 +123,9 @@ def bac_si_tu_gan(lua_chon: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | 
 def bac_si_cua_lan(
     lua_chon: Sequence[Mapping[str, Any]], lan_toi: Mapping[str, Any]
 ) -> Mapping[str, Any] | None:
-    """Thuần: phòng NHIỀU bác sĩ, người bấm đứng làn có ĐÚNG MỘT bác sĩ đang
-    trực → bác sĩ ấy (Tuyền 27/10/2026: "điều dưỡng 1 theo bác sĩ 1 cùng phòng
-    — tự phân luôn, không bắt người dùng chọn"). Không làn / làn nhiều bác sĩ
-    → None (không đoán)."""
+    """Thuần: người bấm có ĐÚNG MỘT bác sĩ của mình (ô bác sĩ của chính họ,
+    hoặc bác sĩ của ô họ phụ tá) trong lựa chọn của phòng → bác sĩ ấy. Không
+    ghép được / nhiều bác sĩ → None (không đoán)."""
     if not lan_toi.get("co"):
         return None
     ids = {str(x) for x in lan_toi.get("bac_si_ids") or []}
@@ -131,35 +133,50 @@ def bac_si_cua_lan(
     return next(iter(ds.values())) if len(ds) == 1 else None
 
 
+def _trung_ca(a: str, b: str) -> bool:
+    """FULL chạm mọi ca; ca cùng tên chạm nhau."""
+    return a == "FULL" or b == "FULL" or a == b
+
+
 def lan_cua_nguoi(
     dong_cua_toi: Sequence[DongLich],
-    lua_chon: Sequence[Mapping[str, Any]],
+    dong_bac_si: Sequence[DongLich],
     *,
     toi: str,
     phut: int | None,
     ca: Mapping[str, Window],
 ) -> dict[str, Any]:
-    """Thuần: người đang đăng nhập đứng LÀN nào của phòng hôm nay.
+    """Thuần: người đang đăng nhập làm cho bác sĩ NÀO trong phòng hôm nay.
 
-    `dong_cua_toi` — dòng lịch của chính người ấy ở các vị trí của phòng (mọi
-    nhóm nghề). Làn = `lan` của các vị trí ấy (đang trong ca, không thì cả
-    ngày); bác sĩ đứng vị trí không ghi làn → "làn" của chính họ.
-    Trả ``{co, lan, bac_si_ids, nhan}`` — `co` False = không lọc được.
+    `dong_cua_toi` — dòng lịch của chính người ấy ở các vị trí của phòng (đang
+    trong ca, không thì cả ngày). Đứng ô bác sĩ → chính họ (ô bác sĩ của mình
+    thắng ô phụ tá cùng ca). Đứng ô phụ tá → người đứng ô bác sĩ ấy hỗ trợ ở
+    ca CHẠM ca của ô phụ tá (sáng/tối khác người thì không lẫn). Ô bác sĩ
+    trống, ô phụ tá chưa gắn → không có ai.
+    Trả ``{co, lan, bac_si_ids, nhan}`` — `co` False = không ghép được; `lan`
+    giữ khoá cho bên gọi cũ, luôn rỗng.
     """
     cua_toi = dang_trong_ca(dong_cua_toi, phut, ca)
-    lans = sorted({d.lan for d in cua_toi if d.lan is not None})
-    bac_si = {
-        str(x["staff_id"])
-        for x in lua_chon
-        if x.get("lan") is not None and x.get("lan") in lans
-    }
-    if any(d.bac_si and d.lan is None for d in cua_toi):
-        bac_si.add(toi)
-    if not lans and not bac_si:
+    if any(d.bac_si for d in cua_toi):
+        ids = {toi}
+    else:
+        ids = {
+            b.staff_id
+            for d in cua_toi
+            if d.ho_tro
+            for b in dong_bac_si
+            if b.bac_si
+            and b.vi_tri == d.ho_tro
+            and b.trang_thai != "REJECTED"
+            and _trung_ca(b.ca, d.ca)
+        }
+    if not ids:
         return {"co": False, "lan": [], "bac_si_ids": [], "nhan": None}
-    ten = [str(x["ten"]) for x in lua_chon if str(x["staff_id"]) in bac_si]
-    nhan = " · ".join([*(f"Làn {n}" for n in lans), *ten]) or "Làn của tôi"
-    return {"co": True, "lan": lans, "bac_si_ids": sorted(bac_si), "nhan": nhan}
+    ten = sorted(
+        {ten_bac_si(b.ten) for b in dong_bac_si if b.staff_id in ids}
+        or {ten_bac_si(d.ten) for d in cua_toi}
+    )
+    return {"co": True, "lan": [], "bac_si_ids": sorted(ids), "nhan": " · ".join(ten)}
 
 
 def la_khach_lan_toi(
@@ -184,7 +201,7 @@ def la_khach_lan_toi(
 _LICH_PHONG_SQL = """
 SELECT v.room_id::text AS room_id, v.code AS vi_tri, v.lan, v.sort,
        w.staff_id::text AS staff_id, s.full_name AS ten, w.shift, w.status,
-       (v.nhom_nghe = 'BAC_SI') AS bac_si
+       (v.nhom_nghe = 'BAC_SI') AS bac_si, v.ho_tro_code
   FROM public.work_roster w
   JOIN public.vi_tri_lam_viec v
     ON v.clinic_id = w.clinic_id AND v.code = w.station AND v.is_active
@@ -227,6 +244,7 @@ def _dong(r: Mapping[str, Any]) -> DongLich:
         ca=str(r["shift"]),
         trang_thai=str(r["status"]),
         bac_si=bool(r["bac_si"]),
+        ho_tro=r["ho_tro_code"],
     )
 
 
@@ -300,13 +318,7 @@ async def lan_cua_toi_trong_phong(
     if not cua_toi:
         return {"co": False, "lan": [], "bac_si_ids": [], "nhan": None}
     ca = await _ca_cua(conn, clinic_id)
-    return lan_cua_nguoi(
-        cua_toi,
-        bac_si_cua_phong(dong, phut, ca),
-        toi=staff_id,
-        phut=phut,
-        ca=ca,
-    )
+    return lan_cua_nguoi(cua_toi, dong, toi=staff_id, phut=phut, ca=ca)
 
 
 __all__ = [

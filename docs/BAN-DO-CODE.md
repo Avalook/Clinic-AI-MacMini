@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-03 15:43. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-04 10:44. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -2142,7 +2142,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `vat_tu_ton` | `20261014180000_vat_tu_so_kho.sql` | 1 |
 | `vat_tu_txn` | `20261014180000_vat_tu_so_kho.sql` | 0 |
 | `vi_tri_dong_ca` | `20260916000011_vi_tri_dong_ca.sql` | 0 |
-| `vi_tri_lam_viec` | `20260916000008_vi_tri_lam_viec_kim_nguu.sql` | 4 |
+| `vi_tri_lam_viec` | `20260916000008_vi_tri_lam_viec_kim_nguu.sql` | 5 |
 | `visit` | `20260714000001_baseline_schema.sql` | 11 |
 | `visit_amendment` | `20260801000003_adopt_prod_only_tables.sql` | 1 |
 | `visit_gate_override` | `20260804000014_gate_rule.sql` | 0 |
