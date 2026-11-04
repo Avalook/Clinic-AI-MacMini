@@ -337,7 +337,7 @@ async def test_phong_khong_bat_duoc_trong_tang_da_tat_va_tang_bat_lai_xep_cuoi(
     await floor_service.set_active(
         identity=identity, floor_id=floor["floor_id"], is_active=False
     )
-    with pytest.raises(ValidationError, match="bật lại tầng trước"):
+    with pytest.raises(ValidationError, match="khôi phục tầng trước"):
         await room_service.set_room_active(
             identity=identity, room_id=room["room_id"], is_active=True
         )

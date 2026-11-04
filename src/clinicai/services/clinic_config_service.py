@@ -653,8 +653,8 @@ class ClinicConfigService:
                 raise ValidationError("Không tìm thấy phòng này.")
             if is_active and room["floor_id"] is not None and not room["floor_active"]:
                 raise ValidationError(
-                    "Tầng của phòng đang ngừng sử dụng —"
-                    " bật lại tầng trước khi bật phòng."
+                    "Tầng của phòng đã xoá —"
+                    " khôi phục tầng trước khi khôi phục phòng."
                 )
             if not is_active:
                 con_khach = await conn.fetchval(
@@ -667,7 +667,7 @@ class ClinicConfigService:
                 if con_khach:
                     raise ValidationError(
                         f"Phòng còn {con_khach} khách đang chờ/đang làm —"
-                        " chuyển khách sang phòng khác trước khi tắt."
+                        " chuyển khách sang phòng khác trước khi xoá phòng."
                     )
             await conn.execute(
                 "UPDATE public.clinic_room SET is_active = $3, updated_at = now()"

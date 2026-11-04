@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
-import Chip from "@/components/ui/Chip";
+
+import { XacNhanXoa } from "./XacNhanXoa";
 
 const O_NHAP =
   "h-8 rounded-control border border-line bg-surface px-2 text-meta text-ink";
@@ -82,17 +83,12 @@ export function ViTriEditor({
         </label>
       ) : null}
       <div className="flex flex-wrap items-center gap-1">
-        <Chip tone={viTri.is_active ? "success" : "neutral"}>
-          {viTri.is_active ? "đang sử dụng" : "ngừng sử dụng"}
-        </Chip>
-        <Button
-          size="sm"
-          variant={viTri.is_active ? "danger" : "secondary"}
-          disabled={dangLam}
-          onClick={() => onDoi({ is_active: !viTri.is_active })}
-        >
-          {viTri.is_active ? "Ngừng sử dụng vị trí" : "Dùng lại vị trí"}
-        </Button>
+        <XacNhanXoa
+          nhan="Xoá vị trí"
+          cau={`Xoá ${viTri.ten}? Hàng này biến mất khỏi Lịch làm việc; lịch các ngày đã qua giữ nguyên.`}
+          dangLam={dangLam}
+          onXoa={() => onDoi({ is_active: false })}
+        />
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ const board = [
   read("../app/(dashboard)/settings/clinic-config/TangEditor.tsx"),
   read("../app/(dashboard)/settings/clinic-config/ViTriEditor.tsx"),
   read("../app/(dashboard)/settings/clinic-config/PhongForms.tsx"),
+  read("../app/(dashboard)/settings/clinic-config/XacNhanXoa.tsx"),
 ].join("\n");
 const route = read("../app/api/clinic-config/route.ts");
 
@@ -26,8 +27,8 @@ test("management can add, rename, reorder and softly remove floors on one screen
     "Đổi tên tầng",
     "Đưa tầng lên",
     "Đưa tầng xuống",
-    "Ngừng sử dụng tầng",
-    "Dùng lại tầng",
+    "Xoá tầng",
+    "Khôi phục",
   ]) {
     assert.ok(board.includes(label), `thiếu thao tác ${label}`);
   }
@@ -43,18 +44,19 @@ test("management can add, rename, reorder and softly remove floors on one screen
   );
 });
 
-test("rooms choose a floor id and use explicit soft-removal wording", () => {
+test("rooms choose a floor id; Xoá hides them and Đã xoá restores them (04/11/2026)", () => {
   assert.match(board, /floor_id:/);
-  assert.match(board, /Ngừng sử dụng phòng/);
-  assert.match(board, /Dùng lại phòng/);
+  assert.match(board, /nhan="Xoá phòng"/);
+  assert.match(board, /room-active", \{ room_id: r\.room_id, is_active: true \}/);
+  assert.match(board, /f\.rooms\.filter\(\(r\) => r\.is_active\)/);
   assert.doesNotMatch(board, />Tắt phòng</);
+  assert.doesNotMatch(board, /window\.confirm/);
 });
 
 test("positions can be renamed and softly removed beside their room schedule", () => {
   assert.match(board, /thao_tac:\s*"vi-tri"/);
-  assert.match(board, /is_active:\s*!viTri\.is_active/);
-  assert.match(board, /Ngừng sử dụng vị trí/);
-  assert.match(board, /Dùng lại vị trí/);
+  assert.match(board, /nhan="Xoá vị trí"/);
+  assert.match(board, /du_lieu: \{ is_active: true \}/);
   assert.match(board, /Lưu tên vị trí/);
 });
 
