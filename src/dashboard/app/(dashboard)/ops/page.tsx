@@ -13,6 +13,7 @@ import LoiCanhBao from "./LoiCanhBao";
 import NhatKyVanHanh from "./NhatKyVanHanh";
 import ToanCanh from "./ToanCanh";
 import LuuLuongOps from "./LuuLuongOps";
+import ThuLuatMoi from "./ThuLuatMoi";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ const TAB = [
   { ma: "loi", ten: "Lỗi & cảnh báo" },
   { ma: "nhat-ky", ten: "Nhật ký vận hành" },
   { ma: "traffic", ten: "Lưu lượng & Thiết bị" },
+  { ma: "thu-luat", ten: "Thử luật mới" },
 ] as const;
 type MaTab = (typeof TAB)[number]["ma"];
 
@@ -59,6 +61,8 @@ export default async function OpsPage({
         <NhatKyVanHanh />
       ) : dangMo === "traffic" ? (
         <LuuLuongOps />
+      ) : dangMo === "thu-luat" ? (
+        <ThuLuatMoi />
       ) : (
         <OpsCenter />
       )}
