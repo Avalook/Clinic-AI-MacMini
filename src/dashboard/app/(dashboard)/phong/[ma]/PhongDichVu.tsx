@@ -103,7 +103,7 @@ import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
 import { useChipLieuTrinh } from "../../_lam-viec/dung-chip-lieu-trinh";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
-/** Người đang xem đứng làn nào của phòng nhiều bác sĩ (máy chủ trả). */
+/** Người đang xem làm cho bác sĩ nào của phòng theo lịch (máy chủ trả). */
 interface LanCuaToi {
   co: boolean;
   lan: number[];
@@ -160,10 +160,8 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   // khung phải và các con số đầu màn không đổi theo ô tìm.
   const [tim, setTim] = useState("");
   const [yeuCau, setYeuCau] = useState<{ id: string; hanh: HanhDong; lan: number } | null>(null);
+  // Bác sĩ người xem làm cùng theo lịch (máy chủ tính) — chỉ để hiện chữ.
   const [chonBs, setChonBs] = useState("");
-  // Bác sĩ làn của người xem (máy chủ chọn, 27/10): để sẵn ở ô chọn một lần;
-  // người dùng tự đổi thì nạp lại không ghi đè.
-  const daChonBsTay = useRef(false);
   // Chuông nhận chéo mở `/phong/<id>?chi_dinh=<chỉ định>` → chọn sẵn đúng chỉ định.
   const chiDinhUrl = useSearchParams().get("chi_dinh");
   const [daMoUrl, setDaMoUrl] = useState(false);
@@ -229,7 +227,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         setSapDen(kq.data.sap_den_phong ?? []);
         setChiDinhKhach(kq.data.chi_dinh_khach ?? {});
         setBacSiPhong(kq.data.bac_si_phong ?? []);
-        if (!daChonBsTay.current) setChonBs(kq.data.bac_si_mac_dinh ?? "");
+        setChonBs(kq.data.bac_si_mac_dinh ?? "");
         setDem(kq.data.dem ?? null);
         setLaHomNay(kq.data.hom_nay ?? true);
         setLanToi(kq.data.lan_cua_toi?.co ? kq.data.lan_cua_toi : null);
@@ -402,7 +400,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           ) : null}
           {lanToi ? (
             <ChipLoc
-              nhan="Lọc khách theo làn"
+              nhan="Lọc khách theo bác sĩ"
               chon={cheDoLan}
               onChon={(m) => {
                 setCheDoLan(m);
@@ -411,8 +409,8 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               muc={[
                 {
                   ma: "lan",
-                  nhan: `Khách của làn tôi · ${lanToi.nhan ?? "làn của tôi"}`,
-                  title: "Khách quầy chọn bác sĩ làn của bạn + khách chưa chọn bác sĩ",
+                  nhan: `Khách của ${lanToi.nhan ?? "bác sĩ của tôi"}`,
+                  title: "Khách của bác sĩ bạn đang làm cùng theo lịch + khách chưa có bác sĩ",
                 },
                 { ma: "ca_phong", nhan: `Cả phòng (${taiPhong ? gomTheoKhach(ca).length : ca.length})` },
               ]}
@@ -459,10 +457,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               choNhan={laHomNay}
               bacSi={bacSiPhong}
               bacSiLamId={chonBs}
-              onChonBacSi={(id) => {
-                daChonBsTay.current = true;
-                setChonBs(id);
-              }}
+              lamCho={lanToi?.nhan ?? null}
               onChonDong={(id) => {
                 setChonId(id);
                 setYeuCau(null);

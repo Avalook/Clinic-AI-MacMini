@@ -1528,13 +1528,17 @@ class ServiceRoutingService:
         tu_dong: bool,
         nguon: str | None,
         du_kien: bool,
+        theo_nguoi_bam: bool = False,
     ) -> dict[str, Any]:
         """Ghi BÁC SĨ làm cho chỉ định trong phòng ``rid`` (phòng đã xếp, hoặc
         phòng dự kiến khi ``du_kien``). Người gọi đã kiểm quyền + khoá lượt.
 
-        ``KHONG_DOI`` → giữ; chưa có mà phòng có đúng MỘT bác sĩ trực → tự gán;
-        phòng nhiều bác sĩ mà người bấm đứng làn có đúng một bác sĩ → bác sĩ
-        của làn ấy (27/10). ``None`` → bỏ chọn. Mã → phải nằm trong lựa chọn
+        ``KHONG_DOI`` → giữ; chưa có thì bác sĩ CỦA NGƯỜI BẤM (ô bác sĩ của
+        họ, hoặc bác sĩ của ô phụ tá họ đứng), không ghép được mà phòng có đúng
+        MỘT bác sĩ trực → bác sĩ ấy. ``None`` → bỏ chọn.
+        Người bấm Ở PHÒNG (Nhận tại phòng, Bắt đầu — ``theo_nguoi_bam``) mà ghép
+        được → bác sĩ của họ THẮNG mọi lựa chọn trước đó (Tuyền 04/11/2026: "dù
+        đd 3 chọn bác sĩ 2 thì vẫn tính cho bác sĩ 3"). Mã → phải nằm trong lựa chọn
         của phòng hôm nay (`lan_bac_si.lua_chon_bac_si`), sai thì từ chối câu
         tiếng Việt.
         Đổi thì phát ``service.doctor_chosen`` (ai chọn = người gây ra lệnh)."""
@@ -1547,18 +1551,24 @@ class ServiceRoutingService:
         )
         lua_chon = (await lua_chon_bac_si(conn, cid, [rid], tru_luot=vid))[rid]
         tu_gan = False
+        # `theo_lan` giữ tên khoá sự kiện cũ: nay = "ghép theo ô phụ tá / ô bác sĩ
+        # của người bấm" (đo được trên prod: đếm sự kiện có theo_lan).
         theo_lan = False
         chon: Any = None
-        if bac_si is KHONG_DOI:
+        theo_nguoi_bam = theo_nguoi_bam or nguon == NGUON_TAI_PHONG
+        cua_toi: Mapping[str, Any] | None = None
+        if lua_chon and (bac_si is KHONG_DOI or theo_nguoi_bam):
+            cua_toi = bac_si_cua_lan(
+                lua_chon,
+                await lan_cua_toi_trong_phong(conn, cid, rid, identity.staff_id),
+            )
+        if theo_nguoi_bam and cua_toi is not None:
+            chon, tu_gan, theo_lan = cua_toi, True, True
+        elif bac_si is KHONG_DOI:
             if hien is not None:
                 return {"changed": False, "bac_si_lam_id": hien}
-            chon = bac_si_tu_gan(lua_chon)
-            if chon is None and lua_chon:
-                chon = bac_si_cua_lan(
-                    lua_chon,
-                    await lan_cua_toi_trong_phong(conn, cid, rid, identity.staff_id),
-                )
-                theo_lan = chon is not None
+            chon = cua_toi or bac_si_tu_gan(lua_chon)
+            theo_lan = cua_toi is not None
             if chon is None:
                 return {"changed": False, "bac_si_lam_id": None}
             tu_gan = True
@@ -1632,6 +1642,36 @@ class ServiceRoutingService:
             },
         )
         return {"changed": True, "bac_si_lam_id": moi}
+
+    async def bu_bac_si_khi_lam(
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        *,
+        vid: str,
+        oid: str,
+        rid: str | None,
+        ghi_de: bool,
+    ) -> None:
+        """Gán lại bác sĩ theo người bấm lúc làm. Bắt đầu (``ghi_de``): bác sĩ của
+        người bấm thắng lựa chọn cũ. Hoàn tất: chỉ điền khi còn trống. Bẫy prod
+        30/10: lịch trực xếp lúc 19:31, điều dưỡng Nhận lúc 19:24 → lúc Nhận máy
+        chưa ghép được, chỉ định rơi khỏi bác sĩ, mất KPI.
+        Người gọi đã kiểm quyền + khoá lượt."""
+        if rid is None:
+            return
+        await self._ghi_bac_si(
+            conn,
+            identity,
+            vid=vid,
+            oid=oid,
+            rid=str(rid),
+            bac_si=KHONG_DOI,
+            tu_dong=False,
+            nguon=None,
+            du_kien=False,
+            theo_nguoi_bam=ghi_de,
+        )
 
     async def tu_xep_da_thu(
         self,

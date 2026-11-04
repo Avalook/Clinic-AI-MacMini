@@ -284,6 +284,28 @@ async def _doi_quyen_lam(
         raise SafetyGateError(f"Bạn không có quyền “{tra_quyen(quyen).ten}”.")
 
 
+async def _bu_bac_si(
+    pool: asyncpg.Pool,
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    vid: str,
+    order_id: str,
+    don: asyncpg.Record,
+    *,
+    ghi_de: bool,
+) -> None:
+    """Người bấm Bắt đầu (``ghi_de``) / Hoàn tất làm cho bác sĩ nào theo lịch
+    thì chỉ định tính cho bác sĩ ấy — KPI không rơi khi lịch xếp muộn hơn lúc
+    Nhận. Ngày cũ bỏ qua: ghép đọc theo lịch HÔM NAY."""
+    if don["la_ngay_cu"]:
+        return
+    from clinicai.services.service_routing_service import ServiceRoutingService
+
+    await ServiceRoutingService(pool).bu_bac_si_khi_lam(
+        conn, identity, vid=vid, oid=order_id, rid=don["room_id"], ghi_de=ghi_de
+    )
+
+
 def cua_tien_ban_kham(
     tien: finance_gate.FinanceDecision | None,
     *,
@@ -559,6 +581,9 @@ class ServiceExecutionService:
             # Trong CÙNG giao dịch với việc mở lần làm: hai thứ ấy hoặc cùng
             # đúng, hoặc cùng không xảy ra.
             await cap_nhat_vi_tri(conn, cid, vid)
+            await _bu_bac_si(
+                self._pool, conn, identity, vid, order_id, don, ghi_de=True
+            )
 
             await emit_event(
                 conn,
@@ -644,6 +669,9 @@ class ServiceExecutionService:
                     "EXECUTION_STATE_INVALID", "Chỉ định không đang được làm."
                 )
             lan = await self._lan_dang_chay(conn, cid, order_id, attempt_id)
+            await _bu_bac_si(
+                self._pool, conn, identity, vid, order_id, don, ghi_de=False
+            )
             moi = await self._ghi_xong(conn, cid, vid, order_id, lan, identity, ghi)
             ket_qua = {
                 "ok": True,

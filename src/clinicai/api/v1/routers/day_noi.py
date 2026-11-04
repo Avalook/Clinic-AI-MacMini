@@ -92,6 +92,8 @@ class ViTriMoiBody(BaseModel):
     ten_ngan: str | None = Field(default=None, max_length=200)
     tang: str | None = Field(default=None, max_length=60)
     room_id: UUID | None = None
+    #: Ô phụ tá: ô bác sĩ cùng phòng mà ô này hỗ trợ.
+    ho_tro_id: UUID | None = None
 
 
 @router.post("/day-noi/vi-tri", status_code=201)
@@ -107,6 +109,7 @@ async def tao_vi_tri(
         ten_ngan=body.ten_ngan,
         tang=body.tang,
         room_id=str(body.room_id) if body.room_id else None,
+        ho_tro_id=str(body.ho_tro_id) if body.ho_tro_id else None,
     )
 
 
@@ -119,6 +122,10 @@ class ViTriSuaBody(BaseModel):
     room_id: UUID | None = None
     bo_phong: bool = False
     is_active: bool | None = None
+    nhom_nghe: str | None = None
+    ho_tro_id: UUID | None = None
+    #: True = ô không đi theo bác sĩ nào (ô nhân viên).
+    bo_ho_tro: bool = False
 
 
 @router.patch("/day-noi/vi-tri/{vi_tri_id}")
@@ -138,6 +145,9 @@ async def sua_vi_tri(
         room_id=str(body.room_id) if body.room_id else None,
         bo_phong=body.bo_phong,
         is_active=body.is_active,
+        nhom_nghe=body.nhom_nghe,
+        ho_tro_id=str(body.ho_tro_id) if body.ho_tro_id else None,
+        bo_ho_tro=body.bo_ho_tro,
     )
 
 

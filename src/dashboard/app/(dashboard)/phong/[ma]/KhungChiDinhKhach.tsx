@@ -27,7 +27,7 @@ import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 import { nhanBuoi, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 
 import { cauChiDinhPhong, coMoiTick, type ChiDinhPhong, type DongHangCho } from "../../_lam-viec/api";
-import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
+import { type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
 import { OTickTaiCho } from "../../_lam-viec/OLamTruocThuSau";
 import NhanChiDinh from "./NhanChiDinh";
 
@@ -57,18 +57,20 @@ export default function KhungChiDinhKhach({
   choNhan,
   bacSi,
   bacSiLamId,
-  onChonBacSi,
   onChonDong,
   onHanhDong,
   onDaNhan,
   onBao,
   lieuTrinh = null,
   moBanKham = null,
+  lamCho = null,
   nhanXong = "Xong",
 }: {
   /** Chữ nút kết thúc của dòng đang làm. Phòng đối tác: "Đã nhận mẫu" (cùng
    *  lệnh nhận mẫu, 16/10/2026) — không để "Xong" đóng lần làm mà thiếu mốc. */
   nhanXong?: string;
+  /** "BS X" — người đang đăng nhập làm cho bác sĩ nào ở phòng này (máy chủ ghép). */
+  lamCho?: string | null;
   /** Link "Mở bàn khám" (máy chủ trả ở Sắp đến): lượt Thủ thuật chưa có chỉ định. */
   moBanKham?: string | null;
   /** Chip liệu trình của cả lô (08/10/2026): "Buổi k/N · đã trả trước" trên dòng
@@ -89,13 +91,15 @@ export default function KhungChiDinhKhach({
   choNhan: boolean;
   bacSi: LuaChonBacSi[];
   bacSiLamId: string;
-  onChonBacSi: (id: string) => void;
   onChonDong: (dongId: string) => void;
   onHanhDong: (dongId: string, hanh: HanhDong) => void;
   onDaNhan: () => void;
   onBao: (tb: ThongBao) => void;
 }) {
   const theoRef = new Map(dong.map((d) => [d.ref_id, d]));
+  // Tên lấy từ ghép theo lịch (`lan_cua_toi.nhan`) — có cả khi khách đã ở hàng
+  // chờ; ô chọn cũ chỉ có danh sách bác sĩ lúc khách còn "Sắp đến" (staging 04/11).
+  const tenBacSi = lamCho ?? bacSi.find((b) => b.staff_id === bacSiLamId)?.ten ?? null;
   // Không có danh sách máy chủ (ngày cũ): vẽ theo dòng hàng chờ.
   const hang: Dong[] =
     chiDinh.length > 0
@@ -132,8 +136,12 @@ export default function KhungChiDinhKhach({
           {maKhach ? <span className="text-ink-muted"> · {maKhach}</span> : null}
           {dangO ? <span className="text-meta text-ink-muted"> · {dangO}</span> : null}
         </p>
-        {nhanDuoc.length > 0 && coChonBacSi(bacSi) ? (
-          <ChonBacSiLam co="nho" ds={bacSi} value={bacSiLamId} onChon={onChonBacSi} />
+        {/* Không còn ô chọn bác sĩ ở phòng (Tuyền 04/11/2026): máy chủ tính bác sĩ
+            theo lịch của người đăng nhập — đổi bác sĩ thì sửa lịch. */}
+        {nhanDuoc.length > 0 && tenBacSi ? (
+          <span className="text-meta text-ink-muted">
+            Làm cho <b className="font-semibold text-ink">{tenBacSi}</b>
+          </span>
         ) : null}
         {nhanDuoc.length >= 2 ? (
           <span className="flex flex-wrap items-center gap-2">

@@ -46,7 +46,8 @@ def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @dataclass
 class Lan:
-    """Phòng SA1 của `rb` chia hai làn: BS A (làn 1), BS B (làn 2) + ĐD làn 2."""
+    """Phòng SA1 của `rb`: ô BS1 (BS A) + ô ĐD1 hỗ trợ BS1; ô BS2 (BS B) + ô ĐD2
+    hỗ trợ BS2, ĐD 2 đứng ô ĐD2."""
 
     rb: RB
     bs_a: StaffIdentity
@@ -56,17 +57,25 @@ class Lan:
     vt: dict[str, str]
 
 
-async def _vi_tri(b: RB, room_id: str, nhom: str, lan: int | None, sort: int) -> str:
+async def _vi_tri(
+    b: RB,
+    room_id: str,
+    nhom: str,
+    lan: int | None,
+    sort: int,
+    ho_tro: str | None = None,
+) -> str:
     ma = f"VT-{b.duoi}-{uuid.uuid4().hex[:6]}"
     await b.pool.execute(
         "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, nhom_nghe, room_id,"
-        " lan, sort) VALUES ($1::uuid, $2, $2, $3, $4::uuid, $5, $6)",
+        " lan, sort, ho_tro_code) VALUES ($1::uuid, $2, $2, $3, $4::uuid, $5, $6, $7)",
         CLINIC,
         ma,
         nhom,
         room_id,
         lan,
         sort,
+        ho_tro,
     )
     return ma
 
@@ -93,14 +102,13 @@ async def lan(rb: RB) -> Lan:  # noqa: F811
         bs_b = await _nguoi(conn, b.loc, "ULTRASOUND_DOCTOR")
         bs_c = await _nguoi(conn, b.loc, "ULTRASOUND_DOCTOR")
         dd_2 = await _nguoi(conn, b.loc, "NURSE_ULTRASOUND")
-    vt = {
-        "bs1": await _vi_tri(b, b.sa1, "BAC_SI", 1, 1),
-        "dd1": await _vi_tri(b, b.sa1, "DIEU_DUONG", 1, 2),
-        "bs2": await _vi_tri(b, b.sa1, "BAC_SI", 2, 3),
-        "dd2": await _vi_tri(b, b.sa1, "DIEU_DUONG", 2, 4),
-        # SA2: một bác sĩ (không ghi làn) → tự gán.
-        "bs_sa2": await _vi_tri(b, b.sa2, "BAC_SI", None, 1),
-    }
+    vt: dict[str, str] = {}
+    vt["bs1"] = await _vi_tri(b, b.sa1, "BAC_SI", 1, 1)
+    vt["dd1"] = await _vi_tri(b, b.sa1, "DIEU_DUONG", 1, 2, vt["bs1"])
+    vt["bs2"] = await _vi_tri(b, b.sa1, "BAC_SI", 2, 3)
+    vt["dd2"] = await _vi_tri(b, b.sa1, "DIEU_DUONG", 2, 4, vt["bs2"])
+    # SA2: một bác sĩ → tự gán.
+    vt["bs_sa2"] = await _vi_tri(b, b.sa2, "BAC_SI", None, 1)
     await _truc(b, vt["bs1"], bs_a)
     await _truc(b, vt["bs2"], bs_b)
     await _truc(b, vt["dd2"], dd_2)
@@ -299,7 +307,7 @@ async def test_phong_hai_bac_si_tu_gan_bac_si_cung_lan_nguoi_bam(lan: Lan) -> No
     async with b.pool.acquire() as conn:
         ls = await lich_su_phong_cua_luot(conn, clinic_id=CLINIC, visit_id=b.visit_id)
     [cau] = [d["cau"] for d in ls[oid] if d["loai"] == "service.doctor_chosen"]
-    assert cau.endswith("cùng làn 2 với người nhận")
+    assert cau.endswith("theo lịch làm việc của người bấm")
 
     # Lễ tân không đứng làn nào của phòng → không đoán.
     oid2 = await _cd(b)
@@ -373,10 +381,11 @@ async def test_hang_cho_phong_loc_theo_lan_va_hien_bac_si(lan: Lan) -> None:
             idempotency_key=f"bs-{uuid.uuid4().hex}",
             bac_si_lam_id=bs.staff_id if bs else None,
         )
-    # Trưởng ca được xếp đứng ĐD làn 2 hôm nay → "Khách của làn tôi" = làn 2.
+    # Trưởng ca được xếp đứng ô ĐD2 (hỗ trợ ô BS2) → khách của tôi = của BS B.
     await _truc(b, lan.vt["dd2"], b.truong_ca)
     hc = await LuotKhamService(b.pool).hang_cho(identity=b.truong_ca, room_id=b.sa1)
-    assert hc["lan_cua_toi"]["co"] and hc["lan_cua_toi"]["lan"] == [2]
+    assert hc["lan_cua_toi"]["co"]
+    assert hc["lan_cua_toi"]["bac_si_ids"] == [lan.bs_b.staff_id]
     dong = {d["ref_id"]: d for d in hc["hang_cho"] if d["ref_id"]}
     assert dong[cua_b]["lan_toi"] and dong[cua_b]["bac_si_lam"].startswith("BS ")
     assert not dong[cua_a]["lan_toi"]
@@ -424,3 +433,135 @@ async def test_hanh_trinh_va_phieu_ghi_bac_si(lan: Lan) -> None:
     )
     [d] = [d for d in ph["dong"] if d.get("order_id") == oid]
     assert d["phong"]["ten"] == ten_phong and d["phong"]["bac_si"].startswith("BS ")
+
+
+async def test_lich_xep_sau_khi_nhan_bat_dau_gan_bu_bac_si_cung_lan(
+    lan: Lan,
+    bat: RB,  # noqa: F811
+) -> None:
+    """Prod 30/10 tầng 4 Hào Nam: ĐD Nhận lúc 19:24, lịch trực xếp 19:31 →
+    lúc Nhận máy chưa biết làn, chỉ định không có bác sĩ (mất KPI). Bắt đầu /
+    Hoàn tất phải gán bù bác sĩ của ô phụ tá người bấm đứng."""
+    import uuid as _u
+
+    from clinicai.services.service_execution_service import ServiceExecutionService
+
+    b = lan.rb
+    oid = await _cd_o(b, b.sa1)
+    await _nhan(b, b.sa1, oid)
+    assert (await _bs(b, oid))["id"] is None, "chưa có lịch → chưa đoán"
+
+    await _truc(b, lan.vt["dd2"], b.truong_ca)
+    r = await _bs(b, oid)
+    await ServiceExecutionService(b.pool).bat_dau(
+        order_id=oid,
+        expected_execution_revision=int(
+            await b.pool.fetchval(
+                "SELECT execution_revision FROM service_order WHERE id = $1::uuid",
+                oid,
+            )
+        ),
+        expected_routing_revision=int(r["routing_revision"]),
+        identity=b.truong_ca,
+        idempotency_key=str(_u.uuid4()),
+    )
+    o = await _bs(b, oid)
+    assert (o["id"], o["lan_lam"]) == (lan.bs_b.staff_id, 2)
+    [ev] = await _su_kien_bs(b, oid)
+    assert ev["theo_lan"] is True and ev["tu_dong"] is True
+
+
+async def _bat_dau(b: RB, oid: str, ai: StaffIdentity) -> None:
+    import uuid as _u
+
+    from clinicai.services.service_execution_service import ServiceExecutionService
+
+    r = await _bs(b, oid)
+    await ServiceExecutionService(b.pool).bat_dau(
+        order_id=oid,
+        expected_execution_revision=int(
+            await b.pool.fetchval(
+                "SELECT execution_revision FROM service_order WHERE id = $1::uuid",
+                oid,
+            )
+        ),
+        expected_routing_revision=int(r["routing_revision"]),
+        identity=ai,
+        idempotency_key=str(_u.uuid4()),
+    )
+
+
+async def test_nguoi_bam_o_phong_thang_lua_chon_truoc(
+    lan: Lan,
+    bat: RB,  # noqa: F811
+) -> None:
+    """Tuyền 04/11/2026: "dù đd 3 chọn bác sĩ 2 thì vẫn tính cho bác sĩ 3".
+    Quầy đã chọn BS A; người đứng ô ĐD2 (hỗ trợ BS2 = BS B) Nhận → BS B. Bác sĩ
+    đã ghi rồi mà Bắt đầu bởi người của BS B → vẫn BS B."""
+    b = lan.rb
+    await _truc(b, lan.vt["dd2"], b.truong_ca)
+    oid = await _cd_o(b, b.sa1)
+    await b.svc.dat_phong_du_kien(
+        order_id=oid,
+        room_id=b.sa1,
+        identity=b.truong_ca,
+        bac_si_lam_id=lan.bs_a.staff_id,
+    )
+    await _nhan(b, b.sa1, oid)
+    assert (await _bs(b, oid))["id"] == lan.bs_b.staff_id
+
+    # Ghi tay về BS A (như quầy đổi), rồi người của BS B Bắt đầu → BS B.
+    await b.pool.execute(
+        "UPDATE service_order SET bac_si_lam_id = $2::uuid WHERE id = $1::uuid",
+        oid,
+        lan.bs_a.staff_id,
+    )
+    await _bat_dau(b, oid, b.truong_ca)
+    assert (await _bs(b, oid))["id"] == lan.bs_b.staff_id
+
+
+async def test_nguoi_khong_co_lich_giu_bac_si_da_ghi(
+    lan: Lan,
+    bat: RB,  # noqa: F811
+) -> None:
+    """Người bấm không đứng ô nào của phòng → không đoán, giữ bác sĩ đã ghi."""
+    b = lan.rb
+    oid = await _cd_o(b, b.sa1)
+    await _nhan(b, b.sa1, oid)
+    await b.pool.execute(
+        "UPDATE service_order SET bac_si_lam_id = $2::uuid WHERE id = $1::uuid",
+        oid,
+        lan.bs_a.staff_id,
+    )
+    await _bat_dau(b, oid, b.truong_ca)
+    assert (await _bs(b, oid))["id"] == lan.bs_a.staff_id
+
+
+async def test_o_ho_tro_ep_o_postgres(lan: Lan) -> None:
+    """Ô phụ tá chỉ hỗ trợ ô BÁC SĨ đang dùng cùng phòng; ô bác sĩ đổi nhóm /
+    tắt → ô phụ tá của nó thành chưa gắn."""
+    import asyncpg
+
+    b = lan.rb
+    with pytest.raises(asyncpg.CheckViolationError):
+        await b.pool.execute(
+            "UPDATE vi_tri_lam_viec SET ho_tro_code = $2 WHERE code = $1",
+            lan.vt["dd1"],
+            lan.vt["bs_sa2"],  # ô bác sĩ PHÒNG KHÁC
+        )
+    with pytest.raises(asyncpg.CheckViolationError):
+        await b.pool.execute(
+            "UPDATE vi_tri_lam_viec SET ho_tro_code = $2 WHERE code = $1",
+            lan.vt["dd1"],
+            lan.vt["dd2"],  # không phải ô bác sĩ
+        )
+    await b.pool.execute(
+        "UPDATE vi_tri_lam_viec SET nhom_nghe = 'DIEU_DUONG' WHERE code = $1",
+        lan.vt["bs2"],
+    )
+    assert (
+        await b.pool.fetchval(
+            "SELECT ho_tro_code FROM vi_tri_lam_viec WHERE code = $1", lan.vt["dd2"]
+        )
+        is None
+    )

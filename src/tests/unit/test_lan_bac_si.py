@@ -37,6 +37,7 @@ def _d(
     bac_si: bool = True,
     tt: str = "APPROVED",
     sort: int = 0,
+    ho_tro: str | None = None,
 ) -> DongLich:
     return DongLich(
         room_id="p",
@@ -48,6 +49,7 @@ def _d(
         ca=ca,
         trang_thai=tt,
         bac_si=bac_si,
+        ho_tro=ho_tro,
     )
 
 
@@ -112,28 +114,57 @@ def test_mot_bac_si_thi_tu_gan_khong_hien_o() -> None:
 
 
 def test_lan_cua_nguoi_va_loc_khach() -> None:
-    lua_chon = bac_si_cua_phong([_d("a", 1), _d("b", 2)], SANG, CA)
-    # Điều dưỡng làn 2.
+    """Ô phụ tá ghép với người đứng ô bác sĩ nó hỗ trợ (Tuyền 04/11/2026)."""
+    bs = [_d("a", None, vi_tri="BS1"), _d("b", None, vi_tri="BS2")]
     toi = lan_cua_nguoi(
-        [_d("dd", 2, bac_si=False)], lua_chon, toi="dd", phut=SANG, ca=CA
+        [_d("dd", None, vi_tri="DD2", bac_si=False, ho_tro="BS2")],
+        bs,
+        toi="dd",
+        phut=SANG,
+        ca=CA,
     )
-    assert toi["co"] and toi["lan"] == [2] and toi["bac_si_ids"] == ["b"]
-    assert toi["nhan"].startswith("Làn 2 · BS")
+    assert toi["co"] and toi["bac_si_ids"] == ["b"] and toi["lan"] == []
+    assert toi["nhan"] == "BS Tên b"
     assert la_khach_lan_toi(bac_si_lam_id="b", lan_lam=2, lan_toi=toi)
     assert not la_khach_lan_toi(bac_si_lam_id="a", lan_lam=1, lan_toi=toi)
-    # Chưa chọn bác sĩ: thuộc mọi làn.
+    # Chưa chọn bác sĩ: ai trong phòng cũng nhận.
     assert la_khach_lan_toi(bac_si_lam_id=None, lan_lam=None, lan_toi=toi)
-    # Lựa chọn cũ không ghi làn nhưng đúng bác sĩ của làn tôi.
-    assert la_khach_lan_toi(bac_si_lam_id="b", lan_lam=None, lan_toi=toi)
-    # Không đứng làn nào → không lọc gì.
+    # Ô phụ tá chưa gắn ô bác sĩ → không ghép, không lọc gì.
     khong = lan_cua_nguoi(
-        [_d("x", None, bac_si=False)], lua_chon, toi="x", phut=SANG, ca=CA
+        [_d("x", None, vi_tri="DD9", bac_si=False)], bs, toi="x", phut=SANG, ca=CA
     )
     assert not khong["co"]
     assert la_khach_lan_toi(bac_si_lam_id="a", lan_lam=1, lan_toi=khong)
-    # Bác sĩ đứng vị trí không ghi làn → "làn" của chính mình.
-    bs = lan_cua_nguoi([_d("c", None)], lua_chon, toi="c", phut=SANG, ca=CA)
-    assert bs["co"] and bs["bac_si_ids"] == ["c"]
+    # Bác sĩ đứng ô bác sĩ → chính mình, kể cả khi cùng ca đứng thêm ô phụ tá.
+    tu = lan_cua_nguoi(
+        [
+            _d("c", None, vi_tri="BS3"),
+            _d("c", None, vi_tri="DD1", bac_si=False, ho_tro="BS1"),
+        ],
+        bs,
+        toi="c",
+        phut=SANG,
+        ca=CA,
+    )
+    assert tu["co"] and tu["bac_si_ids"] == ["c"]
+
+
+def test_phu_ta_ghep_theo_ca_va_bo_o_trong() -> None:
+    """Ô bác sĩ sáng / tối khác người: phụ tá ca tối chỉ ghép bác sĩ ca tối, kể
+    cả khi bấm ngoài giờ ca (Hoàn tất lúc 21:40 → cả ngày)."""
+    bs = [_d("sang", None, "SANG", vi_tri="BS1"), _d("toi", None, "TOI", vi_tri="BS1")]
+    dd = [_d("dd", None, "TOI", vi_tri="DD1", bac_si=False, ho_tro="BS1")]
+    assert lan_cua_nguoi(dd, bs, toi="dd", phut=TOI, ca=CA)["bac_si_ids"] == ["toi"]
+    assert lan_cua_nguoi(dd, bs, toi="dd", phut=None, ca=CA)["bac_si_ids"] == ["toi"]
+    # Ô bác sĩ bị từ chối / để trống → không ai.
+    tu_choi = [_d("toi", None, "TOI", vi_tri="BS1", tt="REJECTED")]
+    assert not lan_cua_nguoi(dd, tu_choi, toi="dd", phut=TOI, ca=CA)["co"]
+    assert not lan_cua_nguoi(dd, [], toi="dd", phut=TOI, ca=CA)["co"]
+    # Bất kỳ ai đứng ô phụ tá (kể cả bác sĩ khác đứng ô không phải bác sĩ).
+    bs_khac = [_d("hoang", None, "TOI", vi_tri="DD1", bac_si=False, ho_tro="BS1")]
+    assert lan_cua_nguoi(bs_khac, bs, toi="hoang", phut=TOI, ca=CA)["bac_si_ids"] == [
+        "toi"
+    ]
 
 
 def test_gan_bac_si_vao_ung_vien_chi_khi_hai_bac_si() -> None:
@@ -187,7 +218,7 @@ def test_lich_su_chon_bac_si() -> None:
     assert cau(tu_bac_si_id="a", nguon="quay_thu").startswith("Quầy thu bỏ chọn bác sĩ")
     assert cau(bac_si_id="a", tu_dong=True).endswith("phòng chỉ có một bác sĩ trực")
     assert cau(bac_si_id="a", tu_dong=True, theo_lan=True, lan=1).endswith(
-        "cùng làn 1 với người nhận"
+        "theo lịch làm việc của người bấm"
     )
     # Payload rác vẫn ra một dòng.
     assert dong_lich_su(
