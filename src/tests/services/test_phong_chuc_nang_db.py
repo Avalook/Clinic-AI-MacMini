@@ -38,14 +38,41 @@ SELECT r.id, 'doi_tac', false FROM clinic_room r WHERE r.la_doi_tac
 """
 
 
+# Câu gieo của migration, chép nguyên.
+_GIEO = """
+INSERT INTO phong_chuc_nang (clinic_id, room_id, work_pack, theo_phong)
+SELECT DISTINCT rn.clinic_id, rn.room_id, m.work_pack, m.theo_phong
+  FROM clinic_room_node rn
+  JOIN clinic_room r ON r.id = rn.room_id AND r.clinic_id = rn.clinic_id
+ CROSS JOIN LATERAL chuc_nang_mac_dinh_cua_viec(rn.node_code) m
+ON CONFLICT (room_id, work_pack) DO NOTHING;
+INSERT INTO phong_chuc_nang (clinic_id, room_id, work_pack, theo_phong)
+SELECT r.clinic_id, r.id, 'doi_tac', false FROM clinic_room r WHERE r.la_doi_tac
+ON CONFLICT (room_id, work_pack) DO NOTHING;
+"""
+
+
 async def test_gieo_san_y_het_bang_tra_cu(kb: KichBan) -> None:
-    cu = {tuple(r) for r in await kb.pool.fetch(_CU)}
-    moi = {
-        tuple(r)
-        for r in await kb.pool.fetch(
-            "SELECT room_id, work_pack, theo_phong FROM phong_chuc_nang"
-        )
-    }
+    """Gieo lại từ đầu trên ảnh chụp DB rồi so với cách cũ; rollback.
+
+    Không so thẳng bảng đang chạy: bài khác chạy song song gỡ việc khỏi phòng,
+    mà bảng mới cố ý giữ tick (khác cách cũ) — so thẳng thì đỏ chập chờn.
+    """
+    async with kb.pool.acquire() as conn:
+        gd = conn.transaction(isolation="repeatable_read")
+        await gd.start()
+        try:
+            cu = {tuple(r) for r in await conn.fetch(_CU)}
+            await conn.execute("DELETE FROM phong_chuc_nang")
+            await conn.execute(_GIEO)
+            moi = {
+                tuple(r)
+                for r in await conn.fetch(
+                    "SELECT room_id, work_pack, theo_phong FROM phong_chuc_nang"
+                )
+            }
+        finally:
+            await gd.rollback()
     assert cu, "DB test phải có phòng gắn việc"
     assert moi == cu
 
