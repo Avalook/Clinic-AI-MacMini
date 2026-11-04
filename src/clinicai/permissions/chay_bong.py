@@ -66,7 +66,8 @@ WITH lich AS (
                  '{}') AS phong_lich,
         EXISTS (SELECT 1 FROM phong p JOIN public.phong_chuc_nang f
                   ON f.room_id = p.room_id AND f.work_pack = $9
-                 WHERE NOT $6 OR $4::uuid IS NULL OR p.room_id = $4::uuid) AS dung,
+                 WHERE CASE WHEN $6 AND $4::uuid IS NOT NULL
+                            THEN p.room_id = $4::uuid ELSE true END) AS dung,
         EXISTS (SELECT 1 FROM phong p JOIN public.phong_chuc_nang f
                   ON f.room_id = p.room_id AND f.work_pack = $9) AS co_o_phong_khac,
         EXISTS (SELECT 1 FROM phong) AS co_phong,
@@ -75,8 +76,8 @@ WITH lich AS (
         EXISTS (SELECT 1 FROM public.v_quyen_hieu_luc q
                  WHERE q.clinic_id = $1::uuid AND q.staff_id = $2::uuid
                    AND q.capability = $3
-                   AND (q.scope_type = 'CLINIC'
-                        OR ($4::uuid IS NOT NULL AND q.scope_id = $4::uuid))) AS co_cap
+                   AND CASE WHEN q.scope_type = 'CLINIC' THEN true
+                            ELSE q.scope_id = $4::uuid END) AS co_cap
 )
 INSERT INTO public.quyen_chay_bong
     (clinic_id, staff_id, capability, work_pack, nhom, phong_id, phong_lich,

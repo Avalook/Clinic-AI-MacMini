@@ -6,11 +6,12 @@
 -- biết ai sẽ bị chặn ở việc nào.
 
 -- ── Sổ chạy bóng ───────────────────────────────────────────────────────────
--- Không khoá ngoại: sổ đo, ghi ở mọi lệnh, không được chặn xoá người/phòng.
+-- Chỉ khoá ngoại phòng khám (luật đa phòng khám); người / phòng không khoá —
+-- sổ đo không được chặn xoá người / phòng.
 -- Dọn > 45 ngày (worker su-kien, `permissions/chay_bong.py`).
 CREATE TABLE IF NOT EXISTS public.quyen_chay_bong (
     id          bigserial PRIMARY KEY,
-    clinic_id   uuid NOT NULL,
+    clinic_id   uuid NOT NULL REFERENCES public.clinic (id) ON DELETE CASCADE,
     staff_id    uuid NOT NULL,
     luc         timestamptz NOT NULL DEFAULT now(),
     ngay        date NOT NULL DEFAULT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
