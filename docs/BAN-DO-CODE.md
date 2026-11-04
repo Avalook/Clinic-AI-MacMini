@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-04 10:48. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-04 10:49. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -2083,6 +2083,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `prescription_correction` | `20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql` | 0 |
 | `province` | `20260714000001_baseline_schema.sql` | 0 |
 | `queue_entry` | `20260911000001_luot_kham_lat_1.sql` | 2 |
+| `quyen_chay_bong` | `20261104810000_quyen_chay_bong.sql` | 0 |
 | `quyen_preset` | `20260923000011_nhom_quyen_mau.sql` | 0 |
 | `result_correction` | `20260923000014_sua_ket_qua_giu_ban_cu.sql` | 0 |
 | `review_round` | `20260911000001_luot_kham_lat_1.sql` | 0 |

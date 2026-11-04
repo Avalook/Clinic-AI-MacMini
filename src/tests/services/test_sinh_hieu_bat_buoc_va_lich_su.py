@@ -124,7 +124,10 @@ async def test_don_kham_khong_huyet_ap_bi_chan_truoc_moi_lenh_ghi() -> None:
             objective={"vitals": {"mach": "80"}},
             objective_sent=True,
         )
-    conn.execute.assert_not_awaited()
+    # Dòng sổ chạy bóng quyền (permissions/chay_bong.py) không phải lệnh ghi hồ sơ.
+    assert not [
+        c for c in conn.execute.await_args_list if "quyen_chay_bong" not in str(c)
+    ]
 
 
 @pytest.mark.asyncio

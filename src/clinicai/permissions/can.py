@@ -28,6 +28,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions import cache
 from clinicai.permissions.catalogue import tra_quyen
+from clinicai.permissions.chay_bong import ghi_bong
 
 _CAU_HOI = """
 SELECT EXISTS (
@@ -120,8 +121,14 @@ async def doi_quyen(
     phong_id: str | None = None,
     cau: str | None = None,
 ) -> None:
-    """Như `can`, nhưng không có quyền thì chặn lệnh."""
-    if not await can(conn, identity, quyen, phong_id=phong_id):
+    """Như `can`, nhưng không có quyền thì chặn lệnh.
+
+    Mỗi lần hỏi ghi thêm một dòng chạy bóng luật "đứng đâu làm việc đó"
+    (`permissions/chay_bong.py`) — chỉ đo, không đổi kết quả.
+    """
+    co = await can(conn, identity, quyen, phong_id=phong_id)
+    await ghi_bong(conn, identity, quyen, phong_id=phong_id, cho_cu=co)
+    if not co:
         ten = tra_quyen(quyen).ten
         raise SafetyGateError(cau or f"Bạn không có quyền “{ten}”.")
 
