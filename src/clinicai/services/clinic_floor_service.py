@@ -225,7 +225,7 @@ class ClinicFloorService:
                 if active_rooms:
                     raise ValidationError(
                         f"Tầng còn {active_rooms} phòng đang hoạt động —"
-                        " chuyển hoặc tắt phòng trước khi xoá tầng."
+                        " chuyển hoặc xoá phòng trước khi xoá tầng."
                     )
             if is_active and not floor["is_active"]:
                 next_order = await conn.fetchval(
