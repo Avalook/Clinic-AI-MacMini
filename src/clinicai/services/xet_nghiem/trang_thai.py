@@ -104,7 +104,13 @@ def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
     if sv.co_tep and sv.tep_moi_nhat_da_gui:
         return replace(_tao("DA_GUI", sv), ly_do_khong_lay_mau="Đã có kết quả")
     if sv.da_dong:
-        return replace(_tao("DA_DONG", sv), ly_do_khong_lay_mau="Việc đã đóng")
+        # Đã đóng mà vẫn có tệp còn hiệu lực chưa gửi (đối tác gửi muộn) — giữ
+        # DA_DONG nhưng bật cờ để bàn hiện "có kết quả mới" cho CSKH gửi (soát #600).
+        return replace(
+            _tao("DA_DONG", sv),
+            co_ban_moi_chua_gui=sv.co_tep,
+            ly_do_khong_lay_mau="Việc đã đóng",
+        )
     if sv.co_tep:
         return replace(
             _tao("CO_KET_QUA", sv),

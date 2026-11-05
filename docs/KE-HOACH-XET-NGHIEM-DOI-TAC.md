@@ -270,6 +270,11 @@ Dải giờ migration riêng cho việc này: **`2026110520xxxx`–`2026110529xx
 - **PR 3.1 (migration):** `mau_xet_nghiem`, `mau_xet_nghiem_viec`, bộ đếm + `cap_ma_mau()`, FK ghép, quyền "cho qua" chỉ Quản lý.
 - **PR 3.2 (service):** `services/xet_nghiem/mau.py` — `lay_mau(viec_ids)` (chặn nếu việc nào `CHO_THU` mà không được cho qua;
   chặn khác đối tác), `huy_mau`, `sua_hen_tra`, `cho_lay_mau_truoc` (quản lý, lý do); `ma_mau.py` (Damm).
+  **Gỡ cho qua** (soát #600 — luật "không khoá cứng"): lệnh `go_cho_qua` (quản lý, lý do ≥ 3 ký tự, sự kiện
+  `lab.prepay_waiver_revoked`), chặn khi việc đã có mẫu còn hiệu lực. Migration chặng 3 thêm cột
+  `cho_lay_mau_go_luc / _boi / _ly_do` vào `xet_nghiem_viec` và sửa trigger `xet_nghiem_viec_chi_cho_qua()`
+  cho phép ĐÓNG cho qua đúng một lần (khuôn `doi_tac_thanh_toan`: huỷ một lần, không sửa nội dung).
+  Gỡ xong muốn cho qua lại ⇒ chưa hỗ trợ (một việc một lần cho qua); cần thì Tuyền quyết thêm.
 - **PR 3.3 (service):** tải tay — `tai_ket_qua_tay(mau_id | viec_id, tep)` gọi `tep_ket_qua_service.tai_len` có sẵn với
   `service_order_id`; nhân viên đã chọn đúng việc ⇒ xác nhận **cùng bước**; báo qua `bao_ket_qua_ve`.
   Tệp cho cả ống nhiều việc: tạo một `tep_ket_qua` cho **mỗi** việc trỏ cùng nội dung (cùng `sha256`), không nhân bản tệp trên đĩa nếu kho tệp hỗ trợ; nếu không thì chép — ghi lựa chọn trong PR.

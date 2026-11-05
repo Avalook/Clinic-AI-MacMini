@@ -99,6 +99,16 @@ def test_chi_cho_lay_mau_moi_mo_nut() -> None:
         assert (tt.ly_do_khong_lay_mau is None) == tt.co_the_lay_mau
 
 
+@pytest.mark.parametrize(("co_tep", "co_moi"), [(True, True), (False, False)])
+def test_dong_co_tep_chua_gui_bat_co_ban_moi(co_tep: bool, co_moi: bool) -> None:
+    """Soát #600: đã đóng mà đối tác gửi tệp muộn ⇒ vẫn DA_DONG, bàn hiện "có kết
+    quả mới" (cờ) để CSKH gửi."""
+    tt = trang_thai_xet_nghiem(
+        SuViecXN(hom_nay=H, ngay_thu=HQ, co_mau=True, co_tep=co_tep, da_dong=True)
+    )
+    assert (tt.ma, tt.co_ban_moi_chua_gui) == ("DA_DONG", co_moi)
+
+
 def test_cho_thu_ly_do_cho_nut_mo() -> None:
     tt = trang_thai_xet_nghiem(SuViecXN(hom_nay=H))
     assert tt.ly_do_khong_lay_mau == "Chưa ghi nhận thu hộ"
