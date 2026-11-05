@@ -78,6 +78,9 @@ async def test_tra_kq_cskh_ghi_da_gui_cho_to_chua_gui_cua_luot(
     assert v1["trang_thai"]["ma"] == "CO_KET_QUA"
     kh, ap = await _lich_cua(pool, v1["visit_id"])
     assert ap, "ca test phải có lịch hẹn"
+    # Không gắn lịch hẹn ⇒ không đánh dấu gì (không gửi nhầm tờ của lượt khác).
+    await _tra_kq(pool, ca, kh, None)
+    assert (await _tt(pool, ca, o1))["trang_thai"]["ma"] == "CO_KET_QUA"
 
     kq = await _tra_kq(pool, ca, kh, ap)
 

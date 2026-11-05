@@ -143,7 +143,7 @@ SELECT x.service_order_id::text
   JOIN service_order o ON o.id = x.service_order_id AND o.clinic_id = x.clinic_id
   JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
  WHERE x.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid
-   AND ($3::uuid IS NULL OR v.appointment_id = $3::uuid)
+   AND v.appointment_id = $3::uuid
  ORDER BY x.tao_luc DESC
  LIMIT {TRAN_DOI_TAC}
 """
@@ -168,6 +168,10 @@ async def gui_theo_cskh(
     CHƯA LÀM: hoàn tác dòng sổ CSKH không thu hồi mốc gửi ở đây (thu hồi = nút Thu hồi
     trên bàn XN, có lý do).
     """
+    # Không gắn lịch hẹn ⇒ KHÔNG đánh dấu gì: theo khách sẽ ghi "đã gửi" cho tờ của
+    # LƯỢT KHÁC (gửi nhầm là lỗi nặng nhất của tính năng này).
+    if not appointment_id:
+        return 0
     kenh_gui = kenh if kenh in KENH_GUI_HOP_LE else "TRUC_TIEP"
     n = 0
     try:
