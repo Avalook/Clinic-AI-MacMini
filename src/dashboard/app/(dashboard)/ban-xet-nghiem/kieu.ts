@@ -62,6 +62,8 @@ export interface Viec {
   hen_tra_ngay: string | null;
   tep_id: string | null;
   ten_tep: string | null;
+  loai_tep: string | null;
+  mime_tep: string | null;
   ma_giao_dich: string | null;
   gia_goi_y: number | null;
   da_thu: number | null;
