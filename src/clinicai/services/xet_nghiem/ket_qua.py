@@ -22,8 +22,9 @@ from typing import Any
 import asyncpg
 import structlog
 
-from clinicai.api.exceptions import ConflictError, ValidationError
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import XetNghiemViec
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
@@ -36,6 +37,9 @@ from clinicai.services.xet_nghiem.mau import _mot_viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
 logger = structlog.get_logger()
+
+#: Trần ô lọc đối tác (phòng khám có vài đối tác; chạm trần ⇒ cảnh báo log).
+TRAN_DOI_TAC = 100
 
 
 async def _phat(
@@ -131,6 +135,89 @@ async def dung_nguoi_gui(
     await _phat(pool, identity, "gui", v)
 
 
+#: Việc bàn mới của khách — theo lượt (lịch hẹn) nếu có, không thì mọi lượt của khách.
+#: $1 clinic · $2 khách · $3 lịch hẹn (NULL = theo khách).
+_VIEC_CUA_KHACH_SQL = f"""
+SELECT x.service_order_id::text
+  FROM xet_nghiem_viec x
+  JOIN service_order o ON o.id = x.service_order_id AND o.clinic_id = x.clinic_id
+  JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+ WHERE x.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid
+   AND v.appointment_id = $3::uuid
+ ORDER BY x.tao_luc DESC
+ LIMIT {TRAN_DOI_TAC}
+"""
+
+
+async def gui_theo_cskh(
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    clinic_patient_id: str,
+    appointment_id: str | None,
+    kenh: str,
+    hom_nay: date,
+) -> int:
+    """CSKH ghi sổ "đã trả kết quả" (TRA_KQ) ⇒ ghi "đã gửi" cho MỌI tờ còn hiệu lực,
+    chưa gửi của việc bàn mới thuộc lượt đó, qua ĐÚNG lõi nút "Gửi khách"
+    (`dung_nguoi_gui`). Trả số tờ đã ghi gửi.
+
+    Gọi SAU khi dòng sổ CSKH đã commit; mọi lỗi ở đây chỉ ghi log, KHÔNG ném — sổ
+    CSKH là bằng chứng chính, bàn XN bấm "Gửi khách" lại được. Việc không đủ điều kiện
+    (`nut.gui` false: chưa có tờ, tờ đã gửi) thì bỏ qua.
+    Kênh của sổ không phải kênh gửi tệp (GOI…) ⇒ TRUC_TIEP.
+    CHƯA LÀM: hoàn tác dòng sổ CSKH không thu hồi mốc gửi ở đây (thu hồi = nút Thu hồi
+    trên bàn XN, có lý do).
+    """
+    # Không gắn lịch hẹn ⇒ KHÔNG đánh dấu gì: theo khách sẽ ghi "đã gửi" cho tờ của
+    # LƯỢT KHÁC (gửi nhầm là lỗi nặng nhất của tính năng này).
+    if not appointment_id:
+        return 0
+    kenh_gui = kenh if kenh in KENH_GUI_HOP_LE else "TRUC_TIEP"
+    n = 0
+    try:
+        ids = [
+            r[0]
+            for r in await pool.fetch(
+                _VIEC_CUA_KHACH_SQL,
+                identity.clinic_id,
+                clinic_patient_id,
+                appointment_id,
+            )
+        ]
+        canh_bao_neu_day(
+            "xet_nghiem_viec_cskh", len(ids), TRAN_DOI_TAC, clinic_id=identity.clinic_id
+        )
+        if not ids:
+            return 0
+        async with pool.acquire() as conn:
+            ds = await doc_viec(
+                conn, identity.clinic_id, hom_nay=hom_nay, order_ids=ids
+            )
+        for v in ds:
+            if not v["nut"]["gui"] or not v["tep_id"]:
+                continue
+            try:
+                await dung_nguoi_gui(
+                    pool,
+                    identity,
+                    {"order_id": v["order_id"], "kenh": kenh_gui},
+                    hom_nay,
+                )
+                n += 1
+            except (ConflictError, NotFoundError) as e:
+                # Tranh chấp (người khác vừa gửi/thu hồi) — bỏ qua việc này.
+                logger.warning(
+                    "xet_nghiem_gui_theo_cskh_bo_qua",
+                    order_id=v["order_id"],
+                    loi=str(e),
+                )
+    except Exception:  # noqa: BLE001 — sổ CSKH đã commit; bàn XN gửi lại được
+        logger.exception(
+            "xet_nghiem_gui_theo_cskh_loi", clinic_patient_id=clinic_patient_id
+        )
+    return n
+
+
 async def thu_hoi(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any], hom_nay: date
 ) -> None:
@@ -160,9 +247,12 @@ async def ban(
             "SELECT id::text AS id, ten FROM doi_tac"
             " WHERE clinic_id = $1::uuid"
             "   AND (ngung_luc IS NULL OR id = ANY($2::uuid[]))"
-            " ORDER BY lower(ten) LIMIT 100",
+            f" ORDER BY lower(ten) LIMIT {TRAN_DOI_TAC}",
             identity.clinic_id,
             list({v["doi_tac_id"] for v in viec}),
+        )
+        canh_bao_neu_day(
+            "doi_tac", len(doi_tac), TRAN_DOI_TAC, clinic_id=identity.clinic_id
         )
     return {
         "viec": viec,

@@ -530,13 +530,19 @@ def chuan_ly_do_xoa(ly_do: Any) -> str:
 #: đã sang bàn đối tác — cùng nghĩa `doi_tac_service.LA_VIEC_DOI_TAC_SQL`, viết
 #: lại ở đây vì module ấy nhập module này (không nhập vòng). Mốc `ket_qua_luc`
 #: của việc ấy chỉ do nút [Trả kết quả] đặt / gỡ (16/10/2026).
-_VIEC_DOI_TAC_SQL = """(EXISTS (
+#: Việc của BÀN XN MỚI (có dòng `xet_nghiem_viec`, ADR-0015) KHÔNG thuộc nhóm này:
+#: bàn mới không có nút [Trả kết quả] — có tờ là có kết quả, như chỉ định thường
+#: (05/11: bàn khám đứng "Đang làm · 0 kết quả" vì nút dịch vụ `lam_ben_ngoai`).
+_VIEC_DOI_TAC_SQL = """((EXISTS (
         SELECT 1 FROM public.node_definition nd_dt
          WHERE nd_dt.clinic_id = o.clinic_id AND nd_dt.code = o.node_code
            AND nd_dt.lam_ben_ngoai)
      OR EXISTS (
         SELECT 1 FROM public.doi_tac_nhan_viec dnv_dt
-         WHERE dnv_dt.clinic_id = o.clinic_id AND dnv_dt.service_order_id = o.id))"""
+         WHERE dnv_dt.clinic_id = o.clinic_id AND dnv_dt.service_order_id = o.id))
+    AND NOT EXISTS (
+        SELECT 1 FROM public.xet_nghiem_viec xnv_dt
+         WHERE xnv_dt.clinic_id = o.clinic_id AND xnv_dt.service_order_id = o.id))"""
 
 
 async def _tinh_lai_ket_qua_luc(
@@ -751,10 +757,7 @@ class TepKetQuaService:
                     "SELECT v.clinic_patient_id::text AS clinic_patient_id,"
                     "       v.appointment_id::text AS appointment_id,"
                     "       coalesce(nd.lam_ben_ngoai, false) AS lam_ben_ngoai,"
-                    "       (coalesce(nd.lam_ben_ngoai, false) OR EXISTS ("
-                    "          SELECT 1 FROM public.doi_tac_nhan_viec dnv"
-                    "           WHERE dnv.clinic_id = o.clinic_id"
-                    "             AND dnv.service_order_id = o.id)) AS viec_doi_tac"
+                    f"      {_VIEC_DOI_TAC_SQL} AS viec_doi_tac"
                     "  FROM public.service_order o"
                     "  JOIN public.visit v"
                     "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"

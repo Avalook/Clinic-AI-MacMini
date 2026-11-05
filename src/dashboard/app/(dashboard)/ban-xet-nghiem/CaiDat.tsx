@@ -150,7 +150,9 @@ function BangGan() {
                       onChange={(ev) => doi({ hen: ev.target.value })}
                     />
                   </td>
-                  <td className={`${TD} tabular-nums`}>{tien(h?.gan.gia_hieu_luc ?? s.unit_price) || "—"}</td>
+                  {/* Máy chủ trả gia_hieu_luc = null khi giá 0; rơi về unit_price 0 từng
+                      hiện "0đ". 0 = chưa có giá gợi ý ⇒ "—". */}
+                  <td className={`${TD} tabular-nums`}>{tien((h?.gan.gia_hieu_luc ?? s.unit_price) || null) || "—"}</td>
                   <td className={TD}>
                     <Chip tone={h ? "success" : "neutral"}>{h ? "Có" : "Chưa gán"}</Chip>
                   </td>
