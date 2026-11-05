@@ -25,7 +25,7 @@ const BANG = [
   "mau_xet_nghiem_viec",
   "xet_nghiem_dong",
   "tep_ket_qua",
-];
+] as const;
 
 async function docBan(): Promise<Viec[] | null> {
   try {

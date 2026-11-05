@@ -12,23 +12,28 @@ type Method = "GET" | "POST" | "PUT";
 
 const U = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
-/** [method, mẫu đường sau /xet-nghiem/] — thêm cửa mới = thêm một dòng ở đây. */
-const CHO_PHEP: [Method, RegExp][] = [
+const LENH_BAN = "ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|cho-qua|go-cho-qua|dong|mo-lai|gui|thu-hoi";
+
+/** [method, mẫu đường sau /xet-nghiem/, đường backend VIẾT RÕ] — thêm cửa = thêm một
+ *  dòng. Đường backend viết hẳn ra để test `test_dashboard_backend_paths` đối chiếu
+ *  được với router thật. */
+const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
   // Cài đặt → Đối tác (chặng 1)
-  ["GET", /^doi-tac$/],
-  ["POST", /^doi-tac$/],
-  ["PUT", new RegExp(`^doi-tac/${U}$`, "i")],
-  ["POST", new RegExp(`^doi-tac/${U}/ngung$`, "i")],
-  ["POST", /^doi-tac-dich-vu$/],
-  ["POST", new RegExp(`^doi-tac-dich-vu/${U}/bo$`, "i")],
-  ["PUT", /^cai-dat$/],
-  // Bàn xét nghiệm (chặng 2–3)
-  ["GET", /^ban$/],
-  ["GET", /^ban\/tien$/],
+  ["GET", /^doi-tac$/, () => "/api/v1/xet-nghiem/doi-tac"],
+  ["POST", /^doi-tac$/, () => "/api/v1/xet-nghiem/doi-tac"],
+  ["PUT", new RegExp(`^doi-tac/(${U})$`, "i"), (m) => `/api/v1/xet-nghiem/doi-tac/${m[1]}`],
+  ["POST", new RegExp(`^doi-tac/(${U})/ngung$`, "i"), (m) => `/api/v1/xet-nghiem/doi-tac/${m[1]}/ngung`],
+  ["POST", /^doi-tac-dich-vu$/, () => "/api/v1/xet-nghiem/doi-tac-dich-vu"],
   [
     "POST",
-    /^ban\/(ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|cho-qua|go-cho-qua|dong|mo-lai|gui|thu-hoi)$/,
+    new RegExp(`^doi-tac-dich-vu/(${U})/bo$`, "i"),
+    (m) => `/api/v1/xet-nghiem/doi-tac-dich-vu/${m[1]}/bo`,
   ],
+  ["PUT", /^cai-dat$/, () => "/api/v1/xet-nghiem/cai-dat"],
+  // Bàn xét nghiệm (chặng 2–3)
+  ["GET", /^ban$/, () => "/api/v1/xet-nghiem/ban"],
+  ["GET", /^ban\/tien$/, () => "/api/v1/xet-nghiem/ban/tien"],
+  ["POST", new RegExp(`^ban/(${LENH_BAN})$`), (m) => `/api/v1/xet-nghiem/ban/${m[1]}`],
 ];
 
 function sai(message: string, status = 400) {
@@ -37,18 +42,23 @@ function sai(message: string, status = 400) {
 
 async function chuyen(method: Method, request: Request, ctx: { params: Promise<{ duong: string[] }> }) {
   const duong = (await ctx.params).duong.join("/");
-  if (!CHO_PHEP.some(([m, re]) => m === method && re.test(duong))) {
-    return sai("Đường không hợp lệ.", 404);
+  let dich: string | null = null;
+  for (const [m, re, toi] of CHO_PHEP) {
+    const k = m === method ? duong.match(re) : null;
+    if (k) {
+      dich = toi(k);
+      break;
+    }
   }
-  const q = new URL(request.url).search;
-  if (method === "GET") return proxyJsonToBackend("GET", `/api/v1/xet-nghiem/${duong}${q}`, undefined);
+  if (!dich) return sai("Đường không hợp lệ.", 404);
+  if (method === "GET") return proxyJsonToBackend("GET", `${dich}${new URL(request.url).search}`, undefined);
   let body: unknown = {};
   try {
     body = await request.json();
   } catch {
     body = {};
   }
-  return proxyJsonToBackend(method, `/api/v1/xet-nghiem/${duong}`, body);
+  return proxyJsonToBackend(method, dich, body);
 }
 
 export const GET = (r: Request, c: { params: Promise<{ duong: string[] }> }) => chuyen("GET", r, c);
