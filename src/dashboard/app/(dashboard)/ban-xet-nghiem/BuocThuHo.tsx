@@ -105,11 +105,6 @@ export default function BuocThuHo({
               </>
             ) : null}
           </div>
-          {coCk ? (
-            <p className="text-meta text-ink-soft">
-              <span className="text-ink-muted">Chuyển khoản vào:</span> <b>Tài khoản thu hộ</b>
-            </p>
-          ) : null}
           <p className="text-meta text-ink-muted">
             Ghi đúng số khách trả (giá gợi ý chỉ để tham khảo; miễn phí thì gõ 0). Tiền này của đối tác — không vào két.
           </p>

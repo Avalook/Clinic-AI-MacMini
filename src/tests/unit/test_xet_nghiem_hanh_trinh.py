@@ -8,7 +8,12 @@ from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from clinicai.services.xet_nghiem.hanh_trinh import hanh_trinh, nhom_khach, so_ngay_cho
+from clinicai.services.xet_nghiem.hanh_trinh import (
+    buoc_dang,
+    hanh_trinh,
+    nhom_khach,
+    so_ngay_cho,
+)
 from clinicai.services.xet_nghiem.trang_thai import (
     SuViecXN,
     nut_cua,
@@ -51,6 +56,19 @@ def test_da_lay_mau_moc_ket_qua_dang_lam() -> None:
     sv = SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True, hen_tra=H)
     assert _trang(r, sv) == ["done", "done", "done", "current", "upcoming"]
     assert hanh_trinh(r, trang_thai_xet_nghiem(sv))[3]["ten"] == "Chờ kết quả"
+
+
+def test_buoc_dang_theo_moc_current() -> None:
+    def b(r: dict[str, Any], sv: SuViecXN) -> str | None:
+        return buoc_dang(hanh_trinh(r, trang_thai_xet_nghiem(sv)))
+
+    assert b(_r(), SuViecXN(hom_nay=H)) == "thu"
+    assert b(_r(thu_luc=L), SuViecXN(hom_nay=H, ngay_thu=H)) == "mau"
+    co_mau = SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True)
+    assert b(_r(thu_luc=L, lay_luc=L), co_mau) == "ket_qua"
+    co_tep = SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True, co_tep=True)
+    assert b(_r(thu_luc=L, lay_luc=L, tep_luc=L), co_tep) == "ket_qua"
+    assert b(_r(), SuViecXN(hom_nay=H, da_huy_chi_dinh=True)) is None
 
 
 def test_cho_qua_khong_thu_ghi_ro_moc_thu() -> None:
@@ -99,7 +117,7 @@ def test_nhom_khach_theo_ngay_va_qua_han_thang() -> None:
     ]
     g = nhom_khach(ds)
     assert [len(x["order_ids"]) for x in g] == [2, 1]
-    assert (g[0]["nhan"], g[0]["mau"]) == ("Quá hạn trả KQ", "warning")
+    assert (g[0]["nhan"], g[0]["mau"]) == ("Quá hẹn trả KQ", "warning")
     assert g[1]["nhan"] == "Chờ thu"
 
 
@@ -130,7 +148,7 @@ def test_chip_gop_qua_hen_tinh_o_ham_trang_thai() -> None:
         SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True, hen_tra=H - timedelta(days=2))
     )
     assert (qua.chip_nhan, qua.chip_mau, qua.mau_qua_hen) == (
-        "Quá hạn trả KQ",
+        "Quá hẹn trả KQ",
         "warning",
         "danger",
     )

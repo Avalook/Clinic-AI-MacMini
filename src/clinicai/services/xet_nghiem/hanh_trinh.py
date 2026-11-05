@@ -52,6 +52,18 @@ def hanh_trinh(r: Any, tt: TrangThaiXN) -> list[dict[str, Any]]:
     return out
 
 
+#: Mốc "current" thứ i ⇒ bước nào của thẻ việc sáng (Thu hộ · Mẫu · Tờ kết quả).
+_BUOC: tuple[str | None, ...] = (None, "thu", "mau", "ket_qua", "ket_qua")
+
+
+def buoc_dang(moc: list[dict[str, Any]]) -> str | None:
+    """Bước của thẻ đang tới lượt; None = không mốc nào đang làm (việc đã xong)."""
+    for i, m in enumerate(moc):
+        if m["trang_thai"] == "current":
+            return _BUOC[i]
+    return None
+
+
 def so_ngay_cho(ngay_chi_dinh: date | None, hom_nay: date) -> int:
     return max((hom_nay - ngay_chi_dinh).days, 0) if ngay_chi_dinh else 0
 

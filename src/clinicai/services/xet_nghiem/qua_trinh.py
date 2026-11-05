@@ -77,6 +77,18 @@ WITH b AS (
       FROM tep_ket_qua k
      WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid
     UNION ALL
+    SELECT k.da_xoa_luc, 'Xoá tệp kết quả: ' || coalesce(k.da_xoa_ly_do, ''),
+           k.da_xoa_boi_staff_id
+      FROM tep_ket_qua k
+     WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid
+       AND k.da_xoa_luc IS NOT NULL
+    UNION ALL
+    SELECT mv.go_luc, 'Gỡ việc khỏi ống ' || m.ma_mau, mv.go_boi
+      FROM mau_xet_nghiem_viec mv
+      JOIN mau_xet_nghiem m ON m.id = mv.mau_id
+     WHERE mv.clinic_id = $1::uuid AND mv.service_order_id = $2::uuid
+       AND mv.go_luc IS NOT NULL AND m.huy_luc IS NULL
+    UNION ALL
     SELECT k.gui_luc, 'Đúng người, đã gửi khách qua ' || k.gui_kenh, k.gui_boi_staff_id
       FROM tep_ket_qua k
      WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid

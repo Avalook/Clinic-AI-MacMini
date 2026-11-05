@@ -19,7 +19,7 @@ export interface TrangThai {
   mau: ChipTone;
   con_ton: boolean;
   vi_sao: string;
-  /** Chip dòng khách / bảng: "Quá hạn trả KQ" thắng chữ trạng thái (máy chủ gộp). */
+  /** Chip dòng khách / bảng: "Quá hẹn trả KQ" thắng chữ trạng thái (máy chủ gộp). */
   chip_nhan: string;
   chip_mau: ChipTone;
   /** Màu chip "Quá hẹn N ngày"; null = không hiện. */
@@ -78,6 +78,8 @@ export interface Viec {
   tep_luc: string | null;
   so_ngay_cho: number;
   hanh_trinh: Moc[];
+  /** Bước của thẻ đang tới lượt (tô sáng) — máy chủ chỉ; null = việc đã xong. */
+  buoc_dang: "thu" | "mau" | "ket_qua" | null;
   trang_thai: TrangThai;
   nut: Nut;
 }

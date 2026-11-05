@@ -15,7 +15,11 @@ import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.xet_nghiem.doi_tac import doc_nguong
-from clinicai.services.xet_nghiem.hanh_trinh import hanh_trinh, so_ngay_cho
+from clinicai.services.xet_nghiem.hanh_trinh import (
+    buoc_dang,
+    hanh_trinh,
+    so_ngay_cho,
+)
 from clinicai.services.xet_nghiem.trang_thai import (
     LOC,
     NHAN,
@@ -137,6 +141,7 @@ def dong_ban(
         out[k] = r[k]
     out["so_ngay_cho"] = so_ngay_cho(r["ngay_chi_dinh"], hom_nay)
     out["hanh_trinh"] = hanh_trinh(r, tt)
+    out["buoc_dang"] = buoc_dang(out["hanh_trinh"])
     out["trang_thai"] = asdict(tt)
     out["nut"] = nut_cua(
         tt,

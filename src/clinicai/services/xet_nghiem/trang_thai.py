@@ -136,7 +136,7 @@ def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
     tt = _tinh(sv)
     return replace(
         tt,
-        chip_nhan="Quá hạn trả KQ" if tt.qua_hen else tt.nhan,
+        chip_nhan="Quá hẹn trả KQ" if tt.qua_hen else tt.nhan,
         chip_mau="warning" if tt.qua_hen else tt.mau,
         mau_qua_hen={"DO": "danger", "VANG": "warning"}.get(tt.muc_qua_hen or ""),
     )

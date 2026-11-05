@@ -83,8 +83,11 @@ export default function BanXetNghiem() {
   const cuaDt = (v: Viec) => !doiTac || v.doi_tac_id === doiTac;
   const viecCua = (k: Khach) => k.order_ids.map((id) => theoId.get(id)).filter((v): v is Viec => !!v && cuaDt(v));
 
-  const ngays = useMemo(() => [...new Set((ban?.khach ?? []).map((k) => k.ngay))].sort().reverse().slice(0, 7), [ban]);
-  const ngayChon = ngay && ngays.includes(ngay) ? ngay : (ngays.find((d) => d === homNayVN()) ?? ngays[0] ?? "");
+  const moiNgay = useMemo(() => [...new Set((ban?.khach ?? []).map((k) => k.ngay))].sort().reverse(), [ban]);
+  // Chip chỉ vẽ 7 ngày gần nhất, nhưng ngày đang chọn (mở từ Còn tồn / ô tìm — việc tồn
+  // cũ) luôn được giữ và có chip riêng: việc dở không được biến khỏi bàn (soát chặng 3).
+  const ngayChon = ngay && moiNgay.includes(ngay) ? ngay : (moiNgay.find((d) => d === homNayVN()) ?? moiNgay[0] ?? "");
+  const ngays = moiNgay.slice(0, 7).includes(ngayChon) || !ngayChon ? moiNgay.slice(0, 7) : [...moiNgay.slice(0, 7), ngayChon];
   const dsKhach = (ban?.khach ?? []).filter(
     (k) => k.ngay === ngayChon && viecCua(k).some((v) => !loc || v.trang_thai.ma === loc),
   );
@@ -226,7 +229,11 @@ export default function BanXetNghiem() {
                   Không có khách nào trong ngày này{ban.viec.length ? "" : " (dịch vụ phải được gán đối tác ở Cài đặt)"}.
                 </p>
               ) : null}
-              {dsKhach.map((k) => (
+              {dsKhach.map((k) => {
+                // Đang lọc đối tác / tình trạng ⇒ chip theo việc ĐANG HIỆN đầu tiên (chip đã
+                // gộp quá hẹn do máy chủ tính), khỏi mang chip của việc bị ẩn.
+                const dau = doiTac || loc ? viecCua(k).find((v) => !loc || v.trang_thai.ma === loc) : undefined;
+                return (
                 <button
                   key={k.khoa}
                   type="button"
@@ -242,9 +249,10 @@ export default function BanXetNghiem() {
                     <span className="font-semibold text-ink">{k.ten}</span>{" "}
                     {k.order_ids.length > 1 ? <span className="text-meta text-ink-muted">{k.order_ids.length} xét nghiệm</span> : null}
                   </span>
-                  <Chip tone={k.mau}>{k.nhan}</Chip>
+                  <Chip tone={dau ? dau.trang_thai.chip_mau : k.mau}>{dau ? dau.trang_thai.chip_nhan : k.nhan}</Chip>
                 </button>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex min-w-0 flex-col gap-3">

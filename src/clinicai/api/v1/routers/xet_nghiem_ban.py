@@ -106,6 +106,7 @@ class ViecOut(BaseModel):
     tep_luc: datetime | None
     so_ngay_cho: int
     hanh_trinh: list[MocOut]
+    buoc_dang: Literal["thu", "mau", "ket_qua"] | None
     trang_thai: TrangThaiOut
     nut: NutOut
 

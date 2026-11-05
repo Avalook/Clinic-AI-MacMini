@@ -64,8 +64,6 @@ export default function TheViec({
   const t = v.trang_thai;
   const n = v.nut;
   const cuaBu = n.hoan_tac ? CUA_BU[n.hoan_tac.lenh] : undefined;
-  // Bước nào đang tới lượt — đọc mốc "current" máy chủ chỉ (1 thu · 2 mẫu · 3–4 kết quả).
-  const dangO = v.hanh_trinh.findIndex((m) => m.trang_thai === "current");
 
   async function chay(duong: string, body: unknown, bao: string): Promise<boolean> {
     setDang(true);
@@ -136,11 +134,11 @@ export default function TheViec({
         </div>
       </div>
 
-      <Buoc sang={dangO === 1}>
+      <Buoc sang={v.buoc_dang === "thu"}>
         <BuocThuHo v={v} dang={dang} oLyDo={oLyDo} lyDo={lyDo} onChay={chay} onChoQua={() => setMo("cho_qua")} />
       </Buoc>
 
-      <Buoc sang={dangO === 2}>
+      <Buoc sang={v.buoc_dang === "mau"}>
         <div className="flex items-center justify-between gap-2">
           <span className="text-body font-semibold text-ink">Mẫu</span>
           {v.ma_mau ? <span className="font-mono text-meta font-semibold tracking-wider text-ink">Mã ống {v.ma_mau}</span> : null}
@@ -158,7 +156,7 @@ export default function TheViec({
         {v.hen_tra_ngay ? <p className="text-meta text-ink-muted">Hẹn trả {ngayVN(v.hen_tra_ngay)}</p> : null}
       </Buoc>
 
-      <Buoc sang={dangO === 3 || dangO === 4}>
+      <Buoc sang={v.buoc_dang === "ket_qua"}>
         <span className="text-body font-semibold text-ink">Tờ kết quả</span>
         <p className="text-meta text-ink-soft">{t.vi_sao}</p>
         {v.tep_id ? (
