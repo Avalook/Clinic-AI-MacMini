@@ -10,7 +10,6 @@ Trigger: `tep_ket_qua_gui_phai_duoc_cho_phep` (bản 20260923000021). Bài
 from __future__ import annotations
 
 import pathlib
-from typing import Any
 
 import asyncpg
 import pytest
@@ -23,23 +22,28 @@ from tests.services.test_xac_nhan_tep_ket_qua_db import (
     _tao_benh_nhan_va_visit,
     _tao_external_order,
     _tao_staff,
+    pool,  # noqa: F401
 )
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
-# `pool` + hai fixture tự chạy của bài xác nhận tệp (bật cờ xác nhận tệp đối tác —
-# cờ đang TẮT trên prod từ 23/09, xem kế hoạch mục "Lệch").
-pytest_plugins = ["tests.services.test_xac_nhan_tep_ket_qua_db"]
+# KHÔNG dùng `pytest_plugins` với module bài xác nhận tệp: nó có fixture autouse bật
+# cờ dưới đây — nạp làm plugin là bật cho MỌI test của phiên (soát 05/11 bắt được).
 
 
 async def test_db_tu_choi_gui_tep_doi_tac_cho_xac_nhan(
-    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+    pool: asyncpg.Pool,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
 ) -> None:
     import clinicai.services.media_service as media
     import clinicai.services.tep_ket_qua_service as tep_mod
 
     monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
     monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+    # Bước xác nhận tệp đối tác đang TẮT trên prod từ 23/09 (tệp không vào
+    # CHO_XAC_NHAN); bài canh cửa DB nên bật cờ để có tệp ở trạng thái ấy.
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
 
     async with pool.acquire() as conn:
         doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")

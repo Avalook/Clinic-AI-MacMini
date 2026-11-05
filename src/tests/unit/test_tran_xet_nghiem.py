@@ -32,7 +32,11 @@ def test_doi_tac_service_khong_dai_them() -> None:
 
 def test_router_doi_tac_khong_them_cua() -> None:
     ma = (SRC / "api" / "v1" / "routers" / "doi_tac.py").read_text(encoding="utf-8")
-    so_cua = len(re.findall(r"^@router\.(get|post|put|patch|delete)\(", ma, re.M))
+    so_cua = len(
+        re.findall(
+            r"^\s*@router\.(get|post|put|patch|delete|api_route|websocket)\(", ma, re.M
+        )
+    )
     assert so_cua <= TRAN_CUA_ROUTER_DOI_TAC, (
         f"router doi_tac.py có {so_cua} cửa > trần {TRAN_CUA_ROUTER_DOI_TAC}. "
         "Cửa mới đi router xet_nghiem.py."

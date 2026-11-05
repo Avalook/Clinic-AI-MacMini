@@ -17,8 +17,8 @@ from typing import Any
 import asyncpg
 import pytest
 
-import clinicai.services.doi_tac_service as doi_tac_mod
 from clinicai.api.exceptions import ConflictError
+from clinicai.events.emit import emit_event
 from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.doi_tac_service import DoiTacService
 from tests.services.test_doi_tac_tu_thu_db import _nguoi_vai, _viec_da_nhan
@@ -96,7 +96,7 @@ async def test_hai_nguoi_ghi_thu_cung_luc_mot_nguoi_thua(
     # ÉP CHEN NHAU: người đầu đứng lại 0,3s TRONG giao dịch, ngay sau INSERT (lúc phát
     # sự kiện) — người sau chạy vào đúng khe ấy. Không ép thì người đầu thường xong
     # trước khi người sau đọc, bài xanh mà chẳng đo gì (thử ngược 05/11 đã thấy thế).
-    goc = doi_tac_mod.emit_event
+    goc = emit_event
     da_cho = False
 
     async def emit_cham(*args: Any, **kwargs: Any) -> Any:
@@ -106,7 +106,8 @@ async def test_hai_nguoi_ghi_thu_cung_luc_mot_nguoi_thua(
             await asyncio.sleep(0.3)
         return await goc(*args, **kwargs)
 
-    monkeypatch.setattr(doi_tac_mod, "emit_event", emit_cham)
+    # Thay đúng tên doi_tac_service đã import (from … import emit_event).
+    monkeypatch.setattr("clinicai.services.doi_tac_service.emit_event", emit_cham)
 
     # Hai số khác nhau: bấm lại CÙNG số là "đã có" (chạy lại được), không phải thua.
     kq = await asyncio.gather(
@@ -125,4 +126,15 @@ async def test_hai_nguoi_ghi_thu_cung_luc_mot_nguoi_thua(
     assert len(thua) == 1
     # 409 kèm câu tiếng Việt — không để UniqueViolationError thô lọt ra thành 500.
     assert isinstance(thua[0], ConflictError), repr(thua[0])
+    assert getattr(thua[0], "error_code", None) == "PARTNER_PAYMENT_EXISTS"
     assert await _so_ghi_nhan(pool, oid) == 1
+    # Người thua không để lại dấu: đúng MỘT sự kiện ghi thu cho việc này.
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM domain_event"
+            " WHERE event_type = 'partner.payment_recorded'"
+            "   AND aggregate_id = $1::uuid",
+            oid,
+        )
+        == 1
+    )
