@@ -693,8 +693,12 @@ class TepKetQuaService:
         appointment_id: str | None = None,
         service_order_id: str | None = None,
         ben: int | None = None,
+        la_tep_doi_tac: bool = False,
     ) -> dict[str, Any]:
         """Nhận một tệp kết quả và cất nó lên đĩa.
+
+        `la_tep_doi_tac` (05/11/2026, ADR-0015): bàn xét nghiệm tải tay kết quả của
+        đối tác — đi đường tệp đối tác (xác nhận) dù node không `lam_ben_ngoai`.
 
         `ben` (26/09/2026): bên của tệp trong mẫu hai bên (Thai A=0, Thai B=1,
         trái=0, phải=1…); None = tệp chung.
@@ -772,7 +776,7 @@ class TepKetQuaService:
                         "Chỉ định này không thuộc lượt khám đang chọn."
                     )
                 appointment_id = appointment_id or cua_chi_dinh["appointment_id"]
-                is_external = bool(cua_chi_dinh["lam_ben_ngoai"])
+                is_external = la_tep_doi_tac or bool(cua_chi_dinh["lam_ben_ngoai"])
                 viec_doi_tac = bool(cua_chi_dinh["viec_doi_tac"])
             if appointment_id:
                 thuoc_ve = await conn.fetchval(

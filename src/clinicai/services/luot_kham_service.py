@@ -157,6 +157,7 @@ from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 from clinicai.services.sinh_hieu_service import SinhHieuService
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
+from clinicai.services.xet_nghiem.chup import tao_viec_neu_doi_tac
 
 logger = structlog.get_logger()
 
@@ -2398,6 +2399,7 @@ class LuotKhamService:
                             identity.staff_id,
                         )
                     )
+            await tao_viec_neu_doi_tac(conn, clinic_id=cid, order_ids=ids)
             await self._tu_xep_phong(conn, identity, vid)
             await record_event(
                 conn,

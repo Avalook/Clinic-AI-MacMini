@@ -31,7 +31,7 @@ Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
      `@dr4women.local`), API/web CỦA NHÁNH chạy ở cổng riêng trỏ vào đó.
    - CI cuối: `./scripts/ci-may.sh --bao-github` (có khoá xếp hàng — chạy lần lượt).
 4. **Một PR được coi là xong khi:** CI xanh · đã bấm thật local ở 375 và 1280 ·
-   có **kịch bản bấm thử cho người thật** trong thân PR · có bảng "nút/link đã đụng".
+   có **kịch bản bấm thử cho người thật** trong thân PR · có bảng "nút/link đã đụng" · agent `soat-thiet-ke` kết luận SẴN SÀNG PR.
 5. **GOM ĐỢT LÊN STAGING** (https://staging.dr4women.io.vn, dữ liệu khách đã che,
    đăng nhập tài khoản prod): các PR đã xanh lên cùng một đợt
    (`scripts/len-staging.sh` khi có; tạm thời `scripts/deploy-staging.sh <nhánh đợt>`
@@ -67,6 +67,9 @@ khi nhận việc: "Mức N · ước ~X phút".** Sai mức thì Tuyền nói n
 - **Chỉ hỏi khi cần Tuyền quyết nghiệp vụ**; chọn lựa kỹ thuật thì tự chọn, báo lý do một dòng.
 - **Việc độc lập chạy song song bằng agent nền**, báo trước giờ xong dự kiến.
 - **Báo cáo một khuôn:** kết quả trước · một bảng · cuối là việc Tuyền làm (lệnh bấm được).
+- **Mức 2/3: làm theo skill `lam-mot-pr`** (test ca biên trước · thử ngược phải đỏ ·
+  kiểm trước CI · CI đúng SHA · agent soát · dừng chờ Tuyền merge). Chế độ tự động chặn
+  AI tự merge PR của mình — đúng ý, không tìm đường vòng.
 
 > Máy Mac **không chạy prod** (chữ "MacMini" trong tên thư mục là dấu vết lịch sử).
 > Nó là máy dev — stack thử (`scripts/dev-up.sh`), staging local từ bản sao lưu
@@ -140,7 +143,12 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
   được để mở lại. Đừng đề xuất lại từ best-practice chung.
 - Luật riêng từng vùng tự nạp khi Claude đọc/sửa file trong vùng đó
   (`.claude/rules/`): **giao diện** `src/dashboard/**` (tra SITEMAP trước, sửa đủ
-  mọi lối, bấm thật 375/1280) · **backend** `src/clinicai/**` · **migration**.
+  mọi lối, bấm thật 375/1280) · **backend** `src/clinicai/**` · **migration** ·
+  **thiết kế** mọi `src/**` (8 luật chống logic chồng logic: một câu hỏi một hàm, thêm
+  đường mới phải giết đường cũ, trạng thái tính ra, không sửa quá khứ, trần kích thước,
+  SQL có nhà, hợp đồng API, dữ liệu sạch) · **xét nghiệm đối tác** (6 câu chốt 05/11).
+- **Soát trước khi mở PR Mức 2/3:** gọi agent `soat-thiet-ke` (chỉ đọc, chưa thấy quá
+  trình làm) — sửa hết mục CHẶN rồi mới mở PR; dán dòng KẾT LUẬN vào thân PR.
 
 ## Cách làm việc với code (harness, 06/10/2026)
 
@@ -177,3 +185,7 @@ Các quyết định còn chờ chốt: `docs/KIEM-TOAN-HE-THONG-2709.md` mục 
 Việc lớn còn lại: **đưa nốt luật nghiệp vụ ra khỏi `src/dashboard`**. Route Next
 chạm thẳng database: **1** (06/10/2026 — chỉ còn `check-phone`, đã tắt; 27/09 là 2,
 13/08 là 42/63) — con số ấy **chỉ được giảm**. Còn khoảng 123 chỗ `if` theo vai trong TSX.
+
+Việc lớn đang mở (05/11/2026): **bàn xét nghiệm đối tác** — kế hoạch Mức 3 đã duyệt
+`docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md`, ADR-0015. `doi_tac_service.py` và router
+`doi_tac.py` **đóng băng** (chỉ được giảm); code mới ở `src/clinicai/services/xet_nghiem/`.

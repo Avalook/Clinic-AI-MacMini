@@ -223,8 +223,12 @@ BEGIN
     -- 120 → 121 (31/10/2026): vat_tu_ban (20261101300000, CHỈ SELECT).
     -- 121 → 122 (04/11/2026): phong_chuc_nang (20261104800000, CHỈ SELECT).
     -- 122 → 123 (04/11/2026): quyen_chay_bong (20261104810000, CHỈ SELECT).
-    IF scoped_count <> 123 THEN
-        RAISE EXCEPTION 'expected 123 tenant-scoped read policies, found %', scoped_count;
+    -- 123 → 132 (05/11/2026, xét nghiệm đối tác ADR-0015, CHỈ SELECT, TO service_role):
+    -- doi_tac, doi_tac_dich_vu, xet_nghiem_viec, xet_nghiem_cai_dat (20261105200000);
+    -- doi_tac_hoan_tien (20261105210000); mau_xet_nghiem, mau_xet_nghiem_viec,
+    -- xet_nghiem_dong, mau_xet_nghiem_dem (20261105220000).
+    IF scoped_count <> 132 THEN
+        RAISE EXCEPTION 'expected 132 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

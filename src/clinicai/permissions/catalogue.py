@@ -1155,6 +1155,8 @@ MAN: dict[str, Man] = {
                 "/settings/mau-ket-qua",
                 # Tài khoản ngân hàng nhận chuyển khoản (31/10/2026).
                 "/settings/tai-khoan-nhan",
+                # Đối tác xét nghiệm (05/11/2026, ADR-0015).
+                "/settings/doi-tac",
             ],
             ["cai_dat", "danh_muc"],
             "Quản lý",
@@ -1180,7 +1182,14 @@ MAN: dict[str, Man] = {
             ["van_hanh", "lich_su_thao_tac"],
             "Quản lý",
         ),
-        _lego("doi_tac", "Đối tác", ["/doi-tac"], ["doi_tac"], "Đối tác"),
+        # + bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015).
+        _lego(
+            "doi_tac",
+            "Đối tác",
+            ["/doi-tac", "/ban-xet-nghiem"],
+            ["doi_tac"],
+            "Đối tác",
+        ),
     )
 }
 

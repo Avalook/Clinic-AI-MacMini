@@ -58,6 +58,7 @@ from clinicai.services.lenh_kham_core import (
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.service_execution_service import GHI_CHU_TAI_QUAY
+from clinicai.services.xet_nghiem.chup import tao_viec_neu_doi_tac
 
 ORIGIN = "api:lam-them-tai-quay"
 
@@ -807,6 +808,7 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
             oid = moi["id"]
             version = int(moi["version"])
             ten = dv["name"]
+            await tao_viec_neu_doi_tac(conn, clinic_id=cid, order_ids=[oid])
         await emit_event(
             conn,
             ten="service_order.desk_added",

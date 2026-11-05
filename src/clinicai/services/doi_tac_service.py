@@ -37,6 +37,9 @@ from clinicai.services.hang_cho import (
 from clinicai.services.lenh_kham_core import LuotKhamConflictError
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.service_routing_service import DOI_TAC_LAM_TRON_SQL
+from clinicai.services.xet_nghiem import thu_ho
+from clinicai.services.xet_nghiem.o_nhap import SO_TIEN_TOI_DA as SO_TIEN_TOI_DA
+from clinicai.services.xet_nghiem.o_nhap import doc_so_tien as doc_so_tien
 
 logger = structlog.get_logger()
 
@@ -60,38 +63,6 @@ LA_VIEC_DOI_TAC_SQL = """(coalesce(n.lam_ben_ngoai, false) OR EXISTS (
 
 #: Hình thức khách trả đối tác (khớp CHECK của `doi_tac_thanh_toan`).
 HINH_THUC_THU = ("CASH", "TRANSFER")
-
-#: Trần một ghi nhận — chặn gõ thừa số 0 (100.000.000 đồng / một việc).
-SO_TIEN_TOI_DA = 100_000_000
-
-
-def doc_so_tien(value: Any) -> int | None:
-    """Số tiền đối tác ghi nhận đã thu. Rác / âm / quá trần → None, không ném.
-
-    Nhận số nguyên, chuỗi có dấu chấm / phẩy / khoảng trắng / "đ" ("900.000đ").
-    """
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        so = value
-    elif isinstance(value, float):
-        if value != value or value in (float("inf"), float("-inf")):
-            return None
-        if value != int(value):
-            return None
-        so = int(value)
-    elif isinstance(value, str):
-        chu = value.strip().lower().replace("đ", "").replace("vnd", "")
-        for k in (".", ",", " ", "\u00a0", "_"):
-            chu = chu.replace(k, "")
-        if not chu.isdigit():
-            return None
-        so = int(chu)
-    else:
-        return None
-    if so < 0 or so > SO_TIEN_TOI_DA:
-        return None
-    return so
 
 
 def doc_hinh_thuc(value: Any) -> str | None:
@@ -1152,20 +1123,15 @@ class DoiTacService:
                     "Việc này đã ghi nhận đã thu — huỷ ghi nhận cũ (kèm lý do)"
                     " rồi ghi lại.",
                 )
-            moi = await conn.fetchval(
-                """
-                INSERT INTO doi_tac_thanh_toan
-                    (clinic_id, service_order_id, so_tien, hinh_thuc, ghi_chu,
-                     ghi_boi)
-                VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid)
-                RETURNING id::text
-                """,
-                cid,
-                oid,
-                tien,
-                ht,
-                ghi,
-                identity.staff_id,
+            # Lõi sổ thu hộ ở xet_nghiem/thu_ho.py (luật 2): một nơi ghi sổ.
+            moi = await thu_ho.ghi_dong(
+                conn,
+                clinic_id=cid,
+                order_id=oid,
+                tien_mat=tien if ht == "CASH" else 0,
+                chuyen_khoan=tien if ht == "TRANSFER" else 0,
+                staff_id=identity.staff_id,
+                ghi_chu=ghi,
             )
             await emit_event(
                 conn,
@@ -1211,13 +1177,12 @@ class DoiTacService:
             )
             if cu is None:
                 return {"ok": True, "already": True}
-            await conn.execute(
-                "UPDATE doi_tac_thanh_toan SET huy_luc = now(), huy_boi = $3::uuid,"
-                " ly_do_huy = $4 WHERE clinic_id = $1::uuid AND id = $2::uuid",
-                cid,
-                cu["id"],
-                identity.staff_id,
-                ly,
+            await thu_ho.huy_dong(
+                conn,
+                clinic_id=cid,
+                thanh_toan_id=cu["id"],
+                staff_id=identity.staff_id,
+                ly_do=ly,
             )
             await emit_event(
                 conn,

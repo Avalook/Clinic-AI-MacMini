@@ -67,13 +67,21 @@ from clinicai.services.tai_khoan_nhan_service import (
     CHUA_PHAN_LOAI,
     ten_cac_tai_khoan,
 )
+from clinicai.services.xet_nghiem.thu_ho import doc_so_theo_ngay
 
 logger = structlog.get_logger(__name__)
 
 #: Hai hình thức (01/10/2026): QR cũ cộng vào Chuyển khoản. Một lần thu chia
 #: TM + CK cộng ĐÚNG từng phần vào từng dòng hình thức.
 HINH_THUC = HINH_THUC_THU
-TEN_HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "Chuyển khoản"}
+TEN_HINH_THUC = {
+    "CASH": "Tiền mặt",
+    "TRANSFER": "Chuyển khoản",
+    "QR": "Chuyển khoản",
+    # Chỉ ở dòng thu hộ (sổ riêng, tham khảo).
+    "MIXED": "Tiền mặt + Chuyển khoản",
+    "HOAN": "Hoàn tiền",
+}
 
 
 def _phan(c: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -350,6 +358,9 @@ def gom_bao_cao(
             "dich_vu": r.get("ten"),
             "so_tien": _tien(r.get("so_tien")),
             "hinh_thuc": r.get("hinh_thuc"),
+            # Thu hộ tách TM + CK (05/11/2026); dòng hoàn là số âm, hinh_thuc HOAN.
+            "tien_mat": _tien(r.get("tien_mat")),
+            "chuyen_khoan": _tien(r.get("chuyen_khoan")),
             "nguoi": r.get("nguoi"),
         }
         for r in doi_tac
@@ -1172,26 +1183,6 @@ SELECT rl.refund_id::text AS refund_id, bl.kind, rl.quantity AS so_luong,
 """
 )
 
-_DOI_TAC_SQL = """
-SELECT t.id::text AS id, t.so_tien, t.hinh_thuc, t.ghi_luc, o.service_name AS ten,
-       s.full_name AS nguoi, p.full_name AS ten_khach, p.patient_code AS ma_bn,
-       coalesce(v.location_id, ah.location_id)::text AS co_so
-  FROM doi_tac_thanh_toan t
-  LEFT JOIN service_order o ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
-  LEFT JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
-  LEFT JOIN appointment ah
-    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
-  LEFT JOIN patient p
-    ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
-  LEFT JOIN staff s ON s.id = t.ghi_boi
- WHERE t.clinic_id = $1::uuid AND t.huy_luc IS NULL
-   AND (t.ghi_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
-   AND ($5::timestamptz IS NULL OR t.ghi_luc >= $5)
-   AND ($6::timestamptz IS NULL OR t.ghi_luc < $6)
-   AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
- ORDER BY t.ghi_luc
- LIMIT 5000
-"""
 
 #: Các lần đổi hình thức GHI trong khoảng (giờ VN) — kể cả phiếu thu ngày trước.
 _DOI_HINH_THUC_SQL = """
@@ -1340,7 +1331,7 @@ class BaoCaoCuoiNgayService:
                     if r["status"] == "PAID" or r["huy_sau_chot"]
                 ],
             )
-            doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b, cs, k5, k6)
+            doi_tac = await doc_so_theo_ngay(conn, cid, a, b, cs, k5, k6)
             tra_hang = await conn.fetch(
                 _TRA_HANG_SQL,
                 cid,

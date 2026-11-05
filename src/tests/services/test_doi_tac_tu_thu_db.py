@@ -240,7 +240,8 @@ async def test_partner_exam_source_is_not_a_service_order_uuid(
     hpv = await _cd(q, f"HPV-{q.duoi}", HPV_NODE)
     await pool.execute(
         "INSERT INTO doi_tac_thanh_toan (clinic_id,service_order_id,so_tien,"
-        "hinh_thuc,ghi_boi) VALUES ($1::uuid,$2::uuid,900000,'CASH',$3::uuid)",
+        "tien_mat,hinh_thuc,ghi_boi)"
+        " VALUES ($1::uuid,$2::uuid,900000,900000,'CASH',$3::uuid)",
         CLINIC,
         hpv,
         q.thu_ngan.staff_id,
@@ -386,7 +387,8 @@ async def test_ghi_nhan_va_huy_da_thu(pool: asyncpg.Pool) -> None:
     with pytest.raises(asyncpg.UniqueViolationError):
         await pool.execute(
             "INSERT INTO doi_tac_thanh_toan (clinic_id, service_order_id, so_tien,"
-            " hinh_thuc, ghi_boi) VALUES ($1::uuid, $2::uuid, 1, 'CASH', $3::uuid)",
+            " tien_mat, hinh_thuc, ghi_boi)"
+            " VALUES ($1::uuid, $2::uuid, 1, 1, 'CASH', $3::uuid)",
             CLINIC,
             oid,
             dt.staff_id,

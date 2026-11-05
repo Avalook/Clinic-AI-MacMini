@@ -100,6 +100,17 @@ const LIVE_TABLES = [
   "payment_refund",
   // Tài khoản nhận chuyển khoản (31/10/2026): quầy thấy ngay tài khoản mới / vừa tắt.
   "tai_khoan_nhan",
+  // Đối tác xét nghiệm (05/11/2026): màn Cài đặt → Đối tác thấy ngay người khác sửa.
+  "doi_tac",
+  "doi_tac_dich_vu",
+  "xet_nghiem_cai_dat",
+  // Bàn xét nghiệm đối tác: việc mới / thu hộ / mẫu / đóng việc hiện ngay.
+  "xet_nghiem_viec",
+  "doi_tac_thanh_toan",
+  "doi_tac_hoan_tien",
+  "mau_xet_nghiem",
+  "mau_xet_nghiem_viec",
+  "xet_nghiem_dong",
   // Kiểm kê tiền mặt két theo ca (31/10/2026).
   "ket_tien_mat_ca",
   "payment_refund_line",
