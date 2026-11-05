@@ -7,9 +7,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
+import Lightbox from "@/components/ui/Lightbox";
 import ONhap from "@/components/ui/ONhap";
 import StatCard from "@/components/ui/StatCard";
 
+import { tepXem } from "../_lam-viec/AnhKetQua";
 import { CHUA_TAI, gio, gioNgay, homNayVN, ngayNgan, ngayVN, tien, type DongTien, type Loc, type Viec } from "./kieu";
 
 const TH = "px-3 py-2 text-left text-label font-semibold uppercase tracking-wide text-ink-muted";
@@ -89,8 +91,17 @@ export function ConTon({ viec, loc, onMo }: { viec: Viec[]; loc: Loc[]; onMo: (v
 
 export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }) {
   const co = viec.filter((v) => v.tep_id).sort((a, b) => (b.tep_luc ?? "").localeCompare(a.tep_luc ?? ""));
+  const [xem, setXem] = useState<Viec | null>(null);
   return (
     <section aria-label="Kết quả" className="flex flex-col gap-3">
+      {xem?.tep_id ? (
+        <Lightbox
+          tieuDe={`${xem.ten_dich_vu ?? "Kết quả"} · ${xem.ten_khach ?? "Khách"}`}
+          phuDe={[xem.nguon_tep, gioNgay(xem.tep_luc)].filter(Boolean).join(" · ")}
+          tep={[tepXem({ id: xem.tep_id, ten: xem.ten_tep, loai_tep: xem.loai_tep ?? "PDF", mime: xem.mime_tep })]}
+          onDong={() => setXem(null)}
+        />
+      ) : null}
       <Bang
         rong={co.length ? null : "Chưa có tờ kết quả nào."}
         dau={
@@ -109,7 +120,10 @@ export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }
               </button>
               <div>{v.ten_dich_vu}</div>
               <div className="text-ink-muted">
-                {v.ten_tep}
+                {/* Bấm tên tệp ⇒ hộp xem như bàn khám; bấm tên khách ⇒ mở việc. */}
+                <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={() => setXem(v)}>
+                  {v.ten_tep}
+                </button>
                 {v.ma_mau ? ` · mã ống ${v.ma_mau}` : ""}
               </div>
             </td>
