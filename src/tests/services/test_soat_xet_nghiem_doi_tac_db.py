@@ -13,6 +13,7 @@ from pathlib import Path
 import asyncpg
 import pytest
 
+from clinicai.services.audit import record_event
 from clinicai.services.doi_tac_service import DoiTacService
 from tests.services.test_doi_tac_tu_thu_db import _nguoi_vai, _viec_da_nhan
 from tests.services.test_tien_thuoc_cp1_db import tao_quay
@@ -30,7 +31,13 @@ def _cau_lenh() -> list[str]:
         for d in SQL.read_text(encoding="utf-8").splitlines()
         if not d.lstrip().startswith("\\")
     )
-    return [c.strip() for c in than.split(";\n") if c.strip()]
+    ds = [c.strip() for c in than.split(";\n")]
+    # Đoạn chỉ toàn chú thích (dòng chú thích lỡ kết thúc bằng ";") không phải câu.
+    return [
+        c
+        for c in ds
+        if any(d.strip() and not d.strip().startswith("--") for d in c.splitlines())
+    ]
 
 
 def _phan(nhan: str) -> str:
@@ -73,3 +80,40 @@ async def test_tai_khoan_partner_vua_ghi_thu_duoc_dem_thao_tac(
 
     loai = {r["event_type"] for r in await pool.fetch(_phan("'(c2) su kien partner"))}
     assert "partner.payment_recorded" in loai
+
+
+async def test_su_kien_partner_o_event_log_cung_duoc_dem(pool: asyncpg.Pool) -> None:
+    """Chiều ngược: `partner.awaiting_documents` đi qua `record_event` (audit) nên
+    nằm ở `event_log`, không ở `domain_event` — (c2) phải đếm cả hai sổ."""
+    q = await tao_quay(pool)
+    dt = await _nguoi_vai(q, "PARTNER")
+    async with pool.acquire() as conn, conn.transaction():
+        await record_event(
+            conn,
+            event_type="partner.awaiting_documents",
+            aggregate_type="visit",
+            aggregate_id=q.visit_id,
+            identity=dt,
+            origin="test",
+            payload={"visit_id": q.visit_id},
+        )
+    loai = {r["event_type"] for r in await pool.fetch(_phan("'(c2) su kien partner"))}
+    assert "partner.awaiting_documents" in loai
+
+
+async def test_hai_tai_khoan_partner_trung_ten_khong_bi_gop(pool: asyncpg.Pool) -> None:
+    q = await tao_quay(pool)
+    a = await _nguoi_vai(q, "PARTNER")
+    b = await _nguoi_vai(q, "PARTNER")
+    ten = f"Doi tac trung ten {q.duoi}"
+    await pool.execute(
+        "UPDATE staff SET full_name = $1 WHERE id = ANY($2::uuid[])",
+        ten,
+        [a.staff_id, b.staff_id],
+    )
+    dong = [
+        r
+        for r in await pool.fetch(_phan("'(c) tai khoan PARTNER'"))
+        if r["full_name"] == ten
+    ]
+    assert len(dong) == 2

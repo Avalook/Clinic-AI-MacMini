@@ -57,15 +57,20 @@ SELECT '(b) so thu ho theo thang' AS muc, c.code AS co_so,
  GROUP BY 2, 3, 4
  ORDER BY 2, 3, 4;
 
--- (c) Tài khoản vai PARTNER và lần thao tác gần nhất trong 30 ngày. Thao tác nằm ở HAI
---     bảng: domain_event (emit_event — mọi sự kiện partner.*, cột actor_staff_id) và
---     event_log (nhật ký audit, metadata.clinic_staff_id = staff.id). Không có = NULL, 0.
+-- HAI SỔ SỰ KIỆN — (c) và (c2) đều đọc CẢ HAI, cùng một khối UNION:
+--   domain_event  = emit_event (actor_staff_id, actor_role) — vd partner.payment_recorded,
+--   event_log     = record_event / audit (metadata.clinic_staff_id, metadata.clinic_role)
+--                   — vd partner.awaiting_documents chỉ nằm ở đây.
+-- Một lần bấm có thể ghi cả hai sổ ⇒ số lần là CẬN TRÊN; "có / không dùng" vẫn đúng.
+
+-- (c) Tài khoản vai PARTNER và lần thao tác gần nhất trong 30 ngày, theo từng tài khoản
+--     (gom theo staff.id — hai người trùng tên vẫn hai dòng), chỉ thao tác ở đúng cơ sở.
 WITH thao_tac AS (
-  SELECT d.actor_staff_id AS staff_id, d.occurred_at
+  SELECT d.clinic_id, d.actor_staff_id AS staff_id, d.occurred_at
     FROM public.domain_event d
    WHERE d.occurred_at >= now() - interval '30 days' AND d.actor_staff_id IS NOT NULL
   UNION ALL
-  SELECT (e.metadata->>'clinic_staff_id')::uuid, e.occurred_at
+  SELECT e.clinic_id, (e.metadata->>'clinic_staff_id')::uuid, e.occurred_at
     FROM public.event_log e
    WHERE e.occurred_at >= now() - interval '30 days'
      AND e.metadata->>'clinic_staff_id' ~ '^[0-9a-f-]{36}$'
@@ -77,21 +82,30 @@ SELECT '(c) tai khoan PARTNER' AS muc, c.code AS co_so, s.full_name, s.is_active
   FROM public.clinic_membership m
   JOIN public.clinic c ON c.id = m.clinic_id
   JOIN public.staff s ON s.id = m.staff_id
-  LEFT JOIN thao_tac t ON t.staff_id = s.id
+  LEFT JOIN thao_tac t ON t.staff_id = s.id AND t.clinic_id = m.clinic_id
  WHERE m.role = 'PARTNER'
- GROUP BY 2, 3, 4, 5
- ORDER BY 2, 3;
+ GROUP BY m.id, c.code, s.full_name, s.is_active, m.is_active
+ ORDER BY c.code, s.full_name;
 
--- (c2) Sự kiện partner.* 30 ngày (domain_event) theo loại và vai người bấm — bàn cũ còn
---      ai dùng (câu D). Đọc cùng (c): (c) chỉ thấy tài khoản vai PARTNER.
-SELECT '(c2) su kien partner 30 ngay' AS muc, c.code AS co_so, d.event_type,
-       coalesce(d.actor_role, d.actor_type) AS vai, count(*) AS so_lan,
-       max(d.occurred_at) AT TIME ZONE 'Asia/Ho_Chi_Minh' AS lan_cuoi
-  FROM public.domain_event d
-  JOIN public.clinic c ON c.id = d.clinic_id
- WHERE d.event_type LIKE 'partner.%' AND d.occurred_at >= now() - interval '30 days'
- GROUP BY 2, 3, 4
- ORDER BY 2, 3, 4;
+-- (c2) Sự kiện partner.* 30 ngày theo loại, vai người bấm và sổ — bàn cũ còn ai dùng
+--      (câu D). Đọc cùng (c): (c) chỉ thấy tài khoản vai PARTNER.
+WITH su_kien AS (
+  SELECT d.clinic_id, d.event_type, coalesce(d.actor_role, d.actor_type) AS vai,
+         d.occurred_at, 'domain_event' AS so
+    FROM public.domain_event d
+   WHERE d.event_type LIKE 'partner.%' AND d.occurred_at >= now() - interval '30 days'
+  UNION ALL
+  SELECT e.clinic_id, e.event_type, coalesce(e.metadata->>'clinic_role', '(he thong)'),
+         e.occurred_at, 'event_log'
+    FROM public.event_log e
+   WHERE e.event_type LIKE 'partner.%' AND e.occurred_at >= now() - interval '30 days'
+)
+SELECT '(c2) su kien partner 30 ngay' AS muc, c.code AS co_so, k.event_type, k.vai, k.so,
+       count(*) AS so_lan, max(k.occurred_at) AT TIME ZONE 'Asia/Ho_Chi_Minh' AS lan_cuoi
+  FROM su_kien k
+  JOIN public.clinic c ON c.id = k.clinic_id
+ GROUP BY 2, 3, 4, 5
+ ORDER BY 2, 3, 4, 5;
 
 -- (d) Tệp kết quả đang CHO_XAC_NHAN (chưa thu hồi, chưa xoá, còn tệp): bao nhiêu, cũ nhất,
 --     bao nhiêu thuộc việc đối tác (có dòng doi_tac_nhan_viec).
