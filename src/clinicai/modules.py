@@ -784,6 +784,19 @@ MODULE: dict[str, Module] = {
             ben_nhan=["doi_tac_nhan_viec"],
             bang=["doi_tac_nhan_viec", "doi_tac_thanh_toan"],
         ),
+        # Bàn xét nghiệm đối tác đời mới (ADR-0015, 05/11/2026). Module `doi_tac`
+        # ở trên đóng băng; luồng mới ở `services/xet_nghiem/`.
+        Module(
+            ma="xet_nghiem_doi_tac",
+            ten="Xét nghiệm đối tác",
+            lenh=["SavePartner", "PausePartner", "SavePartnerService"],
+            bang=[
+                "doi_tac",
+                "doi_tac_dich_vu",
+                "xet_nghiem_viec",
+                "xet_nghiem_cai_dat",
+            ],
+        ),
         Module(
             ma="cskh",
             ten="Chăm sóc khách hàng",
