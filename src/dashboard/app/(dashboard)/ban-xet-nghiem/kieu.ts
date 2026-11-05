@@ -115,6 +115,8 @@ export interface Ban {
   khach: Khach[];
   loc: Loc[];
   quan_ly: boolean;
+  /** Ô lọc đối tác (máy chủ: mọi đối tác còn hoạt động + đối tác ngưng còn việc). */
+  doi_tac: { id: string; ten: string }[];
 }
 
 export interface DongTien {
