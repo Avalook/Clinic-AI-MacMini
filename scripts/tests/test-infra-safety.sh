@@ -805,7 +805,7 @@ import sys
 
 services = json.load(sys.stdin)["services"]
 expected = {
-    "api", "caddy", "cloudflared", "dashboard", "day-tep", "dozzle",
+    "api", "caddy", "cloudflared", "dashboard", "day-tep", "dozzle", "drive-xn",
     "media-quyen", "notification-relay", "pos-relay", "rabbitmq", "su-kien",
     "uptime-kuma", "worker",
 }
