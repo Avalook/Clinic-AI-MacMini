@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.xet_nghiem import quyen_ban
 from clinicai.services.xet_nghiem.cai_dat import CaiDatDoiTac
 from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
 
@@ -45,6 +46,7 @@ class DoiTacOut(BaseModel):
     sdt: str | None
     ghi_chu: str | None
     drive_folder_id: str | None
+    tai_khoan_nhan_ck: str | None
     hen_tra_so_ngay_mac_dinh: int | None
     ngung_luc: datetime | None
     ly_do_ngung: str | None
@@ -74,6 +76,7 @@ class DoiTacIn(BaseModel):
     sdt: str | None = Field(default=None, max_length=100)
     ghi_chu: str | None = Field(default=None, max_length=4000)
     drive_folder: str | None = Field(default=None, max_length=1000)
+    tai_khoan_nhan_ck: str | None = Field(default=None, max_length=1000)
     hen_tra_so_ngay_mac_dinh: str | int | None = None
 
 
@@ -94,7 +97,29 @@ class NguongIn(BaseModel):
     nguong_lay_mau_ngay: str | int
 
 
+class QuyenNguoiOut(BaseModel):
+    staff_id: str
+    ten: str | None
+    lam_viec: bool
+    quan_ly: bool
+
+
+class BangQuyenOut(BaseModel):
+    nguoi: list[QuyenNguoiOut]
+
+
 # ── Cửa ─────────────────────────────────────────────────────────────────────
+@router.get("/xet-nghiem/quyen", response_model=BangQuyenOut)
+async def bang_quyen(
+    identity: StaffIdentity = Depends(_QUAN_LY),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> object:
+    """Bảng Quyền (chỉ xem) — quyền THỰC TẾ ai vào bàn XN / ai quản lý.
+    Sửa ở màn Phân quyền."""
+    async with pool.acquire() as conn:
+        return {"nguoi": await quyen_ban.bang_quyen(conn, identity.clinic_id)}
+
+
 @router.get("/xet-nghiem/doi-tac", response_model=DanhSachDoiTacOut)
 async def danh_sach_doi_tac(
     identity: StaffIdentity = Depends(_QUAN_LY),

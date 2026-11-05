@@ -15,6 +15,7 @@ import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import { useNgheBang } from "../../dung-nghe-bang";
+import FormDoiTac, { TRONG, type FormDT } from "./FormDoiTac";
 
 interface DichVuGan {
   id: string;
@@ -34,6 +35,7 @@ interface DoiTac {
   sdt: string | null;
   ghi_chu: string | null;
   drive_folder_id: string | null;
+  tai_khoan_nhan_ck: string | null;
   hen_tra_so_ngay_mac_dinh: number | null;
   ngung_luc: string | null;
   ly_do_ngung: string | null;
@@ -45,17 +47,6 @@ interface DanhSach {
   dich_vu_thu_ho: { id: string; name: string; unit_price: number | null }[];
   nguong_lay_mau_ngay: number;
 }
-interface FormDT {
-  id: string | null;
-  ten: string;
-  ma_ngan: string;
-  sdt: string;
-  ghi_chu: string;
-  drive_folder: string;
-  hen_tra_so_ngay_mac_dinh: string;
-}
-
-const TRONG: FormDT = { id: null, ten: "", ma_ngan: "", sdt: "", ghi_chu: "", drive_folder: "", hen_tra_so_ngay_mac_dinh: "" };
 async function docDanhSach(): Promise<DanhSach | null> {
   try {
     const r = await fetch("/api/xet-nghiem/doi-tac", { cache: "no-store" });
@@ -162,56 +153,16 @@ export default function DoiTacView() {
       ) : null}
 
       {form ? (
-        <div className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
-          <p className="text-emph font-semibold text-ink">{form.id ? "Sửa đối tác" : "Thêm đối tác"}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-meta text-ink-soft">
-              Tên đối tác
-              <ONhap value={form.ten} maxLength={120} placeholder="vd Medlatec" onChange={(e) => sua("ten", e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1 text-meta text-ink-soft">
-              Mã ngắn (2–10 chữ/số)
-              <ONhap value={form.ma_ngan} maxLength={10} placeholder="vd MED" onChange={(e) => sua("ma_ngan", e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1 text-meta text-ink-soft">
-              Hẹn trả mặc định (ngày)
-              <ONhap
-                value={form.hen_tra_so_ngay_mac_dinh}
-                inputMode="numeric"
-                maxLength={2}
-                onChange={(e) => sua("hen_tra_so_ngay_mac_dinh", e.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-meta text-ink-soft">
-              Số điện thoại
-              <ONhap value={form.sdt} maxLength={30} inputMode="tel" onChange={(e) => sua("sdt", e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1 text-meta text-ink-soft sm:col-span-2">
-              Thư mục Google Drive của đối tác (dán link thư mục)
-              <ONhap value={form.drive_folder} maxLength={1000} onChange={(e) => sua("drive_folder", e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1 text-meta text-ink-soft sm:col-span-2">
-              Ghi chú
-              <ONhap value={form.ghi_chu} maxLength={2000} onChange={(e) => sua("ghi_chu", e.target.value)} />
-            </label>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="primary"
-              disabled={dang}
-              onClick={async () => {
-                const ok = await gui(form.id ? "PUT" : "POST", form.id ? `doi-tac/${form.id}` : "doi-tac", form, "Đã lưu đối tác.");
-                if (ok) setForm(null);
-              }}
-            >
-              {dang ? "Đang lưu…" : "Lưu"}
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setForm(null)}>
-              Thôi
-            </Button>
-          </div>
-        </div>
+        <FormDoiTac
+          form={form}
+          dang={dang}
+          onSua={sua}
+          onThoi={() => setForm(null)}
+          onLuu={async () => {
+            const ok = await gui(form.id ? "PUT" : "POST", form.id ? `doi-tac/${form.id}` : "doi-tac", form, "Đã lưu đối tác.");
+            if (ok) setForm(null);
+          }}
+        />
       ) : null}
 
       {!ds ? <p className="text-body text-ink-muted">Đang tải…</p> : null}
@@ -234,6 +185,10 @@ export default function DoiTacView() {
                   {d.sdt ? ` · ${d.sdt}` : ""}
                   {d.drive_folder_id ? " · Đã nối thư mục Drive" : " · Chưa nối thư mục Drive"}
                 </p>
+                <p className="text-meta text-ink-muted">
+                  Tiền thu hộ vào: <span className="text-ink">{d.tai_khoan_nhan_ck ?? "chưa đặt"}</span>
+                </p>
+                {d.ghi_chu ? <p className="text-meta text-ink-muted">Ghi chú: {d.ghi_chu}</p> : null}
                 {d.ngung_luc && d.ly_do_ngung ? <p className="text-meta text-ink-muted">Lý do ngưng: {d.ly_do_ngung}</p> : null}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -249,6 +204,7 @@ export default function DoiTacView() {
                       sdt: d.sdt ?? "",
                       ghi_chu: d.ghi_chu ?? "",
                       drive_folder: d.drive_folder_id ?? "",
+                      tai_khoan_nhan_ck: d.tai_khoan_nhan_ck ?? "",
                       hen_tra_so_ngay_mac_dinh: d.hen_tra_so_ngay_mac_dinh?.toString() ?? "",
                     })
                   }

@@ -805,12 +805,9 @@ MODULE: dict[str, Module] = {
                 "lab.payment_refunded",
                 "lab.sample_collected",
                 "lab.sample_voided",
-                "lab.prepay_waived",
-                "lab.prepay_waiver_revoked",
                 "lab.result_arrived",
                 "lab.result_sent",
                 "lab.result_rejected",
-                "lab.closed_by_partner",
                 "lab.reopened",
             ],
             # Sổ thu hộ chuyển về đây (kế hoạch 3: lõi ghi/huỷ ở thu_ho.py; lệnh cũ

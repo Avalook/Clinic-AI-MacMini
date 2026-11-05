@@ -2,7 +2,7 @@
 // `routers/xet_nghiem_ban.py`. Mọi cờ, chữ, màu chip, mốc hành trình do máy chủ tính.
 
 import type { ChipTone } from "@/components/ui/Chip";
-import type { StepState } from "@/components/ui/Stepper";
+import type { TrangThaiMocHT } from "@/components/ui/ThanhHanhTrinh";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
 export interface TrangThai {
@@ -31,10 +31,6 @@ export interface Nut {
   huy_thu: boolean;
   hoan_tien: boolean;
   con_hoan_duoc: number;
-  cho_qua: boolean;
-  /** Hiện nút "Cho lấy mẫu trước" (máy chủ đã xét người xem là quản lý). */
-  hien_cho_qua: boolean;
-  go_cho_qua: boolean;
   lay_mau: boolean;
   /** Hiện khối Lấy mẫu (mờ hay sáng theo `lay_mau`). */
   hien_lay_mau: boolean;
@@ -42,7 +38,6 @@ export interface Nut {
   tai_ket_qua: boolean;
   gui: boolean;
   thu_hoi: boolean;
-  dong: boolean;
   mo_lai: boolean;
   hoan_tac: { lenh: string; nhan: string } | null;
 }
@@ -50,7 +45,7 @@ export interface Nut {
 export interface Moc {
   ten: string;
   luc: string | null;
-  trang_thai: StepState;
+  trang_thai: TrangThaiMocHT;
 }
 
 export interface Viec {
@@ -73,6 +68,16 @@ export interface Viec {
   tien_mat: number | null;
   chuyen_khoan: number | null;
   da_hoan: number | null;
+  /** Khoản thu hộ còn hiệu lực (gắn ảnh CK vào đây); null = chưa thu. */
+  thu_id: string | null;
+  sdt: string | null;
+  so_tiep_don: number | null;
+  so_booking: number | null;
+  /** "Chuyển khoản vào: …" — tài khoản nhận CK của đối tác (Cài đặt → Đối tác). */
+  tai_khoan_nhan_ck: string | null;
+  /** Nguồn tờ kết quả ("Tải tay · <người>") — máy chủ ghi. */
+  nguon_tep: string | null;
+  anh_ck: { id: string; luc: string; boi: string | null }[];
   tao_luc: string;
   ngay_chi_dinh: string;
   tep_luc: string | null;
@@ -89,6 +94,9 @@ export interface Khach {
   ngay: string;
   ten: string;
   ma_bn: string | null;
+  sdt: string | null;
+  so_tiep_don: number | null;
+  so_booking: number | null;
   order_ids: string[];
   nhan: string;
   mau: ChipTone;
@@ -120,6 +128,7 @@ export interface DongTien {
   ten: string | null;
   ten_khach: string | null;
   ma_bn: string | null;
+  sdt: string | null;
   nguoi: string | null;
 }
 
@@ -140,6 +149,13 @@ export const gioNgay = (iso: string | null) =>
   iso
     ? `${new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN })} ${ngayNgan(iso)}`
     : "";
+
+/** Giờ dưới mốc hành trình (bản mẫu): hôm nay "09:05", ngày khác "09:05 02/11". */
+export const gioMoc = (iso: string) => {
+  const gio = new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN });
+  const ngay = new Date(iso).toLocaleDateString("sv-SE", { timeZone: VN });
+  return ngay === homNayVN() ? gio : `${gio} ${ngayNgan(iso)}`;
+};
 
 /** Hôm nay theo giờ VN, dạng "2026-11-05" (so với `ngay_chi_dinh` của máy chủ). */
 export const homNayVN = () => new Date().toLocaleDateString("sv-SE", { timeZone: VN });

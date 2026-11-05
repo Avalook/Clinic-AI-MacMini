@@ -23,15 +23,15 @@ CA = [
     ("moi_chi_dinh", SuViecXN(hom_nay=H), "CHO_THU"),
     ("da_thu", SuViecXN(hom_nay=H, ngay_thu=H), "CHO_LAY_MAU"),
     ("thu_0d_van_tinh", SuViecXN(hom_nay=H, ngay_thu=H), "CHO_LAY_MAU"),
-    ("quan_ly_cho_qua", SuViecXN(hom_nay=H, duoc_cho_qua=True), "CHO_LAY_MAU"),
     (
         "co_mau",
         SuViecXN(hom_nay=H, ngay_thu=HQ, co_mau=True, hen_tra=H),
         "CHO_KET_QUA",
     ),
+    # Mẫu đã lấy (vd từ hồi còn "cho qua") mà chưa thu: vẫn ở bước sau, không lùi.
     (
-        "co_mau_khong_thu_nhung_cho_qua",
-        SuViecXN(hom_nay=H, duoc_cho_qua=True, co_mau=True, hen_tra=H),
+        "co_mau_chua_thu_van_cho_ket_qua",
+        SuViecXN(hom_nay=H, co_mau=True, hen_tra=H),
         "CHO_KET_QUA",
     ),
     ("co_tep", SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True, co_tep=True), "CO_KET_QUA"),
@@ -140,9 +140,10 @@ def test_nguong_lay_mau_doc_tu_cai_dat() -> None:
     assert trang_thai_xet_nghiem(sv).qua_han_lay_mau is True
 
 
-def test_cho_qua_khong_co_ngay_thu_khong_vang() -> None:
-    tt = trang_thai_xet_nghiem(SuViecXN(hom_nay=H, duoc_cho_qua=True))
-    assert tt.qua_han_lay_mau is False
+def test_chua_thu_khong_lay_mau_duoc_va_khong_vang() -> None:
+    """Bỏ "cho lấy mẫu trước" (05/11): chưa thu ⇒ CHƯA lấy mẫu được, không cảnh báo."""
+    tt = trang_thai_xet_nghiem(SuViecXN(hom_nay=H))
+    assert (tt.co_the_lay_mau, tt.qua_han_lay_mau) == (False, False)
 
 
 def test_hoan_tien_la_co_phu_khong_phai_trang_thai() -> None:

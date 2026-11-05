@@ -667,8 +667,8 @@ class XetNghiemMau(PayloadSuKien):
 
 
 class XetNghiemViec(PayloadSuKien):
-    """Sự kiện của MỘT việc xét nghiệm đối tác (cho qua, gỡ cho qua, đóng, mở lại,
-    tải kết quả, gửi, thu hồi). Lý do nằm ở bảng, không vào sự kiện."""
+    """Sự kiện của MỘT việc xét nghiệm đối tác (mở lại, tải kết quả, gửi, thu hồi).
+    Lý do nằm ở bảng, không vào sự kiện."""
 
     visit_id: str | None
     service_order_id: str
@@ -2172,18 +2172,8 @@ DANH_MUC: dict[str, SuKien] = {
             for ten, loai, payload, nhan in (
                 ("lab.sample_collected", "mau_xet_nghiem", XetNghiemMau, "Lấy mẫu"),
                 ("lab.sample_voided", "mau_xet_nghiem", XetNghiemMau, "Huỷ mẫu"),
-                (
-                    "lab.prepay_waived",
-                    "service_order",
-                    XetNghiemViec,
-                    "Quản lý cho lấy mẫu khi chưa thu",
-                ),
-                (
-                    "lab.prepay_waiver_revoked",
-                    "service_order",
-                    XetNghiemViec,
-                    "Gỡ cho lấy mẫu khi chưa thu",
-                ),
+                # "lab.prepay_waived" / "lab.prepay_waiver_revoked" (cho lấy mẫu trước)
+                # đã bỏ cùng lệnh (Tuyền 05/11) — lấy mẫu chỉ sau khi ghi nhận thu hộ.
                 (
                     "lab.result_arrived",
                     "service_order",
@@ -2202,12 +2192,8 @@ DANH_MUC: dict[str, SuKien] = {
                     XetNghiemViec,
                     "Thu hồi kết quả đối tác",
                 ),
-                (
-                    "lab.closed_by_partner",
-                    "service_order",
-                    XetNghiemViec,
-                    "Đối tác đã tự trả khách",
-                ),
+                # "lab.closed_by_partner" (Đối tác đã tự trả khách) đã bỏ cùng lệnh
+                # đóng việc (Tuyền 05/11) — chỉ còn mở lại việc đã lỡ đóng.
                 ("lab.reopened", "service_order", XetNghiemViec, "Mở lại việc"),
             )
         ],

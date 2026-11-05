@@ -15,7 +15,6 @@ import pytest
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.core.clock import hom_nay_vn
 from clinicai.services.xet_nghiem import ket_qua, mau, qua_trinh, thu_ho
-from clinicai.services.xet_nghiem.ban import doc_viec
 from clinicai.services.xet_nghiem.ma_mau import tao_ma
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -150,9 +149,7 @@ async def test_kich_ban_3_den_9_o_tang_service(
         pool, ca.bac_si, {"order_id": o1, "kenh": "zalo"}, hom_nay_vn()
     )
     v1 = await _tt(pool, ca, o1)
-    assert v1["trang_thai"]["ma"] == "DA_GUI" and not v1["nut"]["dong"]
-    with pytest.raises(ConflictError, match="Đã gửi"):
-        await _lam(pool, mau.dong, ca, order_id=o1, ly_do="đối tác tự gửi")
+    assert v1["trang_thai"]["ma"] == "DA_GUI"
     tep = v1["tep_id"]
     with pytest.raises(ValidationError):
         await ket_qua.thu_hoi(pool, ca.bac_si, {"order_id": o1}, hom_nay_vn())
@@ -206,28 +203,25 @@ async def test_hai_nguoi_lay_mau_cung_viec_mot_nguoi_409(
     )
 
 
-async def test_cho_qua_roi_go_cho_qua(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_cho_qua_cu_khong_con_mo_lay_mau_khi_chua_thu(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 05/11: BỎ "Cho lấy mẫu trước" — lấy mẫu CHỈ sau khi ghi nhận thu hộ. Việc
+    đã lỡ được cho qua (dữ liệu cũ trên staging) mà chưa thu ⇒ về "Chưa thu tiền",
+    nút Lấy mẫu mờ; lệnh lấy mẫu bị chặn ở máy chủ."""
     ca, o1, _ = await _hai_viec(pool)
-    with pytest.raises(ValidationError):
-        await _lam(pool, mau.cho_qua, ca, order_id=o1, ly_do="")
-    await _lam(pool, mau.cho_qua, ca, order_id=o1, ly_do="khách quen, trả sau")
+    await pool.execute(
+        "UPDATE xet_nghiem_viec SET cho_lay_mau_truoc_luc = now(),"
+        " cho_lay_mau_truoc_boi = $2::uuid, cho_lay_mau_truoc_ly_do = 'dữ liệu cũ'"
+        " WHERE service_order_id = $1::uuid",
+        o1,
+        ca.bac_si.staff_id,
+    )
     v = await _tt(pool, ca, o1)
-    assert v["nut"]["lay_mau"] and v["nut"]["go_cho_qua"]
-    # Soát chặng 3: màn phải có lối gỡ (không khoá cứng) — hoàn tác bước trước. Lệnh
-    # gỡ chỉ quản lý gọi được (router `_QL`) ⇒ chỉ QUẢN LÝ thấy nút; nhân viên không.
-    assert v["nut"]["hoan_tac"] is None
-    async with pool.acquire() as conn:
-        ql = await doc_viec(
-            conn, CLINIC, hom_nay=hom_nay_vn(), order_ids=[o1], quan_ly=True
-        )
-    assert ql[0]["nut"]["hoan_tac"]["lenh"] == "go_cho_qua"
-    await _lam(pool, mau.go_cho_qua, ca, order_id=o1, ly_do="cho qua nhầm")
-    v = await _tt(pool, ca, o1)
-    assert v["trang_thai"]["ma"] == "CHO_THU"
-    # Một việc một lần cho qua: đã gỡ thì nút cho qua tắt (trigger cũng chặn).
-    assert not v["nut"]["cho_qua"] and not v["nut"]["go_cho_qua"]
+    assert v["trang_thai"]["ma"] == "CHO_THU" and not v["nut"]["lay_mau"]
+    assert not {"cho_qua", "hien_cho_qua", "go_cho_qua"} & set(v["nut"])
     with pytest.raises(ConflictError):
-        await _lam(pool, mau.cho_qua, ca, order_id=o1, ly_do="cho qua lần hai")
+        await _lam(pool, mau.lay_mau, ca, order_ids=[o1])
 
 
 async def test_viec_do_qua_30_ngay_van_hien_tren_ban(
@@ -247,12 +241,24 @@ async def test_viec_do_qua_30_ngay_van_hien_tren_ban(
     assert o1 in {v["order_id"] for v in ds["viec"]}
 
 
-async def test_dong_va_mo_lai(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_viec_da_dong_truoc_van_mo_lai_duoc(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 05/11: BỎ lệnh "Đối tác đã tự trả khách" (hệ thống chỉ ghi nhận việc làm
+    trong hệ thống). Việc đã lỡ đóng trước đó vẫn MỞ LẠI được — không khoá cứng."""
     ca, o1, _ = await _hai_viec(pool)
     await _lam2(pool, thu_ho.ghi_nhan, ca, order_id=o1, chuyen_khoan=900000)
     await _lam(pool, mau.lay_mau, ca, order_ids=[o1])
-    await _lam(pool, mau.dong, ca, order_id=o1, ly_do="đối tác tự trả khách")
+    # Dữ liệu cũ: một dòng đóng ghi trước khi bỏ lệnh (staging 05/11).
+    await pool.execute(
+        "INSERT INTO xet_nghiem_dong (clinic_id, service_order_id, ly_do, dong_boi)"
+        " VALUES ($1::uuid, $2::uuid, 'đóng trước 05/11', $3::uuid)",
+        CLINIC,
+        o1,
+        ca.bac_si.staff_id,
+    )
     v = await _tt(pool, ca, o1)
+    assert "dong" not in v["nut"], "lệnh đóng đã bỏ — màn không được có nút này"
     assert v["trang_thai"]["ma"] == "DA_DONG" and v["nut"]["mo_lai"]
     assert v["nut"]["hoan_tac"]["lenh"] == "mo_lai"
     await _lam(pool, mau.mo_lai, ca, order_id=o1, ly_do="đối tác chưa trả thật")

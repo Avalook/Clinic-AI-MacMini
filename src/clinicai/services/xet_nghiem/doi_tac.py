@@ -36,6 +36,7 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
     doi_tac = await conn.fetch(
         """
         SELECT d.id::text, d.ten, d.ma_ngan, d.sdt, d.ghi_chu, d.drive_folder_id,
+               d.tai_khoan_nhan_ck,
                d.hen_tra_so_ngay_mac_dinh, d.ngung_luc, d.ly_do_ngung,
                (d.ngung_luc IS NULL) AS gan_duoc
           FROM public.doi_tac d WHERE d.clinic_id = $1::uuid
@@ -112,19 +113,19 @@ async def _vet(
     )
 
 
-#: $1 clinic, $2 id (NULL khi thêm), $3.. ô của form, $9 người làm.
+#: $1 clinic, $2 id (NULL khi thêm), $3.. ô của form, $9 người làm, $10 TK nhận CK.
 _LUU_DT = """
 WITH sua AS (
     UPDATE public.doi_tac
        SET ten = $3, ma_ngan = $4, sdt = $5, ghi_chu = $6,
            drive_folder_id = $7, hen_tra_so_ngay_mac_dinh = $8,
-           sua_luc = now(), sua_boi = $9::uuid
+           tai_khoan_nhan_ck = $10, sua_luc = now(), sua_boi = $9::uuid
      WHERE $2::uuid IS NOT NULL AND clinic_id = $1::uuid AND id = $2::uuid
     RETURNING id
 ), them AS (
     INSERT INTO public.doi_tac (clinic_id, ten, ma_ngan, sdt, ghi_chu,
-        drive_folder_id, hen_tra_so_ngay_mac_dinh, tao_boi, sua_boi)
-    SELECT $1::uuid, $3, $4, $5, $6, $7, $8, $9::uuid, $9::uuid
+        drive_folder_id, hen_tra_so_ngay_mac_dinh, tai_khoan_nhan_ck, tao_boi, sua_boi)
+    SELECT $1::uuid, $3, $4, $5, $6, $7, $8, $10, $9::uuid, $9::uuid
      WHERE $2::uuid IS NULL
     RETURNING id
 )
@@ -153,6 +154,7 @@ async def luu_doi_tac(
             f["drive_folder_id"],
             f["hen_tra"],
             identity.staff_id,
+            f["tai_khoan_nhan_ck"],
         )
     except asyncpg.UniqueViolationError:
         raise ConflictError(

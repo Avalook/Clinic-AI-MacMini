@@ -101,6 +101,13 @@ def doc_form_doi_tac(raw: Mapping[str, Any]) -> dict[str, Any]:
         "ma_ngan": ma_s,
         "sdt": _chu(raw.get("sdt"), "Số điện thoại", 30, bat_buoc=False),
         "ghi_chu": _chu(raw.get("ghi_chu"), "Ghi chú", 2000, bat_buoc=False),
+        # Chữ tự do (ngân hàng · số · tên) — chỉ để bàn XN hiện "Chuyển khoản vào: …".
+        "tai_khoan_nhan_ck": _chu(
+            raw.get("tai_khoan_nhan_ck"),
+            "Tài khoản nhận chuyển khoản",
+            200,
+            bat_buoc=False,
+        ),
         "drive_folder_id": doc_drive(raw.get("drive_folder")),
         "hen_tra": doc_so_ngay(raw.get("hen_tra_so_ngay_mac_dinh")),
     }

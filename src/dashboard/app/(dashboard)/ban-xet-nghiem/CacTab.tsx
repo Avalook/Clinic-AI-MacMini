@@ -100,7 +100,8 @@ export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }
         dau={
           <tr>
             <th className={TH}>Tờ kết quả</th>
-            <th className={TH}>Tải lên lúc</th>
+            <th className={TH}>Nguồn</th>
+            <th className={TH}>Thời gian</th>
           </tr>
         }
       >
@@ -116,6 +117,7 @@ export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }
                 {v.ma_mau ? ` · mã ống ${v.ma_mau}` : ""}
               </div>
             </td>
+            <td className={TD}>{v.nguon_tep ?? "—"}</td>
             <td className={TD}>{gioNgay(v.tep_luc)}</td>
           </tr>
         ))}
@@ -194,6 +196,7 @@ export function TienThuHo() {
           <tr>
             <th className={TH}>Giờ</th>
             <th className={TH}>Khách</th>
+            <th className={TH}>SĐT</th>
             <th className={TH}>Xét nghiệm</th>
             <th className={`${TH} text-right`}>Khách trả</th>
             <th className={`${TH} text-right`}>Tiền mặt</th>
@@ -208,6 +211,7 @@ export function TienThuHo() {
             <td className={`${TD} font-semibold`}>
               {d.ten_khach} <span className="font-normal text-ink-muted">{d.ma_bn}</span>
             </td>
+            <td className={`${TD} tabular-nums`}>{d.sdt ?? "—"}</td>
             <td className={TD}>
               {d.ten}
               {d.loai === "HOAN" ? <span className="text-ink-muted"> · hoàn tiền</span> : null}
@@ -221,7 +225,7 @@ export function TienThuHo() {
         ))}
         {ds && ds.dong.length ? (
           <tr className="bg-surface-muted font-semibold">
-            <td className={TD} colSpan={3}>
+            <td className={TD} colSpan={4}>
               Tổng
             </td>
             <td className={`${TD} text-right tabular-nums`}>{tien(ds.tong)}</td>

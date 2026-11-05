@@ -33,11 +33,11 @@ Bác sĩ chỉ định ─▶ Ghi nhận thu hộ ─▶ Lấy mẫu (cấp mã 
 | # | Câu | Chốt | Hệ quả cho code |
 |---|---|---|---|
 | 1 | Thu hộ đi sổ nào? | **Sổ ghi nhận riêng**, tách hẳn tiền phòng khám. TM hay CK đều vào một bảng. Két chung (ở lễ tân) và quyết toán với đối tác **tính sau**. | Mở rộng `doi_tac_thanh_toan`. **Cấm** ghi vào `payment_cycle`, `payment`, `payment_bill_line`, két, doanh thu, báo cáo tiền phòng khám. Báo cáo cuối ngày chỉ hiện để tham khảo (như `_DOI_TAC_SQL` đang làm). |
-| 2 | Chưa thu có được lấy mẫu? | **Thu xong mới lấy mẫu.** Chỉ chặn nút Lấy mẫu; không chặn chỉ định, khám, việc khác. Mọi ghi nhận còn hiệu lực đều tính (kể cả 0đ, kể cả CK chưa thấy tiền). **Quản lý cho qua, bắt nhập lý do.** | Đây là **ngoại lệ** của luật "làm trước, thu sau" (30/09) và "thu hộ không chặn việc nào khác" (16/10) — chỉ cho nút Lấy mẫu của việc đối tác. Ghi vào ADR-0015 và SO-LUAT Phần 9. |
+| 2 | Chưa thu có được lấy mẫu? | **Thu xong mới lấy mẫu.** Chỉ chặn nút Lấy mẫu; không chặn chỉ định, khám, việc khác. Mọi ghi nhận còn hiệu lực đều tính (kể cả 0đ, kể cả CK chưa thấy tiền). ~~Quản lý cho qua, bắt nhập lý do.~~ **Đổi 05/11 chiều (5d): bỏ "cho qua" — chỉ thu xong mới lấy mẫu.** | Đây là **ngoại lệ** của luật "làm trước, thu sau" (30/09) và "thu hộ không chặn việc nào khác" (16/10) — chỉ cho nút Lấy mẫu của việc đối tác. Ghi vào ADR-0015 và SO-LUAT Phần 9. |
 | 3 | Mã mẫu theo gì? | **Theo ống (mẫu)**, duy nhất, có **số kiểm tra**. Một ống phục vụ nhiều chỉ định **cùng một đối tác**. | Bảng `mau_xet_nghiem` + bảng nối. Cấp mã lúc bấm Lấy mẫu, không suy từ mã khách. |
 | 4 | Kết quả về có chờ xác nhận? | **Tự về, hiện ngay** cho bác sĩ + CSKH. "Chặn ai tính sau." Giữ luật DB cấm gửi tệp đối tác chưa xác nhận; nút Gửi = **"Đúng người, gửi"** (xác nhận + gửi trong một cú bấm). | Không gỡ `trg_tep_ket_qua_gui_phai_duoc_cho_phep` / `CHO_XAC_NHAN`. Gom hai lệnh có sẵn (`xac_nhan_tep` + `danh_dau_da_gui`) vào một lệnh, một giao dịch. |
 | 5 | Đối tác có vào hệ thống? | **Không.** Chỉ chia sẻ thư mục Drive. Hệ thống đọc bằng **tài khoản dịch vụ Google** (Changes API, 3 phút/lần). Thư mục cha "Kết quả đối tác" do phòng khám tạo, chia sẻ cho tài khoản dịch vụ (Người xem) **một lần**; mỗi đối tác một thư mục con chia sẻ cho đối tác. Dự phòng: Gmail phòng khám OAuth chỉ đọc. **Không dùng link công khai.** Có thêm **đường tải tay** của nhân viên. | Tắt dần lệnh phía đối tác (vai `PARTNER`) theo kiểu "con số chỉ được giảm". Worker kéo Drive là chặng cuối. |
-| 6 | Giá thu hộ? | **Giá chỉ là gợi ý** (chữ mờ trong ô số tiền). Nhân viên gõ số khách thật trả, không bắt khớp. Lưu **cả hai** số. Chưa có giá thì ô trống. | Sổ có `gia_goi_y` (chụp lúc ghi) và `so_tien`. Không có validation "phải bằng giá". |
+| 6 | Giá thu hộ? | **Giá chỉ là gợi ý** (~~chữ mờ trong ô số tiền~~ — đổi 05/11 chiều, 5d: bấm Thu tiền thì ô **điền sẵn** giá, vẫn sửa được). Nhân viên gõ số khách thật trả, không bắt khớp. Lưu **cả hai** số. Chưa có giá thì ô trống. | Sổ có `gia_goi_y` (chụp lúc ghi) và `so_tien`. Không có validation "phải bằng giá". |
 
 ---
 
@@ -230,7 +230,7 @@ ghi thứ hai khi test đỏ giữa chừng; chú thích nói rõ người thứ
 - **Gửi khách:** nút "Đúng người, gửi" **CHỈ GHI NHẬN** (Zalo/Pancake tính sau). Kênh chọn sẵn
   `ZALO`, đổi được. Màn quản lý khách hàng (CSKH) hiện "Đã gửi kết quả", đọc từ
   `trang_thai_xet_nghiem()` (chặng 3: `tim-cho-sua` tìm màn đó).
-- **Đối tác tự gửi khách:** lệnh "Đối tác đã tự trả khách" (đóng việc, bắt lý do, sự kiện
+- ~~**Đối tác tự gửi khách:**~~ (**BỎ 05/11 chiều — 5d**) lệnh "Đối tác đã tự trả khách" (đóng việc, bắt lý do, sự kiện
   `lab.closed_by_partner`) → trạng thái mới `DA_DONG` ở bảng 4.6. Lý do: không có lối đóng là
   sinh việc tồn mãi (420 việc cũ trên prod).
 - **E:** hẹn trả đếm MỌI ngày.
@@ -239,6 +239,27 @@ ghi thứ hai khi test đỏ giữa chừng; chú thích nói rõ người thứ
 - **A: CHƯA CHỐT.** Có thể đối tác có tem in sẵn mã. Nếu đúng: `mau_xet_nghiem` thêm
   `ma_doi_tac` (unique theo đối tác, quét/gõ lúc Lấy mẫu), Drive ghép theo `ma_doi_tac`.
   Chờ Tuyền gửi tên file mẫu trên Drive trước chặng 3. Chặng 1–2 không ảnh hưởng.
+
+## 5d. Tuyền đổi 05/11 chiều — làm theo bản mẫu "Việc của đối tác"
+
+Thắng các dòng cũ ở mục 1, 5, 5c nếu trái nhau.
+
+- **Bỏ "Cho lấy mẫu trước"** (quản lý cho qua) **và "Gỡ cho lấy mẫu trước"** — câu 2 chỉ còn
+  "thu xong mới lấy mẫu" (kể cả 0đ). Gỡ lệnh, cửa API, sự kiện `lab.prepay_waived/_revoked`.
+  Cột `cho_lay_mau_*` của `xet_nghiem_viec` giữ (dữ liệu cũ, "Xem quá trình" còn đọc).
+- **Bỏ "Đối tác đã tự trả khách"** (5c): hệ thống chỉ ghi nhận việc làm TRONG hệ thống; đối
+  tác tự gửi khách thì kệ — kết quả về thì tải lên, "Đúng người, gửi". Gỡ lệnh + sự kiện
+  `lab.closed_by_partner`. Việc đã lỡ đóng vẫn **Mở lại việc** được (không khoá cứng).
+- **Thu tiền:** ô tiền điền sẵn giá gợi ý (sửa được); ô "Khách đưa" + "Trả lại khách" chỉ để
+  hiển thị (phép trừ, không lưu); dòng "Chuyển khoản vào: …" đọc `doi_tac.tai_khoan_nhan_ck`
+  (Cài đặt → Đối tác); ảnh CK thu hộ (4.4) chọn **(b) bảng riêng `anh_chuyen_khoan_thu_ho`**
+  — mọi chỗ đọc `anh_chuyen_khoan` bám `cycle_id` trong luồng quyền quầy thu.
+- **Chữ trạng thái** theo bản mẫu: chỉ sửa bảng `NHAN` (Chưa thu tiền · Đã thu tiền · Đã lấy
+  mẫu · Đã có kết quả · Đã gửi khách · Đối tác đã tự trả khách · Đã huỷ).
+- **Tab Tiền thu hộ chỉ quản lý** — chặn ở máy chủ (`GET /ban/tien`), ẩn tab.
+- **Một mục thanh bên "Việc của đối tác"** = bàn mới. Bàn cũ `/doi-tac` ẩn khỏi thanh bên.
+  **Đóng 420 việc cũ + xoá hẳn bàn cũ: PR riêng, Mức 3, chờ kế hoạch duyệt** (Phòng đối tác
+  `/phong/[ma]` đang dùng chung cửa `/api/doi-tac/*` — phải quyết nơi đi trước khi gỡ).
 
 ## 6. Bốn chặng — mỗi PR nhỏ (≤ ~400 dòng ngoài test/migration), mỗi chặng lên prod riêng
 

@@ -2,7 +2,7 @@
 
 Router mỏng: mọi luật ở `services/xet_nghiem/`. Mọi cửa có `response_model`.
 Mở cho mọi nhân sự nội bộ đăng nhập (mục 2.I, "mở full lego" 30/09) — vai PARTNER bị
-`get_current_identity` từ chối. RIÊNG "cho lấy mẫu khi chưa thu" và gỡ nó: chỉ Quản lý.
+`get_current_identity` từ chối. RIÊNG tab Tiền thu hộ: chỉ Quản lý.
 """
 
 from __future__ import annotations
@@ -11,14 +11,14 @@ from datetime import date, datetime
 from typing import Any, Literal
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services.xet_nghiem import ket_qua, mau, qua_trinh, thu_ho
+from clinicai.services.xet_nghiem import anh_ck, ket_qua, mau, qua_trinh, thu_ho
 from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
 from clinicai.services.xet_nghiem.lenh import chay, chay_khong_ngay
 from clinicai.services.xet_nghiem.mau import doc_ngay
@@ -51,6 +51,12 @@ class TrangThaiOut(BaseModel):
     mau_qua_hen: MauChip | None
 
 
+class AnhCkOut(BaseModel):
+    id: str
+    luc: datetime
+    boi: str | None
+
+
 class MocOut(BaseModel):
     ten: str
     luc: datetime | None
@@ -67,16 +73,12 @@ class NutOut(BaseModel):
     huy_thu: bool
     hoan_tien: bool
     con_hoan_duoc: int
-    cho_qua: bool
-    hien_cho_qua: bool
-    go_cho_qua: bool
     lay_mau: bool
     hien_lay_mau: bool
     huy_mau: bool
     tai_ket_qua: bool
     gui: bool
     thu_hoi: bool
-    dong: bool
     mo_lai: bool
     hoan_tac: HoanTacOut | None
 
@@ -101,6 +103,13 @@ class ViecOut(BaseModel):
     tien_mat: int | None
     chuyen_khoan: int | None
     da_hoan: int | None
+    thu_id: str | None
+    sdt: str | None
+    so_tiep_don: int | None
+    so_booking: int | None
+    tai_khoan_nhan_ck: str | None
+    nguon_tep: str | None
+    anh_ck: list[AnhCkOut]
     tao_luc: datetime
     ngay_chi_dinh: date
     tep_luc: datetime | None
@@ -116,6 +125,9 @@ class KhachOut(BaseModel):
     ngay: date
     ten: str
     ma_bn: str | None
+    sdt: str | None
+    so_tiep_don: int | None
+    so_booking: int | None
     order_ids: list[str]
     nhan: str
     mau: MauChip
@@ -187,6 +199,7 @@ class DongTienOut(BaseModel):
     ten: str | None
     ten_khach: str | None
     ma_bn: str | None
+    sdt: str | None
     nguoi: str | None
 
 
@@ -201,10 +214,12 @@ class TienOut(BaseModel):
 @router.get(f"{P}/tien", response_model=TienOut)
 async def tien_thu_ho(
     ngay: str | None = Query(default=None, max_length=10),
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(_QUAN_LY),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
-    """Tab "Tiền thu hộ": theo NGÀY GHI NHẬN / ngày hoàn (giờ VN). Rác ⇒ hôm nay."""
+    """Tab "Tiền thu hộ": theo NGÀY GHI NHẬN / ngày hoàn (giờ VN). Rác ⇒ hôm nay.
+    CHỈ quản lý (`config.clinic.manage`, Tuyền chốt 05/11 theo bản mẫu) — nhân viên
+    403."""
     d = doc_ngay(ngay) or hom_nay_vn()
     return await thu_ho.so_ngay(pool, identity.clinic_id, d)
 
@@ -224,7 +239,6 @@ def _ok(kq: object) -> dict[str, Any]:
 
 
 _NV = Depends(get_current_identity)
-_QL = Depends(_QUAN_LY)
 _DB = Depends(get_db_pool)
 
 
@@ -258,23 +272,6 @@ async def huy_mau(r: Request, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB) -> 
 @router.post(f"{P}/sua-hen-tra", response_model=OkOut)
 async def sua_hen(r: Request, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB) -> object:
     return _ok(await chay_khong_ngay(p, i, mau.sua_hen_tra, await _than(r)))
-
-
-@router.post(f"{P}/cho-qua", response_model=OkOut)
-async def cho_qua(r: Request, i: StaffIdentity = _QL, p: asyncpg.Pool = _DB) -> object:
-    """Chỉ Quản lý (câu 2): cho lấy mẫu khi chưa ghi nhận thu, bắt lý do."""
-    return _ok(await chay(p, i, mau.cho_qua, await _than(r)))
-
-
-@router.post(f"{P}/go-cho-qua", response_model=OkOut)
-async def go_qua(r: Request, i: StaffIdentity = _QL, p: asyncpg.Pool = _DB) -> object:
-    return _ok(await chay(p, i, mau.go_cho_qua, await _than(r)))
-
-
-@router.post(f"{P}/dong", response_model=OkOut)
-async def dong(r: Request, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB) -> object:
-    """ "Đối tác đã tự trả khách" — đóng việc, bắt lý do."""
-    return _ok(await chay(p, i, mau.dong, await _than(r)))
 
 
 @router.post(f"{P}/mo-lai", response_model=OkOut)
@@ -312,3 +309,48 @@ async def tai_ket_qua(
     finally:
         await don_tep_tam(tep)
     return {"ok": True, "id": str(kq.get("id") or "") or None}
+
+
+@router.post(f"{P}/anh-ck", response_model=OkOut, status_code=201)
+async def tai_anh_ck(
+    request: Request,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> object:
+    """Ảnh chuyển khoản của một khoản thu hộ (multipart: file + thanh_toan_id)."""
+    from clinicai.services.nhan_tep_luong import don_tep_tam, nhan_multipart
+
+    truong, tep = await nhan_multipart(request)
+    try:
+        kq = await anh_ck.tai_len(pool, identity, truong.get("thanh_toan_id"), tep)
+    finally:
+        await don_tep_tam(tep)
+    return {"ok": True, "id": kq["id"]}
+
+
+@router.get(f"{P}/anh-ck/{{anh_id}}")
+async def xem_anh_ck(
+    anh_id: str,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Nội dung ảnh (ảnh nhỏ — đọc trọn). Không lưu đệm, không cho đoán kiểu."""
+    noi_dung, mime = await anh_ck.doc(pool, identity, anh_id)
+    return Response(
+        content=noi_dung,
+        media_type=mime,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.post(f"{P}/anh-ck/{{anh_id}}/go", response_model=OkOut)
+async def go_anh_ck(
+    anh_id: str,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> object:
+    await anh_ck.go(pool, identity, anh_id)
+    return {"ok": True, "id": anh_id}

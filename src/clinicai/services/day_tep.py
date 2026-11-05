@@ -111,9 +111,14 @@ MA_O_VPS = "O_VPS_DAY"
 #: Bảng có tệp ổ VPS → CFS, CÙNG bộ cột đẩy (khoa, so_byte, sha256, vi_tri,
 #: da_day_luc, so_lan_day_loi, loi_day_cuoi, day_loi_luc, da_xoa_ban_vps_luc,
 #: da_don_tep_luc, tai_len_luc). Ảnh chuyển khoản (mig 20261002300000) đi cùng
-#: đường với tệp kết quả — không làm đường đẩy thứ hai. Tên bảng chỉ lấy từ
-#: danh sách này (chèn vào SQL).
-BANG_TEP: tuple[str, ...] = ("tep_ket_qua", "anh_chuyen_khoan")
+#: đường với tệp kết quả — không làm đường đẩy thứ hai; ảnh CK THU HỘ đối tác (mig
+#: 20261105240000, bảng riêng vì sổ thu hộ không nối payment_cycle) cũng vậy. Tên
+#: bảng chỉ lấy từ danh sách này (chèn vào SQL).
+BANG_TEP: tuple[str, ...] = (
+    "tep_ket_qua",
+    "anh_chuyen_khoan",
+    "anh_chuyen_khoan_thu_ho",
+)
 
 
 def _bang(bang: str) -> str:
@@ -513,13 +518,18 @@ async def mot_vong(
             ket["day"] = await day_mot_lo(pool, goc_vps=goc_vps, goc_cfs=goc_cfs)
         except Exception:  # noqa: BLE001
             logger.exception("day_tep_day_hong")
-        # Ảnh chuyển khoản (01/10/2026): cùng đường, lô riêng.
-        try:
-            ket["day_anh_ck"] = await day_mot_lo(
-                pool, goc_vps=goc_vps, goc_cfs=goc_cfs, bang="anh_chuyen_khoan"
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("day_tep_day_anh_ck_hong")
+        # Ảnh chuyển khoản (01/10/2026) + ảnh CK thu hộ (05/11): cùng đường, lô riêng
+        # mỗi bảng — bảng này hỏng không chặn bảng kia.
+        for khoa, bang in (
+            ("day_anh_ck", "anh_chuyen_khoan"),
+            ("day_anh_ck_thu_ho", "anh_chuyen_khoan_thu_ho"),
+        ):
+            try:
+                ket[khoa] = await day_mot_lo(
+                    pool, goc_vps=goc_vps, goc_cfs=goc_cfs, bang=bang
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("day_tep_day_anh_ck_hong", bang=bang)
     else:
         ket["day"] = {"bo_qua": "cfs_chua_on", "on_lien": tt.on_lien}
 

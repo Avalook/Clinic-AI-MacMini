@@ -28,7 +28,6 @@ def _r(**k: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "tao_luc": L,
         "thu_luc": None,
-        "cho_qua_luc": None,
         "lay_luc": None,
         "tep_luc": None,
         "gui_luc": None,
@@ -71,13 +70,6 @@ def test_buoc_dang_theo_moc_current() -> None:
     assert b(_r(), SuViecXN(hom_nay=H, da_huy_chi_dinh=True)) is None
 
 
-def test_cho_qua_khong_thu_ghi_ro_moc_thu() -> None:
-    r = _r(cho_qua_luc=L)
-    moc = hanh_trinh(r, trang_thai_xet_nghiem(SuViecXN(hom_nay=H, duoc_cho_qua=True)))
-    assert (moc[1]["ten"], moc[1]["trang_thai"]) == ("Cho lấy mẫu trước", "done")
-    assert moc[2]["trang_thai"] == "current"
-
-
 def test_doi_tac_tu_tra_moc_cuoi_va_khong_con_dang_lam() -> None:
     r = _r(thu_luc=L, lay_luc=L, dong_luc=L)
     sv = SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True, da_dong=True)
@@ -118,7 +110,7 @@ def test_nhom_khach_theo_ngay_va_qua_han_thang() -> None:
     g = nhom_khach(ds)
     assert [len(x["order_ids"]) for x in g] == [2, 1]
     assert (g[0]["nhan"], g[0]["mau"]) == ("Quá hẹn trả KQ", "warning")
-    assert g[1]["nhan"] == "Chờ thu"
+    assert g[1]["nhan"] == "Chưa thu tiền"
 
 
 def test_khach_khong_ma_benh_nhan_moi_viec_mot_dong() -> None:
@@ -133,7 +125,7 @@ def test_vi_sao_moi_trang_thai_co_cau_va_qua_hen_noi_so_ngay() -> None:
     assert "Quá hẹn trả 3 ngày" in trang_thai_xet_nghiem(sv).vi_sao
     for s in (
         SuViecXN(hom_nay=H),
-        SuViecXN(hom_nay=H, duoc_cho_qua=True),
+        SuViecXN(hom_nay=H, ngay_thu=H),
         SuViecXN(hom_nay=H, co_mau=True, co_tep=True),
         SuViecXN(hom_nay=H, co_tep=True, tep_moi_nhat_da_gui=True),
         SuViecXN(hom_nay=H, da_dong=True),
@@ -175,17 +167,11 @@ def _nut(sv: SuViecXN, **k: Any) -> dict[str, object]:
     return nut_cua(trang_thai_xet_nghiem(sv), **(base | k))
 
 
-def test_nut_cho_qua_chi_hien_cho_quan_ly_nhung_co_lenh_khong_doi() -> None:
-    nv, ql = _nut(SuViecXN(hom_nay=H)), _nut(SuViecXN(hom_nay=H), quan_ly=True)
-    assert nv["cho_qua"] is True and ql["cho_qua"] is True  # cờ lệnh: không theo vai
-    assert (nv["hien_cho_qua"], ql["hien_cho_qua"]) == (False, True)
-
-
-def test_go_cho_qua_khong_hien_hoan_tac_cho_nhan_vien() -> None:
-    sv = SuViecXN(hom_nay=H, duoc_cho_qua=True)
-    assert _nut(sv, duoc_cho_qua=True)["hoan_tac"] is None
-    ql = _nut(sv, duoc_cho_qua=True, quan_ly=True)["hoan_tac"]
-    assert isinstance(ql, dict) and ql["lenh"] == "go_cho_qua"
+def test_khong_con_nut_cho_qua_va_dong_viec() -> None:
+    """Tuyền 05/11: bỏ "Cho lấy mẫu trước" (+ gỡ) và "Đối tác đã tự trả khách"."""
+    n = _nut(SuViecXN(hom_nay=H))
+    assert not {"cho_qua", "hien_cho_qua", "go_cho_qua", "dong"} & set(n)
+    assert n["lay_mau"] is False and n["hoan_tac"] is None
 
 
 def test_hien_lay_mau_khi_con_ton_chua_co_mau() -> None:

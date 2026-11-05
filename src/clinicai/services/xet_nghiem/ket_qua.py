@@ -148,17 +148,11 @@ async def ban(
     pool: asyncpg.Pool, identity: StaffIdentity, hom_nay: date, tu_ngay: date | None
 ) -> dict[str, Any]:
     """Cả bàn: việc (xếp việc cần làm trước lên đầu), nhóm khách theo ngày chỉ định,
-    chip lọc, và cờ `quan_ly` (màn mới hiện tab Cài đặt / nút của quản lý)."""
+    chip lọc, và cờ `quan_ly` (màn hiện tab Tiền thu hộ + Cài đặt)."""
     async with pool.acquire() as conn:
         quan_ly = bool(await can(conn, identity, QUYEN_QUAN_LY))
         viec = sap_xep(
-            await doc_viec(
-                conn,
-                identity.clinic_id,
-                hom_nay=hom_nay,
-                tu_ngay=tu_ngay,
-                quan_ly=quan_ly,
-            )
+            await doc_viec(conn, identity.clinic_id, hom_nay=hom_nay, tu_ngay=tu_ngay)
         )
     return {
         "viec": viec,

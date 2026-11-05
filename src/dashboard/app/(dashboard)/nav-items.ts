@@ -166,17 +166,19 @@ export const NAV: NavItem[] = [
     label: "Hành trình khách hôm nay",
     icon: Route,
   },
-  // ĐỐI TÁC chỉ có đúng mục này, và đây là toàn bộ thanh bên của họ.
+  // TÀI KHOẢN ĐỐI TÁC chỉ có đúng mục này (bàn cũ), và đây là toàn bộ thanh bên của
+  // họ. Nhân viên nội bộ KHÔNG thấy mục này (`TAT_KHOI_THANH_BEN`) — họ có một mục
+  // "Việc của đối tác" duy nhất ngay dưới, mở bàn XN mới (Tuyền 05/11).
   {
     href: "/doi-tac",
-    label: "Việc của đối tác",
+    label: "Việc của đối tác (bàn cũ)",
     icon: FlaskConical,
   },
-  // Bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015): thu hộ → lấy mẫu → kết
-  // quả → gửi, nhân viên nội bộ làm.
+  // "Việc của đối tác" = bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015, bản
+  // mẫu): thu hộ → lấy mẫu → kết quả → gửi, nhân viên nội bộ làm.
   {
     href: "/ban-xet-nghiem",
-    label: "Bàn xét nghiệm đối tác",
+    label: "Việc của đối tác",
     icon: FlaskConical,
   },
   {

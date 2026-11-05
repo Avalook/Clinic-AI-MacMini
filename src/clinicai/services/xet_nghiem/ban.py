@@ -1,6 +1,6 @@
 """Bàn xét nghiệm đối tác — ĐỌC (kế hoạch 4.6, 5, chặng 3).
 
-Một câu SQL đọc SỰ VIỆC của mỗi việc (thu, cho qua, mẫu, tệp, gửi, đóng); trạng
+Một câu SQL đọc SỰ VIỆC của mỗi việc (thu, mẫu, tệp, gửi, đóng); trạng
 thái do `trang_thai_xet_nghiem()` tính (luật 3 — không tính lại ở SQL hay TSX). Nút
 nào bấm được cũng tính ở đây (`nut_cua`) — màn chỉ hiển thị cờ (luật 7).
 """
@@ -14,6 +14,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.services.xet_nghiem.anh_ck import anh_cua_cac_khoan
 from clinicai.services.xet_nghiem.doi_tac import doc_nguong
 from clinicai.services.xet_nghiem.hanh_trinh import (
     buoc_dang,
@@ -38,23 +39,22 @@ _SU_VIEC_SQL = """
 SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
        o.service_name AS ten_dich_vu, (o.exec_status = 'cancelled') AS da_huy,
        x.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
+       d.tai_khoan_nhan_ck,
+       (SELECT s.full_name FROM staff s WHERE s.id = tep.tai_len_boi_staff_id)
+           AS tep_boi,
        x.gia_goi_y_luc_chi_dinh AS gia_goi_y, x.tao_luc,
        (x.tao_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS ngay_chi_dinh,
        t.ghi_luc AS thu_luc, m.lay_luc, tep.tai_len_luc AS tep_luc,
        tep.gui_luc, dg.dong_luc,
-       CASE WHEN x.cho_lay_mau_go_luc IS NULL THEN x.cho_lay_mau_truoc_luc END
-           AS cho_qua_luc,
        v.clinic_patient_id::text AS clinic_patient_id,
-       p.full_name AS ten_khach, p.patient_code AS ma_bn,
+       p.full_name AS ten_khach, p.patient_code AS ma_bn, p.phone_primary AS sdt,
+       ap.so_tiep_don, ap.so_booking,
        t.id::text AS thu_id, t.so_tien AS da_thu, t.tien_mat, t.chuyen_khoan,
        t.ma_giao_dich,
        (t.ghi_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS ngay_thu,
        coalesce((SELECT sum(h.so_tien) FROM doi_tac_hoan_tien h
                   WHERE h.clinic_id = x.clinic_id AND h.thanh_toan_id = t.id), 0)
            AS da_hoan,
-       (x.cho_lay_mau_truoc_luc IS NOT NULL AND x.cho_lay_mau_go_luc IS NULL)
-           AS duoc_cho_qua,
-       (x.cho_lay_mau_go_luc IS NOT NULL) AS da_go_cho_qua,
        m.id::text AS mau_id, m.ma_mau, m.hen_tra_ngay,
        tep.id::text AS tep_id, tep.ten_hien_thi AS ten_tep,
        (tep.gui_luc IS NOT NULL) AS tep_moi_nhat_da_gui,
@@ -68,13 +68,15 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
   LEFT JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
   LEFT JOIN patient p
     ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
+  LEFT JOIN appointment ap ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
   LEFT JOIN doi_tac_thanh_toan t
     ON t.clinic_id = x.clinic_id AND t.service_order_id = o.id AND t.huy_luc IS NULL
   LEFT JOIN mau_xet_nghiem_viec mv
     ON mv.clinic_id = x.clinic_id AND mv.service_order_id = o.id AND mv.go_luc IS NULL
   LEFT JOIN mau_xet_nghiem m ON m.id = mv.mau_id AND m.huy_luc IS NULL
   LEFT JOIN LATERAL (
-       SELECT k.id, k.ten_hien_thi, k.gui_luc, k.tai_len_luc FROM tep_ket_qua k
+       SELECT k.id, k.ten_hien_thi, k.gui_luc, k.tai_len_luc, k.tai_len_boi_staff_id
+         FROM tep_ket_qua k
         WHERE k.clinic_id = x.clinic_id AND k.service_order_id = o.id
           AND k.da_xoa_luc IS NULL
           AND coalesce(k.xac_nhan_trang_thai, '') NOT IN ('TU_CHOI', 'THU_HOI')
@@ -101,7 +103,6 @@ def su_viec_cua(r: Any, hom_nay: date, nguong: int) -> SuViecXN:
         hom_nay=hom_nay,
         da_huy_chi_dinh=bool(r["da_huy"]),
         ngay_thu=r["ngay_thu"],
-        duoc_cho_qua=bool(r["duoc_cho_qua"]),
         co_mau=r["mau_id"] is not None,
         hen_tra=r["hen_tra_ngay"],
         co_tep=r["tep_id"] is not None,
@@ -113,9 +114,7 @@ def su_viec_cua(r: Any, hom_nay: date, nguong: int) -> SuViecXN:
     )
 
 
-def dong_ban(
-    r: Any, tt: TrangThaiXN, hom_nay: date, quan_ly: bool = False
-) -> dict[str, Any]:
+def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
     out = {
         k: r[k]
         for k in (
@@ -133,8 +132,18 @@ def dong_ban(
             "tep_id",
             "ten_tep",
             "ma_giao_dich",
+            "thu_id",
+            "tai_khoan_nhan_ck",
+            "sdt",
+            "so_tiep_don",
+            "so_booking",
         )
     }
+    # Nguồn tờ kết quả: chặng 3 chỉ có tải tay (Drive về ở chặng 4 sẽ ghi nguồn riêng).
+    out["nguon_tep"] = (
+        f"Tải tay · {r['tep_boi']}" if r["tep_id"] and r["tep_boi"] else None
+    )
+    out["anh_ck"] = []
     for k in ("gia_goi_y", "da_thu", "tien_mat", "chuyen_khoan", "da_hoan"):
         out[k] = int(r[k]) if r[k] is not None else None
     for k in ("tao_luc", "ngay_chi_dinh", "tep_luc"):
@@ -150,9 +159,6 @@ def dong_ban(
         co_mau=r["mau_id"] is not None,
         co_tep=r["tep_id"] is not None,
         tep_moi_nhat_da_gui=bool(r["tep_moi_nhat_da_gui"]),
-        duoc_cho_qua=bool(r["duoc_cho_qua"]),
-        da_go_cho_qua=bool(r["da_go_cho_qua"]),
-        quan_ly=quan_ly,
     )
     return out
 
@@ -164,18 +170,18 @@ async def doc_viec(
     hom_nay: date,
     tu_ngay: date | None = None,
     order_ids: list[str] | None = None,
-    quan_ly: bool = False,
 ) -> list[dict[str, Any]]:
-    """`quan_ly`: người XEM có quyền quản lý — chỉ đổi cờ hiển thị (`nut_cua`)."""
     nguong = await doc_nguong(conn, cid)
     rows = await conn.fetch(_SU_VIEC_SQL, cid, tu_ngay or hom_nay, order_ids)
     canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_BAN, clinic_id=cid)
-    return [
-        dong_ban(
-            r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)), hom_nay, quan_ly
-        )
+    ds = [
+        dong_ban(r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)), hom_nay)
         for r in rows
     ]
+    anh = await anh_cua_cac_khoan(conn, cid, [v["thu_id"] for v in ds])
+    for v in ds:
+        v["anh_ck"] = anh.get(v["thu_id"] or "", [])
+    return ds
 
 
 def sap_xep(viec: list[dict[str, Any]]) -> list[dict[str, Any]]:
