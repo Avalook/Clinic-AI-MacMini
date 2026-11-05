@@ -212,6 +212,16 @@ async def huy(
     dong = await _dong_con_hieu_luc(conn, identity.clinic_id, v["order_id"])
     if dong is None:
         raise ConflictError("Việc này không còn ghi nhận thu nào — tải lại màn.")
+    # Kế hoạch 5: huỷ ghi nhận khi đã lấy mẫu ⇒ phải huỷ mẫu trước (khoản thu là
+    # căn cứ mở nút Lấy mẫu — gỡ nó mà mẫu còn là mẫu "lấy khi chưa thu").
+    if await conn.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM public.mau_xet_nghiem_viec mv"
+        " WHERE mv.clinic_id = $1::uuid AND mv.service_order_id = $2::uuid"
+        " AND mv.go_luc IS NULL)",
+        identity.clinic_id,
+        v["order_id"],
+    ):
+        raise ConflictError("Đã lấy mẫu — huỷ mẫu trước rồi mới huỷ ghi nhận thu.")
     await huy_dong(
         conn,
         clinic_id=identity.clinic_id,
@@ -306,3 +316,37 @@ async def doc_so_theo_ngay(
     rows = list(await conn.fetch(SO_THEO_NGAY_SQL, cid, *tham_so))
     canh_bao_neu_day("doi_tac_thanh_toan", len(rows), TRAN_SO_THEO_NGAY, clinic_id=cid)
     return rows
+
+
+async def so_ngay(pool: asyncpg.Pool, cid: str, ngay: Any) -> dict[str, Any]:
+    """Tab "Tiền thu hộ" của một ngày: dòng + tổng (dòng hoàn là số âm)."""
+    async with pool.acquire() as conn:
+        rows = await doc_so_theo_ngay(conn, cid, ngay, ngay, None, None, None)
+    dong = [
+        {
+            **{
+                k: r[k]
+                for k in (
+                    "id",
+                    "loai",
+                    "hinh_thuc",
+                    "ma_giao_dich",
+                    "ghi_luc",
+                    "ten",
+                    "ten_khach",
+                    "ma_bn",
+                    "nguoi",
+                )
+            },
+            **{k: int(r[k] or 0) for k in ("so_tien", "tien_mat", "chuyen_khoan")},
+            "gia_goi_y": int(r["gia_goi_y"]) if r["gia_goi_y"] is not None else None,
+        }
+        for r in rows
+    ]
+    return {
+        "ngay": ngay,
+        "tong": sum(d["so_tien"] for d in dong),
+        "tien_mat": sum(d["tien_mat"] for d in dong),
+        "chuyen_khoan": sum(d["chuyen_khoan"] for d in dong),
+        "dong": dong,
+    }

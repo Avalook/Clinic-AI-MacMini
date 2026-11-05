@@ -172,6 +172,13 @@ export const NAV: NavItem[] = [
     label: "Việc của đối tác",
     icon: FlaskConical,
   },
+  // Bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015): thu hộ → lấy mẫu → kết
+  // quả → gửi, nhân viên nội bộ làm.
+  {
+    href: "/ban-xet-nghiem",
+    label: "Bàn xét nghiệm đối tác",
+    icon: FlaskConical,
+  },
   {
     href: "/truong-ca/lich-su",
     label: "Lịch sử điều phối",
@@ -804,7 +811,11 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
     ten: "Tiếp đón & thu",
     hrefs: ["/reception/queue", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/thu-ngan/dich-vu/lich-su", "/thu-ngan/thuoc/lich-su", "/reception/checkout"],
   },
-  { ma: "kham", ten: "Khám & dịch vụ", hrefs: ["/do-sinh-hieu", "/tu-van", "/ban-kham", "/phong", "/doi-tac"] },
+  {
+    ma: "kham",
+    ten: "Khám & dịch vụ",
+    hrefs: ["/do-sinh-hieu", "/tu-van", "/ban-kham", "/phong", "/doi-tac", "/ban-xet-nghiem"],
+  },
   {
     ma: "khach",
     ten: "Khách hàng",

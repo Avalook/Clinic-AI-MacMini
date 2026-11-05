@@ -99,6 +99,7 @@ export const BIEN_HINH: Record<string, BienHinh> = {
   "/truong-ca/lich-su": b(History, Clock, "smooth"),
   "/hanh-trinh": b(Route, Waypoints, "smooth"),
   "/doi-tac": b(FlaskConical, FlaskRound, "bouncy"),
+  "/ban-xet-nghiem": b(FlaskConical, FlaskRound, "smooth"),
   "/cashier/thuoc": b(Pill, Tablets, "snappy"),
   "/cashier/dich-vu": b(Tag, Tags, "smooth"),
   "/pharmacy": b(Pill, Tablets, "bouncy"),

@@ -376,6 +376,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // được đối tác đang nhìn thấy gì — không có đường ấy thì không ai kiểm được
   // lời hứa "họ chỉ thấy việc của họ" ngoài cách mượn tài khoản đối tác.
   "/doi-tac": ["PARTNER", "MANAGEMENT"],
+  // BÀN XÉT NGHIỆM ĐỐI TÁC đời mới (05/11/2026, ADR-0015): nhân viên NỘI BỘ làm mọi
+  // bước (đối tác không đăng nhập). Cùng lego 21 với bàn cũ ⇒ ai đang dùng bàn cũ
+  // thấy luôn bàn mới. Vai PARTNER không vào (máy chủ cũng từ chối).
+  "/ban-xet-nghiem": ["MANAGEMENT"],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
@@ -685,6 +689,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/ops": ["ops.view"], // 20 Vận hành hệ thống
   "/audit-log": ["audit.view"],
   "/doi-tac": ["partner.work"], // 21 Đối tác
+  "/ban-xet-nghiem": ["partner.work"], // 21 Đối tác — bàn XN đời mới
   // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
   "/duyet-ket-qua": ["result.form.fill"],
 };

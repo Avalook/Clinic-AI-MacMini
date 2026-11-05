@@ -22,6 +22,13 @@ const CHO_PHEP: [Method, RegExp][] = [
   ["POST", /^doi-tac-dich-vu$/],
   ["POST", new RegExp(`^doi-tac-dich-vu/${U}/bo$`, "i")],
   ["PUT", /^cai-dat$/],
+  // Bàn xét nghiệm (chặng 2–3)
+  ["GET", /^ban$/],
+  ["GET", /^ban\/tien$/],
+  [
+    "POST",
+    /^ban\/(ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|cho-qua|go-cho-qua|dong|mo-lai|gui|thu-hoi)$/,
+  ],
 ];
 
 function sai(message: string, status = 400) {

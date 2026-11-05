@@ -799,7 +799,20 @@ MODULE: dict[str, Module] = {
                 "VoidLabPayment",
                 "RefundLabPayment",
             ],
-            phat=["lab.payment_recorded", "lab.payment_voided", "lab.payment_refunded"],
+            phat=[
+                "lab.payment_recorded",
+                "lab.payment_voided",
+                "lab.payment_refunded",
+                "lab.sample_collected",
+                "lab.sample_voided",
+                "lab.prepay_waived",
+                "lab.prepay_waiver_revoked",
+                "lab.result_arrived",
+                "lab.result_sent",
+                "lab.result_rejected",
+                "lab.closed_by_partner",
+                "lab.reopened",
+            ],
             # Sổ thu hộ chuyển về đây (kế hoạch 3: lõi ghi/huỷ ở thu_ho.py; lệnh cũ
             # của bàn đối tác gọi lại lõi này).
             bang=[
@@ -809,6 +822,10 @@ MODULE: dict[str, Module] = {
                 "xet_nghiem_cai_dat",
                 "doi_tac_thanh_toan",
                 "doi_tac_hoan_tien",
+                "mau_xet_nghiem",
+                "mau_xet_nghiem_viec",
+                "mau_xet_nghiem_dem",
+                "xet_nghiem_dong",
             ],
         ),
         Module(

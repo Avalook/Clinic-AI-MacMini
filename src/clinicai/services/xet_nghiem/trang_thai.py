@@ -133,3 +133,40 @@ def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
             co_the_lay_mau=True,
         )
     return replace(_tao("CHO_THU", sv), ly_do_khong_lay_mau="Chưa ghi nhận thu hộ")
+
+
+def nut_cua(
+    tt: TrangThaiXN,
+    *,
+    co_thu: bool,
+    con_hoan: int,
+    co_mau: bool,
+    co_tep: bool,
+    tep_moi_nhat_da_gui: bool,
+) -> dict[str, object]:
+    """Nút nào bấm được + "Hoàn tác bước trước" gọi ĐÚNG lệnh bù nào (kế hoạch 5).
+
+    Một câu hỏi ("ai bấm được gì") — một hàm, cạnh hàm trạng thái; màn chỉ đọc cờ."""
+    hoan_tac = {
+        "DA_DONG": {"lenh": "mo_lai", "nhan": "Mở lại việc"},
+        "DA_GUI": {"lenh": "thu_hoi", "nhan": "Thu hồi kết quả đã gửi"},
+        "CO_KET_QUA": {"lenh": "thu_hoi", "nhan": "Thu hồi tệp kết quả"},
+        "CHO_KET_QUA": {"lenh": "huy_mau", "nhan": "Huỷ mẫu (khoản thu giữ nguyên)"},
+    }.get(tt.ma)
+    if tt.ma == "CHO_LAY_MAU" and co_thu:
+        hoan_tac = {"lenh": "huy_thu", "nhan": "Huỷ ghi nhận thu (ghi sai)"}
+    return {
+        "ghi_thu": not co_thu and tt.ma in ("CHO_THU", "CHO_LAY_MAU"),
+        "huy_thu": co_thu and not co_mau,
+        "hoan_tien": co_thu and con_hoan > 0,
+        "con_hoan_duoc": max(con_hoan, 0),
+        "cho_qua": tt.ma == "CHO_THU",
+        "lay_mau": tt.co_the_lay_mau,
+        "huy_mau": co_mau and not co_tep,
+        "tai_ket_qua": co_mau and tt.ma not in ("DA_HUY", "DA_DONG"),
+        "gui": co_tep and not tep_moi_nhat_da_gui,
+        "thu_hoi": co_tep,
+        "dong": tt.ma not in ("DA_HUY", "DA_GUI", "DA_DONG"),
+        "mo_lai": tt.ma == "DA_DONG",
+        "hoan_tac": hoan_tac,
+    }

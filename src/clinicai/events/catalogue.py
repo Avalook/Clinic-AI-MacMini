@@ -658,6 +658,22 @@ class XetNghiemThuHo(PayloadSuKien):
     chuyen_khoan: int
 
 
+class XetNghiemMau(PayloadSuKien):
+    """`lab.sample_collected` / `lab.sample_voided` — một ống mẫu (ADR-0015)."""
+
+    mau_id: str
+    ma_mau: str
+    service_order_ids: list[str]
+
+
+class XetNghiemViec(PayloadSuKien):
+    """Sự kiện của MỘT việc xét nghiệm đối tác (cho qua, gỡ cho qua, đóng, mở lại,
+    tải kết quả, gửi, thu hồi). Lý do nằm ở bảng, không vào sự kiện."""
+
+    visit_id: str | None
+    service_order_id: str
+
+
 class CskhDaLienHe(PayloadSuKien):
     """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
 
@@ -2142,6 +2158,59 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[],
             is_public=False,
         ),
+        *[
+            SuKien(
+                ten=ten,
+                version=1,
+                aggregate_type=loai,
+                source_module="xet_nghiem_doi_tac",
+                payload=payload,
+                nhan=nhan,
+                consumers=[],
+                is_public=False,
+            )
+            for ten, loai, payload, nhan in (
+                ("lab.sample_collected", "mau_xet_nghiem", XetNghiemMau, "Lấy mẫu"),
+                ("lab.sample_voided", "mau_xet_nghiem", XetNghiemMau, "Huỷ mẫu"),
+                (
+                    "lab.prepay_waived",
+                    "service_order",
+                    XetNghiemViec,
+                    "Quản lý cho lấy mẫu khi chưa thu",
+                ),
+                (
+                    "lab.prepay_waiver_revoked",
+                    "service_order",
+                    XetNghiemViec,
+                    "Gỡ cho lấy mẫu khi chưa thu",
+                ),
+                (
+                    "lab.result_arrived",
+                    "service_order",
+                    XetNghiemViec,
+                    "Kết quả đối tác về (tải tay)",
+                ),
+                (
+                    "lab.result_sent",
+                    "service_order",
+                    XetNghiemViec,
+                    "Đúng người, đã gửi khách",
+                ),
+                (
+                    "lab.result_rejected",
+                    "service_order",
+                    XetNghiemViec,
+                    "Thu hồi kết quả đối tác",
+                ),
+                (
+                    "lab.closed_by_partner",
+                    "service_order",
+                    XetNghiemViec,
+                    "Đối tác đã tự trả khách",
+                ),
+                ("lab.reopened", "service_order", XetNghiemViec, "Mở lại việc"),
+            )
+        ],
         SuKien(
             ten="partner.sample_collected",
             version=1,

@@ -104,6 +104,12 @@ const LIVE_TABLES = [
   "doi_tac",
   "doi_tac_dich_vu",
   "xet_nghiem_cai_dat",
+  // Bàn xét nghiệm đối tác: thu hộ / mẫu / đóng việc của người khác hiện ngay.
+  "doi_tac_thanh_toan",
+  "doi_tac_hoan_tien",
+  "mau_xet_nghiem",
+  "mau_xet_nghiem_viec",
+  "xet_nghiem_dong",
   // Kiểm kê tiền mặt két theo ca (31/10/2026).
   "ket_tien_mat_ca",
   "payment_refund_line",
