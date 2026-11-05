@@ -12,13 +12,11 @@ sửa kỳ vọng.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ConflictError
-from clinicai.events.emit import emit_event
 from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.doi_tac_service import DoiTacService
 from tests.services.test_doi_tac_tu_thu_db import _nguoi_vai, _viec_da_nhan
@@ -84,57 +82,63 @@ async def test_ghi_thu_ho_khong_cham_tien_phong_kham(pool: asyncpg.Pool) -> None
     assert await _con_no(pool, q.visit_id) == no_truoc
 
 
-async def test_hai_nguoi_ghi_thu_cung_luc_mot_nguoi_thua(
-    pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def _cho_bi_chan_boi(pool: asyncpg.Pool, pid: int) -> None:
+    """Chờ tới khi có phiên đang bị phiên `pid` chặn — chờ ĐIỀU KIỆN trong Postgres
+    (`pg_blocking_pids`), không đoán bằng thời gian."""
+    for _ in range(500):
+        if await pool.fetchval(
+            "SELECT count(*) FROM pg_stat_activity"
+            " WHERE $1::int = ANY(pg_blocking_pids(pid))",
+            pid,
+        ):
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("người ghi thứ hai không hề chờ giao dịch 1 — bài không đo gì")
+
+
+async def test_hai_nguoi_ghi_thu_cung_luc_mot_nguoi_thua(pool: asyncpg.Pool) -> None:
+    """Giao dịch 1 ghi thu và CHƯA commit; người thứ hai bấm ghi thu cùng việc qua
+    dịch vụ; rồi commit 1. Kiểm KẾT QUẢ:
+      (a) chỉ một ghi nhận còn hiệu lực — ép ở DB bằng unique một phần
+          `ux_doi_tac_thanh_toan_con_hieu_luc` (bất biến ép ở DB, SO-LUAT Phần 6);
+      (b) người thứ hai nhận 409 kèm câu tiếng Việt, không phải lỗi unique thô (500).
+    (b) hiện ĐÚNG nhờ `FOR UPDATE OF o` trong `ghi_nhan_da_thu`: người thứ hai chờ ở
+    dòng chỉ định tới khi 1 commit, rồi đọc thấy ghi nhận của 1. Thử ngược 05/11: bỏ
+    dòng khoá đó thì (a) vẫn đúng (index chặn) nhưng (b) ra UniqueViolationError — vì
+    vậy bài này canh cả hai."""
     q = await tao_quay(pool)
     oid = await _viec_da_nhan(q)
     a = await _nguoi_vai(q, "PARTNER")
     b = await _nguoi_vai(q, "PARTNER")
-    svc = DoiTacService(pool)
 
-    # ÉP CHEN NHAU: người đầu đứng lại 0,3s TRONG giao dịch, ngay sau INSERT (lúc phát
-    # sự kiện) — người sau chạy vào đúng khe ấy. Không ép thì người đầu thường xong
-    # trước khi người sau đọc, bài xanh mà chẳng đo gì (thử ngược 05/11 đã thấy thế).
-    goc = emit_event
-    da_cho = False
-
-    async def emit_cham(*args: Any, **kwargs: Any) -> Any:
-        nonlocal da_cho
-        if not da_cho:
-            da_cho = True
-            await asyncio.sleep(0.3)
-        return await goc(*args, **kwargs)
-
-    # Thay đúng tên doi_tac_service đã import (from … import emit_event).
-    monkeypatch.setattr("clinicai.services.doi_tac_service.emit_event", emit_cham)
-
-    # Hai số khác nhau: bấm lại CÙNG số là "đã có" (chạy lại được), không phải thua.
-    kq = await asyncio.gather(
-        svc.ghi_nhan_da_thu(
-            order_id=oid, identity=a, so_tien=900_000, hinh_thuc="CASH"
-        ),
-        svc.ghi_nhan_da_thu(
-            order_id=oid, identity=b, so_tien=800_000, hinh_thuc="CASH"
-        ),
-        return_exceptions=True,
-    )
-
-    thang = [r for r in kq if isinstance(r, dict)]
-    thua = [r for r in kq if isinstance(r, BaseException)]
-    assert len(thang) == 1 and thang[0]["already"] is False
-    assert len(thua) == 1
-    # 409 kèm câu tiếng Việt — không để UniqueViolationError thô lọt ra thành 500.
-    assert isinstance(thua[0], ConflictError), repr(thua[0])
-    assert getattr(thua[0], "error_code", None) == "PARTNER_PAYMENT_EXISTS"
-    assert await _so_ghi_nhan(pool, oid) == 1
-    # Người thua không để lại dấu: đúng MỘT sự kiện ghi thu cho việc này.
-    assert (
-        await pool.fetchval(
-            "SELECT count(*) FROM domain_event"
-            " WHERE event_type = 'partner.payment_recorded'"
-            "   AND aggregate_id = $1::uuid",
+    conn1 = await pool.acquire()
+    try:
+        tx1 = conn1.transaction()
+        await tx1.start()
+        await conn1.execute(
+            "INSERT INTO doi_tac_thanh_toan (clinic_id, service_order_id, so_tien,"
+            " hinh_thuc, ghi_boi)"
+            " VALUES ($1::uuid, $2::uuid, 900000, 'CASH', $3::uuid)",
+            CLINIC,
             oid,
+            a.staff_id,
         )
-        == 1
-    )
+        nguoi_hai = asyncio.create_task(
+            DoiTacService(pool).ghi_nhan_da_thu(
+                order_id=oid, identity=b, so_tien=800_000, hinh_thuc="CASH"
+            )
+        )
+        await _cho_bi_chan_boi(pool, conn1.get_server_pid())
+        await tx1.commit()
+    finally:
+        await pool.release(conn1)
+    loi: BaseException | None = None
+    try:
+        await nguoi_hai
+    except Exception as e:  # noqa: BLE001 — bài kiểm chính LOẠI lỗi lọt ra
+        loi = e
+
+    assert await _so_ghi_nhan(pool, oid) == 1  # (a)
+    assert isinstance(loi, ConflictError), repr(loi)  # (b) — 409, không 500
+    assert getattr(loi, "error_code", None) == "PARTNER_PAYMENT_EXISTS"
+    assert "huỷ ghi nhận cũ" in str(loi)  # câu tiếng Việt người đọc hiểu
