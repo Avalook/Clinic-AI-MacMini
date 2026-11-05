@@ -209,6 +209,16 @@ Luật CLAUDE.md "không thao tác nào khoá cứng" được giữ: mọi bư�
 ghi thứ hai khi test đỏ giữa chừng; chú thích nói rõ người thứ hai bị chặn bởi khoá
 `KEY SHARE` do khoá ngoại.
 
+**Việc mang sang từ soát #602 (chặng 2):**
+- **Lên prod: áp migration `20261105210000` và deploy code SÁT NHAU, ngoài giờ khám.** CHECK
+  `so_tien = tien_mat + chuyen_khoan` có hiệu lực khi áp; code cũ (chưa điền cột mới) ghi thu ở
+  bàn cũ sẽ 500 trong khoảng hở; ngược lại code mới chạy trên DB cũ cũng lỗi (cột chưa có).
+  Staging: chấp nhận khoảng hở vài phút.
+- **"Đã thu thực = thu − hoàn" một hàm (luật 1):** `bill_service.doi_tac_da_thu`,
+  `phieu_kham/ket_qua_chi_dinh.py`, `phieu_kham/hanh_trinh.py`, `luot_kham_doc.py` đọc
+  `doi_tac_thanh_toan.so_tien` không trừ `doi_tac_hoan_tien` — hoàn đủ vẫn hiện "đã thu". Chặng 3
+  (phần THẤY) gom về một hàm ở `thu_ho.py`.
+
 **Ngoài vùng, chỉ ghi sổ:** dòng thời gian màn xem lại lượt chỉ đọc `event_log`, không hiện
 `visit.routed`, `medicine.counter_changed` (nằm ở `domain_event`) — ghi vào `docs/DANG-LAM.md`, không sửa trong việc này.
 

@@ -188,6 +188,27 @@ async def test_hoan_qua_so_da_thu_bi_chan(pool: asyncpg.Pool) -> None:  # noqa: 
         )
 
 
+async def test_db_ep_hoan_khong_vuot_va_khong_hoan_dong_da_huy(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Chốt cuối ở DB (soát #602): kể cả đường ghi bỏ qua service cũng không hoàn
+    vượt số đã thu, không hoàn vào ghi nhận đã huỷ."""
+    ca, oid = await _viec(pool)
+    tt = await _lam(pool, thu_ho.ghi_nhan, ca, order_id=oid, tien_mat=1000)
+    them = (
+        "INSERT INTO doi_tac_hoan_tien (clinic_id, thanh_toan_id, so_tien, tien_mat,"
+        " ly_do, hoan_boi) VALUES ($1::uuid, $2::uuid, $3, $3, 'thử chốt', $4::uuid)"
+    )
+    await pool.execute(them, CLINIC, tt, 600, ca.bac_si.staff_id)
+    with pytest.raises(asyncpg.CheckViolationError, match="vượt"):
+        await pool.execute(them, CLINIC, tt, 401, ca.bac_si.staff_id)
+    ca2, oid2 = await _viec(pool)
+    tt2 = await _lam(pool, thu_ho.ghi_nhan, ca2, order_id=oid2, tien_mat=1000)
+    await _lam(pool, thu_ho.huy, ca2, order_id=oid2, ly_do="ghi sai")
+    with pytest.raises(asyncpg.CheckViolationError, match="không còn hiệu lực"):
+        await pool.execute(them, CLINIC, tt2, 1, ca2.bac_si.staff_id)
+
+
 async def test_huy_roi_ghi_lai_huy_sau_hoan_bi_chan(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca, oid = await _viec(pool)
     await _lam(pool, thu_ho.ghi_nhan, ca, order_id=oid, tien_mat=500000)

@@ -111,6 +111,36 @@ CREATE TRIGGER trg_doi_tac_hoan_tien_chi_them
     BEFORE UPDATE OR DELETE ON public.doi_tac_hoan_tien
     FOR EACH ROW EXECUTE FUNCTION public.doi_tac_hoan_tien_chi_them();
 
+-- Tổng hoàn ≤ số đã thu, và dòng thu chưa huỷ — ÉP Ở DB (SO-LUAT Phần 6, soát
+-- #602): khoá dòng thu (FOR UPDATE) nên hai người hoàn cùng lúc / hoàn chen huỷ phải
+-- chờ nhau; đường ghi nào khác sau này cũng không lách được. Service vẫn báo câu
+-- tiếng Việt trước; đây là chốt cuối.
+CREATE OR REPLACE FUNCTION public.doi_tac_hoan_tien_khong_vuot()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE thu record; da_hoan numeric;
+BEGIN
+    SELECT t.so_tien, t.huy_luc INTO thu
+      FROM public.doi_tac_thanh_toan t
+     WHERE t.id = NEW.thanh_toan_id AND t.clinic_id = NEW.clinic_id
+       FOR UPDATE;
+    IF NOT FOUND OR thu.huy_luc IS NOT NULL THEN
+        RAISE EXCEPTION 'doi_tac_hoan_tien: ghi nhận thu không còn hiệu lực'
+            USING ERRCODE = 'check_violation';
+    END IF;
+    SELECT coalesce(sum(h.so_tien), 0) INTO da_hoan
+      FROM public.doi_tac_hoan_tien h
+     WHERE h.clinic_id = NEW.clinic_id AND h.thanh_toan_id = NEW.thanh_toan_id;
+    IF da_hoan + NEW.so_tien > thu.so_tien THEN
+        RAISE EXCEPTION 'doi_tac_hoan_tien: tổng hoàn vượt số đã thu'
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_doi_tac_hoan_tien_khong_vuot ON public.doi_tac_hoan_tien;
+CREATE TRIGGER trg_doi_tac_hoan_tien_khong_vuot
+    BEFORE INSERT ON public.doi_tac_hoan_tien
+    FOR EACH ROW EXECUTE FUNCTION public.doi_tac_hoan_tien_khong_vuot();
+
 ALTER TABLE public.doi_tac_hoan_tien ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS doi_tac_hoan_tien_select_own_clinic ON public.doi_tac_hoan_tien;
 CREATE POLICY doi_tac_hoan_tien_select_own_clinic ON public.doi_tac_hoan_tien

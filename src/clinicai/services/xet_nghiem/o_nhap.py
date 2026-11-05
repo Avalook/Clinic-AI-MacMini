@@ -30,7 +30,7 @@ def doc_so_tien(value: Any) -> int | None:
         so = int(value)
     elif isinstance(value, str):
         chu = value.strip().lower().replace("đ", "").replace("vnd", "")
-        for k in (".", ",", " ", " ", "_"):
+        for k in (".", ",", " ", "\u00a0", "_"):  # \u00a0 = khoảng trắng không ngắt
             chu = chu.replace(k, "")
         if not chu.isdigit():
             return None
