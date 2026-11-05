@@ -268,6 +268,12 @@ export const NAV: NavItem[] = [
     label: "Tài khoản nhận chuyển khoản",
     icon: Landmark,
   },
+  // Đối tác xét nghiệm (05/11/2026, ADR-0015): đối tác, dịch vụ gán, hẹn trả.
+  {
+    href: "/settings/doi-tac",
+    label: "Đối tác xét nghiệm",
+    icon: FlaskConical,
+  },
   // Hồ sơ CON NGƯỜI, tách khỏi "Cấu trúc phòng khám" ở trên — màn kia gán nhân
   // viên vào trạm công việc, màn này là tên/vai/cơ sở/hợp đồng của từng người.
   {
@@ -820,6 +826,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
       "/settings/booking-policy",
       "/settings/mau-ket-qua",
       "/settings/tai-khoan-nhan",
+      "/settings/doi-tac",
       "/cashier/dich-vu",
       "/cashier/thuoc",
       "/reports",

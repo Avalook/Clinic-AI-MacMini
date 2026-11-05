@@ -281,3 +281,35 @@ async def test_danh_sach_co_anh_xa_va_dich_vu_thu_ho(
     async with pool.acquire() as conn:
         ds = await dt.danh_sach(conn, CLINIC)
     assert next(d for d in ds["doi_tac"] if d["id"] == a)["dich_vu"] == []
+
+
+async def test_hop_dong_api_doc_duoc_du_lieu_that(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Hợp đồng `DanhSachDoiTacOut` nhận đúng thứ service trả (numeric → int,
+    timestamptz → datetime) — lỗi kiểu ở đây là 500 ở màn Cài đặt."""
+    from clinicai.api.v1.routers.xet_nghiem import DanhSachDoiTacOut
+    from clinicai.services.xet_nghiem.cai_dat import CaiDatDoiTac
+
+    ca = await _ca_doi_tac(pool)
+    a = await _them_dt(pool, ca.bac_si, _ma(), drive_folder="1AbCdEfGhIjK_lmn")
+    await _gan(pool, ca.bac_si, a, await _sp(pool, ca.ma_dv), gia_goi_y=450000)
+    sv = CaiDatDoiTac(pool)
+    await sv.ngung(ca.bac_si, a, True, "thử hợp đồng")
+    out = DanhSachDoiTacOut.model_validate(await sv.danh_sach(ca.bac_si))
+    dong = next(d for d in out.doi_tac if d.id == a)
+    assert dong.ngung_luc is not None and dong.drive_folder_id == "1AbCdEfGhIjK_lmn"
+    assert [g.gia_goi_y for g in dong.dich_vu] == [450000]
+
+
+def test_moi_cua_xet_nghiem_co_response_model() -> None:
+    from fastapi.routing import APIRoute
+
+    from clinicai.api.v1.routers.xet_nghiem import router
+
+    thieu = [
+        r.path
+        for r in router.routes
+        if isinstance(r, APIRoute) and r.response_model is None
+    ]
+    assert not thieu, f"Cửa thiếu response_model (luật 7): {thieu}"

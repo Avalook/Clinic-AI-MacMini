@@ -479,6 +479,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/settings/mau-ket-qua": ["MANAGEMENT"],
   // Tài khoản nhận chuyển khoản (31/10/2026) — quản lý (lego Cài đặt phòng khám).
   "/settings/tai-khoan-nhan": ["MANAGEMENT"],
+  // Đối tác xét nghiệm (05/11/2026) — quản lý (lego Cài đặt phòng khám).
+  "/settings/doi-tac": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
@@ -669,6 +671,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/settings/clinic-config": ["config.clinic.manage"],
   "/settings/day-noi": ["config.wiring.manage"],
   "/settings/tai-khoan-nhan": ["config.clinic.manage"],
+  "/settings/doi-tac": ["config.clinic.manage"],
   "/settings/mau-ket-qua": [
     "catalogue.result_template.manage",
     "catalogue.form_template.edit",

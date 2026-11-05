@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-05 11:32. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-05 11:36. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -12,7 +12,7 @@ tệp mà hơn 25% số màn cùng import (dùng chung): `app/(dashboard)/dung-n
 
 Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. Sự kiện (consumer) · 5. Bảng → migration
 
-## 1. Màn (91)
+## 1. Màn (92)
 ### `/`
 - page: `src/dashboard/app/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
@@ -468,6 +468,13 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: DayNoiService.{doc, dat_day, dat_chuong, tao_vi_tri, +2} · LamThemTaiQuayService.{cau_hinh, nut_cho_luot, luu_muc, bo_muc, +1} · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot}
 - test: test_cashier_scope_db.py, test_lam_them_tai_quay_db.py, test_day_noi_nhac_db.py, test_payment_access.py, test_vi_tri_chu_phong_db.py (+11)
 
+### `/settings/doi-tac` — Đối tác xét nghiệm
+- page: `src/dashboard/app/(dashboard)/settings/doi-tac/page.tsx` · quyền: lego `cai_dat` (Cài đặt phòng khám · mặc định: Quản lý)
+- thành phần: DoiTacView.tsx
+- gọi API Next: `/api/xet-nghiem/[...duong]`, `/api/cashier`
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong} · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot}
+- test: test_cashier_scope_db.py, test_xet_nghiem_nen_db.py, test_payment_access.py, test_cashier_scope.py, test_cashier_board_exam_service_db.py (+7)
+
 ### `/settings/don-du-lieu-thu` — Dọn dữ liệu thử
 - page: `src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/page.tsx` · quyền: lego `nhan_su` (Nhân sự & phân quyền · mặc định: Quản lý)
 - thành phần: DonDuLieuThu.tsx
@@ -604,7 +611,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_doi_chieu_hoa_don_db.py, test_hoa_don_misa_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (143)
+## 2. API Next → backend (144)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -722,7 +729,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/cashier/phieu/{phieu_id}` → `src/clinicai/api/v1/routers/cashier.py:cashier_phieu` → CashierScopeService.receipt, QuayThuService.phieu
 - GET `/api/v1/cashier/phieu-luot/{visit_id}` → `src/clinicai/api/v1/routers/cashier.py:cashier_phieu_luot` → QuayThuService.phieu_cua_luot, CashierScopeService.receipt_exempt, CashierScopeService.receipt, QuayThuService.phieu + SQL ngay trong router
 - test: src/tests/services/test_cashier_scope_db.py, src/tests/unit/test_payment_access.py, src/tests/unit/test_cashier_scope.py (+8)
-- màn dùng: /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home (+14)
+- màn dùng: /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home (+15)
 
 #### `/api/catalog` · `src/dashboard/app/api/catalog/route.ts`
 - GET `/api/v1/catalog/danh-muc-ke` → `src/clinicai/api/v1/routers/catalog.py:danh_muc_ke` → (SQL ngay trong router, không qua service)
@@ -1703,13 +1710,21 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: (không màn nào gọi thấy được ?)
 
+#### `/api/xet-nghiem/[...duong]` · `src/dashboard/app/api/xet-nghiem/[...duong]/route.ts`
+- GET `/api/v1/xet-nghiem/doi-tac` → `src/clinicai/api/v1/routers/xet_nghiem.py:danh_sach_doi_tac` → CaiDatDoiTac.danh_sach
+- POST `/api/v1/xet-nghiem/doi-tac` → `src/clinicai/api/v1/routers/xet_nghiem.py:them_doi_tac` → CaiDatDoiTac.luu_doi_tac
+- POST `/api/v1/xet-nghiem/doi-tac-dich-vu` → `src/clinicai/api/v1/routers/xet_nghiem.py:gan_dich_vu` → CaiDatDoiTac.gan
+- PUT `/api/v1/xet-nghiem/cai-dat` → `src/clinicai/api/v1/routers/xet_nghiem.py:luu_cai_dat` → CaiDatDoiTac.nguong
+- test: src/tests/services/test_xet_nghiem_nen_db.py
+- màn dùng: /settings/doi-tac
+
 #### `/api/xuat-hoa-don` · `src/dashboard/app/api/xuat-hoa-don/route.ts`
 - GET `/api/v1/hoa-don/xuat` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don` → XuatHoaDonService.xem, HoaDonMisaService.gan_trang_thai
 - GET `/api/v1/hoa-don/xuat/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don_excel` → xlsx_misa
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_doi_chieu_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py (+1)
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (211)
+## 3. Service → màn (212)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1732,13 +1747,14 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `BioChiDinhService` | `src/clinicai/services/bio_chi_dinh_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `BookingOverrideService` | `src/clinicai/services/booking_override_service.py` | /settings/booking-policy |
 | `BookingService` | `src/clinicai/services/booking_service.py` | /appointments, /appointments/cho-xep-bac-si, /ban-kham, /ban-kham/[phong], /customers, /home, /nhac-tai-kham, /patient-list (+3) |
+| `CaiDatDoiTac` | `src/clinicai/services/xet_nghiem/cai_dat.py` | /settings/doi-tac |
 | `can` | `src/clinicai/permissions/can.py` | /kho-vat-tu, /ops, /pharmacy, /pharmacy/inventory, /print/tem-lo, /settings/new-user, /settings/tai-khoan |
 | `canh_gac` | `src/clinicai/services/canh_gac.py` | /ops |
 | `capacity_service` | `src/clinicai/services/capacity_service.py` | /appointments, /customers, /home, /patients/new, /reception/queue |
 | `CapacityService` | `src/clinicai/services/capacity_service.py` | /appointments, /customers, /home, /patients/new, /reception/queue |
 | `cashier_navigation_service` | `src/clinicai/services/cashier_navigation_service.py` | /ops, /settings/new-user, /settings/tai-khoan |
-| `CashierBoardService` | `src/clinicai/services/cashier_board_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu, /nhac-tai-kham (+12) |
-| `CashierScopeService` | `src/clinicai/services/cashier_scope_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu, /nhac-tai-kham (+12) |
+| `CashierBoardService` | `src/clinicai/services/cashier_board_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu, /nhac-tai-kham (+13) |
+| `CashierScopeService` | `src/clinicai/services/cashier_scope_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu, /nhac-tai-kham (+13) |
 | `catalogue` | `src/clinicai/permissions/catalogue.py` | /phan-quyen |
 | `chay_bong_doc` | `src/clinicai/services/chay_bong_doc.py` | /ops |
 | `check_sla` | `src/clinicai/tools/task/check_sla.py` | — (chỉ API/worker) |
@@ -1861,7 +1877,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `PriceListService` | `src/clinicai/services/config_service.py` | /cashier/dich-vu, /cashier/thuoc, /kho-vat-tu |
 | `quay_thu_service` | `src/clinicai/services/quay_thu_service.py` | — (chỉ API/worker) |
 | `QuayThuocService` | `src/clinicai/services/quay_thuoc_service.py` | /pharmacy, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
-| `QuayThuService` | `src/clinicai/services/quay_thu_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu, /nhac-tai-kham (+12) |
+| `QuayThuService` | `src/clinicai/services/quay_thu_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu, /nhac-tai-kham (+13) |
 | `query_tasks` | `src/clinicai/tools/task/query_tasks.py` | — (chỉ API/worker) |
 | `QueryTasksFilter` | `src/clinicai/tools/task/query_tasks.py` | — (chỉ API/worker) |
 | `queue_order` | `src/clinicai/services/queue_order.py` | — (chỉ API/worker) |

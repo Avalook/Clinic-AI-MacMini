@@ -115,6 +115,7 @@ export const BIEN_HINH: Record<string, BienHinh> = {
   "/settings/day-noi": b(Route, Signpost, "smooth"),
   "/settings/mau-ket-qua": b(FileSpreadsheet, FileText, "snappy"),
   "/settings/tai-khoan-nhan": b(Landmark, Banknote, "smooth"),
+  "/settings/doi-tac": b(FlaskConical, FlaskRound, "smooth"),
   "/nhan-su": b(Users, UserRound, "smooth"),
   "/settings/tai-khoan": b(KeyRound, LockOpen, "bouncy"),
   "/phan-quyen": b(KeyRound, ShieldCheck, "snappy"),
