@@ -36,7 +36,8 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
     doi_tac = await conn.fetch(
         """
         SELECT d.id::text, d.ten, d.ma_ngan, d.sdt, d.ghi_chu, d.drive_folder_id,
-               d.hen_tra_so_ngay_mac_dinh, d.ngung_luc, d.ly_do_ngung
+               d.hen_tra_so_ngay_mac_dinh, d.ngung_luc, d.ly_do_ngung,
+               (d.ngung_luc IS NULL) AS gan_duoc
           FROM public.doi_tac d WHERE d.clinic_id = $1::uuid
          ORDER BY d.ngung_luc IS NOT NULL, lower(d.ten)
         """,
@@ -46,10 +47,16 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
         """
         SELECT a.id::text, a.doi_tac_id::text, a.service_price_id::text,
                sp.service_code, sp.name AS ten_dich_vu, sp.unit_price,
-               a.gia_goi_y, a.hen_tra_so_ngay, a.mac_dinh
+               a.gia_goi_y, a.hen_tra_so_ngay, a.mac_dinh,
+               -- Giá trị HIỆU LỰC (một nơi tính — cùng luật với chup.py): giá cặp >
+               -- giá bảng giá, 0 ⇒ trống; hẹn của cặp > hẹn mặc định đối tác.
+               nullif(coalesce(a.gia_goi_y, sp.unit_price), 0) AS gia_hieu_luc,
+               coalesce(a.hen_tra_so_ngay, d.hen_tra_so_ngay_mac_dinh)
+                   AS hen_tra_hieu_luc
           FROM public.doi_tac_dich_vu a
           JOIN public.service_price sp
             ON sp.clinic_id = a.clinic_id AND sp.id = a.service_price_id
+          JOIN public.doi_tac d ON d.clinic_id = a.clinic_id AND d.id = a.doi_tac_id
          WHERE a.clinic_id = $1::uuid AND a.ngung_luc IS NULL
          ORDER BY lower(sp.name)
         """,

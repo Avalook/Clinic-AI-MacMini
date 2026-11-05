@@ -11,7 +11,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import ChipChon from "@/components/ui/ChipChon";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
@@ -25,6 +24,8 @@ interface DichVuGan {
   gia_goi_y: number | null;
   hen_tra_so_ngay: number | null;
   mac_dinh: boolean;
+  gia_hieu_luc: number | null;
+  hen_tra_hieu_luc: number | null;
 }
 interface DoiTac {
   id: string;
@@ -36,6 +37,7 @@ interface DoiTac {
   hen_tra_so_ngay_mac_dinh: number | null;
   ngung_luc: string | null;
   ly_do_ngung: string | null;
+  gan_duoc: boolean;
   dich_vu: DichVuGan[];
 }
 interface DanhSach {
@@ -300,10 +302,10 @@ export default function DoiTacView() {
                 <li key={g.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
                   <span className="min-w-0 flex-1 text-body text-ink">{g.ten_dich_vu}</span>
                   <span className="text-meta tabular-nums text-ink-muted">
-                    {tien(g.gia_goi_y ?? g.unit_price) || "Chưa có giá gợi ý"}
-                    {` · hẹn ${g.hen_tra_so_ngay ?? d.hen_tra_so_ngay_mac_dinh ?? "—"} ngày`}
+                    {tien(g.gia_hieu_luc) || "Chưa có giá gợi ý"}
+                    {g.hen_tra_hieu_luc != null ? ` · hẹn ${g.hen_tra_hieu_luc} ngày` : " · chưa đặt hẹn"}
                   </span>
-                  {g.mac_dinh ? null : <Chip tone="neutral">Không mặc định</Chip>}
+                  {g.mac_dinh ? null : <Chip tone="neutral">Không nhận chỉ định mới</Chip>}
                   <Button
                     type="button"
                     size="sm"
@@ -318,7 +320,7 @@ export default function DoiTacView() {
               {d.dich_vu.length === 0 ? <li className="px-3 py-2 text-meta text-ink-muted">Chưa gán dịch vụ nào.</li> : null}
             </ul>
 
-            {!d.ngung_luc && gan?.doi_tac_id !== d.id ? (
+            {d.gan_duoc && gan?.doi_tac_id !== d.id ? (
               <Button
                 type="button"
                 size="sm"
@@ -360,17 +362,17 @@ export default function DoiTacView() {
                     onChange={(e) => setGan({ ...gan, hen_tra_so_ngay: e.target.value })}
                   />
                 </label>
+                <p className="text-meta text-ink-muted sm:col-span-4">
+                  Gán xong, chỉ định MỚI của dịch vụ này đi đối tác này (đối tác cũ, nếu có, thôi nhận chỉ định mới).
+                </p>
                 <div className="flex flex-wrap gap-2 sm:col-span-4">
-                  <ChipChon chon disabled onDoi={() => undefined}>
-                    Mặc định cho dịch vụ này
-                  </ChipChon>
                   <Button
                     type="button"
                     size="sm"
                     variant="primary"
                     disabled={dang || !gan.service_price_id}
                     onClick={async () => {
-                      const ok = await gui("POST", "doi-tac-dich-vu", { ...gan, mac_dinh: true }, "Đã gán dịch vụ.");
+                      const ok = await gui("POST", "doi-tac-dich-vu", gan, "Đã gán dịch vụ.");
                       if (ok) setGan(null);
                     }}
                   >

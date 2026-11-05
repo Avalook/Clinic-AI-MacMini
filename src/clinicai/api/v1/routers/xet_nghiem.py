@@ -33,6 +33,9 @@ class AnhXaOut(BaseModel):
     gia_goi_y: int | None
     hen_tra_so_ngay: int | None
     mac_dinh: bool
+    #: giá / hẹn HIỆU LỰC máy chủ đã tính — màn chỉ hiển thị (luật 7).
+    gia_hieu_luc: int | None
+    hen_tra_hieu_luc: int | None
 
 
 class DoiTacOut(BaseModel):
@@ -45,6 +48,8 @@ class DoiTacOut(BaseModel):
     hen_tra_so_ngay_mac_dinh: int | None
     ngung_luc: datetime | None
     ly_do_ngung: str | None
+    #: còn gán dịch vụ mới được không (đối tác chưa ngưng) — màn không tự suy.
+    gan_duoc: bool
     dich_vu: list[AnhXaOut]
 
 

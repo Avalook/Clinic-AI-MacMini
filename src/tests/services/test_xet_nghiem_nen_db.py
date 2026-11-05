@@ -300,6 +300,23 @@ async def test_hop_dong_api_doc_duoc_du_lieu_that(
     dong = next(d for d in out.doi_tac if d.id == a)
     assert dong.ngung_luc is not None and dong.drive_folder_id == "1AbCdEfGhIjK_lmn"
     assert [g.gia_goi_y for g in dong.dich_vu] == [450000]
+    # Máy chủ tính sẵn giá trị hiệu lực + cờ gán (soát PR 1.3, luật 7).
+    assert [(g.gia_hieu_luc, g.hen_tra_hieu_luc) for g in dong.dich_vu] == [
+        (450000, None)
+    ]
+    assert dong.gan_duoc is False
+
+
+async def test_hieu_luc_lay_mac_dinh_doi_tac_va_gia_bang_gia(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca = await _ca_doi_tac(pool)
+    a = await _them_dt(pool, ca.bac_si, _ma(), hen_tra_so_ngay_mac_dinh=3)
+    await _gan(pool, ca.bac_si, a, await _sp(pool, ca.ma_dv))
+    async with pool.acquire() as conn:
+        ds = await dt.danh_sach(conn, CLINIC)
+    g = next(d for d in ds["doi_tac"] if d["id"] == a)["dich_vu"][0]
+    assert (g["gia_hieu_luc"], g["hen_tra_hieu_luc"]) == (550000, 3)
 
 
 def test_moi_cua_xet_nghiem_co_response_model() -> None:
