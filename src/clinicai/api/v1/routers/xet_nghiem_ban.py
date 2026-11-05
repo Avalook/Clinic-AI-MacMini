@@ -142,11 +142,18 @@ class LocOut(BaseModel):
     ton: bool
 
 
+class DoiTacLocOut(BaseModel):
+    id: str
+    ten: str
+
+
 class BanOut(BaseModel):
     viec: list[ViecOut]
     khach: list[KhachOut]
     loc: list[LocOut]
     quan_ly: bool
+    #: Ô lọc đối tác: mọi đối tác còn hoạt động + đối tác ngưng còn việc trên bàn.
+    doi_tac: list[DoiTacLocOut]
 
 
 class QuaTrinhDongOut(BaseModel):

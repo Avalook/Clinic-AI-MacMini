@@ -154,9 +154,20 @@ async def ban(
         viec = sap_xep(
             await doc_viec(conn, identity.clinic_id, hom_nay=hom_nay, tu_ngay=tu_ngay)
         )
+        # Ô lọc đối tác: MỌI đối tác còn hoạt động (đối tác mới chưa có việc vẫn chọn
+        # được) + đối tác đã ngưng mà còn việc trên bàn (việc dở không biến mất).
+        doi_tac = await conn.fetch(
+            "SELECT id::text AS id, ten FROM doi_tac"
+            " WHERE clinic_id = $1::uuid"
+            "   AND (ngung_luc IS NULL OR id = ANY($2::uuid[]))"
+            " ORDER BY lower(ten) LIMIT 100",
+            identity.clinic_id,
+            list({v["doi_tac_id"] for v in viec}),
+        )
     return {
         "viec": viec,
         "khach": nhom_khach(viec),
         "loc": bo_loc(),
         "quan_ly": quan_ly,
+        "doi_tac": [dict(r) for r in doi_tac],
     }

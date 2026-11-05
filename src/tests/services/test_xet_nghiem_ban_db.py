@@ -311,6 +311,18 @@ async def test_hanh_trinh_va_qua_trinh_doc_tu_su_viec(
     assert rac == []
 
 
+async def test_o_loc_doi_tac_co_ca_doi_tac_chua_co_viec(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 05/11: tạo đối tác mới trên staging mà ô lọc không có ⇒ không lọc được."""
+    ca, _o1, _o2 = await _hai_viec(pool)
+    moi = await _them_dt(pool, ca.bac_si, _ma())
+    ban = await ket_qua.ban(pool, ca.bac_si, hom_nay_vn(), None)
+    ids = {d["id"] for d in ban["doi_tac"]}
+    assert str(moi) in ids
+    assert {v["doi_tac_id"] for v in ban["viec"]} <= ids
+
+
 @pytest.mark.parametrize("rac", [None, "", "abc", "2026-13-40", 12])
 def test_ngay_rac_tra_rong(rac: object) -> None:
     assert mau.doc_ngay(rac) is None
