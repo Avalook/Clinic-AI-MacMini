@@ -121,12 +121,13 @@ async def test_kich_ban_3_den_9_o_tang_service(
     kq2 = await _lam(pool, mau.lay_mau, ca, order_ids=[o1, o2])
     assert kq2["ma_mau"] != kq["ma_mau"]
     # 8. Tải tay ⇒ Có kết quả; tệp đi đường đối tác (đã xác nhận cùng bước).
-    # Nút dịch vụ "làm bên ngoài" như dữ liệu thật (staging/local 05/11) — đường cũ coi
-    # đó là việc bàn đối tác cũ và không đặt mốc có kết quả.
+    # Dấu "việc bàn đối tác cũ" như dữ liệu thật (consumer cũ vẫn ghi doi_tac_nhan_viec
+    # cho chỉ định mới) — đường cũ coi đó là việc bàn cũ và không đặt mốc có kết quả.
+    # Gắn theo ĐÚNG chỉ định này, không đổi node_definition dùng chung (CI 6 luồng
+    # cùng DB: đổi nút chung làm test khác đỏ giữa chừng).
     await pool.execute(
-        "UPDATE node_definition nd SET lam_ben_ngoai = true FROM service_order o"
-        " WHERE o.id = $1::uuid AND nd.clinic_id = o.clinic_id"
-        "   AND nd.code = o.node_code",
+        "INSERT INTO doi_tac_nhan_viec (clinic_id, service_order_id, ly_do)"
+        " SELECT clinic_id, id, 'DA_LAY_MAU' FROM service_order WHERE id = $1::uuid",
         o1,
     )
     await ket_qua.tai_tay(
