@@ -7,6 +7,7 @@ Router cũ `doi_tac.py` đóng băng (test đếm cửa); cửa mới vào đây
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 import asyncpg
 from fastapi import APIRouter, Depends
@@ -39,6 +40,11 @@ class AnhXaOut(BaseModel):
     hen_tra_hieu_luc: int | None
 
 
+class DriveDenOut(BaseModel):
+    nhan: str
+    mau: Literal["neutral", "success", "danger"]
+
+
 class DoiTacOut(BaseModel):
     id: str
     ten: str
@@ -53,6 +59,8 @@ class DoiTacOut(BaseModel):
     #: còn gán dịch vụ mới được không (đối tác chưa ngưng) — màn không tự suy.
     gan_duoc: bool
     dich_vu: list[AnhXaOut]
+    #: Đèn nhịp Drive (máy chủ tính chữ + màu chip — `drive.den_drive`).
+    drive_den: DriveDenOut
 
 
 class DichVuThuHoOut(BaseModel):

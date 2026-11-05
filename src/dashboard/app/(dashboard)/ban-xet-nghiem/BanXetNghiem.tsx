@@ -22,7 +22,8 @@ import { khopTimKhach } from "@/lib/tim-khach-phong";
 import TheKhachHangCho from "../_lam-viec/TheKhachHangCho";
 import CaiDat from "./CaiDat";
 import { useNgheBang } from "../dung-nghe-bang";
-import { ConTon, KetQua, TienThuHo } from "./CacTab";
+import { ConTon, TienThuHo } from "./CacTab";
+import KetQuaKhach from "./KetQuaKhach";
 import { gioMoc, homNayVN, ngayNgan, ngayVN, type Ban, type Khach, type Viec } from "./kieu";
 import PopupKhach from "./PopupKhach";
 import TheViec from "./TheViec";
@@ -235,7 +236,7 @@ export default function BanXetNghiem() {
       ) : null}
 
       {tab === "ton" ? <ConTon viec={(ban?.viec ?? []).filter(cuaDt)} loc={ban?.loc ?? []} onMo={moViec} /> : null}
-      {tab === "kq" ? <KetQua viec={(ban?.viec ?? []).filter(cuaDt)} onMo={moViec} /> : null}
+      {tab === "kq" ? <KetQuaKhach viec={(ban?.viec ?? []).filter(cuaDt)} onMo={moViec} onXong={(c) => void xong(c)} /> : null}
       {tab === "tien" ? <TienThuHo /> : null}
       {tab === "cd" ? <CaiDat /> : null}
 

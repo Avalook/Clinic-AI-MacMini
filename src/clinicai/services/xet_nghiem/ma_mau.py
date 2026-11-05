@@ -49,6 +49,12 @@ def ma_hop_le(ma: str) -> bool:
     return m is not None and chu_so_kiem(m.group(1)) == 0
 
 
+def co_dang_ma(ten: str) -> bool:
+    """Tên có chuỗi trông như mã ống (đúng hay sai số kiểm) — phân biệt "không có mã"
+    với "có mã nhưng gõ sai" cho hàng ghép tay."""
+    return isinstance(ten, str) and _MA_RE.search(ten.upper()) is not None
+
+
 def tim_ma_trong_ten(ten: str) -> list[str]:
     """Mọi mã hợp lệ trong một tên tệp (chặng 4 dùng; sai số kiểm bị bỏ)."""
     if not isinstance(ten, str):

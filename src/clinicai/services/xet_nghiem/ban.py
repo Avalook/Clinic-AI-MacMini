@@ -57,7 +57,13 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
            AS da_hoan,
        m.id::text AS mau_id, m.ma_mau, m.hen_tra_ngay,
        tep.id::text AS tep_id, tep.ten_hien_thi AS ten_tep,
-       tep.loai_tep, tep.mime AS mime_tep,
+       tep.loai_tep, tep.mime AS mime_tep, tep.nguon AS tep_nguon,
+       tep.drive_nguoi_tai,
+       (SELECT count(*) FROM tep_ket_qua b
+         WHERE b.clinic_id = x.clinic_id AND b.service_order_id = o.id
+           AND b.da_xoa_luc IS NULL
+           AND coalesce(b.xac_nhan_trang_thai, '') NOT IN ('TU_CHOI', 'THU_HOI'))
+           AS so_ban,
        (tep.gui_luc IS NOT NULL) AS tep_moi_nhat_da_gui,
        EXISTS (SELECT 1 FROM tep_ket_qua g
                 WHERE g.clinic_id = x.clinic_id AND g.service_order_id = o.id
@@ -77,7 +83,7 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
   LEFT JOIN mau_xet_nghiem m ON m.id = mv.mau_id AND m.huy_luc IS NULL
   LEFT JOIN LATERAL (
        SELECT k.id, k.ten_hien_thi, k.loai_tep, k.mime, k.gui_luc, k.tai_len_luc,
-              k.tai_len_boi_staff_id
+              k.tai_len_boi_staff_id, k.nguon, k.drive_nguoi_tai
          FROM tep_ket_qua k
         WHERE k.clinic_id = x.clinic_id AND k.service_order_id = o.id
           AND k.da_xoa_luc IS NULL
@@ -116,6 +122,17 @@ def su_viec_cua(r: Any, hom_nay: date, nguong: int) -> SuViecXN:
     )
 
 
+def nguon_tep(r: Any) -> str | None:
+    """Nguồn tờ kết quả cho màn: Drive (tự về / ghép tay bởi ai) hoặc tải tay."""
+    if not r["tep_id"]:
+        return None
+    if r["tep_nguon"] == "DRIVE":
+        nguoi = f" · {r['drive_nguoi_tai']}" if r["drive_nguoi_tai"] else ""
+        ghep = f" · ghép bởi {r['tep_boi']}" if r["tep_boi"] else " · tự ghép"
+        return f"Drive{nguoi}{ghep}"
+    return f"Tải tay · {r['tep_boi']}" if r["tep_boi"] else "Tải tay"
+
+
 def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
     out = {
         k: r[k]
@@ -143,10 +160,8 @@ def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
             "so_booking",
         )
     }
-    # Nguồn tờ kết quả: chặng 3 chỉ có tải tay (Drive về ở chặng 4 sẽ ghi nguồn riêng).
-    out["nguon_tep"] = (
-        f"Tải tay · {r['tep_boi']}" if r["tep_id"] and r["tep_boi"] else None
-    )
+    out["nguon_tep"] = nguon_tep(r)
+    out["so_ban"] = int(r["so_ban"] or 0)
     out["anh_ck"] = []
     for k in ("gia_goi_y", "da_thu", "tien_mat", "chuyen_khoan", "da_hoan"):
         out[k] = int(r[k]) if r[k] is not None else None

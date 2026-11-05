@@ -21,16 +21,12 @@ Mode 5 (day-tep): Đẩy tệp kết quả từ ổ VPS sang Viettel CFS (01/10/
   riêng `day-tep`, gắn CẢ HAI ổ. Xem `services/day_tep.py`.
   Run:  python -m clinicai.worker --day-tep
   Env:  DATABASE_URL, MEDIA_ROOT, MEDIA_LOCAL_ROOT, MEDIA_MARKER
+Mode 6 (--drive): kết quả đối tác tự về từ Drive — `services/xet_nghiem/drive_vong.py`.
 
 Mode 3 (pos-relay): POS outbox relay — polls ``pos_outbox`` and pushes invoices
-  and stock movements to whichever POS the clinic configured (ADR-0010). With
-  the default null adapter, rows are dead-lettered rather than falsely marked
-  delivered. Enable this mode only after configuring a real adapter.
+  to whichever POS the clinic configured (ADR-0010); null adapter dead-letters.
   Run:  python -m clinicai.worker --pos-relay
   Env:  DATABASE_URL, POS_ADAPTER (default ``none``)
-
-The relay mode is the recommended lightweight path for a single Mac mini
-deployment. RabbitMQ mode is kept for future scaling.
 """
 
 from __future__ import annotations
@@ -477,6 +473,10 @@ def main() -> None:
         asyncio.run(_run_su_kien())
     elif "--day-tep" in sys.argv:
         asyncio.run(_run_day_tep())
+    elif "--drive" in sys.argv:
+        from clinicai.services.xet_nghiem.drive_vong import chay
+
+        asyncio.run(chay(_beat))
     elif "--pos-relay" in sys.argv:
         asyncio.run(_run_pos_relay())
     elif "--relay" in sys.argv:

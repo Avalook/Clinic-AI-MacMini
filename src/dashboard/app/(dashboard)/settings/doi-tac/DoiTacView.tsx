@@ -41,6 +41,7 @@ interface DoiTac {
   ly_do_ngung: string | null;
   gan_duoc: boolean;
   dich_vu: DichVuGan[];
+  drive_den: { nhan: string; mau: "neutral" | "success" | "danger" };
 }
 interface DanhSach {
   doi_tac: DoiTac[];
@@ -86,7 +87,7 @@ export default function DoiTacView() {
     };
   }, [nhan]);
   // Người khác sửa đối tác / gán / ngưỡng: màn tải lại (bảng có trigger notify).
-  useNgheBang(["doi_tac", "doi_tac_dich_vu", "xet_nghiem_cai_dat"], tai);
+  useNgheBang(["doi_tac", "doi_tac_dich_vu", "xet_nghiem_cai_dat", "drive_nhip"], tai);
 
   async function gui(method: "POST" | "PUT", duong: string, body: unknown, cau: string): Promise<boolean> {
     setDang(true);
@@ -179,7 +180,10 @@ export default function DoiTacView() {
                 <p className="text-meta text-ink-muted">
                   {d.hen_tra_so_ngay_mac_dinh != null ? `Hẹn trả ${d.hen_tra_so_ngay_mac_dinh} ngày` : "Chưa đặt hẹn trả"}
                   {d.sdt ? ` · ${d.sdt}` : ""}
-                  {d.drive_folder_id ? " · Đã nối thư mục Drive" : " · Chưa nối thư mục Drive"}
+                </p>
+                {/* Đèn nhịp Drive: chữ + màu do máy chủ tính (`drive.den_drive`). */}
+                <p>
+                  <Chip tone={d.drive_den.mau}>{d.drive_den.nhan}</Chip>
                 </p>
                 <p className="text-meta text-ink-muted">
                   Tiền thu hộ vào: <span className="text-ink">{d.tai_khoan_nhan_ck ?? "chưa đặt"}</span>

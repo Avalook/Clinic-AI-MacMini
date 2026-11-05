@@ -61,6 +61,12 @@ services:
   day-tep:
     profiles: ["tat-o-staging"]
 
+  # Drive CHẠY ở staging (chặng 4) — khoá + thư mục THỬ riêng của staging
+  # (GOOGLE_DRIVE_SA_KEY_FILE trong .env.staging), không dùng khoá prod.
+  drive-xn:
+    <<: *staging-bao-ve
+    mem_limit: ${DRIVE_XN_MEMORY_LIMIT:-128m}
+
   uptime-kuma:
     profiles: ["tat-o-staging"]
 

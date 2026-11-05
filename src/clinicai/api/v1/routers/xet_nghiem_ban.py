@@ -112,6 +112,8 @@ class ViecOut(BaseModel):
     so_booking: int | None
     tai_khoan_nhan_ck: str | None
     nguon_tep: str | None
+    #: Số tờ kết quả còn hiệu lực của việc (1 = bản đầu; > 1 ⇒ màn ghi "Bản n").
+    so_ban: int
     anh_ck: list[AnhCkOut]
     tao_luc: datetime
     ngay_chi_dinh: date

@@ -77,8 +77,10 @@ export interface Viec {
   so_booking: number | null;
   /** "Chuyển khoản vào: …" — tài khoản nhận CK của đối tác (Cài đặt → Đối tác). */
   tai_khoan_nhan_ck: string | null;
-  /** Nguồn tờ kết quả ("Tải tay · <người>") — máy chủ ghi. */
+  /** Nguồn tờ kết quả ("Tải tay · <người>" / "Drive · <người thả> · tự ghép") — máy chủ ghi. */
   nguon_tep: string | null;
+  /** Số tờ còn hiệu lực (> 1 ⇒ "Bản n"). */
+  so_ban: number;
   anh_ck: { id: string; luc: string; boi: string | null }[];
   tao_luc: string;
   ngay_chi_dinh: string;
@@ -117,6 +119,31 @@ export interface Ban {
   quan_ly: boolean;
   /** Ô lọc đối tác (máy chủ: mọi đối tác còn hoạt động + đối tác ngưng còn việc). */
   doi_tac: { id: string; ten: string }[];
+}
+
+/** Tệp Drive chưa khớp khách — `DriveChoOut` của `routers/xet_nghiem_drive.py`. */
+export interface DriveCho {
+  id: string;
+  doi_tac_id: string;
+  ten_doi_tac: string;
+  ten: string;
+  mime: string | null;
+  /** Cách hộp xem vẽ (máy chủ suy từ mime). */
+  loai: string;
+  drive_tao_luc: string | null;
+  drive_nguoi_tai: string | null;
+  nhan_luc: string;
+  ly_do_cho: string | null;
+  vi_sao: string;
+}
+
+export interface DriveNhip {
+  doi_tac_id: string;
+  lan_quet_cuoi: string;
+  ok_cuoi: string | null;
+  loi_cuoi: string | null;
+  /** Quá 1 giờ không quét được (máy chủ tính) ⇒ đèn đỏ. */
+  tre: boolean;
 }
 
 export interface DongTien {

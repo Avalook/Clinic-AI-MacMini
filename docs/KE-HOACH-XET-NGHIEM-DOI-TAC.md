@@ -332,6 +332,15 @@ Dải giờ migration riêng cho việc này: **`2026110520xxxx`–`2026110529xx
 - **PR 4.4:** tắt lệnh phía đối tác trong `doi_tac.py` theo số đo chặng 0; test đếm cửa router giảm; giữ cửa đọc lịch sử.
 - **Xong chặng khi:** thả `M005724_ket-qua.pdf` vào thư mục đối tác A ⇒ ≤ 3 phút sau bác sĩ thấy; thả `M005725.pdf`
   (sai số kiểm) ⇒ vào hàng ghép tay, không báo ai; thả lại cùng tên khác nội dung ⇒ bản 2.
+- **Đã làm (05/11, nhánh `dot/xn-chang-4`) — chỗ khác bản viết trên, lý do một dòng:**
+  - Quét bằng `files.list` từng thư mục đối tác (không Changes API): mỗi đối tác một nhịp, khớp `drive_nhip`.
+  - Vòng quét ở dịch vụ riêng `drive-xn` (`worker --drive`), không trong `day-tep`: staging tắt `day-tep`.
+  - Khoá = docker secret `drive_sa_key` (`GOOGLE_DRIVE_SA_KEY_FILE` trong `.env.<môi trường>`; tệp rỗng ⇒ tắt).
+  - Tệp tự về: người tải NULL + `nguon='DRIVE'` + tên người thả lấy từ Drive (Tuyền 05/11); vào `CHO_XAC_NHAN`
+    (ràng buộc không cho HOP_LE thiếu người) — "Gửi khách" xác nhận như cũ.
+  - Không có PR 4.3 riêng: tab Kết quả kiểu Tuyền 05/11 (mỗi việc một dòng, xanh đã gán / đỏ chưa gán; Gán ·
+    Gán sang · Từ chối tệp) + đèn nhịp trên thẻ đối tác + canh gác `DRIVE_KHONG_NHIP` (quá 1 giờ).
+  - Tên/SĐT trong PDF: CHỈ đối chiếu/gợi ý, PR sau (Tuyền 05/11). PR 4.4 (tắt bàn cũ) vẫn chờ.
 
 ---
 
