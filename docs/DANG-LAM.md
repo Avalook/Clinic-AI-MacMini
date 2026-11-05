@@ -1,6 +1,15 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **31/10/2026** — mục "31/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **05/11/2026** — mục "05/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 05/11/2026 — XÉT NGHIỆM ĐỐI TÁC: KẾ HOẠCH ĐÃ DUYỆT, CHƯA CODE
+
+Tuyền chốt 6 câu (thu hộ sổ riêng · thu xong mới lấy mẫu · mã theo ống có số kiểm ·
+kết quả tự về, gửi = "Đúng người, gửi" · đối tác chỉ chia sẻ Drive · giá chỉ gợi ý).
+Kế hoạch `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md` (4 chặng + chặng 0), ADR-0015, luật vùng
+`.claude/rules/xet-nghiem-doi-tac.md`, luật chung `.claude/rules/thiet-ke-code.md`,
+agent soát `soat-thiet-ke`. Câu còn mở A–I đang theo mặc định (kế hoạch mục 2).
+Tiếp theo: chặng 0 (SQL đo prod + test khoá hành vi).
 
 ## 31/10/2026 — ĐỢT KHO `dot/3110-kho` (nền `dot/3010`): CHỜ STAGING RỒI LÊN PROD TỐI 31/10
 
