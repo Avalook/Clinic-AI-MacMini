@@ -706,9 +706,8 @@ class TepKetQuaService:
     ) -> dict[str, Any]:
         """Nhận một tệp kết quả và cất nó lên đĩa.
 
-        `la_tep_doi_tac` (ADR-0015): bàn XN tải tay kết quả đối tác — đi đường tệp đối
-        tác dù node không `lam_ben_ngoai`. `tu_drive`: tệp chép từ Google Drive (chặng
-        4) — `identity` có thể là `MayQuet` (không ai bấm ⇒ người tải NULL, sự kiện
+        `la_tep_doi_tac` (ADR-0015): kết quả đối tác, đi đường tệp đối tác. `tu_drive`:
+        tệp chép từ Drive — `identity` có thể là `MayQuet` (người tải NULL, sự kiện
         SYSTEM); `drive_nguoi_tai` = tên người thả tệp trên Drive, chỉ để hiện.
 
         `ben` (26/09/2026): bên của tệp trong mẫu hai bên (Thai A=0, Thai B=1,
