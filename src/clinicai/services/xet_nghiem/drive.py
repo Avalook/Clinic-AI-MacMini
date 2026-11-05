@@ -30,7 +30,7 @@ import structlog
 from clinicai.events.catalogue import XetNghiemViec
 from clinicai.events.emit import HE_THONG, emit_event
 from clinicai.services.nguon_tep import MayQuet
-from clinicai.services.xet_nghiem import drive_api
+from clinicai.services.xet_nghiem import drive_api, ghep_khach
 from clinicai.services.xet_nghiem.ma_mau import co_dang_ma, tim_ma_trong_ten
 
 logger = structlog.get_logger()
@@ -203,9 +203,14 @@ async def nhan_mot(
         q = await xet(conn, cid, doi_tac_id, t.ten)
     tep_id: str | None = None
     ly = q.ly_do
+    data: bytes | None = None
+    if ly in _THU_THEO_KHACH:
+        # Không có mã ống dùng được (thường gặp — mã là của nội bộ) ⇒ tên + SĐT.
+        q, data = await _xet_theo_khach(pool, kh, cid, doi_tac_id, t)
+        ly = q.ly_do
     if q.order_id and q.clinic_patient_id:
         try:
-            data = await drive_api.tai_ve(kh, t.file_id)
+            data = data or await drive_api.tai_ve(kh, t.file_id)
             kq = await TepKetQuaService(pool).tai_len(
                 identity=MayQuet(clinic_id=cid),
                 clinic_patient_id=q.clinic_patient_id,
@@ -224,6 +229,32 @@ async def nhan_mot(
     if tep_id and q.order_id:
         await _phat_den(pool, cid, q)
     return ly
+
+
+#: Lý do của nhánh mã ống mà vẫn thử tên + SĐT (mã có thật nhưng sai đối tác / ống
+#: nhiều việc thì KHÔNG — đó là tín hiệu thật, để người xem).
+_THU_THEO_KHACH: Final = frozenset({"KHONG_MA", "SAI_SO_KIEM", "KHONG_THAY_MAU"})
+
+
+async def _xet_theo_khach(
+    pool: asyncpg.Pool,
+    kh: httpx.AsyncClient,
+    cid: str,
+    doi_tac_id: str,
+    t: drive_api.TepDrive,
+) -> tuple[Quyet, bytes | None]:
+    """Tải tệp, đọc chữ PDF, khớp tên + SĐT với việc đối tác này đang chờ kết quả."""
+    try:
+        data = await drive_api.tai_ve(kh, t.file_id)
+    except Exception:  # noqa: BLE001 — tải hỏng ⇒ hàng ghép tay
+        logger.exception("drive_tai_loi", file_id=t.file_id)
+        return Quyet(None, None, None, "LOI_TEP"), None
+    async with pool.acquire() as conn:
+        ung_vien = await ghep_khach.doc_ung_vien(conn, cid, doi_tac_id)
+    u, ly = ghep_khach.khop_khach(f"{t.ten}\n{ghep_khach.chu_pdf(data)}", ung_vien)
+    if u is None:
+        return Quyet(None, None, None, ly), data
+    return Quyet(u.order_id, u.clinic_patient_id, u.visit_id, None), data
 
 
 async def _phat_den(pool: asyncpg.Pool, cid: str, q: Quyet) -> None:

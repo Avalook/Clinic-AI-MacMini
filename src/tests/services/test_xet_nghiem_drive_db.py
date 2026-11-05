@@ -161,14 +161,49 @@ async def test_tu_ghep_va_hang_cho(pool: asyncpg.Pool, gia: DriveGia) -> None:  
         v1["tep_id"],
     )
     assert tuple(tep) == (None, "DRIVE", "Lab Medlatec")
-    # 2–4. Sai số kiểm / không mã / sai đối tác ⇒ hàng chờ, KHÔNG gắn o2.
+    # 2–4. Sai số kiểm / không mã ⇒ thử tên + SĐT (PDF giả không có khách khớp) ⇒
+    # hàng chờ; sai đối tác giữ lý do mã (tín hiệu thật). KHÔNG gắn o2.
     cho = await _cho(pool)
-    assert cho[f"{_sai_so(ma2)}.pdf"]["ly_do_cho"] == "SAI_SO_KIEM"
-    assert cho["KQ_Mai_0211.pdf"]["ly_do_cho"] == "KHONG_MA"
+    assert cho[f"{_sai_so(ma2)}.pdf"]["ly_do_cho"] == "KHONG_KHOP_KHACH"
+    assert cho["KQ_Mai_0211.pdf"]["ly_do_cho"] == "KHONG_KHOP_KHACH"
     assert cho[f"{ma2}.pdf"]["ly_do_cho"] == "SAI_DOI_TAC"
     assert (await _viec(pool, ca, o2))["tep_id"] is None
     # Quét lại không chép trùng.
     assert (await drive.mot_vong(pool))["tep_moi"] == 0
+
+
+async def test_tu_ghep_theo_ten_va_sdt_trong_pdf(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: DriveGia,
+) -> None:
+    """Tuyền 05/11: đối tác không biết mã ống ⇒ tệp ghi đúng tên + SĐT khách thì ghép
+    luôn; chỉ đúng tên (sai SĐT) thì không."""
+    from tests.unit.test_xet_nghiem_ghep_khach import pdf_co_chu
+
+    ca, _a, o1, o2, *_ = await _dung_ca(pool, gia)
+    for oid, ten, sdt in (
+        (o1, "Nguyễn Thị Hoa", "0901112223"),
+        (o2, "Lê Thị Mai", "0903334445"),
+    ):
+        await pool.execute(
+            "UPDATE patient p SET full_name = $2, phone_primary = $3"
+            "  FROM service_order o JOIN visit v ON v.visit_id = o.visit_id"
+            " WHERE o.id = $1::uuid AND p.clinic_patient_id = v.clinic_patient_id",
+            oid,
+            ten,
+            sdt,
+        )
+    gia.tha(gia.a, "fileFFFFFFFF01", "KQ_0511_a.pdf", "5" * 32)
+    gia.noi["fileFFFFFFFF01"] = pdf_co_chu(["Ho ten: LE THI MAI", "SDT: 0903 334 445"])
+    gia.tha(gia.a, "fileFFFFFFFF02", "KQ_0511_b.pdf", "6" * 32)
+    gia.noi["fileFFFFFFFF02"] = pdf_co_chu(
+        ["Ho ten: NGUYEN THI HOA", "SDT: 0999999999"]
+    )
+    await drive.mot_vong(pool)
+    v2 = await _viec(pool, ca, o2)
+    assert v2["tep_id"] and v2["nguon_tep"] == "Drive · Lab Medlatec · tự ghép"
+    assert (await _viec(pool, ca, o1))["tep_id"] is None
+    assert (await _cho(pool))["KQ_0511_b.pdf"]["ly_do_cho"] == "KHONG_KHOP_KHACH"
 
 
 async def test_ban_2_ghep_tay_tu_choi_gan_sang(
