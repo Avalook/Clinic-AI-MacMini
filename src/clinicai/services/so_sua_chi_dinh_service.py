@@ -49,6 +49,7 @@ from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.nhan_vai import nhan_vai
 from clinicai.services.thong_bao_service import ghi_thong_bao_nguoi
 from clinicai.services.xem_luot_service import goi_duoc
+from clinicai.services.xet_nghiem.chup import chep_viec
 
 ORIGIN = "api:so-sua-chi-dinh"
 
@@ -931,6 +932,7 @@ class SoSuaChiDinhService:
         )
         await conn.execute("SELECT set_config('clinicai.so_bo_qua', '', true)")
         assert moi is not None
+        await chep_viec(conn, clinic_id=cid, tu_order=oid, sang_order=moi["id"])
         # Đầu dò Bio CHƯA THU đi theo chỉ định cũ → sang chỉ định mới thay nó
         # (dòng đã thu ở lại với lần thu của nó — hoàn tiền như mọi khoản đã thu).
         from clinicai.services.bio_chi_dinh_service import chuyen_bio_chua_thu

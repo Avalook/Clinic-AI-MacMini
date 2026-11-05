@@ -1,6 +1,6 @@
 """Chụp việc đối tác lúc chỉ định (kế hoạch 4.3).
 
-MỘT hàm, gọi từ mỗi chỗ tạo chỉ định (bác sĩ duyệt `authorize_orders`, mở phiên
+MỘT hàm chụp, gọi từ mỗi chỗ tạo chỉ định (bác sĩ duyệt `authorize_orders`, mở phiên
 `dat_chi_dinh`, làm thêm tại quầy `_tick`) bằng đúng một dòng, cùng giao dịch với
 INSERT service_order. Không luật nào ở chỗ gọi.
 
@@ -41,3 +41,24 @@ async def tao_viec_neu_doi_tac(
     """Gọi trong giao dịch tạo chỉ định. Không có dịch vụ đối tác ⇒ không làm gì."""
     if order_ids:
         await conn.execute(_CHUP_SQL, clinic_id, list(order_ids))
+
+
+async def chep_viec(
+    conn: asyncpg.Connection, *, clinic_id: str, tu_order: str, sang_order: str
+) -> None:
+    """Chỉ định mới THAY chỉ định cũ (hoàn tác ở sổ sửa chỉ định) giữ đúng đối tác đã
+    chụp của dòng cũ — không chụp lại theo gán hiện tại. Dòng cũ không có chụp ⇒
+    thôi (việc ở lại luồng cũ)."""
+    await conn.execute(
+        """
+        INSERT INTO public.xet_nghiem_viec
+            (service_order_id, clinic_id, doi_tac_id, gia_goi_y_luc_chi_dinh)
+        SELECT $3::uuid, v.clinic_id, v.doi_tac_id, v.gia_goi_y_luc_chi_dinh
+          FROM public.xet_nghiem_viec v
+         WHERE v.clinic_id = $1::uuid AND v.service_order_id = $2::uuid
+        ON CONFLICT (service_order_id) DO NOTHING
+        """,
+        clinic_id,
+        tu_order,
+        sang_order,
+    )

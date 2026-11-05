@@ -86,66 +86,75 @@ async def doc_nguong(conn: asyncpg.Connection, cid: str) -> int:
 
 
 # ── Ghi ────────────────────────────────────────────────────────────────────
+async def _vet(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    loai: str,
+    bang: str,
+    id_: str,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    await record_event(
+        conn,
+        event_type=loai,
+        aggregate_type=bang,
+        aggregate_id=id_,
+        identity=identity,
+        origin=_ORIGIN,
+        payload=payload,
+    )
+
+
+#: $1 clinic, $2 id (NULL khi thêm), $3.. ô của form, $9 người làm.
+_LUU_DT = """
+WITH sua AS (
+    UPDATE public.doi_tac
+       SET ten = $3, ma_ngan = $4, sdt = $5, ghi_chu = $6,
+           drive_folder_id = $7, hen_tra_so_ngay_mac_dinh = $8,
+           sua_luc = now(), sua_boi = $9::uuid
+     WHERE $2::uuid IS NOT NULL AND clinic_id = $1::uuid AND id = $2::uuid
+    RETURNING id
+), them AS (
+    INSERT INTO public.doi_tac (clinic_id, ten, ma_ngan, sdt, ghi_chu,
+        drive_folder_id, hen_tra_so_ngay_mac_dinh, tao_boi, sua_boi)
+    SELECT $1::uuid, $3, $4, $5, $6, $7, $8, $9::uuid, $9::uuid
+     WHERE $2::uuid IS NULL
+    RETURNING id
+)
+SELECT id::text FROM sua UNION ALL SELECT id::text FROM them
+"""
+
+
 async def luu_doi_tac(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
     data: Mapping[str, Any],
     doi_tac_id: str | None = None,
 ) -> str:
+    """Thêm (`doi_tac_id` None) hoặc sửa đối tác. Mã ngắn trùng → 409."""
     f = doc_form_doi_tac(data)
     dt_id = doc_id(doi_tac_id, cau="Đối tác không hợp lệ.")
     try:
-        if dt_id is None:
-            v = await conn.fetchval(
-                """
-                INSERT INTO public.doi_tac (clinic_id, ten, ma_ngan, sdt, ghi_chu,
-                    drive_folder_id, hen_tra_so_ngay_mac_dinh, tao_boi, sua_boi)
-                VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, $8::uuid)
-                RETURNING id::text
-                """,
-                identity.clinic_id,
-                f["ten"],
-                f["ma_ngan"],
-                f["sdt"],
-                f["ghi_chu"],
-                f["drive_folder_id"],
-                f["hen_tra"],
-                identity.staff_id,
-            )
-        else:
-            v = await conn.fetchval(
-                """
-                UPDATE public.doi_tac
-                   SET ten = $3, ma_ngan = $4, sdt = $5, ghi_chu = $6,
-                       drive_folder_id = $7, hen_tra_so_ngay_mac_dinh = $8,
-                       sua_luc = now(), sua_boi = $9::uuid
-                 WHERE clinic_id = $1::uuid AND id = $2::uuid
-                RETURNING id::text
-                """,
-                identity.clinic_id,
-                dt_id,
-                f["ten"],
-                f["ma_ngan"],
-                f["sdt"],
-                f["ghi_chu"],
-                f["drive_folder_id"],
-                f["hen_tra"],
-                identity.staff_id,
-            )
-            if v is None:
-                raise NotFoundError("Không tìm thấy đối tác.")
+        v = await conn.fetchval(
+            _LUU_DT,
+            identity.clinic_id,
+            dt_id,
+            f["ten"],
+            f["ma_ngan"],
+            f["sdt"],
+            f["ghi_chu"],
+            f["drive_folder_id"],
+            f["hen_tra"],
+            identity.staff_id,
+        )
     except asyncpg.UniqueViolationError:
         raise ConflictError(
             f"Mã ngắn {f['ma_ngan']} đã có đối tác khác dùng."
         ) from None
-    await record_event(
-        conn,
-        event_type="lab.partner_saved",
-        aggregate_type="doi_tac",
-        aggregate_id=v,
-        identity=identity,
-        origin=_ORIGIN,
-        payload={"moi": dt_id is None},
+    if v is None:
+        raise NotFoundError("Không tìm thấy đối tác.")
+    await _vet(
+        conn, identity, "lab.partner_saved", "doi_tac", v, {"moi": dt_id is None}
     )
     return str(v)
 
@@ -180,34 +189,12 @@ async def ngung_doi_tac(
     )
     if v is None:
         raise ConflictError("Đối tác không có hoặc đã ở trạng thái này — tải lại màn.")
-    await record_event(
-        conn,
-        event_type="lab.partner_paused" if ngung else "lab.partner_resumed",
-        aggregate_type="doi_tac",
-        aggregate_id=v,
-        identity=identity,
-        origin=_ORIGIN,
-        payload={"ly_do": ly} if ly else None,
-    )
+    loai = "lab.partner_paused" if ngung else "lab.partner_resumed"
+    await _vet(conn, identity, loai, "doi_tac", v, {"ly_do": ly} if ly else None)
 
 
-async def luu_anh_xa(
-    conn: asyncpg.Connection,
-    identity: StaffIdentity,
-    data: Mapping[str, Any],
-) -> str:
-    """Gán dịch vụ cho đối tác (hoặc sửa giá gợi ý / hẹn trả của cặp đó).
-
-    Mặc định = đối tác được chụp cho chỉ định mới. Đặt mặc định cho đối tác B thì
-    bỏ mặc định của đối tác khác trên cùng dịch vụ — cùng giao dịch."""
-    cid = identity.clinic_id
-    dt_id = doc_id(data.get("doi_tac_id"), cau="Đối tác không hợp lệ.")
-    sp_id = doc_id(data.get("service_price_id"), cau="Dịch vụ không hợp lệ.")
-    if dt_id is None or sp_id is None:
-        raise ValidationError("Chọn đối tác và dịch vụ.")
-    gia = doc_tien(data.get("gia_goi_y"))
-    hen = doc_so_ngay(data.get("hen_tra_so_ngay"))
-    mac_dinh = data.get("mac_dinh", True) is not False
+async def _kiem_gan(conn: asyncpg.Connection, cid: str, sp_id: str, dt_id: str) -> None:
+    """Gán được khi: có dịch vụ + đối tác, đối tác chưa ngưng, dịch vụ đối tác thu."""
     dv = await conn.fetchrow(
         """
         SELECT sp.billing_owner, sp.name, d.ngung_luc
@@ -228,54 +215,62 @@ async def luu_anh_xa(
             f"Dịch vụ «{dv['name']}» đang do phòng khám thu. Đổi bên thu sang "
             "«Đối tác thu» ở màn Bảng giá trước, rồi gán đối tác."
         )
+
+
+#: Đặt mặc định cho B thì bỏ mặc định của đối tác khác trên cùng dịch vụ (câu riêng,
+#: cùng giao dịch — CTE ghi không có thứ tự chắc chắn với câu chính). Chỉ mục duy nhất
+#: có điều kiện vẫn là chốt cuối khi hai người chen nhau.
+_BO_MAC_DINH_SQL = """
+UPDATE public.doi_tac_dich_vu SET mac_dinh = false, sua_luc = now(), sua_boi = $4::uuid
+ WHERE clinic_id = $1::uuid AND service_price_id = $2::uuid
+   AND mac_dinh AND doi_tac_id <> $3::uuid
+"""
+_GAN_SQL = """
+INSERT INTO public.doi_tac_dich_vu (clinic_id, doi_tac_id, service_price_id,
+    gia_goi_y, hen_tra_so_ngay, mac_dinh, tao_boi, sua_boi)
+VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $7::uuid)
+ON CONFLICT (clinic_id, doi_tac_id, service_price_id) WHERE ngung_luc IS NULL
+DO UPDATE SET gia_goi_y = EXCLUDED.gia_goi_y,
+              hen_tra_so_ngay = EXCLUDED.hen_tra_so_ngay,
+              mac_dinh = EXCLUDED.mac_dinh,
+              sua_luc = now(), sua_boi = EXCLUDED.sua_boi
+RETURNING id::text
+"""
+
+
+async def luu_anh_xa(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    data: Mapping[str, Any],
+) -> str:
+    """Gán dịch vụ cho đối tác (hoặc sửa giá gợi ý / hẹn trả của cặp đó).
+    Mặc định = đối tác được chụp cho chỉ định mới."""
+    cid = identity.clinic_id
+    dt_id = doc_id(data.get("doi_tac_id"), cau="Đối tác không hợp lệ.")
+    sp_id = doc_id(data.get("service_price_id"), cau="Dịch vụ không hợp lệ.")
+    if dt_id is None or sp_id is None:
+        raise ValidationError("Chọn đối tác và dịch vụ.")
+    gia = doc_tien(data.get("gia_goi_y"))
+    hen = doc_so_ngay(data.get("hen_tra_so_ngay"))
+    mac_dinh = data.get("mac_dinh", True) is not False
+    await _kiem_gan(conn, cid, sp_id, dt_id)
     if mac_dinh:
-        await conn.execute(
-            """
-            UPDATE public.doi_tac_dich_vu SET mac_dinh = false, sua_luc = now(),
-                   sua_boi = $3::uuid
-             WHERE clinic_id = $1::uuid AND service_price_id = $2::uuid
-               AND mac_dinh AND doi_tac_id <> $4::uuid
-            """,
-            cid,
-            sp_id,
-            identity.staff_id,
-            dt_id,
-        )
+        await conn.execute(_BO_MAC_DINH_SQL, cid, sp_id, dt_id, identity.staff_id)
     try:
         v = await conn.fetchval(
-            """
-            INSERT INTO public.doi_tac_dich_vu (clinic_id, doi_tac_id,
-                service_price_id, gia_goi_y, hen_tra_so_ngay, mac_dinh,
-                tao_boi, sua_boi)
-            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $7::uuid)
-            ON CONFLICT (clinic_id, doi_tac_id, service_price_id)
-               WHERE ngung_luc IS NULL
-            DO UPDATE SET gia_goi_y = EXCLUDED.gia_goi_y,
-                          hen_tra_so_ngay = EXCLUDED.hen_tra_so_ngay,
-                          mac_dinh = EXCLUDED.mac_dinh,
-                          sua_luc = now(), sua_boi = EXCLUDED.sua_boi
-            RETURNING id::text
-            """,
-            cid,
-            dt_id,
-            sp_id,
-            gia,
-            hen,
-            mac_dinh,
-            identity.staff_id,
+            _GAN_SQL, cid, dt_id, sp_id, gia, hen, mac_dinh, identity.staff_id
         )
     except asyncpg.UniqueViolationError:
         raise ConflictError(
             "Người khác vừa đặt đối tác mặc định cho dịch vụ này — tải lại màn."
         ) from None
-    await record_event(
+    await _vet(
         conn,
-        event_type="lab.partner_service_saved",
-        aggregate_type="doi_tac_dich_vu",
-        aggregate_id=v,
-        identity=identity,
-        origin=_ORIGIN,
-        payload={"doi_tac_id": dt_id, "service_price_id": sp_id, "mac_dinh": mac_dinh},
+        identity,
+        "lab.partner_service_saved",
+        "doi_tac_dich_vu",
+        v,
+        {"doi_tac_id": dt_id, "service_price_id": sp_id, "mac_dinh": mac_dinh},
     )
     return str(v)
 
@@ -299,14 +294,7 @@ async def bo_anh_xa(
     )
     if v is None:
         raise ConflictError("Dòng gán đã bỏ hoặc không có — tải lại màn.")
-    await record_event(
-        conn,
-        event_type="lab.partner_service_removed",
-        aggregate_type="doi_tac_dich_vu",
-        aggregate_id=v,
-        identity=identity,
-        origin=_ORIGIN,
-    )
+    await _vet(conn, identity, "lab.partner_service_removed", "doi_tac_dich_vu", v)
 
 
 async def luu_nguong(
@@ -326,5 +314,13 @@ async def luu_nguong(
         identity.clinic_id,
         n,
         identity.staff_id,
+    )
+    await _vet(
+        conn,
+        identity,
+        "lab.settings_saved",
+        "xet_nghiem_cai_dat",
+        identity.clinic_id,
+        {"nguong_lay_mau_ngay": n},
     )
     return n
