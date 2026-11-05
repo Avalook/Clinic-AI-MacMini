@@ -1,28 +1,49 @@
 #!/usr/bin/env bash
-# PreToolUse (Bash): trước khi chạy scripts/ci-may.sh, chạy các bước NHANH của job
+# PreToolUse (Bash): trước khi CHẠY scripts/ci-may.sh, chạy các bước NHANH của job
 # backend (ruff, mypy, tenant-scope, bản đồ code). Đỏ thì chặn CI — sửa trước,
 # khỏi mất một lượt CI ~15 phút chỉ vì quên `ban-do-code.py` hay mypy (05/11/2026:
 # hai lượt CI đỏ oan như vậy trong một buổi).
 #
-# - Chỉ bắt lệnh có `ci-may.sh`; mọi lệnh khác thoát 0 ngay.
+# - Chỉ bắt khi ci-may.sh là LỆNH được chạy (đầu một đoạn lệnh, sau ; && || | ( hoặc
+#   sau nohup/time/env/bash/sh/exec và các gán biến). `grep … ci-may.sh`, `cat`,
+#   `sed -n`, `git diff scripts/ci-may.sh` đều KHÔNG bị bắt (bản đầu bắt nhầm — agent
+#   soát #… 05/11).
 # - Thoát 2 + stderr = Claude thấy lỗi, CI không chạy. Thiếu .venv/công cụ → thoát 0
 #   (để ci-may.sh tự báo), hook không bao giờ chặn vì chính nó hỏng.
-# - Bỏ qua: đặt BO_KIEM_TRUOC_CI=1 trong lệnh (chỉ khi Tuyền cho phép, ghi lý do).
+# - Bỏ qua: gán BO_KIEM_TRUOC_CI=1 ngay trước lệnh (chỉ khi Tuyền cho phép, ghi lý do).
 set -u
 
-cmd="$(python3 -c 'import json,sys
+quyet="$(python3 -c '
+import json, re, shlex, sys
 try:
-    d=json.load(sys.stdin); print((d.get("tool_input") or {}).get("command",""))
+    cmd = (json.load(sys.stdin).get("tool_input") or {}).get("command", "")
 except Exception:
-    print("")' 2>/dev/null)"
+    print("BO"); sys.exit()
+VO = {"nohup", "time", "env", "bash", "sh", "exec", "command", "caffeinate"}
+chay = bo_qua = False
+for doan in re.split(r"&&|\|\||[;|&\n()]", cmd):
+    try:
+        tu = shlex.split(doan, posix=True)
+    except ValueError:
+        tu = doan.split()
+    sau_vo = False
+    while tu:
+        t = tu[0]
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", t):
+            bo_qua = bo_qua or t.startswith("BO_KIEM_TRUOC_CI=1")
+        elif t in VO:
+            sau_vo = True
+        elif sau_vo and t.startswith("-"):
+            pass
+        else:
+            break
+        tu = tu[1:]
+    if tu and tu[0].endswith("ci-may.sh") and "--help" not in tu:
+        chay = True
+print("BO" if (not chay or bo_qua) else "KIEM")
+' 2>/dev/null)"
 
-case "$cmd" in
-  *ci-may.sh*) ;;
-  *) exit 0 ;;
-esac
-case "$cmd" in
-  *BO_KIEM_TRUOC_CI=1*|*--help*) exit 0 ;;
-esac
+[ "$quyet" = "KIEM" ] || exit 0
 
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || root="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$root" ] && [ -f "$root/scripts/ci-may.sh" ] || exit 0

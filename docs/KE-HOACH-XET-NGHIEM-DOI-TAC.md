@@ -175,7 +175,7 @@ Giao diện giữ **một nút "Hoàn tác bước trước"**, nhưng nút đó
 Mỗi lệnh bù: bắt lý do (≥ 3 ký tự), ghi sự kiện (khai trong `events/catalogue.py`), không xoá dòng cũ.
 Tên sự kiện mới theo kiểu đang có trong catalogue (tiếng Anh, chấm, quá khứ), tiền tố `lab.`: `lab.payment_recorded`,
 `lab.payment_voided`, `lab.payment_refunded`, `lab.sample_collected`, `lab.sample_voided`, `lab.result_arrived`,
-`lab.result_rejected`, `lab.result_sent`, `lab.closed_by_partner` (mục 5c). **Không** dùng lại `partner.*` (của bàn cũ, đã có consumer).
+`lab.result_rejected`, `lab.result_sent`, `lab.closed_by_partner` (mục 5c), `lab.reopened`. **Không** dùng lại `partner.*` (của bàn cũ, đã có consumer).
 
 | Bước | Lệnh bù | Chặn khi |
 |---|---|---|
@@ -183,6 +183,10 @@ Tên sự kiện mới theo kiểu đang có trong catalogue (tiếng Anh, chấ
 | Lấy mẫu | Huỷ mẫu (`NHAP_SAI` / `MAU_HONG`) | Đã có tệp còn hiệu lực ⇒ Từ chối tệp trước |
 | Tệp về (hệ thống tự làm) | **Từ chối tệp** (`TU_CHOI`) — không có "hoàn tác" | — |
 | Gửi khách | **Thu hồi** (`THU_HOI`, lý do, báo khách) — không xoá mốc đã gửi | — |
+| Đối tác đã tự trả khách (DA_DONG) | Mở lại việc (bắt lý do, sự kiện lab.reopened) | — |
+
+Mở lại = đóng bản ghi đóng việc (`mo_lai_luc` / `mo_lai_boi` / `mo_lai_ly_do`), **không xoá**; trạng thái
+tính lại từ sự việc còn hiệu lực (thường về `CHO_KET_QUA`).
 
 Luật CLAUDE.md "không thao tác nào khoá cứng" được giữ: mọi bước đều có lối bù.
 
