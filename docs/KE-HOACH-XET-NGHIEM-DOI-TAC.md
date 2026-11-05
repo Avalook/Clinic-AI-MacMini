@@ -45,12 +45,12 @@ Bác sĩ chỉ định ─▶ Ghi nhận thu hộ ─▶ Lấy mẫu (cấp mã 
 
 | # | Câu | Mặc định đang làm | Ảnh hưởng nếu đổi |
 |---|---|---|---|
-| A | Mã dán ống: in tem hay viết tay? | Chặng 3 hiện mã **to, dễ chép** + nút in tem khổ nhỏ dùng khung in có sẵn (`src/dashboard/app/print/`). Máy in tem riêng tính sau. | Chỉ đổi màn in. |
+| A | Mã dán ống: in tem hay viết tay? | **CHƯA CHỐT (05/11, mục 5c).** Mặc định tới lúc chốt: chặng 3 hiện mã **to, dễ chép** + nút in tem khổ nhỏ dùng khung in có sẵn (`src/dashboard/app/print/`). Có thể đối tác có tem in sẵn mã ⇒ thêm `ma_doi_tac`. | Chặng 1–2 không ảnh hưởng. |
 | B | Dạng mã | `M` + số tăng dần theo phòng khám (đệm 5 chữ số) + **1 chữ số kiểm Damm**. Ví dụ số 572 → `M005724`. | Đổi hàm cấp/đọc mã + test. |
 | C | Google Workspace hay Gmail thường? | Thiết kế chạy với **cả hai** (thư mục trong My Drive chia sẻ cho tài khoản dịch vụ). Shared drive là tuỳ chọn. | Không đổi code. |
 | D | Bàn đối tác cũ `/doi-tac` (vai PARTNER) còn ai dùng trên prod? | Chặng 0 chạy SQL chỉ đọc để đo. Chưa đo xong thì **không xoá gì**, chỉ không thêm. | Quyết thời điểm tắt ở chặng 4. |
-| E | Hẹn trả tính ngày lịch hay trừ Chủ nhật/lễ? | **Ngày lịch**, lưu thành **một ngày cụ thể** trên mẫu lúc lấy mẫu; nhân viên sửa được (có lý do). | Đổi một hàm tính ngày. |
-| F | Ngưỡng cảnh báo | Quá hẹn trả → vàng; quá 1 ngày → đỏ. "Đã thu, chưa lấy mẫu" quá **2 giờ** cùng ngày hoặc sang ngày → vàng. | Số trong cấu hình, không viết cứng rải rác. |
+| E | Hẹn trả tính ngày lịch hay trừ Chủ nhật/lễ? | **ĐÃ CHỐT 05/11: đếm MỌI ngày** (ngày lịch), lưu thành **một ngày cụ thể** trên mẫu lúc lấy mẫu; nhân viên sửa được (có lý do). | Đổi một hàm tính ngày. |
+| F | Ngưỡng cảnh báo | Quá hẹn trả → vàng; quá 1 ngày → đỏ. **ĐÃ CHỐT 05/11:** "Đã thu, chưa lấy mẫu" trễ sau **2 NGÀY** → vàng — **một cài đặt chung theo phòng khám** ở màn Cài đặt → Đối tác, chỉ vai Quản lý xem/sửa (PR 1.3). | Số trong cài đặt, không viết cứng rải rác. |
 | G | Khách nợ thu hộ | **Không theo dõi nợ** thu hộ. Ghi số khách thật trả; lệch với giá gợi ý thì kế toán thấy. | Nếu cần nợ: kế hoạch riêng. |
 | H | Dọn dữ liệu bảng giá đối tác (cặp ThinPrep/HPV trùng, vài dịch vụ nghi gắn sai bên thu, giá 0đ/NULL) | **Việc DỮ LIỆU**, Tuyền làm trên màn Bảng giá sau khi xem kết quả SQL chặng 0. Code không tự sửa giá. | — |
 | I | Ai được làm gì | Mở cho mọi nhân sự nội bộ (theo "mở full lego" 30/09). **Riêng "cho lấy mẫu khi chưa thu"** chỉ Quản lý. | Đổi gói quyền, không đổi code. |
@@ -144,16 +144,18 @@ hen_tra_ngay date (CHỤP lúc lấy), hen_tra_sua_boi/_luc/_ly_do, huy_luc/_boi
 ### 4.6 Trạng thái: **một hàm**, không lưu thành số
 `services/xet_nghiem/trang_thai.py: trang_thai_xet_nghiem(su_viec) -> TrangThaiXN` — Python thuần,
 không I/O. Đầu vào là các sự việc đã đọc: chỉ định đã huỷ?, ghi nhận thu còn hiệu lực?, quản lý cho qua?,
-mẫu còn hiệu lực + hẹn trả, tệp còn hiệu lực (không TU_CHOI/THU_HOI/xoá), tệp đã gửi?, hôm nay.
+mẫu còn hiệu lực + hẹn trả, tệp còn hiệu lực (không TU_CHOI/THU_HOI/xoá), tệp đã gửi?, lệnh "Đối tác đã
+tự trả khách" còn hiệu lực?, hôm nay.
 
 | Trạng thái | Khi |
 |---|---|
 | `DA_HUY` | chỉ định đã huỷ |
+| `DA_DONG` | có lệnh "Đối tác đã tự trả khách" (đóng việc, có lý do) — mục 5c |
 | `CHO_THU` | chưa có ghi nhận thu và chưa được cho qua |
 | `CHO_LAY_MAU` | đã có ghi nhận (hoặc cho qua), chưa có mẫu còn hiệu lực |
-| `CHO_KET_QUA` | có mẫu, chưa có tệp còn hiệu lực (kèm cờ `qua_hen` nếu hôm nay > hẹn) |
+| `CHO_KET_QUA` | có mẫu (lấy mẫu xong là vào đây — không có mốc "đối tác nhận mẫu"), chưa có tệp còn hiệu lực (kèm cờ `qua_hen` nếu hôm nay > hẹn) |
 | `CO_KET_QUA` | có tệp còn hiệu lực, chưa gửi bản mới nhất |
-| `DA_GUI` | bản mới nhất đã gửi |
+| `DA_GUI` | bản mới nhất đã gửi (ghi nhận bằng "Đúng người, gửi") |
 
 Kèm cờ phụ (không phải trạng thái): `co_ban_moi_chua_gui`, `da_hoan_tien`, `qua_han_lay_mau`.
 **Mọi màn, mọi đếm, mọi lọc đọc từ hàm này** — test đếm: chuỗi `'CHO_LAY_MAU'`… chỉ xuất hiện trong module trạng thái và test.
@@ -173,7 +175,7 @@ Giao diện giữ **một nút "Hoàn tác bước trước"**, nhưng nút đó
 Mỗi lệnh bù: bắt lý do (≥ 3 ký tự), ghi sự kiện (khai trong `events/catalogue.py`), không xoá dòng cũ.
 Tên sự kiện mới theo kiểu đang có trong catalogue (tiếng Anh, chấm, quá khứ), tiền tố `lab.`: `lab.payment_recorded`,
 `lab.payment_voided`, `lab.payment_refunded`, `lab.sample_collected`, `lab.sample_voided`, `lab.result_arrived`,
-`lab.result_rejected`, `lab.result_sent`. **Không** dùng lại `partner.*` (của bàn cũ, đã có consumer).
+`lab.result_rejected`, `lab.result_sent`, `lab.closed_by_partner` (mục 5c), `lab.reopened`. **Không** dùng lại `partner.*` (của bàn cũ, đã có consumer).
 
 | Bước | Lệnh bù | Chặn khi |
 |---|---|---|
@@ -181,10 +183,52 @@ Tên sự kiện mới theo kiểu đang có trong catalogue (tiếng Anh, chấ
 | Lấy mẫu | Huỷ mẫu (`NHAP_SAI` / `MAU_HONG`) | Đã có tệp còn hiệu lực ⇒ Từ chối tệp trước |
 | Tệp về (hệ thống tự làm) | **Từ chối tệp** (`TU_CHOI`) — không có "hoàn tác" | — |
 | Gửi khách | **Thu hồi** (`THU_HOI`, lý do, báo khách) — không xoá mốc đã gửi | — |
+| Đối tác đã tự trả khách (DA_DONG) | Mở lại việc (bắt lý do, sự kiện lab.reopened) | — |
+
+Mở lại = đóng bản ghi đóng việc (`mo_lai_luc` / `mo_lai_boi` / `mo_lai_ly_do`), **không xoá**; trạng thái
+tính lại từ sự việc còn hiệu lực (thường về `CHO_KET_QUA`).
 
 Luật CLAUDE.md "không thao tác nào khoá cứng" được giữ: mọi bước đều có lối bù.
 
 ---
+
+## 5b. Kết quả chặng 0 (SQL prod 05/11/2026) và quyết định theo đó
+
+| Prod nói | Quyết |
+|---|---|
+| 24 dịch vụ thu hộ, đều chọn tay bên thu; mẫu đều lấy ở phòng của phòng khám; 0 dịch vụ nghi sai bên thu; không có dịch vụ trùng (NIPT basic / Basic plus là hai gói khác nhau) | Không sửa dữ liệu bên thu. |
+| 13 dịch vụ thu hộ giá 0đ (5 NIPT, HPV 16/40, Thinprep, combo HPV+Thinprep, Gentis, Liên cầu B, 13 bệnh STD) | Việc DỮ LIỆU, Tuyền điền trên màn Bảng giá khi rảnh. Chưa điền thì ô giá gợi ý để trống (câu 6). |
+| Sổ thu hộ đang dùng thật: ~114 ghi nhận (≈115 tr), ~75% là CK | Migration chặng 2 bù TM/CK cho mọi dòng cũ; test đếm đủ 114. Ô mã GD quan trọng vì CK chiếm đa số. |
+| Vai `PARTNER`: 0 thao tác 30 ngày | **Câu D:** tắt tài khoản PARTNER được ngay (việc dữ liệu ở màn Nhân sự). |
+| Nhân viên nội bộ (CSKH, điều dưỡng, lễ tân) vẫn dùng bàn cũ: ghi thu hằng ngày (lần cuối 04/11); nhận mẫu / trả kết quả **dừng từ 26/10** | Lệnh của `doi_tac.py` **chưa tắt được**. PR 4.4 đổi thành: tắt sau khi nhân viên đã chuyển sang bàn mới (sau chặng 3 lên prod) và đo lại 0 thao tác 14 ngày. |
+| Cờ `XAC_NHAN_TEP_DOI_TAC` **tắt** trên prod từ 23/09: tệp đối tác không qua `CHO_XAC_NHAN` | Bật cho luồng mới **cùng lúc** với nút "Đúng người, gửi" (PR 3.4) — bật trước khi có nút thì CSKH bị kẹt. Ghi trong kịch bản chặng 3. |
+| 420 việc đối tác cũ chưa đóng (266 "đã lấy mẫu", 153 "có kết quả", ~1/4 có ghi nhận thu) | `xet_nghiem_viec` **chỉ tạo cho chỉ định từ ngày chặng 1 lên prod**. Việc cũ ở lại bàn cũ tới khi đóng. Không bù, không đoán đối tác/mốc. Dọn 420 việc tồn: việc riêng, Tuyền quyết sau. |
+| Người thua khi ghi thu cùng lúc nhận 409 chỉ nhờ `FOR UPDATE OF o` | Chặng 2: `thu_ho.py` tự bắt lỗi unique → 409 câu tiếng Việt, test cả khi bỏ khoá dòng. |
+
+**Việc mang sang PR 1.2** (NÊN SỬA của agent soát #598): test tranh chấp huỷ task của người
+ghi thứ hai khi test đỏ giữa chừng; chú thích nói rõ người thứ hai bị chặn bởi khoá
+`KEY SHARE` do khoá ngoại.
+
+**Ngoài vùng, chỉ ghi sổ:** dòng thời gian màn xem lại lượt chỉ đọc `event_log`, không hiện
+`visit.routed`, `medicine.counter_changed` (nằm ở `domain_event`) — ghi vào `docs/DANG-LAM.md`, không sửa trong việc này.
+
+## 5c. Tuyền trả lời 05/11
+
+- **Sau Lấy mẫu:** mẫu sang đối tác, hệ thống **KHÔNG** theo dõi "đối tác nhận mẫu". Lấy mẫu
+  xong là `CHO_KET_QUA`. Bàn mới không có nút Nhận mẫu.
+- **Kết quả về:** qua Drive (chặng 4) + tải tay (chặng 3).
+- **Gửi khách:** nút "Đúng người, gửi" **CHỈ GHI NHẬN** (Zalo/Pancake tính sau). Kênh chọn sẵn
+  `ZALO`, đổi được. Màn quản lý khách hàng (CSKH) hiện "Đã gửi kết quả", đọc từ
+  `trang_thai_xet_nghiem()` (chặng 3: `tim-cho-sua` tìm màn đó).
+- **Đối tác tự gửi khách:** lệnh "Đối tác đã tự trả khách" (đóng việc, bắt lý do, sự kiện
+  `lab.closed_by_partner`) → trạng thái mới `DA_DONG` ở bảng 4.6. Lý do: không có lối đóng là
+  sinh việc tồn mãi (420 việc cũ trên prod).
+- **E:** hẹn trả đếm MỌI ngày.
+- **F:** "đã thu, chưa lấy mẫu" trễ sau **2 NGÀY**. Một cài đặt chung theo phòng khám ở màn
+  Cài đặt → Đối tác, chỉ vai Quản lý xem/sửa. Làm ở PR 1.3.
+- **A: CHƯA CHỐT.** Có thể đối tác có tem in sẵn mã. Nếu đúng: `mau_xet_nghiem` thêm
+  `ma_doi_tac` (unique theo đối tác, quét/gõ lúc Lấy mẫu), Drive ghép theo `ma_doi_tac`.
+  Chờ Tuyền gửi tên file mẫu trên Drive trước chặng 3. Chặng 1–2 không ảnh hưởng.
 
 ## 6. Bốn chặng — mỗi PR nhỏ (≤ ~400 dòng ngoài test/migration), mỗi chặng lên prod riêng
 

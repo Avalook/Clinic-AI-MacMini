@@ -27,3 +27,11 @@ paths:
   công bố kiểu (không `py.typed`, vd asyncpg) coi là Unknown, ĐÚNG như mypy coi là
   Any; đừng bật lại (asyncpg sẽ sinh ~970 lỗi giả `PoolConnectionProxy`). Pyright báo
   mà mypy không báo thì kiểm tay, đừng sửa mù.
+- **Hai sổ sự kiện:** `emit_event` (`events/emit.py`) ghi vào `domain_event`; `record_event`
+  / `INSERT INTO event_log` cũ ghi vào `event_log`. Đọc/đếm sự kiện phải biết nó nằm sổ
+  nào — đọc một sổ là đếm thiếu (05/11: SQL soát đối tác đếm thiếu vì vậy).
+- **pytest:** chỉ `import` đúng fixture cần; không nạp module test có fixture `autouse`
+  qua `pytest_plugins` — nó áp lên MỌI test trong phiên.
+- **Trước CI:** hook `kiem-truoc-ci.sh` chạy ruff + mypy `src/` (đúng phạm vi CI, gồm test)
+  + tenant-scope + `ban-do-code.py --kiem` mỗi khi gọi `ci-may.sh`; đỏ thì CI không chạy.
+  Chỉ merge đúng SHA đã CI xanh (hoặc SHA chỉ khác tệp sinh đã `--kiem` đạt).

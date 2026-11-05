@@ -67,6 +67,9 @@ khi nhận việc: "Mức N · ước ~X phút".** Sai mức thì Tuyền nói n
 - **Chỉ hỏi khi cần Tuyền quyết nghiệp vụ**; chọn lựa kỹ thuật thì tự chọn, báo lý do một dòng.
 - **Việc độc lập chạy song song bằng agent nền**, báo trước giờ xong dự kiến.
 - **Báo cáo một khuôn:** kết quả trước · một bảng · cuối là việc Tuyền làm (lệnh bấm được).
+- **Mức 2/3: làm theo skill `lam-mot-pr`** (test ca biên trước · thử ngược phải đỏ ·
+  kiểm trước CI · CI đúng SHA · agent soát · dừng chờ Tuyền merge). Chế độ tự động chặn
+  AI tự merge PR của mình — đúng ý, không tìm đường vòng.
 
 > Máy Mac **không chạy prod** (chữ "MacMini" trong tên thư mục là dấu vết lịch sử).
 > Nó là máy dev — stack thử (`scripts/dev-up.sh`), staging local từ bản sao lưu
