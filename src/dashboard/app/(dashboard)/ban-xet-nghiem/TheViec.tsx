@@ -187,7 +187,7 @@ export default function TheViec({
         <div className="flex flex-wrap items-center gap-2">
           {n.tai_ket_qua ? (
             <label className="inline-flex min-h-10 cursor-pointer items-center rounded-control px-3 text-sm font-medium text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-sunken">
-              {v.tep_id ? "Tải bản mới lên tay" : "Tải kết quả lên tay"}
+              {v.tep_id ? "Tải bản mới" : "Tải kết quả lên tay"}
               <input
                 type="file"
                 accept="application/pdf,image/*"
@@ -202,7 +202,7 @@ export default function TheViec({
           ) : null}
           {n.gui && mo !== "gui" ? (
             <Button type="button" variant="primary" onClick={() => setMo("gui")}>
-              Đúng người, gửi
+              Gửi khách
             </Button>
           ) : null}
         </div>
