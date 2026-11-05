@@ -22,6 +22,7 @@ from clinicai.services.xet_nghiem import anh_ck, ket_qua, mau, qua_trinh, thu_ho
 from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
 from clinicai.services.xet_nghiem.lenh import chay, chay_khong_ngay
 from clinicai.services.xet_nghiem.mau import doc_ngay
+from clinicai.services.xet_nghiem.thu_ho import doc_doi_tac
 
 router = APIRouter()
 _QUAN_LY = cua_quyen(QUYEN_QUAN_LY)
@@ -226,14 +227,14 @@ class TienOut(BaseModel):
 @router.get(f"{P}/tien", response_model=TienOut)
 async def tien_thu_ho(
     ngay: str | None = Query(default=None, max_length=10),
+    doi_tac: str | None = Query(default=None, max_length=40),
     identity: StaffIdentity = Depends(_QUAN_LY),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
     """Tab "Tiền thu hộ": theo NGÀY GHI NHẬN / ngày hoàn (giờ VN). Rác ⇒ hôm nay.
-    CHỈ quản lý (`config.clinic.manage`, Tuyền chốt 05/11 theo bản mẫu) — nhân viên
-    403."""
+    `doi_tac` = ô lọc đối tác (rỗng/rác ⇒ mọi đối tác). CHỈ quản lý."""
     d = doc_ngay(ngay) or hom_nay_vn()
-    return await thu_ho.so_ngay(pool, identity.clinic_id, d)
+    return await thu_ho.so_ngay(pool, identity.clinic_id, d, doc_doi_tac(doi_tac))
 
 
 async def _than(request: Request) -> dict[str, Any]:

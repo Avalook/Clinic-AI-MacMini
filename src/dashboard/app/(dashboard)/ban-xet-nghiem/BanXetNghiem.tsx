@@ -237,7 +237,7 @@ export default function BanXetNghiem() {
 
       {tab === "ton" ? <ConTon viec={(ban?.viec ?? []).filter(cuaDt)} loc={ban?.loc ?? []} onMo={moViec} /> : null}
       {tab === "kq" ? <KetQuaKhach viec={(ban?.viec ?? []).filter(cuaDt)} onMo={moViec} onXong={(c) => void xong(c)} /> : null}
-      {tab === "tien" ? <TienThuHo /> : null}
+      {tab === "tien" ? <TienThuHo doiTac={doiTac} /> : null}
       {tab === "cd" ? <CaiDat /> : null}
 
       {tab === "ngay" ? (

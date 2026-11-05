@@ -307,6 +307,27 @@ async def test_xem_truoc_chi_anh_pdf_theo_byte_that(
         await ghep_tay.noi_dung_cho(pool, ca.bac_si, cho["KQ_html.pdf"]["id"])
 
 
+async def test_tien_thu_ho_loc_theo_doi_tac(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: DriveGia,
+) -> None:
+    """Tuyền 05/11: ô lọc đối tác phải lọc cả tab Tiền thu hộ (dòng + tổng)."""
+    _ca, a, o1, o2, *_ = await _dung_ca(pool, gia)
+    b = await pool.fetchval(
+        "SELECT id::text FROM doi_tac WHERE drive_folder_id = $1", gia.b
+    )
+    hom_nay = hom_nay_vn()
+    tat_ca = await thu_ho.so_ngay(pool, CLINIC, hom_nay)
+    cua_a = await thu_ho.so_ngay(pool, CLINIC, hom_nay, str(a))
+    cua_b = await thu_ho.so_ngay(pool, CLINIC, hom_nay, b)
+    ids_a = {d["id"] for d in cua_a["dong"]}
+    assert len(ids_a) >= 2 and ids_a <= {d["id"] for d in tat_ca["dong"]}
+    assert cua_b["dong"] == [] and cua_b["tong"] == 0
+    assert cua_a["tong"] == sum(d["so_tien"] for d in cua_a["dong"])
+    assert thu_ho.doc_doi_tac("rác") is None and thu_ho.doc_doi_tac(None) is None
+    assert o1 and o2
+
+
 async def test_khong_khoa_thi_bo_qua(
     pool: asyncpg.Pool,  # noqa: F811
     monkeypatch: pytest.MonkeyPatch,
