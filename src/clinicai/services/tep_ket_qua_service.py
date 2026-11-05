@@ -60,7 +60,7 @@ from clinicai.events.catalogue import (
     TepKetQuaDaXem,
     TepKetQuaDaXoa,
 )
-from clinicai.events.emit import emit_event, nguoi
+from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import can, can_o_phong_nao_do
 from clinicai.services import media_service
 from clinicai.services.audit import record_event
@@ -73,6 +73,7 @@ from clinicai.services.media_service import (
     sniff_ket_qua,
     vuot_tran,
 )
+from clinicai.services.nguon_tep import MayQuet
 from clinicai.services.nhan_tep_luong import TepDaNhan
 
 logger = structlog.get_logger()
@@ -684,7 +685,7 @@ class TepKetQuaService:
     async def tai_len(
         self,
         *,
-        identity: StaffIdentity,
+        identity: StaffIdentity | MayQuet,
         clinic_patient_id: str,
         data: bytes | None = None,
         nguon: IO[bytes] | None = None,
@@ -694,11 +695,15 @@ class TepKetQuaService:
         service_order_id: str | None = None,
         ben: int | None = None,
         la_tep_doi_tac: bool = False,
+        drive_nguoi_tai: str | None = None,
+        tu_drive: bool = False,
     ) -> dict[str, Any]:
         """Nhận một tệp kết quả và cất nó lên đĩa.
 
-        `la_tep_doi_tac` (05/11/2026, ADR-0015): bàn xét nghiệm tải tay kết quả của
-        đối tác — đi đường tệp đối tác (xác nhận) dù node không `lam_ben_ngoai`.
+        `la_tep_doi_tac` (ADR-0015): bàn XN tải tay kết quả đối tác — đi đường tệp đối
+        tác dù node không `lam_ben_ngoai`. `tu_drive`: tệp chép từ Google Drive (chặng
+        4) — `identity` có thể là `MayQuet` (không ai bấm ⇒ người tải NULL, sự kiện
+        SYSTEM); `drive_nguoi_tai` = tên người thả tệp trên Drive, chỉ để hiện.
 
         `ben` (26/09/2026): bên của tệp trong mẫu hai bên (Thai A=0, Thai B=1,
         trái=0, phải=1…); None = tệp chung.
@@ -865,12 +870,7 @@ class TepKetQuaService:
                         clinic_patient_id=clinic_patient_id,
                     ),
                 )
-                # BỎ CHỐT "ĐÃ TRẢ KẾT QUẢ" CỦA CSKH (Tuyền 28/09/2026: "không cần
-                # chặn cskh cái gì nữa"). Trước đây mốc TRA_KQ xét theo KHÁCH
-                # chặn mọi tệp mới — màn Đối tác báo "Việc này đã xác nhận trả
-                # kết quả" cho một việc còn chờ tài liệu. Tải tệp không phụ thuộc
-                # mốc chăm sóc khách nữa.
-
+                # Tải tệp không phụ thuộc mốc "đã trả kết quả" của CSKH (Tuyền 28/09).
                 if MEDIA_CLINIC_QUOTA_BYTES > 0:
                     await conn.execute(
                         "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
@@ -899,10 +899,7 @@ class TepKetQuaService:
 
                 await chay_tren_kho(_dat_vao_cho, kho=KHO_VPS)
 
-                # External files: CHO_XAC_NHAN, không auto-approve.
-                # Internal / non-order: NULL (không áp dụng).
-                # Giữ behavior trước #174: uploader BAC_SI thì
-                # tự cho phép gửi ngay.
+                # Tệp ngoài: CHO_XAC_NHAN (cờ tắt ⇒ HOP_LE); tệp trong: NULL.
                 tu_hop_le = is_external and not XAC_NHAN_TEP_DOI_TAC
                 xac_nhan_state = (
                     ("HOP_LE" if tu_hop_le else "CHO_XAC_NHAN") if is_external else None
@@ -918,7 +915,7 @@ class TepKetQuaService:
                          cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
                          service_order_id, xac_nhan_trang_thai,
                          xac_nhan_luc, xac_nhan_boi_staff_id, xac_nhan_ly_do,
-                         ben, vi_tri)
+                         ben, vi_tri, nguon, drive_nguoi_tai)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
                             $10::uuid,
                             CASE WHEN $12 THEN now() ELSE NULL END,
@@ -927,7 +924,7 @@ class TepKetQuaService:
                             CASE WHEN $14 THEN now() END,
                             CASE WHEN $14 THEN $10::uuid END,
                             CASE WHEN $14 THEN $15 END,
-                            $16, 'vps')
+                            $16, 'vps', $17, $18)
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -946,6 +943,8 @@ class TepKetQuaService:
                     tu_hop_le,
                     LY_DO_TU_XAC_NHAN,
                     ben,
+                    "DRIVE" if tu_drive else "TAI_LEN",
+                    (drive_nguoi_tai or "").strip()[:200] or None,
                 )
                 if service_order_id and not viec_doi_tac:
                     # Mốc "tài liệu đã tới" (để tương thích dữ liệu cũ/hiển thị).
@@ -979,7 +978,7 @@ class TepKetQuaService:
                         service_order_id=service_order_id,
                         cho_xac_nhan=is_external and XAC_NHAN_TEP_DOI_TAC,
                     ),
-                    boi=nguoi(identity),
+                    boi=HE_THONG if isinstance(identity, MayQuet) else nguoi(identity),
                     correlation_id=luot_tep,
                 )
         except BaseException:

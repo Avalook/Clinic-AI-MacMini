@@ -808,6 +808,7 @@ MODULE: dict[str, Module] = {
                 "lab.result_arrived",
                 "lab.result_sent",
                 "lab.result_rejected",
+                "lab.drive_file_rejected",
                 "lab.reopened",
             ],
             # Sổ thu hộ chuyển về đây (kế hoạch 3: lõi ghi/huỷ ở thu_ho.py; lệnh cũ
@@ -823,6 +824,8 @@ MODULE: dict[str, Module] = {
                 "mau_xet_nghiem_viec",
                 "mau_xet_nghiem_dem",
                 "xet_nghiem_dong",
+                "drive_tep",
+                "drive_nhip",
             ],
         ),
         Module(

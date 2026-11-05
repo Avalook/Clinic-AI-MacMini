@@ -674,6 +674,13 @@ class XetNghiemViec(PayloadSuKien):
     service_order_id: str
 
 
+class XetNghiemTepDrive(PayloadSuKien):
+    """`lab.drive_file_rejected` — một tệp Drive bị từ chối (chặng 4). Lý do ở bảng."""
+
+    drive_tep_id: str
+    doi_tac_id: str
+
+
 class CskhDaLienHe(PayloadSuKien):
     """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
 
@@ -2178,7 +2185,13 @@ DANH_MUC: dict[str, SuKien] = {
                     "lab.result_arrived",
                     "service_order",
                     XetNghiemViec,
-                    "Kết quả đối tác về (tải tay)",
+                    "Kết quả đối tác về (tải tay / Drive)",
+                ),
+                (
+                    "lab.drive_file_rejected",
+                    "drive_tep",
+                    XetNghiemTepDrive,
+                    "Từ chối tệp Drive",
                 ),
                 (
                     "lab.result_sent",
