@@ -22,6 +22,12 @@ Mode 5 (day-tep): Đẩy tệp kết quả từ ổ VPS sang Viettel CFS (01/10/
   Run:  python -m clinicai.worker --day-tep
   Env:  DATABASE_URL, MEDIA_ROOT, MEDIA_LOCAL_ROOT, MEDIA_MARKER
 
+Mode 6 (drive): Kết quả đối tác tự về từ Google Drive (05/11/2026, chặng 4 bàn XN).
+  Container riêng `drive-xn`, gắn ổ VPS + khoá chỉ đọc.
+  Xem `services/xet_nghiem/drive.py`.
+  Run:  python -m clinicai.worker --drive
+  Env:  DATABASE_URL, MEDIA_LOCAL_ROOT, GOOGLE_DRIVE_SA_FILE
+
 Mode 3 (pos-relay): POS outbox relay — polls ``pos_outbox`` and pushes invoices
   and stock movements to whichever POS the clinic configured (ADR-0010). With
   the default null adapter, rows are dead-lettered rather than falsely marked
@@ -410,6 +416,59 @@ async def _run_day_tep() -> None:
         logger.info("day_tep_stopped")
 
 
+async def _run_drive() -> None:
+    """Chế độ 6 (--drive): kết quả đối tác tự về từ Google Drive (chặng 4 bàn XN).
+
+    Mỗi ``drive.NHIP_GIAY`` (180s) một lượt `drive.mot_vong` — không bao giờ ném
+    (mỗi đối tác bọc riêng, lỗi ghi `drive_nhip`). Chỉ MỘT tiến trình quét: khoá tư
+    vấn cấp phiên trên một kết nối giữ riêng. Không có khoá Drive
+    (`GOOGLE_DRIVE_SA_FILE`) ⇒ lượt nào cũng bỏ qua, nhịp tim vẫn đập (dev/CI).
+    Container riêng `drive-xn` (staging tắt `day-tep`).
+    """
+    from clinicai.core.database import close_pool, create_pool
+    from clinicai.services.xet_nghiem import drive, drive_api
+
+    pool = await create_pool()
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
+    giu = await pool.acquire()
+    logger.info("drive_started", nhip=drive.NHIP_GIAY, co_khoa=drive_api.co_cau_hinh())
+    co_khoa = False
+    try:
+        while not stop.is_set():
+            try:
+                if not co_khoa:
+                    co_khoa = bool(
+                        await giu.fetchval(
+                            "SELECT pg_try_advisory_lock(hashtextextended($1, 0))",
+                            drive.KHOA_MOT_TIEN_TRINH,
+                        )
+                    )
+                    if not co_khoa:
+                        logger.warning("drive_tien_trinh_khac_dang_giu_khoa")
+                if co_khoa:
+                    ket = await drive.mot_vong(pool)
+                    if ket.get("tep_moi") or ket.get("loi"):
+                        logger.info("drive_vong", **ket)
+                _beat()
+            except Exception:
+                logger.exception("drive_vong_loi")
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=drive.NHIP_GIAY)
+                break
+            except asyncio.TimeoutError:
+                continue
+    finally:
+        try:
+            await pool.release(giu)
+        except Exception:
+            pass
+        await close_pool(pool)
+        logger.info("drive_stopped")
+
+
 async def _run_rabbitmq() -> None:
     """Run the RabbitMQ consumer (legacy mode)."""
     from clinicai.event_bus.consumer import ConsumerConnectionError, RabbitMQConsumer
@@ -477,6 +536,8 @@ def main() -> None:
         asyncio.run(_run_su_kien())
     elif "--day-tep" in sys.argv:
         asyncio.run(_run_day_tep())
+    elif "--drive" in sys.argv:
+        asyncio.run(_run_drive())
     elif "--pos-relay" in sys.argv:
         asyncio.run(_run_pos_relay())
     elif "--relay" in sys.argv:

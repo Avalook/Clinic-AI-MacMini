@@ -110,6 +110,9 @@ const LIVE_TABLES = [
   "doi_tac_hoan_tien",
   "mau_xet_nghiem",
   "mau_xet_nghiem_viec",
+  // Chặng 4: tệp Drive về / ghép / từ chối, nhịp quét (đèn trên thẻ đối tác).
+  "drive_tep",
+  "drive_nhip",
   "xet_nghiem_dong",
   // Kiểm kê tiền mặt két theo ca (31/10/2026).
   "ket_tien_mat_ca",

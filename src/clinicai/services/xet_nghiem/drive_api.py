@@ -16,6 +16,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import httpx
@@ -46,13 +47,29 @@ class TepDrive:
     mime: str | None
     md5: str | None
     so_byte: int | None
-    tao_luc: str | None
+    tao_luc: datetime | None
     nguoi_tai: str | None
 
 
+def doc_gio(raw: object) -> datetime | None:
+    """`createdTime` của Drive (RFC 3339, "…Z") → datetime có múi giờ. Rác ⇒ None."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        d = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=UTC)
+
+
 def co_cau_hinh() -> bool:
+    """Có khoá thật để gọi Drive? Tệp rỗng giữ chỗ của compose (`docker/khong-co-khoa-
+    drive`) ⇒ False. Không đọc nội dung khoá ở đây."""
     duong = os.environ.get(BIEN_KHOA, "").strip()
-    return bool(duong) and os.path.isfile(duong)
+    try:
+        return bool(duong) and os.path.getsize(duong) > 0
+    except OSError:
+        return False
 
 
 def _doc_khoa() -> dict[str, Any]:
@@ -117,7 +134,7 @@ def thanh_tep(f: dict[str, Any]) -> TepDrive:
         mime=f.get("mimeType"),
         md5=f.get("md5Checksum"),
         so_byte=so_byte,
-        tao_luc=f.get("createdTime"),
+        tao_luc=doc_gio(f.get("createdTime")),
         nguoi_tai=(str(nguoi)[:200] if nguoi else None),
     )
 

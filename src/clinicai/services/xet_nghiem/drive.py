@@ -1,13 +1,13 @@
 """Kết quả đối tác tự về từ Google Drive — vòng quét (chặng 4, kế hoạch 4.7).
 
-Chạy trong tiến trình `day-tep` (đã gắn ổ VPS + CFS, đã có khoá một-tiến-trình), mỗi
-`NHIP_GIAY`. Mỗi đối tác có `drive_folder_id` (còn hoạt động): liệt kê thư mục, tệp nào
-chưa có dòng `drive_tep` (theo `(file_id, md5)`) thì:
+Chạy trong dịch vụ riêng `drive-xn` (`worker --drive`, gắn ổ VPS + khoá chỉ đọc; staging
+tắt `day-tep` nên không đặt ở đó), mỗi `NHIP_GIAY`. Mỗi đối tác có `drive_folder_id`
+(còn hoạt động): liệt kê thư mục, tệp nào chưa có dòng `drive_tep` (theo
+`(file_id, md5)`) thì:
 
 1. `quyet_ghep` (hàm thuần) đọc mã ống trong TÊN tệp: không mã / sai số kiểm / nhiều
-   mã /
-   không thấy ống / ống của đối tác khác / ống nhiều việc ⇒ CHỜ GHÉP TAY (lý do lưu vào
-   `ly_do_cho`), KHÔNG đoán.
+   mã / không thấy ống / ống của đối tác khác / ống nhiều việc ⇒ CHỜ GHÉP TAY (lý do
+   lưu vào `ly_do_cho`), KHÔNG đoán.
 2. Khớp đúng một việc ⇒ tải tệp từ Drive, đưa qua ĐÚNG lõi `TepKetQuaService.tai_len`
    (`identity=MayQuet`, `tu_drive=True`) — như tải tay: báo bác sĩ + CSKH qua
    `result_file.uploaded`. Gửi khách vẫn qua "Đúng người, gửi".
@@ -19,7 +19,9 @@ Vòng không bao giờ ném (mỗi đối tác bọc riêng); lỗi ghi vào `dr
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any, Final
+from zoneinfo import ZoneInfo
 
 import asyncpg
 import httpx
@@ -35,6 +37,34 @@ logger = structlog.get_logger()
 
 NHIP_GIAY: Final = 180
 TRAN_DOI_TAC: Final = 50
+#: Khoá tư vấn: chỉ MỘT tiến trình quét (hai container ⇒ cái sau đứng im).
+KHOA_MOT_TIEN_TRINH: Final = "xet-nghiem-drive-quet"
+#: Quá ngưỡng này không có lượt quét thành công ⇒ đèn đỏ (kế hoạch mục 7).
+TRE_NHIP: Final = timedelta(hours=1)
+_VN: Final = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
+def den_drive(
+    thu_muc: str | None,
+    lan_quet: datetime | None,
+    ok_cuoi: datetime | None,
+    loi: str | None,
+    bay_gio: datetime,
+) -> dict[str, str]:
+    """Đèn nhịp Drive trên thẻ đối tác: chữ + màu chip (một nơi tính, màn chỉ hiện)."""
+    if not thu_muc:
+        return {"nhan": "Chưa nối thư mục Drive", "mau": "neutral"}
+    if lan_quet is None:
+        return {"nhan": "Đã nối thư mục Drive · chưa quét lần nào", "mau": "neutral"}
+    gio = lan_quet.astimezone(_VN).strftime("%H:%M %d/%m")
+    if loi:
+        return {"nhan": f"Drive lỗi lúc {gio}: {loi}", "mau": "danger"}
+    if ok_cuoi is None or bay_gio - ok_cuoi > TRE_NHIP:
+        return {
+            "nhan": f"Drive quá 1 giờ chưa quét được (lần cuối {gio})",
+            "mau": "danger",
+        }
+    return {"nhan": f"Drive ổn · quét lúc {gio}", "mau": "success"}
 
 
 @dataclass(frozen=True)

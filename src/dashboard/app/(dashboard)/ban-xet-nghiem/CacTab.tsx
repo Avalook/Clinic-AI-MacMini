@@ -1,4 +1,5 @@
-// (Client — chỉ `BanXetNghiem.tsx` dùng.) Ba tab phụ của bàn XN — hình theo bản mẫu 05/11: "Còn tồn", "Kết quả", "Tiền thu hộ".
+// (Client — chỉ `BanXetNghiem.tsx` dùng.) Tab phụ của bàn XN — hình theo bản mẫu 05/11: "Còn tồn", "Tiền thu hộ"
+// (tab "Kết quả" ở `KetQuaKhach.tsx`).
 // Chỉ vẽ + lọc tại chỗ theo mã/cờ máy chủ trả (`con_ton`, `loc[].ton`, `so_ngay_cho`).
 // Tiền thu hộ lọc theo NGÀY GHI NHẬN / ngày hoàn (máy chủ), có dòng hoàn (số âm).
 
@@ -7,12 +8,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
-import Lightbox from "@/components/ui/Lightbox";
 import ONhap from "@/components/ui/ONhap";
 import StatCard from "@/components/ui/StatCard";
 
-import { tepXem } from "../_lam-viec/AnhKetQua";
-import { CHUA_TAI, gio, gioNgay, homNayVN, ngayNgan, ngayVN, tien, type DongTien, type Loc, type Viec } from "./kieu";
+import { CHUA_TAI, gio, homNayVN, ngayNgan, ngayVN, tien, type DongTien, type Loc, type Viec } from "./kieu";
 
 const TH = "px-3 py-2 text-left text-label font-semibold uppercase tracking-wide text-ink-muted";
 const TD = "px-3 py-2 align-top";
@@ -82,53 +81,6 @@ export function ConTon({ viec, loc, onMo }: { viec: Viec[]; loc: Loc[]; onMo: (v
                 Mở
               </Button>
             </td>
-          </tr>
-        ))}
-      </Bang>
-    </section>
-  );
-}
-
-export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }) {
-  const co = viec.filter((v) => v.tep_id).sort((a, b) => (b.tep_luc ?? "").localeCompare(a.tep_luc ?? ""));
-  const [xem, setXem] = useState<Viec | null>(null);
-  return (
-    <section aria-label="Kết quả" className="flex flex-col gap-3">
-      {xem?.tep_id ? (
-        <Lightbox
-          tieuDe={`${xem.ten_dich_vu ?? "Kết quả"} · ${xem.ten_khach ?? "Khách"}`}
-          phuDe={[xem.nguon_tep, gioNgay(xem.tep_luc)].filter(Boolean).join(" · ")}
-          tep={[tepXem({ id: xem.tep_id, ten: xem.ten_tep, loai_tep: xem.loai_tep ?? "PDF", mime: xem.mime_tep })]}
-          onDong={() => setXem(null)}
-        />
-      ) : null}
-      <Bang
-        rong={co.length ? null : "Chưa có tờ kết quả nào."}
-        dau={
-          <tr>
-            <th className={TH}>Tờ kết quả</th>
-            <th className={TH}>Nguồn</th>
-            <th className={TH}>Thời gian</th>
-          </tr>
-        }
-      >
-        {co.map((v) => (
-          <tr key={v.order_id}>
-            <td className={TD}>
-              <button type="button" className="text-left font-semibold text-brand-700 hover:underline" onClick={() => onMo(v)}>
-                {v.ten_khach}
-              </button>
-              <div>{v.ten_dich_vu}</div>
-              <div className="text-ink-muted">
-                {/* Bấm tên tệp ⇒ hộp xem như bàn khám; bấm tên khách ⇒ mở việc. */}
-                <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={() => setXem(v)}>
-                  {v.ten_tep}
-                </button>
-                {v.ma_mau ? ` · mã ống ${v.ma_mau}` : ""}
-              </div>
-            </td>
-            <td className={TD}>{v.nguon_tep ?? "—"}</td>
-            <td className={TD}>{gioNgay(v.tep_luc)}</td>
           </tr>
         ))}
       </Bang>

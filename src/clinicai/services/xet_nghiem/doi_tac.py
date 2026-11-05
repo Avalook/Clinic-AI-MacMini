@@ -12,6 +12,7 @@ Quản lý đổi bên thu ở màn Bảng giá trước. Test đếm số ánh 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import asyncpg
@@ -20,6 +21,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.audit import record_event
 from clinicai.services.tai_khoan_nhan_service import doc_id
+from clinicai.services.xet_nghiem.drive import den_drive
 from clinicai.services.xet_nghiem.o_nhap import (
     doc_form_doi_tac,
     doc_ly_do,
@@ -29,6 +31,8 @@ from clinicai.services.xet_nghiem.o_nhap import (
 
 QUYEN_QUAN_LY = "config.clinic.manage"
 _ORIGIN = "api:xet-nghiem-doi-tac"
+#: Cột nhịp Drive chỉ để tính `drive_den`, không trả thẳng.
+_COT_NHIP = ("lan_quet_cuoi", "ok_cuoi", "loi_cuoi")
 
 
 # ── Đọc DB ─────────────────────────────────────────────────────────────────
@@ -38,8 +42,12 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
         SELECT d.id::text, d.ten, d.ma_ngan, d.sdt, d.ghi_chu, d.drive_folder_id,
                d.tai_khoan_nhan_ck,
                d.hen_tra_so_ngay_mac_dinh, d.ngung_luc, d.ly_do_ngung,
-               (d.ngung_luc IS NULL) AS gan_duoc
-          FROM public.doi_tac d WHERE d.clinic_id = $1::uuid
+               (d.ngung_luc IS NULL) AS gan_duoc,
+               n.lan_quet_cuoi, n.ok_cuoi, n.loi_cuoi
+          FROM public.doi_tac d
+          LEFT JOIN public.drive_nhip n
+            ON n.clinic_id = d.clinic_id AND n.doi_tac_id = d.id
+         WHERE d.clinic_id = $1::uuid
          ORDER BY d.ngung_luc IS NOT NULL, lower(d.ten)
         """,
         cid,
@@ -77,8 +85,22 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
     theo_dt: dict[str, list[dict[str, Any]]] = {}
     for a in anh_xa:
         theo_dt.setdefault(a["doi_tac_id"], []).append(dict(a))
+    bay_gio = datetime.now(UTC)
     return {
-        "doi_tac": [{**dict(d), "dich_vu": theo_dt.get(d["id"], [])} for d in doi_tac],
+        "doi_tac": [
+            {
+                **{k: d[k] for k in d.keys() if k not in _COT_NHIP},
+                "dich_vu": theo_dt.get(d["id"], []),
+                "drive_den": den_drive(
+                    d["drive_folder_id"],
+                    d["lan_quet_cuoi"],
+                    d["ok_cuoi"],
+                    d["loi_cuoi"],
+                    bay_gio,
+                ),
+            }
+            for d in doi_tac
+        ],
         "dich_vu_thu_ho": [dict(r) for r in dich_vu],
         "nguong_lay_mau_ngay": nguong,
     }
