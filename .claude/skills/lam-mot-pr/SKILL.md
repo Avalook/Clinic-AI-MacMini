@@ -55,3 +55,9 @@ Luật thiết kế: `.claude/rules/thiet-ke-code.md`. Khuôn báo cáo: SO-LUAT
 - Rút **bài học**: điều gì Tuyền phải nhắc tay trong PR này? Đề xuất MỘT dòng luật và
   chỗ đặt (hook > test CI > `.claude/rules` > skill này). Không lưu vào memory máy làm
   chỗ chính — memory không theo repo.
+
+## 6. Bẫy trên máy Mac
+- Phiên đang mở KHÔNG nạp hook/agent mới thêm vào `.claude/` — kiểm hook bằng JSON qua stdin (`{"tool_input":{"command":"…"}}`) hoặc mở phiên mới.
+- zsh KHÔNG tách biến chứa danh sách tệp (`$F` thành một chuỗi) — dùng `… | xargs <lệnh>`.
+- `.venv` (symlink tới virtualenv của poetry) có thể bị xoá khi dọn cache — `ci-may` báo "Thiếu .venv" thì chạy `poetry install --no-root --with dev` ở checkout chính.
+- Phiên Claude KHÔNG được ghi sang worktree khác (hook chặn) — việc song song thì mở hai phiên, mỗi phiên một worktree.
