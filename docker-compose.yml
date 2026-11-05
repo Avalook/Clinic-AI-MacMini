@@ -361,7 +361,9 @@ services:
   # thư mục Drive của từng đối tác (tài khoản dịch vụ CHỈ ĐỌC), tệp có mã ống đúng thì
   # chép vào ổ VPS + ghép vào việc; còn lại vào hàng "chưa khớp" cho người gán. Tách
   # khỏi `day-tep` vì staging tắt day-tep; tách khỏi `su-kien` để người đưa tin không
-  # chờ mạng Google. Không có khoá (tệp rỗng) ⇒ vòng bỏ qua, nhịp tim vẫn đập.
+  # chờ mạng Google. Không có khoá (tệp rỗng) ⇒ vòng bỏ qua.
+  # KHÔNG có healthcheck có chủ ý: Drive hỏng không được chặn deploy prod hay làm đỏ
+  # Kuma — canh gác `DRIVE_KHONG_NHIP` (su-kien) báo khi quá 1 giờ không quét được.
   drive-xn:
     <<: *clinic-service-defaults
     build:
@@ -386,13 +388,6 @@ services:
       - type: bind
         source: ${MEDIA_LOCAL_DIR:-./.media-vps}/${APP_ENV:-production}
         target: /var/lib/clinicai/media-vps
-    healthcheck:
-      # Nhịp tim mỗi vòng 180s; cửa sổ 600s = hơn 3 vòng.
-      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 600"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
     networks: [internal, supabase]
 
   # Lightweight notification outbox relay. It polls Supabase directly and does

@@ -41,6 +41,8 @@ services:
     <<: *log-journald
   day-tep:
     <<: *log-journald
+  drive-xn:
+    <<: *log-journald
   notification-relay:
     <<: *log-journald
   rabbitmq:
