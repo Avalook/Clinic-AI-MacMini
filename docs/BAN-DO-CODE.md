@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-04 10:49. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-05 10:12. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -680,7 +680,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/auth/nhat-ky-doi-mat-khau` · `src/dashboard/app/api/auth/nhat-ky-doi-mat-khau/route.ts`
 - POST `/api/v1/me/nhat-ky-doi-mat-khau` → `src/clinicai/api/v1/routers/identity.py:ghi_nhat_ky_doi_mat_khau_ca_nhan` → record_event
-- test: src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_smoke_main_174_175_db.py
+- test: src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_soat_xet_nghiem_doi_tac_db.py
 - màn dùng: /doi-tac
 
 #### `/api/booking-overrides/doctor/[id]` · `src/dashboard/app/api/booking-overrides/doctor/[id]/route.ts`
