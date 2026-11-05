@@ -126,6 +126,8 @@ async def test_kich_ban_3_den_9_o_tang_service(
     )
     v1 = await _tt(pool, ca, o1)
     assert v1["trang_thai"]["ma"] == "CO_KET_QUA" and v1["nut"]["gui"]
+    # Hộp xem (Lightbox) cần loại + mime để vẽ PDF/ảnh tại chỗ.
+    assert v1["loai_tep"] == "PDF" and v1["mime_tep"] == "application/pdf"
     assert (
         await pool.fetchval(
             "SELECT xac_nhan_trang_thai FROM tep_ket_qua WHERE id = $1::uuid",

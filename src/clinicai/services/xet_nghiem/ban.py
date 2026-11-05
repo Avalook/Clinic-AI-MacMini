@@ -57,6 +57,7 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
            AS da_hoan,
        m.id::text AS mau_id, m.ma_mau, m.hen_tra_ngay,
        tep.id::text AS tep_id, tep.ten_hien_thi AS ten_tep,
+       tep.loai_tep, tep.mime AS mime_tep,
        (tep.gui_luc IS NOT NULL) AS tep_moi_nhat_da_gui,
        EXISTS (SELECT 1 FROM tep_ket_qua g
                 WHERE g.clinic_id = x.clinic_id AND g.service_order_id = o.id
@@ -75,7 +76,8 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
     ON mv.clinic_id = x.clinic_id AND mv.service_order_id = o.id AND mv.go_luc IS NULL
   LEFT JOIN mau_xet_nghiem m ON m.id = mv.mau_id AND m.huy_luc IS NULL
   LEFT JOIN LATERAL (
-       SELECT k.id, k.ten_hien_thi, k.gui_luc, k.tai_len_luc, k.tai_len_boi_staff_id
+       SELECT k.id, k.ten_hien_thi, k.loai_tep, k.mime, k.gui_luc, k.tai_len_luc,
+              k.tai_len_boi_staff_id
          FROM tep_ket_qua k
         WHERE k.clinic_id = x.clinic_id AND k.service_order_id = o.id
           AND k.da_xoa_luc IS NULL
@@ -131,6 +133,8 @@ def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
             "hen_tra_ngay",
             "tep_id",
             "ten_tep",
+            "loai_tep",
+            "mime_tep",
             "ma_giao_dich",
             "thu_id",
             "tai_khoan_nhan_ck",

@@ -8,10 +8,12 @@ import { useState, type ReactNode } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import Lightbox from "@/components/ui/Lightbox";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
+import { tepXem } from "../_lam-viec/AnhKetQua";
 import BuocThuHo, { O } from "./BuocThuHo";
 import { CHUA_TAI, gioNgay, lenh, ngayVN, type Viec } from "./kieu";
 
@@ -65,6 +67,7 @@ export default function TheViec({
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [qt, setQt] = useState<DongQt[] | null>(null);
+  const [xem, setXem] = useState(false);
   const t = v.trang_thai;
   const n = v.nut;
   const cuaBu = n.hoan_tac ? CUA_BU[n.hoan_tac.lenh] : undefined;
@@ -172,7 +175,10 @@ export default function TheViec({
         <p className="text-meta text-ink-soft">{t.vi_sao}</p>
         {v.tep_id ? (
           <p className="text-meta">
-            <span className="font-semibold text-brand-700">{v.ten_tep}</span>{" "}
+            {/* Bấm tên ⇒ đúng hộp xem của bàn khám (xem ảnh/PDF tại chỗ, phóng to, Tải về). */}
+            <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={() => setXem(true)}>
+              {v.ten_tep}
+            </button>{" "}
             <span className="text-ink-muted">
               · {v.nguon_tep ?? "Tải lên"} · {gioNgay(v.tep_luc)}
             </span>
@@ -283,6 +289,15 @@ export default function TheViec({
         <p role="alert" className="text-meta text-danger">
           {loi}
         </p>
+      ) : null}
+
+      {xem && v.tep_id ? (
+        <Lightbox
+          tieuDe={`${v.ten_dich_vu ?? "Kết quả"} · ${v.ten_khach ?? "Khách"}`}
+          phuDe={[v.nguon_tep, gioNgay(v.tep_luc)].filter(Boolean).join(" · ")}
+          tep={[tepXem({ id: v.tep_id, ten: v.ten_tep, loai_tep: v.loai_tep ?? "PDF", mime: v.mime_tep })]}
+          onDong={() => setXem(false)}
+        />
       ) : null}
     </article>
   );

@@ -97,6 +97,9 @@ class ViecOut(BaseModel):
     hen_tra_ngay: date | None
     tep_id: str | None
     ten_tep: str | None
+    #: Loại + mime tờ kết quả mới nhất — hộp xem (Lightbox) chọn cách vẽ ảnh/PDF.
+    loai_tep: str | None
+    mime_tep: str | None
     ma_giao_dich: str | None
     gia_goi_y: int | None
     da_thu: int | None
