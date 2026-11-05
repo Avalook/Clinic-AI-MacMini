@@ -21,7 +21,8 @@ Tuyền dựng bản mẫu giao diện mới và chốt sáu câu nghiệp vụ 
    hiện để tham khảo. Két chung ở lễ tân và quyết toán với đối tác: quyết định sau.
 2. **Ngoại lệ của "làm trước, thu sau" (30/09) và "thu hộ không chặn việc nào khác" (16/10):**
    với việc của đối tác, **nút Lấy mẫu** chỉ mở khi đã có ghi nhận thu hộ còn hiệu lực
-   (bất kỳ số tiền, kể cả CK chưa thấy tiền) **hoặc** Quản lý cho qua kèm lý do. Không chặn
+   (bất kỳ số tiền, kể cả CK chưa thấy tiền). ~~Hoặc Quản lý cho qua kèm lý do~~ — bỏ 05/11
+   chiều (kế hoạch 5d). Không chặn
    chỉ định, khám, thu ngân hay bất kỳ việc nào khác. Lý do: tiền này là của đối tác, phòng
    khám không ứng trước cho bên thứ ba.
 3. **Mã mẫu theo ống**, duy nhất theo phòng khám, chữ số kiểm Damm, cấp ở Postgres lúc lấy

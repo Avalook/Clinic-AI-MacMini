@@ -11,29 +11,12 @@
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { thuNho } from "@/lib/thu-nho-anh";
 
 export interface AnhCk {
   id: string;
   luc: string | null;
   boi: string | null;
-}
-
-const CANH_TOI_DA = 1600;
-
-async function thuNho(tep: File): Promise<Blob> {
-  try {
-    const bmp = await createImageBitmap(tep);
-    const tile = Math.min(1, CANH_TOI_DA / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bmp.width * tile);
-    canvas.height = Math.round(bmp.height * tile);
-    canvas.getContext("2d")?.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/jpeg", 0.85));
-    return blob ?? tep;
-  } catch {
-    // Trình duyệt không đọc được ảnh này: gửi nguyên — máy chủ tự kiểm kiểu.
-    return tep;
-  }
 }
 
 /** Tải một ảnh chuyển khoản lên lần thu; trả câu lỗi hoặc null. */
@@ -51,12 +34,28 @@ export async function taiAnhChuyenKhoan(cycleId: string, tep: File): Promise<str
   }
 }
 
+/** Đường đi của ảnh — mặc định là ảnh của LẦN THU quầy (`/api/payment/anh-ck`). Sổ
+ *  thu hộ đối tác truyền đường của nó (bảng riêng, kế hoạch XN 4.4 b) — cùng khung. */
+export interface DichAnhCk {
+  tai: (tep: File) => Promise<string | null>;
+  xem: (id: string) => string;
+  go: (id: string) => Promise<string | null>;
+}
+
+async function goQuay(id: string): Promise<string | null> {
+  const r = await fetch(`/api/payment/anh-ck?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (r.ok) return null;
+  const d = (await r.json().catch(() => null)) as { message?: string } | null;
+  return d?.message ?? "Không gỡ được ảnh.";
+}
+
 export default function AnhChuyenKhoan({
   cycleId,
   ds,
   choThem = true,
   chiXem = false,
   onDoi,
+  dich,
 }: {
   cycleId: string;
   ds: AnhCk[] | null | undefined;
@@ -64,17 +63,19 @@ export default function AnhChuyenKhoan({
   choThem?: boolean;
   chiXem?: boolean;
   onDoi: () => void;
+  dich?: DichAnhCk;
 }) {
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const anh = ds ?? [];
   if (anh.length === 0 && !choThem) return null;
+  const xem = dich?.xem ?? ((id: string) => `/api/payment/anh-ck?id=${encodeURIComponent(id)}`);
 
   async function them(tep: File | undefined) {
     if (!tep) return;
     setDang(true);
     setLoi(null);
-    const l = await taiAnhChuyenKhoan(cycleId, tep);
+    const l = dich ? await dich.tai(tep) : await taiAnhChuyenKhoan(cycleId, tep);
     setDang(false);
     if (l) setLoi(l);
     else onDoi();
@@ -83,12 +84,10 @@ export default function AnhChuyenKhoan({
   async function go(id: string) {
     setDang(true);
     setLoi(null);
-    const r = await fetch(`/api/payment/anh-ck?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const l = await (dich?.go ?? goQuay)(id);
     setDang(false);
-    if (!r.ok) {
-      const d = (await r.json().catch(() => null)) as { message?: string } | null;
-      setLoi(d?.message ?? "Không gỡ được ảnh.");
-    } else onDoi();
+    if (l) setLoi(l);
+    else onDoi();
   }
 
   return (
@@ -98,7 +97,7 @@ export default function AnhChuyenKhoan({
           {anh.map((a) => (
             <li key={a.id} className="flex flex-col items-start gap-1">
               <a
-                href={`/api/payment/anh-ck?id=${encodeURIComponent(a.id)}`}
+                href={xem(a.id)}
                 target="_blank"
                 rel="noopener"
                 title="Xem ảnh chuyển khoản"
@@ -107,7 +106,7 @@ export default function AnhChuyenKhoan({
                 {/* eslint-disable-next-line @next/next/no-img-element --
                     ảnh đi qua route XÁC THỰC, không qua bộ tối ưu ảnh dùng chung. */}
                 <img
-                  src={`/api/payment/anh-ck?id=${encodeURIComponent(a.id)}`}
+                  src={xem(a.id)}
                   alt="Ảnh chuyển khoản"
                   loading="lazy"
                   className="size-full object-cover"

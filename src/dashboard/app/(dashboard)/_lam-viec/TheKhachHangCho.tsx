@@ -37,8 +37,12 @@ export default function TheKhachHangCho({
   gio,
   dangChon,
   mo = false,
+  phai,
   onChon,
 }: {
+  /** Thay chữ giờ bên phải bằng thứ khác (bàn XN: chip trạng thái). Không truyền =
+   *  như cũ (`gio`). */
+  phai?: ReactNode;
   /** Số check-in (hoặc số thứ tự) trong vòng tròn. */
   so: string | number | null;
   ten: string;
@@ -88,7 +92,7 @@ export default function TheKhachHangCho({
           </span>
           <span className={`block truncate text-label ${phuDo ? "text-danger" : "text-ink-muted"}`}>{phu}</span>
         </span>
-        <span className="shrink-0 text-right text-label text-ink-muted">{gio}</span>
+        {phai ?? <span className="shrink-0 text-right text-label text-ink-muted">{gio}</span>}
       </button>
     </li>
   );

@@ -12,7 +12,7 @@ type Method = "GET" | "POST" | "PUT";
 
 const U = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
-const LENH_BAN = "ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|cho-qua|go-cho-qua|dong|mo-lai|gui|thu-hoi";
+const LENH_BAN = "ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|mo-lai|gui|thu-hoi";
 
 /** [method, mẫu đường sau /xet-nghiem/, đường backend VIẾT RÕ] — thêm cửa = thêm một
  *  dòng. Đường backend viết hẳn ra để test `test_dashboard_backend_paths` đối chiếu
@@ -30,11 +30,13 @@ const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
     (m) => `/api/v1/xet-nghiem/doi-tac-dich-vu/${m[1]}/bo`,
   ],
   ["PUT", /^cai-dat$/, () => "/api/v1/xet-nghiem/cai-dat"],
+  ["GET", /^quyen$/, () => "/api/v1/xet-nghiem/quyen"],
   // Bàn xét nghiệm (chặng 2–3)
   ["GET", /^ban$/, () => "/api/v1/xet-nghiem/ban"],
   ["GET", /^ban\/tien$/, () => "/api/v1/xet-nghiem/ban/tien"],
   ["GET", /^ban\/qua-trinh$/, () => "/api/v1/xet-nghiem/ban/qua-trinh"],
   ["POST", new RegExp(`^ban/(${LENH_BAN})$`), (m) => `/api/v1/xet-nghiem/ban/${m[1]}`],
+  ["POST", new RegExp(`^ban/anh-ck/(${U})/go$`, "i"), (m) => `/api/v1/xet-nghiem/ban/anh-ck/${m[1]}/go`],
 ];
 
 function sai(message: string, status = 400) {

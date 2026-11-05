@@ -700,8 +700,11 @@ const NAV_QUYEN: Record<string, string[]> = {
 
 /** TẮT khỏi thanh bên cho MỌI người (route còn giữ, mở thẳng được):
  *  Chờ xếp bác sĩ (Tuyền 25/09: tạm tắt) · Bảng giá thuốc (giá thuốc sửa ở Kho
- *  thuốc từ 25/09 — một nguồn giá). */
-const TAT_KHOI_THANH_BEN = new Set(["/appointments/cho-xep-bac-si", "/cashier/thuoc"]);
+ *  thuốc từ 25/09 — một nguồn giá) · Bàn đối tác CŨ `/doi-tac` (Tuyền 05/11: MỘT mục
+ *  "Việc của đối tác" = bàn XN mới; bàn cũ giữ cho việc chỉ định trước đó, mở bằng
+ *  link "Việc cũ" trên bàn mới, tắt hẳn ở chặng 4). Tài khoản vai Đối tác xét TRƯỚC
+ *  dòng này (`CHI_DOI_TAC`) nên vẫn thấy bàn cũ — bàn mới không cho vai đó vào. */
+const TAT_KHOI_THANH_BEN = new Set(["/appointments/cho-xep-bac-si", "/cashier/thuoc", "/doi-tac"]);
 
 /** Màn theo phòng (`/phong/<room_id>`) dùng chung quyền của `/phong`. */
 function quyenCuaMan(href: string): string[] {

@@ -35,9 +35,6 @@ def hanh_trinh(r: Any, tt: TrangThaiXN) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for xong, chua, cot in _MOC[:-1]:
         luc = r[cot]
-        if cot == "thu_luc" and luc is None and r["cho_qua_luc"] is not None:
-            out.append({"ten": "Cho lấy mẫu trước", "luc": r["cho_qua_luc"]})
-            continue
         out.append({"ten": xong if luc else chua, "luc": luc})
     ten, luc = _moc_cuoi(r)
     out.append({"ten": ten, "luc": luc})
@@ -84,6 +81,10 @@ def nhom_khach(viec: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "ngay": v["ngay_chi_dinh"],
                 "ten": v["ten_khach"] or "Khách",
                 "ma_bn": v["ma_bn"],
+                # Thẻ khách như hàng chờ các phòng: số check-in · tên · SĐT · #booking.
+                "sdt": v.get("sdt"),
+                "so_tiep_don": v.get("so_tiep_don"),
+                "so_booking": v.get("so_booking"),
                 "order_ids": [],
                 "_dai_dien": v,
             },

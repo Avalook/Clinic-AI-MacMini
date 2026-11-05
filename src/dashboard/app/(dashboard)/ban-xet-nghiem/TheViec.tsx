@@ -15,7 +15,7 @@ import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import BuocThuHo, { O } from "./BuocThuHo";
 import { gioNgay, lenh, ngayVN, type Viec } from "./kieu";
 
-type Mo = null | "cho_qua" | "dong" | "hoan_tac" | "gui";
+type Mo = null | "hoan_tac" | "gui";
 
 /** Lệnh bù máy chủ chỉ → cửa (ánh xạ tên, không luật). Lệnh màn chưa biết ⇒ không có
  *  trong bảng ⇒ không hiện nút (khỏi âm thầm gọi nhầm lệnh khác). */
@@ -23,7 +23,6 @@ const CUA_BU: Record<string, string> = {
   huy_mau: "huy-mau",
   huy_thu: "huy-thu",
   thu_hoi: "thu-hoi",
-  go_cho_qua: "go-cho-qua",
   mo_lai: "mo-lai",
 };
 
@@ -47,13 +46,18 @@ interface DongQt {
 
 export default function TheViec({
   v,
+  moVua = false,
   onXong,
   onLayMau,
 }: {
   v: Viec;
+  /** Vừa "Mở" tới việc này (popup / Còn tồn / Kết quả) ⇒ tô nền bước đang tới lượt
+   *  (bản mẫu `.step.sang`); bình thường không tô. */
+  moVua?: boolean;
   onXong: (bao: string) => void;
   onLayMau: (ids: string[]) => void;
 }) {
+  const sang = (b: Viec["buoc_dang"]) => moVua && v.buoc_dang === b;
   const [mo, setMo] = useState<Mo>(null);
   const [lyDo, setLyDo] = useState("");
   const [kenh, setKenh] = useState("ZALO");
@@ -134,11 +138,18 @@ export default function TheViec({
         </div>
       </div>
 
-      <Buoc sang={v.buoc_dang === "thu"}>
-        <BuocThuHo v={v} dang={dang} oLyDo={oLyDo} lyDo={lyDo} onChay={chay} onChoQua={() => setMo("cho_qua")} />
+      <Buoc sang={sang("thu")}>
+        <BuocThuHo
+          v={v}
+          dang={dang}
+          oLyDo={oLyDo}
+          lyDo={lyDo}
+          onChay={chay}
+          onAnh={() => onXong("Đã cập nhật ảnh chuyển khoản.")}
+        />
       </Buoc>
 
-      <Buoc sang={v.buoc_dang === "mau"}>
+      <Buoc sang={sang("mau")}>
         <div className="flex items-center justify-between gap-2">
           <span className="text-body font-semibold text-ink">Mẫu</span>
           {v.ma_mau ? <span className="font-mono text-meta font-semibold tracking-wider text-ink">Mã ống {v.ma_mau}</span> : null}
@@ -156,12 +167,15 @@ export default function TheViec({
         {v.hen_tra_ngay ? <p className="text-meta text-ink-muted">Hẹn trả {ngayVN(v.hen_tra_ngay)}</p> : null}
       </Buoc>
 
-      <Buoc sang={v.buoc_dang === "ket_qua"}>
+      <Buoc sang={sang("ket_qua")}>
         <span className="text-body font-semibold text-ink">Tờ kết quả</span>
         <p className="text-meta text-ink-soft">{t.vi_sao}</p>
         {v.tep_id ? (
           <p className="text-meta">
-            <span className="font-semibold text-brand-700">{v.ten_tep}</span> <span className="text-ink-muted">· tải lên {gioNgay(v.tep_luc)}</span>
+            <span className="font-semibold text-brand-700">{v.ten_tep}</span>{" "}
+            <span className="text-ink-muted">
+              · {v.nguon_tep ?? "Tải lên"} · {gioNgay(v.tep_luc)}
+            </span>
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
@@ -211,18 +225,13 @@ export default function TheViec({
           <Button type="button" variant="ghost" onClick={() => void moQuaTrinh()}>
             {qt ? "Ẩn quá trình" : "Xem quá trình"}
           </Button>
-          {n.dong ? (
-            <Button type="button" variant="ghost" onClick={() => setMo("dong")}>
-              Đối tác đã tự trả khách
-            </Button>
-          ) : null}
           {n.hoan_tac && cuaBu ? (
             <Button type="button" variant="ghost" onClick={() => setMo("hoan_tac")}>
               {n.mo_lai ? n.hoan_tac.nhan : "Hoàn tác bước trước"}
             </Button>
           ) : null}
         </div>
-        {mo === "cho_qua" || mo === "dong" || mo === "hoan_tac" ? (
+        {mo === "hoan_tac" ? (
           <div className="flex flex-wrap items-end gap-2">
             {mo === "hoan_tac" && n.hoan_tac?.lenh === "huy_mau" ? (
               <O nhan="Loại huỷ">
@@ -232,15 +241,13 @@ export default function TheViec({
                 </OChon>
               </O>
             ) : null}
-            {oLyDo(mo === "cho_qua" ? "Lý do cho lấy mẫu khi chưa thu" : mo === "dong" ? "Đối tác trả khách lúc nào, qua đâu" : `${n.hoan_tac?.nhan ?? ""} — lý do`)}
+            {oLyDo(`${n.hoan_tac?.nhan ?? ""} — lý do`)}
             <Button
               type="button"
               variant="primary"
               disabled={dang}
               onClick={() => {
-                if (mo === "cho_qua") void chay("cho-qua", { order_id: v.order_id, ly_do: lyDo }, "Đã cho lấy mẫu trước.");
-                else if (mo === "dong") void chay("dong", { order_id: v.order_id, ly_do: lyDo }, "Đã đóng việc.");
-                else if (n.hoan_tac && cuaBu) void chay(cuaBu, thanBu(v, n.hoan_tac.lenh, lyDo, loaiHuy), `Đã làm: ${n.hoan_tac.nhan}.`);
+                if (n.hoan_tac && cuaBu) void chay(cuaBu, thanBu(v, n.hoan_tac.lenh, lyDo, loaiHuy), `Đã làm: ${n.hoan_tac.nhan}.`);
               }}
             >
               Xác nhận

@@ -26,15 +26,16 @@ TrangThaiMa = Literal[
     "CHO_THU",
 ]
 
-#: Chữ cho người đọc — màn chỉ hiển thị, không tự đặt chữ.
+#: Chữ cho người đọc — màn chỉ hiển thị, không tự đặt chữ. Theo bản mẫu 05/11 (Tuyền
+#: chốt): chữ kể bước ĐÃ XONG gần nhất ("Đã thu tiền" = đang chờ lấy mẫu).
 NHAN: Final[dict[str, str]] = {
-    "DA_HUY": "Đã huỷ chỉ định",
-    "DA_GUI": "Đã gửi kết quả",
+    "DA_HUY": "Đã huỷ",
+    "DA_GUI": "Đã gửi khách",
     "DA_DONG": "Đối tác đã tự trả khách",
-    "CO_KET_QUA": "Có kết quả",
-    "CHO_KET_QUA": "Chờ kết quả",
-    "CHO_LAY_MAU": "Chờ lấy mẫu",
-    "CHO_THU": "Chờ thu",
+    "CO_KET_QUA": "Đã có kết quả",
+    "CHO_KET_QUA": "Đã lấy mẫu",
+    "CHO_LAY_MAU": "Đã thu tiền",
+    "CHO_THU": "Chưa thu tiền",
 }
 
 #: Thứ tự trên bàn (việc cần làm trước lên đầu).
@@ -55,9 +56,10 @@ LOC: Final[tuple[str, ...]] = (
     "CHO_KET_QUA",
     "CO_KET_QUA",
     "DA_GUI",
-    "DA_DONG",
     "DA_HUY",
 )
+# (DA_DONG không có chip lọc: lệnh đóng đã bỏ 05/11 — chỉ còn việc đã lỡ đóng trước đó,
+# hiện trong "Tất cả" và mở lại được.)
 
 #: Việc đã xong — không còn ở tab "Còn tồn".
 XONG: Final = frozenset({"DA_GUI", "DA_DONG", "DA_HUY"})
@@ -85,7 +87,6 @@ class SuViecXN:
     da_huy_chi_dinh: bool = False
     #: ngày (giờ VN) của ghi nhận thu còn hiệu lực; None = chưa có.
     ngay_thu: date | None = None
-    duoc_cho_qua: bool = False
     #: có mẫu còn hiệu lực chứa việc này.
     co_mau: bool = False
     hen_tra: date | None = None
@@ -183,18 +184,16 @@ def _tinh(sv: SuViecXN) -> TrangThaiXN:
             ly_do_khong_lay_mau="Đã lấy mẫu",
             vi_sao=_cau_cho_ket_qua(sv, tre),
         )
-    if sv.ngay_thu is not None or sv.duoc_cho_qua:
-        tre_lay = (sv.hom_nay - sv.ngay_thu).days if sv.ngay_thu is not None else 0
+    # Lấy mẫu CHỈ khi đã ghi nhận thu hộ (kể cả 0đ). "Cho lấy mẫu trước" của quản lý
+    # đã bỏ (Tuyền 05/11) — cột cũ trong DB giữ, không còn đọc.
+    if sv.ngay_thu is not None:
+        tre_lay = (sv.hom_nay - sv.ngay_thu).days
         tre_lau = tre_lay >= sv.nguong_lay_mau_ngay
         return replace(
             _tao("CHO_LAY_MAU", sv),
             qua_han_lay_mau=tre_lau,
             co_the_lay_mau=True,
-            vi_sao=(
-                "Đã thu tiền, chưa lấy mẫu."
-                if sv.ngay_thu is not None
-                else "Quản lý cho lấy mẫu trước khi thu."
-            )
+            vi_sao="Đã thu tiền, chưa lấy mẫu."
             + (f" Đã {tre_lay} ngày." if tre_lau else ""),
         )
     return replace(
@@ -239,16 +238,11 @@ def nut_cua(
     co_mau: bool,
     co_tep: bool,
     tep_moi_nhat_da_gui: bool,
-    duoc_cho_qua: bool = False,
-    da_go_cho_qua: bool = False,
-    quan_ly: bool = False,
 ) -> dict[str, object]:
     """Nút nào bấm được + "Hoàn tác bước trước" gọi ĐÚNG lệnh bù nào (kế hoạch 5).
 
     Một câu hỏi ("ai bấm được gì") — một hàm, cạnh hàm trạng thái; màn chỉ đọc cờ.
-    Mọi bước có lối bù (không khoá cứng): cho qua ⇒ gỡ cho qua (soát chặng 3).
-    `quan_ly` (người XEM có quyền quản lý) chỉ đổi cờ HIỂN THỊ (`hien_cho_qua`, lệnh bù
-    "gỡ cho qua"); cờ lệnh dùng (`cho_qua`…) không theo vai — quyền gác ở router."""
+    Mọi bước có lối bù (không khoá cứng)."""
     hoan_tac = {
         "DA_DONG": {"lenh": "mo_lai", "nhan": "Mở lại việc"},
         "DA_GUI": {"lenh": "thu_hoi", "nhan": "Thu hồi kết quả đã gửi"},
@@ -257,18 +251,11 @@ def nut_cua(
     }.get(tt.ma)
     if tt.ma == "CHO_LAY_MAU" and co_thu:
         hoan_tac = {"lenh": "huy_thu", "nhan": "Huỷ ghi nhận thu (ghi sai)"}
-    elif tt.ma == "CHO_LAY_MAU" and duoc_cho_qua and quan_ly:
-        hoan_tac = {"lenh": "go_cho_qua", "nhan": "Gỡ cho lấy mẫu trước (quản lý)"}
-    cho_qua = tt.ma == "CHO_THU" and not da_go_cho_qua
     return {
         "ghi_thu": not co_thu and tt.ma in ("CHO_THU", "CHO_LAY_MAU"),
         "huy_thu": co_thu and not co_mau,
         "hoan_tien": co_thu and con_hoan > 0,
         "con_hoan_duoc": max(con_hoan, 0),
-        # Một việc một lần cho qua: đã gỡ thì không cho qua lại (trigger cũng chặn).
-        "cho_qua": cho_qua,
-        "hien_cho_qua": cho_qua and quan_ly,
-        "go_cho_qua": duoc_cho_qua and not co_mau,
         "lay_mau": tt.co_the_lay_mau,
         # Khối Lấy mẫu hiện (mờ hay sáng) khi việc còn tồn mà chưa có mẫu.
         "hien_lay_mau": not co_mau and tt.con_ton,
@@ -276,7 +263,6 @@ def nut_cua(
         "tai_ket_qua": co_mau and tt.ma not in ("DA_HUY", "DA_DONG"),
         "gui": co_tep and not tep_moi_nhat_da_gui,
         "thu_hoi": co_tep,
-        "dong": tt.ma not in ("DA_HUY", "DA_GUI", "DA_DONG"),
         "mo_lai": tt.ma == "DA_DONG",
         "hoan_tac": hoan_tac,
     }

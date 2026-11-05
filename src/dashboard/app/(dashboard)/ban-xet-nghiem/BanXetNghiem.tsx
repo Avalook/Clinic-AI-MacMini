@@ -14,15 +14,17 @@ import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
 import OChon from "@/components/ui/OChon";
 import OTimKhach from "@/components/ui/OTimKhach";
-import Stepper from "@/components/ui/Stepper";
+import ThanhHanhTrinh from "@/components/ui/ThanhHanhTrinh";
 import ThanhTab from "@/components/ui/ThanhTab";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import { khopTimKhach } from "@/lib/tim-khach-phong";
 
-import DoiTacView from "../settings/doi-tac/DoiTacView";
+import TheKhachHangCho from "../_lam-viec/TheKhachHangCho";
+import CaiDat from "./CaiDat";
 import { useNgheBang } from "../dung-nghe-bang";
 import { ConTon, KetQua, TienThuHo } from "./CacTab";
-import { gioNgay, homNayVN, ngayNgan, ngayVN, type Ban, type Khach, type Viec } from "./kieu";
+import { gioMoc, homNayVN, ngayNgan, ngayVN, type Ban, type Khach, type Viec } from "./kieu";
+import PopupKhach from "./PopupKhach";
 import TheViec from "./TheViec";
 
 const BANG = [
@@ -58,6 +60,8 @@ export default function BanXetNghiem() {
   const [bao, setBao] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [mauMoi, setMauMoi] = useState<{ ma: string; hen: string | null } | null>(null);
+  const [popup, setPopup] = useState<string | null>(null);
+  const [moVua, setMoVua] = useState<string | null>(null);
 
   const tai = useCallback(async () => {
     const d = await docBan();
@@ -100,11 +104,23 @@ export default function BanXetNghiem() {
       .filter((v) => v.nut.lay_mau)
       .reduce((m, v) => m.set(v.doi_tac_id, [...(m.get(v.doi_tac_id) ?? []), v]), new Map<string, Viec[]>()),
   ].filter(([, ds]) => ds.length > 1);
-  const timRa = tim.trim()
-    ? (ban?.khach ?? [])
-        .filter((k) => viecCua(k).length && khopTimKhach(tim, { ten: k.ten, ma: [k.ma_bn, ...viecCua(k).map((v) => v.ma_mau)].filter(Boolean).join(" "), so: [] }))
-        .slice(0, 6)
-    : [];
+  // Ô tìm (bản mẫu): MỖI KHÁCH một dòng, gộp mọi ngày — bấm ⇒ popup mọi lần XN.
+  const timRa = useMemo(() => {
+    if (!tim.trim()) return [];
+    const m = new Map<string, { khoa: string; ten: string; ma_bn: string | null; viec: Viec[] }>();
+    for (const v of (ban?.viec ?? []).filter(cuaDt)) {
+      const khoa = v.clinic_patient_id ?? v.order_id;
+      const g = m.get(khoa) ?? { khoa, ten: v.ten_khach ?? "Khách", ma_bn: v.ma_bn, viec: [] };
+      g.viec.push(v);
+      m.set(khoa, g);
+    }
+    return [...m.values()]
+      .filter((g) => khopTimKhach(tim, { ten: g.ten, ma: [g.ma_bn, ...g.viec.map((v) => v.ma_mau)].filter(Boolean).join(" "), so: [] }))
+      .slice(0, 6);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cuaDt chỉ đọc doiTac
+  }, [tim, ban, doiTac]);
+  // Popup đọc thẳng từ bàn (ô tìm đã xoá chữ khi mở) — mọi việc của khách đó.
+  const popupDs = popup ? (ban?.viec ?? []).filter((v) => cuaDt(v) && (v.clinic_patient_id ?? v.order_id) === popup) : [];
 
   function moKhach(k: Khach) {
     setTab("ngay");
@@ -118,6 +134,7 @@ export default function BanXetNghiem() {
   const moViec = (v: Viec) => {
     const k = (ban?.khach ?? []).find((x) => x.order_ids.includes(v.order_id));
     if (k) moKhach(k);
+    setMoVua(v.order_id);
   };
 
   async function xong(cau: string) {
@@ -148,8 +165,13 @@ export default function BanXetNghiem() {
     { ma: "ngay", nhan: "Việc theo ngày" },
     { ma: "ton", nhan: `Còn tồn (${soTon})` },
     { ma: "kq", nhan: "Kết quả" },
-    { ma: "tien", nhan: "Tiền thu hộ" },
-    ...(ban?.quan_ly ? [{ ma: "cd" as const, nhan: "Cài đặt" }] : []),
+    // Tiền thu hộ + Cài đặt: chỉ quản lý (bản mẫu; máy chủ cũng chặn `GET /ban/tien`).
+    ...(ban?.quan_ly
+      ? [
+          { ma: "tien" as const, nhan: "Tiền thu hộ" },
+          { ma: "cd" as const, nhan: "Cài đặt" },
+        ]
+      : []),
   ];
 
   return (
@@ -177,17 +199,21 @@ export default function BanXetNghiem() {
                 <button
                   key={k.khoa}
                   type="button"
-                  onClick={() => moKhach(k)}
+                  onClick={() => {
+                    setPopup(k.khoa);
+                    setTim("");
+                  }}
                   className="flex w-full items-center justify-between gap-2 border-b border-line px-3 py-2 text-left last:border-b-0 hover:bg-surface-sunken"
                 >
                   <span className="min-w-0">
                     <span className="font-semibold text-ink">{k.ten}</span>{" "}
                     <span className="text-meta text-ink-muted">
                       {k.ma_bn ? `Mã KH ${k.ma_bn} · ` : ""}
-                      {ngayNgan(k.ngay)} · {k.order_ids.length} chỉ định
+                      {k.viec.length} chỉ định
                     </span>
                   </span>
-                  <Chip tone={k.mau}>{k.nhan}</Chip>
+                  {/* Việc đứng đầu = việc cần làm trước (máy chủ đã xếp); chip đã gộp quá hẹn. */}
+                  <Chip tone={k.viec[0].trang_thai.chip_mau}>{k.viec[0].trang_thai.chip_nhan}</Chip>
                 </button>
               ))}
               {!timRa.length ? <p className="px-3 py-2 text-meta text-ink-muted">Không thấy khách nào.</p> : null}
@@ -197,10 +223,23 @@ export default function BanXetNghiem() {
         <ThanhTab nhan="Việc của đối tác" muc={tabs} chon={tab} onChon={setTab} />
       </div>
 
+      {popup && popupDs.length ? (
+        <PopupKhach
+          ten={popupDs[0].ten_khach ?? "Khách"}
+          maBn={popupDs[0].ma_bn}
+          viec={popupDs}
+          onDong={() => setPopup(null)}
+          onMo={(v) => {
+            setPopup(null);
+            moViec(v);
+          }}
+        />
+      ) : null}
+
       {tab === "ton" ? <ConTon viec={(ban?.viec ?? []).filter(cuaDt)} loc={ban?.loc ?? []} onMo={moViec} /> : null}
       {tab === "kq" ? <KetQua viec={(ban?.viec ?? []).filter(cuaDt)} onMo={moViec} /> : null}
       {tab === "tien" ? <TienThuHo /> : null}
-      {tab === "cd" ? <DoiTacView /> : null}
+      {tab === "cd" ? <CaiDat /> : null}
 
       {tab === "ngay" ? (
         <div className="flex flex-col gap-3">
@@ -221,38 +260,40 @@ export default function BanXetNghiem() {
             onChon={setLoc}
             muc={[{ ma: "", nhan: "Tất cả" }, ...(ban?.loc ?? []).map((l) => ({ ma: l.ma, nhan: l.nhan }))]}
           />
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-            <div className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+            <div className="flex flex-col gap-1">
               {!ban ? <p className="px-4 py-3 text-body text-ink-muted">Đang tải…</p> : null}
               {ban && !dsKhach.length ? (
-                <p className="px-4 py-3 text-body text-ink-muted">
+                <p className="rounded-card border border-line bg-surface px-4 py-3 text-body text-ink-muted">
                   Không có khách nào trong ngày này{ban.viec.length ? "" : " (dịch vụ phải được gán đối tác ở Cài đặt)"}.
                 </p>
               ) : null}
+              <ul className="space-y-1" aria-label="Khách trong ngày">
               {dsKhach.map((k) => {
                 // Đang lọc đối tác / tình trạng ⇒ chip theo việc ĐANG HIỆN đầu tiên (chip đã
                 // gộp quá hẹn do máy chủ tính), khỏi mang chip của việc bị ẩn.
                 const dau = doiTac || loc ? viecCua(k).find((v) => !loc || v.trang_thai.ma === loc) : undefined;
                 return (
-                <button
-                  key={k.khoa}
-                  type="button"
-                  aria-pressed={dang?.khoa === k.khoa}
-                  onClick={() => {
-                    setChon(k.khoa);
-                    setGop([]);
-                    setMauMoi(null);
-                  }}
-                  className={`flex w-full items-center justify-between gap-2 border-b border-line px-3 py-2 text-left last:border-b-0 ${dang?.khoa === k.khoa ? "bg-brand-50" : "hover:bg-surface-sunken"}`}
-                >
-                  <span className="min-w-0">
-                    <span className="font-semibold text-ink">{k.ten}</span>{" "}
-                    {k.order_ids.length > 1 ? <span className="text-meta text-ink-muted">{k.order_ids.length} xét nghiệm</span> : null}
-                  </span>
-                  <Chip tone={dau ? dau.trang_thai.chip_mau : k.mau}>{dau ? dau.trang_thai.chip_nhan : k.nhan}</Chip>
-                </button>
+                  <TheKhachHangCho
+                    key={k.khoa}
+                    so={k.so_tiep_don}
+                    ten={k.ten}
+                    sdt={k.sdt}
+                    soBooking={k.so_booking}
+                    phu={[k.ma_bn, `${k.order_ids.length} chỉ định`].filter(Boolean).join(" · ")}
+                    gio=""
+                    dangChon={dang?.khoa === k.khoa}
+                    phai={<Chip tone={dau ? dau.trang_thai.chip_mau : k.mau}>{dau ? dau.trang_thai.chip_nhan : k.nhan}</Chip>}
+                    onChon={() => {
+                      setChon(k.khoa);
+                      setGop([]);
+                      setMauMoi(null);
+                      setMoVua(null);
+                    }}
+                  />
                 );
               })}
+              </ul>
             </div>
 
             <div className="flex min-w-0 flex-col gap-3">
@@ -277,7 +318,10 @@ export default function BanXetNghiem() {
                         <Chip tone={v.trang_thai.chip_mau}>{v.trang_thai.chip_nhan}</Chip>
                       </div>
                       <div className="overflow-x-auto">
-                        <Stepper steps={v.hanh_trinh.map((m) => ({ label: m.ten, state: m.trang_thai, detail: m.luc ? gioNgay(m.luc) : undefined }))} />
+                        <ThanhHanhTrinh
+                          nhan={`Hành trình ${v.ten_dich_vu ?? ""}`}
+                          moc={v.hanh_trinh.map((m) => ({ ten: m.ten, trangThai: m.trang_thai, gio: m.luc ? gioMoc(m.luc) : undefined }))}
+                        />
                       </div>
                     </div>
                   ))}
@@ -314,7 +358,7 @@ export default function BanXetNghiem() {
                 </div>
               ) : null}
               {viecDang.map((v) => (
-                <TheViec key={v.order_id} v={v} onXong={(c) => void xong(c)} onLayMau={(ids) => void layMau(ids)} />
+                <TheViec key={v.order_id} v={v} moVua={moVua === v.order_id} onXong={(c) => void xong(c)} onLayMau={(ids) => void layMau(ids)} />
               ))}
             </div>
           </div>

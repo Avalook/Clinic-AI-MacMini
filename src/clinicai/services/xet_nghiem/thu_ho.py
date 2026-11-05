@@ -289,7 +289,7 @@ WITH dong AS (
 SELECT d.id::text AS id, d.loai, d.so_tien, d.tien_mat, d.chuyen_khoan, d.hinh_thuc,
        d.ma_giao_dich, d.gia_goi_y, d.luc AS ghi_luc, o.service_name AS ten,
        o.id::text AS service_order_id, s.full_name AS nguoi,
-       p.full_name AS ten_khach, p.patient_code AS ma_bn,
+       p.full_name AS ten_khach, p.patient_code AS ma_bn, p.phone_primary AS sdt,
        coalesce(v.location_id, ah.location_id)::text AS co_so
   FROM dong d
   LEFT JOIN service_order o ON o.id = d.service_order_id AND o.clinic_id = $1::uuid
@@ -335,6 +335,7 @@ async def so_ngay(pool: asyncpg.Pool, cid: str, ngay: Any) -> dict[str, Any]:
                     "ten",
                     "ten_khach",
                     "ma_bn",
+                    "sdt",
                     "nguoi",
                 )
             },

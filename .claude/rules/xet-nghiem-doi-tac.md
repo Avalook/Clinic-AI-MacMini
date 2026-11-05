@@ -29,8 +29,8 @@ Kế hoạch: `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md`. Vì sao: `docs/adr/0015-xet
 - Sửa cột của `doi_tac_thanh_toan` ⇒ sửa luôn hàm trigger `doi_tac_thanh_toan_chi_huy()`.
 
 ## Lấy mẫu — ngoại lệ duy nhất của "làm trước, thu sau"
-- Nút Lấy mẫu chỉ mở khi việc có ghi nhận thu còn hiệu lực (kể cả 0đ, CK chưa thấy tiền)
-  hoặc Quản lý đã cho qua (có lý do). **Không chặn thêm thứ gì khác** — chỉ định, khám,
+- Nút Lấy mẫu chỉ mở khi việc có ghi nhận thu còn hiệu lực (kể cả 0đ, CK chưa thấy tiền).
+  "Quản lý cho qua" đã BỎ (Tuyền 05/11, kế hoạch 5d). **Không chặn thêm thứ gì khác** — chỉ định, khám,
   thu ngân, ra về vẫn chạy như luật 30/09 và 16/10.
 - Mã mẫu cấp ở Postgres (`cap_ma_mau`), theo ống, chữ số kiểm Damm. Không suy từ mã khách.
 - Một ống chỉ chứa việc của **một** đối tác — ép bằng khoá ngoại, không bằng `if` Python.

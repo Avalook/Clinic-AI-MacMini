@@ -1,12 +1,12 @@
-"""Lấy mẫu, mã ống, cho qua, đóng việc (kế hoạch 4.5, 5, 5c; chặng 3).
+"""Lấy mẫu, mã ống, mở lại việc (kế hoạch 4.5, 5, 5c; chặng 3).
 
-* **Lấy mẫu** chỉ khi việc ở CHO_LAY_MAU (đã ghi nhận thu hoặc quản lý cho qua) —
+* **Lấy mẫu** chỉ khi việc ở CHO_LAY_MAU (đã ghi nhận thu hộ, kể cả 0đ) —
   ngoại lệ DUY NHẤT của "làm trước, thu sau" (ADR-0015). Một ống: mọi việc CÙNG
   đối tác (FK ghép ở DB). Mã cấp ở Postgres (`cap_ma_mau`, Damm). Hẹn trả = hôm nay +
   số ngày lớn nhất trong ống (đếm MỌI ngày, câu E), chụp thành ngày cụ thể.
 * **Huỷ mẫu** (NHAP_SAI / MAU_HONG) — việc về CHO_LAY_MAU, khoản thu GIỮ NGUYÊN, lấy
   lại ra mã MỚI. Còn tệp kết quả hiệu lực ⇒ thu hồi / từ chối tệp trước.
-* **Đóng** ("Đối tác đã tự trả khách") — chặn khi đã gửi; **mở lại** được.
+* **Mở lại** việc đã lỡ đóng trước 05/11 (lệnh đóng đã bỏ).
 Lệnh nào cũng: lý do ≥ 3 ký tự (trừ lấy mẫu), sự kiện `lab.*`, không xoá dòng.
 """
 
@@ -238,80 +238,14 @@ async def sua_hen_tra(
         raise ConflictError("Mẫu đã huỷ hoặc không có — tải lại màn.")
 
 
-async def cho_qua(
-    conn: asyncpg.Connection,
-    identity: StaffIdentity,
-    data: dict[str, Any],
-    hom_nay: date,
-) -> None:
-    """Quản lý cho lấy mẫu khi chưa ghi nhận thu (câu 2) — quyền gác ở router."""
-    v = await _mot_viec(conn, identity, data.get("order_id"), hom_nay)
-    if not v["nut"]["cho_qua"]:
-        raise ConflictError("Việc này không còn ở bước chờ thu — tải lại màn.")
-    try:
-        await conn.execute(
-            "UPDATE public.xet_nghiem_viec SET cho_lay_mau_truoc_luc = now(),"
-            " cho_lay_mau_truoc_boi = $3::uuid, cho_lay_mau_truoc_ly_do = $4"
-            " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
-            identity.clinic_id,
-            v["order_id"],
-            identity.staff_id,
-            doc_ly_do(data.get("ly_do")),
-        )
-    except asyncpg.InsufficientPrivilegeError:
-        raise ConflictError(
-            "Việc này đã cho qua một lần (đã gỡ) — chưa hỗ trợ cho qua lại."
-        ) from None
-    await emit_event(conn, ten="lab.prepay_waived", **_sk_viec(identity, v))
+# "Cho lấy mẫu trước" (quản lý) + "Gỡ cho lấy mẫu trước" ĐÃ BỎ — Tuyền 05/11: lấy mẫu
+# chỉ sau khi đã ghi nhận thu hộ. Cột `cho_lay_mau_*` của `xet_nghiem_viec` giữ (dữ liệu
+# cũ, xem quá trình còn đọc), không còn lệnh ghi.
 
 
-async def go_cho_qua(
-    conn: asyncpg.Connection,
-    identity: StaffIdentity,
-    data: dict[str, Any],
-    hom_nay: date,
-) -> None:
-    v = await _mot_viec(conn, identity, data.get("order_id"), hom_nay)
-    if v["mau_id"] is not None:
-        raise ConflictError("Đã lấy mẫu — huỷ mẫu trước rồi gỡ cho qua.")
-    n = await conn.execute(
-        "UPDATE public.xet_nghiem_viec SET cho_lay_mau_go_luc = now(),"
-        " cho_lay_mau_go_boi = $3::uuid, cho_lay_mau_go_ly_do = $4"
-        " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
-        " AND cho_lay_mau_truoc_luc IS NOT NULL AND cho_lay_mau_go_luc IS NULL",
-        identity.clinic_id,
-        v["order_id"],
-        identity.staff_id,
-        doc_ly_do(data.get("ly_do")),
-    )
-    if n.endswith(" 0"):
-        raise ConflictError("Việc này chưa được cho qua — không có gì để gỡ.")
-    await emit_event(conn, ten="lab.prepay_waiver_revoked", **_sk_viec(identity, v))
-
-
-async def dong(
-    conn: asyncpg.Connection,
-    identity: StaffIdentity,
-    data: dict[str, Any],
-    hom_nay: date,
-) -> None:
-    """ "Đối tác đã tự trả khách" — chặn khi đã gửi (DA_GUI thắng DA_DONG)."""
-    ly = doc_ly_do(data.get("ly_do"))
-    v = await _mot_viec(conn, identity, data.get("order_id"), hom_nay)
-    if not v["nut"]["dong"]:
-        raise ConflictError(f"Không đóng được việc đang «{v['trang_thai']['nhan']}».")
-    try:
-        await conn.execute(
-            "INSERT INTO public.xet_nghiem_dong (clinic_id, service_order_id, ly_do,"
-            " dong_boi) VALUES ($1::uuid, $2::uuid, $3, $4::uuid)",
-            identity.clinic_id,
-            v["order_id"],
-            ly,
-            identity.staff_id,
-        )
-    except asyncpg.UniqueViolationError:
-        raise ConflictError("Việc này vừa được đóng — tải lại màn.") from None
-    await emit_event(conn, ten="lab.closed_by_partner", **_sk_viec(identity, v))
+# Lệnh "Đối tác đã tự trả khách" (đóng việc) ĐÃ BỎ — Tuyền 05/11: hệ thống chỉ ghi nhận
+# việc làm TRONG hệ thống; đối tác tự gửi khách thì kệ. Việc đã lỡ đóng trước đó vẫn
+# mở lại được (`mo_lai`), nên bảng `xet_nghiem_dong` + trạng thái DA_DONG còn giữ.
 
 
 async def mo_lai(

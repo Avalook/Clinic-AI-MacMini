@@ -60,6 +60,35 @@ def duong_dan_anh(
     return goc / khoa, khoa
 
 
+def kiem_anh(tep: TepDaNhan) -> tuple[str, str]:
+    """(mime, đuôi) của một ảnh chuyển khoản — MỘT luật cho quầy thu và sổ thu hộ
+    đối tác (05/11): chỉ ẢNH (byte đầu, không tin tên tệp), không rỗng, ≤ TRAN_BYTE."""
+    if tep.so_byte <= 0:
+        raise ValidationError("Tệp rỗng.")
+    mime, ext, loai = sniff_ket_qua(tep.dau)
+    if loai != "ANH" or mime == "application/dicom":
+        raise ValidationError(
+            "Chỉ nhận ẢNH chuyển khoản (JPG/PNG/WEBP) — chụp hoặc chọn ảnh màn hình."
+        )
+    if tep.so_byte > TRAN_BYTE:
+        raise ValidationError(f"Ảnh quá lớn (tối đa {TRAN_BYTE // 1024 // 1024}MB).")
+    return mime, ext
+
+
+async def doc_anh(khoa: str, vi_tri: str, mime: str) -> tuple[bytes, str]:
+    """(nội dung, mime) của một ảnh đã lưu — ổ VPS trước, rồi CFS (tệp đã đẩy)."""
+    from clinicai.services.tep_ket_qua_service import _tim_ban
+
+    duong, kho, f = await _tim_ban(khoa, vi_tri, mo=True)
+    assert f is not None
+    mo = f
+    try:
+        noi_dung = await chay_tren_kho(lambda: mo.read(TRAN_BYTE + 1), kho=kho)
+    finally:
+        await don_tren_kho(mo.close, viec=f"dong_anh_ck:{duong}", kho=kho)
+    return noi_dung, mime
+
+
 def _iso(v: Any) -> str | None:
     return v.isoformat() if isinstance(v, datetime) else None
 
@@ -118,18 +147,7 @@ class AnhChuyenKhoanService:
         self, *, identity: StaffIdentity, payment_cycle_id: str, tep: TepDaNhan
     ) -> dict[str, Any]:
         """Cất ảnh (đã nằm ở ``.tam`` của ổ VPS) về chỗ ở thật + một dòng."""
-        if tep.so_byte <= 0:
-            raise ValidationError("Tệp rỗng.")
-        mime, ext, loai = sniff_ket_qua(tep.dau)
-        if loai != "ANH" or mime == "application/dicom":
-            raise ValidationError(
-                "Chỉ nhận ẢNH chuyển khoản (JPG/PNG/WEBP) — chụp hoặc chọn"
-                " ảnh màn hình."
-            )
-        if tep.so_byte > TRAN_BYTE:
-            raise ValidationError(
-                f"Ảnh quá lớn (tối đa {TRAN_BYTE // 1024 // 1024}MB)."
-            )
+        mime, ext = kiem_anh(tep)
         async with self._pool.acquire() as conn:
             await self._lan_thu(conn, identity, payment_cycle_id)
         goc = media_service.goc_vps()
@@ -181,8 +199,6 @@ class AnhChuyenKhoanService:
         self, *, identity: StaffIdentity, anh_id: str, history_authorized: bool = False
     ) -> tuple[bytes, str]:
         """(nội dung, mime) — ổ VPS trước, rồi CFS (tệp đã đẩy)."""
-        from clinicai.services.tep_ket_qua_service import _tim_ban
-
         async with self._pool.acquire() as conn:
             r = await conn.fetchrow(
                 "SELECT cycle_id::text AS cycle_id, khoa, mime, vi_tri"
@@ -195,14 +211,7 @@ class AnhChuyenKhoanService:
                 raise NotFoundError("Không tìm thấy ảnh này.")
             if not history_authorized:
                 await self._lan_thu(conn, identity, r["cycle_id"])
-        duong, kho, f = await _tim_ban(str(r["khoa"]), str(r["vi_tri"]), mo=True)
-        assert f is not None
-        mo = f
-        try:
-            noi_dung = await chay_tren_kho(lambda: mo.read(TRAN_BYTE + 1), kho=kho)
-        finally:
-            await don_tren_kho(mo.close, viec=f"dong_anh_ck:{duong}", kho=kho)
-        return noi_dung, str(r["mime"])
+        return await doc_anh(str(r["khoa"]), str(r["vi_tri"]), str(r["mime"]))
 
     async def go(self, *, identity: StaffIdentity, anh_id: str) -> dict[str, Any]:
         """Gỡ ảnh nhầm: ẩn khỏi màn (giữ tệp + dòng). Gỡ lại → như cũ."""
@@ -232,5 +241,7 @@ __all__ = [
     "AnhChuyenKhoanService",
     "TRAN_BYTE",
     "anh_cua_cac_lan_thu",
+    "doc_anh",
     "duong_dan_anh",
+    "kiem_anh",
 ]
