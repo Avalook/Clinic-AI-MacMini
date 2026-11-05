@@ -46,6 +46,34 @@ async def test_nhan_vien_goi_tien_thu_ho_bi_403(pool: asyncpg.Pool, vai: str) ->
     assert await _goi(pool, await _nguoi_vai(q, vai), API) == 403
 
 
+async def test_bang_quyen_quan_ly_doc_duoc_nhan_vien_403(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bảng Quyền (tab Cài đặt) đọc quyền THỰC TẾ — staging 05/11 từng 500 vì SQL nối
+    `staff.clinic_id` (cột không có). Quản lý thấy chính mình có cả hai quyền."""
+    q = await tao_quay(pool)
+    ql = await _nguoi_vai(q, "MANAGEMENT")
+    url = "/api/v1/xet-nghiem/quyen"
+    assert await _goi(pool, await _nguoi_vai(q, "RECEPTION"), url) == 403
+
+    async def _pool() -> AsyncIterator[asyncpg.Pool]:
+        yield pool
+
+    app.dependency_overrides[get_db_pool] = _pool
+    app.dependency_overrides[_resolve_identity] = lambda: ql
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            r = await c.get(url)
+    finally:
+        app.dependency_overrides.pop(get_db_pool, None)
+        app.dependency_overrides.pop(_resolve_identity, None)
+    assert r.status_code == 200, r.text
+    toi = [n for n in r.json()["nguoi"] if n["staff_id"] == ql.staff_id]
+    assert toi and toi[0]["quan_ly"] is True
+
+
 async def test_quan_ly_doc_duoc_tien_thu_ho_ngay_rac_van_200(
     pool: asyncpg.Pool,
 ) -> None:

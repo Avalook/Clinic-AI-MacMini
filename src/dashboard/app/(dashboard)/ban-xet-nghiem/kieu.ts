@@ -132,6 +132,11 @@ export interface DongTien {
   nguoi: string | null;
 }
 
+/** Chỗ CHỈ ĐỌC không tải được: một dòng nhẹ, không đỏ, không mã lỗi (Tuyền 05/11: khách
+ *  đang dùng thật nhìn câu "máy chủ gặp lỗi… mã lỗi" rất khó chịu). Lỗi của LỆNH vẫn hiện
+ *  đúng câu máy chủ trả — nhân viên cần biết vì sao chưa làm được. */
+export const CHUA_TAI = "Chưa tải được — tải lại trang sau ít phút.";
+
 export const tien = (n: number | null | undefined) =>
   n === null || n === undefined ? "" : `${n.toLocaleString("vi-VN")}đ`;
 
@@ -149,6 +154,10 @@ export const gioNgay = (iso: string | null) =>
   iso
     ? `${new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN })} ${ngayNgan(iso)}`
     : "";
+
+/** Chỉ giờ "09:05" (giờ VN) — bảng đã lọc theo một ngày (tab Tiền thu hộ). */
+export const gio = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN }) : "";
 
 /** Giờ dưới mốc hành trình (bản mẫu): hôm nay "09:05", ngày khác "09:05 02/11". */
 export const gioMoc = (iso: string) => {

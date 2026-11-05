@@ -15,7 +15,7 @@ import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
 import DoiTacView from "../settings/doi-tac/DoiTacView";
 import { useNgheBang } from "../dung-nghe-bang";
-import { tien } from "./kieu";
+import { CHUA_TAI, tien } from "./kieu";
 
 interface DichVuGan {
   id: string;
@@ -174,15 +174,14 @@ function BangGan() {
 
 function BangQuyen() {
   const [ds, setDs] = useState<Quyen[] | null>(null);
-  const [loi, setLoi] = useState<string | null>(null);
+  const [loi, setLoi] = useState(false);
   useEffect(() => {
     void fetch("/api/xet-nghiem/quyen", { cache: "no-store" })
       .then(async (r) => {
-        const d = await r.json().catch(() => null);
-        if (!r.ok) setLoi(loiDocDuoc(d, `Chưa đọc được quyền (HTTP ${r.status}).`));
-        else setDs((d as { nguoi: Quyen[] }).nguoi);
+        if (!r.ok) setLoi(true);
+        else setDs(((await r.json()) as { nguoi: Quyen[] }).nguoi);
       })
-      .catch(() => setLoi("Mất kết nối — chưa đọc được quyền."));
+      .catch(() => setLoi(true));
   }, []);
   const o = (co: boolean) => <Chip tone={co ? "success" : "neutral"}>{co ? "Có" : "Không"}</Chip>;
   return (
@@ -194,11 +193,7 @@ function BangQuyen() {
         </Link>{" "}
         (lego Đối tác).
       </p>
-      {loi ? (
-        <p role="alert" className="text-meta text-danger">
-          {loi}
-        </p>
-      ) : null}
+      {loi ? <p className="text-meta text-ink-muted">{CHUA_TAI}</p> : null}
       <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max text-meta text-ink">
           <thead className="border-b border-line bg-surface-muted">

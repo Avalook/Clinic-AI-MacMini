@@ -9,9 +9,8 @@ import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
 import ONhap from "@/components/ui/ONhap";
 import StatCard from "@/components/ui/StatCard";
-import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
-import { gioNgay, homNayVN, ngayNgan, ngayVN, tien, type DongTien, type Loc, type Viec } from "./kieu";
+import { CHUA_TAI, gio, gioNgay, homNayVN, ngayNgan, ngayVN, tien, type DongTien, type Loc, type Viec } from "./kieu";
 
 const TH = "px-3 py-2 text-left text-label font-semibold uppercase tracking-wide text-ink-muted";
 const TD = "px-3 py-2 align-top";
@@ -92,9 +91,6 @@ export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }
   const co = viec.filter((v) => v.tep_id).sort((a, b) => (b.tep_luc ?? "").localeCompare(a.tep_luc ?? ""));
   return (
     <section aria-label="Kết quả" className="flex flex-col gap-3">
-      <p className="text-meta text-ink-muted">
-        Kết quả hiện đang tải tay ở thẻ từng việc. Tệp đối tác đẩy lên Drive sẽ tự về và ghép đúng khách ở chặng sau.
-      </p>
       <Bang
         rong={co.length ? null : "Chưa có tờ kết quả nào."}
         dau={
@@ -142,21 +138,18 @@ const homQua = () => {
 export function TienThuHo() {
   const [ngay, setNgay] = useState(homNayVN);
   const [ds, setDs] = useState<So | null>(null);
-  const [loi, setLoi] = useState<string | null>(null);
+  const [loi, setLoi] = useState(false);
   useEffect(() => {
     let huy = false;
     void fetch(`/api/xet-nghiem/ban/tien?ngay=${encodeURIComponent(ngay)}`, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json().catch(() => null);
         if (huy) return;
-        if (!r.ok) setLoi(loiDocDuoc(d, `Chưa đọc được sổ thu hộ (HTTP ${r.status}).`));
-        else {
-          setLoi(null);
-          setDs(d);
-        }
+        setLoi(!r.ok);
+        if (r.ok) setDs(d);
       })
       .catch(() => {
-        if (!huy) setLoi("Mất kết nối — chưa đọc được sổ thu hộ.");
+        if (!huy) setLoi(true);
       });
     return () => {
       huy = true;
@@ -174,11 +167,7 @@ export function TienThuHo() {
         <ONhap type="date" aria-label="Chọn ngày ghi nhận" value={ngay} onChange={(e) => e.target.value && setNgay(e.target.value)} />
       </div>
       <p className="text-meta text-ink-muted">Tiền khách trả cho đối tác — sổ riêng, không vào két hay doanh thu phòng khám.</p>
-      {loi ? (
-        <p role="alert" className="text-meta text-danger">
-          {loi}
-        </p>
-      ) : null}
+      {loi ? <p className="text-meta text-ink-muted">{CHUA_TAI}</p> : null}
       <div className="grid grid-cols-1 gap-3 overflow-hidden sm:grid-cols-3">
         <div className="rounded-card border border-line">
           <StatCard label="Tổng thu hộ" value={tien(ds?.tong ?? 0)} />
@@ -207,7 +196,7 @@ export function TienThuHo() {
       >
         {(ds?.dong ?? []).map((d) => (
           <tr key={`${d.loai}-${d.id}`}>
-            <td className={TD}>{gioNgay(d.ghi_luc)}</td>
+            <td className={`${TD} tabular-nums`}>{gio(d.ghi_luc)}</td>
             <td className={`${TD} font-semibold`}>
               {d.ten_khach} <span className="font-normal text-ink-muted">{d.ma_bn}</span>
             </td>
