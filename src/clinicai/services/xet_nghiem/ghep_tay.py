@@ -14,13 +14,15 @@ Mọi luật "được không" ở đây; màn chỉ gửi lệnh và hiện câ
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import date
 from typing import Any, Final
 
 import asyncpg
 import httpx
 
-from clinicai.api.exceptions import ConflictError, NotFoundError
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import XetNghiemTepDrive
@@ -109,14 +111,49 @@ async def _dong_cho(
 async def noi_dung_cho(
     pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object
 ) -> tuple[bytes, str]:
-    """Xem trước tệp CHƯA ghép: máy chủ đọc từ Drive (trình duyệt không gọi Drive)."""
+    """Xem trước tệp CHƯA ghép: máy chủ đọc từ Drive (trình duyệt không gọi Drive).
+
+    KHÔNG tin mime Drive báo (đối tác thả `text/html`/SVG là chạy mã trên origin của
+    màn). Kiểu lấy từ byte thật bằng đúng bộ nhận dạng của đường tải lên
+    (`sniff_ket_qua`); chỉ ảnh/PDF được xem — loại khác từ chối (ghép rồi tải về)."""
+    from clinicai.services.media_service import sniff_ket_qua
+
     r = await _dong_cho(pool, identity.clinic_id, drive_tep_id)
     async with httpx.AsyncClient(timeout=60) as kh:
         noi = await drive_api.tai_ve(kh, r["file_id"])
-    return noi, str(r["mime"] or "application/octet-stream")
+    try:
+        mime, _duoi, loai = sniff_ket_qua(noi[:8192])
+    except ValidationError:
+        loai, mime = "", ""
+    if loai not in ("ANH", "PDF"):
+        raise ConflictError("Tệp này không xem trước được (không phải ảnh/PDF).")
+    return noi, mime
+
+
+@asynccontextmanager
+async def _khoa_tep(pool: asyncpg.Pool, drive_tep_id: object) -> AsyncIterator[None]:
+    """Một tệp Drive chỉ một người xử lý một lúc (Gán / Từ chối). `tai_len` tự mở
+    giao dịch riêng nên không gói chung được một giao dịch ⇒ khoá tư vấn cấp phiên
+    trên một kết nối giữ suốt lệnh; trong khoá mới đọc lại trạng thái dòng."""
+    async with pool.acquire() as giu:
+        khoa = f"drive-tep:{drive_tep_id}"
+        await giu.execute("SELECT pg_advisory_lock(hashtextextended($1, 0))", khoa)
+        try:
+            yield
+        finally:
+            await giu.execute(
+                "SELECT pg_advisory_unlock(hashtextextended($1, 0))", khoa
+            )
 
 
 async def ghep(
+    pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any], hom_nay: date
+) -> dict[str, Any]:
+    async with _khoa_tep(pool, data.get("drive_tep_id")):
+        return await _ghep(pool, identity, data, hom_nay)
+
+
+async def _ghep(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any], hom_nay: date
 ) -> dict[str, Any]:
     r = await _dong_cho(pool, identity.clinic_id, data.get("drive_tep_id"))
@@ -141,15 +178,25 @@ async def ghep(
         tu_drive=True,
         drive_nguoi_tai=r["drive_nguoi_tai"],
     )
-    await pool.execute(
+    n = await pool.execute(
         "UPDATE drive_tep SET tep_ket_qua_id = $3::uuid, ghep_luc = now(),"
         "       ghep_boi = $4::uuid"
-        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+        "   AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL",
         identity.clinic_id,
         r["id"],
         kq["id"],
         identity.staff_id,
     )
+    if n != "UPDATE 1":
+        # Không thể xảy ra trong khoá; nếu có thì bù tờ vừa tạo, không để mồ côi.
+        await TepKetQuaService(pool).xac_nhan_tep(
+            identity=identity,
+            tep_id=kq["id"],
+            trang_thai="TU_CHOI",
+            ly_do="Tệp Drive vừa được xử lý ở chỗ khác",
+        )
+        raise ConflictError("Tệp này vừa được người khác xử lý — tải lại màn.")
     await _phat(pool, identity, "den", v)
     return {"tep_id": kq["id"]}
 
@@ -158,7 +205,14 @@ async def tu_choi(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any]
 ) -> None:
     ly = doc_ly_do(data.get("ly_do"))
-    r = await _dong_cho(pool, identity.clinic_id, data.get("drive_tep_id"))
+    async with _khoa_tep(pool, data.get("drive_tep_id")):
+        await _tu_choi(pool, identity, data.get("drive_tep_id"), ly)
+
+
+async def _tu_choi(
+    pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object, ly: str
+) -> None:
+    r = await _dong_cho(pool, identity.clinic_id, drive_tep_id)
     async with pool.acquire() as conn, conn.transaction():
         n = await conn.execute(
             "UPDATE drive_tep SET tu_choi_luc = now(), tu_choi_boi = $3::uuid,"

@@ -222,6 +222,15 @@ async def nhan_mot(
             ly = "LOI_TEP"
     await _ghi_dong(pool, cid, doi_tac_id, t, ly, tep_id)
     if tep_id and q.order_id:
+        await _phat_den(pool, cid, q)
+    return ly
+
+
+async def _phat_den(pool: asyncpg.Pool, cid: str, q: Quyet) -> None:
+    """Sự kiện sau khi tờ đã commit: lỗi phát KHÔNG được dừng lượt quét (dòng
+    drive_tep đã ghi ⇒ không thử lại) — ghi log, không ném (như `ket_qua._phat`)."""
+    assert q.order_id is not None
+    try:
         async with pool.acquire() as conn, conn.transaction():
             await emit_event(
                 conn,
@@ -232,7 +241,8 @@ async def nhan_mot(
                 boi=HE_THONG,
                 correlation_id=q.visit_id,
             )
-    return ly
+    except Exception:  # noqa: BLE001 — tờ đã commit; chỉ mất vết sự kiện
+        logger.exception("drive_phat_su_kien_loi", order_id=q.order_id)
 
 
 async def _nhip(

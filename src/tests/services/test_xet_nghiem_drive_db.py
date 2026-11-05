@@ -252,6 +252,61 @@ async def test_gan_sang_khac_doi_tac_bi_chan(
         )
 
 
+async def test_drive_loi_ghi_nhip_va_canh_gac_bao(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: DriveGia,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Kế hoạch mục 7: Drive không đọc được ⇒ nhịp ghi lỗi mỗi lượt; quá 1 giờ không
+    quét được ⇒ canh gác mở cảnh báo cho quản lý."""
+    from clinicai.services import canh_gac
+
+    ca, a, *_ = await _dung_ca(pool, gia)
+
+    async def hong(_kh: object, _thu_muc: str) -> list[TepDrive]:
+        raise drive_api.DriveError("Drive không liệt kê được thư mục (403).")
+
+    monkeypatch.setattr(drive_api, "liet_ke", hong)
+    kq = await drive.mot_vong(pool)
+    assert kq["loi"] >= 1
+    async with pool.acquire() as conn:
+        nhip = {n["doi_tac_id"]: n for n in await ghep_tay.ds_nhip(conn, CLINIC)}
+        assert "403" in (nhip[str(a)]["loi_cuoi"] or "") and nhip[str(a)]["tre"]
+        truoc = (await canh_gac.do_so(conn))["drive_khong_nhip"]
+        # Đối tác nối thư mục từ 2 giờ trước, chưa lượt nào thành công ⇒ bị đếm.
+        await conn.execute(
+            "UPDATE doi_tac SET sua_luc = now() - interval '2 hours'"
+            " WHERE id = $1::uuid",
+            a,
+        )
+        so = await canh_gac.do_so(conn)
+    assert so["drive_khong_nhip"] == truoc + 1
+    assert any(
+        k.ma == "DRIVE_KHONG_NHIP" and k.co_chuyen for k in canh_gac.danh_gia(so)
+    )
+    assert ca
+
+
+async def test_xem_truoc_chi_anh_pdf_theo_byte_that(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: DriveGia,
+) -> None:
+    """Drive nói mime gì cũng không tin: tệp HTML khai `application/pdf` vẫn bị
+    từ chối xem trước (chạy mã trên origin màn); PDF thật thì trả kiểu đã sniff."""
+    ca, *_ = await _dung_ca(pool, gia)
+    gia.tha(gia.a, "fileEEEEEEEE01", "KQ_khong_ma.pdf", "f" * 32)
+    gia.tha(gia.a, "fileEEEEEEEE02", "KQ_html.pdf", "9" * 32)
+    gia.noi["fileEEEEEEEE02"] = b"<html><script>alert(1)</script></html>"
+    await drive.mot_vong(pool)
+    cho = await _cho(pool)
+    noi, mime = await ghep_tay.noi_dung_cho(
+        pool, ca.bac_si, cho["KQ_khong_ma.pdf"]["id"]
+    )
+    assert mime == "application/pdf" and noi.startswith(b"%PDF")
+    with pytest.raises(ConflictError, match="không xem trước"):
+        await ghep_tay.noi_dung_cho(pool, ca.bac_si, cho["KQ_html.pdf"]["id"])
+
+
 async def test_khong_khoa_thi_bo_qua(
     pool: asyncpg.Pool,  # noqa: F811
     monkeypatch: pytest.MonkeyPatch,

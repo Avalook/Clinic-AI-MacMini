@@ -79,7 +79,9 @@ async def drive_cho(i: StaffIdentity = _NV, p: asyncpg.Pool = _DB) -> object:
 async def drive_tep(
     drive_tep_id: str, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB
 ) -> Response:
-    """Xem trước tệp CHƯA ghép — máy chủ đọc Drive, trình duyệt không gọi Drive."""
+    """Xem trước tệp CHƯA ghép — máy chủ đọc Drive, trình duyệt không gọi Drive.
+    Kiểu trả về là kiểu đã sniff từ byte (chỉ ảnh/PDF), không phải mime Drive báo.
+    Không đặt CSP sandbox: Chrome không vẽ PDF trong khung bị sandbox."""
     noi, mime = await ghep_tay.noi_dung_cho(p, i, drive_tep_id)
     return Response(
         noi,

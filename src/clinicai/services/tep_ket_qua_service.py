@@ -901,11 +901,8 @@ class TepKetQuaService:
 
                 # Tệp ngoài: CHO_XAC_NHAN (cờ tắt ⇒ HOP_LE); tệp trong: NULL. Máy quét
                 # Drive không phải người ⇒ luôn CHO_XAC_NHAN ("Gửi khách" xác nhận).
-                tu_hop_le = (
-                    is_external
-                    and not XAC_NHAN_TEP_DOI_TAC
-                    and not isinstance(identity, MayQuet)
-                )
+                may = isinstance(identity, MayQuet)
+                tu_hop_le = is_external and not XAC_NHAN_TEP_DOI_TAC and not may
                 xac_nhan_state = (
                     ("HOP_LE" if tu_hop_le else "CHO_XAC_NHAN") if is_external else None
                 )

@@ -6,11 +6,12 @@ mã; ống của đối tác khác; ống nhiều việc chưa có kết quả; 
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 
-from clinicai.services.xet_nghiem.drive import quyet_ghep
+from clinicai.services.xet_nghiem.drive import den_drive, quyet_ghep
 from clinicai.services.xet_nghiem.drive_api import doc_gio, thanh_tep
 from clinicai.services.xet_nghiem.ma_mau import co_dang_ma, tao_ma
 
@@ -103,6 +104,17 @@ def test_thanh_tep_doc_nguoi_tai_va_bo_qua_rac() -> None:
 @pytest.mark.parametrize("rac", [None, "", "hôm qua", "2026-13-40T99:00:00Z", 12])
 def test_gio_drive_rac_tra_rong(rac: object) -> None:
     assert doc_gio(rac) is None
+
+
+def test_den_drive_bon_trang_thai() -> None:
+    bay = datetime(2026, 11, 5, 9, 0, tzinfo=UTC)
+    assert den_drive(None, None, None, None, bay)["mau"] == "neutral"
+    assert "chưa quét" in den_drive("tm", None, None, None, bay)["nhan"]
+    ok = den_drive("tm", bay, bay, None, bay)
+    assert ok["mau"] == "success" and "16:00" in ok["nhan"]  # giờ Việt Nam
+    assert den_drive("tm", bay, bay, "403", bay)["mau"] == "danger"
+    cu = bay - timedelta(hours=2)
+    assert den_drive("tm", bay, cu, None, bay)["mau"] == "danger"
 
 
 def test_gio_drive_co_mui_gio() -> None:
