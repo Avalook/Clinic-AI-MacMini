@@ -13,7 +13,7 @@ import ONhap from "@/components/ui/ONhap";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
 import BuocThuHo, { O } from "./BuocThuHo";
-import { gioNgay, lenh, ngayVN, type Viec } from "./kieu";
+import { CHUA_TAI, gioNgay, lenh, ngayVN, type Viec } from "./kieu";
 
 type Mo = null | "hoan_tac" | "gui";
 
@@ -108,11 +108,11 @@ export default function TheViec({
     }
     try {
       const r = await fetch(`/api/xet-nghiem/ban/qua-trinh?order_id=${encodeURIComponent(v.order_id)}`, { cache: "no-store" });
-      const d = await r.json().catch(() => null);
-      if (!r.ok) setLoi(loiDocDuoc(d, `Chưa đọc được quá trình (HTTP ${r.status}).`));
-      else setQt((d as { dong: DongQt[] }).dong);
+      // Chỉ đọc: không tải được thì hiện dòng nhẹ (CHUA_TAI), không đỏ, không mã lỗi.
+      if (!r.ok) setQt([{ luc: "", viec: CHUA_TAI, ai: null }]);
+      else setQt(((await r.json()) as { dong: DongQt[] }).dong);
     } catch {
-      setLoi("Mất kết nối — chưa đọc được quá trình.");
+      setQt([{ luc: "", viec: CHUA_TAI, ai: null }]);
     }
   }
 

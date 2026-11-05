@@ -28,7 +28,7 @@ SELECT s.id::text AS staff_id, s.full_name AS ten,
        bool_or(q.capability = 'partner.work') AS lam_viec,
        bool_or(q.capability = 'config.clinic.manage') AS quan_ly
   FROM v_quyen_thuc_te q
-  JOIN staff s ON s.id = q.staff_id AND s.clinic_id = q.clinic_id
+  JOIN staff s ON s.id = q.staff_id
  WHERE q.clinic_id = $1::uuid AND q.scope_type = 'CLINIC'
    AND q.capability = ANY($2::text[]) AND s.is_active
  GROUP BY s.id, s.full_name
