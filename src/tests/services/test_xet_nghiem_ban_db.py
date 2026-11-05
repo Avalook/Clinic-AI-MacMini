@@ -121,11 +121,27 @@ async def test_kich_ban_3_den_9_o_tang_service(
     kq2 = await _lam(pool, mau.lay_mau, ca, order_ids=[o1, o2])
     assert kq2["ma_mau"] != kq["ma_mau"]
     # 8. Tải tay ⇒ Có kết quả; tệp đi đường đối tác (đã xác nhận cùng bước).
+    # Nút dịch vụ "làm bên ngoài" như dữ liệu thật (staging/local 05/11) — đường cũ coi
+    # đó là việc bàn đối tác cũ và không đặt mốc có kết quả.
+    await pool.execute(
+        "UPDATE node_definition nd SET lam_ben_ngoai = true FROM service_order o"
+        " WHERE o.id = $1::uuid AND nd.clinic_id = o.clinic_id"
+        "   AND nd.code = o.node_code",
+        o1,
+    )
     await ket_qua.tai_tay(
         pool, ca.bac_si, o1, hom_nay_vn(), data=PDF_DUMMY, ten="kq.pdf"
     )
     v1 = await _tt(pool, ca, o1)
     assert v1["trang_thai"]["ma"] == "CO_KET_QUA" and v1["nut"]["gui"]
+    # Bàn khám / mọi màn đọc `service_order.ket_qua_luc`: việc bàn MỚI có tờ ⇒ có mốc
+    # (Tuyền 05/11: staging bàn khám vẫn "Đang làm · 0 kết quả" dù bàn XN đã có KQ).
+    assert await pool.fetchval(
+        "SELECT ket_qua_luc IS NOT NULL FROM service_order WHERE id = $1::uuid", o1
+    )
+    assert not await pool.fetchval(
+        "SELECT ket_qua_luc IS NOT NULL FROM service_order WHERE id = $1::uuid", o2
+    )
     # Hộp xem (Lightbox) cần loại + mime để vẽ PDF/ảnh tại chỗ.
     assert v1["loai_tep"] == "PDF" and v1["mime_tep"] == "application/pdf"
     assert (

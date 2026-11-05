@@ -24,6 +24,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import XetNghiemViec
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
@@ -36,6 +37,9 @@ from clinicai.services.xet_nghiem.mau import _mot_viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
 logger = structlog.get_logger()
+
+#: Trần ô lọc đối tác (phòng khám có vài đối tác; chạm trần ⇒ cảnh báo log).
+TRAN_DOI_TAC = 100
 
 
 async def _phat(
@@ -160,9 +164,12 @@ async def ban(
             "SELECT id::text AS id, ten FROM doi_tac"
             " WHERE clinic_id = $1::uuid"
             "   AND (ngung_luc IS NULL OR id = ANY($2::uuid[]))"
-            " ORDER BY lower(ten) LIMIT 100",
+            f" ORDER BY lower(ten) LIMIT {TRAN_DOI_TAC}",
             identity.clinic_id,
             list({v["doi_tac_id"] for v in viec}),
+        )
+        canh_bao_neu_day(
+            "doi_tac", len(doi_tac), TRAN_DOI_TAC, clinic_id=identity.clinic_id
         )
     return {
         "viec": viec,
