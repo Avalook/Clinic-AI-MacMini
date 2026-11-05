@@ -646,6 +646,18 @@ class DoiTacHuyThuTien(PayloadSuKien):
     so_tien: int
 
 
+class XetNghiemThuHo(PayloadSuKien):
+    """`lab.payment_recorded` / `lab.payment_voided` / `lab.payment_refunded` — sổ
+    thu hộ bàn xét nghiệm đời mới (ADR-0015). Không phải tiền phòng khám. Lý do
+    huỷ/hoàn nằm ở bảng sổ, không vào sự kiện."""
+
+    visit_id: str
+    service_order_id: str
+    so_tien: int
+    tien_mat: int
+    chuyen_khoan: int
+
+
 class CskhDaLienHe(PayloadSuKien):
     """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
 
@@ -2096,6 +2108,38 @@ DANH_MUC: dict[str, SuKien] = {
             payload=DoiTacHuyThuTien,
             nhan="Huỷ ghi nhận đã thu hộ cho đối tác",
             consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
+        ),
+        # Bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015) — tiền tố `lab.`,
+        # không dùng lại `partner.*` (của bàn cũ, đã có bên nhận).
+        SuKien(
+            ten="lab.payment_recorded",
+            version=1,
+            aggregate_type="service_order",
+            source_module="xet_nghiem_doi_tac",
+            payload=XetNghiemThuHo,
+            nhan="Ghi nhận thu hộ xét nghiệm đối tác",
+            consumers=[],
+            is_public=False,
+        ),
+        SuKien(
+            ten="lab.payment_voided",
+            version=1,
+            aggregate_type="service_order",
+            source_module="xet_nghiem_doi_tac",
+            payload=XetNghiemThuHo,
+            nhan="Huỷ ghi nhận thu hộ (ghi sai)",
+            consumers=[],
+            is_public=False,
+        ),
+        SuKien(
+            ten="lab.payment_refunded",
+            version=1,
+            aggregate_type="service_order",
+            source_module="xet_nghiem_doi_tac",
+            payload=XetNghiemThuHo,
+            nhan="Hoàn tiền thu hộ cho khách",
+            consumers=[],
             is_public=False,
         ),
         SuKien(

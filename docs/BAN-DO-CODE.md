@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-05 11:36. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-05 12:00. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -2014,8 +2014,9 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `doctor_booking_override` | `20260803000002_booking_override.sql` | 1 |
 | `doi_tac` | `20261105200000_xet_nghiem_nen.sql` | 0 |
 | `doi_tac_dich_vu` | `20261105200000_xet_nghiem_nen.sql` | 0 |
+| `doi_tac_hoan_tien` | `20261105210000_so_thu_ho.sql` | 0 |
 | `doi_tac_nhan_viec` | `20260925000009_doi_tac_nhan_viec.sql` | 3 |
-| `doi_tac_thanh_toan` | `20260928000091_doi_tac_tu_thu_tien.sql` | 0 |
+| `doi_tac_thanh_toan` | `20260928000091_doi_tac_tu_thu_tien.sql` | 1 |
 | `domain_event` | `20260923000001_domain_event.sql` | 1 |
 | `drug_batch` | `20260802000001_pharmacy_inventory.sql` | 6 |
 | `drug_catalog` | `20260714000001_baseline_schema.sql` | 5 |

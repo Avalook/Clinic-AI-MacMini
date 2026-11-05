@@ -7,9 +7,39 @@ from collections.abc import Mapping
 from typing import Any
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.services.doi_tac_service import doc_so_tien
 
 _DRIVE_RE = re.compile(r"(?:folders/|id=)([A-Za-z0-9_-]{10,200})")
+
+#: Trần một khoản thu hộ — chặn gõ thừa số 0 (100.000.000 đồng / một việc).
+SO_TIEN_TOI_DA = 100_000_000
+
+
+def doc_so_tien(value: Any) -> int | None:
+    """Số tiền thu hộ. Rác / âm / quá trần → None, không ném. Nhận số nguyên, chuỗi
+    có dấu chấm / phẩy / khoảng trắng / "đ" ("900.000đ"). Chuyển từ
+    `doi_tac_service.py` (đóng băng) sang đây 05/11/2026 — bàn cũ import lại."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        so = value
+    elif isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            return None
+        if value != int(value):
+            return None
+        so = int(value)
+    elif isinstance(value, str):
+        chu = value.strip().lower().replace("đ", "").replace("vnd", "")
+        for k in (".", ",", " ", " ", "_"):
+            chu = chu.replace(k, "")
+        if not chu.isdigit():
+            return None
+        so = int(chu)
+    else:
+        return None
+    if so < 0 or so > SO_TIEN_TOI_DA:
+        return None
+    return so
 
 
 def _chu(raw: object, ten: str, toi_da: int, *, bat_buoc: bool = True) -> str | None:

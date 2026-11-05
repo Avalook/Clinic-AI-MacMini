@@ -12,8 +12,9 @@ from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[2] / "clinicai"
 
-#: chỉ được giảm — ADR-0015 (05/11/2026: 1.236 dòng).
-TRAN_DONG_DOI_TAC_SERVICE = 1236
+#: chỉ được giảm — ADR-0015 (05/11/2026: 1.236 dòng → 1.201 sau chặng 2: lõi
+#: sổ thu hộ + `doc_so_tien` chuyển sang `services/xet_nghiem/`).
+TRAN_DONG_DOI_TAC_SERVICE = 1201
 #: chỉ được giảm — ADR-0015 (05/11/2026: 15 cửa).
 TRAN_CUA_ROUTER_DOI_TAC = 15
 

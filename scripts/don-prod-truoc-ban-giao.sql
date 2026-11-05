@@ -78,6 +78,10 @@ INSERT INTO bang_xoa (ten) VALUES
   -- 30/09: bảng mới trỏ vào đơn thuốc / chỉ định / lượt (luot_phi_kham không
   -- có khoá ngoại — thiếu thì còn dòng treo mà Chốt 2 không thấy).
   ('thuoc_giao_chua_gan_lo'), ('doi_tac_thanh_toan'), ('luot_phu_thu'), ('luot_vat_tu'), ('luot_phi_kham'),
+  -- 05/11: xét nghiệm đối tác (ADR-0015) — hoàn tiền thu hộ + bản chụp việc đều sinh
+  -- từ khách (trỏ vào doi_tac_thanh_toan / service_order). doi_tac, doi_tac_dich_vu,
+  -- xet_nghiem_cai_dat là CẤU HÌNH — giữ.
+  ('doi_tac_hoan_tien'), ('xet_nghiem_viec'),
   -- Đơn thuốc
   ('prescription'), ('prescription_allocation'), ('prescription_correction'),
   ('drug_return'),
