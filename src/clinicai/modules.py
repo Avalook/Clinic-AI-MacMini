@@ -798,6 +798,7 @@ MODULE: dict[str, Module] = {
                 "RecordLabPayment",
                 "VoidLabPayment",
                 "RefundLabPayment",
+                "SendLabResult",
             ],
             phat=[
                 "lab.payment_recorded",
@@ -833,6 +834,8 @@ MODULE: dict[str, Module] = {
             phat=["patient.contacted"],
             # Sổ ghi chú chung về khách (27/09/2026) — khung phải CSKH/Tiếp đón.
             bang=["tuong_tac_cskh", "ghi_chu_khach"],
+            # TRA_KQ ⇒ tờ XN đối tác chưa gửi của lượt thành "Đã gửi khách".
+            goi_dong_bo=["xet_nghiem_doi_tac.SendLabResult"],
         ),
         Module(
             ma="lab",
