@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-05 12:32. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-05 12:40. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -2032,7 +2032,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `dispatch_threshold` | `20260804000002_dispatch_routes.sql` | 0 |
 | `doctor_booking_override` | `20260803000002_booking_override.sql` | 1 |
 | `doi_tac` | `20261105200000_xet_nghiem_nen.sql` | 0 |
-| `doi_tac_dich_vu` | `20261105200000_xet_nghiem_nen.sql` | 0 |
+| `doi_tac_dich_vu` | `20261105200000_xet_nghiem_nen.sql` | 1 |
 | `doi_tac_hoan_tien` | `20261105210000_so_thu_ho.sql` | 0 |
 | `doi_tac_nhan_viec` | `20260925000009_doi_tac_nhan_viec.sql` | 3 |
 | `doi_tac_thanh_toan` | `20260928000091_doi_tac_tu_thu_tien.sql` | 1 |
@@ -2087,7 +2087,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `luot_phi_kham` | `20260928000100_phi_kham_theo_kiotviet.sql` | 0 |
 | `luot_phu_thu` | `20260928000099_phu_thu_kem_dich_vu.sql` | 0 |
 | `luot_vat_tu` | `20261003000000_vat_tu_ban_them.sql` | 3 |
-| `mau_xet_nghiem` | `20261105220000_mau_xet_nghiem.sql` | 0 |
+| `mau_xet_nghiem` | `20261105220000_mau_xet_nghiem.sql` | 1 |
 | `mau_xet_nghiem_dem` | `20261105220000_mau_xet_nghiem.sql` | 0 |
 | `mau_xet_nghiem_viec` | `20261105220000_mau_xet_nghiem.sql` | 0 |
 | `mpi_merge_queue` | `20260714000001_baseline_schema.sql` | 0 |
