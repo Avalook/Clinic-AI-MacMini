@@ -340,7 +340,11 @@ Dải giờ migration riêng cho việc này: **`2026110520xxxx`–`2026110529xx
     (ràng buộc không cho HOP_LE thiếu người) — "Gửi khách" xác nhận như cũ.
   - Không có PR 4.3 riêng: tab Kết quả kiểu Tuyền 05/11 (mỗi việc một dòng, xanh đã gán / đỏ chưa gán; Gán ·
     Gán sang · Từ chối tệp) + đèn nhịp trên thẻ đối tác + canh gác `DRIVE_KHONG_NHIP` (quá 1 giờ).
-  - Tên/SĐT trong PDF: CHỈ đối chiếu/gợi ý, PR sau (Tuyền 05/11). PR 4.4 (tắt bàn cũ) vẫn chờ.
+  - **Ghép theo TÊN + SĐT trong PDF (Tuyền đổi 05/11 chiều — mã ống là mã nội bộ, đối tác không biết):**
+    đọc chữ PDF bằng `pypdf` trên máy chủ + tên tệp; khớp CẢ tên (bỏ dấu, nguyên cụm) lẫn SĐT của đúng một
+    khách có đúng một việc đang chờ kết quả của đối tác đó ⇒ ghép; không khớp / nhiều khách / một khách hai
+    việc / PDF scan ⇒ hàng chưa khớp. Mã ống trong tên tệp (nếu có) vẫn dùng trước. PDF scan cần AI đọc =
+    câu chờ Tuyền quyết. PR 4.4 (tắt bàn cũ) vẫn chờ.
 
 ---
 

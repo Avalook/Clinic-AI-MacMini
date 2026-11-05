@@ -14,6 +14,7 @@ két / doanh thu. Giá chỉ là gợi ý: lưu cả `gia_goi_y` và số thật
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import asyncpg
@@ -290,9 +291,12 @@ SELECT d.id::text AS id, d.loai, d.so_tien, d.tien_mat, d.chuyen_khoan, d.hinh_t
        d.ma_giao_dich, d.gia_goi_y, d.luc AS ghi_luc, o.service_name AS ten,
        o.id::text AS service_order_id, s.full_name AS nguoi,
        p.full_name AS ten_khach, p.patient_code AS ma_bn, p.phone_primary AS sdt,
-       coalesce(v.location_id, ah.location_id)::text AS co_so
+       coalesce(v.location_id, ah.location_id)::text AS co_so,
+       x.doi_tac_id::text AS doi_tac_id
   FROM dong d
   LEFT JOIN service_order o ON o.id = d.service_order_id AND o.clinic_id = $1::uuid
+  LEFT JOIN xet_nghiem_viec x
+    ON x.service_order_id = d.service_order_id AND x.clinic_id = $1::uuid
   LEFT JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
   LEFT JOIN appointment ah ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
   LEFT JOIN patient p
@@ -318,10 +322,26 @@ async def doc_so_theo_ngay(
     return rows
 
 
-async def so_ngay(pool: asyncpg.Pool, cid: str, ngay: Any) -> dict[str, Any]:
-    """Tab "Tiền thu hộ" của một ngày: dòng + tổng (dòng hoàn là số âm)."""
+def doc_doi_tac(raw: object) -> str | None:
+    """Ô lọc đối tác của tab Tiền thu hộ: uuid hợp lệ hoặc None (rác ⇒ mọi đối tác,
+    không ném — luật đầu vào từ người dùng)."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return str(uuid.UUID(raw.strip()))
+    except ValueError:
+        return None
+
+
+async def so_ngay(
+    pool: asyncpg.Pool, cid: str, ngay: Any, doi_tac_id: str | None = None
+) -> dict[str, Any]:
+    """Tab "Tiền thu hộ" của một ngày: dòng + tổng (dòng hoàn là số âm). Có
+    `doi_tac_id` (ô lọc đối tác) ⇒ chỉ khoản của việc đối tác ấy; tổng theo đúng lọc."""
     async with pool.acquire() as conn:
         rows = await doc_so_theo_ngay(conn, cid, ngay, ngay, None, None, None)
+    if doi_tac_id:
+        rows = [r for r in rows if r["doi_tac_id"] == doi_tac_id]
     dong = [
         {
             **{

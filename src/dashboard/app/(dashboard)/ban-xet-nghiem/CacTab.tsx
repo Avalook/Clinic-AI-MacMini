@@ -101,13 +101,15 @@ const homQua = () => {
   return d.toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 };
 
-export function TienThuHo() {
+/** `doiTac` = ô lọc đối tác của bàn ("" = mọi đối tác) — máy chủ lọc + tính tổng. */
+export function TienThuHo({ doiTac }: { doiTac: string }) {
   const [ngay, setNgay] = useState(homNayVN);
   const [ds, setDs] = useState<So | null>(null);
   const [loi, setLoi] = useState(false);
   useEffect(() => {
     let huy = false;
-    void fetch(`/api/xet-nghiem/ban/tien?ngay=${encodeURIComponent(ngay)}`, { cache: "no-store" })
+    const q = `ngay=${encodeURIComponent(ngay)}${doiTac ? `&doi_tac=${encodeURIComponent(doiTac)}` : ""}`;
+    void fetch(`/api/xet-nghiem/ban/tien?${q}`, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json().catch(() => null);
         if (huy) return;
@@ -120,7 +122,7 @@ export function TienThuHo() {
     return () => {
       huy = true;
     };
-  }, [ngay]);
+  }, [ngay, doiTac]);
   const chip = [homNayVN(), homQua()];
   return (
     <section aria-label="Tiền thu hộ" className="flex flex-col gap-3">

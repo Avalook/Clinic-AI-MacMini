@@ -129,8 +129,10 @@ http://localhost, http://127.0.0.1 {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		# Prevent MIME-sniffing attacks.
 		X-Content-Type-Options "nosniff"
-		# Block embedding in iframes (clickjacking).
-		X-Frame-Options "DENY"
+		# Block embedding by OTHER sites (clickjacking). SAMEORIGIN, not DENY
+		# (05/11/2026): the result viewer (Lightbox) shows PDFs in a same-origin
+		# iframe — DENY made every PDF preview "refused to connect".
+		X-Frame-Options "SAMEORIGIN"
 		# Control referrer leakage.
 		Referrer-Policy "strict-origin-when-cross-origin"
 		# Deny access to sensitive device APIs.
@@ -229,7 +231,8 @@ http://localhost, http://127.0.0.1 {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
+		# SAMEORIGIN: hộp xem kết quả nhúng PDF cùng nguồn (xem khối trên).
+		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		# Trang nội bộ — không cho máy tìm kiếm lập chỉ mục.

@@ -42,6 +42,9 @@ LY_DO_CHO: Final = {
     "SAI_DOI_TAC": "Ống của đối tác khác thư mục",
     "ONG_NHIEU_VIEC": "Ống có nhiều xét nghiệm — chọn đúng việc",
     "LOI_TEP": "Tệp không đọc được — tải tay hoặc từ chối",
+    "KHONG_DOC_DUOC": "PDF không có chữ (ảnh scan) — chọn khách rồi Gán",
+    "KHONG_KHOP_KHACH": "Không khách nào đang chờ khớp cả tên lẫn SĐT trong tệp",
+    "NHIEU_KHACH": "Nhiều khách cùng khớp tên + SĐT — chọn đúng khách",
 }
 
 _CHO_SQL = """

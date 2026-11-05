@@ -70,7 +70,8 @@ http://localhost, http://127.0.0.1 {
 	header {
 		X-Robots-Tag "noindex, nofollow, noarchive"
 		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
+		# SAMEORIGIN (05/11/2026): hộp xem kết quả nhúng PDF cùng nguồn.
+		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server

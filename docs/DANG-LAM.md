@@ -2,6 +2,24 @@
 
 Cập nhật: **05/11/2026** — mục "05/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
 
+## 05/11/2026 TỐI — BÀN XN ĐỐI TÁC MỚI TRÊN STAGING; DRIVE ĐANG LÀM; XOÁ BÀN CŨ ĐỂ SAU
+
+- **Staging** `gop-staging-0511-xn` @2c89b760 (chứa trợ lý AI chưa release — KHÔNG thành prod) =
+  `dot/xn-chang-1-3` @abedc301 (PR #603): bàn `/ban-xet-nghiem` theo bản mẫu, ô lọc "Đối tác: … ▾",
+  xem tệp bằng Lightbox, bàn khám đặt `ket_qua_luc` cho việc bàn mới (`_VIEC_DOI_TAC_SQL` loại
+  việc có `xet_nghiem_viec`), CSKH TRA_KQ có lịch hẹn ⇒ bàn XN "Đã gửi khách" (`ket_qua.gui_theo_cskh`).
+  Việc có tệp TRƯỚC bản này vẫn thiếu `ket_qua_luc` (không bù).
+- **Drive (chặng 4)**: phiên riêng, nhánh `dot/xn-chang-4`, migration 20261106100000, dịch vụ
+  `drive-xn`. Quyết định: memory `drive-ket-qua-doi-tac-ghep-ma-ong-0511`.
+- **Xoá bàn đối tác cũ + đóng 420 việc cũ: Tuyền chọn ĐỂ SAU (05/11).** Bản đồ đã lập (5 PR,
+  thứ tự B đóng việc cũ → C gỡ nhánh đối tác ở PhongDichVu/KhungTep/PhieuKetQua/KhoiDoiTac →
+  D xoá `/doi-tac`, `api/doi-tac/*` → E xoá router/service/consumer `nhan_viec_doi_tac`; giữ
+  bảng `doi_tac_nhan_viec`, quyền `partner.work`). 3 câu chờ Tuyền: phòng đối tác `/phong/[ma]`
+  ("Đã nhận mẫu") còn dùng?; phiếu kết quả điền tay cho đối tác còn cần?; đóng 420 việc bằng
+  bảng đóng riêng (khuyên) hay bỏ luật khoá `ket_qua_luc`. Lệch còn lại: khối "đối tác" ở bàn
+  khám (`ket_qua_chi_dinh.py`) và CSKH (`man_khach_hang_service.py:404`) hiện chip bàn cũ.
+- Chờ Tuyền quyết: Tiền thu hộ tách theo đối tác? Local: dây nối `ca_truc_lam_sang` đang TẮT.
+
 ## 05/11/2026 — XÉT NGHIỆM ĐỐI TÁC: KẾ HOẠCH ĐÃ DUYỆT, CHƯA CODE
 
 Tuyền chốt 6 câu (thu hộ sổ riêng · thu xong mới lấy mẫu · mã theo ống có số kiểm ·
