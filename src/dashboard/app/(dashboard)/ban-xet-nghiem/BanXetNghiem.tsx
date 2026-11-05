@@ -280,6 +280,7 @@ export default function BanXetNghiem() {
                     soBooking={k.so_booking}
                     phu={[k.ma_bn, `${k.order_ids.length} chỉ định`].filter(Boolean).join(" · ")}
                     gio=""
+                    xuongDong
                     dangChon={dang?.khoa === k.khoa}
                     phai={<Chip tone={dau ? dau.trang_thai.chip_mau : k.mau}>{dau ? dau.trang_thai.chip_nhan : k.nhan}</Chip>}
                     onChon={() => {

@@ -21,8 +21,10 @@ import structlog
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ as GIO_VN
+from clinicai.core.clock import hom_nay_vn
 from clinicai.events.catalogue import CskhDaLienHe
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.services.xet_nghiem.ket_qua import gui_theo_cskh
 
 logger = structlog.get_logger()
 
@@ -286,6 +288,17 @@ class TuongTacCskhService:
                     ),
                     boi=nguoi(identity),
                 )
+
+        # Sổ đã commit ⇒ bàn XN đối tác thấy "Đã gửi khách" (hàm tự nuốt lỗi).
+        if loai == "TRA_KQ":
+            await gui_theo_cskh(
+                self._pool,
+                identity,
+                clinic_patient_id,
+                appointment_id,
+                kenh,
+                hom_nay_vn(),
+            )
 
         logger.info(
             "cskh_tuong_tac_ghi",
