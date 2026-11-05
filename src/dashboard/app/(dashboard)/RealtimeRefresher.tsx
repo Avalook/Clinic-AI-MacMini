@@ -104,7 +104,8 @@ const LIVE_TABLES = [
   "doi_tac",
   "doi_tac_dich_vu",
   "xet_nghiem_cai_dat",
-  // Bàn xét nghiệm đối tác: thu hộ / mẫu / đóng việc của người khác hiện ngay.
+  // Bàn xét nghiệm đối tác: việc mới / thu hộ / mẫu / đóng việc hiện ngay.
+  "xet_nghiem_viec",
   "doi_tac_thanh_toan",
   "doi_tac_hoan_tien",
   "mau_xet_nghiem",

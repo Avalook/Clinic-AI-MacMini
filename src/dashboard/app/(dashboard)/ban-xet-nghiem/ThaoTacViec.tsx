@@ -14,11 +14,12 @@ import { lenh, ngayVN, tien, type Viec } from "./kieu";
 
 type Mo = null | "thu" | "hoan" | "cho_qua" | "dong" | "hoan_tac" | "gui";
 
-/** Lệnh bù → cửa + thân (chỉ ánh xạ tên, không luật). */
-function thanHoanTac(v: Viec, ten: string, ly_do: string): [string, unknown] {
-  if (ten === "huy_mau") return ["huy-mau", { mau_id: v.mau_id, loai: "NHAP_SAI", ly_do }];
+/** Lệnh bù → cửa + thân (chỉ ánh xạ tên lệnh máy chủ chỉ ra, không luật). */
+function thanHoanTac(v: Viec, ten: string, ly_do: string, loai: string): [string, unknown] {
+  if (ten === "huy_mau") return ["huy-mau", { mau_id: v.mau_id, loai, ly_do }];
   if (ten === "huy_thu") return ["huy-thu", { order_id: v.order_id, ly_do }];
   if (ten === "thu_hoi") return ["thu-hoi", { order_id: v.order_id, ly_do }];
+  if (ten === "go_cho_qua") return ["go-cho-qua", { order_id: v.order_id, ly_do }];
   return ["mo-lai", { order_id: v.order_id, ly_do }];
 }
 
@@ -29,6 +30,7 @@ export default function ThaoTacViec({ v, onXong }: { v: Viec; onXong: (bao: stri
   const [maGd, setMaGd] = useState("");
   const [lyDo, setLyDo] = useState("");
   const [kenh, setKenh] = useState("ZALO");
+  const [loaiHuy, setLoaiHuy] = useState("NHAP_SAI");
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const t = v.trang_thai;
@@ -77,7 +79,9 @@ export default function ThaoTacViec({ v, onXong }: { v: Viec; onXong: (bao: stri
       <div className="flex flex-wrap items-center gap-2">
         <span className="min-w-0 flex-1 text-body font-medium text-ink">{v.ten_dich_vu}</span>
         <Chip tone="neutral">{t.nhan}</Chip>
-        {t.qua_hen ? <Chip tone={t.so_ngay_qua_hen > 1 ? "danger" : "warning"}>Quá hẹn {t.so_ngay_qua_hen} ngày</Chip> : null}
+        {t.muc_qua_hen ? (
+          <Chip tone={t.muc_qua_hen === "DO" ? "danger" : "warning"}>Quá hẹn {t.so_ngay_qua_hen} ngày</Chip>
+        ) : null}
         {t.qua_han_lay_mau ? <Chip tone="warning">Đã thu lâu, chưa lấy mẫu</Chip> : null}
         {t.co_ban_moi_chua_gui ? <Chip tone="warning">Có kết quả mới chưa gửi</Chip> : null}
         {t.da_hoan_tien ? <Chip tone="info">Đã hoàn tiền</Chip> : null}
@@ -231,6 +235,15 @@ export default function ThaoTacViec({ v, onXong }: { v: Viec; onXong: (bao: stri
 
       {mo === "cho_qua" || mo === "dong" || mo === "hoan_tac" ? (
         <div className="flex flex-wrap items-end gap-2">
+          {mo === "hoan_tac" && n.hoan_tac?.lenh === "huy_mau" ? (
+            <label className="flex flex-col gap-1 text-meta text-ink-soft">
+              Loại huỷ
+              <OChon value={loaiHuy} onChange={(e) => setLoaiHuy(e.target.value)}>
+                <option value="NHAP_SAI">Nhập / dán nhầm</option>
+                <option value="MAU_HONG">Mẫu hỏng / đối tác từ chối</option>
+              </OChon>
+            </label>
+          ) : null}
           {oLyDo(mo === "cho_qua" ? "Lý do cho lấy mẫu khi chưa thu" : mo === "dong" ? "Đối tác trả khách lúc nào, qua đâu" : `${n.hoan_tac?.nhan ?? ""} — lý do`)}
           <Button
             type="button"
@@ -241,7 +254,7 @@ export default function ThaoTacViec({ v, onXong }: { v: Viec; onXong: (bao: stri
               if (mo === "cho_qua") void chay("cho-qua", { order_id: v.order_id, ly_do: lyDo }, "Đã cho lấy mẫu trước.");
               else if (mo === "dong") void chay("dong", { order_id: v.order_id, ly_do: lyDo }, "Đã đóng việc.");
               else if (n.hoan_tac) {
-                const [d, b] = thanHoanTac(v, n.hoan_tac.lenh, lyDo);
+                const [d, b] = thanHoanTac(v, n.hoan_tac.lenh, lyDo, loaiHuy);
                 void chay(d, b, `Đã hoàn tác: ${n.hoan_tac.nhan}.`);
               }
             }}

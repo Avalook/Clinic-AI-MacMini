@@ -46,14 +46,22 @@ interface Khach {
 function TienThuHo() {
   const [ngay, setNgay] = useState(() => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }));
   const [ds, setDs] = useState<{ tong: number; tien_mat: number; chuyen_khoan: number; dong: DongTien[] } | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
   useEffect(() => {
     let huy = false;
     void fetch(`/api/xet-nghiem/ban/tien?ngay=${encodeURIComponent(ngay)}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!huy) setDs(d);
+      .then(async (r) => {
+        const d = await r.json().catch(() => null);
+        if (huy) return;
+        if (!r.ok) setLoi(loiDocDuoc(d, `Chưa đọc được sổ thu hộ (HTTP ${r.status}).`));
+        else {
+          setLoi(null);
+          setDs(d);
+        }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!huy) setLoi("Mất kết nối — chưa đọc được sổ thu hộ.");
+      });
     return () => {
       huy = true;
     };
@@ -72,6 +80,11 @@ function TienThuHo() {
         ) : null}
       </div>
       <p className="text-meta text-ink-muted">Tiền khách trả cho đối tác — sổ riêng, không vào két hay doanh thu phòng khám.</p>
+      {loi ? (
+        <p role="alert" className="text-meta text-danger">
+          {loi}
+        </p>
+      ) : null}
       <ul className="divide-y divide-line rounded-card border border-line bg-surface">
         {(ds?.dong ?? []).map((d) => (
           <li key={d.id} className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 text-meta">
@@ -138,7 +151,10 @@ export default function BanXetNghiem() {
 
   async function layMau() {
     setLoi(null);
-    const ids = gop.length ? gop : layDuoc.map((v) => v.order_id);
+    // Chưa tick ô nào ⇒ một ống cho các việc CÙNG đối tác với việc đầu (khác đối tác
+    // phải ống khác — máy chủ cũng chặn). Đây chỉ là chọn sẵn, không phải luật.
+    const dau = layDuoc[0]?.doi_tac_id;
+    const ids = gop.length ? gop : layDuoc.filter((v) => v.doi_tac_id === dau).map((v) => v.order_id);
     const r = await fetch("/api/xet-nghiem/ban/lay-mau", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

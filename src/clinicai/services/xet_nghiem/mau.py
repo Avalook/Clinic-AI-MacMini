@@ -97,6 +97,14 @@ async def lay_mau(
     """Một ống cho các việc đã chọn. Trả mã ống + hẹn trả."""
     ids = doc_ids(data.get("order_ids"))
     cid = identity.clinic_id
+    # Khoá dòng thu của các việc TRƯỚC khi đọc "đã thu?" — người khác huỷ ghi nhận
+    # cùng lúc phải chờ, không xen thành "mẫu lấy khi khoản thu vừa bị huỷ".
+    await conn.execute(
+        "SELECT 1 FROM public.doi_tac_thanh_toan WHERE clinic_id = $1::uuid"
+        " AND service_order_id = ANY ($2::uuid[]) AND huy_luc IS NULL FOR UPDATE",
+        cid,
+        ids,
+    )
     viec = await doc_viec(conn, cid, hom_nay=hom_nay, order_ids=ids)
     if len(viec) != len(ids):
         raise NotFoundError("Có việc không tìm thấy — tải lại màn.")

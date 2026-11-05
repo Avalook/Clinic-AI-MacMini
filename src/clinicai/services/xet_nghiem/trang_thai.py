@@ -82,8 +82,10 @@ class TrangThaiXN:
     nhan: str
     #: chỉ có nghĩa ở CHO_KET_QUA: hôm nay > hẹn trả.
     qua_hen: bool = False
-    #: số ngày quá hẹn (0 nếu chưa quá) — > 1 là đỏ, 1 là vàng (câu F).
+    #: số ngày quá hẹn (0 nếu chưa quá).
     so_ngay_qua_hen: int = 0
+    #: mức cảnh báo quá hẹn (câu F): 1 ngày "VANG", > 1 ngày "DO"; màn chỉ tô màu.
+    muc_qua_hen: str | None = None
     #: CHO_LAY_MAU mà đã thu từ ≥ ngưỡng ngày.
     qua_han_lay_mau: bool = False
     co_ban_moi_chua_gui: bool = False
@@ -123,6 +125,7 @@ def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
             _tao("CHO_KET_QUA", sv),
             qua_hen=tre > 0,
             so_ngay_qua_hen=max(tre, 0),
+            muc_qua_hen="DO" if tre > 1 else "VANG" if tre == 1 else None,
             ly_do_khong_lay_mau="Đã lấy mẫu",
         )
     if sv.ngay_thu is not None or sv.duoc_cho_qua:
@@ -143,10 +146,13 @@ def nut_cua(
     co_mau: bool,
     co_tep: bool,
     tep_moi_nhat_da_gui: bool,
+    duoc_cho_qua: bool = False,
+    da_go_cho_qua: bool = False,
 ) -> dict[str, object]:
     """Nút nào bấm được + "Hoàn tác bước trước" gọi ĐÚNG lệnh bù nào (kế hoạch 5).
 
-    Một câu hỏi ("ai bấm được gì") — một hàm, cạnh hàm trạng thái; màn chỉ đọc cờ."""
+    Một câu hỏi ("ai bấm được gì") — một hàm, cạnh hàm trạng thái; màn chỉ đọc cờ.
+    Mọi bước có lối bù (không khoá cứng): cho qua ⇒ gỡ cho qua (soát chặng 3)."""
     hoan_tac = {
         "DA_DONG": {"lenh": "mo_lai", "nhan": "Mở lại việc"},
         "DA_GUI": {"lenh": "thu_hoi", "nhan": "Thu hồi kết quả đã gửi"},
@@ -155,12 +161,16 @@ def nut_cua(
     }.get(tt.ma)
     if tt.ma == "CHO_LAY_MAU" and co_thu:
         hoan_tac = {"lenh": "huy_thu", "nhan": "Huỷ ghi nhận thu (ghi sai)"}
+    elif tt.ma == "CHO_LAY_MAU" and duoc_cho_qua:
+        hoan_tac = {"lenh": "go_cho_qua", "nhan": "Gỡ cho lấy mẫu trước (quản lý)"}
     return {
         "ghi_thu": not co_thu and tt.ma in ("CHO_THU", "CHO_LAY_MAU"),
         "huy_thu": co_thu and not co_mau,
         "hoan_tien": co_thu and con_hoan > 0,
         "con_hoan_duoc": max(con_hoan, 0),
-        "cho_qua": tt.ma == "CHO_THU",
+        # Một việc một lần cho qua: đã gỡ thì không cho qua lại (trigger cũng chặn).
+        "cho_qua": tt.ma == "CHO_THU" and not da_go_cho_qua,
+        "go_cho_qua": duoc_cho_qua and not co_mau,
         "lay_mau": tt.co_the_lay_mau,
         "huy_mau": co_mau and not co_tep,
         "tai_ket_qua": co_mau and tt.ma not in ("DA_HUY", "DA_DONG"),

@@ -41,6 +41,7 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
            AS da_hoan,
        (x.cho_lay_mau_truoc_luc IS NOT NULL AND x.cho_lay_mau_go_luc IS NULL)
            AS duoc_cho_qua,
+       (x.cho_lay_mau_go_luc IS NOT NULL) AS da_go_cho_qua,
        m.id::text AS mau_id, m.ma_mau, m.hen_tra_ngay,
        tep.id::text AS tep_id, tep.ten_hien_thi AS ten_tep,
        (tep.gui_luc IS NOT NULL) AS tep_moi_nhat_da_gui,
@@ -70,8 +71,12 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
    AND dg.mo_lai_luc IS NULL
  WHERE x.clinic_id = $1::uuid
    AND ($3::uuid[] IS NULL OR x.service_order_id = ANY ($3::uuid[]))
+   -- Mặc định 30 ngày cho việc ĐÃ XONG; việc còn dở (chưa gửi, chưa đóng, chưa huỷ)
+   -- luôn hiện dù cũ bao lâu — việc tồn không được biến mất khỏi bàn (soát chặng 3).
    AND ($3::uuid[] IS NOT NULL
-        OR (x.tao_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= $2)
+        OR (x.tao_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= $2
+        OR (o.exec_status <> 'cancelled' AND dg.id IS NULL
+            AND NOT coalesce(tep.gui_luc IS NOT NULL, false)))
  ORDER BY x.tao_luc DESC
  LIMIT 500
 """
@@ -126,6 +131,8 @@ def dong_ban(r: Any, tt: TrangThaiXN) -> dict[str, Any]:
         co_mau=r["mau_id"] is not None,
         co_tep=r["tep_id"] is not None,
         tep_moi_nhat_da_gui=bool(r["tep_moi_nhat_da_gui"]),
+        duoc_cho_qua=bool(r["duoc_cho_qua"]),
+        da_go_cho_qua=bool(r["da_go_cho_qua"]),
     )
     return out
 

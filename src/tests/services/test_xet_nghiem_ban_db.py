@@ -210,9 +210,34 @@ async def test_cho_qua_roi_go_cho_qua(pool: asyncpg.Pool) -> None:  # noqa: F811
     with pytest.raises(ValidationError):
         await _lam(pool, mau.cho_qua, ca, order_id=o1, ly_do="")
     await _lam(pool, mau.cho_qua, ca, order_id=o1, ly_do="khách quen, trả sau")
-    assert (await _tt(pool, ca, o1))["nut"]["lay_mau"]
+    v = await _tt(pool, ca, o1)
+    assert v["nut"]["lay_mau"] and v["nut"]["go_cho_qua"]
+    # Soát chặng 3: màn phải có lối gỡ (không khoá cứng) — hoàn tác bước trước.
+    assert v["nut"]["hoan_tac"]["lenh"] == "go_cho_qua"
     await _lam(pool, mau.go_cho_qua, ca, order_id=o1, ly_do="cho qua nhầm")
-    assert (await _tt(pool, ca, o1))["trang_thai"]["ma"] == "CHO_THU"
+    v = await _tt(pool, ca, o1)
+    assert v["trang_thai"]["ma"] == "CHO_THU"
+    # Một việc một lần cho qua: đã gỡ thì nút cho qua tắt (trigger cũng chặn).
+    assert not v["nut"]["cho_qua"] and not v["nut"]["go_cho_qua"]
+    with pytest.raises(ConflictError):
+        await _lam(pool, mau.cho_qua, ca, order_id=o1, ly_do="cho qua lần hai")
+
+
+async def test_viec_do_qua_30_ngay_van_hien_tren_ban(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Việc tồn không được biến mất khỏi bàn chỉ vì cũ (soát chặng 3)."""
+    ca, o1, _ = await _hai_viec(pool)
+    async with pool.acquire() as conn:
+        await conn.execute("SET session_replication_role = replica")
+        await conn.execute(
+            "UPDATE xet_nghiem_viec SET tao_luc = now() - interval '45 days'"
+            " WHERE service_order_id = $1::uuid",
+            o1,
+        )
+        await conn.execute("SET session_replication_role = origin")
+    ds = await ket_qua.ban(pool, ca.bac_si, hom_nay_vn(), hom_nay_vn())
+    assert o1 in {v["order_id"] for v in ds}
 
 
 async def test_dong_va_mo_lai(pool: asyncpg.Pool) -> None:  # noqa: F811

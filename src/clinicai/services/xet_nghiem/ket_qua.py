@@ -20,6 +20,7 @@ from datetime import date
 from typing import Any
 
 import asyncpg
+import structlog
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
@@ -27,15 +28,19 @@ from clinicai.events.catalogue import XetNghiemViec
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.tep_ket_qua_service import KENH_GUI_HOP_LE, TepKetQuaService
-from clinicai.services.xet_nghiem.ban import doc_viec
+from clinicai.services.xet_nghiem.ban import doc_viec, sap_xep
 from clinicai.services.xet_nghiem.mau import _mot_viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
+
+logger = structlog.get_logger()
 
 
 async def _phat(
     pool: asyncpg.Pool, identity: StaffIdentity, ten_ok: str, v: dict[str, Any]
 ) -> None:
-    """Ghi sự kiện SAU khi lệnh tệp đã commit (lệnh tệp tự mở giao dịch)."""
+    """Ghi sự kiện SAU khi lệnh tệp đã commit (lệnh tệp tự mở giao dịch). Lệnh tệp
+    đã xong thật ⇒ phát lỗi KHÔNG được thành 500 (bấm lại sẽ ra tệp trùng / "đã gửi
+    rồi"): ghi log lỗi, không ném. Chuông vẫn đi qua `result_file.*` của lệnh tệp."""
     payload = XetNghiemViec(visit_id=v["visit_id"], service_order_id=v["order_id"])
     kw: dict[str, Any] = {
         "clinic_id": identity.clinic_id,
@@ -44,13 +49,20 @@ async def _phat(
         "boi": nguoi(identity),
         "correlation_id": v["visit_id"],
     }
-    async with pool.acquire() as conn, conn.transaction():
-        if ten_ok == "den":
-            await emit_event(conn, ten="lab.result_arrived", **kw)
-        elif ten_ok == "gui":
-            await emit_event(conn, ten="lab.result_sent", **kw)
-        else:
-            await emit_event(conn, ten="lab.result_rejected", **kw)
+    try:
+        async with pool.acquire() as conn, conn.transaction():
+            if ten_ok == "den":
+                await emit_event(conn, ten="lab.result_arrived", **kw)
+            elif ten_ok == "gui":
+                await emit_event(conn, ten="lab.result_sent", **kw)
+            elif ten_ok == "thu_hoi":
+                await emit_event(conn, ten="lab.result_rejected", **kw)
+            else:
+                raise ValueError(f"loại sự kiện kết quả lạ: {ten_ok}")
+    except Exception:  # noqa: BLE001 — lệnh chính đã commit; chỉ mất vết sự kiện
+        logger.exception(
+            "xet_nghiem_phat_su_kien_loi", loai=ten_ok, order_id=v["order_id"]
+        )
 
 
 async def _viec(
@@ -133,6 +145,7 @@ async def ban(
     pool: asyncpg.Pool, identity: StaffIdentity, hom_nay: date, tu_ngay: date | None
 ) -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
-        return await doc_viec(
-            conn, identity.clinic_id, hom_nay=hom_nay, tu_ngay=tu_ngay
+        # Việc cần làm trước lên đầu (THU_TU của module trạng thái).
+        return sap_xep(
+            await doc_viec(conn, identity.clinic_id, hom_nay=hom_nay, tu_ngay=tu_ngay)
         )

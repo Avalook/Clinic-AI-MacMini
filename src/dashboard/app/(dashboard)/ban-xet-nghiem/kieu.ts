@@ -7,6 +7,7 @@ export interface TrangThai {
   nhan: string;
   qua_hen: boolean;
   so_ngay_qua_hen: number;
+  muc_qua_hen: string | null;
   qua_han_lay_mau: boolean;
   co_ban_moi_chua_gui: boolean;
   da_hoan_tien: boolean;
@@ -20,6 +21,7 @@ export interface Nut {
   hoan_tien: boolean;
   con_hoan_duoc: number;
   cho_qua: boolean;
+  go_cho_qua: boolean;
   lay_mau: boolean;
   huy_mau: boolean;
   tai_ket_qua: boolean;

@@ -33,6 +33,7 @@ class TrangThaiOut(BaseModel):
     nhan: str
     qua_hen: bool
     so_ngay_qua_hen: int
+    muc_qua_hen: str | None
     qua_han_lay_mau: bool
     co_ban_moi_chua_gui: bool
     da_hoan_tien: bool
@@ -51,6 +52,7 @@ class NutOut(BaseModel):
     hoan_tien: bool
     con_hoan_duoc: int
     cho_qua: bool
+    go_cho_qua: bool
     lay_mau: bool
     huy_mau: bool
     tai_ket_qua: bool

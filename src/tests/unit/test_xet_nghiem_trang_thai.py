@@ -123,6 +123,8 @@ def test_qua_hen_tra(hen_tra: date | None, qua: bool, so_ngay: int) -> None:
         SuViecXN(hom_nay=H, ngay_thu=HQ, co_mau=True, hen_tra=hen_tra)
     )
     assert (tt.qua_hen, tt.so_ngay_qua_hen) == (qua, so_ngay)
+    # Câu F: quá 1 ngày vàng, quá hơn 1 ngày đỏ — máy chủ tính, màn chỉ tô.
+    assert tt.muc_qua_hen == {0: None, 1: "VANG"}.get(so_ngay, "DO")
 
 
 @pytest.mark.parametrize(
