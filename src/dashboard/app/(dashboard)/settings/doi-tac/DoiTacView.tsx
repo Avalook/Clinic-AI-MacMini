@@ -118,11 +118,7 @@ export default function DoiTacView() {
 
   return (
     <section aria-label="Đối tác xét nghiệm" className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-body text-ink-muted">
-          Phòng xét nghiệm ngoài nhận mẫu của phòng khám. Gán dịch vụ cho đối tác thì từ lúc đó, chỉ định dịch vụ ấy tự
-          đi đối tác này. Đổi gán sau không đổi các chỉ định đã có.
-        </p>
+      <div className="flex flex-wrap items-start justify-end gap-3">
         {!form ? (
           <Button type="button" variant="primary" onClick={() => setForm({ ...TRONG })}>
             + Thêm đối tác

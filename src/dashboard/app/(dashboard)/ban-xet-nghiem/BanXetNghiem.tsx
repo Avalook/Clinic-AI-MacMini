@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
-import OChon from "@/components/ui/OChon";
 import OTimKhach from "@/components/ui/OTimKhach";
 import ThanhHanhTrinh from "@/components/ui/ThanhHanhTrinh";
 import ThanhTab from "@/components/ui/ThanhTab";
@@ -178,15 +177,17 @@ export default function BanXetNghiem() {
     <section aria-label="Việc của đối tác" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 className="text-title font-semibold text-ink">Việc của đối tác</h2>
-        {doiTacDs.length > 1 ? (
-          <OChon aria-label="Đối tác" value={doiTac} onChange={(e) => setDoiTac(e.target.value)}>
-            <option value="">Mọi đối tác</option>
-            {doiTacDs.map(([id, ten]) => (
-              <option key={id} value={id}>
-                {ten}
-              </option>
-            ))}
-          </OChon>
+        {/* Chọn nhanh đối tác (Tuyền 05/11): luôn hiện, kể cả khi mới có một đối tác. */}
+        {doiTacDs.length ? (
+          <ChipLoc
+            nhan="Đối tác"
+            chon={doiTac}
+            onChon={(d) => {
+              setDoiTac(d);
+              setChon(null);
+            }}
+            muc={[{ ma: "", nhan: "Mọi đối tác" }, ...doiTacDs.map(([id, ten]) => ({ ma: id, nhan: ten }))]}
+          />
         ) : null}
       </div>
 
