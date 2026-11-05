@@ -48,6 +48,31 @@ THU_TU: Final[tuple[str, ...]] = (
     "DA_HUY",
 )
 
+#: Bộ lọc "Tình trạng" trên bàn — thứ tự của hành trình (khác THU_TU = làm trước).
+LOC: Final[tuple[str, ...]] = (
+    "CHO_THU",
+    "CHO_LAY_MAU",
+    "CHO_KET_QUA",
+    "CO_KET_QUA",
+    "DA_GUI",
+    "DA_DONG",
+    "DA_HUY",
+)
+
+#: Việc đã xong — không còn ở tab "Còn tồn".
+XONG: Final = frozenset({"DA_GUI", "DA_DONG", "DA_HUY"})
+
+#: Khoá màu chip (màn tô theo khoá, không đọc mã trạng thái).
+MAU: Final[dict[str, str]] = {
+    "CHO_THU": "info",
+    "CHO_LAY_MAU": "info",
+    "CHO_KET_QUA": "neutral",
+    "CO_KET_QUA": "success",
+    "DA_GUI": "brand",
+    "DA_DONG": "neutral",
+    "DA_HUY": "neutral",
+}
+
 #: Mặc định "đã thu, chưa lấy mẫu" bao nhiêu ngày thì vàng (câu F, 05/11).
 NGUONG_LAY_MAU_MAC_DINH: Final = 2
 
@@ -93,31 +118,45 @@ class TrangThaiXN:
     co_the_lay_mau: bool = False
     #: vì sao chưa lấy mẫu được (hiện khi rê chuột nút Lấy mẫu mờ).
     ly_do_khong_lay_mau: str | None = None
+    #: khoá màu chip (MAU) — màn chỉ tô.
+    mau: str = "neutral"
+    #: còn ở tab "Còn tồn" (chưa gửi, chưa đóng, chưa huỷ).
+    con_ton: bool = True
+    #: một câu cho người đọc: việc đang ở đâu, vì sao (bước "Tờ kết quả").
+    vi_sao: str = ""
 
 
 def _tao(ma: TrangThaiMa, sv: SuViecXN) -> TrangThaiXN:
-    return TrangThaiXN(ma=ma, nhan=NHAN[ma], da_hoan_tien=sv.da_hoan_tien)
+    return TrangThaiXN(
+        ma=ma,
+        nhan=NHAN[ma],
+        da_hoan_tien=sv.da_hoan_tien,
+        mau=MAU[ma],
+        con_ton=ma not in XONG,
+    )
+
+
+def _cau_cho_ket_qua(sv: SuViecXN, tre: int) -> str:
+    if tre > 0:
+        return f"Đã lấy mẫu. Quá hẹn trả {tre} ngày, chưa có tệp kết quả."
+    if sv.hen_tra is not None:
+        return f"Đã lấy mẫu. Hẹn trả {sv.hen_tra:%d/%m}, chưa có tệp kết quả."
+    return "Đã lấy mẫu, chưa có tệp kết quả."
 
 
 def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
     """Một câu hỏi — một hàm: việc này đang ở đâu."""
-    if sv.da_huy_chi_dinh:
-        return replace(_tao("DA_HUY", sv), ly_do_khong_lay_mau="Chỉ định đã huỷ")
-    if sv.co_tep and sv.tep_moi_nhat_da_gui:
-        return replace(_tao("DA_GUI", sv), ly_do_khong_lay_mau="Đã có kết quả")
-    if sv.da_dong:
-        # Đã đóng mà vẫn có tệp còn hiệu lực chưa gửi (đối tác gửi muộn) — giữ
-        # DA_DONG nhưng bật cờ để bàn hiện "có kết quả mới" cho CSKH gửi (soát #600).
-        return replace(
-            _tao("DA_DONG", sv),
-            co_ban_moi_chua_gui=sv.co_tep,
-            ly_do_khong_lay_mau="Việc đã đóng",
-        )
+    xong = _da_xong(sv)
+    if xong is not None:
+        return xong
     if sv.co_tep:
         return replace(
             _tao("CO_KET_QUA", sv),
             co_ban_moi_chua_gui=sv.tung_gui,
             ly_do_khong_lay_mau="Đã có kết quả",
+            vi_sao="Đã có kết quả"
+            + (" bản mới" if sv.tung_gui else "")
+            + ", chưa gửi khách.",
         )
     if sv.co_mau:
         tre = (sv.hom_nay - sv.hen_tra).days if sv.hen_tra is not None else 0
@@ -127,15 +166,54 @@ def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
             so_ngay_qua_hen=max(tre, 0),
             muc_qua_hen="DO" if tre > 1 else "VANG" if tre == 1 else None,
             ly_do_khong_lay_mau="Đã lấy mẫu",
+            vi_sao=_cau_cho_ket_qua(sv, tre),
         )
     if sv.ngay_thu is not None or sv.duoc_cho_qua:
         tre_lay = (sv.hom_nay - sv.ngay_thu).days if sv.ngay_thu is not None else 0
+        tre_lau = tre_lay >= sv.nguong_lay_mau_ngay
         return replace(
             _tao("CHO_LAY_MAU", sv),
-            qua_han_lay_mau=tre_lay >= sv.nguong_lay_mau_ngay,
+            qua_han_lay_mau=tre_lau,
             co_the_lay_mau=True,
+            vi_sao=(
+                "Đã thu tiền, chưa lấy mẫu."
+                if sv.ngay_thu is not None
+                else "Quản lý cho lấy mẫu trước khi thu."
+            )
+            + (f" Đã {tre_lay} ngày." if tre_lau else ""),
         )
-    return replace(_tao("CHO_THU", sv), ly_do_khong_lay_mau="Chưa ghi nhận thu hộ")
+    return replace(
+        _tao("CHO_THU", sv),
+        ly_do_khong_lay_mau="Chưa ghi nhận thu hộ",
+        vi_sao="Khách chưa trả tiền xét nghiệm, chưa lấy mẫu được.",
+    )
+
+
+def _da_xong(sv: SuViecXN) -> TrangThaiXN | None:
+    """Ba trạng thái cuối, theo ưu tiên DA_HUY > DA_GUI > DA_DONG; chưa xong ⇒ None."""
+    if sv.da_huy_chi_dinh:
+        return replace(
+            _tao("DA_HUY", sv),
+            ly_do_khong_lay_mau="Chỉ định đã huỷ",
+            vi_sao="Chỉ định đã huỷ.",
+        )
+    if sv.co_tep and sv.tep_moi_nhat_da_gui:
+        return replace(
+            _tao("DA_GUI", sv),
+            ly_do_khong_lay_mau="Đã có kết quả",
+            vi_sao="Đã gửi kết quả cho khách.",
+        )
+    if sv.da_dong:
+        # Đã đóng mà vẫn có tệp còn hiệu lực chưa gửi (đối tác gửi muộn) — giữ
+        # DA_DONG nhưng bật cờ để bàn hiện "có kết quả mới" cho CSKH gửi (soát #600).
+        return replace(
+            _tao("DA_DONG", sv),
+            co_ban_moi_chua_gui=sv.co_tep,
+            ly_do_khong_lay_mau="Việc đã đóng",
+            vi_sao="Đối tác đã tự trả khách."
+            + (" Có tệp kết quả mới chưa gửi." if sv.co_tep else ""),
+        )
+    return None
 
 
 def nut_cua(

@@ -14,7 +14,7 @@ import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.core.clock import hom_nay_vn
-from clinicai.services.xet_nghiem import ket_qua, mau, thu_ho
+from clinicai.services.xet_nghiem import ket_qua, mau, qua_trinh, thu_ho
 from clinicai.services.xet_nghiem.ma_mau import tao_ma
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -237,7 +237,7 @@ async def test_viec_do_qua_30_ngay_van_hien_tren_ban(
         )
         await conn.execute("SET session_replication_role = origin")
     ds = await ket_qua.ban(pool, ca.bac_si, hom_nay_vn(), hom_nay_vn())
-    assert o1 in {v["order_id"] for v in ds}
+    assert o1 in {v["order_id"] for v in ds["viec"]}
 
 
 async def test_dong_va_mo_lai(pool: asyncpg.Pool) -> None:  # noqa: F811
@@ -254,6 +254,43 @@ async def test_dong_va_mo_lai(pool: asyncpg.Pool) -> None:  # noqa: F811
         await pool.execute(
             "DELETE FROM xet_nghiem_dong WHERE service_order_id = $1::uuid", o1
         )
+
+
+async def test_hanh_trinh_va_qua_trinh_doc_tu_su_viec(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bản mẫu 05/11: mốc có giờ + "Xem quá trình" — kể cả bước bù vẫn còn dòng."""
+    ca, o1, o2 = await _hai_viec(pool)
+    await _lam2(pool, thu_ho.ghi_nhan, ca, order_id=o1, tien_mat=300000)
+    m = await _lam(pool, mau.lay_mau, ca, order_ids=[o1])
+    await _lam2(
+        pool, mau.huy_mau, ca, mau_id=m["mau_id"], loai="NHAP_SAI", ly_do="dán nhầm"
+    )
+    await _lam(pool, mau.lay_mau, ca, order_ids=[o1])
+    v = await _tt(pool, ca, o1)
+    assert [x["trang_thai"] for x in v["hanh_trinh"]] == [
+        "done",
+        "done",
+        "done",
+        "current",
+        "upcoming",
+    ]
+    ban = await ket_qua.ban(pool, ca.bac_si, hom_nay_vn(), hom_nay_vn())
+    # `_chi_dinh` tạo bệnh nhân mới mỗi lần ⇒ hai khách, mỗi khách một dòng.
+    k = next(x for x in ban["khach"] if o1 in x["order_ids"])
+    # Bác sĩ không có quyền quản lý ⇒ màn không hiện tab Cài đặt.
+    assert k["order_ids"] == [o1] and ban["quan_ly"] is False
+    assert any(x["order_ids"] == [o2] for x in ban["khach"])
+    async with pool.acquire() as conn:
+        ds = await qua_trinh.doc(conn, CLINIC, o1)
+        rac = await qua_trinh.doc(conn, CLINIC, "khong-phai-uuid")
+    viec = [d["viec"] for d in ds]
+    assert viec[0] == "Chỉ định xét nghiệm"
+    assert any(x.startswith("Thu hộ 300.000đ") for x in viec)
+    assert sum(x.startswith("Lấy mẫu, mã ống") for x in viec) == 2
+    assert any(x.startswith("Huỷ mẫu") and "dán nhầm" in x for x in viec)
+    assert [d["luc"] for d in ds] == sorted(d["luc"] for d in ds)
+    assert rac == []
 
 
 @pytest.mark.parametrize("rac", [None, "", "abc", "2026-13-40", 12])

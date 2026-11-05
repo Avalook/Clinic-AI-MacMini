@@ -1,5 +1,8 @@
-// Kiểu dữ liệu bàn XN — khớp `ViecOut` / `TienOut` của `routers/xet_nghiem_ban.py`.
+// Kiểu dữ liệu bàn XN — khớp `BanOut` / `ViecOut` / `TienOut` / `QuaTrinhOut` của
+// `routers/xet_nghiem_ban.py`. Mọi cờ, chữ, màu chip, mốc hành trình do máy chủ tính.
 
+import type { ChipTone } from "@/components/ui/Chip";
+import type { StepState } from "@/components/ui/Stepper";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
 export interface TrangThai {
@@ -13,6 +16,9 @@ export interface TrangThai {
   da_hoan_tien: boolean;
   co_the_lay_mau: boolean;
   ly_do_khong_lay_mau: string | null;
+  mau: ChipTone;
+  con_ton: boolean;
+  vi_sao: string;
 }
 
 export interface Nut {
@@ -30,6 +36,12 @@ export interface Nut {
   dong: boolean;
   mo_lai: boolean;
   hoan_tac: { lenh: string; nhan: string } | null;
+}
+
+export interface Moc {
+  ten: string;
+  luc: string | null;
+  trang_thai: StepState;
 }
 
 export interface Viec {
@@ -53,8 +65,35 @@ export interface Viec {
   chuyen_khoan: number | null;
   da_hoan: number | null;
   tao_luc: string;
+  ngay_chi_dinh: string;
+  tep_luc: string | null;
+  so_ngay_cho: number;
+  hanh_trinh: Moc[];
   trang_thai: TrangThai;
   nut: Nut;
+}
+
+export interface Khach {
+  khoa: string;
+  ngay: string;
+  ten: string;
+  ma_bn: string | null;
+  order_ids: string[];
+  nhan: string;
+  mau: ChipTone;
+}
+
+export interface Loc {
+  ma: string;
+  nhan: string;
+  ton: boolean;
+}
+
+export interface Ban {
+  viec: Viec[];
+  khach: Khach[];
+  loc: Loc[];
+  quan_ly: boolean;
 }
 
 export interface DongTien {
@@ -65,6 +104,7 @@ export interface DongTien {
   chuyen_khoan: number;
   hinh_thuc: string;
   ma_giao_dich: string | null;
+  gia_goi_y: number | null;
   ghi_luc: string;
   ten: string | null;
   ten_khach: string | null;
@@ -75,7 +115,23 @@ export interface DongTien {
 export const tien = (n: number | null | undefined) =>
   n === null || n === undefined ? "" : `${n.toLocaleString("vi-VN")}đ`;
 
-export const ngayVN = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("vi-VN") : "");
+const VN = "Asia/Ho_Chi_Minh";
+
+/** "05/11" từ "2026-11-05" hoặc mốc giờ ISO. */
+export const ngayNgan = (iso: string | null) =>
+  iso ? new Date(iso.length === 10 ? `${iso}T00:00:00+07:00` : iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", timeZone: VN }) : "";
+
+export const ngayVN = (iso: string | null) =>
+  iso ? new Date(iso.length === 10 ? `${iso}T00:00:00+07:00` : iso).toLocaleDateString("vi-VN", { timeZone: VN }) : "";
+
+/** "09:40 05/11". */
+export const gioNgay = (iso: string | null) =>
+  iso
+    ? `${new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN })} ${ngayNgan(iso)}`
+    : "";
+
+/** Hôm nay theo giờ VN, dạng "2026-11-05" (so với `ngay_chi_dinh` của máy chủ). */
+export const homNayVN = () => new Date().toLocaleDateString("sv-SE", { timeZone: VN });
 
 /** Gửi một lệnh bàn XN (JSON). Trả câu lỗi máy chủ (tiếng Việt) hoặc null. */
 export async function lenh(duong: string, body: unknown): Promise<string | null> {

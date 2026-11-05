@@ -18,7 +18,7 @@ from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services.xet_nghiem import ket_qua, mau, thu_ho
+from clinicai.services.xet_nghiem import ket_qua, mau, qua_trinh, thu_ho
 from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
 from clinicai.services.xet_nghiem.lenh import chay, chay_khong_ngay
 from clinicai.services.xet_nghiem.mau import doc_ngay
@@ -39,6 +39,15 @@ class TrangThaiOut(BaseModel):
     da_hoan_tien: bool
     co_the_lay_mau: bool
     ly_do_khong_lay_mau: str | None
+    mau: str
+    con_ton: bool
+    vi_sao: str
+
+
+class MocOut(BaseModel):
+    ten: str
+    luc: datetime | None
+    trang_thai: str
 
 
 class HoanTacOut(BaseModel):
@@ -84,12 +93,45 @@ class ViecOut(BaseModel):
     chuyen_khoan: int | None
     da_hoan: int | None
     tao_luc: datetime
+    ngay_chi_dinh: date
+    tep_luc: datetime | None
+    so_ngay_cho: int
+    hanh_trinh: list[MocOut]
     trang_thai: TrangThaiOut
     nut: NutOut
 
 
+class KhachOut(BaseModel):
+    khoa: str
+    ngay: date
+    ten: str
+    ma_bn: str | None
+    order_ids: list[str]
+    nhan: str
+    mau: str
+
+
+class LocOut(BaseModel):
+    ma: str
+    nhan: str
+    ton: bool
+
+
 class BanOut(BaseModel):
     viec: list[ViecOut]
+    khach: list[KhachOut]
+    loc: list[LocOut]
+    quan_ly: bool
+
+
+class QuaTrinhDongOut(BaseModel):
+    luc: datetime
+    viec: str
+    ai: str | None
+
+
+class QuaTrinhOut(BaseModel):
+    dong: list[QuaTrinhDongOut]
 
 
 class OkOut(BaseModel):
@@ -108,7 +150,18 @@ async def doc_ban(
     """Việc chỉ định từ `tu_ngay` (mặc định 30 ngày qua; ngày rác ⇒ mặc định)."""
     hom_nay = hom_nay_vn()
     tu = doc_ngay(tu_ngay) or date.fromordinal(hom_nay.toordinal() - 30)
-    return {"viec": await ket_qua.ban(pool, identity, hom_nay, tu)}
+    return await ket_qua.ban(pool, identity, hom_nay, tu)
+
+
+@router.get(f"{P}/qua-trinh", response_model=QuaTrinhOut)
+async def qua_trinh_viec(
+    order_id: str = Query(default="", max_length=64),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> object:
+    """Xem quá trình của một việc: việc · lúc · ai (mã rác ⇒ rỗng)."""
+    async with pool.acquire() as conn:
+        return {"dong": await qua_trinh.doc(conn, identity.clinic_id, order_id)}
 
 
 class DongTienOut(BaseModel):
