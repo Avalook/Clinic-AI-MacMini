@@ -31,6 +31,8 @@ ENV/
 .mypy_cache/
 .ruff_cache/
 .coverage
+# Tệp con của pytest-xdist (`.coverage.<máy>.pid….wgwN`) — 05/11 lọt vào một commit.
+.coverage.*
 htmlcov/
 .tox/
 

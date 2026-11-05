@@ -26,9 +26,12 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.events.catalogue import XetNghiemViec
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.permissions.can import can
 from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.tep_ket_qua_service import KENH_GUI_HOP_LE, TepKetQuaService
-from clinicai.services.xet_nghiem.ban import doc_viec, sap_xep
+from clinicai.services.xet_nghiem.ban import bo_loc, doc_viec, sap_xep
+from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
+from clinicai.services.xet_nghiem.hanh_trinh import nhom_khach
 from clinicai.services.xet_nghiem.mau import _mot_viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
@@ -143,9 +146,23 @@ async def thu_hoi(
 
 async def ban(
     pool: asyncpg.Pool, identity: StaffIdentity, hom_nay: date, tu_ngay: date | None
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
+    """Cả bàn: việc (xếp việc cần làm trước lên đầu), nhóm khách theo ngày chỉ định,
+    chip lọc, và cờ `quan_ly` (màn mới hiện tab Cài đặt / nút của quản lý)."""
     async with pool.acquire() as conn:
-        # Việc cần làm trước lên đầu (THU_TU của module trạng thái).
-        return sap_xep(
-            await doc_viec(conn, identity.clinic_id, hom_nay=hom_nay, tu_ngay=tu_ngay)
+        quan_ly = bool(await can(conn, identity, QUYEN_QUAN_LY))
+        viec = sap_xep(
+            await doc_viec(
+                conn,
+                identity.clinic_id,
+                hom_nay=hom_nay,
+                tu_ngay=tu_ngay,
+                quan_ly=quan_ly,
+            )
         )
+    return {
+        "viec": viec,
+        "khach": nhom_khach(viec),
+        "loc": bo_loc(),
+        "quan_ly": quan_ly,
+    }

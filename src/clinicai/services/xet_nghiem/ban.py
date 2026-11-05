@@ -15,8 +15,16 @@ import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.xet_nghiem.doi_tac import doc_nguong
+from clinicai.services.xet_nghiem.hanh_trinh import (
+    buoc_dang,
+    hanh_trinh,
+    so_ngay_cho,
+)
 from clinicai.services.xet_nghiem.trang_thai import (
+    LOC,
+    NHAN,
     THU_TU,
+    XONG,
     SuViecXN,
     TrangThaiXN,
     nut_cua,
@@ -31,6 +39,11 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
        o.service_name AS ten_dich_vu, (o.exec_status = 'cancelled') AS da_huy,
        x.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
        x.gia_goi_y_luc_chi_dinh AS gia_goi_y, x.tao_luc,
+       (x.tao_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS ngay_chi_dinh,
+       t.ghi_luc AS thu_luc, m.lay_luc, tep.tai_len_luc AS tep_luc,
+       tep.gui_luc, dg.dong_luc,
+       CASE WHEN x.cho_lay_mau_go_luc IS NULL THEN x.cho_lay_mau_truoc_luc END
+           AS cho_qua_luc,
        v.clinic_patient_id::text AS clinic_patient_id,
        p.full_name AS ten_khach, p.patient_code AS ma_bn,
        t.id::text AS thu_id, t.so_tien AS da_thu, t.tien_mat, t.chuyen_khoan,
@@ -61,7 +74,7 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
     ON mv.clinic_id = x.clinic_id AND mv.service_order_id = o.id AND mv.go_luc IS NULL
   LEFT JOIN mau_xet_nghiem m ON m.id = mv.mau_id AND m.huy_luc IS NULL
   LEFT JOIN LATERAL (
-       SELECT k.id, k.ten_hien_thi, k.gui_luc FROM tep_ket_qua k
+       SELECT k.id, k.ten_hien_thi, k.gui_luc, k.tai_len_luc FROM tep_ket_qua k
         WHERE k.clinic_id = x.clinic_id AND k.service_order_id = o.id
           AND k.da_xoa_luc IS NULL
           AND coalesce(k.xac_nhan_trang_thai, '') NOT IN ('TU_CHOI', 'THU_HOI')
@@ -100,7 +113,9 @@ def su_viec_cua(r: Any, hom_nay: date, nguong: int) -> SuViecXN:
     )
 
 
-def dong_ban(r: Any, tt: TrangThaiXN) -> dict[str, Any]:
+def dong_ban(
+    r: Any, tt: TrangThaiXN, hom_nay: date, quan_ly: bool = False
+) -> dict[str, Any]:
     out = {
         k: r[k]
         for k in (
@@ -122,7 +137,11 @@ def dong_ban(r: Any, tt: TrangThaiXN) -> dict[str, Any]:
     }
     for k in ("gia_goi_y", "da_thu", "tien_mat", "chuyen_khoan", "da_hoan"):
         out[k] = int(r[k]) if r[k] is not None else None
-    out["tao_luc"] = r["tao_luc"]
+    for k in ("tao_luc", "ngay_chi_dinh", "tep_luc"):
+        out[k] = r[k]
+    out["so_ngay_cho"] = so_ngay_cho(r["ngay_chi_dinh"], hom_nay)
+    out["hanh_trinh"] = hanh_trinh(r, tt)
+    out["buoc_dang"] = buoc_dang(out["hanh_trinh"])
     out["trang_thai"] = asdict(tt)
     out["nut"] = nut_cua(
         tt,
@@ -133,6 +152,7 @@ def dong_ban(r: Any, tt: TrangThaiXN) -> dict[str, Any]:
         tep_moi_nhat_da_gui=bool(r["tep_moi_nhat_da_gui"]),
         duoc_cho_qua=bool(r["duoc_cho_qua"]),
         da_go_cho_qua=bool(r["da_go_cho_qua"]),
+        quan_ly=quan_ly,
     )
     return out
 
@@ -144,12 +164,16 @@ async def doc_viec(
     hom_nay: date,
     tu_ngay: date | None = None,
     order_ids: list[str] | None = None,
+    quan_ly: bool = False,
 ) -> list[dict[str, Any]]:
+    """`quan_ly`: người XEM có quyền quản lý — chỉ đổi cờ hiển thị (`nut_cua`)."""
     nguong = await doc_nguong(conn, cid)
     rows = await conn.fetch(_SU_VIEC_SQL, cid, tu_ngay or hom_nay, order_ids)
     canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_BAN, clinic_id=cid)
     return [
-        dong_ban(r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)))
+        dong_ban(
+            r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)), hom_nay, quan_ly
+        )
         for r in rows
     ]
 
@@ -157,3 +181,8 @@ async def doc_viec(
 def sap_xep(viec: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Việc cần làm trước lên đầu (THU_TU của module trạng thái)."""
     return sorted(viec, key=lambda v: THU_TU.index(v["trang_thai"]["ma"]))
+
+
+def bo_loc() -> list[dict[str, Any]]:
+    """Chip "Tình trạng" (thứ tự hành trình); `ton` = có ở tab "Còn tồn"."""
+    return [{"ma": m, "nhan": NHAN[m], "ton": m not in XONG} for m in LOC]

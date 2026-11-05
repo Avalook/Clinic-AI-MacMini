@@ -33,6 +33,7 @@ const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
   // Bàn xét nghiệm (chặng 2–3)
   ["GET", /^ban$/, () => "/api/v1/xet-nghiem/ban"],
   ["GET", /^ban\/tien$/, () => "/api/v1/xet-nghiem/ban/tien"],
+  ["GET", /^ban\/qua-trinh$/, () => "/api/v1/xet-nghiem/ban/qua-trinh"],
   ["POST", new RegExp(`^ban/(${LENH_BAN})$`), (m) => `/api/v1/xet-nghiem/ban/${m[1]}`],
 ];
 
