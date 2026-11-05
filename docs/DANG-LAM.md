@@ -9,7 +9,9 @@ kết quả tự về, gửi = "Đúng người, gửi" · đối tác chỉ chi
 Kế hoạch `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md` (4 chặng + chặng 0), ADR-0015, luật vùng
 `.claude/rules/xet-nghiem-doi-tac.md`, luật chung `.claude/rules/thiet-ke-code.md`,
 agent soát `soat-thiet-ke`. Câu còn mở A–I đang theo mặc định (kế hoạch mục 2).
-Tiếp theo: chặng 0 (SQL đo prod + test khoá hành vi).
+Chặng 0 xong (#596 luật, #597 SQL soát, #598 test khoá). Kết quả prod + quyết định: kế hoạch mục 5b.
+Tiếp theo: chặng 1. Câu chờ Tuyền trước chặng 3: vì sao nhận mẫu / trả kết quả ở bàn cũ dừng từ 26/10; câu A, E, F.
+Việc tồn ngoài vùng: dòng thời gian màn xem lại lượt chỉ đọc `event_log` (thiếu sự kiện ở `domain_event`).
 
 ## 31/10/2026 — ĐỢT KHO `dot/3110-kho` (nền `dot/3010`): CHỜ STAGING RỒI LÊN PROD TỐI 31/10
 

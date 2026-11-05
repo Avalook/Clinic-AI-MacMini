@@ -186,6 +186,26 @@ Luật CLAUDE.md "không thao tác nào khoá cứng" được giữ: mọi bư�
 
 ---
 
+## 5b. Kết quả chặng 0 (SQL prod 05/11/2026) và quyết định theo đó
+
+| Prod nói | Quyết |
+|---|---|
+| 24 dịch vụ thu hộ, đều chọn tay bên thu; mẫu đều lấy ở phòng của phòng khám; 0 dịch vụ nghi sai bên thu; không có dịch vụ trùng (NIPT basic / Basic plus là hai gói khác nhau) | Không sửa dữ liệu bên thu. |
+| 13 dịch vụ thu hộ giá 0đ (5 NIPT, HPV 16/40, Thinprep, combo HPV+Thinprep, Gentis, Liên cầu B, 13 bệnh STD) | Việc DỮ LIỆU, Tuyền điền trên màn Bảng giá khi rảnh. Chưa điền thì ô giá gợi ý để trống (câu 6). |
+| Sổ thu hộ đang dùng thật: ~114 ghi nhận (≈115 tr), ~75% là CK | Migration chặng 2 bù TM/CK cho mọi dòng cũ; test đếm đủ 114. Ô mã GD quan trọng vì CK chiếm đa số. |
+| Vai `PARTNER`: 0 thao tác 30 ngày | **Câu D:** tắt tài khoản PARTNER được ngay (việc dữ liệu ở màn Nhân sự). |
+| Nhân viên nội bộ (CSKH, điều dưỡng, lễ tân) vẫn dùng bàn cũ: ghi thu hằng ngày (lần cuối 04/11); nhận mẫu / trả kết quả **dừng từ 26/10** | Lệnh của `doi_tac.py` **chưa tắt được**. PR 4.4 đổi thành: tắt sau khi nhân viên đã chuyển sang bàn mới (sau chặng 3 lên prod) và đo lại 0 thao tác 14 ngày. |
+| Cờ `XAC_NHAN_TEP_DOI_TAC` **tắt** trên prod từ 23/09: tệp đối tác không qua `CHO_XAC_NHAN` | Bật cho luồng mới **cùng lúc** với nút "Đúng người, gửi" (PR 3.4) — bật trước khi có nút thì CSKH bị kẹt. Ghi trong kịch bản chặng 3. |
+| 420 việc đối tác cũ chưa đóng (266 "đã lấy mẫu", 153 "có kết quả", ~1/4 có ghi nhận thu) | `xet_nghiem_viec` **chỉ tạo cho chỉ định từ ngày chặng 1 lên prod**. Việc cũ ở lại bàn cũ tới khi đóng. Không bù, không đoán đối tác/mốc. Dọn 420 việc tồn: việc riêng, Tuyền quyết sau. |
+| Người thua khi ghi thu cùng lúc nhận 409 chỉ nhờ `FOR UPDATE OF o` | Chặng 2: `thu_ho.py` tự bắt lỗi unique → 409 câu tiếng Việt, test cả khi bỏ khoá dòng. |
+
+**Việc mang sang PR 1.2** (NÊN SỬA của agent soát #598): test tranh chấp huỷ task của người
+ghi thứ hai khi test đỏ giữa chừng; chú thích nói rõ người thứ hai bị chặn bởi khoá
+`KEY SHARE` do khoá ngoại.
+
+**Ngoài vùng, chỉ ghi sổ:** dòng thời gian màn xem lại lượt chỉ đọc `event_log`, không hiện
+`visit.routed`, `medicine.counter_changed` (nằm ở `domain_event`) — ghi vào `docs/DANG-LAM.md`, không sửa trong việc này.
+
 ## 6. Bốn chặng — mỗi PR nhỏ (≤ ~400 dòng ngoài test/migration), mỗi chặng lên prod riêng
 
 Dải giờ migration riêng cho việc này: **`2026110520xxxx`–`2026110529xxxx`**.
