@@ -121,11 +121,28 @@ async def test_kich_ban_3_den_9_o_tang_service(
     kq2 = await _lam(pool, mau.lay_mau, ca, order_ids=[o1, o2])
     assert kq2["ma_mau"] != kq["ma_mau"]
     # 8. Tải tay ⇒ Có kết quả; tệp đi đường đối tác (đã xác nhận cùng bước).
+    # Dấu "việc bàn đối tác cũ" như dữ liệu thật (consumer cũ vẫn ghi doi_tac_nhan_viec
+    # cho chỉ định mới) — đường cũ coi đó là việc bàn cũ và không đặt mốc có kết quả.
+    # Gắn theo ĐÚNG chỉ định này, không đổi node_definition dùng chung (CI 6 luồng
+    # cùng DB: đổi nút chung làm test khác đỏ giữa chừng).
+    await pool.execute(
+        "INSERT INTO doi_tac_nhan_viec (clinic_id, service_order_id, ly_do)"
+        " SELECT clinic_id, id, 'DA_LAY_MAU' FROM service_order WHERE id = $1::uuid",
+        o1,
+    )
     await ket_qua.tai_tay(
         pool, ca.bac_si, o1, hom_nay_vn(), data=PDF_DUMMY, ten="kq.pdf"
     )
     v1 = await _tt(pool, ca, o1)
     assert v1["trang_thai"]["ma"] == "CO_KET_QUA" and v1["nut"]["gui"]
+    # Bàn khám / mọi màn đọc `service_order.ket_qua_luc`: việc bàn MỚI có tờ ⇒ có mốc
+    # (Tuyền 05/11: staging bàn khám vẫn "Đang làm · 0 kết quả" dù bàn XN đã có KQ).
+    assert await pool.fetchval(
+        "SELECT ket_qua_luc IS NOT NULL FROM service_order WHERE id = $1::uuid", o1
+    )
+    assert not await pool.fetchval(
+        "SELECT ket_qua_luc IS NOT NULL FROM service_order WHERE id = $1::uuid", o2
+    )
     # Hộp xem (Lightbox) cần loại + mime để vẽ PDF/ảnh tại chỗ.
     assert v1["loai_tep"] == "PDF" and v1["mime_tep"] == "application/pdf"
     assert (
