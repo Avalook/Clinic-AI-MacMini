@@ -15,6 +15,7 @@ import pytest
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.core.clock import hom_nay_vn
 from clinicai.services.xet_nghiem import ket_qua, mau, qua_trinh, thu_ho
+from clinicai.services.xet_nghiem.ban import doc_viec
 from clinicai.services.xet_nghiem.ma_mau import tao_ma
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -212,8 +213,14 @@ async def test_cho_qua_roi_go_cho_qua(pool: asyncpg.Pool) -> None:  # noqa: F811
     await _lam(pool, mau.cho_qua, ca, order_id=o1, ly_do="khách quen, trả sau")
     v = await _tt(pool, ca, o1)
     assert v["nut"]["lay_mau"] and v["nut"]["go_cho_qua"]
-    # Soát chặng 3: màn phải có lối gỡ (không khoá cứng) — hoàn tác bước trước.
-    assert v["nut"]["hoan_tac"]["lenh"] == "go_cho_qua"
+    # Soát chặng 3: màn phải có lối gỡ (không khoá cứng) — hoàn tác bước trước. Lệnh
+    # gỡ chỉ quản lý gọi được (router `_QL`) ⇒ chỉ QUẢN LÝ thấy nút; nhân viên không.
+    assert v["nut"]["hoan_tac"] is None
+    async with pool.acquire() as conn:
+        ql = await doc_viec(
+            conn, CLINIC, hom_nay=hom_nay_vn(), order_ids=[o1], quan_ly=True
+        )
+    assert ql[0]["nut"]["hoan_tac"]["lenh"] == "go_cho_qua"
     await _lam(pool, mau.go_cho_qua, ca, order_id=o1, ly_do="cho qua nhầm")
     v = await _tt(pool, ca, o1)
     assert v["trang_thai"]["ma"] == "CHO_THU"
@@ -284,6 +291,9 @@ async def test_hanh_trinh_va_qua_trinh_doc_tu_su_viec(
     async with pool.acquire() as conn:
         ds = await qua_trinh.doc(conn, CLINIC, o1)
         rac = await qua_trinh.doc(conn, CLINIC, "khong-phai-uuid")
+        # Phòng khám khác hỏi đúng mã việc này ⇒ rỗng (mọi nhánh lọc clinic_id).
+        la = await qua_trinh.doc(conn, "00000000-0000-0000-0000-0000000000ff", o1)
+    assert la == []
     viec = [d["viec"] for d in ds]
     assert viec[0] == "Chỉ định xét nghiệm"
     assert any(x.startswith("Thu hộ 300.000đ") for x in viec)

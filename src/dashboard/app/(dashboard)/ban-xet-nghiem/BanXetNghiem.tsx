@@ -90,7 +90,13 @@ export default function BanXetNghiem() {
   );
   const dang = dsKhach.find((k) => k.khoa === chon) ?? dsKhach[0] ?? null;
   const viecDang = dang ? viecCua(dang).filter((v) => !loc || v.trang_thai.ma === loc) : [];
-  const layDuoc = viecDang.filter((v) => v.nut.lay_mau);
+  // Chung một ống chỉ trong CÙNG đối tác (máy chủ cũng chặn bằng khoá ngoại) — chia nhóm
+  // để không cho tick lẫn, khỏi nhận 409. Chỉ hiện nhóm có từ hai việc lấy được.
+  const nhomOng = [
+    ...viecDang
+      .filter((v) => v.nut.lay_mau)
+      .reduce((m, v) => m.set(v.doi_tac_id, [...(m.get(v.doi_tac_id) ?? []), v]), new Map<string, Viec[]>()),
+  ].filter(([, ds]) => ds.length > 1);
   const timRa = tim.trim()
     ? (ban?.khach ?? [])
         .filter((k) => viecCua(k).length && khopTimKhach(tim, { ten: k.ten, ma: [k.ma_bn, ...viecCua(k).map((v) => v.ma_mau)].filter(Boolean).join(" "), so: [] }))
@@ -260,19 +266,17 @@ export default function BanXetNghiem() {
                           <span className="font-semibold text-ink">{v.ten_dich_vu}</span>{" "}
                           <span className="text-ink-muted">· {v.ten_doi_tac}</span>
                         </p>
-                        <Chip tone={v.trang_thai.qua_hen ? "warning" : v.trang_thai.mau}>
-                          {v.trang_thai.qua_hen ? "Quá hạn trả KQ" : v.trang_thai.nhan}
-                        </Chip>
+                        <Chip tone={v.trang_thai.chip_mau}>{v.trang_thai.chip_nhan}</Chip>
                       </div>
                       <div className="overflow-x-auto">
                         <Stepper steps={v.hanh_trinh.map((m) => ({ label: m.ten, state: m.trang_thai, detail: m.luc ? gioNgay(m.luc) : undefined }))} />
                       </div>
                     </div>
                   ))}
-                  {layDuoc.length > 1 ? (
-                    <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                      <span className="text-meta text-ink-soft">Một ống cho nhiều xét nghiệm (cùng đối tác):</span>
-                      {layDuoc.map((v) => (
+                  {nhomOng.map(([dt, ds]) => (
+                    <div key={dt} className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                      <span className="text-meta text-ink-soft">Một ống cho nhiều xét nghiệm của {ds[0].ten_doi_tac}:</span>
+                      {ds.map((v) => (
                         <label key={v.order_id} className="flex items-center gap-1 text-meta text-ink-soft">
                           <input
                             type="checkbox"
@@ -282,11 +286,16 @@ export default function BanXetNghiem() {
                           {v.ten_dich_vu}
                         </label>
                       ))}
-                      <Button type="button" variant="primary" disabled={gop.length < 2} onClick={() => void layMau(gop)}>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        disabled={ds.filter((v) => gop.includes(v.order_id)).length < 2}
+                        onClick={() => void layMau(ds.filter((v) => gop.includes(v.order_id)).map((v) => v.order_id))}
+                      >
                         Lấy mẫu chung một ống
                       </Button>
                     </div>
-                  ) : null}
+                  ))}
                 </div>
               ) : null}
               {mauMoi ? (
@@ -297,7 +306,7 @@ export default function BanXetNghiem() {
                 </div>
               ) : null}
               {viecDang.map((v) => (
-                <TheViec key={v.order_id} v={v} quanLy={!!ban?.quan_ly} onXong={(c) => void xong(c)} onLayMau={(ids) => void layMau(ids)} />
+                <TheViec key={v.order_id} v={v} onXong={(c) => void xong(c)} onLayMau={(ids) => void layMau(ids)} />
               ))}
             </div>
           </div>

@@ -124,6 +124,22 @@ class TrangThaiXN:
     con_ton: bool = True
     #: một câu cho người đọc: việc đang ở đâu, vì sao (bước "Tờ kết quả").
     vi_sao: str = ""
+    #: chip trên dòng khách / bảng: quá hẹn trả thắng chữ trạng thái (bản mẫu 05/11).
+    chip_nhan: str = ""
+    chip_mau: str = "neutral"
+    #: khoá màu chip "Quá hẹn N ngày" (VANG ⇒ warning, DO ⇒ danger); None = không hiện.
+    mau_qua_hen: str | None = None
+
+
+def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
+    """Một câu hỏi — một hàm: việc này đang ở đâu (kèm chữ/màu chip đã gộp)."""
+    tt = _tinh(sv)
+    return replace(
+        tt,
+        chip_nhan="Quá hạn trả KQ" if tt.qua_hen else tt.nhan,
+        chip_mau="warning" if tt.qua_hen else tt.mau,
+        mau_qua_hen={"DO": "danger", "VANG": "warning"}.get(tt.muc_qua_hen or ""),
+    )
 
 
 def _tao(ma: TrangThaiMa, sv: SuViecXN) -> TrangThaiXN:
@@ -144,8 +160,7 @@ def _cau_cho_ket_qua(sv: SuViecXN, tre: int) -> str:
     return "Đã lấy mẫu, chưa có tệp kết quả."
 
 
-def trang_thai_xet_nghiem(sv: SuViecXN) -> TrangThaiXN:
-    """Một câu hỏi — một hàm: việc này đang ở đâu."""
+def _tinh(sv: SuViecXN) -> TrangThaiXN:
     xong = _da_xong(sv)
     if xong is not None:
         return xong
@@ -226,11 +241,14 @@ def nut_cua(
     tep_moi_nhat_da_gui: bool,
     duoc_cho_qua: bool = False,
     da_go_cho_qua: bool = False,
+    quan_ly: bool = False,
 ) -> dict[str, object]:
     """Nút nào bấm được + "Hoàn tác bước trước" gọi ĐÚNG lệnh bù nào (kế hoạch 5).
 
     Một câu hỏi ("ai bấm được gì") — một hàm, cạnh hàm trạng thái; màn chỉ đọc cờ.
-    Mọi bước có lối bù (không khoá cứng): cho qua ⇒ gỡ cho qua (soát chặng 3)."""
+    Mọi bước có lối bù (không khoá cứng): cho qua ⇒ gỡ cho qua (soát chặng 3).
+    `quan_ly` (người XEM có quyền quản lý) chỉ đổi cờ HIỂN THỊ (`hien_cho_qua`, lệnh bù
+    "gỡ cho qua"); cờ lệnh dùng (`cho_qua`…) không theo vai — quyền gác ở router."""
     hoan_tac = {
         "DA_DONG": {"lenh": "mo_lai", "nhan": "Mở lại việc"},
         "DA_GUI": {"lenh": "thu_hoi", "nhan": "Thu hồi kết quả đã gửi"},
@@ -239,17 +257,21 @@ def nut_cua(
     }.get(tt.ma)
     if tt.ma == "CHO_LAY_MAU" and co_thu:
         hoan_tac = {"lenh": "huy_thu", "nhan": "Huỷ ghi nhận thu (ghi sai)"}
-    elif tt.ma == "CHO_LAY_MAU" and duoc_cho_qua:
+    elif tt.ma == "CHO_LAY_MAU" and duoc_cho_qua and quan_ly:
         hoan_tac = {"lenh": "go_cho_qua", "nhan": "Gỡ cho lấy mẫu trước (quản lý)"}
+    cho_qua = tt.ma == "CHO_THU" and not da_go_cho_qua
     return {
         "ghi_thu": not co_thu and tt.ma in ("CHO_THU", "CHO_LAY_MAU"),
         "huy_thu": co_thu and not co_mau,
         "hoan_tien": co_thu and con_hoan > 0,
         "con_hoan_duoc": max(con_hoan, 0),
         # Một việc một lần cho qua: đã gỡ thì không cho qua lại (trigger cũng chặn).
-        "cho_qua": tt.ma == "CHO_THU" and not da_go_cho_qua,
+        "cho_qua": cho_qua,
+        "hien_cho_qua": cho_qua and quan_ly,
         "go_cho_qua": duoc_cho_qua and not co_mau,
         "lay_mau": tt.co_the_lay_mau,
+        # Khối Lấy mẫu hiện (mờ hay sáng) khi việc còn tồn mà chưa có mẫu.
+        "hien_lay_mau": not co_mau and tt.con_ton,
         "huy_mau": co_mau and not co_tep,
         "tai_ket_qua": co_mau and tt.ma not in ("DA_HUY", "DA_DONG"),
         "gui": co_tep and not tep_moi_nhat_da_gui,

@@ -8,7 +8,7 @@ Mở cho mọi nhân sự nội bộ đăng nhập (mục 2.I, "mở full lego" 
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query, Request
@@ -28,6 +28,10 @@ _QUAN_LY = cua_quyen(QUYEN_QUAN_LY)
 P = "/xet-nghiem/ban"
 
 
+#: Khoá màu chip — khớp `ChipTone` của `components/ui/Chip.tsx`.
+MauChip = Literal["info", "neutral", "success", "brand", "warning", "danger"]
+
+
 class TrangThaiOut(BaseModel):
     ma: str
     nhan: str
@@ -39,15 +43,18 @@ class TrangThaiOut(BaseModel):
     da_hoan_tien: bool
     co_the_lay_mau: bool
     ly_do_khong_lay_mau: str | None
-    mau: str
+    mau: MauChip
     con_ton: bool
     vi_sao: str
+    chip_nhan: str
+    chip_mau: MauChip
+    mau_qua_hen: MauChip | None
 
 
 class MocOut(BaseModel):
     ten: str
     luc: datetime | None
-    trang_thai: str
+    trang_thai: Literal["done", "current", "upcoming"]
 
 
 class HoanTacOut(BaseModel):
@@ -61,8 +68,10 @@ class NutOut(BaseModel):
     hoan_tien: bool
     con_hoan_duoc: int
     cho_qua: bool
+    hien_cho_qua: bool
     go_cho_qua: bool
     lay_mau: bool
+    hien_lay_mau: bool
     huy_mau: bool
     tai_ket_qua: bool
     gui: bool
@@ -108,7 +117,7 @@ class KhachOut(BaseModel):
     ma_bn: str | None
     order_ids: list[str]
     nhan: str
-    mau: str
+    mau: MauChip
 
 
 class LocOut(BaseModel):

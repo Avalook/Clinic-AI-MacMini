@@ -19,6 +19,11 @@ export interface TrangThai {
   mau: ChipTone;
   con_ton: boolean;
   vi_sao: string;
+  /** Chip dòng khách / bảng: "Quá hạn trả KQ" thắng chữ trạng thái (máy chủ gộp). */
+  chip_nhan: string;
+  chip_mau: ChipTone;
+  /** Màu chip "Quá hẹn N ngày"; null = không hiện. */
+  mau_qua_hen: ChipTone | null;
 }
 
 export interface Nut {
@@ -27,8 +32,12 @@ export interface Nut {
   hoan_tien: boolean;
   con_hoan_duoc: number;
   cho_qua: boolean;
+  /** Hiện nút "Cho lấy mẫu trước" (máy chủ đã xét người xem là quản lý). */
+  hien_cho_qua: boolean;
   go_cho_qua: boolean;
   lay_mau: boolean;
+  /** Hiện khối Lấy mẫu (mờ hay sáng theo `lay_mau`). */
+  hien_lay_mau: boolean;
   huy_mau: boolean;
   tai_ket_qua: boolean;
   gui: boolean;

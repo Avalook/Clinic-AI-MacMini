@@ -81,8 +81,8 @@ def nhom_khach(viec: list[dict[str, Any]]) -> list[dict[str, Any]]:
             g["_dai_dien"] = v
     out = []
     for g in nhom.values():
+        # Chữ/màu chip đã gộp quá hẹn do hàm trạng thái tính — ở đây chỉ chép.
         tt = g.pop("_dai_dien")["trang_thai"]
-        g["nhan"] = "Quá hạn trả KQ" if tt["qua_hen"] else tt["nhan"]
-        g["mau"] = "warning" if tt["qua_hen"] else tt["mau"]
+        g["nhan"], g["mau"] = tt["chip_nhan"], tt["chip_mau"]
         out.append(g)
     return out

@@ -72,9 +72,7 @@ export function ConTon({ viec, loc, onMo }: { viec: Viec[]; loc: Loc[]; onMo: (v
               {v.ten_dich_vu} <span className="text-ink-muted">· {v.ten_doi_tac}</span>
             </td>
             <td className={TD}>
-              <Chip tone={v.trang_thai.qua_hen ? "warning" : v.trang_thai.mau}>
-                {v.trang_thai.qua_hen ? "Quá hạn trả KQ" : v.trang_thai.nhan}
-              </Chip>
+              <Chip tone={v.trang_thai.chip_mau}>{v.trang_thai.chip_nhan}</Chip>
             </td>
             <td className={`${TD} text-right tabular-nums`}>{v.so_ngay_cho ? `${v.so_ngay_cho} ngày` : "Hôm nay"}</td>
             <td className={TD}>{v.hen_tra_ngay ? ngayVN(v.hen_tra_ngay) : "—"}</td>
@@ -102,8 +100,7 @@ export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }
         dau={
           <tr>
             <th className={TH}>Tờ kết quả</th>
-            <th className={TH}>Nguồn</th>
-            <th className={TH}>Thời gian</th>
+            <th className={TH}>Tải lên lúc</th>
           </tr>
         }
       >
@@ -119,7 +116,6 @@ export function KetQua({ viec, onMo }: { viec: Viec[]; onMo: (v: Viec) => void }
                 {v.ma_mau ? ` · mã ống ${v.ma_mau}` : ""}
               </div>
             </td>
-            <td className={TD}>Tải lên từ hệ thống</td>
             <td className={TD}>{gioNgay(v.tep_luc)}</td>
           </tr>
         ))}

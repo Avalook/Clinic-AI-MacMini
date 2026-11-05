@@ -9,7 +9,11 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from clinicai.services.xet_nghiem.hanh_trinh import hanh_trinh, nhom_khach, so_ngay_cho
-from clinicai.services.xet_nghiem.trang_thai import SuViecXN, trang_thai_xet_nghiem
+from clinicai.services.xet_nghiem.trang_thai import (
+    SuViecXN,
+    nut_cua,
+    trang_thai_xet_nghiem,
+)
 
 H = date(2026, 11, 5)
 L = datetime(2026, 11, 5, 2, 0, tzinfo=UTC)
@@ -119,6 +123,58 @@ def test_vi_sao_moi_trang_thai_co_cau_va_qua_hen_noi_so_ngay() -> None:
     ):
         tt = trang_thai_xet_nghiem(s)
         assert tt.vi_sao.endswith("."), tt.ma
+
+
+def test_chip_gop_qua_hen_tinh_o_ham_trang_thai() -> None:
+    qua = trang_thai_xet_nghiem(
+        SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True, hen_tra=H - timedelta(days=2))
+    )
+    assert (qua.chip_nhan, qua.chip_mau, qua.mau_qua_hen) == (
+        "Quá hạn trả KQ",
+        "warning",
+        "danger",
+    )
+    mot = trang_thai_xet_nghiem(
+        SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True, hen_tra=H - timedelta(days=1))
+    )
+    assert mot.mau_qua_hen == "warning"
+    thuong = trang_thai_xet_nghiem(SuViecXN(hom_nay=H))
+    assert (thuong.chip_nhan, thuong.chip_mau, thuong.mau_qua_hen) == (
+        thuong.nhan,
+        thuong.mau,
+        None,
+    )
+
+
+def _nut(sv: SuViecXN, **k: Any) -> dict[str, object]:
+    base: dict[str, Any] = {
+        "co_thu": False,
+        "con_hoan": 0,
+        "co_mau": False,
+        "co_tep": False,
+        "tep_moi_nhat_da_gui": False,
+    }
+    return nut_cua(trang_thai_xet_nghiem(sv), **(base | k))
+
+
+def test_nut_cho_qua_chi_hien_cho_quan_ly_nhung_co_lenh_khong_doi() -> None:
+    nv, ql = _nut(SuViecXN(hom_nay=H)), _nut(SuViecXN(hom_nay=H), quan_ly=True)
+    assert nv["cho_qua"] is True and ql["cho_qua"] is True  # cờ lệnh: không theo vai
+    assert (nv["hien_cho_qua"], ql["hien_cho_qua"]) == (False, True)
+
+
+def test_go_cho_qua_khong_hien_hoan_tac_cho_nhan_vien() -> None:
+    sv = SuViecXN(hom_nay=H, duoc_cho_qua=True)
+    assert _nut(sv, duoc_cho_qua=True)["hoan_tac"] is None
+    ql = _nut(sv, duoc_cho_qua=True, quan_ly=True)["hoan_tac"]
+    assert isinstance(ql, dict) and ql["lenh"] == "go_cho_qua"
+
+
+def test_hien_lay_mau_khi_con_ton_chua_co_mau() -> None:
+    assert _nut(SuViecXN(hom_nay=H))["hien_lay_mau"] is True
+    co_mau = SuViecXN(hom_nay=H, ngay_thu=H, co_mau=True)
+    assert _nut(co_mau, co_mau=True)["hien_lay_mau"] is False
+    assert _nut(SuViecXN(hom_nay=H, da_huy_chi_dinh=True))["hien_lay_mau"] is False
 
 
 def test_con_ton_dung_ba_trang_thai_cuoi() -> None:

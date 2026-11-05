@@ -12,6 +12,11 @@ from uuid import UUID
 
 import asyncpg
 
+from clinicai.core.tran import canh_bao_neu_day
+
+#: Trần dòng quá trình một việc (thực tế < 20; chạm trần ⇒ cảnh báo, không cắt im lặng).
+TRAN = 200
+
 
 #: Tiền kiểu Việt "300.000đ" — dấu phẩy trong mẫu `to_char` là chữ cố định (không theo
 #: locale của DB như `G`), rồi đổi sang dấu chấm.
@@ -97,7 +102,7 @@ SELECT b.luc, b.viec, s.full_name AS ai
   LEFT JOIN staff s ON s.id = b.boi
  WHERE b.luc IS NOT NULL
  ORDER BY b.luc
- LIMIT 200
+ LIMIT {TRAN}
 """
 
 
@@ -110,4 +115,5 @@ async def doc(
     except ValueError:
         return []
     rows = await conn.fetch(_QUA_TRINH_SQL, cid, oid)
+    canh_bao_neu_day("xet_nghiem_qua_trinh", len(rows), TRAN, clinic_id=cid)
     return [{"luc": r["luc"], "viec": r["viec"], "ai": r["ai"]} for r in rows]

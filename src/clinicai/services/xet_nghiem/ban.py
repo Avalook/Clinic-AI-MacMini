@@ -109,7 +109,9 @@ def su_viec_cua(r: Any, hom_nay: date, nguong: int) -> SuViecXN:
     )
 
 
-def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
+def dong_ban(
+    r: Any, tt: TrangThaiXN, hom_nay: date, quan_ly: bool = False
+) -> dict[str, Any]:
     out = {
         k: r[k]
         for k in (
@@ -145,6 +147,7 @@ def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
         tep_moi_nhat_da_gui=bool(r["tep_moi_nhat_da_gui"]),
         duoc_cho_qua=bool(r["duoc_cho_qua"]),
         da_go_cho_qua=bool(r["da_go_cho_qua"]),
+        quan_ly=quan_ly,
     )
     return out
 
@@ -156,12 +159,16 @@ async def doc_viec(
     hom_nay: date,
     tu_ngay: date | None = None,
     order_ids: list[str] | None = None,
+    quan_ly: bool = False,
 ) -> list[dict[str, Any]]:
+    """`quan_ly`: người XEM có quyền quản lý — chỉ đổi cờ hiển thị (`nut_cua`)."""
     nguong = await doc_nguong(conn, cid)
     rows = await conn.fetch(_SU_VIEC_SQL, cid, tu_ngay or hom_nay, order_ids)
     canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_BAN, clinic_id=cid)
     return [
-        dong_ban(r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)), hom_nay)
+        dong_ban(
+            r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)), hom_nay, quan_ly
+        )
         for r in rows
     ]
 
