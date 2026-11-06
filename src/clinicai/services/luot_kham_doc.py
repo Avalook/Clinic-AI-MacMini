@@ -787,15 +787,6 @@ class BangLuotKham:
                 if rid and la_hom_nay and not tai_phong
                 else []
             )
-            sap_den = (
-                await ntp.sap_den(conn, cid, rid)
-                if rid and la_hom_nay and tai_phong
-                else []
-            )
-            # Ô chọn bác sĩ cạnh nút Nhận — chỉ khi phòng có ≥2 bác sĩ trực.
-            bac_si_phong = (
-                (await lua_chon_bac_si(conn, cid, [rid]))[str(rid)] if sap_den else []
-            )
             # Làn của người đang xem trong phòng này (phòng nhiều bác sĩ).
             lan_toi: dict[str, Any] = (
                 await lan_cua_toi_trong_phong(
@@ -1193,24 +1184,31 @@ class BangLuotKham:
             # Phòng trống cũng có ba số 0 (bản trước trả None → màn rơi về
             # tiêu đề kiểu cũ thiếu "sắp đến", bấm thử staging 07/10).
             dem_phong = (
-                (await ntp.dem_theo_phong(conn, cid, bat=tai_phong)).get(
+                (
+                    await ntp.dem_theo_phong(conn, cid, bat=tai_phong, room_id=str(rid))
+                ).get(
                     str(rid),
                     {"sap_den": 0 if tai_phong else None, "dang_cho": 0, "dang_lam": 0},
                 )
                 if rid and la_hom_nay
                 else None
             )
-            # MỖI KHÁCH MỘT Ô (07/10/2026): các chỉ định phòng làm được của khách
-            # trong hàng chờ phòng, kèm trạng thái — "Nhận thêm" ở ô khách.
-            chi_dinh_khach = (
-                await ntp.chi_dinh_cua_khach(
+            # Khối "Sắp đến" + MỖI KHÁCH MỘT Ô (07/10/2026: các chỉ định phòng làm
+            # được của khách trong hàng chờ, "Nhận thêm" ở ô khách) — một lần đọc
+            # chỉ định cho cả hai (03/11/2026; trước là hai lần mỗi lượt tải).
+            sap_den, chi_dinh_khach = (
+                await ntp.sap_den_va_o_khach(
                     conn,
                     cid,
                     str(rid),
                     [r["visit_id"] for r in rows if r["reason"] == "SERVICE"],
                 )
                 if rid and la_hom_nay and tai_phong
-                else {}
+                else ([], {})
+            )
+            # Ô chọn bác sĩ cạnh nút Nhận — chỉ khi phòng có ≥2 bác sĩ trực.
+            bac_si_phong = (
+                (await lua_chon_bac_si(conn, cid, [rid]))[str(rid)] if sap_den else []
             )
         now_rows = [
             {
