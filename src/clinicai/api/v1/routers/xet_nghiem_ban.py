@@ -182,9 +182,9 @@ async def doc_ban(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
-    """Việc chỉ định từ `tu_ngay` (mặc định 30 ngày qua; ngày rác ⇒ mặc định)."""
+    """Việc chỉ định từ `tu_ngay` — luật cửa sổ ở `ket_qua.cua_so_ban`."""
     hom_nay = hom_nay_vn()
-    tu = doc_ngay(tu_ngay) or date.fromordinal(hom_nay.toordinal() - 30)
+    tu = ket_qua.cua_so_ban(tu_ngay, hom_nay)
     return await ket_qua.ban(pool, identity, hom_nay, tu)
 
 

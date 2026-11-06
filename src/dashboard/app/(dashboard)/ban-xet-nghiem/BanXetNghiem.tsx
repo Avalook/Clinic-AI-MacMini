@@ -15,6 +15,7 @@ import ChipLoc from "@/components/ui/ChipLoc";
 import MenuChon from "@/components/ui/MenuChon";
 import OTimKhach from "@/components/ui/OTimKhach";
 import ThanhHanhTrinh from "@/components/ui/ThanhHanhTrinh";
+import ThanhNgay from "@/components/ui/ThanhNgay";
 import ThanhTab from "@/components/ui/ThanhTab";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import { khopTimKhach } from "@/lib/tim-khach-phong";
@@ -24,7 +25,7 @@ import CaiDat from "./CaiDat";
 import { useNgheBang } from "../dung-nghe-bang";
 import { ConTon, TienThuHo } from "./CacTab";
 import KetQuaKhach from "./KetQuaKhach";
-import { gioMoc, homNayVN, ngayNgan, ngayVN, type Ban, type Khach, type Viec } from "./kieu";
+import { gioMoc, homNayVN, ngayVN, type Ban, type Khach, type Viec } from "./kieu";
 import PopupKhach from "./PopupKhach";
 import TheViec from "./TheViec";
 
@@ -40,9 +41,10 @@ const BANG = [
 
 type Tab = "ngay" | "ton" | "kq" | "tien" | "cd";
 
-async function docBan(): Promise<Ban | null> {
+async function docBan(ngay: string): Promise<Ban | null> {
   try {
-    const r = await fetch("/api/xet-nghiem/ban", { cache: "no-store" });
+    // Máy chủ luôn trả ít nhất 30 ngày qua; ngày cũ hơn ⇒ mở rộng tới ngày đó.
+    const r = await fetch(`/api/xet-nghiem/ban?tu_ngay=${ngay}`, { cache: "no-store" });
     return r.ok ? ((await r.json()) as Ban) : null;
   } catch {
     return null;
@@ -64,19 +66,23 @@ export default function BanXetNghiem() {
   const [popup, setPopup] = useState<string | null>(null);
   const [moVua, setMoVua] = useState<string | null>(null);
 
+  // Ngày đang xem: mặc định hôm nay, chọn ở thanh ngày (giống phòng dịch vụ) — có cả
+  // ngày không có việc và ngày cũ hơn cửa sổ 30 ngày.
+  const homNay = homNayVN();
+  const ngayChon = ngay || homNay;
   const tai = useCallback(async () => {
-    const d = await docBan();
+    const d = await docBan(ngayChon);
     if (d) setBan(d);
-  }, []);
+  }, [ngayChon]);
   useEffect(() => {
     let huy = false;
-    void docBan().then((d) => {
+    void docBan(ngayChon).then((d) => {
       if (!huy && d) setBan(d);
     });
     return () => {
       huy = true;
     };
-  }, []);
+  }, [ngayChon]);
   useNgheBang(BANG, tai);
 
   const theoId = useMemo(() => new Map((ban?.viec ?? []).map((v) => [v.order_id, v])), [ban]);
@@ -84,11 +90,6 @@ export default function BanXetNghiem() {
   const cuaDt = (v: Viec) => !doiTac || v.doi_tac_id === doiTac;
   const viecCua = (k: Khach) => k.order_ids.map((id) => theoId.get(id)).filter((v): v is Viec => !!v && cuaDt(v));
 
-  const moiNgay = useMemo(() => [...new Set((ban?.khach ?? []).map((k) => k.ngay))].sort().reverse(), [ban]);
-  // Chip chỉ vẽ 7 ngày gần nhất, nhưng ngày đang chọn (mở từ Còn tồn / ô tìm — việc tồn
-  // cũ) luôn được giữ và có chip riêng: việc dở không được biến khỏi bàn (soát chặng 3).
-  const ngayChon = ngay && moiNgay.includes(ngay) ? ngay : (moiNgay.find((d) => d === homNayVN()) ?? moiNgay[0] ?? "");
-  const ngays = moiNgay.slice(0, 7).includes(ngayChon) || !ngayChon ? moiNgay.slice(0, 7) : [...moiNgay.slice(0, 7), ngayChon];
   const dsKhach = (ban?.khach ?? []).filter(
     (k) => k.ngay === ngayChon && viecCua(k).some((v) => !loc || v.trang_thai.ma === loc),
   );
@@ -220,6 +221,27 @@ export default function BanXetNghiem() {
           ) : null}
         </div>
         <ThanhTab nhan="Việc của đối tác" muc={tabs} chon={tab} onChon={setTab} />
+        {tab === "ngay" ? (
+          // Thanh ngày dùng chung (như phòng dịch vụ): Hôm nay · Hôm qua · Hôm kia, dải
+          // ngày, "Chọn ngày…" — xem được cả ngày cũ, kể cả ngày chưa có việc.
+          <ThanhNgay
+            motNgay
+            nhan="Xem việc theo ngày chỉ định"
+            // Màn rộng (≥1536): nằm cạnh tab; hẹp hơn: xuống dòng riêng, đủ rộng cho dải ngày.
+            className="min-w-0 basis-full 2xl:flex-1 2xl:basis-0"
+            khoang={{ tu: ngayChon, den: ngayChon }}
+            homNay={homNay}
+            soNgayTruoc={9}
+            soNgaySau={0}
+            dangTai={!ban}
+            onChon={(k) => {
+              setNgay(k?.den ?? homNay);
+              setChon(null);
+              setGop([]);
+              setMauMoi(null);
+            }}
+          />
+        ) : null}
       </div>
 
       {popup && popupDs.length ? (
@@ -242,17 +264,6 @@ export default function BanXetNghiem() {
 
       {tab === "ngay" ? (
         <div className="flex flex-col gap-3">
-          {ngays.length ? (
-            <ChipLoc
-              nhan="Ngày chỉ định"
-              chon={ngayChon}
-              onChon={(d) => {
-                setNgay(d);
-                setChon(null);
-              }}
-              muc={ngays.map((d) => ({ ma: d, nhan: d === homNayVN() ? "Hôm nay" : ngayNgan(d) }))}
-            />
-          ) : null}
           <ChipLoc
             nhan="Tình trạng"
             chon={loc}
