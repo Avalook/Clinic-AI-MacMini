@@ -232,14 +232,25 @@ async def thu_hoi(
 
 
 async def ban(
-    pool: asyncpg.Pool, identity: StaffIdentity, hom_nay: date, tu_ngay: date | None
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    hom_nay: date,
+    tu_ngay: date | None,
+    ngay_xem: date | None = None,
 ) -> dict[str, Any]:
     """Cả bàn: việc (xếp việc cần làm trước lên đầu), nhóm khách theo ngày chỉ định,
-    chip lọc, và cờ `quan_ly` (màn hiện tab Tiền thu hộ + Cài đặt)."""
+    chip lọc, và cờ `quan_ly` (màn hiện tab Tiền thu hộ + Cài đặt). `ngay_xem`: ngày
+    màn đang xem (có thể cũ hơn cửa sổ) — nạp thêm đúng ngày đó."""
     async with pool.acquire() as conn:
         quan_ly = bool(await can(conn, identity, QUYEN_QUAN_LY))
         viec = sap_xep(
-            await doc_viec(conn, identity.clinic_id, hom_nay=hom_nay, tu_ngay=tu_ngay)
+            await doc_viec(
+                conn,
+                identity.clinic_id,
+                hom_nay=hom_nay,
+                tu_ngay=tu_ngay,
+                ngay_xem=ngay_xem,
+            )
         )
         # Ô lọc đối tác: MỌI đối tác còn hoạt động (đối tác mới chưa có việc vẫn chọn
         # được) + đối tác đã ngưng mà còn việc trên bàn (việc dở không biến mất).
