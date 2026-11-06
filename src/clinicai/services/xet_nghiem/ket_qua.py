@@ -33,23 +33,13 @@ from clinicai.services.tep_ket_qua_service import KENH_GUI_HOP_LE, TepKetQuaServ
 from clinicai.services.xet_nghiem.ban import bo_loc, doc_viec, sap_xep
 from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
 from clinicai.services.xet_nghiem.hanh_trinh import nhom_khach
-from clinicai.services.xet_nghiem.mau import _mot_viec, doc_ngay
+from clinicai.services.xet_nghiem.mau import _mot_viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
 logger = structlog.get_logger()
 
 #: Trần ô lọc đối tác (phòng khám có vài đối tác; chạm trần ⇒ cảnh báo log).
 TRAN_DOI_TAC = 100
-#: Bàn luôn nạp ít nhất chừng này ngày qua (Còn tồn / Kết quả không hụt).
-CUA_SO_NGAY = 30
-
-
-def cua_so_ban(tu_ngay: object, hom_nay: date) -> date:
-    """Ngày đầu cửa sổ của bàn. `tu_ngay` (màn đang xem ngày nào) chỉ MỞ RỘNG về quá
-    khứ, không thu hẹp — xem ngày cũ không làm Còn tồn / Kết quả mất việc gần đây.
-    Rác / thiếu ⇒ mặc định 30 ngày qua (không ném)."""
-    mac_dinh = date.fromordinal(hom_nay.toordinal() - CUA_SO_NGAY)
-    return min(doc_ngay(tu_ngay) or mac_dinh, mac_dinh)
 
 
 async def _phat(
@@ -242,14 +232,25 @@ async def thu_hoi(
 
 
 async def ban(
-    pool: asyncpg.Pool, identity: StaffIdentity, hom_nay: date, tu_ngay: date | None
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    hom_nay: date,
+    tu_ngay: date | None,
+    ngay_xem: date | None = None,
 ) -> dict[str, Any]:
     """Cả bàn: việc (xếp việc cần làm trước lên đầu), nhóm khách theo ngày chỉ định,
-    chip lọc, và cờ `quan_ly` (màn hiện tab Tiền thu hộ + Cài đặt)."""
+    chip lọc, và cờ `quan_ly` (màn hiện tab Tiền thu hộ + Cài đặt). `ngay_xem`: ngày
+    màn đang xem (có thể cũ hơn cửa sổ) — nạp thêm đúng ngày đó."""
     async with pool.acquire() as conn:
         quan_ly = bool(await can(conn, identity, QUYEN_QUAN_LY))
         viec = sap_xep(
-            await doc_viec(conn, identity.clinic_id, hom_nay=hom_nay, tu_ngay=tu_ngay)
+            await doc_viec(
+                conn,
+                identity.clinic_id,
+                hom_nay=hom_nay,
+                tu_ngay=tu_ngay,
+                ngay_xem=ngay_xem,
+            )
         )
         # Ô lọc đối tác: MỌI đối tác còn hoạt động (đối tác mới chưa có việc vẫn chọn
         # được) + đối tác đã ngưng mà còn việc trên bàn (việc dở không biến mất).

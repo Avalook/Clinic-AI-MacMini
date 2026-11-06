@@ -343,3 +343,40 @@ async def test_o_loc_doi_tac_co_ca_doi_tac_chua_co_viec(
 @pytest.mark.parametrize("rac", [None, "", "abc", "2026-13-40", 12])
 def test_ngay_rac_tra_rong(rac: object) -> None:
     assert mau.doc_ngay(rac) is None
+
+
+async def test_ngay_xem_cu_hon_cua_so_van_du_viec(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 06/11: thanh ngày xem được ngày cũ. Việc ĐÃ XONG (huỷ) nằm ngoài cửa sổ
+    30 ngày ⇒ chỉ hiện khi màn đang xem đúng ngày đó, và hàng của ngày đó xếp TRƯỚC
+    trần 500 (mở rộng cửa sổ thì ngày cũ nhất — chính ngày xem — bị cắt trước).
+    Bản chụp `xet_nghiem_viec` không sửa được ngày ⇒ dời "hôm nay" 60 ngày tới."""
+    from datetime import timedelta
+
+    from clinicai.services.xet_nghiem.ban import doc_viec
+
+    ca, o_cu, o_moi = await _hai_viec(pool)
+    await pool.execute(
+        "UPDATE service_order SET exec_status = 'cancelled' WHERE id = $1::uuid", o_cu
+    )
+    ngay_viec = hom_nay_vn()
+    hom_nay = ngay_viec + timedelta(days=60)
+    tu = hom_nay - timedelta(days=30)
+
+    khong = await ket_qua.ban(pool, ca.bac_si, hom_nay, tu)
+    ids_khong = {v["order_id"] for v in khong["viec"]}
+    assert o_cu not in ids_khong  # đã xong + ngoài cửa sổ
+    assert o_moi in ids_khong  # việc dở luôn hiện
+
+    co = await ket_qua.ban(pool, ca.bac_si, hom_nay, tu, ngay_xem=ngay_viec)
+    assert {o_cu, o_moi} <= {v["order_id"] for v in co["viec"]}
+    assert any(k["ngay"] == ngay_viec for k in co["khach"])
+
+    async with pool.acquire() as conn:
+        tho = await doc_viec(
+            conn, ca.bac_si.clinic_id, hom_nay=hom_nay, tu_ngay=tu, ngay_xem=ngay_viec
+        )
+    # Thứ tự SQL (trước sap_xep): hàng của ngày đang xem đứng trước mọi hàng khác.
+    ngays = [v["ngay_chi_dinh"] == ngay_viec for v in tho]
+    assert ngays == sorted(ngays, reverse=True)
