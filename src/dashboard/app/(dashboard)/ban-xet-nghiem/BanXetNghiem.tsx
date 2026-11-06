@@ -77,11 +77,15 @@ export default function BanXetNghiem() {
   useEffect(() => {
     ngayRef.current = ngayChon;
   }, [ngayChon]);
+  // Ngày tải hỏng (mạng / 5xx): hiện câu lỗi + nút tải lại thay vì "Đang tải…" mãi.
+  const [loiNgay, setLoiNgay] = useState<string | null>(null);
   const nhan = useCallback((n: string, d: Ban | null) => {
-    if (d && ngayRef.current === n) {
+    if (ngayRef.current !== n) return;
+    if (d) {
       setBan(d);
       setBanNgay(n);
-    }
+      setLoiNgay(null);
+    } else setLoiNgay(n);
   }, []);
   const tai = useCallback(async () => {
     const n = ngayRef.current;
@@ -90,7 +94,8 @@ export default function BanXetNghiem() {
   useEffect(() => {
     void docBan(ngayChon).then((d) => nhan(ngayChon, d));
   }, [ngayChon, nhan]);
-  const dangTaiNgay = banNgay !== ngayChon;
+  const hongNgay = loiNgay === ngayChon;
+  const dangTaiNgay = banNgay !== ngayChon && !hongNgay;
   useNgheBang(BANG, tai);
 
   const theoId = useMemo(() => new Map((ban?.viec ?? []).map((v) => [v.order_id, v])), [ban]);
@@ -280,8 +285,17 @@ export default function BanXetNghiem() {
           />
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
             <div className="flex flex-col gap-1">
-              {!ban || dangTaiNgay ? <p className="px-4 py-3 text-body text-ink-muted">Đang tải…</p> : null}
-              {ban && !dangTaiNgay && !dsKhach.length ? (
+              {hongNgay ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-card border border-line bg-surface px-4 py-3 text-body text-ink-muted">
+                  Không tải được việc của ngày này.
+                  <Button size="sm" variant="secondary" onClick={() => void tai()}>
+                    Tải lại
+                  </Button>
+                </div>
+              ) : !ban || dangTaiNgay ? (
+                <p className="px-4 py-3 text-body text-ink-muted">Đang tải…</p>
+              ) : null}
+              {ban && !dangTaiNgay && !hongNgay && !dsKhach.length ? (
                 <p className="rounded-card border border-line bg-surface px-4 py-3 text-body text-ink-muted">
                   Không có khách nào trong ngày này{ban.viec.length ? "" : " (dịch vụ phải được gán đối tác ở Cài đặt)"}.
                 </p>
