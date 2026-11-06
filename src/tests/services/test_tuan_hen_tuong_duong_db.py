@@ -43,6 +43,41 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
+#: THÂN `lich_vuot_suc_chua()` bản 20260915000014, nguyên văn — thước đo cho bản
+#: gom sức chứa theo (bác sĩ, ngày) ở 20261103610000. KHÔNG sửa.
+_VUOT_CU = """
+    WITH lich AS (
+        SELECT a.clinic_id, a.id, a.clinic_patient_id, a.doctor_id, a.slot_start,
+               a.created_at, a.location_id, p.slot_minutes, p.regular_cap,
+               rw.applied_at
+          FROM public.appointment a
+          JOIN public.roster_week rw
+            ON rw.clinic_id = a.clinic_id
+           AND rw.week_start = date_trunc(
+                   'week', (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)::date
+          CROSS JOIN LATERAL public.resolve_effective_cap(
+                  a.clinic_id, a.doctor_id, a.slot_start) AS p
+         WHERE a.doctor_id IS NOT NULL
+           AND upper(coalesce(a.booking_channel, '')) <> 'WALK_IN'
+           AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                'CHECKED_IN', 'COMPLETED')
+           AND a.slot_start > now()
+    ),
+    xep AS (
+        SELECT l.*,
+               row_number() OVER (
+                   PARTITION BY l.clinic_id, l.location_id, l.doctor_id,
+                       floor(extract(epoch FROM l.slot_start) / (l.slot_minutes * 60))
+                   ORDER BY l.created_at, l.id
+               )::integer AS thu_tu
+          FROM lich l
+    )
+    SELECT x.clinic_id, x.id, x.clinic_patient_id, x.doctor_id, x.slot_start,
+           x.regular_cap, x.thu_tu, x.applied_at
+      FROM xep x
+     WHERE x.thu_tu > x.regular_cap
+"""
+
 #: BẢN CŨ, nguyên văn (trước 14/10/2026), đã thay `%d` = 500 — thước đo, KHÔNG sửa.
 _TUAN_SQL_CU = """WITH tuan AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id,
@@ -369,6 +404,14 @@ async def test_tuan_tuong_duong_du_lieu_ngau_nhien(pool: asyncpg.Pool) -> None: 
     assert so_dong >= 100 and tai_kham > 0 and lan_dau > 0, (so_dong, tai_kham, lan_dau)
     assert co_vuot > 0, "không có lịch vượt sức chứa — kịch bản quá nhạt"
     assert co_luot > 0, "không có lịch đã check-in có lượt"
+    # Hàm vượt sức chứa bản mới = bản cũ, từng dòng (cùng một giao dịch → cùng
+    # now()); `thu_tu` nằm trong dòng nên thứ tự xếp hàng cũng phải khớp.
+    khoa = "ORDER BY 1, 2"
+    async with pool.acquire() as conn, conn.transaction():
+        cu = await conn.fetch(f"SELECT * FROM ({_VUOT_CU}) x {khoa}")
+        moi = await conn.fetch(f"SELECT * FROM public.lich_vuot_suc_chua() {khoa}")
+    assert len(cu) > 0, "không có dòng vượt sức chứa để so"
+    assert [tuple(r) for r in moi] == [tuple(r) for r in cu]
 
 
 async def test_tuan_trong_tra_ve_rong(pool: asyncpg.Pool) -> None:  # noqa: F811
