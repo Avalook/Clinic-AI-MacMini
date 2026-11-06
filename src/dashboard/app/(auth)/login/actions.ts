@@ -47,7 +47,7 @@ export async function loginStaff(
 
   const identity = resolveLinkedStaffAuthority(data.user.id, staff);
   if (!identity) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return { error: "Tài khoản chưa gắn với nhân viên. Liên hệ quản lý." };
   }
 
@@ -58,7 +58,7 @@ export async function loginStaff(
     .eq("is_active", true);
   const membership = resolveSingleActiveMembership(memberships ?? []);
   if (membershipError || !membership) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return {
       error:
         "Tài khoản phải có đúng một phòng khám đang hoạt động. Liên hệ quản lý.",
@@ -67,7 +67,7 @@ export async function loginStaff(
 
   const role = departmentToRole(membership.role);
   if (!role) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return { error: "Vai trò nhân viên không hợp lệ. Liên hệ quản lý." };
   }
   const opts = {
@@ -94,7 +94,11 @@ export async function loginStaff(
 // chung; cổng đã bỏ (05/08/2026) nên nó về ở cạnh đường đăng nhập duy nhất.
 export async function logout(): Promise<void> {
   const supabase = await getSupabaseServer();
-  await supabase.auth.signOut();
+  // `scope: "local"` — chỉ thu hồi phiên CỦA MÁY NÀY. `signOut()` không tham số là
+  // "global" (auth-js ≥2): một người bấm Đăng xuất thì mọi máy khác dùng chung
+  // tài khoản bị đá ra (log GoTrue 14–17/10: 113 đăng xuất, 96 refresh_token_not_found).
+  // Cùng lý do cho 3 lần signOut sau đăng nhập hỏng ở trên.
+  await supabase.auth.signOut({ scope: "local" });
   // Xoá cả hai cookie: người sau ngồi vào máy phải đăng nhập lại từ đầu, chứ
   // không thừa hưởng vai của người trước.
   const c = await cookies();
