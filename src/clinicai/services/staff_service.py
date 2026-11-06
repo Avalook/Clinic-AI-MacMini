@@ -390,7 +390,7 @@ class StaffService:
                    coalesce(status, 'APPROVED') AS status
             FROM public.work_roster
             WHERE clinic_id = $1 AND staff_id = $2
-              AND work_date >= CURRENT_DATE
+              AND work_date >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
             ORDER BY work_date, shift;
         """
         async with self._pool.acquire() as conn:
@@ -437,7 +437,7 @@ class StaffService:
                         SELECT id, work_date, shift, station, staff_id
                         FROM public.work_roster
                         WHERE clinic_id = $1 AND staff_id = $2
-                          AND work_date >= CURRENT_DATE
+                          AND work_date >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                         """,
                         self._clinic_id,
                         staff_id,
