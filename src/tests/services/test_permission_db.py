@@ -395,6 +395,22 @@ async def test_nhom_dung_san_thi_tat_chu_khong_xoa_mat_dau(
     assert con is False
 
 
+async def test_nhom_dung_san_da_tat_thi_khong_them_nhanh_duoc(
+    pool: asyncpg.Pool, quan_ly: StaffIdentity
+) -> None:
+    """Tắt nhóm rồi mà 'thêm nhanh' vẫn cấp được (lùi về hằng PRESET trong code) là
+    nút Tắt vô nghĩa — bản đồ code bắt 21/10/2026. Chỉ lùi về hằng số khi phòng
+    khám CHƯA có dòng nhóm nào trong dữ liệu."""
+    svc = PermissionService(pool)
+    await svc.xoa_nhom(ma="CASHIER_THUOC", identity=quan_ly)
+    async with pool.acquire() as conn:
+        ai_do = await _nguoi(conn, "NURSE_ULTRASOUND")
+    with pytest.raises(ValidationError, match="đã tắt"):
+        await svc.them_preset(
+            staff_id=ai_do.staff_id, vai="CASHIER_THUOC", identity=quan_ly
+        )
+
+
 async def test_nhom_tu_dat_thi_xoa_han(
     pool: asyncpg.Pool, quan_ly: StaffIdentity
 ) -> None:

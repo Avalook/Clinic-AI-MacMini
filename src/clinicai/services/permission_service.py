@@ -588,16 +588,24 @@ class PermissionService:
         return {"ok": True, "ma": ma, "da_xoa": True}
 
     async def _khoi_cua_nhom(self, ma: str, identity: StaffIdentity) -> list[str]:
-        """Khối trong một nhóm mẫu — dữ liệu trước, hằng số là lưới an toàn."""
+        """Khối trong một nhóm mẫu — dữ liệu trước, hằng số là lưới an toàn.
+
+        Hằng `PRESET` chỉ dùng khi phòng khám CHƯA có dòng nhóm này trong dữ liệu.
+        Có dòng mà đã tắt (`xoa_nhom` nhóm dựng sẵn) thì từ chối — lùi về hằng số
+        lúc ấy làm nút Tắt vô nghĩa."""
         async with self._pool.acquire() as conn:
-            khoi = await conn.fetchval(
-                "SELECT khoi FROM quyen_preset"
-                " WHERE clinic_id = $1::uuid AND ma = $2 AND active",
+            dong = await conn.fetchrow(
+                "SELECT khoi, active FROM quyen_preset"
+                " WHERE clinic_id = $1::uuid AND ma = $2",
                 identity.clinic_id,
                 ma.upper(),
             )
-        if khoi is not None:
-            return list(khoi)
+        if dong is not None:
+            if not dong["active"]:
+                raise ValidationError(
+                    f"Nhóm quyền mẫu “{ma}” đã tắt — không thêm nhanh theo nhóm này."
+                )
+            return list(dong["khoi"])
         if ma in PRESET:
             return list(PRESET[ma])
         raise ValidationError(f"Không có nhóm quyền mẫu “{ma}”.")
