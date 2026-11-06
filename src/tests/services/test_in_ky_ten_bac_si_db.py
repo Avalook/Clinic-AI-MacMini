@@ -178,6 +178,13 @@ async def test_thu_ky_chi_dinh_thi_bs_chi_dinh_la_bac_si(kb: KichBan) -> None:
             kb.bac_si.staff_id,
         )
         bs = await bac_si_chi_dinh_hien_thi(conn, CLINIC, order_id)
+        # Quầy chỉ hỏi chỉ định ĐÃ DUYỆT (nháp không phải chỉ định — câu quầy
+        # lọc sớm từ 03/11/2026): thư ký chỉ định thật là chỉ định đã duyệt.
+        await conn.execute(
+            "UPDATE service_order SET exec_status = 'authorized',"
+            " authorized_at = now() WHERE id = $1::uuid",
+            order_id,
+        )
         quay = [
             r
             for r in await conn.fetch(_CHO_QUYET_SQL, CLINIC, [vid])
