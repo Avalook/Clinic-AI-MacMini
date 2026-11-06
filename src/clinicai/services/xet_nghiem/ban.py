@@ -34,8 +34,10 @@ from clinicai.services.xet_nghiem.trang_thai import (
 
 TRAN_BAN = 500
 
-#: $1 clinic · $2 từ ngày chỉ định (giờ VN) · $3 danh sách việc (NULL = mọi việc).
-_SU_VIEC_SQL = """
+#: $1 clinic · $2 từ ngày chỉ định (giờ VN) · $3 danh sách việc (NULL = mọi việc) ·
+#: $4 ngày màn đang xem (NULL = không) — nạp THÊM đúng ngày đó, xếp lên trước trần
+#: để ngày cũ không bị LIMIT cắt (mở rộng cửa sổ thì ngày cũ nhất bị cắt trước).
+_SU_VIEC_SQL = f"""
 SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
        o.service_name AS ten_dich_vu, (o.exec_status = 'cancelled') AS da_huy,
        x.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
@@ -98,10 +100,13 @@ SELECT x.service_order_id::text AS order_id, o.visit_id::text AS visit_id,
    -- luôn hiện dù cũ bao lâu — việc tồn không được biến mất khỏi bàn (soát chặng 3).
    AND ($3::uuid[] IS NOT NULL
         OR (x.tao_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= $2
+        OR (x.tao_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $4::date
         OR (o.exec_status <> 'cancelled' AND dg.id IS NULL
             AND NOT coalesce(tep.gui_luc IS NOT NULL, false)))
- ORDER BY x.tao_luc DESC
- LIMIT 500
+ ORDER BY ((x.tao_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $4::date)
+          DESC NULLS LAST,
+          x.tao_luc DESC
+ LIMIT {TRAN_BAN}
 """
 
 
@@ -189,9 +194,10 @@ async def doc_viec(
     hom_nay: date,
     tu_ngay: date | None = None,
     order_ids: list[str] | None = None,
+    ngay_xem: date | None = None,
 ) -> list[dict[str, Any]]:
     nguong = await doc_nguong(conn, cid)
-    rows = await conn.fetch(_SU_VIEC_SQL, cid, tu_ngay or hom_nay, order_ids)
+    rows = await conn.fetch(_SU_VIEC_SQL, cid, tu_ngay or hom_nay, order_ids, ngay_xem)
     canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_BAN, clinic_id=cid)
     ds = [
         dong_ban(r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)), hom_nay)

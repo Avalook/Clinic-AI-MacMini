@@ -179,13 +179,15 @@ class OkOut(BaseModel):
 @router.get(P, response_model=BanOut)
 async def doc_ban(
     tu_ngay: str | None = Query(default=None, max_length=10),
+    ngay: str | None = Query(default=None, max_length=10),
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
-    """Việc chỉ định từ `tu_ngay` (mặc định 30 ngày qua; ngày rác ⇒ mặc định)."""
+    """Việc chỉ định từ `tu_ngay` (mặc định 30 ngày qua; ngày rác ⇒ mặc định), cộng
+    đúng ngày `ngay` màn đang xem (ngày cũ hơn cửa sổ vẫn đủ việc; rác ⇒ bỏ qua)."""
     hom_nay = hom_nay_vn()
     tu = doc_ngay(tu_ngay) or date.fromordinal(hom_nay.toordinal() - 30)
-    return await ket_qua.ban(pool, identity, hom_nay, tu)
+    return await ket_qua.ban(pool, identity, hom_nay, tu, ngay_xem=doc_ngay(ngay))
 
 
 @router.get(f"{P}/qua-trinh", response_model=QuaTrinhOut)
