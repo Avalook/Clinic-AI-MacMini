@@ -21,7 +21,10 @@ import pytest
 
 from clinicai.core.exceptions import ClinicAIBaseException
 from clinicai.services.bill_service import tinh_hoa_don
-from clinicai.services.hoan_tac_service import HoanTacService
+from clinicai.services.hoan_tac_service import (
+    HoanTacService,
+    tien_da_thu_cua_chi_dinh,
+)
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.phi_kham_service import PhiKhamService
 from clinicai.services.tien_thua_service import _DONG_THUA_SQL, dong_tien_thua
@@ -106,6 +109,75 @@ SELECT d.*, coalesce(o.visit_id::text, d.line_visit_id) AS visit_id,
 """
 
 
+#: `tien_da_thu_cua_chi_dinh` BẢN CŨ, nguyên văn (trước 03/11/2026) — thước đo
+#: cho bản đi từ chỉ định theo chỉ mục. KHÔNG sửa.
+_TIEN_DA_THU_SQL_CU = """
+        WITH dong AS (
+            SELECT o.id::text AS order_id, bl.id AS line_id, bl.line_total,
+                   c.status
+              FROM service_order o
+              JOIN payment_bill_line bl
+                ON bl.clinic_id = o.clinic_id
+               AND bl.billing_owner = 'CLINIC'
+               AND ((bl.source_type = 'service_order' AND bl.source_id = o.id::text)
+                    OR (bl.source_type = 'phu_thu' AND bl.source_id IN (
+                        SELECT p.id::text FROM luot_phu_thu p
+                         WHERE p.clinic_id = o.clinic_id
+                           AND p.service_order_id = o.id)))
+              JOIN payment_cycle c
+                ON c.clinic_id = bl.clinic_id
+               AND c.payment_cycle_id = bl.payment_cycle_id
+             WHERE o.clinic_id = $1::uuid AND o.id::text = ANY($2::text[])
+               AND c.status IN ('PAID', 'PENDING_VERIFICATION')
+               AND NOT (bl.source_type = 'service_order'
+                        AND o.id::text = ANY($3::text[]))
+        )
+        SELECT d.order_id,
+               coalesce(sum(d.line_total) FILTER (WHERE d.status = 'PAID'), 0)
+                   AS da_thu,
+               coalesce(sum(d.line_total)
+                        FILTER (WHERE d.status = 'PENDING_VERIFICATION'), 0)
+                   AS cho_xac_minh,
+               coalesce(sum((
+                   SELECT sum(rl.amount)
+                     FROM payment_refund_line rl
+                     JOIN payment_refund r
+                       ON r.refund_id = rl.refund_id AND r.clinic_id = rl.clinic_id
+                    WHERE rl.clinic_id = $1::uuid
+                      AND rl.payment_bill_line_id = d.line_id
+                      AND r.status IN ('PENDING', 'COMPLETED'))), 0) AS da_hoan
+          FROM dong d
+         GROUP BY d.order_id
+"""
+
+
+async def _so_sanh_tien(conn: asyncpg.Connection, visit_ids: list[str]) -> int:
+    """`tien_da_thu_cua_chi_dinh` = bản cũ cho mọi chỉ định của các lượt (kèm
+    rác, kèm "chỉ món kèm" một nửa số chỉ định). Trả số chỉ định có tiền."""
+    oids = [
+        str(r[0])
+        for r in await conn.fetch(
+            "SELECT id FROM service_order WHERE visit_id = ANY($1::uuid[]) ORDER BY id",
+            visit_ids,
+        )
+    ]
+    rac = ["", "abc", *(o.upper() for o in oids[:1]), str(uuid.uuid4())]
+    co_tien = 0
+    for kem in ([], oids[::2]):
+        cu = {
+            r["order_id"]: {
+                "da_thu": int(r["da_thu"]),
+                "da_hoan": int(r["da_hoan"]),
+                "cho_xac_minh": int(r["cho_xac_minh"]),
+            }
+            for r in await conn.fetch(_TIEN_DA_THU_SQL_CU, CLINIC, oids + rac, kem)
+        }
+        moi = await tien_da_thu_cua_chi_dinh(conn, CLINIC, oids + rac, chi_mon_kem=kem)
+        assert moi == cu, f"tiền đã thu khác với {visit_ids}:\ncũ={cu}\nmới={moi}"
+        co_tien += len(cu)
+    return co_tien
+
+
 async def _cu(conn: asyncpg.Connection, ids: list[str]) -> list[dict[str, Any]]:
     return [dict(r) for r in await conn.fetch(_DONG_THUA_SQL_CU, CLINIC, ids)]
 
@@ -166,9 +238,13 @@ async def test_tuong_duong_bam_ngau_nhien(pool: asyncpg.Pool) -> None:  # noqa: 
         await _so_sanh(conn, [*rac, *visits[:5]])
         assert await dong_tien_thua(conn, CLINIC, []) == {}
         assert await dong_tien_thua(conn, CLINIC, rac) == {}
+        # Tiền đã thu theo chỉ định (03/11/2026) — trên cùng các lượt ấy.
+        co_tien = await _so_sanh_tien(conn, visits)
+        assert await tien_da_thu_cua_chi_dinh(conn, CLINIC, []) == {}
     # Bài không rỗng: có đủ ca CÓ tiền thừa để phép so sánh có nghĩa.
     assert so_lan >= 300
     assert so_dong >= 30, f"chỉ {so_dong} dòng tiền thừa — kịch bản quá nhạt"
+    assert co_tien >= 30, f"chỉ {co_tien} chỉ định có tiền — kịch bản quá nhạt"
 
 
 async def test_tuong_duong_tien_kham_bo_tick(pool: asyncpg.Pool) -> None:  # noqa: F811
@@ -225,3 +301,5 @@ async def test_tuong_duong_phu_thu_cu_bo_chi_dinh(kban: BoKichBan) -> None:  # n
         cu = await _cu(conn, [kban.visit_id])
         assert {d["source_type"] for d in cu} == {"service_order", "phu_thu"}
         assert await _so_sanh(conn, [kban.visit_id]) == 2
+        # Nhánh phụ thu của tiền đã thu (03/11/2026): cùng số với bản cũ.
+        assert await _so_sanh_tien(conn, [kban.visit_id]) > 0

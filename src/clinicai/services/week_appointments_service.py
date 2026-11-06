@@ -117,13 +117,23 @@ vuot AS MATERIALIZED (
        AND vv.trang_thai = 'VUOT_SUC_CHUA'
        AND vv.appointment_id IN (SELECT id FROM tuan)
 ),
--- Sức chứa theo (bác sĩ, giờ) KHÁC NHAU — nửa số dòng của tuần trùng cặp này,
--- mà `resolve_effective_cap` (SECURITY DEFINER) tốn ~0,1 ms mỗi lần gọi.
+-- Sức chứa: MỘT lần gọi bản mảng cho mỗi (bác sĩ, ngày). Mỗi lần gọi đọc lại
+-- chính sách phòng khám (~0,6 ms trên prod), nên gọi theo từng (bác sĩ, giờ)
+-- như trước là 59 lần / 37 ms một tuần (03/11/2026). Phút trong ngày tính đúng
+-- biểu thức của `resolve_effective_cap` (vỏ một phần tử của hàm này).
 caps AS MATERIALIZED (
-    SELECT k.doctor_id, k.slot_start, cap.slot_minutes, cap.walkin_cap
-      FROM (SELECT DISTINCT doctor_id, slot_start FROM tuan) k
-     CROSS JOIN LATERAL public.resolve_effective_cap(
-         $1::uuid, k.doctor_id, k.slot_start) cap
+    SELECT k.doctor_id, k.ngay, cap.minute_of_day, cap.slot_minutes,
+           cap.walkin_cap
+      FROM (SELECT doctor_id,
+                   (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS ngay,
+                   array_agg(DISTINCT
+                       EXTRACT(HOUR FROM slot_start
+                               AT TIME ZONE 'Asia/Ho_Chi_Minh')::int * 60
+                     + EXTRACT(MINUTE FROM slot_start
+                               AT TIME ZONE 'Asia/Ho_Chi_Minh')::int) AS ds
+              FROM tuan GROUP BY 1, 2) k
+     CROSS JOIN LATERAL public.resolve_effective_caps(
+         $1::uuid, k.doctor_id, k.ngay, k.ds) cap
 )
 SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        t.so_booking, t.so_tiep_don,
@@ -241,7 +251,10 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   LEFT JOIN vuot vu ON vu.appointment_id = t.id
   LEFT JOIN caps cap
          ON cap.doctor_id IS NOT DISTINCT FROM t.doctor_id
-        AND cap.slot_start = t.slot_start
+        AND cap.ngay = (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        AND cap.minute_of_day =
+            EXTRACT(HOUR FROM t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::int * 60
+          + EXTRACT(MINUTE FROM t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::int
  ORDER BY t.slot_start, t.created_at, t.id
 """
 ) % MAX_ROWS

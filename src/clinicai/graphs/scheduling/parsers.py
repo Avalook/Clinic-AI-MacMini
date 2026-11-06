@@ -6,6 +6,8 @@ import re
 from datetime import date, timedelta
 from typing import Literal, Optional
 
+from clinicai.core.clock import hom_nay_vn
+
 TimeSlot = Literal["morning", "afternoon", "evening"]
 
 _EXPLICIT_DATE_RE = re.compile(r"(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?")
@@ -36,7 +38,7 @@ def parse_date(text: str) -> Optional[str]:
     if not text:
         return None
     s = text.lower().strip()
-    today = date.today()
+    today = hom_nay_vn()
 
     m = _EXPLICIT_DATE_RE.search(s)
     if m:
