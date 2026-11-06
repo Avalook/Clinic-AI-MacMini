@@ -376,6 +376,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // được đối tác đang nhìn thấy gì — không có đường ấy thì không ai kiểm được
   // lời hứa "họ chỉ thấy việc của họ" ngoài cách mượn tài khoản đối tác.
   "/doi-tac": ["PARTNER", "MANAGEMENT"],
+  // BÀN XÉT NGHIỆM ĐỐI TÁC đời mới (05/11/2026, ADR-0015): nhân viên NỘI BỘ làm mọi
+  // bước (đối tác không đăng nhập). Cùng lego 21 với bàn cũ ⇒ ai đang dùng bàn cũ
+  // thấy luôn bàn mới. Vai PARTNER không vào (máy chủ cũng từ chối).
+  "/ban-xet-nghiem": ["MANAGEMENT"],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
@@ -479,6 +483,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/settings/mau-ket-qua": ["MANAGEMENT"],
   // Tài khoản nhận chuyển khoản (31/10/2026) — quản lý (lego Cài đặt phòng khám).
   "/settings/tai-khoan-nhan": ["MANAGEMENT"],
+  // Đối tác xét nghiệm (05/11/2026) — quản lý (lego Cài đặt phòng khám).
+  "/settings/doi-tac": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
@@ -669,6 +675,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/settings/clinic-config": ["config.clinic.manage"],
   "/settings/day-noi": ["config.wiring.manage"],
   "/settings/tai-khoan-nhan": ["config.clinic.manage"],
+  "/settings/doi-tac": ["config.clinic.manage"],
   "/settings/mau-ket-qua": [
     "catalogue.result_template.manage",
     "catalogue.form_template.edit",
@@ -682,14 +689,18 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/ops": ["ops.view"], // 20 Vận hành hệ thống
   "/audit-log": ["audit.view"],
   "/doi-tac": ["partner.work"], // 21 Đối tác
+  "/ban-xet-nghiem": ["partner.work"], // 21 Đối tác — bàn XN đời mới
   // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
   "/duyet-ket-qua": ["result.form.fill"],
 };
 
 /** TẮT khỏi thanh bên cho MỌI người (route còn giữ, mở thẳng được):
  *  Chờ xếp bác sĩ (Tuyền 25/09: tạm tắt) · Bảng giá thuốc (giá thuốc sửa ở Kho
- *  thuốc từ 25/09 — một nguồn giá). */
-const TAT_KHOI_THANH_BEN = new Set(["/appointments/cho-xep-bac-si", "/cashier/thuoc"]);
+ *  thuốc từ 25/09 — một nguồn giá) · Bàn đối tác CŨ `/doi-tac` (Tuyền 05/11: MỘT mục
+ *  "Việc của đối tác" = bàn XN mới; bàn cũ giữ cho việc chỉ định trước đó, mở bằng
+ *  link "Việc cũ" trên bàn mới, tắt hẳn ở chặng 4). Tài khoản vai Đối tác xét TRƯỚC
+ *  dòng này (`CHI_DOI_TAC`) nên vẫn thấy bàn cũ — bàn mới không cho vai đó vào. */
+const TAT_KHOI_THANH_BEN = new Set(["/appointments/cho-xep-bac-si", "/cashier/thuoc", "/doi-tac"]);
 
 /** Màn theo phòng (`/phong/<room_id>`) dùng chung quyền của `/phong`. */
 function quyenCuaMan(href: string): string[] {

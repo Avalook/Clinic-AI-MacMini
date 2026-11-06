@@ -96,6 +96,9 @@ from clinicai.api.v1.routers.visit_progress import (
 from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.api.v1.routers.work_items import router as work_items_router
 from clinicai.api.v1.routers.xem_luot import router as xem_luot_router
+from clinicai.api.v1.routers.xet_nghiem import router as xet_nghiem_router
+from clinicai.api.v1.routers.xet_nghiem_ban import router as xet_nghiem_ban_router
+from clinicai.api.v1.routers.xet_nghiem_drive import router as xet_nghiem_drive_router
 from clinicai.core.change_broker import ChangeBroker
 from clinicai.core.database import close_pool, create_pool, doc_pool_max_size_api
 from clinicai.core.exceptions import ClinicAIBaseException
@@ -322,6 +325,18 @@ app.include_router(
     tai_khoan_nhan_router,
     prefix="/api/v1",
     tags=["tai-khoan-nhan"],
+    dependencies=_GUARDED,
+)
+app.include_router(
+    xet_nghiem_router, prefix="/api/v1", tags=["xet-nghiem"], dependencies=_GUARDED
+)
+app.include_router(
+    xet_nghiem_ban_router, prefix="/api/v1", tags=["xet-nghiem"], dependencies=_GUARDED
+)
+app.include_router(
+    xet_nghiem_drive_router,
+    prefix="/api/v1",
+    tags=["xet-nghiem"],
     dependencies=_GUARDED,
 )
 app.include_router(

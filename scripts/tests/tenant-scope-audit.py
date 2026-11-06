@@ -37,9 +37,9 @@ SRC = REPO / "src" / "clinicai"
 # had already been scoped per clinic, which is exactly that failure.
 DELIBERATELY_CROSS_TENANT = {
     "services/pos_relay.py",  # drains the outbox for every clinic
-    # Bộ canh gác (27/09/2026) canh CẢ HỆ THỐNG mỗi phút — chỉ SỐ ĐẾM (hàng chờ
-    # ma, lượt treo), không đọc dòng nào của khách; cảnh báo là của hệ thống.
-    "services/canh_gac.py",
+    # services/canh_gac.py ra khỏi danh sách 05/11/2026: câu đếm chung của nó giờ
+    # có nối theo clinic_id (luật DRIVE_KHONG_NHIP), bộ soát coi là đã lọc. Vẫn là
+    # SỐ ĐẾM cả hệ thống, không đọc dòng khách.
 }
 
 # W8 drove this from 71 to 0. It stays at 0: every statement that names a

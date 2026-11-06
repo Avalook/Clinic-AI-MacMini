@@ -646,6 +646,41 @@ class DoiTacHuyThuTien(PayloadSuKien):
     so_tien: int
 
 
+class XetNghiemThuHo(PayloadSuKien):
+    """`lab.payment_recorded` / `lab.payment_voided` / `lab.payment_refunded` — sổ
+    thu hộ bàn xét nghiệm đời mới (ADR-0015). Không phải tiền phòng khám. Lý do
+    huỷ/hoàn nằm ở bảng sổ, không vào sự kiện."""
+
+    visit_id: str
+    service_order_id: str
+    so_tien: int
+    tien_mat: int
+    chuyen_khoan: int
+
+
+class XetNghiemMau(PayloadSuKien):
+    """`lab.sample_collected` / `lab.sample_voided` — một ống mẫu (ADR-0015)."""
+
+    mau_id: str
+    ma_mau: str
+    service_order_ids: list[str]
+
+
+class XetNghiemViec(PayloadSuKien):
+    """Sự kiện của MỘT việc xét nghiệm đối tác (mở lại, tải kết quả, gửi, thu hồi).
+    Lý do nằm ở bảng, không vào sự kiện."""
+
+    visit_id: str | None
+    service_order_id: str
+
+
+class XetNghiemTepDrive(PayloadSuKien):
+    """`lab.drive_file_rejected` — một tệp Drive bị từ chối (chặng 4). Lý do ở bảng."""
+
+    drive_tep_id: str
+    doi_tac_id: str
+
+
 class CskhDaLienHe(PayloadSuKien):
     """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
 
@@ -2098,6 +2133,83 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
             is_public=False,
         ),
+        # Bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015) — tiền tố `lab.`,
+        # không dùng lại `partner.*` (của bàn cũ, đã có bên nhận).
+        SuKien(
+            ten="lab.payment_recorded",
+            version=1,
+            aggregate_type="service_order",
+            source_module="xet_nghiem_doi_tac",
+            payload=XetNghiemThuHo,
+            nhan="Ghi nhận thu hộ xét nghiệm đối tác",
+            consumers=[],
+            is_public=False,
+        ),
+        SuKien(
+            ten="lab.payment_voided",
+            version=1,
+            aggregate_type="service_order",
+            source_module="xet_nghiem_doi_tac",
+            payload=XetNghiemThuHo,
+            nhan="Huỷ ghi nhận thu hộ (ghi sai)",
+            consumers=[],
+            is_public=False,
+        ),
+        SuKien(
+            ten="lab.payment_refunded",
+            version=1,
+            aggregate_type="service_order",
+            source_module="xet_nghiem_doi_tac",
+            payload=XetNghiemThuHo,
+            nhan="Hoàn tiền thu hộ cho khách",
+            consumers=[],
+            is_public=False,
+        ),
+        *[
+            SuKien(
+                ten=ten,
+                version=1,
+                aggregate_type=loai,
+                source_module="xet_nghiem_doi_tac",
+                payload=payload,
+                nhan=nhan,
+                consumers=[],
+                is_public=False,
+            )
+            for ten, loai, payload, nhan in (
+                ("lab.sample_collected", "mau_xet_nghiem", XetNghiemMau, "Lấy mẫu"),
+                ("lab.sample_voided", "mau_xet_nghiem", XetNghiemMau, "Huỷ mẫu"),
+                # "lab.prepay_waived" / "lab.prepay_waiver_revoked" (cho lấy mẫu trước)
+                # đã bỏ cùng lệnh (Tuyền 05/11) — lấy mẫu chỉ sau khi ghi nhận thu hộ.
+                (
+                    "lab.result_arrived",
+                    "service_order",
+                    XetNghiemViec,
+                    "Kết quả đối tác về (tải tay / Drive)",
+                ),
+                (
+                    "lab.drive_file_rejected",
+                    "drive_tep",
+                    XetNghiemTepDrive,
+                    "Từ chối tệp Drive",
+                ),
+                (
+                    "lab.result_sent",
+                    "service_order",
+                    XetNghiemViec,
+                    "Đúng người, đã gửi khách",
+                ),
+                (
+                    "lab.result_rejected",
+                    "service_order",
+                    XetNghiemViec,
+                    "Thu hồi kết quả đối tác",
+                ),
+                # "lab.closed_by_partner" (Đối tác đã tự trả khách) đã bỏ cùng lệnh
+                # đóng việc (Tuyền 05/11) — chỉ còn mở lại việc đã lỡ đóng.
+                ("lab.reopened", "service_order", XetNghiemViec, "Mở lại việc"),
+            )
+        ],
         SuKien(
             ten="partner.sample_collected",
             version=1,

@@ -86,7 +86,8 @@ async def test_bao_cao_cuoi_ngay_tong_dung_tung_dong(
     # Đối tác ghi đã thu HPV 900k — tham khảo, không cộng.
     await pool.execute(
         "INSERT INTO doi_tac_thanh_toan (clinic_id, service_order_id, so_tien,"
-        " hinh_thuc, ghi_boi) VALUES ($1::uuid, $2::uuid, 900000, 'CASH', $3::uuid)",
+        " tien_mat, hinh_thuc, ghi_boi)"
+        " VALUES ($1::uuid, $2::uuid, 900000, 900000, 'CASH', $3::uuid)",
         q1.thu_ngan.clinic_id,
         hpv,
         ql.staff_id,

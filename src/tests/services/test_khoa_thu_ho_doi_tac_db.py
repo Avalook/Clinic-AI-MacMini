@@ -117,8 +117,8 @@ async def test_hai_nguoi_ghi_thu_cung_luc_mot_nguoi_thua(pool: asyncpg.Pool) -> 
         await tx1.start()
         await conn1.execute(
             "INSERT INTO doi_tac_thanh_toan (clinic_id, service_order_id, so_tien,"
-            " hinh_thuc, ghi_boi)"
-            " VALUES ($1::uuid, $2::uuid, 900000, 'CASH', $3::uuid)",
+            " tien_mat, hinh_thuc, ghi_boi)"
+            " VALUES ($1::uuid, $2::uuid, 900000, 900000, 'CASH', $3::uuid)",
             CLINIC,
             oid,
             a.staff_id,

@@ -45,6 +45,8 @@ CHO_DAY_LAU_GIO = 6
 NGUONG_LOI_DAY = 5
 #: Bất biến tiền chỉ định soát các lần thu trong chừng này giờ gần nhất.
 BAT_BIEN_TIEN_GIO = 24
+#: Đối tác đã nối thư mục Drive mà quá chừng này giờ không quét được (chặng 4).
+DRIVE_KHONG_NHIP_GIO = 1
 
 
 @dataclass(frozen=True)
@@ -139,6 +141,16 @@ def danh_gia(so: dict[str, Any]) -> list[KetQuaKiem]:
             "tiền thừa; hoặc tiền trả trước liệu trình lệch) — chạy `SELECT * FROM"
             " bat_bien_tien_chi_dinh(...)` / `bat_bien_lieu_trinh(...)` để xem.",
         ),
+        # Kết quả đối tác tự về từ Drive (chặng 4, kế hoạch mục 7): kiểm ở ĐÂY,
+        # không trong drive-xn — container ấy chết thì chính nó không báo được.
+        KetQuaKiem(
+            "DRIVE_KHONG_NHIP",
+            "warning",
+            so.get("drive_khong_nhip", 0) > 0,
+            f"{so.get('drive_khong_nhip', 0)} đối tác đã nối thư mục Drive mà quá "
+            f"{DRIVE_KHONG_NHIP_GIO} giờ không quét được — kiểm container drive-xn "
+            "và khoá Drive (lỗi cuối ở Cài đặt → Đối tác).",
+        ),
     ]
     return ra
 
@@ -176,11 +188,20 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
                   bat_bien_tien_chi_dinh(c.id, now() - make_interval(hours => $3)))
           -- Liệu trình (08/10/2026): buổi trả trước vượt số đã trả, âm, thu trùng.
           + (SELECT count(*) FROM clinic c, bat_bien_lieu_trinh(c.id))
-            AS tien_chi_dinh_lech
+            AS tien_chi_dinh_lech,
+          (SELECT count(*) FROM doi_tac d
+             LEFT JOIN drive_nhip n
+               ON n.clinic_id = d.clinic_id AND n.doi_tac_id = d.id
+            WHERE d.drive_folder_id IS NOT NULL AND d.ngung_luc IS NULL
+              AND d.sua_luc < now() - make_interval(hours => $4)
+              AND (n.ok_cuoi IS NULL
+                   OR n.ok_cuoi < now() - make_interval(hours => $4)))
+            AS drive_khong_nhip
         """,
         CHO_DAY_LAU_GIO,
         NGUONG_LOI_DAY,
         BAT_BIEN_TIEN_GIO,
+        DRIVE_KHONG_NHIP_GIO,
     )
     assert r is not None
     from clinicai.services.lo_thuoc_service import so_ngay_canh_bao
@@ -215,6 +236,7 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
         "tep_cho_lau": int(r["tep_cho_lau"]),
         "tep_loi_day": int(r["tep_loi_day"]),
         "tien_chi_dinh_lech": int(r["tien_chi_dinh_lech"]),
+        "drive_khong_nhip": int(r["drive_khong_nhip"]),
     }
 
 

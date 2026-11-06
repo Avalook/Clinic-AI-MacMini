@@ -782,7 +782,52 @@ MODULE: dict[str, Module] = {
                 "partner.sample_collected",
             ],
             ben_nhan=["doi_tac_nhan_viec"],
-            bang=["doi_tac_nhan_viec", "doi_tac_thanh_toan"],
+            # `doi_tac_thanh_toan` chuyển sang `xet_nghiem_doi_tac` (05/11/2026).
+            bang=["doi_tac_nhan_viec"],
+            goi_dong_bo=["xet_nghiem_doi_tac.RecordLabPayment"],
+        ),
+        # Bàn xét nghiệm đối tác đời mới (ADR-0015, 05/11/2026). Module `doi_tac`
+        # ở trên đóng băng; luồng mới ở `services/xet_nghiem/`.
+        Module(
+            ma="xet_nghiem_doi_tac",
+            ten="Xét nghiệm đối tác",
+            lenh=[
+                "SavePartner",
+                "PausePartner",
+                "SavePartnerService",
+                "RecordLabPayment",
+                "VoidLabPayment",
+                "RefundLabPayment",
+                "SendLabResult",
+            ],
+            phat=[
+                "lab.payment_recorded",
+                "lab.payment_voided",
+                "lab.payment_refunded",
+                "lab.sample_collected",
+                "lab.sample_voided",
+                "lab.result_arrived",
+                "lab.result_sent",
+                "lab.result_rejected",
+                "lab.drive_file_rejected",
+                "lab.reopened",
+            ],
+            # Sổ thu hộ chuyển về đây (kế hoạch 3: lõi ghi/huỷ ở thu_ho.py; lệnh cũ
+            # của bàn đối tác gọi lại lõi này).
+            bang=[
+                "doi_tac",
+                "doi_tac_dich_vu",
+                "xet_nghiem_viec",
+                "xet_nghiem_cai_dat",
+                "doi_tac_thanh_toan",
+                "doi_tac_hoan_tien",
+                "mau_xet_nghiem",
+                "mau_xet_nghiem_viec",
+                "mau_xet_nghiem_dem",
+                "xet_nghiem_dong",
+                "drive_tep",
+                "drive_nhip",
+            ],
         ),
         Module(
             ma="cskh",
@@ -792,6 +837,8 @@ MODULE: dict[str, Module] = {
             phat=["patient.contacted"],
             # Sổ ghi chú chung về khách (27/09/2026) — khung phải CSKH/Tiếp đón.
             bang=["tuong_tac_cskh", "ghi_chu_khach"],
+            # TRA_KQ ⇒ tờ XN đối tác chưa gửi của lượt thành "Đã gửi khách".
+            goi_dong_bo=["xet_nghiem_doi_tac.SendLabResult"],
         ),
         Module(
             ma="lab",

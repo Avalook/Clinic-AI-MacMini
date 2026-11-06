@@ -1,0 +1,216 @@
+// Kiểu dữ liệu bàn XN — khớp `BanOut` / `ViecOut` / `TienOut` / `QuaTrinhOut` của
+// `routers/xet_nghiem_ban.py`. Mọi cờ, chữ, màu chip, mốc hành trình do máy chủ tính.
+
+import type { ChipTone } from "@/components/ui/Chip";
+import type { TrangThaiMocHT } from "@/components/ui/ThanhHanhTrinh";
+import { loiDocDuoc } from "@/lib/loi-doc-duoc";
+
+export interface TrangThai {
+  ma: string;
+  nhan: string;
+  qua_hen: boolean;
+  so_ngay_qua_hen: number;
+  muc_qua_hen: string | null;
+  qua_han_lay_mau: boolean;
+  co_ban_moi_chua_gui: boolean;
+  da_hoan_tien: boolean;
+  co_the_lay_mau: boolean;
+  ly_do_khong_lay_mau: string | null;
+  mau: ChipTone;
+  con_ton: boolean;
+  vi_sao: string;
+  /** Chip dòng khách / bảng: "Quá hẹn trả KQ" thắng chữ trạng thái (máy chủ gộp). */
+  chip_nhan: string;
+  chip_mau: ChipTone;
+  /** Màu chip "Quá hẹn N ngày"; null = không hiện. */
+  mau_qua_hen: ChipTone | null;
+}
+
+export interface Nut {
+  ghi_thu: boolean;
+  huy_thu: boolean;
+  hoan_tien: boolean;
+  con_hoan_duoc: number;
+  lay_mau: boolean;
+  /** Hiện khối Lấy mẫu (mờ hay sáng theo `lay_mau`). */
+  hien_lay_mau: boolean;
+  huy_mau: boolean;
+  tai_ket_qua: boolean;
+  gui: boolean;
+  thu_hoi: boolean;
+  mo_lai: boolean;
+  hoan_tac: { lenh: string; nhan: string } | null;
+}
+
+export interface Moc {
+  ten: string;
+  luc: string | null;
+  trang_thai: TrangThaiMocHT;
+}
+
+export interface Viec {
+  order_id: string;
+  visit_id: string | null;
+  ten_dich_vu: string | null;
+  doi_tac_id: string;
+  ten_doi_tac: string;
+  clinic_patient_id: string | null;
+  ten_khach: string | null;
+  ma_bn: string | null;
+  mau_id: string | null;
+  ma_mau: string | null;
+  hen_tra_ngay: string | null;
+  tep_id: string | null;
+  ten_tep: string | null;
+  loai_tep: string | null;
+  mime_tep: string | null;
+  ma_giao_dich: string | null;
+  gia_goi_y: number | null;
+  da_thu: number | null;
+  tien_mat: number | null;
+  chuyen_khoan: number | null;
+  da_hoan: number | null;
+  /** Khoản thu hộ còn hiệu lực (gắn ảnh CK vào đây); null = chưa thu. */
+  thu_id: string | null;
+  sdt: string | null;
+  so_tiep_don: number | null;
+  so_booking: number | null;
+  /** "Chuyển khoản vào: …" — tài khoản nhận CK của đối tác (Cài đặt → Đối tác). */
+  tai_khoan_nhan_ck: string | null;
+  /** Nguồn tờ kết quả ("Tải tay · <người>" / "Drive · <người thả> · tự ghép") — máy chủ ghi. */
+  nguon_tep: string | null;
+  /** Số tờ còn hiệu lực (> 1 ⇒ "Bản n"). */
+  so_ban: number;
+  anh_ck: { id: string; luc: string; boi: string | null }[];
+  tao_luc: string;
+  ngay_chi_dinh: string;
+  tep_luc: string | null;
+  so_ngay_cho: number;
+  hanh_trinh: Moc[];
+  /** Bước của thẻ đang tới lượt (tô sáng) — máy chủ chỉ; null = việc đã xong. */
+  buoc_dang: "thu" | "mau" | "ket_qua" | null;
+  trang_thai: TrangThai;
+  nut: Nut;
+}
+
+export interface Khach {
+  khoa: string;
+  ngay: string;
+  ten: string;
+  ma_bn: string | null;
+  sdt: string | null;
+  so_tiep_don: number | null;
+  so_booking: number | null;
+  order_ids: string[];
+  nhan: string;
+  mau: ChipTone;
+}
+
+export interface Loc {
+  ma: string;
+  nhan: string;
+  ton: boolean;
+}
+
+export interface Ban {
+  viec: Viec[];
+  khach: Khach[];
+  loc: Loc[];
+  quan_ly: boolean;
+  /** Ô lọc đối tác (máy chủ: mọi đối tác còn hoạt động + đối tác ngưng còn việc). */
+  doi_tac: { id: string; ten: string }[];
+}
+
+/** Tệp Drive chưa khớp khách — `DriveChoOut` của `routers/xet_nghiem_drive.py`. */
+export interface DriveCho {
+  id: string;
+  doi_tac_id: string;
+  ten_doi_tac: string;
+  ten: string;
+  mime: string | null;
+  /** Cách hộp xem vẽ (máy chủ suy từ mime). */
+  loai: string;
+  drive_tao_luc: string | null;
+  drive_nguoi_tai: string | null;
+  nhan_luc: string;
+  ly_do_cho: string | null;
+  vi_sao: string;
+}
+
+export interface DriveNhip {
+  doi_tac_id: string;
+  lan_quet_cuoi: string;
+  ok_cuoi: string | null;
+  loi_cuoi: string | null;
+  /** Quá 1 giờ không quét được (máy chủ tính) ⇒ đèn đỏ. */
+  tre: boolean;
+}
+
+export interface DongTien {
+  id: string;
+  loai: string;
+  so_tien: number;
+  tien_mat: number;
+  chuyen_khoan: number;
+  hinh_thuc: string;
+  ma_giao_dich: string | null;
+  gia_goi_y: number | null;
+  ghi_luc: string;
+  ten: string | null;
+  ten_khach: string | null;
+  ma_bn: string | null;
+  sdt: string | null;
+  nguoi: string | null;
+}
+
+/** Chỗ CHỈ ĐỌC không tải được: một dòng nhẹ, không đỏ, không mã lỗi (Tuyền 05/11: khách
+ *  đang dùng thật nhìn câu "máy chủ gặp lỗi… mã lỗi" rất khó chịu). Lỗi của LỆNH vẫn hiện
+ *  đúng câu máy chủ trả — nhân viên cần biết vì sao chưa làm được. */
+export const CHUA_TAI = "Chưa tải được — tải lại trang sau ít phút.";
+
+export const tien = (n: number | null | undefined) =>
+  n === null || n === undefined ? "" : `${n.toLocaleString("vi-VN")}đ`;
+
+const VN = "Asia/Ho_Chi_Minh";
+
+/** "05/11" từ "2026-11-05" hoặc mốc giờ ISO. */
+export const ngayNgan = (iso: string | null) =>
+  iso ? new Date(iso.length === 10 ? `${iso}T00:00:00+07:00` : iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", timeZone: VN }) : "";
+
+export const ngayVN = (iso: string | null) =>
+  iso ? new Date(iso.length === 10 ? `${iso}T00:00:00+07:00` : iso).toLocaleDateString("vi-VN", { timeZone: VN }) : "";
+
+/** "09:40 05/11". */
+export const gioNgay = (iso: string | null) =>
+  iso
+    ? `${new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN })} ${ngayNgan(iso)}`
+    : "";
+
+/** Chỉ giờ "09:05" (giờ VN) — bảng đã lọc theo một ngày (tab Tiền thu hộ). */
+export const gio = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN }) : "";
+
+/** Giờ dưới mốc hành trình (bản mẫu): hôm nay "09:05", ngày khác "09:05 02/11". */
+export const gioMoc = (iso: string) => {
+  const gio = new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: VN });
+  const ngay = new Date(iso).toLocaleDateString("sv-SE", { timeZone: VN });
+  return ngay === homNayVN() ? gio : `${gio} ${ngayNgan(iso)}`;
+};
+
+/** Hôm nay theo giờ VN, dạng "2026-11-05" (so với `ngay_chi_dinh` của máy chủ). */
+export const homNayVN = () => new Date().toLocaleDateString("sv-SE", { timeZone: VN });
+
+/** Gửi một lệnh bàn XN (JSON). Trả câu lỗi máy chủ (tiếng Việt) hoặc null. */
+export async function lenh(duong: string, body: unknown): Promise<string | null> {
+  try {
+    const r = await fetch(`/api/xet-nghiem/ban/${duong}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) return null;
+    return loiDocDuoc(await r.json().catch(() => null), `Chưa làm được (HTTP ${r.status}).`);
+  } catch {
+    return "Mất kết nối — chưa làm được.";
+  }
+}

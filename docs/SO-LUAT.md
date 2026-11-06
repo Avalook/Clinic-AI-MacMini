@@ -289,7 +289,7 @@ khác với "đã quyết" là hai chuyện.
 | **Luồng khám là dữ liệu, không phải code** | 37 chặng nằm trong bảng; đổi luồng = sửa dữ liệu; chỉ một đường ghi trạng thái | ✅ |
 | **Hợp đồng frontend–backend thay được** | OpenAPI có phiên bản là mặt tiếp xúc duy nhất; frontend chỉ dùng Supabase cho đăng nhập và tin thời gian thực; khoá quyền cao **không** nằm ở frontend | ⚠️ Một phần — 42 route vẫn chạm thẳng database |
 | **Chạy được ở đâu cũng được** | Không đường dẫn cứng theo máy, không trạng thái trong container, ảnh dựng cho cả hai kiến trúc, CI kiểm bằng máy Linux | ✅ Đã lên VPS thật |
-| **Thu hộ đối tác: sổ riêng, thu xong mới lấy mẫu** (05/11/2026, ADR-0015) | Tiền khách trả đối tác chỉ ghi ở `doi_tac_thanh_toan`, không vào tiền phòng khám. **Ngoại lệ duy nhất** của "làm trước, thu sau" (30/09) và "thu hộ không chặn việc nào khác" (16/10): nút **Lấy mẫu** của việc đối tác chỉ mở khi đã có ghi nhận thu (hoặc Quản lý cho qua, có lý do). Không chặn gì khác. | ⏳ Đang làm theo `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md` |
+| **Thu hộ đối tác: sổ riêng, thu xong mới lấy mẫu** (05/11/2026, ADR-0015) | Tiền khách trả đối tác chỉ ghi ở `doi_tac_thanh_toan`, không vào tiền phòng khám. **Ngoại lệ duy nhất** của "làm trước, thu sau" (30/09) và "thu hộ không chặn việc nào khác" (16/10): nút **Lấy mẫu** của việc đối tác chỉ mở khi đã có ghi nhận thu (kể cả 0đ; "Quản lý cho qua" đã bỏ 05/11 — kế hoạch XN 5d). Không chặn gì khác. | ⏳ Đang làm theo `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md` |
 
 Ánh xạ sang tên cũ, để đọc được chú thích trong code: một-khối = ADR-0001 ·
 gửi-tin = 0002 · tranh-chấp = 0003 · cửa-vào = 0004 · không-máy-mới = 0005 ·

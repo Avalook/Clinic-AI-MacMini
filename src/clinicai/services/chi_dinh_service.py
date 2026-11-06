@@ -48,6 +48,7 @@ from clinicai.services.lenh_kham_core import (
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.so_sua_chi_dinh_service import dat_ngu_canh
+from clinicai.services.xet_nghiem.chup import tao_viec_neu_doi_tac
 
 #: Quyền cần có để chỉ định. KHÔNG phải một tập vai: ai được cấp khối "Chỉ định
 #: dịch vụ" thì làm được, kể cả vai mà hôm nay chưa nghĩ tới. Bác sĩ và thư ký y
@@ -289,6 +290,7 @@ class ChiDinhService:
                     # Cả chuỗi việc của một lượt khám nối với nhau bằng đây.
                     correlation_id=vid,
                 )
+            await tao_viec_neu_doi_tac(conn, clinic_id=cid, order_ids=ids)
 
             # KHÔNG tự xếp phòng ở đây nữa (24/09): chỉ định đời mới chỉ vào
             # hàng phòng sau khi khách chọn + trả tiền (khối Hành trình, H4).

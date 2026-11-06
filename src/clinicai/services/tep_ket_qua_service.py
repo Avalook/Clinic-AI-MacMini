@@ -60,7 +60,7 @@ from clinicai.events.catalogue import (
     TepKetQuaDaXem,
     TepKetQuaDaXoa,
 )
-from clinicai.events.emit import emit_event, nguoi
+from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import can, can_o_phong_nao_do
 from clinicai.services import media_service
 from clinicai.services.audit import record_event
@@ -73,6 +73,7 @@ from clinicai.services.media_service import (
     sniff_ket_qua,
     vuot_tran,
 )
+from clinicai.services.nguon_tep import MayQuet
 from clinicai.services.nhan_tep_luong import TepDaNhan
 
 logger = structlog.get_logger()
@@ -529,13 +530,19 @@ def chuan_ly_do_xoa(ly_do: Any) -> str:
 #: đã sang bàn đối tác — cùng nghĩa `doi_tac_service.LA_VIEC_DOI_TAC_SQL`, viết
 #: lại ở đây vì module ấy nhập module này (không nhập vòng). Mốc `ket_qua_luc`
 #: của việc ấy chỉ do nút [Trả kết quả] đặt / gỡ (16/10/2026).
-_VIEC_DOI_TAC_SQL = """(EXISTS (
+#: Việc của BÀN XN MỚI (có dòng `xet_nghiem_viec`, ADR-0015) KHÔNG thuộc nhóm này:
+#: bàn mới không có nút [Trả kết quả] — có tờ là có kết quả, như chỉ định thường
+#: (05/11: bàn khám đứng "Đang làm · 0 kết quả" vì nút dịch vụ `lam_ben_ngoai`).
+_VIEC_DOI_TAC_SQL = """((EXISTS (
         SELECT 1 FROM public.node_definition nd_dt
          WHERE nd_dt.clinic_id = o.clinic_id AND nd_dt.code = o.node_code
            AND nd_dt.lam_ben_ngoai)
      OR EXISTS (
         SELECT 1 FROM public.doi_tac_nhan_viec dnv_dt
-         WHERE dnv_dt.clinic_id = o.clinic_id AND dnv_dt.service_order_id = o.id))"""
+         WHERE dnv_dt.clinic_id = o.clinic_id AND dnv_dt.service_order_id = o.id))
+    AND NOT EXISTS (
+        SELECT 1 FROM public.xet_nghiem_viec xnv_dt
+         WHERE xnv_dt.clinic_id = o.clinic_id AND xnv_dt.service_order_id = o.id))"""
 
 
 async def _tinh_lai_ket_qua_luc(
@@ -684,7 +691,7 @@ class TepKetQuaService:
     async def tai_len(
         self,
         *,
-        identity: StaffIdentity,
+        identity: StaffIdentity | MayQuet,
         clinic_patient_id: str,
         data: bytes | None = None,
         nguon: IO[bytes] | None = None,
@@ -693,8 +700,15 @@ class TepKetQuaService:
         appointment_id: str | None = None,
         service_order_id: str | None = None,
         ben: int | None = None,
+        la_tep_doi_tac: bool = False,
+        drive_nguoi_tai: str | None = None,
+        tu_drive: bool = False,
     ) -> dict[str, Any]:
         """Nhận một tệp kết quả và cất nó lên đĩa.
+
+        `la_tep_doi_tac` (ADR-0015): kết quả đối tác, đi đường tệp đối tác. `tu_drive`:
+        tệp chép từ Drive — `identity` có thể là `MayQuet` (người tải NULL, sự kiện
+        SYSTEM); `drive_nguoi_tai` = tên người thả tệp trên Drive, chỉ để hiện.
 
         `ben` (26/09/2026): bên của tệp trong mẫu hai bên (Thai A=0, Thai B=1,
         trái=0, phải=1…); None = tệp chung.
@@ -742,10 +756,7 @@ class TepKetQuaService:
                     "SELECT v.clinic_patient_id::text AS clinic_patient_id,"
                     "       v.appointment_id::text AS appointment_id,"
                     "       coalesce(nd.lam_ben_ngoai, false) AS lam_ben_ngoai,"
-                    "       (coalesce(nd.lam_ben_ngoai, false) OR EXISTS ("
-                    "          SELECT 1 FROM public.doi_tac_nhan_viec dnv"
-                    "           WHERE dnv.clinic_id = o.clinic_id"
-                    "             AND dnv.service_order_id = o.id)) AS viec_doi_tac"
+                    f"      {_VIEC_DOI_TAC_SQL} AS viec_doi_tac"
                     "  FROM public.service_order o"
                     "  JOIN public.visit v"
                     "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
@@ -772,7 +783,7 @@ class TepKetQuaService:
                         "Chỉ định này không thuộc lượt khám đang chọn."
                     )
                 appointment_id = appointment_id or cua_chi_dinh["appointment_id"]
-                is_external = bool(cua_chi_dinh["lam_ben_ngoai"])
+                is_external = la_tep_doi_tac or bool(cua_chi_dinh["lam_ben_ngoai"])
                 viec_doi_tac = bool(cua_chi_dinh["viec_doi_tac"])
             if appointment_id:
                 thuoc_ve = await conn.fetchval(
@@ -861,12 +872,7 @@ class TepKetQuaService:
                         clinic_patient_id=clinic_patient_id,
                     ),
                 )
-                # BỎ CHỐT "ĐÃ TRẢ KẾT QUẢ" CỦA CSKH (Tuyền 28/09/2026: "không cần
-                # chặn cskh cái gì nữa"). Trước đây mốc TRA_KQ xét theo KHÁCH
-                # chặn mọi tệp mới — màn Đối tác báo "Việc này đã xác nhận trả
-                # kết quả" cho một việc còn chờ tài liệu. Tải tệp không phụ thuộc
-                # mốc chăm sóc khách nữa.
-
+                # Tải tệp không phụ thuộc mốc "đã trả kết quả" của CSKH (Tuyền 28/09).
                 if MEDIA_CLINIC_QUOTA_BYTES > 0:
                     await conn.execute(
                         "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
@@ -895,11 +901,10 @@ class TepKetQuaService:
 
                 await chay_tren_kho(_dat_vao_cho, kho=KHO_VPS)
 
-                # External files: CHO_XAC_NHAN, không auto-approve.
-                # Internal / non-order: NULL (không áp dụng).
-                # Giữ behavior trước #174: uploader BAC_SI thì
-                # tự cho phép gửi ngay.
-                tu_hop_le = is_external and not XAC_NHAN_TEP_DOI_TAC
+                # Tệp ngoài: CHO_XAC_NHAN (cờ tắt ⇒ HOP_LE); tệp trong: NULL. Máy quét
+                # Drive không phải người ⇒ luôn CHO_XAC_NHAN ("Gửi khách" xác nhận).
+                may = isinstance(identity, MayQuet)
+                tu_hop_le = is_external and not XAC_NHAN_TEP_DOI_TAC and not may
                 xac_nhan_state = (
                     ("HOP_LE" if tu_hop_le else "CHO_XAC_NHAN") if is_external else None
                 )
@@ -914,7 +919,7 @@ class TepKetQuaService:
                          cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
                          service_order_id, xac_nhan_trang_thai,
                          xac_nhan_luc, xac_nhan_boi_staff_id, xac_nhan_ly_do,
-                         ben, vi_tri)
+                         ben, vi_tri, nguon, drive_nguoi_tai)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
                             $10::uuid,
                             CASE WHEN $12 THEN now() ELSE NULL END,
@@ -923,7 +928,7 @@ class TepKetQuaService:
                             CASE WHEN $14 THEN now() END,
                             CASE WHEN $14 THEN $10::uuid END,
                             CASE WHEN $14 THEN $15 END,
-                            $16, 'vps')
+                            $16, 'vps', $17, $18)
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -942,6 +947,8 @@ class TepKetQuaService:
                     tu_hop_le,
                     LY_DO_TU_XAC_NHAN,
                     ben,
+                    "DRIVE" if tu_drive else "TAI_LEN",
+                    (drive_nguoi_tai or "").strip()[:200] or None,
                 )
                 if service_order_id and not viec_doi_tac:
                     # Mốc "tài liệu đã tới" (để tương thích dữ liệu cũ/hiển thị).
@@ -975,7 +982,7 @@ class TepKetQuaService:
                         service_order_id=service_order_id,
                         cho_xac_nhan=is_external and XAC_NHAN_TEP_DOI_TAC,
                     ),
-                    boi=nguoi(identity),
+                    boi=HE_THONG if isinstance(identity, MayQuet) else nguoi(identity),
                     correlation_id=luot_tep,
                 )
         except BaseException:

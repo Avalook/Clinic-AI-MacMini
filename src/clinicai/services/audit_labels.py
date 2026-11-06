@@ -329,6 +329,13 @@ EVENT_LABELS: dict[str, str] = {
     "partner.awaiting_documents": "Đối tác đã nhận mẫu — việc đối tác xong",
     "partner.sample_noted_again": "Bấm lại “Đã lấy mẫu” — chỉ ghi lại (đã ghi nhận)",
     "review.ready": "Đủ điều kiện quay lại bác sĩ đọc kết quả",
+    # Bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015) — Cài đặt → Đối tác.
+    "lab.partner_saved": "Lưu đối tác xét nghiệm",
+    "lab.partner_paused": "Ngưng đối tác xét nghiệm",
+    "lab.partner_resumed": "Bật lại đối tác xét nghiệm",
+    "lab.partner_service_saved": "Gán dịch vụ cho đối tác xét nghiệm",
+    "lab.partner_service_removed": "Bỏ gán dịch vụ khỏi đối tác xét nghiệm",
+    "lab.settings_saved": "Đổi ngưỡng cảnh báo bàn xét nghiệm",
     # Slice 1 (18/09/2026): kết quả / theo dõi trên rail mới.
     "review.skipped": "Không cần đọc lại (bác sĩ đã miễn hoặc chuyển theo dõi hết)",
     "requirement.waived": "Bác sĩ miễn một yêu cầu trước khi đọc kết quả",
@@ -392,6 +399,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:payment-doi-tai-khoan": "Quầy thu — sửa tài khoản nhận chuyển khoản",
     "api:tai-khoan-nhan": "Cài đặt — tài khoản nhận chuyển khoản",
+    "api:xet-nghiem-doi-tac": "Cài đặt — đối tác xét nghiệm",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:lam-truoc-thu-sau": "Bàn khám / quầy thu — tick Làm trước – thu sau",
     "api:lam-tai-ban-kham": "Bàn khám — làm dịch vụ tại bàn khám (chốt khách làm)",

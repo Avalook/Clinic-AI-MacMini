@@ -36,7 +36,10 @@ dependencies = [
     # Xuất Excel thật (.xlsx) ở báo cáo / lịch sử thu / danh sách hoá đơn
     # (13/10/2026). Từng nằm ở nhóm dev → ảnh prod (`--only main`) không có →
     # API chết ngay lúc khởi động (deploy staging 13/10 bắt được).
-    "openpyxl (>=3.1.5,<4.0.0)"
+    "openpyxl (>=3.1.5,<4.0.0)",
+    # Đọc CHỮ trong PDF kết quả đối tác về từ Drive (05/11/2026) để ghép theo tên +
+    # SĐT khách. Thuần Python, chạy trên máy chủ — không gửi nội dung đi đâu.
+    "pypdf (>=5.0,<7.0)"
 ]
 
 

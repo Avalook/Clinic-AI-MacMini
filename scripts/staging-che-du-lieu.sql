@@ -108,6 +108,12 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('payment_cycle_doi_hinh_thuc', 'ly_do', 'chu'),
     ('doi_tac_thanh_toan', 'ghi_chu', 'chu'),
     ('doi_tac_thanh_toan', 'ly_do_huy', 'chu'),
+    -- 05/11 (ADR-0015): mã GD ngân hàng của khách + lý do hoàn — chữ tự do.
+    ('doi_tac_thanh_toan', 'ma_giao_dich', 'chu'),
+    ('doi_tac_hoan_tien', 'ly_do', 'chu'),
+    ('xet_nghiem_viec', 'cho_lay_mau_truoc_ly_do', 'chu'),
+    -- SĐT của PHÒNG XÉT NGHIỆM đối tác (cấu hình, không phải khách) — giữ.
+    ('doi_tac', 'sdt', 'giu'),
     -- lịch / lượt / khám (nội dung giữ, lọc tên + SĐT)
     ('appointment', 'notes', 'xoa'),
     ('appointment', 'cancellation_reason', 'chu'),
