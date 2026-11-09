@@ -9,6 +9,7 @@ tờ ⇒ CO_BAN_MOI + gợi ý việc.
 
 from __future__ import annotations
 
+import asyncio
 import pathlib
 import random
 import uuid
@@ -232,6 +233,43 @@ async def test_khach_da_co_to_thi_co_ban_moi_va_goi_y_viec(
     d = await _dong(pool, mid2)
     assert d["ly_do_cho"] == "CO_BAN_MOI" and d["tep_ket_qua_id"] is None
     assert (d["goi_y_order_id"], d["goi_y_clinic_patient_id"]) == (v["oid"], v["kh"])
+
+
+async def test_tu_ghep_cho_khoa_va_doc_lai_dong_khong_tao_to_thu_hai(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dòng thư hiện ở hàng ghép tay ngay khi commit. Người Từ chối (giữ khoá tệp)
+    trong lúc tự ghép đang chờ ⇒ tự ghép đọc lại dòng trong khoá, thôi, không tờ."""
+    from clinicai.services.xet_nghiem import gmail_ghep
+
+    goc = gmail_ghep.gan_tu_dong
+
+    async def chua_gan(*_a: object, **_k: object) -> bool:
+        return False
+
+    monkeypatch.setattr(gmail_ghep, "gan_tu_dong", chua_gan)
+    v = await c3.viec(pool)
+    mid = c3.thu(v["ten"], v["sdt"])
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    assert (d["ly_do_cho"], d["tep_ket_qua_id"]) == (None, None)
+    vid = await pool.fetchval(
+        "SELECT visit_id::text FROM service_order WHERE id = $1::uuid", v["oid"]
+    )
+    q = gmail_ghep.QuyetGmail(None, v["oid"], v["kh"], vid)
+    async with ghep_tay.khoa_tep(pool, d["id"]):
+        viec = asyncio.create_task(goc(pool, CLINIC, d["id"], q, PDF_DUMMY, "kq.pdf"))
+        await asyncio.sleep(0.3)
+        assert not viec.done()  # tự ghép phải CHỜ khoá
+        # Đúng thân lệnh Từ chối (`tu_choi` = khoá + `_tu_choi`; khoá test đang giữ).
+        await ghep_tay._tu_choi(pool, c3.ca.bac_si, d["id"], "nhầm thư")
+    assert await viec is False
+    so_to = await pool.fetchval(
+        "SELECT count(*) FROM tep_ket_qua WHERE service_order_id = $1::uuid", v["oid"]
+    )
+    assert so_to == 0
 
 
 async def test_quen_lay_mau_thi_chua_lay_mau_va_goi_y(

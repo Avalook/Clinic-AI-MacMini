@@ -256,14 +256,21 @@ def thanh_thu(r: object) -> ThuGmail | None:
         tieu_de=" ".join(dau.get("subject", "").split())[:TRAN_TIEU_DE],
         than=_than(phan),
         pdf=[x for p in phan if (x := _phan_pdf(p, p is tai)) is not None],
-        # Có thể nhiều dòng (ARC thêm dòng) — gộp hết, `xac_thuc_ok` tìm trong đó.
-        xac_thuc="\n".join(
-            str(h.get("value", ""))
-            for h in tai.get("headers") or []
-            if isinstance(h, dict)
-            and str(h.get("name", "")).lower() == "authentication-results"
-        )[:4000],
+        xac_thuc=_xac_thuc_gmail(tai.get("headers")),
     )
+
+
+def _xac_thuc_gmail(headers: object) -> str:
+    """Header `Authentication-Results` TRÊN CÙNG = dòng Gmail ghi khi nhận thư (header
+    đi theo thứ tự từ trên xuống; người gửi tự chèn thêm dòng cùng tên thì nằm DƯỚI).
+    Chỉ giữ dòng đó — gộp hết là để kẻ gửi tự viết `dmarc=pass`."""
+    for h in headers if isinstance(headers, list) else []:
+        if (
+            isinstance(h, dict)
+            and str(h.get("name", "")).lower() == "authentication-results"
+        ):
+            return str(h.get("value", ""))[:4000]
+    return ""
 
 
 async def doc_thu(kh: httpx.AsyncClient, mid: str) -> ThuGmail | None:

@@ -22,26 +22,13 @@ from zoneinfo import ZoneInfo
 import asyncpg
 import structlog
 
-from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.xet_nghiem import ghep_khach
+from clinicai.services.xet_nghiem.ghep_khach import UngVien
 from clinicai.services.xet_nghiem.gmail_doc import DocThu
 
 logger = structlog.get_logger()
 
 _VN: Final = ZoneInfo("Asia/Ho_Chi_Minh")
-TRAN_VIEC: Final = 500
-
-
-@dataclass(frozen=True)
-class ViecGmail:
-    order_id: str
-    clinic_patient_id: str
-    visit_id: str | None
-    ten: str | None
-    sdt: str | None
-    nam_sinh: int | None
-    da_lay_mau: bool
-    co_tep: bool
 
 
 @dataclass(frozen=True)
@@ -59,8 +46,9 @@ class QuyetGmail:
 LUU_TRU: Final = QuyetGmail("LUU_TRU")
 
 
-def quyet(d: DocThu, viec: list[ViecGmail], co_chu: bool) -> QuyetGmail:
-    """HÀM THUẦN: một PDF (đã đọc theo luật lab) + các việc của đối tác ⇒ quyết.
+def quyet(d: DocThu, viec: list[UngVien], co_chu: bool) -> QuyetGmail:
+    """HÀM THUẦN: một PDF (đã đọc theo luật lab) + các việc của đối tác
+    (`ghep_khach.doc_viec`) ⇒ quyết.
 
     - Không nhận ra kiểu thư ⇒ KHONG_KHOP_KHACH (ghép tay — người xem).
     - Kiểu nhận ra nhưng không được tự ghép (từng phần / phiếu) ⇒ LUU_TRU.
@@ -86,7 +74,7 @@ def quyet(d: DocThu, viec: list[ViecGmail], co_chu: bool) -> QuyetGmail:
     if len(khach) > 1:
         return QuyetGmail("NHIEU_KHACH")
     kh = next(iter(khach))
-    cho = [v for v in khop if v.da_lay_mau and not v.co_tep]
+    cho = [v for v in khop if v.dang_cho]
     if len(cho) == 1:
         v = cho[0]
         return QuyetGmail(None, v.order_id, v.clinic_patient_id, v.visit_id)
@@ -115,41 +103,15 @@ def trong_moc(nhan_luc: Any, moc: date | None) -> bool:
         return False
 
 
-#: Mọi việc đối tác này trong 120 ngày (cả chưa lấy mẫu / đã có tờ — để gợi ý), kèm năm
-#: sinh khách để gỡ trùng SĐT (mẹ con chung số).
-_VIEC_SQL = """
-SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
-       o.visit_id::text AS visit_id, p.full_name AS ten, p.phone_primary AS sdt,
-       coalesce(p.birth_year::int, extract(year FROM p.date_of_birth)::int)
-           AS nam_sinh,
-       EXISTS (SELECT 1 FROM mau_xet_nghiem_viec mv
-                 JOIN mau_xet_nghiem m ON m.id = mv.mau_id AND m.huy_luc IS NULL
-                WHERE mv.clinic_id = x.clinic_id AND mv.service_order_id = o.id
-                  AND mv.go_luc IS NULL) AS da_lay_mau,
-       EXISTS (SELECT 1 FROM tep_ket_qua k
-                WHERE k.clinic_id = x.clinic_id AND k.service_order_id = o.id
-                  AND k.da_xoa_luc IS NULL
-                  AND coalesce(k.xac_nhan_trang_thai, '')
-                      NOT IN ('TU_CHOI', 'THU_HOI')) AS co_tep
-  FROM xet_nghiem_viec x
-  JOIN service_order o ON o.id = x.service_order_id AND o.clinic_id = x.clinic_id
-  JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
-  JOIN patient p
-    ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
- WHERE x.clinic_id = $1::uuid AND x.doi_tac_id = $2::uuid
-   AND o.exec_status <> 'cancelled'
-   AND x.tao_luc > now() - interval '120 days'
- LIMIT 500
-"""
-
-
-async def doc_viec(
-    conn: asyncpg.Connection, cid: str, doi_tac_id: str
-) -> list[ViecGmail]:
-    rows = await conn.fetch(_VIEC_SQL, cid, doi_tac_id)
-    # Chạm trần ⇒ có thể sót đúng việc: báo (luật cắt không im lặng).
-    canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_VIEC, clinic_id=cid)
-    return [ViecGmail(**dict(r)) for r in rows]
+async def danh_loi_tep(pool: asyncpg.Pool, cid: str, dong_id: str) -> None:
+    """Tự ghép hỏng ⇒ dòng sang LOI_TEP (hàng ghép tay có lý do), không mất thư. Dòng
+    đã có tờ / đã từ chối thì để nguyên."""
+    await pool.execute(
+        "UPDATE drive_tep SET ly_do_cho = 'LOI_TEP' WHERE clinic_id = $1::uuid"
+        " AND id = $2::uuid AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL",
+        cid,
+        dong_id,
+    )
 
 
 async def gan_tu_dong(
@@ -157,8 +119,28 @@ async def gan_tu_dong(
 ) -> bool:
     """Dòng thư đã ghi (cùng giao dịch cả thư) ⇒ tạo tờ kết quả qua ĐÚNG lõi tải lên
     của tệp đối tác (`tai_len`, máy quét, nguồn GMAIL ⇒ CHO_XAC_NHAN, báo bác sĩ +
-    CSKH), gắn vào dòng, phát `lab.result_arrived`. Tải lên lỗi ⇒ dòng sang LOI_TEP
-    (hàng ghép tay), không mất thư."""
+    CSKH), gắn vào dòng, phát `lab.result_arrived`.
+
+    Dòng đã hiện ở hàng ghép tay từ lúc commit ⇒ giữ CÙNG khoá của Gán tay / Từ chối
+    (`ghep_tay.khoa_tep`) và đọc lại dòng TRONG khoá: người đã xử lý trước thì thôi,
+    không tạo tờ thứ hai."""
+    from clinicai.services.xet_nghiem import ghep_tay
+
+    async with ghep_tay.khoa_tep(pool, dong_id):
+        con = await pool.fetchval(
+            "SELECT tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL FROM drive_tep"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            cid,
+            dong_id,
+        )
+        if not con:
+            return False
+        return await _gan_trong_khoa(pool, cid, dong_id, q, data, ten)
+
+
+async def _gan_trong_khoa(
+    pool: asyncpg.Pool, cid: str, dong_id: str, q: QuyetGmail, data: bytes, ten: str
+) -> bool:
     from clinicai.services.nguon_tep import MayQuet
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
     from clinicai.services.xet_nghiem import drive
@@ -177,14 +159,9 @@ async def gan_tu_dong(
         )
     except Exception as e:  # noqa: BLE001 — tệp hỏng / quá lớn ⇒ ghép tay
         logger.warning("gmail_tu_ghep_loi", drive_tep_id=dong_id, loai=type(e).__name__)
-        await pool.execute(
-            "UPDATE drive_tep SET ly_do_cho = 'LOI_TEP' WHERE clinic_id = $1::uuid"
-            " AND id = $2::uuid AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL",
-            cid,
-            dong_id,
-        )
+        await danh_loi_tep(pool, cid, dong_id)
         return False
-    await pool.execute(
+    n = await pool.execute(
         "UPDATE drive_tep SET tep_ket_qua_id = $3::uuid, ghep_luc = now()"
         " WHERE clinic_id = $1::uuid AND id = $2::uuid"
         "   AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL",
@@ -192,6 +169,11 @@ async def gan_tu_dong(
         dong_id,
         str(kq["id"]),
     )
+    if n != "UPDATE 1":
+        # Không thể xảy ra trong khoá (mọi lệnh ghi dòng này đều giữ nó). Máy không có
+        # quyền "Từ chối tờ" để tự bù ⇒ không báo bác sĩ, để log cho người xem.
+        logger.error("gmail_tu_ghep_lech", drive_tep_id=dong_id, tep_id=str(kq["id"]))
+        return False
     await drive._phat_den(
         pool, cid, drive.Quyet(q.order_id, q.clinic_patient_id, q.visit_id, None)
     )

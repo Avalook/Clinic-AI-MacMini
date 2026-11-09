@@ -145,18 +145,32 @@ def _mot_nam(nam: set[int | None]) -> int | None:
 def xac_thuc_ok(ket_qua_xac_thuc: object, tu: object) -> bool:
     """Header `Authentication-Results` của Gmail: thư thật từ miền người gửi?
     DMARC pass, hoặc DKIM pass với `header.d` / `header.i` đúng miền người gửi.
-    Không có header / rác ⇒ False (thư giả mạo người gửi không được TỰ ghép)."""
+    Không có header / rác ⇒ False (thư giả mạo người gửi không được TỰ ghép).
+
+    Chỉ tin header do CHÍNH Gmail ghi (authserv-id `mx.google.com`, dòng trên cùng —
+    `gmail_api` chỉ giữ dòng đó): người gửi tự chèn được thêm header cùng tên. Mỗi kết
+    quả (`;`) xét riêng: `dmarc=pass` phải kèm `header.from=` đúng miền; `dkim=pass`
+    phải kèm `header.d=` / `header.i=@` đúng miền — so NGUYÊN miền, không so tiền tố
+    (`lab.vn.ke-gian.com` không phải `lab.vn`)."""
     if (
         not isinstance(ket_qua_xac_thuc, str)
         or not isinstance(tu, str)
         or "@" not in tu
     ):
         return False
-    h = ket_qua_xac_thuc.lower()
-    if re.search(r"\bdmarc=pass\b", h):
-        return True
-    mien = re.escape(tu.rsplit("@", 1)[1].strip().lower())
-    return bool(
-        re.search(r"\bdkim=pass\b", h)
-        and re.search(rf"header\.(?:d={mien}\b|i=@{mien}\b)", h)
-    )
+    mien = tu.rsplit("@", 1)[1].strip().lower()
+    # Bỏ chú thích "(...)" của RFC 8601 (spf=pass (google.com: ...) smtp.mailfrom=...).
+    h = re.sub(r"\([^()]*\)", " ", ket_qua_xac_thuc.lower())
+    dau, *cac = h.split(";")
+    if dau.strip() != "mx.google.com" or not mien:
+        return False
+    for kq in cac:
+        the = {k: v for k, _, v in (x.partition("=") for x in kq.split()) if k and v}
+        if the.get("dmarc") == "pass" and the.get("header.from") == mien:
+            return True
+        i = the.get("header.i", "")
+        if the.get("dkim") == "pass" and (
+            the.get("header.d") == mien or ("@" in i and i.rsplit("@", 1)[1] == mien)
+        ):
+            return True
+    return False

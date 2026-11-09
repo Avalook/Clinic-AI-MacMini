@@ -52,7 +52,8 @@ LY_DO_CHO: Final = {
 _CHO_SQL = """
 SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
        t.ten, t.mime, t.drive_tao_luc, t.drive_nguoi_tai, t.nhan_luc, t.ly_do_cho,
-       t.nguon, t.email_tieu_de, t.email_nhan_luc, t.goi_y_order_id::text
+       t.nguon, t.email_tieu_de, t.email_nhan_luc, t.goi_y_order_id::text,
+       t.goi_y_clinic_patient_id::text
   FROM drive_tep t
   JOIN doi_tac d ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id
  WHERE t.clinic_id = $1::uuid AND t.tep_ket_qua_id IS NULL AND t.tu_choi_luc IS NULL
@@ -153,8 +154,9 @@ async def _byte(r: asyncpg.Record) -> bytes:
 
 
 @asynccontextmanager
-async def _khoa_tep(pool: asyncpg.Pool, drive_tep_id: object) -> AsyncIterator[None]:
-    """Một tệp Drive chỉ một người xử lý một lúc (Gán / Từ chối). `tai_len` tự mở
+async def khoa_tep(pool: asyncpg.Pool, drive_tep_id: object) -> AsyncIterator[None]:
+    """Một tệp chờ chỉ một bên xử lý một lúc (Gán / Từ chối / tự ghép Gmail —
+    `gmail_ghep.gan_tu_dong`). `tai_len` tự mở
     giao dịch riêng nên không gói chung được một giao dịch ⇒ khoá tư vấn cấp phiên
     trên một kết nối giữ suốt lệnh; trong khoá mới đọc lại trạng thái dòng."""
     async with pool.acquire() as giu:
@@ -171,7 +173,7 @@ async def _khoa_tep(pool: asyncpg.Pool, drive_tep_id: object) -> AsyncIterator[N
 async def ghep(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any], hom_nay: date
 ) -> dict[str, Any]:
-    async with _khoa_tep(pool, data.get("drive_tep_id")):
+    async with khoa_tep(pool, data.get("drive_tep_id")):
         return await _ghep(pool, identity, data, hom_nay)
 
 
@@ -227,7 +229,7 @@ async def tu_choi(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any]
 ) -> None:
     ly = doc_ly_do(data.get("ly_do"))
-    async with _khoa_tep(pool, data.get("drive_tep_id")):
+    async with khoa_tep(pool, data.get("drive_tep_id")):
         await _tu_choi(pool, identity, data.get("drive_tep_id"), ly)
 
 

@@ -119,6 +119,51 @@ class Muc:
     q: QuyetGmail
 
 
+async def _goi_y(
+    conn: asyncpg.Connection, cid: str, thu: gmail_api.ThuGmail, m: Muc
+) -> str | None:
+    """Khách gợi ý của một PDF: khách G3 đã khớp, không thì đoán theo SĐT (G2)."""
+    return (
+        m.q.goi_y_clinic_patient_id
+        or m.q.clinic_patient_id
+        or await goi_y_khach(
+            conn, cid, "\n".join((thu.tieu_de, thu.than, m.p.ten, m.chu))
+        )
+    )
+
+
+async def _ghi_dong(
+    conn: asyncpg.Connection,
+    cid: str,
+    dt: str,
+    thu: gmail_api.ThuGmail,
+    m: Muc,
+    khoa: str,
+    goi_y: str | None,
+) -> str | None:
+    """Một dòng `drive_tep` của một PDF; đã có (quét lại) ⇒ None."""
+    v: str | None = await conn.fetchval(
+        _GHI_SQL,
+        cid,
+        dt,
+        f"gmail:{thu.id}:{m.p.part_id}",
+        hashlib.md5(m.data, usedforsecurity=False).hexdigest(),
+        m.p.ten or "(không tên).pdf",
+        len(m.data),
+        thu.id,
+        thu.tieu_de or None,
+        thu.than or None,
+        thu.nhan_luc,
+        ma_tep(m.p.ten),
+        khoa,
+        hashlib.sha256(m.data).hexdigest(),
+        goi_y,
+        m.q.ly_do,
+        m.q.goi_y_order_id,
+    )
+    return v
+
+
 async def luu_thu(
     pool: asyncpg.Pool,
     cid: str,
@@ -139,35 +184,10 @@ async def luu_thu(
             khoa.append(k)
             await chay_tren_kho(partial(_ghi_o, goc, k, m.data), kho=KHO_VPS, han=30)
         async with pool.acquire() as conn:
-            goi_y = [
-                m.q.goi_y_clinic_patient_id
-                or m.q.clinic_patient_id
-                or await goi_y_khach(
-                    conn, cid, "\n".join((thu.tieu_de, thu.than, m.p.ten, m.chu))
-                )
-                for m in muc
-            ]
+            goi_y = [await _goi_y(conn, cid, thu, m) for m in muc]
             async with conn.transaction():
                 moi: list[str | None] = [
-                    await conn.fetchval(
-                        _GHI_SQL,
-                        cid,
-                        dt,
-                        f"gmail:{thu.id}:{m.p.part_id}",
-                        hashlib.md5(m.data, usedforsecurity=False).hexdigest(),
-                        m.p.ten or "(không tên).pdf",
-                        len(m.data),
-                        thu.id,
-                        thu.tieu_de or None,
-                        thu.than or None,
-                        thu.nhan_luc,
-                        ma_tep(m.p.ten),
-                        k,
-                        hashlib.sha256(m.data).hexdigest(),
-                        g,
-                        m.q.ly_do,
-                        m.q.goi_y_order_id,
-                    )
+                    await _ghi_dong(conn, cid, dt, thu, m, k, g)
                     for m, k, g in zip(muc, khoa, goi_y, strict=True)
                 ]
             da_commit = True

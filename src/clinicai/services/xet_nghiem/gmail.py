@@ -134,10 +134,18 @@ async def nhan_thu(
         # Không log chuỗi lỗi: DETAIL của Postgres chứa cả dòng (tên khách).
         logger.error("gmail_bo_thu", message_id=mid, ly_do=type(e).__name__)
         return 0
-    # Gắn tờ kết quả SAU khi cả thư đã lưu (tai_len tự mở giao dịch riêng).
+    # Gắn tờ kết quả SAU khi cả thư đã lưu (tai_len tự mở giao dịch riêng). Lỗi của
+    # MỘT PDF không bỏ các PDF sau; dòng đó sang LOI_TEP (lượt sau không quét lại thư).
     for m, dong_id in zip(muc, ids, strict=True):
-        if dong_id is not None and m.q.ly_do is None:
+        if dong_id is None or m.q.ly_do is not None:
+            continue
+        try:
             await gmail_ghep.gan_tu_dong(pool, cid, dong_id, m.q, m.data, m.p.ten)
+        except Exception as e:  # noqa: BLE001 — không log chuỗi lỗi (có thể chứa tên)
+            logger.error(
+                "gmail_tu_ghep_loi", drive_tep_id=dong_id, loai=type(e).__name__
+            )
+            await gmail_ghep.danh_loi_tep(pool, cid, dong_id)
     return sum(i is not None for i in ids)
 
 
@@ -158,7 +166,7 @@ async def _muc_ca_thu(
         )
         if not xet:
             return [gmail_luu.Muc(p, d, c, gmail_ghep.LUU_TRU) for p, d, c in chu]
-        viec = await gmail_ghep.doc_viec(conn, cid, dt)
+        viec = await ghep_khach.doc_viec(conn, cid, dt)
     nam_nay = thu.nhan_luc.astimezone(_VN).year
     return [
         gmail_luu.Muc(

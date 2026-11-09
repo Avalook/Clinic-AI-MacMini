@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
+from clinicai.services.xet_nghiem.ghep_khach import UngVien
 from clinicai.services.xet_nghiem.gmail_doc import (
     DocThu,
     doc_thu,
@@ -16,7 +17,6 @@ from clinicai.services.xet_nghiem.gmail_doc import (
 from clinicai.services.xet_nghiem.gmail_ghep import (
     LUU_TRU,
     QuyetGmail,
-    ViecGmail,
     quyet,
     trong_moc,
 )
@@ -107,25 +107,59 @@ def test_doc_thu_eu_mot_so_di_dong_va_phieu_ma_vach() -> None:
     assert phieu.tu_ghep_duoc is False
 
 
+_THAT = (
+    "mx.google.com;\r\n       dkim=pass header.i=@lab.vn header.s=google header.b=Ab1;"
+    "\r\n       spf=pass (google.com: domain of a@lab.vn designates 1.2.3.4 as"
+    " permitted sender) smtp.mailfrom=a@lab.vn;\r\n       dmarc=pass (p=NONE sp=NONE"
+    " dis=NONE) header.from=lab.vn"
+)
+
+
 @pytest.mark.parametrize(
     ("hdr", "tu", "ok"),
     [
-        (
-            "mx.google.com; dkim=pass header.i=@lab.vn; spf=pass; dmarc=pass",
-            "a@lab.vn",
-            True,
-        ),
+        (_THAT, "a@lab.vn", True),  # đúng khuôn Gmail ghi (có chú thích, xuống dòng)
         ("mx.google.com; dkim=pass header.i=@lab.vn; spf=pass", "a@lab.vn", True),
         ("mx.google.com; dkim=pass header.d=gmail.com", "a@gmail.com", True),
+        ("mx.google.com; dmarc=pass header.from=lab.vn", "a@lab.vn", True),
         ("mx.google.com; dkim=pass header.i=@ke-gian.vn; spf=fail", "a@lab.vn", False),
         ("mx.google.com; dkim=fail; spf=softfail; dmarc=fail", "a@lab.vn", False),
+        # Miền đuôi dài của kẻ gian không được coi là miền lab.
+        ("mx.google.com; dkim=pass header.d=lab.vn.ke-gian.com", "a@lab.vn", False),
+        ("mx.google.com; dkim=pass header.i=@lab.vn.ke-gian.com", "a@lab.vn", False),
+        # Từng kết quả xét riêng: dkim hỏng của lab + dkim đạt của miền khác ⇒ không.
+        (
+            "mx.google.com; dkim=fail header.i=@lab.vn; dkim=pass header.i=@ke-gian.vn",
+            "a@lab.vn",
+            False,
+        ),
+        # dmarc=pass phải đúng miền From.
+        ("mx.google.com; dmarc=pass header.from=ke-gian.vn", "a@lab.vn", False),
+        ("mx.google.com; dmarc=pass", "a@lab.vn", False),
+        # Header không do Gmail ghi (người gửi tự chèn).
+        ("ke-gian.vn; dmarc=pass header.from=lab.vn", "a@lab.vn", False),
         ("", "a@lab.vn", False),
         (None, "a@lab.vn", False),
-        ("dmarc=pass", "khong-co-a-cong", False),
+        ("mx.google.com; dmarc=pass header.from=x", "khong-co-a-cong", False),
     ],
 )
 def test_xac_thuc_ok(hdr: object, tu: str, ok: bool) -> None:
     assert xac_thuc_ok(hdr, tu) is ok
+
+
+def test_chi_lay_header_xac_thuc_tren_cung_do_gmail_ghi() -> None:
+    from clinicai.services.xet_nghiem.gmail_api import _xac_thuc_gmail
+
+    gmail = "mx.google.com; dkim=fail; dmarc=fail header.from=lab.vn"
+    chen = "mx.google.com; dmarc=pass header.from=lab.vn"  # kẻ gửi tự chèn, nằm dưới
+    hs = [
+        {"name": "Received", "value": "x"},
+        {"name": "Authentication-Results", "value": gmail},
+        {"name": "authentication-results", "value": chen},
+    ]
+    assert _xac_thuc_gmail(hs) == gmail
+    assert xac_thuc_ok(_xac_thuc_gmail(hs), "a@lab.vn") is False
+    assert _xac_thuc_gmail(None) == "" and _xac_thuc_gmail([1, "x"]) == ""
 
 
 def test_trong_moc() -> None:
@@ -137,8 +171,8 @@ def test_trong_moc() -> None:
 
 
 def _v(oid: str, kh: str, *, lay: bool = True, tep: bool = False, ns: int | None = None,
-       ten: str = "Trần Thị Mẫu", sdt: str = SDT) -> ViecGmail:  # fmt: skip
-    return ViecGmail(oid, kh, "visit", ten, sdt, ns, lay, tep)
+       ten: str = "Trần Thị Mẫu", sdt: str = SDT) -> UngVien:  # fmt: skip
+    return UngVien(oid, kh, "visit", ten, sdt, nam_sinh=ns, da_lay_mau=lay, co_tep=tep)
 
 
 _D = DocThu("GLHD", TEN, SDT, 1990, True)
@@ -178,5 +212,5 @@ _D = DocThu("GLHD", TEN, SDT, 1990, True)
         (_D, [], True, QuyetGmail("KHONG_KHOP_KHACH")),
     ],
 )  # fmt: skip
-def test_quyet(d: DocThu, viec: list[ViecGmail], co_chu: bool, ra: QuyetGmail) -> None:
+def test_quyet(d: DocThu, viec: list[UngVien], co_chu: bool, ra: QuyetGmail) -> None:
     assert quyet(d, viec, co_chu) == ra

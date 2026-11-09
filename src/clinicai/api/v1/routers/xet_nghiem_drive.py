@@ -47,8 +47,10 @@ class DriveChoOut(BaseModel):
     email_tieu_de: str | None = None
     email_nhan_luc: datetime | None = None
     #: Việc máy chủ gợi ý gán (khớp khách, chưa lấy mẫu / đã có tờ) — nút "Gán theo
-    #: gợi ý" (G3b) chỉ gửi id này; máy chủ vẫn kiểm như Gán tay.
+    #: gợi ý" chỉ gửi id này; máy chủ vẫn kiểm như Gán tay.
     goi_y_order_id: str | None = None
+    #: Khách khớp tên + SĐT (cả Drive) — màn đưa việc của khách này lên đầu ô chọn.
+    goi_y_clinic_patient_id: str | None = None
 
 
 class DriveNhipOut(BaseModel):
