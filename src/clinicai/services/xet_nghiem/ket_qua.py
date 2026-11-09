@@ -251,6 +251,7 @@ async def ban(
                 hom_nay=hom_nay,
                 tu_ngay=tu_ngay,
                 ngay_xem=ngay_xem,
+                cai_dat=cd,
             )
         )
         # Ô lọc đối tác: MỌI đối tác còn hoạt động (đối tác mới chưa có việc vẫn chọn

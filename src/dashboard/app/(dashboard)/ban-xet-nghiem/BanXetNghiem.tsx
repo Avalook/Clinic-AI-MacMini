@@ -25,7 +25,8 @@ import CaiDat from "./CaiDat";
 import { useNgheBang } from "../dung-nghe-bang";
 import { ConTon, TienThuHo } from "./CacTab";
 import KetQuaKhach from "./KetQuaKhach";
-import { gioMoc, homNayVN, ngayVN, type Ban, type Khach, type Viec } from "./kieu";
+import KhungMauMoi from "./KhungMauMoi";
+import { gioMoc, homNayVN, type Ban, type Khach, type Viec } from "./kieu";
 import PopupKhach from "./PopupKhach";
 import TheViec from "./TheViec";
 
@@ -387,21 +388,7 @@ export default function BanXetNghiem() {
                   ))}
                 </div>
               ) : null}
-              {mauMoi ? (
-                mauMoi.ma ? (
-                  <div className="rounded-card border border-line bg-surface p-4 text-center shadow-card">
-                    <p className="text-meta text-ink-muted">Mã ống — viết / dán lên ống</p>
-                    <p className="font-mono text-title font-bold tracking-widest text-ink">{mauMoi.ma}</p>
-                    {mauMoi.hen ? <p className="text-meta text-ink-muted">Hẹn trả {ngayVN(mauMoi.hen)}</p> : null}
-                  </div>
-                ) : (
-                  <div className="rounded-card border border-line bg-surface p-4 text-center shadow-card">
-                    <p className="text-body font-semibold text-ink">
-                      Đã lấy mẫu{mauMoi.hen ? ` · Hẹn trả ${ngayVN(mauMoi.hen)}` : ""}
-                    </p>
-                  </div>
-                )
-              ) : null}
+              {mauMoi ? <KhungMauMoi ma={mauMoi.ma} hen={mauMoi.hen} /> : null}
               {viecDang.map((v) => (
                 <TheViec key={v.order_id} v={v} moVua={moVua === v.order_id} onXong={(c) => void xong(c)} onLayMau={(ids) => void layMau(ids)} />
               ))}

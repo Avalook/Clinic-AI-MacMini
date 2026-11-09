@@ -15,7 +15,7 @@ import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.xet_nghiem.anh_ck import anh_cua_cac_khoan
-from clinicai.services.xet_nghiem.doi_tac import doc_cai_dat
+from clinicai.services.xet_nghiem.doi_tac import CaiDatXN, doc_cai_dat
 from clinicai.services.xet_nghiem.hanh_trinh import (
     buoc_dang,
     hanh_trinh,
@@ -200,8 +200,10 @@ async def doc_viec(
     tu_ngay: date | None = None,
     order_ids: list[str] | None = None,
     ngay_xem: date | None = None,
+    cai_dat: CaiDatXN | None = None,
 ) -> list[dict[str, Any]]:
-    cd = await doc_cai_dat(conn, cid)
+    """`cai_dat`: người gọi đã đọc sẵn (cả bàn) thì truyền vào, khỏi đọc lại."""
+    cd = cai_dat or await doc_cai_dat(conn, cid)
     rows = await conn.fetch(_SU_VIEC_SQL, cid, tu_ngay or hom_nay, order_ids, ngay_xem)
     canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_BAN, clinic_id=cid)
     ds = [
