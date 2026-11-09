@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-06 11:49. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-09 15:22. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -2049,14 +2049,14 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `dich_vu_mau_ket_qua` | `20260923000004_mau_ket_qua.sql` | 3 |
 | `dispatch_threshold` | `20260804000002_dispatch_routes.sql` | 0 |
 | `doctor_booking_override` | `20260803000002_booking_override.sql` | 1 |
-| `doi_tac` | `20261105200000_xet_nghiem_nen.sql` | 1 |
-| `doi_tac_dich_vu` | `20261105200000_xet_nghiem_nen.sql` | 1 |
+| `doi_tac` | `20261105200000_xet_nghiem_nen.sql` | 2 |
+| `doi_tac_dich_vu` | `20261105200000_xet_nghiem_nen.sql` | 2 |
 | `doi_tac_hoan_tien` | `20261105210000_so_thu_ho.sql` | 0 |
 | `doi_tac_nhan_viec` | `20260925000009_doi_tac_nhan_viec.sql` | 3 |
 | `doi_tac_thanh_toan` | `20260928000091_doi_tac_tu_thu_tien.sql` | 2 |
 | `domain_event` | `20260923000001_domain_event.sql` | 1 |
-| `drive_nhip` | `20261106100000_xet_nghiem_drive.sql` | 0 |
-| `drive_tep` | `20261106100000_xet_nghiem_drive.sql` | 1 |
+| `drive_nhip` | `20261106100000_xet_nghiem_drive.sql` | 1 |
+| `drive_tep` | `20261106100000_xet_nghiem_drive.sql` | 2 |
 | `drug_batch` | `20260802000001_pharmacy_inventory.sql` | 6 |
 | `drug_catalog` | `20260714000001_baseline_schema.sql` | 5 |
 | `drug_ma_vach` | `20261014135000_ma_vach.sql` | 0 |
@@ -2174,7 +2174,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `staff_task` | `20260714000001_baseline_schema.sql` | 1 |
 | `staff_vi_tri` | `20260916000008_vi_tri_lam_viec_kim_nguu.sql` | 0 |
 | `tai_khoan_nhan` | `20261031120000_tai_khoan_nhan.sql` | 0 |
-| `tep_ket_qua` | `20260809000008_tep_ket_qua.sql` | 9 |
+| `tep_ket_qua` | `20260809000008_tep_ket_qua.sql` | 10 |
 | `thong_bao` | `20260807000006_thong_bao_goi_bo_phan.sql` | 1 |
 | `thong_bao_an_cua_toi` | `20261018180000_an_thong_bao_rieng_theo_nhan_vien.sql` | 0 |
 | `thu_ky_bac_si` | `20260915000020_thu_ky_bac_si.sql` | 0 |
@@ -2208,6 +2208,6 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `work_roster_thay_nguoi` | `20260929000001_doi_nguoi_trong_ca.sql` | 0 |
 | `work_session` | `20260714000001_baseline_schema.sql` | 0 |
 | `work_session_staff` | `20260714000001_baseline_schema.sql` | 0 |
-| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 0 |
+| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 1 |
 | `xet_nghiem_dong` | `20261105220000_mau_xet_nghiem.sql` | 0 |
 | `xet_nghiem_viec` | `20261105200000_xet_nghiem_nen.sql` | 1 |

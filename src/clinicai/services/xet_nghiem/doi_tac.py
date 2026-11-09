@@ -46,7 +46,7 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
                n.lan_quet_cuoi, n.ok_cuoi, n.loi_cuoi
           FROM public.doi_tac d
           LEFT JOIN public.drive_nhip n
-            ON n.clinic_id = d.clinic_id AND n.doi_tac_id = d.id
+            ON n.clinic_id = d.clinic_id AND n.doi_tac_id = d.id AND n.nguon = 'DRIVE'
          WHERE d.clinic_id = $1::uuid
          ORDER BY d.ngung_luc IS NOT NULL, lower(d.ten)
         """,

@@ -791,6 +791,8 @@ MODULE: dict[str, Module] = {
         Module(
             ma="xet_nghiem_doi_tac",
             ten="Xét nghiệm đối tác",
+            # Kho email kết quả (Gmail G1) — khối cấp riêng từng người.
+            quyen=["xet_nghiem.kho_email"],
             lenh=[
                 "SavePartner",
                 "PausePartner",

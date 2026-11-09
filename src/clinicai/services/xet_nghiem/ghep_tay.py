@@ -53,6 +53,8 @@ SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
   FROM drive_tep t
   JOIN doi_tac d ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id
  WHERE t.clinic_id = $1::uuid AND t.tep_ket_qua_id IS NULL AND t.tu_choi_luc IS NULL
+   -- Thư Gmail Lưu trữ (trước mốc tự ghép) chỉ xem ở Kho email — không ngập hàng này.
+   AND t.ly_do_cho IS DISTINCT FROM 'LUU_TRU'
  ORDER BY t.nhan_luc DESC
  LIMIT 200
 """
@@ -61,7 +63,7 @@ _NHIP_SQL = """
 SELECT doi_tac_id::text AS doi_tac_id, lan_quet_cuoi, ok_cuoi, loi_cuoi,
        (ok_cuoi IS NULL OR ok_cuoi < now() - interval '1 hour') AS tre
   FROM drive_nhip
- WHERE clinic_id = $1::uuid
+ WHERE clinic_id = $1::uuid AND nguon = 'DRIVE'
 """
 
 

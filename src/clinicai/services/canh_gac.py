@@ -192,6 +192,7 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
           (SELECT count(*) FROM doi_tac d
              LEFT JOIN drive_nhip n
                ON n.clinic_id = d.clinic_id AND n.doi_tac_id = d.id
+              AND n.nguon = 'DRIVE'
             WHERE d.drive_folder_id IS NOT NULL AND d.ngung_luc IS NULL
               AND d.sua_luc < now() - make_interval(hours => $4)
               AND (n.ok_cuoi IS NULL

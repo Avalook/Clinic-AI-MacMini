@@ -281,11 +281,11 @@ async def _nhip(
 ) -> None:
     await pool.execute(
         """
-        INSERT INTO drive_nhip (clinic_id, doi_tac_id, lan_quet_cuoi, ok_cuoi,
+        INSERT INTO drive_nhip (clinic_id, doi_tac_id, nguon, lan_quet_cuoi, ok_cuoi,
                                 loi_cuoi, so_tep_cuoi)
-        VALUES ($1::uuid, $2::uuid, now(),
+        VALUES ($1::uuid, $2::uuid, 'DRIVE', now(),
                 CASE WHEN $3::text IS NULL THEN now() END, $3, $4)
-        ON CONFLICT (clinic_id, doi_tac_id) DO UPDATE
+        ON CONFLICT (clinic_id, doi_tac_id, nguon) DO UPDATE
            SET lan_quet_cuoi = now(),
                ok_cuoi = CASE WHEN $3::text IS NULL THEN now()
                               ELSE drive_nhip.ok_cuoi END,
