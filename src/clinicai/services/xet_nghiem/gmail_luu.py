@@ -115,6 +115,8 @@ async def luu_thu(
     ghi rồi ném (không dòng nào). Dòng đã có (quét lại) ⇒ xoá tệp thừa của nó."""
     goc = media_service.goc_vps()
     khoa: list[str] = []
+    # Đã commit ⇒ dòng trỏ vào tệp: lỗi sau đó (trả kết nối) KHÔNG được xoá tệp.
+    da_commit = False
     try:
         for _p, data in tai:
             k = f"{cid}/gmail/{thu.id}/{uuid.uuid4().hex}.pdf"
@@ -150,9 +152,13 @@ async def luu_thu(
                     )
                     for (p, d), k, g in zip(tai, khoa, goi_y, strict=True)
                 ]
+            da_commit = True
     except BaseException:
-        for k in khoa:
-            await don_tren_kho(partial(_xoa_o, goc, k), viec=f"xoa:{k}", kho=KHO_VPS)
+        if not da_commit:
+            for k in khoa:
+                await don_tren_kho(
+                    partial(_xoa_o, goc, k), viec=f"xoa:{k}", kho=KHO_VPS
+                )
         raise
     for k, m in zip(khoa, moi, strict=True):
         if m is None:

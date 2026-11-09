@@ -284,3 +284,19 @@ async def test_tai_phan_nhung_thang_va_tran() -> None:
             await gmail_api.tai_phan(kh, "m", PhanPdf("1", "a.pdf", 1, None, None))
         with pytest.raises(gmail_api.ThuBoQua, match="du_lieu_hong"):
             await gmail_api.tai_phan(kh, "m", PhanPdf("1", "a.pdf", 1, None, "A"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("khoa")
+async def test_json_hong_tam_thoi_la_loi_tam_khong_bo_thu() -> None:
+    """Google trả thân hỏng lúc tải đính kèm ⇒ GmailError (lượt sau thử lại), KHÔNG phải
+    ThuBoQua — không thì thư bị bỏ vĩnh viễn vì một lỗi tạm."""
+
+    def tra(req: httpx.Request) -> httpx.Response:
+        if req.url.host == "oauth2.googleapis.com":
+            return httpx.Response(200, json={"access_token": "tk", "expires_in": 3600})
+        return httpx.Response(200, content=b"<html>loi tam</html>")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(tra)) as kh:
+        with pytest.raises(gmail_api.GmailError, match="dữ liệu hỏng"):
+            await gmail_api.tai_phan(kh, "m", PhanPdf("1", "a.pdf", 9, "att", None))

@@ -152,7 +152,10 @@ async def _goi(
             raise GmailError(
                 f"Gmail lỗi HTTP {r.status_code} ({_ly_do(r)}).", r.status_code
             )
-        d = r.json()
+        try:
+            d = r.json()
+        except ValueError as e:  # Google trả thân hỏng — tạm, lượt sau thử lại
+            raise GmailError("Gmail trả dữ liệu hỏng.") from e
         return d if isinstance(d, dict) else {}
     raise GmailError("Gmail từ chối token sau khi làm mới.")
 
@@ -262,15 +265,18 @@ async def tai_phan(kh: httpx.AsyncClient, mid: str, p: PhanPdf) -> bytes:
     lần đọc ⇒ chỉ dùng ngay sau `doc_thu`, không lưu."""
     if p.so_byte > TRAN_BYTE:
         raise ThuBoQua("tep_qua_lon")
+    if p.du_lieu:
+        tho = p.du_lieu
+    elif p.attachment_id:
+        # Lỗi mạng / JSON hỏng tạm của Google ⇒ GmailError (lượt sau thử lại) — KHÔNG
+        # được bọc chung với base64 hỏng, không thì thư bị bỏ vĩnh viễn vì lỗi tạm.
+        d = await _goi(kh, f"messages/{mid}/attachments/{p.attachment_id}", {})
+        tho = str(d.get("data") or "")
+    else:
+        raise ThuBoQua("khong_du_lieu")
     try:
-        if p.du_lieu:
-            data = _b64(p.du_lieu)
-        elif p.attachment_id:
-            d = await _goi(kh, f"messages/{mid}/attachments/{p.attachment_id}", {})
-            data = _b64(str(d.get("data") or ""))
-        else:
-            raise ThuBoQua("khong_du_lieu")
-    except (ValueError, TypeError) as e:  # base64 hỏng
+        data = _b64(tho)
+    except (ValueError, TypeError) as e:  # base64 hỏng — vĩnh viễn
         raise ThuBoQua("du_lieu_hong") from e
     if len(data) > TRAN_BYTE:
         raise ThuBoQua("tep_qua_lon")
