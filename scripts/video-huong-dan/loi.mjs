@@ -43,15 +43,17 @@ function edgeTts() {
 
 async function docNhap(chu, tep) {
   const mp3 = tep.replace(/\.wav$/, ".mp3");
-  // Dịch vụ của edge-tts thỉnh thoảng trả "No audio was received" (gặp 09/11) — thử lại.
+  // Dịch vụ của edge-tts hay trả "No audio was received" (09/11: lỗi NGẪU NHIÊN, cùng câu
+  // lúc được lúc không — kiểu bị giới hạn tần suất) ⇒ thử lại, chờ lâu dần, nghỉ giữa lượt.
   for (let lan = 1; ; lan++) {
     try {
       await chay(edgeTts(), ["--voice", GIONG_NHAP, "--text", chu, "--write-media", mp3]);
+      await new Promise((r) => setTimeout(r, 800));
       break;
     } catch (e) {
       rmSync(mp3, { force: true });
-      if (lan >= 4) throw new Error(`edge-tts không đọc được sau ${lan} lần: «${chu.slice(0, 60)}…» (${String(e.stderr ?? e.message).trim().split("\n").at(-1)})`);
-      await new Promise((r) => setTimeout(r, 1500 * lan));
+      if (lan >= 12) throw new Error(`edge-tts không đọc được sau ${lan} lần: «${chu.slice(0, 60)}…» (${String(e.stderr ?? e.message).trim().split("\n").at(-1)})`);
+      await new Promise((r) => setTimeout(r, Math.min(3000 * lan, 15_000)));
     }
   }
   await chay("ffmpeg", ["-y", "-v", "error", "-i", mp3, "-ar", "48000", "-ac", "1", tep]);

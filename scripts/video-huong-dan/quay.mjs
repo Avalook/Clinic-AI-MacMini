@@ -30,13 +30,24 @@ export class LoiCanh extends Error {
 const cho = (ms) => new Promise((r) => setTimeout(r, ms));
 const moTa = (s) => (s.role ? `${s.role} "${s.name}"` : s.label ? `ô "${s.label}"` : `chữ "${s.text}"`);
 
-function timPhanTu(page, spec, trong) {
-  const goc = trong ? page.getByRole("article").filter({ hasText: trong }).first() : page;
+function timTrong(goc, spec) {
   const exact = spec.exact ?? false;
-  if (spec.role) return goc.getByRole(spec.role, { name: spec.name, exact }).first();
-  if (spec.label) return goc.getByLabel(spec.label, { exact }).first();
-  if (spec.text) return goc.getByText(spec.text, { exact }).first();
+  if (spec.role) return goc.getByRole(spec.role, { name: spec.name, exact });
+  if (spec.label) return goc.getByLabel(spec.label, { exact });
+  if (spec.text) return goc.getByText(spec.text, { exact });
   throw new Error(`Bước không có role/label/text: ${JSON.stringify(spec)}`);
+}
+
+/** `trong: "<chữ>"` = trong khung NHỎ NHẤT chứa cả chữ đó lẫn phần tử cần tìm (thẻ việc,
+ *  thẻ đối tác, form…) — vd hai nút "Lưu" trên một màn: lấy nút ở form "Thêm đối tác". */
+function timPhanTu(page, spec, trong) {
+  if (!trong) return timTrong(page, spec).first();
+  const khung = page
+    .locator("article, li, section, form, div")
+    .filter({ hasText: trong })
+    .filter({ has: timTrong(page, spec) })
+    .last();
+  return timTrong(khung, spec).first();
 }
 
 /** Một khung thử ⇒ kích thước vùng Chrome đang ghi. */
@@ -223,6 +234,21 @@ async function lamBuoc(page, canh, i, buoc) {
   if (loai === "phong_to") {
     await page.evaluate(([x, y]) => window.__vd.luotToi(x, y, 650), giua);
     await page.evaluate(([r, he]) => window.__vd.phongTo(r, he, 1400), [b, spec.he ?? 1.6]);
+    return;
+  }
+  if (loai === "chon") {
+    // Ô thả xuống: con trỏ tới, gợn, chọn đúng mục theo CHỮ (danh mục có tên trùng ⇒ mục đầu).
+    await page.evaluate(([x, y]) => window.__vd.luotToi(x, y, 600), giua);
+    await page.evaluate(() => window.__vd.gon());
+    await cho(150);
+    const giaTri = await el.evaluate(
+      (s, chu) => [...s.options].find((o) => o.textContent.trim() === chu)?.value ?? null,
+      String(spec.chu),
+    );
+    if (giaTri === null) throw new LoiCanh(canh, i + 1, `ô ${moTa(spec)} không có mục "${spec.chu}".`);
+    await el.selectOption(giaTri);
+    await page.mouse.move(KHUNG.width - 4, KHUNG.height - 4);
+    await cho(400);
     return;
   }
   if (loai === "bam" || loai === "go") {

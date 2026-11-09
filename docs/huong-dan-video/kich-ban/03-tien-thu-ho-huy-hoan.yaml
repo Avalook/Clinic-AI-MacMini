@@ -1,0 +1,79 @@
+# Chương 3 — Tiền thu hộ, huỷ và hoàn. Khách {khach_hoan} đổi mỗi lần quay trong ngày
+# (Hoàn tiền là tiền thật, không bù được ⇒ dung-du-lieu.mjs chọn khách chưa bị hoàn).
+chuong: 3
+ten: "Tiền thu hộ, huỷ và hoàn"
+vai: "Quản lý"
+tai_khoan: ql
+mo_tu: /home
+mo_dau: "Xem tiền thu hộ trong ngày, sửa khi ghi sai, trả tiền khi khách thôi làm"
+ket_thuc: "Bước tiếp theo: lấy mẫu cho việc đã thu tiền."
+canh:
+  - id: mo-tien
+    loi: "Vào Việc của đối tác, mở tab Tiền thu hộ."
+    lam:
+      - re: { role: link, name: "Việc của đối tác" }
+      - bam: { role: link, name: "Việc của đối tác" }
+      - cho: { role: heading, name: "Việc của đối tác" }
+      - bam: { role: tab, name: "Tiền thu hộ" }
+      - cho: { text: "Tổng thu hộ" }
+
+  - id: so-rieng
+    loi: "Tiền thu hộ là tiền của đối tác: sổ riêng, không vào két, không tính doanh thu."
+    lam:
+      - nhan_manh: { text: "Tiền khách trả cho đối tác" }
+
+  - id: theo-ngay
+    loi: "Sổ tính theo ngày ghi nhận. Chọn Hôm nay, Hôm qua, hoặc một ngày bất kỳ."
+    lam:
+      - nhan_manh: { role: group, name: "Ngày ghi nhận" }
+
+  - id: tong
+    loi: "Trên cùng là tổng, tách tiền mặt và chuyển khoản. Bên dưới là từng khoản, ai ghi."
+    lam:
+      - nhan_manh: { text: "Tổng thu hộ" }
+      - nhan_manh: { role: table }
+
+  - id: hai-nut
+    loi: "Sai thì có hai cách sửa khác nhau. Huỷ là ghi sai. Hoàn là trả tiền thật cho khách."
+    lam:
+      - bam: { role: tab, name: "Việc theo ngày" }
+      - bam: { text: "{khach_hoan}" }
+      - cho: { text: "Hành trình xét nghiệm" }
+
+  - id: huy
+    loi: "Thẻ ThinPrep ghi nhầm. Bấm Hoàn tác bước trước, máy ghi rõ: Huỷ ghi nhận thu, ghi sai."
+    lam:
+      - bam: { role: button, name: "Hoàn tác bước trước", trong: "Thinprep" }
+      - nhan_manh: { label: "lý do", trong: "Thinprep" }
+
+  - id: huy-ly-do
+    loi: "Gõ lý do rồi bấm Xác nhận. Việc về lại Chưa thu tiền để ghi lại cho đúng."
+    lam:
+      - go: { label: "lý do", chu: "Ghi nhầm số tiền", trong: "Thinprep" }
+      - bam: { role: button, name: "Xác nhận", trong: "Thinprep" }
+      - cho: { text: "Chưa thu tiền", exact: true, trong: "Thinprep" }
+
+  - id: hoan
+    loi: "Thẻ HPV: khách đã trả, nay thôi không làm. Bấm Hoàn tiền để trả tiền lại cho khách."
+    lam:
+      - bam: { role: button, name: "Hoàn tiền", exact: true, trong: "HPV" }
+
+  - id: hoan-so
+    loi: "Gõ số tiền trả lại và lý do, rồi bấm Hoàn."
+    lam:
+      - go: { label: "Hoàn tiền mặt", chu: "350000", trong: "HPV" }
+      - go: { label: "Lý do hoàn", chu: "Khách đổi ý", trong: "HPV" }
+      - bam: { role: button, name: "Hoàn", exact: true, trong: "HPV" }
+      - cho: { text: "Đã ghi hoàn tiền." }
+
+  - id: khac-nhau
+    loi: "Khoản thu vẫn giữ, thẻ mang thêm chữ Đã hoàn tiền. Khoản đã hoàn thì không huỷ được nữa."
+    lam:
+      - nhan_manh: { text: "Đã hoàn tiền", exact: true, trong: "HPV" }
+
+  - id: so-lai
+    loi: "Quay lại tab Tiền thu hộ: khoản huỷ đã biến mất, dòng hoàn tiền ghi số âm."
+    lam:
+      - bam: { role: tab, name: "Tiền thu hộ" }
+      - cho: { text: "Tổng thu hộ" }
+      - nhan_manh: { role: row, name: "hoàn tiền" }

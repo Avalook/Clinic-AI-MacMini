@@ -14,7 +14,7 @@ import { basename, join } from "node:path";
 
 import { REPO } from "./api.mjs";
 import { dungDuLieu } from "./dung-du-lieu.mjs";
-import { anhBia, catKhung, doAmLuong, doDaiVideo, doanPhuDe, ghepVideo, ghiSrt } from "./ghep.mjs";
+import { anhBia, catKhung, doAmLuong, doDaiVideo, doanPhuDe, ghepTronBo, ghepVideo, ghiSrt } from "./ghep.mjs";
 import { chiaPhuDe, docCacCanh } from "./loi.mjs";
 import { LoiCanh, quayChuong } from "./quay.mjs";
 
@@ -48,10 +48,24 @@ function docKichBan(so) {
 const ngayHomNay = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()).replaceAll("-", "");
 
+/** `{khach_<khoá>}` trong kịch bản ⇒ tên khách mẫu dữ liệu vừa dựng (chương 3 đổi khách
+ *  mỗi lần quay vì Hoàn tiền không bù được). Thiếu tên ⇒ dừng, không quay chữ "{…}". */
+function thayTen(x, ten) {
+  if (typeof x === "string") {
+    return x.replace(/\{(khach_\w+)\}/g, (_m, k) => {
+      if (!ten[k]) throw new Error(`Kịch bản dùng {${k}} mà dữ liệu chương này không dựng khách đó.`);
+      return ten[k];
+    });
+  }
+  if (Array.isArray(x)) return x.map((y) => thayTen(y, ten));
+  if (x && typeof x === "object") return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, thayTen(v, ten)]));
+  return x;
+}
+
 async function lamChuong(so, { nhap, ra, bang }) {
-  const kb = docKichBan(so);
-  console.log(`\n▶ Chương ${so} — ${kb.ten} (${nhap ? "nháp" : "bản chính"})`);
-  await dungDuLieu();
+  const goc0 = docKichBan(so);
+  console.log(`\n▶ Chương ${so} — ${goc0.ten} (${nhap ? "nháp" : "bản chính"})`);
+  const kb = thayTen(goc0, await dungDuLieu(so));
   const loiCanh = [
     { id: "_mo", loi: `${kb.ten}. ${kb.mo_dau}.` },
     ...kb.canh,
@@ -140,6 +154,19 @@ async function main() {
   for (const so of ds) {
     const lam = await lamChuong(so, { nhap: ts.nhap, ra, bang });
     kq.push({ lam, soi: await soi(lam) });
+  }
+  if (ts.tatCa) {
+    const tron = join(ra, "00-tron-bo.mp4");
+    const muc = await ghepTronBo(
+      kq.map(({ lam }) => ({ mp4: `${lam.goc}.mp4`, ten: `Chương ${lam.kb.chuong} — ${lam.kb.ten}` })),
+      tron,
+      ra,
+    );
+    const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const mucLuc = muc.map((m) => `${mm(m.tu)} ${m.ten}`).join("\n");
+    writeFileSync(join(ra, "00-muc-luc.txt"), `${mucLuc}\n`);
+    for (const t of ["tron-bo.ffconcat", "tron-bo.ffmeta"]) rmSync(join(ra, t), { force: true });
+    console.log(`\nVideo gộp: ${tron}\n${mucLuc}`);
   }
   baoCao(kq, join(ra, "bao-cao.md"));
   console.log(`\nXong → ${ra}`);

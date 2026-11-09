@@ -108,6 +108,45 @@ export async function doAmLuong(mp4) {
   return { I, TP };
 }
 
+/**
+ * Video gộp cả đợt: nối các chương (cùng mã hoá ⇒ chép luồng, không nén lại) + gắn
+ * CHƯƠNG vào tệp (trình xem như QuickTime/VLC hiện danh sách chương để nhảy tới).
+ * `chuong` = [{mp4, ten}] theo thứ tự. Trả [{ten, tu}] (giây) để in mục lục.
+ */
+export async function ghepTronBo(chuong, ra, thuMucTam) {
+  const muc = [];
+  let tu = 0;
+  for (const c of chuong) {
+    const dai = await doDaiVideo(c.mp4);
+    muc.push({ ten: c.ten, tu, den: tu + dai });
+    tu += dai;
+  }
+  const ds = `${thuMucTam}/tron-bo.ffconcat`;
+  writeFileSync(ds, ["ffconcat version 1.0", ...chuong.map((c) => `file '${c.mp4}'`)].join("\n") + "\n");
+  const meta = `${thuMucTam}/tron-bo.ffmeta`;
+  const thoat = (s) => s.replace(/[=;#\\\n]/g, (k) => `\\${k}`);
+  writeFileSync(
+    meta,
+    [
+      ";FFMETADATA1",
+      "title=Hướng dẫn Việc của đối tác",
+      ...muc.flatMap((m) => [
+        "[CHAPTER]",
+        "TIMEBASE=1/1000",
+        `START=${Math.round(m.tu * 1000)}`,
+        `END=${Math.round(m.den * 1000)}`,
+        `title=${thoat(m.ten)}`,
+      ]),
+    ].join("\n") + "\n",
+  );
+  await chay(
+    "ffmpeg",
+    ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", ds, "-i", meta, "-map_metadata", "1", "-map_chapters", "1", "-c", "copy", "-movflags", "+faststart", ra],
+    { maxBuffer: 1 << 26 },
+  );
+  return muc;
+}
+
 export async function doDaiVideo(mp4) {
   const { stdout } = await chay("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp4]);
   return Number.parseFloat(stdout.trim());

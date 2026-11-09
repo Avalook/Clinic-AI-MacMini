@@ -3,10 +3,11 @@
 // Chạy lại lần nào cũng ra cùng trạng thái đầu chương:
 //   - chưa có việc demo HÔM NAY ⇒ tạo: khách → lịch hẹn → check-in → bác sĩ chỉ định;
 //   - đã có ⇒ đưa việc về đúng trạng thái bằng lệnh bù của bàn (huỷ mẫu, huỷ ghi nhận thu,
-//     lý do "Dựng lại video hướng dẫn") — hoàn tác được, như nhân viên bấm.
+//     lý do "Dựng lại video hướng dẫn") rồi ghi thu lại nếu chương cần — như nhân viên bấm.
 // Chỉ chạy với stack local (api.mjs từ chối địa chỉ không phải loopback).
 //
-//   node scripts/video-huong-dan/dung-du-lieu.mjs
+//   node scripts/video-huong-dan/dung-du-lieu.mjs            # mọi chương
+//   node scripts/video-huong-dan/dung-du-lieu.mjs --chuong 3 # chỉ thứ chương 3 cần
 
 import { cho, goi } from "./api.mjs";
 
@@ -18,17 +19,39 @@ export const DOI_TAC = {
   // Chuỗi MẪU rõ là giả — chỉ để dòng "Chuyển khoản vào: …" có chữ trên hình.
   tk: "Ngân hàng mẫu · 0000 0000 00 · TÀI KHOẢN MẪU",
 };
+//: Đối tác chương 1 THÊM MỚI trên hình. Lần quay trước để lại ⇒ đổi mã + ngưng (không có Xoá).
+export const DOI_TAC_MOI = { ten: "Phòng xét nghiệm Mẫu", ma_ngan: "PXN", dich_vu: "Tổng phân tích nước tiểu" };
 //: Dịch vụ đối tác có sẵn ở danh mục local (bên thu = đối tác) + giá gợi ý trên hình.
 export const DICH_VU = [
-  { ma: "CLS_HPV", gia: 350000 },
-  { ma: "CLS_THINPREP", gia: 550000 },
+  { ma: "CLS_HPV", gia: 350000, khop: /hpv/i },
+  { ma: "CLS_THINPREP", gia: 550000, khop: /thinprep/i },
 ];
-//: Khách giả, rõ là giả. `trang_thai`: trạng thái việc lúc bắt đầu quay.
-export const KHACH = [
-  { ten: "Nguyễn Thị Minh Anh", sdt: "0900000101", nam_sinh: 1992, trang_thai: "chua_thu" },
-];
+const DA_THU_CA_HAI = {
+  CLS_HPV: { tien_mat: "350000" },
+  CLS_THINPREP: { chuyen_khoan: "550000", ma_giao_dich: "FT26110900456" },
+};
+//: Khách giả, rõ là giả. `dau`: khoản thu từng xét nghiệm lúc bắt đầu quay (thiếu = chưa thu).
+//: `ds` (nhiều khách): chương có bước KHÔNG hoàn tác được (Hoàn tiền thật — luật: đã hoàn thì
+//: không huỷ ghi nhận) ⇒ mỗi lần quay trong ngày dùng khách kế tiếp chưa bị hoàn.
+export const KHACH = {
+  thu: { ds: [{ ten: "Nguyễn Thị Minh Anh", sdt: "0900000101", nam_sinh: 1992 }], dau: {} },
+  lay_mau: { ds: [{ ten: "Lê Thị Ngọc Lan", sdt: "0900000103", nam_sinh: 1988 }], dau: { CLS_HPV: { tien_mat: "350000" } } },
+  hoan: {
+    ds: [
+      { ten: "Trần Thị Thu Hà", sdt: "0900000111", nam_sinh: 1990 },
+      { ten: "Phạm Thị Hồng Nhung", sdt: "0900000112", nam_sinh: 1987 },
+      { ten: "Đỗ Thị Mai Phương", sdt: "0900000113", nam_sinh: 1994 },
+      { ten: "Vũ Thị Thanh Hương", sdt: "0900000114", nam_sinh: 1991 },
+      { ten: "Bùi Thị Lan Chi", sdt: "0900000115", nam_sinh: 1989 },
+    ],
+    dau: DA_THU_CA_HAI,
+  },
+};
+//: Chương nào cần khách nào (khoá KHACH) + có đặt lại đối tác thêm mới không.
+const CAN = { 0: ["lay_mau"], 1: ["doi_tac_moi"], 2: ["thu"], 3: ["hoan"], 4: ["lay_mau"] };
 
 const log = (...a) => console.log("  ·", ...a);
+const maCua = (v) => DICH_VU.find((d) => d.khop.test(v.ten_dich_vu ?? ""))?.ma;
 
 async function doiTac() {
   const ds = await goi("ql", "GET", "xet-nghiem/doi-tac");
@@ -65,7 +88,27 @@ async function doiTac() {
       log(`gán ${dv.ma} → ${DOI_TAC.ma_ngan}, gợi ý ${dv.gia}`);
     }
   }
-  return d.id;
+}
+
+/** Chương 1 thêm "Phòng xét nghiệm Mẫu" (PXN) trên hình. Lần quay trước còn ⇒ bỏ gán, đổi
+ *  sang mã cũ, ngưng có lý do (không có Xoá; thẻ ngưng xếp cuối danh sách). */
+async function datLaiDoiTacMoi() {
+  const ds = await goi("ql", "GET", "xet-nghiem/doi-tac");
+  const d = ds.doi_tac.find((x) => x.ma_ngan === DOI_TAC_MOI.ma_ngan);
+  if (!d) return;
+  for (const g of d.dich_vu ?? []) await goi("ql", "POST", `xet-nghiem/doi-tac-dich-vu/${g.id}/bo`, {});
+  const maCu = `C${Date.now().toString(36).slice(-6).toUpperCase()}`;
+  await goi("ql", "PUT", `xet-nghiem/doi-tac/${d.id}`, {
+    // Tên cũ KHÔNG chứa tên mới — kịch bản tìm thẻ theo tên "Phòng xét nghiệm Mẫu".
+    ten: `Bản quay cũ ${maCu}`,
+    ma_ngan: maCu,
+    sdt: d.sdt,
+    ghi_chu: d.ghi_chu,
+    tai_khoan_nhan_ck: d.tai_khoan_nhan_ck,
+    hen_tra_so_ngay_mac_dinh: d.hen_tra_so_ngay_mac_dinh,
+  });
+  if (!d.ngung_luc) await goi("ql", "POST", `xet-nghiem/doi-tac/${d.id}/ngung`, { ngung: true, ly_do: LY_DO });
+  log(`đối tác ${DOI_TAC_MOI.ma_ngan} lần quay trước → ${maCu}, đã ngưng`);
 }
 
 async function viecHomNay(sdt) {
@@ -118,7 +161,9 @@ async function luotMoi(k, benhNhan) {
   // "Khác": vào thẳng bác sĩ chính (không qua tư vấn) — đủ để bác sĩ chỉ định xét nghiệm.
   const pk = dsLoai.find((t) => t.code === "KHAC");
   const bs = await goi("bs.a", "GET", "me");
-  const bat = new Date(Math.ceil((Date.now() + 20 * 60_000) / 900_000) * 900_000);
+  // Mỗi khách một khung giờ riêng (đuôi SĐT) — khỏi đụng sức chứa của cùng bác sĩ.
+  const lech = (Number(k.sdt.slice(-2)) % 16) * 30 * 60_000;
+  const bat = new Date(Math.ceil((Date.now() + 20 * 60_000) / 900_000) * 900_000 + lech);
   const lich = await goi(
     "cskh",
     "POST",
@@ -149,39 +194,75 @@ async function chiDinh(phienId) {
   );
 }
 
-/** Đưa việc về trạng thái đầu chương bằng lệnh bù của bàn XN. */
-async function veTrangThai(viec, trangThai) {
-  for (const v of viec) {
-    if (v.mau_id) {
-      await goi("ql", "POST", "xet-nghiem/ban/huy-mau", { mau_id: v.mau_id, loai: "NHAP_SAI", ly_do: LY_DO });
-      log(`huỷ mẫu ${v.ten_dich_vu}`);
-    }
-    if (v.thu_id && trangThai === "chua_thu") {
+const khopThu = (v, m) =>
+  Number(v.tien_mat ?? 0) === Number(m.tien_mat ?? 0) &&
+  Number(v.chuyen_khoan ?? 0) === Number(m.chuyen_khoan ?? 0) &&
+  (v.ma_giao_dich ?? "") === (m.ma_giao_dich ?? "");
+
+/** Đưa việc về trạng thái đầu chương bằng lệnh bù của bàn XN, rồi ghi thu theo `dau`. */
+async function veTrangThai(k, dau) {
+  // Một ống có thể chung nhiều việc ⇒ huỷ mỗi mẫu MỘT lần.
+  for (const mauId of new Set((await viecHomNay(k.sdt)).map((v) => v.mau_id).filter(Boolean))) {
+    await goi("ql", "POST", "xet-nghiem/ban/huy-mau", { mau_id: mauId, loai: "NHAP_SAI", ly_do: LY_DO });
+    log(`huỷ mẫu của ${k.ten}`);
+  }
+  for (const v of await viecHomNay(k.sdt)) {
+    const muon = dau[maCua(v)];
+    let coThu = !!v.thu_id;
+    if (coThu && !(muon && khopThu(v, muon))) {
       await goi("ql", "POST", "xet-nghiem/ban/huy-thu", { order_id: v.order_id, ly_do: LY_DO });
       log(`huỷ ghi nhận thu ${v.ten_dich_vu}`);
+      coThu = false;
+    }
+    if (!coThu && muon) {
+      await goi("dd.sa", "POST", "xet-nghiem/ban/ghi-thu", {
+        order_id: v.order_id,
+        tien_mat: muon.tien_mat ?? "",
+        chuyen_khoan: muon.chuyen_khoan ?? "",
+        ma_giao_dich: muon.ma_giao_dich ?? "",
+      });
+      log(`ghi thu ${v.ten_dich_vu}`);
     }
   }
 }
 
-export async function dungDuLieu() {
+/** Khách đầu tiên trong `ds` chưa có việc nào hôm nay bị hoàn tiền (hoàn không bù được). */
+async function chonKhach(ds) {
+  for (const k of ds) {
+    const viec = await viecHomNay(k.sdt);
+    if (!viec.some((v) => Number(v.da_hoan ?? 0) > 0)) return { k, viec };
+  }
+  throw new Error("Hết khách mẫu chưa bị hoàn tiền hôm nay — thêm tên vào KHACH.hoan hoặc quay ngày khác.");
+}
+
+/** Dựng dữ liệu cho chương `so` (bỏ trống = mọi chương). Trả {khoá: tên khách} để kịch bản
+ *  dùng `{khach_<khoá>}`. */
+export async function dungDuLieu(so = null) {
   console.log("Dựng dữ liệu demo (stack local):");
   await doiTac();
-  for (const k of KHACH) {
-    let viec = await viecHomNay(k.sdt);
+  const can = new Set(so === null ? Object.values(CAN).flat() : (CAN[so] ?? []));
+  if (can.has("doi_tac_moi")) await datLaiDoiTacMoi();
+  const ten = {};
+  for (const [khoa, nhom] of Object.entries(KHACH)) {
+    if (!can.has(khoa)) continue;
+    let { k, viec } = await chonKhach(nhom.ds);
     if (viec.length < DICH_VU.length) {
       const bn = await taoKhach(k);
       await chiDinh(await luotMoi(k, bn));
       viec = await viecHomNay(k.sdt);
       log(`${k.ten}: ${viec.length} việc mới`);
     }
-    await veTrangThai(viec, k.trang_thai);
+    await veTrangThai(k, nhom.dau);
     const sau = await viecHomNay(k.sdt);
     log(`${k.ten}: ${sau.map((v) => `${v.ten_dich_vu} = ${v.trang_thai.nhan ?? v.trang_thai.ma}`).join(" · ")}`);
+    ten[`khach_${khoa}`] = k.ten;
   }
+  return ten;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  dungDuLieu().catch((e) => {
+  const i = process.argv.indexOf("--chuong");
+  dungDuLieu(i >= 0 ? Number(process.argv[i + 1]) : null).catch((e) => {
     console.error(`\nDỰNG DỮ LIỆU HỎNG: ${e.message}`);
     process.exit(1);
   });

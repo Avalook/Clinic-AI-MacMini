@@ -1,0 +1,77 @@
+# Chương 1 — Cài đặt đối tác. Đối tác "Phòng xét nghiệm Mẫu" (PXN) được THÊM trên hình;
+# dung-du-lieu.mjs dọn bản lần quay trước (đổi mã + ngưng) trước khi quay.
+chuong: 1
+ten: "Cài đặt đối tác"
+vai: "Quản lý"
+tai_khoan: ql
+mo_tu: /home
+mo_dau: "Thêm đối tác, gán xét nghiệm và giá gợi ý"
+ket_thuc: "Bước tiếp theo: ghi nhận thu hộ khi khách trả tiền."
+canh:
+  - id: mo-cai-dat
+    loi: "Vào Việc của đối tác, mở tab Cài đặt."
+    lam:
+      - re: { role: link, name: "Việc của đối tác" }
+      - bam: { role: link, name: "Việc của đối tác" }
+      - cho: { role: heading, name: "Việc của đối tác" }
+      - bam: { role: tab, name: "Cài đặt" }
+      - cho: { role: button, name: "+ Thêm đối tác" }
+
+  - id: them
+    loi: "Bấm Thêm đối tác. Gõ tên đối tác và một mã ngắn để nhận ra nhanh."
+    lam:
+      - bam: { role: button, name: "+ Thêm đối tác" }
+      - go: { label: "Tên đối tác", chu: "Phòng xét nghiệm Mẫu" }
+      - go: { label: "Mã ngắn", chu: "PXN" }
+
+  - id: hen-tra
+    loi: "Hẹn trả mặc định là số ngày đối tác thường trả kết quả."
+    lam:
+      - go: { label: "Hẹn trả mặc định (ngày)", chu: "5" }
+
+  - id: tai-khoan
+    loi: "Ghi tài khoản nhận chuyển khoản. Nhân viên thu tiền sẽ thấy dòng này."
+    lam:
+      - go: { label: "Tiền thu hộ chuyển khoản vào", chu: "Ngân hàng mẫu · 1111 2222 33 · TÀI KHOẢN MẪU" }
+
+  - id: luu
+    loi: "Bấm Lưu. Đối tác mới hiện thành một thẻ trong danh sách."
+    lam:
+      - bam: { role: button, name: "Lưu", exact: true, trong: "Thêm đối tác" }
+      - cho: { text: "Đã lưu đối tác." }
+
+  - id: gan
+    loi: "Ở thẻ đối tác mới, bấm Gán dịch vụ, rồi chọn xét nghiệm đối tác này làm."
+    lam:
+      - bam: { role: button, name: "+ Gán dịch vụ", trong: "Phòng xét nghiệm Mẫu" }
+      - chon: { label: "Dịch vụ (đối tác thu)", chu: "Tổng phân tích nước tiểu" }
+
+  - id: gia-goi-y
+    loi: "Giá gợi ý được điền sẵn khi thu tiền. Hẹn trả riêng để trống thì theo mặc định."
+    lam:
+      - go: { label: "Giá gợi ý", chu: "60000" }
+      - nhan_manh: { label: "Hẹn trả riêng (ngày)" }
+
+  - id: bam-gan
+    loi: "Bấm Gán. Từ giờ, chỉ định mới của xét nghiệm này đi đối tác này."
+    lam:
+      - bam: { role: button, name: "Gán", exact: true }
+      - cho: { text: "Đã gán dịch vụ." }
+      - nhan_manh: { text: "Tổng phân tích nước tiểu", trong: "Phòng xét nghiệm Mẫu" }
+
+  - id: bang-gan
+    loi: "Tab Gán xét nghiệm cho xem cả bảng: xét nghiệm nào, đối tác nào, hẹn trả mấy ngày."
+    lam:
+      - bam: { role: tab, name: "Gán xét nghiệm" }
+      - nhan_manh: { text: "Đối tác nào làm xét nghiệm nào" }
+
+  - id: quyen
+    loi: "Tab Quyền chỉ để xem ai làm việc ở bàn, ai xem được Tiền thu hộ và Cài đặt."
+    lam:
+      - bam: { role: tab, name: "Quyền" }
+      - nhan_manh: { role: columnheader, name: "Tiền thu hộ · Cài đặt" }
+
+  - id: phan-quyen
+    loi: "Muốn bật tắt quyền thì vào Phân quyền."
+    lam:
+      - nhan_manh: { role: link, name: "Phân quyền", exact: true }
