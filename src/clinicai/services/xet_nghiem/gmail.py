@@ -33,6 +33,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
 from typing import Final
+from zoneinfo import ZoneInfo
 
 import asyncpg
 import httpx
@@ -40,7 +41,14 @@ import structlog
 
 from clinicai.core.kho_tep import KHO_VPS, chay_tren_kho
 from clinicai.services import media_service
-from clinicai.services.xet_nghiem import gmail_api, gmail_luu
+from clinicai.services.xet_nghiem import (
+    ghep_khach,
+    gmail_api,
+    gmail_cai_dat,
+    gmail_doc,
+    gmail_ghep,
+    gmail_luu,
+)
 
 logger = structlog.get_logger()
 
@@ -50,6 +58,7 @@ TRAN_LICH_SU: Final = 100
 #: Trang thư mới tối đa mỗi vòng (100 thư/trang) — chặn vòng vô hạn.
 TRAN_TRANG_MOI: Final = 5
 LUI_THU_MOI: Final = timedelta(days=2)
+_VN: Final = ZoneInfo("Asia/Ho_Chi_Minh")
 _UUID_RE: Final = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
 
 
@@ -117,13 +126,53 @@ async def nhan_thu(
     trong = await chay_tren_kho(partial(_con_cho, goc), kho=KHO_VPS)
     if trong - sum(len(d) for _, d in tai) < MEDIA_LOCAL_MIN_FREE_BYTES:
         raise gmail_api.GmailError("Ổ máy chủ gần đầy — chưa lưu thư kết quả.")
+    muc = await _muc_ca_thu(pool, cid, dt, thu, tai)
     try:
-        return await gmail_luu.luu_thu(pool, cid, dt, thu, tai)
+        ids = await gmail_luu.luu_thu(pool, cid, dt, thu, muc)
     except asyncpg.IntegrityConstraintViolationError as e:
         # CHECK / khoá ngoại từ chối dữ liệu của RIÊNG thư này — vĩnh viễn, bỏ thư.
         # Không log chuỗi lỗi: DETAIL của Postgres chứa cả dòng (tên khách).
         logger.error("gmail_bo_thu", message_id=mid, ly_do=type(e).__name__)
         return 0
+    # Gắn tờ kết quả SAU khi cả thư đã lưu (tai_len tự mở giao dịch riêng).
+    for m, dong_id in zip(muc, ids, strict=True):
+        if dong_id is not None and m.q.ly_do is None:
+            await gmail_ghep.gan_tu_dong(pool, cid, dong_id, m.q, m.data, m.p.ten)
+    return sum(i is not None for i in ids)
+
+
+async def _muc_ca_thu(
+    pool: asyncpg.Pool,
+    cid: str,
+    dt: str,
+    thu: gmail_api.ThuGmail,
+    tai: list[tuple[gmail_api.PhanPdf, bytes]],
+) -> list[gmail_luu.Muc]:
+    """Đọc chữ PDF MỘT lần; quyết từng PDF. Chỉ thư từ mốc tự ghép trở đi VÀ xác thực
+    đúng miền người gửi mới được xét ghép — còn lại Lưu trữ (Kho) như G2."""
+    chu = [(p, d, ghep_khach.chu_pdf(d)) for p, d in tai]
+    async with pool.acquire() as conn:
+        moc = await gmail_cai_dat.doc_moc(conn, cid)
+        xet = gmail_ghep.trong_moc(thu.nhan_luc, moc) and gmail_doc.xac_thuc_ok(
+            thu.xac_thuc, thu.tu
+        )
+        if not xet:
+            return [gmail_luu.Muc(p, d, c, gmail_ghep.LUU_TRU) for p, d, c in chu]
+        viec = await gmail_ghep.doc_viec(conn, cid, dt)
+    nam_nay = thu.nhan_luc.astimezone(_VN).year
+    return [
+        gmail_luu.Muc(
+            p,
+            d,
+            c,
+            gmail_ghep.quyet(
+                gmail_doc.doc_thu(thu.tieu_de, thu.than, p.ten, c, nam_nay),
+                viec,
+                bool(c.strip()),
+            ),
+        )
+        for p, d, c in chu
+    ]
 
 
 async def _nhan_ca_trang(

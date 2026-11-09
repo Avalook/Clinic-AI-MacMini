@@ -14,8 +14,9 @@ from __future__ import annotations
 import io
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Protocol, TypeVar
 
 import asyncpg
 import structlog
@@ -78,17 +79,22 @@ class UngVien:
     sdt: str | None
 
 
-def khop_khach(
-    van_ban: str, ung_vien: list[UngVien]
-) -> tuple[UngVien | None, str | None]:
-    """HÀM THUẦN. `van_ban` = tên tệp + chữ PDF (thô). Trả (việc ghép, None) hoặc
-    (None, lý do chờ): KHONG_DOC_DUOC · KHONG_KHOP_KHACH · NHIEU_KHACH ·
-    ONG_NHIEU_VIEC."""
+class _CoTenSdt(Protocol):
+    @property
+    def ten(self) -> str | None: ...
+    @property
+    def sdt(self) -> str | None: ...
+
+
+_K = TypeVar("_K", bound=_CoTenSdt)
+
+
+def khop_ds(van_ban: str, ung_vien: Sequence[_K]) -> list[_K]:
+    """HÀM THUẦN — LUẬT KHỚP DUY NHẤT (Drive + Gmail): ứng viên có SĐT nằm trong chữ
+    VÀ tên (bỏ dấu, nguyên cụm) nằm trong chữ."""
     chu = f" {chuan(van_ban)} "
-    if not chu.strip():
-        return None, "KHONG_DOC_DUOC"
     sdts = sdt_trong(van_ban)
-    khop = [
+    return [
         u
         for u in ung_vien
         if (s := chuan_sdt(u.sdt)) in sdts
@@ -96,6 +102,17 @@ def khop_khach(
         and (ten := chuan(u.ten))
         and f" {ten} " in chu
     ]
+
+
+def khop_khach(
+    van_ban: str, ung_vien: list[UngVien]
+) -> tuple[UngVien | None, str | None]:
+    """HÀM THUẦN. `van_ban` = tên tệp + chữ PDF (thô). Trả (việc ghép, None) hoặc
+    (None, lý do chờ): KHONG_DOC_DUOC · KHONG_KHOP_KHACH · NHIEU_KHACH ·
+    ONG_NHIEU_VIEC."""
+    if not chuan(van_ban):
+        return None, "KHONG_DOC_DUOC"
+    khop = khop_ds(van_ban, ung_vien)
     if not khop:
         return None, "KHONG_KHOP_KHACH"
     if len({u.clinic_patient_id for u in khop}) > 1:

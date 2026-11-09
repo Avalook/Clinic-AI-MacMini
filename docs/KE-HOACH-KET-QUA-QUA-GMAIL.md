@@ -185,7 +185,15 @@ hỏi Tuyền, không đoán bấm.
 - Ứng viên: việc đang chờ kết quả (tự ghép); việc đã thu chưa lấy mẫu (`CHUA_LAY_MAU` + gợi ý);
   việc đã có tờ trong 120 ngày (`CO_BAN_MOI` + gợi ý).
 - Bật ghép cho thư sau mốc; thư `LUU_TRU` sau mốc tạo ở G2 được xét lại **một lần**.
-- **⚠️ ĐỀ XUẤT CHỈNH LUẬT G3 sau khi phân tích thư thật 4 lab (09/11) — CHỜ TUYỀN DUYỆT, chưa code.**
+- **G3a xong (09/11, Tuyền DUYỆT luật dưới đây; nhánh `claude/gmail-ket-qua-g3`)** — máy chủ:
+  `gmail_doc.py` (đọc thư từng lab, hàm thuần; đo trên thư thật: đủ tên + SĐT để xét ghép TM 97,5% ·
+  HD 96,3% · GL 73% (phần còn lại đúng là "Chưa đủ kết quả") · EU ~99% PDF kết quả), `gmail_ghep.py`
+  (MỘT hàm `quyet` + `gan_tu_dong` qua `tai_len` nguồn GMAIL ⇒ CHO_XAC_NHAN), `ghep_khach.khop_ds` =
+  luật khớp duy nhất Drive + Gmail, DKIM/DMARC `xac_thuc_ok`, hàng ghép tay nhận thư Gmail sau mốc
+  (byte đọc ở `khoa`), lý do mới CHUA_LAY_MAU / CO_BAN_MOI kèm `goi_y_order_id`. **Đổi:** mốc chỉ áp cho
+  thư NHẬN SAU khi đặt mốc — thư đã vào Kho trước đó không xét lại tự động (đơn giản, không cần cột
+  đánh dấu). **Còn G3b:** màn tab Kết quả hiện nguồn Email + nút "Gán theo gợi ý".
+- **⚠️ ĐỀ XUẤT CHỈNH LUẬT G3 sau khi phân tích thư thật 4 lab (09/11) — ĐÃ DUYỆT 09/11.**
   Báo cáo đã che tên (máy Mac, không vào repo): mọi lab đều có SĐT khách ⇒ luật "tên + SĐT bắt buộc"
   áp được cả 4. Chỗ kế hoạch cũ sẽ GHÉP SAI và đề xuất thay:
   | | True Medicine | Greenlab | High Detect | Eurofins |

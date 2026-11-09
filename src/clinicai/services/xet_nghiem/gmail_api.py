@@ -73,6 +73,9 @@ class ThuGmail:
     tieu_de: str
     than: str
     pdf: list[PhanPdf] = field(default_factory=list)
+    #: Header `Authentication-Results` (Gmail ghi DKIM/SPF/DMARC) — G3 chỉ TỰ ghép thư
+    #: có xác thực đúng miền người gửi (`gmail_doc.xac_thuc_ok`).
+    xac_thuc: str = ""
 
 
 def co_cau_hinh() -> bool:
@@ -253,6 +256,13 @@ def thanh_thu(r: object) -> ThuGmail | None:
         tieu_de=" ".join(dau.get("subject", "").split())[:TRAN_TIEU_DE],
         than=_than(phan),
         pdf=[x for p in phan if (x := _phan_pdf(p, p is tai)) is not None],
+        # Có thể nhiều dòng (ARC thêm dòng) — gộp hết, `xac_thuc_ok` tìm trong đó.
+        xac_thuc="\n".join(
+            str(h.get("value", ""))
+            for h in tai.get("headers") or []
+            if isinstance(h, dict)
+            and str(h.get("name", "")).lower() == "authentication-results"
+        )[:4000],
     )
 
 

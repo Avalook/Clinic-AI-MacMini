@@ -181,16 +181,20 @@ async def test_thu_gmail_khong_lot_qua_cua_hang_cho_drive(
     quan_ly: StaffIdentity,  # noqa: F811
     o_vps: pathlib.Path,
 ) -> None:
-    """Cửa xem trước / Gán / Từ chối của hàng chờ Drive nhận id dòng bất kỳ — thư
-    Gmail (kể cả chưa Lưu trữ) phải 404 ở đó, chỉ mở qua Kho (có quyền)."""
-    for ly_do in ("LUU_TRU", "KHONG_KHOP_KHACH"):
-        tid = await _thu_kho(pool, o_vps, ly_do_cho=ly_do)
-        with pytest.raises(NotFoundError):
-            await ghep_tay.noi_dung_cho(pool, quan_ly, tid)
-        with pytest.raises(NotFoundError):
-            await ghep_tay.tu_choi(
-                pool, quan_ly, {"drive_tep_id": tid, "ly_do": "thử lách quyền"}
-            )
-        async with pool.acquire() as conn:
-            cho = {t["id"] for t in await ghep_tay.ds_cho(conn, CLINIC)}
-        assert tid not in cho
+    """Cửa xem trước / Gán / Từ chối của hàng chờ nhận id dòng bất kỳ — thư Gmail LƯU
+    TRỮ phải 404 ở đó, chỉ mở qua Kho (có quyền). Thư Gmail sau mốc đã xét ghép (G3,
+    lý do khác LUU_TRU) thì vào hàng chờ như tệp Drive, xem được bằng byte đã lưu."""
+    luu = await _thu_kho(pool, o_vps, ly_do_cho="LUU_TRU")
+    with pytest.raises(NotFoundError):
+        await ghep_tay.noi_dung_cho(pool, quan_ly, luu)
+    with pytest.raises(NotFoundError):
+        await ghep_tay.tu_choi(
+            pool, quan_ly, {"drive_tep_id": luu, "ly_do": "thử lách quyền"}
+        )
+    cho_ghep = await _thu_kho(pool, o_vps, ly_do_cho="KHONG_KHOP_KHACH")
+    noi, mime = await ghep_tay.noi_dung_cho(pool, quan_ly, cho_ghep)
+    assert noi.startswith(b"%PDF") and mime == "application/pdf"
+    async with pool.acquire() as conn:
+        cho = {t["id"]: t for t in await ghep_tay.ds_cho(conn, CLINIC)}
+    assert luu not in cho
+    assert cho[cho_ghep]["nguon"] == "GMAIL" and cho[cho_ghep]["email_tieu_de"]

@@ -703,6 +703,7 @@ class TepKetQuaService:
         la_tep_doi_tac: bool = False,
         drive_nguoi_tai: str | None = None,
         tu_drive: bool = False,
+        tu_gmail: bool = False,
     ) -> dict[str, Any]:
         """Nhận một tệp kết quả và cất nó lên đĩa.
 
@@ -947,7 +948,8 @@ class TepKetQuaService:
                     tu_hop_le,
                     LY_DO_TU_XAC_NHAN,
                     ben,
-                    "DRIVE" if tu_drive else "TAI_LEN",
+                    # tu_gmail (Gmail G3): tệp tự về qua thư — cùng đường Drive.
+                    "GMAIL" if tu_gmail else ("DRIVE" if tu_drive else "TAI_LEN"),
                     (drive_nguoi_tai or "").strip()[:200] or None,
                 )
                 if service_order_id and not viec_doi_tac:
