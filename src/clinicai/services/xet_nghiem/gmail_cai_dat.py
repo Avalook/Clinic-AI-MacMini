@@ -34,12 +34,15 @@ def den_email(
 
 
 async def email_cu(conn: asyncpg.Connection, cid: str, dt_id: str | None) -> Any:
-    """Email đang lưu (khoá dòng tới hết giao dịch). Đối tác mới ⇒ None."""
+    """Email đang lưu (khoá dòng tới hết giao dịch). Đối tác mới ⇒ None.
+    FOR NO KEY UPDATE: đủ chặn nhịp Gmail (`gmail._nhip` FOR SHARE) để thứ tự "nhịp
+    trước, đặt lại con trỏ sau" luôn đúng, mà không chặn các INSERT có khoá ngoại tới
+    `doi_tac` (tệp Gmail đang về, gán dịch vụ) trong lúc lưu."""
     if dt_id is None:
         return None
     return await conn.fetchval(
         "SELECT email_gui_ket_qua FROM public.doi_tac"
-        " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR NO KEY UPDATE",
         cid,
         dt_id,
     )
