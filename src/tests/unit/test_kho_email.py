@@ -23,6 +23,28 @@ def test_doc_loc_rac_khong_nem() -> None:
 
 
 @pytest.mark.parametrize(
+    ("q", "so", "chu"),
+    [
+        ("0912.345.678", "0912345678", None),  # dấu chấm vẫn là SĐT
+        ("+84 912 345 678", "0912345678", None),  # +84 ⇒ 0
+        ("(0912) 345-678", "0912345678", None),
+        ("12345", None, "12345"),  # < 6 chữ số ⇒ tìm chữ
+        ("Nguyễn Th", None, "nguyen th"),  # gõ dở — SQL khớp tiền tố từ cuối
+        ("BN 0912345678", None, "bn 0912345678"),  # có chữ ⇒ tìm chữ
+    ],
+)
+def test_doc_loc_sdt_va_chu(q: str, so: str | None, chu: str | None) -> None:
+    loc = kho_email.doc_loc({"q": q})
+    assert (loc["so"], loc["chu"]) == (so, chu)
+
+
+def test_loc_va_mau_mot_nguon_nhan() -> None:
+    # Bộ lọc màn + màu chip lấy từ CÙNG bảng nhãn của máy chủ (không chép vào TSX).
+    assert [x["ma"] for x in kho_email.LOC] == ["", *kho_email.NHAN]
+    assert set(kho_email.MAU) == set(kho_email.NHAN)
+
+
+@pytest.mark.parametrize(
     ("da_nap", "con", "tre", "so_loi", "so_dt", "mau", "co_chu"),
     [
         (0, 0, None, 0, 0, "neutral", "chưa nối email"),

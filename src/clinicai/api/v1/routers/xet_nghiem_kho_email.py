@@ -40,9 +40,16 @@ class ThuOut(BaseModel):
     #: LUU_TRU | CHO_GHEP | DA_GHEP | TU_CHOI (tính từ sự việc, một biểu thức SQL).
     trang_thai: str
     nhan_trang_thai: str
+    #: Màu chip (neutral | warning | success | danger) — máy chủ tính.
+    mau: str
     goi_y_id: str | None
     goi_y_ten: str | None
     goi_y_ma: str | None
+
+
+class LocOut(BaseModel):
+    ma: str
+    nhan: str
 
 
 class KhoOut(BaseModel):
@@ -52,6 +59,8 @@ class KhoOut(BaseModel):
     trang: int
     co: int
     thanh_tren: DenOut
+    #: Các lựa chọn bộ lọc trạng thái (nhãn một nơi: services/.../kho_email.NHAN).
+    loc: list[LocOut]
 
 
 class ThuChiTietOut(BaseModel):

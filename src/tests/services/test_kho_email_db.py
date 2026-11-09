@@ -145,6 +145,8 @@ async def test_loc_ngay_trang_thai_ten_bo_dau_sdt(
     assert tid in await ids(q=bo_dau)  # gõ không dấu
     assert tid in await ids(q=ten.upper())  # gõ có dấu, chữ hoa
     assert tid in await ids(q=sdt)
+    assert tid in await ids(q=bo_dau[:-3])  # gõ dở từ cuối — khớp tiền tố
+    assert tid in await ids(q=f"+84 {sdt[1:4]}.{sdt[4:7]}.{sdt[7:]}")
     assert tid not in await ids(q="khong ai ten nay ca")
     assert tid in await ids(tu_ngay="2026-03-15", den_ngay="2026-03-15")
     assert tid not in await ids(tu_ngay="2026-03-16")
@@ -154,6 +156,24 @@ async def test_loc_ngay_trang_thai_ten_bo_dau_sdt(
     assert tid in await ids(
         tu_ngay="31/02", den_ngay="xx", trang_thai="BAY", trang="-3", co="abc", q=sdt
     )
+
+
+async def test_thanh_tren_do_khi_co_doi_tac_chua_quet(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Một đối tác đã đặt email mà chưa có lượt quét nào ⇒ đèn đỏ (min() một mình bỏ
+    qua NULL và báo "Email ổn" sai)."""
+    a = await _dt(pool, f"a_{uuid.uuid4().hex[:8]}@lab-thu.vn")
+    await _dt(pool, f"b_{uuid.uuid4().hex[:8]}@lab-thu.vn")  # chưa quét lần nào
+    await pool.execute(
+        "INSERT INTO drive_nhip (clinic_id, doi_tac_id, nguon, lan_quet_cuoi, ok_cuoi)"
+        " VALUES ($1::uuid, $2::uuid, 'GMAIL', now(), now())",
+        CLINIC,
+        a,
+    )
+    async with pool.acquire() as conn:
+        den = await kho_email.thanh_tren(conn, CLINIC)
+    assert den["mau"] == "danger"
 
 
 async def test_thu_gmail_khong_lot_qua_cua_hang_cho_drive(

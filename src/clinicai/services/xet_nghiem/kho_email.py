@@ -12,6 +12,7 @@ biểu thức SQL (`_TRANG_THAI`) dùng cho cả cột lẫn bộ lọc. Mỗi l
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 from typing import Any, Final
 from zoneinfo import ZoneInfo
@@ -20,9 +21,13 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.kho_tep import don_tren_kho
 from clinicai.events.catalogue import XetNghiemTepDrive
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
+
+# `_tim_ban` là hàm DUY NHẤT trả lời "đọc byte ổ VPS rồi CFS" (luật 1); tệp
+# tep_ket_qua_service đã quá trần nên không thêm tên công khai ở đó.
 from clinicai.services.tep_ket_qua_service import TepMoDoc, _tim_ban
 from clinicai.services.xet_nghiem import ghep_khach
 
@@ -31,13 +36,23 @@ _VN: Final = ZoneInfo("Asia/Ho_Chi_Minh")
 TRE_NHIP: Final = timedelta(hours=1)
 CO_MAC_DINH: Final = 50
 CO_TOI_DA: Final = 100
-#: Mã trạng thái → chữ trên màn (màn chỉ hiện, không tự suy).
+#: Mã trạng thái → chữ + màu chip trên màn (màn chỉ hiện, không tự suy, không giữ
+#: bản nhãn thứ hai — danh sách bộ lọc cũng lấy từ đây).
 NHAN: Final = {
     "LUU_TRU": "Lưu trữ",
     "CHO_GHEP": "Chờ ghép tay",
     "DA_GHEP": "Đã ghép",
     "TU_CHOI": "Đã từ chối",
 }
+MAU: Final = {
+    "LUU_TRU": "neutral",
+    "CHO_GHEP": "warning",
+    "DA_GHEP": "success",
+    "TU_CHOI": "danger",
+}
+LOC: Final = [{"ma": "", "nhan": "Mọi thư"}] + [
+    {"ma": ma, "nhan": nhan} for ma, nhan in NHAN.items()
+]
 _TRANG_THAI: Final = (
     "CASE WHEN t.tu_choi_luc IS NOT NULL THEN 'TU_CHOI'"
     " WHEN t.tep_ket_qua_id IS NOT NULL THEN 'DA_GHEP'"
@@ -62,11 +77,14 @@ def _ngay(v: object) -> date | None:
 
 def doc_loc(tham: dict[str, Any]) -> dict[str, Any]:
     """HÀM THUẦN: tham số lọc từ người dùng ⇒ bộ lọc sạch. Rác ⇒ bỏ lọc đó, không ném.
-    `q` toàn số (≥ 6 chữ số) ⇒ tìm SĐT; còn lại ⇒ tìm chữ (bỏ dấu)."""
+    `q` là số (≥ 6 chữ số; cho phép cách / chấm / gạch / +84) ⇒ tìm SĐT (+84 ⇒ 0);
+    còn lại ⇒ tìm chữ bỏ dấu, từ cuối khớp tiền tố (gõ dở "nguyen th" vẫn ra)."""
     tt = tham.get("trang_thai")
     q = str(tham.get("q") or "").strip()[:100]
     so = "".join(c for c in q if c.isdigit())
-    la_so = len(so) >= 6 and len(so) >= len(q.replace(" ", "")) - 1
+    la_so = len(so) >= 6 and not re.sub(r"[\d\s.\-+()]", "", q)
+    if la_so and so.startswith("84") and len(so) == 11:
+        so = "0" + so[2:]
     try:
         trang = max(1, int(str(tham.get("trang") or 1)))
     except ValueError:
@@ -107,7 +125,7 @@ SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
             public.f_unaccent(lower(replace(replace(
                 coalesce(t.email_tieu_de, '') || ' ' || t.ten || ' '
                 || coalesce(t.email_than, ''), 'đ', 'd'), 'Đ', 'd'))),
-            '[^a-z0-9]+', ' ', 'g')) || ' ' LIKE '% ' || $5 || ' %')
+            '[^a-z0-9]+', ' ', 'g')) || ' ' LIKE '% ' || $5 || '%')
    AND ($6::text IS NULL OR regexp_replace(
             coalesce(t.email_tieu_de, '') || coalesce(t.email_than, '') || t.ten,
             '\\D', '', 'g') LIKE '%' || $6 || '%')
@@ -120,6 +138,7 @@ def _dong(r: asyncpg.Record) -> dict[str, Any]:
     d = dict(r)
     d.pop("tong", None)
     d["nhan_trang_thai"] = NHAN[d["trang_thai"]]
+    d["mau"] = MAU[d["trang_thai"]]
     return d
 
 
@@ -146,6 +165,7 @@ async def danh_sach(
         "trang": loc["trang"],
         "co": loc["co"],
         "thanh_tren": await thanh_tren(conn, identity.clinic_id),
+        "loc": LOC,
     }
 
 
@@ -175,7 +195,10 @@ _THANH_SQL = """
 SELECT (SELECT count(DISTINCT email_message_id) FROM drive_tep
          WHERE clinic_id = $1::uuid AND nguon = 'GMAIL') AS da_nap,
        coalesce(sum(n.so_lich_su_con), 0) AS con,
-       min(n.ok_cuoi) AS ok_cuoi,
+       -- Đối tác chưa quét lần nào (không dòng nhịp / ok_cuoi NULL) ⇒ NULL ⇒ đèn đỏ;
+       -- min() một mình bỏ qua NULL và báo "Email ổn" sai.
+       CASE WHEN bool_or(n.ok_cuoi IS NULL) THEN NULL ELSE min(n.ok_cuoi) END
+           AS ok_cuoi,
        count(*) FILTER (WHERE n.loi_cuoi IS NOT NULL) AS so_loi,
        (SELECT count(*) FROM doi_tac
          WHERE clinic_id = $1::uuid AND email_gui_ket_qua IS NOT NULL
@@ -256,7 +279,8 @@ async def mo_pdf(pool: asyncpg.Pool, identity: StaffIdentity, tid: object) -> Te
                 boi=nguoi(identity),
             )
     except BaseException:
-        f.close()
+        # Đóng qua luồng phụ có hạn: tệp trên CFS treo không được chặn vòng sự kiện.
+        await don_tren_kho(f.close, viec=f"dong_tep:{duong}", kho=kho)
         raise
     return TepMoDoc(
         f=f,

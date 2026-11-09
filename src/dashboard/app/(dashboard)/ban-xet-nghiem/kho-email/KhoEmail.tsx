@@ -26,6 +26,8 @@ interface Thu {
   ma_tep: string | null;
   trang_thai: string;
   nhan_trang_thai: string;
+  /** Màu chip do máy chủ tính. */
+  mau: ChipTone;
   goi_y_ten: string | null;
   goi_y_ma: string | null;
 }
@@ -36,6 +38,7 @@ interface Kho {
   trang: number;
   co: number;
   thanh_tren: { nhan: string; mau: string };
+  loc: { ma: string; nhan: string }[];
 }
 
 interface ChiTiet {
@@ -46,19 +49,12 @@ interface ChiTiet {
   nhan_luc: string;
 }
 
-const TONE: Record<string, ChipTone> = {
-  LUU_TRU: "neutral",
-  CHO_GHEP: "warning",
-  DA_GHEP: "success",
-  TU_CHOI: "danger",
+/** Chữ màu cho thanh trên (chữ dài — không dùng Chip một dòng, tràn ở 375). */
+const CHU_DEN: Record<string, string> = {
+  success: "text-success",
+  danger: "text-danger",
+  neutral: "text-ink-muted",
 };
-const LOC = [
-  { ma: "", nhan: "Mọi thư" },
-  { ma: "LUU_TRU", nhan: "Lưu trữ" },
-  { ma: "CHO_GHEP", nhan: "Chờ ghép tay" },
-  { ma: "DA_GHEP", nhan: "Đã ghép" },
-  { ma: "TU_CHOI", nhan: "Đã từ chối" },
-] as const;
 
 async function doc(url: string): Promise<{ ok: true; d: unknown } | { ok: false; loi: string }> {
   try {
@@ -80,7 +76,7 @@ export default function KhoEmail() {
   const [goQ, setGoQ] = useState("");
   const [q, setQ] = useState("");
   const [trang, setTrang] = useState(1);
-  const [xem, setXem] = useState<{ thu: Thu; chi: ChiTiet | null } | null>(null);
+  const [xem, setXem] = useState<{ thu: Thu; chi: ChiTiet | null; loi: string | null } | null>(null);
 
   useEffect(() => {
     const h = setTimeout(() => setQ(goQ.trim()), 350);
@@ -115,9 +111,12 @@ export default function KhoEmail() {
   }, [url]);
 
   const mo = async (t: Thu) => {
-    setXem({ thu: t, chi: null });
+    setXem({ thu: t, chi: null, loi: null });
     const r = await doc(`/api/xet-nghiem/kho-email/${encodeURIComponent(t.id)}`);
-    if (r.ok) setXem({ thu: t, chi: r.d as ChiTiet });
+    // Trả lời về muộn: chỉ điền vào ĐÚNG thư đang mở — đã đóng / đã mở thư khác thì bỏ.
+    setXem((x) =>
+      x?.thu.id === t.id ? { thu: t, chi: r.ok ? (r.d as ChiTiet) : null, loi: r.ok ? null : r.loi } : x,
+    );
   };
 
   const soTrang = kho ? Math.max(1, Math.ceil(kho.tong / kho.co)) : 1;
@@ -138,15 +137,16 @@ export default function KhoEmail() {
               src: `/api/xet-nghiem/kho-email-pdf?id=${encodeURIComponent(xem.thu.id)}`,
               ten: xem.thu.ten,
               loai: "PDF",
-              taiVe: `/api/xet-nghiem/kho-email-pdf?id=${encodeURIComponent(xem.thu.id)}`,
+              // Không `taiVe`: cửa PDF không trả attachment ⇒ "Tải về" sẽ chuyển cả tab
+              // sang PDF, mất màn Kho. Lưu tệp bằng nút của trình xem PDF.
             } satisfies TepXem,
           ]}
           trai={
             <div className="flex flex-col gap-3 p-4 text-body text-ink">
               <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">Thư</p>
               <p className="font-semibold">{xem.chi?.tieu_de || "(không tiêu đề)"}</p>
-              <p className="whitespace-pre-line text-ink-soft">
-                {xem.chi ? xem.chi.than || "(thư không có chữ)" : "Đang tải…"}
+              <p className={`whitespace-pre-line ${xem.loi ? "text-danger" : "text-ink-soft"}`}>
+                {xem.loi ?? (xem.chi ? xem.chi.than || "(thư không có chữ)" : "Đang tải…")}
               </p>
               <p className="text-label text-ink-muted">Tệp: {xem.thu.ten}</p>
             </div>
@@ -158,7 +158,9 @@ export default function KhoEmail() {
       <header className="flex flex-col gap-2">
         <h1 className="text-title font-semibold text-ink">Kho email kết quả (tạm)</h1>
         {kho ? (
-          <Chip tone={TONE_DEN[kho.thanh_tren.mau] ?? "neutral"}>{kho.thanh_tren.nhan}</Chip>
+          <p className={`text-label font-medium ${CHU_DEN[kho.thanh_tren.mau] ?? "text-ink-muted"}`}>
+            {kho.thanh_tren.nhan}
+          </p>
         ) : null}
       </header>
 
@@ -171,7 +173,9 @@ export default function KhoEmail() {
           value={goQ}
           onChange={(e) => doiLoc(() => setGoQ(e.target.value))}
         />
-        <ChipLoc nhan="Trạng thái" chon={trangThai} onChon={(v) => doiLoc(() => setTrangThai(v))} muc={LOC} />
+        {kho ? (
+          <ChipLoc nhan="Trạng thái" chon={trangThai} onChon={(v) => doiLoc(() => setTrangThai(v))} muc={kho.loc} />
+        ) : null}
         <LichKhoangNgay
           nhan="Ngày nhận"
           khoang={khoang}
@@ -199,7 +203,7 @@ export default function KhoEmail() {
                   {t.goi_y_ten ? ` · Có thể là: ${t.goi_y_ten}${t.goi_y_ma ? ` · ${t.goi_y_ma}` : ""}` : ""}
                 </span>
               </span>
-              <Chip tone={TONE[t.trang_thai] ?? "neutral"}>{t.nhan_trang_thai}</Chip>
+              <Chip tone={t.mau}>{t.nhan_trang_thai}</Chip>
             </button>
           </li>
         ))}
@@ -216,4 +220,3 @@ export default function KhoEmail() {
   );
 }
 
-const TONE_DEN: Record<string, ChipTone> = { success: "success", danger: "danger", neutral: "neutral" };

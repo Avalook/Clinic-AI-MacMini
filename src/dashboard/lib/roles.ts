@@ -380,6 +380,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // bước (đối tác không đăng nhập). Cùng lego 21 với bàn cũ ⇒ ai đang dùng bàn cũ
   // thấy luôn bàn mới. Vai PARTNER không vào (máy chủ cũng từ chối).
   "/ban-xet-nghiem": ["MANAGEMENT"],
+  // Kho email kết quả (Gmail G2b): KHÔNG vai nào — chỉ lego cấp riêng (NAV_QUYEN).
+  // Dòng rỗng để khi máy chủ chưa trả quyền (`null`), luật gốc theo vai ĐÓNG thay vì
+  // "không có luật ⇒ ai cũng thấy".
+  "/ban-xet-nghiem/kho-email": [],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
