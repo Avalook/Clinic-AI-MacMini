@@ -139,6 +139,16 @@ hỏi Tuyền, không đoán bấm.
   - bấm dòng ⇒ hộp xem PDF (Lightbox như bàn khám) + tiêu đề + thân thư; mỗi lần mở ghi `lab.archive_viewed`;
   - thanh trên cùng: "Đã nạp 1.240 / ~1.900 thư · Email ổn · quét lúc 10:42".
 - Mục thanh bên "Kho email kết quả (tạm)" — máy chủ trả cờ, chỉ hiện với người có quyền.
+- **G2a xong (09/11, nhánh `claude/gmail-ket-qua-g2`)** — máy chủ: `gmail_api.py` (httpx, khoá
+  `GOOGLE_GMAIL_OAUTH_FILE` / secret `gmail_oauth`, tệp rỗng ⇒ tắt; đọc cả Thùng rác), `gmail.py`
+  (vòng trong `drive-xn`: thư mới sau `ok_cuoi − 2 ngày` + một trang lịch sử ≤ 100 thư theo con
+  trỏ; header From thật phải đúng đối tác; tải HẾT PDF của thư rồi mới ghi; byte vào ổ VPS
+  `<clinic>/gmail/<thư>/<uuid>.pdf` 0600; dòng `LUU_TRU` + gợi ý khách + mã `\d{6}-\d{6}`),
+  `day_tep.BANG_TEP` thêm `drive_tep` (đẩy CFS), canh gác `GMAIL_KHONG_NHIP` (> 1 giờ).
+  **Đổi:** lõi chung `nhan_mot(TepVao)` với Drive dời sang **G3** — G2 chưa ghép gì nên chưa có
+  gì để chung; G3 bật ghép thì tách lõi trong cùng PR. **Còn G2b:** màn Kho, sự kiện
+  `lab.archive_viewed`, lego, nhánh `nguon` trong `ghep_tay` (xem/Gán dòng Gmail đọc byte ở
+  `khoa`, chặn `LUU_TRU` khi không có quyền Kho).
 - **Mang sang từ soát G1 (09/11):**
   - `ghep_tay._dong_cho` / `noi_dung_cho` mở mọi dòng `drive_tep` theo id và gọi Drive bằng
     `file_id` ⇒ phải tách theo `nguon` (Gmail đọc byte ở `khoa`), và dòng `LUU_TRU` chỉ xem / Gán /
