@@ -690,6 +690,9 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/audit-log": ["audit.view"],
   "/doi-tac": ["partner.work"], // 21 Đối tác
   "/ban-xet-nghiem": ["partner.work"], // 21 Đối tác — bàn XN đời mới
+  // Lego Kho email (Gmail G2b): chỉ bằng QUYỀN, không vai nào (khối cấp riêng). Khớp
+  // chính xác trước tiền tố ⇒ không lọt vào quyền partner.work của /ban-xet-nghiem.
+  "/ban-xet-nghiem/kho-email": ["xet_nghiem.kho_email"],
   // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
   "/duyet-ket-qua": ["result.form.fill"],
 };

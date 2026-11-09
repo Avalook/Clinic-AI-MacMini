@@ -1205,6 +1205,15 @@ MAN: dict[str, Man] = {
             ["van_hanh", "lich_su_thao_tac"],
             "Quản lý",
         ),
+        # Kho email kết quả (tạm) — Gmail G2b 09/11/2026: dữ liệu sức khoẻ, KHÔNG nhóm
+        # mẫu nào (KHOI_CAP_RIENG); chỉ bật cho từng người ở màn Phân quyền.
+        _lego(
+            "kho_email",
+            "Kho email kết quả (tạm)",
+            ["/ban-xet-nghiem/kho-email"],
+            ["kho_email"],
+            "Cấp riêng từng người",
+        ),
         # + bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015).
         _lego(
             "doi_tac",

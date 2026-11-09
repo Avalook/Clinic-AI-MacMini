@@ -40,6 +40,10 @@ const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
   ["GET", /^ban\/drive-cho$/, () => "/api/v1/xet-nghiem/ban/drive-cho"],
   ["POST", new RegExp(`^ban/(${LENH_BAN})$`), (m) => `/api/v1/xet-nghiem/ban/${m[1]}`],
   ["POST", new RegExp(`^ban/anh-ck/(${U})/go$`, "i"), (m) => `/api/v1/xet-nghiem/ban/anh-ck/${m[1]}/go`],
+  // Gmail G2b — Kho email kết quả (tạm); thiếu quyền ⇒ máy chủ trả 404. PDF: route
+  // riêng kho-email-pdf (nhị phân).
+  ["GET", /^kho-email$/, () => "/api/v1/xet-nghiem/kho-email"],
+  ["GET", new RegExp(`^kho-email/(${U})$`, "i"), (m) => `/api/v1/xet-nghiem/kho-email/${m[1]}`],
 ];
 
 function sai(message: string, status = 400) {

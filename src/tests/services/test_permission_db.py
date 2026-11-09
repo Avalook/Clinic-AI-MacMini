@@ -472,3 +472,17 @@ async def test_kho_email_khong_vao_nhom_nao(
         CLINIC,
     )
     assert khoi is None or "kho_email" not in khoi
+
+
+async def test_kho_email_khong_bat_theo_nhom_o_man_quyen_theo_man(
+    pool: asyncpg.Pool, quan_ly: StaffIdentity
+) -> None:
+    """Gmail G2b: lego Kho email có màn, nhưng màn "Quyền theo màn" (bật cho cả nhóm)
+    không bày nó, và lệnh bật theo nhóm vẫn bị từ chối nếu gọi thẳng."""
+    svc = PermissionService(pool)
+    man = {m["ma"] for m in (await svc.theo_man(identity=quan_ly))["man"]}
+    assert "kho_email" not in man and "doi_tac" in man
+    with pytest.raises(ValidationError):
+        await svc.doi_man(
+            ma_nhom="RECEPTION", ma_man="kho_email", bat=True, identity=quan_ly
+        )
