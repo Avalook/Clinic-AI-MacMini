@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from datetime import date
 from typing import Any
 
 from clinicai.api.exceptions import ValidationError
@@ -91,6 +92,49 @@ def doc_drive(raw: object) -> str | None:
     )
 
 
+_EMAIL_RE = re.compile(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}")
+_MA_BEN_DT_RE = re.compile(r"[A-Z0-9][A-Z0-9_.-]{0,39}")
+
+
+def doc_email(raw: object) -> str | None:
+    """Email phòng xét nghiệm gửi kết quả (Gmail G4). Rỗng → None; chữ thường; sai
+    dạng → 422 (CHECK của DB chỉ là chốt cuối, không để lọt thành 500)."""
+    s = raw.strip().lower() if isinstance(raw, str) else ""
+    if not s:
+        return None
+    if not (6 <= len(s) <= 254 and _EMAIL_RE.fullmatch(s)):
+        raise ValidationError("Email gửi kết quả: nhập đúng dạng ten@mien.vn.")
+    return s
+
+
+def doc_ma_ben_doi_tac(raw: object) -> str | None:
+    """Mã xét nghiệm phía đối tác (vd HPV, THINPREP) — chữ hoa, không khoảng trắng.
+    Rỗng → None; sai dạng → 422."""
+    s = raw.strip().upper() if isinstance(raw, str) else ""
+    if not s:
+        return None
+    if not _MA_BEN_DT_RE.fullmatch(s):
+        raise ValidationError(
+            "Mã bên đối tác: chữ hoa / số / . _ - , tối đa 40 ký tự (vd HPV)."
+        )
+    return s
+
+
+def doc_ngay_moc(raw: object, hom_nay: date) -> date | None:
+    """Mốc "tự ghép kết quả email từ ngày". Rỗng → None (chưa tự ghép); rác hoặc
+    ngày tương lai → 422 (không 500)."""
+    s = raw.strip() if isinstance(raw, str) else ""
+    if not s:
+        return None
+    try:
+        d = date.fromisoformat(s)
+    except ValueError:
+        raise ValidationError("Ngày tự ghép: chọn một ngày (YYYY-MM-DD).") from None
+    if d > hom_nay:
+        raise ValidationError("Ngày tự ghép không được ở tương lai.")
+    return d
+
+
 def doc_form_doi_tac(raw: Mapping[str, Any]) -> dict[str, Any]:
     ma = raw.get("ma_ngan")
     ma_s = ma.strip().upper() if isinstance(ma, str) else ""
@@ -110,6 +154,7 @@ def doc_form_doi_tac(raw: Mapping[str, Any]) -> dict[str, Any]:
         ),
         "drive_folder_id": doc_drive(raw.get("drive_folder")),
         "hen_tra": doc_so_ngay(raw.get("hen_tra_so_ngay_mac_dinh")),
+        "email_gui_ket_qua": doc_email(raw.get("email_gui_ket_qua")),
     }
 
 

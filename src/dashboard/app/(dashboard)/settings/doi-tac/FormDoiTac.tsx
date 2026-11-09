@@ -15,6 +15,7 @@ export interface FormDT {
   drive_folder: string;
   tai_khoan_nhan_ck: string;
   hen_tra_so_ngay_mac_dinh: string;
+  email_gui_ket_qua: string;
 }
 
 export const TRONG: FormDT = {
@@ -26,6 +27,7 @@ export const TRONG: FormDT = {
   drive_folder: "",
   tai_khoan_nhan_ck: "",
   hen_tra_so_ngay_mac_dinh: "",
+  email_gui_ket_qua: "",
 };
 
 function O({ nhan, rong, children }: { nhan: string; rong?: boolean; children: ReactNode }) {
@@ -81,6 +83,15 @@ export default function FormDoiTac({
         </O>
         <O nhan="Thư mục Google Drive của đối tác (dán link thư mục)" rong>
           <ONhap value={form.drive_folder} maxLength={1000} onChange={(e) => onSua("drive_folder", e.target.value)} />
+        </O>
+        <O nhan="Email gửi kết quả (địa chỉ đối tác gửi kết quả về Gmail phòng khám — đổi email = nạp lại thư cũ của địa chỉ mới)" rong>
+          <ONhap
+            type="email"
+            value={form.email_gui_ket_qua}
+            maxLength={254}
+            placeholder="vd ketqua@lab.vn"
+            onChange={(e) => onSua("email_gui_ket_qua", e.target.value)}
+          />
         </O>
         <O nhan="Ghi chú" rong>
           <ONhap value={form.ghi_chu} maxLength={2000} onChange={(e) => onSua("ghi_chu", e.target.value)} />
