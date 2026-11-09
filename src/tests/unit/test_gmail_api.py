@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 import pytest
 
-from clinicai.services.xet_nghiem import gmail, gmail_api
+from clinicai.services.xet_nghiem import gmail, gmail_api, gmail_luu
 from clinicai.services.xet_nghiem.gmail_api import PhanPdf, thanh_thu
 
 
@@ -99,10 +99,47 @@ def test_cat_do_dai_theo_check_drive_tep() -> None:
 
 @pytest.mark.parametrize(
     "rac",
-    [None, "chuỗi", 42, [], {}, {"id": ""}, {"payload": {}}],
+    [
+        None,
+        "chuỗi",
+        42,
+        [],
+        {},
+        {"id": ""},
+        {"payload": {}},
+        {"id": "abc"},  # quá ngắn so với CHECK
+        {"id": "../../etc/x"},  # id đi vào đường dẫn ổ ⇒ phải bỏ
+        {"id": "a" * 65},
+    ],
 )
 def test_rac_tra_none(rac: object) -> None:
     assert thanh_thu(rac) is None
+
+
+def test_thu_chi_la_mot_pdf_o_goc() -> None:
+    """Cả thư chỉ là một PDF: Gmail để partId "" ở gốc ⇒ dùng "goc", không bỏ sót."""
+    t = thanh_thu(
+        {
+            "id": "abcdef1234",
+            "payload": {
+                "partId": "",
+                "filename": "KQ.pdf",
+                "mimeType": "application/pdf",
+                "body": {"attachmentId": "a1", "size": 9},
+            },
+        }
+    )
+    assert t is not None and [p.part_id for p in t.pdf] == ["goc"]
+
+
+def test_phong_kham_cua_khoa(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(gmail.BIEN_PHONG_KHAM, raising=False)
+    assert gmail.phong_kham_cua_khoa() is None
+    for rac in ("", "khong-phai-uuid", "a0000000-0000-4000-8000-00000000000"):
+        monkeypatch.setenv(gmail.BIEN_PHONG_KHAM, rac)
+        assert gmail.phong_kham_cua_khoa() is None
+    monkeypatch.setenv(gmail.BIEN_PHONG_KHAM, " A0000000-0000-4000-8000-000000000001 ")
+    assert gmail.phong_kham_cua_khoa() == "a0000000-0000-4000-8000-000000000001"
 
 
 def test_truong_hong_thi_rong_khong_nem() -> None:
@@ -135,11 +172,14 @@ def test_truong_hong_thi_rong_khong_nem() -> None:
     ],
 )
 def test_ma_tep(ten: object, ma: str | None) -> None:
-    assert gmail.ma_tep(ten) == ma
+    assert gmail_luu.ma_tep(ten) == ma
 
 
 def test_cau_tim() -> None:
-    assert gmail.q_thu("lab@x.vn") == "from:lab@x.vn has:attachment"
+    # Chỉ thư có PDF, bỏ Spam (thư giả mạo người gửi bị Gmail xếp vào đó).
+    assert (
+        gmail.q_thu("lab@x.vn") == "from:lab@x.vn has:attachment filename:pdf -in:spam"
+    )
     sau = datetime(2026, 11, 9, tzinfo=UTC)
     assert gmail.q_thu("lab@x.vn", sau).endswith(f"after:{int(sau.timestamp())}")
 
@@ -236,8 +276,11 @@ async def test_tai_phan_nhung_thang_va_tran() -> None:
     async with httpx.AsyncClient() as kh:
         p = PhanPdf("1", "a.pdf", 8, None, _b(b"%PDF-1.4"))
         assert await gmail_api.tai_phan(kh, "m", p) == b"%PDF-1.4"
+        # Lỗi riêng một thư ⇒ ThuBoQua (bỏ thư), KHÔNG phải GmailError (chặn đối tác).
         to = PhanPdf("1", "a.pdf", gmail_api.TRAN_BYTE + 1, "att", None)
-        with pytest.raises(gmail_api.GmailError, match="quá lớn"):
+        with pytest.raises(gmail_api.ThuBoQua, match="tep_qua_lon"):
             await gmail_api.tai_phan(kh, "m", to)
-        with pytest.raises(gmail_api.GmailError):
+        with pytest.raises(gmail_api.ThuBoQua, match="khong_du_lieu"):
             await gmail_api.tai_phan(kh, "m", PhanPdf("1", "a.pdf", 1, None, None))
+        with pytest.raises(gmail_api.ThuBoQua, match="du_lieu_hong"):
+            await gmail_api.tai_phan(kh, "m", PhanPdf("1", "a.pdf", 1, None, "A"))

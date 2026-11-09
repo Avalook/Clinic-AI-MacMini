@@ -30,16 +30,30 @@ import httpx
 CUA_TOKEN: Final = "https://oauth2.googleapis.com/token"
 CUA_GMAIL: Final = "https://gmail.googleapis.com/gmail/v1/users/me"
 BIEN_KHOA: Final = "GOOGLE_GMAIL_OAUTH_FILE"
-#: Trần một PDF (kết quả vài trăm KB; báo cáo G0 lớn nhất vài MB). Quá ⇒ bỏ thư đó.
-TRAN_BYTE: Final = 30 * 1024 * 1024
+#: Trần một PDF / cả thư (kết quả vài trăm KB; báo cáo G0 lớn nhất vài MB). Một PDF
+#: lúc tải chiếm ~3–4 lần (chuỗi base64 + bytes) trong `drive-xn` mem_limit 160m ⇒
+#: quá trần thì BỎ THƯ ĐÓ (`ThuBoQua`), không làm tiến trình chết vì hết bộ nhớ.
+TRAN_BYTE: Final = 10 * 1024 * 1024
+TRAN_THU: Final = 20 * 1024 * 1024
 #: Khớp CHECK của `drive_tep` (G1) — dài hơn thì CHECK từ chối và mất thư.
 TRAN_TIEU_DE: Final = 500
 TRAN_THAN: Final = 2000
 TRAN_TEN: Final = 300
+_ID_THU_RE: Final = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
 
 
 class GmailError(Exception):
-    """Gmail/token lỗi — câu ngắn, không chứa khoá, token hay nội dung thư."""
+    """Gmail/token/mạng lỗi TẠM — lượt sau thử lại. Câu ngắn, không chứa khoá, token
+    hay nội dung thư; `ma_http` để phân biệt (vd 400 = con trỏ trang hỏng)."""
+
+    def __init__(self, cau: str, ma_http: int | None = None) -> None:
+        super().__init__(cau)
+        self.ma_http = ma_http
+
+
+class ThuBoQua(Exception):  # noqa: N818 — tên nghiệp vụ, không phải lỗi hệ thống
+    """Lỗi VĨNH VIỄN của riêng một thư (quá trần, không dữ liệu) — bỏ thư đó, không
+    được chặn các thư khác của đối tác."""
 
 
 @dataclass(frozen=True)
@@ -135,7 +149,9 @@ async def _goi(
         if r.status_code == 401 and lan == 0:
             continue
         if r.status_code != 200:
-            raise GmailError(f"Gmail lỗi HTTP {r.status_code} ({_ly_do(r)}).")
+            raise GmailError(
+                f"Gmail lỗi HTTP {r.status_code} ({_ly_do(r)}).", r.status_code
+            )
         d = r.json()
         return d if isinstance(d, dict) else {}
     raise GmailError("Gmail từ chối token sau khi làm mới.")
@@ -187,19 +203,21 @@ def _than(phan: list[dict[str, Any]]) -> str:
     return ""
 
 
-def _phan_pdf(p: dict[str, Any]) -> PhanPdf | None:
+def _phan_pdf(p: dict[str, Any], goc: bool = False) -> PhanPdf | None:
+    """`goc`: phần gốc của thư — Gmail để partId "" khi cả thư CHỈ là một PDF."""
     ten = str(p.get("filename") or "")
     than_tho = p.get("body")
     than: dict[str, Any] = than_tho if isinstance(than_tho, dict) else {}
     la_pdf = ten.lower().endswith(".pdf") or p.get("mimeType") == "application/pdf"
-    if not ten or not la_pdf or not p.get("partId"):
+    part_id = str(p.get("partId") or ("goc" if goc else ""))
+    if not ten or not la_pdf or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", part_id):
         return None
     try:
         co = int(than.get("size") or 0)
     except (TypeError, ValueError):
         co = 0
     return PhanPdf(
-        part_id=str(p["partId"])[:64],
+        part_id=part_id,
         ten=ten[:TRAN_TEN],
         so_byte=co,
         attachment_id=than.get("attachmentId"),
@@ -210,7 +228,8 @@ def _phan_pdf(p: dict[str, Any]) -> PhanPdf | None:
 def thanh_thu(r: object) -> ThuGmail | None:
     """HÀM THUẦN: một thư `format=full` của Gmail → `ThuGmail`. Thiếu id / rác ⇒ None;
     trường lẻ hỏng ⇒ giá trị rỗng, không ném. Chỉ giữ phần PDF (tên .pdf / mime PDF)."""
-    if not isinstance(r, dict) or not r.get("id"):
+    # id thư đi vào đường dẫn ổ + URL + file_id (CHECK G1) ⇒ lạ thì bỏ thư.
+    if not isinstance(r, dict) or not _ID_THU_RE.fullmatch(str(r.get("id") or "")):
         return None
     tai_tho = r.get("payload")
     tai: dict[str, Any] = tai_tho if isinstance(tai_tho, dict) else {}
@@ -230,7 +249,7 @@ def thanh_thu(r: object) -> ThuGmail | None:
         tu=parseaddr(dau.get("from", ""))[1].strip().lower(),
         tieu_de=" ".join(dau.get("subject", "").split())[:TRAN_TIEU_DE],
         than=_than(phan),
-        pdf=[x for p in phan if (x := _phan_pdf(p)) is not None],
+        pdf=[x for p in phan if (x := _phan_pdf(p, p is tai)) is not None],
     )
 
 
@@ -242,14 +261,17 @@ async def tai_phan(kh: httpx.AsyncClient, mid: str, p: PhanPdf) -> bytes:
     """Byte một PDF đính kèm; chặn `TRAN_BYTE`. `attachmentId` không cố định giữa các
     lần đọc ⇒ chỉ dùng ngay sau `doc_thu`, không lưu."""
     if p.so_byte > TRAN_BYTE:
-        raise GmailError("Tệp đính kèm quá lớn.")
-    if p.du_lieu:
-        data = _b64(p.du_lieu)
-    elif p.attachment_id:
-        d = await _goi(kh, f"messages/{mid}/attachments/{p.attachment_id}", {})
-        data = _b64(str(d.get("data") or ""))
-    else:
-        raise GmailError("Phần đính kèm không có dữ liệu.")
+        raise ThuBoQua("tep_qua_lon")
+    try:
+        if p.du_lieu:
+            data = _b64(p.du_lieu)
+        elif p.attachment_id:
+            d = await _goi(kh, f"messages/{mid}/attachments/{p.attachment_id}", {})
+            data = _b64(str(d.get("data") or ""))
+        else:
+            raise ThuBoQua("khong_du_lieu")
+    except (ValueError, TypeError) as e:  # base64 hỏng
+        raise ThuBoQua("du_lieu_hong") from e
     if len(data) > TRAN_BYTE:
-        raise GmailError("Tệp đính kèm quá lớn.")
+        raise ThuBoQua("tep_qua_lon")
     return data

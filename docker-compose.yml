@@ -365,8 +365,9 @@ services:
   # KHÔNG có healthcheck có chủ ý: Drive hỏng không được chặn deploy prod hay làm đỏ
   # Kuma — canh gác `DRIVE_KHONG_NHIP` (su-kien) báo khi quá 1 giờ không quét được.
   # Gmail G2 (09/11/2026): cùng tiến trình đọc thư kết quả đối tác gửi về Gmail phòng
-  # khám (OAuth CHỈ ĐỌC, secret `gmail_oauth`), lưu PDF vào ổ VPS. Staging KHÔNG đặt
-  # GOOGLE_GMAIL_OAUTH_KEY_FILE ⇒ tệp rỗng ⇒ không đọc hộp thư thật.
+  # khám (OAuth CHỈ ĐỌC, secret `gmail_oauth`), lưu PDF vào ổ VPS. Hộp thư thuộc MỘT
+  # phòng khám: GMAIL_CLINIC_ID (trong .env.prod) — thiếu ⇒ không quét. Staging KHÔNG
+  # đặt GOOGLE_GMAIL_OAUTH_KEY_FILE ⇒ tệp rỗng ⇒ không đọc hộp thư thật.
   drive-xn:
     <<: *clinic-service-defaults
     build:

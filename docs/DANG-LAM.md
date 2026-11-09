@@ -23,8 +23,9 @@ Cập nhật: **09/11/2026** — mục "09/11" ngay dưới là mới nhất; c�
   "mở full lego" 30/09: mọi capability trừ vài khối) phải tự loại khối `kho_email` (KHOI_CAP_RIENG).
 - **G2a** (nhánh `claude/gmail-ket-qua-g2`, PR xếp chồng lên G1): máy chủ đọc Gmail trong `drive-xn`,
   lưu PDF ổ VPS → `day_tep` đẩy CFS, mọi thư vào Kho `LUU_TRU` + gợi ý khách; canh gác
-  `GMAIL_KHONG_NHIP`. Bật thật cần: khoá lên VPS (`GOOGLE_GMAIL_OAUTH_KEY_FILE` trong `.env.prod`) +
+  `GMAIL_KHONG_NHIP`. Bật thật cần: khoá lên VPS (`GOOGLE_GMAIL_OAUTH_KEY_FILE` + `GMAIL_CLINIC_ID` trong `.env.prod`) +
   đặt `doi_tac.email_gui_ket_qua` (G4 có màn; trước đó SQL tay do Tuyền chạy).
+  ⚠️ G2a KHÔNG lên prod trước G2b (cửa ghép tay theo id chưa chặn dòng Gmail) — cùng một đợt.
 - **G2b** (sắp làm): màn Kho email + sự kiện `lab.archive_viewed` + lego + nhánh nguồn trong `ghep_tay`.
   Những điểm phải nhớ: kế hoạch mục G2 "Mang sang từ soát G1".
 

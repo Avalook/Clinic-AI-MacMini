@@ -21,7 +21,7 @@ import asyncpg
 import pytest
 
 from clinicai.services import day_tep
-from clinicai.services.xet_nghiem import ghep_tay, gmail, gmail_api
+from clinicai.services.xet_nghiem import ghep_tay, gmail, gmail_api, gmail_luu
 from clinicai.services.xet_nghiem.gmail_api import PhanPdf, ThuGmail
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -41,6 +41,7 @@ class GmailGia:
         self.noi: dict[tuple[str, str], bytes] = {}
         self.trang: dict[str | None, tuple[list[str], str | None]] = {}
         self.moi: list[str] = []
+        self.moi_sau: str | None = None  # còn trang thư mới (máy chết lâu)
         self.loi_tai: set[str] = set()
         self.goi_lich_su = 0
 
@@ -66,10 +67,14 @@ class GmailGia:
     async def liet_ke(
         self, _kh: object, q: str, trang: str | None = None, so: int = 100
     ) -> tuple[list[str], str | None, int]:
-        assert q.startswith(f"from:{self.email} has:attachment")
+        assert q.startswith(f"from:{self.email} has:attachment filename:pdf -in:spam")
         if "after:" in q:
-            return list(self.moi), None, len(self.moi)
+            if trang is None:
+                return list(self.moi), self.moi_sau, len(self.moi)
+            return [], self.moi_sau, len(self.moi)
         self.goi_lich_su += 1
+        if trang == "HONG":
+            raise gmail_api.GmailError("Gmail lỗi HTTP 400 (invalidArgument).", 400)
         ids, sau = self.trang.get(trang, ([], None))
         return ids, sau, sum(len(v[0]) for v in self.trang.values())
 
@@ -79,6 +84,8 @@ class GmailGia:
     async def tai_phan(self, _kh: object, mid: str, p: PhanPdf) -> bytes:
         if p.part_id in self.loi_tai:
             raise gmail_api.GmailError("Gmail lỗi HTTP 503 (backendError).")
+        if p.so_byte > gmail_api.TRAN_BYTE:  # như tai_phan thật
+            raise gmail_api.ThuBoQua("tep_qua_lon")
         return self.noi[(mid, p.part_id)]
 
 
@@ -100,6 +107,7 @@ async def gia(
         dt_id,
     )
     g = GmailGia(email)
+    monkeypatch.setenv(gmail.BIEN_PHONG_KHAM, CLINIC)  # hộp thư là của phòng khám này
     monkeypatch.setattr(gmail_api, "co_cau_hinh", lambda: True)
     monkeypatch.setattr(gmail_api, "liet_ke", g.liet_ke)
     monkeypatch.setattr(gmail_api, "doc_thu", g.doc_thu)
@@ -263,20 +271,24 @@ async def test_goi_y_khach_chi_khi_ten_va_sdt_khop_dung_mot(
     me = await _khach(pool, "Trần Thị Mẫu Gmail", sdt)
     con = await _khach(pool, "Lê Thị Con Gmail", sdt)  # mẹ con chung số
     async with pool.acquire() as conn:
-        assert await gmail.goi_y_khach(conn, CLINIC, f"TRAN THI MAU GMAIL {sdt}") == me
         assert (
-            await gmail.goi_y_khach(
+            await gmail_luu.goi_y_khach(conn, CLINIC, f"TRAN THI MAU GMAIL {sdt}") == me
+        )
+        assert (
+            await gmail_luu.goi_y_khach(
                 conn, CLINIC, f"Họ tên: Lê Thị Con Gmail SĐT: {sdt}"
             )
             == con
         )
         # Chỉ SĐT, không tên ⇒ không gợi ý; chỉ tên ⇒ không gợi ý; rác ⇒ None.
-        assert await gmail.goi_y_khach(conn, CLINIC, f"SĐT {sdt}") is None
-        assert await gmail.goi_y_khach(conn, CLINIC, "Trần Thị Mẫu Gmail") is None
-        assert await gmail.goi_y_khach(conn, CLINIC, "") is None
+        assert await gmail_luu.goi_y_khach(conn, CLINIC, f"SĐT {sdt}") is None
+        assert await gmail_luu.goi_y_khach(conn, CLINIC, "Trần Thị Mẫu Gmail") is None
+        assert await gmail_luu.goi_y_khach(conn, CLINIC, "") is None
         # +84 cũng nhận ra.
         assert (
-            await gmail.goi_y_khach(conn, CLINIC, f"Tran Thi Mau Gmail +84{sdt[1:]}")
+            await gmail_luu.goi_y_khach(
+                conn, CLINIC, f"Tran Thi Mau Gmail +84{sdt[1:]}"
+            )
             == me
         )
 
@@ -343,3 +355,141 @@ async def test_mat_quyen_gmail_qua_mot_gio_thi_canh_gac_bao(
     assert any(
         k.ma == "GMAIL_KHONG_NHIP" and k.co_chuyen for k in canh_gac.danh_gia(so)
     )
+
+
+async def test_ghi_pdf_thu_hai_loi_thi_ca_thu_lam_lai(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: tuple[GmailGia, str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    """Lỗi lúc GHI (không phải lúc tải) PDF 2 ⇒ không dòng nào, không tệp mồ côi;
+    lượt sau đủ cả thư (`_da_co` coi "có dòng" là đủ thư nên không được lưu dở)."""
+    g, dt_id = gia
+    mid = g.tha(pdf=2)
+    g.trang[None] = ([mid], None)
+    that = gmail_luu._ghi_o
+    dem = {"n": 0}
+
+    def hong_lan_hai(goc: pathlib.Path, khoa: str, data: bytes) -> None:
+        dem["n"] += 1
+        if dem["n"] == 2:
+            raise OSError("ổ lỗi giữa chừng")
+        that(goc, khoa, data)
+
+    monkeypatch.setattr(gmail_luu, "_ghi_o", hong_lan_hai)
+    assert (await gmail.mot_vong(pool))["loi"] == 1
+    assert await _dong(pool, dt_id) == []
+    thu_muc = tmp_path / CLINIC / "gmail" / mid
+    assert not thu_muc.exists() or list(thu_muc.iterdir()) == []
+    monkeypatch.setattr(gmail_luu, "_ghi_o", that)
+    await gmail.mot_vong(pool)
+    assert len(await _dong(pool, dt_id)) == 2
+
+
+async def test_thu_doc_khong_chan_thu_khac(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: tuple[GmailGia, str],
+) -> None:
+    """Thư quá trần (lỗi VĨNH VIỄN của riêng thư) ⇒ bỏ thư đó; thư khác vẫn vào."""
+    g, dt_id = gia
+    doc = g.tha()
+    g.thu[doc] = ThuGmail(
+        id=doc,
+        nhan_luc=g.thu[doc].nhan_luc,
+        tu=g.email,
+        tieu_de="",
+        than="",
+        pdf=[PhanPdf("1", "to.pdf", gmail_api.TRAN_BYTE + 1, "att", None)],
+    )
+    tot = g.tha()
+    g.trang[None] = ([doc, tot], None)
+    ket = await gmail.mot_vong(pool)
+    assert ket["loi"] == 0 and ket["tep_moi"] == 1
+    assert [d["email_message_id"] for d in await _dong(pool, dt_id)] == [tot]
+    assert (await _nhip(pool, dt_id))["loi_cuoi"] is None
+
+
+async def test_con_tro_hong_thi_doc_lai_tu_dau(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: tuple[GmailGia, str],
+) -> None:
+    g, dt_id = gia
+    a = g.tha()
+    g.trang = {None: ([a], None)}
+    await pool.execute(
+        "INSERT INTO drive_nhip (clinic_id, doi_tac_id, nguon, lan_quet_cuoi,"
+        " con_tro_lich_su) VALUES ($1::uuid, $2::uuid, 'GMAIL', now(), 'HONG')",
+        CLINIC,
+        dt_id,
+    )
+    assert (await gmail.mot_vong(pool))["loi"] == 0
+    assert len(await _dong(pool, dt_id)) == 1
+    n = await _nhip(pool, dt_id)
+    assert (n["con_tro_lich_su"], n["so_lich_su_con"]) == (None, 0)
+
+
+async def test_thu_moi_den_luc_lich_su_con_trang(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: tuple[GmailGia, str],
+) -> None:
+    """Ca biên kế hoạch mục 4: nạp lịch sử dở chừng, thư MỚI đến vẫn vào ngay."""
+    g, dt_id = gia
+    a, b, c = g.tha(), g.tha(), g.tha()
+    g.trang = {None: ([a], "T2"), "T2": ([b], None)}
+    await gmail.mot_vong(pool)  # lượt 1: chưa có ok_cuoi ⇒ chỉ lịch sử trang 1
+    g.moi = [c]
+    await gmail.mot_vong(pool)  # lượt 2: thư mới c + lịch sử trang 2
+    assert {d["email_message_id"] for d in await _dong(pool, dt_id)} == {a, b, c}
+
+
+async def test_qua_tran_thu_moi_thi_quet_lai_lich_su(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: tuple[GmailGia, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Máy chết lâu ⇒ khung "mới" dài hơn trần trang ⇒ lịch sử (đã xong) quét lại từ
+    đầu để thư cũ hơn trần không sót."""
+    g, dt_id = gia
+    a, sot = g.tha(), g.tha()
+    g.trang = {None: ([a], None)}
+    await gmail.mot_vong(pool)
+    assert (await _nhip(pool, dt_id))["so_lich_su_con"] == 0
+    monkeypatch.setattr(gmail, "TRAN_TRANG_MOI", 1)
+    g.moi, g.moi_sau = [], "CON_TRANG"
+    g.trang = {None: ([a, sot], None)}  # thư `sot` chỉ còn thấy qua lịch sử
+    truoc = g.goi_lich_su
+    await gmail.mot_vong(pool)
+    assert g.goi_lich_su == truoc + 1
+    assert {d["email_message_id"] for d in await _dong(pool, dt_id)} == {a, sot}
+
+
+async def test_hai_phong_kham_khong_doc_thu_cua_nhau(
+    pool: asyncpg.Pool,  # noqa: F811
+    gia: tuple[GmailGia, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Một khoá = hộp thư của MỘT phòng khám. Phòng khám khác đặt trùng email đối tác
+    cũng không được nhận thư (unique email chỉ trong một phòng khám)."""
+    g, dt_id = gia
+    khac = await pool.fetchval(
+        "INSERT INTO clinic (code, name) VALUES ($1, 'PK khác Gmail')"
+        " RETURNING id::text",
+        f"GMK{uuid.uuid4().hex[:8]}",
+    )
+    dt_khac = await pool.fetchval(
+        "INSERT INTO doi_tac (clinic_id, ten, ma_ngan, email_gui_ket_qua)"
+        " VALUES ($1::uuid, 'Lab trùng', $2, $3) RETURNING id::text",
+        khac,
+        "K" + uuid.uuid4().hex[:6].upper(),
+        g.email,
+    )
+    mid = g.tha()
+    g.trang[None] = ([mid], None)
+    assert (await gmail.mot_vong(pool))["doi_tac"] == 1
+    assert len(await _dong(pool, dt_id)) == 1
+    assert await _dong(pool, dt_khac) == []
+    assert await _nhip(pool, dt_khac) is None
+    # Chưa gắn phòng khám cho khoá ⇒ không quét ai.
+    monkeypatch.delenv(gmail.BIEN_PHONG_KHAM)
+    assert await gmail.mot_vong(pool) == {"bo_qua": 1}

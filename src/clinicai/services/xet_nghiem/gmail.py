@@ -2,33 +2,33 @@
 
 Kế hoạch: `docs/KE-HOACH-KET-QUA-QUA-GMAIL.md`. Chạy chung tiến trình `drive-xn`
 (`worker --drive`, gắn ổ VPS, khoá một tiến trình có sẵn), mỗi `drive.NHIP_GIAY`.
-Mỗi đối tác có `email_gui_ket_qua` (còn hoạt động):
 
+MỘT KHOÁ = MỘT HỘP THƯ = MỘT PHÒNG KHÁM: khoá OAuth là hộp thư của một phòng khám, nên
+vòng chỉ quét đối tác của `GMAIL_CLINIC_ID` (thiếu ⇒ bỏ qua). Không thế thì phòng khám
+khác đặt trùng email đối tác là đọc được kết quả trong hộp thư này.
+
+Mỗi đối tác có `email_gui_ket_qua` (còn hoạt động):
 1. **Thư mới**: thư từ địa chỉ đó sau lần quét OK cuối − 2 ngày (thư trễ, đồng hồ lệch).
+   Quá `TRAN_TRANG_MOI` trang (máy chết lâu) ⇒ quét lại lịch sử từ đầu để không sót.
 2. **Lịch sử**: tối đa `TRAN_LICH_SU` thư cũ mỗi vòng, mới về cũ, theo con trỏ trang
    Gmail lưu ở `drive_nhip.con_tro_lich_su` (nguồn GMAIL); hết ⇒ `so_lich_su_con = 0`.
+   Gmail từ chối con trỏ (400, hết hạn) ⇒ đọc lại từ trang đầu (thư đã có bỏ qua nhanh).
 
-Mỗi thư: header From thật phải đúng địa chỉ đối tác (`from:` của Gmail chỉ để lọc tìm).
-Tải HẾT các PDF của thư trước khi ghi — một phần lỗi ⇒ cả thư để lượt sau (không có
-thư lưu dở mà lượt sau tưởng xong). Mỗi PDF: byte vào ổ VPS
-(`<clinic>/gmail/<thư>/<uuid>.pdf`, 0600) rồi một dòng `drive_tep` nguồn GMAIL, lý do
-`LUU_TRU` — G2 chưa ghép gì (G3 bật ghép cho thư sau mốc `gmail_tu_ngay`). `day_tep`
-đẩy byte lên CFS như tệp kết quả.
-
-Gợi ý khách (kế hoạch 1.10): tên + SĐT khớp đúng MỘT khách ⇒ `goi_y_clinic_patient_id`.
-Chỉ là chữ gợi ý ở Kho — không gắn, không báo ai.
+Mỗi thư: header From thật phải đúng địa chỉ đối tác (`from:` của Gmail chỉ để lọc tìm;
+thư Spam không đọc). Tải HẾT các PDF rồi `gmail_luu.luu_thu` ghi cả thư một giao dịch.
+Lỗi riêng của một thư (quá trần, dữ liệu hỏng, CHECK từ chối) ⇒ bỏ thư đó, không chặn
+thư khác. Dòng mới nguồn GMAIL, lý do `LUU_TRU` — G2 chưa ghép gì (G3 bật ghép cho thư
+sau mốc `gmail_tu_ngay`). `day_tep` đẩy byte lên CFS.
 
 Vòng không bao giờ ném (mỗi đối tác bọc riêng); lỗi ghi `drive_nhip.loi_cuoi`. Log chỉ
-id thư + lý do — không tiêu đề, không tên khách.
+id thư + mã lý do — không tiêu đề, không tên khách, không chuỗi lỗi của DB (có dòng).
 """
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import shutil
-import uuid
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
@@ -38,143 +38,36 @@ import asyncpg
 import httpx
 import structlog
 
-from clinicai.core.kho_tep import KHO_VPS, chay_tren_kho, don_tren_kho
-from clinicai.core.tran import canh_bao_neu_day
+from clinicai.core.kho_tep import KHO_VPS, chay_tren_kho
 from clinicai.services import media_service
-from clinicai.services.xet_nghiem import ghep_khach, gmail_api
+from clinicai.services.xet_nghiem import gmail_api, gmail_luu
 
 logger = structlog.get_logger()
 
+BIEN_PHONG_KHAM: Final = "GMAIL_CLINIC_ID"
 TRAN_DOI_TAC: Final = 50
 TRAN_LICH_SU: Final = 100
 #: Trang thư mới tối đa mỗi vòng (100 thư/trang) — chặn vòng vô hạn.
 TRAN_TRANG_MOI: Final = 5
 LUI_THU_MOI: Final = timedelta(days=2)
-_MA_TEP_RE: Final = re.compile(r"(?<!\d)(\d{6}-\d{6})(?!\d)")
+_UUID_RE: Final = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
 
 
-def ma_tep(ten: object) -> str | None:
-    """Mã `081126-501726` trong tên tệp (kế hoạch 1.13: lưu để tra, KHÔNG dùng ghép).
-    Không có / nhiều mã khác nhau / rác ⇒ None."""
-    if not isinstance(ten, str):
-        return None
-    ma = set(_MA_TEP_RE.findall(ten))
-    return ma.pop() if len(ma) == 1 else None
+def phong_kham_cua_khoa() -> str | None:
+    """Phòng khám sở hữu hộp thư (env `GMAIL_CLINIC_ID`). Thiếu / rác ⇒ None."""
+    v = os.environ.get(BIEN_PHONG_KHAM, "").strip()
+    return v.lower() if _UUID_RE.fullmatch(v) else None
 
 
 def q_thu(email: str, sau: datetime | None = None) -> str:
-    """Câu tìm Gmail: thư CÓ đính kèm từ `email`; `sau` ⇒ chỉ thư sau mốc (giây)."""
-    q = f"from:{email} has:attachment"
+    """Câu tìm Gmail: thư có PDF đính kèm từ `email`, KHÔNG trong Spam (thư giả mạo
+    người gửi bị Gmail xếp vào đó); `sau` ⇒ chỉ thư sau mốc (giây)."""
+    q = f"from:{email} has:attachment filename:pdf -in:spam"
     return f"{q} after:{int(sau.timestamp())}" if sau is not None else q
 
 
-def _ghi_o(goc: Path, khoa: str, data: bytes) -> None:
-    """Đồng bộ (chạy trong `chay_tren_kho`): ghi tạm rồi đổi tên, quyền 0600."""
-    p = media_service.giai_trong(goc, khoa)
-    if p is None:
-        raise ValueError("khoá tệp không hợp lệ")
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "wb") as f:
-        f.write(data)
-        f.flush()
-        os.fsync(f.fileno())
-    tmp.replace(p)
-
-
-def _xoa_o(goc: Path, khoa: str) -> None:
-    p = media_service.giai_trong(goc, khoa)
-    if p is not None:
-        p.unlink(missing_ok=True)
-
-
-async def goi_y_khach(conn: asyncpg.Connection, cid: str, van_ban: str) -> str | None:
-    """Tên + SĐT trong chữ khớp đúng MỘT khách của phòng khám ⇒ id khách; không ⇒ None.
-    Dùng lại luật khớp của Drive (`ghep_khach.khop_khach`) — một câu hỏi một hàm."""
-    sdts = ghep_khach.sdt_trong(van_ban)
-    if not sdts:
-        return None
-    dang = sorted(sdts | {"84" + s[1:] for s in sdts})
-    rows = await conn.fetch(
-        "SELECT clinic_patient_id::text AS id, full_name, phone_primary FROM patient"
-        " WHERE clinic_id = $1::uuid"
-        "   AND regexp_replace(coalesce(phone_primary, ''), '\\D', '', 'g')"
-        "       = ANY($2::text[])"
-        " LIMIT 20",
-        cid,
-        dang,
-    )
-    # Chạm trần ⇒ có thể sót đúng người: báo, và gợi ý vẫn chỉ ra khi khớp đúng một.
-    canh_bao_neu_day("patient", len(rows), 20, clinic_id=cid)
-    ung_vien = [
-        ghep_khach.UngVien(
-            order_id="",
-            clinic_patient_id=r["id"],
-            visit_id=None,
-            ten=r["full_name"],
-            sdt=r["phone_primary"],
-        )
-        for r in rows
-    ]
-    u, _ = ghep_khach.khop_khach(van_ban, ung_vien)
-    return u.clinic_patient_id if u else None
-
-
-_GHI_SQL = """
-INSERT INTO drive_tep (clinic_id, doi_tac_id, nguon, file_id, md5, ten, mime, so_byte,
-                       email_message_id, email_tieu_de, email_than, email_nhan_luc,
-                       ma_ben_doi_tac_tep, khoa, sha256, vi_tri, tai_len_luc, ly_do_cho,
-                       goi_y_clinic_patient_id)
-VALUES ($1::uuid, $2::uuid, 'GMAIL', $3, $4, $5, 'application/pdf', $6, $7, $8, $9, $10,
-        $11, $12, $13, 'vps', now(), 'LUU_TRU', $14::uuid)
-ON CONFLICT DO NOTHING
-RETURNING id
-"""
-
-
-async def _luu_pdf(
-    pool: asyncpg.Pool,
-    cid: str,
-    doi_tac_id: str,
-    thu: gmail_api.ThuGmail,
-    p: gmail_api.PhanPdf,
-    data: bytes,
-) -> bool:
-    """Byte vào ổ VPS rồi một dòng sự việc. Dòng đã có (quét lại) ⇒ xoá tệp vừa ghi."""
-    goc = media_service.goc_vps()
-    khoa = f"{cid}/gmail/{thu.id}/{uuid.uuid4().hex}.pdf"
-    await chay_tren_kho(partial(_ghi_o, goc, khoa, data), kho=KHO_VPS, han=30)
-    van_ban = "\n".join((thu.tieu_de, thu.than, p.ten, ghep_khach.chu_pdf(data)))
-    try:
-        async with pool.acquire() as conn:
-            goi_y = await goi_y_khach(conn, cid, van_ban)
-            moi = await conn.fetchval(
-                _GHI_SQL,
-                cid,
-                doi_tac_id,
-                f"gmail:{thu.id}:{p.part_id}",
-                hashlib.md5(data, usedforsecurity=False).hexdigest(),
-                p.ten or "(không tên).pdf",
-                len(data),
-                thu.id,
-                thu.tieu_de or None,
-                thu.than or None,
-                thu.nhan_luc,
-                ma_tep(p.ten),
-                khoa,
-                hashlib.sha256(data).hexdigest(),
-                goi_y,
-            )
-    except BaseException:
-        await don_tren_kho(partial(_xoa_o, goc, khoa), viec=f"xoa:{khoa}", kho=KHO_VPS)
-        raise
-    if moi is None:
-        await don_tren_kho(partial(_xoa_o, goc, khoa), viec=f"xoa:{khoa}", kho=KHO_VPS)
-    return moi is not None
-
-
 async def _da_co(pool: asyncpg.Pool, cid: str, mids: list[str]) -> set[str]:
+    """Thư đã có dòng — ghi cả thư trong một giao dịch nên có dòng = đã đủ."""
     rows = await pool.fetch(
         "SELECT DISTINCT email_message_id FROM drive_tep WHERE clinic_id = $1::uuid"
         " AND nguon = 'GMAIL' AND email_message_id = ANY($2::text[])",
@@ -193,11 +86,12 @@ async def nhan_thu(
     pool: asyncpg.Pool,
     kh: httpx.AsyncClient,
     cid: str,
-    doi_tac_id: str,
+    dt: str,
     email: str,
     mid: str,
 ) -> int:
-    """Một thư: đọc, kiểm người gửi, tải HẾT PDF, rồi mới ghi. Trả số dòng mới."""
+    """Một thư: đọc, kiểm người gửi, tải HẾT PDF, rồi mới ghi. Trả số dòng mới.
+    `GmailError` (tạm) ⇒ ném để lượt sau làm lại; lỗi riêng của thư ⇒ bỏ thư, trả 0."""
     from clinicai.services.tep_ket_qua_service import MEDIA_LOCAL_MIN_FREE_BYTES
 
     thu = await gmail_api.doc_thu(kh, mid)
@@ -206,23 +100,30 @@ async def nhan_thu(
     if thu.tu != email:
         logger.warning("gmail_nguoi_gui_khac", message_id=mid)
         return 0
-    tai: list[tuple[gmail_api.PhanPdf, bytes]] = []
-    for p in thu.pdf:
-        data = await gmail_api.tai_phan(kh, mid, p)
-        if not data.startswith(b"%PDF"):
+    try:
+        if sum(p.so_byte for p in thu.pdf) > gmail_api.TRAN_THU:
+            raise gmail_api.ThuBoQua("thu_qua_lon")
+        tai = [(p, await gmail_api.tai_phan(kh, mid, p)) for p in thu.pdf]
+    except gmail_api.ThuBoQua as e:
+        logger.warning("gmail_bo_thu", message_id=mid, ly_do=str(e))
+        return 0
+    for p, d in tai:
+        if not d.startswith(b"%PDF"):
             logger.warning("gmail_khong_phai_pdf", message_id=mid, part_id=p.part_id)
-            continue
-        tai.append((p, data))
-    can = sum(len(d) for _, d in tai)
+    tai = [(p, d) for p, d in tai if d.startswith(b"%PDF")]
+    if not tai:
+        return 0
     goc = media_service.goc_vps()
-    if tai and await chay_tren_kho(partial(_con_cho, goc), kho=KHO_VPS) - can < (
-        MEDIA_LOCAL_MIN_FREE_BYTES
-    ):
+    trong = await chay_tren_kho(partial(_con_cho, goc), kho=KHO_VPS)
+    if trong - sum(len(d) for _, d in tai) < MEDIA_LOCAL_MIN_FREE_BYTES:
         raise gmail_api.GmailError("Ổ máy chủ gần đầy — chưa lưu thư kết quả.")
-    so = 0
-    for p, data in tai:
-        so += await _luu_pdf(pool, cid, doi_tac_id, thu, p, data)
-    return so
+    try:
+        return await gmail_luu.luu_thu(pool, cid, dt, thu, tai)
+    except asyncpg.IntegrityConstraintViolationError as e:
+        # CHECK / khoá ngoại từ chối dữ liệu của RIÊNG thư này — vĩnh viễn, bỏ thư.
+        # Không log chuỗi lỗi: DETAIL của Postgres chứa cả dòng (tên khách).
+        logger.error("gmail_bo_thu", message_id=mid, ly_do=type(e).__name__)
+        return 0
 
 
 async def _nhan_ca_trang(
@@ -241,6 +142,38 @@ async def _nhan_ca_trang(
     return so
 
 
+async def _quet_moi(
+    pool: asyncpg.Pool,
+    kh: httpx.AsyncClient,
+    cid: str,
+    dt: str,
+    email: str,
+    tu: datetime,
+) -> tuple[int, bool]:
+    """Thư mới sau `tu`. Trả (số dòng mới, đã đọc HẾT khung chưa)."""
+    so = 0
+    trang: str | None = None
+    for _ in range(TRAN_TRANG_MOI):
+        ids, trang, _uoc = await gmail_api.liet_ke(kh, q_thu(email, tu), trang)
+        so += await _nhan_ca_trang(pool, kh, cid, dt, email, ids)
+        if not trang:
+            return so, True
+    return so, False
+
+
+async def _lich_su(
+    kh: httpx.AsyncClient, email: str, con_tro: str | None
+) -> tuple[list[str], str | None, int]:
+    """Một trang lịch sử; Gmail từ chối con trỏ (400, hết hạn) ⇒ đọc lại từ đầu."""
+    try:
+        return await gmail_api.liet_ke(kh, q_thu(email), con_tro, TRAN_LICH_SU)
+    except gmail_api.GmailError as e:
+        if con_tro is None or e.ma_http != 400:
+            raise
+        logger.warning("gmail_con_tro_hong_doc_lai_tu_dau")
+        return await gmail_api.liet_ke(kh, q_thu(email), None, TRAN_LICH_SU)
+
+
 _NHIP_SQL = """
 SELECT ok_cuoi, con_tro_lich_su, so_lich_su_con FROM drive_nhip
  WHERE clinic_id = $1::uuid AND doi_tac_id = $2::uuid AND nguon = 'GMAIL'
@@ -252,21 +185,18 @@ async def quet_doi_tac(
 ) -> tuple[int, str | None, int | None]:
     """Một đối tác: thư mới rồi một trang lịch sử. Trả (số dòng mới, con trỏ, còn ~)."""
     n = await pool.fetchrow(_NHIP_SQL, cid, dt)
-    so = 0
-    if n is not None and n["ok_cuoi"] is not None:
-        trang: str | None = None
-        for _ in range(TRAN_TRANG_MOI):
-            ids, trang, _uoc = await gmail_api.liet_ke(
-                kh, q_thu(email, n["ok_cuoi"] - LUI_THU_MOI), trang
-            )
-            so += await _nhan_ca_trang(pool, kh, cid, dt, email, ids)
-            if not trang:
-                break
     con_tro = n["con_tro_lich_su"] if n is not None else None
     con = n["so_lich_su_con"] if n is not None else None
+    so = 0
+    if n is not None and n["ok_cuoi"] is not None:
+        so, het = await _quet_moi(pool, kh, cid, dt, email, n["ok_cuoi"] - LUI_THU_MOI)
+        if not het:
+            # Khung "mới" quá dài (máy chết lâu) ⇒ quét lại lịch sử từ đầu, không sót.
+            logger.warning("gmail_qua_tran_thu_moi_quet_lai_lich_su", doi_tac_id=dt)
+            con_tro, con = None, None
     if con == 0:
         return so, None, 0
-    ids, sau, uoc = await gmail_api.liet_ke(kh, q_thu(email), con_tro, TRAN_LICH_SU)
+    ids, sau, uoc = await _lich_su(kh, email, con_tro)
     so += await _nhan_ca_trang(pool, kh, cid, dt, email, ids)
     if sau is None:
         return so, None, 0
@@ -315,13 +245,19 @@ async def _nhip(
 
 
 async def mot_vong(pool: asyncpg.Pool) -> dict[str, int]:
-    """Một lượt mọi đối tác có email gửi kết quả. Không khoá ⇒ bỏ qua, không ném."""
+    """Một lượt mọi đối tác (của phòng khám chủ hộp thư) có email gửi kết quả. Không
+    khoá / chưa gắn phòng khám ⇒ bỏ qua, không ném."""
     if not gmail_api.co_cau_hinh():
         return {"bo_qua": 1}
+    cid = phong_kham_cua_khoa()
+    if cid is None:
+        logger.warning("gmail_chua_gan_phong_kham", bien=BIEN_PHONG_KHAM)
+        return {"bo_qua": 1}
     rows = await pool.fetch(
-        "SELECT clinic_id::text AS cid, id::text AS id, email_gui_ket_qua AS email"
-        " FROM doi_tac WHERE email_gui_ket_qua IS NOT NULL AND ngung_luc IS NULL"
-        " ORDER BY clinic_id, id LIMIT $1",
+        "SELECT id::text AS id, email_gui_ket_qua AS email FROM doi_tac"
+        " WHERE clinic_id = $1::uuid AND email_gui_ket_qua IS NOT NULL"
+        "   AND ngung_luc IS NULL ORDER BY id LIMIT $2",
+        cid,
         TRAN_DOI_TAC,
     )
     tong = loi = 0
@@ -329,20 +265,23 @@ async def mot_vong(pool: asyncpg.Pool) -> dict[str, int]:
         for r in rows:
             try:
                 so, con_tro, con = await quet_doi_tac(
-                    pool, kh, r["cid"], r["id"], r["email"]
+                    pool, kh, cid, r["id"], r["email"]
                 )
                 tong += so
-                await _nhip(pool, r["cid"], r["id"], None, so, con_tro, con)
+                await _nhip(pool, cid, r["id"], None, so, con_tro, con)
             except Exception as e:  # noqa: BLE001 — đối tác lỗi không chặn đối tác khác
                 loi += 1
-                cau = (
-                    str(e)[:300]
-                    if isinstance(e, gmail_api.GmailError)
-                    else "Lỗi quét Gmail."
-                )
-                logger.exception("gmail_quet_loi", doi_tac_id=r["id"])
+                if isinstance(e, gmail_api.GmailError):
+                    cau = str(e)[:300]
+                    logger.warning("gmail_quet_loi", doi_tac_id=r["id"], cau=cau)
+                else:
+                    # Chỉ tên kiểu lỗi: chuỗi lỗi DB có thể chứa dữ liệu thư.
+                    cau = "Lỗi quét Gmail."
+                    logger.error(
+                        "gmail_quet_loi", doi_tac_id=r["id"], loai=type(e).__name__
+                    )
                 try:
-                    await _nhip(pool, r["cid"], r["id"], cau, 0)
+                    await _nhip(pool, cid, r["id"], cau, 0)
                 except Exception:  # noqa: BLE001
                     logger.exception("gmail_ghi_nhip_loi", doi_tac_id=r["id"])
     return {"doi_tac": len(rows), "tep_moi": tong, "loi": loi}
