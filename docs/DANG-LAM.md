@@ -1,6 +1,18 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **05/11/2026** — mục "05/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **09/11/2026** — mục "09/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 09/11/2026 — KẾT QUẢ ĐỐI TÁC QUA GMAIL: G0 DỪNG Ở BƯỚC CẤP QUYỀN
+
+- Kế hoạch `docs/KE-HOACH-KET-QUA-QUA-GMAIL.md` (Mức 3, 5 chặng G0–G4). True Medicine không có API,
+  gửi PDF về Gmail phòng khám `pksanthanhluong@gmail.com`.
+- **G0** (nhánh `claude/gmail-ket-qua-g0`): Google Cloud đã cài xong (dự án `clinic-ai-ket-qua`, Gmail API,
+  In production, chỉ `gmail.readonly`, client Desktop ở `~/.clinicai/gmail-client.json` trên Mac) —
+  nhật ký mục 8 của kế hoạch. Script `scripts/gmail-cap-quyen.py`, `scripts/gmail-do-hop-thu.py`.
+- **Còn lại G0:** Google đòi xác minh chủ tài khoản khi cấp quyền — chờ phòng khám rảnh. Sau đó:
+  `python3 scripts/gmail-cap-quyen.py` (Tuyền bấm Nâng cao → Đi tới… → Cho phép) →
+  `.venv/bin/python scripts/gmail-do-hop-thu.py` → báo cáo (đã che tên) ở `~/.clinicai/` → lệnh đưa khoá
+  lên VPS (kế hoạch mục 8). G1 chưa bắt đầu.
 
 ## 05/11/2026 TỐI — BÀN XN ĐỐI TÁC MỚI TRÊN STAGING; DRIVE ĐANG LÀM; XOÁ BÀN CŨ ĐỂ SAU
 
