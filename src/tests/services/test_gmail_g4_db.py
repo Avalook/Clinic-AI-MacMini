@@ -100,6 +100,13 @@ async def test_doi_email_dat_lai_con_tro_gmail_giu_ok_cuoi_va_drive(
     await gmail._nhip(pool, CLINIC, a, None, 0, None, 0, em.lower())
     g = await _nhip(pool, a, "GMAIL")
     assert (g["con_tro_lich_su"], g["so_lich_su_con"]) == (None, None)
+    # Nhánh INSERT (chưa có dòng nhịp: vừa đặt email lần đầu, sửa A→B lúc lượt đầu
+    # đang chạy) ⇒ dòng mới KHÔNG mang "lịch sử đã hết" của email cũ.
+    b = await _them_dt(pool, ca.bac_si, _ma(), email_gui_ket_qua=_email())
+    await gmail._nhip(pool, CLINIC, b, None, 0, None, 0, "email.cu@lab-thu.vn")
+    g = await _nhip(pool, b, "GMAIL")
+    assert (g["con_tro_lich_su"], g["so_lich_su_con"]) == (None, None)
+    assert g["ok_cuoi"] is not None  # nhịp vẫn ghi
     # Đổi NULL ↔ có email cũng là đổi ⇒ đặt lại.
     await pool.execute(
         "UPDATE drive_nhip SET so_lich_su_con = 0 WHERE doi_tac_id = $1::uuid"

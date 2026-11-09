@@ -181,7 +181,16 @@ export default function GanDichVu({
               variant="primary"
               disabled={dang || !gan.service_price_id}
               onClick={async () => {
-                const ok = await gui("POST", "doi-tac-dich-vu", { doi_tac_id: doiTacId, ...gan }, "Đã gán dịch vụ.");
+                // `sua` chỉ là trạng thái màn — không gửi lên máy chủ.
+                const than = {
+                  doi_tac_id: doiTacId,
+                  service_price_id: gan.service_price_id,
+                  gia_goi_y: gan.gia_goi_y,
+                  hen_tra_so_ngay: gan.hen_tra_so_ngay,
+                  ma_ben_doi_tac: gan.ma_ben_doi_tac,
+                  mac_dinh: gan.mac_dinh,
+                };
+                const ok = await gui("POST", "doi-tac-dich-vu", than, "Đã gán dịch vụ.");
                 if (ok) setGan(null);
               }}
             >
