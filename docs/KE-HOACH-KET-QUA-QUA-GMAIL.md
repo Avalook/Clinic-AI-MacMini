@@ -230,7 +230,7 @@ báo cáo 4 mục SO-LUAT 12.4. Cập nhật `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.m
 | Audience | External · **In production** (chưa xác minh; dải vàng "requires verification" bỏ qua) |
 | Data access | đúng một phạm vi `.../auth/gmail.readonly` |
 | Client | loại **Desktop app**, tệp ở `~/.clinicai/gmail-client.json` (600, ngoài repo) |
-| Cấp quyền | **chưa** — Google đòi xác minh chủ tài khoản (khoá đăng nhập / mật khẩu); chờ phòng khám |
+| Cấp quyền | **xong 09/11 chiều** (Google đòi xác minh chủ tài khoản trước màn "chưa xác minh"); khoá `~/.clinicai/gmail-oauth.json` trên Mac, chưa lên VPS |
 
 **Khoá trên VPS (theo cách khoá Drive):** tệp `/home/clinicai/gmail-oauth-prod.json`, cùng chủ/quyền với
 `/home/clinicai/drive-sa-prod.json`; `.env.prod` có `GOOGLE_GMAIL_OAUTH_KEY_FILE=<tệp đó>`. G2 thêm vào
@@ -263,3 +263,12 @@ tới khi Tuyền đổi). Gmail giới hạn tốc độ: đọc song song bị
 - **Tuyền 09/11: tải về TOÀN BỘ, không che** để xem đủ mẫu từng phòng xét nghiệm — đổi mục 6 ("không đọc hộp thư
   thật từ máy dev") cho riêng lần này. Script `scripts/gmail-tai-ve.py` (chỉ đọc) lưu ở
   `~/.clinicai/ket-qua-gmail/` trên Mac (thư mục 700, tệp 600, ngoài repo) + `danh-sach.csv`. Không chép đi đâu khác.
+  **Mốc xoá bản này: xong G4** (đã có Kho trên hệ thống). Bản nằm trong `~/.clinicai` có thể lọt Time Machine /
+  Spotlight — xoá bằng `rm -rf ~/.clinicai/ket-qua-gmail` khi tới mốc.
+
+**Việc mang sang G2/G3 (soát thiết kế G0, 09/11):**
+- Lọc `from:` chỉ xét header From — **giả mạo được**. Trước khi TỰ GHÉP vào hồ sơ khách (G3), kiểm
+  `Authentication-Results` có SPF hoặc DKIM `pass` cho đúng tên miền người gửi; không pass ⇒ ghép tay, lý do riêng.
+- Access token sống ~1 giờ: lớp gọi Gmail của G2 phải tự làm mới khi 401 (script G0 đã sửa sau khi soát).
+- Mục 6 "script G0 chỉ đọc tiêu đề/tên tệp" — thực tế G0 có đọc 20 PDF trong bộ nhớ để đếm, và
+  `gmail-tai-ve.py` tải toàn bộ theo quyết định trên.

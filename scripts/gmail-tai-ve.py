@@ -54,8 +54,16 @@ def _b64(s: str) -> bytes:
 
 
 def _ten_an_toan(s: str) -> str:
+    """Tên tệp hợp lệ trên macOS: bỏ / \\ : và ký tự điều khiển, cắt ≤ 150 BYTE UTF-8
+    (tên tiếng Việt có dấu tính nhiều byte; trần hệ tệp 255 byte)."""
     s = re.sub(r"[/\\:\x00-\x1f]", "_", s).strip(" .") or "tep"
-    return s[:150]
+    b = s.encode("utf-8")[:150]
+    return b.decode("utf-8", "ignore") or "tep"
+
+
+def _o_csv(s: str) -> str:
+    """Ô bắt đầu bằng = + - @ thì Excel coi là công thức — thêm ' ở đầu."""
+    return "'" + s if s[:1] in ("=", "+", "-", "@") else s
 
 
 def _than_thu(phan: list[dict[str, Any]]) -> str:
@@ -78,14 +86,14 @@ def _ghi_tep(duong: Path, data: bytes) -> None:
         f.write(data)
 
 
-def tai_mot(token: str, mid: str, tu: str, goc: Path, rac: set[str]) -> dict[str, Any]:
+def tai_mot(token: Any, mid: str, tu: str, goc: Path, rac: set[str]) -> dict[str, Any]:
     r = g._goi(f"{g.GMAIL}/messages/{mid}?format=full", token=token)
     tai = r.get("payload", {})
     dau = {h["name"].lower(): h["value"] for h in tai.get("headers", [])}
     luc = datetime.fromtimestamp(int(r.get("internalDate", 0)) / 1000, g.VN)
     phan = g._cac_phan(tai)
     tep = []
-    for p in phan:
+    for stt, p in enumerate(phan):
         ten, than = p.get("filename") or "", p.get("body") or {}
         if not ten:
             continue
@@ -99,9 +107,9 @@ def tai_mot(token: str, mid: str, tu: str, goc: Path, rac: set[str]) -> dict[str
             data = _b64(than["data"])
         else:
             continue
-        ra = (
-            goc / tu / f"{luc:%Y-%m}" / f"{luc:%Y-%m-%d}_{mid[-8:]}_{_ten_an_toan(ten)}"
-        )
+        # Số thứ tự phần trong thư: hai tệp cùng tên (ảnh nhúng image001.png…) không đè.
+        ten_luu = f"{luc:%Y-%m-%d}_{mid[-8:]}_{stt}_{_ten_an_toan(ten)}"
+        ra = goc / tu / f"{luc:%Y-%m}" / ten_luu
         _ghi_tep(ra, data)
         tep.append({"ten": ten, "co": len(data), "duong": str(ra)})
     return {
@@ -116,7 +124,7 @@ def tai_mot(token: str, mid: str, tu: str, goc: Path, rac: set[str]) -> dict[str
     }
 
 
-def tai_nguoi_gui(token: str, tu: str, goc: Path, so_ghi: Path, da_co: set[str]) -> int:
+def tai_nguoi_gui(token: Any, tu: str, goc: Path, so_ghi: Path, da_co: set[str]) -> int:
     q = f"from:{tu}"
     ids = g.liet_ke(token, q, ca_rac=True)
     rac = set(g.liet_ke(token, q + " in:trash", ca_rac=True))
@@ -150,11 +158,11 @@ def ghi_csv(so_ghi: Path, ra: Path) -> int:
         )  # fmt: skip
         for x in sorted(_doc_so(so_ghi), key=lambda b: (b["nguoi_gui"], b["ngay"])):
             ngay = x["ngay"][:16].replace("T", " ")
-            co_ban = [x["nguoi_gui"], ngay, x["tieu_de"], x["than"]]
+            co_ban = [x["nguoi_gui"], ngay, _o_csv(x["tieu_de"]), _o_csv(x["than"])]
             cuoi = ["có" if x["thung_rac"] else "", "", x["id"]]
             for t in x["tep"] or [{"ten": "", "co": 0, "duong": ""}]:
                 cuoi[1] = t["duong"]
-                w.writerow([*co_ban, t["ten"], round(t["co"] / 1024), *cuoi])
+                w.writerow([*co_ban, _o_csv(t["ten"]), round(t["co"] / 1024), *cuoi])
                 dong += 1
     return dong
 
@@ -162,7 +170,13 @@ def ghi_csv(so_ghi: Path, ra: Path) -> int:
 def _doc_so(so_ghi: Path) -> list[dict[str, Any]]:
     if not so_ghi.exists():
         return []
-    return [json.loads(d) for d in so_ghi.read_text(encoding="utf-8").splitlines() if d]
+    ra = []
+    for d in so_ghi.read_text(encoding="utf-8").splitlines():
+        try:
+            ra.append(json.loads(d))
+        except ValueError:  # dòng cụt do máy tắt giữa lúc ghi — thư đó tải lại
+            continue
+    return ra
 
 
 def main() -> None:
@@ -180,7 +194,7 @@ def main() -> None:
     so_ghi = goc / "thu.jsonl"
     da_co = {x["id"] for x in _doc_so(so_ghi)}
     try:
-        token = g.lay_token(a.khoa.expanduser())
+        token = g.Phien(a.khoa.expanduser())
         loi = sum(
             tai_nguoi_gui(token, tu, goc, so_ghi, da_co) for tu in a.tu or NGUOI_GUI
         )

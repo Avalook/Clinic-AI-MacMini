@@ -108,8 +108,10 @@ def _doi_ma(
 
 
 def _ghi_bi_mat(duong: Path, du_lieu: dict[str, object]) -> None:
-    duong.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(duong.parent, 0o700)
+    # Chỉ đặt quyền 700 cho thư mục script TỰ TẠO — không đổi quyền thư mục có sẵn
+    # (vd `--ra ~/x.json` không được đổi quyền thư mục nhà).
+    if not duong.parent.exists():
+        duong.parent.mkdir(mode=0o700, parents=True)
     tam = duong.with_suffix(".tam")
     fd = os.open(tam, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:

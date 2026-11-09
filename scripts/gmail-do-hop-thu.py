@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import argparse
 import base64
+import http.client
 import json
+import os
 import random
 import re
 import sys
@@ -91,16 +93,43 @@ def _ly_do(e: urllib.error.HTTPError) -> str:
     return str(chi_tiet[0].get("reason") or loi.get("status") or "?")[:80]
 
 
-def _goi(url: str, du_lieu: bytes | None = None, token: str | None = None) -> Any:
+class Phien:
+    """Giữ access token (sống ~1 giờ), tự làm mới — lượt nhiều giờ không bị 401."""
+
+    LAM_MOI_SAU_GIAY = 45 * 60
+
+    def __init__(self, khoa: Path) -> None:
+        self.khoa = khoa
+        self.lam_moi()
+
+    def lam_moi(self) -> None:
+        self.token = lay_token(self.khoa)
+        self.luc = time.monotonic()
+
+    def lay(self) -> str:
+        if time.monotonic() - self.luc > self.LAM_MOI_SAU_GIAY:
+            self.lam_moi()
+        return self.token
+
+
+def _goi(
+    url: str, du_lieu: bytes | None = None, token: str | Phien | None = None
+) -> Any:
+    da_lam_moi = False
     for lan in range(SO_LAN_THU):
         yc = urllib.request.Request(url, data=du_lieu)
         if token:
-            yc.add_header("Authorization", f"Bearer {token}")
+            gia_tri = token.lay() if isinstance(token, Phien) else token
+            yc.add_header("Authorization", f"Bearer {gia_tri}")
         try:
             with urllib.request.urlopen(yc, timeout=60) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
             ly_do = _ly_do(e)
+            if e.code == 401 and isinstance(token, Phien) and not da_lam_moi:
+                token.lam_moi()  # token hết hạn giữa lượt dài
+                da_lam_moi = True
+                continue
             # Gmail báo vượt hạn mức tốc độ bằng 403 (rateLimitExceeded), không chỉ 429.
             gioi_han = e.code == 403 and "ratelimit" in ly_do.lower()
             if (e.code in (429, 500, 502, 503) or gioi_han) and lan < SO_LAN_THU - 1:
@@ -108,11 +137,12 @@ def _goi(url: str, du_lieu: bytes | None = None, token: str | None = None) -> An
                 continue
             duong = url.split("?")[0]
             raise GmailError(f"Google trả HTTP {e.code} ({ly_do}): {duong}") from None
-        except urllib.error.URLError as e:
+        except (OSError, http.client.HTTPException, ValueError) as e:
+            # URLError, hết giờ / đứt kết nối khi đang ĐỌC thân, JSON cụt.
             if lan < SO_LAN_THU - 1:
                 time.sleep(min(2**lan, 32) + random.random())
                 continue
-            raise GmailError(f"Mất kết nối Google: {e.reason}") from None
+            raise GmailError(f"Mất kết nối Google: {e.__class__.__name__}") from None
     raise GmailError("Hết lượt thử")
 
 
@@ -135,7 +165,7 @@ def lay_token(duong: Path) -> str:
     return str(tk["access_token"])
 
 
-def liet_ke(token: str, q: str, ca_rac: bool) -> list[str]:
+def liet_ke(token: str | Phien, q: str, ca_rac: bool) -> list[str]:
     ids: list[str] = []
     trang: str | None = None
     while True:
@@ -210,7 +240,8 @@ def hinh_tieu_de(s: str) -> str:
 def hinh_ten_tep(s: str) -> tuple[str, str | None, str | None]:
     """(dạng, mã xét nghiệm, đuôi đối tác). Không theo mẫu ⇒ dạng che, (None, None)."""
     m = TEN_TEP_MAU.match(s)
-    if m:
+    # Chỉ nhận mã ngắn kiểu HPV / TQ: phần giữa của đối tác khác có thể chứa tên người.
+    if m and re.fullmatch(r"[A-Za-z0-9]{1,12}", m["xn"]):
         return f"<TEN>_<6so>-<6so>_<MA_XN>_{m['dt']}.pdf", m["xn"], m["dt"]
     return re.sub(r"\d", "9", re.sub(r"[^\W\d_]+", "x", s[:-4])) + ".pdf", None, None
 
@@ -242,6 +273,8 @@ def bao_cao(thu: list[Thu], thu_chu: Counter[str], ten_nguoi_gui: str, rac: int)
         return ma_kh.setdefault(k, f"KHACH_{len(ma_kh) + 1:03d}")
 
     co = [s for t in thu for _, s, _ in t.pdf]
+    # Đếm mọi thư (cả mẫu tên tệp cũ không có mã) — không chỉ thư đã qua kh().
+    so_khach = len({ten_khach(t) or t.id for t in thu})
     theo_thang = Counter(t.luc.strftime("%Y-%m") for t in thu)
     kieu_tieu = Counter(hinh_tieu_de(t.tieu_de) for t in thu)
     kieu_tep: Counter[str] = Counter()
@@ -279,7 +312,7 @@ def bao_cao(thu: list[Thu], thu_chu: Counter[str], ten_nguoi_gui: str, rac: int)
         d += [
             f"| Thư đầu tiên | {thu[0].luc:%d/%m/%Y} |",
             f"| Thư gần nhất | {thu[-1].luc:%d/%m/%Y %H:%M} |",
-            f"| Số khách khác nhau (theo tên) | {len(ma_kh)} |",
+            f"| Số khách khác nhau (theo tên) | {so_khach} |",
             f"| Tổng số PDF | {len(co)} |",
         ]
     if co:
@@ -328,7 +361,7 @@ def bao_cao(thu: list[Thu], thu_chu: Counter[str], ten_nguoi_gui: str, rac: int)
     return "\n".join(d) + "\n"
 
 
-def thu_doc_chu(token: str, thu: list[Thu]) -> Counter[str]:
+def thu_doc_chu(token: str | Phien, thu: list[Thu]) -> Counter[str]:
     dem: Counter[str] = Counter()
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -369,7 +402,7 @@ def main() -> None:
     if ra.resolve().is_relative_to(Path(__file__).resolve().parent.parent):
         sys.exit("Không ghi báo cáo vào trong repo (có dữ liệu khách dù đã che).")
     try:
-        token = lay_token(a.khoa.expanduser())
+        token = Phien(a.khoa.expanduser())
         q = f"from:{a.tu}"
         dem_loi: Counter[str] = Counter()
         ids = liet_ke(token, q, ca_rac=False)
@@ -393,8 +426,9 @@ def main() -> None:
         sys.exit(str(e))
     noi_dung = bao_cao(thu, dem, a.tu, rac)
     ra.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    ra.write_text(noi_dung, encoding="utf-8")
-    ra.chmod(0o600)
+    fd = os.open(ra, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(noi_dung)
     print(f"Đã ghi báo cáo {ra} (quyền 600).")
 
 
