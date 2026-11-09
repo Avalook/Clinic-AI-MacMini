@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import random
 import re
 import sys
 import time
@@ -27,7 +28,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -39,6 +39,10 @@ PHAM_VI = "https://www.googleapis.com/auth/gmail.readonly"
 NGUOI_GUI = "truemedicine.laymauxn@gmail.com"
 VN = timezone(timedelta(hours=7))
 SO_PDF_THU_CHU = 20
+SO_LAN_THU = 8
+#: Đọc LẦN LƯỢT, nghỉ giữa hai thư: Gmail giới hạn số lượt gọi cùng lúc trên một
+#: tài khoản (09/11: 8 rồi 4 luồng song song đều bị 403 rateLimitExceeded).
+NGHI_GIUA_THU = 0.1
 _PHAN = "filename,mimeType,body(size,attachmentId)"
 TRUONG = (
     "id,internalDate,payload(headers,"
@@ -53,15 +57,17 @@ TRUONG = (
 )
 TIEU_DE_MAU = re.compile(
     r"^Kết quả xét nghiệm:\s*(?P<ten>.+?)\s*-\s*Ngày xét nghiệm:\s*"
-    r"(?P<ngay>\d{2}-\d{2}-\d{4})\s*$",
+    r"(?P<ngay>\d{2}[-/]\d{2}[-/]\d{4})\s*$",
     re.IGNORECASE,
 )
 TEN_TEP_MAU = re.compile(
     r"^(?P<ten>.+?)_(?P<ma>\d{6}-\d{6})_(?P<xn>.+)_(?P<dt>[A-Za-z0-9]+)\.pdf$",
     re.IGNORECASE,
 )
+#: Chữ khuôn mẫu được giữ khi che tiêu đề lạ. KHÔNG thêm chữ có thể là họ/tên người
+#: (09/11: "lại" từng lọt — là họ Lại của khách).
 TU_GIU = {
-    "kết", "quả", "xét", "nghiệm", "ngày", "re", "fw", "fwd", "gửi", "lại",
+    "kết", "quả", "xét", "nghiệm", "ngày", "re", "fw", "fwd", "gửi",
     "bổ", "sung", "sửa", "kq", "xn", "hpv", "pdf",
 }  # fmt: skip
 
@@ -73,8 +79,20 @@ class GmailError(Exception):
 # ---------- gọi Google (thư viện chuẩn) ----------
 
 
+def _ly_do(e: urllib.error.HTTPError) -> str:
+    """Mã lý do Google trả (vd rateLimitExceeded) — không chứa token hay dữ liệu thư."""
+    try:
+        loi = json.load(e).get("error", {})
+    except ValueError:
+        return "?"
+    if not isinstance(loi, dict):
+        return str(loi)[:80]
+    chi_tiet = loi.get("errors") or [{}]
+    return str(chi_tiet[0].get("reason") or loi.get("status") or "?")[:80]
+
+
 def _goi(url: str, du_lieu: bytes | None = None, token: str | None = None) -> Any:
-    for lan in range(6):
+    for lan in range(SO_LAN_THU):
         yc = urllib.request.Request(url, data=du_lieu)
         if token:
             yc.add_header("Authorization", f"Bearer {token}")
@@ -82,14 +100,17 @@ def _goi(url: str, du_lieu: bytes | None = None, token: str | None = None) -> An
             with urllib.request.urlopen(yc, timeout=60) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
-            if e.code in (429, 500, 502, 503) and lan < 5:
-                time.sleep(2**lan)
+            ly_do = _ly_do(e)
+            # Gmail báo vượt hạn mức tốc độ bằng 403 (rateLimitExceeded), không chỉ 429.
+            gioi_han = e.code == 403 and "ratelimit" in ly_do.lower()
+            if (e.code in (429, 500, 502, 503) or gioi_han) and lan < SO_LAN_THU - 1:
+                time.sleep(min(2**lan, 32) + random.random())
                 continue
             duong = url.split("?")[0]
-            raise GmailError(f"Google trả HTTP {e.code} cho {duong}") from None
+            raise GmailError(f"Google trả HTTP {e.code} ({ly_do}): {duong}") from None
         except urllib.error.URLError as e:
-            if lan < 5:
-                time.sleep(2**lan)
+            if lan < SO_LAN_THU - 1:
+                time.sleep(min(2**lan, 32) + random.random())
                 continue
             raise GmailError(f"Mất kết nối Google: {e.reason}") from None
     raise GmailError("Hết lượt thử")
@@ -251,6 +272,8 @@ def bao_cao(thu: list[Thu], thu_chu: Counter[str], ten_nguoi_gui: str, rac: int)
         "|---|---|",
         f"| Tổng số thư (hộp thư chính) | {len(thu)} |",
         f"| Kể cả Thư rác + Thùng rác | {rac} |",
+        f"| Thư không đọc được (lỗi Google sau {SO_LAN_THU} lần thử) | "
+        f"{thu_chu['khong_doc']} |",
     ]
     if thu:
         d += [
@@ -348,17 +371,24 @@ def main() -> None:
     try:
         token = lay_token(a.khoa.expanduser())
         q = f"from:{a.tu}"
+        dem_loi: Counter[str] = Counter()
         ids = liet_ke(token, q, ca_rac=False)
         rac = len(liet_ke(token, q, ca_rac=True))
+        print(f"Trong đó Thùng rác: {len(liet_ke(token, q + ' in:trash', True))}")
         print(f"Tìm thấy {len(ids)} thư từ người gửi đối tác (kể cả rác: {rac}).")
 
-        def lay(i: str) -> Thu:
-            tham = urllib.parse.urlencode({"format": "full", "fields": TRUONG})
-            return doc_thu(_goi(f"{GMAIL}/messages/{i}?{tham}", token=token))
-
-        with ThreadPoolExecutor(max_workers=8) as ex:
-            thu = list(ex.map(lay, ids))
+        tham = urllib.parse.urlencode({"format": "full", "fields": TRUONG})
+        thu: list[Thu] = []
+        for so, i in enumerate(ids, 1):
+            try:
+                thu.append(doc_thu(_goi(f"{GMAIL}/messages/{i}?{tham}", token=token)))
+            except GmailError:
+                dem_loi["khong_doc"] += 1
+            if so % 200 == 0:
+                print(f"  đã đọc {so}/{len(ids)} thư")
+            time.sleep(NGHI_GIUA_THU)
         dem = thu_doc_chu(token, thu)
+        dem["khong_doc"] = dem_loi["khong_doc"]
     except GmailError as e:
         sys.exit(str(e))
     noi_dung = bao_cao(thu, dem, a.tu, rac)
