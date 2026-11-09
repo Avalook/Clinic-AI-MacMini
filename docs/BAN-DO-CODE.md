@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-06 11:49. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-09 10:15. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -2208,6 +2208,6 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `work_roster_thay_nguoi` | `20260929000001_doi_nguoi_trong_ca.sql` | 0 |
 | `work_session` | `20260714000001_baseline_schema.sql` | 0 |
 | `work_session_staff` | `20260714000001_baseline_schema.sql` | 0 |
-| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 0 |
+| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 1 |
 | `xet_nghiem_dong` | `20261105220000_mau_xet_nghiem.sql` | 0 |
 | `xet_nghiem_viec` | `20261105200000_xet_nghiem_nen.sql` | 1 |

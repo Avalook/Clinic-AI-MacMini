@@ -31,7 +31,7 @@ from clinicai.permissions.can import can
 from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.tep_ket_qua_service import KENH_GUI_HOP_LE, TepKetQuaService
 from clinicai.services.xet_nghiem.ban import bo_loc, doc_viec, sap_xep
-from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
+from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY, doc_cai_dat
 from clinicai.services.xet_nghiem.hanh_trinh import nhom_khach
 from clinicai.services.xet_nghiem.mau import _mot_viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
@@ -243,6 +243,7 @@ async def ban(
     màn đang xem (có thể cũ hơn cửa sổ) — nạp thêm đúng ngày đó."""
     async with pool.acquire() as conn:
         quan_ly = bool(await can(conn, identity, QUYEN_QUAN_LY))
+        cd = await doc_cai_dat(conn, identity.clinic_id)
         viec = sap_xep(
             await doc_viec(
                 conn,
@@ -271,4 +272,6 @@ async def ban(
         "loc": bo_loc(),
         "quan_ly": quan_ly,
         "doi_tac": [dict(r) for r in doi_tac],
+        # Màn đọc cờ này (ô tìm, khung sau lấy mẫu) — không tự suy từ ma_mau.
+        "hien_ma_ong": cd.hien_ma_ong,
     }

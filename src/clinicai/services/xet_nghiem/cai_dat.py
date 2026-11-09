@@ -58,5 +58,12 @@ class CaiDatDoiTac:
     async def bo_gan(self, identity: StaffIdentity, anh_xa_id: str) -> dict[str, Any]:
         return await self._ghi(identity, lambda c: dt.bo_anh_xa(c, identity, anh_xa_id))
 
-    async def nguong(self, identity: StaffIdentity, so_ngay: object) -> dict[str, Any]:
-        return await self._ghi(identity, lambda c: dt.luu_nguong(c, identity, so_ngay))
+    async def nguong(
+        self,
+        identity: StaffIdentity,
+        so_ngay: object,
+        hien_ma_ong: bool | None = None,
+    ) -> dict[str, Any]:
+        return await self._ghi(
+            identity, lambda c: dt.luu_nguong(c, identity, so_ngay, hien_ma_ong)
+        )

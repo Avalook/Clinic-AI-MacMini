@@ -44,7 +44,8 @@ export default function PopupKhach({
             <p className="text-meta text-ink-soft">{v.trang_thai.vi_sao}</p>
             <p className="text-meta text-ink-muted">
               Tiền: {v.da_thu !== null ? `đã thu ${tien(v.da_thu)}` : `chưa thu${v.gia_goi_y ? ` (gợi ý ${tien(v.gia_goi_y)})` : ""}`} · Mẫu:{" "}
-              {v.ma_mau ?? "chưa lấy"} · Kết quả: {v.ten_tep ?? "chưa có"}
+              {/* Công tắc "Hiện mã ống" tắt ⇒ ma_mau null dù đã có mẫu (mau_id). */}
+              {v.ma_mau ?? (v.mau_id ? "đã lấy mẫu" : "chưa lấy")} · Kết quả: {v.ten_tep ?? "chưa có"}
             </p>
             <div>
               <Button type="button" size="sm" variant="ghost" onClick={() => onMo(v)}>

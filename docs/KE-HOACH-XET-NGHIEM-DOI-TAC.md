@@ -45,7 +45,7 @@ Bác sĩ chỉ định ─▶ Ghi nhận thu hộ ─▶ Lấy mẫu (cấp mã 
 
 | # | Câu | Mặc định đang làm | Ảnh hưởng nếu đổi |
 |---|---|---|---|
-| A | Mã dán ống: in tem hay viết tay? | **CHƯA CHỐT (05/11, mục 5c).** Mặc định tới lúc chốt: chặng 3 hiện mã **to, dễ chép** + nút in tem khổ nhỏ dùng khung in có sẵn (`src/dashboard/app/print/`). Có thể đối tác có tem in sẵn mã ⇒ thêm `ma_doi_tac`. | Chặng 1–2 không ảnh hưởng. |
+| A | Mã dán ống: in tem hay viết tay? | **CHƯA CHỐT (05/11, mục 5c).** **09/11: tạm ẩn mã ở màn (công tắc `xet_nghiem_cai_dat.hien_ma_ong`, mặc định tắt — DB vẫn cấp mã Damm); chờ cách lấy kết quả tự động của đối tác rồi mới chốt mã.** Khi bật: chặng 3 hiện mã **to, dễ chép** + nút in tem khổ nhỏ dùng khung in có sẵn (`src/dashboard/app/print/`). Có thể đối tác có tem in sẵn mã ⇒ thêm `ma_doi_tac`. | Chặng 1–2 không ảnh hưởng. |
 | B | Dạng mã | `M` + số tăng dần theo phòng khám (đệm 5 chữ số) + **1 chữ số kiểm Damm**. Ví dụ số 572 → `M005724`. | Đổi hàm cấp/đọc mã + test. |
 | C | Google Workspace hay Gmail thường? | Thiết kế chạy với **cả hai** (thư mục trong My Drive chia sẻ cho tài khoản dịch vụ). Shared drive là tuỳ chọn. | Không đổi code. |
 | D | Bàn đối tác cũ `/doi-tac` (vai PARTNER) còn ai dùng trên prod? | Chặng 0 chạy SQL chỉ đọc để đo. Chưa đo xong thì **không xoá gì**, chỉ không thêm. | Quyết thời điểm tắt ở chặng 4. |

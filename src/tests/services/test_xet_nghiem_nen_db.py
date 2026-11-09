@@ -258,7 +258,7 @@ async def test_nguong_luu_va_doc(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     async with pool.acquire() as conn, conn.transaction():
         assert await dt.luu_nguong(conn, ca.bac_si, "3") == 3
-        assert await dt.doc_nguong(conn, CLINIC) == 3
+        assert (await dt.doc_cai_dat(conn, CLINIC)).nguong_lay_mau_ngay == 3
         with pytest.raises(ValidationError):
             await dt.luu_nguong(conn, ca.bac_si, "0")
         await dt.luu_nguong(conn, ca.bac_si, 2)

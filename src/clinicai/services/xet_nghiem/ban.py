@@ -15,7 +15,7 @@ import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.xet_nghiem.anh_ck import anh_cua_cac_khoan
-from clinicai.services.xet_nghiem.doi_tac import doc_nguong
+from clinicai.services.xet_nghiem.doi_tac import doc_cai_dat
 from clinicai.services.xet_nghiem.hanh_trinh import (
     buoc_dang,
     hanh_trinh,
@@ -138,7 +138,9 @@ def nguon_tep(r: Any) -> str | None:
     return f"Tải tay · {r['tep_boi']}" if r["tep_boi"] else "Tải tay"
 
 
-def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
+def dong_ban(
+    r: Any, tt: TrangThaiXN, hom_nay: date, *, hien_ma_ong: bool = True
+) -> dict[str, Any]:
     out = {
         k: r[k]
         for k in (
@@ -165,6 +167,9 @@ def dong_ban(r: Any, tt: TrangThaiXN, hom_nay: date) -> dict[str, Any]:
             "so_booking",
         )
     }
+    if not hien_ma_ong:
+        # Công tắc "Hiện mã ống" tắt: mã vẫn có ở DB, chỉ không ra khỏi máy chủ.
+        out["ma_mau"] = None
     out["nguon_tep"] = nguon_tep(r)
     out["so_ban"] = int(r["so_ban"] or 0)
     out["anh_ck"] = []
@@ -196,11 +201,16 @@ async def doc_viec(
     order_ids: list[str] | None = None,
     ngay_xem: date | None = None,
 ) -> list[dict[str, Any]]:
-    nguong = await doc_nguong(conn, cid)
+    cd = await doc_cai_dat(conn, cid)
     rows = await conn.fetch(_SU_VIEC_SQL, cid, tu_ngay or hom_nay, order_ids, ngay_xem)
     canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_BAN, clinic_id=cid)
     ds = [
-        dong_ban(r, trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, nguong)), hom_nay)
+        dong_ban(
+            r,
+            trang_thai_xet_nghiem(su_viec_cua(r, hom_nay, cd.nguong_lay_mau_ngay)),
+            hom_nay,
+            hien_ma_ong=cd.hien_ma_ong,
+        )
         for r in rows
     ]
     anh = await anh_cua_cac_khoan(conn, cid, [v["thu_id"] for v in ds])

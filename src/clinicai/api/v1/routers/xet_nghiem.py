@@ -74,6 +74,7 @@ class DanhSachDoiTacOut(BaseModel):
     doi_tac: list[DoiTacOut]
     dich_vu_thu_ho: list[DichVuThuHoOut]
     nguong_lay_mau_ngay: int
+    hien_ma_ong: bool
 
 
 class DoiTacIn(BaseModel):
@@ -103,6 +104,8 @@ class AnhXaIn(BaseModel):
 
 class NguongIn(BaseModel):
     nguong_lay_mau_ngay: str | int
+    #: Công tắc "Hiện mã ống" — không gửi ⇒ giữ nguyên.
+    hien_ma_ong: bool | None = None
 
 
 class QuyenNguoiOut(BaseModel):
@@ -191,4 +194,6 @@ async def luu_cai_dat(
     identity: StaffIdentity = Depends(_QUAN_LY),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
-    return await CaiDatDoiTac(pool).nguong(identity, body.nguong_lay_mau_ngay)
+    return await CaiDatDoiTac(pool).nguong(
+        identity, body.nguong_lay_mau_ngay, body.hien_ma_ong
+    )

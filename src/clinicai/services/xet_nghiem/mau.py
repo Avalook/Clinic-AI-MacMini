@@ -23,6 +23,7 @@ from clinicai.events.catalogue import XetNghiemMau, XetNghiemViec
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.tai_khoan_nhan_service import doc_id
 from clinicai.services.xet_nghiem.ban import doc_viec
+from clinicai.services.xet_nghiem.doi_tac import doc_cai_dat
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
 LOAI_HUY = ("NHAP_SAI", "MAU_HONG")
@@ -153,7 +154,13 @@ async def lay_mau(
         payload=XetNghiemMau(mau_id=mau_id, ma_mau=cap["ma"], service_order_ids=ids),
         boi=nguoi(identity),
     )
-    return {"mau_id": mau_id, "ma_mau": cap["ma"], "hen_tra_ngay": hen}
+    # Công tắc "Hiện mã ống" tắt ⇒ không trả mã (DB và sự kiện vẫn mang mã).
+    hien = (await doc_cai_dat(conn, cid)).hien_ma_ong
+    return {
+        "mau_id": mau_id,
+        "ma_mau": cap["ma"] if hien else None,
+        "hen_tra_ngay": hen,
+    }
 
 
 async def huy_mau(
