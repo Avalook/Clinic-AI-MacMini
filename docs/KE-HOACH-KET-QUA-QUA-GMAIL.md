@@ -236,3 +236,30 @@ báo cáo 4 mục SO-LUAT 12.4. Cập nhật `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.m
 `/home/clinicai/drive-sa-prod.json`; `.env.prod` có `GOOGLE_GMAIL_OAUTH_KEY_FILE=<tệp đó>`. G2 thêm vào
 `docker-compose.yml` secret `gmail_oauth: file: ${GOOGLE_GMAIL_OAUTH_KEY_FILE:-./docker/khong-co-khoa-gmail}`
 và biến trong container `GOOGLE_GMAIL_OAUTH_FILE=/run/secrets/gmail_oauth`. Staging dùng Gmail THỬ, khoá riêng.
+
+**Cấp quyền xong 09/11 chiều** (Google đòi xác minh chủ tài khoản trước màn "chưa xác minh").
+
+**Đo True Medicine** (`gmail-do-hop-thu.py`, báo cáo che tên ở `~/.clinicai/` trên Mac):
+1.432 thư hộp thư chính (31/08/2025 → nay), 963 khách, đúng 1 PDF/thư, tổng 555 MB.
+Tiêu đề 100% một mẫu (ngày `dd/mm/yyyy` hoặc `dd-mm-yyyy`); tên tệp 89% `<TÊN>_<6số>-<6số>_<MÃ>_TMD.pdf`,
+11% mẫu cũ không có mã; mã chỉ có `HPV` (801) và `TQ` (476 — **Tuyền cần xác nhận là gì**).
+20/20 PDF thử: có chữ, SĐT, tên, năm sinh **và có mã `081126-501726`** (khác mục 0 — quyết định 13 giữ nguyên
+tới khi Tuyền đổi). Gmail giới hạn tốc độ: đọc song song bị 403 `rateLimitExceeded`, lần lượt ≈ 60 thư/phút.
+
+**Phát hiện đổi phạm vi (Tuyền 09/11):**
+- **Bốn đối tác gửi kết quả về Gmail**, không chỉ True Medicine:
+
+  | Người gửi | Thư (kể cả Thùng rác) | Ở Thùng rác | Thư mới nhất | Tệp / thư |
+  |---|---|---|---|---|
+  | `truemedicine.laymauxn@gmail.com` | 1.952 | 520 | 09/11/2026 | 1 PDF |
+  | `cskh@greenlab.vn` | 6.640 | 2.739 | 12/05/2026 | 2 PDF |
+  | `reports@highdetectlab.com` | 467 | 0 | 08/11/2026 | 1 PDF |
+  | `cvn007_nipt@eurofinsasia.com` | 99 | 0 | 09/11/2026 | 2 PDF + ảnh |
+
+  ⇒ G1–G4 phải chạy cho mỗi đối tác có `email_gui_ket_qua` (thiết kế đã cho phép); luật đọc tên tệp / mã /
+  năm sinh là **theo từng đối tác** (mẫu thư khác nhau) — đo xong mới chốt.
+- **Nhân viên đang xoá thư kết quả** (Thùng rác tự xoá hẳn sau 30 ngày) ⇒ G2 nên đọc cả Thùng rác
+  (`includeSpamTrash`) — **chờ Tuyền quyết**.
+- **Tuyền 09/11: tải về TOÀN BỘ, không che** để xem đủ mẫu từng phòng xét nghiệm — đổi mục 6 ("không đọc hộp thư
+  thật từ máy dev") cho riêng lần này. Script `scripts/gmail-tai-ve.py` (chỉ đọc) lưu ở
+  `~/.clinicai/ket-qua-gmail/` trên Mac (thư mục 700, tệp 600, ngoài repo) + `danh-sach.csv`. Không chép đi đâu khác.
