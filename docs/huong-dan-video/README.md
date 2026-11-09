@@ -83,6 +83,7 @@ kịch bản gọi khách đó là `{khach_hoan}`.
    Tìm phần tử CHỈ bằng `role` + `name`, `text` (chữ trên màn) hoặc `label` (nhãn ô); thêm
    `exact: true` khi cần khớp nguyên chữ; `trong: "<chữ>"` = trong khung NHỎ NHẤT chứa cả chữ
    đó lẫn phần tử (thẻ việc, thẻ đối tác, form…) — vd hai nút "Lưu": `trong: "Thêm đối tác"`.
+   `name: "/…/"` = mẫu regex (vd `"/{khach_hoan}.*hoàn tiền/"` — đúng dòng của khách này).
    `{khach_<khoá>}` = tên khách mẫu `dung-du-lieu.mjs` vừa dựng cho chương (khoá trong `KHACH`).
    **Không dùng class CSS** — giao diện đổi kiểu không làm vỡ kịch bản.
 3. Giọng đọc sai chữ nào ⇒ thêm vào `doc-chu.yaml`, không sửa lời.

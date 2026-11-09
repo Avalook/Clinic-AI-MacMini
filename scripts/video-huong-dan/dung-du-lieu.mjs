@@ -161,8 +161,9 @@ async function luotMoi(k, benhNhan) {
   // "Khác": vào thẳng bác sĩ chính (không qua tư vấn) — đủ để bác sĩ chỉ định xét nghiệm.
   const pk = dsLoai.find((t) => t.code === "KHAC");
   const bs = await goi("bs.a", "GET", "me");
-  // Mỗi khách một khung giờ riêng (đuôi SĐT) — khỏi đụng sức chứa của cùng bác sĩ.
-  const lech = (Number(k.sdt.slice(-2)) % 16) * 30 * 60_000;
+  // Mỗi khách lệch nhau 15 phút (đuôi SĐT), tối đa 45 phút — lệch xa hơn thì lịch dễ rơi
+  // ra ngoài giờ ca buổi chiều (09/11: 21:45 bị từ chối 422).
+  const lech = (Number(k.sdt.slice(-2)) % 4) * 15 * 60_000;
   const bat = new Date(Math.ceil((Date.now() + 20 * 60_000) / 900_000) * 900_000 + lech);
   const lich = await goi(
     "cskh",

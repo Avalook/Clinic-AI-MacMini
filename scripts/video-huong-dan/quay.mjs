@@ -30,9 +30,13 @@ export class LoiCanh extends Error {
 const cho = (ms) => new Promise((r) => setTimeout(r, ms));
 const moTa = (s) => (s.role ? `${s.role} "${s.name}"` : s.label ? `ô "${s.label}"` : `chữ "${s.text}"`);
 
+/** `name: "/…/"` = mẫu (regex, không phân biệt hoa thường) — vd dòng sổ của ĐÚNG khách:
+ *  `"/{khach_hoan}.*hoàn tiền/"` (sổ còn dòng hoàn của lần quay trước cùng ngày). */
+const tenRole = (n) => (typeof n === "string" && n.length > 2 && n.startsWith("/") && n.endsWith("/") ? new RegExp(n.slice(1, -1), "i") : n);
+
 function timTrong(goc, spec) {
   const exact = spec.exact ?? false;
-  if (spec.role) return goc.getByRole(spec.role, { name: spec.name, exact });
+  if (spec.role) return goc.getByRole(spec.role, { name: tenRole(spec.name), exact });
   if (spec.label) return goc.getByLabel(spec.label, { exact });
   if (spec.text) return goc.getByText(spec.text, { exact });
   throw new Error(`Bước không có role/label/text: ${JSON.stringify(spec)}`);

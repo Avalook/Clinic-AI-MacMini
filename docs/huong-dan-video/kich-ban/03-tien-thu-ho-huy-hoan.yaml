@@ -76,4 +76,4 @@ canh:
     lam:
       - bam: { role: tab, name: "Tiền thu hộ" }
       - cho: { text: "Tổng thu hộ" }
-      - nhan_manh: { role: row, name: "hoàn tiền" }
+      - nhan_manh: { role: row, name: "/{khach_hoan}.*hoàn tiền/" }
