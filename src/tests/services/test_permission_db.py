@@ -457,10 +457,18 @@ async def test_kho_email_khong_vao_nhom_nao(
             mo_ta=None,
             identity=quan_ly,
         )
-    with pytest.raises(asyncpg.exceptions.CheckViolationError):
-        await pool.execute(
-            "INSERT INTO quyen_preset (clinic_id, ma, ten, khoi)"
-            " VALUES ($1::uuid, $2, 'Lọt qua migration', ARRAY['kho_email'])",
-            CLINIC,
-            f"LOT_{uuid.uuid4().hex[:6].upper()}",
-        )
+    # Đường SQL (migration "nhóm = mọi khối" chạy lại, SQL tay): Postgres bỏ khối.
+    khoi = await pool.fetchval(
+        "INSERT INTO quyen_preset (clinic_id, ma, ten, khoi)"
+        " VALUES ($1::uuid, $2, 'Lọt qua migration', ARRAY['tiep_don', 'kho_email'])"
+        " RETURNING khoi",
+        CLINIC,
+        f"LOT_{uuid.uuid4().hex[:6].upper()}",
+    )
+    assert list(khoi) == ["tiep_don"]
+    khoi = await pool.fetchval(
+        "UPDATE quyen_preset SET khoi = khoi || ARRAY['kho_email']"
+        " WHERE clinic_id = $1::uuid AND ma = 'MANAGEMENT' RETURNING khoi",
+        CLINIC,
+    )
+    assert khoi is None or "kho_email" not in khoi

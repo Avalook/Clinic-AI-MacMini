@@ -150,15 +150,6 @@ async def test_migration_cap_bu_nguoi_cu_va_tat_quyen_theo_lich(kb: KichBan) -> 
                 " ON CONFLICT (clinic_id, ma) DO UPDATE SET gia_tri = 'true'::jsonb",
                 CLINIC,
             )
-            # Migration 30/09 gom "nhóm mẫu = mọi khối" lúc CHƯA có khối cấp riêng
-            # Kho email; chạy lại trên lược đồ hôm nay thì CHECK của Gmail G1 chặn
-            # ĐÚNG việc ấy. Phép thử ở đây là hành vi cấp bù của migration cũ ⇒ bỏ
-            # CHECK trong giao dịch sẽ huỷ (chặn thật nằm ở test_permission_db:
-            # test_kho_email_khong_vao_nhom_nao).
-            await conn.execute(
-                "ALTER TABLE quyen_preset"
-                " DROP CONSTRAINT quyen_preset_khong_khoi_cap_rieng"
-            )
             await conn.execute(sql)
             ket_qua["khoi"] = {
                 r["tu_khoi"]

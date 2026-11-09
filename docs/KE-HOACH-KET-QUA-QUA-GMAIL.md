@@ -114,7 +114,7 @@ hỏi Tuyền, không đoán bấm.
   CFS bằng đúng đường cũ (G2 thêm `drive_tep` vào `BANG_TEP`). Trigger "sự việc không sửa" luôn cho
   sửa cột đẩy (cả sau Từ chối), nhưng một câu đổi kèm cột sự việc vẫn bị chặn.
 - `drive_nhip`: thêm `nguon` vào khoá; cột `con_tro_lich_su text`, `so_lich_su_con int`.
-- Quyền `xet_nghiem.kho_email` (không gắn gói vai nào; Postgres CHECK cấm khối `kho_email` trong
+- Quyền `xet_nghiem.kho_email` (không gắn gói vai nào; trigger Postgres bỏ khối `kho_email` khỏi
   `quyen_preset`, lệnh lưu nhóm cũng từ chối). **Đổi khi làm:** sự kiện `lab.archive_viewed` và công
   tắc lego "Kho email" khai ở **G2** cùng code phát / trang + mục thanh bên — repo có test cấm sự
   kiện không nơi phát và lego không có trang.

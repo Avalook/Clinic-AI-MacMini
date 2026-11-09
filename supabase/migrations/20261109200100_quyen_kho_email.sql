@@ -19,6 +19,26 @@ ON CONFLICT (ma) DO NOTHING;
 
 -- Nhóm mẫu được cấp hàng loạt (`cap_quyen_theo_preset`) ⇒ khối cấp riêng không được nằm
 -- trong nhóm nào, kể cả nhóm người sửa hay migration "nhóm = mọi khối" chép lại sau này.
-ALTER TABLE public.quyen_preset DROP CONSTRAINT IF EXISTS quyen_preset_khong_khoi_cap_rieng;
-ALTER TABLE public.quyen_preset ADD CONSTRAINT quyen_preset_khong_khoi_cap_rieng
-    CHECK (NOT ('kho_email' = ANY (khoi)));
+-- BỎ KHỐI + cảnh báo, KHÔNG ném (cùng mẫu `chan_cap_quyen_noi_bo`, 20261009880000): migration
+-- cũ 20260924000015 ghi "Quản lý = mọi work_pack"; chạy lại toàn bộ migration (job CI
+-- database) với CHECK thì gãy, với trigger thì xong mà Kho email vẫn không lọt vào nhóm.
+-- Lệnh lưu nhóm ở permission_service vẫn từ chối rõ ràng cho người bấm.
+CREATE OR REPLACE FUNCTION public.bo_khoi_cap_rieng_khoi_nhom()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'pg_catalog', 'public'
+AS $$
+BEGIN
+    IF 'kho_email' = ANY (NEW.khoi) THEN
+        RAISE WARNING 'Bỏ khối cấp riêng kho_email khỏi nhóm mẫu % — chỉ cấp từng người',
+            NEW.ma;
+        NEW.khoi := array_remove(NEW.khoi, 'kho_email');
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+DROP TRIGGER IF EXISTS trg_bo_khoi_cap_rieng_khoi_nhom ON public.quyen_preset;
+CREATE TRIGGER trg_bo_khoi_cap_rieng_khoi_nhom
+    BEFORE INSERT OR UPDATE OF khoi ON public.quyen_preset
+    FOR EACH ROW EXECUTE FUNCTION public.bo_khoi_cap_rieng_khoi_nhom();

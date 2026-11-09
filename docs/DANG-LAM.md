@@ -16,9 +16,11 @@ Cập nhật: **09/11/2026** — mục "09/11" ngay dưới là mới nhất; c�
   repo, 700/600; không chép đi đâu; **xoá khi xong G4** (`rm -rf ~/.clinicai/ket-qua-gmail`).
 - **Chờ Tuyền:** `TQ` là xét nghiệm gì; G2 có đọc cả Thùng rác không (Claude chốt tạm: CÓ).
 - **G1** (nhánh `claude/gmail-ket-qua-g1`, PR xếp chồng lên G0): migration `20261109200000_gmail_ket_qua.sql`,
-  `20261109200100_quyen_kho_email.sql` + quyền `xet_nghiem.kho_email` (KHOI_CAP_RIENG — Postgres CHECK
-  cấm trong mọi nhóm mẫu). Lego "Kho email" + sự kiện `lab.archive_viewed` dời sang G2 (cần trang / nơi
+  `20261109200100_quyen_kho_email.sql` + quyền `xet_nghiem.kho_email` (KHOI_CAP_RIENG — trigger Postgres bỏ khối
+  khỏi mọi nhóm mẫu). Lego "Kho email" + sự kiện `lab.archive_viewed` dời sang G2 (cần trang / nơi
   phát). **Lên prod: áp migration rồi deploy ngay** (nhịp Drive cũ dùng khoá chính đã đổi).
+  ⚠️ Trigger chỉ phủ `quyen_preset`. Migration nào cấp HÀNG LOẠT thẳng vào `capability_grant` (kiểu
+  "mở full lego" 30/09: mọi capability trừ vài khối) phải tự loại khối `kho_email` (KHOI_CAP_RIENG).
 - **G2** (sắp làm): tách G2a máy chủ đọc Gmail + lưu PDF (đi đường `day_tep`), G2b màn Kho email.
   Những điểm phải nhớ: kế hoạch mục G2 "Mang sang từ soát G1".
 
