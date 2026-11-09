@@ -55,6 +55,9 @@ SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
  WHERE t.clinic_id = $1::uuid AND t.tep_ket_qua_id IS NULL AND t.tu_choi_luc IS NULL
    -- Thư Gmail Lưu trữ (trước mốc tự ghép) chỉ xem ở Kho email — không ngập hàng này.
    AND t.ly_do_cho IS DISTINCT FROM 'LUU_TRU'
+   -- Hàng này + các cửa của nó chỉ cho tệp Drive (Gmail G2b): thư Gmail mở qua Kho
+   -- email (có quyền riêng); G3 mới đưa thư Gmail chờ ghép vào đây.
+   AND t.nguon = 'DRIVE'
  ORDER BY t.nhan_luc DESC
  LIMIT 200
 """
@@ -100,7 +103,10 @@ async def _dong_cho(
             "SELECT id::text AS id, doi_tac_id::text AS doi_tac_id, file_id, ten,"
             "       mime,"
             "       drive_nguoi_tai, tep_ket_qua_id, tu_choi_luc"
-            "  FROM drive_tep WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            "  FROM drive_tep WHERE clinic_id = $1::uuid AND id = $2::uuid"
+            # Thư Gmail KHÔNG đi cửa này (không thì là đường lách quyền Kho email:
+            # xem / Gán / Từ chối theo id) — cùng câu "không thấy" để không lộ có/không.
+            "   AND nguon = 'DRIVE'",
             cid,
             str(drive_tep_id),
         )

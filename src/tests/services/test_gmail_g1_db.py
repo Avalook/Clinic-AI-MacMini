@@ -347,11 +347,24 @@ async def test_su_viec_khong_sua_cot_day_luon_sua(pool: asyncpg.Pool) -> None:  
 async def test_hang_ghep_tay_khong_co_thu_luu_tru(pool: asyncpg.Pool) -> None:  # noqa: F811
     dt_id = await _dt(pool)
     luu = await _ghi(pool, _thu(dt_id, ly_do_cho="LUU_TRU"))
-    cho = await _ghi(pool, _thu(dt_id, ly_do_cho="KHONG_KHOP_KHACH"))
+    # Gmail G2b: hàng chờ (và các cửa theo id của nó) CHỈ cho tệp Drive — thư Gmail,
+    # kể cả chưa Lưu trữ, chỉ mở qua Kho email (quyền riêng). G3 mới đưa vào đây.
+    gmail_cho = await _ghi(pool, _thu(dt_id, ly_do_cho="KHONG_KHOP_KHACH"))
+    drive_cho = str(
+        await pool.fetchval(
+            "INSERT INTO drive_tep (clinic_id, doi_tac_id, file_id, md5, ten,"
+            " ly_do_cho) VALUES ($1::uuid, $2::uuid, $3, $4, 'kq.pdf',"
+            " 'KHONG_KHOP_KHACH') RETURNING id::text",
+            CLINIC,
+            dt_id,
+            "driveFile" + uuid.uuid4().hex[:8],
+            uuid.uuid4().hex,
+        )
+    )
     async with pool.acquire() as conn:
         ids = {r["id"] for r in await ghep_tay.ds_cho(conn, CLINIC)}
-    assert cho in ids
-    assert luu not in ids
+    assert drive_cho in ids
+    assert luu not in ids and gmail_cho not in ids
 
 
 # ── 10. drive_nhip theo nguồn ───────────────────────────────────────────────

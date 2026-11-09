@@ -42,5 +42,6 @@ def test_quyen_kho_email_da_khai_va_co_module() -> None:
     assert q.khoi == "kho_email"
     assert q.rui_ro.value == "clinical"
     assert "xet_nghiem.kho_email" in MODULE["xet_nghiem_doi_tac"].quyen
-    # Sự kiện "mở PDF ở Kho email" khai ở G2, cùng code phát (không khai dây chết).
-    assert "lab.archive_viewed" not in DANH_MUC
+    # Sự kiện "mở PDF ở Kho email" (G2b) — khai cùng code phát (kho_email.mo_pdf).
+    assert "lab.archive_viewed" in DANH_MUC
+    assert "lab.archive_viewed" in MODULE["xet_nghiem_doi_tac"].phat
