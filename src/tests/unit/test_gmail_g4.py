@@ -48,6 +48,22 @@ def test_doc_ma_ben_doi_tac_rac(rac: str) -> None:
         o_nhap.doc_ma_ben_doi_tac(rac)
 
 
+def test_cua_gan_khong_gui_ma_thi_khong_co_khoa_ma() -> None:
+    """Giữ mã cũ khi bảng gán thứ hai (tab "Gán xét nghiệm") không gửi mã dựa vào
+    `model_dump(exclude_unset=True)` ở router — khoá điều đó (test DB gọi thẳng
+    service nên không bắt được ai bỏ exclude_unset)."""
+    from clinicai.api.v1.routers.xet_nghiem import AnhXaIn
+
+    d = AnhXaIn(doi_tac_id="a", service_price_id="b", gia_goi_y="1").model_dump(
+        exclude_unset=True
+    )
+    assert "ma_ben_doi_tac" not in d and "mac_dinh" not in d
+    co = AnhXaIn(doi_tac_id="a", service_price_id="b", ma_ben_doi_tac="").model_dump(
+        exclude_unset=True
+    )
+    assert co["ma_ben_doi_tac"] == ""
+
+
 def test_doc_ngay_moc() -> None:
     hom_nay = date(2026, 11, 9)
     assert o_nhap.doc_ngay_moc("2026-11-09", hom_nay) == hom_nay

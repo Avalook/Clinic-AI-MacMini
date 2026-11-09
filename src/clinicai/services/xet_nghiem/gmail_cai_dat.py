@@ -63,7 +63,8 @@ async def neu_doi_email(
 async def dat_lai_con_tro(conn: asyncpg.Connection, cid: str, dt_id: str) -> None:
     """Email đổi ⇒ nạp lịch sử lại từ đầu cho địa chỉ mới. CHỈ hai cột con trỏ của
     nguồn GMAIL — giữ `ok_cuoi` (mốc thư mới) và không đụng nhịp Drive. Vòng quét
-    đang chạy dở có thể ghi đè một lần bằng con trỏ cũ; lượt sau tự đúng."""
+    đang chạy dở bằng email cũ KHÔNG ghi đè được (`gmail._nhip` chỉ ghi con trỏ khi
+    email lúc quét vẫn là email hiện tại)."""
     await conn.execute(
         "UPDATE public.drive_nhip SET con_tro_lich_su = NULL, so_lich_su_con = NULL"
         " WHERE clinic_id = $1::uuid AND doi_tac_id = $2::uuid AND nguon = 'GMAIL'",

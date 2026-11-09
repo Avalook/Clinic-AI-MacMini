@@ -84,7 +84,7 @@ export default function FormDoiTac({
         <O nhan="Thư mục Google Drive của đối tác (dán link thư mục)" rong>
           <ONhap value={form.drive_folder} maxLength={1000} onChange={(e) => onSua("drive_folder", e.target.value)} />
         </O>
-        <O nhan="Email gửi kết quả (địa chỉ đối tác gửi kết quả về Gmail phòng khám — đổi email = nạp lại thư cũ của địa chỉ mới)" rong>
+        <O nhan="Email đối tác gửi kết quả về" rong>
           <ONhap
             type="email"
             value={form.email_gui_ket_qua}
@@ -92,6 +92,9 @@ export default function FormDoiTac({
             placeholder="vd ketqua@lab.vn"
             onChange={(e) => onSua("email_gui_ket_qua", e.target.value)}
           />
+          <span className="text-meta text-ink-muted">
+            Đổi địa chỉ thì máy tự đọc lại các thư cũ gửi từ địa chỉ mới.
+          </span>
         </O>
         <O nhan="Ghi chú" rong>
           <ONhap value={form.ghi_chu} maxLength={2000} onChange={(e) => onSua("ghi_chu", e.target.value)} />

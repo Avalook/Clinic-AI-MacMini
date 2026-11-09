@@ -31,6 +31,8 @@ interface FormGan {
   ma_ben_doi_tac: string;
   /** Sửa dòng cũ giữ nguyên cờ nhận chỉ định mới (không giành của đối tác khác). */
   mac_dinh: boolean;
+  /** Đang sửa dòng đã gán ⇒ khoá ô dịch vụ (đổi dịch vụ = gán mới, không phải sửa). */
+  sua: boolean;
 }
 
 export const tien = (n: number | null) => (n ? `${n.toLocaleString("vi-VN")}đ` : "");
@@ -67,23 +69,26 @@ export default function GanDichVu({
               {g.hen_tra_hieu_luc != null ? ` · hẹn ${g.hen_tra_hieu_luc} ngày` : " · chưa đặt hẹn"}
             </span>
             {g.mac_dinh ? null : <Chip tone="neutral">Không nhận chỉ định mới</Chip>}
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={dang}
-              onClick={() =>
-                setGan({
-                  service_price_id: g.service_price_id,
-                  gia_goi_y: g.gia_goi_y?.toString() ?? "",
-                  hen_tra_so_ngay: g.hen_tra_so_ngay?.toString() ?? "",
-                  ma_ben_doi_tac: g.ma_ben_doi_tac ?? "",
-                  mac_dinh: g.mac_dinh,
-                })
-              }
-            >
-              Sửa
-            </Button>
+            {ganDuoc ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={dang}
+                onClick={() =>
+                  setGan({
+                    service_price_id: g.service_price_id,
+                    gia_goi_y: g.gia_goi_y?.toString() ?? "",
+                    hen_tra_so_ngay: g.hen_tra_so_ngay?.toString() ?? "",
+                    ma_ben_doi_tac: g.ma_ben_doi_tac ?? "",
+                    mac_dinh: g.mac_dinh,
+                    sua: true,
+                  })
+                }
+              >
+                Sửa
+              </Button>
+            ) : null}
             <Button
               type="button"
               size="sm"
@@ -104,7 +109,14 @@ export default function GanDichVu({
           size="sm"
           variant="secondary"
           onClick={() =>
-            setGan({ service_price_id: "", gia_goi_y: "", hen_tra_so_ngay: "", ma_ben_doi_tac: "", mac_dinh: true })
+            setGan({
+              service_price_id: "",
+              gia_goi_y: "",
+              hen_tra_so_ngay: "",
+              ma_ben_doi_tac: "",
+              mac_dinh: true,
+              sua: false,
+            })
           }
         >
           + Gán dịch vụ
@@ -114,7 +126,11 @@ export default function GanDichVu({
         <div className="grid gap-2 sm:grid-cols-5 sm:items-end">
           <label className="flex flex-col gap-1 text-meta text-ink-soft sm:col-span-2">
             Dịch vụ (đối tác thu)
-            <OChon value={gan.service_price_id} onChange={(e) => setGan({ ...gan, service_price_id: e.target.value })}>
+            <OChon
+              value={gan.service_price_id}
+              disabled={gan.sua}
+              onChange={(e) => setGan({ ...gan, service_price_id: e.target.value })}
+            >
               <option value="">— Chọn dịch vụ —</option>
               {dichVuThuHo.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -152,9 +168,11 @@ export default function GanDichVu({
             />
           </label>
           <p className="text-meta text-ink-muted sm:col-span-5">
-            Gán xong, chỉ định MỚI của dịch vụ này đi đối tác này (đối tác cũ, nếu có, thôi nhận chỉ định mới). Mã
-            bên đối tác: mã xét nghiệm đối tác ghi trong tên tệp kết quả (vd HPV) — để tự ghép đúng việc khi khách
-            làm nhiều xét nghiệm cùng lúc.
+            {gan.mac_dinh
+              ? "Lưu xong, chỉ định MỚI của dịch vụ này đi đối tác này (đối tác cũ, nếu có, thôi nhận chỉ định mới). "
+              : ""}
+            Mã bên đối tác: mã xét nghiệm đối tác dùng (vd HPV) — để tự ghép đúng việc khi khách làm nhiều xét nghiệm
+            cùng lúc.
           </p>
           <div className="flex flex-wrap gap-2 sm:col-span-5">
             <Button

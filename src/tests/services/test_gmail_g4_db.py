@@ -18,7 +18,7 @@ import pytest
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.core.clock import hom_nay_vn
 from clinicai.services.xet_nghiem import doi_tac as dt
-from clinicai.services.xet_nghiem import gmail_cai_dat
+from clinicai.services.xet_nghiem import gmail, gmail_cai_dat
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
@@ -95,6 +95,19 @@ async def test_doi_email_dat_lai_con_tro_gmail_giu_ok_cuoi_va_drive(
     assert (g["con_tro_lich_su"], g["so_lich_su_con"]) == (None, None)
     assert g["ok_cuoi"] is not None
     assert (await _nhip(pool, a, "DRIVE"))["ok_cuoi"] is not None
+    # TRANH CHẤP: vòng quét đang chạy bằng email CŨ ghi nhịp "lịch sử đã hết" SAU khi
+    # Quản lý đổi email ⇒ không được đè (không thì địa chỉ mới không bao giờ nạp).
+    await gmail._nhip(pool, CLINIC, a, None, 0, None, 0, em.lower())
+    g = await _nhip(pool, a, "GMAIL")
+    assert (g["con_tro_lich_su"], g["so_lich_su_con"]) == (None, None)
+    # Đổi NULL ↔ có email cũng là đổi ⇒ đặt lại.
+    await pool.execute(
+        "UPDATE drive_nhip SET so_lich_su_con = 0 WHERE doi_tac_id = $1::uuid"
+        " AND nguon = 'GMAIL'",
+        a,
+    )
+    await _sua(pool, ca.bac_si, a, ma_ngan=ma, email_gui_ket_qua="")
+    assert (await _nhip(pool, a, "GMAIL"))["so_lich_su_con"] is None
 
 
 async def test_ma_ben_doi_tac_gan_lai_khong_gui_ma_thi_giu(
