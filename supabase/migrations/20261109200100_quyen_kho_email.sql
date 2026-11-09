@@ -16,3 +16,9 @@ INSERT INTO public.capability (ma, ten, work_pack, module, rui_ro, chung_chi_lam
     ('xet_nghiem.kho_email', 'Xem Kho email kết quả xét nghiệm đối tác', 'kho_email',
      'partner', 'clinical', false)
 ON CONFLICT (ma) DO NOTHING;
+
+-- Nhóm mẫu được cấp hàng loạt (`cap_quyen_theo_preset`) ⇒ khối cấp riêng không được nằm
+-- trong nhóm nào, kể cả nhóm người sửa hay migration "nhóm = mọi khối" chép lại sau này.
+ALTER TABLE public.quyen_preset DROP CONSTRAINT IF EXISTS quyen_preset_khong_khoi_cap_rieng;
+ALTER TABLE public.quyen_preset ADD CONSTRAINT quyen_preset_khong_khoi_cap_rieng
+    CHECK (NOT ('kho_email' = ANY (khoi)));

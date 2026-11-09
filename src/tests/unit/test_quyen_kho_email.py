@@ -29,12 +29,12 @@ def test_khoi_kho_email_khong_nam_trong_nhom_mau_nao() -> None:
     assert "kho_email" not in KHOI_MO_FULL
 
 
-def test_khoi_cap_rieng_van_cap_duoc_o_man_phan_quyen() -> None:
-    # Khác khối nội bộ (quản lý không cấp được): khối cấp riêng phải có công tắc.
+def test_khoi_cap_rieng_khong_phai_khoi_noi_bo() -> None:
+    # Khác khối nội bộ (quản lý không cấp được): khối cấp riêng vẫn cấp được.
     assert not (KHOI_CAP_RIENG & KHOI_NOI_BO)
-    man = MAN["kho_email"]
-    assert "kho_email" in man.khoi
-    assert "/ban-xet-nghiem/kho-email" in man.cac_duong
+    # Công tắc lego "Kho email" khai ở G2 cùng trang + mục thanh bên (frontend ép
+    # mỗi lego có page.tsx và mục thanh bên) — G1 chưa có màn nào để mở.
+    assert "kho_email" not in MAN
 
 
 def test_quyen_kho_email_da_khai_va_co_module() -> None:

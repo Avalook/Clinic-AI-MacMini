@@ -3,9 +3,9 @@
 Ca biên (kế hoạch docs/KE-HOACH-KET-QUA-QUA-GMAIL.md mục 3 G1, 4): email người gửi chữ
 thường và duy nhất trong phòng khám; mã bên đối tác duy nhất trong một đối tác (dòng còn
 dùng); dòng Drive cũ không đổi; dòng Gmail luôn có thư + byte đã lưu; lý do mới; sự việc
-không sửa được nhưng cột đẩy tệp luôn sửa được (kể cả sau khi từ chối); thư Lưu trữ
-không
-vào hàng ghép tay; nhịp tách theo nguồn mà màn cũ không nhân đôi đối tác.
+không sửa được nhưng cột đẩy tệp luôn sửa được (kể cả sau khi từ chối) và không làm
+đường lách; thư Lưu trữ không vào hàng ghép tay; nhịp tách theo nguồn mà màn cũ không
+nhân đôi đối tác.
 """
 
 from __future__ import annotations
@@ -225,17 +225,25 @@ async def test_dong_drive_cu_mac_dinh_nguon_drive(pool: asyncpg.Pool) -> None:  
         "SELECT nguon, vi_tri, khoa FROM drive_tep WHERE id = $1", tid
     )
     assert (r["nguon"], r["vi_tri"], r["khoa"]) == ("DRIVE", None, None)
-    # Dòng Drive không được mang cột thư / byte lưu.
-    with pytest.raises(CAM):
-        await pool.execute(
-            "INSERT INTO drive_tep (clinic_id, doi_tac_id, file_id, md5, ten,"
-            " email_message_id)"
-            " VALUES ($1::uuid, $2::uuid, $3, $4, 'kq.pdf', 'abc123')",
-            CLINIC,
-            dt_id,
-            "driveFile" + uuid.uuid4().hex[:8],
-            uuid.uuid4().hex,
-        )
+    # Dòng Drive không được mang cột thư / byte lưu / mốc đẩy / lý do Lưu trữ (thư
+    # LUU_TRU chỉ hiện ở Kho email — dòng Drive mang nó sẽ biến mất khỏi mọi màn).
+    for cot, gia in (
+        ("email_message_id", "abc123"),
+        ("tai_len_luc", datetime(2026, 11, 9, tzinfo=VN)),
+        ("da_day_luc", datetime(2026, 11, 9, tzinfo=VN)),
+        ("ly_do_cho", "LUU_TRU"),
+    ):
+        with pytest.raises(CAM):
+            await pool.execute(
+                "INSERT INTO drive_tep"  # noqa: S608 — tên cột từ bộ cố định ở trên
+                f" (clinic_id, doi_tac_id, file_id, md5, ten, {cot})"
+                " VALUES ($1::uuid, $2::uuid, $3, $4, 'kq.pdf', $5)",
+                CLINIC,
+                dt_id,
+                "driveFile" + uuid.uuid4().hex[:8],
+                uuid.uuid4().hex,
+                gia,
+            )
 
 
 async def test_dong_gmail_luon_co_thu_va_byte(pool: asyncpg.Pool) -> None:  # noqa: F811
@@ -288,6 +296,12 @@ async def test_su_viec_khong_sua_cot_day_luon_sua(pool: asyncpg.Pool) -> None:  
         ("nguon", "DRIVE"),
         ("khoa", f"{CLINIC}/gmail/khac.pdf"),
         ("ma_ben_doi_tac_tep", "000000-000000"),
+        ("md5", uuid.uuid4().hex),
+        ("ten", "doi-ten.pdf"),
+        ("mime", "image/png"),
+        ("so_byte", 999),
+        ("sha256", "0" * 64),
+        ("tai_len_luc", datetime(2026, 11, 10, tzinfo=VN)),
     ):
         with pytest.raises((KHOA, CAM)):
             await pool.execute(
@@ -295,6 +309,13 @@ async def test_su_viec_khong_sua_cot_day_luon_sua(pool: asyncpg.Pool) -> None:  
                 tid,
                 gia,
             )
+    # Đi kèm cột đẩy KHÔNG phải đường lách: một câu đổi cả hai ⇒ vẫn bị chặn.
+    with pytest.raises(KHOA):
+        await pool.execute(
+            "UPDATE drive_tep SET vi_tri = 'cfs', da_day_luc = now(),"
+            " email_than = 'x' WHERE id = $1::uuid",
+            tid,
+        )
     # Gợi ý + lý do đi tiếp được (G3 xét lại thư Lưu trữ một lần).
     await pool.execute(
         "UPDATE drive_tep SET ly_do_cho = 'KHONG_KHOP_KHACH' WHERE id = $1::uuid", tid

@@ -107,10 +107,21 @@ hỏi Tuyền, không đoán bấm.
 - `doi_tac_dich_vu.ma_ben_doi_tac text NULL` (chữ hoa; unique theo (doi_tac_id, ma) khi còn hoạt động).
 - `xet_nghiem_cai_dat.gmail_tu_ngay date NULL`.
 - `drive_tep`: `nguon` (`DRIVE`/`GMAIL`, mặc định `DRIVE`), `email_message_id`, `email_tieu_de`,
-  `email_than` (text, tối đa 2.000 ký tự), `email_nhan_luc`, `ma_ben_doi_tac_tep`, `vi_tri_tep`,
-  `goi_y_order_id`, `goi_y_clinic_patient_id`. Lý do mới: `LUU_TRU`, `CHUA_LAY_MAU`, `CO_BAN_MOI`.
+  `email_than` (text, tối đa 2.000 ký tự), `email_nhan_luc`, `ma_ben_doi_tac_tep`,
+  `goi_y_order_id`, `goi_y_clinic_patient_id`. Lý do mới: `LUU_TRU` (chỉ dòng GMAIL), `CHUA_LAY_MAU`, `CO_BAN_MOI`.
+  **Đổi khi làm (09/11):** thay cho một cột `vi_tri_tep`, dòng Gmail mang **bộ cột đẩy tệp** giống
+  `tep_ket_qua` (`khoa`, `sha256`, `vi_tri`, `tai_len_luc`, `da_day_luc`…) để `day_tep` đẩy PDF lên
+  CFS bằng đúng đường cũ (G2 thêm `drive_tep` vào `BANG_TEP`). Trigger "sự việc không sửa" luôn cho
+  sửa cột đẩy (cả sau Từ chối), nhưng một câu đổi kèm cột sự việc vẫn bị chặn.
 - `drive_nhip`: thêm `nguon` vào khoá; cột `con_tro_lich_su text`, `so_lich_su_con int`.
-- Quyền `xet_nghiem.kho_email` (không gắn gói vai nào). Sự kiện `lab.archive_viewed` khai trong catalogue.
+- Quyền `xet_nghiem.kho_email` (không gắn gói vai nào; Postgres CHECK cấm khối `kho_email` trong
+  `quyen_preset`, lệnh lưu nhóm cũng từ chối). **Đổi khi làm:** sự kiện `lab.archive_viewed` và công
+  tắc lego "Kho email" khai ở **G2** cùng code phát / trang + mục thanh bên — repo có test cấm sự
+  kiện không nơi phát và lego không có trang.
+- Che staging: tên tệp, tiêu đề, thân thư `drive_tep` (chạy được cả khi prod chưa có cột thư).
+- **Thứ tự lên prod:** áp migration rồi deploy NGAY trong cùng đợt — `drive.py` bản cũ ghi nhịp
+  `ON CONFLICT (clinic_id, doi_tac_id)`, khoá chính cũ đã bỏ ⇒ nhịp Drive lỗi tới lúc deploy (không
+  mất tệp). Áp ngoài giờ khám: thêm lại CHECK của `tep_ket_qua` quét cả bảng.
 
 ### G2 — Đọc Gmail + lưu tệp + KHO EMAIL (Tuyền xem được ngay sau chặng này)
 - `services/xet_nghiem/gmail_api.py` (≤ 250 dòng): token; `liet_ke(q, trang)`; `doc_thu(id)` (tiêu đề,
@@ -128,6 +139,14 @@ hỏi Tuyền, không đoán bấm.
   - bấm dòng ⇒ hộp xem PDF (Lightbox như bàn khám) + tiêu đề + thân thư; mỗi lần mở ghi `lab.archive_viewed`;
   - thanh trên cùng: "Đã nạp 1.240 / ~1.900 thư · Email ổn · quét lúc 10:42".
 - Mục thanh bên "Kho email kết quả (tạm)" — máy chủ trả cờ, chỉ hiện với người có quyền.
+- **Mang sang từ soát G1 (09/11):**
+  - `ghep_tay._dong_cho` / `noi_dung_cho` mở mọi dòng `drive_tep` theo id và gọi Drive bằng
+    `file_id` ⇒ phải tách theo `nguon` (Gmail đọc byte ở `khoa`), và dòng `LUU_TRU` chỉ xem / Gán /
+    Từ chối được khi có `xet_nghiem.kho_email` — không thì là đường lách quyền Kho.
+  - Cắt `ten` ≤ 300, `email_tieu_de` ≤ 500, `email_than` ≤ 2.000 trước khi ghi (CHECK từ chối ⇒ mất thư).
+  - Ghi gợi ý `goi_y_*` phải lọc `clinic_id` (khoá ngoại không kèm clinic_id, như phần còn lại repo).
+  - `khoa` của PDF Gmail riêng (`<clinic>/gmail/…`); G3 tạo `tep_ket_qua` thì CHÉP sang khoá mới,
+    không dùng chung khoá — không thì `don_ban_vps` của bảng này xoá bản VPS của bảng kia.
 
 ### G3 — Ghép tự động cho thư sau mốc
 - `ghep_khach.khop_khach` thêm `nam_sinh: int | None`, `ma_xn: str | None`:

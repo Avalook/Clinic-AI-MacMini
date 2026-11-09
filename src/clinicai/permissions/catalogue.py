@@ -1151,13 +1151,6 @@ MAN: dict[str, Man] = {
             "Quản lý",
         ),
         _lego(
-            "kho_email",
-            "Kho email kết quả (tạm)",
-            ["/ban-xet-nghiem/kho-email"],
-            ["kho_email"],
-            "Cấp riêng từng người",
-        ),
-        _lego(
             "bao_cao",
             "Báo cáo",
             ["/reports", "/hoa-don", "/xuat-hoa-don", "/lich-do-ve"],

@@ -101,11 +101,16 @@ ALTER TABLE public.drive_tep ADD CONSTRAINT drive_tep_nguon_hop_le CHECK (
             AND sha256 IS NOT NULL AND sha256 ~ '^[0-9a-f]{64}$'
             AND vi_tri IS NOT NULL AND tai_len_luc IS NOT NULL
             AND so_byte IS NOT NULL AND so_byte > 0)
-        -- Drive: đọc thẳng Drive, không cột thư, không byte lưu.
+        -- Drive: đọc thẳng Drive, không cột thư, không byte lưu, không mốc đẩy.
+        -- LUU_TRU chỉ là của thư (Kho email): dòng Drive mang nó sẽ biến khỏi hàng
+        -- ghép tay mà Kho cũng không có.
         OR (nguon = 'DRIVE'
             AND email_message_id IS NULL AND email_tieu_de IS NULL AND email_than IS NULL
             AND email_nhan_luc IS NULL AND ma_ben_doi_tac_tep IS NULL
-            AND khoa IS NULL AND sha256 IS NULL AND vi_tri IS NULL)));
+            AND khoa IS NULL AND sha256 IS NULL AND vi_tri IS NULL
+            AND tai_len_luc IS NULL AND da_day_luc IS NULL
+            AND da_xoa_ban_vps_luc IS NULL AND da_don_tep_luc IS NULL
+            AND ly_do_cho IS DISTINCT FROM 'LUU_TRU')));
 
 ALTER TABLE public.drive_tep DROP CONSTRAINT IF EXISTS drive_tep_vi_tri_hop_le;
 ALTER TABLE public.drive_tep ADD CONSTRAINT drive_tep_vi_tri_hop_le CHECK (
@@ -153,12 +158,12 @@ BEGIN
     IF (to_jsonb(NEW) - cot_day) = (to_jsonb(OLD) - cot_day) THEN
         RETURN NEW;   -- chỉ day_tep đổi cột đẩy
     END IF;
-    IF (NEW.clinic_id, NEW.doi_tac_id, NEW.file_id, NEW.md5, NEW.ten, NEW.nhan_luc,
+    IF (NEW.clinic_id, NEW.doi_tac_id, NEW.file_id, NEW.md5, NEW.ten, NEW.mime, NEW.nhan_luc,
         NEW.drive_tao_luc, NEW.drive_nguoi_tai, NEW.nguon, NEW.email_message_id,
         NEW.email_tieu_de, NEW.email_than, NEW.email_nhan_luc, NEW.ma_ben_doi_tac_tep,
         NEW.khoa, NEW.sha256, NEW.so_byte, NEW.tai_len_luc)
        IS DISTINCT FROM
-       (OLD.clinic_id, OLD.doi_tac_id, OLD.file_id, OLD.md5, OLD.ten, OLD.nhan_luc,
+       (OLD.clinic_id, OLD.doi_tac_id, OLD.file_id, OLD.md5, OLD.ten, OLD.mime, OLD.nhan_luc,
         OLD.drive_tao_luc, OLD.drive_nguoi_tai, OLD.nguon, OLD.email_message_id,
         OLD.email_tieu_de, OLD.email_than, OLD.email_nhan_luc, OLD.ma_ben_doi_tac_tep,
         OLD.khoa, OLD.sha256, OLD.so_byte, OLD.tai_len_luc)

@@ -442,3 +442,25 @@ async def test_khong_co_quyen_phan_quyen_thi_khong_sua_duoc_nhom(
             mo_ta=None,
             identity=thu_ngan,
         )
+
+
+async def test_kho_email_khong_vao_nhom_nao(
+    pool: asyncpg.Pool, quan_ly: StaffIdentity
+) -> None:
+    """Kho email kết quả (Gmail G1): dữ liệu sức khoẻ, chỉ cấp riêng từng người.
+    Nhóm mẫu cấp hàng loạt ⇒ cả lệnh lưu nhóm lẫn Postgres đều từ chối khối ấy."""
+    with pytest.raises(ValidationError):
+        await PermissionService(pool).luu_nhom(
+            ma=f"kho_{uuid.uuid4().hex[:6]}",
+            ten="Lễ tân xem kho",
+            khoi=["tiep_don", "kho_email"],
+            mo_ta=None,
+            identity=quan_ly,
+        )
+    with pytest.raises(asyncpg.exceptions.CheckViolationError):
+        await pool.execute(
+            "INSERT INTO quyen_preset (clinic_id, ma, ten, khoi)"
+            " VALUES ($1::uuid, $2, 'Lọt qua migration', ARRAY['kho_email'])",
+            CLINIC,
+            f"LOT_{uuid.uuid4().hex[:6].upper()}",
+        )
