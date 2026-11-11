@@ -37,8 +37,9 @@ const tenRole = (n) => (typeof n === "string" && n.length > 2 && n.startsWith("/
 function timTrong(goc, spec) {
   const exact = spec.exact ?? false;
   if (spec.role) return goc.getByRole(spec.role, { name: tenRole(spec.name), exact });
-  if (spec.label) return goc.getByLabel(spec.label, { exact });
-  if (spec.text) return goc.getByText(spec.text, { exact });
+  // Nhãn / chữ cũng nhận mẫu "/…/" — vd tên tệp email đổi theo mỗi lần dựng dữ liệu.
+  if (spec.label) return goc.getByLabel(tenRole(spec.label), { exact });
+  if (spec.text) return goc.getByText(tenRole(spec.text), { exact });
   throw new Error(`Bước không có role/label/text: ${JSON.stringify(spec)}`);
 }
 
@@ -324,6 +325,13 @@ export async function quayChuong(chuong, tieng, { ai, thuMuc, duongDau }) {
 
     for (const [i, c] of chuong.canh.entries()) {
       const t = tCanh[i];
+      if (c.mo) {
+        // `mo: "/duong"` ở cấp CẢNH: mở thẳng màn không có mục trên thanh bên (vd Hàng chờ
+        // xác nhận kết quả) TRƯỚC khi hiện phụ đề — đổi trang giữa cảnh làm mất phụ đề.
+        await page.goto(`${CAU_HINH.web}${c.mo}`, { waitUntil: "domcontentloaded" });
+        await cho(800);
+        await choManYen(page, c.id);
+      }
       const tu = giay();
       const pd = mocPhuDe(t.loi, t.giay).map((m) => ({ chu: m.chu, sau_ms: Math.round(m.tu * 1000) }));
       pd.push({ chu: "", sau_ms: Math.round(t.giay * 1000) + 150 });

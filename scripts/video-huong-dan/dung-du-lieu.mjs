@@ -9,7 +9,11 @@
 //   node scripts/video-huong-dan/dung-du-lieu.mjs            # mọi chương
 //   node scripts/video-huong-dan/dung-du-lieu.mjs --chuong 3 # chỉ thứ chương 3 cần
 
-import { cho, goi } from "./api.mjs";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+import { cho, ENV, goi, REPO, THU_MUC_TEP } from "./api.mjs";
 
 const LY_DO = "Dựng lại video hướng dẫn";
 export const DOI_TAC = {
@@ -18,7 +22,11 @@ export const DOI_TAC = {
   hen: 3,
   // Chuỗi MẪU rõ là giả — chỉ để dòng "Chuyển khoản vào: …" có chữ trên hình.
   tk: "Ngân hàng mẫu · 0000 0000 00 · TÀI KHOẢN MẪU",
+  // Miền .test (dành riêng, không tồn tại) — hộp thư giả của gmail_gia.py trả thư cho nó.
+  email: "ketqua@medlatec-mau.test",
 };
+//: Mốc "Tự ghép kết quả email từ ngày": 10 ngày trước hôm nay ⇒ thư 17 ngày trước chỉ lưu kho.
+const MOC_GMAIL_LUI_NGAY = 10;
 //: Đối tác chương 1 THÊM MỚI trên hình. Lần quay trước để lại ⇒ đổi mã + ngưng (không có Xoá).
 export const DOI_TAC_MOI = { ten: "Phòng xét nghiệm Mẫu", ma_ngan: "PXN", dich_vu: "Tổng phân tích nước tiểu" };
 //: Dịch vụ đối tác có sẵn ở danh mục local (bên thu = đối tác) + giá gợi ý trên hình.
@@ -46,9 +54,30 @@ export const KHACH = {
     ],
     dau: DA_THU_CA_HAI,
   },
+  // Chương 5–6 (kết quả về qua Gmail). `giu`: KHÔNG đưa về đầu (tờ email đã gán vào việc —
+  // huỷ mẫu sẽ kéo tờ theo); chỉ dựng khi thiếu. `lay_mau`: lấy mẫu chung một ống các việc này.
+  gmail_tu_gan: {
+    ds: [{ ten: "Hoàng Thị Thu Trang", sdt: "0900000121", nam_sinh: 1993 }],
+    dau: { CLS_HPV: { tien_mat: "350000" } },
+    lay_mau: ["CLS_HPV"],
+    giu: true,
+  },
+  gmail_ho_so: {
+    ds: [{ ten: "Ngô Thị Bích Ngọc", sdt: "0900000122", nam_sinh: 1990 }],
+    dau: {},
+    chi_dinh: false, // đã khám hôm nay nhưng KHÔNG có chỉ định xét nghiệm đối tác
+    giu: true,
+  },
+  gmail_nhieu: {
+    ds: [{ ten: "Đặng Thị Kim Oanh", sdt: "0900000123", nam_sinh: 1995 }],
+    dau: DA_THU_CA_HAI,
+    lay_mau: ["CLS_HPV", "CLS_THINPREP"],
+    giu: true,
+  },
 };
-//: Chương nào cần khách nào (khoá KHACH) + có đặt lại đối tác thêm mới không.
-const CAN = { 0: ["lay_mau"], 1: ["doi_tac_moi"], 2: ["thu"], 3: ["hoan"], 4: ["lay_mau"] };
+const GMAIL = ["gmail_tu_gan", "gmail_ho_so", "gmail_nhieu", "gmail_thu"];
+//: Chương nào cần khách nào (khoá KHACH) + có đặt lại đối tác thêm mới / thư Gmail giả không.
+const CAN = { 0: ["lay_mau"], 1: ["doi_tac_moi"], 2: ["thu"], 3: ["hoan"], 4: ["lay_mau"], 5: GMAIL, 6: GMAIL };
 
 const log = (...a) => console.log("  ·", ...a);
 const maCua = (v) => DICH_VU.find((d) => d.khop.test(v.ten_dich_vu ?? ""))?.ma;
@@ -61,15 +90,23 @@ async function doiTac() {
     ma_ngan: DOI_TAC.ma_ngan,
     hen_tra_so_ngay_mac_dinh: DOI_TAC.hen,
     tai_khoan_nhan_ck: DOI_TAC.tk,
+    email_gui_ket_qua: DOI_TAC.email,
   };
   if (!d) {
     const moi = await goi("ql", "POST", "xet-nghiem/doi-tac", than);
     d = moi.doi_tac.find((x) => x.ma_ngan === DOI_TAC.ma_ngan);
     log(`tạo đối tác ${DOI_TAC.ten}`);
-  } else if (d.tai_khoan_nhan_ck !== DOI_TAC.tk) {
+  } else if (d.tai_khoan_nhan_ck !== DOI_TAC.tk || d.email_gui_ket_qua !== DOI_TAC.email) {
     const moi = await goi("ql", "PUT", `xet-nghiem/doi-tac/${d.id}`, { ...than, sdt: d.sdt, ghi_chu: d.ghi_chu });
     d = moi.doi_tac.find((x) => x.ma_ngan === DOI_TAC.ma_ngan);
-    log("đặt tài khoản nhận chuyển khoản mẫu");
+    log("đặt tài khoản nhận chuyển khoản + email gửi kết quả mẫu");
+  }
+  const moc = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(
+    new Date(Date.now() - MOC_GMAIL_LUI_NGAY * 86_400_000),
+  );
+  if (ds.gmail_tu_ngay !== moc) {
+    await goi("ql", "PUT", "xet-nghiem/cai-dat/gmail", { gmail_tu_ngay: moc });
+    log(`mốc tự ghép email: ${moc}`);
   }
   const gia = await goi("ql", "GET", "service-prices?group=dich_vu");
   const dsGia = Array.isArray(gia) ? gia : (gia.items ?? gia.service_prices ?? gia.rows ?? []);
@@ -154,7 +191,20 @@ async function phienBacSi(k) {
   throw new Error(`Không thấy phiên bác sĩ của ${k.ten} sau 40 giây — worker sự kiện có chạy không?`);
 }
 
+/** Stack local mới dựng không có lịch trực hôm nay ⇒ bác sĩ mẫu không bắt đầu được phiên
+ *  ("không được phân công…"). Mở ngoại lệ ca trực cả ngày cho chính bác sĩ ấy — lệnh có sẵn
+ *  của màn Phân quyền, quản lý bấm được. Đã có ⇒ thôi. */
+async function ngoaiLeCaTruc(bs) {
+  const ngay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+  const id = bs.staff_id ?? bs.id;
+  const ds = await goi("ql", "GET", `roster/clinical-exceptions?ngay=${ngay}`);
+  if ((ds.items ?? []).some((x) => x.staff_id === id && !x.huy_luc)) return;
+  await goi("ql", "POST", "roster/clinical-exceptions", { staff_id: id, bac_si_id: id, ngay, ly_do: LY_DO });
+  log("mở ngoại lệ ca trực hôm nay cho bác sĩ mẫu");
+}
+
 async function luotMoi(k, benhNhan) {
+  await ngoaiLeCaTruc(await goi("bs.a", "GET", "me"));
   if (await luotCua(k)) return phienBacSi(k);
   const loai = await goi("letan", "GET", "catalog/service-types");
   const dsLoai = Array.isArray(loai) ? loai : (loai.items ?? loai.service_types ?? []);
@@ -164,20 +214,27 @@ async function luotMoi(k, benhNhan) {
   // Mỗi khách lệch nhau 15 phút (đuôi SĐT), tối đa 45 phút — lệch xa hơn thì lịch dễ rơi
   // ra ngoài giờ ca buổi chiều (09/11: 21:45 bị từ chối 422).
   const lech = (Number(k.sdt.slice(-2)) % 4) * 15 * 60_000;
-  const bat = new Date(Math.ceil((Date.now() + 20 * 60_000) / 900_000) * 900_000 + lech);
-  const lich = await goi(
-    "cskh",
-    "POST",
-    "appointments/bookings",
-    {
-      clinic_patient_id: benhNhan.clinic_patient_id ?? benhNhan.id,
-      service_type_id: pk.id,
-      slot_start: bat.toISOString(),
-      slot_end: new Date(bat.getTime() + 30 * 60_000).toISOString(),
-      doctor_id: bs.staff_id ?? bs.id,
-    },
-    { idem: true },
-  );
+  let bat = new Date(Math.ceil((Date.now() + 20 * 60_000) / 900_000) * 900_000 + lech);
+  let lich = null;
+  // Giờ rơi vào nghỉ trưa / ngoài ca (422 "không thuộc ca") ⇒ lùi 30 phút, thử tối đa 12 lần.
+  for (let i = 0; i < 12 && !lich; i++) {
+    const r = await goi(
+      "cskh",
+      "POST",
+      "appointments/bookings",
+      {
+        clinic_patient_id: benhNhan.clinic_patient_id ?? benhNhan.id,
+        service_type_id: pk.id,
+        slot_start: bat.toISOString(),
+        slot_end: new Date(bat.getTime() + 30 * 60_000).toISOString(),
+        doctor_id: bs.staff_id ?? bs.id,
+      },
+      { idem: true, choPhep: [422] },
+    );
+    if (r && (r.appointment_id ?? r.id ?? r.appointment?.id)) lich = r;
+    else bat = new Date(bat.getTime() + 30 * 60_000);
+  }
+  if (!lich) throw new Error(`Không đặt được lịch cho ${k.ten} trong 6 giờ tới (ngoài ca).`);
   const apptId = lich.appointment_id ?? lich.id ?? lich.appointment?.id;
   await goi("letan", "POST", "luot-kham/check-in", { appointment_id: apptId });
   log(`check-in ${k.ten}`);
@@ -236,6 +293,31 @@ async function chonKhach(ds) {
   throw new Error("Hết khách mẫu chưa bị hoàn tiền hôm nay — thêm tên vào KHACH.hoan hoặc quay ngày khác.");
 }
 
+/** Lấy mẫu chung một ống các việc `ma` của khách (chưa lấy thì mới lấy). */
+async function layMau(k, ma) {
+  const can = (await viecHomNay(k.sdt)).filter((v) => ma.includes(maCua(v)) && !v.mau_id);
+  if (!can.length) return;
+  await goi("dd.sa", "POST", "xet-nghiem/ban/lay-mau", { order_ids: can.map((v) => v.order_id) });
+  log(`lấy mẫu ${can.map((v) => v.ten_dich_vu).join(" + ")} của ${k.ten}`);
+}
+
+/** Thư Gmail giả + MỘT vòng quét thật (`gmail_gia.py`). Đã có thư hôm nay ⇒ bỏ qua: quét lại
+ *  không ghi trùng, nhưng mỗi lần chạy là thư MỚI (tệp mới) — giữ Kho email gọn. */
+function thuGmailGia() {
+  const py = existsSync(join(REPO, ".venv/bin/python")) ? join(REPO, ".venv/bin/python") : "python3";
+  const ra = execFileSync(py, ["scripts/video-huong-dan/gmail_gia.py"], {
+    cwd: REPO,
+    env: {
+      ...process.env,
+      PYTHONPATH: "src",
+      DATABASE_URL: `postgresql://postgres:${ENV.SUPABASE_DB_PASSWORD}@127.0.0.1:${ENV.SUPABASE_DB_PORT ?? 54422}/postgres`,
+      MEDIA_ROOT: THU_MUC_TEP,
+      MEDIA_LOCAL_ROOT: THU_MUC_TEP,
+    },
+  }).toString();
+  process.stdout.write(ra);
+}
+
 /** Dựng dữ liệu cho chương `so` (bỏ trống = mọi chương). Trả {khoá: tên khách} để kịch bản
  *  dùng `{khach_<khoá>}`. */
 export async function dungDuLieu(so = null) {
@@ -247,16 +329,39 @@ export async function dungDuLieu(so = null) {
   for (const [khoa, nhom] of Object.entries(KHACH)) {
     if (!can.has(khoa)) continue;
     let { k, viec } = await chonKhach(nhom.ds);
+    if (nhom.chi_dinh === false) {
+      if (!(await luotCua(k))) await luotMoi(k, await taoKhach(k));
+      ten[`khach_${khoa}`] = k.ten;
+      log(`${k.ten}: đã khám hôm nay, không chỉ định xét nghiệm`);
+      continue;
+    }
     if (viec.length < DICH_VU.length) {
       const bn = await taoKhach(k);
       await chiDinh(await luotMoi(k, bn));
       viec = await viecHomNay(k.sdt);
       log(`${k.ten}: ${viec.length} việc mới`);
     }
+    if (nhom.giu && viec.some((v) => v.mau_id || v.tep_id)) {
+      ten[`khach_${khoa}`] = k.ten;
+      log(`${k.ten}: đã dựng từ lần trước — giữ nguyên`);
+      continue;
+    }
     await veTrangThai(k, nhom.dau);
+    if (nhom.lay_mau) await layMau(k, nhom.lay_mau);
     const sau = await viecHomNay(k.sdt);
     log(`${k.ten}: ${sau.map((v) => `${v.ten_dich_vu} = ${v.trang_thai.nhan ?? v.trang_thai.ma}`).join(" · ")}`);
     ten[`khach_${khoa}`] = k.ten;
+  }
+  if (can.has("gmail_thu")) {
+    // Kho email là khối CẤP RIÊNG từng người (không nhóm mẫu nào có) ⇒ cấp cho quản lý mẫu,
+    // đúng lệnh màn Phân quyền bấm. Đã có thì máy chủ bỏ qua.
+    const ql = await goi("ql", "GET", "me");
+    await goi("ql", "POST", `phan-quyen/nhan-su/${ql.staff_id ?? ql.id}/cap`, { khoi: "kho_email", ly_do: LY_DO });
+    // Thư đã về lần trước (việc HPV của khách tự gán đã có tờ) ⇒ không thả thư mới.
+    const daCo = (await viecHomNay(KHACH.gmail_tu_gan.ds[0].sdt)).some((v) => v.tep_id);
+    if (daCo) log("thư Gmail giả: đã có từ lần trước — giữ nguyên");
+    else thuGmailGia();
+    ten.khach_gmail_la = "Lý Thị Mẫu";
   }
   return ten;
 }

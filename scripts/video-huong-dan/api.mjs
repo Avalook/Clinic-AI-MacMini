@@ -29,7 +29,10 @@ function docEnvThu() {
   return env;
 }
 
-const ENV = docEnvThu();
+export const ENV = docEnvThu();
+//: Thư mục tệp kết quả của stack quay video — API và `gmail_gia.py` phải dùng CÙNG nơi
+//: (MEDIA_ROOT / MEDIA_LOCAL_ROOT) thì hộp xem mới mở được tờ email giả.
+export const THU_MUC_TEP = process.env.VIDEO_MEDIA_DIR ?? join(process.env.HOME ?? "/tmp", "ClinicAI-video", "media");
 export const CAU_HINH = {
   web: process.env.VIDEO_WEB_URL ?? "http://127.0.0.1:3100",
   api: process.env.VIDEO_API_URL ?? `http://127.0.0.1:${process.env.API_PORT ?? 8100}`,
