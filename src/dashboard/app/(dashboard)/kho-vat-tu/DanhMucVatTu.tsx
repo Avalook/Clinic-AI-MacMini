@@ -163,7 +163,9 @@ export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc
           ) : null}
         </section>
       ) : null}
-      <VatTuBangGia ds={ds} ban={ban || !suaDuoc} onSua={sua} />
+      {/* Màn Kho giữ cách cũ: không quyền sửa giá thì ô KHOÁ xám (`ban`), không
+          đổi sang chữ như Bảng giá — đồng bộ hai màn để PR riêng. */}
+      <VatTuBangGia ds={ds} ban={ban || !suaDuoc} chiXem={false} onSua={sua} />
       {loi ? (
         <p role="alert" className="text-body text-danger">
           {loi}

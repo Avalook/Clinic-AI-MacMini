@@ -46,13 +46,14 @@ const O_GIA =
 export default function VatTuBangGia({
   ds,
   ban,
-  chiXem = false,
+  chiXem,
   onSua,
 }: {
   ds: DongVatTu[];
   ban: boolean;
-  /** Chỉ xem (máy chủ báo không sửa được giá, 11/11/2026) — chữ thay ô sửa. */
-  chiXem?: boolean;
+  /** Chỉ xem (máy chủ báo không sửa được giá, 11/11/2026) — chữ thay ô sửa. Bắt
+   *  buộc truyền: không có giá trị mặc định "được sửa". */
+  chiXem: boolean;
   onSua: (id: string, patch: Record<string, unknown>, xong: string) => Promise<boolean>;
 }) {
   const [tim, setTim] = useState("");
