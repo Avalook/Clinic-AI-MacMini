@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-09 10:26. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-11 12:37. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -12,7 +12,7 @@ tệp mà hơn 25% số màn cùng import (dùng chung): `app/(dashboard)/dung-n
 
 Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. Sự kiện (consumer) · 5. Bảng → migration
 
-## 1. Màn (93)
+## 1. Màn (94)
 ### `/`
 - page: `src/dashboard/app/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
@@ -59,8 +59,16 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: BanXetNghiem.tsx, app/(dashboard)/_lam-viec/TheKhachHangCho.tsx, CacTab.tsx, CaiDat.tsx, KetQuaKhach.tsx, KhungMauMoi.tsx, PopupKhach.tsx, TheViec.tsx (+1)
 - gọi API Next: `/api/xet-nghiem/anh-ck`, `/api/xet-nghiem/drive-tep`, `/api/xet-nghiem/tai-ket-qua`, `/api/xet-nghiem/[...duong]`, `/api/cskh/ket-qua/[tepId]/noi-dung`, `/api/cashier`
 - ? không khớp route.ts nào: `/api/xet-nghiem/ban/lay-mau`, `/api/xet-nghiem/ban/anh-ck/${encodeURIComponent(id)}/go`, `/api/xet-nghiem/ban/tien`, `/api/xet-nghiem/ban/drive-cho`, `/api/xet-nghiem/ban/qua-trinh` (+1)
-- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +2} · quyen_ban.bang_quyen · media_service · TepKetQuaService.mo_de_doc · tep_ket_qua_service · CashierBoardService.{board, giao_dich} (+2 service)
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +3} · quyen_ban.bang_quyen · media_service · TepKetQuaService.mo_de_doc · tep_ket_qua_service · CashierBoardService.{board, giao_dich} (+2 service)
 - test: test_xet_nghiem_nen_db.py, test_cashier_scope_db.py, test_payment_access.py, test_cashier_scope.py, test_tep_ket_qua.py (+10)
+
+### `/ban-xet-nghiem/kho-email` — Kho email kết quả
+- page: `src/dashboard/app/(dashboard)/ban-xet-nghiem/kho-email/page.tsx` · quyền: lego `kho_email` (Kho email kết quả (tạm) · mặc định: Cấp riêng từng người)
+- thành phần: KhoEmail.tsx, app/(dashboard)/ban-xet-nghiem/kieu.ts
+- gọi API Next: `/api/xet-nghiem/kho-email-pdf`, `/api/xet-nghiem/[...duong]`
+- ? không khớp route.ts nào: `/api/xet-nghiem/kho-email/${encodeURIComponent(t.id)}`, `/api/xet-nghiem/ban/${duong}`
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +3} · quyen_ban.bang_quyen
+- test: test_xet_nghiem_nen_db.py
 
 ### `/cashier`
 - page: `src/dashboard/app/(dashboard)/cashier/page.tsx` · quyền: ?
@@ -284,7 +292,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/phan-quyen`
 - gọi thẳng backend (server): `/api/v1/staff`
 - service: PermissionService.{them_preset, lego_cua_nguoi, doi_lego, danh_sach_nhom, +5} · KyNangService.{cua_nguoi, doi, chep, danh_sach} · KHOI.values · PRESET.items · catalogue · StaffService.{list_assignable, list_active, create_staff}
-- test: test_lego_21_db.py, test_permission_db.py, test_staff_service.py, test_no_con_lai_db.py, test_clinical_cluster.py (+7)
+- test: test_permission_db.py, test_lego_21_db.py, test_staff_service.py, test_no_con_lai_db.py, test_clinical_cluster.py (+7)
 
 ### `/pharmacy` — Cấp thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
@@ -478,9 +486,9 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/settings/doi-tac` — Đối tác xét nghiệm
 - page: `src/dashboard/app/(dashboard)/settings/doi-tac/page.tsx` · quyền: lego `cai_dat` (Cài đặt phòng khám · mặc định: Quản lý)
-- thành phần: DoiTacView.tsx, FormDoiTac.tsx
+- thành phần: DoiTacView.tsx, FormDoiTac.tsx, GanDichVu.tsx
 - gọi API Next: `/api/xet-nghiem/[...duong]`, `/api/cashier`
-- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +2} · quyen_ban.bang_quyen · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot}
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +3} · quyen_ban.bang_quyen · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot}
 - test: test_xet_nghiem_nen_db.py, test_cashier_scope_db.py, test_payment_access.py, test_cashier_scope.py, test_cashier_board_exam_service_db.py (+7)
 
 ### `/settings/don-du-lieu-thu` — Dọn dữ liệu thử
@@ -619,7 +627,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_doi_chieu_hoa_don_db.py, test_hoa_don_misa_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (147)
+## 2. API Next → backend (148)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1727,14 +1735,17 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - PUT `/api/v1/xet-nghiem/doi-tac/{doi_tac_id}` → `src/clinicai/api/v1/routers/xet_nghiem.py:sua_doi_tac` → CaiDatDoiTac.luu_doi_tac
 - POST `/api/v1/xet-nghiem/doi-tac/{doi_tac_id}/ngung` → `src/clinicai/api/v1/routers/xet_nghiem.py:ngung_doi_tac` → CaiDatDoiTac.ngung
 - POST `/api/v1/xet-nghiem/doi-tac-dich-vu/{anh_xa_id}/bo` → `src/clinicai/api/v1/routers/xet_nghiem.py:bo_gan_dich_vu` → CaiDatDoiTac.bo_gan
+- PUT `/api/v1/xet-nghiem/cai-dat/gmail` → `src/clinicai/api/v1/routers/xet_nghiem.py:luu_moc_gmail` → CaiDatDoiTac.moc_gmail
 - `/api/v1/xet-nghiem/ban` → ?
 - `/api/v1/xet-nghiem/ban/tien` → ?
 - `/api/v1/xet-nghiem/ban/qua-trinh` → ?
 - `/api/v1/xet-nghiem/ban/drive-cho` → ?
 - `/api/v1/xet-nghiem/ban/${m[1]}` → ?
 - `/api/v1/xet-nghiem/ban/anh-ck/${m[1]}/go` → ?
+- `/api/v1/xet-nghiem/kho-email` → ?
+- `/api/v1/xet-nghiem/kho-email/${m[1]}` → ?
 - test: src/tests/services/test_xet_nghiem_nen_db.py
-- màn dùng: /ban-xet-nghiem, /settings/doi-tac
+- màn dùng: /ban-xet-nghiem, /ban-xet-nghiem/kho-email, /settings/doi-tac
 
 #### `/api/xet-nghiem/anh-ck` · `src/dashboard/app/api/xet-nghiem/anh-ck/route.ts`
 - `/api/v1/xet-nghiem/ban/anh-ck` → ?
@@ -1747,6 +1758,11 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - `/api/v1/xet-nghiem/ban/drive-tep/{id}` → ?
 - `/api/v1/xet-nghiem/ban/drive-tep/${id}` → ?
 - màn dùng: /ban-xet-nghiem
+
+#### `/api/xet-nghiem/kho-email-pdf` · `src/dashboard/app/api/xet-nghiem/kho-email-pdf/route.ts`
+- `/api/v1/xet-nghiem/kho-email/{id}/pdf` → ?
+- `/api/v1/xet-nghiem/kho-email/${id}/pdf` → ?
+- màn dùng: /ban-xet-nghiem/kho-email
 
 #### `/api/xet-nghiem/tai-ket-qua` · `src/dashboard/app/api/xet-nghiem/tai-ket-qua/route.ts`
 - `/api/v1/xet-nghiem/ban/tai-ket-qua` → ?
@@ -1782,7 +1798,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `BioChiDinhService` | `src/clinicai/services/bio_chi_dinh_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `BookingOverrideService` | `src/clinicai/services/booking_override_service.py` | /settings/booking-policy |
 | `BookingService` | `src/clinicai/services/booking_service.py` | /appointments, /appointments/cho-xep-bac-si, /ban-kham, /ban-kham/[phong], /customers, /home, /nhac-tai-kham, /patient-list (+3) |
-| `CaiDatDoiTac` | `src/clinicai/services/xet_nghiem/cai_dat.py` | /ban-xet-nghiem, /settings/doi-tac |
+| `CaiDatDoiTac` | `src/clinicai/services/xet_nghiem/cai_dat.py` | /ban-xet-nghiem, /ban-xet-nghiem/kho-email, /settings/doi-tac |
 | `can` | `src/clinicai/permissions/can.py` | /kho-vat-tu, /ops, /pharmacy, /pharmacy/inventory, /print/tem-lo, /settings/new-user, /settings/tai-khoan |
 | `canh_gac` | `src/clinicai/services/canh_gac.py` | /ops |
 | `capacity_service` | `src/clinicai/services/capacity_service.py` | /appointments, /customers, /home, /patients/new, /reception/queue |
@@ -1917,7 +1933,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `QueryTasksFilter` | `src/clinicai/tools/task/query_tasks.py` | — (chỉ API/worker) |
 | `queue_order` | `src/clinicai/services/queue_order.py` | — (chỉ API/worker) |
 | `queue_rows` | `src/clinicai/services/queue_rows.py` | — (chỉ API/worker) |
-| `quyen_ban` | `src/clinicai/services/xet_nghiem/quyen_ban.py` | /ban-xet-nghiem, /settings/doi-tac |
+| `quyen_ban` | `src/clinicai/services/xet_nghiem/quyen_ban.py` | /ban-xet-nghiem, /ban-xet-nghiem/kho-email, /settings/doi-tac |
 | `QUYEN_THEO_KHU` | `src/clinicai/services/work_item_service.py` | — (chỉ API/worker) |
 | `read_policy` | `src/clinicai/tools/kb/read_policy.py` | — (chỉ API/worker) |
 | `RecallJobService` | `src/clinicai/services/recall_job_service.py` | /customers, /nhac-tai-kham |
@@ -2049,14 +2065,14 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `dich_vu_mau_ket_qua` | `20260923000004_mau_ket_qua.sql` | 3 |
 | `dispatch_threshold` | `20260804000002_dispatch_routes.sql` | 0 |
 | `doctor_booking_override` | `20260803000002_booking_override.sql` | 1 |
-| `doi_tac` | `20261105200000_xet_nghiem_nen.sql` | 1 |
-| `doi_tac_dich_vu` | `20261105200000_xet_nghiem_nen.sql` | 1 |
+| `doi_tac` | `20261105200000_xet_nghiem_nen.sql` | 2 |
+| `doi_tac_dich_vu` | `20261105200000_xet_nghiem_nen.sql` | 2 |
 | `doi_tac_hoan_tien` | `20261105210000_so_thu_ho.sql` | 0 |
 | `doi_tac_nhan_viec` | `20260925000009_doi_tac_nhan_viec.sql` | 3 |
 | `doi_tac_thanh_toan` | `20260928000091_doi_tac_tu_thu_tien.sql` | 2 |
 | `domain_event` | `20260923000001_domain_event.sql` | 1 |
-| `drive_nhip` | `20261106100000_xet_nghiem_drive.sql` | 0 |
-| `drive_tep` | `20261106100000_xet_nghiem_drive.sql` | 1 |
+| `drive_nhip` | `20261106100000_xet_nghiem_drive.sql` | 1 |
+| `drive_tep` | `20261106100000_xet_nghiem_drive.sql` | 3 |
 | `drug_batch` | `20260802000001_pharmacy_inventory.sql` | 6 |
 | `drug_catalog` | `20260714000001_baseline_schema.sql` | 5 |
 | `drug_ma_vach` | `20261014135000_ma_vach.sql` | 0 |
@@ -2174,7 +2190,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `staff_task` | `20260714000001_baseline_schema.sql` | 1 |
 | `staff_vi_tri` | `20260916000008_vi_tri_lam_viec_kim_nguu.sql` | 0 |
 | `tai_khoan_nhan` | `20261031120000_tai_khoan_nhan.sql` | 0 |
-| `tep_ket_qua` | `20260809000008_tep_ket_qua.sql` | 9 |
+| `tep_ket_qua` | `20260809000008_tep_ket_qua.sql` | 10 |
 | `thong_bao` | `20260807000006_thong_bao_goi_bo_phan.sql` | 1 |
 | `thong_bao_an_cua_toi` | `20261018180000_an_thong_bao_rieng_theo_nhan_vien.sql` | 0 |
 | `thu_ky_bac_si` | `20260915000020_thu_ky_bac_si.sql` | 0 |
@@ -2208,6 +2224,6 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `work_roster_thay_nguoi` | `20260929000001_doi_nguoi_trong_ca.sql` | 0 |
 | `work_session` | `20260714000001_baseline_schema.sql` | 0 |
 | `work_session_staff` | `20260714000001_baseline_schema.sql` | 0 |
-| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 1 |
+| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 2 |
 | `xet_nghiem_dong` | `20261105220000_mau_xet_nghiem.sql` | 0 |
 | `xet_nghiem_viec` | `20261105200000_xet_nghiem_nen.sql` | 1 |

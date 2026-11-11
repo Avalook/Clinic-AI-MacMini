@@ -703,6 +703,7 @@ class TepKetQuaService:
         la_tep_doi_tac: bool = False,
         drive_nguoi_tai: str | None = None,
         tu_drive: bool = False,
+        tu_gmail: bool = False,
     ) -> dict[str, Any]:
         """Nhận một tệp kết quả và cất nó lên đĩa.
 
@@ -740,7 +741,9 @@ class TepKetQuaService:
             raise ValidationError(
                 f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
             )
-        is_external = False
+        # Tệp đối tác KHÔNG chỉ định (Gmail: khách đúng mà chưa nhập chỉ định) vẫn
+        # là tệp ngoài ⇒ CHO_XAC_NHAN; trước 11/11 cờ chỉ bật khi có chỉ định.
+        is_external = la_tep_doi_tac
         viec_doi_tac = False
         async with self._pool.acquire() as conn:
             ok = await conn.fetchval(
@@ -947,7 +950,8 @@ class TepKetQuaService:
                     tu_hop_le,
                     LY_DO_TU_XAC_NHAN,
                     ben,
-                    "DRIVE" if tu_drive else "TAI_LEN",
+                    # tu_gmail (Gmail G3): tệp tự về qua thư — cùng đường Drive.
+                    "GMAIL" if tu_gmail else ("DRIVE" if tu_drive else "TAI_LEN"),
                     (drive_nguoi_tai or "").strip()[:200] or None,
                 )
                 if service_order_id and not viec_doi_tac:
@@ -980,7 +984,11 @@ class TepKetQuaService:
                         tep_id=str(row_id),
                         visit_id=luot_tep,
                         service_order_id=service_order_id,
-                        cho_xac_nhan=is_external and XAC_NHAN_TEP_DOI_TAC,
+                        # Tờ máy tự gắn KHÔNG chỉ định (Gmail, khách đúng chưa có
+                        # chỉ định) đang CHO_XAC_NHAN ⇒ chuông nói "cần xác nhận",
+                        # không vào vòng đọc của lượt (lượt chỉ là lượt gần nhất).
+                        cho_xac_nhan=is_external
+                        and (XAC_NHAN_TEP_DOI_TAC or (may and not service_order_id)),
                     ),
                     boi=HE_THONG if isinstance(identity, MayQuet) else nguoi(identity),
                     correlation_id=luot_tep,

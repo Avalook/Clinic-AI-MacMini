@@ -12,23 +12,12 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import CongTac from "@/components/ui/CongTac";
-import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import { useNgheBang } from "../../dung-nghe-bang";
 import FormDoiTac, { TRONG, type FormDT } from "./FormDoiTac";
+import GanDichVu, { type DichVuGan } from "./GanDichVu";
 
-interface DichVuGan {
-  id: string;
-  service_price_id: string;
-  ten_dich_vu: string;
-  unit_price: number | null;
-  gia_goi_y: number | null;
-  hen_tra_so_ngay: number | null;
-  mac_dinh: boolean;
-  gia_hieu_luc: number | null;
-  hen_tra_hieu_luc: number | null;
-}
 interface DoiTac {
   id: string;
   ten: string;
@@ -43,12 +32,17 @@ interface DoiTac {
   gan_duoc: boolean;
   dich_vu: DichVuGan[];
   drive_den: { nhan: string; mau: "neutral" | "success" | "danger" };
+  email_gui_ket_qua: string | null;
+  /** Đèn nhịp Gmail — chữ + màu máy chủ tính (`gmail_cai_dat.den_email`). */
+  email_den: { nhan: string; mau: "neutral" | "success" | "danger" };
 }
 interface DanhSach {
   doi_tac: DoiTac[];
   dich_vu_thu_ho: { id: string; name: string; unit_price: number | null }[];
   nguong_lay_mau_ngay: number;
   hien_ma_ong: boolean;
+  /** Thư Gmail nhận từ ngày này mới được tự ghép (null = chưa tự ghép). */
+  gmail_tu_ngay: string | null;
 }
 async function docDanhSach(): Promise<DanhSach | null> {
   try {
@@ -59,14 +53,12 @@ async function docDanhSach(): Promise<DanhSach | null> {
   }
 }
 
-const tien = (n: number | null) => (n ? `${n.toLocaleString("vi-VN")}đ` : "");
-
 export default function DoiTacView() {
   const [ds, setDs] = useState<DanhSach | null>(null);
   const [form, setForm] = useState<FormDT | null>(null);
-  const [gan, setGan] = useState<{ doi_tac_id: string; service_price_id: string; gia_goi_y: string; hen_tra_so_ngay: string } | null>(null);
   const [ngung, setNgung] = useState<{ id: string; ly_do: string } | null>(null);
   const [nguong, setNguong] = useState("");
+  const [moc, setMoc] = useState("");
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
@@ -74,6 +66,7 @@ export default function DoiTacView() {
   const nhan = useCallback((d: DanhSach) => {
     setDs(d);
     setNguong(String(d.nguong_lay_mau_ngay));
+    setMoc(d.gmail_tu_ngay ?? "");
   }, []);
   const tai = useCallback(async () => {
     const d = await docDanhSach();
@@ -166,6 +159,28 @@ export default function DoiTacView() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-2 rounded-card border border-line bg-surface p-4 shadow-card">
+        <label className="flex flex-col gap-1 text-meta text-ink-soft">
+          Tự ghép kết quả email từ ngày (thư trước ngày này chỉ lưu ở Kho email; để trống = chưa tự ghép)
+          <ONhap type="date" value={moc} onChange={(e) => setMoc(e.target.value)} />
+        </label>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={dang || moc === (ds?.gmail_tu_ngay ?? "")}
+          onClick={() =>
+            void gui(
+              "PUT",
+              "cai-dat/gmail",
+              { gmail_tu_ngay: moc },
+              moc ? `Đã lưu: tự ghép thư từ ${moc}.` : "Đã tắt tự ghép thư email.",
+            )
+          }
+        >
+          Lưu
+        </Button>
+      </div>
+
       {bao ? <p className="text-meta text-success">{bao}</p> : null}
       {loi ? (
         <p role="alert" className="text-meta text-danger">
@@ -205,10 +220,16 @@ export default function DoiTacView() {
                   {d.hen_tra_so_ngay_mac_dinh != null ? `Hẹn trả ${d.hen_tra_so_ngay_mac_dinh} ngày` : "Chưa đặt hẹn trả"}
                   {d.sdt ? ` · ${d.sdt}` : ""}
                 </p>
-                {/* Đèn nhịp Drive: chữ + màu do máy chủ tính (`drive.den_drive`). */}
-                <p>
+                {/* Đèn nhịp Drive / Email: chữ + màu do máy chủ tính (một luật đèn). */}
+                <p className="flex flex-wrap gap-2">
                   <Chip tone={d.drive_den.mau}>{d.drive_den.nhan}</Chip>
+                  <Chip tone={d.email_den.mau}>{d.email_den.nhan}</Chip>
                 </p>
+                {d.email_gui_ket_qua ? (
+                  <p className="text-meta text-ink-muted">
+                    Email gửi kết quả: <span className="text-ink">{d.email_gui_ket_qua}</span>
+                  </p>
+                ) : null}
                 <p className="text-meta text-ink-muted">
                   Tiền thu hộ vào: <span className="text-ink">{d.tai_khoan_nhan_ck ?? "chưa đặt"}</span>
                 </p>
@@ -230,6 +251,7 @@ export default function DoiTacView() {
                       drive_folder: d.drive_folder_id ?? "",
                       tai_khoan_nhan_ck: d.tai_khoan_nhan_ck ?? "",
                       hen_tra_so_ngay_mac_dinh: d.hen_tra_so_ngay_mac_dinh?.toString() ?? "",
+                      email_gui_ket_qua: d.email_gui_ket_qua ?? "",
                     })
                   }
                 >
@@ -277,93 +299,15 @@ export default function DoiTacView() {
               </div>
             ) : null}
 
-            <ul className="divide-y divide-line rounded-card border border-line">
-              {d.dich_vu.map((g) => (
-                <li key={g.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
-                  <span className="min-w-0 flex-1 text-body text-ink">{g.ten_dich_vu}</span>
-                  <span className="text-meta tabular-nums text-ink-muted">
-                    {tien(g.gia_hieu_luc) || "Chưa có giá gợi ý"}
-                    {g.hen_tra_hieu_luc != null ? ` · hẹn ${g.hen_tra_hieu_luc} ngày` : " · chưa đặt hẹn"}
-                  </span>
-                  {g.mac_dinh ? null : <Chip tone="neutral">Không nhận chỉ định mới</Chip>}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={dang}
-                    onClick={() => void gui("POST", `doi-tac-dich-vu/${g.id}/bo`, {}, `Đã bỏ gán ${g.ten_dich_vu}.`)}
-                  >
-                    Bỏ gán
-                  </Button>
-                </li>
-              ))}
-              {d.dich_vu.length === 0 ? <li className="px-3 py-2 text-meta text-ink-muted">Chưa gán dịch vụ nào.</li> : null}
-            </ul>
-
-            {d.gan_duoc && gan?.doi_tac_id !== d.id ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => setGan({ doi_tac_id: d.id, service_price_id: "", gia_goi_y: "", hen_tra_so_ngay: "" })}
-              >
-                + Gán dịch vụ
-              </Button>
-            ) : null}
-            {gan?.doi_tac_id === d.id ? (
-              <div className="grid gap-2 sm:grid-cols-4 sm:items-end">
-                <label className="flex flex-col gap-1 text-meta text-ink-soft sm:col-span-2">
-                  Dịch vụ (đối tác thu)
-                  <OChon value={gan.service_price_id} onChange={(e) => setGan({ ...gan, service_price_id: e.target.value })}>
-                    <option value="">— Chọn dịch vụ —</option>
-                    {(ds?.dich_vu_thu_ho ?? []).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </OChon>
-                </label>
-                <label className="flex flex-col gap-1 text-meta text-ink-soft">
-                  Giá gợi ý
-                  <ONhap
-                    value={gan.gia_goi_y}
-                    inputMode="numeric"
-                    placeholder={tien(ds?.dich_vu_thu_ho.find((s) => s.id === gan.service_price_id)?.unit_price ?? null)}
-                    onChange={(e) => setGan({ ...gan, gia_goi_y: e.target.value })}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-meta text-ink-soft">
-                  Hẹn trả riêng (ngày)
-                  <ONhap
-                    value={gan.hen_tra_so_ngay}
-                    inputMode="numeric"
-                    maxLength={2}
-                    placeholder={d.hen_tra_so_ngay_mac_dinh?.toString() ?? ""}
-                    onChange={(e) => setGan({ ...gan, hen_tra_so_ngay: e.target.value })}
-                  />
-                </label>
-                <p className="text-meta text-ink-muted sm:col-span-4">
-                  Gán xong, chỉ định MỚI của dịch vụ này đi đối tác này (đối tác cũ, nếu có, thôi nhận chỉ định mới).
-                </p>
-                <div className="flex flex-wrap gap-2 sm:col-span-4">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    disabled={dang || !gan.service_price_id}
-                    onClick={async () => {
-                      const ok = await gui("POST", "doi-tac-dich-vu", gan, "Đã gán dịch vụ.");
-                      if (ok) setGan(null);
-                    }}
-                  >
-                    Gán
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setGan(null)}>
-                    Thôi
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+            <GanDichVu
+              doiTacId={d.id}
+              ganDuoc={d.gan_duoc}
+              henMacDinh={d.hen_tra_so_ngay_mac_dinh}
+              dichVu={d.dich_vu}
+              dichVuThuHo={ds?.dich_vu_thu_ho ?? []}
+              dang={dang}
+              gui={gui}
+            />
           </li>
         ))}
       </ul>

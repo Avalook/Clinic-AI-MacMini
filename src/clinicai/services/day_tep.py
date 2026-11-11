@@ -112,12 +112,14 @@ MA_O_VPS = "O_VPS_DAY"
 #: da_day_luc, so_lan_day_loi, loi_day_cuoi, day_loi_luc, da_xoa_ban_vps_luc,
 #: da_don_tep_luc, tai_len_luc). Ảnh chuyển khoản (mig 20261002300000) đi cùng
 #: đường với tệp kết quả — không làm đường đẩy thứ hai; ảnh CK THU HỘ đối tác (mig
-#: 20261105240000, bảng riêng vì sổ thu hộ không nối payment_cycle) cũng vậy. Tên
-#: bảng chỉ lấy từ danh sách này (chèn vào SQL).
+#: 20261105240000, bảng riêng vì sổ thu hộ không nối payment_cycle) cũng vậy; PDF kết
+#: quả đối tác về Gmail (`drive_tep` nguồn GMAIL, mig 20261109200000 — dòng Drive
+#: `vi_tri` NULL nên không bao giờ vào lô). Tên bảng chỉ lấy từ danh sách này.
 BANG_TEP: tuple[str, ...] = (
     "tep_ket_qua",
     "anh_chuyen_khoan",
     "anh_chuyen_khoan_thu_ho",
+    "drive_tep",
 )
 
 
@@ -518,11 +520,12 @@ async def mot_vong(
             ket["day"] = await day_mot_lo(pool, goc_vps=goc_vps, goc_cfs=goc_cfs)
         except Exception:  # noqa: BLE001
             logger.exception("day_tep_day_hong")
-        # Ảnh chuyển khoản (01/10/2026) + ảnh CK thu hộ (05/11): cùng đường, lô riêng
-        # mỗi bảng — bảng này hỏng không chặn bảng kia.
+        # Ảnh chuyển khoản (01/10/2026) + ảnh CK thu hộ (05/11) + PDF Gmail (09/11):
+        # cùng đường, lô riêng mỗi bảng — bảng này hỏng không chặn bảng kia.
         for khoa, bang in (
             ("day_anh_ck", "anh_chuyen_khoan"),
             ("day_anh_ck_thu_ho", "anh_chuyen_khoan_thu_ho"),
+            ("day_tep_gmail", "drive_tep"),
         ):
             try:
                 ket[khoa] = await day_mot_lo(

@@ -123,7 +123,7 @@ export interface Ban {
   hien_ma_ong: boolean;
 }
 
-/** Tệp Drive chưa khớp khách — `DriveChoOut` của `routers/xet_nghiem_drive.py`. */
+/** Tệp Drive / thư Email chưa khớp khách — `DriveChoOut` của `routers/xet_nghiem_drive.py`. */
 export interface DriveCho {
   id: string;
   doi_tac_id: string;
@@ -137,6 +137,14 @@ export interface DriveCho {
   nhan_luc: string;
   ly_do_cho: string | null;
   vi_sao: string;
+  /** DRIVE | GMAIL — thư kết quả qua email (Gmail G3) xếp cùng hàng với tệp Drive. */
+  nguon: string;
+  email_tieu_de: string | null;
+  email_nhan_luc: string | null;
+  /** Việc máy chủ gợi ý gán (khớp khách); máy chủ vẫn kiểm như Gán tay. */
+  goi_y_order_id: string | null;
+  /** Khách máy chủ gợi ý (khớp tên + SĐT) — việc của khách này lên đầu ô chọn. */
+  goi_y_clinic_patient_id: string | null;
 }
 
 export interface DriveNhip {

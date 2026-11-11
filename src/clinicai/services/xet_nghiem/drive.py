@@ -52,19 +52,34 @@ def den_drive(
     bay_gio: datetime,
 ) -> dict[str, str]:
     """Đèn nhịp Drive trên thẻ đối tác: chữ + màu chip (một nơi tính, màn chỉ hiện)."""
-    if not thu_muc:
-        return {"nhan": "Chưa nối thư mục Drive", "mau": "neutral"}
+    return den_nhip(
+        "Drive", "thư mục Drive", bool(thu_muc), lan_quet, ok_cuoi, loi, bay_gio
+    )
+
+
+def den_nhip(
+    nguon: str,
+    noi_gi: str,
+    da_noi: bool,
+    lan_quet: datetime | None,
+    ok_cuoi: datetime | None,
+    loi: str | None,
+    bay_gio: datetime,
+) -> dict[str, str]:
+    """Đèn nhịp một nguồn tự về (Drive / Email) — MỘT luật cho mọi nguồn."""
+    if not da_noi:
+        return {"nhan": f"Chưa nối {noi_gi}", "mau": "neutral"}
     if lan_quet is None:
-        return {"nhan": "Đã nối thư mục Drive · chưa quét lần nào", "mau": "neutral"}
+        return {"nhan": f"Đã nối {noi_gi} · chưa quét lần nào", "mau": "neutral"}
     gio = lan_quet.astimezone(_VN).strftime("%H:%M %d/%m")
     if loi:
-        return {"nhan": f"Drive lỗi lúc {gio}: {loi}", "mau": "danger"}
+        return {"nhan": f"{nguon} lỗi lúc {gio}: {loi}", "mau": "danger"}
     if ok_cuoi is None or bay_gio - ok_cuoi > TRE_NHIP:
         return {
-            "nhan": f"Drive quá 1 giờ chưa quét được (lần cuối {gio})",
+            "nhan": f"{nguon} quá 1 giờ chưa quét được (lần cuối {gio})",
             "mau": "danger",
         }
-    return {"nhan": f"Drive ổn · quét lúc {gio}", "mau": "success"}
+    return {"nhan": f"{nguon} ổn · quét lúc {gio}", "mau": "success"}
 
 
 @dataclass(frozen=True)
@@ -281,11 +296,11 @@ async def _nhip(
 ) -> None:
     await pool.execute(
         """
-        INSERT INTO drive_nhip (clinic_id, doi_tac_id, lan_quet_cuoi, ok_cuoi,
+        INSERT INTO drive_nhip (clinic_id, doi_tac_id, nguon, lan_quet_cuoi, ok_cuoi,
                                 loi_cuoi, so_tep_cuoi)
-        VALUES ($1::uuid, $2::uuid, now(),
+        VALUES ($1::uuid, $2::uuid, 'DRIVE', now(),
                 CASE WHEN $3::text IS NULL THEN now() END, $3, $4)
-        ON CONFLICT (clinic_id, doi_tac_id) DO UPDATE
+        ON CONFLICT (clinic_id, doi_tac_id, nguon) DO UPDATE
            SET lan_quet_cuoi = now(),
                ok_cuoi = CASE WHEN $3::text IS NULL THEN now()
                               ELSE drive_nhip.ok_cuoi END,

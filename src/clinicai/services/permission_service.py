@@ -33,6 +33,7 @@ from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.permissions.catalogue import (
     KHOI,
+    KHOI_CAP_RIENG,
     KHOI_NOI_BO,
     LUON_BAT,
     MAN,
@@ -470,6 +471,12 @@ class PermissionService:
         # khối nội bộ vào nhóm là đường cấp lậu.
         if KHOI_NOI_BO & set(khoi):
             raise ValidationError("Khối nội bộ của đội vận hành không vào nhóm được.")
+        # Khối cấp riêng (Kho email kết quả — dữ liệu sức khoẻ): chỉ bật cho TỪNG người.
+        # Postgres cũng chặn (CHECK quyen_preset_khong_khoi_cap_rieng).
+        if KHOI_CAP_RIENG & set(khoi):
+            raise ValidationError(
+                "Kho email kết quả chỉ cấp riêng từng người, không vào nhóm được."
+            )
 
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "permission.manage")
@@ -510,6 +517,9 @@ class PermissionService:
                     "mac_dinh_cho": m.mac_dinh_cho,
                 }
                 for m in MAN.values()
+                # Màn của khối cấp riêng (Kho email) không vào được nhóm nào ⇒ không
+                # bày công tắc theo nhóm ở đây (bấm chỉ ra lỗi); bật ở từng người.
+                if not (set(m.khoi) & KHOI_CAP_RIENG)
             ],
             "man_theo_vai": [
                 {"ten": ten, "mac_dinh_cho": ai} for ten, ai in MAN_THEO_VAI
