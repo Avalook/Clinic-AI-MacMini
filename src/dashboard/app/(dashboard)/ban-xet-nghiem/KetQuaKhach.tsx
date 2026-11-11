@@ -273,9 +273,36 @@ export default function KetQuaKhach({
                       </Button>
                     ) : null}
                   </div>
+                ) : t.gan_goi_y_duoc ? (
+                  // G9: khách máy gợi ý (tên / SĐT lệch hồ sơ), không cần việc Bàn XN —
+                  // máy chủ chọn chỉ định đúng loại hoặc hồ sơ theo lượt khám.
+                  <div className="flex flex-wrap items-center gap-2 text-meta">
+                    <span className="text-ink-soft">
+                      Gợi ý: <span className="font-semibold text-ink">{t.goi_y_ten}</span>
+                      {t.goi_y_ma ? ` · ${t.goi_y_ma}` : ""}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      disabled={dang}
+                      // Gửi kèm khách ĐANG HIỆN: gợi ý đổi (xét lại) ⇒ máy chủ trả 409.
+                      onClick={() =>
+                        void chay(
+                          "drive-gan-goi-y",
+                          { drive_tep_id: t.id, clinic_patient_id: t.goi_y_clinic_patient_id },
+                          `Đã gán kết quả cho ${t.goi_y_ten ?? "khách"}.`,
+                        )
+                      }
+                    >
+                      Gán cho khách này
+                    </Button>
+                  </div>
                 ) : null}
                 <div className="flex flex-wrap items-end gap-2">
                   <OChon
+                    // Tên dịch vụ dài làm ô rộng 650px ⇒ 375 cuộn ngang; giữ trong khung.
+                    className="w-full min-w-0 max-w-full sm:w-auto"
                     aria-label={`Gán ${t.ten} cho khách`}
                     value={chonViec[t.id] ?? ""}
                     onChange={(e) => setChonViec((x) => ({ ...x, [t.id]: e.target.value }))}

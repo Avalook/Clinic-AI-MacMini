@@ -475,3 +475,53 @@ def test_nguon_to_email_khong_hien_tai_tay() -> None:
     assert nguon_tep(r("DRIVE")) == "Drive · tự ghép"
     assert nguon_tep(r("TAI_TAY", "Lan")) == "Tải tay · Lan"
     assert nguon_tep({"tep_id": None}) is None
+
+
+def test_g9_ten_gan_giong_va_goi_y_lech() -> None:
+    """G9: gợi ý khi ĐÚNG MỘT khách trùng nguyên tên, hoặc có SĐT thư + tên gần."""
+    from clinicai.services.xet_nghiem.gmail_goi_y import goi_y_lech, ten_gan_giong
+
+    assert ten_gan_giong("Trần Thị Mỹ Duyên", "TRAN MY DUYEN")
+    assert ten_gan_giong("Nguyễn Thị Lan", "Nguyễn Lan")
+    assert ten_gan_giong("Phạm Văn Hùng", "Phạm Hùng")
+    assert not ten_gan_giong("Nguyễn Thị Lan", "Phạm Văn Hùng")
+    # Soát G9: người nhà dùng chung SĐT — khác tên gọi / khác họ ⇒ KHÔNG giống.
+    assert not ten_gan_giong("Nguyễn Thị Lan", "Nguyễn Thị Hoa")
+    assert not ten_gan_giong("Lê Văn An", "Lê Văn Bình")
+    assert not ten_gan_giong("Trần Thị Lan", "Nguyễn Thị Lan")
+    assert not ten_gan_giong("Thị Lan", "Nguyễn Thị Lan")  # chỉ còn "Lan" — quá ít
+    assert not ten_gan_giong("", "Lan") and not ten_gan_giong(None, 3)
+
+    def u(kh: str, ten: str, sdt: str) -> UngVien:
+        return UngVien(
+            order_id="o" + kh, clinic_patient_id=kh, visit_id=None, ten=ten, sdt=sdt
+        )
+
+    a = u("A", "Nguyễn Thị Lan", "0901111111")
+    b = u("B", "Phạm Văn Hùng", "0902222222 ; 0903333333")
+    assert (
+        goi_y_lech("NGUYEN THI LAN", "0909999999", [a, b]) == "A"
+    )  # tên đúng, SĐT khác
+    assert goi_y_lech("Nguyễn Thị Lan", None, [a, b]) == "A"  # thư không có SĐT
+    assert goi_y_lech("Phạm Hùng", "0903333333", [a, b]) == "B"  # SĐT phụ + tên gần
+    assert goi_y_lech("Lê Văn Tám", "0903333333", [a, b]) is None  # SĐT của người khác
+    assert goi_y_lech("Phạm Văn Dũng", "0903333333", [a, b]) is None  # người nhà
+    a2 = u("C", "Nguyễn Thị Lan", "0904444444")
+    assert goi_y_lech("Nguyễn Thị Lan", "0909999999", [a, a2]) is None  # hai người
+    assert goi_y_lech(None, "0901111111", [a]) is None
+
+
+def test_g9_nut_gan_goi_y_chi_thu_email_khong_khop() -> None:
+    from clinicai.services.xet_nghiem.ghep_tay import (
+        LECH_CO_GOI_Y,
+        LY_DO_CHO,
+        gan_goi_y_duoc,
+        vi_sao_cho,
+    )
+
+    assert gan_goi_y_duoc("GMAIL", "KHONG_KHOP_KHACH", "kh")
+    assert not gan_goi_y_duoc("DRIVE", "KHONG_KHOP_KHACH", "kh")
+    assert not gan_goi_y_duoc("GMAIL", "ONG_NHIEU_VIEC", "kh")
+    assert not gan_goi_y_duoc("GMAIL", "KHONG_KHOP_KHACH", None)
+    assert vi_sao_cho("KHONG_KHOP_KHACH", None, True) == LECH_CO_GOI_Y
+    assert vi_sao_cho("KHONG_KHOP_KHACH", None) == LY_DO_CHO["KHONG_KHOP_KHACH"]

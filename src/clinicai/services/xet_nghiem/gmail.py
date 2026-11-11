@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+from dataclasses import replace
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
@@ -47,6 +48,7 @@ from clinicai.services.xet_nghiem import (
     gmail_cai_dat,
     gmail_doc,
     gmail_ghep,
+    gmail_goi_y,
     gmail_luu,
 )
 
@@ -184,6 +186,10 @@ async def muc_ca_thu(
                     conn, cid, q.goi_y_clinic_patient_id, thu.nhan_luc
                 )
                 q = gmail_ghep.gan_ho_so(q, luot)
+            if q.ly_do == "KHONG_KHOP_KHACH" and doc.ten:
+                # Tên HOẶC SĐT lệch hồ sơ (G9): gợi ý đúng một khách, không tự gán.
+                kh = await gmail_goi_y.tim(conn, cid, doc, viec)
+                q = replace(q, goi_y_clinic_patient_id=kh)
             muc.append(gmail_luu.Muc(p, d, c, q))
     return muc
 

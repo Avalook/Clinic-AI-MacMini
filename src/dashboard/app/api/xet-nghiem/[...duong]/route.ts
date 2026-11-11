@@ -13,7 +13,7 @@ type Method = "GET" | "POST" | "PUT";
 const U = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 const LENH_BAN =
-  "ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|mo-lai|gui|thu-hoi|drive-ghep|drive-tu-choi|gan-sang";
+  "ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|mo-lai|gui|thu-hoi|drive-ghep|drive-gan-goi-y|drive-tu-choi|gan-sang";
 
 /** [method, mẫu đường sau /xet-nghiem/, đường backend VIẾT RÕ] — thêm cửa = thêm một
  *  dòng. Đường backend viết hẳn ra để test `test_dashboard_backend_paths` đối chiếu
