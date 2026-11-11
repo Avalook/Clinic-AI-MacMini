@@ -26,12 +26,30 @@ test("khối hành chính là thứ đầu tiên trong thân cột phải", () =
   }
 });
 
-test("chỉ một bản PatientAdminEditor, nằm trong ngăn gập có nhớ trạng thái", () => {
-  const cac = [...view.matchAll(/<PatientAdminEditor\b/g)];
-  assert.equal(cac.length, 1);
-  const ngan = view.indexOf("<NganGap\n                  tieuDe=\"Thông tin hành chính\"");
-  const dong = view.indexOf("</NganGap>", ngan);
-  const i = cac[0].index ?? -1;
-  assert.ok(ngan > 0 && i > ngan && i < dong, "PatientAdminEditor phải nằm trong ngăn gập");
-  assert.match(view.slice(ngan, i), /nhoKhoa="khach-hanh-chinh"/);
+/** Vị trí mở / đóng của ngăn "Thông tin hành chính" — không phụ thuộc thụt dòng. */
+function ngan(): { mo: number; dong: number; dau: string } {
+  const m = /<NganGap\s+tieuDe="Thông tin hành chính"/.exec(view);
+  assert.ok(m, "không thấy ngăn Thông tin hành chính");
+  const dong = view.indexOf("</NganGap>", m.index);
+  const dauHet = view.indexOf(">\n", m.index);
+  return { mo: m.index, dong, dau: view.slice(m.index, dauHet) };
+}
+
+test("cả hai nhánh (sửa được / chỉ xem) nằm trong ngăn, chỉ một bản mỗi nhánh", () => {
+  const { mo, dong } = ngan();
+  const sua = [...view.matchAll(/<PatientAdminEditor\b/g)];
+  assert.equal(sua.length, 1);
+  const i = sua[0].index ?? -1;
+  assert.ok(i > mo && i < dong, "PatientAdminEditor phải nằm trong ngăn gập");
+  // Nhánh chỉ xem: dòng "Kênh đặt gần nhất" của khung phải cũng phải nằm trong ngăn.
+  const xem = [...view.matchAll(/label="Kênh đặt gần nhất"/g)];
+  assert.equal(xem.length, 1);
+  const j = xem[0].index ?? -1;
+  assert.ok(j > mo && j < dong, "nhánh chỉ xem phải nằm trong ngăn gập");
+});
+
+test("người sửa được: gập mặc định; người chỉ xem: mở sẵn; nhớ theo người", () => {
+  const { dau } = ngan();
+  assert.match(dau, /moSan=\{!canEdit\}/);
+  assert.match(dau, /nhoKhoa="khach-hanh-chinh"/);
 });

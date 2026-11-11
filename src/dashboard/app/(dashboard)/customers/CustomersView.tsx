@@ -1910,11 +1910,17 @@ export default function CustomersView({
               <div className="space-y-3 py-4">
                 {/* THÔNG TIN HÀNH CHÍNH LÊN ĐẦU (chị Hoài, 11/11/2026): trước nằm cuối
                     cột — phải cuộn ~3 khung (1280) / ~12 màn (375) mới tới nút Sửa.
-                    Gập mặc định để khung gọi điện của CSKH không bị đẩy xuống; nhớ
-                    lần mở/đóng cuối của từng người (`nhoKhoa`). */}
+                    Người sửa được: gập mặc định để khung gọi điện của CSKH không bị
+                    đẩy xuống. Người chỉ xem: mở sẵn (trước đây họ thấy sẵn các dòng
+                    này). Nhớ lần mở/đóng cuối của từng người (`nhoKhoa`). */}
                 <NganGap
                   tieuDe="Thông tin hành chính"
-                  phu={canEdit ? "SĐT, địa chỉ, công ty xuất hoá đơn — mở để sửa" : undefined}
+                  phu={
+                    canEdit
+                      ? "SĐT, địa chỉ, công ty xuất hoá đơn — mở để sửa"
+                      : "Kênh đặt, người giới thiệu, SĐT, địa chỉ"
+                  }
+                  moSan={!canEdit}
                   nhoKhoa="khach-hanh-chinh"
                 >
                   <div className="pt-2">
