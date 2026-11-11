@@ -456,3 +456,22 @@ def test_doc_thu_ma_ly_do_khong_tu_ghep() -> None:
     phieu = doc_thu(f"KẾT QUẢ NIP1234567 -{TEN}", "", "NIP1234567.pdf", "", 2026)
     assert phieu.khong_tu_ghep == "PHIEU_MA_VACH"
     assert doc_thu("Quảng cáo", "", "a.pdf", "", 2026).tu_ghep_duoc is False
+
+
+def test_nguon_to_email_khong_hien_tai_tay() -> None:
+    """Tờ email tự gán từng hiện "Tải tay" ở tab Kết quả (bàn XN) — phải là Email."""
+    from clinicai.services.xet_nghiem.ban import nguon_tep
+
+    def r(nguon: str, boi: str | None = None) -> dict[str, object]:
+        return {
+            "tep_id": "t",
+            "tep_nguon": nguon,
+            "tep_boi": boi,
+            "drive_nguoi_tai": None,
+        }
+
+    assert nguon_tep(r("GMAIL")) == "Email · tự ghép"
+    assert nguon_tep(r("GMAIL", "Lan")) == "Email · ghép bởi Lan"
+    assert nguon_tep(r("DRIVE")) == "Drive · tự ghép"
+    assert nguon_tep(r("TAI_TAY", "Lan")) == "Tải tay · Lan"
+    assert nguon_tep({"tep_id": None}) is None
