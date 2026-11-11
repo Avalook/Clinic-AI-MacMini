@@ -1,4 +1,4 @@
-// (Client — chỉ `HangChoXacNhanKetQua.tsx` dùng.) Gmail G13 (Tuyền 11/11): tờ email "gắn theo lượt khám" (thư về lúc khách chưa có chỉ
+// (Client — `HangChoXacNhanKetQua.tsx` và `ban-xet-nghiem/EmailDaGan.tsx` dùng.) Gmail G13 (Tuyền 11/11): tờ email "gắn theo lượt khám" (thư về lúc khách chưa có chỉ
 // định) ⇒ nhập chỉ định xong thì chuyển tờ vào chỉ định bằng NÚT (người kiểm chọn đúng
 // một). Danh sách chỉ định nhận được, từ chối tờ cũ, gán tờ mới đều do máy chủ
 // (`gmail_vao_chi_dinh.py`) — màn chỉ vẽ và gửi lệnh.

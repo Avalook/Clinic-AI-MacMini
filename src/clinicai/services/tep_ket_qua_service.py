@@ -1253,6 +1253,10 @@ class TepKetQuaService:
             )
             if tep["service_order_id"]:
                 so_id = str(tep["service_order_id"])
+                # Thu hồi tờ duy nhất ⇒ chỉ định CHƯA có kết quả (cùng luật Từ chối /
+                # xoá tệp). Thiếu dòng này: chuyển tờ sang chỉ định khác (G11/G13)
+                # để chỉ định cũ mãi "đã có kết quả" mà không còn tờ nào.
+                await _tinh_lai_ket_qua_luc(conn, cid, so_id)
                 luot_tep = await _luot_cua_tep(conn, cid, so_id, None)
                 await emit_event(
                     conn,
@@ -1915,7 +1919,7 @@ class TepKetQuaService:
             ) == str(identity.staff_id)
             d["co_the_xac_nhan"] = not is_own
             # Tờ email theo lượt (G13): nút "Chuyển vào chỉ định".
-            d["chuyen_chi_dinh_duoc"] = r["service_order_id"] is None
+            d["chuyen_chi_dinh_duoc"] = r["service_order_id"] is None and not is_own
             d["khong_the_xac_nhan_ly_do"] = (
                 "Bạn là người tải tệp này — cần người khác xác nhận."
                 if is_own

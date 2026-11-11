@@ -119,6 +119,13 @@ async def test_chuyen_nham_a_thi_sua_sang_b_duoc(
     o_a = await _to(pool, d["id"])
     ds = await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(pool, nguoi, o_a["tep"])
     assert [c["service_order_id"] for c in ds["chi_dinh"]] == [b]
+
+    async def moc_a() -> Any:
+        return await pool.fetchval(
+            "SELECT ket_qua_luc FROM service_order WHERE id = $1::uuid", v["oid"]
+        )
+
+    assert await moc_a() is not None  # A đang "đã có kết quả"
     await gmail_vao_chi_dinh.vao_chi_dinh(
         pool, nguoi, {"tep_id": o_a["tep"], "service_order_id": b}
     )
@@ -128,6 +135,8 @@ async def test_chuyen_nham_a_thi_sua_sang_b_duoc(
         "SELECT xac_nhan_trang_thai FROM tep_ket_qua WHERE id = $1::uuid", o_a["tep"]
     )
     assert tt_a in ("TU_CHOI", "THU_HOI")
+    # Soát vòng 2: A không còn tờ hiệu lực ⇒ mốc "đã có kết quả" phải gỡ.
+    assert await moc_a() is None
     # Danh sách "Thư email đã gán" có nút chuyển cho tờ này (máy chủ tính).
     from clinicai.services.xet_nghiem import gmail_gan_lai
 
