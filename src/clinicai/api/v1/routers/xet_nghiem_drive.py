@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.xet_nghiem import ghep_tay, gmail_goi_y
 
 router = APIRouter()
@@ -55,6 +56,8 @@ class DriveChoOut(BaseModel):
     goi_y_ma: str | None = None
     #: Thư email có khách gợi ý ⇒ nút "Gán cho khách này" (G9, không cần Bàn XN).
     gan_goi_y_duoc: bool = False
+    #: Thư email ⇒ ô "tìm khách rồi gán" (G10).
+    gan_khach_duoc: bool = False
 
 
 class DriveNhipOut(BaseModel):
@@ -114,13 +117,40 @@ async def drive_ghep(
     return {"ok": True, "tep_id": kq["tep_id"]}
 
 
-@router.post(f"{P}/drive-gan-goi-y", response_model=OkOut)
-async def drive_gan_goi_y(
-    r: Request, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB
+#: Gán thư email cho khách BẤT KỲ + dò hồ sơ khách (tên, SĐT) ⇒ gác đúng quyền màn
+#: Việc của đối tác (`lib/roles.ts` NAV_QUYEN), không chỉ "đã đăng nhập" (soát G10).
+_BAN_XN = Depends(cua_quyen("partner.work"))
+
+
+@router.post(f"{P}/drive-gan-khach", response_model=OkOut)
+async def drive_gan_khach(
+    r: Request, i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
 ) -> object:
-    """Thư email ⇒ khách máy gợi ý (G9): vào chỉ định đúng loại hoặc hồ sơ theo lượt."""
-    kq = await gmail_goi_y.gan_cho_khach_goi_y(p, i, await _than(r))
+    """Thư email ⇒ khách người bấm chọn (gợi ý G9 / ô tìm G10): vào chỉ định đúng loại
+    hoặc hồ sơ theo lượt khám."""
+    kq = await gmail_goi_y.gan_cho_khach(p, i, await _than(r))
     return {"ok": True, "tep_id": kq["tep_id"]}
+
+
+class KhachTimOut(BaseModel):
+    clinic_patient_id: str
+    full_name: str
+    patient_code: str | None
+    phone_primary: str | None
+    birth_year: int | None
+    gender: str | None
+
+
+class KhachTimListOut(BaseModel):
+    items: list[KhachTimOut]
+
+
+@router.get(f"{P}/tim-khach", response_model=KhachTimListOut)
+async def tim_khach(
+    q: str = "", i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
+) -> object:
+    """Ô tìm khách của thư email chờ (G10) — câu tìm khách dùng chung."""
+    return {"items": await gmail_goi_y.tim_khach(p, i, q)}
 
 
 @router.post(f"{P}/drive-tu-choi", response_model=OkOut)
