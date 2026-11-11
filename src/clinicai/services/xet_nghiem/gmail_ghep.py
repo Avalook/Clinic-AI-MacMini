@@ -48,6 +48,8 @@ class QuyetGmail:
     goi_y_clinic_patient_id: str | None = None
     #: Chỉ khi `ly_do` = LUU_TRU: vì sao chỉ cất ở Kho (CHECK ở Postgres).
     luu_tru_vi_sao: str | None = None
+    #: Tự gán KHÔNG chỉ định (`order_id` None): lượt khám để gắn tờ vào hồ sơ khách.
+    appointment_id: str | None = None
 
 
 def luu_tru(vi_sao: str, **goi_y: str | None) -> QuyetGmail:
@@ -130,6 +132,24 @@ def khong_thay_chi_dinh(q: QuyetGmail, khach_that: str | None) -> QuyetGmail:
     return replace(q, ly_do="KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id=khach_that)
 
 
+def gan_ho_so(q: QuyetGmail, luot: tuple[str, str] | None) -> QuyetGmail:
+    """HÀM THUẦN (Tuyền 11/11): khách ĐÚNG (khớp tên + SĐT) mà không có chỉ định đúng
+    loại ⇒ vẫn đưa tờ vào hồ sơ khách — gắn vào lượt khám gần nhất trước thư, KHÔNG tạo
+    chỉ định (chỉ định là chuyện tiền / lượt). Không có lượt ⇒ giữ KHONG_THAY_CHI_DINH.
+    Danh sách "có kết quả mà chưa có chỉ định" = tờ GMAIL có `service_order_id` NULL."""
+    kh = q.goi_y_clinic_patient_id
+    if q.ly_do != "KHONG_THAY_CHI_DINH" or kh is None or luot is None:
+        return q
+    visit_id, appointment_id = luot
+    return QuyetGmail(
+        None,
+        clinic_patient_id=kh,
+        visit_id=visit_id,
+        goi_y_clinic_patient_id=kh,
+        appointment_id=appointment_id,
+    )
+
+
 def vi_sao_khong_xet(nhan_luc: Any, moc: date | None, xac_thuc: bool) -> str | None:
     """HÀM THUẦN: vì sao thư KHÔNG được xét ghép (⇒ Lưu trữ), None = được xét."""
     if moc is None:
@@ -191,7 +211,8 @@ async def _gan_trong_khoa(
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
     from clinicai.services.xet_nghiem import drive
 
-    assert q.order_id is not None and q.clinic_patient_id is not None
+    assert q.clinic_patient_id is not None
+    assert q.order_id is not None or q.appointment_id is not None
     try:
         kq = await TepKetQuaService(pool).tai_len(
             identity=MayQuet(clinic_id=cid),
@@ -199,6 +220,8 @@ async def _gan_trong_khoa(
             data=data,
             ten_hien_thi=ten,
             service_order_id=q.order_id,
+            # Không chỉ định ⇒ gắn vào lượt khám (hồ sơ khách), Tuyền 11/11.
+            appointment_id=None if q.order_id else q.appointment_id,
             la_tep_doi_tac=True,
             tu_drive=True,
             tu_gmail=True,
@@ -220,7 +243,8 @@ async def _gan_trong_khoa(
         # quyền "Từ chối tờ" để tự bù ⇒ không báo bác sĩ, để log cho người xem.
         logger.error("gmail_tu_ghep_lech", drive_tep_id=dong_id, tep_id=str(kq["id"]))
         return False
-    await drive._phat_den(
-        pool, cid, drive.Quyet(q.order_id, q.clinic_patient_id, q.visit_id, None)
-    )
+    if q.order_id is not None:  # sự kiện việc xét nghiệm chỉ có khi có chỉ định
+        await drive._phat_den(
+            pool, cid, drive.Quyet(q.order_id, q.clinic_patient_id, q.visit_id, None)
+        )
     return True

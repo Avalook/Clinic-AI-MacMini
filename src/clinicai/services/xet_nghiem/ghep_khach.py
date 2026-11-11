@@ -108,17 +108,22 @@ _K = TypeVar("_K", bound=_CoTenSdt)
 
 def khop_ds(van_ban: str, ung_vien: Sequence[_K]) -> list[_K]:
     """HÀM THUẦN — LUẬT KHỚP DUY NHẤT (Drive + Gmail): ứng viên có SĐT nằm trong chữ
-    VÀ tên (bỏ dấu, nguyên cụm) nằm trong chữ."""
+    VÀ tên (bỏ dấu, nguyên cụm) nằm trong chữ. `u.sdt` có thể chứa NHIỀU số (SĐT chính
+    + phụ + SĐT thêm, ngăn bằng ` ; ` — 11/11: 3 thư HighDetect mang SĐT phụ)."""
     chu = f" {chuan(van_ban)} "
     sdts = sdt_trong(van_ban)
     return [
         u
         for u in ung_vien
-        if (s := chuan_sdt(u.sdt)) in sdts
-        and s is not None
-        and (ten := chuan(u.ten))
-        and f" {ten} " in chu
+        if _sdt_cua(u.sdt) & sdts and (ten := chuan(u.ten)) and f" {ten} " in chu
     ]
+
+
+def _sdt_cua(sdt: str | None) -> set[str]:
+    """Mọi SĐT (chuẩn hoá) của một khách; ô một số hay nhiều số đều được."""
+    if not sdt:
+        return set()
+    return {x for p in sdt.split(";") if (x := chuan_sdt(p.strip()))}
 
 
 def khop_khach(
@@ -192,7 +197,11 @@ async def doc_ung_vien(
 #: SĐT đúng khách mới gán nên không lẫn.
 _CHI_DINH_SQL = """
 SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
-       o.visit_id::text AS visit_id, p.full_name AS ten, p.phone_primary AS sdt,
+       o.visit_id::text AS visit_id, p.full_name AS ten,
+       concat_ws(' ; ', p.phone_primary, p.phone_secondary,
+                 (SELECT string_agg(s.so_dien_thoai, ' ; ') FROM patient_sdt_them s
+                   WHERE s.clinic_id = p.clinic_id
+                     AND s.clinic_patient_id = p.clinic_patient_id)) AS sdt,
        coalesce(p.birth_year::int, extract(year FROM p.date_of_birth)::int)
            AS nam_sinh,
        t.so > 0 AS co_tep, t.gmail_luc AS tep_gmail_luc,
@@ -215,7 +224,12 @@ SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
   ) t ON true
  WHERE o.clinic_id = $1::uuid
    AND o.exec_status NOT IN ('draft', 'cancelled')
-   AND o.created_at <= $3 AND o.created_at > $3 - interval '60 days'
+   AND o.created_at > $3::timestamptz - interval '60 days'
+   -- Nhập muộn (Tuyền 11/11: chỉ định nhập SAU khi kết quả về) ⇒ tới 7 ngày sau thư,
+   -- NHƯNG chỉ trong lượt đã check-in TRƯỚC thư (không lấy chỉ định lần khám sau).
+   AND (o.created_at <= $3::timestamptz
+        OR (o.created_at <= $3::timestamptz + interval '7 days'
+            AND coalesce(v.checked_in_at, v.created_at) <= $3::timestamptz))
    AND (x.doi_tac_id = $2::uuid
         OR EXISTS (
             SELECT 1 FROM service_price sp
@@ -227,6 +241,29 @@ SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
  ORDER BY o.created_at DESC
  LIMIT 2000
 """
+
+
+#: Lượt khám (có lịch hẹn) GẦN NHẤT của khách, check-in trong 60 ngày trước giờ thư —
+#: để gắn tờ vào hồ sơ khi khách đúng mà chưa có chỉ định (Tuyền 11/11).
+_LUOT_SQL = """
+SELECT v.visit_id::text AS visit_id, v.appointment_id::text AS appointment_id
+  FROM visit v
+ WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid
+   AND v.appointment_id IS NOT NULL
+   AND v.status <> 'INCOMPLETE'  -- khách bỏ về giữa chừng: không phải lượt lấy mẫu
+   AND coalesce(v.checked_in_at, v.created_at) <= $3::timestamptz
+   AND coalesce(v.checked_in_at, v.created_at) > $3::timestamptz - interval '60 days'
+ ORDER BY coalesce(v.checked_in_at, v.created_at) DESC
+ LIMIT 1
+"""
+
+
+async def luot_gan_nhat(
+    conn: asyncpg.Connection, cid: str, clinic_patient_id: str, truoc: datetime
+) -> tuple[str, str] | None:
+    """(visit_id, appointment_id) lượt gần nhất trước `truoc`; không có ⇒ None."""
+    r = await conn.fetchrow(_LUOT_SQL, cid, clinic_patient_id, truoc)
+    return (r["visit_id"], r["appointment_id"]) if r else None
 
 
 async def doc_chi_dinh(
