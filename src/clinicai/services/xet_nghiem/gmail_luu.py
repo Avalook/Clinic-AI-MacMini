@@ -87,17 +87,18 @@ SELECT p.clinic_patient_id::text AS id, p.full_name,
 """
 
 
-async def goi_y_khach(conn: asyncpg.Connection, cid: str, van_ban: str) -> str | None:
-    """Tên + SĐT trong chữ khớp đúng MỘT khách của phòng khám ⇒ id khách; không ⇒ None.
-    Dùng lại luật khớp của Drive (`ghep_khach.khop_khach`) — một câu hỏi một hàm."""
-    sdts = ghep_khach.sdt_trong(van_ban)
+async def khach_theo_sdt(
+    conn: asyncpg.Connection, cid: str, sdts: set[str]
+) -> list[ghep_khach.UngVien]:
+    """MỌI hồ sơ khách của phòng khám mang một trong các SĐT (chính / phụ / thêm) —
+    dạng ứng viên không chỉ định (`order_id` rỗng) cho luật khớp tên."""
     if not sdts:
-        return None
+        return []
     dang = sorted(sdts | {"84" + s[1:] for s in sdts})
     rows = await conn.fetch(_KHACH_THEO_SDT_SQL, cid, dang)
     # Chạm trần ⇒ có thể sót đúng người: báo, và gợi ý vẫn chỉ ra khi khớp đúng một.
     canh_bao_neu_day("patient", len(rows), 20, clinic_id=cid)
-    ung_vien = [
+    return [
         ghep_khach.UngVien(
             order_id="",
             clinic_patient_id=r["id"],
@@ -107,6 +108,14 @@ async def goi_y_khach(conn: asyncpg.Connection, cid: str, van_ban: str) -> str |
         )
         for r in rows
     ]
+
+
+async def goi_y_khach(conn: asyncpg.Connection, cid: str, van_ban: str) -> str | None:
+    """Tên + SĐT trong chữ khớp đúng MỘT khách của phòng khám ⇒ id khách; không ⇒ None.
+    Dùng lại luật khớp của Drive (`ghep_khach.khop_khach`) — một câu hỏi một hàm."""
+    ung_vien = await khach_theo_sdt(conn, cid, ghep_khach.sdt_trong(van_ban))
+    if not ung_vien:
+        return None
     u, _ = ghep_khach.khop_khach(van_ban, ung_vien)
     return u.clinic_patient_id if u else None
 

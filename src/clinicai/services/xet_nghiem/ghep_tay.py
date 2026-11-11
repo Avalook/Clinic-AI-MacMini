@@ -64,21 +64,41 @@ LUU_TRU_VI_SAO: Final = {
 }
 
 
-def vi_sao_cho(ly_do_cho: str | None, luu_tru_vi_sao: str | None) -> str:
+#: KHONG_KHOP_KHACH mà máy tìm được ĐÚNG MỘT khách lệch tên hoặc SĐT (G9).
+LECH_CO_GOI_Y: Final = (
+    "Tên hoặc SĐT trong thư lệch hồ sơ khách — kiểm khách gợi ý rồi bấm Gán cho"
+    " khách này"
+)
+
+
+def vi_sao_cho(
+    ly_do_cho: str | None, luu_tru_vi_sao: str | None, co_goi_y: bool = False
+) -> str:
     """MỘT nơi ra câu "vì sao chưa ghép" của một dòng tệp / thư chờ (hàng ghép tay +
     Kho email). Dòng Lưu trữ cũ (trước G5) không có lý do chi tiết."""
     if ly_do_cho == "LUU_TRU":
         return LUU_TRU_VI_SAO.get(luu_tru_vi_sao or "", "Lưu trữ (không tự ghép)")
+    if ly_do_cho == "KHONG_KHOP_KHACH" and co_goi_y:
+        return LECH_CO_GOI_Y
     return LY_DO_CHO.get(ly_do_cho or "", "Chờ ghép tay")
+
+
+def gan_goi_y_duoc(nguon: object, ly_do_cho: object, goi_y_kh: object) -> bool:
+    """MỘT luật cho nút "Gán cho khách này" (G9): thư email không khớp khách mà máy có
+    ĐÚNG MỘT khách gợi ý (tên / SĐT lệch). Màn hiện nút, cửa lệnh kiểm lại."""
+    return nguon == "GMAIL" and ly_do_cho == "KHONG_KHOP_KHACH" and bool(goi_y_kh)
 
 
 _CHO_SQL = """
 SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
        t.ten, t.mime, t.drive_tao_luc, t.drive_nguoi_tai, t.nhan_luc, t.ly_do_cho,
        t.nguon, t.email_tieu_de, t.email_nhan_luc, t.goi_y_order_id::text,
-       t.goi_y_clinic_patient_id::text
+       t.goi_y_clinic_patient_id::text, p.full_name AS goi_y_ten,
+       p.patient_code AS goi_y_ma
   FROM drive_tep t
   JOIN doi_tac d ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id
+  LEFT JOIN patient p ON p.clinic_patient_id = t.goi_y_clinic_patient_id
+                     AND p.clinic_id = t.clinic_id
  WHERE t.clinic_id = $1::uuid AND t.tep_ket_qua_id IS NULL AND t.tu_choi_luc IS NULL
    -- Thư Gmail Lưu trữ (trước mốc / không tự ghép được) chỉ ở Kho email (quyền riêng)
    -- — không ngập hàng này, không mở qua cửa theo id của nó. Thư Gmail SAU mốc đã xét
@@ -110,7 +130,13 @@ async def ds_cho(conn: asyncpg.Connection, cid: str) -> list[dict[str, Any]]:
     return [
         {
             **dict(r),
-            "vi_sao": vi_sao_cho(r["ly_do_cho"], None),
+            "vi_sao": vi_sao_cho(
+                r["ly_do_cho"], None, r["goi_y_clinic_patient_id"] is not None
+            ),
+            # Nút "Gán cho khách này" (G9): máy chủ tính cờ, màn chỉ vẽ.
+            "gan_goi_y_duoc": gan_goi_y_duoc(
+                r["nguon"], r["ly_do_cho"], r["goi_y_clinic_patient_id"]
+            ),
             "loai": loai_xem(r["mime"]),
         }
         for r in rows
@@ -127,7 +153,8 @@ async def _dong_cho(
     try:
         r = await pool.fetchrow(
             "SELECT id::text AS id, doi_tac_id::text AS doi_tac_id, file_id, ten,"
-            "       mime, nguon, khoa, vi_tri,"
+            "       mime, nguon, khoa, vi_tri, email_nhan_luc, ly_do_cho,"
+            "       goi_y_clinic_patient_id::text AS goi_y_kh,"
             "       drive_nguoi_tai, tep_ket_qua_id, tu_choi_luc"
             "  FROM drive_tep WHERE clinic_id = $1::uuid AND id = $2::uuid"
             # Thư Gmail LƯU TRỮ không đi cửa này (không thì là đường lách quyền Kho
@@ -225,27 +252,34 @@ async def _ghep(
         tu_gmail=r["nguon"] == "GMAIL",
         drive_nguoi_tai=r["drive_nguoi_tai"],
     )
+    await ghi_da_ghep(pool, identity, r["id"], kq["id"])
+    await _phat(pool, identity, "den", v)
+    return {"tep_id": kq["id"]}
+
+
+async def ghi_da_ghep(
+    pool: asyncpg.Pool, identity: StaffIdentity, dong_id: str, tep_id: str
+) -> None:
+    """Dòng tệp chờ ⇒ đã ghép bởi người bấm (Gán tay, Gán cho khách gợi ý — G9). Gọi
+    TRONG `khoa_tep`; lệch thì bù tờ vừa tạo, không để mồ côi."""
     n = await pool.execute(
         "UPDATE drive_tep SET tep_ket_qua_id = $3::uuid, ghep_luc = now(),"
         "       ghep_boi = $4::uuid"
         " WHERE clinic_id = $1::uuid AND id = $2::uuid"
         "   AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL",
         identity.clinic_id,
-        r["id"],
-        kq["id"],
+        dong_id,
+        tep_id,
         identity.staff_id,
     )
     if n != "UPDATE 1":
-        # Không thể xảy ra trong khoá; nếu có thì bù tờ vừa tạo, không để mồ côi.
         await TepKetQuaService(pool).xac_nhan_tep(
             identity=identity,
-            tep_id=kq["id"],
+            tep_id=tep_id,
             trang_thai="TU_CHOI",
             ly_do="Tệp Drive vừa được xử lý ở chỗ khác",
         )
         raise ConflictError("Tệp này vừa được người khác xử lý — tải lại màn.")
-    await _phat(pool, identity, "den", v)
-    return {"tep_id": kq["id"]}
 
 
 async def tu_choi(

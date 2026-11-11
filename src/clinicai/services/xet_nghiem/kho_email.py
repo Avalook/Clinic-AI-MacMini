@@ -140,7 +140,9 @@ def _vi_sao(d: dict[str, Any]) -> None:
     (`ghep_tay.vi_sao_cho`); đã ghép / đã từ chối ⇒ None."""
     ly, luu = d.pop("ly_do_cho", None), d.pop("luu_tru_vi_sao", None)
     cho = d["trang_thai"] in ("LUU_TRU", "CHO_GHEP")
-    d["vi_sao"] = ghep_tay.vi_sao_cho(ly, luu) if cho else None
+    d["vi_sao"] = (
+        ghep_tay.vi_sao_cho(ly, luu, d.get("goi_y_id") is not None) if cho else None
+    )
 
 
 def _dong(r: asyncpg.Record) -> dict[str, Any]:
@@ -242,7 +244,8 @@ async def _mot_thu(conn: asyncpg.Connection, cid: str, tid: object) -> asyncpg.R
             f"       d.ten AS ten_doi_tac, t.ten, t.email_tieu_de AS tieu_de,"
             f"       t.email_than AS than, t.email_nhan_luc AS nhan_luc,"
             f"       t.ma_ben_doi_tac_tep AS ma_tep, {_TRANG_THAI} AS trang_thai,"
-            f"       t.ly_do_cho, t.luu_tru_vi_sao, t.khoa, t.vi_tri, t.so_byte"
+            f"       t.ly_do_cho, t.luu_tru_vi_sao, t.khoa, t.vi_tri, t.so_byte,"
+            f"       t.goi_y_clinic_patient_id::text AS goi_y_id"
             f"  FROM drive_tep t JOIN doi_tac d"
             f"    ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id"
             f" WHERE t.clinic_id = $1::uuid AND t.id = $2::uuid AND t.nguon = 'GMAIL'",
