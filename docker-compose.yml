@@ -364,6 +364,10 @@ services:
   # chờ mạng Google. Không có khoá (tệp rỗng) ⇒ vòng bỏ qua.
   # KHÔNG có healthcheck có chủ ý: Drive hỏng không được chặn deploy prod hay làm đỏ
   # Kuma — canh gác `DRIVE_KHONG_NHIP` (su-kien) báo khi quá 1 giờ không quét được.
+  # Gmail G2 (09/11/2026): cùng tiến trình đọc thư kết quả đối tác gửi về Gmail phòng
+  # khám (OAuth CHỈ ĐỌC, secret `gmail_oauth`), lưu PDF vào ổ VPS. Hộp thư thuộc MỘT
+  # phòng khám: GMAIL_CLINIC_ID (trong .env.prod) — thiếu ⇒ không quét. Staging KHÔNG
+  # đặt GOOGLE_GMAIL_OAUTH_KEY_FILE ⇒ tệp rỗng ⇒ không đọc hộp thư thật.
   drive-xn:
     <<: *clinic-service-defaults
     build:
@@ -373,13 +377,14 @@ services:
     restart: unless-stopped
     mem_limit: ${DRIVE_XN_MEMORY_LIMIT:-160m}
     pids_limit: 64
-    secrets: [drive_sa_key]
+    secrets: [drive_sa_key, gmail_oauth]
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
       MEDIA_ROOT: /var/lib/clinicai/media
       MEDIA_LOCAL_ROOT: /var/lib/clinicai/media-vps
       TMPDIR: /var/lib/clinicai/media-vps/.tam
       GOOGLE_DRIVE_SA_FILE: /run/secrets/drive_sa_key
+      GOOGLE_GMAIL_OAUTH_FILE: /run/secrets/gmail_oauth
     command: ["python", "-m", "clinicai.worker", "--drive"]
     depends_on:
       media-quyen:
@@ -567,6 +572,11 @@ secrets:
   # trường>; không đặt ⇒ tệp rỗng giữ chỗ ⇒ tính năng Drive tắt (dev/CI).
   drive_sa_key:
     file: ${GOOGLE_DRIVE_SA_KEY_FILE:-./docker/khong-co-khoa-drive}
+  # OAuth CHỈ ĐỌC hộp thư Gmail phòng khám (Gmail G2, 09/11/2026): JSON client_id +
+  # client_secret + refresh_token do scripts/gmail-cap-quyen.py tạo; đường dẫn ở
+  # GOOGLE_GMAIL_OAUTH_KEY_FILE trong .env.prod. Không đặt ⇒ tệp rỗng ⇒ Gmail tắt.
+  gmail_oauth:
+    file: ${GOOGLE_GMAIL_OAUTH_KEY_FILE:-./docker/khong-co-khoa-gmail}
 
 volumes:
   caddy_data:

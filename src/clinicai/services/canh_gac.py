@@ -151,6 +151,16 @@ def danh_gia(so: dict[str, Any]) -> list[KetQuaKiem]:
             f"{DRIVE_KHONG_NHIP_GIO} giờ không quét được — kiểm container drive-xn "
             "và khoá Drive (lỗi cuối ở Cài đặt → Đối tác).",
         ),
+        # Gmail G2 (09/11): cùng ngưỡng; quyền Gmail bị thu hồi hiện ở loi_cuoi
+        # ("Mất quyền đọc Gmail — cấp lại quyền").
+        KetQuaKiem(
+            "GMAIL_KHONG_NHIP",
+            "warning",
+            so.get("gmail_khong_nhip", 0) > 0,
+            f"{so.get('gmail_khong_nhip', 0)} đối tác đã đặt email gửi kết quả mà quá "
+            f"{DRIVE_KHONG_NHIP_GIO} giờ không đọc được Gmail — kiểm container drive-xn"
+            " và quyền Gmail (lỗi cuối: drive_nhip nguồn GMAIL).",
+        ),
     ]
     return ra
 
@@ -197,7 +207,16 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
               AND d.sua_luc < now() - make_interval(hours => $4)
               AND (n.ok_cuoi IS NULL
                    OR n.ok_cuoi < now() - make_interval(hours => $4)))
-            AS drive_khong_nhip
+            AS drive_khong_nhip,
+          (SELECT count(*) FROM doi_tac d
+             LEFT JOIN drive_nhip n
+               ON n.clinic_id = d.clinic_id AND n.doi_tac_id = d.id
+              AND n.nguon = 'GMAIL'
+            WHERE d.email_gui_ket_qua IS NOT NULL AND d.ngung_luc IS NULL
+              AND d.sua_luc < now() - make_interval(hours => $4)
+              AND (n.ok_cuoi IS NULL
+                   OR n.ok_cuoi < now() - make_interval(hours => $4)))
+            AS gmail_khong_nhip
         """,
         CHO_DAY_LAU_GIO,
         NGUONG_LOI_DAY,
@@ -238,6 +257,7 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
         "tep_loi_day": int(r["tep_loi_day"]),
         "tien_chi_dinh_lech": int(r["tien_chi_dinh_lech"]),
         "drive_khong_nhip": int(r["drive_khong_nhip"]),
+        "gmail_khong_nhip": int(r["gmail_khong_nhip"]),
     }
 
 
