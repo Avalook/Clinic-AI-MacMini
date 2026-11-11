@@ -1,4 +1,9 @@
-"""Xét lại thư Gmail đã cất Lưu trữ vì "không xác thực" — Gmail G6 (11/11/2026).
+"""Xét lại thư Gmail đã xếp trước khi luật đổi — Gmail G6 + G7 (11/11/2026).
+
+Các nhóm: `LUU_TRU / KHONG_XAC_THUC` (G6: SPF khớp miền), `ONG_NHIEU_VIEC` (G7: tách
+HPV / STD theo loại đọc trong PDF), `KHONG_THAY_CHI_DINH` / `KHONG_KHOP_KHACH` (11/11:
+SĐT phụ, chỉ định nhập muộn ≤ 7 ngày, khách đúng mà chưa có chỉ định ⇒ vào hồ sơ theo
+lượt khám). Quyết lại ra đúng lý do cũ ⇒ để nguyên.
 
 Vì sao có: luật xác thực G3 chỉ nhận DKIM / DMARC đúng miền; HighDetect (lab máu) gửi
 qua Google Workspace không DKIM riêng, không DMARC ⇒ thư thật bị xếp oan `LUU_TRU /
@@ -34,24 +39,27 @@ TRAN: Final = 2000
 
 _DONG_SQL = f"""
 SELECT t.id::text AS id, t.doi_tac_id::text AS dt, t.email_message_id AS mid,
-       t.file_id, t.khoa, t.vi_tri, d.email_gui_ket_qua AS email
+       t.file_id, t.khoa, t.vi_tri, d.email_gui_ket_qua AS email,
+       t.ly_do_cho, t.luu_tru_vi_sao
   FROM drive_tep t
   JOIN doi_tac d ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id
  WHERE t.clinic_id = $1::uuid AND t.nguon = 'GMAIL'
-   AND t.ly_do_cho = 'LUU_TRU' AND t.luu_tru_vi_sao = 'KHONG_XAC_THUC'
+   AND ((t.ly_do_cho = 'LUU_TRU' AND t.luu_tru_vi_sao = 'KHONG_XAC_THUC')
+        OR t.ly_do_cho IN ('ONG_NHIEU_VIEC', 'KHONG_THAY_CHI_DINH',
+                           'KHONG_KHOP_KHACH'))
    AND t.tep_ket_qua_id IS NULL AND t.tu_choi_luc IS NULL
    AND d.email_gui_ket_qua IS NOT NULL AND d.ngung_luc IS NULL
  ORDER BY t.email_nhan_luc, t.id
  LIMIT {TRAN}
 """
 
-#: Chỉ dòng VẪN ở "Lưu trữ / không xác thực" (không đè người / lượt khác đã xử lý).
+#: Chỉ dòng VẪN ở đúng lý do lúc đọc ($7/$8) — không đè người / lượt khác đã xử lý.
 _CAP_NHAT_SQL = """
 UPDATE drive_tep
    SET ly_do_cho = $3, luu_tru_vi_sao = $4, goi_y_order_id = $5::uuid,
        goi_y_clinic_patient_id = coalesce($6::uuid, goi_y_clinic_patient_id)
  WHERE clinic_id = $1::uuid AND id = $2::uuid
-   AND ly_do_cho = 'LUU_TRU' AND luu_tru_vi_sao = 'KHONG_XAC_THUC'
+   AND ly_do_cho = $7 AND luu_tru_vi_sao IS NOT DISTINCT FROM $8
    AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL
 """
 
@@ -98,7 +106,7 @@ async def _mot_thu(
         dem["bo_qua"] += len(dongs)  # thư mất / người gửi khác email đối tác
         return
     phan = {p.part_id: p for p in thu.pdf}
-    tai: list[tuple[gmail_api.PhanPdf, bytes, str]] = []
+    tai: list[tuple[gmail_api.PhanPdf, bytes, asyncpg.Record]] = []
     for d in dongs:
         p = phan.get(_part_id(d["file_id"], mid) or "")
         if p is None:
@@ -112,20 +120,28 @@ async def _mot_thu(
                 "gmail_xet_lai_mat_byte", drive_tep_id=d["id"], loai=type(e).__name__
             )
             continue
-        tai.append((p, data, d["id"]))
+        tai.append((p, data, d))
+    if not tai:
+        return
     muc = await gmail.muc_ca_thu(
         pool, cid, dongs[0]["dt"], thu, [(p, b) for p, b, _ in tai]
     )
-    for m, (_, _, dong_id) in zip(muc, tai, strict=True):
-        await _ap(pool, cid, dong_id, m, dem)
+    for m, (_, _, d) in zip(muc, tai, strict=True):
+        await _ap(pool, cid, d, m, dem)
 
 
 async def _ap(
-    pool: asyncpg.Pool, cid: str, dong_id: str, m: gmail_luu.Muc, dem: Counter[str]
+    pool: asyncpg.Pool,
+    cid: str,
+    d: asyncpg.Record,
+    m: gmail_luu.Muc,
+    dem: Counter[str],
 ) -> None:
-    q = m.q
-    if q.luu_tru_vi_sao == "KHONG_XAC_THUC":
-        dem["van_khong_xac_thuc"] += 1
+    q, dong_id = m.q, d["id"]
+    if (q.ly_do, q.luu_tru_vi_sao) == (d["ly_do_cho"], d["luu_tru_vi_sao"]):
+        # Quyết lại vẫn như cũ ⇒ để nguyên.
+        cu = d["luu_tru_vi_sao"] or d["ly_do_cho"]
+        dem["van_" + str(cu).lower()] += 1
         return
     n = await pool.execute(
         _CAP_NHAT_SQL,
@@ -135,6 +151,8 @@ async def _ap(
         q.luu_tru_vi_sao,
         q.goi_y_order_id,
         q.goi_y_clinic_patient_id or q.clinic_patient_id,
+        d["ly_do_cho"],
+        d["luu_tru_vi_sao"],
     )
     if n != "UPDATE 1":
         dem["da_doi"] += 1  # dòng vừa được xử lý ở chỗ khác

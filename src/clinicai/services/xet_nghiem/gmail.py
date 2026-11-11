@@ -178,6 +178,12 @@ async def muc_ca_thu(
                 # Khách có thật mà không có chỉ định loại này ⇒ nói đúng lý do đó.
                 that = await gmail_luu.goi_y_khach(conn, cid, f"{doc.ten}\n{doc.sdt}")
                 q = gmail_ghep.khong_thay_chi_dinh(q, that)
+            if q.ly_do == "KHONG_THAY_CHI_DINH" and q.goi_y_clinic_patient_id:
+                # Khách đúng, chưa có chỉ định ⇒ vào hồ sơ theo lượt gần nhất.
+                luot = await ghep_khach.luot_gan_nhat(
+                    conn, cid, q.goi_y_clinic_patient_id, thu.nhan_luc
+                )
+                q = gmail_ghep.gan_ho_so(q, luot)
             muc.append(gmail_luu.Muc(p, d, c, q))
     return muc
 

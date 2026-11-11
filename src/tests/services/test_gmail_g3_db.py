@@ -20,6 +20,7 @@ import asyncpg
 import pytest
 
 from clinicai.core.clock import hom_nay_vn
+from clinicai.services.tep_ket_qua_service import TepKetQuaService
 from clinicai.services.xet_nghiem import ghep_tay, gmail, gmail_api, mau
 from clinicai.services.xet_nghiem.gmail_api import PhanPdf, ThuGmail
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
@@ -27,7 +28,7 @@ from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     pool,
 )
 from tests.services.test_gmail_g2_db import GmailGia
-from tests.services.test_xac_nhan_tep_ket_qua_db import PDF_DUMMY
+from tests.services.test_xac_nhan_tep_ket_qua_db import PDF_DUMMY, _tao_staff
 from tests.services.test_xet_nghiem_drive_db import _lam
 from tests.services.test_xet_nghiem_drive_db import _thu as _thu_tien
 from tests.services.test_xet_nghiem_nen_db import (  # noqa: F401
@@ -368,10 +369,13 @@ async def test_g5_to_tai_tay_va_to_gmail_hien_song_song(
     ]
 
 
-async def test_g5_chi_dinh_qua_60_ngay_thi_khong_thay_chi_dinh(
+async def test_g5_khach_dung_khong_chi_dinh_thi_vao_ho_so_theo_luot(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,
 ) -> None:
+    """Tuyền 11/11: khách đúng (tên + SĐT) mà không có chỉ định đúng loại trong 60 ngày
+    (nhân viên không nhập chỉ định máu) ⇒ tờ vào HỒ SƠ khách, gắn lượt khám gần nhất,
+    KHÔNG tạo chỉ định; vẫn chờ xác nhận. (Trước: lý do KHONG_THAY_CHI_DINH.)"""
     v = await c3.viec(pool)
     await pool.execute(
         "UPDATE service_order SET created_at = now() - interval '61 days'"
@@ -381,12 +385,76 @@ async def test_g5_chi_dinh_qua_60_ngay_thi_khong_thay_chi_dinh(
     mid = c3.thu(v["ten"], v["sdt"])
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
-    # Khách có thật (tên + SĐT khớp hồ sơ) nhưng không có chỉ định trong 60 ngày.
-    assert (d["ly_do_cho"], d["goi_y_clinic_patient_id"]) == (
-        "KHONG_THAY_CHI_DINH",
+    assert d["ly_do_cho"] is None and d["tep_ket_qua_id"] is not None
+    assert await _to_cua(pool, v["oid"]) == []  # không gắn vào chỉ định cũ
+    tep = await pool.fetchrow(
+        "SELECT k.service_order_id, k.clinic_patient_id::text AS kh, k.nguon,"
+        "       k.xac_nhan_trang_thai, k.appointment_id = v.appointment_id AS dung_luot"
+        "  FROM tep_ket_qua k, service_order o JOIN visit v ON v.visit_id = o.visit_id"
+        " WHERE k.id = $1::uuid AND o.id = $2::uuid",
+        d["tep_ket_qua_id"],
+        v["oid"],
+    )
+    assert tep["service_order_id"] is None and tep["kh"] == v["kh"]
+    assert (tep["nguon"], tep["xac_nhan_trang_thai"]) == ("GMAIL", "CHO_XAC_NHAN")
+    assert tep["dung_luot"] is True
+    # Soát G8: tờ không chỉ định phải có lối xác nhận / từ chối — hàng "Xác nhận kết
+    # quả" là lối duy nhất (Bàn XN, Gán sang đều cần chỉ định).
+    async with pool.acquire() as conn:
+        nguoi = await _tao_staff(conn, CLINIC, "DOCTOR", ["ket_qua.xac_nhan"])
+    sv = TepKetQuaService(pool)
+    hang = {r["tep_id"]: r for r in await sv.cho_xac_nhan(identity=nguoi)}
+    assert d["tep_ket_qua_id"] in hang
+    assert hang[d["tep_ket_qua_id"]]["service_order_id"] is None
+    kq = await sv.xac_nhan_tep(
+        identity=nguoi, tep_id=d["tep_ket_qua_id"], trang_thai="HOP_LE"
+    )
+    assert kq["ok"] is True
+
+
+async def test_g8_luot_bo_ve_giua_chung_khong_nhan_to(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    """Soát G8: lượt INCOMPLETE (khách bỏ về) không phải lượt lấy mẫu ⇒ không gắn
+    tờ vào đó; không còn lượt nào ⇒ vẫn là KHONG_THAY_CHI_DINH để người xem."""
+    v = await c3.viec(pool)
+    await pool.execute(
+        "UPDATE service_order SET created_at = now() - interval '61 days'"
+        " WHERE id = $1::uuid",
+        v["oid"],
+    )
+    await pool.execute(
+        "UPDATE visit SET status = 'INCOMPLETE', incomplete_reason = 'Khách về'"
+        " WHERE clinic_patient_id = $1::uuid",
         v["kh"],
     )
-    assert await _to_cua(pool, v["oid"]) == []
+    mid = c3.thu(v["ten"], v["sdt"])
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    assert d["tep_ket_qua_id"] is None
+    assert d["ly_do_cho"] == "KHONG_THAY_CHI_DINH"
+
+
+async def test_khop_theo_sdt_phu_cua_khach(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    """11/11: SĐT trong thư nằm ở ô SĐT PHỤ của khách ⇒ vẫn khớp, tự gán chỉ định."""
+    v = await c3.viec(pool)
+    await pool.execute(
+        "UPDATE patient SET phone_secondary = phone_primary, phone_primary = $2"
+        " WHERE clinic_patient_id = $1::uuid",
+        v["kh"],
+        "0911" + v["sdt"][-6:],
+    )
+    mid = c3.thu(v["ten"], v["sdt"])
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    assert d["ly_do_cho"] is None
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
+        ("GMAIL", "CHO_XAC_NHAN")
+    ]
 
 
 async def test_g5_thu_cu_hon_to_da_co_thi_da_co_ket_qua(
@@ -441,10 +509,19 @@ async def test_g5_ung_vien_dung_lab_dung_cua_so_ngay(
         assert uv[v["oid"]].ten_dich_vu
         assert v["oid"] in await ids(conn, hai, bay_gio)
         assert v["oid"] not in await ids(conn, la, bay_gio)
-        truoc = bay_gio - timedelta(hours=1)  # thư nhận TRƯỚC khi chỉ định
-        assert v["oid"] not in {
-            u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, truoc)
-        }
+        # Chỉ định nhập muộn ≤ 7 ngày SAU thư (Tuyền 11/11) — chỉ khi lượt của nó
+        # check-in TRƯỚC thư; lượt check-in sau thư là lần khám SAU ⇒ không nhận.
+        muon = bay_gio - timedelta(days=6)
+        assert v["oid"] not in await ids(conn, c3.dt, muon)  # lượt (bây giờ) sau thư
+        await conn.execute(
+            "UPDATE visit SET checked_in_at = now() - interval '7 days'"
+            " WHERE visit_id ="
+            " (SELECT visit_id FROM service_order WHERE id = $1::uuid)",
+            v["oid"],
+        )
+        assert v["oid"] in await ids(conn, c3.dt, muon)  # cùng lượt, nhập muộn
+        truoc = bay_gio - timedelta(days=8)
+        assert v["oid"] not in await ids(conn, c3.dt, truoc)  # quá 7 ngày
         sau_61 = bay_gio + timedelta(days=61)
         assert v["oid"] not in {
             u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, sau_61)
