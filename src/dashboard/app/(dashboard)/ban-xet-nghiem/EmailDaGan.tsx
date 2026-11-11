@@ -11,6 +11,7 @@ import ONhap from "@/components/ui/ONhap";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
 import GanKhachEmail from "./GanKhachEmail";
+import { useNgheBang } from "../dung-nghe-bang";
 import { CHUA_TAI, gioNgay, lenh } from "./kieu";
 
 interface ThuDaGan {
@@ -22,7 +23,9 @@ interface ThuDaGan {
   ten_doi_tac: string;
   ghep_boi: string;
   tep_id: string;
+  loai_tep: string;
   nhan_to: string;
+  canh_bao: string | null;
   da_gui: boolean;
   gan_vao: string;
   ten_khach: string;
@@ -65,6 +68,8 @@ export default function EmailDaGan({ onXong }: { onXong: (bao: string) => void }
     if (d) setDl(d);
   }, [q]);
 
+  useNgheBang(["drive_tep", "tep_ket_qua"], tai);
+
   useEffect(() => {
     let huy = false;
     void docDaGan(q).then((d) => {
@@ -82,13 +87,14 @@ export default function EmailDaGan({ onXong }: { onXong: (bao: string) => void }
     setLoi(null);
     const e = await lenh("drive-gan-lai", { drive_tep_id: t.id, clinic_patient_id: kh, ly_do: lyDo });
     setDang(false);
+    // Lỗi sau khi tờ cũ đã bù (thư về mục "chưa khớp khách") cũng phải tải lại.
+    await tai();
     if (e) {
       setLoi(e);
       return;
     }
     setMo(null);
-    await tai();
-    onXong(`Đã gán lại thư cho ${ten}; tờ cũ của ${t.ten_khach} đã thu hồi.`);
+    onXong(`Đã gán lại thư cho ${ten}.`);
   }
 
   return (
@@ -117,7 +123,7 @@ export default function EmailDaGan({ onXong }: { onXong: (bao: string) => void }
                 <button
                   type="button"
                   className="break-all text-left font-semibold text-brand-700 hover:underline"
-                  onClick={() => setXem({ tieuDe: t.ten, tep: tepXem({ id: t.tep_id, ten: t.ten, loai_tep: "PDF" }) })}
+                  onClick={() => setXem({ tieuDe: t.ten, tep: tepXem({ id: t.tep_id, ten: t.ten, loai_tep: t.loai_tep }) })}
                 >
                   {t.ten}
                 </button>
@@ -127,6 +133,7 @@ export default function EmailDaGan({ onXong }: { onXong: (bao: string) => void }
                   {t.patient_code ? ` · ${t.patient_code}` : ""} · {t.gan_vao} · {t.nhan_to}
                   {t.da_gui ? " · đã gửi khách" : ""}
                 </div>
+                {t.canh_bao ? <div className="font-semibold text-danger">{t.canh_bao}</div> : null}
               </div>
               <div className="text-right text-ink-muted">
                 {t.ten_doi_tac} · {t.ghep_boi} · {gioNgay(t.ghep_luc ?? t.email_nhan_luc)}

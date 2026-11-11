@@ -162,8 +162,11 @@ class EmailDaGanOut(BaseModel):
     ten_doi_tac: str
     ghep_boi: str
     tep_id: str
-    #: Chữ trạng thái tờ (máy chủ tính): Chờ xác nhận / Hợp lệ.
+    loai_tep: str
+    #: Chữ trạng thái tờ (máy chủ tính): Chờ xác nhận / Hợp lệ / Tờ đã thu hồi…
     nhan_to: str
+    #: Tờ đã gửi khách mà gắn nhầm ⇒ câu nhắc báo khách (máy chủ tính).
+    canh_bao: str | None
     da_gui: bool
     vao_chi_dinh: bool
     #: Tên dịch vụ của chỉ định, hoặc "Hồ sơ theo lượt khám".

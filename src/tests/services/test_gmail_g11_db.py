@@ -9,10 +9,10 @@ from typing import Any
 import asyncpg
 import pytest
 
-from clinicai.api.exceptions import ConflictError
+from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.services.xet_nghiem import ghep_tay, gmail, gmail_gan_lai, gmail_goi_y
+from clinicai.services.xet_nghiem import gmail, gmail_gan_lai
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
@@ -134,7 +134,7 @@ async def test_dung_som_thi_khong_doi_gi(
     ca = [
         (await _nguoi(pool), a["kh"], "Lý do", ConflictError),
         (await _nguoi(pool), "khong-phai-uuid", "Lý do", ConflictError),
-        (await _nguoi(pool), b["kh"], "", Exception),
+        (await _nguoi(pool), b["kh"], "", ValidationError),
         (await _nguoi(pool, xac_nhan=False), b["kh"], "Lý do", SafetyGateError),
     ]
     for nguoi, kh, ly, loi in ca:
@@ -147,13 +147,14 @@ async def test_dung_som_thi_khong_doi_gi(
         assert await _to(pool, d["id"]) == truoc
 
 
-async def test_buoc_gan_moi_hong_thi_thu_ve_hang_cho(
+async def test_khach_moi_khong_co_cho_gan_thi_dung_truoc_khi_thu_hoi(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
 ) -> None:
-    """Khách mới không có chỉ định, không có lượt ⇒ tờ cũ đã bù, thư về hàng chờ (gán
-    tiếp được bằng ô tìm khách) — không mất thư."""
+    """Soát G11: khách mới không có chỉ định, không có lượt ⇒ biết TRƯỚC ⇒ 409, tờ cũ
+    và thư giữ nguyên (không thu hồi rồi mới phát hiện)."""
     a, b, d = await _tu_gan(pool, c3)
+    truoc = await _to(pool, d["id"])
     await pool.execute(
         "UPDATE service_order SET created_at = now() - interval '61 days'"
         " WHERE id = $1::uuid",
@@ -171,16 +172,64 @@ async def test_buoc_gan_moi_hong_thi_thu_ve_hang_cho(
             await _nguoi(pool),
             {"drive_tep_id": d["id"], "clinic_patient_id": b["kh"], "ly_do": "Nhầm"},
         )
-    assert (await _to(pool, d["id"]))["tep"] is None
-    async with pool.acquire() as conn:
-        assert d["id"] in {t["id"] for t in await ghep_tay.ds_cho(conn, CLINIC)}
-    # Gán tiếp cho đúng khách cũ bằng lệnh G10.
-    kq = await gmail_goi_y.gan_cho_khach(
+    assert await _to(pool, d["id"]) == truoc
+
+
+async def test_to_da_thu_hoi_o_cho_khac_van_gan_lai_duoc_va_phat_su_kien(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+) -> None:
+    """Soát G11 (chặn 1): tờ của thư đã bị từ chối ở chỗ khác (hàng Xác nhận) ⇒ thư
+    KHÔNG kẹt: hiện "Tờ đã thu hồi / từ chối — chưa gán lại" và gán lại được (bỏ bước
+    bù). Mọi lần gán lại phát `lab.email_result_reassigned`."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    a, b, d = await _tu_gan(pool, c3)
+    cu = (await _to(pool, d["id"]))["tep"]
+    await TepKetQuaService(pool).xac_nhan_tep(
+        identity=await _nguoi(pool), tep_id=cu, trang_thai="TU_CHOI", ly_do="Sai"
+    )
+    ds = await gmail_gan_lai.da_gan(pool, await _nguoi(pool), "")
+    dong = next(t for t in ds["thu"] if t["id"] == d["id"])
+    assert dong["nhan_to"] == gmail_gan_lai.NHAN_MAT_HIEU_LUC
+    kq = await gmail_gan_lai.gan_lai(
         pool,
         await _nguoi(pool),
-        {"drive_tep_id": d["id"], "clinic_patient_id": a["kh"]},
+        {"drive_tep_id": d["id"], "clinic_patient_id": b["kh"], "ly_do": "Gán đúng"},
     )
-    assert kq["vao_chi_dinh"] is True
+    assert (await _to(pool, d["id"]))["kh"] == b["kh"]
+    su_kien = await pool.fetchrow(
+        "SELECT payload FROM domain_event"
+        " WHERE event_type = 'lab.email_result_reassigned' AND aggregate_id = $1::uuid",
+        d["id"],
+    )
+    assert su_kien is not None
+    assert str(kq["tep_id"]) in str(su_kien["payload"]) and cu in str(
+        su_kien["payload"]
+    )
+
+
+async def test_to_da_gui_khach_thi_canh_bao_bao_khach(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+) -> None:
+    a, b, d = await _tu_gan(pool, c3)
+    nguoi = await _nguoi(pool)
+    await gmail_gan_lai.gan_lai(
+        pool,
+        nguoi,
+        {"drive_tep_id": d["id"], "clinic_patient_id": b["kh"], "ly_do": "Nhầm"},
+    )
+    tep = (await _to(pool, d["id"]))["tep"]
+    await pool.execute(
+        "UPDATE tep_ket_qua SET gui_luc = now(), gui_boi_staff_id = $2::uuid,"
+        "       gui_kenh = 'ZALO' WHERE id = $1::uuid",
+        tep,
+        nguoi.staff_id,
+    )
+    ds = await gmail_gan_lai.da_gan(pool, nguoi, "")
+    dong = next(t for t in ds["thu"] if t["id"] == d["id"])
+    assert dong["da_gui"] is True and "báo khách" in (dong["canh_bao"] or "")
 
 
 async def test_danh_sach_da_gan_loc_va_co_quyen(
