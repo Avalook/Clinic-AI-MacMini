@@ -21,6 +21,7 @@ import { useMemo, useState, useTransition,
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import Chip, { chipClass } from "@/components/ui/Chip";
+import NganGap from "@/components/ui/NganGap";
 import { buttonClass } from "@/components/ui/Button";
 import { fmtDate, fmtDateTimeOrDate, conToi, mocMs, nowMs } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
@@ -1907,6 +1908,88 @@ export default function CustomersView({
               </div>
 
               <div className="space-y-3 py-4">
+                {/* THÔNG TIN HÀNH CHÍNH LÊN ĐẦU (chị Hoài, 11/11/2026): trước nằm cuối
+                    cột — phải cuộn ~3 khung (1280) / ~12 màn (375) mới tới nút Sửa.
+                    Gập mặc định để khung gọi điện của CSKH không bị đẩy xuống; nhớ
+                    lần mở/đóng cuối của từng người (`nhoKhoa`). */}
+                <NganGap
+                  tieuDe="Thông tin hành chính"
+                  phu={canEdit ? "SĐT, địa chỉ, công ty xuất hoá đơn — mở để sửa" : undefined}
+                  nhoKhoa="khach-hanh-chinh"
+                >
+                  <div className="pt-2">
+                    {canEdit ? (
+                      <>
+                        <PatientAdminEditor
+                          key={selected.clinic_patient_id}
+                          sdtThem={selected.patient_sdt_them ?? []}
+                          patient={{
+                            clinic_patient_id: selected.clinic_patient_id,
+                            full_name: selected.full_name,
+                            date_of_birth: selected.date_of_birth,
+                            phone_primary: selected.phone_primary,
+                            phone_secondary: selected.phone_secondary,
+                            national_id_number: selected.national_id_number,
+                            email: selected.email,
+                            gender: selected.gender,
+                            ethnicity: selected.ethnicity,
+                            nationality: selected.nationality,
+                            occupation: selected.occupation,
+                            patient_objection: selected.patient_objection,
+                            address: selected.address,
+                            guardian_name: selected.guardian_name,
+                            updated_at: selected.updated_at ?? null,
+                            van_de_di_kham: selected.van_de_di_kham,
+                            linh_vuc: selected.linh_vuc,
+                          }}
+                        />
+                        <dl className="mt-2 space-y-1.5 text-sm">
+                          <DetailRow label="Cơ sở" value={locName(selected.location_id)} />
+                          <DetailRow label="Ngày tạo" value={fmtDateTimeOrDate(selected.created_at)} />
+                        </dl>
+                      </>
+                    ) : (
+                      <dl className="space-y-2 text-sm">
+                        <DetailRow label="Kênh đặt gần nhất" value={nhanKenh(selected.kenh_dat)} />
+                        <DetailRow label="Người giới thiệu" value={selected.nguoi_gioi_thieu ?? null} />
+                        <DetailRow
+                          label="Đổi / huỷ gần nhất"
+                          value={cauDoiHuy(selected.doi_huy_gan_nhat)}
+                        />
+                        <DetailRow label="Ngày sinh" value={dobDisplay(selected)} />
+                        <DetailRow label="Giới tính" value={selected.gender} />
+                        <DetailRow label="SĐT chính" value={selected.phone_primary} />
+                        {(selected.patient_sdt_them ?? [])
+                          .filter((t) => t.loai === "CHINH")
+                          .map((t) => (
+                            <DetailRow
+                              key={t.so_dien_thoai}
+                              label="SĐT thêm"
+                              value={t.so_dien_thoai}
+                            />
+                          ))}
+                        <DetailRow label="SĐT người nhà" value={selected.phone_secondary} />
+                        {(selected.patient_sdt_them ?? [])
+                          .filter((t) => t.loai === "NGUOI_NHA")
+                          .map((t) => (
+                            <DetailRow
+                              key={t.so_dien_thoai}
+                              label="SĐT người nhà thêm"
+                              value={t.so_dien_thoai}
+                            />
+                          ))}
+                        <DetailRow label="Dân tộc" value={selected.ethnicity} />
+                        <DetailRow label="Quốc tịch" value={selected.nationality} />
+                        <DetailRow label="Nghề nghiệp" value={selected.occupation} />
+                        <DetailRow label="Đối tượng" value={selected.patient_objection} />
+                        <DetailRow label="Địa chỉ" value={selected.address} />
+                        <DetailRow label="Cơ sở" value={locName(selected.location_id)} />
+                        <DetailRow label="Ngày tạo" value={fmtDateTimeOrDate(selected.created_at)} />
+                      </dl>
+                    )}
+                  </div>
+                </NganGap>
+
                 {/* Ô NÀY NÓI VỀ LƯỢT ĐANG XEM, không phải "lịch đại diện".
                     Trước 10/08/2026 nó đọc `selectedAppt` còn cột giữa đọc một
                     thứ khác, nên hai cột cạnh nhau nói về hai lượt khác nhau. */}
@@ -2149,76 +2232,6 @@ export default function CustomersView({
                     Đặt lịch mới
                   </button>
                 ) : null}
-
-                {canEdit ? (
-                  <>
-                    <PatientAdminEditor
-                      key={selected.clinic_patient_id}
-                      sdtThem={selected.patient_sdt_them ?? []}
-                      patient={{
-                        clinic_patient_id: selected.clinic_patient_id,
-                        full_name: selected.full_name,
-                        date_of_birth: selected.date_of_birth,
-                        phone_primary: selected.phone_primary,
-                        phone_secondary: selected.phone_secondary,
-                        national_id_number: selected.national_id_number,
-                        email: selected.email,
-                        gender: selected.gender,
-                        ethnicity: selected.ethnicity,
-                        nationality: selected.nationality,
-                        occupation: selected.occupation,
-                        patient_objection: selected.patient_objection,
-                        address: selected.address,
-                        guardian_name: selected.guardian_name,
-                        updated_at: selected.updated_at ?? null,
-                        van_de_di_kham: selected.van_de_di_kham,
-                        linh_vuc: selected.linh_vuc,
-                      }}
-                    />
-                    <dl className="space-y-1.5 text-sm">
-                      <DetailRow label="Cơ sở" value={locName(selected.location_id)} />
-                      <DetailRow label="Ngày tạo" value={fmtDateTimeOrDate(selected.created_at)} />
-                    </dl>
-                  </>
-                ) : (
-                  <dl className="space-y-2 text-sm">
-                    <DetailRow label="Kênh đặt gần nhất" value={nhanKenh(selected.kenh_dat)} />
-                    <DetailRow label="Người giới thiệu" value={selected.nguoi_gioi_thieu ?? null} />
-                    <DetailRow
-                      label="Đổi / huỷ gần nhất"
-                      value={cauDoiHuy(selected.doi_huy_gan_nhat)}
-                    />
-                    <DetailRow label="Ngày sinh" value={dobDisplay(selected)} />
-                    <DetailRow label="Giới tính" value={selected.gender} />
-                    <DetailRow label="SĐT chính" value={selected.phone_primary} />
-                    {(selected.patient_sdt_them ?? [])
-                      .filter((t) => t.loai === "CHINH")
-                      .map((t) => (
-                        <DetailRow
-                          key={t.so_dien_thoai}
-                          label="SĐT thêm"
-                          value={t.so_dien_thoai}
-                        />
-                      ))}
-                    <DetailRow label="SĐT người nhà" value={selected.phone_secondary} />
-                    {(selected.patient_sdt_them ?? [])
-                      .filter((t) => t.loai === "NGUOI_NHA")
-                      .map((t) => (
-                        <DetailRow
-                          key={t.so_dien_thoai}
-                          label="SĐT người nhà thêm"
-                          value={t.so_dien_thoai}
-                        />
-                      ))}
-                    <DetailRow label="Dân tộc" value={selected.ethnicity} />
-                    <DetailRow label="Quốc tịch" value={selected.nationality} />
-                    <DetailRow label="Nghề nghiệp" value={selected.occupation} />
-                    <DetailRow label="Đối tượng" value={selected.patient_objection} />
-                    <DetailRow label="Địa chỉ" value={selected.address} />
-                    <DetailRow label="Cơ sở" value={locName(selected.location_id)} />
-                    <DetailRow label="Ngày tạo" value={fmtDateTimeOrDate(selected.created_at)} />
-                  </dl>
-                )}
 
                 {selectedAppt?.examined ? (
                   <Link
