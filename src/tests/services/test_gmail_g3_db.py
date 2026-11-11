@@ -20,6 +20,7 @@ import asyncpg
 import pytest
 
 from clinicai.core.clock import hom_nay_vn
+from clinicai.services.tep_ket_qua_service import TepKetQuaService
 from clinicai.services.xet_nghiem import ghep_tay, gmail, gmail_api, mau
 from clinicai.services.xet_nghiem.gmail_api import PhanPdf, ThuGmail
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
@@ -27,7 +28,7 @@ from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     pool,
 )
 from tests.services.test_gmail_g2_db import GmailGia
-from tests.services.test_xac_nhan_tep_ket_qua_db import PDF_DUMMY
+from tests.services.test_xac_nhan_tep_ket_qua_db import PDF_DUMMY, _tao_staff
 from tests.services.test_xet_nghiem_drive_db import _lam
 from tests.services.test_xet_nghiem_drive_db import _thu as _thu_tien
 from tests.services.test_xet_nghiem_nen_db import (  # noqa: F401
@@ -397,6 +398,42 @@ async def test_g5_khach_dung_khong_chi_dinh_thi_vao_ho_so_theo_luot(
     assert tep["service_order_id"] is None and tep["kh"] == v["kh"]
     assert (tep["nguon"], tep["xac_nhan_trang_thai"]) == ("GMAIL", "CHO_XAC_NHAN")
     assert tep["dung_luot"] is True
+    # Soát G8: tờ không chỉ định phải có lối xác nhận / từ chối — hàng "Xác nhận kết
+    # quả" là lối duy nhất (Bàn XN, Gán sang đều cần chỉ định).
+    async with pool.acquire() as conn:
+        nguoi = await _tao_staff(conn, CLINIC, "DOCTOR", ["ket_qua.xac_nhan"])
+    sv = TepKetQuaService(pool)
+    hang = {r["tep_id"]: r for r in await sv.cho_xac_nhan(identity=nguoi)}
+    assert d["tep_ket_qua_id"] in hang
+    assert hang[d["tep_ket_qua_id"]]["service_order_id"] is None
+    kq = await sv.xac_nhan_tep(
+        identity=nguoi, tep_id=d["tep_ket_qua_id"], trang_thai="HOP_LE"
+    )
+    assert kq["ok"] is True
+
+
+async def test_g8_luot_bo_ve_giua_chung_khong_nhan_to(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    """Soát G8: lượt INCOMPLETE (khách bỏ về) không phải lượt lấy mẫu ⇒ không gắn
+    tờ vào đó; không còn lượt nào ⇒ vẫn là KHONG_THAY_CHI_DINH để người xem."""
+    v = await c3.viec(pool)
+    await pool.execute(
+        "UPDATE service_order SET created_at = now() - interval '61 days'"
+        " WHERE id = $1::uuid",
+        v["oid"],
+    )
+    await pool.execute(
+        "UPDATE visit SET status = 'INCOMPLETE', incomplete_reason = 'Khách về'"
+        " WHERE clinic_patient_id = $1::uuid",
+        v["kh"],
+    )
+    mid = c3.thu(v["ten"], v["sdt"])
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    assert d["tep_ket_qua_id"] is None
+    assert d["ly_do_cho"] == "KHONG_THAY_CHI_DINH"
 
 
 async def test_khop_theo_sdt_phu_cua_khach(
