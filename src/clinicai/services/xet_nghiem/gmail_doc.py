@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
-from clinicai.services.xet_nghiem.ghep_khach import chuan_sdt, sdt_trong
+from clinicai.services.xet_nghiem.ghep_khach import chuan, chuan_sdt, sdt_trong
 
 _TRA_LOI: Final = r"^(?:(?:Trả lời|RE|FW|FWD|TR)\s*:\s*)*"
 _TM_RE: Final = re.compile(
@@ -49,14 +49,73 @@ _CHUA_DU_RE: Final = re.compile(r"Trạng thái\s*:\s*Chưa đủ kết quả", 
 _PHIEU_EU_RE: Final = re.compile(r"^NIP\d{7}\.pdf$", re.I)
 
 
+#: Loại xét nghiệm (G7, Tuyền 11/11): từ khoá (đã bỏ dấu, chữ thường, nguyên từ). Đo 60
+#: PDF Tâm Minh: 32 chỉ STD, 27 chỉ HPV, 1 cả ba ⇒ đủ tách HPV / STD của cùng khách.
+#: (Danh sách, không tuple một phần tử: chốt cú pháp SQL
+#: `test_sql_trong_service_cu_phap_dung` đọc dấu phẩy trước ngoặc đóng là SQL nối hụt.)
+_LOAI_KQ: Final = {
+    "HPV": ["hpv", "papilloma"],
+    "STD": ["chlamydia", "neisseria", "trichomonas", "mycoplasma", "ureaplasma",
+            "treponema", "giang mai", "herpes", "hsv", "gardnerella", "lau cau",
+            "13 tac nhan", "std"],
+    "THINPREP": ["thinprep", "thin prep", "te bao hoc", "bethesda", "pap smear"],
+    "NIPT": ["nipt"],
+    "GEN": ["gen lan", "carrier"],
+}  # fmt: skip
+#: Loại theo TÊN DỊCH VỤ (chỉ định). Không khớp gì (vd "Xét nghiệm máu") ⇒ rỗng.
+_LOAI_DV: Final = {
+    "HPV": ["hpv"],
+    "STD": ["std", "benh lay"],
+    "THINPREP": ["thinprep"],
+    "NIPT": ["nipt"],
+    "GEN": ["gen"],
+}
+
+
+def _co_tu(van: str, bang: dict[str, list[str]]) -> frozenset[str]:
+    s = f" {chuan(van)} "
+    return frozenset(
+        loai for loai, tu in bang.items() if any(f" {t} " in s for t in tu)
+    )
+
+
+#: HPV hay viết dính số / dạng dài ("HPV16/18" ⇒ "hpv16 18", "papillomavirus") — thiếu
+#: thì tờ HPV có một chữ STD lạc vào bị đọc thành CHỈ STD ⇒ gán nhầm (soát G7).
+_HPV_DINH: Final = re.compile(r" (?:hpv\d+|papillomavirus|papillomaviruses) ")
+
+
+def loai_ket_qua(chu: object) -> frozenset[str]:
+    """HÀM THUẦN: loại xét nghiệm nhắc trong chữ PDF kết quả. Rác ⇒ rỗng."""
+    if not isinstance(chu, str):
+        return frozenset()
+    loai = _co_tu(chu, _LOAI_KQ)
+    if _HPV_DINH.search(f" {chuan(chu)} "):
+        loai |= {"HPV"}
+    return loai
+
+
+def loai_dich_vu(ten: object) -> frozenset[str]:
+    """HÀM THUẦN: loại xét nghiệm của một chỉ định theo tên dịch vụ ("Combo HPV 40 +
+    thinprep" ⇒ HPV + THINPREP). Không nhận ra ⇒ rỗng (không dùng để loại)."""
+    return _co_tu(ten, _LOAI_DV) if isinstance(ten, str) else frozenset()
+
+
 @dataclass(frozen=True)
 class DocThu:
     kieu: str  # "TM" | "GLHD" | "EU" | "" (không nhận ra ⇒ không tự ghép)
     ten: str | None
     sdt: str | None
     nam_sinh: int | None
-    #: False ⇒ không được TỰ GHÉP (kết quả từng phần, phiếu không phải kết quả).
-    tu_ghep_duoc: bool
+    #: Vì sao thư nhận ra được mà KHÔNG được tự ghép (mã `drive_tep.luu_tru_vi_sao`):
+    #: CHUA_DU_KET_QUA (Greenlab trả từng phần) · PHIEU_MA_VACH (Eurofins). None = được.
+    khong_tu_ghep: str | None = None
+    #: Loại xét nghiệm đọc được trong CHỮ PDF (không theo tên tệp — True Medicine ghi
+    #: sai loại ở tên tệp). Rỗng = không biết ⇒ không dùng để chọn chỉ định.
+    loai: frozenset[str] = frozenset()
+
+    @property
+    def tu_ghep_duoc(self) -> bool:
+        return bool(self.kieu) and self.khong_tu_ghep is None
 
 
 def kieu_thu(tieu_de: object) -> tuple[str, str | None, str | None]:
@@ -117,7 +176,7 @@ def doc_thu(
     than_s = than if isinstance(than, str) else ""
     chu = chu_pdf if isinstance(chu_pdf, str) else ""
     tep = ten_tep if isinstance(ten_tep, str) else ""
-    tu_ghep = bool(kieu)
+    khong: str | None = None
     sdt: str | None = None
     ns: int | None = None
     if kieu == "TM":
@@ -128,13 +187,20 @@ def doc_thu(
         sdt = sdt_td or sdt_theo_nhan(chu)
         ns = _mot_nam({nam_sinh(x) for x in _NS_PDF_RE.findall(chu)})
         if _CHUA_DU_RE.search(than_s):
-            tu_ghep = False  # kết quả từng phần — bản "Đủ kết quả" về sau
+            khong = "CHUA_DU_KET_QUA"  # kết quả từng phần — bản "Đủ kết quả" về sau
     elif kieu == "EU":
         sdt = _mot(sdt_trong(chu))
         ns = ns_eu(chu, nam_nay)
         if _PHIEU_EU_RE.match(tep.strip()):
-            tu_ghep = False  # phiếu mã vạch, không phải kết quả
-    return DocThu(kieu=kieu, ten=ten, sdt=sdt, nam_sinh=ns, tu_ghep_duoc=tu_ghep)
+            khong = "PHIEU_MA_VACH"  # phiếu mã vạch, không phải kết quả
+    return DocThu(
+        kieu=kieu,
+        ten=ten,
+        sdt=sdt,
+        nam_sinh=ns,
+        khong_tu_ghep=khong,
+        loai=loai_ket_qua(chu),
+    )
 
 
 def _mot_nam(nam: set[int | None]) -> int | None:
@@ -150,8 +216,13 @@ def xac_thuc_ok(ket_qua_xac_thuc: object, tu: object) -> bool:
     Chỉ tin header do CHÍNH Gmail ghi (authserv-id `mx.google.com`, dòng trên cùng —
     `gmail_api` chỉ giữ dòng đó): người gửi tự chèn được thêm header cùng tên. Mỗi kết
     quả (`;`) xét riêng: `dmarc=pass` phải kèm `header.from=` đúng miền; `dkim=pass`
-    phải kèm `header.d=` / `header.i=@` đúng miền — so NGUYÊN miền, không so tiền tố
-    (`lab.vn.ke-gian.com` không phải `lab.vn`)."""
+    phải kèm `header.d=` / `header.i=@` đúng miền; `spf=pass` phải kèm `smtp.mailfrom`
+    cùng miền (SPF "khớp miền" như DMARC nhận) — so NGUYÊN miền, không so tiền tố
+    (`lab.vn.ke-gian.com` không phải `lab.vn`).
+
+    SPF (11/11/2026, đo prod): HighDetect gửi qua Google Workspace KHÔNG cài DKIM riêng
+    (chữ ký mang miền `…gappssmtp.com`) và không khai DMARC ⇒ chỉ SPF chứng được miền;
+    luật cũ xếp oan mọi thư máu vào Lưu trữ "không xác thực"."""
     if (
         not isinstance(ket_qua_xac_thuc, str)
         or not isinstance(tu, str)
@@ -172,5 +243,8 @@ def xac_thuc_ok(ket_qua_xac_thuc: object, tu: object) -> bool:
         if the.get("dkim") == "pass" and (
             the.get("header.d") == mien or ("@" in i and i.rsplit("@", 1)[1] == mien)
         ):
+            return True
+        mf = the.get("smtp.mailfrom", "")
+        if the.get("spf") == "pass" and mf.rsplit("@", 1)[-1] == mien:
             return True
     return False

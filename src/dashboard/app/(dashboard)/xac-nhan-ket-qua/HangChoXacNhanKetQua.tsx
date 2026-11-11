@@ -32,7 +32,8 @@ export interface TepChoXacNhanRow {
   ten_khach: string;
   patient_code: string;
   phone_primary?: string | null;
-  service_order_id: string;
+  /** null = tờ email gắn theo lượt khám, chưa có chỉ định (Gmail G8). */
+  service_order_id: string | null;
   ten_dich_vu: string;
   tai_len_luc: string;
   tai_len_boi_ten: string | null;

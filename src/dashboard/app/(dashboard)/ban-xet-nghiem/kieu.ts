@@ -143,6 +143,12 @@ export interface DriveCho {
   goi_y_order_id: string | null;
   /** Khách máy chủ gợi ý (khớp tên + SĐT) — việc của khách này lên đầu ô chọn. */
   goi_y_clinic_patient_id: string | null;
+  goi_y_ten?: string | null;
+  goi_y_ma?: string | null;
+  /** Máy chủ tính: thư email có khách gợi ý ⇒ nút "Gán cho khách này" (G9). */
+  gan_goi_y_duoc?: boolean;
+  /** Máy chủ tính: thư email ⇒ ô "tìm khách rồi gán" (G10). */
+  gan_khach_duoc?: boolean;
 }
 
 export interface DriveNhip {
