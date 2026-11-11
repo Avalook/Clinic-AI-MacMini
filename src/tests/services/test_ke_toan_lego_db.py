@@ -27,8 +27,16 @@ from tests.services.test_quyen_lego_man_db import _nguoi as nguoi_theo_lego
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
-#: Gói mẫu Kế toán đổi ra lego (đúng cái Quản lý bấm cấp).
-GOI_KE_TOAN = ["bao_cao", "ke_toan", "ds_benh_nhan", "lich_lam_viec", "kho_vat_tu"]
+#: Gói mẫu Kế toán đổi ra lego (đúng cái Quản lý bấm cấp). + "Xem bảng giá" (chỉ
+#: xem, không sửa giá — Tuyền 11/11/2026).
+GOI_KE_TOAN = [
+    "bao_cao",
+    "ke_toan",
+    "ds_benh_nhan",
+    "lich_lam_viec",
+    "kho_vat_tu",
+    "xem_bang_gia",
+]
 
 
 async def _co(pool: asyncpg.Pool, ai: StaffIdentity, quyen: str) -> bool:
