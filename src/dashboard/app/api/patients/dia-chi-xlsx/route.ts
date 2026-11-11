@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const headers = await getCallerAuthHeaders();
   const base = process.env.CLINIC_API_URL;
   if (!headers || !base) return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
-  const res = await fetch(`${base}/api/v1/patients/danh-sach/xlsx?${q}`, { headers, cache: "no-store" });
+  const res = await fetch(`${base}/api/v1/patients/danh-sach-xlsx?${q}`, { headers, cache: "no-store" });
   return new NextResponse(res.body, { status: res.status, headers: {
     "Content-Type": res.headers.get("Content-Type") ?? "application/octet-stream",
     "Content-Disposition": res.headers.get("Content-Disposition") ?? 'attachment; filename="dia-chi-khach.xlsx"',

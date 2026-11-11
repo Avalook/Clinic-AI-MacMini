@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-11 10:57. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-11 11:09. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1300,7 +1300,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/patients/dia-chi-xlsx` · `src/dashboard/app/api/patients/dia-chi-xlsx/route.ts`
-- GET `/api/v1/patients/danh-sach/xlsx` → `src/clinicai/api/v1/patients.py:xuat_dia_chi_khach_excel` → xuat_dia_chi_khach
+- GET `/api/v1/patients/danh-sach-xlsx` → `src/clinicai/api/v1/patients.py:xuat_dia_chi_khach_excel` → xuat_dia_chi_khach
 - test: src/tests/services/test_xuat_dia_chi_khach_db.py
 - màn dùng: /patient-list
 

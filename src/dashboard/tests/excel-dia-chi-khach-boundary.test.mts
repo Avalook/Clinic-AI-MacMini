@@ -34,7 +34,7 @@ test("nút chỉ hiện khi có cờ, tải theo ô tìm đã gửi + tab đang 
 
 test("proxy chỉ chép q + loc và gọi đúng đường máy chủ", () => {
   assert.match(route, /\[\["q", 200\], \["loc", 40\]\]/);
-  assert.match(route, /\/api\/v1\/patients\/danh-sach\/xlsx\?/);
-  assert.match(router, /@router\.get\("\/patients\/danh-sach\/xlsx"\)/);
+  assert.match(route, /\/api\/v1\/patients\/danh-sach-xlsx\?/);
+  assert.match(router, /@router\.get\("\/patients\/danh-sach-xlsx"\)/);
   assert.doesNotMatch(route, /input\.forEach|for \(const \[k, v\] of input/);
 });

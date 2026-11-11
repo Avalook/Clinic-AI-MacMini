@@ -277,7 +277,9 @@ async def get_patient_by_id(
 _DANH_SACH_GUARD = cua_quyen("patient.list.view")
 
 
-@router.get("/patients/danh-sach/xlsx")
+# Một đoạn (`danh-sach-xlsx`), KHÔNG `danh-sach/xlsx`: hai đoạn thì cùng độ sâu với
+# `/patients/{patient_id}/links` (tham số trần) — `test_route_shadowing` chặn.
+@router.get("/patients/danh-sach-xlsx")
 async def xuat_dia_chi_khach_excel(
     q: str | None = Query(None, max_length=200),
     loc: str | None = Query(None, max_length=40),

@@ -21,8 +21,8 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.audit import record_event
-from clinicai.services.danh_sach_benh_nhan_service import (
-    _CO_SO,
+from clinicai.services.danh_sach_benh_nhan_loc import (
+    CO_SO_SQL,
     bo_loc,
     chuoi_tim,
     doc_loc,
@@ -43,10 +43,10 @@ COT: tuple[str, ...] = (
     "Địa chỉ đúng chưa / ghi chú",
 )
 
-# Cùng `_CO_SO` với màn (tham số $1–$7 từ `bo_loc`); $8 = trần. Xếp như màn mặc định
-# (hoạt động gần nhất trước, khoá phụ mã khách).
+# Cùng `CO_SO_SQL` với màn (tham số $1–$7 từ `bo_loc`); $8 = trần. Xếp như màn mặc
+# định (hoạt động gần nhất trước, khoá phụ mã khách).
 _SQL = (
-    _CO_SO
+    CO_SO_SQL
     + """
 SELECT p.patient_code, p.full_name, p.phone_primary,
        p.address, p.address_detail, p.ward_name, p.province_name, c.luc

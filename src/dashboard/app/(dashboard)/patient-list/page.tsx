@@ -156,7 +156,7 @@ export default async function PatientListPage({
     canEditPatient(role),
   );
   // Tải Excel địa chỉ khách — khớp `QUYEN_XUAT` (services/xuat_dia_chi_khach.py);
-  // máy chủ vẫn gác lại ở `GET /patients/danh-sach/xlsx`.
+  // máy chủ vẫn gác lại ở `GET /patients/danh-sach-xlsx`.
   const xuatDiaChi = theoQuyen(["accounting.finance.full"], false);
   const canBook = theoQuyen(
     ["booking.create", "booking.manage"],

@@ -11,13 +11,16 @@ from __future__ import annotations
 import io
 import json
 import uuid
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import asyncpg
 import httpx
 import pytest
 from openpyxl import load_workbook
 
+from clinicai.services import xuat_dia_chi_khach as xdc
 from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
 from clinicai.services.xuat_dia_chi_khach import COT
 from tests.services.test_quyen_lego_man_db import (  # noqa: F401
@@ -30,7 +33,7 @@ from tests.services.test_quyen_lego_man_db import (  # noqa: F401
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
-DUONG = "/patients/danh-sach/xlsx"
+DUONG = "/patients/danh-sach-xlsx"
 
 
 async def _ba_khach(pool: asyncpg.Pool) -> str:  # noqa: F811
@@ -145,6 +148,69 @@ async def test_moi_lan_tai_ghi_nhat_ky_khong_lo_chu_tim(
     payload = json.loads(payload) if isinstance(payload, str) else payload
     assert payload == {"so_dong": 3, "co_tim": True, "loc": "chua-kham"}
     assert dau not in json.dumps(payload, ensure_ascii=False)
+
+
+async def test_quan_ly_tai_duoc(
+    pool: asyncpg.Pool,  # noqa: F811
+    http: httpx.AsyncClient,  # noqa: F811
+) -> None:
+    dau = await _ba_khach(pool)
+    quan_ly = await _nguoi(pool, "MANAGEMENT", ["ke_toan", "ds_benh_nhan", "cai_dat"])
+    r = await _goi(http, quan_ly, "GET", DUONG, params={"q": dau})
+    assert r.status_code == 200, r.text[:300]
+    assert len(_doc(r.content)) - 1 == 3
+
+
+async def test_thu_ky_chi_xuat_khach_cua_bac_si_minh(
+    pool: asyncpg.Pool,  # noqa: F811
+    http: httpx.AsyncClient,  # noqa: F811
+) -> None:
+    """Phạm vi thư ký y khoa giữ nguyên khi xuất — cùng `khach_duoc_xem` với màn."""
+    dau = await _ba_khach(pool)
+    thu_ky = await _nguoi(pool, "TKYK", ["ke_toan", "ds_benh_nhan"])
+    bac_si = await _nguoi(pool, "DOCTOR", ["ban_kham"])
+    await pool.execute(
+        "INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid)",
+        CLINIC,
+        thu_ky.staff_id,
+        bac_si.staff_id,
+    )
+    r = await _goi(http, thu_ky, "GET", DUONG, params={"q": dau})
+    assert r.status_code == 200, r.text[:300]
+    so_dong = len(_doc(r.content)) - 1
+    man = await DanhSachBenhNhanService(pool).lay(identity=thu_ky, q=dau)
+    # Ba khách thử không thuộc bác sĩ của thư ký ⇒ không lọt vào file.
+    assert so_dong == man["so_khop"] == 0
+
+
+async def test_cham_tran_thi_file_co_dong_bao(
+    pool: asyncpg.Pool,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dau = await _ba_khach(pool)
+    ke_toan = await _nguoi(pool, "ACCOUNTANT", ["ke_toan", "ds_benh_nhan"])
+    monkeypatch.setattr(xdc, "TRAN", 2)
+    hang = _doc(await xdc.xuat_dia_chi_khach(pool, identity=ke_toan, q=dau, loc=None))
+    assert len(hang) == 1 + 2 + 1, "tiêu đề + 2 dòng + 1 dòng báo"
+    assert str(hang[-1][1]).startswith("Đã cắt ở 2 dòng")
+
+
+async def test_hoat_dong_gan_nhat_theo_gio_viet_nam(
+    pool: asyncpg.Pool,  # noqa: F811
+    http: httpx.AsyncClient,  # noqa: F811
+) -> None:
+    """Khách vừa tạo: mốc = giờ tạo hồ sơ — Excel ra giờ Việt Nam (không lệch 7h)."""
+    dau = await _ba_khach(pool)
+    ke_toan = await _nguoi(pool, "ACCOUNTANT", ["ke_toan", "ds_benh_nhan"])
+    r = await _goi(http, ke_toan, "GET", DUONG, params={"q": dau})
+    ws = load_workbook(io.BytesIO(r.content)).active
+    assert ws is not None
+    gio_vn = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).replace(tzinfo=None)
+    for o in [c for c in ws["E"]][1:]:
+        assert isinstance(o.value, datetime), o.value
+        assert abs((o.value - gio_vn).total_seconds()) < 600, (o.value, gio_vn)
+        assert o.number_format == "dd/mm/yyyy hh:mm:ss"
 
 
 async def test_tham_so_rac_khong_500(

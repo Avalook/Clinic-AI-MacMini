@@ -876,7 +876,7 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   Bộ lọc dùng chung (ô tìm + tab + phạm vi thư ký): `bo_loc()` cùng tệp — màn và Excel.
 - **Excel địa chỉ khách (11/11, kế toán rà địa chỉ sai):** nút [Tải Excel địa chỉ khách] ở
   `/patient-list` (chỉ khi có `accounting.finance.full` — Kế toán / Quản lý) →
-  `D/api/patients/dia-chi-xlsx` → `GET /api/v1/patients/danh-sach/xlsx?q&loc` →
+  `D/api/patients/dia-chi-xlsx` → `GET /api/v1/patients/danh-sach-xlsx?q&loc` →
   `S/xuat_dia_chi_khach.py` (đúng bộ lọc màn qua `bo_loc`; cột Mã BN · Họ tên · SĐT · Địa chỉ
   (`dia_chi_khach`) · Hoạt động gần nhất · ô trống để đánh dấu; trần 20.000 dòng có dòng báo
   trong file; nhật ký `patient.list_exported` KHÔNG ghi chữ ô tìm). Test
