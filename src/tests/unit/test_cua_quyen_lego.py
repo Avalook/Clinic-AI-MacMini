@@ -128,6 +128,29 @@ def test_lich_lam_viec_hoi_roster_view() -> None:
     raise AssertionError("không thấy đường /api/v1/roster/lich-tuan")
 
 
+def test_gmail_tim_khach_va_gan_khach_hoi_partner_work() -> None:
+    """Soát G10: cửa dò hồ sơ khách + gán thư cho khách bất kỳ gác đúng quyền màn
+    Việc của đối tác — không chỉ "đã đăng nhập"."""
+    from clinicai.main import app
+
+    can = {
+        "/api/v1/xet-nghiem/ban/tim-khach",
+        "/api/v1/xet-nghiem/ban/drive-gan-khach",
+    }
+    thay = set()
+    for route in app.routes:
+        duong = getattr(route, "path", "")
+        if duong in can:
+            quyen = {
+                q
+                for d in route.dependant.dependencies  # type: ignore[attr-defined]
+                for q in getattr(d.call, "quyen", ())
+            }
+            assert "partner.work" in quyen, duong
+            thay.add(duong)
+    assert thay == can
+
+
 def test_doi_tac_hoi_partner_work_chu_khong_hoi_vai() -> None:
     nguon = inspect.getsource(identity_mod.get_partner_identity)
     assert '"partner.work"' in nguon
