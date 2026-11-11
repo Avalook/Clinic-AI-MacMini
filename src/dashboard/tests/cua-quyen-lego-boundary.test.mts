@@ -62,7 +62,7 @@ function trangCua(duong: string): string | null {
 }
 
 test("bộ đọc danh mục còn sống (chống xanh giả)", () => {
-  assert.equal(LEGO.size, 24, `đọc được ${LEGO.size} lego, danh mục chốt 24 (21 + Kế toán G5a + kho_vat_tu G8a − Việc cần xử lý 29/10 + Duyệt vật tư, Sửa giá thuốc 31/10)`);
+  assert.equal(LEGO.size, 25, `đọc được ${LEGO.size} lego, danh mục chốt 25 (21 + Kế toán G5a + kho_vat_tu G8a − Việc cần xử lý 29/10 + Duyệt vật tư, Sửa giá thuốc 31/10 + Kho email G2b 09/11)`);
   assert.ok(DUONG_LEGO.length >= 30, `chỉ đọc được ${DUONG_LEGO.length} màn lego`);
   assert.ok(QUYEN_DA_KHAI.size >= 40);
 });

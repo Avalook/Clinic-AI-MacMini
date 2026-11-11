@@ -380,6 +380,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // bước (đối tác không đăng nhập). Cùng lego 21 với bàn cũ ⇒ ai đang dùng bàn cũ
   // thấy luôn bàn mới. Vai PARTNER không vào (máy chủ cũng từ chối).
   "/ban-xet-nghiem": ["MANAGEMENT"],
+  // Kho email kết quả (Gmail G2b): KHÔNG vai nào — chỉ lego cấp riêng (NAV_QUYEN).
+  // Dòng rỗng để khi máy chủ chưa trả quyền (`null`), luật gốc theo vai ĐÓNG thay vì
+  // "không có luật ⇒ ai cũng thấy".
+  "/ban-xet-nghiem/kho-email": [],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
@@ -694,6 +698,9 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/audit-log": ["audit.view"],
   "/doi-tac": ["partner.work"], // 21 Đối tác
   "/ban-xet-nghiem": ["partner.work"], // 21 Đối tác — bàn XN đời mới
+  // Lego Kho email (Gmail G2b): chỉ bằng QUYỀN, không vai nào (khối cấp riêng). Khớp
+  // chính xác trước tiền tố ⇒ không lọt vào quyền partner.work của /ban-xet-nghiem.
+  "/ban-xet-nghiem/kho-email": ["xet_nghiem.kho_email"],
   // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
   "/duyet-ket-qua": ["result.form.fill"],
 };

@@ -14,8 +14,9 @@ from __future__ import annotations
 import io
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Protocol, TypeVar
 
 import asyncpg
 import structlog
@@ -26,7 +27,7 @@ logger = structlog.get_logger()
 
 #: Chỉ đọc vài trang đầu (họ tên + SĐT ở đầu phiếu) — tệp dài không làm chậm vòng quét.
 TRAN_TRANG: Final = 5
-TRAN_UNG_VIEN: Final = 500
+TRAN_UNG_VIEN: Final = 2000
 _SDT_RE: Final = re.compile(r"(?<!\d)(?:\+?84|0)(?:[\s.\-]?\d){9}(?!\d)")
 
 
@@ -71,11 +72,46 @@ def chu_pdf(data: bytes) -> str:
 
 @dataclass(frozen=True)
 class UngVien:
+    """Một việc của đối tác + khách của nó. `da_lay_mau`/`co_tep` cho biết việc có
+    đang CHỜ kết quả (Drive chỉ xét việc đang chờ; Gmail dùng cả việc khác để gợi ý)."""
+
     order_id: str
     clinic_patient_id: str
     visit_id: str | None
     ten: str | None
     sdt: str | None
+    nam_sinh: int | None = None
+    da_lay_mau: bool = True
+    co_tep: bool = False
+
+    @property
+    def dang_cho(self) -> bool:
+        return self.da_lay_mau and not self.co_tep
+
+
+class _CoTenSdt(Protocol):
+    @property
+    def ten(self) -> str | None: ...
+    @property
+    def sdt(self) -> str | None: ...
+
+
+_K = TypeVar("_K", bound=_CoTenSdt)
+
+
+def khop_ds(van_ban: str, ung_vien: Sequence[_K]) -> list[_K]:
+    """HÀM THUẦN — LUẬT KHỚP DUY NHẤT (Drive + Gmail): ứng viên có SĐT nằm trong chữ
+    VÀ tên (bỏ dấu, nguyên cụm) nằm trong chữ."""
+    chu = f" {chuan(van_ban)} "
+    sdts = sdt_trong(van_ban)
+    return [
+        u
+        for u in ung_vien
+        if (s := chuan_sdt(u.sdt)) in sdts
+        and s is not None
+        and (ten := chuan(u.ten))
+        and f" {ten} " in chu
+    ]
 
 
 def khop_khach(
@@ -84,18 +120,9 @@ def khop_khach(
     """HÀM THUẦN. `van_ban` = tên tệp + chữ PDF (thô). Trả (việc ghép, None) hoặc
     (None, lý do chờ): KHONG_DOC_DUOC · KHONG_KHOP_KHACH · NHIEU_KHACH ·
     ONG_NHIEU_VIEC."""
-    chu = f" {chuan(van_ban)} "
-    if not chu.strip():
+    if not chuan(van_ban):
         return None, "KHONG_DOC_DUOC"
-    sdts = sdt_trong(van_ban)
-    khop = [
-        u
-        for u in ung_vien
-        if (s := chuan_sdt(u.sdt)) in sdts
-        and s is not None
-        and (ten := chuan(u.ten))
-        and f" {ten} " in chu
-    ]
+    khop = khop_ds(van_ban, ung_vien)
     if not khop:
         return None, "KHONG_KHOP_KHACH"
     if len({u.clinic_patient_id for u in khop}) > 1:
@@ -105,9 +132,22 @@ def khop_khach(
     return khop[0], None
 
 
-_UNG_VIEN_SQL = """
+#: MỌI việc đối tác này trong 120 ngày — MỘT câu cho Drive + Gmail. Đã lấy mẫu = ống
+#: còn hiệu lực; có tệp = tờ còn hiệu lực. Mới nhất trước: chạm trần thì sót việc cũ.
+_VIEC_SQL = """
 SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
-       o.visit_id::text AS visit_id, p.full_name AS ten, p.phone_primary AS sdt
+       o.visit_id::text AS visit_id, p.full_name AS ten, p.phone_primary AS sdt,
+       coalesce(p.birth_year::int, extract(year FROM p.date_of_birth)::int)
+           AS nam_sinh,
+       EXISTS (SELECT 1 FROM mau_xet_nghiem_viec mv
+                 JOIN mau_xet_nghiem m ON m.id = mv.mau_id AND m.huy_luc IS NULL
+                WHERE mv.clinic_id = x.clinic_id AND mv.service_order_id = o.id
+                  AND mv.go_luc IS NULL) AS da_lay_mau,
+       EXISTS (SELECT 1 FROM tep_ket_qua k
+                WHERE k.clinic_id = x.clinic_id AND k.service_order_id = o.id
+                  AND k.da_xoa_luc IS NULL
+                  AND coalesce(k.xac_nhan_trang_thai, '')
+                      NOT IN ('TU_CHOI', 'THU_HOI')) AS co_tep
   FROM xet_nghiem_viec x
   JOIN service_order o ON o.id = x.service_order_id AND o.clinic_id = x.clinic_id
   JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
@@ -116,23 +156,22 @@ SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
  WHERE x.clinic_id = $1::uuid AND x.doi_tac_id = $2::uuid
    AND o.exec_status <> 'cancelled'
    AND x.tao_luc > now() - interval '120 days'
-   -- Đang chờ kết quả = đã lấy mẫu (ống còn hiệu lực), chưa có tờ còn hiệu lực.
-   AND EXISTS (SELECT 1 FROM mau_xet_nghiem_viec mv
-                JOIN mau_xet_nghiem m ON m.id = mv.mau_id AND m.huy_luc IS NULL
-               WHERE mv.clinic_id = x.clinic_id AND mv.service_order_id = o.id
-                 AND mv.go_luc IS NULL)
-   AND NOT EXISTS (SELECT 1 FROM tep_ket_qua k
-                    WHERE k.clinic_id = x.clinic_id AND k.service_order_id = o.id
-                      AND k.da_xoa_luc IS NULL
-                      AND coalesce(k.xac_nhan_trang_thai, '')
-                          NOT IN ('TU_CHOI', 'THU_HOI'))
- LIMIT 500
+ ORDER BY x.tao_luc DESC
+ LIMIT 2000
 """
+
+
+async def doc_viec(
+    conn: asyncpg.Connection, cid: str, doi_tac_id: str
+) -> list[UngVien]:
+    rows = await conn.fetch(_VIEC_SQL, cid, doi_tac_id)
+    # Chạm trần ⇒ có thể sót đúng việc: báo (luật cắt không im lặng).
+    canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_UNG_VIEN, clinic_id=cid)
+    return [UngVien(**dict(r)) for r in rows]
 
 
 async def doc_ung_vien(
     conn: asyncpg.Connection, cid: str, doi_tac_id: str
 ) -> list[UngVien]:
-    rows = await conn.fetch(_UNG_VIEN_SQL, cid, doi_tac_id)
-    canh_bao_neu_day("xet_nghiem_viec", len(rows), TRAN_UNG_VIEN, clinic_id=cid)
-    return [UngVien(**dict(r)) for r in rows]
+    """Việc đang CHỜ kết quả (Drive chỉ tự ghép vào đây)."""
+    return [u for u in await doc_viec(conn, cid, doi_tac_id) if u.dang_cho]

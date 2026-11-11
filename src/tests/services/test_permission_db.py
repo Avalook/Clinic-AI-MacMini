@@ -442,3 +442,47 @@ async def test_khong_co_quyen_phan_quyen_thi_khong_sua_duoc_nhom(
             mo_ta=None,
             identity=thu_ngan,
         )
+
+
+async def test_kho_email_khong_vao_nhom_nao(
+    pool: asyncpg.Pool, quan_ly: StaffIdentity
+) -> None:
+    """Kho email kết quả (Gmail G1): dữ liệu sức khoẻ, chỉ cấp riêng từng người.
+    Nhóm mẫu cấp hàng loạt ⇒ cả lệnh lưu nhóm lẫn Postgres đều từ chối khối ấy."""
+    with pytest.raises(ValidationError):
+        await PermissionService(pool).luu_nhom(
+            ma=f"kho_{uuid.uuid4().hex[:6]}",
+            ten="Lễ tân xem kho",
+            khoi=["tiep_don", "kho_email"],
+            mo_ta=None,
+            identity=quan_ly,
+        )
+    # Đường SQL (migration "nhóm = mọi khối" chạy lại, SQL tay): Postgres bỏ khối.
+    khoi = await pool.fetchval(
+        "INSERT INTO quyen_preset (clinic_id, ma, ten, khoi)"
+        " VALUES ($1::uuid, $2, 'Lọt qua migration', ARRAY['tiep_don', 'kho_email'])"
+        " RETURNING khoi",
+        CLINIC,
+        f"LOT_{uuid.uuid4().hex[:6].upper()}",
+    )
+    assert list(khoi) == ["tiep_don"]
+    khoi = await pool.fetchval(
+        "UPDATE quyen_preset SET khoi = khoi || ARRAY['kho_email']"
+        " WHERE clinic_id = $1::uuid AND ma = 'MANAGEMENT' RETURNING khoi",
+        CLINIC,
+    )
+    assert khoi is None or "kho_email" not in khoi
+
+
+async def test_kho_email_khong_bat_theo_nhom_o_man_quyen_theo_man(
+    pool: asyncpg.Pool, quan_ly: StaffIdentity
+) -> None:
+    """Gmail G2b: lego Kho email có màn, nhưng màn "Quyền theo màn" (bật cho cả nhóm)
+    không bày nó, và lệnh bật theo nhóm vẫn bị từ chối nếu gọi thẳng."""
+    svc = PermissionService(pool)
+    man = {m["ma"] for m in (await svc.theo_man(identity=quan_ly))["man"]}
+    assert "kho_email" not in man and "doi_tac" in man
+    with pytest.raises(ValidationError):
+        await svc.doi_man(
+            ma_nhom="RECEPTION", ma_man="kho_email", bat=True, identity=quan_ly
+        )

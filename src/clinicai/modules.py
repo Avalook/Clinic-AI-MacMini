@@ -791,6 +791,8 @@ MODULE: dict[str, Module] = {
         Module(
             ma="xet_nghiem_doi_tac",
             ten="Xét nghiệm đối tác",
+            # Kho email kết quả (Gmail G1) — khối cấp riêng từng người.
+            quyen=["xet_nghiem.kho_email"],
             lenh=[
                 "SavePartner",
                 "PausePartner",
@@ -810,6 +812,7 @@ MODULE: dict[str, Module] = {
                 "lab.result_sent",
                 "lab.result_rejected",
                 "lab.drive_file_rejected",
+                "lab.archive_viewed",
                 "lab.reopened",
             ],
             # Sổ thu hộ chuyển về đây (kế hoạch 3: lõi ghi/huỷ ở thu_ho.py; lệnh cũ

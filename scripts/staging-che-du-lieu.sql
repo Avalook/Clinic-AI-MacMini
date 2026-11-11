@@ -114,6 +114,14 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('xet_nghiem_viec', 'cho_lay_mau_truoc_ly_do', 'chu'),
     -- SĐT của PHÒNG XÉT NGHIỆM đối tác (cấu hình, không phải khách) — giữ.
     ('doi_tac', 'sdt', 'giu'),
+    -- Hộp thư phòng xét nghiệm gửi kết quả về (cấu hình đối tác) — giữ.
+    ('doi_tac', 'email_gui_ket_qua', 'giu'),
+    -- Tệp kết quả đối tác tự về (Drive 06/11, Gmail 09/11): tên tệp, tiêu đề và
+    -- thân thư mang họ tên / năm sinh khách → khối che drive_tep ở dưới.
+    ('drive_tep', 'ten', 'rieng'),
+    ('drive_tep', 'email_tieu_de', 'rieng'),
+    ('drive_tep', 'email_than', 'rieng'),
+    ('drive_tep', 'email_message_id', 'giu'),   -- mã thư Gmail, không phải của khách
     -- lịch / lượt / khám (nội dung giữ, lọc tên + SĐT)
     ('appointment', 'notes', 'xoa'),
     ('appointment', 'cancellation_reason', 'chu'),
@@ -275,6 +283,8 @@ BEGIN
     WHERE c.cach <> 'giu'
       -- patient.email: xem khối che email ở dưới (cột thêm bởi migration nhánh).
       AND NOT (c.bang = 'patient' AND c.cot = 'email')
+      -- drive_tep.email_*: cột Gmail G1 (20261109200000) — khối che drive_tep ở dưới.
+      AND NOT (c.bang = 'drive_tep' AND c.cot IN ('email_tieu_de', 'email_than'))
       AND NOT EXISTS (SELECT 1 FROM information_schema.columns i
                       WHERE i.table_schema = 'public' AND i.table_name = c.bang
                         AND i.column_name = c.cot);
@@ -476,6 +486,28 @@ BEGIN
                 email = CASE WHEN p.email IS NULL THEN NULL
                              ELSE 'khach' || lpad(c.n::text, 4, '0') || '@vi-du.invalid' END
             FROM _che_khach c WHERE c.id = p.clinic_patient_id
+        $q$;
+    END IF;
+END $$;
+
+-- drive_tep: tên tệp đối tác đặt theo họ tên khách → tên giả giữ đuôi tệp; tiêu đề /
+-- thân thư Gmail chỉ có khi migration Gmail G1 đã lên prod (cùng lý do patient.email).
+-- Trigger "sự việc không sửa" của bảng đã tắt ở trên như mọi bảng có cột 'rieng'.
+DO $$
+BEGIN
+    IF to_regclass('public.drive_tep') IS NULL THEN
+        RETURN;
+    END IF;
+    UPDATE public.drive_tep SET
+        ten = 'tep-' || left(md5, 8)
+              || coalesce(substring(ten FROM '(\.[A-Za-z0-9]{1,8})$'), '');
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'drive_tep'
+                 AND column_name = 'email_than') THEN
+        EXECUTE $q$
+            UPDATE public.drive_tep SET
+                email_tieu_de = CASE WHEN email_tieu_de IS NULL THEN NULL ELSE '(đã che)' END,
+                email_than = CASE WHEN email_than IS NULL THEN NULL ELSE '(đã che)' END
         $q$;
     END IF;
 END $$;

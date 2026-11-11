@@ -6,7 +6,7 @@ Router cũ `doi_tac.py` đóng băng (test đếm cửa); cửa mới vào đây
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 import asyncpg
@@ -35,6 +35,8 @@ class AnhXaOut(BaseModel):
     gia_goi_y: int | None
     hen_tra_so_ngay: int | None
     mac_dinh: bool
+    #: Mã xét nghiệm phía đối tác (vd HPV) — Gmail G3 ghép theo mã trong tên tệp.
+    ma_ben_doi_tac: str | None
     #: giá / hẹn HIỆU LỰC máy chủ đã tính — màn chỉ hiển thị (luật 7).
     gia_hieu_luc: int | None
     hen_tra_hieu_luc: int | None
@@ -61,6 +63,10 @@ class DoiTacOut(BaseModel):
     dich_vu: list[AnhXaOut]
     #: Đèn nhịp Drive (máy chủ tính chữ + màu chip — `drive.den_drive`).
     drive_den: DriveDenOut
+    #: Hộp thư phòng xét nghiệm gửi kết quả về Gmail phòng khám (Gmail G4).
+    email_gui_ket_qua: str | None
+    #: Đèn nhịp Gmail (`gmail_cai_dat.den_email`, cùng luật đèn Drive).
+    email_den: DriveDenOut
 
 
 class DichVuThuHoOut(BaseModel):
@@ -74,6 +80,8 @@ class DanhSachDoiTacOut(BaseModel):
     doi_tac: list[DoiTacOut]
     dich_vu_thu_ho: list[DichVuThuHoOut]
     nguong_lay_mau_ngay: int
+    #: Thư Gmail nhận từ ngày này trở đi mới được tự ghép (NULL = chưa tự ghép).
+    gmail_tu_ngay: date | None
 
 
 class DoiTacIn(BaseModel):
@@ -86,6 +94,7 @@ class DoiTacIn(BaseModel):
     drive_folder: str | None = Field(default=None, max_length=1000)
     tai_khoan_nhan_ck: str | None = Field(default=None, max_length=1000)
     hen_tra_so_ngay_mac_dinh: str | int | None = None
+    email_gui_ket_qua: str | None = Field(default=None, max_length=500)
 
 
 class NgungIn(BaseModel):
@@ -99,10 +108,17 @@ class AnhXaIn(BaseModel):
     gia_goi_y: str | int | None = None
     hen_tra_so_ngay: str | int | None = None
     mac_dinh: bool = True
+    #: KHÔNG gửi (bảng gán ở tab "Gán xét nghiệm") ⇒ giữ mã cũ — xem `luu_anh_xa`.
+    ma_ben_doi_tac: str | None = Field(default=None, max_length=100)
 
 
 class NguongIn(BaseModel):
     nguong_lay_mau_ngay: str | int
+
+
+class GmailMocIn(BaseModel):
+    #: "YYYY-MM-DD" hoặc rỗng (= chưa tự ghép). Luật ở `o_nhap.doc_ngay_moc`.
+    gmail_tu_ngay: str | None = Field(default=None, max_length=40)
 
 
 class QuyenNguoiOut(BaseModel):
@@ -171,7 +187,8 @@ async def gan_dich_vu(
     identity: StaffIdentity = Depends(_QUAN_LY),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
-    return await CaiDatDoiTac(pool).gan(identity, body.model_dump())
+    # exclude_unset: phân biệt "không gửi mã" (giữ mã cũ) với "gửi mã rỗng" (xoá).
+    return await CaiDatDoiTac(pool).gan(identity, body.model_dump(exclude_unset=True))
 
 
 @router.post(
@@ -192,3 +209,13 @@ async def luu_cai_dat(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
     return await CaiDatDoiTac(pool).nguong(identity, body.nguong_lay_mau_ngay)
+
+
+@router.put("/xet-nghiem/cai-dat/gmail", response_model=DanhSachDoiTacOut)
+async def luu_moc_gmail(
+    body: GmailMocIn,
+    identity: StaffIdentity = Depends(_QUAN_LY),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> object:
+    """Mốc "Tự ghép kết quả email từ ngày" — cửa riêng, không ghi đè ô ngưỡng."""
+    return await CaiDatDoiTac(pool).moc_gmail(identity, body.gmail_tu_ngay)
