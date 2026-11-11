@@ -12,6 +12,7 @@ import hashlib
 import os
 import re
 import uuid
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from typing import Final
@@ -21,7 +22,11 @@ import asyncpg
 from clinicai.core.kho_tep import KHO_VPS, chay_tren_kho, don_tren_kho
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services import media_service
+
+# `_tim_ban` = đường đọc DUY NHẤT "ổ VPS rồi CFS" (luật 1; tệp kia quá trần).
+from clinicai.services.tep_ket_qua_service import TepMoDoc, _tim_ban, doc_dan
 from clinicai.services.xet_nghiem import ghep_khach, gmail_api
+from clinicai.services.xet_nghiem.gmail_ghep import QuyetGmail
 
 _MA_TEP_RE: Final = re.compile(r"(?<!\d)(\d{6}-\d{6})(?!\d)")
 
@@ -96,12 +101,67 @@ _GHI_SQL = """
 INSERT INTO drive_tep (clinic_id, doi_tac_id, nguon, file_id, md5, ten, mime, so_byte,
                        email_message_id, email_tieu_de, email_than, email_nhan_luc,
                        ma_ben_doi_tac_tep, khoa, sha256, vi_tri, tai_len_luc, ly_do_cho,
-                       goi_y_clinic_patient_id)
+                       goi_y_clinic_patient_id, goi_y_order_id)
 VALUES ($1::uuid, $2::uuid, 'GMAIL', $3, $4, $5, 'application/pdf', $6, $7, $8, $9, $10,
-        $11, $12, $13, 'vps', now(), 'LUU_TRU', $14::uuid)
+        $11, $12, $13, 'vps', now(), $15, $14::uuid, $16::uuid)
 ON CONFLICT DO NOTHING
-RETURNING id
+RETURNING id::text
 """
+
+
+@dataclass(frozen=True)
+class Muc:
+    """Một PDF của thư: byte, chữ PDF (đã đọc một lần), quyết ghép (G3)."""
+
+    p: gmail_api.PhanPdf
+    data: bytes
+    chu: str
+    q: QuyetGmail
+
+
+async def _goi_y(
+    conn: asyncpg.Connection, cid: str, thu: gmail_api.ThuGmail, m: Muc
+) -> str | None:
+    """Khách gợi ý của một PDF: khách G3 đã khớp, không thì đoán theo SĐT (G2)."""
+    return (
+        m.q.goi_y_clinic_patient_id
+        or m.q.clinic_patient_id
+        or await goi_y_khach(
+            conn, cid, "\n".join((thu.tieu_de, thu.than, m.p.ten, m.chu))
+        )
+    )
+
+
+async def _ghi_dong(
+    conn: asyncpg.Connection,
+    cid: str,
+    dt: str,
+    thu: gmail_api.ThuGmail,
+    m: Muc,
+    khoa: str,
+    goi_y: str | None,
+) -> str | None:
+    """Một dòng `drive_tep` của một PDF; đã có (quét lại) ⇒ None."""
+    v: str | None = await conn.fetchval(
+        _GHI_SQL,
+        cid,
+        dt,
+        f"gmail:{thu.id}:{m.p.part_id}",
+        hashlib.md5(m.data, usedforsecurity=False).hexdigest(),
+        m.p.ten or "(không tên).pdf",
+        len(m.data),
+        thu.id,
+        thu.tieu_de or None,
+        thu.than or None,
+        thu.nhan_luc,
+        ma_tep(m.p.ten),
+        khoa,
+        hashlib.sha256(m.data).hexdigest(),
+        goi_y,
+        m.q.ly_do,
+        m.q.goi_y_order_id,
+    )
+    return v
 
 
 async def luu_thu(
@@ -109,48 +169,26 @@ async def luu_thu(
     cid: str,
     dt: str,
     thu: gmail_api.ThuGmail,
-    tai: list[tuple[gmail_api.PhanPdf, bytes]],
-) -> int:
+    muc: list[Muc],
+) -> list[str | None]:
     """Ghi hết byte rồi MỌI dòng của thư trong một giao dịch. Lỗi ⇒ dọn mọi tệp vừa
-    ghi rồi ném (không dòng nào). Dòng đã có (quét lại) ⇒ xoá tệp thừa của nó."""
+    ghi rồi ném (không dòng nào). Dòng đã có (quét lại) ⇒ None + xoá tệp thừa.
+    Trả id dòng theo đúng thứ tự `muc` (để gắn tờ cho PDF tự ghép)."""
     goc = media_service.goc_vps()
     khoa: list[str] = []
     # Đã commit ⇒ dòng trỏ vào tệp: lỗi sau đó (trả kết nối) KHÔNG được xoá tệp.
     da_commit = False
     try:
-        for _p, data in tai:
+        for m in muc:
             k = f"{cid}/gmail/{thu.id}/{uuid.uuid4().hex}.pdf"
             khoa.append(k)
-            await chay_tren_kho(partial(_ghi_o, goc, k, data), kho=KHO_VPS, han=30)
+            await chay_tren_kho(partial(_ghi_o, goc, k, m.data), kho=KHO_VPS, han=30)
         async with pool.acquire() as conn:
-            goi_y = [
-                await goi_y_khach(
-                    conn,
-                    cid,
-                    "\n".join((thu.tieu_de, thu.than, p.ten, ghep_khach.chu_pdf(d))),
-                )
-                for p, d in tai
-            ]
+            goi_y = [await _goi_y(conn, cid, thu, m) for m in muc]
             async with conn.transaction():
-                moi = [
-                    await conn.fetchval(
-                        _GHI_SQL,
-                        cid,
-                        dt,
-                        f"gmail:{thu.id}:{p.part_id}",
-                        hashlib.md5(d, usedforsecurity=False).hexdigest(),
-                        p.ten or "(không tên).pdf",
-                        len(d),
-                        thu.id,
-                        thu.tieu_de or None,
-                        thu.than or None,
-                        thu.nhan_luc,
-                        ma_tep(p.ten),
-                        k,
-                        hashlib.sha256(d).hexdigest(),
-                        g,
-                    )
-                    for (p, d), k, g in zip(tai, khoa, goi_y, strict=True)
+                moi: list[str | None] = [
+                    await _ghi_dong(conn, cid, dt, thu, m, k, g)
+                    for m, k, g in zip(muc, khoa, goi_y, strict=True)
                 ]
             da_commit = True
     except BaseException:
@@ -160,7 +198,19 @@ async def luu_thu(
                     partial(_xoa_o, goc, k), viec=f"xoa:{k}", kho=KHO_VPS
                 )
         raise
-    for k, m in zip(khoa, moi, strict=True):
-        if m is None:
+    for k, v in zip(khoa, moi, strict=True):
+        if v is None:
             await don_tren_kho(partial(_xoa_o, goc, k), viec=f"xoa:{k}", kho=KHO_VPS)
-    return sum(m is not None for m in moi)
+    return moi
+
+
+async def doc_het(khoa: str, vi_tri: str) -> bytes:
+    """Byte một PDF Gmail đã lưu (ổ VPS trước, rồi CFS) — MỘT đường đọc cho hàng ghép
+    tay (xem trước / Gán) và Kho. Trần ở `gmail_api.TRAN_BYTE` từ lúc nhận."""
+    duong, kho, f = await _tim_ban(khoa, vi_tri, mo=True)
+    assert f is not None
+    so = await chay_tren_kho(lambda: duong.stat().st_size, kho=kho)
+    tep = TepMoDoc(
+        f=f, kho=kho, duong=duong, mime="application/pdf", so_byte=so, ten=""
+    )
+    return b"".join([m async for m in doc_dan(tep, 0, max(so - 1, 0))])

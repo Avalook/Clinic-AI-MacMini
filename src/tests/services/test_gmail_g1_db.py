@@ -347,8 +347,8 @@ async def test_su_viec_khong_sua_cot_day_luon_sua(pool: asyncpg.Pool) -> None:  
 async def test_hang_ghep_tay_khong_co_thu_luu_tru(pool: asyncpg.Pool) -> None:  # noqa: F811
     dt_id = await _dt(pool)
     luu = await _ghi(pool, _thu(dt_id, ly_do_cho="LUU_TRU"))
-    # Gmail G2b: hàng chờ (và các cửa theo id của nó) CHỈ cho tệp Drive — thư Gmail,
-    # kể cả chưa Lưu trữ, chỉ mở qua Kho email (quyền riêng). G3 mới đưa vào đây.
+    # Gmail G3: thư Gmail SAU mốc đã xét ghép (lý do khác LUU_TRU) vào hàng chờ như
+    # tệp Drive; thư LƯU TRỮ chỉ ở Kho email (quyền riêng).
     gmail_cho = await _ghi(pool, _thu(dt_id, ly_do_cho="KHONG_KHOP_KHACH"))
     drive_cho = str(
         await pool.fetchval(
@@ -363,8 +363,8 @@ async def test_hang_ghep_tay_khong_co_thu_luu_tru(pool: asyncpg.Pool) -> None:  
     )
     async with pool.acquire() as conn:
         ids = {r["id"] for r in await ghep_tay.ds_cho(conn, CLINIC)}
-    assert drive_cho in ids
-    assert luu not in ids and gmail_cho not in ids
+    assert drive_cho in ids and gmail_cho in ids
+    assert luu not in ids
 
 
 # ── 10. drive_nhip theo nguồn ───────────────────────────────────────────────

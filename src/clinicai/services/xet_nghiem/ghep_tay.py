@@ -45,19 +45,22 @@ LY_DO_CHO: Final = {
     "KHONG_DOC_DUOC": "PDF không có chữ (ảnh scan) — chọn khách rồi Gán",
     "KHONG_KHOP_KHACH": "Không khách nào đang chờ khớp cả tên lẫn SĐT trong tệp",
     "NHIEU_KHACH": "Nhiều khách cùng khớp tên + SĐT — chọn đúng khách",
+    "CHUA_LAY_MAU": "Khớp khách nhưng việc chưa bấm Lấy mẫu — kiểm rồi Gán",
+    "CO_BAN_MOI": "Khách đã có tờ kết quả — có thể là bản sửa / bổ sung, kiểm rồi Gán",
 }
 
 _CHO_SQL = """
 SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
-       t.ten, t.mime, t.drive_tao_luc, t.drive_nguoi_tai, t.nhan_luc, t.ly_do_cho
+       t.ten, t.mime, t.drive_tao_luc, t.drive_nguoi_tai, t.nhan_luc, t.ly_do_cho,
+       t.nguon, t.email_tieu_de, t.email_nhan_luc, t.goi_y_order_id::text,
+       t.goi_y_clinic_patient_id::text
   FROM drive_tep t
   JOIN doi_tac d ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id
  WHERE t.clinic_id = $1::uuid AND t.tep_ket_qua_id IS NULL AND t.tu_choi_luc IS NULL
-   -- Thư Gmail Lưu trữ (trước mốc tự ghép) chỉ xem ở Kho email — không ngập hàng này.
+   -- Thư Gmail Lưu trữ (trước mốc / không tự ghép được) chỉ ở Kho email (quyền riêng)
+   -- — không ngập hàng này, không mở qua cửa theo id của nó. Thư Gmail SAU mốc đã xét
+   -- ghép (G3) thì như tệp Drive.
    AND t.ly_do_cho IS DISTINCT FROM 'LUU_TRU'
-   -- Hàng này + các cửa của nó chỉ cho tệp Drive (Gmail G2b): thư Gmail mở qua Kho
-   -- email (có quyền riêng); G3 mới đưa thư Gmail chờ ghép vào đây.
-   AND t.nguon = 'DRIVE'
  ORDER BY t.nhan_luc DESC
  LIMIT 200
 """
@@ -101,12 +104,12 @@ async def _dong_cho(
     try:
         r = await pool.fetchrow(
             "SELECT id::text AS id, doi_tac_id::text AS doi_tac_id, file_id, ten,"
-            "       mime,"
+            "       mime, nguon, khoa, vi_tri,"
             "       drive_nguoi_tai, tep_ket_qua_id, tu_choi_luc"
             "  FROM drive_tep WHERE clinic_id = $1::uuid AND id = $2::uuid"
-            # Thư Gmail KHÔNG đi cửa này (không thì là đường lách quyền Kho email:
-            # xem / Gán / Từ chối theo id) — cùng câu "không thấy" để không lộ có/không.
-            "   AND nguon = 'DRIVE'",
+            # Thư Gmail LƯU TRỮ không đi cửa này (không thì là đường lách quyền Kho
+            # email: xem / Gán / Từ chối theo id) — cùng câu "không thấy".
+            "   AND ly_do_cho IS DISTINCT FROM 'LUU_TRU'",
             cid,
             str(drive_tep_id),
         )
@@ -130,8 +133,7 @@ async def noi_dung_cho(
     from clinicai.services.media_service import sniff_ket_qua
 
     r = await _dong_cho(pool, identity.clinic_id, drive_tep_id)
-    async with httpx.AsyncClient(timeout=60) as kh:
-        noi = await drive_api.tai_ve(kh, r["file_id"])
+    noi = await _byte(r)
     try:
         mime, _duoi, loai = sniff_ket_qua(noi[:8192])
     except ValidationError:
@@ -141,9 +143,20 @@ async def noi_dung_cho(
     return noi, mime
 
 
+async def _byte(r: asyncpg.Record) -> bytes:
+    """Byte của tệp chờ: Drive đọc thẳng Drive; Gmail đọc bản đã lưu (G2a, `khoa`)."""
+    if r["nguon"] == "GMAIL":
+        from clinicai.services.xet_nghiem.gmail_luu import doc_het
+
+        return await doc_het(str(r["khoa"]), str(r["vi_tri"]))
+    async with httpx.AsyncClient(timeout=60) as kh:
+        return await drive_api.tai_ve(kh, r["file_id"])
+
+
 @asynccontextmanager
-async def _khoa_tep(pool: asyncpg.Pool, drive_tep_id: object) -> AsyncIterator[None]:
-    """Một tệp Drive chỉ một người xử lý một lúc (Gán / Từ chối). `tai_len` tự mở
+async def khoa_tep(pool: asyncpg.Pool, drive_tep_id: object) -> AsyncIterator[None]:
+    """Một tệp chờ chỉ một bên xử lý một lúc (Gán / Từ chối / tự ghép Gmail —
+    `gmail_ghep.gan_tu_dong`). `tai_len` tự mở
     giao dịch riêng nên không gói chung được một giao dịch ⇒ khoá tư vấn cấp phiên
     trên một kết nối giữ suốt lệnh; trong khoá mới đọc lại trạng thái dòng."""
     async with pool.acquire() as giu:
@@ -160,7 +173,7 @@ async def _khoa_tep(pool: asyncpg.Pool, drive_tep_id: object) -> AsyncIterator[N
 async def ghep(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any], hom_nay: date
 ) -> dict[str, Any]:
-    async with _khoa_tep(pool, data.get("drive_tep_id")):
+    async with khoa_tep(pool, data.get("drive_tep_id")):
         return await _ghep(pool, identity, data, hom_nay)
 
 
@@ -177,8 +190,7 @@ async def _ghep(
         raise ConflictError(
             f"Chưa gán được cho việc đang «{v['trang_thai']['nhan']}» (cần đã lấy mẫu)."
         )
-    async with httpx.AsyncClient(timeout=60) as kh:
-        noi = await drive_api.tai_ve(kh, r["file_id"])
+    noi = await _byte(r)
     kq = await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=v["clinic_patient_id"],
@@ -187,6 +199,7 @@ async def _ghep(
         service_order_id=v["order_id"],
         la_tep_doi_tac=True,
         tu_drive=True,
+        tu_gmail=r["nguon"] == "GMAIL",
         drive_nguoi_tai=r["drive_nguoi_tai"],
     )
     n = await pool.execute(
@@ -216,7 +229,7 @@ async def tu_choi(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any]
 ) -> None:
     ly = doc_ly_do(data.get("ly_do"))
-    async with _khoa_tep(pool, data.get("drive_tep_id")):
+    async with khoa_tep(pool, data.get("drive_tep_id")):
         await _tu_choi(pool, identity, data.get("drive_tep_id"), ly)
 
 

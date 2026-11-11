@@ -73,6 +73,9 @@ class ThuGmail:
     tieu_de: str
     than: str
     pdf: list[PhanPdf] = field(default_factory=list)
+    #: Header `Authentication-Results` (Gmail ghi DKIM/SPF/DMARC) — G3 chỉ TỰ ghép thư
+    #: có xác thực đúng miền người gửi (`gmail_doc.xac_thuc_ok`).
+    xac_thuc: str = ""
 
 
 def co_cau_hinh() -> bool:
@@ -253,7 +256,21 @@ def thanh_thu(r: object) -> ThuGmail | None:
         tieu_de=" ".join(dau.get("subject", "").split())[:TRAN_TIEU_DE],
         than=_than(phan),
         pdf=[x for p in phan if (x := _phan_pdf(p, p is tai)) is not None],
+        xac_thuc=_xac_thuc_gmail(tai.get("headers")),
     )
+
+
+def _xac_thuc_gmail(headers: object) -> str:
+    """Header `Authentication-Results` TRÊN CÙNG = dòng Gmail ghi khi nhận thư (header
+    đi theo thứ tự từ trên xuống; người gửi tự chèn thêm dòng cùng tên thì nằm DƯỚI).
+    Chỉ giữ dòng đó — gộp hết là để kẻ gửi tự viết `dmarc=pass`."""
+    for h in headers if isinstance(headers, list) else []:
+        if (
+            isinstance(h, dict)
+            and str(h.get("name", "")).lower() == "authentication-results"
+        ):
+            return str(h.get("value", ""))[:4000]
+    return ""
 
 
 async def doc_thu(kh: httpx.AsyncClient, mid: str) -> ThuGmail | None:
