@@ -127,20 +127,19 @@ def loai_xem(mime: str | None) -> str:
 async def ds_cho(conn: asyncpg.Connection, cid: str) -> list[dict[str, Any]]:
     rows = await conn.fetch(_CHO_SQL, cid)
     canh_bao_neu_day("drive_tep", len(rows), TRAN, clinic_id=cid)
-    return [
-        {
-            **dict(r),
-            "vi_sao": vi_sao_cho(
-                r["ly_do_cho"], None, r["goi_y_clinic_patient_id"] is not None
-            ),
-            # Nút "Gán cho khách này" (G9): máy chủ tính cờ, màn chỉ vẽ.
-            "gan_goi_y_duoc": gan_goi_y_duoc(
-                r["nguon"], r["ly_do_cho"], r["goi_y_clinic_patient_id"]
-            ),
-            "loai": loai_xem(r["mime"]),
-        }
-        for r in rows
-    ]
+    ra = []
+    for r in rows:
+        # Nút "Gán cho khách này" (G9): máy chủ tính cờ, câu lý do theo cùng cờ đó.
+        co = gan_goi_y_duoc(r["nguon"], r["ly_do_cho"], r["goi_y_clinic_patient_id"])
+        ra.append(
+            {
+                **dict(r),
+                "vi_sao": vi_sao_cho(r["ly_do_cho"], None, co),
+                "gan_goi_y_duoc": co,
+                "loai": loai_xem(r["mime"]),
+            }
+        )
+    return ra
 
 
 async def ds_nhip(conn: asyncpg.Connection, cid: str) -> list[dict[str, Any]]:

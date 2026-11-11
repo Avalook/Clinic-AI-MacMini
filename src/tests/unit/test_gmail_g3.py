@@ -483,7 +483,13 @@ def test_g9_ten_gan_giong_va_goi_y_lech() -> None:
 
     assert ten_gan_giong("Trần Thị Mỹ Duyên", "TRAN MY DUYEN")
     assert ten_gan_giong("Nguyễn Thị Lan", "Nguyễn Lan")
+    assert ten_gan_giong("Phạm Văn Hùng", "Phạm Hùng")
     assert not ten_gan_giong("Nguyễn Thị Lan", "Phạm Văn Hùng")
+    # Soát G9: người nhà dùng chung SĐT — khác tên gọi / khác họ ⇒ KHÔNG giống.
+    assert not ten_gan_giong("Nguyễn Thị Lan", "Nguyễn Thị Hoa")
+    assert not ten_gan_giong("Lê Văn An", "Lê Văn Bình")
+    assert not ten_gan_giong("Trần Thị Lan", "Nguyễn Thị Lan")
+    assert not ten_gan_giong("Thị Lan", "Nguyễn Thị Lan")  # chỉ còn "Lan" — quá ít
     assert not ten_gan_giong("", "Lan") and not ten_gan_giong(None, 3)
 
     def u(kh: str, ten: str, sdt: str) -> UngVien:
@@ -499,6 +505,7 @@ def test_g9_ten_gan_giong_va_goi_y_lech() -> None:
     assert goi_y_lech("Nguyễn Thị Lan", None, [a, b]) == "A"  # thư không có SĐT
     assert goi_y_lech("Phạm Hùng", "0903333333", [a, b]) == "B"  # SĐT phụ + tên gần
     assert goi_y_lech("Lê Văn Tám", "0903333333", [a, b]) is None  # SĐT của người khác
+    assert goi_y_lech("Phạm Văn Dũng", "0903333333", [a, b]) is None  # người nhà
     a2 = u("C", "Nguyễn Thị Lan", "0904444444")
     assert goi_y_lech("Nguyễn Thị Lan", "0909999999", [a, a2]) is None  # hai người
     assert goi_y_lech(None, "0901111111", [a]) is None

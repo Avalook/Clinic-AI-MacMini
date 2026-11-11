@@ -286,7 +286,14 @@ export default function KetQuaKhach({
                       size="sm"
                       variant="primary"
                       disabled={dang}
-                      onClick={() => void chay("drive-gan-goi-y", { drive_tep_id: t.id }, `Đã gán kết quả cho ${t.goi_y_ten ?? "khách"}.`)}
+                      // Gửi kèm khách ĐANG HIỆN: gợi ý đổi (xét lại) ⇒ máy chủ trả 409.
+                      onClick={() =>
+                        void chay(
+                          "drive-gan-goi-y",
+                          { drive_tep_id: t.id, clinic_patient_id: t.goi_y_clinic_patient_id },
+                          `Đã gán kết quả cho ${t.goi_y_ten ?? "khách"}.`,
+                        )
+                      }
                     >
                       Gán cho khách này
                     </Button>

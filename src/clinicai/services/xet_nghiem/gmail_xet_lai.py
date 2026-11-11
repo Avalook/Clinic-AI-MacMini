@@ -64,6 +64,13 @@ UPDATE drive_tep
    AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL
 """
 
+#: Gợi ý khách của thư KHONG_KHOP_KHACH (G9) — ghi đúng giá trị mới, kể cả NULL.
+_GOI_Y_SQL = """
+UPDATE drive_tep SET goi_y_clinic_patient_id = $3::uuid
+ WHERE clinic_id = $1::uuid AND id = $2::uuid AND ly_do_cho = 'KHONG_KHOP_KHACH'
+   AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL
+"""
+
 
 def _part_id(file_id: str, mid: str) -> str | None:
     """`gmail:<mid>:<part_id>` (gmail_luu) ⇒ part_id. Khác khuôn ⇒ None."""
@@ -140,20 +147,11 @@ async def _ap(
 ) -> None:
     q, dong_id = m.q, d["id"]
     if (q.ly_do, q.luu_tru_vi_sao) == (d["ly_do_cho"], d["luu_tru_vi_sao"]):
-        # Lý do như cũ. Chỉ ghi khi có khách gợi ý MỚI (G9: tên / SĐT lệch hồ sơ).
+        # Lý do như cũ. Thư không khớp (G9): gợi ý = ĐÚNG lần quyết này (đổi người hoặc
+        # không còn ai ⇒ ghi / xoá — gợi ý cũ không được treo nút sai người).
         moi = q.goi_y_clinic_patient_id
-        if moi and moi != d["goi_y_kh"]:
-            n = await pool.execute(
-                _CAP_NHAT_SQL,
-                cid,
-                dong_id,
-                q.ly_do,
-                q.luu_tru_vi_sao,
-                q.goi_y_order_id,
-                moi,
-                d["ly_do_cho"],
-                d["luu_tru_vi_sao"],
-            )
+        if q.ly_do == "KHONG_KHOP_KHACH" and moi != d["goi_y_kh"]:
+            n = await pool.execute(_GOI_Y_SQL, cid, dong_id, moi)
             dem["goi_y_moi" if n == "UPDATE 1" else "da_doi"] += 1
             return
         cu = d["luu_tru_vi_sao"] or d["ly_do_cho"]

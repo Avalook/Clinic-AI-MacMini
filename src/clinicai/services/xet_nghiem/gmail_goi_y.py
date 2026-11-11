@@ -6,15 +6,15 @@ gán những thư này (nhầm là kết quả vào hồ sơ người khác) —
 khách, và cho nút "Gán cho khách này".
 
 Nút gán không cần Bàn XN (prod 11/11: 0 việc Bàn XN cho cả 3 lab Gmail ⇒ ô "Gán cho
-khách" ở tab Kết quả trống): khách gợi ý có đúng MỘT chỉ định đúng loại đang chờ ⇒ gán
-vào chỉ định; không có ⇒ vào hồ sơ theo lượt khám gần nhất (luật G8). Người bấm = xác
-nhận cùng bước (như Gán tay).
+khách" ở tab Kết quả trống). Tờ vào đâu = ĐÚNG luật tự ghép (`gmail_ghep.
+quyet_mot_khach`) với khách do người chọn; không có chỉ định ⇒ hồ sơ theo lượt khám
+(G8). Người bấm = xác nhận cùng bước (như Gán tay).
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Final
 
 import asyncpg
 
@@ -25,17 +25,20 @@ from clinicai.services.xet_nghiem import drive, ghep_khach, ghep_tay, gmail_doc
 from clinicai.services.xet_nghiem.ghep_khach import UngVien, chuan
 from clinicai.services.xet_nghiem.gmail_doc import DocThu
 
+#: Chữ đệm quá phổ biến — không đủ làm căn cứ "cùng người".
+_DEM_PHO_BIEN: Final = frozenset({"thi", "van"})
+
 
 def ten_gan_giong(a: object, b: object) -> bool:
-    """HÀM THUẦN: hai tên (bỏ dấu) gần giống — chung ≥ nửa số chữ, hoặc trùng hai chữ
-    cuối (tên đệm + tên). Bắt "Nguyễn Thị Lan" ↔ "Nguyễn Lan", lỗi gõ một chữ."""
+    """HÀM THUẦN: hai tên (bỏ dấu) là cùng người viết thiếu / thừa chữ — TRÙNG tên gọi
+    (chữ cuối) VÀ chữ của tên ngắn hơn nằm hết trong tên dài hơn (thiếu tên đệm / thiếu
+    họ: "Trần Mỹ Duyên" ↔ "Trần Thị Mỹ Duyên"). Khác tên gọi ("Lan" ↔ "Hoa") hay khác
+    họ ("Trần Thị Lan" ↔ "Nguyễn Thị Lan") ⇒ KHÔNG (người nhà dùng chung SĐT)."""
     ta, tb = chuan(a).split(), chuan(b).split()
-    if not ta or not tb:
-        return False
-    sa, sb = set(ta), set(tb)
-    return len(sa & sb) / len(sa | sb) >= 0.5 or (
-        len(ta) >= 2 and len(tb) >= 2 and ta[-2:] == tb[-2:]
-    )
+    if not ta or not tb or ta == tb or ta[-1] != tb[-1]:
+        return bool(ta) and ta == tb
+    ngan, dai = sorted((set(ta), set(tb)), key=len)
+    return ngan <= dai and len(ngan - _DEM_PHO_BIEN) >= 2
 
 
 def goi_y_lech(
@@ -72,19 +75,24 @@ async def tim(
 async def gan_cho_khach_goi_y(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any]
 ) -> dict[str, Any]:
-    """Nút "Gán cho khách này": giữ CÙNG khoá của Gán tay / Từ chối / tự ghép."""
+    """Nút "Gán cho khách này": giữ CÙNG khoá của Gán tay / Từ chối / tự ghép. Màn gửi
+    kèm khách nó đang hiện — gợi ý đổi giữa lúc vẽ và lúc bấm (xét lại) ⇒ 409."""
     async with ghep_tay.khoa_tep(pool, data.get("drive_tep_id")):
-        return await _gan(pool, identity, data.get("drive_tep_id"))
+        return await _gan(
+            pool, identity, data.get("drive_tep_id"), data.get("clinic_patient_id")
+        )
 
 
 async def _gan(
-    pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object
+    pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object, thay: object
 ) -> dict[str, Any]:
     cid = identity.clinic_id
     r = await ghep_tay._dong_cho(pool, cid, drive_tep_id)
     kh = r["goi_y_kh"]
     if not ghep_tay.gan_goi_y_duoc(r["nguon"], r["ly_do_cho"], kh):
         raise ConflictError("Tệp này không có khách gợi ý — tải lại màn.")
+    if str(thay or "") != kh:
+        raise ConflictError("Khách gợi ý vừa đổi — tải lại màn rồi kiểm lại.")
     noi = await ghep_tay._byte(r)
     loai = gmail_doc.loai_ket_qua(ghep_khach.chu_pdf(noi))
     order_id, visit_id, appointment_id = await _dich(
@@ -115,9 +123,9 @@ async def _dich(
     nhan_luc: Any,
     loai: frozenset[str],
 ) -> tuple[str | None, str | None, str | None]:
-    """(order_id, visit_id, appointment_id) — đúng luật tự gán (G5–G8) nhưng khách do
-    người chọn: đúng 1 chỉ định đúng loại chưa có tờ ⇒ chỉ định; không ⇒ lượt khám."""
-    from clinicai.services.xet_nghiem.gmail_ghep import dung_loai
+    """(order_id, visit_id, appointment_id) theo ĐÚNG `quyet_mot_khach` + `gan_ho_so`
+    của đường tự ghép; lý do khác "ghép được" ⇒ 409 với đúng câu lý do đó."""
+    from clinicai.services.xet_nghiem import gmail_ghep
 
     async with pool.acquire() as conn:
         viec = [
@@ -125,18 +133,17 @@ async def _dich(
             for v in await ghep_khach.doc_chi_dinh(conn, cid, dt, nhan_luc)
             if v.clinic_patient_id == kh
         ]
-        cho = [v for v in dung_loai(loai, viec) if not v.co_tep]
-        if len(cho) > 1:
+        q = gmail_ghep.quyet_mot_khach(loai, viec, kh, nhan_luc)
+        if q.ly_do == "KHONG_THAY_CHI_DINH":
+            luot = await ghep_khach.luot_gan_nhat(conn, cid, kh, nhan_luc)
+            q = gmail_ghep.gan_ho_so(q, luot)
+    if q.ly_do is not None:
+        if q.ly_do == "KHONG_THAY_CHI_DINH":
             raise ConflictError(
-                f"Khách có {len(cho)} xét nghiệm cùng loại đang chờ kết quả — mở hồ sơ"
-                " khách, gán tờ vào đúng chỉ định."
+                "Khách không có chỉ định loại này, cũng không có lượt khám nào trong 60"
+                " ngày trước thư — kiểm lại khách, hoặc Từ chối tệp."
             )
-        if cho:
-            return cho[0].order_id, cho[0].visit_id, None
-        luot = await ghep_khach.luot_gan_nhat(conn, cid, kh, nhan_luc)
-    if luot is None:
         raise ConflictError(
-            "Khách không có lượt khám nào trong 60 ngày trước thư — kiểm lại khách,"
-            " hoặc Từ chối tệp."
+            "Chưa gán được: " + ghep_tay.vi_sao_cho(q.ly_do, q.luu_tru_vi_sao) + "."
         )
-    return None, luot[0], luot[1]
+    return q.order_id, q.visit_id, q.appointment_id

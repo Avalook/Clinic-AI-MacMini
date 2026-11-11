@@ -141,7 +141,11 @@ def _vi_sao(d: dict[str, Any]) -> None:
     ly, luu = d.pop("ly_do_cho", None), d.pop("luu_tru_vi_sao", None)
     cho = d["trang_thai"] in ("LUU_TRU", "CHO_GHEP")
     d["vi_sao"] = (
-        ghep_tay.vi_sao_cho(ly, luu, d.get("goi_y_id") is not None) if cho else None
+        ghep_tay.vi_sao_cho(
+            ly, luu, ghep_tay.gan_goi_y_duoc("GMAIL", ly, d.get("goi_y_id"))
+        )
+        if cho
+        else None
     )
 
 
