@@ -48,7 +48,7 @@ LY_DO_CHO: Final = {
     "CHUA_LAY_MAU": "Khớp khách nhưng việc chưa bấm Lấy mẫu — kiểm rồi Gán",
     "CO_BAN_MOI": "Khách đã có tờ kết quả — có thể là bản sửa / bổ sung, kiểm rồi Gán",
     "KHONG_THAY_CHI_DINH": (
-        "Khớp khách nhưng khách không có chỉ định xét nghiệm của lab này"
+        "Khớp khách nhưng khách không có chỉ định đúng loại xét nghiệm này (của lab)"
         " trong 60 ngày trước thư"
     ),
     "KHONG_RO_MAU_THU": "Không nhận ra mẫu thư của lab — mở xem rồi Gán",

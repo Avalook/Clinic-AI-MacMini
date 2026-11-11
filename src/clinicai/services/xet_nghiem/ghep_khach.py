@@ -87,6 +87,9 @@ class UngVien:
     #: Giờ nhận thư nguồn của tờ còn hiệu lực MỚI NHẤT đến từ GMAIL. None = không có
     #: tờ nào từ Gmail (có thể vẫn có tờ tải tay — `co_tep`). Chỉ `doc_chi_dinh` điền.
     tep_gmail_luc: datetime | None = None
+    #: Tên dịch vụ của chỉ định (G7: suy loại xét nghiệm để tách HPV / STD của cùng
+    #: khách). Chỉ `doc_chi_dinh` điền.
+    ten_dich_vu: str | None = None
 
     @property
     def dang_cho(self) -> bool:
@@ -192,7 +195,8 @@ SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
        o.visit_id::text AS visit_id, p.full_name AS ten, p.phone_primary AS sdt,
        coalesce(p.birth_year::int, extract(year FROM p.date_of_birth)::int)
            AS nam_sinh,
-       t.so > 0 AS co_tep, t.gmail_luc AS tep_gmail_luc
+       t.so > 0 AS co_tep, t.gmail_luc AS tep_gmail_luc,
+       o.service_name AS ten_dich_vu
   FROM service_order o
   JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
   JOIN patient p

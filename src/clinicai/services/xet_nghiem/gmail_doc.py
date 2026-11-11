@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
-from clinicai.services.xet_nghiem.ghep_khach import chuan_sdt, sdt_trong
+from clinicai.services.xet_nghiem.ghep_khach import chuan, chuan_sdt, sdt_trong
 
 _TRA_LOI: Final = r"^(?:(?:Trả lời|RE|FW|FWD|TR)\s*:\s*)*"
 _TM_RE: Final = re.compile(
@@ -49,6 +49,47 @@ _CHUA_DU_RE: Final = re.compile(r"Trạng thái\s*:\s*Chưa đủ kết quả", 
 _PHIEU_EU_RE: Final = re.compile(r"^NIP\d{7}\.pdf$", re.I)
 
 
+#: Loại xét nghiệm (G7, Tuyền 11/11): từ khoá (đã bỏ dấu, chữ thường, nguyên từ). Đo 60
+#: PDF Tâm Minh: 32 chỉ STD, 27 chỉ HPV, 1 cả ba ⇒ đủ tách HPV / STD của cùng khách.
+#: (Danh sách, không tuple một phần tử: chốt cú pháp SQL
+#: `test_sql_trong_service_cu_phap_dung` đọc dấu phẩy trước ngoặc đóng là SQL nối hụt.)
+_LOAI_KQ: Final = {
+    "HPV": ["hpv", "papilloma"],
+    "STD": ["chlamydia", "neisseria", "trichomonas", "mycoplasma", "ureaplasma",
+            "treponema", "giang mai", "herpes", "hsv", "gardnerella", "lau cau",
+            "13 tac nhan", "std"],
+    "THINPREP": ["thinprep", "thin prep", "te bao hoc", "bethesda", "pap smear"],
+    "NIPT": ["nipt"],
+    "GEN": ["gen lan", "carrier"],
+}  # fmt: skip
+#: Loại theo TÊN DỊCH VỤ (chỉ định). Không khớp gì (vd "Xét nghiệm máu") ⇒ rỗng.
+_LOAI_DV: Final = {
+    "HPV": ["hpv"],
+    "STD": ["std", "benh lay"],
+    "THINPREP": ["thinprep"],
+    "NIPT": ["nipt"],
+    "GEN": ["gen"],
+}
+
+
+def _co_tu(van: str, bang: dict[str, list[str]]) -> frozenset[str]:
+    s = f" {chuan(van)} "
+    return frozenset(
+        loai for loai, tu in bang.items() if any(f" {t} " in s for t in tu)
+    )
+
+
+def loai_ket_qua(chu: object) -> frozenset[str]:
+    """HÀM THUẦN: loại xét nghiệm nhắc trong chữ PDF kết quả. Rác ⇒ rỗng."""
+    return _co_tu(chu, _LOAI_KQ) if isinstance(chu, str) else frozenset()
+
+
+def loai_dich_vu(ten: object) -> frozenset[str]:
+    """HÀM THUẦN: loại xét nghiệm của một chỉ định theo tên dịch vụ ("Combo HPV 40 +
+    thinprep" ⇒ HPV + THINPREP). Không nhận ra ⇒ rỗng (không dùng để loại)."""
+    return _co_tu(ten, _LOAI_DV) if isinstance(ten, str) else frozenset()
+
+
 @dataclass(frozen=True)
 class DocThu:
     kieu: str  # "TM" | "GLHD" | "EU" | "" (không nhận ra ⇒ không tự ghép)
@@ -58,6 +99,9 @@ class DocThu:
     #: Vì sao thư nhận ra được mà KHÔNG được tự ghép (mã `drive_tep.luu_tru_vi_sao`):
     #: CHUA_DU_KET_QUA (Greenlab trả từng phần) · PHIEU_MA_VACH (Eurofins). None = được.
     khong_tu_ghep: str | None = None
+    #: Loại xét nghiệm đọc được trong CHỮ PDF (không theo tên tệp — True Medicine ghi
+    #: sai loại ở tên tệp). Rỗng = không biết ⇒ không dùng để chọn chỉ định.
+    loai: frozenset[str] = frozenset()
 
     @property
     def tu_ghep_duoc(self) -> bool:
@@ -139,7 +183,14 @@ def doc_thu(
         ns = ns_eu(chu, nam_nay)
         if _PHIEU_EU_RE.match(tep.strip()):
             khong = "PHIEU_MA_VACH"  # phiếu mã vạch, không phải kết quả
-    return DocThu(kieu=kieu, ten=ten, sdt=sdt, nam_sinh=ns, khong_tu_ghep=khong)
+    return DocThu(
+        kieu=kieu,
+        ten=ten,
+        sdt=sdt,
+        nam_sinh=ns,
+        khong_tu_ghep=khong,
+        loai=loai_ket_qua(chu),
+    )
 
 
 def _mot_nam(nam: set[int | None]) -> int | None:

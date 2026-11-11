@@ -29,7 +29,7 @@ import structlog
 
 from clinicai.services.xet_nghiem import ghep_khach
 from clinicai.services.xet_nghiem.ghep_khach import UngVien
-from clinicai.services.xet_nghiem.gmail_doc import DocThu
+from clinicai.services.xet_nghiem.gmail_doc import DocThu, loai_dich_vu
 
 logger = structlog.get_logger()
 
@@ -87,6 +87,9 @@ def quyet(
     if len(khach) > 1:
         return QuyetGmail("NHIEU_KHACH")
     kh = next(iter(khach))
+    khop = dung_loai(d.loai, khop)
+    if not khop:  # PDF là loại khách KHÔNG có chỉ định (vd HPV mà chỉ chờ STD)
+        return QuyetGmail("KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id=kh)
     # Đang chờ (chưa tờ nào) trước; không có thì chỉ định CHỈ có tờ tải tay (Tuyền
     # 11/11: tờ tay + tờ Gmail hiện song song, "Bản 2").
     for nhom in (
@@ -106,6 +109,16 @@ def quyet(
     if any(v.tep_gmail_luc and v.tep_gmail_luc >= nhan_luc for v in khop):
         return luu_tru("DA_CO_KET_QUA", **goi_y)  # thư trùng / thư cũ hơn tờ Gmail
     return QuyetGmail("CO_BAN_MOI", **goi_y)
+
+
+def dung_loai(loai_pdf: frozenset[str], khop: list[UngVien]) -> list[UngVien]:
+    """HÀM THUẦN (G7, Tuyền 11/11): chỉ định của MỘT khách khớp tên + SĐT ⇒ giữ chỉ
+    định có loại xét nghiệm trùng loại đọc trong PDF (HPV vs STD của Tâm Minh). PDF
+    không rõ loại ⇒ giữ hết; chỉ định không suy được loại (vd "Xét nghiệm máu") ⇒ giữ
+    (không đủ căn cứ loại). Rỗng ⇒ khách không có chỉ định đúng loại này."""
+    if not loai_pdf:
+        return khop
+    return [v for v in khop if not (dv := loai_dich_vu(v.ten_dich_vu)) or dv & loai_pdf]
 
 
 def khong_thay_chi_dinh(q: QuyetGmail, khach_that: str | None) -> QuyetGmail:

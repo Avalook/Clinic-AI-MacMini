@@ -436,6 +436,9 @@ async def test_g5_ung_vien_dung_lab_dung_cua_so_ngay(
 
     async with pool.acquire() as conn:
         assert v["oid"] in await ids(conn, c3.dt, bay_gio)
+        # G7: ứng viên mang tên dịch vụ (để suy loại xét nghiệm).
+        uv = {u.order_id: u for u in await doc_chi_dinh(conn, CLINIC, c3.dt, bay_gio)}
+        assert uv[v["oid"]].ten_dich_vu
         assert v["oid"] in await ids(conn, hai, bay_gio)
         assert v["oid"] not in await ids(conn, la, bay_gio)
         truoc = bay_gio - timedelta(hours=1)  # thư nhận TRƯỚC khi chỉ định
