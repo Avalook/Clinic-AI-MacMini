@@ -18,7 +18,7 @@
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import type { NhanLuot } from "../../../lib/nhan-luot";
-import { coMotQuyen, docDuocYKhoa } from "../../../lib/quyen-cua-toi";
+import { coMotQuyen, docDuocYKhoa, QUYEN_SUA_HANH_CHINH } from "../../../lib/quyen-cua-toi";
 import { Activity, CalendarClock, RotateCcw, UserPlus, UsersRound } from "lucide-react";
 import {
   requireNavAccess,
@@ -150,11 +150,7 @@ export default async function PatientListPage({
     ["clinical.consult.perform"],
     vaiHomNay.some(isDoctorRole),
   );
-  // Sửa hành chính — khớp `_PATIENT_EDIT_GUARD` (api/v1/patients.py).
-  const canEditAdmin = theoQuyen(
-    ["patient.create", "crm.manage", "reception.checkin.perform", "clinical.record.write"],
-    canEditPatient(role),
-  );
+  const canEditAdmin = theoQuyen(QUYEN_SUA_HANH_CHINH, canEditPatient(role));
   const canBook = theoQuyen(
     ["booking.create", "booking.manage"],
     canManageAppt(role) || canWriteIntake(role),

@@ -50,6 +50,7 @@ test("cả hai nhánh (sửa được / chỉ xem) nằm trong ngăn, chỉ mộ
 
 test("người sửa được: gập mặc định; người chỉ xem: mở sẵn; nhớ theo người", () => {
   const { dau } = ngan();
-  assert.match(dau, /moSan=\{!canEdit\}/);
+  // Người sửa = quyền SỬA HÀNH CHÍNH (khớp máy chủ), không phải `canEdit` (gồm cả đặt lịch).
+  assert.match(dau, /moSan=\{!canSuaHanhChinh\}/);
   assert.match(dau, /nhoKhoa="khach-hanh-chinh"/);
 });

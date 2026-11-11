@@ -26,6 +26,18 @@ export const QUYEN_BAN_LE = [
   "payment.service.collect",
 ] as const;
 
+/** Sửa thông tin HÀNH CHÍNH của khách (SĐT, địa chỉ, công ty…). Khớp
+ *  `_PATIENT_EDIT_GUARD` ở `api/v1/patients.py` — test
+ *  `test_quyen_sua_hanh_chinh_khop.py` canh hai bên không lệch. Bản cũ ở
+ *  /customers gộp thêm `booking.create` (quyền ĐẶT LỊCH): người chỉ đặt lịch
+ *  thấy nút "Sửa thông tin" rồi bấm Lưu bị 403. */
+export const QUYEN_SUA_HANH_CHINH = [
+  "patient.create",
+  "crm.manage",
+  "reception.checkin.perform",
+  "clinical.record.write",
+] as const;
+
 export const quyenCuaToi = cache(async (): Promise<ReadonlySet<string>> => {
   const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
   return new Set(d?.quyen ?? []);
