@@ -873,6 +873,14 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `src/dashboard/components/ui/ThanhSoTrang.tsx` + `src/dashboard/lib/so-trang.ts`. Test:
   `T/services/test_danh_sach_benh_nhan_phan_trang_db.py`,
   `T/unit/test_danh_sach_benh_nhan.py`, `lib/so-trang.test.mts` (`npm run test:so-trang`).
+  Bộ lọc dùng chung (ô tìm + tab + phạm vi thư ký): `bo_loc()` cùng tệp — màn và Excel.
+- **Excel địa chỉ khách (11/11, kế toán rà địa chỉ sai):** nút [Tải Excel địa chỉ khách] ở
+  `/patient-list` (chỉ khi có `accounting.finance.full` — Kế toán / Quản lý) →
+  `D/api/patients/dia-chi-xlsx` → `GET /api/v1/patients/danh-sach/xlsx?q&loc` →
+  `S/xuat_dia_chi_khach.py` (đúng bộ lọc màn qua `bo_loc`; cột Mã BN · Họ tên · SĐT · Địa chỉ
+  (`dia_chi_khach`) · Hoạt động gần nhất · ô trống để đánh dấu; trần 20.000 dòng có dòng báo
+  trong file; nhật ký `patient.list_exported` KHÔNG ghi chữ ô tìm). Test
+  `T/services/test_xuat_dia_chi_khach_db.py`, FT `excel-dia-chi-khach-boundary.test.mts`.
 
 ## 13. Lịch làm việc · phòng · tầng
 

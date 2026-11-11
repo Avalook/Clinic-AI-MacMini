@@ -23,7 +23,9 @@ from clinicai.schemas.patient import (
     PhoneCheckResult,
     PhoneDuplicateMatch,
 )
+from clinicai.services.excel_export import XLSX_MEDIA_TYPE
 from clinicai.services.patient_service import PatientService
+from clinicai.services.xuat_dia_chi_khach import QUYEN_XUAT as QUYEN_XUAT_DIA_CHI
 
 router = APIRouter()
 
@@ -273,6 +275,29 @@ async def get_patient_by_id(
 # Lego 13 "Danh sách bệnh nhân" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai.
 # Migration 20260925000015 cấp lego này cho đúng 11 vai trước đây vào được.
 _DANH_SACH_GUARD = cua_quyen("patient.list.view")
+
+
+@router.get("/patients/danh-sach/xlsx")
+async def xuat_dia_chi_khach_excel(
+    q: str | None = Query(None, max_length=200),
+    loc: str | None = Query(None, max_length=40),
+    identity: StaffIdentity = Depends(cua_quyen(QUYEN_XUAT_DIA_CHI)),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """File Excel địa chỉ khách (mã BN, họ tên, SĐT, địa chỉ) theo đúng bộ lọc màn
+    Danh sách bệnh nhân — kế toán rà địa chỉ sai (11/11/2026). Chỉ Kế toán / Quản lý."""
+    from clinicai.services.xuat_dia_chi_khach import xuat_dia_chi_khach
+
+    noi_dung = await xuat_dia_chi_khach(pool, identity=identity, q=q, loc=loc)
+    return Response(
+        noi_dung,
+        media_type=XLSX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": 'attachment; filename="dia-chi-khach.xlsx"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/patients/danh-sach")

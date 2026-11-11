@@ -301,6 +301,24 @@ def ghep(
     return dong
 
 
+async def bo_loc(
+    pool: asyncpg.Pool, identity: StaffIdentity, *, q: Any, loc: Any
+) -> tuple[Any, ...]:
+    """$1–$7 của ``_CO_SO`` (khớp ô tìm + tab, trong phạm vi) — chung màn + Excel."""
+    ids = await khach_duoc_xem(pool, identity)
+    t = chuoi_tim(q)
+    khoang = LOC_THEO_SO_LUOT.get(doc_loc(loc) or "", (0, None))
+    return (
+        identity.clinic_id,
+        ids,
+        f"%{t}%" if t else None,
+        t,
+        mau_so(t),
+        khoang[0],
+        khoang[1],
+    )
+
+
 class DanhSachBenhNhanService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -321,18 +339,7 @@ class DanhSachBenhNhanService:
         không theo ô tìm / tab / trang. ``so_khop`` = số hồ sơ khớp ô tìm + tab
         (dòng "Hiển thị x–y trên N"). Trang vượt quá → trang cuối. ``chon``
         chỉ có khi khách ấy KHÔNG nằm trong trang trả về."""
-        ids = await khach_duoc_xem(self._pool, identity)
-        t = chuoi_tim(q)
-        khoang = LOC_THEO_SO_LUOT.get(doc_loc(loc) or "", (0, None))
-        nen = (
-            identity.clinic_id,
-            ids,
-            f"%{t}%" if t else None,
-            t,
-            mau_so(t),
-            khoang[0],
-            khoang[1],
-        )
+        nen = await bo_loc(self._pool, identity, q=q, loc=loc)
         ma_chon = ma_khach(chon)
         async with self._pool.acquire() as conn:
             dem = await conn.fetchrow(_DEM_SQL, *nen)
