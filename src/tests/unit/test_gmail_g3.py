@@ -523,5 +523,9 @@ def test_g9_nut_gan_goi_y_chi_thu_email_khong_khop() -> None:
     assert not gan_goi_y_duoc("DRIVE", "KHONG_KHOP_KHACH", "kh")
     assert not gan_goi_y_duoc("GMAIL", "ONG_NHIEU_VIEC", "kh")
     assert not gan_goi_y_duoc("GMAIL", "KHONG_KHOP_KHACH", None)
+    from clinicai.services.xet_nghiem.ghep_tay import gan_khach_duoc
+
+    assert gan_khach_duoc("GMAIL") and not gan_khach_duoc("DRIVE")
+    assert not gan_khach_duoc(None)
     assert vi_sao_cho("KHONG_KHOP_KHACH", None, True) == LECH_CO_GOI_Y
     assert vi_sao_cho("KHONG_KHOP_KHACH", None) == LY_DO_CHO["KHONG_KHOP_KHACH"]

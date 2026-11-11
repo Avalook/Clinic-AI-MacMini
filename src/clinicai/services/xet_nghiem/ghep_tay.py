@@ -89,6 +89,12 @@ def gan_goi_y_duoc(nguon: object, ly_do_cho: object, goi_y_kh: object) -> bool:
     return nguon == "GMAIL" and ly_do_cho == "KHONG_KHOP_KHACH" and bool(goi_y_kh)
 
 
+def gan_khach_duoc(nguon: object) -> bool:
+    """MỘT luật cho ô "tìm khách rồi gán" (G10): mọi thư EMAIL đang chờ (không cần việc
+    Bàn XN). Tệp Drive vẫn gán theo việc đã lấy mẫu (mã ống)."""
+    return nguon == "GMAIL"
+
+
 _CHO_SQL = """
 SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
        t.ten, t.mime, t.drive_tao_luc, t.drive_nguoi_tai, t.nhan_luc, t.ly_do_cho,
@@ -136,6 +142,7 @@ async def ds_cho(conn: asyncpg.Connection, cid: str) -> list[dict[str, Any]]:
                 **dict(r),
                 "vi_sao": vi_sao_cho(r["ly_do_cho"], None, co),
                 "gan_goi_y_duoc": co,
+                "gan_khach_duoc": gan_khach_duoc(r["nguon"]),
                 "loai": loai_xem(r["mime"]),
             }
         )
