@@ -17,7 +17,7 @@ from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services.xet_nghiem import ghep_tay, gmail_goi_y
+from clinicai.services.xet_nghiem import ghep_tay, gmail_gan_lai, gmail_goi_y
 
 router = APIRouter()
 P = "/xet-nghiem/ban"
@@ -151,6 +151,50 @@ async def tim_khach(
 ) -> object:
     """Ô tìm khách của thư email chờ (G10) — câu tìm khách dùng chung."""
     return {"items": await gmail_goi_y.tim_khach(p, i, q)}
+
+
+class EmailDaGanOut(BaseModel):
+    id: str
+    ten: str
+    email_tieu_de: str | None
+    email_nhan_luc: datetime | None
+    ghep_luc: datetime | None
+    ten_doi_tac: str
+    ghep_boi: str
+    tep_id: str
+    #: Chữ trạng thái tờ (máy chủ tính): Chờ xác nhận / Hợp lệ.
+    nhan_to: str
+    da_gui: bool
+    vao_chi_dinh: bool
+    #: Tên dịch vụ của chỉ định, hoặc "Hồ sơ theo lượt khám".
+    gan_vao: str
+    clinic_patient_id: str
+    ten_khach: str
+    patient_code: str | None
+    phone_primary: str | None
+
+
+class EmailDaGanListOut(BaseModel):
+    thu: list[EmailDaGanOut]
+    #: Người xem có quyền Xác nhận kết quả (thu hồi tờ cũ cần quyền đó).
+    co_quyen_gan_lai: bool
+
+
+@router.get(f"{P}/email-da-gan", response_model=EmailDaGanListOut)
+async def email_da_gan(
+    q: str = "", i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
+) -> object:
+    """Thư email ĐÃ gắn khách (G11) — chỗ sửa khi gắn nhầm."""
+    return await gmail_gan_lai.da_gan(p, i, q)
+
+
+@router.post(f"{P}/drive-gan-lai", response_model=OkOut)
+async def drive_gan_lai(
+    r: Request, i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
+) -> object:
+    """Thư email gắn nhầm ⇒ thu hồi / từ chối tờ cũ, gán cho khách đúng (G11)."""
+    kq = await gmail_gan_lai.gan_lai(p, i, await _than(r))
+    return {"ok": True, "tep_id": kq["tep_id"]}
 
 
 @router.post(f"{P}/drive-tu-choi", response_model=OkOut)
