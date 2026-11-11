@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter, defaultdict
-from typing import Any, Final
+from typing import Final
 
 import asyncpg
 import httpx
@@ -32,7 +32,7 @@ logger = structlog.get_logger()
 
 TRAN: Final = 2000
 
-_DONG_SQL = """
+_DONG_SQL = f"""
 SELECT t.id::text AS id, t.doi_tac_id::text AS dt, t.email_message_id AS mid,
        t.file_id, t.khoa, t.vi_tri, d.email_gui_ket_qua AS email
   FROM drive_tep t
@@ -42,7 +42,7 @@ SELECT t.id::text AS id, t.doi_tac_id::text AS dt, t.email_message_id AS mid,
    AND t.tep_ket_qua_id IS NULL AND t.tu_choi_luc IS NULL
    AND d.email_gui_ket_qua IS NOT NULL AND d.ngung_luc IS NULL
  ORDER BY t.email_nhan_luc, t.id
- LIMIT 2000
+ LIMIT {TRAN}
 """
 
 #: Chỉ dòng VẪN ở "Lưu trữ / không xác thực" (không đè người / lượt khác đã xử lý).
@@ -77,6 +77,11 @@ async def xet_lai(
         except gmail_api.GmailError as e:
             dem["loi_gmail"] += len(dongs)
             logger.warning("gmail_xet_lai_loi", message_id=mid, cau=str(e)[:200])
+        except Exception as e:  # noqa: BLE001 — một thư lỗi không dừng cả lượt
+            # Chỉ tên kiểu lỗi: chuỗi lỗi DB / tệp có thể chứa dữ liệu thư.
+            dem["loi"] += len(dongs)
+            logger.error("gmail_xet_lai_loi", message_id=mid, loai=type(e).__name__)
+    logger.info("gmail_xet_lai_xong", clinic_id=cid, **dict(dem))
     return dict(dem)
 
 
@@ -99,7 +104,15 @@ async def _mot_thu(
         if p is None:
             dem["bo_qua"] += 1
             continue
-        tai.append((p, await gmail_luu.doc_het(d["khoa"], d["vi_tri"]), d["id"]))
+        try:
+            data = await gmail_luu.doc_het(d["khoa"], d["vi_tri"])
+        except Exception as e:  # noqa: BLE001 — byte mất ⇒ để nguyên dòng
+            dem["mat_byte"] += 1
+            logger.error(
+                "gmail_xet_lai_mat_byte", drive_tep_id=d["id"], loai=type(e).__name__
+            )
+            continue
+        tai.append((p, data, d["id"]))
     muc = await gmail.muc_ca_thu(
         pool, cid, dongs[0]["dt"], thu, [(p, b) for p, b, _ in tai]
     )
@@ -108,7 +121,7 @@ async def _mot_thu(
 
 
 async def _ap(
-    pool: asyncpg.Pool, cid: str, dong_id: str, m: Any, dem: Counter[str]
+    pool: asyncpg.Pool, cid: str, dong_id: str, m: gmail_luu.Muc, dem: Counter[str]
 ) -> None:
     q = m.q
     if q.luu_tru_vi_sao == "KHONG_XAC_THUC":
@@ -127,7 +140,15 @@ async def _ap(
         dem["da_doi"] += 1  # dòng vừa được xử lý ở chỗ khác
         return
     if q.ly_do is None:
-        ok = await gmail_ghep.gan_tu_dong(pool, cid, dong_id, q, m.data, m.p.ten)
+        try:
+            ok = await gmail_ghep.gan_tu_dong(pool, cid, dong_id, q, m.data, m.p.ten)
+        except Exception as e:  # noqa: BLE001 — như nhan_thu: dòng sang LOI_TEP
+            # Dòng vừa thành "chờ tự gán" (ly_do NULL) — không để kẹt không lý do.
+            logger.error(
+                "gmail_xet_lai_gan_loi", drive_tep_id=dong_id, loai=type(e).__name__
+            )
+            await gmail_ghep.danh_loi_tep(pool, cid, dong_id)
+            ok = False
         dem["tu_gan" if ok else "gan_loi"] += 1
     else:
         dem[

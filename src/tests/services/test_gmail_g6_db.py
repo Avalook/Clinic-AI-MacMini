@@ -68,6 +68,44 @@ async def test_xet_lai_thu_xep_oan_thi_gan_vao_dung_chi_dinh(
     assert (await gmail_xet_lai.xet_lai(pool, None, CLINIC)).get("tu_gan") is None  # type: ignore[arg-type]
 
 
+async def test_xet_lai_mat_byte_de_nguyen_gan_loi_sang_loi_tep(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Một thư lỗi không dừng cả lượt và không để dòng kẹt "chờ tự gán" không tờ."""
+    from clinicai.services.xet_nghiem import gmail_ghep, gmail_luu
+
+    v = await c3.viec(pool)
+    mat = c3.thu(v["ten"], v["sdt"], xac_thuc=HONG)
+    await gmail.mot_vong(pool)
+    loi = c3.thu(v["ten"], v["sdt"], xac_thuc=HONG)
+    await gmail.mot_vong(pool)
+    for mid in (mat, loi):
+        c3.g.thu[mid] = dataclasses.replace(c3.g.thu[mid], xac_thuc=_spf(c3))
+    id_mat = (await _dong(pool, mat))["id"]
+    goc_doc = gmail_luu.doc_het
+
+    async def doc(khoa: str, vi_tri: str) -> bytes:
+        if khoa == await pool.fetchval(
+            "SELECT khoa FROM drive_tep WHERE id = $1::uuid", id_mat
+        ):
+            raise FileNotFoundError("mất")
+        return await goc_doc(khoa, vi_tri)
+
+    async def gan_hong(*_a: object, **_k: object) -> bool:
+        raise RuntimeError("hỏng")
+
+    monkeypatch.setattr(gmail_luu, "doc_het", doc)
+    monkeypatch.setattr(gmail_ghep, "gan_tu_dong", gan_hong)
+    dem = await gmail_xet_lai.xet_lai(pool, None, CLINIC)  # type: ignore[arg-type]
+    assert dem.get("mat_byte") == 1 and dem.get("gan_loi") == 1
+    d = await _dong(pool, mat)  # byte mất ⇒ để nguyên, lần sau xét lại được
+    assert (d["ly_do_cho"], d["luu_tru_vi_sao"]) == ("LUU_TRU", "KHONG_XAC_THUC")
+    d = await _dong(pool, loi)  # gán hỏng ⇒ có lý do, không kẹt NULL
+    assert (d["ly_do_cho"], d["tep_ket_qua_id"]) == ("LOI_TEP", None)
+
+
 async def test_xet_lai_van_khong_xac_thuc_hoac_nguoi_gui_khac_thi_de_nguyen(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
