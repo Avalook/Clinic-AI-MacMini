@@ -46,10 +46,13 @@ const O_GIA =
 export default function VatTuBangGia({
   ds,
   ban,
+  chiXem = false,
   onSua,
 }: {
   ds: DongVatTu[];
   ban: boolean;
+  /** Chỉ xem (máy chủ báo không sửa được giá, 11/11/2026) — chữ thay ô sửa. */
+  chiXem?: boolean;
   onSua: (id: string, patch: Record<string, unknown>, xong: string) => Promise<boolean>;
 }) {
   const [tim, setTim] = useState("");
@@ -106,6 +109,17 @@ export default function VatTuBangGia({
                         {!d.ban_duoc ? <Chip tone="neutral">{d.ly_do_khong_ban}</Chip> : null}
                       </p>
                     </div>
+                    {chiXem ? (
+                      <>
+                        <p className="text-body tabular-nums text-ink">
+                          {d.unit_price === null
+                            ? "chưa có giá"
+                            : `${new Intl.NumberFormat("vi-VN").format(d.unit_price)} đ`}
+                        </p>
+                        <p className="text-meta text-ink-soft">{d.active ? "Đang bán" : "Tạm ngưng"}</p>
+                      </>
+                    ) : (
+                    <>
                     <div className="flex items-center gap-1.5">
                       <input
                         aria-label={`Đơn giá ${d.name}`}
@@ -153,6 +167,8 @@ export default function VatTuBangGia({
                       <span>{d.active ? "Đang bán" : "Tạm ngưng"}</span>
                     </label>
                     <VatTuThuocTinh d={d} ban={ban} onSua={onSua} />
+                    </>
+                    )}
                   </li>
                 );
               })}

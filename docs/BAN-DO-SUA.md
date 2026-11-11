@@ -713,6 +713,13 @@ thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_
   `PriceListService.add` / `update` nhóm thuốc. Vết: sự kiện `pharmacy.price_changed`. Ô giá khoá: `D/pharmacy/inventory/DanhMucKho.tsx`, `SuaDonViBan.tsx`.
   Test: `T/services/test_quyen_gia_thuoc_db.py`; các test khác bỏ qua chốt này qua fixture `_cho_qua_chot_gia_thuoc` trong `T/conftest.py`.
 
+- **Quyền Xem bảng giá (11/11)** — quyền `price.service.view`, khối/lego `xem_bang_gia` (mặc định Quản lý + gói mẫu Kế toán,
+  cấp thêm ở `/phan-quyen`; migration `20261111091559`). Mở `/cashier/dich-vu` (`NAV_QUYEN`) và cổng đọc `_PRICE_READ_GUARD`
+  (`R/config.py`); ghi giá vẫn chỉ `_PRICE_GUARD` = `price.service.manage` (`PriceListService.update` nhóm dịch vụ KHÔNG tự hỏi
+  quyền — cửa duy nhất là router). Cờ `sua_gia_duoc` ở `S/danh_muc_dich_vu_service.py::doc`; màn chỉ đọc
+  `D/cashier/DanhMucDichVuPhong.tsx` (`chiXem`), `VatTuBangGia.tsx`. Test: `T/services/test_quyen_xem_bang_gia_db.py`,
+  FT `bang-gia-chi-xem-boundary.test.mts`.
+
 - **Giao nhầm hàng vật tư ở quầy thuốc (31/10)** — `PharmacyService.hoan_tac_giao_vat_tu`, nút ở `D/pharmacy/DongThuoc.tsx`: dòng về chưa giao, tiền và
   số Kho vật tư giữ nguyên. Kiểm ca / kiểm kho: có lần kiểm sau trên lô thì hoàn tác hay sửa số cũ bị chặn (`kiem_ke_ca_service.lo_co_kiem_sau`).
   Hàm SQL `he_so_don_vi` (mig `20261101400000`) phải giữ cùng luật `BangDonVi._khop`. Test: `T/services/test_soat_kho_3110_db.py`, `test_soat_kho_3110_b_db.py`.

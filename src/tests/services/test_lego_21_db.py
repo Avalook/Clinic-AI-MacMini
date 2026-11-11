@@ -44,8 +44,9 @@ def test_21_lego_theo_thu_tu_thanh_ben() -> None:
     # 21 lego của 25/09 + "Kế toán" (G5a) + "Kho vật tư" (G8a) − màn "Việc cần
     # xử lý" (gỡ 29/10/2026; khối + quyền worklist.handle còn) + hai công tắc
     # "Duyệt vật tư", "Sửa giá thuốc" (31/10/2026) + "Kho email kết quả (tạm)" (cấp
-    # riêng từng người, Gmail G2b 09/11/2026) = 25.
-    assert len(MAN) == 25
+    # riêng từng người, Gmail G2b 09/11/2026) + công tắc "Xem bảng giá" (11/11/2026)
+    # = 26.
+    assert len(MAN) == 26
     assert list(MAN)[:3] == ["tiep_don", "do_sinh_hieu", "tu_van"]
     assert list(MAN)[-1] == "doi_tac"
     # Lego 19 chỉ nằm trong gói mẫu Quản lý.
