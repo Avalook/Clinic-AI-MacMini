@@ -217,31 +217,50 @@ async def _nhip(
     so: int,
     con_tro: str | None = None,
     con: int | None = None,
+    email: str | None = None,
 ) -> None:
-    """Nhịp nguồn GMAIL. Lỗi ⇒ giữ nguyên con trỏ lịch sử (lượt sau đọc lại trang)."""
-    await pool.execute(
-        """
-        INSERT INTO drive_nhip (clinic_id, doi_tac_id, nguon, lan_quet_cuoi, ok_cuoi,
-                                loi_cuoi, so_tep_cuoi, con_tro_lich_su, so_lich_su_con)
-        VALUES ($1::uuid, $2::uuid, 'GMAIL', now(),
-                CASE WHEN $3::text IS NULL THEN now() END, $3, $4, $5, $6)
-        ON CONFLICT (clinic_id, doi_tac_id, nguon) DO UPDATE
-           SET lan_quet_cuoi = now(),
-               ok_cuoi = CASE WHEN $3::text IS NULL THEN now()
-                              ELSE drive_nhip.ok_cuoi END,
-               loi_cuoi = $3, so_tep_cuoi = $4,
-               con_tro_lich_su = CASE WHEN $3::text IS NULL THEN $5
-                                      ELSE drive_nhip.con_tro_lich_su END,
-               so_lich_su_con = CASE WHEN $3::text IS NULL THEN $6
-                                     ELSE drive_nhip.so_lich_su_con END
-        """,
-        cid,
-        dt,
-        loi,
-        so,
-        con_tro,
-        con,
-    )
+    """Nhịp nguồn GMAIL. Lỗi ⇒ giữ nguyên con trỏ lịch sử (lượt sau đọc lại trang).
+    Con trỏ CHỈ ghi khi email lúc quét vẫn là email hiện tại của đối tác: Quản lý đổi
+    email giữa lượt quét (G4 đặt con trỏ về NULL) thì lượt đang chạy bằng email cũ
+    KHÔNG được ghi đè "lịch sử đã hết" — không thì thư cũ của địa chỉ mới không bao
+    giờ được nạp, mà không gì báo."""
+    async with pool.acquire() as conn, conn.transaction():
+        # FOR SHARE: lệnh đổi email (gmail_cai_dat.email_cu ... FOR UPDATE) chờ tới khi
+        # nhịp này ghi xong rồi mới đặt lại con trỏ ⇒ thứ tự luôn đúng, cả khi chưa có
+        # dòng nhịp (nhánh INSERT).
+        hien = await conn.fetchval(
+            "SELECT email_gui_ket_qua FROM doi_tac"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR SHARE",
+            cid,
+            dt,
+        )
+        ghi_con_tro = loi is None and email is not None and email == hien
+        await conn.execute(
+            """
+            INSERT INTO drive_nhip (clinic_id, doi_tac_id, nguon, lan_quet_cuoi,
+                                    ok_cuoi, loi_cuoi, so_tep_cuoi, con_tro_lich_su,
+                                    so_lich_su_con)
+            VALUES ($1::uuid, $2::uuid, 'GMAIL', now(),
+                    CASE WHEN $3::text IS NULL THEN now() END, $3, $4,
+                    CASE WHEN $7 THEN $5 END, CASE WHEN $7 THEN $6::int END)
+            ON CONFLICT (clinic_id, doi_tac_id, nguon) DO UPDATE
+               SET lan_quet_cuoi = now(),
+                   ok_cuoi = CASE WHEN $3::text IS NULL THEN now()
+                                  ELSE drive_nhip.ok_cuoi END,
+                   loi_cuoi = $3, so_tep_cuoi = $4,
+                   con_tro_lich_su = CASE WHEN $7 THEN $5
+                                          ELSE drive_nhip.con_tro_lich_su END,
+                   so_lich_su_con = CASE WHEN $7 THEN $6::int
+                                         ELSE drive_nhip.so_lich_su_con END
+            """,
+            cid,
+            dt,
+            loi,
+            so,
+            con_tro,
+            con,
+            ghi_con_tro,
+        )
 
 
 async def mot_vong(pool: asyncpg.Pool) -> dict[str, int]:
@@ -268,7 +287,7 @@ async def mot_vong(pool: asyncpg.Pool) -> dict[str, int]:
                     pool, kh, cid, r["id"], r["email"]
                 )
                 tong += so
-                await _nhip(pool, cid, r["id"], None, so, con_tro, con)
+                await _nhip(pool, cid, r["id"], None, so, con_tro, con, r["email"])
             except Exception as e:  # noqa: BLE001 — đối tác lỗi không chặn đối tác khác
                 loi += 1
                 if isinstance(e, gmail_api.GmailError):

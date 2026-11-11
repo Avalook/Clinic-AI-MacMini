@@ -185,8 +185,33 @@ hỏi Tuyền, không đoán bấm.
 - Ứng viên: việc đang chờ kết quả (tự ghép); việc đã thu chưa lấy mẫu (`CHUA_LAY_MAU` + gợi ý);
   việc đã có tờ trong 120 ngày (`CO_BAN_MOI` + gợi ý).
 - Bật ghép cho thư sau mốc; thư `LUU_TRU` sau mốc tạo ở G2 được xét lại **một lần**.
+- **⚠️ ĐỀ XUẤT CHỈNH LUẬT G3 sau khi phân tích thư thật 4 lab (09/11) — CHỜ TUYỀN DUYỆT, chưa code.**
+  Báo cáo đã che tên (máy Mac, không vào repo): mọi lab đều có SĐT khách ⇒ luật "tên + SĐT bắt buộc"
+  áp được cả 4. Chỗ kế hoạch cũ sẽ GHÉP SAI và đề xuất thay:
+  | | True Medicine | Greenlab | High Detect | Eurofins |
+  |---|---|---|---|---|
+  | Tên | tiêu đề | tiêu đề | tiêu đề | tiêu đề |
+  | SĐT | chỉ trong PDF (nhãn `SĐT:`) | tiêu đề (kiểm `0\d{9}`, hỏng ⇒ PDF) | tiêu đề (như GL) | PDF, không nhãn — chỉ khi PDF có ĐÚNG một số di động, không thì ghép tay |
+  | Năm sinh (gỡ trùng) | thân `NS:` | PDF `Năm sinh:` | PDF `NS:` | PDF (ngày có năm ≤ 2012) |
+  - **Bỏ "mã xét nghiệm từ TÊN TỆP"**: tên tệp True Medicine sai loại (`_TQ` chứa HPV, `_HPV` chứa PCR).
+    Một khách nhiều việc cùng đối tác ⇒ G3 bản đầu đưa **ghép tay** (`ONG_NHIEU_VIEC`), chưa tự chọn việc;
+    tự chọn theo tên xét nghiệm trong CHỮ PDF ↔ `ma_ben_doi_tac` làm sau khi có dữ liệu thật.
+  - **Không ghép theo mã mẫu của lab** (True Medicine có một mã gửi 4 lần với 4 tên khác nhau).
+  - **Greenlab trả kết quả từng phần** (`Trạng thái: Chưa đủ / Đủ kết quả`): chỉ TỰ GHÉP thư "Đủ kết quả";
+    thư "Chưa đủ" vào Kho + gợi ý (bản đầy đủ đến sau). Bản sửa thật ⇒ `CO_BAN_MOI` (ghép tay) như kế hoạch.
+  - **Bỏ tệp không phải kết quả**: Eurofins `NIP\d{7}.pdf` (phiếu mã vạch) + ảnh chữ ký PNG; tệp
+    `_\d{2}.pdf` scan của GL/HD (vào Kho, không tự ghép vì không đọc được chữ).
+  - **Kiểm DKIM/SPF pass** (`Authentication-Results`) trước khi tự ghép (đã ghi ở "Mang sang G2a").
+  - Không dùng địa chỉ cơ sở in trên PDF (Eurofins vẫn in "Kim Ngưu").
+- Dời từ G4 sang G3 (cần dòng Gmail ở hàng ghép tay trước): tab Kết quả hiện dòng nguồn Email (tiêu đề +
+  giờ nhận), câu lý do mới, nút **Gán theo gợi ý**; nhánh nguồn GMAIL trong `ghep_tay` (xem / Gán đọc byte
+  ở `khoa`).
 
 ### G4 — Màn cài đặt + đèn + gợi ý
+- **G4 xong (09/11, nhánh `claude/gmail-ket-qua-g4`)**: ô Email gửi kết quả (đổi ⇒ đặt lại con trỏ lịch sử;
+  vòng quét đang chạy bằng email cũ không ghi đè được), Mã bên đối tác (giữ khi bảng gán thứ hai không gửi),
+  mốc tự ghép (cửa riêng), đèn Email (luật chung `den_nhip`). "Gợi ý danh sách mã từ báo cáo G0" BỎ — mã
+  lấy từ chữ PDF (xem đề xuất G3), danh mục xét nghiệm từng lab có trong báo cáo phân tích cho Tuyền điền tay.
 - Cài đặt → Đối tác: ô "Email gửi kết quả"; bảng gán xét nghiệm thêm cột "Mã bên đối tác" (gợi ý danh
   sách từ báo cáo G0); ô "Tự ghép kết quả email từ ngày" (Quản lý).
 - Thẻ đối tác: đèn "Email ổn · quét lúc 10:42" / "Email lỗi …" (dùng lại `den_drive`, chữ theo nguồn).

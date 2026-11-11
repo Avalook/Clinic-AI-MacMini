@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-09 17:12. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-09 17:32. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -59,7 +59,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: BanXetNghiem.tsx, app/(dashboard)/_lam-viec/TheKhachHangCho.tsx, CacTab.tsx, CaiDat.tsx, KetQuaKhach.tsx, PopupKhach.tsx, TheViec.tsx, kieu.ts
 - gọi API Next: `/api/xet-nghiem/anh-ck`, `/api/xet-nghiem/drive-tep`, `/api/xet-nghiem/tai-ket-qua`, `/api/xet-nghiem/[...duong]`, `/api/cskh/ket-qua/[tepId]/noi-dung`, `/api/cashier`
 - ? không khớp route.ts nào: `/api/xet-nghiem/ban/lay-mau`, `/api/xet-nghiem/ban/anh-ck/${encodeURIComponent(id)}/go`, `/api/xet-nghiem/ban/tien`, `/api/xet-nghiem/ban/drive-cho`, `/api/xet-nghiem/ban/qua-trinh` (+1)
-- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +2} · quyen_ban.bang_quyen · media_service · TepKetQuaService.mo_de_doc · tep_ket_qua_service · CashierBoardService.{board, giao_dich} (+2 service)
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +3} · quyen_ban.bang_quyen · media_service · TepKetQuaService.mo_de_doc · tep_ket_qua_service · CashierBoardService.{board, giao_dich} (+2 service)
 - test: test_xet_nghiem_nen_db.py, test_cashier_scope_db.py, test_payment_access.py, test_cashier_scope.py, test_tep_ket_qua.py (+10)
 
 ### `/ban-xet-nghiem/kho-email` — Kho email kết quả
@@ -67,7 +67,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: KhoEmail.tsx, app/(dashboard)/ban-xet-nghiem/kieu.ts
 - gọi API Next: `/api/xet-nghiem/kho-email-pdf`, `/api/xet-nghiem/[...duong]`
 - ? không khớp route.ts nào: `/api/xet-nghiem/kho-email/${encodeURIComponent(t.id)}`, `/api/xet-nghiem/ban/${duong}`
-- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +2} · quyen_ban.bang_quyen
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +3} · quyen_ban.bang_quyen
 - test: test_xet_nghiem_nen_db.py
 
 ### `/cashier`
@@ -486,9 +486,9 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/settings/doi-tac` — Đối tác xét nghiệm
 - page: `src/dashboard/app/(dashboard)/settings/doi-tac/page.tsx` · quyền: lego `cai_dat` (Cài đặt phòng khám · mặc định: Quản lý)
-- thành phần: DoiTacView.tsx, FormDoiTac.tsx
+- thành phần: DoiTacView.tsx, FormDoiTac.tsx, GanDichVu.tsx
 - gọi API Next: `/api/xet-nghiem/[...duong]`, `/api/cashier`
-- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +2} · quyen_ban.bang_quyen · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot}
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +3} · quyen_ban.bang_quyen · CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot}
 - test: test_xet_nghiem_nen_db.py, test_cashier_scope_db.py, test_payment_access.py, test_cashier_scope.py, test_cashier_board_exam_service_db.py (+7)
 
 ### `/settings/don-du-lieu-thu` — Dọn dữ liệu thử
@@ -1735,6 +1735,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - PUT `/api/v1/xet-nghiem/doi-tac/{doi_tac_id}` → `src/clinicai/api/v1/routers/xet_nghiem.py:sua_doi_tac` → CaiDatDoiTac.luu_doi_tac
 - POST `/api/v1/xet-nghiem/doi-tac/{doi_tac_id}/ngung` → `src/clinicai/api/v1/routers/xet_nghiem.py:ngung_doi_tac` → CaiDatDoiTac.ngung
 - POST `/api/v1/xet-nghiem/doi-tac-dich-vu/{anh_xa_id}/bo` → `src/clinicai/api/v1/routers/xet_nghiem.py:bo_gan_dich_vu` → CaiDatDoiTac.bo_gan
+- PUT `/api/v1/xet-nghiem/cai-dat/gmail` → `src/clinicai/api/v1/routers/xet_nghiem.py:luu_moc_gmail` → CaiDatDoiTac.moc_gmail
 - `/api/v1/xet-nghiem/ban` → ?
 - `/api/v1/xet-nghiem/ban/tien` → ?
 - `/api/v1/xet-nghiem/ban/qua-trinh` → ?

@@ -31,6 +31,8 @@ const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
     (m) => `/api/v1/xet-nghiem/doi-tac-dich-vu/${m[1]}/bo`,
   ],
   ["PUT", /^cai-dat$/, () => "/api/v1/xet-nghiem/cai-dat"],
+  // Gmail G4 — mốc "Tự ghép kết quả email từ ngày" (Quản lý), cửa riêng.
+  ["PUT", /^cai-dat\/gmail$/, () => "/api/v1/xet-nghiem/cai-dat/gmail"],
   ["GET", /^quyen$/, () => "/api/v1/xet-nghiem/quyen"],
   // Bàn xét nghiệm (chặng 2–3)
   ["GET", /^ban$/, () => "/api/v1/xet-nghiem/ban"],

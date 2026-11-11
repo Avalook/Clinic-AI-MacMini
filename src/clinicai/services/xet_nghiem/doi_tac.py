@@ -21,18 +21,20 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.audit import record_event
 from clinicai.services.tai_khoan_nhan_service import doc_id
+from clinicai.services.xet_nghiem import gmail_cai_dat
 from clinicai.services.xet_nghiem.drive import den_drive
 from clinicai.services.xet_nghiem.o_nhap import (
     doc_form_doi_tac,
     doc_ly_do,
+    doc_ma_ben_doi_tac,
     doc_so_ngay,
     doc_tien,
 )
 
 QUYEN_QUAN_LY = "config.clinic.manage"
 _ORIGIN = "api:xet-nghiem-doi-tac"
-#: Cột nhịp Drive chỉ để tính `drive_den`, không trả thẳng.
-_COT_NHIP = ("lan_quet_cuoi", "ok_cuoi", "loi_cuoi")
+#: Cột nhịp Drive / Gmail chỉ để tính `drive_den` / `email_den`, không trả thẳng.
+_COT_NHIP = ("lan_quet_cuoi", "ok_cuoi", "loi_cuoi", "g_lan", "g_ok", "g_loi")
 
 
 # ── Đọc DB ─────────────────────────────────────────────────────────────────
@@ -42,11 +44,14 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
         SELECT d.id::text, d.ten, d.ma_ngan, d.sdt, d.ghi_chu, d.drive_folder_id,
                d.tai_khoan_nhan_ck,
                d.hen_tra_so_ngay_mac_dinh, d.ngung_luc, d.ly_do_ngung,
-               (d.ngung_luc IS NULL) AS gan_duoc,
-               n.lan_quet_cuoi, n.ok_cuoi, n.loi_cuoi
+               (d.ngung_luc IS NULL) AS gan_duoc, d.email_gui_ket_qua,
+               n.lan_quet_cuoi, n.ok_cuoi, n.loi_cuoi,
+               g.lan_quet_cuoi AS g_lan, g.ok_cuoi AS g_ok, g.loi_cuoi AS g_loi
           FROM public.doi_tac d
           LEFT JOIN public.drive_nhip n
             ON n.clinic_id = d.clinic_id AND n.doi_tac_id = d.id AND n.nguon = 'DRIVE'
+          LEFT JOIN public.drive_nhip g
+            ON g.clinic_id = d.clinic_id AND g.doi_tac_id = d.id AND g.nguon = 'GMAIL'
          WHERE d.clinic_id = $1::uuid
          ORDER BY d.ngung_luc IS NOT NULL, lower(d.ten)
         """,
@@ -56,7 +61,7 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
         """
         SELECT a.id::text, a.doi_tac_id::text, a.service_price_id::text,
                sp.service_code, sp.name AS ten_dich_vu, sp.unit_price,
-               a.gia_goi_y, a.hen_tra_so_ngay, a.mac_dinh,
+               a.gia_goi_y, a.hen_tra_so_ngay, a.mac_dinh, a.ma_ben_doi_tac,
                -- Giá trị HIỆU LỰC (một nơi tính — cùng luật với chup.py): giá cặp >
                -- giá bảng giá, 0 ⇒ trống; hẹn của cặp > hẹn mặc định đối tác.
                nullif(coalesce(a.gia_goi_y, sp.unit_price), 0) AS gia_hieu_luc,
@@ -98,11 +103,15 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
                     d["loi_cuoi"],
                     bay_gio,
                 ),
+                "email_den": gmail_cai_dat.den_email(
+                    d["email_gui_ket_qua"], d["g_lan"], d["g_ok"], d["g_loi"], bay_gio
+                ),
             }
             for d in doi_tac
         ],
         "dich_vu_thu_ho": [dict(r) for r in dich_vu],
         "nguong_lay_mau_ngay": nguong,
+        "gmail_tu_ngay": await gmail_cai_dat.doc_moc(conn, cid),
     }
 
 
@@ -135,19 +144,22 @@ async def _vet(
     )
 
 
-#: $1 clinic, $2 id (NULL khi thêm), $3.. ô của form, $9 người làm, $10 TK nhận CK.
+#: $1 clinic, $2 id (NULL khi thêm), $3.. ô của form, $9 người làm, $10 TK nhận CK,
+#: $11 email gửi kết quả (Gmail G4).
 _LUU_DT = """
 WITH sua AS (
     UPDATE public.doi_tac
        SET ten = $3, ma_ngan = $4, sdt = $5, ghi_chu = $6,
            drive_folder_id = $7, hen_tra_so_ngay_mac_dinh = $8,
-           tai_khoan_nhan_ck = $10, sua_luc = now(), sua_boi = $9::uuid
+           tai_khoan_nhan_ck = $10, email_gui_ket_qua = $11,
+           sua_luc = now(), sua_boi = $9::uuid
      WHERE $2::uuid IS NOT NULL AND clinic_id = $1::uuid AND id = $2::uuid
     RETURNING id
 ), them AS (
     INSERT INTO public.doi_tac (clinic_id, ten, ma_ngan, sdt, ghi_chu,
-        drive_folder_id, hen_tra_so_ngay_mac_dinh, tai_khoan_nhan_ck, tao_boi, sua_boi)
-    SELECT $1::uuid, $3, $4, $5, $6, $7, $8, $10, $9::uuid, $9::uuid
+        drive_folder_id, hen_tra_so_ngay_mac_dinh, tai_khoan_nhan_ck,
+        email_gui_ket_qua, tao_boi, sua_boi)
+    SELECT $1::uuid, $3, $4, $5, $6, $7, $8, $10, $11, $9::uuid, $9::uuid
      WHERE $2::uuid IS NULL
     RETURNING id
 )
@@ -161,9 +173,11 @@ async def luu_doi_tac(
     data: Mapping[str, Any],
     doi_tac_id: str | None = None,
 ) -> str:
-    """Thêm (`doi_tac_id` None) hoặc sửa đối tác. Mã ngắn trùng → 409."""
+    """Thêm (`doi_tac_id` None) hoặc sửa đối tác. Mã ngắn / email trùng → 409.
+    Email đổi ⇒ đặt lại con trỏ lịch sử Gmail (gmail_cai_dat)."""
     f = doc_form_doi_tac(data)
     dt_id = doc_id(doi_tac_id, cau="Đối tác không hợp lệ.")
+    cu = await gmail_cai_dat.email_cu(conn, identity.clinic_id, dt_id)
     try:
         v = await conn.fetchval(
             _LUU_DT,
@@ -177,15 +191,25 @@ async def luu_doi_tac(
             f["hen_tra"],
             identity.staff_id,
             f["tai_khoan_nhan_ck"],
+            f["email_gui_ket_qua"],
         )
-    except asyncpg.UniqueViolationError:
-        raise ConflictError(
-            f"Mã ngắn {f['ma_ngan']} đã có đối tác khác dùng."
-        ) from None
+    except asyncpg.UniqueViolationError as e:
+        ten, k = ("Email", "email_gui_ket_qua")
+        if "email" not in (e.constraint_name or ""):
+            ten, k = ("Mã ngắn", "ma_ngan")
+        raise ConflictError(f"{ten} {f[k]} đã có đối tác khác dùng.") from None
     if v is None:
         raise NotFoundError("Không tìm thấy đối tác.")
+    doi = await gmail_cai_dat.neu_doi_email(
+        conn, identity.clinic_id, dt_id, cu, f["email_gui_ket_qua"]
+    )
     await _vet(
-        conn, identity, "lab.partner_saved", "doi_tac", v, {"moi": dt_id is None}
+        conn,
+        identity,
+        "lab.partner_saved",
+        "doi_tac",
+        v,
+        {"moi": dt_id is None, "email_doi": doi},
     )
     return str(v)
 
@@ -256,14 +280,18 @@ UPDATE public.doi_tac_dich_vu SET mac_dinh = false, sua_luc = now(), sua_boi = $
  WHERE clinic_id = $1::uuid AND service_price_id = $2::uuid
    AND mac_dinh AND doi_tac_id <> $3::uuid
 """
+#: $8 = có gửi ô mã bên đối tác không: KHÔNG gửi (bảng gán ở tab "Gán xét nghiệm")
+#: ⇒ giữ mã cũ, không ghi đè thành NULL; $9 = mã (Gmail G4).
 _GAN_SQL = """
 INSERT INTO public.doi_tac_dich_vu (clinic_id, doi_tac_id, service_price_id,
-    gia_goi_y, hen_tra_so_ngay, mac_dinh, tao_boi, sua_boi)
-VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $7::uuid)
+    gia_goi_y, hen_tra_so_ngay, mac_dinh, tao_boi, sua_boi, ma_ben_doi_tac)
+VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $7::uuid, $9)
 ON CONFLICT (clinic_id, doi_tac_id, service_price_id) WHERE ngung_luc IS NULL
 DO UPDATE SET gia_goi_y = EXCLUDED.gia_goi_y,
               hen_tra_so_ngay = EXCLUDED.hen_tra_so_ngay,
               mac_dinh = EXCLUDED.mac_dinh,
+              ma_ben_doi_tac = CASE WHEN $8 THEN EXCLUDED.ma_ben_doi_tac
+                                    ELSE doi_tac_dich_vu.ma_ben_doi_tac END,
               sua_luc = now(), sua_boi = EXCLUDED.sua_boi
 RETURNING id::text
 """
@@ -284,14 +312,29 @@ async def luu_anh_xa(
     gia = doc_tien(data.get("gia_goi_y"))
     hen = doc_so_ngay(data.get("hen_tra_so_ngay"))
     mac_dinh = data.get("mac_dinh", True) is not False
+    co_ma = "ma_ben_doi_tac" in data
+    ma = doc_ma_ben_doi_tac(data.get("ma_ben_doi_tac"))
     await _kiem_gan(conn, cid, sp_id, dt_id)
     if mac_dinh:
         await conn.execute(_BO_MAC_DINH_SQL, cid, sp_id, dt_id, identity.staff_id)
     try:
         v = await conn.fetchval(
-            _GAN_SQL, cid, dt_id, sp_id, gia, hen, mac_dinh, identity.staff_id
+            _GAN_SQL,
+            cid,
+            dt_id,
+            sp_id,
+            gia,
+            hen,
+            mac_dinh,
+            identity.staff_id,
+            co_ma,
+            ma,
         )
-    except asyncpg.UniqueViolationError:
+    except asyncpg.UniqueViolationError as e:
+        if "ma_ben_doi_tac" in (e.constraint_name or ""):
+            raise ConflictError(
+                f"Mã {ma} đã gán cho xét nghiệm khác của đối tác này."
+            ) from None
         raise ConflictError(
             "Người khác vừa đặt đối tác mặc định cho dịch vụ này — tải lại màn."
         ) from None
