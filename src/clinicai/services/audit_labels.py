@@ -170,6 +170,7 @@ EVENT_LABELS: dict[str, str] = {
     "patient.created": "Tạo hồ sơ bệnh nhân",
     "patient.uu_tien_changed": "Đổi dấu khách ưu tiên",
     "patient.updated": "Sửa hồ sơ khách",
+    "patient.list_exported": "Tải Excel địa chỉ khách",
     "clinic_config.service_form": "Quản lý đổi phiếu khám của dịch vụ",
     "clinic_config.room_floor": "Quản lý đổi tầng phòng",
     "clinic_config.room_created": "Quản lý thêm phòng",

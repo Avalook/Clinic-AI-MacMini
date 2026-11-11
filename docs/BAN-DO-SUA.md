@@ -856,6 +856,15 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `S/nhap_lich_su_notion.py`, `scripts/nhap-lich-su-notion.sh`,
   `scripts/hoan-tac-lich-su-notion.sql` — xem `docs/NHAP-LICH-SU-NOTION.md`. Test:
   `T/services/test_lich_su_notion_db.py`.
+- **Địa chỉ khách để in / xuất (11/11):** MỘT hàm `S/dia_chi_khach.py::dia_chi_khach` — ô
+  `address` (ô duy nhất sửa được, `PatientAdminEditor`) thắng; trống thì ghép
+  `address_detail` · `ward_name` · `province_name`. Dùng ở phiếu khám (`phieu_kham/mang_sang.py`
+  `dung_ho_so`), form in (`S/form_engine_service.py`), PDF hồ sơ khám CSKH
+  (`S/ho_so_kham_service.py::_lich`), trang in "Tóm tắt khám bệnh" `/print/[appointmentId]`
+  (`S/ho_so_lam_sang_doc.py::_lich_in`, trả sẵn vào trường `address`), file MISA
+  (`S/xuat_hoa_don_service.py` — chỉ cắt dấu cách như `btrim` cũ, dấu vân tay MISA không đổi). SQL chỉ lấy
+  4 cột gốc (`COT_DIA_CHI`), không tự ghép. Test `T/unit/test_dia_chi_khach.py` (có bài chặn:
+  tệp nào đọc `address_detail` phải đi qua hàm này).
 - **Danh sách bệnh nhân `/patient-list` — tìm, tab, xếp, phân trang (06/10):** mọi luật
   ở `S/danh_sach_benh_nhan_service.py` (`_CO_SO`: số lượt / đang mở / mốc xếp / khớp ô
   tìm; `MOT_TRANG` = 50; `LOC_THEO_SO_LUOT` = tab) qua `GET /api/v1/patients/danh-sach
@@ -864,6 +873,14 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `src/dashboard/components/ui/ThanhSoTrang.tsx` + `src/dashboard/lib/so-trang.ts`. Test:
   `T/services/test_danh_sach_benh_nhan_phan_trang_db.py`,
   `T/unit/test_danh_sach_benh_nhan.py`, `lib/so-trang.test.mts` (`npm run test:so-trang`).
+  Bộ lọc dùng chung (ô tìm + tab + phạm vi thư ký): `bo_loc()` cùng tệp — màn và Excel.
+- **Excel địa chỉ khách (11/11, kế toán rà địa chỉ sai):** nút [Tải Excel địa chỉ khách] ở
+  `/patient-list` (chỉ khi có `accounting.finance.full` — Kế toán / Quản lý) →
+  `D/api/patients/dia-chi-xlsx` → `GET /api/v1/patients/danh-sach-xlsx?q&loc` →
+  `S/xuat_dia_chi_khach.py` (đúng bộ lọc màn qua `bo_loc`; cột Mã BN · Họ tên · SĐT · Địa chỉ
+  (`dia_chi_khach`) · Hoạt động gần nhất · ô trống để đánh dấu; trần 20.000 dòng có dòng báo
+  trong file; nhật ký `patient.list_exported` KHÔNG ghi chữ ô tìm). Test
+  `T/services/test_xuat_dia_chi_khach_db.py`, FT `excel-dia-chi-khach-boundary.test.mts`.
 
 ## 13. Lịch làm việc · phòng · tầng
 

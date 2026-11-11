@@ -74,7 +74,7 @@ def _ca(rng: random.Random) -> dict[str, Any]:
     }
     return {
         "khach": khach,
-        "ca_nhan": {"dia_chi": _co(rng), "cccd": _co(rng), "email": _co(rng)},
+        "ca_nhan": {"address": _co(rng), "cccd": _co(rng), "email": _co(rng)},
         "cong_ty": cong_ty,
     }
 
@@ -109,7 +109,8 @@ def test_l1_khong_tick_ten_khach_hang_trong_thong_tin_ca_nhan() -> None:
         assert dau[2] == "", "C 'Tên khách hàng' phải trống khi không xuất về công ty"
         assert dau[4] == "", "không có MST"
         assert dau[5] == ca["khach"]["ten"].strip() or dau[5] == ca["khach"]["ten"]
-        assert dau[3] == (ca["ca_nhan"]["dia_chi"] or "")
+        # Địa chỉ đi qua `dia_chi_khach`: cắt dấu cách hai đầu (y `btrim` SQL cũ).
+        assert dau[3] == (ca["ca_nhan"]["address"] or "").strip(" ")
         assert dau[6] == (ca["ca_nhan"]["email"] or "")
 
 

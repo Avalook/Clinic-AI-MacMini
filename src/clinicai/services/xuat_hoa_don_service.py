@@ -28,6 +28,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
+from clinicai.services.dia_chi_khach import dia_chi_khach
 from clinicai.services.hoa_don_cong_ty_service import doc_cong_ty_cho_phieu
 from clinicai.services.hoa_don_excel import HINH_THUC
 from clinicai.services.hoa_don_misa_doc import dau_van_tay
@@ -102,10 +103,7 @@ WHERE bl.clinic_id=$1::uuid AND bl.payment_cycle_id=ANY($2::uuid[])
 _THUE_NHOM = "SELECT nhom, thue_suat_ma FROM thue_suat_nhom WHERE clinic_id=$1::uuid"
 _THEM_KHACH = """
 SELECT pc.payment_cycle_id::text id,
- coalesce(nullif(btrim(p.address), ''),
-   nullif(concat_ws(', ', nullif(btrim(p.address_detail), ''),
-     nullif(btrim(p.ward_name), ''), nullif(btrim(p.province_name), '')), ''))
-   dia_chi,
+ p.address, p.address_detail, p.ward_name, p.province_name,
  nullif(btrim(p.national_id_number), '') cccd,
  coalesce(nullif(btrim(p.email), ''),
    (SELECT c.channel_value FROM patient_contact_channel c
@@ -263,7 +261,7 @@ def dung_hoa_don(
                 "dia_chi": (
                     ct.get("dia_chi_cong_ty") or ""
                     if la_hd_cong_ty
-                    else kh.get("dia_chi") or ""
+                    else dia_chi_khach(kh) or ""
                 ),
                 "ma_so_thue": ct.get("ma_so_thue") or "",
                 "nguoi_mua": k.get("ten") or "",

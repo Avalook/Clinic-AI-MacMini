@@ -151,6 +151,9 @@ export default async function PatientListPage({
     vaiHomNay.some(isDoctorRole),
   );
   const canEditAdmin = theoQuyen(QUYEN_SUA_HANH_CHINH, canEditPatient(role));
+  // Tải Excel địa chỉ khách — khớp `QUYEN_XUAT` (services/xuat_dia_chi_khach.py);
+  // máy chủ vẫn gác lại ở `GET /patients/danh-sach-xlsx`.
+  const xuatDiaChi = theoQuyen(["accounting.finance.full"], false);
   const canBook = theoQuyen(
     ["booking.create", "booking.manage"],
     canManageAppt(role) || canWriteIntake(role),
@@ -205,6 +208,7 @@ export default async function PatientListPage({
           showRebook={showRebook}
           enableVisitPager={showPager}
           canBook={canBook}
+          xuatDiaChi={xuatDiaChi}
           chonSan={chon}
         />
       )}

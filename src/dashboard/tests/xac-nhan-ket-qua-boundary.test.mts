@@ -13,10 +13,12 @@ const tepKetQuaSource = read("app/(dashboard)/customers/TepKetQua.tsx");
 const rolesSource = read("lib/roles.ts");
 const navItemsSource = read("app/(dashboard)/nav-items.ts");
 
-test("NAV: /xac-nhan-ket-qua và /duyet-ket-qua đều OFF khỏi thanh bên (23/09 khuya)", () => {
-  // Tệp đối tác vào thẳng phiếu khám (không bước xác nhận); bác sĩ đọc/điền
-  // kết quả trong phiếu. Hai route còn giữ, chỉ gỡ khỏi thanh bên.
-  assert.equal(navItemsSource.indexOf('href: "/xac-nhan-ket-qua"'), -1);
+test("NAV: /xac-nhan-ket-qua CÓ trên thanh bên (G9 11/11), /duyet-ket-qua vẫn OFF", () => {
+  // 23/09 gỡ cả hai vì tệp đối tác vào thẳng phiếu khám. Từ Gmail G3–G8 (11/2026) tờ
+  // email vào CHO_XAC_NHAN, tờ chưa có chỉ định chỉ xác nhận được ở màn này ⇒ đưa lại
+  // lên thanh bên, chỉ người có quyền result.file.confirm thấy (NAV_QUYEN).
+  assert.notEqual(navItemsSource.indexOf('href: "/xac-nhan-ket-qua"'), -1);
+  assert.match(rolesSource, /"\/xac-nhan-ket-qua": \["result\.file\.confirm"\]/);
   assert.equal(navItemsSource.indexOf('href: "/duyet-ket-qua"'), -1);
 });
 

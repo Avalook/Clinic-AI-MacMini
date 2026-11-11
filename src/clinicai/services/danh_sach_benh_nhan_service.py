@@ -27,17 +27,26 @@ from __future__ import annotations
 
 import json
 import math
-import re
 from typing import Any
 from uuid import UUID
 
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
+
+# Tên đọc tham số lọc được import lại theo dạng `x as x` (xuất lại rõ ràng) — chỗ cũ
+# (màn Đặt lịch, test) vẫn import từ module này.
+from clinicai.services.danh_sach_benh_nhan_loc import CO_SO_SQL
+from clinicai.services.danh_sach_benh_nhan_loc import (
+    LOC_THEO_SO_LUOT as LOC_THEO_SO_LUOT,
+)
+from clinicai.services.danh_sach_benh_nhan_loc import bo_loc as bo_loc
+from clinicai.services.danh_sach_benh_nhan_loc import chuoi_tim as chuoi_tim
+from clinicai.services.danh_sach_benh_nhan_loc import doc_loc as doc_loc
+from clinicai.services.danh_sach_benh_nhan_loc import mau_so as mau_so
 from clinicai.services.danh_sach_khach_cskh import COT_KENH_DOI_HUY
 from clinicai.services.lich_su_luot import LOAI_DU_LIEU_SQL
 from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
-from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 
 #: Số hồ sơ một trang — cùng cỡ với Quản lý khách hàng (KHACH_MOT_TRANG).
 MOT_TRANG = 50
@@ -47,77 +56,9 @@ MOT_TRANG = 50
 #: để phân loại mới / cũ / chưa khám vẫn đếm trên TOÀN BỘ ở ``_CO_SO``.
 TRAN_LUOT = 5000
 
-#: Tab của màn (``?loc=``) → (số lượt tối thiểu, tối đa). Cùng ngưỡng với
-#: ``phan_loai``. Không có / lạ = tất cả.
-LOC_THEO_SO_LUOT: dict[str, tuple[int, int | None]] = {
-    "lan-dau": (1, 1),
-    "tai-kham": (2, None),
-    "chua-kham": (0, 0),
-}
-
-# CƠ SỞ CỦA MỌI CÂU: mỗi hồ sơ người gọi được xem, kèm số lượt, đang mở, mốc
-# hoạt động gần nhất (``luc``) và có khớp ô tìm + tab không (``khop``).
-#
-# ``luc`` = coalesce(LƯỢT gần nhất, LỊCH gần nhất, ngày tạo hồ sơ). Phòng khám
-# 27/09/2026: *"Danh sách BN nên hiển thị ngày gần nhất bên trên"*. Màn lâm
-# sàng nên lượt khám thật đứng trước:
-#   * lượt = `visit.created_at`, hoặc giờ hẹn của lịch khách ĐÃ TỚI
-#     (CHECKED_IN / COMPLETED — đúng định nghĩa "một lượt khám" ở trên);
-#   * lịch = lúc ĐẶT lịch gần nhất, hoặc giờ hẹn ĐÃ QUA còn sống. Giờ hẹn
-#     TƯƠNG LAI không tính — tái khám ba tháng tới không ghim khách lên đầu;
-#   * chưa có gì → ngày tạo hồ sơ (khách mới vẫn lên đầu ngày tạo).
-# Gộp MỘT lần theo khách (``lh``/``vs``, hash join) thay vì bốn câu con cho từng
-# hồ sơ như bản trước: 8.700 hồ sơ × 4 câu con mới là thứ làm chậm trang.
-#
-# Tham số: $1 clinic · $2 mã khách được xem (NULL = không lọc) · $3 mẫu ILIKE ·
-# $4 chuỗi tìm (bỏ dấu ở SQL) · $5 mẫu chỉ-số cho SĐT · $6/$7 số lượt min/max.
-_CO_SO = """
-WITH lh AS (
-    SELECT a.clinic_patient_id,
-           count(*) FILTER (WHERE a.status IN ('CHECKED_IN', 'COMPLETED'))
-               AS so_luot,
-           bool_or(a.status = 'CHECKED_IN' AND v.closed_at IS NULL) AS dang_mo,
-           max(a.slot_start) FILTER (WHERE a.status IN ('CHECKED_IN', 'COMPLETED'))
-               AS den_gan_nhat,
-           max(a.created_at) AS dat_gan_nhat,
-           max(a.slot_start) FILTER (
-               WHERE a.slot_start <= now()
-                 AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED'))
-               AS hen_da_qua
-      FROM appointment a
-      -- Một lịch có tối đa một lượt (uq_visit_appointment_id) → không nhân dòng.
-      LEFT JOIN visit v
-        ON v.clinic_id = a.clinic_id AND v.appointment_id = a.id
-     WHERE a.clinic_id = $1::uuid AND a.clinic_patient_id IS NOT NULL
-     GROUP BY a.clinic_patient_id
-), vs AS (
-    SELECT v.clinic_patient_id, max(v.created_at) AS luot_gan_nhat
-      FROM visit v
-     WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id IS NOT NULL
-     GROUP BY v.clinic_patient_id
-), co_so AS (
-    SELECT p.clinic_patient_id,
-           coalesce(lh.so_luot, 0) AS so_luot,
-           coalesce(lh.dang_mo, false) AS dang_mo,
-           coalesce(greatest(vs.luot_gan_nhat, lh.den_gan_nhat),
-                    greatest(lh.dat_gan_nhat, lh.hen_da_qua),
-                    p.created_at) AS luc,
-           ($3::text IS NULL
-            OR p.full_name ILIKE $3 OR p.patient_code ILIKE $3
-            OR p.sdt_tim_kiem ILIKE $3
-            OR p.full_name_unaccent ILIKE
-               '%' || lower(replace(replace(f_unaccent($4), 'đ', 'd'), 'Đ', 'D'))
-               || '%'
-            OR ($5::text IS NOT NULL AND p.sdt_tim_kiem LIKE $5))
-           AND coalesce(lh.so_luot, 0) >= $6
-           AND ($7::int IS NULL OR coalesce(lh.so_luot, 0) <= $7) AS khop
-      FROM patient p
-      LEFT JOIN lh ON lh.clinic_patient_id = p.clinic_patient_id
-      LEFT JOIN vs ON vs.clinic_patient_id = p.clinic_patient_id
-     WHERE p.clinic_id = $1::uuid
-       AND ($2::text[] IS NULL OR p.clinic_patient_id::text = ANY($2::text[]))
-)
-"""
+# Bộ lọc (tab, câu SQL nền ``co_so``, đọc ô tìm / tab) sống ở
+# `danh_sach_benh_nhan_loc` — dùng chung với file Excel địa chỉ khách (11/11/2026).
+_CO_SO = CO_SO_SQL
 
 # Ô tổng + số ở tab đếm trên TOÀN BỘ ``co_so``; ``khop`` = số dòng của bảng.
 _DEM_SQL = (
@@ -239,31 +180,9 @@ def doc_trang(v: Any) -> int:
     return n if n >= 1 else 1
 
 
-def doc_loc(v: Any) -> str | None:
-    """``?loc=`` → khoá tab trong ``LOC_THEO_SO_LUOT``; lạ / rỗng → None (tất cả)."""
-    k = str(v or "").strip()
-    return k if k in LOC_THEO_SO_LUOT else None
-
-
 def doc_sap(v: Any) -> str:
     """``?sap=`` → "gan" (mặc định, hoạt động gần nhất trước) hoặc "xa"."""
     return "xa" if str(v or "").strip() == "xa" else "gan"
-
-
-def chuoi_tim(q: Any) -> str:
-    """Bỏ ký tự đặc biệt của ILIKE, gộp khoảng trắng, cắt 100 ký tự. Rác → rỗng."""
-    t = re.sub(r"[,()%*_\\]", " ", str(q or ""))
-    return " ".join(t.split())[:100]
-
-
-def mau_so(t: str) -> str | None:
-    """Ô tìm CHỈ có số (kèm dấu cách / chấm / gạch / +) → mẫu tìm trong cột gộp
-    mọi SĐT, bỏ dấu ngăn: "0912 345" khớp "0912345678". Dưới 3 chữ số → bỏ
-    (khớp quá rộng); có chữ cái → không phải số điện thoại."""
-    if not t or not re.fullmatch(r"[\d\s.+\-]+", t):
-        return None
-    so = re.sub(r"\D", "", t)
-    return f"%{so}%" if len(so) >= 3 else None
 
 
 def ma_khach(v: Any) -> str | None:
@@ -321,18 +240,7 @@ class DanhSachBenhNhanService:
         không theo ô tìm / tab / trang. ``so_khop`` = số hồ sơ khớp ô tìm + tab
         (dòng "Hiển thị x–y trên N"). Trang vượt quá → trang cuối. ``chon``
         chỉ có khi khách ấy KHÔNG nằm trong trang trả về."""
-        ids = await khach_duoc_xem(self._pool, identity)
-        t = chuoi_tim(q)
-        khoang = LOC_THEO_SO_LUOT.get(doc_loc(loc) or "", (0, None))
-        nen = (
-            identity.clinic_id,
-            ids,
-            f"%{t}%" if t else None,
-            t,
-            mau_so(t),
-            khoang[0],
-            khoang[1],
-        )
+        nen = await bo_loc(self._pool, identity, q=q, loc=loc)
         ma_chon = ma_khach(chon)
         async with self._pool.acquire() as conn:
             dem = await conn.fetchrow(_DEM_SQL, *nen)
