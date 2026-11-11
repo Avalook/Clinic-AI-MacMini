@@ -192,7 +192,10 @@ class CashierScopeService:
         if loai == "thu" and row["actor_id"] == identity.staff_id:
             row = {**dict(row), "luc": row["created_at"]}
         when = row["luc"].astimezone(CLINIC_TZ)
-        scope = await self.authorize(
+        from clinicai.services.so_thu_doc import pham_vi_doc_so_thu  # vòng import
+
+        scope = await pham_vi_doc_so_thu(
+            self.pool,
             identity,
             tu=when.date().isoformat(),
             den=when.date().isoformat(),
@@ -338,10 +341,13 @@ class CashierScopeService:
                 starts, ends = scope_intervals(when.date(), [shift], settings)
                 if any(lo <= when < hi for lo, hi in zip(starts, ends, strict=True)):
                     active.append({"ca": shift, "co_so_id": loc})
+        from clinicai.services.so_thu_doc import xem_toan_bo_so_thu  # vòng import
+
         return {
             "thao_tac": bool(active),
             "dang_truc": active,
-            "quan_ly": False,
+            # Kế toán: chọn ngày tự do nhưng `thao_tac` vẫn theo ca trực thật.
+            "quan_ly": await xem_toan_bo_so_thu(self.pool, identity),
             "items": items[:limit],
             "next_cursor": items[limit - 1]["ngay"] if len(items) > limit else None,
         }

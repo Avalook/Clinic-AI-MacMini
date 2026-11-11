@@ -21,10 +21,12 @@ from clinicai.services.cashier_board_service import (
 from clinicai.services.cashier_scope_service import CashierScopeService
 from clinicai.services.excel_export import XLSX_MEDIA_TYPE
 from clinicai.services.quay_thu_service import QuayThuService, csv_lich_su, xlsx_lich_su
+from clinicai.services.so_thu_doc import pham_vi_doc_so_thu
 
 router = APIRouter()
 
-# Authentication first; each read checks exact roster scope below.
+# Authentication first; each read checks scope below (`pham_vi_doc_so_thu`:
+# Quản lý / lego Kế toán xem toàn bộ, người khác theo ca được phân công).
 _GUARD = get_current_identity
 _PHIEU_GUARD = get_current_identity
 
@@ -107,8 +109,8 @@ async def cashier_giao_dich(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Giao dịch đã ghi trong khoảng ngày (kể cả đã huỷ) — chỉ đọc."""
-    scope = await CashierScopeService(pool).authorize(
-        identity, tu=tu, den=den, kind=kind or "", ca=ca, co_so=co_so
+    scope = await pham_vi_doc_so_thu(
+        pool, identity, tu=tu, den=den, kind=kind or "", ca=ca, co_so=co_so
     )
     return await CashierBoardService(pool).giao_dich(
         identity=scope.identity,
@@ -141,8 +143,8 @@ async def cashier_lich_su(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Sổ thu / hoàn GOM THEO KHÁCH (tab Đã thu hôm nay · Lịch sử) — chỉ đọc."""
-    scope = await CashierScopeService(pool).authorize(
-        identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
+    scope = await pham_vi_doc_so_thu(
+        pool, identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
     )
     return await QuayThuService(pool).lich_su(
         identity=scope.identity,
@@ -173,8 +175,8 @@ async def cashier_lich_su_csv(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """[Xuất Excel]: CSV UTF-8 có BOM — mỗi lần thu / hoàn / huỷ một dòng."""
-    scope = await CashierScopeService(pool).authorize(
-        identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
+    scope = await pham_vi_doc_so_thu(
+        pool, identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
     )
     kq = await QuayThuService(pool).lich_su(
         identity=scope.identity,
@@ -214,8 +216,8 @@ async def cashier_lich_su_xlsx(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """Editable Excel table; each payment/refund/cancellation is one row."""
-    scope = await CashierScopeService(pool).authorize(
-        identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
+    scope = await pham_vi_doc_so_thu(
+        pool, identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
     )
     kq = await QuayThuService(pool).lich_su(
         identity=scope.identity,
