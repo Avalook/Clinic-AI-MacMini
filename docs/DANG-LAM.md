@@ -2,8 +2,16 @@
 
 Cập nhật: **09/11/2026** — mục "09/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
 
-## 09/11/2026 — KẾT QUẢ ĐỐI TÁC QUA GMAIL: G0 XONG, G1 ĐANG LÀM
+## 09/11/2026 — KẾT QUẢ ĐỐI TÁC QUA GMAIL: G0–G4 ĐỦ 7 PR, CI XANH, CHỜ MERGE
 
+- **Thứ tự merge (xếp chồng):** #609 G0 → #610 G1 → #611 G2a → #612 G2b → #613 G4 → #614 G3a →
+  #615 G3b. G2a + G2b + G4 (+ G3 nếu kịp) lên prod CÙNG một đợt. Chưa ai bấm trình duyệt
+  #612 / #613 / #615 — kịch bản trong thân PR. Bật thật: khoá Gmail lên VPS + `.env.prod`, đặt email
+  từng đối tác (màn G4), đặt mốc "Tự ghép kết quả email từ ngày".
+- **G3a** (#614): tự ghép chỉ thư sau mốc + xác thực đúng miền (chỉ tin dòng `Authentication-Results`
+  trên cùng của `mx.google.com`); giữ khoá `ghep_tay.khoa_tep` như Gán tay. Một câu SQL việc đối tác
+  `ghep_khach.doc_viec` cho Drive + Gmail. 4 điểm chờ Tuyền quyết ở thân PR (mốc, quyền xem tiêu đề thư,
+  việc đã đóng, cỡ PR). **G3b** (#615): tab Kết quả hiện thư Email + nút "Gán theo gợi ý".
 - Kế hoạch `docs/KE-HOACH-KET-QUA-QUA-GMAIL.md` (Mức 3, 5 chặng G0–G4); nhật ký + số đo ở **mục 8**.
   Kết quả đối tác về Gmail phòng khám `pksanthanhluong@gmail.com`.
 - **G0** (nhánh `claude/gmail-ket-qua-g0`): Google Cloud cài xong (dự án `clinic-ai-ket-qua`, chỉ
@@ -15,8 +23,19 @@ Cập nhật: **09/11/2026** — mục "09/11" ngay dưới là mới nhất; c�
 - ⚠️ **Trên Mac có bản dữ liệu sức khoẻ KHÔNG CHE** ở `~/.clinicai/ket-qua-gmail/` (Tuyền 09/11) — ngoài
   repo, 700/600; không chép đi đâu; **xoá khi xong G4** (`rm -rf ~/.clinicai/ket-qua-gmail`).
 - **Chờ Tuyền:** `TQ` là xét nghiệm gì; G2 có đọc cả Thùng rác không (Claude chốt tạm: CÓ).
-- **G1** (nhánh `claude/gmail-ket-qua-g1`, nối từ G0): migration `20261109200000_gmail_ket_qua.sql`,
-  `20261109200100_quyen_kho_email.sql` + quyền `xet_nghiem.kho_email` (KHOI_CAP_RIENG).
+- **G1** (nhánh `claude/gmail-ket-qua-g1`, PR xếp chồng lên G0): migration `20261109200000_gmail_ket_qua.sql`,
+  `20261109200100_quyen_kho_email.sql` + quyền `xet_nghiem.kho_email` (KHOI_CAP_RIENG — trigger Postgres bỏ khối
+  khỏi mọi nhóm mẫu). Lego "Kho email" + sự kiện `lab.archive_viewed` dời sang G2 (cần trang / nơi
+  phát). **Lên prod: áp migration rồi deploy ngay** (nhịp Drive cũ dùng khoá chính đã đổi).
+  ⚠️ Trigger chỉ phủ `quyen_preset`. Migration nào cấp HÀNG LOẠT thẳng vào `capability_grant` (kiểu
+  "mở full lego" 30/09: mọi capability trừ vài khối) phải tự loại khối `kho_email` (KHOI_CAP_RIENG).
+- **G2a** (nhánh `claude/gmail-ket-qua-g2`, PR xếp chồng lên G1): máy chủ đọc Gmail trong `drive-xn`,
+  lưu PDF ổ VPS → `day_tep` đẩy CFS, mọi thư vào Kho `LUU_TRU` + gợi ý khách; canh gác
+  `GMAIL_KHONG_NHIP`. Bật thật cần: khoá lên VPS (`GOOGLE_GMAIL_OAUTH_KEY_FILE` + `GMAIL_CLINIC_ID` trong `.env.prod`) +
+  đặt `doi_tac.email_gui_ket_qua` (G4 có màn; trước đó SQL tay do Tuyền chạy).
+  ⚠️ G2a KHÔNG lên prod trước G2b (cửa ghép tay theo id chưa chặn dòng Gmail) — cùng một đợt.
+- **G2b** (#612): màn Kho email + sự kiện `lab.archive_viewed` + lego + nhánh nguồn trong `ghep_tay`.
+  **G4** (#613): email đối tác, mã bên đối tác, mốc tự ghép, đèn Email.
 
 ## 05/11/2026 TỐI — BÀN XN ĐỐI TÁC MỚI TRÊN STAGING; DRIVE ĐANG LÀM; XOÁ BÀN CŨ ĐỂ SAU
 

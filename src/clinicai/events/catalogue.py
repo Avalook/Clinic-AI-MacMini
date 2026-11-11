@@ -675,7 +675,9 @@ class XetNghiemViec(PayloadSuKien):
 
 
 class XetNghiemTepDrive(PayloadSuKien):
-    """`lab.drive_file_rejected` — một tệp Drive bị từ chối (chặng 4). Lý do ở bảng."""
+    """`lab.drive_file_rejected` — một tệp Drive bị từ chối (chặng 4). Lý do ở bảng.
+    `lab.archive_viewed` — ai mở PDF ở Kho email kết quả (Gmail G2b; vết xem dữ liệu
+    sức khoẻ). Chỉ id — không tên khách, không tiêu đề thư."""
 
     drive_tep_id: str
     doi_tac_id: str
@@ -2192,6 +2194,12 @@ DANH_MUC: dict[str, SuKien] = {
                     "drive_tep",
                     XetNghiemTepDrive,
                     "Từ chối tệp Drive",
+                ),
+                (
+                    "lab.archive_viewed",
+                    "drive_tep",
+                    XetNghiemTepDrive,
+                    "Mở PDF ở Kho email kết quả",
                 ),
                 (
                     "lab.result_sent",

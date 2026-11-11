@@ -476,3 +476,84 @@ async def test_ban_sao_prod_chua_co_cot_email_van_che_duoc(
     )
     assert TEN_THAT not in ten
     assert SDT_THAT not in (sdt or "")
+
+
+async def _gieo_tep_doi_tac(c: asyncpg.Connection, clinic: str) -> tuple[str, str]:
+    """Một dòng Drive + một dòng Gmail mang họ tên khách ở tên tệp / tiêu đề / thân."""
+    dt = await c.fetchval(
+        "INSERT INTO doi_tac (clinic_id, ten, ma_ngan) VALUES ($1::uuid, 'Lab thử', $2)"
+        " RETURNING id::text",
+        clinic,
+        "C" + uuid.uuid4().hex[:6].upper(),
+    )
+    drive = await c.fetchval(
+        "INSERT INTO drive_tep (clinic_id, doi_tac_id, file_id, md5, ten)"
+        " VALUES ($1::uuid, $2::uuid, $3, $4, $5) RETURNING id::text",
+        clinic,
+        dt,
+        "driveFile" + uuid.uuid4().hex[:8],
+        uuid.uuid4().hex,
+        "NGUYEN_THI_THAT_HPV.pdf",
+    )
+    mid = uuid.uuid4().hex[:16]
+    gmail = await c.fetchval(
+        "INSERT INTO drive_tep (clinic_id, doi_tac_id, nguon, file_id, md5, ten,"
+        " so_byte, email_message_id, email_tieu_de, email_than, email_nhan_luc,"
+        " khoa, sha256, vi_tri, tai_len_luc, ly_do_cho)"
+        " VALUES ($1::uuid, $2::uuid, 'GMAIL', $3, $4, $5, 10, $6, $7, $8, now(),"
+        " $9, $10, 'vps', now(), 'LUU_TRU') RETURNING id::text",
+        clinic,
+        dt,
+        f"gmail:{mid}:1",
+        uuid.uuid4().hex,
+        "NGUYEN_THI_THAT_081126-501726_HPV_TMD.pdf",
+        mid,
+        f"Kết quả xét nghiệm: {TEN_THAT}",
+        f"Họ tên: {TEN_THAT}, NS: 1990",
+        f"{clinic}/gmail/{mid}.pdf",
+        "a" * 64,
+    )
+    return drive, gmail
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_che_ten_tep_va_thu_ket_qua_doi_tac(conn: asyncpg.Connection) -> None:
+    """Gmail G1: tên tệp đối tác đặt theo họ tên khách; tiêu đề + thân thư có tên,
+    năm sinh ⇒ che hết, giữ đuôi tệp."""
+    ids = await _gieo(conn)
+    drive, gmail = await _gieo_tep_doi_tac(conn, ids["clinic"])
+    await _che(conn)
+    for tid in (drive, gmail):
+        r = await conn.fetchrow(
+            "SELECT ten, email_tieu_de, email_than FROM drive_tep WHERE id = $1::uuid",
+            tid,
+        )
+        assert "THAT" not in r["ten"] and r["ten"].startswith("tep-")
+        assert r["ten"].endswith(".pdf")
+        for cot in ("email_tieu_de", "email_than"):
+            assert r[cot] is None or TEN_THAT not in r[cot]
+    assert (
+        await conn.fetchval(
+            "SELECT email_than FROM drive_tep WHERE id = $1::uuid", gmail
+        )
+        == "(đã che)"
+    )
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_ban_sao_prod_chua_co_cot_thu_van_che_duoc(
+    conn: asyncpg.Connection,
+) -> None:
+    """Prod chưa có migration Gmail G1 ⇒ không có cột tiêu đề / thân thư; che vẫn
+    chạy (không làm đêm nạp staging gãy) và tên tệp vẫn được che."""
+    ids = await _gieo(conn)
+    drive, _ = await _gieo_tep_doi_tac(conn, ids["clinic"])
+    await conn.execute(
+        "ALTER TABLE drive_tep DROP COLUMN email_tieu_de CASCADE,"
+        " DROP COLUMN email_than CASCADE"
+    )
+    await _che(conn)
+    ten = await conn.fetchval("SELECT ten FROM drive_tep WHERE id = $1::uuid", drive)
+    assert ten.startswith("tep-") and "THAT" not in ten
