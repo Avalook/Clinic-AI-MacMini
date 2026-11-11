@@ -4130,13 +4130,13 @@
    "khoi": "cai-dat",
    "ai": "(tự chạy) systemd trên VPS, người dùng clinicai",
    "man": "(tự chạy)",
-   "nut": "Hẹn giờ clinicai-backup-15p.timer: :00 :15 :30 :45 từ 07 giờ tới 21 giờ, thêm 22:00",
-   "nut_nguon": "scripts/systemd/clinicai-backup-15p.timer:8",
+   "nut": "Hẹn giờ clinicai-backup-15p.timer: :00 :15 :30 :45 từ 07 giờ tới 22 giờ, thêm 23:00",
+   "nut_nguon": "scripts/systemd/clinicai-backup-15p.timer:10",
    "buoc": [
     {
      "y": "Đồng hồ hệ thống gọi việc sao lưu, lệch ngẫu nhiên tối đa 20 giây; máy tắt thì không chạy bù.",
-     "chi_tiet": "OnCalendar 07..21:00,15,30,45 + 22:00 · Persistent=false · RandomizedDelaySec=20",
-     "nguon": "scripts/systemd/clinicai-backup-15p.timer:8-11",
+     "chi_tiet": "OnCalendar 07..22:00,15,30,45 + 23:00 · Persistent=false · RandomizedDelaySec=20",
+     "nguon": "scripts/systemd/clinicai-backup-15p.timer:10-13",
      "den": "vang",
      "vi_sao_den": "Giờ hẹn theo múi giờ của máy VPS; repo không ghim múi giờ VPS (chưa kiểm được) — nếu VPS chạy UTC thì cả khung lệch 7 tiếng.",
      "thoi_gian": "~0–20 giây chờ",
