@@ -86,18 +86,25 @@ async def gan_cho_khach(
 
 
 async def _gan(
-    pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object, chon: object
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    drive_tep_id: object,
+    chon: object,
+    *,
+    dich: tuple[str | None, str | None, str | None] | None = None,
 ) -> dict[str, Any]:
+    """`dich` = (order_id, visit_id, appointment_id) NGƯỜI đã chọn (G13: chuyển tờ
+    theo lượt vào chỉ định); bỏ trống ⇒ máy chọn bằng `_dich` như tự ghép."""
     cid = identity.clinic_id
     r = await ghep_tay._dong_cho(pool, cid, drive_tep_id)
     if not ghep_tay.gan_khach_duoc(r["nguon"]):
         raise ConflictError("Chỉ thư email mới gán theo khách — tệp Drive dùng Gán.")
     kh = await _khach(pool, cid, chon)
     noi = await ghep_tay._byte(r)
-    loai = gmail_doc.loai_ket_qua(ghep_khach.chu_pdf(noi))
-    order_id, visit_id, appointment_id = await _dich(
-        pool, cid, r["doi_tac_id"], kh, r["email_nhan_luc"], loai
-    )
+    if dich is None:
+        loai = gmail_doc.loai_ket_qua(ghep_khach.chu_pdf(noi))
+        dich = await _dich(pool, cid, r["doi_tac_id"], kh, r["email_nhan_luc"], loai)
+    order_id, visit_id, appointment_id = dich
     kq = await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=kh,

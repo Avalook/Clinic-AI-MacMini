@@ -1899,7 +1899,9 @@ class TepKetQuaService:
                     OR (t.service_order_id IS NULL
                         AND EXISTS (SELECT 1 FROM public.tep_ket_qua g
                                      WHERE g.id = t.id AND g.nguon = 'GMAIL')))
-             ORDER BY t.tai_len_luc ASC, t.id ASC
+             -- Tờ theo lượt lên đầu: chỉ màn này xử lý được nó (tờ có chỉ định còn
+             -- "Đúng người, gửi"); không thì nằm sau trần 100 (prod 11/11: 673 tờ).
+             ORDER BY t.service_order_id IS NOT NULL, t.tai_len_luc ASC, t.id ASC
              LIMIT 100
             """,
             identity.clinic_id,

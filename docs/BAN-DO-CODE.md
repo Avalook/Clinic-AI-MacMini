@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-11 15:50. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-11 16:11. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -614,8 +614,9 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/xac-nhan-ket-qua` — Xác nhận kết quả
 - page: `src/dashboard/app/(dashboard)/xac-nhan-ket-qua/page.tsx` · quyền: ?
-- thành phần: HangChoXacNhanKetQua.tsx
+- thành phần: HangChoXacNhanKetQua.tsx, ChuyenVaoChiDinh.tsx
 - gọi API Next: `/api/cskh/ket-qua/cho-xac-nhan`, `/api/cskh/ket-qua/[tepId]/xac-nhan`, `/api/cskh/ket-qua/[tepId]/noi-dung`
+- ? không khớp route.ts nào: `/api/xet-nghiem/ban/${duong}`, `/api/xet-nghiem/ban/to-theo-luot-chi-dinh`
 - service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
 - test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
 
@@ -1747,6 +1748,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - `/api/v1/xet-nghiem/ban/drive-cho` → ?
 - `/api/v1/xet-nghiem/ban/tim-khach` → ?
 - `/api/v1/xet-nghiem/ban/email-da-gan` → ?
+- `/api/v1/xet-nghiem/ban/to-theo-luot-chi-dinh` → ?
 - `/api/v1/xet-nghiem/ban/${m[1]}` → ?
 - `/api/v1/xet-nghiem/ban/anh-ck/${m[1]}/go` → ?
 - `/api/v1/xet-nghiem/kho-email` → ?
