@@ -30,6 +30,7 @@ export default function GanKhachEmail({
 }) {
   const [go, setGo] = useState("");
   const [ds, setDs] = useState<KhachTim[] | null>(null);
+  const [loiTim, setLoiTim] = useState<string | null>(null);
   const [chon, setChon] = useState<KhachTim | null>(null);
 
   useEffect(() => {
@@ -39,10 +40,17 @@ export default function GanKhachEmail({
     const h = setTimeout(async () => {
       try {
         const r = await fetch(`/api/xet-nghiem/ban/tim-khach?${new URLSearchParams({ q })}`, { cache: "no-store" });
-        const d = r.ok ? ((await r.json()) as { items: KhachTim[] }).items : [];
-        if (!huy) setDs(d);
+        if (huy) return;
+        // Lỗi / thiếu quyền ≠ "không thấy khách" — nói đúng để người bấm không tưởng nhầm.
+        if (!r.ok) {
+          setLoiTim(r.status === 403 ? "Bạn chưa có quyền tìm khách ở đây." : "Chưa tìm được — thử lại.");
+          setDs(null);
+          return;
+        }
+        setLoiTim(null);
+        setDs(((await r.json()) as { items: KhachTim[] }).items);
       } catch {
-        if (!huy) setDs([]);
+        if (!huy) setLoiTim("Mất kết nối — thử lại.");
       }
     }, 350);
     return () => {
@@ -70,7 +78,8 @@ export default function GanKhachEmail({
   return (
     <div className="flex w-full flex-col gap-1 sm:max-w-md">
       <OTimKhach value={go} onChange={setGo} nhan="Tìm khách để gán thư này" />
-      {q.length >= 2 && ds ? (
+      {q.length >= 2 && loiTim ? <p className="text-meta text-danger">{loiTim}</p> : null}
+      {q.length >= 2 && ds && !loiTim ? (
         <ul className="flex flex-col overflow-hidden rounded-control border border-line bg-surface">
           {ds.map((k) => (
             <li key={k.clinic_patient_id}>

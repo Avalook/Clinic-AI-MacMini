@@ -112,10 +112,24 @@ async def test_khach_rac_hoac_khong_co_thi_409_khong_to(
     c3: Ca3,  # noqa: F811
 ) -> None:
     v = await c3.viec(pool, ban_xn=False)
+    khac = await c3.viec(pool, ban_xn=False)
     d = await _thu_lech_sdt(pool, c3, v)
-    for rac in ("khong-phai-uuid", "00000000-0000-4000-8000-000000000000", ""):
+    nguoi = await _nguoi(pool)
+    await pool.execute(  # hồ sơ đã ngưng dùng
+        "UPDATE patient SET is_active = false WHERE clinic_patient_id = $1::uuid",
+        khac["kh"],
+    )
+    for rac in (
+        "khong-phai-uuid",
+        "00000000-0000-4000-8000-000000000000",
+        "",
+        None,
+        khac["kh"],
+    ):
         with pytest.raises(ConflictError, match="Không thấy khách"):
-            await _gan(pool, d, rac or "x")
+            await gmail_goi_y.gan_cho_khach(
+                pool, nguoi, {"drive_tep_id": d["id"], "clinic_patient_id": rac}
+            )
     assert await _to_cua(pool, v["oid"]) == []
 
 
@@ -125,9 +139,16 @@ async def test_tim_khach_theo_ten_khong_dau_va_sdt(
 ) -> None:
     """Ô tìm khách G10 dùng câu tìm chung: tên không dấu / SĐT; < 2 ký tự ⇒ rỗng."""
     v = await c3.viec(pool, ban_xn=False)
+    await pool.execute(
+        "UPDATE patient SET full_name = 'Nguyễn Thị Độc Nhất Gờ Mười'"
+        " WHERE clinic_patient_id = $1::uuid",
+        v["kh"],
+    )
     nguoi = await _nguoi(pool)
     theo_so = await gmail_goi_y.tim_khach(pool, nguoi, v["sdt"][-6:])
     assert v["kh"] in {k["clinic_patient_id"] for k in theo_so}
+    theo_ten = await gmail_goi_y.tim_khach(pool, nguoi, "doc nhat go muoi")
+    assert [k["clinic_patient_id"] for k in theo_ten] == [v["kh"]]
     assert await gmail_goi_y.tim_khach(pool, nguoi, "a") == []
     assert await gmail_goi_y.tim_khach(pool, nguoi, None) == []
 
