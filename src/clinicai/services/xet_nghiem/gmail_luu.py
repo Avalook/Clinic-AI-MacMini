@@ -101,9 +101,9 @@ _GHI_SQL = """
 INSERT INTO drive_tep (clinic_id, doi_tac_id, nguon, file_id, md5, ten, mime, so_byte,
                        email_message_id, email_tieu_de, email_than, email_nhan_luc,
                        ma_ben_doi_tac_tep, khoa, sha256, vi_tri, tai_len_luc, ly_do_cho,
-                       goi_y_clinic_patient_id, goi_y_order_id)
+                       goi_y_clinic_patient_id, goi_y_order_id, luu_tru_vi_sao)
 VALUES ($1::uuid, $2::uuid, 'GMAIL', $3, $4, $5, 'application/pdf', $6, $7, $8, $9, $10,
-        $11, $12, $13, 'vps', now(), $15, $14::uuid, $16::uuid)
+        $11, $12, $13, 'vps', now(), $15, $14::uuid, $16::uuid, $17)
 ON CONFLICT DO NOTHING
 RETURNING id::text
 """
@@ -160,6 +160,7 @@ async def _ghi_dong(
         goi_y,
         m.q.ly_do,
         m.q.goi_y_order_id,
+        m.q.luu_tru_vi_sao,
     )
     return v
 
