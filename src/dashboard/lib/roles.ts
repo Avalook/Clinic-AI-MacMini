@@ -669,7 +669,8 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/pharmacy/history": ["pharmacy.view", "pharmacy.dispense"],
   "/pharmacy/consult": ["pharmacy.view", "pharmacy.dispense"],
   "/schedule": ["roster.view"], // 15 Lịch làm việc
-  "/cashier/dich-vu": ["price.service.manage"], // 16 Bảng giá (dịch vụ)
+  // 16 Bảng giá (dịch vụ) + công tắc "Xem bảng giá" (chỉ xem, 11/11/2026).
+  "/cashier/dich-vu": ["price.service.manage", "price.service.view"],
   "/kho-vat-tu": ["vat_tu.manage"], // Kho vật tư (G8a)
   "/hoa-don": ["report.view"],
   "/xuat-hoa-don": ["report.view"],

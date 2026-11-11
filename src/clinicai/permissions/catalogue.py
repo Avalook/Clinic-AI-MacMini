@@ -237,6 +237,13 @@ KHOI: dict[str, KhoiCongViec] = {
             "lich_lam_viec", "Lịch làm việc", "roster", "Xem lịch làm việc, ca trực"
         ),
         KhoiCongViec("bang_gia", "Bảng giá dịch vụ", "catalogue", "Sửa giá dịch vụ"),
+        # 11/11/2026 — xem bảng giá mà không sửa (kế toán). KHÔNG nằm trong "mở full".
+        KhoiCongViec(
+            "xem_bang_gia",
+            "Xem bảng giá",
+            "catalogue",
+            "Xem bảng giá dịch vụ & phòng, không sửa được — vd kế toán",
+        ),
         # 31/10/2026 — giá thuốc tách khỏi quyền giao thuốc: nhân viên giao được thuốc
         # mà không đổi được giá. KHÔNG nằm trong "mở full".
         KhoiCongViec(
@@ -639,6 +646,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.TIEN,
         ),
         Quyen(
+            "price.service.view",
+            "Xem bảng giá dịch vụ",
+            "xem_bang_gia",
+            "catalogue",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
             "price.medicine.manage",
             "Sửa giá bán thuốc",
             "gia_thuoc",
@@ -935,6 +949,7 @@ KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
         "ke_toan",
         "duyet_vat_tu",
         "gia_thuoc",
+        "xem_bang_gia",
     }
 )
 
@@ -959,6 +974,8 @@ PRESET["KE_TOAN"] = [
     "ds_benh_nhan",
     "lich_lam_viec",
     "kho_vat_tu",
+    # Xem giá, không sửa (11/11/2026).
+    "xem_bang_gia",
 ]
 # VAI "KẾ TOÁN" `ACCOUNTANT` (Tuyền 16/10/2026) chỉ là NHÃN để chọn khi thêm nhân
 # viên; người mới tạo với vai này được cấp sẵn đúng gói trên (cơ chế chung: nhóm
@@ -1130,6 +1147,14 @@ MAN: dict[str, Man] = {
         # bảng giá dịch vụ.
         _lego(
             "bang_gia", "Bảng giá", ["/cashier/dich-vu"], ["bang_gia"], "Thu ngân, QL"
+        ),
+        # Cùng màn, chỉ XEM (11/11/2026): bật cho người cần biết giá mà không được sửa.
+        _lego(
+            "xem_bang_gia",
+            "Xem bảng giá",
+            ["/cashier/dich-vu"],
+            ["xem_bang_gia"],
+            "Kế toán, QL",
         ),
         _lego(
             "kho_vat_tu",

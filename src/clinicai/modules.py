@@ -331,6 +331,7 @@ MODULE: dict[str, Module] = {
                 "catalogue.form_template.publish",
                 "config.wiring.manage",
                 "price.service.manage",
+                "price.service.view",
                 "config.clinic.manage",
             ],
         ),
