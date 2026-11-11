@@ -13,6 +13,7 @@ import pytest
 from clinicai.phieu_kham.mang_sang import dung_ho_so
 from clinicai.services.dia_chi_khach import dia_chi_khach
 from clinicai.services.ho_so_kham_service import _lich
+from clinicai.services.ho_so_lam_sang_doc import _lich_in
 
 CU = {
     "address_detail": "12 Kim Ngưu",
@@ -64,6 +65,20 @@ def test_pdf_ho_so_kham_in_dia_chi_vua_sua_va_khong_lo_cot_tho() -> None:
     assert _lich(None) is None
 
 
+def test_trang_in_tom_tat_kham_dung_luat_chung() -> None:
+    """Trang in "Tóm tắt khám bệnh" (`/print/[appointmentId]`) — trước chỉ lấy ô tự
+    do: khách chỉ có phần có cấu trúc in ra địa chỉ TRỐNG."""
+    assert _lich_in({"full_name": "C", "address": None, **CU}) == {
+        "full_name": "C",
+        "address": "12 Kim Ngưu, Phường Vĩnh Tuy, Hà Nội",
+    }
+    assert _lich_in({"full_name": "D", "address": "5 Láng Hạ", **CU}) == {
+        "full_name": "D",
+        "address": "5 Láng Hạ",
+    }
+    assert _lich_in(None) is None
+
+
 SRC = Path(__file__).resolve().parents[2] / "clinicai"
 #: Nơi GHI các cột địa chỉ (tạo / sửa khách) — không phải nơi ghép để in.
 _NOI_GHI = {
@@ -81,6 +96,8 @@ def test_khong_cho_nao_tu_ghep_dia_chi() -> None:
         if rel in _NOI_GHI:
             continue
         src = p.read_text(encoding="utf-8")
-        if re.search(r"\baddress_detail\b", src) and "dia_chi_khach" not in src:
+        doc_cot = re.search(r"\b(address_detail|ward_name|province_name)\b", src)
+        # Đòi LỜI GỌI — chỉ import hay nhắc tên trong chú thích thì không tính.
+        if doc_cot and not re.search(r"\bdia_chi_khach\(", src):
             lech.append(rel)
     assert not lech, f"Tự ghép địa chỉ, không qua dia_chi_khach: {lech}"

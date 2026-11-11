@@ -28,8 +28,13 @@ COT_DIA_CHI: tuple[str, ...] = (
 
 
 def _chu(v: Any) -> str:
-    """Chữ đã bỏ khoảng trắng hai đầu; không phải chữ (None, số, rác) → rỗng."""
-    return v.strip() if isinstance(v, str) else ""
+    """Chữ đã bỏ DẤU CÁCH hai đầu; không phải chữ (None, số, rác) → rỗng.
+
+    Chỉ cắt dấu cách — y `btrim()` của câu SQL file MISA cũ — để địa chỉ trong file
+    và dấu vân tay "đã xuất MISA" (`hoa_don_misa_doc.dau_van_tay`) không lệch một ký
+    tự nào so với trước khi gom về hàm này.
+    """
+    return v.strip(" ") if isinstance(v, str) else ""
 
 
 def dia_chi_khach(bn: Mapping[str, Any]) -> str | None:
