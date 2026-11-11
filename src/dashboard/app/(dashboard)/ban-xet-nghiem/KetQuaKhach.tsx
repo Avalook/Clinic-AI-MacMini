@@ -14,6 +14,7 @@ import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
+import GanKhachEmail from "./GanKhachEmail";
 import { useNgheBang } from "../dung-nghe-bang";
 import { CHUA_TAI, gioNgay, homNayVN, lenh, ngayNgan, type DriveCho, type Viec } from "./kieu";
 
@@ -286,10 +287,11 @@ export default function KetQuaKhach({
                       size="sm"
                       variant="primary"
                       disabled={dang}
-                      // Gửi kèm khách ĐANG HIỆN: gợi ý đổi (xét lại) ⇒ máy chủ trả 409.
+                      // Gửi đúng khách ĐANG HIỆN — máy chủ gán cho khách này, không đọc
+                      // lại gợi ý (xét lại có thể vừa đổi).
                       onClick={() =>
                         void chay(
-                          "drive-gan-goi-y",
+                          "drive-gan-khach",
                           { drive_tep_id: t.id, clinic_patient_id: t.goi_y_clinic_patient_id },
                           `Đã gán kết quả cho ${t.goi_y_ten ?? "khách"}.`,
                         )
@@ -299,32 +301,47 @@ export default function KetQuaKhach({
                     </Button>
                   </div>
                 ) : null}
+                {t.gan_khach_duoc ? (
+                  // G10: thư email — tìm khách rồi gán (không cần việc Bàn XN).
+                  <GanKhachEmail
+                    dang={dang}
+                    onGan={(kh, ten) =>
+                      void chay("drive-gan-khach", { drive_tep_id: t.id, clinic_patient_id: kh }, `Đã gán kết quả cho ${ten}.`)
+                    }
+                  />
+                ) : null}
                 <div className="flex flex-wrap items-end gap-2">
-                  <OChon
-                    // Tên dịch vụ dài làm ô rộng 650px ⇒ 375 cuộn ngang; giữ trong khung.
-                    className="w-full min-w-0 max-w-full sm:w-auto"
-                    aria-label={`Gán ${t.ten} cho khách`}
-                    value={chonViec[t.id] ?? ""}
-                    onChange={(e) => setChonViec((x) => ({ ...x, [t.id]: e.target.value }))}
-                  >
-                    <option value="">— Gán cho khách —</option>
-                    {viecChoTep(t).map((x) => (
-                      <option key={x.order_id} value={x.order_id}>
-                        {x.clinic_patient_id && x.clinic_patient_id === t.goi_y_clinic_patient_id ? "Gợi ý · " : ""}
-                        {khach(x)} · {x.ten_dich_vu}
-                        {x.ma_mau ? ` · ${x.ma_mau}` : ""}
-                      </option>
-                    ))}
-                  </OChon>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    disabled={!chonViec[t.id] || dang}
-                    onClick={() => void chay("drive-ghep", { drive_tep_id: t.id, order_id: chonViec[t.id] }, "Đã gán tệp cho khách.")}
-                  >
-                    Gán
-                  </Button>
+                  {/* Ô chọn việc Bàn XN đã lấy mẫu — chỉ hiện khi có việc để chọn
+                      (thư email không có việc Bàn XN thì dùng ô tìm khách ở trên). */}
+                  {viecChoTep(t).length ? (
+                    <>
+                      <OChon
+                        // Tên dịch vụ dài làm ô rộng 650px ⇒ 375 cuộn ngang; giữ trong khung.
+                        className="w-full min-w-0 max-w-full sm:w-auto"
+                        aria-label={`Gán ${t.ten} cho khách`}
+                        value={chonViec[t.id] ?? ""}
+                        onChange={(e) => setChonViec((x) => ({ ...x, [t.id]: e.target.value }))}
+                      >
+                        <option value="">— Gán cho việc đã lấy mẫu —</option>
+                        {viecChoTep(t).map((x) => (
+                          <option key={x.order_id} value={x.order_id}>
+                            {x.clinic_patient_id && x.clinic_patient_id === t.goi_y_clinic_patient_id ? "Gợi ý · " : ""}
+                            {khach(x)} · {x.ten_dich_vu}
+                            {x.ma_mau ? ` · ${x.ma_mau}` : ""}
+                          </option>
+                        ))}
+                      </OChon>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        disabled={!chonViec[t.id] || dang}
+                        onClick={() => void chay("drive-ghep", { drive_tep_id: t.id, order_id: chonViec[t.id] }, "Đã gán tệp cho khách.")}
+                      >
+                        Gán
+                      </Button>
+                    </>
+                  ) : null}
                   {mo?.loai === "tu_choi" && mo.id === t.id ? (
                     <>
                       <ONhap aria-label="Lý do từ chối tệp" placeholder="Lý do (bắt buộc)" value={lyDo} maxLength={500} onChange={(e) => setLyDo(e.target.value)} />

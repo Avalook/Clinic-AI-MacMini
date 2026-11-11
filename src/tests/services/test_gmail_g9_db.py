@@ -47,7 +47,7 @@ async def _gan(
     kh: str | None = None,
 ) -> dict[str, Any]:
     """Như màn: gửi kèm khách gợi ý ĐANG HIỆN."""
-    return await gmail_goi_y.gan_cho_khach_goi_y(
+    return await gmail_goi_y.gan_cho_khach(
         pool,
         await _nguoi(pool),
         {
@@ -87,17 +87,49 @@ async def test_ten_dung_sdt_khac_thi_goi_y_roi_gan_vao_chi_dinh(
         await _gan(pool, d)
 
 
-async def test_goi_y_doi_giua_luc_ve_va_luc_bam_thi_409(
+async def test_gan_dung_khach_nguoi_chon_khong_doc_lai_goi_y(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
 ) -> None:
-    """Màn đang hiện khách A, xét lại đổi gợi ý ⇒ bấm gán phải bị từ chối, không tờ."""
+    """G10: tờ vào ĐÚNG khách màn gửi (người đã thấy và kiểm) — kể cả khác khách gợi ý
+    (ô tìm khách, hoặc xét lại vừa đổi gợi ý); máy không tự thay bằng gợi ý."""
+    v = await c3.viec(pool, ban_xn=False)
+    khac = await c3.viec(pool, ban_xn=False)  # có chỉ định TRƯỚC thư
+    await pool.execute(  # khách test cùng tên mặc định ⇒ đổi để thư CÓ gợi ý (v)
+        "UPDATE patient SET full_name = 'Phạm Khách Khác' WHERE clinic_patient_id"
+        " = $1::uuid",
+        khac["kh"],
+    )
+    d = await _thu_lech_sdt(pool, c3, v)
+    assert d["goi_y_clinic_patient_id"] == v["kh"]  # gợi ý v, người chọn khác
+    assert (await _gan(pool, d, khac["kh"]))["vao_chi_dinh"] is True
+    assert await _to_cua(pool, v["oid"]) == []
+    assert len(await _to_cua(pool, khac["oid"])) == 1
+
+
+async def test_khach_rac_hoac_khong_co_thi_409_khong_to(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+) -> None:
     v = await c3.viec(pool, ban_xn=False)
     d = await _thu_lech_sdt(pool, c3, v)
-    khac = await c3.viec(pool, ban_xn=False)
-    with pytest.raises(ConflictError, match="vừa đổi"):
-        await _gan(pool, d, khac["kh"])
+    for rac in ("khong-phai-uuid", "00000000-0000-4000-8000-000000000000", ""):
+        with pytest.raises(ConflictError, match="Không thấy khách"):
+            await _gan(pool, d, rac or "x")
     assert await _to_cua(pool, v["oid"]) == []
+
+
+async def test_tim_khach_theo_ten_khong_dau_va_sdt(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+) -> None:
+    """Ô tìm khách G10 dùng câu tìm chung: tên không dấu / SĐT; < 2 ký tự ⇒ rỗng."""
+    v = await c3.viec(pool, ban_xn=False)
+    nguoi = await _nguoi(pool)
+    theo_so = await gmail_goi_y.tim_khach(pool, nguoi, v["sdt"][-6:])
+    assert v["kh"] in {k["clinic_patient_id"] for k in theo_so}
+    assert await gmail_goi_y.tim_khach(pool, nguoi, "a") == []
+    assert await gmail_goi_y.tim_khach(pool, nguoi, None) == []
 
 
 async def test_chi_dinh_chi_co_to_tay_thi_gan_song_song(
@@ -188,11 +220,12 @@ async def test_khong_chi_dinh_khong_luot_thi_409(
         await _gan(pool, d)
 
 
-async def test_hai_khach_cung_ten_khong_goi_y_va_khong_gan_duoc(
+async def test_hai_khach_cung_ten_khong_goi_y_nguoi_tim_roi_gan(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
 ) -> None:
-    """Hai khách có chỉ định cùng trùng tên thư, SĐT không khớp ai ⇒ không đoán."""
+    """Hai khách có chỉ định cùng trùng tên thư, SĐT không khớp ai ⇒ máy không đoán
+    (không nút gợi ý); người tìm đúng khách ở ô tìm (G10) rồi gán."""
     v1 = await c3.viec(pool, ban_xn=False)
     v2 = await c3.viec(pool, ban_xn=False)
     await pool.execute(
@@ -204,9 +237,11 @@ async def test_hai_khach_cung_ten_khong_goi_y_va_khong_gan_duoc(
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
     assert d["ly_do_cho"] == "KHONG_KHOP_KHACH" and d["goi_y_clinic_patient_id"] is None
-    assert (await _cho(pool, d["id"]))["gan_goi_y_duoc"] is False
-    with pytest.raises(ConflictError):
-        await _gan(pool, d, v1["kh"])
+    t = await _cho(pool, d["id"])
+    assert t["gan_goi_y_duoc"] is False and t["gan_khach_duoc"] is True
+    assert (await _gan(pool, d, v1["kh"]))["vao_chi_dinh"] is True
+    assert len(await _to_cua(pool, v1["oid"])) == 1
+    assert await _to_cua(pool, v2["oid"]) == []
 
 
 async def test_thu_luu_tru_khong_di_cua_gan_goi_y(

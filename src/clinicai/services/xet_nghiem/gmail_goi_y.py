@@ -72,11 +72,13 @@ async def tim(
     return goi_y_lech(d.ten, d.sdt, [*viec, *theo_sdt])
 
 
-async def gan_cho_khach_goi_y(
+async def gan_cho_khach(
     pool: asyncpg.Pool, identity: StaffIdentity, data: dict[str, Any]
 ) -> dict[str, Any]:
-    """Nút "Gán cho khách này": giữ CÙNG khoá của Gán tay / Từ chối / tự ghép. Màn gửi
-    kèm khách nó đang hiện — gợi ý đổi giữa lúc vẽ và lúc bấm (xét lại) ⇒ 409."""
+    """Thư email chờ ⇒ khách NGƯỜI BẤM chọn: nút "Gán cho khách này" (khách gợi ý) hoặc
+    ô tìm khách (G10). Khách lấy ĐÚNG id màn gửi — thứ người bấm đã thấy và kiểm; máy
+    không tự thay bằng gợi ý đọc lại lúc bấm (xét lại có thể vừa đổi gợi ý). Giữ CÙNG
+    khoá của Gán tay / Từ chối / tự ghép."""
     async with ghep_tay.khoa_tep(pool, data.get("drive_tep_id")):
         return await _gan(
             pool, identity, data.get("drive_tep_id"), data.get("clinic_patient_id")
@@ -84,15 +86,13 @@ async def gan_cho_khach_goi_y(
 
 
 async def _gan(
-    pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object, thay: object
+    pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object, chon: object
 ) -> dict[str, Any]:
     cid = identity.clinic_id
     r = await ghep_tay._dong_cho(pool, cid, drive_tep_id)
-    kh = r["goi_y_kh"]
-    if not ghep_tay.gan_goi_y_duoc(r["nguon"], r["ly_do_cho"], kh):
-        raise ConflictError("Tệp này không có khách gợi ý — tải lại màn.")
-    if str(thay or "") != kh:
-        raise ConflictError("Khách gợi ý vừa đổi — tải lại màn rồi kiểm lại.")
+    if not ghep_tay.gan_khach_duoc(r["nguon"]):
+        raise ConflictError("Chỉ thư email mới gán theo khách — tệp Drive dùng Gán.")
+    kh = await _khach(pool, cid, chon)
     noi = await ghep_tay._byte(r)
     loai = gmail_doc.loai_ket_qua(ghep_khach.chu_pdf(noi))
     order_id, visit_id, appointment_id = await _dich(
@@ -113,6 +113,35 @@ async def _gan(
     if order_id is not None:
         await drive._phat_den(pool, cid, drive.Quyet(order_id, kh, visit_id, None))
     return {"tep_id": kq["id"], "vao_chi_dinh": order_id is not None}
+
+
+async def _khach(pool: asyncpg.Pool, cid: str, chon: object) -> str:
+    """Khách người bấm chọn phải là hồ sơ ĐANG DÙNG của phòng khám này. Rác ⇒ 409."""
+    try:
+        kh = await pool.fetchval(
+            "SELECT clinic_patient_id::text FROM patient"
+            " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid"
+            "   AND is_active",
+            cid,
+            str(chon or ""),
+        )
+    except (asyncpg.DataError, ValueError):
+        kh = None
+    if kh is None:
+        raise ConflictError("Không thấy khách này — tìm và chọn lại khách.")
+    return str(kh)
+
+
+async def tim_khach(
+    pool: asyncpg.Pool, identity: StaffIdentity, q: object
+) -> list[dict[str, Any]]:
+    """Ô tìm khách của thư email chờ (G10) — đúng câu tìm khách dùng chung
+    (`ban_le_service.tim_khach_conn`: SĐT, mã khách, tên không dấu; < 2 ký tự ⇒
+    rỗng)."""
+    from clinicai.services.ban_le_service import tim_khach_conn
+
+    async with pool.acquire() as conn:
+        return await tim_khach_conn(conn, identity.clinic_id, q)
 
 
 async def _dich(
