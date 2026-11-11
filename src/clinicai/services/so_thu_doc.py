@@ -1,6 +1,7 @@
 """Cửa ĐỌC sổ thu (lịch sử thu dịch vụ / thuốc, phiếu thu) — không bao giờ cho ghi.
 
-Một câu hỏi, một hàm: "ai xem được TOÀN BỘ sổ thu (mọi ngày, ca, cơ sở)?" →
+Một câu hỏi, một hàm: "ai xem được TOÀN BỘ sổ thu (mọi ngày, mọi ca — của cơ sở
+đang chọn ở thanh trên, đổi bằng "Đổi cơ sở", như Quản lý)?" →
 `xem_toan_bo_so_thu`. Trả lời: vai Quản lý, hoặc lego Kế toán
 (`accounting.finance.full`) — kế toán cần đối chiếu con số mà không đứng quầy
 (chị Hoài, Tuyền duyệt 11/11/2026). Người còn lại đi `CashierScopeService.authorize`

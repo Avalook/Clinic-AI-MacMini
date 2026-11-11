@@ -2,7 +2,7 @@
 
 Trước: hai màn "Lịch sử thu" chỉ mở cho VAI Quản lý hoặc người có ca trực ở quầy
 thu ⇒ kế toán (lego Kế toán, `accounting.finance.full`) không đối chiếu được con
-số. Giờ lego Kế toán mở sổ thu mọi ngày / ca / cơ sở, NHƯNG lối ghi
+số. Giờ lego Kế toán mở sổ thu mọi ngày / ca (cơ sở đang chọn), NHƯNG lối ghi
 (`authorize_active` — thu, huỷ, hoàn) vẫn đòi ca trực đang mở: đọc không biến
 thành quyền ghi.
 """
