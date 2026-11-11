@@ -106,6 +106,31 @@ async def test_xet_lai_mat_byte_de_nguyen_gan_loi_sang_loi_tep(
     assert (d["ly_do_cho"], d["tep_ket_qua_id"]) == ("LOI_TEP", None)
 
 
+async def test_xet_lai_khong_khop_khach_sau_khi_co_sdt_phu_thi_tu_gan(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+) -> None:
+    """Thư xếp "không khớp khách" (SĐT thư khác SĐT chính) ⇒ khách có SĐT đó ở ô phụ
+    ⇒ xét lại tự gán. Dòng không đổi kết quả ⇒ để nguyên (đếm `van_…`)."""
+    v = await c3.viec(pool)
+    so_khac = "0911" + v["sdt"][-6:]
+    mid = c3.thu(v["ten"], so_khac)
+    await gmail.mot_vong(pool)
+    assert (await _dong(pool, mid))["ly_do_cho"] == "KHONG_KHOP_KHACH"
+    dem = await gmail_xet_lai.xet_lai(pool, None, CLINIC)  # type: ignore[arg-type]
+    assert dem.get("van_khong_khop_khach") == 1  # chưa đổi gì ⇒ để nguyên
+    await pool.execute(
+        "UPDATE patient SET phone_secondary = $2 WHERE clinic_patient_id = $1::uuid",
+        v["kh"],
+        so_khac,
+    )
+    dem = await gmail_xet_lai.xet_lai(pool, None, CLINIC)  # type: ignore[arg-type]
+    assert dem.get("tu_gan") == 1
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
+        ("GMAIL", "CHO_XAC_NHAN")
+    ]
+
+
 async def test_xet_lai_van_khong_xac_thuc_hoac_nguoi_gui_khac_thi_de_nguyen(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811

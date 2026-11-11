@@ -741,7 +741,9 @@ class TepKetQuaService:
             raise ValidationError(
                 f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
             )
-        is_external = False
+        # Tệp đối tác KHÔNG chỉ định (Gmail: khách đúng mà chưa nhập chỉ định) vẫn
+        # là tệp ngoài ⇒ CHO_XAC_NHAN; trước 11/11 cờ chỉ bật khi có chỉ định.
+        is_external = la_tep_doi_tac
         viec_doi_tac = False
         async with self._pool.acquire() as conn:
             ok = await conn.fetchval(
@@ -982,7 +984,11 @@ class TepKetQuaService:
                         tep_id=str(row_id),
                         visit_id=luot_tep,
                         service_order_id=service_order_id,
-                        cho_xac_nhan=is_external and XAC_NHAN_TEP_DOI_TAC,
+                        # Tờ máy tự gắn KHÔNG chỉ định (Gmail, khách đúng chưa có
+                        # chỉ định) đang CHO_XAC_NHAN ⇒ chuông nói "cần xác nhận",
+                        # không vào vòng đọc của lượt (lượt chỉ là lượt gần nhất).
+                        cho_xac_nhan=is_external
+                        and (XAC_NHAN_TEP_DOI_TAC or (may and not service_order_id)),
                     ),
                     boi=HE_THONG if isinstance(identity, MayQuet) else nguoi(identity),
                     correlation_id=luot_tep,
@@ -1862,7 +1868,8 @@ class TepKetQuaService:
                    p.patient_code,
                    p.phone_primary,
                    t.service_order_id::text,
-                   o.service_name AS ten_dich_vu,
+                   coalesce(o.service_name, 'Chưa có chỉ định — gắn theo lượt khám')
+                     AS ten_dich_vu,
                    t.tai_len_luc,
                    s.full_name AS tai_len_boi_ten,
                    m.role::text AS tai_len_boi_vai,
@@ -1873,9 +1880,9 @@ class TepKetQuaService:
                    t.xac_nhan_trang_thai
               FROM public.v_tep_ket_qua_hieu_luc t
               JOIN public.patient p ON p.clinic_patient_id = t.clinic_patient_id
-              JOIN public.service_order o
+              LEFT JOIN public.service_order o
                 ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
-              JOIN public.node_definition n
+              LEFT JOIN public.node_definition n
                 ON n.code = o.node_code AND n.clinic_id = t.clinic_id
               LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
               LEFT JOIN public.clinic_membership m
@@ -1884,9 +1891,14 @@ class TepKetQuaService:
                AND m.is_active = true
              WHERE t.clinic_id = $1::uuid
                AND t.xac_nhan_trang_thai = 'CHO_XAC_NHAN'
-               AND t.service_order_id IS NOT NULL
-               AND n.lam_ben_ngoai = true
-               AND o.exec_status NOT IN ('draft', 'cancelled')
+               AND ((n.lam_ben_ngoai = true
+                     AND o.exec_status NOT IN ('draft', 'cancelled'))
+                    -- Tờ email của khách đúng mà chưa có chỉ định (G8): gắn theo
+                    -- lượt khám, KHÔNG có lối nào khác để xác nhận / từ chối.
+                    -- (`nguon` đọc ở bảng: view `t.*` chụp cột từ trước khi có nó.)
+                    OR (t.service_order_id IS NULL
+                        AND EXISTS (SELECT 1 FROM public.tep_ket_qua g
+                                     WHERE g.id = t.id AND g.nguon = 'GMAIL')))
              ORDER BY t.tai_len_luc ASC, t.id ASC
              LIMIT 100
             """,
