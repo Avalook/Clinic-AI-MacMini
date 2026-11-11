@@ -419,22 +419,25 @@ async def test_g5_ung_vien_dung_lab_dung_cua_so_ngay(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,
 ) -> None:
-    """`doc_chi_dinh`: việc Bàn XN đã chụp lab KHÁC không phải ứng viên của lab này
-    (kể cả dịch vụ cũng gán cho lab này); chỉ định SAU giờ nhận thư / quá 60 ngày /
-    đã huỷ không phải ứng viên."""
+    """`doc_chi_dinh`: lab KHÔNG được gán dịch vụ và không phải lab của việc Bàn XN ⇒
+    không phải ứng viên. Lab thứ hai CÓ gán dịch vụ (không mặc định — HPV nhiều lab làm)
+    ⇒ vẫn là ứng viên dù Bàn XN chụp lab mặc định. Chỉ định SAU giờ nhận thư / quá 60
+    ngày / đã huỷ không phải ứng viên."""
     from clinicai.services.xet_nghiem.ghep_khach import doc_chi_dinh
 
-    v = await c3.viec(pool)  # việc Bàn XN chụp c3.dt
-    khac = await _them_dt(pool, c3.ca.bac_si, _ma())
-    await _gan(pool, c3.ca.bac_si, khac, await _sp(pool, c3.ca.ma_dv), mac_dinh=False)
+    v = await c3.viec(pool)  # việc Bàn XN chụp c3.dt (lab mặc định)
+    la = await _them_dt(pool, c3.ca.bac_si, _ma())  # không gán dịch vụ này
+    hai = await _them_dt(pool, c3.ca.bac_si, _ma())
+    await _gan(pool, c3.ca.bac_si, hai, await _sp(pool, c3.ca.ma_dv), mac_dinh=False)
     bay_gio = datetime.now(UTC)
+
+    async def ids(conn: Any, dt: str, luc: datetime) -> set[str]:
+        return {u.order_id for u in await doc_chi_dinh(conn, CLINIC, dt, luc)}
+
     async with pool.acquire() as conn:
-        assert v["oid"] in {
-            u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, bay_gio)
-        }
-        assert v["oid"] not in {
-            u.order_id for u in await doc_chi_dinh(conn, CLINIC, khac, bay_gio)
-        }
+        assert v["oid"] in await ids(conn, c3.dt, bay_gio)
+        assert v["oid"] in await ids(conn, hai, bay_gio)
+        assert v["oid"] not in await ids(conn, la, bay_gio)
         truoc = bay_gio - timedelta(hours=1)  # thư nhận TRƯỚC khi chỉ định
         assert v["oid"] not in {
             u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, truoc)

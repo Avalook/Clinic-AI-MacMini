@@ -182,9 +182,11 @@ async def doc_ung_vien(
 
 
 #: Gmail G5 (Tuyền 11/11): MỌI chỉ định loại xét nghiệm lab này làm — việc Bàn XN chụp
-#: đúng lab này, hoặc chỉ định chưa có việc mà dịch vụ được gán cho lab này ở Cài đặt →
-#: Đối tác (chỉ định cũ trước khi gán vẫn được) — tạo trong 60 ngày TRƯỚC giờ nhận thư
-#: ($3). Không cần Lấy mẫu. Việc Bàn XN đã chụp lab KHÁC thì không phải của lab này.
+#: đúng lab này, HOẶC dịch vụ được gán cho lab này ở Cài đặt → Đối tác (mặc định hay
+#: không; chỉ định cũ trước khi gán vẫn được) — tạo trong 60 ngày TRƯỚC giờ nhận thư
+#: ($3). Không cần Lấy mẫu. Một xét nghiệm nhiều lab làm (HPV): Bàn XN chỉ chụp lab
+#: MẶC ĐỊNH, thư của lab kia vẫn phải gán được ⇒ không loại theo ảnh chụp; khớp tên +
+#: SĐT đúng khách mới gán nên không lẫn.
 _CHI_DINH_SQL = """
 SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
        o.visit_id::text AS visit_id, p.full_name AS ten, p.phone_primary AS sdt,
@@ -211,13 +213,13 @@ SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
    AND o.exec_status NOT IN ('draft', 'cancelled')
    AND o.created_at <= $3 AND o.created_at > $3 - interval '60 days'
    AND (x.doi_tac_id = $2::uuid
-        OR (x.service_order_id IS NULL AND EXISTS (
+        OR EXISTS (
             SELECT 1 FROM service_price sp
               JOIN doi_tac_dich_vu a
                 ON a.clinic_id = sp.clinic_id AND a.service_price_id = sp.id
                AND a.doi_tac_id = $2::uuid AND a.ngung_luc IS NULL
              WHERE sp.clinic_id = o.clinic_id AND sp."group" = 'dich_vu'
-               AND sp.service_code = o.service_code)))
+               AND sp.service_code = o.service_code))
  ORDER BY o.created_at DESC
  LIMIT 2000
 """
