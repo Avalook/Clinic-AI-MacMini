@@ -3,7 +3,8 @@
 Các nhóm: `LUU_TRU / KHONG_XAC_THUC` (G6: SPF khớp miền), `ONG_NHIEU_VIEC` (G7: tách
 HPV / STD theo loại đọc trong PDF), `KHONG_THAY_CHI_DINH` / `KHONG_KHOP_KHACH` (11/11:
 SĐT phụ, chỉ định nhập muộn ≤ 7 ngày, khách đúng mà chưa có chỉ định ⇒ vào hồ sơ theo
-lượt khám). Quyết lại ra đúng lý do cũ ⇒ để nguyên.
+lượt khám). G9: thư không khớp có khách gợi ý mới (tên / SĐT lệch) ⇒ ghi gợi ý. Quyết
+lại ra đúng lý do cũ, không gợi ý mới ⇒ để nguyên.
 
 Vì sao có: luật xác thực G3 chỉ nhận DKIM / DMARC đúng miền; HighDetect (lab máu) gửi
 qua Google Workspace không DKIM riêng, không DMARC ⇒ thư thật bị xếp oan `LUU_TRU /
@@ -40,7 +41,7 @@ TRAN: Final = 2000
 _DONG_SQL = f"""
 SELECT t.id::text AS id, t.doi_tac_id::text AS dt, t.email_message_id AS mid,
        t.file_id, t.khoa, t.vi_tri, d.email_gui_ket_qua AS email,
-       t.ly_do_cho, t.luu_tru_vi_sao
+       t.ly_do_cho, t.luu_tru_vi_sao, t.goi_y_clinic_patient_id::text AS goi_y_kh
   FROM drive_tep t
   JOIN doi_tac d ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id
  WHERE t.clinic_id = $1::uuid AND t.nguon = 'GMAIL'
@@ -60,6 +61,13 @@ UPDATE drive_tep
        goi_y_clinic_patient_id = coalesce($6::uuid, goi_y_clinic_patient_id)
  WHERE clinic_id = $1::uuid AND id = $2::uuid
    AND ly_do_cho = $7 AND luu_tru_vi_sao IS NOT DISTINCT FROM $8
+   AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL
+"""
+
+#: Gợi ý khách của thư KHONG_KHOP_KHACH (G9) — ghi đúng giá trị mới, kể cả NULL.
+_GOI_Y_SQL = """
+UPDATE drive_tep SET goi_y_clinic_patient_id = $3::uuid
+ WHERE clinic_id = $1::uuid AND id = $2::uuid AND ly_do_cho = 'KHONG_KHOP_KHACH'
    AND tep_ket_qua_id IS NULL AND tu_choi_luc IS NULL
 """
 
@@ -139,7 +147,13 @@ async def _ap(
 ) -> None:
     q, dong_id = m.q, d["id"]
     if (q.ly_do, q.luu_tru_vi_sao) == (d["ly_do_cho"], d["luu_tru_vi_sao"]):
-        # Quyết lại vẫn như cũ ⇒ để nguyên.
+        # Lý do như cũ. Thư không khớp (G9): gợi ý = ĐÚNG lần quyết này (đổi người hoặc
+        # không còn ai ⇒ ghi / xoá — gợi ý cũ không được treo nút sai người).
+        moi = q.goi_y_clinic_patient_id
+        if q.ly_do == "KHONG_KHOP_KHACH" and moi != d["goi_y_kh"]:
+            n = await pool.execute(_GOI_Y_SQL, cid, dong_id, moi)
+            dem["goi_y_moi" if n == "UPDATE 1" else "da_doi"] += 1
+            return
         cu = d["luu_tru_vi_sao"] or d["ly_do_cho"]
         dem["van_" + str(cu).lower()] += 1
         return

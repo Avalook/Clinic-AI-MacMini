@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
-from clinicai.services.xet_nghiem import ghep_tay
+from clinicai.services.xet_nghiem import ghep_tay, gmail_goi_y
 
 router = APIRouter()
 P = "/xet-nghiem/ban"
@@ -51,6 +51,10 @@ class DriveChoOut(BaseModel):
     goi_y_order_id: str | None = None
     #: Khách khớp tên + SĐT (cả Drive) — màn đưa việc của khách này lên đầu ô chọn.
     goi_y_clinic_patient_id: str | None = None
+    goi_y_ten: str | None = None
+    goi_y_ma: str | None = None
+    #: Thư email có khách gợi ý ⇒ nút "Gán cho khách này" (G9, không cần Bàn XN).
+    gan_goi_y_duoc: bool = False
 
 
 class DriveNhipOut(BaseModel):
@@ -107,6 +111,15 @@ async def drive_ghep(
     r: Request, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB
 ) -> object:
     kq = await ghep_tay.ghep(p, i, await _than(r), hom_nay_vn())
+    return {"ok": True, "tep_id": kq["tep_id"]}
+
+
+@router.post(f"{P}/drive-gan-goi-y", response_model=OkOut)
+async def drive_gan_goi_y(
+    r: Request, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB
+) -> object:
+    """Thư email ⇒ khách máy gợi ý (G9): vào chỉ định đúng loại hoặc hồ sơ theo lượt."""
+    kq = await gmail_goi_y.gan_cho_khach_goi_y(p, i, await _than(r))
     return {"ok": True, "tep_id": kq["tep_id"]}
 
 

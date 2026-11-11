@@ -88,8 +88,15 @@ def quyet(
         return QuyetGmail("KHONG_KHOP_KHACH")
     if len(khach) > 1:
         return QuyetGmail("NHIEU_KHACH")
-    kh = next(iter(khach))
-    khop = dung_loai(d.loai, khop)
+    return quyet_mot_khach(d.loai, khop, next(iter(khach)), nhan_luc)
+
+
+def quyet_mot_khach(
+    loai: frozenset[str], khop: list[UngVien], kh: str, nhan_luc: datetime
+) -> QuyetGmail:
+    """HÀM THUẦN — MỘT luật "tờ của khách `kh` vào đâu" (tự ghép G3–G7 và nút "Gán
+    cho khách này" G9): `khop` = chỉ định ứng viên của ĐÚNG khách này."""
+    khop = dung_loai(loai, khop)
     if not khop:  # PDF là loại khách KHÔNG có chỉ định (vd HPV mà chỉ chờ STD)
         return QuyetGmail("KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id=kh)
     # Đang chờ (chưa tờ nào) trước; không có thì chỉ định CHỈ có tờ tải tay (Tuyền
