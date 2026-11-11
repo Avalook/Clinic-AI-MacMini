@@ -26,6 +26,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.ho_so.cong_doc import NguCanhHoSo, ghep_ho_so
+from clinicai.services.dia_chi_khach import COT_DIA_CHI, dia_chi_khach
 from clinicai.services.lenh_kham_core import ma_uuid
 
 #: Cột jsonb (asyncpg trả chuỗi) — CHỈ những cột này được giải JSON; giải mọi
@@ -54,6 +55,16 @@ def _gia_tri(cot: str, v: Any) -> Any:
 
 def _dong(r: asyncpg.Record | None) -> dict[str, Any] | None:
     return {k: _gia_tri(k, v) for k, v in dict(r).items()} if r is not None else None
+
+
+def _lich_in(r: asyncpg.Record | None) -> dict[str, Any] | None:
+    """Dòng lịch cho trang in "Tóm tắt khám bệnh": `address` = địa chỉ ĐỂ IN theo
+    luật chung (`dia_chi_khach`, 11/11/2026) — trước chỉ lấy ô tự do, khách chỉ có
+    phần có cấu trúc in ra trống. Giữ tên trường để trang in không phải đổi."""
+    d = _dong(r)
+    if d is not None:
+        d["address"] = dia_chi_khach({k: d.pop(k, None) for k in COT_DIA_CHI})
+    return d
 
 
 async def doc_ho_so(
@@ -149,6 +160,7 @@ async def phieu_in_theo_lich(
                    p.clinic_patient_id::text, p.patient_code, p.full_name,
                    p.date_of_birth, p.gender, p.ethnicity, p.nationality,
                    p.occupation, p.patient_objection, p.address, p.guardian_name,
+                   p.address_detail, p.ward_name, p.province_name,
                    p.phone_primary,
                    s.full_name AS doctor_name, st.name AS service_name,
                    l.name AS location_name
@@ -209,7 +221,7 @@ async def phieu_in_theo_lich(
         )
     canh_bao_neu_day("phieu_in.xet_nghiem", len(xn), 20, clinic_id=cid)
     return {
-        "appointment": _dong(lich),
+        "appointment": _lich_in(lich),
         "visit": _dong(luot),
         "profile": _dong(ho_so),
         "labs": [_dong(r) for r in xn],
