@@ -13,7 +13,7 @@ Cần: stack local đang chạy (`scripts/dev-up.sh`, hoặc API + web của nh�
 cd src/dashboard
 npm run video:du-lieu                          # dựng dữ liệu demo mọi chương (chạy lại = về trạng thái đầu)
 npm run video:huong-dan -- --chuong 2 --nhap   # một chương, bản nháp (edge-tts, preset veryfast)
-npm run video:huong-dan -- --tat-ca --nhap     # mọi chương đợt 1 (0–4) bản nháp + video gộp
+npm run video:huong-dan -- --tat-ca --nhap     # mọi chương (0–6) bản nháp + video gộp
 npm run video:huong-dan -- --tat-ca            # bản chính (Google TTS, preset slow) + video gộp
 ```
 
@@ -32,6 +32,19 @@ sách để nhảy tới) và `00-muc-luc.txt` (mốc phút:giây từng chươn
 | 2 | `02-ghi-nhan-thu-ho.yaml` | Nhân viên `dd.sa` | Nguyễn Thị Minh Anh: cả hai chưa thu |
 | 3 | `03-tien-thu-ho-huy-hoan.yaml` | Quản lý `ql` | khách đầu tiên chưa bị hoàn trong danh sách (Trần Thị Thu Hà…): cả hai đã thu |
 | 4 | `04-lay-mau-hoan-tac.yaml` | Nhân viên `dd.sa` | Lê Thị Ngọc Lan (như chương 0). **Công tắc "Hiện mã ống" phải tắt** |
+| 5 | `05-ket-qua-email-tu-gan.yaml` | Quản lý `ql` | Thư Gmail GIẢ (dưới đây): Hoàng Thị Thu Trang tự gán · bấm Hợp lệ |
+| 6 | `06-thu-chua-tu-gan.yaml` | Quản lý `ql` | Cùng thư: Đặng Thị Kim Oanh (nhiều chỉ định → gán tay) · Lý Thị Mẫu (không khớp → từ chối) · Ngô Thị Bích Ngọc (chưa chỉ định → hồ sơ → Hợp lệ) · Kho email |
+
+**Chương 5–6 — thư Gmail GIẢ, không bao giờ đọc hộp thư thật.** `dung-du-lieu.mjs` đặt email
+đối tác `ketqua@medlatec-mau.test` (miền `.test` không tồn tại) + mốc tự ghép (10 ngày trước),
+dựng ba khách, cấp khối Kho email cho `ql`, rồi chạy `gmail_gia.py`: thay 4 hàm của `gmail_api`
+bằng hộp thư giả 5 thư (PDF in bằng Chrome, ghi rõ "TỆP MẪU") và chạy MỘT vòng quét thật
+(`gmail.mot_vong`) ⇒ tờ, lý do chờ, Kho email ra y như prod. Tệp tờ nằm ở
+`~/ClinicAI-video/media` — API quay video phải chạy với `MEDIA_ROOT` = `MEDIA_LOCAL_ROOT` = thư
+mục đó (đổi bằng `VIDEO_MEDIA_DIR`), không thì hộp xem không mở được tờ.
+Chương 5–6 bấm Hợp lệ / Gán / Từ chối ⇒ quay lại cần bộ thư MỚI: thư chỉ thả khi việc HPV của
+khách tự gán chưa có tờ — quay lại trong ngày thì đổi khách trong `KHACH.gmail_*` + `THU`.
+DB local mới dựng không có lịch trực hôm nay ⇒ script mở **ngoại lệ ca trực** cho bác sĩ mẫu.
 
 Chương 3 bấm **Hoàn tiền** (tiền thật — không bù được, và đã hoàn thì không huỷ được ghi nhận)
 ⇒ mỗi lần quay trong ngày dùng khách kế tiếp (`KHACH.hoan` trong `dung-du-lieu.mjs`, 5 tên);
@@ -80,10 +93,13 @@ kịch bản gọi khách đó là `{khach_hoan}`.
 | `cho: {…}` | chờ phần tử hiện (và màn hết "Đang tải…") |
 | `dung: 1.5` | dừng thêm (giây) |
 
+   Cấp CẢNH (cạnh `id`, `loi`): `mo: "/duong"` mở thẳng màn không có mục trên thanh bên (vd
+   `/xac-nhan-ket-qua`) TRƯỚC khi hiện phụ đề cảnh đó.
+
    Tìm phần tử CHỈ bằng `role` + `name`, `text` (chữ trên màn) hoặc `label` (nhãn ô); thêm
    `exact: true` khi cần khớp nguyên chữ; `trong: "<chữ>"` = trong khung NHỎ NHẤT chứa cả chữ
    đó lẫn phần tử (thẻ việc, thẻ đối tác, form…) — vd hai nút "Lưu": `trong: "Thêm đối tác"`.
-   `name: "/…/"` = mẫu regex (vd `"/{khach_hoan}.*hoàn tiền/"` — đúng dòng của khách này).
+   `name` / `label` / `text: "/…/"` = mẫu regex (vd `"/{khach_hoan}.*hoàn tiền/"` — đúng dòng của khách này; tên tệp email đổi mỗi lần dựng).
    `{khach_<khoá>}` = tên khách mẫu `dung-du-lieu.mjs` vừa dựng cho chương (khoá trong `KHACH`).
    **Không dùng class CSS** — giao diện đổi kiểu không làm vỡ kịch bản.
 3. Giọng đọc sai chữ nào ⇒ thêm vào `doc-chu.yaml`, không sửa lời.

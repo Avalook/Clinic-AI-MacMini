@@ -1,0 +1,80 @@
+# Chương 6 — Thư chưa tự gán: xem lý do, gán tay, từ chối, khách chưa có chỉ định, Kho
+# email. Cùng dữ liệu chương 5 (quay SAU chương 5). Thư GIẢ, không đọc hộp thư thật.
+chuong: 6
+ten: "Thư chưa tự gán"
+vai: "Quản lý"
+tai_khoan: ql
+mo_tu: /ban-xet-nghiem
+mo_dau: "Thư máy chưa tự gán: xem lý do và gán tay"
+ket_thuc: "Thư không bao giờ mất: luôn còn ở tab Kết quả và Kho email."
+canh:
+  - id: muc-cho
+    loi: "Ở tab Kết quả, thư chưa gán nằm ở mục Tệp Drive / Email chưa khớp khách, kèm lý do."
+    lam:
+      - bam: { role: tab, name: "Kết quả", exact: true }
+      - cho: { text: "/Tệp Drive \\/ Email chưa khớp khách/" }
+      - nhan_manh: { text: "/Tệp Drive \\/ Email chưa khớp khách/" }
+
+  - id: nhieu
+    loi: "Thư này: khách có hai xét nghiệm cùng chờ, máy không đoán tờ thuộc xét nghiệm nào."
+    lam:
+      - nhan_manh: { text: "/Có nhiều xét nghiệm cùng loại đang chờ/" }
+
+  - id: xem
+    loi: "Bấm tên tệp, xem tờ là kết quả xét nghiệm gì."
+    lam:
+      - bam: { role: button, name: "/^KQ_0123_/" }
+      - dung: 1.5
+      - bam: { role: button, name: "Đóng", exact: true }
+
+  - id: chon
+    loi: "Chọn đúng việc ở ô Gán cho khách. Dòng có chữ Gợi ý là khách máy đã khớp tên và số."
+    lam:
+      - chon: { label: "/^Gán KQ_0123_.* cho khách$/", chu: "Gợi ý · {khach_gmail_nhieu} · 0900000123 · HPV định type PCR (40 type)" }
+
+  - id: gan
+    loi: "Bấm Gán. Tờ vào đúng việc, dòng của khách chuyển xanh."
+    lam:
+      - bam: { role: button, name: "Gán", exact: true, trong: "Có nhiều xét nghiệm cùng loại đang chờ" }
+      - dung: 1.5
+
+  - id: la
+    loi: "Thư này: tên và số điện thoại không có trên hệ thống. Kiểm lại hồ sơ khách trước khi gán."
+    lam:
+      - nhan_manh: { text: "/Không khách nào đang chờ khớp/" }
+
+  - id: tu-choi
+    loi: "Gửi nhầm thì bấm Từ chối tệp, ghi lý do, rồi Xác nhận từ chối. Lần quét sau máy bỏ qua tệp này."
+    lam:
+      - bam: { role: button, name: "Từ chối tệp", exact: true, trong: "Không khách nào đang chờ khớp" }
+      - go: { label: "Lý do từ chối tệp", chu: "Không phải khách phòng khám" }
+      - bam: { role: button, name: "Xác nhận từ chối", exact: true }
+      - dung: 1
+
+  - id: ho-so
+    mo: /xac-nhan-ket-qua
+    loi: "Khách đúng nhưng chưa có chỉ định: tờ vào hồ sơ theo lượt khám gần nhất, chờ ở hàng xác nhận."
+    lam:
+      - cho: { text: "{khach_gmail_ho_so}" }
+      - nhan_manh: { text: "/Chưa có chỉ định — gắn theo lượt khám/" }
+
+  - id: hop-le
+    loi: "Mở xem tệp, đúng khách thì bấm Hợp lệ. Sai thì bấm Từ chối, kèm lý do."
+    lam:
+      - bam: { role: button, name: "HỢP LỆ", exact: true, trong: "Chưa có chỉ định" }
+      - dung: 1
+
+  - id: kho
+    loi: "Mọi thư đối tác gửi về đều nằm trong Kho email kết quả, kể cả thư cũ trước mốc."
+    lam:
+      - re: { role: link, name: "/Kho email kết quả/" }
+      - bam: { role: link, name: "/Kho email kết quả/" }
+      - cho: { role: heading, name: "/Kho email kết quả/" }
+
+  - id: loc
+    loi: "Lọc theo trạng thái, ví dụ Lưu trữ là thư trước mốc. Bấm một thư để xem nội dung và tệp."
+    lam:
+      - bam: { role: button, name: "Lưu trữ", exact: true }
+      - bam: { role: button, name: "/Thư nhận trước ngày bắt đầu tự ghép/" }
+      - dung: 2
+      - bam: { role: button, name: "Đóng", exact: true }

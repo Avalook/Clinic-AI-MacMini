@@ -1,0 +1,72 @@
+# Chương 5 — Kết quả về qua email: máy tự gán. Dữ liệu: dung-du-lieu --chuong 5 dựng khách
+# + thư Gmail GIẢ (gmail_gia.py, một vòng quét thật). Không đọc hộp thư thật.
+chuong: 5
+ten: "Kết quả về qua email"
+vai: "Quản lý"
+tai_khoan: ql
+mo_tu: /settings/doi-tac
+mo_dau: "Kết quả đối tác gửi qua email tự về đúng khách"
+ket_thuc: "Thư máy chưa chắc chắn thì không tự gán — xem chương sau."
+canh:
+  - id: email
+    loi: "Mỗi đối tác có dòng Email gửi kết quả. Máy chỉ đọc thư gửi từ đúng địa chỉ này."
+    lam:
+      - cho: { text: "/Email gửi kết quả:/" }
+      - nhan_manh: { text: "/Email gửi kết quả:/" }
+
+  - id: den
+    loi: "Đèn Email ổn kèm giờ quét gần nhất. Máy tự đọc hộp thư vài phút một lần, không cần bấm."
+    lam:
+      - nhan_manh: { text: "/Email ổn/" }
+
+  - id: sua
+    loi: "Đổi địa chỉ thì bấm Sửa, điền ô Email đối tác gửi kết quả về, rồi Lưu."
+    lam:
+      - bam: { role: button, name: "Sửa", exact: true, trong: "Email gửi kết quả" }
+      - nhan_manh: { label: "/Email đối tác gửi kết quả về/" }
+      - bam: { role: button, name: "Thôi", exact: true }
+
+  - id: moc
+    loi: "Ô Tự ghép kết quả email từ ngày: thư nhận trước ngày này không tự gán, chỉ cất vào Kho email."
+    lam:
+      - nhan_manh: { text: "/Tự ghép kết quả email từ ngày/" }
+
+  - id: vao-ban
+    loi: "Thư về rồi thì xem ở Việc của đối tác, tab Kết quả."
+    lam:
+      - re: { role: link, name: "Việc của đối tác" }
+      - bam: { role: link, name: "Việc của đối tác" }
+      - cho: { role: heading, name: "Việc của đối tác" }
+      - bam: { role: tab, name: "Kết quả", exact: true }
+      - cho: { text: "Kết quả của khách", exact: true }
+
+  - id: doc-thu
+    loi: "Máy đọc tên và số điện thoại trong thư, so với khách đang chờ kết quả của đúng đối tác đó."
+    lam:
+      - nhan_manh: { text: "Kết quả của khách", exact: true }
+
+  - id: xanh
+    loi: "Khớp đúng một khách, đúng loại xét nghiệm thì tờ tự gán. Dòng chuyển xanh, ghi Email, tự ghép."
+    lam:
+      - nhan_manh: { role: button, name: "/{khach_gmail_tu_gan}/" }
+      - nhan_manh: { text: "/Email · tự ghép/" }
+
+  - id: xem-to
+    loi: "Bấm tên tệp để xem tờ kết quả ngay trên màn."
+    lam:
+      - bam: { role: button, name: "/^KQ_0121_/" }
+      - dung: 1.5
+      - bam: { role: button, name: "Đóng", exact: true }
+
+  - id: cho-xac-nhan
+    mo: /xac-nhan-ket-qua
+    loi: "Tờ máy tự gán vẫn chờ người kiểm ở Hàng chờ xác nhận kết quả: đúng khách, đúng xét nghiệm."
+    lam:
+      - cho: { text: "{khach_gmail_tu_gan}" }
+      - nhan_manh: { text: "/HPV định type/" }
+
+  - id: hop-le
+    loi: "Mở xem tệp, đúng thì bấm Hợp lệ. Tờ sang bác sĩ xem rồi mới được gửi khách."
+    lam:
+      - bam: { role: button, name: "HỢP LỆ", exact: true, trong: "HPV định type" }
+      - dung: 1

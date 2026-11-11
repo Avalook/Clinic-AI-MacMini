@@ -22,7 +22,7 @@ const require = createRequire(join(REPO, "src/dashboard/package.json"));
 const yaml = require("js-yaml");
 
 const KICH_BAN = join(REPO, "docs/huong-dan-video/kich-ban");
-const DOT_1 = [0, 1, 2, 3, 4];
+const DOT_1 = [0, 1, 2, 3, 4, 5, 6];
 
 function thamSo(argv) {
   const ts = { nhap: argv.includes("--nhap"), tatCa: argv.includes("--tat-ca"), chuong: null };

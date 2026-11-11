@@ -52,7 +52,9 @@ THU = [
 
 
 def _html(ten: str, sdt: str, ns: int, xn: str, ngay: str) -> str:
-    return f"""<!doctype html><meta charset="utf-8"><style>
+    # <title>: trình xem PDF hiện nó trên thanh — thiếu thì hiện tên tệp html tạm.
+    return f"""<!doctype html><meta charset="utf-8">
+<title>Kết quả xét nghiệm</title><style>
 body{{font-family:Arial,sans-serif;margin:48px;color:#1f2933}}
 h1{{font-size:22px;margin:0}} .mau{{color:#b42318;font-weight:700;margin:6px 0 24px}}
 table{{border-collapse:collapse;width:100%;margin-top:18px}}
