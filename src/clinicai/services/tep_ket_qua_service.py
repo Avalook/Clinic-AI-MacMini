@@ -741,7 +741,9 @@ class TepKetQuaService:
             raise ValidationError(
                 f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
             )
-        is_external = False
+        # Tệp đối tác KHÔNG chỉ định (Gmail: khách đúng mà chưa nhập chỉ định) vẫn
+        # là tệp ngoài ⇒ CHO_XAC_NHAN; trước 11/11 cờ chỉ bật khi có chỉ định.
+        is_external = la_tep_doi_tac
         viec_doi_tac = False
         async with self._pool.acquire() as conn:
             ok = await conn.fetchval(

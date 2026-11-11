@@ -363,6 +363,34 @@ def test_quyet_theo_loai(loai: set[str], viec: list[UngVien], ra: QuyetGmail) ->
     assert quyet(d, viec, True, NHAN) == ra
 
 
+def test_khop_ds_theo_nhieu_sdt_cua_khach() -> None:
+    from clinicai.services.xet_nghiem.ghep_khach import khop_ds
+
+    u = _v("o1", "k1", sdt="0911111111 ; 0900000123 ; 0922222222")
+    assert khop_ds(f"{TEN}\n{SDT}", [u]) == [u]  # SĐT thư là số thứ hai
+    assert khop_ds(f"{TEN}\n0933333333", [u]) == []
+    assert khop_ds(f"{TEN}\n{SDT}", [_v("o2", "k2", sdt="")]) == []
+
+
+def test_gan_ho_so_chi_khi_khach_dung_va_co_luot() -> None:
+    from clinicai.services.xet_nghiem.gmail_ghep import gan_ho_so
+
+    q = QuyetGmail("KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id="k1")
+    assert gan_ho_so(q, ("v1", "a1")) == QuyetGmail(
+        None,
+        clinic_patient_id="k1",
+        visit_id="v1",
+        goi_y_clinic_patient_id="k1",
+        appointment_id="a1",
+    )
+    assert gan_ho_so(q, None) == q  # không có lượt ⇒ giữ lý do
+    kk = QuyetGmail("KHONG_KHOP_KHACH")
+    assert gan_ho_so(kk, ("v1", "a1")) == kk  # khách chưa chắc ⇒ không gắn
+    assert gan_ho_so(QuyetGmail("KHONG_THAY_CHI_DINH"), ("v1", "a1")) == QuyetGmail(
+        "KHONG_THAY_CHI_DINH"
+    )
+
+
 def test_doc_thu_lay_loai_tu_chu_pdf_khong_tu_ten_tep() -> None:
     """True Medicine ghi sai loại ở tên tệp ⇒ loại chỉ lấy từ CHỮ PDF."""
     d = doc_thu(
