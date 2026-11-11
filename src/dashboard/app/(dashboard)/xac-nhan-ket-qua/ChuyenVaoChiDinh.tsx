@@ -94,7 +94,9 @@ export default function ChuyenVaoChiDinh({
                   variant="primary"
                   disabled={dangChay}
                   onClick={() => void chuyen(c)}
-                  className="w-full justify-start text-left sm:w-auto"
+                  // Tên dịch vụ dài (ThinPrep…) phải xuống dòng — nút mặc định nowrap
+                  // làm tràn ngang ở 375.
+                  className="h-auto! min-h-7 w-full justify-start py-1 text-left whitespace-normal! sm:w-auto"
                 >
                   Chuyển vào: {c.ten_dich_vu}
                 </Button>
