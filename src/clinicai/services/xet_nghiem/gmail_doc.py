@@ -155,8 +155,13 @@ def xac_thuc_ok(ket_qua_xac_thuc: object, tu: object) -> bool:
     Chỉ tin header do CHÍNH Gmail ghi (authserv-id `mx.google.com`, dòng trên cùng —
     `gmail_api` chỉ giữ dòng đó): người gửi tự chèn được thêm header cùng tên. Mỗi kết
     quả (`;`) xét riêng: `dmarc=pass` phải kèm `header.from=` đúng miền; `dkim=pass`
-    phải kèm `header.d=` / `header.i=@` đúng miền — so NGUYÊN miền, không so tiền tố
-    (`lab.vn.ke-gian.com` không phải `lab.vn`)."""
+    phải kèm `header.d=` / `header.i=@` đúng miền; `spf=pass` phải kèm `smtp.mailfrom`
+    cùng miền (SPF "khớp miền" như DMARC nhận) — so NGUYÊN miền, không so tiền tố
+    (`lab.vn.ke-gian.com` không phải `lab.vn`).
+
+    SPF (11/11/2026, đo prod): HighDetect gửi qua Google Workspace KHÔNG cài DKIM riêng
+    (chữ ký mang miền `…gappssmtp.com`) và không khai DMARC ⇒ chỉ SPF chứng được miền;
+    luật cũ xếp oan mọi thư máu vào Lưu trữ "không xác thực"."""
     if (
         not isinstance(ket_qua_xac_thuc, str)
         or not isinstance(tu, str)
@@ -177,5 +182,8 @@ def xac_thuc_ok(ket_qua_xac_thuc: object, tu: object) -> bool:
         if the.get("dkim") == "pass" and (
             the.get("header.d") == mien or ("@" in i and i.rsplit("@", 1)[1] == mien)
         ):
+            return True
+        mf = the.get("smtp.mailfrom", "")
+        if the.get("spf") == "pass" and mf.rsplit("@", 1)[-1] == mien:
             return True
     return False
