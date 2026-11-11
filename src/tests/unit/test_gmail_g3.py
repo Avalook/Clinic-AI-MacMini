@@ -296,6 +296,10 @@ def test_quyet(d: DocThu, viec: list[UngVien], co_chu: bool, ra: QuyetGmail) -> 
         ("Sàng lọc gen lặn (carrier)", {"GEN"}),
         ("Công thức máu · Glucose 5.1", set()),
         ("HPV âm tính; Chlamydia âm tính; ThinPrep NILM", {"HPV", "STD", "THINPREP"}),
+        # Dạng dính liền / dài (soát G7): tờ HPV có chữ STD lạc vào KHÔNG thành chỉ STD.
+        ("HPV16: Âm tính · HPV18: Âm tính · ghi chú STD", {"HPV", "STD"}),
+        ("Human papillomavirus genotyping", {"HPV"}),
+        ("HPV16/18 dương tính", {"HPV"}),
         ("", set()),
         (None, set()),
     ],

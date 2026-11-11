@@ -79,9 +79,19 @@ def _co_tu(van: str, bang: dict[str, list[str]]) -> frozenset[str]:
     )
 
 
+#: HPV hay viết dính số / dạng dài ("HPV16/18" ⇒ "hpv16 18", "papillomavirus") — thiếu
+#: thì tờ HPV có một chữ STD lạc vào bị đọc thành CHỈ STD ⇒ gán nhầm (soát G7).
+_HPV_DINH: Final = re.compile(r" (?:hpv\d+|papillomavirus|papillomaviruses) ")
+
+
 def loai_ket_qua(chu: object) -> frozenset[str]:
     """HÀM THUẦN: loại xét nghiệm nhắc trong chữ PDF kết quả. Rác ⇒ rỗng."""
-    return _co_tu(chu, _LOAI_KQ) if isinstance(chu, str) else frozenset()
+    if not isinstance(chu, str):
+        return frozenset()
+    loai = _co_tu(chu, _LOAI_KQ)
+    if _HPV_DINH.search(f" {chuan(chu)} "):
+        loai |= {"HPV"}
+    return loai
 
 
 def loai_dich_vu(ten: object) -> frozenset[str]:
