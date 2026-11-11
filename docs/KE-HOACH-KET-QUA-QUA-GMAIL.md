@@ -185,6 +185,14 @@ hỏi Tuyền, không đoán bấm.
 - Ứng viên: việc đang chờ kết quả (tự ghép); việc đã thu chưa lấy mẫu (`CHUA_LAY_MAU` + gợi ý);
   việc đã có tờ trong 120 ngày (`CO_BAN_MOI` + gợi ý).
 - Bật ghép cho thư sau mốc; thư `LUU_TRU` sau mốc tạo ở G2 được xét lại **một lần**.
+- **G5 (11/11, Tuyền duyệt "gán full"; nhánh `claude/gmail-g5-gan-full`)** — đo prod 11/11: chỉ
+  1 đối tác (Medlatec), HPV/NIPT 0 việc ở Bàn XN, 0 lần bấm Lấy mẫu ⇒ luật G3 không gán được gì.
+  Luật mới: ứng viên = MỌI chỉ định loại xét nghiệm lab làm (gán ở Cài đặt → Đối tác, hoặc việc
+  Bàn XN chụp đúng lab), tạo trong **60 ngày trước giờ nhận thư**, không cần Lấy mẫu. Chỉ định đã
+  có **tờ tải tay** ⇒ thư vẫn gắn thêm, hai tờ song song (Tuyền 11/11). Đã có tờ từ Gmail ⇒ thư
+  mới hơn = CO_BAN_MOI, không mới hơn = Lưu trữ DA_CO_KET_QUA. Lý do mới: KHONG_THAY_CHI_DINH,
+  KHONG_RO_MAU_THU; Lưu trữ có `luu_tru_vi_sao` (migration `20261111100000`), hiện ở Kho email.
+  Gán ngược: đặt mốc lùi (01/10) trước lần quét đầu. Drive giữ luật 05/11 (Bàn XN + Lấy mẫu).
 - **G3a xong (09/11, Tuyền DUYỆT luật dưới đây; nhánh `claude/gmail-ket-qua-g3`)** — máy chủ:
   `gmail_doc.py` (đọc thư từng lab, hàm thuần; đo trên thư thật: đủ tên + SĐT để xét ghép TM 97,5% ·
   HD 96,3% · GL 73% (phần còn lại đúng là "Chưa đủ kết quả") · EU ~99% PDF kết quả), `gmail_ghep.py`
