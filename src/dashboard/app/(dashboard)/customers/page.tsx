@@ -11,7 +11,11 @@ import {
   getQuyenCuaToi,
   moDuocMan,
 } from "../../../lib/clinic-session";
-import { coMotQuyen, QUYEN_GHI_CHAM_SOC } from "../../../lib/quyen-cua-toi";
+import {
+  coMotQuyen,
+  QUYEN_GHI_CHAM_SOC,
+  QUYEN_SUA_HANH_CHINH,
+} from "../../../lib/quyen-cua-toi";
 import {
   canWriteIntake,
   canManageAppt,
@@ -93,18 +97,16 @@ export default async function CustomersPage({
   // đúng các quyền máy chủ hỏi. Máy chủ chưa trả lời quyền (`null`) → rơi về
   // vai như trước, để một lần lỗi mạng không mất hết nút.
   const quyen = await getQuyenCuaToi();
-  // Được SỬA thông tin hành chính (`_PATIENT_EDIT_GUARD`) + nút "Đặt lịch"
-  // (`booking.create`) ngay trong panel.
+  // SỬA thông tin hành chính — đúng các quyền máy chủ hỏi khi Lưu.
+  const canSuaHanhChinh =
+    quyen === null
+      ? vaiHomNay.some(canWriteIntake)
+      : coMotQuyen(quyen, QUYEN_SUA_HANH_CHINH);
+  // Nút "Đặt lịch" trong panel: người sửa hồ sơ hoặc có lego đặt lịch.
   const canEdit =
     quyen === null
       ? vaiHomNay.some(canWriteIntake)
-      : coMotQuyen(quyen, [
-          "patient.create",
-          "crm.manage",
-          "reception.checkin.perform",
-          "clinical.record.write",
-          "booking.create",
-        ]);
+      : canSuaHanhChinh || coMotQuyen(quyen, ["booking.create"]);
   // Nút "Thêm khách hàng mới" gác bằng ĐÚNG cửa của trang đích /patients/new
   // (lego 11 `patient.create`) — đợt 3, 27/09/2026.
   const canThemKhach = await moDuocMan("/patients/new");
@@ -1131,6 +1133,7 @@ type LichHenRaw = {
           initialViec={viec}
           initialLuot={luot}
           canEdit={canEdit}
+          canSuaHanhChinh={canSuaHanhChinh}
           canThemKhach={canThemKhach}
           canManage={canManage}
           canOperateCskh={canOperateCskh}

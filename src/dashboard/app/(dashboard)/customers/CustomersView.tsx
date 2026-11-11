@@ -629,6 +629,7 @@ export default function CustomersView({
   initialViec = null,
   initialLuot = null,
   canEdit = false,
+  canSuaHanhChinh = false,
   canThemKhach = false,
   canManage = false,
   canOperateCskh = false,
@@ -674,7 +675,11 @@ export default function CustomersView({
   initialViec?: string | null;
   /** Lượt khám mở sẵn (`?luot=` — `appointment.id`). */
   initialLuot?: string | null;
+  /** Đặt lịch ngay trong panel (người sửa hồ sơ hoặc có lego đặt lịch). */
   canEdit?: boolean;
+  /** Sửa thông tin hành chính — `QUYEN_SUA_HANH_CHINH`, khớp quyền máy chủ hỏi
+   *  khi Lưu. Tách khỏi `canEdit` vì người CHỈ đặt lịch bấm Lưu bị 403. */
+  canSuaHanhChinh?: boolean;
   /** Mở được trang đích /patients/new không — máy chủ hỏi ĐÚNG luật cửa của
    *  trang ấy (`moDuocMan`, lego 11 `patient.create`). Đợt 3, 27/09/2026. */
   canThemKhach?: boolean;
@@ -1916,15 +1921,15 @@ export default function CustomersView({
                 <NganGap
                   tieuDe="Thông tin hành chính"
                   phu={
-                    canEdit
+                    canSuaHanhChinh
                       ? "SĐT, địa chỉ, công ty xuất hoá đơn — mở để sửa"
                       : "Kênh đặt, người giới thiệu, SĐT, địa chỉ"
                   }
-                  moSan={!canEdit}
+                  moSan={!canSuaHanhChinh}
                   nhoKhoa="khach-hanh-chinh"
                 >
                   <div className="pt-2">
-                    {canEdit ? (
+                    {canSuaHanhChinh ? (
                       <>
                         <PatientAdminEditor
                           key={selected.clinic_patient_id}
