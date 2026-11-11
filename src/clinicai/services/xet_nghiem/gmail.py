@@ -126,7 +126,7 @@ async def nhan_thu(
     trong = await chay_tren_kho(partial(_con_cho, goc), kho=KHO_VPS)
     if trong - sum(len(d) for _, d in tai) < MEDIA_LOCAL_MIN_FREE_BYTES:
         raise gmail_api.GmailError("Ổ máy chủ gần đầy — chưa lưu thư kết quả.")
-    muc = await _muc_ca_thu(pool, cid, dt, thu, tai)
+    muc = await muc_ca_thu(pool, cid, dt, thu, tai)
     try:
         ids = await gmail_luu.luu_thu(pool, cid, dt, thu, muc)
     except asyncpg.IntegrityConstraintViolationError as e:
@@ -149,7 +149,7 @@ async def nhan_thu(
     return sum(i is not None for i in ids)
 
 
-async def _muc_ca_thu(
+async def muc_ca_thu(
     pool: asyncpg.Pool,
     cid: str,
     dt: str,

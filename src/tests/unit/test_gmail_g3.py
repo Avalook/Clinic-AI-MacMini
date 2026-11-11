@@ -117,6 +117,15 @@ _THAT = (
 )
 
 
+#: Khuôn header thật của HighDetect (đo prod 11/11, chỉ phần kỹ thuật).
+_HD = (
+    "mx.google.com; dkim=pass header.i=@highdetectlab-com.20260707.gappssmtp.com"
+    ' header.s=20260707 header.b="FVVtEeG/"; spf=pass (google.com: domain of'
+    " reports@highdetectlab.com designates 209.85.220.41 as permitted sender)"
+    " smtp.mailfrom=reports@highdetectlab.com; dara=pass header.i=@gmail.com"
+)
+
+
 @pytest.mark.parametrize(
     ("hdr", "tu", "ok"),
     [
@@ -138,6 +147,23 @@ _THAT = (
         # dmarc=pass phải đúng miền From.
         ("mx.google.com; dmarc=pass header.from=ke-gian.vn", "a@lab.vn", False),
         ("mx.google.com; dmarc=pass", "a@lab.vn", False),
+        # SPF khớp miền (HighDetect: Google Workspace, DKIM gappssmtp, không DMARC).
+        (_HD, "reports@highdetectlab.com", True),
+        ("mx.google.com; spf=pass smtp.mailfrom=lab.vn", "a@lab.vn", True),
+        ("mx.google.com; spf=pass smtp.mailfrom=x@ke-gian.vn", "a@lab.vn", False),
+        (
+            "mx.google.com; spf=pass smtp.mailfrom=b@lab.vn.ke-gian.com",
+            "a@lab.vn",
+            False,
+        ),
+        ("mx.google.com; spf=softfail smtp.mailfrom=a@lab.vn", "a@lab.vn", False),
+        ("mx.google.com; spf=pass", "a@lab.vn", False),
+        # DKIM của miền mặc định Google (gappssmtp) KHÔNG chứng được miền lab.
+        (
+            "mx.google.com; dkim=pass header.i=@lab-vn.20260707.gappssmtp.com",
+            "a@lab.vn",
+            False,
+        ),
         # Header không do Gmail ghi (người gửi tự chèn).
         ("ke-gian.vn; dmarc=pass header.from=lab.vn", "a@lab.vn", False),
         ("", "a@lab.vn", False),
