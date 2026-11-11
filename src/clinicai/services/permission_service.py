@@ -517,6 +517,9 @@ class PermissionService:
                     "mac_dinh_cho": m.mac_dinh_cho,
                 }
                 for m in MAN.values()
+                # Màn của khối cấp riêng (Kho email) không vào được nhóm nào ⇒ không
+                # bày công tắc theo nhóm ở đây (bấm chỉ ra lỗi); bật ở từng người.
+                if not (set(m.khoi) & KHOI_CAP_RIENG)
             ],
             "man_theo_vai": [
                 {"ten": ten, "mac_dinh_cho": ai} for ten, ai in MAN_THEO_VAI

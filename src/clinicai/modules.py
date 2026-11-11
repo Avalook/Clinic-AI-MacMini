@@ -812,6 +812,7 @@ MODULE: dict[str, Module] = {
                 "lab.result_sent",
                 "lab.result_rejected",
                 "lab.drive_file_rejected",
+                "lab.archive_viewed",
                 "lab.reopened",
             ],
             # Sổ thu hộ chuyển về đây (kế hoạch 3: lõi ghi/huỷ ở thu_ho.py; lệnh cũ

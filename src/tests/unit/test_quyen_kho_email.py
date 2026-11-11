@@ -29,12 +29,12 @@ def test_khoi_kho_email_khong_nam_trong_nhom_mau_nao() -> None:
     assert "kho_email" not in KHOI_MO_FULL
 
 
-def test_khoi_cap_rieng_khong_phai_khoi_noi_bo() -> None:
-    # Khác khối nội bộ (quản lý không cấp được): khối cấp riêng vẫn cấp được.
+def test_khoi_cap_rieng_van_cap_duoc_o_man_phan_quyen() -> None:
+    # Khác khối nội bộ (quản lý không cấp được): khối cấp riêng phải có công tắc.
     assert not (KHOI_CAP_RIENG & KHOI_NOI_BO)
-    # Công tắc lego "Kho email" khai ở G2 cùng trang + mục thanh bên (frontend ép
-    # mỗi lego có page.tsx và mục thanh bên) — G1 chưa có màn nào để mở.
-    assert "kho_email" not in MAN
+    man = MAN["kho_email"]  # G2b: lego cùng trang + mục thanh bên
+    assert "kho_email" in man.khoi
+    assert "/ban-xet-nghiem/kho-email" in man.cac_duong
 
 
 def test_quyen_kho_email_da_khai_va_co_module() -> None:
@@ -42,5 +42,6 @@ def test_quyen_kho_email_da_khai_va_co_module() -> None:
     assert q.khoi == "kho_email"
     assert q.rui_ro.value == "clinical"
     assert "xet_nghiem.kho_email" in MODULE["xet_nghiem_doi_tac"].quyen
-    # Sự kiện "mở PDF ở Kho email" khai ở G2, cùng code phát (không khai dây chết).
-    assert "lab.archive_viewed" not in DANH_MUC
+    # Sự kiện "mở PDF ở Kho email" (G2b) — khai cùng code phát (kho_email.mo_pdf).
+    assert "lab.archive_viewed" in DANH_MUC
+    assert "lab.archive_viewed" in MODULE["xet_nghiem_doi_tac"].phat

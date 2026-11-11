@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-09 16:28. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-09 17:12. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -12,7 +12,7 @@ tệp mà hơn 25% số màn cùng import (dùng chung): `app/(dashboard)/dung-n
 
 Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. Sự kiện (consumer) · 5. Bảng → migration
 
-## 1. Màn (93)
+## 1. Màn (94)
 ### `/`
 - page: `src/dashboard/app/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
@@ -61,6 +61,14 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - ? không khớp route.ts nào: `/api/xet-nghiem/ban/lay-mau`, `/api/xet-nghiem/ban/anh-ck/${encodeURIComponent(id)}/go`, `/api/xet-nghiem/ban/tien`, `/api/xet-nghiem/ban/drive-cho`, `/api/xet-nghiem/ban/qua-trinh` (+1)
 - service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +2} · quyen_ban.bang_quyen · media_service · TepKetQuaService.mo_de_doc · tep_ket_qua_service · CashierBoardService.{board, giao_dich} (+2 service)
 - test: test_xet_nghiem_nen_db.py, test_cashier_scope_db.py, test_payment_access.py, test_cashier_scope.py, test_tep_ket_qua.py (+10)
+
+### `/ban-xet-nghiem/kho-email` — Kho email kết quả
+- page: `src/dashboard/app/(dashboard)/ban-xet-nghiem/kho-email/page.tsx` · quyền: lego `kho_email` (Kho email kết quả (tạm) · mặc định: Cấp riêng từng người)
+- thành phần: KhoEmail.tsx, app/(dashboard)/ban-xet-nghiem/kieu.ts
+- gọi API Next: `/api/xet-nghiem/kho-email-pdf`, `/api/xet-nghiem/[...duong]`
+- ? không khớp route.ts nào: `/api/xet-nghiem/kho-email/${encodeURIComponent(t.id)}`, `/api/xet-nghiem/ban/${duong}`
+- service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +2} · quyen_ban.bang_quyen
+- test: test_xet_nghiem_nen_db.py
 
 ### `/cashier`
 - page: `src/dashboard/app/(dashboard)/cashier/page.tsx` · quyền: ?
@@ -284,7 +292,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/phan-quyen`
 - gọi thẳng backend (server): `/api/v1/staff`
 - service: PermissionService.{them_preset, lego_cua_nguoi, doi_lego, danh_sach_nhom, +5} · KyNangService.{cua_nguoi, doi, chep, danh_sach} · KHOI.values · PRESET.items · catalogue · StaffService.{list_assignable, list_active, create_staff}
-- test: test_lego_21_db.py, test_permission_db.py, test_staff_service.py, test_no_con_lai_db.py, test_clinical_cluster.py (+7)
+- test: test_permission_db.py, test_lego_21_db.py, test_staff_service.py, test_no_con_lai_db.py, test_clinical_cluster.py (+7)
 
 ### `/pharmacy` — Cấp thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
@@ -619,7 +627,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_doi_chieu_hoa_don_db.py, test_hoa_don_misa_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (147)
+## 2. API Next → backend (148)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1733,8 +1741,10 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - `/api/v1/xet-nghiem/ban/drive-cho` → ?
 - `/api/v1/xet-nghiem/ban/${m[1]}` → ?
 - `/api/v1/xet-nghiem/ban/anh-ck/${m[1]}/go` → ?
+- `/api/v1/xet-nghiem/kho-email` → ?
+- `/api/v1/xet-nghiem/kho-email/${m[1]}` → ?
 - test: src/tests/services/test_xet_nghiem_nen_db.py
-- màn dùng: /ban-xet-nghiem, /settings/doi-tac
+- màn dùng: /ban-xet-nghiem, /ban-xet-nghiem/kho-email, /settings/doi-tac
 
 #### `/api/xet-nghiem/anh-ck` · `src/dashboard/app/api/xet-nghiem/anh-ck/route.ts`
 - `/api/v1/xet-nghiem/ban/anh-ck` → ?
@@ -1747,6 +1757,11 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - `/api/v1/xet-nghiem/ban/drive-tep/{id}` → ?
 - `/api/v1/xet-nghiem/ban/drive-tep/${id}` → ?
 - màn dùng: /ban-xet-nghiem
+
+#### `/api/xet-nghiem/kho-email-pdf` · `src/dashboard/app/api/xet-nghiem/kho-email-pdf/route.ts`
+- `/api/v1/xet-nghiem/kho-email/{id}/pdf` → ?
+- `/api/v1/xet-nghiem/kho-email/${id}/pdf` → ?
+- màn dùng: /ban-xet-nghiem/kho-email
 
 #### `/api/xet-nghiem/tai-ket-qua` · `src/dashboard/app/api/xet-nghiem/tai-ket-qua/route.ts`
 - `/api/v1/xet-nghiem/ban/tai-ket-qua` → ?
@@ -1782,7 +1797,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `BioChiDinhService` | `src/clinicai/services/bio_chi_dinh_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `BookingOverrideService` | `src/clinicai/services/booking_override_service.py` | /settings/booking-policy |
 | `BookingService` | `src/clinicai/services/booking_service.py` | /appointments, /appointments/cho-xep-bac-si, /ban-kham, /ban-kham/[phong], /customers, /home, /nhac-tai-kham, /patient-list (+3) |
-| `CaiDatDoiTac` | `src/clinicai/services/xet_nghiem/cai_dat.py` | /ban-xet-nghiem, /settings/doi-tac |
+| `CaiDatDoiTac` | `src/clinicai/services/xet_nghiem/cai_dat.py` | /ban-xet-nghiem, /ban-xet-nghiem/kho-email, /settings/doi-tac |
 | `can` | `src/clinicai/permissions/can.py` | /kho-vat-tu, /ops, /pharmacy, /pharmacy/inventory, /print/tem-lo, /settings/new-user, /settings/tai-khoan |
 | `canh_gac` | `src/clinicai/services/canh_gac.py` | /ops |
 | `capacity_service` | `src/clinicai/services/capacity_service.py` | /appointments, /customers, /home, /patients/new, /reception/queue |
@@ -1917,7 +1932,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `QueryTasksFilter` | `src/clinicai/tools/task/query_tasks.py` | — (chỉ API/worker) |
 | `queue_order` | `src/clinicai/services/queue_order.py` | — (chỉ API/worker) |
 | `queue_rows` | `src/clinicai/services/queue_rows.py` | — (chỉ API/worker) |
-| `quyen_ban` | `src/clinicai/services/xet_nghiem/quyen_ban.py` | /ban-xet-nghiem, /settings/doi-tac |
+| `quyen_ban` | `src/clinicai/services/xet_nghiem/quyen_ban.py` | /ban-xet-nghiem, /ban-xet-nghiem/kho-email, /settings/doi-tac |
 | `QUYEN_THEO_KHU` | `src/clinicai/services/work_item_service.py` | — (chỉ API/worker) |
 | `read_policy` | `src/clinicai/tools/kb/read_policy.py` | — (chỉ API/worker) |
 | `RecallJobService` | `src/clinicai/services/recall_job_service.py` | /customers, /nhac-tai-kham |
