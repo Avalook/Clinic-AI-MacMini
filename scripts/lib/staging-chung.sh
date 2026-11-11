@@ -147,8 +147,11 @@ kiem_tai_nguyen() {
 #
 # Giờ VN = UTC+7, không có giờ mùa hè → tính từ `date -u`, khỏi phụ thuộc tzdata
 # trên VPS (thiếu tzdata thì `TZ=Asia/Ho_Chi_Minh date` lặng lẽ in giờ UTC).
-# Khung đổi bằng GIO_KHAM_TU / GIO_KHAM_DEN (mặc định 7 → 21, nửa mở [7,21)).
-# STG_GIO_VN_GIA chỉ để test.
+# Khung giờ phòng khám dùng (Tuyền 11/11/2026), nửa mở [từ, đến):
+#   thứ 2–6: 16h → 23h (GIO_KHAM_TU, mặc định 16)
+#   thứ 7, CN: 7h → 23h (GIO_KHAM_TU_CUOI_TUAN, mặc định 7)
+#   giờ đóng chung GIO_KHAM_DEN (mặc định 23).
+# STG_GIO_VN_GIA / STG_THU_VN_GIA chỉ để test.
 gio_vn_hien_tai() {
     if [ -n "${STG_GIO_VN_GIA:-}" ]; then
         printf '%s' "$STG_GIO_VN_GIA"
@@ -157,12 +160,31 @@ gio_vn_hien_tai() {
     fi
 }
 
+# Thứ theo giờ VN, 1 = thứ 2 … 7 = Chủ nhật. Từ 17h UTC là đã sang ngày hôm sau ở VN.
+thu_vn_hien_tai() {
+    if [ -n "${STG_THU_VN_GIA:-}" ]; then
+        printf '%s' "$STG_THU_VN_GIA"
+        return
+    fi
+    local thu
+    thu=$(date -u +%u)
+    if [ $(( 10#$(date -u +%H) + 7 )) -ge 24 ]; then
+        thu=$(( thu % 7 + 1 ))
+    fi
+    printf '%s' "$thu"
+}
+
 kiem_gio_kham() {
     [ "$STAGING_KIEU" = "chung" ] || return 0
-    local gio tu den
+    local gio thu tu den
     gio=$(( 10#$(gio_vn_hien_tai) ))
-    tu=$(( 10#${GIO_KHAM_TU:-7} ))
-    den=$(( 10#${GIO_KHAM_DEN:-21} ))
+    thu=$(( 10#$(thu_vn_hien_tai) ))
+    if [ "$thu" -ge 6 ]; then
+        tu=$(( 10#${GIO_KHAM_TU_CUOI_TUAN:-7} ))
+    else
+        tu=$(( 10#${GIO_KHAM_TU:-16} ))
+    fi
+    den=$(( 10#${GIO_KHAM_DEN:-23} ))
     if [ "$gio" -lt "$tu" ] || [ "$gio" -ge "$den" ]; then
         return 0
     fi
