@@ -100,6 +100,9 @@ async def test_co_quyen_thi_thay_thu_va_mo_pdf_co_vet(
         ct = await kho_email.chi_tiet(conn, x, tid)
     dong = {t["id"]: t for t in ds["thu"]}[tid]
     assert (dong["trang_thai"], dong["nhan_trang_thai"]) == ("LUU_TRU", "Lưu trữ")
+    # G5: dòng Lưu trữ cũ (không mã lý do) vẫn có câu, mã thô không lộ ra màn.
+    assert dong["vi_sao"] == ct["vi_sao"] == "Lưu trữ (không tự ghép)"
+    assert "ly_do_cho" not in dong and "luu_tru_vi_sao" not in ct
     assert ds["co"] == kho_email.CO_TOI_DA and ds["tong"] >= 1
     assert ds["thanh_tren"]["nhan"].startswith("Đã nạp")
     assert ct["than"] and "khoa" not in ct  # đường ổ không lộ ra màn

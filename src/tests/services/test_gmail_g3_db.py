@@ -30,7 +30,7 @@ from tests.services.test_gmail_g2_db import GmailGia
 from tests.services.test_xac_nhan_tep_ket_qua_db import PDF_DUMMY
 from tests.services.test_xet_nghiem_drive_db import _lam
 from tests.services.test_xet_nghiem_drive_db import _thu as _thu_tien
-from tests.services.test_xet_nghiem_nen_db import (
+from tests.services.test_xet_nghiem_nen_db import (  # noqa: F401
     _ca_doi_tac,
     _chi_dinh,
     _gan,
@@ -48,10 +48,25 @@ class Ca3:
     def __init__(self, g: GmailGia, dt: str, ca: Any) -> None:
         self.g, self.dt, self.ca = g, dt, ca
 
-    async def viec(self, pool: asyncpg.Pool, *, lay_mau: bool = True) -> dict[str, Any]:  # noqa: F811
+    async def viec(
+        self,
+        pool: asyncpg.Pool,  # noqa: F811
+        *,
+        lay_mau: bool = True,
+        ban_xn: bool = True,
+    ) -> dict[str, Any]:
+        if not ban_xn:
+            # Chỉ định KHÔNG có việc Bàn XN (như HPV trên prod 10–11/2026): gán dịch vụ
+            # còn đó nhưng không mặc định ⇒ `chup` không tạo việc.
+            await pool.execute(
+                "UPDATE doi_tac_dich_vu SET mac_dinh = false"
+                " WHERE doi_tac_id = $1::uuid",
+                self.dt,
+            )
         oid = await _chi_dinh(pool, self.ca)
-        await _thu_tien(pool, self.ca, oid)
-        if lay_mau:
+        if ban_xn:
+            await _thu_tien(pool, self.ca, oid)
+        if ban_xn and lay_mau:
             await _lam(pool, mau.lay_mau, self.ca, order_ids=[oid])
         sdt = "09" + "".join(random.choices("0123456789", k=8))
         r = await pool.fetchrow(
@@ -135,7 +150,8 @@ async def c3(
 async def _dong(pool: asyncpg.Pool, mid: str) -> Any:  # noqa: F811
     return await pool.fetchrow(
         "SELECT id::text, ly_do_cho, tep_ket_qua_id::text, goi_y_order_id::text,"
-        " goi_y_clinic_patient_id::text FROM drive_tep WHERE email_message_id = $1",
+        " goi_y_clinic_patient_id::text, luu_tru_vi_sao"
+        " FROM drive_tep WHERE email_message_id = $1",
         mid,
     )
 
@@ -193,6 +209,16 @@ async def test_khong_du_dieu_kien_thi_luu_tru(
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
     assert (d["ly_do_cho"], d["tep_ket_qua_id"]) == ("LUU_TRU", None)
+    # G5: Lưu trữ phải nói được VÌ SAO.
+    assert (
+        d["luu_tru_vi_sao"]
+        == {
+            "khong_xac_thuc": "KHONG_XAC_THUC",
+            "truoc_moc": "TRUOC_MOC",
+            "chua_du": "CHUA_DU_KET_QUA",
+            "khong_moc": "CHUA_DAT_MOC",
+        }[ca_hong]
+    )
 
 
 async def test_sdt_khong_khop_vao_hang_ghep_tay_va_gan_tay_doc_byte_da_luu(
@@ -272,7 +298,17 @@ async def test_tu_ghep_cho_khoa_va_doc_lai_dong_khong_tao_to_thu_hai(
     assert so_to == 0
 
 
-async def test_quen_lay_mau_thi_chua_lay_mau_va_goi_y(
+async def _to_cua(pool: asyncpg.Pool, oid: str) -> list[Any]:  # noqa: F811
+    return list(
+        await pool.fetch(
+            "SELECT nguon, xac_nhan_trang_thai FROM tep_ket_qua"
+            " WHERE service_order_id = $1::uuid AND da_xoa_luc IS NULL",
+            oid,
+        )
+    )
+
+
+async def test_g5_chua_bam_lay_mau_van_tu_gan(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,
 ) -> None:
@@ -280,4 +316,141 @@ async def test_quen_lay_mau_thi_chua_lay_mau_va_goi_y(
     mid = c3.thu(v["ten"], v["sdt"])
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
-    assert d["ly_do_cho"] == "CHUA_LAY_MAU" and d["goi_y_order_id"] == v["oid"]
+    assert d["ly_do_cho"] is None and d["tep_ket_qua_id"] is not None
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
+        ("GMAIL", "CHO_XAC_NHAN")
+    ]
+
+
+async def test_g5_chi_dinh_khong_o_ban_xn_van_tu_gan_theo_gan_dich_vu(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    """HPV trên prod: chỉ định tạo trước khi gán dịch vụ cho lab ⇒ không có việc Bàn XN.
+    Dịch vụ được gán cho lab này ⇒ vẫn là ứng viên, tự gán vào đúng chỉ định."""
+    v = await c3.viec(pool, ban_xn=False)
+    assert await pool.fetchval(
+        "SELECT count(*) FROM xet_nghiem_viec WHERE service_order_id = $1::uuid",
+        v["oid"],
+    ) == 0  # fmt: skip
+    mid = c3.thu(v["ten"], v["sdt"])
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    assert d["ly_do_cho"] is None and d["tep_ket_qua_id"] is not None
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
+        ("GMAIL", "CHO_XAC_NHAN")
+    ]
+
+
+async def test_g5_to_tai_tay_va_to_gmail_hien_song_song(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    """Tuyền 11/11: chỉ định nhân viên đã tải tờ tay (trước khi có tính năng) ⇒ thư
+    Gmail vẫn gắn THÊM vào đúng chỉ định đó — hai tờ cùng hiện, không thay nhau."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    v = await c3.viec(pool, ban_xn=False)
+    await TepKetQuaService(pool).tai_len(
+        identity=c3.ca.bac_si,
+        clinic_patient_id=v["kh"],
+        data=PDF_DUMMY + b"\n% tai tay\n",
+        ten_hien_thi="anh-tai-tay.pdf",
+        service_order_id=v["oid"],
+    )
+    mid = c3.thu(v["ten"], v["sdt"])
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    assert d["ly_do_cho"] is None and d["tep_ket_qua_id"] is not None
+    assert sorted(r["nguon"] for r in await _to_cua(pool, v["oid"])) == [
+        "GMAIL",
+        "TAI_LEN",
+    ]
+
+
+async def test_g5_chi_dinh_qua_60_ngay_thi_khong_thay_chi_dinh(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    v = await c3.viec(pool)
+    await pool.execute(
+        "UPDATE service_order SET created_at = now() - interval '61 days'"
+        " WHERE id = $1::uuid",
+        v["oid"],
+    )
+    mid = c3.thu(v["ten"], v["sdt"])
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    # Khách có thật (tên + SĐT khớp hồ sơ) nhưng không có chỉ định trong 60 ngày.
+    assert (d["ly_do_cho"], d["goi_y_clinic_patient_id"]) == (
+        "KHONG_THAY_CHI_DINH",
+        v["kh"],
+    )
+    assert await _to_cua(pool, v["oid"]) == []
+
+
+async def test_g5_thu_cu_hon_to_da_co_thi_da_co_ket_qua(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    """Gán ngược: tờ đã có (tải tay sau khi nhận thư, hoặc thư trùng) KHÔNG cũ hơn thư
+    ⇒ thư đã được xử lý ⇒ chỉ cất ở Kho, không làm đầy hàng chưa gán."""
+    await pool.execute(
+        "UPDATE xet_nghiem_cai_dat SET gmail_tu_ngay = $2 WHERE clinic_id = $1::uuid",
+        CLINIC,
+        hom_nay_vn() - timedelta(days=3),
+    )
+    v = await c3.viec(pool)
+    await pool.execute(  # chỉ định từ 4 ngày trước — trước cả hai thư
+        "UPDATE service_order SET created_at = now() - interval '4 days'"
+        " WHERE id = $1::uuid",
+        v["oid"],
+    )
+    c3.thu(v["ten"], v["sdt"])  # thư mới ⇒ tự gán, tờ mang giờ thư này
+    await gmail.mot_vong(pool)
+    cu = c3.thu(v["ten"], v["sdt"], nhan=datetime.now(UTC) - timedelta(hours=30))
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, cu)
+    assert (d["ly_do_cho"], d["luu_tru_vi_sao"]) == ("LUU_TRU", "DA_CO_KET_QUA")
+    assert len(await _to_cua(pool, v["oid"])) == 1
+
+
+async def test_g5_ung_vien_dung_lab_dung_cua_so_ngay(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,
+) -> None:
+    """`doc_chi_dinh`: lab KHÔNG được gán dịch vụ và không phải lab của việc Bàn XN ⇒
+    không phải ứng viên. Lab thứ hai CÓ gán dịch vụ (không mặc định — HPV nhiều lab làm)
+    ⇒ vẫn là ứng viên dù Bàn XN chụp lab mặc định. Chỉ định SAU giờ nhận thư / quá 60
+    ngày / đã huỷ không phải ứng viên."""
+    from clinicai.services.xet_nghiem.ghep_khach import doc_chi_dinh
+
+    v = await c3.viec(pool)  # việc Bàn XN chụp c3.dt (lab mặc định)
+    la = await _them_dt(pool, c3.ca.bac_si, _ma())  # không gán dịch vụ này
+    hai = await _them_dt(pool, c3.ca.bac_si, _ma())
+    await _gan(pool, c3.ca.bac_si, hai, await _sp(pool, c3.ca.ma_dv), mac_dinh=False)
+    bay_gio = datetime.now(UTC)
+
+    async def ids(conn: Any, dt: str, luc: datetime) -> set[str]:
+        return {u.order_id for u in await doc_chi_dinh(conn, CLINIC, dt, luc)}
+
+    async with pool.acquire() as conn:
+        assert v["oid"] in await ids(conn, c3.dt, bay_gio)
+        assert v["oid"] in await ids(conn, hai, bay_gio)
+        assert v["oid"] not in await ids(conn, la, bay_gio)
+        truoc = bay_gio - timedelta(hours=1)  # thư nhận TRƯỚC khi chỉ định
+        assert v["oid"] not in {
+            u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, truoc)
+        }
+        sau_61 = bay_gio + timedelta(days=61)
+        assert v["oid"] not in {
+            u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, sau_61)
+        }
+    await pool.execute(
+        "UPDATE service_order SET exec_status = 'cancelled' WHERE id = $1::uuid",
+        v["oid"],
+    )
+    async with pool.acquire() as conn:
+        assert v["oid"] not in {
+            u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, bay_gio)
+        }

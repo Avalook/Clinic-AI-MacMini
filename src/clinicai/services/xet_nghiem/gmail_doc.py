@@ -55,8 +55,13 @@ class DocThu:
     ten: str | None
     sdt: str | None
     nam_sinh: int | None
-    #: False ⇒ không được TỰ GHÉP (kết quả từng phần, phiếu không phải kết quả).
-    tu_ghep_duoc: bool
+    #: Vì sao thư nhận ra được mà KHÔNG được tự ghép (mã `drive_tep.luu_tru_vi_sao`):
+    #: CHUA_DU_KET_QUA (Greenlab trả từng phần) · PHIEU_MA_VACH (Eurofins). None = được.
+    khong_tu_ghep: str | None = None
+
+    @property
+    def tu_ghep_duoc(self) -> bool:
+        return bool(self.kieu) and self.khong_tu_ghep is None
 
 
 def kieu_thu(tieu_de: object) -> tuple[str, str | None, str | None]:
@@ -117,7 +122,7 @@ def doc_thu(
     than_s = than if isinstance(than, str) else ""
     chu = chu_pdf if isinstance(chu_pdf, str) else ""
     tep = ten_tep if isinstance(ten_tep, str) else ""
-    tu_ghep = bool(kieu)
+    khong: str | None = None
     sdt: str | None = None
     ns: int | None = None
     if kieu == "TM":
@@ -128,13 +133,13 @@ def doc_thu(
         sdt = sdt_td or sdt_theo_nhan(chu)
         ns = _mot_nam({nam_sinh(x) for x in _NS_PDF_RE.findall(chu)})
         if _CHUA_DU_RE.search(than_s):
-            tu_ghep = False  # kết quả từng phần — bản "Đủ kết quả" về sau
+            khong = "CHUA_DU_KET_QUA"  # kết quả từng phần — bản "Đủ kết quả" về sau
     elif kieu == "EU":
         sdt = _mot(sdt_trong(chu))
         ns = ns_eu(chu, nam_nay)
         if _PHIEU_EU_RE.match(tep.strip()):
-            tu_ghep = False  # phiếu mã vạch, không phải kết quả
-    return DocThu(kieu=kieu, ten=ten, sdt=sdt, nam_sinh=ns, tu_ghep_duoc=tu_ghep)
+            khong = "PHIEU_MA_VACH"  # phiếu mã vạch, không phải kết quả
+    return DocThu(kieu=kieu, ten=ten, sdt=sdt, nam_sinh=ns, khong_tu_ghep=khong)
 
 
 def _mot_nam(nam: set[int | None]) -> int | None:

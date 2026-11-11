@@ -1,10 +1,15 @@
-"""Tự ghép thư kết quả Gmail vào đúng việc — Gmail G3 (luật Tuyền duyệt 09/11/2026).
+"""Tự ghép thư kết quả Gmail vào đúng CHỈ ĐỊNH — Gmail G3 + G5 (Tuyền duyệt 11/11/2026).
 
 Chỉ thư nhận TỪ mốc `xet_nghiem_cai_dat.gmail_tu_ngay` (giờ VN) trở đi, và chỉ thư có
-xác thực đúng miền người gửi (DKIM/DMARC — header From giả được), mới được xét. Thư
-trước mốc / không xác thực / Greenlab "Chưa đủ kết quả" / phiếu mã vạch ⇒ `LUU_TRU`
-(chỉ ở Kho) như G2. Mốc chỉ áp cho thư NHẬN SAU khi đặt mốc; thư đã vào Kho trước đó
-không được xét lại tự động.
+xác thực đúng miền người gửi (DKIM/DMARC — header From giả được), mới được xét. Còn
+lại ⇒ `LUU_TRU` (chỉ ở Kho) KÈM lý do `luu_tru_vi_sao` (CHUA_DAT_MOC · TRUOC_MOC ·
+KHONG_XAC_THUC · CHUA_DU_KET_QUA · PHIEU_MA_VACH · DA_CO_KET_QUA). Đặt mốc lùi ngày ở
+lần quét đầu ⇒ thư cũ từ mốc được gán ngược.
+
+G5 (11/11): ứng viên là MỌI chỉ định loại xét nghiệm lab đó làm (`ghep_khach.
+doc_chi_dinh`: gán ở Cài đặt → Đối tác hoặc việc Bàn XN của lab), chỉ định trong 60
+ngày TRƯỚC ngày nhận thư — không cần Bàn XN, không cần bấm Lấy mẫu (luật 05/11 "chỉ
+ghép việc đã lấy mẫu" chỉ còn ở Drive).
 
 Quyết định là MỘT hàm thuần `quyet` (test bằng bảng). Khớp tên + SĐT = luật duy nhất
 `ghep_khach.khop_ds` (cùng luật Drive). Năm sinh chỉ để gỡ khi nhiều khách cùng khớp.
@@ -14,8 +19,8 @@ hàng ghép tay kèm lý do + gợi ý, KHÔNG đoán.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, replace
+from datetime import date, datetime
 from typing import Any, Final
 from zoneinfo import ZoneInfo
 
@@ -41,25 +46,33 @@ class QuyetGmail:
     visit_id: str | None = None
     goi_y_order_id: str | None = None
     goi_y_clinic_patient_id: str | None = None
+    #: Chỉ khi `ly_do` = LUU_TRU: vì sao chỉ cất ở Kho (CHECK ở Postgres).
+    luu_tru_vi_sao: str | None = None
 
 
-LUU_TRU: Final = QuyetGmail("LUU_TRU")
+def luu_tru(vi_sao: str, **goi_y: str | None) -> QuyetGmail:
+    return QuyetGmail("LUU_TRU", luu_tru_vi_sao=vi_sao, **goi_y)
 
 
-def quyet(d: DocThu, viec: list[UngVien], co_chu: bool) -> QuyetGmail:
-    """HÀM THUẦN: một PDF (đã đọc theo luật lab) + các việc của đối tác
-    (`ghep_khach.doc_viec`) ⇒ quyết.
+def quyet(
+    d: DocThu, viec: list[UngVien], co_chu: bool, nhan_luc: datetime
+) -> QuyetGmail:
+    """HÀM THUẦN: một PDF (đã đọc theo luật lab) + các chỉ định ứng viên
+    (`ghep_khach.doc_chi_dinh`, đã lọc 60 ngày trước `nhan_luc`) ⇒ quyết.
 
-    - Không nhận ra kiểu thư ⇒ KHONG_KHOP_KHACH (ghép tay — người xem).
-    - Kiểu nhận ra nhưng không được tự ghép (từng phần / phiếu) ⇒ LUU_TRU.
+    - Không nhận ra kiểu thư ⇒ KHONG_RO_MAU_THU (người xem).
+    - Kiểu nhận ra nhưng không được tự ghép (từng phần / phiếu) ⇒ LUU_TRU + lý do.
     - Thiếu tên / SĐT ⇒ KHONG_DOC_DUOC (PDF scan) hoặc KHONG_KHOP_KHACH.
-    - Khớp ≠ 1 khách (sau khi gỡ bằng năm sinh) ⇒ KHONG_KHOP_KHACH / NHIEU_KHACH.
-    - Một khách: đúng 1 việc đang chờ kết quả ⇒ TỰ GHÉP; nhiều ⇒ ONG_NHIEU_VIEC; chưa
-      lấy mẫu ⇒ CHUA_LAY_MAU; đã có tờ ⇒ CO_BAN_MOI (gợi ý việc khi đúng một)."""
+    - Khớp ≠ 1 khách (sau khi gỡ bằng năm sinh) ⇒ KHONG_KHOP_KHACH / NHIEU_KHACH
+      (người gọi đổi KHONG_KHOP_KHACH thành KHONG_THAY_CHI_DINH khi khách có thật).
+    - Một khách: đúng 1 chỉ định chưa có tờ ⇒ TỰ GHÉP; nhiều ⇒ ONG_NHIEU_VIEC. Không
+      chỉ định nào chờ: đúng 1 chỉ định CHỈ có tờ tải tay ⇒ TỰ GHÉP thêm (song song).
+      Mọi chỉ định đã có tờ từ Gmail: tờ Gmail KHÔNG cũ hơn thư ⇒ thư trùng / cũ ⇒
+      LUU_TRU DA_CO_KET_QUA; thư mới hơn ⇒ CO_BAN_MOI (bản sửa? người xem)."""
     if not d.kieu:
-        return QuyetGmail("KHONG_KHOP_KHACH")
-    if not d.tu_ghep_duoc:
-        return LUU_TRU
+        return QuyetGmail("KHONG_RO_MAU_THU")
+    if d.khong_tu_ghep:
+        return luu_tru(d.khong_tu_ghep)
     if not d.ten or not d.sdt:
         return QuyetGmail("KHONG_DOC_DUOC" if not co_chu else "KHONG_KHOP_KHACH")
     khop = ghep_khach.khop_ds(f"{d.ten}\n{d.sdt}", viec)
@@ -74,23 +87,43 @@ def quyet(d: DocThu, viec: list[UngVien], co_chu: bool) -> QuyetGmail:
     if len(khach) > 1:
         return QuyetGmail("NHIEU_KHACH")
     kh = next(iter(khach))
-    cho = [v for v in khop if v.dang_cho]
-    if len(cho) == 1:
-        v = cho[0]
-        return QuyetGmail(None, v.order_id, v.clinic_patient_id, v.visit_id)
-    if cho:
-        return QuyetGmail("ONG_NHIEU_VIEC", goi_y_clinic_patient_id=kh)
-    for ma, nhom in (
-        ("CHUA_LAY_MAU", [v for v in khop if not v.da_lay_mau and not v.co_tep]),
-        ("CO_BAN_MOI", [v for v in khop if v.co_tep]),
+    # Đang chờ (chưa tờ nào) trước; không có thì chỉ định CHỈ có tờ tải tay (Tuyền
+    # 11/11: tờ tay + tờ Gmail hiện song song, "Bản 2").
+    for nhom in (
+        [v for v in khop if not v.co_tep],
+        [v for v in khop if v.co_tep and v.tep_gmail_luc is None],
     ):
+        if len(nhom) == 1:
+            v = nhom[0]
+            return QuyetGmail(None, v.order_id, v.clinic_patient_id, v.visit_id)
         if nhom:
-            return QuyetGmail(
-                ma,
-                goi_y_order_id=nhom[0].order_id if len(nhom) == 1 else None,
-                goi_y_clinic_patient_id=kh,
-            )
-    return QuyetGmail("KHONG_KHOP_KHACH", goi_y_clinic_patient_id=kh)
+            return QuyetGmail("ONG_NHIEU_VIEC", goi_y_clinic_patient_id=kh)
+    # Mọi chỉ định của khách đã có tờ TỪ GMAIL.
+    goi_y = {
+        "goi_y_order_id": khop[0].order_id if len(khop) == 1 else None,
+        "goi_y_clinic_patient_id": kh,
+    }
+    if any(v.tep_gmail_luc and v.tep_gmail_luc >= nhan_luc for v in khop):
+        return luu_tru("DA_CO_KET_QUA", **goi_y)  # thư trùng / thư cũ hơn tờ Gmail
+    return QuyetGmail("CO_BAN_MOI", **goi_y)
+
+
+def khong_thay_chi_dinh(q: QuyetGmail, khach_that: str | None) -> QuyetGmail:
+    """HÀM THUẦN: `quyet` ra "không khớp khách nào" (trong số khách CÓ chỉ định) mà tên
+    + SĐT vẫn khớp đúng MỘT hồ sơ khách (`gmail_luu.goi_y_khach`) ⇒ lý do thật là
+    khách không có chỉ định loại này trong 60 ngày trước thư."""
+    if q.ly_do != "KHONG_KHOP_KHACH" or khach_that is None:
+        return q
+    return replace(q, ly_do="KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id=khach_that)
+
+
+def vi_sao_khong_xet(nhan_luc: Any, moc: date | None, xac_thuc: bool) -> str | None:
+    """HÀM THUẦN: vì sao thư KHÔNG được xét ghép (⇒ Lưu trữ), None = được xét."""
+    if moc is None:
+        return "CHUA_DAT_MOC"
+    if not trong_moc(nhan_luc, moc):
+        return "TRUOC_MOC"
+    return None if xac_thuc else "KHONG_XAC_THUC"
 
 
 def trong_moc(nhan_luc: Any, moc: date | None) -> bool:

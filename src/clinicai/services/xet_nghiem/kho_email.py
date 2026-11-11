@@ -29,7 +29,7 @@ from clinicai.permissions.can import can
 # `_tim_ban` là hàm DUY NHẤT trả lời "đọc byte ổ VPS rồi CFS" (luật 1); tệp
 # tep_ket_qua_service đã quá trần nên không thêm tên công khai ở đó.
 from clinicai.services.tep_ket_qua_service import TepMoDoc, _tim_ban
-from clinicai.services.xet_nghiem import ghep_khach
+from clinicai.services.xet_nghiem import ghep_khach, ghep_tay
 
 QUYEN: Final = "xet_nghiem.kho_email"
 _VN: Final = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -108,6 +108,7 @@ _DS_SQL = f"""
 SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
        t.ten, t.email_tieu_de AS tieu_de, t.email_nhan_luc AS nhan_luc,
        t.ma_ben_doi_tac_tep AS ma_tep, {_TRANG_THAI} AS trang_thai,
+       t.ly_do_cho, t.luu_tru_vi_sao,
        t.goi_y_clinic_patient_id::text AS goi_y_id, p.full_name AS goi_y_ten,
        p.patient_code AS goi_y_ma, count(*) OVER () AS tong
   FROM drive_tep t
@@ -134,11 +135,20 @@ SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
 """
 
 
+def _vi_sao(d: dict[str, Any]) -> None:
+    """Thư chưa ghép (Lưu trữ / Chờ ghép tay) ⇒ câu "vì sao" — một nơi tính
+    (`ghep_tay.vi_sao_cho`); đã ghép / đã từ chối ⇒ None."""
+    ly, luu = d.pop("ly_do_cho", None), d.pop("luu_tru_vi_sao", None)
+    cho = d["trang_thai"] in ("LUU_TRU", "CHO_GHEP")
+    d["vi_sao"] = ghep_tay.vi_sao_cho(ly, luu) if cho else None
+
+
 def _dong(r: asyncpg.Record) -> dict[str, Any]:
     d = dict(r)
     d.pop("tong", None)
     d["nhan_trang_thai"] = NHAN[d["trang_thai"]]
     d["mau"] = MAU[d["trang_thai"]]
+    _vi_sao(d)
     return d
 
 
@@ -232,7 +242,7 @@ async def _mot_thu(conn: asyncpg.Connection, cid: str, tid: object) -> asyncpg.R
             f"       d.ten AS ten_doi_tac, t.ten, t.email_tieu_de AS tieu_de,"
             f"       t.email_than AS than, t.email_nhan_luc AS nhan_luc,"
             f"       t.ma_ben_doi_tac_tep AS ma_tep, {_TRANG_THAI} AS trang_thai,"
-            f"       t.khoa, t.vi_tri, t.so_byte"
+            f"       t.ly_do_cho, t.luu_tru_vi_sao, t.khoa, t.vi_tri, t.so_byte"
             f"  FROM drive_tep t JOIN doi_tac d"
             f"    ON d.id = t.doi_tac_id AND d.clinic_id = t.clinic_id"
             f" WHERE t.clinic_id = $1::uuid AND t.id = $2::uuid AND t.nguon = 'GMAIL'",
@@ -255,6 +265,7 @@ async def chi_tiet(
     for k in ("khoa", "vi_tri", "so_byte"):
         r.pop(k)
     r["nhan_trang_thai"] = NHAN[r["trang_thai"]]
+    _vi_sao(r)
     return r
 
 
