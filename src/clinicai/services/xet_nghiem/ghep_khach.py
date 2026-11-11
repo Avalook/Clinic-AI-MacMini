@@ -224,9 +224,12 @@ SELECT o.id::text AS order_id, v.clinic_patient_id::text AS clinic_patient_id,
   ) t ON true
  WHERE o.clinic_id = $1::uuid
    AND o.exec_status NOT IN ('draft', 'cancelled')
-   -- Nhập muộn (Tuyền 11/11: chỉ định nhập SAU khi kết quả về) ⇒ tới 7 ngày sau thư.
-   AND o.created_at <= $3::timestamptz + interval '7 days'
    AND o.created_at > $3::timestamptz - interval '60 days'
+   -- Nhập muộn (Tuyền 11/11: chỉ định nhập SAU khi kết quả về) ⇒ tới 7 ngày sau thư,
+   -- NHƯNG chỉ trong lượt đã check-in TRƯỚC thư (không lấy chỉ định lần khám sau).
+   AND (o.created_at <= $3::timestamptz
+        OR (o.created_at <= $3::timestamptz + interval '7 days'
+            AND coalesce(v.checked_in_at, v.created_at) <= $3::timestamptz))
    AND (x.doi_tac_id = $2::uuid
         OR EXISTS (
             SELECT 1 FROM service_price sp
@@ -247,6 +250,7 @@ SELECT v.visit_id::text AS visit_id, v.appointment_id::text AS appointment_id
   FROM visit v
  WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid
    AND v.appointment_id IS NOT NULL
+   AND v.status <> 'INCOMPLETE'  -- khách bỏ về giữa chừng: không phải lượt lấy mẫu
    AND coalesce(v.checked_in_at, v.created_at) <= $3::timestamptz
    AND coalesce(v.checked_in_at, v.created_at) > $3::timestamptz - interval '60 days'
  ORDER BY coalesce(v.checked_in_at, v.created_at) DESC

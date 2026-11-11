@@ -984,7 +984,11 @@ class TepKetQuaService:
                         tep_id=str(row_id),
                         visit_id=luot_tep,
                         service_order_id=service_order_id,
-                        cho_xac_nhan=is_external and XAC_NHAN_TEP_DOI_TAC,
+                        # Tờ máy tự gắn KHÔNG chỉ định (Gmail, khách đúng chưa có
+                        # chỉ định) đang CHO_XAC_NHAN ⇒ chuông nói "cần xác nhận",
+                        # không vào vòng đọc của lượt (lượt chỉ là lượt gần nhất).
+                        cho_xac_nhan=is_external
+                        and (XAC_NHAN_TEP_DOI_TAC or (may and not service_order_id)),
                     ),
                     boi=HE_THONG if isinstance(identity, MayQuet) else nguoi(identity),
                     correlation_id=luot_tep,

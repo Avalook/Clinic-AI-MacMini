@@ -472,11 +472,19 @@ async def test_g5_ung_vien_dung_lab_dung_cua_so_ngay(
         assert uv[v["oid"]].ten_dich_vu
         assert v["oid"] in await ids(conn, hai, bay_gio)
         assert v["oid"] not in await ids(conn, la, bay_gio)
-        # Chỉ định nhập muộn ≤ 7 ngày SAU thư vẫn là ứng viên (Tuyền 11/11).
+        # Chỉ định nhập muộn ≤ 7 ngày SAU thư (Tuyền 11/11) — chỉ khi lượt của nó
+        # check-in TRƯỚC thư; lượt check-in sau thư là lần khám SAU ⇒ không nhận.
         muon = bay_gio - timedelta(days=6)
-        assert v["oid"] in await ids(conn, c3.dt, muon)
+        assert v["oid"] not in await ids(conn, c3.dt, muon)  # lượt (bây giờ) sau thư
+        await conn.execute(
+            "UPDATE visit SET checked_in_at = now() - interval '7 days'"
+            " WHERE visit_id ="
+            " (SELECT visit_id FROM service_order WHERE id = $1::uuid)",
+            v["oid"],
+        )
+        assert v["oid"] in await ids(conn, c3.dt, muon)  # cùng lượt, nhập muộn
         truoc = bay_gio - timedelta(days=8)
-        assert v["oid"] not in await ids(conn, c3.dt, truoc)
+        assert v["oid"] not in await ids(conn, c3.dt, truoc)  # quá 7 ngày
         sau_61 = bay_gio + timedelta(days=61)
         assert v["oid"] not in {
             u.order_id for u in await doc_chi_dinh(conn, CLINIC, c3.dt, sau_61)
