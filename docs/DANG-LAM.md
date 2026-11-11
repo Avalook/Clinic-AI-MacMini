@@ -1,6 +1,22 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **05/11/2026** — mục "05/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **09/11/2026** — mục "09/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 09/11/2026 — KẾT QUẢ ĐỐI TÁC QUA GMAIL: G0 XONG, G1 ĐANG LÀM
+
+- Kế hoạch `docs/KE-HOACH-KET-QUA-QUA-GMAIL.md` (Mức 3, 5 chặng G0–G4); nhật ký + số đo ở **mục 8**.
+  Kết quả đối tác về Gmail phòng khám `pksanthanhluong@gmail.com`.
+- **G0** (nhánh `claude/gmail-ket-qua-g0`): Google Cloud cài xong (dự án `clinic-ai-ket-qua`, chỉ
+  `gmail.readonly`, In production), **đã cấp quyền** — khoá `~/.clinicai/gmail-oauth.json` trên Mac,
+  **chưa lên VPS** (lệnh ở mục 8). Script: `gmail-cap-quyen.py`, `gmail-do-hop-thu.py` (báo cáo che tên),
+  `gmail-tai-ve.py` (tải toàn bộ, không che).
+- **BỐN đối tác gửi kết quả về Gmail** (True Medicine 1.952 thư, Greenlab 6.640, High Detect 467,
+  Eurofins 99) — G3 phải có luật đọc riêng từng bên. Nhân viên đang **xoá** thư (Thùng rác 520 + 2.739).
+- ⚠️ **Trên Mac có bản dữ liệu sức khoẻ KHÔNG CHE** ở `~/.clinicai/ket-qua-gmail/` (Tuyền 09/11) — ngoài
+  repo, 700/600; không chép đi đâu; **xoá khi xong G4** (`rm -rf ~/.clinicai/ket-qua-gmail`).
+- **Chờ Tuyền:** `TQ` là xét nghiệm gì; G2 có đọc cả Thùng rác không (Claude chốt tạm: CÓ).
+- **G1** (nhánh `claude/gmail-ket-qua-g1`, nối từ G0): migration `20261109200000_gmail_ket_qua.sql`,
+  `20261109200100_quyen_kho_email.sql` + quyền `xet_nghiem.kho_email` (KHOI_CAP_RIENG).
 
 ## 05/11/2026 TỐI — BÀN XN ĐỐI TÁC MỚI TRÊN STAGING; DRIVE ĐANG LÀM; XOÁ BÀN CŨ ĐỂ SAU
 
