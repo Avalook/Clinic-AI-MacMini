@@ -3,16 +3,19 @@
 Thư về lúc khách chưa có chỉ định ⇒ tờ vào hồ sơ theo lượt (G8). Nhân viên nhập chỉ
 định sau ⇒ ở màn Xác nhận kết quả bấm "Chuyển vào chỉ định", chọn đúng một chỉ định.
 Tuyền chọn NÚT BẤM (người kiểm), không để máy tự chuyển (lượt có hai chỉ định cùng loại
-thì máy đoán nhầm được).
+thì máy đoán nhầm được). Người cũng chọn nhầm được ⇒ tờ ĐÃ ở một chỉ định (chưa gửi
+khách) cũng chuyển sang chỉ định khác của cùng khách được — nút ở mục "Thư email đã gán"
+(Việc của đối tác), chỗ đó cũng phủ tờ theo lượt do người gán (đã Hợp lệ, không còn ở
+hàng Xác nhận kết quả).
 
 Chỉ định nhận được = chỉ định đối tác của CHÍNH khách đó, đúng đối tác gửi thư, chưa có
 tờ, trong khung của tự ghép (`ghep_khach.doc_chi_dinh`: ≤ 60 ngày trước thư, nhập muộn ≤
 7 ngày cùng lượt đã check-in trước thư) — một câu SQL, không viết bản thứ hai.
 
-Lệnh BÙ, cùng khuôn G11: kiểm TRƯỚC (tờ còn theo lượt, chưa gửi khách, chỉ định nằm
-trong danh sách) ⇒ tờ cũ Từ chối / Thu hồi với lý do "Chuyển vào chỉ định: …" ⇒ thư về
-hàng chờ ⇒ gán lại CÙNG khách vào chỉ định đã chọn bằng ĐÚNG lệnh gán G10 ⇒ phát
-`lab.email_result_moved_to_order`.
+Lệnh BÙ, cùng khuôn G11: kiểm TRƯỚC (tờ còn hiệu lực, chưa gửi khách, hồ sơ khách còn
+dùng, chỉ định nằm trong danh sách) ⇒ tờ cũ Từ chối / Thu hồi với lý do "Chuyển vào
+chỉ định: …" ⇒ thư về hàng chờ ⇒ gán lại CÙNG khách vào chỉ định đã chọn bằng ĐÚNG
+lệnh gán G10 ⇒ phát `lab.email_result_moved_to_order`.
 """
 
 from __future__ import annotations
@@ -39,7 +42,7 @@ SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, t.email_nhan_luc,
        k.clinic_patient_id::text AS kh,
        (k.da_xoa_luc IS NULL AND k.xac_nhan_trang_thai
             IN ('CHO_XAC_NHAN', 'HOP_LE')) AS con_hieu_luc,
-       k.service_order_id IS NULL AS theo_luot, k.gui_luc IS NOT NULL AS da_gui
+       k.gui_luc IS NOT NULL AS da_gui
   FROM tep_ket_qua k JOIN drive_tep t
     ON t.tep_ket_qua_id = k.id AND t.clinic_id = k.clinic_id AND t.nguon = 'GMAIL'
  WHERE k.clinic_id = $1::uuid AND k.id = $2::uuid
@@ -47,15 +50,16 @@ SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, t.email_nhan_luc,
 
 
 async def _to(pool: asyncpg.Pool, cid: str, tep_id: object) -> asyncpg.Record:
-    """Tờ email gắn theo lượt, còn hiệu lực, chưa gửi khách — không thì 404/409."""
+    """Tờ email còn hiệu lực, chưa gửi khách (theo lượt hoặc đã ở một chỉ định) —
+    không thì 404/409."""
     try:
         r = await pool.fetchrow(_TO_SQL, cid, str(tep_id or ""))
     except (asyncpg.DataError, ValueError):
         r = None
     if r is None:
         raise NotFoundError("Không thấy tờ kết quả email này — tải lại màn.")
-    if not r["con_hieu_luc"] or not r["theo_luot"]:
-        raise ConflictError("Tờ này đã vào chỉ định hoặc đã bị từ chối — tải lại màn.")
+    if not r["con_hieu_luc"]:
+        raise ConflictError("Tờ này đã bị từ chối / thu hồi — tải lại màn.")
     if r["da_gui"]:
         raise ConflictError(
             "Tờ này đã gửi khách — không chuyển được. Dùng Gán lại ở Việc của đối tác."
@@ -103,6 +107,8 @@ async def vao_chi_dinh(
                 "Chỉ định này không nhận được tờ (khác khách / khác đối tác / đã có kết"
                 " quả) — tải lại màn."
             )
+        # Hồ sơ khách đã gộp / ngưng ⇒ dừng TRƯỚC khi đụng tờ cũ (G11 cũng vậy).
+        await gmail_goi_y._khach(pool, cid, r["kh"])
         await gmail_gan_lai.bu_va_thao(
             pool, identity, r, f"Chuyển vào chỉ định: {v.ten_dich_vu}"
         )

@@ -77,11 +77,74 @@ async def test_chuyen_vao_chi_dinh_tu_choi_to_cu_va_phat_su_kien(
         d["id"],
     )
     assert su_kien is not None and cu in su_kien and v["oid"] in su_kien
-    # Bấm lại trên màn cũ: tờ cũ đã tháo khỏi thư ⇒ 404; tờ mới đã vào chỉ định ⇒ 409.
+    # Bấm lại trên màn cũ: tờ cũ đã tháo khỏi thư ⇒ 404. Chỉ định đã có tờ (chính
+    # chỉ định đang giữ tờ mới) không còn trong danh sách nhận.
     with pytest.raises(NotFoundError):
         await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(pool, nguoi, cu)
-    with pytest.raises(ConflictError, match="đã vào chỉ định"):
-        await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(pool, nguoi, moi["tep"])
+    ds = await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(pool, nguoi, moi["tep"])
+    assert ds["chi_dinh"] == []
+
+
+async def _them_cung_luot(pool: asyncpg.Pool, oid: str) -> str:  # noqa: F811
+    """Chỉ định thứ hai CÙNG lượt, cùng dịch vụ đối tác (chép dòng có sẵn)."""
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute(
+            "CREATE TEMP TABLE x ON COMMIT DROP AS"
+            " SELECT * FROM service_order WHERE id = $1::uuid",
+            oid,
+        )
+        moi = await conn.fetchval(
+            "UPDATE x SET id = gen_random_uuid(), created_at = now(),"
+            "       updated_at = now() RETURNING id::text"
+        )
+        await conn.execute("INSERT INTO service_order SELECT * FROM x")
+    return str(moi)
+
+
+async def test_chuyen_nham_a_thi_sua_sang_b_duoc(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+) -> None:
+    """Soát G13 (chặn): lượt có HAI chỉ định cùng đối tác, người chọn nhầm A ⇒ tờ ở A
+    (chưa gửi khách) vẫn chuyển sang B được — không kẹt sai chỉ định."""
+    v, d = await _theo_luot(pool, c3)
+    b = await _them_cung_luot(pool, v["oid"])
+    nguoi = await _nguoi(pool)
+    cu = (await _to(pool, d["id"]))["tep"]
+    ds = await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(pool, nguoi, cu)
+    assert {c["service_order_id"] for c in ds["chi_dinh"]} == {v["oid"], b}
+    await gmail_vao_chi_dinh.vao_chi_dinh(
+        pool, nguoi, {"tep_id": cu, "service_order_id": v["oid"]}
+    )
+    o_a = await _to(pool, d["id"])
+    ds = await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(pool, nguoi, o_a["tep"])
+    assert [c["service_order_id"] for c in ds["chi_dinh"]] == [b]
+    await gmail_vao_chi_dinh.vao_chi_dinh(
+        pool, nguoi, {"tep_id": o_a["tep"], "service_order_id": b}
+    )
+    o_b = await _to(pool, d["id"])
+    assert (o_b["oid"], o_b["kh"]) == (b, v["kh"])
+    tt_a = await pool.fetchval(
+        "SELECT xac_nhan_trang_thai FROM tep_ket_qua WHERE id = $1::uuid", o_a["tep"]
+    )
+    assert tt_a in ("TU_CHOI", "THU_HOI")
+    # Danh sách "Thư email đã gán" có nút chuyển cho tờ này (máy chủ tính).
+    from clinicai.services.xet_nghiem import gmail_gan_lai
+
+    dong = next(
+        t
+        for t in (await gmail_gan_lai.da_gan(pool, nguoi, ""))["thu"]
+        if t["id"] == d["id"]
+    )
+    assert dong["chuyen_chi_dinh_duoc"] is True
+    khong = next(
+        t
+        for t in (await gmail_gan_lai.da_gan(pool, await _nguoi(pool, False), ""))[
+            "thu"
+        ]
+        if t["id"] == d["id"]
+    )
+    assert khong["chuyen_chi_dinh_duoc"] is False
 
 
 async def test_dung_som_thi_khong_doi_gi(
@@ -106,6 +169,26 @@ async def test_dung_som_thi_khong_doi_gi(
         assert await _to(pool, d["id"]) == truoc
     with pytest.raises(NotFoundError):
         await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(pool, await _nguoi(pool), "rac")
+    with pytest.raises(SafetyGateError):  # cửa GET cũng gác quyền
+        await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(
+            pool, await _nguoi(pool, xac_nhan=False), truoc["tep"]
+        )
+    # Hồ sơ khách đã ngưng ⇒ dừng TRƯỚC khi đụng tờ cũ.
+    await pool.execute(
+        "UPDATE patient SET is_active = false WHERE clinic_patient_id = $1::uuid",
+        v["kh"],
+    )
+    with pytest.raises(ConflictError):
+        await gmail_vao_chi_dinh.vao_chi_dinh(
+            pool,
+            await _nguoi(pool),
+            {"tep_id": truoc["tep"], "service_order_id": v["oid"]},
+        )
+    assert await _to(pool, d["id"]) == truoc
+    await pool.execute(
+        "UPDATE patient SET is_active = true WHERE clinic_patient_id = $1::uuid",
+        v["kh"],
+    )
     # Tờ đã Hợp lệ VÀ đã gửi khách ⇒ không chuyển (khách đã nhận; dùng Gán lại).
     nguoi = await _nguoi(pool)
     await TepKetQuaService(pool).xac_nhan_tep(

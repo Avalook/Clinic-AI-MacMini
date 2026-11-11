@@ -6,6 +6,7 @@
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
 import { lenh } from "../ban-xet-nghiem/kieu";
 
@@ -33,15 +34,12 @@ export default function ChuyenVaoChiDinh({
         `/api/xet-nghiem/ban/to-theo-luot-chi-dinh?tep_id=${encodeURIComponent(tepId)}`,
         { cache: "no-store" },
       );
-      const body = (await r.json().catch(() => null)) as {
-        chi_dinh?: ChiDinh[];
-        message?: string;
-      } | null;
+      const body: unknown = await r.json().catch(() => null);
       if (!r.ok) {
-        setLoi(body?.message ?? `Chưa tải được chỉ định (HTTP ${r.status}).`);
+        setLoi(loiDocDuoc(body, `Chưa tải được chỉ định (HTTP ${r.status}).`));
         return;
       }
-      setDs(body?.chi_dinh ?? []);
+      setDs((body as { chi_dinh?: ChiDinh[] } | null)?.chi_dinh ?? []);
     } catch {
       setLoi("Mất kết nối — chưa tải được chỉ định.");
     } finally {
@@ -80,8 +78,9 @@ export default function ChuyenVaoChiDinh({
     <div className="flex w-full flex-col gap-2 rounded-control border border-line bg-surface-muted p-3 text-sm">
       {ds.length === 0 ? (
         <p className="text-ink-soft">
-          Khách chưa có chỉ định xét nghiệm của đối tác này trong lượt khám đó (hoặc chỉ
-          định đã có kết quả). Nhập chỉ định ở Bàn khám rồi bấm lại.
+          Khách chưa có chỉ định xét nghiệm nào khác của đối tác này còn trống kết quả.
+          Nhập chỉ định ở Bàn khám (trong cùng lượt khám, chậm nhất 7 ngày sau ngày thư
+          về) rồi bấm lại.
         </p>
       ) : (
         <>

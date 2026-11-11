@@ -1914,6 +1914,8 @@ class TepKetQuaService:
                 r["tai_len_boi_staff_id"]
             ) == str(identity.staff_id)
             d["co_the_xac_nhan"] = not is_own
+            # Tờ email theo lượt (G13): nút "Chuyển vào chỉ định".
+            d["chuyen_chi_dinh_duoc"] = r["service_order_id"] is None
             d["khong_the_xac_nhan_ly_do"] = (
                 "Bạn là người tải tệp này — cần người khác xác nhận."
                 if is_own

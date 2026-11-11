@@ -172,6 +172,8 @@ class EmailDaGanOut(BaseModel):
     nhan_to: str
     #: Tờ đã gửi khách mà gắn nhầm ⇒ câu nhắc báo khách (máy chủ tính).
     canh_bao: str | None
+    #: G13 — nút "Chuyển vào chỉ định khác" (cùng khách; máy chủ tính).
+    chuyen_chi_dinh_duoc: bool = False
     da_gui: bool
     vao_chi_dinh: bool
     #: Tên dịch vụ của chỉ định, hoặc "Hồ sơ theo lượt khám".

@@ -47,6 +47,8 @@ export interface TepChoXacNhanRow {
   xac_nhan_trang_thai: string;
   co_the_xac_nhan: boolean;
   khong_the_xac_nhan_ly_do: string | null;
+  /** G13: tờ email theo lượt ⇒ nút "Chuyển vào chỉ định" (máy chủ tính). */
+  chuyen_chi_dinh_duoc?: boolean;
 }
 
 const BIEU_TUONG = {
@@ -383,7 +385,7 @@ export default function HangChoXacNhanKetQua() {
                   </div>
                 </div>
 
-                {t.service_order_id === null && t.co_the_xac_nhan ? (
+                {t.chuyen_chi_dinh_duoc ? (
                   <ChuyenVaoChiDinh
                     tepId={t.tep_id}
                     onXong={(ten) => {

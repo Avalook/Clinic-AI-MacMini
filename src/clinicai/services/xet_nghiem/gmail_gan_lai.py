@@ -93,11 +93,15 @@ async def da_gan(
         d = dict(r)
         d["nhan_to"] = nhan_to(d.pop("xac_nhan_trang_thai"), d.pop("da_xoa"))
         # Đã gửi khách mà gắn nhầm ⇒ khách ấy đã nhận kết quả người khác: nói rõ.
+        con = d["nhan_to"] != NHAN_MAT_HIEU_LUC
         d["canh_bao"] = (
             f"{r['ten_khach']} đã nhận tờ này — gán lại sẽ thu hồi, cần báo khách."
-            if r["da_gui"] and d["nhan_to"] != NHAN_MAT_HIEU_LUC
+            if r["da_gui"] and con
             else None
         )
+        # G13: chuyển sang chỉ định khác của CÙNG khách (tờ theo lượt, hoặc chọn nhầm
+        # chỉ định) — chỉ khi tờ còn hiệu lực, chưa gửi khách (đã gửi ⇒ Gán lại).
+        d["chuyen_chi_dinh_duoc"] = co_quyen and con and not r["da_gui"]
         ra.append(d)
     return {"thu": ra, "co_quyen_gan_lai": co_quyen}
 
