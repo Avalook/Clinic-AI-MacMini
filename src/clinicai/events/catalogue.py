@@ -683,6 +683,19 @@ class XetNghiemTepDrive(PayloadSuKien):
     doi_tac_id: str
 
 
+class XetNghiemThuGanLai(PayloadSuKien):
+    """`lab.email_result_reassigned` — thư email gắn nhầm khách được GÁN LẠI (Gmail
+    G11): tờ cũ (đã từ chối / thu hồi, hoặc đã bị thu hồi ở chỗ khác) ⇒ tờ mới của
+    khách đúng. Chỉ id — lý do nằm ở tờ cũ (`thu_hoi_ly_do` / `xac_nhan_ly_do`)."""
+
+    drive_tep_id: str
+    doi_tac_id: str
+    tep_cu_id: str
+    tep_moi_id: str
+    clinic_patient_id_cu: str
+    clinic_patient_id_moi: str
+
+
 class CskhDaLienHe(PayloadSuKien):
     """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
 
@@ -2200,6 +2213,12 @@ DANH_MUC: dict[str, SuKien] = {
                     "drive_tep",
                     XetNghiemTepDrive,
                     "Mở PDF ở Kho email kết quả",
+                ),
+                (
+                    "lab.email_result_reassigned",
+                    "drive_tep",
+                    XetNghiemThuGanLai,
+                    "Gán lại thư email gắn nhầm khách",
                 ),
                 (
                     "lab.result_sent",

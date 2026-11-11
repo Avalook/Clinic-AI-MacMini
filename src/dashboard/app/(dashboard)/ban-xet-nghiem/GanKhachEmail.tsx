@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import ONhap from "@/components/ui/ONhap";
 import OTimKhach from "@/components/ui/OTimKhach";
 
 interface KhachTim {
@@ -24,14 +25,20 @@ const moTa = (k: KhachTim) =>
 export default function GanKhachEmail({
   dang,
   onGan,
+  canLyDo = false,
+  nhanNut = "Gán cho khách đã chọn",
 }: {
   dang: boolean;
-  onGan: (clinicPatientId: string, ten: string) => void;
+  onGan: (clinicPatientId: string, ten: string, lyDo: string) => void;
+  /** Gán LẠI (G11): bắt ghi lý do — máy chủ kiểm ≥ 3 ký tự. */
+  canLyDo?: boolean;
+  nhanNut?: string;
 }) {
   const [go, setGo] = useState("");
   const [ds, setDs] = useState<KhachTim[] | null>(null);
   const [loiTim, setLoiTim] = useState<string | null>(null);
   const [chon, setChon] = useState<KhachTim | null>(null);
+  const [lyDo, setLyDo] = useState("");
 
   useEffect(() => {
     const q = go.trim();
@@ -65,8 +72,24 @@ export default function GanKhachEmail({
         <span className="min-w-0 break-words text-ink-soft">
           Đã chọn: <span className="font-semibold text-ink">{moTa(chon)}</span>
         </span>
-        <Button type="button" size="sm" variant="primary" disabled={dang} onClick={() => onGan(chon.clinic_patient_id, chon.full_name)}>
-          Gán cho khách đã chọn
+        {canLyDo ? (
+          <ONhap
+            className="w-full sm:w-72"
+            aria-label="Lý do gán lại"
+            placeholder="Lý do (bắt buộc)"
+            value={lyDo}
+            maxLength={500}
+            onChange={(e) => setLyDo(e.target.value)}
+          />
+        ) : null}
+        <Button
+          type="button"
+          size="sm"
+          variant="primary"
+          disabled={dang || (canLyDo && !lyDo.trim())}
+          onClick={() => onGan(chon.clinic_patient_id, chon.full_name, lyDo)}
+        >
+          {nhanNut}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setChon(null)}>
           Chọn khách khác

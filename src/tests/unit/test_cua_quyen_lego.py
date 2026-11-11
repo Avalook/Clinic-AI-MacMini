@@ -136,6 +136,8 @@ def test_gmail_tim_khach_va_gan_khach_hoi_partner_work() -> None:
     can = {
         "/api/v1/xet-nghiem/ban/tim-khach",
         "/api/v1/xet-nghiem/ban/drive-gan-khach",
+        "/api/v1/xet-nghiem/ban/email-da-gan",
+        "/api/v1/xet-nghiem/ban/drive-gan-lai",
     }
     thay = set()
     for route in app.routes:
