@@ -12,6 +12,8 @@ from clinicai.services.xet_nghiem.gmail_doc import (
     DocThu,
     doc_thu,
     kieu_thu,
+    loai_dich_vu,
+    loai_ket_qua,
     xac_thuc_ok,
 )
 from clinicai.services.xet_nghiem.gmail_ghep import (
@@ -212,11 +214,12 @@ def _v(
     ns: int | None = None,
     ten: str = "Trần Thị Mẫu",
     sdt: str = SDT,
+    dv: str | None = None,
 ) -> UngVien:
-    """`tep` = giờ thư của tờ từ Gmail; `tay` = có tờ tải tay."""
+    """`tep` = giờ thư của tờ từ Gmail; `tay` = có tờ tải tay; `dv` = tên dịch vụ."""
     return UngVien(
         oid, kh, "visit", ten, sdt, nam_sinh=ns, da_lay_mau=lay,
-        co_tep=tep is not None or tay, tep_gmail_luc=tep,
+        co_tep=tep is not None or tay, tep_gmail_luc=tep, ten_dich_vu=dv,
     )  # fmt: skip
 
 
@@ -281,6 +284,95 @@ _D = DocThu("GLHD", TEN, SDT, 1990)
 )  # fmt: skip
 def test_quyet(d: DocThu, viec: list[UngVien], co_chu: bool, ra: QuyetGmail) -> None:
     assert quyet(d, viec, co_chu, NHAN) == ra
+
+
+@pytest.mark.parametrize(
+    ("chu", "ra"),
+    [
+        ("KẾT QUẢ XÉT NGHIỆM HPV ĐỊNH TYPE — HPV 16: Âm tính", {"HPV"}),
+        ("Chlamydia trachomatis: Âm tính · Neisseria gonorrhoeae: Âm tính", {"STD"}),
+        ("Tế bào học cổ tử cung (ThinPrep) — Bethesda 2014", {"THINPREP"}),
+        ("NIPT — nguy cơ thấp T21", {"NIPT"}),
+        ("Sàng lọc gen lặn (carrier)", {"GEN"}),
+        ("Công thức máu · Glucose 5.1", set()),
+        ("HPV âm tính; Chlamydia âm tính; ThinPrep NILM", {"HPV", "STD", "THINPREP"}),
+        # Dạng dính liền / dài (soát G7): tờ HPV có chữ STD lạc vào KHÔNG thành chỉ STD.
+        ("HPV16: Âm tính · HPV18: Âm tính · ghi chú STD", {"HPV", "STD"}),
+        ("Human papillomavirus genotyping", {"HPV"}),
+        ("HPV16/18 dương tính", {"HPV"}),
+        ("", set()),
+        (None, set()),
+    ],
+)
+def test_loai_ket_qua(chu: object, ra: set[str]) -> None:
+    assert loai_ket_qua(chu) == frozenset(ra)
+
+
+@pytest.mark.parametrize(
+    ("ten", "ra"),
+    [
+        ("HPV định type PCR (40 type)", {"HPV"}),
+        ("HPV định type PCR 16 type", {"HPV"}),
+        ("Combo HPV 40 + thinprep", {"HPV", "THINPREP"}),
+        ("13 bệnh lây STD", {"STD"}),
+        ("Thinprep sàng lọc tế bào ung thử cổ tử cung", {"THINPREP"}),
+        ("NIPT Geneva 7", {"NIPT"}),
+        ("Gentis 9 bệnh gen lặn", {"GEN"}),
+        ("Xét nghiệm máu", set()),
+        (None, set()),
+    ],
+)
+def test_loai_dich_vu(ten: object, ra: set[str]) -> None:
+    assert loai_dich_vu(ten) == frozenset(ra)
+
+
+_HPV, _STD = "HPV định type PCR (40 type)", "13 bệnh lây STD"
+_COMBO = "Combo HPV 40 + thinprep"
+
+
+@pytest.mark.parametrize(
+    ("loai", "viec", "ra"),
+    [
+        # Khách chờ HPV + STD (Tâm Minh): PDF HPV ⇒ HPV; PDF STD ⇒ STD.
+        ({"HPV"}, [_v("o1", "k1", dv=_HPV), _v("o2", "k1", dv=_STD)],
+         QuyetGmail(None, "o1", "k1", "visit")),
+        ({"STD"}, [_v("o1", "k1", dv=_HPV), _v("o2", "k1", dv=_STD)],
+         QuyetGmail(None, "o2", "k1", "visit")),
+        # PDF nhắc cả hai / không rõ loại ⇒ không đoán.
+        ({"HPV", "STD"}, [_v("o1", "k1", dv=_HPV), _v("o2", "k1", dv=_STD)],
+         QuyetGmail("ONG_NHIEU_VIEC", goi_y_clinic_patient_id="k1")),
+        (set(), [_v("o1", "k1", dv=_HPV), _v("o2", "k1", dv=_STD)],
+         QuyetGmail("ONG_NHIEU_VIEC", goi_y_clinic_patient_id="k1")),
+        # PDF HPV nhưng khách chỉ chờ STD ⇒ KHÔNG gán nhầm vào STD.
+        ({"HPV"}, [_v("o2", "k1", dv=_STD)],
+         QuyetGmail("KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id="k1")),
+        # PDF HPV, HPV đã có tờ Gmail cũ hơn, STD đang chờ ⇒ bản sửa của HPV, không
+        # rơi vào STD.
+        ({"HPV"}, [_v("o1", "k1", dv=_HPV, tep=TRUOC), _v("o2", "k1", dv=_STD)],
+         QuyetGmail("CO_BAN_MOI", goi_y_order_id="o1", goi_y_clinic_patient_id="k1")),
+        # HPV vs Combo HPV + ThinPrep: cùng có HPV ⇒ không đoán.
+        ({"HPV"}, [_v("o1", "k1", dv=_HPV), _v("o3", "k1", dv=_COMBO)],
+         QuyetGmail("ONG_NHIEU_VIEC", goi_y_clinic_patient_id="k1")),
+        # Chỉ định không suy được loại (máu) không bị loại.
+        ({"HPV"}, [_v("o4", "k1", dv="Xét nghiệm máu")],
+         QuyetGmail(None, "o4", "k1", "visit")),
+    ],
+)  # fmt: skip
+def test_quyet_theo_loai(loai: set[str], viec: list[UngVien], ra: QuyetGmail) -> None:
+    d = DocThu("TM", TEN, SDT, None, loai=frozenset(loai))
+    assert quyet(d, viec, True, NHAN) == ra
+
+
+def test_doc_thu_lay_loai_tu_chu_pdf_khong_tu_ten_tep() -> None:
+    """True Medicine ghi sai loại ở tên tệp ⇒ loại chỉ lấy từ CHỮ PDF."""
+    d = doc_thu(
+        f"Kết quả xét nghiệm: {TEN} - Ngày xét nghiệm: 08/11/2026",
+        "",
+        "TRAN_THI_MAU_081126_HPV_TMD.pdf",
+        f"SĐT: {SDT}\nChlamydia trachomatis: Âm tính",
+        2026,
+    )
+    assert d.loai == frozenset({"STD"})
 
 
 def test_khong_thay_chi_dinh_chi_doi_khi_khach_co_that() -> None:
