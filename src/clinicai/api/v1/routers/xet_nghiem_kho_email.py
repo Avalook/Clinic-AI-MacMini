@@ -42,6 +42,8 @@ class ThuOut(BaseModel):
     nhan_trang_thai: str
     #: Màu chip (neutral | warning | success | danger) — máy chủ tính.
     mau: str
+    #: Thư chưa ghép (Lưu trữ / Chờ ghép tay): vì sao — máy chủ tính (G5). Còn lại None.
+    vi_sao: str | None = None
     goi_y_id: str | None
     goi_y_ten: str | None
     goi_y_ma: str | None
@@ -74,6 +76,7 @@ class ThuChiTietOut(BaseModel):
     ma_tep: str | None
     trang_thai: str
     nhan_trang_thai: str
+    vi_sao: str | None = None
 
 
 @router.get(P, response_model=KhoOut)

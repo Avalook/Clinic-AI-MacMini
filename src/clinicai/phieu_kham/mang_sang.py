@@ -25,6 +25,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.dia_chi_khach import dia_chi_khach
 from clinicai.services.luot_kham_rules import nhan_nguon_sinh_hieu
 from clinicai.services.sinh_hieu_buoi import khong_do_cua_luot, sinh_hieu_cua_buoi
 
@@ -71,13 +72,6 @@ TRUONG_HO_SO: tuple[tuple[str, str], ...] = (
 _GIOI_TINH = {"F": "Nữ", "M": "Nam", "FEMALE": "Nữ", "MALE": "Nam", "O": "Khác"}
 
 
-def dia_chi_benh_nhan(bn: Mapping[str, Any]) -> str | None:
-    """Địa chỉ có cấu trúc (chi tiết · phường · tỉnh) — rơi về ô tự do cũ."""
-    phan = [bn.get("address_detail"), bn.get("ward_name"), bn.get("province_name")]
-    co = [str(x).strip() for x in phan if x and str(x).strip()]
-    return ", ".join(co) if co else (bn.get("address") or None)
-
-
 def dung_ho_so(benh_nhan: Mapping[str, Any] | None) -> dict[str, Any]:
     """Các ô hồ sơ. Thiếu gì để None — màn in "—", không bịa."""
     bn = benh_nhan or {}
@@ -92,7 +86,7 @@ def dung_ho_so(benh_nhan: Mapping[str, Any] | None) -> dict[str, Any]:
         "patient.ethnicity": bn.get("ethnicity"),
         "patient.nationality": bn.get("nationality"),
         "patient.occupation": bn.get("occupation"),
-        "patient.address": dia_chi_benh_nhan(bn),
+        "patient.address": dia_chi_khach(bn),
         "patient.guardian": bn.get("guardian_name"),
         "patient.location": bn.get("location_name"),
         "patient.referrer": bn.get("nguoi_gioi_thieu"),
@@ -445,7 +439,6 @@ __all__ = [
     "TRUONG_HANH_CHINH",
     "TRUONG_SINH_HIEU",
     "chan_doan_tu_phieu",
-    "dia_chi_benh_nhan",
     "doc_chan_doan",
     "doc_dau_phieu",
     "dung_hanh_chinh",

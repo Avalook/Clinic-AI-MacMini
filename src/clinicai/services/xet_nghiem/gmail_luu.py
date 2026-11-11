@@ -65,6 +65,28 @@ def _xoa_o(goc: Path, khoa: str) -> None:
         p.unlink(missing_ok=True)
 
 
+#: Khách có SĐT (chính / phụ / SĐT thêm) nằm trong danh sách — mọi số của khách gộp
+#: ` ; ` cho `ghep_khach.khop_ds` (11/11: SĐT phụ bị bỏ sót).
+_KHACH_THEO_SDT_SQL = """
+SELECT p.clinic_patient_id::text AS id, p.full_name,
+       concat_ws(' ; ', p.phone_primary, p.phone_secondary,
+                 (SELECT string_agg(s.so_dien_thoai, ' ; ') FROM patient_sdt_them s
+                   WHERE s.clinic_id = p.clinic_id
+                     AND s.clinic_patient_id = p.clinic_patient_id)) AS sdt
+  FROM patient p
+ WHERE p.clinic_id = $1::uuid
+   AND (regexp_replace(coalesce(p.phone_primary, ''), '\\D', '', 'g') = ANY($2::text[])
+        OR regexp_replace(coalesce(p.phone_secondary, ''), '\\D', '', 'g')
+           = ANY($2::text[])
+        OR EXISTS (SELECT 1 FROM patient_sdt_them s
+                    WHERE s.clinic_id = p.clinic_id
+                      AND s.clinic_patient_id = p.clinic_patient_id
+                      AND regexp_replace(s.so_dien_thoai, '\\D', '', 'g')
+                          = ANY($2::text[])))
+ LIMIT 20
+"""
+
+
 async def goi_y_khach(conn: asyncpg.Connection, cid: str, van_ban: str) -> str | None:
     """Tên + SĐT trong chữ khớp đúng MỘT khách của phòng khám ⇒ id khách; không ⇒ None.
     Dùng lại luật khớp của Drive (`ghep_khach.khop_khach`) — một câu hỏi một hàm."""
@@ -72,15 +94,7 @@ async def goi_y_khach(conn: asyncpg.Connection, cid: str, van_ban: str) -> str |
     if not sdts:
         return None
     dang = sorted(sdts | {"84" + s[1:] for s in sdts})
-    rows = await conn.fetch(
-        "SELECT clinic_patient_id::text AS id, full_name, phone_primary FROM patient"
-        " WHERE clinic_id = $1::uuid"
-        "   AND regexp_replace(coalesce(phone_primary, ''), '\\D', '', 'g')"
-        "       = ANY($2::text[])"
-        " LIMIT 20",
-        cid,
-        dang,
-    )
+    rows = await conn.fetch(_KHACH_THEO_SDT_SQL, cid, dang)
     # Chạm trần ⇒ có thể sót đúng người: báo, và gợi ý vẫn chỉ ra khi khớp đúng một.
     canh_bao_neu_day("patient", len(rows), 20, clinic_id=cid)
     ung_vien = [
@@ -89,7 +103,7 @@ async def goi_y_khach(conn: asyncpg.Connection, cid: str, van_ban: str) -> str |
             clinic_patient_id=r["id"],
             visit_id=None,
             ten=r["full_name"],
-            sdt=r["phone_primary"],
+            sdt=r["sdt"],
         )
         for r in rows
     ]
@@ -101,9 +115,9 @@ _GHI_SQL = """
 INSERT INTO drive_tep (clinic_id, doi_tac_id, nguon, file_id, md5, ten, mime, so_byte,
                        email_message_id, email_tieu_de, email_than, email_nhan_luc,
                        ma_ben_doi_tac_tep, khoa, sha256, vi_tri, tai_len_luc, ly_do_cho,
-                       goi_y_clinic_patient_id, goi_y_order_id)
+                       goi_y_clinic_patient_id, goi_y_order_id, luu_tru_vi_sao)
 VALUES ($1::uuid, $2::uuid, 'GMAIL', $3, $4, $5, 'application/pdf', $6, $7, $8, $9, $10,
-        $11, $12, $13, 'vps', now(), $15, $14::uuid, $16::uuid)
+        $11, $12, $13, 'vps', now(), $15, $14::uuid, $16::uuid, $17)
 ON CONFLICT DO NOTHING
 RETURNING id::text
 """
@@ -160,6 +174,7 @@ async def _ghi_dong(
         goi_y,
         m.q.ly_do,
         m.q.goi_y_order_id,
+        m.q.luu_tru_vi_sao,
     )
     return v
 

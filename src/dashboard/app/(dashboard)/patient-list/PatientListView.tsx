@@ -12,6 +12,7 @@ import {
   ArrowUpDown,
   CalendarDays,
   ClipboardList,
+  Download,
   FileText,
   Phone,
   Search,
@@ -32,6 +33,7 @@ import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { khoangDong } from "../../../lib/so-trang";
 import ThanhSoTrang from "../../../components/ui/ThanhSoTrang";
 import TenKhachSdt from "@/components/ui/TenKhachSdt";
+import { buttonClass } from "@/components/ui/Button";
 
 /** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
 type PatientFull = NonNullable<DoctorApptRow["patient"]> & {
@@ -208,6 +210,7 @@ export default function PatientListView({
   showRebook = false,
   enableVisitPager = false,
   canBook = false,
+  xuatDiaChi = false,
   chonSan = null,
 }: {
   /** MỘT trang hồ sơ máy chủ đã tìm + lọc + xếp (06/10/2026). */
@@ -227,6 +230,8 @@ export default function PatientListView({
   enableVisitPager?: boolean;
   /** Vai đặt lịch được: hiện nút "Đặt lịch mới" ở đầu hồ sơ. */
   canBook?: boolean;
+  /** Kế toán / Quản lý: nút tải Excel địa chỉ khách theo bộ lọc đang xem (11/11/2026). */
+  xuatDiaChi?: boolean;
   /** `?chon=<clinic_patient_id>` — mở sẵn hồ sơ khách (link từ Quản lý khách
    *  hàng, phiếu khám; thay trang /patients/[id] đã gộp 27/09/2026). */
   chonSan?: string | null;
@@ -447,6 +452,21 @@ export default function PatientListView({
             </button>
           ))}
           {nutChieuXep}
+          {/* EXCEL ĐỊA CHỈ KHÁCH (chị Hoài, 11/11/2026): tải ĐÚNG bộ lọc đang
+              xem (ô tìm đã gửi + tab) để rà địa chỉ sai. Máy chủ gác quyền + ghi
+              nhật ký; tải thẳng bằng link, không qua JS. */}
+          {xuatDiaChi ? (
+            <a
+              href={`/api/patients/dia-chi-xlsx?${new URLSearchParams({
+                ...(qUrl ? { q: qUrl } : {}),
+                ...(filter ? { loc: filter } : {}),
+              }).toString()}`}
+              download
+              className={buttonClass("secondary", "sm")}
+            >
+              <Download size={14} aria-hidden="true" /> Tải Excel địa chỉ khách
+            </a>
+          ) : null}
         </div>
       </div>
     </section>

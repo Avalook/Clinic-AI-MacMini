@@ -128,9 +128,12 @@ def su_viec_cua(r: Any, hom_nay: date, nguong: int) -> SuViecXN:
 
 
 def nguon_tep(r: Any) -> str | None:
-    """Nguồn tờ kết quả cho màn: Drive (tự về / ghép tay bởi ai) hoặc tải tay."""
+    """Nguồn tờ kết quả cho màn: Drive / Email (tự về / ghép tay bởi ai) / tải tay."""
     if not r["tep_id"]:
         return None
+    if r["tep_nguon"] == "GMAIL":
+        # Thiếu nhánh này thì tờ email tự gán hiện "Tải tay" (Gmail G3 → G8).
+        return f"Email · ghép bởi {r['tep_boi']}" if r["tep_boi"] else "Email · tự ghép"
     if r["tep_nguon"] == "DRIVE":
         nguoi = f" · {r['drive_nguoi_tai']}" if r["drive_nguoi_tai"] else ""
         ghep = f" · ghép bởi {r['tep_boi']}" if r["tep_boi"] else " · tự ghép"

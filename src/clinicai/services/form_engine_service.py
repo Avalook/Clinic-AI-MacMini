@@ -56,10 +56,11 @@ from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
-from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
+from clinicai.phieu_kham.mang_sang import doc_chan_doan
 from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT
 from clinicai.services.bac_si_ky import bac_si_chi_dinh_hien_thi, bac_si_ky_in
 from clinicai.services.bac_si_phu_trach import bac_si_thuc_hien_mac_dinh
+from clinicai.services.dia_chi_khach import dia_chi_khach
 
 QUYEN_DIEN = "result.form.fill"
 MIME_DICOM = "application/dicom"
@@ -542,7 +543,7 @@ class FormEngineService:
                 ),
                 "gioi_tinh": dau["gender"],
                 "dien_thoai": dau["phone_primary"],
-                "dia_chi": dia_chi_benh_nhan(dict(dau)),
+                "dia_chi": dia_chi_khach(dict(dau)),
             },
             "dich_vu": dau["service_name"],
             # "BS chỉ định" chỉ in BÁC SĨ — điều dưỡng/thư ký chỉ định hộ thì
