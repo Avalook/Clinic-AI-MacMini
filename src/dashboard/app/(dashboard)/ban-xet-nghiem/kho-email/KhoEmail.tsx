@@ -28,6 +28,8 @@ interface Thu {
   nhan_trang_thai: string;
   /** Màu chip do máy chủ tính. */
   mau: ChipTone;
+  /** Thư chưa ghép: vì sao (máy chủ tính, G5). */
+  vi_sao: string | null;
   goi_y_ten: string | null;
   goi_y_ma: string | null;
 }
@@ -202,6 +204,7 @@ export default function KhoEmail() {
                   {t.ma_tep ? ` · mã ${t.ma_tep}` : ""}
                   {t.goi_y_ten ? ` · Có thể là: ${t.goi_y_ten}${t.goi_y_ma ? ` · ${t.goi_y_ma}` : ""}` : ""}
                 </span>
+                {t.vi_sao ? <span className="block text-label text-ink-soft">{t.vi_sao}</span> : null}
               </span>
               <Chip tone={t.mau}>{t.nhan_trang_thai}</Chip>
             </button>

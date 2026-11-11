@@ -40,14 +40,37 @@ LY_DO_CHO: Final = {
     "NHIEU_MA": "Tên tệp có nhiều mã ống",
     "KHONG_THAY_MAU": "Không thấy ống nào mang mã này",
     "SAI_DOI_TAC": "Ống của đối tác khác thư mục",
-    "ONG_NHIEU_VIEC": "Ống có nhiều xét nghiệm — chọn đúng việc",
+    "ONG_NHIEU_VIEC": "Có nhiều xét nghiệm cùng loại đang chờ — chọn đúng việc",
     "LOI_TEP": "Tệp không đọc được — tải tay hoặc từ chối",
     "KHONG_DOC_DUOC": "PDF không có chữ (ảnh scan) — chọn khách rồi Gán",
     "KHONG_KHOP_KHACH": "Không khách nào đang chờ khớp cả tên lẫn SĐT trong tệp",
     "NHIEU_KHACH": "Nhiều khách cùng khớp tên + SĐT — chọn đúng khách",
     "CHUA_LAY_MAU": "Khớp khách nhưng việc chưa bấm Lấy mẫu — kiểm rồi Gán",
     "CO_BAN_MOI": "Khách đã có tờ kết quả — có thể là bản sửa / bổ sung, kiểm rồi Gán",
+    "KHONG_THAY_CHI_DINH": (
+        "Khớp khách nhưng khách không có chỉ định đúng loại xét nghiệm này (của lab)"
+        " trong 60 ngày trước thư"
+    ),
+    "KHONG_RO_MAU_THU": "Không nhận ra mẫu thư của lab — mở xem rồi Gán",
 }
+#: Câu người đọc hiểu cho `drive_tep.luu_tru_vi_sao` (thư chỉ cất ở Kho email).
+LUU_TRU_VI_SAO: Final = {
+    "CHUA_DAT_MOC": "Chưa đặt ngày bắt đầu tự ghép (Cài đặt → Đối tác)",
+    "TRUOC_MOC": "Thư nhận trước ngày bắt đầu tự ghép",
+    "KHONG_XAC_THUC": "Thư không xác thực được đúng người gửi — không tự ghép",
+    "CHUA_DU_KET_QUA": "Kết quả chưa đủ (lab gửi từng phần) — chờ bản đủ",
+    "PHIEU_MA_VACH": "Phiếu mã vạch / phiếu gửi mẫu, không phải kết quả",
+    "DA_CO_KET_QUA": "Chỉ định đã có tờ từ email này hoặc email mới hơn — thư trùng",
+}
+
+
+def vi_sao_cho(ly_do_cho: str | None, luu_tru_vi_sao: str | None) -> str:
+    """MỘT nơi ra câu "vì sao chưa ghép" của một dòng tệp / thư chờ (hàng ghép tay +
+    Kho email). Dòng Lưu trữ cũ (trước G5) không có lý do chi tiết."""
+    if ly_do_cho == "LUU_TRU":
+        return LUU_TRU_VI_SAO.get(luu_tru_vi_sao or "", "Lưu trữ (không tự ghép)")
+    return LY_DO_CHO.get(ly_do_cho or "", "Chờ ghép tay")
+
 
 _CHO_SQL = """
 SELECT t.id::text AS id, t.doi_tac_id::text AS doi_tac_id, d.ten AS ten_doi_tac,
@@ -87,7 +110,7 @@ async def ds_cho(conn: asyncpg.Connection, cid: str) -> list[dict[str, Any]]:
     return [
         {
             **dict(r),
-            "vi_sao": LY_DO_CHO.get(r["ly_do_cho"] or "", "Chờ ghép tay"),
+            "vi_sao": vi_sao_cho(r["ly_do_cho"], None),
             "loai": loai_xem(r["mime"]),
         }
         for r in rows

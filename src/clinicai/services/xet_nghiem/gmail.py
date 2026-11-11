@@ -126,7 +126,7 @@ async def nhan_thu(
     trong = await chay_tren_kho(partial(_con_cho, goc), kho=KHO_VPS)
     if trong - sum(len(d) for _, d in tai) < MEDIA_LOCAL_MIN_FREE_BYTES:
         raise gmail_api.GmailError("Ổ máy chủ gần đầy — chưa lưu thư kết quả.")
-    muc = await _muc_ca_thu(pool, cid, dt, thu, tai)
+    muc = await muc_ca_thu(pool, cid, dt, thu, tai)
     try:
         ids = await gmail_luu.luu_thu(pool, cid, dt, thu, muc)
     except asyncpg.IntegrityConstraintViolationError as e:
@@ -149,7 +149,7 @@ async def nhan_thu(
     return sum(i is not None for i in ids)
 
 
-async def _muc_ca_thu(
+async def muc_ca_thu(
     pool: asyncpg.Pool,
     cid: str,
     dt: str,
@@ -157,30 +157,29 @@ async def _muc_ca_thu(
     tai: list[tuple[gmail_api.PhanPdf, bytes]],
 ) -> list[gmail_luu.Muc]:
     """Đọc chữ PDF MỘT lần; quyết từng PDF. Chỉ thư từ mốc tự ghép trở đi VÀ xác thực
-    đúng miền người gửi mới được xét ghép — còn lại Lưu trữ (Kho) như G2."""
+    đúng miền người gửi mới được xét ghép — còn lại Lưu trữ (Kho) kèm lý do.
+    Ứng viên = chỉ định 60 ngày trước giờ nhận thư (G5)."""
     chu = [(p, d, ghep_khach.chu_pdf(d)) for p, d in tai]
     async with pool.acquire() as conn:
         moc = await gmail_cai_dat.doc_moc(conn, cid)
-        xet = gmail_ghep.trong_moc(thu.nhan_luc, moc) and gmail_doc.xac_thuc_ok(
-            thu.xac_thuc, thu.tu
+        khong = gmail_ghep.vi_sao_khong_xet(
+            thu.nhan_luc, moc, gmail_doc.xac_thuc_ok(thu.xac_thuc, thu.tu)
         )
-        if not xet:
-            return [gmail_luu.Muc(p, d, c, gmail_ghep.LUU_TRU) for p, d, c in chu]
-        viec = await ghep_khach.doc_viec(conn, cid, dt)
-    nam_nay = thu.nhan_luc.astimezone(_VN).year
-    return [
-        gmail_luu.Muc(
-            p,
-            d,
-            c,
-            gmail_ghep.quyet(
-                gmail_doc.doc_thu(thu.tieu_de, thu.than, p.ten, c, nam_nay),
-                viec,
-                bool(c.strip()),
-            ),
-        )
-        for p, d, c in chu
-    ]
+        if khong:
+            q0 = gmail_ghep.luu_tru(khong)
+            return [gmail_luu.Muc(p, d, c, q0) for p, d, c in chu]
+        viec = await ghep_khach.doc_chi_dinh(conn, cid, dt, thu.nhan_luc)
+        nam_nay = thu.nhan_luc.astimezone(_VN).year
+        muc: list[gmail_luu.Muc] = []
+        for p, d, c in chu:
+            doc = gmail_doc.doc_thu(thu.tieu_de, thu.than, p.ten, c, nam_nay)
+            q = gmail_ghep.quyet(doc, viec, bool(c.strip()), thu.nhan_luc)
+            if q.ly_do == "KHONG_KHOP_KHACH" and doc.ten and doc.sdt:
+                # Khách có thật mà không có chỉ định loại này ⇒ nói đúng lý do đó.
+                that = await gmail_luu.goi_y_khach(conn, cid, f"{doc.ten}\n{doc.sdt}")
+                q = gmail_ghep.khong_thay_chi_dinh(q, that)
+            muc.append(gmail_luu.Muc(p, d, c, q))
+    return muc
 
 
 async def _nhan_ca_trang(
