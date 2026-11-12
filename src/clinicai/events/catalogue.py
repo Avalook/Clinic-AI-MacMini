@@ -709,6 +709,17 @@ class XetNghiemThuVaoChiDinh(PayloadSuKien):
     clinic_patient_id: str
 
 
+class XetNghiemBuKetQuaCu(PayloadSuKien):
+    """`lab.old_result_marked_delivered` / `lab.old_result_mark_undone` — lệnh bù
+    12/11/2026 đánh tờ email cũ (thư trước 11/11) "đã trả khách ngoài hệ thống", và lệnh
+    hoàn tác của nó. `lo` = một lần chạy (hoàn tác theo lô); `truoc` = trạng thái xác
+    nhận trước khi bù. Chỉ id."""
+
+    tep_id: str
+    truoc: str
+    lo: str
+
+
 class CskhDaLienHe(PayloadSuKien):
     """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
 
@@ -2238,6 +2249,18 @@ DANH_MUC: dict[str, SuKien] = {
                     "drive_tep",
                     XetNghiemThuVaoChiDinh,
                     "Chuyển tờ email theo lượt vào chỉ định",
+                ),
+                (
+                    "lab.old_result_marked_delivered",
+                    "tep_ket_qua",
+                    XetNghiemBuKetQuaCu,
+                    "Bù: tờ email cũ đã trả khách ngoài hệ thống",
+                ),
+                (
+                    "lab.old_result_mark_undone",
+                    "tep_ket_qua",
+                    XetNghiemBuKetQuaCu,
+                    "Hoàn tác bù tờ email cũ",
                 ),
                 (
                     "lab.result_sent",

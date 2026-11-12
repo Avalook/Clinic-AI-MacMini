@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 
 import { fmtDateTimeOrDate } from "../../../../lib/datetime";
+import { tenKenhGui } from "@/lib/kenh-gui";
 import { sdtDoc } from "@/lib/sdt";
 
 export interface Blocker {
@@ -317,7 +318,7 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
                     }`}
                   >
                     {TRANG_THAI_TEP[t.trang_thai]}
-                    {t.trang_thai === "DA_GUI" && t.gui_kenh ? ` (${t.gui_kenh})` : ""}
+                    {t.trang_thai === "DA_GUI" && t.gui_kenh ? ` (${tenKenhGui(t.gui_kenh)})` : ""}
                   </span>
                 </li>
               ))}

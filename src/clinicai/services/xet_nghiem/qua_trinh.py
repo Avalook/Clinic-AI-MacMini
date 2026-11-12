@@ -89,7 +89,11 @@ WITH b AS (
      WHERE mv.clinic_id = $1::uuid AND mv.service_order_id = $2::uuid
        AND mv.go_luc IS NOT NULL AND m.huy_luc IS NULL
     UNION ALL
-    SELECT k.gui_luc, 'Đúng người, đã gửi khách qua ' || k.gui_kenh, k.gui_boi_staff_id
+    SELECT k.gui_luc,
+           CASE WHEN k.gui_kenh = 'NGOAI_HE_THONG'
+                THEN 'Kết quả cũ — đã trả khách ngoài hệ thống'
+                ELSE 'Đúng người, đã gửi khách qua ' || k.gui_kenh END,
+           k.gui_boi_staff_id
       FROM tep_ket_qua k
      WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid
        AND k.gui_luc IS NOT NULL
