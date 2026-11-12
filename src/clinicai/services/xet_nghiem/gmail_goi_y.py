@@ -23,7 +23,13 @@ import structlog
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
-from clinicai.services.xet_nghiem import drive, ghep_khach, ghep_tay, gmail_doc
+from clinicai.services.xet_nghiem import (
+    drive,
+    ghep_khach,
+    ghep_tay,
+    gmail_bu_cu,
+    gmail_doc,
+)
 from clinicai.services.xet_nghiem.ghep_khach import UngVien, chuan
 from clinicai.services.xet_nghiem.gmail_doc import DocThu
 
@@ -126,7 +132,7 @@ async def _gan(
     if order_id is not None:
         await drive._phat_den(pool, cid, drive.Quyet(order_id, kh, visit_id, None))
     await _hoc_sdt(pool, identity, r["id"], kh, noi)
-    await ghep_tay._danh_thu_cu(pool, identity, kq["id"])
+    await gmail_bu_cu.danh_khi_gan_thu_cu(pool, identity, kq["id"])
     return {"tep_id": kq["id"], "vao_chi_dinh": order_id is not None}
 
 

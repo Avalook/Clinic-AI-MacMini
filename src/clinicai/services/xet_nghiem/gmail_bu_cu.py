@@ -46,7 +46,6 @@ from clinicai.api.identity import StaffIdentity, danh_tinh_nhan_vien
 from clinicai.events.catalogue import XetNghiemBuKetQuaCu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.tep_ket_qua_service import kiem_tra_quyen_xac_nhan
-from clinicai.services.xet_nghiem import gmail
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
 logger = structlog.get_logger()
@@ -244,6 +243,10 @@ async def _nguoi(conn: asyncpg.Connection, cid: str, ai_la: str) -> StaffIdentit
 
 async def _main(a: argparse.Namespace) -> None:
     from clinicai.core.database import close_pool, create_pool
+
+    # Chỉ CLI cần `gmail` — import ở đây để ghep_tay / gmail_goi_y import được module
+    # này ở đầu tệp (gmail → gmail_goi_y → ghep_tay → đây: vòng import).
+    from clinicai.services.xet_nghiem import gmail
 
     cid = gmail.phong_kham_cua_khoa() or os.environ.get("GMAIL_CLINIC_ID")
     if not cid:

@@ -206,6 +206,25 @@ async def test_khong_chi_dinh_neo_luot_kham_trong_14_ngay(
     )
 
 
+async def test_khong_chi_dinh_hai_ho_so_cung_ten_nam_thi_khong_neo(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+    ns_tren_phieu: None,
+) -> None:
+    # Hai hồ sơ cùng tên + năm sinh, không ai có chỉ định của lab ⇒ không đoán.
+    v, ten = await _khach(pool, c3)
+    hai = await c3.viec(pool, ban_xn=False)
+    await _ten(pool, hai["kh"], ten)
+    await _nam(pool, hai["kh"], 1983)
+    await pool.execute(
+        "UPDATE service_order SET exec_status = 'cancelled' WHERE id = ANY($1::uuid[])",
+        [v["oid"], hai["oid"]],
+    )
+    mid = c3.thu(ten, SDT_PHIEU)
+    await gmail.mot_vong(pool)
+    assert (await _dong(pool, mid))["tep_ket_qua_id"] is None
+
+
 async def _nam(pool: asyncpg.Pool, kh: str, nam: int | None) -> None:  # noqa: F811
     await pool.execute(
         "UPDATE patient SET birth_year = $2, date_of_birth = NULL"

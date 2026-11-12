@@ -7,7 +7,8 @@
   chỉ định chờ ⇒ tự gán; nhiều / đã có tờ ⇒ lý do + gợi ý).
 * G16: như trên nhưng người đó KHÔNG có chỉ định nào của lab (bác sĩ không nhập chỉ
   định — prod: lượt chỉ có siêu âm, mẫu máu lấy cùng tối) ⇒ neo bằng LƯỢT KHÁM trong
-  `NEO_LUOT_NGAY` ngày trước thư: tờ vào hồ sơ theo lượt (như G8).
+  `NEO_LUOT_NGAY` ngày trước thư: tờ vào hồ sơ theo lượt (như G8). Có chỉ định của
+  lab mà khác loại phiếu ⇒ cùng neo lượt.
 
 Không chắc ⇒ giữ quyết định cũ (G9 gợi ý, người gán).
 """
@@ -43,15 +44,31 @@ async def quyet(
     if kh is None:
         if len(ids) != 1 or any(v.clinic_patient_id == ids[0] for v in viec):
             return q
-        luot = await ghep_khach.luot_gan_nhat(
-            conn, cid, ids[0], nhan_luc, so_ngay=NEO_LUOT_NGAY
-        )
-        if luot is None:
-            return q
-        return gmail_ghep.gan_ho_so(
-            replace(q, ly_do="KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id=ids[0]),
-            luot,
-        )
+        q0 = replace(q, ly_do="KHONG_THAY_CHI_DINH", goi_y_clinic_patient_id=ids[0])
+        return await _neo_luot(conn, cid, nhan_luc, q0, q)
     cua_kh = [v for v in viec if v.clinic_patient_id == kh]
     q2 = gmail_ghep.quyet_mot_khach(doc.loai, cua_kh, kh, nhan_luc)
-    return q2 if q2.ly_do is None else replace(q2, goi_y_clinic_patient_id=kh)
+    if q2.ly_do is None:
+        return q2
+    q2 = replace(q2, goi_y_clinic_patient_id=kh)
+    # Có chỉ định của lab nhưng KHÁC loại phiếu ⇒ như không có chỉ định (G16), không để
+    # "chỉ định sai loại" được tự động ít hơn "không chỉ định nào".
+    return await _neo_luot(conn, cid, nhan_luc, q2, q2)
+
+
+async def _neo_luot(
+    conn: asyncpg.Connection,
+    cid: str,
+    nhan_luc: datetime,
+    q: gmail_ghep.QuyetGmail,
+    khong_neo: gmail_ghep.QuyetGmail,
+) -> gmail_ghep.QuyetGmail:
+    """`q` KHONG_THAY_CHI_DINH có khách ⇒ vào hồ sơ theo lượt ≤ `NEO_LUOT_NGAY` ngày
+    trước thư; không có lượt (hay lý do khác) ⇒ `khong_neo`."""
+    kh = q.goi_y_clinic_patient_id
+    if q.ly_do != "KHONG_THAY_CHI_DINH" or kh is None:
+        return khong_neo
+    luot = await ghep_khach.luot_gan_nhat(
+        conn, cid, kh, nhan_luc, so_ngay=NEO_LUOT_NGAY
+    )
+    return khong_neo if luot is None else gmail_ghep.gan_ho_so(q, luot)
