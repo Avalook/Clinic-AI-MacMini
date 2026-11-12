@@ -184,7 +184,6 @@ class HoSoKhamService:
                 SELECT t.id::text AS id, t.ten_hien_thi, t.loai_tep, t.mime,
                        t.so_byte, t.tai_len_luc,
                        t.service_order_id::text AS service_order_id,
-                       t.cho_phep_gui_luc IS NOT NULL AS duoc_gui,
                        t.gui_luc
                   FROM public.v_tep_ket_qua_hieu_luc t
                  WHERE t.clinic_id = $1::uuid
@@ -206,7 +205,6 @@ class HoSoKhamService:
                        coalesce(result_value, result_numeric::text) AS ket_qua,
                        result_unit AS don_vi, reference_range_low AS thap,
                        reference_range_high AS cao, flag AS co,
-                       requires_doctor_review AND reviewed_at IS NULL AS cho_duyet,
                        result_received_at
                   FROM public.lab_result
                  WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid

@@ -217,8 +217,7 @@ class ManKhachHangService:
                 SELECT t.id, t.clinic_patient_id, t.appointment_id,
                        t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
                        t.tai_len_luc, t.gui_luc, t.gui_kenh,
-                       t.cho_phep_gui_luc, t.xac_nhan_trang_thai,
-                       bs.full_name AS cho_phep_gui_boi,
+                       t.xac_nhan_trang_thai,
                        nv.full_name AS ten_nhan_vien,
                        -- TỆP NÀY CÓ PHẢI KẾT QUẢ XÉT NGHIỆM không (17/09/2026):
                        -- tệp siêu âm / thủ thuật không được bật ô "Có kết quả
@@ -236,7 +235,6 @@ class ManKhachHangService:
                   LEFT JOIN node_definition nd
                     ON nd.code = so.node_code AND nd.clinic_id = so.clinic_id
                   LEFT JOIN staff nv ON nv.id = t.tai_len_boi_staff_id
-                  LEFT JOIN staff bs ON bs.id = t.cho_phep_gui_boi_staff_id
                  WHERE t.clinic_id = $1::uuid
                    AND t.clinic_patient_id = ANY($2::uuid[])
                  ORDER BY t.tai_len_luc DESC

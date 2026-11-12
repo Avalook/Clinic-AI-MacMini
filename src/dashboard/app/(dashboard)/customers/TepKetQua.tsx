@@ -37,9 +37,6 @@ export interface TepKetQuaRow {
   gui_luc: string | null;
   gui_kenh: string | null;
   gui_boi: string | null;
-  /** Bác sĩ cho phép gửi lúc nào (null = chưa) — CSKH chỉ gửi sau mốc này. */
-  cho_phep_gui_luc: string | null;
-  cho_phep_gui_boi: string | null;
   /** false = tệp siêu âm / thủ thuật — không tính vào "Có kết quả xét nghiệm". */
   la_ket_qua_xet_nghiem?: boolean;
   /** Trạng thái xác nhận tệp external: CHO_XAC_NHAN, HOP_LE, TU_CHOI, THU_HOI (null = internal) */

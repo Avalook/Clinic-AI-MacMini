@@ -29,7 +29,7 @@ import ChonKenhGuiKq from "./ChonKenhGuiKq";
  *    · Bước "Hỏi đơn vị xét nghiệm" bày ra một nút quay số MÁY KHÁCH HÀNG.
  *      Việc ấy là gọi cho phòng xét nghiệm, không phải gọi cho bệnh nhân — gọi
  *      khách lúc này là gọi để nói "em chưa có kết quả".
- *    · Bước "Nhắc bác sĩ duyệt kết quả" cũng vậy: người cần chạm là bác sĩ.
+ *    · Bước "Hỏi phòng làm kết quả" cũng vậy: người cần chạm là phòng làm kết quả.
  *
  *  Ngoài ra ô "Việc gì" luôn mở sẵn ở "Gọi nhắc hẹn" nên mọi cuộc gọi vào sổ
  *  dưới cùng một loại, và cột "Tương tác gần nhất" nói sai về việc vừa làm.
@@ -111,12 +111,12 @@ const HANH_DONG: Record<string, HanhDongViec> = {
       "Bước này gọi cho ĐƠN VỊ XÉT NGHIỆM, không phải cho khách. Ghi lại kết quả hỏi được.",
   },
   CHO_BAC_SI: {
-    tieuDe: "Nhắc bác sĩ duyệt kết quả",
+    tieuDe: "Hỏi phòng làm kết quả (chưa có tệp)",
     loai: "KHAC",
     goiKhach: false,
     zalo: null,
     nhacNho:
-      "Kết quả đang chờ BÁC SĨ xem. Nhắc bác sĩ rồi ghi lại — chưa gọi khách ở bước này.",
+      "Có kết quả nhưng chưa có tệp gửi được. Hỏi phòng làm kết quả rồi ghi lại — chưa gọi khách.",
   },
   MOI_TAI_KHAM: {
     tieuDe: "Gọi mời tái khám",
@@ -735,19 +735,19 @@ export default function HanhDongTrangThai({
             {trangThai === "CHO_BAC_SI" ? (
               <>
                 <p className="text-label leading-snug text-warning">
-                  Kết quả chưa có tệp gửi được. Hỏi bác sĩ / phòng làm kết quả
-                  trước, chưa gọi khách ở bước này.
+                  Kết quả chưa có tệp gửi được. Hỏi phòng làm kết quả trước,
+                  chưa gọi khách ở bước này.
                 </p>
                 {oGhiChu}
                 <NutChinh
                   ma="bs"
-                  nhan="Đã hỏi bác sĩ"
+                  nhan="Đã hỏi phòng làm kết quả"
                   onClick={() =>
                     void ghi(
                       "bs",
                       "KHAC",
                       "DA_LIEN_HE",
-                      ghiChu.trim() || "Đã hỏi bác sĩ về kết quả",
+                      ghiChu.trim() || "Đã hỏi phòng làm kết quả",
                     )
                   }
                 />
