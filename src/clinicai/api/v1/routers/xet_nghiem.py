@@ -80,6 +80,7 @@ class DanhSachDoiTacOut(BaseModel):
     doi_tac: list[DoiTacOut]
     dich_vu_thu_ho: list[DichVuThuHoOut]
     nguong_lay_mau_ngay: int
+    hien_ma_ong: bool
     #: Thư Gmail nhận từ ngày này trở đi mới được tự ghép (NULL = chưa tự ghép).
     gmail_tu_ngay: date | None
 
@@ -114,6 +115,8 @@ class AnhXaIn(BaseModel):
 
 class NguongIn(BaseModel):
     nguong_lay_mau_ngay: str | int
+    #: Công tắc "Hiện mã ống" — không gửi ⇒ giữ nguyên.
+    hien_ma_ong: bool | None = None
 
 
 class GmailMocIn(BaseModel):
@@ -208,7 +211,9 @@ async def luu_cai_dat(
     identity: StaffIdentity = Depends(_QUAN_LY),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> object:
-    return await CaiDatDoiTac(pool).nguong(identity, body.nguong_lay_mau_ngay)
+    return await CaiDatDoiTac(pool).nguong(
+        identity, body.nguong_lay_mau_ngay, body.hien_ma_ong
+    )
 
 
 @router.put("/xet-nghiem/cai-dat/gmail", response_model=DanhSachDoiTacOut)

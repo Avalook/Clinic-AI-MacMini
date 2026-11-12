@@ -12,8 +12,8 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.xet_nghiem import cai_dat_ban, gmail_cai_dat
 from clinicai.services.xet_nghiem import doi_tac as dt
-from clinicai.services.xet_nghiem import gmail_cai_dat
 
 
 class CaiDatDoiTac:
@@ -59,8 +59,16 @@ class CaiDatDoiTac:
     async def bo_gan(self, identity: StaffIdentity, anh_xa_id: str) -> dict[str, Any]:
         return await self._ghi(identity, lambda c: dt.bo_anh_xa(c, identity, anh_xa_id))
 
-    async def nguong(self, identity: StaffIdentity, so_ngay: object) -> dict[str, Any]:
-        return await self._ghi(identity, lambda c: dt.luu_nguong(c, identity, so_ngay))
+    async def nguong(
+        self,
+        identity: StaffIdentity,
+        so_ngay: object,
+        hien_ma_ong: bool | None = None,
+    ) -> dict[str, Any]:
+        return await self._ghi(
+            identity,
+            lambda c: cai_dat_ban.luu_nguong(c, identity, so_ngay, hien_ma_ong),
+        )
 
     async def moc_gmail(self, identity: StaffIdentity, raw: object) -> dict[str, Any]:
         return await self._ghi(

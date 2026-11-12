@@ -119,6 +119,8 @@ export interface Ban {
   quan_ly: boolean;
   /** Ô lọc đối tác (máy chủ: mọi đối tác còn hoạt động + đối tác ngưng còn việc). */
   doi_tac: { id: string; ten: string }[];
+  /** Công tắc "Hiện mã ống" (Cài đặt). Tắt ⇒ máy chủ trả mọi `ma_mau` = null. */
+  hien_ma_ong: boolean;
 }
 
 /** Tệp Drive / thư Email chưa khớp khách — `DriveChoOut` của `routers/xet_nghiem_drive.py`. */

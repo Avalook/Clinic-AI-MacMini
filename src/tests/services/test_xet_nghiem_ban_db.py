@@ -64,6 +64,15 @@ async def _lam2(pool: asyncpg.Pool, ham: Any, ca: Ca, **d: object) -> Any:  # no
         return await ham(conn, ca.bac_si, dict(d))
 
 
+async def _ma_db(pool: asyncpg.Pool, mau_id: str) -> str:  # noqa: F811
+    """Mã ống trong DB (công tắc "Hiện mã ống" tắt mặc định ⇒ lệnh/bàn trả null)."""
+    ma = await pool.fetchval(
+        "SELECT ma_mau FROM mau_xet_nghiem WHERE id = $1::uuid", mau_id
+    )
+    assert isinstance(ma, str)
+    return ma
+
+
 async def _tt(pool: asyncpg.Pool, ca: Ca, oid: str) -> dict[str, Any]:  # noqa: F811
     async with pool.acquire() as conn:
         return await mau._mot_viec(conn, ca.bac_si, oid, hom_nay_vn())
@@ -99,9 +108,10 @@ async def test_kich_ban_3_den_9_o_tang_service(
         assert (await _tt(pool, ca, o))["trang_thai"]["ma"] == "CHO_LAY_MAU"
     # 5. Một ống cho cả hai, hẹn = hôm nay + 3.
     kq = await _lam(pool, mau.lay_mau, ca, order_ids=[o1, o2])
-    assert kq["ma_mau"].startswith("M") and len(kq["ma_mau"]) == 7
+    ma1 = await _ma_db(pool, kq["mau_id"])
+    assert ma1.startswith("M") and len(ma1) == 7
     assert (kq["hen_tra_ngay"] - hom_nay_vn()).days == 3
-    assert {(await _tt(pool, ca, o))["ma_mau"] for o in (o1, o2)} == {kq["ma_mau"]}
+    assert {(await _tt(pool, ca, o))["mau_id"] for o in (o1, o2)} == {kq["mau_id"]}
     # 6. Hoàn tác bước trước = huỷ mẫu; khoản thu còn.
     v1 = await _tt(pool, ca, o1)
     assert v1["nut"]["hoan_tac"]["lenh"] == "huy_mau"
@@ -119,7 +129,7 @@ async def test_kich_ban_3_den_9_o_tang_service(
     assert v1["trang_thai"]["ma"] == "CHO_LAY_MAU" and v1["da_thu"] == 500000
     # 7. Lấy lại = mã MỚI.
     kq2 = await _lam(pool, mau.lay_mau, ca, order_ids=[o1, o2])
-    assert kq2["ma_mau"] != kq["ma_mau"]
+    assert await _ma_db(pool, kq2["mau_id"]) != ma1
     # 8. Tải tay ⇒ Có kết quả; tệp đi đường đối tác (đã xác nhận cùng bước).
     # Dấu "việc bàn đối tác cũ" như dữ liệu thật (consumer cũ vẫn ghi doi_tac_nhan_viec
     # cho chỉ định mới) — đường cũ coi đó là việc bàn cũ và không đặt mốc có kết quả.
@@ -328,7 +338,8 @@ async def test_hanh_trinh_va_qua_trinh_doc_tu_su_viec(
     viec = [d["viec"] for d in ds]
     assert viec[0] == "Chỉ định xét nghiệm"
     assert any(x.startswith("Thu hộ 300.000đ") for x in viec)
-    assert sum(x.startswith("Lấy mẫu, mã ống") for x in viec) == 2
+    # Có/không kèm mã theo công tắc "Hiện mã ống": test_xet_nghiem_ma_ong_db.
+    assert sum(x.startswith("Lấy mẫu") for x in viec) == 2
     assert any(x.startswith("Huỷ mẫu") and "dán nhầm" in x for x in viec)
     assert [d["luc"] for d in ds] == sorted(d["luc"] for d in ds)
     assert rac == []

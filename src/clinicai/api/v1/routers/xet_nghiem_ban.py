@@ -157,6 +157,8 @@ class BanOut(BaseModel):
     quan_ly: bool
     #: Ô lọc đối tác: mọi đối tác còn hoạt động + đối tác ngưng còn việc trên bàn.
     doi_tac: list[DoiTacLocOut]
+    #: Công tắc "Hiện mã ống" (Cài đặt). Tắt ⇒ mọi `ma_mau` của bàn là null.
+    hien_ma_ong: bool
 
 
 class QuaTrinhDongOut(BaseModel):

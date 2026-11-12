@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-12 14:26. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-12 16:01. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -56,7 +56,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/ban-xet-nghiem` — Bàn xét nghiệm đối tác
 - page: `src/dashboard/app/(dashboard)/ban-xet-nghiem/page.tsx` · quyền: lego `doi_tac` (Đối tác · mặc định: Đối tác)
-- thành phần: BanXetNghiem.tsx, app/(dashboard)/_lam-viec/TheKhachHangCho.tsx, CacTab.tsx, CaiDat.tsx, KetQuaKhach.tsx, PopupKhach.tsx, TheViec.tsx, kieu.ts
+- thành phần: BanXetNghiem.tsx, app/(dashboard)/_lam-viec/TheKhachHangCho.tsx, CacTab.tsx, CaiDat.tsx, KetQuaKhach.tsx, KhungMauMoi.tsx, PopupKhach.tsx, TheViec.tsx (+1)
 - gọi API Next: `/api/xet-nghiem/anh-ck`, `/api/xet-nghiem/drive-tep`, `/api/xet-nghiem/tai-ket-qua`, `/api/xet-nghiem/[...duong]`, `/api/cskh/ket-qua/[tepId]/noi-dung`, `/api/cashier`
 - ? không khớp route.ts nào: `/api/xet-nghiem/ban/lay-mau`, `/api/xet-nghiem/ban/anh-ck/${encodeURIComponent(id)}/go`, `/api/xet-nghiem/ban/tien`, `/api/xet-nghiem/ban/email-da-gan`, `/api/xet-nghiem/ban/tim-khach` (+3)
 - service: CaiDatDoiTac.{danh_sach, luu_doi_tac, gan, nguong, +3} · quyen_ban.bang_quyen · media_service · TepKetQuaService.mo_de_doc · tep_ket_qua_service · CashierBoardService.{board, giao_dich} (+3 service)
@@ -2253,6 +2253,6 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `work_roster_thay_nguoi` | `20260929000001_doi_nguoi_trong_ca.sql` | 0 |
 | `work_session` | `20260714000001_baseline_schema.sql` | 0 |
 | `work_session_staff` | `20260714000001_baseline_schema.sql` | 0 |
-| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 1 |
+| `xet_nghiem_cai_dat` | `20261105200000_xet_nghiem_nen.sql` | 2 |
 | `xet_nghiem_dong` | `20261105220000_mau_xet_nghiem.sql` | 0 |
 | `xet_nghiem_viec` | `20261105200000_xet_nghiem_nen.sql` | 1 |

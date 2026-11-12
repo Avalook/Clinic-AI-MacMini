@@ -124,7 +124,14 @@ async def _dung_ca(
     ma = []
     for o in (o1, o2):
         await _thu(pool, ca, o)
-        ma.append((await _lam(pool, mau.lay_mau, ca, order_ids=[o]))["ma_mau"])
+        m = await _lam(pool, mau.lay_mau, ca, order_ids=[o])
+        # Mã đọc ở DB: công tắc "Hiện mã ống" tắt mặc định ⇒ lệnh trả ma_mau = null,
+        # nhưng ghép Drive vẫn theo mã thật trong DB.
+        ma.append(
+            await pool.fetchval(
+                "SELECT ma_mau FROM mau_xet_nghiem WHERE id = $1::uuid", m["mau_id"]
+            )
+        )
     return ca, a, o1, o2, ma[0], ma[1]
 
 
