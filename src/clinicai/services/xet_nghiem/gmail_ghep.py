@@ -211,8 +211,8 @@ async def gan_tu_dong(
     pool: asyncpg.Pool, cid: str, dong_id: str, q: QuyetGmail, data: bytes, ten: str
 ) -> bool:
     """Dòng thư đã ghi (cùng giao dịch cả thư) ⇒ tạo tờ kết quả qua ĐÚNG lõi tải lên
-    của tệp đối tác (`tai_len`, máy quét, nguồn GMAIL ⇒ CHO_XAC_NHAN, báo bác sĩ +
-    CSKH), gắn vào dòng, phát `lab.result_arrived`.
+    của tệp đối tác (`tai_len`, máy quét, nguồn GMAIL ⇒ Hợp lệ ngay từ 12/11, báo bác
+    sĩ + CSKH), gắn vào dòng, phát `lab.result_arrived`.
 
     Dòng đã hiện ở hàng ghép tay từ lúc commit ⇒ giữ CÙNG khoá của Gán tay / Từ chối
     (`ghep_tay.khoa_tep`) và đọc lại dòng TRONG khoá: người đã xử lý trước thì thôi,

@@ -138,8 +138,9 @@ KENH_GUI_HOP_LE = frozenset({"ZALO", "SMS", "TRUC_TIEP", "EMAIL"})
 #: nhận kết quả, nó phải cho vào luôn trong phiếu khám của bác sĩ… không cần
 #: xác nhận làm gì, hiện ra đó luôn là được"). Tắt: tệp đối tác được ghi HỢP LỆ
 #: ngay lúc tải lên (người tải = người xác nhận, lý do ghi rõ là tự động) → mọi
-#: chỗ đọc "kết quả hợp lệ" chạy y như cũ, vòng đọc của bác sĩ mở ngay. Bật lại
-#: (True) là về luồng CHO_XAC_NHAN → màn Xác nhận kết quả. Không xoá đường cũ.
+#: chỗ đọc "kết quả hợp lệ" chạy y như cũ, vòng đọc của bác sĩ mở ngay. 12/11 tờ máy
+#: nhận cũng Hợp lệ ngay và màn Xác nhận kết quả đã BỎ ⇒ bật lại (True) thì phải dựng
+#: lại một chỗ xác nhận, không thì tờ kẹt ở CHO_XAC_NHAN (chỉ còn cửa API).
 XAC_NHAN_TEP_DOI_TAC = False
 LY_DO_TU_XAC_NHAN = "Tự động — phòng khám không dùng bước xác nhận tệp đối tác"
 
@@ -742,7 +743,7 @@ class TepKetQuaService:
                 f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
             )
         # Tệp đối tác KHÔNG chỉ định (Gmail: khách đúng mà chưa nhập chỉ định) vẫn
-        # là tệp ngoài ⇒ CHO_XAC_NHAN; trước 11/11 cờ chỉ bật khi có chỉ định.
+        # là tệp ngoài (trạng thái theo cờ, xem dưới).
         is_external = la_tep_doi_tac
         viec_doi_tac = False
         async with self._pool.acquire() as conn:
