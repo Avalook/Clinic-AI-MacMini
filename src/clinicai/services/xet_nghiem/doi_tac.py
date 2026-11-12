@@ -1,4 +1,5 @@
-"""Đối tác xét nghiệm + ánh xạ dịch vụ + cài đặt bàn XN (kế hoạch 4.1, 4.2, câu F).
+"""Đối tác xét nghiệm + ánh xạ dịch vụ (kế hoạch 4.1, 4.2, câu F). Cài đặt bàn XN
+(ngưỡng, Hiện mã ống): `cai_dat_ban.py`; mốc Gmail: `gmail_cai_dat.py`.
 
 Ghi: quyền `config.clinic.manage` (màn Cài đặt → Đối tác, chỉ Quản lý). Không xoá —
 ngưng có lý do, bật lại được. Đổi ánh xạ KHÔNG đổi việc đã chỉ định (đã chụp ở
@@ -22,6 +23,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.services.audit import record_event
 from clinicai.services.tai_khoan_nhan_service import doc_id
 from clinicai.services.xet_nghiem import gmail_cai_dat
+from clinicai.services.xet_nghiem.cai_dat_ban import doc_cai_dat
 from clinicai.services.xet_nghiem.drive import den_drive
 from clinicai.services.xet_nghiem.o_nhap import (
     doc_form_doi_tac,
@@ -86,7 +88,7 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
         """,
         cid,
     )
-    nguong = await doc_nguong(conn, cid)
+    cd = await doc_cai_dat(conn, cid)
     theo_dt: dict[str, list[dict[str, Any]]] = {}
     for a in anh_xa:
         theo_dt.setdefault(a["doi_tac_id"], []).append(dict(a))
@@ -110,18 +112,10 @@ async def danh_sach(conn: asyncpg.Connection, cid: str) -> dict[str, Any]:
             for d in doi_tac
         ],
         "dich_vu_thu_ho": [dict(r) for r in dich_vu],
-        "nguong_lay_mau_ngay": nguong,
+        "nguong_lay_mau_ngay": cd.nguong_lay_mau_ngay,
+        "hien_ma_ong": cd.hien_ma_ong,
         "gmail_tu_ngay": await gmail_cai_dat.doc_moc(conn, cid),
     }
-
-
-async def doc_nguong(conn: asyncpg.Connection, cid: str) -> int:
-    n = await conn.fetchval(
-        "SELECT nguong_lay_mau_ngay FROM public.xet_nghiem_cai_dat"
-        " WHERE clinic_id = $1::uuid",
-        cid,
-    )
-    return int(n) if n is not None else 2
 
 
 # ── Ghi ────────────────────────────────────────────────────────────────────
@@ -369,32 +363,3 @@ async def bo_anh_xa(
     if v is None:
         raise ConflictError("Dòng gán đã bỏ hoặc không có — tải lại màn.")
     await _vet(conn, identity, "lab.partner_service_removed", "doi_tac_dich_vu", v)
-
-
-async def luu_nguong(
-    conn: asyncpg.Connection, identity: StaffIdentity, raw: object
-) -> int:
-    n = doc_so_ngay(raw, "Số ngày cảnh báo")
-    if n is None or not 1 <= n <= 30:
-        raise ValidationError("Số ngày cảnh báo: 1–30.")
-    await conn.execute(
-        """
-        INSERT INTO public.xet_nghiem_cai_dat (clinic_id, nguong_lay_mau_ngay, sua_boi)
-        VALUES ($1::uuid, $2, $3::uuid)
-        ON CONFLICT (clinic_id) DO UPDATE
-           SET nguong_lay_mau_ngay = EXCLUDED.nguong_lay_mau_ngay,
-               sua_luc = now(), sua_boi = EXCLUDED.sua_boi
-        """,
-        identity.clinic_id,
-        n,
-        identity.staff_id,
-    )
-    await _vet(
-        conn,
-        identity,
-        "lab.settings_saved",
-        "xet_nghiem_cai_dat",
-        identity.clinic_id,
-        {"nguong_lay_mau_ngay": n},
-    )
-    return n

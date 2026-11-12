@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import CongTac from "@/components/ui/CongTac";
 import ONhap from "@/components/ui/ONhap";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import { useNgheBang } from "../../dung-nghe-bang";
@@ -39,6 +40,7 @@ interface DanhSach {
   doi_tac: DoiTac[];
   dich_vu_thu_ho: { id: string; name: string; unit_price: number | null }[];
   nguong_lay_mau_ngay: number;
+  hien_ma_ong: boolean;
   /** Thư Gmail nhận từ ngày này mới được tự ghép (null = chưa tự ghép). */
   gmail_tu_ngay: string | null;
 }
@@ -133,6 +135,28 @@ export default function DoiTacView() {
         >
           Lưu
         </Button>
+        <div className="flex min-w-0 basis-full items-start gap-2 border-t border-line pt-3 sm:basis-auto sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+          <CongTac
+            nhan="Hiện mã ống"
+            bat={ds?.hien_ma_ong ?? false}
+            disabled={dang || !ds}
+            onDoi={(bat) =>
+              void gui(
+                "PUT",
+                "cai-dat",
+                { nguong_lay_mau_ngay: ds?.nguong_lay_mau_ngay, hien_ma_ong: bat },
+                bat ? "Đã bật: màn hiện mã ống." : "Đã tắt: màn không hiện mã ống.",
+              )
+            }
+          />
+          <div className="min-w-0 max-w-md">
+            <p className="text-meta font-semibold text-ink">Hiện mã ống</p>
+            <p className="text-meta text-ink-muted">
+              Tắt: mẫu vẫn được đánh số trong hệ thống nhưng không hiện ra màn. Bật khi phòng khám đã thống nhất cách ghi mã lên ống
+              với đối tác.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-2 rounded-card border border-line bg-surface p-4 shadow-card">

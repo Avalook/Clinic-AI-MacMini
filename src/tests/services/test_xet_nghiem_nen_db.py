@@ -15,6 +15,7 @@ import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.xet_nghiem import cai_dat_ban
 from clinicai.services.xet_nghiem import doi_tac as dt
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -257,11 +258,11 @@ async def test_db_ep_mot_dich_vu_mot_mac_dinh(pool: asyncpg.Pool) -> None:  # no
 async def test_nguong_luu_va_doc(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     async with pool.acquire() as conn, conn.transaction():
-        assert await dt.luu_nguong(conn, ca.bac_si, "3") == 3
-        assert await dt.doc_nguong(conn, CLINIC) == 3
+        assert await cai_dat_ban.luu_nguong(conn, ca.bac_si, "3") == 3
+        assert (await cai_dat_ban.doc_cai_dat(conn, CLINIC)).nguong_lay_mau_ngay == 3
         with pytest.raises(ValidationError):
-            await dt.luu_nguong(conn, ca.bac_si, "0")
-        await dt.luu_nguong(conn, ca.bac_si, 2)
+            await cai_dat_ban.luu_nguong(conn, ca.bac_si, "0")
+        await cai_dat_ban.luu_nguong(conn, ca.bac_si, 2)
 
 
 async def test_danh_sach_co_anh_xa_va_dich_vu_thu_ho(

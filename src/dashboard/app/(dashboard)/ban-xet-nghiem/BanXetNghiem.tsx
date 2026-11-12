@@ -25,7 +25,8 @@ import CaiDat from "./CaiDat";
 import { useNgheBang } from "../dung-nghe-bang";
 import { ConTon, TienThuHo } from "./CacTab";
 import KetQuaKhach from "./KetQuaKhach";
-import { gioMoc, homNayVN, ngayVN, type Ban, type Khach, type Viec } from "./kieu";
+import KhungMauMoi from "./KhungMauMoi";
+import { gioMoc, homNayVN, type Ban, type Khach, type Viec } from "./kieu";
 import PopupKhach from "./PopupKhach";
 import TheViec from "./TheViec";
 
@@ -37,6 +38,8 @@ const BANG = [
   "mau_xet_nghiem_viec",
   "xet_nghiem_dong",
   "tep_ket_qua",
+  // Công tắc "Hiện mã ống" đổi ⇒ bàn đang mở nạp lại ngay (có / không mã).
+  "xet_nghiem_cai_dat",
 ] as const;
 
 type Tab = "ngay" | "ton" | "kq" | "tien" | "cd";
@@ -62,7 +65,8 @@ export default function BanXetNghiem() {
   const [gop, setGop] = useState<string[]>([]);
   const [bao, setBao] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
-  const [mauMoi, setMauMoi] = useState<{ ma: string; hen: string | null } | null>(null);
+  // `ma` null khi công tắc "Hiện mã ống" tắt (máy chủ không trả mã).
+  const [mauMoi, setMauMoi] = useState<{ ma: string | null; hen: string | null } | null>(null);
   const [popup, setPopup] = useState<string | null>(null);
   const [moVua, setMoVua] = useState<string | null>(null);
 
@@ -161,14 +165,15 @@ export default function BanXetNghiem() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order_ids: ids }),
     }).catch(() => null);
-    const d = (await r?.json().catch(() => null)) as { ma_mau?: string; hen_tra_ngay?: string | null } | null;
-    if (!r?.ok || !d?.ma_mau) {
+    const d = (await r?.json().catch(() => null)) as { ma_mau?: string | null; hen_tra_ngay?: string | null } | null;
+    // Thành công xét theo r.ok — công tắc "Hiện mã ống" tắt thì máy chủ không trả mã.
+    if (!r?.ok || !d) {
       setLoi(loiDocDuoc(d, r ? `Chưa lấy mẫu được (HTTP ${r.status}).` : "Mất kết nối — chưa lấy mẫu."));
       return;
     }
-    setMauMoi({ ma: d.ma_mau, hen: d.hen_tra_ngay ?? null });
+    setMauMoi({ ma: d.ma_mau ?? null, hen: d.hen_tra_ngay ?? null });
     setGop([]);
-    await xong(`Đã lấy mẫu — mã ống ${d.ma_mau}.`);
+    await xong(d.ma_mau ? `Đã lấy mẫu — mã ống ${d.ma_mau}.` : "Đã lấy mẫu.");
   }
 
   const soTon = (ban?.viec ?? []).filter((v) => cuaDt(v) && v.trang_thai.con_ton).length;
@@ -205,7 +210,7 @@ export default function BanXetNghiem() {
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="relative w-full sm:w-72">
-          <OTimKhach value={tim} onChange={setTim} nhan="Tìm tên khách, mã khách, mã mẫu" />
+          <OTimKhach value={tim} onChange={setTim} nhan={ban?.hien_ma_ong ? "Tìm tên khách, mã khách, mã mẫu" : "Tìm tên khách, mã khách"} />
           {tim.trim() ? (
             <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-control border border-line bg-surface shadow-card">
               {timRa.map((k) => (
@@ -383,13 +388,7 @@ export default function BanXetNghiem() {
                   ))}
                 </div>
               ) : null}
-              {mauMoi ? (
-                <div className="rounded-card border border-line bg-surface p-4 text-center shadow-card">
-                  <p className="text-meta text-ink-muted">Mã ống — viết / dán lên ống</p>
-                  <p className="font-mono text-title font-bold tracking-widest text-ink">{mauMoi.ma}</p>
-                  {mauMoi.hen ? <p className="text-meta text-ink-muted">Hẹn trả {ngayVN(mauMoi.hen)}</p> : null}
-                </div>
-              ) : null}
+              {mauMoi ? <KhungMauMoi ma={mauMoi.ma} hen={mauMoi.hen} /> : null}
               {viecDang.map((v) => (
                 <TheViec key={v.order_id} v={v} moVua={moVua === v.order_id} onXong={(c) => void xong(c)} onLayMau={(ids) => void layMau(ids)} />
               ))}

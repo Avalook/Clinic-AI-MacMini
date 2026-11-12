@@ -13,6 +13,7 @@ from uuid import UUID
 import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.services.xet_nghiem.cai_dat_ban import doc_cai_dat
 
 #: Trần dòng quá trình một việc (thực tế < 20; chạm trần ⇒ cảnh báo, không cắt im lặng).
 TRAN = 200
@@ -24,7 +25,11 @@ def _vnd(cot: str) -> str:
     return f"(replace(to_char({cot}, 'FM999,999,999,990'), ',', '.') || 'đ')"
 
 
-#: $1 clinic · $2 service_order. Mỗi nhánh: (luc, viec, boi).
+#: Mã ống chỉ kèm vào câu khi $3 (công tắc "Hiện mã ống") bật — tắt thì câu không mã.
+_MA_SAU_PHAY = "(CASE WHEN $3::boolean THEN ', mã ống ' || m.ma_mau ELSE '' END)"
+_MA_SAU_CACH = "(CASE WHEN $3::boolean THEN ' ' || m.ma_mau ELSE '' END)"
+
+#: $1 clinic · $2 service_order · $3 hiện mã ống. Mỗi nhánh: (luc, viec, boi).
 _QUA_TRINH_SQL = f"""
 WITH b AS (
     SELECT x.tao_luc AS luc, 'Chỉ định xét nghiệm' AS viec, o.recorded_by AS boi
@@ -61,13 +66,13 @@ WITH b AS (
       JOIN doi_tac_thanh_toan t ON t.id = h.thanh_toan_id AND t.clinic_id = h.clinic_id
      WHERE h.clinic_id = $1::uuid AND t.service_order_id = $2::uuid
     UNION ALL
-    SELECT m.lay_luc, 'Lấy mẫu, mã ống ' || m.ma_mau
+    SELECT m.lay_luc, 'Lấy mẫu' || {_MA_SAU_PHAY}
            || coalesce(', hẹn trả ' || to_char(m.hen_tra_ngay, 'DD/MM'), ''), m.lay_boi
       FROM mau_xet_nghiem_viec mv
       JOIN mau_xet_nghiem m ON m.id = mv.mau_id
      WHERE mv.clinic_id = $1::uuid AND mv.service_order_id = $2::uuid
     UNION ALL
-    SELECT m.huy_luc, 'Huỷ mẫu ' || m.ma_mau || ': ' || m.huy_ly_do, m.huy_boi
+    SELECT m.huy_luc, 'Huỷ mẫu' || {_MA_SAU_CACH} || ': ' || m.huy_ly_do, m.huy_boi
       FROM mau_xet_nghiem_viec mv
       JOIN mau_xet_nghiem m ON m.id = mv.mau_id
      WHERE mv.clinic_id = $1::uuid AND mv.service_order_id = $2::uuid
@@ -83,7 +88,7 @@ WITH b AS (
      WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid
        AND k.da_xoa_luc IS NOT NULL
     UNION ALL
-    SELECT mv.go_luc, 'Gỡ việc khỏi ống ' || m.ma_mau, mv.go_boi
+    SELECT mv.go_luc, 'Gỡ việc khỏi ống' || {_MA_SAU_CACH}, mv.go_boi
       FROM mau_xet_nghiem_viec mv
       JOIN mau_xet_nghiem m ON m.id = mv.mau_id
      WHERE mv.clinic_id = $1::uuid AND mv.service_order_id = $2::uuid
@@ -138,6 +143,7 @@ async def doc(
         oid = str(UUID(str(order_id)))
     except ValueError:
         return []
-    rows = await conn.fetch(_QUA_TRINH_SQL, cid, oid)
+    hien = (await doc_cai_dat(conn, cid)).hien_ma_ong
+    rows = await conn.fetch(_QUA_TRINH_SQL, cid, oid, hien)
     canh_bao_neu_day("xet_nghiem_qua_trinh", len(rows), TRAN, clinic_id=cid)
     return [{"luc": r["luc"], "viec": r["viec"], "ai": r["ai"]} for r in rows]
