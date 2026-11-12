@@ -1,8 +1,6 @@
 /**
- * Xác nhận tệp kết quả external — kiểm tra vận hành trước khi Bác sĩ duyệt gửi.
- * Dành cho bất kỳ nhân sự nào có capability 'ket_qua.xac_nhan'.
- *
- * CURRENT LIMITATION: SINGLE-PARTNER PILOT ONLY.
+ * Xác nhận tệp kết quả đối tác (đúng khách, đúng chỉ định) trước khi CSKH gửi khách.
+ * Ai có quyền Xác nhận kết quả (`result.file.confirm`) đều vào được.
  */
 
 import { requireNavAccess } from "@/lib/clinic-session";
