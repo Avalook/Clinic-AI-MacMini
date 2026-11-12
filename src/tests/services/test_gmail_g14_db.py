@@ -6,12 +6,14 @@ thêm" của khách (tự học), số đã có thì thôi."""
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import Any
 
 import asyncpg
 import pytest
 
-from clinicai.services.xet_nghiem import ghep_khach, gmail, gmail_goi_y
+from clinicai.core.clock import hom_nay_vn
+from clinicai.services.xet_nghiem import ghep_khach, gmail, gmail_bu_cu, gmail_goi_y
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
@@ -81,14 +83,85 @@ async def test_lech_nam_sinh_hoac_trung_ten_thi_khong_tu_gan(
     d = await _dong(pool, mid)
     assert d["tep_ket_qua_id"] is None and d["ly_do_cho"] == "KHONG_KHOP_KHACH"
     assert d["goi_y_clinic_patient_id"] == v["kh"]
-    # Cả phòng khám có HAI hồ sơ đang dùng mang đúng tên này ⇒ không tự gán.
+    # Cả phòng khám có HAI hồ sơ đang dùng mang đúng tên + năm sinh này ⇒ không tự gán.
     v2, ten2 = await _khach(pool, c3)
     trung = await c3.viec(pool, ban_xn=False)
     await _ten(pool, trung["kh"], ten2)
+    await _nam(pool, trung["kh"], 1983)
     mid2 = c3.thu(ten2, SDT_PHIEU)
     await gmail.mot_vong(pool)
     d2 = await _dong(pool, mid2)
     assert d2["tep_ket_qua_id"] is None
+
+
+async def test_trung_ten_khac_nam_hoac_khong_ro_nam_van_tu_gan(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+    ns_tren_phieu: None,
+) -> None:
+    # Tuyền 12/11: nhiều hồ sơ cùng tên, chỉ MỘT người đúng năm sinh phiếu ⇒ tự gán.
+    # Hồ sơ cùng tên không rõ năm sinh không tính. Năm của khách lấy từ NGÀY sinh khi
+    # cột năm sinh trống (có ca prod như vậy).
+    v, ten = await _khach(pool, c3)
+    await pool.execute(
+        "UPDATE patient SET birth_year = NULL, date_of_birth = '1983-05-02'"
+        " WHERE clinic_patient_id = $1::uuid",
+        v["kh"],
+    )
+    khac_nam = await c3.viec(pool, ban_xn=False)
+    await _ten(pool, khac_nam["kh"], ten)
+    await _nam(pool, khac_nam["kh"], 1990)
+    khong_ro = await c3.viec(pool, ban_xn=False)
+    await _ten(pool, khong_ro["kh"], ten)
+    await _nam(pool, khong_ro["kh"], None)
+    mid = c3.thu(ten, SDT_PHIEU)
+    await gmail.mot_vong(pool)
+    to = await _to(pool, (await _dong(pool, mid))["id"])
+    assert (to["kh"], to["oid"]) == (v["kh"], v["oid"])
+
+
+async def test_nguoi_gan_thu_cu_thi_ghi_da_tra_ngoai_he_thong(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+    ns_tren_phieu: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Tuyền 12/11: thư về TRƯỚC mốc 11/11 mà giờ mới gán ⇒ tờ "đã trả ngoài hệ thống",
+    # không sinh việc CSKH "Kết quả chưa gửi"; thư từ mốc ⇒ tờ chưa gửi như thường.
+    # drive_tep khoá ngày thư (không lùi được) ⇒ dời MỐC thay vì lùi thư, như test bù.
+    nguoi = await _nguoi(pool)
+    ket_qua = {}
+    for cu, moc in ((True, hom_nay_vn() + timedelta(days=1)), (False, hom_nay_vn())):
+        monkeypatch.setattr(gmail_bu_cu, "MOC_MAC_DINH", moc)
+        v, ten = await _khach(pool, c3, ns=1984)  # lệch năm sinh ⇒ máy không tự gán
+        mid = c3.thu(ten, SDT_PHIEU)
+        await gmail.mot_vong(pool)
+        d = await _dong(pool, mid)
+        assert d["tep_ket_qua_id"] is None
+        kq = await gmail_goi_y.gan_cho_khach(
+            pool, nguoi, {"drive_tep_id": d["id"], "clinic_patient_id": v["kh"]}
+        )
+        ket_qua[cu] = await pool.fetchrow(
+            "SELECT xac_nhan_trang_thai AS tt, gui_kenh, gui_boi_staff_id::text AS boi"
+            " FROM tep_ket_qua WHERE id = $1::uuid",
+            kq["tep_id"],
+        )
+    thu_cu, moi = ket_qua[True], ket_qua[False]
+    assert (thu_cu["tt"], thu_cu["gui_kenh"], thu_cu["boi"]) == (
+        "HOP_LE",
+        gmail_bu_cu.KENH,
+        nguoi.staff_id,
+    )
+    assert (moi["tt"], moi["gui_kenh"]) == ("HOP_LE", None)
+
+
+async def _nam(pool: asyncpg.Pool, kh: str, nam: int | None) -> None:  # noqa: F811
+    await pool.execute(
+        "UPDATE patient SET birth_year = $2, date_of_birth = NULL"
+        " WHERE clinic_patient_id = $1::uuid",
+        kh,
+        nam,
+    )
 
 
 async def test_nguoi_gan_thi_hoc_sdt_tren_phieu(

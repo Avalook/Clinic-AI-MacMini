@@ -18,7 +18,9 @@ cho ~671 tờ cũ sẽ phát `result_file.confirmed` / `sent_to_patient` ⇒ ~67
 chạy lại vòng đọc của các lượt đã đóng, ~671 dòng dòng-thời-gian "đã gửi" giả; và
 `danh_dau_da_gui` từ chối kênh ngoài `KENH_GUI_HOP_LE` (đúng ý: màn không được chọn
 kênh này). Lệnh một lần ⇒ ghi thẳng, giữ đủ ràng buộc DB (trigger chuyển trạng thái,
-cấm gửi tờ chưa Hợp lệ), sự kiện riêng `lab.old_result_*` để soát / hoàn tác.
+cấm gửi tờ chưa Hợp lệ), sự kiện riêng `lab.old_result_*` để soát / hoàn tác. Ngoài
+lệnh, chỉ một chỗ dùng lại (Tuyền 12/11): NGƯỜI gán một thư còn sót về trước mốc
+(`danh_khi_gan_thu_cu`) — tập thư hữu hạn, không lớn thêm.
 
     python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi "TÊN TK"   # xem trước
     python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi "TÊN TK" --chay
@@ -63,6 +65,7 @@ SELECT k.id::text AS tep_id, k.xac_nhan_trang_thai AS truoc, d.ten AS lab,
  WHERE k.clinic_id = $1::uuid AND k.gui_luc IS NULL
    AND k.xac_nhan_trang_thai IN ('CHO_XAC_NHAN', 'HOP_LE')
    AND (t.email_nhan_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date < $2::date
+   AND ($3::uuid IS NULL OR k.id = $3::uuid)
  ORDER BY t.email_nhan_luc, k.id
 """
 # Tờ của lô `$2` mà lần đánh GẦN NHẤT của nó đúng là lô này (đánh lại ở lô sau ⇒ không
@@ -94,7 +97,7 @@ def trong_gio_kham(luc: datetime) -> bool:
 async def xem_truoc(conn: asyncpg.Connection, cid: str, moc: date) -> Counter[str]:
     """Số tờ sẽ được đánh, theo lab · trạng thái · gắn vào đâu. Không ghi gì."""
     dem: Counter[str] = Counter()
-    for r in await conn.fetch(_CHON_SQL, cid, moc):
+    for r in await conn.fetch(_CHON_SQL, cid, moc, None):
         noi = "theo lượt" if r["theo_luot"] else "chỉ định"
         dem[f"{r['lab']} · {r['truoc']} · {noi}"] += 1
     return dem
@@ -106,35 +109,56 @@ async def chay(pool: asyncpg.Pool, ai: StaffIdentity, moc: date) -> dict[str, An
     da = Counter[str]()
     async with pool.acquire() as conn, conn.transaction():
         await kiem_tra_quyen_xac_nhan(conn, identity=ai)
-        for r in await conn.fetch(_CHON_SQL, ai.clinic_id, moc):
-            if r["truoc"] == "CHO_XAC_NHAN":
-                await conn.execute(
-                    "UPDATE tep_ket_qua SET xac_nhan_trang_thai = 'HOP_LE',"
-                    "       xac_nhan_luc = now(), xac_nhan_boi_staff_id = $3::uuid,"
-                    "       xac_nhan_ly_do = $4"
-                    " WHERE clinic_id = $1::uuid AND id = $2::uuid"
-                    "   AND xac_nhan_trang_thai = 'CHO_XAC_NHAN'",
-                    ai.clinic_id,
-                    r["tep_id"],
-                    ai.staff_id,
-                    LY_DO,
-                )
-            n = await conn.execute(
-                "UPDATE tep_ket_qua SET gui_luc = now(), gui_boi_staff_id = $3::uuid,"
-                "       gui_kenh = $4"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid AND gui_luc IS NULL"
-                "   AND da_xoa_luc IS NULL AND xac_nhan_trang_thai = 'HOP_LE'",
-                ai.clinic_id,
-                r["tep_id"],
-                ai.staff_id,
-                KENH,
-            )
-            if n != "UPDATE 1":
+        for r in await conn.fetch(_CHON_SQL, ai.clinic_id, moc, None):
+            if await _danh(conn, ai, r, lo):
+                da[r["truoc"]] += 1
+            else:
                 da["bo_qua"] += 1
-                continue
-            await _su_kien(conn, ai, r, lo, "", hoan=False)
-            da[r["truoc"]] += 1
     return {"lo": lo, **da}
+
+
+async def danh_khi_gan_thu_cu(
+    pool: asyncpg.Pool, ai: StaffIdentity, tep_id: str
+) -> bool:
+    """NGƯỜI vừa gán một thư về TRƯỚC mốc (Tuyền 12/11: "thư cũ gán sau ⇒ tự ghi đã trả
+    ngoài hệ thống") ⇒ đánh ĐÚNG tờ vừa tạo như lệnh bù, người gán đứng tên, lô riêng
+    (hoàn tác được như mọi lô). Là hệ quả của luật đã duyệt, không phải thao tác gửi của
+    người bấm ⇒ không đòi quyền gửi / xác nhận. Thư từ mốc trở đi ⇒ không đụng.
+    Máy tự gán thư cũ (xét lại) không có người đứng tên (DB bắt `gui_boi`) ⇒ chạy lại
+    lệnh bù sau lần xét lại."""
+    async with pool.acquire() as conn, conn.transaction():
+        r = await conn.fetchrow(_CHON_SQL, ai.clinic_id, MOC_MAC_DINH, tep_id)
+        return r is not None and await _danh(conn, ai, r, str(uuid.uuid4()))
+
+
+async def _danh(conn: asyncpg.Connection, ai: StaffIdentity, r: Any, lo: str) -> bool:
+    """Một tờ: Chờ xác nhận ⇒ Hợp lệ, rồi mốc gửi NGOAI_HE_THONG + sự kiện của lô."""
+    if r["truoc"] == "CHO_XAC_NHAN":
+        await conn.execute(
+            "UPDATE tep_ket_qua SET xac_nhan_trang_thai = 'HOP_LE',"
+            "       xac_nhan_luc = now(), xac_nhan_boi_staff_id = $3::uuid,"
+            "       xac_nhan_ly_do = $4"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+            "   AND xac_nhan_trang_thai = 'CHO_XAC_NHAN'",
+            ai.clinic_id,
+            r["tep_id"],
+            ai.staff_id,
+            LY_DO,
+        )
+    n = await conn.execute(
+        "UPDATE tep_ket_qua SET gui_luc = now(), gui_boi_staff_id = $3::uuid,"
+        "       gui_kenh = $4"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid AND gui_luc IS NULL"
+        "   AND da_xoa_luc IS NULL AND xac_nhan_trang_thai = 'HOP_LE'",
+        ai.clinic_id,
+        r["tep_id"],
+        ai.staff_id,
+        KENH,
+    )
+    if n != "UPDATE 1":
+        return False
+    await _su_kien(conn, ai, r, lo, "", hoan=False)
+    return True
 
 
 async def so_to_cua_lo(conn: asyncpg.Connection, cid: str, lo: str) -> int:

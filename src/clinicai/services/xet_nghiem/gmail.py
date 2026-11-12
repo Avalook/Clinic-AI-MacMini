@@ -204,11 +204,13 @@ async def _ten_nam_sinh(
     nhan_luc: datetime,
     q: gmail_ghep.QuyetGmail,
 ) -> gmail_ghep.QuyetGmail:
-    """G14 (Tuyền 12/11): SĐT lệch hồ sơ mà tên + năm sinh khớp ĐÚNG MỘT khách duy
-    nhất mang tên đó, khách có chỉ định của lab ⇒ quyết như khách đã khớp (cùng
-    `quyet_mot_khach`: một chỉ định chờ ⇒ tự gán; nhiều / đã có tờ ⇒ lý do + gợi ý).
-    Không chắc ⇒ giữ `q` (G9 gợi ý, người gán)."""
-    so = await gmail_luu.dem_khach_cung_ten(conn, cid, doc.ten)
+    """G14 (Tuyền 12/11): SĐT lệch hồ sơ mà tên + năm sinh khớp ĐÚNG MỘT khách — cả
+    phòng khám chỉ một hồ sơ mang cặp tên + năm sinh đó — và khách có chỉ định của lab
+    ⇒ quyết như khách đã khớp (cùng `quyet_mot_khach`: một chỉ định chờ ⇒ tự gán;
+    nhiều / đã có tờ ⇒ lý do + gợi ý). Không chắc ⇒ giữ `q` (G9 gợi ý, người gán)."""
+    if doc.nam_sinh is None:
+        return q
+    so = await gmail_luu.dem_khach_cung_ten(conn, cid, doc.ten, doc.nam_sinh)
     kh = gmail_ghep.khop_ten_nam_sinh(doc, viec, so)
     if kh is None:
         return q

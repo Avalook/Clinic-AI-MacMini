@@ -14,7 +14,7 @@ ghép việc đã lấy mẫu" chỉ còn ở Drive).
 Quyết định là MỘT hàm thuần `quyet` (test bằng bảng). Khớp tên + SĐT = luật duy nhất
 `ghep_khach.khop_ds` (cùng luật Drive). Năm sinh để gỡ khi nhiều khách cùng khớp, và
 (G14, 12/11) để tự gán khi SĐT lệch: `khop_ten_nam_sinh` — tên trùng nguyên + năm sinh
-+ chỉ một khách tên đó + có chỉ định của lab.
++ chỉ một hồ sơ mang cặp tên + năm sinh đó + có chỉ định của lab.
 Không ghép theo mã mẫu của lab, không theo mã xét nghiệm trong tên tệp. Không chắc ⇒
 hàng ghép tay kèm lý do + gợi ý, KHÔNG đoán.
 """
@@ -125,10 +125,11 @@ def quyet_mot_khach(
 def khop_ten_nam_sinh(d: DocThu, viec: list[UngVien], so_cung_ten: int) -> str | None:
     """HÀM THUẦN (G14, Tuyền 12/11): thư KHÔNG khớp tên + SĐT ⇒ vẫn chắc là khách
     `kh` khi CẢ BỐN: tên trên phiếu TRÙNG NGUYÊN tên hồ sơ (bỏ dấu) · năm sinh trên
-    phiếu = năm sinh hồ sơ · cả phòng khám chỉ MỘT khách đang dùng mang tên đó
-    (`so_cung_ten`, người gọi đếm) · khách đó có chỉ định của lab này trong cửa sổ
-    (`viec`). Lab ghi SĐT khác hồ sơ (số mới / số người nhà — prod 12/11: 33/59 thư chờ
-    là "tên khớp, SĐT khác"). Thiếu một điều kiện ⇒ None (người gán, như cũ)."""
+    phiếu = năm sinh hồ sơ · cả phòng khám chỉ MỘT hồ sơ đang dùng mang cặp tên + năm
+    sinh đó (`so_cung_ten`, người gọi đếm; hồ sơ không rõ năm sinh không tính) ·
+    khách đó có chỉ định của lab này trong cửa sổ (`viec`). Lab ghi SĐT khác hồ sơ (số
+    mới / số người nhà — prod 12/11: 33/59 thư chờ là "tên khớp, SĐT khác"). Thiếu một
+    điều kiện ⇒ None (người gán, như cũ)."""
     t = chuan(d.ten)
     if not t or d.nam_sinh is None or so_cung_ten != 1:
         return None
