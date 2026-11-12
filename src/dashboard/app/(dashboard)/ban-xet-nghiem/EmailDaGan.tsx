@@ -30,6 +30,8 @@ interface ThuDaGan {
   da_gui: boolean;
   /** G13: đổi sang chỉ định khác của cùng khách (máy chủ tính: quyền, còn hiệu lực, chưa gửi). */
   chuyen_chi_dinh_duoc: boolean;
+  /** Tờ đang nằm trong một chỉ định (máy chủ tính) — nút chuyển đọc là "đổi". */
+  vao_chi_dinh: boolean;
   gan_vao: string;
   ten_khach: string;
   patient_code: string | null;
@@ -164,6 +166,7 @@ export default function EmailDaGan({ onXong }: { onXong: (bao: string) => void }
                 {t.chuyen_chi_dinh_duoc ? (
                   <ChuyenVaoChiDinh
                     tepId={t.tep_id}
+                    daOChiDinh={t.vao_chi_dinh}
                     onXong={(ten) => {
                       void tai();
                       onXong(`Đã chuyển tờ vào chỉ định ${ten}.`);
