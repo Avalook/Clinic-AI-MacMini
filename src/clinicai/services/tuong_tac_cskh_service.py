@@ -24,7 +24,7 @@ from clinicai.core.clock import CLINIC_TZ as GIO_VN
 from clinicai.core.clock import hom_nay_vn
 from clinicai.events.catalogue import CskhDaLienHe
 from clinicai.events.emit import emit_event, nguoi
-from clinicai.services.xet_nghiem.ket_qua import gui_theo_cskh
+from clinicai.services.gui_ket_qua_luot import danh_dau_ca_luot
 
 logger = structlog.get_logger()
 
@@ -289,9 +289,13 @@ class TuongTacCskhService:
                     boi=nguoi(identity),
                 )
 
-        # Sổ đã commit ⇒ bàn XN đối tác thấy "Đã gửi khách" (hàm tự nuốt lỗi).
-        if loai == "TRA_KQ":
-            await gui_theo_cskh(
+        # Sổ đã commit ⇒ MỌI tệp của lượt ghi đã gửi (hàm tự nuốt lỗi). CHỈ khi dòng
+        # sổ đóng đúng việc "Có kết quả, chưa gửi" (nút "Đã gửi kết quả cho bệnh
+        # nhân"): hai nút "Cần / Không cần tái khám" cũng ghi TRA_KQ (để hành trình
+        # tích xanh) nhưng KHÔNG phải lần gửi — từng ghi "đã gửi" cho tờ về sau
+        # mà chưa ai gửi (Tuyền 12/11/2026).
+        if loai == "TRA_KQ" and trang_thai_ma == "KQ_CHUA_GUI":
+            await danh_dau_ca_luot(
                 self._pool,
                 identity,
                 clinic_patient_id,

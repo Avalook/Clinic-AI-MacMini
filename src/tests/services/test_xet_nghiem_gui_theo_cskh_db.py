@@ -11,6 +11,7 @@ import asyncpg
 import pytest
 
 from clinicai.core.clock import hom_nay_vn
+from clinicai.services.tep_ket_qua_service import TepKetQuaService
 from clinicai.services.tuong_tac_cskh_service import TuongTacCskhService
 from clinicai.services.xet_nghiem import ket_qua, mau, thu_ho
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
@@ -54,7 +55,10 @@ async def _tra_kq(
     kh: str,
     ap: str | None,
     kenh: str = "GOI",
+    trang_thai_ma: str = "KQ_CHUA_GUI",
 ) -> dict[str, object]:
+    """Như màn: nút "Đã gửi kết quả" đóng KQ_CHUA_GUI; hai nút tái khám đóng
+    DA_TRA_KQ (cùng loai TRA_KQ)."""
     return await TuongTacCskhService(pool).ghi(
         identity=ca.bac_si,
         clinic_patient_id=kh,
@@ -63,6 +67,7 @@ async def _tra_kq(
         kenh=kenh,
         ket_qua="DA_LIEN_HE",
         noi_dung="Đã gửi kết quả cho bệnh nhân",
+        trang_thai_ma=trang_thai_ma,
     )
 
 
@@ -126,6 +131,53 @@ async def test_tra_kq_chon_kenh_thi_to_ghi_dung_kenh(
         )
         == kenh
     )
+
+
+async def test_nut_da_gui_ghi_ca_tep_noi_bo_cua_luot(
+    pool: asyncpg.Pool,  # noqa: F811
+    kho: None,  # noqa: F811
+) -> None:
+    # Tuyền 12/11: nút "Đã gửi kết quả cho bệnh nhân" ghi đã gửi MỌI tệp của lượt —
+    # cả tệp nội bộ (ảnh siêu âm / PDF CSKH tải, gắn lịch hẹn), không chỉ tờ đối tác.
+    ca, o1, _ = await _den_lay_mau(pool)
+    v1 = await _tt(pool, ca, o1)
+    kh, ap = await _lich_cua(pool, v1["visit_id"])
+    noi_bo = await TepKetQuaService(pool).tai_len(
+        identity=ca.bac_si,
+        clinic_patient_id=kh,
+        data=PDF_DUMMY,
+        ten_hien_thi="sieu-am.pdf",
+        appointment_id=ap,
+    )
+    assert (await _tra_kq(pool, ca, kh, ap, kenh="ZALO"))["ok"]
+    assert (
+        await pool.fetchval(
+            "SELECT gui_kenh FROM tep_ket_qua WHERE id = $1::uuid", noi_bo["id"]
+        )
+        == "ZALO"
+    )
+
+
+async def test_hai_nut_tai_kham_khong_ghi_da_gui_to_ve_sau(
+    pool: asyncpg.Pool,  # noqa: F811
+    kho: None,  # noqa: F811
+) -> None:
+    # Lỗi cũ (Tuyền 12/11): ở bước "Đã trả kết quả", nút "Cần / Không cần tái khám"
+    # cũng ghi TRA_KQ ⇒ tờ đối tác về SAU (chưa ai gửi) bị ghi "đã gửi Trực tiếp".
+    ca, o1, _ = await _den_lay_mau(pool)
+    await ket_qua.tai_tay(
+        pool, ca.bac_si, o1, hom_nay_vn(), data=PDF_DUMMY, ten="kq.pdf"
+    )
+    v1 = await _tt(pool, ca, o1)
+    kh, ap = await _lich_cua(pool, v1["visit_id"])
+    assert (await _tra_kq(pool, ca, kh, ap, trang_thai_ma="DA_TRA_KQ"))["ok"]
+    assert (
+        await pool.fetchval(
+            "SELECT gui_luc FROM tep_ket_qua WHERE id = $1::uuid", v1["tep_id"]
+        )
+        is None
+    )
+    assert (await _tt(pool, ca, o1))["trang_thai"]["ma"] == "CO_KET_QUA"
 
 
 async def test_tra_kq_khi_chua_co_to_nao_khong_loi_khong_gui(
