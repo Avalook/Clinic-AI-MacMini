@@ -10,8 +10,8 @@
 // PDF DỰNG TỪ CHÍNH KHUNG ĐANG XEM: thấy gì tải nấy. Chụp khung thành ảnh
 // (html-to-image — trình duyệt tự vẽ nên đủ dấu tiếng Việt, không cần nhúng
 // font) rồi cắt theo trang A4 (jspdf). Không thêm dịch vụ dựng PDF nào trên máy
-// chủ. Kết quả CHƯA được bác sĩ duyệt vẫn in, nhưng mang nhãn "chờ bác sĩ duyệt"
-// ngay cạnh — bản PDF không được trông như đã chốt khi chưa chốt.
+// chủ. Không còn bước bác sĩ duyệt / cho phép gửi (Tuyền 12/11/2026) ⇒ mọi kết quả
+// in như nhau.
 
 import { useEffect, useRef, useState } from "react";
 import { Download, FileImage, FileText, FileVideo, X } from "lucide-react";
@@ -83,7 +83,6 @@ interface HoSo {
     so_byte: number;
     tai_len_luc: string;
     service_order_id: string | null;
-    duoc_gui: boolean;
   }[];
   xet_nghiem: {
     ten: string;
@@ -92,7 +91,6 @@ interface HoSo {
     thap: string | number | null;
     cao: string | number | null;
     co: string | null;
-    cho_duyet: boolean;
   }[];
   don_thuoc: {
     ten_thuoc: string | null;
@@ -265,14 +263,6 @@ function Muc({ tieuDe, children }: { tieuDe: string; children: React.ReactNode }
   );
 }
 
-function NhanCho({ chu }: { chu: string }) {
-  return (
-    <span className="ml-1 rounded-chip bg-warning-bg px-1.5 py-0.5 text-label font-semibold text-warning">
-      {chu}
-    </span>
-  );
-}
-
 const BIEU_TUONG = { ANH: FileImage, VIDEO: FileVideo } as const;
 
 export function NoiDungHoSo({ hs }: { hs: HoSo }) {
@@ -367,7 +357,6 @@ export function NoiDungHoSo({ hs }: { hs: HoSo }) {
           <ul className="space-y-2">
             {hs.chi_dinh.map((c) => {
               const cuaNo = hs.tep.filter((t) => t.service_order_id === c.id);
-              const coKetQua = Boolean(c.ket_qua || c.ket_qua_luc || cuaNo.length);
               return (
                 <li key={c.id} className="rounded-control border border-line p-2">
                   <p className="text-sm font-semibold">
@@ -376,7 +365,6 @@ export function NoiDungHoSo({ hs }: { hs: HoSo }) {
                       {TRANG_THAI_CHI_DINH[c.trang_thai] ?? c.trang_thai}
                       {c.nguoi_lam ? ` · ${c.nguoi_lam}` : ""}
                     </span>
-                    {coKetQua && !c.duyet_luc ? <NhanCho chu="Chờ bác sĩ duyệt" /> : null}
                   </p>
                   {c.ket_qua ? (
                     <p className="mt-1 whitespace-pre-wrap text-sm">{c.ket_qua}</p>
@@ -427,7 +415,6 @@ export function NoiDungHoSo({ hs }: { hs: HoSo }) {
                       {x.ket_qua ?? "—"}
                       {x.don_vi ? ` ${x.don_vi}` : ""}
                       {x.co && x.co !== "NORMAL" ? ` [${x.co}]` : ""}
-                      {x.cho_duyet ? <NhanCho chu="Chờ bác sĩ duyệt" /> : null}
                     </td>
                     <td className="py-1 pr-2 text-ink-muted">
                       {x.thap != null || x.cao != null ? `${x.thap ?? ""} – ${x.cao ?? ""}` : ""}
@@ -470,7 +457,6 @@ export function NoiDungHoSo({ hs }: { hs: HoSo }) {
                   />
                   <figcaption className="truncate text-label text-ink-muted">
                     {t.ten_hien_thi ?? "Ảnh"}
-                    {!t.duoc_gui ? " · chưa được phép gửi" : ""}
                   </figcaption>
                 </figure>
               ))}
@@ -492,7 +478,6 @@ export function NoiDungHoSo({ hs }: { hs: HoSo }) {
                     >
                       {t.ten_hien_thi ?? t.loai_tep}
                     </a>
-                    {!t.duoc_gui ? <NhanCho chu="Chưa được phép gửi" /> : null}
                   </li>
                 );
               })}

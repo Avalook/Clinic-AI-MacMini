@@ -14,6 +14,7 @@ import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
+import EmailDaGan from "./EmailDaGan";
 import GanKhachEmail from "./GanKhachEmail";
 import { useNgheBang } from "../dung-nghe-bang";
 import { CHUA_TAI, gioNgay, homNayVN, lenh, ngayNgan, type DriveCho, type Viec } from "./kieu";
@@ -364,6 +365,7 @@ export default function KetQuaKhach({
           </ul>
         </>
       ) : null}
+      <EmailDaGan onXong={onXong} />
     </section>
   );
 }

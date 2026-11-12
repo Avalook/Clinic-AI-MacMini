@@ -814,6 +814,10 @@ MODULE: dict[str, Module] = {
                 "lab.result_rejected",
                 "lab.drive_file_rejected",
                 "lab.archive_viewed",
+                "lab.email_result_reassigned",
+                "lab.email_result_moved_to_order",
+                "lab.old_result_marked_delivered",
+                "lab.old_result_mark_undone",
                 "lab.reopened",
             ],
             # Sổ thu hộ chuyển về đây (kế hoạch 3: lõi ghi/huỷ ở thu_ho.py; lệnh cũ
@@ -841,8 +845,9 @@ MODULE: dict[str, Module] = {
             phat=["patient.contacted"],
             # Sổ ghi chú chung về khách (27/09/2026) — khung phải CSKH/Tiếp đón.
             bang=["tuong_tac_cskh", "ghi_chu_khach"],
-            # TRA_KQ ⇒ tờ XN đối tác chưa gửi của lượt thành "Đã gửi khách".
-            goi_dong_bo=["xet_nghiem_doi_tac.SendLabResult"],
+            # Nút "Đã gửi kết quả" (TRA_KQ đóng KQ_CHUA_GUI) ⇒ mọi tệp của lượt "Đã
+            # gửi khách": tờ đối tác qua bàn XN, tệp còn lại qua result_file (12/11).
+            goi_dong_bo=["xet_nghiem_doi_tac.SendLabResult", "result_file.MarkSent"],
         ),
         Module(
             ma="lab",

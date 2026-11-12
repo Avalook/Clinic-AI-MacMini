@@ -28,7 +28,7 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import XetNghiemTepDrive
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.tep_ket_qua_service import TepKetQuaService, doc_dan
-from clinicai.services.xet_nghiem import drive_api
+from clinicai.services.xet_nghiem import drive_api, gmail_bu_cu
 from clinicai.services.xet_nghiem.ket_qua import _phat, _viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
@@ -259,6 +259,7 @@ async def _ghep(
         drive_nguoi_tai=r["drive_nguoi_tai"],
     )
     await ghi_da_ghep(pool, identity, r["id"], kq["id"])
+    await gmail_bu_cu.danh_khi_gan_thu_cu(pool, identity, kq["id"])
     await _phat(pool, identity, "den", v)
     return {"tep_id": kq["id"]}
 
@@ -363,7 +364,8 @@ async def gan_sang(
         ten_hien_thi=goc["ten_hien_thi"],
         service_order_id=moi["order_id"],
         la_tep_doi_tac=True,
-        tu_drive=goc["nguon"] == "DRIVE",
+        tu_drive=goc["nguon"] in ("DRIVE", "GMAIL"),
+        tu_gmail=goc["nguon"] == "GMAIL",
         drive_nguoi_tai=goc["drive_nguoi_tai"],
     )
     cau = f"Gán nhầm, đã gán sang {moi['ten_khach'] or 'khách khác'}: {ly}"
@@ -382,6 +384,7 @@ async def gan_sang(
         cu["tep_id"],
         kq["id"],
     )
+    await gmail_bu_cu.danh_khi_gan_thu_cu(pool, identity, kq["id"])
     await _phat(pool, identity, "thu_hoi", cu)
     await _phat(pool, identity, "den", moi)
     return {"tep_id": kq["id"]}

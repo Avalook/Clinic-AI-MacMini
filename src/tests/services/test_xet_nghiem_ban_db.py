@@ -179,6 +179,12 @@ async def test_kich_ban_3_den_9_o_tang_service(
         "SELECT xac_nhan_trang_thai, gui_luc FROM tep_ket_qua WHERE id = $1::uuid", tep
     )
     assert r["xac_nhan_trang_thai"] == "THU_HOI" and r["gui_luc"] is not None
+    # "Xem quá trình": dòng Thu hồi đọc cột thu_hoi_* (lý do + người thu hồi).
+    async with pool.acquire() as conn:
+        ds = await qua_trinh.doc(conn, CLINIC, o1)
+    th = [d for d in ds if d["viec"].startswith("Thu hồi tệp kết quả")]
+    assert [d["viec"] for d in th] == ["Thu hồi tệp kết quả: gửi nhầm bản"]
+    assert th[0]["ai"] is not None
     # 10. Tiền phòng khám không đổi.
     assert await _dem_tien_luot(pool, v["visit_id"]) == truoc
 

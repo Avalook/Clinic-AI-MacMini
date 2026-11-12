@@ -18,6 +18,8 @@ import { FileImage, FileVideo, FileText, Check } from "lucide-react";
 
 import Lightbox from "@/components/ui/Lightbox";
 
+import { KENH_GUI, KENH_NGOAI_HE_THONG, tenKenhGui } from "@/lib/kenh-gui";
+
 import { tepXem } from "../_lam-viec/AnhKetQua";
 import { type CoXoaTep, DaXoaGanDay, NutXoaTep, type TepDaXoa } from "../_lam-viec/XoaTep";
 
@@ -35,9 +37,6 @@ export interface TepKetQuaRow {
   gui_luc: string | null;
   gui_kenh: string | null;
   gui_boi: string | null;
-  /** Bác sĩ cho phép gửi lúc nào (null = chưa) — CSKH chỉ gửi sau mốc này. */
-  cho_phep_gui_luc: string | null;
-  cho_phep_gui_boi: string | null;
   /** false = tệp siêu âm / thủ thuật — không tính vào "Có kết quả xét nghiệm". */
   la_ket_qua_xet_nghiem?: boolean;
   /** Trạng thái xác nhận tệp external: CHO_XAC_NHAN, HOP_LE, TU_CHOI, THU_HOI (null = internal) */
@@ -50,12 +49,7 @@ const BIEU_TUONG = {
   PDF: FileText,
 } as const;
 
-const KENH: [string, string][] = [
-  ["ZALO", "Zalo"],
-  ["SMS", "SMS"],
-  ["TRUC_TIEP", "Đưa trực tiếp"],
-  ["EMAIL", "Email"],
-];
+const KENH = KENH_GUI;
 
 function coChu(byte: number): string {
   if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`;
@@ -439,8 +433,11 @@ export default function TepKetQua({
                   {t.gui_luc && (
                     <span className="ml-1 inline-flex items-center gap-0.5 text-success">
                       <Check className="size-3" strokeWidth={3} />
-                      đã gửi {gio(t.gui_luc)}
-                      {t.gui_kenh && ` (${t.gui_kenh})`}
+                      {/* Tờ bù 12/11: giờ ghi là lúc chạy lệnh, không phải lúc trả khách ⇒
+                          không in giờ. */}
+                      {t.gui_kenh === KENH_NGOAI_HE_THONG
+                        ? "đã trả khách ngoài hệ thống"
+                        : `đã gửi ${gio(t.gui_luc)}${t.gui_kenh ? ` (${tenKenhGui(t.gui_kenh)})` : ""}`}
                     </span>
                   )}
                 </p>
@@ -499,13 +496,8 @@ export default function TepKetQua({
                     Chờ xác nhận đúng người/chỉ định
                   </p>
                 )}
-                {!t.gui_luc && t.cho_phep_gui_luc && (
-                  <p className="mt-1 text-label text-success">
-                    {t.cho_phep_gui_boi ?? "Bác sĩ"} đã cho phép gửi {gio(t.cho_phep_gui_luc)}
-                  </p>
-                )}
-                {/* GỬI ĐƯỢC NGAY (Tuyền chốt 23/09/2026): không còn đợi bác sĩ
-                    cho phép. Tệp đối tác vẫn phải xác nhận đúng người/chỉ định. */}
+                {/* GỬI ĐƯỢC NGAY: không ai duyệt / cho phép gửi (Tuyền 23/09 và
+                    12/11/2026) — không in mốc "đã cho phép gửi" cũ. */}
                 {!readOnly && !t.gui_luc && coTheGui(t) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* NHÃN NÓI ĐÚNG SỰ THẬT: người xác nhận đã gửi, hệ thống

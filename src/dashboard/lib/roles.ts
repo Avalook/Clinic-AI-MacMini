@@ -457,9 +457,6 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Vào được màn không có nghĩa là cấp được quyền: backend đòi capability
   // `permission.manage`, nên người không có nó chỉ xem chứ bấm là bị từ chối.
   "/phan-quyen": ["MANAGEMENT"],
-  // Xác nhận tệp kết quả external — phân quyền bằng capability ket_qua.xac_nhan.
-  // Không giới hạn role ở đây; backend API và page fail-closed bằng capability.
-  "/xac-nhan-ket-qua": ALL_ROLES.filter((r) => r !== "PARTNER" && r !== "DISPLAY"),
   "/ops": ["MANAGEMENT"],
   "/tro-ly-thu": ["MANAGEMENT"],
   // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
@@ -702,9 +699,6 @@ const NAV_QUYEN: Record<string, string[]> = {
   // Lego Kho email (Gmail G2b): chỉ bằng QUYỀN, không vai nào (khối cấp riêng). Khớp
   // chính xác trước tiền tố ⇒ không lọt vào quyền partner.work của /ban-xet-nghiem.
   "/ban-xet-nghiem/kho-email": ["xet_nghiem.kho_email"],
-  // Hàng chờ xác nhận kết quả (G9): chỉ ai có quyền xác nhận tệp mới thấy mục — cửa
-  // API vẫn fail-closed bằng chính quyền này.
-  "/xac-nhan-ket-qua": ["result.file.confirm"],
   // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
   "/duyet-ket-qua": ["result.form.fill"],
 };

@@ -55,7 +55,7 @@ import { coTheGui, type TepKetQuaRow } from "./TepKetQua";
  *      được). BẤM VÒNG TRÒN là ghi vào sổ chăm sóc (tính KPI); bấm lại ô đã
  *      tích là hoàn tác — dòng vẫn nằm trong sổ, chỉ thôi được tính.
  *    · Ô KHOÁ — trạng thái do NGƯỜI KHÁC tạo (lễ tân check-in/checkout, đối tác
- *      gửi kết quả, bác sĩ cho phép gửi, bác sĩ quyết theo dõi thủ thuật). Chỉ
+ *      gửi kết quả, bác sĩ quyết theo dõi thủ thuật). Chỉ
  *      đồng bộ sang cho CSKH biết; vòng tròn không bấm được. Tuyền: *"không cho
  *      thao tác với nút tròn của node này nhé không là mâu thuẫn đấy"*.
  *
@@ -872,7 +872,7 @@ export default function VungLamViecKhach({
     );
   }
 
-  // ── Kết quả xét nghiệm của lượt: đối tác gửi → bác sĩ cho phép → CSKH gửi ──
+  // ── Kết quả xét nghiệm của lượt: có tệp → CSKH gửi (không ai duyệt, Tuyền 12/11) ──
   const coViec = (ma: string) => viecCuaLuot.some((v) => v.trang_thai === ma);
   // Chỉ tệp XÉT NGHIỆM / đối tác mới bật ô này — tệp siêu âm, thủ thuật thì
   // không (17/09/2026: vừa có video siêu âm đã báo "Bác sĩ đã cho phép gửi").
@@ -1244,9 +1244,9 @@ export default function VungLamViecKhach({
                 ten="Có kết quả xét nghiệm"
                 viec={
                   kqChoPhep
-                    ? "Bác sĩ đã cho phép gửi — xem tệp và gửi khách ở cột phải"
+                    ? "Có kết quả — xem tệp và gửi khách ở cột phải"
                     : kqDaVe
-                      ? "Kết quả đã về — chờ bác sĩ xem và cho phép gửi"
+                      ? "Kết quả đã về, chưa có tệp gửi được — xem ở cột phải"
                       : kqChoDoiTac
                         ? cauDoiTac || "Đang chờ đơn vị xét nghiệm gửi kết quả"
                         : "Chưa có kết quả nào cho lượt này"

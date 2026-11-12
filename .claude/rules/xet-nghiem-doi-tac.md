@@ -47,8 +47,12 @@ Kế hoạch: `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md`. Vì sao: `docs/adr/0015-xet
 - Đã gửi khách ⇒ chỉ **Thu hồi** (lý do, báo khách). Không xoá mốc gửi.
 
 ## Kết quả về
-- Tệp đối tác vào `tep_ket_qua` ở `CHO_XAC_NHAN`, hiện ngay, báo qua `bao_ket_qua_ve`.
-  **Không gỡ** trigger cấm gửi tệp chưa xác nhận. Gửi khách = "Đúng người, gửi" (một giao dịch, kênh bắt buộc).
+- **12/11/2026 Tuyền bỏ hẳn bước "Xác nhận kết quả đối tác"** (về luật 23/09): tệp đối tác — kể
+  cả MÁY NHẬN (Gmail / Drive) — vào `tep_ket_qua` ở `HOP_LE` ngay (migration
+  `20261112110000_hop_le_may_nhan`), hiện ngay, báo qua `bao_ket_qua_ve`. Không có màn / mục hàng
+  chờ xác nhận; sửa gắn nhầm ở Việc của đối tác → "Thư email đã gán". **Không gỡ** trigger cấm gửi
+  tệp chưa xác nhận (vẫn đúng khi phòng khám bật lại cờ `XAC_NHAN_TEP_DOI_TAC`). Gửi khách =
+  "Đúng người, gửi" (một giao dịch, kênh bắt buộc) — người nhìn tờ cuối là CSKH lúc gửi.
 - Tải tay: nhân viên đã chọn đúng việc ⇒ xác nhận cùng bước.
 - Drive: chỉ tài khoản dịch vụ / OAuth chỉ đọc; khoá chỉ trong biến môi trường (`.env.prod`);
   **cấm link công khai**; không gọi Drive từ trình duyệt. Mã trong tên tệp sai số kiểm,

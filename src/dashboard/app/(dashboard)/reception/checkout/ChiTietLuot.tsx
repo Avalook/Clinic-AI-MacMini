@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 
 import { fmtDateTimeOrDate } from "../../../../lib/datetime";
+import { tenKenhGui } from "@/lib/kenh-gui";
 import { sdtDoc } from "@/lib/sdt";
 
 export interface Blocker {
@@ -45,14 +46,14 @@ interface TheoDoi {
 interface TepTra {
   ten: string | null;
   loai_tep: string;
-  trang_thai: "CHO_BAC_SI" | "DUOC_GUI" | "DA_GUI";
+  /** Máy chủ tính; không còn bước bác sĩ cho phép gửi (12/11/2026). */
+  trang_thai: "CHUA_GUI" | "DA_GUI";
   gui_kenh: string | null;
   tai_len_luc: string;
 }
 
 const TRANG_THAI_TEP: Record<TepTra["trang_thai"], string> = {
-  CHO_BAC_SI: "Chờ bác sĩ cho phép gửi",
-  DUOC_GUI: "Bác sĩ đã cho gửi · CSKH chưa gửi",
+  CHUA_GUI: "Có kết quả · chưa gửi khách",
   DA_GUI: "Đã gửi khách",
 };
 
@@ -298,26 +299,26 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
           <DauMuc
             so={3}
             ten="Hồ sơ trả bệnh nhân"
-            xong={d.ho_so_tra.muc.filter((t) => t.trang_thai !== "CHO_BAC_SI").length}
+            xong={d.ho_so_tra.muc.filter((t) => t.trang_thai === "DA_GUI").length}
             tong={d.ho_so_tra.muc.length}
           />
           {/* Tệp kết quả THẬT của lượt, kèm trạng thái từng tệp. Gửi khách là
-              việc của CSKH sau khi bác sĩ cho phép — không chặn đóng lượt. */}
+              việc của CSKH (không ai duyệt trước) — không chặn đóng lượt. */}
           {d.ho_so_tra.muc.length === 0 ? (
             <p className="px-4 py-4 text-sm text-ink-muted">{d.ho_so_tra.vi_sao_rong}</p>
           ) : (
             <ul className="divide-y divide-line">
               {d.ho_so_tra.muc.map((t, i) => (
                 <li key={`${t.ten}-${i}`} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <Dau xong={t.trang_thai !== "CHO_BAC_SI"} />
+                  <Dau xong={t.trang_thai === "DA_GUI"} />
                   <span className="min-w-0 flex-1 truncate text-ink">{t.ten ?? "(không tên)"}</span>
                   <span
                     className={`shrink-0 text-right text-xs font-medium ${
-                      t.trang_thai === "CHO_BAC_SI" ? "text-warning" : "text-success"
+                      t.trang_thai === "DA_GUI" ? "text-success" : "text-ink-soft"
                     }`}
                   >
                     {TRANG_THAI_TEP[t.trang_thai]}
-                    {t.trang_thai === "DA_GUI" && t.gui_kenh ? ` (${t.gui_kenh})` : ""}
+                    {t.trang_thai === "DA_GUI" && t.gui_kenh ? ` (${tenKenhGui(t.gui_kenh)})` : ""}
                   </span>
                 </li>
               ))}

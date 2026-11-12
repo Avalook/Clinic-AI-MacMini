@@ -1,21 +1,13 @@
 /**
- * Xác nhận tệp kết quả external — kiểm tra vận hành trước khi Bác sĩ duyệt gửi.
- * Dành cho bất kỳ nhân sự nào có capability 'ket_qua.xac_nhan'.
- *
- * CURRENT LIMITATION: SINGLE-PARTNER PILOT ONLY.
+ * Màn "Xác nhận kết quả đối tác" ĐÃ BỎ (Tuyền 12/11/2026): tờ kết quả đối tác máy nhận
+ * Hợp lệ ngay; nhân viên theo dõi + gán / gán lại ở Việc của đối tác (tab Kết quả,
+ * mục "Thư email đã gán"). Link cũ (đánh dấu, chuông cũ) chuyển về đó.
  */
 
-import { requireNavAccess } from "@/lib/clinic-session";
-import HangChoXacNhanKetQua from "./HangChoXacNhanKetQua";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Xác nhận kết quả · ClinicAI" };
 export const dynamic = "force-dynamic";
 
-export default async function XacNhanKetQuaPage() {
-  await requireNavAccess("/xac-nhan-ket-qua");
-  return (
-    <main className="page-in p-4 xl:p-6">
-      <HangChoXacNhanKetQua />
-    </main>
-  );
+export default function XacNhanKetQuaPage() {
+  redirect("/ban-xet-nghiem");
 }

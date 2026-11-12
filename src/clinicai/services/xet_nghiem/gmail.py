@@ -50,6 +50,7 @@ from clinicai.services.xet_nghiem import (
     gmail_ghep,
     gmail_goi_y,
     gmail_luu,
+    gmail_ten_nam_sinh,
 )
 
 logger = structlog.get_logger()
@@ -186,6 +187,10 @@ async def muc_ca_thu(
                     conn, cid, q.goi_y_clinic_patient_id, thu.nhan_luc
                 )
                 q = gmail_ghep.gan_ho_so(q, luot)
+            if q.ly_do == "KHONG_KHOP_KHACH" and doc.ten and doc.nam_sinh:
+                q = await gmail_ten_nam_sinh.quyet(
+                    conn, cid, doc, viec, thu.nhan_luc, q
+                )
             if q.ly_do == "KHONG_KHOP_KHACH" and doc.ten:
                 # Tên HOẶC SĐT lệch hồ sơ (G9): gợi ý đúng một khách, không tự gán.
                 kh = await gmail_goi_y.tim(conn, cid, doc, viec)

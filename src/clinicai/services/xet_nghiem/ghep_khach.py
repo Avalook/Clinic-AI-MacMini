@@ -252,17 +252,23 @@ SELECT v.visit_id::text AS visit_id, v.appointment_id::text AS appointment_id
    AND v.appointment_id IS NOT NULL
    AND v.status <> 'INCOMPLETE'  -- khách bỏ về giữa chừng: không phải lượt lấy mẫu
    AND coalesce(v.checked_in_at, v.created_at) <= $3::timestamptz
-   AND coalesce(v.checked_in_at, v.created_at) > $3::timestamptz - interval '60 days'
+   AND coalesce(v.checked_in_at, v.created_at)
+       > $3::timestamptz - interval '1 day' * $4::int
  ORDER BY coalesce(v.checked_in_at, v.created_at) DESC
  LIMIT 1
 """
 
 
 async def luot_gan_nhat(
-    conn: asyncpg.Connection, cid: str, clinic_patient_id: str, truoc: datetime
+    conn: asyncpg.Connection,
+    cid: str,
+    clinic_patient_id: str,
+    truoc: datetime,
+    so_ngay: int = 60,
 ) -> tuple[str, str] | None:
-    """(visit_id, appointment_id) lượt gần nhất trước `truoc`; không có ⇒ None."""
-    r = await conn.fetchrow(_LUOT_SQL, cid, clinic_patient_id, truoc)
+    """(visit_id, appointment_id) lượt gần nhất trong `so_ngay` ngày trước `truoc`;
+    không có ⇒ None."""
+    r = await conn.fetchrow(_LUOT_SQL, cid, clinic_patient_id, truoc, so_ngay)
     return (r["visit_id"], r["appointment_id"]) if r else None
 
 

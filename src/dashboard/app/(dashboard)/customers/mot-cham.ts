@@ -101,7 +101,7 @@ export const NHAN_DA_LAM: Record<string, string> = {
   HOI_LY_DO_HUY: "Đã hỏi lý do huỷ",
   DA_CHECKIN: "Đã check-in",
   CHO_KQ_XN: "Đã hỏi kết quả xét nghiệm",
-  CHO_BAC_SI: "Đã nhắc bác sĩ duyệt",
+  CHO_BAC_SI: "Đã hỏi phòng làm kết quả",
   KQ_CHUA_GUI: "Đã gửi kết quả cho khách",
   DA_TRA_KQ: "Đã trả kết quả",
   KHONG_FOLLOW_UP: "Không cần follow up",

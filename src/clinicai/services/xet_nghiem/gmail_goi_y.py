@@ -15,15 +15,27 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any, Final
+from zoneinfo import ZoneInfo
 
 import asyncpg
+import structlog
 
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
-from clinicai.services.xet_nghiem import drive, ghep_khach, ghep_tay, gmail_doc
+from clinicai.services.xet_nghiem import (
+    drive,
+    ghep_khach,
+    ghep_tay,
+    gmail_bu_cu,
+    gmail_doc,
+)
 from clinicai.services.xet_nghiem.ghep_khach import UngVien, chuan
 from clinicai.services.xet_nghiem.gmail_doc import DocThu
+
+logger = structlog.get_logger()
+
+_VN: Final = ZoneInfo("Asia/Ho_Chi_Minh")
 
 #: Chữ đệm quá phổ biến — không đủ làm căn cứ "cùng người".
 _DEM_PHO_BIEN: Final = frozenset({"thi", "van"})
@@ -86,18 +98,25 @@ async def gan_cho_khach(
 
 
 async def _gan(
-    pool: asyncpg.Pool, identity: StaffIdentity, drive_tep_id: object, chon: object
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    drive_tep_id: object,
+    chon: object,
+    *,
+    dich: tuple[str | None, str | None, str | None] | None = None,
 ) -> dict[str, Any]:
+    """`dich` = (order_id, visit_id, appointment_id) NGƯỜI đã chọn (G13: chuyển tờ
+    theo lượt vào chỉ định); bỏ trống ⇒ máy chọn bằng `_dich` như tự ghép."""
     cid = identity.clinic_id
     r = await ghep_tay._dong_cho(pool, cid, drive_tep_id)
     if not ghep_tay.gan_khach_duoc(r["nguon"]):
         raise ConflictError("Chỉ thư email mới gán theo khách — tệp Drive dùng Gán.")
     kh = await _khach(pool, cid, chon)
     noi = await ghep_tay._byte(r)
-    loai = gmail_doc.loai_ket_qua(ghep_khach.chu_pdf(noi))
-    order_id, visit_id, appointment_id = await _dich(
-        pool, cid, r["doi_tac_id"], kh, r["email_nhan_luc"], loai
-    )
+    if dich is None:
+        loai = gmail_doc.loai_ket_qua(ghep_khach.chu_pdf(noi))
+        dich = await _dich(pool, cid, r["doi_tac_id"], kh, r["email_nhan_luc"], loai)
+    order_id, visit_id, appointment_id = dich
     kq = await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=kh,
@@ -112,7 +131,44 @@ async def _gan(
     await ghep_tay.ghi_da_ghep(pool, identity, r["id"], kq["id"])
     if order_id is not None:
         await drive._phat_den(pool, cid, drive.Quyet(order_id, kh, visit_id, None))
+    await _hoc_sdt(pool, identity, r["id"], kh, noi)
+    await gmail_bu_cu.danh_khi_gan_thu_cu(pool, identity, kq["id"])
     return {"tep_id": kq["id"], "vao_chi_dinh": order_id is not None}
+
+
+async def _hoc_sdt(
+    pool: asyncpg.Pool, identity: StaffIdentity, dong_id: str, kh: str, noi: bytes
+) -> None:
+    """G14 TỰ HỌC SĐT (Tuyền 12/11): NGƯỜI vừa gán thư cho khách `kh` mà SĐT trên phiếu
+    (đọc theo luật lab — `gmail_doc.doc_thu`, không lấy hotline của lab) chưa có trên hồ
+    sơ ⇒ thêm vào "SĐT thêm" của khách bằng ĐÚNG lệnh của màn hồ sơ
+    (`PatientService.them_so_dien_thoai`, ghi người thêm + sổ thao tác). Lần sau thư của
+    khách khớp tên + SĐT ngay. Đã có / số rác ⇒ thôi; lỗi KHÔNG làm hỏng lần gán."""
+    from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
+    from clinicai.services.patient_service import PatientService
+
+    t = await pool.fetchrow(
+        "SELECT email_tieu_de, email_than, ten, email_nhan_luc FROM drive_tep"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        identity.clinic_id,
+        dong_id,
+    )
+    if t is None or t["email_nhan_luc"] is None:
+        return
+    nam = t["email_nhan_luc"].astimezone(_VN).year  # cùng cách `gmail.muc_ca_thu`
+    try:
+        d = gmail_doc.doc_thu(
+            t["email_tieu_de"], t["email_than"], t["ten"], ghep_khach.chu_pdf(noi), nam
+        )
+        if not d.sdt:
+            return
+        await PatientService(pool).them_so_dien_thoai(
+            clinic_patient_id=kh, so_dien_thoai=d.sdt, loai="CHINH", identity=identity
+        )
+    except (ConflictError, ValidationError, ResourceNotFoundError):
+        return  # số đã nằm trên hồ sơ / không hợp lệ — không có gì để học
+    except Exception as e:  # noqa: BLE001 — thư ĐÃ gán xong; học hỏng không được làm 500
+        logger.warning("gmail_hoc_sdt_loi", loai=type(e).__name__)
 
 
 async def _khach(pool: asyncpg.Pool, cid: str, chon: object) -> str:
