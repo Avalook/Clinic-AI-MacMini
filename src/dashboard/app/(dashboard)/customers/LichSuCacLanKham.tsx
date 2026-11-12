@@ -46,7 +46,7 @@ const NHAN_BUOC: Record<string, string> = {
   NHAC_HEN_MAI: "Gọi nhắc hẹn",
   DA_CHECKIN: "Check-in",
   CHO_KQ_XN: "Hỏi kết quả xét nghiệm",
-  CHO_BAC_SI: "Chờ bác sĩ duyệt kết quả",
+  CHO_BAC_SI: "Có kết quả, chưa có tệp",
   KQ_CHUA_GUI: "Gửi kết quả cho khách",
   DA_TRA_KQ: "Đã trả kết quả",
   GOI_LAI: "Gọi lại",

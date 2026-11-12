@@ -108,7 +108,7 @@ const TONE_VIEC: Record<string, StatusTone> = {
 // cột này nói NGƯỜI TRỰC phải nhấc máy lên làm gì.
 const BUOC_TIEP: Record<string, string> = {
   DA_CHECKIN: "Khách đã tới — xem tình trạng sau khám",
-  CHO_BAC_SI: "Nhắc bác sĩ duyệt kết quả",
+  CHO_BAC_SI: "Hỏi phòng làm kết quả (chưa có tệp)",
   KQ_CHUA_GUI: "Gọi trả kết quả cho khách",
   CHO_KQ_XN: "Hỏi đơn vị xét nghiệm",
   GOI_LAI: "Gọi lại (lần trước chưa gặp)",

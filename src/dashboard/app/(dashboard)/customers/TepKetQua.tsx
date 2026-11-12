@@ -37,9 +37,6 @@ export interface TepKetQuaRow {
   gui_luc: string | null;
   gui_kenh: string | null;
   gui_boi: string | null;
-  /** Bác sĩ cho phép gửi lúc nào (null = chưa) — CSKH chỉ gửi sau mốc này. */
-  cho_phep_gui_luc: string | null;
-  cho_phep_gui_boi: string | null;
   /** false = tệp siêu âm / thủ thuật — không tính vào "Có kết quả xét nghiệm". */
   la_ket_qua_xet_nghiem?: boolean;
   /** Trạng thái xác nhận tệp external: CHO_XAC_NHAN, HOP_LE, TU_CHOI, THU_HOI (null = internal) */
@@ -499,13 +496,8 @@ export default function TepKetQua({
                     Chờ xác nhận đúng người/chỉ định
                   </p>
                 )}
-                {!t.gui_luc && t.cho_phep_gui_luc && (
-                  <p className="mt-1 text-label text-success">
-                    {t.cho_phep_gui_boi ?? "Bác sĩ"} đã cho phép gửi {gio(t.cho_phep_gui_luc)}
-                  </p>
-                )}
-                {/* GỬI ĐƯỢC NGAY (Tuyền chốt 23/09/2026): không còn đợi bác sĩ
-                    cho phép. Tệp đối tác vẫn phải xác nhận đúng người/chỉ định. */}
+                {/* GỬI ĐƯỢC NGAY: không ai duyệt / cho phép gửi (Tuyền 23/09 và
+                    12/11/2026) — không in mốc "đã cho phép gửi" cũ. */}
                 {!readOnly && !t.gui_luc && coTheGui(t) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* NHÃN NÓI ĐÚNG SỰ THẬT: người xác nhận đã gửi, hệ thống

@@ -9,6 +9,11 @@ export const KENH_GUI: [string, string][] = [
   ["EMAIL", "Email"],
 ];
 
+/** Kênh chọn được ở nút "Đã gửi kết quả cho bệnh nhân" của màn Quản lý khách hàng: nút
+ *  ghi vào SỔ CSKH (`tuong_tac_cskh.kenh`, CHECK chưa có EMAIL) rồi máy chủ ghi đã gửi
+ *  tờ với đúng kênh đó. Email chỉ chọn được ở thẻ việc / từng tệp. */
+export const KENH_GUI_SO_CSKH = KENH_GUI.filter(([ma]) => ma !== "EMAIL");
+
 export const KENH_NGOAI_HE_THONG = "NGOAI_HE_THONG";
 
 const TEN: Record<string, string> = {

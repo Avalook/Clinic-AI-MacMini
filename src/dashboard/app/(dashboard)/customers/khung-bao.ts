@@ -100,7 +100,7 @@ export function dungKhungBao(v: DauVaoBao): DongBao[] {
     ra.push({
       khoa: "KQ_CHUA_GUI",
       muc: "gap",
-      cau: "Có kết quả xét nghiệm bác sĩ đã cho phép gửi — gửi / gọi khách lấy kết quả.",
+      cau: "Có kết quả xét nghiệm chưa gửi khách — gửi / gọi khách lấy kết quả.",
       hanhDong: { loai: "chon_viec", ma: "KQ_CHUA_GUI" },
     });
   }
