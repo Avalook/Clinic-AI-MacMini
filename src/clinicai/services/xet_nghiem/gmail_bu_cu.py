@@ -12,9 +12,9 @@ Không đụng chỉ định, lượt khám, tiền. Mỗi tờ một sự kiệ
 lô (gỡ mốc gửi ngoài hệ thống; Hợp lệ giữ nguyên — database không cho lùi về Chờ xác
 nhận, và đó đúng là việc người kiểm sẽ làm).
 
-    python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi EMAIL        # xem trước
-    python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi EMAIL --chay
-    python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi EMAIL --hoan-tac LO
+    python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi "TÊN TK"   # xem trước
+    python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi "TÊN TK" --chay
+    python -m clinicai.services.xet_nghiem.gmail_bu_cu --boi "TÊN TK" --hoan-tac LO
 """
 
 from __future__ import annotations
@@ -153,17 +153,22 @@ async def _su_kien(
     )
 
 
-async def _nguoi(conn: asyncpg.Connection, cid: str, email: str) -> StaffIdentity:
-    sid = await conn.fetchval(
-        "SELECT s.id::text FROM staff s JOIN clinic_membership m"
+async def _nguoi(conn: asyncpg.Connection, cid: str, ai_la: str) -> StaffIdentity:
+    """Người đứng tên theo TÊN đúng của tài khoản hoặc email hồ sơ (prod để trống email
+    trong `staff` — email đăng nhập ở kho đăng nhập riêng). Phải đúng MỘT người."""
+    ds = await conn.fetch(
+        "SELECT DISTINCT s.id::text AS id FROM staff s JOIN clinic_membership m"
         "    ON m.staff_id = s.id AND m.clinic_id = $1::uuid AND m.is_active"
-        " WHERE lower(s.email) = lower($2) AND s.is_active IS NOT FALSE",
+        " WHERE s.is_active IS NOT FALSE"
+        "   AND (s.full_name = $2 OR lower(coalesce(s.email, '')) = lower($2))",
         cid,
-        email.strip(),
+        ai_la.strip(),
     )
-    ai = await danh_tinh_nhan_vien(conn, clinic_id=cid, staff_id=sid) if sid else None
+    if len(ds) != 1:
+        raise SystemExit(f"{ai_la!r}: thấy {len(ds)} nhân viên đang làm — cần đúng 1.")
+    ai = await danh_tinh_nhan_vien(conn, clinic_id=cid, staff_id=ds[0]["id"])
     if ai is None:
-        raise SystemExit(f"Không thấy nhân viên đang làm có email {email!r}.")
+        raise SystemExit(f"{ai_la!r}: tài khoản chưa có cơ sở chính — không dùng được.")
     return ai
 
 
@@ -199,7 +204,9 @@ async def _main(a: argparse.Namespace) -> None:
 
 def _tham_so() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
-    p.add_argument("--boi", required=True, help="email tài khoản đứng tên")
+    p.add_argument(
+        "--boi", required=True, help="tên đúng (hoặc email) tài khoản đứng tên"
+    )
     p.add_argument("--moc", type=date.fromisoformat, default=MOC_MAC_DINH)
     p.add_argument("--chay", action="store_true")
     p.add_argument("--hoan-tac", dest="hoan_tac", default=None)
