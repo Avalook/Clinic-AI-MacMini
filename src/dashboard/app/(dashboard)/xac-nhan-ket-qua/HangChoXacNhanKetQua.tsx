@@ -4,11 +4,8 @@
  * Hàng chờ xác nhận kết quả tệp từ đối tác (External Result Verification Queue).
  *
  * Chỉ dành cho người có capability 'ket_qua.xac_nhan'.
- * Chức năng: Kiểm tra tính hợp lệ về mặt vận hành (đúng bệnh nhân, đúng chỉ định,
- * tệp rõ ràng, không lỗi định dạng) trước khi chuyển qua Bác sĩ đánh giá chuyên môn
- * và cho phép gửi khách.
- *
- * CURRENT LIMITATION: SINGLE-PARTNER PILOT ONLY.
+ * Chức năng: kiểm đúng khách, đúng chỉ định, tệp rõ ràng rồi bấm Hợp lệ ⇒ CSKH gửi khách
+ * được. KHÔNG có bước bác sĩ duyệt (tắt 23/09/2026) — đừng viết lại câu đó lên màn.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -232,10 +229,6 @@ export default function HangChoXacNhanKetQua() {
               </span>
             )}
           </div>
-          <p className="mt-1 text-sm text-ink-muted">
-            Kiểm tờ kết quả đối tác gửi về đúng khách, đúng chỉ định trước khi Bác sĩ
-            xem và gửi khách. Tờ chưa có chỉ định ở trên cùng.
-          </p>
         </div>
 
         <button
@@ -330,15 +323,17 @@ export default function HangChoXacNhanKetQua() {
                     </span>
                   </div>
 
-                  <div className="text-xs text-ink-soft">
-                    Người tải:{" "}
-                    <span className="font-semibold text-ink">
-                      {t.tai_len_boi_ten ?? "Máy tự nhận (email / Drive)"}
-                    </span>
-                    {t.tai_len_boi_vai === "PARTNER" ? (
-                      <span className="ml-1 text-ink-muted font-medium">· Đối tác</span>
-                    ) : null}
-                  </div>
+                  {/* Tờ máy tự nhận (email / Drive) không có người tải ⇒ không hiện dòng
+                      này (Tuyền 12/11: "Người tải: Không rõ" thừa). */}
+                  {t.tai_len_boi_ten ? (
+                    <div className="text-xs text-ink-soft">
+                      Người tải:{" "}
+                      <span className="font-semibold text-ink">{t.tai_len_boi_ten}</span>
+                      {t.tai_len_boi_vai === "PARTNER" ? (
+                        <span className="ml-1 text-ink-muted font-medium">· Đối tác</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Nút xem tệp & Action buttons */}
@@ -442,7 +437,7 @@ export default function HangChoXacNhanKetQua() {
             </div>
 
             <p className="text-xs text-ink-muted">
-              Tệp bị từ chối sẽ không chuyển sang Bác sĩ đánh giá. Vui lòng ghi rõ lý
+              Tệp bị từ chối sẽ không gửi được cho khách. Vui lòng ghi rõ lý
               do (sai bệnh nhân, ảnh mờ, thiếu trang, không đúng chỉ định…).
             </p>
 
