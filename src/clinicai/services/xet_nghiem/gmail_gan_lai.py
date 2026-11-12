@@ -42,6 +42,7 @@ SELECT t.id::text AS id, t.ten, t.email_tieu_de, t.email_nhan_luc, t.ghep_luc,
        d.ten AS ten_doi_tac, coalesce(s.full_name, 'Tự ghép') AS ghep_boi,
        k.id::text AS tep_id, k.loai_tep, k.xac_nhan_trang_thai,
        k.da_xoa_luc IS NOT NULL AS da_xoa, k.gui_luc IS NOT NULL AS da_gui,
+       k.gui_kenh IS NOT DISTINCT FROM 'NGOAI_HE_THONG' AS tra_ngoai,
        k.service_order_id IS NOT NULL AS vao_chi_dinh,
        coalesce(o.service_name, 'Hồ sơ theo lượt khám') AS gan_vao,
        p.clinic_patient_id::text AS clinic_patient_id, p.full_name AS ten_khach,
@@ -92,11 +93,21 @@ async def da_gan(
     for r in rows:
         d = dict(r)
         d["nhan_to"] = nhan_to(d.pop("xac_nhan_trang_thai"), d.pop("da_xoa"))
-        # Đã gửi khách mà gắn nhầm ⇒ khách ấy đã nhận kết quả người khác: nói rõ.
         con = d["nhan_to"] != NHAN_MAT_HIEU_LUC
+        tra_ngoai = d.pop("tra_ngoai")
+        d["gui"] = (
+            None
+            if not r["da_gui"]
+            else "kết quả cũ, đã trả ngoài hệ thống"
+            if tra_ngoai
+            else "đã gửi khách"
+        )
+        # GỬI QUA HỆ THỐNG mà gắn nhầm ⇒ khách ấy đã nhận kết quả người khác: nói rõ.
+        # Tờ cũ bù 12/11 (trả ngoài hệ thống) KHÔNG cảnh báo — 681 dòng đỏ là nhiễu,
+        # không ai biết tờ cũ đã đến tay ai.
         d["canh_bao"] = (
             f"{r['ten_khach']} đã nhận tờ này — gán lại sẽ thu hồi, cần báo khách."
-            if r["da_gui"] and con
+            if r["da_gui"] and con and not tra_ngoai
             else None
         )
         # G13: chuyển sang chỉ định khác của CÙNG khách (tờ theo lượt, hoặc chọn nhầm

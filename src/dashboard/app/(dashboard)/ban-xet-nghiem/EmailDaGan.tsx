@@ -27,7 +27,8 @@ interface ThuDaGan {
   loai_tep: string;
   nhan_to: string;
   canh_bao: string | null;
-  da_gui: boolean;
+  /** Chữ tình trạng gửi (máy chủ tính): "đã gửi khách" / "kết quả cũ, đã trả ngoài hệ thống" / null. */
+  gui: string | null;
   /** G13: đổi sang chỉ định khác của cùng khách (máy chủ tính: quyền, còn hiệu lực, chưa gửi). */
   chuyen_chi_dinh_duoc: boolean;
   /** Tờ đang nằm trong một chỉ định (máy chủ tính) — nút chuyển đọc là "đổi". */
@@ -136,7 +137,7 @@ export default function EmailDaGan({ onXong }: { onXong: (bao: string) => void }
                 <div className="text-ink-soft">
                   Đang gắn: <span className="font-semibold text-ink">{t.ten_khach}</span>
                   {t.patient_code ? ` · ${t.patient_code}` : ""} · {t.gan_vao} · {t.nhan_to}
-                  {t.da_gui ? " · đã gửi khách" : ""}
+                  {t.gui ? ` · ${t.gui}` : ""}
                 </div>
                 {t.canh_bao ? <div className="font-semibold text-danger">{t.canh_bao}</div> : null}
               </div>

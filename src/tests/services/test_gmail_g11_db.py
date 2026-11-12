@@ -230,7 +230,7 @@ async def test_to_da_gui_khach_thi_canh_bao_bao_khach(
     )
     ds = await gmail_gan_lai.da_gan(pool, nguoi, "")
     dong = next(t for t in ds["thu"] if t["id"] == d["id"])
-    assert dong["da_gui"] is True and "báo khách" in (dong["canh_bao"] or "")
+    assert dong["gui"] == "đã gửi khách" and "báo khách" in (dong["canh_bao"] or "")
 
 
 async def test_danh_sach_da_gan_loc_va_co_quyen(

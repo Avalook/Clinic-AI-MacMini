@@ -14,7 +14,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
-from clinicai.services.xet_nghiem import gmail, gmail_bu_cu
+from clinicai.services.xet_nghiem import gmail, gmail_bu_cu, gmail_gan_lai
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
@@ -75,6 +75,14 @@ async def test_bu_to_cu_khong_dung_to_moi_va_hoan_tac_theo_lo(
         gmail_bu_cu.KENH,
         ai.staff_id,
     )
+    # "Thư email đã gán": tờ cũ ghi "đã trả ngoài hệ thống", KHÔNG dòng đỏ báo khách.
+    dong = next(
+        t
+        for t in (await gmail_gan_lai.da_gan(pool, ai, ""))["thu"]
+        if t["tep_id"] == to_cu["tep"]
+    )
+    assert dong["gui"] == "kết quả cũ, đã trả ngoài hệ thống"
+    assert dong["canh_bao"] is None
     # Không còn việc CSKH "Kết quả chưa gửi" cho khách tờ cũ.
     assert not await pool.fetchval(
         "SELECT count(*) FROM v_viec_cskh WHERE trang_thai = 'KQ_CHUA_GUI'"
