@@ -718,6 +718,8 @@ class XetNghiemBuKetQuaCu(PayloadSuKien):
     tep_id: str
     truoc: str
     lo: str
+    #: Lý do hoàn tác (rỗng ở lần đánh).
+    ly_do: str = ""
 
 
 class CskhDaLienHe(PayloadSuKien):

@@ -18,7 +18,7 @@ import { FileImage, FileVideo, FileText, Check } from "lucide-react";
 
 import Lightbox from "@/components/ui/Lightbox";
 
-import { tenKenhGui } from "@/lib/kenh-gui";
+import { KENH_GUI, KENH_NGOAI_HE_THONG, tenKenhGui } from "@/lib/kenh-gui";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
 import { type CoXoaTep, DaXoaGanDay, NutXoaTep, type TepDaXoa } from "../_lam-viec/XoaTep";
@@ -52,12 +52,7 @@ const BIEU_TUONG = {
   PDF: FileText,
 } as const;
 
-const KENH: [string, string][] = [
-  ["ZALO", "Zalo"],
-  ["SMS", "SMS"],
-  ["TRUC_TIEP", "Đưa trực tiếp"],
-  ["EMAIL", "Email"],
-];
+const KENH = KENH_GUI;
 
 function coChu(byte: number): string {
   if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`;
@@ -441,8 +436,11 @@ export default function TepKetQua({
                   {t.gui_luc && (
                     <span className="ml-1 inline-flex items-center gap-0.5 text-success">
                       <Check className="size-3" strokeWidth={3} />
-                      đã gửi {gio(t.gui_luc)}
-                      {t.gui_kenh && ` (${tenKenhGui(t.gui_kenh)})`}
+                      {/* Tờ bù 12/11: giờ ghi là lúc chạy lệnh, không phải lúc trả khách ⇒
+                          không in giờ. */}
+                      {t.gui_kenh === KENH_NGOAI_HE_THONG
+                        ? "đã trả khách ngoài hệ thống"
+                        : `đã gửi ${gio(t.gui_luc)}${t.gui_kenh ? ` (${tenKenhGui(t.gui_kenh)})` : ""}`}
                     </span>
                   )}
                 </p>

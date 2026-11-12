@@ -10,7 +10,10 @@ from typing import Any
 import asyncpg
 import pytest
 
+from clinicai.api.exceptions import ValidationError
 from clinicai.core.clock import hom_nay_vn
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.tep_ket_qua_service import TepKetQuaService
 from clinicai.services.xet_nghiem import gmail, gmail_bu_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -92,11 +95,21 @@ async def test_bu_to_cu_khong_dung_to_moi_va_hoan_tac_theo_lo(
     lai = await gmail_bu_cu.chay(pool, ai, moc)
     assert sum(v for k, v in lai.items() if k != "lo") == 0
 
-    # Hoàn tác đúng lô: gỡ mốc gửi ngoài hệ thống, Hợp lệ giữ; hoàn tác lại ⇒ 0.
-    assert await gmail_bu_cu.hoan_tac(pool, ai, kq["lo"]) >= 1
+    # Hoàn tác: bắt lý do; đúng lô ⇒ gỡ mốc gửi ngoài hệ thống, Hợp lệ giữ; lại ⇒ 0.
+    with pytest.raises(ValidationError):
+        await gmail_bu_cu.hoan_tac(pool, ai, kq["lo"], "")
+    async with pool.acquire() as conn:
+        assert await gmail_bu_cu.so_to_cua_lo(conn, CLINIC, kq["lo"]) >= 1
+    assert await gmail_bu_cu.hoan_tac(pool, ai, kq["lo"], "Chạy nhầm mốc") >= 1
     hoan = await _gui(pool, to_cu["tep"])
     assert (hoan["tt"], hoan["gui_luc"], hoan["gui_kenh"]) == ("HOP_LE", None, None)
-    assert await gmail_bu_cu.hoan_tac(pool, ai, kq["lo"]) == 0
+    assert await gmail_bu_cu.hoan_tac(pool, ai, kq["lo"], "Chạy nhầm mốc") == 0
+    # Đánh lại ở lô SAU ⇒ hoàn tác lô CŨ lần nữa không gỡ nhầm mốc của lô sau.
+    kq2 = await gmail_bu_cu.chay(pool, ai, moc)
+    assert kq2["HOP_LE"] >= 1
+    assert await gmail_bu_cu.hoan_tac(pool, ai, kq["lo"], "Lô cũ") == 0
+    assert (await _gui(pool, to_cu["tep"]))["gui_kenh"] == gmail_bu_cu.KENH
+    assert await gmail_bu_cu.hoan_tac(pool, ai, kq2["lo"], "Lô sau") >= 1
     # ĐỐI CHỨNG: Hợp lệ mà chưa gửi ⇒ việc CSKH "Kết quả chưa gửi" CÓ hiện — tức phép
     # kiểm "không có việc" ở trên là thật, không phải do luật CSKH tắt.
     assert await pool.fetchval(
@@ -125,20 +138,30 @@ async def test_to_da_gui_that_khong_dung_va_thieu_quyen_thi_khong_doi_gi(
         to["tep"],
         ai.staff_id,
     )
-    with pytest.raises(PermissionError):
+    # Tờ thư cũ đã bị TỪ CHỐI (sai người) ⇒ không đánh.
+    _d2, to_tc, _ = await _tu_gan(pool, c3, "Võ Thị Từ Chối Cũ")
+    await TepKetQuaService(pool).xac_nhan_tep(
+        identity=ai, tep_id=to_tc["tep"], trang_thai="TU_CHOI", ly_do="Sai người"
+    )
+    with pytest.raises(SafetyGateError):
         await gmail_bu_cu.chay(pool, await _nguoi(pool, xac_nhan=False), moc)
     await gmail_bu_cu.chay(pool, ai, moc)
     assert (await _gui(pool, to["tep"]))["gui_kenh"] == "ZALO"
+    tc = await _gui(pool, to_tc["tep"])
+    assert (tc["tt"], tc["gui_luc"]) == ("TU_CHOI", None)
 
 
 @pytest.mark.parametrize(
     ("luc", "trong"),
     [
         ("2026-11-12T09:00:00+07:00", False),  # thứ Năm sáng
-        ("2026-11-12T16:00:00+07:00", True),
-        ("2026-11-12T23:30:00+07:00", False),
-        ("2026-11-14T07:00:00+07:00", True),  # thứ Bảy
-        ("2026-11-14T06:00:00+07:00", False),
+        ("2026-11-12T15:29:00+07:00", False),
+        ("2026-11-12T15:30:00+07:00", True),  # biên mở ngày thường
+        ("2026-11-12T22:59:00+07:00", True),
+        ("2026-11-12T23:00:00+07:00", False),  # biên đóng
+        ("2026-11-14T06:29:00+07:00", False),  # thứ Bảy
+        ("2026-11-14T06:30:00+07:00", True),  # biên mở cuối tuần
+        ("2026-11-12T02:00:00+00:00", False),  # 09:00 giờ VN (đổi múi giờ)
     ],
 )
 async def test_trong_gio_kham(luc: str, trong: bool) -> None:
