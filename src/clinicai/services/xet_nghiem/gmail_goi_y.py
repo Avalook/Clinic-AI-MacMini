@@ -119,7 +119,41 @@ async def _gan(
     await ghep_tay.ghi_da_ghep(pool, identity, r["id"], kq["id"])
     if order_id is not None:
         await drive._phat_den(pool, cid, drive.Quyet(order_id, kh, visit_id, None))
+    await _hoc_sdt(pool, identity, r["id"], kh, noi)
     return {"tep_id": kq["id"], "vao_chi_dinh": order_id is not None}
+
+
+async def _hoc_sdt(
+    pool: asyncpg.Pool, identity: StaffIdentity, dong_id: str, kh: str, noi: bytes
+) -> None:
+    """G14 TỰ HỌC SĐT (Tuyền 12/11): NGƯỜI vừa gán thư cho khách `kh` mà SĐT trên phiếu
+    (đọc theo luật lab — `gmail_doc.doc_thu`, không lấy hotline của lab) chưa có trên hồ
+    sơ ⇒ thêm vào "SĐT thêm" của khách bằng ĐÚNG lệnh của màn hồ sơ
+    (`PatientService.them_so_dien_thoai`, ghi người thêm + sổ thao tác). Lần sau thư của
+    khách khớp tên + SĐT ngay. Đã có / số rác ⇒ thôi; lỗi KHÔNG làm hỏng lần gán."""
+    from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
+    from clinicai.services.patient_service import PatientService
+
+    t = await pool.fetchrow(
+        "SELECT email_tieu_de, email_than, ten, email_nhan_luc FROM drive_tep"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        identity.clinic_id,
+        dong_id,
+    )
+    if t is None or t["email_nhan_luc"] is None:
+        return
+    nam = t["email_nhan_luc"].year
+    d = gmail_doc.doc_thu(
+        t["email_tieu_de"], t["email_than"], t["ten"], ghep_khach.chu_pdf(noi), nam
+    )
+    if not d.sdt:
+        return
+    try:
+        await PatientService(pool).them_so_dien_thoai(
+            clinic_patient_id=kh, so_dien_thoai=d.sdt, loai="CHINH", identity=identity
+        )
+    except (ConflictError, ValidationError, ResourceNotFoundError):
+        return  # số đã nằm trên hồ sơ / không hợp lệ — không có gì để học
 
 
 async def _khach(pool: asyncpg.Pool, cid: str, chon: object) -> str:

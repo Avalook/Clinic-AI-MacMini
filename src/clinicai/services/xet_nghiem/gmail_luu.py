@@ -87,6 +87,22 @@ SELECT p.clinic_patient_id::text AS id, p.full_name,
 """
 
 
+async def dem_khach_cung_ten(conn: asyncpg.Connection, cid: str, ten: object) -> int:
+    """Số hồ sơ ĐANG DÙNG của phòng khám mang đúng tên này (bỏ dấu, chỉ chữ/số — cùng
+    `ghep_khach.chuan`) — G14 chỉ tự gán theo tên + năm sinh khi tên là DUY NHẤT."""
+    t = ghep_khach.chuan(ten)
+    if not t:
+        return 0
+    n = await conn.fetchval(
+        "SELECT count(*) FROM patient p WHERE p.clinic_id = $1::uuid AND p.is_active"
+        "   AND btrim(regexp_replace(p.full_name_unaccent, '[^0-9a-z]+', ' ', 'g'))"
+        "       = $2",
+        cid,
+        t,
+    )
+    return int(n or 0)
+
+
 async def khach_theo_sdt(
     conn: asyncpg.Connection, cid: str, sdts: set[str]
 ) -> list[ghep_khach.UngVien]:

@@ -186,12 +186,35 @@ async def muc_ca_thu(
                     conn, cid, q.goi_y_clinic_patient_id, thu.nhan_luc
                 )
                 q = gmail_ghep.gan_ho_so(q, luot)
+            if q.ly_do == "KHONG_KHOP_KHACH" and doc.ten and doc.nam_sinh:
+                q = await _ten_nam_sinh(conn, cid, doc, viec, thu.nhan_luc, q)
             if q.ly_do == "KHONG_KHOP_KHACH" and doc.ten:
                 # Tên HOẶC SĐT lệch hồ sơ (G9): gợi ý đúng một khách, không tự gán.
                 kh = await gmail_goi_y.tim(conn, cid, doc, viec)
                 q = replace(q, goi_y_clinic_patient_id=kh)
             muc.append(gmail_luu.Muc(p, d, c, q))
     return muc
+
+
+async def _ten_nam_sinh(
+    conn: asyncpg.Connection,
+    cid: str,
+    doc: gmail_doc.DocThu,
+    viec: list[ghep_khach.UngVien],
+    nhan_luc: datetime,
+    q: gmail_ghep.QuyetGmail,
+) -> gmail_ghep.QuyetGmail:
+    """G14 (Tuyền 12/11): SĐT lệch hồ sơ mà tên + năm sinh khớp ĐÚNG MỘT khách duy
+    nhất mang tên đó, khách có chỉ định của lab ⇒ quyết như khách đã khớp (cùng
+    `quyet_mot_khach`: một chỉ định chờ ⇒ tự gán; nhiều / đã có tờ ⇒ lý do + gợi ý).
+    Không chắc ⇒ giữ `q` (G9 gợi ý, người gán)."""
+    so = await gmail_luu.dem_khach_cung_ten(conn, cid, doc.ten)
+    kh = gmail_ghep.khop_ten_nam_sinh(doc, viec, so)
+    if kh is None:
+        return q
+    cua_kh = [v for v in viec if v.clinic_patient_id == kh]
+    q2 = gmail_ghep.quyet_mot_khach(doc.loai, cua_kh, kh, nhan_luc)
+    return q2 if q2.ly_do is None else replace(q2, goi_y_clinic_patient_id=kh)
 
 
 async def _nhan_ca_trang(
