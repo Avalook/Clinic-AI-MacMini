@@ -323,15 +323,17 @@ export default function HangChoXacNhanKetQua() {
                     </span>
                   </div>
 
-                  <div className="text-xs text-ink-soft">
-                    Người tải:{" "}
-                    <span className="font-semibold text-ink">
-                      {t.tai_len_boi_ten ?? "Máy tự nhận (email / Drive)"}
-                    </span>
-                    {t.tai_len_boi_vai === "PARTNER" ? (
-                      <span className="ml-1 text-ink-muted font-medium">· Đối tác</span>
-                    ) : null}
-                  </div>
+                  {/* Tờ máy tự nhận (email / Drive) không có người tải ⇒ không hiện dòng
+                      này (Tuyền 12/11: "Người tải: Không rõ" thừa). */}
+                  {t.tai_len_boi_ten ? (
+                    <div className="text-xs text-ink-soft">
+                      Người tải:{" "}
+                      <span className="font-semibold text-ink">{t.tai_len_boi_ten}</span>
+                      {t.tai_len_boi_vai === "PARTNER" ? (
+                        <span className="ml-1 text-ink-muted font-medium">· Đối tác</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Nút xem tệp & Action buttons */}
