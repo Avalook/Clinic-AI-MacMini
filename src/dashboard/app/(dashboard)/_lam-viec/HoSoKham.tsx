@@ -10,8 +10,8 @@
 // PDF DỰNG TỪ CHÍNH KHUNG ĐANG XEM: thấy gì tải nấy. Chụp khung thành ảnh
 // (html-to-image — trình duyệt tự vẽ nên đủ dấu tiếng Việt, không cần nhúng
 // font) rồi cắt theo trang A4 (jspdf). Không thêm dịch vụ dựng PDF nào trên máy
-// chủ. Kết quả CHƯA được bác sĩ duyệt vẫn in, nhưng mang nhãn "chờ bác sĩ duyệt"
-// ngay cạnh — bản PDF không được trông như đã chốt khi chưa chốt.
+// chủ. Không còn bước bác sĩ duyệt / cho phép gửi (Tuyền 12/11/2026) ⇒ mọi kết quả
+// in như nhau.
 
 import { useEffect, useRef, useState } from "react";
 import { Download, FileImage, FileText, FileVideo, X } from "lucide-react";

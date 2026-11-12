@@ -55,7 +55,7 @@ import { coTheGui, type TepKetQuaRow } from "./TepKetQua";
  *      được). BẤM VÒNG TRÒN là ghi vào sổ chăm sóc (tính KPI); bấm lại ô đã
  *      tích là hoàn tác — dòng vẫn nằm trong sổ, chỉ thôi được tính.
  *    · Ô KHOÁ — trạng thái do NGƯỜI KHÁC tạo (lễ tân check-in/checkout, đối tác
- *      gửi kết quả, bác sĩ cho phép gửi, bác sĩ quyết theo dõi thủ thuật). Chỉ
+ *      gửi kết quả, bác sĩ quyết theo dõi thủ thuật). Chỉ
  *      đồng bộ sang cho CSKH biết; vòng tròn không bấm được. Tuyền: *"không cho
  *      thao tác với nút tròn của node này nhé không là mâu thuẫn đấy"*.
  *
