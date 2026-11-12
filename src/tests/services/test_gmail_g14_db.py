@@ -55,6 +55,20 @@ async def test_sdt_lech_ten_va_nam_sinh_khop_thi_tu_gan_vao_chi_dinh(
     assert (to["kh"], to["oid"], to["tt"]) == (v["kh"], v["oid"], "HOP_LE")
 
 
+async def test_thu_khong_co_sdt_ten_va_nam_sinh_khop_thi_tu_gan(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+    ns_tren_phieu: None,
+) -> None:
+    # Phiếu không ghi SĐT: chỉ còn tên + năm sinh — khớp đúng một khách ⇒ vẫn tự gán.
+    v, ten = await _khach(pool, c3)
+    mid = c3.thu(ten, "")
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    to = await _to(pool, d["id"])
+    assert (to["kh"], to["oid"], to["tt"]) == (v["kh"], v["oid"], "HOP_LE")
+
+
 async def test_lech_nam_sinh_hoac_trung_ten_thi_khong_tu_gan(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
