@@ -126,20 +126,8 @@ async def _gan(
     if order_id is not None:
         await drive._phat_den(pool, cid, drive.Quyet(order_id, kh, visit_id, None))
     await _hoc_sdt(pool, identity, r["id"], kh, noi)
-    await _thu_cu(pool, identity, kq["id"])
+    await ghep_tay._danh_thu_cu(pool, identity, kq["id"])
     return {"tep_id": kq["id"], "vao_chi_dinh": order_id is not None}
-
-
-async def _thu_cu(pool: asyncpg.Pool, identity: StaffIdentity, tep_id: str) -> None:
-    """Thư về trước mốc 11/11 ⇒ tờ vừa gán ghi "đã trả ngoài hệ thống" (Tuyền 12/11,
-    `gmail_bu_cu.danh_khi_gan_thu_cu`). Hỏng ⇒ tờ vẫn gán đúng, chỉ còn việc CSKH
-    "Kết quả chưa gửi" — không làm 500 sau khi đã gán."""
-    from clinicai.services.xet_nghiem import gmail_bu_cu  # gmail_bu_cu → gmail → đây
-
-    try:
-        await gmail_bu_cu.danh_khi_gan_thu_cu(pool, identity, tep_id)
-    except Exception as e:  # noqa: BLE001
-        logger.warning("gmail_danh_thu_cu_loi", loai=type(e).__name__)
 
 
 async def _hoc_sdt(

@@ -174,7 +174,9 @@ class EmailDaGanOut(BaseModel):
     canh_bao: str | None
     #: G13 — nút "Chuyển vào chỉ định khác" (cùng khách; máy chủ tính).
     chuyen_chi_dinh_duoc: bool = False
-    da_gui: bool
+    #: Chữ tình trạng gửi (máy chủ tính): "đã gửi khách" / "kết quả cũ, đã trả ngoài hệ
+    #: thống" / null — màn chỉ in.
+    gui: str | None = None
     vao_chi_dinh: bool
     #: Tên dịch vụ của chỉ định, hoặc "Hồ sơ theo lượt khám".
     gan_vao: str

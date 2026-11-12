@@ -11,6 +11,7 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.api.v1.routers.xet_nghiem_drive import EmailDaGanListOut
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
@@ -76,11 +77,10 @@ async def test_bu_to_cu_khong_dung_to_moi_va_hoan_tac_theo_lo(
         ai.staff_id,
     )
     # "Thư email đã gán": tờ cũ ghi "đã trả ngoài hệ thống", KHÔNG dòng đỏ báo khách.
-    dong = next(
-        t
-        for t in (await gmail_gan_lai.da_gan(pool, ai, ""))["thu"]
-        if t["tep_id"] == to_cu["tep"]
-    )
+    # Qua ĐÚNG khuôn trả về của cửa API (Pydantic bỏ khoá thừa — trường thiếu trong
+    # khuôn thì màn không bao giờ thấy).
+    ra = EmailDaGanListOut.model_validate(await gmail_gan_lai.da_gan(pool, ai, ""))
+    dong = next(t.model_dump() for t in ra.thu if t.tep_id == to_cu["tep"])
     assert dong["gui"] == "kết quả cũ, đã trả ngoài hệ thống"
     assert dong["canh_bao"] is None
     # Không còn việc CSKH "Kết quả chưa gửi" cho khách tờ cũ.

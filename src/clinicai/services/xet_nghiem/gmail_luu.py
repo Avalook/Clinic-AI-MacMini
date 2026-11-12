@@ -87,29 +87,31 @@ SELECT p.clinic_patient_id::text AS id, p.full_name,
 """
 
 
-async def dem_khach_cung_ten(
+async def khach_cung_ten_nam(
     conn: asyncpg.Connection, cid: str, ten: object, nam_sinh: int
-) -> int:
-    """Số hồ sơ ĐANG DÙNG của phòng khám mang đúng tên này (bỏ dấu, chỉ chữ/số — cùng
+) -> list[str]:
+    """Hồ sơ ĐANG DÙNG của phòng khám mang đúng tên này (bỏ dấu, chỉ chữ/số — cùng
     `ghep_khach.chuan`) VÀ đúng năm sinh này (năm sinh, thiếu thì năm của ngày sinh —
-    cùng cách `ghep_khach` đọc ứng viên). G14 chỉ tự gán khi cặp tên + năm sinh DUY NHẤT
-    (Tuyền 12/11: prod có tên phổ biến trùng 34 hồ sơ, chỉ một người đúng năm sinh
-    phiếu — luật "tên duy nhất" không bao giờ qua). Hồ sơ không rõ năm
-    sinh KHÔNG tính (Tuyền chốt: bỏ qua, vẫn tự gán)."""
+    cùng cách `ghep_khach` đọc ứng viên); tối đa 2 id (chỉ cần biết "đúng một"). G14
+    chỉ tự gán khi cặp tên + năm sinh DUY NHẤT (Tuyền 12/11: prod có tên phổ biến trùng
+    34 hồ sơ, chỉ một người đúng năm sinh phiếu — luật "tên duy nhất" không bao giờ
+    qua). Hồ sơ không rõ năm sinh KHÔNG tính (Tuyền chốt: bỏ qua, vẫn tự gán)."""
     t = ghep_khach.chuan(ten)
     if not t:
-        return 0
-    n = await conn.fetchval(
-        "SELECT count(*) FROM patient p WHERE p.clinic_id = $1::uuid AND p.is_active"
+        return []
+    rows = await conn.fetch(
+        "SELECT p.clinic_patient_id::text AS id FROM patient p"
+        " WHERE p.clinic_id = $1::uuid AND p.is_active"
         "   AND btrim(regexp_replace(p.full_name_unaccent, '[^0-9a-z]+', ' ', 'g'))"
         "       = $2"
         "   AND coalesce(p.birth_year::int, extract(year FROM p.date_of_birth)::int)"
-        "       = $3",
+        "       = $3"
+        " LIMIT 2",
         cid,
         t,
         nam_sinh,
     )
-    return int(n or 0)
+    return [r["id"] for r in rows]
 
 
 async def khach_theo_sdt(

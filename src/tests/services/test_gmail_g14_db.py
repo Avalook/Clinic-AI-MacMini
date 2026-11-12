@@ -13,7 +13,13 @@ import asyncpg
 import pytest
 
 from clinicai.core.clock import hom_nay_vn
-from clinicai.services.xet_nghiem import ghep_khach, gmail, gmail_bu_cu, gmail_goi_y
+from clinicai.services.xet_nghiem import (
+    ghep_khach,
+    gmail,
+    gmail_bu_cu,
+    gmail_goi_y,
+    gmail_ten_nam_sinh,
+)
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
@@ -153,6 +159,51 @@ async def test_nguoi_gan_thu_cu_thi_ghi_da_tra_ngoai_he_thong(
         nguoi.staff_id,
     )
     assert (moi["tt"], moi["gui_kenh"]) == ("HOP_LE", None)
+
+
+@pytest.mark.parametrize("luot_cach_ngay", [0, 20])
+async def test_khong_chi_dinh_neo_luot_kham_trong_14_ngay(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+    ns_tren_phieu: None,
+    luot_cach_ngay: int,
+) -> None:
+    # G16 (Tuyền 12/11): tên + năm sinh trùng đúng MỘT hồ sơ, khách KHÔNG có chỉ định
+    # nào của lab (bác sĩ không nhập) ⇒ neo lượt khám ≤ 14 ngày trước thư: tờ vào hồ
+    # sơ theo lượt. Lượt cũ hơn 14 ngày ⇒ không đoán, người gán.
+    v, ten = await _khach(pool, c3)
+    await pool.execute(
+        "UPDATE service_order SET exec_status = 'cancelled' WHERE id = $1::uuid",
+        v["oid"],
+    )
+    vid = await pool.fetchval(
+        # Lùi thêm 1 giờ: giờ DB và giờ thư (Python) lệch nhau vài giây.
+        "UPDATE visit SET checked_in_at = now() - make_interval(days => $2, hours => 1)"
+        " FROM service_order o WHERE o.id = $1::uuid AND visit.visit_id = o.visit_id"
+        " RETURNING visit.visit_id::text",
+        v["oid"],
+        luot_cach_ngay,
+    )
+    mid = c3.thu(ten, SDT_PHIEU)
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    if luot_cach_ngay > gmail_ten_nam_sinh.NEO_LUOT_NGAY:
+        assert d["tep_ket_qua_id"] is None
+        return
+    to = await pool.fetchrow(
+        "SELECT clinic_patient_id::text AS kh, service_order_id, appointment_id::text"
+        "  AS ap, xac_nhan_trang_thai AS tt FROM tep_ket_qua WHERE id = $1::uuid",
+        d["tep_ket_qua_id"],
+    )
+    ap = await pool.fetchval(
+        "SELECT appointment_id::text FROM visit WHERE visit_id = $1::uuid", vid
+    )
+    assert (to["kh"], to["service_order_id"], to["ap"], to["tt"]) == (
+        v["kh"],
+        None,
+        ap,
+        "HOP_LE",
+    )
 
 
 async def _nam(pool: asyncpg.Pool, kh: str, nam: int | None) -> None:  # noqa: F811

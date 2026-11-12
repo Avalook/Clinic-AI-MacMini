@@ -259,8 +259,20 @@ async def _ghep(
         drive_nguoi_tai=r["drive_nguoi_tai"],
     )
     await ghi_da_ghep(pool, identity, r["id"], kq["id"])
+    await _danh_thu_cu(pool, identity, kq["id"])
     await _phat(pool, identity, "den", v)
     return {"tep_id": kq["id"]}
+
+
+async def _danh_thu_cu(
+    pool: asyncpg.Pool, identity: StaffIdentity, tep_id: str
+) -> None:
+    """Thư email về trước mốc 11/11 ⇒ tờ "đã trả ngoài hệ thống" (Tuyền 12/11). Mọi
+    đường NGƯỜI tạo tờ cho thư (Gán, Gán theo gợi ý, Gán cho khách, Gán lại, gán sang)
+    gọi đây sau khi `drive_tep` đã trỏ tờ mới. Tệp Drive / thư mới ⇒ không đụng."""
+    from clinicai.services.xet_nghiem import gmail_bu_cu  # gmail_bu_cu → gmail → đây
+
+    await gmail_bu_cu.danh_khi_gan_thu_cu(pool, identity, tep_id)
 
 
 async def ghi_da_ghep(
@@ -363,7 +375,8 @@ async def gan_sang(
         ten_hien_thi=goc["ten_hien_thi"],
         service_order_id=moi["order_id"],
         la_tep_doi_tac=True,
-        tu_drive=goc["nguon"] == "DRIVE",
+        tu_drive=goc["nguon"] in ("DRIVE", "GMAIL"),
+        tu_gmail=goc["nguon"] == "GMAIL",
         drive_nguoi_tai=goc["drive_nguoi_tai"],
     )
     cau = f"Gán nhầm, đã gán sang {moi['ten_khach'] or 'khách khác'}: {ly}"
@@ -382,6 +395,7 @@ async def gan_sang(
         cu["tep_id"],
         kq["id"],
     )
+    await _danh_thu_cu(pool, identity, kq["id"])
     await _phat(pool, identity, "thu_hoi", cu)
     await _phat(pool, identity, "den", moi)
     return {"tep_id": kq["id"]}

@@ -40,6 +40,7 @@ from typing import Any, Final
 from zoneinfo import ZoneInfo
 
 import asyncpg
+import structlog
 
 from clinicai.api.identity import StaffIdentity, danh_tinh_nhan_vien
 from clinicai.events.catalogue import XetNghiemBuKetQuaCu
@@ -47,6 +48,8 @@ from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.tep_ket_qua_service import kiem_tra_quyen_xac_nhan
 from clinicai.services.xet_nghiem import gmail
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
+
+logger = structlog.get_logger()
 
 KENH: Final = "NGOAI_HE_THONG"
 MOC_MAC_DINH: Final = date(2026, 11, 11)
@@ -126,9 +129,13 @@ async def danh_khi_gan_thu_cu(
     người bấm ⇒ không đòi quyền gửi / xác nhận. Thư từ mốc trở đi ⇒ không đụng.
     Máy tự gán thư cũ (xét lại) không có người đứng tên (DB bắt `gui_boi`) ⇒ chạy lại
     lệnh bù sau lần xét lại."""
-    async with pool.acquire() as conn, conn.transaction():
-        r = await conn.fetchrow(_CHON_SQL, ai.clinic_id, MOC_MAC_DINH, tep_id)
-        return r is not None and await _danh(conn, ai, r, str(uuid.uuid4()))
+    try:
+        async with pool.acquire() as conn, conn.transaction():
+            r = await conn.fetchrow(_CHON_SQL, ai.clinic_id, MOC_MAC_DINH, tep_id)
+            return r is not None and await _danh(conn, ai, r, str(uuid.uuid4()))
+    except Exception as e:  # noqa: BLE001 — tờ ĐÃ gán xong; hỏng chỉ còn việc CSKH
+        logger.warning("gmail_danh_thu_cu_loi", loai=type(e).__name__)
+        return False
 
 
 async def _danh(conn: asyncpg.Connection, ai: StaffIdentity, r: Any, lo: str) -> bool:
