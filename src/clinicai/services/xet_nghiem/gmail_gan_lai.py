@@ -93,11 +93,15 @@ async def da_gan(
         d = dict(r)
         d["nhan_to"] = nhan_to(d.pop("xac_nhan_trang_thai"), d.pop("da_xoa"))
         # Đã gửi khách mà gắn nhầm ⇒ khách ấy đã nhận kết quả người khác: nói rõ.
+        con = d["nhan_to"] != NHAN_MAT_HIEU_LUC
         d["canh_bao"] = (
             f"{r['ten_khach']} đã nhận tờ này — gán lại sẽ thu hồi, cần báo khách."
-            if r["da_gui"] and d["nhan_to"] != NHAN_MAT_HIEU_LUC
+            if r["da_gui"] and con
             else None
         )
+        # G13: chuyển sang chỉ định khác của CÙNG khách (tờ theo lượt, hoặc chọn nhầm
+        # chỉ định) — chỉ khi tờ còn hiệu lực, chưa gửi khách (đã gửi ⇒ Gán lại).
+        d["chuyen_chi_dinh_duoc"] = co_quyen and con and not r["da_gui"]
         ra.append(d)
     return {"thu": ra, "co_quyen_gan_lai": co_quyen}
 
@@ -149,12 +153,20 @@ async def _go(
     # Chỗ tờ mới sẽ vào — lỗi đoán trước được thì dừng TRƯỚC khi thu hồi tờ cũ.
     loai = gmail_doc.loai_ket_qua(ghep_khach.chu_pdf(await ghep_tay._byte(r)))
     await gmail_goi_y._dich(pool, cid, r["doi_tac_id"], kh, r["email_nhan_luc"], loai)
+    await bu_va_thao(pool, identity, r, f"Gán nhầm khách, gán lại: {ly}")
+    return {**dict(r), "kh_moi": kh}
+
+
+async def bu_va_thao(
+    pool: asyncpg.Pool, identity: StaffIdentity, r: asyncpg.Record, cau: str
+) -> None:
+    """Bù tờ cũ (chờ xác nhận ⇒ Từ chối, hợp lệ ⇒ Thu hồi, kèm `cau`) rồi đưa thư về
+    hàng chờ. Dùng chung G11 (gán lại) + G13 (chuyển vào chỉ định). Gọi TRONG khoá."""
     if not r["con_hieu_luc"]:
         # Tờ đã mất hiệu lực ở chỗ khác: không cần bù, nhưng VẪN đòi quyền như mọi lần
         # gán lại (màn ẩn nút theo cùng quyền — không có lối API vòng).
         await kiem_tra_quyen_xac_nhan(pool, identity=identity)
     else:
-        cau = f"Gán nhầm khách, gán lại: {ly}"
         svc = TepKetQuaService(pool)
         if r["xac_nhan_trang_thai"] == "CHO_XAC_NHAN":
             await svc.xac_nhan_tep(
@@ -162,6 +174,7 @@ async def _go(
             )
         else:
             await svc.thu_hoi_tep(identity=identity, tep_id=r["tep_id"], ly_do=cau)
+    cid = identity.clinic_id
     n = await pool.execute(
         "UPDATE drive_tep SET tep_ket_qua_id = NULL, ghep_luc = NULL, ghep_boi = NULL"
         " WHERE clinic_id = $1::uuid AND id = $2::uuid AND tep_ket_qua_id = $3::uuid",
@@ -171,7 +184,6 @@ async def _go(
     )
     if n != "UPDATE 1":
         raise ConflictError("Thư này vừa được xử lý ở chỗ khác — tải lại màn.")
-    return {**dict(r), "kh_moi": kh}
 
 
 async def _thu(pool: asyncpg.Pool, cid: str, drive_tep_id: object) -> asyncpg.Record:

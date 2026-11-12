@@ -153,6 +153,28 @@ def test_gmail_tim_khach_va_gan_khach_hoi_partner_work() -> None:
     assert thay == can
 
 
+def test_gmail_to_theo_luot_vao_chi_dinh_hoi_xac_nhan_ket_qua() -> None:
+    """G13: hai cửa của màn Xác nhận kết quả gác đúng quyền màn đó."""
+    from clinicai.main import app
+
+    can = {
+        "/api/v1/xet-nghiem/ban/to-theo-luot-chi-dinh",
+        "/api/v1/xet-nghiem/ban/to-vao-chi-dinh",
+    }
+    thay = set()
+    for route in app.routes:
+        duong = getattr(route, "path", "")
+        if duong in can:
+            quyen = {
+                q
+                for d in route.dependant.dependencies  # type: ignore[attr-defined]
+                for q in getattr(d.call, "quyen", ())
+            }
+            assert "result.file.confirm" in quyen, duong
+            thay.add(duong)
+    assert thay == can
+
+
 def test_doi_tac_hoi_partner_work_chu_khong_hoi_vai() -> None:
     nguon = inspect.getsource(identity_mod.get_partner_identity)
     assert '"partner.work"' in nguon

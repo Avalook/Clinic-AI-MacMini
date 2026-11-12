@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { sdtDoc } from "@/lib/sdt";
 
+import ChuyenVaoChiDinh from "./ChuyenVaoChiDinh";
+
 export interface TepChoXacNhanRow {
   tep_id: string;
   clinic_patient_id: string;
@@ -45,6 +47,8 @@ export interface TepChoXacNhanRow {
   xac_nhan_trang_thai: string;
   co_the_xac_nhan: boolean;
   khong_the_xac_nhan_ly_do: string | null;
+  /** G13: tờ email theo lượt ⇒ nút "Chuyển vào chỉ định" (máy chủ tính). */
+  chuyen_chi_dinh_duoc?: boolean;
 }
 
 const BIEU_TUONG = {
@@ -90,7 +94,7 @@ export default function HangChoXacNhanKetQua() {
         if (huy) return;
         if (res.status === 403) {
           setLoiChung(
-            "Bạn không có quyền xác nhận kết quả. Vui lòng liên hệ Quản lý (Management) để được phân quyền.",
+            "Bạn không có quyền xác nhận kết quả. Nhờ Quản lý cấp quyền.",
           );
           setItems([]);
           return;
@@ -229,8 +233,8 @@ export default function HangChoXacNhanKetQua() {
             )}
           </div>
           <p className="mt-1 text-sm text-ink-muted">
-            Kiểm tra tệp external đúng khách, đúng chỉ định trước khi chuyển Bác sĩ
-            xem và cho phép gửi. (Pilot: Single-partner only)
+            Kiểm tờ kết quả đối tác gửi về đúng khách, đúng chỉ định trước khi Bác sĩ
+            xem và gửi khách. Tờ chưa có chỉ định ở trên cùng.
           </p>
         </div>
 
@@ -300,13 +304,13 @@ export default function HangChoXacNhanKetQua() {
                       <span className="block font-mono text-sm font-normal text-ink-muted">{t.patient_code}</span>
                     </p>
                     <p className="mt-0.5 text-sm font-medium text-brand-700">
-                      Chỉ định: {t.ten_dich_vu}
+                      {t.service_order_id ? `Chỉ định: ${t.ten_dich_vu}` : t.ten_dich_vu}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-chip bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
-                      {t.xac_nhan_trang_thai}
+                      Chờ xác nhận
                     </span>
                     <span className="text-xs text-ink-muted">
                       Tải lên lúc {gioVn(t.tai_len_luc)}
@@ -324,18 +328,15 @@ export default function HangChoXacNhanKetQua() {
                     <span className="rounded bg-surface-muted px-1.5 py-0.5 text-xs font-semibold text-ink-soft uppercase">
                       {t.loai_tep}
                     </span>
-                    <span className="text-xs text-ink-faint">({t.mime})</span>
                   </div>
 
                   <div className="text-xs text-ink-soft">
                     Người tải:{" "}
                     <span className="font-semibold text-ink">
-                      {t.tai_len_boi_ten ?? "Không rõ"}
+                      {t.tai_len_boi_ten ?? "Máy tự nhận (email / Drive)"}
                     </span>
                     {t.tai_len_boi_vai === "PARTNER" ? (
                       <span className="ml-1 text-ink-muted font-medium">· Đối tác</span>
-                    ) : t.tai_len_boi_vai ? (
-                      <span className="ml-1 text-ink-muted">({t.tai_len_boi_vai})</span>
                     ) : null}
                   </div>
                 </div>
@@ -383,6 +384,20 @@ export default function HangChoXacNhanKetQua() {
                     )}
                   </div>
                 </div>
+
+                {t.chuyen_chi_dinh_duoc ? (
+                  <ChuyenVaoChiDinh
+                    tepId={t.tep_id}
+                    onXong={(ten) => {
+                      setItems((prev) =>
+                        prev ? prev.filter((item) => item.tep_id !== t.tep_id) : [],
+                      );
+                      setThongBaoThanhCong(
+                        `Đã chuyển tờ vào chỉ định ${ten}.`,
+                      );
+                    }}
+                  />
+                ) : null}
 
                 {loiDong && (
                   <p

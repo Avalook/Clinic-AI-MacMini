@@ -10,6 +10,7 @@ import Lightbox, { type TepXem } from "@/components/ui/Lightbox";
 import ONhap from "@/components/ui/ONhap";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
+import ChuyenVaoChiDinh from "../xac-nhan-ket-qua/ChuyenVaoChiDinh";
 import GanKhachEmail from "./GanKhachEmail";
 import { useNgheBang } from "../dung-nghe-bang";
 import { CHUA_TAI, gioNgay, lenh } from "./kieu";
@@ -27,6 +28,8 @@ interface ThuDaGan {
   nhan_to: string;
   canh_bao: string | null;
   da_gui: boolean;
+  /** G13: đổi sang chỉ định khác của cùng khách (máy chủ tính: quyền, còn hiệu lực, chưa gửi). */
+  chuyen_chi_dinh_duoc: boolean;
   gan_vao: string;
   ten_khach: string;
   patient_code: string | null;
@@ -154,10 +157,19 @@ export default function EmailDaGan({ onXong }: { onXong: (bao: string) => void }
                 </div>
               </div>
             ) : dl.co_quyen_gan_lai ? (
-              <div>
+              <div className="flex flex-wrap items-start gap-2">
                 <Button type="button" size="sm" variant="ghost" onClick={() => setMo(t.id)}>
                   Gán lại cho khách khác
                 </Button>
+                {t.chuyen_chi_dinh_duoc ? (
+                  <ChuyenVaoChiDinh
+                    tepId={t.tep_id}
+                    onXong={(ten) => {
+                      void tai();
+                      onXong(`Đã chuyển tờ vào chỉ định ${ten}.`);
+                    }}
+                  />
+                ) : null}
               </div>
             ) : (
               <div className="text-ink-muted">Gán lại cần quyền Xác nhận kết quả (Quản lý cấp ở Phân quyền).</div>

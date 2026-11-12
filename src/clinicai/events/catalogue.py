@@ -696,6 +696,19 @@ class XetNghiemThuGanLai(PayloadSuKien):
     clinic_patient_id_moi: str
 
 
+class XetNghiemThuVaoChiDinh(PayloadSuKien):
+    """`lab.email_result_moved_to_order` — tờ email gắn theo lượt khám được CHUYỂN vào
+    chỉ định người chọn (Gmail G13): tờ cũ (từ chối / thu hồi) ⇒ tờ mới của chỉ định,
+    cùng khách. Chỉ id."""
+
+    drive_tep_id: str
+    doi_tac_id: str
+    tep_cu_id: str
+    tep_moi_id: str
+    service_order_id: str
+    clinic_patient_id: str
+
+
 class CskhDaLienHe(PayloadSuKien):
     """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
 
@@ -2219,6 +2232,12 @@ DANH_MUC: dict[str, SuKien] = {
                     "drive_tep",
                     XetNghiemThuGanLai,
                     "Gán lại thư email gắn nhầm khách",
+                ),
+                (
+                    "lab.email_result_moved_to_order",
+                    "drive_tep",
+                    XetNghiemThuVaoChiDinh,
+                    "Chuyển tờ email theo lượt vào chỉ định",
                 ),
                 (
                     "lab.result_sent",
