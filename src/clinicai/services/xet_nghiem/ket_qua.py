@@ -31,7 +31,8 @@ from clinicai.permissions.can import can
 from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.tep_ket_qua_service import KENH_GUI_HOP_LE, TepKetQuaService
 from clinicai.services.xet_nghiem.ban import bo_loc, doc_viec, sap_xep
-from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY, doc_cai_dat
+from clinicai.services.xet_nghiem.cai_dat_ban import doc_cai_dat
+from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
 from clinicai.services.xet_nghiem.hanh_trinh import nhom_khach
 from clinicai.services.xet_nghiem.mau import _mot_viec
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do

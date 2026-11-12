@@ -23,7 +23,7 @@ from clinicai.events.catalogue import XetNghiemMau, XetNghiemViec
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.tai_khoan_nhan_service import doc_id
 from clinicai.services.xet_nghiem.ban import doc_viec
-from clinicai.services.xet_nghiem.doi_tac import doc_cai_dat
+from clinicai.services.xet_nghiem.cai_dat_ban import doc_cai_dat
 from clinicai.services.xet_nghiem.o_nhap import doc_ly_do
 
 LOAI_HUY = ("NHAP_SAI", "MAU_HONG")

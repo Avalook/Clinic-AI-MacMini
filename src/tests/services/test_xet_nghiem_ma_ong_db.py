@@ -22,7 +22,7 @@ from clinicai.api.identity import StaffIdentity, _resolve_identity
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
 from clinicai.services.xet_nghiem import mau, qua_trinh, thu_ho
-from clinicai.services.xet_nghiem.doi_tac import doc_cai_dat
+from clinicai.services.xet_nghiem.cai_dat_ban import doc_cai_dat
 from clinicai.services.xet_nghiem.ma_mau import co_dang_ma
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,

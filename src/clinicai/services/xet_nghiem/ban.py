@@ -15,7 +15,7 @@ import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.xet_nghiem.anh_ck import anh_cua_cac_khoan
-from clinicai.services.xet_nghiem.doi_tac import CaiDatXN, doc_cai_dat
+from clinicai.services.xet_nghiem.cai_dat_ban import CaiDatXN, doc_cai_dat
 from clinicai.services.xet_nghiem.hanh_trinh import (
     buoc_dang,
     hanh_trinh,

@@ -17,8 +17,8 @@ import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.core.clock import hom_nay_vn
+from clinicai.services.xet_nghiem import cai_dat_ban, gmail, gmail_cai_dat
 from clinicai.services.xet_nghiem import doi_tac as dt
-from clinicai.services.xet_nghiem import gmail, gmail_cai_dat
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
@@ -176,14 +176,18 @@ async def test_moc_tu_ghep_luu_xoa_va_khong_ghi_de_nguong(
 ) -> None:
     ca = await _ca_doi_tac(pool)
     async with pool.acquire() as conn, conn.transaction():
-        await dt.luu_nguong(conn, ca.bac_si, 5)
+        await cai_dat_ban.luu_nguong(conn, ca.bac_si, 5, hien_ma_ong=True)
         hom_nay = hom_nay_vn().isoformat()
         moc = await gmail_cai_dat.luu_moc(conn, ca.bac_si, hom_nay)
         assert moc is not None and moc.isoformat() == hom_nay
-        cd = await dt.doc_cai_dat(conn, CLINIC)
-        assert cd.nguong_lay_mau_ngay == 5, "mốc Gmail không đè ô ngưỡng"
+        cd = await cai_dat_ban.doc_cai_dat(conn, CLINIC)
+        # Cùng một dòng cài đặt, hai cửa lưu riêng (#607 + G4): không ô nào đè ô nào.
+        assert (cd.nguong_lay_mau_ngay, cd.hien_ma_ong) == (5, True), "mốc Gmail đè"
         ds = await dt.danh_sach(conn, CLINIC)
         assert ds["gmail_tu_ngay"].isoformat() == hom_nay
+        await cai_dat_ban.luu_nguong(conn, ca.bac_si, 5, hien_ma_ong=False)
+        moc_sau = await gmail_cai_dat.doc_moc(conn, CLINIC)
+        assert moc_sau is not None and moc_sau.isoformat() == hom_nay, "công tắc đè mốc"
         for rac in ("2999-01-01", "31/12/2026", "abc"):
             with pytest.raises(ValidationError):
                 await gmail_cai_dat.luu_moc(conn, ca.bac_si, rac)

@@ -13,7 +13,7 @@ from uuid import UUID
 import asyncpg
 
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.services.xet_nghiem.doi_tac import doc_cai_dat
+from clinicai.services.xet_nghiem.cai_dat_ban import doc_cai_dat
 
 #: Trần dòng quá trình một việc (thực tế < 20; chạm trần ⇒ cảnh báo, không cắt im lặng).
 TRAN = 200
