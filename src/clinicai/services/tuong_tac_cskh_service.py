@@ -289,12 +289,8 @@ class TuongTacCskhService:
                     boi=nguoi(identity),
                 )
 
-        # Sổ đã commit ⇒ MỌI tệp của lượt ghi đã gửi (hàm tự nuốt lỗi). CHỈ khi dòng
-        # sổ đóng đúng việc "Có kết quả, chưa gửi" (nút "Đã gửi kết quả cho bệnh
-        # nhân"): hai nút "Cần / Không cần tái khám" cũng ghi TRA_KQ (để hành trình
-        # tích xanh) nhưng KHÔNG phải lần gửi — từng ghi "đã gửi" cho tờ về sau
-        # mà chưa ai gửi (Tuyền 12/11/2026).
-        if loai == "TRA_KQ" and trang_thai_ma == "KQ_CHUA_GUI":
+        # Chỉ nút "Đã gửi kết quả" (đóng KQ_CHUA_GUI) mới ghi gửi mọi tệp của lượt;
+        if loai == "TRA_KQ" and trang_thai_ma == "KQ_CHUA_GUI":  # tái khám thì không
             await danh_dau_ca_luot(
                 self._pool,
                 identity,
