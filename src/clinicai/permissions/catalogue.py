@@ -237,6 +237,13 @@ KHOI: dict[str, KhoiCongViec] = {
             "lich_lam_viec", "Lịch làm việc", "roster", "Xem lịch làm việc, ca trực"
         ),
         KhoiCongViec("bang_gia", "Bảng giá dịch vụ", "catalogue", "Sửa giá dịch vụ"),
+        # 11/11/2026 — xem bảng giá mà không sửa (kế toán). KHÔNG nằm trong "mở full".
+        KhoiCongViec(
+            "xem_bang_gia",
+            "Xem bảng giá",
+            "catalogue",
+            "Xem bảng giá dịch vụ & phòng, không sửa được — vd kế toán",
+        ),
         # 31/10/2026 — giá thuốc tách khỏi quyền giao thuốc: nhân viên giao được thuốc
         # mà không đổi được giá. KHÔNG nằm trong "mở full".
         KhoiCongViec(
@@ -310,12 +317,24 @@ KHOI: dict[str, KhoiCongViec] = {
             "ops",
             "Trung tâm giám sát agent — chỉ đội vận hành ClinicAI",
         ),
+        # 09/11/2026 — mọi thư kết quả đối tác về Gmail (cả thư cũ, chưa ghép): dữ liệu
+        # sức khoẻ. "Kho tạm để mình tôi xem" (Tuyền) ⇒ KHOI_CAP_RIENG.
+        KhoiCongViec(
+            "kho_email",
+            "Kho email kết quả (tạm)",
+            "partner",
+            "Xem mọi thư kết quả đối tác gửi về Gmail — chỉ cấp riêng từng người",
+        ),
     )
 }
 
 #: Khối nội bộ của đội vận hành ClinicAI — quản lý phòng khám (kể cả có
 #: `permission.manage`) KHÔNG cấp / thu / gom vào nhóm được.
 KHOI_NOI_BO: frozenset[str] = frozenset({"noi_bo_giam_sat"})
+
+#: Khối KHÔNG nằm trong nhóm mẫu nào (kể cả Quản lý) và không "mở full" — chỉ cấp riêng
+#: từng người ở màn Phân quyền (khác KHOI_NOI_BO: quản lý vẫn cấp / thu được).
+KHOI_CAP_RIENG: frozenset[str] = frozenset({"kho_email"})
 
 
 # ── Quyền ───────────────────────────────────────────────────────────────────
@@ -627,11 +646,25 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.TIEN,
         ),
         Quyen(
+            "price.service.view",
+            "Xem bảng giá dịch vụ",
+            "xem_bang_gia",
+            "catalogue",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
             "price.medicine.manage",
             "Sửa giá bán thuốc",
             "gia_thuoc",
             "catalogue",
             MucRuiRo.TIEN,
+        ),
+        Quyen(
+            "xet_nghiem.kho_email",
+            "Xem Kho email kết quả xét nghiệm đối tác",
+            "kho_email",
+            "partner",
+            MucRuiRo.LAM_SANG,
         ),
         Quyen(
             "vat_tu.manage",
@@ -882,7 +915,9 @@ PRESET["PARTNER"] = ["doi_tac"]
 # nhóm này — `test_danh_muc_quyen_db` so hai bên).
 # Trừ khối NỘI BỘ của đội vận hành ClinicAI (09/10/2026) — đó không phải quyền
 # của phòng khám.
-PRESET["MANAGEMENT"] = [k for k in KHOI if k not in KHOI_NOI_BO]
+PRESET["MANAGEMENT"] = [
+    k for k in KHOI if k not in KHOI_NOI_BO and k not in KHOI_CAP_RIENG
+]
 # `doi_tac` là việc của người ngoài; quản lý vẫn có (xem hộ đối tác) như trước.
 
 
@@ -914,12 +949,15 @@ KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
         "ke_toan",
         "duyet_vat_tu",
         "gia_thuoc",
+        "xem_bang_gia",
     }
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.
 KHOI_MO_FULL: list[str] = [
-    k for k in KHOI if k not in KHOI_CHI_QUAN_LY and k not in KHOI_NOI_BO
+    k
+    for k in KHOI
+    if k not in KHOI_CHI_QUAN_LY and k not in KHOI_NOI_BO and k not in KHOI_CAP_RIENG
 ]
 
 for _vai in PRESET:
@@ -936,6 +974,8 @@ PRESET["KE_TOAN"] = [
     "ds_benh_nhan",
     "lich_lam_viec",
     "kho_vat_tu",
+    # Xem giá, không sửa (11/11/2026).
+    "xem_bang_gia",
 ]
 # VAI "KẾ TOÁN" `ACCOUNTANT` (Tuyền 16/10/2026) chỉ là NHÃN để chọn khi thêm nhân
 # viên; người mới tạo với vai này được cấp sẵn đúng gói trên (cơ chế chung: nhóm
@@ -1108,6 +1148,14 @@ MAN: dict[str, Man] = {
         _lego(
             "bang_gia", "Bảng giá", ["/cashier/dich-vu"], ["bang_gia"], "Thu ngân, QL"
         ),
+        # Cùng màn, chỉ XEM (11/11/2026): bật cho người cần biết giá mà không được sửa.
+        _lego(
+            "xem_bang_gia",
+            "Xem bảng giá",
+            ["/cashier/dich-vu"],
+            ["xem_bang_gia"],
+            "Kế toán, QL",
+        ),
         _lego(
             "kho_vat_tu",
             "Kho vật tư",
@@ -1181,6 +1229,15 @@ MAN: dict[str, Man] = {
             ["/ops", "/audit-log"],
             ["van_hanh", "lich_su_thao_tac"],
             "Quản lý",
+        ),
+        # Kho email kết quả (tạm) — Gmail G2b 09/11/2026: dữ liệu sức khoẻ, KHÔNG nhóm
+        # mẫu nào (KHOI_CAP_RIENG); chỉ bật cho từng người ở màn Phân quyền.
+        _lego(
+            "kho_email",
+            "Kho email kết quả (tạm)",
+            ["/ban-xet-nghiem/kho-email"],
+            ["kho_email"],
+            "Cấp riêng từng người",
         ),
         # + bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015).
         _lego(
@@ -1292,6 +1349,7 @@ def tra_quyen(ma: str) -> Quyen:
 __all__ = [
     "KHOI",
     "KHOI_AN",
+    "KHOI_CAP_RIENG",
     "KHOI_CHI_QUAN_LY",
     "KHOI_MO_FULL",
     "LUON_BAT",

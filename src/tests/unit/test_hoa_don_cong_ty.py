@@ -98,7 +98,7 @@ KHACH = [
 ]
 THEM_KHACH = {
     pid: {
-        "dia_chi": "12 Kim Ngưu",
+        "address": "12 Kim Ngưu",
         "cccd": "001190000001",
         "email": "ca-nhan@example.com",
     }

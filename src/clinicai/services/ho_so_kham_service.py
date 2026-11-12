@@ -25,12 +25,22 @@ import asyncpg
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.phieu_kham.doc_chu import doc_phieu_v5_chu
+from clinicai.services.dia_chi_khach import COT_DIA_CHI, dia_chi_khach
 from clinicai.services.luot_kham_rules import nhan_nguon_sinh_hieu
 from clinicai.services.sinh_hieu_buoi import chi_so_do, sinh_hieu_cua_buoi
 
 
 def _d(row: asyncpg.Record | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
+
+
+def _lich(row: asyncpg.Record | None) -> dict[str, Any] | None:
+    """Dòng lịch cho màn: bốn cột địa chỉ gộp thành MỘT `dia_chi` theo luật chung
+    (`dia_chi_khach`) — trước đây chỉ lấy `address_detail` (cũ + thiếu phường/tỉnh)."""
+    d = _d(row)
+    if d is not None:
+        d["dia_chi"] = dia_chi_khach({k: d.pop(k, None) for k in COT_DIA_CHI})
+    return d
 
 
 class HoSoKhamService:
@@ -52,7 +62,7 @@ class HoSoKhamService:
                        p.patient_code AS ma_bn, p.full_name AS ten,
                        p.date_of_birth AS ngay_sinh, p.birth_year AS nam_sinh,
                        p.gender AS gioi_tinh, p.phone_primary AS sdt,
-                       coalesce(nullif(p.address_detail, ''), p.address) AS dia_chi,
+                       p.address, p.address_detail, p.ward_name, p.province_name,
                        p.van_de_di_kham
                   FROM public.appointment a
                   JOIN public.patient p
@@ -174,7 +184,6 @@ class HoSoKhamService:
                 SELECT t.id::text AS id, t.ten_hien_thi, t.loai_tep, t.mime,
                        t.so_byte, t.tai_len_luc,
                        t.service_order_id::text AS service_order_id,
-                       t.cho_phep_gui_luc IS NOT NULL AS duoc_gui,
                        t.gui_luc
                   FROM public.v_tep_ket_qua_hieu_luc t
                  WHERE t.clinic_id = $1::uuid
@@ -196,7 +205,6 @@ class HoSoKhamService:
                        coalesce(result_value, result_numeric::text) AS ket_qua,
                        result_unit AS don_vi, reference_range_low AS thap,
                        reference_range_high AS cao, flag AS co,
-                       requires_doctor_review AND reviewed_at IS NULL AS cho_duyet,
                        result_received_at
                   FROM public.lab_result
                  WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid
@@ -211,7 +219,7 @@ class HoSoKhamService:
             )
 
         return {
-            "lich": _d(lich),
+            "lich": _lich(lich),
             "luot": _d(luot),
             "sinh_hieu": sinh_hieu,
             "phien_kham": [dict(r) for r in phien],

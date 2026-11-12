@@ -380,6 +380,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // bước (đối tác không đăng nhập). Cùng lego 21 với bàn cũ ⇒ ai đang dùng bàn cũ
   // thấy luôn bàn mới. Vai PARTNER không vào (máy chủ cũng từ chối).
   "/ban-xet-nghiem": ["MANAGEMENT"],
+  // Kho email kết quả (Gmail G2b): KHÔNG vai nào — chỉ lego cấp riêng (NAV_QUYEN).
+  // Dòng rỗng để khi máy chủ chưa trả quyền (`null`), luật gốc theo vai ĐÓNG thay vì
+  // "không có luật ⇒ ai cũng thấy".
+  "/ban-xet-nghiem/kho-email": [],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
@@ -453,9 +457,6 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Vào được màn không có nghĩa là cấp được quyền: backend đòi capability
   // `permission.manage`, nên người không có nó chỉ xem chứ bấm là bị từ chối.
   "/phan-quyen": ["MANAGEMENT"],
-  // Xác nhận tệp kết quả external — phân quyền bằng capability ket_qua.xac_nhan.
-  // Không giới hạn role ở đây; backend API và page fail-closed bằng capability.
-  "/xac-nhan-ket-qua": ALL_ROLES.filter((r) => r !== "PARTNER" && r !== "DISPLAY"),
   "/ops": ["MANAGEMENT"],
   // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
   // Trang riêng vì /settings (tạo user) vẫn chỉ MANAGEMENT.
@@ -663,7 +664,8 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/pharmacy/history": ["pharmacy.view", "pharmacy.dispense"],
   "/pharmacy/consult": ["pharmacy.view", "pharmacy.dispense"],
   "/schedule": ["roster.view"], // 15 Lịch làm việc
-  "/cashier/dich-vu": ["price.service.manage"], // 16 Bảng giá (dịch vụ)
+  // 16 Bảng giá (dịch vụ) + công tắc "Xem bảng giá" (chỉ xem, 11/11/2026).
+  "/cashier/dich-vu": ["price.service.manage", "price.service.view"],
   "/kho-vat-tu": ["vat_tu.manage"], // Kho vật tư (G8a)
   "/hoa-don": ["report.view"],
   "/xuat-hoa-don": ["report.view"],
@@ -690,6 +692,9 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/audit-log": ["audit.view"],
   "/doi-tac": ["partner.work"], // 21 Đối tác
   "/ban-xet-nghiem": ["partner.work"], // 21 Đối tác — bàn XN đời mới
+  // Lego Kho email (Gmail G2b): chỉ bằng QUYỀN, không vai nào (khối cấp riêng). Khớp
+  // chính xác trước tiền tố ⇒ không lọt vào quyền partner.work của /ban-xet-nghiem.
+  "/ban-xet-nghiem/kho-email": ["xet_nghiem.kho_email"],
   // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
   "/duyet-ket-qua": ["result.form.fill"],
 };

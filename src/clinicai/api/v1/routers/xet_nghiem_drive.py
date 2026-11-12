@@ -16,7 +16,13 @@ from pydantic import BaseModel
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.database import get_db_pool
-from clinicai.services.xet_nghiem import ghep_tay
+from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.xet_nghiem import (
+    ghep_tay,
+    gmail_gan_lai,
+    gmail_goi_y,
+    gmail_vao_chi_dinh,
+)
 
 router = APIRouter()
 P = "/xet-nghiem/ban"
@@ -42,6 +48,21 @@ class DriveChoOut(BaseModel):
     nhan_luc: datetime
     ly_do_cho: str | None
     vi_sao: str
+    #: DRIVE | GMAIL (Gmail G3 — thư sau mốc tự ghép đã xét mà chưa chắc).
+    nguon: str = "DRIVE"
+    email_tieu_de: str | None = None
+    email_nhan_luc: datetime | None = None
+    #: Việc máy chủ gợi ý gán (khớp khách, chưa lấy mẫu / đã có tờ) — nút "Gán theo
+    #: gợi ý" chỉ gửi id này; máy chủ vẫn kiểm như Gán tay.
+    goi_y_order_id: str | None = None
+    #: Khách khớp tên + SĐT (cả Drive) — màn đưa việc của khách này lên đầu ô chọn.
+    goi_y_clinic_patient_id: str | None = None
+    goi_y_ten: str | None = None
+    goi_y_ma: str | None = None
+    #: Thư email có khách gợi ý ⇒ nút "Gán cho khách này" (G9, không cần Bàn XN).
+    gan_goi_y_duoc: bool = False
+    #: Thư email ⇒ ô "tìm khách rồi gán" (G10).
+    gan_khach_duoc: bool = False
 
 
 class DriveNhipOut(BaseModel):
@@ -98,6 +119,122 @@ async def drive_ghep(
     r: Request, i: StaffIdentity = _NV, p: asyncpg.Pool = _DB
 ) -> object:
     kq = await ghep_tay.ghep(p, i, await _than(r), hom_nay_vn())
+    return {"ok": True, "tep_id": kq["tep_id"]}
+
+
+#: Gán thư email cho khách BẤT KỲ + dò hồ sơ khách (tên, SĐT) ⇒ gác đúng quyền màn
+#: Việc của đối tác (`lib/roles.ts` NAV_QUYEN), không chỉ "đã đăng nhập" (soát G10).
+_BAN_XN = Depends(cua_quyen("partner.work"))
+
+
+@router.post(f"{P}/drive-gan-khach", response_model=OkOut)
+async def drive_gan_khach(
+    r: Request, i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
+) -> object:
+    """Thư email ⇒ khách người bấm chọn (gợi ý G9 / ô tìm G10): vào chỉ định đúng loại
+    hoặc hồ sơ theo lượt khám."""
+    kq = await gmail_goi_y.gan_cho_khach(p, i, await _than(r))
+    return {"ok": True, "tep_id": kq["tep_id"]}
+
+
+class KhachTimOut(BaseModel):
+    clinic_patient_id: str
+    full_name: str
+    patient_code: str | None
+    phone_primary: str | None
+    birth_year: int | None
+    gender: str | None
+
+
+class KhachTimListOut(BaseModel):
+    items: list[KhachTimOut]
+
+
+@router.get(f"{P}/tim-khach", response_model=KhachTimListOut)
+async def tim_khach(
+    q: str = "", i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
+) -> object:
+    """Ô tìm khách của thư email chờ (G10) — câu tìm khách dùng chung."""
+    return {"items": await gmail_goi_y.tim_khach(p, i, q)}
+
+
+class EmailDaGanOut(BaseModel):
+    id: str
+    ten: str
+    email_tieu_de: str | None
+    email_nhan_luc: datetime | None
+    ghep_luc: datetime | None
+    ten_doi_tac: str
+    ghep_boi: str
+    tep_id: str
+    loai_tep: str
+    #: Chữ trạng thái tờ (máy chủ tính): Chờ xác nhận / Hợp lệ / Tờ đã thu hồi…
+    nhan_to: str
+    #: Tờ đã gửi khách mà gắn nhầm ⇒ câu nhắc báo khách (máy chủ tính).
+    canh_bao: str | None
+    #: G13 — nút "Chuyển vào chỉ định khác" (cùng khách; máy chủ tính).
+    chuyen_chi_dinh_duoc: bool = False
+    #: Chữ tình trạng gửi (máy chủ tính): "đã gửi khách" / "kết quả cũ, đã trả ngoài hệ
+    #: thống" / null — màn chỉ in.
+    gui: str | None = None
+    vao_chi_dinh: bool
+    #: Tên dịch vụ của chỉ định, hoặc "Hồ sơ theo lượt khám".
+    gan_vao: str
+    clinic_patient_id: str
+    ten_khach: str
+    patient_code: str | None
+    phone_primary: str | None
+
+
+class EmailDaGanListOut(BaseModel):
+    thu: list[EmailDaGanOut]
+    #: Người xem có quyền Xác nhận kết quả (thu hồi tờ cũ cần quyền đó).
+    co_quyen_gan_lai: bool
+
+
+@router.get(f"{P}/email-da-gan", response_model=EmailDaGanListOut)
+async def email_da_gan(
+    q: str = "", i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
+) -> object:
+    """Thư email ĐÃ gắn khách (G11) — chỗ sửa khi gắn nhầm."""
+    return await gmail_gan_lai.da_gan(p, i, q)
+
+
+@router.post(f"{P}/drive-gan-lai", response_model=OkOut)
+async def drive_gan_lai(
+    r: Request, i: StaffIdentity = _BAN_XN, p: asyncpg.Pool = _DB
+) -> object:
+    """Thư email gắn nhầm ⇒ thu hồi / từ chối tờ cũ, gán cho khách đúng (G11)."""
+    kq = await gmail_gan_lai.gan_lai(p, i, await _than(r))
+    return {"ok": True, "tep_id": kq["tep_id"]}
+
+
+_XAC_NHAN = Depends(cua_quyen("result.file.confirm"))
+
+
+class ChiDinhNhanOut(BaseModel):
+    service_order_id: str
+    ten_dich_vu: str
+
+
+class ChiDinhNhanListOut(BaseModel):
+    chi_dinh: list[ChiDinhNhanOut]
+
+
+@router.get(f"{P}/to-theo-luot-chi-dinh", response_model=ChiDinhNhanListOut)
+async def to_theo_luot_chi_dinh(
+    tep_id: str = "", i: StaffIdentity = _XAC_NHAN, p: asyncpg.Pool = _DB
+) -> object:
+    """Chỉ định tờ email gắn theo lượt chuyển vào được (G13, màn Xác nhận kết quả)."""
+    return await gmail_vao_chi_dinh.chi_dinh_nhan_duoc(p, i, tep_id)
+
+
+@router.post(f"{P}/to-vao-chi-dinh", response_model=OkOut)
+async def to_vao_chi_dinh(
+    r: Request, i: StaffIdentity = _XAC_NHAN, p: asyncpg.Pool = _DB
+) -> object:
+    """Tờ email gắn theo lượt ⇒ từ chối tờ cũ, gán vào chỉ định đã chọn (G13)."""
+    kq = await gmail_vao_chi_dinh.vao_chi_dinh(p, i, await _than(r))
     return {"ok": True, "tep_id": kq["tep_id"]}
 
 

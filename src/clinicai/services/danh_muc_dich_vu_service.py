@@ -213,6 +213,9 @@ class DanhMucDichVuService:
             # Gán phòng là đổi CẤU HÌNH phòng (lego "Cài đặt phòng khám") — màn
             # Bảng giá mở cho người giữ bảng giá, nên máy chủ nói có sửa được không.
             sua_phong = await can(conn, identity, "config.clinic.manage")
+            # Người chỉ XEM bảng giá (kế toán) / thu ngân tra giá đọc được bảng này
+            # nhưng không sửa — màn vẽ chữ thay ô sửa. Lệnh ghi vẫn tự chặn ở router.
+            sua_gia = await can(conn, identity, "price.service.manage")
         ds = [dong_danh_muc(r) for r in rows]
         nhom = sorted(
             {d["nhom_hien"] for d in ds if d["nhom_hien"]} | {g for g in THU_TU_NHOM},
@@ -232,5 +235,6 @@ class DanhMucDichVuService:
             ],
             "nhom_hang": nhom,
             "sua_phong_duoc": bool(sua_phong),
+            "sua_gia_duoc": bool(sua_gia),
             "so_chua_co_phong": sum(1 for d in ds if d["chua_co_phong"]),
         }

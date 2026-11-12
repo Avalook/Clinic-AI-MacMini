@@ -266,8 +266,8 @@ async def test_ban_2_ghep_tay_tu_choi_gan_sang(
         await pool.fetchval(
             "SELECT xac_nhan_trang_thai FROM tep_ket_qua WHERE id = $1::uuid", cu
         )
-        # Tờ cũ tự về từ Drive còn chờ xác nhận ⇒ lệnh bù là Từ chối tệp.
-        == "TU_CHOI"
+        # Tờ máy nhận Hợp lệ ngay (12/11, bỏ bước Xác nhận) ⇒ lệnh bù là Thu hồi.
+        == "THU_HOI"
     )
     assert (await _viec(pool, ca, o2))["so_ban"] == 2
     assert (

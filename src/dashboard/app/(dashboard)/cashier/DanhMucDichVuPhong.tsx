@@ -61,6 +61,9 @@ export interface DanhMucGoi {
   phong: PhongDv[];
   nhom_hang: string[];
   sua_phong_duoc: boolean;
+  /** Máy chủ: được SỬA giá (`price.service.manage`). Không phải `true` = chỉ xem
+   *  (kế toán có lego "Xem bảng giá", 11/11/2026) — ô sửa thành chữ. */
+  sua_gia_duoc: boolean;
   so_chua_co_phong: number;
 }
 
@@ -206,6 +209,7 @@ export default function DanhMucDichVuPhong({
   const dangBan = ds.filter((d) => d.active).length;
   const thieuGia = ds.filter((d) => d.active && d.unit_price === null).length;
   const tamNgung = ds.length - dangBan;
+  const chiXem = goi.sua_gia_duoc !== true;
 
   return (
     <div className="space-y-4">
@@ -269,6 +273,11 @@ export default function DanhMucDichVuPhong({
             { ma: "tam_ngung", nhan: `Tạm ngưng ${tamNgung}` },
           ]}
         />
+        {chiXem ? (
+          <p className="text-meta text-ink-muted">
+            Bạn đang xem bảng giá — không sửa được. Cần đổi giá thì báo quản lý.
+          </p>
+        ) : null}
         {loi ? (
           <p role="alert" className="text-meta text-danger">
             {loi}
@@ -303,6 +312,7 @@ export default function DanhMucDichVuPhong({
                     goi={goi}
                     nhomViec={nhomViec}
                     ban={ban}
+                    chiXem={chiXem}
                     nhapGia={nhapGia[d.id]}
                     onNhapGia={(v) => setNhapGia((c) => ({ ...c, [d.id]: v }))}
                     onLuuGia={async () => {
@@ -322,20 +332,23 @@ export default function DanhMucDichVuPhong({
         )}
       </section>
 
-      <section className="rounded-card border border-hairline bg-surface px-4 py-2 shadow-card">
-        <NganGap tieuDe="+ Thêm dịch vụ mới" co="the">
-        <ThemDichVu
-          goi={goi}
-          nhomViec={nhomViec}
-          ban={ban}
-          onThem={(body) => gui("/api/service-price", "POST", body, `Đã thêm “${String(body.name)}”.`)}
-        />
-        </NganGap>
-      </section>
+      {chiXem ? null : (
+        <section className="rounded-card border border-hairline bg-surface px-4 py-2 shadow-card">
+          <NganGap tieuDe="+ Thêm dịch vụ mới" co="the">
+          <ThemDichVu
+            goi={goi}
+            nhomViec={nhomViec}
+            ban={ban}
+            onThem={(body) => gui("/api/service-price", "POST", body, `Đã thêm “${String(body.name)}”.`)}
+          />
+          </NganGap>
+        </section>
+      )}
 
       <VatTuBangGia
         ds={goi.vat_tu ?? []}
         ban={ban}
+        chiXem={chiXem}
         onSua={(id, patch, xong) => gui("/api/service-price", "PATCH", { id, ...patch }, xong)}
       />
 
@@ -369,6 +382,7 @@ function DongDv({
   goi,
   nhomViec,
   ban,
+  chiXem,
   nhapGia,
   onNhapGia,
   onLuuGia,
@@ -379,6 +393,8 @@ function DongDv({
   goi: DanhMucGoi;
   nhomViec: NhomViec[];
   ban: boolean;
+  /** Chỉ xem (máy chủ báo không sửa được giá) — vẽ chữ thay ô sửa. */
+  chiXem: boolean;
   nhapGia: string | undefined;
   onNhapGia: (v: string) => void;
   onLuuGia: () => void;
@@ -398,42 +414,50 @@ function DongDv({
         <p className="text-meta text-ink-faint">
           {[d.ma_kiotviet, d.service_code].filter(Boolean).join(" · ")}
         </p>
-        <label className="mt-1 block">
-          <span className="sr-only">Nhóm hàng của {d.name}</span>
-          <select
-            value={d.nhom_hien ?? ""}
-            disabled={ban}
-            onChange={(e) => onSua({ nhom: e.target.value }, `Đã đổi nhóm “${d.name}”.`)}
-            className="h-10 max-w-full rounded-control border border-line bg-surface px-2 text-meta text-ink-muted outline-none focus:border-brand-500 lg:h-7"
-          >
-            <option value="">Chưa có nhóm</option>
-            {goi.nhom_hang.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
+        {chiXem ? (
+          <p className="mt-1 text-meta text-ink-muted">{d.nhom_hien ?? "Chưa có nhóm"}</p>
+        ) : (
+          <label className="mt-1 block">
+            <span className="sr-only">Nhóm hàng của {d.name}</span>
+            <select
+              value={d.nhom_hien ?? ""}
+              disabled={ban}
+              onChange={(e) => onSua({ nhom: e.target.value }, `Đã đổi nhóm “${d.name}”.`)}
+              className="h-10 max-w-full rounded-control border border-line bg-surface px-2 text-meta text-ink-muted outline-none focus:border-brand-500 lg:h-7"
+            >
+              <option value="">Chưa có nhóm</option>
+              {goi.nhom_hang.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className="lg:text-right">
         <span className={nhan}>Đơn giá</span>
-        <div className="flex items-center gap-1.5 lg:justify-end">
-          <input
-            aria-label={`Đơn giá ${d.name}`}
-            inputMode="numeric"
-            value={doiGia ? nhapGia : (d.unit_price ?? "")}
-            placeholder="chưa có giá"
-            disabled={ban}
-            onChange={(e) => onNhapGia(e.target.value)}
-            className="h-10 w-28 rounded-control border border-line bg-surface px-2 text-right text-body tabular-nums text-ink outline-none placeholder:text-ink-faint focus:border-brand-500 lg:h-8"
-          />
-          {doiGia ? (
-            <Button type="button" size="sm" variant="primary" disabled={ban} onClick={onLuuGia}>
-              Lưu
-            </Button>
-          ) : null}
-        </div>
+        {chiXem ? (
+          <p className="text-body tabular-nums text-ink">{tien(d.unit_price)}</p>
+        ) : (
+          <div className="flex items-center gap-1.5 lg:justify-end">
+            <input
+              aria-label={`Đơn giá ${d.name}`}
+              inputMode="numeric"
+              value={doiGia ? nhapGia : (d.unit_price ?? "")}
+              placeholder="chưa có giá"
+              disabled={ban}
+              onChange={(e) => onNhapGia(e.target.value)}
+              className="h-10 w-28 rounded-control border border-line bg-surface px-2 text-right text-body tabular-nums text-ink outline-none placeholder:text-ink-faint focus:border-brand-500 lg:h-8"
+            />
+            {doiGia ? (
+              <Button type="button" size="sm" variant="primary" disabled={ban} onClick={onLuuGia}>
+                Lưu
+              </Button>
+            ) : null}
+          </div>
+        )}
         <div className="mt-1 flex flex-wrap gap-1 lg:justify-end">
           {d.billing_owner === "EXTERNAL_PARTNER" ? (
             <Chip tone="neutral">{`tham khảo ${tien(d.unit_price)}`}</Chip>
@@ -442,6 +466,14 @@ function DongDv({
         </div>
       </div>
 
+      {chiXem ? (
+        <div>
+          <span className={nhan}>Bên thu</span>
+          <p className="text-body text-ink">
+            {d.billing_owner === "EXTERNAL_PARTNER" ? "Thu hộ đối tác" : "Phòng khám thu"}
+          </p>
+        </div>
+      ) : (
       <label className="block">
         <span className={nhan}>Bên thu</span>
         <select
@@ -455,7 +487,14 @@ function DongDv({
           <option value="EXTERNAL_PARTNER">Thu hộ đối tác</option>
         </select>
       </label>
+      )}
 
+      {chiXem ? (
+        <div>
+          <span className={nhan}>Nhóm việc</span>
+          <p className="text-body text-ink">{d.ten_nhom_viec ?? "Chưa chọn nhóm việc"}</p>
+        </div>
+      ) : (
       <label className="block">
         <span className={nhan}>Nhóm việc</span>
         {/* Phí khám cũng chọn nhóm việc + phòng như mọi dịch vụ (C21, 02/10/2026). */}
@@ -476,6 +515,7 @@ function DongDv({
           ))}
         </select>
       </label>
+      )}
 
       <div className="min-w-0 sm:col-span-2 lg:col-span-1">
         <span className={nhan}>Phòng làm</span>
@@ -506,6 +546,11 @@ function DongDv({
         </div>
       </div>
 
+      {chiXem ? (
+        <p className="flex min-h-10 items-center text-meta text-ink-soft lg:min-h-0 lg:justify-end">
+          {d.active ? "Đang bán" : "Tạm ngưng"}
+        </p>
+      ) : (
       <label className="flex min-h-10 items-center gap-2 text-meta text-ink-soft lg:min-h-0 lg:justify-end">
         <input
           type="checkbox"
@@ -521,6 +566,7 @@ function DongDv({
         />
         <span className="lg:sr-only">{d.active ? "Đang bán" : "Tạm ngưng"}</span>
       </label>
+      )}
     </li>
   );
 }

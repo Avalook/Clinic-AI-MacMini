@@ -56,7 +56,8 @@ _DUONG_DAN: dict[str, str] = {
     "CSKH": "/customers",
     "TKYK": "/ban-kham",
     "DOCTOR": "/ban-kham",
-    "NURSE_ULTRASOUND": "/xac-nhan-ket-qua",
+    # 12/11: màn Xác nhận kết quả đã bỏ ⇒ điều dưỡng về Phòng dịch vụ (vào được).
+    "NURSE_ULTRASOUND": "/phong",
     "PARTNER": "/doi-tac",
 }
 

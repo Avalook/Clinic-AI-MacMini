@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { hienTrenThanhBen, quyenMoDuocMan } from "../lib/roles.ts";
+import { hienTrenThanhBen, quyenMoDuocMan, vaoDuocMan } from "../lib/roles.ts";
 
 const doc = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 
@@ -81,4 +81,18 @@ test("thanh bên và thanh dưới dùng chung một luật", () => {
       `${f} phải truyền quyền vào bộ lọc`,
     );
   }
+});
+
+test("Kho email (Gmail G2b): chỉ quyền cấp riêng, không vai nào, không lọt tiền tố", () => {
+  const KHO = "/ban-xet-nghiem/kho-email";
+  // Khớp CHÍNH XÁC trước tiền tố: quyền bàn XN (/ban-xet-nghiem) không mở Kho.
+  assert.equal(quyenMoDuocMan(["partner.work"], KHO), false);
+  assert.equal(quyenMoDuocMan(["xet_nghiem.kho_email"], KHO), true);
+  // Máy chủ chưa trả quyền (null) ⇒ rơi về luật vai — Kho không có vai nào ⇒ đóng.
+  for (const vai of ["MANAGEMENT", "RECEPTION", "CSKH"] as const) {
+    assert.equal(hienTrenThanhBen(vai, KHO, null), false, `${vai} không thấy Kho khi chưa biết quyền`);
+    assert.equal(vaoDuocMan(KHO, [vai], null), false, `${vai} không vào Kho khi chưa biết quyền`);
+  }
+  assert.equal(vaoDuocMan(KHO, ["MANAGEMENT"], ["partner.work", "report.view"]), false);
+  assert.equal(vaoDuocMan(KHO, ["RECEPTION"], ["xet_nghiem.kho_email"]), true);
 });

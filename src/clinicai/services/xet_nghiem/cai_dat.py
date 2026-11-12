@@ -13,6 +13,7 @@ import asyncpg
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.xet_nghiem import doi_tac as dt
+from clinicai.services.xet_nghiem import gmail_cai_dat
 
 
 class CaiDatDoiTac:
@@ -66,4 +67,9 @@ class CaiDatDoiTac:
     ) -> dict[str, Any]:
         return await self._ghi(
             identity, lambda c: dt.luu_nguong(c, identity, so_ngay, hien_ma_ong)
+        )
+
+    async def moc_gmail(self, identity: StaffIdentity, raw: object) -> dict[str, Any]:
+        return await self._ghi(
+            identity, lambda c: gmail_cai_dat.luu_moc(c, identity, raw)
         )

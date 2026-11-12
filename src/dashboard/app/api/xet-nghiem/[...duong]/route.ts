@@ -13,7 +13,7 @@ type Method = "GET" | "POST" | "PUT";
 const U = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 const LENH_BAN =
-  "ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|mo-lai|gui|thu-hoi|drive-ghep|drive-tu-choi|gan-sang";
+  "ghi-thu|huy-thu|hoan-tien|lay-mau|huy-mau|sua-hen-tra|mo-lai|gui|thu-hoi|drive-ghep|drive-gan-khach|drive-gan-lai|drive-tu-choi|gan-sang|to-vao-chi-dinh";
 
 /** [method, mẫu đường sau /xet-nghiem/, đường backend VIẾT RÕ] — thêm cửa = thêm một
  *  dòng. Đường backend viết hẳn ra để test `test_dashboard_backend_paths` đối chiếu
@@ -31,6 +31,8 @@ const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
     (m) => `/api/v1/xet-nghiem/doi-tac-dich-vu/${m[1]}/bo`,
   ],
   ["PUT", /^cai-dat$/, () => "/api/v1/xet-nghiem/cai-dat"],
+  // Gmail G4 — mốc "Tự ghép kết quả email từ ngày" (Quản lý), cửa riêng.
+  ["PUT", /^cai-dat\/gmail$/, () => "/api/v1/xet-nghiem/cai-dat/gmail"],
   ["GET", /^quyen$/, () => "/api/v1/xet-nghiem/quyen"],
   // Bàn xét nghiệm (chặng 2–3)
   ["GET", /^ban$/, () => "/api/v1/xet-nghiem/ban"],
@@ -38,8 +40,18 @@ const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
   ["GET", /^ban\/qua-trinh$/, () => "/api/v1/xet-nghiem/ban/qua-trinh"],
   // Chặng 4 — tệp Drive chờ ghép + nhịp quét (nội dung tệp: route riêng drive-tep).
   ["GET", /^ban\/drive-cho$/, () => "/api/v1/xet-nghiem/ban/drive-cho"],
+  // G10 — ô tìm khách của thư email chờ (câu tìm khách dùng chung ở máy chủ).
+  ["GET", /^ban\/tim-khach$/, () => "/api/v1/xet-nghiem/ban/tim-khach"],
+  // G11 — thư email đã gán (chỗ "Gán lại cho khách khác").
+  ["GET", /^ban\/email-da-gan$/, () => "/api/v1/xet-nghiem/ban/email-da-gan"],
+  // G13 — chỉ định nhận được tờ email (Thư email đã gán: chuyển / đổi chỉ định).
+  ["GET", /^ban\/to-theo-luot-chi-dinh$/, () => "/api/v1/xet-nghiem/ban/to-theo-luot-chi-dinh"],
   ["POST", new RegExp(`^ban/(${LENH_BAN})$`), (m) => `/api/v1/xet-nghiem/ban/${m[1]}`],
   ["POST", new RegExp(`^ban/anh-ck/(${U})/go$`, "i"), (m) => `/api/v1/xet-nghiem/ban/anh-ck/${m[1]}/go`],
+  // Gmail G2b — Kho email kết quả (tạm); thiếu quyền ⇒ máy chủ trả 404. PDF: route
+  // riêng kho-email-pdf (nhị phân).
+  ["GET", /^kho-email$/, () => "/api/v1/xet-nghiem/kho-email"],
+  ["GET", new RegExp(`^kho-email/(${U})$`, "i"), (m) => `/api/v1/xet-nghiem/kho-email/${m[1]}`],
 ];
 
 function sai(message: string, status = 400) {

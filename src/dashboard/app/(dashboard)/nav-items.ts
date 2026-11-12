@@ -13,6 +13,7 @@ import {
   Contact,
   Stethoscope,
   FlaskConical,
+  Mail,
   Activity,
   Pill,
   Tag,
@@ -181,6 +182,15 @@ export const NAV: NavItem[] = [
     label: "Việc của đối tác",
     icon: FlaskConical,
   },
+  // Kho email kết quả (tạm) — Gmail G2b 09/11/2026: mọi thư kết quả đối tác gửi về
+  // Gmail phòng khám. Lego cấp RIÊNG từng người (không nhóm mẫu nào).
+  {
+    href: "/ban-xet-nghiem/kho-email",
+    label: "Kho email kết quả (tạm)",
+    icon: Mail,
+  },
+  // (12/11/2026) "Xác nhận kết quả đối tác" ĐÃ BỎ khỏi thanh bên — tờ máy nhận Hợp lệ
+  // ngay; route /xac-nhan-ket-qua chỉ còn chuyển hướng về /ban-xet-nghiem.
   {
     href: "/truong-ca/lich-su",
     label: "Lịch sử điều phối",
@@ -816,7 +826,15 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
   {
     ma: "kham",
     ten: "Khám & dịch vụ",
-    hrefs: ["/do-sinh-hieu", "/tu-van", "/ban-kham", "/phong", "/doi-tac", "/ban-xet-nghiem"],
+    hrefs: [
+      "/do-sinh-hieu",
+      "/tu-van",
+      "/ban-kham",
+      "/phong",
+      "/doi-tac",
+      "/ban-xet-nghiem",
+      "/ban-xet-nghiem/kho-email",
+    ],
   },
   {
     ma: "khach",

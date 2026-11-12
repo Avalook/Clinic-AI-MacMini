@@ -713,6 +713,13 @@ thức, lệch ≠ 0 có lý do, không xoá) + vết chỉ thêm `ket_tien_mat_
   `PriceListService.add` / `update` nhóm thuốc. Vết: sự kiện `pharmacy.price_changed`. Ô giá khoá: `D/pharmacy/inventory/DanhMucKho.tsx`, `SuaDonViBan.tsx`.
   Test: `T/services/test_quyen_gia_thuoc_db.py`; các test khác bỏ qua chốt này qua fixture `_cho_qua_chot_gia_thuoc` trong `T/conftest.py`.
 
+- **Quyền Xem bảng giá (11/11)** — quyền `price.service.view`, khối/lego `xem_bang_gia` (mặc định Quản lý + gói mẫu Kế toán,
+  cấp thêm ở `/phan-quyen`; migration `20261111091559`). Mở `/cashier/dich-vu` (`NAV_QUYEN`) và cổng đọc `_PRICE_READ_GUARD`
+  (`R/config.py`); ghi giá vẫn chỉ `_PRICE_GUARD` = `price.service.manage` (`PriceListService.update` nhóm dịch vụ KHÔNG tự hỏi
+  quyền — cửa duy nhất là router). Cờ `sua_gia_duoc` ở `S/danh_muc_dich_vu_service.py::doc`; màn chỉ đọc
+  `D/cashier/DanhMucDichVuPhong.tsx` (`chiXem`), `VatTuBangGia.tsx`. Test: `T/services/test_quyen_xem_bang_gia_db.py`,
+  FT `bang-gia-chi-xem-boundary.test.mts`.
+
 - **Giao nhầm hàng vật tư ở quầy thuốc (31/10)** — `PharmacyService.hoan_tac_giao_vat_tu`, nút ở `D/pharmacy/DongThuoc.tsx`: dòng về chưa giao, tiền và
   số Kho vật tư giữ nguyên. Kiểm ca / kiểm kho: có lần kiểm sau trên lô thì hoàn tác hay sửa số cũ bị chặn (`kiem_ke_ca_service.lo_co_kiem_sau`).
   Hàm SQL `he_so_don_vi` (mig `20261101400000`) phải giữ cùng luật `BangDonVi._khop`. Test: `T/services/test_soat_kho_3110_db.py`, `test_soat_kho_3110_b_db.py`.
@@ -856,6 +863,15 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `S/nhap_lich_su_notion.py`, `scripts/nhap-lich-su-notion.sh`,
   `scripts/hoan-tac-lich-su-notion.sql` — xem `docs/NHAP-LICH-SU-NOTION.md`. Test:
   `T/services/test_lich_su_notion_db.py`.
+- **Địa chỉ khách để in / xuất (11/11):** MỘT hàm `S/dia_chi_khach.py::dia_chi_khach` — ô
+  `address` (ô duy nhất sửa được, `PatientAdminEditor`) thắng; trống thì ghép
+  `address_detail` · `ward_name` · `province_name`. Dùng ở phiếu khám (`phieu_kham/mang_sang.py`
+  `dung_ho_so`), form in (`S/form_engine_service.py`), PDF hồ sơ khám CSKH
+  (`S/ho_so_kham_service.py::_lich`), trang in "Tóm tắt khám bệnh" `/print/[appointmentId]`
+  (`S/ho_so_lam_sang_doc.py::_lich_in`, trả sẵn vào trường `address`), file MISA
+  (`S/xuat_hoa_don_service.py` — chỉ cắt dấu cách như `btrim` cũ, dấu vân tay MISA không đổi). SQL chỉ lấy
+  4 cột gốc (`COT_DIA_CHI`), không tự ghép. Test `T/unit/test_dia_chi_khach.py` (có bài chặn:
+  tệp nào đọc `address_detail` phải đi qua hàm này).
 - **Danh sách bệnh nhân `/patient-list` — tìm, tab, xếp, phân trang (06/10):** mọi luật
   ở `S/danh_sach_benh_nhan_service.py` (`_CO_SO`: số lượt / đang mở / mốc xếp / khớp ô
   tìm; `MOT_TRANG` = 50; `LOC_THEO_SO_LUOT` = tab) qua `GET /api/v1/patients/danh-sach
@@ -864,6 +880,14 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `src/dashboard/components/ui/ThanhSoTrang.tsx` + `src/dashboard/lib/so-trang.ts`. Test:
   `T/services/test_danh_sach_benh_nhan_phan_trang_db.py`,
   `T/unit/test_danh_sach_benh_nhan.py`, `lib/so-trang.test.mts` (`npm run test:so-trang`).
+  Bộ lọc dùng chung (ô tìm + tab + phạm vi thư ký): `bo_loc()` cùng tệp — màn và Excel.
+- **Excel địa chỉ khách (11/11, kế toán rà địa chỉ sai):** nút [Tải Excel địa chỉ khách] ở
+  `/patient-list` (chỉ khi có `accounting.finance.full` — Kế toán / Quản lý) →
+  `D/api/patients/dia-chi-xlsx` → `GET /api/v1/patients/danh-sach-xlsx?q&loc` →
+  `S/xuat_dia_chi_khach.py` (đúng bộ lọc màn qua `bo_loc`; cột Mã BN · Họ tên · SĐT · Địa chỉ
+  (`dia_chi_khach`) · Hoạt động gần nhất · ô trống để đánh dấu; trần 20.000 dòng có dòng báo
+  trong file; nhật ký `patient.list_exported` KHÔNG ghi chữ ô tìm). Test
+  `T/services/test_xuat_dia_chi_khach_db.py`, FT `excel-dia-chi-khach-boundary.test.mts`.
 
 ## 13. Lịch làm việc · phòng · tầng
 

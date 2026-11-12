@@ -675,10 +675,51 @@ class XetNghiemViec(PayloadSuKien):
 
 
 class XetNghiemTepDrive(PayloadSuKien):
-    """`lab.drive_file_rejected` — một tệp Drive bị từ chối (chặng 4). Lý do ở bảng."""
+    """`lab.drive_file_rejected` — một tệp Drive bị từ chối (chặng 4). Lý do ở bảng.
+    `lab.archive_viewed` — ai mở PDF ở Kho email kết quả (Gmail G2b; vết xem dữ liệu
+    sức khoẻ). Chỉ id — không tên khách, không tiêu đề thư."""
 
     drive_tep_id: str
     doi_tac_id: str
+
+
+class XetNghiemThuGanLai(PayloadSuKien):
+    """`lab.email_result_reassigned` — thư email gắn nhầm khách được GÁN LẠI (Gmail
+    G11): tờ cũ (đã từ chối / thu hồi, hoặc đã bị thu hồi ở chỗ khác) ⇒ tờ mới của
+    khách đúng. Chỉ id — lý do nằm ở tờ cũ (`thu_hoi_ly_do` / `xac_nhan_ly_do`)."""
+
+    drive_tep_id: str
+    doi_tac_id: str
+    tep_cu_id: str
+    tep_moi_id: str
+    clinic_patient_id_cu: str
+    clinic_patient_id_moi: str
+
+
+class XetNghiemThuVaoChiDinh(PayloadSuKien):
+    """`lab.email_result_moved_to_order` — tờ email gắn theo lượt khám được CHUYỂN vào
+    chỉ định người chọn (Gmail G13): tờ cũ (từ chối / thu hồi) ⇒ tờ mới của chỉ định,
+    cùng khách. Chỉ id."""
+
+    drive_tep_id: str
+    doi_tac_id: str
+    tep_cu_id: str
+    tep_moi_id: str
+    service_order_id: str
+    clinic_patient_id: str
+
+
+class XetNghiemBuKetQuaCu(PayloadSuKien):
+    """`lab.old_result_marked_delivered` / `lab.old_result_mark_undone` — lệnh bù
+    12/11/2026 đánh tờ email cũ (thư trước 11/11) "đã trả khách ngoài hệ thống", và lệnh
+    hoàn tác của nó. `lo` = một lần chạy (hoàn tác theo lô); `truoc` = trạng thái xác
+    nhận trước khi bù. Chỉ id."""
+
+    tep_id: str
+    truoc: str
+    lo: str
+    #: Lý do hoàn tác (rỗng ở lần đánh).
+    ly_do: str = ""
 
 
 class CskhDaLienHe(PayloadSuKien):
@@ -2192,6 +2233,36 @@ DANH_MUC: dict[str, SuKien] = {
                     "drive_tep",
                     XetNghiemTepDrive,
                     "Từ chối tệp Drive",
+                ),
+                (
+                    "lab.archive_viewed",
+                    "drive_tep",
+                    XetNghiemTepDrive,
+                    "Mở PDF ở Kho email kết quả",
+                ),
+                (
+                    "lab.email_result_reassigned",
+                    "drive_tep",
+                    XetNghiemThuGanLai,
+                    "Gán lại thư email gắn nhầm khách",
+                ),
+                (
+                    "lab.email_result_moved_to_order",
+                    "drive_tep",
+                    XetNghiemThuVaoChiDinh,
+                    "Chuyển tờ email theo lượt vào chỉ định",
+                ),
+                (
+                    "lab.old_result_marked_delivered",
+                    "tep_ket_qua",
+                    XetNghiemBuKetQuaCu,
+                    "Bù: tờ email cũ đã trả khách ngoài hệ thống",
+                ),
+                (
+                    "lab.old_result_mark_undone",
+                    "tep_ket_qua",
+                    XetNghiemBuKetQuaCu,
+                    "Hoàn tác bù tờ email cũ",
                 ),
                 (
                     "lab.result_sent",

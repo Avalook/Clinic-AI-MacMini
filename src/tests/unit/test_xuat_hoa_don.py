@@ -98,7 +98,8 @@ THEM_DONG: dict[str, dict[str, Any]] = {
     "l3": {"unit": "Hộp", "source_type": "prescription", "ma": "TX01"},
 }
 THEM_KHACH: dict[str, dict[str, Any]] = {
-    "b1": {"dia_chi": "1 Kim Ngưu, Hà Nội", "cccd": "001", "email": None}
+    # Cột gốc của `patient` (địa chỉ ghép ở `dia_chi_khach`, 11/11/2026).
+    "b1": {"address": "1 Kim Ngưu, Hà Nội", "cccd": "001", "email": None}
 }
 
 

@@ -527,7 +527,7 @@ class CheckoutService:
             tep = await conn.fetch(
                 """
                 SELECT t.ten_hien_thi, t.loai_tep, t.tai_len_luc,
-                       t.cho_phep_gui_luc, t.gui_luc, t.gui_kenh
+                       t.gui_luc, t.gui_kenh
                   FROM public.v_tep_ket_qua_hieu_luc t
                  WHERE t.clinic_id = $1::uuid
                    AND (t.service_order_id IN (
@@ -641,13 +641,9 @@ class CheckoutService:
                     {
                         "ten": r["ten_hien_thi"],
                         "loai_tep": r["loai_tep"],
-                        "trang_thai": (
-                            "DA_GUI"
-                            if r["gui_luc"]
-                            else "DUOC_GUI"
-                            if r["cho_phep_gui_luc"]
-                            else "CHO_BAC_SI"
-                        ),
+                        # Không ai duyệt / cho phép gửi (Tuyền 23/09, 12/11/2026):
+                        # có tệp là gửi được ⇒ chỉ còn đã gửi / chưa gửi.
+                        "trang_thai": "DA_GUI" if r["gui_luc"] else "CHUA_GUI",
                         "gui_kenh": r["gui_kenh"],
                         "tai_len_luc": r["tai_len_luc"].isoformat(),
                     }

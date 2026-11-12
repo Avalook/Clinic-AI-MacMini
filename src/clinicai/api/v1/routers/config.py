@@ -62,9 +62,13 @@ _ROSTER_READ_GUARD = cua_quyen("roster.view", "config.clinic.manage")
 _DOI_NGUOI_GUARD = cua_quyen("roster.shift.swap", "config.clinic.manage")
 _PRICE_GUARD = cua_quyen("price.service.manage")
 # Lễ tân kiêm thu ngân TRA giá được (Tuyền 16/09/2026) — không SỬA giá.
-# Đọc giá: người sửa bảng giá + người thu tiền (quầy cần đọc giá).
+# Đọc giá: người sửa bảng giá + người thu tiền (quầy cần đọc giá) + người chỉ
+# xem bảng giá (kế toán, 11/11/2026). Ghi vẫn chỉ `_PRICE_GUARD`.
 _PRICE_READ_GUARD = cua_quyen(
-    "price.service.manage", "payment.service.collect", "payment.medicine.collect"
+    "price.service.manage",
+    "price.service.view",
+    "payment.service.collect",
+    "payment.medicine.collect",
 )
 # Chỉ QUẢN LÝ được đổi luật đặt lịch (khung giờ / số khách online + trực tiếp
 # từng bác sĩ) của phòng khám — Tuyền chốt 15/09/2026: "để luật đó cho quản lý

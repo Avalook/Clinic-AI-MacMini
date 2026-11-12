@@ -1,6 +1,7 @@
 // (Client — chỉ `BanXetNghiem.tsx` dùng.) Tab "Kết quả" kiểu Tuyền 05/11: MỖI VIỆC MỘT
-// DÒNG, tờ kết quả cùng dòng — đã gán XANH, chưa gán ĐỎ; tệp Drive chưa khớp khách là
-// dòng đỏ riêng bên dưới. Lệnh: Gán (tệp Drive → việc), Gán sang (gán nhầm), Từ chối tệp.
+// DÒNG, tờ kết quả cùng dòng — đã gán XANH, chưa gán ĐỎ; tệp Drive / thư Email chưa khớp
+// khách là dòng đỏ riêng bên dưới. Lệnh: Gán (tệp → việc), Gán theo gợi ý (việc máy chủ
+// gợi ý), Gán sang (gán nhầm), Từ chối tệp.
 // Mọi luật (gán được không, cùng đối tác, đã lấy mẫu) ở máy chủ `ghep_tay.py`; màn chỉ
 // lọc danh sách chọn theo đúng đối tác (máy chủ vẫn chặn) và hiện câu lỗi.
 
@@ -13,6 +14,8 @@ import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
+import EmailDaGan from "./EmailDaGan";
+import GanKhachEmail from "./GanKhachEmail";
 import { useNgheBang } from "../dung-nghe-bang";
 import { CHUA_TAI, gioNgay, homNayVN, lenh, ngayNgan, type DriveCho, type Viec } from "./kieu";
 
@@ -33,6 +36,12 @@ function xemDrive(t: DriveCho): TepXem {
 }
 
 const khach = (v: Viec) => `${v.ten_khach ?? "Khách"}${v.sdt ? ` · ${v.sdt}` : ""}`;
+
+/** "Drive · người thả · giờ" hoặc "Email · giờ nhận thư". */
+function nguonCho(t: DriveCho): string {
+  if (t.nguon === "GMAIL") return ["Email", gioNgay(t.email_nhan_luc ?? t.nhan_luc)].join(" · ");
+  return [t.drive_nguoi_tai ? `Drive · ${t.drive_nguoi_tai}` : "Drive", gioNgay(t.drive_tao_luc ?? t.nhan_luc)].join(" · ");
+}
 
 export default function KetQuaKhach({
   viec,
@@ -97,6 +106,12 @@ export default function KetQuaKhach({
     .sort((a, b) => Number(Boolean(a.tep_id)) - Number(Boolean(b.tep_id)) || b.ngay_chi_dinh.localeCompare(a.ngay_chi_dinh));
   const choCua = (doiTac: string) => (cho ?? []).filter((t) => t.doi_tac_id === doiTac);
   const viecNhan = (doiTac: string, tru?: string) => dong.filter((v) => v.doi_tac_id === doiTac && v.order_id !== tru && v.nut.tai_ket_qua);
+  // Ô chọn của một tệp chờ: việc của khách máy chủ gợi ý (khớp tên + SĐT) lên đầu.
+  const viecChoTep = (t: DriveCho) => {
+    const ds = viecNhan(t.doi_tac_id);
+    const kh = t.goi_y_clinic_patient_id;
+    return kh ? [...ds.filter((v) => v.clinic_patient_id === kh), ...ds.filter((v) => v.clinic_patient_id !== kh)] : ds;
+  };
   const homNay = homNayVN();
 
   return (
@@ -167,7 +182,7 @@ export default function KetQuaKhach({
                       value={chonTep[v.order_id] ?? ""}
                       onChange={(e) => setChonTep((x) => ({ ...x, [v.order_id]: e.target.value }))}
                     >
-                      <option value="">— Chọn tệp Drive —</option>
+                      <option value="">— Chọn tệp Drive / Email —</option>
                       {tepCho.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.ten}
@@ -224,46 +239,110 @@ export default function KetQuaKhach({
 
       {cho && cho.length ? (
         <>
-          <h3 className="text-body font-semibold text-ink">Tệp Drive chưa khớp khách ({cho.length})</h3>
+          <h3 className="text-body font-semibold text-ink">Tệp Drive / Email chưa khớp khách ({cho.length})</h3>
           <ul className="flex flex-col gap-2">
-            {cho.map((t) => (
+            {cho.map((t) => {
+              const goiY = t.goi_y_order_id ? viec.find((v) => v.order_id === t.goi_y_order_id) : undefined;
+              return (
               <li key={t.id} className="flex flex-col gap-2 rounded-card border border-danger bg-danger-bg p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2 text-meta">
                   <div className="min-w-0">
-                    <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={() => setXem({ tieuDe: t.ten, tep: xemDrive(t) })}>
+                    <button type="button" className="break-all text-left font-semibold text-brand-700 hover:underline" onClick={() => setXem({ tieuDe: t.ten, tep: xemDrive(t) })}>
                       {t.ten}
                     </button>
+                    {t.email_tieu_de ? <div className="break-words text-ink">{t.email_tieu_de}</div> : null}
                     <div className="text-ink-soft">
                       {t.ten_doi_tac} · {t.vi_sao}
                     </div>
                   </div>
-                  <div className="text-right text-ink-muted">
-                    {[t.drive_nguoi_tai ? `Drive · ${t.drive_nguoi_tai}` : "Drive", gioNgay(t.drive_tao_luc ?? t.nhan_luc)].join(" · ")}
-                  </div>
+                  <div className="text-right text-ink-muted">{nguonCho(t)}</div>
                 </div>
+                {goiY ? (
+                  <div className="flex flex-wrap items-center gap-2 text-meta">
+                    <span className="text-ink-soft">
+                      Gợi ý: <span className="font-semibold text-ink">{khach(goiY)}</span> · {goiY.ten_dich_vu}
+                      {goiY.nut.tai_ket_qua ? "" : ` — việc đang «${goiY.trang_thai.nhan}», chưa gán được`}
+                    </span>
+                    {goiY.nut.tai_ket_qua ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        disabled={dang}
+                        onClick={() => void chay("drive-ghep", { drive_tep_id: t.id, order_id: goiY.order_id }, `Đã gán kết quả cho ${khach(goiY)}.`)}
+                      >
+                        Gán theo gợi ý
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : t.gan_goi_y_duoc ? (
+                  // G9: khách máy gợi ý (tên / SĐT lệch hồ sơ), không cần việc Bàn XN —
+                  // máy chủ chọn chỉ định đúng loại hoặc hồ sơ theo lượt khám.
+                  <div className="flex flex-wrap items-center gap-2 text-meta">
+                    <span className="text-ink-soft">
+                      Gợi ý: <span className="font-semibold text-ink">{t.goi_y_ten}</span>
+                      {t.goi_y_ma ? ` · ${t.goi_y_ma}` : ""}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      disabled={dang}
+                      // Gửi đúng khách ĐANG HIỆN — máy chủ gán cho khách này, không đọc
+                      // lại gợi ý (xét lại có thể vừa đổi).
+                      onClick={() =>
+                        void chay(
+                          "drive-gan-khach",
+                          { drive_tep_id: t.id, clinic_patient_id: t.goi_y_clinic_patient_id },
+                          `Đã gán kết quả cho ${t.goi_y_ten ?? "khách"}.`,
+                        )
+                      }
+                    >
+                      Gán cho khách này
+                    </Button>
+                  </div>
+                ) : null}
+                {t.gan_khach_duoc ? (
+                  // G10: thư email — tìm khách rồi gán (không cần việc Bàn XN).
+                  <GanKhachEmail
+                    dang={dang}
+                    onGan={(kh, ten) =>
+                      void chay("drive-gan-khach", { drive_tep_id: t.id, clinic_patient_id: kh }, `Đã gán kết quả cho ${ten}.`)
+                    }
+                  />
+                ) : null}
                 <div className="flex flex-wrap items-end gap-2">
-                  <OChon
-                    aria-label={`Gán ${t.ten} cho khách`}
-                    value={chonViec[t.id] ?? ""}
-                    onChange={(e) => setChonViec((x) => ({ ...x, [t.id]: e.target.value }))}
-                  >
-                    <option value="">— Gán cho khách —</option>
-                    {viecNhan(t.doi_tac_id).map((x) => (
-                      <option key={x.order_id} value={x.order_id}>
-                        {khach(x)} · {x.ten_dich_vu}
-                        {x.ma_mau ? ` · ${x.ma_mau}` : ""}
-                      </option>
-                    ))}
-                  </OChon>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    disabled={!chonViec[t.id] || dang}
-                    onClick={() => void chay("drive-ghep", { drive_tep_id: t.id, order_id: chonViec[t.id] }, "Đã gán tệp cho khách.")}
-                  >
-                    Gán
-                  </Button>
+                  {/* Ô chọn việc Bàn XN đã lấy mẫu — chỉ hiện khi có việc để chọn
+                      (thư email không có việc Bàn XN thì dùng ô tìm khách ở trên). */}
+                  {viecChoTep(t).length ? (
+                    <>
+                      <OChon
+                        // Tên dịch vụ dài làm ô rộng 650px ⇒ 375 cuộn ngang; giữ trong khung.
+                        className="w-full min-w-0 max-w-full sm:w-auto"
+                        aria-label={`Gán ${t.ten} cho khách`}
+                        value={chonViec[t.id] ?? ""}
+                        onChange={(e) => setChonViec((x) => ({ ...x, [t.id]: e.target.value }))}
+                      >
+                        <option value="">— Gán cho việc đã lấy mẫu —</option>
+                        {viecChoTep(t).map((x) => (
+                          <option key={x.order_id} value={x.order_id}>
+                            {x.clinic_patient_id && x.clinic_patient_id === t.goi_y_clinic_patient_id ? "Gợi ý · " : ""}
+                            {khach(x)} · {x.ten_dich_vu}
+                            {x.ma_mau ? ` · ${x.ma_mau}` : ""}
+                          </option>
+                        ))}
+                      </OChon>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        disabled={!chonViec[t.id] || dang}
+                        onClick={() => void chay("drive-ghep", { drive_tep_id: t.id, order_id: chonViec[t.id] }, "Đã gán tệp cho khách.")}
+                      >
+                        Gán
+                      </Button>
+                    </>
+                  ) : null}
                   {mo?.loai === "tu_choi" && mo.id === t.id ? (
                     <>
                       <ONhap aria-label="Lý do từ chối tệp" placeholder="Lý do (bắt buộc)" value={lyDo} maxLength={500} onChange={(e) => setLyDo(e.target.value)} />
@@ -281,10 +360,12 @@ export default function KetQuaKhach({
                   )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </>
       ) : null}
+      <EmailDaGan onXong={onXong} />
     </section>
   );
 }

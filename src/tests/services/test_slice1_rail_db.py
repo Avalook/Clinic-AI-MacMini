@@ -540,7 +540,8 @@ async def test_checkout_chi_tiet_moc_that_va_tep_that(kb: KichBan) -> None:
     assert "service.performed" in {m["lenh"] for m in ct["moc_thoi_gian"]}
     [tep] = ct["ho_so_tra"]["muc"]
     assert tep["ten"] == "phieu-sa.pdf"
-    assert tep["trang_thai"] in {"CHO_BAC_SI", "DUOC_GUI"}
+    # Không còn bước bác sĩ cho phép gửi (12/11/2026): tệp chưa gửi là CHUA_GUI.
+    assert tep["trang_thai"] == "CHUA_GUI"
 
 
 # ── CSKH kết quả muộn đọc rail mới ─────────────────────────────────────────
