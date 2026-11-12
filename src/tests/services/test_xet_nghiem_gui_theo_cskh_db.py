@@ -105,6 +105,29 @@ async def test_tra_kq_cskh_ghi_da_gui_cho_to_chua_gui_cua_luot(
     assert (await _tra_kq(pool, ca, kh, ap, kenh="ZALO"))["ok"]
 
 
+@pytest.mark.parametrize("kenh", ["ZALO", "SMS", "TRUC_TIEP"])
+async def test_tra_kq_chon_kenh_thi_to_ghi_dung_kenh(
+    pool: asyncpg.Pool,  # noqa: F811
+    kho: None,  # noqa: F811
+    kenh: str,
+) -> None:
+    # Tuyền 12/11: nút "Đã gửi kết quả cho bệnh nhân" ở Quản lý khách hàng cho chọn
+    # kênh (ChonKenhGuiKq) ⇒ tờ đối tác ghi ĐÚNG kênh đó, không đổi thành Trực tiếp.
+    ca, o1, _ = await _den_lay_mau(pool)
+    await ket_qua.tai_tay(
+        pool, ca.bac_si, o1, hom_nay_vn(), data=PDF_DUMMY, ten="kq.pdf"
+    )
+    v1 = await _tt(pool, ca, o1)
+    kh, ap = await _lich_cua(pool, v1["visit_id"])
+    assert (await _tra_kq(pool, ca, kh, ap, kenh=kenh))["ok"]
+    assert (
+        await pool.fetchval(
+            "SELECT gui_kenh FROM tep_ket_qua WHERE id = $1::uuid", v1["tep_id"]
+        )
+        == kenh
+    )
+
+
 async def test_tra_kq_khi_chua_co_to_nao_khong_loi_khong_gui(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:

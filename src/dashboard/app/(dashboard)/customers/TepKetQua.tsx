@@ -499,13 +499,8 @@ export default function TepKetQua({
                     Chờ xác nhận đúng người/chỉ định
                   </p>
                 )}
-                {!t.gui_luc && t.cho_phep_gui_luc && (
-                  <p className="mt-1 text-label text-success">
-                    {t.cho_phep_gui_boi ?? "Bác sĩ"} đã cho phép gửi {gio(t.cho_phep_gui_luc)}
-                  </p>
-                )}
-                {/* GỬI ĐƯỢC NGAY (Tuyền chốt 23/09/2026): không còn đợi bác sĩ
-                    cho phép. Tệp đối tác vẫn phải xác nhận đúng người/chỉ định. */}
+                {/* GỬI ĐƯỢC NGAY: không ai duyệt / cho phép gửi (Tuyền 23/09 và
+                    12/11/2026) — không in mốc "đã cho phép gửi" cũ. */}
                 {!readOnly && !t.gui_luc && coTheGui(t) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* NHÃN NÓI ĐÚNG SỰ THẬT: người xác nhận đã gửi, hệ thống

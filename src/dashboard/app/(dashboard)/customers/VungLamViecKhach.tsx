@@ -872,7 +872,7 @@ export default function VungLamViecKhach({
     );
   }
 
-  // ── Kết quả xét nghiệm của lượt: đối tác gửi → bác sĩ cho phép → CSKH gửi ──
+  // ── Kết quả xét nghiệm của lượt: có tệp → CSKH gửi (không ai duyệt, Tuyền 12/11) ──
   const coViec = (ma: string) => viecCuaLuot.some((v) => v.trang_thai === ma);
   // Chỉ tệp XÉT NGHIỆM / đối tác mới bật ô này — tệp siêu âm, thủ thuật thì
   // không (17/09/2026: vừa có video siêu âm đã báo "Bác sĩ đã cho phép gửi").
@@ -1244,9 +1244,9 @@ export default function VungLamViecKhach({
                 ten="Có kết quả xét nghiệm"
                 viec={
                   kqChoPhep
-                    ? "Bác sĩ đã cho phép gửi — xem tệp và gửi khách ở cột phải"
+                    ? "Có kết quả — xem tệp và gửi khách ở cột phải"
                     : kqDaVe
-                      ? "Kết quả đã về — chờ bác sĩ xem và cho phép gửi"
+                      ? "Kết quả đã về, chưa có tệp gửi được — xem ở cột phải"
                       : kqChoDoiTac
                         ? cauDoiTac || "Đang chờ đơn vị xét nghiệm gửi kết quả"
                         : "Chưa có kết quả nào cho lượt này"

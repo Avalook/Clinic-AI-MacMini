@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Upload, Send, Check, X, CalendarPlus } from "lucide-react";
 import { LY_DO_HUY, LY_DO_HUY_THU_TU } from "@/lib/ly-do-huy";
 import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
+import ChonKenhGuiKq from "./ChonKenhGuiKq";
 
 /** Khối hành động ĐỔI THEO VIỆC ĐANG PHẢI LÀM.
  *
@@ -274,6 +275,7 @@ export default function HanhDongTrangThai({
   const [gioHen, setGioHen] = useState("");
   const [lyDoHen, setLyDoHen] = useState("");
   const [daHen, setDaHen] = useState(false);
+  const [kenhKq, setKenhKq] = useState("ZALO");
 
   /** Ghi một lần chạm. `loai`/`ket_qua` phải nằm trong bộ từ backend canh
    *  (LOAI_HOP_LE, KET_QUA_HOP_LE ở tuong_tac_cskh_service.py). */
@@ -282,6 +284,7 @@ export default function HanhDongTrangThai({
     loai: string,
     ketQua: string,
     noiDung?: string,
+    kenhChon?: string,
   ) {
     // MỐC QUẦY có luật riêng ở backend: kênh phải là TRUC_TIEP và kết quả phải
     // là GHI_NHAN (chúng là việc XẢY RA, không phải cuộc gọi). Gửi sai là 422.
@@ -331,11 +334,10 @@ export default function HanhDongTrangThai({
           //
           // Ghi một dòng "đã gọi" cho một việc mà cả ý nghĩa của nó là KHÔNG
           // gọi thì còn tệ hơn: nó vào sổ chăm sóc như một cuộc gọi chưa từng có.
-          kenh: mocQuay
-            ? "TRUC_TIEP"
-            : ketQua === "BO_QUA"
-              ? "KHONG_LIEN_HE"
-              : "GOI",
+          // `kenhChon`: người chọn kênh thật (nút "Đã gửi kết quả" — ChonKenhGuiKq).
+          kenh:
+            kenhChon ??
+            (mocQuay ? "TRUC_TIEP" : ketQua === "BO_QUA" ? "KHONG_LIEN_HE" : "GOI"),
           ket_qua: mocQuay ? "GHI_NHAN" : ketQua,
           noi_dung: (noiDung ?? ghiChu).trim() || null,
           // MÃ TRẠNG THÁI mà thao tác này đóng lại. Đây là thứ timeline dò để
@@ -733,8 +735,8 @@ export default function HanhDongTrangThai({
             {trangThai === "CHO_BAC_SI" ? (
               <>
                 <p className="text-label leading-snug text-warning">
-                  Kết quả đang chờ BÁC SĨ duyệt. Hỏi bác sĩ trước, chưa gọi
-                  khách ở bước này.
+                  Kết quả chưa có tệp gửi được. Hỏi bác sĩ / phòng làm kết quả
+                  trước, chưa gọi khách ở bước này.
                 </p>
                 {oGhiChu}
                 <NutChinh
@@ -753,6 +755,7 @@ export default function HanhDongTrangThai({
             ) : (
               <>
                 {oGhiChu}
+                <ChonKenhGuiKq value={kenhKq} onChange={setKenhKq} />
                 <NutChinh
                   ma="gui"
                   nhan="Đã gửi kết quả cho bệnh nhân"
@@ -763,15 +766,12 @@ export default function HanhDongTrangThai({
                       "TRA_KQ",
                       "DA_LIEN_HE",
                       ghiChu.trim() || "Đã gửi kết quả cho bệnh nhân",
+                      kenhKq,
                     )
                   }
                 />
-                {/* NÓI THẬT VỀ THỨ CHƯA XÂY. Tải lên đã chạy được; GỬI TỰ ĐỘNG
-                    thì chưa: Zalo ZNS chỉ gửi được template CHỮ đã duyệt, không
-                    đính kèm được tệp hay video. Nên nút trên ghi nhận rằng CSKH
-                    đã gửi (qua Zalo cá nhân/Messenger), chứ hệ thống không tự
-                    gửi. Nhập nhèm chỗ này là để người trực tin rằng khách đã
-                    nhận video trong khi chưa ai gửi. */}
+                {/* NÓI THẬT: hệ thống chưa TỰ gửi tệp (Zalo ZNS chỉ gửi template
+                    chữ) — nút trên chỉ ghi nhận CSKH đã gửi bằng kênh của mình. */}
                 <p className="rounded-lg border border-dashed border-line px-2 py-1.5 text-label leading-snug text-ink-muted">
                   <b>Đang xây dựng:</b> hệ thống chưa TỰ gửi được ảnh/video cho
                   khách — Zalo ZNS chỉ gửi template chữ. Hiện CSKH gửi bằng kênh
