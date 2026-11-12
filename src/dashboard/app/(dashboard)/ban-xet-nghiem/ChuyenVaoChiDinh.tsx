@@ -1,14 +1,14 @@
-// (Client — `HangChoXacNhanKetQua.tsx` và `ban-xet-nghiem/EmailDaGan.tsx` dùng.) Gmail G13 (Tuyền 11/11): tờ email "gắn theo lượt khám" (thư về lúc khách chưa có chỉ
-// định) ⇒ nhập chỉ định xong thì chuyển tờ vào chỉ định bằng NÚT (người kiểm chọn đúng
-// một). Danh sách chỉ định nhận được, từ chối tờ cũ, gán tờ mới đều do máy chủ
-// (`gmail_vao_chi_dinh.py`) — màn chỉ vẽ và gửi lệnh.
+// (Client — chỉ `EmailDaGan.tsx` dùng.) Gmail G13 (Tuyền 11/11): tờ email "gắn theo lượt
+// khám" (thư về lúc khách chưa có chỉ định) ⇒ nhập chỉ định xong thì chuyển tờ vào chỉ
+// định bằng NÚT (người chọn đúng một); tờ đã ở chỉ định ⇒ "Đổi sang chỉ định khác".
+// Danh sách chỉ định, bù tờ cũ, gán tờ mới đều do máy chủ (`gmail_vao_chi_dinh.py`).
 
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
-import { lenh } from "../ban-xet-nghiem/kieu";
+import { lenh } from "./kieu";
 
 interface ChiDinh {
   service_order_id: string;

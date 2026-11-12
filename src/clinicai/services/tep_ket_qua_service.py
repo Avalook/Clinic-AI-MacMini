@@ -904,10 +904,11 @@ class TepKetQuaService:
 
                 await chay_tren_kho(_dat_vao_cho, kho=KHO_VPS)
 
-                # Tệp ngoài: CHO_XAC_NHAN (cờ tắt ⇒ HOP_LE); tệp trong: NULL. Máy quét
-                # Drive không phải người ⇒ luôn CHO_XAC_NHAN ("Gửi khách" xác nhận).
-                may = isinstance(identity, MayQuet)
-                tu_hop_le = is_external and not XAC_NHAN_TEP_DOI_TAC and not may
+                # Tệp ngoài: CHO_XAC_NHAN (cờ tắt ⇒ HOP_LE); tệp trong: NULL. Máy
+                # nhận (Gmail / Drive) cũng HOP_LE ngay — Tuyền 12/11 bỏ hẳn bước Xác
+                # nhận kết quả (về luật 23/09); người nhìn tờ cuối là CSKH lúc "Đúng
+                # người, gửi". Không người xác nhận ⇒ migration 20261112110000.
+                tu_hop_le = is_external and not XAC_NHAN_TEP_DOI_TAC
                 xac_nhan_state = (
                     ("HOP_LE" if tu_hop_le else "CHO_XAC_NHAN") if is_external else None
                 )
@@ -984,11 +985,9 @@ class TepKetQuaService:
                         tep_id=str(row_id),
                         visit_id=luot_tep,
                         service_order_id=service_order_id,
-                        # Tờ máy tự gắn KHÔNG chỉ định (Gmail, khách đúng chưa có
-                        # chỉ định) đang CHO_XAC_NHAN ⇒ chuông nói "cần xác nhận",
-                        # không vào vòng đọc của lượt (lượt chỉ là lượt gần nhất).
-                        cho_xac_nhan=is_external
-                        and (XAC_NHAN_TEP_DOI_TAC or (may and not service_order_id)),
+                        # Chỉ khi phòng khám bật lại bước xác nhận (cờ). Máy nhận
+                        # cũng Hợp lệ ngay từ 12/11 ⇒ chuông "đã vào hồ sơ".
+                        cho_xac_nhan=is_external and XAC_NHAN_TEP_DOI_TAC,
                     ),
                     boi=HE_THONG if isinstance(identity, MayQuet) else nguoi(identity),
                     correlation_id=luot_tep,

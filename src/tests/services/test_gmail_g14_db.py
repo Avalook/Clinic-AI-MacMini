@@ -52,7 +52,7 @@ async def test_sdt_lech_ten_va_nam_sinh_khop_thi_tu_gan_vao_chi_dinh(
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
     to = await _to(pool, d["id"])
-    assert (to["kh"], to["oid"], to["tt"]) == (v["kh"], v["oid"], "CHO_XAC_NHAN")
+    assert (to["kh"], to["oid"], to["tt"]) == (v["kh"], v["oid"], "HOP_LE")
 
 
 async def test_lech_nam_sinh_hoac_trung_ten_thi_khong_tu_gan(

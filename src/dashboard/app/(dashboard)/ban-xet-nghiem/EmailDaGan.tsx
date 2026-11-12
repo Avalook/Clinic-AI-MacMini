@@ -10,7 +10,7 @@ import Lightbox, { type TepXem } from "@/components/ui/Lightbox";
 import ONhap from "@/components/ui/ONhap";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
-import ChuyenVaoChiDinh from "../xac-nhan-ket-qua/ChuyenVaoChiDinh";
+import ChuyenVaoChiDinh from "./ChuyenVaoChiDinh";
 import GanKhachEmail from "./GanKhachEmail";
 import { useNgheBang } from "../dung-nghe-bang";
 import { CHUA_TAI, gioNgay, lenh } from "./kieu";

@@ -189,13 +189,8 @@ export const NAV: NavItem[] = [
     label: "Kho email kết quả (tạm)",
     icon: Mail,
   },
-  // Hàng chờ xác nhận kết quả đối tác — có từ 09/2026 mà KHÔNG có mục nào dẫn tới; tờ
-  // email vào hồ sơ theo lượt (G8) chỉ xác nhận được ở đây (G9, 11/11/2026).
-  {
-    href: "/xac-nhan-ket-qua",
-    label: "Xác nhận kết quả đối tác",
-    icon: ClipboardCheck,
-  },
+  // (12/11/2026) "Xác nhận kết quả đối tác" ĐÃ BỎ khỏi thanh bên — tờ máy nhận Hợp lệ
+  // ngay; route /xac-nhan-ket-qua chỉ còn chuyển hướng về /ban-xet-nghiem.
   {
     href: "/truong-ca/lich-su",
     label: "Lịch sử điều phối",
@@ -839,7 +834,6 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
       "/doi-tac",
       "/ban-xet-nghiem",
       "/ban-xet-nghiem/kho-email",
-      "/xac-nhan-ket-qua",
     ],
   },
   {

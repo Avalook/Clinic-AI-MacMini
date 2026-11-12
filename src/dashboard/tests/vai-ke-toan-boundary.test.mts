@@ -74,7 +74,7 @@ test("luật gốc (máy chủ im): chỉ thêm ba màn tài chính, các màn n
     assert.equal(canSeeNavGoc("ACCOUNTANT", href), true, href);
     assert.equal(canSeeNavGoc("CSKH", href), false, href); // vai khác không đổi
   }
-  for (const href of ["/home", "/hanh-trinh", "/schedule", "/xac-nhan-ket-qua"]) {
+  for (const href of ["/home", "/hanh-trinh", "/schedule"]) {
     assert.equal(canSeeNavGoc("ACCOUNTANT", href), true, href);
   }
 });
