@@ -206,6 +206,38 @@ async def test_khong_chi_dinh_neo_luot_kham_trong_14_ngay(
     )
 
 
+async def test_chi_dinh_khac_loai_phieu_thi_neo_luot(
+    pool: asyncpg.Pool,  # noqa: F811
+    c3: Ca3,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # G14 nhánh "có chỉ định của lab nhưng KHÁC loại phiếu" (chờ STD, phiếu HPV) ⇒ như
+    # không chỉ định: neo lượt ≤ 14 ngày, tờ vào hồ sơ theo lượt (không vào chỉ định).
+    monkeypatch.setattr(
+        ghep_khach, "chu_pdf", lambda _b: "Họ và tên: x\nNS: 1983\nHPV 16: Âm tính\n"
+    )
+    v, ten = await _khach(pool, c3)
+    await pool.execute(
+        "UPDATE service_order SET service_name = 'Xét nghiệm STD 13 tác nhân'"
+        " WHERE id = $1::uuid",
+        v["oid"],
+    )
+    await pool.execute(
+        "UPDATE visit SET checked_in_at = now() - interval '1 hour'"
+        " FROM service_order o WHERE o.id = $1::uuid AND visit.visit_id = o.visit_id",
+        v["oid"],
+    )
+    mid = c3.thu(ten, SDT_PHIEU)
+    await gmail.mot_vong(pool)
+    d = await _dong(pool, mid)
+    to = await pool.fetchrow(
+        "SELECT clinic_patient_id::text AS kh, service_order_id FROM tep_ket_qua"
+        " WHERE id = $1::uuid",
+        d["tep_ket_qua_id"],
+    )
+    assert (to["kh"], to["service_order_id"]) == (v["kh"], None)
+
+
 async def test_khong_chi_dinh_hai_ho_so_cung_ten_nam_thi_khong_neo(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
