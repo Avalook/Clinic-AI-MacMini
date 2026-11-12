@@ -12,7 +12,9 @@ ngày TRƯỚC ngày nhận thư — không cần Bàn XN, không cần bấm L�
 ghép việc đã lấy mẫu" chỉ còn ở Drive).
 
 Quyết định là MỘT hàm thuần `quyet` (test bằng bảng). Khớp tên + SĐT = luật duy nhất
-`ghep_khach.khop_ds` (cùng luật Drive). Năm sinh chỉ để gỡ khi nhiều khách cùng khớp.
+`ghep_khach.khop_ds` (cùng luật Drive). Năm sinh để gỡ khi nhiều khách cùng khớp, và
+(G14, 12/11) để tự gán khi SĐT lệch: `khop_ten_nam_sinh` — tên trùng nguyên + năm sinh
++ chỉ một hồ sơ mang cặp tên + năm sinh đó + có chỉ định của lab.
 Không ghép theo mã mẫu của lab, không theo mã xét nghiệm trong tên tệp. Không chắc ⇒
 hàng ghép tay kèm lý do + gợi ý, KHÔNG đoán.
 """
@@ -28,7 +30,7 @@ import asyncpg
 import structlog
 
 from clinicai.services.xet_nghiem import ghep_khach
-from clinicai.services.xet_nghiem.ghep_khach import UngVien
+from clinicai.services.xet_nghiem.ghep_khach import UngVien, chuan
 from clinicai.services.xet_nghiem.gmail_doc import DocThu, loai_dich_vu
 
 logger = structlog.get_logger()
@@ -120,6 +122,25 @@ def quyet_mot_khach(
     return QuyetGmail("CO_BAN_MOI", **goi_y)
 
 
+def khop_ten_nam_sinh(d: DocThu, viec: list[UngVien], so_cung_ten: int) -> str | None:
+    """HÀM THUẦN (G14, Tuyền 12/11): thư KHÔNG khớp tên + SĐT ⇒ vẫn chắc là khách
+    `kh` khi CẢ BỐN: tên trên phiếu TRÙNG NGUYÊN tên hồ sơ (bỏ dấu) · năm sinh trên
+    phiếu = năm sinh hồ sơ · cả phòng khám chỉ MỘT hồ sơ đang dùng mang cặp tên + năm
+    sinh đó (`so_cung_ten`, người gọi đếm; hồ sơ không rõ năm sinh không tính) ·
+    khách đó có chỉ định của lab này trong cửa sổ (`viec`). Lab ghi SĐT khác hồ sơ (số
+    mới / số người nhà — prod 12/11: 33/59 thư chờ là "tên khớp, SĐT khác"). Thiếu một
+    điều kiện ⇒ None (người gán, như cũ)."""
+    t = chuan(d.ten)
+    if not t or d.nam_sinh is None or so_cung_ten != 1:
+        return None
+    khach = {
+        v.clinic_patient_id
+        for v in viec
+        if chuan(v.ten) == t and v.nam_sinh == d.nam_sinh
+    }
+    return next(iter(khach)) if len(khach) == 1 else None
+
+
 def dung_loai(loai_pdf: frozenset[str], khop: list[UngVien]) -> list[UngVien]:
     """HÀM THUẦN (G7, Tuyền 11/11): chỉ định của MỘT khách khớp tên + SĐT ⇒ giữ chỉ
     định có loại xét nghiệm trùng loại đọc trong PDF (HPV vs STD của Tâm Minh). PDF
@@ -191,8 +212,8 @@ async def gan_tu_dong(
     pool: asyncpg.Pool, cid: str, dong_id: str, q: QuyetGmail, data: bytes, ten: str
 ) -> bool:
     """Dòng thư đã ghi (cùng giao dịch cả thư) ⇒ tạo tờ kết quả qua ĐÚNG lõi tải lên
-    của tệp đối tác (`tai_len`, máy quét, nguồn GMAIL ⇒ CHO_XAC_NHAN, báo bác sĩ +
-    CSKH), gắn vào dòng, phát `lab.result_arrived`.
+    của tệp đối tác (`tai_len`, máy quét, nguồn GMAIL ⇒ Hợp lệ ngay từ 12/11, báo bác
+    sĩ + CSKH), gắn vào dòng, phát `lab.result_arrived`.
 
     Dòng đã hiện ở hàng ghép tay từ lúc commit ⇒ giữ CÙNG khoá của Gán tay / Từ chối
     (`ghep_tay.khoa_tep`) và đọc lại dòng TRONG khoá: người đã xử lý trước thì thôi,

@@ -98,11 +98,19 @@ WITH b AS (
      WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid
        AND k.gui_luc IS NOT NULL
     UNION ALL
-    SELECT k.xac_nhan_luc, 'Thu hồi tệp kết quả: ' || coalesce(k.xac_nhan_ly_do, ''),
+    SELECT k.xac_nhan_luc, 'Từ chối tệp kết quả: ' || coalesce(k.xac_nhan_ly_do, ''),
            k.xac_nhan_boi_staff_id
       FROM tep_ket_qua k
      WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid
-       AND k.xac_nhan_trang_thai IN ('TU_CHOI', 'THU_HOI')
+       AND k.xac_nhan_trang_thai = 'TU_CHOI'
+    UNION ALL
+    -- Thu hồi đọc cột THU_HOI (tờ máy nhận Hợp lệ ngay ⇒ mọi gán lại / chuyển chỉ định
+    -- đi Thu hồi; cột xac_nhan_* là của lần máy nhận, không phải người thu hồi).
+    SELECT k.thu_hoi_luc, 'Thu hồi tệp kết quả: ' || coalesce(k.thu_hoi_ly_do, ''),
+           k.thu_hoi_boi_staff_id
+      FROM tep_ket_qua k
+     WHERE k.clinic_id = $1::uuid AND k.service_order_id = $2::uuid
+       AND k.xac_nhan_trang_thai = 'THU_HOI'
     UNION ALL
     SELECT d.dong_luc, 'Đối tác đã tự trả khách: ' || d.ly_do, d.dong_boi
       FROM xet_nghiem_dong d

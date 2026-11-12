@@ -62,7 +62,7 @@ async def _to(pool: asyncpg.Pool, dong_id: str) -> Any:  # noqa: F811
 
 
 async def _tu_gan(pool: asyncpg.Pool, c3: Ca3) -> tuple[Any, Any, Any]:  # noqa: F811
-    """Khách A tự gán (máy, CHO_XAC_NHAN); khách B có chỉ định đang chờ, TRƯỚC thư."""
+    """Khách A tự gán (máy, Hợp lệ ngay từ 12/11); khách B có chỉ định đang chờ."""
     a = await c3.viec(pool, ban_xn=False)
     b = await c3.viec(pool, ban_xn=False)
     await _ten(pool, b["kh"], "Phạm Thị Bê Gán Lại")
@@ -79,7 +79,7 @@ async def test_gan_lai_to_may_tu_gan_thi_tu_choi_cu_va_vao_chi_dinh_khach_dung(
 ) -> None:
     a, b, d = await _tu_gan(pool, c3)
     cu = await _to(pool, d["id"])
-    assert (cu["tt"], cu["kh"]) == ("CHO_XAC_NHAN", a["kh"])
+    assert (cu["tt"], cu["kh"]) == ("HOP_LE", a["kh"])
     kq = await gmail_gan_lai.gan_lai(
         pool,
         await _nguoi(pool),
@@ -91,7 +91,8 @@ async def test_gan_lai_to_may_tu_gan_thi_tu_choi_cu_va_vao_chi_dinh_khach_dung(
     tt_cu = await pool.fetchval(
         "SELECT xac_nhan_trang_thai FROM tep_ket_qua WHERE id = $1::uuid", cu["tep"]
     )
-    assert tt_cu == "TU_CHOI"
+    # Tờ máy nhận đã Hợp lệ (12/11) ⇒ bù bằng Thu hồi (Từ chối chỉ cho tờ còn chờ).
+    assert tt_cu == "THU_HOI"
 
 
 async def test_gan_lai_to_hop_le_thi_thu_hoi_co_ly_do(
@@ -179,15 +180,15 @@ async def test_to_da_thu_hoi_o_cho_khac_van_gan_lai_duoc_va_phat_su_kien(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
 ) -> None:
-    """Soát G11 (chặn 1): tờ của thư đã bị từ chối ở chỗ khác (hàng Xác nhận) ⇒ thư
+    """Soát G11 (chặn 1): tờ của thư đã bị thu hồi ở chỗ khác (hồ sơ khách) ⇒ thư
     KHÔNG kẹt: hiện "Tờ đã thu hồi / từ chối — chưa gán lại" và gán lại được (bỏ bước
     bù). Mọi lần gán lại phát `lab.email_result_reassigned`."""
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
     a, b, d = await _tu_gan(pool, c3)
     cu = (await _to(pool, d["id"]))["tep"]
-    await TepKetQuaService(pool).xac_nhan_tep(
-        identity=await _nguoi(pool), tep_id=cu, trang_thai="TU_CHOI", ly_do="Sai"
+    await TepKetQuaService(pool).thu_hoi_tep(
+        identity=await _nguoi(pool), tep_id=cu, ly_do="Sai người"
     )
     ds = await gmail_gan_lai.da_gan(pool, await _nguoi(pool), "")
     dong = next(t for t in ds["thu"] if t["id"] == d["id"])
@@ -229,7 +230,7 @@ async def test_to_da_gui_khach_thi_canh_bao_bao_khach(
     )
     ds = await gmail_gan_lai.da_gan(pool, nguoi, "")
     dong = next(t for t in ds["thu"] if t["id"] == d["id"])
-    assert dong["da_gui"] is True and "báo khách" in (dong["canh_bao"] or "")
+    assert dong["gui"] == "đã gửi khách" and "báo khách" in (dong["canh_bao"] or "")
 
 
 async def test_danh_sach_da_gan_loc_va_co_quyen(
@@ -242,7 +243,7 @@ async def test_danh_sach_da_gan_loc_va_co_quyen(
     assert [t["id"] for t in co["thu"]] == [d["id"]]
     t = co["thu"][0]
     assert (t["nhan_to"], t["vao_chi_dinh"], t["ghep_boi"]) == (
-        "Chờ xác nhận",
+        "Hợp lệ",
         True,
         "Tự ghép",
     )

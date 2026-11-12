@@ -44,7 +44,7 @@ const CHO_PHEP: [Method, RegExp, (m: RegExpMatchArray) => string][] = [
   ["GET", /^ban\/tim-khach$/, () => "/api/v1/xet-nghiem/ban/tim-khach"],
   // G11 — thư email đã gán (chỗ "Gán lại cho khách khác").
   ["GET", /^ban\/email-da-gan$/, () => "/api/v1/xet-nghiem/ban/email-da-gan"],
-  // G13 — chỉ định nhận được tờ email gắn theo lượt (màn Xác nhận kết quả).
+  // G13 — chỉ định nhận được tờ email (Thư email đã gán: chuyển / đổi chỉ định).
   ["GET", /^ban\/to-theo-luot-chi-dinh$/, () => "/api/v1/xet-nghiem/ban/to-theo-luot-chi-dinh"],
   ["POST", new RegExp(`^ban/(${LENH_BAN})$`), (m) => `/api/v1/xet-nghiem/ban/${m[1]}`],
   ["POST", new RegExp(`^ban/anh-ck/(${U})/go$`, "i"), (m) => `/api/v1/xet-nghiem/ban/anh-ck/${m[1]}/go`],

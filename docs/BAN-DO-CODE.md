@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-12 10:50. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-12 11:31. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -154,8 +154,8 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 ### `/duyet-ket-qua` — Duyệt kết quả
 - page: `src/dashboard/app/(dashboard)/duyet-ket-qua/page.tsx` · quyền: ?
 - thành phần: DuyetKetQua.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/hoan-tac.ts
-- gọi API Next: `/api/cskh/ket-qua/[tepId]/khoi-phuc`, `/api/cskh/ket-qua/[tepId]/xoa`, `/api/doi-tac`, `/api/cskh/ket-qua`, `/api/cskh/ket-qua/[tepId]/noi-dung`, `/api/phieu-kham`, `/api/luot-kham`
-- service: TepKetQuaService.{khoi_phuc_tep, xoa_tep, tai_len, danh_sach, +3} · DoiTacService.viec_doi_tac · nhan_tep_luong · media_service · tep_ket_qua_service · khung (+19 service)
+- gọi API Next: `/api/cskh/ket-qua/[tepId]/khoi-phuc`, `/api/cskh/ket-qua/[tepId]/xoa`, `/api/doi-tac`, `/api/cskh/ket-qua/[tepId]/noi-dung`, `/api/cskh/ket-qua`, `/api/phieu-kham`, `/api/luot-kham`
+- service: TepKetQuaService.{khoi_phuc_tep, xoa_tep, tai_len, mo_de_doc, +3} · DoiTacService.viec_doi_tac · nhan_tep_luong · media_service · tep_ket_qua_service · khung (+19 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_luot_db.py, test_xac_nhan_tep_ket_qua_db.py (+49)
 
 ### `/episodes`
@@ -336,7 +336,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/phong/[ma]/page.tsx` · quyền: lego `phong` (Phòng dịch vụ · mặc định: BS siêu âm / thủ thuật + Điều dưỡng)
 - thành phần: PhongDichVu.tsx, app/(dashboard)/_lam-viec/ChonBacSiLam.tsx, app/(dashboard)/_lam-viec/HangChoCot.tsx, app/(dashboard)/_lam-viec/KhoiDoiTac.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/PhieuKetQua.tsx, app/(dashboard)/_lam-viec/TheDichVu.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx (+9)
 - gọi API Next: `/api/doi-tac/cho-tai-lieu`, `/api/doi-tac/da-lay-mau`, `/api/doi-tac/da-thu-tien`, `/api/doi-tac/huy-da-thu`, `/api/doi-tac/lenh`, `/api/doi-tac/phieu`, `/api/doi-tac/viec`, `/api/lieu-trinh/chip`, `/api/nhac-viec`, `/api/cskh/ket-qua/[tepId]/khoi-phuc` (+9)
-- service: DoiTacService.{doi_tac_cho_tai_lieu, doi_tac_da_lay_mau, ghi_nhan_da_thu, huy_da_thu, +5} · FormEngineService.{mo_phieu, luu_nhap, hoan_tat, mo_sua, +3} · LieuTrinhService.{chip, tao, gan, go} · NhacViecService.{cua_toi, tao, xong} · TepKetQuaService.{khoi_phuc_tep, xoa_tep, tai_len, danh_sach, +3} · nhan_tep_luong (+26 service)
+- service: DoiTacService.{doi_tac_cho_tai_lieu, doi_tac_da_lay_mau, ghi_nhan_da_thu, huy_da_thu, +5} · FormEngineService.{mo_phieu, luu_nhap, hoan_tat, mo_sua, +3} · LieuTrinhService.{chip, tao, gan, go} · NhacViecService.{cua_toi, tao, xong} · TepKetQuaService.{khoi_phuc_tep, xoa_tep, tai_len, mo_de_doc, +3} · nhan_tep_luong (+26 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_luot_db.py, test_phong_doi_tac_luong_chung_db.py (+75)
 
 ### `/portal`
@@ -612,13 +612,9 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/work-sessions/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
 
-### `/xac-nhan-ket-qua` — Xác nhận kết quả
+### `/xac-nhan-ket-qua`
 - page: `src/dashboard/app/(dashboard)/xac-nhan-ket-qua/page.tsx` · quyền: ?
-- thành phần: HangChoXacNhanKetQua.tsx, ChuyenVaoChiDinh.tsx
-- gọi API Next: `/api/cskh/ket-qua/cho-xac-nhan`, `/api/cskh/ket-qua/[tepId]/xac-nhan`, `/api/cskh/ket-qua/[tepId]/noi-dung`
-- ? không khớp route.ts nào: `/api/xet-nghiem/ban/${duong}`, `/api/xet-nghiem/ban/to-theo-luot-chi-dinh`
-- service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
-- test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
+- gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
 
 ### `/xuat-hoa-don` — Xuất hoá đơn
 - page: `src/dashboard/app/(dashboard)/xuat-hoa-don/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
@@ -865,12 +861,12 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/cskh/ket-qua/[tepId]/noi-dung` · `src/dashboard/app/api/cskh/ket-qua/[tepId]/noi-dung/route.ts`
 - GET `/api/v1/cskh/ket-qua/tep/{tep_id}/noi-dung` → `src/clinicai/api/v1/routers/cskh.py:doc_tep_ket_qua` → phan_tich_range, TepKetQuaService.mo_de_doc, doc_dan
 - test: src/tests/services/test_xac_nhan_tep_ket_qua_db.py, src/tests/unit/test_tep_ket_qua.py, src/tests/services/test_full_chi_dinh_slice_ab_db.py
-- màn dùng: /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /doi-tac, /duyet-ket-qua (+5)
+- màn dùng: /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /doi-tac, /duyet-ket-qua (+4)
 
 #### `/api/cskh/ket-qua/[tepId]/xac-nhan` · `src/dashboard/app/api/cskh/ket-qua/[tepId]/xac-nhan/route.ts`
 - POST `/api/v1/cskh/ket-qua/tep/{tep_id}/xac-nhan` → `src/clinicai/api/v1/routers/cskh.py:xac_nhan_tep_ket_qua` → TepKetQuaService.xac_nhan_tep
 - test: src/tests/services/test_slice1_rail_db.py, src/tests/services/test_xac_nhan_tep_ket_qua_db.py
-- màn dùng: /xac-nhan-ket-qua
+- màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/cskh/ket-qua/[tepId]/xoa` · `src/dashboard/app/api/cskh/ket-qua/[tepId]/xoa/route.ts`
 - POST `/api/v1/cskh/ket-qua/tep/{tep_id}/xoa` → `src/clinicai/api/v1/routers/cskh.py:xoa_tep_ket_qua` → TepKetQuaService.xoa_tep
@@ -885,7 +881,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/cskh/ket-qua/cho-xac-nhan` · `src/dashboard/app/api/cskh/ket-qua/cho-xac-nhan/route.ts`
 - GET `/api/v1/cskh/ket-qua/cho-xac-nhan` → `src/clinicai/api/v1/routers/cskh.py:tep_cho_xac_nhan` → TepKetQuaService.cho_xac_nhan
 - test: src/tests/services/test_cho_xac_nhan_queue_va_doc_tep_db.py, src/tests/services/test_smoke_main_174_175_db.py
-- màn dùng: /xac-nhan-ket-qua
+- màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/cskh/khach/[id]` · `src/dashboard/app/api/cskh/khach/[id]/route.ts`
 - GET `/api/v1/cskh/khach/{clinic_patient_id}/tom-tat` → `src/clinicai/api/v1/routers/cskh.py:tom_tat_khach` → GhiChuKhachService.tom_tat
@@ -1910,7 +1906,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ManKhachHangService` | `src/clinicai/services/man_khach_hang_service.py` | /customers |
 | `ManTrangChuService` | `src/clinicai/services/man_trang_chu_service.py` | /home, /reception/queue |
 | `MauKetQuaService` | `src/clinicai/services/mau_ket_qua_service.py` | /settings/mau-ket-qua |
-| `media_service` | `src/clinicai/services/media_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /doi-tac, /duyet-ket-qua, /phong/[ma], /print/ket-qua/[orderId] (+3) |
+| `media_service` | `src/clinicai/services/media_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /doi-tac, /duyet-ket-qua, /phong/[ma], /print/ket-qua/[orderId] (+2) |
 | `MediaService` | `src/clinicai/services/media_service.py` | — (chỉ API/worker) |
 | `MPIService` | `src/clinicai/services/mpi_service.py` | /appointments, /patients/new |
 | `NgoaiLeCaTrucService` | `src/clinicai/services/ngoai_le_ca_truc_service.py` | /schedule |
@@ -1965,8 +1961,8 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `StaffService` | `src/clinicai/services/staff_service.py` | /nhan-su, /phan-quyen, /settings/new-user, /settings/tai-khoan |
 | `TaiKhoanNhanService` | `src/clinicai/services/tai_khoan_nhan_service.py` | /pharmacy, /settings/tai-khoan-nhan, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `TaiKhoanService` | `src/clinicai/services/tai_khoan_service.py` | /settings/new-user, /settings/tai-khoan |
-| `tep_ket_qua_service` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /doi-tac, /duyet-ket-qua, /patient-list, /phong/[ma] (+4) |
-| `TepKetQuaService` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /patient-list (+6) |
+| `tep_ket_qua_service` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /doi-tac, /duyet-ket-qua, /patient-list, /phong/[ma] (+3) |
+| `TepKetQuaService` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /customers, /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /patient-list (+5) |
 | `TepMoDoc` | `src/clinicai/services/tep_ket_qua_service.py` | /customers, /patient-list |
 | `ThaiKyService` | `src/clinicai/services/thai_ky_service.py` | /ban-kham, /ban-kham/[phong], /tu-van |
 | `theo_doi_thuoc_service` | `src/clinicai/services/theo_doi_thuoc_service.py` | /pharmacy/inventory |
@@ -2201,7 +2197,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `staff_task` | `20260714000001_baseline_schema.sql` | 1 |
 | `staff_vi_tri` | `20260916000008_vi_tri_lam_viec_kim_nguu.sql` | 0 |
 | `tai_khoan_nhan` | `20261031120000_tai_khoan_nhan.sql` | 0 |
-| `tep_ket_qua` | `20260809000008_tep_ket_qua.sql` | 11 |
+| `tep_ket_qua` | `20260809000008_tep_ket_qua.sql` | 12 |
 | `thong_bao` | `20260807000006_thong_bao_goi_bo_phan.sql` | 1 |
 | `thong_bao_an_cua_toi` | `20261018180000_an_thong_bao_rieng_theo_nhan_vien.sql` | 0 |
 | `thu_ky_bac_si` | `20260915000020_thu_ky_bac_si.sql` | 0 |

@@ -172,9 +172,7 @@ async def test_thu_sau_moc_khop_mot_viec_thi_tu_ghep(
         d["tep_ket_qua_id"],
     )
     assert (tep["nguon"], tep["service_order_id"]) == ("GMAIL", v["oid"])
-    assert (
-        tep["xac_nhan_trang_thai"] == "CHO_XAC_NHAN"
-    )  # người vẫn bấm "Đúng người, gửi"
+    assert tep["xac_nhan_trang_thai"] == "HOP_LE"  # người vẫn bấm "Đúng người, gửi"
     den = await pool.fetchval(
         "SELECT count(*) FROM domain_event WHERE event_type = 'lab.result_arrived'"
         " AND aggregate_id = $1::uuid",
@@ -318,9 +316,7 @@ async def test_g5_chua_bam_lay_mau_van_tu_gan(
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
     assert d["ly_do_cho"] is None and d["tep_ket_qua_id"] is not None
-    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
-        ("GMAIL", "CHO_XAC_NHAN")
-    ]
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [("GMAIL", "HOP_LE")]
 
 
 async def test_g5_chi_dinh_khong_o_ban_xn_van_tu_gan_theo_gan_dich_vu(
@@ -338,9 +334,7 @@ async def test_g5_chi_dinh_khong_o_ban_xn_van_tu_gan_theo_gan_dich_vu(
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
     assert d["ly_do_cho"] is None and d["tep_ket_qua_id"] is not None
-    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
-        ("GMAIL", "CHO_XAC_NHAN")
-    ]
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [("GMAIL", "HOP_LE")]
 
 
 async def test_g5_to_tai_tay_va_to_gmail_hien_song_song(
@@ -396,20 +390,14 @@ async def test_g5_khach_dung_khong_chi_dinh_thi_vao_ho_so_theo_luot(
         v["oid"],
     )
     assert tep["service_order_id"] is None and tep["kh"] == v["kh"]
-    assert (tep["nguon"], tep["xac_nhan_trang_thai"]) == ("GMAIL", "CHO_XAC_NHAN")
+    assert (tep["nguon"], tep["xac_nhan_trang_thai"]) == ("GMAIL", "HOP_LE")
     assert tep["dung_luot"] is True
-    # Soát G8: tờ không chỉ định phải có lối xác nhận / từ chối — hàng "Xác nhận kết
-    # quả" là lối duy nhất (Bàn XN, Gán sang đều cần chỉ định).
+    # 12/11: không còn hàng "Xác nhận kết quả" — tờ không chỉ định Hợp lệ ngay; sửa
+    # khi cần ở "Thư email đã gán" (Chuyển vào chỉ định / Gán lại). Không trong hàng.
     async with pool.acquire() as conn:
         nguoi = await _tao_staff(conn, CLINIC, "DOCTOR", ["ket_qua.xac_nhan"])
-    sv = TepKetQuaService(pool)
-    hang = {r["tep_id"]: r for r in await sv.cho_xac_nhan(identity=nguoi)}
-    assert d["tep_ket_qua_id"] in hang
-    assert hang[d["tep_ket_qua_id"]]["service_order_id"] is None
-    kq = await sv.xac_nhan_tep(
-        identity=nguoi, tep_id=d["tep_ket_qua_id"], trang_thai="HOP_LE"
-    )
-    assert kq["ok"] is True
+    hang = await TepKetQuaService(pool).cho_xac_nhan(identity=nguoi)
+    assert d["tep_ket_qua_id"] not in {r["tep_id"] for r in hang}
 
 
 async def test_g8_luot_bo_ve_giua_chung_khong_nhan_to(
@@ -452,9 +440,7 @@ async def test_khop_theo_sdt_phu_cua_khach(
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
     assert d["ly_do_cho"] is None
-    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
-        ("GMAIL", "CHO_XAC_NHAN")
-    ]
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [("GMAIL", "HOP_LE")]
 
 
 async def test_g5_thu_cu_hon_to_da_co_thi_da_co_ket_qua(

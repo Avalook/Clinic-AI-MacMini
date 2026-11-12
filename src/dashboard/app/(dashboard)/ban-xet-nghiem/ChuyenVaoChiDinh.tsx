@@ -1,14 +1,14 @@
-// (Client — `HangChoXacNhanKetQua.tsx` và `ban-xet-nghiem/EmailDaGan.tsx` dùng.) Gmail G13 (Tuyền 11/11): tờ email "gắn theo lượt khám" (thư về lúc khách chưa có chỉ
-// định) ⇒ nhập chỉ định xong thì chuyển tờ vào chỉ định bằng NÚT (người kiểm chọn đúng
-// một). Danh sách chỉ định nhận được, từ chối tờ cũ, gán tờ mới đều do máy chủ
-// (`gmail_vao_chi_dinh.py`) — màn chỉ vẽ và gửi lệnh.
+// (Client — chỉ `EmailDaGan.tsx` dùng.) Gmail G13 (Tuyền 11/11): tờ email "gắn theo lượt
+// khám" (thư về lúc khách chưa có chỉ định) ⇒ nhập chỉ định xong thì chuyển tờ vào chỉ
+// định bằng NÚT (người chọn đúng một); tờ đã ở chỉ định ⇒ "Đổi sang chỉ định khác".
+// Danh sách chỉ định, bù tờ cũ, gán tờ mới đều do máy chủ (`gmail_vao_chi_dinh.py`).
 
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
-import { lenh } from "../ban-xet-nghiem/kieu";
+import { lenh } from "./kieu";
 
 interface ChiDinh {
   service_order_id: string;
@@ -18,9 +18,13 @@ interface ChiDinh {
 export default function ChuyenVaoChiDinh({
   tepId,
   onXong,
+  daOChiDinh = false,
 }: {
   tepId: string;
   onXong: (tenDichVu: string) => void;
+  /** Tờ ĐÃ nằm trong một chỉ định (Thư email đã gán) ⇒ nút là "đổi", không phải "chuyển
+   *  vào" — chữ cũ làm người đọc tưởng tờ chưa được gán (Tuyền 12/11). */
+  daOChiDinh?: boolean;
 }) {
   const [ds, setDs] = useState<ChiDinh[] | null>(null);
   const [dangChay, setDangChay] = useState(false);
@@ -63,7 +67,7 @@ export default function ChuyenVaoChiDinh({
     return (
       <div className="flex flex-col items-end gap-1">
         <Button size="sm" disabled={dangChay} onClick={() => void mo()}>
-          {dangChay ? "Đang tải…" : "Chuyển vào chỉ định"}
+          {dangChay ? "Đang tải…" : daOChiDinh ? "Đổi sang chỉ định khác" : "Chuyển vào chỉ định"}
         </Button>
         {loi ? (
           <p role="alert" className="text-xs font-medium text-danger">
@@ -78,9 +82,9 @@ export default function ChuyenVaoChiDinh({
     <div className="flex w-full flex-col gap-2 rounded-control border border-line bg-surface-muted p-3 text-sm">
       {ds.length === 0 ? (
         <p className="text-ink-soft">
-          Khách chưa có chỉ định xét nghiệm nào khác của đối tác này còn trống kết quả.
-          Nhập chỉ định ở Bàn khám (trong cùng lượt khám, chậm nhất 7 ngày sau ngày thư
-          về) rồi bấm lại.
+          {daOChiDinh
+            ? "Tờ đang ở đúng chỉ định duy nhất của khách cho đối tác này — không có chỉ định nào khác để đổi, không cần làm gì."
+            : "Khách chưa có chỉ định xét nghiệm nào của đối tác này còn trống kết quả. Nhập chỉ định ở Bàn khám (trong cùng lượt khám, chậm nhất 7 ngày sau ngày thư về) rồi bấm lại."}
         </p>
       ) : (
         <>

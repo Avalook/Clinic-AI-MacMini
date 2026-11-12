@@ -61,9 +61,7 @@ async def test_xet_lai_thu_xep_oan_thi_gan_vao_dung_chi_dinh(
     assert dem.get("tu_gan") == 1
     d = await _dong(pool, mid)
     assert d["ly_do_cho"] is None and d["luu_tru_vi_sao"] is None
-    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
-        ("GMAIL", "CHO_XAC_NHAN")
-    ]
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [("GMAIL", "HOP_LE")]
     # Chạy lại ⇒ không còn dòng nào để xét.
     assert (await gmail_xet_lai.xet_lai(pool, None, CLINIC)).get("tu_gan") is None  # type: ignore[arg-type]
 
@@ -126,9 +124,7 @@ async def test_xet_lai_khong_khop_khach_sau_khi_co_sdt_phu_thi_tu_gan(
     )
     dem = await gmail_xet_lai.xet_lai(pool, None, CLINIC)  # type: ignore[arg-type]
     assert dem.get("tu_gan") == 1
-    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [
-        ("GMAIL", "CHO_XAC_NHAN")
-    ]
+    assert [tuple(r) for r in await _to_cua(pool, v["oid"])] == [("GMAIL", "HOP_LE")]
 
 
 async def test_xet_lai_van_khong_xac_thuc_hoac_nguoi_gui_khac_thi_de_nguyen(

@@ -38,7 +38,7 @@ async def _theo_luot(pool: asyncpg.Pool, c3: Ca3) -> tuple[Any, Any]:  # noqa: F
     await gmail.mot_vong(pool)
     d = await _dong(pool, mid)
     to = await _to(pool, d["id"])
-    assert (to["kh"], to["oid"], to["tt"]) == (v["kh"], None, "CHO_XAC_NHAN")
+    assert (to["kh"], to["oid"], to["tt"]) == (v["kh"], None, "HOP_LE")
     await pool.execute(
         "UPDATE service_order SET exec_status = $2, created_at = now()"
         " WHERE id = $1::uuid",
@@ -64,12 +64,13 @@ async def test_chuyen_vao_chi_dinh_tu_choi_to_cu_va_phat_su_kien(
     assert moi["tep"] == kq["tep_id"] and moi["tep"] != cu
     assert (moi["kh"], moi["oid"]) == (v["kh"], v["oid"])
     tt_cu = await pool.fetchrow(
-        "SELECT xac_nhan_trang_thai, xac_nhan_ly_do FROM tep_ket_qua"
+        "SELECT xac_nhan_trang_thai, thu_hoi_ly_do FROM tep_ket_qua"
         " WHERE id = $1::uuid",
         cu,
     )
-    assert tt_cu["xac_nhan_trang_thai"] == "TU_CHOI"
-    assert "Chuyển vào chỉ định" in tt_cu["xac_nhan_ly_do"]
+    # Tờ máy nhận Hợp lệ ngay (12/11) ⇒ bù bằng Thu hồi kèm lý do.
+    assert tt_cu["xac_nhan_trang_thai"] == "THU_HOI"
+    assert "Chuyển vào chỉ định" in tt_cu["thu_hoi_ly_do"]
     su_kien = await pool.fetchval(
         "SELECT payload::text FROM domain_event"
         " WHERE event_type = 'lab.email_result_moved_to_order'"
@@ -198,11 +199,8 @@ async def test_dung_som_thi_khong_doi_gi(
         "UPDATE patient SET is_active = true WHERE clinic_patient_id = $1::uuid",
         v["kh"],
     )
-    # Tờ đã Hợp lệ VÀ đã gửi khách ⇒ không chuyển (khách đã nhận; dùng Gán lại).
+    # Tờ đã gửi khách ⇒ không chuyển (khách đã nhận; dùng Gán lại).
     nguoi = await _nguoi(pool)
-    await TepKetQuaService(pool).xac_nhan_tep(
-        identity=nguoi, tep_id=truoc["tep"], trang_thai="HOP_LE"
-    )
     await pool.execute(
         "UPDATE tep_ket_qua SET gui_luc = now(), gui_boi_staff_id = $2::uuid,"
         "       gui_kenh = 'ZALO' WHERE id = $1::uuid",
@@ -224,9 +222,6 @@ async def test_to_hop_le_chua_gui_thi_thu_hoi_roi_chuyen(
     v, d = await _theo_luot(pool, c3)
     cu = (await _to(pool, d["id"]))["tep"]
     nguoi = await _nguoi(pool)
-    await TepKetQuaService(pool).xac_nhan_tep(
-        identity=nguoi, tep_id=cu, trang_thai="HOP_LE"
-    )
     await gmail_vao_chi_dinh.vao_chi_dinh(
         pool, nguoi, {"tep_id": cu, "service_order_id": v["oid"]}
     )
@@ -254,28 +249,21 @@ async def test_chua_nhap_chi_dinh_thi_danh_sach_rong(
     assert ds["chi_dinh"] == []
 
 
-async def test_hang_cho_xac_nhan_dua_to_theo_luot_len_dau(
+async def test_to_may_nhan_khong_con_vao_hang_cho_xac_nhan(
     pool: asyncpg.Pool,  # noqa: F811
     c3: Ca3,  # noqa: F811
 ) -> None:
-    """Tờ theo lượt chỉ xử lý được ở màn này ⇒ đứng trước tờ có chỉ định (trần 100),
-    kể cả khi tờ có chỉ định về TRƯỚC."""
+    """Tuyền 12/11 bỏ hẳn bước Xác nhận kết quả: tờ máy nhận (cả có chỉ định lẫn theo
+    lượt) Hợp lệ ngay, KHÔNG nằm trong hàng chờ xác nhận."""
     a = await c3.viec(pool, ban_xn=False)
-    # Hàng chỉ lấy tờ có chỉ định của nút "làm bên ngoài" (như dịch vụ đối tác thật).
     await pool.execute(
         "UPDATE node_definition n SET lam_ben_ngoai = true FROM service_order o"
         " WHERE o.id = $1::uuid AND n.code = o.node_code AND n.clinic_id = o.clinic_id",
         a["oid"],
     )
     c3.thu(a["ten"], a["sdt"])
-    await gmail.mot_vong(pool)  # tờ có chỉ định, về trước
-    await pool.execute(
-        "UPDATE tep_ket_qua SET tai_len_luc = now() - interval '1 day'"
-        " WHERE clinic_patient_id = $1::uuid",
-        a["kh"],
-    )
-    v, d = await _theo_luot(pool, c3)
+    await gmail.mot_vong(pool)
+    v, _d = await _theo_luot(pool, c3)
     hang = await TepKetQuaService(pool).cho_xac_nhan(identity=await _nguoi(pool))
-    vi_tri = {t["clinic_patient_id"]: i for i, t in enumerate(hang)}
-    assert hang[vi_tri[a["kh"]]]["service_order_id"] == a["oid"]
-    assert vi_tri[v["kh"]] < vi_tri[a["kh"]]
+    khach = {t["clinic_patient_id"] for t in hang}
+    assert a["kh"] not in khach and v["kh"] not in khach

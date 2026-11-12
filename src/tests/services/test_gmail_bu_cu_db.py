@@ -11,10 +11,11 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.api.v1.routers.xet_nghiem_drive import EmailDaGanListOut
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
-from clinicai.services.xet_nghiem import gmail, gmail_bu_cu
+from clinicai.services.xet_nghiem import gmail, gmail_bu_cu, gmail_gan_lai
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,
@@ -26,14 +27,14 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
 async def _tu_gan(pool: asyncpg.Pool, c3: Ca3, ten: str) -> Any:  # noqa: F811
-    """Một tờ máy tự gán vào chỉ định (Chờ xác nhận) — trả dòng thư + tờ."""
+    """Một tờ máy tự gán vào chỉ định (Hợp lệ ngay từ 12/11) — trả dòng thư + tờ."""
     v = await c3.viec(pool, ban_xn=False)
     await _ten(pool, v["kh"], ten)
     c3.thu(ten, v["sdt"])
     await gmail.mot_vong(pool)
     d = await _dong(pool, c3.thu_raw.id)
     to = await _to(pool, d["id"])
-    assert to["tt"] == "CHO_XAC_NHAN"
+    assert to["tt"] == "HOP_LE"
     return d, to, v
 
 
@@ -59,7 +60,7 @@ async def test_bu_to_cu_khong_dung_to_moi_va_hoan_tac_theo_lo(
     # không lùi ngày được, nên đổi mốc thay vì đổi thư).
     await gmail_bu_cu.chay(pool, ai, hom_nay_vn())
     moi = await _gui(pool, to_cu["tep"])
-    assert (moi["tt"], moi["gui_luc"]) == ("CHO_XAC_NHAN", None)
+    assert (moi["tt"], moi["gui_luc"]) == ("HOP_LE", None)
     # Mốc = NGÀY MAI: thư hôm nay thành thư cũ ⇒ đánh.
     moc = hom_nay_vn() + timedelta(days=1)
     async with pool.acquire() as conn:
@@ -68,14 +69,20 @@ async def test_bu_to_cu_khong_dung_to_moi_va_hoan_tac_theo_lo(
     assert all("CHO_XAC_NHAN" in k or "HOP_LE" in k for k in dem)
 
     kq = await gmail_bu_cu.chay(pool, ai, moc)
-    assert kq["CHO_XAC_NHAN"] >= 1
+    assert kq["HOP_LE"] >= 1
     sau = await _gui(pool, to_cu["tep"])
     assert (sau["tt"], sau["gui_kenh"], sau["boi"]) == (
         "HOP_LE",
         gmail_bu_cu.KENH,
         ai.staff_id,
     )
-    assert sau["ly"] == gmail_bu_cu.LY_DO
+    # "Thư email đã gán": tờ cũ ghi "đã trả ngoài hệ thống", KHÔNG dòng đỏ báo khách.
+    # Qua ĐÚNG khuôn trả về của cửa API (Pydantic bỏ khoá thừa — trường thiếu trong
+    # khuôn thì màn không bao giờ thấy).
+    ra = EmailDaGanListOut.model_validate(await gmail_gan_lai.da_gan(pool, ai, ""))
+    dong = next(t.model_dump() for t in ra.thu if t.tep_id == to_cu["tep"])
+    assert dong["gui"] == "kết quả cũ, đã trả ngoài hệ thống"
+    assert dong["canh_bao"] is None
     # Không còn việc CSKH "Kết quả chưa gửi" cho khách tờ cũ.
     assert not await pool.fetchval(
         "SELECT count(*) FROM v_viec_cskh WHERE trang_thai = 'KQ_CHUA_GUI'"
@@ -127,28 +134,22 @@ async def test_to_da_gui_that_khong_dung_va_thieu_quyen_thi_khong_doi_gi(
     ai = await _nguoi(pool)
     moc = hom_nay_vn() + timedelta(days=1)
     await pool.execute(
-        "UPDATE tep_ket_qua SET xac_nhan_trang_thai = 'HOP_LE', xac_nhan_luc = now(),"
-        "       xac_nhan_boi_staff_id = $2::uuid WHERE id = $1::uuid",
-        to["tep"],
-        ai.staff_id,
-    )
-    await pool.execute(
         "UPDATE tep_ket_qua SET gui_luc = now(), gui_boi_staff_id = $2::uuid,"
         "       gui_kenh = 'ZALO' WHERE id = $1::uuid",
         to["tep"],
         ai.staff_id,
     )
-    # Tờ thư cũ đã bị TỪ CHỐI (sai người) ⇒ không đánh.
-    _d2, to_tc, _ = await _tu_gan(pool, c3, "Võ Thị Từ Chối Cũ")
-    await TepKetQuaService(pool).xac_nhan_tep(
-        identity=ai, tep_id=to_tc["tep"], trang_thai="TU_CHOI", ly_do="Sai người"
+    # Tờ thư cũ đã bị THU HỒI (sai người) ⇒ không đánh.
+    _d2, to_tc, _ = await _tu_gan(pool, c3, "Võ Thị Thu Hồi Cũ")
+    await TepKetQuaService(pool).thu_hoi_tep(
+        identity=ai, tep_id=to_tc["tep"], ly_do="Sai người"
     )
     with pytest.raises(SafetyGateError):
         await gmail_bu_cu.chay(pool, await _nguoi(pool, xac_nhan=False), moc)
     await gmail_bu_cu.chay(pool, ai, moc)
     assert (await _gui(pool, to["tep"]))["gui_kenh"] == "ZALO"
     tc = await _gui(pool, to_tc["tep"])
-    assert (tc["tt"], tc["gui_luc"]) == ("TU_CHOI", None)
+    assert (tc["tt"], tc["gui_luc"]) == ("THU_HOI", None)
 
 
 @pytest.mark.parametrize(
