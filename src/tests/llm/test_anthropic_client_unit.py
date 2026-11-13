@@ -173,3 +173,29 @@ async def test_cache_tokens_default_zero_when_absent(
 
     assert result.cache_read_input_tokens == 0
     assert result.cache_creation_input_tokens == 0
+
+
+@pytest.mark.asyncio
+async def test_chat_gui_tools_va_doc_tool_use(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Trợ lý khách gửi `tools` và cần khối `tool_use` — trước đây chat() chỉ
+    nhặt khối text nên lời gọi công cụ bị nuốt mất."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-fake")
+    client = AnthropicClient()
+    goi = MagicMock(type="tool_use", id="tu_1", input={"ngay": "2026-10-31"})
+    goi.name = "lich_trong"  # `name` là tham số riêng của MagicMock, phải gán sau
+    fake_resp = MagicMock(
+        content=[MagicMock(type="text", text="để em xem"), goi],
+        model="claude-haiku-5-5",
+        usage=MagicMock(input_tokens=1, output_tokens=1),
+        stop_reason="tool_use",
+    )
+    mock = _patch_create(monkeypatch, client, AsyncMock(return_value=fake_resp))
+    tools = [{"name": "lich_trong", "description": "x", "input_schema": {}}]
+
+    r = await client.chat(messages=[{"role": "user", "content": "mai"}], tools=tools)
+
+    assert mock.call_args.kwargs["tools"] == tools
+    assert r.text == "để em xem"
+    assert r.tool_calls == (
+        {"id": "tu_1", "name": "lich_trong", "input": {"ngay": "2026-10-31"}},
+    )
