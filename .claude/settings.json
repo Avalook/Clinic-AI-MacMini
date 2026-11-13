@@ -20,6 +20,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/kiem-sau-sua.sh\"",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/kiem-chu-thua.sh\"",
+            "timeout": 15
           }
         ]
       }
