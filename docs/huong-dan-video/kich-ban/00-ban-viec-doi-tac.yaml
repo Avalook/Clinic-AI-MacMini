@@ -1,0 +1,48 @@
+# Chương 0 — Bàn "Việc của đối tác" là gì. Tối đa 60 giây. Lời ĐÚNG chữ trên màn thật.
+chuong: 0
+ten: "Bàn Việc của đối tác"
+vai: "Quản lý"
+tai_khoan: ql
+mo_tu: /home
+mo_dau: "Xét nghiệm gửi đối tác làm — theo dõi ở đâu"
+ket_thuc: "Bước tiếp theo: cài đặt đối tác."
+canh:
+  - id: mo-ban
+    loi: "Mọi xét nghiệm gửi đối tác làm nằm ở mục Việc của đối tác, thanh bên trái."
+    lam:
+      - re: { role: link, name: "Việc của đối tác" }
+      - nhan_manh: { role: link, name: "Việc của đối tác" }
+      - bam: { role: link, name: "Việc của đối tác" }
+      - cho: { role: heading, name: "Việc của đối tác" }
+
+  - id: cac-tab
+    loi: "Bàn có năm tab: Việc theo ngày, Còn tồn, Kết quả, Tiền thu hộ và Cài đặt."
+    lam:
+      - nhan_manh: { role: tablist, name: "Việc của đối tác" }
+
+  - id: tab-quan-ly
+    loi: "Hai tab Tiền thu hộ và Cài đặt chỉ quản lý thấy."
+    lam:
+      - nhan_manh: { role: tab, name: "Tiền thu hộ" }
+      - nhan_manh: { role: tab, name: "Cài đặt" }
+
+  - id: chon-khach
+    loi: "Bên trái là khách trong ngày. Chọn một khách để xem hành trình xét nghiệm."
+    lam:
+      - bam: { text: "{khach_lay_mau}" }
+      - cho: { text: "Hành trình xét nghiệm" }
+
+  - id: nam-moc
+    loi: "Mỗi xét nghiệm đi qua năm mốc: chỉ định, thu tiền, lấy mẫu, chờ kết quả, gửi khách."
+    lam:
+      - phong_to: { role: list, name: "Hành trình HPV", he: 1.2 }
+
+  - id: the-viec
+    loi: "Bên dưới là thẻ từng xét nghiệm. Bước đang tới lượt có nút để bấm."
+    lam:
+      - nhan_manh: { role: button, name: "Lấy mẫu", exact: true, trong: "HPV" }
+
+  - id: hai-moc-cuoi
+    loi: "Hai mốc cuối, kết quả về và gửi khách, sẽ có hướng dẫn riêng."
+    lam:
+      - nhan_manh: { text: "Tờ kết quả", trong: "HPV" }

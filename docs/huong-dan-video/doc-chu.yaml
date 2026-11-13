@@ -1,0 +1,16 @@
+# Bảng đọc cho máy đọc — áp vào lời TRƯỚC khi gửi giọng đọc (phụ đề vẫn giữ chữ gốc).
+# Nghe thử thấy đọc sai chữ nào thì THÊM vào đây, không sửa lời trong kịch bản.
+# Chỉ thay nguyên từ; khoá dài được thay trước.
+XN: xét nghiệm
+CK: chuyển khoản
+TM: tiền mặt
+CSKH: chăm sóc khách hàng
+HPV: hát pê vê
+ThinPrep: thin prép
+Thinprep: thin prép
+300000: ba trăm nghìn đồng
+350.000đ: ba trăm năm mươi nghìn đồng
+500.000đ: năm trăm nghìn đồng
+550.000đ: năm trăm năm mươi nghìn đồng
+150.000đ: một trăm năm mươi nghìn đồng
+Medlatec: mét la téc
