@@ -1917,8 +1917,11 @@ export default function CustomersView({
                     cột — phải cuộn ~3 khung (1280) / ~12 màn (375) mới tới nút Sửa.
                     Người sửa được: gập mặc định để khung gọi điện của CSKH không bị
                     đẩy xuống. Người chỉ xem: mở sẵn (trước đây họ thấy sẵn các dòng
-                    này). Nhớ lần mở/đóng cuối của từng người (`nhoKhoa`). */}
+                    này). Nhớ lần mở/đóng cuối của từng người (`nhoKhoa`).
+                    Dáng `the` = tiêu đề to + đậm như đầu khung "Gọi xác nhận lịch"
+                    (Tuyền 13/11: dáng `dong` chữ nhỏ mờ, khó thấy là bấm được). */}
                 <NganGap
+                  co="the"
                   tieuDe="Thông tin hành chính"
                   phu={
                     canSuaHanhChinh
