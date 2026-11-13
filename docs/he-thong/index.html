@@ -533,10 +533,10 @@ footer { border-top: 1px solid var(--vien); margin-top: 36px; padding: 16px 0 40
   "systemd": [
    {
     "ten": "clinicai-backup-15p",
-    "mo_ta": "Sao lưu ClinicAI 15 phút/lần trong giờ mở cửa (7:00–22:00)",
+    "mo_ta": "Sao lưu ClinicAI 15 phút/lần trong giờ dùng (7:00–23:00)",
     "lich": [
-     "*-*-* 07..21:00,15,30,45:00",
-     "*-*-* 22:00:00"
+     "*-*-* 07..22:00,15,30,45:00",
+     "*-*-* 23:00:00"
     ],
     "noi": "scripts/systemd/clinicai-backup-15p.timer"
    },

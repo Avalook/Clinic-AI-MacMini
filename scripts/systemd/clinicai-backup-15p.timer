@@ -1,12 +1,14 @@
 [Unit]
-Description=Sao lưu ClinicAI 15 phút/lần trong giờ mở cửa (7:00–22:00)
+Description=Sao lưu ClinicAI 15 phút/lần trong giờ dùng (7:00–23:00)
 
 [Timer]
 # Tuyền 29/09/2026: lõi hỏng giữa ngày thì mất tối đa ~15 phút dữ liệu (trước đây
 # tới ~1 ngày — chỉ có bản đêm 02:15). Mỗi lần chỉ dump database (tệp ảnh/video
 # đã nằm trên Viettel CFS), vài giây, nhẹ. Bản đêm (clinicai-backup.timer) giữ nguyên.
-OnCalendar=*-*-* 07..21:00,15,30,45:00
-OnCalendar=*-*-* 22:00:00
+# Giờ dùng (Tuyền 11/11/2026): thứ 2–6 16h–23h, thứ 7–CN 7h–23h. Khung 7–23 MỌI ngày
+# phủ cả hai (buổi sáng ngày thường vẫn sao lưu — rẻ, không bỏ). Bản cuối 23:00.
+OnCalendar=*-*-* 07..22:00,15,30,45:00
+OnCalendar=*-*-* 23:00:00
 Persistent=false
 RandomizedDelaySec=20
 
