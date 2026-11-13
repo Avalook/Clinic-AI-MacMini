@@ -48,10 +48,6 @@ def _validated_prescription_items(
     return validated
 
 
-class PrescriptionDraftPendingError(ConflictError):
-    error_code = "PRESCRIPTION_DRAFT_PENDING"
-
-
 @dataclass(frozen=True)
 class PrescriptionWrite:
     draft: dict[str, Any] | None
