@@ -24,7 +24,14 @@ from clinicai.api.v1.routers.booking import cho_xep_bac_si
 from clinicai.api.v1.routers.queue import get_queue
 from clinicai.api.v1.routers.visit_progress import active_visits
 from clinicai.core.clock import CLINIC_TZ
-from clinicai.services import dispatch_service, man_trang_chu_service
+from clinicai.services import (
+    bang_hanh_trinh_service,
+    dispatch_service,
+    doctor_board_service,
+    man_trang_chu_service,
+    tiep_don_service,
+    week_appointments_service,
+)
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.booking_service import BookingService
 from clinicai.services.dispatch_service import DispatchService
@@ -168,14 +175,47 @@ async def _lich_lam_viec(pool: asyncpg.Pool, cs: CoSo, thu_hai: date) -> None:  
     )
 
 
+def _nang_tran_sql(
+    monkeypatch: pytest.MonkeyPatch, module: Any, ten: str, cu: str
+) -> None:
+    sql = getattr(module, ten)
+    assert cu in sql, f"{module.__name__}.{ten} đổi trần; cập nhật test cô lập cơ sở"
+    monkeypatch.setattr(module, ten, sql.replace(cu, "LIMIT 100000"))
+
+
+def _bo_tran_danh_sach(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bài này kiểm TÁCH CƠ SỞ, không kiểm trần danh sách.
+
+    DB của worker xdist còn dữ liệu của các tệp chạy trước trên cùng worker
+    (`--dist loadfile`, mỗi lượt CI chia tệp khác nhau). Dòng không rõ cơ sở hiện
+    ở mọi cơ sở, có mốc giờ sớm hơn khách của bài → đẩy khách ra ngoài trần
+    (bảng bác sĩ 400, điều phối 400…) → "không thấy của mình", chỉ ở lượt CI
+    nào xếp nhiều tệp nặng lên trước. Chạy riêng thì luôn xanh.
+    """
+    monkeypatch.setattr(man_trang_chu_service, "_TRAN_TRANG_THAI", 100_000)
+    monkeypatch.setattr(tiep_don_service, "_TRAN", 100_000)
+    monkeypatch.setattr(bang_hanh_trinh_service, "_TRAN_LUOT", 100_000)
+    _nang_tran_sql(monkeypatch, dispatch_service, "_OVERVIEW_SQL", "LIMIT 400")
+    _nang_tran_sql(
+        monkeypatch,
+        doctor_board_service,
+        "_SQL",
+        f"LIMIT {doctor_board_service.MAX_ROWS}\n",
+    )
+    _nang_tran_sql(
+        monkeypatch,
+        week_appointments_service,
+        "_SQL",
+        f"LIMIT {week_appointments_service.MAX_ROWS}\n",
+    )
+
+
 @pytest.fixture
 async def hai_co_so(
     pool: asyncpg.Pool,  # noqa: F811
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[CoSo, CoSo, date]:
-    # Bài này kiểm tách cơ sở, không kiểm trần danh sách: suite tuần tự đã
-    # dựng hơn 300 lượt cũ ở cơ sở mẫu trước khi dựng hai khách của bài này.
-    monkeypatch.setattr(man_trang_chu_service, "_TRAN_TRANG_THAI", 100_000)
+    _bo_tran_danh_sach(monkeypatch)
     ca = await _dung(pool)
     loc2 = await _co_so_khac(pool, ca.loc)
     a = await _mot_co_so(pool, ca, ca.loc, ca.le_tan)
@@ -318,18 +358,10 @@ async def test_moi_man_chi_hien_cua_co_so_dang_dung(
 async def test_khong_chon_co_so_thay_ca_hai(
     pool: asyncpg.Pool,  # noqa: F811
     hai_co_so: tuple[CoSo, CoSo, date],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Danh tính không chọn cơ sở (`location_id = ""` → None) KHÔNG lọc — mẫu
     `coalesce(LOC, $n) IS NOT DISTINCT FROM coalesce($n, LOC)`; mẫu cũ
-    `coalesce(LOC, $n) = $n` gặp $n NULL thì loại sạch mọi dòng.
-
-    Bảng điều phối giới hạn 400 dòng; test này kiểm phạm vi cơ sở, nên bỏ giới
-    hạn để fixture không bị dữ liệu từ test khác đẩy khỏi kết quả.
-    """
-    sql, marker, tail = dispatch_service._OVERVIEW_SQL.rpartition("LIMIT 400")
-    assert marker, "SQL điều phối đổi giới hạn; cần cập nhật test cô lập cơ sở"
-    monkeypatch.setattr(dispatch_service, "_OVERVIEW_SQL", f"{sql}LIMIT 100000{tail}")
+    `coalesce(LOC, $n) = $n` gặp $n NULL thì loại sạch mọi dòng."""
     a, b, thu_hai = hai_co_so
     thay = await _thay(pool, dataclasses.replace(a.ai, location_id=""), thu_hai)
     for cs in (a, b):

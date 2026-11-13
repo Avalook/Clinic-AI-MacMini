@@ -1325,8 +1325,33 @@ async def test_migration_chay_lai_khong_doi_du_lieu(co: Co) -> None:
         Path(__file__).resolve().parents[3]
         / "supabase/migrations/20261101100000_kho_quay_that.sql"
     )
-    await co.q.pool.execute(mig.read_text())
+    await _chay_lai_giu_ham_moi(co.q.pool, mig.read_text())
     assert (await _hang(co, lo))["quantity_on_hand"] == 9
+
+
+_DINH_NGHIA_HAM = (
+    "SELECT p.oid::regprocedure::text, pg_get_functiondef(p.oid) FROM pg_proc p"
+    " JOIN pg_namespace n ON n.oid = p.pronamespace"
+    " WHERE n.nspname = 'public' AND p.prokind IN ('f', 'p')"
+)
+
+
+async def _chay_lai_giu_ham_moi(pool: asyncpg.Pool, sql: str) -> None:
+    """Chạy lại một migration CŨ rồi trả mọi hàm nó viết đè về bản hiện hành.
+
+    Migration cũ còn định nghĩa bản cũ của hàm mà migration sau đã thay (vd
+    `gac_ban_tu_quay`, thay ở 20261101400000). Để nguyên thì DB của worker xdist
+    mang hàm cũ cho mọi bài chạy sau: test_ghep_don_vi_hoan_tac_db đỏ "Lô này
+    đang ở KHO" ở lượt CI nào xếp nó sau bài này (09–13/11).
+    """
+    truoc = {r[0]: r[1] for r in await pool.fetch(_DINH_NGHIA_HAM)}
+    try:
+        await pool.execute(sql)
+    finally:
+        sau = {r[0]: r[1] for r in await pool.fetch(_DINH_NGHIA_HAM)}
+        for ten, dinh_nghia in truoc.items():
+            if sau.get(ten) != dinh_nghia:
+                await pool.execute(dinh_nghia)
 
 
 # ── Bấm ngẫu nhiên ────────────────────────────────────────────────────────
