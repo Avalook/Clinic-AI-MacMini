@@ -558,9 +558,23 @@ async def test_slice1_tron_luong_qua_http(
         min_size=1,
         max_size=6,
     )
+    # `_chay` bật `lam_ben_ngoai` cho node DICHVU-LAYMAU-MAU — cấu hình dùng chung
+    # cả phòng khám trong DB của worker. Trả lại sau bài, không thì mọi bài chạy
+    # sau trên cùng worker có lấy máu bị đòi tệp kết quả.
+    cu = await pool.fetchval(
+        "SELECT lam_ben_ngoai FROM node_definition WHERE clinic_id = $1::uuid"
+        " AND code = 'DICHVU-LAYMAU-MAU'",
+        CLINIC,
+    )
     try:
         await _chay(pool)
     finally:
+        await pool.execute(
+            "UPDATE node_definition SET lam_ben_ngoai = $2 WHERE clinic_id = $1::uuid"
+            " AND code = 'DICHVU-LAYMAU-MAU'",
+            CLINIC,
+            cu,
+        )
         app.dependency_overrides.pop(get_db_pool, None)
         app.dependency_overrides.pop(_resolve_identity, None)
         await pool.close()
