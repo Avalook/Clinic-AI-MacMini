@@ -21,6 +21,10 @@ const ACTIONS: Record<string, string> = {
   receive: "/api/v1/pharmacy/receive",
   dispense: "/api/v1/pharmacy/dispense",
   refuse: "/api/v1/pharmacy/refuse",
+  // 16/11: khách không mua cả đơn · mở lại dòng / cả đơn đã ghi "khách không lấy".
+  "khong-lay-ca-don": "/api/v1/pharmacy/khong-lay-ca-don",
+  "mo-lai-dong": "/api/v1/pharmacy/mo-lai-dong",
+  "mo-lai-ca-don": "/api/v1/pharmacy/mo-lai-ca-don",
   "close-line": "/api/v1/pharmacy/close-line",
   adjust: "/api/v1/pharmacy/adjust",
   discard: "/api/v1/pharmacy/discard",
